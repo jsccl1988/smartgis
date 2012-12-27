@@ -1,0 +1,230 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#ifndef APSTUDIO_INVOKED
+#include "targetver.h"
+#endif
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// 中文(中华人民共和国) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+#ifdef _WIN32
+LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
+#pragma code_page(936)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#ifndef APSTUDIO_INVOKED\r\n"
+    "#include ""targetver.h""\r\n"
+    "#endif\r\n"
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "#define _AFX_NO_SPLITTER_RESOURCES\r\n"
+    "#define _AFX_NO_OLE_RESOURCES\r\n"
+    "#define _AFX_NO_TRACKER_RESOURCES\r\n"
+    "#define _AFX_NO_PROPERTY_RESOURCES\r\n"
+    "\r\n"
+    "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)\r\n"
+    "LANGUAGE 4, 2\r\n"
+    "#pragma code_page(936)\r\n"
+    "#include ""res\\SmtAMMapServiceMgr.rc2""  // 非 Microsoft Visual C++ 编辑的资源\r\n"
+    "#include ""l.CHS\\afxres.rc""      // 标准组件\r\n"
+    "#endif\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080403a8"
+        BEGIN
+            VALUE "CompanyName", "TODO: <公司名>"
+            VALUE "FileDescription", "TODO: <文件说明>"
+            VALUE "FileVersion", "1.0.0.1"
+            VALUE "InternalName", "SmtAMMapServiceMgr.dll"
+            VALUE "LegalCopyright", "TODO: (C) <公司名>。保留所有权利。"
+            VALUE "OriginalFilename", "SmtAMMapServiceMgr.dll"
+            VALUE "ProductName", "TODO: <产品名>"
+            VALUE "ProductVersion", "1.0.0.1"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 936
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_DLG_MAPSERVICEMGR DIALOGEX 0, 0, 468, 278
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "地图服务"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "",IDC_MAPSERVICE_TREE_CONTAINER,0,0,95,277,SS_NOTIFY,WS_EX_CLIENTEDGE
+    PUSHBUTTON      "安装服务",IDC_BTN_INSTALL_SVR,411,68,50,14
+    PUSHBUTTON      "启动服务",IDC_BTN_START_SVR,411,84,50,14
+    PUSHBUTTON      "停止服务",IDC_BTN_STOP_SVR,411,100,50,14
+    PUSHBUTTON      "卸载服务",IDC_BTN_UNINSTALL_SVR,411,132,50,14
+    PUSHBUTTON      "重启服务",IDC_BTN_RESTART_SVR,411,116,50,14
+    DEFPUSHBUTTON   "保存",IDOK,411,261,50,14
+    CONTROL         "",IDC_TAB_SERVICE_CFG,"SysTabControl32",0x0,98,2,306,275
+    PUSHBUTTON      "运行Con服务",IDC_BTN_RUN_CONSVR,411,16,50,14
+END
+
+IDD_DLG_2DXVIEW DIALOGEX 0, 0, 451, 278
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "地图查看"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "退出",IDOK,397,257,50,14
+    LTEXT           "",IDC_XVIEW_CONTAINER,0,0,389,278,SS_NOTIFY,WS_EX_CLIENTEDGE
+END
+
+IDD_DLG_SVRCFG_BASE DIALOGEX 0, 0, 271, 226
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "名称",IDC_STATIC,12,9,41,12
+    EDITTEXT        IDC_EDIT_NAME,47,10,209,12,ES_AUTOHSCROLL
+    LTEXT           "地图文档",IDC_STATIC,12,29,41,12
+    EDITTEXT        IDC_EDIT_MDOC,47,27,164,12,ES_AUTOHSCROLL
+    PUSHBUTTON      "...",IDC_BTN_SEL_MDOC,216,26,19,15
+    LTEXT           "坐标系",IDC_STATIC,12,46,41,12
+    COMBOBOX        IDC_CMB_SRS,47,44,210,47,CBS_DROPDOWN | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "xmin:",IDC_STATIC,15,69,24,9
+    EDITTEXT        IDC_EDIT_XMIN,47,69,72,12,ES_AUTOHSCROLL
+    LTEXT           "ymin:",IDC_STATIC,15,93,24,9
+    EDITTEXT        IDC_EDIT_YMIN,47,93,72,12,ES_AUTOHSCROLL
+    LTEXT           "xmax:",IDC_STATIC,140,69,24,9
+    EDITTEXT        IDC_EDIT_XMAX,172,69,72,12,ES_AUTOHSCROLL
+    LTEXT           "ymax:",IDC_STATIC,140,93,24,9
+    EDITTEXT        IDC_EDIT_YMAX,172,93,72,12,ES_AUTOHSCROLL
+    GROUPBOX        "BBOX",IDC_STATIC,8,59,251,54
+    PUSHBUTTON      "预览",IDC_BTN_REVIEWMAP,240,26,19,15
+    PUSHBUTTON      "创建",IDC_BTN_CREATE,210,137,49,15
+    LTEXT           "日志",IDC_STATIC,10,121,41,12
+    EDITTEXT        IDC_EDIT_LOG,47,119,188,12,ES_AUTOHSCROLL
+    PUSHBUTTON      "...",IDC_BTN_SEL_LOG,239,117,19,15
+END
+
+IDD_DLG_SVRCFG_TILE DIALOGEX 0, 0, 270, 226
+STYLE DS_LOCALEDIT | DS_SETFONT | DS_FIXEDSYS | WS_CHILD
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    PUSHBUTTON      "创建瓦片",IDC_BTN_GEN_TILES,133,59,50,14
+    LTEXT           "Min Lv:",IDC_STATIC,6,7,29,9
+    EDITTEXT        IDC_EDIT_MIN_LV,42,5,57,13,ES_AUTOHSCROLL
+    LTEXT           "TWidth:",IDC_STATIC,6,25,29,9
+    EDITTEXT        IDC_EDIT_TWIDTH,42,22,57,13,ES_AUTOHSCROLL
+    LTEXT           "THeight:",IDC_STATIC,147,25,29,9
+    EDITTEXT        IDC_EDIT_THEIGHT,183,22,57,13,ES_AUTOHSCROLL
+    LTEXT           "Max Lv:",IDC_STATIC,147,8,29,9
+    EDITTEXT        IDC_EDIT_MAX_LV,183,5,57,13,ES_AUTOHSCROLL
+    LTEXT           "瓦片缓存路径",IDC_STATIC,6,41,49,9
+    EDITTEXT        IDC_EDIT_CACHE_URL,59,40,180,13,ES_AUTOHSCROLL | ES_READONLY
+    PUSHBUTTON      "预览",IDC_BTN_VIEWTILEMAP,189,59,50,14
+END
+
+IDD_DLG_MAPCLIENT DIALOGEX 0, 0, 482, 278
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "地图终端"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "",IDC_XVIEW_CONTAINER,4,4,385,268,SS_NOTIFY,WS_EX_CLIENTEDGE
+    LTEXT           "",IDC_STATIC_TITLEINFO,403,8,71,146
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO 
+BEGIN
+    IDD_DLG_MAPSERVICEMGR, DIALOG
+    BEGIN
+        RIGHTMARGIN, 467
+        BOTTOMMARGIN, 277
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+#endif    // 中文(中华人民共和国) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#define _AFX_NO_SPLITTER_RESOURCES
+#define _AFX_NO_OLE_RESOURCES
+#define _AFX_NO_TRACKER_RESOURCES
+#define _AFX_NO_PROPERTY_RESOURCES
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+LANGUAGE 4, 2
+#pragma code_page(936)
+#include "res\SmtAMMapServiceMgr.rc2"  // 非 Microsoft Visual C++ 编辑的资源
+#include "l.CHS\afxres.rc"      // 标准组件
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

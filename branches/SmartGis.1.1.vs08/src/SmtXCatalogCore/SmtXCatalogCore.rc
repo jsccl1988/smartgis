@@ -1,0 +1,390 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#ifndef APSTUDIO_INVOKED
+#include "targetver.h"
+#endif
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// 中文(中华人民共和国) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+#ifdef _WIN32
+LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
+#pragma code_page(936)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#ifndef APSTUDIO_INVOKED\r\n"
+    "#include ""targetver.h""\r\n"
+    "#endif\r\n"
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "#define _AFX_NO_SPLITTER_RESOURCES\r\n"
+    "#define _AFX_NO_OLE_RESOURCES\r\n"
+    "#define _AFX_NO_TRACKER_RESOURCES\r\n"
+    "#define _AFX_NO_PROPERTY_RESOURCES\r\n"
+    "\r\n"
+    "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)\r\n"
+    "LANGUAGE 4, 2\r\n"
+    "#pragma code_page(936)\r\n"
+    "#include ""res\\SmtXCatalogCore.rc2""  // 非 Microsoft Visual C++ 编辑的资源\r\n"
+    "#include ""l.CHS\\afxres.rc""      // 标准组件\r\n"
+    "#endif\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080403a8"
+        BEGIN
+            VALUE "CompanyName", "TODO: <公司名>"
+            VALUE "FileDescription", "TODO: <文件说明>"
+            VALUE "FileVersion", "1.0.0.1"
+            VALUE "InternalName", "SmtXCatalogCore.dll"
+            VALUE "LegalCopyright", "TODO: (C) <公司名>。保留所有权利。"
+            VALUE "OriginalFilename", "SmtXCatalogCore.dll"
+            VALUE "ProductName", "TODO: <产品名>"
+            VALUE "ProductVersion", "1.0.0.1"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 936
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_MENU_MAPMGR MENU 
+BEGIN
+    POPUP "图层管理"
+    BEGIN
+        MENUITEM "添加图层",                        ID_LAYER_MGR_APPEND
+        MENUITEM "移除图层",                        ID_LAYER_MGR_REMOVE
+        POPUP "图层状态"
+        BEGIN
+            MENUITEM "激活图层",                        ID_LAYER_MGR_ACTIVE
+        END
+        MENUITEM "查看属性结构",                      ID_LAYER_MGR_ATTSTRUCT
+        MENUITEM "图层属性",                        ID_LAYER_MGR_PROPERTY
+        MENUITEM "重置范围",                        ID_LAYER_MGR_CALCMBR
+    END
+    POPUP "地图管理"
+    BEGIN
+        MENUITEM "打开地图",                        ID_MAP_MGR_OPEN
+        MENUITEM "新建地图",                        32773
+        MENUITEM "关闭地图",                        ID_MAP_MGR_CLOSE
+        MENUITEM "保存地图",                        ID_MAP_MGR_SAVE
+        MENUITEM "地图另存为",                       ID_MAP_MGR_SAVEAS
+    END
+END
+
+IDR_MENU_DSMGR MENU 
+BEGIN
+    POPUP "数据源图层管理"
+    BEGIN
+        MENUITEM "创建图层",                        ID_DS_LAYER_CREATE
+        MENUITEM "数据导入",                        ID_DS_LAYER_LOAD_SHP
+        MENUITEM "删除图层",                        ID_DS_LAYER_DELETE
+        MENUITEM "图层属性",                        ID_DS_LAYER_PROPERTY
+        MENUITEM SEPARATOR
+        MENUITEM "打开图片",                        ID_DS_LAYER_LOAD_IMG
+    END
+    POPUP "数据源管理"
+    BEGIN
+        MENUITEM "创建图层",                        ID_DS_LAYER_CREATE
+        MENUITEM "删除数据源",                       ID_DS_DELETE
+        MENUITEM "数据源属性",                       ID_DS_PROPERTY
+        MENUITEM "设为活动",                        ID_DS_SET_ACTIVE
+    END
+    POPUP "数据源服务管理"
+    BEGIN
+        MENUITEM "创建数据源",                       ID_SVR_DS_CREATE
+        MENUITEM "添加数据源",                       ID_SVR_DS_APPEND
+    END
+END
+
+IDR_MENU_3DMGR MENU 
+BEGIN
+    POPUP "三维对象管理"
+    BEGIN
+        MENUITEM "显示",                          ID_3DOBJECT_MGR_VISIBLE
+        MENUITEM "隐藏",                          ID_3DOBJECT_MGR_HIDE
+        MENUITEM "移除",                          ID_3DOBJECT_MGR_REMOVE
+        MENUITEM "重新计算场景树",                     ID_3DOBJECT_MGR_RECREATE_OCTTREE
+    END
+END
+
+IDR_MENU_MSERVICEMGR MENU 
+BEGIN
+    POPUP "地图服务管理"
+    BEGIN
+        MENUITEM "添加",                          ID_MSERVICE_MGR_ADD
+        MENUITEM "删除",                          ID_MSERVICE_MGR_DELETE
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_DLG_CREATE_LAYER DIALOGEX 0, 0, 249, 172
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "创建图层"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "确定",IDOK,129,147,50,14
+    PUSHBUTTON      "取消",2,182,147,50,14
+    CONTROL         "",IDC_FCLS_TREE,"SysTreeView32",TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | WS_BORDER | WS_HSCROLL | WS_GROUP | WS_TABSTOP,9,9,102,124,WS_EX_CLIENTEDGE | WS_EX_LEFTSCROLLBAR
+    GROUPBOX        "要素类型",IDC_STATIC,4,0,113,160
+    LTEXT           "图层类型:",IDC_STATIC,10,143,36,9
+    EDITTEXT        IDC_EDIT_LAYER_TYPE,46,141,65,12,ES_AUTOHSCROLL | WS_DISABLED
+    GROUPBOX        "图层设置",IDC_STATIC,124,0,119,99
+    LTEXT           "图层名:",IDC_STATIC,130,11,31,9
+    EDITTEXT        IDC_EDIT_LAYER_NAME,165,9,73,12,ES_AUTOHSCROLL
+    LTEXT           "xmin:",IDC_STATIC,134,30,24,9
+    EDITTEXT        IDC_EDIT_XMIN,166,30,42,11,ES_AUTOHSCROLL
+    LTEXT           "ymin:",IDC_STATIC,134,45,24,9
+    EDITTEXT        IDC_EDIT_YMIN,166,45,42,11,ES_AUTOHSCROLL
+    LTEXT           "xmax:",IDC_STATIC,134,62,24,9
+    EDITTEXT        IDC_EDIT_XMAX,166,62,42,11,ES_AUTOHSCROLL
+    LTEXT           "ymax:",IDC_STATIC,134,78,24,9
+    EDITTEXT        IDC_EDIT_YMAX,166,78,42,11,ES_AUTOHSCROLL
+END
+
+IDD_DLG_CREATE_DS DIALOGEX 0, 0, 243, 194
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "创建数据源"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "确定",IDOK,127,176,50,14
+    PUSHBUTTON      "取消",2,180,176,50,14
+    CONTROL         "",IDC_DSTYPE_TREE,"SysTreeView32",TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | WS_BORDER | WS_HSCROLL | WS_GROUP | WS_TABSTOP,7,12,95,172,WS_EX_CLIENTEDGE | WS_EX_LEFTSCROLLBAR
+    GROUPBOX        "数据源类型",IDC_STATIC,2,1,105,190
+    GROUPBOX        "已选类型",IDC_STATIC,112,1,127,51
+    LTEXT           "类型:",IDC_STATIC,123,17,22,9
+    EDITTEXT        IDC_EDIT_DS_TYPE,149,14,86,12,ES_AUTOHSCROLL | WS_DISABLED
+    GROUPBOX        "设置",IDC_STATIC,112,56,127,115
+    LTEXT           "详细",IDC_STATIC,120,68,23,11
+    EDITTEXT        IDC_EDIT_DS_USERID,159,136,59,12,ES_AUTOHSCROLL
+    LTEXT           "用户",IDC_STATIC,120,137,34,11
+    EDITTEXT        IDC_EDIT_DS_PWD,159,152,59,12,ES_PASSWORD | ES_AUTOHSCROLL
+    LTEXT           "密码",IDC_STATIC,120,154,34,11
+    COMBOBOX        IDC_CMB_PROVIDER,159,67,59,32,CBS_DROPDOWN | WS_VSCROLL | WS_TABSTOP
+    EDITTEXT        IDC_EDIT_DS_DBSEVEICE,159,102,59,12,ES_AUTOHSCROLL
+    LTEXT           "服务器",IDC_STATIC,120,104,34,11
+    EDITTEXT        IDC_EDIT_DS_DB,159,119,59,12,ES_AUTOHSCROLL
+    LTEXT           "数据库",IDC_STATIC,120,122,34,11
+    PUSHBUTTON      "...",IDC_BTN_SELDB,221,119,15,13
+    EDITTEXT        IDC_EDIT_DS_NAME,149,35,86,12,ES_AUTOHSCROLL
+    LTEXT           "名称",IDC_STATIC,123,37,23,11
+    EDITTEXT        IDC_EDIT_DS_FILE_PATH,159,86,59,12,ES_AUTOHSCROLL
+    LTEXT           "文件",IDC_STATIC,120,88,34,11
+    PUSHBUTTON      "...",IDC_BTN_SELPATH,221,86,15,13
+END
+
+IDD_DLG_SEL_LAYER DIALOGEX 0, 0, 239, 174
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "选择图层"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "确定",IDOK,127,155,50,14
+    PUSHBUTTON      "取消",2,180,155,50,14
+    LTEXT           "名称:",IDC_STATIC,9,11,27,9
+    EDITTEXT        IDC_EDIT_DS_NAME,33,10,57,13,ES_AUTOHSCROLL | WS_DISABLED
+    PUSHBUTTON      "...",IDC_BTN_SEL_DS,95,9,20,15
+    CONTROL         "",IDC_DS_TREE,"SysTreeView32",TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | WS_BORDER | WS_HSCROLL | WS_GROUP | WS_TABSTOP,10,29,102,136,WS_EX_CLIENTEDGE | WS_EX_LEFTSCROLLBAR
+    GROUPBOX        "数据源",IDC_STATIC,4,1,115,168
+    GROUPBOX        "已选图层",IDC_STATIC,124,1,110,76
+    LTEXT           "图层名:",IDC_STATIC,129,15,31,9
+    EDITTEXT        IDC_EDIT_LAYER_NAME,164,15,65,13,ES_AUTOHSCROLL | WS_DISABLED
+    LTEXT           "Archive:",IDC_STATIC,129,33,31,9
+    EDITTEXT        IDC_EDIT_LAYER_ARCHIVE,164,33,65,13,ES_AUTOHSCROLL | WS_DISABLED
+    LTEXT           "图层类型:",IDC_STATIC,129,52,36,9
+    EDITTEXT        IDC_EDIT_LAYER_TYPE,164,52,65,13,ES_AUTOHSCROLL | WS_DISABLED
+END
+
+IDD_DLG_SEL_FCLS DIALOGEX 0, 0, 222, 151
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "选择创建图层类型"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "确定",IDOK,114,132,50,14
+    PUSHBUTTON      "取消",2,167,132,50,14
+    CONTROL         "",IDC_FCLS_TREE,"SysTreeView32",TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | WS_BORDER | WS_HSCROLL | WS_GROUP | WS_TABSTOP,8,9,96,115,WS_EX_CLIENTEDGE | WS_EX_LEFTSCROLLBAR
+    GROUPBOX        "要素类型",-1,4,0,105,147
+    GROUPBOX        "设置",-1,114,0,103,125
+    LTEXT           "图层类型:",-1,15,131,36,9
+    EDITTEXT        IDC_EDIT_LAYER_TYPE,55,129,48,13,ES_AUTOHSCROLL | WS_DISABLED
+END
+
+IDD_DLG_SEL_DS DIALOGEX 0, 0, 237, 164
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "选择数据源"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "确定",IDOK,124,145,50,14
+    PUSHBUTTON      "取消",2,177,145,50,14
+    CONTROL         "",IDC_DS_TREE,"SysTreeView32",TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | WS_BORDER | WS_HSCROLL | WS_GROUP | WS_TABSTOP,8,10,100,143,WS_EX_CLIENTEDGE | WS_EX_LEFTSCROLLBAR
+    GROUPBOX        "数据源",-1,3,0,111,159
+    GROUPBOX        "已选数据源",-1,119,0,113,69
+    LTEXT           "数据源名:",-1,124,13,31,9
+    EDITTEXT        IDC_EDIT_DS_NAME,162,13,65,13,ES_AUTOHSCROLL | WS_DISABLED
+    LTEXT           "类型:",-1,124,31,31,9
+    EDITTEXT        IDC_EDIT_DS_TYPE,162,31,65,13,ES_AUTOHSCROLL | WS_DISABLED
+    LTEXT           "PROVIDER:",-1,124,50,36,9
+    EDITTEXT        IDC_EDIT_DS_PROVIDER,162,50,65,13,ES_AUTOHSCROLL | WS_DISABLED
+END
+
+IDD_DLG_CREATE_MAP DIALOGEX 0, 0, 135, 132
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "创建地图"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "确定",IDOK,16,111,50,14
+    PUSHBUTTON      "取消",2,69,111,50,14
+    GROUPBOX        "地图设置",-1,6,0,119,99
+    LTEXT           "地图名:",-1,12,11,31,9
+    EDITTEXT        IDC_EDIT_MAP_NAME,47,9,73,12,ES_AUTOHSCROLL
+    LTEXT           "xmin:",-1,16,30,24,9
+    EDITTEXT        IDC_EDIT_XMIN,48,30,42,12,ES_AUTOHSCROLL
+    LTEXT           "ymin:",-1,16,45,24,9
+    EDITTEXT        IDC_EDIT_YMIN,48,45,42,12,ES_AUTOHSCROLL
+    LTEXT           "xmax:",-1,16,62,24,9
+    EDITTEXT        IDC_EDIT_XMAX,48,62,42,12,ES_AUTOHSCROLL
+    LTEXT           "ymax:",-1,16,78,24,9
+    EDITTEXT        IDC_EDIT_YMAX,48,78,42,12,ES_AUTOHSCROLL
+END
+
+IDD_DLG_CREATE_MAPSERVICE DIALOGEX 0, 0, 135, 49
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "新建地图服务"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "确定",IDOK,13,29,50,14
+    PUSHBUTTON      "取消",2,67,29,50,14
+    LTEXT           "地图名:",-1,12,11,31,9
+    EDITTEXT        IDC_EDIT_MAPSERVICE_NAME,47,9,73,12,ES_AUTOHSCROLL
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDB_LAYER_STATE         BITMAP                  "res\\StateImage.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_ICON_EDIT           ICON                    "res\\6.ico"
+IDI_ICON_TABLE          ICON                    "res\\10.ico"
+IDI_ICON_DOC            ICON                    "res\\11.ico"
+IDI_ICON_OBJ_V          ICON                    "res\\14.ico"
+IDI_ICON_CONT           ICON                    "res\\Container.ico"
+IDI_ICON_EARTH          ICON                    "res\\EleMap.ico"
+IDI_ICON_LAYER          ICON                    "res\\Element.ico"
+IDI_ICON_HOME           ICON                    "res\\startPage.ico"
+IDI_ICON_DB             ICON                    "res\\自动入库.ico"
+IDI_ICON_DS             ICON                    "res\\ico00001.ico"
+IDI_ICON_OBJ_UV         ICON                    "res\\icon_obj.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO 
+BEGIN
+    IDD_DLG_SEL_DS, DIALOG
+    BEGIN
+        BOTTOMMARGIN, 163
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+#endif    // 中文(中华人民共和国) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#define _AFX_NO_SPLITTER_RESOURCES
+#define _AFX_NO_OLE_RESOURCES
+#define _AFX_NO_TRACKER_RESOURCES
+#define _AFX_NO_PROPERTY_RESOURCES
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+LANGUAGE 4, 2
+#pragma code_page(936)
+#include "res\SmtXCatalogCore.rc2"  // 非 Microsoft Visual C++ 编辑的资源
+#include "l.CHS\afxres.rc"      // 标准组件
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+
