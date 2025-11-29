@@ -1,0 +1,98 @@
+﻿C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(531,5): warning MSB8028: 中间目录(.\Debug\)包含从另一个项目(SmartGis.vcxproj, Smt3DBaseLib.vcxproj, Smt3DGeoCore.vcxproj, Smt3DMathLib.vcxproj, Smt3DMdLib.vcxproj, Smt3DPointCloud.vcxproj, Smt3DRenderer.vcxproj, Smt3DTerrain.vcxproj, SmtAdoCore.vcxproj, SmtAM3DModelCreater.vcxproj, SmtAMBAOGridCreater.vcxproj, SmtAMDemCreater.vcxproj, SmtAMMapServiceMgr.vcxproj, SmtAMMapPrint.vcxproj, SmtAMMapProject.vcxproj, SmtAppCore.vcxproj, SmtAuxModule.vcxproj, SmtBAOrthGrid.vcxproj, SmtBaseLib.vcxproj, SmtCgiWrapper.vcxproj, SmtConsoleMapServer.vcxproj, SmtCore.vcxproj, SmtD3DRenderDevice.vcxproj, SmtDemCore.vcxproj, SmtGdiRenderDevice.vcxproj, SmtGdiSimpleRenderDevice.vcxproj, SmtGeoCore.vcxproj, SmtGisCore.vcxproj, SmtGisPrj.vcxproj, SmtGroupToolCore.vcxproj, SmtGuiCore.vcxproj, SmtMapClient.vcxproj, SmtMapServerDevice111.vcxproj, SmtMapServerDeviceMgr.vcxproj, SmtMapServer.vcxproj, SmtMapService.vcxproj, SmtMathLib.vcxproj, SmtMFCExCore.vcxproj, SmtNetCore.vcxproj, SmtRender.vcxproj, SmtSDEAdoDevice.vcxproj, SmtSDEDeviceMgr.vcxproj, SmtSDEMemDevice.vcxproj, SmtSDESmfDevice.vcxproj, SmtSDEWSDevice.vcxproj, SmtStaCore.vcxproj, SmtStaDiagram.vcxproj, SmtSysCore.vcxproj, SmtTinMesh.vcxproj, SmtToolCore.vcxproj, SmtWinServiceMapServer.vcxproj, SmtXAMBoxCore.vcxproj, SmtXCatalogCore.vcxproj, SmtXViewCore.vcxproj)共享的文件。   这会导致错误的清除和重新生成行为。
+cl : 命令行  warning D9035: “Gm”选项已否决，并将在将来的版本中移除
+  gl_vsyncfuncimp.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_vsyncfuncimp.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_vsyncfunc.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_vsyncfunc.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_vertexbuffer.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_vertexbuffer.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_vbofuncimp.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_vbofuncimp.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_vbofunc.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_prerequisites.h(17,10): error C1083: 无法打开包括文件: “rd3d_base.h”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_vbofunc.cpp”)
+  
+  gl_text.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_prerequisites.h(17,10): error C1083: 无法打开包括文件: “rd3d_base.h”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_text.cpp”)
+  
+  gl_statesmanager.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_prerequisites.h(17,10): error C1083: 无法打开包括文件: “rd3d_base.h”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_statesmanager.cpp”)
+  
+  gl_shaderfuncimp.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_prerequisites.h(17,10): error C1083: 无法打开包括文件: “rd3d_base.h”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_shaderfuncimp.cpp”)
+  
+  gl_shaderfunc.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_prerequisites.h(17,10): error C1083: 无法打开包括文件: “rd3d_base.h”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_shaderfunc.cpp”)
+  
+  gl_rdev_vbo.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_rdev_vbo.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_rdev_vba.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_rdev_vba.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_rdev_util.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_3drenderdevice.h(17,10): error C1083: 无法打开包括文件: “rd3d_3drenderdevice.h”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_rdev_util.cpp”)
+  
+  gl_rdev_textures.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_rdev_textures.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_rdev_shader.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_rdev_shader.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_rdev_render.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_rdev_render.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_rdev_mtx.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_3drenderdevice.h(17,10): error C1083: 无法打开包括文件: “rd3d_3drenderdevice.h”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_rdev_mtx.cpp”)
+  
+  gl_rdev_misc.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_rdev_misc.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_rdev_font.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_rdev_font.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_rdev_fbo.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_rdev_fbo.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_rdev_fastdraw.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_3drenderdevice.h(17,10): error C1083: 无法打开包括文件: “rd3d_3drenderdevice.h”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_rdev_fastdraw.cpp”)
+  
+  正在生成代码...
+  正在编译...
+  gl_rdev_effect.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_rdev_effect.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_mutitexturefunc.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_mutitexturefunc.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_multitexturefuncimp.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_multitexturefuncimp.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_mipmapfuncimp.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_mipmapfuncimp.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gl_mipmapfunc.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_prerequisites.h(17,10): error C1083: 无法打开包括文件: “rd3d_base.h”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_mipmapfunc.cpp”)
+  
+  gl_indexbuffer.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_indexbuffer.h(17,10): error C1083: 无法打开包括文件: “rd3d_indexbuffer.h ”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_indexbuffer.cpp”)
+  
+  gl_fbofuncimp.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_prerequisites.h(17,10): error C1083: 无法打开包括文件: “rd3d_base.h”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_fbofuncimp.cpp”)
+  
+  gl_fbofunc.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_prerequisites.h(17,10): error C1083: 无法打开包括文件: “rd3d_base.h”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_fbofunc.cpp”)
+  
+  gl_extinterface.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_3drenderdevice.h(17,10): error C1083: 无法打开包括文件: “rd3d_3drenderdevice.h”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_extinterface.cpp”)
+  
+  gl_devicecaps.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_devicecaps.h(17,10): error C1083: 无法打开包括文件: “rd3d_3ddevicecaps.h”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_devicecaps.cpp”)
+  
+  gl_3drenderdevice.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGLRenderDevice\gl_3drenderdevice.h(17,10): error C1083: 无法打开包括文件: “rd3d_3drenderdevice.h”: No such file or directory
+  (编译源文件“../src/SmtGLRenderDevice/gl_3drenderdevice.cpp”)
+  
+  正在生成代码...
+cl : 命令行  warning D9028: 最小重新生成失败，正在转换为标准生成

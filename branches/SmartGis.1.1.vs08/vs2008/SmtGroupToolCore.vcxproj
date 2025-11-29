@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release_Debug|Win32">
+      <Configuration>Release_Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{13730512-E9C1-4B2E-B1EC-EA0706F5118B}</ProjectGuid>
+    <RootNamespace>SmtGroupToolCore</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>17.0.34221.43</_ProjectFileVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>..\bin\dll/\</OutDir>
+    <IntDir>.\Debug\</IntDir>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>..\bin\dll/\</OutDir>
+    <IntDir>.\Release\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'">
+    <OutDir>..\bin\dll\</OutDir>
+    <IntDir>..\temp\Release_Debug\$(ProjectName)\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;SMTGROUPTOOLCORE_EXPORTS;BUILD_AS_DLL;Export_SmtGroupToolCore;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader />
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <OutputFile>../bin/dll/SmtGroupToolCoreD.dll</OutputFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>.\Debug\$(TargetName).pdb</ProgramDatabaseFile>
+      <SubSystem>Windows</SubSystem>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <DataExecutionPrevention />
+      <ImportLibrary>../bin/lib/SmtGroupToolCoreD.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy gt_basetool.h  ..\bin\include
+copy gt_appendpointtool.h  ..\bin\include
+copy gt_appendlinetool.h  ..\bin\include
+copy gt_appendregiontool.h  ..\bin\include
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;SMTGROUPTOOLCORE_EXPORTS;BUILD_AS_DLL;Export_SmtGroupToolCore;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader />
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat />
+    </ClCompile>
+    <Link>
+      <OutputFile>../bin/dll/SmtGroupToolCore.dll</OutputFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AssemblyDebug />
+      <ProgramDatabaseFile>.\Release\$(TargetName).pdb</ProgramDatabaseFile>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <DataExecutionPrevention />
+      <ImportLibrary>../bin/lib/SmtGroupToolCore.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy gt_basetool.h  ..\bin\include
+copy gt_base3dtool.h  ..\bin\include
+copy gt_defs.h  ..\bin\include
+copy gt_grouptoolfactory.h  ..\bin\include
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;SMTGROUPTOOLCORE_EXPORTS;BUILD_AS_DLL;Export_SmtGroupToolCore;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader />
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <OutputFile>../bin/dll/SmtGroupToolCore.dll</OutputFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AssemblyDebug>true</AssemblyDebug>
+      <ProgramDatabaseFile>..\temp\Release_Debug\$(ProjectName)\$(TargetName).pdb</ProgramDatabaseFile>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <DataExecutionPrevention />
+      <ImportLibrary>../bin/lib/SmtGroupToolCore.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy ..\src\SmtGroupToolCore\gt_basetool.h  ..\bin\include
+copy ..\src\SmtGroupToolCore\gt_base3dtool.h  ..\bin\include
+copy ..\src\SmtGroupToolCore\gt_defs.h  ..\bin\include
+copy ..\src\SmtGroupToolCore\gt_grouptoolfactory.h  ..\bin\include
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\SmtGroupToolCore\gt_3dviewctrltool.cpp" />
+    <ClCompile Include="..\src\SmtGroupToolCore\gt_appendfeaturetool.cpp" />
+    <ClCompile Include="..\src\SmtGroupToolCore\gt_base3dtool.cpp" />
+    <ClCompile Include="..\src\SmtGroupToolCore\gt_basetool.cpp" />
+    <ClCompile Include="..\src\SmtGroupToolCore\gt_flashtool.cpp" />
+    <ClCompile Include="..\src\SmtGroupToolCore\gt_grouptoolfactory.cpp" />
+    <ClCompile Include="..\src\SmtGroupToolCore\gt_iacommandreceiver.cpp" />
+    <ClCompile Include="..\src\SmtGroupToolCore\gt_inputlinetool.cpp" />
+    <ClCompile Include="..\src\SmtGroupToolCore\gt_inputpointtool.cpp" />
+    <ClCompile Include="..\src\SmtGroupToolCore\gt_inputregiontool.cpp" />
+    <ClCompile Include="..\src\SmtGroupToolCore\gt_selecttool.cpp" />
+    <ClCompile Include="..\src\SmtGroupToolCore\gt_viewctrltool.cpp" />
+    <ClCompile Include="..\src\SmtGroupToolCore\gt_wsviewctrltool.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\SmtGroupToolCore\gt_3dviewctrltool.h" />
+    <ClInclude Include="..\src\SmtGroupToolCore\gt_appendfeaturetool.h" />
+    <ClInclude Include="..\src\SmtGroupToolCore\gt_base3dtool.h" />
+    <ClInclude Include="..\src\SmtGroupToolCore\gt_basetool.h" />
+    <ClInclude Include="..\src\SmtGroupToolCore\gt_defs.h" />
+    <ClInclude Include="..\src\SmtGroupToolCore\gt_flashtool.h" />
+    <ClInclude Include="..\src\SmtGroupToolCore\gt_grouptoolfactory.h" />
+    <ClInclude Include="..\src\SmtGroupToolCore\gt_iacommandreceiver.h" />
+    <ClInclude Include="..\src\SmtGroupToolCore\gt_inputlinetool.h" />
+    <ClInclude Include="..\src\SmtGroupToolCore\gt_inputpointtool.h" />
+    <ClInclude Include="..\src\SmtGroupToolCore\gt_inputregiontool.h" />
+    <ClInclude Include="..\src\SmtGroupToolCore\gt_selecttool.h" />
+    <ClInclude Include="..\src\SmtGroupToolCore\gt_viewctrltool.h" />
+    <ClInclude Include="..\src\SmtGroupToolCore\gt_wsviewctrltool.h" />
+    <ClInclude Include="..\src\SmtGroupToolCore\resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\SmtGroupToolCore\res\cross.cur" />
+    <None Include="..\src\SmtGroupToolCore\res\cursor1.cur" />
+    <None Include="..\src\SmtGroupToolCore\res\cursor_s.cur" />
+    <None Include="..\src\SmtGroupToolCore\res\cursor_t.cur" />
+    <None Include="..\src\SmtGroupToolCore\res\identify.cur" />
+    <None Include="..\src\SmtGroupToolCore\res\zoomin.cur" />
+    <None Include="..\src\SmtGroupToolCore\res\zoommove.cur" />
+    <None Include="..\src\SmtGroupToolCore\res\zoomout.cur" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\src\SmtGroupToolCore\SmtGroupToolCore.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="SmtGisCore.vcxproj">
+      <Project>{957d420e-543b-4dd9-a7f7-f210250644a1}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

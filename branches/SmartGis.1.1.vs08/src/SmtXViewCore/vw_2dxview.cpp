@@ -146,7 +146,7 @@ namespace Smt_XView
 		{
 			SmtSysManager	*pSysMgr = SmtSysManager::GetSingletonPtr();
 			SmtSysPra		sysPra = pSysMgr->GetSysPra();
-			lRect			lrt;	
+			lRect			lrt;
 			Smt2DRenderPra	rdPra;
 
 			lrt.lb.x = 0;
@@ -362,7 +362,7 @@ namespace Smt_XView
 		}
 
 		return SmtXView::OnSetCursor(pWnd, nHitTest, message);
-	} 
+	}
 
 	//////////////////////////////////////////////////////////////////////////
 	bool Smt2DXView::InitCreate(void)
@@ -528,7 +528,7 @@ namespace Smt_XView
 		return true;
 	}
 
-	void Smt2DXView::SetOperMap(SmtMap *pSmtMap) 
+	void Smt2DXView::SetOperMap(SmtMap *pSmtMap)
 	{
 		m_pSmtOperMap = pSmtMap;
 

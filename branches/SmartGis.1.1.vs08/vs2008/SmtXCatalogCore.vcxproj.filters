@@ -1,0 +1,213 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="UI">
+      <UniqueIdentifier>{80202132-9a76-4e2c-a137-2f2220359120}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{d0a199bd-f383-4970-a444-0cfb4e2e8dc5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\SmtXCatalogCore\SmtXCatalogCore.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\stdafx.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\DlgCreateDS.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\DlgCreateLayer.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\DlgCreateMap.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\DlgCreateMapService.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\DlgSelDS.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\DLgSelFcls.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\DlgSelLayer.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\cata_3dobjxcatalog.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\cata_api.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\cata_dsxcatalog.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\cata_mapdocxcatalog.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\cata_mapmgr.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\cata_mapservicemgr.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\cata_mapservicexcatalog.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\cata_scenemgr.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtXCatalogCore\cata_xcatalog.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\SmtXCatalogCore\resource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\SmtXCatalogCore.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\stdafx.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\targetver.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\DlgCreateDS.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\DlgCreateLayer.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\DlgCreateMap.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\DlgCreateMapService.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\DlgSelDS.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\DLgSelFcls.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\DlgSelLayer.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\cata_3dobjxcatalog.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\cata_api.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\cata_dsxcatalog.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\cata_mapdocxcatalog.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\cata_mapmgr.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\cata_mapservicemgr.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\cata_mapservicexcatalog.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\cata_scenemgr.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtXCatalogCore\cata_xcatalog.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\src\SmtXCatalogCore\res\10.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\11.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\14.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\406.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\6.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\Container.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\EleMap.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\Element.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\ico00001.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\icon1.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\icon_obj.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\startPage.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\StateImage.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\子模块.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\打开.ICO">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\操作数集.ICO">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\操作数集root.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\编辑.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="..\src\SmtXCatalogCore\res\自动入库.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\src\SmtXCatalogCore\SmtXCatalogCore.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\SmtXCatalogCore\res\SmtXCatalogCore.rc2">
+      <Filter>资源文件</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\src\SmtXCatalogCore\ReadMe.txt" />
+  </ItemGroup>
+</Project>

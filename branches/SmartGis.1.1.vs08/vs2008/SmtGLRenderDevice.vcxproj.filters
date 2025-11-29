@@ -1,0 +1,207 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{78db6c97-f5a3-4c0f-89a8-bb4659fc60cb}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
+    </Filter>
+    <Filter Include="Source Files\device">
+      <UniqueIdentifier>{3302df77-9137-4cf4-99f6-19b53a555d24}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\buffers">
+      <UniqueIdentifier>{f7ee8561-31a6-434c-99f3-dfebcfd2c5ed}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\core">
+      <UniqueIdentifier>{df752b01-ad6a-4b0e-942a-3e774db48a5d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\states">
+      <UniqueIdentifier>{93223135-870c-461f-bf5f-aecfee987879}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\util">
+      <UniqueIdentifier>{2f42a6ad-ad50-4896-8367-357ddbccd6d2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\glfunc">
+      <UniqueIdentifier>{b0278c0a-fa9b-4441-9231-0ebe0e87b48e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{4a1157bb-1112-486a-9842-3a3630af7e8b}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl</Extensions>
+    </Filter>
+    <Filter Include="Header Files\buffers">
+      <UniqueIdentifier>{5054834a-424b-4a0f-b139-8b270081109b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\device">
+      <UniqueIdentifier>{ef22cd79-a815-4916-a8d4-df7584a7e7ca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\core">
+      <UniqueIdentifier>{138c0132-1a30-402b-a896-b6baeb874123}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\states">
+      <UniqueIdentifier>{d4ab2ba5-3acf-43d2-821e-ba913b675956}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\util">
+      <UniqueIdentifier>{e3be77dc-19bd-4ebd-9ce5-445706d59f8c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\glfunc">
+      <UniqueIdentifier>{f5fb189a-9115-48da-9130-f47202ff8065}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{44e009fb-c0c2-4f6b-8e35-53400e091dad}</UniqueIdentifier>
+      <Extensions>ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_3drenderdevice.cpp">
+      <Filter>Source Files\device</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_devicecaps.cpp">
+      <Filter>Source Files\device</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_rdev_effect.cpp">
+      <Filter>Source Files\device</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_rdev_fastdraw.cpp">
+      <Filter>Source Files\device</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_rdev_fbo.cpp">
+      <Filter>Source Files\device</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_rdev_font.cpp">
+      <Filter>Source Files\device</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_rdev_misc.cpp">
+      <Filter>Source Files\device</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_rdev_mtx.cpp">
+      <Filter>Source Files\device</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_rdev_render.cpp">
+      <Filter>Source Files\device</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_rdev_shader.cpp">
+      <Filter>Source Files\device</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_rdev_textures.cpp">
+      <Filter>Source Files\device</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_rdev_util.cpp">
+      <Filter>Source Files\device</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_rdev_vba.cpp">
+      <Filter>Source Files\device</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_rdev_vbo.cpp">
+      <Filter>Source Files\device</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_indexbuffer.cpp">
+      <Filter>Source Files\buffers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_vertexbuffer.cpp">
+      <Filter>Source Files\buffers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_statesmanager.cpp">
+      <Filter>Source Files\states</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_extinterface.cpp">
+      <Filter>Source Files\util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_text.cpp">
+      <Filter>Source Files\util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_fbofunc.cpp">
+      <Filter>Source Files\glfunc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_fbofuncimp.cpp">
+      <Filter>Source Files\glfunc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_mipmapfunc.cpp">
+      <Filter>Source Files\glfunc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_mipmapfuncimp.cpp">
+      <Filter>Source Files\glfunc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_multitexturefuncimp.cpp">
+      <Filter>Source Files\glfunc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_mutitexturefunc.cpp">
+      <Filter>Source Files\glfunc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_shaderfunc.cpp">
+      <Filter>Source Files\glfunc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_shaderfuncimp.cpp">
+      <Filter>Source Files\glfunc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_vbofunc.cpp">
+      <Filter>Source Files\glfunc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_vbofuncimp.cpp">
+      <Filter>Source Files\glfunc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_vsyncfunc.cpp">
+      <Filter>Source Files\glfunc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtGLRenderDevice\gl_vsyncfuncimp.cpp">
+      <Filter>Source Files\glfunc</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_indexbuffer.h">
+      <Filter>Header Files\buffers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_vertexbuffer.h">
+      <Filter>Header Files\buffers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_3drenderdevice.h">
+      <Filter>Header Files\device</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_devicecaps.h">
+      <Filter>Header Files\device</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_prerequisites.h">
+      <Filter>Header Files\core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_statesmanager.h">
+      <Filter>Header Files\states</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_text.h">
+      <Filter>Header Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_fbofunc.h">
+      <Filter>Header Files\glfunc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_fbofuncimp.h">
+      <Filter>Header Files\glfunc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_mipmapfunc.h">
+      <Filter>Header Files\glfunc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_mipmapfuncimp.h">
+      <Filter>Header Files\glfunc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_multitexturefunc.h">
+      <Filter>Header Files\glfunc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_multitexturefuncimp.h">
+      <Filter>Header Files\glfunc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_shaderfunc.h">
+      <Filter>Header Files\glfunc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_shaderfuncimp.h">
+      <Filter>Header Files\glfunc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_vbofunc.h">
+      <Filter>Header Files\glfunc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_vbofuncimp.h">
+      <Filter>Header Files\glfunc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_vsyncfunc.h">
+      <Filter>Header Files\glfunc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtGLRenderDevice\gl_vsyncfuncimp.h">
+      <Filter>Header Files\glfunc</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,83 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="UI">
+      <UniqueIdentifier>{5b6f86cd-79c5-4629-b445-16f9ababfa81}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{1b56f72e-993a-42e2-8dba-f921719298fa}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\SmtAMDemCreater\SmtAMDemCreater.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtAMDemCreater\stdafx.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtAMDemCreater\DlgAbout.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtAMDemCreater\DlgGridLoader.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtAMDemCreater\DlgTinLoader.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtAMDemCreater\demcreater_plug.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\SmtAMDemCreater\resource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtAMDemCreater\SmtAMDemCreater.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtAMDemCreater\stdafx.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtAMDemCreater\targetver.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtAMDemCreater\DlgAbout.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtAMDemCreater\DlgGridLoader.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtAMDemCreater\DlgTinLoader.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtAMDemCreater\demcreater_plug.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\src\SmtAMDemCreater\SmtAMDemCreater.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\SmtAMDemCreater\res\SmtAMDemCreater.rc2">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="..\src\SmtAMDemCreater\SmtAMDemCreater.aps" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\src\SmtAMDemCreater\ReadMe.txt" />
+  </ItemGroup>
+</Project>

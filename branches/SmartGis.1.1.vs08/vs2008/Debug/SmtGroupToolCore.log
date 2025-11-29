@@ -1,0 +1,41 @@
+﻿C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(531,5): warning MSB8028: 中间目录(.\Debug\)包含从另一个项目(SmartGis.vcxproj, Smt3DBaseLib.vcxproj, Smt3DGeoCore.vcxproj, Smt3DMathLib.vcxproj, Smt3DMdLib.vcxproj, Smt3DPointCloud.vcxproj, Smt3DRenderer.vcxproj, Smt3DTerrain.vcxproj, SmtAdoCore.vcxproj, SmtAM3DModelCreater.vcxproj, SmtAMBAOGridCreater.vcxproj, SmtAMDemCreater.vcxproj, SmtAMMapServiceMgr.vcxproj, SmtAMMapPrint.vcxproj, SmtAMMapProject.vcxproj, SmtAppCore.vcxproj, SmtAuxModule.vcxproj, SmtBAOrthGrid.vcxproj, SmtBaseLib.vcxproj, SmtCgiWrapper.vcxproj, SmtConsoleMapServer.vcxproj, SmtCore.vcxproj, SmtD3DRenderDevice.vcxproj, SmtDemCore.vcxproj, SmtGdiRenderDevice.vcxproj, SmtGdiSimpleRenderDevice.vcxproj, SmtGeoCore.vcxproj, SmtGisCore.vcxproj, SmtGisPrj.vcxproj, SmtGLRenderDevice.vcxproj, SmtGuiCore.vcxproj, SmtMapClient.vcxproj, SmtMapServerDevice111.vcxproj, SmtMapServerDeviceMgr.vcxproj, SmtMapServer.vcxproj, SmtMapService.vcxproj, SmtMathLib.vcxproj, SmtMFCExCore.vcxproj, SmtNetCore.vcxproj, SmtRender.vcxproj, SmtSDEAdoDevice.vcxproj, SmtSDEDeviceMgr.vcxproj, SmtSDEMemDevice.vcxproj, SmtSDESmfDevice.vcxproj, SmtSDEWSDevice.vcxproj, SmtStaCore.vcxproj, SmtStaDiagram.vcxproj, SmtSysCore.vcxproj, SmtTinMesh.vcxproj, SmtToolCore.vcxproj, SmtWinServiceMapServer.vcxproj, SmtXAMBoxCore.vcxproj, SmtXCatalogCore.vcxproj, SmtXViewCore.vcxproj)共享的文件。   这会导致错误的清除和重新生成行为。
+cl : 命令行  warning D9035: “Gm”选项已否决，并将在将来的版本中移除
+  gt_wsviewctrltool.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGroupToolCore\gt_wsviewctrltool.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gt_viewctrltool.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGroupToolCore\gt_viewctrltool.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gt_selecttool.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGroupToolCore\gt_selecttool.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  gt_inputregiontool.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGroupToolCore\gt_inputregiontool.cpp(3,10): error C1083: 无法打开包括文件: “smt_api.h”: No such file or directory
+  gt_inputpointtool.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGroupToolCore\gt_inputpointtool.cpp(3,10): error C1083: 无法打开包括文件: “smt_api.h”: No such file or directory
+  gt_inputlinetool.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGroupToolCore\gt_inputlinetool.cpp(3,10): error C1083: 无法打开包括文件: “smt_api.h”: No such file or directory
+  gt_iacommandreceiver.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGroupToolCore\gt_basetool.h(18,10): error C1083: 无法打开包括文件: “smt_core.h”: No such file or directory
+  (编译源文件“../src/SmtGroupToolCore/gt_iacommandreceiver.cpp”)
+  
+  gt_grouptoolfactory.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGroupToolCore\gt_basetool.h(18,10): error C1083: 无法打开包括文件: “smt_core.h”: No such file or directory
+  (编译源文件“../src/SmtGroupToolCore/gt_grouptoolfactory.cpp”)
+  
+  gt_flashtool.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGroupToolCore\gt_basetool.h(18,10): error C1083: 无法打开包括文件: “smt_core.h”: No such file or directory
+  (编译源文件“../src/SmtGroupToolCore/gt_flashtool.cpp”)
+  
+  gt_basetool.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGroupToolCore\gt_basetool.h(18,10): error C1083: 无法打开包括文件: “smt_core.h”: No such file or directory
+  (编译源文件“../src/SmtGroupToolCore/gt_basetool.cpp”)
+  
+  gt_base3dtool.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGroupToolCore\gt_base3dtool.h(18,10): error C1083: 无法打开包括文件: “smt_core.h”: No such file or directory
+  (编译源文件“../src/SmtGroupToolCore/gt_base3dtool.cpp”)
+  
+  gt_appendfeaturetool.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGroupToolCore\gt_appendfeaturetool.cpp(3,10): error C1083: 无法打开包括文件: “smt_api.h”: No such file or directory
+  gt_3dviewctrltool.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtGroupToolCore\gt_base3dtool.h(18,10): error C1083: 无法打开包括文件: “smt_core.h”: No such file or directory
+  (编译源文件“../src/SmtGroupToolCore/gt_3dviewctrltool.cpp”)
+  
+  正在生成代码...

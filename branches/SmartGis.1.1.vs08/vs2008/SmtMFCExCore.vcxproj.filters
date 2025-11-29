@@ -1,0 +1,172 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="gridctrl">
+      <UniqueIdentifier>{e0339487-be2f-4713-8b63-6578bcacdab3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\SmtMFCExCore\Container.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\SmtMFCExCore.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\StackedWndDockBar.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\stdafx.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\TabbedWndDockBar.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\BtnDataBase.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridBtnCell.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridBtnCellBase.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridBtnCellCombo.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridCell.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridCellBase.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridCellCheck.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridCellCombo.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridCellDateTime.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridCellNumeric.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridCtrl.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridDropTarget.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridURLCell.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\InPlaceEdit.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\InPlaceList.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\TitleTip.cpp">
+      <Filter>gridctrl</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\SmtMFCExCore\Container.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\GridCtrlSupport.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\Resource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\StackedWndDockBar.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\stdafx.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\TabbedWndDockBar.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\BtnDataBase.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\CellRange.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridBtnCell.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridBtnCellBase.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridBtnCellCombo.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridCell.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridCellBase.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridCellCheck.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridCellCombo.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridCellDateTime.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridCellNumeric.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridCtrl.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridDropTarget.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridURLCell.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\InPlaceEdit.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\InPlaceList.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\MemDC.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\TitleTip.h">
+      <Filter>gridctrl</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\src\SmtMFCExCore\SmtMFCExCore.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\SmtMFCExCore\res\SmtMFCExCore.rc2">
+      <Filter>资源文件</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\src\SmtMFCExCore\ReadMe.txt" />
+  </ItemGroup>
+</Project>
