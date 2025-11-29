@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release_Debug|Win32">
+      <Configuration>Release_Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{F8A87C17-66CB-44B3-84BE-824454956444}</ProjectGuid>
+    <RootNamespace>SmtGuiCore</RootNamespace>
+    <Keyword>MFCDLLProj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseOfMfc>Dynamic</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseOfMfc>Dynamic</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseOfMfc>Dynamic</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>17.0.34221.43</_ProjectFileVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>..\bin\dll/\</OutDir>
+    <IntDir>.\Debug\</IntDir>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>..\bin\dll/\</OutDir>
+    <IntDir>.\Release\</IntDir>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'">
+    <OutDir>..\bin\dll\</OutDir>
+    <IntDir>..\temp\Release_Debug\$(ProjectName)\</IntDir>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Midl>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>false</MkTypLibCompatible>
+    </Midl>
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_AFXEXT;BUILD_AS_DLL;Export_SmtGuiCore;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Link>
+      <OutputFile>../bin/dll/SmtGuiCoreD.dll</OutputFile>
+      <ModuleDefinitionFile />
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>.\Debug\$(TargetName).pdb</ProgramDatabaseFile>
+      <SubSystem>Windows</SubSystem>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <DataExecutionPrevention />
+      <ImportLibrary>../bin/lib/SmtGuiCoreD.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy BtnST.h  ..\bin\include\gui
+copy TelltaleButton.h ..\bin\include\gui
+copy StackedWndCtrl.h ..\bin\include\gui
+copy TrueColorToolBar.h ..\bin\include\gui
+copy JazzUpTellTaleButton.h ..\bin\include\gui
+copy ShadeButtonST.h ..\bin\include\gui
+copy CeXDib.h ..\bin\include\gui
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Midl>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>false</MkTypLibCompatible>
+    </Midl>
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_AFXEXT;BUILD_AS_DLL;Export_SmtMFCExCore;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat />
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Link>
+      <OutputFile>../bin/dll/SmtMFCExCore.dll</OutputFile>
+      <ModuleDefinitionFile />
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AssemblyDebug />
+      <ProgramDatabaseFile>.\Release\$(TargetName).pdb</ProgramDatabaseFile>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <DataExecutionPrevention />
+      <ImportLibrary>../bin/lib/SmtMFCExCore.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy Container.h  ..\bin\include\mfcex
+copy StackedWndDockBar.h  ..\bin\include\mfcex
+copy TabbedWndDockBar.h  ..\bin\include\mfcex
+copy .\gridctrl\GridCtrl.h  ..\bin\include\mfcex
+copy .\gridctrl\CellRange.h  ..\bin\include\mfcex
+copy .\gridctrl\GridCell.h  ..\bin\include\mfcex
+copy .\gridctrl\GridCellBase.h  ..\bin\include\mfcex
+copy .\gridctrl\GridDropTarget.h  ..\bin\include\mfcex
+copy .\gridctrl\InPlaceEdit.h  ..\bin\include\mfcex
+copy .\gridctrl\TitleTip.h  ..\bin\include\mfcex
+copy .\gridctrl\BtnDataBase.h  ..\bin\include\mfcex
+copy .\gridctrl\GridBtnCellBase.h  ..\bin\include\mfcex
+copy .\gridctrl\GridBtnCellCombo.h  ..\bin\include\mfcex
+copy .\gridctrl\InPlaceList.h  ..\bin\include\mfcex
+copy .\gridctrl\GridBtnCellCombo.h  ..\bin\include\mfcex
+copy .\gridctrl\GridBtnCell.h  ..\bin\include\mfcex
+copy .\gridctrl\GridCellCheck.h  ..\bin\include\mfcex
+copy .\gridctrl\GridCellDateTime.h  ..\bin\include\mfcex
+copy .\gridctrl\GridCellNumeric.h  ..\bin\include\mfcex
+copy .\gridctrl\GridUrlCell.h  ..\bin\include\mfcex
+copy .\gridctrl\GridCellCombo.h  ..\bin\include\mfcex
+copy GridCtrlSupport.h  ..\bin\include\mfcex
+
+
+
+
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'">
+    <Midl>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>false</MkTypLibCompatible>
+    </Midl>
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_AFXEXT;BUILD_AS_DLL;Export_SmtMFCExCore;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>Create</PrecompiledHeader>
+      <PrecompiledHeaderOutputFile>..\temp\Release_Debug\$(ProjectName)\$(TargetName).pch</PrecompiledHeaderOutputFile>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Link>
+      <OutputFile>../bin/dll/SmtMFCExCore.dll</OutputFile>
+      <ModuleDefinitionFile />
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AssemblyDebug>true</AssemblyDebug>
+      <ProgramDatabaseFile>..\temp\Release_Debug\$(ProjectName)\$(TargetName).pdb</ProgramDatabaseFile>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <DataExecutionPrevention />
+      <ImportLibrary>../bin/lib/SmtMFCExCore.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy ..\src\SmtMFCExCore\Container.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\StackedWndDockBar.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\TabbedWndDockBar.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\GridCtrl.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\CellRange.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\GridCell.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\GridCellBase.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\GridDropTarget.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\InPlaceEdit.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\TitleTip.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\BtnDataBase.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\GridBtnCellBase.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\GridBtnCellCombo.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\InPlaceList.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\GridBtnCellCombo.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\GridBtnCell.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\GridCellCheck.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\GridCellDateTime.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\GridCellNumeric.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\GridUrlCell.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\gridctrl\GridCellCombo.h  ..\bin\include\mfcex
+copy ..\src\SmtMFCExCore\GridCtrlSupport.h  ..\bin\include\mfcex
+
+
+
+
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\SmtMFCExCore\Container.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\BtnDataBase.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridBtnCell.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridBtnCellBase.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridBtnCellCombo.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridCell.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridCellBase.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridCellCheck.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridCellCombo.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridCellDateTime.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridCellNumeric.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridCtrl.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridDropTarget.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\GridURLCell.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\InPlaceEdit.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\InPlaceList.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\gridctrl\TitleTip.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\SmtMFCExCore.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\StackedWndDockBar.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\stdafx.cpp" />
+    <ClCompile Include="..\src\SmtMFCExCore\TabbedWndDockBar.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\SmtMFCExCore\Container.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\GridCtrlSupport.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\BtnDataBase.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\CellRange.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridBtnCell.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridBtnCellBase.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridBtnCellCombo.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridCell.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridCellBase.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridCellCheck.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridCellCombo.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridCellDateTime.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridCellNumeric.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridCtrl.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridDropTarget.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\GridURLCell.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\InPlaceEdit.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\InPlaceList.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\MemDC.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\gridctrl\TitleTip.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\Resource.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\StackedWndDockBar.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\stdafx.h" />
+    <ClInclude Include="..\src\SmtMFCExCore\TabbedWndDockBar.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\src\SmtMFCExCore\SmtMFCExCore.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\SmtMFCExCore\res\SmtMFCExCore.rc2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\src\SmtMFCExCore\ReadMe.txt" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+  <ProjectExtensions>
+    <VisualStudio>
+      <UserProperties RESOURCE_FILE="SmtMFCExCore.rc" />
+    </VisualStudio>
+  </ProjectExtensions>
+</Project>

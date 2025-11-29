@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="Socket">
+      <UniqueIdentifier>{3c7aedf5-00cc-4324-b63d-db6423d2ac2b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="waCgi">
+      <UniqueIdentifier>{59f9c5a0-d3eb-4275-ba1d-b1485ad076ad}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\SmtNetCore\nt_socket.cpp">
+      <Filter>Socket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtNetCore\waCgi.cpp">
+      <Filter>waCgi</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtNetCore\waConfigFile.cpp">
+      <Filter>waCgi</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtNetCore\waDateTime.cpp">
+      <Filter>waCgi</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtNetCore\waEncode.cpp">
+      <Filter>waCgi</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtNetCore\waHttpClient.cpp">
+      <Filter>waCgi</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtNetCore\waString.cpp">
+      <Filter>waCgi</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtNetCore\waTemplate.cpp">
+      <Filter>waCgi</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtNetCore\waTextFile.cpp">
+      <Filter>waCgi</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\SmtNetCore\waUtility.cpp">
+      <Filter>waCgi</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\SmtNetCore\nt_socket.h">
+      <Filter>Socket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtNetCore\waCgi.h">
+      <Filter>waCgi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtNetCore\waConfigFile.h">
+      <Filter>waCgi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtNetCore\waDateTime.h">
+      <Filter>waCgi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtNetCore\waEncode.h">
+      <Filter>waCgi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtNetCore\waHttpClient.h">
+      <Filter>waCgi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtNetCore\waString.h">
+      <Filter>waCgi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtNetCore\waTemplate.h">
+      <Filter>waCgi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtNetCore\waTextFile.h">
+      <Filter>waCgi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtNetCore\waUtility.h">
+      <Filter>waCgi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\SmtNetCore\webApplib.h">
+      <Filter>waCgi</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

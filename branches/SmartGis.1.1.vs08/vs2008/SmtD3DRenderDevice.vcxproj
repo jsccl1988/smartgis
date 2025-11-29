@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release_Debug|Win32">
+      <Configuration>Release_Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{2E750010-C066-46A3-86D9-820EBC0FFEAA}</ProjectGuid>
+    <RootNamespace>GLRenderDevice</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC60.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC60.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC60.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>17.0.34221.43</_ProjectFileVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>..\bin\dll\</OutDir>
+    <IntDir>.\Debug\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>..\bin\dll/\</OutDir>
+    <IntDir>.\Release\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'">
+    <OutDir>..\bin\dll\</OutDir>
+    <IntDir>..\temp\Release_Debug\$(ProjectName)\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Midl>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>true</MkTypLibCompatible>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <TargetEnvironment>Win32</TargetEnvironment>
+      <TypeLibraryName>.\..\bin\Debug/GLRenderDevice.tlb</TypeLibraryName>
+      <HeaderFileName />
+    </Midl>
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;GLRENDERDEVICE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PrecompiledHeaderOutputFile>.\Debug/GLRenderDevice.pch</PrecompiledHeaderOutputFile>
+      <AssemblerListingLocation>.\Debug/</AssemblerListingLocation>
+      <ObjectFileName>.\Debug/</ObjectFileName>
+      <ProgramDataBaseFileName>.\Debug/</ProgramDataBaseFileName>
+      <BrowseInformation>true</BrowseInformation>
+      <WarningLevel>Level3</WarningLevel>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <OutputFile>..\bin\dll/GLRenderDeviceD.dll</OutputFile>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>.\Debug/GLRenderDeviceD.pdb</ProgramDatabaseFile>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <DataExecutionPrevention />
+      <ImportLibrary>..\bin\lib/GLRenderDeviceD.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <Bscmake>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <OutputFile>.\Debug/GLRenderDevice.bsc</OutputFile>
+    </Bscmake>
+    <PostBuildEvent>
+      <Command />
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Midl>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>true</MkTypLibCompatible>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <TargetEnvironment>Win32</TargetEnvironment>
+      <TypeLibraryName>.\..\bin\Release/GLRenderDevice.tlb</TypeLibraryName>
+      <HeaderFileName />
+    </Midl>
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;GLRENDERDEVICE_EXPORTS;_EXPORT_DLL;BUILD_AS_DLL;Export_SmtGLRenderDevice;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>false</StringPooling>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <FunctionLevelLinking>false</FunctionLevelLinking>
+      <PrecompiledHeader />
+      <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
+      <AssemblerListingLocation>.\Release/</AssemblerListingLocation>
+      <ObjectFileName>.\Release/</ObjectFileName>
+      <ProgramDataBaseFileName>.\Release/</ProgramDataBaseFileName>
+      <WarningLevel>Level3</WarningLevel>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <DebugInformationFormat />
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <OutputFile>..\bin\dll/SmtGLRenderDevice.dll</OutputFile>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AssemblyDebug />
+      <ProgramDatabaseFile>.\Release/$(TargetName).pdb</ProgramDatabaseFile>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <DataExecutionPrevention />
+      <ImportLibrary>..\bin\lib/SmtGLRenderDevice.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <Bscmake>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <OutputFile>.\Release/GLRenderDevice.bsc</OutputFile>
+    </Bscmake>
+    <PostBuildEvent>
+      <Command>copy gl_aux_api.h  ..\bin\include\3drendersystem</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'">
+    <Midl>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>true</MkTypLibCompatible>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <TargetEnvironment>Win32</TargetEnvironment>
+      <TypeLibraryName>.\..\bin\Release/GLRenderDevice.tlb</TypeLibraryName>
+      <HeaderFileName />
+    </Midl>
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;GLRENDERDEVICE_EXPORTS;_EXPORT_DLL;BUILD_AS_DLL;Export_SmtGLRenderDevice;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>false</StringPooling>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <FunctionLevelLinking>false</FunctionLevelLinking>
+      <PrecompiledHeader />
+      <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ProgramDataBaseFileName>$(IntDir)vc90.pdb</ProgramDataBaseFileName>
+      <WarningLevel>Level3</WarningLevel>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <OutputFile>..\bin\dll/SmtD3DRenderDevice.dll</OutputFile>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AssemblyDebug>true</AssemblyDebug>
+      <ProgramDatabaseFile>..\temp\Release_Debug\$(ProjectName)\$(TargetName).pdb</ProgramDatabaseFile>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <DataExecutionPrevention />
+      <ImportLibrary>..\bin\lib/SmtD3DRenderDevice.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <Bscmake>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <OutputFile>.\Release/GLRenderDevice.bsc</OutputFile>
+    </Bscmake>
+    <PostBuildEvent>
+      <Command />
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_3drenderdevice.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_devicecaps.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_extinterface.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_fbofunc.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_fbofuncimp.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_indexbuffer.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_mipmapfunc.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_mipmapfuncimp.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_multitexturefuncimp.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_mutitexturefunc.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_rdev_effect.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_rdev_fastdraw.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_rdev_fbo.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_rdev_font.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_rdev_misc.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_rdev_mtx.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_rdev_render.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_rdev_shader.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_rdev_textures.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_rdev_util.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_rdev_vba.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_rdev_vbo.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_shaderfunc.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_shaderfuncimp.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_statesmanager.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_text.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_vbofunc.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_vbofuncimp.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_vertexbuffer.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_vsyncfunc.cpp" />
+    <ClCompile Include="..\src\SmtD3DRenderDevice\d3d_vsyncfuncimp.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_3drenderdevice.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_devicecaps.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_fbofunc.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_fbofuncimp.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_indexbuffer.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_mipmapfunc.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_mipmapfuncimp.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_multitexturefunc.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_multitexturefuncimp.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_prerequisites.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_shaderfunc.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_shaderfuncimp.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_statesmanager.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_text.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_vbofunc.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_vbofuncimp.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_vertexbuffer.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_vsyncfunc.h" />
+    <ClInclude Include="..\src\SmtD3DRenderDevice\d3d_vsyncfuncimp.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

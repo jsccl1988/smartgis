@@ -1,0 +1,68 @@
+﻿C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(531,5): warning MSB8028: 中间目录(.\Debug\)包含从另一个项目(SmartGis.vcxproj, Smt3DBaseLib.vcxproj, Smt3DGeoCore.vcxproj, Smt3DMathLib.vcxproj, Smt3DMdLib.vcxproj, Smt3DPointCloud.vcxproj, Smt3DRenderer.vcxproj, Smt3DTerrain.vcxproj, SmtAdoCore.vcxproj, SmtAM3DModelCreater.vcxproj, SmtAMBAOGridCreater.vcxproj, SmtAMDemCreater.vcxproj, SmtAMMapServiceMgr.vcxproj, SmtAMMapPrint.vcxproj, SmtAMMapProject.vcxproj, SmtAppCore.vcxproj, SmtAuxModule.vcxproj, SmtBAOrthGrid.vcxproj, SmtBaseLib.vcxproj, SmtCgiWrapper.vcxproj, SmtConsoleMapServer.vcxproj, SmtCore.vcxproj, SmtDemCore.vcxproj, SmtGdiRenderDevice.vcxproj, SmtGdiSimpleRenderDevice.vcxproj, SmtGeoCore.vcxproj, SmtGisCore.vcxproj, SmtGisPrj.vcxproj, SmtGLRenderDevice.vcxproj, SmtGroupToolCore.vcxproj, SmtGuiCore.vcxproj, SmtMapClient.vcxproj, SmtMapServerDevice111.vcxproj, SmtMapServerDeviceMgr.vcxproj, SmtMapServer.vcxproj, SmtMapService.vcxproj, SmtMathLib.vcxproj, SmtMFCExCore.vcxproj, SmtNetCore.vcxproj, SmtRender.vcxproj, SmtSDEAdoDevice.vcxproj, SmtSDEDeviceMgr.vcxproj, SmtSDEMemDevice.vcxproj, SmtSDESmfDevice.vcxproj, SmtSDEWSDevice.vcxproj, SmtStaCore.vcxproj, SmtStaDiagram.vcxproj, SmtSysCore.vcxproj, SmtTinMesh.vcxproj, SmtToolCore.vcxproj, SmtWinServiceMapServer.vcxproj, SmtXAMBoxCore.vcxproj, SmtXCatalogCore.vcxproj, SmtXViewCore.vcxproj)共享的文件。   这会导致错误的清除和重新生成行为。
+cl : 命令行  warning D9035: “Gm”选项已否决，并将在将来的版本中移除
+  d3d_vsyncfuncimp.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_vsyncfuncimp.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_vsyncfunc.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_vsyncfunc.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_vertexbuffer.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_vertexbuffer.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_vbofuncimp.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_vbofuncimp.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_vbofunc.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_vbofunc.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_text.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_text.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_statesmanager.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_statesmanager.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_shaderfuncimp.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_shaderfuncimp.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_shaderfunc.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_shaderfunc.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_rdev_vbo.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_rdev_vbo.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_rdev_vba.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_rdev_vba.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_rdev_util.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_rdev_util.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_rdev_textures.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_rdev_textures.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_rdev_shader.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_rdev_shader.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_rdev_render.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_rdev_render.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_rdev_mtx.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_rdev_mtx.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_rdev_misc.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_rdev_misc.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_rdev_font.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_rdev_font.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_rdev_fbo.cpp
+  d3d_rdev_fastdraw.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_rdev_fbo.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_rdev_fastdraw.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  正在生成代码...
+  正在编译...
+  d3d_rdev_effect.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_rdev_effect.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_mutitexturefunc.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_mutitexturefunc.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_multitexturefuncimp.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_multitexturefuncimp.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_mipmapfuncimp.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_mipmapfuncimp.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_mipmapfunc.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_mipmapfunc.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_indexbuffer.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_indexbuffer.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_fbofuncimp.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_fbofuncimp.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_fbofunc.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_fbofunc.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_extinterface.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_extinterface.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_devicecaps.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_devicecaps.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.pdb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  d3d_3drenderdevice.cpp
+D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\src\SmtD3DRenderDevice\d3d_3drenderdevice.cpp : error C1041: 无法打开程序数据库“D:\Dev\src\ccl\smartgis\branches\SmartGis.1.1.vs08\vs2008\Debug\vc143.idb”；如果要将多个 CL.EXE 写入同一个 .PDB 文件，请使用 /FS
+  正在生成代码...
+cl : 命令行  warning D9028: 最小重新生成失败，正在转换为标准生成

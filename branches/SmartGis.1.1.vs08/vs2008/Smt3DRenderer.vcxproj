@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release_Debug|Win32">
+      <Configuration>Release_Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{ACFB7BDC-8BC3-4349-BE37-5328322CBC4F}</ProjectGuid>
+    <RootNamespace>Renderer</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC60.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC60.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC60.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>17.0.34221.43</_ProjectFileVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>..\bin\lib\</OutDir>
+    <IntDir>.\Release\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>..\bin\lib\</OutDir>
+    <IntDir>.\Debug\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'">
+    <OutDir>..\bin\dll\</OutDir>
+    <IntDir>..\temp\Release_Debug\$(ProjectName)\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;3DRENDERERLIB_EXPORTS;BUILD_AS_DLL;Export_Smt3DRenderer;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>false</StringPooling>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <FunctionLevelLinking>false</FunctionLevelLinking>
+      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
+      <PrecompiledHeader />
+      <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
+      <AssemblerListingLocation>.\Release/</AssemblerListingLocation>
+      <ObjectFileName>.\Release/</ObjectFileName>
+      <ProgramDataBaseFileName>.\Release/</ProgramDataBaseFileName>
+      <WarningLevel>Level3</WarningLevel>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <DebugInformationFormat />
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <OutputFile>../bin/dll/Smt3DRenderer.dll</OutputFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AssemblyDebug />
+      <ProgramDatabaseFile>.\Release/$(TargetName).pdb</ProgramDatabaseFile>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <ImportLibrary>..\bin\lib/Smt3DRenderer.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <Bscmake>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <OutputFile>.\Release/Renderer.bsc</OutputFile>
+    </Bscmake>
+    <PostBuildEvent>
+      <Command>copy rd3d_3drenderdevice.h  ..\bin\include\3drendersystem
+copy rd3d_3drenderer.h  ..\bin\include\3drendersystem
+copy rd3d_3drenderdefs.h  ..\bin\include\3drendersystem
+copy rd3d_texture.h  ..\bin\include\3drendersystem
+copy rd3d_base.h  ..\bin\include\3drendersystem
+copy rd3d_texturemanager.h  ..\bin\include\3drendersystem
+copy rd3d_aux_api.h  ..\bin\include\3drendersystem
+copy rd3d_shader.h  ..\bin\include\3drendersystem
+copy rd3d_program.h  ..\bin\include\3drendersystem
+copy rd3d_states.h  ..\bin\include\3drendersystem
+copy rd3d_statesmanager.h  ..\bin\include\3drendersystem
+copy rd3d_shadermanager.h  ..\bin\include\3drendersystem
+copy rd3d_programmanager.h  ..\bin\include\3drendersystem
+copy rd3d_3ddevicecaps.h  ..\bin\include\3drendersystem
+copy rd3d_camera.h  ..\bin\include\3drendersystem
+copy rd3d_videobuffer.h  ..\bin\include\3drendersystem
+copy rd3d_framebuffer.h  ..\bin\include\3drendersystem
+copy rd3d_renderbuffer.h  ..\bin\include\3drendersystem
+copy rd3d_indexbuffer.h  ..\bin\include\3drendersystem
+copy rd3d_vertexbuffer.h  ..\bin\include\3drendersystem
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;BUILD_AS_LIB;Export_Renderer;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeaderOutputFile>.\Debug/Renderer.pch</PrecompiledHeaderOutputFile>
+      <AssemblerListingLocation>.\Debug/</AssemblerListingLocation>
+      <ObjectFileName>.\Debug/</ObjectFileName>
+      <ProgramDataBaseFileName>.\Debug/</ProgramDataBaseFileName>
+      <WarningLevel>Level3</WarningLevel>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Lib>
+      <OutputFile>..\bin\lib/RendererD.lib</OutputFile>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+    </Lib>
+    <Bscmake>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <OutputFile>.\Debug/Renderer.bsc</OutputFile>
+    </Bscmake>
+    <PostBuildEvent>
+      <Command>copy RenderDevice.h  ..\bin\include\rendersystem
+copy Renderer.h  ..\bin\include\rendersystem
+copy RenderTypeDefs.h  ..\bin\include\rendersystem
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;3DRENDERERLIB_EXPORTS;BUILD_AS_DLL;Export_Smt3DRenderer;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>false</StringPooling>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <FunctionLevelLinking>false</FunctionLevelLinking>
+      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
+      <PrecompiledHeader />
+      <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ProgramDataBaseFileName>$(IntDir)vc90.pdb</ProgramDataBaseFileName>
+      <WarningLevel>Level3</WarningLevel>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+    </ResourceCompile>
+    <Link>
+      <OutputFile>../bin/dll/Smt3DRenderer.dll</OutputFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AssemblyDebug>true</AssemblyDebug>
+      <ProgramDatabaseFile>..\temp\Release_Debug\$(ProjectName)\$(TargetName).pdb</ProgramDatabaseFile>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <ImportLibrary>..\bin\lib/Smt3DRenderer.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+    <Bscmake>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <OutputFile>.\Release/Renderer.bsc</OutputFile>
+    </Bscmake>
+    <PostBuildEvent>
+      <Command>copy ..\src\Smt3DRenderer\rd3d_3drenderdevice.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_3drenderer.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_3drenderdefs.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_texture.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_base.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_texturemanager.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_aux_api.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_shader.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_program.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_states.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_statesmanager.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_shadermanager.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_programmanager.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_3ddevicecaps.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_camera.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_videobuffer.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_framebuffer.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_renderbuffer.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_indexbuffer.h  ..\bin\include\3drendersystem
+copy ..\src\Smt3DRenderer\rd3d_vertexbuffer.h  ..\bin\include\3drendersystem
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_3dmaterial.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_3drenderer.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_arbvcamera.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_camera.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_color.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_combinedcamera.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_fpscamera.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_framebuffer.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_frustum.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_light.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_orthcamera.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_perspcamera.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_program.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_programmanager.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_shader.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_shadermanager.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_statesmanager.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_texture.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_texturemanager.cpp" />
+    <ClCompile Include="..\src\Smt3DRenderer\rd3d_videobuffer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_3ddevicecaps.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_3drenderdefs.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_3drenderdevice.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_3drenderer.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_base.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_camera.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_framebuffer.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_indexbuffer.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_program.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_programmanager.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_renderbuffer.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_shader.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_shadermanager.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_states.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_statesmanager.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_texture.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_texturemanager.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_vertexbuffer.h" />
+    <ClInclude Include="..\src\Smt3DRenderer\rd3d_videobuffer.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
