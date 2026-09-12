@@ -1,0 +1,23 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_mfc_shared_library("SmtAMMapProject") {
+  sources = [
+    "DlgMapPrj.cpp",
+    "DlgMapPrjDoGrid.cpp",
+    "DlgMapPrjDoXY.cpp",
+    "SmtAMMapProject.cpp",
+    "SmtAMMapProject.rc",
+    "mapprj_plug.cpp",
+    "stdafx.cpp",
+  ]
+  deps = [
+    "//src/SmtAuxModule:SmtAuxModule",
+    "//src/SmtBaseLib:SmtBaseLib",
+    "//src/SmtCore:SmtCore",
+    "//src/SmtGisPrj:SmtGisPrj",
+    "//src/SmtXCatalogCore:SmtXCatalogCore",
+  ]
+}

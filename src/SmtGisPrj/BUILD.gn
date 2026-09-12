@@ -1,0 +1,19 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("SmtGisPrj") {
+  defines = [ "Export_SmtGisPrj" ]
+  sources = [
+    "prj_api.cpp",
+    "prj_gaussprj.cpp",
+    "prj_lambertprj.cpp",
+    "prj_projection.cpp",
+  ]
+  deps = [
+    "//src/SmtBaseLib:SmtBaseLib",
+    "//src/SmtCore:SmtCore",
+    "//src/SmtGeoCore:SmtGeoCore",
+  ]
+}

@@ -1,0 +1,41 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+#
+# Shared paths and DLL template for SmartGIS sources under //src.
+
+smt_src = "//src"
+# Forced-include home for smt_compat.h (legacy Windows typedefs).
+smt_vs = "//build"
+
+template("smt_shared_library") {
+  shared_library(target_name) {
+    forward_variables_from(invoker, "*", [ "configs" ])
+    configs += [ "//build:smt_legacy" ]
+    if (defined(invoker.configs)) {
+      configs += invoker.configs
+    }
+    if (is_debug && !defined(invoker.output_name)) {
+      output_name = target_name + "D"
+    }
+  }
+}
+
+# Shared MFC DLL (MBCS). DAO headers are gone in VS 18 MFC.
+template("smt_mfc_shared_library") {
+  smt_shared_library(target_name) {
+    forward_variables_from(invoker, "*")
+    if (!defined(defines)) {
+      defines = []
+    }
+    defines += [
+      "_AFXDLL",
+      "_AFX_NO_DAO_SUPPORT",
+    ]
+    if (!defined(precompiled_header)) {
+      precompiled_header = "stdafx.h"
+    }
+    if (!defined(precompiled_source)) {
+      precompiled_source = "stdafx.cpp"
+    }
+  }
+}

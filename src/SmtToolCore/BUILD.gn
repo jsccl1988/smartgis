@@ -1,0 +1,14 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("SmtToolCore") {
+  defines = [ "Export_SmtToolCore" ]
+  sources = [
+    "t_iatool.cpp",
+    "t_iatoolmanager.cpp",
+    "t_msg.cpp",
+  ]
+  deps = [ "//src/SmtCore:SmtCore" ]
+}

@@ -1,0 +1,37 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("SmtCore") {
+  deps = [ "//third_party/CxImage:CxImage" ]
+  defines = [ "Export_SmtCore" ]
+  sources = [
+    "smt_api.cpp",
+    "smt_assert.cpp",
+    "smt_command.cpp",
+    "smt_cslock.cpp",
+    "smt_dynlib.cpp",
+    "smt_dynlibmanager.cpp",
+    "smt_filesys.cpp",
+    "smt_listener.cpp",
+    "smt_listenermanager.cpp",
+    "smt_log.cpp",
+    "smt_logmanager.cpp",
+    "smt_mempool.cpp",
+    "smt_mempoolmgr.cpp",
+    "smt_memshare.cpp",
+    "smt_msg.cpp",
+    "smt_plugin.cpp",
+    "smt_pluginmanager.cpp",
+    "smt_srwlock.cpp",
+    "smt_thread.cpp",
+    "smt_threadpool.cpp",
+    "smt_timer.cpp",
+    "smt_winservice.cpp",
+    "smt_workthread.cpp",
+    "smt_xml.cpp",
+    "smt_xmlerror.cpp",
+    "smt_xmlparser.cpp",
+  ]
+}

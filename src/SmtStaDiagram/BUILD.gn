@@ -1,0 +1,22 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_mfc_shared_library("SmtStaDiagram") {
+  defines = [ "Export_SmtStaDiagram" ]
+  sources = [
+    "Dlg2DXChartView.cpp",
+    "SmtStaDiagram.cpp",
+    "SmtStaDiagram.rc",
+    "sta_api.cpp",
+    "sta_chart.cpp",
+    "sta_diagramdata.cpp",
+    "stdafx.cpp",
+  ]
+  deps = [
+    "//src/SmtCore:SmtCore",
+    "//src/SmtStaCore:SmtStaCore",
+    "//src/SmtXViewCore:SmtXViewCore",
+  ]
+}
