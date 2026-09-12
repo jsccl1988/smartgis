@@ -1,0 +1,20 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("SmtDemCore") {
+  defines = [ "Export_SmtDemCore" ]
+  sources = [
+    "dem_gridloader.cpp",
+    "dem_tinloader.cpp",
+  ]
+  deps = [
+    "//src/Smt3DGeoCore:Smt3DGeoCore",
+    "//src/Smt3DMathLib:Smt3DMathLib",
+    "//src/SmtBaseLib:SmtBaseLib",
+    "//src/SmtCore:SmtCore",
+    "//src/SmtGeoCore:SmtGeoCore",
+    "//src/SmtTinMesh:SmtTinMesh",
+  ]
+}

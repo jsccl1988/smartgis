@@ -1,0 +1,70 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# MBCS + legacy include tree for 2010-2013 sources.
+config("smt_legacy") {
+  defines = [
+    "BUILD_AS_DLL",
+    "_MBCS",
+    "WIN32",
+    "_WINDOWS",
+    "_USRDLL",
+    "_HAS_STD_BYTE=0",
+  ]
+  cflags = [
+    "/UUNICODE",
+    "/U_UNICODE",
+    "/FIsmt_compat.h",
+  ]
+  include_dirs = []
+  include_dirs += [
+    smt_vs,  # //build — forced include smt_compat.h
+
+    "$smt_src/SmtCore",
+    "$smt_src/SmtMathLib",
+    "$smt_src/SmtSysCore",
+    "$smt_src/SmtNetCore",
+    "$smt_src/SmtToolCore",
+    "$smt_src/SmtStaCore",
+    "$smt_src/SmtBaseLib",
+    "$smt_src/SmtGeoCore",
+    "$smt_src/SmtGisCore",
+    "$smt_src/SmtGisPrj",
+    "$smt_src/SmtGLRenderDevice",
+    "$smt_src/SmtGroupToolCore",
+    "$smt_src/SmtMapClient",
+    "$smt_src/SmtMapServer",
+    "$smt_src/SmtMapServerDevice111",
+    "$smt_src/SmtMapServerDeviceMgr",
+    "$smt_src/SmtMapService",
+    "$smt_src/SmtMFCExCore",
+    "$smt_src/SmtStaDiagram",
+    "$smt_src/SmtXAMBoxCore",
+    "$smt_src/SmtXCatalogCore",
+    "$smt_src/SmtXViewCore",
+    "$smt_src/SmtRender",
+    "$smt_src/SmtAppCore",
+    "$smt_src/SmtDemCore",
+    "$smt_src/SmtBAOrthGrid",
+    "$smt_src/SmtTinMesh",
+    "$smt_src/Smt3DMathLib",
+    "$smt_src/Smt3DGeoCore",
+    "$smt_src/Smt3DBaseLib",
+    "$smt_src/Smt3DMdLib",
+    "$smt_src/Smt3DRenderer",
+    "$smt_src/Smt3DTerrain",
+    "$smt_src/Smt3DPointCloud",
+    "$smt_src/SmtAdoCore",
+    "$smt_src/SmtAuxModule",
+    "$smt_src/SmtSDEAdoDevice",
+    "$smt_src/SmtSDEDeviceMgr",
+    "$smt_src/SmtSDEMemDevice",
+    "$smt_src/SmtSDESmfDevice",
+    "$smt_src/SmtSDEWSDevice",
+    "$smt_src/SmtGuiCore",
+    "//third_party/cximage_pub",
+    "//third_party/CxImage/CxImage",
+  ]
+}

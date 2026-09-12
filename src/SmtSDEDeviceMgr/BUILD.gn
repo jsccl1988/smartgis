@@ -1,0 +1,17 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("SmtSDEDeviceMgr") {
+  defines = [ "Export_SmtSDEDeviceMgr" ]
+  sources = [ "sde_datasourcemgr.cpp" ]
+  deps = [
+    "//src/SmtCore:SmtCore",
+    "//src/SmtGisCore:SmtGisCore",
+    "//src/SmtSDEAdoDevice:SmtSDEAdoDevice",
+    "//src/SmtSDEMemDevice:SmtSDEMemDevice",
+    "//src/SmtSDESmfDevice:SmtSDESmfDevice",
+    "//src/SmtSDEWSDevice:SmtSDEWSDevice",
+  ]
+}

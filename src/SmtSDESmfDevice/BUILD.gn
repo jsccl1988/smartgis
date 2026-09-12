@@ -1,0 +1,27 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("SmtSDESmfDevice") {
+  defines = [
+    "Export_SmtSDESmfDevice",
+    "SUPPRESS_DEPRECATION_WARNINGS",
+  ]
+  sources = [
+    "sde_smf_api.cpp",
+    "sde_smf_ogrsupport.cpp",
+    "sde_smfdatasource.cpp",
+    "sde_smfraslayer.cpp",
+    "sde_smfveclayer.cpp",
+  ]
+  deps = [
+    "//src/SmtBaseLib:SmtBaseLib",
+    "//src/SmtCore:SmtCore",
+    "//src/SmtGeoCore:SmtGeoCore",
+    "//src/SmtGisCore:SmtGisCore",
+    "//src/SmtSDEMemDevice:SmtSDEMemDevice",
+    "//third_party/CxImage:CxImage",
+    "//third_party:gdal",
+  ]
+}

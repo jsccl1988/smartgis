@@ -1,0 +1,20 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("SmtMapClient") {
+  defines = [ "Export_SmtMapClient" ]
+  sources = [
+    "msvr_titlewrapper.cpp",
+    "msvr_wsmap.cpp",
+  ]
+  deps = [
+    "//src/SmtBaseLib:SmtBaseLib",
+    "//src/SmtCore:SmtCore",
+    "//src/SmtGisCore:SmtGisCore",
+    "//src/SmtMapService:SmtMapService",
+    "//src/SmtSysCore:SmtSysCore",
+    "//third_party/CxImage:CxImage",
+  ]
+}

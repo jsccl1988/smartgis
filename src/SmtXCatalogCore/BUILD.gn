@@ -1,0 +1,37 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_mfc_shared_library("SmtXCatalogCore") {
+  defines = [ "Export_SmtXCatalogCore" ]
+  sources = [
+    "DlgCreateDS.cpp",
+    "DlgCreateLayer.cpp",
+    "DlgCreateMap.cpp",
+    "DlgCreateMapService.cpp",
+    "DLgSelFcls.cpp",
+    "DlgSelDS.cpp",
+    "DlgSelLayer.cpp",
+    "SmtXCatalogCore.cpp",
+    "SmtXCatalogCore.rc",
+    "cata_3dobjxcatalog.cpp",
+    "cata_api.cpp",
+    "cata_dsxcatalog.cpp",
+    "cata_mapdocxcatalog.cpp",
+    "cata_mapmgr.cpp",
+    "cata_mapservicemgr.cpp",
+    "cata_mapservicexcatalog.cpp",
+    "cata_scenemgr.cpp",
+    "cata_xcatalog.cpp",
+    "stdafx.cpp",
+  ]
+  deps = [
+    "//src/SmtCore:SmtCore",
+    "//src/SmtGeoCore:SmtGeoCore",
+    "//src/SmtGisCore:SmtGisCore",
+    "//src/SmtSDEDeviceMgr:SmtSDEDeviceMgr",
+    "//src/SmtToolCore:SmtToolCore",
+    "//src/SmtXViewCore:SmtXViewCore",
+  ]
+}

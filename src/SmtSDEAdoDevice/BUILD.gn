@@ -1,0 +1,30 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("SmtSDEAdoDevice") {
+  defines = [ "Export_SmtSDEAdoDevice" ]
+  sources = [
+    "sde_adodatasource.cpp",
+    "sde_adoraslayer.cpp",
+    "sde_adoveclayer.cpp",
+    "sde_annofcls_adoveclayer.cpp",
+    "sde_cldimgfcls_adoveclayer.cpp",
+    "sde_curvefcls_adoveclayer.cpp",
+    "sde_dotfcls_adoveclayer.cpp",
+    "sde_gridfcls_adoveclayer.cpp",
+    "sde_surfacefcls_adoveclayer.cpp",
+    "sde_tinfcls_adoveclayer.cpp",
+  ]
+  deps = [
+    "//src/SmtAdoCore:SmtAdoCore",
+    "//src/SmtBaseLib:SmtBaseLib",
+    "//src/SmtCore:SmtCore",
+    "//src/SmtGeoCore:SmtGeoCore",
+    "//src/SmtGisCore:SmtGisCore",
+    "//src/SmtSDEMemDevice:SmtSDEMemDevice",
+    "//third_party/CxImage:CxImage",
+  ]
+  libs = [ "comsuppw.lib" ]
+}

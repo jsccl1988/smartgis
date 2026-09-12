@@ -1,0 +1,39 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+group("src_all") {
+  deps = [
+    "//src/Smt3DBaseLib:Smt3DBaseLib",
+    "//src/Smt3DGeoCore:Smt3DGeoCore",
+    "//src/Smt3DMathLib:Smt3DMathLib",
+    "//src/Smt3DMdLib:Smt3DMdLib",
+    "//src/Smt3DPointCloud:Smt3DPointCloud",
+    "//src/Smt3DRenderer:Smt3DRenderer",
+    "//src/Smt3DTerrain:Smt3DTerrain",
+    "//src/SmtAdoCore:SmtAdoCore",
+    "//src/SmtAuxModule:SmtAuxModule",
+    "//src/SmtBAOrthGrid:SmtBAOrthGrid",
+    "//src/SmtBaseLib:SmtBaseLib",
+    "//src/SmtCore:SmtCore",
+    "//src/SmtDemCore:SmtDemCore",
+    "//src/SmtGdiRenderDevice:SmtGdiRenderDevice",
+    "//src/SmtGdiSimpleRenderDevice:SmtGdiSimpleRenderDevice",
+    "//src/SmtGLRenderDevice:SmtGLRenderDevice",
+    "//src/SmtGeoCore:SmtGeoCore",
+    "//src/SmtGisCore:SmtGisCore",
+    "//src/SmtGisPrj:SmtGisPrj",
+    "//src/SmtGroupToolCore:SmtGroupToolCore",
+    "//src/SmtMathLib:SmtMathLib",
+    "//src/SmtNetCore:SmtNetCore",
+    "//src/SmtRender:SmtRender",
+    "//src/SmtSDEAdoDevice:SmtSDEAdoDevice",
+    "//src/SmtSDEDeviceMgr:SmtSDEDeviceMgr",
+    "//src/SmtSDEMemDevice:SmtSDEMemDevice",
+    "//src/SmtSDESmfDevice:SmtSDESmfDevice",
+    "//src/SmtSDEWSDevice:SmtSDEWSDevice",
+    "//src/SmtStaCore:SmtStaCore",
+    "//src/SmtSysCore:SmtSysCore",
+    "//src/SmtTinMesh:SmtTinMesh",
+    "//src/SmtToolCore:SmtToolCore",
+  ]
+}

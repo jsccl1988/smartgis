@@ -1,0 +1,36 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("Smt3DRenderer") {
+  defines = [ "Export_Smt3DRenderer" ]
+  sources = [
+    "rd3d_3dmaterial.cpp",
+    "rd3d_3drenderer.cpp",
+    "rd3d_arbvcamera.cpp",
+    "rd3d_camera.cpp",
+    "rd3d_color.cpp",
+    "rd3d_combinedcamera.cpp",
+    "rd3d_fpscamera.cpp",
+    "rd3d_framebuffer.cpp",
+    "rd3d_frustum.cpp",
+    "rd3d_light.cpp",
+    "rd3d_orthcamera.cpp",
+    "rd3d_perspcamera.cpp",
+    "rd3d_program.cpp",
+    "rd3d_programmanager.cpp",
+    "rd3d_shader.cpp",
+    "rd3d_shadermanager.cpp",
+    "rd3d_statesmanager.cpp",
+    "rd3d_texture.cpp",
+    "rd3d_texturemanager.cpp",
+    "rd3d_videobuffer.cpp",
+  ]
+  deps = [
+    "//src/Smt3DMathLib:Smt3DMathLib",
+    "//src/SmtBaseLib:SmtBaseLib",
+    "//src/SmtCore:SmtCore",
+    "//third_party/CxImage:CxImage",
+  ]
+}

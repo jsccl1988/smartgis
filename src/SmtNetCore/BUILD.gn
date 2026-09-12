@@ -1,0 +1,25 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("SmtNetCore") {
+  defines = [ "Export_SmtNetCore" ]
+  sources = [
+    "nt_socket.cpp",
+    "waCgi.cpp",
+    "waConfigFile.cpp",
+    "waDateTime.cpp",
+    "waEncode.cpp",
+    "waHttpClient.cpp",
+    "waString.cpp",
+    "waTemplate.cpp",
+    "waTextFile.cpp",
+    "waUtility.cpp",
+  ]
+  deps = [ "//src/SmtCore:SmtCore" ]
+  libs = [
+    "ws2_32.lib",
+    "wsock32.lib",
+  ]
+}

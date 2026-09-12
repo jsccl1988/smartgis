@@ -1,0 +1,17 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("SmtStaCore") {
+  defines = [ "Export_SmtStaCore" ]
+  sources = [
+    "sta_calculator.cpp",
+    "sta_expmgr.cpp",
+    "sta_expression.cpp",
+    "sta_math_api.cpp",
+    "sta_operand.cpp",
+    "sta_valsetmgr.cpp",
+  ]
+  deps = [ "//src/SmtCore:SmtCore" ]
+}

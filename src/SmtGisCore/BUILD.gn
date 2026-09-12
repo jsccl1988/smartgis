@@ -1,0 +1,24 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("SmtGisCore") {
+  defines = [ "Export_SmtGisCore" ]
+  sources = [
+    "gis_3dfeature.cpp",
+    "gis_api.cpp",
+    "gis_attribute.cpp",
+    "gis_feature.cpp",
+    "gis_field.cpp",
+    "gis_map.cpp",
+  ]
+  deps = [
+    "//src/Smt3DGeoCore:Smt3DGeoCore",
+    "//src/Smt3DMathLib:Smt3DMathLib",
+    "//src/Smt3DRenderer:Smt3DRenderer",
+    "//src/SmtBaseLib:SmtBaseLib",
+    "//src/SmtCore:SmtCore",
+    "//src/SmtGeoCore:SmtGeoCore",
+  ]
+}

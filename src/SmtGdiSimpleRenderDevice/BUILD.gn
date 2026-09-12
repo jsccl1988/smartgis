@@ -1,0 +1,22 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("SmtGdiSimpleRenderDevice") {
+  defines = [ "Export_SmtGdiSimpleRenderDevice" ]
+  sources = [
+    "gdi_aux_api.cpp",
+    "gdi_bufpool.cpp",
+    "gdi_renderbuf.cpp",
+    "gdi_simplerenderdevice.cpp",
+  ]
+  deps = [
+    "//src/SmtBaseLib:SmtBaseLib",
+    "//src/SmtCore:SmtCore",
+    "//src/SmtGeoCore:SmtGeoCore",
+    "//src/SmtGisCore:SmtGisCore",
+    "//src/SmtRender:SmtRender",
+    "//third_party/CxImage:CxImage",
+  ]
+}
