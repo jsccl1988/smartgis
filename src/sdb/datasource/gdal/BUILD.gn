@@ -35,8 +35,6 @@ smt_shared_library("sde_gdal") {
     "ogr_export.h",
     "ogr_raster_layer.cc",
     "ogr_raster_layer.h",
-    "ogr_vec_layer.cc",
-    "ogr_vec_layer.h",
     "sdbd_gdal_driver.cc",
     "sdbd_gdal_driver.h",
     "sdbd_handler.cc",

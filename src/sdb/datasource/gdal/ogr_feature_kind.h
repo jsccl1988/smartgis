@@ -13,10 +13,13 @@
 
 class OGRFeature;
 
+namespace Smt_Geo {
+class SmtGeometry;
+}
+
 namespace sdb {
 namespace datasource {
 
-// Extra OGR/Smt field descriptors walked by tuple + index_sequence.
 struct field_anno {
   static constexpr char name[] = "anno";
   static constexpr OGRFieldType ogr_type = OFTString;
@@ -59,7 +62,6 @@ struct field_grid_col {
   static constexpr Smt_Core::SmtVarType smt_type = Smt_Core::SmtInteger;
 };
 
-// Per-kind geometry WKB, extra fields, and encode/decode hooks.
 template <Smt_GIS::SmtFeatureType Ft>
 struct feature_kind_traits;
 
@@ -69,8 +71,8 @@ struct feature_kind_traits<Smt_GIS::SmtFtDot> {
   static constexpr OGRwkbGeometryType wkb = wkbPoint;
   static constexpr bool is_raster = false;
   using extra_fields = std::tuple<>;
-  static bool encode_geom(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
-  static bool decode_geom(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+  static bool encode_geom(const Smt_Geo::SmtGeometry* src, OGRFeature* dst);
+  static Smt_Geo::SmtGeometry* decode_geom(OGRFeature* src);
 };
 
 template <>
@@ -79,8 +81,8 @@ struct feature_kind_traits<Smt_GIS::SmtFtCurve> {
   static constexpr OGRwkbGeometryType wkb = wkbLineString;
   static constexpr bool is_raster = false;
   using extra_fields = std::tuple<field_length>;
-  static bool encode_geom(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
-  static bool decode_geom(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+  static bool encode_geom(const Smt_Geo::SmtGeometry* src, OGRFeature* dst);
+  static Smt_Geo::SmtGeometry* decode_geom(OGRFeature* src);
 };
 
 template <>
@@ -89,8 +91,8 @@ struct feature_kind_traits<Smt_GIS::SmtFtSurface> {
   static constexpr OGRwkbGeometryType wkb = wkbPolygon;
   static constexpr bool is_raster = false;
   using extra_fields = std::tuple<field_area>;
-  static bool encode_geom(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
-  static bool decode_geom(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+  static bool encode_geom(const Smt_Geo::SmtGeometry* src, OGRFeature* dst);
+  static Smt_Geo::SmtGeometry* decode_geom(OGRFeature* src);
 };
 
 template <>
@@ -99,8 +101,8 @@ struct feature_kind_traits<Smt_GIS::SmtFtAnno> {
   static constexpr OGRwkbGeometryType wkb = wkbPoint;
   static constexpr bool is_raster = false;
   using extra_fields = std::tuple<field_anno, field_color, field_angle>;
-  static bool encode_geom(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
-  static bool decode_geom(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+  static bool encode_geom(const Smt_Geo::SmtGeometry* src, OGRFeature* dst);
+  static Smt_Geo::SmtGeometry* decode_geom(OGRFeature* src);
 };
 
 template <>
@@ -109,8 +111,8 @@ struct feature_kind_traits<Smt_GIS::SmtFtTin> {
   static constexpr OGRwkbGeometryType wkb = wkbMultiPolygon;
   static constexpr bool is_raster = false;
   using extra_fields = std::tuple<>;
-  static bool encode_geom(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
-  static bool decode_geom(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+  static bool encode_geom(const Smt_Geo::SmtGeometry* src, OGRFeature* dst);
+  static Smt_Geo::SmtGeometry* decode_geom(OGRFeature* src);
 };
 
 template <>
@@ -119,8 +121,8 @@ struct feature_kind_traits<Smt_GIS::SmtFtGrid> {
   static constexpr OGRwkbGeometryType wkb = wkbMultiPoint;
   static constexpr bool is_raster = false;
   using extra_fields = std::tuple<field_grid_row, field_grid_col>;
-  static bool encode_geom(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
-  static bool decode_geom(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+  static bool encode_geom(const Smt_Geo::SmtGeometry* src, OGRFeature* dst);
+  static Smt_Geo::SmtGeometry* decode_geom(OGRFeature* src);
 };
 
 template <>
@@ -129,8 +131,8 @@ struct feature_kind_traits<Smt_GIS::SmtFtChildImage> {
   static constexpr OGRwkbGeometryType wkb = wkbNone;
   static constexpr bool is_raster = true;
   using extra_fields = std::tuple<>;
-  static bool encode_geom(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
-  static bool decode_geom(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+  static bool encode_geom(const Smt_Geo::SmtGeometry* src, OGRFeature* dst);
+  static Smt_Geo::SmtGeometry* decode_geom(OGRFeature* src);
 };
 
 template <typename Fn>
@@ -162,8 +164,9 @@ void for_each_extra_field(Fn&& fn, std::index_sequence<I...>) {
 
 template <typename Tuple, typename Fn>
 void for_each_extra_field(Fn&& fn) {
-  for_each_extra_field<Tuple>(std::forward<Fn>(fn),
-                              std::make_index_sequence<std::tuple_size_v<Tuple>>{});
+  for_each_extra_field<Tuple>(
+      std::forward<Fn>(fn),
+      std::make_index_sequence<std::tuple_size_v<Tuple>>{});
 }
 
 }  // namespace datasource

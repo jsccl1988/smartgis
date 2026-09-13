@@ -49,11 +49,11 @@ Debug/release DLL file names still use `dll_stem` (legacy `Smt*` + optional `D`)
 | --- | --- | --- | --- |
 | Foundation | `base` (core+style), `sys`, `net` | One `src/base/` dir; two DLLs (`SmtCore` / `SmtBaseLib`). | yes |
 | Core data model | `sdb/{feature,layer,map,model,scene}` | `SmtGisCore` DLL plus source_sets `sdb/model` (Assimp/3D Tiles CPU) and `sdb/scene` (World). | yes (`gis` + model + scene) |
-| Datasource | `sdb/datasource/{mgr,gdal,mem,smf,ws}` | Provider drivers. DB path is OGR (`sde_gdal`). | yes (`//src/sdb:datasource`) |
-| Algorithm | `algorithm/{geo,proj,tin,baogrid,stat}` | `geo` is one DLL (`SmtGeoCore`) compiling geo + math + math3d + geo3d sources; old math/math3d/geo3d labels are groups. `proj` / `tin` stay their DLLs. **Not** dem (plugin + GDAL + tin). **Not** chart (`ui/chart`). | yes (`//src/algorithm:algorithm`; not `chart`) |
+| Datasource | `sdb/datasource/{mgr,gdal,mem}` | Provider drivers. Product types are `GDALDataset` / `OGRLayer` / `OGRFeature`. SMF/WS leftovers stay on disk, not in `src_all`. | yes (`//src/sdb:datasource`) |
+| Algorithm | `algorithm/{geo,proj,tin,stat}` | `geo` is one DLL (`SmtGeoCore`) compiling geo + math + math3d + geo3d sources. Public headers are types + adapters (`geometry.h`, `geos_backend.h`, `projection.h`, `tin.h`). `proj` / `tin` stay their DLLs. **Not** dem (plugin + GDAL + tin). **Not** orthogrid (plugin + Eigen Laplace). **Not** chart (`ui/chart`). | yes (`//src/algorithm:algorithm`; not `chart`) |
 | Render | `render/` + children | RHI Facade + GPU scene (`render/scene`) + leftover 3D engines (`render3d`, `scene3d`, `model3d`, `terrain`, `pointcloud`). `d3d` unwired. `skia` opt-in stub. | yes (`render_all`, not `d3d` / not `skia`) |
 | Web GIS | `web/{mapd,service,server,client,server_mgr,server_dev,cgi,…}` | `mapd` is the HTTP client (`:8020`). Leftover WMS stack is former `src/map`. **Not** the map document. | `mapd_client` **yes**; leftover servers **no** (xcatalog / MFC) |
-| Plugin | `plugin/` + children | Host stays; domain modules nest as children. | host only |
+| Plugin | `plugin/` + children | Host `//src/plugin:host` (source_set, not a new DLL): Registry / store / Python / processing. Domain children keep leftover `dll_stem`. Boundary-adaptive orthogonal grid (Eigen Laplace) lives in `plugin/orthogrid`, not `algorithm/`. Shared preview in `plugin/widgets`. Embed in `plugin/python`. | host + widgets |
 | UI | `ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | Nested only. **Legacy** MFC Feature Pack chrome (`bcg_cmfc.h`). `ui/chart` is the MFC modal diagram (`SmtStaDiagram`); data stays in `algorithm/stat`. | **no** (MFC; gated by `smt_build_app`) |
 | UI toolkit (endgame) | `ui/views` | Chromium-style Views stub (`//:ui_views`). | **no** |
 | Hosted map (mgis `content`) | `content/public` + `content/app` | Stable embedder API (`MapContents` / `MapWidgetHostView`, rename from `MapSession` / `MapView`). `content::ContentMain` in `src/content/app` dispatches `--type=`. | **yes** (`content` source_set, not a DLL) |
@@ -127,7 +127,7 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 | — | `skia` | `render/skia` | `skia` (`//:ui_views`) | — (source_set stub; no Skia tree) |
 | `SmtAuxModule` | `plugin` | `plugin` | `plugin` | `SmtAuxModule` |
 | `SmtAM3DModelCreater` | `plugin_model3d` | `plugin/model3d` | `plugin_model3d` | `SmtAM3DModelCreater` |
-| `SmtAMBAOGridCreater` | `plugin_baogrid` | `plugin/baogrid` | `plugin_baogrid` | `SmtAMBAOGridCreater` |
+| `SmtAMOrthogrid` | `plugin_orthogrid` | `plugin/orthogrid` | `plugin_orthogrid` | `SmtAMOrthogrid` (orthogrid UI + Eigen Laplace kernel; not `src_all`). Leftover AM stem `SmtAMBAOGridCreater` still maps to `smartgis.orthogrid`. |
 | `SmtAMDemCreater` | `plugin_dem` | `plugin/dem` | `plugin_dem` | `SmtAMDemCreater` |
 | `SmtAMMapPrint` | `plugin_print` | `plugin/print` | `plugin_print` | `SmtAMMapPrint` |
 | `SmtAMMapProject` | `plugin_proj` | `plugin/proj` | `plugin_proj` | `SmtAMMapProject` |
@@ -138,14 +138,13 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 | — | `webview2` | `app/webview2` | `app_webview2` | `SmartGisWeb.exe` |
 | — | `winui` | `app/winui` | `app_winui` | `SmartGisWinui.exe` |
 | `SmtTinMesh` | `tin` | `algorithm/tin` | `tin` | `SmtTinMesh` |
-| `SmtBAOrthGrid` | `baogrid` | `algorithm/baogrid` | `baogrid` | `SmtBAOrthGrid` |
 | `Smt3DBaseLib` | `scene3d` | `render/scene3d` | `scene3d` | `Smt3DBaseLib` (leftover) |
 | — | `scene` | `render/scene` | `scene` | GPU cache (source_set) |
 | — | `model` / `scene` | `sdb/model`, `sdb/scene` | `model` / `scene` | CPU assets + World (source_sets) |
 | `Smt3DMdLib` | `model3d` | `render/model3d` | `model3d` | `Smt3DMdLib` (leftover) |
 | `Smt3DPointCloud` | `pointcloud` | `render/pointcloud` | `pointcloud` | `Smt3DPointCloud` |
 | `Smt3DTerrain` | `terrain` | `render/terrain` | `terrain` | `Smt3DTerrain` |
-| `SmtNetCore` | `net` | `net` | `net` | `SmtNetCore` |
+| `SmtNetCore` | `net` | `net/{pack,http,rpc,udp}` | `net` | `SmtNetCore` |
 | `SmtStaCore` | `stat` | `algorithm/stat` | `stat` | `SmtStaCore` |
 | `SmtStaDiagram` | `stat_chart` | `ui/chart` | `stat_chart` | `SmtStaDiagram` |
 
@@ -153,14 +152,14 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 
 Repo-root `//core:core_all` still aliases `//src:src_all`. It is not the product tree.
 
-Include dirs in `//build:smt_legacy` still point at **each module root** (quoted `#include "header.h"`), not at layer parents.
+Include dirs in `//build:smt_legacy` still point at **each leftover module root** (quoted `#include "header.h"`). New trees (`net`, `content`, `sdb/scene`, …) use `"layer/module/file.h"` via `//src`.
 
 ## File naming (mgis / Chromium)
 
 | Tree | Stem | Extension | Include |
 | --- | --- | --- | --- |
-| New (`content`, `gpu`, `app/{views,webview2,winui}`, `ui/views`, `render/{skia,rhi,scene}`, `sdb/{model,scene}`) | `snake_case` | `.cc` / `.h` | `"content/public/map_view.h"`, `"ui/views/view.h"`, `"gpu/gpu.h"`, `"render/rhi/rhi.h"`, `"sdb/scene/scene.h"` (`//src` on the include path) |
-| Legacy product (`app` MFC, `ui/{gui,mfc_ex,xview,…}`, `plugin/*`, `net`, …) | `snake_case` | keep `.cpp` | still module-root `"main_frame.h"` / `"grid_ctrl.h"` |
+| New (`content`, `gpu`, `app/{views,webview2,winui}`, `ui/views`, `render/{skia,rhi,scene}`, `sdb/{model,scene}`, `net`) | `snake_case` | `.cc` / `.h` (`net` keeps `.cpp`) | `"content/public/map_view.h"`, `"ui/views/view.h"`, `"gpu/gpu.h"`, `"render/rhi/rhi.h"`, `"sdb/scene/scene.h"`, `"net/http/http.h"` (`//src` on the include path) |
+| Legacy product (`app` MFC, `ui/{gui,mfc_ex,xview,…}`, `plugin/*`, …) | `snake_case` | keep `.cpp` | still module-root `"main_frame.h"` / `"grid_ctrl.h"` |
 
 - Drop file prefixes (`smt_`, `vw_`, `cata_`, `baog_`, `msvr_`, `am_`, `gt_`, `wa_`, `bl_`, `rd_`, plus module tags `gis_` / `geo_` / `sde_`). **DLL stems**, `Export_Smt*`, and `Smt_*` namespaces stay.
 - CRT collisions keep a short qualifier (`core_assert.h`, `net_string.h`), not the old prefix.

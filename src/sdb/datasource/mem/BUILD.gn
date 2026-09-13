@@ -1,0 +1,20 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("sde_mem") {
+  dll_stem = "SmtSDEMemDevice"
+  defines = [ "Export_SmtSDEMemDevice" ]
+  sources = [
+    "memraslayer.cpp",
+    "memtitlelayer.cpp",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/algorithm/geo:geo",
+    "//src/sdb/map:gis",
+    "//third_party/CxImage:CxImage",
+  ]
+}

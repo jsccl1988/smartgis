@@ -8,45 +8,45 @@
 #include "sdb/datasource/gdal/ogr_export.h"
 
 class GDALDataset;
+class OGRLayer;
 
 namespace sdb {
 namespace datasource {
 
-// OGR/GDAL-backed SmtDataSource for GPKG, SpatiaLite, and PostGIS.
-class SMT_SDE_GDAL_EXPORT OgrDataSource : public Smt_GIS::SmtDataSource {
+// Opens or creates a GDALDataset from SmtDataSourceInfo. Not a SmtDataSource.
+class SMT_SDE_GDAL_EXPORT OgrDataSource {
  public:
   OgrDataSource();
-  ~OgrDataSource() override;
+  ~OgrDataSource();
 
-  bool Create() override;
-  bool Open() override;
-  bool Close() override;
-  Smt_GIS::SmtDataSource* Clone() const override;
+  OgrDataSource(const OgrDataSource&) = delete;
+  OgrDataSource& operator=(const OgrDataSource&) = delete;
 
-  Smt_GIS::SmtVectorLayer* CreateVectorLayer(
-      const char* szName, Smt_Core::fRect& lyrRect,
-      Smt_GIS::SmtFeatureType ftType = Smt_GIS::SmtFtDot) override;
-  Smt_GIS::SmtVectorLayer* OpenVectorLayer(const char* szName) override;
-  bool DeleteVectorLayer(const char* szName) override;
+  bool Create();
+  bool Open();
+  bool Close();
+  bool IsOpen() const { return open_; }
+
+  void SetInfo(const Smt_GIS::SmtDataSourceInfo& info) { info_ = info; }
+  void GetInfo(Smt_GIS::SmtDataSourceInfo& info) const { info = info_; }
+
+  GDALDataset* dataset() { return dataset_; }
+  GDALDataset* release();
+
+  OGRLayer* CreateVectorLayer(const char* szName, Smt_Core::fRect& lyrRect,
+                              Smt_GIS::SmtFeatureType ftType);
+  OGRLayer* OpenVectorLayer(const char* szName);
+  bool DeleteVectorLayer(const char* szName);
 
   Smt_GIS::SmtRasterLayer* CreateRasterLayer(const char* szName,
                                              Smt_Core::fRect& lyrRect,
-                                             long lImageCode) override;
-  Smt_GIS::SmtRasterLayer* OpenRasterLayer(const char* szName) override;
-  bool DeleteRasterLayer(const char* szName) override;
-
-  Smt_GIS::SmtTileLayer* CreateTileLayer(const char* szName,
-                                         Smt_Core::fRect& lyrRect,
-                                         long lImageCode) override;
-  Smt_GIS::SmtTileLayer* OpenTileLayer(const char* szName) override;
-  bool DeleteTileLayer(const char* szName) override;
-
-  GDALDataset* dataset() { return dataset_; }
+                                             long lImageCode);
+  Smt_GIS::SmtRasterLayer* OpenRasterLayer(const char* szName);
 
  private:
-  void fill_layer_infos();
-
-  GDALDataset* dataset_;
+  Smt_GIS::SmtDataSourceInfo info_;
+  GDALDataset* dataset_ = nullptr;
+  bool open_ = false;
 };
 
 }  // namespace datasource
