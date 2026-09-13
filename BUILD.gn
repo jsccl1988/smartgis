@@ -37,6 +37,9 @@ group("test_all") {
     "//testing/e2e:exe_smoke",
     "//src/sdb/datasource/gdal:sde_gdal_test",
   ]
+  if (smt_build_app) {
+    deps += [ "//src/app:app" ]
+  }
 }
 
 # All chrome / GPU exes + exe_smoke. build.bat e2e sets every smt_build_* flag.
@@ -129,5 +132,13 @@ group("render") {
   deps = []
   if (smt_build_render) {
     deps += [ "//src/gpu:gpu" ]
+  }
+}
+
+# Leftover SmtGroupToolCore (needs MFC gui). Not in src_all / ninja all.
+group("tool_group") {
+  deps = []
+  if (smt_build_app) {
+    deps += [ "//src/tool/group:tool_group" ]
   }
 }

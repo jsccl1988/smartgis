@@ -82,6 +82,7 @@ bool is_mem_provider_supported(uint provider);
 const char* gdal_driver_name(uint provider);
 const char* gdal_driver_name_for(const Smt_GIS::SmtDataSourceInfo& info);
 std::string make_gdal_open_target(const Smt_GIS::SmtDataSourceInfo& info);
+std::string make_sdbd_open_target(const Smt_GIS::SmtDataSourceInfo& info);
 
 }  // namespace datasource
 }  // namespace sdb

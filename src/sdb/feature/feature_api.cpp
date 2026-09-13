@@ -88,7 +88,7 @@ long Points2MultiPoint(OGRLayer* pLayer) {
 
 long GetQueryRs(int geomType, int feaType) {
   long lQRs = SS_Unkown;
-  if (geomType == GTPoint) {
+  if (wkbFlatten(static_cast<OGRwkbGeometryType>(geomType)) == wkbPoint) {
     lQRs = SS_Overlaps | SS_Within;
     switch (feaType) {
       case SmtFtChildImage:
@@ -103,7 +103,8 @@ long GetQueryRs(int geomType, int feaType) {
       default:
         break;
     }
-  } else if (geomType == GTLinearRing) {
+  } else if (wkbFlatten(static_cast<OGRwkbGeometryType>(geomType)) ==
+             wkbLinearRing) {
     lQRs = SS_Contains | SS_Overlaps | SS_Intersects;
     switch (feaType) {
       case SmtFtChildImage:

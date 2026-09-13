@@ -23,7 +23,7 @@ Debug/release DLL file names still use `dll_stem` (legacy `Smt*` + optional `D`)
 | content | `src/content/public` | Stable embedder API. Hosts do not include sdb / render devices. |
 | sdb | `src/sdb/{feature,layer,map,crs,datasource/<driver>,model,scene}` | GIS model; CPU assets (`model`) and World (`scene`). |
 | render | `src/render/` + `render/rhi` + `render/scene` | Unified 2D+3D RHI (FlyCube DX12/Vulkan). GPU instance cache in `render/scene`. Leftover `scene3d`/`model3d` stay. **Paint runs in `--type=gpu`**, not in browser. |
-| base | `src/base/` + `base/ipc` (planned) | Merged former `core` + envelope/style. Two DLLs: `:core` + `:base`. IPC facade for Mojo invitation. |
+| base | `src/base/` + `base/ipc` | Merged former `core` + envelope/style. Two DLLs: `:core` + `:base`. Product IPC (`base::ipc`) is named pipe + pickle; not a dep of SmtCore. |
 
 ## OSS GIS ↔ this tree
 
@@ -32,7 +32,7 @@ Debug/release DLL file names still use `dll_stem` (legacy `Smt*` + optional `D`)
 | `providers/*`, OGR drivers | `src/sdb/datasource/{mem,smf,ws,gdal}` |
 | `QgsFeature` / `QgsMapLayer` / `QgsProject` | `src/sdb/feature`, `layer`, `map` |
 | `QgsCoordinateReferenceSystem` | `src/sdb/crs`; transforms in `algorithm/proj` |
-| GEOS | `src/algorithm/geo` (`//src/algorithm:geom` → `SmtGeoCore`) — wrap `gdal_sdk` `geos_c`; no second GEOS vendor |
+| GEOS | `src/algorithm/geo` (`//src/algorithm:geom` → `SmtGeoCore`) — wrap `//third_party:gdal` (`.install` `geos_c`); no second GEOS vendor |
 | PROJ | `src/algorithm/proj` (PROJ 9 adapter only) |
 | map canvas renderer | `src/render` + RHI |
 | processing / analysis | `src/algorithm/` |
@@ -41,7 +41,7 @@ Debug/release DLL file names still use `dll_stem` (legacy `Smt*` + optional `D`)
 | WMS/WFS | leftover `src/web/` (not `sdb/map`) |
 | mapd HTTP | `src/web/mapd` (`web::MapdClient`) |
 
-`sdb/datasource/gdal` is `SmtSDEGdalDevice`: registers GDAL driver `"SDBD"` plus file/DB/Memory via the same `gdal_sdk`. Product layer types are `GDALDataset` / `OGRLayer` / `OGRFeature`. ADO sources are removed.
+`sdb/datasource/gdal` is `SmtSDEGdalDevice`: a decorator `GDALDriver` `"SDBD"` whose `SdbdDataset` owns a stock inner `GDALDataset` (Memory / GPKG / PostgreSQL / file). Callers use `GDALOpenEx("SDBD:…")` and may `dynamic_cast` to `SdbdDataset` / `SdbdLayer`. Do not patch `third_party/.src/gdal` or resurrect `OgrDataSource`. Product types are `GDALDataset` / `OGRLayer` / `OGRFeature`.
 
 ## Layering plan (this pass)
 
@@ -50,7 +50,7 @@ Debug/release DLL file names still use `dll_stem` (legacy `Smt*` + optional `D`)
 | Foundation | `base` (core+style), `sys`, `net` | One `src/base/` dir; two DLLs (`SmtCore` / `SmtBaseLib`). | yes |
 | Core data model | `sdb/{feature,layer,map,model,scene}` | `SmtGisCore` DLL plus source_sets `sdb/model` (Assimp/3D Tiles CPU) and `sdb/scene` (World). | yes (`gis` + model + scene) |
 | Datasource | `sdb/datasource/{mgr,gdal,mem}` | Provider drivers. Product types are `GDALDataset` / `OGRLayer` / `OGRFeature`. SMF/WS leftovers stay on disk, not in `src_all`. | yes (`//src/sdb:datasource`) |
-| Algorithm | `algorithm/{geo,proj,tin,stat}` | `geo` is one DLL (`SmtGeoCore`) compiling geo + math + math3d + geo3d sources. Public headers are types + adapters (`geometry.h`, `geos_backend.h`, `projection.h`, `tin.h`). `proj` / `tin` stay their DLLs. **Not** dem (plugin + GDAL + tin). **Not** orthogrid (plugin + Eigen Laplace). **Not** chart (`ui/chart`). | yes (`//src/algorithm:algorithm`; not `chart`) |
+| Algorithm | `algorithm/{geo,proj,tin,stat}` | `geo` is one DLL (`SmtGeoCore`): OGR aliases + GEOS glue + TIN/grid/surface. Scene Vector/Matrix/Aabb live in `src/render/math` (Eigen). Public headers: `geometry.h`, `geos_backend.h`, `projection.h`, `tin.h`. `proj` / `tin` stay their DLLs. **Not** dem (plugin + GDAL + tin). **Not** orthogrid (plugin + Eigen Laplace). **Not** chart (`ui/chart`). | yes (`//src/algorithm:algorithm`; not `chart`) |
 | Render | `render/` + children | RHI Facade + GPU scene (`render/scene`) + leftover 3D engines (`render3d`, `scene3d`, `model3d`, `terrain`, `pointcloud`). `d3d` unwired. `skia` opt-in stub. | yes (`render_all`, not `d3d` / not `skia`) |
 | Web GIS | `web/{mapd,service,server,client,server_mgr,server_dev,cgi,…}` | `mapd` is the HTTP client (`:8020`). Leftover WMS stack is former `src/map`. **Not** the map document. | `mapd_client` **yes**; leftover servers **no** (xcatalog / MFC) |
 | Plugin | `plugin/` + children | Host `//src/plugin:host` (source_set, not a new DLL): Registry / store / Python / processing. Domain children keep leftover `dll_stem`. Boundary-adaptive orthogonal grid (Eigen Laplace) lives in `plugin/orthogrid`, not `algorithm/`. Shared preview in `plugin/widgets`. Embed in `plugin/python`. | host + widgets |
@@ -64,7 +64,7 @@ Debug/release DLL file names still use `dll_stem` (legacy `Smt*` + optional `D`)
 **Deliberately not merged**
 
 - `//src/base:core` + `//src/base:base`: two DLLs in one directory; `sys` stays beside base.
-- `math` + `math3d` + `geo3d` **sources** stay in those directories (include paths / nesting cap). They **link** as `SmtGeoCore` (`//src/algorithm/geo:geo`). OGC `coordinateDimension` is 2 or 3 on the Geometry **instance**; compile-time dim stays on Vector2/3/4. See [`../superpowers/specs/2026-09-13-algorithm-layer-oss-design.md`](../superpowers/specs/2026-09-13-algorithm-layer-oss-design.md).
+- Homemade Vector/Matrix were removed from `algorithm/geo`. Leftover names `Vector3` / `Matrix` are Eigen-backed adapters in `src/render/math` (`//src/render/math:math`). Aabb/Obb/Plane/Ray compile as `//src/render/math:bounds`. OGC `coordinateDimension` is 2 or 3 on the Geometry **instance**; compile-time dim stays on Vector2/3/4. See [`../superpowers/specs/2026-09-13-algorithm-layer-oss-design.md`](../superpowers/specs/2026-09-13-algorithm-layer-oss-design.md).
 - `base`: keep the name. It is `SmtBaseLib` (envelope/style), not a Chromium-style foundation.
 - No `Smt_*` renames. New algorithm traits (`geo::geometry_traits` / `vector_traits`) are additive; they do not replace the virtual ABI.
 - MFC Feature Pack / D3D targets stay out of `src_all`. This GN’s ninja `all` lists every **loaded** target, so the exe graph is gated by `smt_build_app` (default false). `build.bat app` sets it and builds `//:smartgis` → `out/SmartGis.exe`.

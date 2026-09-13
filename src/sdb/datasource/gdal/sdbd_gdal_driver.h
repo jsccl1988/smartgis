@@ -6,16 +6,39 @@
 
 #include "sdb/datasource/gdal/ogr_export.h"
 
+class GDALDataset;
+class OGRLayer;
+
+// Decorator driver (inherit + composition). Do not patch third_party/gdal
+// and do not subclass GPKG / PostgreSQL / Memory internals.
+//
+// 1. GDALDriver "SDBD" (pfnIdentify / pfnOpen / pfnCreate).
+// 2. SdbdDataset : GDALDataset owns a stock GDALDataset* inner_ from
+//    GDALOpenEx / Create on Memory, GPKG, PostgreSQL, or file. Forward
+//    GetLayerCount / raster / CreateLayer; wrap layers as SdbdLayer.
+// 3. SdbdLayer : OGRLayer wraps OGRLayer* inner_ only for extras
+//    (SmtFeatureType, style hint) plus SetMetadataItem(..., "SDBD").
+// 4. Do not subclass OGRFeature — extras are OGR fields or style string.
+// 5. Callers: GDALOpenEx("SDBD:…") / GetDriverByName("SDBD"), then
+//    dynamic_cast to SdbdDataset / SdbdLayer. No OgrDataSource facade.
+
 namespace sdb {
 namespace datasource {
 
-// mgis has no GDAL sdbd driver (HTTP :8021 only). This tree registers "SDBD"
-// so layer management is GDALOpenEx("SDBD:...") / Create, not a Smt* facade.
+class SdbdDataset;
+class SdbdLayer;
+
 inline constexpr char kSdbdDriverName[] = "SDBD";
 inline constexpr char kSdbdPrefix[] = "SDBD:";
+inline constexpr char kSdbdMetadataDomain[] = "SDBD";
+inline constexpr char kSdbdMetaFeatureType[] = "SMT_FEATURE_TYPE";
+inline constexpr char kSdbdMetaStyleHint[] = "SMT_STYLE_HINT";
 
 // Registers the SDBD driver with GDALDriverManager. Idempotent.
 SMT_SDE_GDAL_EXPORT bool register_sdbd_driver();
+
+SMT_SDE_GDAL_EXPORT SdbdDataset* as_sdbd_dataset(GDALDataset* ds);
+SMT_SDE_GDAL_EXPORT SdbdLayer* as_sdbd_layer(OGRLayer* layer);
 
 }  // namespace datasource
 }  // namespace sdb

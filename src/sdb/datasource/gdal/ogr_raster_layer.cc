@@ -3,8 +3,6 @@
 
 #include "sdb/datasource/gdal/ogr_raster_layer.h"
 
-#include "sdb/datasource/gdal/ogr_dataset.h"
-
 #include "gdal_priv.h"
 
 namespace sdb {

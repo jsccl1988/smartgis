@@ -24,6 +24,7 @@ using namespace Smt_Base;
 #define MAX_LAYER_SRS_NAME MAX_NAME_LENGTH
 
 class GDALDataset;
+class OGRGeometry;
 class OGRLayer;
 
 namespace Smt_GIS {
@@ -58,7 +59,7 @@ enum eDSType {
 };
 
 struct SmtGQueryDesc {
-  SmtGeometry* pQueryGeom;
+  OGRGeometry* pQueryGeom;
   SmtSpatialRs sSRs;
   float fSmargin;
 

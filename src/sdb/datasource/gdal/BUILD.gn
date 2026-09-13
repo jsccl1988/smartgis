@@ -15,12 +15,12 @@ source_set("ogr_codec") {
   configs += [ "//build:legacy" ]
   public_configs = [ "//build:legacy" ]
   include_dirs += [ "//src" ]
+  public_deps = [ "//third_party:gdal" ]
   deps = [
     "//src/algorithm/geo:geo",
     "//src/base:base",
     "//src/base:core",
     "//src/sdb/map:gis",
-    "//third_party:gdal",
   ]
 }
 
@@ -30,13 +30,15 @@ smt_shared_library("sde_gdal") {
   sources = [
     "gdal_driver.cc",
     "gdal_driver.h",
-    "ogr_dataset.cc",
-    "ogr_dataset.h",
     "ogr_export.h",
     "ogr_raster_layer.cc",
     "ogr_raster_layer.h",
+    "sdbd_dataset.cc",
+    "sdbd_dataset.h",
     "sdbd_gdal_driver.cc",
     "sdbd_gdal_driver.h",
+    "sdbd_layer.cc",
+    "sdbd_layer.h",
     "sdbd_handler.cc",
     "sdbd_handler.h",
     "sdbd_json.cc",

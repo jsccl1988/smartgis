@@ -349,7 +349,7 @@ bool SmtMap::QueryFeature(const SmtGQueryDesc* gquery,
   nFeaType = SmtFtUnknown;
   if (gquery && gquery->pQueryGeom) {
     Envelope env;
-    gquery->pQueryGeom->GetEnvelope(&env);
+    Smt_Geo::copy_envelope(*gquery->pQueryGeom, &env);
     lyr->SetSpatialFilterRect(env.MinX, env.MinY, env.MaxX, env.MaxY);
   }
   if (pquery && pquery->szFldName && pquery->szFldName[0] &&

@@ -3,6 +3,8 @@
 
 #include "sdb/datasource/gdal/ogr_connect.h"
 
+#include "sdb/datasource/gdal/sdbd_gdal_driver.h"
+
 #include <cstdio>
 #include <string>
 
@@ -173,6 +175,31 @@ std::string make_gdal_open_target(const Smt_GIS::SmtDataSourceInfo& info) {
     return file_provider_traits<Smt_GIS::PROVIDER_SHAPE>::open_target(info);
   }
   return std::string();
+}
+
+std::string make_sdbd_open_target(const Smt_GIS::SmtDataSourceInfo& info) {
+  if (info.unType == Smt_GIS::DS_WS || info.unType == Smt_GIS::DS_DB_ODBC ||
+      info.unType == Smt_GIS::DS_DB_MYSQL ||
+      info.unType == Smt_GIS::DS_DB_ORACLE) {
+    return {};
+  }
+  if (info.unType == Smt_GIS::DS_DB_ADO &&
+      !is_db_provider_supported(info.unProvider)) {
+    return {};
+  }
+  if (info.unType == Smt_GIS::DS_MEM) {
+    const char* name = info.szName[0] ? info.szName : "mem";
+    return std::string(kSdbdPrefix) + "MEM:" + name;
+  }
+  const std::string inner = make_gdal_open_target(info);
+  if (inner.empty()) {
+    return {};
+  }
+  const char* drv = gdal_driver_name_for(info);
+  if (!drv || !drv[0]) {
+    return std::string(kSdbdPrefix) + "AUTO:" + inner;
+  }
+  return std::string(kSdbdPrefix) + drv + ":" + inner;
 }
 
 }  // namespace datasource
