@@ -73,7 +73,7 @@ Escape hatch: if the Chromium pin is missing, freeze today's named pipe + `HostM
 | `MapContentsObserver` | Frame / extent / death callbacks | none (chrome implements) |
 | `MapWidgetHostView` | Public viewport; `latest()` shared surface | `MapWidgetHost` |
 | `MapRenderProcessHost` | `CreateProcess`, Job `KILL_ON_JOB_CLOSE`, invitation | `base::ipc` |
-| `MapWidgetHost` | Per-view proxy; input forward | `Remote<MapWidget>` |
+| `MapWidgetHost` | Per-view proxy; `ForwardMouseEvent` / `ForwardWheelEvent` / `ForwardKeyboardEvent` | `Remote<MapWidget>` |
 | `content.mojom` | IDL + generated C++ | slim `build/mojom.gni` |
 | `gpu::MapWidget` | Child implementation of `MapWidget` | present traits + Smt adapter |
 
@@ -135,6 +135,51 @@ Crash: disconnect ⇒ `MapContentsObserver` death notification ⇒ drop all `vie
 
 `--in-process-render` (dev): in-process message pipe, same interfaces, default off.
 
+## UI events
+
+Map pointers are taken on the **UI-process native viewport**, then forwarded by `MapWidgetHost`. Same polarity as Chromium: `RenderWidgetHostView` receives HWND/Aura events → `RenderWidgetHost::ForwardMouseEvent` → mojom `Widget`. Ribbon, tree, dialogs, and accelerators are consumed in chrome. Events that miss the map never call `DispatchPointer`. WebView JS must not see map `mousemove`.
+
+### Pipeline
+
+```
+User → chrome (ribbon/tree/dialog hit-test) → stop
+     → MapWidgetHostView::OnNativeEvent
+          DIP → physical pixels; origin = map HWND client origin
+          WM_LBUTTONDOWN: SetCapture on the UI HWND (not the GPU process)
+     → MapWidgetHost::Forward*
+          coalesce queued MouseMove (keep latest + button state)
+          Down / Up / Wheel / Key are never coalesced
+     → MapWidget.DispatchPointer(view_id, PointerEvent)   // fire-and-forget
+     → gpu::MapWidget → SmtIATool::MouseMove / LButtonDown / …
+     ← FrameReady / ViewCursor / ExtentChanged / ContextMenu
+```
+
+`ActivateTool` is a command, not an event. Later pointers go to the active `SmtIATool`.
+
+Coordinates are **surface physical pixels**. Chrome converts DIP×DPI in the view; GPU does not assume 96 DPI.
+
+### Input classes
+
+| Kind | v1 |
+| --- | --- |
+| Mouse / wheel | Map HWND `WM_MOUSE*` or WinUI `PointerRoutedEvent` → `Forward*` |
+| Touch | Map to mouse down/move/up. No pinch recognizer in GPU. If needed, UI synthesizes `kWheel` (or a later `kGesture`) |
+| Keyboard | Only while the map view has focus. Chrome keeps global accelerators (Ctrl+S) |
+| IME | Composition stays in UI (`Imm*` / WinUI `InputPane` / WebView2). Commit only: `DispatchText(view_id, string)` |
+| Context menu | GPU sends `ContextMenu(x, y, json)`; **chrome draws the menu**. No `TrackPopupMenu` in render except a documented whitelist |
+| DPI / monitor | `ResizeSurface`; following pointers carry the new `dpi` |
+| Drag out of HWND | UI `SetCapture`; coordinates may leave the client rect |
+
+Do not wait for a `DispatchPointer` ack before present. Smoothness wins; `generation` drops stale frames. The GPU process does not create a visible input HWND (hidden HWND is only for `SmtRenderDevice::Init`).
+
+### Shell adapters
+
+Each chrome only implements `NativeInputTraits<NativeEvent>` (`MSG` / `PointerRoutedEventArgs` / `ui::views::Event`) → `content::InputEvent`. Hosts still must not `#include` mojo; they call PascalCase methods on `MapWidgetHostView` / `MapContents`.
+
+- WebView2: sibling map HWND. Drag-from-web-to-map is `IDropTarget`, not `DispatchPointer`.
+- WinUI: convert DIP to physical pixels in the view; no C# hop.
+- Views: map child `OnMousePressed` forwards directly.
+
 ## Traits (reduce copies)
 
 ```cpp
@@ -162,6 +207,8 @@ One `MapMojoPipe<R>::Bind(ScopedMessagePipeHandle)` for both ends. Invitation se
 
 **PresentBackendTraits<PresentMode>**: `kSharedTexture` (DXGI NT), `kSoftwareDib` (section), `kChildHwnd` (parent HWND only). `gpu::MapWidget::AttachSurface` and `MapWidgetHostView` open paths share the traits.
 
+**NativeInputTraits<NativeEvent>**: Win32 `MSG`, WinUI pointer args, and Views events map to `content::InputEvent`. Hosts do not each copy a `dispatch_mouse` switch.
+
 **Allowed TMP:** concepts, `requires`, `if constexpr`, fold, explicit specialization, CRTP.  
 **Not on the main path:** Boost.Hana, C++26 pack indexing, deep recursive constexpr, a second IDL. Escape-hatch named pipe does not get this traits layer.
 
@@ -181,6 +228,7 @@ One `MapMojoPipe<R>::Bind(ScopedMessagePipeHandle)` for both ends. Invitation se
 | Generate | `out/gen/.../map_widget.mojom.h` exists |
 | Handshake | invitation + `Hello()` / `GpuCaps` within 15s |
 | Handle | `FrameReady.pixels` is a Mojo handle; DXGI `OpenSharedResource1` or DIB `MapViewOfFile` |
+| Input | Map HWND mouse/wheel reaches GPU `SmtIATool`; ribbon hit does not. IME commit is `DispatchText` only |
 | Rebind | `TerminateProcess` render → new invitation → new `view_id` + a frame |
 | Isolation | `SmtCore` compile lines do not use `//third_party/chromium` includes |
 | Escape | missing pin: named pipe `Hello` still works; never both transports |
