@@ -1,0 +1,64 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# =============================================================================
+# Default
+# =============================================================================
+
+config("default") {
+  if (is_debug) {
+    defines = [
+      "DEBUG",
+      "_DEBUG",
+    ]
+  } else {
+    defines = [ "NDEBUG" ]
+  }
+}
+
+config("c_std") {
+  if (is_win) {
+    if (vs_version >= 150) {
+      cflags_c = [ "/std:$c_std" ]
+    }
+  } else {
+    cflags_c = [ "-std=$c_std" ]
+  }
+}
+
+config("cc_std") {
+  if (is_win) {
+    if (vs_version >= 150) {
+      # MSVC 14.50/14.51 ignore /std:c++23 (D9002). C++23 is
+      # /std:c++23preview until 14.52 ships /std:c++23.
+      if (cc_std == "c++23") {
+        cflags_cc = [ "/std:c++23preview" ]
+      } else {
+        cflags_cc = [ "/std:$cc_std" ]
+      }
+    }
+  } else {
+    cflags_cc = [ "-std=$cc_std" ]
+  }
+}
+
+# Named warnings config (mogu //build/config/compiler:warnings).
+# Not in default configs — flipping /W3 → /W4 would flood existing targets.
+# Opt in: configs += [ "//build/config:warnings" ]
+config("warnings") {
+  if (is_win) {
+    cflags = [
+      "/W4",
+      "/wd4100",
+      "/wd4201",
+      "/wd4505",
+      "/wd4996",
+    ]
+  } else {
+    cflags_cc = [
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+    ]
+  }
+}

@@ -15,7 +15,7 @@ All rights reserved.
 
 | Path | 说明 |
 | --- | --- |
-| `BUILDCONFIG.gn` | `default_toolchain`、`is_debug` / `is_build_third_party` / `cc_std`（Windows **`c++20`** → `/std:c++20`；Linux/mac `c++23`）、默认 `configs` |
+| `BUILDCONFIG.gn` | `default_toolchain`、`is_debug` / `is_build_third_party` / `cc_std`（Windows **`c++23`** → MSVC `/std:c++23preview` on 14.50/14.51, `/std:c++23` when 14.52 ships；Linux/mac `c++23`）、默认 `configs` |
 | `config/BUILD.gn` | `default`、`c_std`、`cc_std`、可选 `warnings` |
 | `config/win/` | MSVC 默认 flags、CRT、subsystem |
 | `BUILD.gn` | `smt_legacy`（MBCS + 2010 include 树） |

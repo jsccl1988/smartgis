@@ -4,14 +4,18 @@
 import("//build/smartgis.gni")
 
 # MBCS + legacy include tree for 2010-2013 sources.
-config("smt_legacy") {
+config("legacy") {
   defines = [
     "BUILD_AS_DLL",
     "_MBCS",
     "WIN32",
     "_WINDOWS",
-    "_USRDLL",
     "_HAS_STD_BYTE=0",
+    # CxImage's stdint.h is on this include path and shadows MSVC's.
+    # It only emits UINT*_MAX / PTRDIFF_MAX when these C99 macros are
+    # set. C++23 <charconv> / <format> need them.
+    "__STDC_LIMIT_MACROS",
+    "__STDC_CONSTANT_MACROS",
   ]
   cflags = [
     "/UUNICODE",
@@ -22,49 +26,95 @@ config("smt_legacy") {
   include_dirs += [
     smt_vs,  # //build — forced include smt_compat.h
 
-    "$smt_src/SmtCore",
-    "$smt_src/SmtMathLib",
-    "$smt_src/SmtSysCore",
-    "$smt_src/SmtNetCore",
-    "$smt_src/SmtToolCore",
-    "$smt_src/SmtStaCore",
-    "$smt_src/SmtBaseLib",
-    "$smt_src/SmtGeoCore",
-    "$smt_src/SmtGisCore",
-    "$smt_src/SmtGisPrj",
-    "$smt_src/SmtGLRenderDevice",
-    "$smt_src/SmtGroupToolCore",
-    "$smt_src/SmtMapClient",
-    "$smt_src/SmtMapServer",
-    "$smt_src/SmtMapServerDevice111",
-    "$smt_src/SmtMapServerDeviceMgr",
-    "$smt_src/SmtMapService",
-    "$smt_src/SmtMFCExCore",
-    "$smt_src/SmtStaDiagram",
-    "$smt_src/SmtXAMBoxCore",
-    "$smt_src/SmtXCatalogCore",
-    "$smt_src/SmtXViewCore",
-    "$smt_src/SmtRender",
-    "$smt_src/SmtAppCore",
-    "$smt_src/SmtDemCore",
-    "$smt_src/SmtBAOrthGrid",
-    "$smt_src/SmtTinMesh",
-    "$smt_src/Smt3DMathLib",
-    "$smt_src/Smt3DGeoCore",
-    "$smt_src/Smt3DBaseLib",
-    "$smt_src/Smt3DMdLib",
-    "$smt_src/Smt3DRenderer",
-    "$smt_src/Smt3DTerrain",
-    "$smt_src/Smt3DPointCloud",
-    "$smt_src/SmtAdoCore",
-    "$smt_src/SmtAuxModule",
-    "$smt_src/SmtSDEAdoDevice",
-    "$smt_src/SmtSDEDeviceMgr",
-    "$smt_src/SmtSDEMemDevice",
-    "$smt_src/SmtSDESmfDevice",
-    "$smt_src/SmtSDEWSDevice",
-    "$smt_src/SmtGuiCore",
+    # foundation
+    "$smt_src/base",
+    "$smt_src/sys",
+    "$smt_src/net",
+    "$smt_src/algorithm/math",
+    "$smt_src/algorithm/math3d",
+    # geo / gis
+    "$smt_src/algorithm/geo",
+    "$smt_src/algorithm/geo3d",
+    "$smt_src/sdb/feature",
+    "$smt_src/sdb/layer",
+    "$smt_src/sdb/map",
+    "$smt_src/sdb/crs",
+    "//src",
+    "$smt_src/algorithm/proj",
+    # render
+    "$smt_src/render",
+    "$smt_src/render/render3d",
+    "$smt_src/render/gl",
+    # sde
+    "$smt_src/sdb/datasource/ado",
+    "$smt_src/sdb/datasource/mgr",
+    "$smt_src/sdb/datasource/mem",
+    "$smt_src/sdb/datasource/smf",
+    "$smt_src/sdb/datasource/ws",
+    # map
+    "$smt_src/web/client",
+    "$smt_src/web/server",
+    "$smt_src/web/server_dev",
+    "$smt_src/web/server_mgr",
+    "$smt_src/web/service",
+    # plugin host / app / tool / stat
+    "$smt_src/plugin",
+    "$smt_src/app/app_core",
+    "$smt_src/tool",
+    "$smt_src/tool/group",
+    "$smt_src/algorithm/stat",
+    "$smt_src/ui/chart",
+    # ui (not in src_all)
+    "$smt_src/ui/gui",
+    "$smt_src/ui/mfc_ex",
+    "$smt_src/ui/mfc_ex/gridctrl",
+    "$smt_src/ui/xambox",
+    "$smt_src/ui/xcatalog",
+    "$smt_src/ui/xview",
+    # domain leaves
+    "$smt_src/ado",
+    "$smt_src/plugin/dem",
+    "$smt_src/algorithm/baogrid",
+    "$smt_src/algorithm/tin",
+    "$smt_src/render/scene3d",
+    "$smt_src/render/model3d",
+    "$smt_src/render/terrain",
+    "$smt_src/render/pointcloud",
     "//third_party/cximage_pub",
     "//third_party/CxImage/CxImage",
   ]
+}
+
+# Shared MFC (MBCS). Headers/libs come from vcvars once the VS MFC
+# component is installed. WIN32_LEAN_AND_MEAN is incompatible with afx.h.
+# atls.lib supplies ATL::_AtlBaseModule (VS 18 ships no atlsd.lib).
+# Do not add mfcs here: extension DLLs already provide DllMain.
+config("mfc") {
+  cflags = [ "/UWIN32_LEAN_AND_MEAN" ]
+  defines = [
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+  ]
+  libs = [ "atls.lib" ]
+  if (is_debug) {
+    libs += [
+      "mfc140d.lib",
+      "comsuppd.lib",
+    ]
+  } else {
+    libs += [
+      "mfc140.lib",
+      "comsupp.lib",
+    ]
+  }
+}
+
+# CRT/MFC startup (WinMain / regular-DLL DllMain). Not for _AFXEXT modules.
+config("mfc_startup") {
+  libs = []
+  if (is_debug) {
+    libs += [ "mfcs140d.lib" ]
+  } else {
+    libs += [ "mfcs140.lib" ]
+  }
 }

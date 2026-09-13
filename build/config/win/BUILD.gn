@@ -1,0 +1,270 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+assert(is_win)
+
+config("default") {
+  defines = [
+    "UNICODE",
+    "_UNICODE",
+  ]
+
+  cflags = [
+    "/EHsc",
+    "/Gd",
+    "/Gm-",
+    "/Oy-",
+    "/W3",
+    "/WX-",
+    "/Zi",
+    "/Zl",
+  ]
+  if (vs_version >= 70) {
+    cflags += [
+      "/GS",
+      "/Zc:forScope",
+      "/Zc:wchar_t",
+    ]
+  }
+  if (vs_version >= 80) {
+    cflags += [
+      "/analyze-",
+      "/bigobj",
+      "/fp:precise",
+    ]
+  }
+  if (vs_version >= 90) {
+    cflags += [
+      "/analyze-",
+      "/bigobj",
+      "/fp:precise",
+    ]
+  }
+  # SmartGIS sources are MBCS/GBK. Do not add /utf-8 (incompatible with
+  # /source-charset:.936 and breaks string literals in 2010 files).
+
+  cflags_c = []
+  cflags_cc = [
+    "/EHsc",
+    "/Zc:__cplusplus",
+  ]
+  if (vs_version <= 60) {
+    cflags_c += [ "/TC" ]
+    cflags_cc += [ "/TP" ]
+  }
+
+  ldflags = [
+    "/DEBUG",
+    "/NODEFAULTLIB",
+  ]
+  if (vs_version >= 110) {
+    ldflags += [ "/MANIFEST:EMBED" ]
+  }
+}
+
+config("optmize") {
+  cflags = []
+  if (is_debug) {
+    cflags += [ "/Od" ]
+    if (vs_version >= 70) {
+      cflags += [ "/RTC1" ]
+    }
+    if (vs_version >= 158) {
+      cflags += [ "/JMC" ]
+    }
+  } else {
+    cflags += [
+      "/Gy",
+      "/O2",
+      "/Oi",
+    ]
+    if (vs_version >= 70) {
+      cflags += [ "/GL" ]
+    }
+  }
+
+  ldflags = []
+  if (!is_debug) {
+    ldflags += [
+      "/INCREMENTAL:NO",
+      "/OPT:ICF",
+      "/OPT:REF",
+    ]
+    if (vs_version >= 70) {
+      ldflags += [ "/LTCG" ]
+    }
+    if (vs_version >= 70 && target_cpu == "x86") {
+      ldflags += [ "/SAFESEH" ]
+    }
+  }
+
+  arflags = []
+  if (!is_debug && vs_version >= 70) {
+    arflags += [ "/LTCG" ]
+  }
+}
+
+config("no_cr_code") {
+  cflags = []
+  ldflags = []
+  cflags += [
+    "/wd4091",
+    "/wd4244",
+    "/wd4251",
+    "/wd4267",  # TODO(jschuh): size_t to int.
+    "/wd4275",
+    "/wd4302",
+    "/wd4311",
+    "/wd4312",
+    "/wd4800",  # Disable warning when forcing value to bool.
+    "/wd4838",
+    "/wd4996",  # Deprecated function warning.
+    "/wd5033",
+  ]
+}
+
+config("crt_link") {
+  cflags = []
+  ldflags = []
+  if (static_link_crt) {
+    if (is_debug) {
+      cflags += [ "/MTd" ]
+    } else {
+      cflags += [ "/MT" ]
+    }
+  } else {
+    if (is_debug) {
+      cflags += [ "/MDd" ]
+    } else {
+      cflags += [ "/MD" ]
+    }
+  }
+
+  libs = [ "oldnames.lib" ]
+  if (static_link_crt) {
+    if (is_debug) {
+      libs += [
+        "libcmtd.lib",
+        "libcpmtd.lib",
+      ]
+      if (vs_version >= 140) {
+        libs += [
+          "libvcruntimed.lib",
+          "libucrtd.lib",
+        ]
+      }
+    } else {
+      libs += [
+        "libcmt.lib",
+        "libcpmt.lib",
+      ]
+      if (vs_version >= 140) {
+        libs += [
+          "libvcruntime.lib",
+          "libucrt.lib",
+        ]
+      }
+    }
+  } else {
+    if (is_debug) {
+      libs += [
+        "msvcrtd.lib",
+        "msvcprtd.lib",
+      ]
+      if (vs_version >= 140) {
+        libs += [
+          "vcruntimed.lib",
+          "ucrtd.lib",
+        ]
+      }
+    } else {
+      libs += [
+        "msvcrt.lib",
+        "msvcprt.lib",
+      ]
+      if (vs_version >= 140) {
+        libs += [
+          "vcruntime.lib",
+          "ucrt.lib",
+        ]
+      }
+    }
+  }
+}
+
+config("core_libraries") {
+  libs = [
+    "kernel32.lib",
+    "user32.lib",
+    "gdi32.lib",
+    "gdiplus.lib",
+    "winspool.lib",
+    "comdlg32.lib",
+    "advapi32.lib",
+    "shell32.lib",
+    "ole32.lib",
+    "oleaut32.lib",
+    "uuid.lib",
+    "odbc32.lib",
+    "odbccp32.lib",
+    "comctl32.lib",
+    "msimg32.lib",
+    "winmm.lib",
+    "shlwapi.lib",
+    "Imm32.lib",
+    "Dbghelp.lib",
+  ]
+}
+
+config("win_macros") {
+  defines = [
+    "WINVER=$winver",
+    "_WIN32_WINNT=$winver",
+    "_WIN32_WINDOWS=$winver",
+    "NTDDI_VERSION=${winver}0000",
+    "WIN32_LEAN_AND_MEAN",
+    "_CRT_NONSTDC_NO_DEPRECATE",
+    "_CRT_NONSTDC_NO_WARNINGS",
+    "_CRT_SECURE_NO_DEPRECATE",
+    "_CRT_SECURE_NO_WARNINGS",
+    # C++17 std::byte collides with Windows/smt_compat `byte`.
+    "_HAS_STD_BYTE=0",
+  ]
+  if (is_winxp) {
+    defines += [ "_USING_V110_SDK71_" ]
+  }
+}
+
+config("target_arch") {
+  if (target_cpu == "x86") {
+    ldflags = [ "/MACHINE:X86" ]
+    arflags = [ "/MACHINE:X86" ]
+  } else {
+    assert(vs_version >= 80)
+    ldflags = [ "/MACHINE:X64" ]
+    arflags = [ "/MACHINE:X64" ]
+  }
+}
+
+config("console_subsystem") {
+  if (target_cpu == "x86") {
+    ldflags = [ "/SUBSYSTEM:CONSOLE,5.01" ]
+    arflags = [ "/SUBSYSTEM:CONSOLE,5.01" ]
+  } else {
+    ldflags = [ "/SUBSYSTEM:CONSOLE,5.02" ]
+    arflags = [ "/SUBSYSTEM:CONSOLE,5.02" ]
+  }
+}
+
+config("windows_subsystem") {
+  defines = [
+    "_WINDOWS",
+  ]
+  if (target_cpu == "x86") {
+    ldflags = [ "/SUBSYSTEM:WINDOWS,5.01" ]
+    arflags = [ "/SUBSYSTEM:WINDOWS,5.01" ]
+  } else {
+    ldflags = [ "/SUBSYSTEM:WINDOWS,5.02" ]
+    arflags = [ "/SUBSYSTEM:WINDOWS,5.02" ]
+  }
+}
