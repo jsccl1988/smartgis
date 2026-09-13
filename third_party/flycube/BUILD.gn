@@ -1,0 +1,91 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+_flycube_root = "//third_party/.src/flycube"
+_flycube_debug_out = "$root_out_dir/flycube"
+_flycube_prebuilt = "//third_party/flycube_prebuilt"
+
+config("flycube_headers") {
+  include_dirs += [
+    "$_flycube_root/src/FlyCube",
+    "$_flycube_root/3rdparty/glm",
+    "$_flycube_root/3rdparty/gli",
+    "$_flycube_root/3rdparty/Vulkan-Headers/include",
+    "$_flycube_root/3rdparty/DirectX-Headers/include/directx",
+    "$_flycube_root/3rdparty/SPIRV-Cross",
+  ]
+  defines = [
+    "VULKAN_SUPPORT",
+    "DIRECTX_SUPPORT",
+    "NOMINMAX",
+    "_HAS_STD_BYTE=1",
+  ]
+}
+
+# SPIRV-Cross Debug libs use CMAKE_DEBUG_POSTFIX "d". FlyCube/nowide do not.
+_flycube_lib_names = [
+  "FlyCube.lib",
+  "DirectX-Headers.lib",
+  "nowide.lib",
+]
+if (is_debug) {
+  _flycube_lib_names += [
+    "spirv-cross-hlsld.lib",
+    "spirv-cross-msld.lib",
+    "spirv-cross-glsld.lib",
+    "spirv-cross-cored.lib",
+  ]
+} else {
+  _flycube_lib_names += [
+    "spirv-cross-hlsl.lib",
+    "spirv-cross-msl.lib",
+    "spirv-cross-glsl.lib",
+    "spirv-cross-core.lib",
+  ]
+}
+
+config("flycube_libs") {
+  _flycube_lib_dir = _flycube_prebuilt
+  if (is_debug) {
+    _flycube_lib_dir = _flycube_debug_out
+  }
+  lib_dirs = [
+    "$_flycube_lib_dir/lib",
+    "C:/VulkanSDK/1.4.357.0/Lib",
+  ]
+  libs = _flycube_lib_names
+  libs += [
+    "d3d12.lib",
+    "dxgi.lib",
+    "dxguid.lib",
+    "vulkan-1.lib",
+    "atls.lib",
+  ]
+}
+
+if (is_debug) {
+  action("build_flycube_debug") {
+    script = "//third_party/flycube/build_debug.py"
+    inputs = [ "$_flycube_root/CMakeLists.txt" ]
+    outputs = []
+    foreach(_lib, _flycube_lib_names) {
+      outputs += [ "$_flycube_debug_out/lib/$_lib" ]
+    }
+    args = [
+      rebase_path(_flycube_root, root_build_dir),
+      rebase_path(_flycube_debug_out, root_build_dir),
+    ]
+  }
+}
+
+group("flycube") {
+  public_configs = [
+    ":flycube_headers",
+    ":flycube_libs",
+  ]
+  if (is_debug) {
+    public_deps = [ ":build_flycube_debug" ]
+  }
+}

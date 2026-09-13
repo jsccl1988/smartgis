@@ -1,0 +1,7 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Thin alias: product sources live under //src (mogu-style module tree).
+group("core_all") {
+  deps = [ "//src:src_all" ]
+}

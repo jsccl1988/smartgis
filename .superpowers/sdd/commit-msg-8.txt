@@ -1,0 +1,1 @@
+Share the OGR feature codec with SMF and document the GDAL DB provider.

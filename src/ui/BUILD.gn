@@ -1,0 +1,15 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# MFC / BCG UI DLLs. Not in //src:src_all.
+# Endgame toolkit is //src/ui/views (//:ui_views). Do not add it here.
+group("ui") {
+  deps = [
+    "//src/ui/chart:stat_chart",
+    "//src/ui/gui:gui",
+    "//src/ui/mfc_ex:mfc_ex",
+    "//src/ui/xambox:xambox",
+    "//src/ui/xcatalog:xcatalog",
+    "//src/ui/xview:xview",
+  ]
+}

@@ -62,7 +62,6 @@ set "NINJA_TARGET="
 set "BUILD_APP=false"
 set "BUILD_WINUI=false"
 set "BUILD_RENDER=false"
-set "BUILD_WEBVIEW2=false"
 set "BUILD_VIEWS=false"
 if /I "%~1"=="sln" (
   echo ERROR: MSBuild/sln is not an engineering entry. Use build.bat ^(GN^).>&2
@@ -71,8 +70,7 @@ if /I "%~1"=="sln" (
   exit /b 2
 )
 
-REM mogu build.sh / mgis build.bat t: fetch manifest sources (vendored skip).
-REM CMake prefix stays out/third_party. Do not install into third_party/.install.
+REM mogu build.sh / mgis build.bat t: batch install to third_party/.install
 if /I "%~1"=="t" (
   if exist "%LocalAppData%\Programs\Python\Python312\python.exe" (
     set "TP_PY=%LocalAppData%\Programs\Python\Python312\python.exe"
@@ -80,11 +78,17 @@ if /I "%~1"=="t" (
     set "TP_PY=python"
   )
   if "%~2"=="" (
-    "%TP_PY%" "%~dp0third_party\tools\fetch.py" --all
+    "%TP_PY%" "%~dp0third_party\tools\batch.py" --manifest "%~dp0third_party\manifest.json" --install-prefix "%~dp0third_party\.install" --build-type Debug
   ) else (
-    "%TP_PY%" "%~dp0third_party\tools\fetch.py" --package "%~2"
+    "%TP_PY%" "%~dp0third_party\tools\batch.py" --manifest "%~dp0third_party\manifest.json" --install-prefix "%~dp0third_party\.install" --build-type Debug --package "%~2"
   )
   set "ERR=!ERRORLEVEL!"
+  if !ERR! EQU 0 (
+    if not exist "%~dp0out" mkdir "%~dp0out"
+    if not exist "%~dp0out\third_party" (
+      mklink /J "%~dp0out\third_party" "%~dp0third_party\.install"
+    )
+  )
   popd
   exit /b !ERR!
 )
@@ -93,6 +97,7 @@ if not "%~1"=="" (
     set "NINJA_TARGET=all"
   ) else if /I "%~1"=="te" (
     set "NINJA_TARGET=test_all"
+    set "BUILD_APP=true"
   ) else if /I "%~1"=="a" (
     set "NINJA_TARGET=all_with_tests"
   ) else if /I "%~1"=="b" (
@@ -106,12 +111,6 @@ if not "%~1"=="" (
   ) else if /I "%~1"=="views" (
     set "NINJA_TARGET=views"
     set "BUILD_VIEWS=true"
-  ) else if /I "%~1"=="web" (
-    set "NINJA_TARGET=webview2"
-    set "BUILD_WEBVIEW2=true"
-  ) else if /I "%~1"=="webview2" (
-    set "NINJA_TARGET=webview2"
-    set "BUILD_WEBVIEW2=true"
   ) else if /I "%~1"=="render" (
     set "NINJA_TARGET=render"
     set "BUILD_RENDER=true"
@@ -122,7 +121,6 @@ if not "%~1"=="" (
     set "NINJA_TARGET=e2e"
     set "BUILD_APP=true"
     set "BUILD_VIEWS=true"
-    set "BUILD_WEBVIEW2=true"
     set "BUILD_RENDER=true"
     set "BUILD_WINUI=true"
   ) else (
@@ -138,7 +136,7 @@ if /I "!BUILD_WINUI!"=="true" (
   )
 )
 
-"%GN_PATH%gn.exe" gen out --root=./ --ide=vs2019 --args="is_debug=true is_build_third_party=false smt_run_vs_env_script=false vs_version=180 msvc_installed=true smt_build_app=!BUILD_APP! smt_build_views=!BUILD_VIEWS! smt_build_webview2=!BUILD_WEBVIEW2! smt_build_render=!BUILD_RENDER! smt_build_winui=!BUILD_WINUI!"
+"%GN_PATH%gn.exe" gen out --root=./ --ide=vs2019 --args="is_debug=true is_build_third_party=false smt_run_vs_env_script=false vs_version=180 msvc_installed=true smt_build_app=!BUILD_APP! smt_build_views=!BUILD_VIEWS! smt_build_render=!BUILD_RENDER! smt_build_winui=!BUILD_WINUI!"
 if errorlevel 1 (
   popd
   exit /b 1
@@ -164,7 +162,7 @@ if !ERR! EQU 0 (
     set "ERR=!ERRORLEVEL!"
   ) else if /I "!NINJA_TARGET!"=="test_all" (
     set "UNIT_ERR=0"
-    for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe sde_gdal_test.exe proj_test.exe net_test.exe tool_dispatch_test.exe) do (
+    for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe leftover_record_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe tin_xyz_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe views_unittests.exe ipc_test.exe) do (
       if exist ".\out\%%T" (
         echo Running out\%%T
         ".\out\%%T"

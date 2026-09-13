@@ -1,0 +1,59 @@
+---
+description: New-tree C++ functions use snake_case; do not rename 2010 branches/ ABI
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Function naming: `snake_case` (new trees)
+
+Applies to **new** C++ under **`core/`** wrappers, **`algorithm/`**, and new modules under **`src/`** (and any future `base/` / `gfx/` / `gui/`). Does **not** apply to `third_party/` or **`branches/`** 2010–2013 sources (keep `GetLength` / `Set` ABI).
+
+## Must be `snake_case` (new code)
+
+Free functions, member functions (including `static`), and any **named** callable the project owns (e.g. named function objects used as API).
+
+```cpp
+// BAD
+void LoadConfig();
+int shardCount() const;
+
+// GOOD
+void load_config();
+int shard_count() const;
+```
+
+Boolean predicates prefer readable prefixes: `is_` / `has_` / `can_` / `should_`.
+
+## Rename policy (when editing)
+
+If new or touched code **in scope** encounters a project-owned function named in `camelCase` or `PascalCase`:
+
+1. Rename it to **`snake_case`** in the **declaration and definition**.
+2. Update **all in-tree call sites of that new-tree symbol** in the **same change**.
+3. Do **not** leave a local-only rename or a dual-name shim unless an external ABI forces it (then document why next to the symbol).
+
+Do **not** drive-by rename unrelated symbols outside the edit’s blast radius; do rename every use of a symbol you are already changing.
+
+Do **not** rename **`Smt_*` / MFC / LoadLibrary** exports or **`branches/`** ABI to snake_case.
+
+## Out of scope (do not snake_case)
+
+- **Types**: `class` / `struct` / `enum` / type aliases stay **PascalCase** (or match existing type style in that file).
+- **mojom / protobuf generated** symbols and names dictated by `.mojom` / `.proto`.
+- **Third-party / STL / Win32 / MFC** names you call or override when the external name is fixed.
+- Wrapper **entry points that must match an external ABI or virtual override** you cannot change — keep the required name; prefer a thin `snake_case` internal helper when practical.
+- Legacy exports under `src/` (2010–2013 ABI).
+
+## Allowed exceptions
+
+- `operator…` overloads.
+- Single-word STL-style members already conventional (`begin`, `end`, `size`, `empty`, `data`, `clear`, `swap`, `reset`) when matching container/iterator conventions.
+- Macros and test macros (`TEST`, `TEST_F`, `BENCHMARK`, etc.).
+
+## Relation to other rules
+
+**`.cursor/rules/style/tree-style.mdc`** (local consistency), **`.cursor/rules/style/namespace.mdc`** (namespace layers), **`.cursor/rules/style/cxx-standard.mdc`** (C++23 + traits). Narrower product rules may add more naming detail; they must **not** weaken this rule inside new trees.

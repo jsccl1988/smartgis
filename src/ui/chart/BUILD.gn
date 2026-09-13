@@ -1,0 +1,24 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_mfc_shared_library("stat_chart") {
+  dll_stem = "stat_chart"
+  defines = [ "STAT_CHART_EXPORTS" ]
+  sources = [
+    "dlg_2d_x_chart_view.cpp",
+    "diagram.cpp",
+    "diagram.rc",
+    "chart_api.cpp",
+    "chart.cpp",
+    "diagramdata.cpp",
+    "stdafx.cpp",
+  ]
+  deps = [
+    "//src/base:core",
+    "//src/algorithm/stat:stat",
+    "//src/sdb/datasource/mgr:sde_mgr",
+    "//src/ui/xview:xview",
+  ]
+}

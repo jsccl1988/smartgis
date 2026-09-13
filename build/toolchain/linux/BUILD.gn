@@ -1,0 +1,122 @@
+toolchain("gcc") {
+  cc = "gcc"
+  cxx = "g++"
+  asm = cc
+  ar = "ar"
+  ld = cxx
+
+  md = "-MMD"
+
+  # These library switches can apply to all tools below.
+  lib_switch = "-l"
+  lib_dir_switch = "-L"
+
+  # Object files go in this directory.
+  object_subdir = "{{target_out_dir}}/{{label_name}}"
+
+  tool("cc") {
+    depfile = "{{output}}.d"
+    precompiled_header_type = "gcc"
+    command = "$cc $md -MF $depfile {{defines}} {{include_dirs}} {{cflags}} {{cflags_c}} -c {{source}} -o {{output}}"
+    depsformat = "gcc"
+    description = "CC {{output}}"
+    outputs = [ "$object_subdir/{{source_name_part}}.o" ]
+  }
+  tool("cxx") {
+    depfile = "{{output}}.d"
+    precompiled_header_type = "gcc"
+    command = "$cxx $md -MF $depfile {{defines}} {{include_dirs}} {{cflags}} {{cflags_cc}} -c {{source}} -o {{output}}"
+    depsformat = "gcc"
+    description = "CXX {{output}}"
+    outputs = [ "$object_subdir/{{source_name_part}}.o" ]
+  }
+  tool("asm") {
+    # For GCC we can just use the C compiler to compile assembly.
+    depfile = "{{output}}.d"
+    command = "$asm $md -MF $depfile {{defines}} {{include_dirs}} {{asmflags}} -c {{source}} -o {{output}}"
+    depsformat = "gcc"
+    description = "ASM {{output}}"
+    outputs = [ "$object_subdir/{{source_name_part}}.o" ]
+  }
+  tool("alink") {
+    # whole_archive_flag = "-Wl,--whole-archive"
+    # no_whole_archive_flag = "-Wl,--no-whole-archive"
+    rspfile = "{{output}}.rsp"
+    rspfile_content = "{{inputs}}"
+    command = "\"$ar\" {{arflags}} -r -c -s -D {{output}} @\"$rspfile\""
+    command = "rm -f {{output}} && $command"
+    description = "AR {{output}}"
+    outputs = [ "{{output_dir}}/{{target_output_name}}{{output_extension}}" ]
+
+    # Shared libraries go in the target out directory by default so we can
+    # generate different targets with the same name and not have them collide.
+    default_output_dir = "{{root_out_dir}}"
+    default_output_extension = ".a"
+    output_prefix = "lib"
+  }
+  tool("solink") {
+    soname = "{{target_output_name}}{{output_extension}}"  # e.g. "libfoo.so".
+    sofile = "{{output_dir}}/$soname"  # Possibly including toolchain dir.
+    rspfile = sofile + ".rsp"
+    soname_flag = "-Wl,-soname=\"$soname\""
+    whole_archive_flag = "-Wl,--whole-archive"
+    no_whole_archive_flag = "-Wl,--no-whole-archive"
+    command =
+        "$ld -shared $soname_flag {{ldflags}} -o \"$sofile\" @\"$rspfile\""
+    rspfile_content = "$whole_archive_flag {{inputs}} {{solibs}} $no_whole_archive_flag {{libs}} $no_whole_archive_flag"
+    description = "SOLINK $sofile"
+    default_output_dir = "{{root_out_dir}}"
+    default_output_extension = ".so"
+    output_prefix = "lib"
+
+    # Since the above commands only updates the .TOC file when it changes, ask
+    # Ninja to check if the timestamp actually changed to know if downstream
+    # dependencies should be recompiled.
+    restat = true
+
+    # Tell GN about the output files. It will link to the sofile but use the
+    # tocfile for dependency management.
+    outputs = [ sofile ]
+    link_output = sofile
+    depend_output = sofile
+  }
+  tool("solink_module") {
+    soname = "{{target_output_name}}{{output_extension}}"  # e.g. "libfoo.so".
+    sofile = "{{output_dir}}/$soname"
+    rspfile = sofile + ".rsp"
+    soname_flag = "-Wl,-soname=\"$soname\""
+    whole_archive_flag = "-Wl,--whole-archive"
+    no_whole_archive_flag = "-Wl,--no-whole-archive"
+    command =
+        "$ld -shared {{ldflags}} -o \"$sofile\" $soname_flag @\"$rspfile\""
+    rspfile_content = "$whole_archive_flag {{inputs}} {{solibs}} $no_whole_archive_flag {{libs}} $no_whole_archive_flag"
+    description = "SOLINK_MODULE $sofile"
+    default_output_dir = "{{root_out_dir}}"
+    default_output_extension = ".so"
+    output_prefix = "lib"
+    outputs = [ sofile ]
+  }
+  tool("link") {
+    exename = "{{target_output_name}}{{output_extension}}"
+    outfile = "{{output_dir}}/$exename"
+    rspfile = "$outfile.rsp"
+    default_output_dir = "{{root_out_dir}}"
+    start_group_flag = "-Wl,--start-group"
+    end_group_flag = "-Wl,--end-group "
+    link_command = "$ld {{ldflags}} -o \"$outfile\" $start_group_flag @\"$rspfile\" {{solibs}} $end_group_flag {{libs}}"
+    command = "$link_command"
+    description = "LINK $outfile"
+    whole_archive_flag = "-Wl,--whole-archive"
+    no_whole_archive_flag = "-Wl,--no-whole-archive"
+    rspfile_content = "$whole_archive_flag {{inputs}} {{solibs}} $no_whole_archive_flag {{libs}} $no_whole_archive_flag"
+    outputs = [ outfile ]
+  }
+  tool("stamp") {
+    command = "touch {{output}}"
+    description = "STAMP {{output}}"
+  }
+  tool("copy") {
+    command = "cp -af {{source}} {{output}}"
+    description = "COPY {{source}} {{output}}"
+  }
+}

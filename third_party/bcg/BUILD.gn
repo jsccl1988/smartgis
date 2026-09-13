@@ -1,0 +1,34 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+#
+# BCGControlBar Pro. Drop or junction the vendor tree here so
+# BCGCBProInc.h is visible (this dir, include/, or BCGCBPro/).
+# Do not vendor a pirated copy. Override with gn arg bcg_root.
+
+declare_args() {
+  # Directory that contains BCGCBProInc.h, or a parent of include/ / BCGCBPro/.
+  bcg_root = "//third_party/bcg"
+}
+
+config("bcg_sdk") {
+  include_dirs += [
+    bcg_root,
+    "$bcg_root/include",
+    "$bcg_root/BCGCBPro",
+  ]
+  lib_dirs = [
+    "$bcg_root/lib",
+    "$bcg_root/lib/x64",
+    "$bcg_root/lib/x64/Debug",
+    "$bcg_root/lib/x64/Release",
+  ]
+}
+
+# Extension DLLs that include BCG headers (mfc_ex / gui / xambox).
+config("bcg_in_other_dll") {
+  defines = [ "_BCGCBPRO_IN_OTHER_DLL" ]
+}
+
+group("bcg") {
+  public_configs = [ ":bcg_sdk" ]
+}

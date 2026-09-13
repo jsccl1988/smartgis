@@ -3,10 +3,9 @@
 
 #include "sdb/scene/scene.h"
 
-#include "3dgeometry.h"
-#include "geometry.h"
-#include "layer.h"
-#include "map.h"
+#include "algorithm/geo/geometry.h"
+#include "sdb/layer/layer.h"
+#include "sdb/map/map.h"
 
 #include "ogrsf_frmts.h"
 
@@ -41,7 +40,13 @@ Node* World::add_node(NodeKind kind, const char* name, double min_x, double min_
     node.name = name;
   }
   node.layer = nullptr;
+  node.ogr_layer = nullptr;
   node.geom_3d = nullptr;
+  node.tin = nullptr;
+  node.grid = nullptr;
+  node.model = nullptr;
+  node.tileset = nullptr;
+  node.visible_uris.clear();
   ++generation_;
   node.generation = generation_;
   nodes_.push_back(node);
@@ -75,7 +80,7 @@ const Node* World::node_at(size_t index) const {
   return &nodes_[index];
 }
 
-void World::attach_map(const Smt_GIS::SmtMap* map) {
+void World::attach_map(const sdb::SmtMap* map) {
   if (!map) {
     return;
   }
@@ -87,12 +92,12 @@ void World::attach_map(const Smt_GIS::SmtMap* map) {
     }
   }
   nodes_.swap(kept);
-  Smt_GIS::SmtMap* walk = const_cast<Smt_GIS::SmtMap*>(map);
+  sdb::SmtMap* walk = const_cast<sdb::SmtMap*>(map);
   const int count = walk->GetLayerCount();
   for (int i = 0; i < count; ++i) {
     if (OGRLayer* ogr = const_cast<OGRLayer*>(map->GetOgrLayer(i))) {
       OGREnvelope ogr_env;
-      Smt_Base::Envelope env;
+      base::Envelope env;
       if (ogr->GetExtent(&ogr_env, TRUE) == OGRERR_NONE) {
         env.MinX = ogr_env.MinX;
         env.MinY = ogr_env.MinY;
@@ -106,12 +111,12 @@ void World::attach_map(const Smt_GIS::SmtMap* map) {
       }
       continue;
     }
-    const Smt_GIS::SmtLayer* layer = map->GetLeftoverLayer(i);
+    const sdb::SmtLayer* layer = map->GetLeftoverLayer(i);
     if (!layer) {
       continue;
     }
-    Smt_Base::Envelope env;
-    layer->GetEnvelope(env);
+    base::Envelope env;
+    layer->get_envelope(env);
     NodeKind kind = NodeKind::kRasterLayer;
     Node* node = add_node(kind, layer->GetLayerName(), env.MinX, env.MinY, 0,
                           env.MaxX, env.MaxY, 0);
@@ -122,7 +127,7 @@ void World::attach_map(const Smt_GIS::SmtMap* map) {
 }
 
 Node* World::attach_vector_geoms(const char* name,
-                                 const Smt_Geo::SmtGeometry* const* geoms,
+                                 const OGRGeometry* const* geoms,
                                  size_t count) {
   if (!geoms || count == 0) {
     return nullptr;
@@ -136,8 +141,8 @@ Node* World::attach_vector_geoms(const char* name,
     if (!geoms[i]) {
       continue;
     }
-    Smt_Base::Envelope env;
-    geoms[i]->GetEnvelope(&env);
+    base::Envelope env;
+    geo::copy_envelope(*geoms[i], &env);
     if (!have_env) {
       min_x = env.MinX;
       min_y = env.MinY;
@@ -159,20 +164,167 @@ Node* World::attach_vector_geoms(const char* name,
   return node;
 }
 
-Node* World::attach_3d_geometry(const Smt_3DGeo::Smt3DGeometry* geom,
-                                const char* name) {
+Node* World::attach_3d_geometry(const OGRGeometry* geom, const char* name) {
   if (!geom) {
     return nullptr;
   }
-  Smt_3DMath::Aabb box;
-  geom->GetAabb(&box);
-  Node* node =
-      add_node(NodeKind::kModel, name, box.vcMin.x, box.vcMin.y, box.vcMin.z,
-               box.vcMax.x, box.vcMax.y, box.vcMax.z);
+  OGREnvelope env;
+  geom->getEnvelope(&env);
+  Node* node = add_node(NodeKind::kModel, name, env.MinX, env.MinY, 0, env.MaxX,
+                        env.MaxY, 0);
   if (node) {
     node->geom_3d = geom;
   }
   return node;
+}
+
+Node* World::attach_tin(const geo::Tin* tin, const char* name) {
+  if (!tin || tin->is_empty()) {
+    return nullptr;
+  }
+  base::Envelope env;
+  tin->get_envelope(&env);
+  Node* node =
+      add_node(NodeKind::kVectorLayer, name, env.MinX, env.MinY, 0, env.MaxX,
+               env.MaxY, 0);
+  if (node) {
+    node->tin = tin;
+  }
+  return node;
+}
+
+Node* World::attach_grid(const geo::Grid* grid, const char* name) {
+  if (!grid || grid->is_empty()) {
+    return nullptr;
+  }
+  base::Envelope env;
+  grid->get_envelope(&env);
+  Node* node =
+      add_node(NodeKind::kVectorLayer, name, env.MinX, env.MinY, 0, env.MaxX,
+               env.MaxY, 0);
+  if (node) {
+    node->grid = grid;
+  }
+  return node;
+}
+
+Node* World::attach_raster_layer(const sdb::SmtRasterLayer* layer) {
+  if (!layer) {
+    return nullptr;
+  }
+  base::fRect rect;
+  base::Envelope env;
+  if (layer->GetRasterRect(rect) == SMT_ERR_NONE && rect.width() > 0 &&
+      rect.height() > 0) {
+    env.MinX = rect.lb.x;
+    env.MinY = rect.lb.y;
+    env.MaxX = rect.rt.x;
+    env.MaxY = rect.rt.y;
+  } else {
+    layer->get_envelope(env);
+  }
+  Node* node = add_node(NodeKind::kRasterLayer, layer->GetLayerName(), env.MinX,
+                        env.MinY, 0, env.MaxX, env.MaxY, 0);
+  if (node) {
+    node->layer = layer;
+  }
+  return node;
+}
+
+Node* World::attach_tile_layer(const sdb::SmtTileLayer* layer) {
+  if (!layer) {
+    return nullptr;
+  }
+  base::Envelope env;
+  layer->get_envelope(env);
+  const int n = layer->GetTileCount();
+  for (int i = 0; i < n; ++i) {
+    const base::SmtTile* tile = layer->GetTile(i);
+    if (!tile) {
+      continue;
+    }
+    env.merge(tile->rtTileRect.lb.x, tile->rtTileRect.lb.y);
+    env.merge(tile->rtTileRect.rt.x, tile->rtTileRect.rt.y);
+  }
+  Node* node = add_node(NodeKind::kRasterLayer, layer->GetLayerName(), env.MinX,
+                        env.MinY, 0, env.MaxX, env.MaxY, 0);
+  if (node) {
+    node->layer = layer;
+  }
+  return node;
+}
+
+Node* World::attach_model(const sdb::model::ModelAsset* asset,
+                          const char* name) {
+  if (!asset) {
+    return nullptr;
+  }
+  double min_x = 0;
+  double min_y = 0;
+  double min_z = 0;
+  double max_x = 0;
+  double max_y = 0;
+  double max_z = 0;
+  if (!sdb::model::model_aabb(*asset, &min_x, &min_y, &min_z, &max_x, &max_y,
+                              &max_z)) {
+    return nullptr;
+  }
+  Node* node =
+      add_node(NodeKind::kModel, name, min_x, min_y, min_z, max_x, max_y, max_z);
+  if (node) {
+    node->model = asset;
+  }
+  return node;
+}
+
+Node* World::attach_tileset(const sdb::model::Tileset* tileset,
+                            const char* name) {
+  if (!tileset) {
+    return nullptr;
+  }
+  const sdb::model::Tile& root = tileset->root;
+  Node* node = add_node(NodeKind::kTileset, name, root.min_x, root.min_y,
+                        root.min_z, root.max_x, root.max_y, root.max_z);
+  if (node) {
+    node->tileset = tileset;
+  }
+  return node;
+}
+
+Node* World::attach_terrain(const char* name, double min_x, double min_y,
+                            double min_z, double max_x, double max_y,
+                            double max_z) {
+  return add_node(NodeKind::kTerrain, name, min_x, min_y, min_z, max_x, max_y,
+                  max_z);
+}
+
+Node* World::attach_pointcloud(const char* name, double min_x, double min_y,
+                               double min_z, double max_x, double max_y,
+                               double max_z) {
+  return add_node(NodeKind::kPointCloud, name, min_x, min_y, min_z, max_x,
+                  max_y, max_z);
+}
+
+bool World::apply_tileset_selection(
+    uint64_t id, const std::vector<const sdb::model::Tile*>& visible) {
+  Node* node = find(id);
+  if (!node || node->kind != NodeKind::kTileset) {
+    return false;
+  }
+  std::vector<std::string> uris;
+  uris.reserve(visible.size());
+  for (const sdb::model::Tile* tile : visible) {
+    if (tile) {
+      uris.push_back(tile->content_uri);
+    }
+  }
+  if (uris == node->visible_uris) {
+    return false;
+  }
+  node->visible_uris.swap(uris);
+  ++generation_;
+  node->generation = generation_;
+  return true;
 }
 
 void World::query_aabb(double min_x, double min_y, double min_z, double max_x,

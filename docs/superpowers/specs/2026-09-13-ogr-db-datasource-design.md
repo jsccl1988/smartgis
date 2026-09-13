@@ -123,7 +123,7 @@ Under `src/sdb/datasource/gdal/`:
 - `ogr_connect.h` / `ogr_connect.cc` — `db_provider_traits` + thin free functions
 - `gdal_driver.h` / `gdal_driver.cc` — `register_gdal_driver()` returns true after `GDALAllRegister()`
 
-GN: replace `source_set("gdal_seam")` with `smt_shared_library("sde_gdal")`, `dll_stem = "SmtSDEGdalDevice"`, `Export_SmtSDEGdalDevice`.
+GN: replace `source_set("gdal_seam")` with `smt_shared_library("sde_gdal")`, `dll_stem = "sde_gdal"`, `SDE_GDAL_EXPORT`.
 
 ### Device manager and enums
 

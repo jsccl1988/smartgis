@@ -1,0 +1,4 @@
+Open GeoPackage datasets through GDAL and round-trip OGR layers.
+
+Reject Access. Persist point, curve, polygon, annotation, TIN, and
+grid. Raster Create is UNSUPPORTED when the SDK has no raster bands.

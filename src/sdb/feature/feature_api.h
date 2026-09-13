@@ -4,31 +4,23 @@
 #ifndef _GIS_API_H
 #define _GIS_API_H
 
-#include "core.h"
-#include "layer.h"
+#include "base/core/core.h"
+#include "sdb/gis_export.h"
+#include "sdb/layer/layer.h"
 
 class OGRLayer;
 
-using namespace Smt_Core;
-using namespace Smt_GIS;
+using namespace base;
+using namespace sdb;
 
-long SMT_EXPORT_API CopyLayer(OGRLayer* pTarLayer, OGRLayer* pSrcLayer);
-long SMT_EXPORT_API CopyLayer(SmtLayer* pTarLayer, SmtLayer* pSrcLayer,
-                              bool bClone = true, bool bCheckFeaType = false);
-long SMT_EXPORT_API CopyLayer(SmtRasterLayer* pTarLayer,
-                              SmtRasterLayer* pSrcLayer, bool bClone = true,
-                              bool bCheckFeaType = false);
+long GIS_EXPORT copy_layer(OGRLayer* pTarLayer, OGRLayer* pSrcLayer);
+long GIS_EXPORT copy_layer(SmtLayer* pTarLayer, SmtLayer* pSrcLayer,
+                           bool bClone = true, bool bCheckFeaType = false);
+long GIS_EXPORT copy_layer(SmtRasterLayer* pTarLayer, SmtRasterLayer* pSrcLayer,
+                           bool bClone = true, bool bCheckFeaType = false);
 
-long SMT_EXPORT_API Points2MultiPoint(OGRLayer* pLayer);
+long GIS_EXPORT points_to_multi_point(OGRLayer* pLayer);
 
-long SMT_EXPORT_API GetQueryRs(int geomType, int feaType);
-
-#if !defined(Export_SmtGisCore)
-#if defined(_DEBUG)
-#pragma comment(lib, "SmtGisCoreD.lib")
-#else
-#pragma comment(lib, "SmtGisCore.lib")
-#endif
-#endif
+long GIS_EXPORT get_query_rs(int geomType, int feaType);
 
 #endif  // _GIS_API_H

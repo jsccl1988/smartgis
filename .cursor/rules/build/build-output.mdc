@@ -1,0 +1,26 @@
+---
+description: GN/Ninja build output must be out/ at repo root only
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Build output directory
+
+- **Only** use repository root **`out/`** as the GN/Ninja output directory (`out/build.ninja`, binaries under `out/`).
+- **Do not** use **`out/Default`** or any other subdirectory of `out/` as the gen root — not for docs, scripts, or examples.
+- Use repo-root **`build.bat`** / **`build.bat te`**. Resolve built binaries under **`$REPO_ROOT/out/`** only.
+- **Third-party CMake install prefix** is **`out/third_party`**. This is **not** mogu’s `third_party/.install`. Do not invent a second install root.
+- Do not use `vs2008/SmartGIS.sln` as a build entry. Intermediates for leftover sln tools stay out of `out/`.
+
+```bat
+gn gen out --root=./ --args="is_debug=true is_build_third_party=false"
+ninja -C out all
+```
+
+## Agent compile (differs from mogu)
+
+mogu’s **`agent-no-auto-build.mdc`** is **not** in force here. When the user asks to build / fix compile, follow **`.cursor/skills/auto-build-fix/SKILL.md`** (`build.bat`, log `out/build.log`). Do not invent `third_party/.install` or a second GN out dir.

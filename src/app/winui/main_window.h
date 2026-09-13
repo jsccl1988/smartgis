@@ -9,8 +9,8 @@
 
 #include <memory>
 
-#include "detail/map_session.h"
-#include "map_host.h"
+#include "app/winui/detail/map_session.h"
+#include "app/winui/map_host.h"
 
 namespace app {
 namespace winui {

@@ -1,0 +1,34 @@
+---
+description: HARD RULE — agents edit on master only; no feature/cursor branches; parallel agents use non-overlapping paths
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Agent git workflow: work on `master` only
+
+**This rule is always on (`alwaysApply: true`). Treat it as non-negotiable unless the user’s current message explicitly asks for a new branch, worktree publish branch, or remote `cursor/*` branch.**
+
+User directive (normative): 不要新开分支，就在 master 改；多 agent 并行时各自改不冲突的路径。
+
+## Do
+
+- **Stay on `master`**: make all routine edits, commits (when asked), and syncs on the existing **`master`** branch.
+- **Partition ownership**: when multiple agents run in parallel, edit **non-overlapping paths/areas** so diffs do not collide (agree on disjoint trees before writing).
+- **Sync on `master`**: if updating from `origin/master`, do it **on `master`** (merge or rebase **only as the user directs**)—do not spin a feature branch for the sync.
+
+## Don’t
+
+- **Don’t** create new local branches (`feature/*`, `cursor/*`, agent topic branches, etc.) for routine work.
+- **Don’t** create or push **`cursor/*`** (or similar) remote branches for routine agent work.
+- **Don’t** use git worktrees as a way to publish a separate branch unless the user explicitly asks.
+- **Don’t** **force-push** `master` (`push --force` / `--force-with-lease` to `master`).
+- **Don’t** delete existing local or remote agent branches unless the user explicitly asks—report them if relevant, then leave them alone.
+
+## Exception
+
+- Create or switch branches **only** when the user’s **current** message **explicitly** requests it (named branch, PR-from-branch workflow, or isolated worktree with a publish branch).
+- Do **not** infer permission from habits in other repos, “clean PR” defaults, or earlier turns.

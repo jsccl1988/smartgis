@@ -187,7 +187,7 @@ Shapefile 限制（10 字符字段名、无原生事务、无 TIN）留在驱动
 `DS_WS` + `SmtWSTileLayer` 今天只做瓦片 URL，矢量/栅格接口返回 null。GDAL 有 WMS / WFS / WMTS 驱动，但：
 
 - 产品瓦片模型是 `SmtTile` + `LYR_TITLE`，不是 `OGRLayer`；
-- `src/web/` 才是发布栈；
+- 产品没有 `src/web/` 发布栈（已删除）；
 - 把 WS 塞进 v1 会拖住文件/库/内存统一。
 
 **v1：管理器继续 new `SmtWSDataSource`。** 后续可选：WFS 只读矢量用 OGR WFS 走同一 `OgrVectorLayer`；XYZ/WMTS 用 GDAL WMS XML 或继续自管瓦片。不在本 spec 实现。
@@ -208,7 +208,7 @@ Shapefile 限制（10 字符字段名、无原生事务、无 TIN）留在驱动
 
 保持：
 
-- `dll_stem`（`SmtGisCore`、`SmtSDEGdalDevice`、`SmtSDEDeviceMgr`）与 `Export_SmtSDEGdalDevice` 直到链接面另开清理。
+- `dll_stem`（`SmtGisCore`、`SmtSDEGdalDevice`、`SmtSDEDeviceMgr`）与 `SDE_GDAL_EXPORT` 直到链接面另开清理。
 - `.dsm` 头字节布局可暂留；打开只看路径 / `SDBD:` 连接串。
 - `eDSType` / provider 枚举取值不重排（旧文件）。
 
@@ -265,7 +265,7 @@ struct mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1> {
 
 `make_gdal_open_target` 按 `unType` 分发到 db / file / mem traits。`OgrVectorLayer::Create` 继续 `visit_feature_kind` → `CreateLayer(..., Traits::wkb)` + `extra_fields` 元组。几何 encode/decode 仍是 traits 上的静态函数，公共 codec 仍是那两个 `copy_*` 函数。
 
-算法层的 `geo::geometry_traits` / `geos_backend_traits`（见 algorithm spec）管分析，不管存盘。图层管理不引入第三套几何 traits。
+算法层分析直接调 OGR（GEOS 在 GDAL 内）。图层管理不引入几何 traits。
 
 ## 数据流（目标）
 

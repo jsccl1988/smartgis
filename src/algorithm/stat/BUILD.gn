@@ -1,0 +1,61 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# ANTLR-generated parser + evaluator. Keep //build:legacy off so
+# _HAS_STD_BYTE=0 / smt_compat.h do not break the C++ runtime.
+source_set("stat_eval") {
+  sources = [
+    "detail/ops.cc",
+    "evaluate.cc",
+    "gen/StatExprLexer.cpp",
+    "gen/StatExprParser.cpp",
+  ]
+  include_dirs += [
+    "//src",
+    "//src/algorithm/stat",
+    "//src/algorithm/stat/gen",
+  ]
+  defines = [
+    "BUILD_AS_DLL",
+    "STAT_EXPORTS",
+    "ANTLR4CPP_STATIC",
+    "NOMINMAX",
+    "_CRT_DECLARE_NONSTDC_NAMES=0",
+  ]
+  public_deps = [ "//third_party:antlr4" ]
+}
+
+smt_shared_library("stat") {
+  dll_stem = "stat"
+  defines = [
+    "STAT_EXPORTS",
+    "ANTLR4CPP_STATIC",
+    "_CRT_DECLARE_NONSTDC_NAMES=0",
+  ]
+  sources = [ "value_set.cc" ]
+  deps = [
+    ":stat_eval",
+    "//src/base:core",
+  ]
+}
+
+test("stat_expr_test") {
+  output_name = "stat_expr_test"
+  sources = [ "stat_expr_test.cc" ]
+  include_dirs += [
+    "//src",
+    "//src/algorithm/stat",
+    "//src/base/core",
+  ]
+  defines = [
+    "NOMINMAX",
+    "_CRT_DECLARE_NONSTDC_NAMES=0",
+  ]
+  deps = [
+    ":stat",
+    "//src/base:core",
+  ]
+}

@@ -9,22 +9,26 @@
 #include <string>
 #include <vector>
 
+#include "sdb/model/model.h"
+#include "sdb/model/tileset.h"
+
 // Logical GIS world. Spatial query lives here; GPU instances live in render.
 
-namespace Smt_Geo {
-class SmtGeometry;
-}
-
+class OGRGeometry;
 class OGRLayer;
 
-namespace Smt_GIS {
-class SmtMap;
-class SmtLayer;
+namespace geo {
+class Grid;
+class Tin;
 }
 
-namespace Smt_3DGeo {
-class Smt3DGeometry;
+namespace sdb {
+class SmtMap;
+class SmtLayer;
+class SmtRasterLayer;
+class SmtTileLayer;
 }
+
 
 namespace sdb {
 namespace scene {
@@ -50,10 +54,15 @@ struct Node {
   double max_y;
   double max_z;
   std::string name;
-  const Smt_GIS::SmtLayer* layer;
+  const sdb::SmtLayer* layer;
   OGRLayer* ogr_layer;
-  const Smt_3DGeo::Smt3DGeometry* geom_3d;
-  std::vector<const Smt_Geo::SmtGeometry*> geoms;
+  const OGRGeometry* geom_3d;
+  std::vector<const OGRGeometry*> geoms;
+  const geo::Tin* tin;
+  const geo::Grid* grid;
+  const sdb::model::ModelAsset* model;
+  const sdb::model::Tileset* tileset;
+  std::vector<std::string> visible_uris;
 
   Node()
       : id(0),
@@ -67,7 +76,11 @@ struct Node {
         max_z(0),
         layer(nullptr),
         ogr_layer(nullptr),
-        geom_3d(nullptr) {}
+        geom_3d(nullptr),
+        tin(nullptr),
+        grid(nullptr),
+        model(nullptr),
+        tileset(nullptr) {}
 };
 
 class World {
@@ -82,12 +95,23 @@ class World {
   size_t node_count() const { return nodes_.size(); }
   const Node* node_at(size_t index) const;
 
-  void attach_map(const Smt_GIS::SmtMap* map);
-  Node* attach_vector_geoms(const char* name,
-                            const Smt_Geo::SmtGeometry* const* geoms,
+  void attach_map(const sdb::SmtMap* map);
+  Node* attach_vector_geoms(const char* name, const OGRGeometry* const* geoms,
                             size_t count);
-  Node* attach_3d_geometry(const Smt_3DGeo::Smt3DGeometry* geom,
-                           const char* name);
+  Node* attach_3d_geometry(const OGRGeometry* geom, const char* name);
+  Node* attach_tin(const geo::Tin* tin, const char* name);
+  Node* attach_grid(const geo::Grid* grid, const char* name);
+  Node* attach_raster_layer(const sdb::SmtRasterLayer* layer);
+  Node* attach_tile_layer(const sdb::SmtTileLayer* layer);
+  Node* attach_model(const sdb::model::ModelAsset* asset, const char* name);
+  Node* attach_tileset(const sdb::model::Tileset* tileset, const char* name);
+  Node* attach_terrain(const char* name, double min_x, double min_y,
+                       double min_z, double max_x, double max_y, double max_z);
+  Node* attach_pointcloud(const char* name, double min_x, double min_y,
+                          double min_z, double max_x, double max_y,
+                          double max_z);
+  bool apply_tileset_selection(uint64_t id,
+                               const std::vector<const sdb::model::Tile*>& visible);
 
   void query_aabb(double min_x, double min_y, double min_z, double max_x,
                   double max_y, double max_z,

@@ -19,7 +19,7 @@ namespace datasource {
 
 // mgis /sdbd/api/v1 JSON routes implemented on a SDBD GDALDataset
 // (GDALOpenEx("SDBD:...")). No SmtDataSource / SmtVectorLayer / SmtFeature.
-class SMT_SDE_GDAL_EXPORT SdbdHandler {
+class SDE_GDAL_EXPORT SdbdHandler {
  public:
   SdbdHandler();
   ~SdbdHandler();

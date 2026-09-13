@@ -5,6 +5,8 @@
 # (Chromium content/public). No MFC. Include as "content/public/...".
 # Implementation may use sdb + render + gpu; public headers stay thin.
 
+import("//testing/test.gni")
+
 config("content_config") {
   include_dirs += [ "//src" ]
 }
@@ -23,10 +25,16 @@ source_set("content") {
     "public/map_contents_observer.h",
     "public/map_types.h",
     "public/map_widget_host_view.h",
+    "plugin_host.cc",
+    "public/plugin_host.h",
     "public/process_type.cc",
     "public/process_type.h",
   ]
   public_configs = [ ":content_config" ]
+  public_deps = [
+    "//src/base/ipc:ipc",
+    "//src/tool:dispatch",
+  ]
 }
 
 # Per-view Workspace + EventBus + EditSession. Leftover xview hosts this.
@@ -46,4 +54,11 @@ source_set("view_host") {
     "//src/sdb/edit:edit",
     "//src/tool:dispatch",
   ]
+}
+
+test("content_view_host_test") {
+  output_name = "content_view_host_test"
+  sources = [ "view_host_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":view_host" ]
 }

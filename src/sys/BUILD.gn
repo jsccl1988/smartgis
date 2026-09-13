@@ -1,0 +1,11 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("sys") {
+  dll_stem = "sys"
+  defines = [ "SYS_EXPORTS=1" ]
+  sources = [ "sysmanager.cpp" ]
+  deps = [ "//src/base:core" ]
+}

@@ -1,0 +1,37 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# One DLL. Subdirs match mogu: pack (archive/pickle), http, rpc, udp.
+smt_shared_library("net") {
+  dll_stem = "net"
+  defines = [ "NET_EXPORTS" ]
+  include_dirs += [ "//src" ]
+  sources = [
+    "http/http.cpp",
+    "rpc/rpc.cpp",
+    "udp/udp.cpp",
+  ]
+  deps = [ "//src/base:core" ]
+  public_deps = [
+    "//third_party:asio",
+    "//third_party:cpp_httplib",
+  ]
+  libs = [ "ws2_32.lib" ]
+}
+
+test("net_test") {
+  output_name = "net_test"
+  sources = [ "net_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":net",
+    "//src/base:core",
+    "//third_party:asio",
+    "//third_party:cpp_httplib",
+  ]
+  configs = [ "//build:legacy" ]
+  libs = [ "ws2_32.lib" ]
+}

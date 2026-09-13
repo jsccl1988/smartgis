@@ -1,15 +1,15 @@
-#include "mem.h"
-#include "api.h"
-#include "geometry.h"
-#include "feature.h"
-#include "style_api.h"
+#include "sdb/datasource/mem/mem.h"
+#include "base/core/api.h"
+#include "algorithm/geo/geometry.h"
+#include "sdb/feature/feature.h"
+#include "base/style/style_api.h"
 
-using namespace Smt_Base;
-using namespace Smt_Geo;
-using namespace Smt_Core;
-using namespace Smt_GIS;
+using namespace base;
+using namespace geo;
+using namespace base;
+using namespace sdb;
 
-namespace Smt_SDEMem
+namespace sdb
 {
 	SmtMemTileLayer::SmtMemTileLayer():SmtTileLayer(nullptr)
 	{
@@ -149,16 +149,16 @@ namespace Smt_SDEMem
 			m_vTilePtrs.push_back(pNewTile);
 
 			Envelope         titleEnv;
-			RectToEnvelope(titleEnv,pNewTile->rtTileRect);
-			m_lyrEnv.Merge(titleEnv);
+			rect_to_envelope(titleEnv,pNewTile->rtTileRect);
+			m_lyrEnv.merge(titleEnv);
 		}
 		else
 		{
 			m_vTilePtrs.push_back(const_cast<SmtTile *>(pTile));
 
 			Envelope         titleEnv;
-			RectToEnvelope(titleEnv,pTile->rtTileRect);
-			m_lyrEnv.Merge(titleEnv);
+			rect_to_envelope(titleEnv,pTile->rtTileRect);
+			m_lyrEnv.merge(titleEnv);
 		}
 
 		return SMT_ERR_NONE;
@@ -179,8 +179,8 @@ namespace Smt_SDEMem
 			m_vTilePtrs.push_back(const_cast<SmtTile *>(pTile));
 
 			Envelope         titleEnv;
-			RectToEnvelope(titleEnv,pTile->rtTileRect);
-			m_lyrEnv.Merge(titleEnv);
+			rect_to_envelope(titleEnv,pTile->rtTileRect);
+			m_lyrEnv.merge(titleEnv);
 
 			return SMT_ERR_NONE;
 		}
@@ -277,8 +277,8 @@ namespace Smt_SDEMem
 		Envelope         titleEnv;
 		for( int iTile = 0; iTile < m_vTilePtrs.size(); iTile++ )
 		{
-			RectToEnvelope(titleEnv,m_vTilePtrs[iTile]->rtTileRect);
-			m_lyrEnv.Merge(titleEnv);	 
+			rect_to_envelope(titleEnv,m_vTilePtrs[iTile]->rtTileRect);
+			m_lyrEnv.merge(titleEnv);	 
 		}
 	}
 }

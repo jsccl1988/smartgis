@@ -1,0 +1,34 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Scene/render math: Eigen-backed Vector/Matrix plus leftover Aabb/Obb/Plane/Ray.
+config("math_headers") {
+  include_dirs += [
+    ".",
+    "//src/base/core",
+  ]
+}
+
+# Header-only Eigen adapters (`mathlib_3d.h` / `mathlib.h`).
+source_set("math") {
+  public_configs = [ ":math_headers" ]
+  public_deps = [
+    "//src/base:core",
+    "//third_party:eigen",
+  ]
+}
+
+# Oriented / axis-aligned boxes, planes, and rays. Eigen does not ship these.
+source_set("bounds") {
+  configs += [ "//build:legacy" ]
+  sources = [
+    "aabb.cpp",
+    "obb.cpp",
+    "plane.cpp",
+    "ray.cpp",
+  ]
+  public_deps = [ ":math" ]
+  deps = [ "//src/base:core" ]
+}

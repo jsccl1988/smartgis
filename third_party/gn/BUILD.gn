@@ -1,0 +1,339 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+#
+# Prebuilt prefix (default //third_party/.install): headers + libs for GN
+# consumers. Public labels stay //third_party:<name> via the top-level
+# forwarder. Install is tools/batch.py, not cmake() from ninja.
+
+import("//build/smartgis.gni")
+import("//third_party/gn/tp.gni")
+
+_tp = third_party_install_prefix
+_d = ""
+_proj_d = ""
+if (is_debug) {
+  _d = "d"
+  _proj_d = "_d"
+}
+
+config("tp_common") {
+  include_dirs += [ "$_tp/include" ]
+  lib_dirs = [ "$_tp/lib" ]
+}
+
+config("glog_cfg") {
+  libs += [ "$_tp/lib/glog$_d.lib" ]
+}
+
+config("gtest_cfg") {
+  libs += [
+    "$_tp/lib/gtest$_d.lib",
+    "$_tp/lib/gtest_main$_d.lib",
+    "$_tp/lib/gmock$_d.lib",
+    "$_tp/lib/gmock_main$_d.lib",
+  ]
+}
+
+config("benchmark_cfg") {
+  libs += [
+    "$_tp/lib/benchmark.lib",
+    "$_tp/lib/benchmark_main.lib",
+  ]
+}
+
+config("sqlite3_cfg") {
+  libs += [ "$_tp/lib/sqlite3.lib" ]
+}
+
+config("sqlitecpp_cfg") {
+  libs += [ "$_tp/lib/SQLiteCpp.lib" ]
+}
+
+config("geos_cfg") {
+  defines = []
+  defines += [ "USE_UNSTABLE_GEOS_CPP_API" ]
+  libs += [
+    "$_tp/lib/geos.lib",
+    "$_tp/lib/geos_c.lib",
+  ]
+}
+
+config("proj_cfg") {
+  libs += [ "$_tp/lib/proj$_proj_d.lib" ]
+}
+
+config("gdal_cfg") {
+  libs += [
+    "$_tp/lib/gdal$_d.lib",
+    "$_tp/lib/geos_c.lib",
+    "$_tp/lib/proj$_proj_d.lib",
+  ]
+  defines = []
+  defines += [ "SUPPRESS_DEPRECATION_WARNINGS" ]
+}
+
+config("spatialindex_cfg") {
+  libs += [ "$_tp/lib/spatialindex-64.lib" ]
+}
+
+config("spatialite_cfg") {
+  libs += [ "$_tp/lib/spatialite.lib" ]
+}
+
+config("spatialitecpp_cfg") {
+  libs += [ "$_tp/lib/SpatiaLiteCpp.lib" ]
+}
+
+# Header-only; install_skip. Do not rely on the merged prefix.
+config("asio_cfg") {
+  include_dirs += [ "//third_party/.src/asio/asio/include" ]
+  defines = []
+  defines += [
+    "ASIO_STANDALONE",
+    "ASIO_NO_DEPRECATED",
+  ]
+}
+
+config("cpp_httplib_cfg") {
+  include_dirs += [ "//third_party/.src/cpp-httplib" ]
+}
+
+config("eigen_cfg") {
+  include_dirs += [ "//third_party/.src/eigen" ]
+  defines = []
+  defines += [ "EIGEN_MPL2_ONLY" ]
+}
+
+config("chromium_cfg") {
+  include_dirs += [ "//third_party/.src/chromium" ]
+}
+
+config("python_cfg") {
+  include_dirs += [ "//third_party/python/include" ]
+  lib_dirs = [ "//third_party/python/libs" ]
+  libs += [ "python312.lib" ]
+}
+
+config("wtl_cfg") {
+  include_dirs += [ "//third_party/.src/wtl8.0" ]
+}
+
+group("glog") {
+  public_configs = [
+    ":tp_common",
+    ":glog_cfg",
+  ]
+}
+
+group("gtest") {
+  public_configs = [
+    ":tp_common",
+    ":gtest_cfg",
+  ]
+}
+
+group("googletest") {
+  public_deps = [ ":gtest" ]
+}
+
+group("gbenchmark") {
+  public_configs = [
+    ":tp_common",
+    ":benchmark_cfg",
+  ]
+}
+
+group("benchmark") {
+  public_deps = [ ":gbenchmark" ]
+}
+
+group("sqlite3") {
+  public_configs = [
+    ":tp_common",
+    ":sqlite3_cfg",
+  ]
+}
+
+group("SQLiteCpp") {
+  public_deps = [ ":sqlite3" ]
+  public_configs = [
+    ":tp_common",
+    ":sqlitecpp_cfg",
+  ]
+}
+
+group("geos") {
+  public_configs = [
+    ":tp_common",
+    ":geos_cfg",
+  ]
+}
+
+copy("proj_runtime_data") {
+  sources = [
+    "$_tp/share/proj/proj.db",
+    "$_tp/share/proj/proj.ini",
+  ]
+  outputs = [ "$root_out_dir/{{source_file_part}}" ]
+}
+
+group("PROJ") {
+  public_deps = [
+    ":sqlite3",
+    ":proj_runtime_data",
+  ]
+  public_configs = [
+    ":tp_common",
+    ":proj_cfg",
+  ]
+}
+
+copy("gdal_runtime_dlls") {
+  if (is_debug) {
+    sources = [
+      "$_tp/bin/gdald.dll",
+      "$_tp/bin/geos.dll",
+      "$_tp/bin/geos_c.dll",
+      "$_tp/bin/proj_9_4_d.dll",
+    ]
+  } else {
+    sources = [
+      "$_tp/bin/gdal.dll",
+      "$_tp/bin/geos.dll",
+      "$_tp/bin/geos_c.dll",
+      "$_tp/bin/proj_9_4.dll",
+    ]
+  }
+  outputs = [ "$root_out_dir/{{source_file_part}}" ]
+}
+
+group("gdal") {
+  public_deps = [
+    ":PROJ",
+    ":gdal_runtime_dlls",
+  ]
+  public_configs = [
+    ":tp_common",
+    ":gdal_cfg",
+  ]
+}
+
+group("libspatialindex") {
+  public_configs = [
+    ":tp_common",
+    ":spatialindex_cfg",
+  ]
+}
+
+group("libspatialite") {
+  public_deps = [
+    ":geos",
+    ":PROJ",
+    ":sqlite3",
+  ]
+  public_configs = [
+    ":tp_common",
+    ":spatialite_cfg",
+  ]
+}
+
+group("SpatiaLiteCpp") {
+  public_deps = [ ":libspatialite" ]
+  public_configs = [
+    ":tp_common",
+    ":spatialitecpp_cfg",
+  ]
+}
+
+group("asio") {
+  public_configs = [ ":asio_cfg" ]
+}
+
+group("cpp-httplib") {
+  public_configs = [ ":cpp_httplib_cfg" ]
+}
+
+group("cpp_httplib") {
+  public_deps = [ ":cpp-httplib" ]
+}
+
+group("httplib") {
+  public_deps = [ ":cpp-httplib" ]
+}
+
+group("eigen") {
+  public_configs = [ ":eigen_cfg" ]
+}
+
+group("CxImage") {
+  public_deps = [ "//third_party/CxImage:CxImage" ]
+}
+
+group("wtl8.0") {
+  public_configs = [ ":wtl_cfg" ]
+}
+
+group("antlr4") {
+  public_deps = [ "//third_party/antlr4:antlr4_runtime" ]
+}
+
+group("khronos_gl") {
+  public_deps = [ "//third_party/khronos_gl:headers" ]
+}
+
+group("ed25519") {
+  public_deps = [ "//third_party/ed25519:ed25519" ]
+}
+
+group("flycube") {
+  if (smt_has_flycube) {
+    public_deps = [ "//third_party/flycube:flycube" ]
+  }
+}
+
+group("assimp") {
+  if (smt_has_assimp) {
+    public_deps = [ "//third_party/assimp:assimp" ]
+  }
+}
+
+group("tinygltf") {
+  if (smt_has_tinygltf) {
+    public_deps = [ "//third_party/tinygltf:tinygltf" ]
+  }
+}
+
+group("chromium") {
+  public_configs = [ ":chromium_cfg" ]
+}
+
+group("python") {
+  public_configs = [ ":python_cfg" ]
+}
+
+group("bcg") {
+  public_deps = [ "//third_party/bcg:bcg" ]
+}
+
+group("third_party_all") {
+  deps = [
+    ":glog",
+    ":gbenchmark",
+    ":gtest",
+    ":sqlite3",
+    ":geos",
+    ":cpp-httplib",
+    ":asio",
+    ":eigen",
+    ":SQLiteCpp",
+    ":libspatialindex",
+    ":libspatialite",
+    ":SpatiaLiteCpp",
+    ":PROJ",
+    ":gdal",
+    ":CxImage",
+    ":antlr4",
+    ":khronos_gl",
+    ":ed25519",
+  ]
+}

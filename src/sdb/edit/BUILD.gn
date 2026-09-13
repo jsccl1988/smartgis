@@ -9,7 +9,7 @@ source_set("edit") {
     "edit_session.cc",
     "edit_session.h",
   ]
-  include_dirs += [ "//src", "//src/base" ]
+  include_dirs += [ "//src", "//src/base/core" ]
   deps = [ "//src/base:core" ]
 }
 
@@ -22,6 +22,7 @@ source_set("map_edit") {
   configs += [ "//build:legacy" ]
   deps = [
     ":edit",
+    "//src/sdb/datasource/gdal:ogr_codec",
     "//src/sdb/map:gis",
     "//third_party:gdal",
   ]

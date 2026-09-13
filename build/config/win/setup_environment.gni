@@ -1,0 +1,23 @@
+assert(is_win)
+
+# VS 18 Community → 180. Default skips exec_script so gn gen works
+# without a store-stub python.exe. build.bat writes out/environment.*.
+declare_args() {
+  vs_version = 180
+  clang_installed = false
+  msvc_installed = true
+  smt_run_vs_env_script = false
+}
+
+if (smt_run_vs_env_script) {
+  env = exec_script("setup_environment.py",
+                    [
+                      host_cpu,
+                      target_cpu,
+                      "$is_winxp",
+                    ],
+                    "scope")
+  vs_version = env.VERSION
+  clang_installed = env.CLANG
+  msvc_installed = env.MSVC
+}

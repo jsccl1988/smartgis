@@ -1,0 +1,12 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Product graph only. Skip build output, SDK junctions, and prebuilt binaries.
+/out/
+/out_*/
+/third_party/.src/
+/third_party/.install/
+/third_party/.build/
+/third_party/gdal_sdk/
+/third_party/flycube_prebuilt/
+/third_party/windows_app_sdk/

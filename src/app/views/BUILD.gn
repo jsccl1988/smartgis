@@ -8,11 +8,16 @@ import("//build/config/win/application.gni")
 
 win32_app("views") {
   output_name = "SmartGisViews"
-  sources = [ "main.cc" ]
+  sources = [
+    "app_commands.cc",
+    "app_commands.h",
+    "browser_view.cc",
+    "browser_view.h",
+    "main.cc",
+  ]
   deps = [
     "//src/content:content",
     "//src/gpu:gpu_lib",
-    "//src/render/skia:skia",
     "//src/ui/views:views",
   ]
   libs = [ "shell32.lib" ]

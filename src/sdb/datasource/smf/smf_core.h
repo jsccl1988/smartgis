@@ -1,11 +1,11 @@
 /*
 File:    sde_smf.h
 
-Desc:    SMF	ÎÄ¼þÊý¾Ý¿â
+Desc:    SMF	ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½
 
 Version: Version 1.0
 
-Writter:  ³Â´ºÁÁ
+Writter:  ï¿½Â´ï¿½ï¿½ï¿½
 
 Date:    2011.11.23
 
@@ -14,8 +14,8 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _SDE_SMF_H
 #define _SDE_SMF_H
 
-#include "core.h"
-#include "bas_struct.h"
+#include "base/core/core.h"
+#include "base/core/bas_struct.h"
 
 #define				SMT_FDO_MARK_LENGTH							50
 #define				SMT_FDO_TABLE_NAME_LENGTH					50
@@ -28,12 +28,12 @@ Copyright (c) 2010 CCL. All rights reserved.
 const	string		C_STR_SYS_TABLE_SCHAME						= "Table_Schame";
 const	string		C_STR_SYS_TABLE_USER						= "Table_User";
 
-namespace Smt_SDESmf
+namespace sdb
 {
 	struct SmtSDFBinBlock
 	{
-		ulong			size;							//´óÐ¡
-		uchar			*binary;						//ÄÚ´æ
+		ulong			size;							//ï¿½ï¿½Ð¡
+		uchar			*binary;						//ï¿½Ú´ï¿½
 		SmtSDFBinBlock():size(0)
 			,binary(NULL)
 		{
@@ -49,8 +49,8 @@ namespace Smt_SDESmf
 	struct SmtSDFHeadBlock
 	{
 		char			head[SMT_FDO_MARK_LENGTH];		//"Smt SDF Version1.0"
-		ulong			sys_block_address;				//¶¨Î»µ½ÏµÍ³ÐÅÏ¢Êý¾Ý¿é
-		ulong			reserved;						//ÏµÍ³±£Áô
+		ulong			sys_block_address;				//ï¿½ï¿½Î»ï¿½ï¿½ÏµÍ³ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½Ý¿ï¿½
+		ulong			reserved;						//ÏµÍ³ï¿½ï¿½ï¿½ï¿½
 
 		SmtSDFHeadBlock():sys_block_address(0)
 			,reserved(0)
@@ -61,8 +61,8 @@ namespace Smt_SDESmf
 
 	struct SmtSDFFieldInfo
 	{
-		uchar			name[SMT_FDO_FIELD_NAME_LENGTH];//Ãû³Æ
-		uint			type;							//»ù±¾ÀàÐÍ£¬int,float
+		uchar			name[SMT_FDO_FIELD_NAME_LENGTH];//ï¿½ï¿½ï¿½ï¿½
+		uint			type;							//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½int,float
 
 		SmtSDFFieldInfo():type(0)
 		{
@@ -72,9 +72,9 @@ namespace Smt_SDESmf
 
 	struct SmtSDFRecordInfo
 	{
-		ulong			record_address;					//¼ÇÂ¼ÎïÀíµØÖ·
-		ulong			record_size;					//¼ÇÂ¼ÎïÀí´óÐ¡
-		ulong			reserved;						//ÏµÍ³±£Áô
+		ulong			record_address;					//ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·
+		ulong			record_size;					//ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡
+		ulong			reserved;						//ÏµÍ³ï¿½ï¿½ï¿½ï¿½
 		SmtSDFRecordInfo():record_address(0)
 			,record_size(0)
 			,reserved(0)
@@ -84,23 +84,23 @@ namespace Smt_SDESmf
 	};
 
 	struct SmtSDFTableInfo
-	{//Ð´SysBlockÖÐºÍÃ¿ÕÅ±íÍ·²¿·Ö
-		char			name[SMT_FDO_TABLE_NAME_LENGTH];//±íÃû³Æ
-		ulong			field_num;						//×Ö¶Î¸öÊý
+	{//Ð´SysBlockï¿½Ðºï¿½Ã¿ï¿½Å±ï¿½Í·ï¿½ï¿½ï¿½ï¿½
+		char			name[SMT_FDO_TABLE_NAME_LENGTH];//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		ulong			field_num;						//ï¿½Ö¶Î¸ï¿½ï¿½ï¿½
 		SmtSDFBinBlock	field_infos;					//(field_num *sizeof(SmtSDFFieldInfo))
 
-		//±í×Ö¶ÎÐÅÏ¢
-		ulong			record_num;						//¼ÇÂ¼¸öÊý
+		//ï¿½ï¿½ï¿½Ö¶ï¿½ï¿½ï¿½Ï¢
+		ulong			record_num;						//ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½
 		SmtSDFBinBlock	record_infos;					//(record_num *sizeof(SmtSDFRecordInfo))
-		//±í×Ö¶ÎÐÅÏ¢
+		//ï¿½ï¿½ï¿½Ö¶ï¿½ï¿½ï¿½Ï¢
 
-		uchar			have_spidx;						//ÊÇ·ñÓÐ¿Õ¼äË÷Òý
-		ulong			spidx_block_address;			//¶¨Î»µ½Ë÷ÒýÊý¾Ý¿é	
-		ulong			spidx_block_size;				//Ë÷ÒýÊý¾Ý¿é³¤¶È
+		uchar			have_spidx;						//ï¿½Ç·ï¿½ï¿½Ð¿Õ¼ï¿½ï¿½ï¿½ï¿½ï¿½
+		ulong			spidx_block_address;			//ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½	
+		ulong			spidx_block_size;				//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¿é³¤ï¿½ï¿½
 
-		ulong			data_block_address;				//¶¨Î»µ½±íÊý¾Ý¿é	
-		ulong			data_block_size;				//±íÊý¾Ý¿é³¤¶È
-		ulong			reserved;						//ÏµÍ³±£Áô
+		ulong			data_block_address;				//ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½	
+		ulong			data_block_size;				//ï¿½ï¿½ï¿½ï¿½ï¿½Ý¿é³¤ï¿½ï¿½
+		ulong			reserved;						//ÏµÍ³ï¿½ï¿½ï¿½ï¿½
 
 		SmtSDFTableInfo():field_num(0)
 			,record_num(0)
@@ -116,10 +116,10 @@ namespace Smt_SDESmf
 	};
 
 	struct SmtSDFSysBlock
-	{//±íÐÅÏ¢
-		ulong			table_num;						//±í¸öÊý
-		SmtSDFBinBlock	table_infos;					//(size = table_num*sizeof(SmtSDFTableInfo))//±íÐÅÏ¢
-		ulong			reserved;						//ÏµÍ³±£Áô
+	{//ï¿½ï¿½ï¿½ï¿½Ï¢
+		ulong			table_num;						//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		SmtSDFBinBlock	table_infos;					//(size = table_num*sizeof(SmtSDFTableInfo))//ï¿½ï¿½ï¿½ï¿½Ï¢
+		ulong			reserved;						//ÏµÍ³ï¿½ï¿½ï¿½ï¿½
 
 		SmtSDFSysBlock():table_num(0)
 			,reserved(0)
@@ -130,9 +130,9 @@ namespace Smt_SDESmf
 
 	struct SmtSDFField
 	{
-		uchar			name[SMT_FDO_FIELD_NAME_LENGTH];//Ãû³Æ
-		uint			type;							//»ù±¾ÀàÐÍ£¬int,float... 
-		SmtSDFBinBlock	value;							//×Ö¶ÎÖµ
+		uchar			name[SMT_FDO_FIELD_NAME_LENGTH];//ï¿½ï¿½ï¿½ï¿½
+		uint			type;							//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½int,float... 
+		SmtSDFBinBlock	value;							//ï¿½Ö¶ï¿½Öµ
 
 		SmtSDFField():type(0)
 		{
@@ -160,7 +160,7 @@ namespace Smt_SDESmf
 
 	struct SmtFeatureRecord
 	{
-		ulong			reacord_size;					//(sizeof(ulong)+¡­)
+		ulong			reacord_size;					//(sizeof(ulong)+ï¿½ï¿½)
 		ulong			id;
 		uchar			state;							//D(elete),M(odify)
 		float 			xmin,ymin ,xmax,ymax;
@@ -175,8 +175,8 @@ namespace Smt_SDESmf
 		SmtSDFBinBlock	style;							//(size = sizeof(SmtStyle ))
 
 		//att
-		ulong			field_num;						//×Ö¶Î¸öÊý£¬²ÎÕÕÏàÓ¦±í×Ö¶ÎÐÅÏ¢
-		SmtSDFBinBlock	fields;							//(field_num *size(SmtSDFField))//¼ÇÂ¼×Ö¶ÎÐÅÏ¢
+		ulong			field_num;						//ï¿½Ö¶Î¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½Ö¶ï¿½ï¿½ï¿½Ï¢
+		SmtSDFBinBlock	fields;							//(field_num *size(SmtSDFField))//ï¿½ï¿½Â¼ï¿½Ö¶ï¿½ï¿½ï¿½Ï¢
 
 		SmtFeatureRecord():reacord_size(0)
 			,id(0)
@@ -191,10 +191,10 @@ namespace Smt_SDESmf
 
 	/*
 	1.	SmtFdoConnection
-	Êý¾ÝÔ´ÐÅÏ¢£¬¼°¹ÜÀí
+	ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	Connect (),DisConnect (),OpenSchema(),CreateTable(),DropTable()
 	2.	SmtFdoRecordSet
-	Êý¾Ý¼¯ÐÅÏ¢£¬¼°¹ÜÀí
+	ï¿½ï¿½ï¿½Ý¼ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	CreateSpatialIndex(),Query(),
 	MoveFirst(),MoveNext(),MoveLast(),Delete(),IsEnd(),DeleteAll(),
 	Append(),Remove(),Update();

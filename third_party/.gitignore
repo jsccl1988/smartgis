@@ -1,0 +1,18 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+/.src/
+/.build/
+/.install/
+/.install_prefix/
+/.gitea_token
+# Local junctions / unpacks — do not vendor (see README.md).
+/gdal_sdk/
+/flycube_prebuilt/
+/windows_app_sdk/
+/log
+/train
+.ide.*
+.vscode
+.vs
+*.pyc
+*.swp

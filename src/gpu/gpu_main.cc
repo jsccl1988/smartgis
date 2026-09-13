@@ -62,12 +62,12 @@ void announce_and_paint(cd::Pipe* pipe,
     slot->present.paint_clear(0x40, 0x80, 0xC0, 0xFF);
   }
   const content::SharedHandleWire w = slot->present.wire();
-  pipe->send_binary(content::HostMsg::kSharedHandle, view_id, &w, sizeof(w));
+  pipe->send_msg(content::HostMsg::kSharedHandle, view_id, w);
   content::FrameReadyWire fr = {};
   fr.generation = w.generation;
   fr.fence = 0;
   fr.cursor_hint = 0;
-  pipe->send_binary(content::HostMsg::kFrameReady, view_id, &fr, sizeof(fr));
+  pipe->send_msg(content::HostMsg::kFrameReady, view_id, fr);
 }
 
 int run_server(const Args& args) {
@@ -83,7 +83,7 @@ int run_server(const Args& args) {
     parent = OpenProcess(SYNCHRONIZE, FALSE, args.parent_pid);
   }
 
-  std::unique_ptr<SmtAdapter> adapter(create_smt_adapter());
+  std::unique_ptr<Adapter> adapter(create_adapter());
   adapter->load_legacy_dlls();
   adapter->init_hidden_hwnd(64, 64);
 
@@ -95,8 +95,10 @@ int run_server(const Args& args) {
     return 3;
   }
 
-  pipe.send_json(content::HostMsg::kHello, 0,
-                 "{\"protocol\":1,\"role\":\"render\",\"gpu\":\"d3d11\"}");
+  content::HelloBody hello;
+  hello.role = "gpu";
+  hello.gpu = "d3d11";
+  pipe.send_msg(content::HostMsg::kHello, 0, hello);
 
   std::map<uint32_t, SurfaceSlot> views;
 
@@ -128,9 +130,6 @@ int run_server(const Args& args) {
       return 4;
     }
     const auto type = static_cast<content::HostMsg>(h.type);
-    const std::string json =
-        payload.empty() ? std::string()
-                        : std::string(payload.begin(), payload.end());
 
     if (type == content::HostMsg::kShutdown) {
       break;
@@ -140,8 +139,11 @@ int run_server(const Args& args) {
     }
     if (type == content::HostMsg::kOpenView) {
       SurfaceSlot& slot = views[h.view_id];
-      slot.kind = content::view_kind_from_json(json.c_str());
-      pipe.send_json(content::HostMsg::kViewReady, h.view_id, "{\"ok\":true}");
+      content::OpenViewBody body;
+      if (cd::decode_payload(payload, &body)) {
+        slot.kind = static_cast<content::ViewKind>(body.kind);
+      }
+      pipe.send_empty(content::HostMsg::kViewReady, h.view_id);
       continue;
     }
     if (type == content::HostMsg::kCloseView) {
@@ -150,7 +152,10 @@ int run_server(const Args& args) {
     }
     if (type == content::HostMsg::kAttachSurface) {
       SurfaceSlot& slot = views[h.view_id];
-      slot.mode = content::present_mode_from_json(json.c_str());
+      content::AttachSurfaceBody body;
+      if (cd::decode_payload(payload, &body)) {
+        slot.mode = static_cast<content::PresentMode>(body.present_mode);
+      }
       slot.attached = true;
       if (slot.present.generation() == 0) {
         slot.present.resize(slot.width_px, slot.height_px, slot.mode, parent);
@@ -161,11 +166,12 @@ int run_server(const Args& args) {
     }
     if (type == content::HostMsg::kResizeSurface) {
       SurfaceSlot& slot = views[h.view_id];
-      slot.width_px =
-          static_cast<uint32_t>(cd::json_get_int(json, "w", 64));
-      slot.height_px =
-          static_cast<uint32_t>(cd::json_get_int(json, "h", 64));
-      slot.dpi = static_cast<float>(cd::json_get_double(json, "dpi", 96));
+      content::ResizeSurfaceBody body;
+      if (cd::decode_payload(payload, &body)) {
+        slot.width_px = body.w;
+        slot.height_px = body.h;
+        slot.dpi = body.dpi;
+      }
       slot.present.resize(slot.width_px, slot.height_px, slot.mode, parent);
       adapter->init_hidden_hwnd(static_cast<int>(slot.width_px),
                                 static_cast<int>(slot.height_px));
@@ -175,11 +181,15 @@ int run_server(const Args& args) {
     }
     if (type == content::HostMsg::kSetExtent) {
       SurfaceSlot& slot = views[h.view_id];
-      slot.extent.xmin = cd::json_get_double(json, "xmin", 0);
-      slot.extent.ymin = cd::json_get_double(json, "ymin", 0);
-      slot.extent.xmax = cd::json_get_double(json, "xmax", 0);
-      slot.extent.ymax = cd::json_get_double(json, "ymax", 0);
-      pipe.send_json(content::HostMsg::kExtentChanged, h.view_id, json);
+      content::ExtentWire body;
+      if (!cd::decode_payload(payload, &body)) {
+        continue;
+      }
+      slot.extent.xmin = body.xmin;
+      slot.extent.ymin = body.ymin;
+      slot.extent.xmax = body.xmax;
+      slot.extent.ymax = body.ymax;
+      pipe.send_msg(content::HostMsg::kExtentChanged, h.view_id, body);
       continue;
     }
     if (type == content::HostMsg::kPointerEvent ||
@@ -187,6 +197,7 @@ int run_server(const Args& args) {
         type == content::HostMsg::kSetSelection ||
         type == content::HostMsg::kLegendQuery ||
         type == content::HostMsg::kCatalogOp ||
+        type == content::HostMsg::kPluginCall ||
         type == content::HostMsg::kTextCommit) {
       auto it = views.find(h.view_id);
       if (it != views.end() && it->second.present.generation() > 0) {

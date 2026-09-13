@@ -1,11 +1,11 @@
 /*
 File:    sde_shpsupport.h
 
-Desc:    Shape Ö§³Ö
+Desc:    Shape Ö§ï¿½ï¿½
 
 Version: Version 1.0
 
-Writter:  ³Â´ºÁÁ
+Writter:  ï¿½Â´ï¿½ï¿½ï¿½
 
 Date:    2010.11.17
 
@@ -14,7 +14,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _SDE_SHPSUPPORT_H
 #define _SDE_SHPSUPPORT_H
 
-namespace Smt_SDESmf
+namespace sdb
 {
 	struct DBFHeader
 	{
@@ -30,7 +30,7 @@ namespace Smt_SDESmf
 
 	struct DBFFIELDDescriptor
 	{
-		char m_sName[10];//Ó¦¸ÃÎªchar m_sName[11]
+		char m_sName[10];//Ó¦ï¿½ï¿½Îªchar m_sName[11]
 		char m_nType;
 		char m_nAddress[4];
 		char m_nFieldLength;

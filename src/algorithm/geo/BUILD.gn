@@ -1,0 +1,39 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+smt_shared_library("geo") {
+  dll_stem = "geo"
+  defines = [ "GEO_EXPORTS" ]
+  sources = [
+    "grid.cpp",
+    "tin.cpp",
+  ]
+  public_deps = [ "//third_party:gdal" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+  ]
+}
+
+group("geo_all") {
+  public_deps = [ ":geo" ]
+}
+
+test("geo_ogr_test") {
+  output_name = "geo_ogr_test"
+  sources = [ "geo_ogr_test.cc" ]
+  include_dirs += [
+    "//src/algorithm/geo",
+    "//src/render/math",
+    "//src",
+  ]
+  deps = [
+    ":geo",
+    "//src/render/math:math",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}

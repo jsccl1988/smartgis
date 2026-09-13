@@ -4,7 +4,7 @@
 #ifndef SDB_DATASOURCE_GDAL_OGR_CONNECT_H_
 #define SDB_DATASOURCE_GDAL_OGR_CONNECT_H_
 
-#include "layer.h"
+#include "sdb/layer/layer.h"
 
 #include <string>
 
@@ -15,63 +15,63 @@ template <uint Provider>
 struct db_provider_traits {
   static constexpr bool supported = false;
   static constexpr const char* driver_name = nullptr;
-  static std::string open_target(const Smt_GIS::SmtDataSourceInfo& info);
+  static std::string open_target(const sdb::SmtDataSourceInfo& info);
 };
 
 template <>
-struct db_provider_traits<Smt_GIS::PROVIDER_GPKG> {
+struct db_provider_traits<sdb::PROVIDER_GPKG> {
   static constexpr bool supported = true;
   static constexpr const char* driver_name = "GPKG";
-  static std::string open_target(const Smt_GIS::SmtDataSourceInfo& info);
+  static std::string open_target(const sdb::SmtDataSourceInfo& info);
 };
 
 template <>
-struct db_provider_traits<Smt_GIS::PROVIDER_POSTGRES> {
+struct db_provider_traits<sdb::PROVIDER_POSTGRES> {
   static constexpr bool supported = true;
   static constexpr const char* driver_name = "PostgreSQL";
-  static std::string open_target(const Smt_GIS::SmtDataSourceInfo& info);
+  static std::string open_target(const sdb::SmtDataSourceInfo& info);
 };
 
 template <>
-struct db_provider_traits<Smt_GIS::PROVIDER_SPATIALITE> {
+struct db_provider_traits<sdb::PROVIDER_SPATIALITE> {
   static constexpr bool supported = true;
   static constexpr const char* driver_name = "SQLite";
-  static std::string open_target(const Smt_GIS::SmtDataSourceInfo& info);
+  static std::string open_target(const sdb::SmtDataSourceInfo& info);
 };
 
 template <uint Provider>
 struct file_provider_traits {
   static constexpr bool supported = false;
   static constexpr const char* driver_name = nullptr;
-  static std::string open_target(const Smt_GIS::SmtDataSourceInfo& info);
+  static std::string open_target(const sdb::SmtDataSourceInfo& info);
 };
 
 template <>
-struct file_provider_traits<Smt_GIS::PROVIDER_SHAPE> {
+struct file_provider_traits<sdb::PROVIDER_SHAPE> {
   static constexpr bool supported = true;
   static constexpr const char* driver_name = "ESRI Shapefile";
-  static std::string open_target(const Smt_GIS::SmtDataSourceInfo& info);
+  static std::string open_target(const sdb::SmtDataSourceInfo& info);
 };
 
 template <>
-struct file_provider_traits<Smt_GIS::PROVIDER_OGR_SUPPORT> {
+struct file_provider_traits<sdb::PROVIDER_OGR_SUPPORT> {
   static constexpr bool supported = true;
   static constexpr const char* driver_name = nullptr;
-  static std::string open_target(const Smt_GIS::SmtDataSourceInfo& info);
+  static std::string open_target(const sdb::SmtDataSourceInfo& info);
 };
 
 template <uint Provider>
 struct mem_provider_traits {
   static constexpr bool supported = false;
   static constexpr const char* driver_name = nullptr;
-  static std::string open_target(const Smt_GIS::SmtDataSourceInfo& info);
+  static std::string open_target(const sdb::SmtDataSourceInfo& info);
 };
 
 template <>
-struct mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1> {
+struct mem_provider_traits<sdb::PROVIDER_MEM_VER1> {
   static constexpr bool supported = true;
   static constexpr const char* driver_name = "Memory";
-  static std::string open_target(const Smt_GIS::SmtDataSourceInfo&) {
+  static std::string open_target(const sdb::SmtDataSourceInfo&) {
     return "MEM:";
   }
 };
@@ -80,9 +80,9 @@ bool is_db_provider_supported(uint provider);
 bool is_file_provider_supported(uint provider);
 bool is_mem_provider_supported(uint provider);
 const char* gdal_driver_name(uint provider);
-const char* gdal_driver_name_for(const Smt_GIS::SmtDataSourceInfo& info);
-std::string make_gdal_open_target(const Smt_GIS::SmtDataSourceInfo& info);
-std::string make_sdbd_open_target(const Smt_GIS::SmtDataSourceInfo& info);
+const char* gdal_driver_name_for(const sdb::SmtDataSourceInfo& info);
+std::string make_gdal_open_target(const sdb::SmtDataSourceInfo& info);
+std::string make_sdbd_open_target(const sdb::SmtDataSourceInfo& info);
 
 }  // namespace datasource
 }  // namespace sdb

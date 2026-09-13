@@ -1,0 +1,23 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("scene3d") {
+  dll_stem = "scene3d"
+  defines = [ "SCENE3D_EXPORTS" ]
+  sources = [
+    "bl3d_scene.cpp",
+    "bl3d_sceneocttree.cpp",
+    "bl3d_sceneocttreenode.cpp",
+    "bl3d_vertexocttree.cpp",
+    "bl3d_vertextreenode.cpp",
+  ]
+  deps = [
+    "//src/algorithm/geo:geo",
+    "//src/render/math:bounds",
+    "//src/render/model3d:model3d",
+    "//src/render/render3d:render3d",
+    "//src/base:core",
+  ]
+}

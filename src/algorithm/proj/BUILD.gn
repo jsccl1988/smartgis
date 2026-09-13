@@ -4,44 +4,27 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-# PROJ 9 import lib from gdal_sdk. Runtime DLL (proj_9_4*.dll) is already
-# copied by //third_party:gdal_runtime_dlls. Do not vendor a second PROJ.
-config("proj9_lib") {
-  lib_dirs = [ "//third_party/gdal_sdk/lib" ]
-  if (is_debug) {
-    libs = [ "proj_d.lib" ]
-  } else {
-    libs = [ "proj.lib" ]
-  }
-}
-
-# proj.db next to gdal_runtime_dlls (out/). Search path is the module dir.
-copy("proj_runtime_data") {
-  sources = [
-    "//third_party/gdal_sdk/share/proj/proj.db",
-    "//third_party/gdal_sdk/share/proj/proj.ini",
-  ]
-  outputs = [ "$root_out_dir/{{source_file_part}}" ]
-}
-
+# PROJ 9 comes from //third_party:gdal (public_deps :PROJ; copies
+# proj.db / runtime DLLs next to out/). Do not vendor a second PROJ.
 smt_shared_library("proj") {
-  dll_stem = "SmtGisPrj"
-  defines = [ "Export_SmtGisPrj" ]
+  dll_stem = "proj"
+  defines = [ "PROJ_EXPORTS" ]
   sources = [
-    "gaussprj.cpp",
-    "lambertprj.cpp",
+    "proj_backend.cc",
     "proj_runtime.cpp",
     "projection.cpp",
-    "projection_api.cpp",
   ]
-  configs = [ ":proj9_lib" ]
   deps = [
-    ":proj_runtime_data",
     "//src/algorithm/geo:geo",
     "//src/base:base",
     "//src/base:core",
     "//third_party:gdal",
   ]
+  if (is_debug) {
+    libs += [ "proj_d.lib" ]
+  } else {
+    libs += [ "proj.lib" ]
+  }
 }
 
 test("proj_test") {
@@ -49,14 +32,13 @@ test("proj_test") {
   sources = [ "proj_test.cpp" ]
   include_dirs += [
     "//src/algorithm/proj",
-    "//src/base",
+    "//src/base/core",
+    "//src",
   ]
   deps = [
     ":proj",
     "//src/base:core",
+    "//third_party:gdal",
   ]
-  data_deps = [
-    ":proj_runtime_data",
-    "//third_party:gdal_runtime_dlls",
-  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
 }

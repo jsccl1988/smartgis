@@ -25,8 +25,8 @@ source_set("ogr_codec") {
 }
 
 smt_shared_library("sde_gdal") {
-  dll_stem = "SmtSDEGdalDevice"
-  defines = [ "Export_SmtSDEGdalDevice" ]
+  dll_stem = "sde_gdal"
+  defines = [ "SDE_GDAL_EXPORTS" ]
   sources = [
     "gdal_driver.cc",
     "gdal_driver.h",

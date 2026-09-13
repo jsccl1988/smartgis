@@ -1,0 +1,21 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Skia paint backend for Views chrome. No Skia checkout.
+# Opt-in via //:ui_views. Not in //src/render:render_all.
+
+config("skia_config") {
+  include_dirs += [ "//src" ]
+}
+
+source_set("skia") {
+  sources = [
+    "canvas.cc",
+    "canvas.h",
+    "color.h",
+    "skia.cc",
+    "skia.h",
+  ]
+  public_configs = [ ":skia_config" ]
+  libs = [ "gdi32.lib" ]
+}

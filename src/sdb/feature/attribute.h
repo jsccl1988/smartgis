@@ -1,11 +1,11 @@
 /*
 File:    gis_attribute.h
 
-Desc:    Gis ÊôÐÔ
+Desc:    Gis ï¿½ï¿½ï¿½ï¿½
 
 Version: Version 1.0
 
-Writter:  ³Â´ºÁÁ
+Writter:  ï¿½Â´ï¿½ï¿½ï¿½
 
 Date:    2010.11.17
 
@@ -14,15 +14,16 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _GIS_ATTRIBUTE_H
 #define _GIS_ATTRIBUTE_H
 
-#include "core.h"
-#include "bas_struct.h"
+#include "base/core/core.h"
+#include "base/core/bas_struct.h"
+#include "sdb/gis_export.h"
 
-using namespace Smt_Core;
+using namespace base;
 
 #define								SMT_FIELD_NAME_LENGTH		255
-namespace Smt_GIS
+namespace sdb
 {
-	class SMT_EXPORT_CLASS SmtField
+	class GIS_EXPORT SmtField
 	{
 		friend class SmtAttribute;
 	public:
@@ -45,7 +46,7 @@ namespace Smt_GIS
 		int							GetValueAsDateTime( int *pnYear, int *pnMonth, int *pnDay,int *pnHour, int *pnMinute, int *pnSecond, int *pnTZFlag ) const ;
 
 		//////////////////////////////////////////////////////////////////////////
-		SmtField					*Clone() const;
+		SmtField					*clone() const;
 
 		bool						IsFieldSetted()  const 
 		{
@@ -82,14 +83,14 @@ namespace Smt_GIS
 		SmtVariant					m_fldValue;
 	};
 
-	class SMT_EXPORT_CLASS SmtAttribute
+	class GIS_EXPORT SmtAttribute
 	{
 	public:
 		SmtAttribute(void);
 		virtual ~SmtAttribute(void);
 
 		//////////////////////////////////////////////////////////////////////////
-		SmtAttribute				*Clone(void) const;
+		SmtAttribute				*clone(void) const;
 
 		//////////////////////////////////////////////////////////////////////////
 		void                         AddField(SmtField & fld);
@@ -127,12 +128,4 @@ namespace Smt_GIS
 	};
 }
 
-#if !defined(Export_SmtGisCore)
-#if   defined( _DEBUG)
-#          pragma comment(lib,"SmtGisCoreD.lib")
-#       else
-#          pragma comment(lib,"SmtGisCore.lib")
-#	    endif  
-#endif
-
-#endif //_GIS_ATTRIBUTE_H
+#endif  // _GIS_ATTRIBUTE_H

@@ -19,20 +19,27 @@ mogu 源树本机未检出（常见路径 `c:\Dev\src\mogu`、WSL `/home/ccl/dev
 | [`src/README.md`](../src/README.md) | 产品树分层（短名） |
 | [`build/mogu-mapping.md`](build/mogu-mapping.md) | mogu → 本仓工程管理对照 |
 | [`build/src-layout.md`](build/src-layout.md) | `src/` 分层 + 2010→短名表 |
+| [`build/abi-rename-map.md`](build/abi-rename-map.md) | include / dll_stem / 导出宏 / 命名空间切断对照表 |
 | [`build/ui-views-skia.md`](build/ui-views-skia.md) | 桌面 UI 终局：Views + Skia |
 | [`build/ui-shell-multiprocess.md`](build/ui-shell-multiprocess.md) | 可替换 chrome + 多进程渲染 |
 | [`superpowers/specs/2026-09-13-ogr-db-datasource-design.md`](superpowers/specs/2026-09-13-ogr-db-datasource-design.md) | 用 GDAL/OGR 替换 ADO 数据库数据源（PostGIS / GeoPackage） |
 | [`superpowers/specs/2026-09-13-gdal-layer-management-design.md`](superpowers/specs/2026-09-13-gdal-layer-management-design.md) | 全部图层管理走 GDAL Dataset/Layer（文件 / 库 / 内存适配器） |
-| [`superpowers/specs/2026-09-13-algorithm-layer-oss-design.md`](superpowers/specs/2026-09-13-algorithm-layer-oss-design.md) | 算法层：gdal_sdk GEOS + PROJ 9，合并 `SmtGeoCore`，DEM/chart 移出 algorithm |
+| [`superpowers/specs/2026-09-13-model-render-compute-design.md`](superpowers/specs/2026-09-13-model-render-compute-design.md) | 模型 / 渲染 / 计算深度设计（OSS 优先；leftover `src/render/*` → 目标架构） |
+| [`superpowers/specs/2026-09-13-algorithm-layer-oss-design.md`](superpowers/specs/2026-09-13-algorithm-layer-oss-design.md) | 算法层：`//third_party:gdal` GEOS + PROJ 9，合并 `SmtGeoCore`，DEM/chart 移出 algorithm |
 | [`superpowers/specs/2026-09-13-base-ipc-mojom-design.md`](superpowers/specs/2026-09-13-base-ipc-mojom-design.md) | 单二进制 `--type=` + 独立 GPU 进程（2D/3D）+ Mojo/mojom |
 | [`superpowers/specs/2026-09-13-render-rhi-scene-design.md`](superpowers/specs/2026-09-13-render-rhi-scene-design.md) | 统一 RHI（FlyCube DX12/Vulkan）+ `sdb` 模型/场景 + GPU scene |
 | [`superpowers/specs/2026-09-13-net-asio-httplib-design.md`](superpowers/specs/2026-09-13-net-asio-httplib-design.md) | `src/net`：standalone ASIO + cpp-httplib + FnRPC 客户端 |
 | [`superpowers/specs/2026-09-13-tool-event-dispatch-design.md`](superpowers/specs/2026-09-13-tool-event-dispatch-design.md) | 工具层：session Command / Input / EventBus，与文档操作解耦 |
 | [`superpowers/specs/2026-09-13-plugin-host-design.md`](superpowers/specs/2026-09-13-plugin-host-design.md) | 插件层：PluginHost / Registry / Views / Python / store |
+| [`superpowers/specs/2026-09-13-ui-views-controls-design.md`](superpowers/specs/2026-09-13-ui-views-controls-design.md) | Views 公共工具箱 vs `src/app/views` 组合；控件 + GIS 面板 |
+| [`superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md`](superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md) | leftover MFC chrome → `ui::views`（`SmartGisViews.exe` 唯一入口；Splitter + tabs） |
+| [`superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md`](superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md) | 全仓 mogu 式 include + snake_case/两层命名空间 + 破 `Smt*` ABI（大爆炸） |
+| [`superpowers/plans/2026-09-13-code-style-include-abi-cutover.md`](superpowers/plans/2026-09-13-code-style-include-abi-cutover.md) | 实现计划：映射表 + 按树并行改写 + 收尾验收 |
 | [`superpowers/plans/2026-09-13-net-asio-httplib.md`](superpowers/plans/2026-09-13-net-asio-httplib.md) | 实现计划：换掉 Winsock 1.1 / WebAppLib |
 | [`superpowers/plans/2026-09-13-base-ipc-mojom.md`](superpowers/plans/2026-09-13-base-ipc-mojom.md) | 实现计划：C++23、ContentMain、同 PE 子进程 |
 | [`superpowers/plans/2026-09-13-tool-event-dispatch.md`](superpowers/plans/2026-09-13-tool-event-dispatch.md) | 实现计划：CommandDispatcher + InteractionStack + EditSession |
 | [`superpowers/plans/2026-09-13-plugin-host.md`](superpowers/plans/2026-09-13-plugin-host.md) | 实现计划：扩展平台（含 leftover `*.am` 适配） |
+| [`superpowers/archive/`](superpowers/archive/) | 已落地 / 废止（含删除的 mapd / web 栈） |
 
 没有第二份 `doc/` 目录。2010 的 `readme.txt` / `说明.docx` 已并入本节「产品概要」。
 
@@ -45,13 +52,13 @@ mogu 源树本机未检出（常见路径 `c:\Dev\src\mogu`、WSL `/home/ccl/dev
 | `build.bat` → `gn gen` + `ninja` | **唯一工程入口** |
 | 已删除的 `vs2008/` / `branches/` | 不再存在；`build.bat sln` **拒绝** |
 
-默认 `//:all` = `//src:src_all`（不依赖 MFC / D3DX9 的已接线 DLL）。主程序走 `build.bat app` / `views` / `web` / `winui` / `render`，不在日常 `group("all")` 里。
+默认 `//:all` = `//src:src_all`（不依赖 MFC / D3DX9 的已接线 DLL）。主程序走 `build.bat app` / `views` / `winui` / `render`，不在日常 `group("all")` 里。
 
 ## 产品概要
 
-系统按五层拆：`app`（产品壳）、`content`（稳定 API）、`sdb`（要素/图层/地图文档/数据源；图层开闭与要素 I/O 经 GDAL Dataset/Layer）、`render`（2D+3D + RHI）、`base`（原 core + 包络/样式）。WebGIS 在 `src/web/`。终局桌面壳是 Views + Skia。
+系统按五层拆：`app`（产品壳）、`content`（稳定 API）、`sdb`（要素/图层/地图文档/数据源；图层开闭与要素 I/O 经 GDAL Dataset/Layer）、`render`（2D+3D + RHI）、`base`（原 core + 包络/样式）。没有 WebGIS / mapd / WMS 栈；发布与图层 I/O 走 `sdb`。终局桌面壳是 Views + Skia。
 
-3D/2D 地图 GPU 走 `src/render/rhi`（FlyCube DX12/Vulkan Facade）。逻辑模型与 World 在 `src/sdb/{model,scene}`；GPU 实例缓存在 `src/render/scene`。遗留 `scene3d` / `model3d` / GL 设备仍在 `src_all`。Web 地图发布：瓦片、WMS/WTS；源码在 `src/web/`。核心地图文档在 `src/sdb/map`（`SmtMap`）。
+3D/2D 地图 GPU 走 `src/render/rhi`（FlyCube DX12/Vulkan Facade）。逻辑模型与 World 在 `src/sdb/{model,scene}`；GPU 实例缓存在 `src/render/scene`。遗留 `scene3d` / `model3d` / GL 设备仍在 `src_all`。三层深度与 leftover 映射：[`superpowers/specs/2026-09-13-model-render-compute-design.md`](superpowers/specs/2026-09-13-model-render-compute-design.md)。核心地图文档在 `src/sdb/map`（`SmtMap`）。
 
 ---
 

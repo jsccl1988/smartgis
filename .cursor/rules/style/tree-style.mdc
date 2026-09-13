@@ -1,0 +1,28 @@
+---
+description: Per top-level tree, match sibling code style and patterns
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Code style consistency by directory tree
+
+The repository is organized by **top-level directories** (`src/`, `core/`, `build/`, `testing/`, `third_party/`, `algorithm/`, `branches/`). **Within each tree**, keep style and patterns **uniform** so readers and reviewers see one coherent convention per area.
+
+## Do
+
+- **Anchor on peers**: when adding or editing a file, **read nearby code** in the same subtree (same directory, sibling modules) and **match** naming, include order, abstraction level, `BUILD.gn` patterns, and documentation density already used there.
+- **Follow narrower rules first**: where **`.cursor/rules/`** already specializes a path (e.g. **`ui-views-skia.mdc`**, **`cxx-standard.mdc`**, **`build-output.mdc`**), treat those as binding; use this rule as the default when something is not spelled out elsewhere.
+
+## Don’t
+
+- **Don’t** import idioms from a **different** top-level tree when the current tree already has an established pattern (e.g. don’t rewrite `src/` MFC peers to Google style just because `core/` looks different—unless a repo rule requires alignment).
+- **Don’t** mix unrelated formatting or structural styles **within the same subtree** in a single change set; new code should look like it was written by the same team as the surrounding files.
+- **Don’t** rewrite `branches/` sources to Google style in drive-by edits.
+
+## Relation to other rules
+
+Repo-wide requirements (**copyright**, **build output**, **no Qt**, **Views + Skia**, **C++23**) still apply everywhere. This rule adds **local consistency on top of** those global norms.

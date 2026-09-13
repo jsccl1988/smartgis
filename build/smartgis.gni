@@ -7,23 +7,65 @@ smt_src = "//src"
 # Forced-include home for smt_compat.h (legacy Windows typedefs).
 smt_vs = "//build"
 
+# Local graphic_engine FlyCube (junction third_party/.src/flycube +
+# third_party/flycube_prebuilt -> .../FlyCube/out). No GitHub fetch.
+# Debug compiles FlyCube /MDd into out/flycube. Release links the MD prebuilt.
+_flycube_src = "//third_party/.src/flycube"
+_flycube_cmake = read_file(_flycube_src + "/CMakeLists.txt", "string")
+_flycube_release_lib = read_file("//third_party/flycube_prebuilt/lib/FlyCube.lib",
+                                 "string")
+smt_has_flycube_src = _flycube_cmake != ""
+smt_has_flycube =
+    smt_has_flycube_src && (is_debug || _flycube_release_lib != "")
+
+# Header-only tinygltf activates when the pin is on disk. Assimp stays off
+# until include/assimp/Importer.hpp exists (no GitHub fetch from this gni).
+_smt_has_assimp_h = exec_script("//build/file_exists.py",
+                                [
+                                  "third_party/.src/assimp/include/assimp/Importer.hpp",
+                                ],
+                                "trim string")
+_smt_has_tinygltf_h = exec_script("//build/file_exists.py",
+                                  [ "third_party/.src/tinygltf/tiny_gltf.h" ],
+                                  "trim string")
+smt_has_assimp = _smt_has_assimp_h == "1"
+smt_has_tinygltf = _smt_has_tinygltf_h == "1"
+
 template("smt_shared_library") {
   shared_library(target_name) {
-    forward_variables_from(invoker, "*", [ "configs" ])
-    configs += [ "//build:smt_legacy" ]
+    forward_variables_from(invoker, "*", [ "configs", "dll_stem" ])
+    configs += [ "//build:legacy" ]
     if (defined(invoker.configs)) {
       configs += invoker.configs
     }
-    if (is_debug && !defined(invoker.output_name)) {
+    if (!defined(defines)) {
+      defines = []
+    }
+    defines += [ "_USRDLL" ]
+    if (defined(invoker.dll_stem)) {
+      if (is_debug) {
+        output_name = invoker.dll_stem + "D"
+      } else {
+        output_name = invoker.dll_stem
+      }
+    } else if (is_debug && !defined(invoker.output_name)) {
       output_name = target_name + "D"
     }
   }
 }
 
 # Shared MFC DLL (MBCS). DAO headers are gone in VS 18 MFC.
+# Set mfc_extension = true for AFX extension DLLs that already have DllMain.
 template("smt_mfc_shared_library") {
   smt_shared_library(target_name) {
-    forward_variables_from(invoker, "*")
+    forward_variables_from(invoker, "*", [ "configs", "mfc_extension" ])
+    configs = [ "//build:mfc" ]
+    if (!defined(invoker.mfc_extension) || !invoker.mfc_extension) {
+      configs += [ "//build:mfc_startup" ]
+    }
+    if (defined(invoker.configs)) {
+      configs += invoker.configs
+    }
     if (!defined(defines)) {
       defines = []
     }
@@ -37,5 +79,40 @@ template("smt_mfc_shared_library") {
     if (!defined(precompiled_source)) {
       precompiled_source = "stdafx.cpp"
     }
+  }
+}
+
+# MFC Feature Pack desktop exe (MBCS). Do not set _USRDLL.
+template("smt_mfc_executable") {
+  executable(target_name) {
+    forward_variables_from(invoker, "*", [ "configs" ])
+    configs += [
+      "//build:legacy",
+      "//build:mfc",
+      "//build:mfc_startup",
+      "//build/config/win:windows_subsystem",
+    ]
+    if (defined(invoker.configs)) {
+      configs += invoker.configs
+    }
+    if (!defined(defines)) {
+      defines = []
+    }
+    defines += [
+      "_AFXDLL",
+      "_AFX_NO_DAO_SUPPORT",
+    ]
+    if (!defined(precompiled_header)) {
+      precompiled_header = "stdafx.h"
+    }
+    if (!defined(precompiled_source)) {
+      precompiled_source = "stdafx.cpp"
+    }
+  }
+}
+
+template("mfc_executable") {
+  smt_mfc_executable(target_name) {
+    forward_variables_from(invoker, "*")
   }
 }

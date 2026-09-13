@@ -1,0 +1,35 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+source_set("model") {
+  sources = [
+    "model.cc",
+    "model.h",
+    "model_assimp.cc",
+    "model_internal.h",
+    "tileset.cc",
+    "tileset.h",
+    "tileset_decode.cc",
+  ]
+  include_dirs += [ "//src" ]
+  defines = []
+  deps = []
+  if (smt_has_assimp) {
+    defines += [ "SMT_HAS_ASSIMP" ]
+    deps += [ "//third_party:assimp" ]
+  }
+  if (smt_has_tinygltf) {
+    defines += [ "SMT_HAS_TINYGLTF" ]
+    deps += [ "//third_party:tinygltf" ]
+  }
+}
+
+test("model_test") {
+  output_name = "model_test"
+  sources = [ "model_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":model" ]
+}

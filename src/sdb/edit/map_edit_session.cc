@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-#include "map.h"
+#include "sdb/map/map.h"
 
 #include "ogrsf_frmts.h"
 
@@ -25,13 +25,13 @@ content::FeatureId pack_feature_id(GIntBig id) {
 
 }  // namespace
 
-MapEditSession::MapEditSession(Smt_GIS::SmtMap* map)
+MapEditSession::MapEditSession(sdb::SmtMap* map)
     : CommandEditSession([this](const FeatureMutation& m, bool undo) {
         return apply_map(m, undo);
       }),
       map_(map) {}
 
-void MapEditSession::bind_map(Smt_GIS::SmtMap* map) { map_ = map; }
+void MapEditSession::bind_map(sdb::SmtMap* map) { map_ = map; }
 
 bool MapEditSession::commit_feature(EditOp op, OGRFeature* feature) {
   if (!map_ || !feature) {

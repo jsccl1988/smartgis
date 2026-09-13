@@ -1,9 +1,9 @@
-#include "attribute.h"
-#include "api.h"
+#include "sdb/feature/attribute.h"
+#include "base/core/api.h"
 
-using namespace Smt_Core;
+using namespace base;
 
-namespace Smt_GIS
+namespace sdb
 {
 	void	InitFieldNameToTypeMap(map<string,ushort> &fldNameToType)
 	{
@@ -89,7 +89,7 @@ namespace Smt_GIS
 
 		case   SmtDateTime:
 			return "DateTime";
-		case   SmtUnknown://Î´ÖªÀàÐÍ
+		case   SmtUnknown://Î´Öªï¿½ï¿½ï¿½ï¿½
 		default:
 			return "Unknown";	
 		}
@@ -150,7 +150,7 @@ namespace Smt_GIS
 		if( !IsFieldSetted() )
 			return 0;
 
-		return VarToInteger(m_fldValue);
+		return var_to_integer(m_fldValue);
 	}
 
 	double SmtField::GetValueAsDouble( ) const 
@@ -158,7 +158,7 @@ namespace Smt_GIS
 		if( !IsFieldSetted() )
 			return 0;
 
-		return VarToDouble(m_fldValue);
+		return var_to_double(m_fldValue);
 	}
 
 	const char *SmtField::GetValueAsString( ) const 
@@ -166,7 +166,7 @@ namespace Smt_GIS
 		if( !IsFieldSetted() )
 			return "";
 
-		return VarToString(m_fldValue);
+		return var_to_string(m_fldValue);
 	}
 
 	const int *SmtField::GetValueAsIntegerList( int *pnCount ) const 
@@ -383,7 +383,7 @@ namespace Smt_GIS
 		}
 	}
 
-	SmtField *SmtField::Clone() const
+	SmtField *SmtField::clone() const
 	{
 		SmtField *pAttFld = new SmtField();
 
@@ -446,7 +446,7 @@ namespace Smt_GIS
 					return SMT_ERR_FAILURE;
 
 				m_fldValue.bstrValList.paList = new char*[smtFld.bstrValList.nCount+1];
-				m_fldValue.bstrValList.paList = STR_Duplicate(smtFld.bstrValList.paList);
+				m_fldValue.bstrValList.paList = str_duplicate(smtFld.bstrValList.paList);
 				m_fldValue.bstrValList.nCount = smtFld.bstrValList.nCount;
 
 			}
@@ -469,7 +469,7 @@ namespace Smt_GIS
 			memcpy(&m_fldValue.dateVal,&smtFld.dateVal,sizeof(smtFld.dateVal));
 			break;
 
-		case   SmtUnknown://Î´ÖªÀàÐÍ
+		case   SmtUnknown://Î´Öªï¿½ï¿½ï¿½ï¿½
 			break;
 
 		default:
@@ -606,7 +606,7 @@ namespace Smt_GIS
 			SmtVariant        uField;
 			uField.Vt = m_fldValue.Vt;
 
-			uField.bstrValList.nCount = STR_Count(papszValues);
+			uField.bstrValList.nCount = str_count(papszValues);
 			uField.bstrValList.paList = papszValues;
 
 			return SetValue(uField );

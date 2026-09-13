@@ -1,7 +1,6 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-import("//src/app/webview2/webview2.gni")
 import("//src/app/winui/winui.gni")
 
 # Root groups match mogu / mgis: all, test_all, all_with_tests, benchmark_all
@@ -36,13 +35,27 @@ group("test_all") {
   deps = [
     "//testing/e2e:exe_smoke",
     "//src/sdb/datasource/gdal:sde_gdal_test",
+    "//src/algorithm/geo:geo_ogr_test",
+    "//src/algorithm/proj:proj_test",
+    "//src/algorithm/stat:stat_expr_test",
+    "//src/algorithm/tin:tin_delaunay_test",
+    "//src/algorithm/tin:tin_xyz_test",
+    "//src/sdb/model:model_test",
+    "//src/sdb/scene:scene_test",
+    "//src/render:rhi_test",
+    "//src/render/scene:scene_gpu_test",
+    "//src/render/scene:unified_draw_test",
+    "//src/render/scene:leftover_mesh_test",
+    "//src/render/scene:leftover_record_test",
+    "//src/render/scene:leftover_session_test",
+    "//src/base/ipc:ipc_test",
   ]
   if (smt_build_app) {
     deps += [ "//src/app:app" ]
   }
 }
 
-# All chrome / GPU exes + exe_smoke. build.bat e2e sets every smt_build_* flag.
+# Chrome / GPU exes + exe_smoke. build.bat e2e sets remaining smt_build_* flags.
 group("e2e") {
   testonly = true
   deps = [ ":test_all" ]
@@ -51,9 +64,6 @@ group("e2e") {
   }
   if (smt_build_views) {
     deps += [ ":ui_views" ]
-  }
-  if (smt_build_webview2) {
-    deps += [ ":webview2" ]
   }
   if (smt_build_winui) {
     deps += [ ":winui" ]
@@ -109,14 +119,6 @@ group("ui_views") {
 
 group("views") {
   deps = [ ":ui_views" ]
-}
-
-# Scheme 1 WebView2 chrome. Loaded only when smt_build_webview2=true.
-group("webview2") {
-  deps = []
-  if (smt_build_webview2) {
-    deps += [ "//src/app/webview2:app_webview2" ]
-  }
 }
 
 # Scheme 2 WinUI chrome. Loaded only when smt_build_winui=true.

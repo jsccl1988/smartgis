@@ -176,7 +176,7 @@ SdbdLayer* SdbdDataset::sdbd_layer_by_name(const char* name) {
 }
 
 SdbdLayer* SdbdDataset::create_sdbd_layer(const char* name,
-                                          Smt_GIS::SmtFeatureType ft) {
+                                          sdb::SmtFeatureType ft) {
   if (!inner_ || !name) {
     return nullptr;
   }
@@ -329,7 +329,7 @@ SdbdLayer* as_sdbd_layer(OGRLayer* layer) {
   return dynamic_cast<SdbdLayer*>(layer);
 }
 
-GDALDataset* open_sdbd_dataset(const Smt_GIS::SmtDataSourceInfo& info) {
+GDALDataset* open_sdbd_dataset(const sdb::SmtDataSourceInfo& info) {
   register_gdal_driver();
   const std::string target = make_sdbd_open_target(info);
   if (target.empty()) {

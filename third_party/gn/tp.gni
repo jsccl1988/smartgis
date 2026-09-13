@@ -1,0 +1,12 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+#
+# third_party layer 1: variables only.
+# Do not define config/group/action here (GN import restriction).
+# Version pins live in third_party/manifest.json.
+# Install products: build.bat t / tools/batch.py → third_party/.install.
+
+declare_args() {
+  third_party_dir = "//third_party"
+  third_party_install_prefix = "//third_party/.install"
+}

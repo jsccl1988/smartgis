@@ -9,7 +9,7 @@ All rights reserved.
 
 **Goal:** One `SmartGis.exe` (or current chrome PE) relaunches itself with `--type=renderer` / `--type=gpu`; GPU process paints 2D and 3D; public API is Chromium-named `MapContents`; language is C++23.
 
-**Architecture:** `content::ContentMain` dispatches `ProcessType`. Browser hosts `MapContents`. Renderer owns `SmtMap`/`SmtIATool`. GPU (`GpuMain`) owns GL/D3D11 + `scene3d` and returns DXGI handles. Mojo/mojom pin is a later task; v1 launch uses existing named-pipe escape hatch until `third_party/chromium` exists.
+**Architecture:** `content::ContentMain` dispatches `ProcessType`. Browser hosts `MapContents`. Renderer owns `SmtMap`/`SmtIATool`. GPU (`GpuMain`) owns GL/D3D11 + `scene3d` and returns DXGI handles. Product IPC is Win32 named pipe + mogu BinarySink/pickle (`archive()` structs). No Chromium, no protobuf, no mojom.
 
 **Tech Stack:** MSVC v145, GN/`build.bat`, existing `src/content` + `src/gpu`, C++23.
 
@@ -20,7 +20,7 @@ All rights reserved.
 - Stay on `master`; do not create topic branches.
 - Copyright 2026 Mogu on new/touched engineering files.
 - Multiprocess types PascalCase; `Smt_*` ABI unchanged.
-- `src_all` (31 DLLs) must not compile Chromium `base` or mojo.
+- `src_all` (31 DLLs) must not compile wire codec internals beyond public `content` API.
 - One PE: children are `GetModuleFileNameW(nullptr)` + `--type=`. No new `SmartGisRender.exe`.
 - GPU process is required (default). `--in-process-gpu` default off.
 - 2D (`kMapEdit`/`kMapData`) and 3D (`kScene3d`) paint only in `--type=gpu`.
@@ -160,7 +160,7 @@ Use `GetModuleFileNameW(nullptr)` for `exe`. `CREATE_NO_WINDOW` on children. Job
 
 **Files:**
 - Create: `map_contents.h`, `map_contents_observer.h`, `map_widget_host_view.h`
-- Modify: hosts under `src/app/{views,webview2,winui}` includes
+- Modify: hosts under `src/app/{views,winui}` includes
 - Delete: `map_session.h`, `map_view.h`, `tool_router.h` after hosts compile
 
 `MapContents::Create()` replaces `create_map_session()`. Methods PascalCase on new types; implementation can wrap existing `snake_case` until Mojo.
@@ -182,17 +182,18 @@ Use `GetModuleFileNameW(nullptr)` for `exe`. `CREATE_NO_WINDOW` on children. Job
 
 ---
 
-### Task 7: Mojo pin + mojom (blocked without chromium tree)
+### Task 7: Pickle wire (named pipe + BinarySink)
 
-**Files:** `third_party/chromium/`, `build/mojom.gni`, `src/content/public/mojom/map_widget.mojom`, `gpu.mojom`
+**Files:** `src/base/ipc/`, `src/content/common/ipc.*` (read-only reference), wire struct headers with `archive()`
 
-If the pin cannot be fetched, stop this task with BLOCKED and keep named-pipe escape hatch. Do not invent a second IDL.
+Chromium Mojo is **rejected**. Product transport is named pipe + pickle. Do not invent a second IDL (no mojom, no protobuf).
 
-- [x] Sparse-pin chromium `base`+`mojo` or BLOCKED.
-- [ ] `mojom.gni` cpp_only + generate `map_widget.mojom` / `gpu.mojom`.
-- [ ] Invitation replaces `--pipe=` on the Mojo path.
+- [x] Remove chromium manifest pin + mojom generator scaffolding (docs/cleanup).
+- [x] Spec accepted: pickle BinarySink, C++ `archive()` structs, same envelope for `PluginCall`.
+- [x] Land `base::ipc` pickle encode/decode on existing `--pipe=` path (replacing raw `HostMsg` incrementally).
+- [ ] Invitation still uses `--pipe=` until a later task; no Mojo invitation.
 
-**BLOCKED (2026-09-13):** `third_party/chromium` is not in the tree. Keep named pipe + `HostMsg` until a sparse pin exists. Do not invent a second IDL.
+**Wire (2026-09-13):** Win32 named pipe + mogu BinarySink/pickle. Children still launched with `--pipe=`. Not BLOCKED on chromium.
 
 ## Coverage vs spec
 
@@ -204,8 +205,8 @@ If the pin cannot be fetched, stop this task with BLOCKED and keep named-pipe es
 | Standalone GPU 2D+3D | 4 (3D backend still existing `scene3d` in GpuMain) |
 | MapContents names | 5 |
 | Docs | 6 |
-| Mojo/mojom v1 | 7 (may BLOCK) |
+| Pickle wire v1 | 7 (landing; not BLOCKED) |
 | UI event Forward* | 5 wrap + existing `dispatch` |
-| Traits/typemaps | 7 with mojom |
+| Traits / `archive()` | 7 with pickle structs |
 
 Do not vendor viz. Do not add Qt.

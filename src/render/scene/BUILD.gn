@@ -1,0 +1,106 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+source_set("scene") {
+  sources = [
+    "scene.cc",
+    "scene.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  public_deps = [ "//third_party:gdal" ]
+  deps = [
+    "//src/render:rhi",
+    "//src/sdb/scene:scene",
+  ]
+}
+
+test("scene_gpu_test") {
+  output_name = "scene_gpu_test"
+  sources = [ "scene_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [ ":scene" ]
+}
+
+test("unified_draw_test") {
+  output_name = "unified_draw_test"
+  sources = [ "unified_draw_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":scene",
+    "//src/algorithm/geo:geo",
+    "//src/sdb/map:gis",
+    "//third_party:gdal",
+  ]
+  if (smt_has_flycube) {
+    defines = [ "SMT_HAS_FLYCUBE" ]
+  }
+}
+
+source_set("leftover_mesh") {
+  sources = [
+    "leftover_mesh.cc",
+    "leftover_mesh.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+}
+
+test("leftover_mesh_test") {
+  output_name = "leftover_mesh_test"
+  sources = [ "leftover_mesh_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":leftover_mesh",
+    "//src/render:rhi",
+  ]
+}
+
+source_set("leftover_record") {
+  sources = [
+    "leftover_record.cc",
+    "leftover_record.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  public_deps = [
+    ":leftover_mesh",
+    ":scene",
+    "//src/render:rhi",
+    "//src/sdb/map:gis",
+    "//src/sdb/scene:scene",
+  ]
+}
+
+test("leftover_record_test") {
+  output_name = "leftover_record_test"
+  sources = [ "leftover_record_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":leftover_record",
+    "//src/algorithm/geo:geo",
+    "//src/sdb/map:gis",
+    "//third_party:gdal",
+  ]
+}
+
+test("leftover_session_test") {
+  output_name = "leftover_session_test"
+  sources = [ "leftover_session_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":leftover_record",
+    "//src/render:render",
+  ]
+}

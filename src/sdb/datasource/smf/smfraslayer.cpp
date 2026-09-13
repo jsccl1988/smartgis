@@ -1,20 +1,20 @@
-#include "smf.h"
-#include "api.h"
-#include "feature_api.h"
-#include "style_api.h"
-#include "mem.h"
+#include "sdb/datasource/smf/smf.h"
+#include "base/core/api.h"
+#include "sdb/feature/feature_api.h"
+#include "base/style/style_api.h"
+#include "sdb/datasource/mem/mem.h"
 #include "ximage.h"
 
-using namespace Smt_Geo;
-using namespace Smt_Core;
-using namespace Smt_SDEMem;
-using namespace Smt_GIS;
+using namespace geo;
+using namespace base;
+using namespace sdb;
+using namespace sdb;
 
-namespace Smt_SDESmf
+namespace sdb
 {
 	SmtSmfRasLayer::SmtSmfRasLayer(SmtDataSource *pOwnerDs):SmtRasterLayer(pOwnerDs)
 	{
-		m_pOwnerDs = pOwnerDs->Clone();
+		m_pOwnerDs = pOwnerDs->clone();
 		sprintf(m_szLayerName,"DefRaster");  
 		m_pAtt = new SmtAttribute();
 
@@ -76,7 +76,7 @@ namespace Smt_SDESmf
 
 		sprintf(szImgUrl,"%s",m_szLayerFileName);
 
-		long lCodeType = GetImageTypeByFileExt(m_szLayerFileName);
+		long lCodeType = get_image_type_by_file_ext(m_szLayerFileName);
 
 		CxImage img;
 		FILE *fpImg = fopen(szImgUrl, "rb");
@@ -92,7 +92,7 @@ namespace Smt_SDESmf
 
 			m_pMemLayer->GetRasterRect(fLocRect);
 	
-			fLocRect.rt.y  = fLocRect.lb.y + fLocRect.Width()*img.GetHeight()/img.GetWidth();
+			fLocRect.rt.y  = fLocRect.lb.y + fLocRect.width()*img.GetHeight()/img.GetWidth();
 
 			if (img.Encode(pImageBuf,lImageBufSize,(uint32_t)lCodeType))
 			{
@@ -108,7 +108,7 @@ namespace Smt_SDESmf
 		Envelope env;
 
 		m_pMemLayer->CalEnvelope();
-		m_pMemLayer->GetEnvelope(env);
+		m_pMemLayer->get_envelope(env);
 
 		memcpy(&m_lyrEnv,&env,sizeof(Envelope));
 	}

@@ -1,20 +1,21 @@
 #include <math.h>
 
-#include "gdi_simplerenderdevice.h"
-#include "logmanager.h"
-#include "style_api.h"
-#include "gdi_aux_api.h"
-#include "resource.h"
-#include "api.h"
+#include "render/gdi_simple/gdi_simplerenderdevice.h"
+#include "base/core/logmanager.h"
+#include "base/style/style_api.h"
+#include "render/gdi_simple/gdi_aux_api.h"
+#include "render/gdi_simple/resource.h"
+#include "base/core/api.h"
 #include "ximage.h"
 #include "sdb/datasource/gdal/ogr_feature_codec.h"
 #include "ogrsf_frmts.h"
+#include "render/scene/leftover_record.h"
 
-using namespace Smt_GIS;
-using namespace Smt_Core;
-using namespace Smt_Geo;
+using namespace sdb;
+using namespace base;
+using namespace geo;
 
-namespace Smt_Rd
+namespace render
 {
 	const float		C_fDELAY = 0.25;	
 
@@ -75,14 +76,15 @@ namespace Smt_Rd
 			return SMT_ERR_INVALID_PARAM;
 		 
 	   m_hWnd = hWnd;
+	   bind_rhi_present(hWnd);
 
-	   SmtLogManager * pLogMgr = SmtLogManager::GetSingletonPtr();
-	   SmtLog *pLog = pLogMgr->CreateLog(logname);
+	   SmtLogManager * pLogMgr = SmtLogManager::get_singleton_ptr();
+	   SmtLog *pLog = pLogMgr->create_log(logname);
 
 	   if (NULL == pLog)
 		   return SMT_ERR_FAILURE;
 
-	   pLog->LogMessage("Init Gdi SmtSimpleRenderDevice ok!");
+	   pLog->log_message("Init Gdi SmtSimpleRenderDevice ok!");
 	 
 	   m_strLogName = logname;
 
@@ -94,20 +96,20 @@ namespace Smt_Rd
 
 	int SmtGdiSimpleRenderDevice::Destroy(void)
 	{
-		SmtLogManager * pLogMgr = SmtLogManager::GetSingletonPtr();
-		SmtLog *pLog = pLogMgr->GetLog(m_strLogName.c_str());
+		SmtLogManager * pLogMgr = SmtLogManager::get_singleton_ptr();
+		SmtLog *pLog = pLogMgr->get_log(m_strLogName.c_str());
 		if (pLog != NULL)
-			pLog->LogMessage("Destroy Gdi SmtSimpleRenderDevice ok!");
+			pLog->log_message("Destroy Gdi SmtSimpleRenderDevice ok!");
 
 		return SMT_ERR_NONE;
 	}
 
 	int SmtGdiSimpleRenderDevice::Release(void)
 	{
-	   SmtLogManager * pLogMgr = SmtLogManager::GetSingletonPtr();
-	   SmtLog *pLog = pLogMgr->GetLog(m_strLogName.c_str());
+	   SmtLogManager * pLogMgr = SmtLogManager::get_singleton_ptr();
+	   SmtLog *pLog = pLogMgr->get_log(m_strLogName.c_str());
 	   if (pLog != NULL)
-		   pLog->LogMessage("Release Gdi SmtSimpleRenderDevice ok!");
+		   pLog->log_message("Release Gdi SmtSimpleRenderDevice ok!");
 
 	   if (m_hFont)
 	   {
@@ -141,10 +143,10 @@ namespace Smt_Rd
 		if (cx < 0 || cy < 0)
 			return SMT_ERR_FAILURE;
 
-		if (IsEqual(m_Viewport.m_fVOX,orgx,dEPSILON) && 
-			IsEqual(m_Viewport.m_fVOY,orgy,dEPSILON) &&
-			IsEqual(m_Viewport.m_fVHeight,cy,dEPSILON) &&
-			IsEqual(m_Viewport.m_fVWidth,cx,dEPSILON) )
+		if (is_equal(m_Viewport.m_fVOX,orgx,dEPSILON) && 
+			is_equal(m_Viewport.m_fVOY,orgy,dEPSILON) &&
+			is_equal(m_Viewport.m_fVHeight,cy,dEPSILON) &&
+			is_equal(m_Viewport.m_fVWidth,cx,dEPSILON) )
 		{
 			return SMT_ERR_FAILURE;
 		}
@@ -179,10 +181,10 @@ namespace Smt_Rd
 	//////////////////////////////////////////////////////////////////////////
 	int SmtGdiSimpleRenderDevice::LPToDP(float x,float y,LONG &X,LONG &Y) const 
 	{	
-		if (IsEqual(m_Windowport.m_fWWidth,0,dEPSILON) && 
-			IsEqual(m_Windowport.m_fWHeight,0,dEPSILON) &&
-			IsEqual(m_Viewport.m_fVWidth,0,dEPSILON) &&
-			IsEqual(m_Viewport.m_fVHeight,0,dEPSILON) )
+		if (is_equal(m_Windowport.m_fWWidth,0,dEPSILON) && 
+			is_equal(m_Windowport.m_fWHeight,0,dEPSILON) &&
+			is_equal(m_Viewport.m_fVWidth,0,dEPSILON) &&
+			is_equal(m_Viewport.m_fVHeight,0,dEPSILON) )
 		{
 			X = x;
 			Y = y;
@@ -200,10 +202,10 @@ namespace Smt_Rd
 
 	int SmtGdiSimpleRenderDevice::DPToLP(LONG X,LONG Y,float &x,float &y) const 
 	{
-		if (IsEqual(m_Windowport.m_fWWidth,0,dEPSILON) && 
-			IsEqual(m_Windowport.m_fWHeight,0,dEPSILON) &&
-			IsEqual(m_Viewport.m_fVWidth,0,dEPSILON) &&
-			IsEqual(m_Viewport.m_fVHeight,0,dEPSILON) )
+		if (is_equal(m_Windowport.m_fWWidth,0,dEPSILON) && 
+			is_equal(m_Windowport.m_fWHeight,0,dEPSILON) &&
+			is_equal(m_Viewport.m_fVWidth,0,dEPSILON) &&
+			is_equal(m_Viewport.m_fVHeight,0,dEPSILON) )
 		{
 			x = X;
 			y = Y;
@@ -289,8 +291,8 @@ namespace Smt_Rd
 		}
 
 		HDC hDC = GetDC(m_hWnd);
-		ClearRect(hDC,invalidatex1, invalidatey1, invalidatew1, invalidateh1/*,(COLORREF)::GetSysColor(COLOR_WINDOW)*/);
-		ClearRect(hDC,invalidatex2, invalidatey2, invalidatew2, invalidateh2/*,(COLORREF)::GetSysColor(COLOR_WINDOW)*/);
+		clear_rect(hDC,invalidatex1, invalidatey1, invalidatew1, invalidateh1/*,(COLORREF)::GetSysColor(COLOR_WINDOW)*/);
+		clear_rect(hDC,invalidatex2, invalidatey2, invalidatew2, invalidateh2/*,(COLORREF)::GetSysColor(COLOR_WINDOW)*/);
 
 		m_smtRenderBuf.ClearBuf(m_Viewport.m_fVOX,m_Viewport.m_fVOY,m_Viewport.m_fVWidth,m_Viewport.m_fVWidth/*,(COLORREF)::GetSysColor(COLOR_WINDOW)*/);
 
@@ -348,14 +350,14 @@ namespace Smt_Rd
 	int SmtGdiSimpleRenderDevice::ZoomScale(const SmtMap *pSmtMap,lPoint orgPoint,float fscale,bool bRealTime)
 	{ 
 		if(fscale > 1.)
-		{//¸Ä±äm_virViewport1
+		{//ï¿½Ä±ï¿½m_virViewport1
 			m_virViewport1.m_fVHeight /= fscale;
 			m_virViewport1.m_fVWidth  /= fscale;
 			m_virViewport1.m_fVOX = orgPoint.x - (orgPoint.x-m_virViewport1.m_fVOX)/fscale;
 			m_virViewport1.m_fVOY = orgPoint.y - (orgPoint.y-m_virViewport1.m_fVOY)/fscale;
 		}
 		else
-		{//¸Ä±äm_virViewport2
+		{//ï¿½Ä±ï¿½m_virViewport2
 			m_virViewport2.m_fVHeight *= fscale;
 			m_virViewport2.m_fVWidth  *= fscale;
 			m_virViewport2.m_fVOX = orgPoint.x + (m_virViewport2.m_fVOX - orgPoint.x)*fscale;
@@ -389,13 +391,13 @@ namespace Smt_Rd
 		LRectToDRect(rect,rt);
 		m_virViewport2.m_fVOX = rt.lb.x;
 		m_virViewport2.m_fVOY = rt.rt.y;
-		m_virViewport2.m_fVHeight = rt.Height();
-		m_virViewport2.m_fVWidth = rt.Width();
+		m_virViewport2.m_fVHeight = rt.height();
+		m_virViewport2.m_fVWidth = rt.width();
 		
 		m_Windowport.m_fWOX = rect.lb.x;
 		m_Windowport.m_fWOY = rect.lb.y;
-		m_Windowport.m_fWHeight = rect.Height();
-		m_Windowport.m_fWWidth  = rect.Width(); 
+		m_Windowport.m_fWHeight = rect.height();
+		m_Windowport.m_fWWidth  = rect.width(); 
 
 		float xblc,yblc;
 		xblc = m_Viewport.m_fVWidth/m_Windowport.m_fWWidth;
@@ -405,14 +407,14 @@ namespace Smt_Rd
 
 		if (xblc < yblc)
 		{
-			m_virViewport2.m_fVOY += rt.Height()*(1-yblc/xblc);
-			m_Windowport.m_fWHeight = rect.Height()*yblc/xblc;
-			m_virViewport2.m_fVHeight = rt.Height()*yblc/xblc;
+			m_virViewport2.m_fVOY += rt.height()*(1-yblc/xblc);
+			m_Windowport.m_fWHeight = rect.height()*yblc/xblc;
+			m_virViewport2.m_fVHeight = rt.height()*yblc/xblc;
 		}
 		else
 		{
-			m_Windowport.m_fWWidth  = rect.Width()*xblc/yblc; 
-			m_virViewport2.m_fVWidth = rt.Width()*xblc/yblc;
+			m_Windowport.m_fWWidth  = rect.width()*xblc/yblc; 
+			m_virViewport2.m_fVWidth = rt.width()*xblc/yblc;
 		}
 
 		if (pSmtMap)
@@ -436,9 +438,9 @@ namespace Smt_Rd
 			dbfElapse = (llStamp - m_llLastRedrawCmdStamp)/(double)llPerCount;
 
 			if (dbfElapse > C_fDELAY)
-			{//¼¤»îÖØ»æ
+			{//ï¿½ï¿½ï¿½ï¿½ï¿½Ø»ï¿½
 				m_bRedraw = false;
-				//ÖØ»æ
+				//ï¿½Ø»ï¿½
 				m_smtMapRenderBuf.ClearBuf(m_nOX,m_nOY,m_nWidth,m_nHeight,(COLORREF)::GetSysColor(COLOR_WINDOW));
 				
 				HDC hPaintBufferDC = m_smtMapRenderBuf.PrepareDC();
@@ -543,10 +545,10 @@ namespace Smt_Rd
 
 		if (m_bCurUseStyle)
 		{
-			ulong format = pStyle->GetStyleType();
+			ulong format = pStyle->get_style_type();
 			if( format & ST_PenDesc )
 			{
-				SmtPenDesc pen = pStyle->GetPenDesc();
+				SmtPenDesc pen = pStyle->get_pen_desc();
 
 				if (m_hPen)
 				{
@@ -560,7 +562,7 @@ namespace Smt_Rd
 
 			if( format & ST_BrushDesc )
 			{
-				SmtBrushDesc brush = pStyle->GetBrushDesc();
+				SmtBrushDesc brush = pStyle->get_brush_desc();
 
 				if (m_hBrush)
 				{
@@ -580,7 +582,7 @@ namespace Smt_Rd
 
 			if (format & ST_SymbolDesc)
 			{
-				SmtSymbolDesc symbol = pStyle->GetSymbolDesc();
+				SmtSymbolDesc symbol = pStyle->get_symbol_desc();
 
 				if (m_hIcon)
 				{
@@ -593,7 +595,7 @@ namespace Smt_Rd
 
 			if (format & ST_AnnoDesc)
 			{
-				SmtAnnotationDesc anno = pStyle->GetAnnoDesc();
+				SmtAnnotationDesc anno = pStyle->get_anno_desc();
 
 				if (m_hFont)
 				{
@@ -670,6 +672,20 @@ namespace Smt_Rd
 		if (NULL == pMap)
 			return SMT_ERR_INVALID_PARAM;
 
+		{
+			const uint32_t w = m_Viewport.m_fVWidth > 0.f
+			                       ? static_cast<uint32_t>(m_Viewport.m_fVWidth)
+			                       : 64u;
+			const uint32_t h = m_Viewport.m_fVHeight > 0.f
+			                       ? static_cast<uint32_t>(m_Viewport.m_fVHeight)
+			                       : 64u;
+			render::scene::LeftoverRecorder& rec =
+			    render::scene::leftover_session();
+			if (rec.begin(w, h) && rec.record_map(pMap)) {
+				rec.finish();
+			}
+		}
+
 		for (int i = 0; i < pMap->GetLayerCount(); ++i) {
 			if (!pMap->IsLayerVisible(i)) {
 				continue;
@@ -715,11 +731,11 @@ namespace Smt_Rd
 		lRect lViewp;
 		fRect fViewp;
 
-		ViewportToRect(lViewp,m_Viewport);
+		viewport_to_rect(lViewp,m_Viewport);
 		DRectToLRect(lViewp,fViewp);
-		RectToEnvelope(envViewp,fViewp);
+		rect_to_envelope(envViewp,fViewp);
 
-		if (!envLayer.Intersects(envViewp))
+		if (!envLayer.intersects(envViewp))
 			return SMT_ERR_NONE;
 
 		pLayer->ResetReading();
@@ -741,17 +757,17 @@ namespace Smt_Rd
 			return SMT_ERR_NONE; 
 
 		Envelope envLayer ;
-		pLayer->GetEnvelope(envLayer);
+		pLayer->get_envelope(envLayer);
 		Envelope envViewp;
 
 		lRect lViewp;
 		fRect fViewp;
 
-		ViewportToRect(lViewp,m_Viewport);
+		viewport_to_rect(lViewp,m_Viewport);
 		DRectToLRect(lViewp,fViewp);
-		RectToEnvelope(envViewp,fViewp);
+		rect_to_envelope(envViewp,fViewp);
 
-		if (!envLayer.Intersects(envViewp))
+		if (!envLayer.intersects(envViewp))
 			return SMT_ERR_NONE;
 
 		char		*pRasterBuf = NULL;
@@ -766,7 +782,7 @@ namespace Smt_Rd
 
 			CxImage tmpImage;
 			tmpImage.Decode((BYTE*)pRasterBuf,lRasterBufSize,lCodeType);
-			tmpImage.Stretch(m_hCurDC,lrt.lb.x,lrt.rt.y,lrt.Width(),lrt.Height());
+			tmpImage.Stretch(m_hCurDC,lrt.lb.x,lrt.rt.y,lrt.width(),lrt.height());
 		}
 
 		return SMT_ERR_NONE;
@@ -781,18 +797,18 @@ namespace Smt_Rd
 			return SMT_ERR_NONE; 
 
 		Envelope envLayer ;
-		pLayer->GetEnvelope(envLayer);
+		pLayer->get_envelope(envLayer);
 		Envelope envViewp;
 
 		lRect lViewp;
 		fRect fViewp;
 		lRect titleDPRect;
 
-		ViewportToRect(lViewp,m_Viewport);
+		viewport_to_rect(lViewp,m_Viewport);
 		DRectToLRect(lViewp,fViewp);
-		RectToEnvelope(envViewp,fViewp);
+		rect_to_envelope(envViewp,fViewp);
 
-		if (!envLayer.Intersects(envViewp))
+		if (!envLayer.intersects(envViewp))
 			return SMT_ERR_NONE;
 
 		pLayer->MoveFirst();
@@ -802,16 +818,16 @@ namespace Smt_Rd
 			if (NULL != pTile && pTile->bVisible)
 			{
 			/*	Envelope envTile,envViewp;
-				RectToEnvelope(envTile,pTile->rtTileRect);
+				rect_to_envelope(envTile,pTile->rtTileRect);
 				LRectToDRect(pTile->rtTileRect,titleDPRect);
 
-				if (!envTile.Intersects(envViewp) ||
-					(titleDPRect.Height() < 2 && titleDPRect.Width() < 2))
+				if (!envTile.intersects(envViewp) ||
+					(titleDPRect.height() < 2 && titleDPRect.width() < 2))
 					return SMT_ERR_NONE;*/
 
 				CxImage tmpImage;
 				tmpImage.Decode((BYTE*)pTile->pTileBuf,pTile->lTileBufSize,pTile->lImageCode);
-				tmpImage.Stretch(m_hCurDC,titleDPRect.lb.x,titleDPRect.rt.y,titleDPRect.Width(),titleDPRect.Height());
+				tmpImage.Stretch(m_hCurDC,titleDPRect.lb.x,titleDPRect.rt.y,titleDPRect.width(),titleDPRect.height());
 			}			
 
 			pLayer->MoveNext();
@@ -828,7 +844,7 @@ namespace Smt_Rd
 		m_nFeatureType = sdb::datasource::infer_feature_type(
 			pFeature, SmtFeatureType::SmtFtUnknown);
 		SmtStyle* pStyle = sdb::datasource::copy_ogr_style_from_ogr(pFeature);
-		SmtGeometry* pGeom = sdb::datasource::decode_ogr_geometry(
+		OGRGeometry* pGeom = sdb::datasource::decode_ogr_geometry(
 			pFeature, static_cast<SmtFeatureType>(m_nFeatureType));
 		if (m_nFeatureType == SmtFeatureType::SmtFtAnno) {
 			const int ai = pFeature->GetFieldIndex("anno");
@@ -846,30 +862,30 @@ namespace Smt_Rd
 		return rc;
 	}
 
-	int SmtGdiSimpleRenderDevice::RenderGeometry(const SmtGeometry *pGeom,const SmtStyle*pStyle,int op)
+	int SmtGdiSimpleRenderDevice::RenderGeometry(const OGRGeometry *pGeom,const SmtStyle*pStyle,int op)
 	{
 		if (!pGeom)
 			return SMT_ERR_INVALID_PARAM;
 
-		SmtGeometryType type  = pGeom->GetGeometryType();
+		const OGRwkbGeometryType type = wkbFlatten(pGeom->getGeometryType());
 
 		Envelope envFeature,envViewp;
-		pGeom->GetEnvelope(&envFeature);
+		geo::copy_envelope(*pGeom, &envFeature);
 
 		lRect lViewp;
 		fRect fViewp;
 		fRect fenv;
 		lRect lenv;
 
-		ViewportToRect(lViewp,m_Viewport);
+		viewport_to_rect(lViewp,m_Viewport);
 		DRectToLRect(lViewp,fViewp);
-		RectToEnvelope(envViewp,fViewp);
+		rect_to_envelope(envViewp,fViewp);
 
-		EnvelopeToRect(fenv,envFeature);
+		envelope_to_rect(fenv,envFeature);
 		LRectToDRect(fenv,lenv);
 
-		if (!envFeature.Intersects(envViewp) ||
-			(type !=GTPoint && lenv.Height() < 2 && lenv.Width() < 2))
+		if (!envFeature.intersects(envViewp) ||
+			(type != wkbPoint && lenv.height() < 2 && lenv.width() < 2))
 			return SMT_ERR_NONE;
 
 		::SaveDC(m_hCurDC);
@@ -897,61 +913,33 @@ namespace Smt_Rd
 			LineTo(m_hCurDC,lX,lY) ;        
 		}
 
-		switch(type)
-		{
-		case GTPoint:
-			DrawPoint(pStyle,(SmtPoint*)pGeom);
+		switch (type) {
+		case wkbPoint:
+			DrawPoint(pStyle, (OGRPoint*)pGeom);
 			break;
-
-		case GTLineString:
-			DrawLineString((SmtLineString*)pGeom);
+		case wkbLineString:
+			DrawLineString((OGRLineString*)pGeom);
 			break;
-		case GTArc:
-			DrawArc((SmtArc*)pGeom);
+		case wkbPolygon:
+		case wkbTriangle:
+			DrawPloygon((OGRPolygon*)pGeom);
 			break;
-
-		case GTPolygon:
-			DrawPloygon((SmtPolygon*)pGeom);
+		case wkbMultiPoint:
+			DrawMultiPoint(pStyle, (OGRMultiPoint*)pGeom);
 			break;
-
-		case GTFan:
-            DrawFan((SmtFan*)pGeom);
+		case wkbMultiLineString:
+			DrawMultiLineString((OGRMultiLineString*)pGeom);
 			break;
-
-		case GTMultiPoint:
-			DrawMultiPoint(pStyle,(SmtMultiPoint*)pGeom);
+		case wkbMultiPolygon:
+		case wkbTIN:
+			DrawMultiPolygon((OGRMultiPolygon*)pGeom);
 			break;
-
-		case GTMultiLineString:
-			DrawMultiLineString((SmtMultiLineString*)pGeom);
+		case wkbLinearRing:
+			DrawLinearRing((OGRLinearRing*)pGeom);
 			break;
-
-		case GTMultiPolygon:
-			DrawMultiPolygon((SmtMultiPolygon*)pGeom);
-			break;
-
-		case GTSpline:
-			DrawLineSpline((SmtSpline*)pGeom);
-			break;
-
-		case GTLinearRing:
-			DrawLinearRing((SmtLinearRing*)pGeom);
-			break;
-
-		case GTGrid:
-			DrawGrid((SmtGrid*)pGeom);
-			break;
-
-		case GTTin:
-			DrawTin((SmtTin*)pGeom);
-			break;
-
-		case GTNone:
-		case GTUnknown:
 		default:
 			break;
 		}
-
 		if(!m_bLockStyle)
 			EndDrawing();
 
@@ -961,42 +949,42 @@ namespace Smt_Rd
 	}
 
 	//////////////////////////////////////////////////////////////////////////
-	int SmtGdiSimpleRenderDevice::DrawMultiLineString(const SmtMultiLineString *pMultiLinestring)
+	int SmtGdiSimpleRenderDevice::DrawMultiLineString(const OGRMultiLineString *pMultiLinestring)
 	{
-		int nLines = pMultiLinestring->GetNumGeometries();
+		int nLines = pMultiLinestring->getNumGeometries();
 
 		int i = 0;
 		while (i < nLines)
 		{
-			DrawLineString((SmtLineString*)pMultiLinestring->GetGeometryRef(i));
+			DrawLineString((OGRLineString*)pMultiLinestring->getGeometryRef(i));
 			i++;
 		}
 
 		return SMT_ERR_NONE;
 	}
 
-	int SmtGdiSimpleRenderDevice::DrawMultiPoint(const SmtStyle*pStyle,const SmtMultiPoint *pMultiPoint)
+	int SmtGdiSimpleRenderDevice::DrawMultiPoint(const SmtStyle*pStyle,const OGRMultiPoint *pMultiPoint)
 	{
-		int nPoints = pMultiPoint->GetNumGeometries();
+		int nPoints = pMultiPoint->getNumGeometries();
 
 		int i = 0;
 		while (i < nPoints)
 		{
-			DrawPoint(pStyle,(SmtPoint*)pMultiPoint->GetGeometryRef(i));
+			DrawPoint(pStyle,(OGRPoint*)pMultiPoint->getGeometryRef(i));
 			i++;
 		}
 
 		return SMT_ERR_NONE;
 	}
 
-	int SmtGdiSimpleRenderDevice::DrawMultiPolygon(const SmtMultiPolygon *pMultiPolygon)
+	int SmtGdiSimpleRenderDevice::DrawMultiPolygon(const OGRMultiPolygon *pMultiPolygon)
 	{
-		int nPolygons = pMultiPolygon->GetNumGeometries();
+		int nPolygons = pMultiPolygon->getNumGeometries();
 
 		int i = 0;
 		while (i < nPolygons)
 		{
-			DrawPloygon((SmtPolygon*)pMultiPolygon->GetGeometryRef(i));
+			DrawPloygon((OGRPolygon*)pMultiPolygon->getGeometryRef(i));
 			i++;
 		}
 
@@ -1004,30 +992,30 @@ namespace Smt_Rd
 	}
 
 	//////////////////////////////////////////////////////////////////////////
-	int SmtGdiSimpleRenderDevice::DrawPoint(const SmtStyle*pStyle,const SmtPoint *pPoint)
+	int SmtGdiSimpleRenderDevice::DrawPoint(const SmtStyle*pStyle,const OGRPoint *pPoint)
 	{
-		ulong format = pStyle->GetStyleType();
+		ulong format = pStyle->get_style_type();
 		if (m_nFeatureType == SmtFeatureType::SmtFtAnno)
 		{
-			SmtAnnotationDesc anno = pStyle->GetAnnoDesc();
+			SmtAnnotationDesc anno = pStyle->get_anno_desc();
 			return DrawAnno(m_szAnno,m_fAnnoAngle,abs(anno.fHeight),abs(anno.fWidth),abs(anno.fSpace),pPoint);
 		}
 		else if(m_nFeatureType == SmtFeatureType::SmtFtChildImage)
 		{
-			SmtSymbolDesc symbol = pStyle->GetSymbolDesc();
+			SmtSymbolDesc symbol = pStyle->get_symbol_desc();
 			return DrawSymbol(m_hIcon,symbol.fSymbolHeight,symbol.fSymbolWidth,pPoint);
 		}
 		else if (m_nFeatureType == SmtFeatureType::SmtFtDot)
 		{
 			int r = m_rdPra.lPointRaduis/**m_fblc*/;
 			long lX,lY;
-			LPToDP(pPoint->GetX(),pPoint->GetY(),lX,lY);
+			LPToDP(pPoint->getX(),pPoint->getY(),lX,lY);
 			Ellipse(m_hCurDC,lX - r ,lY - r,lX + r ,lY + r);
 
 			if (m_rdPra.bShowPoint)
 			{
 				//Rectangle(m_hCurDC,lX - r,lY - r,lX + r,lY + r);
-				DrawCross(m_hCurDC,lX,lY,r);
+				draw_cross(m_hCurDC,lX,lY,r);
 			}
 
 			return SMT_ERR_NONE;
@@ -1037,7 +1025,7 @@ namespace Smt_Rd
 	}
 
 	//////////////////////////////////////////////////////////////////////////
-	int SmtGdiSimpleRenderDevice::DrawAnno(const char *szAnno,float fangel,float fCHeight,float fCWidth,float fCSpace,const SmtPoint *pPoint)
+	int SmtGdiSimpleRenderDevice::DrawAnno(const char *szAnno,float fangel,float fCHeight,float fCWidth,float fCSpace,const OGRPoint *pPoint)
 	{
 		if (szAnno == NULL)
 			return SMT_ERR_INVALID_PARAM;
@@ -1053,7 +1041,7 @@ namespace Smt_Rd
 		const char *ls1;
 		ls1 = szAnno;
 
-		LPToDP(pPoint->GetX(),pPoint->GetY(),x,y);
+		LPToDP(pPoint->getX(),pPoint->getY(),x,y);
 		pt.x = x;
 		pt.y = y;
 
@@ -1065,7 +1053,7 @@ namespace Smt_Rd
 		{
 			c1 = *ls1;
 			c2 = *(ls1 + 1);
-			if(c1 >127 && c2 > 127) //Èç¹ûÏÂÒ»¸ö×Ö·ûÊÇºº×Ö
+			if(c1 >127 && c2 > 127) //ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ö·ï¿½ï¿½Çºï¿½ï¿½ï¿½
 			{
 				strncpy(bz,ls1,2);
 				bz[2] = 0;
@@ -1092,22 +1080,22 @@ namespace Smt_Rd
 		{
 			int r = m_rdPra.lPointRaduis;
 			long lX,lY;
-			LPToDP(pPoint->GetX(),pPoint->GetY(),lX,lY);
+			LPToDP(pPoint->getX(),pPoint->getY(),lX,lY);
 			//Ellipse(m_hCurDC,lX - r ,lY - r,lX + r ,lY + r);
 			//Rectangle(m_hCurDC,lX - r,lY - r,lX + r,lY + r);
-			DrawCross(m_hCurDC,lX,lY,r);
+			draw_cross(m_hCurDC,lX,lY,r);
 		}
 
 		return SMT_ERR_NONE;
 	}
 
-	int SmtGdiSimpleRenderDevice::DrawSymbol(HICON hIcon,long lHeight,long lWidth,const SmtPoint *pPoint)
+	int SmtGdiSimpleRenderDevice::DrawSymbol(HICON hIcon,long lHeight,long lWidth,const OGRPoint *pPoint)
 	{
 		lHeight *= m_fblc;
 		lWidth *= m_fblc;
 
 		long lX,lY;
-		LPToDP(pPoint->GetX(),pPoint->GetY(),lX,lY);
+		LPToDP(pPoint->getX(),pPoint->getY(),lX,lY);
 		//::DrawIcon(m_hCurDC,pt.x-lWidth,pt.y-lHeight,hIcon);
 		::DrawIconEx(m_hCurDC,lX-lWidth/2,lY+lHeight/2,   hIcon, lWidth, lHeight, 0, NULL, DI_NORMAL);
 		//::DrawState(m_hCurDC,NULL,NULL,(LPARAM)hIcon,0,pt.x-lWidth/2,pt.y+lHeight/2,lWidth,lHeight, DSS_NORMAL | DST_ICON);
@@ -1116,18 +1104,18 @@ namespace Smt_Rd
 		{
 			int r = m_rdPra.lPointRaduis;
 			long lX,lY;
-			LPToDP(pPoint->GetX(),pPoint->GetY(),lX,lY);
+			LPToDP(pPoint->getX(),pPoint->getY(),lX,lY);
 			//Ellipse(m_hCurDC,lX - r ,lY - r,lX + r ,lY + r);
 			//Rectangle(m_hCurDC,lX - r,lY - r,lX + r,lY + r);
-			DrawCross(m_hCurDC,lX,lY,r);
+			draw_cross(m_hCurDC,lX,lY,r);
 		}
 
 		return SMT_ERR_NONE;
 	}
 
-	int SmtGdiSimpleRenderDevice::DrawLineSpline(const SmtSpline *pSpline)
+	int SmtGdiSimpleRenderDevice::DrawLineSpline(const OGRLineString *pSpline)
 	{
-		int    nPoints = pSpline->GetAnalyticPointCount();
+		int    nPoints = pSpline->getNumPoints();
 		if (nPoints < 2)
 			return SMT_ERR_INVALID_PARAM;
 
@@ -1151,8 +1139,8 @@ namespace Smt_Rd
 			int r = m_rdPra.lPointRaduis;
 			for (int i = 0;i < nPoints ; i++)
 			{
-				LPToDP(pSpline->GetAnalyticX(i),pSpline->GetAnalyticY(i),lpPoint[i].x,lpPoint[i].y);
-				DrawCross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
+				LPToDP(pSpline->getX(i),pSpline->getY(i),lpPoint[i].x,lpPoint[i].y);
+				draw_cross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
 			}
 
 			MoveToEx (m_hCurDC, lpPoint[0].x, lpPoint[0].y, NULL) ;    
@@ -1162,7 +1150,7 @@ namespace Smt_Rd
 		{
 			for (int i = 0;i < nPoints ; i++)
 			{
-				LPToDP(pSpline->GetAnalyticX(i),pSpline->GetAnalyticY(i),lpPoint[i].x,lpPoint[i].y);
+				LPToDP(pSpline->getX(i),pSpline->getY(i),lpPoint[i].x,lpPoint[i].y);
 			}
 
 			MoveToEx (m_hCurDC, lpPoint[0].x, lpPoint[0].y, NULL) ;    
@@ -1182,18 +1170,18 @@ namespace Smt_Rd
 		
 		int r = m_rdPra.lPointRaduis;
 		long lX,lY;
-		for (int i = 0; i < pSpline->GetNumPoints();i++)
+		for (int i = 0; i < pSpline->getNumPoints();i++)
 		{
-			LPToDP(pSpline->GetX(i),pSpline->GetY(i),lX,lY);
+			LPToDP(pSpline->getX(i),pSpline->getY(i),lX,lY);
 			Ellipse(m_hCurDC,lX - r ,lY - r,lX + r ,lY + r);
 		}
 
 		return SMT_ERR_NONE;
 	}
 
-	int SmtGdiSimpleRenderDevice::DrawLineString(const SmtLineString *pLinestring)
+	int SmtGdiSimpleRenderDevice::DrawLineString(const OGRLineString *pLinestring)
 	{
-		int    nPoints = pLinestring->GetNumPoints();
+		int    nPoints = pLinestring->getNumPoints();
 		if (nPoints < 2)
 			return SMT_ERR_INVALID_PARAM;
 
@@ -1217,17 +1205,17 @@ namespace Smt_Rd
 			int r = m_rdPra.lPointRaduis;
 			for (int i = 0;i < nPoints ; i++)
 			{
-				LPToDP(pLinestring->GetX(i),pLinestring->GetY(i),lpPoint[i].x,lpPoint[i].y);
+				LPToDP(pLinestring->getX(i),pLinestring->getY(i),lpPoint[i].x,lpPoint[i].y);
 				//Ellipse(m_hCurDC,lpPoint[i].x - r ,lpPoint[i].y - r,lpPoint[i].x + r ,lpPoint[i].y + r);
 				//Rectangle(m_hCurDC,lpPoint[i].x - r ,lpPoint[i].y - r,lpPoint[i].x + r ,lpPoint[i].y + r);
-				DrawCross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
+				draw_cross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
 			}
 		}
 		else
 		{
 			for (int i = 0;i < nPoints ; i++)
 			{
-				LPToDP(pLinestring->GetX(i),pLinestring->GetY(i),lpPoint[i].x,lpPoint[i].y);
+				LPToDP(pLinestring->getX(i),pLinestring->getY(i),lpPoint[i].x,lpPoint[i].y);
 			}
 		}
 		
@@ -1248,9 +1236,9 @@ namespace Smt_Rd
 		return SMT_ERR_NONE;
 	}
 
-	int SmtGdiSimpleRenderDevice::DrawLinearRing(const SmtLinearRing *pLinearRing)
+	int SmtGdiSimpleRenderDevice::DrawLinearRing(const OGRLinearRing *pLinearRing)
 	{
-		int    nPoints = pLinearRing->GetNumPoints();
+		int    nPoints = pLinearRing->getNumPoints();
 		if (nPoints < 2)
 			return SMT_ERR_INVALID_PARAM;
 
@@ -1270,19 +1258,19 @@ namespace Smt_Rd
 		if (m_rdPra.bShowPoint)
 		{
 			int r = m_rdPra.lPointRaduis;
-			for (int i = 0; i < pLinearRing->GetNumPoints();i++)
+			for (int i = 0; i < pLinearRing->getNumPoints();i++)
 			{
-				LPToDP(pLinearRing->GetX(i),pLinearRing->GetY(i),lpPoint[i].x,lpPoint[i].y);
+				LPToDP(pLinearRing->getX(i),pLinearRing->getY(i),lpPoint[i].x,lpPoint[i].y);
 				//Ellipse(m_hCurDC,lpPoint[i].x - r ,lpPoint[i].y - r,lpPoint[i].x + r ,lpPoint[i].y + r);
 				//Rectangle(m_hCurDC,lpPoint[i].x - r ,lpPoint[i].y - r,lpPoint[i].x + r ,lpPoint[i].y + r);
-				DrawCross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
+				draw_cross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
 			}
 		}
 		else
 		{
 			for (int i = 0;i < nPoints ; i++)
 			{
-				LPToDP(pLinearRing->GetX(i),pLinearRing->GetY(i),lpPoint[i].x,lpPoint[i].y);
+				LPToDP(pLinearRing->getX(i),pLinearRing->getY(i),lpPoint[i].x,lpPoint[i].y);
 			}
 		}
 		
@@ -1303,12 +1291,12 @@ namespace Smt_Rd
 		return SMT_ERR_NONE;
 	}
 
-	int SmtGdiSimpleRenderDevice::DrawPloygon(const SmtPolygon *pPloygon)
+	int SmtGdiSimpleRenderDevice::DrawPloygon(const OGRPolygon *pPloygon)
 	{
 		int nAllPts = 0;
-		const SmtLinearRing *pLinerring = pPloygon->GetExteriorRing();
+		const OGRLinearRing *pLinerring = pPloygon->getExteriorRing();
 
-		int    nExteriorPts = pLinerring->GetNumPoints();
+		int    nExteriorPts = pLinerring->getNumPoints();
 		if (nExteriorPts < 2)
 			return SMT_ERR_INVALID_PARAM;
 
@@ -1316,14 +1304,14 @@ namespace Smt_Rd
 
 		nAllPts += nExteriorPts;
 
-		int nInteriorRings = pPloygon->GetNumInteriorRings();
+		int nInteriorRings = pPloygon->getNumInteriorRings();
 		int *nRings = new int[nInteriorRings + 1];
 		nRings[0] = nExteriorPts;
 
 		for (int i = 0; i < nInteriorRings ; i++)
 		{
-			const SmtLinearRing *pInteriorRing = pPloygon->GetInteriorRing(i);
-			nRings[i+1] = pInteriorRing->GetNumPoints();
+			const OGRLinearRing *pInteriorRing = pPloygon->getInteriorRing(i);
+			nRings[i+1] = pInteriorRing->getNumPoints();
 			nAllPts += nRings[i+1];
 		}
 
@@ -1348,22 +1336,22 @@ namespace Smt_Rd
 			int r = m_rdPra.lPointRaduis;
 			for (int i = 0;i < nExteriorPts ; i++,nCount++)
 			{
-				LPToDP(pLinerring->GetX(i),pLinerring->GetY(i),lpPoint[i].x,lpPoint[i].y);
+				LPToDP(pLinerring->getX(i),pLinerring->getY(i),lpPoint[i].x,lpPoint[i].y);
 				//Ellipse(m_hCurDC,lpPoint[i].x - r ,lpPoint[i].y - r,lpPoint[i].x + r ,lpPoint[i].y + r);
 				//Rectangle(m_hCurDC,lpPoint[i].x - r ,lpPoint[i].y - r,lpPoint[i].x + r ,lpPoint[i].y + r);
-				DrawCross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
+				draw_cross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
 			}
 
 			for (int i = 0; i < nInteriorRings ;i++)
 			{
-				const SmtLinearRing *pInteriorRing = pPloygon->GetInteriorRing(i);
-				int nInteriorPts= pInteriorRing->GetNumPoints();
+				const OGRLinearRing *pInteriorRing = pPloygon->getInteriorRing(i);
+				int nInteriorPts= pInteriorRing->getNumPoints();
 				for ( int j=0; j<nInteriorPts; ++j,nCount++)
 				{
-					LPToDP(pInteriorRing->GetX(i),pInteriorRing->GetY(i),lpPoint[i].x,lpPoint[i].y);
+					LPToDP(pInteriorRing->getX(i),pInteriorRing->getY(i),lpPoint[i].x,lpPoint[i].y);
 					//Ellipse(m_hCurDC,lpPoint[i].x - r ,lpPoint[i].y - r,lpPoint[i].x + r ,lpPoint[i].y + r);
 					//Rectangle(m_hCurDC,lpPoint[i].x - r ,lpPoint[i].y - r,lpPoint[i].x + r ,lpPoint[i].y + r);
-					DrawCross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
+					draw_cross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
 				}
 			}
 
@@ -1373,16 +1361,16 @@ namespace Smt_Rd
 		{
 			for (int i = 0;i < nExteriorPts ; i++,nCount++)
 			{
-				LPToDP(pLinerring->GetX(i),pLinerring->GetY(i),lpPoint[i].x,lpPoint[i].y);
+				LPToDP(pLinerring->getX(i),pLinerring->getY(i),lpPoint[i].x,lpPoint[i].y);
 			}
 
 			for (int i = 0; i < nInteriorRings ;i++)
 			{
-				const SmtLinearRing *pInteriorRing = pPloygon->GetInteriorRing(i);
-				int nInteriorPts= pInteriorRing->GetNumPoints();
+				const OGRLinearRing *pInteriorRing = pPloygon->getInteriorRing(i);
+				int nInteriorPts= pInteriorRing->getNumPoints();
 				for ( int j=0; j<nInteriorPts; ++j,nCount++)
 				{
-					LPToDP(pInteriorRing->GetX(i),pInteriorRing->GetY(i),lpPoint[i].x,lpPoint[i].y);
+					LPToDP(pInteriorRing->getX(i),pInteriorRing->getY(i),lpPoint[i].x,lpPoint[i].y);
 				}
 			}
 
@@ -1418,39 +1406,39 @@ namespace Smt_Rd
 		return SMT_ERR_NONE;
 	}
 
-	//»æÖÆTinÏß
+	//ï¿½ï¿½ï¿½ï¿½Tinï¿½ï¿½
 	int SmtGdiSimpleRenderDevice::DrawTinLines(const SmtTin *pTin)
 	{
 		POINT	 lPt1,lPt2,lPt3;
-		SmtPoint oPt1,oPt2,oPt3;
+		OGRPoint oPt1,oPt2,oPt3;
 
 		Envelope envTri,envViewp;
 		lRect lViewp;
 		fRect fViewp;
 
-		ViewportToRect(lViewp,m_Viewport);
+		viewport_to_rect(lViewp,m_Viewport);
 		DRectToLRect(lViewp,fViewp);
-		RectToEnvelope(envViewp,fViewp);
+		rect_to_envelope(envViewp,fViewp);
 	
-		for (int i = 0; i < pTin->GetTriangleCount();i++)
+		for (int i = 0; i < pTin->get_triangle_count();i++)
 		{
-			SmtTriangle tri = pTin->GetTriangle(i);
+			SmtTriangle tri = pTin->get_triangle(i);
 
 			if (!tri.bDelete)
 			{
-				oPt1 = pTin->GetPoint(tri.a);
-				oPt2 = pTin->GetPoint(tri.b);
-				oPt3 = pTin->GetPoint(tri.c);
+				oPt1 = pTin->get_point(tri.a);
+				oPt2 = pTin->get_point(tri.b);
+				oPt3 = pTin->get_point(tri.c);
 
-				envTri.Merge(oPt1.GetX(),oPt1.GetY());
-				envTri.Merge(oPt2.GetX(),oPt2.GetY());
-				envTri.Merge(oPt3.GetX(),oPt3.GetY());
+				envTri.merge(oPt1.getX(),oPt1.getY());
+				envTri.merge(oPt2.getX(),oPt2.getY());
+				envTri.merge(oPt3.getX(),oPt3.getY());
 
-				if (envTri.Intersects(envViewp))
+				if (envTri.intersects(envViewp))
 				{
-					LPToDP(oPt1.GetX(),oPt1.GetY(),lPt1.x,lPt1.y);
-					LPToDP(oPt2.GetX(),oPt2.GetY(),lPt2.x,lPt2.y);
-					LPToDP(oPt3.GetX(),oPt3.GetY(),lPt3.x,lPt3.y);
+					LPToDP(oPt1.getX(),oPt1.getY(),lPt1.x,lPt1.y);
+					LPToDP(oPt2.getX(),oPt2.getY(),lPt2.x,lPt2.y);
+					LPToDP(oPt3.getX(),oPt3.getY(),lPt3.x,lPt3.y);
 
 					MoveToEx(m_hCurDC,lPt1.x, lPt1.y, NULL);
 					LineTo(m_hCurDC,lPt2.x,lPt2.y);
@@ -1463,26 +1451,26 @@ namespace Smt_Rd
 		return SMT_ERR_NONE;
 	}
 
-	//»æÖÆTin½Úµã
+	//ï¿½ï¿½ï¿½ï¿½Tinï¿½Úµï¿½
 	int SmtGdiSimpleRenderDevice::DrawTinNodes(const SmtTin *pTin)
 	{
 		POINT		lPt;
-		SmtPoint	oPt;
+		OGRPoint	oPt;
 		int			r = m_rdPra.lPointRaduis;
 
 		lRect lViewp;
 		fRect fViewp;
 
-		ViewportToRect(lViewp,m_Viewport);
+		viewport_to_rect(lViewp,m_Viewport);
 		DRectToLRect(lViewp,fViewp);
-		AjustfRect(fViewp);
+		adjust_f_rect(fViewp);
 
-		for (int i = 0; i < pTin->GetPointCount(); i++)
+		for (int i = 0; i < pTin->get_point_count(); i++)
 		{
-			oPt = pTin->GetPoint(i);
-			if (IsInfRect(oPt.GetX(),oPt.GetY(),fViewp) )
+			oPt = pTin->get_point(i);
+			if (is_in_f_rect(oPt.getX(),oPt.getY(),fViewp) )
 			{
-				LPToDP(oPt.GetX(),oPt.GetY(),lPt.x,lPt.y);
+				LPToDP(oPt.getX(),oPt.getY(),lPt.x,lPt.y);
 				Ellipse(m_hCurDC,lPt.x - r ,lPt.y - r,lPt.x + r ,lPt.y + r);
 			}
 		}
@@ -1503,38 +1491,36 @@ namespace Smt_Rd
 		return SMT_ERR_NONE;
 	}
 
-	//»æÖÆÍø¸ñÏß
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	int SmtGdiSimpleRenderDevice::DrawGridLines(const SmtGrid *pGrid)
 	{
-		const Matrix2D<RawPoint>  *pNodes = pGrid->GetGridNodeBuf();
-
 		int nM,nN;
-		pGrid->GetSize(nM,nN);
+		pGrid->get_size(nM,nN);
 
 		POINT lPt;
 
 		for (int j = 0; j < nN; j ++)
-		{//»æÖÆÁÐ
-			RawPoint rawPt = pNodes->GetElement(0,j);
+		{//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			RawPoint rawPt = pGrid->node(0,j);
 			LPToDP(rawPt.x,rawPt.y,lPt.x,lPt.y);
 			MoveToEx(m_hCurDC,lPt.x, lPt.y, NULL);
 			for (int i = 0; i < nM; i++)
-			{//»æÖÆÐÐ
-				RawPoint rawPt1 = pNodes->GetElement(i,j);
+			{//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				RawPoint rawPt1 = pGrid->node(i,j);
 				LPToDP(rawPt1.x,rawPt1.y,lPt.x,lPt.y);
 				LineTo(m_hCurDC,lPt.x,lPt.y);
 			}	 
 		}
 
 		for (int i = 0; i < nM ; i ++)
-		{//»æÖÆÁÐ
-			RawPoint rawPt = pNodes->GetElement(i,0);
+		{//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			RawPoint rawPt = pGrid->node(i,0);
 			LPToDP(rawPt.x,rawPt.y,lPt.x,lPt.y);
 			MoveToEx(m_hCurDC,lPt.x, lPt.y, NULL);
 
 			for (int j = 0; j < nN ;j ++)
-			{//»æÖÆÐÐ
-				RawPoint rawPt1 = pNodes->GetElement(i,j);
+			{//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				RawPoint rawPt1 = pGrid->node(i,j);
 				LPToDP(rawPt1.x,rawPt1.y,lPt.x,lPt.y);
 				LineTo(m_hCurDC,lPt.x,lPt.y);
 			}
@@ -1543,13 +1529,11 @@ namespace Smt_Rd
 		return SMT_ERR_NONE;
 	}
 
-	//»æÖÆÍø¸ñ½Úµã
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½
 	int SmtGdiSimpleRenderDevice::DrawGridNodes(const SmtGrid *pGrid)
 	{
-		const Matrix2D<RawPoint>  *pNodes = pGrid->GetGridNodeBuf();
-
 		int nM,nN;
-		pGrid->GetSize(nM,nN);
+		pGrid->get_size(nM,nN);
 
 		int r = m_rdPra.lPointRaduis;
 		POINT lPt;
@@ -1558,7 +1542,7 @@ namespace Smt_Rd
 		{
 			for (int i = 0; i < nM; i++)
 			{
-				RawPoint rawPt = pNodes->GetElement(i,j);
+				RawPoint rawPt = pGrid->node(i,j);
 				LPToDP(rawPt.x,rawPt.y,lPt.x,lPt.y);
 				Ellipse(m_hCurDC,lPt.x - r ,lPt.y - r,lPt.x + r ,lPt.y + r);
 			}
@@ -1567,19 +1551,21 @@ namespace Smt_Rd
 		return SMT_ERR_NONE;
 	}
 
-    int  SmtGdiSimpleRenderDevice::DrawFan(const SmtFan *pFan)
+    int  SmtGdiSimpleRenderDevice::DrawFan(const OGRPolygon *pFan)
 	{
+		return DrawPloygon(pFan);
+#if 0
 		long x1,y1,x2,y2,x3,y3,x4,y4,x5,y5;
-		SmtPoint oStPoint,oEdbfPoint,oCtPoint;
+		OGRPoint oStPoint,oEdbfPoint,oCtPoint;
 
 		const  SmtArc *pArc = pFan->GetArc();
 		pArc->StartPoint(&oStPoint);
 		pArc->EndPoint(&oEdbfPoint);
 		pArc->GetCenterPoint(&oCtPoint);
 
-		LPToDP(oStPoint.GetX(),oStPoint.GetY(),x3,y3);
-		LPToDP(oEdbfPoint.GetX(),oEdbfPoint.GetY(),x4,y4);
-		LPToDP(oCtPoint.GetX(),oCtPoint.GetY(),x5,y5);
+		LPToDP(oStPoint.getX(),oStPoint.getY(),x3,y3);
+		LPToDP(oEdbfPoint.getX(),oEdbfPoint.getY(),x4,y4);
+		LPToDP(oCtPoint.getX(),oCtPoint.getY(),x5,y5);
 
 		int dr = m_rdPra.lPointRaduis;
 		float r = static_cast<float>(hypot(x5 - x4, y5 - y4));
@@ -1604,26 +1590,29 @@ namespace Smt_Rd
 			//Rectangle(m_hCurDC,x4 - dr ,y4 - dr,x4 + dr ,y4 + dr);
 			//Rectangle(m_hCurDC,x5 - dr ,y5 - dr,x5 + dr ,y5 + dr);
 
-			DrawCross(m_hCurDC,x3,y3,dr);
-			DrawCross(m_hCurDC,x4,y4,dr);
-			DrawCross(m_hCurDC,x5,y5,dr);
+			draw_cross(m_hCurDC,x3,y3,dr);
+			draw_cross(m_hCurDC,x4,y4,dr);
+			draw_cross(m_hCurDC,x5,y5,dr);
 		}
 
 		return SMT_ERR_NONE;
+#endif
 	}
 
-	int  SmtGdiSimpleRenderDevice::DrawArc(const SmtArc *pArc)
+	int  SmtGdiSimpleRenderDevice::DrawArc(const OGRLineString *pArc)
 	{
+		return DrawLineString(pArc);
+#if 0
 		long x1,y1,x2,y2,x3,y3,x4,y4,x5,y5;
-        SmtPoint oStPoint,oEdbfPoint,oCtPoint;
+        OGRPoint oStPoint,oEdbfPoint,oCtPoint;
 
 		pArc->StartPoint(&oStPoint);
 		pArc->EndPoint(&oEdbfPoint);
 		pArc->GetCenterPoint(&oCtPoint);
 
-		LPToDP(oStPoint.GetX(),oStPoint.GetY(),x3,y3);
-		LPToDP(oEdbfPoint.GetX(),oEdbfPoint.GetY(),x4,y4);
-		LPToDP(oCtPoint.GetX(),oCtPoint.GetY(),x5,y5);
+		LPToDP(oStPoint.getX(),oStPoint.getY(),x3,y3);
+		LPToDP(oEdbfPoint.getX(),oEdbfPoint.getY(),x4,y4);
+		LPToDP(oCtPoint.getX(),oCtPoint.getY(),x5,y5);
 
 		int dr = m_rdPra.lPointRaduis;
 		float r = static_cast<float>(hypot(x5 - x4, y5 - y4));
@@ -1648,12 +1637,13 @@ namespace Smt_Rd
 			//Rectangle(m_hCurDC,x4 - dr ,y4 - dr,x4 + dr ,y4 + dr);
 			//Rectangle(m_hCurDC,x5 - dr ,y5 - dr,x5 + dr ,y5 + dr);
 
-			DrawCross(m_hCurDC,x3,y3,dr);
-			DrawCross(m_hCurDC,x4,y4,dr);
-			DrawCross(m_hCurDC,x5,y5,dr);
+			draw_cross(m_hCurDC,x3,y3,dr);
+			draw_cross(m_hCurDC,x4,y4,dr);
+			draw_cross(m_hCurDC,x5,y5,dr);
 		}
 
 		return SMT_ERR_NONE;
+#endif
 	}
 
 	//////////////////////////////////////////////////////////////////////////
@@ -1670,7 +1660,7 @@ namespace Smt_Rd
 		if (!bDP)
 			LRectToDRect(frect,lrect);
 		else
-			fRectTolRect(lrect,frect);
+			f_rect_to_l_rect(lrect,frect);
 
 		Ellipse(m_hCurDC,lrect.lb.x ,lrect.lb.y,lrect.rt.x ,lrect.rt.y);
 
@@ -1681,13 +1671,13 @@ namespace Smt_Rd
 	{
 		lRect tmpRectDP;
 
-		fRectTolRect(tmpRectDP,rect);
+		f_rect_to_l_rect(tmpRectDP,rect);
 
 		if (!bDP)
 		{
 			fRect tmpRectLP;
 
-			lRectTofRect(tmpRectLP,tmpRectDP);
+			l_rect_to_f_rect(tmpRectLP,tmpRectDP);
 			LRectToDRect(tmpRectLP,tmpRectDP);
 		}
 		
@@ -1732,7 +1722,7 @@ namespace Smt_Rd
 					LPToDP(pfPoints[i].x,pfPoints[i].y,lpPoint[i].x,lpPoint[i].y);
 					//Ellipse(m_hCurDC,lpPoint[i].x - r ,lpPoint[i].y - r,lpPoint[i].x + r ,lpPoint[i].y + r);
 					//Rectangle(m_hCurDC,lpPoint[i].x - r ,lpPoint[i].y - r,lpPoint[i].x + r ,lpPoint[i].y + r);
-					DrawCross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
+					draw_cross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
 				}
 			}
 			else
@@ -1743,7 +1733,7 @@ namespace Smt_Rd
 					lpPoint[i].y = pfPoints[i].y;
 					//Ellipse(m_hCurDC,lpPoint[i].x - r ,lpPoint[i].y - r,lpPoint[i].x + r ,lpPoint[i].y + r);
 					//Rectangle(m_hCurDC,lpPoint[i].x - r ,lpPoint[i].y - r,lpPoint[i].x + r ,lpPoint[i].y + r);
-					DrawCross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
+					draw_cross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
 				}
 			}
 		}
@@ -1837,7 +1827,7 @@ namespace Smt_Rd
 		{
 			c1 = *ls1;
 			c2 = *(ls1 + 1);
-			if(c1 >127 && c2 > 127) //Èç¹ûÏÂÒ»¸ö×Ö·ûÊÇºº×Ö
+			if(c1 >127 && c2 > 127) //ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ö·ï¿½ï¿½Çºï¿½ï¿½ï¿½
 			{
 				strncpy(bz,ls1,2);
 				bz[2] = 0;
@@ -1876,7 +1866,7 @@ namespace Smt_Rd
 		
 			//Ellipse(m_hCurDC,lX - r ,lY - r,lX + r ,lY + r);
 			//Rectangle(m_hCurDC,lX - r,lY - r,lX + r,lY + r);
-			DrawCross(m_hCurDC,lX,lY,r);
+			draw_cross(m_hCurDC,lX,lY,r);
 		}
 
 		return SMT_ERR_NONE;
@@ -1893,7 +1883,7 @@ namespace Smt_Rd
 		{
 		case MRD_BL_MAP:
 			{
-				lRtn = m_smtMapRenderBuf.DrawImage(szImageBuf,nImageBufSize,lCodeType,lrt.lb.x,lrt.rt.y,lrt.Width(),lrt.Height());
+				lRtn = m_smtMapRenderBuf.DrawImage(szImageBuf,nImageBufSize,lCodeType,lrt.lb.x,lrt.rt.y,lrt.width(),lrt.height());
 			}
 			break;
 		}
@@ -1913,7 +1903,7 @@ namespace Smt_Rd
 		{
 		case MRD_BL_MAP:
 			{
-				lRtn = m_smtMapRenderBuf.StrethImage(szImageBuf,nImageBufSize,lCodeType,lrt.lb.x,lrt.rt.y,lrt.Width(),lrt.Height());
+				lRtn = m_smtMapRenderBuf.StrethImage(szImageBuf,nImageBufSize,lCodeType,lrt.lb.x,lrt.rt.y,lrt.width(),lrt.height());
 			}
 			break;
 		}

@@ -4,20 +4,15 @@
 #ifndef _SDE_MEM_H
 #define _SDE_MEM_H
 
-#include "layer.h"
+#include "sdb/datasource/mem/sde_mem_export.h"
+#include "sdb/layer/layer.h"
 
-#if defined(Export_SmtSDEMemDevice)
-#define SMT_SDE_MEM_EXPORT __declspec(dllexport)
-#else
-#define SMT_SDE_MEM_EXPORT __declspec(dllimport)
-#endif
+using namespace sdb;
 
-using namespace Smt_GIS;
-
-namespace Smt_SDEMem {
+namespace sdb {
 
 // In-process raster buffer. Vector scratch uses the GDAL Memory driver.
-class SMT_SDE_MEM_EXPORT SmtMemRasLayer : public SmtRasterLayer {
+class SDE_MEM_EXPORT SmtMemRasLayer : public SmtRasterLayer {
  public:
   SmtMemRasLayer();
   ~SmtMemRasLayer() override;
@@ -44,7 +39,7 @@ class SMT_SDE_MEM_EXPORT SmtMemRasLayer : public SmtRasterLayer {
   long m_lCodeType;
 };
 
-class SMT_SDE_MEM_EXPORT SmtMemTileLayer : public SmtTileLayer {
+class SDE_MEM_EXPORT SmtMemTileLayer : public SmtTileLayer {
  public:
   SmtMemTileLayer();
   ~SmtMemTileLayer() override;
@@ -75,14 +70,6 @@ class SMT_SDE_MEM_EXPORT SmtMemTileLayer : public SmtTileLayer {
   mutable int m_nIteratorIndex;
 };
 
-}  // namespace Smt_SDEMem
-
-#if !defined(Export_SmtSDEMemDevice)
-#if defined(_DEBUG)
-#pragma comment(lib, "SmtSDEMemDeviceD.lib")
-#else
-#pragma comment(lib, "SmtSDEMemDevice.lib")
-#endif
-#endif
+}  // namespace sdb
 
 #endif  // _SDE_MEM_H

@@ -1,0 +1,33 @@
+---
+description: 终止进程时使用系统级（非沙箱）终端能力；优先温和结束；不要猜 PID
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# 终止进程：使用系统级终端能力
+
+在 Cursor Agent 中，`kill` / `pkill` / `taskkill` 等**向已有进程发信号**的操作，在**沙箱内**常会失败（例如 `EACCES`、seccomp 限制）。需要改用 **系统级能力**：即 **全权限 / 非沙箱的 Shell 执行**，而不是在受限沙箱里反复重试同一命令。
+
+本仓库以 **Windows** 为主（`build.bat` / `out/`）。WSL 侧若需杀进程，同样走非沙箱路径。
+
+## Do
+
+- **需要杀进程时**：通过 **系统级终端**（跳过沙箱、或用户批准「在非沙箱环境运行」、或将 `taskkill` / `Stop-Process` / `kill` 加入 **Settings → Cursor Settings → Agents → Command allowlist**）执行。
+- **顺序（Windows）**：先尽量温和结束（`Stop-Process` 默认 / `taskkill` 不带 `/F`），等待退出；仅在仍存活时再强制（`Stop-Process -Force` / `taskkill /F`）。避免一上来就 `/F`。
+- **顺序（POSIX / WSL）**：先 **`kill -TERM` / `SIGTERM`**，等待进程退出；仅在仍存活时再 **`kill -KILL`**。避免一上来就 `-9`。
+- **PID 来源**：读本会话终端元数据、`out/` 日志里写明的 PID、或用户给出的 PID；不要猜测 PID。
+- **说明意图**：若必须杀用户机器上的非本会话进程，简短说明目标（例如端口占用、残留 dev server），便于用户确认批准。
+
+## Don’t
+
+- **不要**在沙箱内对失败 `kill` / `taskkill` 做无意义重试；应改为请求 **非沙箱 / allowlist** 路径。
+- **不要**用 `kill` 处理「取消本对话里启动的后台任务」时，可优先用对话/终端 UI 提供的取消或 **Await/任务** 约定；与「杀系统任意进程」区分。
+- **不要**套用 mogu 的 `*/cluster/*.pid` / MeshD 约定——本仓库没有那套本地多进程栈。
+
+## Note on `@system`
+
+若你在输入框使用 **`@`** 引用上下文：以当前 Cursor 版本显示的 **System / 系统终端 / 全权限执行** 等实际选项为准（名称可能随版本变化）。本规则中的「系统级能力」均指 **能对目标进程成功投递信号** 的那条执行路径，而非仅在受限沙箱内执行。

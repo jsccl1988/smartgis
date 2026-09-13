@@ -14,13 +14,16 @@ source_set("scene") {
   include_dirs += [ "//src" ]
   configs += [ "//build:legacy" ]
   public_configs = [ "//build:legacy" ]
+  public_deps = [
+    "//src/sdb/model:model",
+    "//third_party:gdal",
+  ]
   deps = [
     "//src/base:base",
     "//src/base:core",
     "//src/algorithm/geo:geo",
     "//src/sdb/map:gis",
     "//src/sdb/datasource/gdal:ogr_codec",
-    "//third_party:gdal",
   ]
 }
 
@@ -29,5 +32,8 @@ test("scene_test") {
   sources = [ "scene_test.cc" ]
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
-  deps = [ ":scene" ]
+  deps = [
+    ":scene",
+    "//third_party:gdal",
+  ]
 }

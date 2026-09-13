@@ -1,11 +1,11 @@
-#include "bl3d_scene.h"
-#include "bas_struct.h "
-#include "api.h"
-#include "logmanager.h"
-#include "thread.h"
+#include "render/scene3d/bl3d_scene.h"
+#include "base/core/bas_struct.h"
+#include "base/core/api.h"
+#include "base/core/logmanager.h"
+#include "base/core/thread.h"
 #include <algorithm>
 
-namespace Smt_3DBase
+namespace render
 {
 	//////////////////////////////////////////////////////////////////////////
 	SmtScene::SmtScene(void):m_p3DRenderDevice(NULL)
@@ -49,8 +49,8 @@ namespace Smt_3DBase
 
 	long SmtScene::Setup()
 	{
-		SmtLogManager * pLogMgr = SmtLogManager::GetSingletonPtr();
-		SmtLog *pLog = pLogMgr->GetDefaultLog();
+		SmtLogManager * pLogMgr = SmtLogManager::get_singleton_ptr();
+		SmtLog *pLog = pLogMgr->get_default_log();
 
 		//
 		m_pSceneTree	= new SmtSceneOctTree();
@@ -64,18 +64,18 @@ namespace Smt_3DBase
 		}
 
 		//
-		m_pTimer->SetClock(0,0);
+		m_pTimer->set_clock(0,0);
 
 		//
 		m_pSceneTree->SetShowNodeBox(m_bShowNodeBox);
 
 		//////////////////////////////////////////////////////////////////////////
-		//´´½¨×ÖÌå
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		m_p3DRenderDevice->CreateFont("Calibri",0,0,FW_BOLD,FALSE,FALSE,FALSE,16,m_nRenderInfoFont);
 		m_p3DRenderDevice->CreateFont("MS Reference Sans Serif",16,0,FW_BOLD,FALSE,FALSE,FALSE,16,m_nTimerInfoFont);
 		m_p3DRenderDevice->CreateFont("Times New Roman",16,0,FW_BOLD,FALSE,FALSE,FALSE,10,m_nHelpInfoFont);
 
-		pLog->LogMessage("SmtScene::Setup() is ok!");
+		pLog->log_message("SmtScene::Setup() is ok!");
 
 		return SMT_ERR_NONE;
 	}
@@ -85,7 +85,7 @@ namespace Smt_3DBase
 		if (m_pTimer && m_pCamera && m_pSceneTree)
 		{
 			//
-			m_pTimer->Update();
+			m_pTimer->update();
 
 			//
 			sprintf(m_szHelpInfoBuf,"Move:Front:W  Left:A  Back:S  Right:D Eye : X%f  Y:%f   Z:%f ",m_pCamera->GetEye().x,m_pCamera->GetEye().y,m_pCamera->GetEye().z);
@@ -95,7 +95,7 @@ namespace Smt_3DBase
 			{
 				m_pSceneTree->SetShowNodeBox(m_bShowNodeBox);
 
-				m_pSceneTree->Update(m_p3DRenderDevice,m_pTimer->GetElapsed());
+				m_pSceneTree->Update(m_p3DRenderDevice,m_pTimer->get_elapsed());
 
 			}
 			else
@@ -105,14 +105,14 @@ namespace Smt_3DBase
 				{
 					if (NULL != (*iter))
 					{
-						(*iter)->Update(m_p3DRenderDevice,m_pTimer->GetElapsed());
+						(*iter)->Update(m_p3DRenderDevice,m_pTimer->get_elapsed());
 					}
 					iter++;
 				}
 			}		
 
 			if (m_pNorthArray)
-				m_pNorthArray->Update(m_p3DRenderDevice,m_pTimer->GetElapsed());
+				m_pNorthArray->Update(m_p3DRenderDevice,m_pTimer->get_elapsed());
 		}
 
 		return SMT_ERR_NONE;
@@ -135,14 +135,14 @@ namespace Smt_3DBase
 				{
 					m_pSceneTree->Render(m_p3DRenderDevice);
 					m_pSceneTree->GetDebugString(szBuf,TEMP_BUFFER_SIZE);
-					sprintf(m_szRenderInfoBuf,"Fps%.3f\t%s",m_pTimer->GetFPS(),szBuf);
+					sprintf(m_szRenderInfoBuf,"Fps%.3f\t%s",m_pTimer->get_fps(),szBuf);
 				}
 				else
-					sprintf(m_szRenderInfoBuf,"Fps%.3f\t",m_pTimer->GetFPS());
+					sprintf(m_szRenderInfoBuf,"Fps%.3f\t",m_pTimer->get_fps());
 			}
 			else
 			{
-				sprintf(m_szRenderInfoBuf,"Fps%.3f\t",m_pTimer->GetFPS());
+				sprintf(m_szRenderInfoBuf,"Fps%.3f\t",m_pTimer->get_fps());
 
 				vSmt3DObjectPtrs ::iterator iter = m_v3DObjectPtrs.begin();
 				while(iter != m_v3DObjectPtrs.end())
@@ -167,7 +167,7 @@ namespace Smt_3DBase
 			//2d text
 			m_p3DRenderDevice->DrawText(m_nHelpInfoFont,10,24,SmtColor(0.,0.,1.),m_szHelpInfoBuf);
 			m_p3DRenderDevice->DrawText(m_nRenderInfoFont,10,44,SmtColor(0.,1.,0.),m_szRenderInfoBuf);
-			m_p3DRenderDevice->DrawText(m_nTimerInfoFont,10,64,SmtColor(1.,1.,0.),m_pTimer->GetClock());
+			m_p3DRenderDevice->DrawText(m_nTimerInfoFont,10,64,SmtColor(1.,1.,0.),m_pTimer->get_clock());
 		}
 
 		return SMT_ERR_NONE;
@@ -208,7 +208,7 @@ namespace Smt_3DBase
 		if (NULL != p3DObject)
 		{
 			m_v3DObjectPtrs.push_back(p3DObject);
-			m_aAbb.Merge(p3DObject->GetAabb());
+			m_aAbb.merge(p3DObject->GetAabb());
 			m_aAbb.vcCenter = (m_aAbb.vcMax+m_aAbb.vcMin)/2.;
 			m_bOctTreeCreated = false;
 		}

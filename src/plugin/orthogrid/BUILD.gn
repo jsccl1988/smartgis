@@ -1,0 +1,84 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Plugin-private kernel: Eigen SparseLU Laplace / Thompson elliptic.
+# Not a src_all / group("algorithm") DLL.
+source_set("orthogrid_kernel") {
+  sources = [
+    "curve.cpp",
+    "detail/laplace_solver.cc",
+    "detail/polyline.cpp",
+    "grid.cpp",
+    "grid_create.cpp",
+    "grid_modify.cpp",
+    "region.cpp",
+  ]
+  configs += [ "//build:legacy" ]
+  include_dirs += [
+    "//src/plugin/orthogrid",
+    "//src",
+  ]
+  deps = [
+    "//src/algorithm/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/sdb/map:gis",
+    "//third_party:eigen",
+  ]
+}
+
+smt_mfc_shared_library("plugin_orthogrid") {
+  dll_stem = "plugin_orthogrid"
+  sources = [
+    "creater.cpp",
+    "creater.rc",
+    "plug.cpp",
+    "stdafx.cpp",
+  ]
+  include_dirs += [
+    "//src/plugin/orthogrid",
+    "//src",
+  ]
+  deps = [
+    ":orthogrid_kernel",
+    "//src/algorithm/geo:geo",
+    "//src/base:core",
+    "//src/plugin:legacy_cmd",
+    "//src/plugin:plugin",
+    "//src/tool:tool",
+    "//src/tool/group:tool_group",
+    "//src/ui/xcatalog:xcatalog",
+    "//src/ui/xview:xview",
+    "//src/sys:sys",
+    "//third_party:eigen",
+  ]
+}
+
+source_set("orthogrid_views") {
+  sources = [
+    "commands.cc",
+    "commands.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/content:content",
+    "//src/plugin:host",
+    "//src/ui/views:views",
+  ]
+}
+
+test("orthogrid_laplace_test") {
+  output_name = "orthogrid_laplace_test"
+  sources = [
+    "detail/laplace_solver.cc",
+    "detail/laplace_solver_test.cc",
+  ]
+  include_dirs += [
+    "//src",
+    "//src/plugin/orthogrid/detail",
+  ]
+  deps = [ "//third_party:eigen" ]
+}

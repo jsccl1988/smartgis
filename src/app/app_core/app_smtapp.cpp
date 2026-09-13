@@ -1,27 +1,26 @@
 #include <objbase.h>
 
-#include "api.h"
-#include "app_smtapp.h"
-#include "core_exception.h"
-#include "logmanager.h"
-#include "stylemanager.h"
-#include "datasourcemgr.h"
-#include "listenermanager.h"
-#include "t_iatoolmanager.h"
-#include "module_manager.h"
-#include "pluginmanager.h"
-#include "mapservicemgr.h"
-#include "sysmanager.h"
+#include "base/core/api.h"
+#include "app/app_core/app_smtapp.h"
+#include "base/core/core_exception.h"
+#include "base/core/logmanager.h"
+#include "base/style/stylemanager.h"
+#include "sdb/datasource/mgr/datasourcemgr.h"
+#include "base/core/listenermanager.h"
+#include "tool/t_iatoolmanager.h"
+#include "plugin/module_manager.h"
+#include "base/core/pluginmanager.h"
+#include "sys/sysmanager.h"
 
-#include "mapmgr.h"
+#include "ui/xcatalog/mapmgr.h"
 
-using namespace Smt_AM;
-using namespace Smt_Sys;
-using namespace Smt_IATool;
-using namespace Smt_SDEDevMgr;
-using namespace Smt_XCatalog;
+using namespace plugin;
+using namespace sys;
+using namespace tool;
+using namespace sdb;
+using namespace ui;
 
-namespace Smt_App
+namespace app
 {
 	namespace {
 	bool path_is_file(const char* path)
@@ -53,7 +52,7 @@ namespace Smt_App
 			return false;
 		} 
 
-		SmtSysManager * pSysMgr = SmtSysManager::GetSingletonPtr();
+		SmtSysManager * pSysMgr = SmtSysManager::get_singleton_ptr();
 
 		SmtSysPra sysPra;
 		sysPra.fSmargin = 4;
@@ -103,11 +102,6 @@ namespace Smt_App
 			return false;
 		}
 
-		if (!InitSmtMapService())
-		{
-			return false;
-		}
-
 		m_bInit = true;
 
 		return true;
@@ -118,41 +112,41 @@ namespace Smt_App
 		if (!m_bInit)
 			return true;
 		 
-		SmtLogManager * pLogMgr = SmtLogManager::GetSingletonPtr();
-		SmtLog *pLog = pLogMgr->GetDefaultLog();
-		pLog->LogMessage("Smart Gis is going to Exit!");
+		SmtLogManager * pLogMgr = SmtLogManager::get_singleton_ptr();
+		SmtLog *pLog = pLogMgr->get_default_log();
+		pLog->log_message("Smart Gis is going to Exit!");
 
 		//////////////////////////////////////////////////////////////////////////
-		SmtStyleManager::GetSingletonPtr()->DestoryInstance();
-		pLog->LogMessage("Destroy SmtStyle resource!");
+		SmtStyleManager::get_singleton_ptr()->DestoryInstance();
+		pLog->log_message("Destroy SmtStyle resource!");
 
 		//////////////////////////////////////////////////////////////////////////
-		SmtMapMgr::GetSingletonPtr()->DestoryInstance();
-		pLog->LogMessage("Destroy SMap resource!");
+		SmtMapMgr::get_singleton_ptr()->DestoryInstance();
+		pLog->log_message("Destroy SMap resource!");
 
 		//////////////////////////////////////////////////////////////////////////
-		SmtDataSourceMgr::GetSingletonPtr()->DestoryInstance();
-		pLog->LogMessage("Destroy DataSource resource!");
+		SmtDataSourceMgr::get_singleton_ptr()->DestoryInstance();
+		pLog->log_message("Destroy DataSource resource!");
 
 		//////////////////////////////////////////////////////////////////////////
-		SmtIAToolManager::GetSingletonPtr()->DestoryInstance();
-		pLog->LogMessage("Destroy IATools resource!");
+		SmtIAToolManager::get_singleton_ptr()->DestoryInstance();
+		pLog->log_message("Destroy IATools resource!");
 
 		//////////////////////////////////////////////////////////////////////////
-		SmtListenerManager::GetSingletonPtr()->DestoryInstance();
-		pLog->LogMessage("Destroy AuxModules resource!");
+		SmtListenerManager::get_singleton_ptr()->DestoryInstance();
+		pLog->log_message("Destroy AuxModules resource!");
 
 		//////////////////////////////////////////////////////////////////////////
-		SmtPluginManager::GetSingletonPtr()->DestoryInstance();
-		pLog->LogMessage("Destroy Plugin resource!");
+		SmtPluginManager::get_singleton_ptr()->DestoryInstance();
+		pLog->log_message("Destroy Plugin resource!");
 
 		//////////////////////////////////////////////////////////////////////////
-		SmtSysManager::GetSingletonPtr()->DestoryInstance();
-		pLog->LogMessage("Destroy Sys resource!");
+		SmtSysManager::get_singleton_ptr()->DestoryInstance();
+		pLog->log_message("Destroy Sys resource!");
 
 		::CoUninitialize();
 
-		SmtLogManager::GetSingletonPtr()->DestoryInstance();
+		SmtLogManager::get_singleton_ptr()->DestoryInstance();
 
 		m_bInit = false;
 
@@ -173,7 +167,7 @@ namespace Smt_App
 		string strLogDir = path;
 		strLogDir += "log\\";
 
-		SmtLogManager * pLogMgr = SmtLogManager::GetSingletonPtr();
+		SmtLogManager * pLogMgr = SmtLogManager::get_singleton_ptr();
 
 		if (pLogMgr)
 		{
@@ -181,7 +175,7 @@ namespace Smt_App
 
 			if (pLogMgr->SetDefaultLog("SmtDefault"))
 			{
-				pLogMgr->GetDefaultLog()->LogMessage("Smart Gis is running!");
+				pLogMgr->get_default_log()->log_message("Smart Gis is running!");
 
 				return true;
 			}		
@@ -192,8 +186,8 @@ namespace Smt_App
 
 	bool SmtApp::InitStyleMgr(void)
 	{ 
-		SmtStyleManager * pStyleMgr = SmtStyleManager::GetSingletonPtr();
-		SmtSysManager * pSysMgr = SmtSysManager::GetSingletonPtr();
+		SmtStyleManager * pStyleMgr = SmtStyleManager::get_singleton_ptr();
+		SmtSysManager * pSysMgr = SmtSysManager::get_singleton_ptr();
 
 		if (NULL != pStyleMgr && NULL != pSysMgr)
 		{
@@ -206,7 +200,7 @@ namespace Smt_App
 			SmtSymbolDesc     stSymbolDesc;
 
 
-			pStyleMgr->SetDefaultStyle("SmtDefault",stPenDesc,stBrushDesc,stAnnoDesc,stSymbolDesc);
+			pStyleMgr->set_default_style("SmtDefault",stPenDesc,stBrushDesc,stAnnoDesc,stSymbolDesc);
 
 			SmtStyle *pStyle1 = pStyleMgr->CreateStyle(styleConfig.szPointStyle,stPenDesc,stBrushDesc,stAnnoDesc,stSymbolDesc);
 			SmtStyle *pStyle2 = pStyleMgr->CreateStyle(styleConfig.szLineStyle,stPenDesc,stBrushDesc,stAnnoDesc,stSymbolDesc);
@@ -225,19 +219,19 @@ namespace Smt_App
 
 			//////////////////////////////////////////////////////////////////////////
 
-			pStyle1->SetStyleType(ST_PenDesc|ST_BrushDesc|ST_AnnoDesc|ST_SymbolDesc);
-			pStyle2->SetStyleType(ST_PenDesc);
-			pStyle3->SetStyleType(ST_PenDesc|ST_BrushDesc);
-			pStyle4->SetStyleType(ST_PenDesc);
+			pStyle1->set_style_type(ST_PenDesc|ST_BrushDesc|ST_AnnoDesc|ST_SymbolDesc);
+			pStyle2->set_style_type(ST_PenDesc);
+			pStyle3->set_style_type(ST_PenDesc|ST_BrushDesc);
+			pStyle4->set_style_type(ST_PenDesc);
 
-			pStyle5->SetStyleType(ST_PenDesc|ST_BrushDesc|ST_AnnoDesc|ST_SymbolDesc);
-			pStyle6->SetStyleType(ST_PenDesc|ST_BrushDesc|ST_AnnoDesc|ST_SymbolDesc);
+			pStyle5->set_style_type(ST_PenDesc|ST_BrushDesc|ST_AnnoDesc|ST_SymbolDesc);
+			pStyle6->set_style_type(ST_PenDesc|ST_BrushDesc|ST_AnnoDesc|ST_SymbolDesc);
 
-			pStyle7->SetStyleType(ST_PenDesc);
-			pStyle8->SetStyleType(ST_PenDesc);
+			pStyle7->set_style_type(ST_PenDesc);
+			pStyle8->set_style_type(ST_PenDesc);
 
-			pStyle9->SetStyleType(ST_PenDesc|ST_BrushDesc);
-			pStyle10->SetStyleType(ST_PenDesc|ST_BrushDesc);
+			pStyle9->set_style_type(ST_PenDesc|ST_BrushDesc);
+			pStyle10->set_style_type(ST_PenDesc|ST_BrushDesc);
 
 			//////////////////////////////////////////////////////////////////////////
 			//1
@@ -335,7 +329,7 @@ namespace Smt_App
 	{
 		bool bRet = true;
 
-		SmtDataSourceMgr *pDSMgr = SmtDataSourceMgr::GetSingletonPtr();
+		SmtDataSourceMgr *pDSMgr = SmtDataSourceMgr::get_singleton_ptr();
 		if (pDSMgr)
 		{
 			string strAppPath = GetAppPath();
@@ -364,7 +358,7 @@ namespace Smt_App
 					strcpy(info.szUID,"");
 					strcpy(info.szPWD,"");
 
-					SmtDataSource *pDS = pDSMgr->CreateDataSource(info);
+					GDALDataset* pDS = pDSMgr->CreateDataSource(info);
 
 					pDSMgr->SetActiveDataSource(pDS);
 				}
@@ -382,7 +376,7 @@ namespace Smt_App
 
 	bool SmtApp::InitSmtMap(void)
 	{
-		SmtMapMgr * pMapMgr = SmtMapMgr::GetSingletonPtr();
+		SmtMapMgr * pMapMgr = SmtMapMgr::get_singleton_ptr();
 		if (!pMapMgr)
 		{
 			return false;
@@ -393,21 +387,6 @@ namespace Smt_App
 			return true;
 		}
 		return pMapMgr->OpenMap(strDSMFilePath.c_str());
-	}
-
-	bool SmtApp::InitSmtMapService(void)
-	{
-		SmtMapServiceMgr * pMapServiceMgr = SmtMapServiceMgr::GetSingletonPtr();
-		if (!pMapServiceMgr)
-		{
-			return false;
-		}
-		string	strMSVRCfg = GetAppPath() + "sys\\smartgis.msvr";
-		if (!path_is_file(strMSVRCfg.c_str()))
-		{
-			return true;
-		}
-		return pMapServiceMgr->OpenMSVRCfg(strMSVRCfg.c_str());
 	}
 
 	bool SmtApp::InitSmtListenerMgr(void)
@@ -421,7 +400,7 @@ namespace Smt_App
 	{
 		bool bRet = true;
 
-		SmtPluginManager *pPluginMgr = SmtPluginManager::GetSingletonPtr();
+		SmtPluginManager *pPluginMgr = SmtPluginManager::get_singleton_ptr();
 		if (pPluginMgr)
 		{
 			string strAppPath = GetAppPath();

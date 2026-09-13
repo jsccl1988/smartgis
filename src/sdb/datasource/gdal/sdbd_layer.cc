@@ -11,13 +11,13 @@
 namespace sdb {
 namespace datasource {
 
-SdbdLayer::SdbdLayer(OGRLayer* inner, Smt_GIS::SmtFeatureType ft,
+SdbdLayer::SdbdLayer(OGRLayer* inner, sdb::SmtFeatureType ft,
                      SdbdDataset* owner)
     : inner_(inner), owner_(owner), feature_type_(ft) {
   write_metadata();
 }
 
-void SdbdLayer::set_feature_type(Smt_GIS::SmtFeatureType ft) {
+void SdbdLayer::set_feature_type(sdb::SmtFeatureType ft) {
   feature_type_ = ft;
   write_metadata();
 }

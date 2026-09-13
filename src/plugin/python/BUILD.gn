@@ -1,0 +1,61 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/python.gni")
+import("//testing/test.gni")
+
+# smt_has_python / smt_python_root: see build/python.gni.
+# Stub compiles when Python 3.12 headers+libs are absent or the arg is false.
+# Link the stable ABI (python3.lib) so a /MDd test can load the official
+# Windows CPython install without python312_d.lib.
+
+source_set("python") {
+  sources = [
+    "bindings.cc",
+    "runtime.cc",
+    "runtime.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/plugin:host",
+    "//src/ui/views:views",
+  ]
+  if (smt_python_enabled) {
+    include_dirs += [ smt_python_include ]
+    defines += [
+      "SMT_HAS_PYTHON=1",
+      "SMT_PYTHON_HOME=\"" + smt_python_prefix + "\"",
+    ]
+    libs += [ "python312.lib" ]
+    lib_dirs += [ smt_python_libdir ]
+  }
+}
+
+if (smt_python_enabled && smt_python_dll != "") {
+  copy("python312_dll") {
+    sources = [ rebase_path(smt_python_dll) ]
+    outputs = [ "$root_out_dir/python312.dll" ]
+  }
+  copy("python3_dll") {
+    sources = [ rebase_path(smt_python_prefix + "/python3.dll") ]
+    outputs = [ "$root_out_dir/python3.dll" ]
+  }
+}
+
+test("plugin_python_test") {
+  output_name = "plugin_python_test"
+  sources = [ "python_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":python" ]
+  defines += [ "SMT_PLUGIN_HELLO_DIR=\"" +
+               rebase_path("//src/plugin/samples/hello") + "\"" ]
+  if (smt_python_enabled) {
+    defines += [ "SMT_HAS_PYTHON=1" ]
+    if (smt_python_dll != "") {
+      data_deps = [
+        ":python312_dll",
+        ":python3_dll",
+      ]
+    }
+  }
+}

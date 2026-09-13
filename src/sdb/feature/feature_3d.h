@@ -1,11 +1,11 @@
 /*
 File:    gis_3dfeature.h
 
-Desc:    Smt3DFeature,ÒªËØ
+Desc:    Smt3DFeature,Òªï¿½ï¿½
 
 Version: Version 1.0
 
-Writter:  ³Â´ºÁÁ
+Writter:  ï¿½Â´ï¿½ï¿½ï¿½
 
 Date:    2011.8.1
 
@@ -14,34 +14,35 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _GIS_3D_FEATURE_H
 #define _GIS_3D_FEATURE_H
 
-#include "core.h"
-#include "bas_struct.h"
-#include "3dgeometry.h"
-#include "attribute.h"
-#include "base.h"
+#include "base/core/core.h"
+#include "base/core/bas_struct.h"
+#include "algorithm/geo/geometry.h"
+#include "sdb/feature/attribute.h"
+#include "sdb/gis_export.h"
+#include "render/render3d/base.h"
 
-using namespace Smt_Core;
-using namespace Smt_3DGeo;
-using namespace Smt_3Drd;
+using namespace base;
+using namespace geo;
+using namespace render;
 
-namespace Smt_GIS
+namespace sdb
 {
 	enum Smt3DFeatureType
 	{
-		//µã×´ÒªËØ
+		//ï¿½ï¿½×´Òªï¿½ï¿½
 		SmtFt3DDot,
 		SmtFt3DAnno,
-		//Ïß×´ÒªËØ
+		//ï¿½ï¿½×´Òªï¿½ï¿½
 		SmtFt3DCurve,
-		//Ãæ×´ÒªËØ
+		//ï¿½ï¿½×´Òªï¿½ï¿½
 		SmtFt3DSurface,
-		//Íø×´ÒªËØ
+		//ï¿½ï¿½×´Òªï¿½ï¿½
 		SmtFt3DMesh,
-		//Î´ÖªÒªËØ
+		//Î´ÖªÒªï¿½ï¿½
 		SmtFt3DUnknown
 	};
 
-	class SMT_EXPORT_CLASS Smt3DFeature
+	class GIS_EXPORT Smt3DFeature
 	{
 	public:
 		Smt3DFeature(void);
@@ -49,16 +50,16 @@ namespace Smt_GIS
 		
 		inline long                GetID(void) {return m_lID;}
 		inline Smt3DFeatureType    GetFeatureType(void) {return m_SmtFeatureType;}
-		inline Smt3DGeometry *	   GetGeometryRef(void) {return m_pGeom;}
+		inline OGRGeometry *	   GetGeometryRef(void) {return m_pGeom;}
 		inline SmtAttribute *      GetAttributeRef(void) {return m_pAtt;}
 
 		//////////////////////////////////////////////////////////////////////////
 		inline void                SetID(long id) {m_lID = id;}
 		inline void                SetFeatureType(Smt3DFeatureType type);
-		void                       SetGeometryDirectly(Smt3DGeometry  *pGeom);
-		void                       SetGeometry(Smt3DGeometry  *pGeom);
+		void                       SetGeometryDirectly(OGRGeometry  *pGeom);
+		void                       SetGeometry(OGRGeometry  *pGeom);
 
-		Smt3DFeature *             Clone();
+		Smt3DFeature *             clone();
 
 		virtual bool               Equal( Smt3DFeature * pFeature );
 
@@ -93,17 +94,9 @@ namespace Smt_GIS
 		long                        m_lID;
 		Smt3DFeatureType            m_SmtFeatureType;
 		SmtAttribute                *m_pAtt;
-		Smt3DGeometry				*m_pGeom; 
+		OGRGeometry				*m_pGeom; 
 		SmtMaterial					*m_pMaterial;
 	};
 }
 
-#if !defined(Export_SmtGisCore)
-#if   defined( _DEBUG)
-#          pragma comment(lib,"SmtGisCoreD.lib")
-#       else
-#          pragma comment(lib,"SmtGisCore.lib")
-#	    endif  
-#endif
-
-#endif //_GIS_3D_FEATURE_H
+#endif  // _GIS_3D_FEATURE_H

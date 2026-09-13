@@ -1,9 +1,9 @@
-#include "smf_api.h"
-#include "smf_core.h"
+#include "sdb/datasource/smf/smf_api.h"
+#include "sdb/datasource/smf/smf_core.h"
 
-using namespace Smt_SDESmf;
+using namespace sdb;
 
-long	WriteSmf(const char *szFile,const vector<SmtLayerInfo> &vLyrInfos)
+long write_smf(const char* szFile, const vector<SmtLayerInfo>& vLyrInfos)
 {
 	if (strlen(szFile) == 0)
 		return SMT_ERR_INVALID_PARAM;
@@ -40,7 +40,7 @@ long	WriteSmf(const char *szFile,const vector<SmtLayerInfo> &vLyrInfos)
 	return SMT_ERR_NONE;
 }
 
-long	ReadSmf(const char *szFile,vector<SmtLayerInfo> &vLyrInfos)
+long read_smf(const char* szFile, vector<SmtLayerInfo>& vLyrInfos)
 {
 	if (strlen(szFile) == 0)
 		return SMT_ERR_INVALID_PARAM;

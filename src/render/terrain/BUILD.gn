@@ -1,0 +1,19 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("terrain") {
+  dll_stem = "terrain"
+  defines = [ "TERRAIN_EXPORTS" ]
+  sources = [ "terrain.cpp" ]
+  deps = [
+    "//src/render/scene3d:scene3d",
+    "//src/algorithm/geo:geo",
+    "//src/render/math:bounds",
+    "//src/render/model3d:model3d",
+    "//src/render/render3d:render3d",
+    "//src/base:base",
+    "//src/base:core",
+  ]
+}

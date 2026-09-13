@@ -1,0 +1,47 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_mfc_shared_library("xview") {
+  dll_stem = "xview"
+  mfc_extension = true
+  defines = [
+    "XVIEW_EXPORTS",
+    "_AFXEXT",
+  ]
+  sources = [
+    "view_core.cpp",
+    "xview_core.rc",
+    "stdafx.cpp",
+    "view_2d_edit.cpp",
+    "view_2d.cpp",
+    "view_3d.cpp",
+    "view_chrome.cc",
+    "view_chrome.h",
+    "xview.cpp",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    "//src/content:view_host",
+    "//src/sdb/edit:map_edit",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/algorithm/geo:geo",
+    "//src/sdb/map:gis",
+    "//src/render:render",
+    "//src/render/render3d:render3d",
+    "//src/render/scene3d:scene3d",
+    "//src/sys:sys",
+    "//src/render/model3d:model3d",
+    "//src/plugin:plugin",
+    "//src/plugin:legacy_cmd",
+    "//src/tool:tool",
+    "//src/tool/group:tool_group",
+    "//src/ui/xcatalog:xcatalog",
+    "//src/sdb/datasource/mgr:sde_mgr",
+  ]
+}

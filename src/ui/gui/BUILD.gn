@@ -1,0 +1,35 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# MFC Feature Pack (CMFC*) via bcg_cmfc.h — not BCGControlBar Pro.
+smt_mfc_shared_library("gui") {
+  dll_stem = "gui"
+  mfc_extension = true
+  defines = [
+    "GUI_EXPORTS",
+    "_AFXEXT",
+  ]
+  include_dirs += [ "." ]
+  sources = [
+    "gui_core.cpp",
+    "dlg_2d_feature_info.cpp",
+    "dlg_att_struct_set.cpp",
+    "dlg_input_text.cpp",
+    "dlg_select_one.cpp",
+    "edit_config_dock_bar.cpp",
+    "gui_core.rc",
+    "config_dock_bar.cpp",
+    "gui_api.cpp",
+    "stdafx.cpp",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/algorithm/geo:geo",
+    "//src/sdb/map:gis",
+    "//src/sys:sys",
+    "//src/ui/mfc_ex:mfc_ex",
+  ]
+}

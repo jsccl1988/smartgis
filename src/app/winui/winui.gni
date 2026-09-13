@@ -1,0 +1,12 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Scheme 2 WinUI chrome exe. Off so ninja `all` stays the 31 DLLs.
+declare_args() {
+  smt_build_winui = false
+}
+
+# Pinned Windows App SDK NuGet (1.7 servicing). Upgrade is an explicit
+# change. Extracted under //third_party/windows_app_sdk (not .install).
+# Do not use 2.x here: that nupkg is a meta-package without headers.
+winui_windows_app_sdk_version = "1.7.260224002"

@@ -5,7 +5,7 @@ Desc:    API function
 
 Version: Version 1.0
 
-Writter:  ³Â´ºÁÁ
+Writter:  ï¿½Â´ï¿½ï¿½ï¿½
 
 Date:    2010.11.17
 
@@ -14,22 +14,14 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _SDE_SHAPEFILE_API_H
 #define _SDE_SHAPEFILE_API_H
 
-#include "core.h"
-#include "layer.h"
+#include "base/core/core.h"
+#include "sdb/layer/layer.h"
 
-using namespace Smt_Core;
-using namespace Smt_GIS;
+using namespace base;
+using namespace sdb;
 
 //////////////////////////////////////////////////////////////////////////
-long		WriteSmf(const char *szFile,const vector<SmtLayerInfo> &vLyrInfos);
-long		ReadSmf(const char *szFile,vector<SmtLayerInfo> &vLyrInfos);
+long write_smf(const char* szFile, const vector<SmtLayerInfo>& vLyrInfos);
+long read_smf(const char* szFile, vector<SmtLayerInfo>& vLyrInfos);
 
-#if !defined(Export_SmtSDESmfDevice)
-#if   defined( _DEBUG)
-#          pragma comment(lib,"SmtSDESmfDeviceD.lib")
-#       else
-#          pragma comment(lib,"SmtSDESmfDevice.lib")
-#	    endif  
-#endif
-
-#endif //_SDE_SHAPEFILE_API_H
+#endif  // _SDE_SHAPEFILE_API_H

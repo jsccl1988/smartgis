@@ -1,11 +1,11 @@
 /*
 File:    gdi_renderthread.h
 
-Desc:    SmtGdiMrdThread,GDI µØÍ¼äÖÈ¾Ïß³Ì
+Desc:    SmtGdiMrdThread,GDI ï¿½ï¿½Í¼ï¿½ï¿½È¾ï¿½ß³ï¿½
 
 Version: Version 1.0
 
-Writter:  ³Â´ºÁÁ
+Writter:  ï¿½Â´ï¿½ï¿½ï¿½
 
 Date:    2011.11.14
 
@@ -14,36 +14,36 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _GDI_RENDERTHREAD_H
 #define _GDI_RENDERTHREAD_H
 
-#include "thread.h"
-#include "cslock.h"
-#include "style_bas_struct.h"
-#include "feature.h"
-#include "geometry.h"
-#include "map.h"
-#include "style.h"
-#include "gdi_renderbuf.h"
-#include "gdi_bufpool.h"
+#include "base/core/thread.h"
+#include "base/core/cslock.h"
+#include "base/style/style_bas_struct.h"
+#include "sdb/feature/feature.h"
+#include "algorithm/geo/geometry.h"
+#include "sdb/map/map.h"
+#include "base/style/style.h"
+#include "render/gdi/gdi_renderbuf.h"
+#include "render/gdi/gdi_bufpool.h"
 
 class OGRFeature;
 class OGRLayer;
 
-using namespace Smt_Core;
-using namespace Smt_GIS;
-using namespace Smt_Base;
-using namespace Smt_Geo;
+using namespace base;
+using namespace sdb;
+using namespace base;
+using namespace geo;
 
-namespace Smt_Rd
+namespace render
 {
 	//class  SmtGdiRenderDevice;
 	struct SmtRenderContex
 	{
-		Viewport		 viewport;				//äÖÈ¾ÊÓ¿Ú
-		Windowport		 windowport;			//äÖÈ¾´°¿Ú
-		float            fblc;					//±ÈÖµ
-		SmtMap			 *pMap;					//äÖÈ¾µØÍ¼
-		int				 orgx,orgy;				//äÖÈ¾·¶Î§,×óÏÂ½Ç×ø±ê
-		int				 width,height;			//äÖÈ¾·¶Î§,¿í¶È¡¢¸ß¶È
-		int				 op;					//äÖÈ¾Ä£Ê½
+		Viewport		 viewport;				//ï¿½ï¿½È¾ï¿½Ó¿ï¿½
+		Windowport		 windowport;			//ï¿½ï¿½È¾ï¿½ï¿½ï¿½ï¿½
+		float            fblc;					//ï¿½ï¿½Öµ
+		SmtMap			 *pMap;					//ï¿½ï¿½È¾ï¿½ï¿½Í¼
+		int				 orgx,orgy;				//ï¿½ï¿½È¾ï¿½ï¿½Î§,ï¿½ï¿½ï¿½Â½ï¿½ï¿½ï¿½ï¿½ï¿½
+		int				 width,height;			//ï¿½ï¿½È¾ï¿½ï¿½Î§,ï¿½ï¿½ï¿½È¡ï¿½ï¿½ß¶ï¿½
+		int				 op;					//ï¿½ï¿½È¾Ä£Ê½
 		
 		SmtRenderContex():fblc(1)
 			,pMap(NULL),orgx(0),orgy(0),width(0),height(0),op(0)
@@ -69,7 +69,7 @@ namespace Smt_Rd
 		virtual ~SmtGdiRenderThread(void);
 
 	public:
-		virtual void	Run(void *pParam/*SmtRenderContex *pSmtRC*/);			//Ïß³ÌÔËÐÐº¯Êý
+		virtual void	run(void *pParam/*SmtRenderContex *pSmtRC*/);			//ï¿½ß³ï¿½ï¿½ï¿½ï¿½Ðºï¿½ï¿½ï¿½
 	
 	public:
 		int             Init(HWND hWnd,const char * logname);
@@ -107,29 +107,29 @@ namespace Smt_Rd
 		int             RenderLayer(const SmtTileLayer *pLayer,int op = R2_COPYPEN);			//1-16 R2_BLACK-R2_WHITE
 
 		int             RenderFeature(OGRFeature *pFeature,int op = R2_COPYPEN);
-		int             RenderGeometry( const  SmtGeometry *pGeom, const  SmtStyle*pStyle,int op = R2_COPYPEN);
+		int             RenderGeometry( const  OGRGeometry *pGeom, const  SmtStyle*pStyle,int op = R2_COPYPEN);
 
 	public:
 		int             PrepareForDrawing( const  SmtStyle*pStyle,int nDrawMode = R2_COPYPEN);
 		int             EndDrawing(void);
 
-		int             DrawMultiLineString( const  SmtMultiLineString *pMultiLinestring);
-		int             DrawLineSpline(const SmtSpline *pSpline);
-		int             DrawMultiPoint( const  SmtStyle*pStyle, const  SmtMultiPoint *pMultiPoint);
-		int             DrawMultiPolygon( const  SmtMultiPolygon *pMultiPolygon);
+		int             DrawMultiLineString( const  OGRMultiLineString *pMultiLinestring);
+		int             DrawLineSpline(const OGRLineString *pSpline);
+		int             DrawMultiPoint( const  SmtStyle*pStyle, const  OGRMultiPoint *pMultiPoint);
+		int             DrawMultiPolygon( const  OGRMultiPolygon *pMultiPolygon);
 
-		int             DrawPoint( const  SmtStyle*pStyle, const  SmtPoint *pPoint);
-		int             DrawAnno(const char *szAnno,float fangel,float fCHeight,float fCWidth,float fCSpace,const SmtPoint *pPoint);
-		int             DrawSymbol(HICON hIcon,long lHeight,long lWhidth,const SmtPoint *pPoint);
+		int             DrawPoint( const  SmtStyle*pStyle, const  OGRPoint *pPoint);
+		int             DrawAnno(const char *szAnno,float fangel,float fCHeight,float fCWidth,float fCSpace,const OGRPoint *pPoint);
+		int             DrawSymbol(HICON hIcon,long lHeight,long lWhidth,const OGRPoint *pPoint);
 
-		int             DrawLineString( const  SmtLineString *pLinestring);
-		int             DrawLinearRing( const  SmtLinearRing *pLinearRing);
-		int             DrawPloygon( const  SmtPolygon *pPloygon);
+		int             DrawLineString( const  OGRLineString *pLinestring);
+		int             DrawLinearRing( const  OGRLinearRing *pLinearRing);
+		int             DrawPloygon( const  OGRPolygon *pPloygon);
 
 		int             DrawTin(const SmtTin *pTin);
 		int             DrawGrid( const  SmtGrid *pGrid);
-		int             DrawArc( const  SmtArc *pArc);
-		int             DrawFan( const  SmtFan *pFan);
+		int             DrawArc( const  OGRLineString *pArc);
+		int             DrawFan( const  OGRPolygon *pFan);
 
 	public:
 		int             DrawEllipse(float left,float top,float right,float bottom,bool bDP = false);
@@ -155,8 +155,8 @@ namespace Smt_Rd
 		SmtRenderBuf	 m_smtRenderBuf;
 		SmtRenderBuf	 m_smtSharedBuf;
 
-		Viewport		 &m_virViewport1;			//ÐéÄâÊÓ¿Ú£¬ÆÁÄ»Í¼ÏñÓ³ÉäÊ¹ÓÃ
-		Viewport		 &m_virViewport2;			//ÐéÄâÊÓ¿Ú£¬ÆÁÄ»Í¼ÏñÓ³ÉäÊ¹ÓÃ
+		Viewport		 &m_virViewport1;			//ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿Ú£ï¿½ï¿½ï¿½Ä»Í¼ï¿½ï¿½Ó³ï¿½ï¿½Ê¹ï¿½ï¿½
+		Viewport		 &m_virViewport2;			//ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿Ú£ï¿½ï¿½ï¿½Ä»Í¼ï¿½ï¿½Ó³ï¿½ï¿½Ê¹ï¿½ï¿½
 
 		SmtBufPool		 m_bufPool;
 

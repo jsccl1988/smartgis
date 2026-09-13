@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "map_host.h"
+#include "app/winui/map_host.h"
 
 #include <d3d11.h>
 #include <winrt/Windows.Foundation.Collections.h>
