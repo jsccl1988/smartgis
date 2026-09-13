@@ -145,34 +145,6 @@ sdb::SmtFeatureType infer_feature_type(OGRFeature* src,
   }
 }
 
-sdb::SmtFeatureType feature_type_of(OGRLayer* layer) {
-  if (!layer) {
-    return sdb::SmtFtUnknown;
-  }
-  const OGRwkbGeometryType wkb = wkbFlatten(layer->GetGeomType());
-  if (wkb == wkbPoint && layer->FindFieldIndex("anno", TRUE) >= 0) {
-    return sdb::SmtFtAnno;
-  }
-  if (wkb == wkbMultiPoint && layer->FindFieldIndex("grid_row", TRUE) >= 0) {
-    return sdb::SmtFtGrid;
-  }
-  switch (wkb) {
-    case wkbPoint:
-      return sdb::SmtFtDot;
-    case wkbLineString:
-    case wkbMultiLineString:
-      return sdb::SmtFtCurve;
-    case wkbPolygon:
-      return layer->FindFieldIndex("area", TRUE) >= 0 ? sdb::SmtFtSurface
-                                                     : sdb::SmtFtTin;
-    case wkbMultiPolygon:
-    case wkbTIN:
-      return sdb::SmtFtTin;
-    default:
-      return sdb::SmtFtUnknown;
-  }
-}
-
 void copy_smt_style_to_ogr(const base::SmtStyle* src, OGRFeature* dst) {
   if (!src || !dst) {
     return;
@@ -203,36 +175,35 @@ base::SmtStyle* copy_ogr_style_from_ogr(OGRFeature* src) {
   return style;
 }
 
-bool copy_ogr_feature_to_smt(OGRFeature* src, sdb::SmtFeature* dst) {
+bool copy_ogr_feature_to_feature(OGRFeature* src, sdb::SmtFeature* dst) {
   if (!src || !dst) {
     return false;
   }
+  OGRFeature* clone = src->Clone();
+  if (!clone) {
+    return false;
+  }
+  dst->reset_ogr(clone, true);
+
   const sdb::SmtFeatureType ft = infer_feature_type(src, sdb::SmtFtUnknown);
-  dst->SetFeatureType(ft);
-  dst->SetID(static_cast<long>(src->GetFID()));
+  dst->set_feature_type(ft);
 
   if (ft == sdb::SmtFtGrid) {
     geo::Grid* grid = decode_smt_grid(src);
     if (!grid) {
       return false;
     }
-    dst->SetGeometry(grid);
+    dst->set_grid(grid, true);
   } else if (ft == sdb::SmtFtTin) {
     geo::Tin* tin = decode_smt_tin(src);
     if (!tin) {
       return false;
     }
-    dst->SetGeometry(tin);
-  } else {
-    OGRGeometry* geom = decode_ogr_geometry(src, ft);
-    if (!geom) {
-      return false;
-    }
-    dst->SetGeometryDirectly(geom);
+    dst->set_tin(tin, true);
   }
 
   if (base::SmtStyle* sty = copy_ogr_style_from_ogr(src)) {
-    dst->SetStyle(sty);
+    dst->set_style(sty);
   }
   return true;
 }

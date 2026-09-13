@@ -1,0 +1,26 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("render_gdi_simple") {
+  dll_stem = "render_gdi_simple"
+  defines = [ "RENDER_GDI_SIMPLE_EXPORTS" ]
+  sources = [
+    "gdi_aux_api.cpp",
+    "gdi_bufpool.cpp",
+    "gdi_renderbuf.cpp",
+    "gdi_simplerenderdevice.cpp",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/algorithm/geo:geo",
+    "//src/sdb/map:gis",
+    "//src/sdb/datasource/gdal:ogr_codec",
+    "//src/legacy_render/bridge:leftover_record",
+    "//src/legacy_render/bridge:render",
+    "//third_party:CxImage",
+    "//third_party:gdal",
+  ]
+}

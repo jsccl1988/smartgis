@@ -16,7 +16,10 @@ class ViewHost;
 
 namespace ui {
 namespace views {
+class AmboxView;
+class AttributeTable;
 class CatalogView;
+class FeatureInfo;
 class MapViewport;
 class StatusBar;
 class TabStrip;
@@ -25,6 +28,8 @@ class View;
 }  // namespace ui
 
 namespace app {
+
+class PluginChrome;
 
 // Product chrome: single-window IDE layout (MenuBar, splitters, TabStrip).
 // Business panels are composed, never painted by this host.
@@ -53,6 +58,7 @@ class BrowserView {
   void on_catalog_command(const std::string& command_id);
   void on_open();
   void on_exit();
+  void on_plugins();
   void switch_map_tab(int i);
   void sync_status();
   ui::views::MapViewport* active_map() const;
@@ -62,9 +68,13 @@ class BrowserView {
   std::unique_ptr<content::ViewHost> data_host_;
   std::unique_ptr<content::ViewHost> scene_host_;
   std::unique_ptr<content::MapContents> map_session_;
+  std::unique_ptr<PluginChrome> plugins_;
 
   ui::views::Widget widget_;
   ui::views::CatalogView* catalog_ = nullptr;
+  ui::views::AmboxView* ambox_ = nullptr;
+  ui::views::FeatureInfo* feature_info_ = nullptr;
+  ui::views::AttributeTable* attribute_table_ = nullptr;
   ui::views::MapViewport* map_edit_ = nullptr;
   ui::views::MapViewport* map_data_ = nullptr;
   ui::views::MapViewport* map_scene_ = nullptr;

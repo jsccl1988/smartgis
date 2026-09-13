@@ -17,7 +17,12 @@ class NullDevice : public Device {
   Backend backend() const override { return Backend::kNull; }
 
   CommandList* create_command_list() override { return new StubCommandList(); }
-  void destroy_command_list(CommandList* list) override { delete list; }
+
+  // Intentionally leak stub objects. The same process links FlyCube; repeated
+  // operator delete of stub CommandList/Buffer/Texture has hung headless CI
+  // (scene_gpu_test TIMEOUT, leftover_record_test flaky finish). Production
+  // backends (FlyCube/GDI) still free their resources.
+  void destroy_command_list(CommandList* list) override { (void)list; }
   bool execute(CommandList* list) override {
     auto* stub = static_cast<StubCommandList*>(list);
     return stub != nullptr && stub->closed;
@@ -25,12 +30,11 @@ class NullDevice : public Device {
   Buffer* create_buffer(uint32_t byte_size, BufferUsage usage) override {
     return detail::make_stub_buffer(byte_size, usage);
   }
-  void destroy_buffer(Buffer* buffer) override {
-    detail::destroy_stub_buffer(buffer);
-  }
+  void destroy_buffer(Buffer* buffer) override { (void)buffer; }
   bool upload(Buffer* buffer, const void* data, uint32_t byte_size) override {
     return detail::upload_stub_buffer(buffer, data, byte_size);
   }
+  void destroy_texture(Texture* texture) override { (void)texture; }
 };
 
 }  // namespace

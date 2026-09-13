@@ -8,6 +8,7 @@
 #include "sdb/feature/feature.h"
 #include "sdb/gis_export.h"
 #include "sdb/layer/layer.h"
+#include "sdb/map/map_layer.h"
 
 #include <vector>
 
@@ -15,18 +16,23 @@ class OGRFeature;
 class OGRLayer;
 
 using namespace base;
-using namespace base;
 
 #define MAX_MAP_NAME MAX_NAME_LENGTH
 
 namespace sdb {
 
-// Map document. Vector layers are OGRLayer; raster/tile leftovers are SmtLayer.
+// Map document. Vector layers are MapLayer(OGRLayer*); raster/tile leftovers
+// live on MapLayer::leftover().
 class GIS_EXPORT SmtMap {
  public:
   SmtMap();
   virtual ~SmtMap();
+  SmtMap(const SmtMap&) = delete;
+  SmtMap& operator=(const SmtMap&) = delete;
+  SmtMap(SmtMap&&) noexcept = default;
+  SmtMap& operator=(SmtMap&&) noexcept = default;
 
+  bool AddLayer(MapLayer layer);
   bool AddLayer(OGRLayer* layer);
   bool AddLayer(SmtLayer* layer);
 
@@ -41,12 +47,13 @@ class GIS_EXPORT SmtMap {
   void SetActiveLayer(const char* szName);
   void SetActiveOgrLayer(OGRLayer* layer);
 
+  MapLayer* GetActiveMapLayer();
+  const MapLayer* GetActiveMapLayer() const;
   OGRLayer* GetActiveOgrLayer();
   const OGRLayer* GetActiveOgrLayer() const;
   SmtLayer* GetActiveLeftoverLayer();
   const SmtLayer* GetActiveLeftoverLayer() const;
 
-  // Leftover names used by MFC / plugin TUs after the OGR cut-over.
   SmtLayer* GetActiveLayer() { return GetActiveLeftoverLayer(); }
   const SmtLayer* GetActiveLayer() const { return GetActiveLeftoverLayer(); }
   SmtLayer* GetLayer(const char* szName) { return GetLeftoverLayer(szName); }
@@ -59,6 +66,11 @@ class GIS_EXPORT SmtMap {
   bool AddLayer(const SmtLayer* layer) {
     return AddLayer(const_cast<SmtLayer*>(layer));
   }
+
+  MapLayer* GetMapLayer(const char* szName);
+  const MapLayer* GetMapLayer(const char* szName) const;
+  MapLayer* GetMapLayer(int index);
+  const MapLayer* GetMapLayer(int index) const;
 
   OGRLayer* GetOgrLayer(const char* szName);
   const OGRLayer* GetOgrLayer(const char* szName) const;
@@ -102,23 +114,17 @@ class GIS_EXPORT SmtMap {
   void CalEnvelope();
 
  protected:
-  struct Entry {
-    SmtLayerType type = LYR_VECTOR;
-    OGRLayer* ogr = nullptr;
-    SmtLayer* leftover = nullptr;
-    bool visible = true;
-    bool owns_leftover = true;
-  };
-
   int index_of_name(const char* szName) const;
-  void envelope_of(const Entry& e, Envelope* env) const;
+  void envelope_of(const MapLayer& layer, Envelope* env) const;
 
   char m_szMapName[MAX_MAP_NAME];
   Envelope m_MapEnvelope;
-  std::vector<Entry> layers_;
+  std::vector<MapLayer> layers_;
   int active_ = -1;
   mutable int m_nIteratorIndex = 0;
 };
+
+using Map = SmtMap;
 
 }  // namespace sdb
 

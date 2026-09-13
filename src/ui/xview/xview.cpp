@@ -7,13 +7,13 @@
 #include "ui/xview/view_chrome.h"
 #include "content/public/view_host.h"
 #include "base/core/logmanager.h"
-#include "plugin/legacy_cmd.h"
-#include "plugin/module_manager.h"
-#include "tool/t_iatoolmanager.h"
-#include "tool/t_msg.h"
+#include "plugin/host/legacy_cmd.h"
+#include "plugin/legacy/module_manager.h"
+#include "legacy_tool/t_iatoolmanager.h"
+#include "legacy_tool/t_msg.h"
 #include "tool/workspace.h"
 #include "base/core/msg.h"
-#include "plugin/plugin_msg.h"
+#include "plugin/legacy/plugin_msg.h"
 
 // SmtXView
 using namespace base;

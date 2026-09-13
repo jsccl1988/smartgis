@@ -48,6 +48,8 @@ src/app/views/                product chrome (SmartGisViews.exe only)
   (does not paint catalog / ambox / chart / layer panels by hand)
 
 src/ui/views/                    toolkit (opt-in //:ui_views)
+  kernel/ | primitives/ | gis/   — physical folders only (not a public nest)
+  root *.h                       — thin stubs; include stays "ui/views/foo.h"
   Widget, View, Splitter, layout, events, Theme
   primitives (Button, Label, Textfield, …)
   GIS widgets (CatalogView, LayerTree, AttributeTable, AmboxView, ChartView, …)
@@ -103,6 +105,7 @@ Same hang as mgis `content::MapView::CreateParams { HWND parent_hwnd }`: the she
 
 ## Status (v1)
 
+- **Canvas：** 壳 paint 默认 **GDI stub**（`canvas.cc` / `gdi32`）：已具备 `fill_rect` / `stroke_rect` / `draw_line` / `draw_text` / `measure_text` / `clip_rect` / `save` / `restore`；Views focus ring / ChartView 轴已消费描边与线 API。阶段 D：真后端 TU `canvas_skia.cc` 经本机 junction（`third_party/.src/skia` + `skia_out`）+ `smt_has_skia=true` 可选链接；默认仍关；不进 `src_all` / `render_all`。见 [`src/render/skia/README.md`](../../src/render/skia/README.md)。
 - Toolkit kernel: `Widget`, `View` tree, focus / hover / press / enabled / visible, `schedule_paint`, `Theme`, `FillLayout` / `BoxLayout`, mouse/key/char dispatch, Skia stub canvas.
 - Primitives: `Label`, `Button`, `Textfield`, `Checkbox`, `RadioButton`, `Combobox`, `TabStrip`, `TableView`, plus Win32 `FilePicker` / `MessageBox`.
 - GIS widgets (public): `CatalogView`, `LayerTree`, `AttributeTable`, `FeatureInfo`, `StatusBar`, `AmboxView`, `ChartView` — see [`docs/superpowers/specs/2026-09-13-ui-views-controls-design.md`](../superpowers/specs/2026-09-13-ui-views-controls-design.md). Chrome port: [`docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md`](../superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md).
@@ -119,4 +122,4 @@ Same hang as mgis `content::MapView::CreateParams { HWND parent_hwnd }`: the she
 
 ---
 
-**最后更新：** 2026-09-13
+**最后更新：** 2026-09-14

@@ -1,0 +1,14 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Header-only BinarySink / archive() subset (mogu base/archive).
+# No Json/Text/Yaml sinks. Consumers: net/pack/pickle, base/ipc/codec.
+
+config("archive_config") {
+  include_dirs += [ "//src" ]
+}
+
+source_set("archive") {
+  sources = [ "archive.h" ]
+  public_configs = [ ":archive_config" ]
+}

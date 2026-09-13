@@ -601,7 +601,7 @@ No gtest.
 | `third_party/ed25519/` | verify-only ed25519 |
 | `third_party` Python embeddable | CPython 3.12 |
 
-Includes: `"content/public/plugin_host.h"`, `"plugin/registry.h"`, `"plugin/widgets/map_preview.h"`, `"ui/views/button.h"`.
+Includes: `"content/public/plugin_host.h"`, `"plugin/host/registry.h"`, `"plugin/widgets/map_preview.h"`, `"ui/views/button.h"`.
 
 ## Industry mapping
 

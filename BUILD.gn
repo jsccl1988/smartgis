@@ -2,6 +2,7 @@
 # All rights reserved.
 
 import("//src/app/winui/winui.gni")
+import("//src/render/skia/skia.gni")
 
 # Root groups match mogu / mgis: all, test_all, all_with_tests, benchmark_all
 # plus shorthand aliases m / te / a / b.
@@ -45,9 +46,6 @@ group("test_all") {
     "//src/render:rhi_test",
     "//src/render/scene:scene_gpu_test",
     "//src/render/scene:unified_draw_test",
-    "//src/render/scene:leftover_mesh_test",
-    "//src/render/scene:leftover_record_test",
-    "//src/render/scene:leftover_session_test",
     "//src/base/ipc:ipc_test",
   ]
   if (smt_build_app) {
@@ -90,6 +88,17 @@ group("b") {
 group("te") {
   testonly = true
   deps = [ ":test_all" ]
+}
+
+# Thin aliases under //core (product sources stay in //src). mogu roots
+# modules at repo root; SmartGIS keeps //core as a historic entry. Declared
+# here so gn loads core/BUILD.gn (not part of group("all") work).
+group("core") {
+  public_deps = [ "//core:core" ]
+}
+
+group("core_all") {
+  public_deps = [ "//core:core_all" ]
 }
 
 # Desktop exe + MFC/BCG UI/map stack. Only loaded when smt_build_app=true
@@ -141,6 +150,6 @@ group("render") {
 group("tool_group") {
   deps = []
   if (smt_build_app) {
-    deps += [ "//src/tool/group:tool_group" ]
+    deps += [ "//src/legacy_tool/group:tool_group" ]
   }
 }

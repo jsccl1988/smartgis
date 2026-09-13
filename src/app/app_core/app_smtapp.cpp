@@ -7,8 +7,8 @@
 #include "base/style/stylemanager.h"
 #include "sdb/datasource/mgr/datasourcemgr.h"
 #include "base/core/listenermanager.h"
-#include "tool/t_iatoolmanager.h"
-#include "plugin/module_manager.h"
+#include "legacy_tool/t_iatoolmanager.h"
+#include "plugin/legacy/module_manager.h"
 #include "base/core/pluginmanager.h"
 #include "sys/sysmanager.h"
 

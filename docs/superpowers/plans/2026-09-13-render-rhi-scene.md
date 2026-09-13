@@ -178,13 +178,31 @@ Original Task 3 (`sdb::scene::World`) is landed. Remaining product gap under `sr
 **Files:**
 - Modify: `src/render/rhi/rhi.h`, `rhi_test.cc`
 - Modify: `src/render/scene/scene.h`, `scene.cc`, `unified_draw_test.cc`
-- Create: `src/render/scene/leftover_record.h`, `leftover_record.cc`, `leftover_record_test.cc`
+- Create: `src/legacy_render/bridge/leftover_record.h`, `leftover_record.cc`, `leftover_record_test.cc`
 - Modify: leftover GDI `RenderMap` and leftover GL `DrawIndexedPrimitives`
 - Modify: `src/render/BUILD.gn`, `src/render/scene/BUILD.gn`, leftover GDI/GL BUILD.gn, root `BUILD.gn` / `build.bat`
 
 - [x] **Step 1:** RHI `Texture` + `create_texture` / `upload_texture` / `bind_texture`. Null-path counters on `StubCommandList`.
 - [x] **Step 2:** `GpuScene` uploads raster/tile pixels when `TessMesh::has_image` and `GetRasterNoClone` / tile buf has data; solid quad if empty. `record_draws` does not close the list.
 - [x] **Step 3:** `LeftoverRecorder` records World/map 2D then leftover VB/IB 3D on one Device/list. GDI / GDI-simple `RenderMap` and GL `DrawIndexedPrimitives` call it. `leftover_record_test` + existing render tests.
+
+---
+
+### Task 7: FlyCube present pin + 2D style/camera + model/tileset record (2026-09-13 GIS loop)
+
+**Progress (landed):**
+
+- [x] `LeftoverRecorder::ensure_device` prefers `preferred_gpu_backend()` **when HWND is set** (DX12), else null; `set_native_window` + GDI/GDI-simple/thread pass `m_hWnd`.
+- [x] `bind_rhi_present` creates preferred GPU first, GDI leftover fallback.
+- [x] RHI `CommandList::set_solid_color` + FlyCube `ColorCB` solid PS; default brush cyan via `GpuScene::set_solid_color_from_colorref`.
+- [x] `GpuScene::set_view_ortho` / map envelope from `SmtMap::get_envelope` in `record_map` (zoom/camera seam).
+- [x] `GpuInstance` syncs `model` / `tileset`; `rebuild_meshes` uploads `ModelAsset` via `flatten_meshes`; tileset draws AABB bridge (`tessellate_aabb`) until content decode feeds meshes.
+- [x] **MapViewport**: `try_flycube_device()` before LoadLibrary GDI; `SMT_PREFER_GDI_DEVICE=1` opt-out for leftover DLL.
+- [x] **Layer style brush**: `record_map` resolves first `MapLayer::style_name` via `SmtStyleManager` into GpuScene default solid (cyan fallback). Per-layer Node brush + per-feature `Feature::style()` during tessellate still TODO (avoided style DLL in sdb/scene).
+- [x] **Tileset content**: `visible_uris` → `decode_content_file` → flatten into GpuScene mesh; AABB fallback; `scene_gpu_test` fixture (null backend).
+- [x] **FlyCube test stability**: `rhi_test` null path green; skips HWND GPU unless `SMT_RUN_FLYCUBE_GPU=1`; ColorCB BindingSet cached; `NullDevice` destroy_* leaks stubs (FlyCube-linked CRT hang); `scene_gpu_test` / `leftover_record_test` / `unified_draw_test` default null-only.
+
+Depth/blend Facade growth deferred.
 
 ---
 
@@ -195,7 +213,7 @@ Original Task 3 (`sdb::scene::World`) is landed. Remaining product gap under `sr
 - World + AABB + attach_map → Task 3
 - Dual scene GPU → Task 4
 - FlyCube not leaked → Task 1 stub + Task 5 pin
-- Leftover BindRhiPresent → Task 1
+- Leftover BindRhiPresent → Task 1 / Task 7 preferred present
 - Docs → Task 5
 - No placeholders left in APIs
 - Types: `Backend::kDx12`, `NodeKind`, `GpuInstance.node_id` consistent

@@ -6,6 +6,7 @@
 
 #include "sdb/feature/feature.h"
 
+#include "base/core/bas_struct.h"
 #include "ogr_core.h"
 
 #include <tuple>

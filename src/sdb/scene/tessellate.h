@@ -51,6 +51,10 @@ bool tessellate_raster_layer(const sdb::SmtRasterLayer* layer,
                              TessMesh& out);
 bool tessellate_tile_layer(const sdb::SmtTileLayer* layer, TessMesh& out);
 
+// Axis-aligned box (12 triangles) used as a tileset / model placeholder.
+bool tessellate_aabb(double min_x, double min_y, double min_z, double max_x,
+                     double max_y, double max_z, TessMesh& out);
+
 }  // namespace scene
 }  // namespace sdb
 

@@ -9,7 +9,10 @@ All rights reserved.
 **Status:** accepted  
 **Scope:** 图层的打开 / 创建 / 列举 / 编辑 / 查询 / 关闭一律走 GDAL Dataset / Layer（矢量）或 GDAL raster（栅格）。本文件管 `sdb` 数据源与图层，不管桌面 chrome。
 
-**Sibling:** 数据库路径（PostGIS / GeoPackage / SpatiaLite，ADO 退出 `src_all`）见 [`2026-09-13-ogr-db-datasource-design.md`](2026-09-13-ogr-db-datasource-design.md)。
+**Sibling:**
+
+- 数据库路径（PostGIS / GeoPackage / SpatiaLite，ADO 退出 `src_all`）见 [`2026-09-13-ogr-db-datasource-design.md`](2026-09-13-ogr-db-datasource-design.md)。
+- **2D 地图瓦片（XYZ/WMTS）** 见 [`2026-09-13-tile-layer-provider-design.md`](2026-09-13-tile-layer-provider-design.md) — **另开 spec，不进本文，也不进 `SDBD:MEM` / OGR Memory。**
 
 ADO 源码删除由另一条工作流负责。本文不恢复、不重写、不阻挡那条删除。
 
@@ -22,14 +25,14 @@ ADO 源码删除由另一条工作流负责。本文不恢复、不重写、不�
 - 文件 / 库 / 内存共用这一套 GDAL 对象。Memory = GDAL Memory 驱动（经 `SDBD:MEM:` 或直接 `Memory`）。
 - 驱动是否编进当前 `gdal_sdk` 是运行时问题。缺 GPKG / PG 时 `Open` 失败并打日志，不另写 C++ 读写器。
 
-产品代码直接写 `GDALDataset*` / `OGRLayer*` / `OGRFeature*`。不要再 new `SmtFeature` 包装器。
+产品调用方 ABI 是 `sdb::Feature` / `sdb::MapLayer`（组合持有 `OGRFeature*` / `OGRLayer*`）；事实源与 I/O 仍是 GDAL/OGR。细节见 [`2026-09-13-sdb-feature-maplayer-composition-design.md`](2026-09-13-sdb-feature-maplayer-composition-design.md)。不要再维护 `SmtAttribute` 第二套字段存储。
 
 ## Non-goals
 
 - 不要再 vendor 一份 GDAL / GEOS / PROJ。只链 `//third_party:gdal`（现有 `gdal_sdk`）。
 - 不要 Qt。桌面终局是 Views + Skia；本文不改 `src/ui` / `src/app` chrome。
 - 不要保留 `SmtFeature` / `SmtVectorLayer` / `SmtDataSource` 作为图层 ABI（几何算法 / `SmtStyle` 可独立留下）。
-- 不要在本文周期实现 WMS / WFS / XYZ 瓦片，也不要把 `SmtTileLayer` 硬塞进 OGR。
+- 不要在本文周期实现 WMS / WFS / XYZ 瓦片，也不要把 `SmtTileLayer` 硬塞进 OGR。瓦片见 sibling [`2026-09-13-tile-layer-provider-design.md`](2026-09-13-tile-layer-provider-design.md)；**禁止**用 OGR Memory / `SDBD:MEM` 冒充瓦片。
 - 不要恢复 ADO / `msado15` / `DS_TB` / 按类型 `*Fcls` SQL。另一 agent 删 leftover ADO 文件时不要冲突。
 - 不要为缺 GPKG / PG 的 SDK 手写读写器。
 - 不要改 `content/public` 的稳定嵌入 API。
@@ -37,42 +40,35 @@ ADO 源码删除由另一条工作流负责。本文不恢复、不重写、不�
 
 ## 现状 vs 目标
 
-### 现状（2026-09-13 树）
+### 现状（2026-09-14 树）
 
 ```
-SmtMap  (src/sdb/map)          持有 SmtLayer*，不知 GDAL
+SmtMap  (src/sdb/map)          矢量走 OGRLayer* / MapLayer；raster/tile leftover 仍 SmtLayer*
         ^
-        | AddLayer / QueryFeature
 SmtDataSourceMgr
         |
-        +-- DS_DB_ADO  --> OgrDataSource          GDALOpenEx（GPKG / PG / SpatiaLite）
-        |                     + OgrVectorLayer    已适配；内部仍缓存 SmtFeature*
-        |                     + OgrRasterLayer    Create/Open 仍 UNSUPPORTED
-        +-- DS_FILE_SMF --> SmtSmfDataSource      私有 .smf 目录 + 每个图层一个 .shp
-        |                     + SmtSmfVecLayer    Fetch 用 GDALOpenEx 读 shp，再拷进 mem
-        |                     + SmtSmfRasLayer    栅格走 mem 缓冲
-        +-- DS_MEM     --> SmtMemDataSource       vector<SmtFeature*> / 栅格 buf / 瓦片指针
-        |                     + SmtMemVecLayer / SmtMemRasLayer / SmtMemTileLayer
-        +-- DS_WS      --> SmtWSDataSource        瓦片 URL；矢量/栅格接口返回 NULL
-                              + SmtWSTileLayer    再包一层 mem
+        +-- 文件/库/内存  --> open_sdbd_dataset → SdbdDataset（内层 Memory / GPKG / PG / 文件）
+        |                     + SdbdLayer（矢量）
+        |                     + OgrRasterLayer   GDAL MEM / 文件栅格；CreaterRaster 经 /vsimem
+        +-- CreateMemVecLayer --> SDBD:MEM + OGRLayer scratch
+        +-- CreateMemRasLayer --> OgrRasterLayer + GDAL MEM（已离开 SmtMemRasLayer）
+        +-- CreateMemTileLayer --> SmtMemTileLayer（瓦片另开 spec；不进 SDBD:MEM）
 
-Select / Flash 工具、图表：CreateMemVecLayer() / CreateTmpDataSource(DS_MEM)
-xcatalog 打开文件：CreateTmpDataSource(DS_FILE_SMF)
+Select / Flash：CreateMemVecLayer()
 ```
 
-要点：
+阶段 4（栅格 MEM 等价）已落地：`OgrRasterLayer::Create/Open/CreaterRaster/GetRaster*` 挂真实 `GDALDataset`；编码 blob（CxImage `image_code`）存 `/vsimem`，`VSIGetMemFileBuffer` 供 render `GetRasterNoClone`。`memraslayer.cpp` / `SmtMemRasLayer` 已删。`mem/` 仅保留 tile。
 
-| 设备 | 图层实现 | 是否已经 OGR | 持久化 |
+要点（历史对照，多数设备已并入 SDBD）：
+
+| 设备 | 图层实现 | 是否已经 OGR/GDAL | 持久化 |
 | --- | --- | --- | --- |
-| `OgrDataSource` | `OgrVectorLayer` 一类走完全部 `SmtFeatureType` | 是（DB / GPKG 文件） | GDAL |
-| `SmtSmfDataSource` | `SmtSmfVecLayer` + 私有 `ReadSmf` / `WriteSmf` | 半套：读 shp 用 `GDALOpenEx`，编辑在 mem；写回不统一走 OGR Layer | `.smf` 目录 + `.shp` |
-| `SmtMemDataSource` | `SmtMemVecLayer` 等 | 否 | 进程内 `vector` |
-| `SmtWSDataSource` | `SmtWSTileLayer` | 否 | HTTP 瓦片 |
-| ADO `*Fcls` | 按要素类型子类 | 已退出 `src_all`；源文件由另一工作流删除 | — |
+| SDBD / `SdbdDataset` | `SdbdLayer` + `OgrRasterLayer` | 是 | GDAL |
+| `SmtMemTileLayer` | 瓦片指针表 | 否（故意） | 进程内；见 tile-layer-provider |
+| *(已删 WS)* | — | — | 见 [tile-layer-provider](2026-09-13-tile-layer-provider-design.md) |
+| ADO `*Fcls` | 按要素类型子类 | 已退出 `src_all` | — |
 
-`SmtLayer` / `SmtDataSource` 虚接口在 `src/sdb/layer/layer.h`。地图文档 `SmtMap` 只认 `SmtLayer*`：加层、删层、调序、把查询结果写进传入的 `SmtVectorLayer*`。工具层（`src/tool/group/selecttool.cpp`、`flashtool.cpp`）用 `CreateMemVecLayer()` 当查询结果层。`src/ui/xcatalog/dsxcatalog.cpp` 用临时 `DS_FILE_SMF` 打开文件。
-
-SMF 的 OGR 支持（`smf_ogrsupport.cpp`）已经转调 `ogr_feature_codec`；编解码不应再复制一份。
+`SmtLayer` 虚接口在 `src/sdb/layer/layer.h`（raster/tile leftover）。工具层用 `CreateMemVecLayer()` 当查询结果层。
 
 ### 目标
 
@@ -91,7 +87,7 @@ third_party/gdal_sdk           唯一 GDAL
         + PostgreSQL
         + 栅格驱动（GeoTIFF / …）
 
-DS_WS (v1 不迁)                仍是瓦片 URL，不是 OGR
+DS_WS 枚举残留                  源码树 datasource/ws 已删；打开拒绝；瓦片见 sibling tile spec
 ```
 
 `eDSType` 整数值和 `.dsm` 二进制布局可暂时保留（旧工程文件），但打开路径只认 `GDALOpenEx` 目标串。管理器（若还在）对文件 / 库 / 内存都 `GDALOpenEx("SDBD:…")`，不再 new `Smt*DataSource` / `Smt*VecLayer`。
@@ -130,7 +126,7 @@ DS_WS (v1 不迁)                仍是瓦片 URL，不是 OGR
 | `DS_FILE_SMF` | `PROVIDER_SHAPE` | `file.szPath` + `file.szFileName`（`.shp` 或目录） | 从 `SmtSmfDataSource` 并入 |
 | `DS_FILE_SMF` | `PROVIDER_OGR_SUPPORT` | 同一路径，`GDALOpenEx` 自动认驱动 | GeoJSON 等；GPKG 作**文件**打开也走这里 |
 | `DS_MEM` | `PROVIDER_MEM_VER1` | `MEM:` / Memory 驱动 `Create` | 查询结果、闪烁、未落盘草稿 |
-| `DS_WS` | `PROVIDER_SMARTGIS` | — | **v1 不迁** |
+| `DS_WS` | `PROVIDER_SMARTGIS` | — | **源码已删**；`make_sdbd_open_target` 返回空；瓦片见 [tile-layer-provider](2026-09-13-tile-layer-provider-design.md) |
 
 `DS_DB_ODBC` / `DS_DB_MYSQL` / `DS_DB_ORACLE` 保持枚举占位，`Create*` 返回 null 并打日志。不要再做一套设备。
 
@@ -158,7 +154,7 @@ URL 前缀（`sdb:` / `sfile:` / `smem:` / `sws:`）可继续写进 `.dsm`，便
 | B. 永远保留 `SmtMem*` | 文件/库用 OGR，草稿仍用 `vector<SmtFeature*>` | 继续两套 Query / 游标 / Append。 |
 | C. 混合（采用） | 事实源 = Memory / 文件 / 库的 `OGRLayer`；`Fetch` 后解码进 `features_` 只服务 `MoveFirst` / `GetFeature(i)` ABI | 不引入第三种图层类；大图层可后续改成按需 `GetFeature` 而不全量 `Fetch`。 |
 
-栅格草稿：优先 `MEM` 栅格或内存 `GDALDataset`；在 raster I/O 补齐之前，`OgrRasterLayer` 可以暂存 buffer，但 **Create/Open 不得再假装成功却不挂 GDAL**。瓦片草稿（`SmtMemTileLayer`）留到 WS/瓦片阶段，不阻塞矢量统一。
+栅格草稿：优先 `MEM` 栅格或内存 `GDALDataset`；在 raster I/O 补齐之前，`OgrRasterLayer` 可以暂存 buffer，但 **Create/Open 不得再假装成功却不挂 GDAL**。瓦片（`SmtMemTileLayer` 指针表 / 未来 `TileProvider`）见 [tile-layer-provider](2026-09-13-tile-layer-provider-design.md)，**不进 `SDBD:MEM`**，不阻塞矢量统一。
 
 `Query(pGQueryDesc, pPQueryDesc, pQueryResult)`：空间过滤走 `OGRLayer::SetSpatialFilter`，简单属性走 `SetAttributeFilter`。结果写入调用方传入的 `SmtVectorLayer*`（选择工具会传入 Memory 适配层）。OGR 表达不了的谓词：扫描 + 现有内存几何判定，结果仍 Append 到那个 Memory 层。不要为 Query 再 new `SmtMemVecLayer`。
 
@@ -182,15 +178,15 @@ URL 前缀（`sdb:` / `sfile:` / `smem:` / `sws:`）可继续写进 `.dsm`，便
 
 Shapefile 限制（10 字符字段名、无原生事务、无 TIN）留在驱动层。产品类型仍是 `SmtFtTin` 等；存盘时用已有 MultiPolygon 回退。需要事务 / 多图层 / 栅格同库时用 GPKG，而不是增强 `.smf`。
 
-## Web / WS 图层（v1 范围外）
+## Web / WS 图层（不在本文）
 
-`DS_WS` + `SmtWSTileLayer` 今天只做瓦片 URL，矢量/栅格接口返回 null。GDAL 有 WMS / WFS / WMTS 驱动，但：
+`src/sdb/datasource/ws` **源码树已删除**。`DS_WS` / `PROVIDER_SMARTGIS` 仅为枚举残留；`make_sdbd_open_target` 对 `DS_WS` 返回空串。leftover `SmtMemTileLayer` 仍是进程内 `SmtTile*` 指针表，**不是** GDAL Memory。
 
-- 产品瓦片模型是 `SmtTile` + `LYR_TITLE`，不是 `OGRLayer`；
-- 产品没有 `src/web/` 发布栈（已删除）；
-- 把 WS 塞进 v1 会拖住文件/库/内存统一。
+产品 2D 瓦片（HTTP(S) XYZ/WMTS、`MapLayer(kind=tile)`、与 GDAL WMS 的可选关系）一律见 sibling：
 
-**v1：管理器继续 new `SmtWSDataSource`。** 后续可选：WFS 只读矢量用 OGR WFS 走同一 `OgrVectorLayer`；XYZ/WMTS 用 GDAL WMS XML 或继续自管瓦片。不在本 spec 实现。
+**[`2026-09-13-tile-layer-provider-design.md`](2026-09-13-tile-layer-provider-design.md)**
+
+本文不恢复 WS 设备，不把瓦片塞进 OGR / `SDBD:MEM`。WFS 只读矢量若需要，另走 OGR WFS + 同一矢量适配器（仍非本文实现）。
 
 ## 栅格与瓦片 vs OGR 矢量
 
@@ -198,7 +194,7 @@ Shapefile 限制（10 字符字段名、无原生事务、无 TIN）留在驱动
 | --- | --- | --- |
 | `SmtVectorLayer` / 点线面 / Anno / TIN / Grid | `OGRLayer` | 必须。Grid 优先做成同数据集里的 GDAL raster；否则已有 MultiPoint + `grid_row` / `grid_col`。 |
 | `SmtRasterLayer` / `SmtFtChildImage` | `GDALDataset` 栅格 / 子数据集 / GPKG tiles | 必须补齐 `OgrRasterLayer`（今天 Create/Open 为 false）。缺栅格创建能力则 `SMT_ERR_UNSUPPORTED` + 日志，不发明 blob 表。 |
-| `SmtTileLayer` / `SmtLayer_Tile` | 不是 OGR | **v1 不做。** 内存瓦片与 WS 瓦片维持原状。 |
+| `SmtTileLayer` / `SmtLayer_Tile` | 不是 OGR | **不在本文。** 见 [tile-layer-provider](2026-09-13-tile-layer-provider-design.md)；勿用 Memory 冒充。 |
 
 同一 GPKG 可以既有矢量层又有栅格；`fill_layer_infos()` 已经扫 `GetLayerCount()`，应同时扫栅格子数据集并把 `unFeatureType` 标成 `SmtLayer_Ras`。`SmtMap` 仍按 `GetLayerType()` 区分绘制，不需要知道 GDAL。
 
@@ -220,7 +216,7 @@ Shapefile 限制（10 字符字段名、无原生事务、无 TIN）留在驱动
 允许：
 
 - `SmtStyle` 与 `src/algorithm` 几何类型独立存在（不是要素门面）。
-- `SmtTileLayer` / `DS_WS` 留到瓦片 spec。
+- `SmtTileLayer` / `DS_WS` 残留 → [tile-layer-provider](2026-09-13-tile-layer-provider-design.md)。
 - 工具 / 地图 `#include` `ogrsf_frmts.h` / `gdal_priv.h`。
 
 `LoadLibrary` 导出宏保持。SMF/Mem 图层子类离开产品路径；删磁盘文件是后续清理。
@@ -288,9 +284,9 @@ struct mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1> {
 | 1 | `file_provider_traits` + `Open` 认 `DS_FILE_SMF`；shapefile / 自动探测走同一 `OgrVectorLayer` | 临时目录里 `.shp` 点层往返；xcatalog 临时 DS 仍编译 |
 | 2 | 只读打开旧 `.smf` 清单；**停止 WriteSmf** | 旧工程能列出并打开层；新 Create 不产生 `.smf` |
 | 3 | `DS_MEM` + Memory 驱动；`CreateMemVecLayer` 改接线 | select/flash 仍拿到 `SmtVectorLayer*`；Query 写入 Memory 层 |
-| 4 | `OgrRasterLayer` 经 GDAL band I/O（GPKG / GeoTIFF / MEM） | 栅格 Create/Open/GetRaster 在驱动存在时成功 |
+| 4（已完成核心） | `OgrRasterLayer` + GDAL MEM；`CreateMemRasLayer` 改线；删 `SmtMemRasLayer` | MEM Create/Open/CreaterRaster/GetRaster 绿；文件 Open 可用；GPKG 内嵌栅格列举可后续加强 |
 | 5 | 产品路径不再链接 `sde_smf` / `sde_mem` 的图层子类；测试覆盖文件 + mem +（可选）PG | `src_all` 可不依赖 SMF/Mem 图层实现 |
-| 6（非 v1） | WFS → 同一矢量适配器；瓦片策略另开 spec | — |
+| 6（非 v1） | WFS → 同一矢量适配器；瓦片 → [tile-layer-provider](2026-09-13-tile-layer-provider-design.md) | — |
 
 每个阶段都要 `build.bat` 与 `build.bat te` 保持绿。阶段 5 之前不要删 `src/sdb/datasource/smf`、`mem` 目录——先改调用方。不要在这些阶段里碰 ADO 删除。
 
@@ -306,7 +302,7 @@ struct mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1> {
 | 旧 `.smf` + 目录 shp | 阶段 2 只读兼容；内部多 `GDALDataset*`。新工程不写 `.smf`。 |
 | `OgrVectorLayer` 全量 `Fetch` 吃内存 | 与今天 SMF→mem 克隆同类；后续可按需读。不作为 v1 阻塞。 |
 | 选择工具假定 mem 层可写 | 阶段 3 用 Memory 适配器满足同一虚接口。 |
-| `OgrRasterLayer` 仍是 stub | 阶段 4；未完成前栅格 Create 必须失败，不能 silently no-op。 |
+| `OgrRasterLayer` 已挂 MEM；render 仍吃编码 buf | GDI/`layer_image_pixels` 继续 `GetRasterNoClone` + CxImage `image_code`；未解码格式时 band 可能仍是 1×1 占位。 |
 | 并行 agent 删 ADO | 本文与实现只动 `gdal/`、`mgr/`、以及 SMF/Mem **接线**。不改、不还原 ADO 路径。 |
 | SDK 无 Memory 驱动（极少） | 阶段 3 测试失败即停；不回退私有 `vector` 实现（那会重新分裂后端）。 |
 
@@ -329,7 +325,7 @@ struct mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1> {
 
 **不要：** 要求 SQL Server / Access；要求实时 WMS；在本测试里编第二份 GDAL。
 
-阶段 4 再加：Memory 或 GeoTIFF 栅格 Create + `GetRaster` 尺寸 / 包络。无栅格创建驱动则 skip。
+阶段 4：MEM 栅格 Create + `CreaterRaster` / `GetRasterNoClone` blob 往返 + `CreateMemRasLayer`（已加）。无 `MEM` 驱动则 skip。GeoTIFF `Open` 路径可测。
 
 ## 文档（实现变更时同步）
 
@@ -348,4 +344,4 @@ struct mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1> {
 - 缺 GPKG 驱动时产品仍能打开 shapefile 与 Memory 层；错误信息说明缺的是驱动，不是 API。
 - 无第二份 GDAL，无 Qt，无 ADO 回潮。
 
-**最后更新：** 2026-09-13
+**最后更新：** 2026-09-14

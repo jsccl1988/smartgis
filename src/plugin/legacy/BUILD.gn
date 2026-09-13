@@ -1,0 +1,17 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Leftover AuxModule runtime DLL (SmtAuxModule / dll_stem plugin).
+smt_shared_library("plugin") {
+  dll_stem = "plugin"
+  defines = [ "PLUGIN_EXPORTS" ]
+  sources = [
+    "module.cpp",
+    "module_manager.cpp",
+    "plugin_msg.cpp",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/base:core" ]
+}

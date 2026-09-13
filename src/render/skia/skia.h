@@ -4,8 +4,9 @@
 #ifndef RENDER_SKIA_SKIA_H_
 #define RENDER_SKIA_SKIA_H_
 
-// Skia paint backend for Views chrome. v1 is a GDI-backed canvas
-// (no Skia tree). See docs/build/ui-views-skia.md.
+// Skia paint backend for Views chrome. Default is GDI (canvas.cc);
+// optional real Skia via smt_has_skia + local pin (canvas_skia.cc).
+// See docs/build/ui-views-skia.md.
 
 #include "render/skia/canvas.h"
 #include "render/skia/color.h"

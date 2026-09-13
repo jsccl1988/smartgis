@@ -4,8 +4,9 @@
 #include "plugin/proj/proj_commands.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
-#include <memory>
+#include <limits>
 #include <string>
 #include <string_view>
 
@@ -21,11 +22,17 @@ namespace plugin {
 namespace {
 
 constexpr const char kPluginId[] = "smartgis.proj";
+// Guard against pathological grid args that would hang or OOM the host.
+constexpr int kMaxGridCells = 250000;
 
 TransformXyOutput g_last_xy_output;
 
+bool is_finite_number(double v) {
+  return std::isfinite(v) != 0;
+}
+
 bool json_get_double(std::string_view json, const char* key, double* out) {
-  if (!out || !key) {
+  if (!out || !key || json.empty()) {
     return false;
   }
   const std::string needle = std::string("\"") + key + "\":";
@@ -36,7 +43,7 @@ bool json_get_double(std::string_view json, const char* key, double* out) {
   const char* start = json.data() + pos + needle.size();
   char* end = nullptr;
   const double v = std::strtod(start, &end);
-  if (end == start) {
+  if (end == start || !is_finite_number(v)) {
     return false;
   }
   *out = v;
@@ -44,7 +51,7 @@ bool json_get_double(std::string_view json, const char* key, double* out) {
 }
 
 bool json_get_long(std::string_view json, const char* key, long* out) {
-  if (!out || !key) {
+  if (!out || !key || json.empty()) {
     return false;
   }
   const std::string needle = std::string("\"") + key + "\":";
@@ -81,33 +88,33 @@ bool run_transform_xy(std::string_view args_json) {
   using namespace base;
   using namespace geo;
 
-  SmtProjection geo = {};
-  SmtProjection gk = {};
-  if (init_projection(&geo) != SMT_ERR_NONE ||
-      init_projection(&gk) != SMT_ERR_NONE ||
-      load_longlat_ellipsoid(&geo, kIugg1975A, kIugg1975B) != SMT_ERR_NONE ||
-      load_tmerc_crs(&gk, kIugg1975A, kIugg1975B,
+  Projection src = {};
+  Projection dst = {};
+  if (init_projection(&src) != SMT_ERR_NONE ||
+      init_projection(&dst) != SMT_ERR_NONE ||
+      load_longlat_ellipsoid(&src, kIugg1975A, kIugg1975B) != SMT_ERR_NONE ||
+      load_tmerc_crs(&dst, kIugg1975A, kIugg1975B,
                      gauss_kruger_central_meridian(l)) != SMT_ERR_NONE) {
-    free_projection(&geo);
-    free_projection(&gk);
+    free_projection(&src);
+    free_projection(&dst);
     return false;
   }
 
   dbfPoint point(l, b);
-  if (project_point(&geo, &gk, &point) != SMT_ERR_NONE) {
-    free_projection(&geo);
-    free_projection(&gk);
+  if (project_point(&src, &dst, &point) != SMT_ERR_NONE ||
+      !is_finite_number(point.x) || !is_finite_number(point.y)) {
+    free_projection(&src);
+    free_projection(&dst);
     return false;
   }
 
-  const double scale =
-      (scale_ruler > 0) ? static_cast<double>(scale_ruler) : 1.0;
+  const double scale = static_cast<double>(scale_ruler);
   g_last_xy_output.x = point.x / scale;
   g_last_xy_output.y = point.y / scale;
   g_last_xy_output.valid = true;
 
-  free_projection(&geo);
-  free_projection(&gk);
+  free_projection(&src);
+  free_projection(&dst);
   return true;
 #else
   (void)l;
@@ -142,33 +149,50 @@ bool run_transform_grid(std::string_view args_json) {
   using namespace base;
   using namespace geo;
 
-  SmtProjection geo = {};
-  SmtProjection gk = {};
+  Projection src = {};
+  Projection dst = {};
   const double lon_0 = gauss_kruger_central_meridian((lmax + lmin) * 0.5);
-  if (init_projection(&geo) != SMT_ERR_NONE ||
-      init_projection(&gk) != SMT_ERR_NONE ||
-      load_longlat_ellipsoid(&geo, kIugg1975A, kIugg1975B) != SMT_ERR_NONE ||
-      load_tmerc_crs(&gk, kIugg1975A, kIugg1975B, lon_0) != SMT_ERR_NONE) {
-    free_projection(&geo);
-    free_projection(&gk);
+  if (init_projection(&src) != SMT_ERR_NONE ||
+      init_projection(&dst) != SMT_ERR_NONE ||
+      load_longlat_ellipsoid(&src, kIugg1975A, kIugg1975B) != SMT_ERR_NONE ||
+      load_tmerc_crs(&dst, kIugg1975A, kIugg1975B, lon_0) != SMT_ERR_NONE) {
+    free_projection(&src);
+    free_projection(&dst);
     return false;
   }
 
-  const int n_row = static_cast<int>(std::abs((bmax - bmin) / db)) + 1;
-  const int n_col = static_cast<int>(std::abs((lmax - lmin) / dl)) + 1;
+  const double row_span = std::abs((bmax - bmin) / db);
+  const double col_span = std::abs((lmax - lmin) / dl);
+  if (!is_finite_number(row_span) || !is_finite_number(col_span) ||
+      row_span > static_cast<double>(std::numeric_limits<int>::max() - 1) ||
+      col_span > static_cast<double>(std::numeric_limits<int>::max() - 1)) {
+    free_projection(&src);
+    free_projection(&dst);
+    return false;
+  }
+
+  const int n_row = static_cast<int>(row_span) + 1;
+  const int n_col = static_cast<int>(col_span) + 1;
   if (n_row <= 0 || n_col <= 0) {
-    free_projection(&geo);
-    free_projection(&gk);
+    free_projection(&src);
+    free_projection(&dst);
+    return false;
+  }
+  const int64_t cells =
+      static_cast<int64_t>(n_row) * static_cast<int64_t>(n_col);
+  if (cells <= 0 || cells > kMaxGridCells) {
+    free_projection(&src);
+    free_projection(&dst);
     return false;
   }
 
-  const double scale =
-      (scale_ruler > 0) ? static_cast<double>(scale_ruler) : 1.0;
+  const double scale = static_cast<double>(scale_ruler);
   bool ok = true;
   for (int i = 0; i < n_row && ok; ++i) {
     for (int j = 0; j < n_col; ++j) {
       dbfPoint point(j * dl + lmin, i * db + bmin);
-      if (project_point(&geo, &gk, &point) != SMT_ERR_NONE) {
+      if (project_point(&src, &dst, &point) != SMT_ERR_NONE ||
+          !is_finite_number(point.x) || !is_finite_number(point.y)) {
         ok = false;
         break;
       }
@@ -177,8 +201,8 @@ bool run_transform_grid(std::string_view args_json) {
     }
   }
 
-  free_projection(&geo);
-  free_projection(&gk);
+  free_projection(&src);
+  free_projection(&dst);
   return ok;
 #else
   (void)lmin;
@@ -204,7 +228,11 @@ bool register_proj(content::PluginHost* host) {
 
   if (!host->contribute_dialog(
           kPluginId, {"proj.dialog", "投影变换"}, [](content::PluginHost* h) {
-            auto dialog = std::make_unique<MapPrjDialog>(h);
+            if (!h) {
+              return;
+            }
+            // Views shell constructs the dialog; Widget hosting is owned by chrome.
+            MapPrjDialog dialog(h);
             (void)dialog;
           })) {
     return false;

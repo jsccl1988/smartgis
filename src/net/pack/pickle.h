@@ -4,7 +4,7 @@
 #ifndef SMT_NET_PICKLE_H
 #define SMT_NET_PICKLE_H
 
-#include "net/pack/archive.h"
+#include "base/archive/archive.h"
 
 #include <ios>
 #include <memory>
@@ -20,7 +20,7 @@ namespace net {
 class Pickle {
   struct ReadState {
     std::stringstream ss;
-    mutable Deserializer<binary_format, std::stringstream> des;
+    mutable base::Deserializer<base::binary_format, std::stringstream> des;
     ReadState(const char* data, size_t size)
         : ss(std::string(data, size), std::ios::in | std::ios::binary), des(ss) {}
   };
@@ -44,7 +44,7 @@ class Pickle {
       }
     } sbuf;
     std::ostream os;
-    Serializer<binary_format, std::ostream> ser;
+    base::Serializer<base::binary_format, std::ostream> ser;
     WriteState() : sbuf(&buffer), os(&sbuf), ser(os) {}
   };
 

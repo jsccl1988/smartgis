@@ -19,10 +19,10 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define XVIEW_EXPORT __declspec(dllimport)
 #endif
 
-#include "render/render3d/3drenderdevice.h"
-#include "render/render3d/3drenderer.h"
-#include "render/scene3d/bl3d_scene.h"
-#include "tool/group/grouptoolfactory.h"
+#include "legacy_render/render3d/3drenderdevice.h"
+#include "legacy_render/render3d/3drenderer.h"
+#include "legacy_render/scene3d/bl3d_scene.h"
+#include "legacy_tool/group/grouptoolfactory.h"
 #include "ui/xview/xview.h"
 
 using namespace tool;

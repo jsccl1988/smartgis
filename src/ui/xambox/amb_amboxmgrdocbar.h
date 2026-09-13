@@ -7,7 +7,7 @@
 #endif
 
 
-#include "plugin/module_manager.h"
+#include "plugin/legacy/module_manager.h"
 #include "ui/mfc_ex/stacked_wnd_dock_bar.h"
 
 using namespace plugin;

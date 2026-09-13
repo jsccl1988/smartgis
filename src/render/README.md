@@ -1,272 +1,32 @@
-# SmtRender
+# `src/render`（终局）
 
-SmartGIS 渲染抽象层，提供统一的渲染设备接口和渲染器实现。
+SmartGIS 渲染终局树：只保留 RHI / GpuScene / Skia / 场景数学。2010 leftover 设备与三维引擎已迁到 [`src/legacy_render/`](../legacy_render/)。
 
-## 模块简介
+## 目录
 
-SmtRender 是 SmartGIS 系统的渲染抽象层，提供了统一的渲染设备接口和渲染器实现。该模块采用 Bridge 模式，将渲染接口与具体实现分离，支持多种渲染后端（GDI、OpenGL、Direct3D 等）。
+| 路径 | 角色 |
+| --- | --- |
+| `rhi/` | 统一 2D+3D Facade（FlyCube DX12/Vulkan）；公开头零 FlyCube 类型 |
+| `scene/` | `render::scene::GpuScene`（GPU 实例 / 录制）；不含 `leftover_*` |
+| `skia/` | 桌面壳画布（默认 GDI stub；`smt_has_skia` 可选真 Skia）；**不是** GIS GPU；**不**进 `render_all` / `src_all` |
+| `math/` | 场景数学（Eigen Vector / Matrix / Aabb 等） |
 
-## 主要功能
+GN：`//src/render:render_all` 进日常 `src_all`。leftover DLL 另编 `//src/legacy_render:legacy_render_all`（默认不进 `src_all`）。
 
-### 渲染设备抽象 (SmtRenderDevice)
-- 统一的渲染设备接口
-- 视口和窗口口管理
-- 渲染参数设置
-- 多渲染层支持（Map、Dynamic、Quick、Direct）
+## 依赖方向
 
-### 渲染器 (SmtRenderer)
-- 地图渲染器实现
-- 要素渲染
-- 样式渲染
-- 渲染优化
+- 新代码 / `src_all` → `render::rhi`、`GpuScene`、`render/math`
+- 壳画布 → `render/skia`（仅经 `//:ui_views`；默认 GDI；真 Skia 见 `skia/README.md`）
+- `legacy_render` → `render/rhi` / `render/math` 允许（单向）
+- `render` 终局 → `legacy_render` **禁止**
 
-### 渲染层管理
-- **MRD_BL_MAP**: 地图层，持久化渲染
-- **MRD_BL_DYNAMIC**: 动态层，临时渲染
-- **MRD_BL_QUICK**: 快速层，快速渲染
-- **MRD_BL_DIRECT**: 直接层，直接在 DC 上绘制
+设计：[`docs/superpowers/specs/2026-09-13-render-legacy-split-design.md`](../../docs/superpowers/specs/2026-09-13-render-legacy-split-design.md)、[`docs/build/src-layout.md`](../../docs/build/src-layout.md)。
 
-## 核心接口
+## As-built（2026-09-13 GIS loop）
 
-### SmtRenderDevice
-
-```cpp
-// 初始化和销毁
-virtual int Init(HWND hWnd, const char * logname) = 0;
-virtual int Destroy(void) = 0;
-virtual int Release(void) = 0;
-
-// 视口管理
-void SetViewport(const Viewport &viewport);
-Viewport GetViewport(void) const;
-void SetWindowport(const Windowport &windowport);
-Windowport GetWindowport(void) const;
-
-// 渲染控制
-virtual int Lock() = 0;
-virtual int Unlock() = 0;
-virtual int BeginDraw(eRDBufferLayer layer) = 0;
-virtual int EndDraw(eRDBufferLayer layer) = 0;
-virtual int Refresh(eRDBufferLayer layer) = 0;
-```
-
-### SmtRenderer
-
-```cpp
-// 渲染地图
-int RenderMap(SmtMap* pMap);
-
-// 渲染要素
-int RenderFeature(OGRFeature* pFeature);
-
-// 渲染几何
-int RenderGeometry(OGRGeometry* pGeometry);
-```
-
-## 使用说明
-
-### 基本使用
-
-```cpp
-// 创建渲染设备
-SmtRenderDevice* pDevice = new SmtGdiRenderDevice(hInst);
-
-// 初始化
-pDevice->Init(hWnd, "render.log");
-
-// 设置视口
-Viewport viewport;
-viewport.x = 0;
-viewport.y = 0;
-viewport.width = 800;
-viewport.height = 600;
-pDevice->SetViewport(viewport);
-
-// 创建渲染器
-SmtRenderer* pRenderer = new SmtRenderer(pDevice);
-
-// 渲染地图
-pRenderer->RenderMap(pMap);
-```
-
-### 多渲染层使用
-
-```cpp
-// 渲染地图层（持久化）
-pDevice->BeginDraw(MRD_BL_MAP);
-pRenderer->RenderMap(pMap);
-pDevice->EndDraw(MRD_BL_MAP);
-
-// 渲染动态层（临时）
-pDevice->BeginDraw(MRD_BL_DYNAMIC);
-pRenderer->RenderGeometry(pTempGeometry);
-pDevice->EndDraw(MRD_BL_DYNAMIC);
-```
-
-## 依赖关系
-
-- **依赖 SmtCore**: 基础库支持
-- **依赖 SmtGisCore**: GIS 数据模型
-- **依赖 SmtGeoCore**: 几何对象
-
-## 命名空间
-
-模块使用 `Smt_Rd` 命名空间。
-
-## 实现模块
-
-- **SmtGdiRenderDevice**: GDI 渲染设备实现
-- **SmtGLRenderDevice**: OpenGL 渲染设备实现
-- **SmtD3DRenderDevice**: Direct3D 渲染设备实现
-
-## 版本信息
-
-- **版本**: 1.0
-- **开发时间**: 2010-2013
-- **作者**: 陈春亮
-- **版权**: Copyright (c) 2010 CCL. All rights reserved.
-
-## 注意事项
-
-1. 渲染设备需要正确初始化后才能使用
-2. 渲染操作应在 Lock/Unlock 之间进行
-3. 不同渲染层有不同的生命周期，需要注意管理
-4. 直接层（DIRECT）的渲染内容在刷新后会消失
-
----
-
-# SmtRender
-
-SmartGIS rendering abstraction layer, providing unified render device interface and renderer implementation.
-
-## Module Overview
-
-SmtRender is the rendering abstraction layer of the SmartGIS system, providing a unified render device interface and renderer implementation. This module uses the Bridge pattern to separate rendering interfaces from specific implementations, supporting multiple rendering backends (GDI, OpenGL, Direct3D, etc.).
-
-## Key Features
-
-### Render Device Abstraction (SmtRenderDevice)
-- Unified render device interface
-- Viewport and windowport management
-- Render parameter settings
-- Multi-render layer support (Map, Dynamic, Quick, Direct)
-
-### Renderer (SmtRenderer)
-- Map renderer implementation
-- Feature rendering
-- Style rendering
-- Render optimization
-
-### Render Layer Management
-- **MRD_BL_MAP**: Map layer, persistent rendering
-- **MRD_BL_DYNAMIC**: Dynamic layer, temporary rendering
-- **MRD_BL_QUICK**: Quick layer, fast rendering
-- **MRD_BL_DIRECT**: Direct layer, direct drawing on DC
-
-## Core Interfaces
-
-### SmtRenderDevice
-
-```cpp
-// Initialization and destruction
-virtual int Init(HWND hWnd, const char * logname) = 0;
-virtual int Destroy(void) = 0;
-virtual int Release(void) = 0;
-
-// Viewport management
-void SetViewport(const Viewport &viewport);
-Viewport GetViewport(void) const;
-void SetWindowport(const Windowport &windowport);
-Windowport GetWindowport(void) const;
-
-// Render control
-virtual int Lock() = 0;
-virtual int Unlock() = 0;
-virtual int BeginDraw(eRDBufferLayer layer) = 0;
-virtual int EndDraw(eRDBufferLayer layer) = 0;
-virtual int Refresh(eRDBufferLayer layer) = 0;
-```
-
-### SmtRenderer
-
-```cpp
-// Render map
-int RenderMap(SmtMap* pMap);
-
-// Render feature
-int RenderFeature(OGRFeature* pFeature);
-
-// Render geometry
-int RenderGeometry(OGRGeometry* pGeometry);
-```
-
-## Usage
-
-### Basic Usage
-
-```cpp
-// Create render device
-SmtRenderDevice* pDevice = new SmtGdiRenderDevice(hInst);
-
-// Initialize
-pDevice->Init(hWnd, "render.log");
-
-// Set viewport
-Viewport viewport;
-viewport.x = 0;
-viewport.y = 0;
-viewport.width = 800;
-viewport.height = 600;
-pDevice->SetViewport(viewport);
-
-// Create renderer
-SmtRenderer* pRenderer = new SmtRenderer(pDevice);
-
-// Render map
-pRenderer->RenderMap(pMap);
-```
-
-### Multi-Layer Rendering
-
-```cpp
-// Render map layer (persistent)
-pDevice->BeginDraw(MRD_BL_MAP);
-pRenderer->RenderMap(pMap);
-pDevice->EndDraw(MRD_BL_MAP);
-
-// Render dynamic layer (temporary)
-pDevice->BeginDraw(MRD_BL_DYNAMIC);
-pRenderer->RenderGeometry(pTempGeometry);
-pDevice->EndDraw(MRD_BL_DYNAMIC);
-```
-
-## Dependencies
-
-- **Depends on SmtCore**: Base library support
-- **Depends on SmtGisCore**: GIS data model
-- **Depends on SmtGeoCore**: Geometry objects
-
-## Namespace
-
-The module uses the `Smt_Rd` namespace.
-
-## Implementation Modules
-
-- **SmtGdiRenderDevice**: GDI render device implementation
-- **SmtGLRenderDevice**: OpenGL render device implementation
-- **SmtD3DRenderDevice**: Direct3D render device implementation
-
-## Version Information
-
-- **Version**: 1.0
-- **Development Period**: 2010-2013
-- **Author**: 陈春亮
-- **Copyright**: Copyright (c) 2010 CCL. All rights reserved.
-
-## Notes
-
-1. Render device needs proper initialization before use
-2. Render operations should be between Lock/Unlock
-3. Different render layers have different lifecycles, need proper management
-4. Direct layer (DIRECT) render content disappears after refresh
-
+- 主图 leftover 会话：`LeftoverRecorder` 优先 `preferred_gpu_backend()`（Win = DX12），失败回退 null；GDI 传入 HWND。
+- `bind_rhi_present`：优先 FlyCube，失败回退 GDI。
+- Views `MapViewport`：`try_flycube_device` 在 LoadLibrary GDI 之前；`SMT_PREFER_GDI_DEVICE=1` 可强制 leftover DLL。
+- 2D：`set_solid_color` / 地图默认 brush cyan；`record_map` 可从首个 `MapLayer::style_name` 取 brush；`set_view_ortho` + envelope。Per-layer/per-feature style 仍 TODO。
+- 3D：`ModelAsset` → GpuScene 上传；tileset `visible_uris` → `decode_content_file` → mesh，失败回退 AABB。
+- 测试：`rhi_test` / `unified_draw_test` 默认跳过 FlyCube HWND/init（`SMT_RUN_FLYCUBE_GPU=1`）；`NullDevice` 的 destroy 故意泄漏 stub（避免 FlyCube 链接下 `operator delete` 挂死）；`scene_gpu_test` / `leftover_record_test` 仅走 Null。ColorCB BindingSet 缓存。

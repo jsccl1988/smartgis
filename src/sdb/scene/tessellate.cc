@@ -379,5 +379,47 @@ bool tessellate_tile_layer(const sdb::SmtTileLayer* layer, TessMesh& out) {
   return !out.indices.empty();
 }
 
+bool tessellate_aabb(double min_x, double min_y, double min_z, double max_x,
+                     double max_y, double max_z, TessMesh& out) {
+  reset_mesh(out);
+  if (max_x < min_x || max_y < min_y || max_z < min_z) {
+    return false;
+  }
+  if (max_x - min_x < 1e-9) {
+    max_x = min_x + 1e-3;
+  }
+  if (max_y - min_y < 1e-9) {
+    max_y = min_y + 1e-3;
+  }
+  if (max_z - min_z < 1e-9) {
+    max_z = min_z + 1e-3;
+  }
+  const float x0 = static_cast<float>(min_x);
+  const float y0 = static_cast<float>(min_y);
+  const float z0 = static_cast<float>(min_z);
+  const float x1 = static_cast<float>(max_x);
+  const float y1 = static_cast<float>(max_y);
+  const float z1 = static_cast<float>(max_z);
+  const float corners[8][3] = {
+      {x0, y0, z0}, {x1, y0, z0}, {x1, y1, z0}, {x0, y1, z0},
+      {x0, y0, z1}, {x1, y0, z1}, {x1, y1, z1}, {x0, y1, z1},
+  };
+  for (int i = 0; i < 8; ++i) {
+    out.positions.push_back(corners[i][0]);
+    out.positions.push_back(corners[i][1]);
+    out.positions.push_back(corners[i][2]);
+  }
+  const uint32_t faces[12][3] = {
+      {0, 1, 2}, {0, 2, 3}, {4, 6, 5}, {4, 7, 6}, {0, 4, 5}, {0, 5, 1},
+      {1, 5, 6}, {1, 6, 2}, {2, 6, 7}, {2, 7, 3}, {3, 7, 4}, {3, 4, 0},
+  };
+  for (int i = 0; i < 12; ++i) {
+    out.indices.push_back(faces[i][0]);
+    out.indices.push_back(faces[i][1]);
+    out.indices.push_back(faces[i][2]);
+  }
+  return true;
+}
+
 }  // namespace scene
 }  // namespace sdb

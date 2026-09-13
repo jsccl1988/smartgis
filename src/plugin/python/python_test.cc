@@ -4,7 +4,7 @@
 #include "content/public/event_bus.h"
 #include "content/public/plugin_host.h"
 #include "plugin/python/runtime.h"
-#include "plugin/registry.h"
+#include "plugin/host/registry.h"
 #include "tool/command.h"
 
 #include <cstdio>

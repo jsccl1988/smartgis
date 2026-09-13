@@ -83,9 +83,9 @@ All rights reserved.
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "plugin/legacy_am.h"
-#include "plugin/manifest.h"
-#include "plugin/registry.h"
+#include "plugin/host/legacy_am.h"
+#include "plugin/host/manifest.h"
+#include "plugin/host/registry.h"
 
 #include <cstdio>
 #include <string>

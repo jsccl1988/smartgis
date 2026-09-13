@@ -11,34 +11,7 @@ using namespace sdb;
 
 namespace sdb {
 
-// In-process raster buffer. Vector scratch uses the GDAL Memory driver.
-class SDE_MEM_EXPORT SmtMemRasLayer : public SmtRasterLayer {
- public:
-  SmtMemRasLayer();
-  ~SmtMemRasLayer() override;
-
-  bool Create() override;
-  bool Open(const char* szLayerArchiveName) override;
-  bool Close() override;
-  bool Fetch(eSmtFetchType type = FETCH_ALL) override;
-  void CalEnvelope() override;
-
-  long CreaterRaster(const char* pRasterBuf, long lRasterBufSize,
-                     const fRect& fRasterRect, long lImageCode) override;
-  long SetRasterRect(const fRect& fLocRect) override;
-  long GetRaster(char*& pRasterBuf, long& lRasterBufSize, fRect& fRasterRect,
-                 long& lImageCode) const override;
-  long GetRasterNoClone(char*& pRasterBuf, long& lRasterBufSize,
-                        fRect& fLocRect, long& lImageCode) const override;
-  long GetRasterRect(fRect& fLocRect) const override;
-
- protected:
-  fRect m_fRasterRect;
-  char* m_pRasterBuf;
-  long m_lRasterBufSize;
-  long m_lCodeType;
-};
-
+// In-process tile list. Raster scratch uses OgrRasterLayer + GDAL MEM.
 class SDE_MEM_EXPORT SmtMemTileLayer : public SmtTileLayer {
  public:
   SmtMemTileLayer();

@@ -274,6 +274,11 @@ int main() {
   tiles.AppendTile(&t1, false);
   sdb::scene::TessMesh tile_mesh;
   expect(sdb::scene::tessellate_tile_layer(&tiles, tile_mesh), "tess tiles");
+
+  sdb::scene::TessMesh box;
+  expect(sdb::scene::tessellate_aabb(0, 0, 0, 1, 1, 1, box), "tess aabb");
+  expect(box.positions.size() == 24, "aabb 8 verts");
+  expect(box.indices.size() == 36, "aabb 12 tris");
   expect(tile_mesh.indices.size() == 12, "two tile quads");
   expect(tile_mesh.has_image, "tile with buffer is textured");
 

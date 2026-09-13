@@ -1,0 +1,41 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("tool_group") {
+  dll_stem = "tool_group"
+  defines = [ "TOOL_GROUP_EXPORTS" ]
+  include_dirs += [ "//src" ]
+  sources = [
+    "3dviewctrltool.cpp",
+    "appendfeaturetool.cpp",
+    "base3dtool.cpp",
+    "basetool.cpp",
+    "flashtool.cpp",
+    "grouptoolfactory.cpp",
+    "inputlinetool.cpp",
+    "inputpointtool.cpp",
+    "inputregiontool.cpp",
+    "selecttool.cpp",
+    "viewctrltool.cpp",
+  ]
+  deps = [
+    "//src/legacy_render/scene3d:scene3d",
+    "//src/legacy_render/model3d:model3d",
+    "//src/legacy_render/render3d:render3d",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/algorithm/geo:geo",
+    "//src/sdb/map:gis",
+    "//src/ui/gui:gui",
+    "//src/legacy_render/bridge:render",
+    "//src/sdb/datasource/mgr:sde_mgr",
+    "//src/sys:sys",
+    "//src/legacy_tool:tool",
+    "//src/tool:dispatch",
+    "//src/sdb/edit:map_edit",
+    "//src/sdb/datasource/gdal:ogr_codec",
+    "//third_party:gdal",
+  ]
+}

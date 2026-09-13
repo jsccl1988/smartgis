@@ -8,7 +8,7 @@
 
 namespace plugin {
 
-// Print preview shell: shared MapPreviewView plus a Save button.
+// Views-only print preview shell (MapPreviewView + Save). Not a leftover CDlg.
 class PrintPreviewDialog : public ui::views::View {
  public:
   PrintPreviewDialog();

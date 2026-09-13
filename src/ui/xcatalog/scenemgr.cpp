@@ -4,7 +4,7 @@
 #include "base/core/api.h"
 #include "ui/xcatalog/mapdocxcatalog.h"
 #include "ui/xcatalog/3dobjxcatalog.h"
-#include "tool/t_msg.h"
+#include "legacy_tool/t_msg.h"
 #include <algorithm>
 
 using namespace sdb;

@@ -7,22 +7,26 @@
 #include "sdb/layer/layer.h"
 #include "sdb/datasource/gdal/ogr_export.h"
 
+#include <string>
+
 class GDALDataset;
 
 namespace sdb {
 namespace datasource {
 
-// Raster / child-image layer. Create/Open stay false while band I/O is
-// UNSUPPORTED; never invents an ADO geom_points blob table.
+// Raster / child-image layer backed by a GDALDataset (MEM or file).
+// Encoded product blobs (CxImage codes) live in /vsimem; bands + geotransform
+// hang on the dataset. Does not invent ADO geom_points tables.
 class SDE_GDAL_EXPORT OgrRasterLayer : public sdb::SmtRasterLayer {
  public:
-  explicit OgrRasterLayer(GDALDataset* owner);
+  explicit OgrRasterLayer(GDALDataset* owner = nullptr);
   ~OgrRasterLayer() override;
 
   bool Create() override;
   bool Open(const char* szLayerArchiveName) override;
   bool Close() override;
   bool Fetch(sdb::eSmtFetchType type = sdb::FETCH_ALL) override;
+  void CalEnvelope() override;
 
   long CreaterRaster(const char* pRasterBuf, long lRasterBufSize,
                      const base::fRect& fLocRect, long lImageCode) override;
@@ -35,7 +39,17 @@ class SDE_GDAL_EXPORT OgrRasterLayer : public sdb::SmtRasterLayer {
   long GetRasterRect(base::fRect& fLocRect) const override;
 
  private:
-  base::fRect rect_;
+  void release_owned_dataset();
+  void unlink_blob();
+  bool ensure_mem_dataset(int width, int height);
+  void apply_geotransform();
+  void sync_rect_from_dataset();
+  std::string blob_path() const;
+
+  bool owns_dataset_ = false;
+  long image_code_ = -1;
+  base::fRect rect_{};
+  std::string vsimem_blob_;
 };
 
 }  // namespace datasource

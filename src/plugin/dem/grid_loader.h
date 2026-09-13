@@ -10,7 +10,7 @@
 #if defined(PLUGIN_DEM_EXPORTS)
 #define DEM_LOADER_API __declspec(dllexport)
 #else
-#define DEM_LOADER_API __declspec(dllimport)
+#define DEM_LOADER_API
 #endif
 #endif
 

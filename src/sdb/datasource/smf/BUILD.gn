@@ -1,8 +1,0 @@
-# Copyright (c) 2026 The Mogu Authors.
-# All rights reserved.
-
-# sde_smf (SmtSDESmfDevice) unwired: shapefile / GeoJSON / GPKG open via
-# GDALOpenEx / GetDriverByName("SDBD"). Do not resurrect SmtSmfDataSource
-# or SmtSmfVecLayer — those reimplemented stock GDAL formats.
-group("sde_smf") {
-}

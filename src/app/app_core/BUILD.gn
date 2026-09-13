@@ -15,7 +15,7 @@ smt_shared_library("app_core") {
     "//src/plugin:plugin",
     "//src/sdb/datasource/mgr:sde_mgr",
     "//src/sys:sys",
-    "//src/tool:tool",
+    "//src/legacy_tool:tool",
     "//src/ui/xcatalog:xcatalog",
   ]
 }

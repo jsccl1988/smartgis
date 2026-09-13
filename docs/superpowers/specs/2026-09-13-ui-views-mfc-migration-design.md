@@ -7,7 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** active  
-**Scope:** 目标架构与文件所有权。能力按模块并行落地（不再按原 Phase 1→2→3 串行闸门）。本文件是该主题的唯一活规格；控件工具箱细节见 [`2026-09-13-ui-views-controls-design.md`](2026-09-13-ui-views-controls-design.md)。产品 as-built 入口：[`docs/build/ui-views-skia.md`](../../build/ui-views-skia.md)。
+**Scope:** 目标架构与文件所有权。能力按模块并行落地（不再按原 Phase 1→2→3 串行闸门）。本文件是该主题的架构权威；控件工具箱细节见 [`2026-09-13-ui-views-controls-design.md`](2026-09-13-ui-views-controls-design.md)；组合优先对等缺口见 [`2026-09-14-ui-leftover-chrome-parity-design.md`](2026-09-14-ui-leftover-chrome-parity-design.md)。产品 as-built 入口：[`docs/build/ui-views-skia.md`](../../build/ui-views-skia.md)。
 
 ## 目标
 

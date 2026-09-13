@@ -24,7 +24,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 #include "sdb/feature/feature.h"
 #include "sdb/map/map.h"
 #include "base/core/env_struct.h"
-#include "render/scene3d/bl3d_scene.h"
+#include "legacy_render/scene3d/bl3d_scene.h"
 #include "base/core/cslock.h"
 
 using namespace sdb;

@@ -1,0 +1,25 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("tool") {
+  dll_stem = "tool"
+  defines = [ "TOOL_EXPORTS" ]
+  include_dirs += [ "//src" ]
+  sources = [
+    "t_iatool.cpp",
+    "t_iatoolmanager.cpp",
+    "t_msg.cpp",
+  ]
+  deps = [ "//src/base:core" ]
+}
+
+# Leftover SmtToolCore + SmtGroupToolCore. Not in //src:src_all.
+# Opt-in: ninja -C out legacy_tool_all
+group("legacy_tool_all") {
+  deps = [ ":tool" ]
+  if (smt_build_app) {
+    deps += [ "//src/legacy_tool/group:tool_group" ]
+  }
+}

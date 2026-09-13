@@ -26,7 +26,6 @@ group("src_all") {
     "//src/render:render_all",
     "//src/sdb:datasource",
     "//src/plugin:plugin",
-    "//src/tool:tool",
     "//src/tool:dispatch",
   ]
 }

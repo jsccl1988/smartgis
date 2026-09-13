@@ -216,6 +216,14 @@ class CommandList {
     (void)slot;
   }
   virtual void bind_camera(const CameraMatrices& camera) { (void)camera; }
+  // Solid-color draw path (vector fills / untextured meshes). FlyCube uploads
+  // a ColorCB; null/stub backends only record the values.
+  virtual void set_solid_color(float r, float g, float b, float a) {
+    (void)r;
+    (void)g;
+    (void)b;
+    (void)a;
+  }
 };
 
 // Records counters. Used by null and leftover backends.
@@ -226,8 +234,13 @@ class StubCommandList : public CommandList {
   uint32_t bind_index_calls = 0;
   uint32_t bind_texture_calls = 0;
   uint32_t bind_camera_calls = 0;
+  uint32_t set_solid_color_calls = 0;
   Texture* last_texture = nullptr;
   CameraMatrices last_camera;
+  float solid_r = 0.85f;
+  float solid_g = 0.85f;
+  float solid_b = 0.90f;
+  float solid_a = 1.f;
   bool closed = false;
   bool pass_open = false;
   std::vector<uint32_t> index_counts;
@@ -246,6 +259,13 @@ class StubCommandList : public CommandList {
   void bind_camera(const CameraMatrices& camera) override {
     ++bind_camera_calls;
     last_camera = camera;
+  }
+  void set_solid_color(float r, float g, float b, float a) override {
+    ++set_solid_color_calls;
+    solid_r = r;
+    solid_g = g;
+    solid_b = b;
+    solid_a = a;
   }
   void draw_indexed(uint32_t index_count, uint32_t, uint32_t, int32_t,
                     uint32_t) override {

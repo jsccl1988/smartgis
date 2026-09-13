@@ -3,8 +3,8 @@
 #include "sdb/datasource/mgr/datasourcemgr.h"
 #include "base/core/api.h"
 #include "ui/xcatalog/mapdocxcatalog.h"
-#include "tool/group/defs.h"
-#include "tool/t_msg.h"
+#include "legacy_tool/group/defs.h"
+#include "legacy_tool/t_msg.h"
 
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"

@@ -1,0 +1,25 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("model3d") {
+  dll_stem = "model3d"
+  defines = [ "MODEL3D_EXPORTS" ]
+  sources = [
+    "2dgeoobject.cpp",
+    "3dgeoobject.cpp",
+    "cube.cpp",
+    "northarray.cpp",
+    "sphere.cpp",
+    "water.cpp",
+  ]
+  deps = [
+    "//src/legacy_render/render3d:render3d",
+    "//src/render/math:bounds",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/algorithm/geo:geo",
+    "//src/algorithm/tin:tin",
+  ]
+}

@@ -14,10 +14,20 @@ win32_app("views") {
     "browser_view.cc",
     "browser_view.h",
     "main.cc",
+    "plugin_chrome.cc",
+    "plugin_chrome.h",
   ]
   deps = [
     "//src/content:content",
+    "//src/content:view_host",
     "//src/gpu:gpu_lib",
+    "//src/plugin:host",
+    "//src/plugin/dem:dem_views",
+    "//src/plugin/model3d:model3d_views",
+    "//src/plugin/orthogrid:orthogrid_views",
+    "//src/plugin/print:print_views",
+    "//src/plugin/proj:proj_views",
+    "//src/tool:dispatch",
     "//src/ui/views:views",
   ]
   libs = [ "shell32.lib" ]

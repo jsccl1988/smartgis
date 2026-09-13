@@ -25,6 +25,8 @@ class CommandCatalog {
   bool add(std::string_view id, CommandHandler handler);
   const CommandHandler* find(std::string_view id) const;
   bool contains(std::string_view id) const;
+  // Visit registered ids in map order. Empty |fn| is a no-op.
+  void for_each(const std::function<void(std::string_view id)>& fn) const;
 
  private:
   std::map<std::string, CommandHandler> handlers_;

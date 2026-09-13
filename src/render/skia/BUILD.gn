@@ -1,21 +1,99 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Skia paint backend for Views chrome. No Skia checkout.
-# Opt-in via //:ui_views. Not in //src/render:render_all.
+# Skia paint backend for Views chrome.
+# Opt-in via //:ui_views. Not in //src:src_all or //src/render:render_all.
+# Default: GDI stub (gdi32). Real Skia only when smt_has_skia + local pin.
+
+import("skia.gni")
 
 config("skia_config") {
   include_dirs += [ "//src" ]
 }
 
+# Headers for a local Skia pin. Used only when smt_has_skia is on.
+# Prefer third_party/.src/skia → machine checkout (see README.md).
+config("skia_real_config") {
+  defines = [
+    "SMT_HAS_SKIA",
+    "SK_BUILD_FOR_WIN",
+    "NOMINMAX",
+    "WIN32_LEAN_AND_MEAN",
+    # Repo-wide legacy sets _HAS_STD_BYTE=0; modern Skia headers need std::byte.
+    "_HAS_STD_BYTE=1",
+  ]
+  include_dirs += [ "//third_party/.src/skia" ]
+  if (is_debug) {
+    defines += [ "SK_DEBUG" ]
+  }
+}
+
+# Optional matching Windows static lib + codecs (junction skia_out).
+# Only linked when present; must match the pinned Skia headers (do not mix
+# unrelated prebuilts from other trees).
+config("skia_real_libs") {
+  lib_dirs = [
+    "//third_party/.src/skia_out/skia",
+    "//third_party/.src/skia_out",
+  ]
+  libs = [
+    "skia.lib",
+    "zlib.lib",
+    "png.lib",
+    "gif.lib",
+    "jpeg-turbo.lib",
+    "expat.lib",
+    "usp10.lib",
+    "gdi32.lib",
+    "user32.lib",
+    "ole32.lib",
+    "dwrite.lib",
+  ]
+}
+
 source_set("skia") {
   sources = [
-    "canvas.cc",
     "canvas.h",
     "color.h",
     "skia.cc",
     "skia.h",
   ]
   public_configs = [ ":skia_config" ]
+  # GDI stub path always links gdi32; real Skia also BitBlts via gdi32.
   libs = [ "gdi32.lib" ]
+
+  if (smt_has_skia) {
+    # Pin / optional prebuilt (under third_party/.src/, gitignored).
+    # Only evaluated when the flag is on so default gen stays clean.
+    _skia_hdr = exec_script("//build/file_exists.py",
+                            [ "third_party/.src/skia/include/core/SkCanvas.h" ],
+                            "trim string")
+    _skia_lib = exec_script("//build/file_exists.py",
+                            [ "third_party/.src/skia_out/skia/skia.lib" ],
+                            "trim string")
+    assert(
+        _skia_hdr == "1",
+        "smt_has_skia=true but third_party/.src/skia pin is missing. " +
+            "On Windows, UNC junctions fail — use an elevated directory " +
+            "symlink, e.g. " +
+            "mklink /D third_party\\.src\\skia " +
+            "\\\\wsl\$\\Ubuntu-24.04\\home\\ccl\\dev\\src\\open\\topic\\graphic-engine\\skia " +
+            "(see src/render/skia/README.md). Do not vendor Skia into git.")
+    sources += [ "canvas_skia.cc" ]
+    public_configs += [ ":skia_real_config" ]
+    if (_skia_lib == "1") {
+      configs += [ ":skia_real_libs" ]
+    } else {
+      # Headers-only pin: TU still compiles; link will fail until a matching
+      # Windows skia.lib is junctioned at third_party/.src/skia_out.
+      # Do not silently link an ABI-mismatched prebuilt from another tree.
+      print(
+          "WARNING: smt_has_skia=true but no matching skia.lib at " +
+              "third_party/.src/skia_out/skia/skia.lib — link will fail " +
+              "until a Windows build of this pin is provided. " +
+              "Default smt_has_skia=false (GDI) remains the supported path.")
+    }
+  } else {
+    sources += [ "canvas.cc" ]
+  }
 }

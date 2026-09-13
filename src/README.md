@@ -2,7 +2,7 @@
 
 Five locked layers plus algorithm / plugin / ui. Nesting: `src/<layer>/<module>` (datasource drivers nest as `sdb/datasource/<driver>` like QGIS `providers/*`).
 
-GN targets keep short names (`sde_smf`, `render_gl`). DLL stems stay `Smt*` (`dll_stem`). C++ `Smt_*` ABI is unchanged.
+GN targets keep short names (`sde_gdal`, `render_gl`). DLL stems stay `Smt*` (`dll_stem`). C++ `Smt_*` ABI is unchanged.
 
 ## Five layers
 
@@ -18,7 +18,7 @@ GN targets keep short names (`sde_smf`, `render_gl`). DLL stems stay `Smt*` (`dl
 
 | QGIS / GDAL / GEOS / PROJ | This repo |
 | --- | --- |
-| `providers/*`, OGR drivers | `src/sdb/datasource/{mem,smf,ws,gdal}` |
+| `providers/*`, OGR drivers | `src/sdb/datasource/{mem,gdal}`（`smf` / `ws` 目录已移除；文件打开走 GDAL / `SDBD`） |
 | `QgsFeature` / `QgsVectorLayer` / `QgsProject` | `OGRFeature` / `OGRLayer` / `SmtMap` (`sdb/feature` keeps `SmtFeatureType` only) |
 | `QgsCoordinateReferenceSystem` | `src/sdb/crs` (id on the layer); transforms in `algorithm/proj` |
 | GEOS predicates/ops | Call `OGRGeometry` (`Intersects` / `Buffer` / …); GEOS is inside `//third_party:gdal`. `SmtGeoCore` is TIN/grid/surface meshes only. Delaunay: `src/algorithm/tin`. Do not vendor a second GEOS |
@@ -36,18 +36,18 @@ GN targets keep short names (`sde_smf`, `render_gl`). DLL stems stay `Smt*` (`dl
 - **algorithm/** — `geo` (`SmtGeoCore`: TIN/grid/surface meshes; OGC types are OGR), proj, tin, stat. Scene Vector/Matrix live in `render/math` (Eigen). Not dem (plugin + GDAL). Not orthogrid (plugin + Eigen Laplace). Chart UI is `ui/chart`.
 - **plugin/** — host `plugin::Registry` + leftover `SmtAuxModule`; chrome talks through `content::PluginHost`; Python embed; zip / `plugins.json` store. Spec: `docs/superpowers/specs/2026-09-13-plugin-host-design.md`. Domain children keep leftover `dll_stem`.
 - **ui/** — legacy MFC (including `ui/chart`) + `ui/views` toolkit
-- **tool/** — leftover `SmtIATool` DLL (LoadLibrary ABI) plus `//src/tool:dispatch` (Command / InputRouter / Workspace). Pointer/wheel go only through `ViewHost` / Workspace; leftover tools apply completed drafts (`apply_draft`), they do not own a second Interaction. Live rubber-band is `Interaction::aux_overlay` painted by leftover chrome. 3D cameras are `make_view3d_camera`. `flash` start/stop is command-driven; leftover GDI blink honors those commands plus `SET_FLASH_DATA` / mode. Map writes stay on `sdb::EditSession`. Domain events: `content::EventBus`. Host composition is `content::ViewHost`. Mapped `GT_MSG_*` / `AM_MSG` execute on the host **and** leftover Notify (product effect / dialogs); unmapped menus do not broadcast. Spec: `docs/superpowers/specs/2026-09-13-tool-event-dispatch-design.md`.
+- **tool/** — endgame `//src/tool:dispatch` only (Command / Interaction / Workspace). Leftover `SmtIATool` / `SmtGroupTool` live under `legacy_tool/` (+ `group/`); optional `//src/legacy_tool:legacy_tool_all`, not in `src_all` by default. Pointer/wheel go only through `ViewHost` / Workspace; leftover tools apply completed drafts (`apply_draft`), they do not own a second Interaction. Live rubber-band is `Interaction::aux_overlay` painted by leftover chrome. 3D cameras are `make_view3d_camera`. `flash` start/stop is command-driven; leftover GDI blink honors those commands plus `SET_FLASH_DATA` / mode. Map writes stay on `sdb::EditSession`. Domain events: `content::EventBus`. Host composition is `content::ViewHost`. Mapped `GT_MSG_*` / `AM_MSG` execute on the host **and** leftover Notify (product effect / dialogs); unmapped menus do not broadcast. Specs: `docs/superpowers/specs/2026-09-13-tool-event-dispatch-design.md`, `docs/superpowers/specs/2026-09-13-tool-legacy-split-design.md`.
 - **net/** — `SmtNetCore`: `pack/` (BinarySink + Pickle), `http/`, `rpc/`, `udp/`. Include `"net/http/http.h"`. No mogu POSIX `net/`. No product web GIS / mapd / WMS stack.
 - **gpu/** — `SmartGisRender.exe`
 - **sys** — stays beside base
 
 ## GDAL seam
 
-`src/sdb/datasource/gdal` (`SmtSDEGdalDevice`) registers the in-tree **SDBD** GDAL driver (`GDALOpenEx("SDBD:MEM:…")` / `SDBD:GPKG:…`). Layer management is `GDALDataset` / `OGRLayer` / `OGRFeature`, not `SmtDataSource` / `SmtVectorLayer` / `SmtFeature`. Missing GPKG/PostgreSQL drivers fail Open honestly. No second GDAL tree.
+`src/sdb/datasource/gdal` (`SmtSDEGdalDevice`) registers the in-tree **SDBD** GDAL driver (`GDALOpenEx("SDBD:MEM:…")` / `SDBD:GPKG:…`). Layer management is `GDALDataset` / `OGRLayer` / `OGRFeature`, not `SmtDataSource` / `SmtVectorLayer` / `SmtFeature`. Raster scratch: `CreateMemRasLayer` → `OgrRasterLayer` + GDAL **MEM** (`/vsimem` encoded blob). `SmtMemRasLayer` removed; `mem/` keeps tiles only. Missing GPKG/PostgreSQL drivers fail Open honestly. No second GDAL tree.
 
 ## Model v1 (`sdb::model`)
 
-Standalone files go through `load_file` (Assimp when `smt_has_assimp`; otherwise only the built-in `"cube"`). 3D Tiles are an explicit `tileset.json` plus `select_tiles`; content `.gltf` / `.glb` / `.b3dm` is `decode_content` via tinygltf. A `.gltf` file is not a tileset. Leftover `src/render/model3d` is not the default loader. World v1 handles: `attach_model` / `attach_tileset` / `attach_terrain` / `attach_pointcloud`.
+Standalone files go through `load_file` (Assimp when `smt_has_assimp`; otherwise only the built-in `"cube"`). 3D Tiles are an explicit `tileset.json` plus `select_tiles`; content `.gltf` / `.glb` / `.b3dm` is `decode_content` via tinygltf. A `.gltf` file is not a tileset. Leftover `src/legacy_render/model3d` is not the default loader. World v1 handles: `attach_model` / `attach_tileset` / `attach_terrain` / `attach_pointcloud`.
 
 ## RHI v1
 
@@ -59,4 +59,4 @@ Standalone files go through `load_file` (Assimp when `smt_has_assimp`; otherwise
 
 ---
 
-**最后更新：** 2026-09-13
+**最后更新：** 2026-09-14

@@ -13,6 +13,7 @@
 #include <windows.h>
 
 #include "app/views/app_commands.h"
+#include "app/views/plugin_chrome.h"
 #include "content/public/map_contents.h"
 #include "content/public/view_host.h"
 #include "ui/views/ambox_view.h"
@@ -73,7 +74,12 @@ void catalog_call(content::MapContents* session, const std::string& json) {
 
 BrowserView::BrowserView() = default;
 
-BrowserView::~BrowserView() = default;
+BrowserView::~BrowserView() {
+  if (plugins_) {
+    plugins_->shutdown();
+    plugins_.reset();
+  }
+}
 
 bool BrowserView::init() {
   ui::views::Widget::InitParams params;
@@ -90,6 +96,12 @@ bool BrowserView::init() {
   map_session_.reset(content::MapContents::Create());
   if (map_session_ && !map_session_->StartRenderProcess()) {
     map_session_.reset();
+  }
+
+  plugins_ = std::make_unique<PluginChrome>();
+  if (!plugins_->init(edit_host_->events())) {
+    plugins_.reset();
+    return false;
   }
 
   build_contents();
@@ -126,6 +138,7 @@ void BrowserView::build_contents() {
   menu->add_item("Map Edit", [this]() { switch_map_tab(0); });
   menu->add_item("Datasource", [this]() { switch_map_tab(1); });
   menu->add_item("3D", [this]() { switch_map_tab(2); });
+  menu->add_item("Plugins", [this]() { on_plugins(); });
 
   auto catalog = std::make_unique<ui::views::CatalogView>();
   catalog->set_preferred_size({240, 0});
@@ -158,6 +171,9 @@ void BrowserView::build_contents() {
   auto ambox = std::make_unique<ui::views::AmboxView>();
   ambox->set_preferred_size({200, 0});
   ambox->set_command_handler([this](const std::string& id) {
+    if (plugins_ && plugins_->execute(id)) {
+      return;
+    }
     content::ViewHost* host = active_view_host();
     if (!host) {
       return;
@@ -418,6 +434,12 @@ void BrowserView::on_exit() {
     PostMessageW(hwnd, WM_CLOSE, 0, 0);
   } else {
     PostQuitMessage(0);
+  }
+}
+
+void BrowserView::on_plugins() {
+  if (plugins_) {
+    plugins_->show_manager(widget_.hwnd());
   }
 }
 

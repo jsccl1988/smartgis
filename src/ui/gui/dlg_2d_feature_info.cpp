@@ -3,11 +3,10 @@
 
 #include "stdafx.h"
 #include "ui/gui/dlg_2d_feature_info.h"
-#include "sdb/feature/attribute.h"
 #include "base/style/envelope.h"
 #include "base/core/logmanager.h"
 
-#include "ogr_geometry.h"
+#include "ogrsf_frmts.h"
 
 using namespace sdb;
 
@@ -133,35 +132,41 @@ void CDlg2DFeatureInfo::UpdateAttGridContent()
 	if (NULL == m_pSmtFea)
 		return ;
 
-	SmtAttribute *pAtt = m_pSmtFea->GetAttributeRef();
-	if (pAtt)
+	OGRFeature* ogr = m_pSmtFea->ogr();
+	if (!ogr) {
+		return;
+	}
+	OGRFeatureDefn* defn = ogr->GetDefnRef();
+	if (!defn) {
+		return;
+	}
+
+	const int field_count = defn->GetFieldCount();
+	m_attGrid.SetRowCount(field_count + 1);
+
+	GV_ITEM	item;
+	item.mask = GVIF_TEXT|GVIF_FORMAT;
+	item.nFormat = DT_CENTER;
+
+	for (int i = 0; i < field_count; i++)
 	{
-		m_attGrid.SetRowCount(pAtt->GetFieldCount() + 1);
-
-		GV_ITEM	item;
-		item.mask = GVIF_TEXT|GVIF_FORMAT;
-		item.nFormat = DT_CENTER;
-
-		for (int i = 0; i < pAtt->GetFieldCount();i++)
-		{
-			SmtField *pFld =  pAtt->GetFieldPtr(i);
-			if (pFld)
-			{
-				item.row = i+1;
-
-				item.col = 0;
-				item.strText = pFld->GetName();
-				m_attGrid.SetItem(&item);
-
-				item.col++;
-				item.strText = SmtField::GetTypeName(pFld->GetType());
-				m_attGrid.SetItem(&item);
-
-				item.col++;
-				item.strText = pFld->GetValueAsString();
-				m_attGrid.SetItem(&item);
-			}
+		OGRFieldDefn* fld = defn->GetFieldDefn(i);
+		if (!fld) {
+			continue;
 		}
+		item.row = i + 1;
+
+		item.col = 0;
+		item.strText = fld->GetNameRef();
+		m_attGrid.SetItem(&item);
+
+		item.col++;
+		item.strText = OGRFieldDefn::GetFieldTypeName(fld->GetType());
+		m_attGrid.SetItem(&item);
+
+		item.col++;
+		item.strText = ogr->IsFieldSet(i) ? ogr->GetFieldAsString(i) : _T("");
+		m_attGrid.SetItem(&item);
 	}
 }
 

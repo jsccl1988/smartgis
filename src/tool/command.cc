@@ -29,6 +29,16 @@ bool CommandCatalog::contains(std::string_view id) const {
   return find(id) != nullptr;
 }
 
+void CommandCatalog::for_each(
+    const std::function<void(std::string_view id)>& fn) const {
+  if (!fn) {
+    return;
+  }
+  for (const auto& kv : handlers_) {
+    fn(kv.first);
+  }
+}
+
 CommandDispatcher::CommandDispatcher(CommandCatalog* catalog)
     : catalog_(catalog) {}
 

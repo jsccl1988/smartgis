@@ -1,81 +1,24 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
+# Plugin root: re-export labels used across the tree.
+# Physical sources live under host/, legacy/, legacy_*/, dem/, …
+
 import("//build/smartgis.gni")
-import("//testing/test.gni")
 
-smt_shared_library("plugin") {
-  dll_stem = "plugin"
-  defines = [ "PLUGIN_EXPORTS" ]
-  sources = [
-    "module.cpp",
-    "module_manager.cpp",
-    "plugin_msg.cpp",
-  ]
-  deps = [ "//src/base:core" ]
+group("plugin") {
+  public_deps = [ "//src/plugin/legacy:plugin" ]
 }
 
-source_set("legacy_cmd") {
-  sources = [
-    "legacy_cmd.cc",
-    "legacy_cmd.h",
-  ]
-  include_dirs += [ "//src" ]
-  public_deps = [ "//src/tool:dispatch" ]
+group("legacy_cmd") {
+  public_deps = [ "//src/plugin/host:legacy_cmd" ]
 }
 
-source_set("host") {
-  sources = [
-    "legacy_am.cc",
-    "legacy_am.h",
-    "manager_view.cc",
-    "manager_view.h",
-    "manifest.cc",
-    "manifest.h",
-    "official_key.h",
-    "processing.cc",
-    "processing.h",
-    "registry.cc",
-    "registry.h",
-    "signature.cc",
-    "signature.h",
-    "signature_test_key.h",
-    "store.cc",
-    "store.h",
-  ]
-  include_dirs += [
-    "//src",
-    "//src/base/core",
-  ]
-  deps = [
-    "//src/base:core",
-    "//src/content:content",
-    "//src/net:net",
-    "//src/plugin/widgets:widgets",
-    ":legacy_cmd",
-    "//src/tool:dispatch",
-    "//src/ui/views:views",
-    "//third_party:ed25519",
-  ]
+group("host") {
+  public_deps = [ "//src/plugin/host:host" ]
 }
 
-test("plugin_host_test") {
-  output_name = "plugin_host_test"
-  sources = [ "host_test.cc" ]
-  include_dirs += [ "//src" ]
-  deps = [
-    ":host",
-    ":legacy_cmd",
-    "//src/plugin/orthogrid:orthogrid_views",
-    "//src/plugin/dem:dem_views",
-    "//src/plugin/model3d:model3d_views",
-    "//src/plugin/print:print_views",
-    "//src/plugin/proj:proj_views",
-    "//third_party:cpp_httplib",
-  ]
-  data_deps = [
-    "//src/algorithm/proj:proj",
-    "//third_party:gdal_runtime_dlls",
-  ]
-  libs += [ "ws2_32.lib" ]
+group("plugin_host_test") {
+  testonly = true
+  public_deps = [ "//src/plugin/host:plugin_host_test" ]
 }
