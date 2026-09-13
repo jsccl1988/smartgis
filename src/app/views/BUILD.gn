@@ -1,0 +1,24 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Product host for Views + Skia. Loaded when smt_build_views=true.
+# Output: out/SmartGisViews.exe. Leftover MFC sources stay in src/app/.
+
+import("//build/config/win/application.gni")
+
+win32_app("views") {
+  output_name = "SmartGisViews"
+  sources = [ "main.cc" ]
+  deps = [
+    "//src/content:content",
+    "//src/gpu:gpu_lib",
+    "//src/render/skia:skia",
+    "//src/ui/views:views",
+  ]
+  libs = [ "shell32.lib" ]
+}
+
+# Alias so `ninja -C out SmartGisViews` matches output_name / peers.
+group("SmartGisViews") {
+  deps = [ ":views" ]
+}
