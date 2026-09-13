@@ -29,7 +29,8 @@ GN targets keep short names (`sde_smf`, `render_gl`). DLL stems stay `Smt*` (`dl
 | `qgis_app` | `src/app/` |
 | libqgis_core embedder API | `src/content/public` (thin; not all of sdb) |
 | QgsApplication / settings | `src/base` |
-| WMS/WFS service | `src/web/` (not `sdb/map`) |
+| WMS/WFS service | leftover `src/web/` server (not `sdb/map`) |
+| mapd HTTP client | `src/web/mapd` (`web::MapdClient`, `:8020`) |
 | PDAL / point I/O | future `sdb/datasource` driver; `render/pointcloud` is the 3D engine |
 
 ## Also
@@ -37,15 +38,15 @@ GN targets keep short names (`sde_smf`, `render_gl`). DLL stems stay `Smt*` (`dl
 - **algorithm/** — `geo` (`SmtGeoCore`: math + math3d + geo3d sources), proj, tin, baogrid, stat. Not dem (plugin + GDAL). Chart UI is `ui/chart`.
 - **plugin/** — domain modules
 - **ui/** — legacy MFC (including `ui/chart`) + `ui/views` toolkit
-- **tool/** — leftover `SmtIATool` plus `//src/tool:dispatch` (Command / InputRouter / Workspace). Domain events: `content::EventBus`. Document writes: `sdb/edit`. Spec: `docs/superpowers/specs/2026-09-13-tool-event-dispatch-design.md`.
-- **web/** — map server/client/cgi
-- **net/** — `SmtNetCore`: standalone ASIO sockets + cpp-httplib HTTP + FnRPC client (CRLF pickle)
+- **tool/** — leftover `SmtIATool` plus `//src/tool:dispatch` (Command / InputRouter / Workspace). Exclusive leftover tools (`select`, `append`, `view`, `flash`, `input*`) wrap `make_*` Interactions; map writes stay on `sdb::EditSession`. Domain events: `content::EventBus`. Spec: `docs/superpowers/specs/2026-09-13-tool-event-dispatch-design.md`.
+- **web/** — leftover map server/client/cgi; **mapd** HTTP client (`web::MapdClient`)
+- **net/** — `SmtNetCore`: `net::UdpSocket` + cpp-httplib HTTP + FnRPC (`net::Pickle` / BinarySink, CRLF). No mogu POSIX `net/` includes.
 - **gpu/** — `SmartGisRender.exe`
 - **sys** — stays beside base
 
 ## GDAL seam
 
-`src/sdb/datasource/gdal` (`SmtSDEGdalDevice`) is the OGR database provider. Device manager constructs `OgrDataSource` for `DS_DB_ADO`. SMF uses the shared `ogr_codec` for file features. Missing GPKG/SQLite/PostgreSQL drivers fail Open/Create (logged); Shapefile is not advertised as GeoPackage. No second GDAL tree.
+`src/sdb/datasource/gdal` (`SmtSDEGdalDevice`) registers the in-tree **SDBD** GDAL driver (`GDALOpenEx("SDBD:MEM:…")` / `SDBD:GPKG:…`). Layer management is `GDALDataset` / `OGRLayer` / `OGRFeature`, not `SmtDataSource` / `SmtVectorLayer` / `SmtFeature`. Missing GPKG/PostgreSQL drivers fail Open honestly. No second GDAL tree.
 
 ## RHI v1
 

@@ -96,28 +96,6 @@ void copy_layer_name(char* dest, size_t dest_len, const char* src) {
   dest[dest_len - 1] = '\0';
 }
 
-GDALDriver* file_create_driver(uint provider) {
-  const char* want = gdal_driver_name(provider);
-  GDALDriver* drv =
-      want ? GetGDALDriverManager()->GetDriverByName(want) : nullptr;
-  if (drv) {
-    return drv;
-  }
-  if (provider == Smt_GIS::PROVIDER_POSTGRES) {
-    gdal_log("PostgreSQL driver not in this GDAL");
-    log_vector_drivers();
-    return nullptr;
-  }
-  if (provider == Smt_GIS::PROVIDER_GPKG ||
-      provider == Smt_GIS::PROVIDER_SPATIALITE) {
-    std::string msg = want ? want : "file";
-    msg += " driver not in this GDAL";
-    gdal_log(msg.c_str());
-    log_vector_drivers();
-  }
-  return nullptr;
-}
-
 Smt_GIS::SmtFeatureType feature_type_from_layer(OGRLayer* lyr) {
   if (!lyr) {
     return Smt_GIS::SmtFtUnknown;
@@ -165,15 +143,56 @@ bool OgrDataSource::Open() {
   if (m_bOpen) {
     Close();
   }
-  if (!is_db_provider_supported(m_dsInfo.unProvider)) {
+
+  register_gdal_driver();
+  install_cpl_handler_once();
+
+  if (m_dsInfo.unType == Smt_GIS::DS_WS ||
+      m_dsInfo.unType == Smt_GIS::DS_DB_ODBC ||
+      m_dsInfo.unType == Smt_GIS::DS_DB_MYSQL ||
+      m_dsInfo.unType == Smt_GIS::DS_DB_ORACLE) {
+    gdal_log("datasource type is not an OGR v1 path (WS/ODBC/MySQL/Oracle)");
+    m_bOpen = false;
+    return false;
+  }
+
+  if (m_dsInfo.unType == Smt_GIS::DS_DB_ADO &&
+      !is_db_provider_supported(m_dsInfo.unProvider)) {
     gdal_log("ACCESS/SQL Server providers are unsupported; use GPKG, "
              "PostgreSQL, or SpatiaLite");
     m_bOpen = false;
     return false;
   }
 
-  register_gdal_driver();
-  install_cpl_handler_once();
+  if (m_dsInfo.unType == Smt_GIS::DS_MEM) {
+    const char* want =
+        mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1>::driver_name;
+    GDALDriver* drv =
+        want ? GetGDALDriverManager()->GetDriverByName(want) : nullptr;
+    if (!drv) {
+      drv = GetGDALDriverManager()->GetDriverByName("MEM");
+    }
+    if (!drv) {
+      gdal_log("Memory driver not in this GDAL");
+      log_vector_drivers();
+      m_bOpen = false;
+      return false;
+    }
+    const char* name = m_dsInfo.szName[0] ? m_dsInfo.szName : "mem";
+    dataset_ = drv->Create(name, 0, 0, 0, GDT_Unknown, nullptr);
+    if (!dataset_) {
+      dataset_ = drv->Create(name, 1, 1, 1, GDT_Byte, nullptr);
+    }
+    if (!dataset_) {
+      gdal_log("Memory Create failed");
+      gdal_log(CPLGetLastErrorMsg());
+      m_bOpen = false;
+      return false;
+    }
+    m_bOpen = true;
+    fill_layer_infos();
+    return true;
+  }
 
   const std::string target = make_gdal_open_target(m_dsInfo);
   if (target.empty()) {
@@ -181,31 +200,40 @@ bool OgrDataSource::Open() {
     return false;
   }
 
-  GDALDriver* file_drv = file_create_driver(m_dsInfo.unProvider);
-  const std::string& open_path = target;
-  if (!file_drv && (m_dsInfo.unProvider == Smt_GIS::PROVIDER_GPKG ||
-                    m_dsInfo.unProvider == Smt_GIS::PROVIDER_SPATIALITE ||
-                    m_dsInfo.unProvider == Smt_GIS::PROVIDER_POSTGRES)) {
-    std::string fail = "Open/Create failed; driver missing; target=";
+  const char* want = gdal_driver_name_for(m_dsInfo);
+  GDALDriver* file_drv =
+      want ? GetGDALDriverManager()->GetDriverByName(want) : nullptr;
+  const bool needs_named_driver =
+      m_dsInfo.unType == Smt_GIS::DS_FILE_SMF
+          ? (m_dsInfo.unProvider != Smt_GIS::PROVIDER_OGR_SUPPORT)
+          : is_db_provider_supported(m_dsInfo.unProvider);
+  if (needs_named_driver && !file_drv) {
+    std::string fail = "Open/Create failed; driver missing; driver=";
+    fail += want ? want : "?";
+    fail += "; target=";
     fail += redact_open_target(target);
     gdal_log(fail.c_str());
+    log_vector_drivers();
     gdal_log(CPLGetLastErrorMsg());
     m_bOpen = false;
     return false;
   }
 
   dataset_ = static_cast<GDALDataset*>(GDALOpenEx(
-      open_path.c_str(), GDAL_OF_VECTOR | GDAL_OF_RASTER | GDAL_OF_UPDATE,
+      target.c_str(), GDAL_OF_VECTOR | GDAL_OF_RASTER | GDAL_OF_UPDATE,
       nullptr, nullptr, nullptr));
-  if (!dataset_ && file_drv &&
-      (m_dsInfo.unProvider == Smt_GIS::PROVIDER_GPKG ||
-       m_dsInfo.unProvider == Smt_GIS::PROVIDER_SPATIALITE)) {
+  const bool can_create_file =
+      file_drv &&
+      (m_dsInfo.unType == Smt_GIS::DS_FILE_SMF ||
+       m_dsInfo.unProvider == Smt_GIS::PROVIDER_GPKG ||
+       m_dsInfo.unProvider == Smt_GIS::PROVIDER_SPATIALITE);
+  if (!dataset_ && can_create_file) {
     char** opts = nullptr;
     if (m_dsInfo.unProvider == Smt_GIS::PROVIDER_SPATIALITE &&
         std::strcmp(file_drv->GetDescription(), "SQLite") == 0) {
       opts = CSLSetNameValue(opts, "SPATIALITE", "YES");
     }
-    dataset_ = file_drv->Create(open_path.c_str(), 0, 0, 0, GDT_Unknown, opts);
+    dataset_ = file_drv->Create(target.c_str(), 0, 0, 0, GDT_Unknown, opts);
     CSLDestroy(opts);
   }
   if (!dataset_) {

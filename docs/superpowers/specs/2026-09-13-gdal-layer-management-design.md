@@ -7,33 +7,33 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted  
-**Scope:** 技术方案（本文不实现产品 C++）。图层的打开 / 创建 / 列举 / 编辑 / 查询 / 关闭一律走 GDAL Dataset / Layer（矢量）或 GDAL raster（栅格）。本文件管 `sdb` 数据源与图层，不管桌面 chrome。
+**Scope:** 图层的打开 / 创建 / 列举 / 编辑 / 查询 / 关闭一律走 GDAL Dataset / Layer（矢量）或 GDAL raster（栅格）。本文件管 `sdb` 数据源与图层，不管桌面 chrome。
 
-**Sibling:** 数据库路径（PostGIS / GeoPackage / SpatiaLite，ADO 退出 `src_all`）见 [`2026-09-13-ogr-db-datasource-design.md`](2026-09-13-ogr-db-datasource-design.md)。那份 spec 已落地 `OgrDataSource` / `OgrVectorLayer` / `ogr_feature_codec` / `feature_kind_traits`。本文把它从「DB 设备」扩成「一切可本地打开的图层」。
+**Sibling:** 数据库路径（PostGIS / GeoPackage / SpatiaLite，ADO 退出 `src_all`）见 [`2026-09-13-ogr-db-datasource-design.md`](2026-09-13-ogr-db-datasource-design.md)。
 
 ADO 源码删除由另一条工作流负责。本文不恢复、不重写、不阻挡那条删除。
 
 ## Goal
 
-停止按驱动复制一套 C++ 图层子类。今天 `SmtDataSourceMgr` 按 `eDSType` 实例化 `OgrDataSource`、`SmtSmfDataSource`、`SmtMemDataSource`、`SmtWSDataSource`；SMF 再为 shapefile 写 `SmtSmfVecLayer`，编辑时整层克隆进 `SmtMemVecLayer`。ADO 时代还有按要素类型拆的 `*Fcls`。目标是：
+停止按驱动复制一套 C++ 图层子类，也**不再**用 `SmtDataSource` / `SmtVectorLayer` / `SmtFeature` 当产品 ABI。
 
-- **事实源** 是 `GDALDataset` + `OGRLayer`（矢量）或 `GDALRasterBand` / 子数据集（栅格）。
-- 产品 GIS 模型暂时仍是 `SmtFeature` / `SmtVectorLayer` / `SmtRasterLayer` / `SmtMap`：它们是适配器，不是第二套存储。
-- 文件（shapefile / GPKG / SpatiaLite / OGR 能认的其它格式）和库（PostGIS）共用同一个设备类，已经存在的 `sdb::datasource::OgrDataSource`。
-- 驱动是否编进当前 `gdal_sdk`（本机 SDK 可能没有 GPKG / PostgreSQL）是 **运行时 / SDK 问题**。API 始终是 `GDALOpenEx` / `CreateLayer` / `GetLayer`。缺驱动时 `Open` 失败并打日志，不另写一套 C++ 实现。
+- **事实源与调用方类型** 都是 `GDALDataset` + `OGRLayer` + `OGRFeature`（矢量）或 `GDALRasterBand` / 子数据集（栅格）。v1 **不是**适配器层。
+- **sdbd 是 GDAL 驱动**（`GDALDriverManager` 名 `"SDBD"`，连接前缀 `SDBD:`）。`GDALAllRegister()` + `register_sdbd_driver()`。打开：`GDALOpenEx("SDBD:MEM:name")` 或 `SDBD:GPKG:path` / `SDBD:PostgreSQL:PG:…`。mgis 没有同名 GDAL 驱动（只有 HTTP `:8021` / `sdbd://`）；本仓 `sdbd://` 在进程内落到 Memory，不另开 HTTP 守护。
+- 文件 / 库 / 内存共用这一套 GDAL 对象。Memory = GDAL Memory 驱动（经 `SDBD:MEM:` 或直接 `Memory`）。
+- 驱动是否编进当前 `gdal_sdk` 是运行时问题。缺 GPKG / PG 时 `Open` 失败并打日志，不另写 C++ 读写器。
 
-不把调用方在 v1 迁到 `OGRFeature` / `OGRLayer*`。
+产品代码直接写 `GDALDataset*` / `OGRLayer*` / `OGRFeature*`。不要再 new `SmtFeature` 包装器。
 
 ## Non-goals
 
 - 不要再 vendor 一份 GDAL / GEOS / PROJ。只链 `//third_party:gdal`（现有 `gdal_sdk`）。
 - 不要 Qt。桌面终局是 Views + Skia；本文不改 `src/ui` / `src/app` chrome。
-- 不要把产品要素类型改成 `OGRFeature`（除非后续单独开 clean-cut spec）。
+- 不要保留 `SmtFeature` / `SmtVectorLayer` / `SmtDataSource` 作为图层 ABI（几何算法 / `SmtStyle` 可独立留下）。
 - 不要在本文周期实现 WMS / WFS / XYZ 瓦片，也不要把 `SmtTileLayer` 硬塞进 OGR。
 - 不要恢复 ADO / `msado15` / `DS_TB` / 按类型 `*Fcls` SQL。另一 agent 删 leftover ADO 文件时不要冲突。
 - 不要为缺 GPKG / PG 的 SDK 手写读写器。
 - 不要改 `content/public` 的稳定嵌入 API。
-- 不要把 `SmtMap` 改成 GDAL 数据集；地图文档继续持有 `SmtLayer*`。
+- 不要把 `SmtMap` 再设计成只持 `SmtLayer*`；地图文档改持 `OGRLayer*` / `GDALDataset*`（或同等 GDAL 句柄）。
 
 ## 现状 vs 目标
 
@@ -77,54 +77,45 @@ SMF 的 OGR 支持（`smf_ogrsupport.cpp`）已经转调 `ogr_feature_codec`；�
 ### 目标
 
 ```
-SmtMap                         不变：仍持 SmtLayer*
+SmtMap / tools / catalog       持 GDALDataset* / OGRLayer* / OGRFeature*
         ^
-SmtDataSourceMgr
+        |  GDALOpenEx / CreateLayer / CreateFeature
+        v
+GDALDriver "SDBD"              前缀 SDBD: ；内部再开 Memory / GPKG / Shapefile / PG
         |
-        +-- DS_DB_ADO / DS_FILE_SMF / DS_MEM
-        |         --> OgrDataSource                 一个设备，一个 GDALDataset*
-        |               + OgrVectorLayer            唯一矢量图层适配器
-        |               + OgrRasterLayer            GDAL raster / 子数据集
-        |               + ogr_feature_codec         SmtFeature ↔ OGRFeature
-        |               + feature_kind_traits       SmtFeatureType ↔ WKB
-        |               + db_ / file_ / mem provider traits
-        |                       |
-        |                       v
-        |               third_party/gdal_sdk        唯一 GDAL
-        |                       + ESRI Shapefile / GeoJSON / …
-        |                       + GPKG / SQLite (SpatiaLite)
-        |                       + PostgreSQL
-        |                       + Memory
-        |                       + 栅格驱动（GeoTIFF / GPKG tiles / …）
-        |
-        +-- DS_WS (v1 保留，不迁) --> SmtWSDataSource + SmtWSTileLayer
+        v
+third_party/gdal_sdk           唯一 GDAL
+        + Memory
+        + ESRI Shapefile / GeoJSON / …
+        + GPKG / SQLite (SpatiaLite)
+        + PostgreSQL
+        + 栅格驱动（GeoTIFF / …）
+
+DS_WS (v1 不迁)                仍是瓦片 URL，不是 OGR
 ```
 
-`eDSType` 整数值和 `.dsm` 二进制布局保持，以免旧工程文件作废。管理器把「文件 / 库 / 内存」三种 type **都**构造成 `OgrDataSource`；不再为 shapefile 或内存 new 一套 layer 子类。
+`eDSType` 整数值和 `.dsm` 二进制布局可暂时保留（旧工程文件），但打开路径只认 `GDALOpenEx` 目标串。管理器（若还在）对文件 / 库 / 内存都 `GDALOpenEx("SDBD:…")`，不再 new `Smt*DataSource` / `Smt*VecLayer`。
 
-## 推荐架构（适配器优先）
+## 推荐架构（GDAL 原生，不是适配器）
 
-**v1 用适配器，不把 GDAL 类型推到地图 / 工具 / UI。**
+**v1 产品代码直接命名 GDAL 类型。不要 `SmtDataSource` / `SmtVectorLayer` / `SmtFeature` 门面。**
 
 | 层 | 类型 | 职责 |
 | --- | --- | --- |
-| 产品 GIS 模型 | `SmtFeature`、`SmtVectorLayer`、`SmtRasterLayer`、`SmtMap` | 调用方 ABI；地图文档、选择工具、编辑会话继续用它们 |
-| 适配器 | `OgrDataSource`、`OgrVectorLayer`、`OgrRasterLayer` | 把虚函数落到 `GDALDataset` / `OGRLayer` / raster API；`Fetch` 后可保留一层 `SmtFeature*` 游标缓存 |
-| 编解码 | `ogr_feature_codec` + `feature_kind_traits` | 几何与扩展字段；TIN / Grid / Anno 仍是产品类型 |
-| 连接 | `db_provider_traits`、`file_provider_traits`、`mem_provider_traits` | 拼 `GDALOpenEx` 目标串与驱动名 |
-| 存储 | GDAL 驱动 | 本仓库不实现 |
+| 产品 GIS 模型 | `GDALDataset`、`OGRLayer`、`OGRFeature`、`GDALRasterBand` | 调用方 ABI；地图、工具、sdbd IPC 都用它们 |
+| sdbd 驱动 | `GDALDriver` `"SDBD"`（`sdb/datasource/gdal`） | `Identify` / `Open` / `Create`；转发 `CreateLayer` / 要素 CRUD / 空间过滤到内部数据集 |
+| 连接串 | `SDBD:`、`SDBD:MEM:name`、`SDBD:GPKG:path`、`SDBD:PostgreSQL:PG:…`、`sdbd://` | mgis 无 GDAL 驱动名；本仓锁定 `SDBD` |
+| 存储 | 已注册的 GDAL 驱动 | 本仓库不实现 GPKG/PG 读写器 |
 
 三个被否决的替代：
 
-1. **调用方直接用 `GDALDataset*` / `OGRLayer*`** — 干净，但 `SmtMap`、`SmtDataSourceMgr`、工具、目录树、编辑会话全部要改；v1 成本过高，也过早放弃 `SmtFeature` 上的样式 / 产品字段。
-2. **继续按格式扩 C++ 子类**（`SmtGpkgVecLayer`、`SmtShpVecLayer`…）— 正是本文要结束的爆炸。
-3. **现在就把产品要素改成 `OGRFeature`** — 需要另开 clean-cut；样式 blob、Anno 字段、TIN 回退都还绑在 `SmtFeature` 上。
+1. **适配器优先（`OgrDataSource` + `SmtFeature`）** — 已撤销。那是第二套存储语义。
+2. **继续按格式扩 C++ 子类**（`SmtGpkgVecLayer`…）— 正是本文要结束的爆炸。
+3. **sdbd 作为 GDAL 旁边的 HTTP/IPC 侧车** — sdbd 必须是 `GDALDriverManager` 里的驱动；JSON 路由只是对该驱动的调用，不是另一套数据集。
 
-`OgrDataSource` 这个名字已经在树里（DB spec）。它同时拥有矢量 `OGRLayer` 和栅格 band，语义上是 Gdal 设备。v1 **不改名**，避免无谓 diff。以后若只做重命名，可以叫 `GdalDataSource`。
+公共命名空间仍两层：`sdb::datasource`。新辅助放 `sdb::datasource::detail`。
 
-公共命名空间仍两层：`sdb::datasource`。新辅助放 `sdb::datasource::detail`。管理器已经认识的 `SmtDataSource` / `SmtVectorLayer` 留在 `Smt_GIS`。
-
-语言：产品 C++ 是 **C++23**（`cc_std = "c++23"`，Windows 上 `/std:c++23preview`）。Traits + `if constexpr` + 已有的 `visit_feature_kind`；新算法侧可用 `geo::geometry_like`。不要为图层再做一棵 2D/3D 虚继承树。
+语言：产品 C++ 是 **C++23**（`cc_std = "c++23"`，Windows 上 `/std:c++23preview`）。不要为图层再做一棵 2D/3D 虚继承树。
 
 ## 设备管理器：一个 `OgrDataSource`
 
@@ -213,27 +204,26 @@ Shapefile 限制（10 字符字段名、无原生事务、无 TIN）留在驱动
 
 ## ABI
 
-**推荐：适配器优先。**
+**推荐：GDAL 原生。**
 
 保持：
 
-- `SmtDataSource` / `SmtVectorLayer` / `SmtRasterLayer` / `SmtTileLayer` 虚表与 `dll_stem`（`SmtGisCore`、`SmtSDEGdalDevice`、`SmtSDEDeviceMgr`）。
-- `SmtFeature` 作为地图与编辑会话的要素类型。
-- `SmtDataSourceMgr` 单例与 `.dsm` 头（`DSM` + `SmtDataSourceInfo` 数组）。
-- `eDSType` / `eSmtDBProvider` / `eSmtFileProvider` 现有取值（只追加，不重排）。
+- `dll_stem`（`SmtGisCore`、`SmtSDEGdalDevice`、`SmtSDEDeviceMgr`）与 `Export_SmtSDEGdalDevice` 直到链接面另开清理。
+- `.dsm` 头字节布局可暂留；打开只看路径 / `SDBD:` 连接串。
+- `eDSType` / provider 枚举取值不重排（旧文件）。
 
-允许（实现细节，不出口到 `content/public`）：
+删除（产品路径）：
 
-- `OgrDataSource::dataset()` 继续返回 `GDALDataset*`，供同 DLL 的 layer 使用。
-- 新 `file_provider_traits` / `mem_provider_traits`。
+- `SmtDataSource` / `SmtVectorLayer` / `SmtFeature`。不要僵尸包装器。
+- 新代码不得再 `CreateMemVecLayer()` → `SmtMemVecLayer`。
 
-禁止（v1）：
+允许：
 
-- 让 `SmtMap::AddLayer` 接受 `OGRLayer*`。
-- 让工具 include `ogrsf_frmts.h`。
-- 为每个 WKB 再派生一个 `SmtVectorLayer` 子类。
+- `SmtStyle` 与 `src/algorithm` 几何类型独立存在（不是要素门面）。
+- `SmtTileLayer` / `DS_WS` 留到瓦片 spec。
+- 工具 / 地图 `#include` `ogrsf_frmts.h` / `gdal_priv.h`。
 
-`LoadLibrary` 导出宏（`Export_SmtSDEGdalDevice` 等）保持。SMF/Mem 设备 DLL 在无人链接后从 `src_all` 拿掉；删除磁盘文件是后续清理，不是本设计的成功条件。
+`LoadLibrary` 导出宏保持。SMF/Mem 图层子类离开产品路径；删磁盘文件是后续清理。
 
 ## Traits（`SmtFeatureType` ↔ WKB）
 
@@ -352,7 +342,10 @@ struct mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1> {
 
 - 产品路径上，文件 / 库 / 内存的打开、创建、列举、编辑、查询、关闭都经过一个 `OgrDataSource` 和一个 `GDALDataset`（Memory 驱动也算）。
 - 不再出现新的 per-format / per-feature-type 图层子类。
-- `SmtMap` 与工具仍只看见 `SmtLayer` / `SmtVectorLayer` / `SmtFeature`。
+- `SmtMap` 与工具看见 `GDALDataset` / `OGRLayer` / `OGRFeature`，不是 `SmtFeature`。
+- `GetDriverByName("SDBD")` 非空；`SDBD:MEM:` 点层往返。
 - `build.bat` 与 `build.bat te` 绿；shapefile + Memory 测试无条件跑；GPKG / PG 随 SDK 跳过或跑。
 - 缺 GPKG 驱动时产品仍能打开 shapefile 与 Memory 层；错误信息说明缺的是驱动，不是 API。
 - 无第二份 GDAL，无 Qt，无 ADO 回潮。
+
+**最后更新：** 2026-09-13

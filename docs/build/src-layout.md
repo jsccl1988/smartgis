@@ -38,9 +38,10 @@ Debug/release DLL file names still use `dll_stem` (legacy `Smt*` + optional `D`)
 | processing / analysis | `src/algorithm/` |
 | `qgis_gui` / `qgis_app` | `src/ui/` / `src/app/` |
 | libqgis_core for embedders | `src/content/public` |
-| WMS/WFS | `src/web/` (not `sdb/map`) |
+| WMS/WFS | leftover `src/web/` (not `sdb/map`) |
+| mapd HTTP | `src/web/mapd` (`web::MapdClient`) |
 
-`sdb/datasource/gdal` is `SmtSDEGdalDevice`: the OGR database provider (GeoPackage / PostGIS / SpatiaLite). SMF still opens files through the same `//third_party/gdal_sdk`. ADO sources are removed.
+`sdb/datasource/gdal` is `SmtSDEGdalDevice`: registers GDAL driver `"SDBD"` plus file/DB/Memory via the same `gdal_sdk`. Product layer types are `GDALDataset` / `OGRLayer` / `OGRFeature`. ADO sources are removed.
 
 ## Layering plan (this pass)
 
@@ -51,7 +52,7 @@ Debug/release DLL file names still use `dll_stem` (legacy `Smt*` + optional `D`)
 | Datasource | `sdb/datasource/{mgr,gdal,mem,smf,ws}` | Provider drivers. DB path is OGR (`sde_gdal`). | yes (`//src/sdb:datasource`) |
 | Algorithm | `algorithm/{geo,proj,tin,baogrid,stat}` | `geo` is one DLL (`SmtGeoCore`) compiling geo + math + math3d + geo3d sources; old math/math3d/geo3d labels are groups. `proj` / `tin` stay their DLLs. **Not** dem (plugin + GDAL + tin). **Not** chart (`ui/chart`). | yes (`//src/algorithm:algorithm`; not `chart`) |
 | Render | `render/` + children | RHI Facade + GPU scene (`render/scene`) + leftover 3D engines (`render3d`, `scene3d`, `model3d`, `terrain`, `pointcloud`). `d3d` unwired. `skia` opt-in stub. | yes (`render_all`, not `d3d` / not `skia`) |
-| Web GIS | `web/{service,server,client,server_mgr,server_dev,cgi,…}` | Former `src/map` server stack. **Not** the map document. | **no** (xcatalog / MFC) |
+| Web GIS | `web/{mapd,service,server,client,server_mgr,server_dev,cgi,…}` | `mapd` is the HTTP client (`:8020`). Leftover WMS stack is former `src/map`. **Not** the map document. | `mapd_client` **yes**; leftover servers **no** (xcatalog / MFC) |
 | Plugin | `plugin/` + children | Host stays; domain modules nest as children. | host only |
 | UI | `ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | Nested only. **Legacy** MFC Feature Pack chrome (`bcg_cmfc.h`). `ui/chart` is the MFC modal diagram (`SmtStaDiagram`); data stays in `algorithm/stat`. | **no** (MFC; gated by `smt_build_app`) |
 | UI toolkit (endgame) | `ui/views` | Chromium-style Views stub (`//:ui_views`). | **no** |
@@ -112,6 +113,7 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 | `SmtConsoleMapServer` | `map_server_console` | `web/server_console` | — | — |
 | `SmtWinServiceMapServer` | `map_server_winsvc` | `web/server_winsvc` | — | — |
 | `SmtCgiWrapper` | `cgi` | `web/cgi` | — | — |
+| — | `mapd_client` | `web/mapd` | `mapd_client` | — (source_set) |
 | `SmtToolCore` | `tool` | `tool` | `tool` | `SmtToolCore` |
 | `SmtGroupToolCore` | `tool_group` | `tool/group` | `tool_group` | `SmtGroupToolCore` |
 | — | `dispatch` | `tool` (`command` / `interaction` / `workspace`) | `dispatch` | — (source_set) |
