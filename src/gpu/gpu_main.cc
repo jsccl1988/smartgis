@@ -213,12 +213,16 @@ int run_server(const Args& args) {
 
 }  // namespace
 
-int render_main(int argc, wchar_t** argv) {
+int GpuMain(int argc, wchar_t** argv) {
   const Args args = parse_args(argc, argv);
   if (args.self_test) {
     return run_self_test(argv && argv[0] ? argv[0] : L"");
   }
   return run_server(args);
+}
+
+int render_main(int argc, wchar_t** argv) {
+  return GpuMain(argc, argv);
 }
 
 }  // namespace gpu

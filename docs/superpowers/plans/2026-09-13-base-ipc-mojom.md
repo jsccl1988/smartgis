@@ -111,9 +111,9 @@ int ContentMain(const ContentMainParams& p) {
 
 Until Task 4, `kRenderer` may share `gpu::render_main` (escape hatch). GPU self-test must still refuse a D3D device in a later split; Task 4 enforces renderer has no GPU device.
 
-- [ ] **Step 1:** Add headers + `.cc` with the signatures above.
-- [ ] **Step 2:** Add to `//src/content:content` sources.
-- [ ] **Step 3:** Commit `Add ContentMain process-type dispatch.`
+- [x] **Step 1:** Add headers + `.cc` with the signatures above.
+- [x] **Step 2:** Add to `//src/content:content` sources.
+- [x] **Step 3:** Commit `Add ContentMain process-type dispatch.`
 
 ---
 
@@ -150,9 +150,9 @@ Use `GetModuleFileNameW(nullptr)` for `exe`. `CREATE_NO_WINDOW` on children. Job
 `--type=gpu --self-test`: creates device + shared handle, no browser HWND.  
 `--type=renderer --self-test`: no GPU device (assert / return 0).
 
-- [ ] **Step 1:** Split `render_main` into `GpuMain` vs renderer stub that connects pipe as today.
-- [ ] **Step 2:** Self-tests as above.
-- [ ] **Step 3:** Commit `Split GpuMain from renderer entry.`
+- [x] **Step 1:** Split `render_main` into `GpuMain` vs renderer stub that connects pipe as today.
+- [x] **Step 2:** Self-tests as above.
+- [x] **Step 3:** Commit `Split GpuMain from renderer entry.`
 
 ---
 
@@ -176,9 +176,9 @@ Use `GetModuleFileNameW(nullptr)` for `exe`. `CREATE_NO_WINDOW` on children. Job
 
 **Files:** spec's "Docs to update" list + `docs/README.md` plan link.
 
-- [ ] **Step 1:** `ui-shell-multiprocess.md` §0.2/0.4: Browser+Renderer+GPU, one PE, `--type=`.
-- [ ] **Step 2:** `src-layout.md`, `README.md`, `build/README.md` C++23 and `ContentMain`.
-- [ ] **Step 3:** Commit `Document ContentMain and the GPU process.`
+- [x] **Step 1:** `ui-shell-multiprocess.md` §0.2/0.4: Browser+Renderer+GPU, one PE, `--type=`.
+- [x] **Step 2:** `src-layout.md`, `README.md`, `build/README.md` C++23 and `ContentMain`.
+- [x] **Step 3:** Commit `Document ContentMain and the GPU process.`
 
 ---
 

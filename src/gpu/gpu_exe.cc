@@ -4,5 +4,5 @@
 #include "gpu/gpu.h"
 
 int wmain(int argc, wchar_t** argv) {
-  return gpu::render_main(argc, argv);
+  return gpu::GpuMain(argc, argv);
 }

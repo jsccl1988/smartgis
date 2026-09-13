@@ -34,6 +34,7 @@ class PresentTarget {
   content::SharedHandleWire wire() const { return wire_; }
   content::PresentMode mode() const { return mode_; }
   uint32_t generation() const { return wire_.generation; }
+  bool has_d3d_device() const { return d3d_device_ != nullptr; }
 
  private:
   void release();

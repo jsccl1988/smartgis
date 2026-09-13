@@ -6,8 +6,9 @@
 
 #include <cstdint>
 
-// GPU / render process payload. Linked into the chrome PE so
-// ContentMain can dispatch --type=gpu in the same image.
+// GPU process payload. Linked into the chrome PE so ContentMain can
+// dispatch --type=gpu in the same image. Renderer must not call this
+// for paint; GpuMain owns D3D/GL.
 namespace gpu {
 
 class SmtAdapter {
@@ -21,6 +22,7 @@ class SmtAdapter {
 };
 
 SmtAdapter* create_smt_adapter();
+int GpuMain(int argc, wchar_t** argv);
 int render_main(int argc, wchar_t** argv);
 int run_self_test(const wchar_t* exe_path);
 
