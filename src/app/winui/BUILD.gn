@@ -1,0 +1,56 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("winui.gni")
+
+# Official Windows App SDK 1.7 (fat nupkg). 2.x on nuget.org is a
+# meta-package without headers — do not point here at 2.4.0.
+wasdk_root =
+    "//third_party/windows_app_sdk/Microsoft.WindowsAppSDK.$winui_windows_app_sdk_version"
+
+config("winui_cc") {
+  include_dirs += [
+    "//src",
+    "//src/app/winui",
+    "$wasdk_root/include",
+    "$root_out_dir/winui_winrt",
+  ]
+  lib_dirs = [ "$wasdk_root/lib/win10-x64" ]
+  libs += [
+    "Microsoft.WindowsAppRuntime.Bootstrap.lib",
+    "Microsoft.WindowsAppRuntime.lib",
+    "windowsapp.lib",
+    "runtimeobject.lib",
+    "d3d11.lib",
+    "dxgi.lib",
+  ]
+  defines = [
+    "NOMINMAX",
+    "WINRT_LEAN_AND_MEAN",
+  ]
+  cflags = [ "/UNTDDI_VERSION" ]
+  cflags_cc = [
+    "/utf-8",
+    "/Zc:preprocessor",
+    "/FIwinui_prefix.h",
+  ]
+  ldflags = [ "/MANIFESTINPUT:" + rebase_path("app.manifest", root_build_dir) ]
+}
+
+# Scheme 2 chrome. Loaded only when smt_build_winui=true.
+executable("app_winui") {
+  output_name = "SmartGisWinui"
+  sources = [
+    "application.cc",
+    "detail/bootstrap.cc",
+    "detail/local_render.cc",
+    "main_window.cc",
+    "map_host.cc",
+    "win_main.cc",
+  ]
+  configs += [
+    "//build/config/win:windows_subsystem",
+    ":winui_cc",
+  ]
+  deps = [ "//src/content:content" ]
+}
