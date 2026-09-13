@@ -21,6 +21,8 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 
 #include "base/core/core.h"
+#include "base/core/bas_struct.h"
+#include "sdb/feature/attribute.h"
 #include "sdb/feature/feature.h"
 
 using namespace base;

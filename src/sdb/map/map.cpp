@@ -3,12 +3,14 @@
 
 #include "sdb/map/map.h"
 
+#include "algorithm/geo/geometry.h"
 #include "sdb/feature/feature_api.h"
 
 #include "ogrsf_frmts.h"
 
 #include <cstring>
 #include <string>
+#include <utility>
 
 namespace sdb {
 
@@ -39,110 +41,63 @@ const char* SmtMap::GetLayerName(int index) const {
   if (index < 0 || index >= static_cast<int>(layers_.size())) {
     return "";
   }
-  const Entry& e = layers_[index];
-  if (e.ogr) {
-    return e.ogr->GetName();
-  }
-  if (e.leftover) {
-    return e.leftover->GetLayerName();
-  }
-  return "";
+  return layers_[index].name();
 }
 
 SmtLayerType SmtMap::GetLayerType(int index) const {
   if (index < 0 || index >= static_cast<int>(layers_.size())) {
     return LYR_VECTOR;
   }
-  return layers_[index].type;
+  return layers_[index].layer_type();
 }
 
 bool SmtMap::IsLayerVisible(int index) const {
   if (index < 0 || index >= static_cast<int>(layers_.size())) {
     return false;
   }
-  const Entry& e = layers_[index];
-  if (e.leftover) {
-    return e.leftover->IsVisible();
-  }
-  return e.visible;
+  return layers_[index].visible();
 }
 
 void SmtMap::SetLayerVisible(int index, bool visible) {
   if (index < 0 || index >= static_cast<int>(layers_.size())) {
     return;
   }
-  layers_[index].visible = visible;
-  if (layers_[index].leftover) {
-    layers_[index].leftover->SetVisible(visible);
-  }
+  layers_[index].set_visible(visible);
 }
 
-void SmtMap::envelope_of(const Entry& e, Envelope* env) const {
-  if (!env) {
-    return;
+void SmtMap::envelope_of(const MapLayer& layer, Envelope* env) const {
+  layer.get_envelope(env);
+}
+
+bool SmtMap::AddLayer(MapLayer layer) {
+  if ((!layer.ogr() && !layer.leftover()) ||
+      index_of_name(layer.name()) >= 0) {
+    return false;
   }
-  *env = Envelope();
-  if (e.leftover) {
-    e.leftover->get_envelope(*env);
-    return;
+  if (layers_.empty()) {
+    m_MapEnvelope.MaxX = m_MapEnvelope.MinX = m_MapEnvelope.MaxY =
+        m_MapEnvelope.MinY = SMT_C_INVALID_DBF_VALUE;
   }
-  if (!e.ogr) {
-    return;
-  }
-  OGREnvelope ogr_env;
-  if (e.ogr->GetExtent(&ogr_env, TRUE) == OGRERR_NONE) {
-    env->MinX = ogr_env.MinX;
-    env->MinY = ogr_env.MinY;
-    env->MaxX = ogr_env.MaxX;
-    env->MaxY = ogr_env.MaxY;
-  }
+  Envelope lyr;
+  layer.get_envelope(&lyr);
+  layers_.push_back(std::move(layer));
+  active_ = static_cast<int>(layers_.size()) - 1;
+  m_MapEnvelope.merge(lyr);
+  return true;
 }
 
 bool SmtMap::AddLayer(OGRLayer* layer) {
-  if (!layer || index_of_name(layer->GetName()) >= 0) {
-    return false;
-  }
-  if (layers_.empty()) {
-    m_MapEnvelope.MaxX = m_MapEnvelope.MinX = m_MapEnvelope.MaxY =
-        m_MapEnvelope.MinY = SMT_C_INVALID_DBF_VALUE;
-  }
-  Entry e;
-  e.type = LYR_VECTOR;
-  e.ogr = layer;
-  layers_.push_back(e);
-  active_ = static_cast<int>(layers_.size()) - 1;
-  Envelope lyr;
-  envelope_of(e, &lyr);
-  m_MapEnvelope.merge(lyr);
-  return true;
+  return AddLayer(MapLayer::from_ogr(layer));
 }
 
 bool SmtMap::AddLayer(SmtLayer* layer) {
-  if (!layer || index_of_name(layer->GetLayerName()) >= 0) {
-    return false;
-  }
-  if (layers_.empty()) {
-    m_MapEnvelope.MaxX = m_MapEnvelope.MinX = m_MapEnvelope.MaxY =
-        m_MapEnvelope.MinY = SMT_C_INVALID_DBF_VALUE;
-  }
-  Entry e;
-  e.type = layer->GetLayerType();
-  e.leftover = layer;
-  layers_.push_back(e);
-  active_ = static_cast<int>(layers_.size()) - 1;
-  Envelope lyr;
-  layer->get_envelope(lyr);
-  m_MapEnvelope.merge(lyr);
-  return true;
+  return AddLayer(MapLayer::from_leftover(layer, true));
 }
 
 bool SmtMap::DeleteLayer(const char* szName) {
   const int i = index_of_name(szName);
   if (i < 0) {
     return false;
-  }
-  if (layers_[i].owns_leftover) {
-    SMT_SAFE_DELETE(layers_[i].leftover);
   }
   layers_.erase(layers_.begin() + i);
   if (active_ == i) {
@@ -193,16 +148,20 @@ void SmtMap::SetActiveOgrLayer(OGRLayer* layer) {
     return;
   }
   for (int i = 0; i < static_cast<int>(layers_.size()); ++i) {
-    if (layers_[i].ogr == layer) {
+    if (layers_[i].ogr() == layer) {
       active_ = i;
       return;
     }
   }
 }
 
-OGRLayer* SmtMap::GetActiveOgrLayer() {
-  return GetOgrLayer(active_);
+MapLayer* SmtMap::GetActiveMapLayer() { return GetMapLayer(active_); }
+
+const MapLayer* SmtMap::GetActiveMapLayer() const {
+  return GetMapLayer(active_);
 }
+
+OGRLayer* SmtMap::GetActiveOgrLayer() { return GetOgrLayer(active_); }
 
 const OGRLayer* SmtMap::GetActiveOgrLayer() const {
   return GetOgrLayer(active_);
@@ -214,6 +173,28 @@ SmtLayer* SmtMap::GetActiveLeftoverLayer() {
 
 const SmtLayer* SmtMap::GetActiveLeftoverLayer() const {
   return GetLeftoverLayer(active_);
+}
+
+MapLayer* SmtMap::GetMapLayer(const char* szName) {
+  return GetMapLayer(index_of_name(szName));
+}
+
+const MapLayer* SmtMap::GetMapLayer(const char* szName) const {
+  return GetMapLayer(index_of_name(szName));
+}
+
+MapLayer* SmtMap::GetMapLayer(int index) {
+  if (index < 0 || index >= static_cast<int>(layers_.size())) {
+    return nullptr;
+  }
+  return &layers_[index];
+}
+
+const MapLayer* SmtMap::GetMapLayer(int index) const {
+  if (index < 0 || index >= static_cast<int>(layers_.size())) {
+    return nullptr;
+  }
+  return &layers_[index];
 }
 
 OGRLayer* SmtMap::GetOgrLayer(const char* szName) {
@@ -233,31 +214,23 @@ const SmtLayer* SmtMap::GetLeftoverLayer(const char* szName) const {
 }
 
 OGRLayer* SmtMap::GetOgrLayer(int index) {
-  if (index < 0 || index >= static_cast<int>(layers_.size())) {
-    return nullptr;
-  }
-  return layers_[index].ogr;
+  MapLayer* layer = GetMapLayer(index);
+  return layer ? layer->ogr() : nullptr;
 }
 
 const OGRLayer* SmtMap::GetOgrLayer(int index) const {
-  if (index < 0 || index >= static_cast<int>(layers_.size())) {
-    return nullptr;
-  }
-  return layers_[index].ogr;
+  const MapLayer* layer = GetMapLayer(index);
+  return layer ? layer->ogr() : nullptr;
 }
 
 SmtLayer* SmtMap::GetLeftoverLayer(int index) {
-  if (index < 0 || index >= static_cast<int>(layers_.size())) {
-    return nullptr;
-  }
-  return layers_[index].leftover;
+  MapLayer* layer = GetMapLayer(index);
+  return layer ? layer->leftover() : nullptr;
 }
 
 const SmtLayer* SmtMap::GetLeftoverLayer(int index) const {
-  if (index < 0 || index >= static_cast<int>(layers_.size())) {
-    return nullptr;
-  }
-  return layers_[index].leftover;
+  const MapLayer* layer = GetMapLayer(index);
+  return layer ? layer->leftover() : nullptr;
 }
 
 void SmtMap::MoveFirst() const { m_nIteratorIndex = 0; }
@@ -277,9 +250,6 @@ void SmtMap::Delete() {
       m_nIteratorIndex >= static_cast<int>(layers_.size())) {
     return;
   }
-  if (layers_[m_nIteratorIndex].owns_leftover) {
-    SMT_SAFE_DELETE(layers_[m_nIteratorIndex].leftover);
-  }
   layers_.erase(layers_.begin() + m_nIteratorIndex);
   if (active_ == m_nIteratorIndex) {
     active_ = -1;
@@ -290,11 +260,6 @@ void SmtMap::Delete() {
 }
 
 void SmtMap::DeleteAll() {
-  for (Entry& e : layers_) {
-    if (e.owns_leftover) {
-      SMT_SAFE_DELETE(e.leftover);
-    }
-  }
   layers_.clear();
   active_ = -1;
 }
@@ -306,11 +271,9 @@ bool SmtMap::IsEnd() const {
 void SmtMap::CalEnvelope() {
   Envelope lyr;
   m_MapEnvelope = Envelope();
-  for (const Entry& e : layers_) {
-    if (e.leftover) {
-      e.leftover->CalEnvelope();
-    }
-    envelope_of(e, &lyr);
+  for (MapLayer& layer : layers_) {
+    layer.cal_envelope();
+    envelope_of(layer, &lyr);
     m_MapEnvelope.merge(lyr);
   }
 }

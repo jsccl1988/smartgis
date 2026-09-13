@@ -3,6 +3,9 @@
 
 #include "plugin/model3d/model3d_commands.h"
 
+#include <string>
+#include <string_view>
+
 #include "content/public/plugin_host.h"
 #include "tool/command.h"
 #include "ui/views/file_picker.h"
@@ -69,14 +72,13 @@ bool handle_add_pointcloud(const tool::CommandArgs&) {
       L"Data Files (*.txt)\0*.txt\0All Files (*.*)\0*.*\0";
   const ui::views::FilePickerResult pick =
       ui::views::pick_open_file(kFilter);
-  if (!pick.accepted) {
-    ui::views::show_message_box(ui::views::MessageBoxKind::kError,
-                                "No file was selected to open.");
+  if (!pick.accepted || pick.path.empty()) {
     return false;
   }
 
   void* device = detail::scene_render_device();
   if (!device) {
+    // No 3D scene / render device attached on the Views path yet.
     return false;
   }
   return detail::add_pointcloud_to_scene(pick.path, device);
@@ -165,6 +167,9 @@ bool handle_layer_polygons_to_3d(const tool::CommandArgs&) {
 bool contribute(content::PluginHost* host, std::string_view command_id,
                 std::string_view title, std::string_view menu_id,
                 tool::CommandHandler handler) {
+  if (!host || command_id.empty() || !handler) {
+    return false;
+  }
   return host->contribute_command(kPluginId, command_id, title, menu_id,
                                   std::move(handler));
 }

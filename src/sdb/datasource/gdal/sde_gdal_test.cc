@@ -591,13 +591,30 @@ int main() {
     }
   }
 
-  auto* ras = new sdb::datasource::OgrRasterLayer(gdal_ds);
+  auto* ras = new sdb::datasource::OgrRasterLayer(nullptr);
   expect(ras != nullptr, "raster layer object");
   if (ras) {
-    const bool created = ras->Create();
-    const long cr = ras->CreaterRaster(nullptr, 0, rect, 0);
-    expect(!created, "raster Create false");
-    expect(cr == SMT_ERR_UNSUPPORTED, "raster create unsupported");
+    expect(ras->Create(), "raster MEM Create");
+    const char payload[] = "ras-bytes";
+    const long cr =
+        ras->CreaterRaster(payload, static_cast<long>(sizeof(payload)), rect, 7);
+    expect(cr == SMT_ERR_NONE, "raster CreaterRaster");
+    char* got = nullptr;
+    long got_size = 0;
+    long got_code = -1;
+    fRect got_rect;
+    expect(ras->GetRasterNoClone(got, got_size, got_rect, got_code) ==
+               SMT_ERR_NONE,
+           "GetRasterNoClone");
+    expect(got && got_size == static_cast<long>(sizeof(payload)) &&
+               std::memcmp(got, payload, sizeof(payload)) == 0,
+           "raster blob round-trip");
+    expect(got_code == 7, "raster image code");
+    expect(got_rect.rt.x == rect.rt.x && got_rect.rt.y == rect.rt.y,
+           "raster rect");
+    expect(ras->GetDataset() != nullptr &&
+               ras->GetDataset()->GetRasterCount() > 0,
+           "raster hangs GDALDataset bands");
     SMT_SAFE_DELETE(ras);
   }
 
@@ -620,11 +637,16 @@ int main() {
     rrect.lb.y = 0;
     rrect.rt.x = 1;
     rrect.rt.y = 1;
-    auto* ras = new sdb::datasource::OgrRasterLayer(nullptr);
-    expect(!ras->Create(), "raster Create false when bands cannot be written");
-    expect(ras->CreaterRaster(nullptr, 0, rrect, 0) == SMT_ERR_UNSUPPORTED,
-           "raster create unsupported (no blob table)");
-    SMT_SAFE_DELETE(ras);
+    GDALDriver* mem_ras = GetGDALDriverManager()->GetDriverByName("MEM");
+    if (!mem_ras) {
+      std::fprintf(stderr, "SKIP: MEM raster driver missing\n");
+    } else {
+      auto* ras = new sdb::datasource::OgrRasterLayer(nullptr);
+      expect(ras->Create(), "standalone MEM raster Create");
+      expect(ras->CreaterRaster(nullptr, 0, rrect, 0) == SMT_ERR_NONE,
+             "empty CreaterRaster ok");
+      SMT_SAFE_DELETE(ras);
+    }
   }
 
   sdb::SmtDataSourceMgr* mgr =
@@ -655,6 +677,32 @@ int main() {
       expect(scratch.layer->GetFeatureCount() >= 1, "scratch count");
     }
     sdb::SmtDataSourceMgr::DestoryMemVecLayer(scratch);
+    sdb::SmtRasterLayer* mem_ras =
+        sdb::SmtDataSourceMgr::CreateMemRasLayer();
+    expect(mem_ras != nullptr, "CreateMemRasLayer");
+    if (mem_ras) {
+      expect(dynamic_cast<sdb::datasource::OgrRasterLayer*>(mem_ras) != nullptr,
+             "CreateMemRasLayer is OgrRasterLayer");
+      expect(mem_ras->IsOpen() && mem_ras->GetDataset() != nullptr,
+             "CreateMemRasLayer open with GDALDataset");
+      const char bytes[] = {1, 2, 3, 4};
+      fRect rr;
+      rr.lb.x = 0;
+      rr.lb.y = 0;
+      rr.rt.x = 2;
+      rr.rt.y = 2;
+      expect(mem_ras->CreaterRaster(bytes, 4, rr, 3) == SMT_ERR_NONE,
+             "mgr ras CreaterRaster");
+      char* out = nullptr;
+      long out_n = 0;
+      long out_code = 0;
+      fRect out_r;
+      expect(mem_ras->GetRasterNoClone(out, out_n, out_r, out_code) ==
+                 SMT_ERR_NONE &&
+             out_n == 4 && out && out[0] == 1 && out_code == 3,
+             "mgr ras GetRasterNoClone");
+      sdb::SmtDataSourceMgr::DestoryMemRasLayer(mem_ras);
+    }
   }
 
   const char* pg_dsn = std::getenv("SMT_PG_DSN");

@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "render/rhi/rhi.h"
@@ -41,6 +42,9 @@ struct GpuInstance {
   std::vector<const OGRGeometry*> geoms;
   const geo::Tin* tin = nullptr;
   const geo::Grid* grid = nullptr;
+  const sdb::model::ModelAsset* model = nullptr;
+  const sdb::model::Tileset* tileset = nullptr;
+  std::vector<std::string> visible_uris;
 };
 
 // Uploads tessellated OGRGeometry (2D and 3D instance Z) onto one list.
@@ -64,6 +68,15 @@ class GpuScene {
               uint32_t width, uint32_t height);
   void release();
 
+  // Ortho zoom/pan override (map envelope). When unset, AABB of 2D instances.
+  void set_view_ortho(double min_x, double min_y, double max_x, double max_y);
+  void clear_view_ortho();
+  bool has_view_ortho() const { return view_ortho_set_; }
+
+  // Default solid fill for untextured meshes (matches leftover brush cyan).
+  void set_solid_color(float r, float g, float b, float a);
+  void set_solid_color_from_colorref(long colorref);
+
   // GPU-uploaded triangle mesh for one World node (tessellated GIS geom).
   struct GpuMesh {
     sdb::scene::NodeKind kind;
@@ -72,6 +85,10 @@ class GpuScene {
     render::rhi::Texture* texture;
     uint32_t index_count;
     uint32_t stride;
+    float solid_r;
+    float solid_g;
+    float solid_b;
+    float solid_a;
   };
 
  private:
@@ -83,6 +100,15 @@ class GpuScene {
   render::rhi::Device* upload_device_;
   std::vector<GpuMesh> meshes_;
   bool meshes_dirty_;
+  bool view_ortho_set_;
+  double view_min_x_;
+  double view_min_y_;
+  double view_max_x_;
+  double view_max_y_;
+  float solid_r_;
+  float solid_g_;
+  float solid_b_;
+  float solid_a_;
 };
 
 }  // namespace scene

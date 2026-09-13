@@ -7,7 +7,6 @@ smt_shared_library("sde_mem") {
   dll_stem = "sde_mem"
   defines = [ "SDE_MEM_EXPORTS" ]
   sources = [
-    "memraslayer.cpp",
     "memtitlelayer.cpp",
   ]
   deps = [

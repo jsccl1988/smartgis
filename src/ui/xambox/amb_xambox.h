@@ -22,7 +22,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 
 #include "base/core/core.h"
-#include "plugin/module.h"
+#include "plugin/legacy/module.h"
 // SmtXAMBox
 using namespace plugin;
 

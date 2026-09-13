@@ -8,10 +8,10 @@
 #include "base/core/listenermanager.h"
 #include "base/core/logmanager.h"
 #include "content/public/view_host.h"
-#include "plugin/module_manager.h"
-#include "plugin/plugin_msg.h"
+#include "plugin/legacy/module_manager.h"
+#include "plugin/legacy/plugin_msg.h"
 #include "sys/sysmanager.h"
-#include "tool/t_iatoolmanager.h"
+#include "legacy_tool/t_iatoolmanager.h"
 #include "ui/xview/view_chrome.h"
 #include "ui/xview/view_core.h"
 

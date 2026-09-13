@@ -1,0 +1,10 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Real Skia paint backend for Views chrome. Default off — product path stays
+# the GDI stub in canvas.cc. Same discipline as FlyCube: local pin / junction
+# only; do not vendor the Skia tree into git; never pull into src_all /
+# render_all. Enable explicitly: gn args → smt_has_skia=true (and pin on disk).
+declare_args() {
+  smt_has_skia = false
+}

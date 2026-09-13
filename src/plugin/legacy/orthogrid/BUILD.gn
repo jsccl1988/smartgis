@@ -1,0 +1,32 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_mfc_shared_library("plugin_orthogrid") {
+  dll_stem = "plugin_orthogrid"
+  sources = [
+    "creater.cpp",
+    "creater.rc",
+    "plug.cpp",
+    "stdafx.cpp",
+  ]
+  include_dirs += [
+    "//src/plugin/legacy/orthogrid",
+    "//src/plugin/orthogrid",
+    "//src",
+  ]
+  deps = [
+    "//src/plugin/orthogrid:orthogrid_kernel",
+    "//src/algorithm/geo:geo",
+    "//src/base:core",
+    "//src/plugin/host:legacy_cmd",
+    "//src/plugin/legacy:plugin",
+    "//src/legacy_tool:tool",
+    "//src/legacy_tool/group:tool_group",
+    "//src/ui/xcatalog:xcatalog",
+    "//src/ui/xview:xview",
+    "//src/sys:sys",
+    "//third_party:eigen",
+  ]
+}

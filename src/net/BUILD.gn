@@ -4,7 +4,7 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-# One DLL. Subdirs match mogu: pack (archive/pickle), http, rpc, udp.
+# One DLL. Subdirs: pack (pickle on base/archive), http, rpc.
 smt_shared_library("net") {
   dll_stem = "net"
   defines = [ "NET_EXPORTS" ]
@@ -12,9 +12,11 @@ smt_shared_library("net") {
   sources = [
     "http/http.cpp",
     "rpc/rpc.cpp",
-    "udp/udp.cpp",
   ]
-  deps = [ "//src/base:core" ]
+  deps = [
+    "//src/base:core",
+    "//src/base/archive:archive",
+  ]
   public_deps = [
     "//third_party:asio",
     "//third_party:cpp_httplib",
@@ -29,6 +31,7 @@ test("net_test") {
   deps = [
     ":net",
     "//src/base:core",
+    "//src/base/archive:archive",
     "//third_party:asio",
     "//third_party:cpp_httplib",
   ]

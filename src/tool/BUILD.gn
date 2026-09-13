@@ -4,19 +4,8 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-smt_shared_library("tool") {
-  dll_stem = "tool"
-  defines = [ "TOOL_EXPORTS" ]
-  include_dirs += [ "//src" ]
-  sources = [
-    "t_iatool.cpp",
-    "t_iatoolmanager.cpp",
-    "t_msg.cpp",
-  ]
-  deps = [ "//src/base:core" ]
-}
-
 # Session-scoped Command / Input / Workspace. Not the leftover IATool DLL.
+# Leftover SmtIATool lives at //src/legacy_tool:tool.
 source_set("dispatch") {
   sources = [
     "command.cc",

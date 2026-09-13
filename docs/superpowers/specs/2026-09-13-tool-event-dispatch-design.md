@@ -7,11 +7,12 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted (v1 landed)  
+**Related:** leftover path split [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](../archive/specs/2026-09-13-tool-legacy-split-design.md).  
 **Scope:** one implementation plan. Replace the 2010 `SmtIATool` = event-bus + mouse-state-machine mash-up with four channels (Command, Input, Operation, Domain Event), scoped per map session/view. Align with QGIS `QAction`/`QgsMapTool` and ArcGIS `ICommand`/`ITool`. Do not rewrite leftover `Smt_*` ABI in this change.
 
 ## Goal
 
-`src/tool` today is three copied int buses (`SmtListenerManager`, `SmtIAToolManager`, `SmtAModuleManager`) plus an exclusive `GetActiveIATool()` mouse sink. Menu items, mouse gestures, document writes, and “get me the 2D view” RPC all share `long` + `WPARAM`/`LPARAM`.
+`src/tool` today is three copied int buses (`SmtListenerManager`, `SmtIAToolManager`, `SmtAModuleManager`) plus an exclusive `GetActiveIATool()` mouse sink. Menu items, mouse gestures, document writes, and ?get me the 2D view? RPC all share `long` + `WPARAM`/`LPARAM`.
 
 The replacement is:
 
@@ -34,7 +35,7 @@ The replacement is:
 
 | Topic | Choice |
 | --- | --- |
-| OSS model | QGIS / ArcGIS: Command vs MapTool. Borrow Mapbox Draw “store commits, mode does not mutate” |
+| OSS model | QGIS / ArcGIS: Command vs MapTool. Borrow Mapbox Draw ?store commits, mode does not mutate? |
 | Dispatch scope | Per `tool::Workspace` (one per map view). Not process-global |
 | Input | `InputRouter` targeting, not EventBus |
 | Commands | Stable string ids (`view.zoom_in`). Leftover `GT_MSG_*` mapped by adapter |
@@ -48,19 +49,19 @@ The replacement is:
 
 ```
 Chrome (Views / leftover MFC)
-  CommandId  ──────────────────────────►  tool::CommandDispatcher
-  leftover pointer  ─► content::ToolRouter::dispatch
-                              │
-                              ▼ renderer / in-process
+  CommandId  ???????????????????????????  tool::CommandDispatcher
+  leftover pointer  ?? content::ToolRouter::dispatch
+                              ?
+                              ? renderer / in-process
                        tool::Workspace (per view)
-                          │
-          ┌───────────────┼────────────────┐
-          ▼               ▼                ▼
+                          ?
+          ??????????????????????????????????
+          ?               ?                ?
    InputRouter      CommandCatalog    sdb::EditSession
-   always-on           │                    │
+   always-on           ?                    ?
    + current      activate Interaction      commit
-   InteractionStack                         │
-                                            ▼
+   InteractionStack                         ?
+                                            ?
                                    content::EventBus
                                    SelectionChanged
                                    ExtentChanged
@@ -80,8 +81,8 @@ Chrome includes only `content/public`. It must not include `t_iatool.h`.
 | `Interaction` / `Stack` / `InputRouter` | `src/tool/interaction.h` | `tool` | Mouse state machines |
 | `Workspace` | `src/tool/workspace.h` | `tool` | Composition root per view |
 | `EditSession` | `src/sdb/edit/edit_session.h` | `sdb` | Undoable document mutations |
-| `command_id_from_gt_msg` | `src/tool/legacy_msg.h` | `tool` | `GT_MSG_*` → string id |
-| Leftover | `src/tool/t_*.h`, `tool/group` | `Smt_IATool` | Unchanged DLL |
+| `command_id_from_gt_msg` | `src/tool/legacy_msg.h` | `tool` | `GT_MSG_*` ? string id |
+| Leftover | `src/legacy_tool/t_*.h`, `legacy_tool/group` | `Smt_IATool` | Unchanged DLL |
 
 New modules are **source_sets**, not DLLs. `//src/tool:dispatch` and `//src/sdb/edit:edit` join `src_all`. Tests: `tool_dispatch_test`.
 
@@ -308,7 +309,7 @@ const char* command_id_from_gt_msg(long msg);  // nullptr if unknown
 }
 ```
 
-`command_id_from_gt_msg` uses numeric copies of leftover `GT_MSG_CMD_*` in `legacy_msg.h` (do not include `tool/group/defs.h` from dispatch TUs — that header pulls WinSock through `msg.h` and breaks ASIO/`fd_set`). Keep the enum in sync with `defs.h`.
+`command_id_from_gt_msg` uses numeric copies of leftover `GT_MSG_CMD_*` in `legacy_msg.h` (do not include `legacy_tool/group/defs.h` from dispatch TUs ? that header pulls WinSock through `msg.h` and breaks ASIO/`fd_set`). Keep the enum in sync with `defs.h`.
 
 ## Data flow
 
@@ -363,7 +364,7 @@ Must cover:
 
 ## Docs
 
-Same change set: `docs/README.md` index, `docs/build/src-layout.md` tool row + `sdb/edit`, `src/README.md` tool paragraph. Root `README.md` only if the module table still claims tool is “interactive tools” with no dispatch split — add one clause, refresh 最后更新.
+Same change set: `docs/README.md` index, `docs/build/src-layout.md` tool row + `sdb/edit`, `src/README.md` tool paragraph. Root `README.md` only if the module table still claims tool is ?interactive tools? with no dispatch split ? add one clause, refresh ????.
 
 ## Leftover plugin menus
 

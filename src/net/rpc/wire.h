@@ -72,12 +72,13 @@ inline std::string_view line_strip(std::string_view frame) {
 }  // namespace detail
 }  // namespace net
 
-namespace net {
+// Specialize base::binary_format_traits (primary lives in base/archive).
+namespace base {
 
 template <>
-struct binary_format_traits<detail::RpcMessage> {
+struct binary_format_traits<::net::detail::RpcMessage> {
   template <typename Stream>
-  static void write(Stream&& stream, const detail::RpcMessage& value) {
+  static void write(Stream&& stream, const ::net::detail::RpcMessage& value) {
     Serializer ar(stream);
     ar << value.head;
     if (value.head.valid()) {
@@ -86,7 +87,7 @@ struct binary_format_traits<detail::RpcMessage> {
   }
 
   template <typename Stream>
-  static void read(Stream&& stream, detail::RpcMessage& value) {
+  static void read(Stream&& stream, ::net::detail::RpcMessage& value) {
     Deserializer ar(stream);
     ar >> value.head;
     if (value.head.valid()) {
@@ -95,6 +96,9 @@ struct binary_format_traits<detail::RpcMessage> {
   }
 };
 
+}  // namespace base
+
+namespace net {
 namespace detail {
 
 inline std::string encode_call_body(uint64_t uid, const std::string& method,

@@ -12,7 +12,7 @@ All rights reserved.
 | `build.sh` + `m`/`te`/`a`/`b` | 根目录 `build.bat`（同别名） | 已建 |
 | `BUILD.gn` 根组 | 同 | 已建 |
 | `.gn` → `//build/BUILDCONFIG.gn` | 同（Windows toolchain 经 mgis 适配） | 已建 |
-| 模块树在仓库根（`base/` …） | 产品在 **`src/`**，按层嵌套（`core`、`gis/proj`、`render/gl`、`sde/smf` …）；对照 [`src-layout.md`](src-layout.md) | 已迁+分层 |
+| 模块树在仓库根（`base/` …） | 产品在 **`src/`**，按层嵌套（`core`、`gis/proj`、`render/gl`、`sde/gdal` …）；对照 [`src-layout.md`](src-layout.md) | 已迁+分层 |
 | `third_party/` | `third_party/`（`manifest.json` + 源码在 `.src/`；薄 `BUILD.gn` 转发 `//third_party:<name>` → `third_party/gn/`；GIS pin 复用 mgis Gitea） | 已建 |
 | `third_party/.install` / `build t` 装 prefix | **对齐**；`build.bat t` → `tools/batch.py` 装到 `.install`。Windows 本地 fallback：`.install` 可 junction → mgis `out/third_party`。`out/third_party` 可再 junction 到 `.install`（运行时搜 DLL）；GN 吃 `.install`。不在 ninja 里 cmake sqlite3/PROJ/gdal | 已对齐 |
 | `out/` + `out/build.log` | 同 | 已建 |
@@ -24,4 +24,4 @@ All rights reserved.
 
 ---
 
-**最后更新：** 2026-09-13
+**最后更新：** 2026-09-14

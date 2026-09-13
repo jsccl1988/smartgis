@@ -13,12 +13,12 @@
 #include "sdb/datasource/mgr/datasourcemgr.h"
 #include "sdb/feature/feature_api.h"
 #include "base/core/logmanager.h"
-#include "tool/t_iatoolmanager.h"
+#include "legacy_tool/t_iatoolmanager.h"
 #include "base/core/msg.h"
-#include "tool/group/defs.h"
+#include "legacy_tool/group/defs.h"
 #include "ui/gui/gui_api.h"
-#include "plugin/plugin_msg.h"
-#include "tool/t_msg.h"
+#include "plugin/legacy/plugin_msg.h"
+#include "legacy_tool/t_msg.h"
 
 using namespace sdb;
 using namespace sdb;

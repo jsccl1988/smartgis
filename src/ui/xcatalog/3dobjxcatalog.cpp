@@ -14,12 +14,12 @@
 #include "sdb/datasource/mgr/datasourcemgr.h"
 #include "sdb/feature/feature_api.h"
 #include "base/core/logmanager.h"
-#include "tool/t_iatoolmanager.h"
+#include "legacy_tool/t_iatoolmanager.h"
 #include "base/core/msg.h"
-#include "tool/group/defs.h"
-#include "render/model3d/sphere.h"
-#include "render/model3d/water.h"
-#include "render/terrain/terrain.h"
+#include "legacy_tool/group/defs.h"
+#include "legacy_render/model3d/sphere.h"
+#include "legacy_render/model3d/water.h"
+#include "legacy_render/terrain/terrain.h"
 #include "base/core/api.h"
 
 using namespace render;

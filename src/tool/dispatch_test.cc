@@ -3,7 +3,7 @@
 
 #include "content/public/event_bus.h"
 #include "content/public/events.h"
-#include "plugin/legacy_cmd.h"
+#include "plugin/host/legacy_cmd.h"
 #include "sdb/edit/edit_session.h"
 #include "tool/command.h"
 #include "tool/interaction.h"
@@ -14,6 +14,8 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
+#include <vector>
 
 namespace {
 
@@ -109,6 +111,15 @@ int main() {
     tool::CommandDispatcher dispatcher(&catalog);
     expect(!dispatcher.execute("nope", {}), "unknown id");
     expect(dispatcher.execute("selection.clear", {}), "known id");
+
+    expect(catalog.add("view.pan",
+                       [](const tool::CommandArgs&) { return true; }),
+           "add pan");
+    std::vector<std::string> ids;
+    catalog.for_each([&](std::string_view id) { ids.emplace_back(id); });
+    expect(ids.size() == 2, "for_each count");
+    expect(ids[0] == "selection.clear" && ids[1] == "view.pan",
+           "for_each map order");
   }
 
   {

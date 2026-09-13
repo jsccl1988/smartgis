@@ -1,0 +1,42 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Foundation DLL (threads, log, plugin LoadLibrary, xml, …).
+# Label alias at //src/base:core keeps call sites stable (mogu-style
+# colocated BUILD under base/core/, parent group forwards public_deps).
+
+smt_shared_library("core") {
+  dll_stem = "core"
+  deps = [ "//third_party:CxImage" ]
+  defines = [ "CORE_EXPORTS=1" ]
+  sources = [
+    "api.cpp",
+    "core_assert.cpp",
+    "command.cpp",
+    "cslock.cpp",
+    "dynlib.cpp",
+    "dynlibmanager.cpp",
+    "filesys.cpp",
+    "listener.cpp",
+    "listenermanager.cpp",
+    "log.cpp",
+    "logmanager.cpp",
+    "mempool.cpp",
+    "mempoolmgr.cpp",
+    "memshare.cpp",
+    "msg.cpp",
+    "plugin.cpp",
+    "pluginmanager.cpp",
+    "srwlock.cpp",
+    "thread.cpp",
+    "threadpool.cpp",
+    "timer.cpp",
+    "winservice.cpp",
+    "workthread.cpp",
+    "xml.cpp",
+    "xmlerror.cpp",
+    "xmlparser.cpp",
+  ]
+}

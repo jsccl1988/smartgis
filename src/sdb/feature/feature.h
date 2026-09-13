@@ -1,13 +1,12 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef _GIS_FEATURE_H
-#define _GIS_FEATURE_H
+#ifndef SDB_FEATURE_FEATURE_H_
+#define SDB_FEATURE_FEATURE_H_
 
-#include "sdb/feature/attribute.h"
 #include "sdb/gis_export.h"
-#include "base/style/style.h"
 
+class OGRFeature;
 class OGRGeometry;
 class OGRLayer;
 
@@ -16,10 +15,18 @@ class Grid;
 class Tin;
 }
 
+namespace base {
+class SmtStyle;
+}
+
+namespace render {
+class SmtMaterial;
+}
+
 namespace sdb {
 
-// Product feature kind. Storage and map documents use OGRFeature; this enum
-// only labels layer geometry / extra fields (anno, tin, grid).
+// Product feature kind. Storage is OGRFeature; this labels extra fields /
+// Grid / Tin / anno semantics.
 enum SmtFeatureType {
   SmtFtDot,
   SmtFtAnno,
@@ -31,50 +38,96 @@ enum SmtFeatureType {
   SmtFtUnknown
 };
 
-// Leftover tool/UI holder until those TUs speak OGRFeature directly.
+// Composes OGRFeature (fields + geometry) plus style / Grid / Tin / material
+// sidecars. Not a second attribute store. Class name stays SmtFeature for DLL ABI.
 class GIS_EXPORT SmtFeature {
  public:
   SmtFeature();
+  SmtFeature(OGRFeature* ogr, bool take_ownership);
   ~SmtFeature();
 
-  long GetID() const { return id_; }
-  void SetID(long id) { id_ = id; }
+  SmtFeature(SmtFeature&& other) noexcept;
+  SmtFeature& operator=(SmtFeature&& other) noexcept;
+  SmtFeature(const SmtFeature&) = delete;
+  SmtFeature& operator=(const SmtFeature&) = delete;
 
-  SmtFeatureType GetFeatureType() const { return type_; }
+  static SmtFeature borrow(OGRFeature* ogr);
+  OGRFeature* release();
+  void reset_ogr(OGRFeature* ogr, bool take_ownership);
+
+  OGRFeature* ogr() { return ogr_; }
+  const OGRFeature* ogr() const { return ogr_; }
+  bool owns_ogr() const { return owns_ogr_; }
+
+  long id() const;
+  void set_id(long id);
+  SmtFeatureType feature_type() const { return type_; }
+  void set_feature_type(SmtFeatureType type);
+
+  OGRGeometry* geometry();
+  const OGRGeometry* geometry() const;
+  void set_geometry(OGRGeometry* geom);
+  void set_geometry_directly(OGRGeometry* geom);
+  void set_geometry(geo::Grid* grid);
+  void set_geometry(geo::Tin* tin);
+
+  base::SmtStyle* style() { return style_; }
+  const base::SmtStyle* style() const { return style_; }
+  void set_style(base::SmtStyle* style);
+  void set_style(const char* style_name);
+
+  geo::Grid* grid() { return grid_; }
+  const geo::Grid* grid() const { return grid_; }
+  geo::Tin* tin() { return tin_; }
+  const geo::Tin* tin() const { return tin_; }
+  void set_grid(geo::Grid* grid, bool take_ownership);
+  void set_tin(geo::Tin* tin, bool take_ownership);
+
+  render::SmtMaterial* material() { return material_; }
+  void set_material(render::SmtMaterial* material, bool take_ownership);
+
+  int field_index(const char* name) const;
+  int set_field(int index, int value);
+  int set_field(int index, double value);
+  int set_field(int index, const char* value);
+
+  // Out-of-line PascalCase API for leftover plugin / MFC TU ABI.
+  long GetID() const;
+  void SetID(long id);
+  SmtFeatureType GetFeatureType() const;
   void SetFeatureType(SmtFeatureType type);
-
-  OGRGeometry* GetGeometryRef() { return geom_; }
-  const OGRGeometry* GetGeometryRef() const { return geom_; }
-  OGRGeometry* getGeometryRef() { return geom_; }
+  OGRGeometry* GetGeometryRef();
+  const OGRGeometry* GetGeometryRef() const;
+  OGRGeometry* getGeometryRef();
   void SetGeometryDirectly(OGRGeometry* geom);
   void SetGeometry(OGRGeometry* geom);
-  void SetGeometry(geo::Grid* grid);
-  void SetGeometry(geo::Tin* tin);
-
-  SmtAttribute* GetAttributeRef() { return att_; }
-  const SmtAttribute* GetAttributeRef() const { return att_; }
-
-  base::SmtStyle* get_style() { return style_; }
-  void SetStyle(base::SmtStyle* style);
-  void SetStyle(const char* style_name);
-
+  void SetGeometry(geo::Grid* g);
+  void SetGeometry(geo::Tin* t);
+  base::SmtStyle* get_style();
+  void SetStyle(base::SmtStyle* s);
+  void SetStyle(const char* name);
   int GetFieldIndexByName(const char* name);
-  int SetFieldValue(int index, int nValue);
-  int SetFieldValue(int index, double dfValue);
-  int SetFieldValue(int index, const char* pszValue);
+  int SetFieldValue(int index, int v);
+  int SetFieldValue(int index, double v);
+  int SetFieldValue(int index, const char* v);
 
  private:
-  long id_ = 0;
+  void clear_sidecars();
+
+  OGRFeature* ogr_ = nullptr;
+  bool owns_ogr_ = true;
   SmtFeatureType type_ = SmtFtUnknown;
-  OGRGeometry* geom_ = nullptr;
-  geo::Grid* grid_ = nullptr;
-  geo::Tin* tin_ = nullptr;
-  SmtAttribute* att_ = nullptr;
   base::SmtStyle* style_ = nullptr;
+  geo::Grid* grid_ = nullptr;
+  bool owns_grid_ = false;
+  geo::Tin* tin_ = nullptr;
+  bool owns_tin_ = false;
+  render::SmtMaterial* material_ = nullptr;
+  bool owns_material_ = false;
 };
 
 bool leftover_append_feature(OGRLayer* layer, SmtFeature* feature);
 
 }  // namespace sdb
 
-#endif  // _GIS_FEATURE_H
+#endif  // SDB_FEATURE_FEATURE_H_

@@ -47,6 +47,13 @@ struct CameraCb {
   float proj[16];
 };
 
+struct ColorCb {
+  float r;
+  float g;
+  float b;
+  float a;
+};
+
 struct RecordedDraw {
   Buffer* vertex = nullptr;
   uint32_t vb_offset = 0;
@@ -55,6 +62,10 @@ struct RecordedDraw {
   uint32_t ib_offset = 0;
   Texture* texture = nullptr;
   CameraMatrices camera;
+  float solid_r = 0.85f;
+  float solid_g = 0.85f;
+  float solid_b = 0.90f;
+  float solid_a = 1.f;
   uint32_t index_count = 0;
   uint32_t instance_count = 1;
   uint32_t first_index = 0;
@@ -115,6 +126,10 @@ class FlycubeCommandList : public StubCommandList {
   Buffer* ib = nullptr;
   uint32_t ib_offset = 0;
   Texture* tex = nullptr;
+  float solid_r = 0.85f;
+  float solid_g = 0.85f;
+  float solid_b = 0.90f;
+  float solid_a = 1.f;
   std::vector<RecordedDraw> draws;
 
   void begin_render_pass(const RenderPassDesc& desc) override {
@@ -125,6 +140,13 @@ class FlycubeCommandList : public StubCommandList {
   void bind_camera(const CameraMatrices& matrices) override {
     camera = matrices;
     StubCommandList::bind_camera(matrices);
+  }
+  void set_solid_color(float r, float g, float b, float a) override {
+    solid_r = r;
+    solid_g = g;
+    solid_b = b;
+    solid_a = a;
+    StubCommandList::set_solid_color(r, g, b, a);
   }
   void bind_vertex_buffer(Buffer* buffer, uint32_t offset,
                           uint32_t vertex_stride) override {
@@ -153,6 +175,10 @@ class FlycubeCommandList : public StubCommandList {
     draw.ib_offset = ib_offset;
     draw.texture = tex;
     draw.camera = camera;
+    draw.solid_r = solid_r;
+    draw.solid_g = solid_g;
+    draw.solid_b = solid_b;
+    draw.solid_a = solid_a;
     draw.index_count = index_count;
     draw.instance_count = instance_count;
     draw.first_index = first_index;
@@ -288,9 +314,14 @@ float4 main(float3 pos : POSITION) : SV_POSITION
 )";
 
 constexpr const char* kPsSolid = R"(
+cbuffer ColorCB : register(b1)
+{
+    float4 color;
+};
+
 float4 main() : SV_TARGET
 {
-    return float4(0.85, 0.85, 0.90, 1.0);
+    return color;
 }
 )";
 
@@ -356,6 +387,7 @@ class FlycubeDevice : public Device {
 
   void shutdown() override {
     wait_for_idle();
+    solid_set_.reset();
     sampled_pipeline_.reset();
     solid_pipeline_.reset();
     sampled_layout_.reset();
@@ -368,6 +400,8 @@ class FlycubeDevice : public Device {
     sampler_.reset();
     camera_cb_.reset();
     camera_cb_view_.reset();
+    color_cb_.reset();
+    color_cb_view_.reset();
     back_buffer_views_.clear();
     swapchain_.reset();
     fence_.reset();
@@ -598,10 +632,17 @@ class FlycubeDevice : public Device {
     }
 
     const uint64_t cb_align = fc_device_->GetConstantBufferOffsetAlignment();
-    const uint64_t cb_size = Align(sizeof(CameraCb), cb_align ? cb_align : 256);
+    const uint64_t cam_cb_size =
+        Align(sizeof(CameraCb), cb_align ? cb_align : 256);
+    const uint64_t color_cb_size =
+        Align(sizeof(ColorCb), cb_align ? cb_align : 256);
     camera_cb_ = fc_device_->CreateBuffer(
-        MemoryType::kUpload, {.size = cb_size, .usage = BindFlag::kConstantBuffer});
-    if (!camera_cb_) {
+        MemoryType::kUpload,
+        {.size = cam_cb_size, .usage = BindFlag::kConstantBuffer});
+    color_cb_ = fc_device_->CreateBuffer(
+        MemoryType::kUpload,
+        {.size = color_cb_size, .usage = BindFlag::kConstantBuffer});
+    if (!camera_cb_ || !color_cb_) {
       return false;
     }
     ViewDesc cb_view = {
@@ -609,6 +650,8 @@ class FlycubeDevice : public Device {
         .dimension = ViewDimension::kBuffer,
     };
     camera_cb_view_ = fc_device_->CreateView(camera_cb_, cb_view);
+    color_cb_view_ = fc_device_->CreateView(color_cb_, cb_view);
+    solid_set_.reset();
     sampler_ = fc_device_->CreateSampler({
         .min_filter = SamplerFilter::kLinear,
         .mag_filter = SamplerFilter::kLinear,
@@ -616,7 +659,7 @@ class FlycubeDevice : public Device {
     });
     ViewDesc sampler_view = {.view_type = ViewType::kSampler};
     sampler_view_ = fc_device_->CreateView(sampler_, sampler_view);
-    if (!camera_cb_view_ || !sampler_view_) {
+    if (!camera_cb_view_ || !color_cb_view_ || !sampler_view_) {
       return false;
     }
 
@@ -624,18 +667,20 @@ class FlycubeDevice : public Device {
     BindKey tex_key;
     BindKey samp_key;
     BindKey cam_solid;
+    BindKey color_solid;
     try {
       cam_tex = vs_textured_->GetBindKey("CameraCB");
       tex_key = ps_textured_->GetBindKey("base_color_texture");
       samp_key = ps_textured_->GetBindKey("linear_sampler");
       cam_solid = vs_solid_->GetBindKey("CameraCB");
+      color_solid = ps_solid_->GetBindKey("ColorCB");
     } catch (const std::exception&) {
       return false;
     }
     sampled_layout_ = fc_device_->CreateBindingSetLayout(
         {.bind_keys = {cam_tex, tex_key, samp_key}});
-    solid_layout_ =
-        fc_device_->CreateBindingSetLayout({.bind_keys = {cam_solid}});
+    solid_layout_ = fc_device_->CreateBindingSetLayout(
+        {.bind_keys = {cam_solid, color_solid}});
     if (!sampled_layout_ || !solid_layout_) {
       return false;
     }
@@ -674,6 +719,11 @@ class FlycubeDevice : public Device {
     camera_cb_->UpdateUploadBuffer(0, &cb, sizeof(cb));
   }
 
+  void write_solid_color(float r, float g, float b, float a) {
+    ColorCb cb{r, g, b, a};
+    color_cb_->UpdateUploadBuffer(0, &cb, sizeof(cb));
+  }
+
   std::shared_ptr<BindingSet> make_sampled_set(FlycubeTexture* tex) {
     BindKey cam = vs_textured_->GetBindKey("CameraCB");
     BindKey tex_key = ps_textured_->GetBindKey("base_color_texture");
@@ -685,11 +735,18 @@ class FlycubeDevice : public Device {
     return set;
   }
 
-  std::shared_ptr<BindingSet> make_solid_set() {
+  // Reuse one solid BindingSet; ColorCB upload buffer lives on the device for
+  // the whole session (avoids per-draw BindingSet churn / dangling views).
+  std::shared_ptr<BindingSet> solid_binding_set() {
+    if (solid_set_) {
+      return solid_set_;
+    }
     BindKey cam = vs_solid_->GetBindKey("CameraCB");
-    auto set = fc_device_->CreateBindingSet(solid_layout_);
-    set->WriteBindings({.bindings = {{cam, camera_cb_view_}}});
-    return set;
+    BindKey color = ps_solid_->GetBindKey("ColorCB");
+    solid_set_ = fc_device_->CreateBindingSet(solid_layout_);
+    solid_set_->WriteBindings(
+        {.bindings = {{cam, camera_cb_view_}, {color, color_cb_view_}}});
+    return solid_set_;
   }
 
   void replay_draws(::CommandList* fc_list, FlycubeCommandList* recorded) {
@@ -708,8 +765,10 @@ class FlycubeDevice : public Device {
         fc_list->BindBindingSet(make_sampled_set(tex));
         ++gpu_sampled_draws_;
       } else {
+        write_solid_color(draw.solid_r, draw.solid_g, draw.solid_b,
+                          draw.solid_a);
         fc_list->BindPipeline(solid_pipeline_);
-        fc_list->BindBindingSet(make_solid_set());
+        fc_list->BindBindingSet(solid_binding_set());
       }
       fc_list->IASetVertexBuffer(0, vb->shared(), draw.vb_offset);
       fc_list->IASetIndexBuffer(ib->shared(), draw.ib_offset,
@@ -786,6 +845,9 @@ class FlycubeDevice : public Device {
   std::shared_ptr<Pipeline> solid_pipeline_;
   std::shared_ptr<Resource> camera_cb_;
   std::shared_ptr<View> camera_cb_view_;
+  std::shared_ptr<Resource> color_cb_;
+  std::shared_ptr<View> color_cb_view_;
+  std::shared_ptr<BindingSet> solid_set_;
   std::shared_ptr<Resource> sampler_;
   std::shared_ptr<View> sampler_view_;
 };

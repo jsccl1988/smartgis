@@ -1,0 +1,88 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+source_set("leftover_mesh") {
+  sources = [
+    "leftover_mesh.cc",
+    "leftover_mesh.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+}
+
+test("leftover_mesh_test") {
+  output_name = "leftover_mesh_test"
+  sources = [ "leftover_mesh_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":leftover_mesh",
+    "//src/render:rhi",
+  ]
+}
+
+source_set("leftover_record") {
+  sources = [
+    "leftover_record.cc",
+    "leftover_record.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  public_deps = [
+    ":leftover_mesh",
+    "//src/base:base",
+    "//src/render:rhi",
+    "//src/render/scene:scene",
+    "//src/sdb/map:gis",
+    "//src/sdb/scene:scene",
+  ]
+}
+
+test("leftover_record_test") {
+  output_name = "leftover_record_test"
+  sources = [ "leftover_record_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":leftover_record",
+    "//src/algorithm/geo:geo",
+    "//src/sdb/map:gis",
+    "//third_party:gdal",
+  ]
+}
+
+# Full SmtRender DLL (renderdevice / renderer / leftover_session).
+smt_shared_library("render") {
+  dll_stem = "render"
+  defines = [ "RENDER_EXPORTS" ]
+  sources = [
+    "leftover_session.cc",
+    "renderdevice.cpp",
+    "renderer.cpp",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":leftover_record",
+    "//src/algorithm/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/render:rhi",
+    "//src/sdb/map:gis",
+  ]
+}
+
+test("leftover_session_test") {
+  output_name = "leftover_session_test"
+  sources = [ "leftover_session_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":leftover_record",
+    ":render",
+  ]
+}

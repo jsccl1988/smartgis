@@ -1,0 +1,56 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("render_gl") {
+  dll_stem = "render_gl"
+  defines = [ "RENDER_GL_EXPORTS" ]
+  sources = [
+    "gl_3drenderdevice.cpp",
+    "gl_devicecaps.cpp",
+    "gl_extinterface.cpp",
+    "gl_fbofunc.cpp",
+    "gl_fbofuncimp.cpp",
+    "gl_indexbuffer.cpp",
+    "gl_mipmapfunc.cpp",
+    "gl_mipmapfuncimp.cpp",
+    "gl_multitexturefuncimp.cpp",
+    "gl_mutitexturefunc.cpp",
+    "gl_rdev_effect.cpp",
+    "gl_rdev_fastdraw.cpp",
+    "gl_rdev_fbo.cpp",
+    "gl_rdev_font.cpp",
+    "gl_rdev_misc.cpp",
+    "gl_rdev_mtx.cpp",
+    "gl_rdev_render.cpp",
+    "gl_rdev_shader.cpp",
+    "gl_rdev_textures.cpp",
+    "gl_rdev_util.cpp",
+    "gl_rdev_vba.cpp",
+    "gl_rdev_vbo.cpp",
+    "gl_shaderfunc.cpp",
+    "gl_shaderfuncimp.cpp",
+    "gl_statesmanager.cpp",
+    "gl_text.cpp",
+    "gl_vbofunc.cpp",
+    "gl_vbofuncimp.cpp",
+    "gl_vertexbuffer.cpp",
+    "gl_vsyncfunc.cpp",
+    "gl_vsyncfuncimp.cpp",
+  ]
+  deps = [
+    "//src/algorithm/geo:geo",
+    "//src/legacy_render/bridge:leftover_record",
+    "//src/legacy_render/bridge:render",
+    "//src/legacy_render/render3d:render3d",
+    "//src/base:base",
+    "//src/base:core",
+    "//third_party:CxImage",
+    "//third_party:khronos_gl",
+  ]
+  libs = [
+    "opengl32.lib",
+    "glu32.lib",
+  ]
+}

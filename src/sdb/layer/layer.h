@@ -5,6 +5,8 @@
 #define _GIS_SDE_H
 
 #include "sdb/feature/feature.h"
+#include "sdb/feature/attribute.h"
+#include "sdb/datasource/gdal/ogr_feature_codec.h"
 #include "algorithm/geo/geometry.h"
 #include "ogrsf_frmts.h"
 
@@ -31,25 +33,9 @@ class GDALDataset;
 // Leftover name for vector layers after the OGR cut-over.
 using SmtVectorLayer = OGRLayer;
 
+// Thin leftover alias; authoritative mapping lives in feature_type_of.
 inline sdb::SmtFeatureType leftover_layer_feature_type(OGRLayer* layer) {
-  if (!layer) {
-    return sdb::SmtFtUnknown;
-  }
-  switch (wkbFlatten(layer->GetGeomType())) {
-    case wkbPoint:
-    case wkbMultiPoint:
-      return sdb::SmtFtDot;
-    case wkbLineString:
-    case wkbMultiLineString:
-      return sdb::SmtFtCurve;
-    case wkbPolygon:
-    case wkbMultiPolygon:
-      return sdb::SmtFtSurface;
-    case wkbTIN:
-      return sdb::SmtFtTin;
-    default:
-      return sdb::SmtFtUnknown;
-  }
+  return sdb::datasource::feature_type_of(layer);
 }
 
 inline OGRwkbGeometryType leftover_feature_wkb(sdb::SmtFeatureType ft) {

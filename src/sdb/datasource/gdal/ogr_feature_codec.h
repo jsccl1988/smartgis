@@ -6,6 +6,8 @@
 
 #include "sdb/feature/feature.h"
 
+#include "ogrsf_frmts.h"
+
 class GDALDataset;
 class OGRFeature;
 class OGRLayer;
@@ -26,7 +28,36 @@ namespace datasource {
 
 sdb::SmtFeatureType infer_feature_type(OGRFeature* src,
                                            sdb::SmtFeatureType hint);
-sdb::SmtFeatureType feature_type_of(OGRLayer* layer);
+
+// Authoritative WKB (+ hint fields) → SmtFeatureType for an OGR layer.
+// Inline so leftover callers do not need a link edge into sde_gdal.
+inline sdb::SmtFeatureType feature_type_of(OGRLayer* layer) {
+  if (!layer) {
+    return sdb::SmtFtUnknown;
+  }
+  const OGRwkbGeometryType wkb = wkbFlatten(layer->GetGeomType());
+  if (wkb == wkbPoint && layer->FindFieldIndex("anno", TRUE) >= 0) {
+    return sdb::SmtFtAnno;
+  }
+  if (wkb == wkbMultiPoint && layer->FindFieldIndex("grid_row", TRUE) >= 0) {
+    return sdb::SmtFtGrid;
+  }
+  switch (wkb) {
+    case wkbPoint:
+      return sdb::SmtFtDot;
+    case wkbLineString:
+    case wkbMultiLineString:
+      return sdb::SmtFtCurve;
+    case wkbPolygon:
+      return layer->FindFieldIndex("area", TRUE) >= 0 ? sdb::SmtFtSurface
+                                                     : sdb::SmtFtTin;
+    case wkbMultiPolygon:
+    case wkbTIN:
+      return sdb::SmtFtTin;
+    default:
+      return sdb::SmtFtUnknown;
+  }
+}
 
 bool encode_smt_geometry(const OGRGeometry* src, OGRFeature* dst,
                          sdb::SmtFeatureType ft);
@@ -42,7 +73,10 @@ geo::Grid* decode_smt_grid(OGRFeature* src);
 void copy_smt_style_to_ogr(const base::SmtStyle* src, OGRFeature* dst);
 base::SmtStyle* copy_ogr_style_from_ogr(OGRFeature* src);
 
-bool copy_ogr_feature_to_smt(OGRFeature* src, sdb::SmtFeature* dst);
+bool copy_ogr_feature_to_feature(OGRFeature* src, sdb::SmtFeature* dst);
+inline bool copy_ogr_feature_to_smt(OGRFeature* src, sdb::SmtFeature* dst) {
+  return copy_ogr_feature_to_feature(src, dst);
+}
 
 bool create_vector_layer(GDALDataset* ds, const char* name,
                          sdb::SmtFeatureType ft, OGRLayer** out);

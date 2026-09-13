@@ -5,7 +5,6 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Plugin-private kernel: Eigen SparseLU Laplace / Thompson elliptic.
-# Not a src_all / group("algorithm") DLL.
 source_set("orthogrid_kernel") {
   sources = [
     "curve.cpp",
@@ -30,43 +29,22 @@ source_set("orthogrid_kernel") {
   ]
 }
 
-smt_mfc_shared_library("plugin_orthogrid") {
-  dll_stem = "plugin_orthogrid"
-  sources = [
-    "creater.cpp",
-    "creater.rc",
-    "plug.cpp",
-    "stdafx.cpp",
-  ]
-  include_dirs += [
-    "//src/plugin/orthogrid",
-    "//src",
-  ]
-  deps = [
-    ":orthogrid_kernel",
-    "//src/algorithm/geo:geo",
-    "//src/base:core",
-    "//src/plugin:legacy_cmd",
-    "//src/plugin:plugin",
-    "//src/tool:tool",
-    "//src/tool/group:tool_group",
-    "//src/ui/xcatalog:xcatalog",
-    "//src/ui/xview:xview",
-    "//src/sys:sys",
-    "//third_party:eigen",
-  ]
-}
-
 source_set("orthogrid_views") {
   sources = [
     "commands.cc",
     "commands.h",
+    "detail/laplace_solver.cc",
+    "detail/laplace_solver.h",
   ]
-  include_dirs += [ "//src" ]
+  include_dirs += [
+    "//src",
+    "//src/plugin/orthogrid",
+  ]
   deps = [
     "//src/content:content",
-    "//src/plugin:host",
+    "//src/plugin/host:host",
     "//src/ui/views:views",
+    "//third_party:eigen",
   ]
 }
 

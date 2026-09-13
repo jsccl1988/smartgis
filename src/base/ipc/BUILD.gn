@@ -1,9 +1,9 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Named-pipe + pickle (mogu BinarySink). Not a dep of SmtCore / src_all
-# except via //src/content:content. Lives next to core/ and style/; chrome
-# hosts must not include these headers.
+# Named-pipe + BinarySink codec (via //src/base/archive). Not a dep of
+# SmtCore / src_all except via //src/content:content. Lives next to core/,
+# style/, archive/; chrome hosts must not include these headers.
 
 import("//testing/test.gni")
 
@@ -18,6 +18,7 @@ source_set("ipc") {
     "codec.h",
   ]
   public_configs = [ ":ipc_config" ]
+  public_deps = [ "//src/base/archive:archive" ]
 }
 
 test("ipc_test") {

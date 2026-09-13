@@ -9,12 +9,28 @@ Chromium-style **Views** (widget / layout / events / controls) for in-process C+
 
 This directory is the **public toolkit**. Product composition is **`src/app/views`** (`out/SmartGisViews.exe`, destination entry). The app hosts a `Widget` / `Splitter` and places toolkit widgets; it does not paint catalog / ambox / chart / layer panels by hand. Leftover MFC `SmartGis.exe` stays until parity. Chrome port: [`docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md`](../../../docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md).
 
+## Physical layout (not a public nest)
+
+Sources are grouped under **physical** subdirs. Callers still include the flat public stubs at this directory root — never `ui/views/kernel/…` / `ui/views/primitives/…` / `ui/views/gis/…` as the documented API.
+
+```
+src/ui/views/
+  *.h                 public stubs → kernel|primitives|gis
+  views.h / views.cc  umbrella
+  views_unittests.cc
+  kernel/             View, Widget, Layout, Theme, Event, Splitter
+  primitives/         Button, Label, dialogs, TabStrip, TableView, …
+  gis/                CatalogView, LayerTree, MapViewport, AmboxView, …
+```
+
+This does **not** violate the nesting cap in [`docs/build/ui-views-skia.md`](../../../docs/build/ui-views-skia.md): the product tree remains `src/ui/views`; subdirs are implementation folders with flat include stubs.
+
 ## Public surface
 
 | Kind | Types |
 | --- | --- |
-| Kernel | `View`, `Widget`, `LayoutManager` (`FillLayout` / `BoxLayout`), events, `Theme` |
-| Primitives | `Label`, `Button`, `Textfield`, `Checkbox`, `RadioButton`, `Combobox`, `TabStrip`, `TableView` |
+| Kernel | `View`, `Widget`, `LayoutManager` (`FillLayout` / `BoxLayout`), events, `Theme`, `Splitter` |
+| Primitives | `Label`, `Button`, `Textfield`, `Checkbox`, `RadioButton`, `Combobox`, `TabStrip`, `TableView`, `TreeView`, `ScrollView`, `MenuBar`, `Dialog`, … |
 | Dialogs | `pick_open_file` / `pick_save_file`, `show_message_box` (Win32) |
 | GIS | `CatalogView`, `LayerTree`, `AttributeTable`, `FeatureInfo`, `StatusBar`, `AmboxView`, `ChartView` |
 | Map hang | `MapViewport` (child HWND; attach modes unchanged) |
@@ -25,4 +41,4 @@ GN: `//src/ui/views:views` via `//:ui_views`. Not in `src_all`. `views_unittests
 
 ---
 
-**最后更新：** 2026-09-13
+**最后更新：** 2026-09-14

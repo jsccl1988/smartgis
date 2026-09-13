@@ -6,6 +6,7 @@
 #include "base/core/api.h"
 #include "sdb/datasource/mem/mem.h"
 #include "sdb/datasource/gdal/gdal_driver.h"
+#include "sdb/datasource/gdal/ogr_raster_layer.h"
 #include "sdb/datasource/gdal/sdbd_dataset.h"
 
 #include "gdal_priv.h"
@@ -57,7 +58,8 @@ void SmtDataSourceMgr::DestoryMemVecLayer(ScratchLayer& layer) {
 }
 
 SmtRasterLayer* SmtDataSourceMgr::CreateMemRasLayer() {
-  auto* layer = new SmtMemRasLayer();
+  sdb::datasource::register_gdal_driver();
+  auto* layer = new sdb::datasource::OgrRasterLayer(nullptr);
   fRect lyrRect;
   lyrRect.lb.x = 0;
   lyrRect.lb.y = 0;

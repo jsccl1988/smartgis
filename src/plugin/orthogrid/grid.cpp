@@ -172,10 +172,14 @@ namespace  orthogrid
 	//��������߽��ļ�
 	long Orthogrid::LoadGridBndFromFile(const char * file)
 	{
+		if (!file || !*file) {
+			return SMT_ERR_INVALID_PARAM;
+		}
+
 		locale loc = locale::global(locale(".936"));
 		ifstream fin(file);
 		locale::global(locale(loc));
-		if (fin.bad())
+		if (!fin || fin.bad())
 		{
 			return SMT_ERR_FAILURE;
 		}
@@ -185,7 +189,7 @@ namespace  orthogrid
 
 		if(strcmp("gridbnd:",buf) != 0)
 		{
-			::MessageBoxA(NULL,"��ʽ����","��ȡ�ļ� - error", MB_OK | MB_ICONERROR);
+			// Views path must not MessageBox; callers treat failure as false.
 			fin.close();
 			return SMT_ERR_FAILURE;
 		}
@@ -219,11 +223,15 @@ namespace  orthogrid
 	//��������߽��ļ�
 	long Orthogrid::SaveGridBndToFile(const char * file)
 	{
+		if (!file || !*file) {
+			return SMT_ERR_INVALID_PARAM;
+		}
+
 		locale loc = locale::global(locale(".936"));
 		ofstream fout(file);
 		locale::global(locale(loc));
 
-		if (fout.bad())
+		if (!fout || fout.bad())
 		{
 			return SMT_ERR_FAILURE;
 		}

@@ -3,43 +3,15 @@
 
 import("//build/smartgis.gni")
 
-# One layer directory, three modules:
-#   core/  core DLL (threads, log, plugin LoadLibrary, xml, …)
-#   style/ style DLL — cartographic pen/brush/symbol + Envelope (not Views/CSS)
-#   ipc/   named pipe + pickle (source_set, not a DLL; chrome must not include it)
+# One layer directory, four modules (mogu base/* layout under //src):
+#   core/     core DLL — BUILD in core/; this file re-exports //src/base:core
+#   style/    style DLL — cartographic pen/brush/symbol + Envelope (not Views/CSS)
+#   archive/  header-only BinarySink / archive() (mogu base/archive subset)
+#   ipc/      named pipe + codec (source_set, not a DLL; chrome must not include it)
 
-smt_shared_library("core") {
-  dll_stem = "core"
-  deps = [ "//third_party:CxImage" ]
-  defines = [ "CORE_EXPORTS=1" ]
-  sources = [
-    "core/api.cpp",
-    "core/core_assert.cpp",
-    "core/command.cpp",
-    "core/cslock.cpp",
-    "core/dynlib.cpp",
-    "core/dynlibmanager.cpp",
-    "core/filesys.cpp",
-    "core/listener.cpp",
-    "core/listenermanager.cpp",
-    "core/log.cpp",
-    "core/logmanager.cpp",
-    "core/mempool.cpp",
-    "core/mempoolmgr.cpp",
-    "core/memshare.cpp",
-    "core/msg.cpp",
-    "core/plugin.cpp",
-    "core/pluginmanager.cpp",
-    "core/srwlock.cpp",
-    "core/thread.cpp",
-    "core/threadpool.cpp",
-    "core/timer.cpp",
-    "core/winservice.cpp",
-    "core/workthread.cpp",
-    "core/xml.cpp",
-    "core/xmlerror.cpp",
-    "core/xmlparser.cpp",
-  ]
+# Stable label for dependents. Real target: //src/base/core:core.
+group("core") {
+  public_deps = [ "//src/base/core:core" ]
 }
 
 smt_shared_library("base") {
@@ -52,5 +24,15 @@ smt_shared_library("base") {
     "style/stylemanager.cpp",
     "style/styletable.cpp",
   ]
-  deps = [ ":core" ]
+  public_deps = [ ":core" ]
+}
+
+# Optional aggregator (foundation modules under this layer).
+group("base_all") {
+  public_deps = [
+    ":core",
+    ":base",
+    "//src/base/archive:archive",
+    "//src/base/ipc:ipc",
+  ]
 }

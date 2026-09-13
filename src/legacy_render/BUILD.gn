@@ -1,0 +1,20 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Leftover render engines + Bridge SmtRender. Not in //src:src_all.
+# Opt-in: ninja -C out legacy_render_all
+group("legacy_render_all") {
+  deps = [
+    "//src/legacy_render/bridge:leftover_mesh",
+    "//src/legacy_render/bridge:leftover_record",
+    "//src/legacy_render/bridge:render",
+    "//src/legacy_render/gdi:render_gdi",
+    "//src/legacy_render/gdi_simple:render_gdi_simple",
+    "//src/legacy_render/gl:render_gl",
+    "//src/legacy_render/model3d:model3d",
+    "//src/legacy_render/pointcloud:pointcloud",
+    "//src/legacy_render/render3d:render3d",
+    "//src/legacy_render/scene3d:scene3d",
+    "//src/legacy_render/terrain:terrain",
+  ]
+}

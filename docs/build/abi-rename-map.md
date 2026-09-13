@@ -41,8 +41,8 @@ Status: **in progress** (big-bang on `master`). Mechanical include/dll_stem/Expo
 | SmtSDEDeviceMgr | sde_mgr | SDE_MGR_EXPORT | SDE_MGR_EXPORT |
 | SmtSDEGdalDevice | sde_gdal | SDE_GDAL_EXPORT | SDE_GDAL_EXPORT |
 | SmtSDEMemDevice | sde_mem | SDE_MEM_EXPORT | SDE_MEM_EXPORT |
-| SmtSDESmfDevice | sde_smf | SDE_SMF_EXPORT | SDE_SMF_EXPORT |
-| SmtSDEWSDevice | sde_ws | SDE_WS_EXPORT | SDE_WS_EXPORT |
+| SmtSDESmfDevice | sde_smf | — (removed) | — |
+| SmtSDEWSDevice | sde_ws | — (removed) | — |
 | SmtToolCore | tool | TOOL_EXPORT | TOOL_EXPORT |
 | SmtGroupToolCore | tool_group | TOOL_GROUP_EXPORT | TOOL_GROUP_EXPORT |
 | SmtGuiCore | gui | GUI_EXPORT | GUI_EXPORT |
@@ -77,7 +77,7 @@ Cutover may keep the old `#if !defined(Export_…)` shape temporarily by renamin
 | Basename | Paths | Rule |
 | --- | --- | --- |
 | `command.h` | `base/core/command.h`, `tool/command.h` | Prefer path sharing longest dir prefix with includer; else `tool/command.h` for `tool/**`, `base/core/command.h` for others |
-| `gdi_aux_api.h` / `gdi_bufpool.h` / `gdi_renderbuf.h` | `render/gdi/…`, `render/gdi_simple/…` | Prefer same `gdi` vs `gdi_simple` as includer |
+| `gdi_aux_api.h` / `gdi_bufpool.h` / `gdi_renderbuf.h` | `legacy_render/gdi/…`, `legacy_render/gdi_simple/…` | Prefer same `gdi` vs `gdi_simple` as includer |
 | `scene.h` | `render/scene/scene.h`, `sdb/scene/scene.h` | Prefer same layer as includer (`render/` vs `sdb/`) |
 | `resource.h` / `stdafx.h` / `targetver.h` | many modules | Prefer header under the same module directory as the includer |
 

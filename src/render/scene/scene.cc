@@ -4,6 +4,7 @@
 #include "render/scene/scene.h"
 
 #include "sdb/layer/layer.h"
+#include "sdb/model/model.h"
 #include "sdb/scene/tessellate.h"
 
 #include <cstddef>
@@ -192,6 +193,9 @@ void record_kind(render::rhi::CommandList* list,
     }
     if (mesh.texture) {
       list->bind_texture(mesh.texture, 0);
+    } else {
+      list->set_solid_color(mesh.solid_r, mesh.solid_g, mesh.solid_b,
+                            mesh.solid_a);
     }
     list->bind_vertex_buffer(mesh.vertex, 0,
                             mesh.stride ? mesh.stride : kPositionStride);
@@ -204,11 +208,48 @@ void record_kind(render::rhi::CommandList* list,
 }  // namespace
 
 GpuScene::GpuScene()
-    : synced_generation_(0), upload_device_(nullptr), meshes_dirty_(true) {}
+    : synced_generation_(0),
+      upload_device_(nullptr),
+      meshes_dirty_(true),
+      view_ortho_set_(false),
+      view_min_x_(0),
+      view_min_y_(0),
+      view_max_x_(1),
+      view_max_y_(1),
+      solid_r_(0.f),
+      solid_g_(1.f),
+      solid_b_(1.f),
+      solid_a_(1.f) {}
 
 GpuScene::~GpuScene() { clear_meshes(); }
 
 void GpuScene::release() { clear_meshes(); }
+
+void GpuScene::set_view_ortho(double min_x, double min_y, double max_x,
+                              double max_y) {
+  view_min_x_ = min_x;
+  view_min_y_ = min_y;
+  view_max_x_ = max_x;
+  view_max_y_ = max_y;
+  view_ortho_set_ = true;
+}
+
+void GpuScene::clear_view_ortho() { view_ortho_set_ = false; }
+
+void GpuScene::set_solid_color(float r, float g, float b, float a) {
+  solid_r_ = r;
+  solid_g_ = g;
+  solid_b_ = b;
+  solid_a_ = a;
+  meshes_dirty_ = true;
+}
+
+void GpuScene::set_solid_color_from_colorref(long colorref) {
+  const float r = static_cast<float>((colorref >> 0) & 0xff) / 255.f;
+  const float g = static_cast<float>((colorref >> 8) & 0xff) / 255.f;
+  const float b = static_cast<float>((colorref >> 16) & 0xff) / 255.f;
+  set_solid_color(r, g, b, 1.f);
+}
 
 void GpuScene::clear_meshes() {
   if (upload_device_) {
@@ -237,6 +278,10 @@ bool GpuScene::rebuild_meshes(render::rhi::Device* device) {
     mesh.texture = nullptr;
     mesh.index_count = 0;
     mesh.stride = kPositionStride;
+    mesh.solid_r = solid_r_;
+    mesh.solid_g = solid_g_;
+    mesh.solid_b = solid_b_;
+    mesh.solid_a = solid_a_;
     sdb::scene::TessMesh cpu;
     bool have = false;
     if (inst.kind == sdb::scene::NodeKind::kVectorLayer && inst.ogr_layer) {
@@ -257,11 +302,47 @@ bool GpuScene::rebuild_meshes(render::rhi::Device* device) {
         have = sdb::scene::tessellate_raster_layer(
             static_cast<const sdb::SmtRasterLayer*>(inst.layer), cpu);
       }
+    } else if (inst.kind == sdb::scene::NodeKind::kModel && inst.model) {
+      sdb::model::Mesh flat;
+      if (sdb::model::flatten_meshes(*inst.model, flat)) {
+        cpu.positions = flat.positions;
+        cpu.indices = flat.indices;
+        have = true;
+      }
     } else if ((inst.kind == sdb::scene::NodeKind::kModel ||
                 inst.kind == sdb::scene::NodeKind::kTerrain ||
                 inst.kind == sdb::scene::NodeKind::kPointCloud) &&
                inst.geom_3d) {
       have = sdb::scene::tessellate_3d_geometry(inst.geom_3d, cpu);
+    } else if (inst.kind == sdb::scene::NodeKind::kTileset) {
+      // Prefer decoded tile content (glTF/GLB/b3dm via decode_content*). When
+      // URIs are missing or tinygltf is unavailable, keep the AABB bridge.
+      for (const std::string& uri : inst.visible_uris) {
+        if (uri.empty()) {
+          continue;
+        }
+        sdb::model::ModelAsset asset;
+        if (!sdb::model::decode_content_file(uri.c_str(), asset)) {
+          continue;
+        }
+        sdb::model::Mesh flat;
+        if (!sdb::model::flatten_meshes(asset, flat) || flat.indices.empty()) {
+          continue;
+        }
+        const uint32_t base =
+            static_cast<uint32_t>(cpu.positions.size() / 3);
+        cpu.positions.insert(cpu.positions.end(), flat.positions.begin(),
+                             flat.positions.end());
+        for (uint32_t idx : flat.indices) {
+          cpu.indices.push_back(base + idx);
+        }
+        have = true;
+      }
+      if (!have) {
+        have = sdb::scene::tessellate_aabb(inst.min_x, inst.min_y, inst.min_z,
+                                           inst.max_x, inst.max_y, inst.max_z,
+                                           cpu);
+      }
     }
     if (!have) {
       continue;
@@ -315,6 +396,9 @@ void GpuScene::sync_from(const sdb::scene::World& world) {
     inst.geoms = node->geoms;
     inst.tin = node->tin;
     inst.grid = node->grid;
+    inst.model = node->model;
+    inst.tileset = node->tileset;
+    inst.visible_uris = node->visible_uris;
     instances_.push_back(inst);
   }
   synced_generation_ = world.generation();
@@ -347,9 +431,17 @@ bool GpuScene::record_draws(render::rhi::Device* device,
   double maxx = 1;
   double maxy = 1;
   bool have_box = false;
+  if (view_ortho_set_) {
+    minx = view_min_x_;
+    miny = view_min_y_;
+    maxx = view_max_x_;
+    maxy = view_max_y_;
+    have_box = true;
+  }
   for (const GpuInstance& inst : instances_) {
-    if (inst.kind == sdb::scene::NodeKind::kRasterLayer ||
-        inst.kind == sdb::scene::NodeKind::kVectorLayer) {
+    if (!view_ortho_set_ &&
+        (inst.kind == sdb::scene::NodeKind::kRasterLayer ||
+         inst.kind == sdb::scene::NodeKind::kVectorLayer)) {
       if (!have_box) {
         minx = inst.min_x;
         miny = inst.min_y;
@@ -373,7 +465,8 @@ bool GpuScene::record_draws(render::rhi::Device* device,
     }
     if (inst.kind == sdb::scene::NodeKind::kModel ||
         inst.kind == sdb::scene::NodeKind::kTerrain ||
-        inst.kind == sdb::scene::NodeKind::kPointCloud) {
+        inst.kind == sdb::scene::NodeKind::kPointCloud ||
+        inst.kind == sdb::scene::NodeKind::kTileset) {
       have_3d = true;
     }
   }
@@ -405,6 +498,8 @@ bool GpuScene::record_draws(render::rhi::Device* device,
   }
   record_kind(list, pass, width, height, meshes_,
               sdb::scene::NodeKind::kModel);
+  record_kind(list, pass, width, height, meshes_,
+              sdb::scene::NodeKind::kTileset);
 
   if (meshes_.empty()) {
     list->begin_render_pass(pass);

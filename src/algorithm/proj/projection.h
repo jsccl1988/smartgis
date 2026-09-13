@@ -82,6 +82,17 @@ PROJ_EXPORT_API void axis_denormalize_points(Projection* proj,
 
 PROJ_EXPORT_API void set_proj_lib(const char*, const char*);
 
+inline void SmtFreeProjection(Projection* p) { free_projection(p); }
+inline double SmtGaussKrugerCentralMeridian(double lon_deg) {
+  return gauss_kruger_central_meridian(lon_deg);
+}
+inline int SmtLoadLonglatEllipsoid(Projection* p, double a, double b) {
+  return load_longlat_ellipsoid(p, a, b);
+}
+inline int SmtLoadTmercCrs(Projection* p, double a, double b, double lon_0) {
+  return load_tmerc_crs(p, a, b, lon_0);
+}
+
 }  // namespace geo
 
 #if !defined(PROJ_EXPORTS)

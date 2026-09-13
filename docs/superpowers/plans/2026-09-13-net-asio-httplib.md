@@ -11,7 +11,7 @@ All rights reserved.
 
 **Goal:** Replace homemade `SmtNetCore` with standalone ASIO sockets plus cpp-httplib HTTP and an ASIO FnRPC client (CRLF pickle).
 
-**Architecture:** `SmtNetCore` remains `//src/net:net`. ASIO and httplib are private GN configs. Map-server UDP uses `net::UdpSocket`. `net::HttpClient` / `net::RpcClient` live beside it. See the spec.
+**Architecture:** `SmtNetCore` remains `//src/net:net`. ASIO and httplib are private GN configs. `net::HttpClient` / `net::RpcClient` are the product facades. **Map-server UDP / `net::UdpSocket` / `src/web` are cancelled** (stack deleted 2026-09-13; UDP facade removed 2026-09-14 — do not restore). See the spec.
 
 **Tech Stack:** C++20 MSVC v145, standalone ASIO `asio-1-30-2`, cpp-httplib v0.18.3, GN `smt_shared_library` + `test()`.
 
@@ -29,6 +29,7 @@ All rights reserved.
 - `dll_stem` stays `SmtNetCore`.
 - Build output only under repo-root `out/` via `build.bat`.
 - No `Co-authored-by: Cursor`.
+- Do **not** restore `src/net/udp`, `SmtMapServer`, or WMS-over-UDP.
 
 ## File map
 
@@ -37,13 +38,13 @@ All rights reserved.
 | `third_party/manifest.json` | asio + cpp-httplib GitHub pins, `install_skip` |
 | `third_party/BUILD.gn` | `:asio` / `:cpp_httplib` configs |
 | `src/net/BUILD.gn` | DLL sources + `net_test` |
-| `src/net/udp.h/.cpp` | `net::UdpSocket` |
 | `src/net/http.h/.cpp` | HTTP facade |
 | `src/net/rpc.h/.cpp` | RPC slot |
-| `src/net/net_test.cc` | loopback tests |
+| `src/net/net_test.cc` | loopback tests (no UDP) |
 | `src/sdb/datasource/ws/BUILD.gn` | drop unused net dep |
 | `BUILD.gn` | `test_all` += net_test |
 | `docs/README.md`, root `README.md` | index |
+| ~~`src/net/udp.h/.cpp`~~ | **Superseded by deletion** — do not recreate |
 
 ---
 
@@ -74,12 +75,13 @@ Expected: `third_party/.src/asio/asio/include/asio.hpp` and `third_party/.src/cp
 
 **Files:**
 - Create: `src/net/http.h`, `http.cpp`, `rpc.h`, `rpc.cpp`, `net_test.cc`
-- Modify: `src/net/udp.h`, `udp.cpp`, `BUILD.gn`
-- Delete: WebAppLib sources listed in the spec
+- Modify: `BUILD.gn`
+- Delete: WebAppLib sources listed in the spec; **`src/net/udp/`** (cancelled product UDP)
 
 **Interfaces:**
 - Consumes: Task 1 groups (private_deps / private configs)
-- Produces: `net::UdpSocket`; `net::HttpClient::get/post`; `net::RpcClient`
+- Produces: `net::HttpClient::get/post`; `net::RpcClient`
+- ~~Produces: `net::UdpSocket`~~ — **Cancelled / superseded by deletion**
 
 Public HTTP:
 
@@ -100,8 +102,9 @@ class HttpClient {
 }
 ```
 
-- [ ] **Step 1:** Write `net_test.cc` (UDP echo + HTTP loopback + RPC slot). Build test — fail until sources exist.
-- [ ] **Step 2:** Implement ASIO `UdpSocket` pimpl; `HttpClient`; RPC. Delete WebAppLib files.
+- [ ] **Step 1:** Write `net_test.cc` (HTTP loopback + RPC + pickle). Build test — fail until sources exist.
+- [x] **Cancelled:** ASIO `UdpSocket` pimpl / UDP echo tests — facade removed; do not restore.
+- [ ] **Step 2:** Implement `HttpClient`; RPC. Delete WebAppLib files.
 - [ ] **Step 3:** `ninja -C out net_test` then `out\net_test.exe` — exit 0.
 - [ ] **Step 4:** Public headers must not contain `asio.hpp` or `httplib.h`.
 
@@ -114,7 +117,7 @@ class HttpClient {
 
 - [x] **Cancelled:** `src/web/cgi/main.cpp` — web stack deleted.
 - [ ] **Step 2:** Remove `//src/net:net` from `sde_ws` deps.
-- [ ] **Step 3:** `web/server` includes `udp.h` and compiles.
+- [x] **Cancelled / superseded:** `web/server` includes `udp.h` — web + UDP deleted; do not wire.
 
 ---
 
@@ -129,6 +132,6 @@ class HttpClient {
 
 ## Self-review
 
-1. Spec coverage: pins, ASIO socket, HTTP, RPC slot, WebAppLib removal, callers, tests, isolation.
+1. Spec coverage: pins, ASIO TCP, HTTP, RPC slot, WebAppLib removal, callers, tests, isolation. UDP/MapServer marked cancelled.
 2. No TBD wire format.
 3. Names: `HttpClient::get` / `post`, `HttpResult`, `rpc_transport_traits`.

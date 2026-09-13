@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "render/skia/canvas.h"
 #include "render/skia/color.h"
 #include "ui/views/ambox_view.h"
 #include "ui/views/attribute_table.h"
@@ -87,6 +88,33 @@ void test_utf8_and_theme() {
   expect(wide_to_utf8(L"ok") == "ok", "wide_to_utf8");
   expect(Theme::current().accent == render::skia::color_rgb(0, 122, 204),
          "theme accent");
+}
+
+void test_skia_canvas_api() {
+  HDC screen = GetDC(nullptr);
+  HDC mem = CreateCompatibleDC(screen);
+  const int W = 64;
+  const int H = 32;
+  HBITMAP bmp = CreateCompatibleBitmap(screen, W, H);
+  HGDIOBJ old = SelectObject(mem, bmp);
+
+  render::skia::Canvas c(mem, W, H);
+  c.fill_rect(0, 0, W, H, render::skia::color_rgb(0, 0, 0));
+  c.stroke_rect(2, 2, 20, 10, render::skia::color_rgb(255, 0, 0), 1);
+  c.draw_line(0, 0, 10, 10, render::skia::color_rgb(0, 255, 0), 1);
+  c.save();
+  c.clip_rect(8, 8, 16, 16);
+  c.fill_rect(0, 0, W, H, render::skia::color_rgb(0, 0, 255));
+  c.restore();
+  const auto sz = c.measure_text(L"Ab");
+  expect(sz.width > 0 && sz.height > 0, "measure_text Ab");
+  expect(c.measure_text(L"").width == 0, "measure_text empty");
+  expect(c.measure_text(nullptr).width == 0, "measure_text null");
+
+  SelectObject(mem, old);
+  DeleteObject(bmp);
+  DeleteDC(mem);
+  ReleaseDC(nullptr, screen);
 }
 
 void test_kernel_visible_enabled_focus_hover() {
@@ -203,6 +231,46 @@ void test_button_send_mouse() {
   dead.set_click([&] { ++n; });
   expect(!dead.on_mouse_event(mouse_up(0, 0)), "disabled button ignores click");
   expect(n == 0, "disabled no callback");
+}
+
+void test_label_button_preferred_from_measure() {
+  const Size short_ink = measure_text_utf8("Hi");
+  const Size long_ink = measure_text_utf8("Hello preferred width");
+  expect(short_ink.width > 0 && short_ink.height > 0, "measure short ink");
+  expect(long_ink.width > short_ink.width, "measure long wider than short");
+
+  Label short_label("Hi");
+  Label long_label("Hello preferred width");
+  expect(short_label.preferred_size().width == short_ink.width + 8,
+         "label short width = ink + pad");
+  expect(long_label.preferred_size().width == long_ink.width + 8,
+         "label long width = ink + pad");
+  expect(long_label.preferred_size().width >
+             short_label.preferred_size().width,
+         "label long preferred wider");
+  expect(short_label.preferred_size().width < 160,
+         "label tighter than old fixed 160");
+  expect(short_label.preferred_size().height >= 24, "label min height");
+
+  short_label.set_text("Hello preferred width");
+  expect(short_label.preferred_size().width ==
+             long_label.preferred_size().width,
+         "label set_text refreshes preferred");
+
+  Label empty("");
+  expect(empty.preferred_size().width == 8, "label empty pad-only width");
+  expect(empty.preferred_size().height >= 24, "label empty min height");
+
+  Button go("Go");
+  expect(go.preferred_size().width == measure_text_utf8("Go").width + 16,
+         "button width = ink + pad");
+  expect(go.preferred_size().width < 96, "button tighter than old fixed 96");
+  expect(go.preferred_size().height >= 28, "button min height");
+
+  go.set_text("Much longer button caption");
+  expect(go.preferred_size().width >
+             measure_text_utf8("Go").width + 16,
+         "button set_text refreshes preferred");
 }
 
 void test_textfield_set_text_char_backspace() {
@@ -503,7 +571,9 @@ void test_ambox_in_view_tree() {
   AmboxView box;
   box.set_bounds({0, 0, 180, 240});
   box.layout();
-  expect(box.child_count() == 3, "ambox groups are children");
+  // Default catalog-less populate: Select + Pan (Tools only when catalog
+  // contributes non-flash commands).
+  expect(box.child_count() == 2, "ambox groups are children");
   expect(box.get_view_at(20, 40) != &box, "ambox hit-test reaches button");
 }
 
@@ -595,10 +665,12 @@ void test_widget_hwnd_and_map_viewport() {
 
 int main() {
   test_utf8_and_theme();
+  test_skia_canvas_api();
   test_kernel_visible_enabled_focus_hover();
   test_tab_focus_traversal();
   test_box_layout_skips_hidden();
   test_button_send_mouse();
+  test_label_button_preferred_from_measure();
   test_textfield_set_text_char_backspace();
   test_checkbox_toggle();
   test_radio_exclusive_group();

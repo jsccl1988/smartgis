@@ -4,7 +4,7 @@
 #include "plugin/python/runtime.h"
 
 #include "content/public/plugin_host.h"
-#include "plugin/registry.h"
+#include "plugin/host/registry.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN

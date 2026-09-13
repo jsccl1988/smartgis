@@ -13,8 +13,8 @@
 #include "sdb/feature/feature.h"
 #include "sdb/map/map.h"
 #include "base/core/api.h"
-#include "tool/group/defs.h"
-#include "tool/group/flashtool.h"
+#include "legacy_tool/group/defs.h"
+#include "legacy_tool/group/flashtool.h"
 
 using namespace base;
 using namespace geo;

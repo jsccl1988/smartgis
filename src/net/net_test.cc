@@ -12,10 +12,8 @@
 #include "net/pack/pickle.h"
 #include "net/rpc/rpc.h"
 #include "net/rpc/wire.h"
-#include "net/udp/udp.h"
 
 #include <cstdio>
-#include <cstring>
 #include <string>
 #include <thread>
 #include <utility>
@@ -131,32 +129,12 @@ void test_pickle() {
   expect(leftover.empty(), "error skips value");
 
   std::string oversize;
-  const std::size_t n = net::k_binary_wire_max_string_bytes + 1;
+  const std::size_t n = base::k_binary_wire_max_string_bytes + 1;
   oversize.append(reinterpret_cast<const char*>(&n), sizeof(n));
   net::Pickle too_big(oversize.data(), oversize.size());
   std::string s = "keep";
   too_big >> s;
   expect(s.empty(), "oversize string rejected");
-}
-
-void test_udp_echo() {
-  net::UdpSocket server;
-  expect(server.open(), "udp open server");
-  expect(server.bind("127.0.0.1", 0), "udp bind");
-  net::UdpEndpoint bound;
-  expect(server.local_endpoint(&bound), "udp local endpoint");
-
-  net::UdpSocket client;
-  expect(client.open(), "udp open client");
-  const char kMsg[] = "ping";
-  expect(client.send_to(kMsg, sizeof(kMsg), bound) == static_cast<int>(sizeof(kMsg)),
-         "udp sendto");
-
-  char buf[32] = {0};
-  net::UdpEndpoint from;
-  const int n = server.receive_from(buf, sizeof(buf), &from);
-  expect(n == static_cast<int>(sizeof(kMsg)), "udp recvfrom size");
-  expect(std::memcmp(buf, kMsg, sizeof(kMsg)) == 0, "udp payload");
 }
 
 void test_http_loopback() {
@@ -188,7 +166,6 @@ void test_http_loopback() {
 int main() {
   test_pickle();
   test_rpc();
-  test_udp_echo();
   test_http_loopback();
   if (g_fails != 0) {
     std::fprintf(stderr, "net_test: %d failure(s)\n", g_fails);

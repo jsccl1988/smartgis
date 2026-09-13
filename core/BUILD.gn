@@ -1,7 +1,16 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Thin alias: product sources live under //src (mogu-style module tree).
+# Thin repo-root aliases (product sources live under //src).
+# mogu foundations sit at //base; this tree keeps //core as a historic
+# entry for the SmartGIS core DLL / full product group.
+
+# Product core DLL (SmtCore → dll_stem "core").
+group("core") {
+  public_deps = [ "//src/base:core" ]
+}
+
+# Whole product tree (not mogu; kept for docs/build/src-layout.md).
 group("core_all") {
-  deps = [ "//src:src_all" ]
+  public_deps = [ "//src:src_all" ]
 }

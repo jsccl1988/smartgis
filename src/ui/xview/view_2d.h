@@ -19,10 +19,10 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define XVIEW_EXPORT __declspec(dllimport)
 #endif
 
-#include "render/renderdevice.h"
-#include "render/renderer.h"
+#include "legacy_render/bridge/renderdevice.h"
+#include "legacy_render/bridge/renderer.h"
 #include "sdb/map/map.h"
-#include "tool/group/grouptoolfactory.h"
+#include "legacy_tool/group/grouptoolfactory.h"
 #include "ui/xview/xview.h"
 
 using namespace render;

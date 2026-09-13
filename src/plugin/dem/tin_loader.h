@@ -10,7 +10,7 @@
 #if defined(PLUGIN_DEM_EXPORTS)
 #define DEM_LOADER_API __declspec(dllexport)
 #else
-#define DEM_LOADER_API __declspec(dllimport)
+#define DEM_LOADER_API
 #endif
 #endif
 
@@ -21,14 +21,14 @@ namespace plugin {
 enum SeparatorType { ST_TAB, ST_SPACE, ST_COMMA };
 
 // Column layout for an ASCII XYZ (or similar) point file.
-struct SmtTinFileFmt {
+struct TinFileFmt {
   int nSeparatorType;
   int nCol;
   int iX, iY, iZ;
   int nHeadSkip;
   int nLineSkip;
 
-  SmtTinFileFmt()
+  TinFileFmt()
       : nCol(0),
         iX(0),
         iY(0),
@@ -37,8 +37,8 @@ struct SmtTinFileFmt {
         nHeadSkip(0),
         nLineSkip(0) {}
 
-  SmtTinFileFmt(int n_col, int i_x, int i_y, int i_z, int separator_type,
-                int head_skip, int line_skip)
+  TinFileFmt(int n_col, int i_x, int i_y, int i_z, int separator_type,
+             int head_skip, int line_skip)
       : nCol(n_col),
         iX(i_x),
         iY(i_y),
@@ -48,8 +48,11 @@ struct SmtTinFileFmt {
         nLineSkip(line_skip) {}
 };
 
+// Leftover MFC dlg_* still use the old type name.
+using SmtTinFileFmt = TinFileFmt;
+
 // Parse ASCII XYZ into a point list, then Delaunay-mesh via
-// CreateDelaunayTin_Div.
+// create_delaunay_tin_div.
 DEM_LOADER_API long load_ascii_xyz_tin(const char* file_name,
                                        const SmtTinFileFmt& file_fmt,
                                        float x_scale, float y_scale,

@@ -20,11 +20,16 @@ bool register_print(content::PluginHost* host) {
     return false;
   }
 
+  // Views path: PrintPreviewDialog (ui::views::View). Do not open leftover CDlg.
   content::DialogContribution dialog{kPreviewId, "Print preview"};
   if (!host->contribute_dialog(
           kPluginId, dialog, [](content::PluginHost* h) {
+            if (!h) {
+              return;
+            }
             PrintPreviewDialog preview;
             (void)h;
+            (void)preview;
           })) {
     return false;
   }
@@ -32,6 +37,9 @@ bool register_print(content::PluginHost* host) {
   return host->contribute_command(
       kPluginId, kPreviewId, "Print preview", "file",
       [host](const tool::CommandArgs&) {
+        if (!host) {
+          return false;
+        }
         return host->open_dialog(kPreviewId);
       });
 }
