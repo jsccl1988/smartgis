@@ -2,10 +2,9 @@
 # All rights reserved.
 
 # 27 DLLs (math/math3d/geo3d folded into SmtGeoCore; SmtDemCore removed).
-# Do not add MFC/D3D/exe targets here (ui, web, plugin children, app, d3d).
+# Do not add MFC/D3D/exe targets here (ui, plugin children, app, d3d).
 # Exe is //src/app:app via root //:smartgis / build.bat app.
-# WebView2 / WinUI / Views hosts live under src/app/ and are not in src_all.
-import("//src/app/webview2/webview2.gni")
+# WinUI / Views hosts live under src/app/ and are not in src_all.
 
 group("src_all") {
   deps = [
@@ -16,7 +15,7 @@ group("src_all") {
     "//src/sys:sys",
     "//src/base:base",
     "//src/net:net",
-    # algorithm packages (math / geo / proj / tin / baogrid / stat)
+    # algorithm packages (geo / proj / tin / stat)
     "//src/algorithm:algorithm",
     # core data model (SmtGisCore)
     "//src/sdb/map:gis",

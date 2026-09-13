@@ -1,0 +1,31 @@
+---
+description: Mogu copyright header; add on edit if missing; year is current year when creating or touching files
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Copyright header
+
+## Year (always current)
+
+- Use the **current calendar year** in `Copyright (c) YYYY`.
+- **New files**: add the standard two-line notice with that year.
+- **Touched / edited files**: if the file already has the Mogu `Copyright (c) … The Mogu Authors.` line, **update `YYYY` to the current year** as part of the same change. Do not leave a past year after you modify the file.
+- **Touched files with no Mogu header**: if you edit a **new engineering** file (GN, bat, skills, docs/build, `.cursor/rules` `.mdc`) that does not yet include that notice, **add the full two-line header** (current year) in the same change. Place it at the very top; for scripts that start with a shebang (`#!`), put the header **immediately after** the shebang line. For Cursor `.mdc` files, put the HTML comment block **immediately after** the YAML frontmatter.
+- **Do not** copy a stale year from another file.
+- **Do not** rewrite 2010–2013 product copyrights under `branches/` to Mogu Authors.
+
+## C/C++ (`//` comments)
+
+```cpp
+// Copyright (c) YYYY The Mogu Authors.
+// All rights reserved.
+```
+
+## Other languages
+
+Same two-line text using the language’s comment syntax (e.g. `#` for Python/shell, `REM` for `.bat`, `<!-- -->` for Markdown / `.mdc`).

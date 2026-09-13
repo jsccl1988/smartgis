@@ -1,30 +1,20 @@
-/*
-File:    sde_smf_ogrsupport.h
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 
-Desc:    OGR Ö§³Ö
-
-Version: Version 1.0
-
-Writter:  ³Â´ºÁÁ
-
-Date:    2011.10.13
-
-Copyright (c) 2010 CCL. All rights reserved.
-*/
 #ifndef _SDE_SMF_OGRSUPPORT_H
 #define _SDE_SMF_OGRSUPPORT_H
 
-#include "core.h"
-#include "smf.h"
+#include "base/core/core.h"
+#include "sdb/datasource/smf/smf.h"
 #include "ogrsf_frmts.h"
 #include "gdal.h"
 
-using namespace Smt_Core;
-using namespace Smt_GIS;
+using namespace base;
+using namespace sdb;
 
-void OGRFldTypeToSmtFldType(long ogrType,long &smtType);
-void OGRFeaTypeToSmtFeaType(long ogrType,long &smtType);
+void ogr_fld_type_to_smt_fld_type(long ogrType, long& smtType);
+void ogr_fea_type_to_smt_fea_type(long ogrType, long& smtType);
 
-bool CopyOGRFeaToSmtFea(OGRFeature *pOGRFea,SmtFeature *pSmtFea);
+bool copy_ogr_fea_to_smt_fea(OGRFeature* pOGRFea, SmtFeature* pSmtFea);
 
-#endif //_SDE_SMF_OGRSUPPORT_H
+#endif  // _SDE_SMF_OGRSUPPORT_H

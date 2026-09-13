@@ -1,0 +1,71 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+config("rhi_flycube") {
+  defines = [ "SMT_HAS_FLYCUBE" ]
+}
+
+source_set("rhi") {
+  sources = [
+    "rhi/flycube_rhi.cc",
+    "rhi/gdi_rhi.cc",
+    "rhi/gl_rhi.cc",
+    "rhi/null_rhi.cc",
+    "rhi/rhi.cc",
+    "rhi/rhi.h",
+  ]
+  include_dirs += [ "//src" ]
+  if (smt_has_flycube) {
+    public_configs = [ ":rhi_flycube" ]
+    deps = [ "//third_party:flycube" ]
+  }
+}
+
+smt_shared_library("render") {
+  dll_stem = "render"
+  defines = [ "RENDER_EXPORTS" ]
+  sources = [
+    "leftover_session.cc",
+    "renderdevice.cpp",
+    "renderer.cpp",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":rhi",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/algorithm/geo:geo",
+    "//src/render/scene:leftover_record",
+    "//src/sdb/map:gis",
+  ]
+}
+
+test("rhi_test") {
+  output_name = "rhi_test"
+  sources = [ "rhi/rhi_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":rhi" ]
+}
+
+# Wired render backends. D3D9 / D3DX tree was removed (do not resurrect).
+# Skia stub is //src/render/skia via //:ui_views — not here.
+group("render_all") {
+  deps = [
+    ":render",
+    "//src/render/gdi:render_gdi",
+    "//src/render/gdi_simple:render_gdi_simple",
+    "//src/render/gl:render_gl",
+    "//src/render/math:bounds",
+    "//src/render/render3d:render3d",
+    "//src/render/scene3d:scene3d",
+    "//src/render/scene:scene",
+    "//src/render/scene:leftover_mesh",
+    "//src/render/scene:leftover_record",
+    "//src/render/model3d:model3d",
+    "//src/render/terrain:terrain",
+    "//src/render/pointcloud:pointcloud",
+  ]
+}

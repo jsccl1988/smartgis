@@ -8,7 +8,7 @@
 
 class OGRFeature;
 
-namespace Smt_GIS {
+namespace sdb {
 class SmtMap;
 }
 
@@ -16,15 +16,15 @@ namespace sdb {
 
 class MapEditSession : public CommandEditSession {
  public:
-  explicit MapEditSession(Smt_GIS::SmtMap* map);
-  void bind_map(Smt_GIS::SmtMap* map);
+  explicit MapEditSession(sdb::SmtMap* map);
+  void bind_map(sdb::SmtMap* map);
 
   bool commit_feature(EditOp op, OGRFeature* feature);
 
  private:
   bool apply_map(const FeatureMutation& mutation, bool undo);
 
-  Smt_GIS::SmtMap* map_ = nullptr;
+  sdb::SmtMap* map_ = nullptr;
 };
 
 }  // namespace sdb

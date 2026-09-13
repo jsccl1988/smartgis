@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "application.h"
-#include "detail/bootstrap.h"
+#include "app/winui/application.h"
+#include "app/winui/detail/bootstrap.h"
 #include "content/app/content_main.h"
 #include "content/app/renderer_main.h"
 #include "gpu/gpu.h"

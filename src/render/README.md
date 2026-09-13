@@ -60,7 +60,7 @@ int RenderMap(SmtMap* pMap);
 int RenderFeature(OGRFeature* pFeature);
 
 // 渲染几何
-int RenderGeometry(SmtGeometry* pGeometry);
+int RenderGeometry(OGRGeometry* pGeometry);
 ```
 
 ## 使用说明
@@ -197,7 +197,7 @@ int RenderMap(SmtMap* pMap);
 int RenderFeature(OGRFeature* pFeature);
 
 // Render geometry
-int RenderGeometry(SmtGeometry* pGeometry);
+int RenderGeometry(OGRGeometry* pGeometry);
 ```
 
 ## Usage

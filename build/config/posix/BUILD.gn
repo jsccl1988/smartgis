@@ -1,0 +1,242 @@
+assert(is_posix)
+
+# =============================================================================
+# Default
+# =============================================================================
+
+config("default") {
+  cflags = [
+    "-g",
+    "-fvisibility=hidden",
+    "-fPIC",
+    "-pthread",
+  ]
+}
+
+# =============================================================================
+# Optmize flags
+# =============================================================================
+
+config("optmize") {
+  if (is_debug) {
+    cflags = [
+      "-O0",
+      "-Og",
+    ]
+  } else {
+    cflags = [ "-Ofast" ]
+  }
+}
+
+# =============================================================================
+# Target arch
+# =============================================================================
+
+config("target_arch") {
+  if (target_cpu == "x86") {
+    cflags = [ "-m32" ]
+    ldflags = [ "-m32" ]
+  } else {
+    cflags = [ "-m64" ]
+    ldflags = [ "-m64" ]
+  }
+}
+
+# =============================================================================
+# rpath config
+# =============================================================================
+
+config("rpath") {
+  ldflags = []
+  if (!is_apple) {
+    ldflags += [
+      "-Wl,-rpath=\$ORIGIN/",
+      "-Wl,-rpath-link=",
+      "-Wl,--eh-frame-hdr",
+    ]
+  }
+}
+
+# =============================================================================
+# protobuf
+# =============================================================================
+config("protobuf") {
+  cflags_cc = [
+    "-D__const__=__unused__",
+  ]
+
+  libs = [
+    "/usr/lib/x86_64-linux-gnu/libgflags.so",
+    "/usr/lib/libprotobuf.so",
+  ]
+
+  ldflags = [
+    "-lprotobuf",
+    "-lgflags",
+  ]
+}
+
+# =============================================================================
+# sudo apt-get install libgmock-dev
+# =============================================================================
+config("gmock") {
+  libs = [
+    "/usr/lib/x86_64-linux-gnu/libgmock.a",
+    "/usr/lib/x86_64-linux-gnu/libgmock_main.a",
+  ]
+}
+
+# =============================================================================
+# sudo apt-get install libgtest-dev
+# =============================================================================
+config("gtest") {
+  libs = [
+    "/usr/lib/x86_64-linux-gnu/libgtest.a",
+    "/usr/lib/x86_64-linux-gnu/libgtest_main.a",
+  ]
+}
+
+# =============================================================================
+# sudo apt install libbenchmark-dev
+# =============================================================================
+config("benchmark") {
+  libs = [
+    # "/usr/lib/x86_64-linux-gnu/libbenchmark_main.a",
+  ]
+}
+
+# =============================================================================
+# sudo apt-get install libunwind-dev liblzma-dev
+# sudo apt-get install google-perftools libgoogle-perftools-dev
+# =============================================================================
+config("gperftools") {
+  libs = [
+    "/usr/lib/x86_64-linux-gnu/liblzma.so",
+    "/usr/lib/x86_64-linux-gnu/libunwind.so",
+    "/usr/lib/x86_64-linux-gnu/libtcmalloc_and_profiler.a",
+  ]
+}
+
+# =============================================================================
+# rtti
+# =============================================================================
+config("rtti") {
+  cflags_cc = ["-frtti"]
+}
+
+config("no_rtti") {
+  cflags_cc = ["-fno-rtti"]
+}
+
+# =============================================================================
+# lto
+# =============================================================================
+config("lto") {
+  cflags_cc = [
+    "-flto=auto",
+    "-flto-partition=balanced",
+   ]
+
+  ldflags = [
+    "-flto",
+    "-fuse-linker-plugin",
+  ]
+}
+
+# =============================================================================
+# pgo
+# =============================================================================
+config("pgo") {
+  cflags_cc = [
+    "-fprofile-dir=/dir/data/pgo",
+    "-fprofile-generate=/dir/data/pgo",
+    "-fprofile-use=/dir/data/pgo",
+    "-fprofile-correction",
+   ]
+
+  ldflags = [
+    "-lgcov",
+  ]
+}
+
+# =============================================================================
+# asan
+# =============================================================================
+config("asan") {
+  cflags_cc = []
+  if (is_asan) {
+    cflags_cc += [
+      "-fsanitize=address",
+      "-fsanitize-recover=address",
+      "-fsanitize-address-use-after-scope"
+    ]
+  }
+
+  if (is_lsan) {
+    cflags_cc += ["-fsanitize=leak"]
+  }
+
+  if (is_tsan) {
+    cflags_cc += ["-fsanitize=thread"]
+  }
+
+  if (is_msan) {
+    cflags_cc += ["-fsanitize=memory"]
+  }
+
+  ldflags = [
+    "-fsanitize=address -static-libasan",
+  ]
+}
+
+# =============================================================================
+# compiler perf
+# =============================================================================
+config("compiler-time-perf") {
+  cflags_cc = [
+    "-v",
+    "-ftime-report",
+   ]
+}
+
+# =============================================================================
+# remove section
+# =============================================================================
+config("remove-section") {
+  cflags_cc = [
+    "-ffunction-sections",
+    "-fdata-sections",
+   ]
+
+  ldflags = [
+    "-Wl,--gc-sections",
+    "-Wl,--print-gc-sections",
+  ]
+}
+
+# =============================================================================
+# dwarf
+# =============================================================================
+config("dwarf") {
+  cflags_cc = [
+    "-gsplit-dwarf",
+  ]
+
+  ldflags = [
+    "-Wl,--gc-sections",
+    "-Wl,--print-gc-sections",
+  ]
+}
+# =============================================================================
+# testing
+# =============================================================================
+config("testing") {
+  cflags_cc = [
+    "-fno-access-control",
+  ]
+
+  ldflags = [
+    "-O0",
+    "-g",
+  ]
+}

@@ -1,0 +1,14 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Assimp v5.4.3 pin. Sources expected at third_party/.src/assimp (junction
+# a local tree; do not GitHub-fetch from product TUs). Header-only config
+# until a linkable lib is produced beside the include tree.
+
+config("assimp_headers") {
+  include_dirs += [ "//third_party/.src/assimp/include" ]
+}
+
+group("assimp") {
+  public_configs = [ ":assimp_headers" ]
+}

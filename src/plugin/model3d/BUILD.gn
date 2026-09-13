@@ -1,0 +1,47 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_mfc_shared_library("plugin_model3d") {
+  dll_stem = "plugin_model3d"
+  sources = [
+    "model3d_creater_plugin.cpp",
+    "model_3d_creater.cpp",
+    "model_3d_creater.rc",
+    "stdafx.cpp",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/plugin:legacy_cmd",
+    "//src/plugin:plugin",
+    "//src/base:core",
+    "//src/tool:tool",
+    "//src/render/math:math",
+    "//src/algorithm/geo:geo",
+    "//src/sdb/map:gis",
+    "//src/sys:sys",
+    "//src/ui/xcatalog:xcatalog",
+    "//src/ui/xview:xview",
+    "//src/render/model3d:model3d",
+    "//src/render/terrain:terrain",
+    "//src/render/pointcloud:pointcloud",
+    "//src/render/scene3d:scene3d",
+    "//src/render/render3d:render3d",
+    "//src/plugin/dem:plugin_dem",
+    "//third_party:gdal",
+  ]
+}
+
+source_set("model3d_views") {
+  sources = [
+    "model3d_commands.cc",
+    "model3d_commands.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/content:content",
+    "//src/plugin:host",
+    "//src/ui/views:views",
+  ]
+}

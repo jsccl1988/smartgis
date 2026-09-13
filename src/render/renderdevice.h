@@ -1,14 +1,14 @@
 /*
 File:    rd_renderdevice.h
 
-Desc:    SmtRenderDevice,µØÍ¼äÖÈ¾Çý¶¯»ùÀà
-			1.¶àäÖÈ¾²ã£ºQuick		2		Direct Ö±½ÓÔÚDCÉÏ»æÖÆ£¬µ«²»ÄÜ×¤Áô£¬µ÷ÓÃË¢ÐÂÖ®ºóÔòÏûÊ§
+Desc:    SmtRenderDevice,ï¿½ï¿½Í¼ï¿½ï¿½È¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			1.ï¿½ï¿½ï¿½ï¿½È¾ï¿½ã£ºQuick		2		Direct Ö±ï¿½ï¿½ï¿½ï¿½DCï¿½Ï»ï¿½ï¿½Æ£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½Ö®ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§
 						Dynamic		1
 						Map			0
 
 Version: Version 1.0
 
-Writter:  ³Â´ºÁÁ
+Writter:  ï¿½Â´ï¿½ï¿½ï¿½
 
 Date:    2010.11.17
 
@@ -17,22 +17,30 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _RD_RENDERDEVICE_H
 #define _RD_RENDERDEVICE_H
 
-#include "core.h"
-#include "feature.h"
-#include "geometry.h"
-#include "map.h"
-#include "style.h"
-#include "style_bas_struct.h"
+#include "base/core/core.h"
+#include "sdb/feature/feature.h"
+#include "algorithm/geo/geometry.h"
+#include "sdb/map/map.h"
+#include "base/style/style.h"
+#include "base/style/style_bas_struct.h"
+
+#if defined(RENDER_EXPORTS)
+#define RENDER_EXPORT_API __declspec(dllexport)
+#define RENDER_EXPORT_CLASS __declspec(dllexport)
+#else
+#define RENDER_EXPORT_API __declspec(dllimport)
+#define RENDER_EXPORT_CLASS __declspec(dllimport)
+#endif
 
 class OGRFeature;
 class OGRLayer;
 
-using namespace Smt_Core;
-using namespace Smt_GIS;
-using namespace Smt_Base;
-using namespace Smt_Geo;
+using namespace base;
+using namespace sdb;
+using namespace base;
+using namespace geo;
 
-namespace Smt_Rd
+namespace render
 {
 	enum eRDBufferLayer
 	{
@@ -114,25 +122,25 @@ namespace Smt_Rd
 		virtual int             RenderLayer(const SmtRasterLayer *pLayer,int op = R2_COPYPEN) = 0;			//1-16 R2_BLACK-R2_WHITE
 		virtual int             RenderLayer(const SmtTileLayer *pLayer,int op = R2_COPYPEN) = 0;			//1-16 R2_BLACK-R2_WHITE
 		virtual int             RenderFeature(OGRFeature *pFeature,int op = R2_COPYPEN) = 0;
-		virtual int             RenderGeometry(const SmtGeometry *pGeom,const SmtStyle*pStyle,int op = R2_COPYPEN) = 0;
+		virtual int             RenderGeometry(const OGRGeometry *pGeom,const SmtStyle*pStyle,int op = R2_COPYPEN) = 0;
 
-		virtual int             DrawMultiLineString(const SmtMultiLineString *pMultiLinestring) = 0;
-		virtual int             DrawMultiPoint(const SmtStyle*pStyle,const SmtMultiPoint *pMultiPoint) = 0;
-		virtual int             DrawMultiPolygon(const SmtMultiPolygon *pMultiPolygon) = 0;
+		virtual int             DrawMultiLineString(const OGRMultiLineString *pMultiLinestring) = 0;
+		virtual int             DrawMultiPoint(const SmtStyle*pStyle,const OGRMultiPoint *pMultiPoint) = 0;
+		virtual int             DrawMultiPolygon(const OGRMultiPolygon *pMultiPolygon) = 0;
 
-		virtual int             DrawPoint(const SmtStyle*pStyle,const SmtPoint *pPoint) = 0;
-		virtual int             DrawAnno(const char *szAnno,float fangel,float fCHeight,float fCWidth,float fCSpace,const SmtPoint *pPoint) = 0;
-		virtual int             DrawSymbol(HICON hIcon,long lHeight,long lWhidth,const SmtPoint *pPoint) = 0;
+		virtual int             DrawPoint(const SmtStyle*pStyle,const OGRPoint *pPoint) = 0;
+		virtual int             DrawAnno(const char *szAnno,float fangel,float fCHeight,float fCWidth,float fCSpace,const OGRPoint *pPoint) = 0;
+		virtual int             DrawSymbol(HICON hIcon,long lHeight,long lWhidth,const OGRPoint *pPoint) = 0;
 
-		virtual int             DrawLineString(const SmtLineString *pLinestring) = 0;
-		virtual int             DrawLineSpline(const SmtSpline *pSpline) = 0;
-		virtual int             DrawLinearRing(const SmtLinearRing *pLinearRing) = 0;
-		virtual int             DrawPloygon(const SmtPolygon *pPloygon) = 0;
+		virtual int             DrawLineString(const OGRLineString *pLinestring) = 0;
+		virtual int             DrawLineSpline(const OGRLineString *pSpline) = 0;
+		virtual int             DrawLinearRing(const OGRLinearRing *pLinearRing) = 0;
+		virtual int             DrawPloygon(const OGRPolygon *pPloygon) = 0;
 
 		virtual int             DrawTin(const SmtTin *pTin) = 0;
 		virtual int             DrawGrid(const SmtGrid *pGrid) = 0;
-		virtual int             DrawArc(const SmtArc *pArc) = 0;
-		virtual int             DrawFan(const SmtFan *pFan) = 0;
+		virtual int             DrawArc(const OGRLineString *pArc) = 0;
+		virtual int             DrawFan(const OGRPolygon *pFan) = 0;
 
 	public:
 		virtual int             DrawEllipse(float left,float top,float right,float bottom,bool bDP = false) = 0;
@@ -164,20 +172,16 @@ namespace Smt_Rd
 		lPoint					m_curDrawingOrg;
 	};
 
-	// Thin RHI wrap of Init(HWND). Exported from SmtRender, not device DLLs.
-#if defined(Export_SmtRenderer)
-	void SMT_EXPORT_API BindRhiPresent(void* native_window);
-#else
-	void __declspec(dllimport) BindRhiPresent(void* native_window);
-#endif
+	// Thin RHI wrap of Init(HWND). Exported from render, not device DLLs.
+	RENDER_EXPORT_API void bind_rhi_present(void* native_window);
 
 	typedef SmtRenderDevice* LPRENDERDEVICE;
 
 #ifdef __cplusplus
 	extern "C" {
 #endif
-		int SMT_EXPORT_DLL CreateRenderDevice(HINSTANCE hInst,LPRENDERDEVICE &pMrdDevice);
-		int SMT_EXPORT_DLL DestroyRenderDevice(LPRENDERDEVICE &pMrdDevice);
+		int RENDER_EXPORT_API CreateRenderDevice(HINSTANCE hInst,LPRENDERDEVICE &pMrdDevice);
+		int RENDER_EXPORT_API DestroyRenderDevice(LPRENDERDEVICE &pMrdDevice);
 
 		typedef HRESULT (*_CreateRenderDevice)(HINSTANCE hInst,LPRENDERDEVICE &pMrdDevice);
 		typedef HRESULT (*_DestroyRenderDevice)(LPRENDERDEVICE &pMrdDevice);
@@ -186,5 +190,13 @@ namespace Smt_Rd
 	}
 #endif
 }
+
+#if !defined(RENDER_EXPORTS)
+#if defined(_DEBUG)
+#pragma comment(lib, "renderD.lib")
+#else
+#pragma comment(lib, "render.lib")
+#endif
+#endif
 
 #endif //_RD_RENDERDEVICE_H

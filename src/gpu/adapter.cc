@@ -70,9 +70,9 @@ class LegacyDevice {
 
 }  // namespace
 
-class SmtAdapterImpl final : public SmtAdapter {
+class AdapterImpl final : public Adapter {
  public:
-  ~SmtAdapterImpl() override {
+  ~AdapterImpl() override {
     if (hwnd_) {
       DestroyWindow(hwnd_);
       hwnd_ = nullptr;
@@ -90,22 +90,22 @@ class SmtAdapterImpl final : public SmtAdapter {
         false;
 #endif
     const wchar_t* required[] = {
-        L"SmtCore",
-        L"SmtSysCore",
-        L"SmtBaseLib",
-        L"SmtGeoCore",
-        L"SmtGisCore",
-        L"SmtRender",
-        L"SmtGdiSimpleRenderDevice",
+        L"core",
+        L"sys",
+        L"style",
+        L"geo",
+        L"gis",
+        L"render",
+        L"render_gdi_simple",
     };
     const wchar_t* optional[] = {
-        L"SmtGisPrj",
-        L"SmtGdiRenderDevice",
-        L"Smt3DRenderer",
-        L"SmtGLRenderDevice",
-        L"SmtToolCore",
-        L"SmtGroupToolCore",
-        L"SmtAuxModule",
+        L"proj",
+        L"render_gdi",
+        L"render3d",
+        L"render_gl",
+        L"tool",
+        L"tool_group",
+        L"plugin",
     };
     bool ok = true;
     for (const wchar_t* s : required) {
@@ -120,10 +120,10 @@ class SmtAdapterImpl final : public SmtAdapter {
     const std::wstring log_dir = exe_dir() + L"\\log";
     CreateDirectoryW(log_dir.c_str(), nullptr);
 
-    HMODULE gdi = GetModuleHandleW(debug ? L"SmtGdiSimpleRenderDeviceD.dll"
-                                         : L"SmtGdiSimpleRenderDevice.dll");
+    HMODULE gdi = GetModuleHandleW(debug ? L"render_gdi_simpleD.dll"
+                                         : L"render_gdi_simple.dll");
     if (!gdi && !dlls_.empty()) {
-      gdi = GetModuleHandleW(L"SmtGdiSimpleRenderDeviceD.dll");
+      gdi = GetModuleHandleW(L"render_gdi_simpleD.dll");
     }
     if (gdi) {
       auto create = reinterpret_cast<CreateRenderDeviceFn>(
@@ -191,8 +191,8 @@ class SmtAdapterImpl final : public SmtAdapter {
 
 }  // namespace detail
 
-SmtAdapter* create_smt_adapter() {
-  return new detail::SmtAdapterImpl();
+Adapter* create_adapter() {
+  return new detail::AdapterImpl();
 }
 
 }  // namespace gpu

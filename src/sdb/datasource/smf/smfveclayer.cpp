@@ -1,19 +1,18 @@
-#include "smf.h"
-#include "api.h"
-#include "feature_api.h"
-#include "mem.h"
-#include "smf_ogrsupport.h"
+#include "sdb/datasource/smf/smf.h"
+#include "base/core/api.h"
+#include "sdb/feature/feature_api.h"
+#include "sdb/datasource/mem/mem.h"
+#include "sdb/datasource/smf/smf_ogrsupport.h"
 
-using namespace Smt_Geo;
-using namespace Smt_Core;
-using namespace Smt_SDEMem;
-using namespace Smt_GIS;
+using namespace geo;
+using namespace base;
+using namespace sdb;
 
-namespace Smt_SDESmf
+namespace sdb
 {
 	SmtSmfVecLayer::SmtSmfVecLayer(SmtDataSource *pOwnerDs):SmtVectorLayer(pOwnerDs)
 	{
-		m_pOwnerDs = pOwnerDs->Clone();
+		m_pOwnerDs = pOwnerDs->clone();
 		m_pFilterGeom = NULL;
 		sprintf(m_szLayerName,"DefShape");  
 		m_pAtt = new SmtAttribute();
@@ -122,13 +121,13 @@ namespace Smt_SDESmf
 		return m_pMemLayer->Query(pGQueryDesc,pPQueryDesc,pQueryResult);
 	}
 
-	long SmtSmfVecLayer::AppendFeature(const SmtFeature *pSmtFeature,bool bclone)
+	long SmtSmfVecLayer::AppendFeature(const SmtFeature *pSmtFeature,bool bClone)
 	{
-		m_pMemLayer->AppendFeature(pSmtFeature,bclone);
+		m_pMemLayer->AppendFeature(pSmtFeature,bClone);
 
 		Envelope env;
 		// m_pMemLayer->CalEnvelope();
-		m_pMemLayer->GetEnvelope(env);
+		m_pMemLayer->get_envelope(env);
 		memcpy(&m_lyrEnv,&env,sizeof(Envelope));
 	
 		return SMT_ERR_NONE;
@@ -163,7 +162,7 @@ namespace Smt_SDESmf
 	{
 		Envelope env;
 		m_pMemLayer->CalEnvelope();
-		m_pMemLayer->GetEnvelope(env);
+		m_pMemLayer->get_envelope(env);
 		memcpy(&m_lyrEnv,&env,sizeof(Envelope));
 	}
 
@@ -202,7 +201,7 @@ namespace Smt_SDESmf
 			OGRGeometry *poGeometry;
 			poGeometry = poFeature->GetGeometryRef();		
 			if( poGeometry != NULL )
-				OGRFeaTypeToSmtFeaType(wkbFlatten(poGeometry->getGeometryType()),type);
+				ogr_fea_type_to_smt_fea_type(wkbFlatten(poGeometry->getGeometryType()),type);
 
 			m_SmtLayerFtType = (SmtFeatureType)type;
 			
@@ -218,7 +217,7 @@ namespace Smt_SDESmf
 					if (NULL != pFldDefn)
 					{
 						long fldtype = SmtUnknown;	 
-						OGRFldTypeToSmtFldType(pFldDefn->GetType(),fldtype);
+						ogr_fld_type_to_smt_fld_type(pFldDefn->GetType(),fldtype);
 						smtFld.SetName(pFldDefn->GetNameRef());
 						smtFld.SetType(fldtype);
 						m_pAtt->AddField(smtFld);
@@ -255,7 +254,7 @@ namespace Smt_SDESmf
 			pSmtFeature->SetID(nFeaID);
 			pSmtFeature->SetAttribute(m_pAtt);
 		
-			if (CopyOGRFeaToSmtFea(poFeature,pSmtFeature))
+			if (copy_ogr_fea_to_smt_fea(poFeature,pSmtFeature))
 			{
 				AppendFeature(pSmtFeature,false);
 				nFeaID ++;
@@ -272,7 +271,7 @@ namespace Smt_SDESmf
 		//
 	/*	if (SmtFtDot == m_SmtLayerFtType)
 		{
-			Points2MultiPoint(this);
+			points_to_multi_point(this);
 		}*/
 
 		return true;

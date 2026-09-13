@@ -1,0 +1,39 @@
+---
+description: Refactoring — compose complex behavior from smaller units; reshape subdirs without breaking layers
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Refactoring: abstraction, composition, layout
+
+Use this when **replacing a large or tangled implementation** or **moving code between directories**. Prefer **fewer, sharper abstractions** wired together over one “does everything” type.
+
+## 1) Complex behavior → extract and compose
+
+- **Map responsibilities first**: list distinct concerns (I/O, policy, state, wire format, UI). If one class/file mixes several, **split along those seams** before renaming or micro-optimizing.
+- **Prefer composition**: expose **small, testable units** (pure helpers, single-purpose services, strategy objects) and **assemble** them at the boundary (constructor/factory/`Init`). Avoid a new god-object that only rearranges the old monolith.
+- **Stable seams**: introduce **narrow interfaces** (callbacks, small virtual bases, or existing framework hooks) so callers depend on **capabilities**, not on incidental types.
+- **Reuse layers**: move generic primitives toward **`core/`**, product GIS / UI / render toward **`src/`** (see **`docs/build/src-layout.md`**, **`.cursor/rules/repo/ui-views-skia.mdc`**). Do not duplicate an existing module “closer to the call site” unless extending that module is infeasible (then document why briefly).
+- **Incremental steps**: **extract** a chunk behind a clear API → **switch one call site** → repeat. Safer than a single mega-diff that rewrites behavior and paths together.
+
+## 2) Subdirectory and module reshaping
+
+- **Match the tree you are in**: after moves, code should still **look like siblings** in that subtree (**`.cursor/rules/style/tree-style.mdc`**). Keep naming, `BUILD.gn` patterns, and include style aligned with peers.
+- **Dependency direction**: refactors must **preserve or improve** layer rules (no new upward deps from `core/` into product chrome; no “shortcut” includes that violate **`docs/build/src-layout.md`**). Update **`BUILD.gn`** `deps` / `public_deps` with every path change so the graph stays honest.
+- **Co-move artifacts**: when relocating implementation, move or re-point **tests** and **path-scoped rules** under **`.cursor/rules/`** in the **same change** when they would otherwise point at stale locations.
+- **API and churn**: prefer keeping **public include paths and binary names** stable; if you must break them, do it **deliberately** in one commit/PR and update **callers + docs** (including **root `README.md`** when behavior or top-level layout changes per **`.cursor/rules/repo/root-readme.mdc`**).
+
+## Don’t
+
+- **Don’t** “refactor” by copying a large block into a new file without **clear ownership** and **reduced coupling** — that adds navigation cost without simplifying the model.
+- **Don’t** split only by file size (arbitrary chunking) instead of **by responsibility** — composition should reflect meaning, not line counts.
+- **Don’t** move directories without fixing **GN targets**, **includes**, and **narrower `.cursor/rules`** that glob the old paths.
+- **Don’t** introduce Qt, a second widget kit, or a parallel 2D/3D type tree while reshaping (**`.cursor/rules/repo/no-qt.mdc`**, **`.cursor/rules/style/cxx-standard.mdc`**).
+
+## Relation to other rules
+
+**`.cursor/rules/style/tree-style.mdc`** (local consistency), **`.cursor/rules/style/cxx-standard.mdc`** (traits over parallel copies), **`.cursor/rules/build/build-output.mdc`** (`out/` only; user / `@auto-build-fix` owns when to compile).

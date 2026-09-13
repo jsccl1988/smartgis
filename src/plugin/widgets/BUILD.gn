@@ -1,0 +1,13 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+source_set("widgets") {
+  sources = [
+    "about_dialog.cc",
+    "about_dialog.h",
+    "map_preview.cc",
+    "map_preview.h",
+  ]
+  include_dirs += [ "//src" ]
+  public_deps = [ "//src/ui/views:views" ]
+}

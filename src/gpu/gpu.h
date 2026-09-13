@@ -11,9 +11,9 @@
 // for paint; GpuMain owns D3D/GL.
 namespace gpu {
 
-class SmtAdapter {
+class Adapter {
  public:
-  virtual ~SmtAdapter() = default;
+  virtual ~Adapter() = default;
   virtual bool load_legacy_dlls() = 0;
   virtual bool bind_view(uint32_t view_id, void* legacy_map) = 0;
   virtual void* render_device(uint32_t view_id) = 0;
@@ -21,7 +21,7 @@ class SmtAdapter {
   virtual void* hwnd() const = 0;
 };
 
-SmtAdapter* create_smt_adapter();
+Adapter* create_adapter();
 int GpuMain(int argc, wchar_t** argv);
 int render_main(int argc, wchar_t** argv);
 int run_self_test(const wchar_t* exe_path);

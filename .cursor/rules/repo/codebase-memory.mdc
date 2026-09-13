@@ -1,0 +1,39 @@
+---
+description: Code lookup MUST use codebase-memory-mcp; no repo-wide Grep first
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# CBM required for code lookup
+
+Looking up code in this repo **must** use **codebase-memory-mcp**. Do not start with workspace-wide Grep/Glob while CBM is connected.
+
+**Windows Cursor:** project **`smartgis`**, `root_path` `C:/Dev/src/gis/smartgis`. Match `list_projects` before querying.
+
+WSL CBM is a **separate store**. There, `smartgis` is the old vs08 tree. Do not mix names.
+
+## Must
+
+```
+# BAD — first hop is repo-wide Grep
+Grep pattern="MapPane"   # no path
+
+# GOOD
+list_projects → search_graph(project="smartgis", name_pattern=".*MapPane.*")
+             → get_code_snippet / trace_path
+```
+
+1. `list_projects` / `index_status`. Index only when the user asks.
+2. `search_graph` → `get_code_snippet` / `trace_path`.
+3. Optional `search_code` with `mode=compact` and `path_filter`.
+4. Open only the files the graph pointed at.
+
+Grep/Glob only if CBM is down, the user named an exact path, or the search is already scoped (Grep **must** pass `path`).
+
+Fallthrough: CBM → codegraph (if present) → graphify (only if `graph.json` exists) → Grep with `path`.
+
+Do not auto-reindex after edits. Prefer snippets over dumping large files.

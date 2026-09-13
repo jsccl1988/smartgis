@@ -4,12 +4,15 @@
 #ifndef _GIS_SDE_H
 #define _GIS_SDE_H
 
-#include "feature.h"
-#include "geometry.h"
+#include "sdb/feature/feature.h"
+#include "algorithm/geo/geometry.h"
+#include "ogrsf_frmts.h"
 
-using namespace Smt_Geo;
-using namespace Smt_Core;
-using namespace Smt_Base;
+#include <cstddef>
+#include <cstring>
+
+using namespace base;
+using namespace base;
 
 #define MAX_DS_NAME MAX_NAME_LENGTH
 #define MAX_SVR_NAME MAX_FILE_PATH
@@ -24,10 +27,50 @@ using namespace Smt_Base;
 #define MAX_LAYER_SRS_NAME MAX_NAME_LENGTH
 
 class GDALDataset;
-class OGRGeometry;
-class OGRLayer;
 
-namespace Smt_GIS {
+// Leftover name for vector layers after the OGR cut-over.
+using SmtVectorLayer = OGRLayer;
+
+inline sdb::SmtFeatureType leftover_layer_feature_type(OGRLayer* layer) {
+  if (!layer) {
+    return sdb::SmtFtUnknown;
+  }
+  switch (wkbFlatten(layer->GetGeomType())) {
+    case wkbPoint:
+    case wkbMultiPoint:
+      return sdb::SmtFtDot;
+    case wkbLineString:
+    case wkbMultiLineString:
+      return sdb::SmtFtCurve;
+    case wkbPolygon:
+    case wkbMultiPolygon:
+      return sdb::SmtFtSurface;
+    case wkbTIN:
+      return sdb::SmtFtTin;
+    default:
+      return sdb::SmtFtUnknown;
+  }
+}
+
+inline OGRwkbGeometryType leftover_feature_wkb(sdb::SmtFeatureType ft) {
+  switch (ft) {
+    case sdb::SmtFtDot:
+    case sdb::SmtFtAnno:
+      return wkbPoint;
+    case sdb::SmtFtCurve:
+      return wkbLineString;
+    case sdb::SmtFtSurface:
+      return wkbPolygon;
+    case sdb::SmtFtTin:
+      return wkbTIN;
+    case sdb::SmtFtGrid:
+      return wkbMultiPoint;
+    default:
+      return wkbUnknown;
+  }
+}
+
+namespace sdb {
 
 enum eSmtDBProvider {
   PROVIDER_ACCESS,
@@ -60,11 +103,11 @@ enum eDSType {
 
 struct SmtGQueryDesc {
   OGRGeometry* pQueryGeom;
-  SmtSpatialRs sSRs;
+  geo::SmtSpatialRs sSRs;
   float fSmargin;
 
   SmtGQueryDesc()
-      : pQueryGeom(nullptr), sSRs(SS_Contains), fSmargin(0.05f) {}
+      : pQueryGeom(nullptr), sSRs(geo::SS_Contains), fSmargin(0.05f) {}
 };
 
 struct SmtPQueryDesc {
@@ -187,7 +230,10 @@ class SmtLayer {
 
   virtual ~SmtLayer() { SMT_SAFE_DELETE(m_pAtt); }
 
+  GDALDataset* GetDataset() { return m_pOwnerDs; }
   const GDALDataset* GetDataset() const { return m_pOwnerDs; }
+  GDALDataset* GetDataSource() { return m_pOwnerDs; }
+  const GDALDataset* GetDataSource() const { return m_pOwnerDs; }
 
   virtual bool Create() = 0;
   virtual bool Open(const char* szLayerArchiveName) = 0;
@@ -198,13 +244,13 @@ class SmtLayer {
 
   void SetAttribute(const SmtAttribute* pAtt) {
     SMT_SAFE_DELETE(m_pAtt);
-    m_pAtt = pAtt ? pAtt->Clone() : nullptr;
+    m_pAtt = pAtt ? pAtt->clone() : nullptr;
   }
 
   SmtAttribute* GetAttribute() { return m_pAtt; }
   const SmtAttribute* GetAttribute() const { return m_pAtt; }
 
-  void GetEnvelope(Envelope& env) const {
+  void get_envelope(Envelope& env) const {
     memcpy(&env, &m_lyrEnv, sizeof(Envelope));
   }
   virtual void CalEnvelope() {}
@@ -309,6 +355,107 @@ class SmtTileLayer : public SmtLayer {
   long m_lImageCode;
 };
 
-}  // namespace Smt_GIS
+// Leftover catalog/UI holder until those TUs speak GDALDataset directly.
+class SmtDataSource {
+ public:
+  SmtDataSource() = default;
+  SmtDataSource(std::nullptr_t) : ds_(nullptr) {}
+  SmtDataSource(int) : ds_(nullptr) {}
+  SmtDataSource(GDALDataset* ds) : ds_(ds) {}
+
+  explicit operator bool() const { return ds_ != nullptr; }
+  bool operator==(std::nullptr_t) const { return ds_ == nullptr; }
+  bool operator!=(std::nullptr_t) const { return ds_ != nullptr; }
+
+  bool Open() { return ds_ != nullptr; }
+  void Close() {}
+
+  GDALDataset* dataset() const { return ds_; }
+  operator GDALDataset*() const { return ds_; }
+
+  const char* GetName() const {
+    return (ds_ && ds_->GetDescription()) ? ds_->GetDescription() : "";
+  }
+  const char* GetUrl() const { return GetName(); }
+
+  int GetLayerCount() const { return ds_ ? ds_->GetLayerCount() : 0; }
+
+  void GetInfo(SmtDataSourceInfo& info) const {
+    info = SmtDataSourceInfo();
+    if (ds_ && ds_->GetDescription()) {
+      sprintf_s(info.szName, MAX_DS_NAME, "%s", ds_->GetDescription());
+    }
+  }
+
+  void GetLayerInfo(SmtLayerInfo& out, int index) const {
+    out = SmtLayerInfo();
+    if (!ds_ || index < 0 || index >= ds_->GetLayerCount()) {
+      return;
+    }
+    fill_layer_info(&out, ds_->GetLayer(index));
+  }
+
+  void GetLayerInfo(SmtLayerInfo& out, const char* name) const {
+    out = SmtLayerInfo();
+    if (!ds_ || name == nullptr) {
+      return;
+    }
+    fill_layer_info(&out, ds_->GetLayerByName(name));
+  }
+
+  OGRLayer* OpenVectorLayer(const char* name) {
+    return (ds_ && name) ? ds_->GetLayerByName(name) : nullptr;
+  }
+
+  OGRLayer* CreateVectorLayer(const char* name, const fRect&,
+                              SmtFeatureType type) {
+    if (!ds_ || !name) {
+      return nullptr;
+    }
+    return ds_->CreateLayer(name, nullptr, leftover_feature_wkb(type), nullptr);
+  }
+
+  SmtRasterLayer* CreateRasterLayer(const char*, const fRect&, int) {
+    return nullptr;
+  }
+
+  bool DeleteVectorLayer(const char* name) {
+    if (!ds_ || !name) {
+      return false;
+    }
+    const int n = ds_->GetLayerCount();
+    for (int i = 0; i < n; ++i) {
+      OGRLayer* lyr = ds_->GetLayer(i);
+      if (lyr && lyr->GetName() && std::strcmp(lyr->GetName(), name) == 0) {
+        return ds_->DeleteLayer(i) == OGRERR_NONE;
+      }
+    }
+    return false;
+  }
+
+  SmtRasterLayer* OpenRasterLayer(const char* /*name*/) { return nullptr; }
+
+  static const char* GetLayerFeatureTypeName(uint ftType) {
+    return layer_feature_type_name(ftType);
+  }
+
+ private:
+  static void fill_layer_info(SmtLayerInfo* out, OGRLayer* lyr) {
+    if (!out || !lyr) {
+      return;
+    }
+    sprintf_s(out->szName, MAX_LAYER_NAME, "%s", lyr->GetName());
+    sprintf_s(out->szArchiveName, MAX_LAYER_ARCHIVE_NAME, "%s", lyr->GetName());
+    out->unFeatureType = leftover_layer_feature_type(lyr);
+  }
+
+  GDALDataset* ds_ = nullptr;
+};
+
+inline bool operator==(std::nullptr_t, const SmtDataSource& ds) {
+  return !ds;
+}
+
+}  // namespace sdb
 
 #endif  // _GIS_SDE_H

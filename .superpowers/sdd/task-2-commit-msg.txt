@@ -1,0 +1,1 @@
+Add shared OGR feature codec for point, line, polygon, and annotation.

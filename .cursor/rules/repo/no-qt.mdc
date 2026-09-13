@@ -1,0 +1,21 @@
+---
+description: HARD RULE — no Qt (Widgets, Quick/QML, Network, Qt5/Qt6, find_package) anywhere in this repo
+alwaysApply: true
+---
+
+# No Qt in this repository
+
+**This rule is always on (`alwaysApply: true`). Qt is a rejected modern-UI path for SmartGIS; do not add it later as a “helpful” alternative.**
+
+Desktop chrome **endgame** is Chromium-style Views + Skia (`src/ui/views`, `src/render/skia`) — see `ui-views-skia.mdc`. Qt is never an alternative. Skia as a **render backend** is OK; that is not permission to pull Qt.
+
+## Do
+
+- Put new desktop chrome on Views + Skia. Legacy MFC/`src/ui` may remain until replaced. Feature Pack / WinUI / WebView2 are not the destination.
+- Treat Skia as a canvas/render backend only, never as a reason to introduce Qt.
+
+## Don’t
+
+- **Don’t** use Qt Widgets, Qt Quick / QML, Qt Network, or any other Qt module.
+- **Don’t** add a Qt SDK/distribution, `Qt5` / `Qt6` packages, `find_package(Qt…)`, or GN/CMake deps on Qt.
+- **Don’t** rewrite the desktop shell (or any new UI surface) in Qt.

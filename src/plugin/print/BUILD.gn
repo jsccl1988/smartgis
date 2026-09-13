@@ -1,0 +1,43 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_mfc_shared_library("plugin_print") {
+  dll_stem = "plugin_print"
+  sources = [
+    "dlg_2d_xview.cpp",
+    "map_print.cpp",
+    "map_print.rc",
+    "mapprint_plugin.cpp",
+    "stdafx.cpp",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/plugin:legacy_cmd",
+    "//src/plugin:plugin",
+    "//src/base:core",
+    "//src/tool:tool",
+    "//src/ui/xview:xview",
+    "//src/ui/xcatalog:xcatalog",
+    "//src/algorithm/geo:geo",
+    "//src/sdb/map:gis",
+    "//third_party:gdal",
+  ]
+}
+
+source_set("print_views") {
+  sources = [
+    "print_commands.cc",
+    "print_commands.h",
+    "print_preview_dialog.cc",
+    "print_preview_dialog.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/content:content",
+    "//src/plugin:host",
+    "//src/plugin/widgets:widgets",
+    "//src/ui/views:views",
+  ]
+}

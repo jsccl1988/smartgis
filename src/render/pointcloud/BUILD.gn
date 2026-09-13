@@ -1,0 +1,18 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("pointcloud") {
+  dll_stem = "pointcloud"
+  defines = [ "POINTCLOUD_EXPORTS" ]
+  sources = [ "pointcloud.cpp" ]
+  deps = [
+    "//src/render/scene3d:scene3d",
+    "//src/algorithm/geo:geo",
+    "//src/render/math:bounds",
+    "//src/render/model3d:model3d",
+    "//src/render/render3d:render3d",
+    "//src/base:core",
+  ]
+}

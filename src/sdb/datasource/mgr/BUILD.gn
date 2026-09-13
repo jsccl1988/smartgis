@@ -4,8 +4,8 @@
 import("//build/smartgis.gni")
 
 smt_shared_library("sde_mgr") {
-  dll_stem = "SmtSDEDeviceMgr"
-  defines = [ "Export_SmtSDEDeviceMgr" ]
+  dll_stem = "sde_mgr"
+  defines = [ "SDE_MGR_EXPORTS" ]
   sources = [ "datasourcemgr.cpp" ]
   include_dirs += [ "//src" ]
   deps = [

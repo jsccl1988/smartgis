@@ -30,15 +30,15 @@ std::string join_dir_file(const char* dir, const char* name) {
   return path;
 }
 
-std::string make_db_file_open_target(const Smt_GIS::SmtDataSourceInfo& info) {
+std::string make_db_file_open_target(const sdb::SmtDataSourceInfo& info) {
   return join_dir_file(info.db.szService, info.db.szDBName);
 }
 
-std::string make_file_open_target(const Smt_GIS::SmtDataSourceInfo& info) {
+std::string make_file_open_target(const sdb::SmtDataSourceInfo& info) {
   return join_dir_file(info.file.szPath, info.file.szFileName);
 }
 
-std::string make_postgres_open_target(const Smt_GIS::SmtDataSourceInfo& info) {
+std::string make_postgres_open_target(const sdb::SmtDataSourceInfo& info) {
   std::string host = info.db.szService;
   std::string port = "5432";
   const std::string::size_type colon = host.rfind(':');
@@ -57,137 +57,137 @@ std::string make_postgres_open_target(const Smt_GIS::SmtDataSourceInfo& info) {
 
 template <uint Provider>
 std::string db_provider_traits<Provider>::open_target(
-    const Smt_GIS::SmtDataSourceInfo& /*info*/) {
+    const sdb::SmtDataSourceInfo& /*info*/) {
   return std::string();
 }
 
 template <uint Provider>
 std::string file_provider_traits<Provider>::open_target(
-    const Smt_GIS::SmtDataSourceInfo& /*info*/) {
+    const sdb::SmtDataSourceInfo& /*info*/) {
   return std::string();
 }
 
 template <uint Provider>
 std::string mem_provider_traits<Provider>::open_target(
-    const Smt_GIS::SmtDataSourceInfo& /*info*/) {
+    const sdb::SmtDataSourceInfo& /*info*/) {
   return std::string();
 }
 
-std::string db_provider_traits<Smt_GIS::PROVIDER_GPKG>::open_target(
-    const Smt_GIS::SmtDataSourceInfo& info) {
+std::string db_provider_traits<sdb::PROVIDER_GPKG>::open_target(
+    const sdb::SmtDataSourceInfo& info) {
   return make_db_file_open_target(info);
 }
 
-std::string db_provider_traits<Smt_GIS::PROVIDER_SPATIALITE>::open_target(
-    const Smt_GIS::SmtDataSourceInfo& info) {
+std::string db_provider_traits<sdb::PROVIDER_SPATIALITE>::open_target(
+    const sdb::SmtDataSourceInfo& info) {
   return make_db_file_open_target(info);
 }
 
-std::string db_provider_traits<Smt_GIS::PROVIDER_POSTGRES>::open_target(
-    const Smt_GIS::SmtDataSourceInfo& info) {
+std::string db_provider_traits<sdb::PROVIDER_POSTGRES>::open_target(
+    const sdb::SmtDataSourceInfo& info) {
   return make_postgres_open_target(info);
 }
 
-std::string file_provider_traits<Smt_GIS::PROVIDER_SHAPE>::open_target(
-    const Smt_GIS::SmtDataSourceInfo& info) {
+std::string file_provider_traits<sdb::PROVIDER_SHAPE>::open_target(
+    const sdb::SmtDataSourceInfo& info) {
   return make_file_open_target(info);
 }
 
-std::string file_provider_traits<Smt_GIS::PROVIDER_OGR_SUPPORT>::open_target(
-    const Smt_GIS::SmtDataSourceInfo& info) {
+std::string file_provider_traits<sdb::PROVIDER_OGR_SUPPORT>::open_target(
+    const sdb::SmtDataSourceInfo& info) {
   return make_file_open_target(info);
 }
 
 bool is_db_provider_supported(uint provider) {
   switch (provider) {
-    case Smt_GIS::PROVIDER_GPKG:
-      return db_provider_traits<Smt_GIS::PROVIDER_GPKG>::supported;
-    case Smt_GIS::PROVIDER_POSTGRES:
-      return db_provider_traits<Smt_GIS::PROVIDER_POSTGRES>::supported;
-    case Smt_GIS::PROVIDER_SPATIALITE:
-      return db_provider_traits<Smt_GIS::PROVIDER_SPATIALITE>::supported;
+    case sdb::PROVIDER_GPKG:
+      return db_provider_traits<sdb::PROVIDER_GPKG>::supported;
+    case sdb::PROVIDER_POSTGRES:
+      return db_provider_traits<sdb::PROVIDER_POSTGRES>::supported;
+    case sdb::PROVIDER_SPATIALITE:
+      return db_provider_traits<sdb::PROVIDER_SPATIALITE>::supported;
     default:
       return false;
   }
 }
 
 bool is_file_provider_supported(uint provider) {
-  return provider == Smt_GIS::PROVIDER_SHAPE ||
-         provider == Smt_GIS::PROVIDER_OGR_SUPPORT;
+  return provider == sdb::PROVIDER_SHAPE ||
+         provider == sdb::PROVIDER_OGR_SUPPORT;
 }
 
 bool is_mem_provider_supported(uint provider) {
-  return provider == Smt_GIS::PROVIDER_MEM_VER1;
+  return provider == sdb::PROVIDER_MEM_VER1;
 }
 
 const char* gdal_driver_name(uint provider) {
   switch (provider) {
-    case Smt_GIS::PROVIDER_GPKG:
-      return db_provider_traits<Smt_GIS::PROVIDER_GPKG>::driver_name;
-    case Smt_GIS::PROVIDER_POSTGRES:
-      return db_provider_traits<Smt_GIS::PROVIDER_POSTGRES>::driver_name;
-    case Smt_GIS::PROVIDER_SPATIALITE:
-      return db_provider_traits<Smt_GIS::PROVIDER_SPATIALITE>::driver_name;
+    case sdb::PROVIDER_GPKG:
+      return db_provider_traits<sdb::PROVIDER_GPKG>::driver_name;
+    case sdb::PROVIDER_POSTGRES:
+      return db_provider_traits<sdb::PROVIDER_POSTGRES>::driver_name;
+    case sdb::PROVIDER_SPATIALITE:
+      return db_provider_traits<sdb::PROVIDER_SPATIALITE>::driver_name;
     default:
       return nullptr;
   }
 }
 
-const char* gdal_driver_name_for(const Smt_GIS::SmtDataSourceInfo& info) {
-  if (info.unType == Smt_GIS::DS_MEM) {
-    return mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1>::driver_name;
+const char* gdal_driver_name_for(const sdb::SmtDataSourceInfo& info) {
+  if (info.unType == sdb::DS_MEM) {
+    return mem_provider_traits<sdb::PROVIDER_MEM_VER1>::driver_name;
   }
   if (is_db_provider_supported(info.unProvider)) {
     return gdal_driver_name(info.unProvider);
   }
-  if (info.unType == Smt_GIS::DS_FILE_SMF) {
-    if (info.unProvider == Smt_GIS::PROVIDER_OGR_SUPPORT) {
-      return file_provider_traits<Smt_GIS::PROVIDER_OGR_SUPPORT>::driver_name;
+  if (info.unType == sdb::DS_FILE_SMF) {
+    if (info.unProvider == sdb::PROVIDER_OGR_SUPPORT) {
+      return file_provider_traits<sdb::PROVIDER_OGR_SUPPORT>::driver_name;
     }
-    return file_provider_traits<Smt_GIS::PROVIDER_SHAPE>::driver_name;
+    return file_provider_traits<sdb::PROVIDER_SHAPE>::driver_name;
   }
   return nullptr;
 }
 
-std::string make_gdal_open_target(const Smt_GIS::SmtDataSourceInfo& info) {
-  if (info.unType == Smt_GIS::DS_MEM) {
-    return mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1>::open_target(info);
+std::string make_gdal_open_target(const sdb::SmtDataSourceInfo& info) {
+  if (info.unType == sdb::DS_MEM) {
+    return mem_provider_traits<sdb::PROVIDER_MEM_VER1>::open_target(info);
   }
   if (is_db_provider_supported(info.unProvider)) {
     switch (info.unProvider) {
-      case Smt_GIS::PROVIDER_GPKG:
-        return db_provider_traits<Smt_GIS::PROVIDER_GPKG>::open_target(info);
-      case Smt_GIS::PROVIDER_POSTGRES:
-        return db_provider_traits<Smt_GIS::PROVIDER_POSTGRES>::open_target(
+      case sdb::PROVIDER_GPKG:
+        return db_provider_traits<sdb::PROVIDER_GPKG>::open_target(info);
+      case sdb::PROVIDER_POSTGRES:
+        return db_provider_traits<sdb::PROVIDER_POSTGRES>::open_target(
             info);
-      case Smt_GIS::PROVIDER_SPATIALITE:
-        return db_provider_traits<Smt_GIS::PROVIDER_SPATIALITE>::open_target(
+      case sdb::PROVIDER_SPATIALITE:
+        return db_provider_traits<sdb::PROVIDER_SPATIALITE>::open_target(
             info);
       default:
         break;
     }
   }
-  if (info.unType == Smt_GIS::DS_FILE_SMF) {
-    if (info.unProvider == Smt_GIS::PROVIDER_OGR_SUPPORT) {
-      return file_provider_traits<Smt_GIS::PROVIDER_OGR_SUPPORT>::open_target(
+  if (info.unType == sdb::DS_FILE_SMF) {
+    if (info.unProvider == sdb::PROVIDER_OGR_SUPPORT) {
+      return file_provider_traits<sdb::PROVIDER_OGR_SUPPORT>::open_target(
           info);
     }
-    return file_provider_traits<Smt_GIS::PROVIDER_SHAPE>::open_target(info);
+    return file_provider_traits<sdb::PROVIDER_SHAPE>::open_target(info);
   }
   return std::string();
 }
 
-std::string make_sdbd_open_target(const Smt_GIS::SmtDataSourceInfo& info) {
-  if (info.unType == Smt_GIS::DS_WS || info.unType == Smt_GIS::DS_DB_ODBC ||
-      info.unType == Smt_GIS::DS_DB_MYSQL ||
-      info.unType == Smt_GIS::DS_DB_ORACLE) {
+std::string make_sdbd_open_target(const sdb::SmtDataSourceInfo& info) {
+  if (info.unType == sdb::DS_WS || info.unType == sdb::DS_DB_ODBC ||
+      info.unType == sdb::DS_DB_MYSQL ||
+      info.unType == sdb::DS_DB_ORACLE) {
     return {};
   }
-  if (info.unType == Smt_GIS::DS_DB_ADO &&
+  if (info.unType == sdb::DS_DB_ADO &&
       !is_db_provider_supported(info.unProvider)) {
     return {};
   }
-  if (info.unType == Smt_GIS::DS_MEM) {
+  if (info.unType == sdb::DS_MEM) {
     const char* name = info.szName[0] ? info.szName : "mem";
     return std::string(kSdbdPrefix) + "MEM:" + name;
   }

@@ -41,6 +41,12 @@ class MapContents {
   virtual void LegendSnapshot(uint32_t view_id) = 0;
   virtual void CatalogCall(const char* json_op) = 0;
 
+  virtual void DispatchPlugin(uint32_t view_id,
+                              const char* plugin_id,
+                              const char* method,
+                              const void* bytes,
+                              size_t n) = 0;
+
   virtual void ActivateTool(uint32_t view_id, const char* tool_id) = 0;
   virtual void Dispatch(uint32_t view_id, const InputEvent& e) = 0;
 

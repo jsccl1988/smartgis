@@ -1,0 +1,9 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+template("benchmark") {
+  executable(target_name) {
+    forward_variables_from(invoker, "*")
+    testonly = true
+  }
+}

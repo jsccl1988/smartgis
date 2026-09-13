@@ -4,23 +4,25 @@
 #ifndef _GIS_MAP_H
 #define _GIS_MAP_H
 
-#include "feature.h"
-#include "layer.h"
+#include "base/style/envelope.h"
+#include "sdb/feature/feature.h"
+#include "sdb/gis_export.h"
+#include "sdb/layer/layer.h"
 
 #include <vector>
 
 class OGRFeature;
 class OGRLayer;
 
-using namespace Smt_Base;
-using namespace Smt_Core;
+using namespace base;
+using namespace base;
 
 #define MAX_MAP_NAME MAX_NAME_LENGTH
 
-namespace Smt_GIS {
+namespace sdb {
 
 // Map document. Vector layers are OGRLayer; raster/tile leftovers are SmtLayer.
-class SMT_EXPORT_CLASS SmtMap {
+class GIS_EXPORT SmtMap {
  public:
   SmtMap();
   virtual ~SmtMap();
@@ -44,6 +46,20 @@ class SMT_EXPORT_CLASS SmtMap {
   SmtLayer* GetActiveLeftoverLayer();
   const SmtLayer* GetActiveLeftoverLayer() const;
 
+  // Leftover names used by MFC / plugin TUs after the OGR cut-over.
+  SmtLayer* GetActiveLayer() { return GetActiveLeftoverLayer(); }
+  const SmtLayer* GetActiveLayer() const { return GetActiveLeftoverLayer(); }
+  SmtLayer* GetLayer(const char* szName) { return GetLeftoverLayer(szName); }
+  const SmtLayer* GetLayer(const char* szName) const {
+    return GetLeftoverLayer(szName);
+  }
+  SmtLayer* GetLayer(int index) { return GetLeftoverLayer(index); }
+  const SmtLayer* GetLayer(int index) const { return GetLeftoverLayer(index); }
+  SmtLayer* GetLayer() { return GetActiveLeftoverLayer(); }
+  bool AddLayer(const SmtLayer* layer) {
+    return AddLayer(const_cast<SmtLayer*>(layer));
+  }
+
   OGRLayer* GetOgrLayer(const char* szName);
   const OGRLayer* GetOgrLayer(const char* szName) const;
   SmtLayer* GetLeftoverLayer(const char* szName);
@@ -61,6 +77,7 @@ class SMT_EXPORT_CLASS SmtMap {
   const SmtLayer* GetLeftoverLayer(int index) const;
 
   virtual bool AppendFeature(OGRFeature* feature);
+  bool AppendFeature(SmtFeature* feature, bool clone = false);
   virtual bool DeleteFeature(OGRFeature* feature);
   virtual bool UpdateFeature(OGRFeature* feature);
   virtual bool QueryFeature(const SmtGQueryDesc* gquery,
@@ -79,7 +96,7 @@ class SMT_EXPORT_CLASS SmtMap {
   }
   const char* GetMapName() const { return m_szMapName; }
 
-  void GetEnvelope(Envelope& env) const {
+  void get_envelope(Envelope& env) const {
     memcpy(&env, &m_MapEnvelope, sizeof(Envelope));
   }
   void CalEnvelope();
@@ -103,14 +120,6 @@ class SMT_EXPORT_CLASS SmtMap {
   mutable int m_nIteratorIndex = 0;
 };
 
-}  // namespace Smt_GIS
-
-#if !defined(Export_SmtGisCore)
-#if defined(_DEBUG)
-#pragma comment(lib, "SmtGisCoreD.lib")
-#else
-#pragma comment(lib, "SmtGisCore.lib")
-#endif
-#endif
+}  // namespace sdb
 
 #endif  // _GIS_MAP_H

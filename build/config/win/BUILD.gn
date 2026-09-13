@@ -40,8 +40,9 @@ config("default") {
       "/fp:precise",
     ]
   }
-  # SmartGIS sources are MBCS/GBK. Do not add /utf-8 (incompatible with
-  # /source-charset:.936 and breaks string literals in 2010 files).
+  # Cutover (2026-09-13): product sources are UTF-8 after include/ABI rewrite
+  # scripts. Require /utf-8 so MSVC does not parse UTF-8 Chinese as CP936.
+  cflags += [ "/utf-8" ]
 
   cflags_c = []
   cflags_cc = [

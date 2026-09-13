@@ -9,7 +9,7 @@
 #include <winrt/Microsoft.UI.Xaml.Controls.h>
 #include <winrt/Microsoft.UI.Xaml.h>
 
-#include "detail/map_session.h"
+#include "app/winui/detail/map_session.h"
 
 namespace app {
 namespace winui {

@@ -1,0 +1,18 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Algorithm packages (QGIS processing / GEOS / PROJ analogues).
+# geo = geo DLL (TIN/grid/surface meshes). Scene math is
+# //src/render/math (Eigen).
+group("geom") {
+  deps = [ "//src/algorithm/geo:geo" ]
+}
+
+group("algorithm") {
+  deps = [
+    "//src/algorithm/geo:geo",
+    "//src/algorithm/proj:proj",
+    "//src/algorithm/stat:stat",
+    "//src/algorithm/tin:tin",
+  ]
+}

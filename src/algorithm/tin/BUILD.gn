@@ -2,29 +2,59 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//testing/test.gni")
 
-# GEOS 3.13 Delaunay (geos_c) from the gdal_sdk prefix. Runtime DLLs match
-# //third_party:gdal so geos_c.dll / geos.dll sit next to the exe.
-config("geos_c") {
-  include_dirs += [ "//third_party/gdal_sdk/include" ]
-  lib_dirs = [ "//third_party/gdal_sdk/lib" ]
-  libs = [ "geos_c.lib" ]
-}
-
+# GEOS 3.13 Delaunay (geos_c) via //third_party:gdal. Runtime DLLs match
+# the shared third_party install prefix so geos_c.dll / geos.dll sit
+# next to the exe.
 smt_shared_library("tin") {
-  dll_stem = "SmtTinMesh"
-  defines = [ "Export_SmtTinMesh" ]
+  dll_stem = "tin"
+  defines = [ "TIN_EXPORTS" ]
   sources = [
     "tin_api.cpp",
     "tin_geos_backend.cpp",
+    "xyz_points.cc",
   ]
-  configs = [ ":geos_c" ]
+  public_deps = [ "//src/render/math:math" ]
   deps = [
-    "//src/algorithm/geo3d:geo3d",
-    "//src/algorithm/math3d:math3d",
     "//src/base:base",
     "//src/base:core",
     "//src/algorithm/geo:geo",
-    "//third_party:gdal_runtime_dlls",
+    "//third_party:gdal",
   ]
+}
+
+test("tin_delaunay_test") {
+  output_name = "tin_delaunay_test"
+  sources = [ "tin_delaunay_test.cc" ]
+  include_dirs += [
+    "//src/algorithm/tin",
+    "//src/algorithm/geo",
+    "//src/render/math",
+    "//src",
+  ]
+  deps = [
+    ":tin",
+    "//src/algorithm/geo:geo",
+    "//src/base:core",
+    "//src/render/math:math",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}
+
+test("tin_xyz_test") {
+  output_name = "tin_xyz_test"
+  sources = [ "tin_xyz_test.cc" ]
+  include_dirs += [
+    "//src/algorithm/tin",
+    "//src/render/math",
+    "//src",
+  ]
+  deps = [
+    ":tin",
+    "//src/base:core",
+    "//src/render/math:math",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
 }

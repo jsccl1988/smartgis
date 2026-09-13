@@ -1,10 +1,10 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "datasourcemgr.h"
+#include "sdb/datasource/mgr/datasourcemgr.h"
 
-#include "api.h"
-#include "mem.h"
+#include "base/core/api.h"
+#include "sdb/datasource/mem/mem.h"
 #include "sdb/datasource/gdal/gdal_driver.h"
 #include "sdb/datasource/gdal/sdbd_dataset.h"
 
@@ -15,14 +15,14 @@
 #include <fstream>
 #include <locale>
 
-using namespace Smt_SDEMem;
-using namespace Smt_Core;
+using namespace sdb;
+using namespace base;
 
-namespace Smt_SDEDevMgr {
+namespace sdb {
 
 SmtDataSourceMgr* SmtDataSourceMgr::m_pSingleton = nullptr;
 
-SmtDataSourceMgr* SmtDataSourceMgr::GetSingletonPtr() {
+SmtDataSourceMgr* SmtDataSourceMgr::get_singleton_ptr() {
   if (!m_pSingleton) {
     m_pSingleton = new SmtDataSourceMgr();
   }
@@ -167,6 +167,12 @@ void SmtDataSourceMgr::DestoryTmpDataSource(GDALDataset*& pTmp) {
   CloseDataset(pTmp);
 }
 
+void SmtDataSourceMgr::DestoryTmpDataSource(sdb::SmtDataSource& tmp) {
+  GDALDataset* ds = tmp.dataset();
+  DestoryTmpDataSource(ds);
+  tmp = sdb::SmtDataSource();
+}
+
 GDALDataset* SmtDataSourceMgr::CreateDataSource(SmtDataSourceInfo& info) {
   if (info.szName[0] == '\0' || GetDataSource(info.szName)) {
     return nullptr;
@@ -266,7 +272,7 @@ bool SmtDataSourceMgr::Open(const char* szDSMFile) {
 
 bool SmtDataSourceMgr::Save() {
   if (dsm_path_.empty()) {
-    dsm_path_ = GetAppPath() + "sys\\smartgis.dsm";
+    dsm_path_ = get_app_path() + "sys\\smartgis.dsm";
   }
   return SaveAs(dsm_path_.c_str());
 }
@@ -294,4 +300,4 @@ bool SmtDataSourceMgr::SaveAs(const char* szDSMFile) {
   return true;
 }
 
-}  // namespace Smt_SDEDevMgr
+}  // namespace sdb

@@ -3,7 +3,9 @@
 
 import("//build/smartgis.gni")
 
-# MBCS + legacy include tree for 2010-2013 sources.
+# MBCS + forced compat for leftover product sources.
+# Product headers use #include "layer/module/file.h" via //src only
+# (see docs/build/abi-rename-map.md). No per-module include_dirs.
 config("legacy") {
   defines = [
     "BUILD_AS_DLL",
@@ -16,6 +18,7 @@ config("legacy") {
     # set. C++23 <charconv> / <format> need them.
     "__STDC_LIMIT_MACROS",
     "__STDC_CONSTANT_MACROS",
+    "EIGEN_MPL2_ONLY",
   ]
   cflags = [
     "/UUNICODE",
@@ -25,59 +28,8 @@ config("legacy") {
   include_dirs = []
   include_dirs += [
     smt_vs,  # //build — forced include smt_compat.h
-
-    # foundation
-    "$smt_src/base",
-    "$smt_src/sys",
-    "$smt_src/net",
-    # geo / gis (quoted #include "geometry.h" / "mathlib_3d.h" / "3dgeometry.h")
-    "$smt_src/algorithm/geo",
-    "$smt_src/sdb/feature",
-    "$smt_src/sdb/layer",
-    "$smt_src/sdb/map",
-    "$smt_src/sdb/crs",
     "//src",
-    "$smt_src/algorithm/proj",
-    # render
-    "$smt_src/render",
-    "$smt_src/render/render3d",
-    "$smt_src/render/gl",
-    # sde
-    "$smt_src/sdb/datasource/gdal",
-    "$smt_src/sdb/datasource/mgr",
-    "$smt_src/sdb/datasource/mem",
-    "$smt_src/sdb/datasource/smf",
-    "$smt_src/sdb/datasource/ws",
-    # map
-    "$smt_src/web/client",
-    "$smt_src/web/server",
-    "$smt_src/web/server_dev",
-    "$smt_src/web/server_mgr",
-    "$smt_src/web/service",
-    # plugin host / app / tool / stat
-    "$smt_src/plugin",
-    "$smt_src/app/app_core",
-    "$smt_src/tool",
-    "$smt_src/tool/group",
-    "$smt_src/algorithm/stat",
-    "$smt_src/ui/chart",
-    # ui (not in src_all)
-    "$smt_src/ui/gui",
-    "$smt_src/ui/mfc_ex",
-    "$smt_src/ui/mfc_ex/gridctrl",
-    "$smt_src/ui/xambox",
-    "$smt_src/ui/xcatalog",
-    "$smt_src/ui/xview",
-    # domain leaves
-    "$smt_src/plugin/dem",
-    "$smt_src/algorithm/baogrid",
-    "$smt_src/algorithm/tin",
-    "$smt_src/render/scene3d",
-    "$smt_src/render/model3d",
-    "$smt_src/render/terrain",
-    "$smt_src/render/pointcloud",
-    "//third_party/cximage_pub",
-    "//third_party/CxImage/CxImage",
+    "//third_party/.src/eigen",
   ]
 }
 
@@ -106,8 +58,11 @@ config("mfc") {
 }
 
 # CRT/MFC startup (WinMain / regular-DLL DllMain). Not for _AFXEXT modules.
+# With /NODEFAULTLIB both mfcs* and msvcrt* are explicit; each provides a
+# DllMain (mfcs real, CRT stub). Allow the MFC definition to win.
 config("mfc_startup") {
   libs = []
+  ldflags = [ "/FORCE:MULTIPLE" ]
   if (is_debug) {
     libs += [ "mfcs140d.lib" ]
   } else {

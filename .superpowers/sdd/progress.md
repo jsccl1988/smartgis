@@ -14,7 +14,7 @@ Branch: `master` (no topic branch)
 | 3–6 | complete | `0ee104970bd3e2a66d867be573de4701b1c7929a` | Open GeoPackage datasets through GDAL and round-trip OGR layers. |
 | 7 | complete | `a22baafc7096e1e4acb415f3a897461dfe8ec1dc` | Route database datasources through OGR and drop ADO from src_all. |
 | 8 | complete | `c1d4774092bc0e0f368e1c74fd6a26a681565774` | Share the OGR feature codec with SMF and document the GDAL DB provider. |
-| review | complete | *(this commit)* | Honest GPKG handling, sde_gdal DLL, sample path, delete leftover ADO. |
+| review | complete | `b15d04bdccec7cf8c3c87d6d49c510614098b3c3` | Honest GPKG handling, sde_gdal DLL, sample path, delete leftover ADO. |
 
 ## Test summary
 

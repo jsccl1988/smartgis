@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "base/ipc/channel.h"
 #include "content/public/host_protocol.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -18,48 +19,40 @@
 namespace content {
 namespace detail {
 
-// Duplex byte-stream named pipe (Host ABI 0.6 control plane).
+// Host named pipe: length-prefixed pickle frames (base::ipc::Channel).
 class Pipe {
  public:
-  Pipe();
-  ~Pipe();
+  bool create_server(const std::wstring& path) {
+    return ch_.create_server(path);
+  }
+  bool wait_client(uint32_t timeout_ms) { return ch_.wait_client(timeout_ms); }
+  bool connect_client(const std::wstring& path, uint32_t timeout_ms) {
+    return ch_.connect_client(path, timeout_ms);
+  }
+  void close() { ch_.close(); }
+  bool is_open() const { return ch_.is_open(); }
 
-  Pipe(const Pipe&) = delete;
-  Pipe& operator=(const Pipe&) = delete;
+  template <typename T>
+  bool send_msg(HostMsg type, uint32_t view_id, const T& body) {
+    return ch_.send_msg(static_cast<uint16_t>(type), view_id, body);
+  }
 
-  bool create_server(const std::wstring& path);
-  bool wait_client(uint32_t timeout_ms);
-  bool connect_client(const std::wstring& path, uint32_t timeout_ms);
-  void close();
-  bool is_open() const;
-
-  bool send(HostMsg type,
-            uint16_t flags,
-            uint32_t view_id,
-            const void* payload,
-            uint32_t payload_bytes);
-  bool send_json(HostMsg type, uint32_t view_id, const std::string& json);
-  bool send_binary(HostMsg type,
-                   uint32_t view_id,
-                   const void* payload,
-                   uint32_t payload_bytes);
+  bool send_empty(HostMsg type, uint32_t view_id) {
+    return ch_.send_empty(static_cast<uint16_t>(type), view_id);
+  }
 
   bool recv(FrameHeader* header,
             std::vector<uint8_t>* payload,
             uint32_t timeout_ms);
 
  private:
-  bool write_all(const void* data, uint32_t bytes, uint32_t timeout_ms);
-  bool read_all(void* data, uint32_t bytes, uint32_t timeout_ms);
-
-  HANDLE pipe_;
-  CRITICAL_SECTION write_lock_;
+  base::ipc::Channel ch_;
 };
 
-std::string json_get_string(const std::string& json, const char* key);
-int json_get_int(const std::string& json, const char* key, int fallback);
-double json_get_double(const std::string& json, const char* key, double fallback);
-bool json_has_key(const std::string& json, const char* key);
+template <typename T>
+bool decode_payload(const std::vector<uint8_t>& payload, T* out) {
+  return base::ipc::decode(payload.data(), payload.size(), out);
+}
 
 }  // namespace detail
 }  // namespace content

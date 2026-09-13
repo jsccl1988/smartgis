@@ -1,0 +1,12 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Header-only glTF 2.0 loader. Implementation lives in sdb/model TUs.
+
+config("tinygltf_headers") {
+  include_dirs += [ "//third_party/.src/tinygltf" ]
+}
+
+group("tinygltf") {
+  public_configs = [ ":tinygltf_headers" ]
+}

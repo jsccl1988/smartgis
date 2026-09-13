@@ -1,0 +1,25 @@
+---
+description: Prefer std::mutex from <mutex>; do not invent a project-local mutex wrapper
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Mutex (`<mutex>`)
+
+Use the C++ standard library for locking in **new or touched** product C++ (`src/`, `core/`, `algorithm/`, `testing/`).
+
+mogu’s `base::mutex` / `base/synchronization/mutex.h` **does not exist** in this repo. Do not import that header or invent a SmartGIS look-alike.
+
+## Do / don’t
+
+- **Do** use `#include <mutex>` with **`std::mutex`**, **`std::lock_guard`**, **`std::unique_lock`**, **`std::scoped_lock`**, **`std::shared_mutex`**, matching surrounding code style.
+- **Don’t** add a project-local futex/mutex wrapper “for consistency with mogu `base/`” unless there is an explicit, reviewed reason.
+- Win32 `CRITICAL_SECTION` / MFC sync in **legacy `src/`** may remain until that TU is rewritten; do not spread them into new trees.
+
+## Rationale
+
+Prefer portable, well-understood synchronization from `<mutex>` unless there is an explicit, reviewed reason to use a custom primitive.

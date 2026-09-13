@@ -1,7 +1,7 @@
-#include "attribute.h"
-#include "logmanager.h"
+#include "sdb/feature/attribute.h"
+#include "base/core/logmanager.h"
 
-namespace Smt_GIS
+namespace sdb
 {
 	SmtAttribute::SmtAttribute(void)
 	{
@@ -20,7 +20,7 @@ namespace Smt_GIS
 	}
 
 	//////////////////////////////////////////////////////////////////////////
-	SmtAttribute *SmtAttribute::Clone(void) const
+	SmtAttribute *SmtAttribute::clone(void) const
 	{
         SmtAttribute *pNewSmtAtt = new SmtAttribute();
 		if ( NULL == pNewSmtAtt)
@@ -50,7 +50,7 @@ namespace Smt_GIS
 			return;
 
 		m_pFieldPtrs = (SmtField **)realloc( m_pFieldPtrs, sizeof(SmtField *)*(m_lFieldCount+1) );
-		m_pFieldPtrs[m_lFieldCount] = fld.Clone();
+		m_pFieldPtrs[m_lFieldCount] = fld.clone();
 		m_lFieldCount++;
 	}
 

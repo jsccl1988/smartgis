@@ -9,7 +9,7 @@ namespace sdb {
 namespace datasource {
 
 OgrRasterLayer::OgrRasterLayer(GDALDataset* owner)
-    : Smt_GIS::SmtRasterLayer(owner) {
+    : sdb::SmtRasterLayer(owner) {
   rect_.lb.x = 0;
   rect_.lb.y = 0;
   rect_.rt.x = 0;
@@ -34,24 +34,24 @@ bool OgrRasterLayer::Close() {
   return true;
 }
 
-bool OgrRasterLayer::Fetch(Smt_GIS::eSmtFetchType /*type*/) {
+bool OgrRasterLayer::Fetch(sdb::eSmtFetchType /*type*/) {
   return IsOpen();
 }
 
 long OgrRasterLayer::CreaterRaster(const char* /*pRasterBuf*/,
                                    long /*lRasterBufSize*/,
-                                   const Smt_Core::fRect& /*fLocRect*/,
+                                   const base::fRect& /*fLocRect*/,
                                    long /*lImageCode*/) {
   return SMT_ERR_UNSUPPORTED;
 }
 
-long OgrRasterLayer::SetRasterRect(const Smt_Core::fRect& fLocRect) {
+long OgrRasterLayer::SetRasterRect(const base::fRect& fLocRect) {
   rect_ = fLocRect;
   return SMT_ERR_NONE;
 }
 
 long OgrRasterLayer::GetRaster(char*& pRasterBuf, long& lRasterBufSize,
-                               Smt_Core::fRect& fLocRect,
+                               base::fRect& fLocRect,
                                long& lImageCode) const {
   pRasterBuf = nullptr;
   lRasterBufSize = 0;
@@ -61,12 +61,12 @@ long OgrRasterLayer::GetRaster(char*& pRasterBuf, long& lRasterBufSize,
 }
 
 long OgrRasterLayer::GetRasterNoClone(char*& pRasterBuf, long& lRasterBufSize,
-                                      Smt_Core::fRect& fLocRect,
+                                      base::fRect& fLocRect,
                                       long& lImageCode) const {
   return GetRaster(pRasterBuf, lRasterBufSize, fLocRect, lImageCode);
 }
 
-long OgrRasterLayer::GetRasterRect(Smt_Core::fRect& fLocRect) const {
+long OgrRasterLayer::GetRasterRect(base::fRect& fLocRect) const {
   fLocRect = rect_;
   return SMT_ERR_NONE;
 }

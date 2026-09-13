@@ -10,13 +10,13 @@
 #include "sdb/datasource/gdal/sdbd_handler.h"
 #include "sdb/datasource/gdal/sdbd_layer.h"
 
-#include "datasourcemgr.h"
+#include "sdb/datasource/mgr/datasourcemgr.h"
 
-#include "feature.h"
-#include "geometry.h"
-#include "layer.h"
-#include "matrix2d.h"
-#include "style.h"
+#include "sdb/feature/feature.h"
+#include "algorithm/geo/geometry.h"
+#include "sdb/layer/layer.h"
+#include "base/core/matrix2d.h"
+#include "base/style/style.h"
 
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
@@ -29,23 +29,23 @@
 #include <filesystem>
 #include <string>
 
-using namespace Smt_Geo;
-using Smt_Core::fRect;
-using Smt_Core::SmtTriangle;
-using Smt_GIS::SmtDataSourceInfo;
-using Smt_GIS::SmtFtAnno;
-using Smt_GIS::SmtFtCurve;
-using Smt_GIS::SmtFtDot;
-using Smt_GIS::SmtFtGrid;
-using Smt_GIS::SmtFtSurface;
-using Smt_GIS::SmtFtTin;
-using Smt_GIS::SmtRasterLayer;
-using Smt_GIS::DS_DB_ADO;
-using Smt_GIS::PROVIDER_ACCESS;
-using Smt_GIS::PROVIDER_GPKG;
-using Smt_GIS::PROVIDER_POSTGRES;
-using Smt_GIS::PROVIDER_SPATIALITE;
-using Smt_GIS::PROVIDER_SQLSERVER;
+using namespace geo;
+using base::fRect;
+using base::SmtTriangle;
+using sdb::SmtDataSourceInfo;
+using sdb::SmtFtAnno;
+using sdb::SmtFtCurve;
+using sdb::SmtFtDot;
+using sdb::SmtFtGrid;
+using sdb::SmtFtSurface;
+using sdb::SmtFtTin;
+using sdb::SmtRasterLayer;
+using sdb::DS_DB_ADO;
+using sdb::PROVIDER_ACCESS;
+using sdb::PROVIDER_GPKG;
+using sdb::PROVIDER_POSTGRES;
+using sdb::PROVIDER_SPATIALITE;
+using sdb::PROVIDER_SQLSERVER;
 
 namespace {
 
@@ -271,10 +271,10 @@ int main() {
         ogr.SetField("color", 9);
         ogr.SetField("angle", 45.0);
         SmtStyle sty;
-        sty.SetStyleName("codec_style");
-        SmtPenDesc pen = sty.GetPenDesc();
+        sty.set_style_name("codec_style");
+        SmtPenDesc pen = sty.get_pen_desc();
         pen.lPenColor = 0x00aabb;
-        sty.SetPenDesc(pen);
+        sty.set_pen_desc(pen);
         sdb::datasource::copy_smt_style_to_ogr(&sty, &ogr);
         int style_n = 0;
         const int style_i = ogr.GetFieldIndex("style");
@@ -289,7 +289,7 @@ int main() {
         expect(ogr.GetFieldIndex("anno") >= 0, "anno field present");
         SmtStyle* back_sty = sdb::datasource::copy_ogr_style_from_ogr(&ogr);
         expect(back_sty &&
-                   std::strcmp(back_sty->GetStyleName(), "codec_style") == 0,
+                   std::strcmp(back_sty->get_style_name(), "codec_style") == 0,
                "style blob decode");
         delete back_g;
         delete back_sty;
@@ -533,14 +533,14 @@ int main() {
     OGRPoint a(0, 0);
     OGRPoint b(1, 0);
     OGRPoint c(0, 1);
-    tin.AddPoint(&a);
-    tin.AddPoint(&b);
-    tin.AddPoint(&c);
+    tin.add_point(&a);
+    tin.add_point(&b);
+    tin.add_point(&c);
     SmtTriangle tri;
     tri.a = 0;
     tri.b = 1;
     tri.c = 2;
-    tin.AddTriangle(&tri);
+    tin.add_triangle(&tri);
     OGRFeature feat(tins->GetLayerDefn());
     expect(sdb::datasource::encode_smt_geometry(&tin, &feat, SmtFtTin),
            "encode tin");
@@ -554,7 +554,7 @@ int main() {
       back->ResetReading();
       OGRFeature* got = back->GetNextFeature();
       SmtTin* gt = got ? sdb::datasource::decode_smt_tin(got) : nullptr;
-      expect(gt && (gt->GetTriangleCount() >= 1 || gt->GetPointCount() >= 3),
+      expect(gt && (gt->get_triangle_count() >= 1 || gt->get_point_count() >= 3),
              "tin persist");
       delete gt;
       OGRFeature::DestroyFeature(got);
@@ -566,15 +566,10 @@ int main() {
   expect(grids != nullptr, "create grids");
   if (grids) {
     SmtGrid grid(2, 2);
-    Matrix2D<RawPoint>* buf = grid.GetGridNodeBuf();
-    RawPoint p00(0, 0);
-    RawPoint p01(1, 0);
-    RawPoint p10(0, 1);
-    RawPoint p11(1, 1);
-    buf->SetElement(p00, 0, 0);
-    buf->SetElement(p01, 0, 1);
-    buf->SetElement(p10, 1, 0);
-    buf->SetElement(p11, 1, 1);
+    grid.set_node(0, 0, RawPoint(0, 0));
+    grid.set_node(0, 1, RawPoint(1, 0));
+    grid.set_node(1, 0, RawPoint(0, 1));
+    grid.set_node(1, 1, RawPoint(1, 1));
     OGRFeature feat(grids->GetLayerDefn());
     expect(sdb::datasource::encode_smt_geometry(&grid, &feat, SmtFtGrid),
            "encode grid");
@@ -632,8 +627,8 @@ int main() {
     SMT_SAFE_DELETE(ras);
   }
 
-  Smt_SDEDevMgr::SmtDataSourceMgr* mgr =
-      Smt_SDEDevMgr::SmtDataSourceMgr::GetSingletonPtr();
+  sdb::SmtDataSourceMgr* mgr =
+      sdb::SmtDataSourceMgr::get_singleton_ptr();
   expect(mgr != nullptr, "datasource mgr");
   if (mgr) {
     GDALDataset* tmp = mgr->CreateTmpDataSource(DS_MEM);
@@ -647,8 +642,8 @@ int main() {
       expect(file_ds == nullptr, "mgr GPKG Open fails without driver");
     }
     mgr->CloseDataset(file_ds);
-    Smt_SDEDevMgr::ScratchLayer scratch =
-        Smt_SDEDevMgr::SmtDataSourceMgr::CreateMemVecLayer();
+    sdb::ScratchLayer scratch =
+        sdb::SmtDataSourceMgr::CreateMemVecLayer();
     expect(scratch.dataset != nullptr && scratch.layer != nullptr,
            "CreateMemVecLayer Memory");
     if (scratch.layer) {
@@ -659,7 +654,7 @@ int main() {
              "scratch CreateFeature");
       expect(scratch.layer->GetFeatureCount() >= 1, "scratch count");
     }
-    Smt_SDEDevMgr::SmtDataSourceMgr::DestoryMemVecLayer(scratch);
+    sdb::SmtDataSourceMgr::DestoryMemVecLayer(scratch);
   }
 
   const char* pg_dsn = std::getenv("SMT_PG_DSN");

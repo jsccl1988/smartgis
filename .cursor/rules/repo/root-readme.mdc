@@ -1,0 +1,39 @@
+---
+description: Keep repository root README.md in sync when changes affect documented surface area
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Root `README.md` maintenance
+
+The file **`README.md`** at the repository root is the first-stop overview: how to build, root GN groups, and module table.
+
+## When to update (same change set)
+
+If your edit **materially changes** something already summarized in `README.md`, or introduces a **new** top-level capability that readers would expect to see there, **update `README.md` in the same change** (do not leave the root doc stale).
+
+Typical triggers:
+
+- **New or removed** major area under `core/` or GN root groups that belongs in the module table.
+- **New** user-facing module `README.md` (or equivalent) that should be linked from the root or from **`docs/README.md`**.
+- **Build / run workflow** changes (`build.bat`, `gn gen`, default `out/`, test/benchmark entrypoints, `sln` track).
+- **Renamed** paths, binaries, or scripts that the README still names explicitly.
+
+## When not to touch
+
+- **Narrow bugfixes** or internal refactors with **no** user-visible behavior, directory layout, or documented workflow change.
+- **Drive-by** rewording or unrelated marketing edits.
+
+## How to update
+
+- Keep tone and structure consistent with the existing sections; **minimal** edits that restore accuracy.
+- If you add a module link, ensure the target **`README.md` exists** (add that module README in the same change if it is new public surface).
+- When you **meaningfully** edit `README.md`, refresh the **“最后更新”** line to the **current date** (use the calendar year from the user/session context when known).
+
+## Precedence
+
+This does not override narrower rules (copyright, no Qt, Views + Skia, C++23, build output, etc.). It only asks for **accurate root-level documentation** when the code change warrants it.

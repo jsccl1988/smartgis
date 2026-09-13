@@ -9,6 +9,7 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#include <windowsx.h>
 
 #include "render/skia/canvas.h"
 
@@ -16,6 +17,10 @@
 #if __has_include("content/public/map_contents.h")
 #include "content/public/map_contents.h"
 #define SMT_HAS_CONTENT_MAP_SESSION 1
+#endif
+#if __has_include("content/public/view_host.h")
+#include "content/public/view_host.h"
+#define SMT_HAS_VIEW_HOST 1
 #endif
 #if __has_include("ui/shell/map_session.h")
 #include "ui/shell/map_session.h"
@@ -81,6 +86,72 @@ bool init_device_seh(void* device, HWND hwnd) {
   }
 }
 
+// Same Win32 → InputEvent mapping as leftover dispatch_chrome_message.
+bool route_view_host_input(content::ViewHost* host,
+                           HWND hwnd,
+                           UINT message,
+                           WPARAM wparam,
+                           LPARAM lparam) {
+#ifdef SMT_HAS_VIEW_HOST
+  if (!host) {
+    return false;
+  }
+  content::InputEvent e{};
+  switch (message) {
+    case WM_MOUSEMOVE:
+      e.kind = content::InputEvent::Kind::kMouseMove;
+      break;
+    case WM_LBUTTONDOWN:
+      e.kind = content::InputEvent::Kind::kLDown;
+      break;
+    case WM_LBUTTONUP:
+      e.kind = content::InputEvent::Kind::kLUp;
+      break;
+    case WM_LBUTTONDBLCLK:
+      e.kind = content::InputEvent::Kind::kLDClick;
+      break;
+    case WM_RBUTTONDOWN:
+      e.kind = content::InputEvent::Kind::kRDown;
+      break;
+    case WM_RBUTTONUP:
+      e.kind = content::InputEvent::Kind::kRUp;
+      break;
+    case WM_RBUTTONDBLCLK:
+      e.kind = content::InputEvent::Kind::kRDClick;
+      break;
+    case WM_MOUSEWHEEL: {
+      e.kind = content::InputEvent::Kind::kWheel;
+      e.wheel = static_cast<int32_t>(GET_WHEEL_DELTA_WPARAM(wparam));
+      e.flags = static_cast<uint32_t>(GET_KEYSTATE_WPARAM(wparam));
+      POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+      if (hwnd) {
+        ScreenToClient(hwnd, &pt);
+      }
+      e.x_px = pt.x;
+      e.y_px = pt.y;
+      return host->dispatch_input(e);
+    }
+    case WM_KEYDOWN:
+      e.kind = content::InputEvent::Kind::kKeyDown;
+      e.key = static_cast<uint32_t>(wparam);
+      return host->dispatch_input(e);
+    default:
+      return false;
+  }
+  e.x_px = static_cast<int32_t>(static_cast<short>(LOWORD(lparam)));
+  e.y_px = static_cast<int32_t>(static_cast<short>(HIWORD(lparam)));
+  e.flags = static_cast<uint32_t>(wparam);
+  return host->dispatch_input(e);
+#else
+  (void)host;
+  (void)hwnd;
+  (void)message;
+  (void)wparam;
+  (void)lparam;
+  return false;
+#endif
+}
+
 }  // namespace
 
 MapViewport::MapViewport() {
@@ -89,6 +160,25 @@ MapViewport::MapViewport() {
 
 MapViewport::~MapViewport() {
   detach();
+}
+
+void MapViewport::set_role(Role role) {
+  role_ = role;
+}
+
+void MapViewport::set_view_host(content::ViewHost* host) {
+  view_host_ = host;
+}
+
+void MapViewport::set_map_contents(content::MapContents* session) {
+  if (owns_session_ && session_ && session_ != session) {
+#ifdef SMT_HAS_CONTENT_MAP_SESSION
+    session_->Shutdown();
+    delete session_;
+#endif
+  }
+  session_ = session;
+  owns_session_ = false;
 }
 
 HWND MapViewport::create_native_view(HWND parent) {
@@ -136,31 +226,41 @@ bool MapViewport::attach() {
     status_ = L"content::MapWidgetHostView";
     return true;
   }
-  if (try_oop_render()) {
-    mode_ = AttachMode::kOopRender;
-    status_ = L"OOP SmartGisRender.exe";
-    paint_child_placeholder();
-    return true;
-  }
-  if (try_local_device()) {
-    mode_ = AttachMode::kLocalDevice;
-    status_ = L"SmtRenderDevice::Init (LoadLibrary)";
-    return true;
+  // Only the Map Edit pane tries leftover OOP / LoadLibrary hang.
+  if (role_ == Role::kMapEdit) {
+    if (try_oop_render()) {
+      mode_ = AttachMode::kOopRender;
+      status_ = L"OOP SmartGisRender.exe";
+      paint_child_placeholder();
+      return true;
+    }
+    if (try_local_device()) {
+      mode_ = AttachMode::kLocalDevice;
+      status_ = L"SmtRenderDevice::Init (LoadLibrary)";
+      return true;
+    }
   }
   mode_ = AttachMode::kPlaceholder;
-  status_ = L"Placeholder map (no render exe / device DLL)";
+  if (role_ == Role::kScene3d) {
+    status_ = L"3D placeholder (no scene attach)";
+  } else if (role_ == Role::kMapData) {
+    status_ = L"Datasource browse (placeholder)";
+  } else {
+    status_ = L"Placeholder map (no render exe / device DLL)";
+  }
   paint_child_placeholder();
   return false;
 }
 
 void MapViewport::detach() {
 #ifdef SMT_HAS_CONTENT_MAP_SESSION
-  if (session_) {
+  if (owns_session_ && session_) {
     session_->Shutdown();
     delete session_;
-    session_ = nullptr;
   }
 #endif
+  session_ = nullptr;
+  owns_session_ = false;
   if (render_process_) {
     TerminateProcess(render_process_, 0);
     CloseHandle(render_process_);
@@ -191,19 +291,46 @@ bool MapViewport::wait_ready(uint32_t timeout_ms) {
   return native_view() && IsWindow(native_view());
 }
 
+void MapViewport::resize_host_surface(int width_px, int height_px) {
+#ifdef SMT_HAS_CONTENT_MAP_SESSION
+  if (!session_ || view_id_ == 0 || width_px <= 0 || height_px <= 0) {
+    return;
+  }
+  if (content::MapWidgetHostView* view = session_->HostView(view_id_)) {
+    view->Resize(width_px, height_px, 96.0f);
+  }
+#else
+  (void)width_px;
+  (void)height_px;
+#endif
+}
+
 bool MapViewport::try_content_map_view() {
 #ifdef SMT_HAS_CONTENT_MAP_SESSION
-  session_ = content::MapContents::Create();
   if (!session_) {
+    session_ = content::MapContents::Create();
+    if (!session_) {
+      return false;
+    }
+    owns_session_ = true;
+    if (!session_->StartRenderProcess()) {
+      session_->Shutdown();
+      delete session_;
+      session_ = nullptr;
+      owns_session_ = false;
+      return false;
+    }
+  }
+  content::ViewKind kind = content::ViewKind::kMapEdit;
+  if (role_ == Role::kMapData) {
+    kind = content::ViewKind::kMapData;
+  } else if (role_ == Role::kScene3d) {
+    kind = content::ViewKind::kScene3d;
+  }
+  view_id_ = session_->OpenView(kind);
+  if (view_id_ == 0) {
     return false;
   }
-  if (!session_->StartRenderProcess()) {
-    session_->Shutdown();
-    delete session_;
-    session_ = nullptr;
-    return false;
-  }
-  view_id_ = session_->OpenView(content::ViewKind::kMapEdit);
   if (content::MapWidgetHostView* view =
           session_->AttachSurface(view_id_, content::PresentMode::kChildHwnd)) {
     content::MapWidgetHostView::CreateParams params;
@@ -351,11 +478,23 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
   if (msg == WM_ERASEBKGND) {
     return 1;
   }
-  if (msg == WM_SIZE && self && self->local_device_) {
-    auto* obj = static_cast<DeviceObj*>(self->local_device_);
-    if (obj->vtbl && obj->vtbl->Resize) {
-      obj->vtbl->Resize(obj, 0, 0, LOWORD(lparam), HIWORD(lparam));
+  if (msg == WM_SIZE && self) {
+    const int cx = static_cast<int>(LOWORD(lparam));
+    const int cy = static_cast<int>(HIWORD(lparam));
+    self->resize_host_surface(cx, cy);
+    if (self->local_device_) {
+      auto* obj = static_cast<DeviceObj*>(self->local_device_);
+      if (obj->vtbl && obj->vtbl->Resize) {
+        obj->vtbl->Resize(obj, 0, 0, cx, cy);
+      }
     }
+  }
+  if (self && (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN)) {
+    SetFocus(hwnd);
+  }
+  if (self &&
+      route_view_host_input(self->view_host_, hwnd, msg, wparam, lparam)) {
+    return 0;
   }
   return DefWindowProcW(hwnd, msg, wparam, lparam);
 }

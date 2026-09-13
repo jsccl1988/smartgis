@@ -4,10 +4,19 @@
 #ifndef SDB_DATASOURCE_GDAL_OGR_EXPORT_H_
 #define SDB_DATASOURCE_GDAL_OGR_EXPORT_H_
 
-#if defined(Export_SmtSDEGdalDevice)
-#define SMT_SDE_GDAL_EXPORT __declspec(dllexport)
+// GN defines SDE_GDAL_EXPORTS when building the sde_gdal DLL.
+#if defined(SDE_GDAL_EXPORTS)
+#define SDE_GDAL_EXPORT __declspec(dllexport)
 #else
-#define SMT_SDE_GDAL_EXPORT __declspec(dllimport)
+#define SDE_GDAL_EXPORT __declspec(dllimport)
+#endif
+
+#if !defined(SDE_GDAL_EXPORTS)
+#if defined(_DEBUG)
+#pragma comment(lib, "sde_gdalD.lib")
+#else
+#pragma comment(lib, "sde_gdal.lib")
+#endif
 #endif
 
 #endif  // SDB_DATASOURCE_GDAL_OGR_EXPORT_H_

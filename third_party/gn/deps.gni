@@ -1,0 +1,5 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+#
+# Import after BUILDCONFIG. Currently unused (no extra declare_args).
+import("//third_party/gn/tp.gni")

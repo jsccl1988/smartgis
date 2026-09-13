@@ -69,8 +69,20 @@ void buffer(const G& g, typename geometry_traits<G>::coordinate_type width) {
 }  // namespace geo
 ```
 
+## Prefer traits + concepts (from mogu `cpp20-traits`)
+
+Prefer **traits + concepts** over duplicated if/else families and parallel helper copies:
+
+- `concept` / `requires` for capabilities
+- trait types (`is_*`, `*_traits`) and `if constexpr` for compile-time dispatch
+- customization via **trait specialization**, not God-classes
+
+This repo **targets MSVC v145** as well as GCC/Clang. Portable C++20/23 is required; do **not** copy mogu’s “no `#ifdef _MSC_VER` / MSVC may fail” stance. Windows `cc_std` stays `"c++23"` → `/std:c++23preview`.
+
 ## Don't (product)
 
 - Don't add Qt.
 - Don't vendor a second GEOS / PROJ (use the shipped `gdal_sdk` stack).
 - Don't put a parallel 2D/3D type tree next to Geometry.
+- **Don't** TMP for its own sake on trivial one-liners.
+- **Don't** invent an in-tree Boost.Geometry or a second virtual geometry hierarchy.

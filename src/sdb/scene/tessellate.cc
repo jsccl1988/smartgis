@@ -3,9 +3,8 @@
 
 #include "sdb/scene/tessellate.h"
 
-#include "3dgeometry.h"
-#include "geometry.h"
-#include "layer.h"
+#include "algorithm/geo/geometry.h"
+#include "sdb/layer/layer.h"
 #include "sdb/datasource/gdal/ogr_feature_codec.h"
 
 #include "ogrsf_frmts.h"
@@ -68,24 +67,25 @@ void tessellate_segment(double ax, double ay, double az, double bx, double by,
   out.indices.push_back(base + 2);
 }
 
-void tessellate_line(const Smt_Geo::SmtLineString* line, TessMesh& out) {
+void tessellate_line(const OGRLineString* line, TessMesh& out) {
   if (!line) {
     return;
   }
-  const int n = line->GetNumPoints();
+  const int n = line->getNumPoints();
   for (int i = 0; i + 1 < n; ++i) {
-    tessellate_segment(line->GetX(i), line->GetY(i), 0, line->GetX(i + 1),
-                       line->GetY(i + 1), 0, out);
+    tessellate_segment(line->getX(i), line->getY(i), line->getZ(i),
+                       line->getX(i + 1), line->getY(i + 1), line->getZ(i + 1),
+                       out);
   }
 }
 
-void tessellate_ring_fan(const Smt_Geo::SmtLinearRing* ring, TessMesh& out) {
+void tessellate_ring_fan(const OGRLinearRing* ring, TessMesh& out) {
   if (!ring) {
     return;
   }
-  int n = ring->GetNumPoints();
-  if (n >= 2 && ring->GetX(0) == ring->GetX(n - 1) &&
-      ring->GetY(0) == ring->GetY(n - 1)) {
+  int n = ring->getNumPoints();
+  if (n >= 2 && ring->getX(0) == ring->getX(n - 1) &&
+      ring->getY(0) == ring->getY(n - 1)) {
     --n;
   }
   if (n < 3) {
@@ -93,8 +93,8 @@ void tessellate_ring_fan(const Smt_Geo::SmtLinearRing* ring, TessMesh& out) {
   }
   const uint32_t base = vert_count(out);
   for (int i = 0; i < n; ++i) {
-    append_xyz(out, static_cast<float>(ring->GetX(i)),
-               static_cast<float>(ring->GetY(i)), 0);
+    append_xyz(out, static_cast<float>(ring->getX(i)),
+               static_cast<float>(ring->getY(i)), 0);
   }
   for (int i = 1; i + 1 < n; ++i) {
     out.indices.push_back(base);
@@ -103,41 +103,44 @@ void tessellate_ring_fan(const Smt_Geo::SmtLinearRing* ring, TessMesh& out) {
   }
 }
 
-void tessellate_polygon(const Smt_Geo::SmtPolygon* poly, TessMesh& out) {
+void tessellate_polygon(const OGRPolygon* poly, TessMesh& out) {
   if (!poly) {
     return;
   }
-  tessellate_ring_fan(poly->GetExteriorRing(), out);
+  tessellate_ring_fan(poly->getExteriorRing(), out);
 }
 
-bool tessellate_geom_into(const Smt_Geo::SmtGeometry* geom, TessMesh& out) {
+bool tessellate_geom_into(const OGRGeometry* geom, TessMesh& out) {
   if (!geom) {
     return false;
   }
-  switch (geom->GetGeometryType()) {
-    case Smt_Geo::GTPoint: {
-      const auto* p = static_cast<const Smt_Geo::SmtPoint*>(geom);
-      tessellate_point_xy(p->GetX(), p->GetY(), 0, out);
+  switch (wkbFlatten(geom->getGeometryType())) {
+    case wkbPoint: {
+      const auto* p = geom->toPoint();
+      tessellate_point_xy(p->getX(), p->getY(), p->getZ(), out);
       return true;
     }
-    case Smt_Geo::GTLineString:
-    case Smt_Geo::GTSpline:
-    case Smt_Geo::GTLinearRing:
-      tessellate_line(static_cast<const Smt_Geo::SmtLineString*>(geom), out);
+    case wkbLineString:
+    case wkbLinearRing:
+      tessellate_line(geom->toLineString(), out);
       return true;
-    case Smt_Geo::GTPolygon:
-      tessellate_polygon(static_cast<const Smt_Geo::SmtPolygon*>(geom), out);
+    case wkbPolygon:
+    case wkbTriangle:
+      tessellate_polygon(geom->toPolygon(), out);
       return true;
-    case Smt_Geo::GTMultiPoint:
-    case Smt_Geo::GTMultiLineString:
-    case Smt_Geo::GTMultiPolygon:
-    case Smt_Geo::GTGeometryCollection: {
-      const auto* col =
-          static_cast<const Smt_Geo::SmtGeometryCollection*>(geom);
-      const int n = col->GetNumGeometries();
+    case wkbMultiPoint:
+    case wkbMultiLineString:
+    case wkbMultiPolygon:
+    case wkbGeometryCollection:
+    case wkbTIN: {
+      const auto* col = geom->toGeometryCollection();
+      if (!col) {
+        return false;
+      }
+      const int n = col->getNumGeometries();
       bool any = false;
       for (int i = 0; i < n; ++i) {
-        if (tessellate_geom_into(col->GetGeometryRef(i), out)) {
+        if (tessellate_geom_into(col->getGeometryRef(i), out)) {
           any = true;
         }
       }
@@ -148,21 +151,44 @@ bool tessellate_geom_into(const Smt_Geo::SmtGeometry* geom, TessMesh& out) {
   }
 }
 
-}  // namespace
-
-bool tessellate_geometry(const Smt_Geo::SmtGeometry* geom, TessMesh& out) {
+void reset_mesh(TessMesh& out) {
   out.positions.clear();
   out.indices.clear();
+  out.has_image = false;
+}
+
+void append_quad(double min_x, double min_y, double max_x, double max_y,
+                 TessMesh& out) {
+  const uint32_t base = vert_count(out);
+  append_xyz(out, static_cast<float>(min_x), static_cast<float>(min_y), 0);
+  append_xyz(out, static_cast<float>(max_x), static_cast<float>(min_y), 0);
+  append_xyz(out, static_cast<float>(max_x), static_cast<float>(max_y), 0);
+  append_xyz(out, static_cast<float>(min_x), static_cast<float>(max_y), 0);
+  out.indices.push_back(base);
+  out.indices.push_back(base + 1);
+  out.indices.push_back(base + 2);
+  out.indices.push_back(base);
+  out.indices.push_back(base + 2);
+  out.indices.push_back(base + 3);
+}
+
+bool rect_has_area(double min_x, double min_y, double max_x, double max_y) {
+  return max_x > min_x && max_y > min_y;
+}
+
+}  // namespace
+
+bool tessellate_geometry(const OGRGeometry* geom, TessMesh& out) {
+  reset_mesh(out);
   if (!tessellate_geom_into(geom, out)) {
     return false;
   }
   return !out.indices.empty();
 }
 
-bool tessellate_geoms(const Smt_Geo::SmtGeometry* const* geoms, size_t count,
+bool tessellate_geoms(const OGRGeometry* const* geoms, size_t count,
                       TessMesh& out) {
-  out.positions.clear();
-  out.indices.clear();
+  reset_mesh(out);
   if (!geoms || count == 0) {
     return false;
   }
@@ -173,91 +199,183 @@ bool tessellate_geoms(const Smt_Geo::SmtGeometry* const* geoms, size_t count,
 }
 
 bool tessellate_layer(OGRLayer* layer, TessMesh& out) {
-  out.positions.clear();
-  out.indices.clear();
+  reset_mesh(out);
   if (!layer) {
     return false;
   }
   layer->ResetReading();
   while (OGRFeature* feat = layer->GetNextFeature()) {
-    Smt_Geo::SmtGeometry* geom =
-        sdb::datasource::decode_ogr_geometry(feat, Smt_GIS::SmtFtUnknown);
-    tessellate_geom_into(geom, out);
-    delete geom;
+    tessellate_geom_into(feat->GetGeometryRef(), out);
     OGRFeature::DestroyFeature(feat);
   }
   return !out.indices.empty();
 }
 
-bool tessellate_3d_geometry(const Smt_3DGeo::Smt3DGeometry* geom,
-                            TessMesh& out) {
-  out.positions.clear();
-  out.indices.clear();
-  if (!geom) {
+bool tessellate_3d_surface(const geo::Tin* surf, TessMesh& out) {
+  reset_mesh(out);
+  if (!surf) {
     return false;
   }
-  switch (geom->GetGeometryType()) {
-    case Smt_3DGeo::GT3DPoint: {
-      const auto* p = static_cast<const Smt_3DGeo::Smt3DPoint*>(geom);
-      tessellate_point_xy(p->GetX(), p->GetY(), p->GetZ(), out);
-      break;
-    }
-    case Smt_3DGeo::GT3DLineString:
-    case Smt_3DGeo::GT3DLinearRing: {
-      const auto* line = static_cast<const Smt_3DGeo::Smt3DLineString*>(geom);
-      const int n = line->GetNumPoints();
-      for (int i = 0; i + 1 < n; ++i) {
-        tessellate_segment(line->GetX(i), line->GetY(i), line->GetZ(i),
-                           line->GetX(i + 1), line->GetY(i + 1),
-                           line->GetZ(i + 1), out);
-      }
-      break;
-    }
-    case Smt_3DGeo::GT3DSurface: {
-      const auto* surf = static_cast<const Smt_3DGeo::Smt3DSurface*>(geom);
-      const int np = surf->GetPointCount();
-      const int nt = surf->GetTriangleCount();
-      for (int i = 0; i < np; ++i) {
-        const Smt_3DGeo::Smt3DPoint pt = surf->GetPoint(i);
-        append_xyz(out, static_cast<float>(pt.GetX()),
-                   static_cast<float>(pt.GetY()),
-                   static_cast<float>(pt.GetZ()));
-      }
-      for (int i = 0; i < nt; ++i) {
-        const Smt_Core::Smt3DTriangle tri = surf->GetTriangle(i);
-        if (tri.a < 0 || tri.b < 0 || tri.c < 0 || tri.a >= np || tri.b >= np ||
-            tri.c >= np) {
-          continue;
-        }
-        out.indices.push_back(static_cast<uint32_t>(tri.a));
-        out.indices.push_back(static_cast<uint32_t>(tri.b));
-        out.indices.push_back(static_cast<uint32_t>(tri.c));
-      }
-      break;
-    }
-    case Smt_3DGeo::GT3DMultiPoint:
-    case Smt_3DGeo::GT3DMultiLineString:
-    case Smt_3DGeo::GT3DGeometryCollection: {
-      const auto* col =
-          static_cast<const Smt_3DGeo::Smt3DGeometryCollection*>(geom);
-      const int n = col->GetNumGeometries();
-      TessMesh part;
-      for (int i = 0; i < n; ++i) {
-        if (!tessellate_3d_geometry(col->GetGeometryRef(i), part)) {
-          continue;
-        }
-        const uint32_t base = vert_count(out);
-        out.positions.insert(out.positions.end(), part.positions.begin(),
-                             part.positions.end());
-        for (uint32_t idx : part.indices) {
-          out.indices.push_back(base + idx);
-        }
-      }
-      break;
-    }
-    default:
-      return false;
+  const int np = surf->get_point_count();
+  const int nt = surf->get_triangle_count();
+  for (int i = 0; i < np; ++i) {
+    const OGRPoint pt = surf->get_point(i);
+    append_xyz(out, static_cast<float>(pt.getX()),
+               static_cast<float>(pt.getY()), static_cast<float>(pt.getZ()));
   }
+  for (int i = 0; i < nt; ++i) {
+    const base::Smt3DTriangle tri = surf->get_triangle(i);
+    if (tri.a < 0 || tri.b < 0 || tri.c < 0 || tri.a >= np || tri.b >= np ||
+        tri.c >= np) {
+      continue;
+    }
+    out.indices.push_back(static_cast<uint32_t>(tri.a));
+    out.indices.push_back(static_cast<uint32_t>(tri.b));
+    out.indices.push_back(static_cast<uint32_t>(tri.c));
+  }
+  return !out.indices.empty();
+}
+
+bool tessellate_3d_geometry(const OGRGeometry* geom, TessMesh& out) {
+  return tessellate_geometry(geom, out);
+}
+
+bool tessellate_arc(const OGRLineString* arc, TessMesh& out) {
+  reset_mesh(out);
+  if (!arc) {
+    return false;
+  }
+  tessellate_line(arc, out);
+  return !out.indices.empty();
+}
+
+bool tessellate_fan(const OGRPolygon* fan, TessMesh& out) {
+  reset_mesh(out);
+  if (!fan) {
+    return false;
+  }
+  tessellate_polygon(fan, out);
+  return !out.indices.empty();
+}
+
+bool tessellate_tin(const geo::Tin* tin, TessMesh& out) {
+  reset_mesh(out);
+  if (!tin || tin->is_empty()) {
+    return false;
+  }
+  const int np = tin->get_point_count();
+  const int nt = tin->get_triangle_count();
+  for (int i = 0; i < np; ++i) {
+    const OGRPoint pt = tin->get_point(i);
+    append_xyz(out, static_cast<float>(pt.getX()),
+               static_cast<float>(pt.getY()), 0);
+  }
+  for (int i = 0; i < nt; ++i) {
+    const base::SmtTriangle tri = tin->get_triangle(i);
+    if (tri.bDelete || tri.a < 0 || tri.b < 0 || tri.c < 0 || tri.a >= np ||
+        tri.b >= np || tri.c >= np) {
+      continue;
+    }
+    out.indices.push_back(static_cast<uint32_t>(tri.a));
+    out.indices.push_back(static_cast<uint32_t>(tri.b));
+    out.indices.push_back(static_cast<uint32_t>(tri.c));
+  }
+  return !out.indices.empty();
+}
+
+bool tessellate_grid(const geo::Grid* grid, TessMesh& out) {
+  reset_mesh(out);
+  if (!grid || grid->is_empty()) {
+    return false;
+  }
+  int rows = 0;
+  int cols = 0;
+  grid->get_size(rows, cols);
+  if (rows < 2 || cols < 2) {
+    return false;
+  }
+  for (int i = 0; i + 1 < rows; ++i) {
+    for (int j = 0; j + 1 < cols; ++j) {
+      const geo::RawPoint p00 = grid->node(i, j);
+      const geo::RawPoint p01 = grid->node(i, j + 1);
+      const geo::RawPoint p11 = grid->node(i + 1, j + 1);
+      const geo::RawPoint p10 = grid->node(i + 1, j);
+      const uint32_t base = vert_count(out);
+      append_xyz(out, static_cast<float>(p00.x), static_cast<float>(p00.y), 0);
+      append_xyz(out, static_cast<float>(p01.x), static_cast<float>(p01.y), 0);
+      append_xyz(out, static_cast<float>(p11.x), static_cast<float>(p11.y), 0);
+      append_xyz(out, static_cast<float>(p10.x), static_cast<float>(p10.y), 0);
+      out.indices.push_back(base);
+      out.indices.push_back(base + 1);
+      out.indices.push_back(base + 2);
+      out.indices.push_back(base);
+      out.indices.push_back(base + 2);
+      out.indices.push_back(base + 3);
+    }
+  }
+  return !out.indices.empty();
+}
+
+bool tessellate_raster_layer(const sdb::SmtRasterLayer* layer,
+                             TessMesh& out) {
+  reset_mesh(out);
+  if (!layer) {
+    return false;
+  }
+  base::fRect rect;
+  if (layer->GetRasterRect(rect) != SMT_ERR_NONE ||
+      !rect_has_area(rect.lb.x, rect.lb.y, rect.rt.x, rect.rt.y)) {
+    base::Envelope env;
+    layer->get_envelope(env);
+    rect.lb.x = static_cast<float>(env.MinX);
+    rect.lb.y = static_cast<float>(env.MinY);
+    rect.rt.x = static_cast<float>(env.MaxX);
+    rect.rt.y = static_cast<float>(env.MaxY);
+  }
+  if (!rect_has_area(rect.lb.x, rect.lb.y, rect.rt.x, rect.rt.y)) {
+    return false;
+  }
+  append_quad(rect.lb.x, rect.lb.y, rect.rt.x, rect.rt.y, out);
+  char* buf = nullptr;
+  long size = 0;
+  long code = 0;
+  base::fRect loc;
+  if (layer->GetRasterNoClone(buf, size, loc, code) == SMT_ERR_NONE && buf &&
+      size > 0) {
+    out.has_image = true;
+  }
+  return !out.indices.empty();
+}
+
+bool tessellate_tile_layer(const sdb::SmtTileLayer* layer, TessMesh& out) {
+  reset_mesh(out);
+  if (!layer) {
+    return false;
+  }
+  const int n = layer->GetTileCount();
+  for (int i = 0; i < n; ++i) {
+    const base::SmtTile* tile = layer->GetTile(i);
+    if (!tile) {
+      continue;
+    }
+    const base::fRect& rect = tile->rtTileRect;
+    if (!rect_has_area(rect.lb.x, rect.lb.y, rect.rt.x, rect.rt.y)) {
+      continue;
+    }
+    append_quad(rect.lb.x, rect.lb.y, rect.rt.x, rect.rt.y, out);
+    if (tile->pTileBuf && tile->lTileBufSize > 0) {
+      out.has_image = true;
+    }
+  }
+  if (!out.indices.empty()) {
+    return true;
+  }
+  base::Envelope env;
+  layer->get_envelope(env);
+  if (!rect_has_area(env.MinX, env.MinY, env.MaxX, env.MaxY)) {
+    return false;
+  }
+  append_quad(env.MinX, env.MinY, env.MaxX, env.MaxY, out);
   return !out.indices.empty();
 }
 

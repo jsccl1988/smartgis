@@ -1,0 +1,41 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+#
+# CPython 3.12 embed. Default prefix is
+# %LOCALAPPDATA%/Programs/Python/Python312 (same as build.bat).
+# Override with smt_python_root. Force the skip stub with smt_has_python=false.
+# Optional check: python build/find_python.py
+
+declare_args() {
+  # Compile in-process CPython bindings when a 3.12 prefix is set.
+  # Set false to force the skip stub even if Python is installed.
+  smt_has_python = true
+
+  # Empty = %LOCALAPPDATA%/Programs/Python/Python312.
+  # Prefix must contain include/Python.h, libs/python312.lib, python312.dll.
+  smt_python_root = ""
+}
+
+_auto_python = ""
+_localappdata = getenv("LOCALAPPDATA")
+if (_localappdata != "") {
+  _auto_python = _localappdata + "/Programs/Python/Python312"
+}
+
+if (smt_python_root != "") {
+  smt_python_prefix = smt_python_root
+} else {
+  smt_python_prefix = _auto_python
+}
+smt_python_prefix = string_replace(smt_python_prefix, "\\", "/")
+
+smt_python_include = ""
+smt_python_libdir = ""
+smt_python_dll = ""
+if (smt_python_prefix != "") {
+  smt_python_include = smt_python_prefix + "/include"
+  smt_python_libdir = smt_python_prefix + "/libs"
+  smt_python_dll = smt_python_prefix + "/python312.dll"
+}
+
+smt_python_enabled = smt_has_python && smt_python_prefix != ""

@@ -1,0 +1,46 @@
+---
+description: Superpowers specs/plans lifecycle — no topic booklets; revise or supersede; archive when landed
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Superpowers docs lifecycle
+
+**This rule is always on.** It overrides Superpowers brainstorming / writing-plans defaults that open a new dated file every time. User/repo instructions take precedence over those skills.
+
+`docs/superpowers/` holds **in-flight decisions and open plans only**. Product / module as-built lives in **`docs/build/`**, **`docs/README.md`**, and module READMEs under `src/` / `core/` / `build/`. This repo does **not** use mogu’s `docs/app|infra|common` four-pillar trees.
+
+## Do
+
+- **Read** `docs/README.md` and **search** `docs/superpowers/` plus `docs/build/` before writing a new spec or plan.
+- **Revise in place** or mark the old spec `superseded` and open one replacement. One topic → one living spec.
+- New spec **only** for a new subsystem, or a fork that cannot be a section of the existing spec.
+- Put **`Status: active | accepted | landed | superseded`** on the first metadata line of every new or edited spec.
+- When a plan is fully done: **same change** move that spec + plan to `docs/superpowers/archive/{specs,plans}/` (keep filenames) and put as-built facts in `docs/build/` (or the module README).
+- If `docs/superpowers/README.md` exists, keep it as a **living Active table** plus an Archive pointer. Do not rebuild a full inventory.
+
+## Don’t
+
+- **Don’t** add Topic 分册 / as-built stub files that only point at a longer design.
+- **Don’t** open a parallel dated empty shell when a design already exists.
+- **Don’t** treat `docs/superpowers/` as product documentation.
+- **Don’t** rewrite archived bodies except mechanical link fixes.
+- **Don’t** archive a file when unsure — leave it in the hot directory.
+
+## Layout
+
+| Path | Role |
+|------|------|
+| `docs/superpowers/specs/` | `active` / `accepted` |
+| `docs/superpowers/plans/` | Open checkbox plans |
+| `docs/superpowers/archive/` | `landed` / `superseded` (create when first landing) |
+
+## Related
+
+- Index: `docs/README.md`
+- UI endgame: `docs/build/ui-views-skia.md`
+- Mapping: `docs/build/mogu-mapping.md`

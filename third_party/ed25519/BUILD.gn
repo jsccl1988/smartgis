@@ -1,0 +1,18 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+_ed_src = "//third_party/.src/ed25519"
+
+config("ed25519_headers") {
+  include_dirs += [ _ed_src ]
+}
+
+source_set("ed25519") {
+  sources = [
+    "$_ed_src/ed25519.c",
+    "$_ed_src/ed25519.h",
+    "$_ed_src/tweetnacl.c",
+    "$_ed_src/tweetnacl.h",
+  ]
+  public_configs = [ ":ed25519_headers" ]
+}

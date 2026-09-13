@@ -1,0 +1,43 @@
+---
+description: Code-as-documentation — English comments; sparse comments; class intent; explain only complex logic
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Comments and class intent
+
+Prefer **self-explanatory names and structure** over narrating obvious code. Comments should add what the code cannot say briefly.
+
+## Language
+
+- Write **all new or changed comments** (`//`, `/* */`, docblocks, and file-level technical notes in source) in **English**.
+- **Do not** use other natural languages in comments you add or edit, even if nearby legacy comments differ.
+- **Exceptions** (not “comments” in this sense): **string literals**, **user-visible messages**, **protocol or spec quotations**, and **identifiers** required by an external API or data contract—those follow product or interoperability needs.
+
+## When to comment
+
+- **Do** add comments for **non-obvious logic**, **subtle invariants**, **algorithm choices**, **performance or correctness tradeoffs**, and **edge cases** that are easy to misread.
+- **Don’t** restate what the code already says (parameter names, trivial control flow, “what” without “why”).
+- **Don’t** add verbose docblocks on every function unless the signature alone is insufficient.
+
+## Class and struct documentation
+
+- **Do** place a **short block** immediately before each `class` / `struct` definition (new or substantially edited) that states **core purpose** in one or two sentences: what it represents and what problem it solves.
+- **Don’t** duplicate boilerplate that repeats the type name without adding meaning; keep it **intent-focused**.
+
+Example:
+
+```cpp
+// Hosts the map viewport HWND and forwards paint to the Skia/RHI backend.
+class MapViewportHost {
+  // ...
+};
+```
+
+## New or touched code
+
+Apply these norms **in new or touched** translation units so documentation stays accurate without drive-by comment churn elsewhere.

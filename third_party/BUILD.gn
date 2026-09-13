@@ -1,0 +1,132 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+#
+# Thin forwarder: public labels //third_party:<name> resolve to facade groups
+# under //third_party/gn. Third-party install is tools/batch.py → .install
+# (`build.bat t`), not cmake() from this file.
+
+import("//third_party/gn/tp.gni")
+
+group("glog") {
+  public_deps = [ "//third_party/gn:glog" ]
+}
+
+group("gtest") {
+  public_deps = [ "//third_party/gn:gtest" ]
+}
+
+group("googletest") {
+  public_deps = [ "//third_party/gn:googletest" ]
+}
+
+group("gbenchmark") {
+  public_deps = [ "//third_party/gn:gbenchmark" ]
+}
+
+group("benchmark") {
+  public_deps = [ "//third_party/gn:benchmark" ]
+}
+
+group("sqlite3") {
+  public_deps = [ "//third_party/gn:sqlite3" ]
+}
+
+group("SQLiteCpp") {
+  public_deps = [ "//third_party/gn:SQLiteCpp" ]
+}
+
+group("geos") {
+  public_deps = [ "//third_party/gn:geos" ]
+}
+
+group("PROJ") {
+  public_deps = [ "//third_party/gn:PROJ" ]
+}
+
+group("gdal") {
+  public_deps = [ "//third_party/gn:gdal" ]
+}
+
+group("gdal_runtime_dlls") {
+  public_deps = [ "//third_party/gn:gdal_runtime_dlls" ]
+}
+
+group("libspatialindex") {
+  public_deps = [ "//third_party/gn:libspatialindex" ]
+}
+
+group("libspatialite") {
+  public_deps = [ "//third_party/gn:libspatialite" ]
+}
+
+group("SpatiaLiteCpp") {
+  public_deps = [ "//third_party/gn:SpatiaLiteCpp" ]
+}
+
+group("asio") {
+  public_deps = [ "//third_party/gn:asio" ]
+}
+
+group("cpp-httplib") {
+  public_deps = [ "//third_party/gn:cpp-httplib" ]
+}
+
+group("cpp_httplib") {
+  public_deps = [ "//third_party/gn:cpp_httplib" ]
+}
+
+group("httplib") {
+  public_deps = [ "//third_party/gn:httplib" ]
+}
+
+group("eigen") {
+  public_deps = [ "//third_party/gn:eigen" ]
+}
+
+group("CxImage") {
+  public_deps = [ "//third_party/gn:CxImage" ]
+}
+
+group("wtl8.0") {
+  public_deps = [ "//third_party/gn:wtl8.0" ]
+}
+
+group("antlr4") {
+  public_deps = [ "//third_party/gn:antlr4" ]
+}
+
+group("khronos_gl") {
+  public_deps = [ "//third_party/gn:khronos_gl" ]
+}
+
+group("ed25519") {
+  public_deps = [ "//third_party/gn:ed25519" ]
+}
+
+group("flycube") {
+  public_deps = [ "//third_party/gn:flycube" ]
+}
+
+group("assimp") {
+  public_deps = [ "//third_party/gn:assimp" ]
+}
+
+group("tinygltf") {
+  public_deps = [ "//third_party/gn:tinygltf" ]
+}
+
+group("chromium") {
+  public_deps = [ "//third_party/gn:chromium" ]
+}
+
+group("python") {
+  public_deps = [ "//third_party/gn:python" ]
+}
+
+group("bcg") {
+  public_deps = [ "//third_party/gn:bcg" ]
+}
+
+group("third_party_all") {
+  deps = [ "//third_party/gn:third_party_all" ]
+}

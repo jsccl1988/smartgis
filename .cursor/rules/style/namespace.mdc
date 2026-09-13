@@ -1,0 +1,69 @@
+---
+description: C++ namespaces — at most two public layers; deeper symbols live under detail
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# C++ namespaces (two public layers + `detail`)
+
+Public C++ namespaces stop at **two** levels. Anything deeper uses the **hybrid** rule below.
+
+Applies to **new** trees (`core/`, `src/` new modules, `algorithm/`). Legacy `branches/` code keeps existing `Smt_*` namespaces.
+
+## Shape
+
+| Layer | Role | Examples |
+| --- | --- | --- |
+| 1–2 | **Public** API / module identity | `core`, `core::math`, `geo`, `ui::views`, `render::skia` |
+| 3 | **`detail` only** (internals) | `core::detail`, `geo::detail`, `ui::views::detail` |
+
+## Hybrid placement
+
+- **Public / semi-public** symbols that today sit in a third semantic namespace (`::flow`, `::core`, `::builder`, `::runtime`, …) ? **hoist** to `area::module`. On name collisions, rename the type/function (keep the two-layer namespace).
+- **Internal** symbols (`*detail*`, `draft`, `test`, `example`, `demo`, `benchmark`, nested helpers) ? `area::module::detail`. Do **not** keep names like `webui_detail` / `parallel_detail` as the third namespace segment; merge into `detail`.
+- Directory layout (`src/ui/views/…`) does **not** justify a third named public namespace.
+
+## Do
+
+- **Do** use at most **`area::module`** for symbols callers are meant to name.
+- **Do** put non-exported helpers, codecs, and file-local building blocks in **`…::detail`** (or an anonymous namespace in a `.cpp`).
+- **Do** apply this to **new or touched** translation units; when editing a file that already has a third semantic namespace, **fold it into the two-layer parent or into `detail`** in the same change when practical.
+
+## Don’t
+
+- **Don’t** introduce a third (or deeper) **semantic** namespace such as `core::math::vector` or `geo::algorithm::buffer` for public or semi-public types.
+- **Don’t** nest further named layers under `detail` for taxonomy (`…::detail::codec::v1`); keep `detail` flat and distinguish with **type/file names**.
+- **Don’t** treat this rule as applying to **mojom `module`**, protobuf `package`, Python modules, or Win32 namespaces.
+
+## Examples
+
+```cpp
+// BAD — third semantic layer
+namespace geo {
+namespace algorithm {
+namespace buffer {
+struct Options { /* ... */ };
+}
+}
+}
+
+// GOOD — public type at two layers
+namespace geo {
+struct BufferOptions { /* ... */ };
+}
+
+// GOOD — internal helper under detail
+namespace geo {
+namespace detail {
+inline bool decode_buffer_options(const std::string& wire, BufferOptions* out);
+}
+}
+```
+
+## Relation to other rules
+
+**`.cursor/rules/style/tree-style.mdc`** (match peers in the same tree), **`.cursor/rules/style/snake-case-functions.mdc`** (new-tree function `snake_case`), **`.cursor/rules/style/comments.mdc`** (English comments on types), **`.cursor/rules/style/cxx-standard.mdc`** (traits stay at two public layers).

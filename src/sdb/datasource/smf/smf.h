@@ -1,11 +1,11 @@
 /*
 File:    sde_smf.h
 
-Desc:    SmtSmfDataSource,SmtSmfVecLayer SmtSmfRasLayer,Êý¾ÝÔ´+Í¼²ã(shpÎÄ¼þ)
+Desc:    SmtSmfDataSource,SmtSmfVecLayer SmtSmfRasLayer,ï¿½ï¿½ï¿½ï¿½Ô´+Í¼ï¿½ï¿½(shpï¿½Ä¼ï¿½)
 
 Version: Version 1.0
 
-Writter:  ³Â´ºÁÁ
+Writter:  ï¿½Â´ï¿½ï¿½ï¿½
 
 Date:    2010.11.17
 
@@ -14,16 +14,17 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _SDE_SMF_H
 #define _SDE_SMF_H
 
-#include "layer.h"
-using namespace Smt_GIS;
+#include "sdb/datasource/smf/sde_smf_export.h"
+#include "sdb/layer/layer.h"
+using namespace sdb;
 
 #define  MAX_LAYER_FILE_NAME     (MAX_FILE_PATH)
 
 const	string		C_STR_SDE_SMFDEVICE_LOG = "SmtSDESmfDevice";
 
-namespace Smt_SDESmf
+namespace sdb
 {
-	class SMT_EXPORT_CLASS SmtSmfVecLayer:public SmtVectorLayer
+	class SDE_SMF_EXPORT SmtSmfVecLayer:public SmtVectorLayer
 	{
 	public:
 		SmtSmfVecLayer(SmtDataSource *pOwnerDs);
@@ -54,7 +55,7 @@ namespace Smt_SDESmf
 		long					CreateSpatialIndex(const char *szName,uint type){return SMT_ERR_NONE;}
 
 		//feature
-		long                    AppendFeature(const SmtFeature *pSmtFeature,bool bclone = false) ;
+		long                    AppendFeature(const SmtFeature *pSmtFeature,bool bClone = false) ;
 
 		long					AppendFeatureBatch(const SmtFeature *pSmtFeature,bool bClone = false) {return SMT_ERR_NONE;};
 		long					UpdateFeatureBatch(void) {return SMT_ERR_NONE;};
@@ -79,7 +80,7 @@ namespace Smt_SDESmf
 		SmtVectorLayer			*m_pMemLayer;
 	};
 
-	class  SmtSmfRasLayer: public SmtRasterLayer
+	class SDE_SMF_EXPORT SmtSmfRasLayer : public SmtRasterLayer
 	{
 	public:
 		SmtSmfRasLayer(SmtDataSource *pOwnerDs);
@@ -111,7 +112,7 @@ namespace Smt_SDESmf
 	};
 
 	//////////////////////////////////////////////////////////////////////////
-	class SMT_EXPORT_CLASS SmtSmfDataSource:public SmtDataSource
+	class SDE_SMF_EXPORT SmtSmfDataSource:public SmtDataSource
 	{
 	public:
 		SmtSmfDataSource(void);
@@ -122,7 +123,7 @@ namespace Smt_SDESmf
 		bool                    Open(void);
 		bool                    Close(void);
 
-		SmtDataSource			*Clone(void) const;
+		SmtDataSource			*clone(void) const;
 
 	public:
 		SmtVectorLayer			*CreateVectorLayer(const char *pszName,fRect &lyrRect,SmtFeatureType ftType = SmtFeatureType::SmtFtDot);
@@ -140,12 +141,4 @@ namespace Smt_SDESmf
 	};
 }
 
-#if !defined(Export_SmtSDESmfDevice)
-#if   defined( _DEBUG)
-#          pragma comment(lib,"SmtSDESmfDeviceD.lib")
-#       else
-#          pragma comment(lib,"SmtSDESmfDevice.lib")
-#	    endif  
-#endif
-
-#endif //_SDE_SMF_H
+#endif  // _SDE_SMF_H

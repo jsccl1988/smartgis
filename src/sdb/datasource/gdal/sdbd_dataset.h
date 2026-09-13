@@ -4,8 +4,8 @@
 #ifndef SDB_DATASOURCE_GDAL_SDBD_DATASET_H_
 #define SDB_DATASOURCE_GDAL_SDBD_DATASET_H_
 
-#include "feature.h"
-#include "layer.h"
+#include "sdb/feature/feature.h"
+#include "sdb/layer/layer.h"
 #include "sdb/datasource/gdal/ogr_export.h"
 #include "sdb/datasource/gdal/sdbd_gdal_driver.h"
 
@@ -22,7 +22,7 @@ class SdbdLayer;
 
 // GDALDataset subclass returned by driver "SDBD". Owns a stock inner dataset
 // (Memory / GPKG / PostgreSQL / file). GetLayer / CreateLayer return SdbdLayer.
-class SMT_SDE_GDAL_EXPORT SdbdDataset final : public GDALDataset {
+class SDE_GDAL_EXPORT SdbdDataset final : public GDALDataset {
  public:
   explicit SdbdDataset(GDALDataset* inner);
   ~SdbdDataset() override;
@@ -35,7 +35,7 @@ class SMT_SDE_GDAL_EXPORT SdbdDataset final : public GDALDataset {
 
   SdbdLayer* sdbd_layer(int index);
   SdbdLayer* sdbd_layer_by_name(const char* name);
-  SdbdLayer* create_sdbd_layer(const char* name, Smt_GIS::SmtFeatureType ft);
+  SdbdLayer* create_sdbd_layer(const char* name, sdb::SmtFeatureType ft);
 
   int GetLayerCount() override;
   OGRLayer* GetLayer(int i) override;
@@ -80,8 +80,8 @@ class SMT_SDE_GDAL_EXPORT SdbdDataset final : public GDALDataset {
 };
 
 // GDALOpenEx / Create via "SDBD". Empty target (ACCESS, WS, …) returns null.
-SMT_SDE_GDAL_EXPORT GDALDataset* open_sdbd_dataset(
-    const Smt_GIS::SmtDataSourceInfo& info);
+SDE_GDAL_EXPORT GDALDataset* open_sdbd_dataset(
+    const sdb::SmtDataSourceInfo& info);
 
 }  // namespace datasource
 }  // namespace sdb

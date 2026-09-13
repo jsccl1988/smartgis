@@ -35,10 +35,10 @@ inline constexpr char kSdbdMetaFeatureType[] = "SMT_FEATURE_TYPE";
 inline constexpr char kSdbdMetaStyleHint[] = "SMT_STYLE_HINT";
 
 // Registers the SDBD driver with GDALDriverManager. Idempotent.
-SMT_SDE_GDAL_EXPORT bool register_sdbd_driver();
+SDE_GDAL_EXPORT bool register_sdbd_driver();
 
-SMT_SDE_GDAL_EXPORT SdbdDataset* as_sdbd_dataset(GDALDataset* ds);
-SMT_SDE_GDAL_EXPORT SdbdLayer* as_sdbd_layer(OGRLayer* layer);
+SDE_GDAL_EXPORT SdbdDataset* as_sdbd_dataset(GDALDataset* ds);
+SDE_GDAL_EXPORT SdbdLayer* as_sdbd_layer(OGRLayer* layer);
 
 }  // namespace datasource
 }  // namespace sdb

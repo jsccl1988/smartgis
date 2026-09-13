@@ -1,14 +1,16 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "feature_api.h"
+#include "sdb/feature/feature_api.h"
 
-#include "geometry.h"
-#include "logmanager.h"
+#include "algorithm/geo/geometry.h"
+#include "base/core/logmanager.h"
 
 #include "ogrsf_frmts.h"
 
-long CopyLayer(OGRLayer* pTarLayer, OGRLayer* pSrcLayer) {
+using namespace geo;
+
+long copy_layer(OGRLayer* pTarLayer, OGRLayer* pSrcLayer) {
   if (!pTarLayer || !pSrcLayer) {
     return SMT_ERR_INVALID_PARAM;
   }
@@ -20,22 +22,22 @@ long CopyLayer(OGRLayer* pTarLayer, OGRLayer* pSrcLayer) {
   return SMT_ERR_NONE;
 }
 
-long CopyLayer(SmtLayer* pTarLayer, SmtLayer* pSrcLayer, bool bClone,
-               bool bCheckFeaType) {
+long copy_layer(SmtLayer* pTarLayer, SmtLayer* pSrcLayer, bool bClone,
+                bool bCheckFeaType) {
   if (!pTarLayer || !pSrcLayer ||
       pSrcLayer->GetLayerType() != pTarLayer->GetLayerType()) {
     return SMT_ERR_INVALID_PARAM;
   }
   if (pSrcLayer->GetLayerType() == LYR_RASTER) {
-    return CopyLayer(static_cast<SmtRasterLayer*>(pTarLayer),
-                     static_cast<SmtRasterLayer*>(pSrcLayer), bClone,
-                     bCheckFeaType);
+    return copy_layer(static_cast<SmtRasterLayer*>(pTarLayer),
+                      static_cast<SmtRasterLayer*>(pSrcLayer), bClone,
+                      bCheckFeaType);
   }
   return SMT_ERR_FAILURE;
 }
 
-long CopyLayer(SmtRasterLayer* pTarLayer, SmtRasterLayer* pSrcLayer,
-               bool /*bClone*/, bool /*bCheckFeaType*/) {
+long copy_layer(SmtRasterLayer* pTarLayer, SmtRasterLayer* pSrcLayer,
+                bool /*bClone*/, bool /*bCheckFeaType*/) {
   if (!pTarLayer || !pSrcLayer) {
     return SMT_ERR_INVALID_PARAM;
   }
@@ -55,7 +57,7 @@ long CopyLayer(SmtRasterLayer* pTarLayer, SmtRasterLayer* pSrcLayer,
   return SMT_ERR_FAILURE;
 }
 
-long Points2MultiPoint(OGRLayer* pLayer) {
+long points_to_multi_point(OGRLayer* pLayer) {
   if (!pLayer || pLayer->GetFeatureCount() < 1) {
     return SMT_ERR_INVALID_PARAM;
   }
@@ -86,7 +88,7 @@ long Points2MultiPoint(OGRLayer* pLayer) {
                                                     : SMT_ERR_FAILURE;
 }
 
-long GetQueryRs(int geomType, int feaType) {
+long get_query_rs(int geomType, int feaType) {
   long lQRs = SS_Unkown;
   if (wkbFlatten(static_cast<OGRwkbGeometryType>(geomType)) == wkbPoint) {
     lQRs = SS_Overlaps | SS_Within;

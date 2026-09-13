@@ -3,17 +3,17 @@
 
 #include "sdb/edit/edit_session.h"
 
-#include "command.h"
+#include "base/core/command.h"
 
 namespace sdb {
 namespace {
 
-class MutationReceiver final : public Smt_Core::SmtCommandReceiver {
+class MutationReceiver final : public base::SmtCommandReceiver {
  public:
   MutationReceiver(CommandEditSession::ApplyFn apply, FeatureMutation mutation)
       : apply_(std::move(apply)), mutation_(mutation) {}
 
-  bool Action(bool bUndo) override {
+  bool action(bool bUndo) override {
     if (!apply_) {
       return false;
     }
@@ -29,7 +29,7 @@ class MutationReceiver final : public Smt_Core::SmtCommandReceiver {
 
 struct CommandEditSession::Impl {
   ApplyFn apply;
-  Smt_Core::SmtCommandManager mgr;
+  base::SmtCommandManager mgr;
 };
 
 CommandEditSession::CommandEditSession(ApplyFn apply)
@@ -39,7 +39,7 @@ CommandEditSession::CommandEditSession(ApplyFn apply)
 
 CommandEditSession::~CommandEditSession() {
   if (impl_) {
-    impl_->mgr.ClearAllCommands();
+    impl_->mgr.clear_all_commands();
   }
 }
 
@@ -48,31 +48,31 @@ bool CommandEditSession::commit(const FeatureMutation& mutation) {
     return false;
   }
   auto* recv = new MutationReceiver(impl_->apply, mutation);
-  return impl_->mgr.CallCommand(new Smt_Core::SmtCommand(recv, true));
+  return impl_->mgr.call_command(new base::SmtCommand(recv, true));
 }
 
 bool CommandEditSession::undo() {
-  if (!impl_ || !impl_->mgr.CanUndo()) {
+  if (!impl_ || !impl_->mgr.can_undo()) {
     return false;
   }
-  impl_->mgr.Undo();
+  impl_->mgr.undo();
   return true;
 }
 
 bool CommandEditSession::redo() {
-  if (!impl_ || !impl_->mgr.CanRedo()) {
+  if (!impl_ || !impl_->mgr.can_redo()) {
     return false;
   }
-  impl_->mgr.Redo();
+  impl_->mgr.redo();
   return true;
 }
 
 bool CommandEditSession::can_undo() const {
-  return impl_ && impl_->mgr.CanUndo();
+  return impl_ && impl_->mgr.can_undo();
 }
 
 bool CommandEditSession::can_redo() const {
-  return impl_ && impl_->mgr.CanRedo();
+  return impl_ && impl_->mgr.can_redo();
 }
 
 }  // namespace sdb

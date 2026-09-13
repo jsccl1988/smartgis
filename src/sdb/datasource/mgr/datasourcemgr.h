@@ -4,7 +4,8 @@
 #ifndef _SMT_DSMGR_H
 #define _SMT_DSMGR_H
 
-#include "layer.h"
+#include "sdb/datasource/mgr/sde_mgr_export.h"
+#include "sdb/layer/layer.h"
 
 #include <string>
 #include <vector>
@@ -12,9 +13,9 @@
 class GDALDataset;
 class OGRLayer;
 
-using namespace Smt_GIS;
+using namespace sdb;
 
-namespace Smt_SDEDevMgr {
+namespace sdb {
 
 // Memory-driver scratch layer via SDBD:MEM. Caller must DestoryMemVecLayer.
 struct ScratchLayer {
@@ -22,7 +23,7 @@ struct ScratchLayer {
   OGRLayer* layer = nullptr;
 };
 
-class SMT_EXPORT_CLASS SmtDataSourceMgr {
+class SDE_MGR_EXPORT SmtDataSourceMgr {
  private:
   SmtDataSourceMgr();
 
@@ -38,7 +39,7 @@ class SMT_EXPORT_CLASS SmtDataSourceMgr {
   static SmtTileLayer* CreateMemTileLayer();
   static void DestoryMemTileLayer(SmtTileLayer*& pLayer);
 
-  static SmtDataSourceMgr* GetSingletonPtr();
+  static SmtDataSourceMgr* get_singleton_ptr();
   static void DestoryInstance();
 
   bool Open(const char* szDSMFile);
@@ -50,6 +51,7 @@ class SMT_EXPORT_CLASS SmtDataSourceMgr {
 
   GDALDataset* CreateTmpDataSource(eDSType type);
   void DestoryTmpDataSource(GDALDataset*& pTmp);
+  void DestoryTmpDataSource(sdb::SmtDataSource& tmp);
 
   GDALDataset* CreateDataSource(SmtDataSourceInfo& info);
   bool DeleteDataSource(const char* szName);
@@ -91,14 +93,6 @@ class SMT_EXPORT_CLASS SmtDataSourceMgr {
   static SmtDataSourceMgr* m_pSingleton;
 };
 
-}  // namespace Smt_SDEDevMgr
-
-#if !defined(Export_SmtSDEDeviceMgr)
-#if defined(_DEBUG)
-#pragma comment(lib, "SmtSDEDeviceMgrD.lib")
-#else
-#pragma comment(lib, "SmtSDEDeviceMgr.lib")
-#endif
-#endif
+}  // namespace sdb
 
 #endif  // _SMT_DSMGR_H

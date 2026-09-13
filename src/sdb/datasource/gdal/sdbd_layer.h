@@ -4,7 +4,7 @@
 #ifndef SDB_DATASOURCE_GDAL_SDBD_LAYER_H_
 #define SDB_DATASOURCE_GDAL_SDBD_LAYER_H_
 
-#include "feature.h"
+#include "sdb/feature/feature.h"
 #include "sdb/datasource/gdal/ogr_export.h"
 
 #include "ogrsf_frmts.h"
@@ -18,9 +18,9 @@ class SdbdDataset;
 
 // OGRLayer subclass returned by SdbdDataset. Forwards to a stock inner layer
 // and holds product extras (feature kind, style hint, catalog name).
-class SMT_SDE_GDAL_EXPORT SdbdLayer final : public OGRLayer {
+class SDE_GDAL_EXPORT SdbdLayer final : public OGRLayer {
  public:
-  SdbdLayer(OGRLayer* inner, Smt_GIS::SmtFeatureType ft,
+  SdbdLayer(OGRLayer* inner, sdb::SmtFeatureType ft,
             SdbdDataset* owner = nullptr);
   ~SdbdLayer() override = default;
 
@@ -30,8 +30,8 @@ class SMT_SDE_GDAL_EXPORT SdbdLayer final : public OGRLayer {
   OGRLayer* inner() { return inner_; }
   const OGRLayer* inner() const { return inner_; }
 
-  Smt_GIS::SmtFeatureType feature_type() const { return feature_type_; }
-  void set_feature_type(Smt_GIS::SmtFeatureType ft);
+  sdb::SmtFeatureType feature_type() const { return feature_type_; }
+  void set_feature_type(sdb::SmtFeatureType ft);
 
   const char* style_hint() const { return style_hint_.c_str(); }
   void set_style_hint(const char* name);
@@ -76,7 +76,7 @@ class SMT_SDE_GDAL_EXPORT SdbdLayer final : public OGRLayer {
 
   OGRLayer* inner_ = nullptr;
   SdbdDataset* owner_ = nullptr;
-  Smt_GIS::SmtFeatureType feature_type_ = Smt_GIS::SmtFtUnknown;
+  sdb::SmtFeatureType feature_type_ = sdb::SmtFtUnknown;
   std::string style_hint_;
 };
 

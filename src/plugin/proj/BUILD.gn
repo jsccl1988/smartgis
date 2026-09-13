@@ -1,0 +1,57 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+source_set("proj_views") {
+  sources = [
+    "map_prj_dialog.cc",
+    "map_prj_dialog.h",
+    "map_prj_grid_page.cc",
+    "map_prj_grid_page.h",
+    "map_prj_xy_page.cc",
+    "map_prj_xy_page.h",
+    "proj_commands.cc",
+    "proj_commands.h",
+  ]
+  include_dirs += [
+    "//src",
+    "//src/algorithm/proj",
+    "//src/base/core",
+    "//src/base/style",
+  ]
+  defines += [ "PLUGIN_PROJ_VIEWS_USE_PROJ_API" ]
+  deps = [
+    "//src/algorithm/proj:proj",
+    "//src/content:content",
+    "//src/plugin:host",
+    "//src/ui/views:views",
+  ]
+}
+
+smt_mfc_shared_library("plugin_proj") {
+  dll_stem = "plugin_proj"
+  sources = [
+    "dlg_map_prj.cpp",
+    "dlg_map_prj_do_grid.cpp",
+    "dlg_map_prj_do_xy.cpp",
+    "map_project.cpp",
+    "map_project.rc",
+    "mapprj_plug.cpp",
+    "stdafx.cpp",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/plugin:legacy_cmd",
+    "//src/plugin:plugin",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/algorithm/proj:proj",
+    "//src/ui/xcatalog:xcatalog",
+    "//src/algorithm/geo:geo",
+    "//src/sdb/map:gis",
+    "//src/sys:sys",
+    "//src/tool:tool",
+    "//third_party:gdal",
+  ]
+}

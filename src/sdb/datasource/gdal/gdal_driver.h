@@ -13,7 +13,7 @@ namespace sdb {
 namespace datasource {
 
 // GDALAllRegister() plus register_sdbd_driver().
-SMT_SDE_GDAL_EXPORT bool register_gdal_driver();
+SDE_GDAL_EXPORT bool register_gdal_driver();
 
 }  // namespace datasource
 }  // namespace sdb

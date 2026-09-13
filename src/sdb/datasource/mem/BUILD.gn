@@ -4,8 +4,8 @@
 import("//build/smartgis.gni")
 
 smt_shared_library("sde_mem") {
-  dll_stem = "SmtSDEMemDevice"
-  defines = [ "Export_SmtSDEMemDevice" ]
+  dll_stem = "sde_mem"
+  defines = [ "SDE_MEM_EXPORTS" ]
   sources = [
     "memraslayer.cpp",
     "memtitlelayer.cpp",
@@ -15,6 +15,6 @@ smt_shared_library("sde_mem") {
     "//src/base:core",
     "//src/algorithm/geo:geo",
     "//src/sdb/map:gis",
-    "//third_party/CxImage:CxImage",
+    "//third_party:CxImage",
   ]
 }

@@ -1,12 +1,12 @@
-#include "feature_3d.h"
-#include "logmanager.h"
-#include "stylemanager.h"
+#include "sdb/feature/feature_3d.h"
+#include "base/core/logmanager.h"
+#include "base/style/stylemanager.h"
 
-using namespace Smt_Core;
-using namespace Smt_3DGeo;
-using namespace Smt_Base;
+using namespace base;
+using namespace geo;
+using namespace base;
 
-namespace Smt_GIS
+namespace sdb
 {
 	Smt3DFeature::Smt3DFeature(void)
 	{
@@ -22,7 +22,7 @@ namespace Smt_GIS
 	}
 
 	//////////////////////////////////////////////////////////////////////////
-	void Smt3DFeature::SetGeometryDirectly(Smt3DGeometry  *pGeom)
+	void Smt3DFeature::SetGeometryDirectly(OGRGeometry  *pGeom)
 	{
 		SMT_SAFE_DELETE(m_pGeom);
 		m_pGeom = pGeom;
@@ -83,17 +83,17 @@ namespace Smt_GIS
 		}
 	}
 
-	void Smt3DFeature::SetGeometry(Smt3DGeometry  *pGeom)
+	void Smt3DFeature::SetGeometry(OGRGeometry  *pGeom)
 	{
 		SMT_SAFE_DELETE(m_pGeom);
 
 		if( pGeom != NULL )
-			m_pGeom = pGeom->Clone();
+			m_pGeom = pGeom->clone();
 		else
 			m_pGeom = NULL;
 	}
 
-	Smt3DFeature *Smt3DFeature::Clone()
+	Smt3DFeature *Smt3DFeature::clone()
 	{
        Smt3DFeature *pNewFeature = new Smt3DFeature();
 	   if (pNewFeature == NULL)
@@ -103,7 +103,7 @@ namespace Smt_GIS
 	   pNewFeature->SetFeatureType(m_SmtFeatureType);
 	   pNewFeature->SetGeometry(m_pGeom);
 	   if (NULL != m_pAtt)
-		   pNewFeature->m_pAtt = m_pAtt->Clone();
+		   pNewFeature->m_pAtt = m_pAtt->clone();
 	   
 	   return pNewFeature;
 	}
@@ -309,10 +309,10 @@ namespace Smt_GIS
 	//////////////////////////////////////////////////////////////////////////
 	int Smt3DFeature::SetMaterial(const char * stylename) 
 	{
-		SmtStyleManager * pStyleMgr = SmtStyleManager::GetSingletonPtr();
+		SmtStyleManager * pStyleMgr = SmtStyleManager::get_singleton_ptr();
 		if (pStyleMgr)
 		{
-		/*	SmtMaterial * pMaterial = pStyleMgr->GetStyle(stylename);
+		/*	SmtMaterial * pMaterial = pStyleMgr->get_style(stylename);
 			if (pMaterial != NULL)
 				SetMaterial(pMaterial);*/
 		}

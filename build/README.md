@@ -41,7 +41,7 @@ ninja -C out all
 
 ## 与 mogu 的差异（有意保留）
 
-- **不**使用 `third_party/.install` / mogu `build.sh build t` 装 prefix / Bazel dual-build。`build.bat t` 只跑 `third_party/tools/fetch.py`
+- **不**使用 Bazel dual-build。GN 吃 `third_party/.install`；`build.bat t` → `third_party/tools/batch.py` 装 prefix（对齐 mogu `build.sh build t`）。`out/third_party` 可 junction 到 `.install`（运行时搜 DLL）
 - **不**把 sln / `vs2008/` / `branches/` 当工程入口（见 [`docs/README.md`](../docs/README.md)）
 - **不**默认打开 `/W4` 或 sanitizers
 - `use_fast_debug` 已声明，MSVC 仍用 `/Zi`

@@ -1,0 +1,7 @@
+# smartgis: Google style, column width 80, indent 2 spaces.
+# See https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+BasedOnStyle: Google
+ColumnLimit: 80
+IndentWidth: 2
+TabWidth: 2
+UseTab: false

@@ -40,6 +40,8 @@ const char* geom_type_name(OGRwkbGeometryType wkb) {
     case wkbPolygon:
     case wkbMultiPolygon:
       return "polygon";
+    case wkbTIN:
+      return "tin";
     case wkbNone:
       return "none";
     default:
@@ -57,6 +59,9 @@ OGRwkbGeometryType geom_type_of(const std::string& name) {
   }
   if (t == "polygon") {
     return wkbPolygon;
+  }
+  if (t == "tin") {
+    return wkbTIN;
   }
   return wkbUnknown;
 }

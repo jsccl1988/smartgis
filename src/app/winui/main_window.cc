@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "main_window.h"
+#include "app/winui/main_window.h"
 
 #include <microsoft.ui.xaml.window.h>
 

@@ -1,18 +1,18 @@
-#include "smf.h"
-#include "api.h"
+#include "sdb/datasource/smf/smf.h"
+#include "base/core/api.h"
 #include "ogrsf_frmts.h"
-#include "smf_api.h"
-#include "logmanager.h"
+#include "sdb/datasource/smf/smf_api.h"
+#include "base/core/logmanager.h"
 
-namespace Smt_SDESmf
+namespace sdb
 {
    SmtSmfDataSource::SmtSmfDataSource(void)
    {
-	    SmtLogManager * pLogMgr = SmtLogManager::GetSingletonPtr();
-		SmtLog *pLog = pLogMgr->GetLog(C_STR_SDE_SMFDEVICE_LOG);
+	    SmtLogManager * pLogMgr = SmtLogManager::get_singleton_ptr();
+		SmtLog *pLog = pLogMgr->get_log(C_STR_SDE_SMFDEVICE_LOG);
 		if (NULL == pLog)
 		{
-			pLogMgr->CreateLog(C_STR_SDE_SMFDEVICE_LOG.c_str());
+			pLogMgr->create_log(C_STR_SDE_SMFDEVICE_LOG.c_str());
 		}
    }
 
@@ -25,10 +25,10 @@ namespace Smt_SDESmf
    {
 	   m_bOpen = true;
 
-	   SmtLogManager * pLogMgr = SmtLogManager::GetSingletonPtr();
-	   SmtLog *pLog = pLogMgr->GetLog(C_STR_SDE_SMFDEVICE_LOG);
+	   SmtLogManager * pLogMgr = SmtLogManager::get_singleton_ptr();
+	   SmtLog *pLog = pLogMgr->get_log(C_STR_SDE_SMFDEVICE_LOG);
 
-	   pLog->LogMessage("DS-Name:%s,FILE Name:%s,DB Service:%s,User:%s,type:%d,provider:%d",m_dsInfo.szName,m_dsInfo.file.szFileName,m_dsInfo.file.szPath,m_dsInfo.szUID,m_dsInfo.unType,m_dsInfo.unProvider);
+	   pLog->log_message("DS-Name:%s,FILE Name:%s,DB Service:%s,User:%s,type:%d,provider:%d",m_dsInfo.szName,m_dsInfo.file.szFileName,m_dsInfo.file.szPath,m_dsInfo.szUID,m_dsInfo.unType,m_dsInfo.unProvider);
 
 	   string strUrl;
 	   strUrl += m_dsInfo.file.szPath;
@@ -36,7 +36,7 @@ namespace Smt_SDESmf
 	   strUrl += ".smf";
 
 	   m_vLayerInfos.clear();
-	   ReadSmf(strUrl.c_str(),m_vLayerInfos);
+	   read_smf(strUrl.c_str(),m_vLayerInfos);
 
 	   OGRRegisterAll();
 
@@ -53,7 +53,7 @@ namespace Smt_SDESmf
 	   return true;
    }
 
-   SmtDataSource *SmtSmfDataSource::Clone(void) const
+   SmtDataSource *SmtSmfDataSource::clone(void) const
    {
          SmtSmfDataSource *pDs = new SmtSmfDataSource();
 		 pDs->SetInfo(m_dsInfo);
@@ -84,7 +84,7 @@ namespace Smt_SDESmf
 		strUrl += m_dsInfo.file.szFileName;
 		strUrl += ".smf";
 
-		WriteSmf(strUrl.c_str(),m_vLayerInfos);
+		write_smf(strUrl.c_str(),m_vLayerInfos);
 
        return (SmtVectorLayer*)pLayer;
    }
@@ -146,7 +146,7 @@ namespace Smt_SDESmf
 			   strUrl += m_dsInfo.file.szPath;
 			   strUrl += m_dsInfo.file.szFileName;
 			   strUrl += ".smf";
-			   WriteSmf(strUrl.c_str(),m_vLayerInfos);
+			   write_smf(strUrl.c_str(),m_vLayerInfos);
 
 			   return true;
 		   }
@@ -179,7 +179,7 @@ namespace Smt_SDESmf
 	   strUrl += m_dsInfo.file.szFileName;
 	   strUrl += ".smf";
 
-	   WriteSmf(strUrl.c_str(),m_vLayerInfos);
+	   write_smf(strUrl.c_str(),m_vLayerInfos);
 
 	   return pLayer;
    }
@@ -240,7 +240,7 @@ namespace Smt_SDESmf
 			   strUrl += m_dsInfo.file.szPath;
 			   strUrl += m_dsInfo.file.szFileName;
 			   strUrl += ".smf";
-			   WriteSmf(strUrl.c_str(),m_vLayerInfos);
+			   write_smf(strUrl.c_str(),m_vLayerInfos);
 
 			   return true;
 		   }

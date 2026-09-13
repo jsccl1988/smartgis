@@ -1,16 +1,14 @@
-#include "mem.h"
-#include "api.h"
-#include "feature_api.h"
-#include "style_api.h"
-#include "mem.h"
+#include "sdb/datasource/mem/mem.h"
+#include "base/core/api.h"
+#include "sdb/feature/feature_api.h"
+#include "base/style/style_api.h"
 #include "ximage.h"
 
-using namespace Smt_Geo;
-using namespace Smt_Core;
-using namespace Smt_SDEMem;
-using namespace Smt_GIS;
+using namespace geo;
+using namespace base;
+using namespace sdb;
 
-namespace Smt_SDEMem
+namespace sdb
 {
 	SmtMemRasLayer::SmtMemRasLayer():SmtRasterLayer(nullptr)
 	{
@@ -64,7 +62,7 @@ namespace Smt_SDEMem
 	//////////////////////////////////////////////////////////////////////////
 	void SmtMemRasLayer::CalEnvelope(void)
 	{
-		RectToEnvelope(m_lyrEnv,m_fRasterRect);
+		rect_to_envelope(m_lyrEnv,m_fRasterRect);
 	}
 
 	//////////////////////////////////////////////////////////////////////////

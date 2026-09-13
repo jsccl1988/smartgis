@@ -61,12 +61,14 @@ class MapWidgetHostViewImpl final : public MapWidgetHostView {
   SharedSurface Latest() const override;
 
   void SetLatest(const SharedSurface& s) { latest_ = s; }
+  void set_present_mode(PresentMode mode) { present_mode_ = mode; }
 
  private:
   class MapContentsImpl* session_;
   uint32_t view_id_;
   void* parent_hwnd_ = nullptr;
   SharedSurface latest_{};
+  PresentMode present_mode_ = PresentMode::kSharedTexture;
 };
 
 class MapContentsImpl final : public MapContents {
@@ -90,8 +92,12 @@ class MapContentsImpl final : public MapContents {
   void SetSelection(uint32_t view_id, const FeatureId* ids, size_t n) override;
   void LegendSnapshot(uint32_t view_id) override;
   void CatalogCall(const char* json_op) override;
+  void DispatchPlugin(uint32_t view_id,
+                      const char* plugin_id,
+                      const char* method,
+                      const void* bytes,
+                      size_t n) override;
 
-  
   void SetObserver(MapContentsObserver* observer) override { observer_ = observer; }
   bool WaitFrameReady(uint32_t view_id, uint32_t timeout_ms) override;
 
@@ -99,7 +105,11 @@ class MapContentsImpl final : public MapContents {
   void Activate(uint32_t view_id, const char* tool_id);
   void Dispatch(uint32_t view_id, const InputEvent& e) override;
 
-  bool send_json(HostMsg type, uint32_t view_id, const std::string& json);
+  bool send_msg_empty(HostMsg type, uint32_t view_id);
+  template <typename T>
+  bool send_msg(HostMsg type, uint32_t view_id, const T& body) {
+    return pipe_.send_msg(type, view_id, body);
+  }
   void store_surface(uint32_t view_id, const SharedSurface& s);
 
  private:
@@ -128,10 +138,11 @@ void MapWidgetHostViewImpl::Create(const CreateParams& params,
 }
 
 void MapWidgetHostViewImpl::Resize(int width_px, int height_px, float dpi) {
-  char json[128];
-  sprintf_s(json, "{\"w\":%d,\"h\":%d,\"dpi\":%.2f}", width_px, height_px,
-            static_cast<double>(dpi));
-  session_->send_json(HostMsg::kResizeSurface, view_id_, json);
+  ResizeSurfaceBody body;
+  body.w = static_cast<uint32_t>(width_px);
+  body.h = static_cast<uint32_t>(height_px);
+  body.dpi = dpi;
+  session_->send_msg(HostMsg::kResizeSurface, view_id_, body);
 }
 
 void MapWidgetHostViewImpl::Resize(int x,
@@ -145,25 +156,26 @@ void MapWidgetHostViewImpl::Resize(int x,
 }
 
 void MapWidgetHostViewImpl::SetPresentMode(PresentMode mode) {
-  char json[80];
-  sprintf_s(json, "{\"present_mode\":\"%s\"}", present_mode_json(mode));
-  session_->send_json(HostMsg::kAttachSurface, view_id_, json);
+  present_mode_ = mode;
+  AttachSurfaceBody body;
+  body.present_mode = static_cast<uint32_t>(mode);
+  body.visible = 1;
+  session_->send_msg(HostMsg::kAttachSurface, view_id_, body);
 }
 
 void MapWidgetHostViewImpl::SetVisible(bool visible) {
-  char json[40];
-  sprintf_s(json, "{\"visible\":%s}", visible ? "true" : "false");
-  session_->send_json(HostMsg::kAttachSurface, view_id_, json);
+  AttachSurfaceBody body;
+  body.present_mode = static_cast<uint32_t>(present_mode_);
+  body.visible = visible ? 1u : 0u;
+  session_->send_msg(HostMsg::kAttachSurface, view_id_, body);
 }
 
 SharedSurface MapWidgetHostViewImpl::Latest() const {
   return latest_;
 }
 
-bool MapContentsImpl::send_json(HostMsg type,
-                               uint32_t view_id,
-                               const std::string& json) {
-  return pipe_.send_json(type, view_id, json);
+bool MapContentsImpl::send_msg_empty(HostMsg type, uint32_t view_id) {
+  return pipe_.send_empty(type, view_id);
 }
 
 void MapContentsImpl::store_surface(uint32_t view_id, const SharedSurface& s) {
@@ -236,15 +248,16 @@ bool MapContentsImpl::StartRenderProcess() {
   }
   oop_ = true;
   status_ = L"oop";
-  return pipe_.send_json(HostMsg::kHelloAck, 0,
-                         "{\"protocol\":1,\"role\":\"chrome\",\"ok\":true}");
+  HelloBody ack;
+  ack.role = "chrome";
+  return pipe_.send_msg(HostMsg::kHelloAck, 0, ack);
 }
 
 void MapContentsImpl::Shutdown() {
   oop_ = false;
   status_ = L"down";
   running_ = false;
-  pipe_.send_json(HostMsg::kShutdown, 0, "{}");
+  pipe_.send_empty(HostMsg::kShutdown, 0);
   pipe_.close();
   if (recv_thread_.joinable()) {
     recv_thread_.join();
@@ -271,14 +284,14 @@ void MapContentsImpl::Shutdown() {
 
 uint32_t MapContentsImpl::OpenView(ViewKind kind) {
   const uint32_t id = next_view_id_++;
-  char json[64];
-  sprintf_s(json, "{\"kind\":\"%s\"}", view_kind_json(kind));
-  pipe_.send_json(HostMsg::kOpenView, id, json);
+  OpenViewBody body;
+  body.kind = static_cast<uint32_t>(kind);
+  pipe_.send_msg(HostMsg::kOpenView, id, body);
   return id;
 }
 
 void MapContentsImpl::CloseView(uint32_t view_id) {
-  pipe_.send_json(HostMsg::kCloseView, view_id, "{}");
+  pipe_.send_empty(HostMsg::kCloseView, view_id);
   std::lock_guard<std::mutex> lock(mu_);
   auto it = views_.find(view_id);
   if (it != views_.end()) {
@@ -288,15 +301,17 @@ void MapContentsImpl::CloseView(uint32_t view_id) {
 }
 
 MapWidgetHostView* MapContentsImpl::AttachSurface(uint32_t view_id, PresentMode mode) {
-  char json[80];
-  sprintf_s(json, "{\"present_mode\":\"%s\"}", present_mode_json(mode));
-  pipe_.send_json(HostMsg::kAttachSurface, view_id, json);
+  AttachSurfaceBody body;
+  body.present_mode = static_cast<uint32_t>(mode);
+  pipe_.send_msg(HostMsg::kAttachSurface, view_id, body);
   std::lock_guard<std::mutex> lock(mu_);
   auto it = views_.find(view_id);
   if (it != views_.end()) {
+    it->second->set_present_mode(mode);
     return it->second;
   }
   auto* v = new MapWidgetHostViewImpl(this, view_id);
+  v->set_present_mode(mode);
   views_[view_id] = v;
   return v;
 }
@@ -312,10 +327,12 @@ void MapContentsImpl::SetExtent(uint32_t view_id, const Extent2& e) {
     std::lock_guard<std::mutex> lock(mu_);
     extents_[view_id] = e;
   }
-  char json[160];
-  sprintf_s(json, "{\"xmin\":%.17g,\"ymin\":%.17g,\"xmax\":%.17g,\"ymax\":%.17g}",
-            e.xmin, e.ymin, e.xmax, e.ymax);
-  pipe_.send_json(HostMsg::kSetExtent, view_id, json);
+  ExtentWire body;
+  body.xmin = e.xmin;
+  body.ymin = e.ymin;
+  body.xmax = e.xmax;
+  body.ymax = e.ymax;
+  pipe_.send_msg(HostMsg::kSetExtent, view_id, body);
 }
 
 Extent2 MapContentsImpl::Extent(uint32_t view_id) const {
@@ -331,17 +348,33 @@ void MapContentsImpl::SetSelection(uint32_t view_id,
                                    const FeatureId* ids,
                                    size_t n) {
   (void)ids;
-  char json[48];
-  sprintf_s(json, "{\"count\":%u}", static_cast<unsigned>(n));
-  pipe_.send_json(HostMsg::kSetSelection, view_id, json);
+  SelectionBody body;
+  body.count = static_cast<uint32_t>(n);
+  pipe_.send_msg(HostMsg::kSetSelection, view_id, body);
 }
 
 void MapContentsImpl::LegendSnapshot(uint32_t view_id) {
-  pipe_.send_json(HostMsg::kLegendQuery, view_id, "{}");
+  pipe_.send_empty(HostMsg::kLegendQuery, view_id);
 }
 
 void MapContentsImpl::CatalogCall(const char* json_op) {
-  pipe_.send_json(HostMsg::kCatalogOp, 0, json_op ? json_op : "{}");
+  JsonBody body;
+  body.json = json_op ? json_op : "{}";
+  pipe_.send_msg(HostMsg::kCatalogOp, 0, body);
+}
+
+void MapContentsImpl::DispatchPlugin(uint32_t view_id,
+                                    const char* plugin_id,
+                                    const char* method,
+                                    const void* bytes,
+                                    size_t n) {
+  PluginCallBody body;
+  body.plugin_id = plugin_id ? plugin_id : "";
+  body.method = method ? method : "";
+  if (bytes && n) {
+    body.bytes.assign(static_cast<const char*>(bytes), n);
+  }
+  pipe_.send_msg(HostMsg::kPluginCall, view_id, body);
 }
 
 bool MapContentsImpl::WaitFrameReady(uint32_t view_id, uint32_t timeout_ms) {
@@ -370,9 +403,9 @@ void MapContentsImpl::ActivateTool(uint32_t view_id, const char* tool_id) {
 }
 
 void MapContentsImpl::Activate(uint32_t view_id, const char* tool_id) {
-  char json[160];
-  sprintf_s(json, "{\"tool_id\":\"%s\"}", tool_id ? tool_id : "");
-  pipe_.send_json(HostMsg::kActivateTool, view_id, json);
+  ToolBody body;
+  body.tool_id = tool_id ? tool_id : "";
+  pipe_.send_msg(HostMsg::kActivateTool, view_id, body);
 }
 
 void MapContentsImpl::Dispatch(uint32_t view_id, const InputEvent& e) {
@@ -385,7 +418,7 @@ void MapContentsImpl::Dispatch(uint32_t view_id, const InputEvent& e) {
   w.wheel = e.wheel;
   w.key = e.key;
   w.dpi = 96.f;
-  pipe_.send_binary(HostMsg::kPointerEvent, view_id, &w, sizeof(w));
+  pipe_.send_msg(HostMsg::kPointerEvent, view_id, w);
 }
 
 void MapContentsImpl::recv_loop() {
@@ -412,10 +445,11 @@ void MapContentsImpl::handle_frame(const FrameHeader& h,
     hello_ok_ = 1;
     return;
   }
-  if (type == HostMsg::kSharedHandle &&
-      payload.size() >= sizeof(SharedHandleWire)) {
+  if (type == HostMsg::kSharedHandle) {
     SharedHandleWire w = {};
-    std::memcpy(&w, payload.data(), sizeof(w));
+    if (!decode_payload(payload, &w)) {
+      return;
+    }
     SharedSurface s = {};
     s.generation = w.generation;
     s.nt_handle = reinterpret_cast<void*>(static_cast<uintptr_t>(w.nt_handle));
@@ -425,10 +459,11 @@ void MapContentsImpl::handle_frame(const FrameHeader& h,
     store_surface(h.view_id, s);
     return;
   }
-  if (type == HostMsg::kFrameReady &&
-      payload.size() >= sizeof(FrameReadyWire)) {
+  if (type == HostMsg::kFrameReady) {
     FrameReadyWire w = {};
-    std::memcpy(&w, payload.data(), sizeof(w));
+    if (!decode_payload(payload, &w)) {
+      return;
+    }
     {
       std::lock_guard<std::mutex> lock(mu_);
       frame_gen_[h.view_id] = w.generation;
@@ -441,13 +476,16 @@ void MapContentsImpl::handle_frame(const FrameHeader& h,
     }
     return;
   }
-  if (type == HostMsg::kExtentChanged && !payload.empty()) {
-    const std::string json(payload.begin(), payload.end());
+  if (type == HostMsg::kExtentChanged) {
+    ExtentWire w = {};
+    if (!decode_payload(payload, &w)) {
+      return;
+    }
     Extent2 e = {};
-    e.xmin = json_get_double(json, "xmin", 0);
-    e.ymin = json_get_double(json, "ymin", 0);
-    e.xmax = json_get_double(json, "xmax", 0);
-    e.ymax = json_get_double(json, "ymax", 0);
+    e.xmin = w.xmin;
+    e.ymin = w.ymin;
+    e.xmax = w.xmax;
+    e.ymax = w.ymax;
     {
       std::lock_guard<std::mutex> lock(mu_);
       extents_[h.view_id] = e;

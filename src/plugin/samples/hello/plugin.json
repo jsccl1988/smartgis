@@ -1,0 +1,13 @@
+{
+  "id": "smartgis.sample_hello",
+  "name": "Hello Views",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "python",
+  "author": "The Mogu Authors",
+  "description": "Sample in-process Python plugin",
+  "entry": "plugin.py",
+  "contributes": {
+    "commands": [{"id": "sample.hello", "title": "Hello", "menu": "tools"}]
+  }
+}

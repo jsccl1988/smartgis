@@ -59,6 +59,8 @@ declare_args() {
   is_msan = false
   is_tsan = false
 
+  # Deprecated: no longer drives cmake() for //third_party.
+  # Install prefix is third_party/.install via `build.bat t`.
   is_build_third_party = false
   # Load MFC/BCG exe graph (//src/app:app). Off so ninja `all` stays src_all.
   smt_build_app = false
@@ -171,9 +173,16 @@ if (is_win) {
 import("//build/tools/cmake.gni")
 import("//build/tools/makefile.gni")
 
+# mogu-aligned third_party prefix (consumed by //third_party/gn)
+import("//third_party/gn/tp.gni")
+
 include_dirs = [
   "//",
 ]
 
 libs = [
 ]
+
+defines = []
+
+lib_dirs = []

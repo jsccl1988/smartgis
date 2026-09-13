@@ -12,6 +12,8 @@ __pycache__/
 node_modules/
 /bin/
 /temp/
+# Downloaded by build/fetch_binaries.py — not vendored in git.
+/build/bin/
 *.suo
 *.ncb
 *.sdf

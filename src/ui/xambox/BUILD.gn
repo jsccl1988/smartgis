@@ -1,0 +1,28 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# MFC Feature Pack (CMFC*) via bcg_cmfc.h — not BCGControlBar Pro.
+smt_mfc_shared_library("xambox") {
+  dll_stem = "xambox"
+  mfc_extension = true
+  defines = [
+    "XAMBOX_EXPORTS",
+    "_AFXEXT",
+  ]
+  sources = [
+    "xambox_core.cpp",
+    "xambox_core.rc",
+    "amb_amboxmgrdocbar.cpp",
+    "amb_xambox.cpp",
+    "stdafx.cpp",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/plugin:plugin",
+    "//src/sys:sys",
+    "//src/ui/mfc_ex:mfc_ex",
+  ]
+}

@@ -1,0 +1,16 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//testing/test.gni")
+
+# Product exe smoke: launch each chrome / GPU process with --self-test.
+# build.bat e2e builds the exes (all smt_build_* flags) then runs this.
+test("exe_smoke") {
+  output_name = "exe_smoke"
+  sources = [ "exe_smoke.cc" ]
+  # Stale leftover SmartGis.exe imports old Smt_Geo virtuals from SmtGeoCoreD
+  # (STATUS_ENTRYPOINT_NOT_FOUND). Rebuild the MFC PE with the current ABI.
+  if (smt_build_app) {
+    data_deps = [ "//src/app:app" ]
+  }
+}

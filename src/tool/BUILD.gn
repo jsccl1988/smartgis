@@ -1,0 +1,45 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+smt_shared_library("tool") {
+  dll_stem = "tool"
+  defines = [ "TOOL_EXPORTS" ]
+  include_dirs += [ "//src" ]
+  sources = [
+    "t_iatool.cpp",
+    "t_iatoolmanager.cpp",
+    "t_msg.cpp",
+  ]
+  deps = [ "//src/base:core" ]
+}
+
+# Session-scoped Command / Input / Workspace. Not the leftover IATool DLL.
+source_set("dispatch") {
+  sources = [
+    "command.cc",
+    "command.h",
+    "gestures.cc",
+    "gestures.h",
+    "interaction.cc",
+    "interaction.h",
+    "legacy_msg.cc",
+    "legacy_msg.h",
+    "workspace.cc",
+    "workspace.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/sdb/edit:edit" ]
+}
+
+test("tool_dispatch_test") {
+  output_name = "tool_dispatch_test"
+  sources = [ "dispatch_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":dispatch",
+    "//src/plugin:legacy_cmd",
+  ]
+}

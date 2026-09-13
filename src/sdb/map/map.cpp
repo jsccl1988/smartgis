@@ -1,16 +1,16 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "map.h"
+#include "sdb/map/map.h"
 
-#include "feature_api.h"
+#include "sdb/feature/feature_api.h"
 
 #include "ogrsf_frmts.h"
 
 #include <cstring>
 #include <string>
 
-namespace Smt_GIS {
+namespace sdb {
 
 SmtMap::SmtMap() : active_(-1), m_nIteratorIndex(0) {
   strcpy_s(m_szMapName, MAX_MAP_NAME, "DefMap");
@@ -83,7 +83,7 @@ void SmtMap::envelope_of(const Entry& e, Envelope* env) const {
   }
   *env = Envelope();
   if (e.leftover) {
-    e.leftover->GetEnvelope(*env);
+    e.leftover->get_envelope(*env);
     return;
   }
   if (!e.ogr) {
@@ -113,7 +113,7 @@ bool SmtMap::AddLayer(OGRLayer* layer) {
   active_ = static_cast<int>(layers_.size()) - 1;
   Envelope lyr;
   envelope_of(e, &lyr);
-  m_MapEnvelope.Merge(lyr);
+  m_MapEnvelope.merge(lyr);
   return true;
 }
 
@@ -131,8 +131,8 @@ bool SmtMap::AddLayer(SmtLayer* layer) {
   layers_.push_back(e);
   active_ = static_cast<int>(layers_.size()) - 1;
   Envelope lyr;
-  layer->GetEnvelope(lyr);
-  m_MapEnvelope.Merge(lyr);
+  layer->get_envelope(lyr);
+  m_MapEnvelope.merge(lyr);
   return true;
 }
 
@@ -311,7 +311,7 @@ void SmtMap::CalEnvelope() {
       e.leftover->CalEnvelope();
     }
     envelope_of(e, &lyr);
-    m_MapEnvelope.Merge(lyr);
+    m_MapEnvelope.merge(lyr);
   }
 }
 
@@ -321,6 +321,10 @@ bool SmtMap::AppendFeature(OGRFeature* feature) {
     return false;
   }
   return lyr->CreateFeature(feature) == OGRERR_NONE;
+}
+
+bool SmtMap::AppendFeature(SmtFeature* feature, bool /*clone*/) {
+  return leftover_append_feature(GetActiveOgrLayer(), feature);
 }
 
 bool SmtMap::DeleteFeature(OGRFeature* feature) {
@@ -349,7 +353,7 @@ bool SmtMap::QueryFeature(const SmtGQueryDesc* gquery,
   nFeaType = SmtFtUnknown;
   if (gquery && gquery->pQueryGeom) {
     Envelope env;
-    Smt_Geo::copy_envelope(*gquery->pQueryGeom, &env);
+    geo::copy_envelope(*gquery->pQueryGeom, &env);
     lyr->SetSpatialFilterRect(env.MinX, env.MinY, env.MaxX, env.MaxY);
   }
   if (pquery && pquery->szFldName && pquery->szFldName[0] &&
@@ -370,4 +374,4 @@ bool SmtMap::QueryFeature(const SmtGQueryDesc* gquery,
   return true;
 }
 
-}  // namespace Smt_GIS
+}  // namespace sdb

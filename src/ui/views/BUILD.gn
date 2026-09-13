@@ -1,0 +1,106 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Chromium-style Views toolkit. Product exe is //src/app/views.
+# Not in //src:src_all or //src/ui:ui (MFC).
+
+import("//testing/test.gni")
+
+config("views_config") {
+  include_dirs += [ "//src" ]
+  defines += [ "NOMINMAX" ]
+}
+
+source_set("views") {
+  sources = [
+    "ambox_view.cc",
+    "ambox_view.h",
+    "att_struct_dialog.cc",
+    "att_struct_dialog.h",
+    "attribute_table.cc",
+    "attribute_table.h",
+    "button.cc",
+    "button.h",
+    "catalog_view.cc",
+    "catalog_view.h",
+    "chart_view.cc",
+    "chart_view.h",
+    "checkbox.cc",
+    "checkbox.h",
+    "combobox.cc",
+    "combobox.h",
+    "context_menu.cc",
+    "context_menu.h",
+    "create_datasource_dialog.cc",
+    "create_datasource_dialog.h",
+    "create_layer_dialog.cc",
+    "create_layer_dialog.h",
+    "create_map_dialog.cc",
+    "create_map_dialog.h",
+    "dialog.cc",
+    "dialog.h",
+    "event.h",
+    "feature_info.cc",
+    "feature_info.h",
+    "file_picker.cc",
+    "file_picker.h",
+    "input_text_dialog.cc",
+    "input_text_dialog.h",
+    "label.cc",
+    "label.h",
+    "layer_tree.cc",
+    "layer_tree.h",
+    "layout.cc",
+    "layout.h",
+    "map_viewport.cc",
+    "map_viewport.h",
+    "menu_bar.cc",
+    "menu_bar.h",
+    "message_box.cc",
+    "message_box.h",
+    "radio_button.cc",
+    "radio_button.h",
+    "scroll_view.cc",
+    "scroll_view.h",
+    "select_one_dialog.cc",
+    "select_one_dialog.h",
+    "splitter.cc",
+    "splitter.h",
+    "status_bar.cc",
+    "status_bar.h",
+    "tab_strip.cc",
+    "tab_strip.h",
+    "table_view.cc",
+    "table_view.h",
+    "textfield.cc",
+    "textfield.h",
+    "theme.cc",
+    "theme.h",
+    "tree_view.cc",
+    "tree_view.h",
+    "view.cc",
+    "view.h",
+    "views.cc",
+    "views.h",
+    "widget.cc",
+    "widget.h",
+  ]
+  public_deps = [
+    "//src/content:content",
+    "//src/content:view_host",
+    "//src/render/skia:skia",
+  ]
+  public_configs = [ ":views_config" ]
+  libs = [
+    "comdlg32.lib",
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
+# Console self-test for primitive / kernel behavior (no MFC).
+test("views_unittests") {
+  output_name = "views_unittests"
+  sources = [ "views_unittests.cc" ]
+  deps = [ ":views" ]
+}
