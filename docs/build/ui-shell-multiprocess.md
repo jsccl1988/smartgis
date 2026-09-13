@@ -10,7 +10,7 @@ All rights reserved.
 当前产品事实（以树为准，不是 2010 路径）：
 
 - 工程入口只有 GN/`build.bat`，产物只在仓库根 `out/`。`//src:src_all` 是 31 个非 MFC DLL。`//:smartgis`（`build.bat app`）才出 `out/SmartGis.exe`。
-- 产品在 `src/`：`app/`、`app/app_core`、`ui/{gui,mfc_ex,xview,xcatalog,xambox}`、`render/{gdi,gdi_simple,gl,render3d}`（`render/d3d` 无 BUILD，D3DX 硬停）、`gis/`、`sde/{mgr,ado,mem,smf,ws}`、`map/`、`plugin/` + AM 子模块、`tool/` + `tool/group`。
+- 产品在 `src/`：`app/`、`app/app_core`、`ui/{gui,mfc_ex,xview,xcatalog,xambox}`、`render/{gdi,gdi_simple,gl,render3d}`（`render/d3d` 无 BUILD，D3DX 硬停）、`gis/`、`sdb/datasource/{mgr,gdal,mem,smf,ws}`、`map/`、`plugin/` + AM 子模块、`tool/` + `tool/group`。
 - 遗留 ABI 保留：`Smt_*` 命名空间、`Export_Smt*`、磁盘 DLL stem（`SmtGisCore`、`SmtRender`、`SmtGLRenderDevice`、`SmtXViewCore` …）。新公共命名空间最多两层。
 - 今日桌面是 **MFC + BCGControlBar Pro**（`CBCGPMDIFrameWnd`、dock catalog、AM toolbox）。机器上可以没有 BCG；**不要盗版 BCG**。MFC Feature Pack（`CMFC*`）只允许作为可选 bootstrap exe，**不是本文的上限**。
 - 今日地图视图是进程内 HWND：`SmtXView`（`CView`）→ `SmtRenderDevice::Init(HWND)`。交互工具是 `SmtIATool`（`Smt_IATool`），插件是 `SmtAuxModule`（`Smt_AM`）。地图文档是 `Smt_GIS::SmtMap`。
@@ -32,7 +32,7 @@ All rights reserved.
 **目标**
 
 - 一个 **UI/chrome 进程**（方案 1/2/3 可替换）+ 一个 **Render/GPU 进程**（三种方案共用）。
-- 可选 **IO/SDE 进程**：GDAL / ADO / 网络。栅格驱动或数据库崩了，不带走 catalog chrome。
+- 可选 **IO/SDE 进程**：GDAL / 网络。栅格驱动或数据库崩了，不带走 catalog chrome。
 - Chrome **禁止**直接 `#include` `gis_map.h` / `rd_renderdevice.h` / `t_iatool.h`。只走 host ABI。
 - v1 渲染进程内 `LoadLibrary` 现有 `Smt*D.dll`，用适配器包一层；不重写 `Smt_*`。
 - 多视图 / 多窗口：默认 **一个 render 进程、N 个 surface**。
@@ -54,14 +54,14 @@ All rights reserved.
 
 | 进程 | 启动方式 | 职责 | 允许加载的现有 DLL（v1） | 禁止 |
 | --- | --- | --- | --- | --- |
-| **Browser / UI** | `SmartGis.exe`（省略 `--type` 或 `--type=browser`；方案切换时可用 `SmartGisWeb.exe` / `SmartGisWinui.exe` / `SmartGisViews.exe` 并行装） | 窗口、ribbon/tree/property/dialog、**仅 present** 共享表面、把输入经 host 转给 renderer | 仅 chrome + `content` 客户端 + 方案专用 UI。**不** Load `SmtGisCore` / `SmtSDEAdoDevice` | 原始 ADO 连接串、GDAL 数据集、`SmtRenderDevice::Init`、GL/D3D11 设备 |
+| **Browser / UI** | `SmartGis.exe`（省略 `--type` 或 `--type=browser`；方案切换时可用 `SmartGisWeb.exe` / `SmartGisWinui.exe` / `SmartGisViews.exe` 并行装） | 窗口、ribbon/tree/property/dialog、**仅 present** 共享表面、把输入经 host 转给 renderer | 仅 chrome + `content` 客户端 + 方案专用 UI。**不** Load `SmtGisCore` / `SmtSDEGdalDevice` | GDAL 连接串 / 数据集、`SmtRenderDevice::Init`、GL/D3D11 设备 |
 | **Renderer** | **同一 PE** `SmartGis.exe --type=renderer` | `SmtMap` / `SmtIATool`、pick/hit-test、工具与 catalog 逻辑（CPU）；`Submit2d` / `Submit3d` 到 GPU | `SmtCore`、`SmtSysCore`、`SmtBaseLib`、`SmtGeoCore`、`SmtGisCore`、`SmtGisPrj`、`SmtToolCore`、`SmtGroupToolCore`、`SmtAuxModule` + 各 `SmtAM*`（UI-less 部分） | MFC `CView`、BCG dock、WebView2、WinUI 控件、**任何** GL/D3D11 设备 |
 | **GPU**（**必需**独立子进程） | **同一 PE** `SmartGis.exe --type=gpu` | **全部 2D 与 3D 绘制**：`kMapEdit` / `kMapData`（`SmtRender` + GL/GDI）与 `kScene3d`（`render3d` + `scene3d` / `terrain` / `pointcloud`）；共享 DXGI 句柄 + `FrameReady` | `SmtRender`、`SmtGLRenderDevice`、`SmtGdiRenderDevice`、`SmtGdiSimpleRenderDevice`、`Smt3DRenderer`、`scene3d` / `model3d` / `terrain` / `pointcloud` | 可见 chrome HWND、WebView2、WinUI、`SmtIATool` 输入路由 |
-| **Utility / IO**（可选，v1.5） | **同一 PE** `SmartGis.exe --type=utility` | `sde/smf` GDAL、`sde/ado`、`net`、目录枚举 | `SmtSDEDeviceMgr`、`SmtSDESmfDevice`、`SmtSDEAdoDevice`、`SmtSDEMemDevice`、`SmtSDEWSDevice`、`SmtAdoCore`、`SmtNetCore`、`SmtMapService`（服务端读） | HWND、GPU 设备、chrome |
+| **Utility / IO**（可选，v1.5） | **同一 PE** `SmartGis.exe --type=utility` | `sde/smf` GDAL、`sde/gdal`、`net`、目录枚举 | `SmtSDEDeviceMgr`、`SmtSDESmfDevice`、`SmtSDEGdalDevice`、`SmtSDEMemDevice`、`SmtSDEWSDevice`、`SmtNetCore`、`SmtMapService`（服务端读） | HWND、GPU 设备、chrome |
 
 **没有 `SmartGisRender.exe` 作为产品 GPU 映像。** 今日 `//src/gpu:gpu` / `build.bat render` 的独立 console exe 是过渡；终局是 `--type=gpu` 入口链进同一 `executable("smartgis")`。
 
-**默认拓扑：1 Browser + 1 Renderer + 1 GPU**（Chromium Windows：两个子进程始终存在）。IO 进程在第一次把 ADO/GDAL 从 renderer 拆出时再开（`--type=utility`）。v1 允许 SDE DLL 先住在 renderer 里。
+**默认拓扑：1 Browser + 1 Renderer + 1 GPU**（Chromium Windows：两个子进程始终存在）。IO 进程在第一次把 GDAL 从 renderer 拆出时再开（`--type=utility`）。v1 允许 SDE DLL 先住在 renderer 里。
 
 **为什么要多进程**
 
@@ -374,7 +374,7 @@ v1 适配器路径：
 | --- | --- | --- |
 | **A. 一 render、N surface（默认）** | 一个 GL/D3D11 设备，N 个 `IMapSurface`。MDI/多屏共用设备 | 正常桌面；4K 多窗 |
 | **B. N 个 render 进程** | 每视图或每文档一个进程。IPC 上多 session | 3D 插件不稳定、用户要“这个场景崩了别带走 2D 编辑” |
-| **C. 一 render + 可选 IO** | 绘制与 GDAL/ADO 分开 | 大栅格 / 企业库 |
+| **C. 一 render + 可选 IO** | 绘制与 GDAL 分开 | 大栅格 / 企业库 |
 
 **默认 A。** UI 仍可开多个顶层窗口（多显示器），它们共用一个 `IMapSession`。策略 B 用命令行 `--render-per-view` 打开，不是默认。
 
@@ -382,9 +382,9 @@ v1 适配器路径：
 
 ### 0.9 安全 / 沙箱（轻量）
 
-- UI：默认 Medium IL。环境变量里的 ADO 连接串不进 chrome 进程；目录操作走 `CatalogOp`。
+- UI：默认 Medium IL。环境变量里的 GDAL 连接串不进 chrome 进程；目录操作走 `CatalogOp`。
 - Render：启动时尽量 `Low` IL + 限制令牌（能开 GPU 即可）。Job：内存上限可配。不能读任意用户配置以外的凭据文件。
-- IO（v1.5）：Medium，无窗口站交互。只有它碰 `sde/ado`。
+- IO（v1.5）：Medium，无窗口站交互。只有它碰 `sde/gdal`。
 - 插件：v1 与 render 同进程（和今日一样危险，但不再杀 chrome）。v2 再考虑 `plugin` 子进程。
 - 方案 1 的 WebView2 已有自己的 sandbox；**那是浏览器的，不是地图的。** 地图 DLL 不得注入 WebView GPU 进程。
 
@@ -658,7 +658,7 @@ flowchart LR
 
 - 不重写 `SmtMap` 就让 chrome 直接绑要素对象。
 - 用 WebView/WinUI/Views 的 GPU 进程代替 `SmartGisRender.exe`。
-- 在 UI 进程安全地跑 ADO/GDAL。
+- 在 UI 进程安全地跑 GDAL。
 - 用 D3DX9 当未来 3D 路径。
 - 用 Qt 当第四壳。
 - v1 保留所有 MFC 模态插件对话框的体验。
