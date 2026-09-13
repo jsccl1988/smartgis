@@ -6,14 +6,13 @@
 
 #include "sdb/datasource/gdal/ogr_export.h"
 
-// GDAL/OGR database device (SmtSDEGdalDevice). Dataset / layers live in this
-// DLL. Shared SMF codec is //src/sdb/datasource/gdal:ogr_codec. Do not vendor
-// a second GDAL tree.
+// GDAL/OGR device (SmtSDEGdalDevice). Also registers the in-tree SDBD
+// driver. Do not vendor a second GDAL tree.
 
 namespace sdb {
 namespace datasource {
 
-// Registers every GDAL/OGR driver in this SDK (GDALAllRegister).
+// GDALAllRegister() plus register_sdbd_driver().
 SMT_SDE_GDAL_EXPORT bool register_gdal_driver();
 
 }  // namespace datasource

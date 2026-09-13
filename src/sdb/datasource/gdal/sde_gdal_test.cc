@@ -1,9 +1,12 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
+#include "sdb/datasource/gdal/gdal_driver.h"
 #include "sdb/datasource/gdal/ogr_connect.h"
 #include "sdb/datasource/gdal/ogr_dataset.h"
 #include "sdb/datasource/gdal/ogr_feature_codec.h"
+#include "sdb/datasource/gdal/sdbd_gdal_driver.h"
+#include "sdb/datasource/gdal/sdbd_handler.h"
 
 #include "datasourcemgr.h"
 
@@ -52,6 +55,121 @@ void expect(bool ok, const char* msg) {
   if (!ok) {
     std::fprintf(stderr, "FAIL: %s\n", msg);
     ++g_fails;
+  }
+}
+
+void run_sdbd_driver_tests() {
+  expect(sdb::datasource::register_gdal_driver(), "register_gdal_driver");
+  expect(sdb::datasource::register_sdbd_driver(), "register_sdbd_driver");
+  GDALDriver* sdbd =
+      GetGDALDriverManager()->GetDriverByName(sdb::datasource::kSdbdDriverName);
+  expect(sdbd != nullptr, "GetDriverByName(SDBD)");
+  if (!sdbd) {
+    return;
+  }
+
+  GDALDataset* ds = static_cast<GDALDataset*>(GDALOpenEx(
+      "SDBD:MEM:sdbd_point", GDAL_OF_VECTOR | GDAL_OF_UPDATE, nullptr, nullptr,
+      nullptr));
+  if (!ds) {
+    ds = sdbd->Create("SDBD:MEM:sdbd_point", 0, 0, 0, GDT_Unknown, nullptr);
+  }
+  expect(ds != nullptr, "GDALOpenEx/Create SDBD:MEM");
+  if (!ds) {
+    std::fprintf(stderr, "SKIP: SDBD Memory-backed open failed\n");
+    return;
+  }
+
+  OGRLayer* lyr = ds->CreateLayer("pts", nullptr, wkbPoint, nullptr);
+  expect(lyr != nullptr, "SDBD CreateLayer pts");
+  if (lyr) {
+    OGRFieldDefn name("name", OFTString);
+    lyr->CreateField(&name);
+    OGRFeature feat(lyr->GetLayerDefn());
+    OGRPoint pt(10.0, 20.0);
+    feat.SetGeometry(&pt);
+    feat.SetField("name", "a");
+    expect(lyr->CreateFeature(&feat) == OGRERR_NONE, "SDBD CreateFeature point");
+    expect(lyr->GetFeatureCount() >= 1, "SDBD point count");
+    lyr->ResetReading();
+    OGRFeature* got = lyr->GetNextFeature();
+    expect(got != nullptr, "SDBD GetNextFeature");
+    if (got) {
+      const OGRGeometry* geom = got->GetGeometryRef();
+      const bool is_pt =
+          geom && wkbFlatten(geom->getGeometryType()) == wkbPoint;
+      const auto* back = is_pt ? geom->toPoint() : nullptr;
+      expect(back && back->getX() == 10.0 && back->getY() == 20.0,
+             "SDBD point coords");
+      OGRFeature::DestroyFeature(got);
+    }
+  }
+  expect(ds->GetLayerCount() >= 1, "SDBD GetLayerCount");
+  GDALClose(ds);
+
+  sdb::datasource::SdbdHandler handler;
+  int status = 0;
+  std::string body;
+  handler.handle("GET", "/sdbd/api/v1/health", "", &status, &body);
+  expect(status == 200 && body.find("\"service\":\"sdbd\"") != std::string::npos,
+         "sdbd health");
+  handler.handle("POST", "/sdbd/api/v1/datasource/open",
+                 "{\"driver\":\"Memory\",\"target\":\"sdbd_ipc\"}", &status,
+                 &body);
+  expect(status == 200, "sdbd datasource/open Memory");
+  handler.handle("POST", "/sdbd/api/v1/layers",
+                 "{\"name\":\"pts\",\"crs\":\"EPSG:4326\",\"geom_type\":\"point\","
+                 "\"geom_column\":\"geom\",\"fields\":[{\"name\":\"name\","
+                 "\"type\":\"string\"}]}",
+                 &status, &body);
+  expect(status == 200 && body.find("\"name\":\"pts\"") != std::string::npos,
+         "sdbd create layer");
+  handler.handle("GET", "/sdbd/api/v1/catalog", "", &status, &body);
+  expect(status == 200 && body.find("pts") != std::string::npos,
+         "sdbd list catalog");
+  handler.handle("GET", "/sdbd/api/v1/layers/pts", "", &status, &body);
+  expect(status == 200 && body.find("point") != std::string::npos,
+         "sdbd open layer");
+  handler.handle("POST", "/sdbd/api/v1/recordset/append",
+                 "{\"layer\":\"pts\",\"features\":[{\"geom_wkt\":\"POINT (1 2)\","
+                 "\"attrs\":{\"name\":\"a\"}}]}",
+                 &status, &body);
+  expect(status == 200 && body.find("\"count\":1") != std::string::npos,
+         "sdbd append point");
+  handler.handle("POST", "/sdbd/api/v1/recordset/query",
+                 "{\"layer\":\"pts\",\"bbox\":{\"min_x\":0,\"min_y\":0,"
+                 "\"max_x\":10,\"max_y\":10},\"predicate\":\"intersects\"}",
+                 &status, &body);
+  expect(status == 200 && body.find("POINT") != std::string::npos,
+         "sdbd query point");
+  handler.handle("POST", "/sdbd/api/v1/recordset/open",
+                 "{\"layer\":\"pts\"}", &status, &body);
+  expect(status == 200 && body.find("\"handle\"") != std::string::npos,
+         "sdbd recordset/open");
+  std::string handle;
+  {
+    const std::string key = "\"handle\":\"";
+    const auto pos = body.find(key);
+    if (pos != std::string::npos) {
+      const auto start = pos + key.size();
+      const auto end = body.find('"', start);
+      if (end != std::string::npos) {
+        handle = body.substr(start, end - start);
+      }
+    }
+  }
+  if (!handle.empty()) {
+    const std::string fetch =
+        std::string("{\"handle\":\"") + handle + "\",\"offset\":0,\"limit\":10}";
+    handler.handle("POST", "/sdbd/api/v1/recordset/fetch", fetch, &status,
+                   &body);
+    expect(status == 200 && body.find("POINT") != std::string::npos,
+           "sdbd recordset/fetch");
+    const std::string close =
+        std::string("{\"handle\":\"") + handle + "\"}";
+    handler.handle("POST", "/sdbd/api/v1/recordset/close", close, &status,
+                   &body);
+    expect(status == 200, "sdbd recordset/close");
   }
 }
 
@@ -109,6 +227,7 @@ int main() {
          "ACCESS target empty");
 
   GDALAllRegister();
+  run_sdbd_driver_tests();
   GDALDriver* mem = GetGDALDriverManager()->GetDriverByName("Memory");
   expect(mem != nullptr, "Memory OGR driver");
   if (mem) {
