@@ -13,6 +13,8 @@ source_set("content") {
   sources = [
     "app/content_main.cc",
     "app/content_main.h",
+    "app/renderer_main.cc",
+    "app/renderer_main.h",
     "common/ipc.cc",
     "common/ipc.h",
     "map_session.cc",

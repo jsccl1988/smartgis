@@ -10,6 +10,7 @@
 #include <shellapi.h>
 
 #include "content/app/content_main.h"
+#include "content/app/renderer_main.h"
 #include "gpu/gpu.h"
 #include "render/skia/canvas.h"
 #include "ui/views/layout.h"
@@ -109,7 +110,7 @@ int BrowserMain(const content::ContentMainParams&) {
 }
 
 int GpuMain(const content::ContentMainParams& params) {
-  return gpu::render_main(params.argc, params.argv);
+  return gpu::GpuMain(params.argc, params.argv);
 }
 
 }  // namespace
@@ -123,7 +124,7 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
   params.argv = argv;
   params.browser_main = &BrowserMain;
   params.gpu_main = &GpuMain;
-  params.renderer_main = &GpuMain;
+  params.renderer_main = &content::RendererMain;
   const int rc = content::ContentMain(params);
   if (argv) {
     LocalFree(argv);

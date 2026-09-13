@@ -4,6 +4,7 @@
 #include "application.h"
 #include "detail/bootstrap.h"
 #include "content/app/content_main.h"
+#include "content/app/renderer_main.h"
 #include "gpu/gpu.h"
 
 #include <windows.h>
@@ -33,7 +34,7 @@ int BrowserMain(const content::ContentMainParams&) {
 }
 
 int GpuMain(const content::ContentMainParams& params) {
-  return gpu::render_main(params.argc, params.argv);
+  return gpu::GpuMain(params.argc, params.argv);
 }
 
 }  // namespace
@@ -47,7 +48,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
   params.argv = argv;
   params.browser_main = &BrowserMain;
   params.gpu_main = &GpuMain;
-  params.renderer_main = &GpuMain;
+  params.renderer_main = &content::RendererMain;
   const int rc = content::ContentMain(params);
   if (argv) {
     LocalFree(argv);
