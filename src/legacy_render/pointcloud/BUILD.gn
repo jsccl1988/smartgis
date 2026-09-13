@@ -3,16 +3,24 @@
 
 import("//build/smartgis.gni")
 
-smt_shared_library("pointcloud") {
-  dll_stem = "pointcloud"
-  defines = [ "POINTCLOUD_EXPORTS" ]
+# Compiled into //src/legacy_render:legacy_render (dll_stem = legacy_render).
+source_set("pointcloud_sources") {
   sources = [ "pointcloud.cpp" ]
-  deps = [
-    "//src/legacy_render/scene3d:scene3d",
-    "//src/algorithm/geo:geo",
-    "//src/render/math:bounds",
-    "//src/legacy_render/model3d:model3d",
-    "//src/legacy_render/render3d:render3d",
-    "//src/base:core",
+  configs += [
+    "//build:legacy",
+    "//src/legacy_render:legacy_render_exports",
   ]
+  defines = [ "_USRDLL" ]
+  deps = [
+    "//src/algorithm/geo:geo",
+    "//src/base:core",
+    "//src/legacy_render/model3d:model3d_sources",
+    "//src/legacy_render/render3d:render3d_sources",
+    "//src/legacy_render/scene3d:scene3d_sources",
+    "//src/render/math:bounds",
+  ]
+}
+
+group("pointcloud") {
+  public_deps = [ "//src/legacy_render:legacy_render" ]
 }

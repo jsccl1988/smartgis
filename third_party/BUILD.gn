@@ -79,6 +79,10 @@ group("httplib") {
   public_deps = [ "//third_party/gn:httplib" ]
 }
 
+group("openssl") {
+  public_deps = [ "//third_party/gn:openssl" ]
+}
+
 group("eigen") {
   public_deps = [ "//third_party/gn:eigen" ]
 }

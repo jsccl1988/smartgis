@@ -3,9 +3,8 @@
 
 import("//build/smartgis.gni")
 
-smt_shared_library("scene3d") {
-  dll_stem = "scene3d"
-  defines = [ "SCENE3D_EXPORTS" ]
+# Compiled into //src/legacy_render:legacy_render (dll_stem = legacy_render).
+source_set("scene3d_sources") {
   sources = [
     "bl3d_scene.cpp",
     "bl3d_sceneocttree.cpp",
@@ -13,11 +12,20 @@ smt_shared_library("scene3d") {
     "bl3d_vertexocttree.cpp",
     "bl3d_vertextreenode.cpp",
   ]
+  configs += [
+    "//build:legacy",
+    "//src/legacy_render:legacy_render_exports",
+  ]
+  defines = [ "_USRDLL" ]
   deps = [
     "//src/algorithm/geo:geo",
-    "//src/render/math:bounds",
-    "//src/legacy_render/model3d:model3d",
-    "//src/legacy_render/render3d:render3d",
     "//src/base:core",
+    "//src/legacy_render/model3d:model3d_sources",
+    "//src/legacy_render/render3d:render3d_sources",
+    "//src/render/math:bounds",
   ]
+}
+
+group("scene3d") {
+  public_deps = [ "//src/legacy_render:legacy_render" ]
 }

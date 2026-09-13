@@ -15,30 +15,33 @@ using namespace sdb;
 using namespace base;
 using namespace geo;
 
-namespace render
-{
-	const float		C_fDELAY = 0.25;	
+namespace render {
+const float C_fDELAY = 0.25;
+}  // namespace render
 
-	int CreateRenderDevice(HINSTANCE hInst,LPRENDERDEVICE &pMrdDevice)
-	{
-		if(!pMrdDevice) 
-		{
-			pMrdDevice = new SmtGdiSimpleRenderDevice(hInst);
+extern "C" {
 
-			return SMT_ERR_NONE;
-		}
-		return SMT_ERR_FAILURE;
-	}
+// Distinct from gdi CreateRenderDevice so both devices share legacy_render.dll.
+int CreateGdiSimpleRenderDevice(HINSTANCE hInst,
+                                render::LPRENDERDEVICE& pMrdDevice) {
+  if (!pMrdDevice) {
+    pMrdDevice = new render::SmtGdiSimpleRenderDevice(hInst);
+    return SMT_ERR_NONE;
+  }
+  return SMT_ERR_FAILURE;
+}
 
-	int DestroyRenderDevice(LPRENDERDEVICE &pMrdDevice)
-	{
-		if(!pMrdDevice) 
-			return SMT_ERR_FAILURE;
+int DestroyGdiSimpleRenderDevice(render::LPRENDERDEVICE& pMrdDevice) {
+  if (!pMrdDevice) {
+    return SMT_ERR_FAILURE;
+  }
+  SMT_SAFE_DELETE(pMrdDevice);
+  return SMT_ERR_NONE;
+}
 
-		SMT_SAFE_DELETE(pMrdDevice);
+}  // extern "C"
 
-		return SMT_ERR_NONE;
-	}
+namespace render {
 
 	//////////////////////////////////////////////////////////////////////////
 	SmtGdiSimpleRenderDevice::SmtGdiSimpleRenderDevice(HINSTANCE hInst):SmtRenderDevice(hInst)

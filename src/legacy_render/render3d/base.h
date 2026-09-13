@@ -15,7 +15,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define _RD3D_RDBASE_H
 
 #include "legacy_render/render3d/3drenderdefs.h"
-#include "render/math/mathlib_3d.h"
+#include "render/math/math.h"
 #include <cstring>
 
 #if defined(RENDER3D_EXPORTS)
@@ -336,9 +336,9 @@ namespace render
 
 #if !defined(RENDER3D_EXPORTS)
 #if     defined( _DEBUG)
-#          pragma comment(lib,"render3dD.lib")
+#          pragma comment(lib,"legacy_render_d.lib")
 #       else
-#          pragma comment(lib,"render3d.lib")
+#          pragma comment(lib,"legacy_render.lib")
 #	    endif
 #endif
 

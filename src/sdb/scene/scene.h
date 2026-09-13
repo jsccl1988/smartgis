@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "sdb/gis_export.h"
 #include "sdb/model/model.h"
 #include "sdb/model/tileset.h"
 
@@ -83,7 +84,7 @@ struct Node {
         tileset(nullptr) {}
 };
 
-class World {
+class GIS_EXPORT World {
  public:
   World();
 

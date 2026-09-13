@@ -164,9 +164,9 @@ using SmtGrid = Grid;
 
 #if !defined(GEO_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "geoD.lib")
+#pragma comment(lib, "algorithm_d.lib")
 #else
-#pragma comment(lib, "geo.lib")
+#pragma comment(lib, "algorithm.lib")
 #endif
 #endif
 

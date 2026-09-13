@@ -3,10 +3,8 @@
 
 import("//build/smartgis.gni")
 
-smt_shared_library("tool_group") {
-  dll_stem = "tool_group"
-  defines = [ "TOOL_GROUP_EXPORTS" ]
-  include_dirs += [ "//src" ]
+# Compiled into //src/ui:ui_legacy (avoids a leftover_tool ↔ ui_legacy cycle).
+source_set("tool_group_sources") {
   sources = [
     "3dviewctrltool.cpp",
     "appendfeaturetool.cpp",
@@ -20,22 +18,36 @@ smt_shared_library("tool_group") {
     "selecttool.cpp",
     "viewctrltool.cpp",
   ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "TOOL_GROUP_EXPORTS",
+  ]
   deps = [
-    "//src/legacy_render/scene3d:scene3d",
-    "//src/legacy_render/model3d:model3d",
-    "//src/legacy_render/render3d:render3d",
+    "//src/algorithm/geo:geo",
     "//src/base:base",
     "//src/base:core",
-    "//src/algorithm/geo:geo",
-    "//src/sdb/map:gis",
-    "//src/ui/gui:gui",
+    # Groups → legacy_render DLL (do not dep *_sources or objects double-link).
     "//src/legacy_render/bridge:render",
-    "//src/sdb/datasource/mgr:sde_mgr",
-    "//src/sys:sys",
+    "//src/legacy_render/model3d:model3d",
+    "//src/legacy_render/render3d:render3d",
+    "//src/legacy_render/scene3d:scene3d",
+    # IA tools live in leftover_tool.dll; this source_set is compiled into
+    # ui_legacy. Dep the DLL group, not tool_sources (avoids double-link).
     "//src/legacy_tool:tool",
-    "//src/tool:dispatch",
-    "//src/sdb/edit:map_edit",
     "//src/sdb/datasource/gdal:ogr_codec",
+    "//src/sdb/datasource/mgr:sde_mgr",
+    "//src/sdb/edit:map_edit",
+    "//src/sdb/map:gis",
+    "//src/sys:sys",
+    "//src/tool:dispatch",
     "//third_party:gdal",
+    # Prefer pragma from gui_api.h (included by tools) over GN dep — avoids
+    # ui_legacy ↔ tool_group cycle.
   ]
+}
+
+group("tool_group") {
+  public_deps = [ "//src/ui:ui_legacy" ]
 }

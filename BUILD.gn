@@ -36,6 +36,7 @@ group("test_all") {
   deps = [
     "//testing/e2e:exe_smoke",
     "//src/sdb/datasource/gdal:sde_gdal_test",
+    "//src/sdb/tile:tile_test",
     "//src/algorithm/geo:geo_ogr_test",
     "//src/algorithm/proj:proj_test",
     "//src/algorithm/stat:stat_expr_test",
@@ -112,6 +113,13 @@ group("smartgis") {
 
 group("app") {
   deps = [ ":smartgis" ]
+}
+
+# MFC UI DLL (dll_stem = ui_legacy). Explicit ninja target; NOT in src_all.
+# Default `all` stays free of MFC — only //:smartgis / build.bat app pull the
+# exe which deps this DLL. Opt-in: build.bat ui_legacy (sets smt_build_app).
+group("ui_legacy") {
+  deps = [ "//src/ui:ui_legacy" ]
 }
 
 # Views toolkit + Skia canvas. Not a dep of group("all") / src_all.

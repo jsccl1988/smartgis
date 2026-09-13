@@ -3,17 +3,24 @@
 
 import("//build/smartgis.gni")
 
-# MFC Feature Pack (CMFC*) via bcg_cmfc.h — not BCGControlBar Pro.
-smt_mfc_shared_library("gui") {
-  dll_stem = "gui"
-  mfc_extension = true
-  defines = [
-    "GUI_EXPORTS",
-    "_AFXEXT",
+# MFC Feature Pack dialogs / dock bars. Compiled into //src/ui:ui_legacy.
+# DllMain is owned by mfc_ex_sources (single AFX extension attach).
+source_set("gui_sources") {
+  configs += [
+    "//build:legacy",
+    "//build:mfc",
   ]
+  defines = [
+    "_USRDLL",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
+    "GUI_EXPORTS",
+  ]
+  precompiled_header = "stdafx.h"
+  precompiled_source = "stdafx.cpp"
   include_dirs += [ "." ]
   sources = [
-    "gui_core.cpp",
     "dlg_2d_feature_info.cpp",
     "dlg_att_struct_set.cpp",
     "dlg_input_text.cpp",
@@ -30,6 +37,10 @@ smt_mfc_shared_library("gui") {
     "//src/algorithm/geo:geo",
     "//src/sdb/map:gis",
     "//src/sys:sys",
-    "//src/ui/mfc_ex:mfc_ex",
+    "//third_party:gdal",
   ]
+}
+
+group("gui") {
+  public_deps = [ "//src/ui:ui_legacy" ]
 }

@@ -13,9 +13,9 @@
 
 #if !defined(TOOL_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "toolD.lib")
+#pragma comment(lib, "legacy_tool_d.lib")
 #else
-#pragma comment(lib, "tool.lib")
+#pragma comment(lib, "legacy_tool.lib")
 #endif
 #endif
 

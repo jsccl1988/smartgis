@@ -177,6 +177,10 @@ bool Channel::send(uint16_t type,
   return ok_h && ok_p;
 }
 
+bool Channel::send_empty(uint16_t type, uint32_t view_id) {
+  return send(type, view_id, nullptr, 0);
+}
+
 bool Channel::recv(Frame* header, std::vector<uint8_t>* payload,
                    uint32_t timeout_ms) {
   if (!header || !payload) {

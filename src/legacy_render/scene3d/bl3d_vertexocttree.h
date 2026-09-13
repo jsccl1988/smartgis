@@ -17,7 +17,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 #include "base/core/core.h"
 #include "legacy_render/render3d/videobuffer.h"
 #include "legacy_render/render3d/3drenderdevice.h"
-#include "render/math/mathlib_3d.h"
+#include "render/math/math.h"
 #include "legacy_render/render3d/base.h"
 #include "legacy_render/scene3d/bl3d_bas_struct.h"
 #include "base/core/bas_struct.h"
@@ -116,9 +116,9 @@ namespace render
 
 #if     !defined(SCENE3D_EXPORTS)
 #if     defined(_DEBUG)
-#          pragma comment(lib,"scene3dD.lib")
+#          pragma comment(lib,"legacy_render_d.lib")
 #       else
-#          pragma comment(lib,"scene3d.lib")
+#          pragma comment(lib,"legacy_render.lib")
 #	    endif
 #endif
 

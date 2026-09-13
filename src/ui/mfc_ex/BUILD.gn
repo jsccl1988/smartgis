@@ -3,14 +3,22 @@
 
 import("//build/smartgis.gni")
 
-# MFC Feature Pack (CMFC*) via bcg_cmfc.h — not BCGControlBar Pro.
-smt_mfc_shared_library("mfc_ex") {
-  dll_stem = "mfc_ex"
-  mfc_extension = true
-  defines = [
-    "MFC_EX_EXPORTS",
-    "_AFXEXT",
+# MFC Feature Pack helpers. Compiled into //src/ui:ui_legacy.
+# Sole DllMain / AFX extension attach lives in mfc_ex_core.cpp.
+source_set("mfc_ex_sources") {
+  configs += [
+    "//build:legacy",
+    "//build:mfc",
   ]
+  defines = [
+    "_USRDLL",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
+    "MFC_EX_EXPORTS",
+  ]
+  precompiled_header = "stdafx.h"
+  precompiled_source = "stdafx.cpp"
   include_dirs += [
     ".",
     "gridctrl",
@@ -39,5 +47,12 @@ smt_mfc_shared_library("mfc_ex") {
     "gridctrl/title_tip.cpp",
     "stdafx.cpp",
   ]
-  deps = [ "//src/base:core" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+  ]
+}
+
+group("mfc_ex") {
+  public_deps = [ "//src/ui:ui_legacy" ]
 }

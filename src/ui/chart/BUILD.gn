@@ -3,12 +3,24 @@
 
 import("//build/smartgis.gni")
 
-smt_mfc_shared_library("stat_chart") {
-  dll_stem = "stat_chart"
-  defines = [ "STAT_CHART_EXPORTS" ]
+# Stat chart dialogs. Compiled into //src/ui:ui_legacy (no separate CWinApp).
+source_set("stat_chart_sources") {
+  configs += [
+    "//build:legacy",
+    "//build:mfc",
+  ]
+  defines = [
+    "_USRDLL",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
+    "STAT_CHART_EXPORTS",
+  ]
+  precompiled_header = "stdafx.h"
+  precompiled_source = "stdafx.cpp"
+  include_dirs += [ "." ]
   sources = [
     "dlg_2d_x_chart_view.cpp",
-    "diagram.cpp",
     "diagram.rc",
     "chart_api.cpp",
     "chart.cpp",
@@ -16,9 +28,13 @@ smt_mfc_shared_library("stat_chart") {
     "stdafx.cpp",
   ]
   deps = [
+    "//src/base:base",
     "//src/base:core",
     "//src/algorithm/stat:stat",
     "//src/sdb/datasource/mgr:sde_mgr",
-    "//src/ui/xview:xview",
   ]
+}
+
+group("stat_chart") {
+  public_deps = [ "//src/ui:ui_legacy" ]
 }

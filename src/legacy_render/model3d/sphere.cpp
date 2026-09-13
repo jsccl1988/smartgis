@@ -67,8 +67,8 @@ namespace render
 					vPos.z *=m_fZScale;
 
 					vNorm  = vPos;
-					vNorm.Normalize();
-					vNorm.Negate();
+					vNorm.normalize();
+					vNorm.negate();
 
 					m_pVertexBuffer->Normal( vNorm.x, vNorm.z, vNorm.y  );
 					m_pVertexBuffer->TexVertex( Theta/(2*PI), Phi/PI );
@@ -86,8 +86,8 @@ namespace render
 					vPos.z *=m_fZScale;
 
 					vNorm  = vPos;
-					vNorm.Normalize();
-					vNorm.Negate();
+					vNorm.normalize();
+					vNorm.negate();
 
 					m_pVertexBuffer->Normal(vNorm.x,vNorm.z,vNorm.y);
 					m_pVertexBuffer->TexVertex(Theta/(2*PI),(Phi+PhiInc)/PI);
@@ -102,8 +102,8 @@ namespace render
 			m_pVertexBuffer->Unlock();
 		}
 	
-		m_aAbb.vcMax.Set(m_fRadius*m_fXScale,m_fRadius*m_fYScale,m_fRadius*m_fZScale);
-		m_aAbb.vcMin.Set(-m_fRadius*m_fXScale,-m_fRadius*m_fYScale,-m_fRadius*m_fZScale);
+		m_aAbb.vcMax.set(m_fRadius*m_fXScale,m_fRadius*m_fYScale,m_fRadius*m_fZScale);
+		m_aAbb.vcMin.set(-m_fRadius*m_fXScale,-m_fRadius*m_fYScale,-m_fRadius*m_fZScale);
 
 		m_aAbb.vcMax+=m_vOrgPos;
 		m_aAbb.vcMin+=m_vOrgPos;
@@ -173,18 +173,18 @@ namespace render
 		p3DRenderDevice->MatrixPop();
 
 		vDir = vTar-vOrg;
-		if (vDir.GetSqrLength() > 0)
+		if (vDir.length_squared() > 0)
 		{
 			Ray		ray;
 			float   f;
-			ray.Set(vOrg,vDir);
-			if (m_aAbb.Intersects(ray,&f))
+			ray.set(vOrg,vDir);
+			if (ray.intersects(m_aAbb,&f))
 			{
 				return true;
 			}
 
 			/*Vector3 vSqrDis(vTar-m_vOrgPos);
-			if (vSqrDis.GetSqrLength() < m_fRadius*m_fRadius)
+			if (vSqrDis.length_squared() < m_fRadius*m_fRadius)
 			{
 				return true;
 			}*/

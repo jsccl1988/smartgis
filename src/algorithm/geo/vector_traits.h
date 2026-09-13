@@ -4,7 +4,7 @@
 #ifndef ALGORITHM_GEO_VECTOR_TRAITS_H_
 #define ALGORITHM_GEO_VECTOR_TRAITS_H_
 
-#include "render/math/mathlib_3d.h"
+#include "render/math/math.h"
 
 namespace geo {
 

@@ -33,9 +33,9 @@ void		STYLE_EXPORT		log_font_to_anno_desc(base::SmtAnnotationDesc &annoDesc,cons
 
 #if !defined(STYLE_EXPORTS)
 #if   defined( _DEBUG)
-#          pragma comment(lib,"styleD.lib")
+#          pragma comment(lib,"base_d.lib")
 #       else
-#          pragma comment(lib,"style.lib")
+#          pragma comment(lib,"base.lib")
 #	    endif  
 #endif
 

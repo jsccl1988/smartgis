@@ -1,11 +1,11 @@
 /*
 File:    cata_scenemgr.h
 
-Desc:    SmtMapMgr,����������
+Desc:    SmtMapMgr,锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
 
 Version: Version 1.0
 
-Writter:  �´���
+Writter:  锟铰达拷锟斤拷
 
 Date:    2010.11.17
 
@@ -80,7 +80,7 @@ namespace ui
 		vector<void*>			m_v3DXViewPtrs;
 		vector<void*>			m_v3DObjCatalogPtrs;
 #ifdef SMT_THREAD_SAFE
-		SmtCSLock				m_cslock;										//���̰߳�ȫ
+		SmtCSLock				m_cslock;										//锟斤拷锟竭程帮拷全
 #endif
 
 	private:
@@ -90,9 +90,9 @@ namespace ui
 
 #if !defined(XCATALOG_EXPORTS)
 #if     defined( _DEBUG)
-#          pragma comment(lib,"xcatalogD.lib")
+#          pragma comment(lib,"ui_legacy_d.lib")
 #       else
-#          pragma comment(lib,"xcatalog.lib")
+#          pragma comment(lib,"ui_legacy.lib")
 #	    endif
 #endif
 

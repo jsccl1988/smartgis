@@ -6,16 +6,20 @@ import("//testing/test.gni")
 
 # PROJ 9 comes from //third_party:gdal (public_deps :PROJ; copies
 # proj.db / runtime DLLs next to out/). Do not vendor a second PROJ.
-smt_shared_library("proj") {
-  dll_stem = "proj"
-  defines = [ "PROJ_EXPORTS" ]
+# Compiled into //src/algorithm:algorithm (dll_stem = algorithm).
+source_set("proj_sources") {
   sources = [
     "proj_backend.cc",
     "proj_runtime.cpp",
     "projection.cpp",
   ]
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "PROJ_EXPORTS",
+  ]
   deps = [
-    "//src/algorithm/geo:geo",
+    "//src/algorithm/geo:geo_sources",
     "//src/base:base",
     "//src/base:core",
     "//third_party:gdal",
@@ -25,6 +29,10 @@ smt_shared_library("proj") {
   } else {
     libs += [ "proj.lib" ]
   }
+}
+
+group("proj") {
+  public_deps = [ "//src/algorithm:algorithm" ]
 }
 
 test("proj_test") {

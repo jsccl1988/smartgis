@@ -22,9 +22,9 @@ void expect(bool ok, const char* msg) {
 
 #ifdef _WIN32
 render::scene::LeftoverRecorder* smt_render_session() {
-  HMODULE module = GetModuleHandleW(L"renderD.dll");
+  HMODULE module = GetModuleHandleW(L"legacy_render_d.dll");
   if (!module) {
-    module = GetModuleHandleW(L"render.dll");
+    module = GetModuleHandleW(L"legacy_render.dll");
   }
   if (!module) {
     return nullptr;

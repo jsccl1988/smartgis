@@ -1,8 +1,8 @@
 // DlgXView.cpp : ʵ���ļ�
 //
 
-#include "ui/chart/stdafx.h"
-#include "ui/chart/diagram.h"
+#include "stdafx.h"
+#include "ui/chart/resource.h"
 #include "ui/chart/dlg_2d_x_chart_view.h"
 
 #include "ui/xcatalog/mapmgr.h"
@@ -122,7 +122,7 @@ void CDlg2DXChartView::OnBnClickedBtnSave()
 			CFileDialog dlg( FALSE , NULL , NULL , OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT , szFilter , NULL ) ;
 
 			if( dlg.DoModal() != IDCANCEL &&
-				!dlg.GetPathName().is_empty())
+				!dlg.GetPathName().IsEmpty())
 			{
 				pRenderDevice->SaveImage(dlg.GetPathName());
 			}

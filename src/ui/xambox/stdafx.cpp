@@ -1,7 +1,4 @@
-// stdafx.cpp : ֻ������׼�����ļ���Դ�ļ�
-// SmtXAMBoxCore.pch ����ΪԤ����ͷ
-// stdafx.obj ������Ԥ����������Ϣ
+// stdafx.cpp : source file that includes just the standard includes
+// stdafx.obj contains the precompiled-header information
 
-#include "ui/xambox/stdafx.h"
-
-
+#include "stdafx.h"

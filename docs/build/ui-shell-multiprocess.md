@@ -345,7 +345,7 @@ int render_main(int argc, wchar_t** argv);
 
 v1 适配器路径：
 
-1. `SmartGisRender.exe` 启动后 `LoadLibrary` 上表 DLL（debug stem 带 `D`，与今日 `dll_stem` 一致）。
+1. `SmartGisRender.exe` 启动后 `LoadLibrary` 上表 DLL（debug stem 带 `_d`，与今日 `dll_stem` 一致）。
 2. **不**创建 `CView` / `CMainFrame`。适配器自建一个 **隐藏 message-only 或 offscreen HWND**，满足 `Init(HWND)` 与 `SmtIATool::Init(HWND)`。真正像素走 FBO / D3D11 纹理，再拷到共享表面。
 3. `SmtRenderer::CreateDevice` 优先 `"GL"`。GDI / GDI Simple 仍可用，经 `kSoftwareDib` present。D3D9 不再接线。
 4. `SmtMap`、图层、选择、投影（`gis/proj`）全部留在 render（或 IO）地址空间。Chrome 只看见 token 与 JSON。

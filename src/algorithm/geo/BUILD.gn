@@ -4,18 +4,26 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-smt_shared_library("geo") {
-  dll_stem = "geo"
-  defines = [ "GEO_EXPORTS" ]
+# Compiled into //src/algorithm:algorithm (dll_stem = algorithm).
+source_set("geo_sources") {
   sources = [
     "grid.cpp",
     "tin.cpp",
+  ]
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GEO_EXPORTS",
   ]
   public_deps = [ "//third_party:gdal" ]
   deps = [
     "//src/base:base",
     "//src/base:core",
   ]
+}
+
+group("geo") {
+  public_deps = [ "//src/algorithm:algorithm" ]
 }
 
 group("geo_all") {
@@ -27,7 +35,6 @@ test("geo_ogr_test") {
   sources = [ "geo_ogr_test.cc" ]
   include_dirs += [
     "//src/algorithm/geo",
-    "//src/render/math",
     "//src",
   ]
   deps = [

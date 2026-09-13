@@ -4,7 +4,9 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-source_set("scene") {
+# Compiled into //src/render:render (dll_stem = render).
+# Deps rhi_sources (not :rhi group) to avoid a render ↔ scene cycle.
+source_set("scene_sources") {
   sources = [
     "scene.cc",
     "scene.h",
@@ -12,11 +14,16 @@ source_set("scene") {
   include_dirs += [ "//src" ]
   configs += [ "//build:legacy" ]
   public_configs = [ "//build:legacy" ]
+  defines = [ "RENDER_EXPORTS" ]
   public_deps = [ "//third_party:gdal" ]
   deps = [
-    "//src/render:rhi",
+    "//src/render:rhi_sources",
     "//src/sdb/scene:scene",
   ]
+}
+
+group("scene") {
+  public_deps = [ "//src/render:render" ]
 }
 
 test("scene_gpu_test") {

@@ -14,6 +14,7 @@
 
 #include <vector>
 
+#include "render/render_export.h"
 #include "render/skia/color.h"
 
 namespace render {
@@ -27,7 +28,7 @@ struct Size {
 
 // Immediate-mode canvas used by ui::views chrome. Map pixels stay on
 // leftover / RHI paths, not here.
-class Canvas {
+class RENDER_EXPORT Canvas {
  public:
   Canvas(HDC hdc, int width, int height);
 #if defined(SMT_HAS_SKIA)

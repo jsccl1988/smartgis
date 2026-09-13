@@ -38,9 +38,9 @@ protected:
 
 #if !defined(MFC_EX_EXPORTS)
 #if   defined( _DEBUG)
-#          pragma comment(lib,"mfc_exD.lib")
+#          pragma comment(lib,"ui_legacy_d.lib")
 #       else
-#          pragma comment(lib,"mfc_ex.lib")
+#          pragma comment(lib,"ui_legacy.lib")
 #	    endif  
 #endif
 

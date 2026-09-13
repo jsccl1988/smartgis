@@ -55,7 +55,7 @@ namespace app
 
 #if !defined(APP_CORE_EXPORTS)
 #if   defined( _DEBUG)
-#          pragma comment(lib,"app_coreD.lib")
+#          pragma comment(lib,"app_core_d.lib")
 #       else
 #          pragma comment(lib,"app_core.lib")
 #	    endif  

@@ -64,7 +64,7 @@ namespace render
 
 				for (int i = 0; i < lstVers.nCount;i++)
 				{
-					if (!vBDealedTarget[i] && aabbSubNode.Contains(lstVers.pVertexs[i].ver))
+					if (!vBDealedTarget[i] && aabbSubNode.contains(lstVers.pVertexs[i].ver))
 					{
 						vBInsideNode[i] = true;
 						vBDealedTarget[i] = true;
@@ -278,7 +278,7 @@ namespace render
 						Vector3 vSubCenter =  pCurNode->GetSubNodeCenter(i);
 						Aabb	aabbSubNode(Vector3(vSubCenter.x-fWidth/4,vSubCenter.y-fWidth/4,vSubCenter.z-fWidth/4),
 											Vector3(vSubCenter.x+fWidth/4,vSubCenter.y+fWidth/4,vSubCenter.z+fWidth/4));
-						if ( aabbSubNode.Contains(point))
+						if ( aabbSubNode.contains(point))
 						{
 							pCurNode = pCurNode->pSubNodes[i];
 							goto _Target1;

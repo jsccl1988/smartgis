@@ -101,9 +101,9 @@ namespace render
 
 #if !defined(TERRAIN_EXPORTS)
 #if   defined( _DEBUG)
-#          pragma comment(lib,"terrainD.lib")
+#          pragma comment(lib,"legacy_render_d.lib")
 #       else
-#          pragma comment(lib,"terrain.lib")
+#          pragma comment(lib,"legacy_render.lib")
 #	    endif  
 #endif
 

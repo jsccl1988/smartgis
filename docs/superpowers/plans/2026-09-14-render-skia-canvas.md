@@ -342,7 +342,8 @@ Expected: 与 Task 3 相同，全绿。
 - Windows：`\\wsl$\Ubuntu-24.04\home\ccl\dev\src\open\topic\graphic-engine\skia`
 - pin：`third_party\.src\skia` 为**提升权限目录符号链接**（`/J` 对 UNC 失败）
 - `canvas_skia.cc`：现代 Skia API（`SkSurfaces::WrapPixels` + DirectWrite FontMgr）；`smt_has_skia=true` 时替换 `canvas.cc`
-- 匹配的 Windows `skia.lib` 尚无；缺 lib 时 WARNING + 链接失败；默认 `false` 仍走 GDI
+- Windows `skia.lib`：**已产出**于 `third_party\.src\skia_out`（本机 MSVC 最小 CPU；`/MDd` + exceptions；args 见 `out/skia_win_args.gn` / `out/rebuild_skia_win.bat`）
+- 验证：`smt_has_skia=false` → `views_unittests` ok；`true` → 链接通过且 `views_unittests --self-test` ok
 - **不**把默认实现切到真 Skia；Label/Button measure 由另一路处理
 
 ---

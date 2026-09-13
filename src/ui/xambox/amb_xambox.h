@@ -1,11 +1,11 @@
 /*
 File:    amb_xambox.h  
 
-Desc:    SmtXAMBox,Aux Module Box �̳���CTreeCtrl
+Desc:    SmtXAMBox,Aux Module Box 锟教筹拷锟斤拷CTreeCtrl
 
 Version: Version 1.0
 
-Writter:  �´���
+Writter:  锟铰达拷锟斤拷
 
 Date:    2010.11.17
 
@@ -60,7 +60,7 @@ namespace ui
 
 	protected:
 		CImageList					m_imgList;
-		HTREEITEM					m_hRoot;				//���ڵ�
+		HTREEITEM					m_hRoot;				//锟斤拷锟节碉拷
 
 		vSmtFuncItems				m_vFuncItems;
 		SmtAuxModule				*m_pAModule;
@@ -69,9 +69,9 @@ namespace ui
 
 #if !defined(XAMBOX_EXPORTS)
 #if     defined( _DEBUG)
-#          pragma comment(lib,"xamboxD.lib")
+#          pragma comment(lib,"ui_legacy_d.lib")
 #       else
-#          pragma comment(lib,"xambox.lib")
+#          pragma comment(lib,"ui_legacy.lib")
 #	    endif
 #endif
 

@@ -703,6 +703,43 @@ int main() {
              "mgr ras GetRasterNoClone");
       sdb::SmtDataSourceMgr::DestoryMemRasLayer(mem_ras);
     }
+
+    // Open(file) must backfill /vsimem so GetRasterNoClone works for GDI.
+    {
+      GDALDriver* gtiff = GetGDALDriverManager()->GetDriverByName("GTiff");
+      if (!gtiff) {
+        std::fprintf(stderr, "SKIP: GTiff driver missing for Open blob test\n");
+      } else {
+        namespace fs = std::filesystem;
+        const fs::path dir =
+            fs::temp_directory_path() / "smartgis_ogr_ras_open_test";
+        std::error_code ec;
+        fs::remove_all(dir, ec);
+        fs::create_directories(dir, ec);
+        const fs::path tif = dir / "one.tif";
+        GDALDataset* created = gtiff->Create(tif.string().c_str(), 2, 2, 1,
+                                             GDT_Byte, nullptr);
+        expect(created != nullptr, "GTiff Create for Open test");
+        if (created) {
+          GDALRasterBand* band = created->GetRasterBand(1);
+          unsigned char px[4] = {9, 8, 7, 6};
+          band->RasterIO(GF_Write, 0, 0, 2, 2, px, 2, 2, GDT_Byte, 0, 0);
+          GDALClose(created);
+          auto* file_ras = new sdb::datasource::OgrRasterLayer(nullptr);
+          expect(file_ras->Open(tif.string().c_str()), "OgrRasterLayer Open tif");
+          char* blob = nullptr;
+          long blob_n = 0;
+          long blob_code = -1;
+          fRect blob_r;
+          expect(file_ras->GetRasterNoClone(blob, blob_n, blob_r, blob_code) ==
+                     SMT_ERR_NONE &&
+                 blob && blob_n > 0,
+                 "Open file GetRasterNoClone has bytes");
+          SMT_SAFE_DELETE(file_ras);
+        }
+        fs::remove_all(dir, ec);
+      }
+    }
   }
 
   const char* pg_dsn = std::getenv("SMT_PG_DSN");

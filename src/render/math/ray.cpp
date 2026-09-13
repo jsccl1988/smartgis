@@ -1,13 +1,18 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "render/math/mathlib_3d.h"
+#include "render/math/ray.h"
+#include "render/math/aabb.h"
+#include "render/math/obb.h"
+#include "render/math/plane.h"
+#include "render/math/matrix.h"
+#include <cmath>
 
 namespace render
 {
 
 	// transform ray into matrix space
-	void Ray::DeTransform(const Matrix &_m) 
+	void Ray::de_transform(const Matrix &_m) 
 	{
 	   Matrix mInv;
 	   Matrix m=_m;
@@ -20,24 +25,23 @@ namespace render
 	   m._41 = m._42 = m._43 = 0.0f;
 
 	   // invert matrix and applay to ray
-	   mInv.InverseOf(m);
-	   m_vcOrig = m_vcOrig * mInv;
-	   m_vcDir  = m_vcDir  * mInv;
+	   mInv.inverse_of(m);
+	   m_vcOrig = mInv.transform_point(m_vcOrig);
+	   m_vcDir  = mInv.transform_vector(m_vcDir);
 	}
 
 
 	// test for intersection with triangle
-	bool Ray::Intersects(const Vector4 &vc0, const Vector4 &vc1, const Vector4 &vc2, bool bCull, float *t) 
-	{
+	bool Ray::intersects(const Vector4 &vc0, const Vector4 &vc1, const Vector4 &vc2, bool bCull, float *t) const {
 	   Vector4 pvec, tvec, qvec;
 
 	   Vector4 edge1 = vc1 - vc0;
 	   Vector4 edge2 = vc2 - vc0;
 
-	   pvec = m_vcDir.CrossProduct(edge2);
+	   pvec = m_vcDir.cross(edge2);
 
 	   // if close to 0 ray is parallel
-	   float det = edge1 * pvec;
+	   float det = dot(edge1, pvec);
 	   if ( (bCull) && (det < 0.0001f) )
 		  return false;
 	   else if ( (det < 0.0001f) && (det > -0.0001f) )
@@ -45,39 +49,38 @@ namespace render
 
 	   // distance to plane, < 0 means beyond plane
 	   tvec = m_vcOrig - vc0;
-	   float u = tvec * pvec;
+	   float u = dot(tvec, pvec);
 	   if (u < 0.0f || u > det)
 		  return false;
 
-	   qvec = tvec.CrossProduct(edge1);
-	   float v = m_vcDir * qvec;
+	   qvec = tvec.cross(edge1);
+	   float v = dot(m_vcDir, qvec);
 	   if (v < 0.0f || u+v > det)
 		  return false;
    
 	   if (t) 
 	   {
-		  *t = edge2 * qvec;
+		  *t = dot(edge2, qvec);
 		  float fInvDet = 1.0f / det;
 		  *t *= fInvDet;
 	   }
 
 	   return true;
-	} // Intersects(Tri)
+	} // intersects(Tri)
 
 
 	// test for intersection with triangle at certain length (line segment),
 	// same as above but test distance to intersection vs segment length.
-	bool Ray::Intersects(const Vector4 &vc0, const Vector4 &vc1, const Vector4 &vc2, bool bCull, float fL, float *t) 
-	{
+	bool Ray::intersects(const Vector4 &vc0, const Vector4 &vc1, const Vector4 &vc2, bool bCull, float fL, float *t) const {
 	   Vector4 pvec, tvec, qvec;
 
 	   Vector4 edge1 = vc1 - vc0;
 	   Vector4 edge2 = vc2 - vc0;
 
-	   pvec = m_vcDir.CrossProduct(edge2);
+	   pvec = m_vcDir.cross(edge2);
 
 	   // if close to 0 ray is parallel
-	   float det = edge1 * pvec;
+	   float det = dot(edge1, pvec);
 	   if ( (bCull) && (det < 0.0001f) )
 		  return false;
 	   else if ( (det < 0.0001f) && (det > -0.0001f) )
@@ -85,18 +88,18 @@ namespace render
 
 	   // distance to plane, < 0 means beyond plane
 	   tvec = m_vcOrig - vc0;
-	   float u = tvec * pvec;
+	   float u = dot(tvec, pvec);
 	   if (u < 0.0f || u > det)
 		  return false;
 
-	   qvec = tvec.CrossProduct(edge1);
-	   float v = m_vcDir * qvec;
+	   qvec = tvec.cross(edge1);
+	   float v = dot(m_vcDir, qvec);
 	   if (v < 0.0f || u+v > det)
 		  return false;
    
 	   if (t) 
 	   {
-		  *t = edge2 * qvec;
+		  *t = dot(edge2, qvec);
 		  float fInvDet = 1.0f / det;
 		  *t *= fInvDet;
 		  // collision but not on segment?
@@ -105,17 +108,16 @@ namespace render
 	   else 
 	   {
 		  // collision but not on segment?
-		  float f = (edge2*qvec) * (1.0f / det);
+		  float f = dot(edge2, qvec) * (1.0f / det);
 		  if (f > fL) return false;
 	   }
 
 	   return true;
-	} // Intersects(Tri at length)
+	} // intersects(Tri at length)
 
 	// test for intersection with aabb, original code by Andrew Woo, 
 	// from "Geometric Tools...", Morgan Kaufmann Publ., 2002
-	bool Ray::Intersects(const Aabb &aabb, float *t) 
-	{
+	bool Ray::intersects(const Aabb &aabb, float *t) const {
 	   bool bInside = true;
 	   float t0, t1, tmp;
 	   float tNear = -999999.9f;
@@ -124,7 +126,7 @@ namespace render
 	   Vector4 MaxT;
 
 	   // first pair of planes
-	   if (_fabs(m_vcDir.x) < epsilon) 
+	   if (std::fabs(m_vcDir.x) < epsilon) 
 	   {
 		  if ( (m_vcOrig.x < aabb.vcMin.x) ||(m_vcOrig.x > aabb.vcMax.x) )
 			 return false;
@@ -143,7 +145,7 @@ namespace render
 	   if (tFar < 0) return false;
 
 	   // second pair of planes
-	   if (_fabs(m_vcDir.y) < epsilon) 
+	   if (std::fabs(m_vcDir.y) < epsilon) 
 	   {
 		  if ( (m_vcOrig.y < aabb.vcMin.y) ||(m_vcOrig.y > aabb.vcMax.y) )
 			 return false;
@@ -157,7 +159,7 @@ namespace render
 	   if (tFar < 0) return false;
 
 	   // third pair of planes
-	   if (_fabs(m_vcDir.z) < epsilon) 
+	   if (std::fabs(m_vcDir.z) < epsilon) 
 	   {
 		  if ( (m_vcOrig.z < aabb.vcMin.z) ||(m_vcOrig.z > aabb.vcMax.z) )
 			 return false;
@@ -180,12 +182,11 @@ namespace render
 		   if (t) *t = tFar; 
 	   }
 	   return true;
-	} // Intersects(Aabb)
+	} // intersects(Aabb)
 
 	// test for intersection with aabb, original code by Andrew Woo, 
 	// from "Geometric Tools...", Morgan Kaufmann Publ., 2002
-	bool Ray::Intersects(const Aabb &aabb, float fL, float *t) 
-	{
+	bool Ray::intersects(const Aabb &aabb, float fL, float *t) const {
 	   bool bInside = true;
 	   float t0, t1, tmp, tFinal;
 	   float tNear = -999999.9f;
@@ -194,7 +195,7 @@ namespace render
 	   Vector4 MaxT;
 
 	   // first pair of planes
-	   if (_fabs(m_vcDir.x) < epsilon) 
+	   if (std::fabs(m_vcDir.x) < epsilon) 
 	   {
 		  if ( (m_vcOrig.x < aabb.vcMin.x) ||(m_vcOrig.x > aabb.vcMax.x) )
 			 return false;
@@ -213,7 +214,7 @@ namespace render
 	   if (tFar < 0) return false;
 
 	   // second pair of planes
-	   if (_fabs(m_vcDir.y) < epsilon) 
+	   if (std::fabs(m_vcDir.y) < epsilon) 
 	   {
 		  if ( (m_vcOrig.y < aabb.vcMin.y) || (m_vcOrig.y > aabb.vcMax.y) )
 			 return false;
@@ -227,7 +228,7 @@ namespace render
 	   if (tFar < 0) return false;
 
 	   // third pair of planes
-	   if (_fabs(m_vcDir.z) < epsilon) 
+	   if (std::fabs(m_vcDir.z) < epsilon) 
 	   {
 		  if ( (m_vcOrig.z < aabb.vcMin.z) ||(m_vcOrig.z > aabb.vcMax.z) )
 			 return false;
@@ -252,12 +253,11 @@ namespace render
 	   if (tFinal > fL) return false;
 	   if (t) *t = tFinal;
 	   return true;
-	} // Intersects(Aabb) at length
+	} // intersects(Aabb) at length
 
 
 	// test for intersection with obb, slaps method
-	bool Ray::Intersects(const Obb &obb, float *t) 
-	{
+	bool Ray::intersects(const Obb &obb, float *t) const {
 	   float e, f, t1, t2, temp;
 	   float tmin = -99999.9f, 
 			 tmax = +99999.9f;
@@ -265,9 +265,9 @@ namespace render
 	   Vector4 vcP = obb.vcCenter - m_vcOrig;
 
 	   // 1st slap
-	   e = obb.vcA0 * vcP;
-	   f = obb.vcA0 * m_vcDir;
-	   if (_fabs(f) > 0.00001f) 
+	   e = dot(obb.vcA0, vcP);
+	   f = dot(obb.vcA0, m_vcDir);
+	   if (std::fabs(f) > 0.00001f) 
 	   {
 
 		  t1 = (e + obb.fA0) / f;
@@ -283,9 +283,9 @@ namespace render
 		  return false;
 
 	   // 2nd slap
-	   e = obb.vcA1 * vcP;
-	   f = obb.vcA1 * m_vcDir;
-	   if (_fabs(f) > 0.00001f) 
+	   e = dot(obb.vcA1, vcP);
+	   f = dot(obb.vcA1, m_vcDir);
+	   if (std::fabs(f) > 0.00001f) 
 	   {
 
 		  t1 = (e + obb.fA1) / f;
@@ -301,9 +301,9 @@ namespace render
 		  return false;
 
 	   // 3rd slap
-	   e = obb.vcA2 * vcP;
-	   f = obb.vcA2 * m_vcDir;
-	   if (_fabs(f) > 0.00001f) 
+	   e = dot(obb.vcA2, vcP);
+	   f = dot(obb.vcA2, m_vcDir);
+	   if (std::fabs(f) > 0.00001f) 
 	   {
 
 		  t1 = (e + obb.fA2) / f;
@@ -332,12 +332,11 @@ namespace render
 	   if (t) *t = tmax;
 
 	   return true;
-	} // Intersects(Obb)
+	} // intersects(Obb)
 
 	// test for intersection with obb at certain length (line segment),
 	// slaps method but compare result if true to length prior return.
-	bool Ray::Intersects(const Obb &obb, float fL, float *t) 
-	{
+	bool Ray::intersects(const Obb &obb, float fL, float *t) const {
 	   float e, f, t1, t2, temp;
 	   float tmin = -99999.9f, 
 			 tmax = +99999.9f;
@@ -345,9 +344,9 @@ namespace render
 	   Vector4 vcP = obb.vcCenter - m_vcOrig;
 
 	   // 1st slap
-	   e = obb.vcA0 * vcP;
-	   f = obb.vcA0 * m_vcDir;
-	   if (_fabs(f) > 0.00001f) 
+	   e = dot(obb.vcA0, vcP);
+	   f = dot(obb.vcA0, m_vcDir);
+	   if (std::fabs(f) > 0.00001f) 
 	   {
 
 		  t1 = (e + obb.fA0) / f;
@@ -368,9 +367,9 @@ namespace render
 		  return false;
 
 	   // 2nd slap
-	   e = obb.vcA1 * vcP;
-	   f = obb.vcA1 * m_vcDir;
-	   if (_fabs(f) > 0.00001f) 
+	   e = dot(obb.vcA1, vcP);
+	   f = dot(obb.vcA1, m_vcDir);
+	   if (std::fabs(f) > 0.00001f) 
 	   {
 
 		  t1 = (e + obb.fA1) / f;
@@ -386,9 +385,9 @@ namespace render
 		  return false;
 
 	   // 3rd slap
-	   e = obb.vcA2 * vcP;
-	   f = obb.vcA2 * m_vcDir;
-	   if (_fabs(f) > 0.00001f) 
+	   e = dot(obb.vcA2, vcP);
+	   f = dot(obb.vcA2, m_vcDir);
+	   if (std::fabs(f) > 0.00001f) 
 	   {
 
 		  t1 = (e + obb.fA2) / f;
@@ -420,16 +419,15 @@ namespace render
 	   if (t) *t = tmax;
 
 	   return true;
-	} // Intersects(Obb at length)
+	} // intersects(Obb at length)
 
 
 	// Intersection with Plane from origin till infinity. 
-	bool Ray::Intersects(const Plane &plane, bool bCull, float *t, Vector4 *vcHit) 
-	{
-	   float Vd = plane.m_vcN * m_vcDir;
+	bool Ray::intersects(const Plane &plane, bool bCull, float *t, Vector4 *vcHit) const {
+	   float Vd = dot(plane.m_vcN, m_vcDir);
 
 	   // ray parallel to plane
-	   if (_fabs(Vd) < 0.00001f)
+	   if (std::fabs(Vd) < 0.00001f)
 		  return false;
 
 	   // normal pointing away from ray dir
@@ -437,7 +435,7 @@ namespace render
 	   if (bCull && (Vd > 0.0f))
 		  return false;
 
-	   float Vo = -( (plane.m_vcN * m_vcOrig) + plane.m_fD);
+	   float Vo = -( (dot(plane.m_vcN, m_vcOrig)) + plane.m_fD);
 
 	   float _t = Vo / Vd;
 
@@ -454,15 +452,14 @@ namespace render
 		  (*t) = _t;
 
 	   return true;
-	} // Intersects(Plane)
+	} // intersects(Plane)
 
 	// Intersection with Plane at distance fL. 
-	bool Ray::Intersects(const Plane &plane, bool bCull, float fL,float *t, Vector4 *vcHit) 
-	{
-	   float Vd = plane.m_vcN * m_vcDir;
+	bool Ray::intersects(const Plane &plane, bool bCull, float fL,float *t, Vector4 *vcHit) const {
+	   float Vd = dot(plane.m_vcN, m_vcDir);
 
 	   // ray parallel to plane
-	   if (_fabs(Vd) < 0.00001f)
+	   if (std::fabs(Vd) < 0.00001f)
 		  return false;
 
 	   // normal pointing away from ray dir
@@ -470,7 +467,7 @@ namespace render
 	   if (bCull && (Vd > 0.0f))
 		  return false;
 
-	   float Vo = -( (plane.m_vcN * m_vcOrig) + plane.m_fD);
+	   float Vo = -( (dot(plane.m_vcN, m_vcOrig)) + plane.m_fD);
 
 	   float _t = Vo / Vd;
 
@@ -487,7 +484,7 @@ namespace render
 		  (*t) = _t;
 
 	   return true;
-	} // Intersects(Plane)
+	} // intersects(Plane)
 
 }
 

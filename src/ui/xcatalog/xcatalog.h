@@ -1,11 +1,11 @@
 /*
 File:    cata_xcatalog.h  
 
-Desc:    SmtXCatalog,Smt Catalog �̳���CTreeCtrl
+Desc:    SmtXCatalog,Smt Catalog 锟教筹拷锟斤拷CTreeCtrl
 
 Version: Version 1.0
 
-Writter:  �´���
+Writter:  锟铰达拷锟斤拷
 
 Date:    2010.11.17
 
@@ -52,9 +52,9 @@ namespace ui
 }
 #if !defined(XCATALOG_EXPORTS)
 #if     defined( _DEBUG)
-#          pragma comment(lib,"xcatalogD.lib")
+#          pragma comment(lib,"ui_legacy_d.lib")
 #       else
-#          pragma comment(lib,"xcatalog.lib")
+#          pragma comment(lib,"ui_legacy.lib")
 #	    endif
 #endif
 

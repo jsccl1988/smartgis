@@ -322,7 +322,6 @@ namespace ui
 
 	void SmtMapDocXCatalog::OnLayerMgrAttstruct()
 	{
-		// TODO: �ڴ�����������������
 		AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
 		::SetCapture(AfxGetMainWnd()->m_hWnd);
@@ -330,17 +329,18 @@ namespace ui
 		SmtMapMgr *pMapMgr = SmtMapMgr::get_singleton_ptr();
 		if (pMapMgr)
 		{
-			SmtLayer * pLayer  = pMapMgr->GetLayer(GetMapSelLayerName());
-			if (pLayer)
-			{	
-				SmtAttribute *pAtt = pLayer->GetAttribute();
-				SmtAttStructEditDlg(pAtt,1);
-			}	
+			SmtMap *pMap = pMapMgr->GetSmtMapPtr();
+			OGRLayer *pOgr = pMap ? pMap->GetOgrLayer(GetMapSelLayerName()) : NULL;
+			if (pOgr)
+			{
+				SmtAttStructEditDlg(pOgr, 1);
+			}
 			else
 			{
 				CString strMessage;
-				strMessage.Format("��ȡͼ��ʧ�ܣ�");
-				AfxMessageBox(strMessage,MB_OK);
+				strMessage.Format(
+					_T("Selected layer has no OGR schema (raster/tile leftover)."));
+				AfxMessageBox(strMessage, MB_OK);
 			}
 		}
 

@@ -1,32 +1,10 @@
-/*
-File:    gdi_aux_api.h
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 
-Desc:    GDI 2D render helper routines (simple device).
-
-Version: Version 1.0
-
-Writter:  legacy
-
-Date:    2010.11.17
-
-Copyright (c) 2010 CCL. All rights reserved.
-*/
 #ifndef _GDI_SIMPLE_AUX_API_H
 #define _GDI_SIMPLE_AUX_API_H
 
-#include "base/core/core.h"
-#include "base/core/bas_struct.h"
-
-using namespace base;
-
-void clear_rect(HDC hDC, int x, int y, int w, int h,
-                COLORREF clr = RGB(255, 255, 255));
-void draw_rect(HDC hDC, RECT& rect, BOOL exclusive = TRUE);
-void draw_rect(HDC hDC, lRect& lrect, BOOL exclusive = TRUE);
-
-void draw_line(HDC hDC, lPoint* plPoints, int nCount, BOOL exclusive = TRUE);
-void draw_line(HDC hDC, POINT* pPoints, int nCount, BOOL exclusive = TRUE);
-
-void draw_cross(HDC hDC, long lX, long lY, long r, BOOL exclusive = TRUE);
+// Shared implementation lives in legacy_render/gdi (single objects in DLL).
+#include "legacy_render/gdi/gdi_aux_api.h"
 
 #endif  // _GDI_SIMPLE_AUX_API_H

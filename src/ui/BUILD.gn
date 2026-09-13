@@ -1,15 +1,47 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# MFC / BCG UI DLLs. Not in //src:src_all.
-# Endgame toolkit is //src/ui/views (//:ui_views). Do not add it here.
-group("ui") {
-  deps = [
-    "//src/ui/chart:stat_chart",
-    "//src/ui/gui:gui",
-    "//src/ui/mfc_ex:mfc_ex",
-    "//src/ui/xambox:xambox",
-    "//src/ui/xcatalog:xcatalog",
-    "//src/ui/xview:xview",
+import("//build/smartgis.gni")
+
+# MFC chrome → one DLL (dll_stem = ui_legacy).
+# Absorbs: gui / mfc_ex / xview / xcatalog / xambox / stat_chart.
+# App-gated via //src/ui:ui and //:smartgis (smt_build_app). Not in //src:src_all.
+# Endgame toolkit stays //src/ui/views (source_set); do not add it here.
+
+# Aggregator has no TUs; PCH lives on *_sources. Use smt_shared_library + MFC
+# configs so the template does not invent src/ui/stdafx.cpp.
+smt_shared_library("ui_legacy") {
+  dll_stem = "ui_legacy"
+  configs = [ "//build:mfc" ]
+  defines = [
+    "UI_LEGACY_EXPORTS",
+    "GUI_EXPORTS",
+    "MFC_EX_EXPORTS",
+    "XVIEW_EXPORTS",
+    "XCATALOG_EXPORTS",
+    "XAMBOX_EXPORTS",
+    "STAT_CHART_EXPORTS",
+    # tool_group factory lives here to avoid ui_legacy ↔ legacy_tool DLL cycle
+    # (tools call SmtInputTextDlg / SmtSelectOneDlg in gui).
+    "TOOL_GROUP_EXPORTS",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
   ]
+  deps = [
+    "//src/ui/mfc_ex:mfc_ex_sources",
+    "//src/ui/gui:gui_sources",
+    "//src/ui/xambox:xambox_sources",
+    "//src/ui/xcatalog:xcatalog_sources",
+    "//src/ui/xview:xview_sources",
+    "//src/ui/chart:stat_chart_sources",
+    "//src/legacy_tool/group:tool_group_sources",
+    # Explicit: /NODEFAULTLIB ignores #pragma comment(lib) from headers.
+    "//src/sdb:sdb",
+  ]
+}
+
+# Opt-in aggregator for MFC UI (build.bat app / //:smartgis).
+group("ui") {
+  public_deps = [ ":ui_legacy" ]
 }

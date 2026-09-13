@@ -1,4 +1,4 @@
-#include "ui/chart/stdafx.h"
+#include "stdafx.h"
 #include "ui/chart/diagramdata.h"
 #include "sdb/datasource/mgr/datasourcemgr.h"
 
@@ -54,9 +54,10 @@ namespace ui
 	{
 		OGRLayer *pLayer = m_memDS.CreateVectorLayer(szName,lyrRect,ftType);
 
-		if (NULL != pLayer)
+		if (NULL != pLayer) {
 			m_smtMap.AddLayer(pLayer);
-		 
+			return m_smtMap.GetLayer(szName);
+		}
 		return nullptr;
 	}
 

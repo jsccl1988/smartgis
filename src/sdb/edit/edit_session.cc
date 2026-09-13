@@ -5,6 +5,9 @@
 
 namespace sdb {
 
+MemoryEditSession::MemoryEditSession() = default;
+MemoryEditSession::~MemoryEditSession() = default;
+
 bool MemoryEditSession::commit(const FeatureMutation& mutation) {
   if (mutation.id.len == 0) {
     return false;

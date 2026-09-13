@@ -54,9 +54,9 @@ protected:
 
 #if !defined(GUI_EXPORTS)
 #if   defined( _DEBUG)
-#          pragma comment(lib,"guiD.lib")
+#          pragma comment(lib,"ui_legacy_d.lib")
 #       else
-#          pragma comment(lib,"gui.lib")
+#          pragma comment(lib,"ui_legacy.lib")
 #	    endif  
 #endif
 

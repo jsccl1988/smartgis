@@ -1,11 +1,11 @@
 /*
 File:    cata_mapdocxcatalog.h  
 
-Desc:    SmtMapDocXCatalog,Smt MapDoc Catalog �̳���SmtXCatalog
+Desc:    SmtMapDocXCatalog,Smt MapDoc Catalog 锟教筹拷锟斤拷SmtXCatalog
 
 Version: Version 1.0
 
-Writter:  �´���
+Writter:  锟铰达拷锟斤拷
 
 Date:    2010.11.17
 
@@ -62,23 +62,23 @@ namespace ui
 
 	public:
 		CString						GetMapSelLayerName(void) { return m_strSelLayerName;}
-		bool						UpdateMapTree();    //����ͼ����
+		bool						UpdateMapTree();    //锟斤拷锟斤拷图锟斤拷锟斤拷
 
 	protected:
 		DECLARE_MESSAGE_MAP()
 
 	protected:
 		CImageList					m_imgList;
-		HTREEITEM					m_hRoot;             //���ڵ�
-		HTREEITEM					m_hMap;              //��ͼ���ڵ�
+		HTREEITEM					m_hRoot;             //锟斤拷锟节碉拷
+		HTREEITEM					m_hMap;              //锟斤拷图锟斤拷锟节碉拷
 		CString						m_strSelLayerName;
 	};
 }
 #if !defined(XCATALOG_EXPORTS)
 #if     defined( _DEBUG)
-#          pragma comment(lib,"xcatalogD.lib")
+#          pragma comment(lib,"ui_legacy_d.lib")
 #       else
-#          pragma comment(lib,"xcatalog.lib")
+#          pragma comment(lib,"ui_legacy.lib")
 #	    endif
 #endif
 

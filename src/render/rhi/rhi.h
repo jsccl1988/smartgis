@@ -8,6 +8,8 @@
 #include <cstring>
 #include <vector>
 
+#include "render/render_export.h"
+
 // Facade RHI for 2D + 3D map drawing. GPU backends are FlyCube (DX12 / Vulkan);
 // GDI/GL remain leftover HWND adapters. FlyCube types do not appear here.
 
@@ -87,10 +89,13 @@ struct CameraMatrices {
   }
 };
 
-CameraMatrices make_ortho_camera(float left, float right, float bottom,
-                                 float top, float near_z, float far_z);
-CameraMatrices make_perspective_camera(float fov_y_radians, float aspect,
-                                       float near_z, float far_z);
+RENDER_EXPORT CameraMatrices make_ortho_camera(float left, float right,
+                                               float bottom, float top,
+                                               float near_z, float far_z);
+RENDER_EXPORT CameraMatrices make_perspective_camera(float fov_y_radians,
+                                                     float aspect,
+                                                     float near_z,
+                                                     float far_z);
 
 // GPU or CPU heap for vertex/index bytes. FlyCube types stay out of this header.
 class Buffer {
@@ -302,8 +307,8 @@ class Device {
   virtual uint32_t gpu_sampled_draws() const { return 0; }
 };
 
-Device* create_device(Backend backend);
-Backend preferred_gpu_backend();
+RENDER_EXPORT Device* create_device(Backend backend);
+RENDER_EXPORT Backend preferred_gpu_backend();
 
 }  // namespace rhi
 }  // namespace render

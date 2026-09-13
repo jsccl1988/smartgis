@@ -36,9 +36,6 @@ class SDE_MGR_EXPORT SmtDataSourceMgr {
   static SmtRasterLayer* CreateMemRasLayer();
   static void DestoryMemRasLayer(SmtRasterLayer*& pLayer);
 
-  static SmtTileLayer* CreateMemTileLayer();
-  static void DestoryMemTileLayer(SmtTileLayer*& pLayer);
-
   static SmtDataSourceMgr* get_singleton_ptr();
   static void DestoryInstance();
 

@@ -1,11 +1,11 @@
 /*
 File:    cata_xdscatalog.h  
 
-Desc:    SmtXCatalog,Smt DataSource Catalog �̳���SmtXCatalog
+Desc:    SmtXCatalog,Smt DataSource Catalog 锟教筹拷锟斤拷SmtXCatalog
 
 Version: Version 1.0
 
-Writter:  �´���
+Writter:  锟铰达拷锟斤拷
 
 Date:    2010.11.17
 
@@ -73,18 +73,18 @@ namespace ui
 
 	private:
 		CImageList					m_imgList;
-		HTREEITEM					m_hRoot;				//���ڵ�
-		HTREEITEM					m_hDSCatalog;			//����Դ�ڵ�
+		HTREEITEM					m_hRoot;				//锟斤拷锟节碉拷
+		HTREEITEM					m_hDSCatalog;			//锟斤拷锟斤拷源锟节碉拷
 
-		CString						m_strSelDSName;			//ѡ������Դ
-		CString						m_strSelDSLayerName;	//ѡ������Դͼ��
+		CString						m_strSelDSName;			//选锟斤拷锟斤拷锟斤拷源
+		CString						m_strSelDSLayerName;	//选锟斤拷锟斤拷锟斤拷源图锟斤拷
 	};
 }
 #if !defined(XCATALOG_EXPORTS)
 #if     defined( _DEBUG)
-#          pragma comment(lib,"xcatalogD.lib")
+#          pragma comment(lib,"ui_legacy_d.lib")
 #       else
-#          pragma comment(lib,"xcatalog.lib")
+#          pragma comment(lib,"ui_legacy.lib")
 #	    endif
 #endif
 

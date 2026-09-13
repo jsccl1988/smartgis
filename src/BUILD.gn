@@ -1,8 +1,8 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# 27 DLLs (math/math3d/geo3d folded into SmtGeoCore; SmtDemCore removed).
-# Do not add MFC/D3D/exe targets here (ui, plugin children, app, d3d).
+# Platform DLL merge in progress (see docs/superpowers/plans/2026-09-14-dll-reorganization.md).
+# base / algorithm / sdb = one DLL each. Do not add MFC/D3D/exe here.
 # Exe is //src/app:app via root //:smartgis / build.bat app.
 # WinUI / Views hosts live under src/app/ and are not in src_all.
 
@@ -10,21 +10,17 @@ group("src_all") {
   deps = [
     # hosted map ABI (mgis content::MapView role; source_set, not a DLL)
     "//src/content:content",
-    # foundation
+    # foundation DLL (labels below all forward to //src/base:base)
     "//src/base:core",
     "//src/sys:sys",
     "//src/base:base",
     "//src/net:net",
-    # algorithm packages (geo / proj / tin / stat)
+    # algorithm DLL (geo / proj / tin / stat source_sets)
     "//src/algorithm:algorithm",
-    # core data model (SmtGisCore)
-    "//src/sdb/map:gis",
-    "//src/sdb/model:model",
-    "//src/sdb/scene:scene",
-    "//src/sdb/edit:edit",
-    # render engines + SDE devices
+    # sdb DLL (gis / sde_* / tile / model / scene / edit → //src/sdb:sdb)
+    "//src/sdb:sdb",
+    # render DLL (endgame rhi/scene/skia/math; not legacy_render)
     "//src/render:render_all",
-    "//src/sdb:datasource",
     "//src/plugin:plugin",
     "//src/tool:dispatch",
   ]

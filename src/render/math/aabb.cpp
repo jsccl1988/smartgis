@@ -1,12 +1,23 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "render/math/mathlib_3d.h"
+#include "render/math/aabb.h"
+#include "render/math/obb.h"
+#include "render/math/plane.h"
+#include "render/math/ray.h"
+#include "render/math/matrix.h"
 #include "base/core/api.h"
+#include <cmath>
 using namespace base;
 
 namespace render
 {
+	Aabb::Aabb() {
+	  vcMin.set(SMT_C_INVALID_DBF_VALUE, SMT_C_INVALID_DBF_VALUE,
+	            SMT_C_INVALID_DBF_VALUE);
+	  vcMax = vcCenter = vcMin;
+	}
+
 	Aabb::Aabb(Vector4 _vcMin, Vector4 _vcMax) 
 	{
 	   vcMin = _vcMin;
@@ -57,7 +68,7 @@ namespace render
 		}
 		else
 		{
-			vcMin.Set(dfX,dfY,dfZ);
+			vcMin.set(dfX,dfY,dfZ);
 			vcCenter = vcMax = vcMin;
 		}
 	}
@@ -67,9 +78,9 @@ namespace render
 		merge(vVer.x,vVer.y,vVer.z);
 	}
 
-	void Aabb::Intersect( Aabb const& sOther )
+	void Aabb::intersect( Aabb const& sOther )
 	{
-		if(Intersects(sOther))
+		if(intersects(sOther))
 		{
 			if( is_init() )
 			{
@@ -90,26 +101,26 @@ namespace render
 		}
 		else
 		{
-			vcMin.Set(0,0,0);
+			vcMin.set(0,0,0);
 			vcCenter = vcMax = vcMin;
 		}
 	}
 
-	bool Aabb::Intersects(Aabb const& other) const
+	bool Aabb::intersects(Aabb const& other) const
 	{
 		return vcMin.x <= other.vcMax.x && vcMax.x >= other.vcMin.x && 
 			   vcMin.y <= other.vcMax.y && vcMax.y >= other.vcMin.y &&
 			   vcMin.z <= other.vcMax.z && vcMax.z >= other.vcMin.z;
 	}
 
-	bool Aabb::Contains(Aabb const& other) const
+	bool Aabb::contains(Aabb const& other) const
 	{
 		return vcMin.x <= other.vcMin.x && vcMax.x >= other.vcMax.x &&
 			   vcMin.y <= other.vcMin.y && vcMax.y >= other.vcMax.y &&
 			   vcMin.z <= other.vcMin.z && vcMax.z >= other.vcMax.z; 
 	}
 
-	bool Aabb::Contains(Vector3 const& other) const
+	bool Aabb::contains(Vector3 const& other) const
 	{
 		return vcMin.x <= other.x && vcMax.x >= other.x &&
 			   vcMin.y <= other.y && vcMax.y >= other.y &&
@@ -118,7 +129,7 @@ namespace render
 
 
 	// construct from obb
-	void Aabb::Construct(const Obb *pObb) 
+	void Aabb::construct(const Obb *pObb) 
 	{
 	   Vector4 vcA0, vcA1, vcA2;
 	   Vector4 _vcMax, _vcMin;
@@ -222,7 +233,7 @@ namespace render
 	 *         ZFXCLIPPED - obb clipped by frustrum
 	 *         ZFXCULLED  - obb totally outside frustrum
 	 */
-	int Aabb::Cull(const Plane *pPlanes, int nNumPlanes) 
+	CullResult Aabb::cull(const Plane *pPlanes, int nNumPlanes) 
 	{
 	   Vector4  vcMin, vcMax;
 	   bool       bIntersects = false;
@@ -264,211 +275,20 @@ namespace render
 			 vcMax.z = this->vcMin.z;
 		  }
 
-		  if ( ((pPlanes[i].m_vcN*vcMin) + pPlanes[i].m_fD) > 0.0f)
-			 return CULLED;
+		  if ( (dot(pPlanes[i].m_vcN, vcMin) + pPlanes[i].m_fD) > 0.0f)
+			 return CullResult::kCulled;
 
-		  if ( ((pPlanes[i].m_vcN*vcMax) + pPlanes[i].m_fD) >= 0.0f)
+		  if ( (dot(pPlanes[i].m_vcN, vcMax) + pPlanes[i].m_fD) >= 0.0f)
 			 bIntersects = true;
 	   } // loop end 
 
-	   if (bIntersects) return CLIPPED;
-	   return VISIBLE;
-	} // Cull
- 
-
-	// test for intersection with aabb, original code by Andrew Woo, 
-	// from "Geometric Tools...", Morgan Kaufmann Publ., 2002
-	bool Aabb::Intersects(const Ray &ray, float *t) 
-	{
-	   bool bInside = true;
-	   float t0, t1, tmp;
-	   float tNear = -999999.9f;
-	   float tFar  =  999999.9f;
-	   float epsilon = 0.00001f;
-	   Vector4 MaxT;
-
-	   // first pair of planes
-	   if (_fabs(ray.m_vcDir.x) < epsilon) 
-	   {
-		  if ( (ray.m_vcOrig.x < vcMin.x) ||(ray.m_vcOrig.x > vcMax.x) )
-			 return false;
-	   }
-	   t0 = (vcMin.x - ray.m_vcOrig.x) / ray.m_vcDir.x;
-	   t1 = (vcMax.x - ray.m_vcOrig.x) / ray.m_vcDir.x;
-	   if (t0 > t1) 
-	   { 
-		   tmp=t0; 
-		   t0=t1; 
-		   t1=tmp; 
-	   }
-	   if (t0 > tNear) 
-		   tNear = t0;
-
-	   if (t1 < tFar) 
-		   tFar = t1;
-	   if (tNear > tFar) 
-		   return false;
-	   if (tFar < 0) 
-		   return false;
-
-	   // second pair of planes
-	   if (_fabs(ray.m_vcDir.y) < epsilon) 
-	   {
-		  if ( (ray.m_vcOrig.y < vcMin.y) || (ray.m_vcOrig.y > vcMax.y) )
-			 return false;
-	   }
-	   t0 = (vcMin.y - ray.m_vcOrig.y) / ray.m_vcDir.y;
-	   t1 = (vcMax.y - ray.m_vcOrig.y) / ray.m_vcDir.y;
-	   if (t0 > t1) 
-	   { 
-		   tmp=t0; 
-		   t0=t1; 
-		   t1=tmp; 
-	   }
-	   if (t0 > tNear) 
-		   tNear = t0;
-
-	   if (t1 < tFar)  
-		   tFar = t1;
-
-	   if (tNear > tFar) 
-		   return false;
-
-	   if (tFar < 0) 
-		   return false;
-
-	   // third pair of planes
-	   if (_fabs(ray.m_vcDir.z) < epsilon) 
-	   {
-		  if ( (ray.m_vcOrig.z < vcMin.z) || (ray.m_vcOrig.z > vcMax.z) )
-			 return false;
-	   }
-	   t0 = (vcMin.z - ray.m_vcOrig.z) / ray.m_vcDir.z;
-	   t1 = (vcMax.z - ray.m_vcOrig.z) / ray.m_vcDir.z;
-	   if (t0 > t1) 
-	   { 
-		   tmp=t0; 
-		   t0=t1; 
-		   t1=tmp; 
-	   }
-	   if (t0 > tNear) 
-		   tNear = t0;
-
-	   if (t1 < tFar)  
-		   tFar = t1;
-
-	   if (tNear > tFar) 
-		   return false;
-
-	   if (tFar < 0) 
-		   return false;
-
-
-	   if (tNear > 0) 
-	   { 
-		   if (t) *t = tNear; 
-	   }
-	   else 
-	   { 
-		   if (t) *t = tFar; 
-	   }
-	   return true;
-	} // Intersects(Ray)
- 
-
-	// test for intersection with aabb, original code by Andrew Woo, 
-	// from "Geometric Tools...", Morgan Kaufmann Publ., 2002
-	bool Aabb::Intersects(const Ray &ray, float fL, float *t) 
-	{
-	   bool bInside = true;
-	   float t0, t1, tmp, tFinal;
-	   float tNear = -999999.9f;
-	   float tFar  =  999999.9f;
-	   float epsilon = 0.00001f;
-	   Vector4 MaxT;
-
-	   // first pair of planes
-	   if (_fabs(ray.m_vcDir.x) < epsilon) 
-	   {
-		  if ( (ray.m_vcOrig.x < vcMin.x) || (ray.m_vcOrig.x > vcMax.x) )
-			 return false;
-	   }
-	   t0 = (vcMin.x - ray.m_vcOrig.x) / ray.m_vcDir.x;
-	   t1 = (vcMax.x - ray.m_vcOrig.x) / ray.m_vcDir.x;
-	   if (t0 > t1) 
-	   { 
-		   tmp=t0; 
-		   t0=t1; 
-		   t1=tmp;
-	   }
-	   if (t0 > tNear) tNear = t0;
-	   if (t1 < tFar)  tFar = t1;
-	   if (tNear > tFar) return false;
-	   if (tFar < 0) return false;
-
-	   // second pair of planes
-	   if (_fabs(ray.m_vcDir.y) < epsilon) 
-	   {
-		  if ( (ray.m_vcOrig.y < vcMin.y) ||(ray.m_vcOrig.y > vcMax.y) )
-			 return false;
-	   }
-	   t0 = (vcMin.y - ray.m_vcOrig.y) / ray.m_vcDir.y;
-	   t1 = (vcMax.y - ray.m_vcOrig.y) / ray.m_vcDir.y;
-	   if (t0 > t1) 
-	   { 
-		   tmp=t0; 
-		   t0=t1; 
-		   t1=tmp; 
-	   }
-	   if (t0 > tNear) tNear = t0;
-	   if (t1 < tFar)  tFar = t1;
-	   if (tNear > tFar) return false;
-	   if (tFar < 0) return false;
-
-	   // third pair of planes
-	   if (_fabs(ray.m_vcDir.z) < epsilon) 
-	   {
-		  if ( (ray.m_vcOrig.z < vcMin.z) ||(ray.m_vcOrig.z > vcMax.z) )
-			 return false;
-	   }
-	   t0 = (vcMin.z - ray.m_vcOrig.z) / ray.m_vcDir.z;
-	   t1 = (vcMax.z - ray.m_vcOrig.z) / ray.m_vcDir.z;
-	   if (t0 > t1) 
-	   { 
-		   tmp=t0; 
-		   t0=t1; 
-		   t1=tmp; 
-	   }
-	   if (t0 > tNear) tNear = t0;
-	   if (t1 < tFar)  tFar = t1;
-	   if (tNear > tFar) return false;
-	   if (tFar < 0) return false;
-
-
-	   if (tNear > 0) tFinal = tNear;
-	   else tFinal = tFar;
-
-	   if (tFinal > fL) return false;
-	   if (t) *t = tFinal;
-	   return true;
-	} // Intersects(Ray) at length
- 
-
-	// intersection between two aabbs
-	bool Aabb::Intersects(const Aabb &aabb) 
-	{
-	   if ((vcMin.x > aabb.vcMax.x) || (aabb.vcMin.x > vcMax.x))
-		  return false;
-	   if ((vcMin.y > aabb.vcMax.y) || (aabb.vcMin.y > vcMax.y))
-		  return false;
-	   if ((vcMin.z > aabb.vcMax.z) || (aabb.vcMin.z > vcMax.z))
-		  return false;
-	   return true;
-	} // Intersects(Aabb)
+	   if (bIntersects) return CullResult::kClipped;
+	   return CullResult::kVisible;
+	} // cull
  
 
 	// does aabb contain the given point
-	bool Aabb::Intersects(const Vector4 &vc) 
+	bool Aabb::intersects(const Vector4 &vc) 
 	{
 	   if ( vc.x > vcMax.x ) return false;
 	   if ( vc.y > vcMax.y ) return false;
@@ -477,49 +297,49 @@ namespace render
 	   if ( vc.y < vcMin.y ) return false;
 	   if ( vc.z < vcMin.z ) return false;
 	   return true;
-	} // Intersects(point)
+	} // intersects(point)
  
 
 	// does aabb contain ray
-	bool Aabb::Contains(const Ray &ray, float fL) 
+	bool Aabb::contains(const Ray &ray, float fL) 
 	{
 	   Vector4 vcEnd = ray.m_vcOrig + (ray.m_vcDir*fL);
-	   return ( Intersects(ray.m_vcOrig) &&Intersects(vcEnd) );
+	   return ( intersects(ray.m_vcOrig) &&intersects(vcEnd) );
 
-	} // Contains
+	} // contains
  
 
 	// get the six planes, normals pointing outwards
-	void Aabb::GetPlanes(Plane *pPlanes) 
+	void Aabb::get_planes(Plane *pPlanes) 
 	{
 	   Vector4 vcN;
    
 	   if (!pPlanes) return;
 
 	   // right side
-	   vcN.Set(1.0f, 0.0f, 0.0f);
-	   pPlanes[0].Set(vcN, vcMax);
+	   vcN.set(1.0f, 0.0f, 0.0f);
+	   pPlanes[0].set(vcN, vcMax);
    
 	   // left side
-	   vcN.Set(-1.0f, 0.0f, 0.0f);
-	   pPlanes[1].Set(vcN, vcMin);
+	   vcN.set(-1.0f, 0.0f, 0.0f);
+	   pPlanes[1].set(vcN, vcMin);
 
 	   // front side
-	   vcN.Set(0.0f, 0.0f, -1.0f);
-	   pPlanes[2].Set(vcN, vcMin);
+	   vcN.set(0.0f, 0.0f, -1.0f);
+	   pPlanes[2].set(vcN, vcMin);
 
 	   // back side
-	   vcN.Set(0.0f, 0.0f, 1.0f);
-	   pPlanes[3].Set(vcN, vcMax);
+	   vcN.set(0.0f, 0.0f, 1.0f);
+	   pPlanes[3].set(vcN, vcMax);
 
 	   // top side
-	   vcN.Set(0.0f, 1.0f, 0.0f);
-	   pPlanes[4].Set(vcN, vcMax);
+	   vcN.set(0.0f, 1.0f, 0.0f);
+	   pPlanes[4].set(vcN, vcMax);
 
 	   // bottom side
-	   vcN.Set(0.0f, -1.0f, 0.0f);
-	   pPlanes[5].Set(vcN, vcMin);
-	} // Intersects(point)
+	   vcN.set(0.0f, -1.0f, 0.0f);
+	   pPlanes[5].set(vcN, vcMin);
+	} // intersects(point)
 
 }
 

@@ -27,6 +27,7 @@ win32_app("views") {
     "//src/plugin/orthogrid:orthogrid_views",
     "//src/plugin/print:print_views",
     "//src/plugin/proj:proj_views",
+    "//src/sdb/tile:tile",
     "//src/tool:dispatch",
     "//src/ui/views:views",
   ]

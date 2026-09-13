@@ -207,9 +207,9 @@ namespace base
 
 #if !defined(STYLE_EXPORTS)
 #if   defined( _DEBUG)
-#          pragma comment(lib,"styleD.lib")
+#          pragma comment(lib,"base_d.lib")
 #       else
-#          pragma comment(lib,"style.lib")
+#          pragma comment(lib,"base.lib")
 #	    endif  
 #endif
 

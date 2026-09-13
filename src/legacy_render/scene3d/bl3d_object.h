@@ -75,8 +75,8 @@ namespace render
 			m_vOrgPos	  = vPos;
 			m_matMaterial = matMaterial;
 			m_strTexName  = szTexName;
-			m_mtxModel.Identity();
-			m_mtxWorld.Identity();
+			m_mtxModel.identity();
+			m_mtxWorld.identity();
 
 			return SMT_ERR_NONE;
 		} 

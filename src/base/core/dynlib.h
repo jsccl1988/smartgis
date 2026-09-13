@@ -44,9 +44,9 @@ namespace base
 
 #if !defined(CORE_EXPORTS)
 #if   defined( _DEBUG)
-#          pragma comment(lib,"coreD.lib")
+#          pragma comment(lib,"base_d.lib")
 #       else
-#          pragma comment(lib,"core.lib")
+#          pragma comment(lib,"base.lib")
 #	    endif  
 #endif
 

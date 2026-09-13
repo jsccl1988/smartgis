@@ -164,9 +164,9 @@ namespace render
 
 #if !defined(RENDER_GDI_SIMPLE_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "render_gdi_simpleD.lib")
+#pragma comment(lib, "legacy_render_d.lib")
 #else
-#pragma comment(lib, "render_gdi_simple.lib")
+#pragma comment(lib, "legacy_render.lib")
 #endif
 #endif
 

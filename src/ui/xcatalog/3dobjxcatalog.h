@@ -1,11 +1,11 @@
 /*
 File:    cata_3dobjxcatalog.h  
 
-Desc:    Smt3DObjXCatalog,Smt 3D Object Catalog �̳���SmtXCatalog
+Desc:    Smt3DObjXCatalog,Smt 3D Object Catalog 锟教筹拷锟斤拷SmtXCatalog
 
 Version: Version 1.0
 
-Writter:  �´���
+Writter:  锟铰达拷锟斤拷
 
 Date:    2010.11.17
 
@@ -53,23 +53,23 @@ namespace ui
 		
 	public:
 		CString						GetSelObjName(void) { return m_strSelObjName;}
-		bool						Update3DObjTree();    //������ά������
+		bool						Update3DObjTree();    //锟斤拷锟斤拷锟斤拷维锟斤拷锟斤拷锟斤拷
 
 	protected:
 		DECLARE_MESSAGE_MAP()
 
 	protected:
 		CImageList					m_imgList;
-		HTREEITEM					m_hRoot;             //���ڵ�
+		HTREEITEM					m_hRoot;             //锟斤拷锟节碉拷
 		CString						m_strSelObjName;
 	};
 }
 
 #if !defined(XCATALOG_EXPORTS)
 #if     defined( _DEBUG)
-#          pragma comment(lib,"xcatalogD.lib")
+#          pragma comment(lib,"ui_legacy_d.lib")
 #       else
-#          pragma comment(lib,"xcatalog.lib")
+#          pragma comment(lib,"ui_legacy.lib")
 #	    endif
 #endif
 

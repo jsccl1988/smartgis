@@ -9,7 +9,7 @@ SmartGIS 渲染终局树：只保留 RHI / GpuScene / Skia / 场景数学。2010
 | `rhi/` | 统一 2D+3D Facade（FlyCube DX12/Vulkan）；公开头零 FlyCube 类型 |
 | `scene/` | `render::scene::GpuScene`（GPU 实例 / 录制）；不含 `leftover_*` |
 | `skia/` | 桌面壳画布（默认 GDI stub；`smt_has_skia` 可选真 Skia）；**不是** GIS GPU；**不**进 `render_all` / `src_all` |
-| `math/` | 场景数学（Eigen Vector / Matrix / Aabb 等） |
+| `math/` | 场景数学（Eigen POD 适配：`math.h` 聚合；禁 glm；可选 AVX2 SIMD） |
 
 GN：`//src/render:render_all` 进日常 `src_all`。leftover DLL 另编 `//src/legacy_render:legacy_render_all`（默认不进 `src_all`）。
 

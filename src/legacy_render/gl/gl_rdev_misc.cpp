@@ -118,11 +118,11 @@ namespace render
 		{
 			// ��ȡ���ü����ϵĽ���
 			gluUnProject( fWinX, fWinY,0.1, modelview, projection,viewport,&_x,&_y,&_z); 
-			vOrg.Set(_x,_y,_z);
+			vOrg.set(_x,_y,_z);
 
 			// ��ȡԶ�ü����ϵĽ���
 			gluUnProject( fWinX, fWinY,fWinZ, modelview, projection,viewport,&_x,&_y,&_z); 
-			vTar.Set(_x,_y,_z);
+			vTar.set(_x,_y,_z);
 		}
 		
 		return SMT_ERR_NONE;

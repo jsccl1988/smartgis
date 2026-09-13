@@ -1,11 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Provider drivers (QGIS providers/*, GDAL/OGR drivers). Each device is its own DLL.
+# Provider drivers (QGIS providers/*, GDAL/OGR drivers). Merged into //src/sdb:sdb.
 group("datasource") {
-  deps = [
-    "//src/sdb/datasource/gdal:sde_gdal",
-    "//src/sdb/datasource/mem:sde_mem",
-    "//src/sdb/datasource/mgr:sde_mgr",
-  ]
+  public_deps = [ "//src/sdb:sdb" ]
 }

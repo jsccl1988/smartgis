@@ -3,24 +3,30 @@
 
 import("//build/smartgis.gni")
 
-smt_shared_library("render_gdi_simple") {
-  dll_stem = "render_gdi_simple"
-  defines = [ "RENDER_GDI_SIMPLE_EXPORTS" ]
-  sources = [
-    "gdi_aux_api.cpp",
-    "gdi_bufpool.cpp",
-    "gdi_renderbuf.cpp",
-    "gdi_simplerenderdevice.cpp",
+# Device only — shared aux/bufpool/renderbuf come from gdi:gdi_common_sources.
+# Factory exports CreateGdiSimpleRenderDevice (not CreateRenderDevice) so both
+# GDI devices can live in legacy_render.dll.
+source_set("render_gdi_simple_sources") {
+  sources = [ "gdi_simplerenderdevice.cpp" ]
+  configs += [
+    "//build:legacy",
+    "//src/legacy_render:legacy_render_exports",
   ]
+  defines = [ "_USRDLL" ]
   deps = [
+    "//src/algorithm/geo:geo",
     "//src/base:base",
     "//src/base:core",
-    "//src/algorithm/geo:geo",
-    "//src/sdb/map:gis",
-    "//src/sdb/datasource/gdal:ogr_codec",
     "//src/legacy_render/bridge:leftover_record",
-    "//src/legacy_render/bridge:render",
+    "//src/legacy_render/bridge:render_sources",
+    "//src/legacy_render/gdi:gdi_common_sources",
+    "//src/sdb/datasource/gdal:ogr_codec",
+    "//src/sdb/map:gis",
     "//third_party:CxImage",
     "//third_party:gdal",
   ]
+}
+
+group("render_gdi_simple") {
+  public_deps = [ "//src/legacy_render:legacy_render" ]
 }

@@ -4,7 +4,6 @@
 #include "sdb/datasource/mgr/datasourcemgr.h"
 
 #include "base/core/api.h"
-#include "sdb/datasource/mem/mem.h"
 #include "sdb/datasource/gdal/gdal_driver.h"
 #include "sdb/datasource/gdal/ogr_raster_layer.h"
 #include "sdb/datasource/gdal/sdbd_dataset.h"
@@ -72,23 +71,6 @@ SmtRasterLayer* SmtDataSourceMgr::CreateMemRasLayer() {
 }
 
 void SmtDataSourceMgr::DestoryMemRasLayer(SmtRasterLayer*& pLayer) {
-  SMT_SAFE_DELETE(pLayer);
-}
-
-SmtTileLayer* SmtDataSourceMgr::CreateMemTileLayer() {
-  auto* layer = new SmtMemTileLayer();
-  fRect lyrRect;
-  lyrRect.lb.x = 0;
-  lyrRect.lb.y = 0;
-  lyrRect.rt.x = 500;
-  lyrRect.rt.y = 500;
-  layer->SetLayerName("SmtMemTileLayer");
-  layer->SetLayerRect(lyrRect);
-  layer->Create();
-  return layer;
-}
-
-void SmtDataSourceMgr::DestoryMemTileLayer(SmtTileLayer*& pLayer) {
   SMT_SAFE_DELETE(pLayer);
 }
 

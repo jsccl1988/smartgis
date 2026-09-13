@@ -243,7 +243,7 @@ bool MapViewport::attach() {
     }
     if (try_local_device()) {
       mode_ = AttachMode::kLocalDevice;
-      status_ = L"SmtRenderDevice::Init (LoadLibrary)";
+      status_ = L"CreateRenderDevice (LoadLibrary)";
       return true;
     }
   }
@@ -476,16 +476,14 @@ bool MapViewport::try_flycube_device() {
 }
 
 bool MapViewport::try_local_device() {
+  // Device DLLs that export CreateRenderDevice (current dll_stem + _d).
   const wchar_t* names[] = {
-      L"SmtGdiRenderDeviceD.dll",
-      L"SmtGdiSimpleRenderDeviceD.dll",
-      L"SmtGdiRenderDevice.dll",
-      L"SmtGdiSimpleRenderDevice.dll",
-      L"SmtGdiSRenderDevice.dll",
-      L"SmtGLRenderDeviceD.dll",
-      L"SmtGLRenderDevice.dll",
-      L"SmtRenderD.dll",
-      L"SmtRender.dll",
+      L"render_gdi_simple_d.dll",
+      L"render_gdi_d.dll",
+      L"render_gl_d.dll",
+      L"render_gdi_simple.dll",
+      L"render_gdi.dll",
+      L"render_gl.dll",
       nullptr,
   };
   local_module_ = load_first(names);

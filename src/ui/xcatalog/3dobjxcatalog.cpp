@@ -89,9 +89,9 @@ namespace ui
 
 		// TODO:  �ڴ�������ר�õĴ�������
 #ifdef _DEBUG
-		HINSTANCE   hInstance  =  ::GetModuleHandle("SmtXCatalogCoreD.dll");
+		HINSTANCE   hInstance  =  ::GetModuleHandle("ui_legacy_d.dll");
 #else
-		HINSTANCE   hInstance  =  ::GetModuleHandle("SmtXCatalogCore.dll");
+		HINSTANCE   hInstance  =  ::GetModuleHandle("ui_legacy.dll");
 #endif
 
 		m_imgList.Create(16,16,ILC_COLOR16|ILC_MASK,1,0);

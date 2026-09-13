@@ -44,12 +44,12 @@ template("smt_shared_library") {
     defines += [ "_USRDLL" ]
     if (defined(invoker.dll_stem)) {
       if (is_debug) {
-        output_name = invoker.dll_stem + "D"
+        output_name = invoker.dll_stem + "_d"
       } else {
         output_name = invoker.dll_stem
       }
     } else if (is_debug && !defined(invoker.output_name)) {
-      output_name = target_name + "D"
+      output_name = target_name + "_d"
     }
   }
 }

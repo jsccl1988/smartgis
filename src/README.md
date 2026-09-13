@@ -10,7 +10,7 @@ GN targets keep short names (`sde_gdal`, `render_gl`). DLL stems stay `Smt*` (`d
 | --- | --- | --- |
 | **app** | `app/`, `app/{app_core,views,winui}` | Product hosts. No `src/chrome/`. Namespace `app` (+ `detail`). |
 | **content** | `content/public` | Stable map/session/view API. App/UI hosts include only this — not sdb or render devices. Local chrome tools: `ViewHost` / `LocalToolRouter` (Workspace + EventBus + EditSession); leftover IPC is the OOP adapter. |
-| **sdb** | `sdb/{feature,layer,map,crs,datasource/*,model,scene}` | Spatial DB / GIS model + CPU models / World. GDAL decorator driver `"SDBD"` (`SdbdDataset` owns stock inner datasets). |
+| **sdb** | `sdb/{feature,layer,map,crs,datasource/*,model,scene,tile}` | Spatial DB / GIS model + CPU models / World + HTTP XYZ tiles. GDAL decorator driver `"SDBD"` (`SdbdDataset` owns stock inner datasets). |
 | **render** | `render/` + RHI + GPU scene | Unified 2D+3D via `render/rhi` (FlyCube DX12/Vulkan). `gpu/` is the process. |
 | **base** | `base/{core,style,ipc}` | `core` = `SmtCore`; `style` = `SmtBaseLib` (cartographic style + Envelope); `ipc` = named pipe + pickle. |
 
@@ -18,7 +18,7 @@ GN targets keep short names (`sde_gdal`, `render_gl`). DLL stems stay `Smt*` (`d
 
 | QGIS / GDAL / GEOS / PROJ | This repo |
 | --- | --- |
-| `providers/*`, OGR drivers | `src/sdb/datasource/{mem,gdal}`（`smf` / `ws` 目录已移除；文件打开走 GDAL / `SDBD`） |
+| `providers/*`, OGR drivers | `src/sdb/datasource/gdal`（`mem` / `smf` / `ws` 目录已移除；文件/内存矢量打开走 GDAL / `SDBD`） |
 | `QgsFeature` / `QgsVectorLayer` / `QgsProject` | `OGRFeature` / `OGRLayer` / `SmtMap` (`sdb/feature` keeps `SmtFeatureType` only) |
 | `QgsCoordinateReferenceSystem` | `src/sdb/crs` (id on the layer); transforms in `algorithm/proj` |
 | GEOS predicates/ops | Call `OGRGeometry` (`Intersects` / `Buffer` / …); GEOS is inside `//third_party:gdal`. `SmtGeoCore` is TIN/grid/surface meshes only. Delaunay: `src/algorithm/tin`. Do not vendor a second GEOS |
@@ -43,7 +43,7 @@ GN targets keep short names (`sde_gdal`, `render_gl`). DLL stems stay `Smt*` (`d
 
 ## GDAL seam
 
-`src/sdb/datasource/gdal` (`SmtSDEGdalDevice`) registers the in-tree **SDBD** GDAL driver (`GDALOpenEx("SDBD:MEM:…")` / `SDBD:GPKG:…`). Layer management is `GDALDataset` / `OGRLayer` / `OGRFeature`, not `SmtDataSource` / `SmtVectorLayer` / `SmtFeature`. Raster scratch: `CreateMemRasLayer` → `OgrRasterLayer` + GDAL **MEM** (`/vsimem` encoded blob). `SmtMemRasLayer` removed; `mem/` keeps tiles only. Missing GPKG/PostgreSQL drivers fail Open honestly. No second GDAL tree.
+`src/sdb/datasource/gdal` (`SmtSDEGdalDevice`) registers the in-tree **SDBD** GDAL driver (`GDALOpenEx("SDBD:MEM:…")` / `SDBD:GPKG:…`). Layer management is `GDALDataset` / `OGRLayer` / `OGRFeature`, not `SmtDataSource` / `SmtVectorLayer` / `SmtFeature`. Product fields are OGR only — `SmtAttribute`/`SmtField` left `gis` (optional leftover `//src/sdb/map:leftover_attr`; MFC att UI reads `OGRLayer`). Raster scratch: `CreateMemRasLayer` → `OgrRasterLayer` + GDAL **MEM** (`/vsimem` encoded blob；`Open(文件)` 回填 blob). `SmtMemRasLayer` / `SmtMemTileLayer` / `CreateMemTileLayer` removed (`sde_mem` DLL gone). 2D tiles: `src/sdb/tile` (`TileProvider` + LRU/disk + WMTS parse + `make_xyz_map_layer` via `net::HttpClient` HTTPS; Views `AddBasemapDialog`; not OGR / `SDBD:MEM`). Missing GPKG/PostgreSQL drivers fail Open honestly. No second GDAL tree.
 
 ## Model v1 (`sdb::model`)
 

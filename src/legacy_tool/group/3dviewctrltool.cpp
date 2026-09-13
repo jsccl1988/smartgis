@@ -105,7 +105,7 @@ namespace tool
 		if (m_pScene)
 		{
 			Aabb aabb = m_pScene->GetAabb();
-			m_pCamera->SetMoveStep((aabb.vcMax - aabb.vcMin).GetLength() / step_div);
+			m_pCamera->SetMoveStep((aabb.vcMax - aabb.vcMin).length() / step_div);
 			m_pScene->SetSceneCamera(m_pCamera);
 		}
 	}
@@ -146,7 +146,7 @@ namespace tool
 
 						m_pCamera->SetViewport(viewport);
 						m_pCamera->SetETU(m_vOrgEye,m_vOrgTarget,m_vOrgUp);
-						m_pCamera->SetMoveStep((aabb.vcMax-aabb.vcMin).GetLength()/100);
+						m_pCamera->SetMoveStep((aabb.vcMax-aabb.vcMin).length()/100);
 					}
 				}
 				break;
@@ -207,7 +207,7 @@ namespace tool
 
 					m_pCamera->SetViewport(viewport);
 					m_pCamera->SetETU(m_vOrgEye,m_vOrgTarget,m_vOrgUp);
-					m_pCamera->SetMoveStep((aabb.vcMax-aabb.vcMin).GetLength()/100);
+					m_pCamera->SetMoveStep((aabb.vcMax-aabb.vcMin).length()/100);
 				}
 				SetActive();
 				return SMT_ERR_NONE;
@@ -474,13 +474,13 @@ namespace tool
 				deltV = (curPos - m_vPrePos);
 				if (deltV.x || deltV.y || deltV.z)
 				{
-					m_fAngle = 90.0f * deltV.GetLength();
-					m_vAxis = m_vPrePos.CrossProduct(curPos);
+					m_fAngle = 90.0f * deltV.length();
+					m_vAxis = m_vPrePos.cross(curPos);
 					m_vPrePos = curPos;
 					if (m_pScene)
 					{
 						Matrix mat;
-						mat.RotaArbi(m_vAxis, -m_fAngle * PI / 180.);
+						mat.rotate_axis(m_vAxis, -m_fAngle * PI / 180.);
 						m_pScene->TransWorld3DObjects(mat);
 					}
 				}
@@ -502,6 +502,6 @@ namespace tool
 		vec.y = (m_nWinHeight-2.0f*pos.y) / m_nWinHeight;
 		d= (float)sqrt(vec.x*vec.x+vec.y*vec.y);
 		vec.z=(float)cos ( (PI/2.0F)* ( (d<1.0) ? d : 1.0f ) );	
-		vec.Normalize();
+		vec.normalize();
 	}
 }

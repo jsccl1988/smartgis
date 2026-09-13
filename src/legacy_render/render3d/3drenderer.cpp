@@ -22,39 +22,27 @@ namespace render
 		{
 
 #ifdef _DEBUG
-			m_hDLL = LoadLibrary("render_glD.dll");
+			m_hDLL = LoadLibrary("legacy_render_d.dll");
 			if(!m_hDLL) 
 			{
-				::MessageBox(NULL,"Loading render_glD.dll failed.","SmartGis - error", MB_OK | MB_ICONERROR);
+				::MessageBox(NULL,"Loading legacy_render_d.dll failed.","SmartGis - error", MB_OK | MB_ICONERROR);
 				return SMT_FALSE;
 			}
 #else
-			m_hDLL = LoadLibrary("render_gl.dll");
+			m_hDLL = LoadLibrary("legacy_render.dll");
 			if(!m_hDLL) 
 			{
-				::MessageBox(NULL,"Loading render_gl.dll failed.","SmartGis - error", MB_OK | MB_ICONERROR);
+				::MessageBox(NULL,"Loading legacy_render.dll failed.","SmartGis - error", MB_OK | MB_ICONERROR);
 				return SMT_FALSE; 
 			}
 #endif
 		}
 		else if (strcmp(chAPI, "Direct3D") == 0) 
 		{
-
-#ifdef _DEBUG
-			m_hDLL = LoadLibrary("SmtD3DRenderDeviceD.dll");
-			if(!m_hDLL) 
-			{
-				::MessageBox(NULL,"Loading SmtD3DRenderDeviceD.dll from lib failed.","SmartGis - error", MB_OK | MB_ICONERROR);
-				return SMT_FALSE;
-			}
-#else
-			m_hDLL = LoadLibrary("SmtD3DRenderDevice.dll");
-			if(!m_hDLL) 
-			{
-				::MessageBox(NULL,"Loading SmtD3DRenderDevice.dll from lib failed.","SmartGis - error", MB_OK | MB_ICONERROR);
-				return SMT_FALSE; 
-			}
-#endif
+			// No Direct3D device DLL in the reorg topology (only render_gl).
+			::MessageBox(NULL, "Direct3D render device is not supported.",
+			             "SmartGis - error", MB_OK | MB_ICONERROR);
+			return SMT_FALSE;
 		}
 		else 
 		{

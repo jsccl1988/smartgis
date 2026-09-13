@@ -2,25 +2,46 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//testing/test.gni")
 
-# Scene/render math: Eigen-backed Vector/Matrix plus leftover Aabb/Obb/Plane/Ray.
-config("math_headers") {
-  include_dirs += [
-    ".",
-    "//src/base/core",
-  ]
+declare_args() {
+  # Optional float32 AVX2 batch path in render/math. Default: scalar.
+  smt_render_math_simd = false
 }
 
-# Header-only Eigen adapters (`mathlib_3d.h` / `mathlib.h`).
+# Scene/render math: Eigen-backed Vector/Matrix plus bounds / frustum / SIMD.
+# Also chained into //src/render:render, but labels stay source_sets (not
+# group→DLL) so algorithm/legacy can use Eigen math without linking render.dll.
+# Do not add this directory itself to include_dirs: a local math.h would
+# shadow the system <math.h> and break Eigen / <cmath> on MSVC.
+config("math_headers") {
+  include_dirs += [ "//src" ]
+}
+
+config("math_simd_avx2") {
+  defines = [ "SMT_RENDER_MATH_SIMD=1" ]
+  if (is_win) {
+    cflags = [ "/arch:AVX2" ]
+  } else {
+    cflags = [ "-mavx2" ]
+  }
+}
+
+# Header-only Eigen adapters + optional SIMD TU.
+# Do not public_dep //src/base:core: that label now forwards to the base DLL
+# merge and would pull unrelated rebuilds into every math consumer.
 source_set("math") {
   public_configs = [ ":math_headers" ]
-  public_deps = [
-    "//src/base:core",
-    "//third_party:eigen",
-  ]
+  public_deps = [ "//third_party:eigen" ]
+  sources = [ "simd.cc" ]
+  if (smt_render_math_simd) {
+    configs += [ ":math_simd_avx2" ]
+  }
 }
 
-# Oriented / axis-aligned boxes, planes, and rays. Eigen does not ship these.
+# Oriented / axis-aligned boxes, planes, rays, frustum.
+# Bounds TUs need base/core headers (macros / is_equal); //build:legacy
+# already adds //src. Link against base happens at the final DLL/exe.
 source_set("bounds") {
   configs += [ "//build:legacy" ]
   sources = [
@@ -28,7 +49,19 @@ source_set("bounds") {
     "obb.cpp",
     "plane.cpp",
     "ray.cpp",
+    "frustum.cpp",
   ]
   public_deps = [ ":math" ]
-  deps = [ "//src/base:core" ]
+}
+
+test("math_test") {
+  output_name = "math_test"
+  sources = [ "math_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":bounds",
+    ":math",
+    # Aabb::is_init calls is_equal from base/core.
+    "//src/base:base",
+  ]
 }

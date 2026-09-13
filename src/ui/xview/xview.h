@@ -1,11 +1,11 @@
 /*
 File:    vw_xview.h 
 
-Desc:    SmtXView,Smt View �̳���CView
+Desc:    SmtXView,Smt View 锟教筹拷锟斤拷CView
 
 Version: Version 1.0
 
-Writter:  �´���
+Writter:  锟铰达拷锟斤拷
 
 Date:    2010.11.17
 
@@ -31,7 +31,7 @@ class ViewHost;
 
 #define CPtTolPt(cpt) (lPoint(cpt.x,cpt.y))
 
-// SmtXView ��ͼ
+// SmtXView 锟斤拷图
 namespace ui
 {
 	class XVIEW_EXPORT SmtXView : public CView,public SmtListener
@@ -105,9 +105,9 @@ namespace ui
 
 #if !defined(XVIEW_EXPORTS)
 #if     defined( _DEBUG)
-#          pragma comment(lib,"xviewD.lib")
+#          pragma comment(lib,"ui_legacy_d.lib")
 #       else
-#          pragma comment(lib,"xview.lib")
+#          pragma comment(lib,"ui_legacy.lib")
 #	    endif
 #endif
 

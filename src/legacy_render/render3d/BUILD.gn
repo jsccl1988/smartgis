@@ -3,9 +3,8 @@
 
 import("//build/smartgis.gni")
 
-smt_shared_library("render3d") {
-  dll_stem = "render3d"
-  defines = [ "RENDER3D_EXPORTS" ]
+# Compiled into //src/legacy_render:legacy_render (dll_stem = legacy_render).
+source_set("render3d_sources") {
   sources = [
     "3dmaterial.cpp",
     "3drenderer.cpp",
@@ -28,6 +27,11 @@ smt_shared_library("render3d") {
     "texturemanager.cpp",
     "videobuffer.cpp",
   ]
+  configs += [
+    "//build:legacy",
+    "//src/legacy_render:legacy_render_exports",
+  ]
+  defines = [ "_USRDLL" ]
   public_deps = [ "//src/render/math:math" ]
   deps = [
     "//src/algorithm/geo:geo",
@@ -35,4 +39,8 @@ smt_shared_library("render3d") {
     "//src/base:core",
     "//third_party:CxImage",
   ]
+}
+
+group("render3d") {
+  public_deps = [ "//src/legacy_render:legacy_render" ]
 }

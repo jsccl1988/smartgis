@@ -1,11 +1,11 @@
 /*
 File:    sta_api.h
 
-Desc:    SmartGis ͳ��ͼ����API
+Desc:    SmartGis 统锟斤拷图锟斤拷锟斤拷API
 
 Version: Version 1.0
 
-Writter:  �´���
+Writter:  锟铰达拷锟斤拷
 
 Date:    2012.8.22
 
@@ -31,9 +31,9 @@ long		STAT_CHART_EXPORT		SmtPlot(const vPoints &points,const char * szTitle,cons
 
 #if !defined(STAT_CHART_EXPORTS)
 #if   defined( _DEBUG)
-#          pragma comment(lib,"stat_chartD.lib")
+#          pragma comment(lib,"ui_legacy_d.lib")
 #       else
-#          pragma comment(lib,"stat_chart.lib")
+#          pragma comment(lib,"ui_legacy.lib")
 #	    endif  
 #endif
 

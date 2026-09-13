@@ -43,9 +43,9 @@ namespace ui
 
 #if !defined(XAMBOX_EXPORTS)
 #if     defined( _DEBUG)
-#          pragma comment(lib,"xamboxD.lib")
+#          pragma comment(lib,"ui_legacy_d.lib")
 #       else
-#          pragma comment(lib,"xambox.lib")
+#          pragma comment(lib,"ui_legacy.lib")
 #	    endif
 #endif
 

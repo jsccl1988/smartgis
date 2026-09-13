@@ -3,18 +3,24 @@
 
 import("//build/smartgis.gni")
 
-smt_shared_library("sde_mgr") {
-  dll_stem = "sde_mgr"
-  defines = [ "SDE_MGR_EXPORTS" ]
+# Compiled into //src/sdb:sdb (dll_stem = sdb).
+# No deps on //src/sdb/map:gis or :sde_gdal groups (same DLL — avoid GN cycles).
+source_set("sde_mgr_sources") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "SDE_MGR_EXPORTS",
+  ]
   sources = [ "datasourcemgr.cpp" ]
   include_dirs += [ "//src" ]
   deps = [
+    "//src/algorithm/geo:geo",
     "//src/base:base",
     "//src/base:core",
-    "//src/algorithm/geo:geo",
-    "//src/sdb/map:gis",
-    "//src/sdb/datasource/gdal:sde_gdal",
-    "//src/sdb/datasource/mem:sde_mem",
     "//third_party:gdal",
   ]
+}
+
+group("sde_mgr") {
+  public_deps = [ "//src/sdb:sdb" ]
 }

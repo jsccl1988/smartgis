@@ -11,7 +11,7 @@
 
 #include "algorithm/tin/tin.h"
 #include "base/core/core.h"
-#include "render/math/mathlib_3d.h"
+#include "render/math/math.h"
 
 namespace plugin {
 

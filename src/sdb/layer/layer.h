@@ -5,7 +5,6 @@
 #define _GIS_SDE_H
 
 #include "sdb/feature/feature.h"
-#include "sdb/feature/attribute.h"
 #include "sdb/datasource/gdal/ogr_feature_codec.h"
 #include "algorithm/geo/geometry.h"
 #include "ogrsf_frmts.h"
@@ -206,15 +205,12 @@ inline const char* layer_feature_type_name(uint ftType) {
 class SmtLayer {
  public:
   explicit SmtLayer(GDALDataset* owner = nullptr)
-      : m_pOwnerDs(owner),
-        m_pAtt(nullptr),
-        m_bIsVisible(true),
-        m_bOpen(false) {
+      : m_pOwnerDs(owner), m_bIsVisible(true), m_bOpen(false) {
     m_szLayerName[0] = '\0';
     m_szSRS[0] = '\0';
   }
 
-  virtual ~SmtLayer() { SMT_SAFE_DELETE(m_pAtt); }
+  virtual ~SmtLayer() = default;
 
   GDALDataset* GetDataset() { return m_pOwnerDs; }
   const GDALDataset* GetDataset() const { return m_pOwnerDs; }
@@ -227,14 +223,6 @@ class SmtLayer {
   virtual bool Fetch(eSmtFetchType type = FETCH_ALL) = 0;
 
   bool IsOpen() const { return m_bOpen; }
-
-  void SetAttribute(const SmtAttribute* pAtt) {
-    SMT_SAFE_DELETE(m_pAtt);
-    m_pAtt = pAtt ? pAtt->clone() : nullptr;
-  }
-
-  SmtAttribute* GetAttribute() { return m_pAtt; }
-  const SmtAttribute* GetAttribute() const { return m_pAtt; }
 
   void get_envelope(Envelope& env) const {
     memcpy(&env, &m_lyrEnv, sizeof(Envelope));
@@ -263,7 +251,6 @@ class SmtLayer {
 
  protected:
   GDALDataset* m_pOwnerDs;
-  SmtAttribute* m_pAtt;
   Envelope m_lyrEnv;
   char m_szLayerName[MAX_LAYER_NAME];
   char m_szSRS[MAX_LAYER_SRS_NAME];

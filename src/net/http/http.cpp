@@ -5,6 +5,11 @@
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0A00
 #endif
+
+// Must precede httplib.h. OpenSSL linked via //third_party:openssl.
+#ifndef CPPHTTPLIB_OPENSSL_SUPPORT
+#define CPPHTTPLIB_OPENSSL_SUPPORT
+#endif
 #include "httplib.h"
 
 #include "net/http/http.h"
@@ -44,6 +49,13 @@ void apply_timeout(httplib::Client* cli, int timeout_sec) {
   cli->set_write_timeout(sec, 0);
 }
 
+void apply_ssl(httplib::Client* cli, bool verify) {
+  if (cli == nullptr) {
+    return;
+  }
+  cli->enable_server_certificate_verification(verify);
+}
+
 HttpResult from_response(const httplib::Result& res, const char* what) {
   HttpResult out;
   if (!res) {
@@ -71,6 +83,7 @@ HttpResult HttpClient::get(const std::string& url, int timeout_sec) {
   }
   httplib::Client cli(origin);
   apply_timeout(&cli, timeout_sec);
+  apply_ssl(&cli, ssl_verify_);
   return from_response(cli.Get(path), "connect failed");
 }
 
@@ -85,6 +98,7 @@ HttpResult HttpClient::post(const std::string& url, const std::string& body,
   }
   httplib::Client cli(origin);
   apply_timeout(&cli, timeout_sec);
+  apply_ssl(&cli, ssl_verify_);
   return from_response(cli.Post(path, body, content_type), "connect failed");
 }
 

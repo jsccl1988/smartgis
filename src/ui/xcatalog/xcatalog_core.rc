@@ -55,51 +55,12 @@ BEGIN
     "LANGUAGE 4, 2\r\n"
     "#pragma code_page(936)\r\n"
     "#include ""res\\xcatalog_core.rc2""  // 非 Microsoft Visual C++ 编辑的资源\r\n"
-    "#include ""l.CHS\\afxres.rc""      // 标准组件\r\n"
     "#endif\r\n"
     "\0"
 END
 
 #endif    // APSTUDIO_INVOKED
 
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// Version
-//
-
-VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,1
- PRODUCTVERSION 1,0,0,1
- FILEFLAGSMASK 0x3fL
-#ifdef _DEBUG
- FILEFLAGS 0x1L
-#else
- FILEFLAGS 0x0L
-#endif
- FILEOS 0x4L
- FILETYPE 0x2L
- FILESUBTYPE 0x0L
-BEGIN
-    BLOCK "StringFileInfo"
-    BEGIN
-        BLOCK "080403a8"
-        BEGIN
-            VALUE "CompanyName", "TODO: <公司名>"
-            VALUE "FileDescription", "TODO: <文件说明>"
-            VALUE "FileVersion", "1.0.0.1"
-            VALUE "InternalName", "SmtXCatalogCore.dll"
-            VALUE "LegalCopyright", "TODO: (C) <公司名>。保留所有权利。"
-            VALUE "OriginalFilename", "SmtXCatalogCore.dll"
-            VALUE "ProductName", "TODO: <产品名>"
-            VALUE "ProductVersion", "1.0.0.1"
-        END
-    END
-    BLOCK "VarFileInfo"
-    BEGIN
-        VALUE "Translation", 0x804, 936
-    END
-END
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -347,6 +308,8 @@ IDI_ICON_HOME           ICON                    "res\\startPage.ico"
 IDI_ICON_DB             ICON                    "res\\自动入库.ico"
 IDI_ICON_DS             ICON                    "res\\ico00001.ico"
 IDI_ICON_OBJ_UV         ICON                    "res\\icon_obj.ico"
+IDI_ICON_AMBOX          ICON                    "../xambox/res/功能包.ico"
+IDI_ICON_AMBOX_ITEM     ICON                    "../xambox/res/功能项.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -382,7 +345,9 @@ END
 LANGUAGE 4, 2
 #pragma code_page(936)
 #include "res\xcatalog_core.rc2"  // 非 Microsoft Visual C++ 编辑的资源
-#include "l.CHS\afxres.rc"      // 标准组件
+#ifndef _AFXDLL
+#include "l.CHS\\afxres.rc"
+#endif
 #endif
 
 /////////////////////////////////////////////////////////////////////////////

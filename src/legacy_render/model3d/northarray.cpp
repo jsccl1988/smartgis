@@ -98,7 +98,7 @@ namespace render
 	{
 		Vector3 vDir = m_pCamera->GetTarget() - m_pCamera->GetEye();
 		vDir.y = 0;
-		vDir.Normalize();
+		vDir.normalize();
 		m_fNorthPtAngle = RAD2DEG(acosf(vDir.z));
 		if (vDir.x < 0)
 		{

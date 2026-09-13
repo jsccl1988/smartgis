@@ -48,6 +48,8 @@
 #define IDI_ICON_DB                     2009
 #define IDI_ICON_DS                     2011
 #define IDI_ICON_OBJ_UV                 2012
+#define IDI_ICON_AMBOX                  3001
+#define IDI_ICON_AMBOX_ITEM             3002
 #define IDR_MENU_3DMGR                  2012
 #define IDR_MENU_MSERVICEMGR            2013
 #define ID_32771                        32771

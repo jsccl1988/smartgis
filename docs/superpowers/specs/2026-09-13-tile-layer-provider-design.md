@@ -6,7 +6,7 @@ All rights reserved.
 # 2D 地图瓦片：独立 Tile Provider
 
 **Date:** 2026-09-13  
-**Status:** active  
+**Status:** active — Phase 0–2 (LRU + disk + WMTS parse + HTTPS via net/OpenSSL + Views AddBasemap) landed 2026-09-14  
 **Scope:** 产品地图上的 **2D 瓦片图层**（XYZ / WMTS 一类 HTTP(S) 栅格瓦片）的数据面与挂接。不管桌面 chrome；不管 GDAL 文件/库/内存矢量；不管 GDAL 栅格文件路径（另一 agent）。
 
 **Sibling:**
@@ -22,7 +22,7 @@ All rights reserved.
 
 1. 打开 URL 模板或 WMTS 能力描述 → 按视口请求瓦片字节 → 交给现有 tessellate / GpuScene 画 textured quad。
 2. 明确产品类型：`kind=tile` / leftover `LYR_TITLE`，**不是** `OGRLayer`，**不是** GDAL Memory 矢量/栅格草稿。
-3. 切除已死的 `datasource/ws` 工厂语义；最终删除 `SmtMemTileLayer` 指针表作为产品路径。
+3. 切除已死的 `datasource/ws` 工厂语义；**已删除** `SmtMemTileLayer` 指针表与 `CreateMemTileLayer` 死工厂（`sde_mem` DLL / `datasource/mem` 已离树）。
 
 ## Non-goals
 
@@ -41,10 +41,14 @@ All rights reserved.
 
 | 符号 | 位置 | 语义 |
 | --- | --- | --- |
-| `SmtTileLayer` | `src/sdb/layer/layer.h` | 抽象层；`GetLayerType() == LYR_TITLE`；游标 + `AppendTile` / `GetTile*` |
+| `SmtTileLayer` | `src/sdb/layer/layer.h` | 抽象层；`GetLayerType() == LYR_TITLE`；游标 + `AppendTile` / `GetTile*`（**保留**；render/scene/tessellate 仍依赖） |
+| `sdb::tile::TileProvider` | `src/sdb/tile/` | HTTP(S) XYZ / WMTS 模板供给；进程内 LRU + 可选磁盘缓存；`ProviderTileLayer`；`make_xyz_map_layer` / `make_wmts_*` |
+| `sdb::tile::TileCache` | `src/sdb/tile/tile_cache.h` | 进程内 LRU（默认 256） |
+| `sdb::tile::TileDiskCache` | `src/sdb/tile/tile_disk_cache.*` | 可选磁盘缓存（目录可配、有界 entry） |
+| `sdb::tile::parse_wmts_capabilities` | `src/sdb/tile/wmts.*` | 最小 Capabilities → URL 模板 |
 | `base::SmtTile` | `src/base/core/bas_struct.h` | `pTileBuf` + `lTileBufSize` + `rtTileRect` + `lImageCode`；`typedef SmtWSTile` |
-| `SmtMemTileLayer` | `src/sdb/datasource/mem/`（`mem.h` / `memtitlelayer.cpp`） | **`vector<SmtTile*>` 指针表**，不是 GDAL Memory |
-| `CreateMemTileLayer` | `SmtDataSourceMgr` | 仍 `new SmtMemTileLayer()`；默认 0–500 包络 |
+| `SmtMemTileLayer` | *(removed)* | 曾为 `vector<SmtTile*>` 指针表；死工厂已切除 |
+| `CreateMemTileLayer` | *(removed from `SmtDataSourceMgr`)* | 无外部调用方；已安全删除 |
 
 ### 已删 WS 死树 vs 枚举残留
 
@@ -71,7 +75,7 @@ gdal-layer-management 里「v1 继续 `new SmtWSDataSource`」已过时：工厂
 
 | 概念 | 本文？ | 说明 |
 | --- | --- | --- |
-| `SmtMemTileLayer` | 迁移期残留 | 指针表草稿，不是 `SDBD:MEM` |
+| `SmtMemTileLayer` | **已删** | 死工厂切除；勿复活指针表 |
 | GDAL Memory / `SDBD:MEM` | 否 | 矢量（及未来栅格草稿）专用 |
 | GDAL 文件/库栅格 | 否 | `OgrRasterLayer` / GPKG tiles 等 |
 | `sdb::model::Tileset` | 否 | 3D Tiles `tileset.json` |
@@ -85,7 +89,7 @@ gdal-layer-management 里「v1 继续 `new SmtWSDataSource`」已过时：工厂
 | --- | --- | --- | --- |
 | **A. 独立 `TileProvider`（推荐）** | 新模块（建议 `sdb::tile` 或 `sdb/datasource/tile`）持 URL 模板 / WMTS 端点；用 `net::HttpClient` 拉 PNG/JPEG；产出 `TileImage`（字节 + 世界矩形 + z/x/y）；`MapLayer(kind=tile)` 持 provider；tessellate 读 provider 可见集 | 边界清晰；不污染 OGR/SDBD；与现有 `SmtTile` 消费面可薄适配 | 需自管缓存、重试、坐标系约定 |
 | B. 仅 GDAL WMS/WMTS 驱动 | `GDALOpenEx` + WMS XML；把 dataset 当栅格源 | 少写 HTTP | 产品模型仍非 OGR；配置 XML 重；SDK 是否编进 WMS 未评估；易与「图层走 GDAL」口号混谈成硬塞 OGR |
-| C. 永远扩展 `SmtMemTileLayer` | 继续指针表 + 手工塞 buf | 零设计 | 无 HTTP；与 Memory 矢量同 DLL 混淆；无法表达 z/x/y |
+| C. 永远扩展 `SmtMemTileLayer` | ~~继续指针表~~ **已否决并删除** | — | 曾混淆 Memory 矢量 DLL；无 HTTP |
 
 ### 推荐：方案 A
 
@@ -93,10 +97,11 @@ gdal-layer-management 里「v1 继续 `new SmtWSDataSource`」已过时：工厂
 SmtMap / MapLayer(kind=tile)
         |
         v
-sdb::tile::TileProvider          打开 URL 模板或 WMTS GetCapabilities（v1 可先只 XYZ）
+sdb::tile::TileProvider          打开 URL 模板或 WMTS Capabilities / 模板
         |
-        +-- net::HttpClient      GET tile；超时/失败 → 空瓦片 + 日志（不抛跨 DLL）
-        +-- TileCache (可选)     进程内 LRU；磁盘缓存 v2
+        +-- net::HttpClient      GET tile（HTTP + HTTPS）
+        +-- TileCache            进程内 LRU
+        +-- TileDiskCache        可选磁盘（目录可配）
         |
         v
 TileImage / 适配为 base::SmtTile   供 tessellate_tile_layer / GpuScene
@@ -115,15 +120,16 @@ TileImage / 适配为 base::SmtTile   供 tessellate_tile_layer / GpuScene
 沿用 composition design：
 
 - `MapLayer` 可 `kind=tile`（或 `layer_type() == LYR_TITLE`）。
-- 迁移期：`from_leftover(SmtTileLayer*)`；终局：持 `std::shared_ptr<TileProvider>`（或等价非 OGR 句柄），**`ogr()` 为 null**。
+- 迁移期：`from_leftover(SmtTileLayer*)`；产品挂接：`sdb::tile::make_map_layer(shared_ptr<TileProvider>)` / `make_xyz_map_layer(url)` / `make_wmts_map_layer*`（等价 `from_tile_provider`；放在 `tile/` 以免 gis↔tile GN 环），**`ogr()` 为 null**。
 - `SmtMap` 加层/绘制按 `layer_type` 分支；矢量路径继续 OGR；瓦片路径不调用 `CreateFeature`。
 
-### HTTP(S) 协议面（v1 建议）
+### HTTP(S) 协议面（v1）
 
 | 能力 | v1 | 备注 |
 | --- | --- | --- |
-| XYZ / TMS 风格 URL 模板（`{z}/{x}/{y}`） | 必须 | 与 `net::HttpClient` 对齐；HTTPS 取决于 httplib/OpenSSL 现状（见 net spec） |
-| WMTS | 可选 / v1.1 | 可先手工 URL，再解析 Capabilities |
+| XYZ / TMS 风格 URL 模板（`{z}/{x}/{y}`） | 必须 | 与 `net::HttpClient` 对齐 |
+| HTTPS | **已接线** | 依赖 net + OpenSSL |
+| WMTS | **最小** | Capabilities ResourceURL / GetTile 模板；夹具单测 |
 | 本地目录瓦片（`file://` 或路径模板） | 可选 | 不经 HTTP |
 | 认证头 / token | Open question | 勿在 v1 发明第二套 net API |
 
@@ -135,49 +141,57 @@ TileImage / 适配为 base::SmtTile   供 tessellate_tile_layer / GpuScene
 | `Feature` / `OGRFeature` | 瓦片层 **无** 要素游标；不要为每块瓦片造假 `OGRFeature`。 |
 | `MapLayer` | `kind=tile`；持 provider 或 leftover `SmtTileLayer*`；与 `kind=vector` / `kind=raster` 并列。 |
 | `DS_WS` 枚举 | 可保留取值；`Create*` / `make_sdbd_open_target` **拒绝**；新工程用 TileProvider 连接描述（URL 字符串或小 JSON），不写回 WS 设备。 |
-| `SmtMemTileLayer` | 仅迁移垫片；新代码不得再作为「远程瓦片」实现。 |
+| `SmtMemTileLayer` | **已删**；新代码不得再作为「远程瓦片」实现。 |
 | 栅格 `SmtMemRasLayer` / GDAL raster | 另一轨；整幅影像 ≠ XYZ 瓦片集。 |
 
 ## 迁移阶段
 
-### Phase 0 — 死工厂切除（可立即）
+### Phase 0 — 死工厂切除（已落地）
 
 1. 确认无 GN/`#include` 指向已删 `datasource/ws`。
 2. 任何仍 `CreateTmpDataSource(DS_WS)` / `PROVIDER_SMARTGIS` 的调用方改为 **显式失败 + 日志**（或 UI 禁用），不要 new 幽灵类型。
 3. 更新 gdal-layer / src-layout 表述：WS **已删**，不是「v1 维持 WS」。
-4. `CreateMemTileLayer` 标 deprecated（注释/文档）；仅测试或 leftover 工具可暂用。
+4. **已完成**：删除 `CreateMemTileLayer` / `DestoryMemTileLayer` / `SmtMemTileLayer` / `sde_mem` / `datasource/mem`；抽象 `SmtTileLayer` 保留。
 
-### Phase 1 — 新实现
+### Phase 1 — 新实现（已落地）
 
-1. 落地 `TileProvider` + XYZ GET + 可见集（按地图包络 / 缩放估 z）。
-2. 适配层：provider → `SmtTile` 视图或新 `tessellate_tile_images`，避免无限扩张 `SmtMemTileLayer` API。
-3. `MapLayer::from_tile_provider`；`SmtMap` / scene attach 走新路径。
-4. 单测：假 HTTP 或本地 PNG fixture；`tessellate` 有 `has_image`。
+1. **已完成** `sdb::tile::TileProvider` + XYZ GET + `tiles_for_viewport`（Web Mercator / EPSG:3857）。
+2. **已完成** 适配层 `ProviderTileLayer`（`SmtTileLayer` 具体类，非 mem/DLL）→ `tessellate_tile_layer` / `attach_tile_layer`。
+3. **已完成** `sdb::tile::make_map_layer(shared_ptr<TileProvider>)` → `MapLayer(kind=tile)`（`ogr()` 为空；避免 gis↔tile GN 环，等价 composition 文的 `from_tile_provider`）。
+4. **已完成** 单测 `//src/sdb/tile:tile_test`：URL 模板拼装、viewport→tile 索引、mock HTTP、`has_image`；直播 CDN **SKIP**。
+5. **HTTPS：** **已启用**（net + OpenSSL）。直播 CDN 单测仍 SKIP 外网。
 
-### Phase 2 — 删 mem tile
+### Phase 2 — 收口抽象
 
-1. 调用方切完后删除 `SmtMemTileLayer` / `memtitlelayer.cpp` / `CreateMemTileLayer`。
-2. `SmtTileLayer` 抽象：要么缩成 leftover 兼容头并逐步删除，要么改为非虚的 provider 适配器；**禁止**再增加 mem 子类。
+1. ~~删除 `SmtMemTileLayer`~~ **已完成（并入 Phase 0）**。
+2. `SmtTileLayer` 抽象：要么缩成 leftover 兼容头并逐步删除，要么改为非虚的 provider 适配器；**禁止**再增加 mem 子类。（`ProviderTileLayer` 已是唯一 concrete。）
 3. 清理 `SmtWSTile` 别名（若无引用）。
+4. [x] **进程内 LRU**（`TileCache`，默认 256；同 key 二次 fetch 不二次 HTTP；单测覆盖）。
+5. [x] **磁盘缓存** — 可选目录 + 有界 entry；命中磁盘不二次 HTTP（单测）。
+6. [x] **WMTS** — 最小 Capabilities ResourceURL / GetTile 模板归一化；夹具 XML 单测。
+7. [x] **Views「添加在线底图」** — `AddBasemapDialog` + Catalog 菜单 `catalog.layer.add_basemap`；`app/views` 调 `make_xyz_map_layer` / `make_wmts_map_layer` 校验后 `CatalogCall(add_basemap)`。完整 scene 挂接仍待 content 认 `kind=tile`。
 
-并行约束：GDAL 栅格 agent **不**改 mem tile；本文作者 **不**改 mem ras。
+并行约束：GDAL 栅格 agent **不**改 tile provider；本文作者 **不**改 mem ras（已迁 `OgrRasterLayer`）。
 
-## Open questions
+## Open questions（更新）
 
-1. **HTTPS：** 当前 cpp-httplib pin 是否带 OpenSSL？若否，v1 是否只保证 HTTP，HTTPS 待 net 加固？
-2. **坐标系：** XYZ 默认 Web Mercator（EPSG:3857）是否写死？与地图文档 SRS 不一致时谁重投影（PROJ / 仅警告）？
-3. **WMTS 是否进 v1**，还是严格 XYZ-only？
-4. **缓存：** 仅进程内 LRU，还是允许 `%LOCALAPPDATA%` 磁盘缓存？配额与失效策略？
-5. **GDAL WMS 后端：** 何时做一次正式评估（驱动是否在 `gdal_sdk`、配置样例、与 `TileImage` 映射）？评估前禁止当默认实现宣传。
-6. **`NodeKind`：** `attach_tile_layer` 今日用 `kRasterLayer`；是否需要独立 `kTileLayer` 以免与整幅栅格混淆？
-7. **旧 `.dsm` 含 `DS_WS`：** 打开时迁移提示 vs 静默忽略？
-8. **与已删 map_service 插件页：** UI 是否另开「添加在线底图」Views 对话框，还是先 API-only？
+1. **HTTPS：** **已决（2026-09-14）** — net 启用 `CPPHTTPLIB_OPENSSL_SUPPORT` + `//third_party:openssl`（Shining Light → `.install`）。TileProvider 可开 `https://` 模板；直播 CDN 测仍 SKIP 外网。
+2. **坐标系：** **已决（v1）：** XYZ 写死 Web Mercator（EPSG:3857）；与地图 SRS 不一致时仅警告（后续 PROJ）。
+3. **WMTS：** **已决最小落地**；完整 TileMatrixSet / 多图层选择器延后。
+4. **缓存：** **进程内 LRU + 可选磁盘** 已落地。
+5. **GDAL WMS 后端：** 评估前禁止当默认实现宣传。
+6. **`NodeKind`：** `attach_tile_layer` 今日用 `kRasterLayer`；是否需要独立 `kTileLayer`？（未决，不阻塞）
+7. **旧 `.dsm` 含 `DS_WS`：** 打开时迁移提示 vs 静默忽略？（未决）
+8. **Views UI：** 对话框 + Catalog 菜单已挂；content `add_basemap` 完整画布挂接仍待。
 
 ## 验收（设计级）
 
 - 存在本文；gdal-layer 明示瓦片见 sibling，且 **不进 `SDBD:MEM`**。
-- 代码落地后（后续 plan）：无 OGR Memory 瓦片冒充；无恢复 `datasource/ws` 产品路径；`MapLayer(kind=tile)` 可挂 HTTP XYZ 并画出至少一块有像素的 quad。
+- 代码落地后：无 OGR Memory 瓦片冒充；无恢复 `datasource/ws` 产品路径；`MapLayer(kind=tile)` 可挂 HTTP(S) XYZ；同 key LRU / 磁盘命中不二次 HTTP；WMTS 夹具可解析。
 
 ## 本文不产出
 
-- 实现代码、GN 接线、plan 勾选清单（需要落地时另开 `docs/superpowers/plans/2026-09-1x-tile-layer-provider.md`）。
+- plan 勾选清单（需要落地时另开 `docs/superpowers/plans/2026-09-1x-tile-layer-provider.md`）。
+- 仍延后：完整 WMTS 矩阵 UI、content 画布 `kind=tile` 挂接、独立 `kTileLayer`。
+
+**最后更新：** 2026-09-14

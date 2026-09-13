@@ -105,6 +105,9 @@ if not "%~1"=="" (
   ) else if /I "%~1"=="app" (
     set "NINJA_TARGET=smartgis"
     set "BUILD_APP=true"
+  ) else if /I "%~1"=="ui_legacy" (
+    set "NINJA_TARGET=ui_legacy"
+    set "BUILD_APP=true"
   ) else if /I "%~1"=="smartgis" (
     set "NINJA_TARGET=smartgis"
     set "BUILD_APP=true"

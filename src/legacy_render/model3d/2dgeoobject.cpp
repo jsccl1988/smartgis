@@ -155,12 +155,12 @@ namespace render
 		p3DRenderDevice->MatrixPop();
 
 		vDir = vTar-vOrg;
-		if (vDir.GetSqrLength() > 0)
+		if (vDir.length_squared() > 0)
 		{
 			Ray		ray;
 			float   f;
-			ray.Set(vOrg,vDir);
-			if (m_aAbb.Intersects(ray,&f))
+			ray.set(vOrg,vDir);
+			if (ray.intersects(m_aAbb,&f))
 			{
 				OGRPoint oPoint(vTar.x,vTar.z);
 				switch (wkbFlatten(m_pGeom->getGeometryType()))

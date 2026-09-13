@@ -64,7 +64,12 @@
       ],
       "git_ref": "v0.18.3",
       "install_skip": true,
-      "note": "Header-only HTTP client/server. No OpenSSL. Reused mogu Gitea pin v0.18.3; not re-uploaded."
+      "note": "Header-only HTTP(S) client/server. HTTPS needs CPPHTTPLIB_OPENSSL_SUPPORT + //third_party:openssl (sync_openssl_win.ps1)."
+    },
+    {
+      "name": "openssl",
+      "install_skip": true,
+      "note": "Not fetched from git. Windows: winget install ShiningLight.OpenSSL.Dev then powershell -File third_party/tools/sync_openssl_win.ps1 → third_party/.install (and out/third_party junction). GN label //third_party:openssl. OpenSSL 3+ required by cpp-httplib."
     },
     {
       "name": "sqlite3",

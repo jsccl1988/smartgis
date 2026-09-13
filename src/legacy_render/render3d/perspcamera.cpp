@@ -21,7 +21,7 @@ namespace render
 	void SmtPerspCamera::MoveForward(void)
 	{
 		Vector3 vDir=m_vTarget-m_vEye;
-		vDir.Normalize();
+		vDir.normalize();
 
 		m_vEye.x	+=vDir.x*m_fMoveStep;
 		m_vEye.z	+=vDir.z*m_fMoveStep;
@@ -32,7 +32,7 @@ namespace render
 	void SmtPerspCamera::MoveBack(void)
 	{
 		Vector3 vDir=m_vTarget-m_vEye;
-		vDir.Normalize();
+		vDir.normalize();
 
 		m_vEye.x	-=vDir.x*m_fMoveStep;
 		m_vEye.z	-=vDir.z*m_fMoveStep;
@@ -43,8 +43,8 @@ namespace render
 	void SmtPerspCamera::MoveLeft(void)
 	{
 		Vector3 vCross,vDir(m_vTarget - m_vEye);
-		vCross = vDir.CrossProduct(m_vUp);
-		vCross.Normalize();
+		vCross = vDir.cross(m_vUp);
+		vCross.normalize();
 
 		m_vEye.x -= vCross.x * m_fMoveStep;
 		m_vEye.z -= vCross.z * m_fMoveStep;
@@ -56,8 +56,8 @@ namespace render
 	void SmtPerspCamera::MoveRight(void)
 	{
 		Vector3 vCross,vDir(m_vTarget - m_vEye);
-		vCross = vDir.CrossProduct(m_vUp);
-		vCross.Normalize();
+		vCross = vDir.cross(m_vUp);
+		vCross.normalize();
 
 		m_vEye.x += vCross.x * m_fMoveStep;
 		m_vEye.z += vCross.z * m_fMoveStep;
@@ -89,14 +89,14 @@ namespace render
 		float radius = tan(angle)+30*sqrt(3.0)+0.1;
 
 		Vector3 vDir(m_vEye-m_vTarget);
-		vDir.Normalize();
+		vDir.normalize();
 		m_vEye = vDir*radius+m_vTarget;
 	}
 
 	void SmtPerspCamera::MoveEyeImmediately(float fDis)
 	{
 		Vector3 vDir(m_vEye-m_vTarget);
-		vDir.Normalize();
+		vDir.normalize();
 		m_vEye = vDir*fDis+m_vTarget;
 	}
 
@@ -104,24 +104,24 @@ namespace render
 	void SmtPerspCamera::Pitch(float angle)				//��x��
 	{
 		Vector3 vCross,vDir(m_vTarget - m_vEye);
-		vCross = vDir.CrossProduct(m_vUp);
-		vCross.Normalize();
-		vDir.Rotate(vCross,angle);
+		vCross = vDir.cross(m_vUp);
+		vCross.normalize();
+		vDir.rotate(vCross,angle);
 		m_vTarget = m_vEye + vDir;
 	}
 
 	void SmtPerspCamera::Yaw(float angle)				//��y��
 	{
 		Vector3 vDir(m_vTarget - m_vEye);
-		vDir.Rotate(m_vUp,angle);
+		vDir.rotate(m_vUp,angle);
 		m_vTarget = m_vEye + vDir;
 	}
 
 	void SmtPerspCamera::Roll(float angle)				//��z��
 	{
 		Vector3 vDir=m_vTarget-m_vEye;
-		vDir.Normalize();
-		m_vUp.Rotate(vDir,angle);	
+		vDir.normalize();
+		m_vUp.rotate(vDir,angle);	
 	}
 
 	long SmtPerspCamera::Apply(void)

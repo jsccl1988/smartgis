@@ -46,7 +46,7 @@ std::wstring exe_dir() {
 bool load_one(const wchar_t* stem, bool debug, std::vector<HMODULE>* loaded) {
   std::wstring path = exe_dir() + L"\\" + stem;
   if (debug) {
-    path += L"D";
+    path += L"_d";
   }
   path += L".dll";
   HMODULE m = LoadLibraryW(path.c_str());
@@ -89,22 +89,18 @@ class AdapterImpl final : public Adapter {
 #else
         false;
 #endif
+    // Platform layer stems (dll reorg). Debug → stem_d.dll via load_one.
     const wchar_t* required[] = {
-        L"core",
-        L"sys",
-        L"style",
-        L"geo",
-        L"gis",
+        L"base",
+        L"sdb",
+        L"algorithm",
         L"render",
-        L"render_gdi_simple",
     };
+    // Optional: UI chrome, leftover engines/tools, plugins.
     const wchar_t* optional[] = {
-        L"proj",
-        L"render_gdi",
-        L"render3d",
-        L"render_gl",
-        L"tool",
-        L"tool_group",
+        L"ui_legacy",
+        L"legacy_render",
+        L"legacy_tool",
         L"plugin",
     };
     bool ok = true;
@@ -120,14 +116,19 @@ class AdapterImpl final : public Adapter {
     const std::wstring log_dir = exe_dir() + L"\\log";
     CreateDirectoryW(log_dir.c_str(), nullptr);
 
-    HMODULE gdi = GetModuleHandleW(debug ? L"render_gdi_simpleD.dll"
-                                         : L"render_gdi_simple.dll");
+    HMODULE gdi = GetModuleHandleW(debug ? L"legacy_render_d.dll"
+                                         : L"legacy_render.dll");
     if (!gdi && !dlls_.empty()) {
-      gdi = GetModuleHandleW(L"render_gdi_simpleD.dll");
+      gdi = GetModuleHandleW(debug ? L"legacy_render_d.dll"
+                                   : L"legacy_render.dll");
     }
     if (gdi) {
       auto create = reinterpret_cast<CreateRenderDeviceFn>(
-          GetProcAddress(gdi, "CreateRenderDevice"));
+          GetProcAddress(gdi, "CreateGdiSimpleRenderDevice"));
+      if (!create) {
+        create = reinterpret_cast<CreateRenderDeviceFn>(
+            GetProcAddress(gdi, "CreateRenderDevice"));
+      }
       if (create) {
         void* dev = nullptr;
         if (create(gdi, &dev) == 0 && dev) {

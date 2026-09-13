@@ -31,8 +31,8 @@ namespace render
 	void SmtCombinedCamera::ShiftCamera(float step)
 	{
 		Vector3 vCross,vDir(m_vTarget - m_vEye);
-		vCross = vDir.CrossProduct(m_vUp);
-		vCross.Normalize();
+		vCross = vDir.cross(m_vUp);
+		vCross.normalize();
 
 		m_vEye.x += vCross.x * step;
 		m_vEye.z += vCross.z * step;
@@ -44,7 +44,7 @@ namespace render
 	void SmtCombinedCamera::ForwardCamera(float step)
 	{
 		Vector3 vDir=m_vTarget-m_vEye;
-		vDir.Normalize();
+		vDir.normalize();
 		
 		m_vEye.x+=vDir.x*step;
 		m_vEye.z+=vDir.z*step;
@@ -61,8 +61,8 @@ namespace render
 	void SmtCombinedCamera::LeanCamera(float angle)
 	{
 		Vector3 vDir=m_vTarget-m_vEye;
-		vDir.Normalize();
-		m_vUp.Rotate(vDir,angle);			
+		vDir.normalize();
+		m_vUp.rotate(vDir,angle);			
 	}
 
 	void SmtCombinedCamera::MoveCamera(Vector3 &vec)
@@ -80,16 +80,16 @@ namespace render
 	void  SmtCombinedCamera::RaiseViewDirection(float angle)
 	{
 		Vector3 vCross,vDir(m_vTarget - m_vEye);
-		vCross = vDir.CrossProduct(m_vUp);
-		vCross.Normalize();
-		vDir.Rotate(vCross,angle);
+		vCross = vDir.cross(m_vUp);
+		vCross.normalize();
+		vDir.rotate(vCross,angle);
 		m_vTarget = m_vEye + vDir;
 	}
 
 	void  SmtCombinedCamera::TurnViewDirection(float angle)
 	{
 		Vector3 vDir(m_vTarget - m_vEye);
-		vDir.Rotate(m_vUp,angle);
+		vDir.rotate(m_vUp,angle);
 		m_vTarget = m_vEye + vDir;
 	}  
 
@@ -100,23 +100,23 @@ namespace render
 		Vector3 vDir(m_vEye - m_vTarget);
 	
 		// ������������뾶      
-		float radius = vDir.GetLength();     
+		float radius = vDir.length();     
 		// ���䵥λ��      
-		vDir.Normalize();    
+		vDir.normalize();    
 		// ��ǰ������Ϸ�����a����ˣ�����ͶӰ��ˮƽ���ҷ�������u      
-		Vector3  u = m_vUp.CrossProduct(vDir);     
+		Vector3  u = m_vUp.cross(vDir);     
 		// ���䵥λ��19      
-		u.Normalize();
+		u.normalize();
 
 		// ����������Ϸ�����ͶӰ���ϵ�ͶӰ���� ����ֱ���ϵķ�������v22      
-		Vector3 v = vDir.CrossProduct(u);    
+		Vector3 v = vDir.cross(u);    
 		// ���䵥λ��      
-		v.Normalize();    
+		v.normalize();    
 			
 		// ������ĻAB��ͶӰ���϶�Ӧ������ AB����27      
 		Vector3 m = u*deltX + v*deltY;  
 		// ����m�����ĳ���      
-		double len = m.GetLength();     
+		double len = m.length();     
 		// ����������      
 		len /= 15.0;
 		if (len>0.0)   
@@ -124,7 +124,7 @@ namespace render
 			// �Ƕ�AOB  ���ȱ�ʾ ����/�뾶        
 			double x = len/radius;   
 			// ��AB������λ��39        
-			m.Normalize(); 
+			m.normalize(); 
 			// ���෴����ת���ӵ㵽C �Ӷ�ʹ�ð�������ƶ�һ�µķ���ת��ģ��42         
 			x = -1*x;   
 			// �����µ����λ�� C

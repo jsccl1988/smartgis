@@ -5,7 +5,7 @@
 #define ALGORITHM_TIN_TIN_BACKEND_TRAITS_H_
 
 #include "algorithm/geo/geometry.h"
-#include "render/math/mathlib_3d.h"
+#include "render/math/math.h"
 
 #include <concepts>
 #include <vector>

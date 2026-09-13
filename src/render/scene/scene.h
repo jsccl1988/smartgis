@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "render/render_export.h"
 #include "render/rhi/rhi.h"
 #include "sdb/scene/scene.h"
 
@@ -48,7 +49,7 @@ struct GpuInstance {
 };
 
 // Uploads tessellated OGRGeometry (2D and 3D instance Z) onto one list.
-class GpuScene {
+class RENDER_EXPORT GpuScene {
  public:
   GpuScene();
   ~GpuScene();

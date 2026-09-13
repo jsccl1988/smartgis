@@ -5,8 +5,9 @@
 #define APP_WINUI_DETAIL_LOCAL_RENDER_H_
 
 // FALLBACK ONLY. Chrome must not #include rd_renderdevice.h / gis_map.h.
-// When SmartGisRender.exe is absent, probe Smt* DLLs via LoadLibrary.
-// This is not the OOP render path and must not call SmtRenderDevice::Init.
+// When SmartGisRender.exe is absent, probe leftover render dll_stems via
+// LoadLibrary (legacy_render / render_gdi* / render_gl; debug → *_d.dll).
+// This is not the OOP render path and must not call CreateRenderDevice::Init.
 
 #include <windows.h>
 

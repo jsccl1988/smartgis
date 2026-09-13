@@ -77,7 +77,7 @@ namespace ui
 		pXAMBox->ModifyStyleEx(0,WS_EX_CLIENTEDGE);
 		pXAMBox->UpdateAMBoxTree();
 
-		AddWnd(pXAMBox,pAModule->GetName());
+		AddWnd(pXAMBox,pAModule->get_name());
 
 		return true;
 	}

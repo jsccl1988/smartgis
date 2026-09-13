@@ -11,62 +11,57 @@ SmtRenderer::~SmtRenderer(void) { Release(); }
 
 LPRENDERDEVICE SmtRenderer::GetDevice(void) { return m_pDevice; }
 
+namespace {
+HMODULE load_legacy_render_dll() {
+#ifdef _DEBUG
+  HMODULE dll = LoadLibrary("legacy_render_d.dll");
+  if (!dll) {
+    ::MessageBox(NULL, "Loading legacy_render_d.dll failed.", "SmartGis - error",
+                 MB_OK | MB_ICONERROR);
+  }
+#else
+  HMODULE dll = LoadLibrary("legacy_render.dll");
+  if (!dll) {
+    ::MessageBox(NULL, "Loading legacy_render.dll failed.", "SmartGis - error",
+                 MB_OK | MB_ICONERROR);
+  }
+#endif
+  return dll;
+}
+}  // namespace
+
 int SmtRenderer::CreateDevice(const char *chAPI) {
   char buffer[300];
+  const bool simple = (strcmp(chAPI, "SmtGdiSimpleRenderDevice") == 0);
+  const bool gdi = (strcmp(chAPI, "SmtGdiRenderDevice") == 0);
 
-  if (strcmp(chAPI, "SmtGdiSimpleRenderDevice") == 0) {
-#ifdef _DEBUG
-    m_hDLL = LoadLibrary("render_gdi_simpleD.dll");
-    if (!m_hDLL) {
-      ::MessageBox(NULL, "Loading render_gdi_simpleD.dll failed.",
-                   "SmartGis - error", MB_OK | MB_ICONERROR);
-      return SMT_ERR_FAILURE;
-    }
-#else
-    m_hDLL = LoadLibrary("render_gdi_simple.dll");
-    if (!m_hDLL) {
-      ::MessageBox(NULL, "Loading render_gdi_simple.dll failed.",
-                   "SmartGis - error", MB_OK | MB_ICONERROR);
-      return SMT_ERR_FAILURE;
-    }
-#endif
-  } else if (strcmp(chAPI, "SmtGdiRenderDevice") == 0) {
-#ifdef _DEBUG
-    m_hDLL = LoadLibrary("render_gdiD.dll");
-    if (!m_hDLL) {
-      ::MessageBox(NULL, "Loading render_gdiD.dll failed.", "SmartGis - error",
-                   MB_OK | MB_ICONERROR);
-      return SMT_ERR_FAILURE;
-    }
-#else
-    m_hDLL = LoadLibrary("render_gdi.dll");
-    if (!m_hDLL) {
-      ::MessageBox(NULL, "Loading render_gdi.dll failed.", "SmartGis - error",
-                   MB_OK | MB_ICONERROR);
-      return SMT_ERR_FAILURE;
-    }
-#endif
-  } else {
+  if (!simple && !gdi) {
     _snprintf(buffer, 300, "API '%s' not yet supported.", chAPI);
     ::MessageBox(NULL, buffer, "SmartGis - error", MB_OK | MB_ICONERROR);
     return SMT_FALSE;
   }
 
-  _CreateRenderDevice _CreateRenderDev = 0;
-  HRESULT hr;
+  m_hDLL = load_legacy_render_dll();
+  if (!m_hDLL) {
+    return SMT_ERR_FAILURE;
+  }
 
-  _CreateRenderDev =
-      (_CreateRenderDevice)GetProcAddress(m_hDLL, "CreateRenderDevice");
+  // gdi keeps CreateRenderDevice; simple uses a distinct export after DLL merge.
+  const char* create_name =
+      simple ? "CreateGdiSimpleRenderDevice" : "CreateRenderDevice";
+  destroy_name_ = simple ? "DestroyGdiSimpleRenderDevice" : "DestroyRenderDevice";
 
-  if (NULL == _CreateRenderDev) return SMT_ERR_FAILURE;
+  auto* create_fn =
+      reinterpret_cast<_CreateRenderDevice>(GetProcAddress(m_hDLL, create_name));
+  if (!create_fn) {
+    return SMT_ERR_FAILURE;
+  }
 
-  hr = _CreateRenderDev(m_hDLL, m_pDevice);
-
+  HRESULT hr = create_fn(m_hDLL, m_pDevice);
   if (FAILED(hr)) {
-    ::MessageBox(NULL, "CreateRenderDevice() from lib failed.",
-                 "SmtGis - error", MB_OK | MB_ICONERROR);
+    ::MessageBox(NULL, "CreateRenderDevice() from lib failed.", "SmtGis - error",
+                 MB_OK | MB_ICONERROR);
     m_pDevice = NULL;
-
     return SMT_ERR_FAILURE;
   }
 
@@ -74,15 +69,16 @@ int SmtRenderer::CreateDevice(const char *chAPI) {
 }
 
 void SmtRenderer::Release(void) {
-  _DestroyRenderDevice _ReleaseRenderDev = 0;
+  _DestroyRenderDevice release_fn = 0;
 
-  if (m_hDLL) {
-    _ReleaseRenderDev =
-        (_DestroyRenderDevice)GetProcAddress(m_hDLL, "DestroyRenderDevice");
+  if (m_hDLL && destroy_name_) {
+    release_fn =
+        (_DestroyRenderDevice)GetProcAddress(m_hDLL, destroy_name_);
   }
 
-  if (m_pDevice && _ReleaseRenderDev) {
-    _ReleaseRenderDev(m_pDevice);
+  if (m_pDevice && release_fn) {
+    release_fn(m_pDevice);
   }
+  destroy_name_ = nullptr;
 }
 }  // namespace render

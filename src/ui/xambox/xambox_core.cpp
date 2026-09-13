@@ -1,6 +1,6 @@
 // xambox_core.cpp : MFC Feature Pack extension-DLL attach.
 
-#include "ui/xambox/stdafx.h"
+#include "stdafx.h"
 #include "ui/xambox/xambox_core.h"
 #include <afxdllx.h>
 

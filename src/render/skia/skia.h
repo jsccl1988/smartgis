@@ -8,13 +8,14 @@
 // optional real Skia via smt_has_skia + local pin (canvas_skia.cc).
 // See docs/build/ui-views-skia.md.
 
+#include "render/render_export.h"
 #include "render/skia/canvas.h"
 #include "render/skia/color.h"
 
 namespace render {
 namespace skia {
 
-const char* module_id();
+RENDER_EXPORT const char* module_id();
 
 }  // namespace skia
 }  // namespace render

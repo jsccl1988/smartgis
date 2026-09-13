@@ -97,9 +97,9 @@ inline int SmtLoadTmercCrs(Projection* p, double a, double b, double lon_0) {
 
 #if !defined(PROJ_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "projD.lib")
+#pragma comment(lib, "algorithm_d.lib")
 #else
-#pragma comment(lib, "proj.lib")
+#pragma comment(lib, "algorithm.lib")
 #endif
 #endif
 
