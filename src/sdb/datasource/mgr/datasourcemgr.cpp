@@ -1,434 +1,279 @@
-#include "datasourcemgr.h"
-#include "api.h"
-#include "smf.h"
-#include "sdb/datasource/gdal/ogr_dataset.h"
-#include "mem.h"
-#include "ws.h"
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 
-using namespace Smt_SDESmf;
+#include "datasourcemgr.h"
+
+#include "api.h"
+#include "mem.h"
+#include "sdb/datasource/gdal/gdal_driver.h"
+
+#include "gdal_priv.h"
+#include "ogrsf_frmts.h"
+
+#include <cstring>
+#include <fstream>
+#include <locale>
+
 using namespace Smt_SDEMem;
-using namespace Smt_SDEWS;
 using namespace Smt_Core;
 
-namespace Smt_SDEDevMgr
-{
-	SmtDataSourceMgr* SmtDataSourceMgr::m_pSingleton = NULL;
-
-	SmtDataSourceMgr* SmtDataSourceMgr::GetSingletonPtr(void)
-	{
-		if (m_pSingleton == NULL)
-		{
-			m_pSingleton = new SmtDataSourceMgr();
-		}
-
-		return m_pSingleton;
-	}
-
-	void SmtDataSourceMgr::DestoryInstance(void)
-	{
-		SMT_SAFE_DELETE(m_pSingleton);
-	}
-
-	//////////////////////////////////////////////////////////////////////////
-	SmtLayer * SmtDataSourceMgr::CreateMemLayer(SmtLayerType eLyrType)
-	{
-		if(eLyrType == LYR_VECTOR)
-			return CreateMemVecLayer();
-		else if(eLyrType == LYR_RASTER)
-			return CreateMemRasLayer();
-
-		return NULL;
-	}
-
-	void SmtDataSourceMgr::DestoryMemLayer(SmtLayer *&pLayer)
-	{
-		SMT_SAFE_DELETE(pLayer);
-	}
-
-	//////////////////////////////////////////////////////////////////////////
-	SmtVectorLayer * SmtDataSourceMgr::CreateMemVecLayer(void)
-	{
-		SmtVectorLayer *pLayer = NULL;
-		SmtDataSource *pDS = new SmtMemDataSource();
-
-		if (pDS)
-		{
-			fRect lyrRect;
-			lyrRect.lb.x = 0;
-			lyrRect.lb.y = 0;
-			lyrRect.rt.x = 500;
-			lyrRect.rt.y = 500;
-
-			pLayer = pDS->CreateVectorLayer("SmtMemVecLayer",lyrRect,SmtFeatureType::SmtFtUnknown);
-		}
-
-		SMT_SAFE_DELETE(pDS);
-		return pLayer;
-	}
-
-	void SmtDataSourceMgr::DestoryMemVecLayer(SmtVectorLayer *&pLayer)
-	{
-		SMT_SAFE_DELETE(pLayer);
-	}
-
-	//////////////////////////////////////////////////////////////////////////
-	SmtRasterLayer * SmtDataSourceMgr::CreateMemRasLayer(void)
-	{
-		SmtRasterLayer *pLayer = NULL;
-		SmtDataSource *pDS = new SmtMemDataSource();
-		if (pDS)
-		{
-			fRect lyrRect;
-			lyrRect.lb.x = 0;
-			lyrRect.lb.y = 0;
-			lyrRect.rt.x = 500;
-			lyrRect.rt.y = 500;
-
-			pLayer = pDS->CreateRasterLayer("SmtMemRasLayer",lyrRect,SmtFeatureType::SmtFtUnknown);
-		}
-
-		SMT_SAFE_DELETE(pDS);
-		return pLayer;
-	}
-
-	void SmtDataSourceMgr::DestoryMemRasLayer(SmtRasterLayer *&pLayer)
-	{
-		SMT_SAFE_DELETE(pLayer);
-	}
-
-	//////////////////////////////////////////////////////////////////////////
-	SmtTileLayer * SmtDataSourceMgr::CreateMemTileLayer(void)
-	{
-		SmtTileLayer *pLayer = NULL;
-		SmtDataSource *pDS = new SmtMemDataSource();
-		if (pDS)
-		{
-			fRect lyrRect;
-			lyrRect.lb.x = 0;
-			lyrRect.lb.y = 0;
-			lyrRect.rt.x = 500;
-			lyrRect.rt.y = 500;
-
-			pLayer = pDS->CreateTileLayer("SmtMemTileLayer",lyrRect,SmtFeatureType::SmtFtUnknown);
-		}
-
-		SMT_SAFE_DELETE(pDS);
-
-		return pLayer;
-	}
-
-	void SmtDataSourceMgr::DestoryMemTileLayer(SmtTileLayer *&pLayer)
-	{
-		SMT_SAFE_DELETE(pLayer);
-	}
-	
-	//////////////////////////////////////////////////////////////////////////
-	SmtDataSourceMgr::SmtDataSourceMgr(void)
-	{
-	   m_pActiveDS = NULL;
-	   m_nIteratorIndex = 0;
-	   m_strDSMFilePath = "";
-	}
-
-	SmtDataSourceMgr::~SmtDataSourceMgr(void)
-	{
-		Save();
-
-		vector<SmtDataSource*>::iterator iter = m_vSmtDataSources.begin() ;
-
-		while (iter != m_vSmtDataSources.end())
-		{
-			SMT_SAFE_DELETE(*iter);
-			++iter;
-		}
-		m_vSmtDataSources.clear();
-
-		m_pActiveDS = NULL;
-	}
-
-	SmtDataSource* SmtDataSourceMgr::GetDataSource(const char *szName)
-	{
-		SmtDataSource* pDS = NULL;
-		vector<SmtDataSource*>::iterator iter = m_vSmtDataSources.begin() ;
-
-		while (iter != m_vSmtDataSources.end())
-		{
-			if (strcmp((*iter)->GetName(),szName) == 0)
-			{
-				pDS = (*iter);
-				break;
-			}
-			++iter;
-		}
-
-		return pDS;
-	}
-
-	//////////////////////////////////////////////////////////////////////////
-	SmtDataSource * SmtDataSourceMgr::CreateTmpDataSource(eDSType type)
-	{
-		SmtDataSource *pDS = NULL;
-		switch(type)
-		{
-		case DS_DB_ADO:
-			{
-				pDS = new sdb::datasource::OgrDataSource();
-			}
-			break;
-		case DS_FILE_SMF:
-			{
-				pDS = new SmtSmfDataSource();
-			}
-			break;
-		case DS_MEM:
-			{
-				pDS = new SmtMemDataSource();
-			}
-			break;
-		case DS_WS:
-			{
-				pDS = new SmtWSDataSource();
-			}
-			break;
-		default:
-			break;
-		}
-
-		return pDS;
-	}
-
-	void SmtDataSourceMgr::DestoryTmpDataSource(SmtDataSource *& pTmpFileDS)
-	{
-		SMT_SAFE_DELETE(pTmpFileDS);
-	}
-
-	//////////////////////////////////////////////////////////////////////////
-
-	SmtDataSource * SmtDataSourceMgr::CreateDataSource(SmtDataSourceInfo &info)
-	{
-		if (strlen(info.szName) == 0)
-			return NULL;
-		 
-		if (GetDataSource(info.szName) != NULL)
-		{
-			return NULL;
-		}
-
-		SmtDataSource *pDS = NULL;
-		switch(info.unType)
-		{
-		case DS_DB_ADO:
-			{
-				pDS = new sdb::datasource::OgrDataSource();
-				sprintf_s(info.szUrl,MAX_URL_LENGTH,"sdb:%s\\%s,%s,%s,%s,%d,%d",info.szName,info.db.szService,info.db.szDBName,info.szUID,info.szPWD,info.unType,info.unProvider);
-			}
-			break;
-		case DS_FILE_SMF:
-			{
-				pDS = new SmtSmfDataSource();
-				sprintf_s(info.szUrl,MAX_URL_LENGTH,"sfile:%s\\%s,%s,%s,%s,%d,%d",info.szName,info.file.szPath,info.file.szFileName,info.szUID,info.szPWD,info.unType,info.unProvider);
-			}
-			break;
-		case DS_MEM:
-			{
-				pDS = new SmtMemDataSource();
-				sprintf_s(info.szUrl,MAX_URL_LENGTH,"smem:%s\\%s,%s,%d,%d",info.szName,info.szUID,info.szPWD,info.unType,info.unProvider);
-			}
-			break;
-		case DS_WS:
-			{
-				pDS = new SmtWSDataSource();
-				sprintf_s(info.szUrl,MAX_URL_LENGTH,"sws:%s\\%s,%s,%d,%d",info.szName,info.szUID,info.szPWD,info.unType,info.unProvider);
-			}
-			break;
-		default:
-			break;
-		}
-
-		if (NULL != pDS)
-		{
-			pDS->SetInfo(info);
-			
-			if (!pDS->Open())
-			{
-				SMT_SAFE_DELETE(pDS);
-			}
-			else 
-			{
-				pDS->Close();
-				m_vSmtDataSources.push_back(pDS);
-			}
-		}
-
-		return pDS;
-	}
-
-	bool SmtDataSourceMgr::DeleteDataSource(const char *szName)
-	{
-		bool bRet = true;
-		vector<SmtDataSource*>::iterator iter = m_vSmtDataSources.begin() ;
-		while (iter != m_vSmtDataSources.end())
-		{
-			if (strcmp((*iter)->GetName(),szName) == 0)
-			{
-				if ((*iter) == m_pActiveDS)
-					m_pActiveDS = NULL;
-
-				SMT_SAFE_DELETE(*iter);
-				break;
-			}
-			iter++;
-		}
-
-		if (iter != m_vSmtDataSources.end())
-		{
-			m_vSmtDataSources.erase(iter);
-
-			bRet = true;
-		}
-
-		return bRet;
-	}
-
-	void SmtDataSourceMgr::SetActiveDataSource(const char *szActiveDSName)
-	{
-		m_pActiveDS = GetDataSource(szActiveDSName);
-	}
-
-	//////////////////////////////////////////////////////////////////////////
-	void SmtDataSourceMgr::MoveFirst(void)
-	{
-		m_nIteratorIndex = 0;
-	}
-
-	void SmtDataSourceMgr::MoveNext(void)
-	{
-		if (m_nIteratorIndex < m_vSmtDataSources.size())
-			m_nIteratorIndex++;
-	}
-
-	void SmtDataSourceMgr::MoveLast(void)
-	{
-		m_nIteratorIndex = m_vSmtDataSources.size() -1 ;
-	}
-
-	void SmtDataSourceMgr::Delete(void)
-	{
-		SmtDataSource *pSmtDS = m_vSmtDataSources[m_nIteratorIndex];
-
-		SMT_SAFE_DELETE(pSmtDS);
-
-		m_vSmtDataSources.erase( m_vSmtDataSources.begin() + m_nIteratorIndex );
-	}
-
-	bool SmtDataSourceMgr::IsEnd(void) 
-	{
-		return (m_nIteratorIndex == m_vSmtDataSources.size());
-	}
-
-	SmtDataSource * SmtDataSourceMgr::GetDataSource()
-	{
-		return GetDataSource(m_nIteratorIndex);
-	}
-
-	SmtDataSource * SmtDataSourceMgr::GetDataSource(int index)
-	{
-		if (index < 0 || index > (m_vSmtDataSources.size()-1) )
-			return NULL;
-
-		return m_vSmtDataSources[index];
-	}
-
-	//////////////////////////////////////////////////////////////////////////
-	bool SmtDataSourceMgr::Open(const char *szDSMFile)
-	{
-		if (strlen(szDSMFile) == 0)
-			return false;
-
-		m_strDSMFilePath = szDSMFile;
-
-		ifstream infile;
-
-		locale loc = locale::global(locale(".936"));
-		infile.open(m_strDSMFilePath.c_str(),ios::out|ios::binary);
-		locale::global(std::locale(loc));
-
-		if (!infile.is_open())
-		{
-			return SMT_ERR_FAILURE;
-		}
-
-		//////////////////////////////////////////////////////////////////////////
-		//head
-		char szHead[4] = "DSM";
-		infile.read((char*)(szHead),sizeof(char)*4);
-		
-		//content
-		int nDSs = 0;
-		infile.read((char*)(&nDSs),sizeof(int));
-		
-		SmtDataSourceInfo info;
-		for (int i = 0 ; i < nDSs ; i++)
-		{
-			infile.read((char*)(&info),sizeof(SmtDataSourceInfo));
-			CreateDataSource(info);
-		}
-		//////////////////////////////////////////////////////////////////////////
-
-		infile.close();
-
-		return true;
-	}
-
-	bool SmtDataSourceMgr::Save(void)
-	{
-		if (m_strDSMFilePath == "")
-		{
-			m_strDSMFilePath = GetAppPath()+"sys\\smartgis.dsm";
-		}
-
-		return SaveAs(m_strDSMFilePath.c_str());
-	}
-
-	bool SmtDataSourceMgr::SaveAs(const char *szDSMFile)
-	{
-		if (strlen(szDSMFile) == 0)
-			return false;
-
-		ofstream outfile;
-
-		locale loc = locale::global(locale(".936"));
-		outfile.open(szDSMFile,ios::out|ios::binary);
-		locale::global(std::locale(loc));
-
-		if (!outfile.is_open())
-		{
-			return false;
-		}
-
-		//////////////////////////////////////////////////////////////////////////
-		//head
-		char szHead[4] = "DSM";
-		outfile.write((char*)(szHead),sizeof(char)*4);
-
-		//content
-		int nDSs = m_vSmtDataSources.size();
-		outfile.write((char*)(&nDSs),sizeof(int));
-
-		SmtDataSourceInfo info;
-		vector<SmtDataSource*>::iterator iter = m_vSmtDataSources.begin() ;
-
-		while (iter != m_vSmtDataSources.end())
-		{
-			(*iter)->GetInfo(info);
-			outfile.write((char*)(&info),sizeof(SmtDataSourceInfo));
-			++iter;
-		}
-		//////////////////////////////////////////////////////////////////////////
-
-		outfile.close();
-
-		return true;
-	}
-
+namespace Smt_SDEDevMgr {
+
+SmtDataSourceMgr* SmtDataSourceMgr::m_pSingleton = nullptr;
+
+SmtDataSourceMgr* SmtDataSourceMgr::GetSingletonPtr() {
+  if (!m_pSingleton) {
+    m_pSingleton = new SmtDataSourceMgr();
+  }
+  return m_pSingleton;
 }
+
+void SmtDataSourceMgr::DestoryInstance() { SMT_SAFE_DELETE(m_pSingleton); }
+
+ScratchLayer SmtDataSourceMgr::CreateMemVecLayer() {
+  sdb::datasource::register_gdal_driver();
+  ScratchLayer sl;
+  sdb::datasource::OgrDataSource store;
+  SmtDataSourceInfo info;
+  info.unType = DS_MEM;
+  info.unProvider = PROVIDER_MEM_VER1;
+  std::strcpy(info.szName, "scratch");
+  store.SetInfo(info);
+  if (!store.Open() || !store.dataset()) {
+    return sl;
+  }
+  sl.dataset = store.release();
+  if (sl.dataset) {
+    sl.layer = sl.dataset->CreateLayer("scratch", nullptr, wkbUnknown, nullptr);
+    if (sl.layer) {
+      OGRFieldDefn style("style", OFTBinary);
+      sl.layer->CreateField(&style);
+    }
+  }
+  return sl;
+}
+
+void SmtDataSourceMgr::DestoryMemVecLayer(ScratchLayer& layer) {
+  if (layer.dataset) {
+    GDALClose(layer.dataset);
+  }
+  layer.dataset = nullptr;
+  layer.layer = nullptr;
+}
+
+SmtRasterLayer* SmtDataSourceMgr::CreateMemRasLayer() {
+  auto* layer = new SmtMemRasLayer();
+  fRect lyrRect;
+  lyrRect.lb.x = 0;
+  lyrRect.lb.y = 0;
+  lyrRect.rt.x = 500;
+  lyrRect.rt.y = 500;
+  layer->SetLayerName("SmtMemRasLayer");
+  layer->SetLayerRect(lyrRect);
+  layer->Create();
+  return layer;
+}
+
+void SmtDataSourceMgr::DestoryMemRasLayer(SmtRasterLayer*& pLayer) {
+  SMT_SAFE_DELETE(pLayer);
+}
+
+SmtTileLayer* SmtDataSourceMgr::CreateMemTileLayer() {
+  auto* layer = new SmtMemTileLayer();
+  fRect lyrRect;
+  lyrRect.lb.x = 0;
+  lyrRect.lb.y = 0;
+  lyrRect.rt.x = 500;
+  lyrRect.rt.y = 500;
+  layer->SetLayerName("SmtMemTileLayer");
+  layer->SetLayerRect(lyrRect);
+  layer->Create();
+  return layer;
+}
+
+void SmtDataSourceMgr::DestoryMemTileLayer(SmtTileLayer*& pLayer) {
+  SMT_SAFE_DELETE(pLayer);
+}
+
+SmtDataSourceMgr::SmtDataSourceMgr() = default;
+
+SmtDataSourceMgr::~SmtDataSourceMgr() {
+  Save();
+  for (auto* ds : sources_) {
+    delete ds;
+  }
+  sources_.clear();
+  active_ = nullptr;
+}
+
+sdb::datasource::OgrDataSource* SmtDataSourceMgr::GetDataSource(
+    const char* szName) {
+  if (!szName) {
+    return nullptr;
+  }
+  for (auto* ds : sources_) {
+    SmtDataSourceInfo info;
+    ds->GetInfo(info);
+    if (std::strcmp(info.szName, szName) == 0) {
+      return ds;
+    }
+  }
+  return nullptr;
+}
+
+sdb::datasource::OgrDataSource* SmtDataSourceMgr::CreateTmpDataSource(
+    eDSType type) {
+  if (type == DS_WS || type == DS_DB_ODBC || type == DS_DB_MYSQL ||
+      type == DS_DB_ORACLE) {
+    return nullptr;
+  }
+  auto* ds = new sdb::datasource::OgrDataSource();
+  SmtDataSourceInfo info;
+  info.unType = type;
+  if (type == DS_MEM) {
+    info.unProvider = PROVIDER_MEM_VER1;
+  }
+  ds->SetInfo(info);
+  return ds;
+}
+
+void SmtDataSourceMgr::DestoryTmpDataSource(
+    sdb::datasource::OgrDataSource*& pTmp) {
+  SMT_SAFE_DELETE(pTmp);
+}
+
+sdb::datasource::OgrDataSource* SmtDataSourceMgr::CreateDataSource(
+    SmtDataSourceInfo& info) {
+  if (info.szName[0] == '\0' || GetDataSource(info.szName)) {
+    return nullptr;
+  }
+  if (info.unType == DS_WS || info.unType == DS_DB_ODBC ||
+      info.unType == DS_DB_MYSQL || info.unType == DS_DB_ORACLE) {
+    return nullptr;
+  }
+  auto* ds = new sdb::datasource::OgrDataSource();
+  ds->SetInfo(info);
+  if (!ds->Open()) {
+    delete ds;
+    return nullptr;
+  }
+  ds->Close();
+  sources_.push_back(ds);
+  return ds;
+}
+
+bool SmtDataSourceMgr::DeleteDataSource(const char* szName) {
+  for (auto it = sources_.begin(); it != sources_.end(); ++it) {
+    SmtDataSourceInfo info;
+    (*it)->GetInfo(info);
+    if (std::strcmp(info.szName, szName) == 0) {
+      if (*it == active_) {
+        active_ = nullptr;
+      }
+      delete *it;
+      sources_.erase(it);
+      return true;
+    }
+  }
+  return false;
+}
+
+void SmtDataSourceMgr::SetActiveDataSource(const char* szActiveDSName) {
+  active_ = GetDataSource(szActiveDSName);
+}
+
+void SmtDataSourceMgr::MoveFirst() { iterator_ = 0; }
+
+void SmtDataSourceMgr::MoveNext() {
+  if (iterator_ < static_cast<int>(sources_.size())) {
+    ++iterator_;
+  }
+}
+
+void SmtDataSourceMgr::MoveLast() {
+  iterator_ = static_cast<int>(sources_.size()) - 1;
+}
+
+void SmtDataSourceMgr::Delete() {
+  if (iterator_ < 0 || iterator_ >= static_cast<int>(sources_.size())) {
+    return;
+  }
+  if (sources_[iterator_] == active_) {
+    active_ = nullptr;
+  }
+  delete sources_[iterator_];
+  sources_.erase(sources_.begin() + iterator_);
+}
+
+bool SmtDataSourceMgr::IsEnd() {
+  return iterator_ == static_cast<int>(sources_.size());
+}
+
+sdb::datasource::OgrDataSource* SmtDataSourceMgr::GetDataSource() {
+  return GetDataSource(iterator_);
+}
+
+sdb::datasource::OgrDataSource* SmtDataSourceMgr::GetDataSource(int index) {
+  if (index < 0 || index >= static_cast<int>(sources_.size())) {
+    return nullptr;
+  }
+  return sources_[index];
+}
+
+bool SmtDataSourceMgr::Open(const char* szDSMFile) {
+  if (!szDSMFile || szDSMFile[0] == '\0') {
+    return false;
+  }
+  dsm_path_ = szDSMFile;
+  std::ifstream infile;
+  std::locale loc = std::locale::global(std::locale(".936"));
+  infile.open(dsm_path_.c_str(), std::ios::in | std::ios::binary);
+  std::locale::global(std::locale(loc));
+  if (!infile.is_open()) {
+    return false;
+  }
+  char szHead[4] = {};
+  infile.read(szHead, 4);
+  int nDSs = 0;
+  infile.read(reinterpret_cast<char*>(&nDSs), sizeof(int));
+  for (int i = 0; i < nDSs; ++i) {
+    SmtDataSourceInfo info;
+    infile.read(reinterpret_cast<char*>(&info), sizeof(SmtDataSourceInfo));
+    CreateDataSource(info);
+  }
+  infile.close();
+  return true;
+}
+
+bool SmtDataSourceMgr::Save() {
+  if (dsm_path_.empty()) {
+    dsm_path_ = GetAppPath() + "sys\\smartgis.dsm";
+  }
+  return SaveAs(dsm_path_.c_str());
+}
+
+bool SmtDataSourceMgr::SaveAs(const char* szDSMFile) {
+  if (!szDSMFile || szDSMFile[0] == '\0') {
+    return false;
+  }
+  std::ofstream outfile;
+  std::locale loc = std::locale::global(std::locale(".936"));
+  outfile.open(szDSMFile, std::ios::out | std::ios::binary);
+  std::locale::global(std::locale(loc));
+  if (!outfile.is_open()) {
+    return false;
+  }
+  char szHead[4] = "DSM";
+  outfile.write(szHead, 4);
+  int nDSs = static_cast<int>(sources_.size());
+  outfile.write(reinterpret_cast<char*>(&nDSs), sizeof(int));
+  for (auto* ds : sources_) {
+    SmtDataSourceInfo info;
+    ds->GetInfo(info);
+    outfile.write(reinterpret_cast<char*>(&info), sizeof(SmtDataSourceInfo));
+  }
+  outfile.close();
+  return true;
+}
+
+}  // namespace Smt_SDEDevMgr

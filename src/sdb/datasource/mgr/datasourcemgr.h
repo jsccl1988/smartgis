@@ -1,105 +1,94 @@
-/*
-File:    sde_datasourcemgr.h
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 
-Desc:    SmtDataSourceMgr,数据源管理类
-
-Version: Version 1.0
-
-Writer:  陈春亮
-
-Date:    2010.11.17
-
-Copyright (c) 2010 CCL. All rights reserved.
-*/
 #ifndef _SMT_DSMGR_H
 #define _SMT_DSMGR_H
 
 #include "layer.h"
+#include "sdb/datasource/gdal/ogr_dataset.h"
+
+#include <string>
+#include <vector>
+
+class GDALDataset;
+class OGRLayer;
 
 using namespace Smt_GIS;
 
-namespace Smt_SDEDevMgr
-{
-	class SMT_EXPORT_CLASS SmtDataSourceMgr
-	{
-	private:
-		SmtDataSourceMgr(void);
+namespace Smt_SDEDevMgr {
 
-	public:
-		virtual ~SmtDataSourceMgr(void);
+// Memory-driver scratch layer. Caller must DestoryMemVecLayer.
+struct ScratchLayer {
+  GDALDataset* dataset = nullptr;
+  OGRLayer* layer = nullptr;
+};
 
-	public:
-		static SmtLayer *				CreateMemLayer(SmtLayerType eLyrType);
-		static void						DestoryMemLayer(SmtLayer *&pLayer);
-	 
-		static SmtVectorLayer *			CreateMemVecLayer(void);
-		static void						DestoryMemVecLayer(SmtVectorLayer *&pLayer);
+class SMT_EXPORT_CLASS SmtDataSourceMgr {
+ private:
+  SmtDataSourceMgr();
 
-		static SmtRasterLayer *			CreateMemRasLayer(void);
-		static void						DestoryMemRasLayer(SmtRasterLayer *&pLayer);
+ public:
+  virtual ~SmtDataSourceMgr();
 
-		static SmtTileLayer *			CreateMemTileLayer(void);
-		static void						DestoryMemTileLayer(SmtTileLayer *&pLayer);
+  static ScratchLayer CreateMemVecLayer();
+  static void DestoryMemVecLayer(ScratchLayer& layer);
 
-	public:
-		static SmtDataSourceMgr*		GetSingletonPtr(void);
-		static void						DestoryInstance(void);
+  static SmtRasterLayer* CreateMemRasLayer();
+  static void DestoryMemRasLayer(SmtRasterLayer*& pLayer);
 
-	public:
-		bool							Open(const char *szDSMFile);
-		bool							Save(void);
-		bool							SaveAs(const char *szDSMFile);
+  static SmtTileLayer* CreateMemTileLayer();
+  static void DestoryMemTileLayer(SmtTileLayer*& pLayer);
 
-	public:
-		SmtDataSource * 				CreateTmpDataSource(eDSType type);
-		void							DestoryTmpDataSource(SmtDataSource *& pTmpFileDS);
+  static SmtDataSourceMgr* GetSingletonPtr();
+  static void DestoryInstance();
 
-		SmtDataSource * 				CreateDataSource(SmtDataSourceInfo &info);
-		bool							DeleteDataSource(const char *szName);
+  bool Open(const char* szDSMFile);
+  bool Save();
+  bool SaveAs(const char* szDSMFile);
 
-	public:
-		//////////////////////////////////////////////////////////////////////////
-		int								GetDataSourceCount(void) {return m_vSmtDataSources.size();}
+  sdb::datasource::OgrDataSource* CreateTmpDataSource(eDSType type);
+  void DestoryTmpDataSource(sdb::datasource::OgrDataSource*& pTmp);
 
-		void							MoveFirst(void);
-		void							MoveNext(void);
-		void							MoveLast(void);
-		void							Delete(void);
-		bool							IsEnd(void);
+  sdb::datasource::OgrDataSource* CreateDataSource(SmtDataSourceInfo& info);
+  bool DeleteDataSource(const char* szName);
 
-		SmtDataSource *					GetDataSource();
-		
-	public:
-		SmtDataSource *					GetDataSource(int index);
-		SmtDataSource*					GetDataSource(const char *szName);
+  int GetDataSourceCount() { return static_cast<int>(sources_.size()); }
 
-		inline	SmtDataSource*			GetActiveDataSource(void) {return m_pActiveDS;}
-		void							SetActiveDataSource(const char *szActiveDSName);
-		inline void						SetActiveDataSource(SmtDataSource* pActiveDS) 
-		{ 
-			if (pActiveDS)
-			{
-				m_pActiveDS = pActiveDS;
-			}
-		}
+  void MoveFirst();
+  void MoveNext();
+  void MoveLast();
+  void Delete();
+  bool IsEnd();
 
-	private:
-		SmtDataSource					*m_pActiveDS;
-		vector<SmtDataSource*>			m_vSmtDataSources;
-		int								m_nIteratorIndex;
-		string							m_strDSMFilePath;
+  sdb::datasource::OgrDataSource* GetDataSource();
+  sdb::datasource::OgrDataSource* GetDataSource(int index);
+  sdb::datasource::OgrDataSource* GetDataSource(const char* szName);
 
-	private:
-		static SmtDataSourceMgr*		m_pSingleton;
-	};
-}
+  sdb::datasource::OgrDataSource* GetActiveDataSource() { return active_; }
+  void SetActiveDataSource(const char* szActiveDSName);
+  void SetActiveDataSource(sdb::datasource::OgrDataSource* pActive) {
+    if (pActive) {
+      active_ = pActive;
+    }
+  }
+
+ private:
+  sdb::datasource::OgrDataSource* active_ = nullptr;
+  std::vector<sdb::datasource::OgrDataSource*> sources_;
+  int iterator_ = 0;
+  std::string dsm_path_;
+
+  static SmtDataSourceMgr* m_pSingleton;
+};
+
+}  // namespace Smt_SDEDevMgr
 
 #if !defined(Export_SmtSDEDeviceMgr)
-#if   defined( _DEBUG)
-#          pragma comment(lib,"SmtSDEDeviceMgrD.lib")
-#       else
-#          pragma comment(lib,"SmtSDEDeviceMgr.lib")
-#	    endif  
+#if defined(_DEBUG)
+#pragma comment(lib, "SmtSDEDeviceMgrD.lib")
+#else
+#pragma comment(lib, "SmtSDEDeviceMgr.lib")
+#endif
 #endif
 
-#endif //_SMT_DSMGR_H
+#endif  // _SMT_DSMGR_H

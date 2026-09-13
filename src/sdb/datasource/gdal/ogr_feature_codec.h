@@ -6,15 +6,36 @@
 
 #include "feature.h"
 
+class GDALDataset;
 class OGRFeature;
+class OGRLayer;
+
+namespace Smt_Geo {
+class SmtGeometry;
+}
+
+namespace Smt_Base {
+class SmtStyle;
+}
 
 namespace sdb {
 namespace datasource {
 
-bool copy_ogr_feature_to_smt(OGRFeature* src, Smt_GIS::SmtFeature* dst);
-bool copy_ogr_feature_to_smt(OGRFeature* src, Smt_GIS::SmtFeature* dst,
-                             Smt_GIS::SmtFeatureType hint);
-bool copy_smt_feature_to_ogr(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
+Smt_GIS::SmtFeatureType infer_feature_type(OGRFeature* src,
+                                           Smt_GIS::SmtFeatureType hint);
+Smt_GIS::SmtFeatureType feature_type_of(OGRLayer* layer);
+
+bool encode_smt_geometry(const Smt_Geo::SmtGeometry* src, OGRFeature* dst,
+                         Smt_GIS::SmtFeatureType ft);
+Smt_Geo::SmtGeometry* decode_ogr_geometry(OGRFeature* src,
+                                          Smt_GIS::SmtFeatureType hint);
+
+void copy_smt_style_to_ogr(const Smt_Base::SmtStyle* src, OGRFeature* dst);
+Smt_Base::SmtStyle* copy_ogr_style_from_ogr(OGRFeature* src);
+
+bool create_vector_layer(GDALDataset* ds, const char* name,
+                         Smt_GIS::SmtFeatureType ft, OGRLayer** out);
+OGRLayer* create_scratch_layer(GDALDataset* ds, const char* name);
 
 }  // namespace datasource
 }  // namespace sdb

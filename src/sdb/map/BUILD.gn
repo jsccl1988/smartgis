@@ -1,0 +1,25 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Map document + feature/layer types. DLL stem stays SmtGisCore.
+smt_shared_library("gis") {
+  dll_stem = "SmtGisCore"
+  defines = [ "Export_SmtGisCore" ]
+  sources = [
+    "../feature/attribute.cpp",
+    "../feature/feature_3d.cpp",
+    "../feature/feature_api.cpp",
+    "../feature/field.cpp",
+    "map.cpp",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/algorithm/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/render/render3d:render3d",
+    "//third_party:gdal",
+  ]
+}

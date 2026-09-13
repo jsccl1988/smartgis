@@ -13,6 +13,8 @@
 #include "feature.h"
 #include "geometry.h"
 #include "layer.h"
+#include "matrix2d.h"
+#include "style.h"
 
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
@@ -29,8 +31,6 @@ using namespace Smt_Geo;
 using Smt_Core::fRect;
 using Smt_Core::SmtTriangle;
 using Smt_GIS::SmtDataSourceInfo;
-using Smt_GIS::SmtFeature;
-using Smt_GIS::SmtField;
 using Smt_GIS::SmtFtAnno;
 using Smt_GIS::SmtFtCurve;
 using Smt_GIS::SmtFtDot;
@@ -38,9 +38,7 @@ using Smt_GIS::SmtFtGrid;
 using Smt_GIS::SmtFtSurface;
 using Smt_GIS::SmtFtTin;
 using Smt_GIS::SmtRasterLayer;
-using Smt_GIS::SmtVectorLayer;
 using Smt_GIS::DS_DB_ADO;
-using Smt_GIS::FETCH_ALL;
 using Smt_GIS::PROVIDER_ACCESS;
 using Smt_GIS::PROVIDER_GPKG;
 using Smt_GIS::PROVIDER_POSTGRES;
@@ -245,51 +243,36 @@ int main() {
         lyr->CreateField(&color);
         lyr->CreateField(&angle);
         lyr->CreateField(&style);
-        SmtFeature smt;
-        smt.SetID(7);
-        smt.SetFeatureType(SmtFtAnno);
-        smt.SetGeometryDirectly(new SmtPoint(1.5, 2.5));
-        SmtField f_anno;
-        f_anno.SetName("anno");
-        f_anno.SetType(SmtString);
-        smt.AddField(f_anno);
-        SmtField f_color;
-        f_color.SetName("color");
-        f_color.SetType(SmtInteger);
-        smt.AddField(f_color);
-        SmtField f_angle;
-        f_angle.SetName("angle");
-        f_angle.SetType(SmtReal);
-        smt.AddField(f_angle);
-        smt.SetFieldValue(smt.GetFieldIndexByName("anno"), "hi");
-        smt.SetFieldValue(smt.GetFieldIndexByName("color"), 9);
-        smt.SetFieldValue(smt.GetFieldIndexByName("angle"), 45.0);
+        SmtPoint smt_pt(1.5, 2.5);
+        OGRFeature ogr(lyr->GetLayerDefn());
+        expect(sdb::datasource::encode_smt_geometry(&smt_pt, &ogr, SmtFtAnno),
+               "smt geom->ogr anno");
+        ogr.SetField("anno", "hi");
+        ogr.SetField("color", 9);
+        ogr.SetField("angle", 45.0);
         SmtStyle sty;
         sty.SetStyleName("codec_style");
         SmtPenDesc pen = sty.GetPenDesc();
         pen.lPenColor = 0x00aabb;
         sty.SetPenDesc(pen);
-        smt.SetStyle(&sty);
-        OGRFeature ogr(lyr->GetLayerDefn());
-        expect(sdb::datasource::copy_smt_feature_to_ogr(&smt, &ogr),
-               "smt->ogr anno");
+        sdb::datasource::copy_smt_style_to_ogr(&sty, &ogr);
         int style_n = 0;
         const int style_i = ogr.GetFieldIndex("style");
         expect(style_i >= 0 &&
                    ogr.GetFieldAsBinary(style_i, &style_n) != nullptr &&
                    style_n == static_cast<int>(sizeof(SmtStyle)),
                "style OFTBinary written");
-        SmtFeature back;
-        expect(sdb::datasource::copy_ogr_feature_to_smt(&ogr, &back),
-               "ogr->smt anno");
-        const SmtPoint* pt = dynamic_cast<const SmtPoint*>(back.GetGeometryRef());
+        SmtGeometry* back_g =
+            sdb::datasource::decode_ogr_geometry(&ogr, SmtFtAnno);
+        const SmtPoint* pt = dynamic_cast<const SmtPoint*>(back_g);
         expect(pt && pt->GetX() == 1.5 && pt->GetY() == 2.5, "anno xy");
-        int ai = back.GetFieldIndexByName("anno");
-        expect(ai >= 0, "anno field present");
-        expect(back.GetStyle() != nullptr &&
-                   std::strcmp(back.GetStyle()->GetStyleName(), "codec_style") ==
-                       0,
+        expect(ogr.GetFieldIndex("anno") >= 0, "anno field present");
+        SmtStyle* back_sty = sdb::datasource::copy_ogr_style_from_ogr(&ogr);
+        expect(back_sty &&
+                   std::strcmp(back_sty->GetStyleName(), "codec_style") == 0,
                "style blob decode");
+        delete back_g;
+        delete back_sty;
       }
 
       OGRLayer* multi_lyr =
@@ -303,14 +286,12 @@ int main() {
         mp.addGeometry(&p0);
         mp.addGeometry(&p1);
         mpl.SetGeometry(&mp);
-        SmtFeature mp_back;
-        expect(sdb::datasource::copy_ogr_feature_to_smt(&mpl, &mp_back,
-                                                        SmtFtDot),
-               "decode MultiPoint as Dot");
-        const SmtPoint* mpt =
-            dynamic_cast<const SmtPoint*>(mp_back.GetGeometryRef());
+        SmtGeometry* mp_back =
+            sdb::datasource::decode_ogr_geometry(&mpl, SmtFtDot);
+        const SmtPoint* mpt = dynamic_cast<const SmtPoint*>(mp_back);
         expect(mpt && mpt->GetX() == 9.0 && mpt->GetY() == 8.0,
                "MultiPoint first part");
+        delete mp_back;
 
         OGRFeature mls(multi_lyr->GetLayerDefn());
         OGRLineString ls0;
@@ -323,14 +304,13 @@ int main() {
         mls_g.addGeometry(&ls0);
         mls_g.addGeometry(&ls1);
         mls.SetGeometry(&mls_g);
-        SmtFeature mls_back;
-        expect(sdb::datasource::copy_ogr_feature_to_smt(&mls, &mls_back,
-                                                        SmtFtCurve),
-               "decode MultiLineString as Curve");
+        SmtGeometry* mls_back =
+            sdb::datasource::decode_ogr_geometry(&mls, SmtFtCurve);
         const SmtLineString* got_ls =
-            dynamic_cast<const SmtLineString*>(mls_back.GetGeometryRef());
+            dynamic_cast<const SmtLineString*>(mls_back);
         expect(got_ls && got_ls->GetNumPoints() == 2 && got_ls->GetX(1) == 2.0,
                "MultiLineString first part");
+        delete mls_back;
 
         OGRLinearRing ring;
         ring.addPoint(0.0, 0.0);
@@ -347,14 +327,12 @@ int main() {
         mpg.addGeometry(&poly1);
         OGRFeature mpgf(multi_lyr->GetLayerDefn());
         mpgf.SetGeometry(&mpg);
-        SmtFeature mpg_back;
-        expect(sdb::datasource::copy_ogr_feature_to_smt(&mpgf, &mpg_back,
-                                                        SmtFtSurface),
-               "decode MultiPolygon as Surface");
-        const SmtPolygon* got_pg =
-            dynamic_cast<const SmtPolygon*>(mpg_back.GetGeometryRef());
+        SmtGeometry* mpg_back =
+            sdb::datasource::decode_ogr_geometry(&mpgf, SmtFtSurface);
+        const SmtPolygon* got_pg = dynamic_cast<const SmtPolygon*>(mpg_back);
         expect(got_pg && got_pg->GetExteriorRing() != nullptr,
                "MultiPolygon first part");
+        delete mpg_back;
       }
       GDALClose(ds);
     }
@@ -401,67 +379,63 @@ int main() {
   if (!ds.IsOpen()) {
     // File round-trip requires a real GPKG driver.
   } else {
-  SmtVectorLayer* lyr = ds.CreateVectorLayer("dots", rect, SmtFtDot);
+  OGRLayer* lyr = ds.CreateVectorLayer("dots", rect, SmtFtDot);
   expect(lyr != nullptr, "create dots");
   if (lyr) {
-    SmtFeature feat;
-    feat.SetID(1);
-    feat.SetFeatureType(SmtFtDot);
-    feat.SetGeometryDirectly(new SmtPoint(3.0, 4.0));
-    expect(lyr->AppendFeature(&feat, true) == SMT_ERR_NONE, "append point");
-    expect(lyr->Close(), "close layer");
-    SMT_SAFE_DELETE(lyr);
+    OGRFeature feat(lyr->GetLayerDefn());
+    SmtPoint smt_pt(3.0, 4.0);
+    expect(sdb::datasource::encode_smt_geometry(&smt_pt, &feat, SmtFtDot),
+           "encode point");
+    expect(lyr->CreateFeature(&feat) == OGRERR_NONE, "append point");
     ds.Close();
     expect(ds.Open(), "reopen gpkg");
-    SmtVectorLayer* lyr2 = ds.OpenVectorLayer("dots");
+    OGRLayer* lyr2 = ds.OpenVectorLayer("dots");
     expect(lyr2 != nullptr, "reopen dots");
     if (lyr2) {
-      expect(lyr2->Fetch(FETCH_ALL), "fetch");
       expect(lyr2->GetFeatureCount() >= 1, "count");
-      SmtFeature* got = lyr2->GetFeature(0);
+      lyr2->ResetReading();
+      OGRFeature* got = lyr2->GetNextFeature();
       expect(got != nullptr, "get 0");
-      const SmtPoint* p = got ? dynamic_cast<const SmtPoint*>(got->GetGeometryRef())
-                              : nullptr;
+      SmtGeometry* g =
+          got ? sdb::datasource::decode_ogr_geometry(got, SmtFtDot) : nullptr;
+      const SmtPoint* p = dynamic_cast<const SmtPoint*>(g);
       expect(p && p->GetX() == 3.0 && p->GetY() == 4.0, "xy persist");
-      SMT_SAFE_DELETE(lyr2);
+      delete g;
+      OGRFeature::DestroyFeature(got);
     }
   }
 
-  SmtVectorLayer* lines = ds.CreateVectorLayer("lines", rect, SmtFtCurve);
+  OGRLayer* lines = ds.CreateVectorLayer("lines", rect, SmtFtCurve);
   expect(lines != nullptr, "create lines");
   if (lines) {
-    SmtFeature feat;
-    feat.SetID(2);
-    feat.SetFeatureType(SmtFtCurve);
     auto* line = new SmtLineString();
     line->SetNumPoints(2);
     line->SetPoint(0, 0.0, 0.0);
     line->SetPoint(1, 1.0, 1.0);
-    feat.SetGeometryDirectly(line);
-    expect(lines->AppendFeature(&feat, true) == SMT_ERR_NONE, "append line");
-    lines->Close();
-    SMT_SAFE_DELETE(lines);
+    OGRFeature feat(lines->GetLayerDefn());
+    expect(sdb::datasource::encode_smt_geometry(line, &feat, SmtFtCurve),
+           "encode line");
+    expect(lines->CreateFeature(&feat) == OGRERR_NONE, "append line");
+    delete line;
     ds.Close();
     expect(ds.Open(), "reopen for line");
-    SmtVectorLayer* back = ds.OpenVectorLayer("lines");
+    OGRLayer* back = ds.OpenVectorLayer("lines");
     expect(back != nullptr, "reopen lines");
     if (back) {
-      back->Fetch(FETCH_ALL);
-      SmtFeature* got = back->GetFeature(0);
-      const SmtLineString* ls =
-          got ? dynamic_cast<const SmtLineString*>(got->GetGeometryRef())
-              : nullptr;
+      back->ResetReading();
+      OGRFeature* got = back->GetNextFeature();
+      SmtGeometry* g =
+          got ? sdb::datasource::decode_ogr_geometry(got, SmtFtCurve) : nullptr;
+      const SmtLineString* ls = dynamic_cast<const SmtLineString*>(g);
       expect(ls && ls->GetNumPoints() == 2, "line points");
-      SMT_SAFE_DELETE(back);
+      delete g;
+      OGRFeature::DestroyFeature(got);
     }
   }
 
-  SmtVectorLayer* polys = ds.CreateVectorLayer("polys", rect, SmtFtSurface);
+  OGRLayer* polys = ds.CreateVectorLayer("polys", rect, SmtFtSurface);
   expect(polys != nullptr, "create polys");
   if (polys) {
-    SmtFeature feat;
-    feat.SetID(3);
-    feat.SetFeatureType(SmtFtSurface);
     auto* ring = new SmtLinearRing();
     ring->SetNumPoints(5);
     ring->SetPoint(0, 0.0, 0.0);
@@ -472,112 +446,102 @@ int main() {
     ring->CloseRings();
     auto* poly = new SmtPolygon();
     poly->AddRingDirectly(ring);
-    feat.SetGeometryDirectly(poly);
-    expect(polys->AppendFeature(&feat, true) == SMT_ERR_NONE, "append poly");
-    polys->Close();
-    SMT_SAFE_DELETE(polys);
+    OGRFeature feat(polys->GetLayerDefn());
+    expect(sdb::datasource::encode_smt_geometry(poly, &feat, SmtFtSurface),
+           "encode poly");
+    expect(polys->CreateFeature(&feat) == OGRERR_NONE, "append poly");
+    delete poly;
     ds.Close();
     expect(ds.Open(), "reopen for poly");
-    SmtVectorLayer* back = ds.OpenVectorLayer("polys");
+    OGRLayer* back = ds.OpenVectorLayer("polys");
     expect(back != nullptr, "reopen polys");
     if (back) {
-      back->Fetch(FETCH_ALL);
-      SmtFeature* got = back->GetFeature(0);
-      const SmtPolygon* pg =
-          got ? dynamic_cast<const SmtPolygon*>(got->GetGeometryRef()) : nullptr;
+      back->ResetReading();
+      OGRFeature* got = back->GetNextFeature();
+      SmtGeometry* g =
+          got ? sdb::datasource::decode_ogr_geometry(got, SmtFtSurface)
+              : nullptr;
+      const SmtPolygon* pg = dynamic_cast<const SmtPolygon*>(g);
       expect(pg && pg->GetExteriorRing() != nullptr, "poly ring");
-      SMT_SAFE_DELETE(back);
+      delete g;
+      OGRFeature::DestroyFeature(got);
     }
   }
 
-  SmtVectorLayer* annos = ds.CreateVectorLayer("annos", rect, SmtFtAnno);
+  OGRLayer* annos = ds.CreateVectorLayer("annos", rect, SmtFtAnno);
   expect(annos != nullptr, "create annos");
   if (annos) {
-    SmtFeature feat;
-    feat.SetID(4);
-    feat.SetFeatureType(SmtFtAnno);
-    feat.SetGeometryDirectly(new SmtPoint(2.0, 3.0));
-    feat.SetFieldValue(feat.GetFieldIndexByName("anno"), "n");
-    feat.SetFieldValue(feat.GetFieldIndexByName("color"), 3);
-    feat.SetFieldValue(feat.GetFieldIndexByName("angle"), 12.0);
-    expect(annos->AppendFeature(&feat, true) == SMT_ERR_NONE, "append anno");
-    annos->Close();
-    SMT_SAFE_DELETE(annos);
+    SmtPoint anno_pt(2.0, 3.0);
+    OGRFeature feat(annos->GetLayerDefn());
+    expect(sdb::datasource::encode_smt_geometry(&anno_pt, &feat, SmtFtAnno),
+           "encode anno");
+    feat.SetField("anno", "n");
+    feat.SetField("color", 3);
+    feat.SetField("angle", 12.0);
+    expect(annos->CreateFeature(&feat) == OGRERR_NONE, "append anno");
     ds.Close();
     expect(ds.Open(), "reopen for anno");
-    SmtVectorLayer* back = ds.OpenVectorLayer("annos");
+    OGRLayer* back = ds.OpenVectorLayer("annos");
     expect(back != nullptr, "reopen annos");
     if (back) {
-      back->Fetch(FETCH_ALL);
-      SmtFeature* got = back->GetFeature(0);
+      back->ResetReading();
+      OGRFeature* got = back->GetNextFeature();
       expect(got != nullptr, "anno feat");
       if (got) {
-        const int ai = got->GetFieldIndexByName("anno");
-        expect(ai >= 0 && std::strcmp(got->GetAttributeRef()->GetFieldPtr(ai)
-                                          ->GetValueAsString(),
-                                      "n") == 0,
+        const int ai = got->GetFieldIndex("anno");
+        expect(ai >= 0 && std::strcmp(got->GetFieldAsString(ai), "n") == 0,
                "anno text persist");
-        const int ci = got->GetFieldIndexByName("color");
-        expect(ci >= 0 &&
-                   got->GetAttributeRef()->GetFieldPtr(ci)->GetValueAsInteger() ==
-                       3,
-               "anno color persist");
-        const int gi = got->GetFieldIndexByName("angle");
-        expect(gi >= 0 &&
-                   got->GetAttributeRef()->GetFieldPtr(gi)->GetValueAsDouble() ==
-                       12.0,
+        const int ci = got->GetFieldIndex("color");
+        expect(ci >= 0 && got->GetFieldAsInteger(ci) == 3, "anno color persist");
+        const int gi = got->GetFieldIndex("angle");
+        expect(gi >= 0 && got->GetFieldAsDouble(gi) == 12.0,
                "anno angle persist");
       }
-      SMT_SAFE_DELETE(back);
+      OGRFeature::DestroyFeature(got);
     }
   }
 
-  SmtVectorLayer* tins = ds.CreateVectorLayer("tins", rect, SmtFtTin);
+  OGRLayer* tins = ds.CreateVectorLayer("tins", rect, SmtFtTin);
   expect(tins != nullptr, "create tins");
   if (tins) {
-    SmtFeature feat;
-    feat.SetID(5);
-    feat.SetFeatureType(SmtFtTin);
-    auto* tin = new SmtTin();
+    SmtTin tin;
     SmtPoint a(0, 0);
     SmtPoint b(1, 0);
     SmtPoint c(0, 1);
-    tin->AddPoint(&a);
-    tin->AddPoint(&b);
-    tin->AddPoint(&c);
+    tin.AddPoint(&a);
+    tin.AddPoint(&b);
+    tin.AddPoint(&c);
     SmtTriangle tri;
     tri.a = 0;
     tri.b = 1;
     tri.c = 2;
-    tin->AddTriangle(&tri);
-    feat.SetGeometryDirectly(tin);
-    expect(tins->AppendFeature(&feat, true) == SMT_ERR_NONE, "append tin");
-    tins->Close();
-    SMT_SAFE_DELETE(tins);
+    tin.AddTriangle(&tri);
+    OGRFeature feat(tins->GetLayerDefn());
+    expect(sdb::datasource::encode_smt_geometry(&tin, &feat, SmtFtTin),
+           "encode tin");
+    expect(tins->CreateFeature(&feat) == OGRERR_NONE, "append tin");
     ds.Close();
     expect(ds.Open(), "reopen for tin");
-    SmtVectorLayer* back = ds.OpenVectorLayer("tins");
+    OGRLayer* back = ds.OpenVectorLayer("tins");
     expect(back != nullptr, "reopen tins");
     if (back) {
-      back->Fetch(FETCH_ALL);
-      SmtFeature* got = back->GetFeature(0);
-      expect(got && got->GetFeatureType() == SmtFtTin, "tin type");
-      const SmtTin* gt =
-          got ? dynamic_cast<const SmtTin*>(got->GetGeometryRef()) : nullptr;
+      back->ResetReading();
+      OGRFeature* got = back->GetNextFeature();
+      SmtGeometry* g =
+          got ? sdb::datasource::decode_ogr_geometry(got, SmtFtTin) : nullptr;
+      const SmtTin* gt = dynamic_cast<const SmtTin*>(g);
       expect(gt && (gt->GetTriangleCount() >= 1 || gt->GetPointCount() >= 3),
              "tin persist");
-      SMT_SAFE_DELETE(back);
+      delete g;
+      OGRFeature::DestroyFeature(got);
     }
   }
 
-  SmtVectorLayer* grids = ds.CreateVectorLayer("grids", rect, SmtFtGrid);
+  OGRLayer* grids = ds.CreateVectorLayer("grids", rect, SmtFtGrid);
   expect(grids != nullptr, "create grids");
   if (grids) {
-    SmtFeature feat;
-    feat.SetID(6);
-    feat.SetFeatureType(SmtFtGrid);
-    auto* grid = new SmtGrid(2, 2);
-    Matrix2D<RawPoint>* buf = grid->GetGridNodeBuf();
+    SmtGrid grid(2, 2);
+    Matrix2D<RawPoint>* buf = grid.GetGridNodeBuf();
     RawPoint p00(0, 0);
     RawPoint p01(1, 0);
     RawPoint p10(0, 1);
@@ -586,29 +550,23 @@ int main() {
     buf->SetElement(p01, 0, 1);
     buf->SetElement(p10, 1, 0);
     buf->SetElement(p11, 1, 1);
-    feat.SetGeometryDirectly(grid);
-    SmtField fr;
-    fr.SetName("grid_row");
-    fr.SetType(SmtInteger);
-    feat.AddField(fr);
-    SmtField fc;
-    fc.SetName("grid_col");
-    fc.SetType(SmtInteger);
-    feat.AddField(fc);
-    feat.SetFieldValue(feat.GetFieldIndexByName("grid_row"), 2);
-    feat.SetFieldValue(feat.GetFieldIndexByName("grid_col"), 2);
-    expect(grids->AppendFeature(&feat, true) == SMT_ERR_NONE, "append grid");
-    grids->Close();
-    SMT_SAFE_DELETE(grids);
+    OGRFeature feat(grids->GetLayerDefn());
+    expect(sdb::datasource::encode_smt_geometry(&grid, &feat, SmtFtGrid),
+           "encode grid");
+    feat.SetField("grid_row", 2);
+    feat.SetField("grid_col", 2);
+    expect(grids->CreateFeature(&feat) == OGRERR_NONE, "append grid");
     ds.Close();
     expect(ds.Open(), "reopen for grid");
-    SmtVectorLayer* back = ds.OpenVectorLayer("grids");
+    OGRLayer* back = ds.OpenVectorLayer("grids");
     expect(back != nullptr, "reopen grids");
     if (back) {
-      back->Fetch(FETCH_ALL);
-      SmtFeature* got = back->GetFeature(0);
-      expect(got && got->GetFeatureType() == SmtFtGrid, "grid type");
-      SMT_SAFE_DELETE(back);
+      back->ResetReading();
+      OGRFeature* got = back->GetNextFeature();
+      expect(got && sdb::datasource::infer_feature_type(got, SmtFtGrid) ==
+                        SmtFtGrid,
+             "grid type");
+      OGRFeature::DestroyFeature(got);
     }
   }
 
@@ -653,7 +611,7 @@ int main() {
       Smt_SDEDevMgr::SmtDataSourceMgr::GetSingletonPtr();
   expect(mgr != nullptr, "datasource mgr");
   if (mgr) {
-    Smt_GIS::SmtDataSource* tmp = mgr->CreateTmpDataSource(DS_DB_ADO);
+    sdb::datasource::OgrDataSource* tmp = mgr->CreateTmpDataSource(DS_DB_ADO);
     expect(tmp != nullptr, "CreateTmpDataSource OGR");
     if (tmp) {
       tmp->SetInfo(info);
@@ -665,6 +623,19 @@ int main() {
       }
       mgr->DestoryTmpDataSource(tmp);
     }
+    Smt_SDEDevMgr::ScratchLayer scratch =
+        Smt_SDEDevMgr::SmtDataSourceMgr::CreateMemVecLayer();
+    expect(scratch.dataset != nullptr && scratch.layer != nullptr,
+           "CreateMemVecLayer Memory");
+    if (scratch.layer) {
+      OGRFeature feat(scratch.layer->GetLayerDefn());
+      OGRPoint pt(1.0, 2.0);
+      feat.SetGeometry(&pt);
+      expect(scratch.layer->CreateFeature(&feat) == OGRERR_NONE,
+             "scratch CreateFeature");
+      expect(scratch.layer->GetFeatureCount() >= 1, "scratch count");
+    }
+    Smt_SDEDevMgr::SmtDataSourceMgr::DestoryMemVecLayer(scratch);
   }
 
   const char* pg_dsn = std::getenv("SMT_PG_DSN");

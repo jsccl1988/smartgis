@@ -5,9 +5,8 @@
 
 #include "sdb/datasource/gdal/gdal_driver.h"
 #include "sdb/datasource/gdal/ogr_connect.h"
-#include "sdb/datasource/gdal/ogr_feature_kind.h"
+#include "sdb/datasource/gdal/ogr_feature_codec.h"
 #include "sdb/datasource/gdal/ogr_raster_layer.h"
-#include "sdb/datasource/gdal/ogr_vec_layer.h"
 
 #include "logmanager.h"
 
@@ -84,87 +83,46 @@ std::string redact_open_target(const std::string& target) {
   return s;
 }
 
-void copy_layer_name(char* dest, size_t dest_len, const char* src) {
-  if (!dest || dest_len == 0) {
-    return;
-  }
-  if (!src) {
-    dest[0] = '\0';
-    return;
-  }
-  std::strncpy(dest, src, dest_len - 1);
-  dest[dest_len - 1] = '\0';
-}
-
-Smt_GIS::SmtFeatureType feature_type_from_layer(OGRLayer* lyr) {
-  if (!lyr) {
-    return Smt_GIS::SmtFtUnknown;
-  }
-  const OGRwkbGeometryType wkb = wkbFlatten(lyr->GetGeomType());
-  if (wkb == wkbPoint && lyr->FindFieldIndex("anno", TRUE) >= 0) {
-    return Smt_GIS::SmtFtAnno;
-  }
-  if (wkb == wkbMultiPoint && lyr->FindFieldIndex("grid_row", TRUE) >= 0) {
-    return Smt_GIS::SmtFtGrid;
-  }
-  switch (wkb) {
-    case wkbPoint:
-      return Smt_GIS::SmtFtDot;
-    case wkbLineString:
-    case wkbMultiLineString:
-      return Smt_GIS::SmtFtCurve;
-    case wkbPolygon:
-      return lyr->FindFieldIndex("area", TRUE) >= 0 ? Smt_GIS::SmtFtSurface
-                                                   : Smt_GIS::SmtFtTin;
-    case wkbMultiPolygon:
-    case wkbTIN:
-      return lyr->FindFieldIndex("area", TRUE) >= 0 ? Smt_GIS::SmtFtSurface
-                                                   : Smt_GIS::SmtFtTin;
-    case wkbMultiPoint:
-      return Smt_GIS::SmtFtGrid;
-    default:
-      return Smt_GIS::SmtFtUnknown;
-  }
-}
-
 }  // namespace
 
-OgrDataSource::OgrDataSource() : dataset_(nullptr) {}
+OgrDataSource::OgrDataSource() = default;
 
-OgrDataSource::~OgrDataSource() {
-  Close();
+OgrDataSource::~OgrDataSource() { Close(); }
+
+GDALDataset* OgrDataSource::release() {
+  GDALDataset* ds = dataset_;
+  dataset_ = nullptr;
+  open_ = false;
+  return ds;
 }
 
-bool OgrDataSource::Create() {
-  return Open();
-}
+bool OgrDataSource::Create() { return Open(); }
 
 bool OgrDataSource::Open() {
-  if (m_bOpen) {
+  if (open_) {
     Close();
   }
 
   register_gdal_driver();
   install_cpl_handler_once();
 
-  if (m_dsInfo.unType == Smt_GIS::DS_WS ||
-      m_dsInfo.unType == Smt_GIS::DS_DB_ODBC ||
-      m_dsInfo.unType == Smt_GIS::DS_DB_MYSQL ||
-      m_dsInfo.unType == Smt_GIS::DS_DB_ORACLE) {
+  if (info_.unType == Smt_GIS::DS_WS || info_.unType == Smt_GIS::DS_DB_ODBC ||
+      info_.unType == Smt_GIS::DS_DB_MYSQL ||
+      info_.unType == Smt_GIS::DS_DB_ORACLE) {
     gdal_log("datasource type is not an OGR v1 path (WS/ODBC/MySQL/Oracle)");
-    m_bOpen = false;
+    open_ = false;
     return false;
   }
 
-  if (m_dsInfo.unType == Smt_GIS::DS_DB_ADO &&
-      !is_db_provider_supported(m_dsInfo.unProvider)) {
+  if (info_.unType == Smt_GIS::DS_DB_ADO &&
+      !is_db_provider_supported(info_.unProvider)) {
     gdal_log("ACCESS/SQL Server providers are unsupported; use GPKG, "
              "PostgreSQL, or SpatiaLite");
-    m_bOpen = false;
+    open_ = false;
     return false;
   }
 
-  if (m_dsInfo.unType == Smt_GIS::DS_MEM) {
+  if (info_.unType == Smt_GIS::DS_MEM) {
     const char* want =
         mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1>::driver_name;
     GDALDriver* drv =
@@ -175,10 +133,10 @@ bool OgrDataSource::Open() {
     if (!drv) {
       gdal_log("Memory driver not in this GDAL");
       log_vector_drivers();
-      m_bOpen = false;
+      open_ = false;
       return false;
     }
-    const char* name = m_dsInfo.szName[0] ? m_dsInfo.szName : "mem";
+    const char* name = info_.szName[0] ? info_.szName : "mem";
     dataset_ = drv->Create(name, 0, 0, 0, GDT_Unknown, nullptr);
     if (!dataset_) {
       dataset_ = drv->Create(name, 1, 1, 1, GDT_Byte, nullptr);
@@ -186,27 +144,26 @@ bool OgrDataSource::Open() {
     if (!dataset_) {
       gdal_log("Memory Create failed");
       gdal_log(CPLGetLastErrorMsg());
-      m_bOpen = false;
+      open_ = false;
       return false;
     }
-    m_bOpen = true;
-    fill_layer_infos();
+    open_ = true;
     return true;
   }
 
-  const std::string target = make_gdal_open_target(m_dsInfo);
+  const std::string target = make_gdal_open_target(info_);
   if (target.empty()) {
-    m_bOpen = false;
+    open_ = false;
     return false;
   }
 
-  const char* want = gdal_driver_name_for(m_dsInfo);
+  const char* want = gdal_driver_name_for(info_);
   GDALDriver* file_drv =
       want ? GetGDALDriverManager()->GetDriverByName(want) : nullptr;
   const bool needs_named_driver =
-      m_dsInfo.unType == Smt_GIS::DS_FILE_SMF
-          ? (m_dsInfo.unProvider != Smt_GIS::PROVIDER_OGR_SUPPORT)
-          : is_db_provider_supported(m_dsInfo.unProvider);
+      info_.unType == Smt_GIS::DS_FILE_SMF
+          ? (info_.unProvider != Smt_GIS::PROVIDER_OGR_SUPPORT)
+          : is_db_provider_supported(info_.unProvider);
   if (needs_named_driver && !file_drv) {
     std::string fail = "Open/Create failed; driver missing; driver=";
     fail += want ? want : "?";
@@ -215,21 +172,21 @@ bool OgrDataSource::Open() {
     gdal_log(fail.c_str());
     log_vector_drivers();
     gdal_log(CPLGetLastErrorMsg());
-    m_bOpen = false;
+    open_ = false;
     return false;
   }
 
   dataset_ = static_cast<GDALDataset*>(GDALOpenEx(
-      target.c_str(), GDAL_OF_VECTOR | GDAL_OF_RASTER | GDAL_OF_UPDATE,
-      nullptr, nullptr, nullptr));
+      target.c_str(), GDAL_OF_VECTOR | GDAL_OF_RASTER | GDAL_OF_UPDATE, nullptr,
+      nullptr, nullptr));
   const bool can_create_file =
       file_drv &&
-      (m_dsInfo.unType == Smt_GIS::DS_FILE_SMF ||
-       m_dsInfo.unProvider == Smt_GIS::PROVIDER_GPKG ||
-       m_dsInfo.unProvider == Smt_GIS::PROVIDER_SPATIALITE);
+      (info_.unType == Smt_GIS::DS_FILE_SMF ||
+       info_.unProvider == Smt_GIS::PROVIDER_GPKG ||
+       info_.unProvider == Smt_GIS::PROVIDER_SPATIALITE);
   if (!dataset_ && can_create_file) {
     char** opts = nullptr;
-    if (m_dsInfo.unProvider == Smt_GIS::PROVIDER_SPATIALITE &&
+    if (info_.unProvider == Smt_GIS::PROVIDER_SPATIALITE &&
         std::strcmp(file_drv->GetDescription(), "SQLite") == 0) {
       opts = CSLSetNameValue(opts, "SPATIALITE", "YES");
     }
@@ -241,12 +198,11 @@ bool OgrDataSource::Open() {
     fail += redact_open_target(target);
     gdal_log(fail.c_str());
     gdal_log(CPLGetLastErrorMsg());
-    m_bOpen = false;
+    open_ = false;
     return false;
   }
 
-  m_bOpen = true;
-  fill_layer_infos();
+  open_ = true;
   return true;
 }
 
@@ -255,87 +211,28 @@ bool OgrDataSource::Close() {
     GDALClose(dataset_);
     dataset_ = nullptr;
   }
-  m_bOpen = false;
-  m_vLayerInfos.clear();
+  open_ = false;
   return true;
 }
 
-Smt_GIS::SmtDataSource* OgrDataSource::Clone() const {
-  auto* ds = new OgrDataSource();
-  ds->SetInfo(m_dsInfo);
-  return ds;
+OGRLayer* OgrDataSource::CreateVectorLayer(const char* szName,
+                                           Smt_Core::fRect& /*lyrRect*/,
+                                           Smt_GIS::SmtFeatureType ftType) {
+  if (!open_ || !dataset_ || !szName) {
+    return nullptr;
+  }
+  OGRLayer* lyr = nullptr;
+  if (!create_vector_layer(dataset_, szName, ftType, &lyr)) {
+    return nullptr;
+  }
+  return lyr;
 }
 
-void OgrDataSource::fill_layer_infos() {
-  m_vLayerInfos.clear();
-  if (!dataset_) {
-    return;
-  }
-  const int n = dataset_->GetLayerCount();
-  for (int i = 0; i < n; ++i) {
-    OGRLayer* lyr = dataset_->GetLayer(i);
-    if (!lyr) {
-      continue;
-    }
-    Smt_GIS::SmtLayerInfo info;
-    copy_layer_name(info.szName, MAX_LAYER_NAME, lyr->GetName());
-    copy_layer_name(info.szArchiveName, MAX_LAYER_ARCHIVE_NAME, lyr->GetName());
-    info.unFeatureType = feature_type_from_layer(lyr);
-    m_vLayerInfos.push_back(info);
-  }
-  if (dataset_->GetRasterCount() > 0) {
-    Smt_GIS::SmtLayerInfo info;
-    const char* ras_name = dataset_->GetDescription();
-    if (!ras_name || ras_name[0] == '\0') {
-      ras_name = "raster";
-    }
-    copy_layer_name(info.szName, MAX_LAYER_NAME, ras_name);
-    copy_layer_name(info.szArchiveName, MAX_LAYER_ARCHIVE_NAME, ras_name);
-    info.unFeatureType = Smt_GIS::SmtFtChildImage;
-    m_vLayerInfos.push_back(info);
-  }
-}
-
-Smt_GIS::SmtVectorLayer* OgrDataSource::CreateVectorLayer(
-    const char* szName, Smt_Core::fRect& lyrRect,
-    Smt_GIS::SmtFeatureType ftType) {
-  if (!m_bOpen || !dataset_ || !szName) {
+OGRLayer* OgrDataSource::OpenVectorLayer(const char* szName) {
+  if (!open_ || !dataset_ || !szName) {
     return nullptr;
   }
-  auto* layer = new OgrVectorLayer(this);
-  layer->SetLayerFeatureType(ftType);
-  layer->SetLayerName(szName);
-  layer->SetLayerRect(lyrRect);
-  if (!layer->Create()) {
-    delete layer;
-    return nullptr;
-  }
-  Smt_GIS::SmtLayerInfo info;
-  copy_layer_name(info.szName, MAX_LAYER_NAME, szName);
-  copy_layer_name(info.szArchiveName, MAX_LAYER_ARCHIVE_NAME, szName);
-  info.unFeatureType = ftType;
-  m_vLayerInfos.push_back(info);
-  return layer;
-}
-
-Smt_GIS::SmtVectorLayer* OgrDataSource::OpenVectorLayer(const char* szName) {
-  if (!m_bOpen || !dataset_ || !szName) {
-    return nullptr;
-  }
-  auto* layer = new OgrVectorLayer(this);
-  if (!layer->Open(szName)) {
-    delete layer;
-    return nullptr;
-  }
-  Smt_GIS::SmtLayerInfo info{};
-  GetLayerInfo(info, szName);
-  if (info.szName[0] != '\0') {
-    layer->SetLayerFeatureType(
-        static_cast<Smt_GIS::SmtFeatureType>(info.unFeatureType));
-  }
-  layer->SetLayerName(szName);
-  layer->Fetch();
-  return layer;
+  return dataset_->GetLayerByName(szName);
 }
 
 bool OgrDataSource::DeleteVectorLayer(const char* szName) {
@@ -353,40 +250,20 @@ bool OgrDataSource::DeleteVectorLayer(const char* szName) {
 
 Smt_GIS::SmtRasterLayer* OgrDataSource::CreateRasterLayer(
     const char* szName, Smt_Core::fRect& lyrRect, long /*lImageCode*/) {
-  auto* layer = new OgrRasterLayer(this);
+  auto* layer = new OgrRasterLayer(dataset_);
   layer->SetLayerName(szName);
   layer->SetLayerRect(lyrRect);
-  if (!layer->Create()) {
-    return layer;
-  }
+  layer->Create();
   return layer;
 }
 
 Smt_GIS::SmtRasterLayer* OgrDataSource::OpenRasterLayer(const char* szName) {
-  auto* layer = new OgrRasterLayer(this);
+  auto* layer = new OgrRasterLayer(dataset_);
   if (layer->Open(szName)) {
     return layer;
   }
   delete layer;
   return nullptr;
-}
-
-bool OgrDataSource::DeleteRasterLayer(const char* /*szName*/) {
-  return false;
-}
-
-Smt_GIS::SmtTileLayer* OgrDataSource::CreateTileLayer(const char* /*szName*/,
-                                                      Smt_Core::fRect& /*lyrRect*/,
-                                                      long /*lImageCode*/) {
-  return nullptr;
-}
-
-Smt_GIS::SmtTileLayer* OgrDataSource::OpenTileLayer(const char* /*szName*/) {
-  return nullptr;
-}
-
-bool OgrDataSource::DeleteTileLayer(const char* /*szName*/) {
-  return false;
 }
 
 }  // namespace datasource

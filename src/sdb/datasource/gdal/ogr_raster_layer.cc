@@ -10,8 +10,8 @@
 namespace sdb {
 namespace datasource {
 
-OgrRasterLayer::OgrRasterLayer(OgrDataSource* owner)
-    : Smt_GIS::SmtRasterLayer(owner), owner_(owner) {
+OgrRasterLayer::OgrRasterLayer(GDALDataset* owner)
+    : Smt_GIS::SmtRasterLayer(owner) {
   rect_.lb.x = 0;
   rect_.lb.y = 0;
   rect_.rt.x = 0;

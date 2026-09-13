@@ -1,0 +1,28 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+source_set("edit") {
+  sources = [
+    "command_edit_session.cc",
+    "edit_session.cc",
+    "edit_session.h",
+  ]
+  include_dirs += [ "//src", "//src/base" ]
+  deps = [ "//src/base:core" ]
+}
+
+source_set("map_edit") {
+  sources = [
+    "map_edit_session.cc",
+    "map_edit_session.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  deps = [
+    ":edit",
+    "//src/sdb/map:gis",
+    "//third_party:gdal",
+  ]
+}

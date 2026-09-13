@@ -7,7 +7,5 @@ group("datasource") {
     "//src/sdb/datasource/gdal:sde_gdal",
     "//src/sdb/datasource/mem:sde_mem",
     "//src/sdb/datasource/mgr:sde_mgr",
-    "//src/sdb/datasource/smf:sde_smf",
-    "//src/sdb/datasource/ws:sde_ws",
   ]
 }

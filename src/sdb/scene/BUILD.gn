@@ -1,0 +1,33 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+source_set("scene") {
+  sources = [
+    "scene.cc",
+    "scene.h",
+    "tessellate.cc",
+    "tessellate.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/algorithm/geo:geo",
+    "//src/sdb/map:gis",
+    "//src/sdb/datasource/gdal:ogr_codec",
+    "//third_party:gdal",
+  ]
+}
+
+test("scene_test") {
+  output_name = "scene_test"
+  sources = [ "scene_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [ ":scene" ]
+}
