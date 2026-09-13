@@ -13,9 +13,7 @@
 
 class OGRFeature;
 
-namespace Smt_Geo {
-class SmtGeometry;
-}
+class OGRGeometry;
 
 namespace sdb {
 namespace datasource {
@@ -71,8 +69,8 @@ struct feature_kind_traits<Smt_GIS::SmtFtDot> {
   static constexpr OGRwkbGeometryType wkb = wkbPoint;
   static constexpr bool is_raster = false;
   using extra_fields = std::tuple<>;
-  static bool encode_geom(const Smt_Geo::SmtGeometry* src, OGRFeature* dst);
-  static Smt_Geo::SmtGeometry* decode_geom(OGRFeature* src);
+  static bool encode_geom(const OGRGeometry* src, OGRFeature* dst);
+  static OGRGeometry* decode_geom(OGRFeature* src);
 };
 
 template <>
@@ -81,8 +79,8 @@ struct feature_kind_traits<Smt_GIS::SmtFtCurve> {
   static constexpr OGRwkbGeometryType wkb = wkbLineString;
   static constexpr bool is_raster = false;
   using extra_fields = std::tuple<field_length>;
-  static bool encode_geom(const Smt_Geo::SmtGeometry* src, OGRFeature* dst);
-  static Smt_Geo::SmtGeometry* decode_geom(OGRFeature* src);
+  static bool encode_geom(const OGRGeometry* src, OGRFeature* dst);
+  static OGRGeometry* decode_geom(OGRFeature* src);
 };
 
 template <>
@@ -91,8 +89,8 @@ struct feature_kind_traits<Smt_GIS::SmtFtSurface> {
   static constexpr OGRwkbGeometryType wkb = wkbPolygon;
   static constexpr bool is_raster = false;
   using extra_fields = std::tuple<field_area>;
-  static bool encode_geom(const Smt_Geo::SmtGeometry* src, OGRFeature* dst);
-  static Smt_Geo::SmtGeometry* decode_geom(OGRFeature* src);
+  static bool encode_geom(const OGRGeometry* src, OGRFeature* dst);
+  static OGRGeometry* decode_geom(OGRFeature* src);
 };
 
 template <>
@@ -101,8 +99,8 @@ struct feature_kind_traits<Smt_GIS::SmtFtAnno> {
   static constexpr OGRwkbGeometryType wkb = wkbPoint;
   static constexpr bool is_raster = false;
   using extra_fields = std::tuple<field_anno, field_color, field_angle>;
-  static bool encode_geom(const Smt_Geo::SmtGeometry* src, OGRFeature* dst);
-  static Smt_Geo::SmtGeometry* decode_geom(OGRFeature* src);
+  static bool encode_geom(const OGRGeometry* src, OGRFeature* dst);
+  static OGRGeometry* decode_geom(OGRFeature* src);
 };
 
 template <>
@@ -111,8 +109,8 @@ struct feature_kind_traits<Smt_GIS::SmtFtTin> {
   static constexpr OGRwkbGeometryType wkb = wkbMultiPolygon;
   static constexpr bool is_raster = false;
   using extra_fields = std::tuple<>;
-  static bool encode_geom(const Smt_Geo::SmtGeometry* src, OGRFeature* dst);
-  static Smt_Geo::SmtGeometry* decode_geom(OGRFeature* src);
+  static bool encode_geom(const OGRGeometry* src, OGRFeature* dst);
+  static OGRGeometry* decode_geom(OGRFeature* src);
 };
 
 template <>
@@ -121,8 +119,8 @@ struct feature_kind_traits<Smt_GIS::SmtFtGrid> {
   static constexpr OGRwkbGeometryType wkb = wkbMultiPoint;
   static constexpr bool is_raster = false;
   using extra_fields = std::tuple<field_grid_row, field_grid_col>;
-  static bool encode_geom(const Smt_Geo::SmtGeometry* src, OGRFeature* dst);
-  static Smt_Geo::SmtGeometry* decode_geom(OGRFeature* src);
+  static bool encode_geom(const OGRGeometry* src, OGRFeature* dst);
+  static OGRGeometry* decode_geom(OGRFeature* src);
 };
 
 template <>
@@ -131,8 +129,8 @@ struct feature_kind_traits<Smt_GIS::SmtFtChildImage> {
   static constexpr OGRwkbGeometryType wkb = wkbNone;
   static constexpr bool is_raster = true;
   using extra_fields = std::tuple<>;
-  static bool encode_geom(const Smt_Geo::SmtGeometry* src, OGRFeature* dst);
-  static Smt_Geo::SmtGeometry* decode_geom(OGRFeature* src);
+  static bool encode_geom(const OGRGeometry* src, OGRFeature* dst);
+  static OGRGeometry* decode_geom(OGRFeature* src);
 };
 
 template <typename Fn>

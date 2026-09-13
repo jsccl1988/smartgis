@@ -5,7 +5,6 @@
 #define _SMT_DSMGR_H
 
 #include "layer.h"
-#include "sdb/datasource/gdal/ogr_dataset.h"
 
 #include <string>
 #include <vector>
@@ -17,7 +16,7 @@ using namespace Smt_GIS;
 
 namespace Smt_SDEDevMgr {
 
-// Memory-driver scratch layer. Caller must DestoryMemVecLayer.
+// Memory-driver scratch layer via SDBD:MEM. Caller must DestoryMemVecLayer.
 struct ScratchLayer {
   GDALDataset* dataset = nullptr;
   OGRLayer* layer = nullptr;
@@ -46,13 +45,16 @@ class SMT_EXPORT_CLASS SmtDataSourceMgr {
   bool Save();
   bool SaveAs(const char* szDSMFile);
 
-  sdb::datasource::OgrDataSource* CreateTmpDataSource(eDSType type);
-  void DestoryTmpDataSource(sdb::datasource::OgrDataSource*& pTmp);
+  GDALDataset* OpenDataset(const SmtDataSourceInfo& info);
+  void CloseDataset(GDALDataset*& ds);
 
-  sdb::datasource::OgrDataSource* CreateDataSource(SmtDataSourceInfo& info);
+  GDALDataset* CreateTmpDataSource(eDSType type);
+  void DestoryTmpDataSource(GDALDataset*& pTmp);
+
+  GDALDataset* CreateDataSource(SmtDataSourceInfo& info);
   bool DeleteDataSource(const char* szName);
 
-  int GetDataSourceCount() { return static_cast<int>(sources_.size()); }
+  int GetDataSourceCount() { return static_cast<int>(entries_.size()); }
 
   void MoveFirst();
   void MoveNext();
@@ -60,21 +62,29 @@ class SMT_EXPORT_CLASS SmtDataSourceMgr {
   void Delete();
   bool IsEnd();
 
-  sdb::datasource::OgrDataSource* GetDataSource();
-  sdb::datasource::OgrDataSource* GetDataSource(int index);
-  sdb::datasource::OgrDataSource* GetDataSource(const char* szName);
+  GDALDataset* GetDataSource();
+  GDALDataset* GetDataSource(int index);
+  GDALDataset* GetDataSource(const char* szName);
 
-  sdb::datasource::OgrDataSource* GetActiveDataSource() { return active_; }
+  bool GetDataSourceInfo(const char* szName, SmtDataSourceInfo& info) const;
+  bool GetDataSourceInfo(int index, SmtDataSourceInfo& info) const;
+
+  GDALDataset* GetActiveDataSource() { return active_; }
   void SetActiveDataSource(const char* szActiveDSName);
-  void SetActiveDataSource(sdb::datasource::OgrDataSource* pActive) {
+  void SetActiveDataSource(GDALDataset* pActive) {
     if (pActive) {
       active_ = pActive;
     }
   }
 
  private:
-  sdb::datasource::OgrDataSource* active_ = nullptr;
-  std::vector<sdb::datasource::OgrDataSource*> sources_;
+  struct Entry {
+    SmtDataSourceInfo info;
+    GDALDataset* dataset = nullptr;
+  };
+
+  GDALDataset* active_ = nullptr;
+  std::vector<Entry> entries_;
   int iterator_ = 0;
   std::string dsm_path_;
 

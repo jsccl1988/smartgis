@@ -6,6 +6,7 @@
 #include "api.h"
 #include "mem.h"
 #include "sdb/datasource/gdal/gdal_driver.h"
+#include "sdb/datasource/gdal/sdbd_dataset.h"
 
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
@@ -31,18 +32,12 @@ SmtDataSourceMgr* SmtDataSourceMgr::GetSingletonPtr() {
 void SmtDataSourceMgr::DestoryInstance() { SMT_SAFE_DELETE(m_pSingleton); }
 
 ScratchLayer SmtDataSourceMgr::CreateMemVecLayer() {
-  sdb::datasource::register_gdal_driver();
   ScratchLayer sl;
-  sdb::datasource::OgrDataSource store;
   SmtDataSourceInfo info;
   info.unType = DS_MEM;
   info.unProvider = PROVIDER_MEM_VER1;
   std::strcpy(info.szName, "scratch");
-  store.SetInfo(info);
-  if (!store.Open() || !store.dataset()) {
-    return sl;
-  }
-  sl.dataset = store.release();
+  sl.dataset = sdb::datasource::open_sdbd_dataset(info);
   if (sl.dataset) {
     sl.layer = sl.dataset->CreateLayer("scratch", nullptr, wkbUnknown, nullptr);
     if (sl.layer) {
@@ -99,79 +94,101 @@ SmtDataSourceMgr::SmtDataSourceMgr() = default;
 
 SmtDataSourceMgr::~SmtDataSourceMgr() {
   Save();
-  for (auto* ds : sources_) {
-    delete ds;
+  for (Entry& e : entries_) {
+    if (e.dataset) {
+      GDALClose(e.dataset);
+    }
   }
-  sources_.clear();
+  entries_.clear();
   active_ = nullptr;
 }
 
-sdb::datasource::OgrDataSource* SmtDataSourceMgr::GetDataSource(
-    const char* szName) {
+GDALDataset* SmtDataSourceMgr::OpenDataset(const SmtDataSourceInfo& info) {
+  return sdb::datasource::open_sdbd_dataset(info);
+}
+
+void SmtDataSourceMgr::CloseDataset(GDALDataset*& ds) {
+  if (ds) {
+    GDALClose(ds);
+    if (active_ == ds) {
+      active_ = nullptr;
+    }
+    ds = nullptr;
+  }
+}
+
+GDALDataset* SmtDataSourceMgr::GetDataSource(const char* szName) {
   if (!szName) {
     return nullptr;
   }
-  for (auto* ds : sources_) {
-    SmtDataSourceInfo info;
-    ds->GetInfo(info);
-    if (std::strcmp(info.szName, szName) == 0) {
-      return ds;
+  for (Entry& e : entries_) {
+    if (std::strcmp(e.info.szName, szName) == 0) {
+      return e.dataset;
     }
   }
   return nullptr;
 }
 
-sdb::datasource::OgrDataSource* SmtDataSourceMgr::CreateTmpDataSource(
-    eDSType type) {
-  if (type == DS_WS || type == DS_DB_ODBC || type == DS_DB_MYSQL ||
-      type == DS_DB_ORACLE) {
+bool SmtDataSourceMgr::GetDataSourceInfo(const char* szName,
+                                         SmtDataSourceInfo& info) const {
+  if (!szName) {
+    return false;
+  }
+  for (const Entry& e : entries_) {
+    if (std::strcmp(e.info.szName, szName) == 0) {
+      info = e.info;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool SmtDataSourceMgr::GetDataSourceInfo(int index,
+                                         SmtDataSourceInfo& info) const {
+  if (index < 0 || index >= static_cast<int>(entries_.size())) {
+    return false;
+  }
+  info = entries_[index].info;
+  return true;
+}
+
+GDALDataset* SmtDataSourceMgr::CreateTmpDataSource(eDSType type) {
+  if (type != DS_MEM) {
     return nullptr;
   }
-  auto* ds = new sdb::datasource::OgrDataSource();
   SmtDataSourceInfo info;
-  info.unType = type;
-  if (type == DS_MEM) {
-    info.unProvider = PROVIDER_MEM_VER1;
-  }
-  ds->SetInfo(info);
-  return ds;
+  info.unType = DS_MEM;
+  info.unProvider = PROVIDER_MEM_VER1;
+  std::strcpy(info.szName, "tmp");
+  return OpenDataset(info);
 }
 
-void SmtDataSourceMgr::DestoryTmpDataSource(
-    sdb::datasource::OgrDataSource*& pTmp) {
-  SMT_SAFE_DELETE(pTmp);
+void SmtDataSourceMgr::DestoryTmpDataSource(GDALDataset*& pTmp) {
+  CloseDataset(pTmp);
 }
 
-sdb::datasource::OgrDataSource* SmtDataSourceMgr::CreateDataSource(
-    SmtDataSourceInfo& info) {
+GDALDataset* SmtDataSourceMgr::CreateDataSource(SmtDataSourceInfo& info) {
   if (info.szName[0] == '\0' || GetDataSource(info.szName)) {
     return nullptr;
   }
-  if (info.unType == DS_WS || info.unType == DS_DB_ODBC ||
-      info.unType == DS_DB_MYSQL || info.unType == DS_DB_ORACLE) {
+  GDALDataset* ds = OpenDataset(info);
+  if (!ds) {
     return nullptr;
   }
-  auto* ds = new sdb::datasource::OgrDataSource();
-  ds->SetInfo(info);
-  if (!ds->Open()) {
-    delete ds;
-    return nullptr;
-  }
-  ds->Close();
-  sources_.push_back(ds);
+  entries_.push_back(Entry{info, ds});
   return ds;
 }
 
 bool SmtDataSourceMgr::DeleteDataSource(const char* szName) {
-  for (auto it = sources_.begin(); it != sources_.end(); ++it) {
-    SmtDataSourceInfo info;
-    (*it)->GetInfo(info);
-    if (std::strcmp(info.szName, szName) == 0) {
-      if (*it == active_) {
+  for (auto it = entries_.begin(); it != entries_.end(); ++it) {
+    if (std::strcmp(it->info.szName, szName) == 0) {
+      if (it->dataset == active_) {
         active_ = nullptr;
       }
-      delete *it;
-      sources_.erase(it);
+      if (it->dataset) {
+        GDALClose(it->dataset);
+      }
+      entries_.erase(it);
       return true;
     }
   }
@@ -185,39 +202,41 @@ void SmtDataSourceMgr::SetActiveDataSource(const char* szActiveDSName) {
 void SmtDataSourceMgr::MoveFirst() { iterator_ = 0; }
 
 void SmtDataSourceMgr::MoveNext() {
-  if (iterator_ < static_cast<int>(sources_.size())) {
+  if (iterator_ < static_cast<int>(entries_.size())) {
     ++iterator_;
   }
 }
 
 void SmtDataSourceMgr::MoveLast() {
-  iterator_ = static_cast<int>(sources_.size()) - 1;
+  iterator_ = static_cast<int>(entries_.size()) - 1;
 }
 
 void SmtDataSourceMgr::Delete() {
-  if (iterator_ < 0 || iterator_ >= static_cast<int>(sources_.size())) {
+  if (iterator_ < 0 || iterator_ >= static_cast<int>(entries_.size())) {
     return;
   }
-  if (sources_[iterator_] == active_) {
+  if (entries_[iterator_].dataset == active_) {
     active_ = nullptr;
   }
-  delete sources_[iterator_];
-  sources_.erase(sources_.begin() + iterator_);
+  if (entries_[iterator_].dataset) {
+    GDALClose(entries_[iterator_].dataset);
+  }
+  entries_.erase(entries_.begin() + iterator_);
 }
 
 bool SmtDataSourceMgr::IsEnd() {
-  return iterator_ == static_cast<int>(sources_.size());
+  return iterator_ == static_cast<int>(entries_.size());
 }
 
-sdb::datasource::OgrDataSource* SmtDataSourceMgr::GetDataSource() {
+GDALDataset* SmtDataSourceMgr::GetDataSource() {
   return GetDataSource(iterator_);
 }
 
-sdb::datasource::OgrDataSource* SmtDataSourceMgr::GetDataSource(int index) {
-  if (index < 0 || index >= static_cast<int>(sources_.size())) {
+GDALDataset* SmtDataSourceMgr::GetDataSource(int index) {
+  if (index < 0 || index >= static_cast<int>(entries_.size())) {
     return nullptr;
   }
-  return sources_[index];
+  return entries_[index].dataset;
 }
 
 bool SmtDataSourceMgr::Open(const char* szDSMFile) {
@@ -265,12 +284,11 @@ bool SmtDataSourceMgr::SaveAs(const char* szDSMFile) {
   }
   char szHead[4] = "DSM";
   outfile.write(szHead, 4);
-  int nDSs = static_cast<int>(sources_.size());
+  int nDSs = static_cast<int>(entries_.size());
   outfile.write(reinterpret_cast<char*>(&nDSs), sizeof(int));
-  for (auto* ds : sources_) {
-    SmtDataSourceInfo info;
-    ds->GetInfo(info);
-    outfile.write(reinterpret_cast<char*>(&info), sizeof(SmtDataSourceInfo));
+  for (const Entry& e : entries_) {
+    outfile.write(reinterpret_cast<const char*>(&e.info),
+                  sizeof(SmtDataSourceInfo));
   }
   outfile.close();
   return true;

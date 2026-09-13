@@ -3,10 +3,12 @@
 
 #include "sdb/datasource/gdal/gdal_driver.h"
 #include "sdb/datasource/gdal/ogr_connect.h"
-#include "sdb/datasource/gdal/ogr_dataset.h"
 #include "sdb/datasource/gdal/ogr_feature_codec.h"
+#include "sdb/datasource/gdal/ogr_raster_layer.h"
+#include "sdb/datasource/gdal/sdbd_dataset.h"
 #include "sdb/datasource/gdal/sdbd_gdal_driver.h"
 #include "sdb/datasource/gdal/sdbd_handler.h"
+#include "sdb/datasource/gdal/sdbd_layer.h"
 
 #include "datasourcemgr.h"
 
@@ -77,9 +79,13 @@ void run_sdbd_driver_tests() {
     std::fprintf(stderr, "SKIP: SDBD Memory-backed open failed\n");
     return;
   }
+  expect(sdb::datasource::as_sdbd_dataset(ds) != nullptr,
+         "SDBD:MEM is SdbdDataset");
 
   OGRLayer* lyr = ds->CreateLayer("pts", nullptr, wkbPoint, nullptr);
   expect(lyr != nullptr, "SDBD CreateLayer pts");
+  expect(sdb::datasource::as_sdbd_layer(lyr) != nullptr,
+         "CreateLayer returns SdbdLayer");
   if (lyr) {
     OGRFieldDefn name("name", OFTString);
     lyr->CreateField(&name);
@@ -103,6 +109,20 @@ void run_sdbd_driver_tests() {
     }
   }
   expect(ds->GetLayerCount() >= 1, "SDBD GetLayerCount");
+  expect(ds->GetDriver() != nullptr &&
+             std::strcmp(ds->GetDriver()->GetDescription(), "SDBD") == 0,
+         "GetDriver is SDBD");
+  {
+    auto* sdbd_ds = sdb::datasource::as_sdbd_dataset(ds);
+    expect(sdbd_ds && sdbd_ds->inner(), "inner stock dataset");
+    if (sdbd_ds && sdbd_ds->inner() && sdbd_ds->inner()->GetRasterCount() > 0) {
+      double outer_gt[6] = {};
+      double inner_gt[6] = {};
+      const CPLErr outer_err = ds->GetGeoTransform(outer_gt);
+      const CPLErr inner_err = sdbd_ds->inner()->GetGeoTransform(inner_gt);
+      expect(outer_err == inner_err, "raster GetGeoTransform forwards");
+    }
+  }
   GDALClose(ds);
 
   sdb::datasource::SdbdHandler handler;
@@ -243,7 +263,7 @@ int main() {
         lyr->CreateField(&color);
         lyr->CreateField(&angle);
         lyr->CreateField(&style);
-        SmtPoint smt_pt(1.5, 2.5);
+        OGRPoint smt_pt(1.5, 2.5);
         OGRFeature ogr(lyr->GetLayerDefn());
         expect(sdb::datasource::encode_smt_geometry(&smt_pt, &ogr, SmtFtAnno),
                "smt geom->ogr anno");
@@ -262,10 +282,10 @@ int main() {
                    ogr.GetFieldAsBinary(style_i, &style_n) != nullptr &&
                    style_n == static_cast<int>(sizeof(SmtStyle)),
                "style OFTBinary written");
-        SmtGeometry* back_g =
+        OGRGeometry* back_g =
             sdb::datasource::decode_ogr_geometry(&ogr, SmtFtAnno);
-        const SmtPoint* pt = dynamic_cast<const SmtPoint*>(back_g);
-        expect(pt && pt->GetX() == 1.5 && pt->GetY() == 2.5, "anno xy");
+        const OGRPoint* pt = dynamic_cast<const OGRPoint*>(back_g);
+        expect(pt && pt->getX() == 1.5 && pt->getY() == 2.5, "anno xy");
         expect(ogr.GetFieldIndex("anno") >= 0, "anno field present");
         SmtStyle* back_sty = sdb::datasource::copy_ogr_style_from_ogr(&ogr);
         expect(back_sty &&
@@ -286,10 +306,10 @@ int main() {
         mp.addGeometry(&p0);
         mp.addGeometry(&p1);
         mpl.SetGeometry(&mp);
-        SmtGeometry* mp_back =
+        OGRGeometry* mp_back =
             sdb::datasource::decode_ogr_geometry(&mpl, SmtFtDot);
-        const SmtPoint* mpt = dynamic_cast<const SmtPoint*>(mp_back);
-        expect(mpt && mpt->GetX() == 9.0 && mpt->GetY() == 8.0,
+        const OGRPoint* mpt = dynamic_cast<const OGRPoint*>(mp_back);
+        expect(mpt && mpt->getX() == 9.0 && mpt->getY() == 8.0,
                "MultiPoint first part");
         delete mp_back;
 
@@ -304,11 +324,11 @@ int main() {
         mls_g.addGeometry(&ls0);
         mls_g.addGeometry(&ls1);
         mls.SetGeometry(&mls_g);
-        SmtGeometry* mls_back =
+        OGRGeometry* mls_back =
             sdb::datasource::decode_ogr_geometry(&mls, SmtFtCurve);
-        const SmtLineString* got_ls =
-            dynamic_cast<const SmtLineString*>(mls_back);
-        expect(got_ls && got_ls->GetNumPoints() == 2 && got_ls->GetX(1) == 2.0,
+        const OGRLineString* got_ls =
+            dynamic_cast<const OGRLineString*>(mls_back);
+        expect(got_ls && got_ls->getNumPoints() == 2 && got_ls->getX(1) == 2.0,
                "MultiLineString first part");
         delete mls_back;
 
@@ -327,10 +347,10 @@ int main() {
         mpg.addGeometry(&poly1);
         OGRFeature mpgf(multi_lyr->GetLayerDefn());
         mpgf.SetGeometry(&mpg);
-        SmtGeometry* mpg_back =
+        OGRGeometry* mpg_back =
             sdb::datasource::decode_ogr_geometry(&mpgf, SmtFtSurface);
-        const SmtPolygon* got_pg = dynamic_cast<const SmtPolygon*>(mpg_back);
-        expect(got_pg && got_pg->GetExteriorRing() != nullptr,
+        const OGRPolygon* got_pg = dynamic_cast<const OGRPolygon*>(mpg_back);
+        expect(got_pg && got_pg->getExteriorRing() != nullptr,
                "MultiPolygon first part");
         delete mpg_back;
       }
@@ -347,27 +367,23 @@ int main() {
   std::strcpy(info.db.szService, tmp);
   std::strcpy(info.db.szDBName, "sde_gdal_roundtrip.gpkg");
   std::string path = sdb::datasource::make_gdal_open_target(info);
+  const std::string sdbd_target = sdb::datasource::make_sdbd_open_target(info);
+  expect(sdbd_target.rfind("SDBD:GPKG:", 0) == 0, "SDBD:GPKG target");
   DeleteFileA(path.c_str());
 
   GDALDriver* gpkg_drv = GetGDALDriverManager()->GetDriverByName("GPKG");
   const bool can_file = gpkg_drv != nullptr;
-
-  sdb::datasource::OgrDataSource ds;
-  ds.SetInfo(info);
+  GDALDataset* gdal_ds = sdb::datasource::open_sdbd_dataset(info);
   if (!can_file) {
-    expect(!ds.Create(), "GPKG Create fails without GPKG driver");
-    expect(!ds.Open(), "GPKG Open fails without GPKG driver");
+    expect(gdal_ds == nullptr, "GPKG Open fails without GPKG driver");
     std::fprintf(stderr,
                  "SKIP: GPKG driver not in this GDAL; file round-trip omitted\n");
   } else {
-    expect(ds.Create(), "GPKG Create");
-    expect(ds.Open(), "GPKG Open");
-    expect(ds.IsOpen(), "GPKG IsOpen");
-    if (ds.IsOpen() && ds.dataset()) {
+    expect(gdal_ds != nullptr, "SDBD:GPKG open/create");
+    expect(sdb::datasource::as_sdbd_dataset(gdal_ds) != nullptr,
+           "GPKG open returns SdbdDataset");
+    if (gdal_ds) {
       expect(std::filesystem::exists(path), "created .gpkg file");
-      GDALDriver* opened = ds.dataset()->GetDriver();
-      expect(opened && std::strcmp(opened->GetDescription(), "GPKG") == 0,
-             "opened driver is GPKG");
     }
   }
 
@@ -376,102 +392,109 @@ int main() {
   rect.lb.y = 0;
   rect.rt.x = 10;
   rect.rt.y = 10;
-  if (!ds.IsOpen()) {
+  auto* sdbd_ds = sdb::datasource::as_sdbd_dataset(gdal_ds);
+  if (!sdbd_ds) {
     // File round-trip requires a real GPKG driver.
   } else {
-  OGRLayer* lyr = ds.CreateVectorLayer("dots", rect, SmtFtDot);
+  OGRLayer* lyr = sdbd_ds->create_sdbd_layer("dots", SmtFtDot);
   expect(lyr != nullptr, "create dots");
   if (lyr) {
     OGRFeature feat(lyr->GetLayerDefn());
-    SmtPoint smt_pt(3.0, 4.0);
+    OGRPoint smt_pt(3.0, 4.0);
     expect(sdb::datasource::encode_smt_geometry(&smt_pt, &feat, SmtFtDot),
            "encode point");
     expect(lyr->CreateFeature(&feat) == OGRERR_NONE, "append point");
-    ds.Close();
-    expect(ds.Open(), "reopen gpkg");
-    OGRLayer* lyr2 = ds.OpenVectorLayer("dots");
+    GDALClose(gdal_ds);
+    gdal_ds = sdb::datasource::open_sdbd_dataset(info);
+    sdbd_ds = sdb::datasource::as_sdbd_dataset(gdal_ds);
+    OGRLayer* lyr2 = sdbd_ds ? sdbd_ds->GetLayerByName("dots") : nullptr;
     expect(lyr2 != nullptr, "reopen dots");
     if (lyr2) {
       expect(lyr2->GetFeatureCount() >= 1, "count");
       lyr2->ResetReading();
       OGRFeature* got = lyr2->GetNextFeature();
       expect(got != nullptr, "get 0");
-      SmtGeometry* g =
+      OGRGeometry* g =
           got ? sdb::datasource::decode_ogr_geometry(got, SmtFtDot) : nullptr;
-      const SmtPoint* p = dynamic_cast<const SmtPoint*>(g);
-      expect(p && p->GetX() == 3.0 && p->GetY() == 4.0, "xy persist");
+      const OGRPoint* p = dynamic_cast<const OGRPoint*>(g);
+      expect(p && p->getX() == 3.0 && p->getY() == 4.0, "xy persist");
       delete g;
       OGRFeature::DestroyFeature(got);
     }
   }
 
-  OGRLayer* lines = ds.CreateVectorLayer("lines", rect, SmtFtCurve);
+  OGRLayer* lines = sdbd_ds ? sdbd_ds->create_sdbd_layer("lines", SmtFtCurve)
+                            : nullptr;
   expect(lines != nullptr, "create lines");
   if (lines) {
-    auto* line = new SmtLineString();
-    line->SetNumPoints(2);
-    line->SetPoint(0, 0.0, 0.0);
-    line->SetPoint(1, 1.0, 1.0);
+    auto* line = new OGRLineString();
+    line->setNumPoints(2);
+    line->setPoint(0, 0.0, 0.0);
+    line->setPoint(1, 1.0, 1.0);
     OGRFeature feat(lines->GetLayerDefn());
     expect(sdb::datasource::encode_smt_geometry(line, &feat, SmtFtCurve),
            "encode line");
     expect(lines->CreateFeature(&feat) == OGRERR_NONE, "append line");
     delete line;
-    ds.Close();
-    expect(ds.Open(), "reopen for line");
-    OGRLayer* back = ds.OpenVectorLayer("lines");
+    GDALClose(gdal_ds);
+    gdal_ds = sdb::datasource::open_sdbd_dataset(info);
+    sdbd_ds = sdb::datasource::as_sdbd_dataset(gdal_ds);
+    OGRLayer* back = sdbd_ds ? sdbd_ds->GetLayerByName("lines") : nullptr;
     expect(back != nullptr, "reopen lines");
     if (back) {
       back->ResetReading();
       OGRFeature* got = back->GetNextFeature();
-      SmtGeometry* g =
+      OGRGeometry* g =
           got ? sdb::datasource::decode_ogr_geometry(got, SmtFtCurve) : nullptr;
-      const SmtLineString* ls = dynamic_cast<const SmtLineString*>(g);
-      expect(ls && ls->GetNumPoints() == 2, "line points");
+      const OGRLineString* ls = dynamic_cast<const OGRLineString*>(g);
+      expect(ls && ls->getNumPoints() == 2, "line points");
       delete g;
       OGRFeature::DestroyFeature(got);
     }
   }
 
-  OGRLayer* polys = ds.CreateVectorLayer("polys", rect, SmtFtSurface);
+  OGRLayer* polys = sdbd_ds ? sdbd_ds->create_sdbd_layer("polys", SmtFtSurface)
+                            : nullptr;
   expect(polys != nullptr, "create polys");
   if (polys) {
-    auto* ring = new SmtLinearRing();
-    ring->SetNumPoints(5);
-    ring->SetPoint(0, 0.0, 0.0);
-    ring->SetPoint(1, 1.0, 0.0);
-    ring->SetPoint(2, 1.0, 1.0);
-    ring->SetPoint(3, 0.0, 1.0);
-    ring->SetPoint(4, 0.0, 0.0);
-    ring->CloseRings();
-    auto* poly = new SmtPolygon();
-    poly->AddRingDirectly(ring);
+    auto* ring = new OGRLinearRing();
+    ring->setNumPoints(5);
+    ring->setPoint(0, 0.0, 0.0);
+    ring->setPoint(1, 1.0, 0.0);
+    ring->setPoint(2, 1.0, 1.0);
+    ring->setPoint(3, 0.0, 1.0);
+    ring->setPoint(4, 0.0, 0.0);
+    ring->closeRings();
+    auto* poly = new OGRPolygon();
+    poly->addRingDirectly(ring);
     OGRFeature feat(polys->GetLayerDefn());
     expect(sdb::datasource::encode_smt_geometry(poly, &feat, SmtFtSurface),
            "encode poly");
     expect(polys->CreateFeature(&feat) == OGRERR_NONE, "append poly");
     delete poly;
-    ds.Close();
-    expect(ds.Open(), "reopen for poly");
-    OGRLayer* back = ds.OpenVectorLayer("polys");
+    GDALClose(gdal_ds);
+    gdal_ds = sdb::datasource::open_sdbd_dataset(info);
+    sdbd_ds = sdb::datasource::as_sdbd_dataset(gdal_ds);
+    OGRLayer* back = sdbd_ds ? sdbd_ds->GetLayerByName("polys") : nullptr;
     expect(back != nullptr, "reopen polys");
     if (back) {
       back->ResetReading();
       OGRFeature* got = back->GetNextFeature();
-      SmtGeometry* g =
+      OGRGeometry* g =
           got ? sdb::datasource::decode_ogr_geometry(got, SmtFtSurface)
               : nullptr;
-      const SmtPolygon* pg = dynamic_cast<const SmtPolygon*>(g);
-      expect(pg && pg->GetExteriorRing() != nullptr, "poly ring");
+      const OGRPolygon* pg = dynamic_cast<const OGRPolygon*>(g);
+      expect(pg && pg->getExteriorRing() != nullptr, "poly ring");
       delete g;
       OGRFeature::DestroyFeature(got);
     }
   }
 
-  OGRLayer* annos = ds.CreateVectorLayer("annos", rect, SmtFtAnno);
+  OGRLayer* annos = sdbd_ds ? sdbd_ds->create_sdbd_layer("annos", SmtFtAnno)
+                            : nullptr;
   expect(annos != nullptr, "create annos");
   if (annos) {
-    SmtPoint anno_pt(2.0, 3.0);
+    OGRPoint anno_pt(2.0, 3.0);
     OGRFeature feat(annos->GetLayerDefn());
     expect(sdb::datasource::encode_smt_geometry(&anno_pt, &feat, SmtFtAnno),
            "encode anno");
@@ -479,9 +502,10 @@ int main() {
     feat.SetField("color", 3);
     feat.SetField("angle", 12.0);
     expect(annos->CreateFeature(&feat) == OGRERR_NONE, "append anno");
-    ds.Close();
-    expect(ds.Open(), "reopen for anno");
-    OGRLayer* back = ds.OpenVectorLayer("annos");
+    GDALClose(gdal_ds);
+    gdal_ds = sdb::datasource::open_sdbd_dataset(info);
+    sdbd_ds = sdb::datasource::as_sdbd_dataset(gdal_ds);
+    OGRLayer* back = sdbd_ds ? sdbd_ds->GetLayerByName("annos") : nullptr;
     expect(back != nullptr, "reopen annos");
     if (back) {
       back->ResetReading();
@@ -501,13 +525,14 @@ int main() {
     }
   }
 
-  OGRLayer* tins = ds.CreateVectorLayer("tins", rect, SmtFtTin);
+  OGRLayer* tins = sdbd_ds ? sdbd_ds->create_sdbd_layer("tins", SmtFtTin)
+                           : nullptr;
   expect(tins != nullptr, "create tins");
   if (tins) {
     SmtTin tin;
-    SmtPoint a(0, 0);
-    SmtPoint b(1, 0);
-    SmtPoint c(0, 1);
+    OGRPoint a(0, 0);
+    OGRPoint b(1, 0);
+    OGRPoint c(0, 1);
     tin.AddPoint(&a);
     tin.AddPoint(&b);
     tin.AddPoint(&c);
@@ -520,24 +545,24 @@ int main() {
     expect(sdb::datasource::encode_smt_geometry(&tin, &feat, SmtFtTin),
            "encode tin");
     expect(tins->CreateFeature(&feat) == OGRERR_NONE, "append tin");
-    ds.Close();
-    expect(ds.Open(), "reopen for tin");
-    OGRLayer* back = ds.OpenVectorLayer("tins");
+    GDALClose(gdal_ds);
+    gdal_ds = sdb::datasource::open_sdbd_dataset(info);
+    sdbd_ds = sdb::datasource::as_sdbd_dataset(gdal_ds);
+    OGRLayer* back = sdbd_ds ? sdbd_ds->GetLayerByName("tins") : nullptr;
     expect(back != nullptr, "reopen tins");
     if (back) {
       back->ResetReading();
       OGRFeature* got = back->GetNextFeature();
-      SmtGeometry* g =
-          got ? sdb::datasource::decode_ogr_geometry(got, SmtFtTin) : nullptr;
-      const SmtTin* gt = dynamic_cast<const SmtTin*>(g);
+      SmtTin* gt = got ? sdb::datasource::decode_smt_tin(got) : nullptr;
       expect(gt && (gt->GetTriangleCount() >= 1 || gt->GetPointCount() >= 3),
              "tin persist");
-      delete g;
+      delete gt;
       OGRFeature::DestroyFeature(got);
     }
   }
 
-  OGRLayer* grids = ds.CreateVectorLayer("grids", rect, SmtFtGrid);
+  OGRLayer* grids = sdbd_ds ? sdbd_ds->create_sdbd_layer("grids", SmtFtGrid)
+                            : nullptr;
   expect(grids != nullptr, "create grids");
   if (grids) {
     SmtGrid grid(2, 2);
@@ -556,9 +581,10 @@ int main() {
     feat.SetField("grid_row", 2);
     feat.SetField("grid_col", 2);
     expect(grids->CreateFeature(&feat) == OGRERR_NONE, "append grid");
-    ds.Close();
-    expect(ds.Open(), "reopen for grid");
-    OGRLayer* back = ds.OpenVectorLayer("grids");
+    GDALClose(gdal_ds);
+    gdal_ds = sdb::datasource::open_sdbd_dataset(info);
+    sdbd_ds = sdb::datasource::as_sdbd_dataset(gdal_ds);
+    OGRLayer* back = sdbd_ds ? sdbd_ds->GetLayerByName("grids") : nullptr;
     expect(back != nullptr, "reopen grids");
     if (back) {
       back->ResetReading();
@@ -570,26 +596,28 @@ int main() {
     }
   }
 
-  SmtRasterLayer* ras = ds.CreateRasterLayer("ras", rect, 0);
+  auto* ras = new sdb::datasource::OgrRasterLayer(gdal_ds);
   expect(ras != nullptr, "raster layer object");
   if (ras) {
     const bool created = ras->Create();
     const long cr = ras->CreaterRaster(nullptr, 0, rect, 0);
-    expect(!created || cr == SMT_ERR_UNSUPPORTED || cr == SMT_ERR_NONE,
-           "raster not ado blob");
-    expect(cr == SMT_ERR_UNSUPPORTED || created, "raster unsupported or ok");
+    expect(!created, "raster Create false");
+    expect(cr == SMT_ERR_UNSUPPORTED, "raster create unsupported");
     SMT_SAFE_DELETE(ras);
   }
 
-  ds.Close();
-  expect(!ds.IsOpen(), "GPKG closed");
+  if (gdal_ds) {
+    GDALClose(gdal_ds);
+    gdal_ds = nullptr;
+  }
   }
 
-  sdb::datasource::OgrDataSource acc;
   SmtDataSourceInfo ainfo;
   ainfo.unProvider = PROVIDER_ACCESS;
-  acc.SetInfo(ainfo);
-  expect(!acc.Open(), "ACCESS Open false");
+  expect(sdb::datasource::make_sdbd_open_target(ainfo).empty(),
+         "ACCESS has no SDBD target");
+  expect(sdb::datasource::open_sdbd_dataset(ainfo) == nullptr,
+         "ACCESS Open false");
 
   {
     fRect rrect;
@@ -597,32 +625,28 @@ int main() {
     rrect.lb.y = 0;
     rrect.rt.x = 1;
     rrect.rt.y = 1;
-    SmtRasterLayer* ras = acc.CreateRasterLayer("ras", rrect, 0);
-    expect(ras != nullptr, "raster layer object");
-    if (ras) {
-      expect(!ras->Create(), "raster Create false when bands cannot be written");
-      expect(ras->CreaterRaster(nullptr, 0, rrect, 0) == SMT_ERR_UNSUPPORTED,
-             "raster create unsupported (no blob table)");
-      SMT_SAFE_DELETE(ras);
-    }
+    auto* ras = new sdb::datasource::OgrRasterLayer(nullptr);
+    expect(!ras->Create(), "raster Create false when bands cannot be written");
+    expect(ras->CreaterRaster(nullptr, 0, rrect, 0) == SMT_ERR_UNSUPPORTED,
+           "raster create unsupported (no blob table)");
+    SMT_SAFE_DELETE(ras);
   }
 
   Smt_SDEDevMgr::SmtDataSourceMgr* mgr =
       Smt_SDEDevMgr::SmtDataSourceMgr::GetSingletonPtr();
   expect(mgr != nullptr, "datasource mgr");
   if (mgr) {
-    sdb::datasource::OgrDataSource* tmp = mgr->CreateTmpDataSource(DS_DB_ADO);
-    expect(tmp != nullptr, "CreateTmpDataSource OGR");
-    if (tmp) {
-      tmp->SetInfo(info);
-      if (can_file) {
-        expect(tmp->Open(), "mgr GPKG Open");
-        tmp->Close();
-      } else {
-        expect(!tmp->Open(), "mgr GPKG Open fails without driver");
-      }
-      mgr->DestoryTmpDataSource(tmp);
+    GDALDataset* tmp = mgr->CreateTmpDataSource(DS_MEM);
+    expect(tmp != nullptr && sdb::datasource::as_sdbd_dataset(tmp) != nullptr,
+           "CreateTmpDataSource MEM is SdbdDataset");
+    mgr->DestoryTmpDataSource(tmp);
+    GDALDataset* file_ds = mgr->OpenDataset(info);
+    if (can_file) {
+      expect(file_ds != nullptr, "mgr GPKG Open");
+    } else {
+      expect(file_ds == nullptr, "mgr GPKG Open fails without driver");
     }
+    mgr->CloseDataset(file_ds);
     Smt_SDEDevMgr::ScratchLayer scratch =
         Smt_SDEDevMgr::SmtDataSourceMgr::CreateMemVecLayer();
     expect(scratch.dataset != nullptr && scratch.layer != nullptr,
@@ -670,11 +694,12 @@ int main() {
     take("password", pgi.szPWD, sizeof(pgi.szPWD));
     std::snprintf(pgi.db.szService, sizeof(pgi.db.szService), "%s:%s", host,
                   port);
-    sdb::datasource::OgrDataSource pgds;
-    pgds.SetInfo(pgi);
-    expect(pgds.Open(), "SMT_PG_DSN Open");
-    if (pgds.IsOpen()) {
-      pgds.Close();
+    GDALDataset* pgds = sdb::datasource::open_sdbd_dataset(pgi);
+    expect(pgds != nullptr, "SMT_PG_DSN Open");
+    if (pgds) {
+      expect(sdb::datasource::as_sdbd_dataset(pgds) != nullptr,
+             "PG open returns SdbdDataset");
+      GDALClose(pgds);
     }
   }
 

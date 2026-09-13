@@ -10,8 +10,11 @@ class GDALDataset;
 class OGRFeature;
 class OGRLayer;
 
+class OGRGeometry;
+
 namespace Smt_Geo {
-class SmtGeometry;
+class SmtGrid;
+class SmtTin;
 }
 
 namespace Smt_Base {
@@ -25,10 +28,16 @@ Smt_GIS::SmtFeatureType infer_feature_type(OGRFeature* src,
                                            Smt_GIS::SmtFeatureType hint);
 Smt_GIS::SmtFeatureType feature_type_of(OGRLayer* layer);
 
-bool encode_smt_geometry(const Smt_Geo::SmtGeometry* src, OGRFeature* dst,
+bool encode_smt_geometry(const OGRGeometry* src, OGRFeature* dst,
                          Smt_GIS::SmtFeatureType ft);
-Smt_Geo::SmtGeometry* decode_ogr_geometry(OGRFeature* src,
-                                          Smt_GIS::SmtFeatureType hint);
+bool encode_smt_geometry(const Smt_Geo::SmtTin* src, OGRFeature* dst,
+                         Smt_GIS::SmtFeatureType ft);
+bool encode_smt_geometry(const Smt_Geo::SmtGrid* src, OGRFeature* dst,
+                         Smt_GIS::SmtFeatureType ft);
+OGRGeometry* decode_ogr_geometry(OGRFeature* src,
+                                 Smt_GIS::SmtFeatureType hint);
+Smt_Geo::SmtTin* decode_smt_tin(OGRFeature* src);
+Smt_Geo::SmtGrid* decode_smt_grid(OGRFeature* src);
 
 void copy_smt_style_to_ogr(const Smt_Base::SmtStyle* src, OGRFeature* dst);
 Smt_Base::SmtStyle* copy_ogr_style_from_ogr(OGRFeature* src);
