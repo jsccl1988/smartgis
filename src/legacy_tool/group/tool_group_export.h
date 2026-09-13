@@ -4,7 +4,7 @@
 #ifndef TOOL_GROUP_TOOL_GROUP_EXPORT_H_
 #define TOOL_GROUP_TOOL_GROUP_EXPORT_H_
 
-// GN defines TOOL_GROUP_EXPORTS when building the tool_group DLL.
+// GN defines TOOL_GROUP_EXPORTS when building ui_legacy (tools + gui).
 #if defined(TOOL_GROUP_EXPORTS)
 #define TOOL_GROUP_EXPORT __declspec(dllexport)
 #else
@@ -13,9 +13,9 @@
 
 #if !defined(TOOL_GROUP_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "tool_groupD.lib")
+#pragma comment(lib, "ui_legacy_d.lib")
 #else
-#pragma comment(lib, "tool_group.lib")
+#pragma comment(lib, "ui_legacy.lib")
 #endif
 #endif
 

@@ -41,7 +41,6 @@ BEGIN
 	"#pragma code_page(936)\r\n"
     "#include ""res\\mfc_ex_core.rc2""  // 非 Microsoft Visual C++ 编辑的资源\r\n"
 #ifndef _AFXDLL
-    "#include ""afxres.rc""  	// 标准组件\r\n"
 #endif
     "#endif\r\n"
     "\0"
@@ -109,9 +108,6 @@ END
 LANGUAGE 4, 2
 #pragma code_page(936)
 #include "res\\mfc_ex_core.rc2"  // 非 Microsoft Visual C++ 编辑的资源
-#ifndef _AFXDLL
-#include "afxres.rc"  	// 标准组件
-#endif
 #endif
 
 /////////////////////////////////////////////////////////////////////////////

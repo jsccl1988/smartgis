@@ -126,7 +126,7 @@ class GIS_EXPORT SmtFeature {
   bool owns_material_ = false;
 };
 
-bool leftover_append_feature(OGRLayer* layer, SmtFeature* feature);
+bool GIS_EXPORT leftover_append_feature(OGRLayer* layer, SmtFeature* feature);
 
 }  // namespace sdb
 

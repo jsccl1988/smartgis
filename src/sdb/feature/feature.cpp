@@ -5,11 +5,19 @@
 
 #include "base/core/core.h"
 #include "base/style/stylemanager.h"
-#include "legacy_render/render3d/base.h"
 
 #include "ogrsf_frmts.h"
 
 namespace sdb {
+namespace {
+
+// SmtMaterial is defined in leftover render3d; keep this TU free of that DLL.
+// Type is trivially destructible (POD color fields) — storage-only free.
+void destroy_opaque_material(render::SmtMaterial* material) {
+  ::operator delete(material);
+}
+
+}  // namespace
 
 SmtFeature::SmtFeature() = default;
 
@@ -108,8 +116,9 @@ void SmtFeature::clear_sidecars() {
     tin_ = nullptr;
   }
   owns_tin_ = false;
-  if (owns_material_) {
-    SMT_SAFE_DELETE(material_);
+  if (owns_material_ && material_) {
+    destroy_opaque_material(material_);
+    material_ = nullptr;
   } else {
     material_ = nullptr;
   }
@@ -178,8 +187,9 @@ void SmtFeature::set_tin(geo::Tin* tin, bool take_ownership) {
 
 void SmtFeature::set_material(render::SmtMaterial* material,
                               bool take_ownership) {
-  if (owns_material_ && material_ != material) {
-    SMT_SAFE_DELETE(material_);
+  if (owns_material_ && material_ != material && material_) {
+    destroy_opaque_material(material_);
+    material_ = nullptr;
   }
   material_ = material;
   owns_material_ = take_ownership && material != nullptr;
@@ -243,7 +253,7 @@ int SmtFeature::SetFieldValue(int index, const char* v) {
   return set_field(index, v);
 }
 
-bool leftover_append_feature(OGRLayer* layer, SmtFeature* feature) {
+bool GIS_EXPORT leftover_append_feature(OGRLayer* layer, SmtFeature* feature) {
   if (!layer || !feature) {
     return false;
   }

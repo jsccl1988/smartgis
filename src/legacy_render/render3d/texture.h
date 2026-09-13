@@ -299,9 +299,9 @@ namespace render
 
 #if !defined(RENDER3D_EXPORTS)
 #if     defined( _DEBUG)
-#          pragma comment(lib,"render3dD.lib")
+#          pragma comment(lib,"legacy_render_d.lib")
 #       else
-#          pragma comment(lib,"render3d.lib")
+#          pragma comment(lib,"legacy_render.lib")
 #	    endif
 #endif
 

@@ -161,12 +161,28 @@ void test_http_loopback() {
   th.join();
 }
 
+void test_https_scheme() {
+#ifndef CPPHTTPLIB_OPENSSL_SUPPORT
+  std::fprintf(stderr, "SKIP: https (CPPHTTPLIB_OPENSSL_SUPPORT unset)\n");
+  return;
+#else
+  // Prove HTTPS Client construction path is live. Port 1 is closed → transport
+  // failure (not "unsupported scheme"). No external network.
+  net::HttpClient cli;
+  cli.set_ssl_verify(false);
+  const net::HttpResult got = cli.get("https://127.0.0.1:1/", 1);
+  expect(!got.ok, "https closed port fails");
+  expect(got.error != "invalid url", "https url parses");
+#endif
+}
+
 }  // namespace
 
 int main() {
   test_pickle();
   test_rpc();
   test_http_loopback();
+  test_https_scheme();
   if (g_fails != 0) {
     std::fprintf(stderr, "net_test: %d failure(s)\n", g_fails);
     return 1;

@@ -4,18 +4,18 @@
 #ifndef SDB_GIS_EXPORT_H_
 #define SDB_GIS_EXPORT_H_
 
-// GN defines GIS_EXPORTS when building the gis DLL.
-#if defined(GIS_EXPORTS)
+// GN defines GIS_EXPORTS when building the sdb DLL (dll_stem = sdb).
+#if defined(GIS_EXPORTS) || defined(SDB_EXPORTS)
 #define GIS_EXPORT __declspec(dllexport)
 #else
 #define GIS_EXPORT __declspec(dllimport)
 #endif
 
-#if !defined(GIS_EXPORTS)
+#if !defined(GIS_EXPORTS) && !defined(SDB_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "gisD.lib")
+#pragma comment(lib, "sdb_d.lib")
 #else
-#pragma comment(lib, "gis.lib")
+#pragma comment(lib, "sdb.lib")
 #endif
 #endif
 

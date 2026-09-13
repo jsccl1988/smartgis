@@ -71,9 +71,9 @@ namespace render
 
 #if !defined(POINTCLOUD_EXPORTS)
 #if   defined( _DEBUG)
-#          pragma comment(lib,"pointcloudD.lib")
+#          pragma comment(lib,"legacy_render_d.lib")
 #       else
-#          pragma comment(lib,"pointcloud.lib")
+#          pragma comment(lib,"legacy_render.lib")
 #	    endif  
 #endif
 

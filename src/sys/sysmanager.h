@@ -69,9 +69,9 @@ namespace sys
 
 #if !defined(SYS_EXPORTS)
 #if   defined( _DEBUG)
-#          pragma comment(lib,"sysD.lib")
+#          pragma comment(lib,"base_d.lib")
 #       else
-#          pragma comment(lib,"sys.lib")
+#          pragma comment(lib,"base.lib")
 #	    endif  
 #endif
 

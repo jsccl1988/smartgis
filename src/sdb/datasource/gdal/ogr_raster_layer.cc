@@ -5,6 +5,7 @@
 
 #include "sdb/datasource/gdal/gdal_driver.h"
 
+#include "base/core/api.h"
 #include "base/style/style_api.h"
 #include "gdal_priv.h"
 #include "cpl_vsi.h"
@@ -12,6 +13,8 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <string>
+#include <vector>
 
 namespace sdb {
 namespace datasource {
@@ -132,6 +135,48 @@ void OgrRasterLayer::sync_rect_from_dataset() {
   CalEnvelope();
 }
 
+void OgrRasterLayer::backfill_blob_from_path(const char* path) {
+  if (!path || !path[0]) {
+    return;
+  }
+  VSILFILE* fp = VSIFOpenL(path, "rb");
+  if (!fp) {
+    return;
+  }
+  if (VSIFSeekL(fp, 0, SEEK_END) != 0) {
+    VSIFCloseL(fp);
+    return;
+  }
+  const vsi_l_offset length = VSIFTellL(fp);
+  if (VSIFSeekL(fp, 0, SEEK_SET) != 0 || length == 0 ||
+      length > static_cast<vsi_l_offset>(64 * 1024 * 1024)) {
+    VSIFCloseL(fp);
+    return;
+  }
+  std::vector<char> buf(static_cast<size_t>(length));
+  const size_t read =
+      VSIFReadL(buf.data(), 1, static_cast<size_t>(length), fp);
+  VSIFCloseL(fp);
+  if (read != static_cast<size_t>(length)) {
+    return;
+  }
+  vsimem_blob_ = blob_path();
+  if (!detail::write_vsimem_blob(vsimem_blob_.c_str(), buf.data(),
+                                static_cast<long>(length))) {
+    vsimem_blob_.clear();
+    return;
+  }
+  if (image_code_ < 0) {
+    std::string mutable_path = path;
+    image_code_ = get_image_type_by_file_ext(mutable_path.data());
+  }
+  if (m_pOwnerDs) {
+    char code_buf[32];
+    std::snprintf(code_buf, sizeof(code_buf), "%ld", image_code_);
+    m_pOwnerDs->SetMetadataItem(detail::kImageCodeMeta, code_buf);
+  }
+}
+
 bool OgrRasterLayer::ensure_mem_dataset(int width, int height) {
   register_gdal_driver();
   GDALDriver* mem = GetGDALDriverManager()->GetDriverByName("MEM");
@@ -189,6 +234,9 @@ bool OgrRasterLayer::Open(const char* szLayerArchiveName) {
   owns_dataset_ = true;
   std::snprintf(m_szLayerName, MAX_LAYER_NAME, "%s", szLayerArchiveName);
   sync_rect_from_dataset();
+  // GDI/CxImage still consume encoded blobs via GetRasterNoClone. Copy the
+  // source file into /vsimem so Open(path) matches CreaterRaster semantics.
+  backfill_blob_from_path(szLayerArchiveName);
   m_bOpen = true;
   return true;
 }

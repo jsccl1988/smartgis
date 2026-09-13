@@ -9,6 +9,7 @@
 // See docs/build/ui-views-skia.md and
 // docs/superpowers/specs/2026-09-13-ui-views-controls-design.md.
 
+#include "ui/views/add_basemap_dialog.h"
 #include "ui/views/ambox_view.h"
 #include "ui/views/att_struct_dialog.h"
 #include "ui/views/attribute_table.h"

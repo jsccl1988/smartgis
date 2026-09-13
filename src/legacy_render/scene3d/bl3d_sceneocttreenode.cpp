@@ -65,7 +65,7 @@ namespace render
 				{
 					if (NULL != (*iter))
 					{
-						if (!vBDealedTarget[iTargetIndex] && aabbSubNode.Contains((*iter)->GetAabb().vcCenter))
+						if (!vBDealedTarget[iTargetIndex] && aabbSubNode.contains((*iter)->GetAabb().vcCenter))
 						{
 							vBDealedTarget[iTargetIndex] = true;
 							vBInsideNode[iTargetIndex] = true;
@@ -340,7 +340,7 @@ namespace render
 	{
 		Aabb	aabbNode(Vector3(this->vCenterPos.x-this->fWidth/2,this->vCenterPos.y-this->fWidth/2,this->vCenterPos.z-this->fWidth/2),
 						 Vector3(this->vCenterPos.x+this->fWidth/2,this->vCenterPos.y+this->fWidth/2,this->vCenterPos.z+this->fWidth/2));
-		if (aabbNode.Contains(point))
+		if (aabbNode.contains(point))
 		{
 			return true;
 		}	
@@ -354,7 +354,7 @@ namespace render
 		Aabb	aabbNode(Vector3(this->vCenterPos.x-this->fWidth/2,this->vCenterPos.y-this->fWidth/2,this->vCenterPos.z-this->fWidth/2),
 						 Vector3(this->vCenterPos.x+this->fWidth/2,this->vCenterPos.y+this->fWidth/2,this->vCenterPos.z+this->fWidth/2));
 
-		if (!aabbNode.Intersects(ray,&f))
+		if (!ray.intersects(aabbNode,&f))
 			return NULL;
 		 
 		SmtSceneOctTreeNode *pCurNode = this;
@@ -383,7 +383,7 @@ namespace render
 		Vector3 vOrg,vDir;
 		Ray ray;
 		p3DRenderDevice->Transform2DTo3D(vOrg,vDir,point);
-		ray.Set(vOrg,vDir);
+		ray.set(vOrg,vDir);
 
 		return FindMinBoxOctNode(ray);
 	}

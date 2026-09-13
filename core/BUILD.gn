@@ -3,9 +3,9 @@
 
 # Thin repo-root aliases (product sources live under //src).
 # mogu foundations sit at //base; this tree keeps //core as a historic
-# entry for the SmartGIS core DLL / full product group.
+# entry for the SmartGIS foundation DLL / full product group.
 
-# Product core DLL (SmtCore → dll_stem "core").
+# Product foundation DLL (dll_stem "base"; former core/style/sys/net).
 group("core") {
   public_deps = [ "//src/base:core" ]
 }

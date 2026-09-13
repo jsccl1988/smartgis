@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "content/public/map_types.h"
+#include "sdb/gis_export.h"
 
 // Undoable document mutations. Interactions never call this internally.
 namespace sdb {
@@ -21,7 +22,7 @@ struct FeatureMutation {
   void* leftover = nullptr;
 };
 
-class EditSession {
+class GIS_EXPORT EditSession {
  public:
   virtual ~EditSession() = default;
   virtual bool commit(const FeatureMutation& mutation) = 0;
@@ -32,8 +33,11 @@ class EditSession {
 };
 
 // In-memory log for tests and hosts that do not yet wrap SmtMap.
-class MemoryEditSession : public EditSession {
+class GIS_EXPORT MemoryEditSession : public EditSession {
  public:
+  MemoryEditSession();
+  ~MemoryEditSession() override;
+
   bool commit(const FeatureMutation& mutation) override;
   bool undo() override;
   bool redo() override;
@@ -48,7 +52,7 @@ class MemoryEditSession : public EditSession {
 };
 
 // Wraps leftover SmtCommandManager. apply(mutation, undo) performs the map change.
-class CommandEditSession : public EditSession {
+class GIS_EXPORT CommandEditSession : public EditSession {
  public:
   using ApplyFn = std::function<bool(const FeatureMutation&, bool undo)>;
 

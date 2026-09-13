@@ -1,24 +1,28 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "render/math/mathlib_3d.h"
+#include "render/math/obb.h"
+#include "render/math/matrix.h"
+#include "render/math/plane.h"
+#include "render/math/vector.h"
+#include <cmath>
 namespace render
 {
 
-	void Obb::DeTransform(const Obb &obb, const Matrix &m) 
+	void Obb::de_transform(const Obb &obb, const Matrix &m) 
 	{
 	   Matrix mat = m;
 	   Vector4 vcT;
    
 	   // erase translation from mat
-	   vcT.Set(mat._41, mat._42, mat._43);
+	   vcT.set(mat._41, mat._42, mat._43);
 	   mat._41 = mat._42 = mat._43 = 0.0f;
 
 	   // rotate center and axis to matrix coord.-space
-	   this->vcCenter = mat * obb.vcCenter;
-	   this->vcA0     = mat * obb.vcA0;
-	   this->vcA1     = mat * obb.vcA1;
-	   this->vcA2     = mat * obb.vcA2;
+	   this->vcCenter = mat.transform_point(obb.vcCenter);
+	   this->vcA0     = mat.transform_vector(obb.vcA0);
+	   this->vcA1     = mat.transform_vector(obb.vcA1);
+	   this->vcA2     = mat.transform_vector(obb.vcA2);
 
 	   // set translation
 	   this->vcCenter += vcT;
@@ -30,35 +34,35 @@ namespace render
 	} // Transform
  
 	// helperfunction
-	void Obb::ObbProj(const Obb &Obb, const Vector4 &vcV,float *pfMin, float *pfMax) 
+	void Obb::obb_proj(const Obb &Obb, const Vector4 &vcV,float *pfMin, float *pfMax) 
 	{
-	   float fDP = vcV * Obb.vcCenter;
-	   float fR = Obb.fA0 * _fabs(vcV * Obb.vcA0) +
-				  Obb.fA0 * _fabs(vcV * Obb.vcA1) +
-				  Obb.fA1 * _fabs(vcV * Obb.vcA2);
+	   float fDP = dot(vcV, Obb.vcCenter);
+	   float fR = Obb.fA0 * std::fabs(dot(vcV, Obb.vcA0)) +
+				  Obb.fA0 * std::fabs(dot(vcV, Obb.vcA1)) +
+				  Obb.fA1 * std::fabs(dot(vcV, Obb.vcA2));
 	   *pfMin = fDP - fR;
 	   *pfMax = fDP + fR;
-	} // ObbProj
+	} // obb_proj
  
 
 	// helperfunction
-	void Obb::TriProj(const Vector4 &v0, const Vector4 &v1, const Vector4 &v2, const Vector4 &vcV,float *pfMin, float *pfMax) 
+	void Obb::tri_proj(const Vector4 &v0, const Vector4 &v1, const Vector4 &v2, const Vector4 &vcV,float *pfMin, float *pfMax) 
 	{
-	   *pfMin = vcV * v0;
+	   *pfMin = dot(vcV, v0);
 	   *pfMax = *pfMin;
    
-	   float fDP = vcV * v1;
+	   float fDP = dot(vcV, v1);
 	   if (fDP < *pfMin) *pfMin = fDP;
 	   else if (fDP > *pfMax) *pfMax = fDP;
    
-	   fDP = vcV * v2;
+	   fDP = dot(vcV, v2);
 	   if (fDP < *pfMin) *pfMin = fDP;
 	   else if (fDP > *pfMax) *pfMax = fDP;
-	} // TriProj
+	} // tri_proj
  
 
 	// intersects trianlge
-	bool Obb::Intersects(const Vector4 &v0, const Vector4 &v1, const Vector4 &v2) 
+	bool Obb::intersects(const Vector4 &v0, const Vector4 &v1, const Vector4 &v2) 
 	{
 	   float     fMin0, fMax0, fMin1, fMax1;
 	   float     fD_C;
@@ -73,12 +77,12 @@ namespace render
 	   vcTriEdge[0] = v1 - v0;
 	   vcTriEdge[1] = v2 - v0;
 
-	   vcV = vcTriEdge[0].CrossProduct(vcTriEdge[1]);
+	   vcV = vcTriEdge[0].cross(vcTriEdge[1]);
 
-	   fMin0 = vcV * v0;
+	   fMin0 = dot(vcV, v0);
 	   fMax0 = fMin0;
 
-	   this->ObbProj((*this), vcV, &fMin1, &fMax1);
+	   this->obb_proj((*this), vcV, &fMin1, &fMax1);
 	   if ( fMax1 < fMin0 || fMax0 < fMin1 )
 		  return true;
    
@@ -86,8 +90,8 @@ namespace render
 	   // =======================
 	   // axis 1:
 	   vcV = this->vcA0;
-	   this->TriProj(v0, v1, v2, vcV, &fMin0, &fMax0);
-	   fD_C = vcV * this->vcCenter;
+	   this->tri_proj(v0, v1, v2, vcV, &fMin0, &fMax0);
+	   fD_C = dot(vcV, this->vcCenter);
 	   fMin1 = fD_C - this->fA0;
 	   fMax1 = fD_C + this->fA0;
 	   if ( fMax1 < fMin0 || fMax0 < fMin1 )
@@ -95,8 +99,8 @@ namespace render
    
 	   // axis 2:
 	   vcV = this->vcA1;
-	   this->TriProj(v0, v1, v2, vcV, &fMin0, &fMax0);
-	   fD_C = vcV * this->vcCenter;
+	   this->tri_proj(v0, v1, v2, vcV, &fMin0, &fMax0);
+	   fD_C = dot(vcV, this->vcCenter);
 	   fMin1 = fD_C - this->fA1;
 	   fMax1 = fD_C + this->fA1;
 	   if ( fMax1 < fMin0 || fMax0 < fMin1 )
@@ -104,8 +108,8 @@ namespace render
 
 	   // axis 3:
 	   vcV = this->vcA2;
-	   this->TriProj(v0, v1, v2, vcV, &fMin0, &fMax0);
-	   fD_C = vcV * this->vcCenter;
+	   this->tri_proj(v0, v1, v2, vcV, &fMin0, &fMax0);
+	   fD_C = dot(vcV, this->vcCenter);
 	   fMin1 = fD_C - this->fA2;
 	   fMax1 = fD_C + this->fA2;
 	   if ( fMax1 < fMin0 || fMax0 < fMin1 )
@@ -118,10 +122,10 @@ namespace render
 	   {
 		  for (int k=0; k<3; k++) 
 		  {
-			 vcV = vcTriEdge[j].CrossProduct(vcA[k]);
+			 vcV = vcTriEdge[j].cross(vcA[k]);
 
-			 this->TriProj(v0, v1, v2, vcV, &fMin0, &fMax0);
-			 this->ObbProj((*this), vcV, &fMin1, &fMax1);
+			 this->tri_proj(v0, v1, v2, vcV, &fMin0, &fMax0);
+			 this->obb_proj((*this), vcV, &fMin1, &fMax1);
          
 			 if ( (fMax1 < fMin0) || (fMax0 < fMin1) )
 				return true;
@@ -129,166 +133,10 @@ namespace render
 	   }
    
 	   return true;
-	} // Intersects(Tri)
+	} // intersects(Tri)
  
 	// intersects ray, slaps method
-	bool Obb::Intersects(const Ray &ray, float *t) 
-	{
-	   float e, f, t1, t2, temp;
-	   float tmin = -99999.9f, 
-			 tmax = +99999.9f;
-
-	   Vector4 vcP = this->vcCenter - ray.m_vcOrig;
-
-	   // 1st slap
-	   e = this->vcA0 * vcP;
-	   f = this->vcA0 * ray.m_vcDir;
-	   if (_fabs(f) > 0.00001f) 
-	   {
-
-		  t1 = (e + this->fA0) / f;
-		  t2 = (e - this->fA0) / f;
-
-		  if (t1 > t2) { temp=t1; t1=t2; t2=temp; }
-		  if (t1 > tmin) tmin = t1;
-		  if (t2 < tmax) tmax = t2;
-		  if (tmin > tmax) return false;
-		  if (tmax < 0.0f) return false;
-		  }
-	   else if ( ((-e - this->fA0) > 0.0f) || ((-e + this->fA0) < 0.0f) )
-		  return false;
-
-	   // 2nd slap
-	   e = this->vcA1 * vcP;
-	   f = this->vcA1 * ray.m_vcDir;
-	   if (_fabs(f) > 0.00001f) 
-	   {
-
-		  t1 = (e + this->fA1) / f;
-		  t2 = (e - this->fA1) / f;
-
-		  if (t1 > t2) { temp=t1; t1=t2; t2=temp; }
-		  if (t1 > tmin) tmin = t1;
-		  if (t2 < tmax) tmax = t2;
-		  if (tmin > tmax) return false;
-		  if (tmax < 0.0f) return false;
-	   }
-	   else if ( ((-e - this->fA1) > 0.0f) || ((-e + this->fA1) < 0.0f) )
-		  return false;
-
-	   // 3rd slap
-	   e = this->vcA2 * vcP;
-	   f = this->vcA2 * ray.m_vcDir;
-	   if (_fabs(f) > 0.00001f) 
-	   {
-
-		  t1 = (e + this->fA2) / f;
-		  t2 = (e - this->fA2) / f;
-
-		  if (t1 > t2) { temp=t1; t1=t2; t2=temp; }
-		  if (t1 > tmin) tmin = t1;
-		  if (t2 < tmax) tmax = t2;
-		  if (tmin > tmax) return false;
-		  if (tmax < 0.0f) return false;
-	   }
-	   else if ( ((-e - this->fA2) > 0.0f) || ((-e + this->fA2) < 0.0f) )
-		  return false;
-
-	   if (tmin > 0.0f) 
-	   {
-		  if (t) *t = tmin;
-		  return true;
-	   }
-
-	   if (t) *t = tmax;
-
-	   return true;
-	} // Intersects(Ray)
- 
-	// intersects ray at certain length (line segment), slaps method
-	bool Obb::Intersects(const Ray &ray, float fL, float *t) 
-	{
-	   float e, f, t1, t2, temp;
-	   float tmin = -99999.9f, 
-			 tmax = +99999.9f;
-
-	   Vector4 vcP = this->vcCenter - ray.m_vcOrig;
-
-	   // 1st slap
-	   e = this->vcA0 * vcP;
-	   f = this->vcA0 * ray.m_vcDir;
-	   if (_fabs(f) > 0.00001f) 
-	   {
-
-		  t1 = (e + this->fA0) / f;
-		  t2 = (e - this->fA0) / f;
-
-		  if (t1 > t2) 
-		  { 
-			  temp=t1; 
-			  t1=t2; 
-			  t2=temp; 
-		  }
-		  if (t1 > tmin) tmin = t1;
-		  if (t2 < tmax) tmax = t2;
-		  if (tmin > tmax) return false;
-		  if (tmax < 0.0f) return false;
-	   }
-	   else if ( ((-e - this->fA0) > 0.0f) || ((-e + this->fA0) < 0.0f) )
-		  return false;
-
-	   // 2nd slap
-	   e = this->vcA1 * vcP;
-	   f = this->vcA1 * ray.m_vcDir;
-	   if (_fabs(f) > 0.00001f) 
-	   {
-
-		  t1 = (e + this->fA1) / f;
-		  t2 = (e - this->fA1) / f;
-
-		  if (t1 > t2) { temp=t1; t1=t2; t2=temp; }
-		  if (t1 > tmin) tmin = t1;
-		  if (t2 < tmax) tmax = t2;
-		  if (tmin > tmax) return false;
-		  if (tmax < 0.0f) return false;
-	   }
-	   else if ( ((-e - this->fA1) > 0.0f) || ((-e + this->fA1) < 0.0f) )
-		  return false;
-
-	   // 3rd slap
-	   e = this->vcA2 * vcP;
-	   f = this->vcA2 * ray.m_vcDir;
-	   if (_fabs(f) > 0.00001f) 
-	   {
-
-		  t1 = (e + this->fA2) / f;
-		  t2 = (e - this->fA2) / f;
-
-		  if (t1 > t2) { temp=t1; t1=t2; t2=temp; }
-		  if (t1 > tmin) tmin = t1;
-		  if (t2 < tmax) tmax = t2;
-		  if (tmin > tmax) return false;
-		  if (tmax < 0.0f) return false;
-	   }
-	   else if ( ((-e - this->fA2) > 0.0f) || ((-e + this->fA2) < 0.0f) )
-		  return false;
-
-	   if ( (tmin > 0.0f) && (tmin <= fL) ) 
-	   {
-		  if (t) *t = tmin;
-		  return true;
-	   }
-
-	   // intersection on line but not on segment
-	   if (tmax > fL) return false;
-
-	   if (t) *t = tmax;
-
-	   return true;
-	} // Intersects(Segment)
- 
-	// intersects another obb
-	bool Obb::Intersects(const Obb &obb) 
+	bool Obb::intersects(const Obb &obb) 
 	{
 	   float T[3];
    
@@ -303,155 +151,155 @@ namespace render
 	   // Obb A's axis as separation axis?
 	   // ================================
 	   // first axis vcA0
-	   matM[0][0] = this->vcA0 * obb.vcA0;
-	   matM[0][1] = this->vcA0 * obb.vcA1;
-	   matM[0][2] = this->vcA0 * obb.vcA2;
+	   matM[0][0] = dot(this->vcA0, obb.vcA0);
+	   matM[0][1] = dot(this->vcA0, obb.vcA1);
+	   matM[0][2] = dot(this->vcA0, obb.vcA2);
 	   ra   = this->fA0;
-	   rb   = obb.fA0 * _fabs(matM[0][0]) + 
-			  obb.fA1 * _fabs(matM[0][1]) + 
-			  obb.fA2 * _fabs(matM[0][2]);
+	   rb   = obb.fA0 * std::fabs(matM[0][0]) + 
+			  obb.fA1 * std::fabs(matM[0][1]) + 
+			  obb.fA2 * std::fabs(matM[0][2]);
 
-	   T[0] = vcD * this->vcA0;
-	   t    = _fabs(T[0]);
+	   T[0] = dot(vcD, this->vcA0);
+	   t    = std::fabs(T[0]);
 	   if(t > (ra + rb) ) 
 		  return false;
 
 	   // second axis vcA1
-	   matM[1][0] = this->vcA1 * obb.vcA0;
-	   matM[1][1] = this->vcA1 * obb.vcA1;
-	   matM[1][2] = this->vcA1 * obb.vcA2;
+	   matM[1][0] = dot(this->vcA1, obb.vcA0);
+	   matM[1][1] = dot(this->vcA1, obb.vcA1);
+	   matM[1][2] = dot(this->vcA1, obb.vcA2);
 	   ra   = this->fA1;
-	   rb   = obb.fA0 * _fabs(matM[1][0]) + 
-			  obb.fA1 * _fabs(matM[1][1]) + 
-			  obb.fA2 * _fabs(matM[1][2]);
-	   T[1] = vcD * this->vcA1;
-	   t    = _fabs(T[1]);
+	   rb   = obb.fA0 * std::fabs(matM[1][0]) + 
+			  obb.fA1 * std::fabs(matM[1][1]) + 
+			  obb.fA2 * std::fabs(matM[1][2]);
+	   T[1] = dot(vcD, this->vcA1);
+	   t    = std::fabs(T[1]);
 	   if(t > (ra + rb) ) 
 		  return false;
 
 	   // third axis vcA2
-	   matM[2][0] = this->vcA2 * obb.vcA0;
-	   matM[2][1] = this->vcA2 * obb.vcA1;
-	   matM[2][2] = this->vcA2 * obb.vcA2;
+	   matM[2][0] = dot(this->vcA2, obb.vcA0);
+	   matM[2][1] = dot(this->vcA2, obb.vcA1);
+	   matM[2][2] = dot(this->vcA2, obb.vcA2);
 	   ra   = this->fA2;
-	   rb   = obb.fA0 * _fabs(matM[2][0]) + 
-			  obb.fA1 * _fabs(matM[2][1]) + 
-			  obb.fA2 * _fabs(matM[2][2]);
-	   T[2] = vcD * this->vcA2;
-	   t    = _fabs(T[2]);
+	   rb   = obb.fA0 * std::fabs(matM[2][0]) + 
+			  obb.fA1 * std::fabs(matM[2][1]) + 
+			  obb.fA2 * std::fabs(matM[2][2]);
+	   T[2] = dot(vcD, this->vcA2);
+	   t    = std::fabs(T[2]);
 	   if(t > (ra + rb) ) 
 		  return false;
 
 	   // Obb B's axis as separation axis?
 	   // ================================
 	   // first axis vcA0
-	   ra = this->fA0 * _fabs(matM[0][0]) + 
-			this->fA1 * _fabs(matM[1][0]) + 
-			this->fA2 * _fabs(matM[2][0]);
+	   ra = this->fA0 * std::fabs(matM[0][0]) + 
+			this->fA1 * std::fabs(matM[1][0]) + 
+			this->fA2 * std::fabs(matM[2][0]);
 	   rb = obb.fA0;
-	   t = _fabs( T[0]*matM[0][0] + T[1]*matM[1][0] + T[2]*matM[2][0] );
+	   t = std::fabs( T[0]*matM[0][0] + T[1]*matM[1][0] + T[2]*matM[2][0] );
 	   if(t > (ra + rb) )
 		  return false;
 
 	   // second axis vcA1
-	   ra = this->fA0 * _fabs(matM[0][1]) + 
-			this->fA1 * _fabs(matM[1][1]) + 
-			this->fA2 * _fabs(matM[2][1]);
+	   ra = this->fA0 * std::fabs(matM[0][1]) + 
+			this->fA1 * std::fabs(matM[1][1]) + 
+			this->fA2 * std::fabs(matM[2][1]);
 	   rb = obb.fA1;
-	   t = _fabs( T[0]*matM[0][1] + T[1]*matM[1][1] + T[2]*matM[2][1] );
+	   t = std::fabs( T[0]*matM[0][1] + T[1]*matM[1][1] + T[2]*matM[2][1] );
 	   if(t > (ra + rb) )
 		  return false;
 
 	   // third axis vcA2
-	   ra = this->fA0 * _fabs(matM[0][2]) + 
-			this->fA1 * _fabs(matM[1][2]) + 
-			this->fA2 * _fabs(matM[2][2]);
+	   ra = this->fA0 * std::fabs(matM[0][2]) + 
+			this->fA1 * std::fabs(matM[1][2]) + 
+			this->fA2 * std::fabs(matM[2][2]);
 	   rb = obb.fA2;
-	   t = _fabs( T[0]*matM[0][2] + T[1]*matM[1][2] + T[2]*matM[2][2] );
+	   t = std::fabs( T[0]*matM[0][2] + T[1]*matM[1][2] + T[2]*matM[2][2] );
 	   if(t > (ra + rb) )
 		  return false;
 
 	   // other candidates: cross products of axis:
 	   // =========================================
 	   // axis A0xB0
-	   ra = this->fA1*_fabs(matM[2][0]) + this->fA2*_fabs(matM[1][0]);
-	   rb = obb.fA1*_fabs(matM[0][2]) + obb.fA2*_fabs(matM[0][1]);
-	   t = _fabs( T[2]*matM[1][0] - T[1]*matM[2][0] );
+	   ra = this->fA1*std::fabs(matM[2][0]) + this->fA2*std::fabs(matM[1][0]);
+	   rb = obb.fA1*std::fabs(matM[0][2]) + obb.fA2*std::fabs(matM[0][1]);
+	   t = std::fabs( T[2]*matM[1][0] - T[1]*matM[2][0] );
 	   if( t > ra + rb )
 		  return false;
    
 	   // axis A0xB1
-	   ra = this->fA1*_fabs(matM[2][1]) + this->fA2*_fabs(matM[1][1]);
-	   rb = obb.fA0*_fabs(matM[0][2]) + obb.fA2*_fabs(matM[0][0]);
-	   t = _fabs( T[2]*matM[1][1] - T[1]*matM[2][1] );
+	   ra = this->fA1*std::fabs(matM[2][1]) + this->fA2*std::fabs(matM[1][1]);
+	   rb = obb.fA0*std::fabs(matM[0][2]) + obb.fA2*std::fabs(matM[0][0]);
+	   t = std::fabs( T[2]*matM[1][1] - T[1]*matM[2][1] );
 	   if( t > ra + rb )
 		  return false;
    
 	   // axis A0xB2
-	   ra = this->fA1*_fabs(matM[2][2]) + this->fA2*_fabs(matM[1][2]);
-	   rb = obb.fA0*_fabs(matM[0][1]) + obb.fA1*_fabs(matM[0][0]);
-	   t = _fabs( T[2]*matM[1][2] - T[1]*matM[2][2] );
+	   ra = this->fA1*std::fabs(matM[2][2]) + this->fA2*std::fabs(matM[1][2]);
+	   rb = obb.fA0*std::fabs(matM[0][1]) + obb.fA1*std::fabs(matM[0][0]);
+	   t = std::fabs( T[2]*matM[1][2] - T[1]*matM[2][2] );
 	   if( t > ra + rb )
 		  return false;
    
 	   // axis A1xB0
-	   ra = this->fA0*_fabs(matM[2][0]) + this->fA2*_fabs(matM[0][0]);
-	   rb = obb.fA1*_fabs(matM[1][2]) + obb.fA2*_fabs(matM[1][1]);
-	   t = _fabs( T[0]*matM[2][0] - T[2]*matM[0][0] );
+	   ra = this->fA0*std::fabs(matM[2][0]) + this->fA2*std::fabs(matM[0][0]);
+	   rb = obb.fA1*std::fabs(matM[1][2]) + obb.fA2*std::fabs(matM[1][1]);
+	   t = std::fabs( T[0]*matM[2][0] - T[2]*matM[0][0] );
 	   if( t > ra + rb )
 		  return false;
    
 	   // axis A1xB1
-	   ra = this->fA0*_fabs(matM[2][1]) + this->fA2*_fabs(matM[0][1]);
-	   rb = obb.fA0*_fabs(matM[1][2]) + obb.fA2*_fabs(matM[1][0]);
-	   t = _fabs( T[0]*matM[2][1] - T[2]*matM[0][1] );
+	   ra = this->fA0*std::fabs(matM[2][1]) + this->fA2*std::fabs(matM[0][1]);
+	   rb = obb.fA0*std::fabs(matM[1][2]) + obb.fA2*std::fabs(matM[1][0]);
+	   t = std::fabs( T[0]*matM[2][1] - T[2]*matM[0][1] );
 	   if( t > ra + rb )
 		  return false;
    
 	   // axis A1xB2
-	   ra = this->fA0*_fabs(matM[2][2]) + this->fA2*_fabs(matM[0][2]);
-	   rb = obb.fA0*_fabs(matM[1][1]) + obb.fA1*_fabs(matM[1][0]);
-	   t = _fabs( T[0]*matM[2][2] - T[2]*matM[0][2] );
+	   ra = this->fA0*std::fabs(matM[2][2]) + this->fA2*std::fabs(matM[0][2]);
+	   rb = obb.fA0*std::fabs(matM[1][1]) + obb.fA1*std::fabs(matM[1][0]);
+	   t = std::fabs( T[0]*matM[2][2] - T[2]*matM[0][2] );
 	   if( t > ra + rb )
 		  return false;
    
 	   // axis A2xB0
-	   ra = this->fA0*_fabs(matM[1][0]) + this->fA1*_fabs(matM[0][0]);
-	   rb = obb.fA1*_fabs(matM[2][2]) + obb.fA2*_fabs(matM[2][1]);
-	   t = _fabs( T[1]*matM[0][0] - T[0]*matM[1][0] );
+	   ra = this->fA0*std::fabs(matM[1][0]) + this->fA1*std::fabs(matM[0][0]);
+	   rb = obb.fA1*std::fabs(matM[2][2]) + obb.fA2*std::fabs(matM[2][1]);
+	   t = std::fabs( T[1]*matM[0][0] - T[0]*matM[1][0] );
 	   if( t > ra + rb )
 		  return false;
    
 	   // axis A2xB1
-	   ra = this->fA0*_fabs(matM[1][1]) + this->fA1*_fabs(matM[0][1]);
-	   rb = obb.fA0 *_fabs(matM[2][2]) + obb.fA2*_fabs(matM[2][0]);
-	   t = _fabs( T[1]*matM[0][1] - T[0]*matM[1][1] );
+	   ra = this->fA0*std::fabs(matM[1][1]) + this->fA1*std::fabs(matM[0][1]);
+	   rb = obb.fA0 *std::fabs(matM[2][2]) + obb.fA2*std::fabs(matM[2][0]);
+	   t = std::fabs( T[1]*matM[0][1] - T[0]*matM[1][1] );
 	   if( t > ra + rb )
 		  return false;
    
 	   // axis A2xB2
-	   ra = this->fA0*_fabs(matM[1][2]) + this->fA1*_fabs(matM[0][2]);
-	   rb = obb.fA0*_fabs(matM[2][1]) + obb.fA1*_fabs(matM[2][0]);
-	   t = _fabs( T[1]*matM[0][2] - T[0]*matM[1][2] );
+	   ra = this->fA0*std::fabs(matM[1][2]) + this->fA1*std::fabs(matM[0][2]);
+	   rb = obb.fA0*std::fabs(matM[2][1]) + obb.fA1*std::fabs(matM[2][0]);
+	   t = std::fabs( T[1]*matM[0][2] - T[0]*matM[1][2] );
 	   if( t > ra + rb )
 		  return false;
    
 	   // no separation axis found => intersection
 	   return true;
-	} // Intersects(obb)
+	} // intersects(obb)
  
 	/**
 	 * Culls OBB to n sided frustrum. Normals pointing outwards.
 	 * -> IN:  Plane   - array of planes building frustrum
 	 *         int        - number of planes in array
-	 *    OUT: VISIBLE - obb totally inside frustrum
-	 *         CLIPPED - obb clipped by frustrum
-	 *         CULLED  - obb totally outside frustrum
+	 *    OUT: CullResult::kVisible - obb totally inside frustrum
+	 *         CullResult::kClipped - obb clipped by frustrum
+	 *         CullResult::kCulled  - obb totally outside frustrum
 	 */
-	int Obb::Cull(const Plane *pPlanes, int nNumPlanes)
+	CullResult Obb::cull(const Plane *pPlanes, int nNumPlanes)
 	{
 	   Vector4 vN;
-	   int       nResult = VISIBLE;
+	   CullResult nResult = CullResult::kVisible;
 	   float     fRadius, fTest;
 
 	   // for all planes
@@ -461,19 +309,19 @@ namespace render
 		  vN = pPlanes[i].m_vcN * -1.0f;
 
 		  // calculate projected box radius
-		  fRadius = _fabs(fA0 * (vN * vcA0)) 
-				  + _fabs(fA1 * (vN * vcA1))
-				  + _fabs(fA2 * (vN * vcA2));
+		  fRadius = std::fabs(fA0 * dot(vN, vcA0)) 
+				  + std::fabs(fA1 * dot(vN, vcA1))
+				  + std::fabs(fA2 * dot(vN, vcA2));
 
 		  // testvalue: (N*C - d) (#)
-		  fTest = vN * this->vcCenter - pPlanes[i].m_fD;
+		  fTest = dot(vN, this->vcCenter) - pPlanes[i].m_fD;
 
 		  // obb totally outside of at least one plane: (#) < -r
 		  if (fTest < -fRadius)
-			 return CULLED;
+			 return CullResult::kCulled;
 		  // or maybe intersecting this plane?
 		  else if (!(fTest > fRadius))
-			 nResult = CLIPPED;
+			 nResult = CullResult::kClipped;
 		} // for
 
 	   // if not culled then clipped or inside

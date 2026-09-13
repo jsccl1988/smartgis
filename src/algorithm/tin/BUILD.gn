@@ -7,21 +7,29 @@ import("//testing/test.gni")
 # GEOS 3.13 Delaunay (geos_c) via //third_party:gdal. Runtime DLLs match
 # the shared third_party install prefix so geos_c.dll / geos.dll sit
 # next to the exe.
-smt_shared_library("tin") {
-  dll_stem = "tin"
-  defines = [ "TIN_EXPORTS" ]
+# Compiled into //src/algorithm:algorithm (dll_stem = algorithm).
+source_set("tin_sources") {
   sources = [
     "tin_api.cpp",
     "tin_geos_backend.cpp",
     "xyz_points.cc",
   ]
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "TIN_EXPORTS",
+  ]
   public_deps = [ "//src/render/math:math" ]
   deps = [
+    "//src/algorithm/geo:geo_sources",
     "//src/base:base",
     "//src/base:core",
-    "//src/algorithm/geo:geo",
     "//third_party:gdal",
   ]
+}
+
+group("tin") {
+  public_deps = [ "//src/algorithm:algorithm" ]
 }
 
 test("tin_delaunay_test") {
@@ -30,7 +38,6 @@ test("tin_delaunay_test") {
   include_dirs += [
     "//src/algorithm/tin",
     "//src/algorithm/geo",
-    "//src/render/math",
     "//src",
   ]
   deps = [
@@ -48,7 +55,6 @@ test("tin_xyz_test") {
   sources = [ "tin_xyz_test.cc" ]
   include_dirs += [
     "//src/algorithm/tin",
-    "//src/render/math",
     "//src",
   ]
   deps = [

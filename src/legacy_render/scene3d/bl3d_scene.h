@@ -109,9 +109,9 @@ namespace render
 }
 #if     !defined(SCENE3D_EXPORTS)
 #if     defined(_DEBUG)
-#          pragma comment(lib,"scene3dD.lib")
+#          pragma comment(lib,"legacy_render_d.lib")
 #       else
-#          pragma comment(lib,"scene3d.lib")
+#          pragma comment(lib,"legacy_render.lib")
 #	    endif
 #endif
 

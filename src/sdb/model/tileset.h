@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "sdb/gis_export.h"
+
 // Explicit 3D Tiles 1.0/1.1 tileset.json. Streaming selection is CPU-side.
 
 namespace sdb {
@@ -49,9 +51,10 @@ struct ViewState {
   double sse_denominator;
 };
 
-bool parse_tileset_json(const char* json, size_t len, Tileset& out);
-void select_tiles(const Tileset& tileset, const ViewState& view, double max_sse,
-                  std::vector<const Tile*>& visible);
+GIS_EXPORT bool parse_tileset_json(const char* json, size_t len, Tileset& out);
+GIS_EXPORT void select_tiles(const Tileset& tileset, const ViewState& view,
+                             double max_sse,
+                             std::vector<const Tile*>& visible);
 
 }  // namespace model
 }  // namespace sdb

@@ -1,7 +1,7 @@
 // SmtXAMBox.cpp : ʵ���ļ�
 //
 
-#include "ui/xambox/stdafx.h"
+#include "stdafx.h"
 #include "ui/xambox/xambox_core.h"
 #include "ui/xambox/amb_xambox.h"
 #include "base/core/msg_def.h"
@@ -60,9 +60,9 @@ namespace ui
 		//AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
 #ifdef _DEBUG
-		HINSTANCE   hInstance  =  ::GetModuleHandle("SmtXAMBoxCoreD.dll");
+		HINSTANCE   hInstance  =  ::GetModuleHandle("ui_legacy_d.dll");
 #else
-		HINSTANCE   hInstance  =  ::GetModuleHandle("SmtXAMBoxCore.dll");
+		HINSTANCE   hInstance  =  ::GetModuleHandle("ui_legacy.dll");
 #endif
 
 		m_imgList.Create(16,16,ILC_COLOR16|ILC_MASK,1,0);
@@ -74,7 +74,7 @@ namespace ui
 
 		SetImageList(&m_imgList,TVSIL_NORMAL);
 
-		m_vFuncItems = m_pAModule->GetFuncItems(FIM_AUXMODULEBOX);
+		m_vFuncItems = m_pAModule->get_func_items(FIM_AUXMODULEBOX);
 
 		return (CreateContexMenu() && UpdateAMBoxTree());
 	}
@@ -156,7 +156,7 @@ namespace ui
 		{
 			if (strcmp((*iter).szName,strFuncItem) == 0)
 			{
-				m_pAModule->Notify((*iter).lMsg,param);
+				m_pAModule->notify((*iter).lMsg,param);
 				return ;
 			}
 
@@ -173,7 +173,7 @@ namespace ui
 		DeleteAllItems();
 		SetTextColor(RGB(0,0,255));
 
-		m_hRoot =InsertItem(m_pAModule->GetName(),0,0,TVI_ROOT);
+		m_hRoot =InsertItem(m_pAModule->get_name(),0,0,TVI_ROOT);
 
 		vSmtFuncItems::iterator iter = m_vFuncItems.begin();	
 		while (iter != m_vFuncItems.end())

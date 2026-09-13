@@ -1,5 +1,5 @@
 #include "legacy_render/terrain/terrain.h"
-#include "render/math/mathlib_3d.h"
+#include "render/math/math.h"
 #include "legacy_render/render3d/texturemanager.h"
 
 using namespace render;
@@ -178,12 +178,12 @@ namespace render
 		p3DRenderDevice->MatrixPop();*/
 
 		vDir = vTar-vOrg;
-		if (vDir.GetSqrLength() > 0)
+		if (vDir.length_squared() > 0)
 		{
 			Ray		ray;
 			float   f;
-			ray.Set(vOrg,vDir);
-			if (m_aAbb.Intersects(ray,&f))
+			ray.set(vOrg,vDir);
+			if (ray.intersects(m_aAbb,&f))
 			{
 				return true;
 			}
@@ -321,7 +321,7 @@ namespace render
 		//normalize
 		for (int i = 0; i < m_p3DSurf->get_point_count();i++)
 		{
-			pNormals[i].Normalize();
+			pNormals[i].normalize();
 			m_pVertexBuffer->Normal(pNormals[i].x,pNormals[i].z,pNormals[i].y);
 		}
 

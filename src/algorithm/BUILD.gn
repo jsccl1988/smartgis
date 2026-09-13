@@ -1,18 +1,36 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
+import("//build/smartgis.gni")
+
 # Algorithm packages (QGIS processing / GEOS / PROJ analogues).
-# geo = geo DLL (TIN/grid/surface meshes). Scene math is
-# //src/render/math (Eigen).
-group("geom") {
-  deps = [ "//src/algorithm/geo:geo" ]
+# One DLL (dll_stem = algorithm): geo + proj + tin + stat source_sets.
+# Scene math stays //src/render/math (Eigen).
+
+smt_shared_library("algorithm") {
+  dll_stem = "algorithm"
+  defines = [
+    "ALGORITHM_EXPORTS",
+    "GEO_EXPORTS",
+    "PROJ_EXPORTS",
+    "TIN_EXPORTS",
+    "STAT_EXPORTS",
+  ]
+  deps = [
+    "//src/algorithm/geo:geo_sources",
+    "//src/algorithm/proj:proj_sources",
+    "//src/algorithm/stat:stat_sources",
+    "//src/algorithm/tin:tin_sources",
+  ]
+  # Consumers of :geo / :algorithm include ogr_*.h via geometry.h.
+  public_deps = [ "//third_party:gdal" ]
 }
 
-group("algorithm") {
-  deps = [
-    "//src/algorithm/geo:geo",
-    "//src/algorithm/proj:proj",
-    "//src/algorithm/stat:stat",
-    "//src/algorithm/tin:tin",
-  ]
+group("geom") {
+  public_deps = [ ":algorithm" ]
+}
+
+# Stable aggregator label (was a group of four DLLs).
+group("algorithm_all") {
+  public_deps = [ ":algorithm" ]
 }

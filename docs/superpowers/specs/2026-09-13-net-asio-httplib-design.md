@@ -57,10 +57,11 @@ Same layering as mogu: contract → framing → reactor. This repo replaces only
 | Unit | Role | Depends on |
 | --- | --- | --- |
 | `//third_party:asio` | header-only standalone ASIO; `ASIO_STANDALONE` | fetch `third_party/.src/asio` |
-| `//third_party:cpp_httplib` | header-only HTTP; no OpenSSL | fetch `third_party/.src/cpp-httplib` |
-| `net::HttpClient` | GET/POST; host/path parse in `.cc` | cpp-httplib private |
+| `//third_party:cpp_httplib` | header-only HTTP(S); product enables `CPPHTTPLIB_OPENSSL_SUPPORT` in `src/net` | fetch `third_party/.src/cpp-httplib` |
+| `//third_party:openssl` | OpenSSL 3+ headers/libs/DLLs under `third_party/.install` | Windows: Shining Light Dev + `sync_openssl_win.ps1` |
+| `net::HttpClient` | GET/POST; host/path parse in `.cc`; HTTPS when openssl linked | cpp-httplib + openssl private |
 | `net::rpc_transport_traits` / `RpcClient` | ASIO TCP + CRLF pickle; `AsioTcp` supported | ASIO private |
-| `//src/net:net` | `SmtNetCore` DLL | asio + httplib **private** configs; `ws2_32` |
+| `//src/net:net` | `SmtNetCore` DLL | asio + httplib + openssl **private** configs; `ws2_32` |
 
 Public C++ stays two levels: `net`. Helpers in `net::detail` or an anonymous namespace in `.cpp`.
 
@@ -111,6 +112,7 @@ A later tabled live task can point `RpcClient` at `:9030`. This pass loopback-te
 | --- | --- |
 | Pickle | method+JSON roundtrip; `RpcMessage` envelope; error skips value; oversize string rejected |
 | HTTP loopback | in-process httplib server + `net::HttpClient::get` body match |
+| HTTPS scheme | `CPPHTTPLIB_OPENSSL_SUPPORT`; `https://127.0.0.1:1/` fails transport (not invalid url); no external net |
 | RPC loopback | in-process ASIO server; `connect` + `call("echo")` JSON match; unbound method `error_code==2` |
 | Isolation | `asio.hpp` / `httplib.h` not in public headers |
 
@@ -121,7 +123,16 @@ No UDP loopback (facade removed). No live tabled `:9030` in this pass. No `FNW_T
 | Package | Ref | Notes |
 | --- | --- | --- |
 | asio | `https://github.com/chriskohlhoff/asio.git` tag `asio-1-30-2` | `install_skip`; `#include <asio.hpp>` |
-| cpp-httplib | `https://github.com/yhirose/cpp-httplib.git` tag `v0.18.3` | `install_skip`; no OpenSSL |
+| cpp-httplib | `https://github.com/yhirose/cpp-httplib.git` tag `v0.18.3` | `install_skip`; HTTPS via product `CPPHTTPLIB_OPENSSL_SUPPORT` |
+| openssl | Shining Light Win64 Dev (OpenSSL 3+/4.x) | Not git-fetched; `third_party/tools/sync_openssl_win.ps1` → `.install`; GN `//third_party:openssl` |
+
+## HTTPS / OpenSSL（已接线 — 2026-09-14）
+
+1. **`//third_party:openssl`**：headers + `libssl(d)` / `libcrypto(d)` + runtime DLLs under `third_party/.install`（`out/third_party` junction）。Windows 复用 Shining Light Dev（`winget install ShiningLight.OpenSSL.Dev`），再 `sync_openssl_win.ps1`；**不**再 vendor 第二份源码树。
+2. **`src/net`**：`CPPHTTPLIB_OPENSSL_SUPPORT` + dep `//third_party:openssl`；`HttpClient::set_ssl_verify`（默认 true）。
+3. **`net_test`**：HTTPS scheme 覆盖（闭环端口，无外网）。完整 SSLServer 自签 loopback 可选后续加强。
+
+TileProvider 可对 `https://` 模板发 GET（见 tile design）。
 
 Gitea URLs may remain as comments; fetch must succeed from GitHub (or `MOGU_GITHUB_MIRROR`).
 

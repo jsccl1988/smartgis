@@ -226,7 +226,9 @@ namespace {
 LeftoverRecorder* resolve_smt_render_session() {
 #ifdef _WIN32
   using SessionFn = LeftoverRecorder* (*)();
-  static const wchar_t* kNames[] = {L"renderD.dll", L"render.dll"};
+  // Bridge leftover DLL (dll_stem = legacy_render), not endgame render.
+  static const wchar_t* kNames[] = {L"legacy_render_d.dll",
+                                    L"legacy_render.dll"};
   HMODULE module = nullptr;
   for (const wchar_t* name : kNames) {
     module = GetModuleHandleW(name);

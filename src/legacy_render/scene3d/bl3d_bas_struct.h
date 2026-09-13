@@ -15,7 +15,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _BL3D_BAS_STRUCT_H
 #define _BL3D_BAS_STRUCT_H
 
-#include "render/math/mathlib_3d.h"
+#include "render/math/math.h"
 
 #if !defined(SCENE3D_EXPORT_DEFINED)
 #define SCENE3D_EXPORT_DEFINED

@@ -1,11 +1,11 @@
 /*
 File:    vw_xview.h
 
-Desc:    Smt3DXView,Smt 3d view �̳���SmtXView
+Desc:    Smt3DXView,Smt 3d view 锟教筹拷锟斤拷SmtXView
 
 Version: Version 1.0
 
-Writter:  �´���
+Writter:  锟铰达拷锟斤拷
 
 Date:    2010.11.17
 
@@ -28,7 +28,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 using namespace tool;
 using namespace render;
 
-// Smt3DXView ��ͼ
+// Smt3DXView 锟斤拷图
 
 namespace ui {
 class XVIEW_EXPORT Smt3DXView : public SmtXView {
@@ -43,7 +43,7 @@ class XVIEW_EXPORT Smt3DXView : public SmtXView {
   SmtScene* GetScene(void);
 
  public:
-  virtual void OnDraw(CDC* pDC);  // ��д�Ի��Ƹ���ͼ
+  virtual void OnDraw(CDC* pDC);  // 锟斤拷写锟皆伙拷锟狡革拷锟斤拷图
   virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam);
   virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam);
 #ifdef _DEBUG
@@ -102,9 +102,9 @@ class XVIEW_EXPORT Smt3DXView : public SmtXView {
 
 #if !defined(XVIEW_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "xviewD.lib")
+#pragma comment(lib, "ui_legacy_d.lib")
 #else
-#pragma comment(lib, "xview.lib")
+#pragma comment(lib, "ui_legacy.lib")
 #endif
 #endif
 #endif  //_VW_3DXVIEW_H

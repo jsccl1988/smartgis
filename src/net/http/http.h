@@ -10,7 +10,7 @@
 
 namespace net {
 
-// Outcome of one HTTP request. ok is false on transport failure.
+// Outcome of one HTTP(S) request. ok is false on transport failure.
 struct HttpResult {
   bool ok = false;
   int status = 0;
@@ -18,14 +18,22 @@ struct HttpResult {
   std::string error;
 };
 
-// Product HTTP facade. cpp-httplib stays in the .cc.
+// Product HTTP(S) facade. cpp-httplib (+ OpenSSL when enabled) stays in the .cc.
 class NET_EXPORT HttpClient {
  public:
+  // When false, TLS peers are not certificate-verified (loopback / self-signed
+  // tests). Default true for product HTTPS.
+  void set_ssl_verify(bool verify) { ssl_verify_ = verify; }
+  bool ssl_verify() const { return ssl_verify_; }
+
   HttpResult get(const std::string& url, int timeout_sec = 5);
   HttpResult post(const std::string& url, const std::string& body,
                    const std::string& content_type =
                        "application/x-www-form-urlencoded",
                    int timeout_sec = 5);
+
+ private:
+  bool ssl_verify_ = true;
 };
 
 }  // namespace net

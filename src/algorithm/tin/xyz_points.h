@@ -5,7 +5,7 @@
 #define ALGORITHM_TIN_XYZ_POINTS_H_
 
 #include "base/core/core.h"
-#include "render/math/mathlib_3d.h"
+#include "render/math/math.h"
 
 #include <vector>
 

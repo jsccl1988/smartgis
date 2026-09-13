@@ -3,13 +3,21 @@
 
 import("//build/smartgis.gni")
 
-smt_mfc_shared_library("xcatalog") {
-  dll_stem = "xcatalog"
-  mfc_extension = true
-  defines = [
-    "XCATALOG_EXPORTS",
-    "_AFXEXT",
+# Layer / map / scene catalogs. Compiled into //src/ui:ui_legacy.
+source_set("xcatalog_sources") {
+  configs += [
+    "//build:legacy",
+    "//build:mfc",
   ]
+  defines = [
+    "_USRDLL",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
+    "XCATALOG_EXPORTS",
+  ]
+  precompiled_header = "stdafx.h"
+  precompiled_source = "stdafx.cpp"
   include_dirs += [ "." ]
   sources = [
     "dlg_create_ds.cpp",
@@ -18,7 +26,6 @@ smt_mfc_shared_library("xcatalog") {
     "dlg_sel_fcls.cpp",
     "dlg_sel_ds.cpp",
     "dlg_sel_layer.cpp",
-    "xcatalog_core.cpp",
     "xcatalog_core.rc",
     "3dobjxcatalog.cpp",
     "catalog_api.cpp",
@@ -43,7 +50,9 @@ smt_mfc_shared_library("xcatalog") {
     "//src/sys:sys",
     "//src/legacy_render/terrain:terrain",
     "//src/legacy_tool:tool",
-    "//src/legacy_tool/group:tool_group",
-    "//src/ui/gui:gui",
   ]
+}
+
+group("xcatalog") {
+  public_deps = [ "//src/ui:ui_legacy" ]
 }

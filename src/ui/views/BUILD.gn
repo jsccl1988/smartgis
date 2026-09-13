@@ -18,6 +18,7 @@ config("views_config") {
 source_set("views") {
   sources = [
     # Public stubs (stable include path).
+    "add_basemap_dialog.h",
     "ambox_view.h",
     "att_struct_dialog.h",
     "attribute_table.h",
@@ -104,6 +105,8 @@ source_set("views") {
     "primitives/tree_view.h",
 
     # GIS widgets
+    "gis/add_basemap_dialog.cc",
+    "gis/add_basemap_dialog.h",
     "gis/ambox_view.cc",
     "gis/ambox_view.h",
     "gis/att_struct_dialog.cc",

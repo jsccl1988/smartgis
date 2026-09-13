@@ -31,6 +31,7 @@ class RENDER_EXPORT_CLASS SmtRenderer {
   LPRENDERDEVICE m_pDevice;
   HINSTANCE m_hInst;
   HMODULE m_hDLL;
+  const char* destroy_name_ = nullptr;
 };
 
 typedef SmtRenderer* LPRENDERER;
@@ -38,9 +39,9 @@ typedef SmtRenderer* LPRENDERER;
 
 #if !defined(RENDER_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "renderD.lib")
+#pragma comment(lib, "legacy_render_d.lib")
 #else
-#pragma comment(lib, "render.lib")
+#pragma comment(lib, "legacy_render.lib")
 #endif
 #endif
 

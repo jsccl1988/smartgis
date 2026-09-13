@@ -9,6 +9,8 @@ Spec: [`../superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md
 
 Status: **in progress** (big-bang on `master`). Mechanical include/dll_stem/Export/namespace cutover landed; full `src_all` green and complete snake_case call-site sync still open — see plan Task 9.
 
+**Next DLL merge (accepted, not yet applied):** short stems below are the cutover names. Platform reorg collapses many of them into layer stems (`base` / `sdb` / `algorithm` / `render` / `ui_legacy`, plus optional `legacy_render` / `legacy_tool`). Map: [`../superpowers/specs/2026-09-14-dll-reorganization-design.md`](../superpowers/specs/2026-09-14-dll-reorganization-design.md).
+
 ## Include root
 
 - Product include root: `//src` only.
@@ -16,6 +18,8 @@ Status: **in progress** (big-bang on `master`). Mechanical include/dll_stem/Expo
 - No per-module `include_dirs` in `//build:legacy`.
 
 ## dll_stem + export macros
+
+Debug on-disk names append `_d` (`base_d.dll` / `base_d.lib`), not a trailing capital `D` (legacy form was `xxxD.dll`). Release stays `xxx.dll` / `xxx.lib`. Rule lives in `smt_shared_library` (`build/smartgis.gni`).
 
 | Old dll_stem | New dll_stem | Old define | New define / export macro family |
 | --- | --- | --- | --- |
@@ -40,7 +44,7 @@ Status: **in progress** (big-bang on `master`). Mechanical include/dll_stem/Expo
 | Smt3DTerrain | terrain | TERRAIN_EXPORT | TERRAIN_EXPORT |
 | SmtSDEDeviceMgr | sde_mgr | SDE_MGR_EXPORT | SDE_MGR_EXPORT |
 | SmtSDEGdalDevice | sde_gdal | SDE_GDAL_EXPORT | SDE_GDAL_EXPORT |
-| SmtSDEMemDevice | sde_mem | SDE_MEM_EXPORT | SDE_MEM_EXPORT |
+| SmtSDEMemDevice | sde_mem | — (removed) | — |
 | SmtSDESmfDevice | sde_smf | — (removed) | — |
 | SmtSDEWSDevice | sde_ws | — (removed) | — |
 | SmtToolCore | tool | TOOL_EXPORT | TOOL_EXPORT |

@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "sdb/gis_export.h"
+
 // CPU tessellation of leftover GIS geometry into GPU-uploadable xyz +
 // indices. No render/rhi types.
 
@@ -36,24 +38,26 @@ struct TessMesh {
   bool has_image = false;
 };
 
-bool tessellate_geometry(const OGRGeometry* geom, TessMesh& out);
-bool tessellate_geoms(const OGRGeometry* const* geoms, size_t count,
-                      TessMesh& out);
-bool tessellate_layer(OGRLayer* layer, TessMesh& out);
-bool tessellate_3d_geometry(const OGRGeometry* geom, TessMesh& out);
-bool tessellate_3d_surface(const geo::Tin* surf, TessMesh& out);
+GIS_EXPORT bool tessellate_geometry(const OGRGeometry* geom, TessMesh& out);
+GIS_EXPORT bool tessellate_geoms(const OGRGeometry* const* geoms, size_t count,
+                                 TessMesh& out);
+GIS_EXPORT bool tessellate_layer(OGRLayer* layer, TessMesh& out);
+GIS_EXPORT bool tessellate_3d_geometry(const OGRGeometry* geom, TessMesh& out);
+GIS_EXPORT bool tessellate_3d_surface(const geo::Tin* surf, TessMesh& out);
 
-bool tessellate_arc(const OGRLineString* arc, TessMesh& out);
-bool tessellate_fan(const OGRPolygon* fan, TessMesh& out);
-bool tessellate_tin(const geo::Tin* tin, TessMesh& out);
-bool tessellate_grid(const geo::Grid* grid, TessMesh& out);
-bool tessellate_raster_layer(const sdb::SmtRasterLayer* layer,
-                             TessMesh& out);
-bool tessellate_tile_layer(const sdb::SmtTileLayer* layer, TessMesh& out);
+GIS_EXPORT bool tessellate_arc(const OGRLineString* arc, TessMesh& out);
+GIS_EXPORT bool tessellate_fan(const OGRPolygon* fan, TessMesh& out);
+GIS_EXPORT bool tessellate_tin(const geo::Tin* tin, TessMesh& out);
+GIS_EXPORT bool tessellate_grid(const geo::Grid* grid, TessMesh& out);
+GIS_EXPORT bool tessellate_raster_layer(const sdb::SmtRasterLayer* layer,
+                                        TessMesh& out);
+GIS_EXPORT bool tessellate_tile_layer(const sdb::SmtTileLayer* layer,
+                                      TessMesh& out);
 
 // Axis-aligned box (12 triangles) used as a tileset / model placeholder.
-bool tessellate_aabb(double min_x, double min_y, double min_z, double max_x,
-                     double max_y, double max_z, TessMesh& out);
+GIS_EXPORT bool tessellate_aabb(double min_x, double min_y, double min_z,
+                                double max_x, double max_y, double max_z,
+                                TessMesh& out);
 
 }  // namespace scene
 }  // namespace sdb

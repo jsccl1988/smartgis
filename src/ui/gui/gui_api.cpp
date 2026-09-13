@@ -71,15 +71,18 @@ long	SmtShow2DFeatureInfoDlg(SmtFeature *pSmtFea)
 	return SMT_ERR_NONE;
 }
 
-long	GUI_EXPORT	SmtAttStructEditDlg(SmtAttribute *&pSmtAtt,int nFixField)
+long	GUI_EXPORT	SmtAttStructEditDlg(OGRLayer* layer, int nFixField)
 {
+	if (NULL == layer)
+		return SMT_ERR_INVALID_PARAM;
+
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
 	CDlgAttStructSet dlg(SmtGetActiveWnd());
-	dlg.SetAttStruct(pSmtAtt,nFixField);
+	dlg.SetOgrLayer(layer, nFixField);
 	if (dlg.DoModal() == IDOK)
 	{
-		dlg.GetAttStruct(pSmtAtt);
+		dlg.ApplyToOgrLayer();
 	}
 
 	return SMT_ERR_NONE;

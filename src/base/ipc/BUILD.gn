@@ -1,9 +1,8 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Named-pipe + BinarySink codec (via //src/base/archive). Not a dep of
-# SmtCore / src_all except via //src/content:content. Lives next to core/,
-# style/, archive/; chrome hosts must not include these headers.
+# Named-pipe + BinarySink codec (via //src/base/archive). Symbols live in
+# //src/base:base (dll_stem = base). Chrome hosts must not include these headers.
 
 import("//testing/test.gni")
 
@@ -11,7 +10,10 @@ config("ipc_config") {
   include_dirs += [ "//src" ]
 }
 
-source_set("ipc") {
+source_set("ipc_sources") {
+  configs += [ "//build:legacy" ]
+  # Export Channel from the base DLL (see channel.h BASE_IPC_EXPORT).
+  defines = [ "BASE_EXPORTS" ]
   sources = [
     "channel.cc",
     "channel.h",
@@ -19,6 +21,11 @@ source_set("ipc") {
   ]
   public_configs = [ ":ipc_config" ]
   public_deps = [ "//src/base/archive:archive" ]
+}
+
+group("ipc") {
+  public_deps = [ "//src/base:base" ]
+  public_configs = [ ":ipc_config" ]
 }
 
 test("ipc_test") {

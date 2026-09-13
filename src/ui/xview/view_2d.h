@@ -1,11 +1,11 @@
 /*
 File:    vw_2dxview.h
 
-Desc:    Smt2DXView,Smt 2d view �̳���SmtXView
+Desc:    Smt2DXView,Smt 2d view 锟教筹拷锟斤拷SmtXView
 
 Version: Version 1.0
 
-Writter:  �´���
+Writter:  锟铰达拷锟斤拷
 
 Date:    2010.11.17
 
@@ -29,7 +29,7 @@ using namespace render;
 using namespace tool;
 using namespace sdb;
 
-// Smt2DXView ��ͼ
+// Smt2DXView 锟斤拷图
 namespace ui {
 class XVIEW_EXPORT Smt2DXView : public SmtXView {
   DECLARE_DYNCREATE(Smt2DXView)
@@ -42,7 +42,7 @@ class XVIEW_EXPORT Smt2DXView : public SmtXView {
   LPRENDERDEVICE GetRenderDevice(void);
 
  public:
-  virtual void OnDraw(CDC* pDC);  // ��д�Ի��Ƹ���ͼ
+  virtual void OnDraw(CDC* pDC);  // 锟斤拷写锟皆伙拷锟狡革拷锟斤拷图
   virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam);
 
 #ifdef _DEBUG
@@ -105,9 +105,9 @@ class XVIEW_EXPORT Smt2DXView : public SmtXView {
 
 #if !defined(XVIEW_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "xviewD.lib")
+#pragma comment(lib, "ui_legacy_d.lib")
 #else
-#pragma comment(lib, "xview.lib")
+#pragma comment(lib, "ui_legacy.lib")
 #endif
 #endif
 

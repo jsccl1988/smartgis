@@ -1,5 +1,5 @@
 #include "legacy_render/model3d/water.h"
-#include "render/math/mathlib_3d.h"
+#include "render/math/math.h"
 
 using namespace render;
 using namespace render;
@@ -69,8 +69,8 @@ namespace render
 
 		m_pVertexBuffer = p3DRenderDevice->CreateVertexBuffer(2*(CST_INT_GRID_HEIGHT-1) * CST_INT_GRID_WIDTH,VF_XYZ|VF_DIFFUSE| VF_NORMAL|VF_TEXCOORD,false);
 	
-		m_aAbb.vcMax.Set(0,0,0);
-		m_aAbb.vcMin.Set(0,0,0);
+		m_aAbb.vcMax.set(0,0,0);
+		m_aAbb.vcMin.set(0,0,0);
 		m_aAbb.vcMax += (CST_INT_GRID_HEIGHT/2.)*m_fXScale;
 		m_aAbb.vcMin += -(CST_INT_GRID_HEIGHT/2.)*m_fZScale;
 		m_aAbb.vcCenter += (m_aAbb.vcMax+m_aAbb.vcMin)/2.;
@@ -176,12 +176,12 @@ namespace render
 		p3DRenderDevice->MatrixPop();
 
 		vDir = vTar-vOrg;
-		if (vDir.GetSqrLength() > 0)
+		if (vDir.length_squared() > 0)
 		{
 			Ray		ray;
 			float   f;
-			ray.Set(vOrg,vDir);
-			if (m_aAbb.Intersects(ray,&f))
+			ray.set(vOrg,vDir);
+			if (ray.intersects(m_aAbb,&f))
 			{
 				return true;
 			}
@@ -294,7 +294,7 @@ namespace render
 		//normalize
 		for(long i=0; i < CST_INT_GRID_SIZE; i++)
 		{
-			pNormals[i].Normalize();
+			pNormals[i].normalize();
 			wvertex[i].nx = pNormals[i].x;
 			wvertex[i].ny = pNormals[i].y;
 			wvertex[i].nz = pNormals[i].z;

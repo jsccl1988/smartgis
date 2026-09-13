@@ -36,4 +36,4 @@ geo::Tin tin;
 tin.add_point(&pt);
 ```
 
-GN：`//src/algorithm/geo:geo` → `geoD.dll` / `geo.dll`。
+GN：`//src/algorithm/geo:geo` → `geo_d.dll` / `geo.dll`。

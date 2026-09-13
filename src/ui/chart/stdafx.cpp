@@ -1,7 +1,4 @@
-// stdafx.cpp : ֻ������׼�����ļ���Դ�ļ�
-// SmtStaDiagram.pch ����ΪԤ����ͷ
-// stdafx.obj ������Ԥ����������Ϣ
+// stdafx.cpp : source file that includes just the standard includes
+// stdafx.obj contains the precompiled-header information
 
-#include "ui/chart/stdafx.h"
-
-
+#include "stdafx.h"

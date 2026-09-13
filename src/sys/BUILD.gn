@@ -3,9 +3,17 @@
 
 import("//build/smartgis.gni")
 
-smt_shared_library("sys") {
-  dll_stem = "sys"
-  defines = [ "SYS_EXPORTS=1" ]
+# Compiled into //src/base:base (dll_stem = base).
+
+source_set("sys_sources") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "SYS_EXPORTS=1",
+  ]
   sources = [ "sysmanager.cpp" ]
-  deps = [ "//src/base:core" ]
+}
+
+group("sys") {
+  public_deps = [ "//src/base:base" ]
 }

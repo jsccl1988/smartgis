@@ -98,6 +98,46 @@ config("cpp_httplib_cfg") {
   include_dirs += [ "//third_party/.src/cpp-httplib" ]
 }
 
+# OpenSSL 3+ from third_party/.install (Windows: sync Shining Light Dev via
+# third_party/tools/sync_openssl_win.ps1 after winget install).
+config("openssl_cfg") {
+  include_dirs += [ "$_tp/include" ]
+  lib_dirs = [ "$_tp/lib" ]
+  if (is_debug) {
+    libs += [
+      "$_tp/lib/libssld.lib",
+      "$_tp/lib/libcryptod.lib",
+    ]
+  } else {
+    libs += [
+      "$_tp/lib/libssl.lib",
+      "$_tp/lib/libcrypto.lib",
+    ]
+  }
+  libs += [
+    "crypt32.lib",
+    "advapi32.lib",
+    "user32.lib",
+    "bcrypt.lib",
+  ]
+}
+
+copy("openssl_runtime_dlls") {
+  sources = [
+    "$_tp/bin/libssl-4-x64.dll",
+    "$_tp/bin/libcrypto-4-x64.dll",
+  ]
+  outputs = [ "$root_out_dir/{{source_file_part}}" ]
+}
+
+group("openssl") {
+  public_deps = [ ":openssl_runtime_dlls" ]
+  public_configs = [
+    ":tp_common",
+    ":openssl_cfg",
+  ]
+}
+
 config("eigen_cfg") {
   include_dirs += [ "//third_party/.src/eigen" ]
   defines = []

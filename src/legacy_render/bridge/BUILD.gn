@@ -56,16 +56,19 @@ test("leftover_record_test") {
   ]
 }
 
-# Full SmtRender DLL (renderdevice / renderer / leftover_session).
-smt_shared_library("render") {
-  dll_stem = "render"
-  defines = [ "RENDER_EXPORTS" ]
+# Bridge SmtRender. Compiled into //src/legacy_render:legacy_render.
+source_set("render_sources") {
   sources = [
     "leftover_session.cc",
     "renderdevice.cpp",
     "renderer.cpp",
   ]
   include_dirs += [ "//src" ]
+  configs += [
+    "//build:legacy",
+    "//src/legacy_render:legacy_render_exports",
+  ]
+  defines = [ "_USRDLL" ]
   deps = [
     ":leftover_record",
     "//src/algorithm/geo:geo",
@@ -74,6 +77,10 @@ smt_shared_library("render") {
     "//src/render:rhi",
     "//src/sdb/map:gis",
   ]
+}
+
+group("render") {
+  public_deps = [ "//src/legacy_render:legacy_render" ]
 }
 
 test("leftover_session_test") {

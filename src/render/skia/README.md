@@ -26,9 +26,11 @@ Skia 是 Views 壳的 **canvas / paint** 后端，不是 GIS GPU，也不是 wid
 REM 日常 / CI：不要开真 Skia
 build.bat views
 
-REM 本机已建 pin（且最好有匹配的 Windows skia.lib）时试真后端
-gn gen out --root=./ --args="is_debug=true smt_build_views=true smt_has_skia=true"
+REM 本机已建 pin + 匹配 Windows skia.lib 时试真后端
+REM 在 out\args.gn 增加 smt_has_skia = true 后：
+gn gen out --root=./
 ninja -C out views_unittests
+out\views_unittests.exe --self-test
 ```
 
 缺 pin 时 GN `assert` 明确失败；缺匹配 `skia.lib` 时 gen 会 WARNING，链接阶段失败。**默认 `false` 不受影响。**
@@ -59,17 +61,39 @@ New-Item -ItemType SymbolicLink -Path third_party\.src\skia `
   -Target '\\wsl$\Ubuntu-24.04\home\ccl\dev\src\open\topic\graphic-engine\skia'
 ```
 
-可选：会话内 `subst S: \\wsl$\Ubuntu-24.04\home\ccl\dev\src\open\topic\graphic-engine` 后用 `S:\skia` 做探测（**subst 也不能再 /J**）。
+### 预编译库（Windows，本机 MSVC）
 
-### 预编译库（Windows）
+真后端链接需要 **与上述 pin 同版本的 Windows `skia.lib`**，约定路径：
 
-真后端链接需要 **与上述 pin 同版本的 Windows `skia.lib`**，约定：
-
-```bat
-mklink /J third_party\.src\skia_out <本地含 skia\skia.lib 的 out 目录>
+```
+third_party\.src\skia_out\skia\skia.lib   # GN 探测路径
+third_party\.src\skia_out\skia.lib        # ninja 产物（可硬链到上者）
+third_party\.src\skia_out\skcms.lib       # 一并链接
 ```
 
-当前 WSL 检出尚无 Windows `out/skia.lib`。**不要**把其它树（例如旧 skui CMake）的 `skia.lib` 链到本 pin——ABI 不匹配。无匹配 lib 时保持 `smt_has_skia=false`。
+#### 如何编出（官方 GN/Ninja，本机 MSVC）
+
+1. **不要**在 WSL 用 GCC/Clang 编再链 MSVC——ABI 不兼容。必须在 **Windows + MSVC** 编。
+2. 本机 googlesource / CIPD 常不可达；用 **最小 CPU 配置**（关 GPU/codec/PDF），**不需要** `tools/git-sync-deps`。
+3. 参数文件：`out/skia_win_args.gn`（仓库内可再生成）。要点：
+   - `is_official_build=true`（避免 spirv 等 DEPS）
+   - `extra_cflags = ["/MDd", "/EHsc", "/D_HAS_EXCEPTIONS=1"]` —— 对齐 smartgis debug CRT（默认 `/MDd`）；Skia 默认 `/MT` + `_HAS_EXCEPTIONS=0` 会 LNK2001
+   - 关 `skia_enable_ganesh` / codecs / zlib 等
+   - `win_vc` 显式指向 VS 18（Skia `find_msvc.py` 只认 2017/2019/2022）
+4. 生成与编译（需 `python3` 在 PATH、repo `build/bin/gn.exe` + `ninja`）：
+
+```bat
+REM 也可：out\rebuild_skia_win.bat
+copy /Y out\skia_win_args.gn third_party\.src\skia_out\args.gn
+build\bin\gn.exe gen third_party\.src\skia_out --root=third_party\.src\skia
+ninja -C third_party\.src\skia_out skia -j 8
+mkdir third_party\.src\skia_out\skia 2>nul
+mklink /H third_party\.src\skia_out\skia\skia.lib third_party\.src\skia_out\skia.lib
+```
+
+日志：`out/skia-gn-gen.log`、`out/skia-ninja-build.log`。
+
+**不要**把其它树（例如旧 skui CMake）的 `skia.lib` 链到本 pin——ABI 不匹配。无匹配 lib 时保持 `smt_has_skia=false`。
 
 3. **禁止**把整树 Skia 提交进 `third_party/skia` 当 vendor。`.src/` 已在 `third_party/.gitignore`。
 4. 实现 / CI **不得**靠 GitHub clone 救编译。
@@ -80,10 +104,12 @@ mklink /J third_party\.src\skia_out <本地含 skia\skia.lib 的 out 目录>
 | 项 | 状态 |
 | --- | --- |
 | 发行版 | `Ubuntu-24.04`（`\\wsl$` / `\\wsl.localhost` 均可） |
-| `third_party\.src\skia` | **目录符号链接** → WSL graphic-engine/skia（`/J` 对 UNC 失败；已用提升权限 `/D`） |
-| Windows `skia.lib`（匹配本 pin） | **无** |
+| `third_party\.src\skia` | **目录符号链接** → WSL graphic-engine/skia |
+| Windows `skia.lib` | **有**：`third_party\.src\skia_out\skia\skia.lib`（本机 MSVC `/MDd` 最小 CPU 构建） |
 | 真后端 TU | `canvas_skia.cc`（`SkSurfaces::WrapPixels` + DirectWrite FontMgr + `BitBlt`） |
-| 默认 `smt_has_skia` | **false**（GDI stub） |
+| `smt_has_skia=true` 编译 | **通过** |
+| `smt_has_skia=true` 链接 | **通过**；`views_unittests --self-test` **ok** |
+| 默认 `smt_has_skia` | **false**（GDI stub，`views_unittests` 绿） |
 
 ## 真 Skia 准入条件（全部满足才允许默认切）
 
@@ -98,10 +124,10 @@ mklink /J third_party\.src\skia_out <本地含 skia\skia.lib 的 out 目录>
 
 ### 链接依赖（真后端，有匹配 lib 时）
 
-- `skia.lib`（必须与 pin 同源同版本的 **Windows** 构建）
-- 常见 codec / 系统：`zlib` / `png` / `gif` / `jpeg-turbo` / `expat` / `usp10` / `gdi32` / `user32` / `ole32` / `dwrite`
+- `skia.lib` + `skcms.lib`（与 pin 同源的 **Windows MSVC** 构建，CRT 须与产品一致，当前 debug 为 `/MDd`）
+- 系统：`usp10` / `fontsub` / `gdi32` / `user32` / `ole32` / `oleaut32` / `dwrite` / `windowscodecs`
 
-阶段 D 已提供 `canvas_skia.cc` 与 GN 切换；**默认实现仍是 GDI stub**。
+阶段 D 已提供 `canvas_skia.cc`、GN 切换与本机 `skia.lib`；**默认实现仍是 GDI stub**。
 
 ---
 

@@ -24,7 +24,7 @@ mogu 源树本机未检出（常见路径 `c:\Dev\src\mogu`、WSL `/home/ccl/dev
 | [`build/ui-shell-multiprocess.md`](build/ui-shell-multiprocess.md) | 可替换 chrome + 多进程渲染 |
 | [`superpowers/specs/2026-09-13-ogr-db-datasource-design.md`](superpowers/specs/2026-09-13-ogr-db-datasource-design.md) | 用 GDAL/OGR 替换 ADO 数据库数据源（PostGIS / GeoPackage） |
 | [`superpowers/specs/2026-09-13-gdal-layer-management-design.md`](superpowers/specs/2026-09-13-gdal-layer-management-design.md) | 全部图层管理走 GDAL Dataset/Layer（文件 / 库 / 内存适配器） |
-| [`superpowers/specs/2026-09-13-tile-layer-provider-design.md`](superpowers/specs/2026-09-13-tile-layer-provider-design.md) | 2D 地图瓦片：独立 TileProvider（XYZ/WMTS）；不进 OGR / `SDBD:MEM` |
+| [`superpowers/specs/2026-09-13-tile-layer-provider-design.md`](superpowers/specs/2026-09-13-tile-layer-provider-design.md) | 2D 地图瓦片：TileProvider（HTTP(S) XYZ/WMTS + 磁盘缓存 + Views 底图对话框）；不进 OGR / `SDBD:MEM` |
 | [`superpowers/specs/2026-09-13-sdb-feature-maplayer-composition-design.md`](superpowers/specs/2026-09-13-sdb-feature-maplayer-composition-design.md) | `Feature` / `MapLayer`：OGR + 组合（修正裸 OGR ABI） |
 | [`superpowers/plans/2026-09-13-sdb-feature-maplayer-composition.md`](superpowers/plans/2026-09-13-sdb-feature-maplayer-composition.md) | 实现计划：组合类型 + `src_all` 大爆炸 |
 | [`superpowers/specs/2026-09-13-model-render-compute-design.md`](superpowers/specs/2026-09-13-model-render-compute-design.md) | 模型 / 渲染 / 计算深度设计（OSS 优先；leftover `src/render/*` → 目标架构） |
@@ -32,13 +32,14 @@ mogu 源树本机未检出（常见路径 `c:\Dev\src\mogu`、WSL `/home/ccl/dev
 | [`superpowers/specs/2026-09-13-base-ipc-mojom-design.md`](superpowers/specs/2026-09-13-base-ipc-mojom-design.md) | 单二进制 `--type=` + 独立 GPU 进程（2D/3D）+ Mojo/mojom |
 | [`superpowers/specs/2026-09-13-base-archive-design.md`](superpowers/specs/2026-09-13-base-archive-design.md) | A1：BinarySink/Serializer 上提 `base/archive`；`net::Pickle` 留在 `net/pack` |
 | [`superpowers/specs/2026-09-13-render-rhi-scene-design.md`](superpowers/specs/2026-09-13-render-rhi-scene-design.md) | 统一 RHI（FlyCube DX12/Vulkan）+ `sdb` 模型/场景 + GPU scene |
-| [`superpowers/specs/2026-09-13-net-asio-httplib-design.md`](superpowers/specs/2026-09-13-net-asio-httplib-design.md) | `src/net`：standalone ASIO + cpp-httplib + FnRPC 客户端 |
+| [`superpowers/specs/2026-09-13-net-asio-httplib-design.md`](superpowers/specs/2026-09-13-net-asio-httplib-design.md) | `src/net`：standalone ASIO + cpp-httplib + OpenSSL HTTPS + FnRPC 客户端 |
 | [`superpowers/specs/2026-09-13-tool-event-dispatch-design.md`](superpowers/specs/2026-09-13-tool-event-dispatch-design.md) | 工具层：session Command / Input / EventBus，与文档操作解耦 |
 | [`superpowers/archive/specs/2026-09-13-tool-legacy-split-design.md`](superpowers/archive/specs/2026-09-13-tool-legacy-split-design.md) | leftover `SmtIATool` → `src/legacy_tool/`（已落地）；`tool/` 仅终局 dispatch |
 | [`superpowers/archive/plans/2026-09-13-tool-legacy-split.md`](superpowers/archive/plans/2026-09-13-tool-legacy-split.md) | 实现计划（已落地）：物理平移 + include/GN 改名，无转发头 |
 | [`superpowers/specs/2026-09-13-plugin-host-design.md`](superpowers/specs/2026-09-13-plugin-host-design.md) | 插件层：PluginHost / Registry / Views / Python / store |
 | [`superpowers/specs/2026-09-14-plugin-full-upgrade-design.md`](superpowers/specs/2026-09-14-plugin-full-upgrade-design.md) | 插件全面升级：Views 切轨 → 退役 MFC 壳 → 风格/ABI → 域能力 |
 | [`superpowers/specs/2026-09-14-plugin-subdir-layout-design.md`](superpowers/specs/2026-09-14-plugin-subdir-layout-design.md) | 插件子目录：`host/` + `legacy/<domain>/` + 产品域 |
+| [`superpowers/specs/2026-09-14-dll-reorganization-design.md`](superpowers/specs/2026-09-14-dll-reorganization-design.md) | 动态库重组：一层一 DLL（手法 C）+ 插件热加载分阶段 |
 | [`superpowers/plans/2026-09-14-plugin-full-upgrade.md`](superpowers/plans/2026-09-14-plugin-full-upgrade.md) | 实现计划：PluginChrome + DEM 无 MFC 内核 + 并行车道 |
 | [`superpowers/specs/2026-09-13-ui-views-controls-design.md`](superpowers/specs/2026-09-13-ui-views-controls-design.md) | Views 公共工具箱 vs `src/app/views` 组合；控件 + GIS 面板 |
 | [`superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md`](superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md) | leftover MFC chrome → `ui::views`（`SmartGisViews.exe` 唯一入口；Splitter + tabs） |

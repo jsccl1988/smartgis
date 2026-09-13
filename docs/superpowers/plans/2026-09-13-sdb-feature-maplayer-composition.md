@@ -55,7 +55,7 @@ All rights reserved.
 
 ### Task 5: 删除主路径旧类型
 
-- [ ] 从 `map/BUILD.gn` 去掉 `attribute.cpp` / `field.cpp` / `feature_3d.cpp`（若无引用）
+- [x] 从 `map/BUILD.gn` 去掉 `attribute.cpp` / `field.cpp`（已迁 `//src/sdb/map:leftover_attr`；`feature_3d` 早已不在 gis）
 - [ ] 删除或挪出 `attribute.*` / `feature_3d.*`（UI 若仍依赖：门控或薄 stub，不进主 ABI）
 - [ ] `layer.h` 去掉产品向 `SmtVectorLayer` 别名（datasource 内部可保留局部 using）
 

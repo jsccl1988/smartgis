@@ -44,6 +44,7 @@ class SDE_GDAL_EXPORT OgrRasterLayer : public sdb::SmtRasterLayer {
   bool ensure_mem_dataset(int width, int height);
   void apply_geotransform();
   void sync_rect_from_dataset();
+  void backfill_blob_from_path(const char* path);
   std::string blob_path() const;
 
   bool owns_dataset_ = false;

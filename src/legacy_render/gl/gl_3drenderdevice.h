@@ -278,9 +278,9 @@ namespace render
 
 #if !defined(RENDER_GL_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "render_glD.lib")
+#pragma comment(lib, "legacy_render_d.lib")
 #else
-#pragma comment(lib, "render_gl.lib")
+#pragma comment(lib, "legacy_render.lib")
 #endif
 #endif
 

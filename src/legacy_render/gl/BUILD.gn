@@ -3,9 +3,8 @@
 
 import("//build/smartgis.gni")
 
-smt_shared_library("render_gl") {
-  dll_stem = "render_gl"
-  defines = [ "RENDER_GL_EXPORTS" ]
+# Compiled into //src/legacy_render:legacy_render (dll_stem = legacy_render).
+source_set("render_gl_sources") {
   sources = [
     "gl_3drenderdevice.cpp",
     "gl_devicecaps.cpp",
@@ -39,13 +38,18 @@ smt_shared_library("render_gl") {
     "gl_vsyncfunc.cpp",
     "gl_vsyncfuncimp.cpp",
   ]
+  configs += [
+    "//build:legacy",
+    "//src/legacy_render:legacy_render_exports",
+  ]
+  defines = [ "_USRDLL" ]
   deps = [
     "//src/algorithm/geo:geo",
-    "//src/legacy_render/bridge:leftover_record",
-    "//src/legacy_render/bridge:render",
-    "//src/legacy_render/render3d:render3d",
     "//src/base:base",
     "//src/base:core",
+    "//src/legacy_render/bridge:leftover_record",
+    "//src/legacy_render/bridge:render_sources",
+    "//src/legacy_render/render3d:render3d_sources",
     "//third_party:CxImage",
     "//third_party:khronos_gl",
   ]
@@ -53,4 +57,8 @@ smt_shared_library("render_gl") {
     "opengl32.lib",
     "glu32.lib",
   ]
+}
+
+group("render_gl") {
+  public_deps = [ "//src/legacy_render:legacy_render" ]
 }

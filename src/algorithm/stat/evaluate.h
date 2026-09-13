@@ -35,9 +35,9 @@ STAT_EXPORT_API long register_function(std::string_view name, UnaryFn fn);
 
 #if !defined(STAT_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "statD.lib")
+#pragma comment(lib, "algorithm_d.lib")
 #else
-#pragma comment(lib, "stat.lib")
+#pragma comment(lib, "algorithm.lib")
 #endif
 #endif
 

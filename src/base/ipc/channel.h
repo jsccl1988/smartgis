@@ -16,6 +16,14 @@
 
 #include "base/ipc/codec.h"
 
+// Channel lives in //src/base:base (dll_stem = base). Consumers outside that
+// DLL need dllimport; the ipc_sources TU sets BASE_EXPORTS when compiling.
+#if defined(BASE_EXPORTS) || defined(CORE_EXPORTS) || defined(IPC_EXPORTS)
+#define BASE_IPC_EXPORT __declspec(dllexport)
+#else
+#define BASE_IPC_EXPORT __declspec(dllimport)
+#endif
+
 namespace base {
 namespace ipc {
 
@@ -47,7 +55,7 @@ struct FrameWire {
 static_assert(sizeof(FrameWire) == 18, "ipc frame header");
 
 // Duplex Win32 named pipe: length-prefixed frames, pickle payloads.
-class Channel {
+class BASE_IPC_EXPORT Channel {
  public:
   Channel();
   ~Channel();
@@ -73,9 +81,9 @@ class Channel {
                 static_cast<uint32_t>(bytes.size()));
   }
 
-  bool send_empty(uint16_t type, uint32_t view_id) {
-    return send(type, view_id, nullptr, 0);
-  }
+  // Out-of-line: inline bodies on BASE_IPC_EXPORT classes cause LNK2005 when
+  // both the DLL and a TU that includes this header emit the symbol.
+  bool send_empty(uint16_t type, uint32_t view_id);
 
   bool recv(Frame* header, std::vector<uint8_t>* payload, uint32_t timeout_ms);
 

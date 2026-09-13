@@ -3,20 +3,21 @@
 
 import("//build/smartgis.gni")
 
-# One layer directory, four modules (mogu base/* layout under //src):
-#   core/     core DLL — BUILD in core/; this file re-exports //src/base:core
-#   style/    style DLL — cartographic pen/brush/symbol + Envelope (not Views/CSS)
-#   archive/  header-only BinarySink / archive() (mogu base/archive subset)
-#   ipc/      named pipe + codec (source_set, not a DLL; chrome must not include it)
+# Foundation layer → one DLL (dll_stem = base):
+#   core/ + style/ + //src/sys + //src/net source_sets
+#   archive/ + ipc/ remain source_sets chained into this DLL
+# Stable labels //src/base:core, :base, //src/sys:sys, //src/net:net → group to :base.
 
-# Stable label for dependents. Real target: //src/base/core:core.
 group("core") {
-  public_deps = [ "//src/base/core:core" ]
+  public_deps = [ ":base" ]
 }
 
-smt_shared_library("base") {
-  dll_stem = "style"
-  defines = [ "STYLE_EXPORTS=1" ]
+source_set("style_sources") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "STYLE_EXPORTS=1",
+  ]
   sources = [
     "style/style_api.cpp",
     "style/envelope.cpp",
@@ -24,15 +25,33 @@ smt_shared_library("base") {
     "style/stylemanager.cpp",
     "style/styletable.cpp",
   ]
-  public_deps = [ ":core" ]
+}
+
+smt_shared_library("base") {
+  dll_stem = "base"
+  defines = [
+    "BASE_EXPORTS",
+    "CORE_EXPORTS=1",
+    "STYLE_EXPORTS=1",
+    "SYS_EXPORTS=1",
+    "NET_EXPORTS",
+  ]
+  deps = [
+    "//src/base/core:core_sources",
+    ":style_sources",
+    "//src/sys:sys_sources",
+    "//src/net:net_sources",
+    "//src/base/ipc:ipc_sources",
+  ]
+  public_deps = [
+    "//src/base/archive:archive",
+    "//third_party:asio",
+    "//third_party:cpp_httplib",
+  ]
+  libs = [ "ws2_32.lib" ]
 }
 
 # Optional aggregator (foundation modules under this layer).
 group("base_all") {
-  public_deps = [
-    ":core",
-    ":base",
-    "//src/base/archive:archive",
-    "//src/base/ipc:ipc",
-  ]
+  public_deps = [ ":base" ]
 }

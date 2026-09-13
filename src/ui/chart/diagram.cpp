@@ -1,7 +1,7 @@
 // sta_diagram.cpp : ���� DLL �ĳ�ʼ�����̡�
 //
 
-#include "ui/chart/stdafx.h"
+#include "stdafx.h"
 #include "ui/chart/diagram.h"
 
 #ifdef _DEBUG

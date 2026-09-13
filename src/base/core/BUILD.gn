@@ -3,14 +3,16 @@
 
 import("//build/smartgis.gni")
 
-# Foundation DLL (threads, log, plugin LoadLibrary, xml, …).
-# Label alias at //src/base:core keeps call sites stable (mogu-style
-# colocated BUILD under base/core/, parent group forwards public_deps).
+# Compiled into //src/base:base (dll_stem = base).
+# Label alias //src/base:core / //src/base/core:core keeps call sites stable.
 
-smt_shared_library("core") {
-  dll_stem = "core"
+source_set("core_sources") {
+  configs += [ "//build:legacy" ]
   deps = [ "//third_party:CxImage" ]
-  defines = [ "CORE_EXPORTS=1" ]
+  defines = [
+    "_USRDLL",
+    "CORE_EXPORTS=1",
+  ]
   sources = [
     "api.cpp",
     "core_assert.cpp",
@@ -39,4 +41,8 @@ smt_shared_library("core") {
     "xmlerror.cpp",
     "xmlparser.cpp",
   ]
+}
+
+group("core") {
+  public_deps = [ "//src/base:base" ]
 }

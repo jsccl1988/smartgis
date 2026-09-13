@@ -1,11 +1,11 @@
 /*
 File:    sta_diagramdata.h 
 
-Desc:    SmtChart,ͼ��
+Desc:    SmtChart,图锟斤拷
 
 Version: Version 1.0
 
-Writter:  �´���
+Writter:  锟铰达拷锟斤拷
 
 Date:    2012.8.15
 
@@ -62,9 +62,9 @@ namespace ui
 
 #if !defined(STAT_CHART_EXPORTS)
 #if   defined( _DEBUG)
-#          pragma comment(lib,"stat_chartD.lib")
+#          pragma comment(lib,"ui_legacy_d.lib")
 #       else
-#          pragma comment(lib,"stat_chart.lib")
+#          pragma comment(lib,"ui_legacy.lib")
 #	    endif  
 #endif
 

@@ -1,4 +1,4 @@
-#include "ui/chart/stdafx.h"
+#include "stdafx.h"
 #include "ui/chart/chart_api.h"
 
 #include "ui/chart/dlg_2d_x_chart_view.h"

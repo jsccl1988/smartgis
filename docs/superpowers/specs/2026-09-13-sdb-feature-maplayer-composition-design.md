@@ -117,6 +117,8 @@ class MapLayer {
   static MapLayer from_ogr(OGRLayer* layer);           // !owns
   static MapLayer adopt_ogr(OGRLayer* layer);           // owns (scratch/Memory)
   static MapLayer from_leftover(SmtLayer* layer, bool owns = true);
+  // Tile hang: sdb::tile::make_map_layer(shared_ptr<TileProvider>)
+  // (in src/sdb/tile; avoids gis↔tile GN cycle).
 
   OGRLayer* ogr() { return ogr_; }
   const OGRLayer* ogr() const { return ogr_; }
@@ -175,13 +177,13 @@ Query：结果写入 **可拥有** 的 Memory `MapLayer`；空间/属性过滤�
 
 ## Delete list（主路径）
 
-| 删除 / 退出主路径 | 替代 |
-| --- | --- |
-| `SmtFeature` 类 | `sdb::Feature` |
-| `SmtAttribute` / `SmtField` | `OGRFeature` 字段 API |
-| `Smt3DFeature` | `Feature` + material 侧车 |
-| `using SmtVectorLayer = OGRLayer` 产品 ABI | `MapLayer` 或直接 `OGRLayer*` 仅在 datasource 内部 |
-| `SmtMap::Entry` 双指针 | `MapLayer` |
+| 删除 / 退出主路径 | 替代 | 状态（2026-09-14） |
+| --- | --- | --- |
+| `SmtFeature` 类 | `sdb::Feature` | 主路径已迁 |
+| `SmtAttribute` / `SmtField` | `OGRFeature` 字段 API | **已退出 `gis`**：MFC att-struct UI（`SmtAttStructEditDlg`）改读/写 `OGRLayer`/`OGRFeatureDefn`；`SmtLayer::m_pAtt` 已删。源码留在 `//src/sdb/map:leftover_attr`（`attribute.h` 含 `#error` 门控），不进主路径。 |
+| `Smt3DFeature` | `Feature` + material 侧车 | 主路径已迁 |
+| `using SmtVectorLayer = OGRLayer` 产品 ABI | `MapLayer` 或直接 `OGRLayer*` 仅在 datasource 内部 | 进行中 |
+| `SmtMap::Entry` 双指针 | `MapLayer` | 已迁 |
 
 ## Relation to GDAL layer management
 
@@ -198,3 +200,5 @@ Query：结果写入 **可拥有** 的 Memory `MapLayer`；空间/属性过滤�
 ## Docs
 
 同变更更新：`docs/README.md` 索引；`docs/build/src-layout.md` 中 feature/map 一句；本 sibling 交叉引用。
+
+**最后更新：** 2026-09-14（`SmtAttribute`/`SmtField` 已退出 `gis`；MFC att UI 走 OGR schema；leftover 目标 `//src/sdb/map:leftover_attr`）

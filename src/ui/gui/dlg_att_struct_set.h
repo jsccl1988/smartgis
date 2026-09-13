@@ -1,50 +1,60 @@
 #pragma once
 
-#include "ui/mfc_ex/grid_ctrl_support.h"
+#include <vector>
+
+#include "ogrsf_frmts.h"
 #include "ui/gui/resource.h"
-// CDlgAttStructSet �Ի���
+#include "ui/mfc_ex/grid_ctrl_support.h"
 
-#include "sdb/feature/attribute.h"
+// MFC leftover field-schema editor backed by OGRFeatureDefn / OGRLayer.
+class CDlgAttStructSet : public CDialog {
+  DECLARE_DYNAMIC(CDlgAttStructSet)
 
-using namespace sdb;
+ public:
+  explicit CDlgAttStructSet(CWnd* pParent = NULL);
+  virtual ~CDlgAttStructSet();
 
-class CDlgAttStructSet : public CDialog
-{
-	DECLARE_DYNAMIC(CDlgAttStructSet)
+  enum { IDD = IDD_DLG_ATT_STRUCT_SET };
 
-public:
-	CDlgAttStructSet(CWnd* pParent = NULL);   // ��׼���캯��
-	virtual ~CDlgAttStructSet();
+ protected:
+  virtual void DoDataExchange(CDataExchange* pDX);
+  virtual BOOL OnInitDialog();
 
-// �Ի�������
-	enum { IDD = IDD_DLG_ATT_STRUCT_SET };
+  DECLARE_MESSAGE_MAP()
+ public:
+  afx_msg void OnBnClickedOk();
+  afx_msg void OnGridClickEndEdit(NMHDR* pNotifyStruct, LRESULT* pResult);
+  afx_msg void OnGridRClick(NMHDR* pNotifyStruct, LRESULT* pResult);
 
-protected:
-	virtual void		DoDataExchange(CDataExchange* pDX);    // DDX/DDV ֧��
-	virtual BOOL		OnInitDialog();
+  afx_msg void OnAttstructAppend();
+  afx_msg void OnAttstructRemove();
+  afx_msg void OnAttstructMoveup();
+  afx_msg void OnAttstructMovedown();
 
-	DECLARE_MESSAGE_MAP()
-public:
-	afx_msg void		OnBnClickedOk();
-	afx_msg void		OnGridClickEndEdit(NMHDR *pNotifyStruct, LRESULT* pResult);
-	afx_msg void		OnGridRClick(NMHDR *pNotifyStruct, LRESULT* pResult);
+ public:
+  // Load editable schema from layer->GetLayerDefn(). Does not take ownership.
+  void SetOgrLayer(OGRLayer* layer, int nFixField = 0);
+  // Apply grid edits via CreateField / DeleteField / AlterFieldDefn.
+  bool ApplyToOgrLayer();
 
-	afx_msg void		OnAttstructAppend();
-	afx_msg void		OnAttstructRemove();
-	afx_msg void		OnAttstructMoveup();
-	afx_msg void		OnAttstructMovedown();
+  void InitAttStructGridHead();
+  void UpdateAttStructGridContent();
 
-public:
-	void				SetAttStruct(SmtAttribute *pSmtAtt,int nFixField = 0);
-	void				GetAttStruct(SmtAttribute *&pSmtAtt);
-	void				InitAttStructGridHead();
-	void				UpdateAttStructGridContent();
+ protected:
+  struct FieldRow {
+    CString name;
+    OGRFieldType type;
+  };
 
-protected:
-	CGridCtrl			m_attStruGrid;
-	CStringArray		m_arAllFldNames;
-	SmtAttribute		*m_pSmtAtt;
-	int					m_nFixField;
+  void SyncFieldsFromGrid();
+  static void FillTypeNames(CStringArray* names);
+  static const char* TypeLabel(OGRFieldType type);
+  static OGRFieldType TypeFromLabel(const char* label);
 
-	int					m_selRow;
+  CGridCtrl m_attStruGrid;
+  CStringArray m_arAllFldNames;
+  OGRLayer* m_layer;
+  std::vector<FieldRow> m_fields;
+  int m_nFixField;
+  int m_selRow;
 };

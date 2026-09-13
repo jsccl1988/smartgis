@@ -28,18 +28,24 @@ source_set("stat_eval") {
   public_deps = [ "//third_party:antlr4" ]
 }
 
-smt_shared_library("stat") {
-  dll_stem = "stat"
+# Compiled into //src/algorithm:algorithm (dll_stem = algorithm).
+source_set("stat_sources") {
+  sources = [ "value_set.cc" ]
+  configs += [ "//build:legacy" ]
   defines = [
+    "_USRDLL",
     "STAT_EXPORTS",
     "ANTLR4CPP_STATIC",
     "_CRT_DECLARE_NONSTDC_NAMES=0",
   ]
-  sources = [ "value_set.cc" ]
   deps = [
     ":stat_eval",
     "//src/base:core",
   ]
+}
+
+group("stat") {
+  public_deps = [ "//src/algorithm:algorithm" ]
 }
 
 test("stat_expr_test") {

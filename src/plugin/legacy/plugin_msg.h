@@ -38,7 +38,7 @@ long PLUGIN_EXPORT SmtPostAMMsg(SmtAuxModule *pAMoudule,long lMsg,SmtListenerMsg
 
 #if !defined(PLUGIN_EXPORTS)
 #if   defined( _DEBUG)
-#          pragma comment(lib,"pluginD.lib")
+#          pragma comment(lib,"plugin_d.lib")
 #       else
 #          pragma comment(lib,"plugin.lib")
 #	    endif  

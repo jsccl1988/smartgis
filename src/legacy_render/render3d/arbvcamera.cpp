@@ -21,24 +21,24 @@ namespace render
 
 		// ������������뾶 
 		//if (m_fRaduis == 0)
-		m_fRaduis = vDir.GetLength();
+		m_fRaduis = vDir.length();
 		 
 		// ���䵥λ��      
-		vDir.Normalize();    
+		vDir.normalize();    
 		// ��ǰ������Ϸ�����a����ˣ�����ͶӰ��ˮƽ���ҷ�������u      
-		Vector3  u = m_vUp.CrossProduct(vDir);     
+		Vector3  u = m_vUp.cross(vDir);     
 		// ���䵥λ��19      
-		u.Normalize();
+		u.normalize();
 
 		// ����������Ϸ�����ͶӰ���ϵ�ͶӰ���� ����ֱ���ϵķ�������v22      
-		Vector3 v = vDir.CrossProduct(u);    
+		Vector3 v = vDir.cross(u);    
 		// ���䵥λ��      
-		v.Normalize();    
+		v.normalize();    
 
 		// ������ĻAB��ͶӰ���϶�Ӧ������ AB����27      
 		Vector3 m = u*deltX + v*deltY;  
 		// ����m�����ĳ���      
-		double len = m.GetLength();     
+		double len = m.length();     
 		// ����������      
 		len /= 15.0;
 		if (len>0.0)   
@@ -46,7 +46,7 @@ namespace render
 			// �Ƕ�AOB  ���ȱ�ʾ ����/�뾶        
 			double x = len/m_fRaduis;   
 			// ��AB������λ��39        
-			m.Normalize(); 
+			m.normalize(); 
 			// ���෴����ת���ӵ㵽C �Ӷ�ʹ�ð�������ƶ�һ�µķ���ת��ģ��42         
 			x = -1*x;   
 			// �����µ����λ�� C

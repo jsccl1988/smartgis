@@ -14,7 +14,7 @@ class SmtMap;
 
 namespace sdb {
 
-class MapEditSession : public CommandEditSession {
+class GIS_EXPORT MapEditSession : public CommandEditSession {
  public:
   explicit MapEditSession(sdb::SmtMap* map);
   void bind_map(sdb::SmtMap* map);

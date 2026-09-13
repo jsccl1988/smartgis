@@ -10,23 +10,8 @@ namespace tool
 	HINSTANCE g_hInstance = NULL;
 }
 
-extern "C" int APIENTRY DllMain(HINSTANCE hInstance,DWORD dwReason,LPVOID lpReserved)
-{
-
-	switch(dwReason)
-	{
-	case DLL_PROCESS_ATTACH:
-		tool::g_hInstance = hInstance;
-		break;
-	case DLL_THREAD_ATTACH:		 
-		break;
-	case DLL_THREAD_DETACH:
-		break;
-	case DLL_PROCESS_DETACH:
-		break;
-	}
-	return 1;//�ɹ�
-}
+// DllMain lives in ui/mfc_ex/mfc_ex_core.cpp (this TU is compiled into
+// ui_legacy). The host DllMain assigns g_hInstance.
 
 
 namespace tool

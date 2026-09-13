@@ -3,15 +3,22 @@
 
 import("//build/smartgis.gni")
 
-smt_mfc_shared_library("xview") {
-  dll_stem = "xview"
-  mfc_extension = true
-  defines = [
-    "XVIEW_EXPORTS",
-    "_AFXEXT",
+# MFC map / 3D views. Compiled into //src/ui:ui_legacy.
+source_set("xview_sources") {
+  configs += [
+    "//build:legacy",
+    "//build:mfc",
   ]
+  defines = [
+    "_USRDLL",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
+    "XVIEW_EXPORTS",
+  ]
+  precompiled_header = "stdafx.h"
+  precompiled_source = "stdafx.cpp"
   sources = [
-    "view_core.cpp",
     "xview_core.rc",
     "stdafx.cpp",
     "view_2d_edit.cpp",
@@ -40,8 +47,10 @@ smt_mfc_shared_library("xview") {
     "//src/plugin:plugin",
     "//src/plugin:legacy_cmd",
     "//src/legacy_tool:tool",
-    "//src/legacy_tool/group:tool_group",
-    "//src/ui/xcatalog:xcatalog",
     "//src/sdb/datasource/mgr:sde_mgr",
   ]
+}
+
+group("xview") {
+  public_deps = [ "//src/ui:ui_legacy" ]
 }

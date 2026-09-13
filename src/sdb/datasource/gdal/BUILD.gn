@@ -4,6 +4,8 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
+# Shared OGR codec helpers. May be linked into sdb and into leftover render DLLs
+# (each target gets its own copy; symbols are not SDE_GDAL_EXPORT).
 source_set("ogr_codec") {
   sources = [
     "ogr_connect.cc",
@@ -20,13 +22,17 @@ source_set("ogr_codec") {
     "//src/algorithm/geo:geo",
     "//src/base:base",
     "//src/base:core",
-    "//src/sdb/map:gis",
+    # Headers only for SmtFeature — do not deps :gis group (same DLL cycle).
   ]
 }
 
-smt_shared_library("sde_gdal") {
-  dll_stem = "sde_gdal"
-  defines = [ "SDE_GDAL_EXPORTS" ]
+# Compiled into //src/sdb:sdb (dll_stem = sdb).
+source_set("sde_gdal_sources") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "SDE_GDAL_EXPORTS",
+  ]
   sources = [
     "gdal_driver.cc",
     "gdal_driver.h",
@@ -50,9 +56,12 @@ smt_shared_library("sde_gdal") {
     ":ogr_codec",
     "//src/base:base",
     "//src/base:core",
-    "//src/sdb/map:gis",
     "//third_party:gdal",
   ]
+}
+
+group("sde_gdal") {
+  public_deps = [ "//src/sdb:sdb" ]
 }
 
 test("sde_gdal_test") {

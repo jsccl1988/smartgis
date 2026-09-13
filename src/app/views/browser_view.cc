@@ -16,6 +16,8 @@
 #include "app/views/plugin_chrome.h"
 #include "content/public/map_contents.h"
 #include "content/public/view_host.h"
+#include "sdb/tile/tile_map_layer.h"
+#include "ui/views/add_basemap_dialog.h"
 #include "ui/views/ambox_view.h"
 #include "ui/views/att_struct_dialog.h"
 #include "ui/views/attribute_table.h"
@@ -311,6 +313,37 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
       refresh();
       status("Created layer " + out.name);
     }
+    return;
+  }
+  if (command_id == "catalog.layer.add_basemap") {
+    ui::views::AddBasemapDialog::Result out;
+    if (!ui::views::AddBasemapDialog::run(hwnd, &out) || out.url.empty()) {
+      return;
+    }
+    sdb::MapLayer layer;
+    if (out.kind == "wmts") {
+      layer = sdb::tile::make_wmts_map_layer(out.url);
+    } else {
+      layer = sdb::tile::make_xyz_map_layer(out.url);
+    }
+    if (layer.leftover() == nullptr) {
+      status("Basemap URL rejected");
+      return;
+    }
+    const std::string name =
+        out.name.empty() ? std::string("Basemap") : out.name;
+    if (catalog_ && catalog_->layer_tree()) {
+      catalog_->layer_tree()->add_layer(name, name, true);
+    }
+    // Content/render still consumes CatalogCall JSON; tile MapLayer is
+    // validated here. Full scene attach lands when map host accepts kind=tile.
+    detail::catalog_call(
+        session, std::string("{\"op\":\"add_basemap\",\"name\":\"") +
+                     detail::json_escape(name) + "\",\"kind\":\"" +
+                     detail::json_escape(out.kind) + "\",\"url\":\"" +
+                     detail::json_escape(out.url) + "\"}");
+    refresh();
+    status("Basemap " + name);
     return;
   }
   if (command_id == "catalog.map.create") {

@@ -5,7 +5,7 @@
 #define ALGORITHM_TIN_TIN_H_
 
 #include "algorithm/geo/geometry.h"
-#include "render/math/mathlib_3d.h"
+#include "render/math/math.h"
 
 #include <vector>
 
@@ -45,9 +45,9 @@ TIN_EXPORT_API long divide_polygon_into_tri_mesh(
 
 #if !defined(TIN_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "tinD.lib")
+#pragma comment(lib, "algorithm_d.lib")
 #else
-#pragma comment(lib, "tin.lib")
+#pragma comment(lib, "algorithm.lib")
 #endif
 #endif
 

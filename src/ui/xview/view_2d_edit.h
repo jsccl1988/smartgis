@@ -1,11 +1,11 @@
 /*
 File:    vw_2dxview.h 
 
-Desc:    Smt2DEditXView,Smt 2d edit view �̳���Smt2DXView
+Desc:    Smt2DEditXView,Smt 2d edit view 锟教筹拷锟斤拷Smt2DXView
 
 Version: Version 1.0
 
-Writter:  �´���
+Writter:  锟铰达拷锟斤拷
 
 Date:    2010.11.17
 
@@ -26,7 +26,7 @@ namespace sdb {
 class MapEditSession;
 }
 
-// Smt2DEditXView ��ͼ
+// Smt2DEditXView 锟斤拷图
 namespace ui
 {
 	class XVIEW_EXPORT Smt2DEditXView : public Smt2DXView
@@ -34,11 +34,11 @@ namespace ui
 		DECLARE_DYNCREATE(Smt2DEditXView)
 
 	protected:
-		Smt2DEditXView();           // ��̬������ʹ�õ��ܱ����Ĺ��캯��
+		Smt2DEditXView();           // 锟斤拷态锟斤拷锟斤拷锟斤拷使锟矫碉拷锟杰憋拷锟斤拷锟侥癸拷锟届函锟斤拷
 		virtual ~Smt2DEditXView();
 
 	public:
-		virtual void				OnDraw(CDC* pDC);      // ��д�Ի��Ƹ���ͼ
+		virtual void				OnDraw(CDC* pDC);      // 锟斤拷写锟皆伙拷锟狡革拷锟斤拷图
 		afx_msg void				OnSize(UINT nType, int cx, int cy);
 		afx_msg void				OnMouseMove(UINT nFlags, CPoint point);
 		afx_msg void				OnTimer(UINT_PTR nIDEvent);
@@ -84,9 +84,9 @@ namespace ui
 
 #if !defined(XVIEW_EXPORTS)
 #if     defined( _DEBUG)
-#          pragma comment(lib,"xviewD.lib")
+#          pragma comment(lib,"ui_legacy_d.lib")
 #       else
-#          pragma comment(lib,"xview.lib")
+#          pragma comment(lib,"ui_legacy.lib")
 #	    endif
 #endif
 

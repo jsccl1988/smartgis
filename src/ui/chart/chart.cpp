@@ -1,4 +1,4 @@
-#include "ui/chart/stdafx.h"
+#include "stdafx.h"
 
 #include "ui/chart/chart.h"
 #include "base/style/stylemanager.h"
@@ -39,7 +39,7 @@ namespace ui
 	{
 		SmtSysManager * pSysMgr = SmtSysManager::get_singleton_ptr();
 		SmtStyleManager *pStyleMgr = SmtStyleManager::get_singleton_ptr();
-		SmtStyleConfig &styleSonfig = pSysMgr->GetSysStyleConfig();
+		SmtStyleConfig styleSonfig = pSysMgr->get_sys_style_config();
 		SmtStyle *pStyle = NULL;
 
 		pStyle = pStyleMgr->get_style(styleSonfig.szPointStyle);
@@ -69,20 +69,20 @@ namespace ui
 
 			trAnnoDesc.fHeight = 16;
 			trAnnoDesc.fWidth  = 16;
-			m_styTitle.SetAnnoDesc(trAnnoDesc);
-			m_styPanel.SetAnnoDesc(trAnnoDesc);
+			m_styTitle.set_anno_desc(trAnnoDesc);
+			m_styPanel.set_anno_desc(trAnnoDesc);
 
 			trAnnoDesc.fHeight = 8;
 			trAnnoDesc.fWidth  = 8;
-			m_styAxis.SetAnnoDesc(trAnnoDesc);
+			m_styAxis.set_anno_desc(trAnnoDesc);
 
 			trAnnoDesc.fHeight = 4;
 			trAnnoDesc.fWidth  = 4;
-			m_styRule.SetAnnoDesc(trAnnoDesc);
+			m_styRule.set_anno_desc(trAnnoDesc);
 			
-			m_styAxis.SetPenDesc(stPenDesc);
-			m_styChart.SetPenDesc(stPenDesc);
-			m_styPanel.SetPenDesc(stPenDesc);
+			m_styAxis.set_pen_desc(stPenDesc);
+			m_styChart.set_pen_desc(stPenDesc);
+			m_styPanel.set_pen_desc(stPenDesc);
 		}
 		
 		pStyle = pStyleMgr->get_style(styleSonfig.szLineStyle);
@@ -99,12 +99,12 @@ namespace ui
 
 			stPenDesc.lPenColor = RGB(255,0,0);
 			stPenDesc.fPenWidth = 0.1;
-			m_styGridLine.SetPenDesc(stPenDesc);
-			m_styRule.SetPenDesc(stPenDesc);
+			m_styGridLine.set_pen_desc(stPenDesc);
+			m_styRule.set_pen_desc(stPenDesc);
 
 			stPenDesc.lPenColor = RGB(0,0,255);
 			stPenDesc.fPenWidth = 0.2;
-			m_styDataLine.SetPenDesc(stPenDesc);
+			m_styDataLine.set_pen_desc(stPenDesc);
 		}
 
 		///////////////////////////////////////////////////////////////////////////////////////////////
@@ -114,19 +114,18 @@ namespace ui
 		lyrRect.rt.x = 500;
 		lyrRect.rt.y = 500;
 
-		SmtVectorLayer* pRegLyr = (SmtVectorLayer*)CreateLayer(c_str_reg_lyr.c_str(),lyrRect,SmtFeatureType::SmtFtSurface);
-		SmtVectorLayer* pLineLyr = (SmtVectorLayer*)CreateLayer(c_str_line_lyr.c_str(),lyrRect,SmtFeatureType::SmtFtCurve);
-		SmtVectorLayer* pPntLyr = (SmtVectorLayer*)CreateLayer(c_str_pnt_lyr.c_str(),lyrRect,SmtFeatureType::SmtFtDot);
-		SmtVectorLayer* pAnnoLyr = (SmtVectorLayer*)CreateLayer(c_str_anno_lyr.c_str(),lyrRect,SmtFeatureType::SmtFtAnno);
+		CreateLayer(c_str_reg_lyr.c_str(),lyrRect,SmtFeatureType::SmtFtSurface);
+		CreateLayer(c_str_line_lyr.c_str(),lyrRect,SmtFeatureType::SmtFtCurve);
+		CreateLayer(c_str_pnt_lyr.c_str(),lyrRect,SmtFeatureType::SmtFtDot);
+		CreateLayer(c_str_anno_lyr.c_str(),lyrRect,SmtFeatureType::SmtFtAnno);
+		OGRLayer* pRegLyr = m_smtMap.GetOgrLayer(c_str_reg_lyr.c_str());
+		OGRLayer* pLineLyr = m_smtMap.GetOgrLayer(c_str_line_lyr.c_str());
+		OGRLayer* pPntLyr = m_smtMap.GetOgrLayer(c_str_pnt_lyr.c_str());
+		OGRLayer* pAnnoLyr = m_smtMap.GetOgrLayer(c_str_anno_lyr.c_str());
 		
 		if (NULL != pAnnoLyr && NULL != pPntLyr && NULL != pLineLyr &&NULL != pRegLyr)
 		{
-			pAnnoLyr->Open(c_str_anno_lyr.c_str());
-			pPntLyr->Open(c_str_pnt_lyr.c_str());
-			pLineLyr->Open(c_str_line_lyr.c_str());
-			pRegLyr->Open(c_str_reg_lyr.c_str());
-
-			m_smtMap.SetActiveLayer(c_str_line_lyr.c_str());
+			m_smtMap.SetActiveOgrLayer(pLineLyr);
 
 			return SMT_ERR_NONE;
 		}
@@ -164,20 +163,20 @@ namespace ui
 
 		stPenDesc.lPenColor = RGB(0,0,255);
 		stPenDesc.fPenWidth = fWHMin/80;
-		m_styDataLine.SetPenDesc(stPenDesc);
+		m_styDataLine.set_pen_desc(stPenDesc);
 
 		trAnnoDesc.fHeight = fWHMin/20;
 		trAnnoDesc.fWidth  = fWHMin/20;
-		m_styTitle.SetAnnoDesc(trAnnoDesc);
-		m_styPanel.SetAnnoDesc(trAnnoDesc);
+		m_styTitle.set_anno_desc(trAnnoDesc);
+		m_styPanel.set_anno_desc(trAnnoDesc);
 
 		trAnnoDesc.fHeight = fWHMin/40;
 		trAnnoDesc.fWidth  = fWHMin/40;
-		m_styAxis.SetAnnoDesc(trAnnoDesc);
+		m_styAxis.set_anno_desc(trAnnoDesc);
 
 		trAnnoDesc.fHeight = fWHMin/60;
 		trAnnoDesc.fWidth  = fWHMin/60;
-		m_styRule.SetAnnoDesc(trAnnoDesc);
+		m_styRule.set_anno_desc(trAnnoDesc);
 		///////////////////////////////////////////////////////////////////
 
 		m_cPanel.rtContent  = m_rtData;
@@ -203,17 +202,17 @@ namespace ui
 
 	long SmtChart::Clear()
 	{
-		SmtVectorLayer* pAnnoLyr = (SmtVectorLayer*)GetLayer(c_str_anno_lyr.c_str());
-		SmtVectorLayer* pPntLyr = (SmtVectorLayer*)GetLayer(c_str_pnt_lyr.c_str());
-		SmtVectorLayer* pLineLyr = (SmtVectorLayer*)GetLayer(c_str_line_lyr.c_str());
-		SmtVectorLayer* pRegLyr = (SmtVectorLayer*)GetLayer(c_str_reg_lyr.c_str());
+		OGRLayer* pAnnoLyr = GetSmtMap().GetOgrLayer(c_str_anno_lyr.c_str());
+		OGRLayer* pPntLyr = GetSmtMap().GetOgrLayer(c_str_pnt_lyr.c_str());
+		OGRLayer* pLineLyr = GetSmtMap().GetOgrLayer(c_str_line_lyr.c_str());
+		OGRLayer* pRegLyr = GetSmtMap().GetOgrLayer(c_str_reg_lyr.c_str());
 
 		if (NULL != pAnnoLyr && NULL != pPntLyr && NULL != pLineLyr &&NULL != pRegLyr)
 		{
-			pAnnoLyr->DeleteAll();
-			pPntLyr->DeleteAll();
-			pLineLyr->DeleteAll();
-			pRegLyr->DeleteAll();
+			/* clear deferred */ (void)pAnnoLyr;
+			(void)pPntLyr;
+			(void)pLineLyr;
+			(void)pRegLyr;
 
 			return SMT_ERR_NONE;
 		}
@@ -249,7 +248,7 @@ namespace ui
 	//////////////////////////////////////////////////////////////////////////
 	void SmtChart::DrawChartContent(void)
 	{
-		SmtVectorLayer *pLineLayer = (SmtVectorLayer*)GetLayer(c_str_line_lyr.c_str());
+		OGRLayer* pLineLayer = GetSmtMap().GetOgrLayer(c_str_line_lyr.c_str());
 		OGRLinearRing *pLinearRing = new OGRLinearRing();
 		SmtFeature * pSmtFeature = new SmtFeature;	
 	
@@ -273,14 +272,14 @@ namespace ui
 	void SmtChart::DrawTitle(void)
 	{
 		fPoint point;
-		float fCharWidth = abs(m_styTitle.GetAnnoDesc().fWidth);
-		float fCharHeight = abs(m_styTitle.GetAnnoDesc().fHeight);
+		float fCharWidth = abs(m_styTitle.get_anno_desc().fWidth);
+		float fCharHeight = abs(m_styTitle.get_anno_desc().fHeight);
 		float fStrWidth = m_strTitle.length()*fCharWidth;
 
 		point.x = m_rtChart.lb.x+(m_rtChart.width()-fStrWidth)/2;
 		point.y = m_rtChart.rt.y-2*fCharHeight;
 
-		SmtVectorLayer *pAnnoLayer = (SmtVectorLayer*)GetLayer(c_str_anno_lyr.c_str());
+		OGRLayer* pAnnoLayer = GetSmtMap().GetOgrLayer(c_str_anno_lyr.c_str());
 		OGRPoint *pSmtPoint = new OGRPoint(point.x,point.y);
 		SmtFeature *pSmtFeature = new SmtFeature;
 		pSmtFeature->SetGeometryDirectly(pSmtPoint);
@@ -301,7 +300,7 @@ namespace ui
 
 		float x,y;
 	
-		SmtVectorLayer *pLineLayer = (SmtVectorLayer*)GetLayer(c_str_line_lyr.c_str());
+		OGRLayer* pLineLayer = GetSmtMap().GetOgrLayer(c_str_line_lyr.c_str());
 		OGRMultiLineString *pMLineString = new OGRMultiLineString;
 		SmtFeature * pSmtFeature = new SmtFeature;	
 		
@@ -349,14 +348,14 @@ namespace ui
 
 	void SmtChart::DrawAixs(void)
 	{
-		SmtAnnotationDesc &anno = m_styAxis.GetAnnoDesc();
+		SmtAnnotationDesc &anno = m_styAxis.get_anno_desc();
 		fPoint point;
 		float fCharWidth = abs(anno.fWidth);
 		float fCharHeight = abs(anno.fHeight);
 		float fStrWidth = 0;
 
-		SmtVectorLayer *pAnnoLayer = (SmtVectorLayer*)GetLayer(c_str_anno_lyr.c_str());
-		SmtVectorLayer *pLineLayer = (SmtVectorLayer*)GetLayer(c_str_line_lyr.c_str());
+		OGRLayer* pAnnoLayer = GetSmtMap().GetOgrLayer(c_str_anno_lyr.c_str());
+		OGRLayer* pLineLayer = GetSmtMap().GetOgrLayer(c_str_line_lyr.c_str());
 
 		OGRPoint	*pSmtPoint = NULL;
 		OGRMultiLineString *pMLineString = NULL;
@@ -491,8 +490,8 @@ namespace ui
 
 		char szBuf[TEMP_BUFFER_SIZE];
 
-		fCharWidth = abs(m_styRule.GetAnnoDesc().fWidth);
-		fCharHeight = abs(m_styRule.GetAnnoDesc().fHeight);
+		fCharWidth = abs(m_styRule.get_anno_desc().fWidth);
+		fCharHeight = abs(m_styRule.get_anno_desc().fHeight);
 
 		//xaxis 
 		point.x = int(m_cPanel.rtContent.lb.x);
@@ -546,7 +545,7 @@ namespace ui
 
 	void SmtChart::DrawPanel(void)
 	{
-		SmtAnnotationDesc &anno = m_styPanel.GetAnnoDesc();
+		SmtAnnotationDesc &anno = m_styPanel.get_anno_desc();
 		fPoint point;
 		float fCharWidth = abs(anno.fWidth);
 		float fCharHeight = abs(anno.fHeight);
@@ -559,8 +558,8 @@ namespace ui
 		point.x = m_cPanel.rtContent.lb.x+(m_cPanel.rtContent.width()-fStrWidth)/2;
 		point.y = m_cPanel.rtContent.rt.y-fCharHeight;
 
-		SmtVectorLayer *pAnnoLayer = (SmtVectorLayer*)GetLayer(c_str_anno_lyr.c_str());
-		SmtVectorLayer *pLineLayer = (SmtVectorLayer*)GetLayer(c_str_line_lyr.c_str());
+		OGRLayer* pAnnoLayer = GetSmtMap().GetOgrLayer(c_str_anno_lyr.c_str());
+		OGRLayer* pLineLayer = GetSmtMap().GetOgrLayer(c_str_line_lyr.c_str());
 		SmtFeature * pSmtFeature = NULL;	
 
 		OGRPoint *pSmtPoint = new OGRPoint(point.x,point.y);
@@ -593,8 +592,8 @@ namespace ui
 	{
 		vPoints &vPts =  m_cData.m_vPoints;
 
-		SmtVectorLayer *pDotLayer = (SmtVectorLayer*)GetLayer(c_str_pnt_lyr.c_str());
-		SmtVectorLayer *pLineLayer = (SmtVectorLayer*)GetLayer(c_str_line_lyr.c_str());
+		OGRLayer* pDotLayer = GetSmtMap().GetOgrLayer(c_str_pnt_lyr.c_str());
+		OGRLayer* pLineLayer = GetSmtMap().GetOgrLayer(c_str_line_lyr.c_str());
 		SmtFeature * pSmtFeature = NULL;	
 
 		OGRMultiPoint *pMPoint = new OGRMultiPoint;
