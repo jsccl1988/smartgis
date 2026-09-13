@@ -1,0 +1,75 @@
+---
+description: Product C++20 on MSVC v145; traits + concepts over parallel 2D/3D trees
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Product C++: C++20 + traits
+
+## Language standard
+
+Product C++ under **`src/`**, **`core/`**, **`testing/`**, and **`algorithm/`** is **C++20** (`cc_std = "c++20"` → MSVC `/std:c++20`). That is the floor. Do not use `/std:c++latest`. **C++23** features are allowed only when they compile with this repo's **MSVC v145 / VS 18** toolset. Linux/mac may keep `-std=c++23`.
+
+New code and touched translation units use this standard. **`third_party/`** is out of scope — do not force third-party CMake (GDAL, etc.) onto `cc_std`. Do not rewrite **`branches/`** (if present). Legacy `src/` MFC / 2010 TUs must **compile** as C++20 once the flag is on; do not drive-by rewrite them to concepts.
+
+## Do (portable C++20)
+
+- Use `concepts`, `requires`, `if constexpr`, `std::invoke_result_t`, `std::is_same_v`, ranges where MSVC v145 is fine, NTTP where MSVC v145 accepts them.
+- Prefer **traits + concepts** over parallel class trees, copied 2D vs 3D functions, and macros.
+
+## Don't (language)
+
+- Don't target C++17, or pin `/std:c++17` on product targets.
+- Don't require fold-expressions-in-`requires`, GCC `__integer_pack`, or other non-MSVC constructs.
+- Don't treat `/std:c++23` as the Windows default **flag** (selected C++23 features are OK; `cc_std` stays `c++20`).
+
+## Traits / TMP
+
+One **Geometry** hierarchy; OGC `coordinateDimension` is **2 or 3** (not parallel 2D/3D type trees). Algorithms are constrained on traits (`geometry_traits<G>`, `coordinate_type`, `dimension`, `has_z`), not on a 2D vs 3D type name. Dispatch **GEOS / PROJ / TIN** backends through traits so product types stay stable.
+
+Keep existing **`Smt_*` virtual ABI** where LoadLibrary / DLL exports require it. New algorithms must not add another virtual geometry hierarchy.
+
+Public namespaces stay two levels (`geo`, helpers in `geo::detail`). Traits types are public API at those two levels. New-tree functions stay `snake_case`.
+
+YAGNI: traits exist to collapse 2D/3D and backend dispatch — not to invent an in-tree Boost.Geometry.
+
+```cpp
+namespace geo {
+
+template <typename G>
+struct geometry_traits {
+  using coordinate_type = typename G::coordinate_type;
+  static constexpr int dimension = G::coordinate_dimension;  // 2 or 3
+  static constexpr bool has_z = dimension >= 3;
+};
+
+template <typename G>
+concept geometry_like = requires {
+  typename geometry_traits<G>::coordinate_type;
+  requires geometry_traits<G>::dimension == 2 ||
+           geometry_traits<G>::dimension == 3;
+};
+
+template <typename G>
+struct geos_backend_traits;  // specialize per product type; call geos_c
+
+template <geometry_like G>
+void buffer(const G& g, typename geometry_traits<G>::coordinate_type width) {
+  if constexpr (geometry_traits<G>::has_z) {
+    // same Geometry type; coordinateDimension == 3
+  }
+  geos_backend_traits<G>::buffer(g, width);
+}
+
+}  // namespace geo
+```
+
+## Don't (product)
+
+- Don't add Qt.
+- Don't vendor a second GEOS / PROJ (use the shipped `gdal_sdk` stack).
+- Don't put a parallel 2D/3D type tree next to Geometry.
