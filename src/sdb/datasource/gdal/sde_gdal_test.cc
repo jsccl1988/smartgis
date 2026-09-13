@@ -5,6 +5,8 @@
 #include "sdb/datasource/gdal/ogr_dataset.h"
 #include "sdb/datasource/gdal/ogr_feature_codec.h"
 
+#include "datasourcemgr.h"
+
 #include "feature.h"
 #include "geometry.h"
 #include "layer.h"
@@ -418,6 +420,60 @@ int main() {
   ainfo.unProvider = PROVIDER_ACCESS;
   acc.SetInfo(ainfo);
   expect(!acc.Open(), "ACCESS Open false");
+
+  Smt_SDEDevMgr::SmtDataSourceMgr* mgr =
+      Smt_SDEDevMgr::SmtDataSourceMgr::GetSingletonPtr();
+  expect(mgr != nullptr, "datasource mgr");
+  if (mgr) {
+    Smt_GIS::SmtDataSource* tmp = mgr->CreateTmpDataSource(DS_DB_ADO);
+    expect(tmp != nullptr, "CreateTmpDataSource OGR");
+    if (tmp) {
+      tmp->SetInfo(info);
+      expect(tmp->Open(), "mgr GPKG Open");
+      tmp->Close();
+      mgr->DestoryTmpDataSource(tmp);
+    }
+  }
+
+  const char* pg_dsn = std::getenv("SMT_PG_DSN");
+  if (pg_dsn && pg_dsn[0]) {
+    SmtDataSourceInfo pgi;
+    pgi.unType = DS_DB_ADO;
+    pgi.unProvider = PROVIDER_POSTGRES;
+    std::strcpy(pgi.szName, "pg");
+    std::string dsn = pg_dsn;
+    if (dsn.rfind("PG:", 0) == 0) {
+      dsn = dsn.substr(3);
+    }
+    auto take = [&](const char* key, char* dest, size_t dest_len) {
+      const std::string token = std::string(key) + "=";
+      const auto pos = dsn.find(token);
+      if (pos == std::string::npos) {
+        return;
+      }
+      auto end = dsn.find(' ', pos);
+      if (end == std::string::npos) {
+        end = dsn.size();
+      }
+      const std::string val = dsn.substr(pos + token.size(), end - pos - token.size());
+      std::strncpy(dest, val.c_str(), dest_len - 1);
+    };
+    char host[128] = "127.0.0.1";
+    char port[16] = "5432";
+    take("host", host, sizeof(host));
+    take("port", port, sizeof(port));
+    take("dbname", pgi.db.szDBName, sizeof(pgi.db.szDBName));
+    take("user", pgi.szUID, sizeof(pgi.szUID));
+    take("password", pgi.szPWD, sizeof(pgi.szPWD));
+    std::snprintf(pgi.db.szService, sizeof(pgi.db.szService), "%s:%s", host,
+                  port);
+    sdb::datasource::OgrDataSource pgds;
+    pgds.SetInfo(pgi);
+    expect(pgds.Open(), "SMT_PG_DSN Open");
+    if (pgds.IsOpen()) {
+      pgds.Close();
+    }
+  }
 
   if (g_fails) {
     std::fprintf(stderr, "%d checks failed\n", g_fails);

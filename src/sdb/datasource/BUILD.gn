@@ -4,7 +4,6 @@
 # Provider drivers (QGIS providers/*, GDAL/OGR drivers). Each device is its own DLL.
 group("datasource") {
   deps = [
-    "//src/sdb/datasource/ado:sde_ado",
     "//src/sdb/datasource/gdal:sde_gdal",
     "//src/sdb/datasource/mem:sde_mem",
     "//src/sdb/datasource/mgr:sde_mgr",

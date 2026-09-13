@@ -49,12 +49,16 @@ smt_shared_library("sde_gdal") {
 test("sde_gdal_test") {
   output_name = "sde_gdal_test"
   sources = [ "sde_gdal_test.cc" ]
-  include_dirs += [ "//src" ]
+  include_dirs += [
+    "//src",
+    "//src/sdb/datasource/mgr",
+  ]
   deps = [
     ":ogr_codec",
     "//src/algorithm/geo:geo",
     "//src/base:base",
     "//src/base:core",
+    "//src/sdb/datasource/mgr:sde_mgr",
     "//src/sdb/map:gis",
     "//third_party:gdal",
   ]
