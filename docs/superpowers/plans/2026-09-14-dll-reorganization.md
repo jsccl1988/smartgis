@@ -287,11 +287,15 @@ ninja -C out sde_gdal_test
 
 **前置:** Task 2–4 平台 DLL 稳定（ui 链 sdb/algorithm/base）。
 
-- [ ] **Step 1: 合并六库为 `ui_legacy`；不进默认 `src_all`**
+- [x] **Step 1: 合并六库为 `ui_legacy`；不进默认 `src_all`**
 
-- [ ] **Step 2: `build.bat app` 或等价门控目标验证（仅当需要）**
+> **2026-09-14 实测：** `ninja -C out ui_legacy_d.dll` 绿；产物 `out/ui_legacy_d.dll`（Debug 后缀 `_d`，无 `*D`）。六库 `gui/mfc_ex/xview/xcatalog/xambox/stat_chart` + `tool_group_sources`（避免与 `legacy_tool` 对话框环依赖）→ `dll_stem=ui_legacy`；`views`/`skia` 仍为 `source_set`。门控：`build.bat ui_legacy` 设 `smt_build_app=true`；根 `group("ui_legacy")` 不在默认 `src_all`。
 
-- [ ] **Step 3: 不要 commit**
+- [x] **Step 2: `build.bat app` 或等价门控目标验证（仅当需要）**
+
+> 等价验证：`build.bat ui_legacy` / `ninja ui_legacy_d.dll`（`smt_build_app=true`）。pragma / `GetModuleHandle` → `ui_legacy_d`。
+
+- [x] **Step 3: 不要 commit**
 
 ---
 
@@ -301,11 +305,17 @@ ninja -C out sde_gdal_test
 - `src/legacy_render/**/BUILD.gn`、`src/legacy_tool/**/BUILD.gn`
 - 终态各一 `dll_stem`；`legacy_*_all` group；默认不进 `src_all`
 
-- [ ] **Step 1: 先 group 聚合验证，再收成单 DLL（可两步）**
+- [x] **Step 1: 先 group 聚合验证，再收成单 DLL（可两步）**
 
-- [ ] **Step 2: 确认 `src/BUILD.gn` `src_all` 无 leftover**
+`dll_stem=legacy_render` / `legacy_tool`；子模块 `*_sources` + group 转发；pragma → `legacy_render_d` / `legacy_tool_d`。gdi/gdi_simple 共享 aux 源；simple 工厂改为 `CreateGdiSimpleRenderDevice`。
 
-- [ ] **Step 3: 不要 commit**
+> **2026-09-14 实测：** `ninja -C out legacy_render` → `out/legacy_render_d.dll`（约 2.5MB）；`ninja -C out legacy_tool` → `out/legacy_tool_d.dll`（约 0.7MB）。旧碎 stem（`render_gdi`/`render3d`/`tool` 等）不再作为独立 solink。
+
+- [x] **Step 2: 确认 `src/BUILD.gn` `src_all` 无 leftover**
+
+`src_all` 仅平台四 DLL + content/plugin/dispatch；无 `legacy_*`。
+
+- [x] **Step 3: 不要 commit**
 
 ---
 
@@ -330,10 +340,11 @@ ninja -C out sde_gdal_test
 - Modify: `docs/build/src-layout.md` — 「一层一 DLL + optional leftover」；删除/覆盖「Deliberately not merged」中过时 DLL 粒度句
 - Modify: 本 plan 勾选；spec Status 在全部落地后改 `landed` 并归档（另变更集）
 
-- [ ] **Step 1: 与 design 终态表对齐回写**
+- [x] **Step 1: 与 design 终态表对齐回写**
 
-- [ ] **Step 2: 不要 commit**（除非用户要求一次文档+代码提交）
+> **2026-09-14：** `abi-rename-map.md` / `src-layout.md` / `docs/README.md` 已回写；`ui_legacy` 标**完成**（`ui_legacy_d.dll`）。Phase 1 平台 + optional leftover 均完成；spec 归档留待 Task 8 核对后另变更集。
 
+- [x] **Step 2: 不要 commit**（除非用户要求一次文档+代码提交）
 ---
 
 ## Self-review（对照 spec）
