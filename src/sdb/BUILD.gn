@@ -7,13 +7,15 @@
 group("sdb") {
   deps = [
     ":datasource",
+    "//src/sdb/edit:edit",
     "//src/sdb/map:gis",
+    "//src/sdb/model:model",
+    "//src/sdb/scene:scene",
   ]
 }
 
 group("datasource") {
   deps = [
-    "//src/sdb/datasource/ado:sde_ado",
     "//src/sdb/datasource/mem:sde_mem",
     "//src/sdb/datasource/mgr:sde_mgr",
     "//src/sdb/datasource/smf:sde_smf",

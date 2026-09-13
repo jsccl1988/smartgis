@@ -1,0 +1,22 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("sde_mgr") {
+  dll_stem = "SmtSDEDeviceMgr"
+  defines = [ "Export_SmtSDEDeviceMgr" ]
+  sources = [ "datasourcemgr.cpp" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/algorithm/geo:geo",
+    "//src/sdb/map:gis",
+    "//src/sdb/datasource/gdal:ogr_codec",
+    "//src/sdb/datasource/gdal:sde_gdal",
+    "//src/sdb/datasource/mem:sde_mem",
+    "//src/sdb/datasource/smf:sde_smf",
+    "//src/sdb/datasource/ws:sde_ws",
+  ]
+}
