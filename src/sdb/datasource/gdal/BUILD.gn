@@ -1,0 +1,50 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+source_set("ogr_codec") {
+  sources = [
+    "ogr_connect.cc",
+    "ogr_connect.h",
+  ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/algorithm/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/sdb/map:gis",
+  ]
+}
+
+smt_shared_library("sde_gdal") {
+  dll_stem = "SmtSDEGdalDevice"
+  defines = [ "Export_SmtSDEGdalDevice" ]
+  sources = [
+    "gdal_driver.cc",
+    "gdal_driver.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":ogr_codec",
+    "//src/base:core",
+    "//src/sdb/map:gis",
+    "//third_party:gdal",
+  ]
+}
+
+test("sde_gdal_test") {
+  output_name = "sde_gdal_test"
+  sources = [ "sde_gdal_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":ogr_codec",
+    "//src/algorithm/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/sdb/map:gis",
+  ]
+}
