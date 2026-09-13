@@ -8,6 +8,9 @@ source_set("ogr_codec") {
   sources = [
     "ogr_connect.cc",
     "ogr_connect.h",
+    "ogr_feature_codec.cc",
+    "ogr_feature_codec.h",
+    "ogr_feature_kind.h",
   ]
   configs += [ "//build:legacy" ]
   public_configs = [ "//build:legacy" ]
@@ -17,6 +20,7 @@ source_set("ogr_codec") {
     "//src/base:base",
     "//src/base:core",
     "//src/sdb/map:gis",
+    "//third_party:gdal",
   ]
 }
 
@@ -46,5 +50,7 @@ test("sde_gdal_test") {
     "//src/base:base",
     "//src/base:core",
     "//src/sdb/map:gis",
+    "//third_party:gdal",
   ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
 }
