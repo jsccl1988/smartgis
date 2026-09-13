@@ -1,0 +1,172 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef SDB_DATASOURCE_GDAL_OGR_FEATURE_KIND_H_
+#define SDB_DATASOURCE_GDAL_OGR_FEATURE_KIND_H_
+
+#include "feature.h"
+
+#include "ogr_core.h"
+
+#include <tuple>
+#include <utility>
+
+class OGRFeature;
+
+namespace sdb {
+namespace datasource {
+
+// Extra OGR/Smt field descriptors walked by tuple + index_sequence.
+struct field_anno {
+  static constexpr char name[] = "anno";
+  static constexpr OGRFieldType ogr_type = OFTString;
+  static constexpr Smt_Core::SmtVarType smt_type = Smt_Core::SmtString;
+};
+
+struct field_color {
+  static constexpr char name[] = "color";
+  static constexpr OGRFieldType ogr_type = OFTInteger;
+  static constexpr Smt_Core::SmtVarType smt_type = Smt_Core::SmtInteger;
+};
+
+struct field_angle {
+  static constexpr char name[] = "angle";
+  static constexpr OGRFieldType ogr_type = OFTReal;
+  static constexpr Smt_Core::SmtVarType smt_type = Smt_Core::SmtReal;
+};
+
+struct field_length {
+  static constexpr char name[] = "length";
+  static constexpr OGRFieldType ogr_type = OFTReal;
+  static constexpr Smt_Core::SmtVarType smt_type = Smt_Core::SmtReal;
+};
+
+struct field_area {
+  static constexpr char name[] = "area";
+  static constexpr OGRFieldType ogr_type = OFTReal;
+  static constexpr Smt_Core::SmtVarType smt_type = Smt_Core::SmtReal;
+};
+
+struct field_grid_row {
+  static constexpr char name[] = "grid_row";
+  static constexpr OGRFieldType ogr_type = OFTInteger;
+  static constexpr Smt_Core::SmtVarType smt_type = Smt_Core::SmtInteger;
+};
+
+struct field_grid_col {
+  static constexpr char name[] = "grid_col";
+  static constexpr OGRFieldType ogr_type = OFTInteger;
+  static constexpr Smt_Core::SmtVarType smt_type = Smt_Core::SmtInteger;
+};
+
+// Per-kind geometry WKB, extra fields, and encode/decode hooks.
+template <Smt_GIS::SmtFeatureType Ft>
+struct feature_kind_traits;
+
+template <>
+struct feature_kind_traits<Smt_GIS::SmtFtDot> {
+  static constexpr Smt_GIS::SmtFeatureType feature_type = Smt_GIS::SmtFtDot;
+  static constexpr OGRwkbGeometryType wkb = wkbPoint;
+  static constexpr bool is_raster = false;
+  using extra_fields = std::tuple<>;
+  static bool encode_geom(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
+  static bool decode_geom(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+};
+
+template <>
+struct feature_kind_traits<Smt_GIS::SmtFtCurve> {
+  static constexpr Smt_GIS::SmtFeatureType feature_type = Smt_GIS::SmtFtCurve;
+  static constexpr OGRwkbGeometryType wkb = wkbLineString;
+  static constexpr bool is_raster = false;
+  using extra_fields = std::tuple<field_length>;
+  static bool encode_geom(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
+  static bool decode_geom(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+};
+
+template <>
+struct feature_kind_traits<Smt_GIS::SmtFtSurface> {
+  static constexpr Smt_GIS::SmtFeatureType feature_type = Smt_GIS::SmtFtSurface;
+  static constexpr OGRwkbGeometryType wkb = wkbPolygon;
+  static constexpr bool is_raster = false;
+  using extra_fields = std::tuple<field_area>;
+  static bool encode_geom(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
+  static bool decode_geom(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+};
+
+template <>
+struct feature_kind_traits<Smt_GIS::SmtFtAnno> {
+  static constexpr Smt_GIS::SmtFeatureType feature_type = Smt_GIS::SmtFtAnno;
+  static constexpr OGRwkbGeometryType wkb = wkbPoint;
+  static constexpr bool is_raster = false;
+  using extra_fields = std::tuple<field_anno, field_color, field_angle>;
+  static bool encode_geom(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
+  static bool decode_geom(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+};
+
+template <>
+struct feature_kind_traits<Smt_GIS::SmtFtTin> {
+  static constexpr Smt_GIS::SmtFeatureType feature_type = Smt_GIS::SmtFtTin;
+  static constexpr OGRwkbGeometryType wkb = wkbMultiPolygon;
+  static constexpr bool is_raster = false;
+  using extra_fields = std::tuple<>;
+  static bool encode_geom(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
+  static bool decode_geom(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+};
+
+template <>
+struct feature_kind_traits<Smt_GIS::SmtFtGrid> {
+  static constexpr Smt_GIS::SmtFeatureType feature_type = Smt_GIS::SmtFtGrid;
+  static constexpr OGRwkbGeometryType wkb = wkbMultiPoint;
+  static constexpr bool is_raster = false;
+  using extra_fields = std::tuple<field_grid_row, field_grid_col>;
+  static bool encode_geom(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
+  static bool decode_geom(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+};
+
+template <>
+struct feature_kind_traits<Smt_GIS::SmtFtChildImage> {
+  static constexpr Smt_GIS::SmtFeatureType feature_type = Smt_GIS::SmtFtChildImage;
+  static constexpr OGRwkbGeometryType wkb = wkbNone;
+  static constexpr bool is_raster = true;
+  using extra_fields = std::tuple<>;
+  static bool encode_geom(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
+  static bool decode_geom(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+};
+
+template <typename Fn>
+bool visit_feature_kind(Smt_GIS::SmtFeatureType ft, Fn&& fn) {
+  switch (ft) {
+    case Smt_GIS::SmtFtDot:
+      return fn(feature_kind_traits<Smt_GIS::SmtFtDot>{});
+    case Smt_GIS::SmtFtCurve:
+      return fn(feature_kind_traits<Smt_GIS::SmtFtCurve>{});
+    case Smt_GIS::SmtFtSurface:
+      return fn(feature_kind_traits<Smt_GIS::SmtFtSurface>{});
+    case Smt_GIS::SmtFtAnno:
+      return fn(feature_kind_traits<Smt_GIS::SmtFtAnno>{});
+    case Smt_GIS::SmtFtTin:
+      return fn(feature_kind_traits<Smt_GIS::SmtFtTin>{});
+    case Smt_GIS::SmtFtGrid:
+      return fn(feature_kind_traits<Smt_GIS::SmtFtGrid>{});
+    case Smt_GIS::SmtFtChildImage:
+      return fn(feature_kind_traits<Smt_GIS::SmtFtChildImage>{});
+    default:
+      return false;
+  }
+}
+
+template <typename Tuple, typename Fn, std::size_t... I>
+void for_each_extra_field(Fn&& fn, std::index_sequence<I...>) {
+  (fn(std::tuple_element_t<I, Tuple>{}), ...);
+}
+
+template <typename Tuple, typename Fn>
+void for_each_extra_field(Fn&& fn) {
+  for_each_extra_field<Tuple>(std::forward<Fn>(fn),
+                              std::make_index_sequence<std::tuple_size_v<Tuple>>{});
+}
+
+}  // namespace datasource
+}  // namespace sdb
+
+#endif  // SDB_DATASOURCE_GDAL_OGR_FEATURE_KIND_H_
