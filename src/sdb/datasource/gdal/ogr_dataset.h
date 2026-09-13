@@ -5,6 +5,7 @@
 #define SDB_DATASOURCE_GDAL_OGR_DATASET_H_
 
 #include "layer.h"
+#include "sdb/datasource/gdal/ogr_export.h"
 
 class GDALDataset;
 
@@ -12,7 +13,7 @@ namespace sdb {
 namespace datasource {
 
 // OGR/GDAL-backed SmtDataSource for GPKG, SpatiaLite, and PostGIS.
-class OgrDataSource : public Smt_GIS::SmtDataSource {
+class SMT_SDE_GDAL_EXPORT OgrDataSource : public Smt_GIS::SmtDataSource {
  public:
   OgrDataSource();
   ~OgrDataSource() override;

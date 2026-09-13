@@ -13,7 +13,6 @@ smt_shared_library("sde_mgr") {
     "//src/base:core",
     "//src/algorithm/geo:geo",
     "//src/sdb/map:gis",
-    "//src/sdb/datasource/gdal:ogr_codec",
     "//src/sdb/datasource/gdal:sde_gdal",
     "//src/sdb/datasource/mem:sde_mem",
     "//src/sdb/datasource/smf:sde_smf",

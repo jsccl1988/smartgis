@@ -4,7 +4,6 @@
 #include "sdb/datasource/gdal/ogr_dataset.h"
 #include "mem.h"
 #include "ws.h"
-//#include "xml.h"
 
 using namespace Smt_SDESmf;
 using namespace Smt_SDEMem;

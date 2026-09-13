@@ -21,10 +21,8 @@ OgrRasterLayer::OgrRasterLayer(OgrDataSource* owner)
 OgrRasterLayer::~OgrRasterLayer() = default;
 
 bool OgrRasterLayer::Create() {
-  if (owner_ && owner_->dataset() && owner_->dataset()->GetRasterCount() > 0) {
-    m_bOpen = true;
-    return true;
-  }
+  // Band I/O is UNSUPPORTED; do not claim Create success. Listing rasters
+  // happens on the dataset. Do not invent a geom_points blob table.
   m_bOpen = false;
   return false;
 }

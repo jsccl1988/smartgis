@@ -8,6 +8,7 @@
 #include "feature.h"
 #include "geometry.h"
 #include "matrix2d.h"
+#include "style.h"
 
 #include "ogrsf_frmts.h"
 
@@ -64,12 +65,62 @@ bool encode_point(const Smt_GIS::SmtFeature* src, OGRFeature* dst) {
   return dst->SetGeometry(&ogr_pt) == OGRERR_NONE;
 }
 
+OGRPoint* first_point(OGRGeometry* geom) {
+  if (!geom) {
+    return nullptr;
+  }
+  const OGRwkbGeometryType wt = wkbFlatten(geom->getGeometryType());
+  if (wt == wkbPoint) {
+    return geom->toPoint();
+  }
+  if (wt == wkbMultiPoint) {
+    auto* multi = geom->toMultiPoint();
+    if (multi && multi->getNumGeometries() > 0) {
+      return multi->getGeometryRef(0)->toPoint();
+    }
+  }
+  return nullptr;
+}
+
+OGRLineString* first_linestring(OGRGeometry* geom) {
+  if (!geom) {
+    return nullptr;
+  }
+  const OGRwkbGeometryType wt = wkbFlatten(geom->getGeometryType());
+  if (wt == wkbLineString) {
+    return geom->toLineString();
+  }
+  if (wt == wkbMultiLineString) {
+    auto* multi = geom->toMultiLineString();
+    if (multi && multi->getNumGeometries() > 0) {
+      return multi->getGeometryRef(0)->toLineString();
+    }
+  }
+  return nullptr;
+}
+
+OGRPolygon* first_polygon(OGRGeometry* geom) {
+  if (!geom) {
+    return nullptr;
+  }
+  const OGRwkbGeometryType wt = wkbFlatten(geom->getGeometryType());
+  if (wt == wkbPolygon) {
+    return geom->toPolygon();
+  }
+  if (wt == wkbMultiPolygon) {
+    auto* multi = geom->toMultiPolygon();
+    if (multi && multi->getNumGeometries() > 0) {
+      return multi->getGeometryRef(0)->toPolygon();
+    }
+  }
+  return nullptr;
+}
+
 bool decode_point(OGRFeature* src, Smt_GIS::SmtFeature* dst) {
-  OGRGeometry* geom = src->GetGeometryRef();
-  if (!geom || wkbFlatten(geom->getGeometryType()) != wkbPoint) {
+  OGRPoint* po_point = first_point(src->GetGeometryRef());
+  if (!po_point) {
     return false;
   }
-  auto* po_point = geom->toPoint();
   dst->SetGeometryDirectly(new Smt_Geo::SmtPoint(po_point->getX(), po_point->getY()));
   return true;
 }
@@ -90,11 +141,10 @@ bool encode_linestring(const Smt_GIS::SmtFeature* src, OGRFeature* dst) {
 }
 
 bool decode_linestring(OGRFeature* src, Smt_GIS::SmtFeature* dst) {
-  OGRGeometry* geom = src->GetGeometryRef();
-  if (!geom || wkbFlatten(geom->getGeometryType()) != wkbLineString) {
+  OGRLineString* po_line = first_linestring(src->GetGeometryRef());
+  if (!po_line) {
     return false;
   }
-  auto* po_line = geom->toLineString();
   auto* line = new Smt_Geo::SmtLineString();
   const int n = po_line->getNumPoints();
   line->SetNumPoints(n);
@@ -128,11 +178,10 @@ bool encode_polygon(const Smt_GIS::SmtFeature* src, OGRFeature* dst) {
 }
 
 bool decode_polygon(OGRFeature* src, Smt_GIS::SmtFeature* dst) {
-  OGRGeometry* geom = src->GetGeometryRef();
-  if (!geom || wkbFlatten(geom->getGeometryType()) != wkbPolygon) {
+  OGRPolygon* po_poly = first_polygon(src->GetGeometryRef());
+  if (!po_poly) {
     return false;
   }
-  auto* po_poly = geom->toPolygon();
   OGRLinearRing* po_ring = po_poly->getExteriorRing();
   if (!po_ring) {
     return false;
@@ -222,6 +271,14 @@ void copy_smt_attrs_by_name(const Smt_GIS::SmtFeature* src, OGRFeature* dst) {
       case Smt_Core::SmtString:
         dst->SetField(oi, f->GetValueAsString());
         break;
+      case Smt_Core::SmtBinary: {
+        int nbytes = 0;
+        byte* blob = f->GetValueAsBinary(&nbytes);
+        if (blob && nbytes > 0) {
+          dst->SetField(oi, nbytes, blob);
+        }
+        break;
+      }
       default:
         break;
     }
@@ -250,6 +307,9 @@ void copy_ogr_attrs_by_name(OGRFeature* src, Smt_GIS::SmtFeature* dst) {
         case OFTWideString:
           fld.SetType(Smt_Core::SmtString);
           break;
+        case OFTBinary:
+          fld.SetType(Smt_Core::SmtBinary);
+          break;
         default:
           fld.SetType(Smt_Core::SmtString);
           break;
@@ -271,10 +331,43 @@ void copy_ogr_attrs_by_name(OGRFeature* src, Smt_GIS::SmtFeature* dst) {
       case OFTWideString:
         dst->SetFieldValue(si, src->GetFieldAsString(i));
         break;
+      case OFTBinary: {
+        int nbytes = 0;
+        GByte* blob = src->GetFieldAsBinary(i, &nbytes);
+        if (blob && nbytes > 0) {
+          dst->SetFieldValue(si, nbytes, blob);
+        }
+        break;
+      }
       default:
         break;
     }
   }
+}
+
+void copy_smt_style_to_ogr(const Smt_GIS::SmtFeature* src, OGRFeature* dst) {
+  const Smt_Base::SmtStyle* style = src->GetStyle();
+  const int oi = dst->GetFieldIndex("style");
+  if (!style || oi < 0) {
+    return;
+  }
+  dst->SetField(oi, static_cast<int>(sizeof(Smt_Base::SmtStyle)),
+                reinterpret_cast<const void*>(style));
+}
+
+void copy_ogr_style_to_smt(OGRFeature* src, Smt_GIS::SmtFeature* dst) {
+  const int oi = src->GetFieldIndex("style");
+  if (oi < 0) {
+    return;
+  }
+  int nbytes = 0;
+  GByte* data = src->GetFieldAsBinary(oi, &nbytes);
+  if (!data || nbytes < static_cast<int>(sizeof(Smt_Base::SmtStyle))) {
+    return;
+  }
+  auto* style = new Smt_Base::SmtStyle();
+  std::memcpy(style, data, sizeof(Smt_Base::SmtStyle));
+  dst->SetStyleDirectly(style);
 }
 
 }  // namespace
@@ -383,6 +476,19 @@ bool feature_kind_traits<Smt_GIS::SmtFtTin>::decode_geom(
     }
   } else if (wt == wkbPolygon) {
     add_triangle_from_ring(tin, geom->toPolygon()->getExteriorRing());
+  } else if (wt == wkbTIN) {
+    const int n = geom->toGeometryCollection()
+                      ? geom->toGeometryCollection()->getNumGeometries()
+                      : 0;
+    auto* coll = geom->toGeometryCollection();
+    for (int i = 0; i < n && coll; ++i) {
+      OGRGeometry* part = coll->getGeometryRef(i);
+      if (part && wkbFlatten(part->getGeometryType()) == wkbPolygon) {
+        add_triangle_from_ring(tin, part->toPolygon()->getExteriorRing());
+      } else if (part && wkbFlatten(part->getGeometryType()) == wkbTriangle) {
+        add_triangle_from_ring(tin, part->toPolygon()->getExteriorRing());
+      }
+    }
   } else {
     delete tin;
     return false;
@@ -478,6 +584,7 @@ bool copy_smt_feature_to_ogr(const Smt_GIS::SmtFeature* src, OGRFeature* dst) {
     return false;
   }
   copy_smt_attrs_by_name(src, dst);
+  copy_smt_style_to_ogr(src, dst);
   return true;
 }
 
@@ -509,6 +616,7 @@ bool copy_ogr_feature_to_smt(OGRFeature* src, Smt_GIS::SmtFeature* dst,
     return false;
   }
   copy_ogr_attrs_by_name(src, dst);
+  copy_ogr_style_to_smt(src, dst);
   return true;
 }
 

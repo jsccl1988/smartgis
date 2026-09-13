@@ -360,7 +360,7 @@ namespace Smt_App
 					info.unProvider = PROVIDER_GPKG;
 					strcpy(info.szName,szTitle);
 					strcpy(info.db.szService,szPath);
-					strcpy(info.db.szDBName,szTitle);
+					strcpy(info.db.szDBName,szFileName);
 					strcpy(info.szUID,"");
 					strcpy(info.szPWD,"");
 
