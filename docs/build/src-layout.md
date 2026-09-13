@@ -5,18 +5,16 @@ All rights reserved.
 
 # `src/` layout (layered)
 
-> **In progress:** full include-path + ABI cutover (mogu-style `#include`, new DLL stems, no `Smt*` export ABI). Spec: [`../superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md`](../superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md). Map: [`abi-rename-map.md`](abi-rename-map.md).  
-> **DLL reorg (accepted):** platform layers merge to one DLL per layer (`base` / `sdb` / `algorithm` / `render` / `ui_legacy`); optional `legacy_render` / `legacy_tool`; plugins stay one DLL each. Method: shared_library / `dll_stem` only — fine `source_set`s kept. Spec: [`../superpowers/specs/2026-09-14-dll-reorganization-design.md`](../superpowers/specs/2026-09-14-dll-reorganization-design.md).
+> **In progress:** full include-path + ABI cutover (mogu-style `#include`, snake_case / 两层命名空间). Spec: [`../superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md`](../superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md). Map: [`abi-rename-map.md`](abi-rename-map.md).  
+> **DLL reorg Phase 1 已落地：** **一层一 DLL** — 平台 `base` / `sdb` / `algorithm` / `render`；app-gated `ui_legacy`（已验证 `out/ui_legacy_d.dll`）；optional `legacy_render` / `legacy_tool`（不进默认 `src_all`）；**插件仍每插件一 DLL**。手法 C：只改 `shared_library` / `dll_stem` / export，细 `source_set` + 旧 GN 标签 `group` 转发。Spec: [`../superpowers/specs/2026-09-14-dll-reorganization-design.md`](../superpowers/specs/2026-09-14-dll-reorganization-design.md)。终态 stem 表：[`abi-rename-map.md`](abi-rename-map.md)。
 
-Product sources stay under **`src/`** (not repo-root `base/` / `core/` — those are thin GN aliases). Directory names drop the 2010 `Smt` prefix. This pass **nests by layer** after the short-name rename. Algorithm modernization (2026-09-13) **does** merge math + math3d + geo3d into one `geo` DLL (`SmtGeoCore` stem retired by cutover). **On-disk DLL count** for other layers is superseded by the DLL reorg spec above (directory nesting unchanged; former “one GN shared_library per short name” is the pre-reorg state).
+Product sources stay under **`src/`** (not repo-root `base/` / `core/` — those are thin GN aliases). Directory names drop the 2010 `Smt` prefix. Nesting is by layer; **on-disk DLL** follows the reorg（不再「短名各一 DLL」）。
 
 **Nesting cap:** at most `src/<layer>/<module>` (two levels under `src/`).
 
-**This pass:** directory + `BUILD.gn` label + include-dir paths. C++ `Smt_*` namespaces, `Export_Smt*` macros, and on-disk DLL stems stay for ABI / `LoadLibrary`. New public namespaces in later work stay at most two levels (`core`, `core::math`); deeper goes in `detail`.
+**Directory vs DLL:** 目录与 GN 标签路径仍可细（`//src/sdb/datasource/gdal:sde_gdal` 等为 group → 层 DLL）。磁盘 `dll_stem` 见上表。Debug 产出在 stem 后加 `_d`（`base_d.dll`），不是尾缀 `D`。
 
-GN **target** names stay the short names from the rename pass (`sde_gdal`, `render_gl`, …) so `dll_stem` identity stays obvious. **Label paths** follow the tree (`//src/sdb/datasource/gdal:sde_gdal`).
-
-Debug/release DLL file names still use `dll_stem` (release `xxx.dll`; debug `xxx_d.dll` via `smt_shared_library` in `build/smartgis.gni`).
+New public namespaces stay at most two levels (`geo`, `base::detail` for internals).
 
 ## Five layers (locked)
 
@@ -35,7 +33,7 @@ Debug/release DLL file names still use `dll_stem` (release `xxx.dll`; debug `xxx
 | `providers/*`, OGR drivers | `src/sdb/datasource/gdal`（`mem` / `smf` / `ws` 已移除） |
 | `QgsFeature` / `QgsMapLayer` / `QgsProject` | `src/sdb/feature`, `layer`, `map` |
 | `QgsCoordinateReferenceSystem` | `src/sdb/crs`; transforms in `algorithm/proj` |
-| GEOS | `src/algorithm/geo` (`//src/algorithm:geom` → `SmtGeoCore`) — wrap `//third_party:gdal` (`.install` `geos_c`); no second GEOS vendor |
+| GEOS | `src/algorithm/geo`（`//src/algorithm:geom` → `algorithm` DLL）— wrap `//third_party:gdal` (`.install` `geos_c`); no second GEOS vendor |
 | PROJ | `src/algorithm/proj` (PROJ 9 adapter only) |
 | map canvas renderer | `src/render` + RHI |
 | processing / analysis | `src/algorithm/` |
@@ -44,30 +42,46 @@ Debug/release DLL file names still use `dll_stem` (release `xxx.dll`; debug `xxx
 
 `sdb/datasource/gdal` is `SmtSDEGdalDevice`: a decorator `GDALDriver` `"SDBD"` whose `SdbdDataset` owns a stock inner `GDALDataset` (Memory / GPKG / PostgreSQL / file). Callers use `GDALOpenEx("SDBD:…")` and may `dynamic_cast` to `SdbdDataset` / `SdbdLayer`. Do not patch `third_party/.src/gdal` or resurrect `OgrDataSource`. I/O types are `GDALDataset` / `OGRLayer` / `OGRFeature`；产品 ABI 是 `sdb::Feature` / `sdb::MapLayer`（组合持有 OGR）。栅格草稿：`CreateMemRasLayer` → `OgrRasterLayer` + GDAL **MEM**（编码 blob 在 `/vsimem`；`Open(文件)` 会回填 blob 供 `GetRasterNoClone`）；`SmtMemRasLayer` 已移除。`CreateMemTileLayer` / `SmtMemTileLayer` / `sde_mem` 已切除。2D 瓦片：`src/sdb/tile`（`TileProvider` + LRU/磁盘缓存 + WMTS 最小解析 + `make_xyz_map_layer` / Views `AddBasemapDialog`；HTTP(S) 经 net+OpenSSL；不进 `SDBD:MEM`）。`SmtAttribute`/`SmtField` 已退出 `gis`（字段走 OGR）；可选 leftover `//src/sdb/map:leftover_attr`；MFC att-struct UI 读/写 `OGRLayer`。
 
-## Layering plan (this pass)
+## DLL 粒度（Phase 1 终态）
 
-| Layer | Tree | Merge vs nest | In `src_all` |
+| `dll_stem` | 树 / 吸收 | 默认 `src_all` |
+| --- | --- | --- |
+| `base` | `base/{core,style,ipc,archive}` + `sys` + `net` | yes |
+| `sdb` | `sdb/{feature,layer,map,model,scene,tile,edit,datasource}` | yes |
+| `algorithm` | `algorithm/{geo,proj,tin,stat}` | yes |
+| `render` | `render/{rhi,scene,skia,…}`（endgame only） | yes |
+| `ui_legacy` | `ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | **no**（`smt_build_app`） |
+| `legacy_render` | `legacy_render/**` | **no**（optional） |
+| `legacy_tool` | `legacy_tool/**`（`tool_group` 源链入 `ui_legacy`） | **no**（optional） |
+| `plugin_*` / `plugin` | 每插件一 DLL；host 为 source_set | host 进图；域插件按需 |
+
+不成产品 DLL：`content`、`tool/dispatch`、`plugin/host`、`ui/views`（均为 source_set）。
+
+## Layering plan (directory)
+
+| Layer | Tree | Directory / product notes | In `src_all` |
 | --- | --- | --- | --- |
-| Foundation | `base/{core,style,ipc,archive}`, `sys`, `net` | One layer dir; two DLLs (`SmtCore` / `SmtBaseLib`) plus `ipc` / `archive` source_sets. | yes |
-| Core data model | `sdb/{feature,layer,map,model,scene,tile}` | `SmtGisCore` DLL plus source_sets `sdb/model` (Assimp/3D Tiles CPU), `sdb/scene` (World), `sdb/tile` (HTTP XYZ TileProvider + in-process LRU). | yes (`gis` + model + scene + tile) |
-| Datasource | `sdb/datasource/{mgr,gdal}` | Provider drivers. Product types are `GDALDataset` / `OGRLayer` / `OGRFeature`. SMF/WS/mem leftovers removed from tree. | yes (`//src/sdb:datasource`) |
-| Algorithm | `algorithm/{geo,proj,tin,stat}` | `geo` is one DLL (`SmtGeoCore`): TIN/grid/surface meshes. OGC types are OGR (callers include `ogr_geometry.h`). Scene Vector/Matrix/Aabb live in `src/render/math` (Eigen). Public headers: `geometry.h` (Grid / Tin / `Smt3DSurface` using OGR TIN), `projection.h`, `tin.h`. `proj` / `tin` stay their DLLs. **Not** dem (plugin + GDAL + tin). **Not** orthogrid (plugin + Eigen Laplace). **Not** chart (`ui/chart`). | yes (`//src/algorithm:algorithm`; not `chart`) |
-| Render | `render/{rhi,scene,skia,math}` | Endgame only: RHI Facade + `GpuScene` + math + Skia stub. Leftover 2D/3D engines (`gdi`, `gl`, `render3d`, `scene3d`, `model3d`, `terrain`, `pointcloud`, Bridge) live under `legacy_render/…`. D3D9 tree removed. | yes (`//src/render:render_all`); leftover optional via `//src/legacy_render:legacy_render_all` |
-| Plugin | `plugin/` + children | Host `//src/plugin/host:host`. Leftover AuxModule + MFC domain shells under `plugin/legacy/{dem,proj,print,model3d,orthogrid}`. Product Views/kernels in `plugin/{dem,proj,print,model3d,orthogrid}`. Spec: `docs/superpowers/specs/2026-09-14-plugin-subdir-layout-design.md`. | host + widgets + Views wiring |
-| UI | `ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | Nested only. **Legacy** MFC Feature Pack chrome (`bcg_cmfc.h`). `ui/chart` is the MFC modal diagram (`SmtStaDiagram`); data stays in `algorithm/stat`. | **no** (MFC; gated by `smt_build_app`) |
-| UI toolkit (endgame) | `ui/views` | Chromium-style Views stub (`//:ui_views`). | **no** |
-| Hosted map (mgis `content`) | `content/public` + `content/app` | Stable embedder API (`MapContents` / `MapWidgetHostView`, rename from `MapSession` / `MapView`). `content::ContentMain` in `src/content/app` dispatches `--type=`. | **yes** (`content` source_set, not a DLL) |
-| GPU main (`--type=gpu`) | `gpu/` | Entry `GpuMain` in the **same** `SmartGis.exe` PE — not a separate product render exe. Today `//src/gpu:gpu` / `build.bat render` is transitional. | **no** (linked into product exe) |
-| App | `app/` + `app/{app_core,views,winui}` | MFC exe + product hosts (no `src/chrome/`). `wWinMain` → `content::ContentMain`. | **no** |
-| Tool | `tool/` (`dispatch`) + `sdb/edit` | Endgame: session-scoped Command / Interaction / Workspace (`//src/tool:dispatch`). Leftover `SmtIATool` / `SmtGroupTool` live under `legacy_tool/` + `legacy_tool/group` and are **not** in `src_all` by default (optional `//src/legacy_tool:legacy_tool_all`). Document writes go through `sdb/edit`. | yes (`dispatch` only); leftover optional via `legacy_tool_all` (`group` needs UI / `smt_build_app`) |
+| Foundation | `base/{core,style,ipc,archive}`, `sys`, `net` | 一层目录；**一 DLL `base`**（旧短名标签 group 转发） | yes → `base` |
+| Core data model | `sdb/{feature,layer,map,model,scene,tile}` | GIS 模型 + CPU assets / World / TileProvider；**一 DLL `sdb`** | yes → `sdb` |
+| Datasource | `sdb/datasource/{mgr,gdal}` | 并入 `sdb` DLL。SMF/WS/mem leftovers 已删 | yes → `sdb` |
+| Algorithm | `algorithm/{geo,proj,tin,stat}` | **一 DLL `algorithm`**。Scene Vector/Matrix 在 `render/math`。**Not** dem/orthogrid（插件）/ chart（`ui_legacy`） | yes → `algorithm` |
+| Render | `render/{rhi,scene,skia,math}` | Endgame **一 DLL `render`**。Leftover 引擎在 `legacy_render/` → optional `legacy_render` DLL | yes → `render`；leftover optional |
+| Plugin | `plugin/` + children | Host `//src/plugin/host:host`（source_set）。域插件 **各一 DLL**。Spec: `2026-09-14-plugin-subdir-layout-design.md` | host + widgets |
+| UI | `ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | **一 DLL `ui_legacy`**（已完成）。MFC Feature Pack chrome | **no**（`smt_build_app`） |
+| UI toolkit (endgame) | `ui/views` | Views stub（`//:ui_views`）；source_set | **no** |
+| Hosted map | `content/public` + `content/app` | Embedder API；`ContentMain` 分发 `--type=` | **yes**（source_set，非 DLL） |
+| GPU main (`--type=gpu`) | `gpu/` | 同 PE `GpuMain`；`build.bat render` 为 GPU 进程别名 | **no** |
+| App | `app/` + `app/{app_core,views,winui}` | MFC exe + hosts；`app_core` 仍可独立 DLL | **no** |
+| Tool | `tool/` (`dispatch`) + `sdb/edit` | `dispatch` source_set；leftover → `legacy_tool` DLL；`edit` 进 `sdb` | yes（`dispatch`）；leftover optional |
 
-**Deliberately not merged** *(directory / product splits; DLL merge is separate — see DLL reorg spec)*
+**Deliberately not merged** *(directory / product splits — DLL 已按上表合并)*
 
-- `//src/base:core` (→ `//src/base/core:core`) + `//src/base:base`: historically two DLLs under `src/base/`; `sys` / `net` beside base. **Accepted reorg:** one `base` DLL absorbing `core`+`style`+`sys`+`net` (labels may remain as source_sets / groups). Colocated `core/BUILD.gn` matches archive/ipc.
-- Homemade Vector/Matrix were removed from `algorithm/geo`. Scene `Vector3` / `Matrix` / bounds live in `src/render/math` as Eigen-backed POD adapters (`//src/render/math:math`, `:bounds`). Public umbrella header: `render/math/math.h` (split: `vector.h` / `matrix.h` / `quat.h` / `aabb.h` / …). API is `snake_case` (hard cut; no leftover PascalCase shims). OGC `coordinateDimension` is 2 or 3 on the Geometry **instance**; compile-time dim stays on Vector2/3/4. See [`../superpowers/specs/2026-09-13-algorithm-layer-oss-design.md`](../superpowers/specs/2026-09-13-algorithm-layer-oss-design.md) and [`../superpowers/specs/2026-09-14-render-math-refactor-design.md`](../superpowers/specs/2026-09-14-render-math-refactor-design.md).
-- `base`: keep the name. `style/` is `SmtBaseLib` (envelope + cartographic style), not a Chromium-style foundation and not `ui/views`.
-- No `Smt_*` renames. `geo::geometry_traits` / `vector_traits` wrap OGR instance dim and `Vector2/3/4`; `geo::buffer` calls OGR. Delaunay is `algorithm/tin`. No empty GEOS glue and no second geometry tree.
-- MFC Feature Pack stays out of `src_all`. This GN’s ninja `all` lists every **loaded** target, so the exe graph is gated by `smt_build_app` (default false). `build.bat app` sets it and builds `//:smartgis` → `out/SmartGis.exe`.
+- `//src/base:core` / `:base` / `//src/sys:sys` / `//src/net:net` 等标签保留为 **group → `dll_stem=base`**，不是第二套平台 DLL。
+- Homemade Vector/Matrix were removed from `algorithm/geo`. Scene `Vector3` / `Matrix` / bounds live in `src/render/math` as Eigen-backed POD adapters (`//src/render/math:math`, `:bounds`). Public umbrella header: `render/math/math.h`. API is `snake_case`. OGC `coordinateDimension` is 2 or 3 on the Geometry **instance**. See algorithm-layer-oss + render-math-refactor specs.
+- `base`: keep the name. `style/` is envelope + cartographic style, not `ui/views`.
+- `geo::geometry_traits` / `vector_traits` wrap OGR；Delaunay in `algorithm/tin`。No second geometry tree.
+- **不要**把 `legacy_render` 并进 `render`；**不要**把插件并进平台 DLL；**不要**把 `content` / `dispatch` / `plugin/host` 做成产品 DLL。
+- MFC Feature Pack / `ui_legacy` stays out of default `src_all`. Exe graph gated by `smt_build_app`（`build.bat app` / `build.bat ui_legacy`）。
 
 ### Desktop UI endgame (Views + Skia)
 
@@ -81,63 +95,63 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 | --- | --- |
 | **MFC** (MBCS, `afxwin.h` / `afxres.h` / `afxcontrolbars.h`) | VS 18 Individual component **C++ MFC for x64/x86 (Latest MSVC)** = `Microsoft.VisualStudio.Component.VC.ATLMFC`, or toolset-pinned `Microsoft.VisualStudio.Component.VC.14.50.18.0.MFC`. After install, re-run `build.bat app` so `out/environment.x64.x64` picks up `atlmfc\include` + `atlmfc\lib\x64`. Close `cl`/`ninja`/`link` first, or the installer precheck `VSProcessesRunning` cancels (error `0x1f46`). |
 
-## Path map (2010 dir → short name → layered)
+## Path map (2010 dir → short name → layered → 终态 DLL)
 
-| Old directory | Short (`src/…`) | Layered (`src/…`) | GN target | DLL stem (unchanged) |
+| Old directory | Short (`src/…`) | Layered (`src/…`) | GN target | 终态 `dll_stem` |
 | --- | --- | --- | --- | --- |
-| `SmtCore` | `core` | `base/core` | `core` (`//src/base/core:core`, alias `//src/base:core`) | `core` |
-| `SmtSysCore` | `sys` | `sys` | `sys` | `SmtSysCore` |
-| `SmtMathLib` | `math` | `algorithm/math` | `math` (group → geo) | *(absorbed)* `SmtGeoCore` |
-| `Smt3DMathLib` | `math3d` | `algorithm/math3d` | `math3d` (group → geo) | *(absorbed)* `SmtGeoCore` |
-| `SmtBaseLib` | `base` | `base/style` | `base` (`//src/base:base`) | `SmtBaseLib` |
-| `SmtGeoCore` | `geo` | `algorithm/geo` | `geo` | `SmtGeoCore` |
-| `Smt3DGeoCore` | `geo3d` | `algorithm/geo3d` | `geo3d` (group → geo) | *(absorbed)* `SmtGeoCore` |
-| `SmtGisCore` | `gis` | `sdb/{feature,layer,map}` | `gis` (`//src/sdb/map:gis`) | `SmtGisCore` |
-| `SmtGisPrj` | `proj` | `algorithm/proj` | `proj` | `SmtGisPrj` |
-| `SmtRender` | `render` | `render` | `render` | `SmtRender` |
-| `Smt3DRenderer` | `render3d` | `legacy_render/render3d` | `render3d` | `Smt3DRenderer` |
-| `SmtGdiRenderDevice` | `render_gdi` | `legacy_render/gdi` | `render_gdi` | `SmtGdiRenderDevice` |
-| `SmtGdiSimpleRenderDevice` | `render_gdi_simple` | `legacy_render/gdi_simple` | `render_gdi_simple` | `SmtGdiSimpleRenderDevice` |
-| `SmtGLRenderDevice` | `render_gl` | `legacy_render/gl` | `render_gl` | `SmtGLRenderDevice` |
-| `SmtD3DRenderDevice` | `render_d3d` | *(removed)* | — | D3D9/D3DX tree deleted; do not resurrect |
-| `SmtSDEDeviceMgr` | `sde_mgr` | `sdb/datasource/mgr` | `sde_mgr` | `SmtSDEDeviceMgr` |
-| `SmtSDEGdalDevice` | `sde_gdal` | `sdb/datasource/gdal` | `sde_gdal` | `SmtSDEGdalDevice` |
-| `SmtSDEMemDevice` | `sde_mem` | *(removed)* | — | MemTile 死工厂已切除；concrete 见 `sdb/tile` |
-| `SmtSDESmfDevice` | `sde_smf` | *(removed)* | — | 源码树已删；shapefile / GeoJSON / GPKG 经 `GDALOpenEx` / `SDBD` |
-| `SmtSDEWSDevice` | `sde_ws` | *(removed)* | — | 源码树已删；HTTP XYZ 见 `//src/sdb/tile:tile` |
-| `SmtToolCore` | `tool` | `legacy_tool` | `tool` (`//src/legacy_tool:tool`) | `SmtToolCore` |
-| `SmtGroupToolCore` | `tool_group` | `legacy_tool/group` | `tool_group` (`//src/legacy_tool/group:tool_group`) | `SmtGroupToolCore` |
-| — | `dispatch` | `tool` (`command` / `interaction` / `workspace`) | `dispatch` (`//src/tool:dispatch`) | — (source_set) |
-| — | `edit` | `sdb/edit` | `edit` | — (source_set) |
-| `SmtGuiCore` | `gui` | `ui/gui` | `gui` | `SmtGuiCore` |
-| `SmtMFCExCore` | `mfc_ex` | `ui/mfc_ex` | `mfc_ex` | `SmtMFCExCore` |
-| `SmtXViewCore` | `xview` | `ui/xview` | `xview` | `SmtXViewCore` |
-| `SmtXCatalogCore` | `xcatalog` | `ui/xcatalog` | `xcatalog` | `SmtXCatalogCore` |
-| `SmtXAMBoxCore` | `xambox` | `ui/xambox` | `xambox` | `SmtXAMBoxCore` |
-| — | `views` | `ui/views` | `views` (`//:ui_views`) | — (source_set stub) |
-| — | `skia` | `render/skia` | `skia` (`//:ui_views`) | — (source_set stub; no Skia tree) |
-| `SmtAuxModule` | `plugin` | `plugin` | `plugin` | `SmtAuxModule` |
-| `SmtAM3DModelCreater` | `plugin_model3d` | `plugin/model3d` | `plugin_model3d` | `SmtAM3DModelCreater` |
-| `SmtAMOrthogrid` | `plugin_orthogrid` | `plugin/orthogrid` | `plugin_orthogrid` | `SmtAMOrthogrid` (orthogrid UI + Eigen Laplace kernel; not `src_all`). Leftover AM stem `SmtAMBAOGridCreater` still maps to `smartgis.orthogrid`. |
-| `SmtAMDemCreater` | `plugin_dem` | `plugin/dem` | `plugin_dem` | `SmtAMDemCreater` |
-| `SmtAMMapPrint` | `plugin_print` | `plugin/print` | `plugin_print` | `SmtAMMapPrint` |
-| `SmtAMMapProject` | `plugin_proj` | `plugin/proj` | `plugin_proj` | `SmtAMMapProject` |
-| `SmartGis` | `app` | `app` | `app` | `SmartGis.exe` (`build.bat app`) |
-| `SmtAppCore` | `app_core` | `app/app_core` | `app_core` | `SmtAppCore` |
-| — | `views` (exe) | `app/views` | `views` (`//:ui_views`) | `SmartGisViews.exe` |
+| `SmtCore` | `core` | `base/core` | `core` → `//src/base:base` | `base` |
+| `SmtSysCore` | `sys` | `sys` | `sys` → `//src/base:base` | `base` |
+| `SmtMathLib` | `math` | `algorithm/math` | (absorbed into geo / algorithm) | `algorithm` |
+| `Smt3DMathLib` | `math3d` | `algorithm/math3d` | (absorbed) | `algorithm` |
+| `SmtBaseLib` | `base` | `base/style` | `base` (`//src/base:base`) | `base` |
+| `SmtGeoCore` | `geo` | `algorithm/geo` | `geo` → `//src/algorithm:algorithm` | `algorithm` |
+| `Smt3DGeoCore` | `geo3d` | `algorithm/geo3d` | (absorbed) | `algorithm` |
+| `SmtGisCore` | `gis` | `sdb/{feature,layer,map}` | `gis` → `//src/sdb:sdb` | `sdb` |
+| `SmtGisPrj` | `proj` | `algorithm/proj` | `proj` → `algorithm` | `algorithm` |
+| `SmtRender` | `render` | `render` / leftover bridge | endgame → `render`；bridge → `legacy_render` | `render` / `legacy_render` |
+| `Smt3DRenderer` | `render3d` | `legacy_render/render3d` | → `legacy_render` | `legacy_render` |
+| `SmtGdiRenderDevice` | `render_gdi` | `legacy_render/gdi` | → `legacy_render` | `legacy_render` |
+| `SmtGdiSimpleRenderDevice` | `render_gdi_simple` | `legacy_render/gdi_simple` | → `legacy_render` | `legacy_render` |
+| `SmtGLRenderDevice` | `render_gl` | `legacy_render/gl` | → `legacy_render` | `legacy_render` |
+| `SmtD3DRenderDevice` | `render_d3d` | *(removed)* | — | — |
+| `SmtSDEDeviceMgr` | `sde_mgr` | `sdb/datasource/mgr` | → `sdb` | `sdb` |
+| `SmtSDEGdalDevice` | `sde_gdal` | `sdb/datasource/gdal` | → `sdb` | `sdb` |
+| `SmtSDEMemDevice` | `sde_mem` | *(removed)* | — | — |
+| `SmtSDESmfDevice` | `sde_smf` | *(removed)* | — | — |
+| `SmtSDEWSDevice` | `sde_ws` | *(removed)* | — | — |
+| `SmtToolCore` | `tool` | `legacy_tool` | → `legacy_tool` | `legacy_tool` |
+| `SmtGroupToolCore` | `tool_group` | `legacy_tool/group` | sources → `ui_legacy`（避环） | `ui_legacy` |
+| — | `dispatch` | `tool` | `dispatch` | — (source_set) |
+| — | `edit` | `sdb/edit` | → `sdb` | `sdb` |
+| `SmtGuiCore` | `gui` | `ui/gui` | → `ui_legacy` | `ui_legacy` |
+| `SmtMFCExCore` | `mfc_ex` | `ui/mfc_ex` | → `ui_legacy` | `ui_legacy` |
+| `SmtXViewCore` | `xview` | `ui/xview` | → `ui_legacy` | `ui_legacy` |
+| `SmtXCatalogCore` | `xcatalog` | `ui/xcatalog` | → `ui_legacy` | `ui_legacy` |
+| `SmtXAMBoxCore` | `xambox` | `ui/xambox` | → `ui_legacy` | `ui_legacy` |
+| — | `views` | `ui/views` | `views` (`//:ui_views`) | — (source_set) |
+| — | `skia` | `render/skia` | → `render` / Views stub | `render` / source_set |
+| `SmtAuxModule` | `plugin` | `plugin` | `plugin` | `plugin` |
+| `SmtAM3DModelCreater` | `plugin_model3d` | `plugin/model3d` | `plugin_model3d` | `plugin_model3d` |
+| `SmtAMOrthogrid` | `plugin_orthogrid` | `plugin/orthogrid` | `plugin_orthogrid` | `plugin_orthogrid` |
+| `SmtAMDemCreater` | `plugin_dem` | `plugin/dem` | `plugin_dem` | `plugin_dem` |
+| `SmtAMMapPrint` | `plugin_print` | `plugin/print` | `plugin_print` | `plugin_print` |
+| `SmtAMMapProject` | `plugin_proj` | `plugin/proj` | `plugin_proj` | `plugin_proj` |
+| `SmartGis` | `app` | `app` | `app` | `SmartGis.exe` |
+| `SmtAppCore` | `app_core` | `app/app_core` | `app_core` | `app_core` |
+| — | `views` (exe) | `app/views` | `views` | `SmartGisViews.exe` |
 | — | `winui` | `app/winui` | `app_winui` | `SmartGisWinui.exe` |
-| `SmtTinMesh` | `tin` | `algorithm/tin` | `tin` | `SmtTinMesh` |
-| `Smt3DBaseLib` | `scene3d` | `legacy_render/scene3d` | `scene3d` | `Smt3DBaseLib` (leftover; optional `legacy_render_all`) |
-| — | `scene` | `render/scene` | `scene` | GPU cache (source_set) |
-| — | `model` / `scene` / `tile` | `sdb/model`, `sdb/scene`, `sdb/tile` | `model` / `scene` / `tile` | CPU assets + World + HTTP(S) XYZ/WMTS TileProvider（LRU + 可选磁盘） |
-| `Smt3DMdLib` | `model3d` | `legacy_render/model3d` | `model3d` | `Smt3DMdLib` (leftover; optional `legacy_render_all`) |
-| `Smt3DPointCloud` | `pointcloud` | `legacy_render/pointcloud` | `pointcloud` | `Smt3DPointCloud` |
-| `Smt3DTerrain` | `terrain` | `legacy_render/terrain` | `terrain` | `Smt3DTerrain` |
-| `SmtNetCore` | `net` | `net/{pack,http,rpc}` | `net` | `SmtNetCore` |
-| `SmtStaCore` | `stat` | `algorithm/stat` | `stat` | `SmtStaCore` |
-| `SmtStaDiagram` | `stat_chart` | `ui/chart` | `stat_chart` | `SmtStaDiagram` |
+| `SmtTinMesh` | `tin` | `algorithm/tin` | → `algorithm` | `algorithm` |
+| `Smt3DBaseLib` | `scene3d` | `legacy_render/scene3d` | → `legacy_render` | `legacy_render` |
+| — | `scene` | `render/scene` | → `render` | `render` |
+| — | `model` / `scene` / `tile` | `sdb/model`, `sdb/scene`, `sdb/tile` | → `sdb` | `sdb` |
+| `Smt3DMdLib` | `model3d` | `legacy_render/model3d` | → `legacy_render` | `legacy_render` |
+| `Smt3DPointCloud` | `pointcloud` | `legacy_render/pointcloud` | → `legacy_render` | `legacy_render` |
+| `Smt3DTerrain` | `terrain` | `legacy_render/terrain` | → `legacy_render` | `legacy_render` |
+| `SmtNetCore` | `net` | `net/{pack,http,rpc}` | → `base` | `base` |
+| `SmtStaCore` | `stat` | `algorithm/stat` | → `algorithm` | `algorithm` |
+| `SmtStaDiagram` | `stat_chart` | `ui/chart` | → `ui_legacy` | `ui_legacy` |
 
-`—` = no `BUILD.gn` yet (do not drop already-wired `src_all` deps). `app` is `//src/app:app` → `out/SmartGis.exe`; keep it out of `src_all` so the daily `build.bat` DLL set stays green without loading the MFC graph. After algorithm modernization, `SmtMathLib` / `Smt3DMathLib` / `Smt3DGeoCore` / `SmtDemCore` are not separate outputs (`SmtDemCore` is gone; heightmap I/O is `plugin/dem` + GDAL).
+`app` 不进默认 `src_all`。Debug 文件名为 `{stem}_d.dll`。完整对照见 [`abi-rename-map.md`](abi-rename-map.md)。
 
 Repo-root `//core:core` aliases `//src/base:core`; `//core:core_all` still aliases `//src:src_all`. Neither is the product source tree.
 
@@ -150,7 +164,7 @@ Include dirs in `//build:smt_legacy` still point at **each leftover module root*
 | New (`content`, `gpu`, `app/{views,winui}`, `ui/views`, `render/{skia,rhi,scene}`, `sdb/{model,scene}`, `net`) | `snake_case` | `.cc` / `.h` (`net` keeps `.cpp`) | `"content/public/map_view.h"`, `"ui/views/view.h"`, `"gpu/gpu.h"`, `"render/rhi/rhi.h"`, `"sdb/scene/scene.h"`, `"net/http/http.h"` (`//src` on the include path) |
 | Legacy product (`app` MFC, `ui/{gui,mfc_ex,xview,…}`, `plugin/*`, …) | `snake_case` | keep `.cpp` | still module-root `"main_frame.h"` / `"grid_ctrl.h"` |
 
-- Drop file prefixes (`smt_`, `vw_`, `cata_`, `baog_`, `msvr_`, `am_`, `gt_`, `wa_`, `bl_`, `rd_`, plus module tags `gis_` / `geo_` / `sde_`). **DLL stems**, `Export_Smt*`, and `Smt_*` namespaces stay.
+- Drop file prefixes (`smt_`, `vw_`, `cata_`, `baog_`, `msvr_`, `am_`, `gt_`, `wa_`, `bl_`, `rd_`, plus module tags `gis_` / `geo_` / `sde_`). On-disk **DLL stems** follow reorg 终态（[`abi-rename-map.md`](abi-rename-map.md)）；legacy `Smt_*` 命名空间仍可能存在直至 ABI cutover 收尾。
 - CRT collisions keep a short qualifier (`core_assert.h`, `net_string.h`), not the old prefix.
 - `stdafx` / `targetver` / `resource.h` keep those conventional names.
 

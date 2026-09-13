@@ -5,11 +5,11 @@ All rights reserved.
 
 # ABI / include rename map (cutover)
 
-Spec: [`../superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md`](../superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md)
+Spec (include/ABI cutover): [`../superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md`](../superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md)  
+Spec (DLL reorg): [`../superpowers/specs/2026-09-14-dll-reorganization-design.md`](../superpowers/specs/2026-09-14-dll-reorganization-design.md)  
+Plan: [`../superpowers/plans/2026-09-14-dll-reorganization.md`](../superpowers/plans/2026-09-14-dll-reorganization.md)
 
-Status: **in progress** (big-bang on `master`). Mechanical include/dll_stem/Export/namespace cutover landed; full `src_all` green and complete snake_case call-site sync still open — see plan Task 9.
-
-**Next DLL merge (accepted, not yet applied):** short stems below are the cutover names. Platform reorg collapses many of them into layer stems (`base` / `sdb` / `algorithm` / `render` / `ui_legacy`, plus optional `legacy_render` / `legacy_tool`). Map: [`../superpowers/specs/2026-09-14-dll-reorganization-design.md`](../superpowers/specs/2026-09-14-dll-reorganization-design.md).
+Status: **in progress** (include/snake_case cutover still open). **DLL reorg Phase 1 已落地**（`base` / `sdb` / `algorithm` / `render` / `ui_legacy` + optional `legacy_render` / `legacy_tool`）；Phase 2 插件 stem 保持不变。
 
 ## Include root
 
@@ -17,11 +17,82 @@ Status: **in progress** (big-bang on `master`). Mechanical include/dll_stem/Expo
 - Form: `#include "layer/module/file.h"`.
 - No per-module `include_dirs` in `//build:legacy`.
 
-## dll_stem + export macros
+## Debug / Release 文件名（`_d`）
 
-Debug on-disk names append `_d` (`base_d.dll` / `base_d.lib`), not a trailing capital `D` (legacy form was `xxxD.dll`). Release stays `xxx.dll` / `xxx.lib`. Rule lives in `smt_shared_library` (`build/smartgis.gni`).
+`smt_shared_library`（`build/smartgis.gni`）：
 
-| Old dll_stem | New dll_stem | Old define | New define / export macro family |
+| 配置 | 磁盘文件 |
+| --- | --- |
+| Release | `{dll_stem}.dll` / `{dll_stem}.lib` |
+| Debug | `{dll_stem}_d.dll` / `{dll_stem}_d.lib` |
+
+例：`base_d.dll`、`ui_legacy_d.dll`。**不是**尾缀大写 `D`（旧形 `xxxD.dll` 已退役）。头文件 `#pragma comment(lib, …)` 与 `GetModuleHandle` 字符串跟同一规则。
+
+## DLL reorg 终态（Phase 1 / 2）
+
+一层一平台 DLL；optional leftover 独立；**每插件仍一 DLL**。细 `source_set` / 旧 GN 标签经 `group` 转发到新 DLL。核对自 2026-09-14 `BUILD.gn` `dll_stem`。
+
+| 终态 `dll_stem` | 吸收的 cutover 短名 / 树 | 门控 / 备注 | 状态 |
+| --- | --- | --- | --- |
+| `base` | `core`, `style`, `sys`, `net`；`ipc` / `archive` source_set 链入 | 默认 `src_all` | **完成** |
+| `algorithm` | `geo`, `proj`, `tin`, `stat` | 默认 `src_all` | **完成** |
+| `sdb` | `gis`, `sde_mgr`, `sde_gdal`；`tile` / `model` / `scene` / `edit` source_set 链入 | 默认 `src_all`；已切断 → `legacy_render` | **完成** |
+| `render` | endgame `src/render/{rhi,scene,skia,…}` | 默认 `src_all`；**不含** `legacy_render/**` | **完成** |
+| `ui_legacy` | `gui`, `mfc_ex`, `xview`, `xcatalog`, `xambox`, `stat_chart`（另含 `tool_group_sources` 以免与 `legacy_tool` 环依赖） | `smt_build_app` / `build.bat ui_legacy`；不进默认 `src_all`；产物 `ui_legacy_d.dll` | **完成** |
+| `legacy_render` | leftover `render` bridge、`render3d`、`render_gdi`、`render_gdi_simple`、`render_gl`、`scene3d`、`model3d`、`pointcloud`、`terrain` | optional；不进默认 `src_all` | **完成** |
+| `legacy_tool` | `tool`（`tool_group` 源链入 `ui_legacy`，见上） | optional；不进默认 `src_all` | **完成** |
+| `plugin_dem` / `plugin_proj` / `plugin_print` / `plugin_model3d` / `plugin_orthogrid` | （不变） | Phase 2：每插件一 DLL | **保持** |
+| `plugin` | leftover AuxModule 运行时 | Phase 2 | **保持** |
+| `app_core` | （不变） | app-gated；本轮不强制并入平台 | **保持** |
+
+仍为 **source_set**（不成产品 DLL）：`content`、`tool/dispatch`、`plugin/host`、`ui/views`。可选 leftover：`leftover_attr`（`sdb/map`）。已移除 stem：`sde_mem` / `sde_smf` / `sde_ws` 等。
+
+### Cutover 短名 → reorg 终态
+
+| Cutover `dll_stem` | 终态 `dll_stem` | Phase |
+| --- | --- | --- |
+| `core` | `base` | 1 |
+| `style` | `base` | 1 |
+| `sys` | `base` | 1 |
+| `net` | `base` | 1 |
+| `gis` | `sdb` | 1 |
+| `sde_mgr` | `sdb` | 1 |
+| `sde_gdal` | `sdb` | 1 |
+| `geo` | `algorithm` | 1 |
+| `proj` | `algorithm` | 1 |
+| `tin` | `algorithm` | 1 |
+| `stat` | `algorithm` | 1 |
+| *(endgame render / rhi / skia / scene SS)* | `render` | 1 |
+| `gui` | `ui_legacy` | 1 |
+| `mfc_ex` | `ui_legacy` | 1 |
+| `xview` | `ui_legacy` | 1 |
+| `xcatalog` | `ui_legacy` | 1 |
+| `xambox` | `ui_legacy` | 1 |
+| `stat_chart` | `ui_legacy` | 1 |
+| `render` (bridge leftover), `render3d`, `render_gdi`, `render_gdi_simple`, `render_gl`, `scene3d`, `model3d`, `pointcloud`, `terrain` | `legacy_render` | 1 optional |
+| `tool` | `legacy_tool` | 1 optional |
+| `tool_group` | `ui_legacy`（源） / 标签仍可 group 转发 | 1 实现例外 |
+| `plugin_dem` … `plugin_orthogrid` | *(unchanged)* | 2 |
+| `plugin` | *(unchanged)* | 2 |
+| `app_core` | `app_core` | — |
+
+### Export 宏（终态 DLL）
+
+| DLL | Build define | Header macro | 迁移期旧宏 |
+| --- | --- | --- | --- |
+| `base` | `BASE_EXPORTS` | `BASE_EXPORT` | `CORE_*` / `STYLE_*` / `SYS_*` / `NET_*` 可别名或双 define |
+| `sdb` | `SDB_EXPORTS` | `SDB_EXPORT` | `GIS_*` / `SDE_*` |
+| `algorithm` | `ALGORITHM_EXPORTS` | `ALGORITHM_EXPORT` | `GEO_*` / `PROJ_*` / `TIN_*` / `STAT_*` |
+| `render` | `RENDER_EXPORTS` | `RENDER_EXPORT` | — |
+| `ui_legacy` | `UI_LEGACY_EXPORTS` | `UI_LEGACY_EXPORT` | `GUI_*` / `MFC_EX_*` / `XVIEW_*` / … |
+| `legacy_render` | `LEGACY_RENDER_EXPORTS` | `LEGACY_RENDER_EXPORT` | 各 leftover `*_EXPORT` |
+| `legacy_tool` | `LEGACY_TOOL_EXPORTS` | `LEGACY_TOOL_EXPORT` | `TOOL_*` |
+
+## 历史：2010 `Smt*` → cutover 短名
+
+下表保留 cutover 大爆炸对照（`Smt*` → 短 stem）。**磁盘上的最终文件名以「DLL reorg 终态」为准**（短名多数已并入层 stem）。
+
+| Old dll_stem | Cutover dll_stem | Old define | Cutover define / export macro family |
 | --- | --- | --- | --- |
 | SmtCore | core | CORE_EXPORT | CORE_EXPORT (define `Export_core` → prefer `CORE_EXPORT` in headers) |
 | SmtBaseLib | style | STYLE_EXPORT | STYLE_EXPORT |
@@ -64,7 +135,7 @@ Debug on-disk names append `_d` (`base_d.dll` / `base_d.lib`), not a trailing ca
 | SmtAMMapProject | plugin_proj | — | — |
 | SmtAppCore | app_core | APP_CORE_EXPORT | APP_CORE_EXPORT |
 
-GN `defines` for export: use the **new export macro name** as the define that means “building this DLL” (same pattern as old `Export_Smt*`: defined → dllexport). Headers:
+GN `defines` for export: use the **export macro name** as the define that means “building this DLL”. Headers:
 
 ```cpp
 #if defined(CORE_EXPORTS)
@@ -74,7 +145,7 @@ GN `defines` for export: use the **new export macro name** as the define that me
 #endif
 ```
 
-Cutover may keep the old `#if !defined(Export_…)` shape temporarily by renaming the token to the new export macro identifier used as both guard and define — prefer `FOO_EXPORTS` in GN + `FOO_EXPORT` in headers when touching a file.
+合并后的层 DLL 在 GN 上同时定义新 `FOO_EXPORTS` 与旧子模块 `*_EXPORTS`，直到头文件统一到层宏。
 
 ## Basename collisions (must disambiguate)
 
@@ -110,7 +181,7 @@ Cutover may keep the old `#if !defined(Export_…)` shape temporarily by renamin
 | SmtAM3DModelCreater | plugin_model3d |
 | SmtAMOrthogrid / SmtAMBAOGridCreater | plugin_orthogrid |
 
-Stable plugin ids (`smartgis.dem`, …) stay.
+Stable plugin ids (`smartgis.dem`, …) stay. Phase 2：**不**把域插件并入平台 DLL。
 
 ## Tools
 
@@ -120,4 +191,4 @@ Stable plugin ids (`smartgis.dem`, …) stay.
 
 ---
 
-**最后更新：** 2026-09-13
+**最后更新：** 2026-09-14

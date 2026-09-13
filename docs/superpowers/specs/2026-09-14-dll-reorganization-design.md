@@ -6,7 +6,7 @@ All rights reserved.
 # DLL reorganization (platform layer merge + plugin hot-load)
 
 **Date:** 2026-09-14  
-**Status:** accepted  
+**Status:** accepted（Phase 1 平台 DLL + optional leftover + 文档回写已落地；归档待 Phase 2 核对后另变更集）  
 **Goal:** D — 部署精简 + 架构分层对齐 + 插件热加载模型；允许分阶段。  
 **Granularity:** C — 终态拓扑同「一层一 DLL」；落地只改 `shared_library` / `dll_stem` / export，GN 内保留细 `source_set`。  
 **Related:** [`../../build/src-layout.md`](../../build/src-layout.md)、[`../../build/abi-rename-map.md`](../../build/abi-rename-map.md)、[`2026-09-13-code-style-include-abi-cutover-design.md`](2026-09-13-code-style-include-abi-cutover-design.md)、[`2026-09-14-plugin-subdir-layout-design.md`](2026-09-14-plugin-subdir-layout-design.md)、[`2026-09-13-plugin-host-design.md`](2026-09-13-plugin-host-design.md)  
@@ -159,12 +159,10 @@ Removed stems stay removed (`sde_mem` / `sde_smf` / `sde_ws` 等)。
 1. 子模块旧宏（`CORE_EXPORT` / `GIS_EXPORT` / …）在合并后的 DLL 内 **别名到** 新宏（`#define CORE_EXPORT BASE_EXPORT`），避免一次改完所有头文件；
 2. 或 GN 同时定义旧 `*_EXPORTS` 与新 `BASE_EXPORTS`，直到调用方清扫完毕。
 
-插件域宏（`PLUGIN_*`）Phase 2 不动原则。与 [`abi-rename-map.md`](../../build/abi-rename-map.md) 的关系：该表记录 **cutover 短名**；本 spec 记录 **下一轮合并后的 stem**。实现落地后应回写 abi-rename-map 增加「reorg 终态」列或附录（同变更集）。
-
+插件域宏（`PLUGIN_*`）Phase 2 不动原则。与 [`abi-rename-map.md`](../../build/abi-rename-map.md) 的关系：该表保留 **2010→cutover 短名**，并含 **reorg 终态** 附录（已与 Phase 1 落地对齐）。
 ## Relation to `src-layout`
 
-[`src-layout.md`](../../build/src-layout.md) 描述目录与 GN 标签分层。本 spec **覆盖**其中「Deliberately not merged」里「core + style 两 DLL / proj·tin 保持各自 DLL」等 **DLL 粒度**陈述：目录布局不变，**磁盘 DLL 改为上表**。实现后 src-layout 应改为「一层一 DLL + optional leftover」并指向本 spec。
-
+[`src-layout.md`](../../build/src-layout.md) 描述目录与 GN 标签分层。本 spec **覆盖**其中旧「core + style 两 DLL / proj·tin 各自 DLL」等 **DLL 粒度**陈述：目录布局不变，**磁盘 DLL 为一层一 DLL + optional leftover**。Phase 1 落地后 src-layout / abi-rename-map 已回写终态表。
 ## Non-goals
 
 - 不改目录树 / nesting cap；不重开全仓 include 路径大爆炸（cutover 另案）。
@@ -182,8 +180,7 @@ Removed stems stay removed (`sde_mem` / `sde_smf` / `sde_ws` 等)。
 4. **ui_legacy:** 仅在 `smt_build_app` 图合并。
 5. **optional:** `legacy_render` / `legacy_tool` 各收成一 DLL + `*_all` group。
 6. **Verify:** `src_all` 不链 leftover；`build.bat app` 仍可链 `ui_legacy`；插件 LoadLibrary 路径仍指向 Phase 2 stems。
-7. **Docs:** 回写 abi-rename-map + src-layout DLL 段；归档本 spec 当落地完成后。
-
+7. **Docs:** 回写 abi-rename-map + src-layout DLL 段（**已完成** Task 9）；归档本 spec 当 Phase 2 核对完成后。
 ## Success criteria
 
 - 默认 `src_all` 平台共享库约 **`base` + `sdb` + `algorithm` + `render`**（+ 既有 source_set）；不再为 core/style/sys/net/gis/sde_*/geo/proj/tin/stat 各产一 DLL。

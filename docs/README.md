@@ -19,7 +19,7 @@ mogu 源树本机未检出（常见路径 `c:\Dev\src\mogu`、WSL `/home/ccl/dev
 | [`src/README.md`](../src/README.md) | 产品树分层（短名） |
 | [`build/mogu-mapping.md`](build/mogu-mapping.md) | mogu → 本仓工程管理对照 |
 | [`build/src-layout.md`](build/src-layout.md) | `src/` 分层 + 2010→短名表 |
-| [`build/abi-rename-map.md`](build/abi-rename-map.md) | include / dll_stem / 导出宏 / 命名空间切断对照表 |
+| [`build/abi-rename-map.md`](build/abi-rename-map.md) | include / dll_stem / 导出宏；含 DLL reorg 终态（一层一 DLL + `_d`） |
 | [`build/ui-views-skia.md`](build/ui-views-skia.md) | 桌面 UI 终局：Views + Skia |
 | [`build/ui-shell-multiprocess.md`](build/ui-shell-multiprocess.md) | 可替换 chrome + 多进程渲染 |
 | [`superpowers/specs/2026-09-13-ogr-db-datasource-design.md`](superpowers/specs/2026-09-13-ogr-db-datasource-design.md) | 用 GDAL/OGR 替换 ADO 数据库数据源（PostGIS / GeoPackage） |
@@ -39,7 +39,8 @@ mogu 源树本机未检出（常见路径 `c:\Dev\src\mogu`、WSL `/home/ccl/dev
 | [`superpowers/specs/2026-09-13-plugin-host-design.md`](superpowers/specs/2026-09-13-plugin-host-design.md) | 插件层：PluginHost / Registry / Views / Python / store |
 | [`superpowers/specs/2026-09-14-plugin-full-upgrade-design.md`](superpowers/specs/2026-09-14-plugin-full-upgrade-design.md) | 插件全面升级：Views 切轨 → 退役 MFC 壳 → 风格/ABI → 域能力 |
 | [`superpowers/specs/2026-09-14-plugin-subdir-layout-design.md`](superpowers/specs/2026-09-14-plugin-subdir-layout-design.md) | 插件子目录：`host/` + `legacy/<domain>/` + 产品域 |
-| [`superpowers/specs/2026-09-14-dll-reorganization-design.md`](superpowers/specs/2026-09-14-dll-reorganization-design.md) | 动态库重组：一层一 DLL（手法 C）+ 插件热加载分阶段 |
+| [`superpowers/specs/2026-09-14-dll-reorganization-design.md`](superpowers/specs/2026-09-14-dll-reorganization-design.md) | 动态库重组：一层一 DLL（手法 C）；Phase 1 已落地 |
+| [`superpowers/plans/2026-09-14-dll-reorganization.md`](superpowers/plans/2026-09-14-dll-reorganization.md) | 实现计划：平台 DLL 合并 + 文档回写 |
 | [`superpowers/plans/2026-09-14-plugin-full-upgrade.md`](superpowers/plans/2026-09-14-plugin-full-upgrade.md) | 实现计划：PluginChrome + DEM 无 MFC 内核 + 并行车道 |
 | [`superpowers/specs/2026-09-13-ui-views-controls-design.md`](superpowers/specs/2026-09-13-ui-views-controls-design.md) | Views 公共工具箱 vs `src/app/views` 组合；控件 + GIS 面板 |
 | [`superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md`](superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md) | leftover MFC chrome → `ui::views`（`SmartGisViews.exe` 唯一入口；Splitter + tabs） |
@@ -70,7 +71,7 @@ mogu 源树本机未检出（常见路径 `c:\Dev\src\mogu`、WSL `/home/ccl/dev
 
 系统按五层拆：`app`（产品壳）、`content`（稳定 API）、`sdb`（要素/图层/地图文档/数据源；图层开闭与要素 I/O 经 GDAL Dataset/Layer）、`render`（2D+3D + RHI）、`base`（原 core + 包络/样式）。没有 WebGIS / mapd / WMS 栈；发布与图层 I/O 走 `sdb`。终局桌面壳是 Views + Skia。
 
-3D/2D 地图 GPU 走 `src/render/rhi`（FlyCube DX12/Vulkan Facade）。逻辑模型与 World 在 `src/sdb/{model,scene}`；GPU 实例缓存在 `src/render/scene`。遗留 `scene3d` / `model3d` / GL 设备仍在 `src_all`。三层深度与 leftover 映射：[`superpowers/specs/2026-09-13-model-render-compute-design.md`](superpowers/specs/2026-09-13-model-render-compute-design.md)。核心地图文档在 `src/sdb/map`（`SmtMap`）。
+3D/2D 地图 GPU 走 `src/render/rhi`（FlyCube DX12/Vulkan Facade）。逻辑模型与 World 在 `src/sdb/{model,scene}`；GPU 实例缓存在 `src/render/scene`。遗留 `scene3d` / `model3d` / GL 设备在 optional `legacy_render` DLL，**不**进默认 `src_all`。三层深度与 leftover 映射：[`superpowers/specs/2026-09-13-model-render-compute-design.md`](superpowers/specs/2026-09-13-model-render-compute-design.md)。核心地图文档在 `src/sdb/map`（`SmtMap`）。平台磁盘 DLL：`base` / `sdb` / `algorithm` / `render`（+ app-gated `ui_legacy`）；见 [`build/abi-rename-map.md`](build/abi-rename-map.md)。
 
 ---
 
