@@ -7,18 +7,21 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** draft (awaiting review)  
-**Scope:** one implementation plan. Move host transport out of `content/common/ipc.h` into `src/base/ipc`, adopt Chromium Mojo (static embedder + **mojom generator in v1**), and name the multiprocess map stack like Chromium `WebContents` / `RenderProcessHost` / `Widget`.
+**Scope:** one implementation plan. Move host transport out of `content/common/ipc.h` into `src/base/ipc`, adopt Chromium Mojo (static embedder + **mojom generator in v1**), name the multiprocess map stack like Chromium `WebContents` / `RenderProcessHost` / `Widget`, and use **one PE with Chromium `--type=` entry points** (no `SmartGisRender.exe`).
 
 ## Goal
 
-Windows OOP map rendering uses **real Chromium Mojo**: invitation, message pipes, first-class `handle` transfer (DXGI NT handle / DIB section), and **generated C++ bindings from `.mojom`**. Chrome processes talk only to `content::MapContents`. Pixel present stays in `src/gpu` (not viz). Language floor is **C++23 for the whole tree**.
+Windows OOP map rendering uses **real Chromium Mojo** and Chromium's **single-binary multiprocess** model: one `SmartGis.exe`, `content::ContentMain`, children relaunch the same image with `--type=`. A **standalone GPU process** (`--type=gpu`) owns all **2D and 3D** map painting (GL / D3D11 / scene3d). The browser only presents. Language floor is **C++23 for the whole tree**.
 
 ## Non-goals
 
-- Do not vendor Blink, `content/` from Chromium, `gpu/` viz, `ui/views` from Chromium, or Skia wholesale.
+- Do not vendor Blink, Chromium `content/`, viz, Chromium `ui/views`, or Skia wholesale.
 - Do not put Chromium `base/` on the include path of `SmtCore` / `src_all` 31 DLLs.
-- Do not replace `SmartGisRender.exe` with Chromium's GPU command buffer.
-- Do not put `kIoCall` on the map widget pipe (that is a second invitation pipe in v1.5).
+- Do not ship a second map image (`SmartGisRender.exe`). Children are `SmartGis.exe --type=…`.
+- Do not run `SmtRenderDevice`, GL, D3D11, or 3D engines in the browser process.
+- Do not put 2D and 3D on different GPU processes (one GPU process, N surfaces, mixed `ViewKind`).
+- Do not replace present with Chromium viz / command buffer.
+- Do not put `kIoCall` on the map widget pipe (that is `--type=utility` in v1.5).
 - Do not keep expanding `HostMsg` / `FrameHeader` on the Mojo path.
 - Qt is banned.
 
@@ -35,32 +38,59 @@ Traits in this spec may use C++20 concepts, `requires`, `if constexpr`, and C++2
 
 ## Architecture
 
+One product image, Chromium `ContentMain` dispatch:
+
 ```
-chrome exe (Web / WinUI / Views / leftover MFC)
-  MapContents                    // public, like WebContents
-  MapContentsObserver
-  MapWidgetHostView             // present HWND / swap chain
-       │  does not include mojo headers
-       v
-content (internal)
-  MapRenderProcessHost          // invitation + Job + child
-  MapWidgetHost                 // per surface, Forward* input
-  MapMojoPipe<kBrowser>
-       │  generated content.mojom.MapWidget / MapWidgetHost
-       v
-third_party/chromium (pin)
-  base + mojo/core + mojo/public + mojom tools + abseil + jinja2
-       │  static link into chrome exe + SmartGisRender.exe only
-       v
-SmartGisRender.exe
-  MapMojoPipe<kRenderer>
-  gpu::MapWidget                // implements MapWidget
-  PresentBackendTraits<>        // DXGI / DIB / child HWND
+out/SmartGis.exe                          # same PE
+  (default / --type=browser)             BrowserMain — Views chrome
+  --type=renderer                         RendererMain — SmtMap / SmtIATool
+  --type=gpu                              GpuMain — D3D11/GL present
+  --type=utility                          UtilityMain — reserved (IO/SDE)
 ```
 
-Bootstrap is Chromium `PlatformChannel` + `OutgoingInvitation` / `IncomingInvitation`, not `CreateNamedPipe(\\.\pipe\smartgis-host-<pid>)` polling. Command line: `--parent-pid` `--session` `--mojo-platform-channel-handle=<int>`. Drop `--pipe=` on the Mojo path.
+```
+Browser (no --type)
+  MapContents / MapWidgetHostView          present only
+  RendererProcessHost + GpuProcessHost     two children, always
+       │
+       ├─ SmartGis.exe --type=renderer     SmtMap / SmtIATool (CPU)
+       │    MapWidget  (input, tools, catalog)
+       │
+       └─ SmartGis.exe --type=gpu         2D + 3D paint + DXGI handle
+            Gpu / GpuHost                  one device, N surfaces
+```
 
-Same-revision parent and child **statically** link `mojo::core::Init` + IO thread + `ScopedIPCSupport`. Dynamic `mojo_core.dll` is not v1 (bindings already require Chromium `base` in the exe).
+`--ui=views|web|winui` is **browser-only**. Child processes never load WebView2, WinUI, MFC, or Views chrome. Leftover `build.bat app` MFC exe is not the multiprocess image.
+
+`RendererProcessHost::Launch` / `GpuProcessHost::Launch` use `GetModuleFileNameW(nullptr)`, copy the browser command line, set `--type=renderer` or `--type=gpu`, append `--mojo-platform-channel-handle=`. Never a different `output_name`. Product topology is **always two children** (Chromium Windows). `--in-process-gpu` is debug-only and **default off**.
+
+## Single binary / ContentMain
+
+```
+wWinMain → content::ContentMain(ContentMainParams)
+             CommandLine --type=
+             kBrowser   → BrowserMain
+             kRenderer  → RendererMain
+             kGpu       → GpuMain
+             kUtility   → UtilityMain
+```
+
+Switch names match Chromium: `--type=renderer`, `--type=gpu`, `--type=utility`. Browser is the default (omit `--type` or `--type=browser`).
+
+| Chromium | This repo |
+| --- | --- |
+| `chrome.exe` | `out/SmartGis.exe` |
+| `--type=renderer` | `SmtMap` + `SmtIATool` only. **No** D3D/GL device |
+| `--type=gpu` | **Required** child. One GPU device paints **2D and 3D** (`kMapEdit` / `kMapData` / `kScene3d`) |
+| `--type=utility` | future IO/SDE payload |
+| `--in-process-gpu` | GPU Main inside renderer. **Default off.** Debug / CI only |
+| `--in-process-renderer` | all Mains in the browser (dev only, default off) |
+
+Default launch: Browser starts **Renderer and GPU**. `GpuProcessHost` and `RendererProcessHost` both exist in v1. Present and `Smt*Render*` / `scene3d` / `terrain` / `pointcloud` run only in `GpuMain`.
+
+GN: one `executable("smartgis")` links browser + renderer + gpu + utility mains (like Chromium `chrome`). `src_all` stays 31 DLLs and does not link this exe. `build.bat render` becomes `out\SmartGis.exe --type=renderer --self-test` (and `--type=gpu --self-test`). Retire `//src/gpu:gpu` as a separate `console_app`.
+
+Same-revision parent and child **statically** link `mojo::core::Init` + IO thread + `ScopedIPCSupport`. Dynamic `mojo_core.dll` is not v1.
 
 Escape hatch: if the Chromium pin is missing, freeze today's named pipe + `HostMsg` and do not run it at the same time as an invitation. New fields are added only in `.mojom`.
 
@@ -72,14 +102,19 @@ Escape hatch: if the Chromium pin is missing, freeze today's named pipe + `HostM
 | `content::MapContents` | Public session API (today `MapSession`) | `MapRenderProcessHost` |
 | `MapContentsObserver` | Frame / extent / death callbacks | none (chrome implements) |
 | `MapWidgetHostView` | Public viewport; `latest()` shared surface | `MapWidgetHost` |
-| `MapRenderProcessHost` | `CreateProcess`, Job `KILL_ON_JOB_CLOSE`, invitation | `base::ipc` |
-| `MapWidgetHost` | Per-view proxy; `ForwardMouseEvent` / `ForwardWheelEvent` / `ForwardKeyboardEvent` | `Remote<MapWidget>` |
-| `content.mojom` | IDL + generated C++ | slim `build/mojom.gni` |
-| `gpu::MapWidget` | Child implementation of `MapWidget` | present traits + Smt adapter |
+| `content::ContentMain` | `wWinMain` dispatch on `--type=` | app + content |
+| `RendererProcessHost` | Launch `SmartGis.exe --type=renderer`, Job, invitation | `base::ipc` |
+| `GpuProcessHost` | Always launch `--type=gpu`; TDR restarts this process only | `base::ipc` |
+| `MapWidgetHost` | Per-view proxy; `Forward*` input to **renderer** | `Remote<MapWidget>` |
+| `content.mojom` | `MapWidget` / `MapWidgetHost` | slim `build/mojom.gni` |
+| `gpu.mojom` | `Gpu` / `GpuHost` — surfaces, 2D/3D paint, `FrameReady` | slim `build/mojom.gni` |
+| `gpu::GpuMain` | `--type=gpu` entry; 2D+3D backends | `src/gpu`, `src/render/*` |
+
+`MapRenderProcessHost` is an alias for `RendererProcessHost` during the rename; do not keep both in public headers.
 
 Public headers stay under `src/content/public/` (no `public/browser/` third nest). Includes look Chromium-like: `"content/public/map_contents.h"`.
 
-`//src:src_all` does **not** depend on Chromium `base` or mojom generation. `map_contents` implementation and `gpu` link Chromium only when `smt_build_render` / chrome exes are on.
+`//src:src_all` does **not** depend on Chromium `base` or mojom generation. Chromium `base` + mojo link only into `SmartGis.exe`.
 
 ## Chromium naming
 
@@ -89,22 +124,25 @@ Public headers stay under `src/content/public/` (no `public/browser/` third nest
 | `MapSessionClient` | `content::MapContentsObserver` |
 | `create_map_session()` | `MapContents::Create()` |
 | `MapView` | `content::MapWidgetHostView` |
-| hidden pipe owner | `content::MapRenderProcessHost` |
+| hidden pipe owner | `content::RendererProcessHost` (`GpuProcessHost` for `--type=gpu`) |
 | per `view_id` | `content::MapWidgetHost` |
 | `ToolRouter` | methods on `MapWidgetHost` (optional typedef during the move) |
 | mojom `MapHost` (UI→R) | `content.mojom.MapWidget` |
 | mojom `MapClient` (R→UI) | `content.mojom.MapWidgetHost` |
-| `gpu` surface slot | `gpu::MapWidget` |
+| `gpu` surface slot | `gpu::GpuMain` + `gpu.mojom.Gpu` |
 
 Delete `map_session.h` / `map_view.h` / `tool_router.h` after hosts are updated. No long-lived aliases.
 
-**Method names on this stack are PascalCase** (`StartRenderProcess`, `OpenView`, `AttachSurface`), matching Chromium. `Smt_*` ABI stays as today.
+**Method names on this stack are PascalCase** (`StartRenderProcess`, `OpenView`, `AttachSurface`), matching Chromium. `Smt_*` ABI stays as today. Launch helpers are `RendererProcessHost::Init` and `GpuProcessHost::Init`.
 
 ### Mojo polarity
 
 ```
-UI:   Remote<MapWidget>     + Receiver<MapWidgetHost>
-GPU:  Receiver<MapWidget>   + Remote<MapWidgetHost>
+Browser:  Remote<MapWidget>  + Receiver<MapWidgetHost>   // renderer
+          Remote<Gpu>        + Receiver<GpuHost>         // gpu
+Renderer: Receiver<MapWidget> + Remote<MapWidgetHost>
+          Remote<Gpu>                                   // paint submit
+GPU:      Receiver<Gpu>      + Remote<GpuHost>
 ```
 
 ## Mojom surface (`src/content/public/mojom/map_widget.mojom`)
@@ -113,27 +151,47 @@ GPU:  Receiver<MapWidget>   + Remote<MapWidgetHost>
 
 Shared types: `ViewKind`, `PresentMode`, `Extent2`, `PointerEvent`, `FeatureId`, `GpuCaps`, `FramePixels` (`generation`, `width_px`, `height_px`, `format`, `handle pixels`).
 
-**MapWidget** (browser → renderer): `Hello() => (GpuCaps)`, `OpenView(ViewKind) => (uint32 view_id)` (**id assigned in GPU**), `CloseView`, `AttachSurface(view_id, PresentMode, handle? parent_hwnd)`, `ResizeSurface`, `SetVisible`, `SetExtent`, `SetSelection`, `LegendQuery`, `CatalogOp(string json)`, `ActivateTool`, `DispatchPointer`, `DispatchText`, `PluginCall`, `PrintRequest`, `ResetGpu`, `Shutdown`.
+**MapWidget** (browser → renderer): `Hello() => (RendererCaps)`, `OpenView(ViewKind) => (uint32 view_id)` (**id assigned in renderer**), `CloseView`, `SetExtent`, `SetSelection`, `LegendQuery`, `CatalogOp(string json)`, `ActivateTool`, `DispatchPointer`, `DispatchText`, `PluginCall`, `PrintRequest`, `Shutdown`.
 
-**MapWidgetHost** (renderer → browser): `ViewReady`, `FrameReady(view_id, FramePixels, uint64 fence, uint32 cursor_hint)` (**absorbs old `kSharedHandle`**), `ExtentChanged`, `SelectionChanged`, `LegendSnapshot`, `CatalogDelta`, `PluginEvent`, `PrintPage(handle page_dib, string meta_json)`, `ViewCursor`, `ContextMenu`, `RenderDied`.
+**MapWidgetHost** (renderer → browser): `ViewReady`, `ExtentChanged`, `SelectionChanged`, `LegendSnapshot`, `CatalogDelta`, `PluginEvent`, `ViewCursor`, `ContextMenu`, `RendererDied`.
 
-`HelloAck` is the `Hello()` reply. `kIoCall` is not on this pipe.
+`AttachSurface` / `ResizeSurface` / `FrameReady` / `ResetGpu` live on **`gpu.mojom`**, not on `MapWidget`. `kIoCall` is not on either pipe.
 
 Fire-and-forget: extent and pointer. Reply + 15s timeout: `Hello`. Reply + 30s: `OpenView`. Timeouts must not block the UI thread (bindings on the IO thread, replies posted to the UI runner).
 
+## GPU process (2D + 3D)
+
+Standalone `--type=gpu` is **required** (Chromium Windows). It is the only process allowed to create a GL or D3D11 device.
+
+| `ViewKind` | GPU backend (v1) | Not |
+| --- | --- | --- |
+| `kMapEdit` / `kMapData` | `SmtRender` + `SmtGLRenderDevice` (GDI = `kSoftwareDib`) | D3DX9 |
+| `kScene3d` | `render/render3d` + `scene3d` / `terrain` / `pointcloud` | `render/d3d` D3DX path |
+
+One GPU device, **N surfaces**, mixed 2D and 3D views in the same process (Chromium: one GPU process, many contexts). Browser `MapWidgetHostView` only **opens** the shared handle; it does not draw the map.
+
+`src/content/public/mojom/gpu.mojom` (`module gpu.mojom;`):
+
+- **Gpu** (browser or renderer → GPU): `Hello() => (GpuCaps)` (`gpu` string, `dxgi_shared`, `has_gl`, `has_d3d11`, `has_3d`), `CreateSurface(view_id, ViewKind, PresentMode, handle? parent_hwnd)`, `Resize(view_id, w, h, dpi)`, `SetVisible`, `Submit2d(view_id, …)` / `Submit3d(view_id, …)` (renderer frame), `ResetDevice`, `LostContextAck`.
+- **GpuHost** (GPU → browser): `FrameReady(view_id, FramePixels, fence, cursor_hint)`, `ContextLost(reason)`, `PrintPage(handle, json)`.
+
+Renderer never calls `D3D11CreateDevice`. After `SmtIATool` mutates the map, it `Submit2d`/`Submit3d` to GPU. TDR: GPU process dies or `ContextLost` → `GpuProcessHost` relaunches `--type=gpu`; **renderer stays**; browser drops handles and waits for new `FrameReady`. `ResetGpu()` on the public API maps to `Gpu.ResetDevice` or kill/relaunch GPU only.
+
+Hidden HWND for `SmtRenderDevice::Init` exists **only** in the GPU process.
+
 ## Invitation
 
-1. Both processes: `mojo::core::Init`, IO `base::Thread` (`MessagePumpType::IO`), `ScopedIPCSupport`.
-2. UI: `PlatformChannel`; `OutgoingInvitation::AttachMessagePipe("host")`.
-3. `CreateProcess` `SmartGisRender.exe` with `PROC_THREAD_ATTRIBUTE_HANDLE_LIST` inheriting **only** the remote channel handle. `CREATE_NO_WINDOW`. Assign Job `KILL_ON_JOB_CLOSE`.
-4. `OutgoingInvitation::Send`. Child `IncomingInvitation::Accept` + `ExtractMessagePipe("host")`.
-5. Bind `MapMojoPipe<Role>`. UI calls `Hello()`.
+1. Every process: `ContentMain` → `mojo::core::Init`, IO `base::Thread` (`MessagePumpType::IO`), `ScopedIPCSupport`.
+2. Browser: two `PlatformChannel`s; invitations attach `"renderer"` and `"gpu"`.
+3. `CreateProcess` **the same `SmartGis.exe`** twice (`--type=renderer`, `--type=gpu`) with `HANDLE_LIST` inheriting only that child's remote endpoint. `CREATE_NO_WINDOW`. One Job `KILL_ON_JOB_CLOSE` for both children.
+4. Each child `Accept` + extract its named pipe. Browser `Hello()` on both `MapWidget` and `Gpu`.
+5. Renderer receives a GPU channel (browser-brokered, like Chromium `GpuProcessHost::EstablishGpuChannel`) so it can `Submit2d` / `Submit3d` without the browser marshalling every paint.
 
-Crash: disconnect ⇒ `MapContentsObserver` death notification ⇒ drop all `view_id` and handles, keep extent / selection / catalog JSON / view kinds ⇒ new invitation ⇒ `OpenView` each view. Uncommitted SDE edits in the dead process are lost (same as multiprocess doc §0.8).
+Do not pass `--pipe=` or a sibling `SmartGisRender.exe` path.
 
-`ResetGpu()` rebuilds the D3D device in-process; next `FrameReady` carries a new handle and a higher `generation`.
+Crash: renderer disconnect → `RendererDied` → relaunch renderer, keep GPU if still up. GPU `ContextLost` / death → relaunch **GPU only**, renderer stays, drop `SharedSurface` handles. Uncommitted SDE edits in a dead **renderer** are lost (multiprocess doc §0.8).
 
-`--in-process-render` (dev): in-process message pipe, same interfaces, default off.
+`--in-process-gpu` / `--in-process-renderer`: dev only, default off.
 
 ## UI events
 
@@ -150,8 +208,10 @@ User → chrome (ribbon/tree/dialog hit-test) → stop
           coalesce queued MouseMove (keep latest + button state)
           Down / Up / Wheel / Key are never coalesced
      → MapWidget.DispatchPointer(view_id, PointerEvent)   // fire-and-forget
-     → gpu::MapWidget → SmtIATool::MouseMove / LButtonDown / …
-     ← FrameReady / ViewCursor / ExtentChanged / ContextMenu
+     → renderer SmtIATool::MouseMove / LButtonDown / …
+     → renderer Gpu.Submit2d|Submit3d
+     ← GpuHost.FrameReady(handle)   // GPU process
+     ← MapWidgetHost.ViewCursor / ExtentChanged / ContextMenu
 ```
 
 `ActivateTool` is a command, not an event. Later pointers go to the active `SmtIATool`.
@@ -166,11 +226,11 @@ Coordinates are **surface physical pixels**. Chrome converts DIP×DPI in the vie
 | Touch | Map to mouse down/move/up. No pinch recognizer in GPU. If needed, UI synthesizes `kWheel` (or a later `kGesture`) |
 | Keyboard | Only while the map view has focus. Chrome keeps global accelerators (Ctrl+S) |
 | IME | Composition stays in UI (`Imm*` / WinUI `InputPane` / WebView2). Commit only: `DispatchText(view_id, string)` |
-| Context menu | GPU sends `ContextMenu(x, y, json)`; **chrome draws the menu**. No `TrackPopupMenu` in render except a documented whitelist |
+| Context menu | **Renderer** sends `ContextMenu`; chrome draws it. GPU does not pop menus |
 | DPI / monitor | `ResizeSurface`; following pointers carry the new `dpi` |
 | Drag out of HWND | UI `SetCapture`; coordinates may leave the client rect |
 
-Do not wait for a `DispatchPointer` ack before present. Smoothness wins; `generation` drops stale frames. The GPU process does not create a visible input HWND (hidden HWND is only for `SmtRenderDevice::Init`).
+Do not wait for a `DispatchPointer` ack before present. Smoothness wins; `generation` drops stale frames. The GPU process does not create a visible input HWND (hidden HWND is only for `SmtRenderDevice::Init` **in GpuMain**).
 
 ### Shell adapters
 
@@ -183,29 +243,14 @@ Each chrome only implements `NativeInputTraits<NativeEvent>` (`MSG` / `PointerRo
 ## Traits (reduce copies)
 
 ```cpp
-enum class ProcessRole { kBrowser, kRenderer };
-
-template <ProcessRole R>
-struct MapMojoTraits;
-
-template <>
-struct MapMojoTraits<ProcessRole::kBrowser> {
-  using Widget = mojo::Remote<mojom::MapWidget>;
-  using WidgetHost = mojo::Receiver<mojom::MapWidgetHost>;
-};
-
-template <>
-struct MapMojoTraits<ProcessRole::kRenderer> {
-  using Widget = mojo::Receiver<mojom::MapWidget>;
-  using WidgetHost = mojo::Remote<mojom::MapWidgetHost>;
-};
+enum class ProcessRole { kBrowser, kRenderer, kGpu };
 ```
 
-One `MapMojoPipe<R>::Bind(ScopedMessagePipeHandle)` for both ends. Invitation send vs accept is `InvitationTraits<kOutgoing>` / `kIncoming`, not two hand-copied files.
+`MapMojoTraits` covers Browser/Renderer `MapWidget` polarity. `GpuMojoTraits` is the same pattern for `Gpu` / `GpuHost` (browser implements `GpuHost`, GPU implements `Gpu`; renderer holds `Remote<Gpu>` only).
 
 **Typemaps** (`StructTraits` / `EnumTraits`): `Extent2`, `PointerEvent` ↔ `content::InputEvent`, `FeatureId`, `FramePixels` ↔ `content::SharedSurface` (`handle` → `HANDLE`, never `uint64` on the Mojo path), `PresentMode`, `ViewKind`. Catalog stays `string` JSON in v1.
 
-**PresentBackendTraits<PresentMode>**: `kSharedTexture` (DXGI NT), `kSoftwareDib` (section), `kChildHwnd` (parent HWND only). `gpu::MapWidget::AttachSurface` and `MapWidgetHostView` open paths share the traits.
+**PresentBackendTraits<PresentMode>**: `kSharedTexture` (DXGI NT), `kSoftwareDib` (section), `kChildHwnd` (parent HWND only). Instantiated **only** in `--type=gpu`. `ViewKind` selects 2D vs 3D submit traits (`Submit2d` / `Submit3d`), not a second process.
 
 **NativeInputTraits<NativeEvent>**: Win32 `MSG`, WinUI pointer args, and Views events map to `content::InputEvent`. Hosts do not each copy a `dispatch_mouse` switch.
 
@@ -226,25 +271,27 @@ One `MapMojoPipe<R>::Bind(ScopedMessagePipeHandle)` for both ends. Invitation se
 | --- | --- |
 | Language | `build.bat` (`//:all`) green at `cc_std=c++23` |
 | Generate | `out/gen/.../map_widget.mojom.h` exists |
-| Handshake | invitation + `Hello()` / `GpuCaps` within 15s |
-| Handle | `FrameReady.pixels` is a Mojo handle; DXGI `OpenSharedResource1` or DIB `MapViewOfFile` |
-| Input | Map HWND mouse/wheel reaches GPU `SmtIATool`; ribbon hit does not. IME commit is `DispatchText` only |
-| Rebind | `TerminateProcess` render → new invitation → new `view_id` + a frame |
+| Handshake | two invitations: renderer `Hello` + GPU `GpuCaps` within 15s |
+| Handle | `GpuHost.FrameReady.pixels` is a Mojo handle from `--type=gpu` |
+| 2D+3D | `OpenView(kMapEdit)` and `OpenView(kScene3d)` both present from the **same** GPU process |
+| Input | Map HWND mouse/wheel reaches **renderer** `SmtIATool`; ribbon hit does not. IME commit is `DispatchText` only |
+| Rebind GPU | `TerminateProcess` GPU → new `--type=gpu` → new handles; renderer stays |
+| Rebind renderer | `TerminateProcess` renderer → new `--type=renderer`; GPU can stay |
 | Isolation | `SmtCore` compile lines do not use `//third_party/chromium` includes |
 | Escape | missing pin: named pipe `Hello` still works; never both transports |
 
-`out/SmartGisRender.exe --self-test` becomes invitation-based (or a tiny test host + render). `build.bat e2e` may skip render until the pin is in tree; then it must pass.
+`out\SmartGis.exe --type=gpu --self-test` must create a D3D or GL device and a shared handle **without** a browser HWND. `--type=renderer --self-test` must not create a GPU device.
 
 `content/public` C++ that chrome includes stays free of `mojo::` and Chromium `base`.
 
 ## Docs to update in the same implementation change
 
-- `docs/build/ui-shell-multiprocess.md` §0.4 — Mojo invitation + mojom names; pipe-by-name is escape hatch.
-- `docs/build/src-layout.md` — `src/base/ipc`, `content` Chromium-style type names, C++23.
-- Root `README.md` — C++23; refresh **最后更新**.
+- `docs/build/ui-shell-multiprocess.md` §0.2 / §0.4 — Browser + Renderer + **standalone GPU**; 2D and 3D in `--type=gpu`; one `SmartGis.exe`.
+- `docs/build/src-layout.md` — `src/base/ipc`, `content` Chromium-style type names, C++23, `ContentMain`.
+- Root `README.md` — C++23; `build.bat render` → `SmartGis.exe --type=`; refresh **最后更新**.
 - `build/README.md` — `cc_std` default.
 - `docs/README.md` — link this spec.
-- Hosts under `src/app/{webview2,winui,views}` — `MapContents` / PascalCase.
+- Hosts under `src/app/{webview2,winui,views}` — `MapContents` / PascalCase; browser-only `--ui=`.
 
 ## Risks
 
@@ -252,12 +299,15 @@ One `MapMojoPipe<R>::Bind(ScopedMessagePipeHandle)` for both ends. Invitation se
 - WinUI C++/WinRT after dropping `/std:c++17`: fix projections or isolate that target only.
 - Legacy MFC / 2010 sources under C++23: fix errors, do not weaken the standard.
 - Mojom generator Python / jinja pin drift vs `mojo/core`.
-- Handle inheritance vs antivirus: keep `HANDLE_LIST`; fallback `NamedPlatformChannel` only if inherit is blocked, still Mojo, not the old `HostMsg` pipe.
+- TDR vs Job: GPU restart must not kill renderer; Job may need two groups or `KILL_ON_JOB_CLOSE` only for browser exit, not GPU crash.
+- GL + D3D11 in one GPU process (2D vs 3D): share DXGI device / GL-D3D interop; do not spawn a second GPU process.
+- Handle inheritance vs antivirus: keep `HANDLE_LIST`; fallback `NamedPlatformChannel` only if inherit is blocked, still Mojo.
 
 ## Success
 
 - Repo compiles as C++23 (`build.bat`).
-- Chrome `MapContents::Create()` starts `SmartGisRender.exe` via Mojo invitation.
-- A map surface presents via `FrameReady` Mojo `handle`.
-- Killing render restarts and reattaches.
+- Chrome `MapContents::Create()` starts `SmartGis.exe --type=renderer` **and** `--type=gpu`.
+- No `SmartGisRender.exe` on the product path.
+- 2D (`kMapEdit`) and 3D (`kScene3d`) frames both come from the GPU process `FrameReady` handle.
+- Killing GPU relaunches `--type=gpu` only; killing renderer relaunches `--type=renderer`.
 - 31 DLLs still have no Chromium `base` on their include path.
