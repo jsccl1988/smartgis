@@ -17,14 +17,33 @@ source_set("content") {
     "app/renderer_main.h",
     "common/ipc.cc",
     "common/ipc.h",
-    "map_session.cc",
+    "map_contents.cc",
     "public/host_protocol.h",
-    "public/map_session.h",
+    "public/map_contents.h",
+    "public/map_contents_observer.h",
     "public/map_types.h",
-    "public/map_view.h",
+    "public/map_widget_host_view.h",
     "public/process_type.cc",
     "public/process_type.h",
-    "public/tool_router.h",
   ]
   public_configs = [ ":content_config" ]
+}
+
+# Per-view Workspace + EventBus + EditSession. Leftover xview hosts this.
+source_set("view_host") {
+  sources = [
+    "local_tool_router.cc",
+    "public/event_bus.h",
+    "public/events.h",
+    "public/local_tool_router.h",
+    "public/view_host.h",
+    "view_host.cc",
+  ]
+  public_configs = [ ":content_config" ]
+  public_deps = [ ":content" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/sdb/edit:edit",
+    "//src/tool:dispatch",
+  ]
 }
