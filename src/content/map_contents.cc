@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "content/public/map_session.h"
+#include "content/public/map_contents.h"
 
 #include <atomic>
 #include <cstdio>
@@ -43,61 +43,61 @@ std::wstring make_session_id() {
 
 }  // namespace
 
-class MapViewImpl final : public MapView {
+class MapWidgetHostViewImpl final : public MapWidgetHostView {
  public:
-  MapViewImpl(class MapSessionImpl* session, uint32_t view_id)
+  MapWidgetHostViewImpl(class MapContentsImpl* session, uint32_t view_id)
       : session_(session), view_id_(view_id) {}
 
   void Create(const CreateParams& params,
               const Preferences& preferences) override;
   void Destroy() override { parent_hwnd_ = nullptr; }
 
-  uint32_t view_id() const override { return view_id_; }
-  void* native_hwnd() const override { return parent_hwnd_; }
-  void resize(int width_px, int height_px, float dpi) override;
-  void resize(int x, int y, int width_px, int height_px, float dpi) override;
-  void set_present_mode(PresentMode mode) override;
-  void set_visible(bool visible) override;
-  SharedSurface latest() const override;
+  uint32_t ViewId() const override { return view_id_; }
+  void* NativeHwnd() const override { return parent_hwnd_; }
+  void Resize(int width_px, int height_px, float dpi) override;
+  void Resize(int x, int y, int width_px, int height_px, float dpi) override;
+  void SetPresentMode(PresentMode mode) override;
+  void SetVisible(bool visible) override;
+  SharedSurface Latest() const override;
 
-  void set_latest(const SharedSurface& s) { latest_ = s; }
+  void SetLatest(const SharedSurface& s) { latest_ = s; }
 
  private:
-  class MapSessionImpl* session_;
+  class MapContentsImpl* session_;
   uint32_t view_id_;
   void* parent_hwnd_ = nullptr;
   SharedSurface latest_{};
 };
 
-class MapSessionImpl final : public MapSession, public ToolRouter {
+class MapContentsImpl final : public MapContents {
  public:
-  MapSessionImpl() = default;
-  ~MapSessionImpl() override { shutdown(); }
+  MapContentsImpl() = default;
+  ~MapContentsImpl() override { Shutdown(); }
 
-  bool start_render_process() override;
-  void shutdown() override;
-  bool is_oop_render() const override { return oop_; }
-  const wchar_t* present_status() const override { return status_.c_str(); }
+  bool StartRenderProcess() override;
+  void Shutdown() override;
+  bool IsOopRender() const override { return oop_; }
+  const wchar_t* PresentStatus() const override { return status_.c_str(); }
 
-  uint32_t open_view(ViewKind kind) override;
-  void close_view(uint32_t view_id) override;
-  MapView* attach_surface(uint32_t view_id, PresentMode mode) override;
-  MapView* map_view(uint32_t view_id) override;
+  uint32_t OpenView(ViewKind kind) override;
+  void CloseView(uint32_t view_id) override;
+  MapWidgetHostView* AttachSurface(uint32_t view_id, PresentMode mode) override;
+  MapWidgetHostView* HostView(uint32_t view_id) override;
 
-  void set_extent(uint32_t view_id, const Extent2& e) override;
-  Extent2 extent(uint32_t view_id) const override;
+  void SetExtent(uint32_t view_id, const Extent2& e) override;
+  Extent2 Extent(uint32_t view_id) const override;
 
-  void set_selection(uint32_t view_id, const FeatureId* ids, size_t n) override;
-  void legend_snapshot(uint32_t view_id) override;
-  void catalog_call(const char* json_op) override;
+  void SetSelection(uint32_t view_id, const FeatureId* ids, size_t n) override;
+  void LegendSnapshot(uint32_t view_id) override;
+  void CatalogCall(const char* json_op) override;
 
-  ToolRouter* tool_router() override { return this; }
-  void set_client(MapSessionClient* client) override { client_ = client; }
-  bool wait_frame_ready(uint32_t view_id, uint32_t timeout_ms) override;
+  
+  void SetObserver(MapContentsObserver* observer) override { observer_ = observer; }
+  bool WaitFrameReady(uint32_t view_id, uint32_t timeout_ms) override;
 
-  void activate_tool(uint32_t view_id, const char* tool_id) override;
-  void activate(uint32_t view_id, const char* tool_id) override;
-  void dispatch(uint32_t view_id, const InputEvent& e) override;
+  void ActivateTool(uint32_t view_id, const char* tool_id) override;
+  void Activate(uint32_t view_id, const char* tool_id);
+  void Dispatch(uint32_t view_id, const InputEvent& e) override;
 
   bool send_json(HostMsg type, uint32_t view_id, const std::string& json);
   void store_surface(uint32_t view_id, const SharedSurface& s);
@@ -111,9 +111,9 @@ class MapSessionImpl final : public MapSession, public ToolRouter {
   std::thread recv_thread_;
   std::atomic<bool> running_{false};
   std::atomic<uint32_t> next_view_id_{1};
-  MapSessionClient* client_ = nullptr;
+  MapContentsObserver* observer_ = nullptr;
   mutable std::mutex mu_;
-  std::map<uint32_t, MapViewImpl*> views_;
+  std::map<uint32_t, MapWidgetHostViewImpl*> views_;
   std::map<uint32_t, Extent2> extents_;
   std::map<uint32_t, uint32_t> frame_gen_;
   HANDLE frame_event_ = nullptr;
@@ -122,59 +122,59 @@ class MapSessionImpl final : public MapSession, public ToolRouter {
   std::wstring status_ = L"down";
 };
 
-void MapViewImpl::Create(const CreateParams& params,
+void MapWidgetHostViewImpl::Create(const CreateParams& params,
                          const Preferences&) {
   parent_hwnd_ = params.parent_hwnd;
 }
 
-void MapViewImpl::resize(int width_px, int height_px, float dpi) {
+void MapWidgetHostViewImpl::Resize(int width_px, int height_px, float dpi) {
   char json[128];
   sprintf_s(json, "{\"w\":%d,\"h\":%d,\"dpi\":%.2f}", width_px, height_px,
             static_cast<double>(dpi));
   session_->send_json(HostMsg::kResizeSurface, view_id_, json);
 }
 
-void MapViewImpl::resize(int x,
+void MapWidgetHostViewImpl::Resize(int x,
                          int y,
                          int width_px,
                          int height_px,
                          float dpi) {
   (void)x;
   (void)y;
-  resize(width_px, height_px, dpi);
+  Resize(width_px, height_px, dpi);
 }
 
-void MapViewImpl::set_present_mode(PresentMode mode) {
+void MapWidgetHostViewImpl::SetPresentMode(PresentMode mode) {
   char json[80];
   sprintf_s(json, "{\"present_mode\":\"%s\"}", present_mode_json(mode));
   session_->send_json(HostMsg::kAttachSurface, view_id_, json);
 }
 
-void MapViewImpl::set_visible(bool visible) {
+void MapWidgetHostViewImpl::SetVisible(bool visible) {
   char json[40];
   sprintf_s(json, "{\"visible\":%s}", visible ? "true" : "false");
   session_->send_json(HostMsg::kAttachSurface, view_id_, json);
 }
 
-SharedSurface MapViewImpl::latest() const {
+SharedSurface MapWidgetHostViewImpl::Latest() const {
   return latest_;
 }
 
-bool MapSessionImpl::send_json(HostMsg type,
+bool MapContentsImpl::send_json(HostMsg type,
                                uint32_t view_id,
                                const std::string& json) {
   return pipe_.send_json(type, view_id, json);
 }
 
-void MapSessionImpl::store_surface(uint32_t view_id, const SharedSurface& s) {
+void MapContentsImpl::store_surface(uint32_t view_id, const SharedSurface& s) {
   std::lock_guard<std::mutex> lock(mu_);
   auto it = views_.find(view_id);
   if (it != views_.end() && it->second) {
-    it->second->set_latest(s);
+    it->second->SetLatest(s);
   }
 }
 
-bool MapSessionImpl::start_render_process() {
+bool MapContentsImpl::StartRenderProcess() {
   if (running_) {
     return true;
   }
@@ -220,18 +220,18 @@ bool MapSessionImpl::start_render_process() {
   }
 
   if (!pipe_.wait_client(15000)) {
-    shutdown();
+    Shutdown();
     return false;
   }
   running_ = true;
-  recv_thread_ = std::thread(&MapSessionImpl::recv_loop, this);
+  recv_thread_ = std::thread(&MapContentsImpl::recv_loop, this);
 
   const DWORD start = GetTickCount();
   while (hello_ok_ == 0 && GetTickCount() - start < 15000) {
     Sleep(20);
   }
   if (hello_ok_ == 0) {
-    shutdown();
+    Shutdown();
     return false;
   }
   oop_ = true;
@@ -240,7 +240,7 @@ bool MapSessionImpl::start_render_process() {
                          "{\"protocol\":1,\"role\":\"chrome\",\"ok\":true}");
 }
 
-void MapSessionImpl::shutdown() {
+void MapContentsImpl::Shutdown() {
   oop_ = false;
   status_ = L"down";
   running_ = false;
@@ -269,7 +269,7 @@ void MapSessionImpl::shutdown() {
   }
 }
 
-uint32_t MapSessionImpl::open_view(ViewKind kind) {
+uint32_t MapContentsImpl::OpenView(ViewKind kind) {
   const uint32_t id = next_view_id_++;
   char json[64];
   sprintf_s(json, "{\"kind\":\"%s\"}", view_kind_json(kind));
@@ -277,7 +277,7 @@ uint32_t MapSessionImpl::open_view(ViewKind kind) {
   return id;
 }
 
-void MapSessionImpl::close_view(uint32_t view_id) {
+void MapContentsImpl::CloseView(uint32_t view_id) {
   pipe_.send_json(HostMsg::kCloseView, view_id, "{}");
   std::lock_guard<std::mutex> lock(mu_);
   auto it = views_.find(view_id);
@@ -287,7 +287,7 @@ void MapSessionImpl::close_view(uint32_t view_id) {
   }
 }
 
-MapView* MapSessionImpl::attach_surface(uint32_t view_id, PresentMode mode) {
+MapWidgetHostView* MapContentsImpl::AttachSurface(uint32_t view_id, PresentMode mode) {
   char json[80];
   sprintf_s(json, "{\"present_mode\":\"%s\"}", present_mode_json(mode));
   pipe_.send_json(HostMsg::kAttachSurface, view_id, json);
@@ -296,18 +296,18 @@ MapView* MapSessionImpl::attach_surface(uint32_t view_id, PresentMode mode) {
   if (it != views_.end()) {
     return it->second;
   }
-  auto* v = new MapViewImpl(this, view_id);
+  auto* v = new MapWidgetHostViewImpl(this, view_id);
   views_[view_id] = v;
   return v;
 }
 
-MapView* MapSessionImpl::map_view(uint32_t view_id) {
+MapWidgetHostView* MapContentsImpl::HostView(uint32_t view_id) {
   std::lock_guard<std::mutex> lock(mu_);
   auto it = views_.find(view_id);
   return it == views_.end() ? nullptr : it->second;
 }
 
-void MapSessionImpl::set_extent(uint32_t view_id, const Extent2& e) {
+void MapContentsImpl::SetExtent(uint32_t view_id, const Extent2& e) {
   {
     std::lock_guard<std::mutex> lock(mu_);
     extents_[view_id] = e;
@@ -318,7 +318,7 @@ void MapSessionImpl::set_extent(uint32_t view_id, const Extent2& e) {
   pipe_.send_json(HostMsg::kSetExtent, view_id, json);
 }
 
-Extent2 MapSessionImpl::extent(uint32_t view_id) const {
+Extent2 MapContentsImpl::Extent(uint32_t view_id) const {
   std::lock_guard<std::mutex> lock(mu_);
   auto it = extents_.find(view_id);
   if (it == extents_.end()) {
@@ -327,7 +327,7 @@ Extent2 MapSessionImpl::extent(uint32_t view_id) const {
   return it->second;
 }
 
-void MapSessionImpl::set_selection(uint32_t view_id,
+void MapContentsImpl::SetSelection(uint32_t view_id,
                                    const FeatureId* ids,
                                    size_t n) {
   (void)ids;
@@ -336,15 +336,15 @@ void MapSessionImpl::set_selection(uint32_t view_id,
   pipe_.send_json(HostMsg::kSetSelection, view_id, json);
 }
 
-void MapSessionImpl::legend_snapshot(uint32_t view_id) {
+void MapContentsImpl::LegendSnapshot(uint32_t view_id) {
   pipe_.send_json(HostMsg::kLegendQuery, view_id, "{}");
 }
 
-void MapSessionImpl::catalog_call(const char* json_op) {
+void MapContentsImpl::CatalogCall(const char* json_op) {
   pipe_.send_json(HostMsg::kCatalogOp, 0, json_op ? json_op : "{}");
 }
 
-bool MapSessionImpl::wait_frame_ready(uint32_t view_id, uint32_t timeout_ms) {
+bool MapContentsImpl::WaitFrameReady(uint32_t view_id, uint32_t timeout_ms) {
   const DWORD start = GetTickCount();
   for (;;) {
     {
@@ -365,17 +365,17 @@ bool MapSessionImpl::wait_frame_ready(uint32_t view_id, uint32_t timeout_ms) {
   }
 }
 
-void MapSessionImpl::activate_tool(uint32_t view_id, const char* tool_id) {
-  activate(view_id, tool_id);
+void MapContentsImpl::ActivateTool(uint32_t view_id, const char* tool_id) {
+  Activate(view_id, tool_id);
 }
 
-void MapSessionImpl::activate(uint32_t view_id, const char* tool_id) {
+void MapContentsImpl::Activate(uint32_t view_id, const char* tool_id) {
   char json[160];
   sprintf_s(json, "{\"tool_id\":\"%s\"}", tool_id ? tool_id : "");
   pipe_.send_json(HostMsg::kActivateTool, view_id, json);
 }
 
-void MapSessionImpl::dispatch(uint32_t view_id, const InputEvent& e) {
+void MapContentsImpl::Dispatch(uint32_t view_id, const InputEvent& e) {
   PointerEventWire w = {};
   w.t_qpc = e.t_qpc;
   w.kind = static_cast<uint32_t>(e.kind);
@@ -388,14 +388,14 @@ void MapSessionImpl::dispatch(uint32_t view_id, const InputEvent& e) {
   pipe_.send_binary(HostMsg::kPointerEvent, view_id, &w, sizeof(w));
 }
 
-void MapSessionImpl::recv_loop() {
+void MapContentsImpl::recv_loop() {
   while (running_) {
     FrameHeader h = {};
     std::vector<uint8_t> payload;
     if (!pipe_.recv(&h, &payload, 500)) {
       if (!running_ || !pipe_.is_open()) {
-        if (client_) {
-          client_->on_render_died();
+        if (observer_) {
+          observer_->OnRenderDied();
         }
         break;
       }
@@ -405,7 +405,7 @@ void MapSessionImpl::recv_loop() {
   }
 }
 
-void MapSessionImpl::handle_frame(const FrameHeader& h,
+void MapContentsImpl::handle_frame(const FrameHeader& h,
                                   const std::vector<uint8_t>& payload) {
   const auto type = static_cast<HostMsg>(h.type);
   if (type == HostMsg::kHello) {
@@ -436,8 +436,8 @@ void MapSessionImpl::handle_frame(const FrameHeader& h,
     if (frame_event_) {
       SetEvent(frame_event_);
     }
-    if (client_) {
-      client_->on_frame_ready(h.view_id, w.generation);
+    if (observer_) {
+      observer_->OnFrameReady(h.view_id, w.generation);
     }
     return;
   }
@@ -452,19 +452,19 @@ void MapSessionImpl::handle_frame(const FrameHeader& h,
       std::lock_guard<std::mutex> lock(mu_);
       extents_[h.view_id] = e;
     }
-    if (client_) {
-      client_->on_extent_changed(h.view_id, e);
+    if (observer_) {
+      observer_->OnExtentChanged(h.view_id, e);
     }
   }
-  if (type == HostMsg::kRenderDied && client_) {
-    client_->on_render_died();
+  if (type == HostMsg::kRenderDied && observer_) {
+    observer_->OnRenderDied();
   }
 }
 
 }  // namespace detail
 
-MapSession* create_map_session() {
-  return new detail::MapSessionImpl();
+MapContents* MapContents::Create() {
+  return new detail::MapContentsImpl();
 }
 
 }  // namespace content

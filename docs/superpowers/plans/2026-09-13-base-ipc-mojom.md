@@ -165,10 +165,10 @@ Use `GetModuleFileNameW(nullptr)` for `exe`. `CREATE_NO_WINDOW` on children. Job
 
 `MapContents::Create()` replaces `create_map_session()`. Methods PascalCase on new types; implementation can wrap existing `snake_case` until Mojo.
 
-- [ ] **Step 1:** New headers + `map_contents.cc` (move from `map_session.cc`).
-- [ ] **Step 2:** Update three hosts.
-- [ ] **Step 3:** `build.bat views` / `web` / `winui` as flags allow.
-- [ ] **Step 4:** Commit `Rename MapSession to MapContents.`
+- [x] **Step 1:** New headers + `map_contents.cc` (move from `map_session.cc`).
+- [x] **Step 2:** Update three hosts.
+- [x] **Step 3:** `build.bat views` / `web` / `winui` as flags allow.
+- [x] **Step 4:** Commit `Rename MapSession to MapContents.`
 
 ---
 
@@ -188,9 +188,11 @@ Use `GetModuleFileNameW(nullptr)` for `exe`. `CREATE_NO_WINDOW` on children. Job
 
 If the pin cannot be fetched, stop this task with BLOCKED and keep named-pipe escape hatch. Do not invent a second IDL.
 
-- [ ] Sparse-pin chromium `base`+`mojo` or BLOCKED.
+- [x] Sparse-pin chromium `base`+`mojo` or BLOCKED.
 - [ ] `mojom.gni` cpp_only + generate `map_widget.mojom` / `gpu.mojom`.
 - [ ] Invitation replaces `--pipe=` on the Mojo path.
+
+**BLOCKED (2026-09-13):** `third_party/chromium` is not in the tree. Keep named pipe + `HostMsg` until a sparse pin exists. Do not invent a second IDL.
 
 ## Coverage vs spec
 

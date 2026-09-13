@@ -11,7 +11,7 @@
 #include "ui/views/view.h"
 
 namespace content {
-class MapSession;
+class MapContents;
 }
 
 namespace ui {
@@ -32,7 +32,7 @@ class MapViewport : public View {
   MapViewport();
   ~MapViewport() override;
 
-  // Prefer content::MapView (same PE --type=gpu), then leftover
+  // Prefer content::MapWidgetHostView (same PE --type=gpu), then leftover
   // SmartGisRender.exe, then LoadLibrary SmtRenderDevice::Init.
   bool attach();
   AttachMode attach_mode() const { return mode_; }
@@ -56,7 +56,7 @@ class MapViewport : public View {
 
   AttachMode mode_ = AttachMode::kNone;
   const wchar_t* status_ = L"";
-  content::MapSession* session_ = nullptr;
+  content::MapContents* session_ = nullptr;
   HANDLE render_process_ = nullptr;
   HANDLE render_job_ = nullptr;
   void* local_device_ = nullptr;
