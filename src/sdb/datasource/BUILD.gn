@@ -1,0 +1,14 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Provider drivers (QGIS providers/*, GDAL/OGR drivers). Each device is its own DLL.
+group("datasource") {
+  deps = [
+    "//src/sdb/datasource/ado:sde_ado",
+    "//src/sdb/datasource/gdal:sde_gdal",
+    "//src/sdb/datasource/mem:sde_mem",
+    "//src/sdb/datasource/mgr:sde_mgr",
+    "//src/sdb/datasource/smf:sde_smf",
+    "//src/sdb/datasource/ws:sde_ws",
+  ]
+}

@@ -1,0 +1,133 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//src/app/webview2/webview2.gni")
+import("//src/app/winui/winui.gni")
+
+# Root groups match mogu / mgis: all, test_all, all_with_tests, benchmark_all
+# plus shorthand aliases m / te / a / b.
+
+group("all") {
+  deps = []
+  if (!is_build_third_party) {
+    deps += [ "//src:src_all" ]
+  }
+  if (is_build_third_party) {
+    deps += [ "//third_party:third_party_all" ]
+  }
+}
+
+group("all_with_tests") {
+  testonly = true
+  deps = [
+    ":all",
+    ":test_all",
+  ]
+}
+
+# No benchmark targets yet; group exists so `b` / build.bat b stay valid.
+group("benchmark_all") {
+  testonly = true
+  deps = []
+}
+
+group("test_all") {
+  testonly = true
+  deps = [
+    "//testing/e2e:exe_smoke",
+    "//src/sdb/datasource/gdal:sde_gdal_test",
+  ]
+}
+
+# All chrome / GPU exes + exe_smoke. build.bat e2e sets every smt_build_* flag.
+group("e2e") {
+  testonly = true
+  deps = [ ":test_all" ]
+  if (smt_build_app) {
+    deps += [ ":smartgis" ]
+  }
+  if (smt_build_views) {
+    deps += [ ":ui_views" ]
+  }
+  if (smt_build_webview2) {
+    deps += [ ":webview2" ]
+  }
+  if (smt_build_winui) {
+    deps += [ ":winui" ]
+  }
+  if (smt_build_render) {
+    deps += [ ":render" ]
+  }
+}
+
+group("m") {
+  deps = [ ":all" ]
+}
+
+group("a") {
+  testonly = true
+  deps = [ ":all_with_tests" ]
+}
+
+group("b") {
+  testonly = true
+  deps = [ ":benchmark_all" ]
+}
+
+group("te") {
+  testonly = true
+  deps = [ ":test_all" ]
+}
+
+# Desktop exe + MFC/BCG UI/map stack. Only loaded when smt_build_app=true
+# (this GN's ninja `all` includes every loaded target).
+group("smartgis") {
+  deps = []
+  if (smt_build_app) {
+    deps += [ "//src/app:app" ]
+  }
+}
+
+group("app") {
+  deps = [ ":smartgis" ]
+}
+
+# Views toolkit + Skia canvas. Not a dep of group("all") / src_all.
+# The chrome exe is loaded only when smt_build_views=true (build.bat views).
+group("ui_views") {
+  deps = [
+    "//src/render/skia:skia",
+    "//src/ui/views:views",
+  ]
+  if (smt_build_views) {
+    deps += [ "//src/app/views:views" ]
+  }
+}
+
+group("views") {
+  deps = [ ":ui_views" ]
+}
+
+# Scheme 1 WebView2 chrome. Loaded only when smt_build_webview2=true.
+group("webview2") {
+  deps = []
+  if (smt_build_webview2) {
+    deps += [ "//src/app/webview2:app_webview2" ]
+  }
+}
+
+# Scheme 2 WinUI chrome. Loaded only when smt_build_winui=true.
+group("winui") {
+  deps = []
+  if (smt_build_winui) {
+    deps += [ "//src/app/winui:app_winui" ]
+  }
+}
+
+# GPU process. Only loaded when smt_build_render=true (build.bat render).
+group("render") {
+  deps = []
+  if (smt_build_render) {
+    deps += [ "//src/gpu:gpu" ]
+  }
+}
