@@ -29,7 +29,7 @@ Debug/release DLL file names still use `dll_stem` (legacy `Smt*` + optional `D`)
 
 | QGIS / GDAL / GEOS / PROJ | This repo |
 | --- | --- |
-| `providers/*`, OGR drivers | `src/sdb/datasource/{ado,mem,smf,ws,gdal}` |
+| `providers/*`, OGR drivers | `src/sdb/datasource/{mem,smf,ws,gdal}` |
 | `QgsFeature` / `QgsMapLayer` / `QgsProject` | `src/sdb/feature`, `layer`, `map` |
 | `QgsCoordinateReferenceSystem` | `src/sdb/crs`; transforms in `algorithm/proj` |
 | GEOS | `src/algorithm/geo` (`//src/algorithm:geom` → `SmtGeoCore`) — wrap `gdal_sdk` `geos_c`; no second GEOS vendor |
@@ -40,7 +40,7 @@ Debug/release DLL file names still use `dll_stem` (legacy `Smt*` + optional `D`)
 | libqgis_core for embedders | `src/content/public` |
 | WMS/WFS | `src/web/` (not `sdb/map`) |
 
-`sdb/datasource/gdal` is `SmtSDEGdalDevice`: the OGR database provider (GeoPackage / PostGIS / SpatiaLite). SMF still opens files through the same `//third_party/gdal_sdk`. `src/ado` and `sdb/datasource/ado` stay on disk but are **not** in `src_all`.
+`sdb/datasource/gdal` is `SmtSDEGdalDevice`: the OGR database provider (GeoPackage / PostGIS / SpatiaLite). SMF still opens files through the same `//third_party/gdal_sdk`. ADO sources are removed.
 
 ## Layering plan (this pass)
 
@@ -48,7 +48,7 @@ Debug/release DLL file names still use `dll_stem` (legacy `Smt*` + optional `D`)
 | --- | --- | --- | --- |
 | Foundation | `base` (core+style), `sys`, `net` | One `src/base/` dir; two DLLs (`SmtCore` / `SmtBaseLib`). | yes |
 | Core data model | `sdb/{feature,layer,map,model,scene}` | `SmtGisCore` DLL plus source_sets `sdb/model` (Assimp/3D Tiles CPU) and `sdb/scene` (World). | yes (`gis` + model + scene) |
-| Datasource | `sdb/datasource/{mgr,gdal,mem,smf,ws}` | Provider drivers. DB path is OGR (`sde_gdal`). `src/ado` leftover, not in `src_all`. | yes (`//src/sdb:datasource`) |
+| Datasource | `sdb/datasource/{mgr,gdal,mem,smf,ws}` | Provider drivers. DB path is OGR (`sde_gdal`). | yes (`//src/sdb:datasource`) |
 | Algorithm | `algorithm/{geo,proj,tin,baogrid,stat}` | `geo` is one DLL (`SmtGeoCore`) compiling geo + math + math3d + geo3d sources; old math/math3d/geo3d labels are groups. `proj` / `tin` stay their DLLs. **Not** dem (plugin + GDAL + tin). **Not** chart (`ui/chart`). | yes (`//src/algorithm:algorithm`; not `chart`) |
 | Render | `render/` + children | RHI Facade + GPU scene (`render/scene`) + leftover 3D engines (`render3d`, `scene3d`, `model3d`, `terrain`, `pointcloud`). `d3d` unwired. `skia` opt-in stub. | yes (`render_all`, not `d3d` / not `skia`) |
 | Web GIS | `web/{service,server,client,server_mgr,server_dev,cgi,…}` | Former `src/map` server stack. **Not** the map document. | **no** (xcatalog / MFC) |
@@ -100,7 +100,7 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 | `SmtGLRenderDevice` | `render_gl` | `render/gl` | `render_gl` | `SmtGLRenderDevice` |
 | `SmtD3DRenderDevice` | `render_d3d` | `render/d3d` | — | `SmtD3DRenderDevice` |
 | `SmtSDEDeviceMgr` | `sde_mgr` | `sdb/datasource/mgr` | `sde_mgr` | `SmtSDEDeviceMgr` |
-| `SmtSDEAdoDevice` | `sde_ado` | `sdb/datasource/ado` | `sde_ado` | `SmtSDEAdoDevice` |
+| `SmtSDEGdalDevice` | `sde_gdal` | `sdb/datasource/gdal` | `sde_gdal` | `SmtSDEGdalDevice` |
 | `SmtSDEMemDevice` | `sde_mem` | `sdb/datasource/mem` | `sde_mem` | `SmtSDEMemDevice` |
 | `SmtSDESmfDevice` | `sde_smf` | `sdb/datasource/smf` | `sde_smf` | `SmtSDESmfDevice` |
 | `SmtSDEWSDevice` | `sde_ws` | `sdb/datasource/ws` | `sde_ws` | `SmtSDEWSDevice` |
@@ -135,7 +135,6 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 | — | `views` (exe) | `app/views` | `views` (`//:ui_views`) | `SmartGisViews.exe` |
 | — | `webview2` | `app/webview2` | `app_webview2` | `SmartGisWeb.exe` |
 | — | `winui` | `app/winui` | `app_winui` | `SmartGisWinui.exe` |
-| `SmtAdoCore` | `ado` | `ado` | `ado` | `SmtAdoCore` |
 | `SmtTinMesh` | `tin` | `algorithm/tin` | `tin` | `SmtTinMesh` |
 | `SmtBAOrthGrid` | `baogrid` | `algorithm/baogrid` | `baogrid` | `SmtBAOrthGrid` |
 | `Smt3DBaseLib` | `scene3d` | `render/scene3d` | `scene3d` | `Smt3DBaseLib` (leftover) |

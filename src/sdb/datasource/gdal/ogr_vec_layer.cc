@@ -7,8 +7,11 @@
 #include "sdb/datasource/gdal/ogr_feature_codec.h"
 #include "sdb/datasource/gdal/ogr_feature_kind.h"
 
+#include "envelope.h"
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
+
+#include <string>
 
 namespace sdb {
 namespace datasource {
@@ -40,6 +43,8 @@ bool OgrVectorLayer::Create() {
     if (!layer_) {
       return false;
     }
+    OGRFieldDefn style("style", OFTBinary);
+    layer_->CreateField(&style);
     for_each_extra_field<typename Traits::extra_fields>([&](auto field) {
       OGRFieldDefn defn(field.name, field.ogr_type);
       layer_->CreateField(&defn);
@@ -128,29 +133,69 @@ void OgrVectorLayer::DeleteAll() {
 }
 
 long OgrVectorLayer::CreateSpatialIndex(const char* /*szName*/, uint /*type*/) {
-  return SMT_ERR_NONE;
+  if (!IsOpen() || !layer_ || !owner_ || !owner_->dataset()) {
+    return SMT_ERR_DB_OPER;
+  }
+  const char* name = layer_->GetName();
+  if (!name || name[0] == '\0') {
+    return SMT_ERR_UNSUPPORTED;
+  }
+  std::string sql = "CREATE SPATIAL INDEX ON ";
+  sql += name;
+  CPLErrorReset();
+  OGRLayer* result = owner_->dataset()->ExecuteSQL(sql.c_str(), nullptr, nullptr);
+  if (result) {
+    owner_->dataset()->ReleaseResultSet(result);
+  }
+  if (CPLGetLastErrorType() == CE_None || CPLGetLastErrorType() == CE_Debug) {
+    return SMT_ERR_NONE;
+  }
+  return SMT_ERR_UNSUPPORTED;
 }
 
 long OgrVectorLayer::Query(const Smt_GIS::SmtGQueryDesc* pGQueryDesc,
-                           const Smt_GIS::SmtPQueryDesc* /*pPQueryDesc*/,
+                           const Smt_GIS::SmtPQueryDesc* pPQueryDesc,
                            Smt_GIS::SmtVectorLayer* pQueryResult) {
-  if (!IsOpen()) {
+  if (!IsOpen() || !layer_) {
     return SMT_ERR_DB_OPER;
   }
-  if (!pQueryResult || !pGQueryDesc || !pGQueryDesc->pQueryGeom) {
+  if (!pQueryResult) {
     return SMT_ERR_UNSUPPORTED;
   }
-  for (Smt_GIS::SmtFeature* f : features_) {
-    Smt_Geo::SmtGeometry* geom = f->GetGeometryRef();
-    if (!geom) {
-      continue;
-    }
-    const long rs =
-        pGQueryDesc->pQueryGeom->Relationship(geom, pGQueryDesc->fSmargin);
-    if (pGQueryDesc->sSRs & rs) {
-      pQueryResult->AppendFeature(f, true);
+
+  if (pGQueryDesc && pGQueryDesc->pQueryGeom) {
+    Smt_Base::Envelope env;
+    pGQueryDesc->pQueryGeom->GetEnvelope(&env);
+    layer_->SetSpatialFilterRect(env.MinX, env.MinY, env.MaxX, env.MaxY);
+  }
+
+  if (pPQueryDesc && pPQueryDesc->szFldName && pPQueryDesc->szFldName[0] &&
+      pPQueryDesc->szFldQueryContent && pPQueryDesc->szFldQueryContent[0]) {
+    std::string attr = pPQueryDesc->szFldName[0];
+    attr += pPQueryDesc->szFldQueryContent[0];
+    if (layer_->SetAttributeFilter(attr.c_str()) != OGRERR_NONE) {
+      layer_->SetAttributeFilter(nullptr);
     }
   }
+
+  layer_->ResetReading();
+  while (OGRFeature* ogr = layer_->GetNextFeature()) {
+    auto* smt = new Smt_GIS::SmtFeature();
+    bool keep = copy_ogr_feature_to_smt(ogr, smt, m_SmtLayerFtType);
+    if (keep && pGQueryDesc && pGQueryDesc->pQueryGeom && smt->GetGeometryRef()) {
+      const long rs = pGQueryDesc->pQueryGeom->Relationship(
+          smt->GetGeometryRef(), pGQueryDesc->fSmargin);
+      keep = (pGQueryDesc->sSRs & rs) != 0;
+    }
+    if (keep) {
+      pQueryResult->AppendFeature(smt, true);
+    }
+    delete smt;
+    OGRFeature::DestroyFeature(ogr);
+  }
+
+  layer_->SetSpatialFilter(nullptr);
+  layer_->SetAttributeFilter(nullptr);
   return SMT_ERR_NONE;
 }
 
@@ -166,7 +211,9 @@ long OgrVectorLayer::AppendFeature(const Smt_GIS::SmtFeature* pSmtFeature,
   if (layer_->CreateFeature(&ogr) != OGRERR_NONE) {
     return SMT_ERR_FAILURE;
   }
-  features_.push_back(pSmtFeature->Clone());
+  Smt_GIS::SmtFeature* clone = pSmtFeature->Clone();
+  clone->SetID(static_cast<long>(ogr.GetFID()));
+  features_.push_back(clone);
   return SMT_ERR_NONE;
 }
 
@@ -205,7 +252,9 @@ long OgrVectorLayer::DeleteFeature(const Smt_GIS::SmtFeature* pSmtFeature) {
   if (!IsOpen() || !layer_ || !pSmtFeature) {
     return SMT_ERR_DB_OPER;
   }
-  layer_->DeleteFeature(pSmtFeature->GetID());
+  if (layer_->DeleteFeature(pSmtFeature->GetID()) != OGRERR_NONE) {
+    return SMT_ERR_FAILURE;
+  }
   for (auto it = features_.begin(); it != features_.end(); ++it) {
     if (*it && (*it)->GetID() == pSmtFeature->GetID()) {
       delete *it;

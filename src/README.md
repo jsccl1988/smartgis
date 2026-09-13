@@ -18,7 +18,7 @@ GN targets keep short names (`sde_smf`, `render_gl`). DLL stems stay `Smt*` (`dl
 
 | QGIS / GDAL / GEOS / PROJ | This repo |
 | --- | --- |
-| `providers/*`, OGR drivers | `src/sdb/datasource/{ado,mem,smf,ws,gdal}` |
+| `providers/*`, OGR drivers | `src/sdb/datasource/{mem,smf,ws,gdal}` |
 | `QgsFeature` / `QgsVectorLayer` / `QgsProject` | `src/sdb/feature`, `layer`, `map` |
 | `QgsCoordinateReferenceSystem` | `src/sdb/crs` (id on the layer); transforms in `algorithm/proj` |
 | GEOS predicates/ops | `src/algorithm/geo` (`SmtGeoCore`, `//src/algorithm:geom`); wrap `gdal_sdk` `geos_c`; do not vendor a second GEOS |
@@ -39,14 +39,13 @@ GN targets keep short names (`sde_smf`, `render_gl`). DLL stems stay `Smt*` (`dl
 - **ui/** — legacy MFC (including `ui/chart`) + `ui/views` toolkit
 - **tool/** — leftover `SmtIATool` plus `//src/tool:dispatch` (Command / InputRouter / Workspace). Domain events: `content::EventBus`. Document writes: `sdb/edit`. Spec: `docs/superpowers/specs/2026-09-13-tool-event-dispatch-design.md`.
 - **web/** — map server/client/cgi
-- **net/** — `SmtNetCore`: standalone ASIO sockets + cpp-httplib HTTP; FnRPC later
+- **net/** — `SmtNetCore`: standalone ASIO sockets + cpp-httplib HTTP + FnRPC client (CRLF pickle)
 - **gpu/** — `SmartGisRender.exe`
-- **ado** — leftover SmtAdoCore sources (not in `src_all`; DB path is OGR)
 - **sys** — stays beside base
 
 ## GDAL seam
 
-`src/sdb/datasource/gdal` (`SmtSDEGdalDevice`) is the OGR database provider. Device manager constructs `OgrDataSource` for `DS_DB_ADO`. SMF uses the shared `ogr_codec` for file features. This `gdal_sdk` build often has no GPKG/PostgreSQL driver; file create then falls back to an ESRI Shapefile directory. No second GDAL tree.
+`src/sdb/datasource/gdal` (`SmtSDEGdalDevice`) is the OGR database provider. Device manager constructs `OgrDataSource` for `DS_DB_ADO`. SMF uses the shared `ogr_codec` for file features. Missing GPKG/SQLite/PostgreSQL drivers fail Open/Create (logged); Shapefile is not advertised as GeoPackage. No second GDAL tree.
 
 ## RHI v1
 

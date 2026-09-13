@@ -5,15 +5,16 @@
 #define SDB_DATASOURCE_GDAL_OGR_RASTER_LAYER_H_
 
 #include "layer.h"
+#include "sdb/datasource/gdal/ogr_export.h"
 
 namespace sdb {
 namespace datasource {
 
 class OgrDataSource;
 
-// Raster / child-image layer. Create is false unless the dataset already
-// has GDAL raster bands; never invents an ADO geom_points blob table.
-class OgrRasterLayer : public Smt_GIS::SmtRasterLayer {
+// Raster / child-image layer. Create/Open stay false while band I/O is
+// UNSUPPORTED; never invents an ADO geom_points blob table.
+class SMT_SDE_GDAL_EXPORT OgrRasterLayer : public Smt_GIS::SmtRasterLayer {
  public:
   explicit OgrRasterLayer(OgrDataSource* owner);
   ~OgrRasterLayer() override;

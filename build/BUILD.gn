@@ -30,11 +30,8 @@ config("legacy") {
     "$smt_src/base",
     "$smt_src/sys",
     "$smt_src/net",
-    "$smt_src/algorithm/math",
-    "$smt_src/algorithm/math3d",
-    # geo / gis
+    # geo / gis (quoted #include "geometry.h" / "mathlib_3d.h" / "3dgeometry.h")
     "$smt_src/algorithm/geo",
-    "$smt_src/algorithm/geo3d",
     "$smt_src/sdb/feature",
     "$smt_src/sdb/layer",
     "$smt_src/sdb/map",
@@ -46,7 +43,7 @@ config("legacy") {
     "$smt_src/render/render3d",
     "$smt_src/render/gl",
     # sde
-    "$smt_src/sdb/datasource/ado",
+    "$smt_src/sdb/datasource/gdal",
     "$smt_src/sdb/datasource/mgr",
     "$smt_src/sdb/datasource/mem",
     "$smt_src/sdb/datasource/smf",
@@ -72,7 +69,6 @@ config("legacy") {
     "$smt_src/ui/xcatalog",
     "$smt_src/ui/xview",
     # domain leaves
-    "$smt_src/ado",
     "$smt_src/plugin/dem",
     "$smt_src/algorithm/baogrid",
     "$smt_src/algorithm/tin",

@@ -118,12 +118,14 @@ int main() {
       OGRFieldDefn anno("anno", OFTString);
       OGRFieldDefn color("color", OFTInteger);
       OGRFieldDefn angle("angle", OFTReal);
+      OGRFieldDefn style("style", OFTBinary);
       OGRLayer* lyr = ds->CreateLayer("pts", nullptr, wkbPoint, nullptr);
       expect(lyr != nullptr, "Memory point layer");
       if (lyr) {
         lyr->CreateField(&anno);
         lyr->CreateField(&color);
         lyr->CreateField(&angle);
+        lyr->CreateField(&style);
         SmtFeature smt;
         smt.SetID(7);
         smt.SetFeatureType(SmtFtAnno);
@@ -143,9 +145,21 @@ int main() {
         smt.SetFieldValue(smt.GetFieldIndexByName("anno"), "hi");
         smt.SetFieldValue(smt.GetFieldIndexByName("color"), 9);
         smt.SetFieldValue(smt.GetFieldIndexByName("angle"), 45.0);
+        SmtStyle sty;
+        sty.SetStyleName("codec_style");
+        SmtPenDesc pen = sty.GetPenDesc();
+        pen.lPenColor = 0x00aabb;
+        sty.SetPenDesc(pen);
+        smt.SetStyle(&sty);
         OGRFeature ogr(lyr->GetLayerDefn());
         expect(sdb::datasource::copy_smt_feature_to_ogr(&smt, &ogr),
                "smt->ogr anno");
+        int style_n = 0;
+        const int style_i = ogr.GetFieldIndex("style");
+        expect(style_i >= 0 &&
+                   ogr.GetFieldAsBinary(style_i, &style_n) != nullptr &&
+                   style_n == static_cast<int>(sizeof(SmtStyle)),
+               "style OFTBinary written");
         SmtFeature back;
         expect(sdb::datasource::copy_ogr_feature_to_smt(&ogr, &back),
                "ogr->smt anno");
@@ -153,6 +167,75 @@ int main() {
         expect(pt && pt->GetX() == 1.5 && pt->GetY() == 2.5, "anno xy");
         int ai = back.GetFieldIndexByName("anno");
         expect(ai >= 0, "anno field present");
+        expect(back.GetStyle() != nullptr &&
+                   std::strcmp(back.GetStyle()->GetStyleName(), "codec_style") ==
+                       0,
+               "style blob decode");
+      }
+
+      OGRLayer* multi_lyr =
+          ds->CreateLayer("multi", nullptr, wkbUnknown, nullptr);
+      expect(multi_lyr != nullptr, "Memory multi layer");
+      if (multi_lyr) {
+        OGRFeature mpl(multi_lyr->GetLayerDefn());
+        OGRMultiPoint mp;
+        OGRPoint p0(9.0, 8.0);
+        OGRPoint p1(1.0, 2.0);
+        mp.addGeometry(&p0);
+        mp.addGeometry(&p1);
+        mpl.SetGeometry(&mp);
+        SmtFeature mp_back;
+        expect(sdb::datasource::copy_ogr_feature_to_smt(&mpl, &mp_back,
+                                                        SmtFtDot),
+               "decode MultiPoint as Dot");
+        const SmtPoint* mpt =
+            dynamic_cast<const SmtPoint*>(mp_back.GetGeometryRef());
+        expect(mpt && mpt->GetX() == 9.0 && mpt->GetY() == 8.0,
+               "MultiPoint first part");
+
+        OGRFeature mls(multi_lyr->GetLayerDefn());
+        OGRLineString ls0;
+        ls0.addPoint(0.0, 0.0);
+        ls0.addPoint(2.0, 3.0);
+        OGRLineString ls1;
+        ls1.addPoint(4.0, 5.0);
+        ls1.addPoint(6.0, 7.0);
+        OGRMultiLineString mls_g;
+        mls_g.addGeometry(&ls0);
+        mls_g.addGeometry(&ls1);
+        mls.SetGeometry(&mls_g);
+        SmtFeature mls_back;
+        expect(sdb::datasource::copy_ogr_feature_to_smt(&mls, &mls_back,
+                                                        SmtFtCurve),
+               "decode MultiLineString as Curve");
+        const SmtLineString* got_ls =
+            dynamic_cast<const SmtLineString*>(mls_back.GetGeometryRef());
+        expect(got_ls && got_ls->GetNumPoints() == 2 && got_ls->GetX(1) == 2.0,
+               "MultiLineString first part");
+
+        OGRLinearRing ring;
+        ring.addPoint(0.0, 0.0);
+        ring.addPoint(1.0, 0.0);
+        ring.addPoint(1.0, 1.0);
+        ring.addPoint(0.0, 0.0);
+        ring.closeRings();
+        OGRPolygon poly0;
+        poly0.addRing(&ring);
+        OGRPolygon poly1;
+        poly1.addRing(&ring);
+        OGRMultiPolygon mpg;
+        mpg.addGeometry(&poly0);
+        mpg.addGeometry(&poly1);
+        OGRFeature mpgf(multi_lyr->GetLayerDefn());
+        mpgf.SetGeometry(&mpg);
+        SmtFeature mpg_back;
+        expect(sdb::datasource::copy_ogr_feature_to_smt(&mpgf, &mpg_back,
+                                                        SmtFtSurface),
+               "decode MultiPolygon as Surface");
+        const SmtPolygon* got_pg =
+            dynamic_cast<const SmtPolygon*>(mpg_back.GetGeometryRef());
+        expect(got_pg && got_pg->GetExteriorRing() != nullptr,
+               "MultiPolygon first part");
       }
       GDALClose(ds);
     }
@@ -168,28 +251,37 @@ int main() {
   std::strcpy(info.db.szDBName, "sde_gdal_roundtrip.gpkg");
   std::string path = sdb::datasource::make_gdal_open_target(info);
   DeleteFileA(path.c_str());
-  {
-    std::string dir = path;
-    const auto slash = dir.find_last_of("\\/");
-    const auto dot = dir.find_last_of('.');
-    if (dot != std::string::npos && (slash == std::string::npos || dot > slash)) {
-      dir.resize(dot);
-    }
-    std::error_code ec;
-    std::filesystem::remove_all(dir, ec);
-  }
+
+  GDALDriver* gpkg_drv = GetGDALDriverManager()->GetDriverByName("GPKG");
+  const bool can_file = gpkg_drv != nullptr;
 
   sdb::datasource::OgrDataSource ds;
   ds.SetInfo(info);
-  expect(ds.Create(), "GPKG Create");
-  expect(ds.Open(), "GPKG Open");
-  expect(ds.IsOpen(), "GPKG IsOpen");
+  if (!can_file) {
+    expect(!ds.Create(), "GPKG Create fails without GPKG driver");
+    expect(!ds.Open(), "GPKG Open fails without GPKG driver");
+    std::fprintf(stderr,
+                 "SKIP: GPKG driver not in this GDAL; file round-trip omitted\n");
+  } else {
+    expect(ds.Create(), "GPKG Create");
+    expect(ds.Open(), "GPKG Open");
+    expect(ds.IsOpen(), "GPKG IsOpen");
+    if (ds.IsOpen() && ds.dataset()) {
+      expect(std::filesystem::exists(path), "created .gpkg file");
+      GDALDriver* opened = ds.dataset()->GetDriver();
+      expect(opened && std::strcmp(opened->GetDescription(), "GPKG") == 0,
+             "opened driver is GPKG");
+    }
+  }
 
   fRect rect;
   rect.lb.x = 0;
   rect.lb.y = 0;
   rect.rt.x = 10;
   rect.rt.y = 10;
+  if (!ds.IsOpen()) {
+    // File round-trip requires a real GPKG driver.
+  } else {
   SmtVectorLayer* lyr = ds.CreateVectorLayer("dots", rect, SmtFtDot);
   expect(lyr != nullptr, "create dots");
   if (lyr) {
@@ -414,12 +506,29 @@ int main() {
 
   ds.Close();
   expect(!ds.IsOpen(), "GPKG closed");
+  }
 
   sdb::datasource::OgrDataSource acc;
   SmtDataSourceInfo ainfo;
   ainfo.unProvider = PROVIDER_ACCESS;
   acc.SetInfo(ainfo);
   expect(!acc.Open(), "ACCESS Open false");
+
+  {
+    fRect rrect;
+    rrect.lb.x = 0;
+    rrect.lb.y = 0;
+    rrect.rt.x = 1;
+    rrect.rt.y = 1;
+    SmtRasterLayer* ras = acc.CreateRasterLayer("ras", rrect, 0);
+    expect(ras != nullptr, "raster layer object");
+    if (ras) {
+      expect(!ras->Create(), "raster Create false when bands cannot be written");
+      expect(ras->CreaterRaster(nullptr, 0, rrect, 0) == SMT_ERR_UNSUPPORTED,
+             "raster create unsupported (no blob table)");
+      SMT_SAFE_DELETE(ras);
+    }
+  }
 
   Smt_SDEDevMgr::SmtDataSourceMgr* mgr =
       Smt_SDEDevMgr::SmtDataSourceMgr::GetSingletonPtr();
@@ -429,8 +538,12 @@ int main() {
     expect(tmp != nullptr, "CreateTmpDataSource OGR");
     if (tmp) {
       tmp->SetInfo(info);
-      expect(tmp->Open(), "mgr GPKG Open");
-      tmp->Close();
+      if (can_file) {
+        expect(tmp->Open(), "mgr GPKG Open");
+        tmp->Close();
+      } else {
+        expect(!tmp->Open(), "mgr GPKG Open fails without driver");
+      }
       mgr->DestoryTmpDataSource(tmp);
     }
   }

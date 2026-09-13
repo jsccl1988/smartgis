@@ -8,15 +8,9 @@ source_set("ogr_codec") {
   sources = [
     "ogr_connect.cc",
     "ogr_connect.h",
-    "ogr_dataset.cc",
-    "ogr_dataset.h",
     "ogr_feature_codec.cc",
     "ogr_feature_codec.h",
     "ogr_feature_kind.h",
-    "ogr_raster_layer.cc",
-    "ogr_raster_layer.h",
-    "ogr_vec_layer.cc",
-    "ogr_vec_layer.h",
   ]
   configs += [ "//build:legacy" ]
   public_configs = [ "//build:legacy" ]
@@ -36,10 +30,18 @@ smt_shared_library("sde_gdal") {
   sources = [
     "gdal_driver.cc",
     "gdal_driver.h",
+    "ogr_dataset.cc",
+    "ogr_dataset.h",
+    "ogr_export.h",
+    "ogr_raster_layer.cc",
+    "ogr_raster_layer.h",
+    "ogr_vec_layer.cc",
+    "ogr_vec_layer.h",
   ]
   include_dirs += [ "//src" ]
   deps = [
     ":ogr_codec",
+    "//src/base:base",
     "//src/base:core",
     "//src/sdb/map:gis",
     "//third_party:gdal",
@@ -55,6 +57,7 @@ test("sde_gdal_test") {
   ]
   deps = [
     ":ogr_codec",
+    ":sde_gdal",
     "//src/algorithm/geo:geo",
     "//src/base:base",
     "//src/base:core",
@@ -62,5 +65,8 @@ test("sde_gdal_test") {
     "//src/sdb/map:gis",
     "//third_party:gdal",
   ]
-  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+  data_deps = [
+    ":sde_gdal",
+    "//third_party:gdal_runtime_dlls",
+  ]
 }

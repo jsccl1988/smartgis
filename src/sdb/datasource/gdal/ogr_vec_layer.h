@@ -5,6 +5,7 @@
 #define SDB_DATASOURCE_GDAL_OGR_VEC_LAYER_H_
 
 #include "layer.h"
+#include "sdb/datasource/gdal/ogr_export.h"
 
 #include <vector>
 
@@ -16,7 +17,7 @@ namespace datasource {
 class OgrDataSource;
 
 // Single vector layer class for all SmtFeatureType kinds (traits pick WKB).
-class OgrVectorLayer : public Smt_GIS::SmtVectorLayer {
+class SMT_SDE_GDAL_EXPORT OgrVectorLayer : public Smt_GIS::SmtVectorLayer {
  public:
   explicit OgrVectorLayer(OgrDataSource* owner);
   ~OgrVectorLayer() override;
