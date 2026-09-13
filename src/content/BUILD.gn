@@ -1,0 +1,28 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Stable map session / viewport ABI for every src/app host
+# (Chromium content/public). No MFC. Include as "content/public/...".
+# Implementation may use sdb + render + gpu; public headers stay thin.
+
+config("content_config") {
+  include_dirs += [ "//src" ]
+}
+
+source_set("content") {
+  sources = [
+    "app/content_main.cc",
+    "app/content_main.h",
+    "common/ipc.cc",
+    "common/ipc.h",
+    "map_session.cc",
+    "public/host_protocol.h",
+    "public/map_session.h",
+    "public/map_types.h",
+    "public/map_view.h",
+    "public/process_type.cc",
+    "public/process_type.h",
+    "public/tool_router.h",
+  ]
+  public_configs = [ ":content_config" ]
+}
