@@ -1,0 +1,506 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+import("//testing/test.gni")
+
+static_library("zlib") {
+  defines = [
+    "WIN32",
+    "NOMINMAX",
+  ]
+
+  configs += [
+    "//build/config/win:no_cr_code",
+  ]
+
+  sources = [
+    "zlib/adler32.c",
+    "zlib/compress.c",
+    "zlib/crc32.c",
+    "zlib/deflate.c",
+    "zlib/infback.c",
+    "zlib/inffast.c",
+    "zlib/inflate.c",
+    "zlib/inftrees.c",
+    "zlib/trees.c",
+    "zlib/uncompr.c",
+    "zlib/zutil.c",
+  ]
+
+  include_dirs += [
+    "$root_gen_dir/",
+    "$root_out_dir/glog/include",
+    "//third_party/CxImage/zlib",
+  ]
+
+  deps = [
+  ]
+}
+
+static_library("jasper") {
+  defines = [
+    "WIN32",
+    "NOMINMAX",
+    "JAS_WIN_MSVC_BUILD",
+    "EXCLUDE_JPG_SUPPORT",
+  ]
+
+  sources = [
+    "jasper\base\jas_cm.c",
+    "jasper\base\jas_debug.c",
+    "jasper\base\jas_getopt.c",
+    "jasper\base\jas_icc.c",
+    "jasper\base\jas_iccdata.c",
+    "jasper\base\jas_image.c",
+    "jasper\base\jas_init.c",
+    "jasper\base\jas_malloc.c",
+    "jasper\base\jas_seq.c",
+    "jasper\base\jas_stream.c",
+    "jasper\base\jas_string.c",
+    "jasper\base\jas_tvp.c",
+    "jasper\base\jas_version.c",
+    "jasper\bmp\bmp_cod.c",
+    "jasper\bmp\bmp_dec.c",
+    "jasper\bmp\bmp_enc.c",
+    "jasper\jp2\jp2_cod.c",
+    "jasper\jp2\jp2_dec.c",
+    "jasper\jp2\jp2_enc.c",
+    "jasper\jpc\jpc_bs.c",
+    "jasper\jpc\jpc_cs.c",
+    "jasper\jpc\jpc_dec.c",
+    "jasper\jpc\jpc_enc.c",
+    "jasper\jpc\jpc_math.c",
+    "jasper\jpc\jpc_mct.c",
+    "jasper\jpc\jpc_mqcod.c",
+    "jasper\jpc\jpc_mqdec.c",
+    "jasper\jpc\jpc_mqenc.c",
+    "jasper\jpc\jpc_qmfb.c",
+    "jasper\jpc\jpc_t1cod.c",
+    "jasper\jpc\jpc_t1dec.c",
+    "jasper\jpc\jpc_t1enc.c",
+    "jasper\jpc\jpc_t2cod.c",
+    "jasper\jpc\jpc_t2dec.c",
+    "jasper\jpc\jpc_t2enc.c",
+    "jasper\jpc\jpc_tagtree.c",
+    "jasper\jpc\jpc_tsfb.c",
+    "jasper\jpc\jpc_util.c",
+    "jasper\jpg\jpg_dummy.c",
+    "jasper\jpg\jpg_val.c",
+    "jasper\mif\mif_cod.c",
+    "jasper\pgx\pgx_cod.c",
+    "jasper\pgx\pgx_dec.c",
+    "jasper\pgx\pgx_enc.c",
+    "jasper\pnm\pnm_cod.c",
+    "jasper\pnm\pnm_dec.c",
+    "jasper\pnm\pnm_enc.c",
+    "jasper\ras\ras_cod.c",
+    "jasper\ras\ras_dec.c",
+    "jasper\ras\ras_enc.c",
+  ]
+
+  include_dirs += [
+    "$root_gen_dir/",
+    "$root_out_dir/glog/include",
+    "//third_party/CxImage/jasper/include",
+  ]
+
+  deps = [
+  ]
+}
+
+static_library("jbig") {
+  defines = [
+    "WIN32",
+    "NOMINMAX",
+    "",
+  ]
+
+  sources = [
+    "jbig/jbig.c",
+    "jbig/jbig_tab.c",
+  ]
+
+  include_dirs += [
+    "$root_gen_dir/",
+    "$root_out_dir/glog/include",
+    "//third_party/CxImage/jbig",
+  ]
+
+  deps = [
+  ]
+}
+
+static_library("jpeg") {
+  defines = [
+    "WIN32",
+    "NOMINMAX",
+  ]
+
+  sources = [
+    "jpeg/jaricom.c",
+    "jpeg/jcapimin.c",
+    "jpeg/jcapistd.c",
+    "jpeg/jcarith.c",
+    "jpeg/jccoefct.c",
+    "jpeg/jccolor.c",
+    "jpeg/jcdctmgr.c",
+    "jpeg/jchuff.c",
+    "jpeg/jcinit.c",
+    "jpeg/jcmainct.c",
+    "jpeg/jcmarker.c",
+    "jpeg/jcmaster.c",
+    "jpeg/jcomapi.c",
+    "jpeg/jcparam.c",
+    "jpeg/jcprepct.c",
+    "jpeg/jcsample.c",
+    "jpeg/jctrans.c",
+    "jpeg/jdapimin.c",
+    "jpeg/jdapistd.c",
+    "jpeg/jdarith.c",
+    "jpeg/jdatadst.c",
+    "jpeg/jdatasrc.c",
+    "jpeg/jdcoefct.c",
+    "jpeg/jdcolor.c",
+    "jpeg/jddctmgr.c",
+    "jpeg/jdhuff.c",
+    "jpeg/jdinput.c",
+    "jpeg/jdmainct.c",
+    "jpeg/jdmarker.c",
+    "jpeg/jdmaster.c",
+    "jpeg/jdmerge.c",
+    "jpeg/jdpostct.c",
+    "jpeg/jdsample.c",
+    "jpeg/jdtrans.c",
+    "jpeg/jerror.c",
+    "jpeg/jfdctflt.c",
+    "jpeg/jfdctfst.c",
+    "jpeg/jfdctint.c",
+    "jpeg/jidctflt.c",
+    "jpeg/jidctfst.c",
+    "jpeg/jidctint.c",
+    "jpeg/jmemmgr.c",
+    "jpeg/jmemnobs.c",
+    "jpeg/jquant1.c",
+    "jpeg/jquant2.c",
+    "jpeg/jutils.c",
+  ]
+
+  include_dirs += [
+    "$root_gen_dir/",
+    "$root_out_dir/glog/include",
+    "//third_party/CxImage/jpeg",
+  ]
+
+  deps = [
+  ]
+}
+
+static_library("libpsd") {
+  defines = [
+    "WIN32",
+    "NOMINMAX",
+  ]
+
+  sources = [
+    "libpsd/adjustment.c",
+    "libpsd/bevel_emboss.c",
+    "libpsd/bitmap.c",
+    "libpsd/blend.c",
+    "libpsd/boundary.c",
+    "libpsd/brightness_contrast.c",
+    "libpsd/channel_image.c",
+    "libpsd/channel_mixer.c",
+    "libpsd/color.c",
+    "libpsd/color_balance.c",
+    "libpsd/color_mode.c",
+    "libpsd/color_overlay.c",
+    "libpsd/curves.c",
+    "libpsd/descriptor.c",
+    "libpsd/drop_shadow.c",
+    "libpsd/effects.c",
+    "libpsd/file_header.c",
+    "libpsd/fixed.c",
+    "libpsd/gaussian_blur.c",
+    "libpsd/gradient_blend.c",
+    "libpsd/gradient_fill.c",
+    "libpsd/gradient_map.c",
+    "libpsd/gradient_overlay.c",
+    "libpsd/hue_saturation.c",
+    "libpsd/image_data.c",
+    "libpsd/image_resource.c",
+    "libpsd/inner_glow.c",
+    "libpsd/inner_shadow.c",
+    "libpsd/invert.c",
+    "libpsd/layer_mask.c",
+    "libpsd/levels.c",
+    "libpsd/outer_glow.c",
+    "libpsd/path.c",
+    "libpsd/pattern.c",
+    "libpsd/pattern_fill.c",
+    "libpsd/pattern_overlay.c",
+    "libpsd/photo_filter.c",
+    "libpsd/posterize.c",
+    "libpsd/psd.c",
+    "libpsd/psd_system.c",
+    "libpsd/psd_zip.c",
+    "libpsd/rect.c",
+    "libpsd/satin.c",
+    "libpsd/selective_color.c",
+    "libpsd/solid_color.c",
+    "libpsd/stream.c",
+    "libpsd/stroke.c",
+    "libpsd/threshold.c",
+    "libpsd/thumbnail.c",
+    "libpsd/type_tool.c",
+  ]
+
+  include_dirs += [
+    "$root_gen_dir/",
+    "$root_out_dir/glog/include",
+    "//third_party/CxImage/libpsd",
+  ]
+
+  deps = [
+  ]
+}
+
+
+static_library("mng") {
+  defines = [
+    "WIN32",
+    "NOMINMAX",
+    "MNG_SUPPORT_DISPLAY",
+    "MNG_SUPPORT_READ",
+    "MNG_SUPPORT_WRITE",
+    "MNG_ACCESS_CHUNKS",
+    "MNG_STORE_CHUNKS",
+    "MNG_ERROR_TELLTALE",
+  ]
+
+  sources = [
+    "mng/libmng_callback_xs.c",
+    "mng/libmng_chunk_descr.c",
+    "mng/libmng_chunk_io.c",
+    "mng/libmng_chunk_prc.c",
+    "mng/libmng_chunk_xs.c",
+    "mng/libmng_cms.c",
+    "mng/libmng_display.c",
+    "mng/libmng_dither.c",
+    "mng/libmng_error.c",
+    "mng/libmng_filter.c",
+    "mng/libmng_hlapi.c",
+    "mng/libmng_jpeg.c",
+    "mng/libmng_object_prc.c",
+    "mng/libmng_pixels.c",
+    "mng/libmng_prop_xs.c",
+    "mng/libmng_read.c",
+    "mng/libmng_trace.c",
+    "mng/libmng_write.c",
+    "mng/libmng_zlib.c",
+  ]
+
+  include_dirs += [
+    "$root_gen_dir/",
+    "$root_out_dir/glog/include",
+    "//third_party/CxImage/mng",
+  ]
+
+  deps = [
+  ]
+}
+
+static_library("png") {
+  defines = [
+    "WIN32",
+    "NOMINMAX",
+  ]
+
+  sources = [
+    "png/png.c",
+    "png/pngerror.c",
+    "png/pngget.c",
+    "png/pngmem.c",
+    "png/pngpread.c",
+    "png/pngread.c",
+    "png/pngrio.c",
+    "png/pngrtran.c",
+    "png/pngrutil.c",
+    "png/pngset.c",
+    "png/pngtrans.c",
+    "png/pngwio.c",
+    "png/pngwrite.c",
+    "png/pngwtran.c",
+    "png/pngwutil.c",
+  ]
+
+  include_dirs += [
+    "$root_gen_dir/",
+    "$root_out_dir/glog/include",
+    "//third_party/CxImage/png",
+    "//third_party/CxImage/zlib",
+  ]
+
+  deps = [
+    "//third_party/CxImage:zlib",
+  ]
+}
+
+static_library("raw") {
+  defines = [
+    "WIN32",
+    "NOMINMAX",
+  ]
+
+  sources = [
+    "raw/libdcr.c",
+  ]
+
+  include_dirs += [
+    "$root_gen_dir/",
+    "$root_out_dir/glog/include",
+    "//third_party/CxImage/raw",
+  ]
+
+  deps = [
+  ]
+}
+
+static_library("tiff") {
+  defines = [
+    "WIN32",
+    "NOMINMAX",
+  ]
+
+  sources = [
+    "tiff/tif_aux.c",
+    "tiff/tif_close.c",
+    "tiff/tif_codec.c",
+    "tiff/tif_color.c",
+    "tiff/tif_compress.c",
+    "tiff/tif_dir.c",
+    "tiff/tif_dirinfo.c",
+    "tiff/tif_dirread.c",
+    "tiff/tif_dirwrite.c",
+    "tiff/tif_dumpmode.c",
+    "tiff/tif_error.c",
+    "tiff/tif_fax3.c",
+    "tiff/tif_fax3sm.c",
+    "tiff/tif_flush.c",
+    "tiff/tif_getimage.c",
+    "tiff/tif_jpeg.c",
+    "tiff/tif_luv.c",
+    "tiff/tif_lzw.c",
+    "tiff/tif_next.c",
+    "tiff/tif_ojpeg.c",
+    "tiff/tif_open.c",
+    "tiff/tif_packbits.c",
+    "tiff/tif_pixarlog.c",
+    "tiff/tif_predict.c",
+    "tiff/tif_print.c",
+    "tiff/tif_read.c",
+    "tiff/tif_strip.c",
+    "tiff/tif_swab.c",
+    "tiff/tif_thunder.c",
+    "tiff/tif_tile.c",
+    "tiff/tif_version.c",
+    "tiff/tif_warning.c",
+    "tiff/tif_write.c",
+    "tiff/tif_zip.c",
+  ]
+
+  include_dirs += [
+    "$root_gen_dir/",
+    "$root_out_dir/glog/include",
+    "//third_party/CxImage/tiff",
+    "//third_party/CxImage/zlib",
+  ]
+
+  deps = [
+    "//third_party/CxImage:zlib",
+  ]
+}
+
+# CxImage 7.0.2 ships a pre-C++11 stdint.h on its include path.
+# Under C++23, MSVC <string_view> needs PTRDIFF_MAX, which that
+# header only defines when __STDC_LIMIT_MACROS is set. Isolate
+# this target only; do not roll the repo back to C++17.
+config("cximage_cc20") {
+  cflags_cc = [ "/std:c++20" ]
+}
+
+shared_library("CxImage") {
+  configs -= [ "//build/config:cc_std" ]
+  configs += [ ":cximage_cc20" ]
+  defines = [
+    "WIN32",
+    "NOMINMAX",
+    "JAS_WIN_MSVC_BUILD",
+    "_USRDLL",
+    "__STDC_LIMIT_MACROS",
+    "__STDC_CONSTANT_MACROS",
+  ]
+
+  sources = [
+    "CxImage/tif_xfile.cpp",
+    "CxImage/ximabmp.cpp",
+    "CxImage/ximadsp.cpp",
+    "CxImage/ximaenc.cpp",
+    "CxImage/ximaexif.cpp",
+    "CxImage/ximage.cpp",
+    "CxImage/ximagif.cpp",
+    "CxImage/ximahist.cpp",
+    "CxImage/ximaico.cpp",
+    "CxImage/ximainfo.cpp",
+    "CxImage/ximaint.cpp",
+    "CxImage/ximajas.cpp",
+    "CxImage/ximajbg.cpp",
+    "CxImage/ximajpg.cpp",
+    "CxImage/ximalpha.cpp",
+    "CxImage/ximalyr.cpp",
+    "CxImage/ximamng.cpp",
+    "CxImage/ximapal.cpp",
+    "CxImage/ximapcx.cpp",
+    "CxImage/ximapng.cpp",
+    "CxImage/ximapsd.cpp",
+    "CxImage/ximaraw.cpp",
+    "CxImage/ximasel.cpp",
+    "CxImage/ximaska.cpp",
+    "CxImage/ximatga.cpp",
+    "CxImage/ximath.cpp",
+    "CxImage/ximatif.cpp",
+    "CxImage/ximatran.cpp",
+    "CxImage/ximawbmp.cpp",
+    "CxImage/ximawmf.cpp",
+    "CxImage/ximawnd.cpp",
+    "CxImage/xmemfile.cpp",
+  ]
+
+  include_dirs += [
+    "$root_gen_dir/",
+    "$root_out_dir/glog/include",
+    "//third_party/CxImage/CxImage",
+    "//third_party/CxImage/jpeg",
+    "//third_party/CxImage/png",
+    "//third_party/CxImage/zlib",
+    "//third_party/CxImage/mng",
+    "//third_party/CxImage/tiff",
+    "//third_party/CxImage/j2k",
+    "//third_party/CxImage/jasper/include",
+  ]
+
+  libs += [
+    "ws2_32.lib",
+  ]
+
+  deps = [
+    "//third_party/CxImage:jasper",
+    "//third_party/CxImage:jbig",
+    "//third_party/CxImage:jpeg",
+    "//third_party/CxImage:libpsd",
+    "//third_party/CxImage:mng",
+    "//third_party/CxImage:png",
+    "//third_party/CxImage:raw",
+    "//third_party/CxImage:tiff",
+    "//third_party/CxImage:zlib",
+  ]
+}
+

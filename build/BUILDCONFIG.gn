@@ -60,21 +60,22 @@ declare_args() {
   is_tsan = false
 
   is_build_third_party = false
-  # Load MFC/BCG exe graph (//src/app:app). Off so ninja `all` stays the 31 DLLs.
+  # Load MFC/BCG exe graph (//src/app:app). Off so ninja `all` stays src_all.
   smt_build_app = false
-  # Load Views chrome exe (//src/app/views). Off so ninja `all` stays the 31 DLLs.
+  # Load Views chrome exe (//src/app/views). Off so ninja `all` stays src_all.
   smt_build_views = false
   # Load GPU process (//src/gpu:gpu → SmartGisRender.exe). Off so `all` stays
-  # the 31 DLLs. build.bat render sets this.
+  # the src_all DLL set. build.bat render sets this.
   smt_build_render = false
 }
 
 declare_args() {
   if (is_win) {
     c_std = "c17"
-    # Product C++ is C++20 (MSVC /std:c++20). Do not drop back to c++17.
-    # Linux/mac may stay c++23. Do not force third_party CMake onto cc_std.
-    cc_std = "c++20"
+    # Product C++ is C++23. MSVC 14.50/14.51 map this to /std:c++23preview
+    # (cl D9002-ignores /std:c++23 until 14.52). Do not drop back to c++17.
+    # Do not force third_party CMake onto cc_std.
+    cc_std = "c++23"
   } else {
     c_std = "c23"
     cc_std = "c++23"

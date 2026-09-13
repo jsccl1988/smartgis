@@ -1,0 +1,30 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# GEOS 3.13 Delaunay (geos_c) from the gdal_sdk prefix. Runtime DLLs match
+# //third_party:gdal so geos_c.dll / geos.dll sit next to the exe.
+config("geos_c") {
+  include_dirs += [ "//third_party/gdal_sdk/include" ]
+  lib_dirs = [ "//third_party/gdal_sdk/lib" ]
+  libs = [ "geos_c.lib" ]
+}
+
+smt_shared_library("tin") {
+  dll_stem = "SmtTinMesh"
+  defines = [ "Export_SmtTinMesh" ]
+  sources = [
+    "tin_api.cpp",
+    "tin_geos_backend.cpp",
+  ]
+  configs = [ ":geos_c" ]
+  deps = [
+    "//src/algorithm/geo3d:geo3d",
+    "//src/algorithm/math3d:math3d",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/algorithm/geo:geo",
+    "//third_party:gdal_runtime_dlls",
+  ]
+}

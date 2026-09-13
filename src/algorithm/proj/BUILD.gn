@@ -1,0 +1,62 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# PROJ 9 import lib from gdal_sdk. Runtime DLL (proj_9_4*.dll) is already
+# copied by //third_party:gdal_runtime_dlls. Do not vendor a second PROJ.
+config("proj9_lib") {
+  lib_dirs = [ "//third_party/gdal_sdk/lib" ]
+  if (is_debug) {
+    libs = [ "proj_d.lib" ]
+  } else {
+    libs = [ "proj.lib" ]
+  }
+}
+
+# proj.db next to gdal_runtime_dlls (out/). Search path is the module dir.
+copy("proj_runtime_data") {
+  sources = [
+    "//third_party/gdal_sdk/share/proj/proj.db",
+    "//third_party/gdal_sdk/share/proj/proj.ini",
+  ]
+  outputs = [ "$root_out_dir/{{source_file_part}}" ]
+}
+
+smt_shared_library("proj") {
+  dll_stem = "SmtGisPrj"
+  defines = [ "Export_SmtGisPrj" ]
+  sources = [
+    "gaussprj.cpp",
+    "lambertprj.cpp",
+    "proj_runtime.cpp",
+    "projection.cpp",
+    "projection_api.cpp",
+  ]
+  configs = [ ":proj9_lib" ]
+  deps = [
+    ":proj_runtime_data",
+    "//src/algorithm/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//third_party:gdal",
+  ]
+}
+
+test("proj_test") {
+  output_name = "proj_test"
+  sources = [ "proj_test.cpp" ]
+  include_dirs += [
+    "//src/algorithm/proj",
+    "//src/base",
+  ]
+  deps = [
+    ":proj",
+    "//src/base:core",
+  ]
+  data_deps = [
+    ":proj_runtime_data",
+    "//third_party:gdal_runtime_dlls",
+  ]
+}
