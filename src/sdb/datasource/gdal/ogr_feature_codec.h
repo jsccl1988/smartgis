@@ -4,16 +4,16 @@
 #ifndef SDB_DATASOURCE_GDAL_OGR_FEATURE_CODEC_H_
 #define SDB_DATASOURCE_GDAL_OGR_FEATURE_CODEC_H_
 
-class OGRFeature;
+#include "feature.h"
 
-namespace Smt_GIS {
-class SmtFeature;
-}
+class OGRFeature;
 
 namespace sdb {
 namespace datasource {
 
 bool copy_ogr_feature_to_smt(OGRFeature* src, Smt_GIS::SmtFeature* dst);
+bool copy_ogr_feature_to_smt(OGRFeature* src, Smt_GIS::SmtFeature* dst,
+                             Smt_GIS::SmtFeatureType hint);
 bool copy_smt_feature_to_ogr(const Smt_GIS::SmtFeature* src, OGRFeature* dst);
 
 }  // namespace datasource

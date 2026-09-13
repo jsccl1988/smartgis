@@ -7,6 +7,7 @@
 
 #include "feature.h"
 #include "geometry.h"
+#include "matrix2d.h"
 
 #include "ogrsf_frmts.h"
 
@@ -22,7 +23,13 @@ void force_feature_type(Smt_GIS::SmtFeature* dst, Smt_GIS::SmtFeatureType type) 
   dst->SetFeatureType(type);
 }
 
-Smt_GIS::SmtFeatureType infer_feature_type(OGRFeature* src) {
+Smt_GIS::SmtFeatureType infer_feature_type(OGRFeature* src,
+                                           Smt_GIS::SmtFeatureType hint) {
+  if (hint == Smt_GIS::SmtFtTin || hint == Smt_GIS::SmtFtGrid ||
+      hint == Smt_GIS::SmtFtAnno || hint == Smt_GIS::SmtFtDot ||
+      hint == Smt_GIS::SmtFtCurve || hint == Smt_GIS::SmtFtSurface) {
+    return hint;
+  }
   OGRGeometry* geom = src->GetGeometryRef();
   if (!geom) {
     return Smt_GIS::SmtFtUnknown;
@@ -313,23 +320,134 @@ bool feature_kind_traits<Smt_GIS::SmtFtAnno>::decode_geom(
 }
 
 bool feature_kind_traits<Smt_GIS::SmtFtTin>::encode_geom(
-    const Smt_GIS::SmtFeature* /*src*/, OGRFeature* /*dst*/) {
-  return false;
+    const Smt_GIS::SmtFeature* src, OGRFeature* dst) {
+  const auto* tin = dynamic_cast<const Smt_Geo::SmtTin*>(src->GetGeometryRef());
+  if (!tin) {
+    return false;
+  }
+  OGRMultiPolygon multi;
+  const int ntri = tin->GetTriangleCount();
+  for (int t = 0; t < ntri; ++t) {
+    const Smt_Core::SmtTriangle tri = tin->GetTriangle(t);
+    const Smt_Geo::SmtPoint pa = tin->GetPoint(static_cast<int>(tri.a));
+    const Smt_Geo::SmtPoint pb = tin->GetPoint(static_cast<int>(tri.b));
+    const Smt_Geo::SmtPoint pc = tin->GetPoint(static_cast<int>(tri.c));
+    OGRLinearRing ring;
+    ring.setNumPoints(4);
+    ring.setPoint(0, pa.GetX(), pa.GetY());
+    ring.setPoint(1, pb.GetX(), pb.GetY());
+    ring.setPoint(2, pc.GetX(), pc.GetY());
+    ring.setPoint(3, pa.GetX(), pa.GetY());
+    ring.closeRings();
+    OGRPolygon poly;
+    poly.addRing(&ring);
+    multi.addGeometry(&poly);
+  }
+  return dst->SetGeometry(&multi) == OGRERR_NONE;
 }
 
-bool feature_kind_traits<Smt_GIS::SmtFtTin>::decode_geom(OGRFeature* /*src*/,
-                                                        Smt_GIS::SmtFeature* /*dst*/) {
-  return false;
+bool feature_kind_traits<Smt_GIS::SmtFtTin>::decode_geom(
+    OGRFeature* src, Smt_GIS::SmtFeature* dst) {
+  OGRGeometry* geom = src->GetGeometryRef();
+  if (!geom) {
+    return false;
+  }
+  auto add_triangle_from_ring = [](Smt_Geo::SmtTin* tin, OGRLinearRing* ring) {
+    if (!ring || ring->getNumPoints() < 3) {
+      return;
+    }
+    Smt_Geo::SmtPoint p0(ring->getX(0), ring->getY(0));
+    Smt_Geo::SmtPoint p1(ring->getX(1), ring->getY(1));
+    Smt_Geo::SmtPoint p2(ring->getX(2), ring->getY(2));
+    tin->AddPoint(&p0);
+    const int ia = tin->GetPointCount() - 1;
+    tin->AddPoint(&p1);
+    const int ib = tin->GetPointCount() - 1;
+    tin->AddPoint(&p2);
+    const int ic = tin->GetPointCount() - 1;
+    Smt_Core::SmtTriangle tri;
+    tri.a = ia;
+    tri.b = ib;
+    tri.c = ic;
+    tin->AddTriangle(&tri);
+  };
+
+  auto* tin = new Smt_Geo::SmtTin();
+  const OGRwkbGeometryType wt = wkbFlatten(geom->getGeometryType());
+  if (wt == wkbMultiPolygon) {
+    auto* multi = geom->toMultiPolygon();
+    const int n = multi->getNumGeometries();
+    for (int i = 0; i < n; ++i) {
+      OGRPolygon* poly = multi->getGeometryRef(i)->toPolygon();
+      add_triangle_from_ring(tin, poly ? poly->getExteriorRing() : nullptr);
+    }
+  } else if (wt == wkbPolygon) {
+    add_triangle_from_ring(tin, geom->toPolygon()->getExteriorRing());
+  } else {
+    delete tin;
+    return false;
+  }
+  dst->SetGeometryDirectly(tin);
+  return tin->GetTriangleCount() >= 1 || tin->GetPointCount() >= 3;
 }
 
 bool feature_kind_traits<Smt_GIS::SmtFtGrid>::encode_geom(
-    const Smt_GIS::SmtFeature* /*src*/, OGRFeature* /*dst*/) {
-  return false;
+    const Smt_GIS::SmtFeature* src, OGRFeature* dst) {
+  const auto* grid = dynamic_cast<const Smt_Geo::SmtGrid*>(src->GetGeometryRef());
+  if (!grid || !grid->GetGridNodeBuf()) {
+    return false;
+  }
+  int rows = 0;
+  int cols = 0;
+  grid->GetSize(rows, cols);
+  const Matrix2D<Smt_Geo::RawPoint>* buf = grid->GetGridNodeBuf();
+  OGRMultiPoint mp;
+  for (int r = 0; r < rows; ++r) {
+    for (int c = 0; c < cols; ++c) {
+      const Smt_Geo::RawPoint& pt = buf->GetElement(r, c);
+      OGRPoint ogr_pt(pt.x, pt.y);
+      mp.addGeometry(&ogr_pt);
+    }
+  }
+  return dst->SetGeometry(&mp) == OGRERR_NONE;
 }
 
 bool feature_kind_traits<Smt_GIS::SmtFtGrid>::decode_geom(
-    OGRFeature* /*src*/, Smt_GIS::SmtFeature* /*dst*/) {
-  return false;
+    OGRFeature* src, Smt_GIS::SmtFeature* dst) {
+  OGRGeometry* geom = src->GetGeometryRef();
+  if (!geom || wkbFlatten(geom->getGeometryType()) != wkbMultiPoint) {
+    return false;
+  }
+  int rows = 0;
+  int cols = 0;
+  const int ri = src->GetFieldIndex("grid_row");
+  const int ci = src->GetFieldIndex("grid_col");
+  if (ri >= 0) {
+    rows = src->GetFieldAsInteger(ri);
+  }
+  if (ci >= 0) {
+    cols = src->GetFieldAsInteger(ci);
+  }
+  auto* mp = geom->toMultiPoint();
+  const int n = mp->getNumGeometries();
+  if (rows <= 0 || cols <= 0) {
+    cols = n;
+    rows = 1;
+  }
+  auto* grid = new Smt_Geo::SmtGrid(rows, cols);
+  Matrix2D<Smt_Geo::RawPoint>* buf = grid->GetGridNodeBuf();
+  int k = 0;
+  for (int r = 0; r < rows; ++r) {
+    for (int c = 0; c < cols && k < n; ++c, ++k) {
+      OGRPoint* pt = mp->getGeometryRef(k)->toPoint();
+      Smt_Geo::RawPoint raw;
+      raw.x = pt->getX();
+      raw.y = pt->getY();
+      buf->SetElement(raw, r, c);
+    }
+  }
+  dst->SetGeometryDirectly(grid);
+  return true;
 }
 
 bool feature_kind_traits<Smt_GIS::SmtFtChildImage>::encode_geom(
@@ -364,10 +482,15 @@ bool copy_smt_feature_to_ogr(const Smt_GIS::SmtFeature* src, OGRFeature* dst) {
 }
 
 bool copy_ogr_feature_to_smt(OGRFeature* src, Smt_GIS::SmtFeature* dst) {
+  return copy_ogr_feature_to_smt(src, dst, Smt_GIS::SmtFtUnknown);
+}
+
+bool copy_ogr_feature_to_smt(OGRFeature* src, Smt_GIS::SmtFeature* dst,
+                             Smt_GIS::SmtFeatureType hint) {
   if (!src || !dst) {
     return false;
   }
-  const Smt_GIS::SmtFeatureType ft = infer_feature_type(src);
+  const Smt_GIS::SmtFeatureType ft = infer_feature_type(src, hint);
   if (ft == Smt_GIS::SmtFtUnknown) {
     return false;
   }
