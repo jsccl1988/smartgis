@@ -67,7 +67,7 @@ ninja -C out all
 - **MFC Feature Pack**（VS 18 组件 `Microsoft.VisualStudio.Component.VC.ATLMFC` 或 `Microsoft.VisualStudio.Component.VC.14.50.18.0.MFC`；MBCS + `afxcontrolbars.h`）：`build.bat app` → `out/SmartGis.exe`。未装时 `//:all` 仍绿。适配头 `src/ui/mfc_ex/bcg_cmfc.h`（`CBCGP*` → `CMFC*` / `CDockablePane`）。**不要**再装 BCGControlBar Pro
 - 终局桌面 UI 仍是 Views + Skia，不要改走 WinUI / WebView2 / Qt
 - **DirectX June 2010**（`d3dx9math.h` / `D3DXCreateFont`）：`render/d3d`
-- **GDAL/OGR**：`datasource/smf` 走 `third_party/gdal_sdk`（junction → mgis `out/third_party`，本地 fallback）。源码真相是 `third_party/manifest.json` + Gitea（`build.bat t` / `third_party/tools/fetch.py`）；junction `gdal` / `PROJ` / `sqlite3` 仍可用。`is_build_third_party=true` 时 cmake 装到 **`out/third_party`**（不是 `.install`）。运行时 `gdald.dll`（及 `geos` / `proj`）由 GN 拷到 `out/`，否则 `SmartGis.exe` 会因 `STATUS_DLL_NOT_FOUND` 起不来
+- **GDAL/OGR**：数据库数据源走 `datasource/gdal`（`SmtSDEGdalDevice`）；`datasource/smf` 仍用同一 `third_party/gdal_sdk`（junction → mgis `out/third_party`，本地 fallback）。`src/ado` 不在 `src_all`。源码真相是 `third_party/manifest.json` + Gitea（`build.bat t` / `third_party/tools/fetch.py`）；junction `gdal` / `PROJ` / `sqlite3` 仍可用。`is_build_third_party=true` 时 cmake 装到 **`out/third_party`**（不是 `.install`）。运行时 `gdald.dll`（及 `geos` / `proj`）由 GN 拷到 `out/`，否则 `SmartGis.exe` 会因 `STATUS_DLL_NOT_FOUND` 起不来
 
 ---
 

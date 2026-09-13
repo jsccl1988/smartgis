@@ -24,7 +24,12 @@ mogu 源树本机未检出（常见路径 `c:\Dev\src\mogu`、WSL `/home/ccl/dev
 | [`superpowers/specs/2026-09-13-ogr-db-datasource-design.md`](superpowers/specs/2026-09-13-ogr-db-datasource-design.md) | 用 GDAL/OGR 替换 ADO 数据库数据源（PostGIS / GeoPackage） |
 | [`superpowers/specs/2026-09-13-algorithm-layer-oss-design.md`](superpowers/specs/2026-09-13-algorithm-layer-oss-design.md) | 算法层：gdal_sdk GEOS + PROJ 9，合并 `SmtGeoCore`，DEM/chart 移出 algorithm |
 | [`superpowers/specs/2026-09-13-base-ipc-mojom-design.md`](superpowers/specs/2026-09-13-base-ipc-mojom-design.md) | 单二进制 `--type=` + 独立 GPU 进程（2D/3D）+ Mojo/mojom |
+| [`superpowers/specs/2026-09-13-render-rhi-scene-design.md`](superpowers/specs/2026-09-13-render-rhi-scene-design.md) | 统一 RHI（FlyCube DX12/Vulkan）+ `sdb` 模型/场景 + GPU scene |
+| [`superpowers/specs/2026-09-13-net-asio-httplib-design.md`](superpowers/specs/2026-09-13-net-asio-httplib-design.md) | `src/net`：standalone ASIO + cpp-httplib，FnRPC 空槽 |
+| [`superpowers/specs/2026-09-13-tool-event-dispatch-design.md`](superpowers/specs/2026-09-13-tool-event-dispatch-design.md) | 工具层：session Command / Input / EventBus，与文档操作解耦 |
+| [`superpowers/plans/2026-09-13-net-asio-httplib.md`](superpowers/plans/2026-09-13-net-asio-httplib.md) | 实现计划：换掉 Winsock 1.1 / WebAppLib |
 | [`superpowers/plans/2026-09-13-base-ipc-mojom.md`](superpowers/plans/2026-09-13-base-ipc-mojom.md) | 实现计划：C++23、ContentMain、同 PE 子进程 |
+| [`superpowers/plans/2026-09-13-tool-event-dispatch.md`](superpowers/plans/2026-09-13-tool-event-dispatch.md) | 实现计划：CommandDispatcher + InteractionStack + EditSession |
 
 没有第二份 `doc/` 目录。2010 的 `readme.txt` / `说明.docx` 已并入本节「产品概要」。
 
@@ -43,7 +48,7 @@ mogu 源树本机未检出（常见路径 `c:\Dev\src\mogu`、WSL `/home/ccl/dev
 
 系统按五层拆：`app`（产品壳）、`content`（稳定 API）、`sdb`（要素/图层/地图文档/数据源，可经 GDAL/OGR 扩展）、`render`（2D+3D + RHI）、`base`（原 core + 包络/样式）。WebGIS 在 `src/web/`。终局桌面壳是 Views + Skia。
 
-3D 走渲染驱动接口（bridge）+ OpenGL；地形 / 流水 / 点云 / 三维几何见 `src/render/{scene3d,terrain,pointcloud}`。Web 地图发布：瓦片、WMS/WTS；Apache / IIS 配置需自行改，源码在 `src/web/`。核心地图文档在 `src/map/`（`SmtMap`）。
+3D/2D 地图 GPU 走 `src/render/rhi`（FlyCube DX12/Vulkan Facade）。逻辑模型与 World 在 `src/sdb/{model,scene}`；GPU 实例缓存在 `src/render/scene`。遗留 `scene3d` / `model3d` / GL 设备仍在 `src_all`。Web 地图发布：瓦片、WMS/WTS；源码在 `src/web/`。核心地图文档在 `src/sdb/map`（`SmtMap`）。
 
 ---
 
