@@ -3,13 +3,14 @@
 
 #include "sdb/datasource/gdal/gdal_driver.h"
 
+#include "gdal_priv.h"
+
 namespace sdb {
 namespace datasource {
 
 bool register_gdal_driver() {
-  // v1: seam only. Use existing //third_party/gdal_sdk from the SMF device
-  // when opening formats GDAL already supports there.
-  return false;
+  GDALAllRegister();
+  return true;
 }
 
 }  // namespace datasource

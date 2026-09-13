@@ -20,7 +20,7 @@
 namespace sdb {
 namespace datasource {
 
-// Returns false until a real OGR driver is wired. Safe to call.
+// Registers every GDAL/OGR driver in this SDK (GDALAllRegister).
 bool register_gdal_driver();
 
 }  // namespace datasource
