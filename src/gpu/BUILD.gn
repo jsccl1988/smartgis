@@ -1,0 +1,36 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# GPU process payload (Chromium //gpu). Linked into the chrome PE so
+# --type=gpu relaunches the same image. Optional leftover console exe still
+# builds as SmartGisRender.exe when smt_build_render is set.
+
+config("gpu_config") {
+  include_dirs += [ "//src" ]
+}
+
+source_set("gpu_lib") {
+  sources = [
+    "adapter.cc",
+    "gpu.h",
+    "gpu_main.cc",
+    "present.cc",
+    "present.h",
+    "self_test.cc",
+  ]
+  deps = [ "//src/content:content" ]
+  public_configs = [ ":gpu_config" ]
+  libs = [
+    "d3d11.lib",
+    "dxgi.lib",
+  ]
+}
+
+if (smt_build_render) {
+  console_app("gpu") {
+    output_name = "SmartGisRender"
+    sources = [ "gpu_exe.cc" ]
+    deps = [ ":gpu_lib" ]
+    data_deps = [ "//src:src_all" ]
+  }
+}

@@ -59,12 +59,12 @@ All rights reserved.
 **Interfaces:**
 - Produces: all product TUs compile with MSVC `/std:c++23`
 
-- [ ] **Step 1:** Set Windows `cc_std = "c++23"` (keep `c_std = "c17"`).
-- [ ] **Step 2:** Add `/Zc:__cplusplus` to `build/config/win` default `cflags_cc`.
-- [ ] **Step 3:** Remove WinUI `/std:c++17` so it inherits repo `cc_std`.
-- [ ] **Step 4:** Run `build.bat` from repo root. Parse `out/build.log`. Fix conformance in place (no second `cc_std` for `smt_shared_library`). Isolate only a third-party/WinRT target if a header cannot compile as C++23.
-- [ ] **Step 5:** `build.bat` exit 0, no `FAILED:`.
-- [ ] **Step 6:** Commit `Bump the tree to C++23.`
+- [x] **Step 1:** Set Windows `cc_std = "c++23"` (keep `c_std = "c17"`).
+- [x] **Step 2:** Add `/Zc:__cplusplus` to `build/config/win` default `cflags_cc`.
+- [x] **Step 3:** Remove WinUI `/std:c++17` so it inherits repo `cc_std`.
+- [x] **Step 4:** Run `build.bat` from repo root. Parse `out/build.log`. Fix conformance in place (no second `cc_std` for `smt_shared_library`). Isolate only a third-party/WinRT target if a header cannot compile as C++23.
+- [x] **Step 5:** `build.bat` exit 0, no `FAILED:`.
+- [x] **Step 6:** Commit `Bump the tree to C++23.`
 
 ---
 
@@ -133,10 +133,10 @@ plus existing `--pipe=` escape hatch until Mojo. Second child `--type=renderer` 
 
 Use `GetModuleFileNameW(nullptr)` for `exe`. `CREATE_NO_WINDOW` on children. Job `KILL_ON_JOB_CLOSE`.
 
-- [ ] **Step 1:** Views `wWinMain` if `--type=` is gpu/renderer, `ContentMain` and return (do not create Views widget).
-- [ ] **Step 2:** `MapSessionImpl::start_render_process` launches self `--type=gpu`.
-- [ ] **Step 3:** `build.bat views` (or `smt_build_views=true`) and `out\SmartGisViews.exe --type=gpu --self-test` if argv is plumbed; otherwise `gpu::run_self_test`.
-- [ ] **Step 4:** Commit `Relaunch the chrome PE as --type=gpu.`
+- [x] **Step 1:** Views `wWinMain` if `--type=` is gpu/renderer, `ContentMain` and return (do not create Views widget).
+- [x] **Step 2:** `MapSessionImpl::start_render_process` launches self `--type=gpu`.
+- [x] **Step 3:** `build.bat views` (or `smt_build_views=true`) and `out\SmartGisViews.exe --type=gpu --self-test` if argv is plumbed; otherwise `gpu::run_self_test`.
+- [x] **Step 4:** Commit `Relaunch the chrome PE as --type=gpu.`
 
 ---
 

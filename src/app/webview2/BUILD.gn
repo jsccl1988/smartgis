@@ -1,0 +1,85 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//src/app/webview2/webview2.gni")
+
+# Scheme 1 chrome. Not in //src:src_all or group("all").
+assert(smt_build_webview2,
+       "load //src/app/webview2 only when smt_build_webview2=true")
+
+action("fetch_webview2_sdk") {
+  script = "//src/app/webview2/fetch_webview2.py"
+  outputs = [
+    "$root_out_dir/third_party/webview2/include/WebView2.h",
+    "$root_out_dir/third_party/webview2/include/WebView2EnvironmentOptions.h",
+    "$root_out_dir/third_party/webview2/x64/WebView2Loader.dll.lib",
+    "$root_out_dir/WebView2Loader.dll",
+  ]
+  args = [
+    "--dest",
+    rebase_path("$root_out_dir/third_party/webview2", root_build_dir),
+    "--copy-loader",
+    rebase_path("$root_out_dir/WebView2Loader.dll", root_build_dir),
+    "--repo-cache",
+    rebase_path("//third_party/webview2", root_build_dir),
+  ]
+}
+
+action("chrome_web") {
+  script = "//src/app/webview2/copy_chrome_web.py"
+  inputs = [
+    "chrome_web/chrome.css",
+    "chrome_web/chrome.js",
+    "chrome_web/index.html",
+  ]
+  outputs = [
+    "$root_out_dir/chrome_web/chrome.css",
+    "$root_out_dir/chrome_web/chrome.js",
+    "$root_out_dir/chrome_web/index.html",
+  ]
+  args = [
+    rebase_path("chrome_web", root_build_dir),
+    rebase_path("$root_out_dir/chrome_web", root_build_dir),
+  ]
+}
+
+config("webview2_sdk") {
+  include_dirs += [
+    "//src",
+    "//src/app/webview2",
+    "$root_out_dir/third_party/webview2/include",
+  ]
+  lib_dirs = [ "$root_out_dir/third_party/webview2/x64" ]
+  libs += [
+    "WebView2Loader.dll.lib",
+    "version.lib",
+    "runtimeobject.lib",
+  ]
+}
+
+executable("app_webview2") {
+  output_name = "SmartGisWeb"
+  sources = [
+    "detail/local_render.cc",
+    "host_window.cc",
+    "main.cc",
+    "map_pane.cc",
+    "webview_host.cc",
+  ]
+  configs += [
+    ":webview2_sdk",
+    "//build/config/win:windows_subsystem",
+  ]
+  deps = [
+    ":chrome_web",
+    ":fetch_webview2_sdk",
+    "//src/content:content",
+    "//src/gpu:gpu_lib",
+  ]
+  libs = [ "shell32.lib" ]
+}
+
+# Alias so `ninja -C out SmartGisWeb.exe` matches build.bat web / peers.
+group("SmartGisWeb") {
+  deps = [ ":app_webview2" ]
+}

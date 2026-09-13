@@ -52,5 +52,9 @@ executable("app_winui") {
     "//build/config/win:windows_subsystem",
     ":winui_cc",
   ]
-  deps = [ "//src/content:content" ]
+  deps = [
+    "//src/content:content",
+    "//src/gpu:gpu_lib",
+  ]
+  libs = [ "shell32.lib" ]
 }
