@@ -20,11 +20,11 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 
 | Layer | Tree | Notes |
 | --- | --- | --- |
-| app | `src/app/` + `app/{app_core,views,winui}` | All product hosts. No `src/chrome/`. Namespace `app`. |
+| app | `src/app/{views,winui}`；MFC 壳 → `src/legacy_app/` | Endgame/prototype hosts only. No `src/chrome/`. Namespace `app`. |
 | content | `src/content/public` | Stable embedder API. Hosts do not include sdb / render devices. |
-| sdb | `src/sdb/{feature,layer,map,crs,datasource/<driver>,model,scene,tile}` | GIS model; CPU assets (`model`) and World (`scene`); HTTP XYZ tiles (`tile`). |
+| sdb | `src/sdb/{feature,layer,map,crs,datasource/<driver>,model,scene,tile,style}` | GIS model; CPU assets (`model`) and World (`scene`); HTTP XYZ tiles (`tile`); MapLibre-subset Style JSON / symbol / rules (`style`). |
 | render | `src/render/{rhi,scene,skia,math}` | Endgame: unified 2D+3D RHI (FlyCube DX12/Vulkan), `GpuScene`, Skia stub, scene math. Leftover engines live under `src/legacy_render/…` and are **not** in `src_all` by default (optional `//src/legacy_render:legacy_render_all`). **Paint runs in `--type=gpu`**, not in browser. |
-| base | `src/base/{core,style,ipc,archive}` | `core` = `SmtCore`. `style` = `SmtBaseLib` (cartographic pen/brush/symbol + Envelope; not Views/CSS). `ipc` = named pipe + frame codec（deps → `archive`，not net）。`archive` = BinarySink / Serializer（`base::`；A1）。`net::Pickle` 仍在 `net/pack`。 |
+| base | `src/base/{core,style,ipc,archive}` | `core` = `SmtCore`. `style` = `SmtBaseLib` (cartographic pen/brush/symbol + Envelope; not Views/CSS; **not** Style JSON). `ipc` = named pipe + frame codec（deps → `archive`，not net）。`archive` = BinarySink / Serializer（`base::`；A1）。`net::Pickle` 仍在 `net/pack`。 |
 
 ## OSS GIS ↔ this tree
 
@@ -47,10 +47,11 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 | `dll_stem` | 树 / 吸收 | 默认 `src_all` |
 | --- | --- | --- |
 | `base` | `base/{core,style,ipc,archive}` + `sys` + `net` | yes |
-| `sdb` | `sdb/{feature,layer,map,model,scene,tile,edit,datasource}` | yes |
+| `sdb` | `sdb/{feature,layer,map,model,scene,tile,edit,datasource,style}` | yes |
 | `algorithm` | `algorithm/{geo,proj,tin,stat}` | yes |
 | `render` | `render/{rhi,scene,skia,…}`（endgame only） | yes |
-| `ui_legacy` | `ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | **no**（`smt_build_app`） |
+| `ui_legacy` | `legacy_ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}`（`dll_stem` 不变） | **no**（`smt_build_app`） |
+| `app_core` | `legacy_app/app_core` | **no**（`smt_build_app`） |
 | `legacy_render` | `legacy_render/**` | **no**（optional） |
 | `legacy_tool` | `legacy_tool/**`（`tool_group` 源链入 `ui_legacy`） | **no**（optional） |
 | `plugin_*` / `plugin` | 每插件一 DLL；host 为 source_set | host 进图；域插件按需 |
@@ -62,26 +63,27 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 | Layer | Tree | Directory / product notes | In `src_all` |
 | --- | --- | --- | --- |
 | Foundation | `base/{core,style,ipc,archive}`, `sys`, `net` | 一层目录；**一 DLL `base`**（旧短名标签 group 转发） | yes → `base` |
-| Core data model | `sdb/{feature,layer,map,model,scene,tile}` | GIS 模型 + CPU assets / World / TileProvider；**一 DLL `sdb`** | yes → `sdb` |
+| Core data model | `sdb/{feature,layer,map,model,scene,tile,style}` | GIS 模型 + CPU assets / World / TileProvider / StyleDocument；**一 DLL `sdb`** | yes → `sdb` |
 | Datasource | `sdb/datasource/{mgr,gdal}` | 并入 `sdb` DLL。SMF/WS/mem leftovers 已删 | yes → `sdb` |
 | Algorithm | `algorithm/{geo,proj,tin,stat}` | **一 DLL `algorithm`**。Scene Vector/Matrix 在 `render/math`。**Not** dem/orthogrid（插件）/ chart（`ui_legacy`） | yes → `algorithm` |
 | Render | `render/{rhi,scene,skia,math}` | Endgame **一 DLL `render`**。Leftover 引擎在 `legacy_render/` → optional `legacy_render` DLL | yes → `render`；leftover optional |
 | Plugin | `plugin/` + children | Host `//src/plugin/host:host`（source_set）。域插件 **各一 DLL**。Spec: `2026-09-14-plugin-subdir-layout-design.md` | host + widgets |
-| UI | `ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | **一 DLL `ui_legacy`**（已完成）。MFC Feature Pack chrome | **no**（`smt_build_app`） |
+| UI (leftover) | `legacy_ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | **一 DLL `ui_legacy`**（路径迁出；`dll_stem` 不变）。`//src/ui:ui_legacy` 转发 | **no**（`smt_build_app`） |
 | UI toolkit (endgame) | `ui/views` | Views stub（`//:ui_views`）；source_set | **no** |
 | Hosted map | `content/public` + `content/app` | Embedder API；`ContentMain` 分发 `--type=` | **yes**（source_set，非 DLL） |
 | GPU main (`--type=gpu`) | `gpu/` | 同 PE `GpuMain`；`build.bat render` 为 GPU 进程别名 | **no** |
-| App | `app/` + `app/{app_core,views,winui}` | MFC exe + hosts；`app_core` 仍可独立 DLL | **no** |
+| App (endgame) | `app/{views,winui}` | Views / WinUI hosts only | **no** |
+| App (leftover) | `legacy_app/` + `legacy_app/app_core` | MFC `SmartGis.exe`（`//src/legacy_app:app`）；`dll_stem=app_core` | **no**（`smt_build_app`） |
 | Tool | `tool/` (`dispatch`) + `sdb/edit` | `dispatch` source_set；leftover → `legacy_tool` DLL；`edit` 进 `sdb` | yes（`dispatch`）；leftover optional |
 
 **Deliberately not merged** *(directory / product splits — DLL 已按上表合并)*
 
 - `//src/base:core` / `:base` / `//src/sys:sys` / `//src/net:net` 等标签保留为 **group → `dll_stem=base`**，不是第二套平台 DLL。
 - Homemade Vector/Matrix were removed from `algorithm/geo`. Scene `Vector3` / `Matrix` / bounds live in `src/render/math` as Eigen-backed POD adapters (`//src/render/math:math`, `:bounds`). Public umbrella header: `render/math/math.h`. API is `snake_case`. OGC `coordinateDimension` is 2 or 3 on the Geometry **instance**. See algorithm-layer-oss + render-math-refactor specs.
-- `base`: keep the name. `style/` is envelope + cartographic style, not `ui/views`.
+- `base`: keep the name. `base/style/` is envelope + cartographic POD (`SmtStyle`), not `ui/views`. Style JSON / symbol library / rule engine live in `sdb/style` (`sdb::style`).
 - `geo::geometry_traits` / `vector_traits` wrap OGR；Delaunay in `algorithm/tin`。No second geometry tree.
 - **不要**把 `legacy_render` 并进 `render`；**不要**把插件并进平台 DLL；**不要**把 `content` / `dispatch` / `plugin/host` 做成产品 DLL。
-- MFC Feature Pack / `ui_legacy` stays out of default `src_all`. Exe graph gated by `smt_build_app`（`build.bat app` / `build.bat ui_legacy`）。
+- MFC Feature Pack / `ui_legacy` stays out of default `src_all`. Exe graph gated by `smt_build_app`（`build.bat legacy_app` / `build.bat ui_legacy`）。日常产品入口：`build.bat app` → Views。
 
 ### Desktop UI endgame (Views + Skia)
 
@@ -89,11 +91,11 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 
 ### MFC Feature Pack (legacy exe bootstrap)
 
-`build.bat app` links **MFC Feature Pack** (`CMFCRibbonBar` / `CDockablePane` / `CMDIFrameWndEx` via `src/ui/mfc_ex/bcg_cmfc.h`). BCGControlBar Pro is **not** required and is not vendored. This is a compile bridge, **not** the destination toolkit (Views + Skia).
+`build.bat legacy_app` links **MFC Feature Pack** (`CMFCRibbonBar` / `CDockablePane` / `CMDIFrameWndEx` via `legacy_ui/mfc_ex/bcg_cmfc.h`). BCGControlBar Pro is **not** required and is not vendored. This is a compile bridge, **not** the destination toolkit (Views + Skia). `build.bat app` builds Views.
 
 | Dep | How to satisfy |
 | --- | --- |
-| **MFC** (MBCS, `afxwin.h` / `afxres.h` / `afxcontrolbars.h`) | VS 18 Individual component **C++ MFC for x64/x86 (Latest MSVC)** = `Microsoft.VisualStudio.Component.VC.ATLMFC`, or toolset-pinned `Microsoft.VisualStudio.Component.VC.14.50.18.0.MFC`. After install, re-run `build.bat app` so `out/environment.x64.x64` picks up `atlmfc\include` + `atlmfc\lib\x64`. Close `cl`/`ninja`/`link` first, or the installer precheck `VSProcessesRunning` cancels (error `0x1f46`). |
+| **MFC** (MBCS, `afxwin.h` / `afxres.h` / `afxcontrolbars.h`) | VS 18 Individual component **C++ MFC for x64/x86 (Latest MSVC)** = `Microsoft.VisualStudio.Component.VC.ATLMFC`, or toolset-pinned `Microsoft.VisualStudio.Component.VC.14.50.18.0.MFC`. After install, re-run `build.bat legacy_app` so `out/environment.x64.x64` picks up `atlmfc\include` + `atlmfc\lib\x64`. Close `cl`/`ninja`/`link` first, or the installer precheck `VSProcessesRunning` cancels (error `0x1f46`). |
 
 ## Path map (2010 dir → short name → layered → 终态 DLL)
 
@@ -123,11 +125,11 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 | `SmtGroupToolCore` | `tool_group` | `legacy_tool/group` | sources → `ui_legacy`（避环） | `ui_legacy` |
 | — | `dispatch` | `tool` | `dispatch` | — (source_set) |
 | — | `edit` | `sdb/edit` | → `sdb` | `sdb` |
-| `SmtGuiCore` | `gui` | `ui/gui` | → `ui_legacy` | `ui_legacy` |
-| `SmtMFCExCore` | `mfc_ex` | `ui/mfc_ex` | → `ui_legacy` | `ui_legacy` |
-| `SmtXViewCore` | `xview` | `ui/xview` | → `ui_legacy` | `ui_legacy` |
-| `SmtXCatalogCore` | `xcatalog` | `ui/xcatalog` | → `ui_legacy` | `ui_legacy` |
-| `SmtXAMBoxCore` | `xambox` | `ui/xambox` | → `ui_legacy` | `ui_legacy` |
+| `SmtGuiCore` | `gui` | `legacy_ui/gui` | → `ui_legacy` | `ui_legacy` |
+| `SmtMFCExCore` | `mfc_ex` | `legacy_ui/mfc_ex` | → `ui_legacy` | `ui_legacy` |
+| `SmtXViewCore` | `xview` | `legacy_ui/xview` | → `ui_legacy` | `ui_legacy` |
+| `SmtXCatalogCore` | `xcatalog` | `legacy_ui/xcatalog` | → `ui_legacy` | `ui_legacy` |
+| `SmtXAMBoxCore` | `xambox` | `legacy_ui/xambox` | → `ui_legacy` | `ui_legacy` |
 | — | `views` | `ui/views` | `views` (`//:ui_views`) | — (source_set) |
 | — | `skia` | `render/skia` | → `render` / Views stub | `render` / source_set |
 | `SmtAuxModule` | `plugin` | `plugin` | `plugin` | `plugin` |
@@ -149,7 +151,7 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 | `Smt3DTerrain` | `terrain` | `legacy_render/terrain` | → `legacy_render` | `legacy_render` |
 | `SmtNetCore` | `net` | `net/{pack,http,rpc}` | → `base` | `base` |
 | `SmtStaCore` | `stat` | `algorithm/stat` | → `algorithm` | `algorithm` |
-| `SmtStaDiagram` | `stat_chart` | `ui/chart` | → `ui_legacy` | `ui_legacy` |
+| `SmtStaDiagram` | `stat_chart` | `legacy_ui/chart` | → `ui_legacy` | `ui_legacy` |
 
 `app` 不进默认 `src_all`。Debug 文件名为 `{stem}_d.dll`。完整对照见 [`abi-rename-map.md`](abi-rename-map.md)。
 
@@ -162,7 +164,7 @@ Include dirs in `//build:smt_legacy` still point at **each leftover module root*
 | Tree | Stem | Extension | Include |
 | --- | --- | --- | --- |
 | New (`content`, `gpu`, `app/{views,winui}`, `ui/views`, `render/{skia,rhi,scene}`, `sdb/{model,scene}`, `net`) | `snake_case` | `.cc` / `.h` (`net` keeps `.cpp`) | `"content/public/map_view.h"`, `"ui/views/view.h"`, `"gpu/gpu.h"`, `"render/rhi/rhi.h"`, `"sdb/scene/scene.h"`, `"net/http/http.h"` (`//src` on the include path) |
-| Legacy product (`app` MFC, `ui/{gui,mfc_ex,xview,…}`, `plugin/*`, …) | `snake_case` | keep `.cpp` | still module-root `"main_frame.h"` / `"grid_ctrl.h"` |
+| Legacy product (`legacy_app` MFC, `legacy_ui/{gui,mfc_ex,xview,…}`, `plugin/*`, …) | `snake_case` | keep `.cpp` | still module-root `"main_frame.h"` / `"grid_ctrl.h"`（产品代码用 `"legacy_app/…"` / `"legacy_ui/…"`） |
 
 - Drop file prefixes (`smt_`, `vw_`, `cata_`, `baog_`, `msvr_`, `am_`, `gt_`, `wa_`, `bl_`, `rd_`, plus module tags `gis_` / `geo_` / `sde_`). On-disk **DLL stems** follow reorg 终态（[`abi-rename-map.md`](abi-rename-map.md)）；legacy `Smt_*` 命名空间仍可能存在直至 ABI cutover 收尾。
 - CRT collisions keep a short qualifier (`core_assert.h`, `net_string.h`), not the old prefix.

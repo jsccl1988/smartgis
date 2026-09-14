@@ -89,6 +89,10 @@ content::PluginHost* PluginChrome::host() const {
   return host_.get();
 }
 
+tool::CommandCatalog* PluginChrome::commands() const {
+  return catalog_.get();
+}
+
 plugin::Registry* PluginChrome::registry() const {
   return registry_.get();
 }

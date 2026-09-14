@@ -20,9 +20,9 @@
 #include "legacy_tool/group/defs.h"
 #include "legacy_tool/t_iatoolmanager.h"
 #include "legacy_tool/t_msg.h"
-#include "ui/gui/gui_api.h"
-#include "ui/xcatalog/mapmgr.h"
-#include "ui/xcatalog/scenemgr.h"
+#include "legacy_ui/gui/gui_api.h"
+#include "legacy_ui/xcatalog/mapmgr.h"
+#include "legacy_ui/xcatalog/scenemgr.h"
 
 using namespace render;
 using namespace sdb;

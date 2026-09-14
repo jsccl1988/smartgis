@@ -22,6 +22,8 @@ class Button : public View {
   void set_click(std::function<void()> fn);
   bool on_mouse_event(const MouseEvent& e) override;
   bool on_key_event(const KeyEvent& e) override;
+  void on_device_scale_factor_changed(float old_scale,
+                                     float new_scale) override;
 
  protected:
   void paint_self(render::skia::Canvas* canvas) override;

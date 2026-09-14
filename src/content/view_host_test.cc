@@ -106,6 +106,29 @@ int main() {
   }
 
   {
+    content::ViewHost host;
+    int commits = 0;
+    auto conn = host.events()->subscribe<content::EditCommitted>(
+        [&](const content::EditCommitted& e) {
+          ++commits;
+          expect(e.op == content::EditCommitted::Op::kAppend, "append op");
+        });
+    expect(host.execute("edit.append.point"), "execute edit.append.point");
+    tool::Interaction* cur = host.workspace()->stack().current();
+    expect(cur && std::strcmp(cur->id(), "draw.point") == 0, "stack draw.point");
+    content::InputEvent down = make_event(content::InputEvent::Kind::kLDown);
+    down.x_px = 5;
+    down.y_px = 6;
+    expect(host.dispatch_input(down), "draw point input");
+    expect(commits == 1, "EditCommitted published");
+    expect(host.edits() && host.edits()->can_undo(), "can undo after draw");
+    expect(host.execute("edit.undo"), "edit.undo");
+    expect(!host.edits()->can_undo(), "undo emptied");
+    expect(host.execute("edit.redo"), "edit.redo");
+    expect(host.edits()->can_undo(), "redo restored");
+  }
+
+  {
     int ipc_n = 0;
     std::string ipc_id;
     content::LocalToolRouter router;

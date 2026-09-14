@@ -142,7 +142,7 @@ bool MapHost::try_attach_swap_chain() {
     return false;
   }
 
-  view_->set_present_mode(content::PresentMode::kSharedTexture);
+  view_->SetPresentMode(content::PresentMode::kSharedTexture);
   swap_chain_ = true;
   destroy_child_hwnd();
   status_.Text(L"Present: SwapChainPanel (DXGI shared handle)");

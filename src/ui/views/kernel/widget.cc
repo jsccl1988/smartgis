@@ -3,13 +3,22 @@
 
 #include "ui/views/widget.h"
 
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
 #include <windowsx.h>
 
 #include "render/skia/canvas.h"
+#include "ui/views/dpi.h"
 #include "ui/views/theme.h"
+
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#endif
+#ifndef WM_GETDPISCALEDSIZE
+#define WM_GETDPISCALEDSIZE 0x02E4
+#endif
 
 namespace ui {
 namespace views {
@@ -46,6 +55,8 @@ Widget::~Widget() {
 }
 
 bool Widget::init(const InitParams& params) {
+  enable_process_dpi_awareness();
+
   static bool registered = false;
   if (!registered) {
     WNDCLASSEXW wc = {};
@@ -76,7 +87,11 @@ bool Widget::init(const InitParams& params) {
   hwnd_ = CreateWindowExW(0, kWidgetClass, params.title, style, x, y,
                           params.width, params.height, params.owner, nullptr,
                           GetModuleHandleW(nullptr), this);
-  return hwnd_ != nullptr;
+  if (!hwnd_) {
+    return false;
+  }
+  sync_dpi_from_hwnd();
+  return true;
 }
 
 void Widget::set_contents_view(std::unique_ptr<View> contents) {
@@ -86,9 +101,57 @@ void Widget::set_contents_view(std::unique_ptr<View> contents) {
   contents_ = std::move(contents);
   if (contents_) {
     contents_->set_widget(this);
+    if (device_scale_factor_ != 1.f) {
+      contents_->propagate_device_scale_factor_changed(1.f, device_scale_factor_);
+    }
     layout_contents();
     contents_->realize_native_tree();
   }
+}
+
+void Widget::set_device_scale_factor(float scale_factor) {
+  if (scale_factor <= 0.f) {
+    return;
+  }
+  const float old = device_scale_factor_;
+  if (std::fabs(old - scale_factor) < 0.0001f) {
+    return;
+  }
+  device_scale_factor_ = scale_factor;
+  dpi_ = static_cast<unsigned>(
+      std::lround(scale_factor * static_cast<float>(kDefaultDpi)));
+  if (contents_) {
+    contents_->propagate_device_scale_factor_changed(old, device_scale_factor_);
+    layout_contents();
+    schedule_paint();
+  }
+}
+
+void Widget::sync_dpi_from_hwnd() {
+  dpi_ = dpi_for_hwnd(hwnd_);
+  device_scale_factor_ = scale_factor_from_dpi(dpi_);
+}
+
+void Widget::on_dpi_changed(unsigned new_dpi, const RECT* suggested) {
+  if (new_dpi == 0) {
+    return;
+  }
+  const float old_scale = device_scale_factor_;
+  const float new_scale = scale_factor_from_dpi(new_dpi);
+  dpi_ = new_dpi;
+  device_scale_factor_ = new_scale;
+  if (suggested && hwnd_) {
+    SetWindowPos(hwnd_, nullptr, suggested->left, suggested->top,
+                 suggested->right - suggested->left,
+                 suggested->bottom - suggested->top,
+                 SWP_NOZORDER | SWP_NOACTIVATE);
+  }
+  if (contents_ && old_scale > 0.f &&
+      std::fabs(old_scale - new_scale) >= 0.0001f) {
+    contents_->propagate_device_scale_factor_changed(old_scale, new_scale);
+  }
+  layout_contents();
+  schedule_paint();
 }
 
 void Widget::show() {
@@ -301,6 +364,28 @@ LRESULT Widget::handle_message(HWND hwnd, UINT msg, WPARAM wparam,
     case WM_SIZE:
       on_size(LOWORD(lparam), HIWORD(lparam));
       return 0;
+    case WM_GETDPISCALEDSIZE: {
+      auto* size = reinterpret_cast<SIZE*>(lparam);
+      const unsigned new_dpi = static_cast<unsigned>(wparam);
+      if (!size || dpi_ == 0 || new_dpi == 0) {
+        break;
+      }
+      RECT wr = {};
+      GetWindowRect(hwnd, &wr);
+      const float ratio =
+          static_cast<float>(new_dpi) / static_cast<float>(dpi_);
+      size->cx = static_cast<LONG>(
+          std::lround((wr.right - wr.left) * static_cast<double>(ratio)));
+      size->cy = static_cast<LONG>(
+          std::lround((wr.bottom - wr.top) * static_cast<double>(ratio)));
+      return TRUE;
+    }
+    case WM_DPICHANGED: {
+      const unsigned new_dpi = static_cast<unsigned>(HIWORD(wparam));
+      const RECT* suggested = reinterpret_cast<const RECT*>(lparam);
+      on_dpi_changed(new_dpi, suggested);
+      return 0;
+    }
     case WM_LBUTTONDOWN:
       SetCapture(hwnd_);
       dispatch_mouse(MouseEvent::Type::kDown, wparam, lparam, 1, 0);
@@ -374,10 +459,20 @@ void Widget::on_paint() {
   GetClientRect(hwnd_, &rc);
   const int w = rc.right - rc.left;
   const int h = rc.bottom - rc.top;
+  const int font_px = dip_to_px(12, device_scale_factor_);
+  HFONT font =
+      CreateFontW(-font_px, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                  DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                  CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+  HGDIOBJ old_font = font ? SelectObject(hdc, font) : nullptr;
   render::skia::Canvas canvas(hdc, w, h);
   canvas.fill_rect(0, 0, w, h, Theme::current().chrome_bg);
   if (contents_) {
     contents_->paint(&canvas);
+  }
+  if (font) {
+    SelectObject(hdc, old_font);
+    DeleteObject(font);
   }
   EndPaint(hwnd_, &ps);
 }

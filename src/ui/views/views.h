@@ -23,6 +23,7 @@
 #include "ui/views/create_layer_dialog.h"
 #include "ui/views/create_map_dialog.h"
 #include "ui/views/dialog.h"
+#include "ui/views/dpi.h"
 #include "ui/views/event.h"
 #include "ui/views/feature_info.h"
 #include "ui/views/file_picker.h"

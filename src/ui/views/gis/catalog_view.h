@@ -8,13 +8,13 @@
 #include <string>
 #include <vector>
 
+#include "ui/views/layer_tree.h"
 #include "ui/views/view.h"
 
 namespace ui {
 namespace views {
 
 class Label;
-class LayerTree;
 class TabStrip;
 class TreeView;
 
@@ -53,6 +53,16 @@ class CatalogView : public View {
   void set_source_tree(const std::vector<CatalogNode>& nodes);
   void set_map_docs(const std::vector<CatalogNode>& nodes);
 
+  // Replace Layers page from a host layer list (open-map / CatalogCall mirror).
+  // Non-empty |layers| clears demo rows. Empty |layers| installs demo fallback.
+  void populate_layers(const std::vector<LayerTree::LayerDesc>& layers);
+
+  // Install the single demo row used when no real layer list is available.
+  void populate_demo_layers();
+
+  // True while Layers page still shows the demo fallback row.
+  bool using_demo_layers() const { return using_demo_layers_; }
+
   // Host callback for context-menu command ids such as catalog.layer.create.
   void set_command(Command fn);
 
@@ -76,6 +86,7 @@ class CatalogView : public View {
   TreeView* source_tree_ = nullptr;
   TreeView* map_tree_ = nullptr;
   Command command_;
+  bool using_demo_layers_ = false;
 };
 
 }  // namespace views

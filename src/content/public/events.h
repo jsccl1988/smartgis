@@ -22,6 +22,16 @@ struct ExtentChanged {
   Extent2 extent{};
 };
 
+// Fired after EditSession::commit succeeds (e.g. draw.* draft → append).
+// Chrome status / inspectors subscribe; widgets never hold SmtFeature*.
+struct EditCommitted {
+  uint32_t view_id = 0;
+  FeatureId id{};
+  // Mirrors sdb::EditOp without pulling sdb into the event header.
+  enum class Op { kAppend = 0, kDelete = 1, kModify = 2 };
+  Op op = Op::kAppend;
+};
+
 }  // namespace content
 
 #endif  // CONTENT_PUBLIC_EVENTS_H_

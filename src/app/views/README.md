@@ -39,12 +39,13 @@ build.bat views
 ```
 
 产出 `out/SmartGisViews.exe`（`smt_build_views=true`）。不在
-`group("all")` 里。`--self-test` 泵消息、检查 widget HWND，并在
-`kContentMapView` 时调用 `MapViewport::wait_ready`。
+`group("all")` 里。`--self-test` 泵消息、检查 widget HWND，切换 Map/Data/3D
+页，在 `kContentMapView` 时 `wait_ready`，并对 3D 页跑 `view3d.trackball`
+输入（无 GPU 时占位 HWND 亦可）。
 
 Open：有 `MapContents` 则 `CatalogCall` 打开路径，并 `ViewHost::execute`
 已有命令；否则只把路径写到状态栏。
 
 ---
 
-**最后更新：** 2026-09-13
+**最后更新：** 2026-09-14

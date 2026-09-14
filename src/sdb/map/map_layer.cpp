@@ -32,7 +32,8 @@ MapLayer::MapLayer(MapLayer&& other) noexcept
       owns_leftover_(other.owns_leftover_),
       visible_(other.visible_),
       feature_type_(other.feature_type_),
-      style_name_(std::move(other.style_name_)) {
+      style_name_(std::move(other.style_name_)),
+      style_document_(std::move(other.style_document_)) {
   other.ogr_ = nullptr;
   other.owns_ogr_ = false;
   other.owned_ds_ = nullptr;
@@ -59,6 +60,7 @@ MapLayer& MapLayer::operator=(MapLayer&& other) noexcept {
   visible_ = other.visible_;
   feature_type_ = other.feature_type_;
   style_name_ = std::move(other.style_name_);
+  style_document_ = std::move(other.style_document_);
   other.ogr_ = nullptr;
   other.owns_ogr_ = false;
   other.owned_ds_ = nullptr;
@@ -119,6 +121,10 @@ void MapLayer::set_visible(bool visible) {
 
 void MapLayer::set_style_name(const char* name) {
   style_name_ = name ? name : "";
+}
+
+void MapLayer::set_style_document(std::shared_ptr<style::StyleDocument> doc) {
+  style_document_ = std::move(doc);
 }
 
 void MapLayer::get_envelope(base::Envelope* out) const {

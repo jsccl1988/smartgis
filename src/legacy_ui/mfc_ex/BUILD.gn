@@ -1,0 +1,58 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# MFC Feature Pack helpers. Compiled into //src/legacy_ui:ui_legacy.
+# Sole DllMain / AFX extension attach lives in mfc_ex_core.cpp.
+source_set("mfc_ex_sources") {
+  configs += [
+    "//build:legacy",
+    "//build:mfc",
+  ]
+  defines = [
+    "_USRDLL",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
+    "MFC_EX_EXPORTS",
+  ]
+  precompiled_header = "stdafx.h"
+  precompiled_source = "stdafx.cpp"
+  include_dirs += [
+    ".",
+    "gridctrl",
+  ]
+  sources = [
+    "container.cpp",
+    "mfc_ex_core.cpp",
+    "mfc_ex_core.rc",
+    "stacked_wnd_dock_bar.cpp",
+    "tabbed_wnd_dock_bar.cpp",
+    "gridctrl/btn_data_base.cpp",
+    "gridctrl/grid_btn_cell.cpp",
+    "gridctrl/grid_btn_cell_base.cpp",
+    "gridctrl/grid_btn_cell_combo.cpp",
+    "gridctrl/grid_cell.cpp",
+    "gridctrl/grid_cell_base.cpp",
+    "gridctrl/grid_cell_check.cpp",
+    "gridctrl/grid_cell_combo.cpp",
+    "gridctrl/grid_cell_date_time.cpp",
+    "gridctrl/grid_cell_numeric.cpp",
+    "gridctrl/grid_ctrl.cpp",
+    "gridctrl/grid_drop_target.cpp",
+    "gridctrl/grid_url_cell.cpp",
+    "gridctrl/in_place_edit.cpp",
+    "gridctrl/in_place_list.cpp",
+    "gridctrl/title_tip.cpp",
+    "stdafx.cpp",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+  ]
+}
+
+group("mfc_ex") {
+  public_deps = [ "//src/legacy_ui:ui_legacy" ]
+}

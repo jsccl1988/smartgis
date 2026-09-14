@@ -22,7 +22,7 @@
 #include "sys/sysmanager.h"
 #include "legacy_tool/group/defs.h"
 #include "legacy_tool/t_msg.h"
-#include "ui/xcatalog/mapmgr.h"
+#include "legacy_ui/xcatalog/mapmgr.h"
 
 using namespace base;
 using namespace sdb;

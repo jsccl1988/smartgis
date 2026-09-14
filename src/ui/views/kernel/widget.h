@@ -12,6 +12,7 @@
 #include <windows.h>
 
 #include "ui/views/view.h"
+#include "ui/views/dpi.h"
 
 namespace ui {
 namespace views {
@@ -36,6 +37,13 @@ class Widget {
   void set_contents_view(std::unique_ptr<View> contents);
   View* contents_view() const { return contents_.get(); }
   HWND hwnd() const { return hwnd_; }
+
+  // Physical pixels per DIP (dpi / 96). Defaults to 1 until init().
+  float device_scale_factor() const { return device_scale_factor_; }
+  unsigned dpi() const { return dpi_; }
+
+  // Test / programmatic DPI change without a real WM_DPICHANGED.
+  void set_device_scale_factor(float scale_factor);
 
   void show();
   int run_loop();
@@ -64,11 +72,13 @@ class Widget {
   LRESULT handle_message(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
   void on_paint();
   void on_size(int width, int height);
+  void on_dpi_changed(unsigned new_dpi, const RECT* suggested);
   bool dispatch_mouse(MouseEvent::Type type, WPARAM wparam, LPARAM lparam,
                       int button, int wheel);
   bool dispatch_key(KeyEvent::Type type, WPARAM wparam, LPARAM lparam);
   void track_mouse_leave();
   void update_hover(View* hit);
+  void sync_dpi_from_hwnd();
 
   HWND hwnd_ = nullptr;
   std::unique_ptr<View> contents_;
@@ -78,6 +88,8 @@ class Widget {
   bool tracking_leave_ = false;
   bool destroying_ = false;
   bool modal_ = false;
+  float device_scale_factor_ = 1.f;
+  unsigned dpi_ = kDefaultDpi;
 };
 
 }  // namespace views

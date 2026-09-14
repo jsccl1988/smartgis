@@ -49,9 +49,20 @@ Size measure_text_utf8(const std::string& text) {
   if (!screen) {
     return out;
   }
+  // Fixed 12px Segoe UI so ink is DIP-stable; callers scale via dip_to_px /
+  // device_scale_factor rather than inheriting process DPI quirks on the DC.
+  HFONT font =
+      CreateFontW(-12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                  OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                  DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+  HGDIOBJ old = font ? SelectObject(screen, font) : nullptr;
   render::skia::Canvas canvas(screen, 1, 1);
   const render::skia::Size ink =
       canvas.measure_text(utf8_to_wide(text).c_str());
+  if (font) {
+    SelectObject(screen, old);
+    DeleteObject(font);
+  }
   ReleaseDC(nullptr, screen);
   out.width = ink.width;
   out.height = ink.height;

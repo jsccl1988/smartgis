@@ -29,7 +29,7 @@ smt_shared_library("legacy_tool") {
     "TOOL_GROUP_EXPORTS",
   ]
   deps = [ ":tool_sources" ]
-  # tool_group_sources compile into //src/ui:ui_legacy when smt_build_app
+  # tool_group_sources compile into //src/legacy_ui:ui_legacy when smt_build_app
   # (GUI dialogs ↔ tools would otherwise form a DLL link cycle).
   public_deps = [ "//src/base:base" ]
 }

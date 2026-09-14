@@ -11,6 +11,6 @@ test("exe_smoke") {
   # Stale leftover SmartGis.exe imports old Smt_Geo virtuals from SmtGeoCoreD
   # (STATUS_ENTRYPOINT_NOT_FOUND). Rebuild the MFC PE with the current ABI.
   if (smt_build_app) {
-    data_deps = [ "//src/app:app" ]
+    data_deps = [ "//src/legacy_app:app" ]
   }
 }

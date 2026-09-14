@@ -156,6 +156,38 @@ void LayerTree::add_layer(std::string id, std::string name, bool visible) {
   schedule_paint();
 }
 
+void LayerTree::set_layers(const std::vector<LayerDesc>& layers) {
+  clear();
+  std::string active_id;
+  for (const LayerDesc& layer : layers) {
+    if (layer.id.empty() && layer.name.empty()) {
+      continue;
+    }
+    const std::string id = layer.id.empty() ? layer.name : layer.id;
+    const std::string name = layer.name.empty() ? id : layer.name;
+    add_layer(id, name, layer.visible);
+    if (active_id.empty() && layer.active) {
+      active_id = id;
+    }
+  }
+  if (active_id.empty() && !rows_.empty() && rows_.front()) {
+    active_id = rows_.front()->id();
+  }
+  if (!active_id.empty()) {
+    select_id(active_id);
+  }
+}
+
+void LayerTree::select_layer(const std::string& id) {
+  select_id(id);
+}
+
+void LayerTree::set_layer_visible(const std::string& id, bool visible) {
+  if (LayerRow* row = row_at(id)) {
+    row->set_layer_visible(visible);
+  }
+}
+
 void LayerTree::set_visible_changed(VisibleChanged fn) {
   visible_changed_ = std::move(fn);
 }

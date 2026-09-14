@@ -47,14 +47,19 @@ class AmboxView : public View {
 
   void set_command_handler(CommandHandler handler);
 
-  // content::PluginHost has no public enumerator for contributions, so this
-  // installs dummy Select / Pan groups (Identify is a Select item) when
-  // listing is unavailable. When |host->commands()| is set, groups are derived
-  // from CommandCatalog ids. Includes only content/public from the .cc.
+  // When |host| / |host->commands()| is null, installs dummy Select / Pan /
+  // Edit groups (Identify is a Select item). Otherwise groups come from
+  // CommandCatalog::for_each by id prefix. Includes only content/public
+  // from the .cc.
   void populate_from_plugin_host(content::PluginHost* host);
 
-  // Build toolbox groups from a CommandCatalog (testable without PluginHost).
+  // Build toolbox groups from one CommandCatalog (testable without PluginHost).
   void populate_from_commands(tool::CommandCatalog* catalog);
+
+  // Merge ids from several catalogs (Workspace + PluginHost) into groups.
+  // Null entries are skipped; empty list behaves like a null catalog.
+  void populate_from_commands(
+      const std::vector<tool::CommandCatalog*>& catalogs);
 
   void layout() override;
 

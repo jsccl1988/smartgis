@@ -24,8 +24,8 @@ smt_mfc_shared_library("plugin_orthogrid") {
     "//src/plugin/legacy:plugin",
     "//src/legacy_tool:tool",
     "//src/legacy_tool/group:tool_group",
-    "//src/ui/xcatalog:xcatalog",
-    "//src/ui/xview:xview",
+    "//src/legacy_ui/xcatalog:xcatalog",
+    "//src/legacy_ui/xview:xview",
     "//src/sys:sys",
     "//third_party:eigen",
   ]

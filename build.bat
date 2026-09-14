@@ -97,19 +97,23 @@ if not "%~1"=="" (
     set "NINJA_TARGET=all"
   ) else if /I "%~1"=="te" (
     set "NINJA_TARGET=test_all"
-    set "BUILD_APP=true"
   ) else if /I "%~1"=="a" (
     set "NINJA_TARGET=all_with_tests"
   ) else if /I "%~1"=="b" (
     set "NINJA_TARGET=benchmark_all"
   ) else if /I "%~1"=="app" (
-    set "NINJA_TARGET=smartgis"
+    REM Product entry is Views after Phase 2 gate. MFC: build.bat legacy_app
+    set "NINJA_TARGET=views"
+    set "BUILD_VIEWS=true"
+  ) else if /I "%~1"=="legacy_app" (
+    set "NINJA_TARGET=legacy_app_all"
     set "BUILD_APP=true"
   ) else if /I "%~1"=="ui_legacy" (
     set "NINJA_TARGET=ui_legacy"
     set "BUILD_APP=true"
   ) else if /I "%~1"=="smartgis" (
-    set "NINJA_TARGET=smartgis"
+    REM Deprecated alias for leftover MFC SmartGis.exe (opt-in).
+    set "NINJA_TARGET=legacy_app_all"
     set "BUILD_APP=true"
   ) else if /I "%~1"=="views" (
     set "NINJA_TARGET=views"

@@ -20,6 +20,8 @@ class Label : public View {
   const std::string& text() const;
   void set_color(render::skia::Color color);
   void clear_color();
+  void on_device_scale_factor_changed(float old_scale,
+                                     float new_scale) override;
 
  protected:
   void paint_self(render::skia::Canvas* canvas) override;

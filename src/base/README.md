@@ -12,7 +12,7 @@ One shared library: **`dll_stem = base`** (`base.dll` / `base_d.dll`). GN labels
 | Module | Tree | GN | Role |
 | --- | --- | --- | --- |
 | **core** | `core/` | `core_sources` → `//src/base:base` (alias `//src/base:core`, `//core:core`) | Threads, log, mem, XML, LoadLibrary plugin |
-| **style** | `style/` | `style_sources` → `//src/base:base` | Cartographic pen / brush / annotation / symbol + `Envelope`. Not Views, not CSS, not Skia paint |
+| **style** | `style/` | `style_sources` → `//src/base:base` | Cartographic pen / brush / annotation / symbol + `Envelope`. Not Views, not CSS, not Skia paint, **not** MapLibre Style JSON (that is `sdb/style`) |
 | **sys** | `../sys/` | `sys_sources` → `//src/base:base` | `SmtSysManager` |
 | **net** | `../net/` | `net_sources` → `//src/base:base` | HTTP / RPC (asio + cpp-httplib) |
 | **archive** | `archive/` | `//src/base/archive:archive` | BinarySink / Serializer (header-only; public_deps of base) |

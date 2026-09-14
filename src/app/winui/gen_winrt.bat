@@ -29,13 +29,15 @@ if not exist "%WASDK%\include\MddBootstrap.h" (
 
 if not exist "%OUT%" mkdir "%OUT%"
 
-set "CMD="%CPPWINRT%""
-for %%F in ("%WASDK%\lib\uap10.0\*.winmd") do set "CMD=!CMD! -in "%%~fF""
-for %%F in ("%WASDK%\lib\uap10.0.18362\*.winmd") do set "CMD=!CMD! -in "%%~fF""
-if defined WV2 if exist "%WV2%\lib\Microsoft.Web.WebView2.Core.winmd" set "CMD=!CMD! -in "%CD%\%WV2%\lib\Microsoft.Web.WebView2.Core.winmd""
-set "CMD=!CMD! -in sdk -out "%CD%\%OUT%""
-echo !CMD!
-cmd /c !CMD!
+REM Build argv separately; do not wrap via `cmd /c "..."` — cmd strips outer
+REM quotes when many -in paths are present, which breaks "Program Files".
+set "ARGS="
+for %%F in ("%WASDK%\lib\uap10.0\*.winmd") do set ARGS=!ARGS! -in "%%~fF"
+for %%F in ("%WASDK%\lib\uap10.0.18362\*.winmd") do set ARGS=!ARGS! -in "%%~fF"
+if defined WV2 if exist "%WV2%\lib\Microsoft.Web.WebView2.Core.winmd" set ARGS=!ARGS! -in "%CD%\%WV2%\lib\Microsoft.Web.WebView2.Core.winmd"
+set ARGS=!ARGS! -in sdk -out "%CD%\%OUT%"
+echo "%CPPWINRT%" !ARGS!
+"%CPPWINRT%" !ARGS!
 if errorlevel 1 (
   popd
   exit /b 1

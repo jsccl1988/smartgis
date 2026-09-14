@@ -130,6 +130,32 @@ void CatalogView::set_map_docs(const std::vector<CatalogNode>& nodes) {
   populate_tree(map_tree_, nodes);
 }
 
+void CatalogView::populate_layers(
+    const std::vector<LayerTree::LayerDesc>& layers) {
+  if (!layer_tree_) {
+    return;
+  }
+  if (layers.empty()) {
+    populate_demo_layers();
+    return;
+  }
+  layer_tree_->set_layers(layers);
+  using_demo_layers_ = false;
+}
+
+void CatalogView::populate_demo_layers() {
+  if (!layer_tree_) {
+    return;
+  }
+  LayerTree::LayerDesc demo;
+  demo.id = "layer.demo";
+  demo.name = "Demo layer";
+  demo.visible = true;
+  demo.active = true;
+  layer_tree_->set_layers({demo});
+  using_demo_layers_ = true;
+}
+
 void CatalogView::set_command(Command fn) {
   command_ = std::move(fn);
 }

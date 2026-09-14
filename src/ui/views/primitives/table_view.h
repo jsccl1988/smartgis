@@ -26,6 +26,9 @@ class TableView : public View {
   void set_selected_row(int i);
   int selected_row() const { return selected_; }
   void set_row_click(std::function<void(int)> fn);
+  // Fired on left double-click over a data cell (row, col).
+  void set_cell_activate(std::function<void(int row, int col)> fn);
+  bool set_cell(int row, int col, const std::string& value);
   bool on_mouse_event(const MouseEvent& e) override;
 
  protected:
@@ -33,6 +36,7 @@ class TableView : public View {
 
  private:
   int row_at_point(int y) const;
+  int col_at_point(int x) const;
   int header_height() const { return 22; }
   int row_height() const { return 20; }
 
@@ -40,6 +44,7 @@ class TableView : public View {
   std::vector<std::vector<std::string>> rows_;
   int selected_ = -1;
   std::function<void(int)> row_click_;
+  std::function<void(int, int)> cell_activate_;
 };
 
 }  // namespace views

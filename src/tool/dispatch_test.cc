@@ -12,6 +12,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -120,6 +121,8 @@ int main() {
     expect(ids.size() == 2, "for_each count");
     expect(ids[0] == "selection.clear" && ids[1] == "view.pan",
            "for_each map order");
+    catalog.for_each(std::function<void(std::string_view)>{});
+    expect(true, "for_each empty fn no-op");
   }
 
   {
@@ -284,6 +287,28 @@ int main() {
     expect(ws.dispatch_input(down), "draw down");
     expect(edits.committed().size() == 1, "append committed");
     expect(edits.committed()[0].op == sdb::EditOp::kAppend, "append op");
+    expect(ws.execute("edit.undo", {}), "edit.undo");
+    expect(edits.committed().empty(), "undo cleared");
+    expect(ws.execute("edit.redo", {}), "edit.redo");
+    expect(edits.committed().size() == 1, "redo restored");
+  }
+
+  {
+    content::EventBus bus;
+    int commits = 0;
+    auto sub = bus.subscribe<content::EditCommitted>(
+        [&](const content::EditCommitted& ev) {
+          ++commits;
+          expect(ev.op == content::EditCommitted::Op::kAppend, "event append");
+        });
+    sdb::MemoryEditSession edits;
+    tool::Workspace ws(&bus, &edits);
+    expect(ws.execute("edit.append.point", {}), "activate for EditCommitted");
+    content::InputEvent down = make_event(content::InputEvent::Kind::kLDown);
+    down.x_px = 1;
+    down.y_px = 1;
+    expect(ws.dispatch_input(down), "draw for EditCommitted");
+    expect(commits == 1, "EditCommitted published");
   }
 
   {

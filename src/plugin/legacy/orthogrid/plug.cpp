@@ -13,9 +13,9 @@
 #include "legacy_tool/group/defs.h"
 #include "legacy_tool/t_iatoolmanager.h"
 #include "legacy_tool/t_msg.h"
-#include "ui/gui/gui_api.h"
-#include "ui/xcatalog/mapmgr.h"
-#include "ui/xview/view_2d_edit.h"
+#include "legacy_ui/gui/gui_api.h"
+#include "legacy_ui/xcatalog/mapmgr.h"
+#include "legacy_ui/xview/view_2d_edit.h"
 
 using namespace sdb;
 using namespace sys;

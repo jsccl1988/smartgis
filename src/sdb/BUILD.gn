@@ -2,7 +2,7 @@
 # All rights reserved.
 
 # Spatial DB / core GIS model (QGIS qgis_core analogue).
-# One DLL (dll_stem = sdb): gis + sde_mgr + sde_gdal + tile/model/scene/edit.
+# One DLL (dll_stem = sdb): gis + sde_mgr + sde_gdal + tile/model/scene/edit/style.
 # feature ≈ OGRFeature, layer ≈ OGRLayer, map ≈ QgsProject,
 # datasource/<driver> ≈ GDAL/OGR / QGIS providers.
 # Stable labels //src/sdb/map:gis, :sde_mgr, :sde_gdal → group to :sdb.
@@ -26,6 +26,7 @@ smt_shared_library("sdb") {
     "//src/sdb/scene:scene_sources",
     "//src/sdb/edit:edit_sources",
     "//src/sdb/edit:map_edit_sources",
+    "//src/sdb/style:style_sources",
   ]
   public_deps = [ "//third_party:gdal" ]
 }

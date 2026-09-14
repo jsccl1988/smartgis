@@ -56,15 +56,19 @@ class MapViewport : public View {
 
   uint32_t view_id() const { return view_id_; }
 
-  // Prefer content::MapWidgetHostView, then OOP leftover, then in-process
-  // FlyCube (when SMT_HAS_FLYCUBE), then LoadLibrary GDI/GL. Set
-  // SMT_PREFER_GDI_DEVICE=1 to skip FlyCube and force the DLL path.
+  // Prefer content::MapWidgetHostView (OpenView kind from Role). Map Edit then
+  // tries OOP leftover / FlyCube / LoadLibrary. Scene3d tries FlyCube when a
+  // GPU device is present; otherwise keeps a stable placeholder HWND. Set
+  // SMT_PREFER_GDI_DEVICE=1 to skip FlyCube and force the DLL path (Map Edit).
   bool attach();
   AttachMode attach_mode() const { return mode_; }
   const wchar_t* status_text() const { return status_; }
   bool wait_ready(uint32_t timeout_ms);
 
   void detach();
+
+  void on_device_scale_factor_changed(float old_scale,
+                                     float new_scale) override;
 
  protected:
   HWND create_native_view(HWND parent) override;
@@ -77,6 +81,7 @@ class MapViewport : public View {
   bool try_local_device();
   void paint_child_placeholder();
   void resize_host_surface(int width_px, int height_px);
+  float surface_dpi() const;
   void release_rhi_device();
 
   static LRESULT CALLBACK child_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam,

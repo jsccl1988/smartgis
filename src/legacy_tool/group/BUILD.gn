@@ -3,7 +3,7 @@
 
 import("//build/smartgis.gni")
 
-# Compiled into //src/ui:ui_legacy (avoids a leftover_tool ↔ ui_legacy cycle).
+# Compiled into //src/legacy_ui:ui_legacy (avoids a leftover_tool ↔ ui_legacy cycle).
 source_set("tool_group_sources") {
   sources = [
     "3dviewctrltool.cpp",
@@ -23,6 +23,9 @@ source_set("tool_group_sources") {
   defines = [
     "_USRDLL",
     "TOOL_GROUP_EXPORTS",
+    # Same DLL as gui (ui_legacy): gui_api.h must see GUI_EXPORTS so calls are
+    # not dllimport of same-module symbols (would LNK2019 on __imp_*).
+    "GUI_EXPORTS",
   ]
   deps = [
     "//src/algorithm/geo:geo",
@@ -43,11 +46,10 @@ source_set("tool_group_sources") {
     "//src/sys:sys",
     "//src/tool:dispatch",
     "//third_party:gdal",
-    # Prefer pragma from gui_api.h (included by tools) over GN dep — avoids
-    # ui_legacy ↔ tool_group cycle.
+    # Tools include legacy_ui/gui/gui_api.h; same DLL as gui via //src/legacy_ui:ui_legacy.
   ]
 }
 
 group("tool_group") {
-  public_deps = [ "//src/ui:ui_legacy" ]
+  public_deps = [ "//src/legacy_ui:ui_legacy" ]
 }

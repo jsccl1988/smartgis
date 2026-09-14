@@ -41,7 +41,8 @@ struct Theme {
 std::wstring utf8_to_wide(const std::string& u8);
 std::string wide_to_utf8(const wchar_t* w);
 
-// Ink size via Canvas::measure_text on a temporary screen DC; empty → {0,0}.
+// Ink size via Canvas::measure_text with a fixed 12px Segoe UI (DIP baseline);
+// empty → {0,0}. Scale with dip_to_px / Widget::device_scale_factor().
 Size measure_text_utf8(const std::string& text);
 
 void draw_focus_ring(render::skia::Canvas* canvas, const Rect& bounds);

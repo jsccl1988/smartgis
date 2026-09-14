@@ -12,6 +12,7 @@
 
 #include "render/skia/canvas.h"
 #include "render/skia/color.h"
+#include "tool/command.h"
 #include "ui/views/ambox_view.h"
 #include "ui/views/attribute_table.h"
 #include "ui/views/button.h"
@@ -19,6 +20,7 @@
 #include "ui/views/checkbox.h"
 #include "ui/views/combobox.h"
 #include "ui/views/dialog.h"
+#include "ui/views/dpi.h"
 #include "ui/views/feature_info.h"
 #include "ui/views/label.h"
 #include "ui/views/layer_tree.h"
@@ -453,6 +455,19 @@ void test_layer_tree() {
   expect(vis_n == 1, "visible_changed");
   expect(last_id == "roads", "visible_changed id");
   expect(!last_vis, "visible_changed value");
+
+  vis_n = 0;
+  tree.set_layers({{"a", "A", true, false}, {"b", "B", false, true}});
+  expect(tree.layer_count() == 2, "set_layers count");
+  expect(tree.selected_id() == "b", "set_layers active");
+  expect(tree.is_layer_visible("a"), "set_layers a visible");
+  expect(!tree.is_layer_visible("b"), "set_layers b hidden");
+  expect(vis_n == 0, "set_layers no visible_changed");
+  tree.set_layer_visible("b", true);
+  expect(tree.is_layer_visible("b"), "set_layer_visible");
+  expect(vis_n == 0, "set_layer_visible silent");
+  tree.select_layer("a");
+  expect(tree.selected_id() == "a", "select_layer");
 }
 
 void test_catalog_view() {
@@ -464,6 +479,23 @@ void test_catalog_view() {
   catalog.set_source_names({"shp", "gdb"});
   expect(catalog.source_tabs() != nullptr, "catalog source_tabs");
   expect(catalog.source_tabs()->page_at(0) != nullptr, "sources page");
+
+  catalog.populate_demo_layers();
+  expect(catalog.using_demo_layers(), "demo layers flag");
+  expect(catalog.layer_tree()->layer_count() == 1, "demo layer count");
+  expect(catalog.layer_tree()->selected_id() == "layer.demo", "demo active");
+
+  catalog.populate_layers(
+      {{"roads", "Roads", true, true}, {"rivers", "Rivers", false, false}});
+  expect(!catalog.using_demo_layers(), "real layers clear demo");
+  expect(catalog.layer_tree()->layer_count() == 2, "real layer count");
+  expect(catalog.layer_tree()->selected_id() == "roads", "real active");
+  expect(catalog.layer_tree()->is_layer_visible("roads"), "roads visible");
+  expect(!catalog.layer_tree()->is_layer_visible("rivers"), "rivers hidden");
+
+  catalog.populate_layers({});
+  expect(catalog.using_demo_layers(), "empty populate restores demo");
+  expect(catalog.layer_tree()->layer_count() == 1, "demo restored count");
 }
 
 void test_feature_info_and_status_bar() {
@@ -529,6 +561,67 @@ void test_splitter_layout() {
          "vsplit panes fill");
 }
 
+void test_splitter_host_resize_grows_flex_pane() {
+  // BrowserView work strip: flexible catalog+map | fixed ambox preferred width.
+  Splitter work(Splitter::Orientation::kHorizontal);
+  work.set_bounds({0, 0, 800, 400});
+  auto map_side = std::make_unique<View>();
+  auto ambox = std::make_unique<View>();
+  View* primary = map_side.get();
+  View* secondary = ambox.get();
+  map_side->set_preferred_size({0, 0});
+  ambox->set_preferred_size({200, 0});
+  work.add_child(std::move(map_side));
+  work.add_child(std::move(ambox));
+  work.layout();
+  expect(secondary->bounds().width == 200, "ambox keeps preferred");
+  expect(primary->bounds().width == 800 - 6 - 200, "map takes leftover");
+
+  work.set_bounds({0, 0, 1200, 400});
+  work.layout();
+  expect(secondary->bounds().width == 200, "ambox stays fixed on grow");
+  expect(primary->bounds().width == 1200 - 6 - 200,
+         "map grows with host width");
+
+  // BrowserView columns: flexible work | fixed inspector preferred height.
+  Splitter columns(Splitter::Orientation::kVertical);
+  columns.set_bounds({0, 0, 800, 600});
+  auto work_pane = std::make_unique<View>();
+  auto inspector = std::make_unique<View>();
+  View* top = work_pane.get();
+  View* bottom = inspector.get();
+  work_pane->set_preferred_size({0, 0});
+  inspector->set_preferred_size({0, 160});
+  columns.add_child(std::move(work_pane));
+  columns.add_child(std::move(inspector));
+  columns.layout();
+  expect(bottom->bounds().height == 160, "inspector keeps preferred");
+  expect(top->bounds().height == 600 - 6 - 160, "work takes leftover");
+
+  columns.set_bounds({0, 0, 800, 900});
+  columns.layout();
+  expect(bottom->bounds().height == 160, "inspector stays fixed on grow");
+  expect(top->bounds().height == 900 - 6 - 160, "work grows with host height");
+
+  // Catalog (fixed) | map (flex): secondary must absorb growth.
+  Splitter catalog_map(Splitter::Orientation::kHorizontal);
+  catalog_map.set_bounds({0, 0, 800, 400});
+  auto catalog = std::make_unique<View>();
+  auto map_tabs = std::make_unique<View>();
+  View* left = catalog.get();
+  View* right = map_tabs.get();
+  catalog->set_preferred_size({240, 0});
+  map_tabs->set_preferred_size({0, 0});
+  catalog_map.add_child(std::move(catalog));
+  catalog_map.add_child(std::move(map_tabs));
+  catalog_map.layout();
+  expect(left->bounds().width == 240, "catalog keeps preferred");
+  catalog_map.set_bounds({0, 0, 1100, 400});
+  catalog_map.layout();
+  expect(left->bounds().width == 240, "catalog stays fixed on grow");
+  expect(right->bounds().width == 1100 - 6 - 240, "map tabs grow");
+}
+
 void test_splitter_drag_keeps_capture() {
   Widget widget;
   auto split = std::make_unique<Splitter>(Splitter::Orientation::kHorizontal);
@@ -571,10 +664,69 @@ void test_ambox_in_view_tree() {
   AmboxView box;
   box.set_bounds({0, 0, 180, 240});
   box.layout();
-  // Default catalog-less populate: Select + Pan (Tools only when catalog
-  // contributes non-flash commands).
-  expect(box.child_count() == 2, "ambox groups are children");
+  // Default catalog-less populate: Select + Pan + Edit.
+  expect(box.child_count() == 3, "ambox groups are children");
   expect(box.get_view_at(20, 40) != &box, "ambox hit-test reaches button");
+  expect(box.groups().size() == 3, "ambox group list");
+  expect(box.groups()[2].name == "Edit", "ambox edit group");
+}
+
+bool group_has_id(const AmboxView::Group& group, const char* id) {
+  for (const auto& item : group.items) {
+    if (item.id == id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void test_ambox_populate_from_commands() {
+  tool::CommandCatalog catalog;
+  expect(catalog.add("selection.point",
+                     [](const tool::CommandArgs&) { return true; }),
+         "ambox add selection.point");
+  expect(catalog.add("view.pan", [](const tool::CommandArgs&) { return true; }),
+         "ambox add view.pan");
+  expect(catalog.add("dem.load_tin",
+                     [](const tool::CommandArgs&) { return true; }),
+         "ambox add dem.load_tin");
+  expect(catalog.add("edit.append.point",
+                     [](const tool::CommandArgs&) { return true; }),
+         "ambox add edit.append.point");
+
+  AmboxView box;
+  box.populate_from_commands(&catalog);
+  expect(box.groups().size() == 4, "ambox groups with Tools");
+  expect(box.groups()[0].name == "Select", "select group name");
+  expect(group_has_id(box.groups()[0], "selection.point"),
+         "select has selection.point");
+  expect(group_has_id(box.groups()[0], "identify"), "select keeps identify");
+  expect(box.groups()[1].name == "Pan", "pan group name");
+  expect(group_has_id(box.groups()[1], "view.pan"), "pan has view.pan");
+  expect(box.groups()[2].name == "Edit", "edit group name");
+  expect(group_has_id(box.groups()[2], "edit.append.point"),
+         "edit has append.point");
+  expect(box.groups()[3].name == "Tools", "tools group name");
+  expect(group_has_id(box.groups()[3], "dem.load_tin"),
+         "tools has dem.load_tin");
+
+  // Multi-catalog merge (Workspace + PluginHost style).
+  tool::CommandCatalog plugins;
+  expect(plugins.add("proj.set_map",
+                     [](const tool::CommandArgs&) { return true; }),
+         "ambox add plugin cmd");
+  std::vector<tool::CommandCatalog*> catalogs{&catalog, &plugins};
+  box.populate_from_commands(catalogs);
+  expect(box.groups().size() == 4, "merged still four groups");
+  expect(group_has_id(box.groups()[3], "dem.load_tin"), "merge keeps dem");
+  expect(group_has_id(box.groups()[3], "proj.set_map"), "merge adds proj");
+
+  // Null host → dummy Select/Pan/Edit only.
+  AmboxView dummy;
+  dummy.populate_from_plugin_host(nullptr);
+  expect(dummy.groups().size() == 3, "null host dummy groups");
+  expect(!group_has_id(dummy.groups()[0], "selection.point"),
+         "dummy select without catalog id");
 }
 
 void test_tree_view_add_select_check() {
@@ -655,10 +807,61 @@ void test_widget_hwnd_and_map_viewport() {
   Widget widget;
   expect(widget.hwnd() == nullptr, "widget hwnd before init");
   expect(widget.contents_view() == nullptr, "widget empty contents");
+  expect(widget.device_scale_factor() == 1.f, "widget default scale 1");
+  expect(widget.dpi() == kDefaultDpi, "widget default dpi 96");
 
   MapViewport viewport;
   expect(viewport.attach_mode() == MapViewport::AttachMode::kNone,
          "map_viewport not attached");
+}
+
+void test_dpi_scale_math() {
+  expect(scale_factor_from_dpi(96) == 1.f, "96 dpi → 1.0");
+  expect(scale_factor_from_dpi(144) == 1.5f, "144 dpi → 1.5");
+  expect(scale_factor_from_dpi(192) == 2.f, "192 dpi → 2.0");
+  expect(scale_factor_from_dpi(0) == 1.f, "0 dpi → 1.0");
+  expect(dip_to_px(100, 1.5f) == 150, "dip_to_px 100@1.5");
+  expect(dip_to_px(10, 1.25f) == 13, "dip_to_px rounds 12.5→13");
+  expect(px_to_dip(150, 1.5f) == 100, "px_to_dip 150@1.5");
+  expect(dpi_for_hwnd(nullptr) >= 96u, "dpi_for_hwnd screen fallback");
+}
+
+void test_device_scale_recomputes_preferred() {
+  Widget widget;
+  auto root = std::make_unique<View>();
+  auto* root_ptr = root.get();
+  auto button = std::make_unique<Button>("Scale");
+  auto* button_ptr = button.get();
+  root->add_child(std::move(button));
+  const int w96 = button_ptr->preferred_size().width;
+  const int h96 = button_ptr->preferred_size().height;
+  expect(w96 > 0 && h96 >= 28, "button preferred at 96dpi");
+
+  widget.set_contents_view(std::move(root));
+  expect(root_ptr->widget() == &widget, "contents widget wired");
+
+  widget.set_device_scale_factor(1.5f);
+  expect(widget.device_scale_factor() == 1.5f, "widget scale 1.5");
+  expect(widget.dpi() == 144u, "widget dpi 144");
+  expect(button_ptr->preferred_size().width >
+             w96,
+         "button preferred grows with scale");
+  expect(button_ptr->preferred_size().height >= dip_to_px(28, 1.5f),
+         "button min height scales");
+
+  const int w150 = button_ptr->preferred_size().width;
+  widget.set_device_scale_factor(2.f);
+  expect(button_ptr->preferred_size().width > w150,
+         "button preferred grows again at 2x");
+
+  auto fixed = std::make_unique<View>();
+  fixed->set_preferred_size({100, 40});
+  auto* fixed_ptr = fixed.get();
+  root_ptr->add_child(std::move(fixed));
+  // Child added after scale bump still holds DIP sizes until notified.
+  fixed_ptr->propagate_device_scale_factor_changed(1.f, 2.f);
+  expect(fixed_ptr->preferred_size().width == 200, "view preferred *2 width");
+  expect(fixed_ptr->preferred_size().height == 80, "view preferred *2 height");
 }
 
 }  // namespace
@@ -681,14 +884,18 @@ int main() {
   test_catalog_view();
   test_feature_info_and_status_bar();
   test_splitter_layout();
+  test_splitter_host_resize_grows_flex_pane();
   test_splitter_drag_keeps_capture();
   test_layer_tree_add_while_hidden();
   test_ambox_in_view_tree();
+  test_ambox_populate_from_commands();
   test_tree_view_add_select_check();
   test_scroll_view_wheel();
   test_menu_bar_click();
   test_dialog_close_noop();
   test_widget_hwnd_and_map_viewport();
+  test_dpi_scale_math();
+  test_device_scale_recomputes_preferred();
 
   if (g_fails) {
     std::fprintf(stderr, "views_unittests: %d failed\n", g_fails);

@@ -3,9 +3,9 @@
 #include "plugin/legacy/print/mapprint_plugin.h"
 
 #include "base/core/api.h"
-#include "ui/gui/gui_api.h"
+#include "legacy_ui/gui/gui_api.h"
 
-#include "ui/xcatalog/mapmgr.h"
+#include "legacy_ui/xcatalog/mapmgr.h"
 #include "sys/sysmanager.h"
 #include "legacy_tool/group/defs.h"
 #include "plugin/legacy/plugin_msg.h"
