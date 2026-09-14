@@ -16,7 +16,7 @@ All rights reserved.
 
 **Status:** accepted  
 
-**Scope:** one implementation plan. Move host transport out of `content/common/ipc.h` into `src/base/ipc`, use **Win32 named pipe + mogu BinarySink/pickle** (C++ structs with `archive()`；BinarySink helpers 在 `src/base/archive`，`base::`；**codec 依赖 `base/archive`，不依赖 `net`**；`net::Pickle` 仍在 `src/net/pack/pickle.h`), name the multiprocess map stack like Chromium `WebContents` / `RenderProcessHost` / `Widget`, and use **one PE with Chromium-style `--type=` entry points** (no `SmartGisRender.exe`). **No Chromium. No protobuf. No mojom generator.**
+**Scope:** one implementation plan. Move host transport out of `content/common/ipc.h` into repo-root `base/ipc`, use **Win32 named pipe + mogu BinarySink/pickle** (C++ structs with `archive()`；BinarySink helpers 在 `base/archive`，`base::`；**codec 依赖 `base/archive`，不依赖 `net`**；`net::Pickle` 仍在 `src/net/pack/pickle.h`), name the multiprocess map stack like Chromium `WebContents` / `RenderProcessHost` / `Widget`, and use **one PE with Chromium-style `--type=` entry points** (no `SmartGisRender.exe`). **No Chromium. No protobuf. No mojom generator.**
 
 
 
@@ -186,7 +186,7 @@ GN: one `executable("smartgis")` links browser + renderer + gpu + utility mains.
 
 | --- | --- | --- |
 
-| `base::ipc` (`src/base/ipc`) | Named pipe server/client, frame envelope, BinarySink encode/decode | `base/archive`（`base::` BinarySink helpers；**not** `net`） |
+| `base::ipc` (`base/ipc`) | Named pipe server/client, frame envelope, BinarySink encode/decode | `base/archive`（`base::` BinarySink helpers；**not** `net`） |
 
 | `content::MapContents` | Public session API (today `MapSession`) | `RendererProcessHost` |
 
@@ -328,7 +328,7 @@ Standalone `--type=gpu` is **required**. It is the only process allowed to creat
 
 | `kMapEdit` / `kMapData` | `SmtRender` + `SmtGLRenderDevice` (GDI = `kSoftwareDib`) | D3DX9 |
 
-| `kScene3d` | `legacy_render/render3d` + `scene3d` / `terrain` / `pointcloud` | D3D9 path removed |
+| `kScene3d` | `legacy/render/render3d` + `scene3d` / `terrain` / `pointcloud` | D3D9 path removed |
 
 
 
@@ -496,7 +496,7 @@ enum class ProcessRole { kBrowser, kRenderer, kGpu };
 
 - `docs/build/ui-shell-multiprocess.md` §0.2 / §0.4 — Browser + Renderer + **standalone GPU**; one `SmartGis.exe`; named pipe + pickle.
 
-- `docs/build/src-layout.md` — `src/base/ipc`, `content` Chromium-style type names, C++23, `ContentMain`.
+- `docs/build/src-layout.md` — `base/ipc`, `content` Chromium-style type names, C++23, `ContentMain`.
 
 - Root `README.md` — C++23; `build.bat render` → `SmartGis.exe --type=`; refresh **最后更新**.
 

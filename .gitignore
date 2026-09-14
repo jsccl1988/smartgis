@@ -1,6 +1,12 @@
 /out
 /out_*
 /vendor
+# CEF Binary Dist unpack (README under third_party/cef stays tracked).
+/third_party/cef/binary/
+/third_party/cef/_download/
+# .NET / WinUI intermediates and stray XAML binary at repo root.
+**/obj/
+/outApp.xbf
 /.vscode
 /.vs
 .ide.*

@@ -10,26 +10,49 @@
 #include <winrt/Microsoft.UI.Xaml.h>
 
 #include "app/winui/detail/map_session.h"
+#include "content/public/map_contents_observer.h"
 
 namespace app {
 namespace winui {
 
-// Presents the map inside the WinUI tree. SwapChainPanel when the session
-// exposes a DXGI shared handle; otherwise a child HWND over the map slot.
-class MapHost {
+// Presents the map inside the WinUI tree. GPU publishes software-DIB shared
+// pixels; this host owns a child HWND island aligned to the SwapChainPanel
+// slot and blits Latest() (same path as ui::views::MapViewport).
+// Map/Data/3D views stay open across tab switches (Views parity) — never
+// CloseView just to change chrome tabs.
+class MapHost : public content::MapContentsObserver {
  public:
   MapHost();
-  ~MapHost();
+  ~MapHost() override;
 
   MapHost(const MapHost&) = delete;
   MapHost& operator=(const MapHost&) = delete;
 
-  winrt::Microsoft::UI::Xaml::UIElement root_element() const;
+  winrt::Microsoft::UI::Xaml::Controls::Grid root_element() const;
 
   void attach_session(content::MapContents* session, HWND window_hwnd);
+  // Open Map Edit / Data / Scene3d (keeps prior views alive).
+  void show_kind(content::ViewKind kind);
   void sync_layout();
   const wchar_t* present_path() const;
   const wchar_t* process_path() const;
+  content::ViewKind view_kind() const { return kind_; }
+
+  // Self-test / diagnostics: child HWND after attach, and whether sync_layout
+  // produced a non-trivial client rect (island coords aligned to the panel).
+  HWND map_child_hwnd() const { return child_hwnd_; }
+  bool has_synced_map_layout() const;
+  // True when HostView::Latest has a shared DIB (generation + handle).
+  bool has_presented_frame() const;
+  // True when mapped pixels are not the WinUI placeholder clear color.
+  bool has_live_map_pixels() const;
+  uint32_t view_id() const { return view_id_; }
+  content::MapContents* session() const { return session_; }
+
+  // Hide the HWND island when chrome covers the map slot (unused in IDE layout).
+  void set_map_surface_visible(bool visible);
+
+  void OnFrameReady(uint32_t view_id, uint32_t generation) override;
 
   static LRESULT CALLBACK child_wnd_proc(HWND hwnd,
                                          UINT msg,
@@ -37,10 +60,25 @@ class MapHost {
                                          LPARAM lparam);
 
  private:
-  bool try_attach_swap_chain();
+  struct ViewSlot {
+    uint32_t view_id = 0;
+    content::MapWidgetHostView* view = nullptr;
+  };
+
   void attach_child_hwnd();
   void destroy_child_hwnd();
   void paint_child() const;
+  void paint_to_dc(HDC hdc, const RECT& rc) const;
+  bool present_latest_frame(HDC hdc, const RECT& client_rc) const;
+  void start_present_timer();
+  void stop_present_timer();
+  HWND resolve_island_hwnd() const;
+  float panel_scale() const;
+  void close_all_views();
+  void update_status_overlay();
+  static int slot_index(content::ViewKind kind);
+
+  static constexpr UINT_PTR kPresentTimerId = 1;
 
   winrt::Microsoft::UI::Xaml::Controls::Grid root_{nullptr};
   winrt::Microsoft::UI::Xaml::Controls::SwapChainPanel panel_{nullptr};
@@ -48,10 +86,17 @@ class MapHost {
 
   content::MapContents* session_ = nullptr;
   content::MapWidgetHostView* view_ = nullptr;
+  ViewSlot slots_[3] = {};
   HWND window_hwnd_ = nullptr;
+  HWND island_hwnd_ = nullptr;
   HWND child_hwnd_ = nullptr;
   uint32_t view_id_ = 0;
-  bool swap_chain_ = false;
+  uint32_t painted_generation_ = 0;
+  int last_layout_x_ = -1;
+  int last_layout_y_ = -1;
+  int last_layout_w_ = -1;
+  int last_layout_h_ = -1;
+  content::ViewKind kind_ = content::ViewKind::kMapEdit;
 };
 
 }  // namespace winui

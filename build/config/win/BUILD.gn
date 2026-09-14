@@ -41,8 +41,12 @@ config("default") {
     ]
   }
   # Cutover (2026-09-13): product sources are UTF-8 after include/ABI rewrite
-  # scripts. Require /utf-8 so MSVC does not parse UTF-8 Chinese as CP936.
-  cflags += [ "/utf-8" ]
+  # scripts. Split source/execution so leftover MBCS targets can override
+  # execution to system ANSI (CP936) without conflicting with /utf-8.
+  cflags += [
+    "/source-charset:utf-8",
+    "/execution-charset:utf-8",
+  ]
 
   cflags_c = []
   cflags_cc = [

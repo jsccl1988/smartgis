@@ -82,7 +82,7 @@ Chrome includes only `content/public`. It must not include `t_iatool.h`.
 | `Workspace` | `src/tool/workspace.h` | `tool` | Composition root per view |
 | `EditSession` | `src/sdb/edit/edit_session.h` | `sdb` | Undoable document mutations |
 | `command_id_from_gt_msg` | `src/tool/legacy_msg.h` | `tool` | `GT_MSG_*` ? string id |
-| Leftover | `src/legacy_tool/t_*.h`, `legacy_tool/group` | `Smt_IATool` | Unchanged DLL |
+| Leftover | `src/legacy/tool/t_*.h`, `legacy/tool/group` | `Smt_IATool` | Unchanged DLL |
 
 New modules are **source_sets**, not DLLs. `//src/tool:dispatch` and `//src/sdb/edit:edit` join `src_all`. Tests: `tool_dispatch_test`.
 
@@ -309,7 +309,7 @@ const char* command_id_from_gt_msg(long msg);  // nullptr if unknown
 }
 ```
 
-`command_id_from_gt_msg` uses numeric copies of leftover `GT_MSG_CMD_*` in `legacy_msg.h` (do not include `legacy_tool/group/defs.h` from dispatch TUs ? that header pulls WinSock through `msg.h` and breaks ASIO/`fd_set`). Keep the enum in sync with `defs.h`.
+`command_id_from_gt_msg` uses numeric copies of leftover `GT_MSG_CMD_*` in `legacy_msg.h` (do not include `legacy/tool/group/defs.h` from dispatch TUs ? that header pulls WinSock through `msg.h` and breaks ASIO/`fd_set`). Keep the enum in sync with `defs.h`.
 
 ## Data flow
 

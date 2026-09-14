@@ -3,9 +3,12 @@
 
 #include "render/rhi/rhi.h"
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <memory>
+#include <string>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -20,6 +23,81 @@ void expect(bool ok, const char* msg) {
     std::fprintf(stderr, "FAIL: %s\n", msg);
     ++g_fails;
   }
+}
+
+std::string join_file(const std::string& dir, const char* name) {
+  if (dir.empty()) {
+    return name;
+  }
+  const char last = dir.back();
+  if (last == '/' || last == '\\') {
+    return dir + name;
+  }
+  return dir + "/" + name;
+}
+
+std::string sibling_path(const char* name) {
+  std::string file(__FILE__);
+  const size_t slash = file.find_last_of("/\\");
+  const std::string dir =
+      (slash == std::string::npos) ? std::string() : file.substr(0, slash + 1);
+  const std::string candidates[] = {
+      join_file(dir, name),
+      join_file(std::string("src/render/rhi"), name),
+      join_file(std::string("../src/render/rhi"), name),
+  };
+  for (const std::string& path : candidates) {
+    std::ifstream in(path.c_str());
+    if (in) {
+      return path;
+    }
+  }
+  return candidates[0];
+}
+
+bool include_line_mentions_flycube(const std::string& line) {
+  if (line.find("#include") == std::string::npos) {
+    return false;
+  }
+  return line.find("FlyCube") != std::string::npos ||
+         line.find("flycube") != std::string::npos ||
+         line.find("ApiType/ApiType.h") != std::string::npos ||
+         line.find("Instance/Instance.h") != std::string::npos ||
+         line.find("CommandQueue/CommandQueue.h") != std::string::npos ||
+         line.find("Device/Device.h") != std::string::npos;
+}
+
+bool public_header_includes_flycube(const char* name) {
+  const std::string path = sibling_path(name);
+  std::ifstream in(path.c_str());
+  if (!in) {
+    std::fprintf(stderr, "FAIL: cannot open %s\n", path.c_str());
+    return true;
+  }
+  std::string line;
+  while (std::getline(in, line)) {
+    if (include_line_mentions_flycube(line)) {
+      std::fprintf(stderr, "FAIL: FlyCube include in %s: %s\n", name,
+                   line.c_str());
+      return true;
+    }
+  }
+  return false;
+}
+
+bool wrap_tu_includes_flycube(const char* name) {
+  const std::string path = sibling_path(name);
+  std::ifstream in(path.c_str());
+  if (!in) {
+    return false;
+  }
+  std::string line;
+  while (std::getline(in, line)) {
+    if (include_line_mentions_flycube(line)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace
@@ -92,11 +170,50 @@ int main() {
          "null camera is ortho");
   expect(stub->last_camera.proj[0] != 1.f || stub->last_camera.proj[5] != 1.f,
          "ortho proj is not identity");
+  render::rhi::CameraMatrices orbit =
+      render::rhi::make_orbit_camera(0.5f, 0.3f, 4.f, 0.785398f, 1.333f, 0.1f,
+                                     100.f);
+  expect(orbit.kind == render::rhi::CameraKind::kPerspective,
+         "orbit camera is perspective");
+  expect(std::fabs(orbit.view[12]) > 1e-4f || std::fabs(orbit.view[13]) > 1e-4f ||
+             std::fabs(orbit.view[14]) > 1e-4f,
+         "orbit view translates eye");
   list->set_solid_color(0.1f, 0.2f, 0.3f, 0.4f);
   expect(stub->set_solid_color_calls == 1, "set_solid_color recorded");
   expect(stub->solid_r == 0.1f && stub->solid_g == 0.2f &&
              stub->solid_b == 0.3f && stub->solid_a == 0.4f,
          "solid rgba values");
+
+  // Same-frame 2D + 3D: one Device, one CommandList, one execute/submit.
+  const uint32_t submits_before = null->execute_count();
+  render::rhi::CommandList* frame = null->create_command_list();
+  expect(frame != nullptr, "same-frame command list");
+  auto* frame_stub = static_cast<StubCommandList*>(frame);
+  RenderPassDesc frame_pass;
+  frame_pass.width = 64;
+  frame_pass.height = 64;
+  frame->begin_render_pass(frame_pass);
+  frame->bind_camera(ortho);
+  frame->draw_indexed(6, 1, 0, 0, 0);
+  expect(frame_stub->last_camera.kind == render::rhi::CameraKind::kOrtho,
+         "same-frame 2d ortho");
+  frame->bind_camera(orbit);
+  frame->draw_indexed(36, 1, 0, 0, 0);
+  expect(frame_stub->last_camera.kind == render::rhi::CameraKind::kPerspective,
+         "same-frame 3d perspective");
+  frame->end_render_pass();
+  frame->close();
+  expect(frame_stub->draw_indexed_calls == 2, "same-frame two draws");
+  expect(frame_stub->bind_camera_calls == 2, "same-frame two cameras");
+  expect(null->execute(frame), "same-frame execute");
+  expect(null->execute_count() == submits_before + 1,
+         "same-frame single submit");
+
+  expect(!public_header_includes_flycube("rhi.h"),
+         "public rhi.h must not include FlyCube");
+  expect(wrap_tu_includes_flycube("flycube_rhi.cc"),
+         "wrap TU flycube_rhi.cc may include FlyCube");
+
   null->shutdown();
 
   expect(preferred_gpu_backend() == Backend::kDx12, "preferred DX12");

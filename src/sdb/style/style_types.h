@@ -21,6 +21,8 @@ enum class LayerType {
   kLine,
   kSymbol,
   kCircle,
+  kBackground,
+  kRaster,
 };
 
 // Filter AST operator (MapLibre filter array form).

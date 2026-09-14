@@ -133,7 +133,7 @@ src/render/math/
 | `v * v`（点积） | `dot(v, v)` / `a.dot(b)` |
 | `m * v`（带透视除法） | `transform_point`；方向用 `transform_vector` |
 
-4. `legacy_render/render3d/base.h`：改 include；可暂留 `using namespace render`。
+4. `legacy/render/render3d/base.h`：改 include；可暂留 `using namespace render`。
 5. `vector_traits` / tin：改 include；类型名 `Vector3` 可保留。
 6. 无双名时期；以编译为准一次过。
 

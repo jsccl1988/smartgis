@@ -27,7 +27,7 @@ All rights reserved.
 ## Non-goals
 
 - **不**把 Style 放进 `src/render/`（render 只消费已解析 paint）。
-- **不**把 JSON / 规则塞进 `src/base/style`（Foundation 继续只持 POD：`SmtStyle` / `Envelope` / `StyleManager`）。
+- **不**把 JSON / 规则塞进 `src/sdb/carto`（cartographic POD：`SmtStyle` / `Envelope` / `StyleManager`）。
 - **不**新建顶层 `src/style/`（破坏五层锁定）。
 - **不**追求完整 MapLibre 表达式 / 数据驱动样式 / glyphs PBF / sprite 合图引擎（可后续增量）。
 - **不**在本周期改 OGR 二进制 `SmtStyle` blob 编解码语义。
@@ -37,7 +37,7 @@ All rights reserved.
 
 | 能力 | 树 | 命名空间 | DLL |
 | --- | --- | --- | --- |
-| 遗留笔刷/符号 POD + Envelope | `src/base/style/` | `base` | `base` |
+| 遗留笔刷/符号 POD + Envelope | `src/sdb/carto/` | `base` | `base` |
 | StyleDocument / SymbolLibrary / RuleEngine / 桥接 | `src/sdb/style/` | `sdb::style` | `sdb` |
 
 ```
@@ -59,7 +59,7 @@ MapLayer / Feature attrs + zoom
 
 | 方案 | 做法 | 结论 |
 | --- | --- | --- |
-| A. 扩 `base/style` | JSON+规则进 Foundation | 否：拉高 base 职责，违反「style=POD」 |
+| A. 扩 `sdb/carto` | JSON+规则进 cartographic POD 树 | 否：拉高 carto 职责，违反「carto=POD」 |
 | B. 顶层 `src/style/` | 新层 | 否：破坏五层 |
 | **C. `sdb/style`（推荐）** | 表现模型跟 GIS 图层同层；base 保留 POD | **采用** |
 

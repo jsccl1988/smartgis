@@ -1,0 +1,26 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
+source_set("pointcloud_sources") {
+  sources = [ "pointcloud.cpp" ]
+  configs += [
+    "//build:legacy",
+    "//src/legacy/render:legacy_render_exports",
+  ]
+  defines = [ "_USRDLL" ]
+  deps = [
+    "//src/algorithm/geo:geo",
+    "//src/base:core",
+    "//src/legacy/render/model3d:model3d_sources",
+    "//src/legacy/render/render3d:render3d_sources",
+    "//src/legacy/render/scene3d:scene3d_sources",
+    "//src/render/math:bounds",
+  ]
+}
+
+group("pointcloud") {
+  public_deps = [ "//src/legacy/render:legacy_render" ]
+}

@@ -8,7 +8,10 @@
 #include <string>
 #include <string_view>
 
+#include "app/views/map_scene.h"
 #include "content/public/event_bus.h"
+#include "tool/gestures.h"
+#include "app/views/scene3d_controller.h"
 #include "ui/views/widget.h"
 
 namespace content {
@@ -61,6 +64,12 @@ class BrowserView {
   // Switch Map | Data | 3D tabs (0/1/2). Used by --self-test for 3D cover.
   void select_map_tab(int index) { switch_map_tab(index); }
 
+  // In-process layers + features (Catalog / overlay paint / edit).
+  MapScene* document() { return &document_; }
+  const MapScene* document() const { return &document_; }
+  Scene3dController* scene3d() { return &scene3d_; }
+  const Scene3dController* scene3d() const { return &scene3d_; }
+
   // Activate or fire a Workspace / chrome tool id; updates the status bar.
   // Aliases: select|identify → selection.point, pan → view.pan.
   bool run_tool_command(std::string_view command_id);
@@ -70,6 +79,11 @@ class BrowserView {
   void attach_viewports();
   void wire_catalog();
   void wire_edit_feedback();
+  void wire_map_scene();
+  void sync_catalog_from_scene();
+  void sync_inspectors_from_scene();
+  void invalidate_map_overlays();
+  void handle_draft(const tool::Draft& draft);
   // Fill Ambox from Workspace + PluginHost CommandCatalogs (id-prefix groups).
   void populate_ambox();
   void on_catalog_command(const std::string& command_id);
@@ -82,6 +96,8 @@ class BrowserView {
   ui::views::MapViewport* active_map() const;
   content::ViewHost* active_view_host() const;
 
+  MapScene document_;
+  Scene3dController scene3d_;
   std::unique_ptr<content::ViewHost> edit_host_;
   std::unique_ptr<content::ViewHost> data_host_;
   std::unique_ptr<content::ViewHost> scene_host_;
@@ -90,6 +106,7 @@ class BrowserView {
 
   content::EventBus::Connection selection_sub_;
   content::EventBus::Connection edit_sub_;
+  content::EventBus::Connection extent_sub_;
 
   ui::views::Widget widget_;
   ui::views::CatalogView* catalog_ = nullptr;

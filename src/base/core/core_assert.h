@@ -37,9 +37,9 @@ bool CORE_EXPORT smt_assert(bool bContent,char *szDesc,int nLine,char *szFile,bo
 
 #if !defined(CORE_EXPORTS)
 #if   defined( _DEBUG)
-#          pragma comment(lib,"base_d.lib")
+#          pragma comment(lib,"platform_d.lib")
 #       else
-#          pragma comment(lib,"base.lib")
+#          pragma comment(lib,"platform.lib")
 #	    endif  
 #endif
 

@@ -1,6 +1,8 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
+import("//src/app/cef/cef.gni")
+import("//src/app/cs/cs.gni")
 import("//src/app/winui/winui.gni")
 import("//src/render/skia/skia.gni")
 
@@ -35,6 +37,8 @@ group("test_all") {
   testonly = true
   deps = [
     "//testing/e2e:exe_smoke",
+    "//src/ui/views:views_unittests",
+    "//src/ui/views:views_pixel_tests",
     "//src/sdb/datasource/gdal:sde_gdal_test",
     "//src/sdb/tile:tile_test",
     "//src/sdb/style:style_test",
@@ -48,10 +52,13 @@ group("test_all") {
     "//src/render:rhi_test",
     "//src/render/scene:scene_gpu_test",
     "//src/render/scene:unified_draw_test",
+    "//src/gpu:render_backend_test",
     "//src/base/ipc:ipc_test",
+    "//src/app/cef:chrome_bridge_test",
+    "//src/app/cs:sg_host_test",
   ]
   if (smt_build_app) {
-    deps += [ "//src/legacy_app:app" ]
+    deps += [ "//src/legacy/app:app" ]
   }
 }
 
@@ -67,6 +74,12 @@ group("e2e") {
   }
   if (smt_build_winui) {
     deps += [ ":winui" ]
+  }
+  if (smt_build_cef && smt_has_cef) {
+    deps += [ ":cef" ]
+  }
+  if (smt_build_cs) {
+    deps += [ ":cs" ]
   }
   if (smt_build_render) {
     deps += [ ":render" ]
@@ -92,9 +105,14 @@ group("te") {
   deps = [ ":test_all" ]
 }
 
-# Thin aliases under //core (product sources stay in //src). mogu roots
-# modules at repo root; SmartGIS keeps //core as a historic entry. Declared
-# here so gn loads core/BUILD.gn (not part of group("all") work).
+# mogu-aligned foundation under //src/base:foundation (source_set; not a DLL).
+# Product platform DLL is //src/base:base with dll_stem=platform.
+# Compatibility: //:base → foundation (no physical repo-root base/ directory).
+group("base") {
+  public_deps = [ "//src/base:foundation" ]
+}
+
+# Thin aliases under //core → foundation. Prefer //src/base:foundation.
 group("core") {
   public_deps = [ "//core:core" ]
 }
@@ -108,14 +126,14 @@ group("core_all") {
 group("smartgis") {
   deps = []
   if (smt_build_app) {
-    deps += [ "//src/legacy_app:legacy_app_all" ]
+    deps += [ "//src/legacy/app:legacy_app_all" ]
   }
 }
 
 group("legacy_app_all") {
   deps = []
   if (smt_build_app) {
-    deps += [ "//src/legacy_app:legacy_app_all" ]
+    deps += [ "//src/legacy/app:legacy_app_all" ]
   }
 }
 
@@ -154,6 +172,19 @@ group("winui") {
   }
 }
 
+# CEF chrome (scheme 1 partitioned HWND). Opt-in; not in group("all").
+group("cef") {
+  deps = []
+  if (smt_build_cef && smt_has_cef) {
+    deps += [ "//src/app/cef:cef" ]
+  }
+}
+
+# C# WinUI host (external embedder + SmartGisCs.exe). Opt-in; not in all.
+group("cs") {
+  deps = [ "//src/app/cs:cs" ]
+}
+
 # GPU process. Only loaded when smt_build_render=true (build.bat render).
 group("render") {
   deps = []
@@ -166,6 +197,6 @@ group("render") {
 group("tool_group") {
   deps = []
   if (smt_build_app) {
-    deps += [ "//src/legacy_tool/group:tool_group" ]
+    deps += [ "//src/legacy/tool/group:tool_group" ]
   }
 }

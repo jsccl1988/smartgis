@@ -4,6 +4,8 @@
 #include "ui/views/dialog.h"
 
 #include "ui/views/button.h"
+#include "ui/views/dpi.h"
+#include "ui/views/event.h"
 #include "ui/views/layout.h"
 #include "ui/views/widget.h"
 
@@ -17,24 +19,52 @@ thread_local Dialog* t_current = nullptr;
 class DialogChrome : public View {
  public:
   explicit DialogChrome(std::unique_ptr<View> body) {
+    const float scale = 1.f;
     auto root = std::make_unique<BoxLayout>(BoxLayout::Orientation::kVertical);
+    root->set_inside_border(dip_to_px(8, scale));
+    root->set_between_child_spacing(dip_to_px(8, scale));
+
     auto buttons = std::make_unique<View>();
-    buttons->set_preferred_size({0, 40});
+    buttons->set_preferred_size({0, dip_to_px(40, scale)});
     auto row = std::make_unique<BoxLayout>(BoxLayout::Orientation::kHorizontal);
+    row->set_between_child_spacing(dip_to_px(8, scale));
+
+    // Flex spacer pushes OK/Cancel to the trailing edge (common dialog chrome).
+    auto spacer = std::make_unique<View>();
+    View* spacer_ptr = spacer.get();
     auto ok = std::make_unique<Button>("OK");
-    ok->set_preferred_size({88, 28});
+    ok->set_preferred_size({dip_to_px(88, scale), dip_to_px(28, scale)});
     ok->set_click([] { Dialog::close(true); });
     auto cancel = std::make_unique<Button>("Cancel");
-    cancel->set_preferred_size({88, 28});
+    cancel->set_preferred_size({dip_to_px(88, scale), dip_to_px(28, scale)});
     cancel->set_click([] { Dialog::close(false); });
+
     View* body_ptr = body.get();
+    row->set_flex_for_view(spacer_ptr, 1);
     buttons->set_layout_manager(std::move(row));
+    buttons->add_child(std::move(spacer));
     buttons->add_child(std::move(ok));
     buttons->add_child(std::move(cancel));
+
     root->set_flex_for_view(body_ptr, 1);
     set_layout_manager(std::move(root));
     add_child(std::move(body));
     add_child(std::move(buttons));
+    set_focusable(true);
+  }
+
+  bool on_key_event(const KeyEvent& event) override {
+    if (event.type == KeyEvent::Type::kDown) {
+      if (event.vk == VK_ESCAPE) {
+        Dialog::close(false);
+        return true;
+      }
+      if (event.vk == VK_RETURN) {
+        Dialog::close(true);
+        return true;
+      }
+    }
+    return View::on_key_event(event);
   }
 };
 
@@ -46,14 +76,18 @@ Dialog::Result Dialog::run_modal(HWND owner, const wchar_t* title, int w, int h,
   Widget widget;
   Widget::InitParams params;
   params.title = title ? title : L"SmartGIS";
+  // Client DIPs; Widget + dialog_host expand / center / clamp for the owner.
   params.width = w;
   params.height = h;
+  params.size_in_dips = true;
   params.owner = owner;
   if (!widget.init(params)) {
     return result;
   }
   auto chrome = std::make_unique<DialogChrome>(std::move(contents));
+  DialogChrome* chrome_ptr = chrome.get();
   widget.set_contents_view(std::move(chrome));
+  chrome_ptr->request_focus();
 
   Dialog dialog;
   dialog.widget_ = &widget;

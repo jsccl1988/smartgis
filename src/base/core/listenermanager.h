@@ -17,7 +17,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 #include "base/core/core.h"
 #include "base/core/listener.h"
-#include "base/core/cslock.h"
+#include <mutex>
 
 #include <map>
 
@@ -54,7 +54,7 @@ namespace base
 
 	protected:
 #ifdef SMT_THREAD_SAFE
-		SmtCSLock						m_cslock;										//���̰߳�ȫ
+		std::mutex						m_cslock;										//���̰߳�ȫ
 #endif
 		vSmtListenerPtrs				m_vListenerPtrs;
 		SmtListener						*m_pActiveListener;
@@ -68,9 +68,9 @@ namespace base
 
 #if !defined(CORE_EXPORTS)
 #if   defined( _DEBUG)
-#          pragma comment(lib,"base_d.lib")
+#          pragma comment(lib,"platform_d.lib")
 #       else
-#          pragma comment(lib,"base.lib")
+#          pragma comment(lib,"platform.lib")
 #	    endif  
 #endif
 

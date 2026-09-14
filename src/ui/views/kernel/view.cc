@@ -128,7 +128,14 @@ void View::invalidate() {
 }
 
 void View::schedule_paint() {
-  if (widget_) {
+  if (!widget_) {
+    return;
+  }
+  // Dirty only this view's bounds. Full-client InvalidateRect on every hover
+  // made Skia chrome flash the entire window while the mouse moved.
+  if (bounds_.width > 0 && bounds_.height > 0) {
+    widget_->schedule_paint_rect(bounds_);
+  } else {
     widget_->schedule_paint();
   }
 }
@@ -151,6 +158,12 @@ void View::paint(render::skia::Canvas* canvas) {
   if (!canvas || !visible_) {
     return;
   }
+  // Clip to this view's bounds so chrome text / fills cannot bleed into
+  // siblings (industry visual-layout invariant: no paint overflow).
+  canvas->save();
+  if (bounds_.width > 0 && bounds_.height > 0) {
+    canvas->clip_rect(bounds_.x, bounds_.y, bounds_.width, bounds_.height);
+  }
   paint_self(canvas);
   for (auto& child : children_) {
     if (!child->visible_ || child->native_view()) {
@@ -158,6 +171,7 @@ void View::paint(render::skia::Canvas* canvas) {
     }
     child->paint(canvas);
   }
+  canvas->restore();
 }
 
 bool View::on_mouse_event(const MouseEvent& event) {
@@ -249,8 +263,27 @@ void View::sync_native_bounds() {
   if (!native_hwnd_ || !IsWindow(native_hwnd_)) {
     return;
   }
+  RECT wr = {};
+  GetWindowRect(native_hwnd_, &wr);
+  POINT tl = {wr.left, wr.top};
+  HWND parent = GetParent(native_hwnd_);
+  if (parent) {
+    ScreenToClient(parent, &tl);
+  }
+  const int cur_w = wr.right - wr.left;
+  const int cur_h = wr.bottom - wr.top;
+  const bool shown = IsWindowVisible(native_hwnd_) != FALSE;
+  const bool want_show = is_visible();
+  // Skip no-op SetWindowPos: repeated SWP_SHOWWINDOW thrash causes child
+  // HWND flicker against the Skia chrome paint path.
+  if (tl.x == bounds_.x && tl.y == bounds_.y && cur_w == bounds_.width &&
+      cur_h == bounds_.height && shown == want_show) {
+    return;
+  }
   UINT flags = SWP_NOZORDER | SWP_NOACTIVATE;
-  flags |= is_visible() ? SWP_SHOWWINDOW : SWP_HIDEWINDOW;
+  if (want_show != shown) {
+    flags |= want_show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW;
+  }
   SetWindowPos(native_hwnd_, nullptr, bounds_.x, bounds_.y, bounds_.width,
                bounds_.height, flags);
 }

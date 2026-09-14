@@ -5,8 +5,55 @@
 # --type=gpu relaunches the same image. Optional leftover console exe still
 # builds as SmartGisRender.exe when smt_build_render is set.
 
+import("//testing/test.gni")
+import("maplibre.gni")
+
 config("gpu_config") {
   include_dirs += [ "//src" ]
+}
+
+# Present + Track A/B paint. No //src/content:content dep so unit tests do not
+# pull sdb / CxImage / GDAL. Headers under content/public are include-only.
+source_set("gpu_backend") {
+  sources = [
+    "maplibre_adapter.cc",
+    "maplibre_adapter.h",
+    "maplibre_runtime.cc",
+    "maplibre_runtime.h",
+    "present.cc",
+    "present.h",
+    "render_backend.cc",
+    "render_backend.h",
+  ]
+  public_configs = [ ":gpu_config" ]
+  libs = [
+    "d3d11.lib",
+    "dxgi.lib",
+    "gdi32.lib",
+    "ole32.lib",
+    "user32.lib",
+    "windowscodecs.lib",
+  ]
+  if (smt_enable_maplibre) {
+    defines += [ "SMT_ENABLE_MAPLIBRE" ]
+    _mln_mbgl = exec_script("//build/file_exists.py",
+                            [
+                              "third_party/.src/maplibre-native/include/mbgl/map/map.hpp",
+                            ],
+                            "trim string")
+    _mln_mln = exec_script("//build/file_exists.py",
+                           [
+                             "third_party/.src/maplibre-native/include/mln/map.hpp",
+                           ],
+                           "trim string")
+    if (_mln_mbgl == "1" || _mln_mln == "1") {
+      include_dirs += [ "//third_party/.src/maplibre-native/include" ]
+    } else {
+      print("WARNING: smt_enable_maplibre=true but no MapLibre Native pin at " +
+            "third_party/.src/maplibre-native/include — Track A paints via " +
+            "the adapter (not mln::Map).")
+    }
+  }
 }
 
 source_set("gpu_lib") {
@@ -14,16 +61,20 @@ source_set("gpu_lib") {
     "adapter.cc",
     "gpu.h",
     "gpu_main.cc",
-    "present.cc",
-    "present.h",
     "self_test.cc",
   ]
-  deps = [ "//src/content:content" ]
-  public_configs = [ ":gpu_config" ]
-  libs = [
-    "d3d11.lib",
-    "dxgi.lib",
+  deps = [
+    ":gpu_backend",
+    "//src/content:content",
   ]
+  public_configs = [ ":gpu_config" ]
+}
+
+test("render_backend_test") {
+  output_name = "render_backend_test"
+  sources = [ "render_backend_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":gpu_backend" ]
 }
 
 if (smt_build_render) {

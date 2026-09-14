@@ -21,11 +21,11 @@ smt_mfc_shared_library("plugin_proj") {
     "//src/base:base",
     "//src/base:core",
     "//src/algorithm/proj:proj",
-    "//src/legacy_ui/xcatalog:xcatalog",
+    "//src/legacy/ui/xcatalog:xcatalog",
     "//src/algorithm/geo:geo",
     "//src/sdb/map:gis",
     "//src/sys:sys",
-    "//src/legacy_tool:tool",
+    "//src/legacy/tool:tool",
     "//third_party:gdal",
   ]
 }

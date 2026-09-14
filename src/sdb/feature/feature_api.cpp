@@ -4,7 +4,6 @@
 #include "sdb/feature/feature_api.h"
 
 #include "algorithm/geo/geometry.h"
-#include "base/core/logmanager.h"
 
 #include "ogrsf_frmts.h"
 

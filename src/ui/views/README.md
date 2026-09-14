@@ -11,19 +11,19 @@ This directory is the **public toolkit**. Product composition is **`src/app/view
 
 ## Physical layout (not a public nest)
 
-Sources are grouped under **physical** subdirs. Callers still include the flat public stubs at this directory root — never `ui/views/kernel/…` / `ui/views/primitives/…` / `ui/views/gis/…` as the documented API.
+Public headers stay at this directory root. `.cc` files are grouped under physical subdirs. Callers include the flat path — never `ui/views/kernel/…` / `ui/views/primitives/…` / `ui/views/gis/…` as the documented API.
 
 ```
 src/ui/views/
-  *.h                 public stubs → kernel|primitives|gis
+  *.h                 public headers (`#include "ui/views/foo.h"`)
   views.h / views.cc  umbrella
   views_unittests.cc
-  kernel/             View, Widget, Layout, Theme, Event, Splitter
-  primitives/         Button, Label, dialogs, TabStrip, TableView, …
-  gis/                CatalogView, LayerTree, MapViewport, AmboxView, …
+  kernel/             View, Widget, Layout, Theme, Event, Splitter (.cc)
+  primitives/         Button, Label, dialogs, TabStrip, TableView, … (.cc)
+  gis/                CatalogView, LayerTree, MapViewport, AmboxView, … (.cc)
 ```
 
-This does **not** violate the nesting cap in [`docs/build/ui-views-skia.md`](../../../docs/build/ui-views-skia.md): the product tree remains `src/ui/views`; subdirs are implementation folders with flat include stubs.
+This does **not** violate the nesting cap in [`docs/build/ui-views-skia.md`](../../../docs/build/ui-views-skia.md): the product tree remains `src/ui/views`; subdirs are implementation folders only.
 
 ## Public surface
 
@@ -37,7 +37,7 @@ This does **not** violate the nesting cap in [`docs/build/ui-views-skia.md`](../
 
 Map pixels stay on `src/map` / `src/feature` + `src/render`. Architecture: [`docs/build/ui-views-skia.md`](../../../docs/build/ui-views-skia.md). Control split: [`docs/superpowers/specs/2026-09-13-ui-views-controls-design.md`](../../../docs/superpowers/specs/2026-09-13-ui-views-controls-design.md).
 
-GN: `//src/ui/views:views` via `//:ui_views`. Not in `src_all`. `views_unittests` is a console self-test (no MFC).
+GN: `//src/ui/views:views` via `//:ui_views`. Not in `src_all`. `views_unittests` is a console self-test (no MFC); L2 shell pixels in `views_pixel_tests` + `testdata/*.png`. GUI 分层与门禁：[`docs/build/ui-testing.md`](../../../docs/build/ui-testing.md)。
 
 ---
 

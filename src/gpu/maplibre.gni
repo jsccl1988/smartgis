@@ -1,0 +1,10 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Optional MapLibre Native pin for GPU Track A. Default off — not in src_all /
+# all. Same discipline as smt_has_skia: local pin / junction only.
+# Enable: gn args → smt_enable_maplibre=true
+# Runtime backend still defaults to Track B unless SMT_MAP_BACKEND=a.
+declare_args() {
+  smt_enable_maplibre = false
+}

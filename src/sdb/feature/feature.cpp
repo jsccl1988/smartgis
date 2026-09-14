@@ -4,7 +4,7 @@
 #include "sdb/feature/feature.h"
 
 #include "base/core/core.h"
-#include "base/style/stylemanager.h"
+#include "sdb/carto/stylemanager.h"
 
 #include "ogrsf_frmts.h"
 

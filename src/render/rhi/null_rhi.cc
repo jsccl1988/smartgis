@@ -15,6 +15,7 @@ class NullDevice : public Device {
   void shutdown() override {}
   void present() override {}
   Backend backend() const override { return Backend::kNull; }
+  uint32_t execute_count() const override { return execute_calls_; }
 
   CommandList* create_command_list() override { return new StubCommandList(); }
 
@@ -25,7 +26,11 @@ class NullDevice : public Device {
   void destroy_command_list(CommandList* list) override { (void)list; }
   bool execute(CommandList* list) override {
     auto* stub = static_cast<StubCommandList*>(list);
-    return stub != nullptr && stub->closed;
+    if (stub == nullptr || !stub->closed) {
+      return false;
+    }
+    ++execute_calls_;
+    return true;
   }
   Buffer* create_buffer(uint32_t byte_size, BufferUsage usage) override {
     return detail::make_stub_buffer(byte_size, usage);
@@ -35,6 +40,9 @@ class NullDevice : public Device {
     return detail::upload_stub_buffer(buffer, data, byte_size);
   }
   void destroy_texture(Texture* texture) override { (void)texture; }
+
+ private:
+  uint32_t execute_calls_ = 0;
 };
 
 }  // namespace

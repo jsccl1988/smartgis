@@ -1,0 +1,25 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Vendored TinyXML (legacy). Compiled into //src/base:base for now.
+# No in-tree product callers beyond the XML TUs themselves; keep until a
+# replacement parser lands, then delete.
+
+source_set("xml_sources") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "CORE_EXPORTS=1",
+  ]
+  sources = [
+    "xml.cpp",
+    "xmlerror.cpp",
+    "xmlparser.cpp",
+  ]
+}
+
+group("xml") {
+  public_deps = [ "//src/base:base" ]
+}

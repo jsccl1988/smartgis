@@ -1,37 +1,28 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Named-pipe + BinarySink codec (via //src/base/archive). Symbols live in
-# //src/base:base (dll_stem = base). Chrome hosts must not include these headers.
+# Named-pipe + BinarySink codec (via //src/base/archive). Static foundation
+# (//src/base:foundation); Chrome hosts must not include these headers.
 
 import("//testing/test.gni")
 
-config("ipc_config") {
-  include_dirs += [ "//src" ]
-}
-
 source_set("ipc_sources") {
-  configs += [ "//build:legacy" ]
-  # Export Channel from the base DLL (see channel.h BASE_IPC_EXPORT).
-  defines = [ "BASE_EXPORTS" ]
   sources = [
     "channel.cc",
     "channel.h",
     "codec.h",
   ]
-  public_configs = [ ":ipc_config" ]
   public_deps = [ "//src/base/archive:archive" ]
+  public_configs = [ "//src/base:foundation_config" ]
 }
 
 group("ipc") {
-  public_deps = [ "//src/base:base" ]
-  public_configs = [ ":ipc_config" ]
+  public_deps = [ ":ipc_sources" ]
 }
 
 test("ipc_test") {
   output_name = "ipc_test"
   sources = [ "ipc_test.cc" ]
-  include_dirs += [ "//src" ]
   deps = [ ":ipc" ]
   libs = [ "ws2_32.lib" ]
 }

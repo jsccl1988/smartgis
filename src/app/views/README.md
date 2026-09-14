@@ -41,10 +41,41 @@ build.bat views
 产出 `out/SmartGisViews.exe`（`smt_build_views=true`）。不在
 `group("all")` 里。`--self-test` 泵消息、检查 widget HWND，切换 Map/Data/3D
 页，在 `kContentMapView` 时 `wait_ready`，并对 3D 页跑 `view3d.trackball`
-输入（无 GPU 时占位 HWND 亦可）。
+输入（无 GPU 时占位 HWND 亦可）。分层与退出码：
+[`docs/build/ui-testing.md`](../../../docs/build/ui-testing.md)。
 
-Open：有 `MapContents` 则 `CatalogCall` 打开路径，并 `ViewHost::execute`
-已有命令；否则只把路径写到状态栏。
+Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把真实
+图层名与几何灌进 Catalog / 2D overlay；打不开时才回退样例要素。样例数据：
+
+- 仓库：`testing/data/views_ogr_sample.geojson`
+- 自测：exe 旁写入 `views_ogr_selftest.geojson`
+
+菜单 **Open** 或 Catalog「加载 shp」选上述文件即可；状态栏显示 `Opened (OGR): …`。
+
+3D 页：`view3d.trackball` 更新 `Scene3dController` 的 yaw/pitch/distance，经
+`make_orbit_camera` 喂给 FlyCube `present_gpu`（实心立方体）。默认挂接仍优先
+`content::MapWidgetHostView`（`--self-test` 稳）；要强制 3D 走 FlyCube：
+
+```bat
+set SMT_PREFER_FLYCUBE_3D=1
+out\SmartGisViews.exe
+```
+
+无 GPU / 初始化失败时仍为 GDI 线框兜底。`--self-test` 断言 OGR 进层与
+相机矩阵变化；若本机挂上 FlyCube 会写 `flycube-camera-ok`。
+
+```bat
+build.bat views
+out\SmartGisViews.exe
+out\SmartGisViews.exe --self-test
+```
+
+样例也可直接 Open：`out\views_ogr_sample.geojson`（构建后可从
+`testing/data/` 复制）或仓库内 `testing/data/views_ogr_sample.geojson`。
+
+产出 `out/SmartGisViews.exe`（`smt_build_views=true`）。不在
+`group("all")` 里。分层与退出码：
+[`docs/build/ui-testing.md`](../../../docs/build/ui-testing.md)。
 
 ---
 

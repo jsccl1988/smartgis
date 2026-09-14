@@ -6,7 +6,7 @@
 
 namespace tool {
 
-// Leftover GT_MSG_CMD_* values. Keep in sync with legacy_tool/group/defs.h.
+// Leftover GT_MSG_CMD_* values. Keep in sync with legacy/tool/group/defs.h.
 enum : long {
   kGtMsgViewZoomIn = 0x3002,
   kGtMsgViewZoomOut = 0x3003,

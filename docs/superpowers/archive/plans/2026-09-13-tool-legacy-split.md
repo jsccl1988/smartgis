@@ -7,7 +7,7 @@ All rights reserved.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Move leftover `SmtIATool` / `SmtGroupTool` from `src/tool` into `src/legacy_tool`, leave only session dispatch in `src/tool`.
+**Goal:** Move leftover `SmtIATool` / `SmtGroupTool` from `src/tool` into `src/legacy/tool`, leave only session dispatch in `src/tool`.
 
 **Architecture:** Same pattern as `legacy_render`: physical move + full include/GN rename, no forwarding headers; `src_all` keeps only `//src/tool:dispatch`.
 
@@ -27,19 +27,19 @@ All rights reserved.
 ### Task 1: Move leftover sources
 
 **Files:**
-- Move: `src/tool/t_*`, `src/tool/tool_export.h` → `src/legacy_tool/`
-- Move: `src/tool/group/**` → `src/legacy_tool/group/`
-- Create: `src/legacy_tool/BUILD.gn` (`smt_shared_library("tool")` + `group("legacy_tool_all")`)
+- Move: `src/tool/t_*`, `src/tool/tool_export.h` → `src/legacy/tool/`
+- Move: `src/tool/group/**` → `src/legacy/tool/group/`
+- Create: `src/legacy/tool/BUILD.gn` (`smt_shared_library("tool")` + `group("legacy_tool_all")`)
 - Rewrite: `src/tool/BUILD.gn` (dispatch + test only)
 
-- [x] **Step 1:** `git mv` leftover files into `src/legacy_tool/` (preserve history)
-- [x] **Step 2:** Write `src/legacy_tool/BUILD.gn`; update `group/BUILD.gn` deps to `//src/legacy_tool:tool` and `//src/tool:dispatch`
+- [x] **Step 1:** `git mv` leftover files into `src/legacy/tool/` (preserve history)
+- [x] **Step 2:** Write `src/legacy/tool/BUILD.gn`; update `group/BUILD.gn` deps to `//src/legacy/tool:tool` and `//src/tool:dispatch`
 - [x] **Step 3:** Strip leftover sources from `src/tool/BUILD.gn`
 
 ### Task 2: Rewrite includes and GN deps
 
-- [x] **Step 1:** Replace `"tool/t_` → `"legacy_tool/t_` and `"tool/group/` → `"legacy_tool/group/` across `src/`
-- [x] **Step 2:** Replace GN labels `//src/tool:tool` → `//src/legacy_tool:tool`, `//src/tool/group:tool_group` → `//src/legacy_tool/group:tool_group`
+- [x] **Step 1:** Replace `"tool/t_` → `"legacy/tool/t_` and `"tool/group/` → `"legacy/tool/group/` across `src/`
+- [x] **Step 2:** Replace GN labels `//src/tool:tool` → `//src/legacy/tool:tool`, `//src/tool/group:tool_group` → `//src/legacy/tool/group:tool_group`
 - [x] **Step 3:** `src/BUILD.gn` `src_all`: drop `//src/tool:tool`, keep `//src/tool:dispatch`
 - [x] **Step 4:** Root `BUILD.gn` `tool_group` group → new label; optionally expose `legacy_tool_all`
 
@@ -52,4 +52,4 @@ All rights reserved.
 ### Task 4: Smoke
 
 - [x] **Step 1:** Confirm no residual `"tool/t_` / `"tool/group/` under `src/`
-- [x] **Step 2:** `ninja -C out src/tool:dispatch src/legacy_tool:tool` OK；`build.bat te` app 侧既有 ABI 断链与本轮无关（spec 允许）
+- [x] **Step 2:** `ninja -C out src/tool:dispatch src/legacy/tool:tool` OK；`build.bat te` app 侧既有 ABI 断链与本轮无关（spec 允许）

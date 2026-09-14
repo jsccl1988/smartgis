@@ -1,15 +1,24 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
 assert(is_win)
 
 template("console_app") {
   executable("$target_name") {
-    forward_variables_from(invoker, "*", [])
+    forward_variables_from(invoker, "*", [ "configs" ])
     configs += [ "//build/config/win:console_subsystem" ]
+    if (defined(invoker.configs)) {
+      configs += invoker.configs
+    }
   }
 }
 
 template("win32_app") {
   executable("$target_name") {
-    forward_variables_from(invoker, "*", [])
+    forward_variables_from(invoker, "*", [ "configs" ])
     configs += [ "//build/config/win:windows_subsystem" ]
+    if (defined(invoker.configs)) {
+      configs += invoker.configs
+    }
   }
 }

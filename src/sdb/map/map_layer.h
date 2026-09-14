@@ -4,7 +4,7 @@
 #ifndef SDB_MAP_MAP_LAYER_H_
 #define SDB_MAP_MAP_LAYER_H_
 
-#include "base/style/envelope.h"
+#include "sdb/carto/envelope.h"
 #include "sdb/feature/feature.h"
 #include "sdb/gis_export.h"
 #include "sdb/layer/layer.h"

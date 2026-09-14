@@ -1,5 +1,4 @@
 #include "sdb/feature/attribute.h"
-#include "base/core/logmanager.h"
 
 namespace sdb
 {

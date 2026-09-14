@@ -31,6 +31,7 @@
 #include "ui/views/label.h"
 #include "ui/views/layer_tree.h"
 #include "ui/views/layout.h"
+#include "ui/views/layout_check.h"
 #include "ui/views/map_viewport.h"
 #include "ui/views/menu_bar.h"
 #include "ui/views/message_box.h"

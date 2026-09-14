@@ -89,6 +89,24 @@ CameraMatrices make_perspective_camera(float fov_y_radians, float aspect,
   return camera;
 }
 
+CameraMatrices make_orbit_camera(float yaw_radians, float pitch_radians,
+                                 float distance, float fov_y_radians,
+                                 float aspect, float near_z, float far_z) {
+  CameraMatrices camera = make_perspective_camera(fov_y_radians, aspect, near_z,
+                                                  far_z);
+  camera.kind = CameraKind::kPerspective;
+  const float dist = distance > 0.15f ? distance : 0.15f;
+  const float cp = std::cos(pitch_radians);
+  const float sp = std::sin(pitch_radians);
+  const float cy = std::cos(yaw_radians);
+  const float sy = std::sin(yaw_radians);
+  const float ex = dist * cp * sy;
+  const float ey = dist * sp;
+  const float ez = dist * cp * cy;
+  look_at(camera.view, ex, ey, ez, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f);
+  return camera;
+}
+
 
 Device* create_null_device();
 Device* create_gdi_device();

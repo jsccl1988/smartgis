@@ -6,7 +6,7 @@ import("//testing/test.gni")
 
 # Endgame render layer → one DLL (dll_stem = render):
 #   rhi + scene + skia + math/bounds source_sets.
-# Does NOT include //src/legacy_render/** (optional leftover DLL).
+# Does NOT include //src/legacy/render/** (optional leftover DLL).
 # math/bounds stay linkable source_sets for algorithm/legacy consumers so they
 # do not pull this DLL; they are also chained into :render.
 
@@ -69,7 +69,7 @@ smt_shared_library("render") {
 
 # Endgame aggregator. Skia GDI stub is part of the render DLL (Views consumers
 # still use //src/render/skia:skia → :render). Leftover engines stay under
-# //src/legacy_render.
+# //src/legacy/render.
 group("render_all") {
   public_deps = [ ":render" ]
 }

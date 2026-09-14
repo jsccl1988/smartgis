@@ -3,7 +3,7 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# App 终局升级 + MFC 迁出 `legacy_app` / `legacy_ui`
+# App 终局升级 + MFC 迁出 `legacy/app` / `legacy/ui`
 
 **Date:** 2026-09-14  
 **Status:** accepted（Phase 1+2 已落地；日常停编 MFC，opt-in `build.bat legacy_app`）  
@@ -16,13 +16,13 @@ All rights reserved.
 | Topic | Choice |
 | --- | --- |
 | Approach | 对称 leftover 树（仿 `legacy_tool` / `legacy_render`） |
-| MFC app + `app_core` | → `src/legacy_app/` |
-| MFC UI chrome | → `src/legacy_ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` |
+| MFC app + `app_core` | → `src/legacy/app/` |
+| MFC UI chrome | → `src/legacy/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` |
 | Endgame `src/app/` | 仅 `views/` + `winui/`（winui 仍为非终局原型） |
-| Include / GN | **无转发头**；一次性改 `legacy_app/`、`legacy_ui/` |
-| DLL stem | `app_core` 不变；`ui_legacy` stem **不变**（部署名稳定）；GN 路径改 `//src/legacy_ui:ui_legacy` |
+| Include / GN | **无转发头**；一次性改 `legacy/app/`、`legacy/ui/` |
+| DLL stem | `app_core` 不变；`ui_legacy` stem **不变**（部署名稳定）；GN 路径改 `//src/legacy/ui:ui_legacy` |
 | Exe | 日常 `build.bat app` → `SmartGisViews.exe`；MFC `SmartGis.exe` → `build.bat legacy_app` |
-| Stop compile MFC | **已闸门**：默认不编；源码保留于 `legacy_app` / `legacy_ui` |
+| Stop compile MFC | **已闸门**：默认不编；源码保留于 `legacy/app` / `legacy/ui` |
 | Phase 2 order | 1 编辑工作流 → 2 属性表可写 → 3 Catalog 真数据 → 4 Ambox/插件 → 5 3D HWND |
 | Parallel land | Phase 1 与 Phase 2 可并行（不重叠路径）；Phase 2 内 1–3 优先并行，4–5 紧随 |
 | Qt / dock / MDI | 禁止 |
@@ -48,32 +48,35 @@ src/app/
   README.md
 ```
 
-### `src/legacy_app/`（MFC 壳）
+### `src/legacy/app/`（MFC 壳）
 
 ```
-src/legacy_app/
+src/legacy/app/
   BUILD.gn                 smt_mfc_executable("app") → SmartGis.exe
-  app_core/                SmtApp DLL（dll_stem=app_core）
+                           smt_shared_library("app_core") → dll_stem=app_core
+  smtapp.cpp / smtapp.h    SmtApp（原 app_core/app_smtapp.*）
   main_frame.* / child_frame.* / smart_* / stdafx.* / resource.* / res/ / *.rc
   group("legacy_app_all")
 ```
 
-Include：`"legacy_app/…"`、`"legacy_app/app_core/…"`。  
-GN：`//src/legacy_app:app`、`//src/legacy_app/app_core:app_core`。  
-根 `//:smartgis` / `build.bat app` 改指新 label。
+Include：`"legacy/app/…"`（含 `"legacy/app/smtapp.h"`）。  
+GN：`//src/legacy/app:app`、`//src/legacy/app:app_core`。  
+opt-in：`build.bat legacy_app` → `//:legacy_app_all`；日常 `build.bat app` → Views。
 
-### `src/legacy_ui/`（MFC chrome）
+> 注：旧扁平目录 `src/legacy_app/` 已并入本树并删除，勿再并行维护。
+
+### `src/legacy/ui/`（MFC chrome）
 
 ```
-src/legacy_ui/
+src/legacy/ui/
   BUILD.gn                 smt_shared_library("ui_legacy") dll_stem=ui_legacy
   gui/ mfc_ex/ xview/ xcatalog/ xambox/ chart/
   group("ui") → :ui_legacy   # 保持旧 group 名习惯时可 group 转发
 ```
 
-Include：`"legacy_ui/gui/…"` 等（原 `"ui/gui/…"` → `"legacy_ui/gui/…"`）。  
+Include：`"legacy/ui/gui/…"` 等（原 `"ui/gui/…"` → `"legacy/ui/gui/…"`）。  
 `src/ui/views/` **不动**（终局工具箱仍在 `src/ui/views`）。  
-`//src/ui:ui_legacy` 变为 **group 转发**到 `//src/legacy_ui:ui_legacy`，或根 BUILD 直接改 deps（推荐转发一轮，减少漏改）。
+`//src/ui:ui_legacy` 变为 **group 转发**到 `//src/legacy/ui:ui_legacy`，或根 BUILD 直接改 deps（推荐转发一轮，减少漏改）。
 
 ### `src/ui/`（迁出后）
 
@@ -85,8 +88,8 @@ src/ui/
 
 ## Phase 1 — 物理迁出
 
-1. `git mv` MFC app 根文件 + `app_core` → `src/legacy_app/`  
-2. `git mv` `src/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` → `src/legacy_ui/`  
+1. `git mv` MFC app 根文件 + `app_core` → `src/legacy/app/`  
+2. `git mv` `src/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` → `src/legacy/ui/`  
 3. 全库改 include / GN label（scoped search；无 `"ui/gui/` 等残留于产品代码）  
 4. 更新 `docs/build/src-layout.md`、`ui-views-skia.md`、migration 规格路径行  
 5. `build.bat app` 仍可加载 `SmartGis.exe`（允许修编译）  
@@ -129,8 +132,8 @@ SmartGisViews.exe (src/app/views)
   → sdb / render (endgame)
   ✗ 不 deps legacy_ui / legacy_app
 
-SmartGis.exe (src/legacy_app)
-  → legacy_app/app_core
+SmartGis.exe (src/legacy/app)
+  → legacy/app/app_core
   → legacy_ui (ui_legacy.dll)
   → legacy_tool / legacy_render / …
 ```
@@ -151,7 +154,7 @@ Forbidden: endgame `views` → `legacy_ui`；`src/ui/views` → MFC headers。
 - `docs/build/src-layout.md` — App / UI 行  
 - `docs/build/ui-views-skia.md` — leftover 路径  
 - `2026-09-13-ui-views-mfc-migration-design.md` — leftover 落点改为 `legacy_*`  
-- `src/README.md`、`src/app/README.md`（若无则新建）、`src/legacy_app/README.md`、`src/legacy_ui/README.md`  
+- `src/README.md`、`src/app/README.md`（若无则新建）、`src/legacy/app/README.md`、`src/legacy/ui/README.md`  
 - 本规格 Status 随 Phase 推进为 `accepted` / 归档时 `landed`
 
 ## Out of scope

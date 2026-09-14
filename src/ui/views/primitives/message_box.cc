@@ -23,6 +23,10 @@ void set_message_box_suppressed_for_test(bool suppressed) {
 }
 
 void show_message_box(MessageBoxKind kind, const std::string& text) {
+  show_message_box(kind, text, nullptr);
+}
+
+void show_message_box(MessageBoxKind kind, const std::string& text, HWND owner) {
   if (g_message_box_suppressed_for_test) {
     return;
   }
@@ -30,7 +34,8 @@ void show_message_box(MessageBoxKind kind, const std::string& text) {
   const UINT type = (kind == MessageBoxKind::kError)
                         ? (MB_OK | MB_ICONERROR)
                         : (MB_OK | MB_ICONINFORMATION);
-  MessageBoxW(nullptr, w.c_str(), L"SmartGIS", type);
+  MessageBoxW(owner && IsWindow(owner) ? owner : nullptr, w.c_str(), L"SmartGIS",
+              type);
 }
 
 }  // namespace views

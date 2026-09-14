@@ -1,0 +1,29 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+#
+# Restore DLL_EXP so CxImage.dll exports symbols required by platform_d.
+--- a/CxImage/ximadef.h
++++ b/CxImage/ximadef.h
+@@ -3,15 +3,12 @@
+ 
+ #include "ximacfg.h"
+ 
+-// #if /*defined(_AFXDLL)||*/defined(_USRDLL)
+-//  #define DLL_EXP __declspec(dllexport)
+-// #elif defined(_MSC_VER)&&(_MSC_VER<1200)
+-//  #define DLL_EXP __declspec(dllimport)
+-// #else
+-//  #define DLL_EXP
+-// #endif
+-
+-#define DLL_EXP
++#if defined(_USRDLL)
++  #define DLL_EXP __declspec(dllexport)
++#elif defined(_MSC_VER)
++  #define DLL_EXP __declspec(dllimport)
++#else
++  #define DLL_EXP
++#endif
+ 
+ #if CXIMAGE_SUPPORT_EXCEPTION_HANDLING
+   #define cx_try try

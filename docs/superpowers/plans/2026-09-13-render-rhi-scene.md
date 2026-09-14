@@ -178,7 +178,7 @@ Original Task 3 (`sdb::scene::World`) is landed. Remaining product gap under `sr
 **Files:**
 - Modify: `src/render/rhi/rhi.h`, `rhi_test.cc`
 - Modify: `src/render/scene/scene.h`, `scene.cc`, `unified_draw_test.cc`
-- Create: `src/legacy_render/bridge/leftover_record.h`, `leftover_record.cc`, `leftover_record_test.cc`
+- Create: `src/legacy/render/bridge/leftover_record.h`, `leftover_record.cc`, `leftover_record_test.cc`
 - Modify: leftover GDI `RenderMap` and leftover GL `DrawIndexedPrimitives`
 - Modify: `src/render/BUILD.gn`, `src/render/scene/BUILD.gn`, leftover GDI/GL BUILD.gn, root `BUILD.gn` / `build.bat`
 

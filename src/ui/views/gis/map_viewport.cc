@@ -6,6 +6,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <utility>
+#include <vector>
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -225,15 +228,34 @@ bool MapViewport::attach() {
   SetWindowLongPtrW(native_view(), GWLP_USERDATA,
                     reinterpret_cast<LONG_PTR>(this));
 
+  // Scene3d: prefer FlyCube for live orbit camera when requested (or when
+  // content hang is unavailable). Default self-test keeps content-first to
+  // avoid FlyCube CRT teardown issues on machines without a stable adapter.
+  const bool prefer_flycube_3d = []() {
+    if (const char* env = std::getenv("SMT_PREFER_FLYCUBE_3D")) {
+      return env[0] == '1' && env[1] == '\0';
+    }
+    return false;
+  }();
+  if (role_ == Role::kScene3d && prefer_flycube_3d) {
+    if (try_flycube_device()) {
+      mode_ = AttachMode::kFlyCube;
+      status_ = L"3D FlyCube RHI present (DX12)";
+      start_present_timer();
+      return true;
+    }
+  }
+
   if (try_content_map_view()) {
     mode_ = AttachMode::kContentMapView;
     status_ = (role_ == Role::kScene3d)
                   ? L"content::MapWidgetHostView (3D)"
                   : L"content::MapWidgetHostView";
+    start_present_timer();
+    paint_child_placeholder();
     return true;
   }
-  // Map Edit: leftover OOP / FlyCube / LoadLibrary. Scene3d: FlyCube only
-  // when a local GPU device is present; otherwise keep a stable placeholder.
+  // Map Edit: leftover OOP / FlyCube / LoadLibrary. Scene3d: FlyCube fallback.
   if (role_ == Role::kMapEdit) {
     if (try_oop_render()) {
       mode_ = AttachMode::kOopRender;
@@ -255,6 +277,7 @@ bool MapViewport::attach() {
     if (try_flycube_device()) {
       mode_ = AttachMode::kFlyCube;
       status_ = L"3D FlyCube RHI present (DX12)";
+      start_present_timer();
       return true;
     }
   }
@@ -272,6 +295,8 @@ bool MapViewport::attach() {
 }
 
 void MapViewport::detach() {
+  stop_present_timer();
+  release_backbuffer();
 #ifdef SMT_HAS_CONTENT_MAP_SESSION
   if (owns_session_ && session_) {
     session_->Shutdown();
@@ -280,6 +305,7 @@ void MapViewport::detach() {
 #endif
   session_ = nullptr;
   owns_session_ = false;
+  painted_generation_ = 0;
   if (HWND hwnd = native_view()) {
     SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
   }
@@ -303,6 +329,20 @@ void MapViewport::detach() {
   release_rhi_device();
   view_id_ = 0;
   mode_ = AttachMode::kNone;
+}
+
+void MapViewport::set_overlay_paint(OverlayPaint fn) {
+  overlay_paint_ = std::move(fn);
+}
+
+void MapViewport::set_gpu_present(GpuPresentFn fn) {
+  gpu_present_ = std::move(fn);
+}
+
+void MapViewport::invalidate_native() {
+  if (HWND hwnd = native_view()) {
+    InvalidateRect(hwnd, nullptr, FALSE);
+  }
 }
 
 bool MapViewport::wait_ready(uint32_t timeout_ms) {
@@ -371,14 +411,19 @@ bool MapViewport::try_content_map_view() {
   if (view_id_ == 0) {
     return false;
   }
-  if (content::MapWidgetHostView* view =
-          session_->AttachSurface(view_id_, content::PresentMode::kChildHwnd)) {
+  // Software DIB: GPU publishes shared pixels; this HWND presents Latest().
+  // kChildHwnd is reserved for a future in-GPU child window; both fall back
+  // to create_dib in PresentTarget::resize today.
+  if (content::MapWidgetHostView* view = session_->AttachSurface(
+          view_id_, content::PresentMode::kSoftwareDib)) {
     content::MapWidgetHostView::CreateParams params;
     params.parent_hwnd = native_view();
     view->Create(params, content::MapWidgetHostView::Preferences{});
     RECT rc = {};
     GetClientRect(native_view(), &rc);
-    view->Resize(rc.right, rc.bottom, surface_dpi());
+    const int w = rc.right > 0 ? rc.right : 64;
+    const int h = rc.bottom > 0 ? rc.bottom : 64;
+    view->Resize(w, h, surface_dpi());
   }
   return true;
 #else
@@ -447,7 +492,8 @@ void MapViewport::release_rhi_device() {
   }
   auto* device = static_cast<render::rhi::Device*>(rhi_device_);
   device->shutdown();
-  delete device;
+  // FlyCube CRT / allocator can heap-corrupt on operator delete after a live
+  // DX12 session; leak the facade (matches rhi_test / unified_draw_test).
   rhi_device_ = nullptr;
 }
 
@@ -479,7 +525,7 @@ bool MapViewport::try_flycube_device() {
   desc.height = rc.bottom > 0 ? static_cast<uint32_t>(rc.bottom) : 1;
   if (!device->initialize(desc)) {
     device->shutdown();
-    delete device;
+    // Do not delete — FlyCube teardown has corrupted the process heap.
     return false;
   }
   // One clear+present proves the swapchain is live; GIS draws land later via
@@ -549,7 +595,200 @@ void MapViewport::paint_child_placeholder() {
   if (!hwnd) {
     return;
   }
-  InvalidateRect(hwnd, nullptr, TRUE);
+  // Do not erase: TRUE would flash the class brush / default clear between
+  // present timer ticks and the composited BitBlt.
+  InvalidateRect(hwnd, nullptr, FALSE);
+}
+
+void MapViewport::release_backbuffer() {
+  if (back_dc_) {
+    if (back_old_) {
+      SelectObject(back_dc_, back_old_);
+      back_old_ = nullptr;
+    }
+    DeleteDC(back_dc_);
+    back_dc_ = nullptr;
+  }
+  if (back_dib_) {
+    DeleteObject(back_dib_);
+    back_dib_ = nullptr;
+  }
+  back_w_ = 0;
+  back_h_ = 0;
+}
+
+bool MapViewport::ensure_backbuffer(int width_px, int height_px) {
+  if (width_px <= 0 || height_px <= 0) {
+    return false;
+  }
+  if (back_dc_ && back_dib_ && back_w_ == width_px && back_h_ == height_px) {
+    return true;
+  }
+  release_backbuffer();
+
+  BITMAPINFO bmi = {};
+  bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bmi.bmiHeader.biWidth = width_px;
+  bmi.bmiHeader.biHeight = -height_px;  // top-down
+  bmi.bmiHeader.biPlanes = 1;
+  bmi.bmiHeader.biBitCount = 32;
+  bmi.bmiHeader.biCompression = BI_RGB;
+
+  void* bits = nullptr;
+  HBITMAP dib =
+      CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+  if (!dib || !bits) {
+    if (dib) {
+      DeleteObject(dib);
+    }
+    return false;
+  }
+  HDC mem = CreateCompatibleDC(nullptr);
+  if (!mem) {
+    DeleteObject(dib);
+    return false;
+  }
+  HBITMAP old = static_cast<HBITMAP>(SelectObject(mem, dib));
+  back_dc_ = mem;
+  back_dib_ = dib;
+  back_old_ = old;
+  back_w_ = width_px;
+  back_h_ = height_px;
+  // Size change discards the last composited frame; require a fresh present
+  // (or placeholder) before BitBlt so we never show an empty DIB.
+  painted_generation_ = 0;
+  RECT fill = {0, 0, width_px, height_px};
+  HBRUSH brush = CreateSolidBrush(RGB(27, 58, 75));
+  FillRect(mem, &fill, brush);
+  DeleteObject(brush);
+  return true;
+}
+
+void MapViewport::paint_map_content(HDC target, const RECT& client_rc) {
+  if (!target) {
+    return;
+  }
+  bool presented = false;
+  if (mode_ == AttachMode::kContentMapView) {
+    presented = present_latest_frame(target, client_rc);
+  }
+  if (!presented && painted_generation_ > 0) {
+    // Keep the last composited backbuffer; re-running overlay on top of a
+    // frame that already includes vectors would stack strokes.
+    return;
+  }
+  // Keep the previous backbuffer pixels when present briefly fails so the
+  // viewport does not flash the teal placeholder between GPU generations.
+  if (!presented) {
+    // Pure GDI placeholder — avoid Skia Canvas on the retained mem DC (its
+    // per-call BitBlt + DIB teardown has corrupted the process heap before).
+    RECT fill = {0, 0, client_rc.right, client_rc.bottom};
+    HBRUSH brush = CreateSolidBrush(RGB(27, 58, 75));
+    FillRect(target, &fill, brush);
+    DeleteObject(brush);
+    SetBkMode(target, TRANSPARENT);
+    SetTextColor(target, RGB(220, 230, 240));
+    const wchar_t* title = L"SmartGIS map HWND";
+    if (role_ == Role::kScene3d) {
+      title = L"SmartGIS 3D HWND";
+    } else if (role_ == Role::kMapData) {
+      title = L"SmartGIS data HWND";
+    }
+    TextOutW(target, 16, 16, title, lstrlenW(title));
+    SetTextColor(target, RGB(160, 200, 180));
+    const wchar_t* text = status_ ? status_ : L"Map viewport";
+    TextOutW(target, 16, 40, text, lstrlenW(text));
+  }
+  if (overlay_paint_) {
+    overlay_paint_(target, client_rc);
+  }
+}
+
+void MapViewport::start_present_timer() {
+  HWND hwnd = native_view();
+  if (!hwnd) {
+    return;
+  }
+  SetTimer(hwnd, kPresentTimerId, 33, nullptr);
+}
+
+void MapViewport::stop_present_timer() {
+  HWND hwnd = native_view();
+  if (!hwnd) {
+    return;
+  }
+  KillTimer(hwnd, kPresentTimerId);
+}
+
+bool MapViewport::present_latest_frame(HDC hdc, const RECT& client_rc) {
+#ifdef SMT_HAS_CONTENT_MAP_SESSION
+  if (!hdc || !session_ || view_id_ == 0) {
+    return false;
+  }
+  content::MapWidgetHostView* view = session_->HostView(view_id_);
+  if (!view) {
+    return false;
+  }
+  const content::SharedSurface surface = view->Latest();
+  if (!surface.nt_handle || surface.generation == 0 || surface.width_px == 0 ||
+      surface.height_px == 0) {
+    return false;
+  }
+  // Cap blit size to avoid pathological maps / bad IPC metadata.
+  if (surface.width_px > 8192u || surface.height_px > 8192u) {
+    return false;
+  }
+  const SIZE_T bytes = static_cast<SIZE_T>(surface.width_px) *
+                       static_cast<SIZE_T>(surface.height_px) * 4u;
+  void* bits = MapViewOfFile(static_cast<HANDLE>(surface.nt_handle),
+                             FILE_MAP_READ, 0, 0, bytes);
+  if (!bits) {
+    bits = MapViewOfFile(static_cast<HANDLE>(surface.nt_handle),
+                         FILE_MAP_ALL_ACCESS, 0, 0, bytes);
+  }
+  if (!bits) {
+    return false;
+  }
+  // Never read past the mapped region (bad IPC size metadata corrupts heap).
+  MEMORY_BASIC_INFORMATION mbi = {};
+  SIZE_T mapped = 0;
+  if (VirtualQuery(bits, &mbi, sizeof(mbi)) != 0) {
+    mapped = mbi.RegionSize;
+  }
+  if (mapped == 0 || mapped < bytes) {
+    UnmapViewOfFile(bits);
+    return false;
+  }
+  // Copy out of the shared mapping before StretchDIBits so a concurrent GPU
+  // resize cannot invalidate the source mid-blit.
+  std::vector<uint8_t> local(bytes);
+  std::memcpy(local.data(), bits, bytes);
+  UnmapViewOfFile(bits);
+
+  BITMAPINFO bi = {};
+  bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bi.bmiHeader.biWidth = static_cast<LONG>(surface.width_px);
+  bi.bmiHeader.biHeight = -static_cast<LONG>(surface.height_px);
+  bi.bmiHeader.biPlanes = 1;
+  bi.bmiHeader.biBitCount = 32;
+  bi.bmiHeader.biCompression = BI_RGB;
+  const int dst_w = client_rc.right > 0 ? client_rc.right : 1;
+  const int dst_h = client_rc.bottom > 0 ? client_rc.bottom : 1;
+  const int ok =
+      StretchDIBits(hdc, 0, 0, dst_w, dst_h, 0, 0,
+                    static_cast<int>(surface.width_px),
+                    static_cast<int>(surface.height_px), local.data(), &bi,
+                    DIB_RGB_COLORS, SRCCOPY);
+  if (ok == 0 || ok == GDI_ERROR) {
+    return false;
+  }
+  painted_generation_ = surface.generation;
+  return true;
+#else
+  (void)hdc;
+  (void)client_rc;
+  return false;
+#endif
 }
 
 LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
@@ -561,28 +800,56 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
   }
   auto* self =
       reinterpret_cast<MapViewport*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+  if (msg == WM_TIMER && wparam == kPresentTimerId) {
+    if (self && self->mode_ == AttachMode::kContentMapView) {
+#ifdef SMT_HAS_CONTENT_MAP_SESSION
+      if (self->session_ && self->view_id_ != 0) {
+        if (content::MapWidgetHostView* view =
+                self->session_->HostView(self->view_id_)) {
+          const content::SharedSurface surface = view->Latest();
+          if (surface.generation != 0 &&
+              surface.generation != self->painted_generation_) {
+            InvalidateRect(hwnd, nullptr, FALSE);
+          }
+        }
+      }
+#endif
+    } else if (self && self->mode_ == AttachMode::kFlyCube &&
+               self->role_ == Role::kScene3d && IsWindowVisible(hwnd)) {
+      InvalidateRect(hwnd, nullptr, FALSE);
+    }
+    return 0;
+  }
   if (msg == WM_PAINT) {
     PAINTSTRUCT ps = {};
     HDC hdc = BeginPaint(hwnd, &ps);
     RECT rc = {};
     GetClientRect(hwnd, &rc);
-    render::skia::Canvas canvas(hdc, rc.right, rc.bottom);
-    canvas.fill_rect(0, 0, rc.right, rc.bottom,
-                     render::skia::color_rgb(27, 58, 75));
-    const wchar_t* title = L"SmartGIS map HWND";
-    if (self) {
-      if (self->role_ == Role::kScene3d) {
-        title = L"SmartGIS 3D HWND";
-      } else if (self->role_ == Role::kMapData) {
-        title = L"SmartGIS data HWND";
+    const int width_px = rc.right > 0 ? rc.right : 0;
+    const int height_px = rc.bottom > 0 ? rc.bottom : 0;
+    // Scene3d + FlyCube: GPU presents to the HWND swapchain; HUD is light
+    // GDI text only (no full-frame StretchDIBits race).
+    if (self && self->role_ == Role::kScene3d &&
+        self->mode_ == AttachMode::kFlyCube && self->rhi_device_ &&
+        self->gpu_present_) {
+      const uint32_t w = width_px > 0 ? static_cast<uint32_t>(width_px) : 1;
+      const uint32_t h = height_px > 0 ? static_cast<uint32_t>(height_px) : 1;
+      self->gpu_present_(self->rhi_device_, w, h);
+      if (self->overlay_paint_) {
+        self->overlay_paint_(hdc, rc);
       }
+      EndPaint(hwnd, &ps);
+      return 0;
     }
-    const wchar_t* text = L"Map viewport";
-    if (self && self->status_) {
-      text = self->status_;
+    // Map / 3D placeholder: composite present + vector overlay offscreen,
+    // then one BitBlt so the user never sees a half-drawn frame.
+    if (self && width_px > 0 && height_px > 0 &&
+        self->ensure_backbuffer(width_px, height_px)) {
+      self->paint_map_content(self->back_dc_, rc);
+      BitBlt(hdc, 0, 0, width_px, height_px, self->back_dc_, 0, 0, SRCCOPY);
+    } else if (self) {
+      self->paint_map_content(hdc, rc);
     }
-    canvas.draw_text(16, 16, title, render::skia::color_rgb(220, 230, 240));
-    canvas.draw_text(16, 40, text, render::skia::color_rgb(160, 200, 180));
     EndPaint(hwnd, &ps);
     return 0;
   }

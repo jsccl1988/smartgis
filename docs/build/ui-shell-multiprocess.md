@@ -10,7 +10,7 @@ All rights reserved.
 当前产品事实（以树为准，不是 2010 路径）：
 
 - 工程入口只有 GN/`build.bat`，产物只在仓库根 `out/`。`//src:src_all` 是 31 个非 MFC DLL。`//:smartgis`（`build.bat app`）才出 `out/SmartGis.exe`。
-- 产品在 `src/`：`app/`、`app/app_core`、`ui/{gui,mfc_ex,xview,xcatalog,xambox}`、`render/{gdi,gdi_simple,gl,render3d}`（D3D9 树已删；leftover 亦见 `legacy_render/`）、`gis/`、`sdb/datasource/{mgr,gdal,mem}`（`smf` / `ws` 已移除）、`map/`、`plugin/` + AM 子模块、`tool/`（终局 dispatch）+ `legacy_tool/` / `legacy_tool/group`（leftover IATool）。
+- 产品在 `src/`：`app/`、`app/app_core`、`ui/{gui,mfc_ex,xview,xcatalog,xambox}`、`render/{gdi,gdi_simple,gl,render3d}`（D3D9 树已删；leftover 亦见 `legacy/render/`）、`gis/`、`sdb/datasource/{mgr,gdal,mem}`（`smf` / `ws` 已移除）、`map/`、`plugin/` + AM 子模块、`tool/`（终局 dispatch）+ `legacy/tool/` / `legacy/tool/group`（leftover IATool）。
 - 遗留 ABI 保留：`Smt_*` 命名空间、`Export_Smt*`、磁盘 DLL stem（`SmtGisCore`、`SmtRender`、`SmtGLRenderDevice`、`SmtXViewCore` …）。新公共命名空间最多两层。
 - 今日桌面是 **MFC + BCGControlBar Pro**（`CBCGPMDIFrameWnd`、dock catalog、AM toolbox）。机器上可以没有 BCG；**不要盗版 BCG**。MFC Feature Pack（`CMFC*`）只允许作为可选 bootstrap exe，**不是本文的上限**。
 - 今日地图视图是进程内 HWND：`SmtXView`（`CView`）→ `SmtRenderDevice::Init(HWND)`。交互工具是 `SmtIATool`（`Smt_IATool`），插件是 `SmtAuxModule`（`Smt_AM`）。地图文档是 `Smt_GIS::SmtMap`。
@@ -23,7 +23,7 @@ All rights reserved.
 
 ## 0. Shared substrate（真正的上限）
 
-**Status (2026-09-13):** Substrate in tree (`src/content`, `src/gpu`, `src/base/ipc`). Destination: one PE `out/SmartGis.exe` relaunched via `content::ContentMain` and `--type=browser|renderer|gpu|utility` (no `SmartGisRender.exe` on the product path). Browser starts **renderer and standalone GPU** children always. **Chromium Mojo pin abandoned.** Product transport is Win32 named pipe + BinarySink payloads（`src/base/archive`，`base::`；C++ structs with `archive()`）；RPC/包络侧 `net::Pickle` 仍在 `src/net/pack/pickle.h`。Children still get `--pipe=` until a later invitation task; no Mojo invitation. Sections 1–3 below are unchanged design essays.
+**Status (2026-09-14):** Substrate in tree (`src/content`, `src/gpu`, repo-root `base/ipc`). Destination: one PE `out/SmartGis.exe` relaunched via `content::ContentMain` and `--type=browser|renderer|gpu|utility` (no `SmartGisRender.exe` on the product path). Browser starts **renderer and standalone GPU** children always. **Chromium Mojo pin abandoned.** Product transport is Win32 named pipe + BinarySink payloads（`base/archive`，`base::`；C++ structs with `archive()`）；RPC/包络侧 `net::Pickle` 仍在 `src/net/pack/pickle.h`。Children still get `--pipe=` until a later invitation task; no Mojo invitation. Sections 1–3 below are unchanged design essays.
 
 三种 chrome 的上限不在控件库，而在：**chrome 可拔插 + 地图渲染可崩溃可重启 + 现有 31 个 DLL 在 v1 不必改 ABI**。
 
@@ -122,7 +122,7 @@ flowchart LR
 | `//src/sde/host:io_host` | `src/sde/host` | `SmartGisIo.exe`（v1.5） | 否 |
 | `//src/app/winui:app_winui` | `src/app/winui` | 方案 2 exe | 否 |
 | `//src/app/views:views` | `src/app/views` | 方案 3 exe | 否 |
-| `//src/legacy_app:app` | `src/app` | leftover `SmartGis.exe`（MFC Feature Pack） | 否；不是终局 chrome |
+| `//src/legacy/app:app` | `src/app` | leftover `SmartGis.exe`（MFC Feature Pack） | 否；不是终局 chrome |
 
 新公共命名空间（已落地）：**`content`**（chrome 调用 `MapSession` / `MapView`）、**`gpu`**（`SmartGisRender.exe` + `Smt*` 适配器）。更深的编解码放 `content::detail` / `gpu::detail`。
 
@@ -349,21 +349,21 @@ v1 适配器路径：
 2. **不**创建 `CView` / `CMainFrame`。适配器自建一个 **隐藏 message-only 或 offscreen HWND**，满足 `Init(HWND)` 与 `SmtIATool::Init(HWND)`。真正像素走 FBO / D3D11 纹理，再拷到共享表面。
 3. `SmtRenderer::CreateDevice` 优先 `"GL"`。GDI / GDI Simple 仍可用，经 `kSoftwareDib` present。D3D9 不再接线。
 4. `SmtMap`、图层、选择、投影（`gis/proj`）全部留在 render（或 IO）地址空间。Chrome 只看见 token 与 JSON。
-5. `SmtIATool` / `SmtIAToolManager` 留在 render。`IToolRouter::activate("select")` 映射到今日 `gt_selecttool` 等 `legacy_tool/group` 类。
+5. `SmtIATool` / `SmtIAToolManager` 留在 render。`IToolRouter::activate("select")` 映射到今日 `gt_selecttool` 等 `legacy/tool/group` 类。
 6. `SmtAuxModule`：无 UI 的逻辑在 render 加载；要弹 MFC 对话框的 AM（`plugin/print`）v1 走两条路之一——**(A)** 对话框改 chrome（Views/WinUI），结果经 `PluginCall` 回来；**(B)** 临时仍由 render 弹跨进程 Win32 对话框（体验差，只许白名单）。
 7. 无窗口瓦片发布栈已删除；图层 I/O 走 `sdb` / GDAL。
 
-**明确不在 v1 做的：** 把 `SmtXView` 改成非 MFC。它继续服务旧 `SmartGis.exe`。新 chrome 不链接 `//src/legacy_ui/xview:xview`。
+**明确不在 v1 做的：** 把 `SmtXView` 改成非 MFC。它继续服务旧 `SmartGis.exe`。新 chrome 不链接 `//src/legacy/ui/xview:xview`。
 
 **未来 GPU（仍在 render 进程）**
 
 | 后端 | 角色 |
 | --- | --- |
-| `legacy_render/gl`（现有 leftover） | v1 主路径 |
-| GDI / GDI Simple（`legacy_render/gdi` 等） | 软件回退、打印栅格化 |
+| `legacy/render/gl`（现有 leftover） | v1 主路径 |
+| GDI / GDI Simple（`legacy/render/gdi` 等） | 软件回退、打印栅格化 |
 | Skia canvas（未来 `third_party/skia`，canvas only） | 2D 矢量/文字质量；不是 chrome toolkit |
 | DXGI / D3D11+ | 共享纹理与 present；**不是** D3DX9 |
-| `legacy_render/render3d` + `scene3d` / `terrain` / `pointcloud` | `ViewKind::kScene3d`；离开 D3DX |
+| `legacy/render/render3d` + `scene3d` / `terrain` / `pointcloud` | `ViewKind::kScene3d`；离开 D3DX |
 
 ### 0.8 多视图 / 多窗口
 
@@ -389,94 +389,35 @@ v1 适配器路径：
 
 ### 0.10 Feature Pack 只是 v0 bootstrap
 
-允许一个极瘦的 `CMFC*` exe：一个框 + 子 HWND + `IMapSession`，用来在 WinUI/WebView2 未就绪时跑通 OOP present。它 **不是** 方案 4，不出现在第 4 节对比表的“上限”列。旧 `//src/legacy_app:app`（BCG）同样视为遗留，直到许可 BCG 或弃用。
+允许一个极瘦的 `CMFC*` exe：一个框 + 子 HWND + `IMapSession`，用来在 WinUI/WebView2 未就绪时跑通 OOP present。它 **不是** 方案 4，不出现在第 4 节对比表的“上限”列。旧 `//src/legacy/app:app`（BCG）同样视为遗留，直到许可 BCG 或弃用。
 
 ---
 
-## 1. 方案 1 — WebView2 chrome + native map
+## 1. 方案 1 — CEF chrome + 分区 HWND + native map
 
-**Removed 2026-09-13.** `src/app/webview2`、`src/web`（WMS/WFS/CGI/mapd）和 `plugin/map_service` 已删除。没有产品 web 栈；图层 I/O 走 `sdb`。下文是历史设计，不要按它接线。
+**产品意图（现行）：** 真 CEF Binary Distribution 画 HTML IDE chrome；顶层 Win32 客户区用 **分区 HWND**——CEF browser HWND 只填 chrome；地图是 sibling 子 HWND（`CefMapSlot`），经 `content` host ABI present / 输入。**不**挖洞、**不** OSR 叠层地图。
 
-**Implementation status:** deleted. Not in `group("all")`.
+- 树：`src/app/cef` → `out/SmartGisCef.exe`（`build.bat cef`，`smt_build_cef=true`）。默认不进 `group("all")` / `src_all`。
+- Spec：[`docs/superpowers/specs/2026-09-14-app-cef-hwnd-host-design.md`](../superpowers/specs/2026-09-14-app-cef-hwnd-host-design.md)。
+- 历史：本节曾写 WebView2 sibling；WebView2 路径已删除。宿主形态仍是 sibling HWND + `content`，chrome 换成 CEF。
 
-**上限一句话：** 桌面 GIS 里 **整体 UX / 迭代 / 招人** 最高；地图像素仍是我们的进程，不是 Edge GPU。
-
-### 1.1 窗口与运行时
-
-- Win32（或极瘦 WinUI 岛）做 **宿主 HWND**：顶层窗口、菜单加速键、任务栏、文件拖放目标。
-- 子树：`CreateCoreWebView2EnvironmentWithOptions`。
-  - **默认 Evergreen**（用户机已装 WebView2 Runtime）：装包小，安全补丁跟 Edge。
-  - **Fixed Runtime** 作为企业开关（`--webview-fixed=<dir>`）：离线 / 锁定机。Fixed 包打进 `out/` 旁的 `webview2_fixed/`，不进 `src_all`。
-- WebView2 **不拥有** GL/D3D 地图。地图是：
-  1. **推荐：** 宿主里与 WebView **并列的 sibling HWND**（WebView 用 CSS 留空 `div#map-slot`，宿主把 native HWND 对齐到该矩形，跟 DPI/滚动同步）；或
-  2. **Composition：** WebView2 CompositionController + 我们的 D3D 纹理作为视觉层（更难，拖放/IME 边角多）。v1 用 sibling HWND + `kSharedTexture` 画进该 HWND。
-
-```mermaid
-flowchart TB
-  Top["Win32 top-level HWND"]
-  WV["WebView2 HWND — ribbon, tree, props, dialogs"]
-  Map["Sibling map HWND — presenter only"]
-  Top --> WV
-  Top --> Map
-  Map --> Tex["opens DXGI handle from SmartGisRender.exe"]
+```text
+SmartGisCef.exe
+  CEF HWND — menu / catalog / ambox / inspector / status
+  CefMapSlot HWND — MapContents present + ViewHost input
 ```
 
-### 1.2 Chrome 内容
+前端：开发/发布静态资源在 exe 旁 `cef_web/`（`file://`）。ChromeBridge 用版本化 ProcessMessage JSON（`api_version=1`）。
 
-| 今日 MFC/BCG | Web 侧 |
-| --- | --- |
-| `CBCGPMenuBar` / ribbon | HTML/CSS ribbon 或 command palette |
-| `TabbedWndDockBar` + `cata_*xcatalog` | dockable web panels（自写或成熟 web dock） |
-| `SmtAMBoxMgrDocBar` | web toolbox，点击发 `ActivateTool` |
-| 属性 / `EditConfigDockBar` / `SysConfigDockBar` | web forms；数据来自 `LegendSnapshot` / `SelectionChanged` |
-| MDI 文档 | web tab + 每 tab 一个 map slot HWND |
-| 模态对话框 | web modal；文件选择可用宿主 `IFileDialog` |
+### 1.1 进程共存
 
-前端与 `out/` 的关系：开发用 localhost；发布把静态资源拷到 exe 旁 `chrome_web/`。远程调试：Edge DevTools 连 WebView2。
+入口强制 `CefExecuteProcess` → `content::ContentMain`。CEF 子进程吃掉带 CEF 通道参数的 `--type=`；本仓地图 `--type=gpu|renderer`（无 CEF 通道）落入 ContentMain。若误吞，逃生舱旁路 `SmartGisRender.exe`（默认未启用）。
 
-### 1.3 JS ↔ host 桥
+地图不得进入浏览器 / CEF GPU 进程；地图像素仍由本仓 content / gpu 路径 present。
 
-- **默认：** `webview.postMessage` / `chrome.webview.addEventListener('message')`。载荷 = 与 pipe **同一套 JSON 类型**（`CatalogOp`、`ActivateTool`…），宿主原样转发，避免两套协议。
-- **Host objects**（`AddHostObjectToScript`）只给高频或需同步的窄 API：`host.tool.dispatch`、`host.session.extent`。必须版本化（`host.apiVersion`），打破时 JS 打日志而不是静默失败。
-- 光标/extent 热路径：JS **不要** 每 `mousemove` 进 JS。地图 HWND 在 WebView 外，指针由 Win32 直接进 `IToolRouter`。只有“从 web 面板拖一个图层到地图”才需要 JS→宿主→render。
-- 二进制：用 `ICoreWebView2::PostWebMessageAsJson` 不够时，共享 mapped file + `postMessage({type:'Extent', shm:true})`。仅 extent/光标，不做全图 RGBA 经 JS。
-
-### 1.4 插件
-
-| 类型 | 进程 | 说明 |
-| --- | --- | --- |
-| 现有 `src/plugin/**`（`SmtAM*`） | Render（v1） | 逻辑保留。Outlook 条变成 web toolbox。要 HWND 的插件走白名单或改 web UI |
-| Web extension | UI | 与 chrome 同源的 JS 包，只能调版本化 host JSON，不能 `LoadLibrary` |
-| 禁止 | WebView GPU 进程 | 不得把 `SmtGLRenderDevice` 塞进 Edge |
-
-`plugin/print`（`SmtAMMapPrint`）今日依赖 `xview`。方案 1 的打印 UI 用 web；栅格化仍 `PrintRequest` → render（GDI/Skia DC）。这是硬活，见 1.6。
-
-### 1.5 天花板（能做到）
-
-- **4K / 多显示器：** Per-Monitor v2 + 每 map HWND 独立 `ResizeSurface`。Web 布局用 CSS；地图像素走 GPU。
-- **暗色 / 动画 / 密度：** CSS 主题；chrome 动画不挡 `FrameReady`。
-- **远程调试 / 热更新：** DevTools、前端日更；host ABI 有版本才能热更新。
-- **招人：** Web 桌面（React/Vue + Win32 宿主）市场远大于 MFC。
-- **多监视器 MDI：** 多个顶层宿主或把 tab 撕成独立窗，每个窗自己的 map HWND，**同一个** `IMapSession`。
-- **UX 上限：** 接近现代 Web GIS 控制台 + 本地 GL 地图（ArcGIS Experience / QGIS 做不到的本地工具仍在 render）。
-
-### 1.6 硬限制（做不到或会一直丑）
-
-- **制图打印 / 分页布局：** Web 打印 ≠ GIS 制图。复杂版式必须 render 出页。OLE/ActiveX 遗留（若还有）不进 WebView。
-- **从 web 拖到地图：** 跨越 WebView HWND → sibling HWND 的拖放要宿主做 `IDropTarget` 转发，延迟和命中矩形会一直别扭。这是方案 1 的结构性税。
-- **输入延迟：** 地图路径（sibling HWND）可接近原生。Chrome 手势若误走 JS 再下发，会比方案 2/3 多一跳。纪律：地图指针永不进 JS。
-- **离线锁定机：** 必须 Fixed Runtime + 离线前端包；Evergreen 会失败。IT 禁 Edge 组件时方案 1 不可用。
-- **无障碍：** Web 好做页面级 a11y；地图 canvas/HWND 仍要宿主 UIA provider（我们自己写），WebView 不会自动读图上要素。
-- **WebView GPU ≠ 我们的 render。** Edge 崩溃只毁 chrome；地图仍可能活。反过来，我们的 render 崩了 WebView 还在——这是底物的胜利，不是 WebView 的。
-
-### 1.7 与多进程的关系
-
-WebView2 **已经**是多进程（browser / renderer / GPU）。那只服务 HTML。
-
-**地图必须继续是 `SmartGisRender.exe`。** 不要用 WebView2 的 WebGL 重画 `SmtMap`，不要把共享纹理交给 Edge GPU 进程“顺便”呈现（生命周期和 TDR 策略不一致）。宿主 present 停在我们的 HWND。
+历史 WebView2 小节细节已删除（2026-09-13）；勿按旧 WebView2 接线。
 
 ---
-
 ## 2. 方案 2 — WinUI 3 + WinAppSDK + native map
 
 **上限一句话：** **Windows 第一方 / 原生 IDE** 最高（Fluent、a11y、IME、平板、Store）；chrome 迭代速度低于方案 1。
@@ -580,7 +521,7 @@ UI 进程 = WinUI 3 / WinAppSDK。`IMapSession` / pipe / `SmartGisRender.exe` �
 | --- | --- | --- | --- |
 | **(a) 隔壁 mogu 已有 Views/Aura/Skia 再链过来** | 真 Chromium 子集 | 只有 mogu 树里 **已经** 有可链的 Views 时才成立。对照 [`mogu-mapping.md`](mogu-mapping.md)：今日对齐的是 GN/`out/`/模块分组，**不是** 已在 smartgis 里落地的 Aura | 作 **可选加速**，不是默认假设 |
 | **(b) 薄 Views-like + Skia canvas + 可选 Aura-like 合成** | 自研保留模式控件（view/layout/event）+ Skia 绘 chrome；合成器可后加 | 工作量大，但依赖面可控；Skia 只当 canvas（符合 no-Qt 规则） | **推荐默认变体** |
-| **(c) CEF 只做 chrome** | 用 CEF/Blink 画壳 | 体积与进程模型塌向方案 1，还多一个 CEF 版本地狱 | **不推荐**。要 web chrome 就走方案 1 WebView2 |
+| **(c) CEF 冒充方案 3 / 终局 Views** | 用 CEF 替代自研 Views 工具箱 | 体积与进程模型塌向方案 1，还多一个 CEF 版本地狱 | **不推荐作为方案 3**。要 web chrome 产品壳走方案 1（SmartGisCef.exe）；终局工具箱仍是变体 (b) |
 
 **推荐 (b)。** 理由：本仓硬约束是 GN + 无 Qt + 不搬 Bazel + 不把 sln 当入口。整树 Chromium（content + Blink + Views + Aura + viz）是另一个产品。CEF 不会提高上限，只会重复方案 1 并更难编。若未来 mogu 真的导出可链接的 Views，再把 (b) 的控件后替换成 (a)，**host ABI 不变**。
 
@@ -711,7 +652,7 @@ flowchart TB
 
 **方案 3：** 作为 **可选第三壳** 和 mogu/Skia 对齐实验，不要当 v1 生产默认，也不要当“引进 Chromium 的借口”。只有在团队明确接受自研 widget 年份，并且 (a) 出现可链 Views 时，才把生产默认从 2 挪走。
 
-**明确不选：** Qt；把 Feature Pack 写成终态；CEF 当方案 3。
+**明确不选：** Qt；把 Feature Pack 写成终态；用 CEF **冒充方案 3 / 终局 Views**（第三壳产品路径见方案 1 SmartGisCef.exe，不在此否决）。
 
 ### 4.5 实现者开工清单（仍是设计，不是本变更的任务）
 

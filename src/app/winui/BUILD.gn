@@ -30,7 +30,6 @@ config("winui_cc") {
   ]
   cflags = [ "/UNTDDI_VERSION" ]
   cflags_cc = [
-    "/utf-8",
     "/Zc:preprocessor",
     "/FIwinui_prefix.h",
   ]

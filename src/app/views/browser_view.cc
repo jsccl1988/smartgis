@@ -22,9 +22,11 @@
 #include "content/public/map_contents.h"
 #include "content/public/map_types.h"
 #include "content/public/view_host.h"
+#include "render/rhi/rhi.h"
 #include "sdb/edit/edit_session.h"
 #include "sdb/tile/tile_map_layer.h"
 #include "tool/command.h"
+#include "tool/gestures.h"
 #include "tool/workspace.h"
 #include "ui/views/add_basemap_dialog.h"
 #include "ui/views/ambox_view.h"
@@ -181,6 +183,18 @@ content::FeatureId feature_id_from_opaque_token(const std::string& token) {
 BrowserView::BrowserView() = default;
 
 BrowserView::~BrowserView() {
+  // Stop present timers / clear HWND userdata before the Widget tears down
+  // the view tree (avoids heap corruption from late WM_TIMER/WM_PAINT).
+  scene3d_.abandon_mesh();
+  if (map_edit_) {
+    map_edit_->detach();
+  }
+  if (map_data_) {
+    map_data_->detach();
+  }
+  if (map_scene_) {
+    map_scene_->detach();
+  }
   if (plugins_) {
     plugins_->shutdown();
     plugins_.reset();
@@ -211,7 +225,10 @@ bool BrowserView::init() {
   }
 
   build_contents();
+  document_.seed_default();
+  wire_map_scene();
   attach_viewports();
+  wire_catalog();
   wire_edit_feedback();
   sync_status();
   return true;
@@ -242,18 +259,12 @@ void BrowserView::build_contents() {
   menu->set_preferred_size({0, 28});
   menu->add_item("Open", [this]() { on_open(); });
   menu->add_item("Exit", [this]() { on_exit(); });
-  menu->add_item("Map Edit", [this]() { switch_map_tab(0); });
-  menu->add_item("Datasource", [this]() { switch_map_tab(1); });
+  menu->add_item("Map", [this]() { switch_map_tab(0); });
+  menu->add_item("Data", [this]() { switch_map_tab(1); });
   menu->add_item("3D", [this]() { switch_map_tab(2); });
   menu->add_item("Select", [this]() { run_tool_command("selection.point"); });
-  menu->add_item("Draw Point",
-                 [this]() { run_tool_command("edit.append.point"); });
-  menu->add_item("Draw Line",
-                 [this]() { run_tool_command("edit.append.linestring"); });
-  menu->add_item("Draw Polygon",
-                 [this]() { run_tool_command("edit.append.polygon"); });
-  menu->add_item("Clear Sel",
-                 [this]() { run_tool_command("selection.clear"); });
+  menu->add_item("Draw", [this]() { run_tool_command("edit.append.point"); });
+  menu->add_item("Clear", [this]() { run_tool_command("selection.clear"); });
   menu->add_item("Undo", [this]() { run_tool_command("edit.undo"); });
   menu->add_item("Plugins", [this]() { on_plugins(); });
 
@@ -276,6 +287,8 @@ void BrowserView::build_contents() {
   map_tabs->add_tab("Map", std::move(map_edit));
   map_tabs->add_tab("Data", std::move(map_data));
   map_tabs->add_tab("3D", std::move(map_scene));
+  // Width 0 → Splitter treats map tabs as the flex pane (catalog stays ~240).
+  map_tabs->set_preferred_size({0, 0});
   map_tabs->set_change([this](int i) { switch_map_tab(i); });
   map_tabs_ = map_tabs.get();
 
@@ -306,30 +319,6 @@ void BrowserView::build_contents() {
   feature_info_ = feature_info.get();
   auto attribute_table = std::make_unique<ui::views::AttributeTable>();
   attribute_table_ = attribute_table.get();
-  attribute_table_->set_on_cell_commit(
-      [this](const std::string& feature_token, const std::string& field,
-             const std::string& value) {
-        content::ViewHost* host = active_view_host();
-        if (!host || !host->edits()) {
-          set_status_message("Attribute edit failed: no edit session");
-          return false;
-        }
-        sdb::FeatureMutation mutation;
-        mutation.op = sdb::EditOp::kModify;
-        mutation.id = detail::feature_id_from_opaque_token(feature_token);
-        if (mutation.id.len == 0) {
-          set_status_message("Attribute edit failed: empty feature token");
-          return false;
-        }
-        // Field/value stay at the string boundary; EditSession mutation is
-        // currently id-scoped (attribute payload TBD on FeatureMutation).
-        if (!host->edits()->commit(mutation)) {
-          set_status_message("Attribute edit failed: " + field);
-          return false;
-        }
-        set_status_message("Updated " + field + "=" + value);
-        return true;
-      });
 
   auto inspector = std::make_unique<ui::views::TabStrip>();
   inspector->set_preferred_size({0, 160});
@@ -355,6 +344,10 @@ void BrowserView::build_contents() {
 }
 
 void BrowserView::attach_viewports() {
+  // Ensure every map tab page has a real client rect before OpenView/Resize
+  // (inactive tabs used to keep 0x0 bounds).
+  widget_.layout_contents();
+
   struct Bind {
     ui::views::MapViewport* pane;
     content::ViewHost* host;
@@ -378,13 +371,30 @@ void BrowserView::attach_viewports() {
       b.host->activate(b.tool);
     }
   }
+  widget_.layout_contents();
+  // After layout, HWND clients are real — push surface size so GPU demo
+  // frames are not stuck at the 64×64 attach fallback (avoids StretchDIBits
+  // pixelation).
+  for (ui::views::MapViewport* pane : {map_edit_, map_data_, map_scene_}) {
+    if (!pane || !pane->native_view()) {
+      continue;
+    }
+    pane->sync_native_bounds();
+    RECT rc = {};
+    GetClientRect(pane->native_view(), &rc);
+    if (rc.right > 0 && rc.bottom > 0) {
+      // WM_SIZE may have raced before the view had final bounds.
+      SendMessageW(pane->native_view(), WM_SIZE, SIZE_RESTORED,
+                   MAKELPARAM(rc.right, rc.bottom));
+    }
+  }
 }
 
 void BrowserView::wire_catalog() {
   if (!catalog_ || !catalog_->layer_tree()) {
     return;
   }
-  catalog_->populate_demo_layers();
+  sync_catalog_from_scene();
   catalog_->set_source_names({"Memory"});
   catalog_->set_map_docs(
       {{"map.untitled", "", "Untitled map", false}});
@@ -392,36 +402,200 @@ void BrowserView::wire_catalog() {
       [this](const std::string& id) { on_catalog_command(id); });
   catalog_->layer_tree()->set_visible_changed(
       [this](const std::string& id, bool visible) {
+        document_.set_layer_visible(id, visible);
         content::MapContents* session =
             active_map() ? active_map()->map_contents() : map_session_.get();
         detail::catalog_call(
             session, std::string("{\"op\":\"set_visible\",\"id\":\"") +
                          detail::json_escape(id) + "\",\"visible\":" +
                          (visible ? "true" : "false") + "}");
-        if (content::ViewHost* host = active_view_host()) {
-          const uint32_t view_id =
-              active_map() ? active_map()->view_id() : 0;
-          host->execute("view.refresh", view_id);
-        }
+        invalidate_map_overlays();
+        sync_inspectors_from_scene();
         if (status_bar_) {
           status_bar_->set_message(std::string("Layer ") + id +
                                    (visible ? ": visible" : ": hidden"));
         }
       });
   catalog_->layer_tree()->set_selection_changed([this](const std::string& id) {
+    document_.select_layer(id);
     content::MapContents* session =
         active_map() ? active_map()->map_contents() : map_session_.get();
     detail::catalog_call(session,
                          std::string("{\"op\":\"select_layer\",\"id\":\"") +
                              detail::json_escape(id) + "\"}");
-    if (content::ViewHost* host = active_view_host()) {
-      const uint32_t view_id = active_map() ? active_map()->view_id() : 0;
-      host->execute("view.refresh", view_id);
-    }
+    sync_inspectors_from_scene();
+    invalidate_map_overlays();
     if (status_bar_) {
       status_bar_->set_message("Active layer: " + id);
     }
   });
+}
+
+void BrowserView::wire_map_scene() {
+  auto paint2d = [this](HDC hdc, const RECT& rc) {
+    document_.paint(hdc, rc.right, rc.bottom);
+  };
+  auto paint3d = [this](HDC hdc, const RECT& rc) {
+    if (map_scene_ &&
+        map_scene_->attach_mode() ==
+            ui::views::MapViewport::AttachMode::kFlyCube) {
+      scene3d_.paint_hud(hdc, rc.right, rc.bottom);
+    } else {
+      scene3d_.paint(hdc, rc.right, rc.bottom);
+    }
+  };
+  if (map_edit_) {
+    map_edit_->set_overlay_paint(paint2d);
+  }
+  if (map_data_) {
+    map_data_->set_overlay_paint(paint2d);
+  }
+  if (map_scene_) {
+    map_scene_->set_overlay_paint(paint3d);
+    map_scene_->set_gpu_present(
+        [this](void* device, uint32_t w, uint32_t h) -> bool {
+          return scene3d_.present_gpu(
+              static_cast<render::rhi::Device*>(device), w, h);
+        });
+  }
+  auto on_draft = [this](const tool::Draft& draft) { handle_draft(draft); };
+  if (edit_host_ && edit_host_->workspace()) {
+    edit_host_->workspace()->set_draft_observer(on_draft);
+  }
+  if (data_host_ && data_host_->workspace()) {
+    data_host_->workspace()->set_draft_observer(on_draft);
+  }
+  if (scene_host_ && scene_host_->workspace()) {
+    scene_host_->workspace()->set_draft_observer(on_draft);
+  }
+  sync_inspectors_from_scene();
+}
+
+void BrowserView::sync_catalog_from_scene() {
+  if (!catalog_) {
+    return;
+  }
+  catalog_->populate_layers(document_.layer_descs());
+}
+
+void BrowserView::sync_inspectors_from_scene() {
+  if (attribute_table_) {
+    std::vector<std::string> cols;
+    std::vector<std::vector<std::string>> rows;
+    std::vector<std::string> tokens;
+    document_.fill_attribute_rows(&cols, &rows, &tokens);
+    attribute_table_->set_columns(cols);
+    attribute_table_->set_rows(rows);
+    attribute_table_->set_row_tokens(std::move(tokens));
+  }
+  if (feature_info_) {
+    if (const MapScene::Feature* f = document_.selected_feature()) {
+      feature_info_->set_feature_id(MapScene::feature_token(f->id));
+      std::vector<std::pair<std::string, std::string>> pairs;
+      document_.fill_feature_info_fields(*f, &pairs);
+      std::vector<ui::views::FeatureInfo::Field> fields;
+      fields.reserve(pairs.size());
+      for (auto& p : pairs) {
+        fields.push_back({std::move(p.first), std::move(p.second)});
+      }
+      feature_info_->set_fields(fields);
+    }
+  }
+}
+
+void BrowserView::invalidate_map_overlays() {
+  if (map_edit_) {
+    map_edit_->invalidate_native();
+  }
+  if (map_data_) {
+    map_data_->invalidate_native();
+  }
+  if (map_scene_) {
+    map_scene_->invalidate_native();
+  }
+}
+
+void BrowserView::handle_draft(const tool::Draft& draft) {
+  content::ViewHost* host = active_view_host();
+  tool::Interaction* cur =
+      host && host->workspace() ? host->workspace()->stack().current()
+                                : nullptr;
+  const char* tool_id = cur ? cur->id() : "";
+
+  if (tool_id && std::strncmp(tool_id, "view3d.", 7) == 0) {
+    scene3d_.apply_draft(draft);
+    if (map_scene_) {
+      map_scene_->invalidate_native();
+    }
+    return;
+  }
+
+  if (tool_id && std::strncmp(tool_id, "select.", 7) == 0) {
+    if (draft.points.empty()) {
+      return;
+    }
+    RECT rc = {};
+    if (ui::views::MapViewport* pane = active_map()) {
+      if (HWND hwnd = pane->native_view()) {
+        GetClientRect(hwnd, &rc);
+      }
+    }
+    const MapScene::Feature* hit = document_.hit_test(
+        draft.points.front().x_px, draft.points.front().y_px, rc.right,
+        rc.bottom);
+    if (hit) {
+      set_status_message("Selected " + MapScene::feature_token(hit->id));
+      if (feature_info_) {
+        feature_info_->set_feature_id(MapScene::feature_token(hit->id));
+        std::vector<std::pair<std::string, std::string>> pairs;
+        document_.fill_feature_info_fields(*hit, &pairs);
+        std::vector<ui::views::FeatureInfo::Field> fields;
+        for (auto& p : pairs) {
+          fields.push_back({std::move(p.first), std::move(p.second)});
+        }
+        feature_info_->set_fields(fields);
+      }
+    } else {
+      document_.clear_selection();
+      if (feature_info_) {
+        feature_info_->clear();
+      }
+      set_status_message("Selection cleared");
+    }
+    sync_inspectors_from_scene();
+    invalidate_map_overlays();
+    return;
+  }
+
+  if (tool_id && std::strncmp(tool_id, "draw.", 5) == 0) {
+    document_.append_from_draft(draft, tool_id);
+    sync_inspectors_from_scene();
+    invalidate_map_overlays();
+    return;
+  }
+
+  if (tool_id && std::strcmp(tool_id, "view.pan") == 0 &&
+      draft.kind == tool::DraftKind::kRect && draft.points.size() >= 2) {
+    const int dx = draft.points.back().x_px - draft.points.front().x_px;
+    const int dy = draft.points.back().y_px - draft.points.front().y_px;
+    document_.apply_pan(dx, dy);
+    invalidate_map_overlays();
+    return;
+  }
+
+  if (tool_id && std::strcmp(tool_id, "view.zoom_in") == 0 &&
+      !draft.points.empty()) {
+    document_.apply_zoom_at(draft.points.front().x_px,
+                            draft.points.front().y_px, 1.25);
+    invalidate_map_overlays();
+    return;
+  }
+  if (tool_id && std::strcmp(tool_id, "view.zoom_out") == 0 &&
+      !draft.points.empty()) {
+    document_.apply_zoom_at(draft.points.front().x_px,
+                            draft.points.front().y_px, 0.8);
+    invalidate_map_overlays();
+  }
 }
 
 void BrowserView::wire_edit_feedback() {
@@ -431,26 +605,18 @@ void BrowserView::wire_edit_feedback() {
   selection_sub_ = edit_host_->events()->subscribe<content::SelectionChanged>(
       [this](const content::SelectionChanged& ev) {
         if (ev.ids.empty()) {
-          set_status_message("Selection cleared");
-          if (feature_info_) {
-            feature_info_->clear();
+          // Prefer MapScene hit-test result from draft_observer; only clear
+          // when the workspace explicitly cleared selection.
+          if (!document_.selected_feature()) {
+            set_status_message("Selection cleared");
+            if (feature_info_) {
+              feature_info_->clear();
+            }
           }
           return;
         }
         set_status_message("Selected " + std::to_string(ev.ids.size()) +
                            " feature(s)");
-        if (feature_info_) {
-          // Opaque token only — never SmtFeature*.
-          const content::FeatureId& fid = ev.ids.front();
-          std::string token = "fid:";
-          for (uint8_t i = 0; i < fid.len && i < sizeof(fid.bytes); ++i) {
-            char hex[3];
-            std::snprintf(hex, sizeof(hex), "%02x",
-                          static_cast<unsigned>(fid.bytes[i]));
-            token += hex;
-          }
-          feature_info_->set_feature_id(std::move(token));
-        }
       });
   edit_sub_ = edit_host_->events()->subscribe<content::EditCommitted>(
       [this](const content::EditCommitted& ev) {
@@ -461,7 +627,49 @@ void BrowserView::wire_edit_feedback() {
           op = "delete";
         }
         set_status_message(std::string("Committed ") + op);
+        sync_inspectors_from_scene();
+        invalidate_map_overlays();
       });
+  extent_sub_ = edit_host_->events()->subscribe<content::ExtentChanged>(
+      [this](const content::ExtentChanged&) { invalidate_map_overlays(); });
+
+  if (attribute_table_) {
+    attribute_table_->set_on_cell_commit(
+        [this](const std::string& feature_token, const std::string& field,
+               const std::string& value) {
+          if (!document_.update_feature_field(feature_token, field, value)) {
+            set_status_message("Attribute edit failed: " + field);
+            return false;
+          }
+          content::ViewHost* host = active_view_host();
+          if (host && host->edits()) {
+            sdb::FeatureMutation mutation;
+            mutation.op = sdb::EditOp::kModify;
+            mutation.id = MapScene::feature_id_from_token(feature_token);
+            host->edits()->commit(mutation);
+          }
+          set_status_message("Updated " + field + "=" + value);
+          sync_inspectors_from_scene();
+          invalidate_map_overlays();
+          return true;
+        });
+    attribute_table_->set_selected([this](int row) {
+      if (!attribute_table_) {
+        return;
+      }
+      const std::string& token = attribute_table_->row_token(row);
+      if (token.empty()) {
+        return;
+      }
+      const content::FeatureId id = MapScene::feature_id_from_token(token);
+      if (!document_.select_feature(id)) {
+        return;
+      }
+      sync_inspectors_from_scene();
+      invalidate_map_overlays();
+      set_status_message("Selected " + token);
+    });
+  }
 }
 
 void BrowserView::populate_ambox() {
@@ -497,7 +705,13 @@ bool BrowserView::run_tool_command(std::string_view command_id) {
     return false;
   }
   if (id == "selection.clear") {
-    // SelectionChanged subscriber also updates status.
+    document_.clear_selection();
+    if (feature_info_) {
+      feature_info_->clear();
+    }
+    sync_inspectors_from_scene();
+    invalidate_map_overlays();
+    set_status_message("Selection cleared");
     return true;
   }
   if (id == "edit.undo") {
@@ -540,13 +754,11 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
 
   if (command_id == "catalog.layer.create") {
     ui::views::CreateLayerDialog::Result out;
-    if (ui::views::CreateLayerDialog::run(hwnd, &out) && catalog_ &&
-        catalog_->layer_tree()) {
-      if (catalog_->using_demo_layers()) {
-        catalog_->populate_layers({{out.name, out.name, true, true}});
-      } else {
-        catalog_->layer_tree()->add_layer(out.name, out.name, true);
-        catalog_->layer_tree()->select_layer(out.name);
+    if (ui::views::CreateLayerDialog::run(hwnd, &out)) {
+      if (document_.create_layer(out.name, out.geometry_type)) {
+        sync_catalog_from_scene();
+        sync_inspectors_from_scene();
+        invalidate_map_overlays();
       }
       detail::catalog_call(
           session, std::string("{\"op\":\"create_layer\",\"name\":\"") +
@@ -575,14 +787,10 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
     }
     const std::string name =
         out.name.empty() ? std::string("Basemap") : out.name;
-    if (catalog_ && catalog_->layer_tree()) {
-      if (catalog_->using_demo_layers()) {
-        catalog_->populate_layers({{name, name, true, true}});
-      } else {
-        catalog_->layer_tree()->add_layer(name, name, true);
-        catalog_->layer_tree()->select_layer(name);
-      }
-    }
+    document_.create_layer(name, out.kind);
+    sync_catalog_from_scene();
+    sync_inspectors_from_scene();
+    invalidate_map_overlays();
     // Content/render still consumes CatalogCall JSON; tile MapLayer is
     // validated here. Full scene attach lands when map host accepts kind=tile.
     detail::catalog_call(
@@ -632,12 +840,12 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
       command_id == "catalog.ds.property") {
     std::string text;
     if (ui::views::InputTextDialog::run(hwnd, L"Input", "Name", &text) &&
-        catalog_ && catalog_->layer_tree() && !text.empty()) {
-      if (catalog_->using_demo_layers()) {
-        catalog_->populate_layers({{text, text, true, true}});
-      } else {
-        catalog_->layer_tree()->add_layer(text, text, true);
-        catalog_->layer_tree()->select_layer(text);
+        !text.empty()) {
+      if (command_id == "catalog.layer.append") {
+        document_.create_layer(text, "point");
+        sync_catalog_from_scene();
+        sync_inspectors_from_scene();
+        invalidate_map_overlays();
       }
       status(command_id + ": " + text);
     }
@@ -647,22 +855,32 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
       command_id == "catalog.layer.load_image" ||
       command_id == "catalog.map.open") {
     const ui::views::FilePickerResult file = ui::views::pick_open_file(
+        hwnd,
         command_id == "catalog.layer.load_image"
             ? L"Images\0*.tif;*.img;*.png;*.jpg\0All\0*.*\0"
-            : L"GIS\0*.shp;*.gpkg;*.smtmap\0All\0*.*\0");
+            : L"GIS\0*.shp;*.gpkg;*.geojson;*.json;*.smtmap\0All\0*.*\0");
     if (file.accepted) {
       detail::catalog_call(
           session, std::string("{\"op\":\"open\",\"path\":\"") +
                        detail::json_escape(file.path) + "\"}");
-      detail::populate_catalog_after_open(catalog_, file.path);
+      const bool ogr_ok = document_.open_path(file.path);
+      sync_catalog_from_scene();
+      sync_inspectors_from_scene();
+      invalidate_map_overlays();
       refresh();
-      status("Opened " + file.path);
+      if (ogr_ok) {
+        status("OGR opened " + file.path + " (" +
+               std::to_string(document_.layer_count()) + " layers, " +
+               std::to_string(document_.feature_count()) + " features)");
+      } else {
+        status("Opened (sample fallback) " + file.path);
+      }
     }
     return;
   }
   if (command_id == "catalog.map.save" || command_id == "catalog.map.save_as") {
     const ui::views::FilePickerResult file =
-        ui::views::pick_save_file(L"Map\0*.smtmap\0All\0*.*\0");
+        ui::views::pick_save_file(hwnd, L"Map\0*.smtmap\0All\0*.*\0");
     if (file.accepted) {
       detail::catalog_call(
           session, std::string("{\"op\":\"save\",\"path\":\"") +
@@ -677,12 +895,40 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
         catalog_ && catalog_->layer_tree()
             ? catalog_->layer_tree()->selected_id()
             : std::string();
-    if (!id.empty()) {
+    if (!id.empty() && document_.remove_layer(id)) {
+      sync_catalog_from_scene();
+      sync_inspectors_from_scene();
+      invalidate_map_overlays();
       detail::catalog_call(
           session, std::string("{\"op\":\"remove_layer\",\"id\":\"") +
                        detail::json_escape(id) + "\"}");
       refresh();
       status("Removed " + id);
+    }
+    return;
+  }
+  if (command_id == "catalog.layer.move_up" ||
+      command_id == "catalog.layer.move_down") {
+    const std::string id =
+        catalog_ && catalog_->layer_tree()
+            ? catalog_->layer_tree()->selected_id()
+            : std::string();
+    const int delta = (command_id == "catalog.layer.move_up") ? -1 : 1;
+    if (!id.empty() && document_.move_layer(id, delta)) {
+      sync_catalog_from_scene();
+      invalidate_map_overlays();
+      status(delta < 0 ? "Layer moved up" : "Layer moved down");
+    }
+    return;
+  }
+  if (command_id == "catalog.layer.active") {
+    const std::string id =
+        catalog_ && catalog_->layer_tree()
+            ? catalog_->layer_tree()->selected_id()
+            : std::string();
+    if (!id.empty() && document_.select_layer(id)) {
+      sync_catalog_from_scene();
+      status("Active layer: " + id);
     }
     return;
   }
@@ -703,22 +949,26 @@ void BrowserView::on_open() {
     detail::catalog_call(session, std::string("{\"op\":\"open\",\"path\":\"") +
                                       detail::json_escape(cmd.path) + "\"}");
   }
-  detail::populate_catalog_after_open(catalog_, cmd.path);
+  document_.open_path(cmd.path);
+  sync_catalog_from_scene();
+  sync_inspectors_from_scene();
+  invalidate_map_overlays();
+  if (catalog_) {
+    catalog_->set_map_docs(
+        {{cmd.path, "", detail::path_stem(cmd.path), false}});
+    catalog_->set_source_names({detail::path_stem(cmd.path)});
+  }
   if (content::ViewHost* host = active_view_host()) {
     const uint32_t view_id = pane ? pane->view_id() : 0;
     host->execute("view.refresh", view_id);
   }
   if (status_bar_) {
-    if (session) {
-      const size_t n =
-          catalog_ && catalog_->layer_tree()
-              ? catalog_->layer_tree()->layer_count()
-              : 0;
-      status_bar_->set_status("Opened: " + cmd.path + " (" +
-                              std::to_string(n) + " layers)");
-    } else {
-      status_bar_->set_status(cmd.path);
-    }
+    const char* kind = document_.last_open_was_ogr() ? "OGR" : "sample";
+    status_bar_->set_status(std::string("Opened (") + kind + "): " + cmd.path +
+                            " (" + std::to_string(document_.layer_count()) +
+                            " layers, " +
+                            std::to_string(document_.feature_count()) +
+                            " features)");
   }
 }
 

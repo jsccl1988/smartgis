@@ -84,7 +84,7 @@ All rights reserved.
 - Modify: 引用这些头的调用方若落在本分区外，由对应 Task 改；本 Task 负责树内自洽
 
 **Interfaces:**
-- Produces: `"base/core/…"`, `"base/style/…"`, `"base/ipc/…"`, `"sys/…"`；`CORE_EXPORT` / `STYLE_EXPORT`；命名空间 `base`（+ `detail`）
+- Produces: `"base/core/…"`, `"sdb/carto/…"`, `"base/ipc/…"`, `"sys/…"`；`CORE_EXPORT` / `STYLE_EXPORT`；命名空间 `base`（+ `detail`）
 
 - [ ] **Step 1:** 树内所有 `#include` 改为附录 A 路径。
 - [ ] **Step 2:** 导出宏、命名空间、公开函数 snake_case（按映射表；ABI 全破）。

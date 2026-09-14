@@ -8,11 +8,11 @@ GN targets keep short names (`sde_gdal`, `render_gl`). DLL stems stay `Smt*` (`d
 
 | Layer | Tree | Role |
 | --- | --- | --- |
-| **app** | `app/{views,winui}`；MFC 壳 → `legacy_app/`（含 `app_core`） | Endgame/prototype hosts only. No `src/chrome/`. Namespace `app` (+ `detail`). |
+| **app** | `app/{views,winui,cef,cs}`；MFC 壳 → `legacy/app/`（含 `app_core`） | Endgame/prototype hosts only. No `src/chrome/`. Namespace `app` (+ `detail`). |
 | **content** | `content/public` | Stable map/session/view API. App/UI hosts include only this — not sdb or render devices. Local chrome tools: `ViewHost` / `LocalToolRouter` (Workspace + EventBus + EditSession); leftover IPC is the OOP adapter. |
 | **sdb** | `sdb/{feature,layer,map,crs,datasource/*,model,scene,tile,style}` | Spatial DB / GIS model + CPU models / World + HTTP XYZ tiles + Style JSON (`sdb::style`). GDAL decorator driver `"SDBD"` (`SdbdDataset` owns stock inner datasets). |
 | **render** | `render/` + RHI + GPU scene | Unified 2D+3D via `render/rhi` (FlyCube DX12/Vulkan). `gpu/` is the process. |
-| **base** | `base/{core,style,ipc}` | `core` = `SmtCore`; `style` = `SmtBaseLib` (cartographic POD + Envelope; not Style JSON); `ipc` = named pipe + pickle. |
+| **base** | `base/`（`:foundation` + platform DLL leftovers） | foundation = log/threading/files/archive/ipc；产品 DLL `dll_stem=platform`；carto → `sdb/carto` |
 
 ## OSS GIS ↔ this tree
 
@@ -25,19 +25,19 @@ GN targets keep short names (`sde_gdal`, `render_gl`). DLL stems stay `Smt*` (`d
 | PROJ transforms | `src/algorithm/proj` (PROJ 9 adapter only) |
 | QgsMapRenderer / canvas | `src/render` + `render/rhi` |
 | processing / analysis | `src/algorithm/` |
-| `qgis_gui` | `src/ui/views`（终局）；leftover MFC → `src/legacy_ui/` |
-| `qgis_app` | `src/app/{views,winui}`；MFC `SmartGis.exe` → `src/legacy_app/` |
+| `qgis_gui` | `src/ui/views`（终局）；leftover MFC → `src/legacy/ui/` |
+| `qgis_app` | `src/app/{views,winui,cef,cs}`；MFC `SmartGis.exe` → `src/legacy/app/` |
 | libqgis_core embedder API | `src/content/public` (thin; not all of sdb) |
 | QgsApplication / settings | `src/base` |
 | PDAL / point I/O | future `sdb/datasource` driver; `render/pointcloud` is the 3D engine |
 
 ## Also
 
-- **algorithm/** — `geo` (`SmtGeoCore`: TIN/grid/surface meshes; OGC types are OGR), proj, tin, stat. Scene Vector/Matrix live in `render/math` (Eigen). Not dem (plugin + GDAL). Not orthogrid (plugin + Eigen Laplace). Chart UI is `legacy_ui/chart`（Views：`ui/views` ChartView）。
+- **algorithm/** — `geo` (`SmtGeoCore`: TIN/grid/surface meshes; OGC types are OGR), proj, tin, stat. Scene Vector/Matrix live in `render/math` (Eigen). Not dem (plugin + GDAL). Not orthogrid (plugin + Eigen Laplace). Chart UI is `legacy/ui/chart`（Views：`ui/views` ChartView）。
 - **plugin/** — host `plugin::Registry` + leftover `SmtAuxModule`; chrome talks through `content::PluginHost`; Python embed; zip / `plugins.json` store. Spec: `docs/superpowers/specs/2026-09-13-plugin-host-design.md`. Domain children keep leftover `dll_stem`.
-- **ui/** — endgame `ui/views` only. Leftover MFC chrome (`gui` / `mfc_ex` / `xview` / `xcatalog` / `xambox` / `chart`) → `legacy_ui/`（`dll_stem=ui_legacy`；`//src/ui:ui_legacy` 转发）。
-- **legacy_app/** — MFC `SmartGis.exe` + `app_core`（`build.bat app` → `//src/legacy_app:app`）。Spec: `docs/superpowers/specs/2026-09-14-app-legacy-split-design.md`.
-- **tool/** — endgame `//src/tool:dispatch` only (Command / Interaction / Workspace). Leftover `SmtIATool` / `SmtGroupTool` live under `legacy_tool/` (+ `group/`); optional `//src/legacy_tool:legacy_tool_all`, not in `src_all` by default. Pointer/wheel go only through `ViewHost` / Workspace; leftover tools apply completed drafts (`apply_draft`), they do not own a second Interaction. Live rubber-band is `Interaction::aux_overlay` painted by leftover chrome. 3D cameras are `make_view3d_camera`. `flash` start/stop is command-driven; leftover GDI blink honors those commands plus `SET_FLASH_DATA` / mode. Map writes stay on `sdb::EditSession`. Domain events: `content::EventBus`. Host composition is `content::ViewHost`. Mapped `GT_MSG_*` / `AM_MSG` execute on the host **and** leftover Notify (product effect / dialogs); unmapped menus do not broadcast. Specs: `docs/superpowers/specs/2026-09-13-tool-event-dispatch-design.md`, `docs/superpowers/archive/specs/2026-09-13-tool-legacy-split-design.md`.
+- **ui/** — endgame `ui/views` only. Leftover MFC chrome (`gui` / `mfc_ex` / `xview` / `xcatalog` / `xambox` / `chart`) → `legacy/ui/`（`dll_stem=ui_legacy`；`//src/ui:ui_legacy` 转发）。
+- **legacy/** — leftover trees under `legacy/{app,ui,render,tool}`（见 [`legacy/README.md`](legacy/README.md)）。MFC exe：`build.bat legacy_app` → `//src/legacy/app:app`。Spec: `docs/superpowers/specs/2026-09-14-app-legacy-split-design.md`.
+- **tool/** — endgame `//src/tool:dispatch` only (Command / Interaction / Workspace). Leftover `SmtIATool` / `SmtGroupTool` live under `legacy/tool/` (+ `group/`); optional `//src/legacy/tool:legacy_tool_all`, not in `src_all` by default. Pointer/wheel go only through `ViewHost` / Workspace; leftover tools apply completed drafts (`apply_draft`), they do not own a second Interaction. Live rubber-band is `Interaction::aux_overlay` painted by leftover chrome. 3D cameras are `make_view3d_camera`. `flash` start/stop is command-driven; leftover GDI blink honors those commands plus `SET_FLASH_DATA` / mode. Map writes stay on `sdb::EditSession`. Domain events: `content::EventBus`. Host composition is `content::ViewHost`. Mapped `GT_MSG_*` / `AM_MSG` execute on the host **and** leftover Notify (product effect / dialogs); unmapped menus do not broadcast. Specs: `docs/superpowers/specs/2026-09-13-tool-event-dispatch-design.md`, `docs/superpowers/archive/specs/2026-09-13-tool-legacy-split-design.md`.
 - **net/** — `SmtNetCore`: `pack/` (BinarySink + Pickle), `http/`, `rpc/`, `udp/`. Include `"net/http/http.h"`. No mogu POSIX `net/`. No product web GIS / mapd / WMS stack.
 - **gpu/** — `SmartGisRender.exe`
 - **sys** — stays beside base
@@ -48,7 +48,7 @@ GN targets keep short names (`sde_gdal`, `render_gl`). DLL stems stay `Smt*` (`d
 
 ## Model v1 (`sdb::model`)
 
-Standalone files go through `load_file` (Assimp when `smt_has_assimp`; otherwise only the built-in `"cube"`). 3D Tiles are an explicit `tileset.json` plus `select_tiles`; content `.gltf` / `.glb` / `.b3dm` is `decode_content` via tinygltf. A `.gltf` file is not a tileset. Leftover `src/legacy_render/model3d` is not the default loader. World v1 handles: `attach_model` / `attach_tileset` / `attach_terrain` / `attach_pointcloud`.
+Standalone files go through `load_file` (Assimp when `smt_has_assimp`; otherwise only the built-in `"cube"`). 3D Tiles are an explicit `tileset.json` plus `select_tiles`; content `.gltf` / `.glb` / `.b3dm` is `decode_content` via tinygltf. A `.gltf` file is not a tileset. Leftover `src/legacy/render/model3d` is not the default loader. World v1 handles: `attach_model` / `attach_tileset` / `attach_terrain` / `attach_pointcloud`.
 
 ## RHI v1
 
@@ -56,8 +56,8 @@ Standalone files go through `load_file` (Assimp when `smt_has_assimp`; otherwise
 
 ## Build
 
-`build.bat` → `//src:src_all` (`SmtGeoCore` is OGR + TIN/grid/surface; scene math is Eigen in `render/math`; no `SmtDemCore`). Hosts: `build.bat app` / `views` / `winui` / `render`.
+`build.bat` → `//src:src_all` (`SmtGeoCore` is OGR + TIN/grid/surface; scene math is Eigen in `render/math`; no `SmtDemCore`). Hosts: `build.bat app` / `views` / `winui` / `cef` / `cs` / `render`.
 
 ---
 
-**最后更新：** 2026-09-14
+**最后更新：** 2026-09-15

@@ -1,3 +1,4 @@
+#include <mutex>
 #include "base/core/listenermanager.h"
 #include "base/core/msg.h"
 #include <algorithm>
@@ -8,8 +9,8 @@ namespace base
 
 	SmtListenerManager* SmtListenerManager::get_singleton_ptr(void)
 	{
-		SmtCSLock			cslock;
-		SmtScopeCSLock		scope(&cslock);
+		static std::mutex cslock;
+		std::lock_guard<std::mutex> scope(cslock);
 
 		if (m_pSingleton == NULL)
 		{
@@ -21,8 +22,8 @@ namespace base
 
 	void SmtListenerManager::destroy_instance(void)
 	{
-		SmtCSLock			cslock;
-		SmtScopeCSLock		scope(&cslock);
+		static std::mutex cslock;
+		std::lock_guard<std::mutex> scope(cslock);
 
 		SMT_SAFE_DELETE(m_pSingleton);
 	}

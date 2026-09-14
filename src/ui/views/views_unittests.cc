@@ -20,11 +20,13 @@
 #include "ui/views/checkbox.h"
 #include "ui/views/combobox.h"
 #include "ui/views/dialog.h"
+#include "ui/views/dialog_host.h"
 #include "ui/views/dpi.h"
 #include "ui/views/feature_info.h"
 #include "ui/views/label.h"
 #include "ui/views/layer_tree.h"
 #include "ui/views/layout.h"
+#include "ui/views/layout_check.h"
 #include "ui/views/map_viewport.h"
 #include "ui/views/menu_bar.h"
 #include "ui/views/radio_button.h"
@@ -664,11 +666,14 @@ void test_ambox_in_view_tree() {
   AmboxView box;
   box.set_bounds({0, 0, 180, 240});
   box.layout();
-  // Default catalog-less populate: Select + Pan + Edit.
-  expect(box.child_count() == 3, "ambox groups are children");
+  // Default catalog-less populate: Select + Pan + Edit inside a ScrollView.
+  expect(box.child_count() == 1, "ambox hosts scroll");
   expect(box.get_view_at(20, 40) != &box, "ambox hit-test reaches button");
   expect(box.groups().size() == 3, "ambox group list");
   expect(box.groups()[2].name == "Edit", "ambox edit group");
+  std::vector<std::string> issues;
+  expect(collect_layout_violations(&box, &issues) == 0,
+         "ambox scroll layout clean");
 }
 
 bool group_has_id(const AmboxView::Group& group, const char* id) {
@@ -795,10 +800,119 @@ void test_menu_bar_click() {
   expect(n == 1, "menu invoke");
 }
 
+void test_layout_invariants_smoke() {
+  View root;
+  root.set_bounds({0, 0, 400, 300});
+  auto child = std::make_unique<View>();
+  child->set_bounds({10, 10, 100, 40});
+  child->set_preferred_size({100, 40});
+  root.add_child(std::move(child));
+  std::vector<std::string> issues;
+  expect(collect_layout_violations(&root, &issues) == 0, "clean tree ok");
+
+  View bad;
+  bad.set_bounds({0, 0, 50, 50});
+  auto outside = std::make_unique<View>();
+  outside->set_bounds({40, 40, 30, 30});
+  outside->set_preferred_size({30, 30});
+  bad.add_child(std::move(outside));
+  issues.clear();
+  expect(collect_layout_violations(&bad, &issues) > 0, "outside child fails");
+  expect(!issues.empty(), "outside reports code");
+
+  // ScrollView content may extend past the clip rect; that is not a violation.
+  ScrollView scroller;
+  scroller.set_bounds({0, 0, 100, 40});
+  auto tall = std::make_unique<View>();
+  tall->set_preferred_size({100, 200});
+  scroller.add_child(std::move(tall));
+  scroller.layout();
+  issues.clear();
+  expect(collect_layout_violations(&scroller, &issues) == 0,
+         "scroll content exempt");
+
+  expect(rect_non_negative({0, 0, 1, 1}), "non-neg ok");
+  expect(!rect_non_negative({0, 0, -1, 1}), "neg width fails");
+  expect(menu_item_metrics_ok(40, 28, 1.f), "menu metrics 1x");
+  expect(!menu_item_metrics_ok(8, 10, 1.5f), "menu metrics too small");
+}
+
+void test_tab_strip_page_bounds_align() {
+  TabStrip tabs;
+  tabs.set_bounds({100, 50, 300, 200});
+  auto a = std::make_unique<View>();
+  auto b = std::make_unique<View>();
+  View* pa = a.get();
+  View* pb = b.get();
+  tabs.add_tab("A", std::move(a));
+  tabs.add_tab("B", std::move(b));
+  tabs.layout();
+  expect(pa->bounds().height > 0, "page has body");
+  expect(pa->bounds().y > tabs.bounds().y, "page below tab header");
+  expect(pa->bounds().x == tabs.bounds().x, "page x aligns with strip");
+  expect(pa->bounds().width == tabs.bounds().width, "page width matches");
+  expect(pb->bounds().width == pa->bounds().width, "inactive page sized");
+  expect(rect_contains_rect(tabs.bounds(), pa->bounds()), "page inside strip");
+}
+
+void test_box_layout_insets_and_spacing() {
+  View host;
+  host.set_bounds({0, 0, 200, 40});
+  auto box = std::make_unique<BoxLayout>(BoxLayout::Orientation::kHorizontal);
+  box->set_inside_border(10);
+  box->set_between_child_spacing(8);
+  auto a = std::make_unique<View>();
+  auto b = std::make_unique<View>();
+  View* left = a.get();
+  View* right = b.get();
+  left->set_preferred_size({40, 0});
+  right->set_preferred_size({40, 0});
+  host.set_layout_manager(std::move(box));
+  host.add_child(std::move(a));
+  host.add_child(std::move(b));
+  host.layout();
+  expect(left->bounds().x == 10, "inset left");
+  expect(left->bounds().y == 10, "inset top");
+  expect(right->bounds().x == 10 + 40 + 8, "between-child spacing");
+  expect(left->bounds().height == 20, "cross axis minus insets");
+}
+
 void test_dialog_close_noop() {
   // Do not pump a native modal loop in this console test.
   Dialog::close(true);
   expect(true, "dialog close without run_modal");
+}
+
+void test_dialog_host_geometry() {
+  RECT owner = {100, 200, 500, 600};  // 400×400
+  const OwnedPopupGeom g = center_outer_on_owner_rect(owner, 200, 100);
+  expect(g.x == 200, "popup x centered on owner");
+  expect(g.y == 350, "popup y centered on owner");
+  expect(g.outer_width == 200, "outer width kept");
+  expect(g.outer_height == 100, "outer height kept");
+
+  RECT popup = {g.x, g.y, g.x + g.outer_width, g.y + g.outer_height};
+  expect(rect_approximately_centered(popup, owner, 1),
+         "screen centers align");
+
+  int outer_w = 0;
+  int outer_h = 0;
+  client_to_outer_size(380, 160, kOwnedDialogStyle, 0, &outer_w, &outer_h);
+  expect(outer_w > 380, "caption expands width");
+  expect(outer_h > 160, "caption expands height");
+
+  const OwnedPopupGeom placed =
+      place_owned_dialog(nullptr, 380, 160, kOwnedDialogStyle, 0);
+  expect(placed.outer_width >= outer_w - 2, "place uses outer size");
+  expect(placed.outer_height >= outer_h - 2, "place uses outer height");
+}
+
+void test_layout_center_helper() {
+  Rect outer = {0, 0, 400, 300};
+  Rect inner = {100, 75, 200, 150};
+  expect(rect_approximately_centered(inner, outer, 0), "view centers match");
+  Rect skewed = {0, 0, 200, 150};
+  expect(!rect_approximately_centered(skewed, outer, 10), "skew fails");
 }
 
 void test_widget_hwnd_and_map_viewport() {
@@ -864,6 +978,73 @@ void test_device_scale_recomputes_preferred() {
   expect(fixed_ptr->preferred_size().height == 80, "view preferred *2 height");
 }
 
+void test_combobox_dpi_row_geometry() {
+  Widget widget;
+  auto root = std::make_unique<View>();
+  auto combo = std::make_unique<Combobox>();
+  Combobox* c = combo.get();
+  c->add_item("a");
+  c->add_item("b");
+  root->add_child(std::move(combo));
+  widget.set_contents_view(std::move(root));
+  widget.set_device_scale_factor(1.5f);
+  c->set_bounds({0, 0, dip_to_px(200, 1.5f), dip_to_px(24, 1.5f)});
+  expect(c->on_mouse_event(mouse_up(10, 10)), "combo open @1.5");
+  expect(c->is_open(), "combo open state");
+  expect(c->bounds().height >= dip_to_px(24, 1.5f) + dip_to_px(22, 1.5f) * 2,
+         "open height includes scaled rows");
+  expect(c->preferred_size().height == dip_to_px(24, 1.5f),
+         "preferred stays header-sized");
+  std::vector<std::string> issues;
+  expect(collect_layout_violations(c, &issues) == 0,
+         "open combo rows exempt from outside-parent");
+}
+
+void test_status_bar_dpi_height() {
+  Widget widget;
+  auto bar = std::make_unique<StatusBar>();
+  StatusBar* b = bar.get();
+  widget.set_contents_view(std::move(bar));
+  expect(b->preferred_size().height == 24, "status 96dpi height");
+  widget.set_device_scale_factor(1.5f);
+  expect(b->preferred_size().height == dip_to_px(24, 1.5f),
+         "status 150% height");
+}
+
+void test_paint_fingerprint_locked_scene() {
+  auto root = std::make_unique<View>();
+  root->set_bounds({0, 0, 80, 40});
+  auto btn = std::make_unique<Button>("OK");
+  btn->set_bounds({8, 8, 64, 24});
+  root->add_child(std::move(btn));
+  const std::uint32_t a = paint_fingerprint(root.get(), 80, 40);
+  const std::uint32_t b = paint_fingerprint(root.get(), 80, 40);
+  expect(a != 0, "fingerprint non-zero");
+  expect(a == b, "fingerprint stable");
+  // Different size must not collide with the locked 80×40 scene (best-effort).
+  const std::uint32_t c = paint_fingerprint(root.get(), 81, 40);
+  expect(c != a, "fingerprint size-sensitive");
+}
+
+void test_ambox_scroll_content_taller_than_pane() {
+  AmboxView ambox;
+  ambox.set_bounds({0, 0, 200, 120});
+  ambox.populate_from_commands(nullptr);  // dummy Select/Pan/Edit groups
+  ambox.layout();
+  std::vector<std::string> issues;
+  expect(collect_layout_violations(&ambox, &issues) == 0,
+         "ambox scroll layout clean");
+  expect(ambox.groups().size() >= 2, "ambox has groups");
+}
+
+void test_dialog_host_clamps_to_work_area() {
+  // Extremely large dialog should still produce a finite positive box.
+  const OwnedPopupGeom huge =
+      place_owned_dialog(nullptr, 4000, 3000, kOwnedDialogStyle, 0);
+  expect(huge.outer_width > 0 && huge.outer_height > 0, "huge dialog sized");
+  expect(huge.x > -100000 && huge.y > -100000, "clamped coords finite");
+}
+
 }  // namespace
 
 int main() {
@@ -892,10 +1073,20 @@ int main() {
   test_tree_view_add_select_check();
   test_scroll_view_wheel();
   test_menu_bar_click();
+  test_layout_invariants_smoke();
+  test_tab_strip_page_bounds_align();
+  test_box_layout_insets_and_spacing();
   test_dialog_close_noop();
+  test_dialog_host_geometry();
+  test_layout_center_helper();
   test_widget_hwnd_and_map_viewport();
   test_dpi_scale_math();
   test_device_scale_recomputes_preferred();
+  test_combobox_dpi_row_geometry();
+  test_status_bar_dpi_height();
+  test_paint_fingerprint_locked_scene();
+  test_ambox_scroll_content_taller_than_pane();
+  test_dialog_host_clamps_to_work_area();
 
   if (g_fails) {
     std::fprintf(stderr, "views_unittests: %d failed\n", g_fails);

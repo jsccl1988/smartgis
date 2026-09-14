@@ -1,0 +1,129 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("cef.gni")
+import("//build/config/win/application.gni")
+
+# L0 JSON parse (no CEF headers / no Binary Dist).
+source_set("chrome_bridge_parse") {
+  sources = [
+    "chrome_bridge.h",
+    "chrome_bridge_parse.cc",
+    "layout_host.h",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+console_app("chrome_bridge_test") {
+  sources = [ "chrome_bridge_test.cc" ]
+  deps = [ ":chrome_bridge_parse" ]
+  include_dirs += [ "//src" ]
+}
+
+if (smt_build_cef && smt_has_cef) {
+  _cef_root = "//third_party/cef/binary"
+  if (is_debug) {
+    _cef_lib_dir = "$_cef_root/Debug"
+  } else {
+    _cef_lib_dir = "$_cef_root/Release"
+  }
+
+  config("cef_cc") {
+    include_dirs += [
+      "//src",
+      _cef_root,
+      "$_cef_root/include",
+    ]
+    lib_dirs += [ _cef_lib_dir ]
+    libs += [
+      "libcef.lib",
+      "libcef_dll_wrapper.lib",
+    ]
+    defines += [
+      "WRAPPING_CEF_SHARED",
+      "UNICODE",
+      "_UNICODE",
+      "NOMINMAX",
+    ]
+  }
+
+  copy("cef_web_index") {
+    sources = [ "web/index.html" ]
+    outputs = [ "$root_out_dir/cef_web/{{source_file_part}}" ]
+  }
+
+  copy("cef_web_css") {
+    sources = [ "web/css/shell.css" ]
+    outputs = [ "$root_out_dir/cef_web/css/{{source_file_part}}" ]
+  }
+
+  copy("cef_web_js") {
+    sources = [
+      "web/js/bridge.js",
+      "web/js/shell.js",
+    ]
+    outputs = [ "$root_out_dir/cef_web/js/{{source_file_part}}" ]
+  }
+
+  group("cef_web_assets") {
+    deps = [
+      ":cef_web_index",
+      ":cef_web_css",
+      ":cef_web_js",
+    ]
+  }
+
+  action("cef_runtime") {
+    script = "copy_cef_runtime.py"
+    inputs = [ "$_cef_root/include/cef_version.h" ]
+    outputs = [ "$root_out_dir/.cef_runtime_stamp" ]
+    _cef_rt_config = "Release"
+    if (is_debug) {
+      _cef_rt_config = "Debug"
+    }
+    args = [
+      rebase_path(_cef_root, root_build_dir),
+      rebase_path(root_out_dir, root_build_dir),
+      _cef_rt_config,
+    ]
+  }
+
+  win32_app("cef") {
+    output_name = "SmartGisCef"
+    sources = [
+      "main.cc",
+      "cef_app.cc",
+      "cef_app.h",
+      "cef_browser_host.cc",
+      "cef_browser_host.h",
+      "cef_map_slot.cc",
+      "cef_map_slot.h",
+      "chrome_bridge.cc",
+      "chrome_bridge.h",
+      "layout_host.cc",
+      "layout_host.h",
+      "self_test.cc",
+      "self_test.h",
+    ]
+    configs = [ ":cef_cc" ]
+    deps = [
+      ":cef_runtime",
+      ":cef_web_assets",
+      ":chrome_bridge_parse",
+      "//src/content:content",
+      "//src/content:view_host",
+      "//src/gpu:gpu_lib",
+      "//src/tool:dispatch",
+    ]
+    libs = [
+      "shell32.lib",
+      "user32.lib",
+      "gdi32.lib",
+      "ole32.lib",
+    ]
+  }
+
+  group("SmartGisCef") {
+    deps = [ ":cef" ]
+  }
+}

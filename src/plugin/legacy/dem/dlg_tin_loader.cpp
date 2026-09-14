@@ -6,13 +6,13 @@
 #include "plugin/legacy/dem/dlg_tin_loader.h"
 
 #include "base/core/api.h"
-#include "legacy_ui/xcatalog/mapmgr.h"
+#include "legacy/ui/xcatalog/mapmgr.h"
 #include "plugin/dem/tin_loader.h"
-#include "legacy_render/terrain/terrain.h"
+#include "legacy/render/terrain/terrain.h"
 #include "sys/sysmanager.h"
-#include "legacy_tool/group/defs.h"
+#include "legacy/tool/group/defs.h"
 #include "algorithm/geo/geometry.h"
-#include "legacy_ui/xcatalog/scenemgr.h"
+#include "legacy/ui/xcatalog/scenemgr.h"
 
 using namespace sdb;
 using namespace plugin;

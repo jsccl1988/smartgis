@@ -3,7 +3,7 @@
 
 #include "plugin/orthogrid/grid.h"
 #include "plugin/legacy/module.h"
-#include "legacy_ui/xview/view_2d_edit.h"
+#include "legacy/ui/xview/view_2d_edit.h"
 
 #include "ogr_geometry.h"
 

@@ -1,6 +1,6 @@
 #pragma once
 #include "plugin/legacy/dem/resource.h"
-#include "legacy_ui/xview/view_3d.h"
+#include "legacy/ui/xview/view_3d.h"
 using namespace ui;
 
 // CDlgGridLoader �Ի���

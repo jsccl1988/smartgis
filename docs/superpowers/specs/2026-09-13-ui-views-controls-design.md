@@ -25,14 +25,14 @@ Every chrome scheme in the multiprocess note stays supported: leftover MFC, View
 | `src/app/` leftover | MFC `SmartGis.exe` | `Smt_*` |
 | `src/render/skia` | Canvas backend for Views chrome (not a widget kit) | `render::skia` |
 
-Includes stay `"ui/views/foo.h"`. No public nest `src/ui/views/controls/` or `src/ui/views/widget/`. Physical folders `kernel/` / `primitives/` / `gis/` under `src/ui/views` are allowed for source organization; root stubs keep the flat public include path (see `src/ui/views/README.md`).
+Includes stay `"ui/views/foo.h"`. No public nest `src/ui/views/controls/` or `src/ui/views/widget/`. Physical folders `kernel/` / `primitives/` / `gis/` under `src/ui/views` hold `.cc` only; public headers stay at the module root (see `src/ui/views/README.md`).
 
 ```
 src/app/views          compose Widget + toolkit widgets
         │
         ▼
 src/ui/views           public ui::views (flat includes)
-  kernel/ | primitives/ | gis/   physical layout only
+  *.h at root; kernel/ | primitives/ | gis/ hold .cc only
   View / Widget / Theme / primitives
   CatalogView / LayerTree / AttributeTable / FeatureInfo / StatusBar
   AmboxView / ChartView

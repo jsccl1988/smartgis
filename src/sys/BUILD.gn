@@ -3,15 +3,18 @@
 
 import("//build/smartgis.gni")
 
-# Compiled into //src/base:base (dll_stem = base).
-
 source_set("sys_sources") {
   configs += [ "//build:legacy" ]
   defines = [
     "_USRDLL",
     "SYS_EXPORTS=1",
+    "CORE_EXPORTS=1",
   ]
-  sources = [ "sysmanager.cpp" ]
+  sources = [
+    "memshare.cpp",
+    "sysmanager.cpp",
+    "winservice.cpp",
+  ]
 }
 
 group("sys") {

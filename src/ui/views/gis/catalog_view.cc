@@ -88,7 +88,7 @@ CatalogView::CatalogView() {
       [this](const TreeView::NodeId&, Point screen) { show_map_menu(screen); });
 
   tabs_->add_tab("Layers", std::move(layers));
-  tabs_->add_tab("Datasources", std::move(sources));
+  tabs_->add_tab("Sources", std::move(sources));
   tabs_->add_tab("Maps", std::move(maps));
 
   box->set_flex_for_view(tabs_, 1);
@@ -187,6 +187,8 @@ void CatalogView::show_layer_menu(Point screen) {
       {"catalog.layer.add_basemap", "Add online basemap"},
       {"catalog.layer.remove", "Remove layer"},
       {"catalog.layer.active", "Set active"},
+      {"catalog.layer.move_up", "Move up"},
+      {"catalog.layer.move_down", "Move down"},
       {"catalog.layer.property", "Properties"},
       {nullptr, nullptr, true},
       {"catalog.layer.attstruct", "Attribute structure"},
@@ -244,7 +246,10 @@ void CatalogView::paint_self(render::skia::Canvas* canvas) {
   const Theme& t = Theme::current();
   const Rect& b = bounds();
   canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
-  canvas->fill_rect(b.x, b.y, b.width, 36, t.accent);
+  const int header_h =
+      title_ ? (title_->bounds().height > 0 ? title_->bounds().height : 36)
+             : 36;
+  canvas->fill_rect(b.x, b.y, b.width, header_h, t.accent);
 }
 
 }  // namespace views

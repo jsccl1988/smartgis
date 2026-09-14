@@ -4,4 +4,6 @@
 # Endgame / prototype hosts only.
 # - views/  → SmartGisViews.exe  (//src/app/views:views)
 # - winui/  → SmartGisWinui.exe  (//src/app/winui:app_winui)
-# MFC SmartGis.exe lives in //src/legacy_app:app.
+# - cef/    → SmartGisCef.exe    (//src/app/cef:cef)  opt-in smt_build_cef
+# - cs/     → SmartGisCs.exe     (//src/app/cs:cs)    opt-in smt_build_cs
+# MFC SmartGis.exe lives in //src/legacy/app:app.

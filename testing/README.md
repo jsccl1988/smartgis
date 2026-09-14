@@ -27,6 +27,12 @@ test("core_test") {
 
 Then add `"//<module>:<name>"` to root `//:test_all` (`BUILD.gn`).
 
+## GUI / Views testing
+
+分层方案（工具箱单测、`--self-test`、L2 壳像素、`exe` 冒烟）见
+[`docs/build/ui-testing.md`](../docs/build/ui-testing.md)。L2 基线位于
+[`src/ui/views/testdata/`](../src/ui/views/testdata/)。
+
 ## End-to-end (product exes)
 
 `testing/e2e/exe_smoke.cc` launches each chrome / GPU process with `--self-test`:
@@ -55,4 +61,4 @@ Aliases match mogu: `te` = `//:test_all`, `a` = `//:all_with_tests`, `b` = `//:b
 
 ---
 
-**最后更新：** 2026-09-13
+**最后更新：** 2026-09-14
