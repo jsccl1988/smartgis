@@ -4,13 +4,38 @@
 #include "ui/views/tab_strip.h"
 
 #include "render/skia/canvas.h"
+#include "ui/views/dpi.h"
 #include "ui/views/theme.h"
+#include "ui/views/widget.h"
 
 namespace ui {
 namespace views {
+namespace {
+
+constexpr int kTabHeightDip = 28;
+constexpr int kTabPadXDip = 10;
+constexpr int kTabPadYDip = 6;
+
+float view_scale(const View* view) {
+  if (view && view->widget()) {
+    return view->widget()->device_scale_factor();
+  }
+  return 1.f;
+}
+
+}  // namespace
 
 TabStrip::TabStrip() {
   set_preferred_size({400, 280});
+}
+
+int TabStrip::tab_height() const {
+  return dip_to_px(kTabHeightDip, view_scale(this));
+}
+
+void TabStrip::on_device_scale_factor_changed(float old_scale, float new_scale) {
+  View::on_device_scale_factor_changed(old_scale, new_scale);
+  layout();
 }
 
 int TabStrip::add_tab(std::string title, std::unique_ptr<View> page) {
@@ -55,17 +80,18 @@ void TabStrip::set_change(std::function<void(int)> fn) {
 
 void TabStrip::apply_page_visibility() {
   const Rect& b = bounds();
-  const int body_h = b.height > tab_height() ? b.height - tab_height() : 0;
+  const int th = tab_height();
+  const int body_h = b.height > th ? b.height - th : 0;
+  const Rect page_bounds = {b.x, b.y + th, b.width, body_h};
   for (int i = 0; i < static_cast<int>(pages_.size()); ++i) {
     View* page = pages_[static_cast<size_t>(i)];
     if (!page) {
       continue;
     }
     const bool on = (i == active_);
+    // Keep inactive pages sized so attach/resize still has a real client rect.
+    page->set_bounds(page_bounds);
     page->set_visible(on);
-    if (on) {
-      page->set_bounds({b.x, b.y + tab_height(), b.width, body_h});
-    }
   }
 }
 
@@ -122,18 +148,26 @@ void TabStrip::paint_self(render::skia::Canvas* canvas) {
   }
   const Theme& t = Theme::current();
   const Rect& b = bounds();
-  canvas->fill_rect(b.x, b.y, b.width, tab_height(), t.panel_header);
+  const float scale = view_scale(this);
+  const int th = tab_height();
+  canvas->fill_rect(b.x, b.y, b.width, th, t.panel_header);
   if (pages_.empty()) {
     return;
   }
   const int w = b.width / static_cast<int>(pages_.size());
+  const int text_x = dip_to_px(kTabPadXDip, scale);
+  const int text_y = b.y + dip_to_px(kTabPadYDip, scale);
   for (int i = 0; i < static_cast<int>(pages_.size()); ++i) {
     const int x = b.x + i * w;
     if (i == active_) {
-      canvas->fill_rect(x, b.y, w, tab_height(), t.accent);
+      canvas->fill_rect(x, b.y, w, th, t.accent);
     }
+    // Clip label to the tab cell so long titles cannot paint into neighbors.
+    canvas->save();
+    canvas->clip_rect(x, b.y, w, th);
     const std::wstring title = utf8_to_wide(titles_[static_cast<size_t>(i)]);
-    canvas->draw_text(x + 8, b.y + 6, title.c_str(), t.text_bright);
+    canvas->draw_text(x + text_x, text_y, title.c_str(), t.text_bright);
+    canvas->restore();
   }
 }
 

@@ -91,7 +91,7 @@ Approach is **wrap already-shipped gdal_sdk**. `//third_party:gdal` already copi
 | `tin::read_xyz_points` | ASCII XYZ → `std::vector` of `Vector3` (no GDAL, no DEM DLL) | math types in geo |
 | `//src/algorithm/baogrid:baogrid` | Unchanged BAO grid | geo / gis (via groups) |
 | `//src/algorithm/stat:stat` | Unchanged statistics / expressions | core |
-| `//src/legacy_ui/chart:stat_chart` | Moved MFC chart DLL `SmtStaDiagram` | stat, xview |
+| `//src/legacy/ui/chart:stat_chart` | Moved MFC chart DLL `SmtStaDiagram` | stat, xview |
 | `//src/plugin/dem:plugin_dem` | DEM UI: GDAL raster → point grid; dialogs call tin | gdal, tin, geo, plugin host |
 | `sdb::CrsId` | Layer SRS **name** only | none of proj |
 
@@ -313,7 +313,7 @@ Legacy `.cpp` files keep that extension.
 | `SmtDemCore` | `//src/algorithm/dem:dem` | **removed** | — |
 | `SmtBAOrthGrid` | `//src/algorithm/baogrid:baogrid` | unchanged | `SmtBAOrthGrid` |
 | `SmtStaCore` | `//src/algorithm/stat:stat` | unchanged | `SmtStaCore` |
-| `SmtStaDiagram` | `//src/algorithm/chart:stat_chart` | `//src/legacy_ui/chart:stat_chart` | `SmtStaDiagram` |
+| `SmtStaDiagram` | `//src/algorithm/chart:stat_chart` | `//src/legacy/ui/chart:stat_chart` | `SmtStaDiagram` |
 
 `//:all` / `//src:src_all` lose four on-disk DLLs: `SmtMathLib`, `Smt3DMathLib`, `Smt3DGeoCore`, `SmtDemCore`. Update the “31 DLLs” comment in `src/BUILD.gn` and the root README **in the implementation change** that lands the merge (not in this docs-only change).
 

@@ -14,8 +14,12 @@ win32_app("views") {
     "browser_view.cc",
     "browser_view.h",
     "main.cc",
+    "map_scene.cc",
+    "map_scene.h",
     "plugin_chrome.cc",
     "plugin_chrome.h",
+    "scene3d_controller.cc",
+    "scene3d_controller.h",
   ]
   deps = [
     "//src/content:content",
@@ -27,10 +31,13 @@ win32_app("views") {
     "//src/plugin/orthogrid:orthogrid_views",
     "//src/plugin/print:print_views",
     "//src/plugin/proj:proj_views",
+    "//src/render:rhi",
     "//src/sdb/tile:tile",
     "//src/tool:dispatch",
     "//src/ui/views:views",
+    "//third_party:gdal",
   ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
   libs = [ "shell32.lib" ]
 }
 

@@ -3,6 +3,7 @@
 
 #include "ui/views/context_menu.h"
 
+#include "ui/views/dpi.h"
 #include "ui/views/theme.h"
 
 namespace ui {
@@ -34,9 +35,14 @@ void show_context_menu(HWND owner, Point screen,
     invokes.push_back(item.invoke);
     ++id;
   }
-  const UINT cmd =
-      TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, screen.x, screen.y,
-                     0, owner, nullptr);
+  // Keep the popup inside the monitor work area (avoids clipped / off-screen
+  // menus on multi-monitor and high-DPI setups).
+  int x = screen.x;
+  int y = screen.y;
+  clamp_rect_to_work_area(&x, &y, 1, 1, owner);
+  const UINT cmd = TrackPopupMenu(
+      menu, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_HORIZONTAL | TPM_VERTICAL, x,
+      y, 0, owner, nullptr);
   DestroyMenu(menu);
   if (cmd >= 1 && static_cast<size_t>(cmd) <= invokes.size()) {
     auto& fn = invokes[static_cast<size_t>(cmd) - 1];

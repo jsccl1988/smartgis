@@ -1,0 +1,64 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("cs.gni")
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+smt_shared_library("host") {
+  dll_stem = "smartgis_host"
+  sources = [
+    "native/sg_host.cc",
+    "native/sg_host.h",
+  ]
+  defines = [ "SG_HOST_IMPLEMENTATION" ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/content:content" ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
+test("sg_host_test") {
+  output_name = "sg_host_test"
+  sources = [ "native/sg_host_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":host" ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
+if (smt_build_cs) {
+  action("dotnet_cs") {
+    script = "dotnet_build.py"
+    sources = [
+      "SmartGis.Host/SmartGis.Host.csproj",
+      "SmartGis.Host/MapSession.cs",
+      "SmartGis.Host/Native.cs",
+      "SmartGis.WinUI/SmartGis.WinUI.csproj",
+      "SmartGis.WinUI/MapView.cs",
+      "SmartGisCs/SmartGisCs.csproj",
+      "SmartGisCs/App.xaml",
+      "SmartGisCs/App.xaml.cs",
+      "SmartGisCs/MainWindow.cs",
+      "SmartGisCs/app.manifest",
+    ]
+    inputs = sources
+    outputs = [ "$root_out_dir/SmartGisCs.exe" ]
+    args = [
+      rebase_path("SmartGisCs/SmartGisCs.csproj", root_build_dir),
+      rebase_path(root_out_dir, root_build_dir),
+    ]
+    deps = [ ":host" ]
+  }
+}
+
+group("cs") {
+  deps = [ ":host" ]
+  if (smt_build_cs) {
+    deps += [ ":dotnet_cs" ]
+  }
+}

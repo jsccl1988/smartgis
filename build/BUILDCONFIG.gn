@@ -62,7 +62,7 @@ declare_args() {
   # Deprecated: no longer drives cmake() for //third_party.
   # Install prefix is third_party/.install via `build.bat t`.
   is_build_third_party = false
-  # Load MFC/BCG exe graph (//src/legacy_app:app). Off so ninja `all` stays src_all.
+  # Load MFC/BCG exe graph (//src/legacy/app:app). Off so ninja `all` stays src_all.
   smt_build_app = false
   # Load Views chrome exe (//src/app/views). Off so ninja `all` stays src_all.
   smt_build_views = false
@@ -176,7 +176,12 @@ import("//build/tools/makefile.gni")
 # mogu-aligned third_party prefix (consumed by //third_party/gn)
 import("//third_party/gn/tp.gni")
 
+# Include roots (foundation under src/base):
+#   "//src"  → #include "base/..." and "sdb/..." (product convention)
+#   "//"     → repo-root headers / build helpers
+# Prefer //src first so #include "base/..." resolves to src/base/.
 include_dirs = [
+  "//src",
   "//",
 ]
 

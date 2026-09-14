@@ -151,7 +151,7 @@ Gitea URLs may remain as comments; fetch must succeed from GitHub (or `MOGU_GITH
 | `third_party/BUILD.gn` | private configs + groups |
 | `src/net/BUILD.gn` | one `SmtNetCore` DLL; sources in subdirs (`http`, `rpc`; no `udp`) |
 | `src/net/http/http.h/.cpp` | `net::HttpClient` |
-| `src/base/archive/archive.h` | mogu-aligned BinarySink / Serializer（`base::`；A1） |
+| `base/archive/archive.h` | mogu-aligned BinarySink / Serializer（`base::`；A1；仓库根） |
 | `src/net/pack/pickle.h` | `net::Pickle`（deps → `base/archive`） |
 | `src/net/rpc/rpc.h/.cpp` / `wire.h` | ASIO FnRPC + CRLF envelope |
 | `src/net/net_test.cc` | loopback tests (pickle / HTTP / RPC) |

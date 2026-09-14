@@ -17,6 +17,9 @@
 
 namespace content {
 namespace detail {
+
+std::wstring g_gpu_exe_override;
+
 namespace {
 
 std::wstring module_dir() {
@@ -35,6 +38,41 @@ std::wstring this_exe_path() {
   return path;
 }
 
+bool file_exists_w(const std::wstring& path) {
+  const DWORD attrs = GetFileAttributesW(path.c_str());
+  return attrs != INVALID_FILE_ATTRIBUTES &&
+         (attrs & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+std::wstring sibling_render_exe(const std::wstring& dir) {
+  const wchar_t* names[] = {L"SmartGisRender.exe", L"SmartGisRenderD.exe"};
+  for (const wchar_t* name : names) {
+    const std::wstring cand = dir + L"\\" + name;
+    if (file_exists_w(cand)) {
+      return cand;
+    }
+  }
+  return std::wstring();
+}
+
+// C# / CEF PEs cannot ContentMain --type=gpu. Prefer sibling render exe.
+// Views / WinUI C++ keep relaunching this PE.
+std::wstring resolve_render_exe() {
+  if (!g_gpu_exe_override.empty() && file_exists_w(g_gpu_exe_override)) {
+    return g_gpu_exe_override;
+  }
+  const std::wstring self = this_exe_path();
+  const wchar_t* base = wcsrchr(self.c_str(), L'\\');
+  base = base ? base + 1 : self.c_str();
+  const bool foreign_host = _wcsnicmp(base, L"SmartGisCef", 11) == 0 ||
+                            _wcsnicmp(base, L"SmartGisCs", 10) == 0;
+  if (!foreign_host) {
+    return self;
+  }
+  const std::wstring sibling = sibling_render_exe(module_dir());
+  return sibling.empty() ? self : sibling;
+}
+
 std::wstring make_session_id() {
   wchar_t buf[80];
   swprintf_s(buf, L"%u-%lu", GetCurrentProcessId(), GetTickCount());
@@ -47,6 +85,13 @@ class MapWidgetHostViewImpl final : public MapWidgetHostView {
  public:
   MapWidgetHostViewImpl(class MapContentsImpl* session, uint32_t view_id)
       : session_(session), view_id_(view_id) {}
+  ~MapWidgetHostViewImpl() override {
+    std::lock_guard<std::mutex> lock(latest_mu_);
+    if (latest_.nt_handle) {
+      CloseHandle(static_cast<HANDLE>(latest_.nt_handle));
+      latest_.nt_handle = nullptr;
+    }
+  }
 
   void Create(const CreateParams& params,
               const Preferences& preferences) override;
@@ -60,13 +105,20 @@ class MapWidgetHostViewImpl final : public MapWidgetHostView {
   void SetVisible(bool visible) override;
   SharedSurface Latest() const override;
 
-  void SetLatest(const SharedSurface& s) { latest_ = s; }
+  void SetLatest(const SharedSurface& s) {
+    std::lock_guard<std::mutex> lock(latest_mu_);
+    // Do not CloseHandle(old) here: the UI thread may still be mapping
+    // latest_.nt_handle inside present_latest_frame. Leak until Destroy /
+    // destructor; frames are infrequent relative to process lifetime.
+    latest_ = s;
+  }
   void set_present_mode(PresentMode mode) { present_mode_ = mode; }
 
  private:
   class MapContentsImpl* session_;
   uint32_t view_id_;
   void* parent_hwnd_ = nullptr;
+  mutable std::mutex latest_mu_;
   SharedSurface latest_{};
   PresentMode present_mode_ = PresentMode::kSharedTexture;
 };
@@ -124,6 +176,8 @@ class MapContentsImpl final : public MapContents {
   MapContentsObserver* observer_ = nullptr;
   mutable std::mutex mu_;
   std::map<uint32_t, MapWidgetHostViewImpl*> views_;
+  // Frames can arrive before AttachSurface inserts the HostView.
+  std::map<uint32_t, SharedSurface> pending_surfaces_;
   std::map<uint32_t, Extent2> extents_;
   std::map<uint32_t, uint32_t> frame_gen_;
   HANDLE frame_event_ = nullptr;
@@ -171,6 +225,7 @@ void MapWidgetHostViewImpl::SetVisible(bool visible) {
 }
 
 SharedSurface MapWidgetHostViewImpl::Latest() const {
+  std::lock_guard<std::mutex> lock(latest_mu_);
   return latest_;
 }
 
@@ -183,7 +238,10 @@ void MapContentsImpl::store_surface(uint32_t view_id, const SharedSurface& s) {
   auto it = views_.find(view_id);
   if (it != views_.end() && it->second) {
     it->second->SetLatest(s);
+    pending_surfaces_.erase(view_id);
+    return;
   }
+  pending_surfaces_[view_id] = s;
 }
 
 bool MapContentsImpl::StartRenderProcess() {
@@ -207,7 +265,7 @@ bool MapContentsImpl::StartRenderProcess() {
                             sizeof(info));
   }
 
-  const std::wstring exe = this_exe_path();
+  const std::wstring exe = resolve_render_exe();
   const std::wstring session = make_session_id();
   wchar_t cmd[1024];
   swprintf_s(cmd,
@@ -298,22 +356,35 @@ void MapContentsImpl::CloseView(uint32_t view_id) {
     delete it->second;
     views_.erase(it);
   }
+  pending_surfaces_.erase(view_id);
+  frame_gen_.erase(view_id);
 }
 
 MapWidgetHostView* MapContentsImpl::AttachSurface(uint32_t view_id, PresentMode mode) {
+  // Register HostView before the GPU round-trip so SharedHandle / FrameReady
+  // cannot race past an empty views_ map and be dropped.
+  MapWidgetHostViewImpl* view = nullptr;
+  {
+    std::lock_guard<std::mutex> lock(mu_);
+    auto it = views_.find(view_id);
+    if (it != views_.end()) {
+      view = it->second;
+      view->set_present_mode(mode);
+    } else {
+      view = new MapWidgetHostViewImpl(this, view_id);
+      view->set_present_mode(mode);
+      views_[view_id] = view;
+    }
+    auto pending = pending_surfaces_.find(view_id);
+    if (pending != pending_surfaces_.end()) {
+      view->SetLatest(pending->second);
+      pending_surfaces_.erase(pending);
+    }
+  }
   AttachSurfaceBody body;
   body.present_mode = static_cast<uint32_t>(mode);
   pipe_.send_msg(HostMsg::kAttachSurface, view_id, body);
-  std::lock_guard<std::mutex> lock(mu_);
-  auto it = views_.find(view_id);
-  if (it != views_.end()) {
-    it->second->set_present_mode(mode);
-    return it->second;
-  }
-  auto* v = new MapWidgetHostViewImpl(this, view_id);
-  v->set_present_mode(mode);
-  views_[view_id] = v;
-  return v;
+  return view;
 }
 
 MapWidgetHostView* MapContentsImpl::HostView(uint32_t view_id) {
@@ -503,6 +574,14 @@ void MapContentsImpl::handle_frame(const FrameHeader& h,
 
 MapContents* MapContents::Create() {
   return new detail::MapContentsImpl();
+}
+
+void MapContents::SetGpuExeOverride(const wchar_t* utf16_path) {
+  if (!utf16_path || !utf16_path[0]) {
+    detail::g_gpu_exe_override.clear();
+    return;
+  }
+  detail::g_gpu_exe_override = utf16_path;
 }
 
 }  // namespace content

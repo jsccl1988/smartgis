@@ -12,11 +12,11 @@ All rights reserved.
 
 ## Goal
 
-把可复用的二进制序列化原语从 `src/net/pack/archive.h`（命名空间 `net`）上提到 `src/base/archive/archive.h`（命名空间 `base`），对齐 mogu 的 **`base/archive` + `net/pack`** 切分：
+把可复用的二进制序列化原语从 `src/net/pack/archive.h`（命名空间 `net`）上提到仓库根 `base/archive/archive.h`（命名空间 `base`），对齐 mogu 的 **`base/archive` + `net/pack`** 切分：
 
 | 能力 | 路径 | 命名空间 |
 | --- | --- | --- |
-| BinarySink / Serializer / archive helpers | `src/base/archive/` | `base` |
+| BinarySink / Serializer / archive helpers | `base/archive/`（仓库根） | `base` |
 | Pickle（包络 / RPC 侧） | `src/net/pack/pickle.h` | `net` |
 
 `base/ipc` 的 codec 依赖 **`base::archive` helpers**，不再依赖 `net` 的 archive 头。线上字节布局（wire）**不变**。
@@ -37,18 +37,18 @@ callers (base/ipc codec, net/pack/pickle, net/rpc, …)
         |
         |  #include "base/archive/archive.h"
         v
-src/base/archive/          namespace base
+base/archive/              namespace base（磁盘：`src/base/archive`；GN `//src/base/archive`）
         BinarySink / Serializer / InArchiver / OutArchiver
         （二进制原子读写；无 Json/Text/Yaml）
 
 src/net/pack/pickle.h      namespace net
         Pickle — 依赖 base/archive，不反向依赖 ipc
 
-src/base/ipc/              namespace base::ipc（两层公共面；内部 detail）
+base/ipc/                  namespace base::ipc（两层公共面；内部 detail；磁盘 `src/base/ipc`）
         named pipe + frame envelope；codec 用 base::archive
 ```
 
-与 mogu 一致：**序列化原语在 `base/archive`，网络 Pickle 在 `net/pack`**。本仓产品树在 `src/` 下，故路径为 `src/base/archive/`、`src/net/pack/`（不是仓库根 `base/`）。
+与 mogu 一致：**序列化原语在 `base/archive`，网络 Pickle 在 `net/pack`**。本仓 foundation 在 **`src/base/`**；产品 `net/pack` 仍在 `src/net/pack/`。
 
 ## Namespace 与 include
 
@@ -67,7 +67,7 @@ base/archive          （无 → net / ipc）
       +-- （可选）net/rpc 等已用 BinarySink 的调用方，经 include 改路径
 ```
 
-- **`//src/base/archive`**（或等价 GN 目标）不依赖 `net`、不依赖 `ipc`。
+- **`//base/archive`**（或等价 GN 目标）不依赖 `net`、不依赖 `ipc`。
 - **`net/pack/pickle`** → `base/archive`。
 - **`base/ipc`** → `base/archive`（**不是** `net/pack/archive`）。
 
@@ -78,7 +78,7 @@ base/archive          （无 → net / ipc）
 
 ## Migration notes
 
-1. 新建 `src/base/archive/`（`archive.h` 等）与 GN 目标；符号迁入 `base::`。
+1. 新建仓库根 `base/archive/`（`archive.h` 等）与 GN 目标；符号迁入 `base::`（曾过渡于 `src/base/archive/`；Phase 5 已上移）。
 2. 删除或瘦身 `src/net/pack/archive.h`：不再放 BinarySink/Serializer；`pickle.h` 改依赖 `base/archive`。
 3. `base/ipc` codec：include / deps 从 `net` archive 改为 `base/archive`。
 4. 调用方全局替换 `#include "net/pack/archive.h"` → `"base/archive/archive.h"`，`net::BinarySink` 等 → `base::…`（以实际符号表为准）。

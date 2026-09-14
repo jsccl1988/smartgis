@@ -16,10 +16,14 @@
 #include <windows.h>
 
 #if defined(__has_include)
-#if __has_include("pluginmanager.h")
+#if __has_include("base/core/pluginmanager.h")
 #include "base/core/pluginmanager.h"
 #define SMT_HAS_LEGACY_PLUGIN_MANAGER 1
+#else
+#define SMT_HAS_LEGACY_PLUGIN_MANAGER 0
 #endif
+#else
+#define SMT_HAS_LEGACY_PLUGIN_MANAGER 0
 #endif
 
 namespace plugin {

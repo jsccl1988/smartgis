@@ -29,6 +29,7 @@ const Case kCases[] = {
     {L"SmartGisRender.exe", nullptr, 45000, false},
     {L"SmartGisViews.exe", L"SmartGIS Views", 30000, false},
     {L"SmartGisWinui.exe", L"SmartGIS", 45000, false},
+    {L"SmartGisCef.exe", L"SmartGIS CEF", 60000, false},
     {L"SmartGis.exe", L"SmartGis", 60000, true},
 };
 

@@ -11,7 +11,8 @@ namespace app {
 OpenFileCommand run_open_file() {
   OpenFileCommand cmd;
   const ui::views::FilePickerResult picked = ui::views::pick_open_file(
-      L"Maps and data\0*.smt;*.shp;*.xml;*.*\0All files\0*.*\0");
+      L"GIS vectors\0*.shp;*.gpkg;*.geojson;*.json;*.smt;*.xml\0"
+      L"All files\0*.*\0");
   cmd.accepted = picked.accepted;
   cmd.path = picked.path;
   return cmd;

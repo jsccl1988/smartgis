@@ -4,7 +4,7 @@
 #ifndef SDB_STYLE_PAINT_RESOLVE_H_
 #define SDB_STYLE_PAINT_RESOLVE_H_
 
-#include "base/style/style.h"
+#include "sdb/carto/style.h"
 #include "sdb/gis_export.h"
 #include "sdb/style/style_types.h"
 #include "sdb/style/symbol_library.h"

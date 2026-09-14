@@ -20,6 +20,10 @@ class MapContents {
   virtual ~MapContents() = default;
 
   static MapContents* Create();
+  // When set, StartRenderProcess launches this PE instead of this process.
+  // Used by C# / CEF hosts that cannot relaunch themselves as --type=gpu.
+  // Empty / null clears the override.
+  static void SetGpuExeOverride(const wchar_t* utf16_path);
 
   virtual bool StartRenderProcess() = 0;
   virtual void Shutdown() = 0;

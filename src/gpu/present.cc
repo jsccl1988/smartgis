@@ -160,11 +160,16 @@ bool PresentTarget::create_dib(uint32_t w, uint32_t h, HANDLE ui_process) {
   wire_.format = content::kDxgiBgraUnorm;
   wire_.nt_handle = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(remote));
   wire_.present_mode = static_cast<uint32_t>(mode_);
-  std::memset(bits_, 0, bytes);
-  (void)kClearB;
-  (void)kClearG;
-  (void)kClearR;
-  (void)kClearA;
+  // Seed with the map-edit clear color — never publish a black flash before
+  // announce_and_paint runs.
+  auto* px = static_cast<uint8_t*>(bits_);
+  const uint32_t n = w * h;
+  for (uint32_t i = 0; i < n; ++i) {
+    px[i * 4 + 0] = kClearB;
+    px[i * 4 + 1] = kClearG;
+    px[i * 4 + 2] = kClearR;
+    px[i * 4 + 3] = kClearA;
+  }
   return true;
 }
 
@@ -195,6 +200,48 @@ bool PresentTarget::resize(uint32_t width_px,
   return ok;
 }
 
+bool PresentTarget::paint_bgra(const uint8_t* bgra, uint32_t stride_bytes) {
+  if (!bgra || wire_.width_px == 0 || wire_.height_px == 0) {
+    return false;
+  }
+  const uint32_t w = wire_.width_px;
+  const uint32_t h = wire_.height_px;
+  if (stride_bytes < w * 4) {
+    return false;
+  }
+  if (bits_) {
+    auto* dst = static_cast<uint8_t*>(bits_);
+    if (stride_bytes == w * 4) {
+      std::memcpy(dst, bgra, static_cast<size_t>(w) * h * 4u);
+    } else {
+      for (uint32_t y = 0; y < h; ++y) {
+        std::memcpy(dst + static_cast<size_t>(y) * w * 4u,
+                    bgra + static_cast<size_t>(y) * stride_bytes, w * 4u);
+      }
+    }
+  }
+  if (d3d_texture_ && d3d_context_) {
+    auto* tex = static_cast<ID3D11Texture2D*>(d3d_texture_);
+    auto* ctx = static_cast<ID3D11DeviceContext*>(d3d_context_);
+    ctx->UpdateSubresource(tex, 0, nullptr, bgra, stride_bytes, 0);
+    ctx->Flush();
+  }
+  return bits_ != nullptr || d3d_texture_ != nullptr;
+}
+
+bool PresentTarget::copy_bgra(uint8_t* dst, size_t dst_bytes) const {
+  if (!dst || !bits_ || wire_.width_px == 0 || wire_.height_px == 0) {
+    return false;
+  }
+  const size_t n =
+      static_cast<size_t>(wire_.width_px) * wire_.height_px * 4u;
+  if (dst_bytes < n) {
+    return false;
+  }
+  std::memcpy(dst, bits_, n);
+  return true;
+}
+
 void PresentTarget::paint_clear(uint8_t b, uint8_t g, uint8_t r, uint8_t a) {
   if (d3d_texture_ && d3d_device_ && d3d_context_) {
     auto* tex = static_cast<ID3D11Texture2D*>(d3d_texture_);
@@ -217,6 +264,155 @@ void PresentTarget::paint_clear(uint8_t b, uint8_t g, uint8_t r, uint8_t a) {
       px[i * 4 + 2] = r;
       px[i * 4 + 3] = a;
     }
+  }
+}
+
+void PresentTarget::paint_demo_frame(content::ViewKind kind) {
+  if (!bits_ || wire_.width_px < 8 || wire_.height_px < 8) {
+    return;
+  }
+  const int w = static_cast<int>(wire_.width_px);
+  const int h = static_cast<int>(wire_.height_px);
+
+  BITMAPINFO bi = {};
+  bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bi.bmiHeader.biWidth = w;
+  bi.bmiHeader.biHeight = -h;
+  bi.bmiHeader.biPlanes = 1;
+  bi.bmiHeader.biBitCount = 32;
+  bi.bmiHeader.biCompression = BI_RGB;
+
+  HDC screen = GetDC(nullptr);
+  if (!screen) {
+    return;
+  }
+  HDC mem = CreateCompatibleDC(screen);
+  void* dib_bits = nullptr;
+  HBITMAP bmp =
+      CreateDIBSection(mem, &bi, DIB_RGB_COLORS, &dib_bits, nullptr, 0);
+  if (!mem || !bmp || !dib_bits) {
+    if (bmp) {
+      DeleteObject(bmp);
+    }
+    if (mem) {
+      DeleteDC(mem);
+    }
+    ReleaseDC(nullptr, screen);
+    return;
+  }
+
+  const size_t bytes =
+      static_cast<size_t>(w) * static_cast<size_t>(h) * 4u;
+  std::memcpy(dib_bits, bits_, bytes);
+  HGDIOBJ old = SelectObject(mem, bmp);
+
+  const COLORREF grid =
+      (kind == content::ViewKind::kScene3d)
+          ? RGB(180, 120, 80)
+          : (kind == content::ViewKind::kMapData) ? RGB(90, 180, 120)
+                                                 : RGB(120, 180, 220);
+  const COLORREF feature =
+      (kind == content::ViewKind::kScene3d)
+          ? RGB(255, 200, 120)
+          : (kind == content::ViewKind::kMapData) ? RGB(240, 220, 80)
+                                                 : RGB(255, 230, 140);
+  const COLORREF ink = RGB(235, 245, 255);
+
+  HPEN grid_pen = CreatePen(PS_SOLID, 1, grid);
+  HGDIOBJ old_pen = SelectObject(mem, grid_pen);
+  const int step = (w < 200 || h < 200) ? 24 : 48;
+  for (int x = step; x < w; x += step) {
+    MoveToEx(mem, x, 0, nullptr);
+    LineTo(mem, x, h);
+  }
+  for (int y = step; y < h; y += step) {
+    MoveToEx(mem, 0, y, nullptr);
+    LineTo(mem, w, y);
+  }
+  SelectObject(mem, old_pen);
+  DeleteObject(grid_pen);
+
+  HPEN feat_pen = CreatePen(PS_SOLID, 2, feature);
+  old_pen = SelectObject(mem, feat_pen);
+  HBRUSH feat_brush = CreateSolidBrush(feature);
+  HGDIOBJ old_brush = SelectObject(mem, GetStockObject(NULL_BRUSH));
+
+  if (kind == content::ViewKind::kScene3d) {
+    // Wireframe cube — proves the 3D pane is not an empty clear.
+    const int cx = w / 2;
+    const int cy = h / 2;
+    const int s = (w < h ? w : h) / 5;
+    const POINT front[5] = {{cx - s, cy - s},
+                            {cx + s, cy - s},
+                            {cx + s, cy + s},
+                            {cx - s, cy + s},
+                            {cx - s, cy - s}};
+    const POINT back[5] = {{cx - s / 2, cy - s - s / 2},
+                           {cx + s + s / 2, cy - s - s / 2},
+                           {cx + s + s / 2, cy + s / 2},
+                           {cx - s / 2, cy + s / 2},
+                           {cx - s / 2, cy - s - s / 2}};
+    Polyline(mem, front, 5);
+    Polyline(mem, back, 5);
+    for (int i = 0; i < 4; ++i) {
+      MoveToEx(mem, front[i].x, front[i].y, nullptr);
+      LineTo(mem, back[i].x, back[i].y);
+    }
+  } else if (kind == content::ViewKind::kMapData) {
+    // Sample point cloud / browse markers.
+    SelectObject(mem, feat_brush);
+    for (int i = 0; i < 12; ++i) {
+      const int x = w / 8 + (i % 4) * (w / 5);
+      const int y = h / 6 + (i / 4) * (h / 4);
+      Ellipse(mem, x - 6, y - 6, x + 6, y + 6);
+    }
+    const POINT poly[4] = {{w / 5, h / 2},
+                           {w / 2, h / 5},
+                           {4 * w / 5, h / 2},
+                           {w / 2, 4 * h / 5}};
+    Polygon(mem, poly, 4);
+  } else {
+    // Map edit: sample road polyline + parcel polygon.
+    const POINT road[4] = {{w / 10, h / 2},
+                           {w / 3, h / 3},
+                           {2 * w / 3, 2 * h / 3},
+                           {9 * w / 10, h / 2}};
+    Polyline(mem, road, 4);
+    SelectObject(mem, feat_brush);
+    const POINT parcel[5] = {{w / 5, 3 * h / 5},
+                             {2 * w / 5, 3 * h / 5},
+                             {2 * w / 5, 4 * h / 5},
+                             {w / 5, 4 * h / 5},
+                             {w / 5, 3 * h / 5}};
+    Polygon(mem, parcel, 5);
+  }
+
+  SelectObject(mem, old_brush);
+  SelectObject(mem, old_pen);
+  DeleteObject(feat_brush);
+  DeleteObject(feat_pen);
+
+  SetBkMode(mem, TRANSPARENT);
+  SetTextColor(mem, ink);
+  const wchar_t* title =
+      (kind == content::ViewKind::kScene3d)
+          ? L"3D scene (demo mesh)"
+          : (kind == content::ViewKind::kMapData) ? L"Datasource (demo features)"
+                                                 : L"Map edit (demo features)";
+  TextOutW(mem, 12, 12, title, lstrlenW(title));
+  TextOutW(mem, 12, 32, L"GPU present — real GIS submit later", 34);
+
+  std::memcpy(bits_, dib_bits, bytes);
+  SelectObject(mem, old);
+  DeleteObject(bmp);
+  DeleteDC(mem);
+  ReleaseDC(nullptr, screen);
+
+  if (d3d_texture_ && d3d_context_ && bits_) {
+    auto* tex = static_cast<ID3D11Texture2D*>(d3d_texture_);
+    auto* ctx = static_cast<ID3D11DeviceContext*>(d3d_context_);
+    ctx->UpdateSubresource(tex, 0, nullptr, bits_, wire_.width_px * 4, 0);
+    ctx->Flush();
   }
 }
 

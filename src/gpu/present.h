@@ -29,6 +29,13 @@ class PresentTarget {
               content::PresentMode requested,
               HANDLE ui_process);
   void paint_clear(uint8_t b, uint8_t g, uint8_t r, uint8_t a);
+  // Upload tightly packed BGRA8. Writes DIB bits and DXGI texture when present.
+  bool paint_bgra(const uint8_t* bgra, uint32_t stride_bytes);
+  // Copy out BGRA8. Requires a software DIB (or a prior paint_bgra that kept bits).
+  bool copy_bgra(uint8_t* dst, size_t dst_bytes) const;
+  // Draw a kind-specific demo frame (grid + sample features) into the DIB.
+  // Used until a real map/scene submit path fills the surface.
+  void paint_demo_frame(content::ViewKind kind);
   void copy_from_hwnd(HWND hwnd);
 
   content::SharedHandleWire wire() const { return wire_; }

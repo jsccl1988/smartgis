@@ -4,15 +4,24 @@
 #include "ui/views/combobox.h"
 
 #include "render/skia/canvas.h"
+#include "ui/views/dpi.h"
 #include "ui/views/theme.h"
+#include "ui/views/widget.h"
 
 namespace ui {
 namespace views {
+namespace {
+
+constexpr int kHeaderHeightDip = 24;
+constexpr int kRowHeightDip = 22;
+
+}  // namespace
 
 class Combobox::ItemRow : public View {
  public:
   ItemRow(Combobox* owner, int index) : owner_(owner), index_(index) {
-    set_preferred_size({200, 22});
+    const float scale = owner ? owner->scale_factor() : 1.f;
+    set_preferred_size({dip_to_px(200, scale), dip_to_px(kRowHeightDip, scale)});
   }
 
   bool on_mouse_event(const MouseEvent& e) override {
@@ -45,8 +54,29 @@ class Combobox::ItemRow : public View {
 };
 
 Combobox::Combobox() {
-  set_preferred_size({200, 24});
+  set_preferred_size({200, kHeaderHeightDip});
   set_focusable(true);
+}
+
+float Combobox::scale_factor() const {
+  if (widget()) {
+    return widget()->device_scale_factor();
+  }
+  return 1.f;
+}
+
+int Combobox::header_height() const {
+  return dip_to_px(kHeaderHeightDip, scale_factor());
+}
+
+int Combobox::row_height() const {
+  return dip_to_px(kRowHeightDip, scale_factor());
+}
+
+void Combobox::on_device_scale_factor_changed(float old_scale, float new_scale) {
+  View::on_device_scale_factor_changed(old_scale, new_scale);
+  set_preferred_size({preferred_size().width, header_height()});
+  rebuild_rows();
 }
 
 void Combobox::add_item(std::string item) {
@@ -124,13 +154,17 @@ void Combobox::cycle(int delta) {
 }
 
 void Combobox::rebuild_rows() {
-  const int extra = open_ ? static_cast<int>(items_.size()) * 22 : 0;
-  set_preferred_size({preferred_size().width, header_height() + extra});
+  const int hh = header_height();
+  const int rh = row_height();
+  const int extra = open_ ? static_cast<int>(items_.size()) * rh : 0;
+  // Preferred stays header-sized so parent BoxLayout does not jump; open
+  // rows expand the live bounds for hit-testing (dropdown overlay).
+  set_preferred_size({preferred_size().width, hh});
   Rect b = bounds();
   if (b.width <= 0) {
     b.width = preferred_size().width;
   }
-  b.height = header_height() + extra;
+  b.height = hh + extra;
   set_bounds(b);
 
   for (size_t i = child_count(); i < items_.size(); ++i) {
@@ -139,6 +173,9 @@ void Combobox::rebuild_rows() {
   for (size_t i = 0; i < child_count(); ++i) {
     if (View* c = child_at(i)) {
       c->set_visible(open_ && i < items_.size());
+      if (c->is_visible()) {
+        c->set_preferred_size({b.width, rh});
+      }
     }
   }
   layout();
@@ -146,14 +183,14 @@ void Combobox::rebuild_rows() {
 
 void Combobox::layout() {
   const Rect& b = bounds();
-  const int row_h = 22;
+  const int hh = header_height();
+  const int rh = row_height();
   for (size_t i = 0; i < child_count(); ++i) {
     View* c = child_at(i);
     if (!c || !c->is_visible()) {
       continue;
     }
-    c->set_bounds({b.x, b.y + header_height() + static_cast<int>(i) * row_h,
-                   b.width, row_h});
+    c->set_bounds({b.x, b.y + hh + static_cast<int>(i) * rh, b.width, rh});
   }
   View::layout();
 }

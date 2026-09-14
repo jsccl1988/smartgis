@@ -96,6 +96,13 @@ RENDER_EXPORT CameraMatrices make_perspective_camera(float fov_y_radians,
                                                      float aspect,
                                                      float near_z,
                                                      float far_z);
+// Orbit / trackball camera looking at the origin (yaw around Y, pitch around X).
+RENDER_EXPORT CameraMatrices make_orbit_camera(float yaw_radians,
+                                               float pitch_radians,
+                                               float distance,
+                                               float fov_y_radians,
+                                               float aspect, float near_z,
+                                               float far_z);
 
 // GPU or CPU heap for vertex/index bytes. FlyCube types stay out of this header.
 class Buffer {
@@ -305,6 +312,8 @@ class Device {
   }
   // FlyCube increments this when execute issues a sampled DrawIndexed.
   virtual uint32_t gpu_sampled_draws() const { return 0; }
+  // Null/stub backends increment on each successful execute/submit.
+  virtual uint32_t execute_count() const { return 0; }
 };
 
 RENDER_EXPORT Device* create_device(Backend backend);

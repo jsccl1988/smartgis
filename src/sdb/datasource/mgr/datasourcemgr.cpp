@@ -13,7 +13,6 @@
 
 #include <cstring>
 #include <fstream>
-#include <locale>
 
 using namespace sdb;
 using namespace base;
@@ -77,10 +76,15 @@ void SmtDataSourceMgr::DestoryMemRasLayer(SmtRasterLayer*& pLayer) {
 SmtDataSourceMgr::SmtDataSourceMgr() = default;
 
 SmtDataSourceMgr::~SmtDataSourceMgr() {
-  Save();
+  // Best-effort persist; never throw from a destructor during app teardown.
+  try {
+    Save();
+  } catch (...) {
+  }
   for (Entry& e : entries_) {
     if (e.dataset) {
       GDALClose(e.dataset);
+      e.dataset = nullptr;
     }
   }
   entries_.clear();
@@ -235,9 +239,8 @@ bool SmtDataSourceMgr::Open(const char* szDSMFile) {
   }
   dsm_path_ = szDSMFile;
   std::ifstream infile;
-  std::locale loc = std::locale::global(std::locale(".936"));
+  // Binary DSM I/O; avoid locale(".936") which can throw and abort on teardown.
   infile.open(dsm_path_.c_str(), std::ios::in | std::ios::binary);
-  std::locale::global(std::locale(loc));
   if (!infile.is_open()) {
     return false;
   }
@@ -266,9 +269,8 @@ bool SmtDataSourceMgr::SaveAs(const char* szDSMFile) {
     return false;
   }
   std::ofstream outfile;
-  std::locale loc = std::locale::global(std::locale(".936"));
+  // Binary DSM I/O; avoid locale(".936") which can throw and abort on teardown.
   outfile.open(szDSMFile, std::ios::out | std::ios::binary);
-  std::locale::global(std::locale(loc));
   if (!outfile.is_open()) {
     return false;
   }

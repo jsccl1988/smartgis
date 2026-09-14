@@ -5,17 +5,17 @@
 
 #include "base/core/api.h"
 #include "base/core/listenermanager.h"
-#include "base/style/stylemanager.h"
+#include "sdb/carto/stylemanager.h"
 #include "plugin/host/legacy_cmd.h"
 #include "plugin/legacy/orthogrid/creater.h"
 #include "plugin/legacy/plugin_msg.h"
 #include "sys/sysmanager.h"
-#include "legacy_tool/group/defs.h"
-#include "legacy_tool/t_iatoolmanager.h"
-#include "legacy_tool/t_msg.h"
-#include "legacy_ui/gui/gui_api.h"
-#include "legacy_ui/xcatalog/mapmgr.h"
-#include "legacy_ui/xview/view_2d_edit.h"
+#include "legacy/tool/group/defs.h"
+#include "legacy/tool/t_iatoolmanager.h"
+#include "legacy/tool/t_msg.h"
+#include "legacy/ui/gui/gui_api.h"
+#include "legacy/ui/xcatalog/mapmgr.h"
+#include "legacy/ui/xview/view_2d_edit.h"
 
 using namespace sdb;
 using namespace sys;

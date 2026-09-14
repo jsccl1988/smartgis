@@ -6,10 +6,10 @@
 #include "plugin/legacy/dem/dlg_about.h"
 
 #include "plugin/legacy/plugin_msg.h"
-#include "legacy_tool/t_msg.h"
+#include "legacy/tool/t_msg.h"
 #include "plugin/legacy/plugin_msg.h"
-#include "legacy_tool/t_iatoolmanager.h"
-#include "legacy_tool/group/defs.h"
+#include "legacy/tool/t_iatoolmanager.h"
+#include "legacy/tool/group/defs.h"
 #include "plugin/host/legacy_cmd.h"
 
 #include <cstring>

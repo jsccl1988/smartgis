@@ -1,0 +1,12 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Opt-in CEF product chrome. Off so ninja `all` / src_all stay free of CEF.
+declare_args() {
+  smt_build_cef = false
+}
+
+_cef_ver_h = exec_script("//build/file_exists.py",
+                         [ "third_party/cef/binary/include/cef_version.h" ],
+                         "trim string")
+smt_has_cef = _cef_ver_h == "1"

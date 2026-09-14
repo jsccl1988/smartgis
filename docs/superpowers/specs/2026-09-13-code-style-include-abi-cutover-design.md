@@ -170,7 +170,7 @@ Status: accepted
 | --- | --- |
 | `src/base/core/log.h` | `"base/core/log.h"` |
 | `src/base/style/envelope.h` | `"base/style/envelope.h"` |
-| `src/base/ipc/channel.h` | `"base/ipc/channel.h"` |
+| `base/ipc/channel.h` | `"base/ipc/channel.h"` |
 | `src/algorithm/geo/geometry.h` | `"algorithm/geo/geometry.h"` |
 | `src/sdb/map/map.h` | `"sdb/map/map.h"` |
 | `src/sdb/datasource/gdal/…` | `"sdb/datasource/gdal/….h"` |

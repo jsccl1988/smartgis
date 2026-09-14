@@ -1,0 +1,16 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+#
+# ximawnd.cpp ships a CP1252 sample string; repo builds with /source-charset:utf-8.
+--- a/CxImage/ximawnd.cpp
++++ b/CxImage/ximawnd.cpp
+@@ -1869,7 +1869,7 @@
+     txt->b_opacity = 0.0;   // default: opaque background
+     txt->b_outline = 0;     // default: no outline (OUTLINE NOT IMPLEMENTED AT THIS TIME)
+     txt->b_round   = 20;    // default: rounding radius is 20% of the rectangle height
+     // the text 
+-    _stprintf( txt->text, _T("Sample Text 01234\365\373")); // text use TCHAR mappings <Cesar M>
++    _stprintf( txt->text, _T("Sample Text 01234")); // text use TCHAR mappings <Cesar M>
+     txt->align = DT_CENTER;
+     return;
+ }

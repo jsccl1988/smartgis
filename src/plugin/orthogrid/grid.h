@@ -7,7 +7,7 @@
 #include <fstream>
 
 #include "algorithm/geo/geometry.h"
-#include "base/core/matrix2d.h"
+#include "algorithm/geo/matrix2d.h"
 #include "plugin/orthogrid/region.h"
 #include "plugin/orthogrid/types.h"
 

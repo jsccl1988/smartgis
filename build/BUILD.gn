@@ -4,8 +4,10 @@
 import("//build/smartgis.gni")
 
 # MBCS + forced compat for leftover product sources.
-# Product headers use #include "layer/module/file.h" via //src only
-# (see docs/build/abi-rename-map.md). No per-module include_dirs.
+# Product headers use #include "layer/module/file.h" via //src
+# (see docs/build/abi-rename-map.md). BUILDCONFIG already puts //src before
+# // so #include "base/..." → src/base/. Keep "//src" here; do not add
+# per-module include_dirs.
 config("legacy") {
   defines = [
     "BUILD_AS_DLL",
@@ -24,11 +26,15 @@ config("legacy") {
     "/UUNICODE",
     "/U_UNICODE",
     "/FIsmt_compat.h",
+    # Override default execution-charset:utf-8. Leftover MFC is MBCS and
+    # talks ANSI (CP936 on zh-CN); emit narrow literals accordingly.
+    "/execution-charset:.936",
   ]
   include_dirs = []
   include_dirs += [
     smt_vs,  # //build — forced include smt_compat.h
     "//src",
+    "//",
     "//third_party/.src/eigen",
   ]
 }

@@ -354,6 +354,14 @@ Optional: if FlyCube is linked, `rhi_test` tries `initialize` on a hidden HWND a
 - Root `README.md` — one line that map/3D GPU is FlyCube RHI; refresh **最后更新**.
 - `docs/README.md` — link this spec.
 
+## Optional GPU Track A (MapLibre Native)
+
+`src/gpu` can select a 2D basemap backend **below** `content/public`:
+
+- Default **Track B**: existing demo / FlyCube `GpuScene` (2D+3D same frame). `kScene3d` stays here.
+- Optional **Track A**: `SMT_MAP_BACKEND=a` paints style background + one XYZ raster via `TileProvider` into `PresentTarget` (shared texture / DIB). Chrome still only blits `Latest()`.
+- GN `smt_enable_maplibre` (default **false**) compiles a header probe for a local `third_party/.src/maplibre-native` pin. This tree does **not** link `mln::Map` until that pin provides a Windows lib. Do not include mln/mbgl from `app/` or `content/public`.
+
 ## Risks
 
 - FlyCube CMake + DX12/Vulkan SDK on the agent machine: stub path keeps `build.bat` green.

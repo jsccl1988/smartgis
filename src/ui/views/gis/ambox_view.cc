@@ -12,8 +12,11 @@
 #include "render/skia/canvas.h"
 #include "tool/command.h"
 #include "ui/views/button.h"
+#include "ui/views/dpi.h"
 #include "ui/views/label.h"
+#include "ui/views/scroll_view.h"
 #include "ui/views/theme.h"
+#include "ui/views/widget.h"
 
 namespace ui {
 namespace views {
@@ -154,6 +157,12 @@ class AmboxView::GroupBlock : public View {
 
 AmboxView::AmboxView() {
   set_preferred_size({180, 240});
+  auto scroll = std::make_unique<ScrollView>();
+  auto content = std::make_unique<View>();
+  content_ = content.get();
+  scroll->add_child(std::move(content));
+  scroll_ = scroll.get();
+  add_child(std::move(scroll));
   populate_from_plugin_host(nullptr);
 }
 
@@ -187,13 +196,16 @@ void AmboxView::populate_from_commands(
 }
 
 void AmboxView::rebuild() {
-  remove_all_children();
+  if (!content_) {
+    return;
+  }
+  content_->remove_all_children();
   blocks_.clear();
   blocks_.reserve(groups_.size());
   for (const auto& group : groups_) {
     auto block = std::make_unique<GroupBlock>(group, this);
     blocks_.push_back(block.get());
-    add_child(std::move(block));
+    content_->add_child(std::move(block));
   }
   layout();
 }
@@ -204,30 +216,68 @@ void AmboxView::fire_command(const std::string& id) {
   }
 }
 
+int AmboxView::measure_content_height(float scale) const {
+  const int pad = dip_to_px(8, scale);
+  const int header_h = dip_to_px(28, scale);
+  const int btn_h = dip_to_px(28, scale);
+  const int gap = dip_to_px(2, scale);
+  int h = pad;
+  for (const auto& block : blocks_) {
+    if (!block) {
+      continue;
+    }
+    h += header_h + (btn_h + gap) * static_cast<int>(block->button_count());
+    h += pad;
+  }
+  return h;
+}
+
 void AmboxView::layout() {
   const Rect& b = bounds();
-  int y = b.y;
+  const float scale =
+      widget() ? widget()->device_scale_factor() : 1.f;
+  const int pad = dip_to_px(8, scale);
+  const int header_h = dip_to_px(28, scale);
+  const int btn_h = dip_to_px(28, scale);
+  const int gap = dip_to_px(2, scale);
+
+  if (scroll_) {
+    scroll_->set_bounds(b);
+  }
+  if (content_) {
+    content_->set_preferred_size({b.width, measure_content_height(scale)});
+  }
+  if (scroll_) {
+    scroll_->layout();
+  }
+
+  // Place groups in scroll content space so tall toolboxes clip + scroll
+  // instead of overflowing the splitter pane (visual misalignment).
+  const Rect area = content_ ? content_->bounds() : b;
+  int y = area.y + pad;
   for (auto& block : blocks_) {
     if (!block) {
       continue;
     }
-    const int header_h = 28;
-    const int btn_h = 28;
+    block->set_visible(true);
     const int h =
-        header_h + btn_h * static_cast<int>(block->button_count());
-    block->set_bounds({b.x, y, b.width, h});
+        header_h + (btn_h + gap) * static_cast<int>(block->button_count());
+    const int inner_w = area.width > pad * 2 ? area.width - pad * 2 : 0;
+    block->set_bounds({area.x + pad, y, inner_w, h});
     if (View* header = block->header()) {
-      header->set_bounds({b.x + 4, y, b.width > 8 ? b.width - 8 : 0, header_h});
+      header->set_visible(true);
+      header->set_bounds({area.x + pad, y, inner_w, header_h});
     }
     int row_y = y + header_h;
+    const int btn_w = area.width > pad * 4 ? area.width - pad * 4 : 0;
     for (size_t i = 0; i < block->button_count(); ++i) {
       if (View* button = block->button_at(i)) {
-        button->set_bounds(
-            {b.x + 8, row_y, b.width > 16 ? b.width - 16 : 0, btn_h});
+        button->set_visible(true);
+        button->set_bounds({area.x + pad * 2, row_y, btn_w, btn_h});
       }
-      row_y += btn_h;
+      row_y += btn_h + gap;
     }
-    y += h;
+    y += h + pad;
   }
 }
 

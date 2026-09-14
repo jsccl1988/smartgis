@@ -5,7 +5,7 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Session-scoped Command / Input / Workspace. Not the leftover IATool DLL.
-# Leftover SmtIATool lives at //src/legacy_tool:tool.
+# Leftover SmtIATool lives at //src/legacy/tool:tool.
 source_set("dispatch") {
   sources = [
     "command.cc",

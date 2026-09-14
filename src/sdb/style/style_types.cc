@@ -19,6 +19,12 @@ LayerType layer_type_from_string(const std::string& s) {
   if (s == "circle") {
     return LayerType::kCircle;
   }
+  if (s == "background") {
+    return LayerType::kBackground;
+  }
+  if (s == "raster") {
+    return LayerType::kRaster;
+  }
   return LayerType::kUnknown;
 }
 
@@ -32,6 +38,10 @@ const char* layer_type_to_string(LayerType t) {
       return "symbol";
     case LayerType::kCircle:
       return "circle";
+    case LayerType::kBackground:
+      return "background";
+    case LayerType::kRaster:
+      return "raster";
     default:
       return "unknown";
   }

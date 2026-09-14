@@ -151,12 +151,14 @@
       "git_url": "http://localhost:3000/ccl/gdal.git",
       "git_ref": "8bc09143be713a89258aed6ecd6cd8e343544328",
       "build_system": "cmake",
-      "note": "Reused existing Gitea import; not re-uploaded. Frozen display adapter.",
+      "note": "Reused existing Gitea import; not re-uploaded. Frozen display adapter. GPKG needs SQLite3 (explicitly enabled below).",
       "install_requires": [
-        "PROJ"
+        "PROJ",
+        "sqlite3"
       ],
       "cmake_prefix_paths": [
-        "PROJ"
+        "PROJ",
+        "sqlite3"
       ],
       "cmake_args": [
         "-DBUILD_SHARED_LIBS=ON",
@@ -164,6 +166,13 @@
         "-DGDAL_BUILD_OPTIONAL_DRIVERS=OFF",
         "-DOGR_BUILD_OPTIONAL_DRIVERS=OFF",
         "-DGDAL_USE_INTERNAL_LIBS=ON",
+        "-DGDAL_USE_SQLITE3=ON",
+        "-DGDAL_USE_SPATIALITE=OFF",
+        "-DGDAL_USE_OPENSSL=OFF",
+        "-DOGR_ENABLE_DRIVER_SQLITE=ON",
+        "-DOGR_ENABLE_DRIVER_GPKG=ON",
+        "-DSQLite3_INCLUDE_DIR=@PREFIX@/include",
+        "-DSQLite3_LIBRARY=@PREFIX@/lib/sqlite3.lib",
         "-DPROJ_INCLUDE_DIR=@PREFIX@/include",
         "-DPROJ_LIBRARIES=@PREFIX@/lib"
       ]

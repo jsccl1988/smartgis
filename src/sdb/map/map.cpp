@@ -233,6 +233,8 @@ const SmtLayer* SmtMap::GetLeftoverLayer(int index) const {
   return layer ? layer->leftover() : nullptr;
 }
 
+SmtLayer* SmtMap::GetLayer() { return GetLeftoverLayer(m_nIteratorIndex); }
+
 void SmtMap::MoveFirst() const { m_nIteratorIndex = 0; }
 
 void SmtMap::MoveNext() const {

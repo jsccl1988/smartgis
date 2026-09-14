@@ -48,7 +48,7 @@ Status: active
 | `src/render/math/math_test.cc` | 单测骨架 |
 | `src/render/math/BUILD.gn` | targets + SIMD 开关 |
 | 删除 | `mathlib_3d.h`、`mathlib.h` |
-| 调用方 | `legacy_render/**`、`algorithm/tin/**`、`algorithm/geo/vector_traits.h` |
+| 调用方 | `legacy/render/**`、`algorithm/tin/**`、`algorithm/geo/vector_traits.h` |
 | docs | `docs/build/src-layout.md`、`src/render/README.md` |
 
 **明确不做清单：**
@@ -180,7 +180,7 @@ enum class CullResult { kClipped = 3, kCulled = 4, kVisible = 5 };
 - Delete: `mathlib_3d.h`、`mathlib.h`
 - Modify: 所有原 `#include "render/math/mathlib_3d.h"` 文件
 - Modify: `algorithm/geo/vector_traits.h` → `#include "render/math/vector.h"`（或 `math.h`）
-- Modify: `legacy_render/render3d/base.h` 等
+- Modify: `legacy/render/render3d/base.h` 等
 
 **Interfaces:**
 - Consumes: Task 1–3 API

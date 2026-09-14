@@ -3,12 +3,19 @@
 
 import("//build/smartgis.gni")
 
-# Compiled into //src/base:base (dll_stem = base).
-# Label alias //src/base:core / //src/base/core:core keeps call sites stable.
+# Compiled into //src/base:base (dll_stem = platform).
+# Foundation headers (log/macros/export/…) live alongside leftovers in this
+# directory; aggregate target is //src/base:foundation.
+# Phase 6: xml → //src/legacy/xml; matrix2d → //src/algorithm/geo.
+# Remaining: listener / command / msg / api / bas_struct / env_struct /
+# core_assert — deferred (wide product fan-out via #include "base/core/…").
 
 source_set("core_sources") {
   configs += [ "//build:legacy" ]
-  deps = [ "//third_party:CxImage" ]
+  deps = [
+    "//src/base:foundation",
+    "//third_party:CxImage",
+  ]
   defines = [
     "_USRDLL",
     "CORE_EXPORTS=1",
@@ -17,29 +24,9 @@ source_set("core_sources") {
     "api.cpp",
     "core_assert.cpp",
     "command.cpp",
-    "cslock.cpp",
-    "dynlib.cpp",
-    "dynlibmanager.cpp",
-    "filesys.cpp",
     "listener.cpp",
     "listenermanager.cpp",
-    "log.cpp",
-    "logmanager.cpp",
-    "mempool.cpp",
-    "mempoolmgr.cpp",
-    "memshare.cpp",
     "msg.cpp",
-    "plugin.cpp",
-    "pluginmanager.cpp",
-    "srwlock.cpp",
-    "thread.cpp",
-    "threadpool.cpp",
-    "timer.cpp",
-    "winservice.cpp",
-    "workthread.cpp",
-    "xml.cpp",
-    "xmlerror.cpp",
-    "xmlparser.cpp",
   ]
 }
 

@@ -1,12 +1,12 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Compatibility aliases: MFC chrome DLL lives in //src/legacy_ui:ui_legacy.
+# Compatibility aliases: MFC chrome DLL lives in //src/legacy/ui:ui_legacy.
 # Endgame toolkit stays //src/ui/views (see views/BUILD.gn).
 # App-gated via //:smartgis (smt_build_app). Not in //src:src_all.
 
 group("ui_legacy") {
-  public_deps = [ "//src/legacy_ui:ui_legacy" ]
+  public_deps = [ "//src/legacy/ui:ui_legacy" ]
 }
 
 # Opt-in aggregator for MFC UI (build.bat app / //:smartgis).

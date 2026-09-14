@@ -1,0 +1,55 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Compiled into //src/legacy/ui:ui_legacy (avoids a leftover_tool ↔ ui_legacy cycle).
+source_set("tool_group_sources") {
+  sources = [
+    "3dviewctrltool.cpp",
+    "appendfeaturetool.cpp",
+    "base3dtool.cpp",
+    "basetool.cpp",
+    "flashtool.cpp",
+    "grouptoolfactory.cpp",
+    "inputlinetool.cpp",
+    "inputpointtool.cpp",
+    "inputregiontool.cpp",
+    "selecttool.cpp",
+    "viewctrltool.cpp",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "TOOL_GROUP_EXPORTS",
+    # Same DLL as gui (ui_legacy): gui_api.h must see GUI_EXPORTS so calls are
+    # not dllimport of same-module symbols (would LNK2019 on __imp_*).
+    "GUI_EXPORTS",
+  ]
+  deps = [
+    "//src/algorithm/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    # Groups → legacy_render DLL (do not dep *_sources or objects double-link).
+    "//src/legacy/render/bridge:render",
+    "//src/legacy/render/model3d:model3d",
+    "//src/legacy/render/render3d:render3d",
+    "//src/legacy/render/scene3d:scene3d",
+    # IA tools live in leftover_tool.dll; this source_set is compiled into
+    # ui_legacy. Dep the DLL group, not tool_sources (avoids double-link).
+    "//src/legacy/tool:tool",
+    "//src/sdb/datasource/gdal:ogr_codec",
+    "//src/sdb/datasource/mgr:sde_mgr",
+    "//src/sdb/edit:map_edit",
+    "//src/sdb/map:gis",
+    "//src/sys:sys",
+    "//src/tool:dispatch",
+    "//third_party:gdal",
+    # Tools include legacy/ui/gui/gui_api.h; same DLL as gui via //src/legacy/ui:ui_legacy.
+  ]
+}
+
+group("tool_group") {
+  public_deps = [ "//src/legacy/ui:ui_legacy" ]
+}

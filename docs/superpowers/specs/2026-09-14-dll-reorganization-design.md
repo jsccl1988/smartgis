@@ -65,7 +65,7 @@ CBM / BUILD 核对：`sys` 仅 deps `//src/base:core`；`net` 仅 deps `core` + 
 
 ### Known migration snag（例外，实现时必须处理）
 
-今日 `//src/sdb/map:gis` 仍 deps `//src/legacy_render/render3d:render3d`。Phase 1 合并 `sdb` 前须 **切断该边**（下沉适配、条件依赖、或迁出 leftover 调用），否则 `sdb.dll` 会被迫拉 optional leftover，违反「legacy_render 默认不进 src_all」。
+今日 `//src/sdb/map:gis` 仍 deps `//src/legacy/render/render3d:render3d`。Phase 1 合并 `sdb` 前须 **切断该边**（下沉适配、条件依赖、或迁出 leftover 调用），否则 `sdb.dll` 会被迫拉 optional leftover，违反「legacy_render 默认不进 src_all」。
 
 ## Phase 1 — platform DLLs
 
@@ -76,7 +76,7 @@ CBM / BUILD 核对：`sys` 仅 deps `//src/base:core`；`net` 仅 deps `core` + 
 | `base` | `core`, `style`, `sys`, `net`；`ipc`/`archive` 仍为 source_set 链进本 DLL | 一层 foundation |
 | `sdb` | `gis`, `sde_mgr`, `sde_gdal`；`tile` / `model` / `scene` / `edit` source_sets 链进本 DLL | 切断对 `legacy_render` 的硬依赖 |
 | `algorithm` | `geo`, `proj`, `tin`, `stat` | chart 仍在 `ui_legacy` |
-| `render` | endgame `src/render/{rhi,scene,skia,math,…}`（今日多为 source_set / 过渡 target） | **不含** `legacy_render/**` |
+| `render` | endgame `src/render/{rhi,scene,skia,math,…}`（今日多为 source_set / 过渡 target） | **不含** `legacy/render/**` |
 | `ui_legacy` | `gui`, `mfc_ex`, `xview`, `xcatalog`, `xambox`, `stat_chart` | 仅 `smt_build_app`；不进默认 `src_all` |
 
 ### Optional（不进默认 `src_all`）
@@ -84,7 +84,7 @@ CBM / BUILD 核对：`sys` 仅 deps `//src/base:core`；`net` 仅 deps `core` + 
 | New `dll_stem` | Absorbs | Notes |
 | --- | --- | --- |
 | `legacy_render` | `render`（bridge leftover）、`render3d`, `render_gdi`, `render_gdi_simple`, `render_gl`, `scene3d`, `model3d`, `pointcloud`, `terrain` | 单一 optional DLL；也可分步先 group 后单 DLL，终态一 stem |
-| `legacy_tool` | `tool`, `tool_group` | 对应 `src/legacy_tool/**` |
+| `legacy_tool` | `tool`, `tool_group` | 对应 `src/legacy/tool/**` |
 
 ### Not Phase 1 platform merges
 

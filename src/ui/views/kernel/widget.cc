@@ -10,6 +10,7 @@
 #include <windowsx.h>
 
 #include "render/skia/canvas.h"
+#include "ui/views/dialog_host.h"
 #include "ui/views/dpi.h"
 #include "ui/views/theme.h"
 
@@ -47,6 +48,7 @@ Widget::~Widget() {
   focused_ = nullptr;
   hovered_ = nullptr;
   pressed_ = nullptr;
+  release_paint_buffer();
   if (hwnd_ && IsWindow(hwnd_)) {
     SetWindowLongPtrW(hwnd_, GWLP_USERDATA, 0);
     DestroyWindow(hwnd_);
@@ -65,7 +67,8 @@ bool Widget::init(const InitParams& params) {
     wc.lpfnWndProc = Widget::wnd_proc;
     wc.hInstance = GetModuleHandleW(nullptr);
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+    // NULL_BRUSH: never flash system COLOR_WINDOW behind Skia chrome.
+    wc.hbrBackground = static_cast<HBRUSH>(GetStockObject(NULL_BRUSH));
     wc.lpszClassName = kWidgetClass;
     registered = RegisterClassExW(&wc) != 0;
   }
@@ -73,22 +76,57 @@ bool Widget::init(const InitParams& params) {
     return false;
   }
   const DWORD style =
-      params.owner ? (WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME |
-                      WS_CLIPCHILDREN)
+      params.owner ? kOwnedDialogStyle
                    : (WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN);
   int x = CW_USEDEFAULT;
   int y = CW_USEDEFAULT;
-  if (params.owner && IsWindow(params.owner)) {
-    RECT rc = {};
-    GetWindowRect(params.owner, &rc);
-    x = rc.left + (rc.right - rc.left - params.width) / 2;
-    y = rc.top + (rc.bottom - rc.top - params.height) / 2;
+  int width = params.width;
+  int height = params.height;
+  if (params.owner) {
+    // Dialog callers pass client size (DIPs when size_in_dips). Shared host
+    // scales, expands via AdjustWindowRectEx, centers on owner, clamps work.
+    OwnedPopupGeom place;
+    if (params.size_in_dips) {
+      place = place_owned_dialog(params.owner, params.width, params.height,
+                                 style, 0);
+    } else {
+      const float scale =
+          scale_factor_from_dpi(dpi_for_hwnd(params.owner));
+      place = place_owned_dialog(params.owner, px_to_dip(params.width, scale),
+                                 px_to_dip(params.height, scale), style, 0);
+    }
+    x = place.x;
+    y = place.y;
+    width = place.outer_width;
+    height = place.outer_height;
+  } else if (params.size_in_dips) {
+    const float scale = scale_factor_from_dpi(dpi_for_hwnd(nullptr));
+    width = dip_to_px(params.width, scale);
+    height = dip_to_px(params.height, scale);
+    if (width < 160) {
+      width = 160;
+    }
+    if (height < 120) {
+      height = 120;
+    }
+  } else {
+    if (width < 160) {
+      width = 160;
+    }
+    if (height < 120) {
+      height = 120;
+    }
   }
-  hwnd_ = CreateWindowExW(0, kWidgetClass, params.title, style, x, y,
-                          params.width, params.height, params.owner, nullptr,
-                          GetModuleHandleW(nullptr), this);
+  hwnd_ = CreateWindowExW(0, kWidgetClass, params.title, style, x, y, width,
+                          height, params.owner, nullptr, GetModuleHandleW(nullptr),
+                          this);
   if (!hwnd_) {
     return false;
+  }
+  // Owned popups stay above the owner without stealing the taskbar slot.
+  if (params.owner && IsWindow(params.owner)) {
+    SetWindowPos(hwnd_, HWND_TOP, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
   }
   sync_dpi_from_hwnd();
   return true;
@@ -213,6 +251,74 @@ void Widget::schedule_paint() {
   if (hwnd_ && IsWindow(hwnd_)) {
     InvalidateRect(hwnd_, nullptr, FALSE);
   }
+}
+
+void Widget::schedule_paint_rect(const Rect& dirty) {
+  if (!hwnd_ || !IsWindow(hwnd_)) {
+    return;
+  }
+  if (dirty.width <= 0 || dirty.height <= 0) {
+    return;
+  }
+  RECT rc = {dirty.x, dirty.y, dirty.x + dirty.width, dirty.y + dirty.height};
+  InvalidateRect(hwnd_, &rc, FALSE);
+}
+
+void Widget::release_paint_buffer() {
+  if (paint_dc_) {
+    if (paint_old_) {
+      SelectObject(paint_dc_, paint_old_);
+      paint_old_ = nullptr;
+    }
+    DeleteDC(paint_dc_);
+    paint_dc_ = nullptr;
+  }
+  if (paint_dib_) {
+    DeleteObject(paint_dib_);
+    paint_dib_ = nullptr;
+  }
+  paint_w_ = 0;
+  paint_h_ = 0;
+}
+
+bool Widget::ensure_paint_buffer(int width_px, int height_px) {
+  if (width_px <= 0 || height_px <= 0) {
+    return false;
+  }
+  if (paint_dc_ && paint_dib_ && paint_w_ == width_px &&
+      paint_h_ == height_px) {
+    return true;
+  }
+  release_paint_buffer();
+
+  BITMAPINFO bmi = {};
+  bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bmi.bmiHeader.biWidth = width_px;
+  bmi.bmiHeader.biHeight = -height_px;
+  bmi.bmiHeader.biPlanes = 1;
+  bmi.bmiHeader.biBitCount = 32;
+  bmi.bmiHeader.biCompression = BI_RGB;
+
+  void* bits = nullptr;
+  HBITMAP dib =
+      CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+  if (!dib || !bits) {
+    if (dib) {
+      DeleteObject(dib);
+    }
+    return false;
+  }
+  HDC mem = CreateCompatibleDC(nullptr);
+  if (!mem) {
+    DeleteObject(dib);
+    return false;
+  }
+  paint_old_ = static_cast<HBITMAP>(SelectObject(mem, dib));
+  paint_dc_ = mem;
+  paint_dib_ = dib;
+  paint_w_ = width_px;
+  paint_h_ = height_px;
+  return true;
 }
 
 void Widget::set_focused_view(View* view) {
@@ -418,6 +524,10 @@ LRESULT Widget::handle_message(HWND hwnd, UINT msg, WPARAM wparam,
                      GET_WHEEL_DELTA_WPARAM(wparam));
       return 0;
     case WM_KEYDOWN:
+      if (modal_ && wparam == VK_ESCAPE) {
+        request_close();
+        return 0;
+      }
       dispatch_key(KeyEvent::Type::kDown, wparam, lparam);
       return 0;
     case WM_KEYUP:
@@ -459,20 +569,44 @@ void Widget::on_paint() {
   GetClientRect(hwnd_, &rc);
   const int w = rc.right - rc.left;
   const int h = rc.bottom - rc.top;
+  if (w <= 0 || h <= 0) {
+    EndPaint(hwnd_, &ps);
+    return;
+  }
+
+  HDC target = hdc;
+  if (ensure_paint_buffer(w, h)) {
+    target = paint_dc_;
+  }
+
   const int font_px = dip_to_px(12, device_scale_factor_);
   HFONT font =
       CreateFontW(-font_px, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                   DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                   CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
-  HGDIOBJ old_font = font ? SelectObject(hdc, font) : nullptr;
-  render::skia::Canvas canvas(hdc, w, h);
+  HGDIOBJ old_font = font ? SelectObject(target, font) : nullptr;
+  // Skia Canvas BitBlts each primitive into |target|. When |target| is the
+  // retained buffer, the screen only updates on the final BitBlt below —
+  // otherwise mouse-hover full invalidates flash chrome mid-paint.
+  render::skia::Canvas canvas(target, w, h);
   canvas.fill_rect(0, 0, w, h, Theme::current().chrome_bg);
   if (contents_) {
     contents_->paint(&canvas);
   }
   if (font) {
-    SelectObject(hdc, old_font);
+    SelectObject(target, old_font);
     DeleteObject(font);
+  }
+
+  if (target != hdc && paint_dc_) {
+    const int blt_x = ps.rcPaint.left;
+    const int blt_y = ps.rcPaint.top;
+    const int blt_w = ps.rcPaint.right - ps.rcPaint.left;
+    const int blt_h = ps.rcPaint.bottom - ps.rcPaint.top;
+    if (blt_w > 0 && blt_h > 0) {
+      BitBlt(hdc, blt_x, blt_y, blt_w, blt_h, paint_dc_, blt_x, blt_y,
+             SRCCOPY);
+    }
   }
   EndPaint(hwnd_, &ps);
 }

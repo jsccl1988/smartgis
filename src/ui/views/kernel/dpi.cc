@@ -109,6 +109,37 @@ unsigned dpi_for_hwnd(HWND hwnd) {
   return dpi;
 }
 
+void clamp_rect_to_work_area(int* x, int* y, int width, int height, HWND anchor) {
+  if (!x || !y || width <= 0 || height <= 0) {
+    return;
+  }
+  POINT pt = {*x + width / 2, *y + height / 2};
+  HMONITOR mon = nullptr;
+  if (anchor && IsWindow(anchor)) {
+    mon = MonitorFromWindow(anchor, MONITOR_DEFAULTTONEAREST);
+  } else {
+    mon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+  }
+  MONITORINFO mi = {};
+  mi.cbSize = sizeof(mi);
+  if (!mon || !GetMonitorInfoW(mon, &mi)) {
+    return;
+  }
+  const RECT& work = mi.rcWork;
+  if (*x + width > work.right) {
+    *x = work.right - width;
+  }
+  if (*y + height > work.bottom) {
+    *y = work.bottom - height;
+  }
+  if (*x < work.left) {
+    *x = work.left;
+  }
+  if (*y < work.top) {
+    *y = work.top;
+  }
+}
+
 bool enable_process_dpi_awareness() {
   static int state = 0;  // 0 = unset, 1 = ok, -1 = failed
   if (state != 0) {

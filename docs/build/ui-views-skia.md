@@ -17,14 +17,14 @@ This is the durable destination. **This pass ports leftover MFC chrome** into `u
 | Chrome paint | Skia canvas (backend only) | `src/render/skia/` | `render::skia` |
 | Product chrome exe | `src/app/` hosts | `src/app/views/` → `out/SmartGisViews.exe` | `app` |
 | Map viewport | Hosted HWND (mgis `content::MapView` hang) | child HWND → `gis` + `render/{gdi,gl}` or OOP `SmartGisRender.exe` | legacy `Smt_*` / `content::` when present |
-| Leftover MFC exe | `SmartGis.exe` until parity | `src/legacy_app/` | — |
-| Legacy chrome | MFC Feature Pack / `src/legacy_ui` (retire after parity) | `src/legacy_ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | `Smt_*` |
+| Leftover MFC exe | `SmartGis.exe` until parity | `src/legacy/app/` | — |
+| Legacy chrome | MFC Feature Pack / `src/legacy/ui` (retire after parity) | `src/legacy/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | `Smt_*` |
 
 **Nesting cap** stays `src/<layer>/<module>`. `src/app/views` is OK; do **not** add `src/ui/views/widget/` or `src/app/views/widget/` as a public nest. Paint stays `src/render/skia` (not `src/ui/gfx`) so Skia remains a render backend, not a third UI nest.
 
 Local **mgis** (`c:\Dev\src\gis\mgis`) is WTL + `gui/` + `content::MapView` (`CreateParams { HWND parent_hwnd }`). **mogu** Chromium Views is not on this machine. Naming: `ui/views` = toolkit, `src/app/` = product shells, `render/skia` = canvas.
 
-[`ui-shell-multiprocess.md`](ui-shell-multiprocess.md) scheme 3 variant **(b)** is this implementation. WinUI may exist as a sibling prototype; it is **not** the destination. WebView2 chrome and `src/web` were removed. Qt is banned.
+[`ui-shell-multiprocess.md`](ui-shell-multiprocess.md) scheme 3 variant **(b)** is this implementation. WinUI, CEF (`SmartGisCef.exe`), and C# WinUI (`SmartGisCs.exe`, `src/app/cs`) may exist as sibling product shells; they are **not** the Views toolkit destination. WebView2 chrome and `src/web` were removed. Qt is banned. CEF design: [`docs/superpowers/specs/2026-09-14-app-cef-hwnd-host-design.md`](../superpowers/specs/2026-09-14-app-cef-hwnd-host-design.md). C# host: [`docs/superpowers/specs/2026-09-15-app-cs-winui-host-design.md`](../superpowers/specs/2026-09-15-app-cs-winui-host-design.md).
 
 ## Rejected / alternate (do not “helpfully” switch)
 
@@ -33,10 +33,12 @@ Local **mgis** (`c:\Dev\src\gis\mgis`) is WTL + `gui/` + `content::MapView` (`Cr
 | **Qt** (Widgets / Quick / QML) | Banned. `.cursor/rules/repo/no-qt.mdc`. |
 | **MFC Feature Pack** (`CMFC*`) | Bridge only for leftover `SmartGis.exe`. **Not** the destination toolkit. |
 | **WinUI 3 + WinAppSDK** | Sibling prototype only; not the endgame. |
+| **C# WinUI 3 host** (`SmartGisCs.exe`) | Sibling embedder; not the endgame. |
 | **WebView2 shell + native map** | Sibling prototype only; not the endgame. |
 | Skia **as a widget kit** | No. Skia paints; Views owns widgets. |
 | Vendoring Chromium / Skia wholesale | Out of scope. |
-| Split `src/chrome/` vs leftover `src/app/` | Rejected. Hosts live in `src/app/{views,winui}`. |
+| Split `src/chrome/` vs leftover `src/app/` | Rejected. Hosts live in `src/app/{views,winui,cef,cs}`. |
+
 
 `build.bat app` / `build.bat views` build the destination chrome (`SmartGisViews.exe`). Leftover MFC：`build.bat legacy_app`（`smt_build_app`）。
 
@@ -48,8 +50,8 @@ src/app/views/                product chrome (SmartGisViews.exe only)
   (does not paint catalog / ambox / chart / layer panels by hand)
 
 src/ui/views/                    toolkit (opt-in //:ui_views)
-  kernel/ | primitives/ | gis/   — physical folders only (not a public nest)
-  root *.h                       — thin stubs; include stays "ui/views/foo.h"
+  root *.h                       — public headers; include stays "ui/views/foo.h"
+  kernel/ | primitives/ | gis/   — .cc only (physical folders; not a public nest)
   Widget, View, Splitter, layout, events, Theme
   primitives (Button, Label, Textfield, …)
   GIS widgets (CatalogView, LayerTree, AttributeTable, AmboxView, ChartView, …)
@@ -58,9 +60,9 @@ src/ui/views/                    toolkit (opt-in //:ui_views)
 
 src/app/{views,winui}/          endgame / prototype hosts only
 
-src/legacy_app/                  leftover MFC SmartGis.exe + app_core
+src/legacy/app/                  leftover MFC SmartGis.exe + app_core
 
-src/legacy_ui/{gui,mfc_ex,xview, LEGACY chrome + map CView (until parity)
+src/legacy/ui/{gui,mfc_ex,xview, LEGACY chrome + map CView (until parity)
         xcatalog,xambox,chart}
 
 src/render/skia/                 Skia backend (GDI-backed canvas in v1)
@@ -68,7 +70,7 @@ src/render/skia/                 Skia backend (GDI-backed canvas in v1)
   include: "render/skia/...."
 
 src/content/public/              optional later: content::MapView
-src/render/{gdi,gl,render3d,…}   EXISTING map/3D devices
+src/legacy/render/{gdi,gl,…}     leftover map/3D devices (optional DLL)
 src/sdb/{map,feature,layer}      EXISTING map / layers / doc
 ```
 
@@ -114,15 +116,16 @@ Same hang as mgis `content::MapView::CreateParams { HWND parent_hwnd }`: the she
 - GIS widgets (public): `CatalogView`, `LayerTree`, `AttributeTable`, `FeatureInfo`, `StatusBar`, `AmboxView`, `ChartView` — see [`docs/superpowers/specs/2026-09-13-ui-views-controls-design.md`](../superpowers/specs/2026-09-13-ui-views-controls-design.md). Chrome port: [`docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md`](../superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md).
 - Exe: `build.bat views` → `out/SmartGisViews.exe` (destination entry). Console check: `views_unittests` and `SmartGisViews.exe --self-test`.
 - Default `build.bat` remains the 31 DLLs. All chrome schemes in [`ui-shell-multiprocess.md`](ui-shell-multiprocess.md) stay supported. Leftover `SmartGis.exe` compiles until parity.
+- GUI 测试分层与门禁：[`ui-testing.md`](ui-testing.md)。
 
 ## Out of scope
 
 - Vendoring Chromium, Aura, Blink, or a full Skia checkout.
-- Qt, or treating WinUI / WebView2 / Feature Pack as the endgame.
+- Qt, or treating WinUI / WebView2 / Feature Pack / C# WinUI host as the endgame.
 - Pixel-perfect BCG / Feature Pack chrome.
 - Deleting leftover MFC sources this pass; wrapping `CView`.
 - Putting the chrome exe into `//src:src_all`.
 
 ---
 
-**最后更新：** 2026-09-14
+**最后更新：** 2026-09-15

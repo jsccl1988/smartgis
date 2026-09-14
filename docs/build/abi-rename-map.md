@@ -7,15 +7,16 @@ All rights reserved.
 
 Spec (include/ABI cutover): [`../superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md`](../superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md)  
 Spec (DLL reorg): [`../superpowers/specs/2026-09-14-dll-reorganization-design.md`](../superpowers/specs/2026-09-14-dll-reorganization-design.md)  
+Spec (foundation Hybrid；真源仅 `src/base/`，无仓库根物理 `base/`): [`../superpowers/specs/2026-09-14-base-root-hybrid-design.md`](../superpowers/specs/2026-09-14-base-root-hybrid-design.md)  
 Plan: [`../superpowers/plans/2026-09-14-dll-reorganization.md`](../superpowers/plans/2026-09-14-dll-reorganization.md)
 
-Status: **in progress** (include/snake_case cutover still open). **DLL reorg Phase 1 已落地**（`base` / `sdb` / `algorithm` / `render` / `ui_legacy` + optional `legacy_render` / `legacy_tool`）；Phase 2 插件 stem 保持不变。
+Status: **in progress** (include/snake_case cutover still open；foundation Hybrid Phases 0–6 已收口，真源在 `src/base`)。**DLL reorg Phase 1 已落地**（`platform` / `sdb` / `algorithm` / `render` / `ui_legacy` + optional `legacy_render` / `legacy_tool`）；产品平台 DLL **`dll_stem=platform` 已落地**（`platform.dll` / `platform_d.dll`）。Phase 2 插件 stem 保持不变。
 
 ## Include root
 
-- Product include root: `//src` only.
-- Form: `#include "layer/module/file.h"`.
-- No per-module `include_dirs` in `//build:legacy`.
+- Foundation + product: `//src` → `#include "base/..."` and `"layer/module/file.h"`.
+- Repo root `//` remains for build helpers; `BUILDCONFIG` lists **`//src` before `//`**.
+- No per-module `include_dirs` in `//build:legacy` beyond that.
 
 ## Debug / Release 文件名（`_d`）
 
@@ -26,18 +27,18 @@ Status: **in progress** (include/snake_case cutover still open). **DLL reorg Pha
 | Release | `{dll_stem}.dll` / `{dll_stem}.lib` |
 | Debug | `{dll_stem}_d.dll` / `{dll_stem}_d.lib` |
 
-例：`base_d.dll`、`ui_legacy_d.dll`。**不是**尾缀大写 `D`（旧形 `xxxD.dll` 已退役）。头文件 `#pragma comment(lib, …)` 与 `GetModuleHandle` 字符串跟同一规则。
+例：`platform_d.dll`；`ui_legacy_d.dll`。**不是**尾缀大写 `D`（旧形 `xxxD.dll` 已退役）。头文件 `#pragma comment(lib, …)` 与 `GetModuleHandle` 字符串跟同一规则。
 
-## DLL reorg 终态（Phase 1 / 2）
+## DLL reorg 终态（Phase 1 / 2）+ 平台 stem 重命名
 
 一层一平台 DLL；optional leftover 独立；**每插件仍一 DLL**。细 `source_set` / 旧 GN 标签经 `group` 转发到新 DLL。核对自 2026-09-14 `BUILD.gn` `dll_stem`。
 
 | 终态 `dll_stem` | 吸收的 cutover 短名 / 树 | 门控 / 备注 | 状态 |
 | --- | --- | --- | --- |
-| `base` | `core`, `style`, `sys`, `net`；`ipc` / `archive` source_set 链入 | 默认 `src_all` | **完成** |
+| **`platform`** | 剩余 `core` leftovers + `sdb/carto` + `legacy/xml` + `sys` + `net`。`src/base` 的 `archive`/`ipc`（`:foundation` public_deps / static）**不是**本 DLL 的 stem | 默认 `src_all`；Hybrid consolidator | **完成**（`platform.dll` / `platform_d.dll`） |
 | `algorithm` | `geo`, `proj`, `tin`, `stat` | 默认 `src_all` | **完成** |
 | `sdb` | `gis`, `sde_mgr`, `sde_gdal`；`tile` / `model` / `scene` / `edit` source_set 链入 | 默认 `src_all`；已切断 → `legacy_render` | **完成** |
-| `render` | endgame `src/render/{rhi,scene,skia,…}` | 默认 `src_all`；**不含** `legacy_render/**` | **完成** |
+| `render` | endgame `src/render/{rhi,scene,skia,…}` | 默认 `src_all`；**不含** `legacy/render/**` | **完成** |
 | `ui_legacy` | `gui`, `mfc_ex`, `xview`, `xcatalog`, `xambox`, `stat_chart`（另含 `tool_group_sources` 以免与 `legacy_tool` 环依赖） | `smt_build_app` / `build.bat ui_legacy`；不进默认 `src_all`；产物 `ui_legacy_d.dll` | **完成** |
 | `legacy_render` | leftover `render` bridge、`render3d`、`render_gdi`、`render_gdi_simple`、`render_gl`、`scene3d`、`model3d`、`pointcloud`、`terrain` | optional；不进默认 `src_all` | **完成** |
 | `legacy_tool` | `tool`（`tool_group` 源链入 `ui_legacy`，见上） | optional；不进默认 `src_all` | **完成** |
@@ -51,10 +52,10 @@ Status: **in progress** (include/snake_case cutover still open). **DLL reorg Pha
 
 | Cutover `dll_stem` | 终态 `dll_stem` | Phase |
 | --- | --- | --- |
-| `core` | `base` | 1 |
-| `style` | `base` | 1 |
-| `sys` | `base` | 1 |
-| `net` | `base` | 1 |
+| `core` | **`platform`** | 1 + Hybrid Phase 6 |
+| `style` | **`platform`**（源在 `sdb/carto`） | 1 + Hybrid Phase 6 |
+| `sys` | **`platform`** | 1 + Hybrid Phase 6 |
+| `net` | **`platform`** | 1 + Hybrid Phase 6 |
 | `gis` | `sdb` | 1 |
 | `sde_mgr` | `sdb` | 1 |
 | `sde_gdal` | `sdb` | 1 |
@@ -80,7 +81,7 @@ Status: **in progress** (include/snake_case cutover still open). **DLL reorg Pha
 
 | DLL | Build define | Header macro | 迁移期旧宏 |
 | --- | --- | --- | --- |
-| `base` | `BASE_EXPORTS` | `BASE_EXPORT` | `CORE_*` / `STYLE_*` / `SYS_*` / `NET_*` 可别名或双 define |
+| `platform` | `BASE_EXPORTS` | `BASE_EXPORT` | `CORE_*` / `STYLE_*` / `SYS_*` / `NET_*` 可别名或双 define |
 | `sdb` | `SDB_EXPORTS` | `SDB_EXPORT` | `GIS_*` / `SDE_*` |
 | `algorithm` | `ALGORITHM_EXPORTS` | `ALGORITHM_EXPORT` | `GEO_*` / `PROJ_*` / `TIN_*` / `STAT_*` |
 | `render` | `RENDER_EXPORTS` | `RENDER_EXPORT` | — |
@@ -152,7 +153,7 @@ GN `defines` for export: use the **export macro name** as the define that means 
 | Basename | Paths | Rule |
 | --- | --- | --- |
 | `command.h` | `base/core/command.h`, `tool/command.h` | Prefer path sharing longest dir prefix with includer; else `tool/command.h` for `tool/**`, `base/core/command.h` for others |
-| `gdi_aux_api.h` / `gdi_bufpool.h` / `gdi_renderbuf.h` | `legacy_render/gdi/…`, `legacy_render/gdi_simple/…` | Prefer same `gdi` vs `gdi_simple` as includer |
+| `gdi_aux_api.h` / `gdi_bufpool.h` / `gdi_renderbuf.h` | `legacy/render/gdi/…`, `legacy/render/gdi_simple/…` | Prefer same `gdi` vs `gdi_simple` as includer |
 | `scene.h` | `render/scene/scene.h`, `sdb/scene/scene.h` | Prefer same layer as includer (`render/` vs `sdb/`) |
 | `resource.h` / `stdafx.h` / `targetver.h` | many modules | Prefer header under the same module directory as the includer |
 
@@ -191,4 +192,4 @@ Stable plugin ids (`smartgis.dem`, …) stay. Phase 2：**不**把域插件并�
 
 ---
 
-**最后更新：** 2026-09-14
+**最后更新：** 2026-09-15

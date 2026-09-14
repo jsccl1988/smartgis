@@ -72,7 +72,15 @@ void Label::paint_self(render::skia::Canvas* canvas) {
   const std::wstring w = utf8_to_wide(text_);
   const render::skia::Color c =
       has_color_ ? color_ : Theme::current().text;
-  canvas->draw_text(b.x + 4, b.y + 4, w.c_str(), c);
+  const float scale = scale_for(this);
+  const Size ink = measure_text_utf8(text_);
+  const int ink_h = dip_to_px(ink.height > 0 ? ink.height : 12, scale);
+  const int pad_x = dip_to_px(4, scale);
+  int text_y = b.y + pad_x;
+  if (b.height > ink_h) {
+    text_y = b.y + (b.height - ink_h) / 2;
+  }
+  canvas->draw_text(b.x + pad_x, text_y, w.c_str(), c);
 }
 
 }  // namespace views

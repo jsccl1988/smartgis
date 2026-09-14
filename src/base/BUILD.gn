@@ -3,32 +3,46 @@
 
 import("//build/smartgis.gni")
 
-# Foundation layer → one DLL (dll_stem = base):
-#   core/ + style/ + //src/sys + //src/net source_sets
-#   archive/ + ipc/ remain source_sets chained into this DLL
-# Stable labels //src/base:core, :base, //src/sys:sys, //src/net:net → group to :base.
+# Foundation (mogu-aligned, mostly header-only) + product platform DLL.
+# Disk stem for the shared library: platform → platform.dll / platform_d.dll.
+# #include "base/..." resolves via //src (see BUILDCONFIG / //build:legacy).
+
+config("foundation_config") {
+  # Append; do not replace BUILDCONFIG / legacy include_dirs.
+  include_dirs += [ "//src" ]
+}
+
+# Header-only foundation aggregate (core/threading/util/files/memory/time +
+# archive/ipc). Not a product DLL — statically linked into consumers.
+source_set("foundation") {
+  sources = [
+    "core/build_config.h",
+    "core/debug.h",
+    "core/export.h",
+    "core/log.h",
+    "core/macros.h",
+    "threading/thread.h",
+    "util/path.h",
+    "util/library.h",
+    "util/plugin.h",
+    "files/read_file.h",
+    "memory/object_pool.h",
+    "time/elapsed_timer.h",
+    "time/frame_timer.h",
+  ]
+  public_configs = [ ":foundation_config" ]
+  public_deps = [
+    "//src/base/archive:archive",
+    "//src/base/ipc:ipc",
+  ]
+}
 
 group("core") {
   public_deps = [ ":base" ]
 }
 
-source_set("style_sources") {
-  configs += [ "//build:legacy" ]
-  defines = [
-    "_USRDLL",
-    "STYLE_EXPORTS=1",
-  ]
-  sources = [
-    "style/style_api.cpp",
-    "style/envelope.cpp",
-    "style/style.cpp",
-    "style/stylemanager.cpp",
-    "style/styletable.cpp",
-  ]
-}
-
 smt_shared_library("base") {
-  dll_stem = "base"
+  dll_stem = "platform"
   defines = [
     "BASE_EXPORTS",
     "CORE_EXPORTS=1",
@@ -37,11 +51,12 @@ smt_shared_library("base") {
     "NET_EXPORTS",
   ]
   deps = [
+    ":foundation",
     "//src/base/core:core_sources",
-    ":style_sources",
+    "//src/sdb/carto:carto_sources",
+    "//src/legacy/xml:xml_sources",
     "//src/sys:sys_sources",
     "//src/net:net_sources",
-    "//src/base/ipc:ipc_sources",
   ]
   public_deps = [
     "//src/base/archive:archive",
@@ -51,7 +66,15 @@ smt_shared_library("base") {
   libs = [ "ws2_32.lib" ]
 }
 
-# Optional aggregator (foundation modules under this layer).
-group("base_all") {
+# Alias for the disk stem name (same DLL as :base).
+group("platform") {
   public_deps = [ ":base" ]
+}
+
+# Optional aggregator (foundation + platform DLL).
+group("base_all") {
+  public_deps = [
+    ":foundation",
+    ":base",
+  ]
 }

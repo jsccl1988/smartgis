@@ -1,0 +1,60 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SmartGIS CEF</title>
+  <link rel="stylesheet" href="css/shell.css" />
+</head>
+<body>
+  <div id="menu-bar">
+    <button id="btn-open" type="button">Open</button>
+    <button id="btn-exit" type="button">Exit</button>
+    <button id="btn-view-map" type="button" data-tab="0">Map</button>
+    <button id="btn-view-data" type="button" data-tab="1">Data</button>
+    <button id="btn-view-3d" type="button" data-tab="2">3D</button>
+    <button id="btn-select" type="button" data-cmd="selection.point">Select</button>
+    <button id="btn-draw" type="button" data-cmd="edit.append.point">Draw</button>
+    <button id="btn-clear" type="button" data-cmd="selection.clear">Clear</button>
+    <span class="brand">SmartGIS CEF</span>
+  </div>
+  <div id="body-row">
+    <aside id="catalog">
+      <div class="panel-title">Catalog</div>
+      <ul id="catalog-list">
+        <li data-node="workspace">Workspace</li>
+        <li data-node="layers">Layers</li>
+        <li data-node="maps">Maps</li>
+      </ul>
+      <div id="catalog-commands">
+        <button id="btn-catalog-refresh" type="button">Refresh</button>
+        <button id="btn-catalog-add" type="button">Add layer</button>
+      </div>
+    </aside>
+    <main id="center">
+      <div id="tab-strip">
+        <button type="button" data-tab="0" class="active">Map Edit</button>
+        <button type="button" data-tab="1">Data</button>
+        <button type="button" data-tab="2">3D</button>
+      </div>
+      <!-- Native map HWND covers this placeholder (sibling, not CEF child). -->
+      <div id="map-slot">map slot</div>
+    </main>
+    <aside id="ambox">
+      <div class="panel-title">Ambox</div>
+      <div id="ambox-buttons"></div>
+    </aside>
+  </div>
+  <div id="inspector">
+    <button type="button" class="active" data-insp="feature">FeatureInfo</button>
+    <button type="button" data-insp="attrs">AttributeTable</button>
+    <div id="inspector-body">FeatureInfo</div>
+  </div>
+  <div id="status-bar">CEF chrome ready</div>
+  <script src="js/bridge.js"></script>
+  <script src="js/shell.js"></script>
+</body>
+</html>

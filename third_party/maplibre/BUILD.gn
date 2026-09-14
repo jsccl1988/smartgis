@@ -1,0 +1,11 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Optional pin group. Product code lives in //src/gpu (Track A adapter).
+# Do not add this to src_all / all.
+
+import("//src/gpu/maplibre.gni")
+
+group("maplibre") {
+  # Headers-only probe path. Link a Windows maplibre-native.lib when one exists.
+}

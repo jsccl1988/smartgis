@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将 MFC `SmartGis.exe` 与 MFC UI 迁到 `src/legacy_app` / `src/legacy_ui`；`src/app` 只留 views/winui；并行推进 Views 能力 1→5。
+**Goal:** 将 MFC `SmartGis.exe` 与 MFC UI 迁到 `src/legacy/app` / `src/legacy/ui`；`src/app` 只留 views/winui；并行推进 Views 能力 1→5。
 
 **Architecture:** 仿 `legacy_tool`/`legacy_render` 物理平移 + 无转发头 include 改名；终局壳不链 leftover。Phase 2 在 `ViewHost`/`ui::views` 上闭环，不改 leftover 业务。
 
@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Work on `master` only; do not create feature branches.
-- Paths: `src/legacy_app/`, `src/legacy_ui/`; keep `dll_stem` `ui_legacy` and `app_core`.
+- Paths: `src/legacy/app/`, `src/legacy/ui/`; keep `dll_stem` `ui_legacy` and `app_core`.
 - No forward headers from old `ui/gui` paths.
 - No Qt; no true dock/MDI; Views widgets never hold `SmtFeature*`.
 - Source comments English; user-facing docs Chinese.
@@ -25,8 +25,8 @@
 
 | Path | Role |
 | --- | --- |
-| `src/legacy_app/**` | MFC exe + `app_core` |
-| `src/legacy_ui/**` | MFC chrome → `ui_legacy` DLL |
+| `src/legacy/app/**` | MFC exe + `app_core` |
+| `src/legacy/ui/**` | MFC chrome → `ui_legacy` DLL |
 | `src/app/views/**` | SmartGisViews composition |
 | `src/app/winui/**` | unchanged location (prototype) |
 | `src/ui/views/**` | endgame toolkit |
@@ -36,17 +36,17 @@
 
 ---
 
-### Task 1: Move MFC app → `src/legacy_app`
+### Task 1: Move MFC app → `src/legacy/app`
 
 **Files:**
-- Create: `src/legacy_app/` (git mv from `src/app` MFC roots + `app_core`)
+- Create: `src/legacy/app/` (git mv from `src/app` MFC roots + `app_core`)
 - Modify: root `BUILD.gn` / `//:smartgis` / `build.bat` app target labels
-- Modify: all `#include "app/…"` for MFC/`app_core` → `"legacy_app/…"`
-- Create: `src/legacy_app/README.md`
+- Modify: all `#include "app/…"` for MFC/`app_core` → `"legacy/app/…"`
+- Create: `src/legacy/app/README.md`
 - Modify: `src/app/BUILD.gn` — remove MFC executable; optional README-only or group
 
 **Interfaces:**
-- Produces: `//src/legacy_app:app` (`output_name = "SmartGis"`), `//src/legacy_app/app_core:app_core`
+- Produces: `//src/legacy/app:app` (`output_name = "SmartGis"`), `//src/legacy/app/app_core:app_core`
 - Consumes: existing MFC sources unchanged in logic
 
 - [x] **Step 1: Inventory move set**
@@ -54,26 +54,28 @@
 Move (do not leave copies):
 
 - `main_frame.*`, `child_frame.*`, `smart_*.*`, `stdafx.*`, `resource.h`, `smart_gis.rc`, `res/`, `ReadMe.txt`, `SmartGis.aps` (if tracked)
-- `app_core/` entire tree
+- `app_core/` entire tree（后续已扁平化为同目录 `smtapp.cpp` / `smtapp.h`，GN 仍为 `//src/legacy/app:app_core`）
 
 Keep in `src/app/`: `views/`, `winui/` only (+ new README).
 
+> **2026-09-15：** 残留扁平目录 `src/legacy_app/` 已并入 `src/legacy/app/` 并删除；`main_frame.cpp` include 统一为 `"legacy/app/…"`。
+
 - [x] **Step 2: git mv + fix BUILD.gn**
 ```gn
-# src/legacy_app/BUILD.gn — adapt from former src/app/BUILD.gn
+# src/legacy/app/BUILD.gn — adapt from former src/app/BUILD.gn
 smt_mfc_executable("app") {
   output_name = "SmartGis"
-  precompiled_header = "legacy_app/stdafx.h"
-  # sources: same basenames under legacy_app/
+  precompiled_header = "legacy/app/stdafx.h"
+  # sources: same basenames under legacy/app/
   deps = [
-    "//src/legacy_app/app_core:app_core",
+    "//src/legacy/app/app_core:app_core",
     # … legacy_ui labels after Task 2, or //src/ui:* forwarders meanwhile
   ]
 }
 ```
 
-Update `app_core` includes to `"legacy_app/app_core/app_smtapp.h"`.  
-PCH / `#include "app/stdafx.h"` → `"legacy_app/stdafx.h"`.
+Update `app_core` includes to `"legacy/app/app_core/app_smtapp.h"`.  
+PCH / `#include "app/stdafx.h"` → `"legacy/app/stdafx.h"`.
 
 - [x] **Step 3: Rewrite call-site includes / GN**
 
@@ -81,11 +83,11 @@ Scoped replace (repo product trees, not `third_party/`):
 
 | From | To |
 | --- | --- |
-| `#include "app/stdafx.h"` | `#include "legacy_app/stdafx.h"` |
-| `#include "app/app_core/…"` | `#include "legacy_app/app_core/…"` |
-| `#include "app/main_frame.h"` etc. | `#include "legacy_app/…"` |
-| `//src/legacy_app:app` | `//src/legacy_app:app` |
-| `//src/legacy_app/app_core:app_core` | `//src/legacy_app/app_core:app_core` |
+| `#include "app/stdafx.h"` | `#include "legacy/app/stdafx.h"` |
+| `#include "app/app_core/…"` | `#include "legacy/app/app_core/…"` |
+| `#include "app/main_frame.h"` etc. | `#include "legacy/app/…"` |
+| `//src/legacy/app:app` | `//src/legacy/app:app` |
+| `//src/legacy/app/app_core:app_core` | `//src/legacy/app/app_core:app_core` |
 
 Do **not** rewrite `src/app/views` or `src/app/winui` includes that correctly say `app/views/…`.
 
@@ -96,56 +98,56 @@ Expected: links or only compile errors fixable without reverting move.
 
 - [x] **Step 5: Docs touch**
 
-Update path rows in `docs/build/src-layout.md` App layer; add `src/legacy_app/README.md`.
+Update path rows in `docs/build/src-layout.md` App layer; add `src/legacy/app/README.md`.
 
 ---
 
-### Task 2: Move MFC UI → `src/legacy_ui`
+### Task 2: Move MFC UI → `src/legacy/ui`
 
 **Files:**
-- Create: `src/legacy_ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` via git mv
-- Modify: `src/legacy_ui/BUILD.gn` (from `src/ui/BUILD.gn` ui_legacy block)
-- Modify: `src/ui/BUILD.gn` — keep `views`; `group("ui_legacy")` → `public_deps = [ "//src/legacy_ui:ui_legacy" ]`
-- Modify: all `#include "ui/gui/…"` etc. → `"legacy_ui/gui/…"` (same for mfc_ex/xview/xcatalog/xambox/chart)
-- Create: `src/legacy_ui/README.md`
+- Create: `src/legacy/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` via git mv
+- Modify: `src/legacy/ui/BUILD.gn` (from `src/ui/BUILD.gn` ui_legacy block)
+- Modify: `src/ui/BUILD.gn` — keep `views`; `group("ui_legacy")` → `public_deps = [ "//src/legacy/ui:ui_legacy" ]`
+- Modify: all `#include "ui/gui/…"` etc. → `"legacy/ui/gui/…"` (same for mfc_ex/xview/xcatalog/xambox/chart)
+- Create: `src/legacy/ui/README.md`
 
 **Interfaces:**
-- Produces: `//src/legacy_ui:ui_legacy` (`dll_stem = "ui_legacy"`)
+- Produces: `//src/legacy/ui:ui_legacy` (`dll_stem = "ui_legacy"`)
 - Consumes: Task 1 deps may temporarily use `//src/ui:ui_legacy` forwarder
 
 - [x] **Step 1: git mv six trees**
 
 ```
-src/ui/gui → src/legacy_ui/gui
-src/ui/mfc_ex → src/legacy_ui/mfc_ex
-src/ui/xview → src/legacy_ui/xview
-src/ui/xcatalog → src/legacy_ui/xcatalog
-src/ui/xambox → src/legacy_ui/xambox
-src/ui/chart → src/legacy_ui/chart
+src/ui/gui → src/legacy/ui/gui
+src/ui/mfc_ex → src/legacy/ui/mfc_ex
+src/ui/xview → src/legacy/ui/xview
+src/ui/xcatalog → src/legacy/ui/xcatalog
+src/ui/xambox → src/legacy/ui/xambox
+src/ui/chart → src/legacy/ui/chart
 ```
 
 Leave `src/ui/views` in place.
 
 - [x] **Step 2: GN aggregation**
 
-Move `smt_shared_library("ui_legacy")` body to `src/legacy_ui/BUILD.gn`.  
-Source deps become `//src/legacy_ui/gui:gui_sources` etc.  
+Move `smt_shared_library("ui_legacy")` body to `src/legacy/ui/BUILD.gn`.  
+Source deps become `//src/legacy/ui/gui:gui_sources` etc.  
 Keep `group("gui")` style labels under each submodule pointing at `ui_legacy` DLL.
 
 - [x] **Step 3: Include rewrite**
 
 | From | To |
 | --- | --- |
-| `"ui/gui/` | `"legacy_ui/gui/` |
-| `"ui/mfc_ex/` | `"legacy_ui/mfc_ex/` |
-| `"ui/xview/` | `"legacy_ui/xview/` |
-| `"ui/xcatalog/` | `"legacy_ui/xcatalog/` |
-| `"ui/xambox/` | `"legacy_ui/xambox/` |
-| `"ui/chart/` | `"legacy_ui/chart/` |
+| `"ui/gui/` | `"legacy/ui/gui/` |
+| `"ui/mfc_ex/` | `"legacy/ui/mfc_ex/` |
+| `"ui/xview/` | `"legacy/ui/xview/` |
+| `"ui/xcatalog/` | `"legacy/ui/xcatalog/` |
+| `"ui/xambox/` | `"legacy/ui/xambox/` |
+| `"ui/chart/` | `"legacy/ui/chart/` |
 
 Do **not** rewrite `"ui/views/…"`.
 
-Also fix `legacy_tool/group` comments/deps that mention `//src/ui:ui_legacy` (forwarder OK).
+Also fix `legacy/tool/group` comments/deps that mention `//src/ui:ui_legacy` (forwarder OK).
 
 - [x] **Step 4: Smoke**
 

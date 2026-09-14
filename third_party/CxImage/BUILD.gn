@@ -428,9 +428,21 @@ config("cximage_cc20") {
   cflags_cc = [ "/std:c++20" ]
 }
 
+# Legacy GDI callers use CxImage::Save(const char*, ...). Global win
+# UNICODE would compile only the wchar_t overload and break the link.
+config("cximage_mbcs") {
+  cflags = [
+    "/UUNICODE",
+    "/U_UNICODE",
+  ]
+}
+
 shared_library("CxImage") {
   configs -= [ "//build/config:cc_std" ]
-  configs += [ ":cximage_cc20" ]
+  configs += [
+    ":cximage_cc20",
+    ":cximage_mbcs",
+  ]
   public_configs = [ ":cximage_public" ]
   defines = [
     "WIN32",

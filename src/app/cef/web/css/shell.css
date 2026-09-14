@@ -1,0 +1,133 @@
+/* Copyright (c) 2026 The Mogu Authors. All rights reserved. */
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  background: #1b2430;
+  color: #e6ecf2;
+  overflow: hidden;
+}
+
+#menu-bar {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  background: #121820;
+  border-bottom: 1px solid #2a3648;
+}
+
+#menu-bar .brand {
+  margin-left: auto;
+  font-weight: 600;
+}
+
+#body-row {
+  display: flex;
+  height: calc(100% - 36px - 160px - 28px);
+}
+
+#catalog {
+  width: 20%;
+  background: #16202c;
+  border-right: 1px solid #2a3648;
+  overflow: auto;
+}
+
+#center {
+  width: 55%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+#ambox {
+  width: 25%;
+  background: #16202c;
+  border-left: 1px solid #2a3648;
+  overflow: auto;
+}
+
+.panel-title {
+  padding: 8px 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+#tab-strip {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  background: #121820;
+}
+
+#tab-strip button.active,
+#inspector button.active {
+  background: #3a6ea5;
+  color: #fff;
+}
+
+#map-slot {
+  flex: 1;
+  margin: 0 8px 8px;
+  border: 1px dashed #4a5d78;
+  background: #0e141c;
+  color: #6f829c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#ambox-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 10px 10px;
+}
+
+#catalog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 10px;
+}
+
+#catalog-list li {
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+#catalog-commands {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px 12px;
+}
+
+button {
+  background: #243247;
+  color: #e6ecf2;
+  border: 1px solid #3a4d66;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+#inspector {
+  height: 160px;
+  border-top: 1px solid #2a3648;
+  background: #121820;
+  padding: 6px 8px;
+}
+
+#status-bar {
+  height: 28px;
+  line-height: 28px;
+  padding: 0 10px;
+  background: #0b1016;
+  border-top: 1px solid #2a3648;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

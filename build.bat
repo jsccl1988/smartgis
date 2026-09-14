@@ -61,8 +61,10 @@ REM `sln` is rejected: engineering management is GN only.
 set "NINJA_TARGET="
 set "BUILD_APP=false"
 set "BUILD_WINUI=false"
+set "BUILD_CEF=false"
 set "BUILD_RENDER=false"
 set "BUILD_VIEWS=false"
+set "BUILD_CS=false"
 if /I "%~1"=="sln" (
   echo ERROR: MSBuild/sln is not an engineering entry. Use build.bat ^(GN^).>&2
   echo vs2008\ and branches\ were removed; engineering entry is GN only.>&2
@@ -74,13 +76,21 @@ REM mogu build.sh / mgis build.bat t: batch install to third_party/.install
 if /I "%~1"=="t" (
   if exist "%LocalAppData%\Programs\Python\Python312\python.exe" (
     set "TP_PY=%LocalAppData%\Programs\Python\Python312\python.exe"
+  ) else if exist "%LocalAppData%\Programs\Python\Launcher\py.exe" (
+    set "TP_PY=%LocalAppData%\Programs\Python\Launcher\py.exe"
   ) else (
     set "TP_PY=python"
   )
+  REM VS-bundled CMake is often absent from PATH outside a Developer Prompt.
+  if exist "%ProgramFiles%\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" (
+    set "PATH=%ProgramFiles%\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;!PATH!"
+  ) else if exist "%ProgramFiles%\CMake\bin\cmake.exe" (
+    set "PATH=%ProgramFiles%\CMake\bin;!PATH!"
+  )
   if "%~2"=="" (
-    "%TP_PY%" "%~dp0third_party\tools\batch.py" --manifest "%~dp0third_party\manifest.json" --install-prefix "%~dp0third_party\.install" --build-type Debug
+    "!TP_PY!" "%~dp0third_party\tools\batch.py" --manifest "%~dp0third_party\manifest.json" --install-prefix "%~dp0third_party\.install" --build-type Debug
   ) else (
-    "%TP_PY%" "%~dp0third_party\tools\batch.py" --manifest "%~dp0third_party\manifest.json" --install-prefix "%~dp0third_party\.install" --build-type Debug --package "%~2"
+    "!TP_PY!" "%~dp0third_party\tools\batch.py" --manifest "%~dp0third_party\manifest.json" --install-prefix "%~dp0third_party\.install" --build-type Debug --package "%~2"
   )
   set "ERR=!ERRORLEVEL!"
   if !ERR! EQU 0 (
@@ -124,12 +134,19 @@ if not "%~1"=="" (
   ) else if /I "%~1"=="winui" (
     set "NINJA_TARGET=winui"
     set "BUILD_WINUI=true"
+  ) else if /I "%~1"=="cef" (
+    set "NINJA_TARGET=cef"
+    set "BUILD_CEF=true"
+  ) else if /I "%~1"=="cs" (
+    set "NINJA_TARGET=cs"
+    set "BUILD_CS=true"
   ) else if /I "%~1"=="e2e" (
     set "NINJA_TARGET=e2e"
     set "BUILD_APP=true"
     set "BUILD_VIEWS=true"
     set "BUILD_RENDER=true"
     set "BUILD_WINUI=true"
+    REM CEF stays off by default so machines without the Binary Dist pin do not fail e2e.
   ) else (
     set "NINJA_TARGET=%~1"
   )
@@ -143,7 +160,25 @@ if /I "!BUILD_WINUI!"=="true" (
   )
 )
 
-"%GN_PATH%gn.exe" gen out --root=./ --ide=vs2019 --args="is_debug=true is_build_third_party=false smt_run_vs_env_script=false vs_version=180 msvc_installed=true smt_build_app=!BUILD_APP! smt_build_views=!BUILD_VIEWS! smt_build_render=!BUILD_RENDER! smt_build_winui=!BUILD_WINUI!"
+if /I "!BUILD_CEF!"=="true" (
+  if not exist "%~dp0third_party\cef\binary\include\cef_version.h" (
+    echo CEF Binary Distribution missing. See third_party/cef/README.md
+    popd
+    exit /b 1
+  )
+)
+
+if /I "!BUILD_CS!"=="true" (
+  where dotnet >nul 2>&1
+  if errorlevel 1 (
+    echo ERROR: dotnet SDK not on PATH. Install .NET 8 SDK for build.bat cs.
+    echo See src/app/cs/README.md
+    popd
+    exit /b 1
+  )
+)
+
+"%GN_PATH%gn.exe" gen out --root=./ --ide=vs2019 --args="is_debug=true is_build_third_party=false smt_run_vs_env_script=false vs_version=180 msvc_installed=true smt_build_app=!BUILD_APP! smt_build_views=!BUILD_VIEWS! smt_build_render=!BUILD_RENDER! smt_build_winui=!BUILD_WINUI! smt_build_cef=!BUILD_CEF! smt_build_cs=!BUILD_CS!"
 if errorlevel 1 (
   popd
   exit /b 1
@@ -169,7 +204,7 @@ if !ERR! EQU 0 (
     set "ERR=!ERRORLEVEL!"
   ) else if /I "!NINJA_TARGET!"=="test_all" (
     set "UNIT_ERR=0"
-    for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe leftover_record_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe tin_xyz_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe views_unittests.exe ipc_test.exe) do (
+        for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe leftover_record_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe tin_xyz_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe views_unittests.exe views_pixel_tests.exe ipc_test.exe chrome_bridge_test.exe render_backend_test.exe tile_test.exe style_test.exe sg_host_test.exe) do (
       if exist ".\out\%%T" (
         echo Running out\%%T
         ".\out\%%T"

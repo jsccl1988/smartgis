@@ -3,7 +3,7 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# Split leftover render engines into `src/legacy_render`
+# Split leftover render engines into `src/legacy/render`
 
 **Date:** 2026-09-13  
 **Status:** accepted  
@@ -12,7 +12,7 @@ All rights reserved.
 
 ## Goal
 
-`src/render/` 只保留终局路径（`rhi` / `scene` GpuScene / `skia` / `math` + 极薄 `SmtRender` 桩）。2010 leftover 设备与三维引擎整包迁到 **`src/legacy_render/<module>`**，默认 **不进** `src_all`。调用方 include 与 GN label 同步改为 `legacy_render/…`。
+`src/render/` 只保留终局路径（`rhi` / `scene` GpuScene / `skia` / `math` + 极薄 `SmtRender` 桩）。2010 leftover 设备与三维引擎整包迁到 **`src/legacy/render/<module>`**，默认 **不进** `src_all`。调用方 include 与 GN label 同步改为 `legacy/render/…`。
 
 ## Non-goals
 
@@ -27,12 +27,12 @@ All rights reserved.
 | Topic | Choice |
 | --- | --- |
 | 迁出范围 | 除终局外几乎全迁：`gdi` / `gdi_simple` / `gl` / `render3d` / `scene3d` / `model3d` / `terrain` / `pointcloud`；完整 Bridge + `leftover_*` |
-| 落点 | `src/legacy_render/<module>`（新层；两层嵌套上限） |
-| 改名策略 | **A**：无转发头；`"render/<leftover>/…"` → `"legacy_render/<module>/…"` |
+| 落点 | `src/legacy/render/<module>`（新层；两层嵌套上限） |
+| 改名策略 | **A**：无转发头；`"render/<leftover>/…"` → `"legacy/render/<module>/…"` |
 | `src_all` | 只含终局 `//src/render:render_all` |
-| 可选编 | `//src/legacy_render:legacy_render_all`（不进 `src_all`） |
+| 可选编 | `//src/legacy/render:legacy_render_all`（不进 `src_all`） |
 | MFC present | 允许暂时断；终局 `//src/render:render` 为最小桩 |
-| `leftover_mesh` / `leftover_record` / `leftover_session` | 随 legacy，放 `legacy_render/bridge` |
+| `leftover_mesh` / `leftover_record` / `leftover_session` | 随 legacy，放 `legacy/render/bridge` |
 | 完整 `renderdevice` / `renderer` | 随 bridge 进 legacy；`src/render` 留桩或仅 `rhi`/`scene` 图 |
 
 ## Target tree
@@ -49,10 +49,10 @@ src/render/
   README.md         # endgame-focused
 ```
 
-### `src/legacy_render/`（leftover）
+### `src/legacy/render/`（leftover）
 
 ```
-src/legacy_render/
+src/legacy/render/
   BUILD.gn          # group("legacy_render_all")
   bridge/           # renderdevice, renderer, leftover_session, leftover_mesh, leftover_record
   gdi/
@@ -70,7 +70,7 @@ src/legacy_render/
 | Consumer | May depend on |
 | --- | --- |
 | `src_all` / 新代码 | `render::rhi`, `render::scene::GpuScene`, `render/math`, `render/skia` |
-| MFC / plugin / xview / tool_group（本轮） | `legacy_render/…`（改断点后仍可编 `legacy_render_all` + `smt_build_app`） |
+| MFC / plugin / xview / tool_group（本轮） | `legacy/render/…`（改断点后仍可编 `legacy_render_all` + `smt_build_app`） |
 | `legacy_render` → `render/rhi` / `render/math` | 允许（单向靠 Facade） |
 | `render` 终局 → `legacy_render` | **禁止** |
 

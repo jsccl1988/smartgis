@@ -1,6 +1,6 @@
 #pragma once
 
-#include "legacy_ui/xview/view_2d.h"
+#include "legacy/ui/xview/view_2d.h"
 using namespace ui;
 
 // CDlg2DXView �Ի���

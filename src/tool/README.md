@@ -5,7 +5,7 @@ All rights reserved.
 
 # `src/tool`（终局 dispatch）
 
-SmartGIS 工具终局树：只保留 session 作用域的 Command / Interaction / Workspace。2010 leftover `SmtIATool` / `SmtGroupTool` 已迁到 [`src/legacy_tool/`](../legacy_tool/)。
+SmartGIS 工具终局树：只保留 session 作用域的 Command / Interaction / Workspace。2010 leftover `SmtIATool` / `SmtGroupTool` 已迁到 [`src/legacy/tool/`](../legacy/tool/)。
 
 ## 目录
 
@@ -17,7 +17,7 @@ SmartGIS 工具终局树：只保留 session 作用域的 Command / Interaction 
 | `gestures.*` | 内置手势（如 `wheel.zoom`） |
 | `legacy_msg.*` | `GT_MSG_*` → command id 适配 |
 
-GN：`//src/tool:dispatch` 进日常 `src_all`。leftover DLL 另编 `//src/legacy_tool:legacy_tool_all`（默认不进 `src_all`）。
+GN：`//src/tool:dispatch` 进日常 `src_all`。leftover DLL 另编 `//src/legacy/tool:legacy_tool_all`（默认不进 `src_all`）。
 
 ## 依赖方向
 

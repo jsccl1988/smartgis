@@ -1,3 +1,4 @@
+#include <mutex>
 #include "plugin/legacy/module_manager.h"
 #include "base/core/msg.h"
 #include "plugin/legacy/plugin_msg.h"
@@ -9,8 +10,8 @@ namespace plugin
 
 	SmtAModuleManager* SmtAModuleManager::get_singleton_ptr(void)
 	{
-		SmtCSLock			cslock;
-		SmtScopeCSLock		scope(&cslock);
+		static std::mutex cslock;
+		std::lock_guard<std::mutex> scope(cslock);
 
 		if (m_pSingleton == NULL)
 		{
@@ -21,8 +22,8 @@ namespace plugin
 
 	void SmtAModuleManager::destroy_instance(void)
 	{
-		SmtCSLock			cslock;
-		SmtScopeCSLock		scope(&cslock);
+		static std::mutex cslock;
+		std::lock_guard<std::mutex> scope(cslock);
 
 		SMT_SAFE_DELETE(m_pSingleton);
 	}
@@ -41,7 +42,7 @@ namespace plugin
 	long SmtAModuleManager::notify(SmtAuxModule *pAModule,long lMsg,SmtListenerMsg &param)
 	{
 #ifdef SMT_THREAD_SAFE
-		m_cslock.Lock();
+		m_cslock.lock();
 #endif
 
 		if (pAModule == SMT_AM_MSG_INVALID)
@@ -90,7 +91,7 @@ namespace plugin
 		}
 
 #ifdef SMT_THREAD_SAFE
-		m_cslock.Unlock();
+		m_cslock.unlock();
 #endif
 		return SMT_ERR_NONE;
 	}
@@ -98,7 +99,7 @@ namespace plugin
 	long SmtAModuleManager::register_a_module(SmtAuxModule *pAModule)
 	{
 #ifdef SMT_THREAD_SAFE
-		m_cslock.Lock();
+		m_cslock.lock();
 #endif
 
 		vSmtAModulePtrs::iterator i = m_vAModulePtrs.begin();	
@@ -115,7 +116,7 @@ namespace plugin
 		m_vAModulePtrs.push_back(pAModule);
 
 #ifdef SMT_THREAD_SAFE
-		m_cslock.Unlock();
+		m_cslock.unlock();
 #endif
 		return SMT_ERR_NONE;
 	}
@@ -123,7 +124,7 @@ namespace plugin
 	long SmtAModuleManager::remove_a_module(SmtAuxModule*pAModule)
 	{
 #ifdef SMT_THREAD_SAFE
-		m_cslock.Lock();
+		m_cslock.lock();
 #endif
 
 		vSmtAModulePtrs::iterator i = m_vAModulePtrs.begin();	
@@ -138,7 +139,7 @@ namespace plugin
 		}
 
 #ifdef SMT_THREAD_SAFE
-		m_cslock.Unlock();
+		m_cslock.unlock();
 #endif
 
 		return true;
@@ -170,7 +171,7 @@ namespace plugin
 	long SmtAModuleManager::register_a_module_msg(SmtAuxModule *pAModule)
 	{
 #ifdef SMT_THREAD_SAFE
-		m_cslock.Lock();
+		m_cslock.lock();
 #endif
 
 		if (pAModule == NULL)
@@ -190,7 +191,7 @@ namespace plugin
 		}
 
 #ifdef SMT_THREAD_SAFE
-		m_cslock.Unlock();
+		m_cslock.unlock();
 #endif
 		return SMT_ERR_NONE;
 	}
@@ -198,7 +199,7 @@ namespace plugin
 	long SmtAModuleManager::unregister_a_module_msg(SmtAuxModule *pAModule)
 	{
 #ifdef SMT_THREAD_SAFE
-		m_cslock.Lock();
+		m_cslock.lock();
 #endif
 
 		if (pAModule == NULL)
@@ -219,7 +220,7 @@ namespace plugin
 		}
 
 #ifdef SMT_THREAD_SAFE
-		m_cslock.Unlock();
+		m_cslock.unlock();
 #endif
 
 		return SMT_ERR_NONE;

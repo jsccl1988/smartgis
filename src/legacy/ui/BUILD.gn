@@ -1,0 +1,51 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# MFC chrome → one DLL (dll_stem = ui_legacy).
+# Absorbs: gui / mfc_ex / xview / xcatalog / xambox / stat_chart.
+# App-gated via //src/ui:ui (forwarder) and //:smartgis (smt_build_app).
+# Not in //src:src_all. Endgame toolkit stays //src/ui/views.
+
+# Aggregator has no TUs; PCH lives on *_sources. Use smt_shared_library + MFC
+# configs so the template does not invent src/legacy/ui/stdafx.cpp.
+smt_shared_library("ui_legacy") {
+  dll_stem = "ui_legacy"
+  configs = [ "//build:mfc" ]
+  defines = [
+    "UI_LEGACY_EXPORTS",
+    "GUI_EXPORTS",
+    "MFC_EX_EXPORTS",
+    "XVIEW_EXPORTS",
+    "XCATALOG_EXPORTS",
+    "XAMBOX_EXPORTS",
+    "STAT_CHART_EXPORTS",
+    # tool_group factory lives here to avoid ui_legacy ↔ legacy_tool DLL cycle
+    # (tools call SmtInputTextDlg / SmtSelectOneDlg in gui).
+    "TOOL_GROUP_EXPORTS",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
+  ]
+  deps = [
+    "//src/legacy/ui/mfc_ex:mfc_ex_sources",
+    "//src/legacy/ui/gui:gui_sources",
+    "//src/legacy/ui/xambox:xambox_sources",
+    "//src/legacy/ui/xcatalog:xcatalog_sources",
+    "//src/legacy/ui/xview:xview_sources",
+    "//src/legacy/ui/chart:stat_chart_sources",
+    "//src/legacy/tool/group:tool_group_sources",
+    # Explicit: /NODEFAULTLIB ignores #pragma comment(lib) from headers.
+    "//src/sdb:sdb",
+  ]
+}
+
+# Opt-in aggregator for MFC UI (build.bat app / //:smartgis).
+group("ui") {
+  public_deps = [ ":ui_legacy" ]
+}
+
+group("legacy_ui_all") {
+  public_deps = [ ":ui_legacy" ]
+}

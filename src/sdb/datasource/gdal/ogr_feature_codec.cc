@@ -6,8 +6,8 @@
 #include "sdb/datasource/gdal/ogr_feature_kind.h"
 
 #include "algorithm/geo/geometry.h"
-#include "base/core/matrix2d.h"
-#include "base/style/style.h"
+#include "algorithm/geo/matrix2d.h"
+#include "sdb/carto/style.h"
 
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"

@@ -3,6 +3,7 @@
 
 #include "ui/views/layer_tree.h"
 
+#include <cstddef>
 #include <utility>
 
 #include "render/skia/canvas.h"
@@ -188,6 +189,53 @@ void LayerTree::set_layer_visible(const std::string& id, bool visible) {
   }
 }
 
+bool LayerTree::remove_layer(const std::string& id) {
+  for (size_t i = 0; i < rows_.size(); ++i) {
+    LayerRow* row = rows_[i];
+    if (!row || row->id() != id) {
+      continue;
+    }
+    row->set_visible(false);
+    row->set_selected(false);
+    rows_.erase(rows_.begin() + static_cast<std::ptrdiff_t>(i));
+    if (selected_id_ == id) {
+      selected_id_.clear();
+      if (!rows_.empty() && rows_.front()) {
+        select_id(rows_.front()->id());
+      }
+    }
+    layout();
+    schedule_paint();
+    return true;
+  }
+  return false;
+}
+
+bool LayerTree::move_layer(const std::string& id, int delta) {
+  if (delta == 0 || rows_.size() < 2) {
+    return false;
+  }
+  int index = -1;
+  for (size_t i = 0; i < rows_.size(); ++i) {
+    if (rows_[i] && rows_[i]->id() == id) {
+      index = static_cast<int>(i);
+      break;
+    }
+  }
+  if (index < 0) {
+    return false;
+  }
+  const int target = index + delta;
+  if (target < 0 || target >= static_cast<int>(rows_.size())) {
+    return false;
+  }
+  std::swap(rows_[static_cast<size_t>(index)],
+            rows_[static_cast<size_t>(target)]);
+  layout();
+  schedule_paint();
+  return true;
+}
+
 void LayerTree::set_visible_changed(VisibleChanged fn) {
   visible_changed_ = std::move(fn);
 }
@@ -279,9 +327,15 @@ void LayerTree::layout() {
   const Rect& b = bounds();
   int y = b.y;
   for (LayerRow* row : rows_) {
-    if (!row || !row->is_visible()) {
+    if (!row) {
       continue;
     }
+    // Keep rows inside the pane (layout_check / no paint overflow).
+    if (y + kRowH > b.bottom()) {
+      row->set_visible(false);
+      continue;
+    }
+    row->set_visible(true);
     row->set_bounds({b.x, y, b.width, kRowH});
     y += kRowH;
   }

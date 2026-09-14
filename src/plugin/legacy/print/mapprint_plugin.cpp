@@ -3,13 +3,13 @@
 #include "plugin/legacy/print/mapprint_plugin.h"
 
 #include "base/core/api.h"
-#include "legacy_ui/gui/gui_api.h"
+#include "legacy/ui/gui/gui_api.h"
 
-#include "legacy_ui/xcatalog/mapmgr.h"
+#include "legacy/ui/xcatalog/mapmgr.h"
 #include "sys/sysmanager.h"
-#include "legacy_tool/group/defs.h"
+#include "legacy/tool/group/defs.h"
 #include "plugin/legacy/plugin_msg.h"
-#include "legacy_tool/t_msg.h"
+#include "legacy/tool/t_msg.h"
 
 #include "plugin/legacy/print/dlg_2d_xview.h"
 #include "plugin/host/legacy_cmd.h"

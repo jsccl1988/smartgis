@@ -4,7 +4,7 @@
 #ifndef _GIS_MAP_H
 #define _GIS_MAP_H
 
-#include "base/style/envelope.h"
+#include "sdb/carto/envelope.h"
 #include "sdb/feature/feature.h"
 #include "sdb/gis_export.h"
 #include "sdb/layer/layer.h"
@@ -62,7 +62,9 @@ class GIS_EXPORT SmtMap {
   }
   SmtLayer* GetLayer(int index) { return GetLeftoverLayer(index); }
   const SmtLayer* GetLayer(int index) const { return GetLeftoverLayer(index); }
-  SmtLayer* GetLayer() { return GetActiveLeftoverLayer(); }
+  // Iterator current leftover (null for OGR-only layers). Prefer GetMapLayer /
+  // GetLayerName while walking MoveFirst/MoveNext.
+  SmtLayer* GetLayer();
   bool AddLayer(const SmtLayer* layer) {
     return AddLayer(const_cast<SmtLayer*>(layer));
   }

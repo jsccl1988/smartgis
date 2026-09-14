@@ -239,12 +239,12 @@ class View3dInteraction final : public Interaction {
       origin_ = {e.x_px, e.y_px};
       pts_.clear();
       pts_.push_back({e.x_px, e.y_px});
-      emit(DraftKind::kPoint);
+      // Do not emit+clear: the next move needs the press origin for orbit delta.
       return true;
     }
     if (e.kind == Kind::kMouseMove && captured_) {
       if (pts_.empty()) {
-        pts_.push_back({e.x_px, e.y_px});
+        pts_.push_back(origin_);
       }
       if (pts_.size() == 1) {
         pts_.push_back({e.x_px, e.y_px});

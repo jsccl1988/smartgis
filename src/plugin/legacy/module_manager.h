@@ -23,7 +23,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 #include "base/core/core.h"
 #include "plugin/legacy/module.h"
-#include "base/core/cslock.h"
+#include <mutex>
 
 #include <map>
 
@@ -60,7 +60,7 @@ namespace plugin
 
 	protected:
 #ifdef SMT_THREAD_SAFE
-		SmtCSLock						m_cslock;										//���̰߳�ȫ
+		std::mutex						m_cslock;										//���̰߳�ȫ
 #endif
 		vSmtAModulePtrs					m_vAModulePtrs;
 		SmtAuxModule					*m_pActiveAModules;

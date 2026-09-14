@@ -39,7 +39,7 @@ Status: active
 | 3 sdb | `src/sdb/**/BUILD.gn` | `gis`+`sde_*`+tile/model/scene/edit → `dll_stem=sdb` |
 | 4 render | `src/render/**/BUILD.gn` | endgame source_sets → `dll_stem=render` |
 | 5 ui_legacy | `src/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | → `dll_stem=ui_legacy`（`smt_build_app`） |
-| 6 optional | `src/legacy_render/**`、`src/legacy_tool/**` | → `legacy_render` / `legacy_tool` |
+| 6 optional | `src/legacy/render/**`、`src/legacy/tool/**` | → `legacy_render` / `legacy_tool` |
 | 7 docs | `abi-rename-map.md`、`src-layout.md`、本 plan 勾选 | 终态 stem 表 + 一层一 DLL 叙述 |
 
 **明确不做清单：**
@@ -200,7 +200,7 @@ ninja -C out net_test
 ### Task 3: Prep — 切断 `gis` → `render3d`
 
 **Files:**
-- Modify: `src/sdb/map/BUILD.gn`（去掉 `//src/legacy_render/render3d:render3d`）
+- Modify: `src/sdb/map/BUILD.gn`（去掉 `//src/legacy/render/render3d:render3d`）
 - Modify: 实际引用 leftover 3D 的 `.cpp/.h`（CBM `trace_path` / `search_code` 定位）— 下沉适配、`#if`、或迁到 `legacy_render` / 插件侧
 
 **Interfaces:**
@@ -209,7 +209,7 @@ ninja -C out net_test
 
 - [x] **Step 1: CBM 查 `gis` / `map_layer` 对 `render3d` / `Smt3D` 符号的引用**
 
-CBM：`src/sdb` 内仅 `map/BUILD.gn` deps + `feature.cpp` `#include legacy_render/render3d/base.h`（为 `SmtMaterial` 完整类型 / `SMT_SAFE_DELETE`）。`feature.h` 已是前向声明。
+CBM：`src/sdb` 内仅 `map/BUILD.gn` deps + `feature.cpp` `#include legacy/render/render3d/base.h`（为 `SmtMaterial` 完整类型 / `SMT_SAFE_DELETE`）。`feature.h` 已是前向声明。
 
 - [x] **Step 2: 切断 GN deps；编译失败驱动迁出或抽象**
 
@@ -256,7 +256,7 @@ ninja -C out sde_gdal_test
 
 **Files:**
 - Modify: `src/render/BUILD.gn`、`rhi`/`scene`/`math`/`skia` 相关 BUILD
-- **不**纳入 `src/legacy_render/**`
+- **不**纳入 `src/legacy/render/**`
 
 **Interfaces:**
 - Produces: `dll_stem = "render"`，`RENDER_EXPORTS`
@@ -302,7 +302,7 @@ ninja -C out sde_gdal_test
 ### Task 7: optional `legacy_render` / `legacy_tool`
 
 **Files:**
-- `src/legacy_render/**/BUILD.gn`、`src/legacy_tool/**/BUILD.gn`
+- `src/legacy/render/**/BUILD.gn`、`src/legacy/tool/**/BUILD.gn`
 - 终态各一 `dll_stem`；`legacy_*_all` group；默认不进 `src_all`
 
 - [x] **Step 1: 先 group 聚合验证，再收成单 DLL（可两步）**

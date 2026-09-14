@@ -4,7 +4,6 @@
 import("//build/smartgis.gni")
 
 _flycube_root = "//third_party/.src/flycube"
-_flycube_debug_out = "$root_out_dir/flycube"
 _flycube_prebuilt = "//third_party/flycube_prebuilt"
 
 config("flycube_headers") {
@@ -47,9 +46,10 @@ if (is_debug) {
 }
 
 config("flycube_libs") {
+  # Declare debug out only when used (GN errors on unused assigns in release).
   _flycube_lib_dir = _flycube_prebuilt
   if (is_debug) {
-    _flycube_lib_dir = _flycube_debug_out
+    _flycube_lib_dir = "$root_out_dir/flycube"
   }
   lib_dirs = [
     "$_flycube_lib_dir/lib",
@@ -66,6 +66,7 @@ config("flycube_libs") {
 }
 
 if (is_debug) {
+  _flycube_debug_out = "$root_out_dir/flycube"
   action("build_flycube_debug") {
     script = "//third_party/flycube/build_debug.py"
     inputs = [ "$_flycube_root/CMakeLists.txt" ]

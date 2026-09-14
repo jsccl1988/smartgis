@@ -1,0 +1,7 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Opt-in C# WinUI host. Off so ninja all / src_all stay free of dotnet.
+declare_args() {
+  smt_build_cs = false
+}

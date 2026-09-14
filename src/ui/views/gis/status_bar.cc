@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "render/skia/canvas.h"
+#include "ui/views/dpi.h"
 #include "ui/views/label.h"
 #include "ui/views/layout.h"
 #include "ui/views/theme.h"
@@ -92,6 +93,14 @@ const std::string& StatusBar::coord_text() const {
 const std::string& StatusBar::status() const {
   static const std::string kEmpty;
   return status_ ? status_->text() : kEmpty;
+}
+
+void StatusBar::on_device_scale_factor_changed(float old_scale,
+                                              float new_scale) {
+  View::on_device_scale_factor_changed(old_scale, new_scale);
+  // Keep the chrome strip height tied to DIPs after preferred_size scaling.
+  set_preferred_size(
+      {preferred_size().width, dip_to_px(24, new_scale > 0.f ? new_scale : 1.f)});
 }
 
 void StatusBar::paint_self(render::skia::Canvas* canvas) {

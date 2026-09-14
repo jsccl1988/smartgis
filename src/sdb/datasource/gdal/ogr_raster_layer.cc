@@ -6,7 +6,7 @@
 #include "sdb/datasource/gdal/gdal_driver.h"
 
 #include "base/core/api.h"
-#include "base/style/style_api.h"
+#include "sdb/carto/style_api.h"
 #include "gdal_priv.h"
 #include "cpl_vsi.h"
 
