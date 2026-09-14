@@ -46,36 +46,69 @@ void ensure_item(std::vector<AmboxView::Item>* items,
   items->push_back({id, label});
 }
 
-std::vector<AmboxView::Group> groups_from_catalog(
-    tool::CommandCatalog* catalog) {
+bool has_item_id(const std::vector<AmboxView::Item>& items,
+                 std::string_view id) {
+  for (const auto& item : items) {
+    if (item.id == id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void append_catalog_ids(tool::CommandCatalog* catalog,
+                        AmboxView::Group* select,
+                        AmboxView::Group* pan,
+                        AmboxView::Group* edit,
+                        AmboxView::Group* tools) {
+  if (!catalog || !select || !pan || !edit || !tools) {
+    return;
+  }
+  catalog->for_each([&](std::string_view id) {
+    if (id.empty()) {
+      return;
+    }
+    AmboxView::Group* target = nullptr;
+    if (starts_with(id, "selection.") || id == "select" || id == "identify") {
+      target = select;
+    } else if (starts_with(id, "view.") || id == "pan") {
+      target = pan;
+    } else if (starts_with(id, "edit.")) {
+      target = edit;
+    } else if (!starts_with(id, "flash.")) {
+      target = tools;
+    }
+    if (!target || has_item_id(target->items, id)) {
+      return;
+    }
+    target->items.push_back({std::string(id), label_for_id(id)});
+  });
+}
+
+std::vector<AmboxView::Group> groups_from_catalogs(
+    const std::vector<tool::CommandCatalog*>& catalogs) {
   AmboxView::Group select{"Select", {}};
   AmboxView::Group pan{"Pan", {}};
+  AmboxView::Group edit{"Edit", {}};
   AmboxView::Group tools{"Tools", {}};
 
-  if (catalog) {
-    catalog->for_each([&](std::string_view id) {
-      if (id.empty()) {
-        return;
-      }
-      const AmboxView::Item item{std::string(id), label_for_id(id)};
-      if (starts_with(id, "selection.") || id == "select" ||
-          id == "identify") {
-        select.items.push_back(item);
-      } else if (starts_with(id, "view.") || id == "pan") {
-        pan.items.push_back(item);
-      } else if (!starts_with(id, "flash.")) {
-        tools.items.push_back(item);
-      }
-    });
+  for (tool::CommandCatalog* catalog : catalogs) {
+    append_catalog_ids(catalog, &select, &pan, &edit, &tools);
   }
 
   ensure_item(&select.items, "select", "Select");
   ensure_item(&select.items, "identify", "Identify");
   ensure_item(&pan.items, "pan", "Pan");
+  ensure_item(&edit.items, "edit.append.point", "Append point");
+  ensure_item(&edit.items, "edit.append.linestring", "Append line");
+  ensure_item(&edit.items, "edit.append.polygon", "Append polygon");
+  ensure_item(&edit.items, "edit.undo", "Undo");
+  ensure_item(&edit.items, "edit.cancel", "Cancel");
 
   std::vector<AmboxView::Group> groups;
   groups.push_back(std::move(select));
   groups.push_back(std::move(pan));
+  groups.push_back(std::move(edit));
   if (!tools.items.empty()) {
     groups.push_back(std::move(tools));
   }
@@ -141,7 +174,16 @@ void AmboxView::populate_from_plugin_host(content::PluginHost* host) {
 }
 
 void AmboxView::populate_from_commands(tool::CommandCatalog* catalog) {
-  set_groups(groups_from_catalog(catalog));
+  std::vector<tool::CommandCatalog*> catalogs;
+  if (catalog) {
+    catalogs.push_back(catalog);
+  }
+  populate_from_commands(catalogs);
+}
+
+void AmboxView::populate_from_commands(
+    const std::vector<tool::CommandCatalog*>& catalogs) {
+  set_groups(groups_from_catalogs(catalogs));
 }
 
 void AmboxView::rebuild() {

@@ -14,6 +14,7 @@
 #include "sdb/datasource/gdal/ogr_feature_codec.h"
 
 #include "legacy_tool/group/resource.h"
+#include "legacy_ui/gui/gui_api.h"
 
 #include "ogrsf_frmts.h"
 
@@ -27,8 +28,6 @@ using namespace sys;
 using namespace base;
 
 const string						CST_STR_APPENDFEATURE_TOOL_NAME	= "???????";
-
-long SmtInputTextDlg(string& strText);
 
 namespace {
 

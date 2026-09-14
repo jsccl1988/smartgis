@@ -122,7 +122,7 @@ flowchart LR
 | `//src/sde/host:io_host` | `src/sde/host` | `SmartGisIo.exe`（v1.5） | 否 |
 | `//src/app/winui:app_winui` | `src/app/winui` | 方案 2 exe | 否 |
 | `//src/app/views:views` | `src/app/views` | 方案 3 exe | 否 |
-| `//src/app:app` | `src/app` | leftover `SmartGis.exe`（MFC Feature Pack） | 否；不是终局 chrome |
+| `//src/legacy_app:app` | `src/app` | leftover `SmartGis.exe`（MFC Feature Pack） | 否；不是终局 chrome |
 
 新公共命名空间（已落地）：**`content`**（chrome 调用 `MapSession` / `MapView`）、**`gpu`**（`SmartGisRender.exe` + `Smt*` 适配器）。更深的编解码放 `content::detail` / `gpu::detail`。
 
@@ -353,7 +353,7 @@ v1 适配器路径：
 6. `SmtAuxModule`：无 UI 的逻辑在 render 加载；要弹 MFC 对话框的 AM（`plugin/print`）v1 走两条路之一——**(A)** 对话框改 chrome（Views/WinUI），结果经 `PluginCall` 回来；**(B)** 临时仍由 render 弹跨进程 Win32 对话框（体验差，只许白名单）。
 7. 无窗口瓦片发布栈已删除；图层 I/O 走 `sdb` / GDAL。
 
-**明确不在 v1 做的：** 把 `SmtXView` 改成非 MFC。它继续服务旧 `SmartGis.exe`。新 chrome 不链接 `//src/ui/xview:xview`。
+**明确不在 v1 做的：** 把 `SmtXView` 改成非 MFC。它继续服务旧 `SmartGis.exe`。新 chrome 不链接 `//src/legacy_ui/xview:xview`。
 
 **未来 GPU（仍在 render 进程）**
 
@@ -389,7 +389,7 @@ v1 适配器路径：
 
 ### 0.10 Feature Pack 只是 v0 bootstrap
 
-允许一个极瘦的 `CMFC*` exe：一个框 + 子 HWND + `IMapSession`，用来在 WinUI/WebView2 未就绪时跑通 OOP present。它 **不是** 方案 4，不出现在第 4 节对比表的“上限”列。旧 `//src/app:app`（BCG）同样视为遗留，直到许可 BCG 或弃用。
+允许一个极瘦的 `CMFC*` exe：一个框 + 子 HWND + `IMapSession`，用来在 WinUI/WebView2 未就绪时跑通 OOP present。它 **不是** 方案 4，不出现在第 4 节对比表的“上限”列。旧 `//src/legacy_app:app`（BCG）同样视为遗留，直到许可 BCG 或弃用。
 
 ---
 

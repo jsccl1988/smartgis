@@ -3,7 +3,7 @@
 
 # Platform DLL merge in progress (see docs/superpowers/plans/2026-09-14-dll-reorganization.md).
 # base / algorithm / sdb = one DLL each. Do not add MFC/D3D/exe here.
-# Exe is //src/app:app via root //:smartgis / build.bat app.
+# Exe is //src/legacy_app:app via root //:smartgis / build.bat app.
 # WinUI / Views hosts live under src/app/ and are not in src_all.
 
 group("src_all") {

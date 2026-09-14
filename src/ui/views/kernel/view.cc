@@ -3,6 +3,8 @@
 
 #include "ui/views/view.h"
 
+#include <cmath>
+
 #include "render/skia/canvas.h"
 #include "ui/views/layout.h"
 #include "ui/views/widget.h"
@@ -196,6 +198,25 @@ bool View::on_char_event(const CharEvent& event) {
 void View::on_focus() {}
 
 void View::on_blur() {}
+
+void View::on_device_scale_factor_changed(float old_scale, float new_scale) {
+  if (old_scale <= 0.f || new_scale <= 0.f || old_scale == new_scale) {
+    return;
+  }
+  const float ratio = new_scale / old_scale;
+  preferred_size_.width =
+      static_cast<int>(std::lround(preferred_size_.width * ratio));
+  preferred_size_.height =
+      static_cast<int>(std::lround(preferred_size_.height * ratio));
+}
+
+void View::propagate_device_scale_factor_changed(float old_scale,
+                                               float new_scale) {
+  on_device_scale_factor_changed(old_scale, new_scale);
+  for (auto& child : children_) {
+    child->propagate_device_scale_factor_changed(old_scale, new_scale);
+  }
+}
 
 View* View::get_view_at(int x, int y) {
   if (!visible_ || !bounds_.contains(x, y)) {

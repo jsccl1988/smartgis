@@ -4,6 +4,7 @@
 #include "render/skia/canvas.h"
 
 #include <cstdint>
+#include <vector>
 
 namespace render {
 namespace skia {
@@ -18,8 +19,17 @@ COLORREF to_colorref(Color color) {
 
 }  // namespace
 
+struct Canvas::Backend {
+  std::vector<int> saved_dcs;
+};
+
 Canvas::Canvas(HDC hdc, int width, int height)
-    : hdc_(hdc), width_(width), height_(height) {}
+    : hdc_(hdc), width_(width), height_(height), backend_(new Backend) {}
+
+Canvas::~Canvas() {
+  delete backend_;
+  backend_ = nullptr;
+}
 
 void Canvas::fill_rect(int x, int y, int w, int h, Color color) {
   if (!hdc_ || w <= 0 || h <= 0) {
@@ -94,21 +104,21 @@ void Canvas::clip_rect(int x, int y, int w, int h) {
 }
 
 void Canvas::save() {
-  if (!hdc_) {
+  if (!hdc_ || !backend_) {
     return;
   }
   const int id = SaveDC(hdc_);
   if (id != 0) {
-    saved_dcs_.push_back(id);
+    backend_->saved_dcs.push_back(id);
   }
 }
 
 void Canvas::restore() {
-  if (!hdc_ || saved_dcs_.empty()) {
+  if (!hdc_ || !backend_ || backend_->saved_dcs.empty()) {
     return;
   }
-  const int id = saved_dcs_.back();
-  saved_dcs_.pop_back();
+  const int id = backend_->saved_dcs.back();
+  backend_->saved_dcs.pop_back();
   RestoreDC(hdc_, id);
 }
 

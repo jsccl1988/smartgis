@@ -5,7 +5,7 @@
 #include "plugin/legacy/print/map_print.h"
 #include "plugin/legacy/print/dlg_2d_xview.h"
 
-#include "ui/xcatalog/mapmgr.h"
+#include "legacy_ui/xcatalog/mapmgr.h"
 #include "sdb/feature/feature_api.h"
 #include "sdb/datasource/mgr/datasourcemgr.h"
 

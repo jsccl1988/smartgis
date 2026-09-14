@@ -37,6 +37,7 @@ group("test_all") {
     "//testing/e2e:exe_smoke",
     "//src/sdb/datasource/gdal:sde_gdal_test",
     "//src/sdb/tile:tile_test",
+    "//src/sdb/style:style_test",
     "//src/algorithm/geo:geo_ogr_test",
     "//src/algorithm/proj:proj_test",
     "//src/algorithm/stat:stat_expr_test",
@@ -50,7 +51,7 @@ group("test_all") {
     "//src/base/ipc:ipc_test",
   ]
   if (smt_build_app) {
-    deps += [ "//src/app:app" ]
+    deps += [ "//src/legacy_app:app" ]
   }
 }
 
@@ -102,22 +103,29 @@ group("core_all") {
   public_deps = [ "//core:core_all" ]
 }
 
-# Desktop exe + MFC/BCG UI/map stack. Only loaded when smt_build_app=true
-# (this GN's ninja `all` includes every loaded target).
+# Leftover MFC SmartGis.exe — opt-in only (build.bat legacy_app / smartgis).
+# Daily product entry is //:views (build.bat app|views). Not in group("all").
 group("smartgis") {
   deps = []
   if (smt_build_app) {
-    deps += [ "//src/app:app" ]
+    deps += [ "//src/legacy_app:legacy_app_all" ]
   }
 }
 
+group("legacy_app_all") {
+  deps = []
+  if (smt_build_app) {
+    deps += [ "//src/legacy_app:legacy_app_all" ]
+  }
+}
+
+# Product chrome alias → Views (not MFC).
 group("app") {
-  deps = [ ":smartgis" ]
+  deps = [ ":views" ]
 }
 
 # MFC UI DLL (dll_stem = ui_legacy). Explicit ninja target; NOT in src_all.
-# Default `all` stays free of MFC — only //:smartgis / build.bat app pull the
-# exe which deps this DLL. Opt-in: build.bat ui_legacy (sets smt_build_app).
+# Opt-in: build.bat ui_legacy or legacy_app (sets smt_build_app).
 group("ui_legacy") {
   deps = [ "//src/ui:ui_legacy" ]
 }

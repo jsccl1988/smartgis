@@ -32,6 +32,7 @@ source_set("views") {
     "create_layer_dialog.h",
     "create_map_dialog.h",
     "dialog.h",
+    "dpi.h",
     "event.h",
     "feature_info.h",
     "file_picker.h",
@@ -56,6 +57,8 @@ source_set("views") {
     "widget.h",
 
     # Kernel
+    "kernel/dpi.cc",
+    "kernel/dpi.h",
     "kernel/event.h",
     "kernel/layout.cc",
     "kernel/layout.h",

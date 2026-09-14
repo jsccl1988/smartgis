@@ -60,6 +60,8 @@ smt_shared_library("render") {
   ]
   # Forward FlyCube presence to consumers (tests / Views) that branch on
   # SMT_HAS_FLYCUBE; source_set public_configs do not flow through the DLL.
+  # Do not forward skia_real_config here — it pulls Skia include_dirs into every
+  # render consumer. Canvas ABI is backend-stable without SMT_HAS_SKIA in TUs.
   if (smt_has_flycube) {
     public_configs = [ ":rhi_flycube" ]
   }

@@ -11,6 +11,7 @@
 #include "base/core/msg_def.h"
 #include "base/core/logmanager.h"
 #include "sdb/datasource/gdal/ogr_feature_codec.h"
+#include "legacy_ui/gui/gui_api.h"
 
 #include "ogrsf_frmts.h"
 
@@ -24,8 +25,6 @@ using namespace sdb;
 
 const string						CST_STR_SELECT_TOOL_NAME	= "选取";
 const string						C_STR_SELECT_TOO_LOG = "SmtSelectTool";
-
-long SmtSelectOneDlg(uint& unID, std::vector<uint>& vIDs);
 
 namespace {
 

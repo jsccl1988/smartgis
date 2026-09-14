@@ -11,7 +11,7 @@ All rights reserved.
 
 ## 目标
 
-把 leftover MFC 桌面壳（`SmartGis.exe` + `src/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}`）重写到 **`ui::views`**。产品入口只保留 **`SmartGisViews.exe`**。地图继续挂 HWND，经 `content::ViewHost` 派发；**不**包装 `CView`。达到功能对等后停止编译 leftover MFC UI。本轮不删除 leftover 源码。
+把 leftover MFC 桌面壳（`SmartGis.exe` + `src/legacy_ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` + `src/legacy_app`）重写到 **`ui::views`**。产品入口只保留 **`SmartGisViews.exe`**。地图继续挂 HWND，经 `content::ViewHost` 派发；**不**包装 `CView`。达到功能对等后停止编译 leftover MFC UI。本轮不删除 leftover 源码。
 
 ## 锁定决策
 
@@ -52,8 +52,8 @@ src/ui/views                              公共工具箱 ui::views
 
 src/render/skia                           fill / text 画布（不是控件库）
 src/content/public                        ViewHost / PluginHost / MapContents
-src/ui/{gui,mfc_ex,xview,xcatalog,        leftover（parity 前继续编 SmartGis.exe）
-        xambox,chart} + leftover src/app
+src/legacy_ui/{gui,mfc_ex,xview,xcatalog, leftover（parity 前继续编 SmartGis.exe）
+        xambox,chart} + src/legacy_app
 ```
 
 Chrome 只 include `content/public`。插件贡献走 `content::PluginHost`；`AmboxView` 不链 leftover `SmtAModuleManager`。
@@ -66,8 +66,8 @@ Chrome 只 include `content/public`。插件贡献走 `content::PluginHost`；`A
 | `src/app/views/` | 组合 `Widget` + `Splitter` + tabs；`SmartGisViews.exe` | 产品壳 agent |
 | `src/content/public/` | `ViewHost`、`PluginHost`、`MapContents` | content / plugin |
 | `src/render/skia/` | chrome 画布 | render |
-| `src/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | leftover MFC；本轮不删 | 冻结（只修编译） |
-| leftover `src/app/`（`CMainFrame` / `CView`） | `SmartGis.exe` 直到 parity | 冻结 |
+| `src/legacy_ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | leftover MFC；本轮不删 | 冻结（只修编译） |
+| `src/legacy_app/`（`CMainFrame` / `CView`） | `SmartGis.exe` 直到 parity | 冻结 |
 
 禁止：在 `src/app/views` 再写一套 catalog / ambox / chart 手绘 `View`；禁止 `src/chrome/`；禁止把 leftover `CView` 嵌进 Views。
 
@@ -75,7 +75,7 @@ Chrome 只 include `content/public`。插件贡献走 `content::PluginHost`；`A
 
 | leftover 模块 / 类型 | 角色 | Views 类型 |
 | --- | --- | --- |
-| `src/app` `CMainFrame` / `CChildFrm` / MDI | 主框 + 多文档 | 单 `Widget` + `Splitter`（非 MDI） |
+| `src/app` `CMainFrame` / `CChildFrm` / MDI（现 `src/legacy_app`） | 主框 + 多文档 | 单 `Widget` + `Splitter`（非 MDI） |
 | `CSmartMapEditView` / `Smt2DXView` / `Smt2DXEditView` | 2D 地图 `CView` | `MapViewport` + `content::ViewHost`；Tab「Map edit 2D」 |
 | `CSmartDataSourceView` | 数据源页 | Tab「Datasource」+ `CatalogView` |
 | `CSmart3DView` / `Smt3DXView` | 3D `CView` | Tab「3D」+ `MapViewport`（3D 设备仍挂 HWND） |
@@ -83,10 +83,10 @@ Chrome 只 include `content/public`。插件贡献走 `content::PluginHost`；`A
 | `src/ui/xcatalog` `SmtXCatalog` / `SmtDsXCatalog` / `SmtMapDocXCatalog` | 目录树 | `CatalogView` + `LayerTree` |
 | `src/ui/xambox` `SmtAMBoxMgrDocBar` (`CBCGPOutlookBar`) / `SmtXAMBox` | Outlook 工具箱 | `AmboxView` |
 | `src/ui/chart` `CDlg2DXChartView` / `SmtChart` / `SmtStaDiagram` | MFC 统计图 | `ChartView`（可选 `ChartView::run_modal`） |
-| `src/ui/gui` `CDlg2DFeatureInfo` | 要素信息 | `FeatureInfo` |
-| `src/ui/gui` 配置 / 输入对话框 | 杂项 dialog | `Dialog` + primitives（对等后） |
-| `src/ui/mfc_ex` `CGridCtrl` | 属性表 | `AttributeTable` / `TableView` |
-| `src/ui/mfc_ex` `CStackedWndDockBar` / `CTabbedWndDockBar` | dock 条 | `Splitter` + `TabStrip`（非真 dock） |
+| `src/legacy_ui/gui` `CDlg2DFeatureInfo` | 要素信息 | `FeatureInfo` |
+| `src/legacy_ui/gui` 配置 / 输入对话框 | 杂项 dialog | `Dialog` + primitives（对等后） |
+| `src/legacy_ui/mfc_ex` `CGridCtrl` | 属性表 | `AttributeTable` / `TableView` |
+| `src/legacy_ui/mfc_ex` `CStackedWndDockBar` / `CTabbedWndDockBar` | dock 条 | `Splitter` + `TabStrip`（非真 dock） |
 | `CBCGP*` / Feature Pack `CMFC*` | BCG 皮肤 | 不像素级复刻；Theme 深色 chrome |
 | leftover `*.am` 菜单灌入 AMBox | 插件工具项 | `PluginHost` 贡献 → `AmboxView`（现无 list API 则 dummy 组） |
 
@@ -124,7 +124,7 @@ Chrome 只 include `content/public`。插件贡献走 `content::PluginHost`；`A
 然后：
 
 1. `build.bat app` / `//:smartgis` 不再编 `SmartGis.exe`
-2. `src/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` 与 leftover `src/app` MFC 目标移出日常图
+2. `src/legacy_ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` 与 `src/legacy_app` MFC 目标移出日常图
 3. 源码删除另开变更（本规格不授权本轮删除）
 
 ## 测试

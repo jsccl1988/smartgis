@@ -43,6 +43,8 @@ class PluginChrome {
   bool show_manager(HWND owner);
 
   content::PluginHost* host() const;
+  // Same catalog PluginHost::commands() returns; for Ambox enumeration.
+  tool::CommandCatalog* commands() const;
   plugin::Registry* registry() const;
   bool execute(std::string_view command_id);
 

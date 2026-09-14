@@ -6,13 +6,10 @@
 
 // Paint surface for Views chrome. Default backend is GDI (canvas.cc).
 // With smt_has_skia + local pin, the same API is implemented by canvas_skia.cc.
-// Views must not #ifdef on SMT_HAS_SKIA; public surface stays identical.
-// See docs/build/ui-views-skia.md and
-// docs/superpowers/specs/2026-09-14-render-skia-canvas-design.md.
+// Layout and destructor are identical for both backends (opaque Backend*):
+// consumers must not #ifdef on SMT_HAS_SKIA. See docs/build/ui-views-skia.md.
 
 #include <windows.h>
-
-#include <vector>
 
 #include "render/render_export.h"
 #include "render/skia/color.h"
@@ -31,11 +28,10 @@ struct Size {
 class RENDER_EXPORT Canvas {
  public:
   Canvas(HDC hdc, int width, int height);
-#if defined(SMT_HAS_SKIA)
   ~Canvas();
+
   Canvas(const Canvas&) = delete;
   Canvas& operator=(const Canvas&) = delete;
-#endif
 
   void fill_rect(int x, int y, int w, int h, Color color);
   void stroke_rect(int x, int y, int w, int h, Color color,
@@ -59,16 +55,14 @@ class RENDER_EXPORT Canvas {
   HDC hdc() const { return hdc_; }
 
  private:
+  // Opaque backend (GDI save-stack or Skia raster). Same size for both
+  // implementations so dllimport callers match the render DLL layout.
+  struct Backend;
+
   HDC hdc_;
   int width_;
   int height_;
-#if defined(SMT_HAS_SKIA)
-  // Opaque Skia raster + DIB state; defined in canvas_skia.cc.
-  struct SkiaState;
-  SkiaState* skia_ = nullptr;
-#else
-  std::vector<int> saved_dcs_;
-#endif
+  Backend* backend_ = nullptr;
 };
 
 }  // namespace skia

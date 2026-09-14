@@ -8,7 +8,9 @@
 #include "sdb/feature/feature.h"
 #include "sdb/gis_export.h"
 #include "sdb/layer/layer.h"
+#include "sdb/style/style_types.h"
 
+#include <memory>
 #include <string>
 
 class GDALDataset;
@@ -53,6 +55,12 @@ class GIS_EXPORT MapLayer {
   const std::string& style_name() const { return style_name_; }
   void set_style_name(const char* name);
 
+  // Optional MapLibre-subset document (sdb::style). Independent of style_name_.
+  const std::shared_ptr<style::StyleDocument>& style_document() const {
+    return style_document_;
+  }
+  void set_style_document(std::shared_ptr<style::StyleDocument> doc);
+
   void get_envelope(base::Envelope* out) const;
   void cal_envelope();
 
@@ -66,6 +74,7 @@ class GIS_EXPORT MapLayer {
   bool visible_ = true;
   SmtFeatureType feature_type_ = SmtFtUnknown;
   std::string style_name_;
+  std::shared_ptr<style::StyleDocument> style_document_;
 };
 
 }  // namespace sdb

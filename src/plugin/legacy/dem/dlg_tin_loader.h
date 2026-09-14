@@ -1,9 +1,9 @@
 #pragma once
 #include "plugin/legacy/dem/resource.h"
 #include "afxwin.h"
-#include "ui/xview/view_3d.h"
+#include "legacy_ui/xview/view_3d.h"
 
-#include "ui/mfc_ex/grid_ctrl_support.h"
+#include "legacy_ui/mfc_ex/grid_ctrl_support.h"
 
 using namespace ui;
 

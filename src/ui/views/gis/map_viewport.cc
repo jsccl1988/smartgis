@@ -14,6 +14,8 @@
 
 #include "render/rhi/rhi.h"
 #include "render/skia/canvas.h"
+#include "ui/views/dpi.h"
+#include "ui/views/widget.h"
 
 #if defined(__has_include)
 #if __has_include("content/public/map_contents.h")
@@ -225,10 +227,13 @@ bool MapViewport::attach() {
 
   if (try_content_map_view()) {
     mode_ = AttachMode::kContentMapView;
-    status_ = L"content::MapWidgetHostView";
+    status_ = (role_ == Role::kScene3d)
+                  ? L"content::MapWidgetHostView (3D)"
+                  : L"content::MapWidgetHostView";
     return true;
   }
-  // Only the Map Edit pane tries leftover OOP / FlyCube / LoadLibrary hang.
+  // Map Edit: leftover OOP / FlyCube / LoadLibrary. Scene3d: FlyCube only
+  // when a local GPU device is present; otherwise keep a stable placeholder.
   if (role_ == Role::kMapEdit) {
     if (try_oop_render()) {
       mode_ = AttachMode::kOopRender;
@@ -246,17 +251,24 @@ bool MapViewport::attach() {
       status_ = L"CreateRenderDevice (LoadLibrary)";
       return true;
     }
+  } else if (role_ == Role::kScene3d) {
+    if (try_flycube_device()) {
+      mode_ = AttachMode::kFlyCube;
+      status_ = L"3D FlyCube RHI present (DX12)";
+      return true;
+    }
   }
   mode_ = AttachMode::kPlaceholder;
   if (role_ == Role::kScene3d) {
-    status_ = L"3D placeholder (no scene attach)";
+    status_ = L"3D placeholder (no scene device)";
   } else if (role_ == Role::kMapData) {
     status_ = L"Datasource browse (placeholder)";
   } else {
     status_ = L"Placeholder map (no render exe / device DLL)";
   }
   paint_child_placeholder();
-  return false;
+  // HWND is live; callers treat placeholder as a successful UI hang.
+  return native_view() != nullptr;
 }
 
 void MapViewport::detach() {
@@ -268,6 +280,9 @@ void MapViewport::detach() {
 #endif
   session_ = nullptr;
   owns_session_ = false;
+  if (HWND hwnd = native_view()) {
+    SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
+  }
   if (render_process_) {
     TerminateProcess(render_process_, 0);
     CloseHandle(render_process_);
@@ -305,12 +320,29 @@ void MapViewport::resize_host_surface(int width_px, int height_px) {
     return;
   }
   if (content::MapWidgetHostView* view = session_->HostView(view_id_)) {
-    view->Resize(width_px, height_px, 96.0f);
+    view->Resize(width_px, height_px, surface_dpi());
   }
 #else
   (void)width_px;
   (void)height_px;
 #endif
+}
+
+float MapViewport::surface_dpi() const {
+  if (widget()) {
+    return static_cast<float>(widget()->dpi());
+  }
+  return static_cast<float>(dpi_for_hwnd(native_view()));
+}
+
+void MapViewport::on_device_scale_factor_changed(float old_scale,
+                                               float new_scale) {
+  View::on_device_scale_factor_changed(old_scale, new_scale);
+  if (HWND hwnd = native_view()) {
+    RECT rc = {};
+    GetClientRect(hwnd, &rc);
+    resize_host_surface(rc.right - rc.left, rc.bottom - rc.top);
+  }
 }
 
 bool MapViewport::try_content_map_view() {
@@ -346,7 +378,7 @@ bool MapViewport::try_content_map_view() {
     view->Create(params, content::MapWidgetHostView::Preferences{});
     RECT rc = {};
     GetClientRect(native_view(), &rc);
-    view->Resize(rc.right, rc.bottom, 96.0f);
+    view->Resize(rc.right, rc.bottom, surface_dpi());
   }
   return true;
 #else
@@ -537,12 +569,19 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
     render::skia::Canvas canvas(hdc, rc.right, rc.bottom);
     canvas.fill_rect(0, 0, rc.right, rc.bottom,
                      render::skia::color_rgb(27, 58, 75));
+    const wchar_t* title = L"SmartGIS map HWND";
+    if (self) {
+      if (self->role_ == Role::kScene3d) {
+        title = L"SmartGIS 3D HWND";
+      } else if (self->role_ == Role::kMapData) {
+        title = L"SmartGIS data HWND";
+      }
+    }
     const wchar_t* text = L"Map viewport";
     if (self && self->status_) {
       text = self->status_;
     }
-    canvas.draw_text(16, 16, L"SmartGIS map HWND",
-                     render::skia::color_rgb(220, 230, 240));
+    canvas.draw_text(16, 16, title, render::skia::color_rgb(220, 230, 240));
     canvas.draw_text(16, 40, text, render::skia::color_rgb(160, 200, 180));
     EndPaint(hwnd, &ps);
     return 0;

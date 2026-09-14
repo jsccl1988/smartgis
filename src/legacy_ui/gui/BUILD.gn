@@ -1,0 +1,46 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# MFC Feature Pack dialogs / dock bars. Compiled into //src/legacy_ui:ui_legacy.
+# DllMain is owned by mfc_ex_sources (single AFX extension attach).
+source_set("gui_sources") {
+  configs += [
+    "//build:legacy",
+    "//build:mfc",
+  ]
+  defines = [
+    "_USRDLL",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
+    "GUI_EXPORTS",
+  ]
+  precompiled_header = "stdafx.h"
+  precompiled_source = "stdafx.cpp"
+  include_dirs += [ "." ]
+  sources = [
+    "dlg_2d_feature_info.cpp",
+    "dlg_att_struct_set.cpp",
+    "dlg_input_text.cpp",
+    "dlg_select_one.cpp",
+    "edit_config_dock_bar.cpp",
+    "gui_core.rc",
+    "config_dock_bar.cpp",
+    "gui_api.cpp",
+    "stdafx.cpp",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/algorithm/geo:geo",
+    "//src/sdb/map:gis",
+    "//src/sys:sys",
+    "//third_party:gdal",
+  ]
+}
+
+group("gui") {
+  public_deps = [ "//src/legacy_ui:ui_legacy" ]
+}

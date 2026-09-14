@@ -147,7 +147,12 @@ void Workspace::on_draft(const Draft& draft) {
     sdb::FeatureMutation mutation;
     mutation.op = sdb::EditOp::kAppend;
     mutation.id = id_from_draft(draft);
-    edits_->commit(mutation);
+    if (edits_->commit(mutation) && events_) {
+      content::EditCommitted ev;
+      ev.id = mutation.id;
+      ev.op = content::EditCommitted::Op::kAppend;
+      events_->publish(ev);
+    }
   }
 }
 
@@ -222,6 +227,19 @@ void Workspace::register_builtins() {
       content::SelectionChanged ev;
       ev.view_id = args.view_id;
       events_->publish(ev);
+    }
+    return true;
+  });
+
+  catalog_.add("edit.undo", [this](const CommandArgs&) {
+    return edits_ && edits_->can_undo() && edits_->undo();
+  });
+  catalog_.add("edit.redo", [this](const CommandArgs&) {
+    return edits_ && edits_->can_redo() && edits_->redo();
+  });
+  catalog_.add("edit.cancel", [this](const CommandArgs&) {
+    last_draft_ = Draft{};
+    while (stack_.pop()) {
     }
     return true;
   });

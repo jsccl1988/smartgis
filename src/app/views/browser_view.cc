@@ -3,9 +3,13 @@
 
 #include "app/views/browser_view.h"
 
+#include <cstdio>
+#include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -14,9 +18,14 @@
 
 #include "app/views/app_commands.h"
 #include "app/views/plugin_chrome.h"
+#include "content/public/events.h"
 #include "content/public/map_contents.h"
+#include "content/public/map_types.h"
 #include "content/public/view_host.h"
+#include "sdb/edit/edit_session.h"
 #include "sdb/tile/tile_map_layer.h"
+#include "tool/command.h"
+#include "tool/workspace.h"
 #include "ui/views/add_basemap_dialog.h"
 #include "ui/views/ambox_view.h"
 #include "ui/views/att_struct_dialog.h"
@@ -72,6 +81,101 @@ void catalog_call(content::MapContents* session, const std::string& json) {
   session->CatalogCall(json.c_str());
 }
 
+// Chrome-side layer mirror after CatalogCall open. Content has no CatalogDelta
+// payload yet; until then the host seeds LayerTree from the opened path stem.
+std::string path_stem(const std::string& path) {
+  if (path.empty()) {
+    return {};
+  }
+  size_t begin = path.find_last_of("/\\");
+  begin = (begin == std::string::npos) ? 0 : begin + 1;
+  size_t end = path.find_last_of('.');
+  if (end == std::string::npos || end < begin) {
+    end = path.size();
+  }
+  return path.substr(begin, end - begin);
+}
+
+std::vector<ui::views::LayerTree::LayerDesc> layers_from_open_path(
+    const std::string& path) {
+  std::vector<ui::views::LayerTree::LayerDesc> layers;
+  const std::string stem = path_stem(path);
+  if (stem.empty()) {
+    return layers;
+  }
+  ui::views::LayerTree::LayerDesc layer;
+  layer.id = path;
+  layer.name = stem;
+  layer.visible = true;
+  layer.active = true;
+  layers.push_back(std::move(layer));
+  return layers;
+}
+
+void populate_catalog_after_open(ui::views::CatalogView* catalog,
+                                 const std::string& path) {
+  if (!catalog) {
+    return;
+  }
+  const auto layers = layers_from_open_path(path);
+  if (!layers.empty()) {
+    catalog->populate_layers(layers);
+    catalog->set_map_docs({{path, "", path_stem(path), false}});
+  }
+}
+
+int hex_nibble(char c) {
+  if (c >= '0' && c <= '9') {
+    return c - '0';
+  }
+  if (c >= 'a' && c <= 'f') {
+    return c - 'a' + 10;
+  }
+  if (c >= 'A' && c <= 'F') {
+    return c - 'A' + 10;
+  }
+  return -1;
+}
+
+// Map AttributeTable opaque tokens to FeatureId for EditSession::commit.
+// Accepts "fid:" + hex (selection feedback) or raw opaque bytes.
+content::FeatureId feature_id_from_opaque_token(const std::string& token) {
+  content::FeatureId id{};
+  if (token.empty()) {
+    return id;
+  }
+  std::string_view hex = token;
+  constexpr std::string_view kPrefix = "fid:";
+  if (hex.size() >= kPrefix.size() && hex.substr(0, kPrefix.size()) == kPrefix) {
+    hex.remove_prefix(kPrefix.size());
+  }
+  const bool even_hex =
+      !hex.empty() && (hex.size() % 2) == 0 && hex.size() <= 64;
+  if (even_hex) {
+    bool ok = true;
+    uint8_t bytes[32] = {};
+    size_t n = 0;
+    for (size_t i = 0; i + 1 < hex.size() && n < sizeof(bytes); i += 2) {
+      const int hi = hex_nibble(hex[i]);
+      const int lo = hex_nibble(hex[i + 1]);
+      if (hi < 0 || lo < 0) {
+        ok = false;
+        break;
+      }
+      bytes[n++] = static_cast<uint8_t>((hi << 4) | lo);
+    }
+    if (ok && n > 0) {
+      id.len = static_cast<uint8_t>(n);
+      std::memcpy(id.bytes, bytes, n);
+      return id;
+    }
+  }
+  id.len = static_cast<uint8_t>(
+      token.size() < sizeof(id.bytes) ? token.size() : sizeof(id.bytes));
+  std::memcpy(id.bytes, token.data(), id.len);
+  return id;
+}
+
 }  // namespace detail
 
 BrowserView::BrowserView() = default;
@@ -108,6 +212,7 @@ bool BrowserView::init() {
 
   build_contents();
   attach_viewports();
+  wire_edit_feedback();
   sync_status();
   return true;
 }
@@ -140,6 +245,16 @@ void BrowserView::build_contents() {
   menu->add_item("Map Edit", [this]() { switch_map_tab(0); });
   menu->add_item("Datasource", [this]() { switch_map_tab(1); });
   menu->add_item("3D", [this]() { switch_map_tab(2); });
+  menu->add_item("Select", [this]() { run_tool_command("selection.point"); });
+  menu->add_item("Draw Point",
+                 [this]() { run_tool_command("edit.append.point"); });
+  menu->add_item("Draw Line",
+                 [this]() { run_tool_command("edit.append.linestring"); });
+  menu->add_item("Draw Polygon",
+                 [this]() { run_tool_command("edit.append.polygon"); });
+  menu->add_item("Clear Sel",
+                 [this]() { run_tool_command("selection.clear"); });
+  menu->add_item("Undo", [this]() { run_tool_command("edit.undo"); });
   menu->add_item("Plugins", [this]() { on_plugins(); });
 
   auto catalog = std::make_unique<ui::views::CatalogView>();
@@ -172,24 +287,14 @@ void BrowserView::build_contents() {
 
   auto ambox = std::make_unique<ui::views::AmboxView>();
   ambox->set_preferred_size({200, 0});
-  ambox->set_command_handler([this](const std::string& id) {
+  ambox_ = ambox.get();
+  ambox_->set_command_handler([this](const std::string& id) {
     if (plugins_ && plugins_->execute(id)) {
       return;
     }
-    content::ViewHost* host = active_view_host();
-    if (!host) {
-      return;
-    }
-    if (id == "select" || id == "identify") {
-      host->activate("selection.point");
-      return;
-    }
-    if (id == "pan") {
-      host->activate("view.pan");
-      return;
-    }
-    host->execute(id);
+    run_tool_command(id);
   });
+  populate_ambox();
 
   auto work = std::make_unique<ui::views::Splitter>(
       ui::views::Splitter::Orientation::kHorizontal);
@@ -197,11 +302,39 @@ void BrowserView::build_contents() {
   work->add_child(std::move(catalog_map));
   work->add_child(std::move(ambox));
 
+  auto feature_info = std::make_unique<ui::views::FeatureInfo>();
+  feature_info_ = feature_info.get();
+  auto attribute_table = std::make_unique<ui::views::AttributeTable>();
+  attribute_table_ = attribute_table.get();
+  attribute_table_->set_on_cell_commit(
+      [this](const std::string& feature_token, const std::string& field,
+             const std::string& value) {
+        content::ViewHost* host = active_view_host();
+        if (!host || !host->edits()) {
+          set_status_message("Attribute edit failed: no edit session");
+          return false;
+        }
+        sdb::FeatureMutation mutation;
+        mutation.op = sdb::EditOp::kModify;
+        mutation.id = detail::feature_id_from_opaque_token(feature_token);
+        if (mutation.id.len == 0) {
+          set_status_message("Attribute edit failed: empty feature token");
+          return false;
+        }
+        // Field/value stay at the string boundary; EditSession mutation is
+        // currently id-scoped (attribute payload TBD on FeatureMutation).
+        if (!host->edits()->commit(mutation)) {
+          set_status_message("Attribute edit failed: " + field);
+          return false;
+        }
+        set_status_message("Updated " + field + "=" + value);
+        return true;
+      });
+
   auto inspector = std::make_unique<ui::views::TabStrip>();
   inspector->set_preferred_size({0, 160});
-  inspector->add_tab("FeatureInfo", std::make_unique<ui::views::FeatureInfo>());
-  inspector->add_tab("AttributeTable",
-                     std::make_unique<ui::views::AttributeTable>());
+  inspector->add_tab("FeatureInfo", std::move(feature_info));
+  inspector->add_tab("AttributeTable", std::move(attribute_table));
 
   auto columns = std::make_unique<ui::views::Splitter>(
       ui::views::Splitter::Orientation::kVertical);
@@ -251,7 +384,7 @@ void BrowserView::wire_catalog() {
   if (!catalog_ || !catalog_->layer_tree()) {
     return;
   }
-  catalog_->layer_tree()->add_layer("layer.demo", "Demo layer", true);
+  catalog_->populate_demo_layers();
   catalog_->set_source_names({"Memory"});
   catalog_->set_map_docs(
       {{"map.untitled", "", "Untitled map", false}});
@@ -270,6 +403,10 @@ void BrowserView::wire_catalog() {
               active_map() ? active_map()->view_id() : 0;
           host->execute("view.refresh", view_id);
         }
+        if (status_bar_) {
+          status_bar_->set_message(std::string("Layer ") + id +
+                                   (visible ? ": visible" : ": hidden"));
+        }
       });
   catalog_->layer_tree()->set_selection_changed([this](const std::string& id) {
     content::MapContents* session =
@@ -281,7 +418,108 @@ void BrowserView::wire_catalog() {
       const uint32_t view_id = active_map() ? active_map()->view_id() : 0;
       host->execute("view.refresh", view_id);
     }
+    if (status_bar_) {
+      status_bar_->set_message("Active layer: " + id);
+    }
   });
+}
+
+void BrowserView::wire_edit_feedback() {
+  if (!edit_host_ || !edit_host_->events()) {
+    return;
+  }
+  selection_sub_ = edit_host_->events()->subscribe<content::SelectionChanged>(
+      [this](const content::SelectionChanged& ev) {
+        if (ev.ids.empty()) {
+          set_status_message("Selection cleared");
+          if (feature_info_) {
+            feature_info_->clear();
+          }
+          return;
+        }
+        set_status_message("Selected " + std::to_string(ev.ids.size()) +
+                           " feature(s)");
+        if (feature_info_) {
+          // Opaque token only — never SmtFeature*.
+          const content::FeatureId& fid = ev.ids.front();
+          std::string token = "fid:";
+          for (uint8_t i = 0; i < fid.len && i < sizeof(fid.bytes); ++i) {
+            char hex[3];
+            std::snprintf(hex, sizeof(hex), "%02x",
+                          static_cast<unsigned>(fid.bytes[i]));
+            token += hex;
+          }
+          feature_info_->set_feature_id(std::move(token));
+        }
+      });
+  edit_sub_ = edit_host_->events()->subscribe<content::EditCommitted>(
+      [this](const content::EditCommitted& ev) {
+        const char* op = "modify";
+        if (ev.op == content::EditCommitted::Op::kAppend) {
+          op = "append";
+        } else if (ev.op == content::EditCommitted::Op::kDelete) {
+          op = "delete";
+        }
+        set_status_message(std::string("Committed ") + op);
+      });
+}
+
+void BrowserView::populate_ambox() {
+  if (!ambox_) {
+    return;
+  }
+  std::vector<tool::CommandCatalog*> catalogs;
+  if (edit_host_ && edit_host_->workspace()) {
+    catalogs.push_back(&edit_host_->workspace()->catalog());
+  }
+  if (plugins_) {
+    if (tool::CommandCatalog* plugin_catalog = plugins_->commands()) {
+      catalogs.push_back(plugin_catalog);
+    }
+  }
+  ambox_->populate_from_commands(catalogs);
+}
+
+bool BrowserView::run_tool_command(std::string_view command_id) {
+  content::ViewHost* host = active_view_host();
+  if (!host || command_id.empty()) {
+    return false;
+  }
+  std::string id(command_id);
+  if (id == "select" || id == "identify") {
+    id = "selection.point";
+  } else if (id == "pan") {
+    id = "view.pan";
+  }
+  const uint32_t view_id = active_map() ? active_map()->view_id() : 0;
+  if (!host->execute(id, view_id)) {
+    set_status_message("Unknown tool " + id);
+    return false;
+  }
+  if (id == "selection.clear") {
+    // SelectionChanged subscriber also updates status.
+    return true;
+  }
+  if (id == "edit.undo") {
+    set_status_message("Undo");
+    return true;
+  }
+  if (id == "edit.redo") {
+    set_status_message("Redo");
+    return true;
+  }
+  if (id == "edit.cancel") {
+    set_status_message("Edit cancelled");
+    return true;
+  }
+  set_status_message("Tool: " + id);
+  return true;
+}
+
+void BrowserView::set_status_message(const std::string& text) {
+  if (status_bar_) {
+    status_bar_->set_message(text);
+  }
 }
 
 void BrowserView::on_catalog_command(const std::string& command_id) {
@@ -304,7 +542,12 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
     ui::views::CreateLayerDialog::Result out;
     if (ui::views::CreateLayerDialog::run(hwnd, &out) && catalog_ &&
         catalog_->layer_tree()) {
-      catalog_->layer_tree()->add_layer(out.name, out.name, true);
+      if (catalog_->using_demo_layers()) {
+        catalog_->populate_layers({{out.name, out.name, true, true}});
+      } else {
+        catalog_->layer_tree()->add_layer(out.name, out.name, true);
+        catalog_->layer_tree()->select_layer(out.name);
+      }
       detail::catalog_call(
           session, std::string("{\"op\":\"create_layer\",\"name\":\"") +
                        detail::json_escape(out.name) +
@@ -333,7 +576,12 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
     const std::string name =
         out.name.empty() ? std::string("Basemap") : out.name;
     if (catalog_ && catalog_->layer_tree()) {
-      catalog_->layer_tree()->add_layer(name, name, true);
+      if (catalog_->using_demo_layers()) {
+        catalog_->populate_layers({{name, name, true, true}});
+      } else {
+        catalog_->layer_tree()->add_layer(name, name, true);
+        catalog_->layer_tree()->select_layer(name);
+      }
     }
     // Content/render still consumes CatalogCall JSON; tile MapLayer is
     // validated here. Full scene attach lands when map host accepts kind=tile.
@@ -385,7 +633,12 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
     std::string text;
     if (ui::views::InputTextDialog::run(hwnd, L"Input", "Name", &text) &&
         catalog_ && catalog_->layer_tree() && !text.empty()) {
-      catalog_->layer_tree()->add_layer(text, text, true);
+      if (catalog_->using_demo_layers()) {
+        catalog_->populate_layers({{text, text, true, true}});
+      } else {
+        catalog_->layer_tree()->add_layer(text, text, true);
+        catalog_->layer_tree()->select_layer(text);
+      }
       status(command_id + ": " + text);
     }
     return;
@@ -401,6 +654,7 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
       detail::catalog_call(
           session, std::string("{\"op\":\"open\",\"path\":\"") +
                        detail::json_escape(file.path) + "\"}");
+      detail::populate_catalog_after_open(catalog_, file.path);
       refresh();
       status("Opened " + file.path);
     }
@@ -449,13 +703,19 @@ void BrowserView::on_open() {
     detail::catalog_call(session, std::string("{\"op\":\"open\",\"path\":\"") +
                                       detail::json_escape(cmd.path) + "\"}");
   }
+  detail::populate_catalog_after_open(catalog_, cmd.path);
   if (content::ViewHost* host = active_view_host()) {
     const uint32_t view_id = pane ? pane->view_id() : 0;
     host->execute("view.refresh", view_id);
   }
   if (status_bar_) {
     if (session) {
-      status_bar_->set_status("Opened: " + cmd.path);
+      const size_t n =
+          catalog_ && catalog_->layer_tree()
+              ? catalog_->layer_tree()->layer_count()
+              : 0;
+      status_bar_->set_status("Opened: " + cmd.path + " (" +
+                              std::to_string(n) + " layers)");
     } else {
       status_bar_->set_status(cmd.path);
     }
@@ -473,6 +733,8 @@ void BrowserView::on_exit() {
 void BrowserView::on_plugins() {
   if (plugins_) {
     plugins_->show_manager(widget_.hwnd());
+    // Plugin enable/disable may change contributed command ids.
+    populate_ambox();
   }
 }
 
@@ -480,8 +742,23 @@ void BrowserView::switch_map_tab(int i) {
   if (map_tabs_ && map_tabs_->active() != i) {
     map_tabs_->set_active(i);
   }
+  // TabStrip show/hides native map HWNDs; never destroy/recreate on switch.
+  if (ui::views::MapViewport* pane = active_map()) {
+    if (HWND hwnd = pane->native_view()) {
+      if (IsWindow(hwnd)) {
+        RECT rc = {};
+        GetClientRect(hwnd, &rc);
+        // Force a size notify so content/FlyCube surfaces follow the tab body.
+        if (rc.right > 0 && rc.bottom > 0) {
+          SendMessageW(hwnd, WM_SIZE, SIZE_RESTORED,
+                       MAKELPARAM(rc.right, rc.bottom));
+        }
+      }
+    }
+  }
   if (content::ViewHost* host = active_view_host()) {
     if (i == 2) {
+      // Basic pan/orbit for the 3D tab when a ViewHost is wired.
       host->activate("view3d.trackball");
     } else {
       host->activate("view.pan");

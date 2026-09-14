@@ -61,16 +61,23 @@ SkFont make_ui_font() {
   return SkFont(std::move(face), 12.0f);
 }
 
+// Skia value types stay off Canvas::Backend's default ctor/dtor so a failed
+// or unused backend cannot run mismatched SkFont/sk_sp ABI during chrome paint.
+struct SkiaRaster {
+  sk_sp<SkSurface> surface;
+  SkFont font;
+};
+
 }  // namespace
 
-struct Canvas::SkiaState {
+struct Canvas::Backend {
   HBITMAP dib = nullptr;
+  HBITMAP old_dib = nullptr;
   HDC mem_dc = nullptr;
   void* pixels = nullptr;
   int stride = 0;
-  sk_sp<SkSurface> surface;
+  SkiaRaster* raster = nullptr;
   SkCanvas* canvas = nullptr;
-  SkFont font;
   bool ready = false;
 
   bool init(int width, int height) {
@@ -98,28 +105,40 @@ struct Canvas::SkiaState {
 
     mem_dc = CreateCompatibleDC(nullptr);
     if (!mem_dc) {
+      destroy();
       return false;
     }
-    SelectObject(mem_dc, dib);
+    old_dib = static_cast<HBITMAP>(SelectObject(mem_dc, dib));
 
+    raster = new SkiaRaster();
     const SkImageInfo info = SkImageInfo::MakeN32Premul(width, height);
-    surface = SkSurfaces::WrapPixels(info, pixels, static_cast<size_t>(stride));
-    if (!surface) {
+    raster->surface =
+        SkSurfaces::WrapPixels(info, pixels, static_cast<size_t>(stride));
+    if (!raster->surface) {
+      destroy();
       return false;
     }
-    canvas = surface->getCanvas();
+    canvas = raster->surface->getCanvas();
     if (!canvas) {
+      destroy();
       return false;
     }
-    font = make_ui_font();
+    raster->font = make_ui_font();
     ready = true;
     return true;
   }
 
   void destroy() {
     canvas = nullptr;
-    surface.reset();
+    delete raster;
+    raster = nullptr;
     if (mem_dc) {
+      // Must deselect the DIB before DeleteObject / DeleteDC or GDI can
+      // corrupt the process heap and AV later during chrome teardown.
+      if (old_dib) {
+        SelectObject(mem_dc, old_dib);
+        old_dib = nullptr;
+      }
       DeleteDC(mem_dc);
       mem_dc = nullptr;
     }
@@ -133,43 +152,43 @@ struct Canvas::SkiaState {
 };
 
 Canvas::Canvas(HDC hdc, int width, int height)
-    : hdc_(hdc), width_(width), height_(height), skia_(new SkiaState) {
-  if (!skia_->init(width, height)) {
+    : hdc_(hdc), width_(width), height_(height), backend_(new Backend) {
+  if (!backend_->init(width, height)) {
     // Initialize failed: keep a live object that no-ops. See README for pin /
     // matching Windows skia.lib requirements.
-    skia_->destroy();
+    backend_->destroy();
   }
 }
 
 Canvas::~Canvas() {
-  if (skia_) {
-    skia_->destroy();
-    delete skia_;
-    skia_ = nullptr;
+  if (backend_) {
+    backend_->destroy();
+    delete backend_;
+    backend_ = nullptr;
   }
 }
 
 void Canvas::fill_rect(int x, int y, int w, int h, Color color) {
-  if (!skia_ || !skia_->ready || !skia_->canvas || w <= 0 || h <= 0) {
+  if (!backend_ || !backend_->ready || !backend_->canvas || w <= 0 || h <= 0) {
     return;
   }
   SkPaint paint;
   paint.setAntiAlias(false);
   paint.setStyle(SkPaint::kFill_Style);
   paint.setColor(to_sk_color(color));
-  skia_->canvas->drawRect(SkRect::MakeXYWH(static_cast<SkScalar>(x),
-                                           static_cast<SkScalar>(y),
-                                           static_cast<SkScalar>(w),
-                                           static_cast<SkScalar>(h)),
-                          paint);
-  if (hdc_ && skia_->mem_dc) {
-    BitBlt(hdc_, x, y, w, h, skia_->mem_dc, x, y, SRCCOPY);
+  backend_->canvas->drawRect(SkRect::MakeXYWH(static_cast<SkScalar>(x),
+                                              static_cast<SkScalar>(y),
+                                              static_cast<SkScalar>(w),
+                                              static_cast<SkScalar>(h)),
+                             paint);
+  if (hdc_ && backend_->mem_dc) {
+    BitBlt(hdc_, x, y, w, h, backend_->mem_dc, x, y, SRCCOPY);
   }
 }
 
 void Canvas::stroke_rect(int x, int y, int w, int h, Color color,
                          int stroke_width) {
-  if (!skia_ || !skia_->ready || !skia_->canvas || w <= 0 || h <= 0) {
+  if (!backend_ || !backend_->ready || !backend_->canvas || w <= 0 || h <= 0) {
     return;
   }
   if (stroke_width < 1) {
@@ -185,15 +204,15 @@ void Canvas::stroke_rect(int x, int y, int w, int h, Color color,
       static_cast<SkScalar>(x) + inset, static_cast<SkScalar>(y) + inset,
       static_cast<SkScalar>(w - stroke_width),
       static_cast<SkScalar>(h - stroke_width));
-  skia_->canvas->drawRect(rect, paint);
-  if (hdc_ && skia_->mem_dc) {
-    BitBlt(hdc_, x, y, w, h, skia_->mem_dc, x, y, SRCCOPY);
+  backend_->canvas->drawRect(rect, paint);
+  if (hdc_ && backend_->mem_dc) {
+    BitBlt(hdc_, x, y, w, h, backend_->mem_dc, x, y, SRCCOPY);
   }
 }
 
 void Canvas::draw_line(int x0, int y0, int x1, int y1, Color color,
                        int stroke_width) {
-  if (!skia_ || !skia_->ready || !skia_->canvas) {
+  if (!backend_ || !backend_->ready || !backend_->canvas) {
     return;
   }
   if (stroke_width < 1) {
@@ -204,23 +223,25 @@ void Canvas::draw_line(int x0, int y0, int x1, int y1, Color color,
   paint.setStyle(SkPaint::kStroke_Style);
   paint.setStrokeWidth(static_cast<SkScalar>(stroke_width));
   paint.setColor(to_sk_color(color));
-  skia_->canvas->drawLine(static_cast<SkScalar>(x0), static_cast<SkScalar>(y0),
-                          static_cast<SkScalar>(x1), static_cast<SkScalar>(y1),
-                          paint);
-  if (hdc_ && skia_->mem_dc) {
+  backend_->canvas->drawLine(static_cast<SkScalar>(x0),
+                             static_cast<SkScalar>(y0),
+                             static_cast<SkScalar>(x1),
+                             static_cast<SkScalar>(y1), paint);
+  if (hdc_ && backend_->mem_dc) {
     const int left = (x0 < x1) ? x0 : x1;
     const int top = (y0 < y1) ? y0 : y1;
     const int right = (x0 > x1) ? x0 : x1;
     const int bottom = (y0 > y1) ? y0 : y1;
     const int pad = stroke_width + 1;
     BitBlt(hdc_, left - pad, top - pad, (right - left) + 2 * pad,
-           (bottom - top) + 2 * pad, skia_->mem_dc, left - pad, top - pad,
+           (bottom - top) + 2 * pad, backend_->mem_dc, left - pad, top - pad,
            SRCCOPY);
   }
 }
 
 void Canvas::draw_text(int x, int y, const wchar_t* text, Color color) {
-  if (!skia_ || !skia_->ready || !skia_->canvas || !text || !*text) {
+  if (!backend_ || !backend_->ready || !backend_->canvas || !backend_->raster ||
+      !text || !*text) {
     return;
   }
   SkPaint paint;
@@ -229,35 +250,35 @@ void Canvas::draw_text(int x, int y, const wchar_t* text, Color color) {
   paint.setColor(to_sk_color(color));
 
   SkFontMetrics metrics = {};
-  skia_->font.getMetrics(&metrics);
+  backend_->raster->font.getMetrics(&metrics);
   // GDI TextOut y is the top of the cell; Skia y is the baseline.
   const SkScalar baseline = static_cast<SkScalar>(y) - metrics.fAscent;
   const size_t len = static_cast<size_t>(lstrlenW(text));
-  skia_->canvas->drawSimpleText(text, len * sizeof(wchar_t),
-                                SkTextEncoding::kUTF16,
-                                static_cast<SkScalar>(x), baseline, skia_->font,
-                                paint);
+  backend_->canvas->drawSimpleText(text, len * sizeof(wchar_t),
+                                   SkTextEncoding::kUTF16,
+                                   static_cast<SkScalar>(x), baseline,
+                                   backend_->raster->font, paint);
 
-  if (hdc_ && skia_->mem_dc) {
-    const SkScalar width = skia_->font.measureText(
+  if (hdc_ && backend_->mem_dc) {
+    const SkScalar width = backend_->raster->font.measureText(
         text, len * sizeof(wchar_t), SkTextEncoding::kUTF16);
     const int ink_w = static_cast<int>(width) + 2;
     const int ink_h =
         static_cast<int>(metrics.fDescent - metrics.fAscent) + 2;
-    BitBlt(hdc_, x, y, ink_w, ink_h, skia_->mem_dc, x, y, SRCCOPY);
+    BitBlt(hdc_, x, y, ink_w, ink_h, backend_->mem_dc, x, y, SRCCOPY);
   }
 }
 
 Size Canvas::measure_text(const wchar_t* text) const {
   Size out;
-  if (!skia_ || !skia_->ready || !text || !*text) {
+  if (!backend_ || !backend_->ready || !backend_->raster || !text || !*text) {
     return out;
   }
   const size_t len = static_cast<size_t>(lstrlenW(text));
-  const SkScalar width = skia_->font.measureText(
+  const SkScalar width = backend_->raster->font.measureText(
       text, len * sizeof(wchar_t), SkTextEncoding::kUTF16);
   SkFontMetrics metrics = {};
-  skia_->font.getMetrics(&metrics);
+  backend_->raster->font.getMetrics(&metrics);
   out.width = static_cast<int>(width + 0.5f);
   out.height = static_cast<int>(metrics.fDescent - metrics.fAscent + 0.5f);
   if (out.width < 0) {
@@ -270,28 +291,28 @@ Size Canvas::measure_text(const wchar_t* text) const {
 }
 
 void Canvas::clip_rect(int x, int y, int w, int h) {
-  if (!skia_ || !skia_->ready || !skia_->canvas || w <= 0 || h <= 0) {
+  if (!backend_ || !backend_->ready || !backend_->canvas || w <= 0 || h <= 0) {
     return;
   }
-  skia_->canvas->clipRect(
+  backend_->canvas->clipRect(
       SkRect::MakeXYWH(static_cast<SkScalar>(x), static_cast<SkScalar>(y),
                        static_cast<SkScalar>(w), static_cast<SkScalar>(h)),
       SkClipOp::kIntersect, false);
 }
 
 void Canvas::save() {
-  if (!skia_ || !skia_->ready || !skia_->canvas) {
+  if (!backend_ || !backend_->ready || !backend_->canvas) {
     return;
   }
-  skia_->canvas->save();
+  backend_->canvas->save();
 }
 
 void Canvas::restore() {
-  if (!skia_ || !skia_->ready || !skia_->canvas) {
+  if (!backend_ || !backend_->ready || !backend_->canvas) {
     return;
   }
-  if (skia_->canvas->getSaveCount() > 1) {
-    skia_->canvas->restore();
+  if (backend_->canvas->getSaveCount() > 1) {
+    backend_->canvas->restore();
   }
 }
 

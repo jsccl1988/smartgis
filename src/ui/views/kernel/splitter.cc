@@ -56,16 +56,54 @@ void Splitter::seed_split_if_needed() {
   const int pb = is_horizontal() ? b->preferred_size().width
                                  : b->preferred_size().height;
   const int inner = std::max(0, main_extent() - kBarPx);
+  fixed_secondary_px_ = 0;
   if (pa <= 0 && pb <= 0) {
     primary_extent_ = inner / 2;
+    resize_policy_ = ResizePolicy::kProportional;
   } else if (pa <= 0) {
+    // BrowserView pattern: flexible map/work pane + fixed ambox/inspector.
     primary_extent_ = inner - pb;
+    fixed_secondary_px_ = pb;
+    resize_policy_ = ResizePolicy::kSecondaryFixed;
   } else if (pb <= 0) {
+    // Catalog (fixed preferred) + map tabs (flex).
     primary_extent_ = pa;
+    resize_policy_ = ResizePolicy::kPrimaryFixed;
   } else {
     primary_extent_ = inner * pa / (pa + pb);
+    resize_policy_ = ResizePolicy::kProportional;
   }
   split_seeded_ = true;
+  last_main_ = main_extent();
+}
+
+void Splitter::adjust_for_host_resize() {
+  const int main = main_extent();
+  if (!split_seeded_ || collapsed_ || dragging_ || main <= kBarPx) {
+    if (main > kBarPx) {
+      last_main_ = main;
+    }
+    return;
+  }
+  if (last_main_ <= kBarPx) {
+    last_main_ = main;
+    return;
+  }
+  if (main == last_main_) {
+    return;
+  }
+
+  const int inner = std::max(0, main - kBarPx);
+  const int last_inner = std::max(0, last_main_ - kBarPx);
+  if (user_adjusted_ || resize_policy_ == ResizePolicy::kProportional) {
+    if (last_inner > 0) {
+      primary_extent_ = inner * primary_extent_ / last_inner;
+    }
+  } else if (resize_policy_ == ResizePolicy::kSecondaryFixed) {
+    primary_extent_ = inner - fixed_secondary_px_;
+  }
+  // kPrimaryFixed: keep primary_extent_; secondary absorbs growth.
+  last_main_ = main;
 }
 
 void Splitter::clamp_primary() {
@@ -107,6 +145,7 @@ void Splitter::apply_child_bounds() {
 
 void Splitter::layout() {
   seed_split_if_needed();
+  adjust_for_host_resize();
   clamp_primary();
   apply_child_bounds();
   for (size_t i = 0; i < child_count(); ++i) {
@@ -120,6 +159,7 @@ void Splitter::layout() {
 
 void Splitter::begin_drag(int pos) {
   dragging_ = true;
+  user_adjusted_ = true;
   drag_origin_ = pos;
   drag_primary_origin_ = primary_extent_;
   if (collapsed_) {

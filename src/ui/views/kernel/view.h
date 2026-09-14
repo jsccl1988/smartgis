@@ -103,6 +103,13 @@ class View {
   virtual void on_focus();
   virtual void on_blur();
 
+  // Called when the host Widget DPI scale changes. Default multiplies
+  // preferred_size by new/old. Text controls should remeasure instead.
+  virtual void on_device_scale_factor_changed(float old_scale, float new_scale);
+
+  // Walk this subtree, invoking on_device_scale_factor_changed on each node.
+  void propagate_device_scale_factor_changed(float old_scale, float new_scale);
+
   View* get_view_at(int x, int y);
 
   // Create/move a child HWND when this view hosts native content.
