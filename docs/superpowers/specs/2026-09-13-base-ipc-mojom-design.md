@@ -174,7 +174,28 @@ GN: one `executable("smartgis")` links browser + renderer + gpu + utility mains.
 
 
 
-**Product wire:** Win32 named pipe `\\.\pipe\smartgis-host-<browser-pid>` (or per-session name) + length-prefixed frames. Payloads are **pickle BinarySink** blobs produced/consumed by C++ structs with `archive()`. This is the **only** v1 transport — not an escape hatch for a future Mojo path.
+**Product wire:** Win32 named pipe + length-prefixed frames. Payloads are **pickle BinarySink** blobs produced/consumed by C++ structs with `archive()`. This is the **only** v1 transport — not an escape hatch for a future Chromium Mojo pin.
+
+**Mojo concept map (no Chromium, no mojom):**
+
+| Mojo / ipcz | This repo (`base::ipc`) |
+| --- | --- |
+| PlatformChannel | `PlatformChannel` (pre-connected duplex pipe pair) |
+| OutgoingInvitation / IncomingInvitation | `OutgoingInvitation` / `IncomingInvitation` |
+| `--mojo-platform-channel-handle=` | `--ipc-channel-handle=` (inherited HANDLE) |
+| Message pipe | `Channel` (named-pipe frames, pickle payload) |
+| Request id | `Frame.seq` |
+| MojoWrapPlatformHandle | `wrap_into` / `handle_to_token` / `handle_from_token` |
+| ScopedIPCSupport | `ScopedIpcSupport` watches `Channel::readable_event` via `WaitForMultipleObjects` (no 200ms poll). `wait_readable` arms an overlapped header `ReadFile` only after the pipe is connected; timeout 0 polls without cancelling. Receiver dtor flush + `shared_ptr` pump state. |
+| Receiver / Remote | `Receiver` + `MessageListener` / `Remote` (no IDL) |
+| PendingRemote / PendingReceiver | `PendingRemote` / `PendingReceiver` / `InterfaceEndpoint::create_pair` — **mojom shape only**, not a mojom toolchain (no `.mojom`, no Chromium generator) |
+| DataPipe | `DataPipeProducer` / `DataPipeConsumer` (shared-memory ring + events; ends travel as 3 frame attachments) |
+| ipcz Node / Portal | in-tree `Node` + `Portal`. `offer_portal` transfers a dedicated pipe **HANDLE attachment** (plus open-frame ids). Not `//third_party/ipcz`. |
+| DXGI / shared NT handle | `kSharedHandle` metadata pickle + **handle list `[0]`** only. `SharedHandleWire` has no `nt_handle`. |
+| Renderer invitation | same-PE: two `OutgoingInvitation` launches (`"gpu"`, `"renderer"`). `--pipe=` leftover `SmartGisRender.exe` only. |
+| RendererMain | HostMsg loop: OpenView/ViewReady, ActivateTool + pointer/text → `tool::Workspace`, SetExtent→ExtentChanged (chrome forwards to GPU). No D3D/GL. `--self-test` exits without a GPU device. |
+
+Invitation is the same-PE child bootstrap. `--pipe=` remains a fallback for leftover `SmartGisRender.exe`. This is a **mojom-shaped C++ API**, not Chromium mojom.
 
 
 
@@ -196,7 +217,7 @@ GN: one `executable("smartgis")` links browser + renderer + gpu + utility mains.
 
 | `content::ContentMain` | `wWinMain` dispatch on `--type=` | app + content |
 
-| `RendererProcessHost` | Launch `SmartGis.exe --type=renderer`, Job, `--pipe=` | `base::ipc` |
+| `RendererProcessHost` | Launch `SmartGis.exe --type=renderer` via invitation (`attach("renderer")`) | `base::ipc` |
 
 | `GpuProcessHost` | Always launch `--type=gpu`; TDR restarts this process only | `base::ipc` |
 
@@ -264,17 +285,23 @@ Delete `map_session.h` / `map_view.h` / `tool_router.h` after hosts are updated.
 
 | `magic` | `u32` | `'SMT1'` |
 
-| `version` | `u16` | 协议主版本 |
+| `version` | `u16` | 协议主版本（**3**: `seq` + handle list） |
 
 | `type` | `u16` | message discriminant |
 
-| `flags` | `u16` | `kJson` / `kBinary` / `kNeedAck` |
+| `flags` | `u16` | `kJson` / `kBinary` / `kNeedAck` / `kHasHandles` |
+
+| `handle_count` | `u16` | attached platform handles (max 8) |
 
 | `view_id` | `u32` | `0` = session 级 |
+
+| `seq` | `u32` | request / reply token |
 
 | `payload_bytes` | `u32` | pickle blob length |
 
 | `payload` | bytes | BinarySink output from `struct.archive()` |
+
+| `handles` | `u64[handle_count]` | HANDLE tokens valid in the peer |
 
 
 
@@ -348,17 +375,17 @@ Hidden HWND for `SmtRenderDevice::Init` exists **only** in the GPU process.
 
 
 
-**v1 (current):** no Mojo invitation. Children receive **`--pipe=`** (and `--parent-pid=`, `--session=` as today) on the command line.
+**v1.1:** `OutgoingInvitation` + inherited `--ipc-channel-handle=`. `--pipe=` remains fallback for leftover render exe.
 
 
 
-1. Browser: `CreateNamedPipeW` (or connect server in child) for `\\.\pipe\smartgis-host-<pid>`.
+1. Same PE: two `OutgoingInvitation` objects. Each `attach`s one name (`"gpu"` / `"renderer"`) and `launch_with_invitation` relaunches this image with `--type=` plus `--ipc-channel-handle=`. `InvitationBody.pipe0/pipe1` is for **one child, two pipes** — not a substitute for two processes. One Job `KILL_ON_JOB_CLOSE` for both children.
 
-2. `CreateProcess` **the same `SmartGis.exe`** twice (`--type=renderer`, `--type=gpu`) with `--pipe=` pointing at the pipe name. `CREATE_NO_WINDOW`. One Job `KILL_ON_JOB_CLOSE` for both children.
+2. Leftover `SmartGisRender.exe` only: browser `CreateNamedPipeW` + child `--pipe=`. Same-PE must not use `--pipe=` as the primary path.
 
-3. Each child connects, sends `Hello` pickle frame; browser replies `HelloAck`.
+3. Each child `IncomingInvitation::accept` + `extract`, sends `Hello`; browser replies `HelloAck`. `RendererMain` runs the HostMsg tool/view loop (`tool::Workspace`) until `kShutdown` or parent death (no D3D/GL). GPU publishes DXGI/DIB via frame attachments. Chrome routes tools/pointers to `renderer_pipe_` and surfaces to the GPU pipe.
 
-4. Renderer may receive a brokered GPU channel (browser forwards handle or second pipe name) so it can submit paint without the browser marshalling every frame.
+4. Renderer may later receive a brokered GPU portal (pipe-over-pipe) so it can submit paint without the browser marshalling every frame.
 
 
 

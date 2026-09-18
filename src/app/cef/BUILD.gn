@@ -11,6 +11,7 @@ source_set("chrome_bridge_parse") {
     "chrome_bridge_parse.cc",
     "layout_host.h",
   ]
+  deps = [ "//src/tool:dispatch" ]
   include_dirs += [ "//src" ]
 }
 
@@ -110,10 +111,16 @@ if (smt_build_cef && smt_has_cef) {
       ":cef_runtime",
       ":cef_web_assets",
       ":chrome_bridge_parse",
+      "//src/app/views:map_scene",
       "//src/content:content",
       "//src/content:view_host",
       "//src/gpu:gpu_lib",
       "//src/tool:dispatch",
+      "//third_party:gdal",
+    ]
+    data_deps = [
+      "//testing/data:china_map_samples",
+      "//third_party:gdal_runtime_dlls",
     ]
     libs = [
       "shell32.lib",

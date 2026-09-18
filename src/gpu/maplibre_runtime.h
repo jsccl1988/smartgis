@@ -21,8 +21,9 @@ struct MaplibreStill {
 bool maplibre_runtime_compiled_impl();
 bool maplibre_map_linked_impl();
 
-// Attempts a still-image render through the MapLibre Native pin.
-// Returns false when the pin/lib is missing — caller uses the adapter.
+// Attempts a still-image render through the MapLibre Native pin facade.
+// Background (+ opacity) only — no tile fetch. Returns false when the
+// pin/lib is missing; caller uses the adapter (full Track A richness).
 bool try_maplibre_still_image(const char* style_json,
                               uint32_t width_px,
                               uint32_t height_px,

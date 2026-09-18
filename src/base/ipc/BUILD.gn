@@ -11,6 +11,17 @@ source_set("ipc_sources") {
     "channel.cc",
     "channel.h",
     "codec.h",
+    "data_pipe.cc",
+    "data_pipe.h",
+    "endpoint.h",
+    "handle.cc",
+    "handle.h",
+    "invitation.cc",
+    "invitation.h",
+    "portal.cc",
+    "portal.h",
+    "receiver.cc",
+    "receiver.h",
   ]
   public_deps = [ "//src/base/archive:archive" ]
   public_configs = [ "//src/base:foundation_config" ]

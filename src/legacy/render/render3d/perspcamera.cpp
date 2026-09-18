@@ -126,6 +126,22 @@ namespace render
 
 	long SmtPerspCamera::Apply(void)
 	{
+		if (m_viewport.ulWidth == 0 || m_viewport.ulHeight == 0)
+		{
+			return SMT_ERR_FAILURE;
+		}
+		if (m_viewport.fZNear <= 0.f)
+		{
+			m_viewport.fZNear = 0.1f;
+		}
+		if (m_viewport.fZFar <= m_viewport.fZNear)
+		{
+			m_viewport.fZFar = 1000.f;
+		}
+		if (m_viewport.fFovy <= 0.f)
+		{
+			m_viewport.fFovy = 45.f;
+		}
 		SmtCamera::Apply();
 		m_p3DRenderDevice->MatrixModeSet(MM_PROJECTION);
 		m_p3DRenderDevice->MatrixLoadIdentity();

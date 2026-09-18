@@ -286,6 +286,26 @@
       "note": "Runtime-only ANTLR 4.13.2 C++ (BSD-3). Gitea ccl/antlr4 exists but is empty; official source zip. Do not vendor the Java tool jar in the product DLL. GN //third_party/antlr4:antlr4_runtime."
     },
     {
+      "name": "maplibre-native",
+      "git_url": "https://github.com/maplibre/maplibre-native.git",
+      "git_url_fallbacks": [
+        "https://gh-proxy.com/https://github.com/maplibre/maplibre-native.git",
+        "https://ghproxy.net/https://github.com/maplibre/maplibre-native.git"
+      ],
+      "git_ref": "ios-v6.30.0",
+      "src_dir_name": "maplibre-native",
+      "install_skip": true,
+      "skip_fetch_all": true,
+      "git_sparse_paths": [
+        "include",
+        "src",
+        "platform/default",
+        "platform/windows",
+        "vendor/maplibre-native-base"
+      ],
+      "note": "Optional GPU Track A. Monorepo tag ios-v6.30.0. Lands in .src/maplibre-native. Do not rmtree CEF/flycube. Windows still-image links //third_party/maplibre:maplibre_native; full mbgl-core needs vendor/codegen/EGL."
+    },
+    {
       "name": "eigen",
       "git_url": "http://localhost:3000/ccl/eigen.git",
       "git_ref": "3.4.0",

@@ -19,6 +19,8 @@ namespace render
 		Vector3 vBottomRightBack( vCenter.x + width, vCenter.y - width, vCenter.z - width);
 		Vector3 vBottomRightFront(vCenter.x + width, vCenter.y - width, vCenter.z + width);
 
+		const GLboolean lighting = glIsEnabled(GL_LIGHTING);
+		glDisable(GL_LIGHTING);
 		glColor4f(smtClr.fRed,smtClr.fGreen,smtClr.fBlue,smtClr.fA);			     
 		glBegin(GL_LINES);		
 		////////// TOP LINES ////////// 
@@ -73,6 +75,9 @@ namespace render
 		glVertex3f(vBottomRightFront.x,vBottomRightFront.y,vBottomRightFront.z);
 
 		glEnd();
+		if (lighting) {
+			glEnable(GL_LIGHTING);
+		}
 
 		return SMT_ERR_NONE;
 	}

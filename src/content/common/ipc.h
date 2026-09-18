@@ -6,9 +6,11 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/ipc/channel.h"
+#include "base/ipc/handle.h"
 #include "content/public/host_protocol.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -29,12 +31,28 @@ class Pipe {
   bool connect_client(const std::wstring& path, uint32_t timeout_ms) {
     return ch_.connect_client(path, timeout_ms);
   }
+  bool adopt(base::ipc::Channel&& ch) {
+    ch_ = std::move(ch);
+    return ch_.is_open();
+  }
+  void set_peer_process(HANDLE process) { ch_.set_peer_process(process); }
   void close() { ch_.close(); }
   bool is_open() const { return ch_.is_open(); }
+  base::ipc::Channel& channel() { return ch_; }
 
   template <typename T>
   bool send_msg(HostMsg type, uint32_t view_id, const T& body) {
     return ch_.send_msg(static_cast<uint16_t>(type), view_id, body);
+  }
+
+  template <typename T>
+  bool send_msg(HostMsg type,
+                uint32_t view_id,
+                const T& body,
+                const base::ipc::PlatformHandle* handles,
+                uint32_t handle_count) {
+    return ch_.send_msg(static_cast<uint16_t>(type), view_id, body, handles,
+                        handle_count);
   }
 
   bool send_empty(HostMsg type, uint32_t view_id) {
@@ -43,6 +61,10 @@ class Pipe {
 
   bool recv(FrameHeader* header,
             std::vector<uint8_t>* payload,
+            uint32_t timeout_ms);
+  bool recv(FrameHeader* header,
+            std::vector<uint8_t>* payload,
+            std::vector<base::ipc::PlatformHandle>* handles,
             uint32_t timeout_ms);
 
  private:

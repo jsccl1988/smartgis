@@ -1,11 +1,43 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Optional pin group. Product code lives in //src/gpu (Track A adapter).
-# Do not add this to src_all / all.
+# Optional Windows still-image Map (mln::Map). Not in src_all / all.
+# Full mbgl-core (EGL / codegen / vendor) is not built here.
 
 import("//src/gpu/maplibre.gni")
 
+_mln_native = exec_script("//build/file_exists.py",
+                          [
+                            "third_party/.src/maplibre-native/include/mln/map/map.hpp",
+                          ],
+                          "trim string")
+
+config("maplibre_native_config") {
+  include_dirs += [ "include" ]
+  defines += [ "SMT_HAS_MAPLIBRE_LIB" ]
+  if (_mln_native == "1") {
+    include_dirs += [
+      "//third_party/.src/maplibre-native/include",
+      "//third_party/.src/maplibre-native/platform/default/include",
+      "//third_party/.src/maplibre-native/vendor/maplibre-native-base/deps/geometry.hpp/include",
+    ]
+    defines += [ "SMT_HAS_NATIVE_MLN_MAP" ]
+  }
+}
+
+static_library("maplibre_native") {
+  sources = [ "src/mln_map.cc" ]
+  public_configs = [ ":maplibre_native_config" ]
+}
+
+# Optional compile probe of the pin headers. Not a dep of src_all / gpu.
+if (_mln_native == "1") {
+  source_set("native_map_probe") {
+    sources = [ "src/native_map_probe.cc" ]
+    public_configs = [ ":maplibre_native_config" ]
+  }
+}
+
 group("maplibre") {
-  # Headers-only probe path. Link a Windows maplibre-native.lib when one exists.
+  public_deps = [ ":maplibre_native" ]
 }

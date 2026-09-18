@@ -262,6 +262,7 @@ namespace render
 
 	protected:
 		HWND					m_hWnd;
+		HDC						m_hPaintDC;
 		HGLRC					m_hRC;
 		vector<SmtGLText *>		m_vTextPtrs;
 

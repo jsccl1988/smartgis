@@ -113,7 +113,12 @@ namespace render
 
 		glRasterPos2f(x, y);
 		wchar_t txt2[400];
-		int len = MultiByteToWideChar(CP_ACP, 0, str, (int)strlen(str), txt2, 400 );
+		int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, str,
+		                             (int)strlen(str), txt2, 400);
+		if (len <= 0) {
+			len = MultiByteToWideChar(CP_ACP, 0, str, (int)strlen(str), txt2,
+			                          400);
+		}
 		for(int i=0; i<len; i++)
 		{
 			wchar_t letter = txt2[i];

@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <string_view>
+#include <thread>
 
 #include "app/winui/detail/map_session.h"
 #include "app/winui/map_host.h"
@@ -69,6 +70,7 @@ class MainWindow {
 
   std::unique_ptr<MapHost> map_host_;
   content::MapContents* session_ = nullptr;
+  std::thread render_thread_;
   int active_tab_ = 0;
 };
 

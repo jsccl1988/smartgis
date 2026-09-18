@@ -31,7 +31,10 @@ test("scene_gpu_test") {
   sources = [ "scene_test.cc" ]
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
-  deps = [ ":scene" ]
+  deps = [
+    ":scene",
+    "//third_party:gdal",
+  ]
 }
 
 test("unified_draw_test") {

@@ -64,6 +64,22 @@ int main() {
          "divide_polygon_into_tri_mesh");
   expect(static_cast<int>(mesh.size()) >= 2, "constrained mesh >= 2 triangles");
 
+  // OGR rings repeat the first vertex. Indices must stay inside the span.
+  base::dbfPoint closed[5] = {
+      {0.0, 0.0},
+      {2.0, 0.0},
+      {2.0, 2.0},
+      {0.0, 2.0},
+      {0.0, 0.0},
+  };
+  mesh.clear();
+  expect(divide_polygon_into_tri_mesh(mesh, closed, 5) == SMT_ERR_NONE,
+         "closed-ring divide_polygon_into_tri_mesh");
+  for (const base::SmtTriangle& t : mesh) {
+    expect(t.a >= 0 && t.a < 5 && t.b >= 0 && t.b < 5 && t.c >= 0 && t.c < 5,
+           "closed-ring triangle indices in range");
+  }
+
   if (g_fails != 0) {
     std::fprintf(stderr, "%d check(s) failed\n", g_fails);
     return 1;

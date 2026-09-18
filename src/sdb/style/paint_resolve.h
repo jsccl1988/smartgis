@@ -18,9 +18,12 @@ namespace style {
 // Parse #RGB / #RRGGBB / #AARRGGBB / rgb(r,g,b) → 0xAARRGGBB.
 GIS_EXPORT bool parse_color(const std::string& text, uint32_t* out_argb);
 
-// Fill ResolvedPaint fields from a matched StyleLayer (+ optional library).
+// Fill ResolvedPaint from a matched StyleLayer.
+// When paint/layout values are JSON array expressions, evaluate with attrs+zoom.
 GIS_EXPORT void fill_resolved_paint(const StyleLayer& layer,
                                     const SymbolLibrary* library,
+                                    const AttrMap& attrs,
+                                    double zoom,
                                     ResolvedPaint* out);
 
 // Bridge to legacy cartographic POD for Feature / leftover render.

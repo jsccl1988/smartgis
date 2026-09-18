@@ -73,6 +73,7 @@ namespace render
 		bool					CreateLinearRingVB(LP3DRENDERDEVICE p3DRenderDevice,OGRLinearRing *pLinearRing);
 		bool					CreateMultiLineStringVB(LP3DRENDERDEVICE p3DRenderDevice,OGRMultiLineString *pMultLinearRing);
 		bool					CreatePolygonVB(LP3DRENDERDEVICE p3DRenderDevice,OGRPolygon *pPoly);
+		bool					CreateMultiPolygonVB(LP3DRENDERDEVICE p3DRenderDevice,OGRMultiPolygon *pMulti);
 
 		//render
 		bool					RenderPointVB(LP3DRENDERDEVICE p3DRenderDevice);

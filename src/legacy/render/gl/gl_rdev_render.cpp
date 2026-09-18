@@ -3,7 +3,6 @@
 #include "legacy/render/gl/gl_vertexbuffer.h"
 #include "base/core/log.h"
 #include "legacy/render/gl/gl_text.h"
-#include "legacy/render/bridge/leftover_record.h"
 
 using namespace base;
 
@@ -13,35 +12,35 @@ namespace render
 	// Rendering functions
 	long SmtGLRenderDevice::BeginRender()
 	{
-		/*HDC hDC = ::GetDC(m_hWnd);
-
-		wglMakeCurrent (hDC, m_hRC);
-
-		::ReleaseDC(m_hWnd,hDC);*/
-
-		return SMT_ERR_NONE;
+		if (!m_hWnd || !m_hRC) {
+			return SMT_ERR_FAILURE;
+		}
+		if (!m_hPaintDC) {
+			m_hPaintDC = ::GetDC(m_hWnd);
+		}
+		if (!m_hPaintDC) {
+			return SMT_ERR_FAILURE;
+		}
+		// Keep the DC for the whole frame. ReleaseDC while the RC is current
+		// leaves later glDraw*/SwapBuffers on a stale HDC.
+		return wglMakeCurrent(m_hPaintDC, m_hRC) ? SMT_ERR_NONE
+		                                         : SMT_ERR_FAILURE;
 	}
 
 	long SmtGLRenderDevice::EndRender()
 	{
 		::glFlush();
-		//wglMakeCurrent(NULL,NULL);
-		render::scene::LeftoverRecorder& rec = render::scene::leftover_session();
-		if (rec.is_open()) {
-			rec.finish();
-		}
 		return SMT_ERR_NONE;
 	}
 
 	long SmtGLRenderDevice::SwapBuffers()
 	{
-		HDC hDC = ::GetDC( m_hWnd );
-		::SwapBuffers( hDC );
-		::ReleaseDC(m_hWnd,hDC);
-
-		render::scene::LeftoverRecorder& rec = render::scene::leftover_session();
-		if (rec.is_open()) {
-			rec.finish();
+		HDC hDC = m_hPaintDC ? m_hPaintDC : ::GetDC(m_hWnd);
+		if (hDC) {
+			::SwapBuffers(hDC);
+			if (!m_hPaintDC) {
+				::ReleaseDC(m_hWnd, hDC);
+			}
 		}
 		return SMT_ERR_NONE;
 	}
@@ -91,20 +90,18 @@ namespace render
 
 		// Draw primitives
 		//--
-		glDrawElements( PT,count,GL_UNSIGNED_INT,pIB->GetIndexData());
+		const void* indices = pIB->GetIndexData();
+		if (!indices) {
+			return SMT_ERR_FAILURE;
+		}
+		// Do not open leftover_session here. The process-wide recorder may
+		// already own a D3D/FlyCube device on another HWND; begin/record_3d
+		// mid-GL-frame has caused STATUS_FATAL_APP_EXIT (0xC000041D).
+		glDrawElements(PT, count, GL_UNSIGNED_INT, indices);
 
 		if ( SMT_ERR_NONE != pVB->EndDrawing() ||
 			 SMT_ERR_NONE != pIB->EndDrawing() )
 			return SMT_ERR_FAILURE;
-
-		{
-			render::scene::LeftoverRecorder& rec =
-			    render::scene::leftover_session();
-			if (!rec.is_open()) {
-				rec.begin(64, 64);
-			}
-			rec.record_3d(pVB, pIB);
-		}
 
 		return SMT_ERR_NONE;
 	}
@@ -175,11 +172,14 @@ namespace render
 		glDisable(GL_LIGHTING);
 		glDisable(GL_TEXTURE_2D);
 
-		HDC hDC = ::GetDC( m_hWnd );
-		pText->DrawText(hDC,x,y,z,text);
-		::ReleaseDC(m_hWnd,hDC);
+		HDC hDC = m_hPaintDC ? m_hPaintDC : ::GetDC(m_hWnd);
+		if (hDC) {
+			pText->DrawText(hDC,x,y,z,text);
+			if (!m_hPaintDC) {
+				::ReleaseDC(m_hWnd,hDC);
+			}
+		}
 
-		glEnable(GL_LIGHTING);
 		glEnable(GL_TEXTURE_2D);
 
 		return SMT_ERR_NONE;
@@ -218,15 +218,18 @@ namespace render
 		gluOrtho2D(0, viewport[2], viewport[3], 0);
 		glMatrixMode(GL_MODELVIEW);
 
-		HDC hDC = ::GetDC( m_hWnd );
-		pText->DrawText(hDC,x,y,text);
-		::ReleaseDC(m_hWnd,hDC);
+		HDC hDC = m_hPaintDC ? m_hPaintDC : ::GetDC(m_hWnd);
+		if (hDC) {
+			pText->DrawText(hDC,x,y,text);
+			if (!m_hPaintDC) {
+				::ReleaseDC(m_hWnd,hDC);
+			}
+		}
 
 		glMatrixMode(GL_PROJECTION);
 		glPopMatrix();
 		glMatrixMode(GL_MODELVIEW);
 
-		glEnable(GL_LIGHTING);
 		glEnable(GL_TEXTURE_2D);
 
 		return SMT_ERR_NONE;

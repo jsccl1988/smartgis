@@ -2,6 +2,7 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//testing/test.gni")
 
 # Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
 source_set("render_gl_sources") {
@@ -61,4 +62,22 @@ source_set("render_gl_sources") {
 
 group("render_gl") {
   public_deps = [ "//src/legacy/render:legacy_render" ]
+}
+
+# Shown HWND + china_plp.geojson → leftover GL must produce non-black pixels.
+test("gl_map_paint_test") {
+  output_name = "gl_map_paint_test"
+  sources = [ "gl_map_paint_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    "//src/legacy/render:legacy_render",
+    "//src/sdb:sdb",
+    "//testing/data:china_map_samples",
+    "//third_party:gdal",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
 }

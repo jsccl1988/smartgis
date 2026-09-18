@@ -40,7 +40,7 @@ namespace app
 			   (attr & FILE_ATTRIBUTE_DIRECTORY) == 0;
 	}
 
-	// Resolve sample GeoJSON next to the exe or under testing/data (repo layout).
+	// Prefer the prefecture pack (recognizable China), then the tiny PLP stub.
 	bool resolve_sample_geojson(std::string* out_path)
 	{
 		if (!out_path) {
@@ -48,16 +48,20 @@ namespace app
 		}
 		const std::string app = GetAppPath();
 		const char* relative[] = {
+			"china_city.gpkg",
+			"china_city.geojson",
 			"china_plp.geojson",
 			"views_ogr_sample.geojson",
+			"testing\\data\\china_city.gpkg",
+			"testing\\data\\china_city.geojson",
 			"testing\\data\\china_plp.geojson",
-			"testing\\data\\views_ogr_sample.geojson",
+			"..\\testing\\data\\china_city.gpkg",
+			"..\\testing\\data\\china_city.geojson",
 			"..\\testing\\data\\china_plp.geojson",
-			"..\\testing\\data\\views_ogr_sample.geojson",
+			"..\\..\\testing\\data\\china_city.gpkg",
 			"..\\..\\testing\\data\\china_plp.geojson",
-			"..\\..\\testing\\data\\views_ogr_sample.geojson",
+			"..\\..\\..\\testing\\data\\china_city.gpkg",
 			"..\\..\\..\\testing\\data\\china_plp.geojson",
-			"..\\..\\..\\testing\\data\\views_ogr_sample.geojson",
 		};
 		for (const char* rel : relative) {
 			const std::string cand = app + rel;
@@ -496,9 +500,21 @@ namespace app
 			open_or_create_sample_geojson_ds(pDSMgr);
 		LOGGING(LOG_INFO, "InitSmtMap: sample_ds=%p", sample_ds);
 		if (sample_ds && sample_ds->GetLayerCount() > 0) {
-			OGRLayer* lyr = sample_ds->GetLayer(0);
-			LOGGING(LOG_INFO, "InitSmtMap: AppendLayer begin lyr=%p", lyr);
-			if (lyr && pMapMgr->AppendLayer(lyr)) {
+			int appended = 0;
+			long long feats = 0;
+			for (int i = 0; i < sample_ds->GetLayerCount(); ++i) {
+				OGRLayer* lyr = sample_ds->GetLayer(i);
+				if (!lyr) {
+					continue;
+				}
+				LOGGING(LOG_INFO, "InitSmtMap: AppendLayer begin lyr=%p name=%s",
+						lyr, lyr->GetName() ? lyr->GetName() : "(unnamed)");
+				if (pMapMgr->AppendLayer(lyr)) {
+					++appended;
+					feats += lyr->GetFeatureCount(1);
+				}
+			}
+			if (appended > 0) {
 				LOGGING(LOG_INFO, "InitSmtMap: Update2DXView begin");
 				pMapMgr->Update2DXView();
 				SmtListenerMsg param;
@@ -507,9 +523,9 @@ namespace app
 				post_ia_tool_msg(SMT_IATOOL_MSG_BROADCAST,
 								 SMT_MSG_KEY(GT_MSG_VIEW_ZOOMRESTORE, NULL),
 								 param);
-			LOGGING(LOG_INFO, "Default map bootstrapped with layer '%s' (%lld features).",
-						lyr->GetName() ? lyr->GetName() : "(unnamed)",
-						static_cast<long long>(lyr->GetFeatureCount(1)));
+				LOGGING(LOG_INFO,
+						"Default map bootstrapped with %d layers (%lld features).",
+						appended, feats);
 				return true;
 			}
 		}

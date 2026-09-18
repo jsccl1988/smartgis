@@ -40,6 +40,7 @@ group("test_all") {
     "//src/ui/views:views_unittests",
     "//src/ui/views:views_pixel_tests",
     "//src/sdb/datasource/gdal:sde_gdal_test",
+    "//src/sdb/map:select_query_test",
     "//src/sdb/tile:tile_test",
     "//src/sdb/style:style_test",
     "//src/algorithm/geo:geo_ogr_test",
@@ -49,10 +50,14 @@ group("test_all") {
     "//src/algorithm/tin:tin_xyz_test",
     "//src/sdb/model:model_test",
     "//src/sdb/scene:scene_test",
+    "//src/sdb/scene:tessellate_style_test",
     "//src/render:rhi_test",
     "//src/render/scene:scene_gpu_test",
     "//src/render/scene:unified_draw_test",
     "//src/gpu:render_backend_test",
+    "//src/legacy/render/gdi:gdi_map_paint_test",
+    "//src/base/core:menu_test",
+    "//src/legacy/render/gl:gl_map_paint_test",
     "//src/base/ipc:ipc_test",
     "//src/app/cef:chrome_bridge_test",
     "//src/app/cs:sg_host_test",
@@ -181,8 +186,13 @@ group("cef") {
 }
 
 # C# WinUI host (external embedder + SmartGisCs.exe). Opt-in; not in all.
+# build.bat cs also sets smt_build_render so SmartGisRender.exe is rebuilt
+# beside the C# PE (C# cannot --type=gpu).
 group("cs") {
   deps = [ "//src/app/cs:cs" ]
+  if (smt_build_render) {
+    deps += [ "//src/gpu:gpu" ]
+  }
 }
 
 # GPU process. Only loaded when smt_build_render=true (build.bat render).

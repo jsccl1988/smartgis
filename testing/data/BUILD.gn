@@ -1,0 +1,22 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Schematic China map sample (regions / rivers / cities / labels) next to exes.
+# Prefers china_city.gpkg (prefecture four-layer pack); china_plp remains fallback.
+copy("china_map_samples") {
+  sources = [
+    "china_city.gpkg",
+    "china_city.geojson",
+    "china_city.LICENSE.txt",
+    "china_plp.geojson",
+    "views_ogr_sample.geojson",
+  ]
+  outputs = [ "$root_out_dir/{{source_file_part}}" ]
+}
+
+# Rebuild offline pack (network + pyshp). Not part of default ninja; run manually:
+#   py -3 testing/data/build_china_city.py
+# PIN: testing/data/china_city.PIN.txt
+group("china_city_data") {
+  data_deps = [ ":china_map_samples" ]
+}

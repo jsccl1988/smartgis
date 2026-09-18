@@ -9,6 +9,7 @@
 #include <winrt/Microsoft.UI.Xaml.Controls.h>
 #include <winrt/Microsoft.UI.Xaml.h>
 
+#include "app/views/map_scene.h"
 #include "app/winui/detail/map_session.h"
 #include "content/public/map_contents_observer.h"
 
@@ -17,7 +18,8 @@ namespace winui {
 
 // Presents the map inside the WinUI tree. GPU publishes software-DIB shared
 // pixels; this host owns a child HWND island aligned to the SwapChainPanel
-// slot and blits Latest() (same path as ui::views::MapViewport).
+// slot and blits Latest() (same path as ui::views::MapViewport), then overlays
+// MapScene vectors (China PLP polygon/line/point + labels) like Views.
 // Map/Data/3D views stay open across tab switches (Views parity) — never
 // CloseView just to change chrome tabs.
 class MapHost : public content::MapContentsObserver {
@@ -44,10 +46,15 @@ class MapHost : public content::MapContentsObserver {
   bool has_synced_map_layout() const;
   // True when HostView::Latest has a shared DIB (generation + handle).
   bool has_presented_frame() const;
-  // True when mapped pixels are not the WinUI placeholder clear color.
+  // True when map vectors are loaded or GPU pixels are not the placeholder.
   bool has_live_map_pixels() const;
   uint32_t view_id() const { return view_id_; }
   content::MapContents* session() const { return session_; }
+  ::app::MapScene* map_scene() { return &map_scene_; }
+  const ::app::MapScene* map_scene() const { return &map_scene_; }
+
+  // Open a vector path via OGR (Views parity). Also forwards CatalogCall.
+  bool open_map_path(const std::string& path);
 
   // Hide the HWND island when chrome covers the map slot (unused in IDE layout).
   void set_map_surface_visible(bool visible);
@@ -87,6 +94,7 @@ class MapHost : public content::MapContentsObserver {
   content::MapContents* session_ = nullptr;
   content::MapWidgetHostView* view_ = nullptr;
   ViewSlot slots_[3] = {};
+  ::app::MapScene map_scene_;
   HWND window_hwnd_ = nullptr;
   HWND island_hwnd_ = nullptr;
   HWND child_hwnd_ = nullptr;

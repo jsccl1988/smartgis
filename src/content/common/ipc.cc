@@ -80,18 +80,27 @@ namespace detail {
 bool Pipe::recv(FrameHeader* header,
                std::vector<uint8_t>* payload,
                uint32_t timeout_ms) {
+  return recv(header, payload, nullptr, timeout_ms);
+}
+
+bool Pipe::recv(FrameHeader* header,
+               std::vector<uint8_t>* payload,
+               std::vector<base::ipc::PlatformHandle>* handles,
+               uint32_t timeout_ms) {
   if (!header || !payload) {
     return false;
   }
   base::ipc::Frame f;
-  if (!ch_.recv(&f, payload, timeout_ms)) {
+  if (!ch_.recv(&f, payload, handles, timeout_ms)) {
     return false;
   }
   header->magic = f.magic;
   header->version = f.version;
   header->type = f.type;
   header->flags = f.flags;
+  header->handle_count = f.handle_count;
   header->view_id = f.view_id;
+  header->seq = f.seq;
   header->payload_bytes = f.payload_bytes;
   return true;
 }

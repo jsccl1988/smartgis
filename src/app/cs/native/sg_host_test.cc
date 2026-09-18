@@ -55,10 +55,27 @@ int main() {
                                 nullptr, GetModuleHandleW(nullptr), nullptr);
   expect(parent != nullptr, "parent hwnd");
   ShowWindow(parent, SW_SHOW);
+
+  // WinUI names its island DesktopChildSiteBridge. Parenting the map HWND
+  // into that island is what WER 0x80070578 (ERROR_INVALID_WINDOW_HANDLE)
+  // hits when the user clicks chrome and WinUI recreates the bridge.
+  WNDCLASSEXW island_wc;
+  ZeroMemory(&island_wc, sizeof(island_wc));
+  island_wc.cbSize = sizeof(island_wc);
+  island_wc.lpfnWndProc = DefWindowProcW;
+  island_wc.hInstance = GetModuleHandleW(nullptr);
+  island_wc.lpszClassName = L"DesktopChildSiteBridge.Fake";
+  RegisterClassExW(&island_wc);
+  HWND island = CreateWindowExW(0, L"DesktopChildSiteBridge.Fake", L"",
+                                WS_CHILD | WS_VISIBLE, 0, 0, 640, 480, parent,
+                                nullptr, GetModuleHandleW(nullptr), nullptr);
+  expect(island != nullptr, "fake xaml island");
+
   sg_host_attach_parent(host, parent);
   sg_host_sync_layout(host, 8, 8, 320, 240, 96.f);
   HWND child = static_cast<HWND>(sg_host_map_child_hwnd(host));
   expect(child != nullptr && IsWindow(child), "child hwnd");
+  expect(GetParent(child) == parent, "map hwnd parented to top-level, not island");
   expect(sg_host_has_synced_layout(host) == 1, "synced layout");
 
   const uint32_t map_id = sg_host_open_view(host, 0);
@@ -70,10 +87,39 @@ int main() {
   expect(sg_host_view_kind(host) == 2, "show 3d");
   sg_host_show_kind(host, 0);
   expect(sg_host_view_kind(host) == 0, "show map");
+  expect(static_cast<HWND>(sg_host_map_child_hwnd(host)) == child,
+         "hwnd stable across show_kind");
+  expect(IsWindow(child), "child still live after show_kind");
+
+  DestroyWindow(island);
+  island = CreateWindowExW(0, L"DesktopChildSiteBridge.Fake", L"",
+                           WS_CHILD | WS_VISIBLE, 0, 0, 640, 480, parent,
+                           nullptr, GetModuleHandleW(nullptr), nullptr);
+  expect(island != nullptr, "recreated fake island");
+  expect(IsWindow(child), "map hwnd survives island recreate");
+  expect(GetParent(child) == parent, "still top-level after island recreate");
+
+  for (int i = 0; i < 40; ++i) {
+    sg_host_show_kind(host, i % 3);
+    sg_host_sync_layout(host, 8, 8, 300 + (i % 7), 220 + (i % 5), 96.f);
+    SendMessageW(child, WM_LBUTTONDOWN, 0, MAKELPARAM(12, 16));
+    SendMessageW(child, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(18, 22));
+    SendMessageW(child, WM_LBUTTONUP, 0, MAKELPARAM(18, 22));
+    SendMessageW(child, WM_RBUTTONDOWN, 0, MAKELPARAM(24, 20));
+    SendMessageW(child, WM_RBUTTONUP, 0, MAKELPARAM(24, 20));
+    sg_host_activate_tool(host, (i % 2) ? "selection.point" : "view.pan");
+    sg_host_catalog_call(host, "{\"op\":\"refresh\"}");
+  }
+  expect(IsWindow(child), "child live after click fuzz");
+  expect(static_cast<HWND>(sg_host_map_child_hwnd(host)) == child,
+         "hwnd identity stable after click fuzz");
+  expect(GetParent(child) == parent, "parent still top-level after click fuzz");
+
   sg_host_set_visible(host, 0);
   sg_host_set_visible(host, 1);
 
   sg_host_destroy(host);
+  DestroyWindow(island);
   DestroyWindow(parent);
 
   if (g_fails) {

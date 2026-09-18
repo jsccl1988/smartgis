@@ -11,6 +11,8 @@ source_set("scene3d_sources") {
     "bl3d_sceneocttreenode.cpp",
     "bl3d_vertexocttree.cpp",
     "bl3d_vertextreenode.cpp",
+    "map_to_scene.cc",
+    "map_to_scene.h",
   ]
   configs += [
     "//build:legacy",
@@ -23,6 +25,9 @@ source_set("scene3d_sources") {
     "//src/legacy/render/model3d:model3d_sources",
     "//src/legacy/render/render3d:render3d_sources",
     "//src/render/math:bounds",
+    "//src/sdb/carto:carto",
+    "//src/sdb/datasource/gdal:ogr_codec",
+    "//third_party:gdal",
   ]
 }
 

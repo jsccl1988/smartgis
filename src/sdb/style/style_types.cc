@@ -25,6 +25,15 @@ LayerType layer_type_from_string(const std::string& s) {
   if (s == "raster") {
     return LayerType::kRaster;
   }
+  if (s == "fill-extrusion") {
+    return LayerType::kFillExtrusion;
+  }
+  if (s == "heatmap") {
+    return LayerType::kHeatmap;
+  }
+  if (s == "hillshade") {
+    return LayerType::kHillshade;
+  }
   return LayerType::kUnknown;
 }
 
@@ -42,6 +51,12 @@ const char* layer_type_to_string(LayerType t) {
       return "background";
     case LayerType::kRaster:
       return "raster";
+    case LayerType::kFillExtrusion:
+      return "fill-extrusion";
+    case LayerType::kHeatmap:
+      return "heatmap";
+    case LayerType::kHillshade:
+      return "hillshade";
     default:
       return "unknown";
   }

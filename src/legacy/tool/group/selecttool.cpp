@@ -75,11 +75,25 @@ void refresh_fea_type(SmtMap* map, int& fea_type) {
 	fea_type = sdb::datasource::feature_type_of(map->GetActiveOgrLayer());
 }
 
+float query_margin_lp(LPRENDERDEVICE device, double dp_margin) {
+	if (!device) {
+		return 0.05f;
+	}
+	const double blc = device->GetBlc();
+	if (blc <= 1e-12) {
+		return 0.05f;
+	}
+	return static_cast<float>(dp_margin / blc);
+}
+
 }  // namespace
 
 namespace tool
 {
 	SmtSelectTool::SmtSelectTool()
+		: m_selMode(ST_Point)
+		, m_nLayerFeaType(SmtFtUnknown)
+		, m_dpMargin(4)
 	{
 		set_name(CST_STR_SELECT_TOOL_NAME.c_str());
 	}
@@ -151,7 +165,7 @@ namespace tool
 
 			}
 			break;
-		append_func_items("Point Select",GT_MSG_SELECT_POINTSEL,FIM_2DVIEW|FIM_2DMFMENU);
+		case GT_MSG_SELECT_POINTSEL:
 			{
 				m_selMode = ST_Point;
 
@@ -219,12 +233,14 @@ namespace tool
 				if (!(GetAsyncKeyState( VK_LCONTROL ) & 0x8000))
 					clear_scratch(m_resultLayer);
 
-				m_gQDes.fSmargin = m_dpMargin/m_pRenderDevice->GetBlc();
+				m_gQDes.fSmargin = query_margin_lp(m_pRenderDevice, m_dpMargin);
 				if (m_resultLayer.layer)
 				{
 					m_pOperMap->QueryFeature(&m_gQDes,&m_pQDes,m_resultLayer.layer,m_nLayerFeaType);
 				}
-				refresh_fea_type(m_pOperMap, m_nLayerFeaType);
+				if (m_nLayerFeaType == SmtFtUnknown) {
+					refresh_fea_type(m_pOperMap, m_nLayerFeaType);
+				}
 
 				SMT_SAFE_DELETE(m_gQDes.pQueryGeom);
 
@@ -237,12 +253,14 @@ namespace tool
 				if (!(GetAsyncKeyState( VK_LCONTROL ) & 0x8000))
 					clear_scratch(m_resultLayer);
 
-				m_gQDes.fSmargin = m_dpMargin/m_pRenderDevice->GetBlc();
+				m_gQDes.fSmargin = query_margin_lp(m_pRenderDevice, m_dpMargin);
 				if (m_resultLayer.layer)
 				{
 					m_pOperMap->QueryFeature(&m_gQDes,&m_pQDes,m_resultLayer.layer,m_nLayerFeaType);
 				}
-				refresh_fea_type(m_pOperMap, m_nLayerFeaType);
+				if (m_nLayerFeaType == SmtFtUnknown) {
+					refresh_fea_type(m_pOperMap, m_nLayerFeaType);
+				}
 
 				SMT_SAFE_DELETE(m_gQDes.pQueryGeom);
 
@@ -287,6 +305,27 @@ namespace tool
 			to_lp(draft.points[0], x, y);
 			m_gQDes.pQueryGeom = new OGRPoint(x, y);
 			OnRetDelegate(GT_MSG_RET_INPUT_POINT);
+			return;
+		}
+
+		if (draft.kind == tool::DraftKind::kRect && draft.points.size() >= 2)
+		{
+			float x0 = 0;
+			float y0 = 0;
+			float x1 = 0;
+			float y1 = 0;
+			to_lp(draft.points[0], x0, y0);
+			to_lp(draft.points[1], x1, y1);
+			OGRLinearRing* ring = new OGRLinearRing();
+			ring->addPoint(x0, y0);
+			ring->addPoint(x1, y0);
+			ring->addPoint(x1, y1);
+			ring->addPoint(x0, y1);
+			ring->closeRings();
+			OGRPolygon* poly = new OGRPolygon();
+			poly->addRingDirectly(ring);
+			m_gQDes.pQueryGeom = poly;
+			OnRetDelegate(GT_MSG_RET_INPUT_LINE);
 			return;
 		}
 

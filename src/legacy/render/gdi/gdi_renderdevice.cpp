@@ -167,11 +167,15 @@ namespace render
 		m_virViewport1 = m_Viewport;
 		m_virViewport2 = m_Viewport;
 
-		float xblc,yblc;
-		xblc = m_Viewport.m_fVWidth/m_Windowport.m_fWWidth;
-		yblc = m_Viewport.m_fVHeight/m_Windowport.m_fWHeight;
-
-		m_fblc = (xblc > yblc)?yblc:xblc;
+		if (is_equal(m_Windowport.m_fWWidth, 0, dEPSILON) ||
+			is_equal(m_Windowport.m_fWHeight, 0, dEPSILON)) {
+			m_fblc = 1.f;
+		} else {
+			float xblc,yblc;
+			xblc = m_Viewport.m_fVWidth/m_Windowport.m_fWWidth;
+			yblc = m_Viewport.m_fVHeight/m_Windowport.m_fWHeight;
+			m_fblc = (xblc > yblc)?yblc:xblc;
+		}
 
 		if (SMT_ERR_NONE == m_smtRenderBuf.SetBufSize(m_Viewport.m_fVWidth,m_Viewport.m_fVHeight) &&
 			SMT_ERR_NONE == m_smtDynamicRenderBuf.SetBufSize(m_Viewport.m_fVWidth,m_Viewport.m_fVHeight) &&
@@ -429,17 +433,17 @@ namespace render
 	{
 		while(m_pRenderThread->IsRendering())Sleep(0);
 
-		lRect rt;
-		LRectToDRect(rect,rt);
-		m_virViewport2.m_fVOX = rt.lb.x;
-		m_virViewport2.m_fVOY = rt.rt.y;
-		m_virViewport2.m_fVHeight = rt.height();
-		m_virViewport2.m_fVWidth = rt.width();
-		
 		m_Windowport.m_fWOX = rect.lb.x;
 		m_Windowport.m_fWOY = rect.lb.y;
 		m_Windowport.m_fWHeight = rect.height();
-		m_Windowport.m_fWWidth  = rect.width(); 
+		m_Windowport.m_fWWidth  = rect.width();
+
+		if (is_equal(m_Viewport.m_fVWidth, 0, dEPSILON) ||
+			is_equal(m_Viewport.m_fVHeight, 0, dEPSILON) ||
+			is_equal(m_Windowport.m_fWWidth, 0, dEPSILON) ||
+			is_equal(m_Windowport.m_fWHeight, 0, dEPSILON)) {
+			return SMT_ERR_INVALID_PARAM;
+		}
 
 		float xblc,yblc;
 		xblc = m_Viewport.m_fVWidth/m_Windowport.m_fWWidth;
@@ -449,15 +453,19 @@ namespace render
 
 		if (xblc < yblc)
 		{
-			m_virViewport2.m_fVOY += rt.height()*(1-yblc/xblc);
 			m_Windowport.m_fWHeight = rect.height()*yblc/xblc;
-			m_virViewport2.m_fVHeight = rt.height()*yblc/xblc;
 		}
 		else
 		{
-			m_Windowport.m_fWWidth  = rect.width()*xblc/yblc; 
-			m_virViewport2.m_fVWidth = rt.width()*xblc/yblc;
+			m_Windowport.m_fWWidth  = rect.width()*xblc/yblc;
 		}
+
+		// Re-render fills the map buffer at device size. The old path set
+		// virViewport2 from LRectToDRect *before* the new transform, so
+		// Refresh/OnDraw StretchBlt a ~degree-sized empty patch and the
+		// window stayed white.
+		m_virViewport1 = m_Viewport;
+		m_virViewport2 = m_Viewport;
 
 		if (pSmtMap)
 		{
@@ -719,6 +727,11 @@ namespace render
 
 		QueryPerformanceCounter((LARGE_INTEGER *) &m_llLastRedrawCmdStamp);
 
+		// Init() no longer resumes the worker (nested MDI pump hang). The
+		// Timer() debounce path only runs when the view is active, so the
+		// first/queued paint must wake the thread here.
+		m_pRenderThread->resume();
+
 		return SMT_ERR_NONE;
 	}
 
@@ -906,6 +919,14 @@ namespace render
 		m_nFeatureType = sdb::datasource::infer_feature_type(
 			pFeature, SmtFeatureType::SmtFtUnknown);
 		SmtStyle* pStyle = sdb::datasource::copy_ogr_style_from_ogr(pFeature);
+		const bool owned_style = pStyle != nullptr;
+		SmtStyle fallback;
+		if (!pStyle) {
+			// GeoJSON samples have no "style" blob; DrawPoint used to crash
+			// on nullptr and the worker never swapped a painted buffer.
+			sdb::datasource::fill_default_draw_style(pFeature, &fallback, m_fblc);
+			pStyle = &fallback;
+		}
 		OGRGeometry* pGeom =
 			sdb::datasource::decode_ogr_geometry(pFeature, static_cast<SmtFeatureType>(m_nFeatureType));
 
@@ -913,7 +934,10 @@ namespace render
 			const int ai = pFeature->GetFieldIndex("anno");
 			const int gi = pFeature->GetFieldIndex("angle");
 			if (ai >= 0) {
-				sprintf(m_szAnno, "%s", pFeature->GetFieldAsString(ai));
+				const char* anno = pFeature->GetFieldAsString(ai);
+				if (anno) {
+					strncpy_s(m_szAnno, anno, _TRUNCATE);
+				}
 			}
 			if (gi >= 0) {
 				m_fAnnoAngle = static_cast<float>(pFeature->GetFieldAsDouble(gi));
@@ -922,7 +946,9 @@ namespace render
 
 		const int rc = RenderGeometry(pGeom, pStyle, op);
 		delete pGeom;
-		delete pStyle;
+		if (owned_style) {
+			delete pStyle;
+		}
 		return rc;
 	}
 
@@ -1059,6 +1085,17 @@ namespace render
 	//////////////////////////////////////////////////////////////////////////
 	int SmtGdiRenderDevice::DrawPoint(const SmtStyle*pStyle,const OGRPoint *pPoint)
 	{
+		if (!pPoint) {
+			return SMT_ERR_INVALID_PARAM;
+		}
+		if (!pStyle) {
+			int r = m_rdPra.lPointRaduis > 0 ? m_rdPra.lPointRaduis : 3;
+			long lX = 0;
+			long lY = 0;
+			LPToDP(pPoint->getX(), pPoint->getY(), lX, lY);
+			Ellipse(m_hCurDC, lX - r, lY - r, lX + r, lY + r);
+			return SMT_ERR_NONE;
+		}
 		ulong format = pStyle->get_style_type();
 		if (m_nFeatureType == SmtFeatureType::SmtFtAnno)
 		{
@@ -1092,61 +1129,25 @@ namespace render
 	//////////////////////////////////////////////////////////////////////////
 	int SmtGdiRenderDevice::DrawAnno(const char *szAnno,float fangel,float fCHeight,float fCWidth,float fCSpace,const OGRPoint *pPoint)
 	{
-		if (szAnno == NULL)
+		if (szAnno == NULL || !pPoint)
 			return SMT_ERR_INVALID_PARAM;
 
+		(void)fCWidth;
+		(void)fCSpace;
 		fCHeight *= m_fblc;
-		fCWidth *= m_fblc;
-		fCSpace *= m_fblc;
 
-		unsigned char c1,c2;
-		fPoint pt;
-		long x,y;
-		char bz[4];
-		const char *ls1;
-		ls1 = szAnno;
-
-		LPToDP(pPoint->getX(),pPoint->getY(),x,y);
-		pt.x = x;
-		pt.y = y;
-
-		pt.x -= 2*fCHeight*sin(fangel);
-		pt.y -= 2*fCHeight*cos(fangel);
-
-		int nStrLength  = (int)strlen(ls1);
-		while(nStrLength > 0)
-		{
-			c1 = *ls1;
-			c2 = *(ls1 + 1);
-			if(c1 >127 && c2 > 127) { // �����һ���ַ��Ǻ���?
-				strncpy(bz,ls1,2);
-				bz[2] = 0;
-				ls1 = ls1 + 2;
-				TextOut(m_hCurDC,pt.x,pt.y,(LPCSTR)bz,2);
-				nStrLength -= 2;
-				pt.x += (fCWidth*2 + fCSpace) * cos(fangel);
-				pt.y += (fCWidth*2 + fCSpace) * sin(fangel);
-			}
-			else
-			{
-				strncpy(bz,ls1,1);
-				bz[1] = 0;
-				ls1++;
-				TextOut(m_hCurDC,pt.x,pt.y,(LPCSTR)bz,1);
-				nStrLength -= 1;
-
-				pt.x += (fCWidth + fCSpace/2.) * cos(fangel);
-				pt.y += (fCWidth + fCSpace/2.) * sin(fangel);
-			}
-		}
+		long x = 0;
+		long y = 0;
+		LPToDP(pPoint->getX(), pPoint->getY(), x, y);
+		x -= static_cast<long>(2 * fCHeight * sin(fangel));
+		y -= static_cast<long>(2 * fCHeight * cos(fangel));
+		draw_anno_text(m_hCurDC, x, y, szAnno);
 
 		if (m_rdPra.bShowPoint)
 		{
 			int r = m_rdPra.lPointRaduis;
 			long lX,lY;
 			LPToDP(pPoint->getX(),pPoint->getY(),lX,lY);
-			//Ellipse(m_hCurDC,lX - r ,lY - r,lX + r ,lY + r);
-			//Rectangle(m_hCurDC,lX - r,lY - r,lX + r,lY + r);
 			draw_cross(m_hCurDC,lX,lY,r);
 		}
 
@@ -1412,7 +1413,10 @@ namespace render
 				int nInteriorPts= pInteriorRing->getNumPoints();
 				for ( int j=0; j<nInteriorPts; ++j,nCount++)
 				{
-					LPToDP(pInteriorRing->getX(i),pInteriorRing->getY(i),lpPoint[i].x,lpPoint[i].y);
+					if (nCount >= nAllPts) {
+						break;
+					}
+					LPToDP(pInteriorRing->getX(j),pInteriorRing->getY(j),lpPoint[nCount].x,lpPoint[nCount].y);
 					//Ellipse(m_hCurDC,lpPoint[i].x - r ,lpPoint[i].y - r,lpPoint[i].x + r ,lpPoint[i].y + r);
 					//Rectangle(m_hCurDC,lpPoint[i].x - r ,lpPoint[i].y - r,lpPoint[i].x + r ,lpPoint[i].y + r);
 					draw_cross(m_hCurDC,lpPoint[i].x,lpPoint[i].y,r);
@@ -1434,7 +1438,10 @@ namespace render
 				int nInteriorPts= pInteriorRing->getNumPoints();
 				for ( int j=0; j<nInteriorPts; ++j,nCount++)
 				{
-					LPToDP(pInteriorRing->getX(i),pInteriorRing->getY(i),lpPoint[i].x,lpPoint[i].y);
+					if (nCount >= nAllPts) {
+						break;
+					}
+					LPToDP(pInteriorRing->getX(j),pInteriorRing->getY(j),lpPoint[nCount].x,lpPoint[nCount].y);
 				}
 			}
 

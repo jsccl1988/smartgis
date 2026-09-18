@@ -14,6 +14,8 @@
 #include "tool/legacy_msg.h"
 #include "tool/workspace.h"
 
+#include "ogrsf_frmts.h"
+
 #include <cstring>
 
 using namespace render;
@@ -22,7 +24,7 @@ using namespace sdb;
 using namespace sdb;
 using namespace sys;
 
-const string						CST_STR_FLASH_TOOL_NAME	= "��˸";
+const string						CST_STR_FLASH_TOOL_NAME	= "闪烁";
 
 namespace tool
 {
@@ -58,8 +60,8 @@ namespace tool
 
 		m_resultLayer = SmtDataSourceMgr::CreateMemVecLayer();
 
-		append_func_items("��ʼ��˸",GT_MSG_START_FLASH,FIM_2DVIEW);
-		append_func_items("ֹͣ��˸",GT_MSG_STOP_FLASH,FIM_2DVIEW);
+		append_func_items("开始闪烁",GT_MSG_START_FLASH,FIM_2DVIEW);
+		append_func_items("停止闪烁",GT_MSG_STOP_FLASH,FIM_2DVIEW);
 
 		SMT_IATOOL_APPEND_MSG(GT_MSG_START_FLASH);
 		SMT_IATOOL_APPEND_MSG(GT_MSG_STOP_FLASH);
@@ -85,16 +87,29 @@ namespace tool
 
 	int SmtFlashTool::AuxDraw()
 	{
-		if (session_flashing() && m_resultLayer.layer)
+		if (!session_flashing() || !m_resultLayer.layer || !m_pRenderDevice)
 		{
-			SmtStyleManager * pStyleMgr = SmtStyleManager::get_singleton_ptr();
+			return SMT_ERR_NONE;
+		}
 
-			SmtStyle *pStyle = pStyleMgr->get_style(m_strFlashStyle.c_str());
-			if (SMT_ERR_NONE == m_pRenderDevice->BeginRender(MRD_BL_DYNAMIC,true,pStyle,R2_COPYPEN))
+		SmtStyleManager * pStyleMgr = SmtStyleManager::get_singleton_ptr();
+		SmtSysManager * pSysMgr = SmtSysManager::get_singleton_ptr();
+		SmtStyle *pStyle = pStyleMgr ? pStyleMgr->get_style(m_strFlashStyle.c_str()) : nullptr;
+		if (!pStyle && pStyleMgr && pSysMgr)
+		{
+			const SmtStyleConfig style = pSysMgr->get_sys_style_config();
+			pStyle = pStyleMgr->get_style(m_strFlashStyle1.c_str());
+			if (!pStyle)
 			{
-				m_pRenderDevice->RenderLayer(m_resultLayer.layer,R2_COPYPEN);
-				m_pRenderDevice->EndRender(MRD_BL_DYNAMIC);
+				pStyle = pStyleMgr->get_style(style.szAuxStyle);
 			}
+		}
+
+		// Paint AFTER Present on the window DC so MAP/QUICK blit cannot hide it.
+		if (SMT_ERR_NONE == m_pRenderDevice->BeginRender(MRD_BL_DIRECT,false,pStyle,R2_COPYPEN))
+		{
+			m_pRenderDevice->RenderLayer(m_resultLayer.layer,R2_COPYPEN);
+			m_pRenderDevice->EndRender(MRD_BL_DIRECT);
 		}
 		
 		return SMT_ERR_NONE;
@@ -199,6 +214,33 @@ namespace tool
 					// get_sys_style_config() returns by value; keep a local copy.
 					const SmtStyleConfig style = pSysMgr->get_sys_style_config();
 
+					// Mixed GeoJSON layers report Unknown/Tin; infer from first hit.
+					if (nLayerFeaType == SmtFeatureType::SmtFtUnknown ||
+					    nLayerFeaType == SmtFeatureType::SmtFtTin ||
+					    nLayerFeaType == SmtFeatureType::SmtFtGrid) {
+						if (m_resultLayer.layer) {
+							m_resultLayer.layer->ResetReading();
+							if (OGRFeature* feat = m_resultLayer.layer->GetNextFeature()) {
+								if (OGRGeometry* g = feat->GetGeometryRef()) {
+									switch (wkbFlatten(g->getGeometryType())) {
+									case wkbPoint:
+									case wkbMultiPoint:
+										nLayerFeaType = SmtFeatureType::SmtFtDot;
+										break;
+									case wkbLineString:
+									case wkbMultiLineString:
+										nLayerFeaType = SmtFeatureType::SmtFtCurve;
+										break;
+									default:
+										nLayerFeaType = SmtFeatureType::SmtFtSurface;
+										break;
+									}
+								}
+								OGRFeature::DestroyFeature(feat);
+							}
+						}
+					}
+
 					switch (nLayerFeaType)
 					{
 					case SmtFeatureType::SmtFtChildImage:
@@ -216,12 +258,14 @@ namespace tool
 						}
 						break;
 					case SmtFeatureType::SmtFtSurface:
+					default:
 						{
 							m_strFlashStyle1 = style.szRegionFlashStyle1;
 							m_strFlashStyle2 = style.szRegionFlashStyle2; 
 						}
 						break;
 					}
+					m_strFlashStyle = m_strFlashStyle1;
 				}
 				break;
 			default:

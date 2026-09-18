@@ -77,6 +77,11 @@ public:
 	inline	CMultiDocTemplate*	GetDataViewDocTemplate() { return m_pDataViewDocTemplate;}
 	inline	CMultiDocTemplate*	Get3DViewDocTemplate() { return m_p3DViewDocTemplate;}
 
+	// Window popup on the dynamic view menu (RC Window menu is replaced).
+	void						append_mdi_window_menu(HMENU menu);
+	// Open another MDI view on the active document, or a new doc if none.
+	BOOL						open_mdi_view(CDocTemplate* tmpl);
+
 	//////////////////////////////////////////////////////////////////////////
 	CView*						GetActiveDocView(CRuntimeClass* pViewClass);
 	CView*						GetActiveView(void);

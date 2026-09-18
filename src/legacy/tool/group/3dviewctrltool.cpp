@@ -6,7 +6,7 @@
 
 #include <cstring>
 
-const string						CST_STR_3DVIEWCTRL_TOOL_NAME	= "��ά���";
+const string						CST_STR_3DVIEWCTRL_TOOL_NAME	= "三维控制";
 
 namespace tool
 {
@@ -62,10 +62,10 @@ namespace tool
 		m_matSel.SetEmissiveValue(SmtColor(0,0,1));
 		m_matSel.SetShininessValue(50);
 
-		append_func_items("׷����",GT_MSG_3DVIEW_TRACEBALL,FIM_3DVIEW|FIM_3DMFMENU);
-		append_func_items("�������",GT_MSG_3DVIEW_SPHERECAMERA,FIM_3DVIEW|FIM_3DMFMENU);
-		append_func_items("��һ�ӽ�",GT_MSG_3DVIEW_FIRSTPERSON,FIM_3DVIEW|FIM_3DMFMENU);
-		append_func_items("��λ",GT_MSG_3DVIEW_RESTORE,FIM_3DVIEW|FIM_3DMFMENU);
+		append_func_items("轨迹球",GT_MSG_3DVIEW_TRACEBALL,FIM_3DVIEW|FIM_3DMFMENU);
+		append_func_items("球面相机",GT_MSG_3DVIEW_SPHERECAMERA,FIM_3DVIEW|FIM_3DMFMENU);
+		append_func_items("第一人称",GT_MSG_3DVIEW_FIRSTPERSON,FIM_3DVIEW|FIM_3DMFMENU);
+		append_func_items("复位",GT_MSG_3DVIEW_RESTORE,FIM_3DVIEW|FIM_3DMFMENU);
 		//append_func_items("��ά��ͼ",GT_MSG_VIEW_ACTIVE,FIM_3DVIEW);
 
 		SMT_IATOOL_APPEND_MSG(GT_MSG_3DVIEW_TRACEBALL);
@@ -221,6 +221,10 @@ namespace tool
 						{
 							m_nWinWidth = vp.ulWidth;
 							m_nWinHeight = vp.ulHeight;
+							if (m_pCamera)
+							{
+								m_pCamera->SetViewport(vp);
+							}
 						}
 					}
 					break;

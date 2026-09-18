@@ -2,6 +2,7 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//testing/test.gni")
 
 # Shared GDI helpers (aux / bufpool / renderbuf). Compiled once into the
 # legacy_render DLL; gdi + gdi_simple devices both use these objects.
@@ -51,4 +52,23 @@ source_set("render_gdi_sources") {
 
 group("render_gdi") {
   public_deps = [ "//src/legacy/render:legacy_render" ]
+}
+
+# Hidden HWND + china_plp.geojson → GDI realtime paint must produce pixels.
+test("gdi_map_paint_test") {
+  output_name = "gdi_map_paint_test"
+  sources = [ "gdi_map_paint_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    "//src/legacy/render:legacy_render",
+    "//src/sdb/datasource/gdal:ogr_codec",
+    "//src/sdb/map:gis",
+    "//testing/data:china_map_samples",
+    "//third_party:gdal",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
 }

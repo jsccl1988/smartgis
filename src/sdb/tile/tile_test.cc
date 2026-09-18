@@ -1,7 +1,10 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
+#include "sdb/tile/mvt_stub.h"
 #include "sdb/tile/provider_tile_layer.h"
+#include "sdb/tile/source_registry.h"
+#include "sdb/tile/style_source.h"
 #include "sdb/tile/tile_map_layer.h"
 #include "sdb/tile/tile_provider.h"
 #include "sdb/tile/wmts.h"
@@ -15,6 +18,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -192,6 +196,86 @@ int main() {
                "http://h/{TileMatrix}/{TileCol}/{TileRow}.png", &norm),
            "normalize wmts tmpl");
     expect(norm == "http://h/{z}/{x}/{y}.png", "wmts → xyz");
+  }
+
+  // Style sources binding: raster parse + registry; vector → explicit reject.
+  {
+    using sdb::tile::StyleSourceDesc;
+    using sdb::tile::StyleSourceStatus;
+    using sdb::tile::StyleSourceType;
+    using sdb::tile::SourceRegistry;
+
+    const char* k_raster =
+        "{\"type\":\"raster\","
+        "\"tiles\":[\"http://a.tile/{z}/{x}/{y}.png\"],"
+        "\"tileSize\":256}";
+    StyleSourceDesc one;
+    expect(sdb::tile::parse_style_source("basemap", k_raster, &one) ==
+               StyleSourceStatus::kOk,
+           "parse raster source");
+    expect(one.id == "basemap", "raster source id");
+    expect(one.type == StyleSourceType::kRaster, "raster type");
+    expect(one.tile_size == 256, "tileSize 256");
+    expect(one.primary_url_template() == "http://a.tile/{z}/{x}/{y}.png",
+           "primary url template");
+    expect(sdb::tile::is_raster_bindable(one), "raster bindable");
+
+    TileProvider opened;
+    expect(sdb::tile::open_provider_from_source(one, &opened),
+           "open_provider_from_source");
+    expect(opened.is_open(), "provider open after source");
+    sdb::MapLayer from_src = sdb::tile::make_xyz_map_layer_from_source(one);
+    expect(from_src.leftover() != nullptr, "make_xyz_map_layer_from_source");
+
+    const char* k_style =
+        "{\"version\":8,\"name\":\"t\","
+        "\"sources\":{"
+        "\"osm\":{\"type\":\"raster\","
+        "\"tiles\":[\"http://osm/{z}/{x}/{y}.png\"],\"tileSize\":256},"
+        "\"roads\":{\"type\":\"vector\","
+        "\"tiles\":[\"http://v/{z}/{x}/{y}.pbf\"]}"
+        "},"
+        "\"layers\":[]}";
+    std::vector<StyleSourceDesc> many;
+    expect(sdb::tile::parse_style_sources(k_style, &many) ==
+               StyleSourceStatus::kVectorUnsupported,
+           "mixed sources reports vector unsupported");
+    expect(many.size() == 1 && many[0].id == "osm",
+           "raster still collected from mixed style");
+
+    const char* k_vector =
+        "{\"type\":\"vector\",\"tiles\":[\"http://v/{z}/{x}/{y}.pbf\"]}";
+    StyleSourceDesc vec;
+    expect(sdb::tile::parse_style_source("roads", k_vector, &vec) ==
+               StyleSourceStatus::kVectorUnsupported,
+           "vector source explicit reject");
+    expect(vec.type == StyleSourceType::kVector, "vector type recorded");
+    expect(!sdb::tile::is_raster_bindable(vec), "vector not bindable");
+
+    SourceRegistry reg;
+    expect(reg.bind_from_json("osm", k_raster) == StyleSourceStatus::kOk,
+           "registry bind raster");
+    expect(reg.contains("osm") && reg.get("osm") && reg.get("osm")->is_open(),
+           "registry has open provider");
+    expect(reg.bind_from_json("roads", k_vector) ==
+               StyleSourceStatus::kVectorUnsupported,
+           "registry rejects vector");
+    expect(!reg.contains("roads"), "vector not inserted");
+    expect(reg.size() == 1, "registry size after vector reject");
+    expect(reg.bind_raster(one) == StyleSourceStatus::kOk, "bind_raster");
+    expect(reg.remove("basemap"), "remove basemap");
+    reg.clear();
+    expect(reg.size() == 0, "registry clear");
+
+    expect(!sdb::tile::mvt::decode_tile(nullptr, 0, nullptr),
+           "mvt stub decode fails");
+    expect(sdb::tile::mvt::decode_status() ==
+               sdb::tile::mvt::DecodeStatus::kNotImplemented,
+           "mvt stub status");
+    expect(sdb::tile::mvt::reject_vector_source() ==
+               StyleSourceStatus::kVectorUnsupported,
+           "mvt reject_vector_source");
+    expect(sdb::tile::mvt::non_goal_message() != nullptr, "mvt non_goal msg");
   }
 
   // Live CDN HTTPS: SKIP without network.

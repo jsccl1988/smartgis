@@ -3,6 +3,8 @@
 
 #include "sdb/style/paint_resolve.h"
 
+#include "sdb/style/expression.h"
+#include "sdb/style/json_mini.h"
 #include "sdb/style/symbol_library.h"
 
 #include <cstdio>
@@ -88,25 +90,92 @@ bool parse_rgb_fn(const std::string& text, uint32_t* out) {
   return true;
 }
 
-float parse_float(const std::map<std::string, std::string>& m,
-                  const char* key,
-                  float fallback) {
+std::string map_get(const std::map<std::string, std::string>& m,
+                    const char* key) {
   auto it = m.find(key);
-  if (it == m.end()) {
+  return it == m.end() ? std::string() : it->second;
+}
+
+// Resolve a paint/layout entry: evaluate expression arrays to constants.
+std::string resolve_raw(const std::string& raw,
+                        const AttrMap& attrs,
+                        double zoom) {
+  if (raw.empty()) {
+    return raw;
+  }
+  if (looks_like_expression(raw)) {
+    ExprValue ev;
+    if (eval_expression(raw, attrs, zoom, &ev)) {
+      return ev.as_string();
+    }
+  }
+  return raw;
+}
+
+float parse_float_text(const std::string& text, float fallback) {
+  if (text.empty()) {
     return fallback;
   }
   char* stop = nullptr;
-  float v = static_cast<float>(std::strtod(it->second.c_str(), &stop));
-  if (stop == it->second.c_str()) {
+  float v = static_cast<float>(std::strtod(text.c_str(), &stop));
+  if (stop == text.c_str()) {
     return fallback;
   }
   return v;
 }
 
-std::string map_get(const std::map<std::string, std::string>& m,
-                    const char* key) {
-  auto it = m.find(key);
-  return it == m.end() ? std::string() : it->second;
+float resolve_float(const std::map<std::string, std::string>& m,
+                    const char* key,
+                    const AttrMap& attrs,
+                    double zoom,
+                    float fallback) {
+  const std::string raw = map_get(m, key);
+  if (raw.empty()) {
+    return fallback;
+  }
+  return parse_float_text(resolve_raw(raw, attrs, zoom), fallback);
+}
+
+std::string resolve_string(const std::map<std::string, std::string>& m,
+                           const char* key,
+                           const AttrMap& attrs,
+                           double zoom) {
+  return resolve_raw(map_get(m, key), attrs, zoom);
+}
+
+void parse_float_array(const std::string& raw, std::vector<float>* out) {
+  out->clear();
+  if (raw.empty() || raw[0] != '[') {
+    return;
+  }
+  detail::JsonValue root;
+  if (!detail::parse_json(raw.data(), raw.size(), &root) || !root.is_array()) {
+    return;
+  }
+  // Skip expression forms; only accept literal number arrays.
+  if (!root.a.empty() && root.a[0].is_string()) {
+    return;
+  }
+  for (const auto& e : root.a) {
+    if (e.is_number()) {
+      out->push_back(static_cast<float>(e.n));
+    }
+  }
+}
+
+void parse_xy_offset(const std::string& raw, float* x, float* y) {
+  if (raw.empty() || raw[0] != '[') {
+    return;
+  }
+  detail::JsonValue root;
+  if (!detail::parse_json(raw.data(), raw.size(), &root) || !root.is_array() ||
+      root.a.size() < 2) {
+    return;
+  }
+  if (root.a[0].is_number() && root.a[1].is_number()) {
+    *x = static_cast<float>(root.a[0].n);
+    *y = static_cast<float>(root.a[1].n);
+  }
 }
 
 COLORREF argb_to_colorref(uint32_t argb) {
@@ -130,13 +199,15 @@ bool parse_color(const std::string& text, uint32_t* out_argb) {
 
 void fill_resolved_paint(const StyleLayer& layer,
                          const SymbolLibrary* library,
+                         const AttrMap& attrs,
+                         double zoom,
                          ResolvedPaint* out) {
   *out = ResolvedPaint();
   out->layer_id = layer.id;
   out->type = layer.type;
 
   auto apply_color = [&](const char* key, uint32_t* dest) {
-    const std::string c = map_get(layer.paint, key);
+    const std::string c = resolve_string(layer.paint, key, attrs, zoom);
     uint32_t argb = 0;
     if (!c.empty() && parse_color(c, &argb)) {
       *dest = argb;
@@ -144,22 +215,57 @@ void fill_resolved_paint(const StyleLayer& layer,
   };
 
   apply_color("fill-color", &out->fill_color);
-  out->fill_opacity = parse_float(layer.paint, "fill-opacity", 1.f);
-  apply_color("line-color", &out->line_color);
-  out->line_width = parse_float(layer.paint, "line-width", 1.f);
-  out->line_opacity = parse_float(layer.paint, "line-opacity", 1.f);
-  apply_color("circle-color", &out->circle_color);
-  out->circle_radius = parse_float(layer.paint, "circle-radius", 5.f);
-  out->circle_opacity = parse_float(layer.paint, "circle-opacity", 1.f);
+  out->fill_opacity =
+      resolve_float(layer.paint, "fill-opacity", attrs, zoom, 1.f);
+  out->fill_pattern = resolve_string(layer.paint, "fill-pattern", attrs, zoom);
 
-  out->icon_image = map_get(layer.layout, "icon-image");
-  if (out->icon_image.empty()) {
-    out->icon_image = map_get(layer.paint, "icon-image");
+  apply_color("line-color", &out->line_color);
+  out->line_width = resolve_float(layer.paint, "line-width", attrs, zoom, 1.f);
+  out->line_opacity =
+      resolve_float(layer.paint, "line-opacity", attrs, zoom, 1.f);
+  parse_float_array(map_get(layer.paint, "line-dasharray"),
+                    &out->line_dasharray);
+  out->line_cap = resolve_string(layer.layout, "line-cap", attrs, zoom);
+  if (out->line_cap.empty()) {
+    out->line_cap = resolve_string(layer.paint, "line-cap", attrs, zoom);
   }
-  out->text_field = map_get(layer.layout, "text-field");
-  out->icon_size = parse_float(layer.layout, "icon-size", 1.f);
+  out->line_join = resolve_string(layer.layout, "line-join", attrs, zoom);
+  if (out->line_join.empty()) {
+    out->line_join = resolve_string(layer.paint, "line-join", attrs, zoom);
+  }
+
+  apply_color("circle-color", &out->circle_color);
+  out->circle_radius =
+      resolve_float(layer.paint, "circle-radius", attrs, zoom, 5.f);
+  out->circle_opacity =
+      resolve_float(layer.paint, "circle-opacity", attrs, zoom, 1.f);
+
+  apply_color("background-color", &out->background_color);
+  out->background_opacity =
+      resolve_float(layer.paint, "background-opacity", attrs, zoom, 1.f);
+  out->raster_opacity =
+      resolve_float(layer.paint, "raster-opacity", attrs, zoom, 1.f);
+
+  out->icon_image = resolve_string(layer.layout, "icon-image", attrs, zoom);
+  if (out->icon_image.empty()) {
+    out->icon_image = resolve_string(layer.paint, "icon-image", attrs, zoom);
+  }
+  out->text_field = resolve_string(layer.layout, "text-field", attrs, zoom);
+  out->icon_size = resolve_float(layer.layout, "icon-size", attrs, zoom, 1.f);
   if (out->icon_size <= 0.f) {
-    out->icon_size = parse_float(layer.paint, "icon-size", 1.f);
+    out->icon_size = resolve_float(layer.paint, "icon-size", attrs, zoom, 1.f);
+  }
+  out->text_size = resolve_float(layer.layout, "text-size", attrs, zoom, 16.f);
+  if (out->text_size <= 0.f) {
+    out->text_size = resolve_float(layer.paint, "text-size", attrs, zoom, 16.f);
+  }
+  out->text_anchor = resolve_string(layer.layout, "text-anchor", attrs, zoom);
+  {
+    std::string offset = map_get(layer.layout, "icon-offset");
+    if (offset.empty()) {
+      offset = map_get(layer.paint, "icon-offset");
+    }
+    parse_xy_offset(offset, &out->icon_offset_x, &out->icon_offset_y);
   }
 
   if (library && !out->icon_image.empty() &&

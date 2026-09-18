@@ -15,6 +15,8 @@
 #endif
 #include <windows.h>
 
+#include "base/ipc/handle.h"
+#include "base/ipc/invitation.h"
 #include "content/common/ipc.h"
 #include "gpu/present.h"
 #include "gpu/render_backend.h"
@@ -59,7 +61,39 @@ Args parse_args(int argc, wchar_t** argv) {
   return a;
 }
 
-void announce_and_paint(cd::Pipe* pipe,
+bool send_shared_surface(cd::Pipe* pipe,
+                         uint32_t view_id,
+                         detail::PresentTarget* present) {
+  if (!pipe || !present) {
+    return false;
+  }
+  content::SharedHandleWire w = present->wire();
+  HANDLE local = present->share_handle();
+  if (w.nt_handle == 0 && !local) {
+    return false;
+  }
+  // Prefer pickle nt_handle (already duplicated into the UI process). Fall
+  // back to Channel attachment of the local share / DIB mapping.
+  if (w.nt_handle != 0) {
+    if (!pipe->send_msg(content::HostMsg::kSharedHandle, view_id, w)) {
+      return false;
+    }
+  } else {
+    base::ipc::PlatformHandle attached =
+        base::ipc::PlatformHandle::borrow(local);
+    if (!pipe->send_msg(content::HostMsg::kSharedHandle, view_id, w, &attached,
+                        1)) {
+      return false;
+    }
+  }
+  content::FrameReadyWire fr = {};
+  fr.generation = w.generation;
+  fr.fence = 0;
+  fr.cursor_hint = 0;
+  return pipe->send_msg(content::HostMsg::kFrameReady, view_id, fr);
+}
+
+bool announce_and_paint(cd::Pipe* pipe,
                         uint32_t view_id,
                         SurfaceSlot* slot,
                         HWND hwnd) {
@@ -91,40 +125,44 @@ void announce_and_paint(cd::Pipe* pipe,
     if (GetEnvironmentVariableA("SMT_XYZ_URL", xyz, sizeof(xyz)) > 0) {
       req.tile_url_template = xyz;
     }
+    // Wire product HTTP only when there is a template or Style `sources`.
+    // Adapter skips rasters on ok=false; background still paints.
+    const bool has_template =
+        (req.tile_url_template && req.tile_url_template[0] != '\0') ||
+        !req.tile_url_templates.empty();
+    const bool has_sources =
+        req.style_json && std::strstr(req.style_json, "\"sources\"");
+    if (has_template || has_sources) {
+      req.fetch = make_net_tile_fetch();
+    }
     if (paint_map_frame(&slot->present, req)) {
-      const content::SharedHandleWire w = slot->present.wire();
-      pipe->send_msg(content::HostMsg::kSharedHandle, view_id, w);
-      content::FrameReadyWire fr = {};
-      fr.generation = w.generation;
-      fr.fence = 0;
-      fr.cursor_hint = 0;
-      pipe->send_msg(content::HostMsg::kFrameReady, view_id, fr);
-      return;
+      return send_shared_surface(pipe, view_id, &slot->present);
     }
   }
   // Track B / 3D: clear once, then demo geometry until GpuScene submit lands.
   slot->present.paint_clear(b, g, r, 0xFF);
   slot->present.paint_demo_frame(slot->kind);
-  const content::SharedHandleWire w = slot->present.wire();
-  pipe->send_msg(content::HostMsg::kSharedHandle, view_id, w);
-  content::FrameReadyWire fr = {};
-  fr.generation = w.generation;
-  fr.fence = 0;
-  fr.cursor_hint = 0;
-  pipe->send_msg(content::HostMsg::kFrameReady, view_id, fr);
+  return send_shared_surface(pipe, view_id, &slot->present);
 }
 
-int run_server(const Args& args) {
-  if (args.parent_pid == 0 || args.pipe_name.empty()) {
+int run_server(int argc, wchar_t** argv, const Args& args) {
+  base::ipc::PlatformChannel invited =
+      base::ipc::PlatformChannel::from_command_line(argc, argv);
+  if (!invited.is_valid() &&
+      (args.parent_pid == 0 || args.pipe_name.empty())) {
     std::fprintf(stderr,
-                 "gpu: --parent-pid and --pipe are required\n");
+                 "gpu: --parent-pid and --pipe, or --ipc-channel-handle, "
+                 "are required\n");
     return 2;
   }
 
-  HANDLE parent = OpenProcess(SYNCHRONIZE | PROCESS_DUP_HANDLE, FALSE,
-                              args.parent_pid);
-  if (!parent) {
-    parent = OpenProcess(SYNCHRONIZE, FALSE, args.parent_pid);
+  HANDLE parent = nullptr;
+  if (args.parent_pid != 0) {
+    parent = OpenProcess(SYNCHRONIZE | PROCESS_DUP_HANDLE, FALSE,
+                         args.parent_pid);
+    if (!parent) {
+      parent = OpenProcess(SYNCHRONIZE, FALSE, args.parent_pid);
+    }
   }
 
   std::unique_ptr<Adapter> adapter(create_adapter());
@@ -132,11 +170,26 @@ int run_server(const Args& args) {
   adapter->init_hidden_hwnd(64, 64);
 
   cd::Pipe pipe;
-  const std::wstring path = content::pipe_path_from_name(args.pipe_name);
-  if (!pipe.connect_client(path, 15000)) {
-    std::fprintf(stderr, "gpu: failed to connect %ls\n",
-                 path.c_str());
-    return 3;
+  if (invited.is_valid()) {
+    base::ipc::IncomingInvitation incoming =
+        base::ipc::IncomingInvitation::accept(std::move(invited));
+    base::ipc::Channel gpu = incoming.extract("gpu");
+    if (!pipe.adopt(std::move(gpu))) {
+      std::fprintf(stderr, "gpu: invitation extract failed\n");
+      return 3;
+    }
+    if (parent) {
+      pipe.set_peer_process(parent);
+    }
+  } else {
+    const std::wstring path = content::pipe_path_from_name(args.pipe_name);
+    if (!pipe.connect_client(path, 15000)) {
+      std::fprintf(stderr, "gpu: failed to connect %ls\n", path.c_str());
+      return 3;
+    }
+    if (parent) {
+      pipe.set_peer_process(parent);
+    }
   }
 
   content::HelloBody hello;
@@ -213,18 +266,28 @@ int run_server(const Args& args) {
                                parent)) {
         continue;
       }
-      announce_and_paint(&pipe, h.view_id, &slot,
-                         static_cast<HWND>(adapter->hwnd()));
+      (void)announce_and_paint(&pipe, h.view_id, &slot,
+                               static_cast<HWND>(adapter->hwnd()));
       continue;
     }
     if (type == content::HostMsg::kResizeSurface) {
       SurfaceSlot& slot = views[h.view_id];
       content::ResizeSurfaceBody body;
-      if (cd::decode_payload(payload, &body)) {
-        slot.width_px = body.w;
-        slot.height_px = body.h;
-        slot.dpi = body.dpi;
+      if (!cd::decode_payload(payload, &body)) {
+        continue;
       }
+      const uint32_t new_w = body.w < 1 ? 1 : body.w;
+      const uint32_t new_h = body.h < 1 ? 1 : body.h;
+      // Duplicate LayoutSlot / tab sync must not release the live DIB — chrome
+      // may still be mapping it for StretchDIBits (CEF flicker + AV).
+      if (slot.present.generation() != 0 && slot.width_px == new_w &&
+          slot.height_px == new_h) {
+        slot.dpi = body.dpi;
+        continue;
+      }
+      slot.width_px = new_w;
+      slot.height_px = new_h;
+      slot.dpi = body.dpi;
       if (!slot.present.resize(slot.width_px, slot.height_px, slot.mode,
                                parent)) {
         continue;
@@ -301,7 +364,7 @@ int GpuMain(int argc, wchar_t** argv) {
   if (args.self_test) {
     return run_self_test(argv && argv[0] ? argv[0] : L"");
   }
-  return run_server(args);
+  return run_server(argc, argv, args);
 }
 
 int render_main(int argc, wchar_t** argv) {

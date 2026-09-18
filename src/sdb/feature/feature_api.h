@@ -8,11 +8,15 @@
 #include "sdb/gis_export.h"
 #include "sdb/layer/layer.h"
 
+class OGRFeature;
 class OGRLayer;
 
 using namespace base;
 using namespace sdb;
 
+// Copy geometry (and matching fields) onto dest's feature defn.
+// CreateFeature(src) fails when src was built against another layer.
+long GIS_EXPORT append_cloned_feature(OGRLayer* dest, const OGRFeature* src);
 long GIS_EXPORT copy_layer(OGRLayer* pTarLayer, OGRLayer* pSrcLayer);
 long GIS_EXPORT copy_layer(SmtLayer* pTarLayer, SmtLayer* pSrcLayer,
                            bool bClone = true, bool bCheckFeaType = false);

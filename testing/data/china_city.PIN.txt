@@ -1,0 +1,6 @@
+file=china_city.gpkg
+sha256=8a7afa6e142125f555a3bf7974c1f2ebd3238058985fca7099ca28e8cdd086a0
+size=3538944
+geojson=china_city.geojson
+geojson_sha256=142be52ef75e782cfbbee6a4c5a24d354a8d00ccfee2571c47e0dae16fd89723
+geojson_size=5098396

@@ -308,18 +308,35 @@ bool SmtMap::UpdateFeature(OGRFeature* feature) {
   return lyr->SetFeature(feature) == OGRERR_NONE;
 }
 
-bool SmtMap::QueryFeature(const SmtGQueryDesc* gquery,
-                          const SmtPQueryDesc* pquery, OGRLayer* result,
-                          int& nFeaType) {
-  OGRLayer* lyr = GetActiveOgrLayer();
-  if (!lyr || !result) {
-    return false;
+namespace {
+
+int feature_type_from_geom(const OGRGeometry* geom) {
+  if (!geom) {
+    return SmtFtUnknown;
   }
-  nFeaType = SmtFtUnknown;
-  if (gquery && gquery->pQueryGeom) {
-    Envelope env;
-    geo::copy_envelope(*gquery->pQueryGeom, &env);
-    lyr->SetSpatialFilterRect(env.MinX, env.MinY, env.MaxX, env.MaxY);
+  switch (wkbFlatten(geom->getGeometryType())) {
+    case wkbPoint:
+    case wkbMultiPoint:
+      return SmtFtDot;
+    case wkbLineString:
+    case wkbMultiLineString:
+      return SmtFtCurve;
+    case wkbPolygon:
+    case wkbLinearRing:
+    case wkbMultiPolygon:
+      return SmtFtSurface;
+    default:
+      return SmtFtUnknown;
+  }
+}
+
+void apply_query_filters(OGRLayer* lyr, const SmtGQueryDesc* gquery,
+                         const SmtPQueryDesc* pquery, const Envelope* env,
+                         bool have_env) {
+  if (have_env && env) {
+    lyr->SetSpatialFilterRect(env->MinX, env->MinY, env->MaxX, env->MaxY);
+  } else if (gquery && gquery->pQueryGeom) {
+    lyr->SetSpatialFilter(gquery->pQueryGeom);
   }
   if (pquery && pquery->szFldName && pquery->szFldName[0] &&
       pquery->szFldQueryContent && pquery->szFldQueryContent[0]) {
@@ -329,14 +346,63 @@ bool SmtMap::QueryFeature(const SmtGQueryDesc* gquery,
       lyr->SetAttributeFilter(nullptr);
     }
   }
-  lyr->ResetReading();
-  while (OGRFeature* feat = lyr->GetNextFeature()) {
-    result->CreateFeature(feat);
-    OGRFeature::DestroyFeature(feat);
+}
+
+}  // namespace
+
+bool SmtMap::QueryFeature(const SmtGQueryDesc* gquery,
+                          const SmtPQueryDesc* pquery, OGRLayer* result,
+                          int& nFeaType) {
+  if (!result) {
+    return false;
   }
-  lyr->SetSpatialFilter(nullptr);
-  lyr->SetAttributeFilter(nullptr);
-  return true;
+  nFeaType = SmtFtUnknown;
+  Envelope env;
+  bool have_env = false;
+  if (gquery && gquery->pQueryGeom) {
+    geo::copy_envelope(*gquery->pQueryGeom, &env);
+    double margin = gquery->fSmargin;
+    if (margin < 0) {
+      margin = 0;
+    }
+    // A degenerate point envelope misses nearby vertices (city dots).
+    if (env.MinX == env.MaxX || env.MinY == env.MaxY) {
+      if (margin <= 0) {
+        margin = 1e-6;
+      }
+    }
+    if (margin > 0) {
+      env.MinX -= margin;
+      env.MinY -= margin;
+      env.MaxX += margin;
+      env.MaxY += margin;
+    }
+    have_env = true;
+  }
+
+  bool queried = false;
+  for (int i = 0; i < GetLayerCount(); ++i) {
+    if (!IsLayerVisible(i)) {
+      continue;
+    }
+    OGRLayer* lyr = GetOgrLayer(i);
+    if (!lyr) {
+      continue;
+    }
+    queried = true;
+    apply_query_filters(lyr, gquery, pquery, &env, have_env);
+    lyr->ResetReading();
+    while (OGRFeature* feat = lyr->GetNextFeature()) {
+      append_cloned_feature(result, feat);
+      if (nFeaType == SmtFtUnknown) {
+        nFeaType = feature_type_from_geom(feat->GetGeometryRef());
+      }
+      OGRFeature::DestroyFeature(feat);
+    }
+    lyr->SetSpatialFilter(nullptr);
+    lyr->SetAttributeFilter(nullptr);
+  }
+  return queried;
 }
 
 }  // namespace sdb

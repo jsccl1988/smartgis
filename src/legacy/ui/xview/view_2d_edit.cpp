@@ -245,9 +245,8 @@ namespace ui
 	bool Smt2DEditXView::CreateMainMenu()
 	{
 		Smt2DXView::CreateMainMenu();
-HMENU hMenu = create_listener_menu(m_pAppendFeaTool,FIM_2DMFMENU);
-		if (GetMenuItemCount(hMenu) > 0)
-			::InsertMenu(m_hMainMenu,0,MF_POPUP|MF_BYPOSITION,(UINT)hMenu,m_pAppendFeaTool->get_name());
+		attach_listener_popup(m_hMainMenu, m_pAppendFeaTool, FIM_2DMFMENU,
+				      m_pAppendFeaTool->get_name(), 0, MF_BYPOSITION);
 
 		LOGGING(LOG_INFO, "Init 2DEditView MainMenu OK!");
 

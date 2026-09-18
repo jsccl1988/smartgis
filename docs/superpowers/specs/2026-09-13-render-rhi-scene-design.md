@@ -360,7 +360,7 @@ Optional: if FlyCube is linked, `rhi_test` tries `initialize` on a hidden HWND a
 
 - Default **Track B**: existing demo / FlyCube `GpuScene` (2D+3D same frame). `kScene3d` stays here.
 - Optional **Track A**: `SMT_MAP_BACKEND=a` paints style background + one XYZ raster via `TileProvider` into `PresentTarget` (shared texture / DIB). Chrome still only blits `Latest()`.
-- GN `smt_enable_maplibre` (default **false**) compiles a header probe for a local `third_party/.src/maplibre-native` pin. This tree does **not** link `mln::Map` until that pin provides a Windows lib. Do not include mln/mbgl from `app/` or `content/public`.
+- GN `smt_enable_maplibre` (default **false**) links `//third_party/maplibre:maplibre_native` (`mln::Map` still-image into `PresentTarget`). Fetch the pin with `python third_party/tools/fetch.py --package maplibre-native` (`ios-v6.30.0` → `.src/maplibre-native`). Full `mbgl::Map` + HeadlessFrontend is not built (vendor / codegen / EGL). Do not include mln/mbgl from `app/` or `content/public`.
 
 ## Risks
 

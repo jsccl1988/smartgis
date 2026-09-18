@@ -25,7 +25,7 @@ GN labels `//src/base:core`, `//src/base:base`, `//src/base:platform`,
 | **foundation core** | `core/`（headers） | `:foundation` | `log` / `macros` / `debug` / `export` / `build_config` |
 | **threading / util / files / memory / time** | 同名子树 | `:foundation` | mogu 式薄面；**无** mogu `base::mutex` |
 | **archive** | `archive/` | `//src/base/archive:archive` | BinarySink / Serializer（A1；平台 DLL `public_deps`） |
-| **ipc** | `ipc/` | `//src/base/ipc:ipc` | Named pipe + pickle（static；非 DLL） |
+| **ipc** | `ipc/` | `//src/base/ipc:ipc` | Named pipe + pickle + invitation / DataPipe / Node+Portal / PendingRemote（mojom 形状，无 IDL；static；非 DLL） |
 | **core leftovers** | `core/`（sources） | `core_sources` → `:base` | `listener` / `command` / `msg*` / `api` / structs / `core_assert` — **deferred** |
 | **carto** | `../sdb/carto/` | `carto_sources` → `:base` | Cartographic pen / brush / `Envelope` |
 | **xml** | `../legacy/xml/` | `xml_sources` → `:base` | TinyXML leftover |
@@ -51,4 +51,4 @@ Documented debt; consolidator left them here on purpose.
 
 ---
 
-**最后更新：** 2026-09-15
+**最后更新：** 2026-09-18

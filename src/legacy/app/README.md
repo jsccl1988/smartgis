@@ -16,6 +16,18 @@ MFC `SmartGis.exe` and `app_core` DLL (`dll_stem=app_core`). Physically moved ou
 | Default `src_all` | **no** |
 | 旧路径 | ~~`src/legacy_app/`~~ 已并入本目录（勿再并行维护） |
 
+## China map bootstrap
+
+- 启动时 `SmtApp::DelayInit` / `InitSmtMap` 优先加载 `out/china_city.gpkg`（`area`/`line`/`point`/`text` 四层地级底图），缺包再试 `china_city.geojson` / `china_plp.geojson`。面按 `name`/`adcode` 哈希分色；注记用 YaHei + UTF-8 `TextOutW`。
+- `--self-test`：断言图层 ≥1 且要素 ≥3，写 `china-plp-ok`；Edit 视图创建后若 BCG 卡住，由 `CSmartMapEditView::OnCreate` 看门狗 `TerminateProcess(0)`。
+- **交互**：`InitInstance` 先开 **Edit** 2D，再开 **3D**（`CSmart3DView` / `Smt3DXView`，与 Edit 共用文档）。Data 仍按需打开。`--self-test` 只开 Edit（BCG 3D 拉起可能挂死）。
+- **开 3D**：启动后 MDI 标签 **SmartGis 3D**；或菜单 **窗口(&W) → 三维窗口(&3)**（`ID_WND_3D`）。动态视图菜单会替换 RC 菜单，因此该弹出项挂在 `append_mdi_window_menu` 上。
+- **3D**：`Smt3DXView::CreateRender` 把同一 `china_city.gpkg` 抬进 leftover GL（`Smt2DGeoObject`，环抽稀 + MultiPolygon 剖分，按要素刷色）。无样本时回退立方体。`gl_map_paint_test` 断言非黑像素。
+
 Do not add new product features here — freeze except compile/path fixes. Destination chrome is `src/app/views` + `src/ui/views`.
 
 See: [`docs/superpowers/specs/2026-09-14-app-legacy-split-design.md`](../../docs/superpowers/specs/2026-09-14-app-legacy-split-design.md), [`docs/build/src-layout.md`](../../docs/build/src-layout.md).
+
+---
+
+**最后更新：** 2026-09-18

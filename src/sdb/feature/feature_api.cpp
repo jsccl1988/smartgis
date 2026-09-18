@@ -9,13 +9,30 @@
 
 using namespace geo;
 
+long append_cloned_feature(OGRLayer* dest, const OGRFeature* src) {
+  if (!dest || !src) {
+    return SMT_ERR_INVALID_PARAM;
+  }
+  OGRFeature* out = OGRFeature::CreateFeature(dest->GetLayerDefn());
+  if (!out) {
+    return SMT_ERR_FAILURE;
+  }
+  out->SetFrom(src);
+  if (src->GetGeometryRef()) {
+    out->SetGeometry(src->GetGeometryRef());
+  }
+  const OGRErr err = dest->CreateFeature(out);
+  OGRFeature::DestroyFeature(out);
+  return err == OGRERR_NONE ? SMT_ERR_NONE : SMT_ERR_FAILURE;
+}
+
 long copy_layer(OGRLayer* pTarLayer, OGRLayer* pSrcLayer) {
   if (!pTarLayer || !pSrcLayer) {
     return SMT_ERR_INVALID_PARAM;
   }
   pSrcLayer->ResetReading();
   while (OGRFeature* feat = pSrcLayer->GetNextFeature()) {
-    pTarLayer->CreateFeature(feat);
+    append_cloned_feature(pTarLayer, feat);
     OGRFeature::DestroyFeature(feat);
   }
   return SMT_ERR_NONE;

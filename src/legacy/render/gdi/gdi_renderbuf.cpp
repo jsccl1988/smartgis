@@ -7,12 +7,22 @@
 namespace render
 {
 	SmtRenderBuf::SmtRenderBuf(HWND hWnd):m_hWnd(hWnd)
+		,m_hPaintDC(NULL)
+		,m_hOldPaintBuf(NULL)
+		,m_hPaintBuf(NULL)
+		,m_nBufWidth(0)
+		,m_nBufHeight(0)
 		,m_bOnwerBuf(true)
 	{
 
 	}
 
 	SmtRenderBuf::SmtRenderBuf(void):m_hWnd(NULL)
+		,m_hPaintDC(NULL)
+		,m_hOldPaintBuf(NULL)
+		,m_hPaintBuf(NULL)
+		,m_nBufWidth(0)
+		,m_nBufHeight(0)
 		,m_bOnwerBuf(true)
 	{
 
@@ -57,22 +67,23 @@ namespace render
 			m_hPaintBuf = NULL;
 		}
 
-		HDC hDC = GetDC(m_hWnd);	
+		HDC hDC = GetDC(m_hWnd);
 		m_nBufWidth   = cx;
 		m_nBufHeight  = cy;
-		m_hPaintBuf   = CreateCompatibleBitmap(hDC,m_nBufWidth,m_nBufHeight); 
-
-		if (NULL == m_hPaintBuf)
-			return SMT_ERR_FAILURE;
-
-		ClearBuf(0,0,m_nBufWidth,m_nBufHeight/*,(COLORREF)::GetSysColor(COLOR_WINDOW)*/);
-
-		::ReleaseDC(m_hWnd,hDC);
+		m_hPaintBuf   = hDC ? CreateCompatibleBitmap(hDC,m_nBufWidth,m_nBufHeight) : NULL;
+		if (hDC) {
+			::ReleaseDC(m_hWnd,hDC);
+		}
+		const bool ok = m_hPaintBuf != NULL;
 #ifdef SMT_THREAD_SAFE
 		m_cslock.unlock();
 #endif
-
-		return SMT_ERR_NONE;
+		// ClearBuf takes m_cslock; calling it while held aborts in debug
+		// (_RESOURCE_DEADLOCK_WOULD_OCCUR) and hangs Resize in release.
+		if (!ok) {
+			return SMT_ERR_FAILURE;
+		}
+		return ClearBuf(0,0,m_nBufWidth,m_nBufHeight);
 	}
 
 	long SmtRenderBuf::ShareBuf(SmtRenderBuf &rbSrc)
@@ -86,7 +97,7 @@ namespace render
 #ifdef SMT_THREAD_SAFE
 		m_cslock.lock();
 #endif
-		this->SetWnd(rbSrc.GetWnd());
+		this->m_hWnd = rbSrc.GetWnd();
 		this->m_nBufHeight = rbSrc.GetBufHeight();
 		this->m_nBufWidth = rbSrc.GetBufWidth();
 		this->m_hPaintBuf = rbSrc.GetBuf();
@@ -307,16 +318,11 @@ namespace render
 			m_hPaintBuf = NULL;
 		}
 
-#ifdef SMT_THREAD_SAFE
-		m_cslock.lock();
-#endif
-
-		this->SetWnd(other.GetWnd());
-		this->SetBufSize(other.GetBufWidth(),other.GetBufHeight());
-
-#ifdef SMT_THREAD_SAFE
-		m_cslock.unlock();
-#endif
+		const HWND wnd = other.GetWnd();
+		const int w = other.GetBufWidth();
+		const int h = other.GetBufHeight();
+		this->SetWnd(wnd);
+		this->SetBufSize(w, h);
 		return *this;
 	}
 

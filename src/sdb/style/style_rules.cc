@@ -162,7 +162,7 @@ bool resolve(const StyleDocument& doc,
     if (!eval_filter(layer->filter, attrs)) {
       continue;
     }
-    fill_resolved_paint(*layer, library, out);
+    fill_resolved_paint(*layer, library, attrs, zoom, out);
     return true;
   }
   return false;

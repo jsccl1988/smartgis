@@ -9,6 +9,12 @@
 #include <string_view>
 
 #include "app/cef/layout_host.h"
+#include "tool/gestures.h"
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 
 namespace content {
 class MapContents;
@@ -16,6 +22,8 @@ class ViewHost;
 }  // namespace content
 
 namespace app {
+class MapScene;
+
 namespace cef {
 
 class CefMapSlot;
@@ -80,6 +88,7 @@ class ChromeBridge {
                     CefMapSlot* slots,
                     int slot_count,
                     content::MapContents* session);
+  void set_document(MapScene* document);
   void set_message_box_suppressed(bool suppressed);
 
   void notify_ready();
@@ -88,6 +97,11 @@ class ChromeBridge {
 
   bool query_has_catalog_and_ambox() const;
   void select_tab_for_test(int index);
+  // Seed china_plp / sample and push CatalogDelta. Returns true on OGR China.
+  bool seed_map_document();
+  void push_catalog_snapshot();
+  void show_view_context_menu(POINT screen);
+  bool open_document_path(const std::string& path);
 
   // Called after JSON is extracted from a CefProcessMessage (browser process).
   bool handle_json(std::string_view json);
@@ -96,6 +110,8 @@ class ChromeBridge {
   void set_post_json(void (*fn)(void* user, const std::string& json), void* user);
 
   const std::string& last_status() const { return last_status_; }
+  MapScene* document() { return document_; }
+  const MapScene* document() const { return document_; }
 
  private:
   void handle(const BridgeMessage& msg);
@@ -103,11 +119,17 @@ class ChromeBridge {
   void send_ack(const std::string& request_id);
   std::string map_alias(std::string_view id) const;
   content::ViewHost* active_view_host() const;
+  CefMapSlot* active_slot() const;
+  void wire_draft_observers();
+  void handle_draft(const tool::Draft& draft);
+  void invalidate_map_overlays();
+  bool activate_tool(const std::string& id);
 
   LayoutHost* layout_ = nullptr;
   CefMapSlot* slots_ = nullptr;
   int slot_count_ = 0;
   content::MapContents* session_ = nullptr;
+  MapScene* document_ = nullptr;
   bool ready_ = false;
   bool suppress_message_box_ = false;
   std::string last_status_;

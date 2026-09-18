@@ -56,3 +56,28 @@ void draw_cross(HDC hDC, long lX, long lY, long r, BOOL exclusive) {
   MoveToEx(hDC, lX, lY, NULL);
   LineTo(hDC, lX, lY);
 }
+
+void draw_anno_text(HDC hdc, long x, long y, const char* text) {
+  if (!hdc || !text || !text[0]) {
+    return;
+  }
+  wchar_t wide[512];
+  int n = MultiByteToWideChar(CP_UTF8, 0, text, -1, wide, 512);
+  if (n <= 1) {
+    n = MultiByteToWideChar(CP_ACP, 0, text, -1, wide, 512);
+  }
+  if (n <= 1) {
+    return;
+  }
+  HFONT font = CreateFontW(-14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                           DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
+                           CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
+                           L"Microsoft YaHei");
+  HGDIOBJ old = font ? SelectObject(hdc, font) : nullptr;
+  SetBkMode(hdc, TRANSPARENT);
+  TextOutW(hdc, x, y, wide, n - 1);
+  if (font) {
+    SelectObject(hdc, old);
+    DeleteObject(font);
+  }
+}

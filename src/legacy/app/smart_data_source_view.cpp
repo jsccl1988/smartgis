@@ -89,8 +89,7 @@ void CSmartDataSourceView::OnInitialUpdate()
 	LOGGING(LOG_INFO, "OnInitialUpdate begin");
 	Smt2DXView::OnInitialUpdate();
 
-	// TODO: �ڴ�����ר�ô����/����û���
-	//����mainframe �˵�
+	theApp.append_mdi_window_menu(m_hMainMenu);
 	((CSmartGisDoc*)GetDocument())->m_hCurMainMenu = m_hMainMenu;
 	((CFrameWnd*)AfxGetMainWnd())->OnUpdateFrameMenu(NULL);
 	AfxGetMainWnd()->DrawMenuBar();

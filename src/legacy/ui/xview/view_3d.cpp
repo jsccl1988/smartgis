@@ -15,6 +15,7 @@
 #include "legacy/ui/xview/view_chrome.h"
 #include "legacy/ui/xview/view_core.h"
 #include "legacy/render/model3d/cube.h"
+#include "legacy/render/scene3d/map_to_scene.h"
 
 using namespace render;
 using namespace sys;
@@ -122,14 +123,11 @@ void Smt3DXView::OnSize(UINT nType, int cx, int cy) {
     Viewport3D viewport;
     CRect rect;
     GetClientRect(&rect);
-
-    viewport.ulHeight = rect.Height();
-    viewport.ulWidth = rect.Width();
-    viewport.ulX = 0;
-    viewport.ulY = 0;
-    viewport.fZNear = 0.1;
-    viewport.fZFar = 1000;
-    viewport.fFovy = 45.f;
+    if (rect.Width() <= 0 || rect.Height() <= 0) {
+      return;
+    }
+    apply_view3d_viewport(&viewport, static_cast<ulong>(rect.Width()),
+                          static_cast<ulong>(rect.Height()));
 
     // set viewport
     m_p3DRenderDevice->SetViewport(viewport);
@@ -141,6 +139,12 @@ void Smt3DXView::OnSize(UINT nType, int cx, int cy) {
         viewport.fZNear, viewport.fZFar);
     m_p3DRenderDevice->MatrixModeSet(MM_MODELVIEW);
     m_p3DRenderDevice->MatrixLoadIdentity();
+
+    if (m_pScene) {
+      if (SmtPerspCamera* cam = m_pScene->GetSceneCamera()) {
+        cam->SetViewport(viewport);
+      }
+    }
 
     if (m_p3DViewCtrlTool) {
       SmtListenerMsg param;
@@ -249,6 +253,9 @@ void Smt3DXView::OnContextMenu(CWnd *pWnd, CPoint point) {
     if (!pTmpTool->IsEnableContexMenu()) return;
   }
 
+  if (!m_hContexMenu || ::GetMenuItemCount(m_hContexMenu) <= 0) {
+    return;
+  }
   ::TrackPopupMenu(m_hContexMenu,
                    TPM_LEFTALIGN | TPM_LEFTBUTTON | TPM_RIGHTBUTTON, point.x,
                    point.y, 0, this->m_hWnd, NULL);
@@ -279,15 +286,13 @@ bool Smt3DXView::CreateContexMenu() {
 
   //////////////////////////////////////////////////////////////////////////
   // am menu
-  ::AppendMenu(m_hContexMenu, MF_SEPARATOR, NULL, NULL);
+  ::AppendMenuA(m_hContexMenu, MF_SEPARATOR, 0, NULL);
   SmtAModuleManager *pAModuleMgr = SmtAModuleManager::get_singleton_ptr();
   if (pAModuleMgr) {
     for (int i = 0; i < pAModuleMgr->get_a_module_count(); i++) {
       SmtAuxModule *pAModule = pAModuleMgr->get_a_module(i);
-      HMENU hMenu = create_listener_menu(pAModule, FIM_3DVIEW);
-      if (GetMenuItemCount(hMenu) > 0)
-        InsertMenu(m_hContexMenu, i + 3, MF_POPUP, (UINT)hMenu,
-                   pAModule->get_name());
+      attach_listener_popup(m_hContexMenu, pAModule, FIM_3DVIEW,
+                            pAModule->get_name(), i + 3, MF_BYPOSITION);
     }
   }
 
@@ -298,22 +303,19 @@ bool Smt3DXView::CreateContexMenu() {
 
 bool Smt3DXView::CreateMainMenu() {
   SmtXView::CreateMainMenu();
-// view ctrl menu
-  HMENU hMenu = create_listener_menu(m_p3DViewCtrlTool, FIM_3DMFMENU);
-  if (GetMenuItemCount(hMenu) > 0)
-    AppendMenu(m_hMainMenu, MF_POPUP, (UINT)hMenu,
-               m_p3DViewCtrlTool->get_name());
+  // view ctrl menu
+  attach_listener_popup(m_hMainMenu, m_p3DViewCtrlTool, FIM_3DMFMENU,
+                        m_p3DViewCtrlTool->get_name());
 
   //////////////////////////////////////////////////////////////////////////
   // am menu
-  ::AppendMenu(m_hMainMenu, MF_SEPARATOR, NULL, NULL);
+  ::AppendMenuA(m_hMainMenu, MF_SEPARATOR, 0, NULL);
   SmtAModuleManager *pAModuleMgr = SmtAModuleManager::get_singleton_ptr();
   if (pAModuleMgr) {
     for (int i = 0; i < pAModuleMgr->get_a_module_count(); i++) {
       SmtAuxModule *pAModule = pAModuleMgr->get_a_module(i);
-      HMENU hMenu = create_listener_menu(pAModule, FIM_3DMFMENU);
-      if (GetMenuItemCount(hMenu) > 0)
-        AppendMenu(m_hMainMenu, MF_POPUP, (UINT)hMenu, pAModule->get_name());
+      attach_listener_popup(m_hMainMenu, pAModule, FIM_3DMFMENU,
+                            pAModule->get_name());
     }
   }
 
@@ -364,10 +366,12 @@ SmtSysPra sysPra = pSysMgr->get_sys_pra();
 
   if (m_pScene->Setup() != SMT_ERR_NONE) return false;
 
-  // Seed a visible solid cube so 3D1 is never an empty black HWND on first run.
-  {
+  const int seeded = seed_sample_map_into_scene(m_p3DRenderDevice, m_pScene);
+  if (seeded > 0) {
+    LOGGING(LOG_INFO, "Seeded %d OGR features into 3D scene.", seeded);
+  } else {
+    // Fallback so 3D1 is never an empty black HWND when china_plp is missing.
     Vector3 cube_center(0.f, 0.f, 0.f);
-    // Large enough to fill the default camera frustum (eye at z=100).
     SmtCube* cube = new SmtCube(m_p3DRenderDevice, cube_center, 40.f);
     SmtMaterial mat;
     Vector3 pos(0.f, 0.f, 0.f);
@@ -459,6 +463,19 @@ SmtGroupToolFactory::CreateGroup3DTool(m_p3DViewCtrlTool,
     return false;
 
   m_p3DViewCtrlTool->SetActive();
+
+  if (m_p3DRenderDevice && m_pScene) {
+    Viewport3D vp = m_p3DRenderDevice->GetViewport();
+    const ulong w = vp.ulWidth > 0 ? vp.ulWidth : 1;
+    const ulong h = vp.ulHeight > 0 ? vp.ulHeight : 1;
+    apply_view3d_viewport(&vp, w, h);
+    if (SmtPerspCamera* cam = m_pScene->GetSceneCamera()) {
+      frame_persp_camera_to_aabb(cam, &vp, m_pScene->GetAabb());
+    }
+    if (w > 1 && h > 1) {
+      m_p3DRenderDevice->SetViewport(vp);
+    }
+  }
 
   LOGGING(LOG_INFO, "Init Group3DTools ok!");
 

@@ -18,7 +18,7 @@ using namespace sdb;
 using namespace base;
 using namespace sys;
 
-const string						CST_STR_MAPVIEWCTRL_TOOL_NAME	= "��ͼ���";
+const string						CST_STR_MAPVIEWCTRL_TOOL_NAME	= "地图控制";
 
 namespace tool
 {
@@ -54,11 +54,11 @@ namespace tool
 		for (int i = 0; i < nCount; i++)
 			m_hCursors[i] = ::LoadCursor(g_hInstance, MAKEINTRESOURCE(idCursors[i]));
 
-		append_func_items("�Ŵ�",GT_MSG_VIEW_ZOOMIN,FIM_2DVIEW|FIM_2DMFMENU);
-		append_func_items("��С",GT_MSG_VIEW_ZOOMOUT,FIM_2DVIEW|FIM_2DMFMENU);
-		append_func_items("�ƶ�",GT_MSG_VIEW_ZOOMMOVE,FIM_2DVIEW|FIM_2DMFMENU);
-		append_func_items("��λ",GT_MSG_VIEW_ZOOMRESTORE,FIM_2DVIEW|FIM_2DMFMENU);
-		append_func_items("ˢ��",GT_MSG_VIEW_ZOOMREFRESH,FIM_2DVIEW|FIM_2DMFMENU);
+		append_func_items("放大",GT_MSG_VIEW_ZOOMIN,FIM_2DVIEW|FIM_2DMFMENU);
+		append_func_items("缩小",GT_MSG_VIEW_ZOOMOUT,FIM_2DVIEW|FIM_2DMFMENU);
+		append_func_items("移动",GT_MSG_VIEW_ZOOMMOVE,FIM_2DVIEW|FIM_2DMFMENU);
+		append_func_items("复位",GT_MSG_VIEW_ZOOMRESTORE,FIM_2DVIEW|FIM_2DMFMENU);
+		append_func_items("刷新",GT_MSG_VIEW_ZOOMREFRESH,FIM_2DVIEW|FIM_2DMFMENU);
 		//append_func_items("��ά��ͼ",GT_MSG_3DVIEW_ACTIVE,FIM_2DVIEW);
 
 		SMT_IATOOL_APPEND_MSG(GT_MSG_VIEW_ZOOMIN);

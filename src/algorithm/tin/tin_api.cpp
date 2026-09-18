@@ -58,39 +58,75 @@ long divide_polygon_into_tri_mesh(vector<SmtTriangle>& trilist,
     return SMT_ERR_INVALID_PARAM;
   }
 
-  std::vector<Vector3> vertices(static_cast<std::size_t>(nPoint));
-  for (int i = 0; i < nPoint; ++i) {
-    vertices[static_cast<std::size_t>(i)].x = static_cast<float>(pPoints[i].x);
-    vertices[static_cast<std::size_t>(i)].y = static_cast<float>(pPoints[i].y);
+  // Dense OGR rings (coastal prefectures) hang the constrained TIN. Cap
+  // vertices first, then fan; PIP drops exterior slivers on concave coasts.
+  constexpr int kMaxTessVerts = 64;
+  std::vector<dbfPoint> decimated;
+  const dbfPoint* pts = pPoints;
+  int use_n = nPoint;
+  if (nPoint > kMaxTessVerts) {
+    decimated.resize(static_cast<std::size_t>(kMaxTessVerts));
+    const int step = (nPoint + kMaxTessVerts - 2) / (kMaxTessVerts - 1);
+    int out = 0;
+    for (int i = 0; i < nPoint && out < kMaxTessVerts - 1; i += step) {
+      decimated[static_cast<std::size_t>(out++)] = pPoints[i];
+    }
+    decimated[static_cast<std::size_t>(out++)] = pPoints[nPoint - 1];
+    use_n = out;
+    decimated.resize(static_cast<std::size_t>(use_n));
+    pts = decimated.data();
+  }
+
+  std::vector<Vector3> vertices(static_cast<std::size_t>(use_n));
+  for (int i = 0; i < use_n; ++i) {
+    vertices[static_cast<std::size_t>(i)].x = static_cast<float>(pts[i].x);
+    vertices[static_cast<std::size_t>(i)].y = static_cast<float>(pts[i].y);
     vertices[static_cast<std::size_t>(i)].z = 0.f;
   }
 
   std::vector<SmtTriangle> triangles;
-  const long rc =
-      tin::tin_backend_traits<tin::default_backend>::triangulate_constrained(
-          vertices.data(), nPoint, triangles);
-  if (rc != SMT_ERR_NONE) {
-    return rc;
+  triangles.reserve(static_cast<std::size_t>(use_n));
+  for (int i = 1; i + 1 < use_n; ++i) {
+    SmtTriangle t;
+    t.a = 0;
+    t.b = i;
+    t.c = i + 1;
+    triangles.push_back(t);
   }
 
-  OGRLinearRing ring;
-  std::vector<OGRRawPoint> raw(static_cast<std::size_t>(nPoint));
-  for (int i = 0; i < nPoint; ++i) {
-    raw[static_cast<std::size_t>(i)].x = pPoints[i].x;
-    raw[static_cast<std::size_t>(i)].y = pPoints[i].y;
-  }
-  ring.setPoints(nPoint, raw.data());
-  ring.closeRings();
-  OGRPolygon poly;
-  poly.addRing(&ring);
+  // OGRPolygon::Contains needs GEOS; GDAL in this tree is often built
+  // without it ("GEOS support not enabled") and would drop every triangle.
+  auto point_in_ring = [pts, use_n](double x, double y) {
+    bool inside = false;
+    for (int i = 0, j = use_n - 1; i < use_n; j = i++) {
+      const double yi = pts[i].y;
+      const double yj = pts[j].y;
+      const double xi = pts[i].x;
+      const double xj = pts[j].x;
+      if ((yi > y) != (yj > y)) {
+        const double x_cross =
+            (xj - xi) * (y - yi) / ((yj - yi) + 1e-30) + xi;
+        if (x < x_cross) {
+          inside = !inside;
+        }
+      }
+    }
+    return inside;
+  };
 
   for (const SmtTriangle& tri : triangles) {
+    if (tri.a < 0 || tri.b < 0 || tri.c < 0 || tri.a >= use_n ||
+        tri.b >= use_n || tri.c >= use_n) {
+      continue;
+    }
     const Vector3& a = vertices[static_cast<std::size_t>(tri.a)];
     const Vector3& b = vertices[static_cast<std::size_t>(tri.b)];
     const Vector3& c = vertices[static_cast<std::size_t>(tri.c)];
-    OGRPoint center((static_cast<double>(a.x) + b.x + c.x) / 3.0,
-                    (static_cast<double>(a.y) + b.y + c.y) / 3.0);
-    if (poly.Contains(&center)) {
+    const double cx =
+        (static_cast<double>(a.x) + b.x + c.x) / 3.0;
+    const double cy =
+        (static_cast<double>(a.y) + b.y + c.y) / 3.0;
+    if (point_in_ring(cx, cy)) {
       trilist.push_back(tri);
     }
   }

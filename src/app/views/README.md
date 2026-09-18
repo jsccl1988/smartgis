@@ -45,12 +45,18 @@ build.bat views
 [`docs/build/ui-testing.md`](../../../docs/build/ui-testing.md)。
 
 Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把真实
-图层名与几何灌进 Catalog / 2D overlay；打不开时才回退样例要素。样例数据：
+图层名与几何灌进 Catalog / 2D overlay；打不开时才回退样例要素。启动时
+`seed_default` / 自测优先加载 **`china_city.gpkg`**（地级四层：`area` /
+`line` / `point` / `text`）；缺失时回退 `china_plp.geojson`。样例数据：
 
-- 仓库：`testing/data/views_ogr_sample.geojson`
-- 自测：exe 旁写入 `views_ogr_selftest.geojson`
+- 仓库：`testing/data/china_city.gpkg`（约 3.4MB；构建复制到 `out/`；同目录有匹配的 `china_city.geojson`）
+- 生成：`py -3 testing/data/build_china_city.py`（DataV 地级界 + Natural Earth 河流）
+- 许可 / PIN：`testing/data/china_city.LICENSE.txt`、`china_city.PIN.txt`
+- 兜底：`testing/data/china_plp.geojson`
+- 自测：优先 `out/china_city.gpkg` / `.geojson`（≥4 层或 kind 四分、要素量级远高于示意 PLP）
 
 菜单 **Open** 或 Catalog「加载 shp」选上述文件即可；状态栏显示 `Opened (OGR): …`。
+图层右键 **View** 缩放到全图。
 
 3D 页：`view3d.trackball` 更新 `Scene3dController` 的 yaw/pitch/distance，经
 `make_orbit_camera` 喂给 FlyCube `present_gpu`（实心立方体）。默认挂接仍优先
@@ -79,4 +85,4 @@ out\SmartGisViews.exe --self-test
 
 ---
 
-**最后更新：** 2026-09-14
+**最后更新：** 2026-09-18

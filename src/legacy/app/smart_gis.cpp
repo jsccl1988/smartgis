@@ -356,13 +356,14 @@ BOOL CSmartGisApp::InitInstance()
 	CDocument* edit_doc = m_pEditViewDocTemplate->OpenDocumentFile(NULL);
 	LOGGING(LOG_INFO, "InitInstance: Edit view doc=%p", edit_doc);
 
-	LOGGING(LOG_INFO, "InitInstance: opening 3D view...");
-	CDocument* view3d_doc = m_p3DViewDocTemplate->OpenDocumentFile(NULL);
-	LOGGING(LOG_INFO, "InitInstance: 3D view doc=%p", view3d_doc);
-
-	LOGGING(LOG_INFO, "InitInstance: opening Data view...");
-	CDocument* data_doc = m_pDataViewDocTemplate->OpenDocumentFile(NULL);
-	LOGGING(LOG_INFO, "InitInstance: Data view doc=%p", data_doc);
+	// Interactive: restore the leftover 3D MDI child so china_plp is visible
+	// without hunting a replaced RC menu. Data stays on-demand. --self-test
+	// never reaches here (2D-only; BCG 3D bring-up can hang).
+	if (edit_doc) {
+		LOGGING(LOG_INFO, "InitInstance: opening 3D view...");
+		const BOOL ok3d = open_mdi_view(m_p3DViewDocTemplate);
+		LOGGING(LOG_INFO, "InitInstance: 3D view ok=%d", static_cast<int>(ok3d));
+	}
 
 	if (SmtMapMgr* map_mgr = SmtMapMgr::get_singleton_ptr()) {
 		map_mgr->Update2DXView();
@@ -434,6 +435,49 @@ CDocument * CSmartGisApp::GetActiveDoc(void)
 {
 	CDocument* pDoc = ((CMainFrame* )m_pMainWnd)->GetActiveFrame()->GetActiveDocument();
 	return pDoc;
+}
+
+void CSmartGisApp::append_mdi_window_menu(HMENU menu)
+{
+	if (menu == NULL)
+		return;
+
+	HMENU popup = ::CreatePopupMenu();
+	if (popup == NULL)
+		return;
+
+	::AppendMenuA(popup, MF_STRING, ID_WND_MAPEDIT, "地图编辑窗口");
+	::AppendMenuA(popup, MF_STRING, ID_WND_MAPDATA, "地图数据窗口");
+	::AppendMenuA(popup, MF_STRING, ID_WND_3D, "三维窗口(&3)");
+	if (!insert_popup_menu(menu, 0, popup, "窗口(&W)", MF_BYPOSITION))
+		::DestroyMenu(popup);
+}
+
+BOOL CSmartGisApp::open_mdi_view(CDocTemplate* tmpl)
+{
+	if (tmpl == NULL)
+		return FALSE;
+
+	CDocument* doc = NULL;
+	CMDIChildWnd* child = NULL;
+	if (m_pMainWnd) {
+		CFrameWnd* frame = DYNAMIC_DOWNCAST(CFrameWnd, m_pMainWnd);
+		CFrameWnd* active = frame ? frame->GetActiveFrame() : NULL;
+		if (active && active != frame) {
+			child = DYNAMIC_DOWNCAST(CMDIChildWnd, active);
+			doc = active->GetActiveDocument();
+		}
+	}
+
+	if (doc) {
+		CFrameWnd* created = tmpl->CreateNewFrame(doc, child);
+		if (created) {
+			tmpl->InitialUpdateFrame(created, doc);
+			return TRUE;
+		}
+	}
+
+	return tmpl->OpenDocumentFile(NULL) != NULL;
 }
 
 

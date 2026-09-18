@@ -130,11 +130,15 @@ namespace render
 		m_smtRC.viewport.m_fVHeight = cy;
 		m_smtRC.viewport.m_fVWidth  = cx;
 
-		float xblc,yblc;
-		xblc = m_smtRC.viewport.m_fVWidth/m_smtRC.windowport.m_fWWidth;
-		yblc = m_smtRC.viewport.m_fVHeight/m_smtRC.windowport.m_fWHeight;
-
-		m_smtRC.fblc = (xblc > yblc)?yblc:xblc;
+		if (is_equal(m_smtRC.windowport.m_fWWidth, 0, dEPSILON) ||
+			is_equal(m_smtRC.windowport.m_fWHeight, 0, dEPSILON)) {
+			m_smtRC.fblc = 1.f;
+		} else {
+			float xblc,yblc;
+			xblc = m_smtRC.viewport.m_fVWidth/m_smtRC.windowport.m_fWWidth;
+			yblc = m_smtRC.viewport.m_fVHeight/m_smtRC.windowport.m_fWHeight;
+			m_smtRC.fblc = (xblc > yblc)?yblc:xblc;
+		}
 
 		if (SMT_ERR_NONE == m_smtRenderBuf.SetBufSize(m_smtRC.viewport.m_fVWidth,m_smtRC.viewport.m_fVHeight) &&
 			SMT_ERR_NONE == m_smtRenderBuf.SwapBuf(m_smtRC.viewport.m_fVOX,m_smtRC.viewport.m_fVWidth,m_smtRC.viewport.m_fVWidth,m_smtRC.viewport.m_fVHeight,0,0))

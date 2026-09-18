@@ -2,6 +2,7 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//testing/test.gni")
 
 # Map document + feature/layer types. Compiled into //src/sdb:sdb (dll_stem = sdb).
 # attribute.cpp / field.cpp are NOT in gis — see leftover_attr below.
@@ -29,6 +30,20 @@ source_set("gis_sources") {
 
 group("gis") {
   public_deps = [ "//src/sdb:sdb" ]
+}
+
+# Point / box QueryFeature on china_plp + flash copy must keep features.
+test("select_query_test") {
+  output_name = "select_query_test"
+  sources = [ "select_query_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":gis",
+    "//src/sdb/datasource/mgr:sde_mgr",
+    "//testing/data:china_map_samples",
+    "//third_party:gdal",
+  ]
 }
 
 # Leftover SmtAttribute / SmtField. Product fields are OGR on :gis.

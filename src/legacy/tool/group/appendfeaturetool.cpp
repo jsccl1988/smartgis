@@ -27,7 +27,7 @@ using namespace geo;
 using namespace sys;
 using namespace base;
 
-const string						CST_STR_APPENDFEATURE_TOOL_NAME	= "???????";
+const string						CST_STR_APPENDFEATURE_TOOL_NAME	= "添加要素";
 
 namespace {
 
@@ -138,24 +138,24 @@ namespace tool
 		pStyle->set_style_type(ST_PenDesc|ST_BrushDesc|ST_SymbolDesc|ST_AnnoDesc);
 
 		//
-		append_func_items("???????",GT_MSG_APPEND_POINT_CHILDIMAGE_FEATURE,FIM_2DMFMENU);
-		append_func_items("???????",GT_MSG_APPEND_POINT_ANNO_FEATURE,FIM_2DMFMENU);
-		append_func_items("?????",GT_MSG_APPEND_POINT_DOT_FEATURE,FIM_2DMFMENU);
+		append_func_items("添加子图",GT_MSG_APPEND_POINT_CHILDIMAGE_FEATURE,FIM_2DMFMENU);
+		append_func_items("添加注记",GT_MSG_APPEND_POINT_ANNO_FEATURE,FIM_2DMFMENU);
+		append_func_items("添加点",GT_MSG_APPEND_POINT_DOT_FEATURE,FIM_2DMFMENU);
 
 		//
-		append_func_items("????????",GT_MSG_APPEND_LINE_LINESTRING_FEATURE,FIM_2DMFMENU);
-		append_func_items("????????????????",GT_MSG_APPEND_LINE_SPLINE_LAG_FEATURE,FIM_2DMFMENU);
-		append_func_items("????????????",GT_MSG_APPEND_LINE_SPLINE_BZER_FEATURE,FIM_2DMFMENU);
-		append_func_items("????B????????",GT_MSG_APPEND_LINE_SPLINE_B_FEATURE,FIM_2DMFMENU);
-		append_func_items("????????????????",GT_MSG_APPEND_LINE_SPLINE_3_FEATURE,FIM_2DMFMENU);
-		append_func_items("?????????",GT_MSG_APPEND_LINE_RECT_FEATURE,FIM_2DMFMENU);
-		append_func_items("???????",GT_MSG_APPEND_LINE_ARC_FEATURE,FIM_2DMFMENU);
-		append_func_items("??????????",GT_MSG_APPEND_LINE_LINEARRING_FEATURE,FIM_2DMFMENU);
+		append_func_items("添加折线",GT_MSG_APPEND_LINE_LINESTRING_FEATURE,FIM_2DMFMENU);
+		append_func_items("添加拉格朗日样条",GT_MSG_APPEND_LINE_SPLINE_LAG_FEATURE,FIM_2DMFMENU);
+		append_func_items("添加贝塞尔样条",GT_MSG_APPEND_LINE_SPLINE_BZER_FEATURE,FIM_2DMFMENU);
+		append_func_items("添加B样条",GT_MSG_APPEND_LINE_SPLINE_B_FEATURE,FIM_2DMFMENU);
+		append_func_items("添加三次样条",GT_MSG_APPEND_LINE_SPLINE_3_FEATURE,FIM_2DMFMENU);
+		append_func_items("添加矩形",GT_MSG_APPEND_LINE_RECT_FEATURE,FIM_2DMFMENU);
+		append_func_items("添加圆弧",GT_MSG_APPEND_LINE_ARC_FEATURE,FIM_2DMFMENU);
+		append_func_items("添加闭合线",GT_MSG_APPEND_LINE_LINEARRING_FEATURE,FIM_2DMFMENU);
 
 		//
-		append_func_items("??????????",GT_MSG_APPEND_SURF_FAN_FEATURE,FIM_2DMFMENU);
-		append_func_items("?????????",GT_MSG_APPEND_SURF_RECT_FEATURE,FIM_2DMFMENU);
-		append_func_items("??????????",GT_MSG_APPEND_SURF_POLYGON_FEATURE,FIM_2DMFMENU);
+		append_func_items("添加扇形",GT_MSG_APPEND_SURF_FAN_FEATURE,FIM_2DMFMENU);
+		append_func_items("添加矩形面",GT_MSG_APPEND_SURF_RECT_FEATURE,FIM_2DMFMENU);
+		append_func_items("添加多边形",GT_MSG_APPEND_SURF_POLYGON_FEATURE,FIM_2DMFMENU);
 
 		SMT_IATOOL_APPEND_MSG(GT_MSG_APPEND_POINT_CHILDIMAGE_FEATURE);
 		SMT_IATOOL_APPEND_MSG(GT_MSG_APPEND_POINT_ANNO_FEATURE);

@@ -69,9 +69,30 @@ function onHost(raw) {
     const list = document.getElementById("catalog-list");
     if (list && msg.text) {
       list.innerHTML = "";
-      const item = document.createElement("li");
-      item.textContent = msg.text;
-      list.appendChild(item);
+      let layers = null;
+      try {
+        layers = JSON.parse(msg.text);
+      } catch (e) {
+        layers = null;
+      }
+      if (Array.isArray(layers) && layers.length > 0) {
+        layers.forEach((layer) => {
+          const item = document.createElement("li");
+          const name =
+            layer && typeof layer === "object"
+              ? layer.name || layer.id || "?"
+              : String(layer);
+          item.textContent = name;
+          if (layer && layer.id) {
+            item.setAttribute("data-layer-id", layer.id);
+          }
+          list.appendChild(item);
+        });
+      } else {
+        const item = document.createElement("li");
+        item.textContent = msg.text;
+        list.appendChild(item);
+      }
     }
   }
 }

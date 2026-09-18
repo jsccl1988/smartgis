@@ -37,10 +37,15 @@ Command ids match Workspace builtins (`selection.point`, `edit.append.point`,
 
 ## Map host
 
-- **HWND island** parented to the XAML `DesktopChildSiteBridge` (DIP coords via
-  `TransformToVisual` + `XamlRoot.RasterizationScale`) over the map slot.
+- **HWND overlay** parented to the **top-level Win32 window** (never
+  `DesktopChildSiteBridge`). Island recreate + `DestroyWindow` during clicks
+  was WER `0x80070578` / XAML `0xc000027b`. DIP coords still come from
+  `TransformToVisual`, then `MapWindowPoints` onto the top-level client.
 - Present: `content::PresentMode::kSoftwareDib` — GPU publishes shared pixels;
-  chrome blits `MapWidgetHostView::Latest()` (same path as `ui::views::MapViewport`).
+  chrome blits `MapWidgetHostView::Latest()`, then overlays `app::MapScene`
+  vectors (China PLP **polygon / line / point + name labels**, same as Views).
+- Startup loads `china_plp.geojson` beside the PE via `MapScene::seed_default`.
+  File → Open also calls `MapHost::open_map_path` (OGR).
 - Tabs: **Map Edit** (`kMapEdit`) / **Data** (`kMapData`) / **3D** (`kScene3d`).
   Views stay open across tab switches (no CloseView on each click); HWND island
   is re-synced via `sync_layout` only.

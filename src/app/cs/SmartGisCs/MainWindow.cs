@@ -35,6 +35,7 @@ public sealed class MainWindow : Window
     private readonly TextBlock _inspectorBody = new();
     private readonly TextBlock _status = new();
     private int _activeTab;
+    private bool _didInitialResize;
 
     public MainWindow()
     {
@@ -68,17 +69,24 @@ public sealed class MainWindow : Window
         }
         _activeTab = index;
         HighlightMapTab(index);
-        _map.SetVisible(true);
-        _map.ShowKind(index);
-        if (index == 2)
+        try
         {
-            RunTool("view3d.trackball");
-            SetStatus("3D");
+            _map.SetVisible(true);
+            _map.ShowKind(index);
+            if (index == 2)
+            {
+                RunTool("view3d.trackball");
+                SetStatus("3D");
+            }
+            else
+            {
+                RunTool("view.pan");
+                SetStatus(index == 0 ? "Map Edit" : "Data");
+            }
         }
-        else
+        catch (Exception ex)
         {
-            RunTool("view.pan");
-            SetStatus(index == 0 ? "Map Edit" : "Data");
+            SetStatus("Tab failed: " + ex.GetType().Name);
         }
     }
 
@@ -94,7 +102,14 @@ public sealed class MainWindow : Window
         {
             return false;
         }
-        _map.Session.ActivateTool(id);
+        try
+        {
+            _map.Session.ActivateTool(id);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
         SetStatus(id switch
         {
             "selection.clear" => "Selection cleared",
@@ -139,6 +154,27 @@ public sealed class MainWindow : Window
         }
         Mark("hwnd-ok");
         Mark("catalog-ok");
+        // Activate may already have kicked AttachWindow; wait for GPU Hello.
+        if (_map.WindowHwnd == IntPtr.Zero)
+        {
+            _map.AttachWindow(NativeHwnd);
+        }
+        var renderOk = false;
+        for (var i = 0; i < 90; i++)
+        {
+            if (_map.IsRenderReady)
+            {
+                renderOk = true;
+                break;
+            }
+            await Task.Delay(200);
+        }
+        if (!renderOk || !_map.Session.IsOop)
+        {
+            Mark("oop-fail");
+            Mark("exit-7");
+            return 7;
+        }
         var layoutOk = false;
         for (var i = 0; i < 60; i++)
         {
@@ -227,10 +263,61 @@ public sealed class MainWindow : Window
         {
             return;
         }
+        try
+        {
+            if (!_didInitialResize)
+            {
+                AppWindow.Resize(new SizeInt32(1280, 800));
+                _didInitialResize = true;
+            }
+        }
+        catch (Exception)
+        {
+        }
         if (_map.WindowHwnd == IntPtr.Zero)
         {
+            // AttachParent is cheap; StartRender runs off-UI (see MapView).
+            _map.RenderReadyChanged += OnRenderReady;
             _map.AttachWindow(NativeHwnd);
+            try
+            {
+                AppWindow.ResizeClient(new SizeInt32(1280, 800));
+            }
+            catch (Exception)
+            {
+            }
             DispatcherQueue.TryEnqueue(() => _map.SyncIsland());
+            SetStatus("Starting GPU…");
+        }
+    }
+
+    private void OnRenderReady(bool ok)
+    {
+        if (ok)
+        {
+            SetStatus("Ready");
+            try
+            {
+                AppWindow.ResizeClient(new SizeInt32(1280, 800));
+            }
+            catch (Exception)
+            {
+            }
+            SelectMapTab(_activeTab);
+            // Layout may settle a few frames after GPU Hello — keep the popup
+            // aligned to the MapView slot (China overlay seed races this too).
+            _ = ResyncMapSlotAsync();
+            return;
+        }
+        SetStatus("GPU failed (need SmartGisRender.exe beside this PE)");
+    }
+
+    private async Task ResyncMapSlotAsync()
+    {
+        for (var i = 0; i < 30; i++)
+        {
+            _map.SyncIsland();
+            await Task.Delay(50);
         }
     }
 
@@ -239,7 +326,7 @@ public sealed class MainWindow : Window
         var root = new Grid { Background = new SolidColorBrush(Colors.Black) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(160) });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(120) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         WireMenu();
@@ -247,9 +334,9 @@ public sealed class MainWindow : Window
         root.Children.Add(_menu);
 
         var work = new Grid();
-        work.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(240) });
+        work.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(180) });
         work.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        work.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) });
+        work.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
 
         WireCatalog();
         Grid.SetColumn(_catalog, 0);
@@ -304,7 +391,7 @@ public sealed class MainWindow : Window
     private void WireCatalog()
     {
         _catalog.Background = new SolidColorBrush(Colors.DimGray);
-        _catalog.Width = 240;
+        _catalog.Width = 180;
         _catalog.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         _catalog.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         _catalog.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -333,8 +420,15 @@ public sealed class MainWindow : Window
         var refresh = new Button { Content = "Refresh" };
         refresh.Click += (_, _) =>
         {
-            _map.Session.CatalogCall("{\"op\":\"refresh\"}");
-            SetStatus("Catalog refresh");
+            try
+            {
+                _map.Session.CatalogCall("{\"op\":\"refresh\"}");
+                SetStatus("Catalog refresh");
+            }
+            catch (Exception)
+            {
+                SetStatus("Catalog refresh failed");
+            }
         };
         var add = new Button { Content = "Add layer" };
         add.Click += (_, _) => _ = OnOpen();
@@ -346,7 +440,7 @@ public sealed class MainWindow : Window
 
     private void WireAmbox()
     {
-        _ambox.Width = 200;
+        _ambox.Width = 140;
         _ambox.Background = new SolidColorBrush(Colors.DimGray);
         _ambox.Padding = new Thickness(8);
         _ambox.Children.Add(new TextBlock
@@ -439,7 +533,15 @@ public sealed class MainWindow : Window
         }
         var path = file.Path;
         var json = "{\"op\":\"open\",\"path\":\"" + JsonEscape(path) + "\"}";
-        _map.Session.CatalogCall(json);
+        try
+        {
+            _map.Session.CatalogCall(json);
+        }
+        catch (Exception)
+        {
+            SetStatus("Open failed");
+            return;
+        }
         if (_catalogTree.RootNodes.Count > 0)
         {
             var root = _catalogTree.RootNodes[0];
@@ -483,7 +585,16 @@ public sealed class MainWindow : Window
     private static MenuFlyoutItem Flyout(string text, Action click)
     {
         var item = new MenuFlyoutItem { Text = text };
-        item.Click += (_, _) => click();
+        item.Click += (_, _) =>
+        {
+            try
+            {
+                click();
+            }
+            catch (Exception)
+            {
+            }
+        };
         return item;
     }
 

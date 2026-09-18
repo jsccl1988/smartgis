@@ -48,7 +48,7 @@ out\views_unittests.exe
 ### L1′ — `SmartGisViews.exe --self-test`
 
 - 实现：`src/app/views/main.cc`（`BrowserMain`）。
-- 真 HWND：泵消息 → 检查壳 → Map / Data / 3D 切换 → `wait_ready`（`kContentMapView` 时）→ 断言 `HostView::Latest` 出帧（marks：`map-frame-ok` / `scene-frame-ok`）→ 3D trackball 输入 → 编辑点 / 选择 / 清选 → OGR 样例进层 → 轨道相机矩阵 → `layout_check` → 地图 HWND 与 View bounds 对齐。
+- 真 HWND：泵消息 → 检查壳 → Map / Data / 3D 切换 → `wait_ready`（`kContentMapView` 时）→ 断言 `HostView::Latest` 出帧（marks：`map-frame-ok` / `scene-frame-ok`）→ 3D trackball 输入 → 编辑点 / 选择 / 清选 → OGR China PLP 进层（`china-plp-ok`）→ `view.pan`（`pan-ok`）→ 轨道相机矩阵 → `layout_check` → 地图 HWND 与 View bounds 对齐。
 - 由 `exe_smoke` 拉起；窗口标题 `SmartGIS Views`。
 - C# 壳：`SmartGisCs.exe --self-test`（`build.bat cs`）。
 
@@ -65,6 +65,8 @@ out\views_unittests.exe
 | 26–29 | OGR 进层失败 / 轨道相机矩阵 / FlyCube present |
 | 30–35 | 布局不变量或地图 HWND 几何失败 |
 | 36–38 | 图层 / Catalog 空或 HWND 显隐 |
+| 39 | China PLP 包络不在中国经纬度范围 |
+| 40–42 | `view.pan` 激活或输入分发失败 |
 
 ### L1′ — `SmartGisWinui.exe --self-test`
 
@@ -170,4 +172,4 @@ build.bat e2e
 
 ---
 
-**最后更新：** 2026-09-15
+**最后更新：** 2026-09-18

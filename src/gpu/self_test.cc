@@ -29,7 +29,7 @@ int run_self_test(const wchar_t* exe_path) {
   }
   present.paint_clear(0x40, 0x80, 0xC0, 0xFF);
   const content::SharedHandleWire w = present.wire();
-  if (!w.nt_handle || w.width_px == 0 || w.height_px == 0) {
+  if (!present.share_handle() || w.width_px == 0 || w.height_px == 0) {
     std::fprintf(stderr, "self-test: empty shared handle\n");
     return 3;
   }

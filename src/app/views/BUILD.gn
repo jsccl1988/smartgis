@@ -6,6 +6,24 @@
 
 import("//build/config/win/application.gni")
 
+# Shared in-process map document (OGR + overlay). Used by Views, WinUI, CEF.
+source_set("map_scene") {
+  sources = [
+    "map_scene.cc",
+    "map_scene.h",
+  ]
+  deps = [
+    "//src/content:content",
+    "//src/tool:dispatch",
+    "//third_party:gdal",
+  ]
+  include_dirs += [ "//src" ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
 win32_app("views") {
   output_name = "SmartGisViews"
   sources = [
@@ -14,14 +32,13 @@ win32_app("views") {
     "browser_view.cc",
     "browser_view.h",
     "main.cc",
-    "map_scene.cc",
-    "map_scene.h",
     "plugin_chrome.cc",
     "plugin_chrome.h",
     "scene3d_controller.cc",
     "scene3d_controller.h",
   ]
   deps = [
+    ":map_scene",
     "//src/content:content",
     "//src/content:view_host",
     "//src/gpu:gpu_lib",
@@ -37,7 +54,10 @@ win32_app("views") {
     "//src/ui/views:views",
     "//third_party:gdal",
   ]
-  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+  data_deps = [
+    "//testing/data:china_map_samples",
+    "//third_party:gdal_runtime_dlls",
+  ]
   libs = [ "shell32.lib" ]
 }
 

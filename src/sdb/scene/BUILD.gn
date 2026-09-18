@@ -48,3 +48,15 @@ test("scene_test") {
     "//third_party:gdal",
   ]
 }
+
+test("tessellate_style_test") {
+  output_name = "tessellate_style_test"
+  sources = [ "tessellate_style_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":scene",
+    "//src/base:base",
+    "//third_party:gdal",
+  ]
+}

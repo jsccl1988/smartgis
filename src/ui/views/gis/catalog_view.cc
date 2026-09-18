@@ -183,6 +183,8 @@ HWND CatalogView::owner_hwnd() const {
 
 void CatalogView::show_layer_menu(Point screen) {
   static const CatalogMenuEntry kEntries[] = {
+      {"catalog.layer.view", "View"},
+      {nullptr, nullptr, true},
       {"catalog.layer.append", "Append layer"},
       {"catalog.layer.add_basemap", "Add online basemap"},
       {"catalog.layer.remove", "Remove layer"},
@@ -227,6 +229,7 @@ void CatalogView::show_map_menu(Point screen) {
       {"catalog.map.save_as", "Save map as"},
       {"catalog.map.close", "Close map"},
       {nullptr, nullptr, true},
+      {"catalog.layer.view", "View"},
       {"catalog.layer.append", "Append layer"},
       {"catalog.layer.add_basemap", "Add online basemap"},
       {"catalog.layer.remove", "Remove layer"},

@@ -285,25 +285,59 @@ bool parse_bridge_message(std::string_view json, BridgeMessage* out) {
   return true;
 }
 
+std::string json_escape_string(const std::string& s) {
+  std::string out;
+  out.reserve(s.size() + 8);
+  for (unsigned char c : s) {
+    switch (c) {
+      case '\\':
+        out += "\\\\";
+        break;
+      case '"':
+        out += "\\\"";
+        break;
+      case '\n':
+        out += "\\n";
+        break;
+      case '\r':
+        out += "\\r";
+        break;
+      case '\t':
+        out += "\\t";
+        break;
+      default:
+        if (c < 0x20) {
+          char buf[8];
+          std::snprintf(buf, sizeof(buf), "\\u%04x", c);
+          out += buf;
+        } else {
+          out += static_cast<char>(c);
+        }
+        break;
+    }
+  }
+  return out;
+}
+
 std::string serialize_bridge_message(const BridgeMessage& msg) {
   std::ostringstream oss;
   oss << "{\"api_version\":" << msg.api_version << ",\"type\":\""
       << bridge_type_to_string(msg.type) << "\"";
   if (!msg.request_id.empty()) {
-    oss << ",\"request_id\":\"" << msg.request_id << "\"";
+    oss << ",\"request_id\":\"" << json_escape_string(msg.request_id) << "\"";
   }
   oss << ",\"view_id\":" << msg.view_id;
   if (!msg.command_id.empty()) {
-    oss << ",\"command_id\":\"" << msg.command_id << "\"";
+    oss << ",\"command_id\":\"" << json_escape_string(msg.command_id) << "\"";
   }
   if (!msg.text.empty()) {
-    oss << ",\"text\":\"" << msg.text << "\"";
+    oss << ",\"text\":\"" << json_escape_string(msg.text) << "\"";
   }
   if (msg.error_code != 0) {
     oss << ",\"code\":" << msg.error_code;
   }
   if (!msg.op_json.empty()) {
-    oss << ",\"op\":\"" << msg.op_json << "\"";
+    oss << ",\"op\":\"" << json_escape_string(msg.op_json) << "\"";
   }
   if (msg.type == BridgeType::kSelectMapTab) {
     oss << ",\"index\":" << msg.tab_index;
@@ -314,7 +348,7 @@ std::string serialize_bridge_message(const BridgeMessage& msg) {
         << ",\"dpi\":" << msg.dpi;
   }
   if (!msg.query_what.empty()) {
-    oss << ",\"what\":\"" << msg.query_what << "\"";
+    oss << ",\"what\":\"" << json_escape_string(msg.query_what) << "\"";
   }
   oss << "}";
   return oss.str();

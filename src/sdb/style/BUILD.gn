@@ -8,6 +8,8 @@ import("//testing/test.gni")
 # Compiled into //src/sdb:sdb (dll_stem = sdb).
 source_set("style_sources") {
   sources = [
+    "expression.cc",
+    "expression.h",
     "json_mini.cc",
     "json_mini.h",
     "paint_resolve.cc",

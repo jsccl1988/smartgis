@@ -12,6 +12,25 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        UnhandledException += OnUnhandledException;
+    }
+
+    private static void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+    {
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "smartgiscs-unhandled.log");
+            File.AppendAllText(path, DateTime.Now.ToString("o") + " " + e.Exception + Environment.NewLine);
+        }
+        catch (Exception)
+        {
+        }
+        // Last-resort: island HWND already gone. Root fix is top-level parenting
+        // + deferred SetWindowPos; this keeps chrome clicks from taking the PE down.
+        if (unchecked((uint)e.Exception.HResult) == 0x80070578u)
+        {
+            e.Handled = true;
+        }
     }
 
     private static bool IsSelfTest()

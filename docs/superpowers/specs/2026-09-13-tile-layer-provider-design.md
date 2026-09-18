@@ -6,7 +6,7 @@ All rights reserved.
 # 2D 地图瓦片：独立 Tile Provider
 
 **Date:** 2026-09-13  
-**Status:** active — Phase 0–2 (LRU + disk + WMTS parse + HTTPS via net/OpenSSL + Views AddBasemap) landed 2026-09-14  
+**Status:** active — Phase 0–2 landed 2026-09-14；Phase 3 sources 增量（raster 绑定 + MVT stub）2026-09-18  
 **Scope:** 产品地图上的 **2D 瓦片图层**（XYZ / WMTS 一类 HTTP(S) 栅格瓦片）的数据面与挂接。不管桌面 chrome；不管 GDAL 文件/库/内存矢量；不管 GDAL 栅格文件路径（另一 agent）。
 
 **Sibling:**
@@ -43,6 +43,9 @@ All rights reserved.
 | --- | --- | --- |
 | `SmtTileLayer` | `src/sdb/layer/layer.h` | 抽象层；`GetLayerType() == LYR_TITLE`；游标 + `AppendTile` / `GetTile*`（**保留**；render/scene/tessellate 仍依赖） |
 | `sdb::tile::TileProvider` | `src/sdb/tile/` | HTTP(S) XYZ / WMTS 模板供给；进程内 LRU + 可选磁盘缓存；`ProviderTileLayer`；`make_xyz_map_layer` / `make_wmts_*` |
+| `sdb::tile::StyleSourceDesc` / `parse_style_source(s)` | `src/sdb/tile/style_source.*` | MapLibre Style `sources` 轻量绑定（raster + tiles[] + tileSize）→ `TileProvider` / `make_xyz_map_layer` |
+| `sdb::tile::SourceRegistry` | `src/sdb/tile/source_registry.*` | 进程内 `source id → TileProvider` 映射表 |
+| `sdb::tile::mvt::*` | `src/sdb/tile/mvt_stub.*` | MVT / vector source **stub**（明确失败，不假装解码） |
 | `sdb::tile::TileCache` | `src/sdb/tile/tile_cache.h` | 进程内 LRU（默认 256） |
 | `sdb::tile::TileDiskCache` | `src/sdb/tile/tile_disk_cache.*` | 可选磁盘缓存（目录可配、有界 entry） |
 | `sdb::tile::parse_wmts_capabilities` | `src/sdb/tile/wmts.*` | 最小 Capabilities → URL 模板 |
@@ -192,6 +195,59 @@ TileImage / 适配为 base::SmtTile   供 tessellate_tile_layer / GpuScene
 ## 本文不产出
 
 - plan 勾选清单（需要落地时另开 `docs/superpowers/plans/2026-09-1x-tile-layer-provider.md`）。
-- 仍延后：完整 WMTS 矩阵 UI、content 画布 `kind=tile` 挂接、独立 `kTileLayer`。
+- 仍延后：完整 WMTS 矩阵 UI、content 画布 `kind=tile` 挂接、独立 `kTileLayer`、完整 MVT 引擎。
 
-**最后更新：** 2026-09-14
+## Phase 3 增量 — MapLibre Style `sources` 对齐（数据面）
+
+**Status note:** P3 可落地增量（2026-09-18）：**raster source 绑定** + **vector/MVT stub**；不是完整 MVT 引擎。
+
+### 与 StyleDocument 的对应关系
+
+| Style JSON | `sdb::style::StyleDocument`（今日） | `sdb::tile`（本阶段） |
+| --- | --- | --- |
+| `layers[].source` | 字符串引用 source id | 不改 style；由 host 用 id 查 `SourceRegistry` |
+| `sources` 根字段 | **未解析**（文档仅有 layers） | `parse_style_sources` / `parse_style_source` 独立解析 |
+| `type: "raster"` + `tiles[]` + `tileSize` | — | → `StyleSourceDesc` → `TileProvider::open_xyz` / `make_xyz_map_layer_from_source` |
+| `type: "vector"` + `tiles[]` (.pbf) | — | 识别类型后返回 `StyleSourceStatus::kVectorUnsupported`；见 `mvt_stub` |
+
+边界：本阶段 **不** 改 `src/sdb/style/**`；sources 数据面落在 `sdb::tile`，避免 style↔tile 循环所有权。JSON 解析复用已有 `sdb::style::detail::json_mini`（同 DLL，不引入第三套 JSON 库）。
+
+### Raster API（落地）
+
+```
+Style JSON sources["osm"] { type:raster, tiles:[url], tileSize:256 }
+        |
+        v
+ sdb::tile::parse_style_source / parse_style_sources
+        |
+        v
+ StyleSourceDesc { id, tiles[], tile_size, … }
+        |
+        +-- open_provider_from_source → TileProvider
+        +-- make_xyz_map_layer_from_source → MapLayer(kind=tile)
+        +-- SourceRegistry::bind_raster / bind_from_json
+```
+
+- `tiles[0]` 作为 `primary_url_template()`（须含 `{z}/{x}/{y}`）。
+- `tileSize` 写入 desc（默认 256）；本阶段不改变 XYZ 世界矩形数学（仍按 Web Mercator 瓦片格网）。
+- 多层：`SourceRegistry` 进程内 `std::map<source_id, shared_ptr<TileProvider>>`。
+
+### MVT / vector — non-goal（本阶段）
+
+| 项 | 本阶段 | 下一阶段（建议） |
+| --- | --- | --- |
+| `type: "vector"` 解析 | 识别 + **明确错误码** `kVectorUnsupported` / `false` | 同 |
+| PBF / gzip MVT 解码 | **stub only**（`mvt::decode_tile` 恒失败） | protobuf + gzip → feature batches |
+| `source-layer` 与 style rules 接线 | 不在本增量 | 与 `sdb::style` rules 对齐 |
+| 假装空矢量成功 | **禁止** | — |
+
+公开 stub：`sdb::tile::mvt::decode_tile` / `reject_vector_source` / `non_goal_message()`。
+
+### 验收（P3 sources）
+
+- [x] raster source JSON → `StyleSourceDesc` → 可 `open_xyz` / `make_xyz_map_layer_*`
+- [x] 多 source id → `SourceRegistry`
+- [x] vector → `kVectorUnsupported`，无假解码
+- [x] `//src/sdb/tile:tile_test` 覆盖 raster 解析与 registry / MVT stub
+
+**最后更新：** 2026-09-18

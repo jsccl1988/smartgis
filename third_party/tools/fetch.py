@@ -315,7 +315,15 @@ def _checkout_git_ref(target: Path, ref: str, shallow: bool) -> None:
         _run_git(["fetch", *depth, "origin", ref], cwd=target)
         _run_git(["checkout", "-f", ref], cwd=target)
         return
-    _run_git(["fetch", "--tags", *depth, "origin"], cwd=target)
+    # Fetch only the named tag or branch. `git fetch --tags` on a monorepo
+    # (MapLibre Native) pulls thousands of tags and can stall for hours.
+    try:
+        _run_git(
+            ["fetch", *depth, "origin", f"refs/tags/{ref}:refs/tags/{ref}"],
+            cwd=target,
+        )
+    except FetchError:
+        _run_git(["fetch", *depth, "origin", ref], cwd=target)
     _run_git(["checkout", "-f", ref], cwd=target)
 
 def _maybe_submodules(pkg: dict, repo: Path) -> None:

@@ -16,16 +16,17 @@
 
 #include "content/public/map_types.h"
 #include "tool/gestures.h"
-#include "ui/views/layer_tree.h"
 
 namespace app {
 
-// In-process map document for Views chrome: layers + features in map space.
-// GPU still clears/presents a base frame; this scene paints vectors on top and
-// backs Catalog / FeatureInfo / AttributeTable / select-draw tools.
+// In-process map document for product chrome (Views / WinUI / CEF): layers +
+// features in map space. GPU still clears/presents a base frame; this scene
+// paints vectors (polygon / line / point / annotation text) on top and backs
+// Catalog / FeatureInfo / AttributeTable / tools.
 class MapScene {
  public:
-  enum class GeomKind { kPoint, kLine, kPolygon };
+  // Matches normal map content: area / line / point / annotation text.
+  enum class GeomKind { kPoint, kLine, kPolygon, kText };
 
   // Map-space vertex (OGR / digitize). Not view pixels.
   struct Vertex {
@@ -53,24 +54,43 @@ class MapScene {
     std::vector<Feature> features;
   };
 
+  // Opaque layer row for Catalog mirrors (no ui::views dependency).
+  struct LayerDesc {
+    std::string id;
+    std::string name;
+    bool visible = true;
+    bool active = false;
+  };
+
   MapScene();
 
-  // Seed Demo layer + sample geometries so Catalog/map are never empty.
+  // Prefer china city / PLP samples beside the exe (or testing/data);
+  // multi-layer packs expose area / line / point / text. Falls back to a
+  // Demo layer so Catalog/map are never empty.
   void seed_default();
 
   // Open path via OGR (GPKG / Shapefile / GeoJSON / …). On success replaces
-  // document layers with real OGR layer names + geometries. Falls back to a
-  // tagged sample layer when the file cannot be opened as a vector source.
-  // Returns true when at least one OGR feature was ingested.
+  // document layers with real OGR layer names + geometries (one Catalog
+  // layer per OGR layer). Falls back to a tagged sample layer when the file
+  // cannot be opened as a vector source. Returns true when at least one OGR
+  // feature was ingested.
   bool open_path(const std::string& path);
 
   void clear();
 
-  std::vector<ui::views::LayerTree::LayerDesc> layer_descs() const;
+  std::vector<LayerDesc> layer_descs() const;
   const std::string& active_layer_id() const { return active_layer_id_; }
   size_t layer_count() const { return layers_.size(); }
   size_t feature_count() const;
   bool last_open_was_ogr() const { return last_open_was_ogr_; }
+
+  // Envelope of visible feature vertices in map space (Y already flipped for
+  // screen). Returns false when there are no vertices.
+  bool compute_extent(double* min_x, double* min_y, double* max_x,
+                      double* max_y) const;
+
+  // True when extent looks like China lon/lat sample (CRS84, Y flipped).
+  bool has_china_extent() const;
 
   bool create_layer(const std::string& name, const std::string& geometry_type);
   bool remove_layer(const std::string& id);
@@ -121,6 +141,11 @@ class MapScene {
   void ensure_active_layer();
   void add_sample_features(Layer* layer, const std::string& tag);
   bool ingest_ogr_path(const std::string& path);
+  bool try_bootstrap_china_plp();
+  // Regroup a single OGR layer into area / line / point / text Catalog layers
+  // when features carry a kind= field (china_plp). Skipped when the dataset
+  // already has multiple named OGR layers.
+  void split_layers_by_kind_field();
 
   std::vector<Layer> layers_;
   std::string active_layer_id_;

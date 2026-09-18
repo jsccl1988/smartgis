@@ -6,6 +6,7 @@
 #include "app/cef/cef_map_slot.h"
 #include "app/cef/chrome_bridge.h"
 #include "app/cef/layout_host.h"
+#include "app/views/map_scene.h"
 
 #include "content/public/map_types.h"
 #include "content/public/view_host.h"
@@ -99,6 +100,44 @@ int run_self_test(LayoutHost& layout,
   }
   self_test_mark("bridge-ready");
 
+  if (!bridge.document() || bridge.document()->layer_count() < 4 ||
+      bridge.document()->feature_count() < 10) {
+    return 43;
+  }
+  if (!bridge.document()->has_china_extent()) {
+    return 44;
+  }
+  self_test_mark("china-plp-ok");
+  self_test_mark("china-plp-layers-ok");
+
+  // Regression: per-feature CreatePen/Brush/Font + early-continue used to leak
+  // GDI objects and crash while the present timer repainted china_city.
+  {
+    app::MapScene* doc = bridge.document();
+    const DWORD gdi0 = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
+    HDC screen = GetDC(nullptr);
+    HDC mem = CreateCompatibleDC(screen);
+    constexpr int kW = 960;
+    constexpr int kH = 640;
+    HBITMAP bmp = CreateCompatibleBitmap(screen, kW, kH);
+    HGDIOBJ old_bmp = SelectObject(mem, bmp);
+    doc->fit_extent(kW, kH);
+    for (int i = 0; i < 90; ++i) {
+      RECT clear{0, 0, kW, kH};
+      FillRect(mem, &clear, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
+      doc->paint(mem, kW, kH);
+    }
+    SelectObject(mem, old_bmp);
+    DeleteObject(bmp);
+    DeleteDC(mem);
+    ReleaseDC(nullptr, screen);
+    const DWORD gdi1 = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
+    if (gdi1 > gdi0 + 250) {
+      return 48;
+    }
+  }
+  self_test_mark("paint-gdi-ok");
+
   if (!slots[0].wait_ready(20000)) {
     return 3;
   }
@@ -108,10 +147,38 @@ int run_self_test(LayoutHost& layout,
   self_test_mark("map-ready");
   self_test_mark("map-frame-ok");
 
+  pump_briefly(200);
+  const uint32_t gen0 = slots[0].presented_generation();
+  if (gen0 == 0) {
+    return 47;
+  }
+  pump_briefly(300);
+  if (slots[0].presented_generation() != gen0) {
+    return 47;
+  }
+  self_test_mark("present-stable-ok");
+
   if (!bridge.query_has_catalog_and_ambox()) {
     return 4;
   }
   self_test_mark("catalog-ok");
+
+  {
+    const bool pan_ok = bridge.handle_json(
+        R"({"api_version":1,"type":"ActivateTool","command_id":"view.pan","request_id":"st-pan"})");
+    if (!pan_ok) {
+      return 45;
+    }
+    content::ViewHost* map_host = slots[0].view_host();
+    tool::Interaction* pan =
+        map_host && map_host->workspace()
+            ? map_host->workspace()->stack().current()
+            : nullptr;
+    if (!pan || std::strcmp(pan->id(), "view.pan") != 0) {
+      return 46;
+    }
+  }
+  self_test_mark("view-pan-ok");
 
   bridge.select_tab_for_test(1);
   pump_briefly(200);

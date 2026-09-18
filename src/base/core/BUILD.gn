@@ -2,6 +2,7 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//testing/test.gni")
 
 # Compiled into //src/base:base (dll_stem = platform).
 # Foundation headers (log/macros/export/…) live alongside leftovers in this
@@ -32,4 +33,14 @@ source_set("core_sources") {
 
 group("core") {
   public_deps = [ "//src/base:base" ]
+}
+
+# HMENU UINT_PTR + MBCS AppendMenuA captions used by leftover 2D/3D views.
+test("menu_test") {
+  output_name = "menu_test"
+  sources = [ "menu_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [ "//src/base:core" ]
+  libs = [ "user32.lib" ]
 }

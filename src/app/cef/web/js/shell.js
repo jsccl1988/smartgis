@@ -9,6 +9,8 @@
     "view.pan",
     "view.zoom_in",
     "view.zoom_out",
+    "view.full",
+    "view.refresh",
     "view3d.trackball",
   ];
 

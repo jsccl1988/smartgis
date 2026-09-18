@@ -52,8 +52,10 @@ executable("app_winui") {
     ":winui_cc",
   ]
   deps = [
+    "//src/app/views:map_scene",
     "//src/content:content",
     "//src/gpu:gpu_lib",
+    "//testing/data:china_map_samples",
   ]
   libs = [ "shell32.lib" ]
 }

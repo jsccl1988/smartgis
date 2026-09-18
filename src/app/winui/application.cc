@@ -5,6 +5,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 #include <windows.h>
 
@@ -111,6 +112,28 @@ void App::OnLaunched(
       } else if (MapHost* host = main_window_->map_host()) {
         self_test_mark("hwnd-ok");
         self_test_mark("catalog-ok");
+        // activate() starts GPU off-UI; wait for Hello before layout checks.
+        {
+          bool oop = false;
+          for (int i = 0; i < 90; ++i) {
+            MSG msg;
+            while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+              TranslateMessage(&msg);
+              DispatchMessageW(&msg);
+            }
+            if (host->session() && host->session()->IsOopRender() &&
+                host->map_child_hwnd()) {
+              oop = true;
+              break;
+            }
+            Sleep(200);
+          }
+          if (!oop) {
+            self_test_mark("oop-fail");
+            g_self_test_exit = 7;
+            // Fall through to exit path below via early checks.
+          }
+        }
         // Pump so SwapChainPanel SizeChanged can settle.
         bool layout_ok = false;
         for (int i = 0; i < 60; ++i) {
@@ -171,6 +194,44 @@ void App::OnLaunched(
               main_window_->run_tool_command("selection.point");
               main_window_->run_tool_command("selection.clear");
               self_test_mark("selection-ok");
+
+              // Best-effort China PLP open via CatalogCall (OOP render).
+              {
+                wchar_t china_w[MAX_PATH] = {};
+                if (GetModuleFileNameW(nullptr, china_w, MAX_PATH) > 0) {
+                  for (int i = static_cast<int>(wcslen(china_w)) - 1; i >= 0;
+                       --i) {
+                    if (china_w[i] == L'\\' || china_w[i] == L'/') {
+                      china_w[i + 1] = L'\0';
+                      break;
+                    }
+                  }
+                  wcscat_s(china_w, L"china_plp.geojson");
+                  if (GetFileAttributesW(china_w) != INVALID_FILE_ATTRIBUTES) {
+                    char utf8[MAX_PATH * 4] = {};
+                    WideCharToMultiByte(CP_UTF8, 0, china_w, -1, utf8,
+                                        sizeof(utf8), nullptr, nullptr);
+                    std::string path_esc;
+                    for (const char* p = utf8; *p; ++p) {
+                      if (*p == '\\' || *p == '"') {
+                        path_esc.push_back('\\');
+                      }
+                      path_esc.push_back(*p);
+                    }
+                    const std::string json =
+                        std::string("{\"op\":\"open\",\"path\":\"") + path_esc +
+                        "\"}";
+                    host->session()->CatalogCall(json.c_str());
+                    pump_ticks(host, 12);
+                    self_test_mark("china-plp-ok");
+                  } else {
+                    self_test_mark("china-plp-missing");
+                  }
+                }
+              }
+              main_window_->run_tool_command("view.pan");
+              pump_ticks(host, 4);
+              self_test_mark("pan-ok");
               self_test_mark("pass");
               g_self_test_exit = 0;
             }

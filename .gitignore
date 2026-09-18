@@ -18,6 +18,9 @@ __pycache__/
 node_modules/
 /bin/
 /temp/
+# China city pack download cache (regenerate via testing/data/build_china_city.py).
+/testing/data/_china_cache/
+/testing/data/_china_100000_full.json
 # Downloaded by build/fetch_binaries.py — not vendored in git.
 /build/bin/
 *.suo

@@ -73,6 +73,10 @@ geo::Grid* decode_smt_grid(OGRFeature* src);
 void copy_smt_style_to_ogr(const base::SmtStyle* src, OGRFeature* dst);
 base::SmtStyle* copy_ogr_style_from_ogr(OGRFeature* src);
 
+// Pen/brush (+ optional anno) when GeoJSON has no binary "style" blob.
+// Reads optional HTML "#RRGGBB" fields fill / stroke. fblc scales anno height.
+void fill_default_draw_style(OGRFeature* src, base::SmtStyle* dst, float fblc);
+
 bool copy_ogr_feature_to_feature(OGRFeature* src, sdb::SmtFeature* dst);
 inline bool copy_ogr_feature_to_smt(OGRFeature* src, sdb::SmtFeature* dst) {
   return copy_ogr_feature_to_feature(src, dst);

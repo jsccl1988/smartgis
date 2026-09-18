@@ -597,12 +597,16 @@ HMENU	create_listener_menu(SmtListener*pListener,SmtFuncItemStyle style)
 		return NULL;
 
 	HMENU hMenu = ::CreatePopupMenu();
+	if (NULL == hMenu)
+		return NULL;
 
 	vSmtFuncItems vFuncItems = pListener->get_func_items(style);
 	vSmtFuncItems::iterator i = vFuncItems.begin();	
 	while (i != vFuncItems.end())
-	{		
-		AppendMenu(hMenu,MF_STRING,(*i).lMsg,(*i).szName);
+	{
+		// szName is char[]; leftover TUs are MBCS. Never use the TCHAR
+		// AppendMenu macro — UNICODE leftover mixes produce mojibake/AV.
+		::AppendMenuA(hMenu,MF_STRING,static_cast<UINT_PTR>((*i).lMsg),(*i).szName);
 		++i;
 	}
 
@@ -618,16 +622,57 @@ void	append_listener_menu(HMENU hOwnwerMenu ,SmtListener*pListener,SmtFuncItemSt
 
 	if (bInsertSeprator)
 	{
-		::AppendMenu(hOwnwerMenu,MF_SEPARATOR,NULL,NULL);
+		::AppendMenuA(hOwnwerMenu,MF_SEPARATOR,0,NULL);
 	}
 	
 	vSmtFuncItems vFuncItems = pListener->get_func_items(style);
 	vSmtFuncItems::iterator i = vFuncItems.begin();	
 	while (i != vFuncItems.end())
 	{		
-		::AppendMenu(hOwnwerMenu,MF_STRING,(*i).lMsg,(*i).szName);
+		::AppendMenuA(hOwnwerMenu,MF_STRING,static_cast<UINT_PTR>((*i).lMsg),(*i).szName);
 		++i;
 	}
+}
+
+bool	append_popup_menu(HMENU owner, HMENU popup, const char* name)
+{
+	if (NULL == owner || NULL == popup || NULL == name)
+		return false;
+	return ::AppendMenuA(owner, MF_POPUP, reinterpret_cast<UINT_PTR>(popup), name) != FALSE;
+}
+
+bool	insert_popup_menu(HMENU owner, UINT position, HMENU popup,
+			const char* name, UINT extra_flags)
+{
+	if (NULL == owner || NULL == popup || NULL == name)
+		return false;
+	return ::InsertMenuA(owner, position, MF_POPUP | extra_flags,
+			     reinterpret_cast<UINT_PTR>(popup), name) != FALSE;
+}
+
+bool	attach_listener_popup(HMENU owner, SmtListener* listener,
+			SmtFuncItemStyle style, const char* name,
+			int insert_at, UINT extra_flags)
+{
+	HMENU popup = create_listener_menu(listener, style);
+	if (NULL == popup)
+		return false;
+	if (::GetMenuItemCount(popup) <= 0)
+	{
+		::DestroyMenu(popup);
+		return false;
+	}
+	const char* caption = (name && name[0]) ? name :
+			      (listener ? listener->get_name() : NULL);
+	if (NULL == caption || caption[0] == 0)
+		caption = "";
+	const bool ok = (insert_at < 0)
+			    ? append_popup_menu(owner, popup, caption)
+			    : insert_popup_menu(owner, static_cast<UINT>(insert_at),
+						popup, caption, extra_flags);
+	if (!ok)
+		::DestroyMenu(popup);
+	return ok;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -646,38 +691,62 @@ long	get_image_type_by_file_ext(const char *szFileName)
 		nImageTyle = CXIMAGE_FORMAT_BMP;
 	else if (stricmp(strExt.c_str(),"gif") == 0)
 		nImageTyle = CXIMAGE_FORMAT_GIF;
+#if CXIMAGE_SUPPORT_JPG
 	else if (stricmp(strExt.c_str(),"jpg") == 0)
 		nImageTyle = CXIMAGE_FORMAT_JPG;
+#endif
+#if CXIMAGE_SUPPORT_PNG
 	else if (stricmp(strExt.c_str(),"png") == 0)
 		nImageTyle = CXIMAGE_FORMAT_PNG;
+#endif
+#if CXIMAGE_SUPPORT_MNG
 	else if (stricmp(strExt.c_str(),"mng") == 0)
 		nImageTyle = CXIMAGE_FORMAT_MNG;
+#endif
+#if CXIMAGE_SUPPORT_ICO
 	else if (stricmp(strExt.c_str(),"ico") == 0)
 		nImageTyle = CXIMAGE_FORMAT_ICO;
+#endif
+#if CXIMAGE_SUPPORT_TIF
 	else if (stricmp(strExt.c_str(),"tif") == 0)
 		nImageTyle = CXIMAGE_FORMAT_TIF;
+#endif
+#if CXIMAGE_SUPPORT_TGA
 	else if (stricmp(strExt.c_str(),"tga") == 0)
 		nImageTyle = CXIMAGE_FORMAT_TGA;
+#endif
+#if CXIMAGE_SUPPORT_PCX
 	else if (stricmp(strExt.c_str(),"pcx") == 0)
 		nImageTyle = CXIMAGE_FORMAT_PCX;
+#endif
+#if CXIMAGE_SUPPORT_WBMP
 	else if (stricmp(strExt.c_str(),"wbmp") == 0)
 		nImageTyle = CXIMAGE_FORMAT_WBMP;
+#endif
+#if CXIMAGE_SUPPORT_WMF
 	else if (stricmp(strExt.c_str(),"wmf") == 0)
 		nImageTyle = CXIMAGE_FORMAT_WMF;
-	/*else if (stricmp(strExt.c_str(),"j2k") == 0)
-		nImageTyle = CXIMAGE_FORMAT_J2K;
-	else if (stricmp(strExt.c_str(),"jbg") == 0)
-		nImageTyle = CXIMAGE_FORMAT_JBG;*/
+#endif
+#if CXIMAGE_SUPPORT_JPC
 	else if (stricmp(strExt.c_str(),"jpc") == 0)
 		nImageTyle = CXIMAGE_FORMAT_JPC;
+#endif
+#if CXIMAGE_SUPPORT_JP2
 	else if (stricmp(strExt.c_str(),"jp2") == 0)
 		nImageTyle = CXIMAGE_FORMAT_JP2;
+#endif
+#if CXIMAGE_SUPPORT_PGX
 	else if (stricmp(strExt.c_str(),"pgx") == 0)
 		nImageTyle = CXIMAGE_FORMAT_PGX;
+#endif
+#if CXIMAGE_SUPPORT_PNM
 	else if (stricmp(strExt.c_str(),"pnm") == 0)
 		nImageTyle = CXIMAGE_FORMAT_PNM;
+#endif
+#if CXIMAGE_SUPPORT_RAS
 	else if (stricmp(strExt.c_str(),"ras") == 0)
 		nImageTyle = CXIMAGE_FORMAT_RAS;
+#endif
 
 	return nImageTyle;
 }

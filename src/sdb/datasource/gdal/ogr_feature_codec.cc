@@ -9,15 +9,93 @@
 #include "algorithm/geo/matrix2d.h"
 #include "sdb/carto/style.h"
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
 
+#include <cstdio>
 #include <cstring>
 
 namespace sdb {
 namespace datasource {
 
 namespace {
+
+bool field_nonempty(OGRFeature* src, const char* name) {
+  if (!src || !name) {
+    return false;
+  }
+  const int i = src->GetFieldIndex(name);
+  if (i < 0) {
+    return false;
+  }
+  const char* v = src->GetFieldAsString(i);
+  return v && v[0];
+}
+
+bool parse_html_rgb(const char* s, COLORREF* out) {
+  if (!s || s[0] != '#' || !out) {
+    return false;
+  }
+  unsigned r = 0;
+  unsigned g = 0;
+  unsigned b = 0;
+  if (std::sscanf(s, "#%2x%2x%2x", &r, &g, &b) != 3) {
+    return false;
+  }
+  *out = RGB(r, g, b);
+  return true;
+}
+
+COLORREF field_color_rgb(OGRFeature* src, const char* name, COLORREF fallback) {
+  if (!src || !name) {
+    return fallback;
+  }
+  const int i = src->GetFieldIndex(name);
+  if (i < 0) {
+    return fallback;
+  }
+  COLORREF c = fallback;
+  if (parse_html_rgb(src->GetFieldAsString(i), &c)) {
+    return c;
+  }
+  return fallback;
+}
+
+COLORREF hash_feature_fill(OGRFeature* src, COLORREF fallback) {
+  if (!src) {
+    return fallback;
+  }
+  const char* key = nullptr;
+  const int ni = src->GetFieldIndex("name");
+  if (ni >= 0) {
+    key = src->GetFieldAsString(ni);
+  }
+  if (!key || !key[0]) {
+    const int ai = src->GetFieldIndex("adcode");
+    if (ai >= 0) {
+      key = src->GetFieldAsString(ai);
+    }
+  }
+  if (!key || !key[0]) {
+    return fallback;
+  }
+  unsigned h = 2166136261u;
+  for (const unsigned char* p = reinterpret_cast<const unsigned char*>(key);
+       *p; ++p) {
+    h ^= *p;
+    h *= 16777619u;
+  }
+  // Distinct pastels so neighboring prefectures do not collapse to one wash.
+  const int r = 120 + static_cast<int>(h & 0x6fu);
+  const int g = 120 + static_cast<int>((h >> 8) & 0x6fu);
+  const int b = 120 + static_cast<int>((h >> 16) & 0x6fu);
+  return RGB(r, g, b);
+}
 
 OGRPoint* first_point(OGRGeometry* geom) {
   if (!geom) {
@@ -92,7 +170,15 @@ bool encode_linestring(const OGRGeometry* src, OGRFeature* dst) {
 }
 
 OGRGeometry* decode_linestring(OGRFeature* src) {
-  OGRLineString* po_line = first_linestring(src->GetGeometryRef());
+  OGRGeometry* geom = src ? src->GetGeometryRef() : nullptr;
+  if (!geom) {
+    return nullptr;
+  }
+  const OGRwkbGeometryType wt = wkbFlatten(geom->getGeometryType());
+  if (wt == wkbLineString || wt == wkbMultiLineString) {
+    return geom->clone();
+  }
+  OGRLineString* po_line = first_linestring(geom);
   return po_line ? po_line->clone() : nullptr;
 }
 
@@ -105,7 +191,15 @@ bool encode_polygon(const OGRGeometry* src, OGRFeature* dst) {
 }
 
 OGRGeometry* decode_polygon(OGRFeature* src) {
-  OGRPolygon* po_poly = first_polygon(src->GetGeometryRef());
+  OGRGeometry* geom = src ? src->GetGeometryRef() : nullptr;
+  if (!geom) {
+    return nullptr;
+  }
+  const OGRwkbGeometryType wt = wkbFlatten(geom->getGeometryType());
+  if (wt == wkbPolygon || wt == wkbMultiPolygon) {
+    return geom->clone();
+  }
+  OGRPolygon* po_poly = first_polygon(geom);
   return po_poly ? po_poly->clone() : nullptr;
 }
 
@@ -127,8 +221,8 @@ sdb::SmtFeatureType infer_feature_type(OGRFeature* src,
   }
   switch (wkbFlatten(geom->getGeometryType())) {
     case wkbPoint:
-      return src->GetFieldIndex("anno") >= 0 ? sdb::SmtFtAnno
-                                            : sdb::SmtFtDot;
+      // Mixed GeoJSON shares an "anno" column; only nonempty text is a label.
+      return field_nonempty(src, "anno") ? sdb::SmtFtAnno : sdb::SmtFtDot;
     case wkbLineString:
     case wkbMultiLineString:
       return sdb::SmtFtCurve;
@@ -173,6 +267,48 @@ base::SmtStyle* copy_ogr_style_from_ogr(OGRFeature* src) {
   auto* style = new base::SmtStyle();
   std::memcpy(style, data, sizeof(base::SmtStyle));
   return style;
+}
+
+void fill_default_draw_style(OGRFeature* src, base::SmtStyle* dst, float fblc) {
+  if (!dst) {
+    return;
+  }
+  base::SmtPenDesc pen;
+  pen.lPenColor = field_color_rgb(src, "stroke", RGB(20, 90, 180));
+  pen.lPenStyle = PS_SOLID;
+  pen.fPenWidth = 0.2f;
+  base::SmtBrushDesc brush;
+  COLORREF fill = RGB(160, 210, 255);
+  const int fi = src ? src->GetFieldIndex("fill") : -1;
+  if (fi < 0 ||
+      !parse_html_rgb(src->GetFieldAsString(fi), &fill)) {
+    fill = hash_feature_fill(src, fill);
+  }
+  brush.lBrushColor = fill;
+  dst->set_pen_desc(pen);
+  dst->set_brush_desc(brush);
+
+  unsigned flags = base::ST_PenDesc | base::ST_BrushDesc;
+  if (infer_feature_type(src, sdb::SmtFtUnknown) == sdb::SmtFtAnno) {
+    base::SmtAnnotationDesc anno;
+    std::strcpy(anno.szFaceName, "Microsoft YaHei");
+    anno.lCharSet = DEFAULT_CHARSET;
+    anno.lWeight = FW_NORMAL;
+    anno.lAnnoClr = field_color_rgb(src, "stroke", RGB(24, 24, 24));
+    if (fblc > 0.05f) {
+      const float px = anno.fHeight * fblc;
+      if (px < 12.f) {
+        anno.fHeight = 14.f / fblc;
+        anno.fWidth = 0.f;
+      } else if (px > 28.f) {
+        anno.fHeight = 16.f / fblc;
+        anno.fWidth = 0.f;
+      }
+    }
+    dst->set_anno_desc(anno);
+    flags |= base::ST_AnnoDesc;
+  }
+  dst->set_style_type(flags);
 }
 
 bool copy_ogr_feature_to_feature(OGRFeature* src, sdb::SmtFeature* dst) {

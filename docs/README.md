@@ -31,6 +31,7 @@ All rights reserved.
 | [`superpowers/specs/2026-09-13-ogr-db-datasource-design.md`](superpowers/specs/2026-09-13-ogr-db-datasource-design.md) | 用 GDAL/OGR 替换 ADO 数据库数据源（PostGIS / GeoPackage） |
 | [`superpowers/specs/2026-09-13-gdal-layer-management-design.md`](superpowers/specs/2026-09-13-gdal-layer-management-design.md) | 全部图层管理走 GDAL Dataset/Layer（文件 / 库 / 内存适配器） |
 | [`superpowers/specs/2026-09-13-tile-layer-provider-design.md`](superpowers/specs/2026-09-13-tile-layer-provider-design.md) | 2D 地图瓦片：TileProvider（HTTP(S) XYZ/WMTS + 磁盘缓存 + Views 底图对话框）；不进 OGR / `SDBD:MEM` |
+| [`superpowers/specs/2026-09-18-china-city-map-plpt-design.md`](superpowers/specs/2026-09-18-china-city-map-plpt-design.md) | 中国地级离线底图：区/线/点/注记（`china_city.gpkg` + MapScene `kText`；高精度） |
 | [`superpowers/specs/2026-09-14-sdb-style-document-design.md`](superpowers/specs/2026-09-14-sdb-style-document-design.md) | 制图样式：Style JSON + 符号库 + 规则引擎（`sdb/style`；POD 在 `sdb/carto`） |
 | [`superpowers/plans/2026-09-14-sdb-style-document.md`](superpowers/plans/2026-09-14-sdb-style-document.md) | 实现计划：`sdb::style` 模块 + 单测 + MapLayer 挂接 |
 | [`superpowers/specs/2026-09-13-sdb-feature-maplayer-composition-design.md`](superpowers/specs/2026-09-13-sdb-feature-maplayer-composition-design.md) | `Feature` / `MapLayer`：OGR + 组合（修正裸 OGR ABI） |

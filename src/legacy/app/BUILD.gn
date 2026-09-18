@@ -58,6 +58,7 @@ smt_mfc_executable("app") {
     "//src/legacy/ui/xambox:xambox",
     "//src/legacy/ui/xcatalog:xcatalog",
     "//src/legacy/ui/xview:xview",
+    "//testing/data:china_map_samples",
   ]
 }
 

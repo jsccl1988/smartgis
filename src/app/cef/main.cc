@@ -16,6 +16,7 @@
 #include "app/cef/chrome_bridge.h"
 #include "app/cef/layout_host.h"
 #include "app/cef/self_test.h"
+#include "app/views/map_scene.h"
 #include "content/app/content_main.h"
 #include "content/app/renderer_main.h"
 #include "content/public/map_contents.h"
@@ -35,6 +36,7 @@ struct BrowserState {
   app::cef::LayoutHost layout;
   CefRefPtr<app::cef::CefBrowserHost> browser_host;
   app::cef::ChromeBridge bridge;
+  app::MapScene document;
   content::MapContents* session = nullptr;
   app::cef::CefMapSlot slots[3];
   bool self_test = false;
@@ -108,7 +110,9 @@ int BrowserMain(const content::ContentMainParams& params) {
   }
 
   state->bridge.set_handlers(&state->layout, state->slots, 3, state->session);
+  state->bridge.set_document(&state->document);
   state->bridge.set_message_box_suppressed(state->self_test);
+  state->bridge.seed_map_document();
 
   state->browser_host = new app::cef::CefBrowserHost();
   state->browser_host->set_bridge(&state->bridge);

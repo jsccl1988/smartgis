@@ -90,6 +90,7 @@ void CSmart3DView::OnInitialUpdate()
 	LOGGING(LOG_INFO, "OnInitialUpdate begin");
 	Smt3DXView::OnInitialUpdate();
 
+	theApp.append_mdi_window_menu(m_hMainMenu);
 	((CSmartGisDoc*)GetDocument())->m_hCurMainMenu = m_hMainMenu;
 	((CFrameWnd*)AfxGetMainWnd())->OnUpdateFrameMenu(NULL);
 	AfxGetMainWnd()->DrawMenuBar();

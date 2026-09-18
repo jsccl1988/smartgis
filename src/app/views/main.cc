@@ -323,7 +323,7 @@ int BrowserMain(const content::ContentMainParams&) {
       }
     }
     self_test_mark("layers-ok");
-    // Real OGR ingest: write a tiny GeoJSON beside the exe and open it.
+    // Prefer out/china_city.gpkg (四图层); else geojson; else china_plp.
     {
       wchar_t sample_w[MAX_PATH] = {};
       if (GetModuleFileNameW(nullptr, sample_w, MAX_PATH) > 0) {
@@ -333,41 +333,134 @@ int BrowserMain(const content::ContentMainParams&) {
             break;
           }
         }
-        wcscat_s(sample_w, L"views_ogr_selftest.geojson");
-        FILE* sf = nullptr;
-        if (_wfopen_s(&sf, sample_w, L"wb") == 0 && sf) {
-          static const char kGeojson[] =
-              "{\"type\":\"FeatureCollection\",\"name\":\"china_plp\","
-              "\"features\":["
-              "{\"type\":\"Feature\",\"properties\":{\"name\":\"北京点\"},"
-              "\"geometry\":{\"type\":\"Point\",\"coordinates\":"
-              "[116.3974,39.9093]}},"
-              "{\"type\":\"Feature\",\"properties\":{\"name\":\"京津走廊\"},"
-              "\"geometry\":{\"type\":\"LineString\",\"coordinates\":"
-              "[[116.3974,39.9093],[116.7,39.7],[117.2,39.12]]}},"
-              "{\"type\":\"Feature\",\"properties\":{\"name\":\"华北面\"},"
-              "\"geometry\":{\"type\":\"Polygon\",\"coordinates\":"
-              "[[[116.2,39.7],[116.8,39.7],[116.8,40.1],[116.2,40.1],"
-              "[116.2,39.7]]]}}"
-              "]}";
-          std::fwrite(kGeojson, 1, sizeof(kGeojson) - 1, sf);
-          std::fclose(sf);
-          char sample_a[MAX_PATH] = {};
-          WideCharToMultiByte(CP_UTF8, 0, sample_w, -1, sample_a, MAX_PATH,
+        char sample_a[MAX_PATH] = {};
+        bool opened = false;
+        bool city_pack = false;
+        const wchar_t* candidates[] = {L"china_city.gpkg",
+                                       L"china_city.geojson",
+                                       L"china_plp.geojson"};
+        for (const wchar_t* name : candidates) {
+          wchar_t china_w[MAX_PATH] = {};
+          wcscpy_s(china_w, sample_w);
+          wcscat_s(china_w, name);
+          if (GetFileAttributesW(china_w) == INVALID_FILE_ATTRIBUTES) {
+            continue;
+          }
+          WideCharToMultiByte(CP_UTF8, 0, china_w, -1, sample_a, MAX_PATH,
                               nullptr, nullptr);
-          if (!browser.document()->open_path(sample_a) ||
-              !browser.document()->last_open_was_ogr() ||
-              browser.document()->feature_count() < 3 ||
-              browser.document()->layer_count() == 0) {
-            std::fprintf(stderr, "OGR self-test open failed: %s\n", sample_a);
+          if (browser.document()->open_path(sample_a) &&
+              browser.document()->last_open_was_ogr()) {
+            opened = true;
+            city_pack = (wcsstr(name, L"china_city") != nullptr);
+            break;
+          }
+        }
+        if (!opened) {
+          wcscat_s(sample_w, L"views_ogr_selftest.geojson");
+          FILE* sf = nullptr;
+          if (_wfopen_s(&sf, sample_w, L"wb") == 0 && sf) {
+            static const char kGeojson[] =
+                "{\"type\":\"FeatureCollection\",\"name\":\"china_plp\","
+                "\"features\":["
+                "{\"type\":\"Feature\",\"properties\":{\"name\":\"北京点\","
+                "\"kind\":\"point\"},"
+                "\"geometry\":{\"type\":\"Point\",\"coordinates\":"
+                "[116.3974,39.9093]}},"
+                "{\"type\":\"Feature\",\"properties\":{\"name\":\"京津走廊\","
+                "\"kind\":\"line\"},"
+                "\"geometry\":{\"type\":\"LineString\",\"coordinates\":"
+                "[[116.3974,39.9093],[116.7,39.7],[117.2,39.12]]}},"
+                "{\"type\":\"Feature\",\"properties\":{\"name\":\"华北面\","
+                "\"kind\":\"area\"},"
+                "\"geometry\":{\"type\":\"Polygon\",\"coordinates\":"
+                "[[[116.2,39.7],[116.8,39.7],[116.8,40.1],[116.2,40.1],"
+                "[116.2,39.7]]]}}"
+                "]}";
+            std::fwrite(kGeojson, 1, sizeof(kGeojson) - 1, sf);
+            std::fclose(sf);
+            WideCharToMultiByte(CP_UTF8, 0, sample_w, -1, sample_a, MAX_PATH,
+                                nullptr, nullptr);
+            opened = browser.document()->open_path(sample_a) &&
+                     browser.document()->last_open_was_ogr();
+          }
+        }
+        if (!opened || browser.document()->feature_count() < 3 ||
+            browser.document()->layer_count() == 0) {
+          std::fprintf(stderr, "OGR China map self-test open failed: %s\n",
+                       sample_a);
+          self_test_detach_maps(browser);
+          return 26;
+        }
+        if (city_pack) {
+          if (browser.document()->layer_count() < 4) {
+            std::fprintf(stderr,
+                         "china_city pack expected >=4 layers (area/line/"
+                         "point/text), got %zu\n",
+                         browser.document()->layer_count());
             self_test_detach_maps(browser);
             return 26;
           }
-          browser.catalog_view()->populate_layers(
-              browser.document()->layer_descs());
-          self_test_mark("ogr-ok");
+          if (browser.document()->feature_count() < 200) {
+            std::fprintf(stderr,
+                         "china_city pack expected >=200 features, got %zu\n",
+                         browser.document()->feature_count());
+            self_test_detach_maps(browser);
+            return 26;
+          }
         }
+        if (!browser.document()->has_china_extent()) {
+          std::fprintf(stderr, "OGR China extent not in China lon/lat\n");
+          self_test_detach_maps(browser);
+          return 39;
+        }
+        browser.catalog_view()->populate_layers([&] {
+          std::vector<ui::views::LayerTree::LayerDesc> layers;
+          for (const auto& d : browser.document()->layer_descs()) {
+            ui::views::LayerTree::LayerDesc row;
+            row.id = d.id;
+            row.name = d.name;
+            row.visible = d.visible;
+            row.active = d.active;
+            layers.push_back(std::move(row));
+          }
+          return layers;
+        }());
+        self_test_mark("ogr-ok");
+        self_test_mark("china-plp-ok");
       }
+    }
+    // Pan tool must activate without crash (Map tab).
+    if (!browser.run_tool_command("view.pan")) {
+      self_test_detach_maps(browser);
+      return 40;
+    }
+    {
+      content::ViewHost* host = browser.edit_view_host();
+      tool::Interaction* cur =
+          host && host->workspace() ? host->workspace()->stack().current()
+                                    : nullptr;
+      if (!cur || std::strcmp(cur->id(), "view.pan") != 0) {
+        self_test_detach_maps(browser);
+        return 41;
+      }
+      content::InputEvent pan_down{};
+      pan_down.kind = content::InputEvent::Kind::kLDown;
+      pan_down.x_px = 40;
+      pan_down.y_px = 40;
+      content::InputEvent pan_move{};
+      pan_move.kind = content::InputEvent::Kind::kMouseMove;
+      pan_move.x_px = 70;
+      pan_move.y_px = 55;
+      content::InputEvent pan_up{};
+      pan_up.kind = content::InputEvent::Kind::kLUp;
+      pan_up.x_px = 70;
+      pan_up.y_px = 55;
+      if (!host->dispatch_input(pan_down) || !host->dispatch_input(pan_move) ||
+          !host->dispatch_input(pan_up)) {
+        self_test_detach_maps(browser);
+        return 42;
+      }
+      self_test_mark("pan-ok");
     }
     // FlyCube orbit camera matrices must track chrome yaw/pitch.
     {

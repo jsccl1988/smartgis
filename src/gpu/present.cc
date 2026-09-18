@@ -20,6 +20,9 @@ constexpr uint8_t kClearA = 0xFF;
 
 HANDLE dup_into(HANDLE local, HANDLE ui_process) {
   HANDLE remote = nullptr;
+  if (!ui_process || !local || local == INVALID_HANDLE_VALUE) {
+    return nullptr;
+  }
   if (!DuplicateHandle(GetCurrentProcess(), local, ui_process, &remote, 0,
                        FALSE, DUPLICATE_SAME_ACCESS)) {
     return nullptr;
@@ -111,24 +114,19 @@ bool PresentTarget::create_dxgi(uint32_t w, uint32_t h, HANDLE ui_process) {
   }
   res->Release();
 
+  // Keep the local NT share handle for Channel attachment fallback. Prefer
+  // pickle nt_handle when DuplicateHandle into the UI process succeeds.
   HANDLE remote = dup_into(nt, ui_process);
-  CloseHandle(nt);
-  if (!remote) {
-    tex->Release();
-    dev->Release();
-    ctx->Release();
-    return false;
-  }
-
   d3d_device_ = dev;
   d3d_context_ = ctx;
   d3d_texture_ = tex;
-  local_handle_ = nullptr;
+  local_handle_ = nt;
   mode_ = content::PresentMode::kSharedTexture;
   wire_.width_px = w;
   wire_.height_px = h;
   wire_.format = content::kDxgiBgraUnorm;
-  wire_.nt_handle = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(remote));
+  wire_.nt_handle =
+      remote ? static_cast<uint64_t>(reinterpret_cast<uintptr_t>(remote)) : 0;
   wire_.present_mode = static_cast<uint32_t>(mode_);
   return true;
 }
@@ -147,18 +145,14 @@ bool PresentTarget::create_dib(uint32_t w, uint32_t h, HANDLE ui_process) {
     return false;
   }
   HANDLE remote = dup_into(mapping, ui_process);
-  if (!remote) {
-    UnmapViewOfFile(bits);
-    CloseHandle(mapping);
-    return false;
-  }
   local_handle_ = mapping;
   bits_ = bits;
   mode_ = content::PresentMode::kSoftwareDib;
   wire_.width_px = w;
   wire_.height_px = h;
   wire_.format = content::kDxgiBgraUnorm;
-  wire_.nt_handle = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(remote));
+  wire_.nt_handle =
+      remote ? static_cast<uint64_t>(reinterpret_cast<uintptr_t>(remote)) : 0;
   wire_.present_mode = static_cast<uint32_t>(mode_);
   // Seed with the map-edit clear color — never publish a black flash before
   // announce_and_paint runs.
@@ -311,11 +305,7 @@ void PresentTarget::paint_demo_frame(content::ViewKind kind) {
           ? RGB(180, 120, 80)
           : (kind == content::ViewKind::kMapData) ? RGB(90, 180, 120)
                                                  : RGB(120, 180, 220);
-  const COLORREF feature =
-      (kind == content::ViewKind::kScene3d)
-          ? RGB(255, 200, 120)
-          : (kind == content::ViewKind::kMapData) ? RGB(240, 220, 80)
-                                                 : RGB(255, 230, 140);
+  const COLORREF feature = RGB(255, 200, 120);
   const COLORREF ink = RGB(235, 245, 255);
 
   HPEN grid_pen = CreatePen(PS_SOLID, 1, grid);
@@ -332,12 +322,12 @@ void PresentTarget::paint_demo_frame(content::ViewKind kind) {
   SelectObject(mem, old_pen);
   DeleteObject(grid_pen);
 
-  HPEN feat_pen = CreatePen(PS_SOLID, 2, feature);
-  old_pen = SelectObject(mem, feat_pen);
-  HBRUSH feat_brush = CreateSolidBrush(feature);
-  HGDIOBJ old_brush = SelectObject(mem, GetStockObject(NULL_BRUSH));
-
+  // Keep a light grid only. Product vectors (China PLP / OGR layers) are
+  // painted by the Views host overlay (MapScene) — demo polylines here used
+  // to look like "the map" and hide real lon/lat data.
   if (kind == content::ViewKind::kScene3d) {
+    HPEN feat_pen = CreatePen(PS_SOLID, 2, feature);
+    old_pen = SelectObject(mem, feat_pen);
     // Wireframe cube — proves the 3D pane is not an empty clear.
     const int cx = w / 2;
     const int cy = h / 2;
@@ -358,49 +348,18 @@ void PresentTarget::paint_demo_frame(content::ViewKind kind) {
       MoveToEx(mem, front[i].x, front[i].y, nullptr);
       LineTo(mem, back[i].x, back[i].y);
     }
-  } else if (kind == content::ViewKind::kMapData) {
-    // Sample point cloud / browse markers.
-    SelectObject(mem, feat_brush);
-    for (int i = 0; i < 12; ++i) {
-      const int x = w / 8 + (i % 4) * (w / 5);
-      const int y = h / 6 + (i / 4) * (h / 4);
-      Ellipse(mem, x - 6, y - 6, x + 6, y + 6);
-    }
-    const POINT poly[4] = {{w / 5, h / 2},
-                           {w / 2, h / 5},
-                           {4 * w / 5, h / 2},
-                           {w / 2, 4 * h / 5}};
-    Polygon(mem, poly, 4);
-  } else {
-    // Map edit: sample road polyline + parcel polygon.
-    const POINT road[4] = {{w / 10, h / 2},
-                           {w / 3, h / 3},
-                           {2 * w / 3, 2 * h / 3},
-                           {9 * w / 10, h / 2}};
-    Polyline(mem, road, 4);
-    SelectObject(mem, feat_brush);
-    const POINT parcel[5] = {{w / 5, 3 * h / 5},
-                             {2 * w / 5, 3 * h / 5},
-                             {2 * w / 5, 4 * h / 5},
-                             {w / 5, 4 * h / 5},
-                             {w / 5, 3 * h / 5}};
-    Polygon(mem, parcel, 5);
+    SelectObject(mem, old_pen);
+    DeleteObject(feat_pen);
   }
-
-  SelectObject(mem, old_brush);
-  SelectObject(mem, old_pen);
-  DeleteObject(feat_brush);
-  DeleteObject(feat_pen);
 
   SetBkMode(mem, TRANSPARENT);
   SetTextColor(mem, ink);
   const wchar_t* title =
       (kind == content::ViewKind::kScene3d)
-          ? L"3D scene (demo mesh)"
-          : (kind == content::ViewKind::kMapData) ? L"Datasource (demo features)"
-                                                 : L"Map edit (demo features)";
+          ? L"3D scene"
+          : (kind == content::ViewKind::kMapData) ? L"Datasource"
+                                                 : L"Map";
   TextOutW(mem, 12, 12, title, lstrlenW(title));
-  TextOutW(mem, 12, 32, L"GPU present — real GIS submit later", 34);
 
   std::memcpy(bits_, dib_bits, bytes);
   SelectObject(mem, old);

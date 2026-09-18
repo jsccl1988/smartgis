@@ -21,6 +21,9 @@ namespace render
 		,m_pFuncMultTex(NULL)
 		,m_pFuncVSync(NULL)
 		,m_pFuncMipmap(NULL)
+		,m_hWnd(NULL)
+		,m_hPaintDC(NULL)
+		,m_hRC(NULL)
 	{
 		m_rBaseApi = RA_OPENGL; 
 		m_hDLL = NULL;
@@ -35,6 +38,9 @@ namespace render
 		,m_pFuncMultTex(NULL)
 		,m_pFuncVSync(NULL)
 		,m_pFuncMipmap(NULL)
+		,m_hWnd(NULL)
+		,m_hPaintDC(NULL)
+		,m_hRC(NULL)
 	{
 	   m_rBaseApi = RA_OPENGL; 
 	   m_hDLL = hDLL;
@@ -103,7 +109,9 @@ namespace render
 			}
 		}
 
-		::ReleaseDC(m_hWnd,hDC);
+		// Keep this HDC for the RC lifetime. ReleaseDC here used to leave
+		// later gl*/wglUseFont* on a stale DC (hang or STATUS_FATAL_APP_EXIT).
+		m_hPaintDC = hDC;
 
 		//////////////////////////////////////////////////////////////////////////
 		if(SMT_ERR_NONE !=SetDeviceCaps())
@@ -113,7 +121,7 @@ namespace render
 		// Set a default viewport
 		glEnable(GL_SCISSOR_TEST);
 		glDepthFunc(GL_LESS);
-		glEnable(GL_ALPHA);
+		glDisable(GL_TEXTURE_2D);
 
 		glEnable(GL_LINE_SMOOTH);	
 		glHint(GL_LINE_SMOOTH_HINT,GL_DONT_CARE);
@@ -126,8 +134,8 @@ namespace render
 		viewport.ulWidth = wndbfRect.right - wndbfRect.left;
 		viewport.ulX = 0;
 		viewport.ulY = 0;
-		viewport.fZNear = 0;
-		viewport.fZFar = 1;
+		viewport.fZNear = 0.1f;
+		viewport.fZFar = 1000.f;
 		viewport.fFovy = 45.f;
 		SetViewport(viewport);
 
@@ -188,6 +196,11 @@ namespace render
 
 		if(::wglGetCurrentContext())
 			::wglMakeCurrent(NULL, NULL);
+
+		if (m_hPaintDC && m_hWnd) {
+			::ReleaseDC(m_hWnd, m_hPaintDC);
+			m_hPaintDC = NULL;
+		}
   
 		if(m_hRC) 
 		{

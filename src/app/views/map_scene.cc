@@ -62,14 +62,169 @@ void append_ring(OGRLineString* ring, std::vector<MapScene::Vertex>* out) {
     return;
   }
   const int n = ring->getNumPoints();
-  for (int i = 0; i < n; ++i) {
+  if (n <= 0) {
+    return;
+  }
+  // Cap ring density so GDI Polygon / paint stays bounded on prefecture packs.
+  constexpr int kMaxRingPoints = 2048;
+  int step = 1;
+  if (n > kMaxRingPoints) {
+    step = n / kMaxRingPoints;
+    if (step < 1) {
+      step = 1;
+    }
+  }
+  for (int i = 0; i < n; i += step) {
     // Flip Y so screen +Y is down while GIS +Y stays north-up after fit.
     out->push_back({ring->getX(i), -ring->getY(i)});
   }
+  if ((n - 1) % step != 0) {
+    out->push_back({ring->getX(n - 1), -ring->getY(n - 1)});
+  }
+}
+
+const char* field_value(const MapScene::Feature& f, const char* key) {
+  if (!key) {
+    return nullptr;
+  }
+  for (const MapScene::Field& field : f.fields) {
+    if (field.name == key) {
+      return field.value.c_str();
+    }
+  }
+  return nullptr;
+}
+
+bool kind_is_text(const char* kind) {
+  return kind && (std::strcmp(kind, "text") == 0 ||
+                  std::strcmp(kind, "label") == 0 ||
+                  std::strcmp(kind, "anno") == 0);
+}
+
+bool kind_is_region(const char* kind) {
+  return kind && (std::strcmp(kind, "region") == 0 ||
+                  std::strcmp(kind, "area") == 0 ||
+                  std::strcmp(kind, "polygon") == 0 ||
+                  std::strcmp(kind, "basemap") == 0);
+}
+
+bool kind_is_line(const char* kind) {
+  return kind && (std::strcmp(kind, "line") == 0 ||
+                  std::strcmp(kind, "river") == 0 ||
+                  std::strcmp(kind, "corridor") == 0 ||
+                  std::strcmp(kind, "road") == 0);
+}
+
+bool kind_is_point(const char* kind) {
+  return kind && (std::strcmp(kind, "point") == 0 ||
+                  std::strcmp(kind, "city") == 0);
+}
+
+std::wstring utf8_to_wide(const std::string& utf8) {
+  if (utf8.empty()) {
+    return {};
+  }
+  const int n = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
+  if (n <= 1) {
+    return {};
+  }
+  std::wstring out(static_cast<size_t>(n - 1), L'\0');
+  MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, out.data(), n);
+  return out;
+}
+
+bool layer_name_is_text(const char* layer_name) {
+  return layer_name && (std::strcmp(layer_name, "text") == 0 ||
+                        std::strcmp(layer_name, "anno") == 0 ||
+                        std::strcmp(layer_name, "label") == 0 ||
+                        std::strcmp(layer_name, "注记") == 0);
+}
+
+bool has_nonempty_field(const MapScene::Feature& f, const char* key) {
+  const char* v = field_value(f, key);
+  return v && v[0];
+}
+
+// Prefer anno (SmtFtAnno), then name, for Chinese annotation labels.
+std::string feature_display_name(const MapScene::Feature& f) {
+  if (const char* anno = field_value(f, "anno")) {
+    if (anno[0]) {
+      return anno;
+    }
+  }
+  if (const char* name = field_value(f, "name")) {
+    if (name[0]) {
+      return name;
+    }
+  }
+  return {};
+}
+
+void ensure_anno_from_name(MapScene::Feature* out) {
+  if (!out || out->kind != MapScene::GeomKind::kText) {
+    return;
+  }
+  if (has_nonempty_field(*out, "anno")) {
+    return;
+  }
+  if (const char* name = field_value(*out, "name")) {
+    if (name[0]) {
+      out->fields.push_back({"anno", name});
+    }
+  }
+}
+
+void apply_kind_override(MapScene::Feature* out, const char* ogr_layer_name) {
+  if (!out) {
+    return;
+  }
+  // Point (+ MultiPoint first vertex) + text layer / anno / kind → kText.
+  const bool point_like = out->kind == MapScene::GeomKind::kPoint ||
+                          out->kind == MapScene::GeomKind::kText;
+  if (point_like && !out->points.empty() &&
+      (layer_name_is_text(ogr_layer_name) || has_nonempty_field(*out, "anno") ||
+       kind_is_text(field_value(*out, "kind")))) {
+    out->kind = MapScene::GeomKind::kText;
+    ensure_anno_from_name(out);
+    return;
+  }
+  const char* kind = field_value(*out, "kind");
+  if (kind_is_region(kind) && out->points.size() >= 3) {
+    out->kind = MapScene::GeomKind::kPolygon;
+    return;
+  }
+  if (kind_is_line(kind) && out->points.size() >= 2) {
+    out->kind = MapScene::GeomKind::kLine;
+    return;
+  }
+  if (kind_is_point(kind) && !out->points.empty()) {
+    out->kind = MapScene::GeomKind::kPoint;
+  }
+}
+
+void label_anchor(const MapScene::Feature& f, double* mx, double* my) {
+  if (!mx || !my || f.points.empty()) {
+    return;
+  }
+  if (f.kind == MapScene::GeomKind::kPoint ||
+      f.kind == MapScene::GeomKind::kText) {
+    *mx = f.points[0].x;
+    *my = f.points[0].y;
+    return;
+  }
+  double sx = 0;
+  double sy = 0;
+  for (const MapScene::Vertex& p : f.points) {
+    sx += p.x;
+    sy += p.y;
+  }
+  const double n = static_cast<double>(f.points.size());
+  *mx = sx / n;
+  *my = sy / n;
 }
 
 bool feature_from_ogr(OGRFeature* ogr_feat, MapScene::Feature* out,
-                      content::FeatureId id) {
+                      content::FeatureId id, const char* ogr_layer_name) {
   if (!ogr_feat || !out) {
     return false;
   }
@@ -82,10 +237,11 @@ bool feature_from_ogr(OGRFeature* ogr_feat, MapScene::Feature* out,
   out->fields.clear();
   out->selected = false;
 
+  // Keep name / anno / angle / color / kind and a few other attributes.
   OGRFeatureDefn* defn = ogr_feat->GetDefnRef();
   if (defn) {
     const int field_count = defn->GetFieldCount();
-    for (int i = 0; i < field_count && static_cast<int>(out->fields.size()) < 8;
+    for (int i = 0; i < field_count && static_cast<int>(out->fields.size()) < 12;
          ++i) {
       if (!ogr_feat->IsFieldSetAndNotNull(i)) {
         continue;
@@ -94,7 +250,8 @@ bool feature_from_ogr(OGRFeature* ogr_feat, MapScene::Feature* out,
       if (!fd) {
         continue;
       }
-      out->fields.push_back({fd->GetNameRef() ? fd->GetNameRef() : "field",
+      const char* fname = fd->GetNameRef();
+      out->fields.push_back({fname && fname[0] ? fname : "field",
                              ogr_feat->GetFieldAsString(i)});
     }
   }
@@ -104,11 +261,13 @@ bool feature_from_ogr(OGRFeature* ogr_feat, MapScene::Feature* out,
     auto* pt = geom->toPoint();
     out->kind = MapScene::GeomKind::kPoint;
     out->points.push_back({pt->getX(), -pt->getY()});
+    apply_kind_override(out, ogr_layer_name);
     return true;
   }
   if (flat == wkbLineString || flat == wkbLinearRing) {
     out->kind = MapScene::GeomKind::kLine;
     append_ring(geom->toLineString(), &out->points);
+    apply_kind_override(out, ogr_layer_name);
     return out->points.size() >= 2;
   }
   if (flat == wkbPolygon) {
@@ -117,6 +276,7 @@ bool feature_from_ogr(OGRFeature* ogr_feat, MapScene::Feature* out,
     if (OGRLinearRing* ext = poly->getExteriorRing()) {
       append_ring(ext, &out->points);
     }
+    apply_kind_override(out, ogr_layer_name);
     return out->points.size() >= 3;
   }
   if (flat == wkbMultiPoint) {
@@ -127,6 +287,7 @@ bool feature_from_ogr(OGRFeature* ogr_feat, MapScene::Feature* out,
     auto* pt = multi->getGeometryRef(0)->toPoint();
     out->kind = MapScene::GeomKind::kPoint;
     out->points.push_back({pt->getX(), -pt->getY()});
+    apply_kind_override(out, ogr_layer_name);
     return true;
   }
   if (flat == wkbMultiLineString) {
@@ -136,18 +297,48 @@ bool feature_from_ogr(OGRFeature* ogr_feat, MapScene::Feature* out,
     }
     out->kind = MapScene::GeomKind::kLine;
     append_ring(multi->getGeometryRef(0)->toLineString(), &out->points);
+    apply_kind_override(out, ogr_layer_name);
     return out->points.size() >= 2;
   }
   if (flat == wkbMultiPolygon) {
     auto* multi = geom->toMultiPolygon();
-    if (multi->getNumGeometries() < 1) {
+    if (!multi || multi->getNumGeometries() < 1) {
       return false;
     }
+    // Prefer the largest exterior ring so islands-only leftovers are not the
+    // sole representative when we store one Feature per OGR feature.
     out->kind = MapScene::GeomKind::kPolygon;
-    OGRPolygon* poly = multi->getGeometryRef(0)->toPolygon();
+    int best_i = 0;
+    int best_n = -1;
+    const int ngeom = multi->getNumGeometries();
+    for (int i = 0; i < ngeom; ++i) {
+      OGRGeometry* part = multi->getGeometryRef(i);
+      if (!part) {
+        continue;
+      }
+      OGRPolygon* poly = part->toPolygon();
+      if (!poly) {
+        continue;
+      }
+      OGRLinearRing* ext = poly->getExteriorRing();
+      const int n = ext ? ext->getNumPoints() : 0;
+      if (n > best_n) {
+        best_n = n;
+        best_i = i;
+      }
+    }
+    OGRGeometry* best = multi->getGeometryRef(best_i);
+    if (!best) {
+      return false;
+    }
+    OGRPolygon* poly = best->toPolygon();
+    if (!poly) {
+      return false;
+    }
     if (OGRLinearRing* ext = poly->getExteriorRing()) {
       append_ring(ext, &out->points);
     }
+    apply_kind_override(out, ogr_layer_name);
     return out->points.size() >= 3;
   }
   return false;
@@ -167,7 +358,56 @@ void MapScene::clear() {
   last_open_was_ogr_ = false;
 }
 
+bool MapScene::try_bootstrap_china_plp() {
+  char exe_dir[MAX_PATH] = {};
+  DWORD n = GetModuleFileNameA(nullptr, exe_dir, MAX_PATH);
+  if (n == 0 || n >= MAX_PATH) {
+    return false;
+  }
+  for (int i = static_cast<int>(n) - 1; i >= 0; --i) {
+    if (exe_dir[i] == '\\' || exe_dir[i] == '/') {
+      exe_dir[i + 1] = '\0';
+      break;
+    }
+  }
+  // Prefer china_plp (schematic area/line/point/text) over dense city packs so
+  // first paint reads as a normal China map overview, not a zoomed city cluster.
+  const char* relative[] = {
+      "china_plp.geojson",
+      "testing\\data\\china_plp.geojson",
+      "..\\testing\\data\\china_plp.geojson",
+      "..\\..\\testing\\data\\china_plp.geojson",
+      "china_city.gpkg",
+      "china_city.geojson",
+      "views_ogr_sample.geojson",
+      "testing\\data\\china_city.gpkg",
+      "testing\\data\\china_city.geojson",
+      "testing\\data\\views_ogr_sample.geojson",
+      "..\\testing\\data\\china_city.gpkg",
+      "..\\testing\\data\\china_city.geojson",
+      "..\\testing\\data\\views_ogr_sample.geojson",
+      "..\\..\\testing\\data\\china_city.gpkg",
+      "..\\..\\testing\\data\\china_city.geojson",
+      "..\\..\\testing\\data\\views_ogr_sample.geojson",
+  };
+  for (const char* rel : relative) {
+    const std::string cand = std::string(exe_dir) + rel;
+    DWORD attr = GetFileAttributesA(cand.c_str());
+    if (attr == INVALID_FILE_ATTRIBUTES ||
+        (attr & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+      continue;
+    }
+    if (open_path(cand)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void MapScene::seed_default() {
+  if (try_bootstrap_china_plp()) {
+    return;
+  }
   clear();
   Layer layer;
   layer.id = "layer.demo";
@@ -176,6 +416,87 @@ void MapScene::seed_default() {
   add_sample_features(&layer, "demo");
   active_layer_id_ = layer.id;
   layers_.push_back(std::move(layer));
+}
+
+bool MapScene::compute_extent(double* min_x, double* min_y, double* max_x,
+                              double* max_y) const {
+  if (!min_x || !min_y || !max_x || !max_y) {
+    return false;
+  }
+  bool have = false;
+  double minx = 0;
+  double miny = 0;
+  double maxx = 0;
+  double maxy = 0;
+  for (const Layer& layer : layers_) {
+    if (!layer.visible) {
+      continue;
+    }
+    for (const Feature& f : layer.features) {
+      for (const Vertex& p : f.points) {
+        if (!have) {
+          minx = maxx = p.x;
+          miny = maxy = p.y;
+          have = true;
+        } else {
+          minx = std::min(minx, p.x);
+          miny = std::min(miny, p.y);
+          maxx = std::max(maxx, p.x);
+          maxy = std::max(maxy, p.y);
+        }
+      }
+    }
+  }
+  if (!have) {
+    return false;
+  }
+  *min_x = minx;
+  *min_y = miny;
+  *max_x = maxx;
+  *max_y = maxy;
+  return true;
+}
+
+bool MapScene::has_china_extent() const {
+  double minx = 0;
+  double miny = 0;
+  double maxx = 0;
+  double maxy = 0;
+  if (!compute_extent(&minx, &miny, &maxx, &maxy)) {
+    return false;
+  }
+  // Stored as lon / -lat. Prefecture packs may include Xinjiang west of 70E,
+  // northern Heilongjiang (~53–59N in some sources), and South China Sea
+  // islands (~3N). Keep a loose envelope; kind counts prove PLP content.
+  if (minx < 60.0 || maxx > 145.0 || minx > maxx) {
+    return false;
+  }
+  const double south = -maxy;
+  const double north = -miny;
+  size_t regions = 0;
+  size_t lines = 0;
+  size_t points = 0;
+  size_t texts = 0;
+  for (const Layer& layer : layers_) {
+    for (const Feature& f : layer.features) {
+      switch (f.kind) {
+        case GeomKind::kPolygon:
+          ++regions;
+          break;
+        case GeomKind::kLine:
+          ++lines;
+          break;
+        case GeomKind::kPoint:
+          ++points;
+          break;
+        case GeomKind::kText:
+          ++texts;
+          break;
+      }
+    }
+  }
+  return south >= 3.0 && north <= 60.0 && south < north && regions >= 3 &&
+         lines >= 2 && points >= 3 && texts >= 1;
 }
 
 bool MapScene::open_path(const std::string& path) {
@@ -243,7 +564,7 @@ bool MapScene::ingest_ogr_path(const std::string& path) {
         break;
       }
       Feature f;
-      if (!feature_from_ogr(feat.get(), &f, next_feature_id())) {
+      if (!feature_from_ogr(feat.get(), &f, next_feature_id(), lname)) {
         continue;
       }
       layer.features.push_back(std::move(f));
@@ -260,7 +581,81 @@ bool MapScene::ingest_ogr_path(const std::string& path) {
   layers_ = std::move(loaded);
   active_layer_id_ = layers_.front().id;
   selected_id_ = {};
+  // Multi-layer GPKG already uses real OGR names (area/line/point/text).
+  // Only regroup single-layer packs that encode type via kind=.
+  if (layers_.size() == 1) {
+    split_layers_by_kind_field();
+  }
   return true;
+}
+
+void MapScene::split_layers_by_kind_field() {
+  bool has_kind = false;
+  for (const Layer& layer : layers_) {
+    for (const Feature& f : layer.features) {
+      if (field_value(f, "kind")) {
+        has_kind = true;
+        break;
+      }
+    }
+    if (has_kind) {
+      break;
+    }
+  }
+  if (!has_kind) {
+    return;
+  }
+
+  Layer regions;
+  regions.id = "china.area";
+  regions.name = "area";
+  regions.visible = true;
+  Layer lines;
+  lines.id = "china.line";
+  lines.name = "line";
+  lines.visible = true;
+  Layer points;
+  points.id = "china.point";
+  points.name = "point";
+  points.visible = true;
+  Layer texts;
+  texts.id = "china.text";
+  texts.name = "text";
+  texts.visible = true;
+
+  for (Layer& layer : layers_) {
+    for (Feature& f : layer.features) {
+      apply_kind_override(&f, layer.name.c_str());
+      if (f.kind == GeomKind::kText) {
+        texts.features.push_back(std::move(f));
+      } else if (f.kind == GeomKind::kLine) {
+        lines.features.push_back(std::move(f));
+      } else if (f.kind == GeomKind::kPoint) {
+        points.features.push_back(std::move(f));
+      } else {
+        regions.features.push_back(std::move(f));
+      }
+    }
+  }
+
+  std::vector<Layer> next;
+  if (!regions.features.empty()) {
+    next.push_back(std::move(regions));
+  }
+  if (!lines.features.empty()) {
+    next.push_back(std::move(lines));
+  }
+  if (!points.features.empty()) {
+    next.push_back(std::move(points));
+  }
+  if (!texts.features.empty()) {
+    next.push_back(std::move(texts));
+  }
+  if (next.empty()) {
+    return;
+  }
+  layers_ = std::move(next);
+  active_layer_id_ = layers_.front().id;
 }
 
 void MapScene::add_sample_features(Layer* layer, const std::string& tag) {
@@ -289,11 +684,11 @@ void MapScene::add_sample_features(Layer* layer, const std::string& tag) {
   layer->features.push_back(std::move(node));
 }
 
-std::vector<ui::views::LayerTree::LayerDesc> MapScene::layer_descs() const {
-  std::vector<ui::views::LayerTree::LayerDesc> out;
+std::vector<MapScene::LayerDesc> MapScene::layer_descs() const {
+  std::vector<LayerDesc> out;
   out.reserve(layers_.size());
   for (const Layer& layer : layers_) {
-    ui::views::LayerTree::LayerDesc d;
+    LayerDesc d;
     d.id = layer.id;
     d.name = layer.name;
     d.visible = layer.visible;
@@ -440,7 +835,7 @@ const MapScene::Feature* MapScene::hit_test(int view_x, int view_y, int view_w,
       if (fit->points.empty()) {
         continue;
       }
-      if (fit->kind == GeomKind::kPoint) {
+      if (fit->kind == GeomKind::kPoint || fit->kind == GeomKind::kText) {
         const double d = dist2(mx, my, fit->points[0].x, fit->points[0].y);
         if (d <= best_d) {
           best_d = d;
@@ -569,66 +964,206 @@ void MapScene::paint(HDC hdc, int width_px, int height_px) const {
   if (!hdc || width_px <= 0 || height_px <= 0) {
     return;
   }
-  for (const Layer& layer : layers_) {
-    if (!layer.visible) {
-      continue;
+
+  // Reuse a few GDI objects for the whole frame. Creating Pen/Brush/Font per
+  // feature leaked when early-continue skipped DeleteObject, and exhausted the
+  // per-process GDI quota (~10k) on china_city (~1.4k features × 30 Hz).
+  HPEN pens[4] = {};
+  pens[0] = CreatePen(PS_SOLID, 1, RGB(55, 120, 165));   // polygon outline
+  pens[1] = CreatePen(PS_SOLID, 2, RGB(64, 140, 220));   // river
+  pens[2] = CreatePen(PS_SOLID, 2, RGB(255, 150, 50));   // other line
+  pens[3] = CreatePen(PS_SOLID, 3, RGB(255, 220, 60));   // selected
+  HBRUSH poly_brush = CreateSolidBrush(RGB(40, 90, 130));
+  HBRUSH point_brush = CreateSolidBrush(RGB(255, 230, 90));
+  HBRUSH selected_brush = CreateSolidBrush(RGB(255, 220, 60));
+  HFONT fonts[3] = {};
+  fonts[0] = CreateFontW(-13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                         CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                         DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
+  fonts[1] = CreateFontW(-16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                         CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                         DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
+  fonts[2] = CreateFontW(-22, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+                         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                         CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                         DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
+  HGDIOBJ stock_font = GetStockObject(DEFAULT_GUI_FONT);
+  HGDIOBJ old_pen = SelectObject(hdc, pens[0] ? pens[0] : GetStockObject(BLACK_PEN));
+  HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
+  HGDIOBJ old_font = SelectObject(hdc, fonts[0] ? fonts[0] : stock_font);
+  SetBkMode(hdc, TRANSPARENT);
+
+  auto draw_label = [&](int vx, int vy, const std::string& name, COLORREF color,
+                        int font_idx, int dx, int dy) {
+    if (name.empty()) {
+      return;
     }
-    for (const Feature& f : layer.features) {
-      if (f.points.empty()) {
+    // Skip labels that are far outside the viewport (cheap cull).
+    if (vx + dx < -80 || vy + dy < -40 || vx + dx > width_px + 80 ||
+        vy + dy > height_px + 40) {
+      return;
+    }
+    const std::wstring w = utf8_to_wide(name);
+    if (w.empty()) {
+      return;
+    }
+    HFONT font = fonts[font_idx < 0 ? 0 : (font_idx > 2 ? 2 : font_idx)];
+    SelectObject(hdc, font ? font : stock_font);
+    SetTextColor(hdc, color);
+    TextOutW(hdc, vx + dx, vy + dy, w.c_str(), static_cast<int>(w.size()));
+  };
+
+  // After fit_extent on China, scale_ is typically ~8–15; avoid drowning the
+  // frame in 400+ city labels at country view.
+  const bool draw_dense_text = scale_ >= 18.0;
+  constexpr size_t kMaxPolyPts = 2048;
+  const GeomKind order[] = {GeomKind::kPolygon, GeomKind::kLine,
+                            GeomKind::kPoint, GeomKind::kText};
+  for (GeomKind pass : order) {
+    for (const Layer& layer : layers_) {
+      if (!layer.visible) {
         continue;
       }
-      const COLORREF color =
-          f.selected ? RGB(255, 220, 60) : RGB(90, 200, 255);
-      const int pen_w = f.selected ? 3 : 2;
-      HPEN pen = CreatePen(PS_SOLID, pen_w, color);
-      HGDIOBJ old_pen = SelectObject(hdc, pen);
-      HBRUSH brush = CreateSolidBrush(color);
-      HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
-
-      if (f.kind == GeomKind::kPoint) {
-        int vx = 0;
-        int vy = 0;
-        map_to_view(f.points[0].x, f.points[0].y, &vx, &vy);
-        SelectObject(hdc, brush);
-        Ellipse(hdc, vx - 5, vy - 5, vx + 5, vy + 5);
-      } else if (f.kind == GeomKind::kLine) {
-        bool first = true;
-        for (const Vertex& p : f.points) {
-          int vx = 0;
-          int vy = 0;
-          map_to_view(p.x, p.y, &vx, &vy);
-          if (first) {
-            MoveToEx(hdc, vx, vy, nullptr);
-            first = false;
-          } else {
-            LineTo(hdc, vx, vy);
-          }
+      for (const Feature& f : layer.features) {
+        if (f.kind != pass || f.points.empty()) {
+          continue;
         }
-      } else {
-        std::vector<POINT> pts;
-        pts.reserve(f.points.size());
-        for (const Vertex& p : f.points) {
+
+        if (f.kind == GeomKind::kText) {
+          const char* cls = field_value(f, "class");
+          if (!draw_dense_text && cls &&
+              std::strcmp(cls, "region_label") == 0) {
+            continue;
+          }
           int vx = 0;
           int vy = 0;
-          map_to_view(p.x, p.y, &vx, &vy);
+          map_to_view(f.points[0].x, f.points[0].y, &vx, &vy);
+          int font_idx = 0;
+          COLORREF ink = RGB(255, 250, 235);
+          if (cls && std::strcmp(cls, "title") == 0) {
+            font_idx = 2;
+            ink = RGB(255, 252, 240);
+          } else if (cls && std::strcmp(cls, "region_label") == 0) {
+            font_idx = 1;
+          } else if (cls && std::strcmp(cls, "river_label") == 0) {
+            ink = RGB(180, 220, 255);
+          }
+          if (f.selected) {
+            ink = RGB(255, 220, 60);
+          }
+          draw_label(vx, vy, feature_display_name(f), ink, font_idx, -20, -8);
+          continue;
+        }
+
+        if (f.kind == GeomKind::kPoint) {
+          int vx = 0;
+          int vy = 0;
+          map_to_view(f.points[0].x, f.points[0].y, &vx, &vy);
+          if (vx < -20 || vy < -20 || vx > width_px + 20 ||
+              vy > height_px + 20) {
+            continue;
+          }
+          SelectObject(hdc, f.selected ? selected_brush : point_brush);
+          SelectObject(hdc, f.selected ? pens[3] : pens[0]);
+          Ellipse(hdc, vx - 4, vy - 4, vx + 4, vy + 4);
+          SelectObject(hdc, GetStockObject(NULL_BRUSH));
+          if (draw_dense_text) {
+            draw_label(vx, vy, feature_display_name(f), RGB(255, 240, 180), 0, 7,
+                       -8);
+          }
+          continue;
+        }
+
+        if (f.kind == GeomKind::kLine) {
+          const char* cls = field_value(f, "class");
+          HPEN pen = pens[2];
+          if (f.selected) {
+            pen = pens[3];
+          } else if (cls && std::strcmp(cls, "river") == 0) {
+            pen = pens[1];
+          }
+          SelectObject(hdc, pen ? pen : GetStockObject(BLACK_PEN));
+          bool first = true;
+          for (const Vertex& p : f.points) {
+            int vx = 0;
+            int vy = 0;
+            map_to_view(p.x, p.y, &vx, &vy);
+            if (first) {
+              MoveToEx(hdc, vx, vy, nullptr);
+              first = false;
+            } else {
+              LineTo(hdc, vx, vy);
+            }
+          }
+          continue;
+        }
+
+        // Polygon: fill + outline. Cap vertex count for GDI Polygon safety.
+        std::vector<POINT> pts;
+        pts.reserve(std::min(f.points.size(), kMaxPolyPts));
+        const size_t step =
+            f.points.size() > kMaxPolyPts
+                ? (f.points.size() + kMaxPolyPts - 1) / kMaxPolyPts
+                : 1;
+        for (size_t i = 0; i < f.points.size(); i += step) {
+          int vx = 0;
+          int vy = 0;
+          map_to_view(f.points[i].x, f.points[i].y, &vx, &vy);
           pts.push_back({vx, vy});
         }
         if (pts.size() >= 3) {
-          SelectObject(hdc, brush);
+          // Do NOT CreatePen/Brush per polygon — china_city has ~476 areas and
+          // the present timer repaints ~30 Hz; per-feature GDI creates exhaust
+          // the process quota and crash the host even when DeleteObject is called.
+          SelectObject(hdc, f.selected ? pens[3] : pens[0]);
+          SelectObject(hdc, f.selected ? selected_brush : poly_brush);
           Polygon(hdc, pts.data(), static_cast<int>(pts.size()));
+          SelectObject(hdc, GetStockObject(NULL_BRUSH));
+          Polyline(hdc, pts.data(), static_cast<int>(pts.size()));
+          // Region name at overview scales (sparse labels, not city clutter).
+          double mx = 0;
+          double my = 0;
+          label_anchor(f, &mx, &my);
+          int lvx = 0;
+          int lvy = 0;
+          map_to_view(mx, my, &lvx, &lvy);
+          draw_label(lvx, lvy, feature_display_name(f),
+                     draw_dense_text ? RGB(200, 230, 255) : RGB(40, 36, 28), 0,
+                     -12, -6);
         }
       }
+    }
+  }
 
-      SelectObject(hdc, old_brush);
-      SelectObject(hdc, old_pen);
-      DeleteObject(brush);
+  SelectObject(hdc, old_font);
+  SelectObject(hdc, old_brush);
+  SelectObject(hdc, old_pen);
+  for (HFONT font : fonts) {
+    if (font) {
+      DeleteObject(font);
+    }
+  }
+  if (poly_brush) {
+    DeleteObject(poly_brush);
+  }
+  if (point_brush) {
+    DeleteObject(point_brush);
+  }
+  if (selected_brush) {
+    DeleteObject(selected_brush);
+  }
+  for (HPEN pen : pens) {
+    if (pen) {
       DeleteObject(pen);
     }
   }
 
   SetBkMode(hdc, TRANSPARENT);
   SetTextColor(hdc, RGB(230, 240, 250));
-  wchar_t line[128];
+  SelectObject(hdc, stock_font);
+  wchar_t line[160];
   swprintf_s(line, L"Layers %zu  Features %zu  scale %.4g%s", layers_.size(),
              feature_count(), scale_, last_open_was_ogr_ ? L"  OGR" : L"");
   TextOutW(hdc, 12, height_px > 48 ? height_px - 36 : 12, line, lstrlenW(line));
@@ -646,8 +1181,10 @@ void MapScene::fill_feature_info_fields(
   }
   out->push_back({"geom", f.kind == GeomKind::kLine
                               ? "line"
-                              : (f.kind == GeomKind::kPolygon ? "polygon"
-                                                              : "point")});
+                              : (f.kind == GeomKind::kPolygon
+                                     ? "polygon"
+                                     : (f.kind == GeomKind::kText ? "text"
+                                                                  : "point"))});
   out->push_back({"vertices", std::to_string(f.points.size())});
 }
 
@@ -662,13 +1199,22 @@ void MapScene::fill_attribute_rows(std::vector<std::string>* columns,
   tokens->clear();
   for (const Layer& layer : layers_) {
     for (const Feature& f : layer.features) {
-      std::string name = f.fields.empty() ? feature_token(f.id) : f.fields[0].value;
-      std::string type = "point";
+      std::string name =
+          f.fields.empty() ? feature_token(f.id) : f.fields[0].value;
+      std::string type = f.kind == GeomKind::kLine
+                             ? "line"
+                             : (f.kind == GeomKind::kPolygon
+                                    ? "region"
+                                    : (f.kind == GeomKind::kText ? "text"
+                                                                : "point"));
       for (const Field& field : f.fields) {
-        if (field.name == "type") {
+        if (field.name == "kind" || field.name == "type") {
           type = field.value;
         }
-        if (field.name == "name") {
+        if (field.name == "name" && !field.value.empty()) {
+          name = field.value;
+        }
+        if (field.name == "anno" && !field.value.empty()) {
           name = field.value;
         }
       }
@@ -768,11 +1314,19 @@ content::FeatureId MapScene::next_feature_id() {
 }
 
 void MapScene::map_to_view(double mx, double my, int* vx, int* vy) const {
+  // Keep GDI points inside a safe 16-bit-ish range. Extreme pan/zoom or bad
+  // vertices otherwise overflow int and can AV inside Polygon/LineTo.
+  constexpr double kLo = -30000.0;
+  constexpr double kHi = 30000.0;
   if (vx) {
-    *vx = static_cast<int>(std::lround(mx * scale_ + pan_x_));
+    const double x = mx * scale_ + pan_x_;
+    *vx = static_cast<int>(
+        std::lround(x < kLo ? kLo : (x > kHi ? kHi : x)));
   }
   if (vy) {
-    *vy = static_cast<int>(std::lround(my * scale_ + pan_y_));
+    const double y = my * scale_ + pan_y_;
+    *vy = static_cast<int>(
+        std::lround(y < kLo ? kLo : (y > kHi ? kHi : y)));
   }
 }
 

@@ -3,6 +3,7 @@
 
 #include "app/cef/cef_map_slot.h"
 
+#include "app/views/map_scene.h"
 #include "content/public/map_contents.h"
 #include "content/public/map_widget_host_view.h"
 #include "content/public/view_host.h"
@@ -14,6 +15,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <vector>
 
 namespace app {
 namespace cef {
@@ -95,17 +97,49 @@ void CefMapSlot::destroy() {
   view_host_ = nullptr;
   session_ = nullptr;
   parent_ = nullptr;
+  document_ = nullptr;
+  view_menu_requested_ = nullptr;
 }
 
 void CefMapSlot::sync_layout(const RectPx& rect_px, float dpi) {
   if (!child_hwnd_ || !rect_px.is_valid()) {
     return;
   }
-  SetWindowPos(child_hwnd_, HWND_TOP, rect_px.x, rect_px.y, rect_px.w,
-               rect_px.h, SWP_NOACTIVATE | (visible_ ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
-  InvalidateRect(child_hwnd_, nullptr, FALSE);
-  if (view_) {
+  // Skip no-op SetWindowPos: repeated HWND_TOP + Resize recreates the GPU
+  // DIB while present_latest_frame is still mapping it (AV / flicker).
+  RECT wr = {};
+  GetWindowRect(child_hwnd_, &wr);
+  POINT tl = {wr.left, wr.top};
+  if (HWND parent = GetParent(child_hwnd_)) {
+    ScreenToClient(parent, &tl);
+  }
+  const int cur_w = wr.right - wr.left;
+  const int cur_h = wr.bottom - wr.top;
+  const bool shown = IsWindowVisible(child_hwnd_) != FALSE;
+  const bool same_pos =
+      tl.x == rect_px.x && tl.y == rect_px.y && cur_w == rect_px.w &&
+      cur_h == rect_px.h && (visible_ ? shown : !shown);
+  const bool size_changed = last_layout_w_ != rect_px.w ||
+                            last_layout_h_ != rect_px.h || cur_w != rect_px.w ||
+                            cur_h != rect_px.h;
+  const bool dpi_changed = last_dpi_ != 0.f && last_dpi_ != dpi;
+  if (!same_pos) {
+    SetWindowPos(child_hwnd_, HWND_TOP, rect_px.x, rect_px.y, rect_px.w,
+                 rect_px.h,
+                 SWP_NOACTIVATE | (visible_ ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
+    InvalidateRect(child_hwnd_, nullptr, FALSE);
+  }
+  last_layout_x_ = rect_px.x;
+  last_layout_y_ = rect_px.y;
+  last_layout_w_ = rect_px.w;
+  last_layout_h_ = rect_px.h;
+  last_dpi_ = dpi;
+  if (view_ && (size_changed || dpi_changed || !has_presented_frame())) {
     view_->Resize(rect_px.w, rect_px.h, dpi * 96.f);
+  }
+  if (size_changed && document_ && document_->feature_count() > 0) {
+    document_->fit_extent(rect_px.w, rect_px.h);
+    InvalidateRect(child_hwnd_, nullptr, FALSE);
   }
 }
 
@@ -149,6 +183,13 @@ bool CefMapSlot::has_presented_frame() const {
          surface.width_px > 0 && surface.height_px > 0;
 }
 
+uint32_t CefMapSlot::presented_generation() const {
+  if (!view_) {
+    return 0;
+  }
+  return view_->Latest().generation;
+}
+
 content::ViewHost* CefMapSlot::view_host() {
   return view_host_;
 }
@@ -165,7 +206,7 @@ void CefMapSlot::stop_present_timer() {
   }
 }
 
-bool CefMapSlot::present_latest_frame(HDC hdc, const RECT& client_rc) const {
+bool CefMapSlot::present_latest_frame(HDC hdc, const RECT& client_rc) {
   if (!hdc || !view_) {
     return false;
   }
@@ -174,14 +215,36 @@ bool CefMapSlot::present_latest_frame(HDC hdc, const RECT& client_rc) const {
       surface.height_px == 0) {
     return false;
   }
+  if (surface.width_px > 8192u || surface.height_px > 8192u) {
+    return false;
+  }
   const SIZE_T bytes = static_cast<SIZE_T>(surface.width_px) *
                        static_cast<SIZE_T>(surface.height_px) * 4u;
   void* bits =
       MapViewOfFile(static_cast<HANDLE>(surface.nt_handle), FILE_MAP_READ, 0, 0,
                     bytes);
   if (!bits) {
+    bits = MapViewOfFile(static_cast<HANDLE>(surface.nt_handle),
+                         FILE_MAP_ALL_ACCESS, 0, 0, bytes);
+  }
+  if (!bits) {
     return false;
   }
+  MEMORY_BASIC_INFORMATION mbi = {};
+  SIZE_T mapped = 0;
+  if (VirtualQuery(bits, &mbi, sizeof(mbi)) != 0) {
+    mapped = mbi.RegionSize;
+  }
+  if (mapped != 0 && mapped < bytes) {
+    UnmapViewOfFile(bits);
+    return false;
+  }
+  // Copy out of the shared mapping before StretchDIBits so a concurrent GPU
+  // resize cannot invalidate the source mid-blit (Views / WinUI parity).
+  std::vector<uint8_t> local(bytes);
+  std::memcpy(local.data(), bits, bytes);
+  UnmapViewOfFile(bits);
+
   BITMAPINFO bi = {};
   bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
   bi.bmiHeader.biWidth = static_cast<LONG>(surface.width_px);
@@ -194,20 +257,19 @@ bool CefMapSlot::present_latest_frame(HDC hdc, const RECT& client_rc) const {
   const int ok =
       StretchDIBits(hdc, 0, 0, dst_w, dst_h, 0, 0,
                     static_cast<int>(surface.width_px),
-                    static_cast<int>(surface.height_px), bits, &bi,
+                    static_cast<int>(surface.height_px), local.data(), &bi,
                     DIB_RGB_COLORS, SRCCOPY);
-  UnmapViewOfFile(bits);
-  return ok != 0 && ok != GDI_ERROR;
+  if (ok == 0 || ok == GDI_ERROR) {
+    return false;
+  }
+  painted_generation_ = surface.generation;
+  return true;
 }
 
-void CefMapSlot::paint_child() const {
-  if (!child_hwnd_) {
+void CefMapSlot::paint_to_dc(HDC hdc, const RECT& rc) {
+  if (!hdc) {
     return;
   }
-  PAINTSTRUCT ps;
-  HDC hdc = BeginPaint(child_hwnd_, &ps);
-  RECT rc;
-  GetClientRect(child_hwnd_, &rc);
   if (!present_latest_frame(hdc, rc)) {
     const bool scene3d = kind_ == content::ViewKind::kScene3d;
     const HBRUSH brush =
@@ -216,11 +278,58 @@ void CefMapSlot::paint_child() const {
     DeleteObject(brush);
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, RGB(230, 236, 242));
-    const wchar_t* line =
-        render_ok_ ? L"Map slot (waiting for frame)" : L"Map slot (GPU not started)";
-    DrawTextW(hdc, line, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    const wchar_t* line = render_ok_ ? L"Map slot (waiting for frame)"
+                                     : L"Map slot (GPU not started)";
+    DrawTextW(hdc, line, -1, const_cast<RECT*>(&rc),
+              DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+  }
+  if (document_ && rc.right > 0 && rc.bottom > 0) {
+    document_->paint(hdc, rc.right, rc.bottom);
+  }
+}
+
+void CefMapSlot::paint_child() {
+  if (!child_hwnd_) {
+    return;
+  }
+  PAINTSTRUCT ps;
+  HDC hdc = BeginPaint(child_hwnd_, &ps);
+  RECT rc;
+  GetClientRect(child_hwnd_, &rc);
+  const int w = rc.right;
+  const int h = rc.bottom;
+  if (w > 0 && h > 0) {
+    HDC mem = CreateCompatibleDC(hdc);
+    BITMAPINFO bi = {};
+    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bi.bmiHeader.biWidth = w;
+    bi.bmiHeader.biHeight = -h;
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 32;
+    bi.bmiHeader.biCompression = BI_RGB;
+    void* bits = nullptr;
+    HBITMAP bmp =
+        CreateDIBSection(mem, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    if (mem && bmp) {
+      HGDIOBJ old = SelectObject(mem, bmp);
+      paint_to_dc(mem, rc);
+      BitBlt(hdc, 0, 0, w, h, mem, 0, 0, SRCCOPY);
+      SelectObject(mem, old);
+      DeleteObject(bmp);
+    } else if (hdc) {
+      paint_to_dc(hdc, rc);
+    }
+    if (mem) {
+      DeleteDC(mem);
+    }
   }
   EndPaint(child_hwnd_, &ps);
+}
+
+void CefMapSlot::show_view_menu(POINT screen_pt) const {
+  if (view_menu_requested_) {
+    view_menu_requested_(screen_pt);
+  }
 }
 
 void CefMapSlot::dispatch_mouse(content::InputEvent::Kind kind,
@@ -259,9 +368,15 @@ LRESULT CALLBACK CefMapSlot::wnd_proc(HWND hwnd,
         self->paint_child();
       }
       return 0;
+    case WM_ERASEBKGND:
+      return 1;
     case WM_TIMER:
-      if (self && wparam == kPresentTimerId) {
-        InvalidateRect(hwnd, nullptr, FALSE);
+      if (self && wparam == kPresentTimerId && self->view_) {
+        const content::SharedSurface surface = self->view_->Latest();
+        if (surface.generation != 0 &&
+            surface.generation != self->painted_generation_) {
+          InvalidateRect(hwnd, nullptr, FALSE);
+        }
       }
       return 0;
     case WM_LBUTTONDOWN:
@@ -289,6 +404,22 @@ LRESULT CALLBACK CefMapSlot::wnd_proc(HWND hwnd,
     case WM_RBUTTONUP:
       if (self) {
         self->dispatch_mouse(content::InputEvent::Kind::kRUp, lparam, 0);
+        POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+        ClientToScreen(hwnd, &pt);
+        self->show_view_menu(pt);
+      }
+      return 0;
+    case WM_CONTEXTMENU:
+      if (self) {
+        POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+        if (pt.x == -1 && pt.y == -1) {
+          RECT rc = {};
+          GetClientRect(hwnd, &rc);
+          pt.x = rc.left + (rc.right - rc.left) / 2;
+          pt.y = rc.top + (rc.bottom - rc.top) / 2;
+          ClientToScreen(hwnd, &pt);
+        }
+        self->show_view_menu(pt);
       }
       return 0;
     case WM_MOUSEMOVE:
@@ -303,6 +434,12 @@ LRESULT CALLBACK CefMapSlot::wnd_proc(HWND hwnd,
         const LPARAM client_lp = MAKELPARAM(pt.x, pt.y);
         self->dispatch_mouse(content::InputEvent::Kind::kWheel, client_lp,
                              GET_WHEEL_DELTA_WPARAM(wparam));
+        if (self->document_) {
+          const int delta = GET_WHEEL_DELTA_WPARAM(wparam);
+          const double factor = delta > 0 ? 1.25 : 0.8;
+          self->document_->apply_zoom_at(pt.x, pt.y, factor);
+          self->invalidate();
+        }
       }
       return 0;
     case WM_KEYDOWN:

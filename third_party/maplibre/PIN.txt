@@ -1,0 +1,21 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+package: maplibre-native
+manifest_ref: ios-v6.30.0
+git_commit: 0ffe6336b4e7266c75c13337b4aa1d0f2b0877d5
+subject: Ignore generated expression and render test reports (#4607)
+dest: third_party/.src/maplibre-native
+public_map_header: include/mln/map/map.hpp
+fetched: 2026-09-18
+sparse: include, src, platform/default, platform/windows
+note: Native mln::Map needs RendererFrontend + HeadlessFrontend (EGL/WGL) and a linked core. Windows still-image links //third_party/maplibre:maplibre_native (mln/map.hpp facade).
+
+probe ninja native_map_probe (2026-09-18):
+- constants.hpp: M_PI undeclared — fixed in probe with _USE_MATH_DEFINES
+- geo.hpp: C1083 mapbox/geometry/point.hpp — fetched submodule
+  vendor/maplibre-native-base/deps/geometry.hpp @ a5571a3ace5853e0d1e8d5fbdc87163c824ebeb7
+- style/source.hpp: C1083 mapbox/std/weak.hpp (next vendor header; do not chase the full
+  vendor/codegen/vcpkg graph in-session)
+- After headers: link HeadlessFrontend + platform/windows headless_backend_egl.cpp / WGL,
+  then Map ctor symbols from src/mln/map/map.cpp. No mbgl-core.lib on this tree.

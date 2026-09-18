@@ -9,13 +9,13 @@
 
 #include "content/public/map_types.h"
 
-// Named-pipe Host ABI 0.7: length-prefixed frames, pickle (BinarySink) bodies.
+// Named-pipe Host ABI 0.8: length-prefixed frames, pickle (BinarySink) bodies.
+// Invitation: --ipc-channel-handle=<inherited HANDLE>. --pipe= remains fallback.
 // Pipe: \\.\pipe\smartgis-host-<ui-pid>
-// Child argv: --parent-pid=<pid> --pipe=smartgis-host-<pid> --session=<guid>
 namespace content {
 
 inline constexpr uint32_t kHostMagic = 0x31544D53u;  // 'SMT1' LE
-inline constexpr uint16_t kHostProtocolVersion = 2;
+inline constexpr uint16_t kHostProtocolVersion = 3;
 
 enum class HostMsg : uint16_t {
   kHello = 1,
@@ -54,6 +54,7 @@ enum class HostFlag : uint16_t {
   kJson = 1,
   kBinary = 2,
   kNeedAck = 4,
+  kHasHandles = 8,
 };
 
 #pragma pack(push, 1)
@@ -63,7 +64,9 @@ struct FrameHeader {
   uint16_t version;
   uint16_t type;
   uint16_t flags;
+  uint16_t handle_count;
   uint32_t view_id;
+  uint32_t seq;
   uint32_t payload_bytes;
 };
 
@@ -84,7 +87,9 @@ struct PointerEventWire {
   }
 };
 
-// DXGI shared texture (or DIB) duplicated into the chrome process.
+// DXGI / DIB metadata. nt_handle is the HANDLE value as seen by the UI
+// process (DuplicateHandle target). Optional Channel attachments may also
+// carry the same handle; chrome accepts either.
 struct SharedHandleWire {
   uint32_t generation;
   uint32_t width_px;
@@ -112,7 +117,7 @@ struct FrameReadyWire {
 };
 #pragma pack(pop)
 
-// Hello / HelloAck. role is "gpu" or "chrome".
+// Hello / HelloAck. role is "gpu", "renderer", or "chrome".
 struct HelloBody {
   uint32_t protocol = kHostProtocolVersion;
   std::string role;
@@ -212,7 +217,7 @@ struct PluginCallBody {
   }
 };
 
-static_assert(sizeof(FrameHeader) == 18, "Host ABI frame header");
+static_assert(sizeof(FrameHeader) == 24, "Host ABI frame header");
 
 inline constexpr uint32_t kDxgiBgraUnorm = 87;  // DXGI_FORMAT_B8G8R8A8_UNORM
 

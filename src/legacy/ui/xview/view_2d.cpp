@@ -29,6 +29,7 @@ class SmtFeature;
 #include "legacy/ui/xcatalog/mapmgr.h"
 
 #include <algorithm>
+#include <cstring>
 #include <vector>
 
 using namespace base;
@@ -136,10 +137,8 @@ void Smt2DXView::OnDraw(CDC *pDC) {
   /*if (!m_bActive)
   return;*/
 
-  // DYNAMIC (flash) into offscreen, wipe QUICK so Present has no stale strokes,
-  // Present, then draw the live rubber-band on the window DC.
-  if (m_pFlashTool) m_pFlashTool->AuxDraw();
-
+  // Wipe QUICK, Present the map, then flash + rubber-band on the window DC.
+  // Flash used to paint DYNAMIC before Present and was composited away / empty.
   if (m_pRenderDevice) {
     if (SMT_ERR_NONE ==
         m_pRenderDevice->BeginRender(MRD_BL_QUICK, true, nullptr, R2_COPYPEN)) {
@@ -147,6 +146,8 @@ void Smt2DXView::OnDraw(CDC *pDC) {
     }
     m_pRenderDevice->RenderMap();
   }
+
+  if (m_pFlashTool) m_pFlashTool->AuxDraw();
 
   if (view_host() && view_host()->workspace()) {
     view_host()->workspace()->aux_draw();
@@ -301,8 +302,14 @@ void Smt2DXView::OnContextMenu(CWnd *pWnd, CPoint point) {
     if (pTmpTool && !pTmpTool->IsEnableContexMenu()) return;
   }
 
+  if (!m_hContexMenu || ::GetMenuItemCount(m_hContexMenu) <= 0) {
+    return;
+  }
+
   CMenu contexMenu;
-  contexMenu.Attach(m_hContexMenu);
+  if (!contexMenu.Attach(m_hContexMenu)) {
+    return;
+  }
   contexMenu.TrackPopupMenu(TPM_LEFTALIGN | TPM_LEFTBUTTON | TPM_RIGHTBUTTON,
                             point.x, point.y, this);
   contexMenu.Detach();
@@ -336,7 +343,7 @@ bool Smt2DXView::EndDestory(void) {
 
 bool Smt2DXView::CreateContexMenu() {
   SmtXView::CreateContexMenu();
-// view ctrl menu
+  // view ctrl menu
   append_listener_menu(m_hContexMenu, m_pViewCtrlTool, FIM_2DVIEW, false);
 
   // flash menu
@@ -347,15 +354,13 @@ bool Smt2DXView::CreateContexMenu() {
 
   //////////////////////////////////////////////////////////////////////////
   // am menu
-  ::AppendMenu(m_hContexMenu, MF_SEPARATOR, NULL, NULL);
+  ::AppendMenuA(m_hContexMenu, MF_SEPARATOR, 0, NULL);
   SmtAModuleManager *pAModuleMgr = SmtAModuleManager::get_singleton_ptr();
   if (pAModuleMgr) {
     for (int i = 0; i < pAModuleMgr->get_a_module_count(); i++) {
       SmtAuxModule *pAModule = pAModuleMgr->get_a_module(i);
-      HMENU hMenu = create_listener_menu(pAModule, FIM_2DVIEW);
-      if (GetMenuItemCount(hMenu) > 0)
-        InsertMenu(m_hContexMenu, i + 3, MF_POPUP, (UINT)hMenu,
-                   pAModule->get_name());
+      attach_listener_popup(m_hContexMenu, pAModule, FIM_2DVIEW,
+                            pAModule->get_name(), i + 3, MF_BYPOSITION);
     }
   }
 
@@ -366,31 +371,27 @@ bool Smt2DXView::CreateContexMenu() {
 
 bool Smt2DXView::CreateMainMenu() {
   SmtXView::CreateMainMenu();
-// view ctrl menu
-  HMENU hMenu = create_listener_menu(m_pViewCtrlTool, FIM_2DMFMENU);
-  if (GetMenuItemCount(hMenu) > 0)
-    AppendMenu(m_hMainMenu, MF_POPUP, (UINT)hMenu, m_pViewCtrlTool->get_name());
+  // view ctrl menu
+  attach_listener_popup(m_hMainMenu, m_pViewCtrlTool, FIM_2DMFMENU,
+                        m_pViewCtrlTool->get_name());
 
   // flash menu
-  hMenu = create_listener_menu(m_pFlashTool, FIM_2DMFMENU);
-  if (GetMenuItemCount(hMenu) > 0)
-    AppendMenu(m_hMainMenu, MF_POPUP, (UINT)hMenu, m_pFlashTool->get_name());
+  attach_listener_popup(m_hMainMenu, m_pFlashTool, FIM_2DMFMENU,
+                        m_pFlashTool->get_name());
 
   // select menu
-  hMenu = create_listener_menu(m_pSelectTool, FIM_2DMFMENU);
-  if (GetMenuItemCount(hMenu) > 0)
-    AppendMenu(m_hMainMenu, MF_POPUP, (UINT)hMenu, m_pSelectTool->get_name());
+  attach_listener_popup(m_hMainMenu, m_pSelectTool, FIM_2DMFMENU,
+                        m_pSelectTool->get_name());
 
   //////////////////////////////////////////////////////////////////////////
   // am menu
-  ::AppendMenu(m_hMainMenu, MF_SEPARATOR, NULL, NULL);
+  ::AppendMenuA(m_hMainMenu, MF_SEPARATOR, 0, NULL);
   SmtAModuleManager *pAModuleMgr = SmtAModuleManager::get_singleton_ptr();
   if (pAModuleMgr) {
     for (int i = 0; i < pAModuleMgr->get_a_module_count(); i++) {
       SmtAuxModule *pAModule = pAModuleMgr->get_a_module(i);
-      HMENU hMenu = create_listener_menu(pAModule, FIM_2DMFMENU);
-      if (GetMenuItemCount(hMenu) > 0)
-        AppendMenu(m_hMainMenu, MF_POPUP, (UINT)hMenu, pAModule->get_name());
+      attach_listener_popup(m_hMainMenu, pAModule, FIM_2DMFMENU,
+                            pAModule->get_name());
     }
   }
 
@@ -497,14 +498,16 @@ void Smt2DXView::SetOperMap(SmtMap *pSmtMap) {
         frt.rt.y += pad_y;
         frt.lb.x -= pad_x;
         frt.lb.y -= pad_y;
-        m_pRenderDevice->ZoomToRect(m_pSmtOperMap, frt);
+        m_pRenderDevice->ZoomToRect(m_pSmtOperMap, frt, true);
       }
       lRect lrt;
       lrt.lb.x = 0;
       lrt.rt.y = 0;
       lrt.rt.x = cx;
       lrt.lb.y = cy;
-      m_pRenderDevice->RefreshDirectly(m_pSmtOperMap, lrt);
+      // First attach must paint on this thread. Default proxy paint waits
+      // for Timer()+m_bActive, which leaves EDIT1 white on first show.
+      m_pRenderDevice->RefreshDirectly(m_pSmtOperMap, lrt, true);
     }
   }
   // Start refresh timers only after the map is attached.
@@ -542,6 +545,15 @@ void Smt2DXView::apply_workspace_draft(const tool::Draft &draft) {
       m_pViewCtrlTool->apply_draft(draft);
     }
     return;
+  }
+  // Workspace select.* must hit leftover SelectTool even if ViewCtrl is
+  // still the active IA tool (point-select notify used to drop SetActive).
+  if (m_pSelectTool && view_host() && view_host()->workspace()) {
+    tool::Interaction *cur = view_host()->workspace()->stack().current();
+    if (cur && cur->id() && std::strncmp(cur->id(), "select.", 7) == 0) {
+      m_pSelectTool->apply_draft(draft);
+      return;
+    }
   }
   SmtIAToolManager *mgr = SmtIAToolManager::get_singleton_ptr();
   SmtBaseTool *tool =

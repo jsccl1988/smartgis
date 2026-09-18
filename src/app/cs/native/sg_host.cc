@@ -3,6 +3,7 @@
 
 #include "app/cs/native/sg_host.h"
 
+#include "app/views/map_scene.h"
 #include "content/public/map_contents.h"
 #include "content/public/map_contents_observer.h"
 #include "content/public/map_widget_host_view.h"
@@ -12,9 +13,12 @@
 #endif
 #include <windows.h>
 #include <windowsx.h>
+#include <commctrl.h>
 
 #include <cstring>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -35,6 +39,7 @@ bool class_is_xaml_island(const wchar_t* cls) {
 
 struct EnumIslandCtx {
   HWND found = nullptr;
+  int best_area = -1;
 };
 
 BOOL CALLBACK enum_island_proc(HWND hwnd, LPARAM lp) {
@@ -42,11 +47,16 @@ BOOL CALLBACK enum_island_proc(HWND hwnd, LPARAM lp) {
   wchar_t cls[256] = {};
   GetClassNameW(hwnd, cls, 256);
   if (class_is_xaml_island(cls)) {
-    ctx->found = hwnd;
-    return FALSE;
+    RECT rc = {};
+    GetClientRect(hwnd, &rc);
+    const int area = (rc.right - rc.left) * (rc.bottom - rc.top);
+    if (area > ctx->best_area) {
+      ctx->best_area = area;
+      ctx->found = hwnd;
+    }
   }
   EnumChildWindows(hwnd, enum_island_proc, lp);
-  return ctx->found == nullptr;
+  return TRUE;
 }
 
 HWND resolve_island_hwnd(HWND window_hwnd) {
@@ -121,6 +131,43 @@ int int_from_kind(content::ViewKind kind) {
   return 0;
 }
 
+// Minimal CatalogCall open parser: {"op":"open","path":"..."}.
+bool catalog_json_open_path(const char* json, std::string* path_out) {
+  if (!json || !path_out || !std::strstr(json, "\"open\"")) {
+    return false;
+  }
+  const char* key = std::strstr(json, "\"path\"");
+  if (!key) {
+    return false;
+  }
+  const char* colon = std::strchr(key, ':');
+  if (!colon) {
+    return false;
+  }
+  const char* q1 = std::strchr(colon, '"');
+  if (!q1) {
+    return false;
+  }
+  ++q1;
+  std::string path;
+  for (const char* p = q1; *p; ++p) {
+    if (*p == '\\' && p[1]) {
+      path.push_back(p[1]);
+      ++p;
+      continue;
+    }
+    if (*p == '"') {
+      break;
+    }
+    path.push_back(*p);
+  }
+  if (path.empty()) {
+    return false;
+  }
+  *path_out = std::move(path);
+  return true;
+}
+
 }  // namespace
 
 struct SgHost : public content::MapContentsObserver {
@@ -135,10 +182,16 @@ struct SgHost : public content::MapContentsObserver {
     if (session) {
       session->SetObserver(this);
     }
+    // Defer china_plp / OGR seed until first layout/paint. Loading GDAL in
+    // MapSession() runs on the WinUI UI thread and contributes to hangs /
+    // stowed XAML exceptions during Activate.
   }
 
   ~SgHost() override {
     destroy_child_hwnd();
+    if (seed_thread_.joinable()) {
+      seed_thread_.join();
+    }
     if (session) {
       session->SetObserver(nullptr);
       session->Shutdown();
@@ -148,7 +201,7 @@ struct SgHost : public content::MapContentsObserver {
   }
 
   void OnFrameReady(uint32_t view_id, uint32_t generation) override {
-    if (view_id != view_id_ || !child_hwnd_) {
+    if (view_id != view_id_ || !child_hwnd_ || !IsWindow(child_hwnd_)) {
       return;
     }
     painted_generation_ = generation;
@@ -168,19 +221,50 @@ struct SgHost : public content::MapContentsObserver {
   void paint_to_dc(HDC hdc, const RECT& rc) const;
   bool present_latest_frame(HDC hdc, const RECT& client_rc) const;
   void show_kind(content::ViewKind kind);
+  void fit_document_to_client();
+  void handle_catalog_json(const char* json);
+  void invalidate_map();
+  void ensure_document_seeded();
+  void install_owner_subclass();
+  void remove_owner_subclass();
+  // Island-client (x,y,w,h) → screen for WS_POPUP; clamp + DPI de-dupe.
+  bool map_slot_to_screen(int x, int y, int w, int h, int* sx, int* sy,
+                          int* sw, int* sh);
+  void apply_popup_bounds(int sx, int sy, int sw, int sh, bool force_fit);
   static int slot_index(content::ViewKind kind);
+  static LRESULT CALLBACK owner_subclass_proc(HWND hwnd,
+                                              UINT msg,
+                                              WPARAM wparam,
+                                              LPARAM lparam,
+                                              UINT_PTR subclass_id,
+                                              DWORD_PTR ref_data);
 
   content::MapContents* session = nullptr;
+  app::MapScene document;
+  mutable std::mutex document_mu_;
+  bool document_seeded_ = false;
+  bool seed_started_ = false;
+  bool needs_extent_fit_ = false;
+  int last_fit_w_ = -1;
+  int last_fit_h_ = -1;
+  std::thread seed_thread_;
   ViewSlot slots_[3] = {};
   HWND window_hwnd_ = nullptr;
   HWND island_hwnd_ = nullptr;
   HWND child_hwnd_ = nullptr;
+  bool owner_subclassed_ = false;
+  bool applying_bounds_ = false;
   uint32_t view_id_ = 0;
   uint32_t painted_generation_ = 0;
-  int last_x_ = -1;
-  int last_y_ = -1;
-  int last_w_ = -1;
-  int last_h_ = -1;
+  // Last MapView slot in island-client physical pixels (from C# SyncLayout).
+  int slot_x_ = -1;
+  int slot_y_ = -1;
+  int slot_w_ = -1;
+  int slot_h_ = -1;
+  int last_sx_ = -1;
+  int last_sy_ = -1;
+  int last_sw_ = -1;
+  int last_sh_ = -1;
   content::ViewKind kind_ = content::ViewKind::kMapEdit;
   content::MapWidgetHostView* view_ = nullptr;
 };
@@ -193,20 +277,22 @@ void SgHost::attach_child_hwnd() {
   if (!window_hwnd_) {
     return;
   }
-  if (!island_hwnd_) {
-    island_hwnd_ = resolve_island_hwnd(window_hwnd_);
-  }
-  HWND parent = island_hwnd_ ? island_hwnd_ : window_hwnd_;
+  // Do not parent a WS_CHILD under DesktopChildSiteBridge (XAML 0xc000027b),
+  // and do not use a top-level WS_CHILD either — the island compositor paints
+  // over Win32 siblings, so the map slot stays black. Owned WS_POPUP sits
+  // above the island at screen coords matching the MapView slot.
+  island_hwnd_ = resolve_island_hwnd(window_hwnd_);
   register_child_class();
-  if (child_hwnd_ && GetParent(child_hwnd_) != parent) {
-    destroy_child_hwnd();
+  if (child_hwnd_ && !IsWindow(child_hwnd_)) {
+    child_hwnd_ = nullptr;
   }
   if (!child_hwnd_) {
-    last_x_ = last_y_ = last_w_ = last_h_ = -1;
-    child_hwnd_ = CreateWindowExW(0, kChildClass, L"",
-                                  WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0,
-                                  1, 1, parent, nullptr,
-                                  GetModuleHandleW(nullptr), this);
+    last_sx_ = last_sy_ = last_sw_ = last_sh_ = -1;
+    child_hwnd_ = CreateWindowExW(
+        WS_EX_NOACTIVATE, kChildClass, L"",
+        WS_POPUP | WS_CLIPSIBLINGS | WS_VISIBLE, 0, 0, 1, 1, window_hwnd_,
+        nullptr, GetModuleHandleW(nullptr), this);
+    install_owner_subclass();
   }
   if (view_ && child_hwnd_) {
     content::MapWidgetHostView::CreateParams params;
@@ -218,11 +304,163 @@ void SgHost::attach_child_hwnd() {
 
 void SgHost::destroy_child_hwnd() {
   stop_present_timer();
+  remove_owner_subclass();
   if (child_hwnd_) {
-    DestroyWindow(child_hwnd_);
+    const HWND doomed = child_hwnd_;
     child_hwnd_ = nullptr;
+    if (IsWindow(doomed)) {
+      SetWindowLongPtrW(doomed, GWLP_USERDATA, 0);
+      DestroyWindow(doomed);
+    }
   }
-  last_x_ = last_y_ = last_w_ = last_h_ = -1;
+  last_sx_ = last_sy_ = last_sw_ = last_sh_ = -1;
+  slot_x_ = slot_y_ = slot_w_ = slot_h_ = -1;
+}
+
+void SgHost::install_owner_subclass() {
+  if (!window_hwnd_ || owner_subclassed_ || !IsWindow(window_hwnd_)) {
+    return;
+  }
+  if (SetWindowSubclass(window_hwnd_, &owner_subclass_proc, 1,
+                        reinterpret_cast<DWORD_PTR>(this))) {
+    owner_subclassed_ = true;
+  }
+}
+
+void SgHost::remove_owner_subclass() {
+  if (!window_hwnd_ || !owner_subclassed_) {
+    return;
+  }
+  if (IsWindow(window_hwnd_)) {
+    RemoveWindowSubclass(window_hwnd_, &owner_subclass_proc, 1);
+  }
+  owner_subclassed_ = false;
+}
+
+LRESULT CALLBACK SgHost::owner_subclass_proc(HWND hwnd,
+                                             UINT msg,
+                                             WPARAM wparam,
+                                             LPARAM lparam,
+                                             UINT_PTR /*subclass_id*/,
+                                             DWORD_PTR ref_data) {
+  auto* self = reinterpret_cast<SgHost*>(ref_data);
+  if (self && self->child_hwnd_ && IsWindow(self->child_hwnd_) &&
+      self->slot_w_ > 0 && self->slot_h_ > 0) {
+    if (msg == WM_SIZE && wparam == SIZE_MINIMIZED) {
+      ShowWindow(self->child_hwnd_, SW_HIDE);
+    } else if (msg == WM_MOVE || msg == WM_SIZE || msg == WM_DISPLAYCHANGE) {
+      int sx = 0;
+      int sy = 0;
+      int sw = 0;
+      int sh = 0;
+      if (self->map_slot_to_screen(self->slot_x_, self->slot_y_, self->slot_w_,
+                                   self->slot_h_, &sx, &sy, &sw, &sh)) {
+        self->apply_popup_bounds(sx, sy, sw, sh, false);
+      }
+    }
+  }
+  return DefSubclassProc(hwnd, msg, wparam, lparam);
+}
+
+bool SgHost::map_slot_to_screen(int x, int y, int w, int h, int* sx, int* sy,
+                                int* sw, int* sh) {
+  if (!sx || !sy || !sw || !sh || w < 1 || h < 1 || !window_hwnd_) {
+    return false;
+  }
+  // Always pick the largest island — a stale tiny bridge HWND would clamp the
+  // popup to a title-bar-sized rect and hide China PLP.
+  HWND island = resolve_island_hwnd(window_hwnd_);
+  island_hwnd_ = island;
+  if (!island || !IsWindow(island)) {
+    island = window_hwnd_;
+  }
+
+  RECT island_rc = {};
+  GetClientRect(island, &island_rc);
+  const int island_w = island_rc.right - island_rc.left;
+  const int island_h = island_rc.bottom - island_rc.top;
+  int lx = x;
+  int ly = y;
+  int lw = w;
+  int lh = h;
+  // Match MapHost: if physical size exceeds island, ActualWidth was likely
+  // already physical and C# applied RasterizationScale twice — drop scale.
+  if (island_w > 0 && island_h > 0 && (lw > island_w || lh > island_h)) {
+    const double fx =
+        lw > island_w ? static_cast<double>(island_w) / static_cast<double>(lw)
+                      : 1.0;
+    const double fy =
+        lh > island_h ? static_cast<double>(island_h) / static_cast<double>(lh)
+                      : 1.0;
+    const double f = fx < fy ? fx : fy;
+    if (f > 0.0 && f < 0.999) {
+      lx = static_cast<int>(x * f + (x >= 0 ? 0.5 : -0.5));
+      ly = static_cast<int>(y * f + (y >= 0 ? 0.5 : -0.5));
+      lw = static_cast<int>(w * f + 0.5);
+      lh = static_cast<int>(h * f + 0.5);
+    }
+  }
+  if (island_w > 0 && island_h > 0) {
+    if (lx < 0) {
+      lw += lx;
+      lx = 0;
+    }
+    if (ly < 0) {
+      lh += ly;
+      ly = 0;
+    }
+    if (lx + lw > island_w) {
+      lw = island_w - lx;
+    }
+    if (ly + lh > island_h) {
+      lh = island_h - ly;
+    }
+  }
+  if (lw < 8 || lh < 8) {
+    return false;
+  }
+
+  POINT pt = {lx, ly};
+  ClientToScreen(island, &pt);
+  *sx = pt.x;
+  *sy = pt.y;
+  *sw = lw;
+  *sh = lh;
+  return true;
+}
+
+void SgHost::apply_popup_bounds(int sx, int sy, int sw, int sh, bool force_fit) {
+  if (!child_hwnd_ || !IsWindow(child_hwnd_) || sw < 1 || sh < 1) {
+    return;
+  }
+  if (applying_bounds_) {
+    return;
+  }
+  // Ignore a tiny first layout once we already have a usable slot — prevents
+  // a coalesced/stale SyncLayout from pinning the popup over the title bar.
+  if (!force_fit && (sw < 64 || sh < 64) && last_sw_ >= 64 && last_sh_ >= 64) {
+    return;
+  }
+  applying_bounds_ = true;
+  const bool same = last_sx_ == sx && last_sy_ == sy && last_sw_ == sw &&
+                    last_sh_ == sh && IsWindowVisible(child_hwnd_);
+  const bool size_changed = last_sw_ != sw || last_sh_ != sh;
+  if (!same) {
+    SetWindowPos(child_hwnd_, HWND_TOP, sx, sy, sw, sh,
+                 SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOOWNERZORDER);
+    InvalidateRect(child_hwnd_, nullptr, FALSE);
+  }
+  last_sx_ = sx;
+  last_sy_ = sy;
+  last_sw_ = sw;
+  last_sh_ = sh;
+  if (view_) {
+    view_->Resize(sw, sh, 96.f);
+  }
+  if (force_fit || size_changed || needs_extent_fit_) {
+    fit_document_to_client();
+  }
+  applying_bounds_ = false;
 }
 
 void SgHost::start_present_timer() {
@@ -254,11 +492,17 @@ void SgHost::show_kind(content::ViewKind kind) {
   view_id_ = slots_[idx].view_id;
   view_ = slots_[idx].view;
   painted_generation_ = 0;
-  attach_child_hwnd();
-  if (view_) {
+  // HWND is created on first SyncLayout (stable size). Rebind if it exists.
+  if (child_hwnd_) {
+    attach_child_hwnd();
+    if (view_) {
+      view_->SetVisible(true);
+    }
+    start_present_timer();
+  } else if (view_) {
     view_->SetVisible(true);
   }
-  start_present_timer();
+  ensure_document_seeded();
 }
 
 bool SgHost::present_latest_frame(HDC hdc, const RECT& client_rc) const {
@@ -305,36 +549,120 @@ bool SgHost::present_latest_frame(HDC hdc, const RECT& client_rc) const {
   return ok != 0 && ok != GDI_ERROR;
 }
 
+void SgHost::ensure_document_seeded() {
+  if (document_seeded_ || seed_started_) {
+    return;
+  }
+  seed_started_ = true;
+  // OGR/GDAL open must not run on the WinUI UI thread — it blocks the
+  // dispatcher and surfaces as XAML 0xc000027b / Not Responding.
+  seed_thread_ = std::thread([this]() {
+    app::MapScene local;
+    local.seed_default();
+    {
+      std::lock_guard<std::mutex> lock(document_mu_);
+      document = std::move(local);
+      document_seeded_ = true;
+      // open_path fits to 800x600; mark dirty so the next sized SyncLayout
+      // refits to the live HWND (seed often finishes while the popup is 1x1).
+      needs_extent_fit_ = true;
+    }
+    fit_document_to_client();
+    invalidate_map();
+  });
+}
+
 void SgHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   if (!hdc) {
     return;
   }
-  if (present_latest_frame(hdc, rc)) {
+  const int w = rc.right > 0 ? rc.right : 1;
+  const int h = rc.bottom > 0 ? rc.bottom : 1;
+  if (!present_latest_frame(hdc, rc)) {
+    const bool scene3d = kind_ == content::ViewKind::kScene3d;
+    const HBRUSH brush =
+        CreateSolidBrush(scene3d ? RGB(32, 28, 48) : RGB(28, 42, 58));
+    FillRect(hdc, &rc, brush);
+    DeleteObject(brush);
+  }
+  // Overlay China PLP / OGR vectors + annotations (same as Views / CEF).
+  if (kind_ != content::ViewKind::kScene3d) {
+    std::lock_guard<std::mutex> lock(document_mu_);
+    if (document.feature_count() > 0) {
+      document.paint(hdc, w, h);
+    }
+  }
+}
+
+void SgHost::fit_document_to_client() {
+  if (!child_hwnd_ || !IsWindow(child_hwnd_)) {
     return;
   }
-  const bool scene3d = kind_ == content::ViewKind::kScene3d;
-  const HBRUSH brush =
-      CreateSolidBrush(scene3d ? RGB(32, 28, 48) : RGB(28, 42, 58));
-  FillRect(hdc, &rc, brush);
-  DeleteObject(brush);
-  SetBkMode(hdc, TRANSPARENT);
-  SetTextColor(hdc, RGB(230, 236, 242));
-  const wchar_t* line1 =
-      scene3d ? L"SmartGIS 3D scene (C# host)" : L"SmartGIS map (C# host)";
-  DrawTextW(hdc, line1, -1, const_cast<RECT*>(&rc),
-            DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+  ensure_document_seeded();
+  RECT rc = {};
+  GetClientRect(child_hwnd_, &rc);
+  const int w = rc.right - rc.left;
+  const int h = rc.bottom - rc.top;
+  if (w < 8 || h < 8) {
+    return;
+  }
+  {
+    std::lock_guard<std::mutex> lock(document_mu_);
+    if (document.feature_count() == 0) {
+      return;
+    }
+    if (!needs_extent_fit_ && last_fit_w_ == w && last_fit_h_ == h) {
+      return;
+    }
+    document.fit_extent(w, h);
+    last_fit_w_ = w;
+    last_fit_h_ = h;
+    needs_extent_fit_ = false;
+  }
+  invalidate_map();
 }
 
 void SgHost::paint_child() const {
-  if (!child_hwnd_) {
+  if (!child_hwnd_ || !IsWindow(child_hwnd_)) {
     return;
   }
+  // Seed often finishes while the popup is still 1x1; refit on first real paint.
+  const_cast<SgHost*>(this)->fit_document_to_client();
   PAINTSTRUCT ps;
   HDC hdc = BeginPaint(child_hwnd_, &ps);
   RECT rc;
   GetClientRect(child_hwnd_, &rc);
   paint_to_dc(hdc, rc);
   EndPaint(child_hwnd_, &ps);
+}
+
+void SgHost::invalidate_map() {
+  if (child_hwnd_ && IsWindow(child_hwnd_)) {
+    InvalidateRect(child_hwnd_, nullptr, FALSE);
+  }
+}
+
+void SgHost::handle_catalog_json(const char* json) {
+  std::string path;
+  if (!catalog_json_open_path(json, &path)) {
+    return;
+  }
+  seed_started_ = true;
+  if (seed_thread_.joinable()) {
+    seed_thread_.join();
+  }
+  seed_thread_ = std::thread([this, path]() {
+    app::MapScene local;
+    local.open_path(path);
+    {
+      std::lock_guard<std::mutex> lock(document_mu_);
+      document = std::move(local);
+      document_seeded_ = true;
+      needs_extent_fit_ = true;
+    }
+    fit_document_to_client();
+    invalidate_map();
+  });
 }
 
 LRESULT CALLBACK SgHost::child_wnd_proc(HWND hwnd,
@@ -350,7 +678,10 @@ LRESULT CALLBACK SgHost::child_wnd_proc(HWND hwnd,
     self = reinterpret_cast<SgHost*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
   }
 
-  if (msg == WM_TIMER && wparam == kPresentTimerId && self && self->view_) {
+  if (msg == WM_TIMER && wparam == kPresentTimerId) {
+    if (!self || !self->view_ || self->child_hwnd_ != hwnd || !IsWindow(hwnd)) {
+      return 0;
+    }
     const content::SharedSurface surface = self->view_->Latest();
     if (surface.generation != 0 &&
         surface.generation != self->painted_generation_) {
@@ -509,42 +840,42 @@ void sg_host_attach_parent(SgHost* host, void* hwnd) {
   }
   host->window_hwnd_ = static_cast<HWND>(hwnd);
   host->island_hwnd_ = nullptr;
-  host->attach_child_hwnd();
+  // Create the map child only after the XAML island has a stable client
+  // size (first SyncLayout). Attaching a WS_CHILD to DesktopChildSiteBridge
+  // during Activate races CoreMessaging and yields 0xc000027b.
 }
 
 void sg_host_sync_layout(SgHost* host, int x, int y, int w, int h, float dpi) {
-  if (!host || !host->child_hwnd_ || w < 1 || h < 1) {
+  if (!host || !host->window_hwnd_ || w < 1 || h < 1) {
     return;
   }
-  if (!host->island_hwnd_ && host->window_hwnd_) {
-    host->island_hwnd_ = resolve_island_hwnd(host->window_hwnd_);
-    if (host->island_hwnd_ &&
-        GetParent(host->child_hwnd_) != host->island_hwnd_) {
-      const HWND old = host->child_hwnd_;
-      host->child_hwnd_ = nullptr;
-      DestroyWindow(old);
-      host->attach_child_hwnd();
-      host->start_present_timer();
-      if (!host->child_hwnd_) {
-        return;
-      }
+  if (!host->child_hwnd_) {
+    host->attach_child_hwnd();
+    if (!host->child_hwnd_) {
+      return;
     }
+    host->start_present_timer();
+    host->ensure_document_seeded();
   }
-  const bool same = host->last_x_ == x && host->last_y_ == y &&
-                    host->last_w_ == w && host->last_h_ == h &&
-                    IsWindowVisible(host->child_hwnd_);
-  if (!same) {
-    SetWindowPos(host->child_hwnd_, nullptr, x, y, w, h,
-                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-    InvalidateRect(host->child_hwnd_, nullptr, FALSE);
+  if (!IsWindow(host->child_hwnd_)) {
+    host->child_hwnd_ = nullptr;
+    return;
   }
-  host->last_x_ = x;
-  host->last_y_ = y;
-  host->last_w_ = w;
-  host->last_h_ = h;
+  host->slot_x_ = x;
+  host->slot_y_ = y;
+  host->slot_w_ = w;
+  host->slot_h_ = h;
+  int sx = 0;
+  int sy = 0;
+  int sw = 0;
+  int sh = 0;
+  if (!host->map_slot_to_screen(x, y, w, h, &sx, &sy, &sw, &sh)) {
+    return;
+  }
+  host->apply_popup_bounds(sx, sy, sw, sh, false);
   if (host->view_) {
     const float scale = dpi > 1.f ? dpi : 96.f;
-    host->view_->Resize(w, h, scale);
+    host->view_->Resize(sw, sh, scale);
   }
 }
 
@@ -610,10 +941,14 @@ int sg_host_has_live_pixels(const SgHost* host) {
 }
 
 void sg_host_catalog_call(SgHost* host, const char* json) {
-  if (!host || !host->session || !json || !json[0]) {
+  if (!host || !json || !json[0]) {
     return;
   }
-  host->session->CatalogCall(json);
+  // Open China PLP / OGR into the host-side MapScene overlay first.
+  host->handle_catalog_json(json);
+  if (host->session) {
+    host->session->CatalogCall(json);
+  }
 }
 
 void sg_host_activate_tool(SgHost* host, const char* tool_id) {

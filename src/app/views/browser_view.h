@@ -83,6 +83,8 @@ class BrowserView {
   void sync_catalog_from_scene();
   void sync_inspectors_from_scene();
   void invalidate_map_overlays();
+  // Fit document extent into the active map HWND (Catalog View / view.full).
+  void fit_map_extent();
   void handle_draft(const tool::Draft& draft);
   // Fill Ambox from Workspace + PluginHost CommandCatalogs (id-prefix groups).
   void populate_ambox();

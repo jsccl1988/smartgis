@@ -72,7 +72,7 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 | UI (leftover) | `legacy/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | **一 DLL `ui_legacy`**（路径迁出；`dll_stem` 不变）。`//src/ui:ui_legacy` 转发 | **no**（`smt_build_app`） |
 | UI toolkit (endgame) | `ui/views` | Views stub（`//:ui_views`）；source_set | **no** |
 | Hosted map | `content/public` + `content/app` | Embedder API；`ContentMain` 分发 `--type=` | **yes**（source_set，非 DLL） |
-| GPU main (`--type=gpu`) | `gpu/` | 同 PE `GpuMain`；`build.bat render` 为 GPU 进程别名。2D present 默认 Track B（demo / RHI）；可选 Track A（`SMT_MAP_BACKEND=a`）用 `sdb::style` + `TileProvider` 出共享表面。`smt_enable_maplibre` 默认关，**不是** `mln::Map` 除非 pin+lib 齐。 | **no** |
+| GPU main (`--type=gpu`) | `gpu/` | 同 PE `GpuMain`；`build.bat render` 为 GPU 进程别名。2D present 默认 Track B（demo / RHI）；可选 Track A（`SMT_MAP_BACKEND=a`）用 `sdb::style` + `TileProvider` 出共享表面。`smt_enable_maplibre` 默认关；打开后链接 `mln::Map` still-image（`maplibre_native`），不是完整 mbgl-core。 | **no** |
 | App (endgame) | `app/{views,winui,cef,cs}` | Views destination; WinUI / CEF / C# siblings | **no** |
 | App (leftover) | `legacy/app/`（`smtapp.cpp` → `dll_stem=app_core`） | MFC `SmartGis.exe`（`//src/legacy/app:app`） | **no**（`smt_build_app`） |
 | Tool | `tool/` (`dispatch`) + `sdb/edit` | `dispatch` source_set；leftover → `legacy_tool` DLL；`edit` 进 `sdb` | yes（`dispatch`）；leftover optional |

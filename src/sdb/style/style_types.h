@@ -14,7 +14,8 @@
 namespace sdb {
 namespace style {
 
-// MapLibre-inspired layer type (v1 subset).
+// MapLibre-inspired layer type (v1+ subset; extrusion/heatmap/hillshade are
+// parse placeholders — no render path yet).
 enum class LayerType {
   kUnknown = 0,
   kFill,
@@ -23,6 +24,9 @@ enum class LayerType {
   kCircle,
   kBackground,
   kRaster,
+  kFillExtrusion,
+  kHeatmap,
+  kHillshade,
 };
 
 // Filter AST operator (MapLibre filter array form).
@@ -89,23 +93,34 @@ struct ResolvedPaint {
   LayerType type = LayerType::kUnknown;
   uint32_t fill_color = 0xFF000000;
   float fill_opacity = 1.f;
+  std::string fill_pattern;
   uint32_t line_color = 0xFF000000;
   float line_width = 1.f;
   float line_opacity = 1.f;
+  std::vector<float> line_dasharray;
+  std::string line_cap;
+  std::string line_join;
   uint32_t circle_color = 0xFF000000;
   float circle_radius = 5.f;
   float circle_opacity = 1.f;
   std::string icon_image;
   std::string text_field;
   float icon_size = 1.f;
+  float text_size = 16.f;
+  std::string text_anchor;
+  float icon_offset_x = 0.f;
+  float icon_offset_y = 0.f;
+  uint32_t background_color = 0xFF000000;
+  float background_opacity = 1.f;
+  float raster_opacity = 1.f;
   SymbolEntry symbol;
   bool has_symbol = false;
 };
 
 using AttrMap = std::map<std::string, std::string>;
 
-LayerType layer_type_from_string(const std::string& s);
-const char* layer_type_to_string(LayerType t);
+GIS_EXPORT LayerType layer_type_from_string(const std::string& s);
+GIS_EXPORT const char* layer_type_to_string(LayerType t);
 
 }  // namespace style
 }  // namespace sdb

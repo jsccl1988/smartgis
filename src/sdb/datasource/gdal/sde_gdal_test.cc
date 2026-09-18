@@ -39,6 +39,7 @@ using sdb::SmtFtDot;
 using sdb::SmtFtGrid;
 using sdb::SmtFtSurface;
 using sdb::SmtFtTin;
+using sdb::SmtFtUnknown;
 using sdb::SmtRasterLayer;
 using sdb::DS_DB_ADO;
 using sdb::PROVIDER_ACCESS;
@@ -287,6 +288,14 @@ int main() {
         const OGRPoint* pt = dynamic_cast<const OGRPoint*>(back_g);
         expect(pt && pt->getX() == 1.5 && pt->getY() == 2.5, "anno xy");
         expect(ogr.GetFieldIndex("anno") >= 0, "anno field present");
+        expect(sdb::datasource::infer_feature_type(&ogr, SmtFtUnknown) ==
+                   SmtFtAnno,
+               "nonempty anno is SmtFtAnno");
+        ogr.SetField("anno", "");
+        expect(sdb::datasource::infer_feature_type(&ogr, SmtFtUnknown) ==
+                   SmtFtDot,
+               "empty anno stays SmtFtDot");
+        ogr.SetField("anno", "hi");
         SmtStyle* back_sty = sdb::datasource::copy_ogr_style_from_ogr(&ogr);
         expect(back_sty &&
                    std::strcmp(back_sty->get_style_name(), "codec_style") == 0,
@@ -326,10 +335,10 @@ int main() {
         mls.SetGeometry(&mls_g);
         OGRGeometry* mls_back =
             sdb::datasource::decode_ogr_geometry(&mls, SmtFtCurve);
-        const OGRLineString* got_ls =
-            dynamic_cast<const OGRLineString*>(mls_back);
-        expect(got_ls && got_ls->getNumPoints() == 2 && got_ls->getX(1) == 2.0,
-               "MultiLineString first part");
+        const OGRMultiLineString* got_mls =
+            dynamic_cast<const OGRMultiLineString*>(mls_back);
+        expect(got_mls && got_mls->getNumGeometries() == 2,
+               "MultiLineString keeps all parts");
         delete mls_back;
 
         OGRLinearRing ring;
@@ -349,9 +358,10 @@ int main() {
         mpgf.SetGeometry(&mpg);
         OGRGeometry* mpg_back =
             sdb::datasource::decode_ogr_geometry(&mpgf, SmtFtSurface);
-        const OGRPolygon* got_pg = dynamic_cast<const OGRPolygon*>(mpg_back);
-        expect(got_pg && got_pg->getExteriorRing() != nullptr,
-               "MultiPolygon first part");
+        const OGRMultiPolygon* got_mpg =
+            dynamic_cast<const OGRMultiPolygon*>(mpg_back);
+        expect(got_mpg && got_mpg->getNumGeometries() == 2,
+               "MultiPolygon keeps all parts");
         delete mpg_back;
       }
       GDALClose(ds);

@@ -7,6 +7,7 @@
 
 #include <cstring>
 #include <string>
+#include <thread>
 
 #include <winrt/Microsoft.UI.Dispatching.h>
 #include <winrt/Microsoft.UI.Windowing.h>
@@ -79,24 +80,46 @@ MenuFlyoutItem make_flyout(::winrt::hstring const& text) {
   return item;
 }
 
+// Fixed Catalog(240)+Ambox(200)+Inspector(160) chrome needs ~1280x800 or the
+// map SwapChainPanel collapses to tens of pixels (user sees empty slot).
+constexpr int kInitialWindowWidth = 1280;
+constexpr int kInitialWindowHeight = 800;
+constexpr int kMinWindowWidth = 1024;
+constexpr int kMinWindowHeight = 700;
+
+void ensure_usable_window_size(
+    ::winrt::Microsoft::UI::Xaml::Window const& window) {
+  try {
+    auto app_window = window.AppWindow();
+    if (!app_window) {
+      return;
+    }
+    if (auto presenter =
+            app_window.Presenter()
+                .try_as<::winrt::Microsoft::UI::Windowing::OverlappedPresenter>()) {
+      presenter.PreferredMinimumWidth(kMinWindowWidth);
+      presenter.PreferredMinimumHeight(kMinWindowHeight);
+    }
+    const auto size = app_window.Size();
+    if (size.Width < kMinWindowWidth || size.Height < kMinWindowHeight) {
+      app_window.Resize({kInitialWindowWidth, kInitialWindowHeight});
+    }
+  } catch (::winrt::hresult_error const&) {
+  }
+}
+
 }  // namespace
 
 MainWindow::MainWindow() {
   window_ = ::winrt::Microsoft::UI::Xaml::Window();
   window_.Title(L"SmartGIS WinUI");
-  try {
-    // Give the map column a real client area before --self-test pumps.
-    if (auto app_window = window_.AppWindow()) {
-      app_window.Resize({1280, 800});
-    }
-  } catch (::winrt::hresult_error const&) {
-  }
+  // Early attempt — may be ignored until Activate; activate() re-applies.
+  ensure_usable_window_size(window_);
   try {
     map_host_ = std::make_unique<MapHost>();
     session_ = content::MapContents::Create();
-    if (session_) {
-      session_->StartRenderProcess();
-    }
+    // Do not StartRenderProcess here — it blocks up to ~30s on pipe/Hello and
+    // freezes WinUI before the first paint (white client / Not Responding).
     build_chrome();
   } catch (::winrt::hresult_error const&) {
     TextBlock hint;
@@ -109,6 +132,9 @@ MainWindow::MainWindow() {
 }
 
 MainWindow::~MainWindow() {
+  if (render_thread_.joinable()) {
+    render_thread_.join();
+  }
   if (session_) {
     session_->Shutdown();
     session_ = nullptr;
@@ -117,7 +143,32 @@ MainWindow::~MainWindow() {
 
 void MainWindow::activate() {
   window_.Activate();
-  attach_map();
+  // Constructor Resize is often discarded for WinUI 3 unpackaged windows;
+  // apply again after Activate so Catalog+Ambox leave a real map column.
+  ensure_usable_window_size(window_);
+  set_status(L"Starting GPU…");
+  content::MapContents* session = session_;
+  auto queue = window_.DispatcherQueue();
+  if (render_thread_.joinable()) {
+    render_thread_.join();
+  }
+  render_thread_ = std::thread([this, session, queue]() {
+    const bool ok = session && session->StartRenderProcess();
+    queue.TryEnqueue(
+        winrt::Microsoft::UI::Dispatching::DispatcherQueuePriority::Normal,
+        [this, ok]() {
+          ensure_usable_window_size(window_);
+          if (ok) {
+            attach_map();
+            set_status(L"Ready");
+          } else {
+            set_status(L"GPU failed (StartRenderProcess)");
+          }
+          if (map_host_) {
+            map_host_->sync_layout();
+          }
+        });
+  });
 }
 
 HWND MainWindow::native_hwnd() const {
@@ -159,24 +210,27 @@ void MainWindow::select_map_tab(int index) {
   if (index < 0 || index > 2 || !map_host_) {
     return;
   }
-  active_tab_ = index;
-  highlight_map_tab(index);
-  map_host_->set_map_surface_visible(true);
-  content::ViewKind kind = content::ViewKind::kMapEdit;
-  if (index == 1) {
-    kind = content::ViewKind::kMapData;
-  } else if (index == 2) {
-    kind = content::ViewKind::kScene3d;
-  }
-  map_host_->show_kind(kind);
-  map_host_->sync_layout();
-  // Match Views: activate a default navigation tool for the active tab.
-  if (index == 2) {
-    run_tool_command("view3d.trackball");
-    set_status(L"3D");
-  } else {
-    run_tool_command("view.pan");
-    set_status(index == 0 ? L"Map Edit" : L"Data");
+  try {
+    active_tab_ = index;
+    highlight_map_tab(index);
+    map_host_->set_map_surface_visible(true);
+    content::ViewKind kind = content::ViewKind::kMapEdit;
+    if (index == 1) {
+      kind = content::ViewKind::kMapData;
+    } else if (index == 2) {
+      kind = content::ViewKind::kScene3d;
+    }
+    map_host_->show_kind(kind);
+    map_host_->sync_layout();
+    if (index == 2) {
+      run_tool_command("view3d.trackball");
+      set_status(L"3D");
+    } else {
+      run_tool_command("view.pan");
+      set_status(index == 0 ? L"Map Edit" : L"Data");
+    }
+  } catch (::winrt::hresult_error const&) {
+    set_status(L"Tab switch ignored (invalid HWND)");
   }
 }
 
@@ -191,7 +245,11 @@ bool MainWindow::run_tool_command(std::string_view command_id) {
   } else if (id == "pan") {
     id = "view.pan";
   }
-  session_->ActivateTool(map_host_->view_id(), id.c_str());
+  try {
+    session_->ActivateTool(map_host_->view_id(), id.c_str());
+  } catch (::winrt::hresult_error const&) {
+    return false;
+  }
   if (id == "selection.clear") {
     set_status(L"Selection cleared");
   } else if (id == "edit.append.point") {
@@ -226,6 +284,10 @@ void MainWindow::on_open() {
               std::string("{\"op\":\"open\",\"path\":\"") +
               json_escape(utf8) + "\"}";
           session_->CatalogCall(json.c_str());
+          // Views parity: load OGR vectors into MapScene for on-screen paint.
+          if (map_host_) {
+            map_host_->open_map_path(utf8);
+          }
           // Best-effort: surface the opened path under Workspace/Maps.
           if (catalog_tree_ && catalog_tree_.RootNodes().Size() > 0) {
             auto root = catalog_tree_.RootNodes().GetAt(0);

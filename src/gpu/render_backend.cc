@@ -6,7 +6,10 @@
 #include "gpu/maplibre_adapter.h"
 #include "gpu/maplibre_runtime.h"
 
+#include "net/http/http.h"
+
 #include <cstring>
+#include <string>
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -28,6 +31,27 @@ bool env_is_track_a() {
 }
 
 }  // namespace
+
+TileFetchFn make_net_tile_fetch() {
+  return [](const std::string& url) -> TileFetchResult {
+    TileFetchResult out;
+    if (url.empty()) {
+      return out;
+    }
+    try {
+      net::HttpClient client;
+      const net::HttpResult hr = client.get(url, /*timeout_sec=*/5);
+      if (!hr.ok || hr.body.empty()) {
+        return out;
+      }
+      out.ok = true;
+      out.body = hr.body;
+    } catch (...) {
+      // Paint path must not throw; caller treats ok=false as skip-raster.
+    }
+    return out;
+  };
+}
 
 RenderBackendKind select_render_backend() {
   if (env_is_track_a()) {

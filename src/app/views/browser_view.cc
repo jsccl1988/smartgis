@@ -230,12 +230,16 @@ bool BrowserView::init() {
   attach_viewports();
   wire_catalog();
   wire_edit_feedback();
+  // seed_default fits to 800x600; re-fit once HWND sizes are real.
+  fit_map_extent();
   sync_status();
   return true;
 }
 
 void BrowserView::show() {
   widget_.show();
+  // HWND client size is reliable after ShowWindow.
+  fit_map_extent();
 }
 
 int BrowserView::run_loop() {
@@ -443,6 +447,8 @@ void BrowserView::wire_map_scene() {
     } else {
       scene3d_.paint(hdc, rc.right, rc.bottom);
     }
+    // Overlay China / map vectors so the 3D tab shows more than FPS/compass.
+    document_.paint(hdc, rc.right, rc.bottom);
   };
   if (map_edit_) {
     map_edit_->set_overlay_paint(paint2d);
@@ -475,7 +481,16 @@ void BrowserView::sync_catalog_from_scene() {
   if (!catalog_) {
     return;
   }
-  catalog_->populate_layers(document_.layer_descs());
+  std::vector<ui::views::LayerTree::LayerDesc> layers;
+  for (const MapScene::LayerDesc& d : document_.layer_descs()) {
+    ui::views::LayerTree::LayerDesc row;
+    row.id = d.id;
+    row.name = d.name;
+    row.visible = d.visible;
+    row.active = d.active;
+    layers.push_back(std::move(row));
+  }
+  catalog_->populate_layers(layers);
 }
 
 void BrowserView::sync_inspectors_from_scene() {
@@ -512,6 +527,36 @@ void BrowserView::invalidate_map_overlays() {
   }
   if (map_scene_) {
     map_scene_->invalidate_native();
+  }
+}
+
+void BrowserView::fit_map_extent() {
+  int w = 800;
+  int h = 600;
+  if (ui::views::MapViewport* pane = active_map()) {
+    if (HWND hwnd = pane->native_view()) {
+      RECT rc = {};
+      GetClientRect(hwnd, &rc);
+      if (rc.right > 32) {
+        w = rc.right;
+      }
+      if (rc.bottom > 32) {
+        h = rc.bottom;
+      }
+    }
+  }
+  document_.fit_extent(w, h);
+  invalidate_map_overlays();
+  if (status_bar_) {
+    if (document_.last_open_was_ogr()) {
+      status_bar_->set_crs_text(
+          document_.has_china_extent() ? "EPSG:4326 (China)" : "EPSG:4326");
+    } else {
+      status_bar_->set_crs_text("local");
+    }
+    status_bar_->set_message(
+        "Layers: " + std::to_string(document_.layer_count()) +
+        " Features: " + std::to_string(document_.feature_count()));
   }
 }
 
@@ -631,7 +676,7 @@ void BrowserView::wire_edit_feedback() {
         invalidate_map_overlays();
       });
   extent_sub_ = edit_host_->events()->subscribe<content::ExtentChanged>(
-      [this](const content::ExtentChanged&) { invalidate_map_overlays(); });
+      [this](const content::ExtentChanged&) { fit_map_extent(); });
 
   if (attribute_table_) {
     attribute_table_->set_on_cell_commit(
@@ -698,11 +743,18 @@ bool BrowserView::run_tool_command(std::string_view command_id) {
     id = "selection.point";
   } else if (id == "pan") {
     id = "view.pan";
+  } else if (id == "full") {
+    id = "view.full";
   }
   const uint32_t view_id = active_map() ? active_map()->view_id() : 0;
   if (!host->execute(id, view_id)) {
     set_status_message("Unknown tool " + id);
     return false;
+  }
+  if (id == "view.full" || id == "view3d.full") {
+    fit_map_extent();
+    set_status_message("View full extent");
+    return true;
   }
   if (id == "selection.clear") {
     document_.clear_selection();
@@ -866,7 +918,7 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
       const bool ogr_ok = document_.open_path(file.path);
       sync_catalog_from_scene();
       sync_inspectors_from_scene();
-      invalidate_map_overlays();
+      fit_map_extent();
       refresh();
       if (ogr_ok) {
         status("OGR opened " + file.path + " (" +
@@ -932,6 +984,20 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
     }
     return;
   }
+  if (command_id == "catalog.layer.view" ||
+      command_id == "catalog.layer.recalc_mbr") {
+    fit_map_extent();
+    detail::catalog_call(
+        session, std::string("{\"op\":\"view_extent\",\"id\":\"") +
+                     detail::json_escape(
+                         catalog_ && catalog_->layer_tree()
+                             ? catalog_->layer_tree()->selected_id()
+                             : std::string()) +
+                     "\"}");
+    status(command_id == "catalog.layer.view" ? "View layer extent"
+                                              : "Recalc MBR / refit");
+    return;
+  }
   detail::catalog_call(session, std::string("{\"op\":\"command\",\"id\":\"") +
                                      detail::json_escape(command_id) + "\"}");
   status(command_id);
@@ -952,7 +1018,7 @@ void BrowserView::on_open() {
   document_.open_path(cmd.path);
   sync_catalog_from_scene();
   sync_inspectors_from_scene();
-  invalidate_map_overlays();
+  fit_map_extent();
   if (catalog_) {
     catalog_->set_map_docs(
         {{cmd.path, "", detail::path_stem(cmd.path), false}});

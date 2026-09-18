@@ -39,6 +39,8 @@ class PresentTarget {
   void copy_from_hwnd(HWND hwnd);
 
   content::SharedHandleWire wire() const { return wire_; }
+  // Local NT handle / DIB mapping. Attach on kSharedHandle; do not pickle.
+  HANDLE share_handle() const { return local_handle_; }
   content::PresentMode mode() const { return mode_; }
   uint32_t generation() const { return wire_.generation; }
   bool has_d3d_device() const { return d3d_device_ != nullptr; }

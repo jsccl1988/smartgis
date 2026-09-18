@@ -13,8 +13,13 @@ smt_shared_library("host") {
   ]
   defines = [ "SG_HOST_IMPLEMENTATION" ]
   include_dirs += [ "//src" ]
-  deps = [ "//src/content:content" ]
+  deps = [
+    "//src/app/views:map_scene",
+    "//src/content:content",
+    "//testing/data:china_map_samples",
+  ]
   libs = [
+    "comctl32.lib",
     "gdi32.lib",
     "user32.lib",
   ]
@@ -28,6 +33,7 @@ test("sg_host_test") {
   libs = [
     "gdi32.lib",
     "user32.lib",
+    "comctl32.lib",
   ]
 }
 

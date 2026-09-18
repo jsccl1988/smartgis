@@ -74,6 +74,15 @@ long		CORE_EXPORT		get_random_color(void);
 HMENU		CORE_EXPORT		create_listener_menu(base::SmtListener*pListener,base::SmtFuncItemStyle style);
 void		CORE_EXPORT		append_listener_menu(HMENU hOwnwerMenu ,base::SmtListener*pListener,\
 												   base::SmtFuncItemStyle style,bool bInsertSeprator = true);
+// HMENU is pointer-sized. Passing it through UINT truncates on x64 and
+// yields an invalid submenu (AV in TrackPopupMenu / DrawMenuBar).
+bool		CORE_EXPORT		append_popup_menu(HMENU owner, HMENU popup, const char* name);
+bool		CORE_EXPORT		insert_popup_menu(HMENU owner, UINT position, HMENU popup,
+												   const char* name, UINT extra_flags);
+// Owns the menu from create_listener_menu. insert_at < 0 appends.
+bool		CORE_EXPORT		attach_listener_popup(HMENU owner, base::SmtListener* listener,
+												   base::SmtFuncItemStyle style, const char* name,
+												   int insert_at = -1, UINT extra_flags = 0);
 
 //ximage type
 long		CORE_EXPORT		get_image_type_by_file_ext(const char *szFileName);

@@ -6,7 +6,7 @@ All rights reserved.
 # 制图样式：Style JSON + 符号库 + 规则引擎
 
 **Date:** 2026-09-14  
-**Status:** active  
+**Status:** active（v1+ 子集：paint 键扩展 + LayerType 占位 + expression 常量求值）  
 **Scope:** MapLibre 风格 Style JSON 子集、外置符号库、按属性/比例尺选层规则；与遗留 `base::SmtStyle` 的桥接。不管 Skia/RHI 画笔实现；不管 Views chrome。
 
 **Sibling:**
@@ -29,9 +29,9 @@ All rights reserved.
 - **不**把 Style 放进 `src/render/`（render 只消费已解析 paint）。
 - **不**把 JSON / 规则塞进 `src/sdb/carto`（cartographic POD：`SmtStyle` / `Envelope` / `StyleManager`）。
 - **不**新建顶层 `src/style/`（破坏五层锁定）。
-- **不**追求完整 MapLibre 表达式 / 数据驱动样式 / glyphs PBF / sprite 合图引擎（可后续增量）。
+- **不**追求完整 MapLibre 表达式 / 数据驱动样式 / glyphs PBF / sprite 合图引擎（v1+ 仅嵌套数组 **常量求值** 子集，见下）。
 - **不**在本周期改 OGR 二进制 `SmtStyle` blob 编解码语义。
-- **不**引入 Qt；不引入第三套 JSON 库（手写最小解析，对齐 `sdb/model/tileset`）。
+- **不**引入 Qt；不引入第三套 JSON 库（手写最小解析 `json_mini`，对齐 `sdb/model/tileset`）。
 
 ## 落位（推荐锁定）
 
@@ -63,7 +63,7 @@ MapLayer / Feature attrs + zoom
 | B. 顶层 `src/style/` | 新层 | 否：破坏五层 |
 | **C. `sdb/style`（推荐）** | 表现模型跟 GIS 图层同层；base 保留 POD | **采用** |
 
-## JSON 子集（v1）
+## JSON 子集（v1+）
 
 根对象：
 
@@ -80,20 +80,45 @@ MapLayer / Feature attrs + zoom
 | 字段 | 说明 |
 | --- | --- |
 | `id` | 层 id |
-| `type` | `fill` \| `line` \| `symbol` \| `circle` |
+| `type` | 见 LayerType |
 | `source` / `source-layer` | 可选字符串 |
 | `minzoom` / `maxzoom` | 可选 number |
 | `filter` | 见下 |
-| `paint` / `layout` | string→string\|number\|bool 扁平表（v1 不解析嵌套 expression） |
+| `paint` / `layout` | 扁平表；值可为标量，或 **JSON 数组 expression**（求值后变常量字符串再写入 `ResolvedPaint`） |
+
+### LayerType
+
+已实现解析（未知 → `kUnknown`）：
+
+| 字符串 | 枚举 | 说明 |
+| --- | --- | --- |
+| `fill` / `line` / `symbol` / `circle` | 对应 | 主路径 |
+| `background` / `raster` | 对应 | paint 键见下 |
+| `fill-extrusion` / `heatmap` / `hillshade` | `kFillExtrusion` / `kHeatmap` / `kHillshade` | **占位**：可 parse，无渲染实现 |
 
 Filter v1：`==` `!=` `<` `>` `<=` `>=` `has` `!has` `in` `!in` `all` `any` `none`；属性侧用 `std::map<std::string,std::string>`（数值比较时 `strtod`）。
 
-Paint 键（v1 识别并写入 `ResolvedPaint`）：
+### Expression 子集（v1+）
 
-- fill: `fill-color`, `fill-opacity`
-- line: `line-color`, `line-width`, `line-opacity`
-- symbol: `icon-image`, `text-field`, `icon-size`
+API：`eval_expression(json, attrs, zoom, &ExprValue)`；`resolve` / `fill_resolved_paint` 对 paint/layout 中「看起来像 expression 的数组字符串」自动求值。
+
+| 算子 | 形式 | 说明 |
+| --- | --- | --- |
+| `get` | `["get","key"]` | 读 `AttrMap`；缺失 → null |
+| `literal` | `["literal", <scalar\|json>]` | 常量；非标量序列化为 JSON 字符串 |
+| `zoom` | `["zoom"]` | 当前 zoom（number） |
+| 二元比较 | `["=="\|"!="\|"<"\|... , a, b]` | 操作数可嵌套；比较规则与 filter 一致（优先数值） |
+
+**不在本子集**：`case` / `match` / `interpolate` / `step` / 数据驱动渐变等。
+
+Paint / layout 键（识别并写入 `ResolvedPaint`）：
+
+- fill: `fill-color`, `fill-opacity`, `fill-pattern`（图案 id 字符串）
+- line: `line-color`, `line-width`, `line-opacity`, `line-dasharray`（number 数组）, `line-cap`, `line-join`（layout 或 paint）
+- symbol: `icon-image`, `text-field`, `icon-size`, `text-size`, `text-anchor`, `icon-offset`（`[x,y]`）
 - circle: `circle-color`, `circle-radius`, `circle-opacity`
+- background: `background-color`, `background-opacity`
+- raster: `raster-opacity`
 
 颜色：`#RRGGBB` / `#AARRGGBB` / `rgb(r,g,b)`；失败则默认。
 
@@ -104,12 +129,14 @@ Paint 键（v1 识别并写入 `ResolvedPaint`）：
 - `find(id)` → `SymbolEntry{id, path, optional bytes}`
 - Sprite 合图 / 远程下载：非目标；`sprite` 字段只作根提示
 
-## 规则引擎（v1）
+## 规则引擎（v1+）
 
 - `layer_matches_zoom(layer, zoom)`
 - `eval_filter(filter, attrs)`
+- `eval_expression(json, attrs, zoom)` → `ExprValue` 常量
 - `select_layers(doc, zoom, source_layer_opt)` → 匹配层列表（文档顺序）。若 `source_layer_opt` 非空，仅精确匹配该 `source-layer`（层字段为空则不匹配）。
-- `resolve(doc, library, attrs, zoom)` → 第一个匹配层的 `ResolvedPaint`（含 `icon` 解析结果）
+- `resolve(doc, library, attrs, zoom, source_layer)` → 第一个匹配层的 `ResolvedPaint`（含 expression 求值与 `icon` 解析）
+- `fill_resolved_paint(layer, library, attrs, zoom, out)` → 填充 paint 字段
 - `to_smt_style(ResolvedPaint, name)` → `base::SmtStyle`（fill→brush，line→pen，symbol→SmtSymbolDesc 仅宽高；`lSymbolID` 仍为 0，id 走库）
 
 ## MapLayer 挂接（同变更可做薄挂）
@@ -119,7 +146,7 @@ Paint 键（v1 识别并写入 `ResolvedPaint`）：
 
 ## 测试
 
-- `//src/sdb/style:style_test`：parse 样例 JSON、filter、zoom、symbol manifest、`to_smt_style`。
+- `//src/sdb/style:style_test`：parse 样例 JSON、新 paint 键、占位 LayerType、filter、zoom、expression（`get`/`literal`/比较）、symbol manifest、`to_smt_style`。
 
 ## 文档同步
 

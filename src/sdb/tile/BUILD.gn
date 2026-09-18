@@ -7,8 +7,14 @@ import("//testing/test.gni")
 # HTTP(S) XYZ/WMTS TileProvider. Compiled into //src/sdb:sdb (dll_stem = sdb).
 source_set("tile_sources") {
   sources = [
+    "mvt_stub.cc",
+    "mvt_stub.h",
     "provider_tile_layer.cc",
     "provider_tile_layer.h",
+    "source_registry.cc",
+    "source_registry.h",
+    "style_source.cc",
+    "style_source.h",
     "tile_cache.h",
     "tile_disk_cache.cc",
     "tile_disk_cache.h",

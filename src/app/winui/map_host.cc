@@ -8,8 +8,8 @@
 #endif
 #include <windowsx.h>
 
-#include <cstdio>
 #include <cstring>
+#include <string>
 #include <vector>
 
 #include <winrt/Microsoft.UI.Xaml.Media.h>
@@ -77,6 +77,7 @@ int MapHost::slot_index(content::ViewKind kind) {
 }
 
 MapHost::MapHost() {
+  map_scene_.seed_default();
   root_ = winrt::Microsoft::UI::Xaml::Controls::Grid();
   panel_ = winrt::Microsoft::UI::Xaml::Controls::SwapChainPanel();
   status_ = winrt::Microsoft::UI::Xaml::Controls::TextBlock();
@@ -164,8 +165,31 @@ void MapHost::attach_session(content::MapContents* session, HWND window_hwnd) {
     status_.Visibility(winrt::Microsoft::UI::Xaml::Visibility::Visible);
     return;
   }
+  // Views parity: seed China PLP (polygon/line/point + labels) in-process.
+  if (map_scene_.feature_count() == 0) {
+    map_scene_.seed_default();
+  }
   session_->SetObserver(this);
   show_kind(content::ViewKind::kMapEdit);
+}
+
+bool MapHost::open_map_path(const std::string& path) {
+  if (path.empty()) {
+    return false;
+  }
+  const bool ok = map_scene_.open_path(path);
+  if (child_hwnd_) {
+    RECT rc = {};
+    GetClientRect(child_hwnd_, &rc);
+    const int w = rc.right - rc.left;
+    const int h = rc.bottom - rc.top;
+    if (w > 8 && h > 8) {
+      map_scene_.fit_extent(w, h);
+    }
+    InvalidateRect(child_hwnd_, nullptr, FALSE);
+  }
+  update_status_overlay();
+  return ok;
 }
 
 void MapHost::OnFrameReady(uint32_t view_id, uint32_t generation) {
@@ -173,7 +197,7 @@ void MapHost::OnFrameReady(uint32_t view_id, uint32_t generation) {
     return;
   }
   painted_generation_ = generation;
-  // Invalidate from the UI thread â€” this callback runs on the pipe recv
+  // Invalidate from the UI thread — this callback runs on the pipe recv
   // thread; posting avoids WinUI / message-pump races that freeze chrome.
   PostMessageW(child_hwnd_, WM_USER + 40, 0, 0);
 }
@@ -183,7 +207,7 @@ void MapHost::show_kind(content::ViewKind kind) {
     return;
   }
   const int idx = slot_index(kind);
-  // Same kind already live: only re-sync HWND to the panel (Views parity â€”
+  // Same kind already live: only re-sync HWND to the panel (Views parity —
   // never CloseView/OpenView just because the chrome tab was clicked again).
   if (slots_[idx].view_id != 0 && kind_ == kind && view_ == slots_[idx].view) {
     if (view_) {
@@ -341,6 +365,11 @@ bool MapHost::has_presented_frame() const {
 }
 
 bool MapHost::has_live_map_pixels() const {
+  // Product map content is MapScene vectors (China PLP). GPU DIB alone is only
+  // a clear/demo base - treat loaded features as live for chrome/self-test.
+  if (map_scene_.feature_count() >= 3) {
+    return true;
+  }
   if (!has_presented_frame()) {
     return false;
   }
@@ -415,7 +444,7 @@ void MapHost::sync_layout() {
   }
 
   const float scale = panel_scale();
-  // Transform relative to XamlRoot content when available â€” matches the
+  // Transform relative to XamlRoot content when available — matches the
   // DesktopChildSiteBridge client origin after re-parenting.
   winrt::Windows::Foundation::Point origin{0.f, 0.f};
   try {
@@ -460,8 +489,9 @@ void MapHost::sync_layout() {
   const bool size_changed =
       last_layout_w_ != pw || last_layout_h_ != ph || cur_w != pw || cur_h != ph;
   if (!same) {
-    SetWindowPos(child_hwnd_, nullptr, x, y, pw, ph,
-                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    // HWND_TOP: keep the island above the opaque SwapChainPanel slot chrome.
+    SetWindowPos(child_hwnd_, HWND_TOP, x, y, pw, ph,
+                 SWP_NOACTIVATE | SWP_SHOWWINDOW);
     InvalidateRect(child_hwnd_, nullptr, FALSE);
   }
   last_layout_x_ = x;
@@ -472,10 +502,13 @@ void MapHost::sync_layout() {
   if (view_ && (size_changed || !has_presented_frame())) {
     view_->Resize(pw, ph, scale * 96.f);
   }
+  if (size_changed && map_scene_.feature_count() > 0) {
+    map_scene_.fit_extent(pw, ph);
+  }
 }
 
 const wchar_t* MapHost::present_path() const {
-  return L"HWND island + DIB";
+  return L"HWND island + DIB + MapScene";
 }
 
 const wchar_t* MapHost::process_path() const {
@@ -489,7 +522,7 @@ bool MapHost::present_latest_frame(HDC hdc, const RECT& client_rc) const {
   if (!hdc || !view_) {
     return false;
   }
-  // Copy Latest under the HostView lock, then map â€” never hold UI paint
+  // Copy Latest under the HostView lock, then map — never hold UI paint
   // across a SetLatest that could replace the handle mid-blit.
   const content::SharedSurface surface = view_->Latest();
   if (!surface.nt_handle || surface.generation == 0 || surface.width_px == 0 ||
@@ -557,6 +590,8 @@ void MapHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   if (!hdc) {
     return;
   }
+  const int w = rc.right - rc.left;
+  const int h = rc.bottom - rc.top;
   bool presented = present_latest_frame(hdc, rc);
   if (!presented) {
     const bool scene3d = kind_ == content::ViewKind::kScene3d;
@@ -564,10 +599,18 @@ void MapHost::paint_to_dc(HDC hdc, const RECT& rc) const {
         CreateSolidBrush(scene3d ? RGB(32, 28, 48) : RGB(28, 42, 58));
     FillRect(hdc, &rc, brush);
     DeleteObject(brush);
+  }
+  // Views parity: overlay OGR vectors (polygon / line / point + name labels)
+  // on top of the GPU base frame. This is the product China map content.
+  if (w > 0 && h > 0 && map_scene_.feature_count() > 0) {
+    map_scene_.paint(hdc, w, h);
+  } else if (!presented) {
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, RGB(230, 236, 242));
     const wchar_t* line1 =
-        scene3d ? L"SmartGIS 3D scene (WinUI host)" : L"SmartGIS map (WinUI host)";
+        kind_ == content::ViewKind::kScene3d
+            ? L"SmartGIS 3D scene (WinUI host)"
+            : L"SmartGIS map (WinUI host)";
     DrawTextW(hdc, line1, -1, const_cast<RECT*>(&rc),
               DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     RECT rc2 = rc;
@@ -607,7 +650,7 @@ LRESULT CALLBACK MapHost::child_wnd_proc(HWND hwnd,
     bool dispatch = false;
     switch (msg) {
       case WM_MOUSEMOVE: {
-        // Throttle move IPC â€” raw move storms blocked Dispatch() on the UI
+        // Throttle move IPC — raw move storms blocked Dispatch() on the UI
         // thread when the GPU republished full DIBs (white-screen hang).
         static DWORD last_move_ms = 0;
         const DWORD now = GetTickCount();
@@ -636,7 +679,7 @@ LRESULT CALLBACK MapHost::child_wnd_proc(HWND hwnd,
         dispatch = true;
         break;
       case WM_MOUSEWHEEL: {
-        // WM_MOUSEWHEEL lParam is screen coords â€” convert to client.
+        // WM_MOUSEWHEEL lParam is screen coords — convert to client.
         POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
         ScreenToClient(hwnd, &pt);
         ev.x_px = pt.x;

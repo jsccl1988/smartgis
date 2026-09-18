@@ -381,71 +381,17 @@ void CMainFrame::UpdateMDITabs (BOOL bResetMDIChild)
 
 void CMainFrame::OnWndMapedit()
 {
-	// TODO: 在此添加命令处理程序代码
-	CMDIChildWnd *pActiveChild = (CMDIChildWnd *)GetActiveFrame();
-	CDocument	 *pDoc = NULL;
-	//
-	if (NULL == pActiveChild ||NULL == (pDoc = pActiveChild->GetActiveFrame()->GetActiveDocument()))
-	{
-		return;
-	}
-
-	CDocTemplate *pTempate = theApp.GetEditViewDocTemplate();
-
-	if (NULL != pTempate)
-	{
-		CFrameWnd *pFrame = pTempate->CreateNewFrame(pDoc,pActiveChild);
-		if (NULL != pFrame)
-		{
-			pTempate->InitialUpdateFrame(pFrame,pDoc);
-		}
-	}
+	theApp.open_mdi_view(theApp.GetEditViewDocTemplate());
 }
 
 void CMainFrame::OnWndMapdata()
 {
-	// TODO: 在此添加命令处理程序代码
-	CMDIChildWnd *pActiveChild = (CMDIChildWnd *)GetActiveFrame();
-	CDocument	 *pDoc = NULL;
-	//
-	if (NULL == pActiveChild ||NULL == (pDoc = pActiveChild->GetActiveFrame()->GetActiveDocument()))
-	{
-		return;
-	}
-
-	CDocTemplate *pTempate = theApp.GetDataViewDocTemplate();
-
-	if (NULL != pTempate)
-	{
-		CFrameWnd *pFrame = pTempate->CreateNewFrame(pDoc,pActiveChild);
-		if (NULL != pFrame)
-		{
-			pTempate->InitialUpdateFrame(pFrame,pDoc);
-		}
-	}
+	theApp.open_mdi_view(theApp.GetDataViewDocTemplate());
 }
 
 void CMainFrame::OnWnd3d()
 {
-	// TODO: 在此添加命令处理程序代码
-	CMDIChildWnd *pActiveChild = (CMDIChildWnd *)GetActiveFrame();
-	CDocument	 *pDoc = NULL;
-	//
-	if (NULL == pActiveChild ||NULL == (pDoc = pActiveChild->GetActiveFrame()->GetActiveDocument()))
-	{
-		return;
-	}
-
-	CDocTemplate *pTempate = theApp.Get3DViewDocTemplate();
-
-	if (NULL != pTempate)
-	{
-		CFrameWnd *pFrame = pTempate->CreateNewFrame(pDoc,pActiveChild);
-		if (NULL != pFrame)
-		{
-			pTempate->InitialUpdateFrame(pFrame,pDoc);
-		}
-	}
+	theApp.open_mdi_view(theApp.Get3DViewDocTemplate());
 }
 
 

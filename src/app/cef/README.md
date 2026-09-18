@@ -45,6 +45,13 @@ Catalog (tree + Refresh/Add layer), Map Edit|Data|3D tabs, Ambox builtins,
 Inspector (FeatureInfo / AttributeTable), StatusBar. Bridge command ids align
 with `tool::Workspace`.
 
+Startup seeds `out/china_plp.geojson` via shared `app::MapScene` (OGR). The
+sample is a normal map pack: **区 / 线 / 点 / 注记** layers (region polygons,
+rivers/corridors, cities, text labels) painted over the GPU frame. Catalog
+lists those four layers. Map HWND right-click shows the 2D view menu (Zoom In /
+Out / Pan / Full / Refresh). Open / Add layer pick a file and call
+`MapScene::open_path`.
+
 ## Escape hatch (enabled when `SmartGisRender.exe` is beside this PE)
 
 CEF Chromium also consumes `--type=gpu*`. If map OOP relaunches

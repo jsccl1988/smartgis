@@ -3,21 +3,9 @@
 
 #include "gpu/maplibre_runtime.h"
 
-// Optional MapLibre Native pin. Public GPU headers never include these.
-#if defined(SMT_ENABLE_MAPLIBRE)
-#if defined(__has_include)
-#if __has_include(<mln/map.hpp>)
+#if defined(SMT_ENABLE_MAPLIBRE) && defined(SMT_HAS_MAPLIBRE_LIB)
 #include <mln/map.hpp>
-#define SMT_HAS_MLN_MAP 1
-#elif __has_include(<mbgl/map/map.hpp>)
-#include <mbgl/map/map.hpp>
-#define SMT_HAS_MBGL_MAP 1
-#endif
-#if __has_include(<mbgl/gfx/headless_frontend.hpp>)
-#include <mbgl/gfx/headless_frontend.hpp>
-#define SMT_HAS_MBGL_HEADLESS 1
-#endif
-#endif
+#define SMT_MLN_MAP_LINKED 1
 #endif
 
 namespace gpu {
@@ -32,8 +20,10 @@ bool maplibre_runtime_compiled_impl() {
 }
 
 bool maplibre_map_linked_impl() {
-#if defined(SMT_HAS_MLN_MAP) || defined(SMT_HAS_MBGL_MAP)
-  return true;
+#if defined(SMT_MLN_MAP_LINKED)
+  // Construct a live Map so the link is a lib, not a header probe.
+  const mln::Map probe(1, 1);
+  return probe.constructed();
 #else
   return false;
 #endif
@@ -43,19 +33,25 @@ bool try_maplibre_still_image(const char* style_json,
                               uint32_t width_px,
                               uint32_t height_px,
                               MaplibreStill* out) {
-  (void)style_json;
   if (!out || width_px == 0 || height_px == 0) {
     return false;
   }
-#if defined(SMT_HAS_MBGL_HEADLESS) && defined(SMT_HAS_MBGL_MAP)
-  // Real mbgl::Map + HeadlessFrontend still-image path. Requires the
-  // maplibre-native pin and a linked Windows lib — not present on this tree.
-  return false;
-#elif defined(SMT_HAS_MLN_MAP)
-  // mln::Map exists as a header; this repo does not yet link a Windows
-  // maplibre-native.lib, so a live still image cannot be produced here.
-  return false;
+#if defined(SMT_MLN_MAP_LINKED)
+  mln::Map map(width_px, height_px);
+  if (!map.constructed()) {
+    return false;
+  }
+  map.load_style_json(style_json);
+  out->width_px = width_px;
+  out->height_px = height_px;
+  out->bgra.assign(static_cast<size_t>(width_px) * height_px * 4u, 0);
+  if (!map.render_still(out->bgra.data(), width_px * 4)) {
+    out->bgra.clear();
+    return false;
+  }
+  return true;
 #else
+  (void)style_json;
   return false;
 #endif
 }

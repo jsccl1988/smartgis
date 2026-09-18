@@ -65,6 +65,9 @@ set "BUILD_CEF=false"
 set "BUILD_RENDER=false"
 set "BUILD_VIEWS=false"
 set "BUILD_CS=false"
+set "ENABLE_MAPLIBRE=false"
+if /I "%SMT_ENABLE_MAPLIBRE%"=="true" set "ENABLE_MAPLIBRE=true"
+if /I "%SMT_ENABLE_MAPLIBRE%"=="1" set "ENABLE_MAPLIBRE=true"
 if /I "%~1"=="sln" (
   echo ERROR: MSBuild/sln is not an engineering entry. Use build.bat ^(GN^).>&2
   echo vs2008\ and branches\ were removed; engineering entry is GN only.>&2
@@ -138,8 +141,10 @@ if not "%~1"=="" (
     set "NINJA_TARGET=cef"
     set "BUILD_CEF=true"
   ) else if /I "%~1"=="cs" (
+    REM C# PE cannot --type=gpu; needs sibling SmartGisRender.exe (README).
     set "NINJA_TARGET=cs"
     set "BUILD_CS=true"
+    set "BUILD_RENDER=true"
   ) else if /I "%~1"=="e2e" (
     set "NINJA_TARGET=e2e"
     set "BUILD_APP=true"
@@ -178,7 +183,7 @@ if /I "!BUILD_CS!"=="true" (
   )
 )
 
-"%GN_PATH%gn.exe" gen out --root=./ --ide=vs2019 --args="is_debug=true is_build_third_party=false smt_run_vs_env_script=false vs_version=180 msvc_installed=true smt_build_app=!BUILD_APP! smt_build_views=!BUILD_VIEWS! smt_build_render=!BUILD_RENDER! smt_build_winui=!BUILD_WINUI! smt_build_cef=!BUILD_CEF! smt_build_cs=!BUILD_CS!"
+"%GN_PATH%gn.exe" gen out --root=./ --ide=vs2019 --args="is_debug=true is_build_third_party=false smt_run_vs_env_script=false vs_version=180 msvc_installed=true smt_build_app=!BUILD_APP! smt_build_views=!BUILD_VIEWS! smt_build_render=!BUILD_RENDER! smt_build_winui=!BUILD_WINUI! smt_build_cef=!BUILD_CEF! smt_build_cs=!BUILD_CS! smt_enable_maplibre=!ENABLE_MAPLIBRE!"
 if errorlevel 1 (
   popd
   exit /b 1
@@ -204,7 +209,7 @@ if !ERR! EQU 0 (
     set "ERR=!ERRORLEVEL!"
   ) else if /I "!NINJA_TARGET!"=="test_all" (
     set "UNIT_ERR=0"
-        for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe leftover_record_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe tin_xyz_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe views_unittests.exe views_pixel_tests.exe ipc_test.exe chrome_bridge_test.exe render_backend_test.exe tile_test.exe style_test.exe sg_host_test.exe) do (
+        for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe leftover_record_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe tin_xyz_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe views_unittests.exe views_pixel_tests.exe ipc_test.exe chrome_bridge_test.exe render_backend_test.exe tile_test.exe style_test.exe sg_host_test.exe gdi_map_paint_test.exe gl_map_paint_test.exe menu_test.exe select_query_test.exe) do (
       if exist ".\out\%%T" (
         echo Running out\%%T
         ".\out\%%T"

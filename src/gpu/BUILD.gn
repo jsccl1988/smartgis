@@ -12,8 +12,9 @@ config("gpu_config") {
   include_dirs += [ "//src" ]
 }
 
-# Present + Track A/B paint. No //src/content:content dep so unit tests do not
-# pull sdb / CxImage / GDAL. Headers under content/public are include-only.
+# Present + Track A/B paint. No //src/content:content dep. Track A parses
+# Style JSON via //src/sdb/style and Style `sources` via //src/sdb/tile
+# (sdb DLL). Headers under content/public are include-only.
 source_set("gpu_backend") {
   sources = [
     "maplibre_adapter.cc",
@@ -26,6 +27,11 @@ source_set("gpu_backend") {
     "render_backend.h",
   ]
   public_configs = [ ":gpu_config" ]
+  deps = [
+    "//src/net:net",
+    "//src/sdb/style",
+    "//src/sdb/tile",
+  ]
   libs = [
     "d3d11.lib",
     "dxgi.lib",
@@ -36,23 +42,7 @@ source_set("gpu_backend") {
   ]
   if (smt_enable_maplibre) {
     defines += [ "SMT_ENABLE_MAPLIBRE" ]
-    _mln_mbgl = exec_script("//build/file_exists.py",
-                            [
-                              "third_party/.src/maplibre-native/include/mbgl/map/map.hpp",
-                            ],
-                            "trim string")
-    _mln_mln = exec_script("//build/file_exists.py",
-                           [
-                             "third_party/.src/maplibre-native/include/mln/map.hpp",
-                           ],
-                           "trim string")
-    if (_mln_mbgl == "1" || _mln_mln == "1") {
-      include_dirs += [ "//third_party/.src/maplibre-native/include" ]
-    } else {
-      print("WARNING: smt_enable_maplibre=true but no MapLibre Native pin at " +
-            "third_party/.src/maplibre-native/include — Track A paints via " +
-            "the adapter (not mln::Map).")
-    }
+    public_deps = [ "//third_party/maplibre:maplibre_native" ]
   }
 }
 
@@ -65,6 +55,7 @@ source_set("gpu_lib") {
   ]
   deps = [
     ":gpu_backend",
+    "//src/base/ipc:ipc",
     "//src/content:content",
   ]
   public_configs = [ ":gpu_config" ]
