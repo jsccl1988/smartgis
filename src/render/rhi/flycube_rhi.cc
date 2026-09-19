@@ -1075,7 +1075,7 @@ class FlycubeDevice : public Device {
     if (hwnd_ && width_ > 0 && height_ > 0) {
       NativeSurface surface = Win32Surface{GetModuleHandleW(nullptr), hwnd_};
       swapchain_ = fc_device_->CreateSwapchain(surface, width_, height_,
-                                               kFrameCount, true);
+                                               kFrameCount, false);
       if (!swapchain_) {
         return false;
       }
@@ -1149,7 +1149,10 @@ class FlycubeDevice : public Device {
     if (!swapchain_ || !command_queue_ || !fence_) {
       return;
     }
+    // CPU-wait for GPU work before DXGI Present. FlyCube's Swapchain::Present
+    // only inserts a queue Wait then calls Present immediately.
     command_queue_->Signal(fence_, ++fence_value_);
+    fence_->Wait(fence_value_);
     swapchain_->Present(fence_, fence_value_);
   }
 
@@ -1461,7 +1464,7 @@ class FlycubeDevice : public Device {
     }
 
     BindKey cam_tex, tex_key, samp_key, cam_solid, color_solid;
-    BindKey cam_ocean, ocean_cb_key, ocean_tex, ocean_samp;
+    BindKey cam_ocean, ocean_cb_key, ocean_cb_ps_key, ocean_tex, ocean_samp;
     BindKey cam_cloud, cloud_cb_key;
     try {
       cam_tex = vs_textured_->GetBindKey("CameraCB");
@@ -1471,6 +1474,7 @@ class FlycubeDevice : public Device {
       color_solid = ps_solid_->GetBindKey("ColorCB");
       cam_ocean = vs_ocean_->GetBindKey("CameraCB");
       ocean_cb_key = vs_ocean_->GetBindKey("OceanCB");
+      ocean_cb_ps_key = ps_ocean_->GetBindKey("OceanCB");
       ocean_tex = vs_ocean_->GetBindKey("height_map");
       ocean_samp = vs_ocean_->GetBindKey("linear_sampler");
       cam_cloud = vs_cloud_->GetBindKey("CameraCB");
@@ -1482,8 +1486,12 @@ class FlycubeDevice : public Device {
         {.bind_keys = {cam_tex, tex_key, samp_key}});
     solid_layout_ = fc_device_->CreateBindingSetLayout(
         {.bind_keys = {cam_solid, color_solid}});
+    // OceanCB is used by both VS (displace) and PS (fresnel). D3D12 root
+    // signatures are stage-scoped via BindKey::shader_type, so both keys
+    // must be listed or CreatePipelineState fails (abort in debug FlyCube).
     ocean_layout_ = fc_device_->CreateBindingSetLayout(
-        {.bind_keys = {cam_ocean, ocean_cb_key, ocean_tex, ocean_samp}});
+        {.bind_keys = {cam_ocean, ocean_cb_key, ocean_cb_ps_key, ocean_tex,
+                       ocean_samp}});
     cloud_layout_ = fc_device_->CreateBindingSetLayout(
         {.bind_keys = {cam_cloud, cloud_cb_key}});
     if (!sampled_layout_ || !solid_layout_ || !ocean_layout_ || !cloud_layout_) {
@@ -1686,12 +1694,14 @@ class FlycubeDevice : public Device {
 
   std::shared_ptr<BindingSet> make_ocean_set(FlycubeTexture* height) {
     BindKey cam = vs_ocean_->GetBindKey("CameraCB");
-    BindKey ocean = vs_ocean_->GetBindKey("OceanCB");
+    BindKey ocean_vs = vs_ocean_->GetBindKey("OceanCB");
+    BindKey ocean_ps = ps_ocean_->GetBindKey("OceanCB");
     BindKey tex = vs_ocean_->GetBindKey("height_map");
     BindKey samp = vs_ocean_->GetBindKey("linear_sampler");
     auto set = fc_device_->CreateBindingSet(ocean_layout_);
     set->WriteBindings({.bindings = {{cam, camera_cb_view_},
-                                     {ocean, ocean_cb_view_},
+                                     {ocean_vs, ocean_cb_view_},
+                                     {ocean_ps, ocean_cb_view_},
                                      {tex, height->srv()},
                                      {samp, sampler_view_}}});
     return set;

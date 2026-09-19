@@ -15,8 +15,9 @@ class ViewHost;
 
 namespace ui {
 
-// Routes a Win32 pointer/key message into ViewHost. True if consumed.
-// |hwnd| is required for WM_MOUSEWHEEL (screen → client) and WM_POINTER pinch.
+// Routes a Win32 pointer/key/gesture message into ViewHost. True if consumed.
+// |hwnd| is required for wheel (screen → client), WM_GESTURE pan/zoom, and
+// WM_POINTER multitouch. Also handles WM_MOUSEHWHEEL (trackpad horizontal pan).
 bool dispatch_chrome_message(content::ViewHost* host, UINT message,
                              WPARAM wparam, LPARAM lparam);
 bool dispatch_chrome_message(content::ViewHost* host, HWND hwnd, UINT message,

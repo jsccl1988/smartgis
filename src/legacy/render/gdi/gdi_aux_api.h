@@ -20,7 +20,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 using namespace base;
 
 void clear_rect(HDC hDC, int x, int y, int w, int h,
-                COLORREF clr = RGB(255, 255, 255));
+                COLORREF clr = RGB(170, 211, 223));
 void draw_rect(HDC hDC, RECT& rect, BOOL exclusive = TRUE);
 void draw_rect(HDC hDC, lRect& lrect, BOOL exclusive = TRUE);
 

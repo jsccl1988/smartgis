@@ -48,14 +48,14 @@ class SmtRenderBuf {
   long SwapBuf(int destOrgx, int destOrgy, int destW, int destH, int srcOrgx,
                int srcOrgy, int srcW, int srcH,
                eSwapType type = BLT_TRANSPARENT, int op = SRCCOPY,
-               COLORREF clr = RGB(255, 255, 255));  // Transparent/Stretch
+               COLORREF clr = RGB(170, 211, 223));  // Transparent/Stretch
 
   long SwapBuf(SmtRenderBuf &rbTarget, int destOrgx, int destOrgy, int destW,
                int destH, int srcOrgx, int srcOrgy, int op = SRCCOPY);
   long SwapBuf(SmtRenderBuf &rbTarget, int destOrgx, int destOrgy, int destW,
                int destH, int srcOrgx, int srcOrgy, int srcW, int srcH,
                eSwapType type = BLT_TRANSPARENT, int op = SRCCOPY,
-               COLORREF clr = RGB(255, 255, 255));  // Transparent/Stretch
+               COLORREF clr = RGB(170, 211, 223));  // Transparent/Stretch
 
   HDC PrepareDC(
       bool bClip =
@@ -63,7 +63,7 @@ class SmtRenderBuf {
                   // ClearBuf()��SwapBuf()��SetBufSize()
   long EndDC(void);  // �ͷ�dc
 
-  long ClearBuf(int x, int y, int w, int h, COLORREF clr = RGB(255, 255, 255));
+  long ClearBuf(int x, int y, int w, int h, COLORREF clr = RGB(170, 211, 223));
 
   //////////////////////////////////////////////////////////////////////////
   long DrawImage(const char *szImageBuf, int nImageBufSize, long lCodeType,

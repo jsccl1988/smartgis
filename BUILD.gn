@@ -46,6 +46,7 @@ group("test_shell") {
     "//src/content:content_catalog_layers_test",
     "//src/app/views:map_scene_test",
     "//src/app/views:scene3d_controller_test",
+    "//src/gis/world:dem_raster_test",
     "//src/gis/datasource/gdal:ogr_text_encoding_test",
     "//src/gis/datasource/gdal:sdbd_client_test",
     "//src/gis/datasource/gdal:sdbd_live_test",

@@ -30,6 +30,11 @@ namespace app {
 
 class MapScene;
 
+// Default orbit yaw: stand south of the look-at (+Z = geographic north) so
+// north sits toward the top of the screen (上北下南 / 左西右东), matching
+// leftover_frame_pose. yaw=0 places the eye on +Z and looks south (flipped).
+inline constexpr float kScene3dDefaultYaw = 3.14159265f - 0.55f;
+
 // Chrome-side host of the shared leftover map scene (same MapContents session
 // as SmartGis.exe): 2D ortho + 3D perspective, full China when contents or
 // MapScene has it. Orbit / wheel-to-cursor / pinch update the camera; GPU
@@ -137,7 +142,7 @@ class Scene3dController {
   std::vector<float> local_xyz_;
   std::vector<unsigned> local_idx_;
 
-  float yaw_ = 0.55f;
+  float yaw_ = kScene3dDefaultYaw;
   float pitch_ = 0.4f;
   float distance_ = 3.2f;
   int last_x_ = 0;

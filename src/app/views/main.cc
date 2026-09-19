@@ -221,8 +221,7 @@ int run_atmosphere_showcase(app::BrowserView& browser,
 
   // Prefer an already-hung FlyCube; otherwise open a device on the 3D HWND.
   // Default: Null RHI (deterministic exit). Set SMT_ATMOSPHERE_SHOWCASE_GPU=1
-  // to use FlyCube/DX12 — note: some hosts hang inside present_gpu on a
-  // post-detach swapchain; Null still exercises ocean→land→cloud recording.
+  // to use FlyCube/DX12 (ocean root-signature must include VS+PS OceanCB).
   render::rhi::Device* device =
       static_cast<render::rhi::Device*>(scene->rhi_device());
   bool owns_device = false;
@@ -717,7 +716,8 @@ int BrowserMain(const content::ContentMainParams&) {
       return 24;
     }
     if (!browser.scene3d() ||
-        std::fabs(browser.scene3d()->yaw() - 0.55f) < 0.001f) {
+        std::fabs(browser.scene3d()->yaw() - app::kScene3dDefaultYaw) <
+            0.001f) {
       // Trackball drag must move the chrome 3D camera (not a static mesh).
       self_test_detach_maps(browser);
       return 25;
@@ -962,7 +962,7 @@ int BrowserMain(const content::ContentMainParams&) {
       const render::rhi::CameraMatrices cam =
           browser.scene3d()->camera_matrices(1.333f);
       if (cam.kind != render::rhi::CameraKind::kPerspective ||
-          std::fabs(yaw_after - 0.55f) < 0.001f) {
+          std::fabs(yaw_after - app::kScene3dDefaultYaw) < 0.001f) {
         self_test_detach_maps(browser);
         return 27;
       }

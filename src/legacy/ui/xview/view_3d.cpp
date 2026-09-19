@@ -8,14 +8,18 @@
 #include "base/core/listenermanager.h"
 #include "base/core/log.h"
 #include "content/public/view_host.h"
-#include "plugin/legacy/module_manager.h"
-#include "plugin/legacy/plugin_msg.h"
-#include "sys/sysmanager.h"
+#include "legacy/tool/group/3dviewctrltool.h"
 #include "legacy/tool/t_iatoolmanager.h"
 #include "legacy/ui/xview/view_chrome.h"
 #include "legacy/ui/xview/view_core.h"
 #include "legacy/render/model3d/cube.h"
 #include "legacy/render/scene3d/map_to_scene.h"
+#include "plugin/legacy/module_manager.h"
+#include "plugin/legacy/plugin_msg.h"
+#include "sys/sysmanager.h"
+#include "tool/camera_nav.h"
+#include "tool/gestures.h"
+#include "tool/workspace.h"
 
 using namespace render;
 using namespace sys;
@@ -107,8 +111,8 @@ void Smt3DXView::Dump(CDumpContext &dc) const { SmtXView::Dump(dc); }
 // Smt3DXView 锟斤拷息锟斤拷锟斤拷锟斤拷锟斤拷
 
 LRESULT Smt3DXView::WindowProc(UINT message, WPARAM wParam, LPARAM lParam) {
-  if (dispatch_chrome_message(view_host(), message, wParam, lParam)) {
-    if (message == WM_MOUSEWHEEL) {
+  if (dispatch_chrome_message(view_host(), m_hWnd, message, wParam, lParam)) {
+    if (message == WM_MOUSEWHEEL || message == WM_MOUSEHWHEEL) {
       return TRUE;
     }
     return 0;
@@ -464,6 +468,19 @@ SmtGroupToolFactory::CreateGroup3DTool(m_p3DViewCtrlTool,
 
   m_p3DViewCtrlTool->SetActive();
 
+  // Bound Workspace so chrome gestures (GID_PAN / HWHEEL) reach view3d.*.
+  if (!view_host()) {
+    reset_view_host(new content::ViewHost());
+  }
+  tool::Workspace* ws = view_host() ? view_host()->workspace() : nullptr;
+  if (Smt3DViewCtrlTool* ctrl =
+          dynamic_cast<Smt3DViewCtrlTool*>(m_p3DViewCtrlTool)) {
+    ctrl->bind_workspace(ws);
+  }
+  if (ws) {
+    ws->activate("view3d.trackball");
+  }
+
   if (m_p3DRenderDevice && m_pScene) {
     Viewport3D vp = m_p3DRenderDevice->GetViewport();
     const ulong w = vp.ulWidth > 0 ? vp.ulWidth : 1;
@@ -495,6 +512,21 @@ BOOL Smt3DXView::OnCommand(WPARAM wParam, LPARAM lParam) {
 }
 
 void Smt3DXView::apply_workspace_draft(const tool::Draft &draft) {
+  // Always-on horizontal wheel / two-finger pan.
+  if (draft.kind == tool::DraftKind::kRect &&
+      tool::draft_flags::is_touch_pan(draft.flags)) {
+    const char* tool_id = nullptr;
+    if (view_host() && view_host()->workspace()) {
+      if (tool::Interaction* cur =
+              view_host()->workspace()->stack().current()) {
+        tool_id = cur->id();
+      }
+    }
+    if (tool::is_navigate_tool(tool_id) && m_p3DViewCtrlTool) {
+      m_p3DViewCtrlTool->apply_draft(draft);
+    }
+    return;
+  }
   SmtIAToolManager *mgr = SmtIAToolManager::get_singleton_ptr();
   SmtBase3DTool *tool =
       mgr ? dynamic_cast<SmtBase3DTool *>(mgr->GetActiveIATool()) : NULL;

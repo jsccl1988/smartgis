@@ -176,8 +176,8 @@ class MapScene {
 // prefecture overview rather than the 46-feature schematic PLP.
 std::vector<std::string> china_seed_relative_paths();
 
-// SmartGis.exe 2D cartography colors used by MapScene::paint (white map,
-// pastel areas, blue rivers, dark strokes / points).
+// Baidu-like 2D cartography colors used by MapScene::paint (ocean bg,
+// warm land wash, soft rivers, light admin strokes / POI discs).
 COLORREF map_scene_map_bg_color();
 COLORREF map_scene_area_fill_color(const char* adcode, uint32_t feature_id);
 COLORREF map_scene_river_color();

@@ -34,7 +34,8 @@ int carto2d_halo_px(int priority);
 int carto2d_point_radius(float fblc);
 int carto2d_stroke_px(float fblc, bool river);
 int carto2d_stroke_px_kind(float fblc, bool river, bool road);
-// Baidu-like quiet land. Unique-value / choropleth input is ignored.
+// Baidu-like cartography. Unique-value / choropleth input is ignored.
+unsigned carto2d_map_bg();
 unsigned carto2d_land_fill();
 unsigned carto2d_water_fill();
 unsigned carto2d_boost_fill(unsigned bgr);

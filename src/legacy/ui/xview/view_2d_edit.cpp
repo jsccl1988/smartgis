@@ -19,6 +19,7 @@
 #include "gis/feature/feature.h"
 #include "gis/map/map.h"
 #include "sys/sysmanager.h"
+#include "tool/workspace.h"
 
 using namespace base;
 using namespace geo;
@@ -194,6 +195,9 @@ bool Smt2DEditXView::CreateTools(void) {
   if (SmtAppendFeatureTool* append =
           dynamic_cast<SmtAppendFeatureTool*>(m_pAppendFeaTool)) {
     append->bind_workspace(ws);
+  }
+  if (ws) {
+    ws->activate("view.pan");
   }
 
   LOGGING(LOG_INFO, "Init 2DEditView GroupTools OK!");

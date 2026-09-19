@@ -95,7 +95,7 @@ LRESULT SmtXView::WindowProc(UINT message, WPARAM wParam, LPARAM lParam) {
         InvalidateRect(NULL, FALSE);
       }
     }
-    if (message == WM_MOUSEWHEEL) {
+    if (message == WM_MOUSEWHEEL || message == WM_MOUSEHWHEEL) {
       return TRUE;
     }
     return 0;

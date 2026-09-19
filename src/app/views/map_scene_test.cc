@@ -72,19 +72,18 @@ int main() {
   expect(city_json < plp, "china_city.geojson before china_plp");
   expect(city_gpkg < city_json, "gpkg before geojson twin");
 
-  // Categorical pastel fills must differ across adcodes (SmartGis EDIT look).
+  // Unified Baidu land wash — fills collapse across adcodes.
   const COLORREF a = app::map_scene_area_fill_color("110000", 1);
   const COLORREF b = app::map_scene_area_fill_color("320100", 2);
   const COLORREF c = app::map_scene_area_fill_color("510100", 3);
-  expect(a != b || b != c, "pastel palette varies by adcode/id");
-  expect(GetRValue(a) > 120 || GetGValue(a) > 120 || GetBValue(a) > 120,
-         "area fill is pastel/light, not dark blue");
+  expect(a == b && b == c, "area fill is unified land wash");
+  expect(a == RGB(245, 243, 233), "Baidu cream land");
 
-  expect(app::map_scene_river_color() == RGB(64, 140, 196), "river blue");
-  expect(app::map_scene_admin_stroke_color() == RGB(58, 70, 84),
+  expect(app::map_scene_river_color() == RGB(100, 160, 208), "river blue");
+  expect(app::map_scene_admin_stroke_color() == RGB(196, 190, 176),
          "admin stroke");
-  expect(app::map_scene_point_fill_color() == RGB(20, 20, 20), "point black");
-  expect(app::map_scene_map_bg_color() == RGB(255, 255, 255), "2D white bg");
+  expect(app::map_scene_point_fill_color() == RGB(90, 110, 130), "point soft");
+  expect(app::map_scene_map_bg_color() == RGB(170, 211, 223), "ocean bg");
 
   // MultiPolygon must expand every part (Xinjiang/Qinghai holes otherwise).
   {

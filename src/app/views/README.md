@@ -77,11 +77,10 @@ out\SmartGisViews.exe
 FlyCube 会写 `flycube-camera-ok`，并在 present 前开 `enable_atmosphere_demo()`。
 
 大气 3D 端到端 showcase（自动 present 后退出）。默认 **Null RHI**（可重复退出 0）；
-真 GPU：`set SMT_ATMOSPHERE_SHOWCASE_GPU=1`（部分机器在 post-detach FlyCube
-`present_gpu` 上会挂起，已在本机复现）。
+真 GPU：`set SMT_ATMOSPHERE_SHOWCASE_GPU=1`（FlyCube/DX12，present ≥3 帧后 exit 0）。
 
 ```bat
-set SMT_RUN_FLYCUBE_GPU=1
+set SMT_ATMOSPHERE_SHOWCASE_GPU=1
 out\SmartGisViews.exe --atmosphere-showcase=land
 out\SmartGisViews.exe --atmosphere-showcase=ocean
 out\SmartGisViews.exe --atmosphere-showcase=full
@@ -96,8 +95,11 @@ out\SmartGisViews.exe --atmosphere-showcase=coast
 | `coast` | 东海附近 extent + full demo |
 
 成功：exit 0；旁路 `out\atmosphere-showcase-mark.txt` 与
-`out\atmosphere-showcase-<mode>.bmp`。失败码：50 HWND、51 非 FlyCube、
-52 present、53 开关/场状态不符。
+`out\atmosphere-showcase-<mode>.bmp`（亦可拷到 `out\atmosphere-showcase\`）。
+失败码：50 HWND、51 非 FlyCube、52 present、53 开关/场状态不符。
+
+说明：`SMT_PREFER_FLYCUBE_3D=1` 在 `BrowserView::init` 多视口 DX12 attach 上仍可能挂起；
+showcase 路径是 detach 后单设备创建，不受该路径影响。
 
 ```bat
 build.bat views

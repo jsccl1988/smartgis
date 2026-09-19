@@ -147,7 +147,7 @@ void Scene3dController::release_mesh() {
 }
 
 void Scene3dController::reset() {
-  yaw_ = 0.55f;
+  yaw_ = kScene3dDefaultYaw;
   pitch_ = 0.4f;
   distance_ = 3.2f;
   has_last_ = false;

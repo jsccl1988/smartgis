@@ -4,6 +4,8 @@
 #include "gis/world/dem_raster.h"
 
 #include <cstdio>
+#include <cstdint>
+#include <vector>
 
 namespace {
 
@@ -23,6 +25,27 @@ int main() {
   dem.fill_synthetic_china();
   expect(!dem.empty(), "synthetic dem");
   expect(dem.cols() >= 2 && dem.rows() >= 2, "grid size");
+
+  // Geographic axes: +X east, +Z north (leftover Y-up). Mesh must keep
+  // 上北下南 / 左西右东 so Views orbit from south frames north at screen top.
+  {
+    std::vector<float> xyz;
+    std::vector<uint32_t> idx;
+    expect(dem.build_mesh(48, &xyz, &idx), "orientation mesh");
+    expect(!xyz.empty() && (xyz.size() % 3) == 0, "xyz triples");
+    float x_min = xyz[0], x_max = xyz[0];
+    float z_min = xyz[2], z_max = xyz[2];
+    for (size_t i = 0; i + 2 < xyz.size(); i += 3) {
+      x_min = x_min < xyz[i] ? x_min : xyz[i];
+      x_max = x_max > xyz[i] ? x_max : xyz[i];
+      z_min = z_min < xyz[i + 2] ? z_min : xyz[i + 2];
+      z_max = z_max > xyz[i + 2] ? z_max : xyz[i + 2];
+    }
+    expect(x_min < 90.f && x_max > 120.f, "lon span west-east");
+    expect(z_min < 25.f && z_max > 45.f, "lat span south-north on +Z");
+    expect(dem.sample_meters(88.0, 32.0) > dem.sample_meters(119.0, 32.5),
+           "tibet higher than jiangsu (not N/S swapped)");
+  }
 
   gis::World world;
   gis::Node* node =

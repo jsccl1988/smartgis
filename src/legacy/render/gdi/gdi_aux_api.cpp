@@ -62,17 +62,21 @@ void draw_cross(HDC hDC, long lX, long lY, long r, BOOL exclusive) {
 }
 
 void draw_point_disc(HDC hdc, long x, long y, int radius) {
-  if (!hdc || radius < 2) {
-    radius = 3;
+  if (!hdc) {
+    return;
+  }
+  if (radius < 1) {
+    radius = 1;
   }
   const int outer = radius + 1;
-  HBRUSH ring = CreateSolidBrush(RGB(250, 250, 248));
-  HPEN ring_pen = CreatePen(PS_SOLID, 1, RGB(250, 250, 248));
+  HBRUSH ring = CreateSolidBrush(RGB(255, 255, 255));
+  HPEN ring_pen = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
   HGDIOBJ old_b = SelectObject(hdc, ring);
   HGDIOBJ old_p = SelectObject(hdc, ring_pen);
   Ellipse(hdc, x - outer, y - outer, x + outer + 1, y + outer + 1);
-  HBRUSH fill = CreateSolidBrush(RGB(36, 48, 62));
-  HPEN fill_pen = CreatePen(PS_SOLID, 1, RGB(36, 48, 62));
+  // Soft Baidu-like POI fill (not solid black).
+  HBRUSH fill = CreateSolidBrush(RGB(90, 110, 130));
+  HPEN fill_pen = CreatePen(PS_SOLID, 1, RGB(70, 90, 110));
   SelectObject(hdc, fill);
   SelectObject(hdc, fill_pen);
   Ellipse(hdc, x - radius, y - radius, x + radius + 1, y + radius + 1);

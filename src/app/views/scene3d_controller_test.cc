@@ -27,7 +27,15 @@ void expect(bool ok, const char* msg) {
 
 int main() {
   app::Scene3dController cam;
-  expect(std::fabs(cam.yaw() - 0.55f) < 1e-4f, "default yaw");
+  expect(std::fabs(cam.yaw() - app::kScene3dDefaultYaw) < 1e-4f,
+         "default yaw south-of-target");
+  // make_orbit_camera: ez = dist * cos(pitch) * cos(yaw). South-of-target
+  // requires ez < 0 so geographic +Z (north) sits toward the screen top.
+  {
+    const float ez = cam.distance() * std::cos(cam.pitch()) *
+                     std::cos(cam.yaw());
+    expect(ez < 0.f, "default eye south of origin (north-up)");
+  }
   expect(cam.camera_matrices(1.333f).kind ==
              render::rhi::CameraKind::kPerspective,
          "3D perspective");
@@ -45,7 +53,7 @@ int main() {
   expect(std::fabs(cam.yaw() - yaw0) > 1e-4f, "wheel-to-cursor yaws");
 
   cam.reset();
-  expect(std::fabs(cam.yaw() - 0.55f) < 1e-4f, "reset yaw");
+  expect(std::fabs(cam.yaw() - app::kScene3dDefaultYaw) < 1e-4f, "reset yaw");
   expect(std::fabs(cam.distance() - 3.2f) < 1e-4f, "reset distance");
 
   const float dist1 = cam.distance();
@@ -53,7 +61,7 @@ int main() {
   expect(cam.distance() < dist1, "pinch-out dollies in");
 
   cam.apply_pan(20, 0);
-  expect(cam.yaw() > 0.55f, "pan yaws");
+  expect(cam.yaw() > app::kScene3dDefaultYaw, "pan yaws");
 
   content::Extent2 china = app::kChinaLonLatExtent;
   cam.apply_world_extent(china);

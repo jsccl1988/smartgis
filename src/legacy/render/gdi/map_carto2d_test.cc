@@ -48,6 +48,7 @@ int main() {
          "prefecture larger than county");
   expect(render::carto2d_halo_px(1) >= 3, "strong halo on admin labels");
   expect(render::carto2d_point_radius(22.f) <= 2, "thin POI at regional scale");
+  expect(render::carto2d_point_radius(8.f) <= 1, "thin POI at country scale");
   expect(render::carto2d_stroke_px(22.f, true) >=
              render::carto2d_stroke_px(22.f, false),
          "rivers at least as wide as admin");
@@ -59,6 +60,9 @@ int main() {
     const unsigned b = render::carto2d_boost_fill(0x00c8a0ff);
     expect(a == b, "unique-value fills collapse to one land color");
     expect(a == render::carto2d_land_fill(), "boost_fill is land fill");
+    expect(render::carto2d_land_fill() == 0x00e9f3f5, "Baidu cream land");
+    expect(render::carto2d_map_bg() == 0x00dfd3aa, "Baidu ocean bg");
+    expect(render::carto2d_river_color() == 0x00d0a064, "soft river blue");
   }
 
   {

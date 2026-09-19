@@ -354,7 +354,9 @@ void PresentTarget::paint_demo_frame(content::ViewKind kind) {
       const float span =
           (std::max)(maxx - minx, (std::max)(maxz - minz, 1.f));
       const float s = 3.2f / span;
-      constexpr float kYaw = 0.55f;
+      // South-of-target orbit (same as app::kScene3dDefaultYaw): north toward
+      // screen top (上北下南 / 左西右东).
+      constexpr float kYaw = 3.14159265f - 0.55f;
       constexpr float kPitch = 0.4f;
       constexpr float kDist = 3.2f;
       const float cyaw = std::cos(kYaw);

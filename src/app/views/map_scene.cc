@@ -407,36 +407,27 @@ std::vector<std::string> china_seed_relative_paths() {
 }
 
 COLORREF map_scene_map_bg_color() {
-  return RGB(255, 255, 255);
+  // Baidu-like soft ocean behind land.
+  return RGB(170, 211, 223);
 }
 
 COLORREF map_scene_river_color() {
-  return RGB(64, 140, 196);
+  return RGB(100, 160, 208);
 }
 
 COLORREF map_scene_admin_stroke_color() {
-  return RGB(58, 70, 84);
+  return RGB(196, 190, 176);
 }
 
 COLORREF map_scene_point_fill_color() {
-  return RGB(20, 20, 20);
+  return RGB(90, 110, 130);
 }
 
 COLORREF map_scene_area_fill_color(const char* adcode, uint32_t feature_id) {
-  // Soft pastel categorical fills (SmartGis EDIT1 thematic look).
-  static const COLORREF kPastels[] = {
-      RGB(232, 198, 210), RGB(210, 198, 232), RGB(198, 220, 210),
-      RGB(232, 220, 186), RGB(198, 210, 232), RGB(220, 210, 198),
-      RGB(210, 232, 220), RGB(232, 210, 198), RGB(186, 210, 220),
-      RGB(220, 198, 210), RGB(198, 232, 210), RGB(210, 210, 220),
-  };
-  uint32_t h = feature_id * 2654435761u;
-  if (adcode && adcode[0]) {
-    for (const char* p = adcode; *p; ++p) {
-      h = h * 131u + static_cast<unsigned char>(*p);
-    }
-  }
-  return kPastels[h % (sizeof(kPastels) / sizeof(kPastels[0]))];
+  // Unified Baidu land wash — boundaries carry identity, not choropleth fills.
+  (void)adcode;
+  (void)feature_id;
+  return RGB(245, 243, 233);
 }
 
 bool MapScene::try_bootstrap_china_plp() {
@@ -1143,8 +1134,7 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
     return;
   }
 
-  // White map canvas (SmartGis.exe EDIT look). Callers may have filled a
-  // dark placeholder; overwrite so product shells match leftover 2D.
+  // Ocean canvas (Baidu-like). Callers may have filled a dark placeholder.
   if (fill_background) {
     HBRUSH bg = CreateSolidBrush(map_scene_map_bg_color());
     RECT full = {0, 0, width_px, height_px};
@@ -1159,20 +1149,9 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
   pens[0] =
       CreatePen(PS_SOLID, 1, map_scene_admin_stroke_color());  // polygon outline
   pens[1] = CreatePen(PS_SOLID, 2, map_scene_river_color());   // river
-  pens[2] = CreatePen(PS_SOLID, 2, RGB(120, 110, 90));         // other line
+  pens[2] = CreatePen(PS_SOLID, 2, RGB(220, 210, 190));         // other line
   pens[3] = CreatePen(PS_SOLID, 3, RGB(200, 120, 40));         // selected
-  // Fixed pastel brushes (no per-feature CreateSolidBrush).
-  static const COLORREF kPastels[] = {
-      RGB(232, 198, 210), RGB(210, 198, 232), RGB(198, 220, 210),
-      RGB(232, 220, 186), RGB(198, 210, 232), RGB(220, 210, 198),
-      RGB(210, 232, 220), RGB(232, 210, 198), RGB(186, 210, 220),
-      RGB(220, 198, 210), RGB(198, 232, 210), RGB(210, 210, 220),
-  };
-  constexpr size_t kPastelCount = sizeof(kPastels) / sizeof(kPastels[0]);
-  HBRUSH pastel_brushes[kPastelCount] = {};
-  for (size_t i = 0; i < kPastelCount; ++i) {
-    pastel_brushes[i] = CreateSolidBrush(kPastels[i]);
-  }
+  HBRUSH land_brush = CreateSolidBrush(map_scene_area_fill_color(nullptr, 0));
   HBRUSH point_brush = CreateSolidBrush(map_scene_point_fill_color());
   HBRUSH selected_brush = CreateSolidBrush(RGB(255, 200, 80));
   HFONT fonts[3] = {};
@@ -1193,20 +1172,6 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
   HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
   HGDIOBJ old_font = SelectObject(hdc, fonts[0] ? fonts[0] : stock_font);
   SetBkMode(hdc, TRANSPARENT);
-
-  auto pastel_index = [](const Feature& f) -> size_t {
-    const char* adcode = field_value(f, "adcode");
-    uint32_t h = 2166136261u;
-    for (uint8_t i = 0; i < f.id.len && i < sizeof(f.id.bytes); ++i) {
-      h = (h ^ f.id.bytes[i]) * 16777619u;
-    }
-    if (adcode && adcode[0]) {
-      for (const char* p = adcode; *p; ++p) {
-        h = h * 131u + static_cast<unsigned char>(*p);
-      }
-    }
-    return static_cast<size_t>(h % kPastelCount);
-  };
 
   auto draw_label = [&](int vx, int vy, const std::string& name, COLORREF color,
                         int font_idx, int dx, int dy) {
@@ -1303,9 +1268,17 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
               vy > height_px + 20) {
             continue;
           }
+          // Thin Baidu-like POI: white halo + soft fill (scale-aware radius).
+          const int r = scale_ < 18.0 ? 1 : 2;
+          const int outer = r + 1;
+          HBRUSH ring = CreateSolidBrush(RGB(255, 255, 255));
+          SelectObject(hdc, ring);
+          SelectObject(hdc, GetStockObject(NULL_PEN));
+          Ellipse(hdc, vx - outer, vy - outer, vx + outer + 1, vy + outer + 1);
+          DeleteObject(ring);
           SelectObject(hdc, f.selected ? selected_brush : point_brush);
           SelectObject(hdc, f.selected ? pens[3] : pens[0]);
-          Ellipse(hdc, vx - 3, vy - 3, vx + 3, vy + 3);
+          Ellipse(hdc, vx - r, vy - r, vx + r + 1, vy + r + 1);
           SelectObject(hdc, GetStockObject(NULL_BRUSH));
           if (draw_dense_text && !has_text_features) {
             draw_label(vx, vy, feature_display_name(f), RGB(40, 32, 20), 0, 7,
@@ -1359,8 +1332,7 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
           // the present timer repaints ~30 Hz; per-feature GDI creates exhaust
           // the process quota and crash the host even when DeleteObject is called.
           SelectObject(hdc, f.selected ? pens[3] : pens[0]);
-          HBRUSH fill = f.selected ? selected_brush
-                                   : pastel_brushes[pastel_index(f)];
+          HBRUSH fill = f.selected ? selected_brush : land_brush;
           SelectObject(hdc, fill ? fill : GetStockObject(LTGRAY_BRUSH));
           Polygon(hdc, pts.data(), static_cast<int>(pts.size()));
           SelectObject(hdc, GetStockObject(NULL_BRUSH));
@@ -1390,10 +1362,8 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
       DeleteObject(font);
     }
   }
-  for (HBRUSH brush : pastel_brushes) {
-    if (brush) {
-      DeleteObject(brush);
-    }
+  if (land_brush) {
+    DeleteObject(land_brush);
   }
   if (point_brush) {
     DeleteObject(point_brush);

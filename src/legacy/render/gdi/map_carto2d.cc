@@ -133,8 +133,12 @@ int carto2d_halo_px(int priority) {
 }
 
 int carto2d_point_radius(float fblc) {
+  // Country / regional scale: thin Baidu-like POI discs (not fat GIS dots).
+  if (fblc < 12.f) {
+    return 1;
+  }
   if (fblc < 28.f) {
-    return 2;
+    return 1;
   }
   if (fblc < 60.f) {
     return 2;
@@ -168,13 +172,18 @@ int carto2d_stroke_px_kind(float fblc, bool river, bool road) {
   return 2;
 }
 
+unsigned carto2d_map_bg() {
+  // Baidu-like soft ocean / empty canvas behind land polygons.
+  return 0x00dfd3aa;  // RGB(170, 211, 223)
+}
+
 unsigned carto2d_land_fill() {
-  // Quiet Baidu-like land (warm gray). Identity is on the stroke.
-  return 0x00dce8e4;  // RGB(228,232,220)
+  // Baidu standard land: warm cream. Admin identity is on the stroke.
+  return 0x00e9f3f5;  // RGB(245, 243, 233)
 }
 
 unsigned carto2d_water_fill() {
-  return 0x00f0e2c8;  // RGB(200,226,240)
+  return 0x00ffcca3;  // RGB(163, 204, 255)
 }
 
 unsigned carto2d_boost_fill(unsigned bgr) {
@@ -183,15 +192,16 @@ unsigned carto2d_boost_fill(unsigned bgr) {
 }
 
 unsigned carto2d_admin_stroke() {
-  return 0x00909088;  // RGB(136,144,144)
+  return 0x00b0bec4;  // RGB(196, 190, 176)
 }
 
 unsigned carto2d_river_color() {
-  return 0x00c88838;  // RGB(56,136,200)
+  // Clear but not neon; hydrography stays behind labels.
+  return 0x00d0a064;  // RGB(100, 160, 208)
 }
 
 unsigned carto2d_road_color() {
-  return 0x00b8c0c8;  // RGB(200,192,184)
+  return 0x00ffffff;  // RGB(255, 255, 255)
 }
 
 bool carto2d_is_river_kind(const char* kind) {
@@ -207,10 +217,10 @@ bool carto2d_is_road_kind(const char* kind) {
 
 int carto2d_point_min_distance(float fblc) {
   if (fblc < 12.f) {
-    return 22;
+    return 30;
   }
   if (fblc < 28.f) {
-    return 16;
+    return 18;
   }
   if (fblc < 60.f) {
     return 8;

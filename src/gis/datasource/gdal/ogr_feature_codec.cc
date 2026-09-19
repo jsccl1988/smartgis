@@ -66,34 +66,10 @@ COLORREF field_color_rgb(OGRFeature* src, const char* name, COLORREF fallback) {
 }
 
 COLORREF hash_feature_fill(OGRFeature* src, COLORREF fallback) {
-  if (!src) {
-    return fallback;
-  }
-  const char* key = nullptr;
-  const int ni = src->GetFieldIndex("name");
-  if (ni >= 0) {
-    key = src->GetFieldAsString(ni);
-  }
-  if (!key || !key[0]) {
-    const int ai = src->GetFieldIndex("adcode");
-    if (ai >= 0) {
-      key = src->GetFieldAsString(ai);
-    }
-  }
-  if (!key || !key[0]) {
-    return fallback;
-  }
-  unsigned h = 2166136261u;
-  for (const unsigned char* p = reinterpret_cast<const unsigned char*>(key); *p;
-       ++p) {
-    h ^= *p;
-    h *= 16777619u;
-  }
-  // Quiet pastels so fills stay behind labels (Baidu-like wash).
-  const int r = 188 + static_cast<int>(h & 0x2fu);
-  const int g = 188 + static_cast<int>((h >> 8) & 0x2fu);
-  const int b = 188 + static_cast<int>((h >> 16) & 0x2fu);
-  return RGB(r, g, b);
+  (void)src;
+  (void)fallback;
+  // Unified Baidu land wash; choropleth hashing is intentionally disabled.
+  return RGB(245, 243, 233);
 }
 
 OGRPoint* first_point(OGRGeometry* geom) {
@@ -279,22 +255,19 @@ void fill_default_draw_style(OGRFeature* src, base::SmtStyle* dst, float fblc) {
   base::SmtPenDesc pen;
   pen.lPenStyle = PS_SOLID;
   if (river) {
-    pen.lPenColor = field_color_rgb(src, "stroke", RGB(120, 168, 204));
+    pen.lPenColor = field_color_rgb(src, "stroke", RGB(100, 160, 208));
     pen.fPenWidth = fblc > 0.01f ? (0.9f / fblc) : 0.14f;
   } else {
-    pen.lPenColor = field_color_rgb(src, "stroke", RGB(78, 92, 108));
+    pen.lPenColor = field_color_rgb(src, "stroke", RGB(196, 190, 176));
     pen.fPenWidth = fblc > 0.01f ? (1.15f / fblc) : 0.2f;
   }
   base::SmtBrushDesc brush;
-  COLORREF fill = RGB(214, 226, 236);
+  COLORREF fill = RGB(245, 243, 233);
   const int fi = src ? src->GetFieldIndex("fill") : -1;
   if (fi < 0 || !parse_html_rgb(src->GetFieldAsString(fi), &fill)) {
     fill = hash_feature_fill(src, fill);
   }
-  const int r = (GetRValue(fill) * 55 + 255 * 45) / 100;
-  const int g = (GetGValue(fill) * 55 + 255 * 45) / 100;
-  const int b = (GetBValue(fill) * 55 + 255 * 45) / 100;
-  brush.lBrushColor = river ? RGB(232, 242, 250) : RGB(r, g, b);
+  brush.lBrushColor = river ? RGB(163, 204, 255) : fill;
   dst->set_pen_desc(pen);
   dst->set_brush_desc(brush);
 

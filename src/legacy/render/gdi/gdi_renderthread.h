@@ -105,7 +105,7 @@ class SmtGdiRenderThread {
   }
   int GetRenderContex(SmtRenderContex &smtRC) const { smtRC = m_smtRC; }
 
-  int ClearBuf(int x, int y, int w, int h, COLORREF clr = RGB(255, 255, 255)) {
+  int ClearBuf(int x, int y, int w, int h, COLORREF clr = RGB(170, 211, 223)) {
     if (!IsRendering()) m_smtRenderBuf.ClearBuf(x, y, w, h, clr);
     return SMT_ERR_NONE;
   }
@@ -115,14 +115,14 @@ class SmtGdiRenderThread {
   int SwapBuf(int destOrgx, int destOrgy, int destW, int destH, int srcOrgx,
               int srcOrgy, int srcW, int srcH,
               eSwapType type = eSwapType::BLT_TRANSPARENT, int op = SRCCOPY,
-              COLORREF clr = RGB(255, 255, 255));
+              COLORREF clr = RGB(170, 211, 223));
 
   int SwapBuf(SmtRenderBuf &rbTarget, int destOrgx, int destOrgy, int destW,
               int destH, int srcOrgx, int srcOrgy, int op = SRCCOPY);
   int SwapBuf(SmtRenderBuf &rbTarget, int destOrgx, int destOrgy, int destW,
               int destH, int srcOrgx, int srcOrgy, int srcW, int srcH,
               eSwapType type = eSwapType::BLT_TRANSPARENT, int op = SRCCOPY,
-              COLORREF clr = RGB(255, 255, 255));
+              COLORREF clr = RGB(170, 211, 223));
 
  public:
   int LPToDP(float x, float y, long &X, long &Y) const;

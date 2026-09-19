@@ -220,7 +220,7 @@ int SmtGdiRenderThread::PrepareForDrawing(const SmtStyle *pStyle,
         m_hBrush = NULL;
       }
 
-      const COLORREF fill = m_isRiver ? RGB(210, 230, 244)
+      const COLORREF fill = m_isRiver ? carto2d_water_fill()
                                       : carto2d_boost_fill(brush.lBrushColor);
       if (brush.brushTp == SmtBrushDesc::BT_Hatch) {
         m_hBrush = CreateHatchBrush(brush.lBrushStyle, fill);

@@ -30,6 +30,8 @@ class SmtFeature;
 #include "base/carto/style_api.h"
 #include "gis/feature/feature.h"
 #include "gis/map/map.h"
+#include "tool/camera_nav.h"
+#include "tool/gestures.h"
 #include "tool/workspace.h"
 
 using namespace base;
@@ -511,6 +513,10 @@ bool Smt2DXView::CreateTools(void) {
   if (SmtFlashTool *flash = dynamic_cast<SmtFlashTool *>(m_pFlashTool)) {
     flash->bind_workspace(ws);
   }
+  if (ws) {
+    // Default browse: two-finger / hwheel pan needs view.pan on the stack.
+    ws->activate("view.pan");
+  }
 
   LOGGING(LOG_INFO, "Init GroupTools ok!");
 
@@ -637,6 +643,21 @@ BOOL Smt2DXView::OnCommand(WPARAM wParam, LPARAM lParam) {
 void Smt2DXView::apply_workspace_draft(const tool::Draft &draft) {
   if (draft.kind == tool::DraftKind::kWheel) {
     if (m_pViewCtrlTool) {
+      m_pViewCtrlTool->apply_draft(draft);
+    }
+    return;
+  }
+  // Always-on horizontal wheel / two-finger pan — never treat as select/draw.
+  if (draft.kind == tool::DraftKind::kRect &&
+      tool::draft_flags::is_touch_pan(draft.flags)) {
+    const char *tool_id = nullptr;
+    if (view_host() && view_host()->workspace()) {
+      if (tool::Interaction *cur =
+              view_host()->workspace()->stack().current()) {
+        tool_id = cur->id();
+      }
+    }
+    if (tool::is_navigate_tool(tool_id) && m_pViewCtrlTool) {
       m_pViewCtrlTool->apply_draft(draft);
     }
     return;
