@@ -79,12 +79,17 @@ CameraMatrices make_perspective_camera(float fov_y_radians, float aspect,
   if (fov_y_radians <= 0.f || aspect <= 0.f || far_z <= near_z) {
     return camera;
   }
+  // Right-handed clip to match look_at (camera looks down -Z). Left-handed
+  // D3D-style (proj[11]=+1) puts orbit targets behind the near plane so
+  // FlyCube terrain/ocean draws clear the swapchain but rasterize nothing.
   const float f = 1.f / std::tan(fov_y_radians * 0.5f);
+  const float n = near_z;
+  const float fr = far_z;
   camera.proj[0] = f / aspect;
   camera.proj[5] = f;
-  camera.proj[10] = far_z / (far_z - near_z);
-  camera.proj[11] = 1.f;
-  camera.proj[14] = (-near_z * far_z) / (far_z - near_z);
+  camera.proj[10] = fr / (n - fr);
+  camera.proj[11] = -1.f;
+  camera.proj[14] = (n * fr) / (n - fr);
   camera.proj[15] = 0.f;
   return camera;
 }

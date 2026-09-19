@@ -79,17 +79,14 @@ out\SmartGisViews.exe
 无 GPU 时 GDI DEM 线框兜底。`--self-test` 断言 OGR 进层与相机矩阵；若挂上
 FlyCube 会写 `flycube-camera-ok`，并在 present 前开 `enable_atmosphere_demo()`。
 
-大气 3D 端到端 showcase（自动 present；GPU 默认可视 linger 后退出）。默认 **Null RHI**（可重复退出 0）；
+大气 3D 端到端 showcase。默认 **Null RHI**（可重复退出 0）；
 真 GPU：`set SMT_ATMOSPHERE_SHOWCASE_GPU=1`（独立 640×480 展示窗 + FlyCube/DX12）。
-可选 `SMT_ATMOSPHERE_SHOWCASE_LINGER_MS`（毫秒；GPU 默认 4000，设 `0` 可跳过停留）。
+GPU 默认 **一直显示直到关掉展示窗**；自动化设 `SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=1500`（毫秒）或 `0` 跳过。
 
 ```bat
 set SMT_ATMOSPHERE_SHOWCASE_GPU=1
-rem optional: set SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=6000
-out\SmartGisViews.exe --atmosphere-showcase=land
-out\SmartGisViews.exe --atmosphere-showcase=ocean
+rem automation only: set SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=1500
 out\SmartGisViews.exe --atmosphere-showcase=full
-out\SmartGisViews.exe --atmosphere-showcase=coast
 ```
 
 | 模式 | 行为 |
@@ -105,8 +102,7 @@ out\SmartGisViews.exe --atmosphere-showcase=coast
 
 说明：showcase 启动前会自动设 `SMT_FORCE_CONTENT_MAPVIEW_3D=1`，避免
 `BrowserView::init` 多视口 FlyCube 挂起；GPU 绘制走独立 640×480 present HWND。
-若 BMP 仅有 clear 色（无地形/海面几何），GPU 路径 exit 54——逻辑场与 present 仍跑通，
-需继续修 FlyCube 网格可见性。
+GPU BMP 需至少 2 种可见色（拒绝纯 clear）。根因修复：透视投影改为 RH，与 look_at（看向 -Z）一致。
 
 ```bat
 build.bat views

@@ -178,6 +178,31 @@ int main() {
   expect(std::fabs(orbit.view[12]) > 1e-4f || std::fabs(orbit.view[13]) > 1e-4f ||
              std::fabs(orbit.view[14]) > 1e-4f,
          "orbit view translates eye");
+  // look_at is OpenGL-style (camera looks down -Z). Perspective must be RH so
+  // a point at the orbit target (origin) lands in front with positive clip w.
+  {
+    const render::rhi::CameraMatrices cam =
+        render::rhi::make_orbit_camera(0.f, 0.35f, 3.2f, 0.785398f, 4.f / 3.f,
+                                       0.1f, 100.f);
+    auto mul_col = [](const float* m, float x, float y, float z, float* o) {
+      o[0] = m[0] * x + m[4] * y + m[8] * z + m[12];
+      o[1] = m[1] * x + m[5] * y + m[9] * z + m[13];
+      o[2] = m[2] * x + m[6] * y + m[10] * z + m[14];
+      o[3] = m[3] * x + m[7] * y + m[11] * z + m[15];
+    };
+    float eye[4];
+    float clip[4];
+    mul_col(cam.view, 0.f, 0.f, 0.f, eye);
+    mul_col(cam.proj, eye[0], eye[1], eye[2], clip);
+    expect(clip[3] > 0.05f, "orbit target has positive clip w (RH proj)");
+    expect(std::fabs(clip[0]) <= clip[3] * 1.05f &&
+               std::fabs(clip[1]) <= clip[3] * 1.05f,
+           "orbit target inside xy clip");
+    // Nearby terrain-sized point (normalized DEM ~ unit extents) also visible.
+    mul_col(cam.view, 0.8f, 0.1f, -0.6f, eye);
+    mul_col(cam.proj, eye[0], eye[1], eye[2], clip);
+    expect(clip[3] > 0.05f, "nearby mesh point has positive clip w");
+  }
   list->set_solid_color(0.1f, 0.2f, 0.3f, 0.4f);
   expect(stub->set_solid_color_calls == 1, "set_solid_color recorded");
   expect(stub->solid_r == 0.1f && stub->solid_g == 0.2f &&

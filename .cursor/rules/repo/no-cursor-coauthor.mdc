@@ -13,12 +13,14 @@ All rights reserved.
 ## Do
 
 - Commit messages: subject + optional body only.
-- Strip any `Co-authored-by:` trailer that names Cursor / Cursor Agent or uses `cursoragent@cursor.com` before finishing a commit.
+- Strip any `Co-authored-by:` trailer that names Cursor / Cursor Agent or uses `cursoragent@cursor.com` before finishing a commit (and before push).
+- After commit, verify with `git log -1 --format=%B` that no Cursor co-author trailer remains; if present, rewrite the message (amend only when amend rules allow, else a follow-up fix on next rewrite / filter).
 
 ## Don’t
 
 - Don’t add `Co-authored-by: Cursor <cursoragent@cursor.com>`.
 - Don’t add `Co-authored-by: Cursor Agent <cursoragent@cursor.com>`.
 - Don’t put “Cursor” / `cursoragent@…` in commit trailers as co-author.
+- Don’t leave historical Cursor co-author trailers on `master` / `origin/master`.
 
 Other human `Co-authored-by:` lines may remain.

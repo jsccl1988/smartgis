@@ -73,7 +73,7 @@ out\views_unittests.exe
 独立于完整 `--self-test`：切到 3D 页，按模式配置大气，连续 `present_gpu` 三帧后退出。
 默认 **Null RHI**（确定性 exit 0）。`SMT_ATMOSPHERE_SHOWCASE_GPU=1` 时在**独立**
 640×480 展示窗上拉 FlyCube/DX12（启动期勿设 `SMT_PREFER_FLYCUBE_3D=1`）。
-GPU 默认 linger 约 4s（`SMT_ATMOSPHERE_SHOWCASE_LINGER_MS` 可改；`0` 跳过）。
+GPU 默认 **一直显示直到关掉展示窗**；自动化设 `SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=1500`（毫秒）或 `0` 跳过。
 旁路产物：`out/atmosphere-showcase-mark.txt`、`atmosphere-showcase-<mode>.bmp`、
 `atmosphere-showcase-cmdline.txt`。GPU 路径要求 BMP 有可见像素，否则 exit 54。
 

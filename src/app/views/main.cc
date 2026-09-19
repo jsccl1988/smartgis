@@ -183,13 +183,28 @@ HWND create_atmosphere_showcase_hwnd(uint32_t width_px, uint32_t height_px) {
   return hwnd;
 }
 
-DWORD atmosphere_showcase_linger_ms(bool want_gpu) {
+// Linger policy for GPU showcase.
+// unset / "-1" / "until-close" → keep presenting until the showcase HWND is closed.
+// "0" → no linger.  positive ms → timed linger (automation).
+struct AtmosphereShowcaseLinger {
+  bool until_close = false;
+  DWORD ms = 0;
+};
+
+AtmosphereShowcaseLinger atmosphere_showcase_linger(bool want_gpu) {
+  AtmosphereShowcaseLinger out;
   if (const char* env = std::getenv("SMT_ATMOSPHERE_SHOWCASE_LINGER_MS")) {
+    if (_stricmp(env, "until-close") == 0 || std::strcmp(env, "-1") == 0) {
+      out.until_close = want_gpu;
+      return out;
+    }
     const int v = std::atoi(env);
-    return v > 0 ? static_cast<DWORD>(v) : 0u;
+    out.ms = v > 0 ? static_cast<DWORD>(v) : 0u;
+    return out;
   }
-  // GPU default: linger so the ocean/cloud frame is visible on screen.
-  return want_gpu ? 4000u : 0u;
+  // Interactive default: stay up until the user closes the present window.
+  out.until_close = want_gpu;
+  return out;
 }
 
 bool pixels_have_visible_signal(const unsigned char* pixels, int stride,
@@ -283,7 +298,9 @@ bool bmp_file_has_visible_signal(const wchar_t* filename, int* out_w,
       }
     }
   }
-  return unique >= 4;
+  // Solid DEM is often clear + one mesh color; ocean/cloud add more.
+  // Reject pure clear (unique==1).
+  return unique >= 2;
 }
 
 bool blit_client_to_dib(HWND hwnd, HDC mem, int w, int h) {
@@ -400,14 +417,16 @@ int run_atmosphere_showcase(app::BrowserView& browser,
 
   // Default: Null RHI (deterministic exit). Set SMT_ATMOSPHERE_SHOWCASE_GPU=1
   // for FlyCube/DX12 on a dedicated 640x480 present window (not the tiny tab
-  // child). Optional SMT_ATMOSPHERE_SHOWCASE_LINGER_MS (GPU default 4000).
+  // child). Optional SMT_ATMOSPHERE_SHOWCASE_LINGER_MS (GPU default:
+  // until-close; set a positive ms for timed automation).
   const bool want_gpu = []() {
     if (const char* env = std::getenv("SMT_ATMOSPHERE_SHOWCASE_GPU")) {
       return env[0] == '1' && env[1] == '\0';
     }
     return false;
   }();
-  const DWORD linger_ms = atmosphere_showcase_linger_ms(want_gpu);
+  const AtmosphereShowcaseLinger linger =
+      atmosphere_showcase_linger(want_gpu);
 
   // Drop any ContentMapView / prior FlyCube on the tab before we own a device.
   if (scene->attach_mode() ==
@@ -465,9 +484,15 @@ int run_atmosphere_showcase(app::BrowserView& browser,
   desc.width = kAtmosphereShowcaseW;
   desc.height = kAtmosphereShowcaseH;
   std::fprintf(stderr,
-               "atmosphere-showcase: gpu=%d linger_ms=%lu present=%p %ux%u\n",
-               want_gpu ? 1 : 0, static_cast<unsigned long>(linger_ms),
+               "atmosphere-showcase: gpu=%d linger=%s present=%p %ux%u\n",
+               want_gpu ? 1 : 0,
+               linger.until_close ? "until-close"
+                                  : (linger.ms > 0 ? "timed" : "none"),
                static_cast<void*>(present_hwnd), desc.width, desc.height);
+  if (!linger.until_close && linger.ms > 0) {
+    std::fprintf(stderr, "atmosphere-showcase: linger_ms=%lu\n",
+                 static_cast<unsigned long>(linger.ms));
+  }
   if (!device->initialize(desc)) {
     std::fprintf(stderr, "atmosphere-showcase: device initialize failed\n");
     device->shutdown();
@@ -634,35 +659,12 @@ int run_atmosphere_showcase(app::BrowserView& browser,
                presents, kW, kH);
 
   // Interactive linger: keep presenting so ocean/cloud stay visible.
-  if (linger_ms > 0) {
-    showcase_mark("linger-start");
-    std::fprintf(stderr, "atmosphere-showcase: linger %lu ms\n",
-                 static_cast<unsigned long>(linger_ms));
-    const DWORD linger_end = GetTickCount() + linger_ms;
-    int linger_frames = 0;
-    while (GetTickCount() < linger_end) {
-      if (owned_present_hwnd && !IsWindow(owned_present_hwnd)) {
-        break;
-      }
-      char linger_mark[32];
-      std::snprintf(linger_mark, sizeof(linger_mark), "linger-%d",
-                    linger_frames);
-      if (!cam->present_gpu(device, kW, kH)) {
-        std::fprintf(stderr, "atmosphere-showcase: linger present failed\n");
-        break;
-      }
-      ++linger_frames;
-      pump_briefly(33);
+  // Capture while the present HWND is still alive (before until-close ends).
+  auto capture_showcase_bmp = [&]() -> bool {
+    wchar_t bmp_path[MAX_PATH] = {};
+    if (GetModuleFileNameW(nullptr, bmp_path, MAX_PATH) == 0) {
+      return !want_gpu;
     }
-    showcase_mark("linger-ok");
-    std::fprintf(stderr, "atmosphere-showcase: linger frames=%d\n",
-                 linger_frames);
-  }
-
-  // Capture from the present surface (dedicated HWND when GPU).
-  wchar_t bmp_path[MAX_PATH] = {};
-  bool bmp_signal_ok = !want_gpu;  // Null path: capture optional.
-  if (GetModuleFileNameW(nullptr, bmp_path, MAX_PATH) > 0) {
     for (int i = static_cast<int>(wcslen(bmp_path)) - 1; i >= 0; --i) {
       if (bmp_path[i] == L'\\' || bmp_path[i] == L'/') {
         bmp_path[i + 1] = L'\0';
@@ -671,33 +673,74 @@ int run_atmosphere_showcase(app::BrowserView& browser,
     }
     wchar_t file[64] = {};
     swprintf_s(file, L"atmosphere-showcase-%S.bmp", name);
-    if (wcscat_s(bmp_path, file) == 0) {
-      HWND capture_hwnd =
-          owned_present_hwnd ? owned_present_hwnd : present_hwnd;
-      // One extra present so DWM has a fresh composed frame for BitBlt.
-      (void)cam->present_gpu(device, kW, kH);
-      pump_briefly(80);
-      if (capture_hwnd_bmp(capture_hwnd, bmp_path)) {
-        int bw = 0;
-        int bh = 0;
-        const bool signal =
-            bmp_file_has_visible_signal(bmp_path, &bw, &bh);
-        std::fwprintf(stderr,
-                      L"atmosphere-showcase: wrote %ls (%dx%d signal=%d)\n",
-                      bmp_path, bw, bh, signal ? 1 : 0);
-        if (signal) {
-          showcase_mark("bmp-ok");
-          bmp_signal_ok = true;
-        } else {
-          showcase_mark("bmp-black");
-          std::fprintf(stderr,
-                       "atmosphere-showcase: BMP lacks visible signal\n");
-        }
-      } else {
-        showcase_mark("bmp-skip");
-        std::fprintf(stderr, "atmosphere-showcase: BMP capture skipped\n");
-      }
+    if (wcscat_s(bmp_path, file) != 0) {
+      return !want_gpu;
     }
+    HWND capture_hwnd =
+        owned_present_hwnd ? owned_present_hwnd : present_hwnd;
+    (void)cam->present_gpu(device, kW, kH);
+    pump_briefly(80);
+    if (!capture_hwnd_bmp(capture_hwnd, bmp_path)) {
+      showcase_mark("bmp-skip");
+      std::fprintf(stderr, "atmosphere-showcase: BMP capture skipped\n");
+      return !want_gpu;
+    }
+    int bw = 0;
+    int bh = 0;
+    const bool signal = bmp_file_has_visible_signal(bmp_path, &bw, &bh);
+    std::fwprintf(stderr,
+                  L"atmosphere-showcase: wrote %ls (%dx%d signal=%d)\n",
+                  bmp_path, bw, bh, signal ? 1 : 0);
+    if (signal) {
+      showcase_mark("bmp-ok");
+      return true;
+    }
+    showcase_mark("bmp-black");
+    std::fprintf(stderr, "atmosphere-showcase: BMP lacks visible signal\n");
+    return false;
+  };
+
+  bool bmp_signal_ok = !want_gpu;
+  if (linger.until_close || linger.ms > 0) {
+    showcase_mark("linger-start");
+    if (linger.until_close) {
+      std::fprintf(stderr,
+                   "atmosphere-showcase: linger until window closed "
+                   "(close the showcase window when done)\n");
+    } else {
+      std::fprintf(stderr, "atmosphere-showcase: linger %lu ms\n",
+                   static_cast<unsigned long>(linger.ms));
+    }
+    const DWORD linger_end =
+        linger.until_close ? 0u : (GetTickCount() + linger.ms);
+    int linger_frames = 0;
+    bool captured = false;
+    for (;;) {
+      if (owned_present_hwnd && !IsWindow(owned_present_hwnd)) {
+        break;
+      }
+      if (!linger.until_close && GetTickCount() >= linger_end) {
+        break;
+      }
+      if (!cam->present_gpu(device, kW, kH)) {
+        std::fprintf(stderr, "atmosphere-showcase: linger present failed\n");
+        break;
+      }
+      ++linger_frames;
+      if (!captured && linger_frames >= 8) {
+        bmp_signal_ok = capture_showcase_bmp();
+        captured = true;
+      }
+      pump_briefly(33);
+    }
+    if (!captured) {
+      bmp_signal_ok = capture_showcase_bmp();
+    }
+    showcase_mark("linger-ok");
+    std::fprintf(stderr, "atmosphere-showcase: linger frames=%d\n",
+                 linger_frames);
+  } else if (want_gpu) {
+    bmp_signal_ok = capture_showcase_bmp();
   }
 
   cam->abandon_mesh();
