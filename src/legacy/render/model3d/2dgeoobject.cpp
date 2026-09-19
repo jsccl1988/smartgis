@@ -98,7 +98,8 @@ void Smt2DGeoObject::emit_map_vertex(SmtVertexBuffer *vb, double x, double y,
     const float hx1 = height_at(x + eps, y);
     const float hy0 = height_at(x, y - eps);
     const float hy1 = height_at(x, y + eps);
-    float nx = hx0 - hx1;
+    // X=-lon: flip the lon-space ∂h/∂x into world X.
+    float nx = -(hx0 - hx1);
     float ny = 2.f * eps;
     float nz = hy0 - hy1;
     const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
@@ -113,7 +114,8 @@ void Smt2DGeoObject::emit_map_vertex(SmtVertexBuffer *vb, double x, double y,
     }
     vb->Normal(nx, ny, nz);
   }
-  vb->Vertex(static_cast<float>(x), h, static_cast<float>(y));
+  // Geographic lon/lat in |x|/|y|; mesh X is -lon for east-on-right framing.
+  vb->Vertex(static_cast<float>(-x), h, static_cast<float>(y));
   vb->Diffuse(r, g, b, 1.f);
 }
 
@@ -175,8 +177,8 @@ long Smt2DGeoObject::Create(LP3DRENDERDEVICE p3DRenderDevice) {
   const float h11 = height_at(env.MaxX, env.MaxY);
   const float hmin = (std::min)((std::min)(h00, h10), (std::min)(h01, h11));
   const float hmax = (std::max)((std::max)(h00, h10), (std::max)(h01, h11));
-  m_aAbb.merge(env.MinX, hmin, env.MinY);
-  m_aAbb.merge(env.MaxX, hmax, env.MaxY);
+  m_aAbb.merge(-env.MaxX, hmin, env.MinY);
+  m_aAbb.merge(-env.MinX, hmax, env.MaxY);
 
   m_aAbb.vcMax += m_vOrgPos;
   m_aAbb.vcMin += m_vOrgPos;

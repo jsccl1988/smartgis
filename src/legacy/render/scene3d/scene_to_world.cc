@@ -3,6 +3,8 @@
 
 #include "legacy/render/scene3d/scene_to_world.h"
 
+#include "gis/world/dem_frame.h"
+
 #include <algorithm>
 #include <cstdio>
 #include <string>
@@ -32,10 +34,13 @@ void remove_empty_mirror_nodes(gis::World* world) {
 
 }  // namespace
 
-void leftover_yup_to_gis(double lon0, double elev0, double lat0, double lon1,
+void leftover_yup_to_gis(double x0, double elev0, double lat0, double x1,
                          double elev1, double lat1, double* min_x,
                          double* min_y, double* min_z, double* max_x,
                          double* max_y, double* max_z) {
+  // Mesh / AABB X is -lon; recover geographic lon for World envelope.
+  const double lon0 = gis::dem_x_to_lon(static_cast<float>(x0));
+  const double lon1 = gis::dem_x_to_lon(static_cast<float>(x1));
   if (min_x) {
     *min_x = (std::min)(lon0, lon1);
   }

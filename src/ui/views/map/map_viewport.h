@@ -58,12 +58,14 @@ class MapViewport : public View {
 
   uint32_t view_id() const { return view_id_; }
 
-  // Prefer content::MapWidgetHostView (OpenView kind from Role). Scene3d uses
-  // FlyCube first when SMT_PREFER_FLYCUBE_3D=1 (live orbit camera); otherwise
-  // content then FlyCube fallback. Map Edit: OOP / FlyCube / LoadLibrary.
-  // SMT_PREFER_GDI_DEVICE=1 skips FlyCube on Map Edit.
+  // Prefer content::MapWidgetHostView (OpenView kind from Role). Scene3d tries
+  // FlyCube / present_gpu first by default; set SMT_FORCE_CONTENT_MAPVIEW_3D=1
+  // (or legacy SMT_PREFER_FLYCUBE_3D=0) to skip to ContentMapView. Map Edit:
+  // OOP / FlyCube / LoadLibrary. SMT_PREFER_GDI_DEVICE=1 skips FlyCube.
   bool attach();
   AttachMode attach_mode() const { return mode_; }
+  // Last Scene3d FlyCube gpu_present_ result (false until a successful present).
+  bool last_gpu_present_ok() const { return last_gpu_present_ok_; }
   const wchar_t* status_text() const { return status_; }
   bool wait_ready(uint32_t timeout_ms);
 
@@ -127,6 +129,7 @@ class MapViewport : public View {
   uint32_t painted_generation_ = 0;
   OverlayPaint overlay_paint_;
   GpuPresentFn gpu_present_;
+  bool last_gpu_present_ok_ = false;
   HDC back_dc_ = nullptr;
   HBITMAP back_dib_ = nullptr;
   HBITMAP back_old_ = nullptr;

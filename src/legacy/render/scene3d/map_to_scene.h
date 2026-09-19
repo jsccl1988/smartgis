@@ -19,12 +19,12 @@ namespace render {
 SCENE3D_EXPORT_API void apply_view3d_viewport(Viewport3D* vp, ulong width,
                                               ulong height);
 
-// Leftover Y-up pose that frames |aabb|: geo X→eye.x, height→eye.y, geo Y→eye.z.
+// Leftover Y-up pose that frames |aabb| (X=-lon, Y=elev, Z=lat).
 // Empty AABB falls back to origin + span 40 (legacy cube).
 SCENE3D_EXPORT_API void leftover_frame_pose(const Aabb& aabb, Vector3* eye,
                                             Vector3* target, float* span);
 
-// Scene DEM leftover AABB (lon→X, height→Y, lat→Z). False when no DEM seeded.
+// Scene DEM leftover AABB (X=-lon, height→Y, lat→Z). False when no DEM seeded.
 // Uses the last successful seed's framing cache (does not block another scene).
 SCENE3D_EXPORT_API bool leftover_dem_aabb(Aabb* out);
 

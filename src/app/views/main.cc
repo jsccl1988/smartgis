@@ -27,6 +27,7 @@
 #include "ui/views/gis/status_bar.h"
 #include "ui/views/kernel/view.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -126,6 +127,178 @@ void showcase_mark(const char* step) {
   }
 }
 
+#ifndef PW_CLIENTONLY
+#define PW_CLIENTONLY 0x00000001
+#endif
+#ifndef PW_RENDERFULLCONTENT
+#define PW_RENDERFULLCONTENT 0x00000002
+#endif
+
+constexpr uint32_t kAtmosphereShowcaseW = 640;
+constexpr uint32_t kAtmosphereShowcaseH = 480;
+constexpr wchar_t kAtmosphereShowcaseClass[] = L"SmartGisAtmosphereShowcase";
+
+LRESULT CALLBACK atmosphere_showcase_wnd_proc(HWND hwnd, UINT msg, WPARAM wp,
+                                              LPARAM lp) {
+  switch (msg) {
+    case WM_ERASEBKGND:
+      return 1;
+    case WM_PAINT: {
+      PAINTSTRUCT ps;
+      BeginPaint(hwnd, &ps);
+      EndPaint(hwnd, &ps);
+      return 0;
+    }
+    default:
+      return DefWindowProcW(hwnd, msg, wp, lp);
+  }
+}
+
+// Top-level present surface so FlyCube is not stuck on a tiny tab child HWND.
+HWND create_atmosphere_showcase_hwnd(uint32_t width_px, uint32_t height_px) {
+  HINSTANCE inst = GetModuleHandleW(nullptr);
+  WNDCLASSEXW wc{};
+  wc.cbSize = sizeof(wc);
+  wc.lpfnWndProc = atmosphere_showcase_wnd_proc;
+  wc.hInstance = inst;
+  wc.lpszClassName = kAtmosphereShowcaseClass;
+  wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+  wc.hbrBackground = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
+  RegisterClassExW(&wc);
+
+  RECT wr = {0, 0, static_cast<LONG>(width_px), static_cast<LONG>(height_px)};
+  AdjustWindowRectEx(&wr, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU, FALSE, 0);
+  HWND hwnd = CreateWindowExW(
+      WS_EX_APPWINDOW, kAtmosphereShowcaseClass,
+      L"SmartGIS Atmosphere Showcase",
+      WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_VISIBLE, CW_USEDEFAULT,
+      CW_USEDEFAULT, wr.right - wr.left, wr.bottom - wr.top, nullptr, nullptr,
+      inst, nullptr);
+  if (!hwnd) {
+    return nullptr;
+  }
+  ShowWindow(hwnd, SW_SHOW);
+  UpdateWindow(hwnd);
+  SetForegroundWindow(hwnd);
+  return hwnd;
+}
+
+DWORD atmosphere_showcase_linger_ms(bool want_gpu) {
+  if (const char* env = std::getenv("SMT_ATMOSPHERE_SHOWCASE_LINGER_MS")) {
+    const int v = std::atoi(env);
+    return v > 0 ? static_cast<DWORD>(v) : 0u;
+  }
+  // GPU default: linger so the ocean/cloud frame is visible on screen.
+  return want_gpu ? 4000u : 0u;
+}
+
+bool pixels_have_visible_signal(const unsigned char* pixels, int stride,
+                                int width_px, int height_px) {
+  if (!pixels || width_px < 32 || height_px < 32 || stride < width_px * 3) {
+    return false;
+  }
+  // Sample a grid; require enough non-near-black samples (DXGI GDI-black bug).
+  int lit = 0;
+  int samples = 0;
+  const int step_x = (std::max)(1, width_px / 32);
+  const int step_y = (std::max)(1, height_px / 24);
+  for (int y = 0; y < height_px; y += step_y) {
+    const unsigned char* row = pixels + static_cast<size_t>(y) * stride;
+    for (int x = 0; x < width_px; x += step_x) {
+      const unsigned char b = row[x * 3 + 0];
+      const unsigned char g = row[x * 3 + 1];
+      const unsigned char r = row[x * 3 + 2];
+      ++samples;
+      if (static_cast<int>(r) + g + b > 24) {
+        ++lit;
+      }
+    }
+  }
+  return samples > 0 && lit * 20 >= samples;  // >=5% lit
+}
+
+bool bmp_file_has_visible_signal(const wchar_t* filename, int* out_w,
+                                 int* out_h) {
+  if (!filename) {
+    return false;
+  }
+  FILE* in = nullptr;
+  if (_wfopen_s(&in, filename, L"rb") != 0 || !in) {
+    return false;
+  }
+  BITMAPFILEHEADER fh{};
+  BITMAPINFOHEADER bi{};
+  if (std::fread(&fh, sizeof(fh), 1, in) != 1 ||
+      std::fread(&bi, sizeof(bi), 1, in) != 1 || fh.bfType != 0x4D42) {
+    std::fclose(in);
+    return false;
+  }
+  const int w = bi.biWidth;
+  const int h = bi.biHeight < 0 ? -bi.biHeight : bi.biHeight;
+  if (out_w) {
+    *out_w = w;
+  }
+  if (out_h) {
+    *out_h = h;
+  }
+  if (w < 320 || h < 240 || bi.biBitCount != 24) {
+    std::fclose(in);
+    return false;
+  }
+  const int stride = ((w * 3 + 3) / 4) * 4;
+  std::vector<unsigned char> pixels(static_cast<size_t>(stride) *
+                                    static_cast<size_t>(h));
+  if (std::fseek(in, static_cast<long>(fh.bfOffBits), SEEK_SET) != 0 ||
+      std::fread(pixels.data(), 1, pixels.size(), in) != pixels.size()) {
+    std::fclose(in);
+    return false;
+  }
+  std::fclose(in);
+  if (!pixels_have_visible_signal(pixels.data(), stride, w, h)) {
+    return false;
+  }
+  // Reject flat clear-color frames (geometry never reached the swapchain).
+  int unique = 0;
+  unsigned char seen[64][3] = {};
+  const int step_x = (std::max)(1, w / 24);
+  const int step_y = (std::max)(1, h / 18);
+  for (int y = 0; y < h; y += step_y) {
+    const unsigned char* row = pixels.data() + static_cast<size_t>(y) * stride;
+    for (int x = 0; x < w; x += step_x) {
+      const unsigned char b = row[x * 3 + 0];
+      const unsigned char g = row[x * 3 + 1];
+      const unsigned char r = row[x * 3 + 2];
+      bool found = false;
+      for (int i = 0; i < unique; ++i) {
+        if (seen[i][0] == r && seen[i][1] == g && seen[i][2] == b) {
+          found = true;
+          break;
+        }
+      }
+      if (!found && unique < 64) {
+        seen[unique][0] = r;
+        seen[unique][1] = g;
+        seen[unique][2] = b;
+        ++unique;
+      }
+    }
+  }
+  return unique >= 4;
+}
+
+bool blit_client_to_dib(HWND hwnd, HDC mem, int w, int h) {
+  // Screen BitBlt sees DWM-composited DXGI content; PrintWindow often does not.
+  HDC screen = GetDC(nullptr);
+  if (!screen) {
+    return false;
+  }
+  POINT origin = {0, 0};
+  ClientToScreen(hwnd, &origin);
+  const BOOL ok = BitBlt(mem, 0, 0, w, h, screen, origin.x, origin.y, SRCCOPY);
+  ReleaseDC(nullptr, screen);
+  return ok != FALSE;
+}
+
 bool capture_hwnd_bmp(HWND hwnd, const wchar_t* filename) {
   if (!hwnd || !IsWindow(hwnd) || !filename) {
     return false;
@@ -156,15 +329,13 @@ bool capture_hwnd_bmp(HWND hwnd, const wchar_t* filename) {
     return false;
   }
   HGDIOBJ old = SelectObject(mem, bmp);
-  // PrintWindow catches GPU-composited child content better than BitBlt alone.
-#ifndef PW_CLIENTONLY
-#define PW_CLIENTONLY 0x00000001
-#endif
-  const BOOL printed = PrintWindow(hwnd, mem, PW_CLIENTONLY);
-  if (!printed) {
-    BitBlt(mem, 0, 0, w, h, wnd_dc, 0, 0, SRCCOPY);
-  }
 
+  // Prefer full-content PrintWindow; fall back to desktop BitBlt for DXGI.
+  BOOL printed =
+      PrintWindow(hwnd, mem, PW_RENDERFULLCONTENT | PW_CLIENTONLY);
+  if (!printed) {
+    printed = PrintWindow(hwnd, mem, PW_RENDERFULLCONTENT);
+  }
   BITMAPINFOHEADER bi{};
   bi.biSize = sizeof(bi);
   bi.biWidth = w;
@@ -175,8 +346,16 @@ bool capture_hwnd_bmp(HWND hwnd, const wchar_t* filename) {
   const int stride = ((w * 3 + 3) / 4) * 4;
   std::vector<unsigned char> pixels(static_cast<size_t>(stride) *
                                     static_cast<size_t>(h));
-  const int got = GetDIBits(mem, bmp, 0, h, pixels.data(),
-                            reinterpret_cast<BITMAPINFO*>(&bi), DIB_RGB_COLORS);
+  int got = GetDIBits(mem, bmp, 0, h, pixels.data(),
+                      reinterpret_cast<BITMAPINFO*>(&bi), DIB_RGB_COLORS);
+  if (got != h ||
+      !pixels_have_visible_signal(pixels.data(), stride, w, h)) {
+    if (blit_client_to_dib(hwnd, mem, w, h)) {
+      got = GetDIBits(mem, bmp, 0, h, pixels.data(),
+                      reinterpret_cast<BITMAPINFO*>(&bi), DIB_RGB_COLORS);
+    }
+  }
+
   SelectObject(mem, old);
   DeleteObject(bmp);
   DeleteDC(mem);
@@ -219,93 +398,113 @@ int run_atmosphere_showcase(app::BrowserView& browser,
   }
   showcase_mark("scene-hwnd-ok");
 
-  // Prefer an already-hung FlyCube; otherwise open a device on the 3D HWND.
   // Default: Null RHI (deterministic exit). Set SMT_ATMOSPHERE_SHOWCASE_GPU=1
-  // to use FlyCube/DX12 (ocean root-signature must include VS+PS OceanCB).
-  render::rhi::Device* device =
-      static_cast<render::rhi::Device*>(scene->rhi_device());
-  bool owns_device = false;
+  // for FlyCube/DX12 on a dedicated 640x480 present window (not the tiny tab
+  // child). Optional SMT_ATMOSPHERE_SHOWCASE_LINGER_MS (GPU default 4000).
   const bool want_gpu = []() {
     if (const char* env = std::getenv("SMT_ATMOSPHERE_SHOWCASE_GPU")) {
       return env[0] == '1' && env[1] == '\0';
     }
     return false;
   }();
-  std::fprintf(stderr, "atmosphere-showcase: attach_mode=%d rhi=%p gpu=%d\n",
-               static_cast<int>(scene->attach_mode()),
-               static_cast<void*>(device), want_gpu ? 1 : 0);
-  if (scene->attach_mode() != ui::views::MapViewport::AttachMode::kFlyCube ||
-      !device || !want_gpu) {
-    showcase_mark(want_gpu ? "flycube-acquire" : "null-acquire");
-    if (scene->attach_mode() ==
-            ui::views::MapViewport::AttachMode::kContentMapView ||
-        scene->attach_mode() == ui::views::MapViewport::AttachMode::kFlyCube) {
-      scene->detach();
-      showcase_mark("detached");
-      pump_briefly(100);
+  const DWORD linger_ms = atmosphere_showcase_linger_ms(want_gpu);
+
+  // Drop any ContentMapView / prior FlyCube on the tab before we own a device.
+  if (scene->attach_mode() ==
+          ui::views::MapViewport::AttachMode::kContentMapView ||
+      scene->attach_mode() == ui::views::MapViewport::AttachMode::kFlyCube) {
+    scene->detach();
+    showcase_mark("detached");
+    pump_briefly(100);
+  }
+
+  HWND present_hwnd = nullptr;
+  HWND owned_present_hwnd = nullptr;
+  if (want_gpu) {
+    owned_present_hwnd =
+        create_atmosphere_showcase_hwnd(kAtmosphereShowcaseW,
+                                        kAtmosphereShowcaseH);
+    if (!owned_present_hwnd) {
+      std::fprintf(stderr, "atmosphere-showcase: present HWND create failed\n");
+      self_test_detach_maps(browser);
+      return 50;
     }
-    HWND hwnd = scene->native_view();
-    if (!hwnd) {
+    present_hwnd = owned_present_hwnd;
+    showcase_mark("present-hwnd-ok");
+  } else {
+    present_hwnd = scene->native_view();
+    if (!present_hwnd) {
       scene->realize_native();
-      hwnd = scene->native_view();
+      present_hwnd = scene->native_view();
     }
-    if (!hwnd) {
+    if (!present_hwnd) {
       std::fprintf(stderr, "atmosphere-showcase: HWND gone after detach\n");
       self_test_detach_maps(browser);
       return 50;
     }
-    showcase_mark("hwnd-ready");
-    device = render::rhi::create_device(
-        want_gpu ? render::rhi::preferred_gpu_backend()
-                 : render::rhi::Backend::kNull);
-    if (!device) {
-      std::fprintf(stderr, "atmosphere-showcase: create_device failed\n");
-      showcase_mark("device-missing");
-      self_test_detach_maps(browser);
-      return 51;
-    }
-    showcase_mark("device-created");
-    RECT rc = {};
-    GetClientRect(hwnd, &rc);
-    render::rhi::DeviceDesc desc;
-    desc.native_window = want_gpu ? hwnd : nullptr;
-    desc.width = rc.right > 0 ? static_cast<uint32_t>(rc.right) : 640;
-    desc.height = rc.bottom > 0 ? static_cast<uint32_t>(rc.bottom) : 480;
-    if (!device->initialize(desc)) {
-      std::fprintf(stderr, "atmosphere-showcase: device initialize failed\n");
-      device->shutdown();
-      showcase_mark("device-missing");
-      self_test_detach_maps(browser);
-      return 51;
-    }
-    if (want_gpu) {
-      if (render::rhi::CommandList* warm = device->create_command_list()) {
-        render::rhi::RenderPassDesc pass;
-        pass.clear_r = 0.05f;
-        pass.clear_g = 0.12f;
-        pass.clear_b = 0.18f;
-        pass.clear_a = 1.f;
-        pass.width = desc.width;
-        pass.height = desc.height;
-        warm->begin_render_pass(pass);
-        warm->set_viewport(0, 0, static_cast<float>(desc.width),
-                           static_cast<float>(desc.height), 0, 1);
-        warm->end_render_pass();
-        warm->close();
-        device->execute(warm);
-        device->destroy_command_list(warm);
-        device->present();
-      }
-    }
-    showcase_mark(want_gpu ? "device-init-gpu" : "device-init-null");
-    owns_device = true;
   }
+  showcase_mark("hwnd-ready");
+
+  render::rhi::Device* device = render::rhi::create_device(
+      want_gpu ? render::rhi::preferred_gpu_backend()
+               : render::rhi::Backend::kNull);
+  if (!device) {
+    std::fprintf(stderr, "atmosphere-showcase: create_device failed\n");
+    showcase_mark("device-missing");
+    if (owned_present_hwnd) {
+      DestroyWindow(owned_present_hwnd);
+    }
+    self_test_detach_maps(browser);
+    return 51;
+  }
+  showcase_mark("device-created");
+  const bool owns_device = true;
+
+  render::rhi::DeviceDesc desc;
+  desc.native_window = want_gpu ? present_hwnd : nullptr;
+  desc.width = kAtmosphereShowcaseW;
+  desc.height = kAtmosphereShowcaseH;
+  std::fprintf(stderr,
+               "atmosphere-showcase: gpu=%d linger_ms=%lu present=%p %ux%u\n",
+               want_gpu ? 1 : 0, static_cast<unsigned long>(linger_ms),
+               static_cast<void*>(present_hwnd), desc.width, desc.height);
+  if (!device->initialize(desc)) {
+    std::fprintf(stderr, "atmosphere-showcase: device initialize failed\n");
+    device->shutdown();
+    showcase_mark("device-missing");
+    if (owned_present_hwnd) {
+      DestroyWindow(owned_present_hwnd);
+    }
+    self_test_detach_maps(browser);
+    return 51;
+  }
+  if (want_gpu) {
+    if (render::rhi::CommandList* warm = device->create_command_list()) {
+      render::rhi::RenderPassDesc pass;
+      pass.clear_r = 0.05f;
+      pass.clear_g = 0.12f;
+      pass.clear_b = 0.18f;
+      pass.clear_a = 1.f;
+      pass.width = desc.width;
+      pass.height = desc.height;
+      warm->begin_render_pass(pass);
+      warm->set_viewport(0, 0, static_cast<float>(desc.width),
+                         static_cast<float>(desc.height), 0, 1);
+      warm->end_render_pass();
+      warm->close();
+      device->execute(warm);
+      device->destroy_command_list(warm);
+      device->present();
+    }
+  }
+  showcase_mark(want_gpu ? "device-init-gpu" : "device-init-null");
   showcase_mark(want_gpu ? "flycube-ok" : "null-ok");
 
   app::Scene3dController* cam = browser.scene3d();
   if (!cam) {
-    if (owns_device && device) {
-      device->shutdown();
+    device->shutdown();
+    if (owned_present_hwnd) {
+      DestroyWindow(owned_present_hwnd);
     }
     self_test_detach_maps(browser);
     return 50;
@@ -313,7 +512,8 @@ int run_atmosphere_showcase(app::BrowserView& browser,
 
   // Distinct camera nudge so frames are not the default identity orbit.
   cam->apply_pan(40, -18);
-  cam->apply_wheel_at(320, 240, 120, 640, 480);
+  cam->apply_wheel_at(320, 240, 120, static_cast<int>(kAtmosphereShowcaseW),
+                      static_cast<int>(kAtmosphereShowcaseH));
 
   switch (mode) {
     case AtmosphereShowcaseMode::kLand:
@@ -336,8 +536,9 @@ int run_atmosphere_showcase(app::BrowserView& browser,
     }
     case AtmosphereShowcaseMode::kNone:
     default:
-      if (owns_device && device) {
-        device->shutdown();
+      device->shutdown();
+      if (owned_present_hwnd) {
+        DestroyWindow(owned_present_hwnd);
       }
       self_test_detach_maps(browser);
       return 53;
@@ -354,8 +555,9 @@ int run_atmosphere_showcase(app::BrowserView& browser,
     if (env && (env->ocean_enabled() || env->cloud_enabled())) {
       std::fprintf(stderr,
                    "atmosphere-showcase: land mode still has passes on\n");
-      if (owns_device && device) {
-        device->shutdown();
+      device->shutdown();
+      if (owned_present_hwnd) {
+        DestroyWindow(owned_present_hwnd);
       }
       self_test_detach_maps(browser);
       return 53;
@@ -363,8 +565,9 @@ int run_atmosphere_showcase(app::BrowserView& browser,
   } else {
     if (!env) {
       std::fprintf(stderr, "atmosphere-showcase: Environment missing\n");
-      if (owns_device && device) {
-        device->shutdown();
+      device->shutdown();
+      if (owned_present_hwnd) {
+        DestroyWindow(owned_present_hwnd);
       }
       self_test_detach_maps(browser);
       return 53;
@@ -376,16 +579,18 @@ int run_atmosphere_showcase(app::BrowserView& browser,
                    "(want %d/%d)\n",
                    env->ocean_enabled() ? 1 : 0, env->cloud_enabled() ? 1 : 0,
                    want_ocean ? 1 : 0, want_cloud ? 1 : 0);
-      if (owns_device && device) {
-        device->shutdown();
+      device->shutdown();
+      if (owned_present_hwnd) {
+        DestroyWindow(owned_present_hwnd);
       }
       self_test_detach_maps(browser);
       return 53;
     }
     if (env->field_store().layer_count() == 0) {
       std::fprintf(stderr, "atmosphere-showcase: FieldStore empty\n");
-      if (owns_device && device) {
-        device->shutdown();
+      device->shutdown();
+      if (owned_present_hwnd) {
+        DestroyWindow(owned_present_hwnd);
       }
       self_test_detach_maps(browser);
       return 53;
@@ -397,32 +602,66 @@ int run_atmosphere_showcase(app::BrowserView& browser,
                env && env->cloud_enabled() ? 1 : 0,
                env ? env->field_store().layer_count() : 0u);
 
-  constexpr uint32_t kW = 640;
-  constexpr uint32_t kH = 480;
+  const uint32_t kW = kAtmosphereShowcaseW;
+  const uint32_t kH = kAtmosphereShowcaseH;
   int presents = 0;
+  auto present_one = [&](const char* mark) -> bool {
+    showcase_mark(mark);
+    if (!cam->present_gpu(device, kW, kH)) {
+      return false;
+    }
+    ++presents;
+    pump_briefly(50);
+    return true;
+  };
   for (int i = 0; i < 3; ++i) {
     char frame_mark[32];
     std::snprintf(frame_mark, sizeof(frame_mark), "present-%d", i);
-    showcase_mark(frame_mark);
-    if (!cam->present_gpu(device, kW, kH)) {
+    if (!present_one(frame_mark)) {
       std::fprintf(stderr, "atmosphere-showcase: present_gpu failed frame %d\n",
                    i);
       cam->abandon_mesh();
-      if (owns_device && device) {
-        device->shutdown();
+      device->shutdown();
+      if (owned_present_hwnd) {
+        DestroyWindow(owned_present_hwnd);
       }
       self_test_detach_maps(browser);
       return 52;
     }
-    ++presents;
-    pump_briefly(50);
   }
   showcase_mark("present-ok");
   std::fprintf(stderr, "atmosphere-showcase: presented %d frames %ux%u\n",
                presents, kW, kH);
 
-  // Best-effort window capture next to the exe (out/).
+  // Interactive linger: keep presenting so ocean/cloud stay visible.
+  if (linger_ms > 0) {
+    showcase_mark("linger-start");
+    std::fprintf(stderr, "atmosphere-showcase: linger %lu ms\n",
+                 static_cast<unsigned long>(linger_ms));
+    const DWORD linger_end = GetTickCount() + linger_ms;
+    int linger_frames = 0;
+    while (GetTickCount() < linger_end) {
+      if (owned_present_hwnd && !IsWindow(owned_present_hwnd)) {
+        break;
+      }
+      char linger_mark[32];
+      std::snprintf(linger_mark, sizeof(linger_mark), "linger-%d",
+                    linger_frames);
+      if (!cam->present_gpu(device, kW, kH)) {
+        std::fprintf(stderr, "atmosphere-showcase: linger present failed\n");
+        break;
+      }
+      ++linger_frames;
+      pump_briefly(33);
+    }
+    showcase_mark("linger-ok");
+    std::fprintf(stderr, "atmosphere-showcase: linger frames=%d\n",
+                 linger_frames);
+  }
+
+  // Capture from the present surface (dedicated HWND when GPU).
   wchar_t bmp_path[MAX_PATH] = {};
+  bool bmp_signal_ok = !want_gpu;  // Null path: capture optional.
   if (GetModuleFileNameW(nullptr, bmp_path, MAX_PATH) > 0) {
     for (int i = static_cast<int>(wcslen(bmp_path)) - 1; i >= 0; --i) {
       if (bmp_path[i] == L'\\' || bmp_path[i] == L'/') {
@@ -433,10 +672,27 @@ int run_atmosphere_showcase(app::BrowserView& browser,
     wchar_t file[64] = {};
     swprintf_s(file, L"atmosphere-showcase-%S.bmp", name);
     if (wcscat_s(bmp_path, file) == 0) {
-      HWND capture_hwnd = scene->native_view();
+      HWND capture_hwnd =
+          owned_present_hwnd ? owned_present_hwnd : present_hwnd;
+      // One extra present so DWM has a fresh composed frame for BitBlt.
+      (void)cam->present_gpu(device, kW, kH);
+      pump_briefly(80);
       if (capture_hwnd_bmp(capture_hwnd, bmp_path)) {
-        showcase_mark("bmp-ok");
-        std::fwprintf(stderr, L"atmosphere-showcase: wrote %ls\n", bmp_path);
+        int bw = 0;
+        int bh = 0;
+        const bool signal =
+            bmp_file_has_visible_signal(bmp_path, &bw, &bh);
+        std::fwprintf(stderr,
+                      L"atmosphere-showcase: wrote %ls (%dx%d signal=%d)\n",
+                      bmp_path, bw, bh, signal ? 1 : 0);
+        if (signal) {
+          showcase_mark("bmp-ok");
+          bmp_signal_ok = true;
+        } else {
+          showcase_mark("bmp-black");
+          std::fprintf(stderr,
+                       "atmosphere-showcase: BMP lacks visible signal\n");
+        }
       } else {
         showcase_mark("bmp-skip");
         std::fprintf(stderr, "atmosphere-showcase: BMP capture skipped\n");
@@ -450,7 +706,16 @@ int run_atmosphere_showcase(app::BrowserView& browser,
     // Intentionally leak Device* — FlyCube teardown has corrupted heaps
     // when operator delete runs after a live DX12 session (see MapViewport).
   }
+  if (owned_present_hwnd) {
+    DestroyWindow(owned_present_hwnd);
+    owned_present_hwnd = nullptr;
+  }
   self_test_detach_maps(browser);
+  if (want_gpu && !bmp_signal_ok) {
+    showcase_mark("bmp-fail");
+    std::fprintf(stderr, "atmosphere-showcase: FAIL mode=%s (exit 54)\n", name);
+    return 54;
+  }
   showcase_mark("pass");
   std::fprintf(stderr, "atmosphere-showcase: PASS mode=%s\n", name);
   return 0;
@@ -533,9 +798,19 @@ bool viewport_has_presented_frame(ui::views::MapViewport* pane) {
 int BrowserMain(const content::ContentMainParams&) {
   ui::views::enable_process_dpi_awareness();
   const AtmosphereShowcaseMode showcase = parse_atmosphere_showcase();
-  // Do NOT set SMT_PREFER_FLYCUBE_3D before BrowserView::init — preferring
-  // FlyCube during multi-viewport attach can hang DX12 init on some hosts.
-  // Showcase acquires FlyCube after the shell is up (see run_atmosphere_showcase).
+  // Default Scene3d prefers FlyCube; DX12 multi-viewport attach can hang on
+  // some hosts. Opt out with SMT_FORCE_CONTENT_MAPVIEW_3D=1 (or legacy
+  // SMT_PREFER_FLYCUBE_3D=0) before BrowserView::init. Showcase acquires
+  // FlyCube after the shell is up (see run_atmosphere_showcase).
+  // --self-test forces ContentMapView so chrome smoke stays hang-free; product
+  // interactive runs keep the FlyCube default.
+  const bool self_test = cmd_has_self_test();
+  // Showcase also forces ContentMapView: multi-viewport FlyCube attach during
+  // BrowserView::init can hang; run_atmosphere_showcase opens its own present
+  // HWND after the shell is up.
+  if (self_test || showcase != AtmosphereShowcaseMode::kNone) {
+    _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "1");
+  }
   {
     wchar_t diag[MAX_PATH] = {};
     if (GetModuleFileNameW(nullptr, diag, MAX_PATH) > 0) {
@@ -556,7 +831,6 @@ int BrowserMain(const content::ContentMainParams&) {
       }
     }
   }
-  const bool self_test = cmd_has_self_test();
   app::BrowserView browser;
   if (!browser.init()) {
     return 1;

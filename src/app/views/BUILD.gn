@@ -37,6 +37,8 @@ source_set("scene3d_controller") {
   sources = [
     "scene3d_controller.cc",
     "scene3d_controller.h",
+    "scene3d_rhi_session.cc",
+    "scene3d_rhi_session.h",
   ]
   include_dirs += [ "//src" ]
   deps = [

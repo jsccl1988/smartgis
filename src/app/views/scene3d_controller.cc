@@ -173,14 +173,18 @@ void Scene3dController::apply_wheel_at(int view_x, int view_y, int32_t wheel,
   const float pull = static_cast<float>(1.0 - 1.0 / factor);
   yaw_ += nx * 0.12f * pull;
   pitch_ += ny * 0.08f * pull;
-  pitch_ = std::clamp(pitch_, -1.2f, 1.2f);
+  pitch_ = std::clamp(pitch_, tool::kOrbitPitchMin, tool::kOrbitPitchMax);
   distance_ = tool::dolly_distance(distance_, wheel, 1.2f, 12.f);
 }
 
 void Scene3dController::apply_pan(int dx_px, int dy_px) {
+  // Horizontal pan orbits yaw. Vertical pan dollies — do not pitch toward
+  // edge-on (that collapsed the DEM into a thin green strip).
   yaw_ += static_cast<float>(dx_px) * 0.002f;
-  pitch_ += static_cast<float>(dy_px) * 0.002f;
-  pitch_ = std::clamp(pitch_, -1.2f, 1.2f);
+  if (dy_px != 0) {
+    const int32_t wheel = dy_px > 0 ? -120 : 120;
+    distance_ = tool::dolly_distance(distance_, wheel, 1.2f, 12.f);
+  }
 }
 
 void Scene3dController::apply_pinch(int view_x, int view_y, double scale,
@@ -514,6 +518,10 @@ void Scene3dController::paint(HDC hdc, int width_px, int height_px,
   }
   remember_view_size(width_px, height_px);
 
+  // Heal sessions that already stored edge-on pitch (thin green strip).
+  const_cast<Scene3dController*>(this)->pitch_ =
+      std::clamp(pitch_, tool::kOrbitPitchMin, tool::kOrbitPitchMax);
+
   if (fill_background) {
     HBRUSH bg = CreateSolidBrush(RGB(18, 32, 48));
     RECT full = {0, 0, width_px, height_px};
@@ -522,14 +530,18 @@ void Scene3dController::paint(HDC hdc, int width_px, int height_px,
   }
 
   const_cast<Scene3dController*>(this)->rebuild_local_mesh();
-  // Filled facets (hypsometric-ish by elev) so relief reads as terrain, not a
-  // flat China choropleth. Cap tris for GDI cost.
+  // Filled facets (hypsometric-ish by elev). Mesh is row-major north→south;
+  // drawing only the first N tris looked like a thin green ribbon. Stride
+  // across the full index list so the China AABB stays visible under the cap.
   HPEN mesh_pen = CreatePen(PS_SOLID, 1, RGB(90, 120, 80));
   HGDIOBJ old_pen = SelectObject(hdc, mesh_pen);
   HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
-  const size_t ntri =
-      (std::min)(local_idx_.size() / 3, static_cast<size_t>(1200));
-  for (size_t t = 0; t < ntri; ++t) {
+  const size_t total_tris = local_idx_.size() / 3;
+  constexpr size_t kMaxDraw = 2800;
+  const size_t step =
+      total_tris > kMaxDraw ? (total_tris + kMaxDraw - 1) / kMaxDraw : 1;
+  size_t drawn = 0;
+  for (size_t t = 0; t < total_tris && drawn < kMaxDraw; t += step, ++drawn) {
     const unsigned i0 = local_idx_[t * 3];
     const unsigned i1 = local_idx_[t * 3 + 1];
     const unsigned i2 = local_idx_[t * 3 + 2];
@@ -568,7 +580,7 @@ void Scene3dController::paint(HDC hdc, int width_px, int height_px,
 
   paint_hud(hdc, width_px, height_px);
   if (fill_background) {
-    TextOutW(hdc, 12, 52, L"(GDI fallback — no shared MapContents present)", 47);
+    TextOutW(hdc, 12, 52, L"(GDI DEM mesh)", 15);
   }
 }
 

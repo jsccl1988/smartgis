@@ -5,13 +5,19 @@
 
 #include "app/views/map_host_extent.h"
 #include "app/views/map_scene.h"
+#include "app/views/scene3d_rhi_session.h"
 #include "gis/world/dem_frame.h"
 #include "render/rhi/rhi.h"
 #include "tool/camera_nav.h"
+#include "tool/gestures.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <memory>
+#include <vector>
 
 namespace {
 
@@ -27,6 +33,21 @@ void expect(bool ok, const char* msg) {
 }  // namespace
 
 int main() {
+  // Default: prefer FlyCube / RHI for Scene3d; opt out via FORCE_CONTENT.
+  {
+    _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "");
+    _putenv_s("SMT_PREFER_FLYCUBE_3D", "");
+    expect(app::prefer_scene3d_flycube(), "default prefer FlyCube");
+    expect(!app::force_content_mapview_3d(), "default not force content");
+    _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "1");
+    expect(app::force_content_mapview_3d(), "FORCE_CONTENT=1");
+    expect(!app::prefer_scene3d_flycube(), "FORCE_CONTENT disables FlyCube");
+    _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "");
+    _putenv_s("SMT_PREFER_FLYCUBE_3D", "0");
+    expect(app::force_content_mapview_3d(), "legacy PREFER_FLYCUBE=0");
+    _putenv_s("SMT_PREFER_FLYCUBE_3D", "");
+  }
+
   app::Scene3dController cam;
   expect(std::fabs(app::kScene3dDefaultYaw - gis::kDemDefaultOrbitYaw) < 1e-6f,
          "host yaw aliases gis shared constant");
@@ -39,6 +60,9 @@ int main() {
                      std::cos(cam.yaw());
     expect(ez < 0.f, "default eye south of origin (north-up)");
   }
+  // RH lookAt looking +Z → camera right = -X; mesh X=-lon puts east on right.
+  expect(gis::dem_lon_to_x(121.0) < gis::dem_lon_to_x(88.0),
+         "east X < west X (screen-right looking north)");
   expect(cam.camera_matrices(1.333f).kind ==
              render::rhi::CameraKind::kPerspective,
          "3D perspective");
@@ -65,6 +89,24 @@ int main() {
 
   cam.apply_pan(20, 0);
   expect(cam.yaw() > app::kScene3dDefaultYaw, "pan yaws");
+
+  cam.reset();
+  const float pitch0 = cam.pitch();
+  const float dist_before = cam.distance();
+  cam.apply_pan(0, 80);
+  expect(std::fabs(cam.pitch() - pitch0) < 1e-4f, "pan does not pitch");
+  expect(cam.distance() != dist_before, "vertical pan dollies");
+
+  // Edge-on pitch must clamp (thin green strip regression).
+  {
+    tool::Draft d;
+    d.kind = tool::DraftKind::kRect;
+    d.flags = 0x0002;  // MK_RBUTTON → orbit
+    d.points.push_back({0, 0});
+    d.points.push_back({0, -5000});
+    cam.apply_draft(d);
+    expect(cam.pitch() >= tool::kOrbitPitchMin - 0.01f, "orbit pitch floor");
+  }
 
   content::Extent2 china = app::kChinaLonLatExtent;
   cam.apply_world_extent(china);
@@ -109,7 +151,33 @@ int main() {
       expect(mem && dib && bits, "GDI DIB for paint");
       if (mem && dib) {
         HGDIOBJ old = SelectObject(mem, dib);
+        dem_cam.reset();
         dem_cam.paint(mem, 64, 64, /*fill_background=*/true);
+        // Stride paint must cover the China AABB, not only the first mesh
+        // rows (regression: thin green ribbon from first-N tris).
+        if (bits) {
+          const auto* px = static_cast<const std::uint32_t*>(bits);
+          int min_x = 64, max_x = -1, min_y = 64, max_y = -1, hits = 0;
+          for (int y = 0; y < 64; ++y) {
+            for (int x = 0; x < 64; ++x) {
+              const unsigned c = px[y * 64 + x];
+              const unsigned r = c & 0xff;
+              const unsigned g = (c >> 8) & 0xff;
+              const unsigned b = (c >> 16) & 0xff;
+              // Background clear is RGB(18,32,48); DEM fills are greener.
+              if (g > 80 && g > r && g > b) {
+                ++hits;
+                min_x = (std::min)(min_x, x);
+                max_x = (std::max)(max_x, x);
+                min_y = (std::min)(min_y, y);
+                max_y = (std::max)(max_y, y);
+              }
+            }
+          }
+          expect(hits > 80, "GDI DEM paints many land pixels");
+          expect(max_x - min_x > 20 && max_y - min_y > 12,
+                 "GDI DEM spans China AABB (not a ribbon)");
+        }
         dem_cam.paint(mem, 64, 64, /*fill_background=*/false);
         dem_cam.paint_hud(mem, 64, 64);
         SelectObject(mem, old);

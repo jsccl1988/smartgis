@@ -71,10 +71,11 @@ out\views_unittests.exe
 ### L1′ — Atmosphere 3D showcase（`SmartGisViews.exe --atmosphere-showcase=`）
 
 独立于完整 `--self-test`：切到 3D 页，按模式配置大气，连续 `present_gpu` 三帧后退出。
-默认 **Null RHI**（确定性 exit 0）。`SMT_ATMOSPHERE_SHOWCASE_GPU=1` 时在 3D HWND
-上拉 FlyCube/DX12（启动期勿设 `SMT_PREFER_FLYCUBE_3D=1`，多 viewport attach 易挂死；
-本机 post-detach FlyCube `present_gpu` 也曾挂起）。旁路产物：`out/atmosphere-showcase-mark.txt`、
-`atmosphere-showcase-<mode>.bmp`、`atmosphere-showcase-cmdline.txt`。
+默认 **Null RHI**（确定性 exit 0）。`SMT_ATMOSPHERE_SHOWCASE_GPU=1` 时在**独立**
+640×480 展示窗上拉 FlyCube/DX12（启动期勿设 `SMT_PREFER_FLYCUBE_3D=1`）。
+GPU 默认 linger 约 4s（`SMT_ATMOSPHERE_SHOWCASE_LINGER_MS` 可改；`0` 跳过）。
+旁路产物：`out/atmosphere-showcase-mark.txt`、`atmosphere-showcase-<mode>.bmp`、
+`atmosphere-showcase-cmdline.txt`。GPU 路径要求 BMP 有可见像素，否则 exit 54。
 
 | 模式 | 含义 |
 | --- | --- |
@@ -87,19 +88,19 @@ out\views_unittests.exe
 | --- | --- |
 | 0 | 通过 |
 | 1 / 2 | init / 顶层 HWND（与自测同） |
-| 50 | 3D viewport HWND 缺失 |
+| 50 | 3D viewport / present HWND 缺失 |
 | 51 | device `create` / `initialize` 失败 |
 | 52 | `present_gpu` 失败 |
 | 53 | 大气开关或 FieldStore 状态不符 |
+| 54 | GPU BMP 全黑 / 单色 clear（无几何信号） |
 
 ```bat
-set SMT_RUN_FLYCUBE_GPU=1
+set SMT_ATMOSPHERE_SHOWCASE_GPU=1
 out\SmartGisViews.exe --atmosphere-showcase=land
 out\SmartGisViews.exe --atmosphere-showcase=ocean
 out\SmartGisViews.exe --atmosphere-showcase=full
 out\SmartGisViews.exe --atmosphere-showcase=coast
 ```
-
 ### L1′ — `SmartGisWinui.exe --self-test`
 
 - 实现：`src/app/winui/application.cc`（`OnLaunched`）。

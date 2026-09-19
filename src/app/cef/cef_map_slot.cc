@@ -4,6 +4,7 @@
 #include "app/cef/cef_map_slot.h"
 
 #include "app/views/map_host_extent.h"
+#include "app/views/scene3d_rhi_session.h"
 #include "tool/camera_nav.h"
 #include "content/public/map_contents.h"
 #include "content/public/map_widget_host_view.h"
@@ -61,8 +62,6 @@ bool CefMapSlot::create(HWND parent,
 
   // StartRenderProcess is owned by BrowserMain (once per session).
   render_ok_ = true;
-  view_id_ = session_->OpenView(kind_);
-  view_ = session_->AttachSurface(view_id_, content::PresentMode::kSoftwareDib);
   view_host_ = new content::ViewHost();
 
   register_child_class();
@@ -76,11 +75,21 @@ bool CefMapSlot::create(HWND parent,
   gc.dwID = GID_ZOOM;
   gc.dwWant = GC_ZOOM;
   SetGestureConfig(child_hwnd_, 0, 1, &gc, sizeof(gc));
-  if (view_) {
-    content::MapWidgetHostView::CreateParams params;
-    params.parent_hwnd = child_hwnd_;
-    view_->Create(params, content::MapWidgetHostView::Preferences());
-    view_->SetPresentMode(content::PresentMode::kSoftwareDib);
+
+  if (kind_ == content::ViewKind::kScene3d && prefer_scene3d_flycube() &&
+      scene3d_rhi_.try_attach(child_hwnd_)) {
+    view_id_ = 0;
+    view_ = nullptr;
+  } else {
+    scene3d_rhi_.release();
+    view_id_ = session_->OpenView(kind_);
+    view_ = session_->AttachSurface(view_id_, content::PresentMode::kSoftwareDib);
+    if (view_) {
+      content::MapWidgetHostView::CreateParams params;
+      params.parent_hwnd = child_hwnd_;
+      view_->Create(params, content::MapWidgetHostView::Preferences());
+      view_->SetPresentMode(content::PresentMode::kSoftwareDib);
+    }
   }
   bind_scene3d();
   start_present_timer();
@@ -110,20 +119,20 @@ void CefMapSlot::bind_scene3d() {
     }
   }
   scene3d_.bind_map(scene);
-  if (!session_ || view_id_ == 0) {
-    return;
-  }
   content::Extent2 e = scene->world_extent();
   if (!app::extent_looks_like_china(e)) {
     e = app::kChinaLonLatExtent;
   }
-  session_->SetExtent(view_id_, e);
+  if (session_ && view_id_ != 0) {
+    session_->SetExtent(view_id_, e);
+  }
   scene3d_.bind_contents(session_, view_id_);
   scene3d_.apply_world_extent(e);
 }
 
 void CefMapSlot::destroy() {
   stop_present_timer();
+  scene3d_rhi_.release();
   if (child_hwnd_) {
     DestroyWindow(child_hwnd_);
     child_hwnd_ = nullptr;
@@ -185,6 +194,10 @@ void CefMapSlot::sync_layout(const RectPx& rect_px, float dpi) {
         scene3d_.apply_world_extent(scene->world_extent());
       }
       InvalidateRect(child_hwnd_, nullptr, FALSE);
+    }
+    if (scene3d_rhi_.is_live() && rect_px.w > 0 && rect_px.h > 0) {
+      scene3d_rhi_.resize(child_hwnd_, static_cast<uint32_t>(rect_px.w),
+                          static_cast<uint32_t>(rect_px.h));
     }
   }
 }
@@ -401,6 +414,18 @@ void CefMapSlot::paint_to_dc(HDC hdc, const RECT& rc) {
   }
   const int w = rc.right > 0 ? rc.right : 1;
   const int h = rc.bottom > 0 ? rc.bottom : 1;
+  if (kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() &&
+      w > 0 && h > 0) {
+    const bool ok = scene3d_rhi_.present(
+        const_cast<Scene3dController*>(&scene3d_),
+        static_cast<uint32_t>(w), static_cast<uint32_t>(h));
+    if (ok) {
+      scene3d_.paint_hud(hdc, w, h);
+    } else {
+      scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+    }
+    return;
+  }
   if (kind_ != content::ViewKind::kScene3d && blit_.in_preview() &&
       blit_.present(hdc, w, h)) {
     return;
@@ -409,7 +434,7 @@ void CefMapSlot::paint_to_dc(HDC hdc, const RECT& rc) {
   if (!presented) {
     const bool scene3d = kind_ == content::ViewKind::kScene3d;
     if (scene3d && w > 0 && h > 0) {
-      // Same GDI DEM wireframe fallback as WinUI / Views when GPU DIB is late.
+      // GDI DEM wireframe fallback when FlyCube / shared DIB is unavailable.
       scene3d_.paint(hdc, w, h);
     } else {
       const HBRUSH brush =
@@ -424,8 +449,7 @@ void CefMapSlot::paint_to_dc(HDC hdc, const RECT& rc) {
                 DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
   } else if (kind_ == content::ViewKind::kScene3d && w > 0 && h > 0) {
-    // Orbit-synced DEM wireframe; do not overlay opaque MapScene land fills.
-    scene3d_.paint(hdc, w, h, /*fill_background=*/false);
+    scene3d_.paint(hdc, w, h, /*fill_background=*/true);
   }
   MapScene* overlay = dem_map_scene();
   if (kind_ != content::ViewKind::kScene3d && overlay &&
@@ -585,11 +609,18 @@ LRESULT CALLBACK CefMapSlot::wnd_proc(HWND hwnd,
         self->commit_blit_preview();
         return 0;
       }
-      if (self && wparam == kPresentTimerId && self->view_) {
-        const content::SharedSurface surface = self->view_->Latest();
-        if (surface.generation != 0 &&
-            surface.generation != self->painted_generation_) {
+      if (self && wparam == kPresentTimerId) {
+        if (self->kind_ == content::ViewKind::kScene3d &&
+            self->scene3d_rhi_.is_live() && IsWindowVisible(hwnd)) {
           InvalidateRect(hwnd, nullptr, FALSE);
+          return 0;
+        }
+        if (self->view_) {
+          const content::SharedSurface surface = self->view_->Latest();
+          if (surface.generation != 0 &&
+              surface.generation != self->painted_generation_) {
+            InvalidateRect(hwnd, nullptr, FALSE);
+          }
         }
       }
       return 0;

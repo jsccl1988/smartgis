@@ -464,19 +464,15 @@ void BrowserView::wire_map_scene() {
                                  : ui::views::MapViewport::AttachMode::kNone;
     // DEM is the 3D tab primary. Opaque MapScene land fills used to paint a
     // flat "ordinary map" over the mesh (user: 3D 还是普通地图).
-    // - FlyCube: present_gpu already shaded DEM → HUD only.
-    // - ContentMapView: shared DIB may be a fixed-camera demo; still paint
-    //   chrome Scene3dController wireframe so orbit yaw/pitch match the HUD.
-    // - No shared frame: full GDI DEM (fill background).
+    // - FlyCube + successful present_gpu → HUD only (do not GDI-wipe RHI).
+    // - present failed / ContentMapView / placeholder → GDI DEM fallback.
     // Do not call document_.paint here — 2D ortho polygons hide relief.
     const bool flycube = mode == ui::views::MapViewport::AttachMode::kFlyCube;
-    const bool content_frame =
-        mode == ui::views::MapViewport::AttachMode::kContentMapView &&
-        detail::viewport_has_shared_frame(map_scene_);
-    if (flycube) {
+    const bool gpu_ok = flycube && map_scene_ && map_scene_->last_gpu_present_ok();
+    if (gpu_ok) {
       scene3d_.paint_hud(hdc, w, h);
     } else {
-      scene3d_.paint(hdc, w, h, /*fill_background=*/!content_frame);
+      scene3d_.paint(hdc, w, h, /*fill_background=*/true);
     }
   };
   if (map_edit_) {
@@ -1214,6 +1210,8 @@ void BrowserView::switch_map_tab(int i) {
       if (map_scene_) {
         scene3d_.bind_contents(map_session_.get(), map_scene_->view_id());
       }
+      // Recover from edge-on / over-zoomed orbit (thin green DEM strip).
+      scene3d_.reset();
       push_shared_extent();
       if (map_scene_) {
         map_scene_->invalidate_native();

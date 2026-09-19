@@ -11,6 +11,7 @@
 
 
 #include "gdal_priv.h"
+#include "gis/world/dem_frame.h"
 #include "gis/world/scene.h"
 #include "legacy/render/scene3d/dem_height_field.h"
 #include "legacy/render/scene3d/dem_to_world.h"
@@ -107,7 +108,9 @@ int main() {
     expect(z_max > z_min + 20.f, "north-south leftover Z span");
     expect(z_max > 45.f, "higher lat maps to leftover +Z");
     expect(z_min < 25.f, "lower lat maps to leftover -Z side");
-    expect(x_min < 80.f && x_max > 125.f, "mesh AABB covers China-like lon");
+    expect(x_min < -120.f && x_max > -80.f, "mesh AABB covers China-like X=-lon");
+    expect(gis::dem_lon_to_x(121.0) < gis::dem_lon_to_x(88.0),
+           "east X < west X (screen-right looking north)");
     const size_t full_tris = idx.size();
 
     render::LonLatRing mainland;
@@ -126,7 +129,7 @@ int main() {
              "mainland mesh");
       bool near_luoyang = false;
       for (size_t i = 0; i + 2 < mx.size(); i += 3) {
-        if (std::fabs(mx[i] - 110.f) < 4.f &&
+        if (std::fabs(mx[i] - gis::dem_lon_to_x(110.0)) < 4.f &&
             std::fabs(mx[i + 2] - 35.f) < 4.f) {
           near_luoyang = true;
           break;
@@ -137,18 +140,22 @@ int main() {
 
     {
       render::Aabb china;
-      china.vcMin.set(73.f, 0.f, 17.5f);
-      china.vcMax.set(135.f, 8.f, 54.f);
+      china.vcMin.set(gis::dem_lon_to_x(135.0), 0.f, 17.5f);
+      china.vcMax.set(gis::dem_lon_to_x(73.0), 8.f, 54.f);
       china.vcCenter = (china.vcMax + china.vcMin) / 2.f;
       render::Vector3 eye;
       render::Vector3 target;
       float span = 0.f;
       render::leftover_frame_pose(china, &eye, &target, &span);
-      expect(target.x > 90.f && target.x < 120.f, "look-at China lon");
-      expect(eye.x > 80.f && eye.x < 130.f, "framed eye lon is China");
-      expect(!(eye.x < 40.f && eye.z > 200.f), "not leftover origin pose");
+      expect(target.x < -90.f && target.x > -120.f, "look-at China X=-lon");
+      expect(eye.x < -80.f && eye.x > -130.f, "framed eye X is China");
+      expect(!(eye.x > -40.f && eye.z > 200.f), "not leftover origin pose");
       expect(eye.z < target.z, "eye south of target looks north");
       expect(span > 40.f, "China AABB span");
+      // Looking north: camera right = -X ⇒ smaller X (east) is screen-right.
+      expect(gis::dem_lon_to_x(121.0) < target.x &&
+                 target.x < gis::dem_lon_to_x(88.0),
+             "look-at between Taiwan X and Tibet X");
     }
 
     render::LonLatRing west;
@@ -296,9 +303,9 @@ int main() {
     double max_x = 0;
     double max_y = 0;
     double max_z = 0;
-    render::leftover_yup_to_gis(100.0, 10.0, 20.0, 110.0, 50.0, 30.0, &min_x,
+    render::leftover_yup_to_gis(-110.0, 10.0, 20.0, -100.0, 50.0, 30.0, &min_x,
                                 &min_y, &min_z, &max_x, &max_y, &max_z);
-    expect(min_x == 100.0 && max_x == 110.0, "aabb lon");
+    expect(min_x == 100.0 && max_x == 110.0, "aabb lon from X=-lon");
     expect(min_y == 20.0 && max_y == 30.0, "aabb lat from leftover Z");
     expect(min_z == 10.0 && max_z == 50.0, "aabb elev → World Z");
     gis::World mirror;

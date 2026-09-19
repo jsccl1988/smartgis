@@ -322,8 +322,8 @@ int SmtGdiRenderDevice::Refresh() {
                             m_virViewport1.m_fVOY, m_virViewport1.m_fVWidth,
                             m_virViewport1.m_fVHeight, m_virViewport2.m_fVOX,
                             m_virViewport2.m_fVOY, m_virViewport2.m_fVWidth,
-                            m_virViewport2.m_fVHeight, BLT_TRANSPARENT,
-                            SRCCOPY /*,(COLORREF)::GetSysColor(COLOR_WINDOW)*/);
+                            m_virViewport2.m_fVHeight, BLT_STRETCH,
+                            SRCCOPY);
 
   m_smtDynamicRenderBuf.SwapBuf(
       m_smtRenderBuf, m_virViewport1.m_fVOX, m_virViewport1.m_fVOY,
@@ -345,11 +345,9 @@ int SmtGdiRenderDevice::Refresh() {
 
   ::ReleaseDC(m_hWnd, hDC);
 
-  // Already blitted to the window DC. Erasing here (bErase=true) clears the
-  // map under BCG m_bDisableMDIChildRedraw before OnDraw can restore it.
-  RECT rt;
-  GetClientRect(m_hWnd, &rt);
-  InvalidateRect(m_hWnd, &rt, FALSE);
+  // Do not InvalidateRect here: the map is already on the window DC. A
+  // DefWindowProc / STATIC WM_PAINT would erase to white and wipe the blit
+  // (gdi_map_paint_test saw 0 non-white samples).
 
   return SMT_ERR_NONE;
 }
@@ -778,8 +776,8 @@ int SmtGdiRenderDevice::RenderMap(void) {
                             m_virViewport1.m_fVOY, m_virViewport1.m_fVWidth,
                             m_virViewport1.m_fVHeight, m_virViewport2.m_fVOX,
                             m_virViewport2.m_fVOY, m_virViewport2.m_fVWidth,
-                            m_virViewport2.m_fVHeight, BLT_TRANSPARENT,
-                            SRCCOPY /*,(COLORREF)::GetSysColor(COLOR_WINDOW)*/);
+                            m_virViewport2.m_fVHeight, BLT_STRETCH,
+                            SRCCOPY);
 
   m_smtDynamicRenderBuf.SwapBuf(
       m_smtRenderBuf, m_virViewport1.m_fVOX, m_virViewport1.m_fVOY,

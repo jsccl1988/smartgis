@@ -48,14 +48,16 @@ class SmtRenderBuf {
   long SwapBuf(int destOrgx, int destOrgy, int destW, int destH, int srcOrgx,
                int srcOrgy, int srcW, int srcH,
                eSwapType type = BLT_TRANSPARENT, int op = SRCCOPY,
-               COLORREF clr = RGB(170, 211, 223));  // Transparent/Stretch
+               // Key must NOT match ClearBuf ocean (170,211,223) or the whole
+               // map buffer is treated as transparent and the HWND stays white.
+               COLORREF clr = RGB(255, 255, 255));  // Transparent/Stretch
 
   long SwapBuf(SmtRenderBuf &rbTarget, int destOrgx, int destOrgy, int destW,
                int destH, int srcOrgx, int srcOrgy, int op = SRCCOPY);
   long SwapBuf(SmtRenderBuf &rbTarget, int destOrgx, int destOrgy, int destW,
                int destH, int srcOrgx, int srcOrgy, int srcW, int srcH,
                eSwapType type = BLT_TRANSPARENT, int op = SRCCOPY,
-               COLORREF clr = RGB(170, 211, 223));  // Transparent/Stretch
+               COLORREF clr = RGB(255, 255, 255));  // Transparent/Stretch
 
   HDC PrepareDC(
       bool bClip =

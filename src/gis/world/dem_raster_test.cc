@@ -33,8 +33,8 @@ int main() {
   expect(!dem.empty(), "synthetic dem");
   expect(dem.cols() >= 2 && dem.rows() >= 2, "grid size");
 
-  // Geographic axes: +X east, +Z north (leftover Y-up). Mesh must keep
-  // 上北下南 / 左西右东 so Views orbit from south frames north at screen top.
+  // Geographic mesh: X=-lon, +Z=north. RH lookAt looking north has camera
+  // right=-X, so east (more negative X) sits on screen-right (左西右东).
   {
     std::vector<float> xyz;
     std::vector<uint32_t> idx;
@@ -48,8 +48,10 @@ int main() {
       z_min = z_min < xyz[i + 2] ? z_min : xyz[i + 2];
       z_max = z_max > xyz[i + 2] ? z_max : xyz[i + 2];
     }
-    expect(x_min < 90.f && x_max > 120.f, "lon on X west-east");
+    expect(x_min < -120.f && x_max > -90.f, "X=-lon spans China");
     expect(z_min < 25.f && z_max > 45.f, "lat on +Z south-north");
+    expect(gis::dem_lon_to_x(121.0) < gis::dem_lon_to_x(88.0),
+           "east X more negative than west (screen-right looking north)");
     expect(dem.sample_meters(88.0, 32.0) > dem.sample_meters(119.0, 32.5),
            "tibet higher than jiangsu (not N/S swapped)");
   }
@@ -76,7 +78,7 @@ int main() {
       bool found_tibet_elev = false;
       const std::vector<float>& pos = n->terrain_positions;
       for (size_t i = 0; i + 2 < pos.size(); i += 3) {
-        if (pos[i] > 85.f && pos[i] < 95.f && pos[i + 2] > 28.f &&
+        if (pos[i] > -95.f && pos[i] < -85.f && pos[i + 2] > 28.f &&
             pos[i + 2] < 36.f && pos[i + 1] > 0.05f) {
           found_tibet_elev = true;
           break;

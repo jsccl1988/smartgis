@@ -11,6 +11,7 @@
 #include "app/views/blit_frame_cache.h"
 #include "app/views/map_scene.h"
 #include "app/views/scene3d_controller.h"
+#include "app/views/scene3d_rhi_session.h"
 #include "content/public/map_types.h"
 #include "tool/gestures.h"
 
@@ -106,6 +107,7 @@ class CefMapSlot {
   // Owned fallback MapScene when chrome has not published a shared document yet.
   MapScene map_scene_;
   Scene3dController scene3d_;
+  mutable Scene3dRhiSession scene3d_rhi_;
   ViewMenuRequested view_menu_requested_;
   uint32_t view_id_ = 0;
   content::ViewKind kind_ = content::ViewKind::kMapEdit;

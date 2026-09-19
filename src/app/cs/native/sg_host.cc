@@ -7,6 +7,7 @@
 #include "app/views/map_host_extent.h"
 #include "app/views/map_scene.h"
 #include "app/views/scene3d_controller.h"
+#include "app/views/scene3d_rhi_session.h"
 #include "content/public/map_contents.h"
 #include "tool/camera_nav.h"
 #include "content/public/map_contents_observer.h"
@@ -240,6 +241,7 @@ struct SgHost : public content::MapContentsObserver {
   void schedule_full_redraw();
   void commit_blit_preview();
   void bind_scene3d();
+  bool try_scene3d_rhi();
   static int slot_index(content::ViewKind kind);
   static LRESULT CALLBACK owner_subclass_proc(HWND hwnd,
                                               UINT msg,
@@ -251,6 +253,7 @@ struct SgHost : public content::MapContentsObserver {
   content::MapContents* session = nullptr;
   app::MapScene document;
   app::Scene3dController scene3d_;
+  mutable app::Scene3dRhiSession scene3d_rhi_;
   mutable std::mutex document_mu_;
   bool document_seeded_ = false;
   bool seed_started_ = false;
@@ -319,6 +322,7 @@ void SgHost::attach_child_hwnd() {
 
 void SgHost::destroy_child_hwnd() {
   stop_present_timer();
+  scene3d_rhi_.release();
   remove_owner_subclass();
   if (child_hwnd_) {
     const HWND doomed = child_hwnd_;
@@ -472,6 +476,10 @@ void SgHost::apply_popup_bounds(int sx, int sy, int sw, int sh, bool force_fit) 
   if (view_) {
     view_->Resize(sw, sh, 96.f);
   }
+  if (size_changed && scene3d_rhi_.is_live() && sw > 0 && sh > 0) {
+    scene3d_rhi_.resize(child_hwnd_, static_cast<uint32_t>(sw),
+                        static_cast<uint32_t>(sh));
+  }
   if (force_fit || size_changed || needs_extent_fit_) {
     fit_document_to_client();
   }
@@ -498,18 +506,36 @@ void SgHost::show_kind(content::ViewKind kind) {
   if (view_ && view_ != slots_[idx].view) {
     view_->SetVisible(false);
   }
+  kind_ = kind;
+  if (kind == content::ViewKind::kScene3d && app::prefer_scene3d_flycube()) {
+    // Prefer FlyCube when the popup HWND already exists (after SyncLayout).
+    if (child_hwnd_ && try_scene3d_rhi()) {
+      view_id_ = slots_[idx].view_id;
+      view_ = slots_[idx].view;
+      painted_generation_ = 0;
+      start_present_timer();
+      ensure_document_seeded();
+      bind_scene3d();
+      return;
+    }
+  } else {
+    scene3d_rhi_.release();
+  }
+
   if (slots_[idx].view_id == 0) {
     slots_[idx].view_id = session->OpenView(kind);
     slots_[idx].view = session->AttachSurface(
         slots_[idx].view_id, content::PresentMode::kSoftwareDib);
   }
-  kind_ = kind;
   view_id_ = slots_[idx].view_id;
   view_ = slots_[idx].view;
   painted_generation_ = 0;
   // HWND is created on first SyncLayout (stable size). Rebind if it exists.
   if (child_hwnd_) {
     attach_child_hwnd();
+    if (kind == content::ViewKind::kScene3d && app::prefer_scene3d_flycube()) {
+      (void)try_scene3d_rhi();
+    }
     if (view_) {
       view_->SetVisible(true);
     }
@@ -521,11 +547,18 @@ void SgHost::show_kind(content::ViewKind kind) {
   bind_scene3d();
 }
 
+bool SgHost::try_scene3d_rhi() {
+  if (!child_hwnd_ || kind_ != content::ViewKind::kScene3d) {
+    return false;
+  }
+  if (scene3d_rhi_.is_live()) {
+    return true;
+  }
+  return scene3d_rhi_.try_attach(child_hwnd_);
+}
+
 void SgHost::bind_scene3d() {
   scene3d_.bind_map(&document);
-  if (!session || view_id_ == 0) {
-    return;
-  }
   content::Extent2 e;
   {
     std::lock_guard<std::mutex> lock(document_mu_);
@@ -534,7 +567,9 @@ void SgHost::bind_scene3d() {
   if (!app::extent_looks_like_china(e)) {
     e = app::kChinaLonLatExtent;
   }
-  session->SetExtent(view_id_, e);
+  if (session && view_id_ != 0) {
+    session->SetExtent(view_id_, e);
+  }
   scene3d_.bind_contents(session, view_id_);
   scene3d_.apply_world_extent(e);
 }
@@ -612,6 +647,18 @@ void SgHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   }
   const int w = rc.right > 0 ? rc.right : 1;
   const int h = rc.bottom > 0 ? rc.bottom : 1;
+  if (kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() &&
+      w > 0 && h > 0) {
+    const bool ok = scene3d_rhi_.present(
+        const_cast<app::Scene3dController*>(&scene3d_),
+        static_cast<uint32_t>(w), static_cast<uint32_t>(h));
+    if (ok) {
+      scene3d_.paint_hud(hdc, w, h);
+    } else {
+      scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+    }
+    return;
+  }
   if (kind_ != content::ViewKind::kScene3d && blit_.in_preview() &&
       blit_.present(hdc, w, h)) {
     return;
@@ -628,8 +675,7 @@ void SgHost::paint_to_dc(HDC hdc, const RECT& rc) const {
       DeleteObject(brush);
     }
   } else if (kind_ == content::ViewKind::kScene3d && w > 0 && h > 0) {
-    // Orbit-synced DEM wireframe; skip opaque document land fills on 3D.
-    scene3d_.paint(hdc, w, h, /*fill_background=*/false);
+    scene3d_.paint(hdc, w, h, /*fill_background=*/true);
   }
   // Overlay China city / OGR vectors on 2D only — 3D land fills hid DEM relief.
   if (kind_ != content::ViewKind::kScene3d) {
@@ -862,7 +908,15 @@ LRESULT CALLBACK SgHost::child_wnd_proc(HWND hwnd,
   }
 
   if (msg == WM_TIMER && wparam == kPresentTimerId) {
-    if (!self || !self->view_ || self->child_hwnd_ != hwnd || !IsWindow(hwnd)) {
+    if (!self || self->child_hwnd_ != hwnd || !IsWindow(hwnd)) {
+      return 0;
+    }
+    if (self->kind_ == content::ViewKind::kScene3d &&
+        self->scene3d_rhi_.is_live() && IsWindowVisible(hwnd)) {
+      InvalidateRect(hwnd, nullptr, FALSE);
+      return 0;
+    }
+    if (!self->view_) {
       return 0;
     }
     const content::SharedSurface surface = self->view_->Latest();
@@ -1048,6 +1102,10 @@ void sg_host_sync_layout(SgHost* host, int x, int y, int w, int h, float dpi) {
     host->attach_child_hwnd();
     if (!host->child_hwnd_) {
       return;
+    }
+    if (host->kind_ == content::ViewKind::kScene3d &&
+        app::prefer_scene3d_flycube()) {
+      (void)host->try_scene3d_rhi();
     }
     host->start_present_timer();
     host->ensure_document_seeded();

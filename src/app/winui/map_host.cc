@@ -4,6 +4,7 @@
 #include "app/winui/map_host.h"
 
 #include "app/views/map_host_extent.h"
+#include "app/views/scene3d_rhi_session.h"
 #include "tool/camera_nav.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -407,6 +408,32 @@ void MapHost::show_kind(content::ViewKind kind) {
     view_->SetVisible(false);
   }
 
+  kind_ = kind;
+  if (kind == content::ViewKind::kScene3d &&
+      app::prefer_scene3d_flycube()) {
+    attach_child_hwnd();
+    if (scene3d_rhi_.try_attach(child_hwnd_)) {
+      view_id_ = slots_[idx].view_id;
+      view_ = slots_[idx].view;
+      painted_generation_ = 0;
+      {
+        content::Extent2 e = map_scene_.world_extent();
+        if (!app::extent_looks_like_china(e)) {
+          e = app::kChinaLonLatExtent;
+        }
+        scene3d_.bind_contents(session_, view_id_);
+        scene3d_.apply_world_extent(e);
+      }
+      start_present_timer();
+      sync_layout();
+      update_status_overlay();
+      return;
+    }
+    scene3d_rhi_.release();
+  } else {
+    scene3d_rhi_.release();
+  }
+
   if (slots_[idx].view_id == 0) {
     slots_[idx].view_id = session_->OpenView(kind);
     // Software DIB: GPU publishes shared pixels; this HWND presents Latest().
@@ -415,7 +442,6 @@ void MapHost::show_kind(content::ViewKind kind) {
                                 content::PresentMode::kSoftwareDib);
   }
 
-  kind_ = kind;
   view_id_ = slots_[idx].view_id;
   view_ = slots_[idx].view;
   painted_generation_ = 0;
@@ -530,6 +556,7 @@ void MapHost::attach_child_hwnd() {
 
 void MapHost::destroy_child_hwnd() {
   stop_present_timer();
+  scene3d_rhi_.release();
   if (child_hwnd_) {
     // Clear userdata before DestroyWindow so nested WM_TIMER / WM_PAINT
     // during teardown cannot touch a half-destroyed MapHost.
@@ -731,11 +758,18 @@ void MapHost::sync_layout() {
       map_scene_.fit_extent(use_w, use_h);
       scene3d_.apply_world_extent(map_scene_.world_extent());
     }
+    if (scene3d_rhi_.is_live() && child_hwnd_ && use_w > 0 && use_h > 0) {
+      scene3d_rhi_.resize(child_hwnd_, static_cast<uint32_t>(use_w),
+                          static_cast<uint32_t>(use_h));
+    }
     InvalidateRect(child_hwnd_, nullptr, FALSE);
   }
 }
 
 const wchar_t* MapHost::present_path() const {
+  if (kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live()) {
+    return L"HWND island + FlyCube present_gpu";
+  }
   return L"HWND island + DIB + MapScene";
 }
 
@@ -820,6 +854,18 @@ void MapHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   }
   const int w = rc.right - rc.left;
   const int h = rc.bottom - rc.top;
+  if (kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() &&
+      w > 0 && h > 0) {
+    const bool ok = scene3d_rhi_.present(
+        const_cast<::app::Scene3dController*>(&scene3d_),
+        static_cast<uint32_t>(w), static_cast<uint32_t>(h));
+    if (ok) {
+      scene3d_.paint_hud(hdc, w, h);
+    } else {
+      scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+    }
+    return;
+  }
   if (kind_ != content::ViewKind::kScene3d && blit_.in_preview() &&
       blit_.present(hdc, w, h)) {
     return;
@@ -828,7 +874,7 @@ void MapHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   if (!presented) {
     const bool scene3d = kind_ == content::ViewKind::kScene3d;
     if (scene3d && w > 0 && h > 0) {
-      // Same GDI DEM wireframe fallback as SmartGisViews when GPU DIB is late.
+      // GDI DEM wireframe fallback when FlyCube / shared DIB is unavailable.
       scene3d_.paint(hdc, w, h);
     } else {
       const HBRUSH brush =
@@ -837,9 +883,9 @@ void MapHost::paint_to_dc(HDC hdc, const RECT& rc) const {
       DeleteObject(brush);
     }
   } else if (kind_ == content::ViewKind::kScene3d && w > 0 && h > 0) {
-    // Shared frame may be a fixed-camera demo; paint chrome DEM so orbit
-    // matches HUD. Do not overlay opaque MapScene land fills (hides relief).
-    scene3d_.paint(hdc, w, h, /*fill_background=*/false);
+    // ContentMapView shared DIB is fixed-camera; orbit-synced GDI DEM owns
+    // the frame (no FlyCube). Do not leave an empty/blue DIB as primary.
+    scene3d_.paint(hdc, w, h, /*fill_background=*/true);
   }
   // 2D panes: overlay OGR vectors on the GPU base. Skip on 3D — polygon fills
   // painted a flat China map over DEM (Views/WinUI parity).
@@ -910,6 +956,11 @@ LRESULT CALLBACK MapHost::child_wnd_proc(HWND hwnd,
   if (msg == WM_TIMER && wparam == kPresentTimerId && self) {
     // Re-sync screen position when the owner window is dragged / DPI changes.
     self->sync_layout();
+    if (self->kind_ == content::ViewKind::kScene3d &&
+        self->scene3d_rhi_.is_live() && IsWindowVisible(hwnd)) {
+      InvalidateRect(hwnd, nullptr, FALSE);
+      return 0;
+    }
     if (self->view_) {
       const content::SharedSurface surface = self->view_->Latest();
       if (surface.generation != 0 &&

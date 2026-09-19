@@ -94,7 +94,10 @@ int main() {
     expect(yaw > 0.05f && pitch < 0.f, "orbit drag");
     float lo = -2.f;
     tool::orbit_from_drag(&yaw, &lo, 0, -1000, 0.01f);
-    expect(lo >= -1.21f, "pitch clamp");
+    expect(lo >= tool::kOrbitPitchMin - 0.01f, "pitch clamp lo");
+    float hi = 2.f;
+    tool::orbit_from_drag(&yaw, &hi, 0, 1000, 0.01f);
+    expect(hi <= tool::kOrbitPitchMax + 0.01f, "pitch clamp hi");
   }
 
   expect(tool::dolly_distance(4.f, 120, 1.f, 12.f) < 4.f, "dolly in");

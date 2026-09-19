@@ -47,6 +47,7 @@ gis::DemRaster  (+ shared frame constants / cutline policy)
 | Global DEM | Remove “already have `g_scene_dem` → skip seed for this scene” behavior; each `seed_*_into_scene` must attach terrain to **that** `SmtScene` |
 | `leftover_has_scene_dem` | Reflect whether the **relevant** scene/world has DEM (not a sticky process flag that blocks re-seed) |
 | Host camera | Default orbit yaw = south-of-target (`π − 0.55`), shared constant with leftover framing intent |
+| Mesh X | `X=-lon` (not `+lon`): RH lookAt looking north has camera-right=`-X`, so east sits on screen-right |
 | Cutline | Real `china_dem*` path → do **not** remask with prefecture rings (match `seed_stereo_underlay`); synthetic → optional rings with mainland-contains guard |
 | Views ↔ leftover | Views must not include `legacy/…` |
 | ABI | Keep `DemHeightField` / `SCENE3D_EXPORT_*` / `leftover_frame_pose` / `seed_sample_map_into_scene` names |

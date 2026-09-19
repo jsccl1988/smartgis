@@ -52,8 +52,9 @@ SCENE3D_EXPORT_API bool point_in_lonlat_ring(double px, double py,
 SCENE3D_EXPORT_API bool any_ring_contains(double px, double py,
                                           const std::vector<LonLatRing>& rings);
 
-// Regular-grid elevation in map CRS. sample() returns leftover-3D Y
-// (geo X → 3D X, geo Y → 3D Z, height → 3D Y).
+// Regular-grid elevation in map CRS. sample() takes geographic lon/lat;
+// build_mesh / labels use leftover Y-up with X=-lon (east on screen-right
+// when looking north), height→Y, lat→Z.
 class SCENE3D_EXPORT_CLASS DemHeightField {
  public:
   bool load_gdal_raster(const char* path);

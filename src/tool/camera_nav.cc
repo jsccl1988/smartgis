@@ -155,7 +155,7 @@ void orbit_from_drag(float* yaw, float* pitch, int dx_px, int dy_px,
   const float s = sensitivity > 0.f ? sensitivity : 0.01f;
   *yaw += static_cast<float>(dx_px) * s;
   *pitch += static_cast<float>(dy_px) * s;
-  *pitch = std::clamp(*pitch, -1.2f, 1.2f);
+  *pitch = std::clamp(*pitch, kOrbitPitchMin, kOrbitPitchMax);
 }
 
 float dolly_distance(float distance, int32_t wheel_delta, float min_d,

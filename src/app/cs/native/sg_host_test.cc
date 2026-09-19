@@ -9,6 +9,7 @@
 #include <windows.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace {
@@ -25,6 +26,11 @@ void expect(bool ok, const char* msg) {
 }  // namespace
 
 int main() {
+  // Headless HWND fuzz repeatedly attaches/releases FlyCube DX12; that path
+  // has known heap/stack corruption on teardown. Force ContentMapView + GDI
+  // for this smoke (product default remains FlyCube / present_gpu).
+  _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "1");
+
   SgHost* first = sg_host_create();
   expect(first != nullptr, "create");
   SgHost* a = sg_host_create();

@@ -63,6 +63,11 @@ WorldExtent pan_world_extent(const WorldExtent& last, int view_w, int view_h,
                              int dx_px, int dy_px);
 
 // Cesium-style orbit: left/right drag yaw, up/down pitch (radians).
+// Pitch is clamped away from ±π/2 so a DEM ground plane never collapses to an
+// edge-on line (pitch≈±1.2 looked like a thin green strip).
+inline constexpr float kOrbitPitchMin = -0.55f;
+inline constexpr float kOrbitPitchMax = 1.05f;
+
 void orbit_from_drag(float* yaw, float* pitch, int dx_px, int dy_px,
                      float sensitivity);
 

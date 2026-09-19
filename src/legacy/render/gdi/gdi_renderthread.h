@@ -115,14 +115,14 @@ class SmtGdiRenderThread {
   int SwapBuf(int destOrgx, int destOrgy, int destW, int destH, int srcOrgx,
               int srcOrgy, int srcW, int srcH,
               eSwapType type = eSwapType::BLT_TRANSPARENT, int op = SRCCOPY,
-              COLORREF clr = RGB(170, 211, 223));
+              COLORREF clr = RGB(255, 255, 255));
 
   int SwapBuf(SmtRenderBuf &rbTarget, int destOrgx, int destOrgy, int destW,
               int destH, int srcOrgx, int srcOrgy, int op = SRCCOPY);
   int SwapBuf(SmtRenderBuf &rbTarget, int destOrgx, int destOrgy, int destW,
               int destH, int srcOrgx, int srcOrgy, int srcW, int srcH,
               eSwapType type = eSwapType::BLT_TRANSPARENT, int op = SRCCOPY,
-              COLORREF clr = RGB(170, 211, 223));
+              COLORREF clr = RGB(255, 255, 255));
 
  public:
   int LPToDP(float x, float y, long &X, long &Y) const;

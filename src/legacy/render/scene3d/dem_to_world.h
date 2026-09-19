@@ -13,7 +13,7 @@ namespace render {
 // gis::World as kTerrain, then attach a coarse CPU mesh (build_mesh) so
 // GpuScene::sync_from / rebuild_meshes can upload triangles (not only AABB).
 // World Z carries elev (GIS AABB); mesh XYZ stays leftover Y-up
-// (lon, elev, lat). |max_edge| caps DEM downsample (default 96).
+// (X=-lon, elev, lat). |max_edge| caps DEM downsample (default 96).
 SCENE3D_EXPORT_API gis::Node* seed_dem_height_field_into_world(
     gis::World* world, const DemHeightField& dem, const char* name,
     int max_edge = 96);

@@ -63,24 +63,29 @@ Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把�
 `kScene3d`）+ `SetExtent`（有中国范围则全幅中国）。2D 为正交，3D 为透视。
 手势：滚轮对光标缩放、平移；HWND 允许时双指捏合（`WM_GESTURE` / 指针）。
 
-3D 页：`view3d.trackball` 更新 `Scene3dController`。默认 ContentMapView 时
-GPU 对 `kScene3d` 发布合成 DEM 线框（`paint_demo_frame`）；chrome 在 **尚无共享
-DIB** 时用 GDI `paint()`（`seed_china_dem_into_world`），有帧或 FlyCube 时只叠
-`paint_hud()` + 矢量。FlyCube 着色 DEM：
+3D 页：`view3d.trackball` 更新 `Scene3dController`。默认优先 **FlyCube / RHI**
+（`present_gpu` 每帧着色 DEM + 轨道相机；成功时 chrome 只叠 `paint_hud`）。
+无 FlyCube 或 present 失败时回退 ContentMapView / GDI `paint()`。
+
+若本机 DX12 在多视口 attach 时挂起，可退回 ContentMapView：
 
 ```bat
-set SMT_PREFER_FLYCUBE_3D=1
+set SMT_FORCE_CONTENT_MAPVIEW_3D=1
 out\SmartGisViews.exe
 ```
+
+（兼容：`SMT_PREFER_FLYCUBE_3D=0` 效果相同。旧的 `=1` 已无必要——默认即 RHI。）
 
 无 GPU 时 GDI DEM 线框兜底。`--self-test` 断言 OGR 进层与相机矩阵；若挂上
 FlyCube 会写 `flycube-camera-ok`，并在 present 前开 `enable_atmosphere_demo()`。
 
-大气 3D 端到端 showcase（自动 present 后退出）。默认 **Null RHI**（可重复退出 0）；
-真 GPU：`set SMT_ATMOSPHERE_SHOWCASE_GPU=1`（FlyCube/DX12，present ≥3 帧后 exit 0）。
+大气 3D 端到端 showcase（自动 present；GPU 默认可视 linger 后退出）。默认 **Null RHI**（可重复退出 0）；
+真 GPU：`set SMT_ATMOSPHERE_SHOWCASE_GPU=1`（独立 640×480 展示窗 + FlyCube/DX12）。
+可选 `SMT_ATMOSPHERE_SHOWCASE_LINGER_MS`（毫秒；GPU 默认 4000，设 `0` 可跳过停留）。
 
 ```bat
 set SMT_ATMOSPHERE_SHOWCASE_GPU=1
+rem optional: set SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=6000
 out\SmartGisViews.exe --atmosphere-showcase=land
 out\SmartGisViews.exe --atmosphere-showcase=ocean
 out\SmartGisViews.exe --atmosphere-showcase=full
@@ -95,11 +100,13 @@ out\SmartGisViews.exe --atmosphere-showcase=coast
 | `coast` | 东海附近 extent + full demo |
 
 成功：exit 0；旁路 `out\atmosphere-showcase-mark.txt` 与
-`out\atmosphere-showcase-<mode>.bmp`（亦可拷到 `out\atmosphere-showcase\`）。
-失败码：50 HWND、51 非 FlyCube、52 present、53 开关/场状态不符。
+`out\atmosphere-showcase-<mode>.bmp`（GPU 要求 BMP 有可见像素信号）。
+失败码：50 HWND、51 非 FlyCube、52 present、53 开关/场状态不符、54 BMP 全黑/无信号。
 
-说明：`SMT_PREFER_FLYCUBE_3D=1` 在 `BrowserView::init` 多视口 DX12 attach 上仍可能挂起；
-showcase 路径是 detach 后单设备创建，不受该路径影响。
+说明：showcase 启动前会自动设 `SMT_FORCE_CONTENT_MAPVIEW_3D=1`，避免
+`BrowserView::init` 多视口 FlyCube 挂起；GPU 绘制走独立 640×480 present HWND。
+若 BMP 仅有 clear 色（无地形/海面几何），GPU 路径 exit 54——逻辑场与 present 仍跑通，
+需继续修 FlyCube 网格可见性。
 
 ```bat
 build.bat views

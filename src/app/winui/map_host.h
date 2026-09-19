@@ -15,6 +15,7 @@
 #include "app/views/blit_frame_cache.h"
 #include "app/views/map_scene.h"
 #include "app/views/scene3d_controller.h"
+#include "app/views/scene3d_rhi_session.h"
 #include "app/winui/detail/map_session.h"
 #include "content/public/map_contents_observer.h"
 
@@ -113,7 +114,10 @@ class MapHost : public content::MapContentsObserver {
   content::MapWidgetHostView* view_ = nullptr;
   ViewSlot slots_[3] = {};
   ::app::MapScene map_scene_;
-  ::app::Scene3dController scene3d_;
+  // Mutable: paint_to_dc is const (WinUI paint path) but present_gpu / GDI paint mutate.
+  mutable ::app::Scene3dController scene3d_;
+  // FlyCube / present_gpu for kScene3d (default); ContentMapView + GDI fallback.
+  mutable ::app::Scene3dRhiSession scene3d_rhi_;
   HWND window_hwnd_ = nullptr;
   HWND island_hwnd_ = nullptr;
   HWND child_hwnd_ = nullptr;

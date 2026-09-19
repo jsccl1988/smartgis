@@ -61,7 +61,7 @@ struct Node {
   const gis::Tileset* tileset;
   std::vector<std::string> visible_uris;
   // Optional CPU terrain mesh (SP4). Layout matches DemHeightField::build_mesh:
-  // leftover Y-up XYZ (lon, elev, lat) + triangle indices. Empty = AABB-only.
+  // leftover Y-up XYZ (X=-lon, elev, lat) + triangle indices. Empty = AABB-only.
   std::vector<float> terrain_positions;
   std::vector<uint32_t> terrain_indices;
 

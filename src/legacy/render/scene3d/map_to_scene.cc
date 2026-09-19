@@ -13,6 +13,7 @@
 #include "ogrsf_frmts.h"
 #include "base/carto/style.h"
 #include "gis/datasource/gdal/ogr_feature_codec.h"
+#include "gis/world/dem_frame.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -135,7 +136,7 @@ void add_feature_label(MapLabelBatch* labels, OGRFeature* feat,
   const double y = 0.5 * (env.MinY + env.MaxY);
   MapLabel lab;
   lab.text = text;
-  lab.x = static_cast<float>(x);
+  lab.x = gis::dem_lon_to_x(x);
   lab.z = static_cast<float>(y);
   lab.y = dem ? dem->sample(x, y) + dem->drape_lift() + 0.15f : 0.2f;
   lab.priority = pri;
@@ -370,10 +371,11 @@ bool leftover_dem_aabb(Aabb* out) {
       g_last_dem_frame.min_m * g_last_dem_frame.vert_exag;
   const float ymax =
       g_last_dem_frame.max_m * g_last_dem_frame.vert_exag;
-  // Leftover Y-up: lon→X, height→Y, lat→Z (north = +Z).
-  out->vcMin.set(static_cast<float>(g_last_dem_frame.minx), ymin,
+  // Leftover Y-up: X=-lon, height→Y, lat→Z (north = +Z). min/max swap under
+  // negation so AABB stays axis-aligned.
+  out->vcMin.set(gis::dem_lon_to_x(g_last_dem_frame.maxx), ymin,
                  static_cast<float>(g_last_dem_frame.miny));
-  out->vcMax.set(static_cast<float>(g_last_dem_frame.maxx), ymax,
+  out->vcMax.set(gis::dem_lon_to_x(g_last_dem_frame.minx), ymax,
                  static_cast<float>(g_last_dem_frame.maxy));
   out->vcCenter = (out->vcMax + out->vcMin) / 2.f;
   return out->is_init();

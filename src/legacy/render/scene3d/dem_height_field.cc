@@ -287,10 +287,11 @@ void DemHeightField::sample_normal(double x, double y, float* nx, float* ny,
   const float hx1 = sample(x + eps, y);
   const float hy0 = sample(x, y - eps);
   const float hy1 = sample(x, y + eps);
-  // Leftover 3D: X east, Y up, Z north.
+  // Leftover 3D: X=-lon (west+), Y up, Z north. Gradient ∂h/∂world_x flips
+  // vs geographic east, so negate the X component of the cross product.
   const float dx = 2.f * eps;
   const float dz = 2.f * eps;
-  float x_c = dz * (hx0 - hx1);
+  float x_c = -(dz * (hx0 - hx1));
   float y_c = dx * dz;
   float z_c = dx * (hy0 - hy1);
   const float len = std::sqrt(x_c * x_c + y_c * y_c + z_c * z_c);
@@ -393,7 +394,7 @@ bool DemHeightField::build_mesh(int max_edge, std::vector<float>* xyz,
       const double lon = minx_ + src_col * dx;
       const float meters = meters_at(src_col, src_row);
       const float h = meters * vert_exag_;
-      xyz->push_back(static_cast<float>(lon));
+      xyz->push_back(gis::dem_lon_to_x(lon));
       xyz->push_back(h);
       xyz->push_back(static_cast<float>(lat));
       if (rgb) {
@@ -426,12 +427,13 @@ bool DemHeightField::build_mesh(int max_edge, std::vector<float>* xyz,
       if (i00 < 0 || i10 < 0 || i01 < 0 || i11 < 0) {
         continue;
       }
+      // Reverse winding vs +lon mesh so front faces stay up after X=-lon.
       indices->push_back(static_cast<unsigned>(i00));
+      indices->push_back(static_cast<unsigned>(i11));
       indices->push_back(static_cast<unsigned>(i10));
-      indices->push_back(static_cast<unsigned>(i11));
       indices->push_back(static_cast<unsigned>(i00));
-      indices->push_back(static_cast<unsigned>(i11));
       indices->push_back(static_cast<unsigned>(i01));
+      indices->push_back(static_cast<unsigned>(i11));
     }
   }
   return !indices->empty();

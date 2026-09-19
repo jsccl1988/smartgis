@@ -12,11 +12,11 @@
 
 namespace render {
 
-// Convert leftover Y-up corner (X=lon, Y=elev, Z=lat) into GIS World envelope
+// Convert leftover Y-up corner (X=-lon, Y=elev, Z=lat) into GIS World envelope
 // (min_x/min_y/min_z)–(max_x/max_y/max_z) where horizontal is lon/lat and
 // vertical elev lands in Z. Pure logic — unit-testable without SmtScene.
-SCENE3D_EXPORT_API void leftover_yup_to_gis(double lon0, double elev0,
-                                            double lat0, double lon1,
+SCENE3D_EXPORT_API void leftover_yup_to_gis(double x0, double elev0,
+                                            double lat0, double x1,
                                             double elev1, double lat1,
                                             double* min_x, double* min_y,
                                             double* min_z, double* max_x,

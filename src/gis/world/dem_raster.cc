@@ -343,7 +343,8 @@ bool DemRaster::build_mesh(int max_edge, std::vector<float>* xyz,
           static_cast<int>(xyz->size() / 3);
       const double lon = minx_ + src_col * dx;
       const float h = meters_at(src_col, src_row) * vert_exag_;
-      xyz->push_back(static_cast<float>(lon));
+      // X=-lon: RH lookAt looking +Z puts east on screen-right.
+      xyz->push_back(dem_lon_to_x(lon));
       xyz->push_back(h);
       xyz->push_back(static_cast<float>(lat));
     }
@@ -358,12 +359,13 @@ bool DemRaster::build_mesh(int max_edge, std::vector<float>* xyz,
       if (i00 < 0 || i10 < 0 || i01 < 0 || i11 < 0) {
         continue;
       }
+      // Reverse winding vs +lon mesh so front faces stay up after X mirror.
       indices->push_back(static_cast<uint32_t>(i00));
+      indices->push_back(static_cast<uint32_t>(i11));
       indices->push_back(static_cast<uint32_t>(i10));
-      indices->push_back(static_cast<uint32_t>(i11));
       indices->push_back(static_cast<uint32_t>(i00));
-      indices->push_back(static_cast<uint32_t>(i11));
       indices->push_back(static_cast<uint32_t>(i01));
+      indices->push_back(static_cast<uint32_t>(i11));
     }
   }
   return !indices->empty();

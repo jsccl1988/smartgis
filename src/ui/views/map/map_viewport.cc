@@ -335,16 +335,23 @@ bool MapViewport::attach() {
   SetWindowLongPtrW(native_view(), GWLP_USERDATA,
                     reinterpret_cast<LONG_PTR>(this));
 
-  // Scene3d: default ContentMapView (stable --self-test). Chrome overlays a
-  // land-masked DEM (Scene3dController::paint) on that DIB — not flat MapLibre.
-  // Opt into FlyCube shaded DEM + orbit present_gpu with SMT_PREFER_FLYCUBE_3D=1.
-  const bool prefer_flycube_3d = []() {
-    if (const char* env = std::getenv("SMT_PREFER_FLYCUBE_3D")) {
-      return env[0] == '1' && env[1] == '\0';
+  // Scene3d: prefer FlyCube / present_gpu by default (RHI shaded DEM + orbit).
+  // Opt out to ContentMapView with SMT_FORCE_CONTENT_MAPVIEW_3D=1 when DX12
+  // init hangs; legacy SMT_PREFER_FLYCUBE_3D=0 has the same effect.
+  const bool force_content_3d = []() {
+    if (const char* env = std::getenv("SMT_FORCE_CONTENT_MAPVIEW_3D")) {
+      if (env[0] == '1' && env[1] == '\0') {
+        return true;
+      }
+    }
+    if (const char* prefer = std::getenv("SMT_PREFER_FLYCUBE_3D")) {
+      if (prefer[0] == '0' && prefer[1] == '\0') {
+        return true;
+      }
     }
     return false;
   }();
-  if (role_ == Role::kScene3d && prefer_flycube_3d) {
+  if (role_ == Role::kScene3d && !force_content_3d) {
     if (try_flycube_device()) {
       mode_ = AttachMode::kFlyCube;
       status_ = L"3D FlyCube RHI present (DX12)";
@@ -437,6 +444,7 @@ void MapViewport::detach() {
   release_rhi_device();
   view_id_ = 0;
   mode_ = AttachMode::kNone;
+  last_gpu_present_ok_ = false;
 }
 
 void MapViewport::set_overlay_paint(OverlayPaint fn) {
@@ -939,19 +947,22 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
     GetClientRect(hwnd, &rc);
     const int width_px = rc.right > 0 ? rc.right : 0;
     const int height_px = rc.bottom > 0 ? rc.bottom : 0;
-    // Scene3d + FlyCube: GPU presents to the HWND swapchain; HUD is light
-    // GDI text only (no full-frame StretchDIBits race).
+    // Scene3d + FlyCube: GPU presents to the HWND swapchain. On success the
+    // chrome overlay is HUD-only; on present failure fall through to GDI DEM.
     if (self && self->role_ == Role::kScene3d &&
         self->mode_ == AttachMode::kFlyCube && self->rhi_device_ &&
         self->gpu_present_) {
       const uint32_t w = width_px > 0 ? static_cast<uint32_t>(width_px) : 1;
       const uint32_t h = height_px > 0 ? static_cast<uint32_t>(height_px) : 1;
-      self->gpu_present_(self->rhi_device_, w, h);
-      if (self->overlay_paint_) {
-        self->overlay_paint_(hdc, rc);
+      self->last_gpu_present_ok_ =
+          self->gpu_present_(self->rhi_device_, w, h);
+      if (self->last_gpu_present_ok_) {
+        if (self->overlay_paint_) {
+          self->overlay_paint_(hdc, rc);
+        }
+        EndPaint(hwnd, &ps);
+        return 0;
       }
-      EndPaint(hwnd, &ps);
-      return 0;
     }
     // Map / 3D placeholder: composite present + vector overlay offscreen,
     // then one BitBlt so the user never sees a half-drawn frame.

@@ -16,7 +16,8 @@
 namespace gis {
 
 // Regular-grid elevation in map CRS for World / GpuScene seeding.
-// Mesh XYZ matches leftover Y-up (lon, elev, lat); World AABB uses elev in Z.
+// Mesh XYZ is leftover Y-up (X=-lon, elev, lat) so RH lookAt looking north
+// places east on screen-right; World AABB keeps geographic lon/lat + elev in Z.
 class GIS_EXPORT DemRaster {
  public:
   bool load_gdal_raster(const char* path);
@@ -38,7 +39,7 @@ class GIS_EXPORT DemRaster {
   float max_meters() const { return max_m_; }
   void envelope(double* minx, double* miny, double* maxx, double* maxy) const;
 
-  // Coarse XYZ (lon, elev, lat) + triangle indices.
+  // Coarse XYZ (X=-lon, elev, lat) + triangle indices.
   bool build_mesh(int max_edge, std::vector<float>* xyz,
                   std::vector<uint32_t>* indices) const;
 
