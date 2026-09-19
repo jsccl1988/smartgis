@@ -462,20 +462,22 @@ void BrowserView::wire_map_scene() {
     }
     const auto mode = map_scene_ ? map_scene_->attach_mode()
                                  : ui::views::MapViewport::AttachMode::kNone;
-    // WinUI MapHost parity:
-    // - FlyCube: present_gpu already drew DEM → HUD only.
-    // - ContentMapView with shared DIB: GPU demo DEM is present → HUD only.
-    // - Otherwise (placeholder / late DIB): GDI seed_china_dem wireframe.
+    // DEM is the 3D tab primary. Opaque MapScene land fills used to paint a
+    // flat "ordinary map" over the mesh (user: 3D 还是普通地图).
+    // - FlyCube: present_gpu already shaded DEM → HUD only.
+    // - ContentMapView: shared DIB may be a fixed-camera demo; still paint
+    //   chrome Scene3dController wireframe so orbit yaw/pitch match the HUD.
+    // - No shared frame: full GDI DEM (fill background).
+    // Do not call document_.paint here — 2D ortho polygons hide relief.
     const bool flycube = mode == ui::views::MapViewport::AttachMode::kFlyCube;
     const bool content_frame =
         mode == ui::views::MapViewport::AttachMode::kContentMapView &&
         detail::viewport_has_shared_frame(map_scene_);
-    if (flycube || content_frame) {
+    if (flycube) {
       scene3d_.paint_hud(hdc, w, h);
     } else {
-      scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+      scene3d_.paint(hdc, w, h, /*fill_background=*/!content_frame);
     }
-    document_.paint(hdc, w, h, false);
   };
   if (map_edit_) {
     map_edit_->set_overlay_paint(paint2d);

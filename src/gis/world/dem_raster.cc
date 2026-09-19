@@ -438,10 +438,18 @@ Node* seed_china_dem_into_world(World* world, const LonLatRing* rings,
   }
   DemRaster dem;
   const std::string path = find_sample_dem_path();
-  if (path.empty() || !dem.load_gdal_raster(path.c_str())) {
+  const bool loaded_sample =
+      !path.empty() && dem.load_gdal_raster(path.c_str());
+  if (!loaded_sample) {
     dem.fill_synthetic_china();
   }
-  if (rings && ring_count > 0) {
+  // Real china_dem* already encodes land/ocean. Remasking with prefecture
+  // rings can punch holes (mainland-contains caution). Match leftover
+  // seed_stereo_underlay: skip mask_outside_rings when the loaded path is
+  // china_dem. Synthetic / other rasters may still mask with rings.
+  const bool skip_cutline =
+      loaded_sample && path.find("china_dem") != std::string::npos;
+  if (!skip_cutline && rings && ring_count > 0) {
     std::vector<LonLatRing> clip(rings, rings + ring_count);
     dem.mask_outside_rings(clip);
   }

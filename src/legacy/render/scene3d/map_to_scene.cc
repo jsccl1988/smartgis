@@ -31,9 +31,38 @@ using namespace base;
 namespace render {
 namespace {
 
-DemHeightField g_scene_dem;
+// Framing cache for leftover_dem_aabb / leftover_has_scene_dem. Updated on each
+// successful seed; does NOT block re-seed of another SmtScene (no sticky skip).
+struct DemFrameCache {
+  bool valid = false;
+  double minx = 0;
+  double miny = 0;
+  double maxx = 0;
+  double maxy = 0;
+  float min_m = 0;
+  float max_m = 1;
+  float vert_exag = 0.0012f;
+};
+
+DemFrameCache g_last_dem_frame;
+// Non-owning: points at the DemHeightField adopted by the last StereoTerrain
+// (scene-owned). Used for drape/labels during the same seed_* call.
+DemHeightField* g_active_dem = nullptr;
 MapLabelBatch* g_pending_labels = nullptr;
 gis::World g_map_world;
+
+void remember_dem_frame(const DemHeightField& dem) {
+  if (dem.empty()) {
+    g_last_dem_frame.valid = false;
+    return;
+  }
+  dem.envelope(&g_last_dem_frame.minx, &g_last_dem_frame.miny,
+               &g_last_dem_frame.maxx, &g_last_dem_frame.maxy);
+  g_last_dem_frame.min_m = dem.min_meters();
+  g_last_dem_frame.max_m = dem.max_meters();
+  g_last_dem_frame.vert_exag = dem.vertical_exaggeration();
+  g_last_dem_frame.valid = true;
+}
 
 void clear_map_world() {
   while (g_map_world.node_count() > 0) {
@@ -44,11 +73,11 @@ void clear_map_world() {
   }
 }
 
-void seed_dem_into_map_world() {
+void seed_dem_into_map_world(const DemHeightField& dem) {
   clear_map_world();
   set_smt_scene_world_mirror(&g_map_world);
-  if (!g_scene_dem.empty()) {
-    seed_dem_height_field_into_world(&g_map_world, g_scene_dem, "stereo_dem");
+  if (!dem.empty()) {
+    seed_dem_height_field_into_world(&g_map_world, dem, "stereo_dem");
   }
 }
 
@@ -218,15 +247,18 @@ void trim_dem_mask_rings(std::vector<render::LonLatRing>* rings,
 bool seed_stereo_underlay(LP3DRENDERDEVICE device, SmtScene* scene,
                           MapLabelBatch** out_labels,
                           const std::vector<render::LonLatRing>* rings) {
-  if (!device || !scene) {
+  // Device may be null in unit tests; still attach owned DEM to |scene|.
+  if (!scene) {
     return false;
   }
   g_pending_labels = nullptr;
+  // Heap field per seed; StereoTerrain adopts it so lifetime outlives Create.
+  auto* dem = new DemHeightField();
   const std::string dem_path = find_sample_dem_path();
   const bool loaded_real =
-      !dem_path.empty() && g_scene_dem.load_gdal_raster(dem_path.c_str());
+      !dem_path.empty() && dem->load_gdal_raster(dem_path.c_str());
   if (!loaded_real) {
-    g_scene_dem.fill_synthetic_china();
+    dem->fill_synthetic_china();
   }
   // china_dem.tif from build_china_dem.py is already cutlined to the national
   // outline. Re-masking with prefecture rings is O(cells×rings) on the UI
@@ -237,9 +269,8 @@ bool seed_stereo_underlay(LP3DRENDERDEVICE device, SmtScene* scene,
   // can keep only large western prefectures and punch Henan/the plains.
   if (!dem_already_cutlined && rings && !rings->empty() &&
       any_ring_contains(110.0, 35.0, *rings)) {
-    g_scene_dem.mask_outside_rings(*rings);
+    dem->mask_outside_rings(*rings);
   }
-  seed_dem_into_map_world();
   Vector3 pos(0.f, 0.f, 0.f);
   SmtMaterial mat;
   mat.SetAmbientValue(SmtColor(0.32f, 0.36f, 0.34f, 1.f));
@@ -248,17 +279,20 @@ bool seed_stereo_underlay(LP3DRENDERDEVICE device, SmtScene* scene,
   mat.SetSpecularValue(SmtColor(0.05f, 0.05f, 0.05f, 1.f));
   mat.SetShininessValue(4.f);
   auto* terrain = new StereoTerrain();
-  terrain->set_height_field(&g_scene_dem);
+  terrain->adopt_height_field(dem);
   const std::string rs = find_sample_imagery_path();
   if (terrain->Init(pos, mat, rs.empty() ? "" : rs.c_str()) != SMT_ERR_NONE ||
       terrain->Create(device) != SMT_ERR_NONE) {
     delete terrain;
   } else {
+    remember_dem_frame(*dem);
+    g_active_dem = dem;
+    seed_dem_into_map_world(*dem);
     terrain->SetVisible(true);
     scene->Add3DObject(terrain);
   }
   auto* labels = new MapLabelBatch();
-  if (labels->Init(pos, mat) != SMT_ERR_NONE ||
+  if (!device || labels->Init(pos, mat) != SMT_ERR_NONE ||
       labels->Create(device) != SMT_ERR_NONE) {
     delete labels;
     g_pending_labels = nullptr;
@@ -322,24 +356,25 @@ void leftover_frame_pose(const Aabb& aabb, Vector3* eye, Vector3* target,
   }
 }
 
-bool leftover_has_scene_dem() { return !g_scene_dem.empty(); }
+bool leftover_has_scene_dem() {
+  // True when any seed has produced a DEM frame (last successful underlay).
+  // Intentionally not a process-global "already seeded → skip next scene".
+  return g_last_dem_frame.valid;
+}
 
 bool leftover_dem_aabb(Aabb* out) {
-  if (!out || g_scene_dem.empty()) {
+  if (!out || !g_last_dem_frame.valid) {
     return false;
   }
-  double minx = 0;
-  double miny = 0;
-  double maxx = 0;
-  double maxy = 0;
-  g_scene_dem.envelope(&minx, &miny, &maxx, &maxy);
   const float ymin =
-      g_scene_dem.min_meters() * g_scene_dem.vertical_exaggeration();
+      g_last_dem_frame.min_m * g_last_dem_frame.vert_exag;
   const float ymax =
-      g_scene_dem.max_meters() * g_scene_dem.vertical_exaggeration();
+      g_last_dem_frame.max_m * g_last_dem_frame.vert_exag;
   // Leftover Y-up: lon→X, height→Y, lat→Z (north = +Z).
-  out->vcMin.set(static_cast<float>(minx), ymin, static_cast<float>(miny));
-  out->vcMax.set(static_cast<float>(maxx), ymax, static_cast<float>(maxy));
+  out->vcMin.set(static_cast<float>(g_last_dem_frame.minx), ymin,
+                 static_cast<float>(g_last_dem_frame.miny));
+  out->vcMax.set(static_cast<float>(g_last_dem_frame.maxx), ymax,
+                 static_cast<float>(g_last_dem_frame.maxy));
   out->vcCenter = (out->vcMax + out->vcMin) / 2.f;
   return out->is_init();
 }
@@ -396,7 +431,8 @@ int seed_ogr_layer_into_scene(LP3DRENDERDEVICE device, SmtScene* scene,
     return 0;
   }
   MapLabelBatch* labels = g_pending_labels;
-  DemHeightField* dem = g_scene_dem.empty() ? nullptr : &g_scene_dem;
+  DemHeightField* dem =
+      (g_active_dem && !g_active_dem->empty()) ? g_active_dem : nullptr;
   layer->ResetReading();
   int added = 0;
   while (OGRFeature* feat = layer->GetNextFeature()) {
@@ -508,14 +544,15 @@ int seed_geojson_into_scene(LP3DRENDERDEVICE device, SmtScene* scene,
   // Terrain counts as a seed even when the pack has no line features (area /
   // points are skipped). Otherwise view_3d adds an origin cube and the camera
   // stays at leftover (0,0,100) while China sits at lon/lat.
-  if (!g_scene_dem.empty()) {
+  if (g_active_dem && !g_active_dem->empty()) {
     ++added;
   }
   return added;
 }
 
 int seed_sample_map_into_scene(LP3DRENDERDEVICE device, SmtScene* scene) {
-  if (!device || !scene) {
+  // Null device allowed: DEM underlay still attaches owned StereoTerrain.
+  if (!scene) {
     return 0;
   }
   char module[MAX_PATH] = {};
@@ -547,8 +584,10 @@ int seed_sample_map_into_scene(LP3DRENDERDEVICE device, SmtScene* scene) {
     if (attr != INVALID_FILE_ATTRIBUTES &&
         (attr & FILE_ATTRIBUTE_DIRECTORY) == 0) {
       const int added = seed_geojson_into_scene(device, scene, cand.c_str());
-      if (added > 0 || !g_scene_dem.empty()) {
-        return added > 0 ? added : 1;
+      // Only treat THIS scene's seed success — do not short-circuit on a prior
+      // view's leftover_has_scene_dem / framing cache.
+      if (added > 0) {
+        return added;
       }
     }
   }

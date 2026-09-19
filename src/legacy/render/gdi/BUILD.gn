@@ -10,6 +10,8 @@ source_set("gdi_common_sources") {
   sources = [
     "gdi_aux_api.cpp",
     "gdi_bufpool.cpp",
+    "gdi_gdiplus.cpp",
+    "gdi_gdiplus.h",
     "gdi_renderbuf.cpp",
     "map_carto2d.cc",
     "map_carto2d.h",
@@ -26,6 +28,7 @@ source_set("gdi_common_sources") {
     "//src/gis/datasource/gdal:ogr_text_encoding",
     "//third_party:CxImage",
   ]
+  libs = [ "gdiplus.lib" ]
 }
 
 # Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).

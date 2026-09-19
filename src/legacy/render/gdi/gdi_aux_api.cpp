@@ -1,8 +1,11 @@
 #include "legacy/render/gdi/gdi_aux_api.h"
 
 #include "gis/datasource/gdal/ogr_text_encoding.h"
+#include "legacy/render/gdi/gdi_gdiplus.h"
 
 #include <string>
+
+using render::GdiplusGraphics;
 
 void clear_rect(HDC hDC, int x, int y, int w, int h, COLORREF clr) {
   // GDI FillRect requires top < bottom in MM_TEXT.
@@ -90,6 +93,11 @@ void draw_point_disc(HDC hdc, long x, long y, int radius) {
 
 void draw_anno_text(HDC hdc, long x, long y, const char* text, int px_h,
                     int halo_px) {
+  draw_anno_text(hdc, x, y, text, px_h, halo_px, 0.f);
+}
+
+void draw_anno_text(HDC hdc, long x, long y, const char* text, int px_h,
+                    int halo_px, float angle_deg) {
   if (!hdc || !text || !text[0]) {
     return;
   }
@@ -103,13 +111,25 @@ void draw_anno_text(HDC hdc, long x, long y, const char* text, int px_h,
   if (halo_px < 1) {
     halo_px = 1;
   }
+  const COLORREF ink = GetTextColor(hdc);
+  const COLORREF ink_use =
+      (ink == 0 || ink == RGB(0, 0, 0)) ? RGB(28, 28, 28) : ink;
+  {
+    GdiplusGraphics gfx(hdc);
+    if (gfx.ok() &&
+        gfx.draw_string(static_cast<int>(x), static_cast<int>(y), w.c_str(),
+                        px_h, ink_use, RGB(252, 252, 250), halo_px,
+                        angle_deg)) {
+      return;
+    }
+  }
+  // GDI fallback (no rotation).
   HFONT font = CreateFontW(-px_h, 0, 0, 0, px_h >= 16 ? FW_SEMIBOLD : FW_NORMAL,
                            FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_TT_PRECIS,
                            CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                            DEFAULT_PITCH | FF_DONTCARE, L"Microsoft YaHei");
   HGDIOBJ old = font ? SelectObject(hdc, font) : nullptr;
   SetBkMode(hdc, TRANSPARENT);
-  const COLORREF ink = GetTextColor(hdc);
   const int n = static_cast<int>(w.size());
   SetTextColor(hdc, RGB(252, 252, 250));
   for (int dy = -halo_px; dy <= halo_px; ++dy) {
@@ -120,7 +140,7 @@ void draw_anno_text(HDC hdc, long x, long y, const char* text, int px_h,
       TextOutW(hdc, x + dx, y + dy, w.c_str(), n);
     }
   }
-  SetTextColor(hdc, ink == RGB(252, 252, 250) ? RGB(28, 28, 28) : ink);
+  SetTextColor(hdc, ink_use);
   TextOutW(hdc, x, y, w.c_str(), n);
   if (font) {
     SelectObject(hdc, old);

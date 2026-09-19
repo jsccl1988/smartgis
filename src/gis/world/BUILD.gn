@@ -16,6 +16,7 @@ source_set("land_mask") {
 # Compiled into //src/gis:gis (dll_stem = gis).
 source_set("world_sources") {
   sources = [
+    "dem_frame.h",
     "dem_raster.cc",
     "dem_raster.h",
     "scene.cc",

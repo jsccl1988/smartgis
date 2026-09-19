@@ -8,6 +8,10 @@
 #include <string>
 #include <vector>
 
+namespace gis {
+class DemRaster;
+}
+
 #if defined(DEM_HEIGHT_FIELD_STATIC)
 #define SCENE3D_EXPORT_DEFINED
 #define SCENE3D_EXPORT_API
@@ -81,6 +85,9 @@ class SCENE3D_EXPORT_CLASS DemHeightField {
                   std::vector<float>* nrm) const;
 
  private:
+  // Fill private grid from gis::DemRaster (defined in .cc; DemRaster is authority).
+  bool assign_from_dem_raster(const gis::DemRaster& src);
+
   int index_at(int col, int row) const { return row * cols_ + col; }
   float meters_at(int col, int row) const;
   void recompute_range();

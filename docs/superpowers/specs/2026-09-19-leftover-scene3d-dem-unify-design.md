@@ -3,78 +3,102 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# Hosts 3D DEM unify (Scene3dController)
+# 3D DEM align SmartGis.exe (A+B, DemRaster authority)
 
 **Status:** accepted  
-**Date:** 2026-09-19
+**Date:** 2026-09-19  
+**Supersedes prior scope:** hosts-only unify; leftover deferred 2a / cancelled 2b.
 
 ## Goal
 
-Product hosts present DEM on the 3D tab via the same path:
-`gis::DemRaster` → `World` → `Scene3dController` (`paint` / `present_gpu` / `paint_hud`).
+Product hosts and leftover `SmartGis.exe` share one DEM authority and match leftover 3D framing:
 
-## Scope (this delivery)
+1. **A — Host parity:** Views / WinUI / CEF / Cs 3D DEM look and default orbit match `SmartGis.exe` (`leftover_frame_pose` 上北下南, cutline, exaggeration).
+2. **B — Leftover 2a:** Keep GL `StereoTerrain` / `SmtScene` shell; terrain heights from `gis::DemRaster`; **per-scene** seed; **no** process-global `g_scene_dem` short-circuit that skips a second view’s seed.
 
-- **In scope (current):**
-  - **Views** (`src/app/views/**`): `BrowserView` 3D tab — WinUI paint parity (`paint` when no shared frame / placeholder; `paint_hud` when FlyCube or ContentMapView DIB is live; `present_gpu` via `MapViewport::set_gpu_present`).
-  - **CEF / Cs** (`src/app/cef/**`, `src/app/cs/**`): wire `CefMapSlot` / `SgHost` like WinUI `MapHost` (gestures + GN deps).
-- **Out of scope:** `src/legacy/**` / leftover `SmartGis.exe`. Do **not** edit leftover for this delivery.
-- Leftover option **2b** (controller presents DEM via FlyCube/GDI instead of GL) is **cancelled**.
-- If leftover is ever done later, use option **2a** only (document-only; **do not implement now**):
-  - Keep the GL shell (`Smt3DXView` / `SmtScene` render path).
-  - Seed terrain from `gis::DemRaster` mesh into leftover buffers (per-scene / per-view).
-  - No process-global `g_scene_dem` / `leftover_has_scene_dem()` short-circuit that skips per-view seed.
+## Approach (locked)
 
-## Non-goals
-
-- Implementing leftover 2a or 2b in this change.
-- Atmosphere / ocean / cloud on leftover.
-- Changing WinUI beyond shared API reuse (Views mirrors WinUI).
-- Force-committing unless the user asks.
-
-## Architecture
+**DemRaster is authority.** Leftover `DemHeightField` is a thin export shell (ABI names kept) that loads/forwards from `gis::DemRaster` (or is filled from it once at seed). `Scene3dController` already seeds via `seed_china_dem_into_world`. Shared framing constants live under `gis/` so Views never `#include` leftover.
 
 ```
-MapScene (optional land rings / extent)
-  └─ Scene3dController::rebuild_local_mesh
-       └─ gis::seed_china_dem_into_world
-            ├─ Views / WinUI (reference + Views finish)
-            └─ CefMapSlot / SgHost (CEF/Cs delivery)
+gis::DemRaster  (+ shared frame constants / cutline policy)
+        │
+        ├─► Scene3dController → World → GpuScene / GDI paint
+        │
+        └─► DemHeightField (thin) → StereoTerrain + drape / labels
+              owned per seed into SmtScene (not a sticky global skip)
 ```
 
-### Views / WinUI
+## Scope
 
-- Per-host `Scene3dController` + `MapScene`; on `kScene3d`:
-  - no shared frame → `paint()` (GDI DEM wireframe via `seed_china_dem_into_world`);
-  - FlyCube / live DIB → `paint_hud()`; FlyCube also calls `present_gpu`;
-  - bind / re-bind extent on 3D tab activate; gestures → `apply_*` / `apply_draft`.
+| In | Out |
+| --- | --- |
+| `src/gis/world/**` DemRaster cutline + optional frame helpers | Leftover **2b** (controller replaces GL draw) — cancelled |
+| `src/app/views/**` (and CEF/Cs only if yaw/cutline API reuse needs it) | SP2 `src/legacy/render/bridge/**` present |
+| `src/legacy/render/scene3d/**` 2a seed / DemHeightField shell | Atmosphere/ocean port into leftover GL |
+| Tests: `dem_raster_test`, `scene3d_controller_test`, `dem_stereo_test` | Force-commit |
 
-### CEF / Cs
+## Locked decisions
 
-- Mirror `MapHost` (WinUI): `Scene3dController` + `MapScene`; on `kScene3d`,
-  no shared frame → `paint()`; with frame → `paint_hud()`; bind extent.
-- Gestures: wheel / pan / orbit → `Scene3dController::apply_*` / `apply_draft`.
-- GN: `//src/app/views:scene3d_controller` (+ `map_scene`).
+| Topic | Choice |
+| --- | --- |
+| Authority | `gis::DemRaster` for load / synthetic China / `fit_vertical_exaggeration` / china_dem cutline skip |
+| Leftover draw | Keep `StereoTerrain` + GL; fill from DemRaster-backed height field |
+| Global DEM | Remove “already have `g_scene_dem` → skip seed for this scene” behavior; each `seed_*_into_scene` must attach terrain to **that** `SmtScene` |
+| `leftover_has_scene_dem` | Reflect whether the **relevant** scene/world has DEM (not a sticky process flag that blocks re-seed) |
+| Host camera | Default orbit yaw = south-of-target (`π − 0.55`), shared constant with leftover framing intent |
+| Cutline | Real `china_dem*` path → do **not** remask with prefecture rings (match `seed_stereo_underlay`); synthetic → optional rings with mainland-contains guard |
+| Views ↔ leftover | Views must not include `legacy/…` |
+| ABI | Keep `DemHeightField` / `SCENE3D_EXPORT_*` / `leftover_frame_pose` / `seed_sample_map_into_scene` names |
 
-### Leftover (deferred — 2a note only)
+## Components
 
-- Not part of this delivery. Future work, if any: **2a** as above; **2b** remains cancelled.
+### gis
+
+- Single cutline policy used by `seed_china_dem_into_world` (parity with leftover).
+- Optional small `dem_frame` / constants header: default orbit yaw (and comment tying to `leftover_frame_pose`).
+
+### Hosts (`Scene3dController`)
+
+- Default `yaw_` from shared constant; mesh +Z = north; drop temporary `present_gpu` stderr bisect marks when done.
+- Mesh / exaggeration via existing DemRaster path; max_edge may stay 96 unless leftover mesh density must match for A (document if intentionally lower for GPU).
+
+### Leftover (`map_to_scene` / `DemHeightField`)
+
+- Load path: DemRaster → fill `DemHeightField` (or member forwarder).
+- `seed_stereo_underlay(device, scene, …)` always adds `StereoTerrain` for **this** scene from a height field tied to that seed (heap/scene-owned), not “global already filled → return without adding”.
+- Drape / labels keep using `DemHeightField::sample`.
+- SP4 `seed_dem_height_field_into_world` / `map_seeded_world` remain; prefer DemRaster seed where one call can serve both.
+
+## Data flow
+
+1. Resolve `find_sample_dem_path()` (gis or leftover forward to gis).
+2. `DemRaster::load_gdal_raster` or `fill_synthetic_china` + `fit_vertical_exaggeration`.
+3. Apply cutline policy.
+4. Hosts: `seed_dem_raster_into_world` → normalize for orbit → GpuScene / GDI.
+5. Leftover: copy/adapt into `DemHeightField` → `StereoTerrain::Init/Create` → scene Add3DObject; labels drape on same field.
+
+## Error handling
+
+- Missing DEM file → synthetic China (both paths).
+- Failed `StereoTerrain::Create` → no terrain object; seed may still return labels / world envelope if partial.
+- Empty mesh → hosts `present_gpu` / `paint` no-op safely (existing).
 
 ## Tests
 
-- `scene3d_controller_test` stays green (seeded MapScene → `present_gpu` + GDI `paint`).
-- Views `--self-test`: 3D tab orbit / trackball; optional FlyCube atmosphere path.
-- CEF self-test / `sg_host_test`: 3D tab opens and is not solid placeholder-only when DEM path runs.
+- `dem_raster_test`: lon/lat axes 上北下南; Tibet higher than Jiangsu; china_dem cutline skip when path matches.
+- `scene3d_controller_test`: default yaw ≈ shared constant; seeded paint / present_gpu.
+- `dem_stereo_test`: second seed into a fresh `SmtScene` still gets terrain (no global short-circuit); DemHeightField still builds mesh after DemRaster-backed load.
+- Build: related ninja targets / `build.bat` slices green; **do not commit** unless user asks.
 
 ## Risks
 
-- CEF Binary Dist missing on some machines → `build.bat cef` may be unavailable; Cs `sg_host_test` still validates native host wiring.
-- Linking `scene3d_controller` into CEF/Cs increases deps (RHI / world); keep BUILD.gn honest.
-- Preferring FlyCube at multi-viewport attach can hang DX12 — Views keeps ContentMapView default; FlyCube via env / showcase after shell is up.
+- `DemHeightField` private layout change is OK inside scene3d DLL consumers; do not require external sizeof ABI.
+- Dual find_sample_dem_path (gis vs leftover) — consolidate or forward to avoid drift.
+- Multi-viewport leftover: scene-owned height field lifetime must outlive `StereoTerrain` (terrain holds const pointer).
 
 ## Related
 
-- WinUI pattern: `src/app/winui/map_host.cc` (`scene3d_.paint` / `paint_hud`)
-- Views: `src/app/views/browser_view.cc` (`wire_map_scene` / `switch_map_tab`)
-- Controller: `src/app/views/scene3d_controller.{h,cc}`
+- SP4: `docs/superpowers/specs/2026-09-19-scene3d-world-gpuscene-design.md`
 - Plan: `docs/superpowers/plans/2026-09-19-leftover-scene3d-dem-unify.md`
+- `leftover_frame_pose`: `src/legacy/render/scene3d/map_to_scene.cc`

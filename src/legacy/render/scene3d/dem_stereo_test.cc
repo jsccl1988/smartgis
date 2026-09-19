@@ -16,6 +16,7 @@
 #include "legacy/render/scene3d/dem_to_world.h"
 #include "legacy/render/scene3d/map_to_scene.h"
 #include "legacy/render/scene3d/scene_to_world.h"
+#include "legacy/render/scene3d/stereo_terrain.h"
 #include "render/math/aabb.h"
 
 namespace {
@@ -306,6 +307,42 @@ int main() {
                                 max_y, max_z);
     expect(n != nullptr && n->kind == gis::NodeKind::kEmpty, "empty mirror");
     expect(mirror.node_count() == 1, "one mirror node");
+  }
+
+  // Task L / 2a: two SmtScenes both receive a DEM seed (no global short-circuit).
+  // Null GL device is OK — StereoTerrain keeps the owned height field attached.
+  {
+    render::SmtScene scene_a;
+    render::SmtScene scene_b;
+    const int added_a =
+        render::seed_sample_map_into_scene(nullptr, &scene_a);
+    expect(added_a > 0, "first scene DEM seed");
+    expect(render::leftover_has_scene_dem(), "framing cache after first seed");
+    const render::DemHeightField* field_a = nullptr;
+    if (auto* terrain =
+            static_cast<render::StereoTerrain*>(scene_a.Get3DObject(0))) {
+      field_a = terrain->height_field();
+    }
+    expect(field_a != nullptr && !field_a->empty(), "scene A has StereoTerrain");
+
+    const int added_b =
+        render::seed_sample_map_into_scene(nullptr, &scene_b);
+    expect(added_b > 0, "second scene DEM seed");
+    const render::DemHeightField* field_b = nullptr;
+    if (auto* terrain =
+            static_cast<render::StereoTerrain*>(scene_b.Get3DObject(0))) {
+      field_b = terrain->height_field();
+    }
+    expect(field_b != nullptr && !field_b->empty(), "scene B has StereoTerrain");
+    expect(field_a != field_b, "per-scene owned height fields");
+    expect(field_a->sample_meters(88.0, 32.0) >
+               field_a->sample_meters(119.0, 32.5),
+           "scene A tibet > jiangsu");
+    expect(field_b->sample_meters(88.0, 32.0) >
+               field_b->sample_meters(119.0, 32.5),
+           "scene B tibet > jiangsu");
+    render::Aabb dem_aabb;
+    expect(render::leftover_dem_aabb(&dem_aabb), "framing aabb after re-seed");
   }
 
   std::error_code ec;

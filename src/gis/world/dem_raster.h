@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "gis/gis_export.h"
+#include "gis/world/dem_frame.h"
 #include "gis/world/land_mask.h"
 #include "gis/world/scene.h"
 

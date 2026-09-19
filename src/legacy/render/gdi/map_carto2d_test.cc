@@ -1,7 +1,9 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
+#include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <vector>
 
 #include "legacy/render/gdi/map_carto2d.h"
@@ -55,6 +57,33 @@ int main() {
   expect(render::carto2d_is_river_kind("river"), "river kind");
   expect(render::carto2d_is_road_kind("road"), "road kind");
   expect(!render::carto2d_is_road_kind("area"), "area is not a road");
+  expect(render::carto2d_is_road_kind("line", "highway"),
+         "road class from cls when kind generic");
+  expect(render::carto2d_road_class("expressway", "") == 3, "expressway class");
+  expect(render::carto2d_road_class("area", "road") == 1, "road from cls");
+  {
+    const float fblc = 40.f;
+    const int w_road = render::carto2d_road_width_px(fblc, 1);
+    const int w_hwy = render::carto2d_road_width_px(fblc, 2);
+    const int w_exp = render::carto2d_road_width_px(fblc, 3);
+    expect(w_exp > w_hwy && w_hwy > w_road, "road width expressway > highway > road");
+    expect(render::carto2d_road_fill_color(3) !=
+               render::carto2d_road_fill_color(1),
+           "expressway yellow fill vs road white");
+    expect(render::carto2d_road_casing_color(3) !=
+               render::carto2d_road_casing_color(1),
+           "expressway dark casing vs road gray");
+  }
+  expect(std::strcmp(render::carto2d_label_text("注记", "名称", "text"),
+                     "注记") == 0,
+         "label_text prefers anno");
+  expect(std::strcmp(render::carto2d_label_text("", "名称", "text"), "名称") ==
+             0,
+         "label_text falls back to name");
+  expect(std::strcmp(render::carto2d_label_text("", "", "fallback"), "fallback") ==
+             0,
+         "label_text falls back to text");
+  expect(render::carto2d_label_text("", "", "") == nullptr, "label_text all empty");
   {
     const unsigned a = render::carto2d_boost_fill(0x00ece2d6);
     const unsigned b = render::carto2d_boost_fill(0x00c8a0ff);
@@ -85,6 +114,31 @@ int main() {
     expect(frame.try_keep_label(a), "province at mid LOD");
     expect(frame.try_keep_label(far), "non-overlapping prefecture kept");
     expect(frame.label_count() == 2, "two labels at mid LOD");
+  }
+
+  {
+    render::MapCarto2dFrame frame;
+    frame.reset(80.f, 800, 600);
+    for (int i = 0; i < 40; ++i) {
+      const int x = 20 + (i % 10) * 18;
+      const int y = 20 + (i / 10) * 22;
+      render::MapCartoBox box =
+          render::carto2d_label_box(x, y, "标", 14, 5);
+      (void)frame.try_keep_label(box);
+    }
+    render::MapCartoBox overlap =
+        render::carto2d_label_box(20, 20, "叠", 14, 5);
+    expect(!frame.try_keep_label(overlap), "grid drops overlapping label");
+  }
+
+  {
+    const int line[] = {0, 0, 100, 0, 100, 100};
+    render::MapCartoLineLabel pose{};
+    expect(render::carto2d_line_label_pose(line, 3, &pose),
+           "line_label_pose succeeds");
+    expect(pose.x == 100 && pose.y == 50, "mid segment anchor");
+    expect(std::fabs(pose.angle_deg) <= 90.f + 0.01f, "upright angle range");
+    expect(std::fabs(pose.angle_deg - 90.f) < 1.f, "vertical segment ~90 deg");
   }
 
   {

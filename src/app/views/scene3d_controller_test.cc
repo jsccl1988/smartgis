@@ -5,6 +5,7 @@
 
 #include "app/views/map_host_extent.h"
 #include "app/views/map_scene.h"
+#include "gis/world/dem_frame.h"
 #include "render/rhi/rhi.h"
 #include "tool/camera_nav.h"
 
@@ -27,7 +28,9 @@ void expect(bool ok, const char* msg) {
 
 int main() {
   app::Scene3dController cam;
-  expect(std::fabs(cam.yaw() - app::kScene3dDefaultYaw) < 1e-4f,
+  expect(std::fabs(app::kScene3dDefaultYaw - gis::kDemDefaultOrbitYaw) < 1e-6f,
+         "host yaw aliases gis shared constant");
+  expect(std::fabs(cam.yaw() - gis::kDemDefaultOrbitYaw) < 1e-4f,
          "default yaw south-of-target");
   // make_orbit_camera: ez = dist * cos(pitch) * cos(yaw). South-of-target
   // requires ez < 0 so geographic +Z (north) sits toward the screen top.

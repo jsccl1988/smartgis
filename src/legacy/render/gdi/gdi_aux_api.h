@@ -29,9 +29,11 @@ void draw_line(HDC hDC, POINT* pPoints, int nCount, BOOL exclusive = TRUE);
 
 void draw_cross(HDC hDC, long lX, long lY, long r, BOOL exclusive = TRUE);
 
-// UTF-8 (GeoJSON/OGR) or ACP leftover text → TextOutW.
+// UTF-8 (GeoJSON/OGR) or ACP leftover text. Prefers GDI+ AA when available.
 void draw_anno_text(HDC hdc, long x, long y, const char* text, int px_h = 14,
                     int halo_px = 2);
+void draw_anno_text(HDC hdc, long x, long y, const char* text, int px_h,
+                    int halo_px, float angle_deg);
 void draw_point_disc(HDC hdc, long x, long y, int radius);
 
 #endif  // _GDI_AUX_API_H

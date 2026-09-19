@@ -15,6 +15,7 @@
 #include "app/views/map_host_extent.h"
 #include "content/public/map_types.h"
 #include "gis/atmosphere/environment.h"
+#include "gis/world/dem_frame.h"
 #include "gis/world/scene.h"
 #include "render/atmosphere/cloud_pass.h"
 #include "render/atmosphere/ocean_pass.h"
@@ -30,10 +31,8 @@ namespace app {
 
 class MapScene;
 
-// Default orbit yaw: stand south of the look-at (+Z = geographic north) so
-// north sits toward the top of the screen (上北下南 / 左西右东), matching
-// leftover_frame_pose. yaw=0 places the eye on +Z and looks south (flipped).
-inline constexpr float kScene3dDefaultYaw = 3.14159265f - 0.55f;
+// Alias of gis::kDemDefaultOrbitYaw (south-of-target / 上北下南).
+inline constexpr float kScene3dDefaultYaw = gis::kDemDefaultOrbitYaw;
 
 // Chrome-side host of the shared leftover map scene (same MapContents session
 // as SmartGis.exe): 2D ortho + 3D perspective, full China when contents or

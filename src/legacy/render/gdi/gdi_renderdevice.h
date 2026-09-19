@@ -171,6 +171,7 @@ class SmtGdiRenderDevice : public SmtRenderDevice {
   int m_nFeatureType;
   int m_labelPriority;
   bool m_isRiver;
+  int m_roadClass;
   MapCarto2dFrame* m_carto2d;
 
   Viewport m_virViewport1;  // �����ӿڣ���Ļͼ��ӳ��ʹ��

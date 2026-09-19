@@ -56,8 +56,9 @@ KEEP_PROVINCE_AS_AREA = {
     820000,
 }
 
-# Approximate China bbox for river clip (degrees, CRS84).
-CHINA_BBOX = (73.0, 18.0, 135.5, 53.8)
+# Approximate China bbox for river clip (degrees, CRS84). Matches
+# app::kChinaLonLatExtent so leftover / Views overview framing agrees.
+CHINA_BBOX = (73.0, 18.0, 135.0, 54.0)
 
 
 def _download(url: str, dest: Path, timeout: int = 180) -> None:
@@ -437,13 +438,31 @@ def build_point_text(areas: list[dict]) -> tuple[list[dict], list[dict]]:
     return points, texts
 
 
-def _line_in_china(coords: list) -> bool:
-    """True if any vertex falls inside the China bbox."""
+def _pt_in_bbox(x: float, y: float, bbox: tuple[float, float, float, float] = CHINA_BBOX) -> bool:
+    return bbox[0] <= x <= bbox[2] and bbox[1] <= y <= bbox[3]
+
+
+def _clip_segment_to_bbox(
+    coords: list, bbox: tuple[float, float, float, float] = CHINA_BBOX
+) -> list[list]:
+    """Keep contiguous runs of vertices inside bbox; drop foreign stubs.
+
+    Natural Earth rivers that only touch China otherwise keep Siberia /
+    Central Asia tails and paint outside provincial land in the 2D overview.
+    """
+    runs: list[list] = []
+    cur: list = []
     for pt in coords:
         x, y = float(pt[0]), float(pt[1])
-        if CHINA_BBOX[0] <= x <= CHINA_BBOX[2] and CHINA_BBOX[1] <= y <= CHINA_BBOX[3]:
-            return True
-    return False
+        if _pt_in_bbox(x, y, bbox):
+            cur.append([x, y])
+        else:
+            if len(cur) >= 2:
+                runs.append(cur)
+            cur = []
+    if len(cur) >= 2:
+        runs.append(cur)
+    return runs
 
 
 def build_line_features(shp_path: Path) -> list[dict]:
@@ -468,8 +487,8 @@ def build_line_features(shp_path: Path) -> list[dict]:
         segments: list[list] = []
         for i in range(len(parts) - 1):
             seg = [[float(p[0]), float(p[1])] for p in shape.points[parts[i] : parts[i + 1]]]
-            if len(seg) >= 2 and _line_in_china(seg):
-                segments.append(seg)
+            for clipped in _clip_segment_to_bbox(seg):
+                segments.append(clipped)
         if not segments:
             continue
         name = rec.get("name") or rec.get("NAME") or rec.get("name_en") or ""

@@ -2,6 +2,7 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//testing/test.gni")
 
 # Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
 source_set("scene3d_sources") {
@@ -37,10 +38,24 @@ source_set("scene3d_sources") {
     "//src/render/math:bounds",
     "//src/base/carto:carto",
     "//src/gis/datasource/gdal:ogr_codec",
+    "//src/gis/world:world",
     "//third_party:gdal",
   ]
 }
 
 group("scene3d") {
   public_deps = [ "//src/legacy/render:legacy_render" ]
+}
+
+test("dem_stereo_test") {
+  output_name = "dem_stereo_test"
+  sources = [ "dem_stereo_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    "//src/legacy/render:legacy_render",
+    "//src/gis/world:world",
+    "//src/render/math:bounds",
+    "//third_party:gdal",
+  ]
 }

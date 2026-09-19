@@ -87,6 +87,58 @@ void append_ring(OGRLineString* ring, std::vector<MapScene::Vertex>* out) {
   }
 }
 
+// Keep the longest contiguous run inside leftover mainland lon/lat
+// (map space = lon / -lat). Applies only to china_city "line" layers so
+// Natural Earth river stubs past provincial land are dropped without
+// affecting arbitrary non-China line datasets.
+void clip_china_city_line_to_mainland(std::vector<MapScene::Vertex>* pts,
+                                      const char* ogr_layer_name) {
+  if (!pts || pts->size() < 2 || !ogr_layer_name) {
+    return;
+  }
+  if (std::strcmp(ogr_layer_name, "line") != 0) {
+    return;
+  }
+  constexpr double kMinLon = 73.0;
+  constexpr double kMaxLon = 135.0;
+  // Stored Y is -lat → mainland lat 18..54 becomes Y -54..-18.
+  constexpr double kMinY = -54.0;
+  constexpr double kMaxY = -18.0;
+  auto inside = [&](const MapScene::Vertex& p) {
+    return p.x >= kMinLon && p.x <= kMaxLon && p.y >= kMinY && p.y <= kMaxY;
+  };
+  size_t best_begin = 0;
+  size_t best_len = 0;
+  size_t i = 0;
+  const size_t n = pts->size();
+  while (i < n) {
+    while (i < n && !inside((*pts)[i])) {
+      ++i;
+    }
+    const size_t begin = i;
+    while (i < n && inside((*pts)[i])) {
+      ++i;
+    }
+    const size_t len = i - begin;
+    if (len > best_len) {
+      best_len = len;
+      best_begin = begin;
+    }
+  }
+  if (best_len < 2) {
+    // Foreign-only stub on the china_city line layer — drop it.
+    pts->clear();
+    return;
+  }
+  if (best_len == n) {
+    return;
+  }
+  std::vector<MapScene::Vertex> kept(
+      pts->begin() + static_cast<std::ptrdiff_t>(best_begin),
+      pts->begin() + static_cast<std::ptrdiff_t>(best_begin + best_len));
+  *pts = std::move(kept);
+}
+
 const char* field_value(const MapScene::Feature& f, const char* key) {
   if (!key) {
     return nullptr;
@@ -264,6 +316,7 @@ bool fill_line_feature(OGRLineString* line, MapScene::Feature* out,
   out->points.clear();
   out->selected = false;
   append_ring(line, &out->points);
+  clip_china_city_line_to_mainland(&out->points, ogr_layer_name);
   apply_kind_override(out, ogr_layer_name);
   return out->points.size() >= 2;
 }
@@ -1085,26 +1138,47 @@ void MapScene::fit_extent(int view_w, int view_h) {
   if (view_h <= 0) {
     view_h = 600;
   }
+  // China prefecture packs: Natural Earth rivers that only touch the loose
+  // China bbox keep foreign stubs (Siberia / Central Asia), and area layers
+  // include South China Sea vertices near ~4N. Framing on all vertices zooms
+  // out so rivers appear to "spill" past provincial land. Match leftover's
+  // mainland envelope instead.
+  if (has_china_extent()) {
+    apply_world_extent(kChinaLonLatExtent, view_w, view_h);
+    return;
+  }
+
+  // Prefer land polygons when present so line/point outliers do not dominate.
   bool have = false;
   double minx = 0;
   double miny = 0;
   double maxx = 0;
   double maxy = 0;
-  for (const Layer& layer : layers_) {
-    for (const Feature& f : layer.features) {
-      for (const Vertex& p : f.points) {
-        if (!have) {
-          minx = maxx = p.x;
-          miny = maxy = p.y;
-          have = true;
-        } else {
-          minx = std::min(minx, p.x);
-          miny = std::min(miny, p.y);
-          maxx = std::max(maxx, p.x);
-          maxy = std::max(maxy, p.y);
+  auto accumulate = [&](GeomKind only_kind, bool filter_kind) {
+    have = false;
+    for (const Layer& layer : layers_) {
+      for (const Feature& f : layer.features) {
+        if (filter_kind && f.kind != only_kind) {
+          continue;
+        }
+        for (const Vertex& p : f.points) {
+          if (!have) {
+            minx = maxx = p.x;
+            miny = maxy = p.y;
+            have = true;
+          } else {
+            minx = std::min(minx, p.x);
+            miny = std::min(miny, p.y);
+            maxx = std::max(maxx, p.x);
+            maxy = std::max(maxy, p.y);
+          }
         }
       }
     }
+  };
+  accumulate(GeomKind::kPolygon, true);
+  if (!have) {
+    accumulate(GeomKind::kPolygon, false);
   }
   if (!have) {
     return;

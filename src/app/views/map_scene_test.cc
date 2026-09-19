@@ -56,6 +56,25 @@ bool write_multipart_geojson(const char* path) {
   return n == sizeof(kJson) - 1;
 }
 
+bool write_line_with_siberia_stub(const char* path) {
+  FILE* f = nullptr;
+  if (fopen_s(&f, path, "wb") != 0 || !f) {
+    return false;
+  }
+  // Layer name comes from file stem "line" (china_city convention).
+  static const char kJson[] =
+      "{\"type\":\"FeatureCollection\",\"name\":\"line\","
+      "\"features\":[{"
+      "\"type\":\"Feature\","
+      "\"properties\":{\"name\":\"stub\",\"kind\":\"river\"},"
+      "\"geometry\":{\"type\":\"LineString\",\"coordinates\":["
+      "[100.0,40.0],[110.0,40.0],[110.0,58.0],[100.0,58.0]"
+      "]}}]}";
+  const size_t n = std::fwrite(kJson, 1, sizeof(kJson) - 1, f);
+  std::fclose(f);
+  return n == sizeof(kJson) - 1;
+}
+
 }  // namespace
 
 int main() {
@@ -147,8 +166,36 @@ int main() {
       ReleaseDC(nullptr, screen);
       expect(scene.feature_count() > 1500,
              "china_city total features after Multi* expand");
+      // Mainland framing: rivers / SCS must not zoom past leftover envelope.
+      // 800x600 letterboxes the 62x36 deg China box, so lat span expands;
+      // lon stays tight to 73–135 because width is the limiting axis.
+      const content::Extent2 view = scene.view_world_extent(800, 600);
+      expect(view.xmin >= 72.0 && view.xmax <= 136.0,
+             "fit lon stays near mainland");
+      expect(view.xmax - view.xmin <= 70.0, "fit lon span near mainland width");
+      expect(view.ymin < 25.0 && view.ymax > 45.0,
+             "fit covers mainland core latitudes");
       break;
     }
+  }
+
+  // china_city "line" layer: Siberia stub must be clipped to mainland.
+  {
+    char tmp[MAX_PATH] = {};
+    expect(GetTempPathA(MAX_PATH, tmp) > 0, "temp path for line clip");
+    std::string dir = std::string(tmp) + "map_scene_line_clip_dir";
+    CreateDirectoryA(dir.c_str(), nullptr);
+    std::string path = dir + "\\line.geojson";
+    expect(write_line_with_siberia_stub(path.c_str()), "write line.geojson");
+    app::MapScene scene;
+    expect(scene.open_path(path), "open line.geojson");
+    expect(scene.last_open_was_ogr(), "line clip via OGR");
+    const content::Extent2 world = scene.world_extent();
+    expect(world.ymax <= 54.5, "Siberia stub clipped from line layer");
+    expect(world.ymin >= 18.0 && world.ymax <= 54.0,
+           "remaining run is mainland lat");
+    DeleteFileA(path.c_str());
+    RemoveDirectoryA(dir.c_str());
   }
 
   if (g_fails) {

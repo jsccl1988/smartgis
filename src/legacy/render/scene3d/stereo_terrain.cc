@@ -13,6 +13,16 @@ StereoTerrain::StereoTerrain() = default;
 
 StereoTerrain::~StereoTerrain() { Destroy(); }
 
+void StereoTerrain::set_height_field(const DemHeightField* field) {
+  owned_field_.reset();
+  field_ = field;
+}
+
+void StereoTerrain::adopt_height_field(DemHeightField* field) {
+  owned_field_.reset(field);
+  field_ = owned_field_.get();
+}
+
 long StereoTerrain::Init(Vector3& vPos, SmtMaterial& matMaterial,
                          const char* szTexName) {
   return Smt3DObject::Init(vPos, matMaterial, szTexName);
@@ -20,8 +30,12 @@ long StereoTerrain::Init(Vector3& vPos, SmtMaterial& matMaterial,
 
 long StereoTerrain::Create(LP3DRENDERDEVICE p3DRenderDevice) {
   Destroy();
-  if (!p3DRenderDevice || !field_ || field_->empty()) {
+  if (!field_ || field_->empty()) {
     return SMT_ERR_INVALID_PARAM;
+  }
+  // Null device: keep owned height field attached (tests / deferred GL upload).
+  if (!p3DRenderDevice) {
+    return SMT_ERR_NONE;
   }
   std::vector<float> xyz;
   std::vector<unsigned> indices;

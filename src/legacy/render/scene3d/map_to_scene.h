@@ -25,11 +25,14 @@ SCENE3D_EXPORT_API void leftover_frame_pose(const Aabb& aabb, Vector3* eye,
                                             Vector3* target, float* span);
 
 // Scene DEM leftover AABB (lon→X, height→Y, lat→Z). False when no DEM seeded.
+// Uses the last successful seed's framing cache (does not block another scene).
 SCENE3D_EXPORT_API bool leftover_dem_aabb(Aabb* out);
 
 // True when |eye| is still the leftover origin pose (not over the DEM).
 SCENE3D_EXPORT_API bool leftover_eye_misses_dem(const Vector3& eye);
 
+// True after any successful stereo DEM seed (last frame cache). Not a sticky
+// "already have DEM → skip seeding this SmtScene" gate.
 SCENE3D_EXPORT_API bool leftover_has_scene_dem();
 
 // Place a perspective camera so the DEM (preferred) or scene AABB fills the

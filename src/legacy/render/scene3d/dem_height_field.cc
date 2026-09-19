@@ -3,7 +3,7 @@
 
 #include "legacy/render/scene3d/dem_height_field.h"
 
-#include "gdal_priv.h"
+#include "gis/world/dem_raster.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -21,62 +21,6 @@ namespace {
 
 float clampf(float v, float lo, float hi) {
   return (std::max)(lo, (std::min)(hi, v));
-}
-
-float gauss_hill(double x, double y, double cx, double cy, double sx, double sy,
-                 float peak) {
-  const double dx = (x - cx) / sx;
-  const double dy = (y - cy) / sy;
-  return peak * static_cast<float>(std::exp(-0.5 * (dx * dx + dy * dy)));
-}
-
-float hash_noise(int ix, int iy) {
-  unsigned h = static_cast<unsigned>(ix * 374761393u + iy * 668265263u);
-  h = (h ^ (h >> 13)) * 1274126177u;
-  return static_cast<float>(h & 0xffff) / 65535.f;
-}
-
-// Coarse China physiography for demos when china_dem.tif is absent.
-// Peaks track major ranges; basins stay low so draped 2D vectors sit sensibly.
-float synthetic_meters(double lon, double lat) {
-  float m = 80.f;
-  // Tibetan Plateau base (west-central high ground).
-  m += 2800.f * static_cast<float>(std::exp(
-           -0.5 * ((lon - 90.0) / 14.0) * ((lon - 90.0) / 14.0) -
-           0.5 * ((lat - 33.0) / 6.5) * ((lat - 33.0) / 6.5)));
-  m += gauss_hill(lon, lat, 86.5, 28.0, 3.8, 1.8, 2200.f);   // Himalaya
-  m += gauss_hill(lon, lat, 91.0, 30.5, 5.5, 2.8, 1600.f);   // Gangdise
-  m += gauss_hill(lon, lat, 99.0, 28.5, 2.8, 2.2, 2400.f);   // Hengduan
-  m += gauss_hill(lon, lat, 102.5, 27.5, 2.2, 1.8, 1800.f);  // Yunnan plateau
-  m += gauss_hill(lon, lat, 85.0, 42.5, 5.5, 1.5, 2200.f);   // Tianshan
-  m += gauss_hill(lon, lat, 88.0, 38.5, 6.0, 1.4, 1800.f);   // Kunlun
-  m += gauss_hill(lon, lat, 100.0, 38.0, 4.5, 1.6, 1400.f);  // Qilian
-  m += gauss_hill(lon, lat, 107.5, 34.0, 3.5, 1.4, 900.f);   // Qinling
-  m += gauss_hill(lon, lat, 112.5, 37.5, 1.8, 2.5, 700.f);   // Taihang
-  m += gauss_hill(lon, lat, 127.5, 42.5, 2.0, 1.8, 900.f);   // Changbai
-  m += gauss_hill(lon, lat, 121.0, 23.8, 0.55, 1.1, 2400.f); // Taiwan
-  m += gauss_hill(lon, lat, 109.8, 19.0, 0.7, 0.5, 600.f);   // Hainan
-  m += gauss_hill(lon, lat, 117.0, 27.5, 2.2, 1.6, 600.f);   // Wuyi
-  // Basins / plains (subtract).
-  m -= gauss_hill(lon, lat, 84.0, 40.5, 4.5, 2.2, 2200.f);   // Tarim
-  m -= gauss_hill(lon, lat, 87.0, 46.0, 3.5, 1.8, 1800.f);   // Junggar
-  m -= gauss_hill(lon, lat, 105.5, 30.5, 2.5, 1.8, 1200.f);  // Sichuan basin
-  m -= gauss_hill(lon, lat, 116.5, 33.0, 6.0, 4.5, 400.f);   // N. China plain
-  m -= gauss_hill(lon, lat, 120.5, 31.5, 3.5, 2.0, 250.f);   // Yangtze delta
-
-  const int ix = static_cast<int>(std::floor(lon * 8.0));
-  const int iy = static_cast<int>(std::floor(lat * 8.0));
-  m += (hash_noise(ix, iy) - 0.5f) * 60.f;
-
-  const bool taiwan = lon > 120.0 && lon < 122.3 && lat > 21.8 && lat < 25.5;
-  const bool hainan = lon > 108.5 && lon < 111.2 && lat > 18.0 && lat < 20.2;
-  const bool ocean = !taiwan && !hainan &&
-                     ((lon > 122.4 && lat < 31.5) ||
-                      (lon > 118.0 && lat < 21.5) || (lat < 17.5));
-  if (ocean) {
-    m = 0.f;
-  }
-  return clampf(m, 0.f, 8800.f);
 }
 
 void hypsometric_rgb(float meters, float* r, float* g, float* b) {
@@ -117,99 +61,50 @@ std::string join_dir(const std::string& dir, const char* rel) {
 
 }  // namespace
 
-bool DemHeightField::load_gdal_raster(const char* path) {
+bool DemHeightField::assign_from_dem_raster(const gis::DemRaster& src) {
   heights_.clear();
   land_.clear();
   cols_ = 0;
   rows_ = 0;
-  if (!path || !path[0]) {
+  if (src.empty()) {
     return false;
   }
-  GDALAllRegister();
-  GDALDataset* ds = static_cast<GDALDataset*>(GDALOpen(path, GA_ReadOnly));
-  if (!ds) {
-    return false;
-  }
-  const int n_x = ds->GetRasterXSize();
-  const int n_y = ds->GetRasterYSize();
-  GDALRasterBand* band = ds->GetRasterBand(1);
-  if (!band || n_x < 2 || n_y < 2) {
-    GDALClose(ds);
-    return false;
-  }
-  double gt[6] = {};
-  const bool has_gt = ds->GetGeoTransform(gt) == CE_None;
-  std::vector<float> raw(static_cast<size_t>(n_x) * static_cast<size_t>(n_y));
-  const CPLErr err = band->RasterIO(GF_Read, 0, 0, n_x, n_y, raw.data(), n_x,
-                                    n_y, GDT_Float32, 0, 0);
-  int nodata_ok = 0;
-  const double nodata = band->GetNoDataValue(&nodata_ok);
-  GDALClose(ds);
-  if (err != CE_None) {
-    return false;
-  }
-
-  cols_ = n_x;
-  rows_ = n_y;
-  heights_.swap(raw);
-  if (has_gt) {
-    minx_ = gt[0];
-    maxy_ = gt[3];
-    maxx_ = gt[0] + gt[1] * n_x + gt[2] * n_y;
-    miny_ = gt[3] + gt[4] * n_x + gt[5] * n_y;
-    if (miny_ > maxy_) {
-      std::swap(miny_, maxy_);
-    }
-    if (minx_ > maxx_) {
-      std::swap(minx_, maxx_);
-    }
-  } else {
-    minx_ = 0;
-    miny_ = 0;
-    maxx_ = static_cast<double>(n_x - 1);
-    maxy_ = static_cast<double>(n_y - 1);
-  }
-  if (nodata_ok) {
-    for (float& h : heights_) {
-      if (h == static_cast<float>(nodata) || h < 0.f) {
-        h = 0.f;
-      }
-    }
-  } else {
-    for (float& h : heights_) {
-      if (h < 0.f) {
-        h = 0.f;
-      }
+  cols_ = src.cols();
+  rows_ = src.rows();
+  src.envelope(&minx_, &miny_, &maxx_, &maxy_);
+  heights_.assign(static_cast<size_t>(cols_) * static_cast<size_t>(rows_), 0.f);
+  const double dx = (maxx_ - minx_) / (std::max)(1, cols_ - 1);
+  const double dy = (maxy_ - miny_) / (std::max)(1, rows_ - 1);
+  for (int row = 0; row < rows_; ++row) {
+    const double lat = maxy_ - row * dy;
+    for (int col = 0; col < cols_; ++col) {
+      const double lon = minx_ + col * dx;
+      heights_[static_cast<size_t>(index_at(col, row))] =
+          src.sample_meters(lon, lat);
     }
   }
-  downsample_to_max_edge(384);
   recompute_range();
-  fit_vertical_exaggeration();
+  // Keep DemRaster's fitted exaggeration (authority), do not re-fit locally.
+  vert_exag_ = src.vertical_exaggeration();
   return !empty();
 }
 
-void DemHeightField::fill_synthetic_china() {
-  // Dense enough that coast / ridges do not staircase at country view.
-  cols_ = 320;
-  rows_ = 200;
-  minx_ = 73.0;
-  maxx_ = 135.0;
-  miny_ = 17.5;
-  maxy_ = 54.0;
-  land_.clear();
-  heights_.assign(static_cast<size_t>(cols_ * rows_), 0.f);
-  for (int row = 0; row < rows_; ++row) {
-    const double lat =
-        maxy_ - (static_cast<double>(row) + 0.5) * (maxy_ - miny_) / rows_;
-    for (int col = 0; col < cols_; ++col) {
-      const double lon =
-          minx_ + (static_cast<double>(col) + 0.5) * (maxx_ - minx_) / cols_;
-      heights_[static_cast<size_t>(index_at(col, row))] =
-          synthetic_meters(lon, lat);
-    }
+bool DemHeightField::load_gdal_raster(const char* path) {
+  gis::DemRaster raster;
+  if (!raster.load_gdal_raster(path)) {
+    heights_.clear();
+    land_.clear();
+    cols_ = 0;
+    rows_ = 0;
+    return false;
   }
-  recompute_range();
-  fit_vertical_exaggeration();
+  return assign_from_dem_raster(raster);
+}
+
+void DemHeightField::fill_synthetic_china() {
+  gis::DemRaster raster;
+  raster.fill_synthetic_china();
+  assign_from_dem_raster(raster);
 }
 
 void DemHeightField::fit_vertical_exaggeration() {
@@ -543,33 +438,8 @@ bool DemHeightField::build_mesh(int max_edge, std::vector<float>* xyz,
 }
 
 std::string find_sample_dem_path() {
-  char module[MAX_PATH] = {};
-  const DWORD n = GetModuleFileNameA(nullptr, module, MAX_PATH);
-  std::string dir;
-  if (n > 0 && n < MAX_PATH) {
-    dir.assign(module, module + n);
-    const size_t slash = dir.find_last_of("\\/");
-    if (slash != std::string::npos) {
-      dir.resize(slash + 1);
-    }
-  }
-  const char* rel[] = {
-      "china_dem.tif",
-      "china_dem.tiff",
-      "testing\\data\\china_dem.tif",
-      "testing\\data\\china_dem.tiff",
-      "..\\testing\\data\\china_dem.tif",
-      "..\\..\\testing\\data\\china_dem.tif",
-  };
-  for (const char* r : rel) {
-    const std::string cand = join_dir(dir, r);
-    const DWORD attr = GetFileAttributesA(cand.c_str());
-    if (attr != INVALID_FILE_ATTRIBUTES &&
-        (attr & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-      return cand;
-    }
-  }
-  return {};
+  // Single discovery path with gis to avoid leftover/gis drift.
+  return gis::find_sample_dem_path();
 }
 
 namespace {

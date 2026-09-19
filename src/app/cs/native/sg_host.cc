@@ -628,15 +628,14 @@ void SgHost::paint_to_dc(HDC hdc, const RECT& rc) const {
       DeleteObject(brush);
     }
   } else if (kind_ == content::ViewKind::kScene3d && w > 0 && h > 0) {
-    scene3d_.paint_hud(hdc, w, h);
+    // Orbit-synced DEM wireframe; skip opaque document land fills on 3D.
+    scene3d_.paint(hdc, w, h, /*fill_background=*/false);
   }
-  // Overlay China city / OGR vectors + annotations (same as Views / WinUI).
-  // 3D tab skips white wipe so DEM / GPU frames stay visible.
-  {
+  // Overlay China city / OGR vectors on 2D only — 3D land fills hid DEM relief.
+  if (kind_ != content::ViewKind::kScene3d) {
     std::lock_guard<std::mutex> lock(document_mu_);
     if (document.feature_count() > 0) {
-      const bool fill_bg = kind_ != content::ViewKind::kScene3d;
-      document.paint(hdc, w, h, fill_bg);
+      document.paint(hdc, w, h, /*fill_background=*/true);
     }
   }
   if (kind_ != content::ViewKind::kScene3d && w > 0 && h > 0) {

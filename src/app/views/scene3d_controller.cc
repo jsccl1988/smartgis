@@ -522,10 +522,13 @@ void Scene3dController::paint(HDC hdc, int width_px, int height_px,
   }
 
   const_cast<Scene3dController*>(this)->rebuild_local_mesh();
-  HPEN mesh_pen = CreatePen(PS_SOLID, 1, RGB(140, 190, 120));
+  // Filled facets (hypsometric-ish by elev) so relief reads as terrain, not a
+  // flat China choropleth. Cap tris for GDI cost.
+  HPEN mesh_pen = CreatePen(PS_SOLID, 1, RGB(90, 120, 80));
   HGDIOBJ old_pen = SelectObject(hdc, mesh_pen);
+  HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
   const size_t ntri =
-      (std::min)(local_idx_.size() / 3, static_cast<size_t>(400));
+      (std::min)(local_idx_.size() / 3, static_cast<size_t>(1200));
   for (size_t t = 0; t < ntri; ++t) {
     const unsigned i0 = local_idx_[t * 3];
     const unsigned i1 = local_idx_[t * 3 + 1];
@@ -534,6 +537,17 @@ void Scene3dController::paint(HDC hdc, int width_px, int height_px,
         (i2 + 1) * 3 > local_xyz_.size()) {
       continue;
     }
+    const float y0 = local_xyz_[i0 * 3 + 1];
+    const float y1 = local_xyz_[i1 * 3 + 1];
+    const float y2 = local_xyz_[i2 * 3 + 1];
+    const float yavg = (y0 + y1 + y2) / 3.f;
+    // Normalized mesh is centered; map elev to green→brown.
+    const float t01 = std::clamp(0.5f + yavg * 0.55f, 0.f, 1.f);
+    const int r = static_cast<int>(70 + 110 * t01);
+    const int g = static_cast<int>(120 + 40 * (1.f - t01));
+    const int b = static_cast<int>(55 + 25 * (1.f - t01));
+    HBRUSH fill = CreateSolidBrush(RGB(r, g, b));
+    SelectObject(hdc, fill);
     int p0[2] = {};
     int p1[2] = {};
     int p2[2] = {};
@@ -543,11 +557,12 @@ void Scene3dController::paint(HDC hdc, int width_px, int height_px,
             width_px, height_px, &p1[0], &p1[1]);
     project(local_xyz_[i2 * 3], local_xyz_[i2 * 3 + 1], local_xyz_[i2 * 3 + 2],
             width_px, height_px, &p2[0], &p2[1]);
-    MoveToEx(hdc, p0[0], p0[1], nullptr);
-    LineTo(hdc, p1[0], p1[1]);
-    LineTo(hdc, p2[0], p2[1]);
-    LineTo(hdc, p0[0], p0[1]);
+    const POINT pts[3] = {{p0[0], p0[1]}, {p1[0], p1[1]}, {p2[0], p2[1]}};
+    Polygon(hdc, pts, 3);
+    SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    DeleteObject(fill);
   }
+  SelectObject(hdc, old_brush);
   SelectObject(hdc, old_pen);
   DeleteObject(mesh_pen);
 

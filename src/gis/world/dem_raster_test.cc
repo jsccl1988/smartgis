@@ -1,10 +1,14 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
+#include "gis/world/dem_frame.h"
 #include "gis/world/dem_raster.h"
+#include "gis/world/land_mask.h"
 
+#include <cmath>
 #include <cstdio>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace {
@@ -21,6 +25,9 @@ void expect(bool ok, const char* msg) {
 }  // namespace
 
 int main() {
+  expect(std::fabs(gis::kDemDefaultOrbitYaw - (3.14159265f - 0.55f)) < 1e-6f,
+         "shared default orbit yaw");
+
   gis::DemRaster dem;
   dem.fill_synthetic_china();
   expect(!dem.empty(), "synthetic dem");
@@ -41,10 +48,47 @@ int main() {
       z_min = z_min < xyz[i + 2] ? z_min : xyz[i + 2];
       z_max = z_max > xyz[i + 2] ? z_max : xyz[i + 2];
     }
-    expect(x_min < 90.f && x_max > 120.f, "lon span west-east");
-    expect(z_min < 25.f && z_max > 45.f, "lat span south-north on +Z");
+    expect(x_min < 90.f && x_max > 120.f, "lon on X west-east");
+    expect(z_min < 25.f && z_max > 45.f, "lat on +Z south-north");
     expect(dem.sample_meters(88.0, 32.0) > dem.sample_meters(119.0, 32.5),
            "tibet higher than jiangsu (not N/S swapped)");
+  }
+
+  // Synthetic / non-china_dem may remask; china_dem path skips remask.
+  {
+    gis::LonLatRing tiny;
+    tiny.x = {118.5, 121.5, 121.5, 118.5};
+    tiny.y = {30.5, 30.5, 32.5, 32.5};
+    gis::DemRaster synth;
+    synth.fill_synthetic_china();
+    expect(synth.sample_meters(88.0, 32.0) > 500.f, "synth tibet before mask");
+    synth.mask_outside_rings({tiny});
+    expect(synth.sample_meters(88.0, 32.0) == 0.f,
+           "synthetic remask zeros tibet");
+
+    const std::string path = gis::find_sample_dem_path();
+    if (!path.empty() && path.find("china_dem") != std::string::npos) {
+      gis::World cut;
+      gis::Node* n =
+          gis::seed_china_dem_into_world(&cut, &tiny, 1, "skip_cutline", 48);
+      expect(n != nullptr && n->has_terrain_mesh(),
+             "china_dem seed with rings");
+      bool found_tibet_elev = false;
+      const std::vector<float>& pos = n->terrain_positions;
+      for (size_t i = 0; i + 2 < pos.size(); i += 3) {
+        if (pos[i] > 85.f && pos[i] < 95.f && pos[i + 2] > 28.f &&
+            pos[i + 2] < 36.f && pos[i + 1] > 0.05f) {
+          found_tibet_elev = true;
+          break;
+        }
+      }
+      expect(found_tibet_elev,
+             "china_dem path skips remask (tibet elev retained)");
+    } else {
+      std::fprintf(stdout,
+                   "dem_raster_test: no china_dem fixture; cutline skip "
+                   "assert deferred\n");
+    }
   }
 
   gis::World world;

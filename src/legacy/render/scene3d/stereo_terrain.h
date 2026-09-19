@@ -4,6 +4,8 @@
 #ifndef SMT_LEGACY_RENDER_SCENE3D_STEREO_TERRAIN_H_
 #define SMT_LEGACY_RENDER_SCENE3D_STEREO_TERRAIN_H_
 
+#include <memory>
+
 #include "legacy/render/scene3d/bl3d_object.h"
 #include "legacy/render/scene3d/dem_height_field.h"
 
@@ -33,10 +35,14 @@ class SCENE3D_EXPORT_CLASS StereoTerrain : public Smt3DObject {
   long Render(LP3DRENDERDEVICE p3DRenderDevice) override;
   long Destroy() override;
 
-  void set_height_field(const DemHeightField* field) { field_ = field; }
+  // Non-owning borrow (caller keeps |field| alive for the terrain lifetime).
+  void set_height_field(const DemHeightField* field);
+  // Takes ownership of |field|; deleted with this terrain (scene owns terrain).
+  void adopt_height_field(DemHeightField* field);
   const DemHeightField* height_field() const { return field_; }
 
  private:
+  std::unique_ptr<DemHeightField> owned_field_;
   const DemHeightField* field_ = nullptr;
   SmtVertexBuffer* vb_ = nullptr;
   SmtIndexBuffer* ib_ = nullptr;

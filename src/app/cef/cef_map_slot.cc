@@ -424,13 +424,13 @@ void CefMapSlot::paint_to_dc(HDC hdc, const RECT& rc) {
                 DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
   } else if (kind_ == content::ViewKind::kScene3d && w > 0 && h > 0) {
-    scene3d_.paint_hud(hdc, w, h);
+    // Orbit-synced DEM wireframe; do not overlay opaque MapScene land fills.
+    scene3d_.paint(hdc, w, h, /*fill_background=*/false);
   }
   MapScene* overlay = dem_map_scene();
-  if (overlay && overlay->feature_count() > 0 && rc.right > 0 &&
-      rc.bottom > 0) {
-    const bool fill_bg = kind_ != content::ViewKind::kScene3d;
-    overlay->paint(hdc, rc.right, rc.bottom, fill_bg);
+  if (kind_ != content::ViewKind::kScene3d && overlay &&
+      overlay->feature_count() > 0 && rc.right > 0 && rc.bottom > 0) {
+    overlay->paint(hdc, rc.right, rc.bottom, /*fill_background=*/true);
   }
   if (kind_ != content::ViewKind::kScene3d && w > 0 && h > 0) {
     blit_.capture(hdc, w, h);

@@ -1,8 +1,11 @@
+#include <algorithm>
 #include <math.h>
+#include <vector>
 
 #include "base/core/api.h"
 #include "base/core/log.h"
 #include "legacy/render/gdi/gdi_aux_api.h"
+#include "legacy/render/gdi/gdi_gdiplus.h"
 #include "legacy/render/gdi/gdi_renderthread.h"
 #include "legacy/render/gdi/map_carto2d.h"
 #include "legacy/render/gdi/resource.h"
@@ -173,6 +176,14 @@ int SmtGdiRenderThread::RenderFeature(OGRFeature *pFeature, int op) {
       carto2d_label_priority(label, field("kind"), field("class"),
                              field("adcode"));
   m_isRiver = carto2d_is_river_kind(field("kind"));
+  m_roadClass = carto2d_road_class(field("kind"), field("class"));
+  if (!(m_nFeatureType == SmtFeatureType::SmtFtAnno && m_szAnno[0])) {
+    if (const char* picked = carto2d_label_text(field("anno"), field("name"),
+                                                field("text"))) {
+      strncpy(m_szAnno, picked, sizeof(m_szAnno) - 1);
+      m_szAnno[sizeof(m_szAnno) - 1] = '\0';
+    }
+  }
   const int rc = RenderGeometry(pGeom, pStyle, op);
   delete pGeom;
   if (owned_style) {
@@ -199,15 +210,21 @@ int SmtGdiRenderThread::PrepareForDrawing(const SmtStyle *pStyle,
         m_hPen = NULL;
       }
 
-      const int px = carto2d_stroke_px(m_smtRC.fblc, m_isRiver);
-      const COLORREF stroke = m_isRiver ? carto2d_river_color()
-                                        : carto2d_admin_stroke();
+      const int road_class = m_roadClass;
+      const int px =
+          road_class > 0
+              ? carto2d_road_width_px(m_smtRC.fblc, road_class)
+              : carto2d_stroke_px_kind(m_smtRC.fblc, m_isRiver, false);
+      const COLORREF stroke =
+          road_class > 0 ? carto2d_road_fill_color(road_class)
+                         : (m_isRiver ? carto2d_river_color()
+                                      : carto2d_admin_stroke());
       LOGBRUSH lb = {BS_SOLID, stroke, 0};
       m_hPen = ExtCreatePen(PS_GEOMETRIC | PS_SOLID | PS_ENDCAP_ROUND |
                                 PS_JOIN_ROUND,
-                            px, &lb, 0, nullptr);
+                            (std::max)(1, px), &lb, 0, nullptr);
       if (!m_hPen) {
-        m_hPen = CreatePen(PS_SOLID, px, stroke);
+        m_hPen = CreatePen(PS_SOLID, (std::max)(1, px), stroke);
       }
       m_hOldPen = (HPEN)::SelectObject(m_hCurDC, m_hPen);
     }
@@ -467,7 +484,7 @@ int SmtGdiRenderThread::DrawAnno(const char *szAnno, float fangel,
     return SMT_ERR_NONE;
   }
   draw_anno_text(m_hCurDC, x, y, szAnno, px_h,
-                 carto2d_halo_px(m_labelPriority));
+                 carto2d_halo_px(m_labelPriority), m_fAnnoAngle);
 
   if (m_rdPra.bShowPoint) {
     int r = m_rdPra.lPointRaduis;
@@ -585,8 +602,54 @@ int SmtGdiRenderThread::DrawLineString(const OGRLineString *pLinestring) {
     }
   }
 
-  MoveToEx(m_hCurDC, lpPoint[0].x, lpPoint[0].y, NULL);
-  PolylineTo(m_hCurDC, lpPoint, nPoints);
+  {
+    GdiplusGraphics gfx(m_hCurDC);
+    bool drew = false;
+    if (gfx.ok()) {
+      if (m_roadClass > 0) {
+        const int fill_w = carto2d_road_width_px(m_smtRC.fblc, m_roadClass);
+        const int case_w = fill_w + 2;
+        drew = gfx.draw_polyline(lpPoint, nPoints,
+                                 carto2d_road_casing_color(m_roadClass),
+                                 static_cast<float>(case_w));
+        drew =
+            gfx.draw_polyline(lpPoint, nPoints,
+                              carto2d_road_fill_color(m_roadClass),
+                              static_cast<float>((std::max)(1, fill_w))) ||
+            drew;
+      } else {
+        const COLORREF stroke =
+            m_isRiver ? carto2d_river_color() : carto2d_admin_stroke();
+        const int px =
+            carto2d_stroke_px_kind(m_smtRC.fblc, m_isRiver, false);
+        drew = gfx.draw_polyline(lpPoint, nPoints, stroke,
+                                 static_cast<float>((std::max)(1, px)));
+      }
+    }
+    if (!drew) {
+      MoveToEx(m_hCurDC, lpPoint[0].x, lpPoint[0].y, NULL);
+      PolylineTo(m_hCurDC, lpPoint, nPoints);
+    }
+  }
+
+  if (m_carto2d && (m_isRiver || m_roadClass > 0) && m_szAnno[0]) {
+    std::vector<int> xy;
+    xy.reserve(static_cast<size_t>(nPoints) * 2);
+    for (int i = 0; i < nPoints; ++i) {
+      xy.push_back(static_cast<int>(lpPoint[i].x));
+      xy.push_back(static_cast<int>(lpPoint[i].y));
+    }
+    MapCartoLineLabel pose;
+    if (carto2d_line_label_pose(xy.data(), nPoints, &pose)) {
+      const int px_h = carto2d_label_px(m_labelPriority, m_smtRC.fblc);
+      const MapCartoBox box = carto2d_label_box_rotated(
+          pose.x, pose.y, m_szAnno, px_h, m_labelPriority, pose.angle_deg);
+      if (m_carto2d->try_keep_label(box)) {
+        draw_anno_text(m_hCurDC, pose.x, pose.y, m_szAnno, px_h,
+                       carto2d_halo_px(m_labelPriority), pose.angle_deg);
+      }
+    }
+  }
 
 #ifdef GDI_USE_BUFPOOL
   if (nPoints * (sizeof(POINT)) <

@@ -837,15 +837,15 @@ void MapHost::paint_to_dc(HDC hdc, const RECT& rc) const {
       DeleteObject(brush);
     }
   } else if (kind_ == content::ViewKind::kScene3d && w > 0 && h > 0) {
-    scene3d_.paint_hud(hdc, w, h);
+    // Shared frame may be a fixed-camera demo; paint chrome DEM so orbit
+    // matches HUD. Do not overlay opaque MapScene land fills (hides relief).
+    scene3d_.paint(hdc, w, h, /*fill_background=*/false);
   }
-  // Views parity: overlay OGR vectors (polygon / line / point + name labels)
-  // on top of the GPU base frame. This is the product China map content.
-  // Paint offscreen then BitBlt -- WinUI child HDCs have shown heap corruption
-  // (0xC0000374) under china_city MultiPolygon expand (~1k area parts) when
-  // Polygon()/TextOutW hit the live paint HDC during layout storms.
-  if (w > 0 && h > 0 && map_scene_.feature_count() > 0) {
-    const bool fill_bg = kind_ != content::ViewKind::kScene3d;
+  // 2D panes: overlay OGR vectors on the GPU base. Skip on 3D — polygon fills
+  // painted a flat China map over DEM (Views/WinUI parity).
+  if (kind_ != content::ViewKind::kScene3d && w > 0 && h > 0 &&
+      map_scene_.feature_count() > 0) {
+    const bool fill_bg = true;
     HDC mem = CreateCompatibleDC(hdc);
     HBITMAP dib = nullptr;
     HGDIOBJ old = nullptr;

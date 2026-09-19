@@ -21,6 +21,7 @@ SmtGdiRenderThread::SmtGdiRenderThread(HINSTANCE hInst, Viewport &virViewport1,
       m_bLockStyle(false),
       m_labelPriority(5),
       m_isRiver(false),
+      m_roadClass(0),
       m_carto2d(new MapCarto2dFrame()) {
   ;
 }
