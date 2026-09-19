@@ -1,0 +1,1068 @@
+﻿ src/ui/views/kernel/dialog_host.cc           |  4 ++--
+ src/ui/views/kernel/dialog_host.h            |  6 +++---
+ src/ui/views/kernel/dpi.cc                   |  2 +-
+ src/ui/views/kernel/dpi.h                    |  6 +++---
+ src/ui/views/kernel/event.h                  |  6 +++---
+ src/ui/views/kernel/layout.cc                |  4 ++--
+ src/ui/views/kernel/layout.h                 |  6 +++---
+ src/ui/views/kernel/layout_check.cc          |  8 ++++----
+ src/ui/views/kernel/layout_check.h           |  8 ++++----
+ src/ui/views/kernel/splitter.cc              |  4 ++--
+ src/ui/views/kernel/splitter.h               |  8 ++++----
+ src/ui/views/kernel/theme.cc                 |  2 +-
+ src/ui/views/kernel/theme.h                  |  8 ++++----
+ src/ui/views/kernel/view.cc                  |  6 +++---
+ src/ui/views/kernel/view.h                   |  8 ++++----
+ src/ui/views/kernel/widget.cc                |  8 ++++----
+ src/ui/views/kernel/widget.h                 | 10 +++++-----
+ src/ui/views/primitives/button.cc            |  8 ++++----
+ src/ui/views/primitives/button.h             |  8 ++++----
+ src/ui/views/primitives/checkbox.cc          |  4 ++--
+ src/ui/views/primitives/checkbox.h           |  8 ++++----
+ src/ui/views/primitives/combobox.cc          |  8 ++++----
+ src/ui/views/primitives/combobox.h           |  8 ++++----
+ src/ui/views/primitives/context_menu.cc      |  6 +++---
+ src/ui/views/primitives/context_menu.h       |  8 ++++----
+ src/ui/views/primitives/dialog.cc            | 10 +++++-----
+ src/ui/views/primitives/file_picker.cc       |  2 +-
+ src/ui/views/primitives/input_text_dialog.cc |  6 +++---
+ src/ui/views/primitives/label.cc             |  8 ++++----
+ src/ui/views/primitives/label.h              |  8 ++++----
+ src/ui/views/primitives/menu_bar.cc          |  8 ++++----
+ src/ui/views/primitives/menu_bar.h           |  8 ++++----
+ src/ui/views/primitives/message_box.cc       |  2 +-
+ src/ui/views/primitives/radio_button.cc      |  4 ++--
+ src/ui/views/primitives/radio_button.h       |  8 ++++----
+ src/ui/views/primitives/scroll_view.cc       |  4 ++--
+ src/ui/views/primitives/scroll_view.h        |  8 ++++----
+ src/ui/views/primitives/select_one_dialog.cc |  6 +++---
+ src/ui/views/primitives/tab_strip.cc         |  8 ++++----
+ src/ui/views/primitives/tab_strip.h          |  8 ++++----
+ src/ui/views/primitives/table_view.cc        |  4 ++--
+ src/ui/views/primitives/table_view.h         |  8 ++++----
+ src/ui/views/primitives/textfield.cc         |  4 ++--
+ src/ui/views/primitives/textfield.h          |  8 ++++----
+ src/ui/views/primitives/tree_view.cc         |  8 ++++----
+ src/ui/views/primitives/tree_view.h          |  8 ++++----
+ 46 files changed, 150 insertions(+), 150 deletions(-)
+diff --git a/src/ui/views/kernel/dialog_host.cc b/src/ui/views/kernel/dialog_host.cc
+index d4fc32c..60fc650 100644
+--- a/src/ui/views/kernel/dialog_host.cc
++++ b/src/ui/views/kernel/dialog_host.cc
+@@ -1,9 +1,9 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/dialog_host.h"
++#include "ui/views/kernel/dialog_host.h"
+ 
+-#include "ui/views/dpi.h"
++#include "ui/views/kernel/dpi.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/kernel/dialog_host.h b/src/ui/views/kernel/dialog_host.h
+index 7cc352a..e4a1780 100644
+--- a/src/ui/views/kernel/dialog_host.h
++++ b/src/ui/views/kernel/dialog_host.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_DIALOG_HOST_H_
+-#define UI_VIEWS_DIALOG_HOST_H_
++#ifndef UI_VIEWS_KERNEL_DIALOG_HOST_H_
++#define UI_VIEWS_KERNEL_DIALOG_HOST_H_
+ 
+ #ifndef NOMINMAX
+ #define NOMINMAX
+@@ -55,4 +55,4 @@ OwnedPopupGeom place_owned_dialog(HWND owner,
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_DIALOG_HOST_H_
++#endif  // UI_VIEWS_KERNEL_DIALOG_HOST_H_
+diff --git a/src/ui/views/kernel/dpi.cc b/src/ui/views/kernel/dpi.cc
+index cca68af..90d1359 100644
+--- a/src/ui/views/kernel/dpi.cc
++++ b/src/ui/views/kernel/dpi.cc
+@@ -1,7 +1,7 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/dpi.h"
++#include "ui/views/kernel/dpi.h"
+ 
+ #include <cmath>
+ 
+diff --git a/src/ui/views/kernel/dpi.h b/src/ui/views/kernel/dpi.h
+index 457dab3..b7e984f 100644
+--- a/src/ui/views/kernel/dpi.h
++++ b/src/ui/views/kernel/dpi.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_DPI_H_
+-#define UI_VIEWS_DPI_H_
++#ifndef UI_VIEWS_KERNEL_DPI_H_
++#define UI_VIEWS_KERNEL_DPI_H_
+ 
+ #ifndef NOMINMAX
+ #define NOMINMAX
+@@ -38,4 +38,4 @@ bool enable_process_dpi_awareness();
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_DPI_H_
++#endif  // UI_VIEWS_KERNEL_DPI_H_
+diff --git a/src/ui/views/kernel/event.h b/src/ui/views/kernel/event.h
+index 654b25a..9906634 100644
+--- a/src/ui/views/kernel/event.h
++++ b/src/ui/views/kernel/event.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_EVENT_H_
+-#define UI_VIEWS_EVENT_H_
++#ifndef UI_VIEWS_KERNEL_EVENT_H_
++#define UI_VIEWS_KERNEL_EVENT_H_
+ 
+ #include <cstdint>
+ 
+@@ -47,4 +47,4 @@ struct CharEvent {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_EVENT_H_
++#endif  // UI_VIEWS_KERNEL_EVENT_H_
+diff --git a/src/ui/views/kernel/layout.cc b/src/ui/views/kernel/layout.cc
+index 7d7f263..f602360 100644
+--- a/src/ui/views/kernel/layout.cc
++++ b/src/ui/views/kernel/layout.cc
+@@ -1,9 +1,9 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/layout.h"
++#include "ui/views/kernel/layout.h"
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/kernel/layout.h b/src/ui/views/kernel/layout.h
+index 7cb00a0..be4b079 100644
+--- a/src/ui/views/kernel/layout.h
++++ b/src/ui/views/kernel/layout.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_LAYOUT_H_
+-#define UI_VIEWS_LAYOUT_H_
++#ifndef UI_VIEWS_KERNEL_LAYOUT_H_
++#define UI_VIEWS_KERNEL_LAYOUT_H_
+ 
+ #include <map>
+ 
+@@ -56,4 +56,4 @@ class BoxLayout : public LayoutManager {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_LAYOUT_H_
++#endif  // UI_VIEWS_KERNEL_LAYOUT_H_
+diff --git a/src/ui/views/kernel/layout_check.cc b/src/ui/views/kernel/layout_check.cc
+index 6bede8c..7750b72 100644
+--- a/src/ui/views/kernel/layout_check.cc
++++ b/src/ui/views/kernel/layout_check.cc
+@@ -1,7 +1,7 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/layout_check.h"
++#include "ui/views/kernel/layout_check.h"
+ 
+ #include <cstdio>
+ #include <cstring>
+@@ -12,9 +12,9 @@
+ #include <windows.h>
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/combobox.h"
+-#include "ui/views/dpi.h"
+-#include "ui/views/scroll_view.h"
++#include "ui/views/primitives/combobox.h"
++#include "ui/views/kernel/dpi.h"
++#include "ui/views/primitives/scroll_view.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/kernel/layout_check.h b/src/ui/views/kernel/layout_check.h
+index d5f862b..9d1dfd3 100644
+--- a/src/ui/views/kernel/layout_check.h
++++ b/src/ui/views/kernel/layout_check.h
+@@ -1,14 +1,14 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_LAYOUT_CHECK_H_
+-#define UI_VIEWS_LAYOUT_CHECK_H_
++#ifndef UI_VIEWS_KERNEL_LAYOUT_CHECK_H_
++#define UI_VIEWS_KERNEL_LAYOUT_CHECK_H_
+ 
+ #include <cstdint>
+ #include <string>
+ #include <vector>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -42,4 +42,4 @@ std::uint32_t paint_fingerprint(View* root, int width, int height);
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_LAYOUT_CHECK_H_
++#endif  // UI_VIEWS_KERNEL_LAYOUT_CHECK_H_
+diff --git a/src/ui/views/kernel/splitter.cc b/src/ui/views/kernel/splitter.cc
+index 6a7bf3d..724accc 100644
+--- a/src/ui/views/kernel/splitter.cc
++++ b/src/ui/views/kernel/splitter.cc
+@@ -1,12 +1,12 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/splitter.h"
++#include "ui/views/kernel/splitter.h"
+ 
+ #include <algorithm>
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/kernel/splitter.h b/src/ui/views/kernel/splitter.h
+index 1468c15..55fe7c3 100644
+--- a/src/ui/views/kernel/splitter.h
++++ b/src/ui/views/kernel/splitter.h
+@@ -1,10 +1,10 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_SPLITTER_H_
+-#define UI_VIEWS_SPLITTER_H_
++#ifndef UI_VIEWS_KERNEL_SPLITTER_H_
++#define UI_VIEWS_KERNEL_SPLITTER_H_
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -68,4 +68,4 @@ class Splitter : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_SPLITTER_H_
++#endif  // UI_VIEWS_KERNEL_SPLITTER_H_
+diff --git a/src/ui/views/kernel/theme.cc b/src/ui/views/kernel/theme.cc
+index 883e78e..1212565 100644
+--- a/src/ui/views/kernel/theme.cc
++++ b/src/ui/views/kernel/theme.cc
+@@ -1,7 +1,7 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/theme.h"
+ 
+ #include <windows.h>
+ 
+diff --git a/src/ui/views/kernel/theme.h b/src/ui/views/kernel/theme.h
+index b472cdd..15976f3 100644
+--- a/src/ui/views/kernel/theme.h
++++ b/src/ui/views/kernel/theme.h
+@@ -1,13 +1,13 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_THEME_H_
+-#define UI_VIEWS_THEME_H_
++#ifndef UI_VIEWS_KERNEL_THEME_H_
++#define UI_VIEWS_KERNEL_THEME_H_
+ 
+ #include <string>
+ 
+ #include "render/skia/color.h"
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace render {
+ namespace skia {
+@@ -50,4 +50,4 @@ void draw_focus_ring(render::skia::Canvas* canvas, const Rect& bounds);
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_THEME_H_
++#endif  // UI_VIEWS_KERNEL_THEME_H_
+diff --git a/src/ui/views/kernel/view.cc b/src/ui/views/kernel/view.cc
+index e5289f4..01e7737 100644
+--- a/src/ui/views/kernel/view.cc
++++ b/src/ui/views/kernel/view.cc
+@@ -1,13 +1,13 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ #include <cmath>
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/widget.h"
++#include "ui/views/kernel/layout.h"
++#include "ui/views/kernel/widget.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/kernel/view.h b/src/ui/views/kernel/view.h
+index fd2c198..fbd16d7 100644
+--- a/src/ui/views/kernel/view.h
++++ b/src/ui/views/kernel/view.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_VIEW_H_
+-#define UI_VIEWS_VIEW_H_
++#ifndef UI_VIEWS_KERNEL_VIEW_H_
++#define UI_VIEWS_KERNEL_VIEW_H_
+ 
+ #include <memory>
+ #include <vector>
+@@ -12,7 +12,7 @@
+ #endif
+ #include <windows.h>
+ 
+-#include "ui/views/event.h"
++#include "ui/views/kernel/event.h"
+ 
+ namespace render {
+ namespace skia {
+@@ -142,4 +142,4 @@ class View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_VIEW_H_
++#endif  // UI_VIEWS_KERNEL_VIEW_H_
+diff --git a/src/ui/views/kernel/widget.cc b/src/ui/views/kernel/widget.cc
+index d192bb3..2cb5aa2 100644
+--- a/src/ui/views/kernel/widget.cc
++++ b/src/ui/views/kernel/widget.cc
+@@ -1,7 +1,7 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/widget.h"
++#include "ui/views/kernel/widget.h"
+ 
+ #include <cmath>
+ #include <cstdint>
+@@ -10,9 +10,9 @@
+ #include <windowsx.h>
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/dialog_host.h"
+-#include "ui/views/dpi.h"
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/dialog_host.h"
++#include "ui/views/kernel/dpi.h"
++#include "ui/views/kernel/theme.h"
+ 
+ #ifndef WM_DPICHANGED
+ #define WM_DPICHANGED 0x02E0
+diff --git a/src/ui/views/kernel/widget.h b/src/ui/views/kernel/widget.h
+index 21c0c78..3cb2144 100644
+--- a/src/ui/views/kernel/widget.h
++++ b/src/ui/views/kernel/widget.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_WIDGET_H_
+-#define UI_VIEWS_WIDGET_H_
++#ifndef UI_VIEWS_KERNEL_WIDGET_H_
++#define UI_VIEWS_KERNEL_WIDGET_H_
+ 
+ #include <memory>
+ 
+@@ -11,8 +11,8 @@
+ #endif
+ #include <windows.h>
+ 
+-#include "ui/views/view.h"
+-#include "ui/views/dpi.h"
++#include "ui/views/kernel/view.h"
++#include "ui/views/kernel/dpi.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -112,4 +112,4 @@ class Widget {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_WIDGET_H_
++#endif  // UI_VIEWS_KERNEL_WIDGET_H_
+diff --git a/src/ui/views/primitives/button.cc b/src/ui/views/primitives/button.cc
+index 81306b9..c9f1fc2 100644
+--- a/src/ui/views/primitives/button.cc
++++ b/src/ui/views/primitives/button.cc
+@@ -1,12 +1,12 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/button.h"
++#include "ui/views/primitives/button.h"
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/dpi.h"
+-#include "ui/views/theme.h"
+-#include "ui/views/widget.h"
++#include "ui/views/kernel/dpi.h"
++#include "ui/views/kernel/theme.h"
++#include "ui/views/kernel/widget.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/button.h b/src/ui/views/primitives/button.h
+index 7ca11fe..190089f 100644
+--- a/src/ui/views/primitives/button.h
++++ b/src/ui/views/primitives/button.h
+@@ -1,13 +1,13 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_BUTTON_H_
+-#define UI_VIEWS_BUTTON_H_
++#ifndef UI_VIEWS_PRIMITIVES_BUTTON_H_
++#define UI_VIEWS_PRIMITIVES_BUTTON_H_
+ 
+ #include <functional>
+ #include <string>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -38,4 +38,4 @@ class Button : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_BUTTON_H_
++#endif  // UI_VIEWS_PRIMITIVES_BUTTON_H_
+diff --git a/src/ui/views/primitives/checkbox.cc b/src/ui/views/primitives/checkbox.cc
+index 0f45552..22b21ad 100644
+--- a/src/ui/views/primitives/checkbox.cc
++++ b/src/ui/views/primitives/checkbox.cc
+@@ -1,10 +1,10 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/checkbox.h"
++#include "ui/views/primitives/checkbox.h"
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/checkbox.h b/src/ui/views/primitives/checkbox.h
+index 2ee3bea..37378c5 100644
+--- a/src/ui/views/primitives/checkbox.h
++++ b/src/ui/views/primitives/checkbox.h
+@@ -1,13 +1,13 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_CHECKBOX_H_
+-#define UI_VIEWS_CHECKBOX_H_
++#ifndef UI_VIEWS_PRIMITIVES_CHECKBOX_H_
++#define UI_VIEWS_PRIMITIVES_CHECKBOX_H_
+ 
+ #include <functional>
+ #include <string>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -38,4 +38,4 @@ class Checkbox : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_CHECKBOX_H_
++#endif  // UI_VIEWS_PRIMITIVES_CHECKBOX_H_
+diff --git a/src/ui/views/primitives/combobox.cc b/src/ui/views/primitives/combobox.cc
+index d5dc5ff..6c887be 100644
+--- a/src/ui/views/primitives/combobox.cc
++++ b/src/ui/views/primitives/combobox.cc
+@@ -1,12 +1,12 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/combobox.h"
++#include "ui/views/primitives/combobox.h"
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/dpi.h"
+-#include "ui/views/theme.h"
+-#include "ui/views/widget.h"
++#include "ui/views/kernel/dpi.h"
++#include "ui/views/kernel/theme.h"
++#include "ui/views/kernel/widget.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/combobox.h b/src/ui/views/primitives/combobox.h
+index c03799a..ab49f6d 100644
+--- a/src/ui/views/primitives/combobox.h
++++ b/src/ui/views/primitives/combobox.h
+@@ -1,14 +1,14 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_COMBOBOX_H_
+-#define UI_VIEWS_COMBOBOX_H_
++#ifndef UI_VIEWS_PRIMITIVES_COMBOBOX_H_
++#define UI_VIEWS_PRIMITIVES_COMBOBOX_H_
+ 
+ #include <functional>
+ #include <string>
+ #include <vector>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -56,4 +56,4 @@ class Combobox : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_COMBOBOX_H_
++#endif  // UI_VIEWS_PRIMITIVES_COMBOBOX_H_
+diff --git a/src/ui/views/primitives/context_menu.cc b/src/ui/views/primitives/context_menu.cc
+index 74aa991..b24cd89 100644
+--- a/src/ui/views/primitives/context_menu.cc
++++ b/src/ui/views/primitives/context_menu.cc
+@@ -1,10 +1,10 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/context_menu.h"
++#include "ui/views/primitives/context_menu.h"
+ 
+-#include "ui/views/dpi.h"
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/dpi.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/context_menu.h b/src/ui/views/primitives/context_menu.h
+index 69b5d2a..4d8d008 100644
+--- a/src/ui/views/primitives/context_menu.h
++++ b/src/ui/views/primitives/context_menu.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_CONTEXT_MENU_H_
+-#define UI_VIEWS_CONTEXT_MENU_H_
++#ifndef UI_VIEWS_PRIMITIVES_CONTEXT_MENU_H_
++#define UI_VIEWS_PRIMITIVES_CONTEXT_MENU_H_
+ 
+ #include <functional>
+ #include <string>
+@@ -10,7 +10,7 @@
+ 
+ #include <windows.h>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -29,4 +29,4 @@ void show_context_menu(HWND owner, Point screen, const std::vector<MenuItem>& it
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_CONTEXT_MENU_H_
++#endif  // UI_VIEWS_PRIMITIVES_CONTEXT_MENU_H_
+diff --git a/src/ui/views/primitives/dialog.cc b/src/ui/views/primitives/dialog.cc
+index a4bf926..35426f7 100644
+--- a/src/ui/views/primitives/dialog.cc
++++ b/src/ui/views/primitives/dialog.cc
+@@ -3,11 +3,11 @@
+ 
+ #include "ui/views/dialog.h"
+ 
+-#include "ui/views/button.h"
+-#include "ui/views/dpi.h"
+-#include "ui/views/event.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/widget.h"
++#include "ui/views/primitives/button.h"
++#include "ui/views/kernel/dpi.h"
++#include "ui/views/kernel/event.h"
++#include "ui/views/kernel/layout.h"
++#include "ui/views/kernel/widget.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/file_picker.cc b/src/ui/views/primitives/file_picker.cc
+index 826dda9..325e30f 100644
+--- a/src/ui/views/primitives/file_picker.cc
++++ b/src/ui/views/primitives/file_picker.cc
+@@ -9,7 +9,7 @@
+ #include <windows.h>
+ #include <commdlg.h>
+ 
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/input_text_dialog.cc b/src/ui/views/primitives/input_text_dialog.cc
+index 2e0ec1f..52a0622 100644
+--- a/src/ui/views/primitives/input_text_dialog.cc
++++ b/src/ui/views/primitives/input_text_dialog.cc
+@@ -7,9 +7,9 @@
+ #include <utility>
+ 
+ #include "ui/views/dialog.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/textfield.h"
++#include "ui/views/primitives/label.h"
++#include "ui/views/kernel/layout.h"
++#include "ui/views/primitives/textfield.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/label.cc b/src/ui/views/primitives/label.cc
+index 44b0947..dbe4285 100644
+--- a/src/ui/views/primitives/label.cc
++++ b/src/ui/views/primitives/label.cc
+@@ -1,12 +1,12 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/label.h"
++#include "ui/views/primitives/label.h"
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/dpi.h"
+-#include "ui/views/theme.h"
+-#include "ui/views/widget.h"
++#include "ui/views/kernel/dpi.h"
++#include "ui/views/kernel/theme.h"
++#include "ui/views/kernel/widget.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/label.h b/src/ui/views/primitives/label.h
+index a02c9a1..973dbb1 100644
+--- a/src/ui/views/primitives/label.h
++++ b/src/ui/views/primitives/label.h
+@@ -1,13 +1,13 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_LABEL_H_
+-#define UI_VIEWS_LABEL_H_
++#ifndef UI_VIEWS_PRIMITIVES_LABEL_H_
++#define UI_VIEWS_PRIMITIVES_LABEL_H_
+ 
+ #include <string>
+ 
+ #include "render/skia/color.h"
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -35,4 +35,4 @@ class Label : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_LABEL_H_
++#endif  // UI_VIEWS_PRIMITIVES_LABEL_H_
+diff --git a/src/ui/views/primitives/menu_bar.cc b/src/ui/views/primitives/menu_bar.cc
+index 868379a..469581a 100644
+--- a/src/ui/views/primitives/menu_bar.cc
++++ b/src/ui/views/primitives/menu_bar.cc
+@@ -1,12 +1,12 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/menu_bar.h"
++#include "ui/views/primitives/menu_bar.h"
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/dpi.h"
+-#include "ui/views/theme.h"
+-#include "ui/views/widget.h"
++#include "ui/views/kernel/dpi.h"
++#include "ui/views/kernel/theme.h"
++#include "ui/views/kernel/widget.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/menu_bar.h b/src/ui/views/primitives/menu_bar.h
+index a3f1344..ceb7a96 100644
+--- a/src/ui/views/primitives/menu_bar.h
++++ b/src/ui/views/primitives/menu_bar.h
+@@ -1,14 +1,14 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_MENU_BAR_H_
+-#define UI_VIEWS_MENU_BAR_H_
++#ifndef UI_VIEWS_PRIMITIVES_MENU_BAR_H_
++#define UI_VIEWS_PRIMITIVES_MENU_BAR_H_
+ 
+ #include <functional>
+ #include <string>
+ #include <vector>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -51,4 +51,4 @@ class MenuBar : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_MENU_BAR_H_
++#endif  // UI_VIEWS_PRIMITIVES_MENU_BAR_H_
+diff --git a/src/ui/views/primitives/message_box.cc b/src/ui/views/primitives/message_box.cc
+index 7cd9a7b..fa1fbdf 100644
+--- a/src/ui/views/primitives/message_box.cc
++++ b/src/ui/views/primitives/message_box.cc
+@@ -8,7 +8,7 @@
+ #endif
+ #include <windows.h>
+ 
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/radio_button.cc b/src/ui/views/primitives/radio_button.cc
+index 0bd9076..c0c45b6 100644
+--- a/src/ui/views/primitives/radio_button.cc
++++ b/src/ui/views/primitives/radio_button.cc
+@@ -1,10 +1,10 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/radio_button.h"
++#include "ui/views/primitives/radio_button.h"
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/radio_button.h b/src/ui/views/primitives/radio_button.h
+index 20e2a33..61f2594 100644
+--- a/src/ui/views/primitives/radio_button.h
++++ b/src/ui/views/primitives/radio_button.h
+@@ -1,13 +1,13 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_RADIO_BUTTON_H_
+-#define UI_VIEWS_RADIO_BUTTON_H_
++#ifndef UI_VIEWS_PRIMITIVES_RADIO_BUTTON_H_
++#define UI_VIEWS_PRIMITIVES_RADIO_BUTTON_H_
+ 
+ #include <functional>
+ #include <string>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -39,4 +39,4 @@ class RadioButton : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_RADIO_BUTTON_H_
++#endif  // UI_VIEWS_PRIMITIVES_RADIO_BUTTON_H_
+diff --git a/src/ui/views/primitives/scroll_view.cc b/src/ui/views/primitives/scroll_view.cc
+index 789b1d2..00e02c7 100644
+--- a/src/ui/views/primitives/scroll_view.cc
++++ b/src/ui/views/primitives/scroll_view.cc
+@@ -1,12 +1,12 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/scroll_view.h"
++#include "ui/views/primitives/scroll_view.h"
+ 
+ #include <algorithm>
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/scroll_view.h b/src/ui/views/primitives/scroll_view.h
+index f01e440..fbf3603 100644
+--- a/src/ui/views/primitives/scroll_view.h
++++ b/src/ui/views/primitives/scroll_view.h
+@@ -1,10 +1,10 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_SCROLL_VIEW_H_
+-#define UI_VIEWS_SCROLL_VIEW_H_
++#ifndef UI_VIEWS_PRIMITIVES_SCROLL_VIEW_H_
++#define UI_VIEWS_PRIMITIVES_SCROLL_VIEW_H_
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -36,4 +36,4 @@ class ScrollView : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_SCROLL_VIEW_H_
++#endif  // UI_VIEWS_PRIMITIVES_SCROLL_VIEW_H_
+diff --git a/src/ui/views/primitives/select_one_dialog.cc b/src/ui/views/primitives/select_one_dialog.cc
+index 707671c..2bed779 100644
+--- a/src/ui/views/primitives/select_one_dialog.cc
++++ b/src/ui/views/primitives/select_one_dialog.cc
+@@ -7,10 +7,10 @@
+ #include <string>
+ #include <utility>
+ 
+-#include "ui/views/combobox.h"
++#include "ui/views/primitives/combobox.h"
+ #include "ui/views/dialog.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
++#include "ui/views/primitives/label.h"
++#include "ui/views/kernel/layout.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/tab_strip.cc b/src/ui/views/primitives/tab_strip.cc
+index c6f25f9..ad0e877 100644
+--- a/src/ui/views/primitives/tab_strip.cc
++++ b/src/ui/views/primitives/tab_strip.cc
+@@ -1,12 +1,12 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/tab_strip.h"
++#include "ui/views/primitives/tab_strip.h"
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/dpi.h"
+-#include "ui/views/theme.h"
+-#include "ui/views/widget.h"
++#include "ui/views/kernel/dpi.h"
++#include "ui/views/kernel/theme.h"
++#include "ui/views/kernel/widget.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/tab_strip.h b/src/ui/views/primitives/tab_strip.h
+index dfe8f0d..8dd54e4 100644
+--- a/src/ui/views/primitives/tab_strip.h
++++ b/src/ui/views/primitives/tab_strip.h
+@@ -1,15 +1,15 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_TAB_STRIP_H_
+-#define UI_VIEWS_TAB_STRIP_H_
++#ifndef UI_VIEWS_PRIMITIVES_TAB_STRIP_H_
++#define UI_VIEWS_PRIMITIVES_TAB_STRIP_H_
+ 
+ #include <functional>
+ #include <memory>
+ #include <string>
+ #include <vector>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -47,4 +47,4 @@ class TabStrip : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_TAB_STRIP_H_
++#endif  // UI_VIEWS_PRIMITIVES_TAB_STRIP_H_
+diff --git a/src/ui/views/primitives/table_view.cc b/src/ui/views/primitives/table_view.cc
+index 95156ea..4c7d190 100644
+--- a/src/ui/views/primitives/table_view.cc
++++ b/src/ui/views/primitives/table_view.cc
+@@ -1,10 +1,10 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/table_view.h"
++#include "ui/views/primitives/table_view.h"
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/table_view.h b/src/ui/views/primitives/table_view.h
+index a9c2eee..9e7afdc 100644
+--- a/src/ui/views/primitives/table_view.h
++++ b/src/ui/views/primitives/table_view.h
+@@ -1,14 +1,14 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_TABLE_VIEW_H_
+-#define UI_VIEWS_TABLE_VIEW_H_
++#ifndef UI_VIEWS_PRIMITIVES_TABLE_VIEW_H_
++#define UI_VIEWS_PRIMITIVES_TABLE_VIEW_H_
+ 
+ #include <functional>
+ #include <string>
+ #include <vector>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -50,4 +50,4 @@ class TableView : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_TABLE_VIEW_H_
++#endif  // UI_VIEWS_PRIMITIVES_TABLE_VIEW_H_
+diff --git a/src/ui/views/primitives/textfield.cc b/src/ui/views/primitives/textfield.cc
+index 4919afc..bcbbcf2 100644
+--- a/src/ui/views/primitives/textfield.cc
++++ b/src/ui/views/primitives/textfield.cc
+@@ -1,10 +1,10 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/textfield.h"
++#include "ui/views/primitives/textfield.h"
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/textfield.h b/src/ui/views/primitives/textfield.h
+index 9a4662d..ef30df0 100644
+--- a/src/ui/views/primitives/textfield.h
++++ b/src/ui/views/primitives/textfield.h
+@@ -1,13 +1,13 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_TEXTFIELD_H_
+-#define UI_VIEWS_TEXTFIELD_H_
++#ifndef UI_VIEWS_PRIMITIVES_TEXTFIELD_H_
++#define UI_VIEWS_PRIMITIVES_TEXTFIELD_H_
+ 
+ #include <functional>
+ #include <string>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -38,4 +38,4 @@ class Textfield : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_TEXTFIELD_H_
++#endif  // UI_VIEWS_PRIMITIVES_TEXTFIELD_H_
+diff --git a/src/ui/views/primitives/tree_view.cc b/src/ui/views/primitives/tree_view.cc
+index 8dc7bd1..b273187 100644
+--- a/src/ui/views/primitives/tree_view.cc
++++ b/src/ui/views/primitives/tree_view.cc
+@@ -1,14 +1,14 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/tree_view.h"
++#include "ui/views/primitives/tree_view.h"
+ 
+ #include <algorithm>
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/scroll_view.h"
+-#include "ui/views/theme.h"
+-#include "ui/views/widget.h"
++#include "ui/views/primitives/scroll_view.h"
++#include "ui/views/kernel/theme.h"
++#include "ui/views/kernel/widget.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/primitives/tree_view.h b/src/ui/views/primitives/tree_view.h
+index ab94a2d..4c778a6 100644
+--- a/src/ui/views/primitives/tree_view.h
++++ b/src/ui/views/primitives/tree_view.h
+@@ -1,15 +1,15 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_TREE_VIEW_H_
+-#define UI_VIEWS_TREE_VIEW_H_
++#ifndef UI_VIEWS_PRIMITIVES_TREE_VIEW_H_
++#define UI_VIEWS_PRIMITIVES_TREE_VIEW_H_
+ 
+ #include <functional>
+ #include <map>
+ #include <string>
+ #include <vector>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -84,4 +84,4 @@ class TreeView : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_TREE_VIEW_H_
++#endif  // UI_VIEWS_PRIMITIVES_TREE_VIEW_H_

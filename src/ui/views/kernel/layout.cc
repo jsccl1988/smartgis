@@ -1,9 +1,9 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/layout.h"
+#include "ui/views/kernel/layout.h"
 
-#include "ui/views/view.h"
+#include "ui/views/kernel/view.h"
 
 namespace ui {
 namespace views {

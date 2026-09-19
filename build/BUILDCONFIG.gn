@@ -177,7 +177,7 @@ import("//build/tools/makefile.gni")
 import("//third_party/gn/tp.gni")
 
 # Include roots (foundation under src/base):
-#   "//src"  → #include "base/..." and "sdb/..." (product convention)
+#   "//src"  → #include "base/..." and "gis/..." (product convention)
 #   "//"     → repo-root headers / build helpers
 # Prefer //src first so #include "base/..." resolves to src/base/.
 include_dirs = [

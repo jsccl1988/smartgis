@@ -17,106 +17,80 @@ Copyright (c) 2010 CCL. All rights reserved.
 #include "legacy/render/render3d/3drenderdefs.h"
 #include "legacy/render/render3d/base.h"
 
-namespace render
-{
-	struct SmtAlphaTestState
-	{
-	public:
-		SmtAlphaTestState():bEnabled(false)
-			,cmpFunc(CMP_GREATER)
-			,fRefValue(0)
-		{
-			;
-		}
+namespace render {
+struct SmtAlphaTestState {
+ public:
+  SmtAlphaTestState() : bEnabled(false), cmpFunc(CMP_GREATER), fRefValue(0) {
+    ;
+  }
 
-		SmtAlphaTestState(bool _bEnabled, Comparison _cmpFunc, float _fRefValue):bEnabled(_bEnabled)
-			,cmpFunc(_cmpFunc)
-			,fRefValue(_fRefValue)
-		{
-			;
-		}
+  SmtAlphaTestState(bool _bEnabled, Comparison _cmpFunc, float _fRefValue)
+      : bEnabled(_bEnabled), cmpFunc(_cmpFunc), fRefValue(_fRefValue) {
+    ;
+  }
 
-	public:	
-		bool				bEnabled;
-		Comparison			cmpFunc;
-		float				fRefValue;
-	};
+ public:
+  bool bEnabled;
+  Comparison cmpFunc;
+  float fRefValue;
+};
 
-	struct SmtBlendState
-	{
-	public:
-		SmtBlendState():bEnabled(false)
-			,srcFactor(BF_ONE)
-			,dstFactor(BF_ZERO)
-		{
-			;
-		}
+struct SmtBlendState {
+ public:
+  SmtBlendState() : bEnabled(false), srcFactor(BF_ONE), dstFactor(BF_ZERO) { ; }
 
-		SmtBlendState(bool _bEnabled, BlendFactor _srcFactor,BlendFactor _dstFactor):bEnabled(_bEnabled)
-			,srcFactor(_srcFactor)
-			,dstFactor(_dstFactor)
-		{
-			;
-		}
+  SmtBlendState(bool _bEnabled, BlendFactor _srcFactor, BlendFactor _dstFactor)
+      : bEnabled(_bEnabled), srcFactor(_srcFactor), dstFactor(_dstFactor) {
+    ;
+  }
 
-	public:
-		bool				bEnabled;
-		BlendFactor			srcFactor;
-		BlendFactor			dstFactor;
-	};
+ public:
+  bool bEnabled;
+  BlendFactor srcFactor;
+  BlendFactor dstFactor;
+};
 
-	struct SmtDepthTestState
-	{
-	public:
-		SmtDepthTestState():bEnabled(false)
-			,cmpFunc(CMP_GREATER)
-			,bDepthMask(false)
-		{
-			;
-		}
+struct SmtDepthTestState {
+ public:
+  SmtDepthTestState()
+      : bEnabled(false), cmpFunc(CMP_GREATER), bDepthMask(false) {
+    ;
+  }
 
-		SmtDepthTestState(bool _bEnabled, Comparison _cmpFunc,bool _bDepthMask):bEnabled(_bEnabled)
-			,cmpFunc(_cmpFunc)
-			,bDepthMask(_bDepthMask)
-		{
-			;
-		}
+  SmtDepthTestState(bool _bEnabled, Comparison _cmpFunc, bool _bDepthMask)
+      : bEnabled(_bEnabled), cmpFunc(_cmpFunc), bDepthMask(_bDepthMask) {
+    ;
+  }
 
-	public:
-		bool				bEnabled;
-		Comparison			cmpFunc;
-		bool				bDepthMask;
-	};
+ public:
+  bool bEnabled;
+  Comparison cmpFunc;
+  bool bDepthMask;
+};
 
-	struct SmtMatrixState
-	{
-	public:
-		SmtMatrixState()
-		{
-			;
-		}
+struct SmtMatrixState {
+ public:
+  SmtMatrixState() { ; }
 
-		SmtMatrixState(Matrix &_worldview, Matrix &_projection):worldview(_worldview)
-			,projection(_projection)
-		{
-			;
-		}
+  SmtMatrixState(Matrix &_worldview, Matrix &_projection)
+      : worldview(_worldview), projection(_projection) {
+    ;
+  }
 
-	public:
-		Matrix				worldview;
-		Matrix				projection;
-	};
+ public:
+  Matrix worldview;
+  Matrix projection;
+};
 
-	struct SmtGPUState
-	{
-	public:
-		Viewport3D			viewport;
-		SmtBlendState		blend;
-		SmtColor			color;
-		SmtAlphaTestState	alphaTest;
-		SmtDepthTestState	depthTest;
-		SmtMatrixState		wpmatrix;
-	};
-}
+struct SmtGPUState {
+ public:
+  Viewport3D viewport;
+  SmtBlendState blend;
+  SmtColor color;
+  SmtAlphaTestState alphaTest;
+  SmtDepthTestState depthTest;
+  SmtMatrixState wpmatrix;
+};
+}  // namespace render
 
-#endif //_RD3D_STATES_H
+#endif  //_RD3D_STATES_H

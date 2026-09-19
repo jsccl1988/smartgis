@@ -3,9 +3,9 @@
 
 #include "legacy/render/bridge/leftover_record.h"
 
-#include "sdb/carto/style.h"
-#include "sdb/carto/stylemanager.h"
-#include "sdb/map/map.h"
+#include "base/carto/style.h"
+#include "base/carto/stylemanager.h"
+#include "gis/map/map.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -30,31 +30,25 @@ void LeftoverRecorder::set_native_window(void* native_window) {
   native_window_ = native_window;
 }
 
+bool LeftoverRecorder::bind_present_hwnd(void* native_window) {
+  native_window_ = native_window;
+  if (device_) {
+    return true;
+  }
+  // Null only: creating DX12/Vulkan on the same HWND as SmtGdiRenderDevice
+  // caused STATUS_FATAL_APP_EXIT (0xC000041D). MapViewport / gpu attach a
+  // preferred_gpu Device on their own HWND instead.
+  device_ = render::rhi::create_device(render::rhi::Backend::kNull);
+  owned_device_ = device_ != nullptr;
+  return device_ && device_->initialize(render::rhi::DeviceDesc());
+}
+
 bool LeftoverRecorder::ensure_device() {
   if (device_) {
     return true;
   }
-  render::rhi::DeviceDesc desc;
-  desc.native_window = native_window_;
-  desc.width = width_;
-  desc.height = height_;
-
-  // Prefer FlyCube only when a present HWND is available; headless tests and
-  // map-less record keep the null backend.
-  if (native_window_) {
-    device_ = render::rhi::create_device(render::rhi::preferred_gpu_backend());
-    owned_device_ = device_ != nullptr;
-    if (device_ && device_->initialize(desc)) {
-      return true;
-    }
-    if (owned_device_ && device_) {
-      device_->shutdown();
-      delete device_;
-      device_ = nullptr;
-      owned_device_ = false;
-    }
-  }
-
+  // Leftover recording defaults to Null. Never auto-create preferred GPU
+  // from native_window_ alone (shared with GDI/GL present). Use attach().
   device_ = render::rhi::create_device(render::rhi::Backend::kNull);
   owned_device_ = device_ != nullptr;
   return device_ && device_->initialize(render::rhi::DeviceDesc());
@@ -109,7 +103,7 @@ bool LeftoverRecorder::begin(uint32_t width, uint32_t height) {
   return true;
 }
 
-bool LeftoverRecorder::record_world(const sdb::scene::World& world) {
+bool LeftoverRecorder::record_world(const gis::World& world) {
   if (!open_ || !list_ || !device_) {
     return false;
   }
@@ -121,7 +115,22 @@ bool LeftoverRecorder::record_world(const sdb::scene::World& world) {
   return gpu_.record_draws(device_, list_, width_, height_);
 }
 
-bool LeftoverRecorder::record_map(const sdb::SmtMap* map) {
+bool leftover_record_map_frame(void* native_window, uint32_t width,
+                               uint32_t height, const gis::SmtMap* map) {
+  if (!map || width == 0 || height == 0) {
+    return false;
+  }
+  LeftoverRecorder& rec = leftover_session();
+  if (native_window) {
+    rec.set_native_window(native_window);
+  }
+  if (!rec.begin(width, height) || !rec.record_map(map)) {
+    return false;
+  }
+  return rec.finish();
+}
+
+bool LeftoverRecorder::record_map(const gis::SmtMap* map) {
   if (!map) {
     return false;
   }
@@ -139,7 +148,7 @@ bool LeftoverRecorder::record_map(const sdb::SmtMap* map) {
   long brush = 0x00FFFF00;
   const int layer_count = map->GetLayerCount();
   for (int i = 0; i < layer_count; ++i) {
-    const sdb::MapLayer* layer = map->GetMapLayer(i);
+    const gis::MapLayer* layer = map->GetMapLayer(i);
     if (!layer || layer->style_name().empty()) {
       continue;
     }
@@ -153,7 +162,7 @@ bool LeftoverRecorder::record_map(const sdb::SmtMap* map) {
     }
   }
   gpu_.set_solid_color_from_colorref(brush);
-  sdb::scene::World world;
+  gis::World world;
   world.attach_map(map);
   return record_world(world);
 }
@@ -181,9 +190,9 @@ bool LeftoverRecorder::record_3d(render::SmtVertexBuffer* vb,
                         static_cast<float>(height_), 0, 1);
     pass_open_ = true;
   }
-  const float aspect = height_ > 0
-                           ? static_cast<float>(width_) / static_cast<float>(height_)
-                           : 1.f;
+  const float aspect =
+      height_ > 0 ? static_cast<float>(width_) / static_cast<float>(height_)
+                  : 1.f;
   list_->bind_camera(
       render::rhi::make_perspective_camera(0.785398f, aspect, 0.1f, 100.f));
   return record_leftover_draw(list_, leftover_3d_.back());

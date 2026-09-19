@@ -30,16 +30,14 @@ struct LeftoverGpuMesh {
 };
 
 // Host leftover VB/IB matching 3d render defs (VF_XYZ / VF_XYZRHW). No GL.
-render::SmtVertexBuffer* create_host_vertex_buffer(int count,
-                                                     uint32_t format);
+render::SmtVertexBuffer* create_host_vertex_buffer(int count, uint32_t format);
 void destroy_host_vertex_buffer(render::SmtVertexBuffer* vb);
 render::SmtIndexBuffer* create_host_index_buffer(int count);
 void destroy_host_index_buffer(render::SmtIndexBuffer* ib);
 
 bool upload_leftover_buffers(render::rhi::Device* device,
                              render::SmtVertexBuffer* vb,
-                             render::SmtIndexBuffer* ib,
-                             LeftoverGpuMesh* out);
+                             render::SmtIndexBuffer* ib, LeftoverGpuMesh* out);
 
 // Packed xyz triples (same layout as tessellate TessMesh positions).
 bool upload_xyz_mesh(render::rhi::Device* device, const float* xyz,

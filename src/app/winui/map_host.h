@@ -6,10 +6,15 @@
 
 #include <windows.h>
 
+#include <string>
+#include <string_view>
+
 #include <winrt/Microsoft.UI.Xaml.Controls.h>
 #include <winrt/Microsoft.UI.Xaml.h>
 
+#include "app/views/blit_frame_cache.h"
 #include "app/views/map_scene.h"
+#include "app/views/scene3d_controller.h"
 #include "app/winui/detail/map_session.h"
 #include "content/public/map_contents_observer.h"
 
@@ -17,11 +22,13 @@ namespace app {
 namespace winui {
 
 // Presents the map inside the WinUI tree. GPU publishes software-DIB shared
-// pixels; this host owns a child HWND island aligned to the SwapChainPanel
-// slot and blits Latest() (same path as ui::views::MapViewport), then overlays
-// MapScene vectors (China PLP polygon/line/point + labels) like Views.
-// Map/Data/3D views stay open across tab switches (Views parity) — never
-// CloseView just to change chrome tabs.
+// pixels; this host owns an **owned WS_POPUP** HWND (owner = top-level
+// window) aligned to the SwapChainPanel slot in **screen** coordinates.
+// A WS_CHILD sibling is covered by DesktopChildSiteBridge composition
+// (PrintWindow on child shows the map; the main window does not). Popup
+// sits above XAML. Blits Latest() + MapScene / Scene3dController like Views.
+// Map/Data/3D views stay open across tab switches — never CloseView just to
+// change chrome tabs.
 class MapHost : public content::MapContentsObserver {
  public:
   MapHost();
@@ -41,7 +48,7 @@ class MapHost : public content::MapContentsObserver {
   content::ViewKind view_kind() const { return kind_; }
 
   // Self-test / diagnostics: child HWND after attach, and whether sync_layout
-  // produced a non-trivial client rect (island coords aligned to the panel).
+  // produced a non-trivial client rect (top-level coords aligned to the panel).
   HWND map_child_hwnd() const { return child_hwnd_; }
   bool has_synced_map_layout() const;
   // True when HostView::Latest has a shared DIB (generation + handle).
@@ -56,7 +63,11 @@ class MapHost : public content::MapContentsObserver {
   // Open a vector path via OGR (Views parity). Also forwards CatalogCall.
   bool open_map_path(const std::string& path);
 
-  // Hide the HWND island when chrome covers the map slot (unused in IDE layout).
+  // Workspace tool id for HWND / XAML pointer gestures (pan / zoom / select).
+  void set_active_tool(std::string_view tool_id);
+  void apply_pointer(const content::InputEvent& ev);
+
+  // Hide the HWND overlay when chrome covers the map slot (unused in IDE layout).
   void set_map_surface_visible(bool visible);
 
   void OnFrameReady(uint32_t view_id, uint32_t generation) override;
@@ -83,9 +94,16 @@ class MapHost : public content::MapContentsObserver {
   float panel_scale() const;
   void close_all_views();
   void update_status_overlay();
+  void wire_panel_pointers();
   static int slot_index(content::ViewKind kind);
 
   static constexpr UINT_PTR kPresentTimerId = 1;
+  static constexpr UINT_PTR kBlitTimerId = 2;
+
+  void schedule_full_redraw();
+  void commit_blit_preview();
+
+  mutable BlitFrameCache blit_;
 
   winrt::Microsoft::UI::Xaml::Controls::Grid root_{nullptr};
   winrt::Microsoft::UI::Xaml::Controls::SwapChainPanel panel_{nullptr};
@@ -95,6 +113,7 @@ class MapHost : public content::MapContentsObserver {
   content::MapWidgetHostView* view_ = nullptr;
   ViewSlot slots_[3] = {};
   ::app::MapScene map_scene_;
+  ::app::Scene3dController scene3d_;
   HWND window_hwnd_ = nullptr;
   HWND island_hwnd_ = nullptr;
   HWND child_hwnd_ = nullptr;
@@ -105,6 +124,10 @@ class MapHost : public content::MapContentsObserver {
   int last_layout_w_ = -1;
   int last_layout_h_ = -1;
   content::ViewKind kind_ = content::ViewKind::kMapEdit;
+  std::string active_tool_{"view.pan"};
+  bool dragging_ = false;
+  int last_pointer_x_ = 0;
+  int last_pointer_y_ = 0;
 };
 
 }  // namespace winui

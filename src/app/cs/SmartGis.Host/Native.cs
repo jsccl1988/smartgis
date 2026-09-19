@@ -88,5 +88,9 @@ internal static class Native
     internal static extern void sg_host_activate_tool(IntPtr host, string toolId);
 
     [DllImport("smartgis_host", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void sg_host_dispatch_pointer(
+        IntPtr host, int kind, int xPx, int yPx, int wheel);
+
+    [DllImport("smartgis_host", CallingConvention = CallingConvention.Cdecl)]
     internal static extern int sg_host_wait_frame(IntPtr host, uint timeoutMs);
 }

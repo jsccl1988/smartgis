@@ -1,10 +1,10 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/context_menu.h"
+#include "ui/views/primitives/context_menu.h"
 
-#include "ui/views/dpi.h"
-#include "ui/views/theme.h"
+#include "ui/views/kernel/dpi.h"
+#include "ui/views/kernel/theme.h"
 
 namespace ui {
 namespace views {

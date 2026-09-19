@@ -3,14 +3,15 @@
 
 #include "render/scene/scene.h"
 #include "render/rhi/rhi.h"
-#include "sdb/model/model.h"
-#include "sdb/model/tileset.h"
-#include "sdb/scene/scene.h"
+#include "gis/assets/model.h"
+#include "gis/assets/tileset.h"
+#include "gis/world/scene.h"
 
 #include "ogrsf_frmts.h"
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <memory>
@@ -60,22 +61,90 @@ int main() {
   setvbuf(stdout, nullptr, _IONBF, 0);
   setvbuf(stderr, nullptr, _IONBF, 0);
 
-  sdb::scene::World world;
-  world.add_node(sdb::scene::NodeKind::kVectorLayer, "roads", 0, 0, 0, 1, 1, 0);
-  world.add_node(sdb::scene::NodeKind::kModel, "cube", 0, 0, 0, 1, 1, 1);
+  gis::World world;
+  world.add_node(gis::NodeKind::kVectorLayer, "roads", 0, 0, 0, 1, 1, 0);
+  world.add_node(gis::NodeKind::kModel, "cube", 0, 0, 0, 1, 1, 1);
 
   std::unique_ptr<render::rhi::Device> device(
       render::rhi::create_device(render::rhi::Backend::kNull));
+  expect(device != nullptr, "create null device");
+  expect(device->initialize(render::rhi::DeviceDesc()), "null device");
 
   render::scene::GpuScene gpu;
   gpu.sync_from(world);
   expect(gpu.instance_count() == 2, "two instances");
-  expect(gpu.instance_at(0)->kind == sdb::scene::NodeKind::kVectorLayer, "2d");
-  expect(gpu.instance_at(1)->kind == sdb::scene::NodeKind::kModel, "3d");
+  expect(gpu.instance_at(0)->kind == gis::NodeKind::kVectorLayer, "2d");
+  expect(gpu.instance_at(1)->kind == gis::NodeKind::kModel, "3d");
 
-  sdb::model::ModelAsset cube;
-  sdb::model::load_unit_cube(cube);
-  sdb::scene::World models;
+  // SP4: kTerrain AABB mirrors through GpuScene::sync_from; CPU mesh / AABB
+  // fallback upload + draw (DEM adapter seeds World in dem_stereo_test).
+  {
+    gis::World terrain_world;
+    gis::Node* terrain = terrain_world.attach_terrain("china_dem", 73.0, 17.5,
+                                                      0.1, 135.0, 54.0, 8.0);
+    expect(terrain != nullptr, "attach terrain");
+    render::scene::GpuScene terrain_gpu;
+    terrain_gpu.sync_from(terrain_world);
+    expect(terrain_gpu.instance_count() == 1, "terrain instance");
+    expect(terrain_gpu.instance_at(0)->kind == gis::NodeKind::kTerrain,
+           "terrain kind");
+    expect(terrain_gpu.instance_at(0)->node_id == terrain->id, "terrain id");
+    expect(terrain_gpu.instance_at(0)->min_x == 73.0 &&
+               terrain_gpu.instance_at(0)->max_x == 135.0,
+           "terrain lon");
+
+    // AABB-only terrain still uploads a box mesh (36 indices).
+    render::rhi::CommandList* aabb_list = device->create_command_list();
+    expect(terrain_gpu.record(device.get(), aabb_list, 64, 64),
+           "record terrain aabb");
+    auto* aabb_stub =
+        static_cast<render::rhi::StubCommandList*>(aabb_list);
+    expect(aabb_stub->draw_indexed_calls >= 1, "terrain aabb draw");
+    expect(aabb_stub->index_counts.size() >= 1 &&
+               aabb_stub->index_counts[0] == 36,
+           "terrain aabb 36 indices");
+
+    // Explicit CPU mesh (tiny quad) replaces AABB on next sync.
+    const float positions[] = {
+        0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 1.f, 0.f, 0.f, 1.f,
+    };
+    const uint32_t indices[] = {0, 1, 2, 0, 2, 3};
+    expect(terrain_world.set_terrain_mesh(terrain->id, positions, 12, indices,
+                                          6),
+           "set terrain mesh");
+    expect(terrain->has_terrain_mesh(), "node has terrain mesh");
+    terrain_gpu.sync_from(terrain_world);
+    expect(terrain_gpu.instance_at(0)->terrain_indices.size() == 6,
+           "synced terrain indices");
+    render::rhi::CommandList* mesh_list = device->create_command_list();
+    expect(terrain_gpu.record(device.get(), mesh_list, 64, 64),
+           "record terrain mesh");
+    auto* mesh_stub =
+        static_cast<render::rhi::StubCommandList*>(mesh_list);
+    expect(mesh_stub->draw_indexed_calls >= 1, "terrain mesh draw");
+    expect(mesh_stub->index_counts.size() >= 1 &&
+               mesh_stub->index_counts[0] == 6,
+           "terrain mesh 6 indices");
+
+    // SP4 knife 3: external orbit camera on record.
+    const render::rhi::CameraMatrices orbit =
+        render::rhi::make_orbit_camera(0.5f, 0.3f, 4.f, 0.785398f, 1.f, 0.1f,
+                                       100.f);
+    terrain_gpu.set_view_camera(orbit);
+    expect(terrain_gpu.has_view_camera(), "view camera set");
+    render::rhi::CommandList* orbit_list = device->create_command_list();
+    expect(terrain_gpu.record(device.get(), orbit_list, 64, 64),
+           "record with orbit camera");
+    auto* orbit_stub =
+        static_cast<render::rhi::StubCommandList*>(orbit_list);
+    expect(orbit_stub->bind_camera_calls >= 1, "orbit bind_camera");
+    terrain_gpu.clear_view_camera();
+    expect(!terrain_gpu.has_view_camera(), "view camera cleared");
+  }
+
+  gis::ModelAsset cube;
+  gis::load_unit_cube(cube);
+  gis::World models;
   expect(models.attach_model(&cube, "cube") != nullptr, "attach model asset");
   render::scene::GpuScene model_gpu;
   model_gpu.sync_from(models);
@@ -84,7 +153,6 @@ int main() {
   model_gpu.set_solid_color(1.f, 0.f, 0.f, 1.f);
   model_gpu.set_view_ortho(0, 0, 10, 10);
   expect(model_gpu.has_view_ortho(), "view ortho set");
-  expect(device->initialize(render::rhi::DeviceDesc()), "null device");
   // Fresh lists per record; NullDevice destroy_* intentionally leaks stubs
   // (FlyCube-linked CRT can hang on operator delete).
   render::rhi::CommandList* model_list = device->create_command_list();
@@ -117,14 +185,14 @@ int main() {
     const char* ts_json =
         "{\"root\":{\"boundingVolume\":{\"box\":[0,0,0,1,0,0,0,1,0,0,0,1]},"
         "\"geometricError\":1,\"content\":{\"uri\":\"missing.glb\"}}}";
-    sdb::model::Tileset tileset;
-    expect(sdb::model::parse_tileset_json(ts_json, std::strlen(ts_json),
+    gis::Tileset tileset;
+    expect(gis::parse_tileset_json(ts_json, std::strlen(ts_json),
                                           tileset),
            "tileset parse for gpu");
-    sdb::scene::World ts_world;
-    sdb::scene::Node* ts_node = ts_world.attach_tileset(&tileset, "ts");
+    gis::World ts_world;
+    gis::Node* ts_node = ts_world.attach_tileset(&tileset, "ts");
     expect(ts_node != nullptr, "attach tileset gpu");
-    std::vector<const sdb::model::Tile*> vis;
+    std::vector<const gis::Tile*> vis;
     vis.push_back(&tileset.root);
     expect(ts_world.apply_tileset_selection(ts_node->id, vis), "select uri");
     render::scene::GpuScene ts_gpu;
@@ -137,7 +205,7 @@ int main() {
     expect(ts_stub->index_counts.size() >= 1 && ts_stub->index_counts[0] == 36,
            "missing content uses AABB 36 indices");
 
-    if (sdb::model::has_tinygltf()) {
+    if (gis::has_tinygltf()) {
       const char* glb_path = "scene_gpu_tile.glb";
       // Minimal TRIANGLES glTF 2.0 GLB (same fixture shape as model_test).
       const char* json =
@@ -190,13 +258,13 @@ int main() {
       const char* ts_json2 =
           "{\"root\":{\"boundingVolume\":{\"box\":[0,0,0,1,0,0,0,1,0,0,0,1]},"
           "\"geometricError\":1,\"content\":{\"uri\":\"scene_gpu_tile.glb\"}}}";
-      sdb::model::Tileset tileset2;
-      expect(sdb::model::parse_tileset_json(ts_json2, std::strlen(ts_json2),
+      gis::Tileset tileset2;
+      expect(gis::parse_tileset_json(ts_json2, std::strlen(ts_json2),
                                             tileset2),
              "tileset parse glb");
-      sdb::scene::World ts_world2;
-      sdb::scene::Node* n2 = ts_world2.attach_tileset(&tileset2, "ts2");
-      std::vector<const sdb::model::Tile*> vis2;
+      gis::World ts_world2;
+      gis::Node* n2 = ts_world2.attach_tileset(&tileset2, "ts2");
+      std::vector<const gis::Tile*> vis2;
       vis2.push_back(&tileset2.root);
       expect(ts_world2.apply_tileset_selection(n2->id, vis2), "select glb");
       render::scene::GpuScene ts_gpu2;
@@ -212,11 +280,11 @@ int main() {
 
   // Style ResolvedPaint → per-mesh solid colors (not one global set_solid_color).
   {
-    sdb::model::ModelAsset cube_a;
-    sdb::model::ModelAsset cube_b;
-    sdb::model::load_unit_cube(cube_a);
-    sdb::model::load_unit_cube(cube_b);
-    sdb::scene::World paint_world;
+    gis::ModelAsset cube_a;
+    gis::ModelAsset cube_b;
+    gis::load_unit_cube(cube_a);
+    gis::load_unit_cube(cube_b);
+    gis::World paint_world;
     expect(paint_world.attach_model(&cube_a, "fill-cube") != nullptr,
            "attach fill cube");
     expect(paint_world.attach_model(&cube_b, "line-cube") != nullptr,
@@ -226,19 +294,19 @@ int main() {
     paint_gpu.sync_from(paint_world);
     expect(paint_gpu.instance_count() == 2, "paint two instances");
 
-    sdb::style::ResolvedPaint fill_paint;
-    fill_paint.type = sdb::style::LayerType::kFill;
+    gis::style::ResolvedPaint fill_paint;
+    fill_paint.type = gis::style::LayerType::kFill;
     fill_paint.fill_color = 0xFFFF0000;  // opaque red
     fill_paint.fill_opacity = 1.f;
-    sdb::style::ResolvedPaint line_paint;
-    line_paint.type = sdb::style::LayerType::kLine;
+    gis::style::ResolvedPaint line_paint;
+    line_paint.type = gis::style::LayerType::kLine;
     line_paint.line_color = 0xFF00FF00;  // opaque green
     line_paint.line_opacity = 0.5f;
     line_paint.line_width = 3.f;
     expect(paint_gpu.set_instance_paint(0, fill_paint), "set fill paint");
     expect(paint_gpu.set_instance_paint(1, line_paint), "set line paint");
     expect(paint_gpu.instance_at(0)->has_paint, "inst0 has paint");
-    expect(paint_gpu.instance_at(0)->paint.type == sdb::style::LayerType::kFill,
+    expect(paint_gpu.instance_at(0)->paint.type == gis::style::LayerType::kFill,
            "inst0 fill type");
     expect(paint_gpu.instance_at(1)->paint.line_width == 3.f,
            "inst1 line width stored");
@@ -269,8 +337,8 @@ int main() {
            "last solid is line green");
 
     // Re-record with circle paint on instance 0 → different solid than fill.
-    sdb::style::ResolvedPaint circle_paint;
-    circle_paint.type = sdb::style::LayerType::kCircle;
+    gis::style::ResolvedPaint circle_paint;
+    circle_paint.type = gis::style::LayerType::kCircle;
     circle_paint.circle_color = 0xFF0000FF;  // blue
     circle_paint.circle_opacity = 1.f;
     circle_paint.circle_radius = 8.f;
@@ -287,7 +355,7 @@ int main() {
     expect(circle_stub->solid_g > 0.99f, "order still ends on line green");
 
     // Single-instance fill vs circle: different StubCommandList solid.
-    sdb::scene::World one;
+    gis::World one;
     expect(one.attach_model(&cube_a, "one") != nullptr, "one cube");
     render::scene::GpuScene one_gpu;
     one_gpu.sync_from(one);
@@ -311,8 +379,8 @@ int main() {
            "fill and circle solids differ");
 
     // Background paint drives clear color on empty mesh list path.
-    sdb::style::ResolvedPaint bg;
-    bg.type = sdb::style::LayerType::kBackground;
+    gis::style::ResolvedPaint bg;
+    bg.type = gis::style::LayerType::kBackground;
     bg.fill_color = 0xFF112233;
     bg.fill_opacity = 1.f;
     render::scene::GpuScene bg_gpu;
@@ -324,15 +392,15 @@ int main() {
            "bg list closed");
 
     // Symbol with in-memory RGBA bytes → textured draw (bind_texture).
-    sdb::style::ResolvedPaint symbol_paint;
-    symbol_paint.type = sdb::style::LayerType::kSymbol;
+    gis::style::ResolvedPaint symbol_paint;
+    symbol_paint.type = gis::style::LayerType::kSymbol;
     symbol_paint.has_symbol = true;
     symbol_paint.symbol.id = "dot";
     // 2x2 RGBA8 (raw; not PNG).
     const uint8_t rgba[] = {255, 0, 0, 255, 0, 255, 0, 255,
                             0,   0, 255, 255, 255, 255, 0, 255};
     symbol_paint.symbol.bytes.assign(rgba, rgba + sizeof(rgba));
-    sdb::scene::World sym_world;
+    gis::World sym_world;
     expect(sym_world.attach_model(&cube_a, "icon") != nullptr, "symbol cube");
     render::scene::GpuScene sym_gpu;
     sym_gpu.sync_from(sym_world);
@@ -344,8 +412,8 @@ int main() {
     expect(sym_stub->last_texture != nullptr, "symbol texture non-null");
     expect(sym_stub->draw_indexed_calls >= 1, "symbol draw");
     // Path-only symbol with missing file must skip (no crash).
-    sdb::style::ResolvedPaint path_paint;
-    path_paint.type = sdb::style::LayerType::kSymbol;
+    gis::style::ResolvedPaint path_paint;
+    path_paint.type = gis::style::LayerType::kSymbol;
     path_paint.has_symbol = true;
     path_paint.symbol.path = "definitely_missing_icon_rgba.bin";
     path_paint.fill_color = 0xFFFFFF00;
@@ -368,7 +436,7 @@ int main() {
     road.addPoint(0, 0);
     road.addPoint(100, 0);
     const OGRGeometry* geoms[] = {&road};
-    sdb::scene::World line_world;
+    gis::World line_world;
     expect(line_world.attach_vector_geoms("road", geoms, 1) != nullptr,
            "attach road line");
 
@@ -377,8 +445,8 @@ int main() {
     // Envelope width 100 world / 100 px → world_units_per_pixel = 1.
     line_gpu.set_view_ortho(0, -50, 100, 50);
 
-    sdb::style::ResolvedPaint thin;
-    thin.type = sdb::style::LayerType::kLine;
+    gis::style::ResolvedPaint thin;
+    thin.type = gis::style::LayerType::kLine;
     thin.line_color = 0xFFFFFFFF;
     thin.line_opacity = 1.f;
     thin.line_width = 2.f;  // half_world = 0.5 * 2 * 1 = 1
@@ -400,7 +468,7 @@ int main() {
     expect(thin_maxy - thin_miny > 1.9f && thin_maxy - thin_miny < 2.1f,
            "thin ribbon height ~2 world");
 
-    sdb::style::ResolvedPaint thick = thin;
+    gis::style::ResolvedPaint thick = thin;
     thick.line_width = 8.f;  // half_world = 4 → full height 8
     expect(line_gpu.set_instance_paint(0, thick), "set thick line paint");
     render::rhi::CommandList* thick_list = device->create_command_list();
@@ -422,7 +490,7 @@ int main() {
            "thick ribbon taller than thin");
 
     // Round caps: more indices than butt at same width.
-    sdb::style::ResolvedPaint round_paint = thick;
+    gis::style::ResolvedPaint round_paint = thick;
     round_paint.line_cap = "round";
     expect(line_gpu.set_instance_paint(0, round_paint), "set round cap paint");
     render::rhi::CommandList* round_list = device->create_command_list();
@@ -435,14 +503,14 @@ int main() {
     // Circle paint on a point: diamond radius scales with circle_radius.
     OGRPoint dot(50, 0);
     const OGRGeometry* pts[] = {&dot};
-    sdb::scene::World circle_world;
+    gis::World circle_world;
     expect(circle_world.attach_vector_geoms("dot", pts, 1) != nullptr,
            "attach circle point");
     render::scene::GpuScene circle_gpu;
     circle_gpu.sync_from(circle_world);
     circle_gpu.set_view_ortho(0, -50, 100, 50);
-    sdb::style::ResolvedPaint small_c;
-    small_c.type = sdb::style::LayerType::kCircle;
+    gis::style::ResolvedPaint small_c;
+    small_c.type = gis::style::LayerType::kCircle;
     small_c.circle_color = 0xFFFF0000;
     small_c.circle_opacity = 1.f;
     small_c.circle_radius = 2.f;  // world r = 2
@@ -459,7 +527,7 @@ int main() {
     expect(sc_maxy - sc_miny > 3.9f && sc_maxy - sc_miny < 4.1f,
            "small circle height ~4");
 
-    sdb::style::ResolvedPaint big_c = small_c;
+    gis::style::ResolvedPaint big_c = small_c;
     big_c.circle_radius = 10.f;
     expect(circle_gpu.set_instance_paint(0, big_c), "set big circle");
     render::rhi::CommandList* bc_list = device->create_command_list();
@@ -482,5 +550,8 @@ int main() {
     return 1;
   }
   std::fprintf(stdout, "scene_gpu_test: ok\n");
-  return 0;
+  std::fflush(stdout);
+  // FlyCube-linked CRT can hang in static destructors / operator delete after
+  // NullDevice intentionally leaks stubs. Exit without running atexit/dtors.
+  std::_Exit(0);
 }

@@ -33,8 +33,17 @@ using TileFetchFn = std::function<TileFetchResult(const std::string& url)>;
 // transport / non-2xx / empty body so paint can keep background.
 TileFetchFn make_net_tile_fetch();
 
+// Workspace / chrome command ids. GPU applies these in --type=gpu only.
+inline constexpr const char kCmdViewBackendRhi[] = "view.backend.rhi";
+inline constexpr const char kCmdViewBackendMapLibre[] = "view.backend.maplibre";
+
 // SMT_MAP_BACKEND=a|track_a|maplibre selects Track A. Default Track B.
+// A process-local override (set_render_backend) beats the environment.
 RenderBackendKind select_render_backend();
+void set_render_backend(RenderBackendKind kind);
+void clear_render_backend_override();
+// True when |command_id| is view.backend.rhi / view.backend.maplibre.
+bool apply_render_backend_command(const char* command_id);
 const char* render_backend_name(RenderBackendKind kind);
 
 // True only when this binary was compiled with smt_enable_maplibre=true.
@@ -47,7 +56,7 @@ struct MapPaintRequest {
   content::ViewKind kind = content::ViewKind::kMapEdit;
   // Web Mercator viewport (EPSG:3857). Degenerate → single tile z/x/y=0/0/0.
   content::Extent2 extent{};
-  // XYZ zoom. < 0 → sdb::tile::estimate_zoom(extent) when extent is valid.
+  // XYZ zoom. < 0 → gis::tile::estimate_zoom(extent) when extent is valid.
   int zoom = -1;
   const char* style_json = nullptr;
   // Single XYZ template (legacy). Used when |tile_url_templates| is empty.

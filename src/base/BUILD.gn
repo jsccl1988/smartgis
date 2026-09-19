@@ -53,7 +53,7 @@ smt_shared_library("base") {
   deps = [
     ":foundation",
     "//src/base/core:core_sources",
-    "//src/sdb/carto:carto_sources",
+    "//src/base/carto:carto_sources",
     "//src/legacy/xml:xml_sources",
     "//src/sys:sys_sources",
     "//src/net:net_sources",

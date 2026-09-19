@@ -19,22 +19,22 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define STAT_CHART_EXPORT __declspec(dllimport)
 #endif
 
-
 #include "base/core/core.h"
 #include "legacy/ui/chart/chart.h"
 
 using namespace ui;
 
-long		STAT_CHART_EXPORT		SmtPlot(const vPoints &points,const char * szTitle,const char * szPanelTitle,
-										const char * szXTitle,const char * szXUnit,
-										const char * szYTitle,const char * szYUnit);
+long STAT_CHART_EXPORT SmtPlot(const vPoints &points, const char *szTitle,
+                               const char *szPanelTitle, const char *szXTitle,
+                               const char *szXUnit, const char *szYTitle,
+                               const char *szYUnit);
 
 #if !defined(STAT_CHART_EXPORTS)
-#if   defined( _DEBUG)
-#          pragma comment(lib,"ui_legacy_d.lib")
-#       else
-#          pragma comment(lib,"ui_legacy.lib")
-#	    endif  
+#if defined(_DEBUG)
+#pragma comment(lib, "ui_legacy_d.lib")
+#else
+#pragma comment(lib, "ui_legacy.lib")
+#endif
 #endif
 
-#endif //_STA_API_H
+#endif  //_STA_API_H

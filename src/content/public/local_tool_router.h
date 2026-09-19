@@ -13,7 +13,7 @@
 #include "content/public/tool_router.h"
 #include "content/public/view_host.h"
 
-namespace sdb {
+namespace gis {
 class EditSession;
 }
 
@@ -31,7 +31,7 @@ class LocalToolRouter final : public ToolRouter {
 
   ViewHost* host(uint32_t view_id);
   void close(uint32_t view_id);
-  void bind_edits(uint32_t view_id, sdb::EditSession* edits);
+  void bind_edits(uint32_t view_id, gis::EditSession* edits);
 
   void set_activate_ipc(ActivateIpc fn);
   void set_dispatch_ipc(DispatchIpc fn);

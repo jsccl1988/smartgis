@@ -5,8 +5,8 @@
 
 #include <memory>
 
-#include "ui/views/button.h"
-#include "ui/views/label.h"
+#include "ui/views/primitives/button.h"
+#include "ui/views/primitives/label.h"
 
 namespace plugin {
 

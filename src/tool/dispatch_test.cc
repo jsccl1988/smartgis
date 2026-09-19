@@ -4,7 +4,7 @@
 #include "content/public/event_bus.h"
 #include "content/public/events.h"
 #include "plugin/host/legacy_cmd.h"
-#include "sdb/edit/edit_session.h"
+#include "gis/edit/edit_session.h"
 #include "tool/command.h"
 #include "tool/interaction.h"
 #include "tool/legacy_msg.h"
@@ -194,17 +194,17 @@ int main() {
   }
 
   {
-    sdb::MemoryEditSession edits;
-    sdb::FeatureMutation empty;
+    gis::MemoryEditSession edits;
+    gis::FeatureMutation empty;
     expect(!edits.commit(empty), "empty id rejected");
     expect(!edits.can_undo() && !edits.can_redo(), "empty stacks");
 
-    sdb::FeatureMutation a;
-    a.op = sdb::EditOp::kAppend;
+    gis::FeatureMutation a;
+    a.op = gis::EditOp::kAppend;
     a.id = make_id(1);
     expect(edits.commit(a), "commit a");
-    sdb::FeatureMutation b;
-    b.op = sdb::EditOp::kDelete;
+    gis::FeatureMutation b;
+    b.op = gis::EditOp::kDelete;
     b.id = make_id(2);
     expect(edits.commit(b), "commit b");
     expect(edits.committed().size() == 2, "two committed");
@@ -226,7 +226,7 @@ int main() {
           ++clears;
           expect(ev.ids.empty(), "clear empty ids");
         });
-    sdb::MemoryEditSession edits;
+    gis::MemoryEditSession edits;
     tool::Workspace ws(&bus, &edits);
     expect(ws.stack().current() == nullptr, "no current at start");
     expect(ws.execute("selection.clear", {}), "clear command");
@@ -260,7 +260,7 @@ int main() {
           ++sels;
           expect(ev.ids.size() == 1, "select one id");
         });
-    sdb::MemoryEditSession edits;
+    gis::MemoryEditSession edits;
     tool::Workspace ws(&bus, &edits);
     expect(ws.execute("selection.rect", {}), "activate rect");
     content::InputEvent down = make_event(content::InputEvent::Kind::kLDown);
@@ -278,7 +278,7 @@ int main() {
   }
 
   {
-    sdb::MemoryEditSession edits;
+    gis::MemoryEditSession edits;
     tool::Workspace ws(nullptr, &edits);
     expect(ws.execute("edit.append.point", {}), "activate draw point");
     content::InputEvent down = make_event(content::InputEvent::Kind::kLDown);
@@ -286,7 +286,7 @@ int main() {
     down.y_px = 4;
     expect(ws.dispatch_input(down), "draw down");
     expect(edits.committed().size() == 1, "append committed");
-    expect(edits.committed()[0].op == sdb::EditOp::kAppend, "append op");
+    expect(edits.committed()[0].op == gis::EditOp::kAppend, "append op");
     expect(ws.execute("edit.undo", {}), "edit.undo");
     expect(edits.committed().empty(), "undo cleared");
     expect(ws.execute("edit.redo", {}), "edit.redo");
@@ -301,7 +301,7 @@ int main() {
           ++commits;
           expect(ev.op == content::EditCommitted::Op::kAppend, "event append");
         });
-    sdb::MemoryEditSession edits;
+    gis::MemoryEditSession edits;
     tool::Workspace ws(&bus, &edits);
     expect(ws.execute("edit.append.point", {}), "activate for EditCommitted");
     content::InputEvent down = make_event(content::InputEvent::Kind::kLDown);
@@ -312,7 +312,7 @@ int main() {
   }
 
   {
-    sdb::MemoryEditSession edits;
+    gis::MemoryEditSession edits;
     tool::Workspace ws(nullptr, &edits);
     expect(ws.execute("edit.append.linestring", {}), "activate draw line");
     content::InputEvent a = make_event(content::InputEvent::Kind::kLDown);
@@ -336,7 +336,7 @@ int main() {
     int extents = 0;
     auto sub = bus.subscribe<content::ExtentChanged>(
         [&](const content::ExtentChanged&) { ++extents; });
-    sdb::MemoryEditSession edits;
+    gis::MemoryEditSession edits;
     tool::Workspace ws(&bus, &edits);
     expect(!ws.flashing(), "flash off at start");
     expect(ws.execute("flash.start", {}), "flash start");
@@ -402,6 +402,28 @@ int main() {
   }
 
   {
+    expect(!tool::try_execute_gt_msg(nullptr, tool::kGtMsgViewPan),
+           "try_execute null ws");
+    tool::Workspace ws(nullptr, nullptr);
+    expect(!tool::try_execute_gt_msg(&ws, -1), "try_execute unmapped");
+    expect(tool::try_execute_gt_msg(&ws, tool::kGtMsgViewPan),
+           "try_execute pan");
+    expect(ws.stack().current() &&
+               std::strcmp(ws.stack().current()->id(), "view.pan") == 0,
+           "try_execute activated pan");
+    expect(tool::try_execute_gt_msg(&ws, tool::kGtMsgSelectPoint),
+           "try_execute select point");
+    expect(ws.stack().current() &&
+               std::strcmp(ws.stack().current()->id(), "select.point") == 0,
+           "try_execute activated select.point");
+    expect(tool::try_execute_gt_msg(&ws, tool::kGtMsgAppendPointDot),
+           "try_execute append point");
+    expect(ws.stack().current() &&
+               std::strcmp(ws.stack().current()->id(), "draw.point") == 0,
+           "try_execute activated draw.point");
+  }
+
+  {
     expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgDemLoadTin),
                        "dem.load_tin") == 0,
            "plugin dem tin");
@@ -454,7 +476,7 @@ int main() {
     int extents = 0;
     auto sub = bus.subscribe<content::ExtentChanged>(
         [&](const content::ExtentChanged&) { ++extents; });
-    sdb::MemoryEditSession edits;
+    gis::MemoryEditSession edits;
     tool::Workspace ws(&bus, &edits);
     expect(ws.execute("view3d.trackball", {}), "activate trackball");
     expect(ws.stack().current() &&
@@ -494,6 +516,26 @@ int main() {
 
   {
     content::EventBus bus;
+    int backends = 0;
+    uint32_t last_kind = 99;
+    auto sub = bus.subscribe<content::RenderBackendChanged>(
+        [&](const content::RenderBackendChanged& e) {
+          ++backends;
+          last_kind = e.kind;
+        });
+    gis::MemoryEditSession edits;
+    tool::Workspace ws(&bus, &edits);
+    expect(ws.catalog().contains("view.backend.rhi"), "rhi command registered");
+    expect(ws.catalog().contains("view.backend.maplibre"),
+           "maplibre command registered");
+    expect(ws.execute("view.backend.maplibre", {}), "execute maplibre");
+    expect(backends == 1 && last_kind == 1, "maplibre event kind");
+    expect(ws.execute("view.backend.rhi", {}), "execute rhi");
+    expect(backends == 2 && last_kind == 0, "rhi event kind");
+  }
+
+  {
+    content::EventBus bus;
     int extents = 0;
     int sels = 0;
     auto se = bus.subscribe<content::ExtentChanged>(
@@ -503,9 +545,12 @@ int main() {
           ++sels;
           expect(ev.ids.size() == 1, "3d pick one id");
         });
-    sdb::MemoryEditSession edits;
+    gis::MemoryEditSession edits;
     tool::Workspace ws(&bus, &edits);
     expect(ws.execute("view3d.trackball", {}), "activate trackball keys");
+    expect(ws.stack().current() &&
+               std::strcmp(ws.stack().current()->id(), "view3d.trackball") == 0,
+           "trackball keys current");
 
     content::InputEvent key = make_event(content::InputEvent::Kind::kKeyDown);
     key.key = 'W';
@@ -549,13 +594,13 @@ int main() {
 
   {
     int applies = 0;
-    sdb::CommandEditSession cmds(
-        [&](const sdb::FeatureMutation& m, bool) {
+    gis::CommandEditSession cmds(
+        [&](const gis::FeatureMutation& m, bool) {
           ++applies;
           return m.id.len > 0;
         });
-    sdb::FeatureMutation mutation;
-    mutation.op = sdb::EditOp::kAppend;
+    gis::FeatureMutation mutation;
+    mutation.op = gis::EditOp::kAppend;
     mutation.id = make_id(9);
     expect(cmds.commit(mutation), "cmd commit");
     expect(cmds.can_undo(), "cmd can undo");
@@ -638,6 +683,48 @@ int main() {
     const tool::AuxOverlay* o = ws.live_preview();
     expect(o && o->kind == tool::AuxOverlay::Kind::kPolyline, "line overlay kind");
     expect(o && o->points.size() == 2, "line overlay vertex plus hover");
+  }
+
+  {
+    // SP1b: pan + select + append pointer chain on one Workspace.
+    content::EventBus bus;
+    int extents = 0;
+    int sels = 0;
+    int commits = 0;
+    auto se = bus.subscribe<content::ExtentChanged>(
+        [&](const content::ExtentChanged&) { ++extents; });
+    auto ss = bus.subscribe<content::SelectionChanged>(
+        [&](const content::SelectionChanged&) { ++sels; });
+    auto sc = bus.subscribe<content::EditCommitted>(
+        [&](const content::EditCommitted&) { ++commits; });
+    gis::MemoryEditSession edits;
+    tool::Workspace ws(&bus, &edits);
+
+    expect(ws.execute("view.pan", {}), "sp1b pan");
+    content::InputEvent d = make_event(content::InputEvent::Kind::kLDown);
+    d.x_px = 0;
+    d.y_px = 0;
+    content::InputEvent u = make_event(content::InputEvent::Kind::kLUp);
+    u.x_px = 6;
+    u.y_px = 6;
+    expect(ws.dispatch_input(d), "sp1b pan down");
+    expect(ws.dispatch_input(u), "sp1b pan up");
+    expect(extents >= 1, "sp1b ExtentChanged");
+
+    expect(ws.execute("selection.rect", {}), "sp1b select");
+    d.x_px = 1;
+    d.y_px = 1;
+    u.x_px = 9;
+    u.y_px = 9;
+    expect(ws.dispatch_input(d), "sp1b sel down");
+    expect(ws.dispatch_input(u), "sp1b sel up");
+    expect(sels >= 1, "sp1b SelectionChanged");
+
+    expect(ws.execute("edit.append.point", {}), "sp1b append");
+    d.x_px = 2;
+    d.y_px = 3;
+    expect(ws.dispatch_input(d), "sp1b append down");
+    expect(commits >= 1 && edits.can_undo(), "sp1b EditCommitted");
   }
 
   if (g_fails) {

@@ -2,16 +2,17 @@
 // All rights reserved.
 
 #include "legacy/render/bridge/renderdevice.h"
-#include "render/rhi/rhi.h"
+
+#include "legacy/render/bridge/leftover_record.h"
 
 using namespace base;
 
-namespace render
-{
-	RENDER_EXPORT_API void bind_rhi_present(void* /*native_window*/) {
-		// Intentionally a no-op for the GDI MDI host. Creating D3D/Vulkan on
-		// the same HWND as SmtGdiRenderDevice caused STATUS_FATAL_APP_EXIT
-		// (0xC000041D) during view bring-up. FlyCube/3D attaches RHI on its
-		// own HWND via MapViewport / scene controllers.
-	}
+namespace render {
+RENDER_EXPORT_API void bind_rhi_present(void* native_window) {
+  // Strangler: Init(HWND) → process-wide leftover session. Does not create
+  // FlyCube on this HWND (shared with SmtGdi/Gl present; dual ownership
+  // caused 0xC000041D). Recording stays on Null until attach() from a
+  // dedicated GPU HWND (MapViewport / gpu).
+  render::scene::leftover_session().bind_present_hwnd(native_window);
 }
+}  // namespace render

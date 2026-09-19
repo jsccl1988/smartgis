@@ -1,0 +1,173 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Shared OGR codec helpers. May be linked into sdb and into leftover render DLLs
+# (each target gets its own copy; symbols are not SDE_GDAL_EXPORT).
+
+# Windows charset helper only (no GDAL). Views + leftover GDI both decode
+# OGR field bytes with this so GBK is not treated as loose UTF-8.
+source_set("ogr_text_encoding") {
+  sources = [
+    "ogr_text_encoding.cc",
+    "ogr_text_encoding.h",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+source_set("ogr_codec") {
+  sources = [
+    "ogr_connect.cc",
+    "ogr_connect.h",
+    "ogr_feature_codec.cc",
+    "ogr_feature_codec.h",
+    "ogr_feature_kind.h",
+  ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  include_dirs += [ "//src" ]
+  public_deps = [ "//third_party:gdal" ]
+  deps = [
+    ":ogr_text_encoding",
+    "//src/algorithm/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    # Headers only for SmtFeature — do not deps :gis group (same DLL cycle).
+  ]
+}
+
+# mogu /api/v1/sdbd/* HTTP client. Separate source_set so unit tests do not
+# pull //src/gis:gis (and its third_party fan-out). Linked into the sdb DLL via
+# sde_gdal_sources.
+source_set("sdbd_client") {
+  configs += [ "//build:legacy" ]
+  defines = [ "SDE_GDAL_EXPORTS" ]
+  sources = [
+    "sdbd_client.cc",
+    "sdbd_client.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/base:base",
+    "//src/net:net",
+  ]
+}
+
+# Compiled into //src/gis:gis (dll_stem = sdb).
+source_set("sde_gdal_sources") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "SDE_GDAL_EXPORTS",
+  ]
+  sources = [
+    "gdal_driver.cc",
+    "gdal_driver.h",
+    "ogr_export.h",
+    "ogr_raster_layer.cc",
+    "ogr_raster_layer.h",
+    "sdbd_dataset.cc",
+    "sdbd_dataset.h",
+    "sdbd_gdal_driver.cc",
+    "sdbd_gdal_driver.h",
+    "sdbd_layer.cc",
+    "sdbd_layer.h",
+    "sdbd_handler.cc",
+    "sdbd_handler.h",
+    "sdbd_json.cc",
+    "sdbd_json.h",
+    "sdbd_remote_dataset.cc",
+    "sdbd_remote_dataset.h",
+    "sdbd_types.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":ogr_codec",
+    ":sdbd_client",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/net:net",
+    "//third_party:gdal",
+  ]
+}
+
+group("sde_gdal") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+test("ogr_text_encoding_test") {
+  output_name = "ogr_text_encoding_test"
+  sources = [ "ogr_text_encoding_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":ogr_text_encoding" ]
+}
+
+test("sde_gdal_test") {
+  output_name = "sde_gdal_test"
+  sources = [ "sde_gdal_test.cc" ]
+  include_dirs += [
+    "//src",
+    "//src/gis/datasource/mgr",
+  ]
+  deps = [
+    ":ogr_codec",
+    ":sde_gdal",
+    "//src/algorithm/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/datasource/mgr:sde_mgr",
+    "//src/gis/map:gis",
+    "//third_party:gdal",
+  ]
+  data_deps = [
+    ":sde_gdal",
+    "//third_party:gdal_runtime_dlls",
+  ]
+}
+
+test("sdbd_client_test") {
+  output_name = "sdbd_client_test"
+  sources = [
+    "sdbd_client_test.cc",
+    # parse_json only — no GDAL; avoids linking the sdb DLL for this unit test.
+    "sdbd_json.cc",
+  ]
+  defines = [ "SDE_GDAL_EXPORTS" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":sdbd_client",
+    "//src/base:base",
+    "//src/net:net",
+  ]
+}
+
+test("sdbd_live_test") {
+  output_name = "sdbd_live_test"
+  sources = [
+    "sdbd_live_test.cc",
+    # parse_json is not SDE_GDAL_EXPORT; compile locally like sdbd_client_test.
+    "sdbd_json.cc",
+  ]
+  defines = [ "SDE_GDAL_EXPORTS" ]
+  include_dirs += [
+    "//src",
+    "//src/gis/datasource/mgr",
+  ]
+  deps = [
+    ":ogr_codec",
+    ":sde_gdal",
+    "//src/algorithm/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/datasource/mgr:sde_mgr",
+    "//src/net:net",
+    "//third_party:gdal",
+  ]
+  data_deps = [
+    ":sde_gdal",
+    "//third_party:gdal_runtime_dlls",
+  ]
+}
+

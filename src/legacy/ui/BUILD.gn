@@ -37,7 +37,7 @@ smt_shared_library("ui_legacy") {
     "//src/legacy/ui/chart:stat_chart_sources",
     "//src/legacy/tool/group:tool_group_sources",
     # Explicit: /NODEFAULTLIB ignores #pragma comment(lib) from headers.
-    "//src/sdb:sdb",
+    "//src/gis:gis",
   ]
 }
 

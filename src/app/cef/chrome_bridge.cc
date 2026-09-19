@@ -6,8 +6,12 @@
 #include "app/cef/cef_map_slot.h"
 #include "app/views/map_scene.h"
 
+#include "content/public/catalog_layers.h"
 #include "content/public/map_contents.h"
+#include "content/public/map_types.h"
 #include "content/public/view_host.h"
+#include "tool/camera_nav.h"
+#include "tool/gestures.h"
 #include "tool/interaction.h"
 #include "tool/workspace.h"
 
@@ -67,27 +71,87 @@ std::string json_escape(const std::string& s) {
   return out;
 }
 
+std::wstring exe_dir() {
+  wchar_t path[MAX_PATH] = {};
+  const DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
+  if (n == 0 || n >= MAX_PATH) {
+    return {};
+  }
+  for (int i = static_cast<int>(n) - 1; i >= 0; --i) {
+    if (path[i] == L'\\' || path[i] == L'/') {
+      path[i] = L'\0';
+      return path;
+    }
+  }
+  return {};
+}
+
+bool path_exists(const std::wstring& path) {
+  return !path.empty() && GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
+}
+
+std::string wide_path_to_utf8(const std::wstring& path) {
+  return wide_to_utf8(path.c_str());
+}
+
+content::InputEvent::Kind pointer_kind_from_string(std::string_view kind,
+                                                   bool* pinch) {
+  if (pinch) {
+    *pinch = false;
+  }
+  if (kind == "wheel") {
+    return content::InputEvent::Kind::kWheel;
+  }
+  if (kind == "pinch") {
+    if (pinch) {
+      *pinch = true;
+    }
+    return content::InputEvent::Kind::kWheel;
+  }
+  if (kind == "ldown" || kind == "drag_start" || kind == "pointerdown") {
+    return content::InputEvent::Kind::kLDown;
+  }
+  if (kind == "lup" || kind == "drag_end" || kind == "pointerup") {
+    return content::InputEvent::Kind::kLUp;
+  }
+  if (kind == "ldclick" || kind == "dblclick") {
+    return content::InputEvent::Kind::kLDClick;
+  }
+  if (kind == "rdown") {
+    return content::InputEvent::Kind::kRDown;
+  }
+  if (kind == "rup") {
+    return content::InputEvent::Kind::kRUp;
+  }
+  if (kind == "move" || kind == "drag" || kind == "pointermove") {
+    return content::InputEvent::Kind::kMouseMove;
+  }
+  return content::InputEvent::Kind::kMouseMove;
+}
+
+bool is_known_pointer_kind(std::string_view kind) {
+  return kind == "wheel" || kind == "pinch" || kind == "ldown" ||
+         kind == "drag_start" || kind == "pointerdown" || kind == "lup" ||
+         kind == "drag_end" || kind == "pointerup" || kind == "ldclick" ||
+         kind == "dblclick" || kind == "rdown" || kind == "rup" ||
+         kind == "move" || kind == "drag" || kind == "pointermove";
+}
+
+int wheel_from_pinch_scale(float scale) {
+  if (scale > 1.001f) {
+    return WHEEL_DELTA;
+  }
+  if (scale < 0.999f) {
+    return -WHEEL_DELTA;
+  }
+  return 0;
+}
+
 std::string catalog_json_from_document(const MapScene* document) {
   if (!document) {
     return "[]";
   }
-  std::string out = "[";
-  bool first = true;
-  for (const MapScene::LayerDesc& layer : document->layer_descs()) {
-    if (!first) {
-      out += ',';
-    }
-    first = false;
-    out += "{\"id\":\"";
-    out += json_escape(layer.id);
-    out += "\",\"name\":\"";
-    out += json_escape(layer.name);
-    out += "\",\"visible\":";
-    out += layer.visible ? "true" : "false";
-    out += '}';
-  }
-  out += ']';
-  return out;
+  return content::layers_to_catalog_json(document->layer_descs());
 }
 
 }  // namespace
@@ -104,6 +168,7 @@ void ChromeBridge::set_handlers(LayoutHost* layout,
   slot_count_ = slot_count;
   session_ = session;
   wire_draft_observers();
+  apply_default_tools();
 }
 
 void ChromeBridge::set_document(MapScene* document) {
@@ -174,17 +239,20 @@ bool ChromeBridge::seed_map_document() {
     return false;
   }
   document_->seed_default();
+  catalog_open_sample();
   push_catalog_snapshot();
   invalidate_map_overlays();
   BridgeMessage status;
   status.api_version = 1;
   status.type = BridgeType::kStatus;
   if (document_->last_open_was_ogr() && document_->has_china_extent()) {
-    status.text = "Seeded china_plp.geojson (OGR)";
+    status.text = document_->feature_count() >= 200
+                      ? "Seeded china_city (OGR)"
+                      : "Seeded china_plp.geojson (OGR)";
   } else if (document_->last_open_was_ogr()) {
     status.text = "Seeded OGR sample";
   } else {
-    status.text = "Seeded demo layer (china_plp missing)";
+    status.text = "Seeded demo layer (china pack missing)";
   }
   push_event(status);
   return document_->last_open_was_ogr() && document_->has_china_extent();
@@ -355,36 +423,154 @@ void ChromeBridge::wire_draft_observers() {
 }
 
 void ChromeBridge::handle_draft(const tool::Draft& draft) {
-  if (!document_) {
-    return;
-  }
   content::ViewHost* host = active_view_host();
   tool::Interaction* cur =
       host && host->workspace() ? host->workspace()->stack().current()
                                 : nullptr;
   const char* tool_id = cur ? cur->id() : nullptr;
 
+  CefMapSlot* slot = active_slot();
+  if (tool_id && std::strncmp(tool_id, "view3d.", 7) == 0) {
+    if (slot) {
+      slot->apply_scene3d_draft(draft);
+    }
+    return;
+  }
+  if (!document_) {
+    return;
+  }
+  // Always-on horizontal wheel / two-finger pan (before other tool drafts).
+  if (draft.kind == tool::DraftKind::kRect &&
+      tool::draft_flags::is_touch_pan(draft.flags) &&
+      draft.points.size() >= 2 && tool::is_navigate_tool(tool_id)) {
+    const int dx = draft.points.back().x_px - draft.points.front().x_px;
+    const int dy = draft.points.back().y_px - draft.points.front().y_px;
+    if (slot) {
+      slot->preview_pan(dx, dy);
+    } else {
+      document_->apply_pan(dx, dy);
+      invalidate_map_overlays();
+    }
+    return;
+  }
   if (tool_id && std::strcmp(tool_id, "view.pan") == 0 &&
       draft.kind == tool::DraftKind::kRect && draft.points.size() >= 2) {
     const int dx = draft.points.back().x_px - draft.points.front().x_px;
     const int dy = draft.points.back().y_px - draft.points.front().y_px;
-    document_->apply_pan(dx, dy);
-    invalidate_map_overlays();
+    if (slot) {
+      slot->preview_pan(dx, dy);
+    } else {
+      document_->apply_pan(dx, dy);
+      invalidate_map_overlays();
+    }
     return;
   }
   if (tool_id && std::strcmp(tool_id, "view.zoom_in") == 0 &&
       !draft.points.empty()) {
-    document_->apply_zoom_at(draft.points.front().x_px,
-                             draft.points.front().y_px, 1.25);
-    invalidate_map_overlays();
+    if (slot) {
+      slot->preview_zoom_at(draft.points.front().x_px,
+                            draft.points.front().y_px, 1.25);
+    } else {
+      document_->apply_zoom_at(draft.points.front().x_px,
+                               draft.points.front().y_px, 1.25);
+      invalidate_map_overlays();
+    }
     return;
   }
   if (tool_id && std::strcmp(tool_id, "view.zoom_out") == 0 &&
       !draft.points.empty()) {
-    document_->apply_zoom_at(draft.points.front().x_px,
-                             draft.points.front().y_px, 0.8);
-    invalidate_map_overlays();
+    if (slot) {
+      slot->preview_zoom_at(draft.points.front().x_px,
+                            draft.points.front().y_px, 0.8);
+    } else {
+      document_->apply_zoom_at(draft.points.front().x_px,
+                               draft.points.front().y_px, 0.8);
+      invalidate_map_overlays();
+    }
   }
+}
+
+void ChromeBridge::catalog_open_sample() {
+  if (!session_) {
+    return;
+  }
+  const std::wstring dir = exe_dir();
+  if (dir.empty()) {
+    return;
+  }
+  const wchar_t* names[] = {L"china_city.gpkg", L"china_city.geojson",
+                            L"china_plp.geojson"};
+  for (const wchar_t* name : names) {
+    const std::wstring path = dir + L"\\" + name;
+    if (!path_exists(path)) {
+      continue;
+    }
+    const std::string utf8 = wide_path_to_utf8(path);
+    if (utf8.empty()) {
+      continue;
+    }
+    const std::string op =
+        std::string("{\"op\":\"open\",\"path\":\"") + json_escape(utf8) + "\"}";
+    session_->CatalogCall(op.c_str());
+    return;
+  }
+}
+
+void ChromeBridge::apply_default_tools() {
+  if (!slots_) {
+    return;
+  }
+  for (int i = 0; i < slot_count_; ++i) {
+    content::ViewHost* host = slots_[i].view_host();
+    if (!host) {
+      continue;
+    }
+    if (slots_[i].kind() == content::ViewKind::kScene3d) {
+      host->activate("view3d.trackball");
+    } else {
+      host->activate("view.pan");
+    }
+  }
+}
+
+bool ChromeBridge::dispatch_pointer(const BridgeMessage& msg) {
+  if (!is_known_pointer_kind(msg.pointer_kind)) {
+    return false;
+  }
+  bool pinch = false;
+  content::InputEvent e{};
+  e.kind = pointer_kind_from_string(msg.pointer_kind, &pinch);
+  e.x_px = msg.slot_rect.x;
+  e.y_px = msg.slot_rect.y;
+  e.flags = msg.flags;
+  e.wheel = msg.wheel;
+  e.pointer_count = msg.pointer_count;
+  if (pinch && e.wheel == 0) {
+    e.wheel = wheel_from_pinch_scale(msg.scale);
+  }
+  CefMapSlot* slot = active_slot();
+  uint32_t view_id = msg.view_id;
+  if (view_id == 0 && slot) {
+    view_id = slot->view_id();
+  }
+  content::ViewHost* host = active_view_host();
+  if (host) {
+    host->dispatch_input(e);
+  }
+  if (session_ && view_id != 0) {
+    session_->Dispatch(view_id, e);
+  }
+  if (document_ && e.kind == content::InputEvent::Kind::kWheel &&
+      e.wheel != 0) {
+    const double factor = e.wheel > 0 ? 1.25 : 0.8;
+    if (slot) {
+      slot->preview_zoom_at(e.x_px, e.y_px, factor);
+    } else {
+      document_->apply_zoom_at(e.x_px, e.y_px, factor);
+      invalidate_map_overlays();
+    }
+  }
+  return true;
 }
 
 bool ChromeBridge::activate_tool(const std::string& id) {
@@ -399,6 +585,10 @@ bool ChromeBridge::activate_tool(const std::string& id) {
   }
   if (!ok) {
     return false;
+  }
+  if (session_ &&
+      (id == "view.backend.rhi" || id == "view.backend.maplibre")) {
+    session_->SetRenderBackend(id == "view.backend.maplibre" ? 1u : 0u);
   }
   if (document_ && (id == "view.full" || id == "view.refresh")) {
     if (CefMapSlot* slot = active_slot()) {
@@ -424,6 +614,10 @@ bool ChromeBridge::activate_tool(const std::string& id) {
     status.text = "Full extent";
   } else if (id == "view.refresh") {
     status.text = "Refreshed";
+  } else if (id == "view.backend.maplibre") {
+    status.text = "Render: MapLibre (Track A)";
+  } else if (id == "view.backend.rhi") {
+    status.text = "Render: RHI (Track B)";
   }
   push_event(status);
   return true;
@@ -520,6 +714,14 @@ void ChromeBridge::handle(const BridgeMessage& msg) {
                                                      : layout_->dpi_scale());
           }
         }
+      }
+      send_ack(msg.request_id);
+      return;
+    }
+    case BridgeType::kPointerEvent: {
+      if (!dispatch_pointer(msg)) {
+        send_error(msg.request_id, 5, "unknown pointer kind");
+        return;
       }
       send_ack(msg.request_id);
       return;

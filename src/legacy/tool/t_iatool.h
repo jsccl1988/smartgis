@@ -22,83 +22,82 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 using namespace base;
 
-namespace tool
-{
-	typedef int	(*pfnToolCallBack)(long nMsg,SmtListenerMsg &param);
+namespace tool {
+typedef int (*pfnToolCallBack)(long nMsg, SmtListenerMsg &param);
 
-	class TOOL_EXPORT SmtIATool:public SmtListener
-	{
-	public:
-		SmtIATool();
-		virtual ~SmtIATool(void);
+class TOOL_EXPORT SmtIATool : public SmtListener {
+ public:
+  SmtIATool();
+  virtual ~SmtIATool(void);
 
-	public:
-		virtual int						Register(void);
-		virtual int						RegisterMsg(void);
+ public:
+  virtual int Register(void);
+  virtual int RegisterMsg(void);
 
-		virtual int						UnRegister(void);
-		virtual int						UnRegisterMsg(void);
+  virtual int UnRegister(void);
+  virtual int UnRegisterMsg(void);
 
-		virtual int						SetActive();
+  virtual int SetActive();
 
-	public:
-		virtual int						Init(HWND hWnd,pfnToolCallBack pfnCallBack = NULL,void*	pToFollow = NULL);
-		virtual int						AuxDraw(void);
-		virtual int						Timer(void);
-		
-		virtual int						EndIA(long nMsg,SmtListenerMsg &param);
+ public:
+  virtual int Init(HWND hWnd, pfnToolCallBack pfnCallBack = NULL,
+                   void *pToFollow = NULL);
+  virtual int AuxDraw(void);
+  virtual int Timer(void);
 
-	public:
-		HWND							GetOwnerWnd() {return m_hWnd;}
+  virtual int EndIA(long nMsg, SmtListenerMsg &param);
 
-	public:
-	public:
-		virtual bool					BeginDelegate(SmtIATool * pDelegateTag);
-		virtual int						EndDelegate(bool bReleaseTarTool = true);
+ public:
+  HWND GetOwnerWnd() { return m_hWnd; }
 
-	public:
-		virtual int						SetCursor(void);
+ public:
+ public:
+  virtual bool BeginDelegate(SmtIATool *pDelegateTag);
+  virtual int EndDelegate(bool bReleaseTarTool = true);
 
-		virtual int						LButtonDown(uint nFlags,lPoint point) ;
-		virtual int						LButtonUp(uint nFlags, lPoint point);
-		virtual int						LButtonDClick(uint nFlags, lPoint point);
+ public:
+  virtual int SetCursor(void);
 
-		virtual int						RButtonDown(uint nFlags, lPoint point);
-		virtual int						RButtonUp(uint nFlags, lPoint point);
-		virtual int						RButtonDClick(uint nFlags, lPoint point);
-		
-		virtual int						MouseMove(uint nFlags,lPoint point);
-		virtual int						MouseWeel(uint nFlags, short zDelta, lPoint point) ;
+  virtual int LButtonDown(uint nFlags, lPoint point);
+  virtual int LButtonUp(uint nFlags, lPoint point);
+  virtual int LButtonDClick(uint nFlags, lPoint point);
 
-		virtual int						KeyDown(uint nChar, uint nRepCnt, uint nFlags);
+  virtual int RButtonDown(uint nFlags, lPoint point);
+  virtual int RButtonUp(uint nFlags, lPoint point);
+  virtual int RButtonDClick(uint nFlags, lPoint point);
 
-	public:
-		inline bool						IsOperDone(void);
-		inline void						SetOperDone(bool bDone);
-		inline bool						IsEnableContexMenu(void);
-		inline void						SetEnableContexMenu(bool bEnable);
+  virtual int MouseMove(uint nFlags, lPoint point);
+  virtual int MouseWeel(uint nFlags, short zDelta, lPoint point);
 
-	protected:
-		virtual bool					SetDelegateSrc(SmtIATool *pDeleSrcTool);
+  virtual int KeyDown(uint nChar, uint nRepCnt, uint nFlags);
 
-	protected:
-		int								m_nOper;
-		bool							m_bDone;
-		bool							m_bEnableContexMenu;
+ public:
+  inline bool IsOperDone(void);
+  inline void SetOperDone(bool bDone);
+  inline bool IsEnableContexMenu(void);
+  inline void SetEnableContexMenu(bool bEnable);
 
-	protected:
-		HWND							m_hWnd;
-		HCURSOR							m_hCrossCursor;
+ protected:
+  virtual bool SetDelegateSrc(SmtIATool *pDeleSrcTool);
 
-	protected:
-		pfnToolCallBack					m_pfnCallBack;
-		void*							m_pToFollow;
+ protected:
+  int m_nOper;
+  bool m_bDone;
+  bool m_bEnableContexMenu;
 
-		SmtIATool						*m_pDelegateSrc;
-		SmtIATool						*m_pDelegateTag;
-	};
+ protected:
+  HWND m_hWnd;
+  HCURSOR m_hCrossCursor;
 
-	typedef vector<SmtIATool*>			vSmtIAToolPtrs;
-}
+ protected:
+  pfnToolCallBack m_pfnCallBack;
+  void *m_pToFollow;
 
-#endif //_T_IATOOL_H
+  SmtIATool *m_pDelegateSrc;
+  SmtIATool *m_pDelegateTag;
+};
+
+typedef vector<SmtIATool *> vSmtIAToolPtrs;
+}  // namespace tool
+
+#endif  //_T_IATOOL_H

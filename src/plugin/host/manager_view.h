@@ -7,9 +7,9 @@
 #include <functional>
 #include <string>
 
-#include "ui/views/label.h"
-#include "ui/views/table_view.h"
-#include "ui/views/view.h"
+#include "ui/views/primitives/label.h"
+#include "ui/views/primitives/table_view.h"
+#include "ui/views/kernel/view.h"
 
 namespace content {
 class PluginHost;

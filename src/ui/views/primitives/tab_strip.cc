@@ -1,12 +1,12 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/tab_strip.h"
+#include "ui/views/primitives/tab_strip.h"
 
 #include "render/skia/canvas.h"
-#include "ui/views/dpi.h"
-#include "ui/views/theme.h"
-#include "ui/views/widget.h"
+#include "ui/views/kernel/dpi.h"
+#include "ui/views/kernel/theme.h"
+#include "ui/views/kernel/widget.h"
 
 namespace ui {
 namespace views {

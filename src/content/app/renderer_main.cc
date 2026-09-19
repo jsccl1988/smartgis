@@ -19,7 +19,7 @@
 #include "base/ipc/invitation.h"
 #include "content/public/event_bus.h"
 #include "content/public/host_protocol.h"
-#include "sdb/edit/edit_session.h"
+#include "gis/edit/edit_session.h"
 #include "tool/command.h"
 #include "tool/workspace.h"
 
@@ -51,9 +51,9 @@ uint32_t parent_pid_from_argv(int argc, wchar_t** argv) {
 }
 
 // In-process edit log so Workspace can commit without the sdb DLL.
-class RendererEdits final : public sdb::EditSession {
+class RendererEdits final : public gis::EditSession {
  public:
-  bool commit(const sdb::FeatureMutation&) override { return true; }
+  bool commit(const gis::FeatureMutation&) override { return true; }
   bool undo() override { return false; }
   bool redo() override { return false; }
   bool can_undo() const override { return false; }
@@ -77,6 +77,7 @@ InputEvent input_from_wire(const PointerEventWire& w) {
   e.wheel = w.wheel;
   e.key = w.key;
   e.t_qpc = w.t_qpc;
+  e.pointer_count = w.pointer_count;
   return e;
 }
 

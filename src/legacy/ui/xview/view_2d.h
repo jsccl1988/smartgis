@@ -21,13 +21,13 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 #include "legacy/render/bridge/renderdevice.h"
 #include "legacy/render/bridge/renderer.h"
-#include "sdb/map/map.h"
 #include "legacy/tool/group/grouptoolfactory.h"
 #include "legacy/ui/xview/xview.h"
+#include "gis/map/map.h"
 
 using namespace render;
 using namespace tool;
-using namespace sdb;
+using namespace gis;
 
 // Smt2DXView 锟斤拷图
 namespace ui {
@@ -73,6 +73,7 @@ class XVIEW_EXPORT Smt2DXView : public SmtXView {
   afx_msg BOOL OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message);
   afx_msg BOOL OnEraseBkgnd(CDC* pDC);
   afx_msg void OnContextMenu(CWnd* /*pWnd*/, CPoint /*point*/);
+  afx_msg LRESULT OnFrameOperMap(WPARAM wParam, LPARAM lParam);
 
  public:
   virtual void SetOperMap(SmtMap* pSmtMap);
@@ -88,6 +89,10 @@ class XVIEW_EXPORT Smt2DXView : public SmtXView {
   bool CreateTools(void);
   void apply_workspace_draft(const tool::Draft& draft) override;
 
+  // Fit windowport to the oper-map envelope and paint. Returns true if framed.
+  bool frame_oper_map(bool realtime);
+  void request_oper_map_frame();
+
  protected:
   UINT m_uiNotifyTimer;
   UINT m_uiRefreshTimer;
@@ -100,6 +105,12 @@ class XVIEW_EXPORT Smt2DXView : public SmtXView {
   SmtBaseTool* m_pFlashTool;
 
   SmtMap* m_pSmtOperMap;
+  // Set after a successful ZoomToRect fit. Deferred EDIT1 open often hits
+  // SetOperMap while GetClientRect is still 0x0; OnSize must finish framing.
+  bool m_bOperMapFramed;
+  // Guards against OnSize re-entering frame_oper_map while ZoomToRect paints
+  // (GDI / nested pump → ACCESS_VIOLATION).
+  bool m_bFramingOperMap;
 };
 }  // namespace ui
 

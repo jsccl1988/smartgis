@@ -23,7 +23,7 @@ smt_mfc_shared_library("plugin_proj") {
     "//src/algorithm/proj:proj",
     "//src/legacy/ui/xcatalog:xcatalog",
     "//src/algorithm/geo:geo",
-    "//src/sdb/map:gis",
+    "//src/gis/map:gis",
     "//src/sys:sys",
     "//src/legacy/tool:tool",
     "//third_party:gdal",

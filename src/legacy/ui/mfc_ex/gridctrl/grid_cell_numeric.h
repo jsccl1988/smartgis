@@ -4,23 +4,23 @@
 //
 //////////////////////////////////////////////////////////////////////
 
-#if !defined(AFX_GRIDINTEGERCELL_H__3479ED0D_B57D_4940_B83D_9E2296ED75B5__INCLUDED_)
+#if !defined( \
+    AFX_GRIDINTEGERCELL_H__3479ED0D_B57D_4940_B83D_9E2296ED75B5__INCLUDED_)
 #define AFX_GRIDINTEGERCELL_H__3479ED0D_B57D_4940_B83D_9E2296ED75B5__INCLUDED_
 
 #if _MSC_VER > 1000
 #pragma once
-#endif // _MSC_VER > 1000
+#endif  // _MSC_VER > 1000
 
 #include "legacy/ui/mfc_ex/gridctrl/grid_cell.h"
 
-class AFX_EXT_CLASS CGridCellNumeric : public CGridCell  
-{
-    DECLARE_DYNCREATE(CGridCellNumeric)
+class AFX_EXT_CLASS CGridCellNumeric : public CGridCell {
+  DECLARE_DYNCREATE(CGridCellNumeric)
 
-public:
-    virtual BOOL Edit(int nRow, int nCol, CRect rect, CPoint point, UINT nID, UINT nChar);
-    virtual void EndEdit();
-
+ public:
+  virtual BOOL Edit(int nRow, int nCol, CRect rect, CPoint point, UINT nID,
+                    UINT nChar);
+  virtual void EndEdit();
 };
 
-#endif // !defined(AFX_GRIDINTEGERCELL_H__3479ED0D_B57D_4940_B83D_9E2296ED75B5__INCLUDED_)
+#endif  // !defined(AFX_GRIDINTEGERCELL_H__3479ED0D_B57D_4940_B83D_9E2296ED75B5__INCLUDED_)

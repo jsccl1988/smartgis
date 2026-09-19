@@ -17,16 +17,16 @@ Do not `#include` `mln/` or `mbgl/` from `app/` / `content/`.
 
 ### Track A richness
 
-1. Parse Style JSON with `sdb::style::StyleDocument` (`//src/sdb/style`).
-2. Parse Style `sources` with `sdb::tile::parse_style_sources` → `SourceRegistry`
-   / `TileProvider` (`//src/sdb/tile`); raster `layer.source` must match a
+1. Parse Style JSON with `gis::style::StyleDocument` (`//src/gis/style`).
+2. Parse Style `sources` with `gis::tile::parse_style_sources` → `SourceRegistry`
+   / `TileProvider` (`//src/gis/tile`); raster `layer.source` must match a
    source id (missing id → skip that layer).
 3. Walk `layers` in order into `PresentTarget`:
    - `background`: `background-color` + `background-opacity`
    - `raster`: fetch via `TileFetchFn` (injected into TileProvider) +
      `raster-opacity` (src-over)
 4. **Viewport XYZ mosaic**: when `MapPaintRequest.extent` is valid
-   (`xmax > xmin` and `ymax > ymin`), call `sdb::tile::tiles_for_viewport`
+   (`xmax > xmin` and `ymax > ymin`), call `gis::tile::tiles_for_viewport`
    (zoom from `MapPaintRequest.zoom`, or `estimate_zoom` when `zoom < 0`).
    Each visible tile is fetched and blitted by its Web Mercator world rect into
    the present size. Degenerate / empty extent keeps the legacy single tile

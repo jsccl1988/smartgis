@@ -16,8 +16,8 @@ HMODULE load_legacy_render_dll() {
 #ifdef _DEBUG
   HMODULE dll = LoadLibrary("legacy_render_d.dll");
   if (!dll) {
-    ::MessageBox(NULL, "Loading legacy_render_d.dll failed.", "SmartGis - error",
-                 MB_OK | MB_ICONERROR);
+    ::MessageBox(NULL, "Loading legacy_render_d.dll failed.",
+                 "SmartGis - error", MB_OK | MB_ICONERROR);
   }
 #else
   HMODULE dll = LoadLibrary("legacy_render.dll");
@@ -30,7 +30,7 @@ HMODULE load_legacy_render_dll() {
 }
 }  // namespace
 
-int SmtRenderer::CreateDevice(const char *chAPI) {
+int SmtRenderer::CreateDevice(const char* chAPI) {
   char buffer[300];
   const bool simple = (strcmp(chAPI, "SmtGdiSimpleRenderDevice") == 0);
   const bool gdi = (strcmp(chAPI, "SmtGdiRenderDevice") == 0);
@@ -46,21 +46,23 @@ int SmtRenderer::CreateDevice(const char *chAPI) {
     return SMT_ERR_FAILURE;
   }
 
-  // gdi keeps CreateRenderDevice; simple uses a distinct export after DLL merge.
+  // gdi keeps CreateRenderDevice; simple uses a distinct export after DLL
+  // merge.
   const char* create_name =
       simple ? "CreateGdiSimpleRenderDevice" : "CreateRenderDevice";
-  destroy_name_ = simple ? "DestroyGdiSimpleRenderDevice" : "DestroyRenderDevice";
+  destroy_name_ =
+      simple ? "DestroyGdiSimpleRenderDevice" : "DestroyRenderDevice";
 
-  auto* create_fn =
-      reinterpret_cast<_CreateRenderDevice>(GetProcAddress(m_hDLL, create_name));
+  auto* create_fn = reinterpret_cast<_CreateRenderDevice>(
+      GetProcAddress(m_hDLL, create_name));
   if (!create_fn) {
     return SMT_ERR_FAILURE;
   }
 
   HRESULT hr = create_fn(m_hDLL, m_pDevice);
   if (FAILED(hr)) {
-    ::MessageBox(NULL, "CreateRenderDevice() from lib failed.", "SmtGis - error",
-                 MB_OK | MB_ICONERROR);
+    ::MessageBox(NULL, "CreateRenderDevice() from lib failed.",
+                 "SmtGis - error", MB_OK | MB_ICONERROR);
     m_pDevice = NULL;
     return SMT_ERR_FAILURE;
   }
@@ -72,8 +74,7 @@ void SmtRenderer::Release(void) {
   _DestroyRenderDevice release_fn = 0;
 
   if (m_hDLL && destroy_name_) {
-    release_fn =
-        (_DestroyRenderDevice)GetProcAddress(m_hDLL, destroy_name_);
+    release_fn = (_DestroyRenderDevice)GetProcAddress(m_hDLL, destroy_name_);
   }
 
   if (m_pDevice && release_fn) {

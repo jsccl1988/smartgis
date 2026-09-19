@@ -4,12 +4,13 @@
 #include "stdafx.h"
 #include "legacy/ui/chart/diagram.h"
 
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
 //
-//TODO: ����� DLL ����� MFC DLL �Ƕ�̬���ӵģ�
+// TODO: ����� DLL ����� MFC DLL �Ƕ�̬���ӵģ�
 //		��Ӵ� DLL �������κε���
 //		MFC �ĺ������뽫 AFX_MANAGE_STATE �����ӵ�
 //		�ú�������ǰ�档
@@ -38,26 +39,21 @@
 BEGIN_MESSAGE_MAP(CSmtStaDiagramApp, CWinApp)
 END_MESSAGE_MAP()
 
-
 // CSmtStaDiagramApp ����
 
-CSmtStaDiagramApp::CSmtStaDiagramApp()
-{
-	// TODO: �ڴ˴����ӹ�����룬
-	// ��������Ҫ�ĳ�ʼ�������� InitInstance ��
+CSmtStaDiagramApp::CSmtStaDiagramApp() {
+  // TODO: �ڴ˴����ӹ�����룬
+  // ��������Ҫ�ĳ�ʼ�������� InitInstance ��
 }
-
 
 // Ψһ��һ�� CSmtStaDiagramApp ����
 
 CSmtStaDiagramApp theApp;
 
-
 // CSmtStaDiagramApp ��ʼ��
 
-BOOL CSmtStaDiagramApp::InitInstance()
-{
-	CWinApp::InitInstance();
+BOOL CSmtStaDiagramApp::InitInstance() {
+  CWinApp::InitInstance();
 
-	return TRUE;
+  return TRUE;
 }

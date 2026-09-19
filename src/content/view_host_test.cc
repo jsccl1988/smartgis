@@ -5,7 +5,7 @@
 #include "content/public/events.h"
 #include "content/public/local_tool_router.h"
 #include "content/public/view_host.h"
-#include "sdb/edit/edit_session.h"
+#include "gis/edit/edit_session.h"
 #include "tool/interaction.h"
 #include "tool/legacy_msg.h"
 #include "tool/workspace.h"
@@ -95,10 +95,10 @@ int main() {
   }
 
   {
-    sdb::MemoryEditSession edits;
+    gis::MemoryEditSession edits;
     content::ViewHost host(&edits);
     expect(host.edits() == &edits, "supplied EditSession");
-    sdb::FeatureMutation m;
+    gis::FeatureMutation m;
     m.id.len = 1;
     m.id.bytes[0] = 1;
     expect(host.edits()->commit(m), "commit via host edits");
@@ -158,6 +158,46 @@ int main() {
     expect(router.host(1) != nullptr, "lazy host");
     router.dispatch(1, make_event(content::InputEvent::Kind::kWheel, 120));
     expect(ptr_n == 1, "pointer ipc leftover");
+  }
+
+  {
+    content::ViewHost host;
+    int extents = 0;
+    int sels = 0;
+    int commits = 0;
+    auto se = host.events()->subscribe<content::ExtentChanged>(
+        [&](const content::ExtentChanged&) { ++extents; });
+    auto ss = host.events()->subscribe<content::SelectionChanged>(
+        [&](const content::SelectionChanged&) { ++sels; });
+    auto sc = host.events()->subscribe<content::EditCommitted>(
+        [&](const content::EditCommitted&) { ++commits; });
+
+    expect(host.execute("view.pan"), "host pan");
+    content::InputEvent d = make_event(content::InputEvent::Kind::kLDown);
+    d.x_px = 0;
+    d.y_px = 0;
+    content::InputEvent u = make_event(content::InputEvent::Kind::kLUp);
+    u.x_px = 10;
+    u.y_px = 10;
+    expect(host.dispatch_input(d), "host pan down");
+    expect(host.dispatch_input(u), "host pan up");
+    expect(extents >= 1, "host pan ExtentChanged");
+
+    expect(host.execute("selection.rect"), "host select.rect");
+    d.x_px = 1;
+    d.y_px = 1;
+    u.x_px = 8;
+    u.y_px = 8;
+    expect(host.dispatch_input(d), "host sel down");
+    expect(host.dispatch_input(u), "host sel up");
+    expect(sels >= 1, "host SelectionChanged");
+
+    expect(host.execute("edit.append.point"), "host append.point");
+    d.x_px = 4;
+    d.y_px = 5;
+    expect(host.dispatch_input(d), "host append click");
+    expect(commits >= 1, "host EditCommitted");
+    expect(host.edits() && host.edits()->can_undo(), "host can undo");
   }
 
   if (g_fails) {

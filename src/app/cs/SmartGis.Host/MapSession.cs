@@ -120,6 +120,13 @@ public sealed class MapSession : IDisposable
         Native.sg_host_activate_tool(_handle, toolId);
     }
 
+    // kind matches content::InputEvent::Kind (0=move, 1=wheel, 2=ldown, 3=lup).
+    public void DispatchPointer(int kind, int xPx, int yPx, int wheel = 0)
+    {
+        ThrowIfDisposed();
+        Native.sg_host_dispatch_pointer(_handle, kind, xPx, yPx, wheel);
+    }
+
     public bool WaitFrame(uint timeoutMs)
     {
         ThrowIfDisposed();

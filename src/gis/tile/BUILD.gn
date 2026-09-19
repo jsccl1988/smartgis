@@ -1,0 +1,64 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# HTTP(S) XYZ/WMTS TileProvider. Compiled into //src/gis:gis (dll_stem = sdb).
+source_set("tile_sources") {
+  sources = [
+    "mvt_stub.cc",
+    "mvt_stub.h",
+    "provider_tile_layer.cc",
+    "provider_tile_layer.h",
+    "source_registry.cc",
+    "source_registry.h",
+    "style_source.cc",
+    "style_source.h",
+    "tile_cache.h",
+    "tile_disk_cache.cc",
+    "tile_disk_cache.h",
+    "tile_map_layer.cc",
+    "tile_map_layer.h",
+    "tile_provider.cc",
+    "tile_provider.h",
+    "wmts.cc",
+    "wmts.h",
+    "xyz_math.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+    "SDB_EXPORTS",
+  ]
+  public_deps = [
+    "//src/net:net",
+    "//third_party:gdal",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+  ]
+}
+
+group("tile") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+test("tile_test") {
+  output_name = "tile_test"
+  sources = [ "tile_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":tile",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/net:net",
+    "//src/gis/map:gis",
+    "//src/gis/world:world",
+  ]
+}

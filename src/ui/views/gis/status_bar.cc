@@ -1,17 +1,17 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/status_bar.h"
+#include "ui/views/gis/status_bar.h"
 
 #include <format>
 #include <memory>
 #include <utility>
 
 #include "render/skia/canvas.h"
-#include "ui/views/dpi.h"
-#include "ui/views/label.h"
-#include "ui/views/layout.h"
-#include "ui/views/theme.h"
+#include "ui/views/kernel/dpi.h"
+#include "ui/views/primitives/label.h"
+#include "ui/views/kernel/layout.h"
+#include "ui/views/kernel/theme.h"
 
 namespace ui {
 namespace views {

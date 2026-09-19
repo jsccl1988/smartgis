@@ -3,14 +3,13 @@
 
 #include "legacy/render/bridge/leftover_mesh.h"
 
-#include "render/rhi/rhi.h"
+#include <cstdio>
+#include <memory>
 
 #include "legacy/render/render3d/3drenderdefs.h"
 #include "legacy/render/render3d/indexbuffer.h"
 #include "legacy/render/render3d/vertexbuffer.h"
-
-#include <cstdio>
-#include <memory>
+#include "render/rhi/rhi.h"
 
 namespace {
 
@@ -24,14 +23,14 @@ void expect(bool ok, const char* msg) {
 }
 
 // TessMesh-shaped 2D GIS output (xyz triples + triangle indices) without
-// calling sdb::scene::tessellate_* (sibling owns that path).
+// calling gis::tessellate_* (sibling owns that path).
 void fill_tess_shaped_2d(float* xyz, uint32_t* indices, uint32_t* xyz_floats,
                          uint32_t* index_count) {
   // Point sprite (3 verts) + line quad (4 verts) + triangle poly (3 verts).
   const float src[] = {
-      1.f, 2.05f, 0.f, 0.95f, 1.95f, 0.f, 1.05f, 1.95f, 0.f, 0.f,  0.05f, 0.f,
-      0.f, -0.05f, 0.f, 10.f, 0.05f, 0.f, 10.f, -0.05f, 0.f, 0.f,  0.f,   0.f,
-      2.f, 0.f,    0.f, 1.f,  2.f,   0.f,
+      1.f,   2.05f, 0.f, 0.95f,  1.95f, 0.f,  1.05f, 1.95f, 0.f,  0.f,
+      0.05f, 0.f,   0.f, -0.05f, 0.f,   10.f, 0.05f, 0.f,   10.f, -0.05f,
+      0.f,   0.f,   0.f, 0.f,    2.f,   0.f,  0.f,   1.f,   2.f,  0.f,
   };
   const uint32_t idx[] = {0, 1, 2, 3, 4, 5, 4, 6, 5, 7, 8, 9};
   *xyz_floats = static_cast<uint32_t>(sizeof(src) / sizeof(src[0]));
@@ -48,16 +47,16 @@ void fill_tess_shaped_2d(float* xyz, uint32_t* indices, uint32_t* xyz_floats,
 
 int main() {
   using render::rhi::Backend;
+  using render::rhi::create_device;
   using render::rhi::DeviceDesc;
   using render::rhi::RenderPassDesc;
   using render::rhi::StubCommandList;
-  using render::rhi::create_device;
-  using render::scene::LeftoverGpuMesh;
   using render::scene::create_host_index_buffer;
   using render::scene::create_host_vertex_buffer;
   using render::scene::destroy_host_index_buffer;
   using render::scene::destroy_host_vertex_buffer;
   using render::scene::destroy_leftover_mesh;
+  using render::scene::LeftoverGpuMesh;
   using render::scene::record_leftover_draw;
   using render::scene::upload_leftover_buffers;
   using render::scene::upload_xyz_mesh;
@@ -67,8 +66,7 @@ int main() {
   expect(!record_leftover_draw(nullptr, LeftoverGpuMesh()),
          "null record rejected");
 
-  render::SmtVertexBuffer* vb =
-      create_host_vertex_buffer(3, render::VF_XYZ);
+  render::SmtVertexBuffer* vb = create_host_vertex_buffer(3, render::VF_XYZ);
   render::SmtIndexBuffer* ib = create_host_index_buffer(3);
   expect(vb != nullptr, "host leftover VB");
   expect(ib != nullptr, "host leftover IB");

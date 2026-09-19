@@ -1,0 +1,30 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Cartographic pen/brush/Envelope (NOT MapLibre Style JSON — that is //src/gis/style).
+#
+# DLL choice: compiled into the product platform DLL (//src/base:base,
+# dll_stem=platform). Preferring the gis DLL would create a link cycle:
+# algorithm/geo includes Envelope, while gis already depends on algorithm.
+# Revisit when Envelope is header-only / no longer exported from platform.
+
+source_set("carto_sources") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "STYLE_EXPORTS=1",
+  ]
+  sources = [
+    "style_api.cpp",
+    "envelope.cpp",
+    "style.cpp",
+    "stylemanager.cpp",
+    "styletable.cpp",
+  ]
+}
+
+group("carto") {
+  public_deps = [ "//src/base:base" ]
+}

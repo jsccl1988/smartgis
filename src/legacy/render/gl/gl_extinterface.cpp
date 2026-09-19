@@ -1,6 +1,7 @@
 #include "legacy/render/gl/gl_3drenderdevice.h"
 
-BOOL APIENTRY DllMain(HANDLE hModule, DWORD ul_reson_for_call, LPVOID lpReserved) {
+BOOL APIENTRY DllMain(HANDLE hModule, DWORD ul_reson_for_call,
+                      LPVOID lpReserved) {
   switch (ul_reson_for_call) {
     case DLL_PROCESS_ATTACH:
       break;
@@ -16,8 +17,8 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD ul_reson_for_call, LPVOID lpReserved
 
 extern "C" {
 
-RENDER_GL_EXPORT_API HRESULT Create3DRenderDevice(HINSTANCE hDLL,
-                                                  render::Smt3DRenderDevice*& pDevice) {
+RENDER_GL_EXPORT_API HRESULT
+Create3DRenderDevice(HINSTANCE hDLL, render::Smt3DRenderDevice*& pDevice) {
   if (!pDevice) {
     pDevice = new render::SmtGLRenderDevice(hDLL);
     return SMT_OK;
@@ -26,8 +27,8 @@ RENDER_GL_EXPORT_API HRESULT Create3DRenderDevice(HINSTANCE hDLL,
   return SMT_FALSE;
 }
 
-RENDER_GL_EXPORT_API HRESULT Release3DRenderDevice(
-    render::Smt3DRenderDevice*& pDevice) {
+RENDER_GL_EXPORT_API HRESULT
+Release3DRenderDevice(render::Smt3DRenderDevice*& pDevice) {
   if (!pDevice) {
     return SMT_FALSE;
   }

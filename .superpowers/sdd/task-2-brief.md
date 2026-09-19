@@ -1,17 +1,17 @@
 ### Task 2: Bidirectional feature codec (point, line, polygon, annotation)
 
 **Files:**
-- Create: `src/sdb/datasource/gdal/ogr_feature_kind.h`
-- Create: `src/sdb/datasource/gdal/ogr_feature_codec.h`
-- Create: `src/sdb/datasource/gdal/ogr_feature_codec.cc`
-- Modify: `src/sdb/datasource/gdal/BUILD.gn` (`ogr_codec` sources + `//third_party:gdal`)
-- Modify: `src/sdb/datasource/gdal/sde_gdal_test.cc`
+- Create: `src/gis/datasource/gdal/ogr_feature_kind.h`
+- Create: `src/gis/datasource/gdal/ogr_feature_codec.h`
+- Create: `src/gis/datasource/gdal/ogr_feature_codec.cc`
+- Modify: `src/gis/datasource/gdal/BUILD.gn` (`ogr_codec` sources + `//third_party:gdal`)
+- Modify: `src/gis/datasource/gdal/sde_gdal_test.cc`
 
 **Interfaces:**
 - Consumes: `OGRFeature`, `SmtFeature`, `SmtPoint` / `SmtLineString` / `SmtPolygon` / `SmtLinearRing`
 - Produces:
-  - `sdb::datasource::copy_ogr_feature_to_smt(OGRFeature* src, SmtFeature* dst) -> bool`
-  - `sdb::datasource::copy_smt_feature_to_ogr(const SmtFeature* src, OGRFeature* dst) -> bool`
+  - `gis::datasource::copy_ogr_feature_to_smt(OGRFeature* src, SmtFeature* dst) -> bool`
+  - `gis::datasource::copy_smt_feature_to_ogr(const SmtFeature* src, OGRFeature* dst) -> bool`
   - Annotation fields: `anno` (string), `color` (int), `angle` (real)
   - `feature_kind_traits<SmtFeatureType>` + `visit_feature_kind` (header-only)
 

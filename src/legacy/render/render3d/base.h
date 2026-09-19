@@ -14,9 +14,10 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _RD3D_RDBASE_H
 #define _RD3D_RDBASE_H
 
+#include <cstring>
+
 #include "legacy/render/render3d/3drenderdefs.h"
 #include "render/math/math.h"
-#include <cstring>
 
 #if defined(RENDER3D_EXPORTS)
 #define RENDER3D_EXPORT_API __declspec(dllexport)
@@ -28,318 +29,392 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 using namespace render;
 
-namespace render
-{
-	//////////////////////////////////////////////////////////////////////////
-	struct Viewport3D 
-	{
-		ulong ulX;                // position of upper
-		ulong ulY;                // ... left corner
-		ulong ulWidth;
-		ulong ulHeight;
-		float fFovy;
-		float fZNear;
-		float fZFar;
+namespace render {
+//////////////////////////////////////////////////////////////////////////
+struct Viewport3D {
+  ulong ulX;  // position of upper
+  ulong ulY;  // ... left corner
+  ulong ulWidth;
+  ulong ulHeight;
+  float fFovy;
+  float fZNear;
+  float fZFar;
 
-		Viewport3D():ulX(0)
-			,ulY(0),ulWidth(0),ulHeight(0)
-			,fFovy(0),fZNear(0),fZFar(0)
-		{
-			;
-		}
+  Viewport3D()
+      : ulX(0), ulY(0), ulWidth(0), ulHeight(0), fFovy(0), fZNear(0), fZFar(0) {
+    ;
+  }
 
-		Viewport3D(ulong _ulX,ulong _ulY,ulong _ulWidth,ulong _ulHeight,float _fFovy,float _fZNear,float _fZFar):ulX(_ulX)
-			,ulY(_ulY),ulWidth(_ulWidth),ulHeight(_ulHeight)
-			,fFovy(_fFovy),fZNear(_fZNear),fZFar(_fZFar)
-		{
-			;
-		}
-	};
+  Viewport3D(ulong _ulX, ulong _ulY, ulong _ulWidth, ulong _ulHeight,
+             float _fFovy, float _fZNear, float _fZFar)
+      : ulX(_ulX),
+        ulY(_ulY),
+        ulWidth(_ulWidth),
+        ulHeight(_ulHeight),
+        fFovy(_fFovy),
+        fZNear(_fZNear),
+        fZFar(_fZFar) {
+    ;
+  }
+};
 
-	struct RENDER3D_EXPORT_CLASS  SmtColor
-	{
-		union 
-		{
-			struct 
-			{
-				float fRed,fGreen,fBlue,fA;
-			};
-			float c[4];
-		};
+struct RENDER3D_EXPORT_CLASS SmtColor {
+  union {
+    struct {
+      float fRed, fGreen, fBlue, fA;
+    };
+    float c[4];
+  };
 
-		//
-		SmtColor(float red,float green,float blue,float a = 1.);
-		SmtColor(void);
-	};
+  //
+  SmtColor(float red, float green, float blue, float a = 1.);
+  SmtColor(void);
+};
 
-	//////////////////////////////////////////////////////////////////////////
-    enum  LIGHTTYPE 
-	{
-		    LGT_DIRECTIONAL,     // directional light source
-			LGT_POINT,           // point light source
-			LGT_SPOT             // spot light source
-	};
-	
-	class RENDER3D_EXPORT_CLASS SmtLight
-	{
-	public:
-		SmtLight(void);
+//////////////////////////////////////////////////////////////////////////
+enum LIGHTTYPE {
+  LGT_DIRECTIONAL,  // directional light source
+  LGT_POINT,        // point light source
+  LGT_SPOT          // spot light source
+};
 
-		//set
-		void                     SetType(LIGHTTYPE type);
-		void                     SetDiffuseValue(const SmtColor& diffuse);
-		void                     SetSpecularValue(const SmtColor& specular);
-		void                     SetAmbientValue(const SmtColor& ambient);
+class RENDER3D_EXPORT_CLASS SmtLight {
+ public:
+  SmtLight(void);
 
-        void                     SetPoistion(const Vector4& position);
-		void                     SetDirection(const Vector4& direction);
+  // set
+  void SetType(LIGHTTYPE type);
+  void SetDiffuseValue(const SmtColor& diffuse);
+  void SetSpecularValue(const SmtColor& specular);
+  void SetAmbientValue(const SmtColor& ambient);
 
+  void SetPoistion(const Vector4& position);
+  void SetDirection(const Vector4& direction);
 
-		void                     SetExponent(float exponent){m_fExponent = exponent;}
-		void                     SetCutoffAngle(float cutoffangle) {m_fCutoffAngle = cutoffangle;}
-		
-		void                     SetRange(float fRange){m_fRange = fRange;}
-		void                     SetThetaAngle(float fThetaAngle){ m_fThetaAngle = fThetaAngle;}
-		void                     SetPhiAngle(float fPhiAngle){ m_fPhiAngle = fPhiAngle;}
+  void SetExponent(float exponent) { m_fExponent = exponent; }
+  void SetCutoffAngle(float cutoffangle) { m_fCutoffAngle = cutoffangle; }
 
-		void                     SetAttenuationConstant(float constant) {m_fAttenuationConstant = constant;}	
-		void                     SetAttenuationLinear(float linear){m_fAttenuationLinear = linear;}
-		void                     SetAttenuationQuadric(float quadric){m_fAttenuationQuadric = quadric;}
+  void SetRange(float fRange) { m_fRange = fRange; }
+  void SetThetaAngle(float fThetaAngle) { m_fThetaAngle = fThetaAngle; }
+  void SetPhiAngle(float fPhiAngle) { m_fPhiAngle = fPhiAngle; }
 
-		//get
-		LIGHTTYPE                GetType(void);
-		const SmtColor&          GetDiffuseValue(void); 
-		const SmtColor&          GetSpecularValue(void);
-		const SmtColor&          GetAmbientValue(void);
+  void SetAttenuationConstant(float constant) {
+    m_fAttenuationConstant = constant;
+  }
+  void SetAttenuationLinear(float linear) { m_fAttenuationLinear = linear; }
+  void SetAttenuationQuadric(float quadric) { m_fAttenuationQuadric = quadric; }
 
-		const Vector4&           GetPosition(void);
-		const Vector4&           GetDirection(void);
+  // get
+  LIGHTTYPE GetType(void);
+  const SmtColor& GetDiffuseValue(void);
+  const SmtColor& GetSpecularValue(void);
+  const SmtColor& GetAmbientValue(void);
 
-		float                    GetExponent(){return m_fExponent;}
-		float                    GetCutoffAngle(){return m_fCutoffAngle;}
+  const Vector4& GetPosition(void);
+  const Vector4& GetDirection(void);
 
-		float                    GetRange(){return m_fRange;}
-		float                    GetThetaAngle(){return m_fThetaAngle;}
-		float                    GetPhiAngle(){return m_fPhiAngle;}
+  float GetExponent() { return m_fExponent; }
+  float GetCutoffAngle() { return m_fCutoffAngle; }
 
-		float                    GetAttenuationConstant(){return m_fAttenuationConstant;}
-		float                    GetAttenuationLinear(){return m_fAttenuationLinear;}
-		float                    GetAttenuationQuadric(){return m_fAttenuationQuadric;}
+  float GetRange() { return m_fRange; }
+  float GetThetaAngle() { return m_fThetaAngle; }
+  float GetPhiAngle() { return m_fPhiAngle; }
 
-	private:
-		LIGHTTYPE                m_Type;					// type of light
-		SmtColor                 m_cDiffuse;				// RGBA diffuse light value
-		SmtColor                 m_cSpecular;				// RGBA specular light value
-		SmtColor                 m_cAmbient;				// RGBA ambient light value
-		Vector4                  m_vPosition;				// light position
-		Vector4                  m_vDirection;				// light direction
+  float GetAttenuationConstant() { return m_fAttenuationConstant; }
+  float GetAttenuationLinear() { return m_fAttenuationLinear; }
+  float GetAttenuationQuadric() { return m_fAttenuationQuadric; }
 
-		//opengl spot light model
-		float                    m_fCutoffAngle;			// angle of spot light cone
-		float                    m_fExponent;
+ private:
+  LIGHTTYPE m_Type;      // type of light
+  SmtColor m_cDiffuse;   // RGBA diffuse light value
+  SmtColor m_cSpecular;  // RGBA specular light value
+  SmtColor m_cAmbient;   // RGBA ambient light value
+  Vector4 m_vPosition;   // light position
+  Vector4 m_vDirection;  // light direction
 
-		//d3d spot light model
-		float					 m_fRange;					// range of light
-		float					 m_fThetaAngle;				// angle of spot light inner cone
-		float					 m_fPhiAngle;				// angle of spot light outer cone
+  // opengl spot light model
+  float m_fCutoffAngle;  // angle of spot light cone
+  float m_fExponent;
 
-		float                    m_fAttenuationConstant;    // change of intensity over distance
-		float                    m_fAttenuationLinear;      // change of intensity over distance
-		float                    m_fAttenuationQuadric;     // change of intensity over distance
-	};
-	
-	//////////////////////////////////////////////////////////////////////////
-	class RENDER3D_EXPORT_CLASS SmtMaterial
-	{
-	public:
-		SmtMaterial(void);
-	
-		//set
-		void                    SetDiffuseValue(const SmtColor& diffuse);
-		void                    SetSpecularValue(const SmtColor& specular);
-		void                    SetAmbientValue(const SmtColor& ambient);
-		void                    SetEmissiveValue(const SmtColor& emissive);
-		void                    SetShininessValue(float shininess);
+  // d3d spot light model
+  float m_fRange;       // range of light
+  float m_fThetaAngle;  // angle of spot light inner cone
+  float m_fPhiAngle;    // angle of spot light outer cone
 
-		//get
-		const SmtColor&			GetDiffuseValue(void); 
-		const SmtColor&         GetSpecularValue(void);
-		const SmtColor&         GetAmbientValue(void);
-		const SmtColor&         GetEmissiveValue(void);
-		float					GetShininessValue(void);
+  float m_fAttenuationConstant;  // change of intensity over distance
+  float m_fAttenuationLinear;    // change of intensity over distance
+  float m_fAttenuationQuadric;   // change of intensity over distance
+};
 
-	private:
-		SmtColor                m_cDiffuse;             // RGBA diffuse light value
-		SmtColor                m_cAmbient;             // RGBA ambient light value
-		SmtColor                m_cSpecular;            // RGBA specular light value
-		SmtColor                m_cEmissive;            // RGBA emissive light value
-		float					m_fShininess;           // shininess index
-   };
+//////////////////////////////////////////////////////////////////////////
+class RENDER3D_EXPORT_CLASS SmtMaterial {
+ public:
+  SmtMaterial(void);
 
-	//////////////////////////////////////////////////////////////////////////
-	class  RENDER3D_EXPORT_CLASS SmtCombinedCamera
-	{
-	public:
-		SmtCombinedCamera();
-		virtual ~SmtCombinedCamera(void);
+  // set
+  void SetDiffuseValue(const SmtColor& diffuse);
+  void SetSpecularValue(const SmtColor& specular);
+  void SetAmbientValue(const SmtColor& ambient);
+  void SetEmissiveValue(const SmtColor& emissive);
+  void SetShininessValue(float shininess);
 
-		inline	void			SetEye(Vector3& eye){ m_vEye = eye;}
-		inline Vector3&         GetEye(){ return m_vEye;}
+  // get
+  const SmtColor& GetDiffuseValue(void);
+  const SmtColor& GetSpecularValue(void);
+  const SmtColor& GetAmbientValue(void);
+  const SmtColor& GetEmissiveValue(void);
+  float GetShininessValue(void);
 
-		inline	void			SetUp(Vector3& up){ m_vUp = up;}
-		inline Vector3&         GetUp(){ return m_vUp;}
+ private:
+  SmtColor m_cDiffuse;   // RGBA diffuse light value
+  SmtColor m_cAmbient;   // RGBA ambient light value
+  SmtColor m_cSpecular;  // RGBA specular light value
+  SmtColor m_cEmissive;  // RGBA emissive light value
+  float m_fShininess;    // shininess index
+};
 
-		inline	void			SetTarget(Vector3& target){ m_vTarget = target;}
-		inline Vector3&         GetTarget() { return m_vTarget;}
+//////////////////////////////////////////////////////////////////////////
+class RENDER3D_EXPORT_CLASS SmtCombinedCamera {
+ public:
+  SmtCombinedCamera();
+  virtual ~SmtCombinedCamera(void);
 
-		void                    SetCamera(Vector3 &eye,Vector3 &target,Vector3 &up);
+  inline void SetEye(Vector3& eye) { m_vEye = eye; }
+  inline Vector3& GetEye() { return m_vEye; }
 
-	public:
+  inline void SetUp(Vector3& up) { m_vUp = up; }
+  inline Vector3& GetUp() { return m_vUp; }
 
-		void                    RaiseViewDirection(float angle);
-		void                    TurnViewDirection(float angle);
+  inline void SetTarget(Vector3& target) { m_vTarget = target; }
+  inline Vector3& GetTarget() { return m_vTarget; }
 
-		void                    ShiftCamera(float step);
-		void                    ForwardCamera(float step);
-		void                    RiseCamera(float step);
-		void                    LeanCamera(float angle);
+  void SetCamera(Vector3& eye, Vector3& target, Vector3& up);
 
-		void                    MoveCamera(Vector3 &vec);
-		void                    MoveCameraToPos(Vector3 &pos);
+ public:
+  void RaiseViewDirection(float angle);
+  void TurnViewDirection(float angle);
 
-		//
-		void					SetSphereCameraMove(long deltX,long deltY);
+  void ShiftCamera(float step);
+  void ForwardCamera(float step);
+  void RiseCamera(float step);
+  void LeanCamera(float angle);
 
-	private:
-		Vector3                 m_vEye;
-		Vector3                 m_vUp;
-		Vector3                 m_vTarget;
-	};
-   //////////////////////////////////////////////////////////////////////////
+  void MoveCamera(Vector3& vec);
+  void MoveCameraToPos(Vector3& pos);
 
-	enum FrustumSide
-	{
-		FS_RIGHT	= 0,		// The RIGHT side of the frustum
-		FS_LEFT		= 1,		// The LEFT	 side of the frustum
-		FS_BOTTOM	= 2,		// The BOTTOM side of the frustum
-		FS_TOP		= 3,		// The TOP side of the frustum
-		FS_BACK		= 4,		// The BACK	side of the frustum
-		FS_FRONT	= 5			// The FRONT side of the frustum
-	}; 
+  //
+  void SetSphereCameraMove(long deltX, long deltY);
 
-	// Like above, instead of saying a number for the ABC and D of the plane, we
-	// want to be more descriptive.
-	enum PlaneData
-	{
-		P_A = 0,			// The X value of the plane's normal
-		P_B = 1,			// The Y value of the plane's normal
-		P_C = 2,			// The Z value of the plane's normal
-		P_D = 3				// The distance the plane is from the origin
-	};
+ private:
+  Vector3 m_vEye;
+  Vector3 m_vUp;
+  Vector3 m_vTarget;
+};
+//////////////////////////////////////////////////////////////////////////
 
-	// Value-type frustum (not DLL-exported) to avoid LNK2005 on implicit
-	// copy/assign across render3d / scene3d boundaries.
-	class SmtFrustum
-	{
-	public:
-		SmtFrustum(void) = default;
-		SmtFrustum(const SmtFrustum& other) {
-			memcpy(m_frustum, other.m_frustum, sizeof(m_frustum));
-		}
-		SmtFrustum& operator=(const SmtFrustum& other) {
-			if (this != &other) {
-				memcpy(m_frustum, other.m_frustum, sizeof(m_frustum));
-			}
-			return *this;
-		}
-		~SmtFrustum(void) = default;
+enum FrustumSide {
+  FS_RIGHT = 0,   // The RIGHT side of the frustum
+  FS_LEFT = 1,    // The LEFT	 side of the frustum
+  FS_BOTTOM = 2,  // The BOTTOM side of the frustum
+  FS_TOP = 3,     // The TOP side of the frustum
+  FS_BACK = 4,    // The BACK	side of the frustum
+  FS_FRONT = 5    // The FRONT side of the frustum
+};
 
-		void GetFrustum(float frustum[6][4]) {
-			memcpy(frustum, m_frustum, sizeof(m_frustum));
-		}
-		void SetFrustum(float frustum[6][4]) {
-			memcpy(m_frustum, frustum, sizeof(m_frustum));
-		}
+// Like above, instead of saying a number for the ABC and D of the plane, we
+// want to be more descriptive.
+enum PlaneData {
+  P_A = 0,  // The X value of the plane's normal
+  P_B = 1,  // The Y value of the plane's normal
+  P_C = 2,  // The Z value of the plane's normal
+  P_D = 3   // The distance the plane is from the origin
+};
 
-		bool IsPointIn(float x, float y, float z) {
-			for (int i = 0; i < 6; i++) {
-				if (m_frustum[i][P_A] * x + m_frustum[i][P_B] * y +
-				    m_frustum[i][P_C] * z + m_frustum[i][P_D] <= 0) {
-					return false;
-				}
-			}
-			return true;
-		}
+// Value-type frustum (not DLL-exported) to avoid LNK2005 on implicit
+// copy/assign across render3d / scene3d boundaries.
+class SmtFrustum {
+ public:
+  SmtFrustum(void) = default;
+  SmtFrustum(const SmtFrustum& other) {
+    memcpy(m_frustum, other.m_frustum, sizeof(m_frustum));
+  }
+  SmtFrustum& operator=(const SmtFrustum& other) {
+    if (this != &other) {
+      memcpy(m_frustum, other.m_frustum, sizeof(m_frustum));
+    }
+    return *this;
+  }
+  ~SmtFrustum(void) = default;
 
-		bool IsSphereIn(float x, float y, float z, float radius) {
-			for (int i = 0; i < 6; i++) {
-				if (m_frustum[i][P_A] * x + m_frustum[i][P_B] * y +
-				    m_frustum[i][P_C] * z + m_frustum[i][P_D] <= -radius) {
-					return false;
-				}
-			}
-			return true;
-		}
+  void GetFrustum(float frustum[6][4]) {
+    memcpy(frustum, m_frustum, sizeof(m_frustum));
+  }
+  void SetFrustum(float frustum[6][4]) {
+    memcpy(m_frustum, frustum, sizeof(m_frustum));
+  }
 
-		bool IsCubeIn(float x, float y, float z, float size) {
-			for (int i = 0; i < 6; i++) {
-				if (m_frustum[i][P_A] * (x - size) + m_frustum[i][P_B] * (y - size) + m_frustum[i][P_C] * (z - size) + m_frustum[i][P_D] >= 0) continue;
-				if (m_frustum[i][P_A] * (x + size) + m_frustum[i][P_B] * (y - size) + m_frustum[i][P_C] * (z - size) + m_frustum[i][P_D] >= 0) continue;
-				if (m_frustum[i][P_A] * (x - size) + m_frustum[i][P_B] * (y + size) + m_frustum[i][P_C] * (z - size) + m_frustum[i][P_D] >= 0) continue;
-				if (m_frustum[i][P_A] * (x + size) + m_frustum[i][P_B] * (y + size) + m_frustum[i][P_C] * (z - size) + m_frustum[i][P_D] >= 0) continue;
-				if (m_frustum[i][P_A] * (x - size) + m_frustum[i][P_B] * (y - size) + m_frustum[i][P_C] * (z + size) + m_frustum[i][P_D] >= 0) continue;
-				if (m_frustum[i][P_A] * (x + size) + m_frustum[i][P_B] * (y - size) + m_frustum[i][P_C] * (z + size) + m_frustum[i][P_D] >= 0) continue;
-				if (m_frustum[i][P_A] * (x - size) + m_frustum[i][P_B] * (y + size) + m_frustum[i][P_C] * (z + size) + m_frustum[i][P_D] >= 0) continue;
-				if (m_frustum[i][P_A] * (x + size) + m_frustum[i][P_B] * (y + size) + m_frustum[i][P_C] * (z + size) + m_frustum[i][P_D] >= 0) continue;
-				return false;
-			}
-			return true;
-		}
+  bool IsPointIn(float x, float y, float z) {
+    for (int i = 0; i < 6; i++) {
+      if (m_frustum[i][P_A] * x + m_frustum[i][P_B] * y +
+              m_frustum[i][P_C] * z + m_frustum[i][P_D] <=
+          0) {
+        return false;
+      }
+    }
+    return true;
+  }
 
-		bool IsCuboidIn(float x, float y, float z, SIZE size) {
-			for (int i = 0; i < 6; i++) {
-				if (m_frustum[i][P_A] * (x - size.cx) + m_frustum[i][P_B] * (y - size.cy) + m_frustum[i][P_C] * (z - size.cx) + m_frustum[i][P_D] > 0) continue;
-				if (m_frustum[i][P_A] * (x + size.cx) + m_frustum[i][P_B] * (y - size.cy) + m_frustum[i][P_C] * (z - size.cx) + m_frustum[i][P_D] > 0) continue;
-				if (m_frustum[i][P_A] * (x - size.cx) + m_frustum[i][P_B] * (y + size.cy) + m_frustum[i][P_C] * (z - size.cx) + m_frustum[i][P_D] > 0) continue;
-				if (m_frustum[i][P_A] * (x + size.cx) + m_frustum[i][P_B] * (y + size.cy) + m_frustum[i][P_C] * (z - size.cx) + m_frustum[i][P_D] > 0) continue;
-				if (m_frustum[i][P_A] * (x - size.cx) + m_frustum[i][P_B] * (y - size.cy) + m_frustum[i][P_C] * (z + size.cx) + m_frustum[i][P_D] > 0) continue;
-				if (m_frustum[i][P_A] * (x + size.cx) + m_frustum[i][P_B] * (y - size.cy) + m_frustum[i][P_C] * (z + size.cx) + m_frustum[i][P_D] > 0) continue;
-				if (m_frustum[i][P_A] * (x - size.cx) + m_frustum[i][P_B] * (y + size.cy) + m_frustum[i][P_C] * (z + size.cx) + m_frustum[i][P_D] > 0) continue;
-				if (m_frustum[i][P_A] * (x + size.cx) + m_frustum[i][P_B] * (y + size.cy) + m_frustum[i][P_C] * (z + size.cx) + m_frustum[i][P_D] > 0) continue;
-				return false;
-			}
-			return true;
-		}
+  bool IsSphereIn(float x, float y, float z, float radius) {
+    for (int i = 0; i < 6; i++) {
+      if (m_frustum[i][P_A] * x + m_frustum[i][P_B] * y +
+              m_frustum[i][P_C] * z + m_frustum[i][P_D] <=
+          -radius) {
+        return false;
+      }
+    }
+    return true;
+  }
 
-		bool IsBoxIn(float max_x, float max_y, float max_z, float min_x, float min_y, float min_z) {
-			for (int i = 0; i < 6; i++) {
-				if (m_frustum[i][P_A] * min_x + m_frustum[i][P_B] * min_y + m_frustum[i][P_C] * min_z + m_frustum[i][P_D] > 0) continue;
-				if (m_frustum[i][P_A] * max_x + m_frustum[i][P_B] * min_y + m_frustum[i][P_C] * min_z + m_frustum[i][P_D] > 0) continue;
-				if (m_frustum[i][P_A] * min_x + m_frustum[i][P_B] * max_y + m_frustum[i][P_C] * min_z + m_frustum[i][P_D] > 0) continue;
-				if (m_frustum[i][P_A] * max_x + m_frustum[i][P_B] * max_y + m_frustum[i][P_C] * min_z + m_frustum[i][P_D] > 0) continue;
-				if (m_frustum[i][P_A] * min_x + m_frustum[i][P_B] * min_y + m_frustum[i][P_C] * max_z + m_frustum[i][P_D] > 0) continue;
-				if (m_frustum[i][P_A] * max_x + m_frustum[i][P_B] * min_y + m_frustum[i][P_C] * max_z + m_frustum[i][P_D] > 0) continue;
-				if (m_frustum[i][P_A] * min_x + m_frustum[i][P_B] * max_y + m_frustum[i][P_C] * max_z + m_frustum[i][P_D] > 0) continue;
-				if (m_frustum[i][P_A] * max_x + m_frustum[i][P_B] * max_y + m_frustum[i][P_C] * max_z + m_frustum[i][P_D] > 0) continue;
-				return false;
-			}
-			return true;
-		}
-		bool IsBoxIn(Vector3 &Max, Vector3 &Min) {
-			return IsBoxIn(Max.x, Max.y, Max.z, Min.x, Min.y, Min.z);
-		}
+  bool IsCubeIn(float x, float y, float z, float size) {
+    for (int i = 0; i < 6; i++) {
+      if (m_frustum[i][P_A] * (x - size) + m_frustum[i][P_B] * (y - size) +
+              m_frustum[i][P_C] * (z - size) + m_frustum[i][P_D] >=
+          0)
+        continue;
+      if (m_frustum[i][P_A] * (x + size) + m_frustum[i][P_B] * (y - size) +
+              m_frustum[i][P_C] * (z - size) + m_frustum[i][P_D] >=
+          0)
+        continue;
+      if (m_frustum[i][P_A] * (x - size) + m_frustum[i][P_B] * (y + size) +
+              m_frustum[i][P_C] * (z - size) + m_frustum[i][P_D] >=
+          0)
+        continue;
+      if (m_frustum[i][P_A] * (x + size) + m_frustum[i][P_B] * (y + size) +
+              m_frustum[i][P_C] * (z - size) + m_frustum[i][P_D] >=
+          0)
+        continue;
+      if (m_frustum[i][P_A] * (x - size) + m_frustum[i][P_B] * (y - size) +
+              m_frustum[i][P_C] * (z + size) + m_frustum[i][P_D] >=
+          0)
+        continue;
+      if (m_frustum[i][P_A] * (x + size) + m_frustum[i][P_B] * (y - size) +
+              m_frustum[i][P_C] * (z + size) + m_frustum[i][P_D] >=
+          0)
+        continue;
+      if (m_frustum[i][P_A] * (x - size) + m_frustum[i][P_B] * (y + size) +
+              m_frustum[i][P_C] * (z + size) + m_frustum[i][P_D] >=
+          0)
+        continue;
+      if (m_frustum[i][P_A] * (x + size) + m_frustum[i][P_B] * (y + size) +
+              m_frustum[i][P_C] * (z + size) + m_frustum[i][P_D] >=
+          0)
+        continue;
+      return false;
+    }
+    return true;
+  }
 
-	private:
-		float m_frustum[6][4]{};
-	};
-}
+  bool IsCuboidIn(float x, float y, float z, SIZE size) {
+    for (int i = 0; i < 6; i++) {
+      if (m_frustum[i][P_A] * (x - size.cx) +
+              m_frustum[i][P_B] * (y - size.cy) +
+              m_frustum[i][P_C] * (z - size.cx) + m_frustum[i][P_D] >
+          0)
+        continue;
+      if (m_frustum[i][P_A] * (x + size.cx) +
+              m_frustum[i][P_B] * (y - size.cy) +
+              m_frustum[i][P_C] * (z - size.cx) + m_frustum[i][P_D] >
+          0)
+        continue;
+      if (m_frustum[i][P_A] * (x - size.cx) +
+              m_frustum[i][P_B] * (y + size.cy) +
+              m_frustum[i][P_C] * (z - size.cx) + m_frustum[i][P_D] >
+          0)
+        continue;
+      if (m_frustum[i][P_A] * (x + size.cx) +
+              m_frustum[i][P_B] * (y + size.cy) +
+              m_frustum[i][P_C] * (z - size.cx) + m_frustum[i][P_D] >
+          0)
+        continue;
+      if (m_frustum[i][P_A] * (x - size.cx) +
+              m_frustum[i][P_B] * (y - size.cy) +
+              m_frustum[i][P_C] * (z + size.cx) + m_frustum[i][P_D] >
+          0)
+        continue;
+      if (m_frustum[i][P_A] * (x + size.cx) +
+              m_frustum[i][P_B] * (y - size.cy) +
+              m_frustum[i][P_C] * (z + size.cx) + m_frustum[i][P_D] >
+          0)
+        continue;
+      if (m_frustum[i][P_A] * (x - size.cx) +
+              m_frustum[i][P_B] * (y + size.cy) +
+              m_frustum[i][P_C] * (z + size.cx) + m_frustum[i][P_D] >
+          0)
+        continue;
+      if (m_frustum[i][P_A] * (x + size.cx) +
+              m_frustum[i][P_B] * (y + size.cy) +
+              m_frustum[i][P_C] * (z + size.cx) + m_frustum[i][P_D] >
+          0)
+        continue;
+      return false;
+    }
+    return true;
+  }
+
+  bool IsBoxIn(float max_x, float max_y, float max_z, float min_x, float min_y,
+               float min_z) {
+    for (int i = 0; i < 6; i++) {
+      if (m_frustum[i][P_A] * min_x + m_frustum[i][P_B] * min_y +
+              m_frustum[i][P_C] * min_z + m_frustum[i][P_D] >
+          0)
+        continue;
+      if (m_frustum[i][P_A] * max_x + m_frustum[i][P_B] * min_y +
+              m_frustum[i][P_C] * min_z + m_frustum[i][P_D] >
+          0)
+        continue;
+      if (m_frustum[i][P_A] * min_x + m_frustum[i][P_B] * max_y +
+              m_frustum[i][P_C] * min_z + m_frustum[i][P_D] >
+          0)
+        continue;
+      if (m_frustum[i][P_A] * max_x + m_frustum[i][P_B] * max_y +
+              m_frustum[i][P_C] * min_z + m_frustum[i][P_D] >
+          0)
+        continue;
+      if (m_frustum[i][P_A] * min_x + m_frustum[i][P_B] * min_y +
+              m_frustum[i][P_C] * max_z + m_frustum[i][P_D] >
+          0)
+        continue;
+      if (m_frustum[i][P_A] * max_x + m_frustum[i][P_B] * min_y +
+              m_frustum[i][P_C] * max_z + m_frustum[i][P_D] >
+          0)
+        continue;
+      if (m_frustum[i][P_A] * min_x + m_frustum[i][P_B] * max_y +
+              m_frustum[i][P_C] * max_z + m_frustum[i][P_D] >
+          0)
+        continue;
+      if (m_frustum[i][P_A] * max_x + m_frustum[i][P_B] * max_y +
+              m_frustum[i][P_C] * max_z + m_frustum[i][P_D] >
+          0)
+        continue;
+      return false;
+    }
+    return true;
+  }
+  bool IsBoxIn(Vector3& Max, Vector3& Min) {
+    return IsBoxIn(Max.x, Max.y, Max.z, Min.x, Min.y, Min.z);
+  }
+
+ private:
+  float m_frustum[6][4]{};
+};
+}  // namespace render
 
 #if !defined(RENDER3D_EXPORTS)
-#if     defined( _DEBUG)
-#          pragma comment(lib,"legacy_render_d.lib")
-#       else
-#          pragma comment(lib,"legacy_render.lib")
-#	    endif
+#if defined(_DEBUG)
+#pragma comment(lib, "legacy_render_d.lib")
+#else
+#pragma comment(lib, "legacy_render.lib")
+#endif
 #endif
 
-#endif //_RD3D_RDBASE_H
+#endif  //_RD3D_RDBASE_H

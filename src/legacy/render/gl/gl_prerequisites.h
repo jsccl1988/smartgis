@@ -1,7 +1,7 @@
 /*
 File:    gl_prerequisites.h
 
-Desc:    
+Desc:
 
 Version: Version 1.0
 
@@ -11,7 +11,7 @@ Date:    2011.2.27
 
 Copyright (c) 2010 CCL. All rights reserved.
 */
-#ifndef _GL_PREREQUISITES_H 
+#ifndef _GL_PREREQUISITES_H
 #define _GL_PREREQUISITES_H
 
 #include "legacy/render/render3d/base.h"
@@ -26,11 +26,11 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 #include <GL/gl.h>
 #include <GL/glu.h>
+
 #include "GL/glext.h"
 #include "GL/wglext.h"
 
-#pragma comment(lib,"opengl32.lib")
-#pragma comment(lib,"glu32.lib")
+#pragma comment(lib, "opengl32.lib")
+#pragma comment(lib, "glu32.lib")
 
-
-#endif //_GL_PREREQUISITES_H
+#endif  //_GL_PREREQUISITES_H

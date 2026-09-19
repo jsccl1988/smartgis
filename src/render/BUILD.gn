@@ -5,7 +5,7 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Endgame render layer → one DLL (dll_stem = render):
-#   rhi + scene + skia + math/bounds source_sets.
+#   rhi + scene + skia + atmosphere + math/bounds source_sets.
 # Does NOT include //src/legacy/render/** (optional leftover DLL).
 # math/bounds stay linkable source_sets for algorithm/legacy consumers so they
 # do not pull this DLL; they are also chained into :render.
@@ -48,15 +48,16 @@ smt_shared_library("render") {
   defines = [ "RENDER_EXPORTS" ]
   deps = [
     ":rhi_sources",
+    "//src/render/atmosphere:atmosphere_sources",
     "//src/render/math:bounds",
     "//src/render/math:math",
     "//src/render/scene:scene_sources",
     "//src/render/skia:skia_sources",
   ]
-  # scene headers expose sdb::scene types; bounds uses base macros.
+  # scene headers expose gis::scene types; bounds uses base macros.
   public_deps = [
     "//src/base:base",
-    "//src/sdb:sdb",
+    "//src/gis:gis",
   ]
   # Forward FlyCube presence to consumers (tests / Views) that branch on
   # SMT_HAS_FLYCUBE; source_set public_configs do not flow through the DLL.

@@ -1,0 +1,136 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Compiled into //src/gis:gis (dll_stem = gis).
+source_set("atmosphere_sources") {
+  sources = [
+    "atmosphere_params.h",
+    "cloud_system.cc",
+    "cloud_system.h",
+    "environment.cc",
+    "environment.h",
+    "field_channel.h",
+    "field_ingest.cc",
+    "field_ingest.h",
+    "field_store.cc",
+    "field_store.h",
+    "ocean_system.cc",
+    "ocean_system.h",
+    "procedural.cc",
+    "procedural.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+    "SDB_EXPORTS",
+  ]
+  public_deps = [
+    "//src/gis/world:land_mask",
+    "//third_party:gdal",
+  ]
+  deps = [
+    "//src/base:base",
+  ]
+}
+
+group("atmosphere") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+# Unit tests compile field/cloud sources in-process (GIS_EXPORTS) so a locked
+# gis_d.dll (LNK1168) does not block verification.
+test("field_store_test") {
+  output_name = "field_store_test"
+  sources = [
+    "field_store.cc",
+    "field_store_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "GIS_EXPORTS" ]
+  deps = [ "//src/base:base" ]
+}
+
+test("procedural_test") {
+  output_name = "procedural_test"
+  sources = [
+    "field_store.cc",
+    "procedural.cc",
+    "procedural_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "GIS_EXPORTS" ]
+  deps = [
+    "//src/base:base",
+    "//src/gis/world:land_mask",
+  ]
+}
+
+test("field_ingest_test") {
+  output_name = "field_ingest_test"
+  sources = [
+    "field_ingest.cc",
+    "field_store.cc",
+    "field_ingest_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "GIS_EXPORTS" ]
+  deps = [
+    "//src/base:base",
+    "//third_party:gdal",
+  ]
+}
+
+test("cloud_system_test") {
+  output_name = "cloud_system_test"
+  sources = [
+    "cloud_system.cc",
+    "cloud_system_test.cc",
+    "field_store.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "GIS_EXPORTS" ]
+  deps = [ "//src/base:base" ]
+}
+
+test("ocean_system_test") {
+  output_name = "ocean_system_test"
+  sources = [
+    "field_store.cc",
+    "ocean_system.cc",
+    "ocean_system_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "GIS_EXPORTS" ]
+  deps = [ "//src/base:base" ]
+}
+
+# Environment seed + enable_demo (in-process GIS_EXPORTS).
+test("environment_test") {
+  output_name = "environment_test"
+  sources = [
+    "cloud_system.cc",
+    "environment.cc",
+    "environment_test.cc",
+    "field_store.cc",
+    "ocean_system.cc",
+    "procedural.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "GIS_EXPORTS" ]
+  deps = [
+    "//src/base:base",
+    "//src/gis/world:land_mask",
+  ]
+}

@@ -1,0 +1,59 @@
+﻿RM src/ui/views/gis/add_basemap_dialog.cc -> src/ui/views/dialogs/add_basemap_dialog.cc
+AM src/ui/views/dialogs/add_basemap_dialog.h
+RM src/ui/views/gis/att_struct_dialog.cc -> src/ui/views/dialogs/att_struct_dialog.cc
+AM src/ui/views/dialogs/att_struct_dialog.h
+RM src/ui/views/gis/create_datasource_dialog.cc -> src/ui/views/dialogs/create_datasource_dialog.cc
+AM src/ui/views/dialogs/create_datasource_dialog.h
+RM src/ui/views/gis/create_layer_dialog.cc -> src/ui/views/dialogs/create_layer_dialog.cc
+AM src/ui/views/dialogs/create_layer_dialog.h
+RM src/ui/views/gis/create_map_dialog.cc -> src/ui/views/dialogs/create_map_dialog.cc
+AM src/ui/views/dialogs/create_map_dialog.h
+RM src/ui/views/primitives/dialog.cc -> src/ui/views/dialogs/dialog.cc
+AM src/ui/views/dialogs/dialog.h
+RM src/ui/views/primitives/file_picker.cc -> src/ui/views/dialogs/file_picker.cc
+AM src/ui/views/dialogs/file_picker.h
+RM src/ui/views/primitives/input_text_dialog.cc -> src/ui/views/dialogs/input_text_dialog.cc
+AM src/ui/views/dialogs/input_text_dialog.h
+RM src/ui/views/primitives/message_box.cc -> src/ui/views/dialogs/message_box.cc
+AM src/ui/views/dialogs/message_box.h
+RM src/ui/views/primitives/select_one_dialog.cc -> src/ui/views/dialogs/select_one_dialog.cc
+AM src/ui/views/dialogs/select_one_dialog.h
+ M src/ui/views/gis/ambox_view.cc
+AM src/ui/views/gis/ambox_view.h
+ M src/ui/views/gis/attribute_table.cc
+AM src/ui/views/gis/attribute_table.h
+ M src/ui/views/gis/catalog_view.cc
+AM src/ui/views/gis/catalog_view.h
+ M src/ui/views/gis/chart_view.cc
+AM src/ui/views/gis/chart_view.h
+ M src/ui/views/gis/feature_info.cc
+AM src/ui/views/gis/feature_info.h
+ M src/ui/views/gis/layer_tree.cc
+AM src/ui/views/gis/layer_tree.h
+D  src/ui/views/gis/map_viewport.cc
+ M src/ui/views/gis/status_bar.cc
+AM src/ui/views/gis/status_bar.h
+ M src/ui/views/primitives/button.cc
+AM src/ui/views/primitives/button.h
+ M src/ui/views/primitives/checkbox.cc
+AM src/ui/views/primitives/checkbox.h
+ M src/ui/views/primitives/combobox.cc
+AM src/ui/views/primitives/combobox.h
+ M src/ui/views/primitives/context_menu.cc
+AM src/ui/views/primitives/context_menu.h
+ M src/ui/views/primitives/label.cc
+AM src/ui/views/primitives/label.h
+ M src/ui/views/primitives/menu_bar.cc
+AM src/ui/views/primitives/menu_bar.h
+ M src/ui/views/primitives/radio_button.cc
+AM src/ui/views/primitives/radio_button.h
+ M src/ui/views/primitives/scroll_view.cc
+AM src/ui/views/primitives/scroll_view.h
+ M src/ui/views/primitives/tab_strip.cc
+AM src/ui/views/primitives/tab_strip.h
+ M src/ui/views/primitives/table_view.cc
+AM src/ui/views/primitives/table_view.h
+ M src/ui/views/primitives/textfield.cc
+AM src/ui/views/primitives/textfield.h
+ M src/ui/views/primitives/tree_view.cc
+AM src/ui/views/primitives/tree_view.h

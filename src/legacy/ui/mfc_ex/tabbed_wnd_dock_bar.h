@@ -6,42 +6,39 @@
 #define MFC_EX_EXPORT __declspec(dllimport)
 #endif
 
-
 #if _MSC_VER > 1000
 #pragma once
-#endif // _MSC_VER > 1000
+#endif  // _MSC_VER > 1000
 
 #include "base/core/core.h"
 
-class AFX_EXT_CLASS TabbedWndDockBar : public CBCGPDockingControlBar
-{
-public:
-	TabbedWndDockBar();
-	virtual ~TabbedWndDockBar();
+class AFX_EXT_CLASS TabbedWndDockBar : public CBCGPDockingControlBar {
+ public:
+  TabbedWndDockBar();
+  virtual ~TabbedWndDockBar();
 
-public:
-	CBCGPTabWnd*			GetOnerWnd(void) {return &m_wndTabs;}
-	BOOL					AddWnd(CWnd *pWnd,CString strLabel);
+ public:
+  CBCGPTabWnd* GetOnerWnd(void) { return &m_wndTabs; }
+  BOOL AddWnd(CWnd* pWnd, CString strLabel);
 
-protected:
-	afx_msg int				OnCreate(LPCREATESTRUCT lpCreateStruct);
-	afx_msg void			OnSize(UINT nType, int cx, int cy);
-	afx_msg void			OnContextMenu(CWnd* /*pWnd*/, CPoint /*point*/);
+ protected:
+  afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
+  afx_msg void OnSize(UINT nType, int cx, int cy);
+  afx_msg void OnContextMenu(CWnd* /*pWnd*/, CPoint /*point*/);
 
-	DECLARE_MESSAGE_MAP()
+  DECLARE_MESSAGE_MAP()
 
-protected:
-	CBCGPTabWnd				m_wndTabs;
-	vector<CWnd*>			m_vWndPtrs;
+ protected:
+  CBCGPTabWnd m_wndTabs;
+  vector<CWnd*> m_vWndPtrs;
 };
 
-
 #if !defined(MFC_EX_EXPORTS)
-#if   defined( _DEBUG)
-#          pragma comment(lib,"ui_legacy_d.lib")
-#       else
-#          pragma comment(lib,"ui_legacy.lib")
-#	    endif  
+#if defined(_DEBUG)
+#pragma comment(lib, "ui_legacy_d.lib")
+#else
+#pragma comment(lib, "ui_legacy.lib")
+#endif
 #endif
 
-#endif //_CATALOGS_DOCKBAR_H
+#endif  //_CATALOGS_DOCKBAR_H

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/ambox_view.h"
+#include "ui/views/gis/ambox_view.h"
 
 #include <string>
 #include <string_view>
@@ -11,12 +11,12 @@
 #include "content/public/plugin_host.h"
 #include "render/skia/canvas.h"
 #include "tool/command.h"
-#include "ui/views/button.h"
-#include "ui/views/dpi.h"
-#include "ui/views/label.h"
-#include "ui/views/scroll_view.h"
-#include "ui/views/theme.h"
-#include "ui/views/widget.h"
+#include "ui/views/primitives/button.h"
+#include "ui/views/kernel/dpi.h"
+#include "ui/views/primitives/label.h"
+#include "ui/views/primitives/scroll_view.h"
+#include "ui/views/kernel/theme.h"
+#include "ui/views/kernel/widget.h"
 
 namespace ui {
 namespace views {

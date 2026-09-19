@@ -1,5 +1,9 @@
 #include "legacy/render/gdi/gdi_aux_api.h"
 
+#include "gis/datasource/gdal/ogr_text_encoding.h"
+
+#include <string>
+
 void clear_rect(HDC hDC, int x, int y, int w, int h, COLORREF clr) {
   // GDI FillRect requires top < bottom in MM_TEXT.
   RECT rect;
@@ -57,25 +61,63 @@ void draw_cross(HDC hDC, long lX, long lY, long r, BOOL exclusive) {
   LineTo(hDC, lX, lY);
 }
 
-void draw_anno_text(HDC hdc, long x, long y, const char* text) {
+void draw_point_disc(HDC hdc, long x, long y, int radius) {
+  if (!hdc || radius < 2) {
+    radius = 3;
+  }
+  const int outer = radius + 1;
+  HBRUSH ring = CreateSolidBrush(RGB(250, 250, 248));
+  HPEN ring_pen = CreatePen(PS_SOLID, 1, RGB(250, 250, 248));
+  HGDIOBJ old_b = SelectObject(hdc, ring);
+  HGDIOBJ old_p = SelectObject(hdc, ring_pen);
+  Ellipse(hdc, x - outer, y - outer, x + outer + 1, y + outer + 1);
+  HBRUSH fill = CreateSolidBrush(RGB(36, 48, 62));
+  HPEN fill_pen = CreatePen(PS_SOLID, 1, RGB(36, 48, 62));
+  SelectObject(hdc, fill);
+  SelectObject(hdc, fill_pen);
+  Ellipse(hdc, x - radius, y - radius, x + radius + 1, y + radius + 1);
+  SelectObject(hdc, old_b);
+  SelectObject(hdc, old_p);
+  DeleteObject(fill);
+  DeleteObject(fill_pen);
+  DeleteObject(ring);
+  DeleteObject(ring_pen);
+}
+
+void draw_anno_text(HDC hdc, long x, long y, const char* text, int px_h,
+                    int halo_px) {
   if (!hdc || !text || !text[0]) {
     return;
   }
-  wchar_t wide[512];
-  int n = MultiByteToWideChar(CP_UTF8, 0, text, -1, wide, 512);
-  if (n <= 1) {
-    n = MultiByteToWideChar(CP_ACP, 0, text, -1, wide, 512);
-  }
-  if (n <= 1) {
+  const std::wstring w = gis::datasource::ogr_bytes_to_wide(text);
+  if (w.empty()) {
     return;
   }
-  HFONT font = CreateFontW(-14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-                           DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
-                           CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
-                           L"Microsoft YaHei");
+  if (px_h < 12) {
+    px_h = 12;
+  }
+  if (halo_px < 1) {
+    halo_px = 1;
+  }
+  HFONT font = CreateFontW(-px_h, 0, 0, 0, px_h >= 16 ? FW_SEMIBOLD : FW_NORMAL,
+                           FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_TT_PRECIS,
+                           CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                           DEFAULT_PITCH | FF_DONTCARE, L"Microsoft YaHei");
   HGDIOBJ old = font ? SelectObject(hdc, font) : nullptr;
   SetBkMode(hdc, TRANSPARENT);
-  TextOutW(hdc, x, y, wide, n - 1);
+  const COLORREF ink = GetTextColor(hdc);
+  const int n = static_cast<int>(w.size());
+  SetTextColor(hdc, RGB(252, 252, 250));
+  for (int dy = -halo_px; dy <= halo_px; ++dy) {
+    for (int dx = -halo_px; dx <= halo_px; ++dx) {
+      if (dx == 0 && dy == 0) {
+        continue;
+      }
+      TextOutW(hdc, x + dx, y + dy, w.c_str(), n);
+    }
+  }
+  SetTextColor(hdc, ink == RGB(252, 252, 250) ? RGB(28, 28, 28) : ink);
+  TextOutW(hdc, x, y, w.c_str(), n);
   if (font) {
     SelectObject(hdc, old);
     DeleteObject(font);

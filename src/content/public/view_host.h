@@ -10,7 +10,7 @@
 
 #include "content/public/map_types.h"
 
-namespace sdb {
+namespace gis {
 class EditSession;
 }
 
@@ -27,14 +27,14 @@ class EventBus;
 class ViewHost {
  public:
   ViewHost();
-  explicit ViewHost(sdb::EditSession* edits);
+  explicit ViewHost(gis::EditSession* edits);
   ~ViewHost();
 
   ViewHost(const ViewHost&) = delete;
   ViewHost& operator=(const ViewHost&) = delete;
 
   EventBus* events();
-  sdb::EditSession* edits();
+  gis::EditSession* edits();
   tool::Workspace* workspace();
 
   bool execute(std::string_view command_id, uint32_t view_id = 0);

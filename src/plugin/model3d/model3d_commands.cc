@@ -8,8 +8,8 @@
 
 #include "content/public/plugin_host.h"
 #include "tool/command.h"
-#include "ui/views/file_picker.h"
-#include "ui/views/message_box.h"
+#include "ui/views/dialogs/file_picker.h"
+#include "ui/views/dialogs/message_box.h"
 
 namespace plugin {
 namespace {

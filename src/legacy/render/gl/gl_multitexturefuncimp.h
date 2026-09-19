@@ -1,7 +1,7 @@
 /*
 File:    gl_multitexturefuncimp.h
 
-Desc:    
+Desc:
 
 Version: Version 1.0
 
@@ -18,23 +18,21 @@ Copyright (c) 2010 CCL. All rights reserved.
 #include "legacy/render/gl/gl_multitexturefunc.h"
 #include "legacy/render/gl/gl_prerequisites.h"
 
-namespace render
-{
-	class SmtMultitextureFuncImpl : public SmtMultitextureFunc
-	{
-	public:
-		SmtMultitextureFuncImpl();
-		virtual ~SmtMultitextureFuncImpl();
+namespace render {
+class SmtMultitextureFuncImpl : public SmtMultitextureFunc {
+ public:
+  SmtMultitextureFuncImpl();
+  virtual ~SmtMultitextureFuncImpl();
 
-	public:
-		virtual long			Initialize(LPGLRENDERDEVICE pGLRenderDevice);
+ public:
+  virtual long Initialize(LPGLRENDERDEVICE pGLRenderDevice);
 
-	public:
-		virtual void			glActiveTexture(GLenum texture);
+ public:
+  virtual void glActiveTexture(GLenum texture);
 
-	private:
-		PFNGLACTIVETEXTUREPROC	_glActiveTexture;
-	};
-}
+ private:
+  PFNGLACTIVETEXTUREPROC _glActiveTexture;
+};
+}  // namespace render
 
-#endif //_MULTITEXTURE_FUNCSIMP_H
+#endif  //_MULTITEXTURE_FUNCSIMP_H

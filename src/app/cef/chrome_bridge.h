@@ -45,6 +45,7 @@ enum class BridgeType {
   kCatalogDelta,
   kViewCursor,
   kReady,
+  kPointerEvent,
   kUnknown,
 };
 
@@ -63,6 +64,13 @@ struct BridgeMessage {
   std::string query_what;
   std::string text;
   int error_code = 0;
+  // PointerEvent: wheel | drag | pinch | ldown | lup | move | …
+  std::string pointer_kind;
+  int wheel = 0;
+  uint32_t flags = 0;
+  float scale = 1.f;
+  // 0/1 = single; >=2 = multitouch midpoint (see content::InputEvent).
+  uint32_t pointer_count = 0;
 };
 
 namespace detail {
@@ -97,7 +105,8 @@ class ChromeBridge {
 
   bool query_has_catalog_and_ambox() const;
   void select_tab_for_test(int index);
-  // Seed china_plp / sample and push CatalogDelta. Returns true on OGR China.
+  // Seed china_city (fallback china_plp) and push CatalogDelta. Returns true on
+  // OGR China.
   bool seed_map_document();
   void push_catalog_snapshot();
   void show_view_context_menu(POINT screen);
@@ -105,6 +114,10 @@ class ChromeBridge {
 
   // Called after JSON is extracted from a CefProcessMessage (browser process).
   bool handle_json(std::string_view json);
+
+  // Forward wheel / drag / pinch to ViewHost + MapContents::Dispatch
+  // (host protocol kPointerEvent). Returns false if kind is unknown.
+  bool dispatch_pointer(const BridgeMessage& msg);
 
   void push_event(const BridgeMessage& msg);
   void set_post_json(void (*fn)(void* user, const std::string& json), void* user);
@@ -124,6 +137,8 @@ class ChromeBridge {
   void handle_draft(const tool::Draft& draft);
   void invalidate_map_overlays();
   bool activate_tool(const std::string& id);
+  void catalog_open_sample();
+  void apply_default_tools();
 
   LayoutHost* layout_ = nullptr;
   CefMapSlot* slots_ = nullptr;

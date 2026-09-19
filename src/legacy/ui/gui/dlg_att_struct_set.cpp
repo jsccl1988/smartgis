@@ -2,14 +2,15 @@
 // All rights reserved.
 
 #include "stdafx.h"
+
 #include "legacy/ui/gui/dlg_att_struct_set.h"
 
 IMPLEMENT_DYNAMIC(CDlgAttStructSet, CDialog)
 
 namespace {
 
-const char* kOgrTypeLabels[] = {"Integer", "Integer64", "Real", "String",
-                                "Date",    "Binary"};
+const char* kOgrTypeLabels[] = {"Integer", "Integer64", "Real",
+                                "String",  "Date",      "Binary"};
 
 }  // namespace
 
@@ -27,14 +28,14 @@ void CDlgAttStructSet::DoDataExchange(CDataExchange* pDX) {
 }
 
 BEGIN_MESSAGE_MAP(CDlgAttStructSet, CDialog)
-  ON_BN_CLICKED(IDOK, &CDlgAttStructSet::OnBnClickedOk)
-  ON_NOTIFY(GVN_ENDLABELEDIT, IDC_GRID_ATT_STRUCT,
-            &CDlgAttStructSet::OnGridClickEndEdit)
-  ON_NOTIFY(NM_RCLICK, IDC_GRID_ATT_STRUCT, &CDlgAttStructSet::OnGridRClick)
-  ON_COMMAND(ID_ATTSTRUCT_APPEND, &CDlgAttStructSet::OnAttstructAppend)
-  ON_COMMAND(ID_ATTSTRUCT_REMOVE, &CDlgAttStructSet::OnAttstructRemove)
-  ON_COMMAND(ID_ATTSTRUCT_MOVEUP, &CDlgAttStructSet::OnAttstructMoveup)
-  ON_COMMAND(ID_ATTSTRUCT_MOVEDOWN, &CDlgAttStructSet::OnAttstructMovedown)
+ON_BN_CLICKED(IDOK, &CDlgAttStructSet::OnBnClickedOk)
+ON_NOTIFY(GVN_ENDLABELEDIT, IDC_GRID_ATT_STRUCT,
+          &CDlgAttStructSet::OnGridClickEndEdit)
+ON_NOTIFY(NM_RCLICK, IDC_GRID_ATT_STRUCT, &CDlgAttStructSet::OnGridRClick)
+ON_COMMAND(ID_ATTSTRUCT_APPEND, &CDlgAttStructSet::OnAttstructAppend)
+ON_COMMAND(ID_ATTSTRUCT_REMOVE, &CDlgAttStructSet::OnAttstructRemove)
+ON_COMMAND(ID_ATTSTRUCT_MOVEUP, &CDlgAttStructSet::OnAttstructMoveup)
+ON_COMMAND(ID_ATTSTRUCT_MOVEDOWN, &CDlgAttStructSet::OnAttstructMovedown)
 END_MESSAGE_MAP()
 
 void CDlgAttStructSet::FillTypeNames(CStringArray* names) {

@@ -40,8 +40,8 @@ Exit code: 0
 
 | File | Action |
 | --- | --- |
-| `src/sdb/datasource/gdal/ogr_feature_kind.h` | Created |
-| `src/sdb/datasource/gdal/ogr_feature_codec.h` | Created |
-| `src/sdb/datasource/gdal/ogr_feature_codec.cc` | Created |
-| `src/sdb/datasource/gdal/sde_gdal_test.cc` | Modified — Memory anno round-trip |
-| `src/sdb/datasource/gdal/BUILD.gn` | Modified — sources + GDAL deps |
+| `src/gis/datasource/gdal/ogr_feature_kind.h` | Created |
+| `src/gis/datasource/gdal/ogr_feature_codec.h` | Created |
+| `src/gis/datasource/gdal/ogr_feature_codec.cc` | Created |
+| `src/gis/datasource/gdal/sde_gdal_test.cc` | Modified — Memory anno round-trip |
+| `src/gis/datasource/gdal/BUILD.gn` | Modified — sources + GDAL deps |

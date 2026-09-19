@@ -1,0 +1,66 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Map document + feature/layer types. Compiled into //src/gis:gis (dll_stem = sdb).
+# attribute.cpp / field.cpp are NOT in gis — see leftover_attr below.
+# No deps on legacy_render / render3d (SmtMaterial stays opaque in feature.cpp).
+source_set("gis_sources") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+  sources = [
+    "../feature/feature.cpp",
+    "../feature/feature_api.cpp",
+    "map.cpp",
+    "map_layer.cpp",
+  ]
+  include_dirs += [ "//src" ]
+  public_deps = [ "//third_party:gdal" ]
+  deps = [
+    "//src/algorithm/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+  ]
+}
+
+group("gis") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+# Point / box QueryFeature on china_plp + flash copy must keep features.
+test("select_query_test") {
+  output_name = "select_query_test"
+  sources = [ "select_query_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":gis",
+    "//src/gis/datasource/mgr:sde_mgr",
+    "//testing/data:china_map_samples",
+    "//third_party:gdal",
+  ]
+}
+
+# Leftover SmtAttribute / SmtField. Product fields are OGR on :gis.
+# Defined here so the target is in the GN graph with gis; not linked into sdb.
+smt_shared_library("leftover_attr") {
+  dll_stem = "leftover_attr"
+  defines = [
+    "LEFTOVER_ATTR_EXPORTS",
+    "SMT_ALLOW_LEFTOVER_ATTRIBUTE",
+  ]
+  sources = [
+    "../feature/attribute.cpp",
+    "../feature/field.cpp",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+  ]
+}

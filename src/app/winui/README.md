@@ -37,15 +37,22 @@ Command ids match Workspace builtins (`selection.point`, `edit.append.point`,
 
 ## Map host
 
-- **HWND overlay** parented to the **top-level Win32 window** (never
-  `DesktopChildSiteBridge`). Island recreate + `DestroyWindow` during clicks
-  was WER `0x80070578` / XAML `0xc000027b`. DIP coords still come from
-  `TransformToVisual`, then `MapWindowPoints` onto the top-level client.
+- **Owned WS_POPUP overlay** (owner = top-level Win32 window), positioned in
+  **screen** coords from `TransformToVisual` + `MapWindowPoints(island→desktop)`.
+  A `WS_CHILD` sibling is covered by `DesktopChildSiteBridge` composition — the
+  child paints the map but the user only sees the XAML slot background.
+  Do not parent under the island (`DestroyWindow` / WER races).
 - Present: `content::PresentMode::kSoftwareDib` — GPU publishes shared pixels;
   chrome blits `MapWidgetHostView::Latest()`, then overlays `app::MapScene`
-  vectors (China PLP **polygon / line / point + name labels**, same as Views).
-- Startup loads `china_plp.geojson` beside the PE via `MapScene::seed_default`.
-  File → Open also calls `MapHost::open_map_path` (OGR).
+  vectors (China city **polygon / line / point + name labels**, same as Views).
+- 3D tab: same `Scene3dController` as Views — GPU publishes land-masked DEM
+  (not flat MapLibre); chrome HUD / GDI fallback; FlyCube `present_gpu` when
+  preferred — SmartGis.exe / Views parity.
+- Startup: `activate()` pumps until `StartRenderProcess` Hello, then
+  **synchronously** `attach_map()` (avoids DispatcherQueue race → white slot).
+- Startup loads `china_city.gpkg` (fallback `china_city.geojson` / `china_plp`)
+  beside the PE via `MapScene::seed_default`. File → Open also calls
+  `MapHost::open_map_path` (OGR).
 - Tabs: **Map Edit** (`kMapEdit`) / **Data** (`kMapData`) / **3D** (`kScene3d`).
   Views stay open across tab switches (no CloseView on each click); HWND island
   is re-synced via `sync_layout` only.

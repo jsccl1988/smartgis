@@ -73,12 +73,10 @@ html, body {
 #map-slot {
   flex: 1;
   margin: 0 8px 8px;
-  border: 1px dashed #4a5d78;
-  background: #0e141c;
-  color: #6f829c;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border: none;
+  background: #1c2a3a;
+  touch-action: none;
+  user-select: none;
 }
 
 #ambox-buttons {

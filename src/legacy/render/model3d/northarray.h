@@ -14,10 +14,10 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _MD3D_NORTHARRAY_H
 #define _MD3D_NORTHARRAY_H
 
-#include "legacy/render/render3d/3drenderer.h"
-#include "legacy/render/render3d/videobuffer.h"
 #include "legacy/render/render3d/3drenderdevice.h"
+#include "legacy/render/render3d/3drenderer.h"
 #include "legacy/render/render3d/camera.h"
+#include "legacy/render/render3d/videobuffer.h"
 #include "legacy/render/scene3d/bl3d_object.h"
 
 #if !defined(MODEL3D_EXPORT_DEFINED)
@@ -33,44 +33,44 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 using namespace render;
 
-namespace render
-{
-	class MODEL3D_EXPORT_CLASS SmtNorthArray:public Smt3DObject
-	{
-	public:
-		SmtNorthArray(float initAngle,float fWinH,SmtPerspCamera* pCamera);
-		virtual ~SmtNorthArray(void);
+namespace render {
+class MODEL3D_EXPORT_CLASS SmtNorthArray : public Smt3DObject {
+ public:
+  SmtNorthArray(float initAngle, float fWinH, SmtPerspCamera* pCamera);
+  virtual ~SmtNorthArray(void);
 
-	public:
-		long					Init(Vector3& vPos,SmtMaterial&matMaterial,const char* szTexName = "");
-		long					Create(LP3DRENDERDEVICE p3DRenderDevice); 
-		long					Update(LP3DRENDERDEVICE p3DRenderDevice,float fElapsed); 
-		long					Render(LP3DRENDERDEVICE p3DRenderDevice); 
-		long					Destroy();
+ public:
+  long Init(Vector3& vPos, SmtMaterial& matMaterial,
+            const char* szTexName = "");
+  long Create(LP3DRENDERDEVICE p3DRenderDevice);
+  long Update(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed);
+  long Render(LP3DRENDERDEVICE p3DRenderDevice);
+  long Destroy();
 
-	public:
-		void					SetPerspCamera(SmtPerspCamera* pCamera) {m_pCamera = pCamera;}
-	private:
-		void					DrawClock(LP3DRENDERDEVICE p3DRenderDevice);
-		void					DrawArray(LP3DRENDERDEVICE p3DRenderDevice);
+ public:
+  void SetPerspCamera(SmtPerspCamera* pCamera) { m_pCamera = pCamera; }
 
-	private:
-        SmtPerspCamera*			m_pCamera;
-		float					m_fNorthPtAngle;
-		float					m_fWinH;
-		uint					m_nFontClock;
-	
-		SmtVertexBuffer			*m_pVBClockPan;
-		SmtVertexBuffer			*m_pVBClockArray;
-	};
-}
+ private:
+  void DrawClock(LP3DRENDERDEVICE p3DRenderDevice);
+  void DrawArray(LP3DRENDERDEVICE p3DRenderDevice);
 
-#if     !defined(MODEL3D_EXPORTS)
-#if     defined(_DEBUG)
-#          pragma comment(lib,"legacy_render_d.lib")
-#       else
-#          pragma comment(lib,"legacy_render.lib")
-#	    endif
+ private:
+  SmtPerspCamera* m_pCamera;
+  float m_fNorthPtAngle;
+  float m_fWinH;
+  uint m_nFontClock;
+
+  SmtVertexBuffer* m_pVBClockPan;
+  SmtVertexBuffer* m_pVBClockArray;
+};
+}  // namespace render
+
+#if !defined(MODEL3D_EXPORTS)
+#if defined(_DEBUG)
+#pragma comment(lib, "legacy_render_d.lib")
+#else
+#pragma comment(lib, "legacy_render.lib")
+#endif
 #endif
 
-#endif //_MD3D_NORTHARRAY_H
+#endif  //_MD3D_NORTHARRAY_H

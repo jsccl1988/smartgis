@@ -37,6 +37,10 @@ struct Extent2 {
   double ymax;
 };
 
+namespace input_flags {
+constexpr uint32_t kHorizontalWheel = 0x02000000u;
+}  // namespace input_flags
+
 struct InputEvent {
   enum class Kind {
     kMouseMove,
@@ -58,7 +62,13 @@ struct InputEvent {
   uint32_t key;
   char32_t text[8];
   uint64_t t_qpc;
+  uint32_t pointer_count;
 };
+
+inline bool is_horizontal_wheel(const InputEvent& e) {
+  return e.kind == InputEvent::Kind::kWheel &&
+         (e.flags & input_flags::kHorizontalWheel) != 0;
+}
 
 struct FeatureId {
   uint8_t bytes[32];

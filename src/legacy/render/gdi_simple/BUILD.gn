@@ -20,8 +20,8 @@ source_set("render_gdi_simple_sources") {
     "//src/legacy/render/bridge:leftover_record",
     "//src/legacy/render/bridge:render_sources",
     "//src/legacy/render/gdi:gdi_common_sources",
-    "//src/sdb/datasource/gdal:ogr_codec",
-    "//src/sdb/map:gis",
+    "//src/gis/datasource/gdal:ogr_codec",
+    "//src/gis/map:gis",
     "//third_party:CxImage",
     "//third_party:gdal",
   ]

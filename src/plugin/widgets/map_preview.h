@@ -7,9 +7,9 @@
 #include <string>
 #include <string_view>
 
-#include "ui/views/map_viewport.h"
-#include "ui/views/status_bar.h"
-#include "ui/views/view.h"
+#include "ui/views/map/map_viewport.h"
+#include "ui/views/gis/status_bar.h"
+#include "ui/views/kernel/view.h"
 
 namespace plugin {
 

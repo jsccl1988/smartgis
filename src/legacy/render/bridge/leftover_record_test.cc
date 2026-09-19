@@ -3,19 +3,19 @@
 
 #include "legacy/render/bridge/leftover_record.h"
 
-#include "algorithm/geo/geometry.h"
-#include "sdb/layer/layer.h"
-#include "render/rhi/rhi.h"
-#include "sdb/scene/tessellate.h"
+#include <cstdio>
+#include <cstdlib>
+#include <memory>
 
+#include "algorithm/geo/geometry.h"
 #include "legacy/render/render3d/3drenderdefs.h"
 #include "legacy/render/render3d/indexbuffer.h"
 #include "legacy/render/render3d/vertexbuffer.h"
+#include "render/rhi/rhi.h"
+#include "gis/layer/layer.h"
+#include "gis/world/tessellate.h"
 
-#include <cstdio>
-#include <memory>
-
-// Null-device path only. Do not create FlyCube here â€” use SMT_RUN_FLYCUBE_GPU=1
+// Null-device path only. Do not create FlyCube here â€?use SMT_RUN_FLYCUBE_GPU=1
 // via rhi_test for real DX12. Per-layer MapLayer brush on GpuScene remains
 // TODO in leftover_record::record_map (avoid style DLL in sdb/scene).
 
@@ -30,12 +30,12 @@ void expect(bool ok, const char* msg) {
   }
 }
 
-class TestRasterLayer : public sdb::SmtRasterLayer {
+class TestRasterLayer : public gis::SmtRasterLayer {
  public:
   bool Create() override { return true; }
   bool Open(const char*) override { return true; }
   bool Close() override { return true; }
-  bool Fetch(sdb::eSmtFetchType) override { return true; }
+  bool Fetch(gis::eSmtFetchType) override { return true; }
   long CreaterRaster(const char* buf, long size, const base::fRect& rect,
                      long code) override {
     buf_ = buf;
@@ -76,14 +76,14 @@ class TestRasterLayer : public sdb::SmtRasterLayer {
 
 int main() {
   using render::rhi::Backend;
+  using render::rhi::create_device;
   using render::rhi::DeviceDesc;
   using render::rhi::StubCommandList;
-  using render::rhi::create_device;
-  using render::scene::LeftoverRecorder;
   using render::scene::create_host_index_buffer;
   using render::scene::create_host_vertex_buffer;
   using render::scene::destroy_host_index_buffer;
   using render::scene::destroy_host_vertex_buffer;
+  using render::scene::LeftoverRecorder;
 
   setvbuf(stdout, nullptr, _IONBF, 0);
   setvbuf(stderr, nullptr, _IONBF, 0);
@@ -100,11 +100,11 @@ int main() {
   OGRPolygon poly;
   poly.addRing(&ring);
   const OGRGeometry* geoms[] = {&pt, &line, &poly};
-  sdb::scene::TessMesh expect_2d;
-  expect(sdb::scene::tessellate_geoms(geoms, 3, expect_2d), "tess 2d");
+  gis::TessMesh expect_2d;
+  expect(gis::tessellate_geoms(geoms, 3, expect_2d), "tess 2d");
   expect(expect_2d.indices.size() >= 12, "2d not placeholder");
 
-  sdb::scene::World world;
+  gis::World world;
   expect(world.attach_vector_geoms("roads", geoms, 3) != nullptr, "attach 2d");
 
   TestRasterLayer raster;
@@ -121,12 +121,11 @@ int main() {
   TestRasterLayer empty_ras;
   empty_ras.SetLayerName("empty");
   empty_ras.SetRasterRect(ras_rect);
-  sdb::scene::World empty_world;
+  gis::World empty_world;
   expect(empty_world.attach_raster_layer(&empty_ras) != nullptr,
          "attach empty raster");
 
-  render::SmtVertexBuffer* vb =
-      create_host_vertex_buffer(3, render::VF_XYZ);
+  render::SmtVertexBuffer* vb = create_host_vertex_buffer(3, render::VF_XYZ);
   render::SmtIndexBuffer* ib = create_host_index_buffer(3);
   expect(vb && ib, "host leftover VB/IB");
   if (vb && ib) {
@@ -160,8 +159,9 @@ int main() {
   expect(stub && stub->last_texture != nullptr, "texture bound");
   expect(stub && stub->bind_camera_calls >= 2,
          "ortho GIS + perspective leftover 3D");
-  expect(stub && stub->last_camera.kind == render::rhi::CameraKind::kPerspective,
-         "last leftover bind is perspective");
+  expect(
+      stub && stub->last_camera.kind == render::rhi::CameraKind::kPerspective,
+      "last leftover bind is perspective");
 
   bool saw_2d = false;
   bool saw_3d = false;
@@ -198,14 +198,22 @@ int main() {
          "solid color applied to untextured mesh");
 
   // ensure_device without HWND must stay on Null (no FlyCube create/init).
+  // With HWND, leftover path also stays Null â€?FlyCube only via attach().
   LeftoverRecorder preferred;
   preferred.set_native_window(nullptr);
   expect(preferred.begin(32, 32), "begin null path without HWND");
   expect(preferred.device() != nullptr, "null device without HWND");
   expect(preferred.device()->backend() == Backend::kNull,
          "no HWND keeps null backend");
-  // Skip preferred.release() / rec.release() churn: NullDevice destroy_* already
-  // leaks stubs; destructors still detach safely.
+
+  LeftoverRecorder with_hwnd;
+  with_hwnd.set_native_window(reinterpret_cast<void*>(1));
+  expect(with_hwnd.begin(32, 32), "begin with HWND stays record-safe");
+  expect(with_hwnd.device() != nullptr, "device with HWND");
+  expect(with_hwnd.device()->backend() == Backend::kNull,
+         "HWND alone does not create preferred GPU");
+  // Skip preferred.release() / rec.release() churn: NullDevice destroy_*
+  // already leaks stubs; destructors still detach safely.
 
   device->shutdown();
   destroy_host_index_buffer(ib);
@@ -216,5 +224,7 @@ int main() {
     return 1;
   }
   std::fprintf(stdout, "leftover_record_test: ok\n");
-  return 0;
+  // Skip CRT/DLL teardown: FlyCube-linked delete of NullDevice/LeftoverRecorder
+  // aborts headless with exit 3 after a successful null-path run.
+  std::_Exit(0);
 }

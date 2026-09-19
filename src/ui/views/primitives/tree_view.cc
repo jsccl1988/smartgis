@@ -1,14 +1,14 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/tree_view.h"
+#include "ui/views/primitives/tree_view.h"
 
 #include <algorithm>
 
 #include "render/skia/canvas.h"
-#include "ui/views/scroll_view.h"
-#include "ui/views/theme.h"
-#include "ui/views/widget.h"
+#include "ui/views/primitives/scroll_view.h"
+#include "ui/views/kernel/theme.h"
+#include "ui/views/kernel/widget.h"
 
 namespace ui {
 namespace views {

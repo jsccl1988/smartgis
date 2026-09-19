@@ -16,7 +16,7 @@
 
 #include <cstring>
 
-using namespace sdb;
+using namespace gis;
 using namespace sys;
 
 const string							CST_STR_MAPPRINT_AM_NAME	= "��ͼ��ӡ";

@@ -5,7 +5,7 @@
 
 #include "base/core/api.h"
 #include "base/core/listenermanager.h"
-#include "sdb/carto/stylemanager.h"
+#include "base/carto/stylemanager.h"
 #include "plugin/host/legacy_cmd.h"
 #include "plugin/legacy/orthogrid/creater.h"
 #include "plugin/legacy/plugin_msg.h"
@@ -17,7 +17,7 @@
 #include "legacy/ui/xcatalog/mapmgr.h"
 #include "legacy/ui/xview/view_2d_edit.h"
 
-using namespace sdb;
+using namespace gis;
 using namespace sys;
 using namespace base;
 using namespace ui;

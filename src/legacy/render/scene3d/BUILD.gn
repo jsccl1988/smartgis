@@ -11,8 +11,18 @@ source_set("scene3d_sources") {
     "bl3d_sceneocttreenode.cpp",
     "bl3d_vertexocttree.cpp",
     "bl3d_vertextreenode.cpp",
+    "dem_height_field.cc",
+    "dem_height_field.h",
+    "dem_to_world.cc",
+    "dem_to_world.h",
+    "map_label_batch.cc",
+    "map_label_batch.h",
     "map_to_scene.cc",
     "map_to_scene.h",
+    "scene_to_world.cc",
+    "scene_to_world.h",
+    "stereo_terrain.cc",
+    "stereo_terrain.h",
   ]
   configs += [
     "//build:legacy",
@@ -25,8 +35,8 @@ source_set("scene3d_sources") {
     "//src/legacy/render/model3d:model3d_sources",
     "//src/legacy/render/render3d:render3d_sources",
     "//src/render/math:bounds",
-    "//src/sdb/carto:carto",
-    "//src/sdb/datasource/gdal:ogr_codec",
+    "//src/base/carto:carto",
+    "//src/gis/datasource/gdal:ogr_codec",
     "//third_party:gdal",
   ]
 }

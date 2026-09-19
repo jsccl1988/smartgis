@@ -1,0 +1,23 @@
+﻿D  src/ui/views/gis/add_basemap_dialog.cc
+ M src/ui/views/gis/ambox_view.cc
+AM src/ui/views/gis/ambox_view.h
+D  src/ui/views/gis/att_struct_dialog.cc
+ M src/ui/views/gis/attribute_table.cc
+AM src/ui/views/gis/attribute_table.h
+ M src/ui/views/gis/catalog_view.cc
+AM src/ui/views/gis/catalog_view.h
+ M src/ui/views/gis/chart_view.cc
+AM src/ui/views/gis/chart_view.h
+D  src/ui/views/gis/create_datasource_dialog.cc
+D  src/ui/views/gis/create_layer_dialog.cc
+D  src/ui/views/gis/create_map_dialog.cc
+ M src/ui/views/gis/feature_info.cc
+AM src/ui/views/gis/feature_info.h
+ M src/ui/views/gis/layer_tree.cc
+AM src/ui/views/gis/layer_tree.h
+ M src/ui/views/gis/status_bar.cc
+AM src/ui/views/gis/status_bar.h
+RM src/ui/views/gis/map_viewport.cc -> src/ui/views/map/map_viewport.cc
+AM src/ui/views/map/map_viewport.h
+?? src/ui/views/map/touch_multitouch.cc
+?? src/ui/views/map/touch_multitouch.h

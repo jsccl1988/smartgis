@@ -20,17 +20,15 @@ using namespace tool;
 
 //////////////////////////////////////////////////////////////////////////
 
-#define SMT_IATOOL_MSG_BROADCAST			((SmtIATool *)0xFFFF) 
-#define SMT_IATOOL_MSG_INVALID				((SmtIATool *)0x0000) 
+#define SMT_IATOOL_MSG_BROADCAST ((SmtIATool *)0xFFFF)
+#define SMT_IATOOL_MSG_INVALID ((SmtIATool *)0x0000)
 
-#define	SMT_POST_IATOOL_MSG(pIATool,lMsg,param)\
-{\
-	SmtIAToolManager * pIAToolMgr = SmtIAToolManager::get_singleton_ptr();\
-	pIAToolMgr->notify(pIATool,lMsg,param);\
-}
-TOOL_EXPORT long post_ia_tool_msg(SmtIATool *pIATool,long lMsg,SmtListenerMsg &param);
+#define SMT_POST_IATOOL_MSG(pIATool, lMsg, param)                         \
+  {                                                                       \
+    SmtIAToolManager *pIAToolMgr = SmtIAToolManager::get_singleton_ptr(); \
+    pIAToolMgr->notify(pIATool, lMsg, param);                             \
+  }
+TOOL_EXPORT long post_ia_tool_msg(SmtIATool *pIATool, long lMsg,
+                                  SmtListenerMsg &param);
 
-#endif //_T_MSG_H
-
-
-
+#endif  //_T_MSG_H

@@ -1,5 +1,5 @@
 /*
-File:   gt_grouptoolfactory.h 
+File:   gt_grouptoolfactory.h
 
 Desc:   ���ߴ�������
 
@@ -21,37 +21,33 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 using namespace tool;
 
-enum GroupToolType
-{
-	GTT_InputPoint,
-	GTT_InputLine,
-	GTT_InputRegion,
-	GTT_AppendFeature,
-	GTT_ViewControl,
-	GTT_Flash,
-	GTT_Select,
+enum GroupToolType {
+  GTT_InputPoint,
+  GTT_InputLine,
+  GTT_InputRegion,
+  GTT_AppendFeature,
+  GTT_ViewControl,
+  GTT_Flash,
+  GTT_Select,
 };
 
-enum GroupTool3DType
-{
-	GTT_3DViewControl,
+enum GroupTool3DType {
+  GTT_3DViewControl,
 };
 
+class TOOL_GROUP_EXPORT SmtGroupToolFactory {
+ public:
+  // create
+  static int CreateGroupTool(SmtBaseTool*& pTool, GroupToolType type);
+  static int CreateGroup3DTool(SmtBase3DTool*& pTool, GroupTool3DType type);
 
-class TOOL_GROUP_EXPORT SmtGroupToolFactory
-{
-public:
-	//create
-	static int               CreateGroupTool(SmtBaseTool* & pTool,GroupToolType type);
-	static int               CreateGroup3DTool(SmtBase3DTool* & pTool,GroupTool3DType type);
+  // destroy
+  static int DestoryGroupTool(SmtBaseTool*& pTool);
+  static int DestoryGroup3DTool(SmtBase3DTool*& pTool);
 
-	//destroy
-	static int               DestoryGroupTool(SmtBaseTool* & pTool);
-	static int               DestoryGroup3DTool(SmtBase3DTool* & pTool);
-
-private:
-	SmtGroupToolFactory(void);
-	virtual ~SmtGroupToolFactory(void);
+ private:
+  SmtGroupToolFactory(void);
+  virtual ~SmtGroupToolFactory(void);
 };
 
-#endif //_GT_GROUPTOOLFACTORY_H
+#endif  //_GT_GROUPTOOLFACTORY_H

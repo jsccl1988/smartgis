@@ -3,10 +3,10 @@
 
 #include "legacy/render/bridge/leftover_mesh.h"
 
+#include <vector>
+
 #include "legacy/render/render3d/indexbuffer.h"
 #include "legacy/render/render3d/vertexbuffer.h"
-
-#include <vector>
 
 namespace render {
 namespace scene {
@@ -87,9 +87,7 @@ class HostVertexBuffer : public render::SmtVertexBuffer {
 class HostIndexBuffer : public render::SmtIndexBuffer {
  public:
   explicit HostIndexBuffer(int count)
-      : locked_(false),
-        count_(static_cast<ulong>(count)),
-        cursor_(nullptr) {
+      : locked_(false), count_(static_cast<ulong>(count)), cursor_(nullptr) {
     indices_.assign(static_cast<size_t>(count_), 0);
   }
 
@@ -140,7 +138,8 @@ bool upload_into(render::rhi::Device* device, const void* vb_data,
   LeftoverGpuMesh mesh;
   mesh.vertex =
       device->create_buffer(vb_bytes, render::rhi::BufferUsage::kVertex);
-  mesh.index = device->create_buffer(ib_bytes, render::rhi::BufferUsage::kIndex);
+  mesh.index =
+      device->create_buffer(ib_bytes, render::rhi::BufferUsage::kIndex);
   if (!mesh.vertex || !mesh.index) {
     destroy_leftover_mesh(device, &mesh);
     return false;
@@ -158,8 +157,7 @@ bool upload_into(render::rhi::Device* device, const void* vb_data,
 
 }  // namespace
 
-render::SmtVertexBuffer* create_host_vertex_buffer(int count,
-                                                     uint32_t format) {
+render::SmtVertexBuffer* create_host_vertex_buffer(int count, uint32_t format) {
   if (count <= 0) {
     return nullptr;
   }
@@ -184,8 +182,7 @@ void destroy_host_index_buffer(render::SmtIndexBuffer* ib) { delete ib; }
 
 bool upload_leftover_buffers(render::rhi::Device* device,
                              render::SmtVertexBuffer* vb,
-                             render::SmtIndexBuffer* ib,
-                             LeftoverGpuMesh* out) {
+                             render::SmtIndexBuffer* ib, LeftoverGpuMesh* out) {
   if (!device || !vb || !ib || !out) {
     return false;
   }
@@ -227,8 +224,7 @@ bool upload_xyz_mesh(render::rhi::Device* device, const float* xyz,
     return false;
   }
   const uint32_t stride = 3 * static_cast<uint32_t>(sizeof(float));
-  const uint32_t vb_bytes =
-      static_cast<uint32_t>(xyz_floats * sizeof(float));
+  const uint32_t vb_bytes = static_cast<uint32_t>(xyz_floats * sizeof(float));
   const uint32_t ib_bytes =
       static_cast<uint32_t>(index_count * sizeof(uint32_t));
   return upload_into(device, xyz, vb_bytes, stride, indices, ib_bytes,

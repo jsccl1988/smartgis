@@ -1,7 +1,7 @@
 /*
-File:    gl_multitexturefunc.h 
+File:    gl_multitexturefunc.h
 
-Desc:    
+Desc:
 
 Version: Version 1.0
 
@@ -17,23 +17,21 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 #include "legacy/render/gl/gl_prerequisites.h"
 
-namespace render
-{
-	class SmtGLRenderDevice;
-	typedef class SmtGLRenderDevice *LPGLRENDERDEVICE;
+namespace render {
+class SmtGLRenderDevice;
+typedef class SmtGLRenderDevice *LPGLRENDERDEVICE;
 
-	class SmtMultitextureFunc
-	{
-	public:
-		SmtMultitextureFunc();
-		virtual ~SmtMultitextureFunc();
+class SmtMultitextureFunc {
+ public:
+  SmtMultitextureFunc();
+  virtual ~SmtMultitextureFunc();
 
-	public:
-		virtual long		Initialize(LPGLRENDERDEVICE pGLRenderDevice);
+ public:
+  virtual long Initialize(LPGLRENDERDEVICE pGLRenderDevice);
 
-	public:
-		virtual void		glActiveTexture(GLenum texture);
-	};
-}
+ public:
+  virtual void glActiveTexture(GLenum texture);
+};
+}  // namespace render
 
-#endif //_MULTITEXTURE_FUNCS_H
+#endif  //_MULTITEXTURE_FUNCS_H

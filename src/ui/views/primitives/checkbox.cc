@@ -1,10 +1,10 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/checkbox.h"
+#include "ui/views/primitives/checkbox.h"
 
 #include "render/skia/canvas.h"
-#include "ui/views/theme.h"
+#include "ui/views/kernel/theme.h"
 
 namespace ui {
 namespace views {

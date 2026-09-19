@@ -1,4 +1,5 @@
 #include "stdafx.h"
+
 #include "legacy/ui/mfc_ex/stacked_wnd_dock_bar.h"
 
 #ifdef _DEBUG
@@ -11,65 +12,58 @@ static char THIS_FILE[] = __FILE__;
 // CCatalogDockBar
 
 BEGIN_MESSAGE_MAP(StackedWndDockBar, CBCGPOutlookBar)
-	//{{AFX_MSG_MAP(CCatalogDockBar)
-	//}}AFX_MSG_MAP
-	//	ON_WM_CONTEXTMENU()
+//{{AFX_MSG_MAP(CCatalogDockBar)
+//}}AFX_MSG_MAP
+//	ON_WM_CONTEXTMENU()
 END_MESSAGE_MAP()
 
 /////////////////////////////////////////////////////////////////////////////
 // CCatalogDockBar construction/destruction
 
-StackedWndDockBar::StackedWndDockBar()
-{
-	// TODO: add one-time construction code here
-	m_nToolBoxPage = -1;
-
+StackedWndDockBar::StackedWndDockBar() {
+  // TODO: add one-time construction code here
+  m_nToolBoxPage = -1;
 }
 
-StackedWndDockBar::~StackedWndDockBar()
-{
-	vector<CWnd*>::iterator iter = m_vWndPtrs.begin();
-	while(iter != m_vWndPtrs.end())
-	{
-		if (*iter)
-		{
-			(*iter)->DestroyWindow();
-			SMT_SAFE_DELETE(*iter);
-		}
-		iter++;
-	}
+StackedWndDockBar::~StackedWndDockBar() {
+  vector<CWnd*>::iterator iter = m_vWndPtrs.begin();
+  while (iter != m_vWndPtrs.end()) {
+    if (*iter) {
+      (*iter)->DestroyWindow();
+      SMT_SAFE_DELETE(*iter);
+    }
+    iter++;
+  }
 
-	m_vWndPtrs.clear();
+  m_vWndPtrs.clear();
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // StackedWndDockBar message handlers
-void StackedWndDockBar::OnContextMenu(CWnd* /*pWnd*/, CPoint /*point*/)
-{
-	// TODO: �ڴ˴�������Ϣ�����������
+void StackedWndDockBar::OnContextMenu(CWnd* /*pWnd*/, CPoint /*point*/) {
+  // TODO: �ڴ˴�������Ϣ�����������
 }
 
 //////////////////////////////////////////////////////////////////////////
-bool StackedWndDockBar::AddWnd(CWnd* pWnd,CString strTitle)
-{
-	if (pWnd == NULL)
-	{
-		return false;
-	}
+bool StackedWndDockBar::AddWnd(CWnd* pWnd, CString strTitle) {
+  if (pWnd == NULL) {
+    return false;
+  }
 
-	m_vWndPtrs.push_back(pWnd);
+  m_vWndPtrs.push_back(pWnd);
 
-	CBCGPOutlookWnd* pContainer = DYNAMIC_DOWNCAST (CBCGPOutlookWnd,GetUnderlyingWindow ());
+  CBCGPOutlookWnd* pContainer =
+      DYNAMIC_DOWNCAST(CBCGPOutlookWnd, GetUnderlyingWindow());
 
-	if (pContainer == NULL)
-	{
-		TRACE0("Cannot get outlook bar container\n");
-		return false;
-	}
+  if (pContainer == NULL) {
+    TRACE0("Cannot get outlook bar container\n");
+    return false;
+  }
 
-	pContainer->AddControl(pWnd,strTitle,0, TRUE,CBRS_BCGP_FLOAT | CBRS_BCGP_AUTOHIDE | CBRS_BCGP_RESIZE);
-	pWnd->ShowWindow(SW_SHOW);
+  pContainer->AddControl(
+      pWnd, strTitle, 0, TRUE,
+      CBRS_BCGP_FLOAT | CBRS_BCGP_AUTOHIDE | CBRS_BCGP_RESIZE);
+  pWnd->ShowWindow(SW_SHOW);
 
-	return true;
+  return true;
 }
-

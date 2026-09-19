@@ -13,7 +13,7 @@ config("gpu_config") {
 }
 
 # Present + Track A/B paint. No //src/content:content dep. Track A parses
-# Style JSON via //src/sdb/style and Style `sources` via //src/sdb/tile
+# Style JSON via //src/gis/style and Style `sources` via //src/gis/tile
 # (sdb DLL). Headers under content/public are include-only.
 source_set("gpu_backend") {
   sources = [
@@ -29,8 +29,9 @@ source_set("gpu_backend") {
   public_configs = [ ":gpu_config" ]
   deps = [
     "//src/net:net",
-    "//src/sdb/style",
-    "//src/sdb/tile",
+    "//src/gis/style",
+    "//src/gis/tile",
+    "//src/gis/world:world",
   ]
   libs = [
     "d3d11.lib",

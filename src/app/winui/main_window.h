@@ -4,12 +4,15 @@
 #ifndef APP_WINUI_MAIN_WINDOW_H_
 #define APP_WINUI_MAIN_WINDOW_H_
 
+#include <winrt/Microsoft.UI.Dispatching.h>
+#include <winrt/Microsoft.UI.Windowing.h>
 #include <winrt/Microsoft.UI.Xaml.Controls.h>
 #include <winrt/Microsoft.UI.Xaml.h>
 
 #include <memory>
 #include <string_view>
 #include <thread>
+#include <atomic>
 
 #include "app/winui/detail/map_session.h"
 #include "app/winui/map_host.h"
@@ -71,6 +74,8 @@ class MainWindow {
   std::unique_ptr<MapHost> map_host_;
   content::MapContents* session_ = nullptr;
   std::thread render_thread_;
+  winrt::Microsoft::UI::Dispatching::DispatcherQueueTimer size_heal_timer_{
+      nullptr};
   int active_tab_ = 0;
 };
 

@@ -16,154 +16,146 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 #include "legacy/render/render3d/base.h"
 
-namespace render
-{
-	class Smt3DRenderDevice;
-	typedef class Smt3DRenderDevice *LP3DRENDERDEVICE;
+namespace render {
+class Smt3DRenderDevice;
+typedef class Smt3DRenderDevice *LP3DRENDERDEVICE;
 
-	//�������
-	class RENDER3D_EXPORT_CLASS SmtCamera
-	{
-	public:
-		SmtCamera(LP3DRENDERDEVICE	p3DRenderDevice,Viewport3D &viewport);
-		virtual ~SmtCamera(void);
+// �������
+class RENDER3D_EXPORT_CLASS SmtCamera {
+ public:
+  SmtCamera(LP3DRENDERDEVICE p3DRenderDevice, Viewport3D &viewport);
+  virtual ~SmtCamera(void);
 
-	public:
-		void					SetViewport(Viewport3D &viewport) {m_viewport = viewport;}
-		 
-	public:
-		virtual	long			Apply(void);	
+ public:
+  void SetViewport(Viewport3D &viewport) { m_viewport = viewport; }
 
-	protected:
-		LP3DRENDERDEVICE		m_p3DRenderDevice;
-		Viewport3D				m_viewport;
-	};
+ public:
+  virtual long Apply(void);
 
-	//�������
-	class  RENDER3D_EXPORT_CLASS SmtOrthCamera:public SmtCamera
-	{
-	public:
-		SmtOrthCamera(LP3DRENDERDEVICE	p3DRenderDevice,Viewport3D &viewport);
-		virtual ~SmtOrthCamera(void);
+ protected:
+  LP3DRENDERDEVICE m_p3DRenderDevice;
+  Viewport3D m_viewport;
+};
 
-	public:
-		inline void				SetIdentity(bool value) {m_bIdentity = value;}
-		inline bool				GetIdentity() {return m_bIdentity;}
-		inline void				SetInverse(bool value) {m_bInverse = value;}
-		inline bool				GetInverse() {return m_bInverse;}
+// �������
+class RENDER3D_EXPORT_CLASS SmtOrthCamera : public SmtCamera {
+ public:
+  SmtOrthCamera(LP3DRENDERDEVICE p3DRenderDevice, Viewport3D &viewport);
+  virtual ~SmtOrthCamera(void);
 
-	public:
-		virtual	long			Apply(void);	
+ public:
+  inline void SetIdentity(bool value) { m_bIdentity = value; }
+  inline bool GetIdentity() { return m_bIdentity; }
+  inline void SetInverse(bool value) { m_bInverse = value; }
+  inline bool GetInverse() { return m_bInverse; }
 
-	protected:
-		bool					m_bIdentity;
-		bool					m_bInverse;
-	};
+ public:
+  virtual long Apply(void);
 
-	//͸�����
-	class  RENDER3D_EXPORT_CLASS SmtPerspCamera:public SmtCamera
-	{
-	public:
-		SmtPerspCamera(LP3DRENDERDEVICE	p3DRenderDevice,Viewport3D &viewport);
-		virtual ~SmtPerspCamera(void);
+ protected:
+  bool m_bIdentity;
+  bool m_bInverse;
+};
 
-	public:
-		virtual	long			Apply(void);
+// ͸�����
+class RENDER3D_EXPORT_CLASS SmtPerspCamera : public SmtCamera {
+ public:
+  SmtPerspCamera(LP3DRENDERDEVICE p3DRenderDevice, Viewport3D &viewport);
+  virtual ~SmtPerspCamera(void);
 
-	public:
-		inline void				SetEye(Vector3& eye){ m_vEye = eye;}
-		inline Vector3&         GetEye(){ return m_vEye;}
+ public:
+  virtual long Apply(void);
 
-		inline void				SetUp(Vector3& up){ m_vUp = up;}
-		inline Vector3&         GetUp(){ return m_vUp;}
+ public:
+  inline void SetEye(Vector3 &eye) { m_vEye = eye; }
+  inline Vector3 &GetEye() { return m_vEye; }
 
-		inline void				SetTarget(Vector3& target){ m_vTarget = target;}
-		inline Vector3&         GetTarget() { return m_vTarget;}
+  inline void SetUp(Vector3 &up) { m_vUp = up; }
+  inline Vector3 &GetUp() { return m_vUp; }
 
-		inline void				SetETU(Vector3 &eye,Vector3 &target,Vector3 &up)
-		{
-			m_vEye = eye;
-			m_vUp = up;
-			m_vTarget = target;
-		}
+  inline void SetTarget(Vector3 &target) { m_vTarget = target; }
+  inline Vector3 &GetTarget() { return m_vTarget; }
 
-		inline	void			SetMoveStep(float fStep) {m_fMoveStep = fStep;}
-		inline	float			GetMoveStep(void) {return m_fMoveStep;}
+  inline void SetETU(Vector3 &eye, Vector3 &target, Vector3 &up) {
+    m_vEye = eye;
+    m_vUp = up;
+    m_vTarget = target;
+  }
 
-	public:
-		//�ƶ��۾�
-		void					MoveEyeSmoothly(bool bForward = true);
-		void					MoveEyeImmediately(float fDis);
+  inline void SetMoveStep(float fStep) { m_fMoveStep = fStep; }
+  inline float GetMoveStep(void) { return m_fMoveStep; }
 
-		//�ı��������
-		void                    Pitch(float angle);				//��x��
-		void                    Yaw(float angle);				//��y��
-		void                    Roll(float angle);				//��z��
+ public:
+  // �ƶ��۾�
+  void MoveEyeSmoothly(bool bForward = true);
+  void MoveEyeImmediately(float fDis);
 
-		//�Թ̶��Ӿ�
-		void                    MoveForward(void);
-		void                    MoveBack(void);
-		void                    MoveLeft(void);
-		void                    MoveRight(void);
-		void                    MoveUp(void);
-		void                    MoveDown(void);
-		
-	protected:
-		Vector3                 m_vEye;
-		Vector3                 m_vUp;
-		Vector3                 m_vTarget;
+  // �ı��������
+  void Pitch(float angle);  // ��x��
+  void Yaw(float angle);    // ��y��
+  void Roll(float angle);   // ��z��
 
-		float					m_fMoveStep;
-		float					m_fSmoothX;
-	};
+  // �Թ̶��Ӿ�
+  void MoveForward(void);
+  void MoveBack(void);
+  void MoveLeft(void);
+  void MoveRight(void);
+  void MoveUp(void);
+  void MoveDown(void);
 
-	//��һ�ӽ����
-	class  RENDER3D_EXPORT_CLASS SmtFPSCamera:public SmtPerspCamera
-	{
-	public:
-		SmtFPSCamera(LP3DRENDERDEVICE p3DRenderDevice,Viewport3D &viewport);
-		virtual ~SmtFPSCamera(void);
+ protected:
+  Vector3 m_vEye;
+  Vector3 m_vUp;
+  Vector3 m_vTarget;
 
-	public:
-		void					SetWinCenter(lPoint center) {m_winCenter = center;}
-		void					SetViewByMouse(void);
+  float m_fMoveStep;
+  float m_fSmoothX;
+};
 
-	private:
-		lPoint					m_winCenter;
-	};
+// ��һ�ӽ����
+class RENDER3D_EXPORT_CLASS SmtFPSCamera : public SmtPerspCamera {
+ public:
+  SmtFPSCamera(LP3DRENDERDEVICE p3DRenderDevice, Viewport3D &viewport);
+  virtual ~SmtFPSCamera(void);
 
-	//�������
-	class  RENDER3D_EXPORT_CLASS SmtArbvCamera:public SmtPerspCamera
-	{
-	public:
-		SmtArbvCamera(LP3DRENDERDEVICE	p3DRenderDevice,Viewport3D &viewport);
-		virtual ~SmtArbvCamera(void);
+ public:
+  void SetWinCenter(lPoint center) { m_winCenter = center; }
+  void SetViewByMouse(void);
 
-	public:
+ private:
+  lPoint m_winCenter;
+};
 
-		inline	void			SetArbitRaduis(float fRaduis) {m_fRaduis = fRaduis;}
-		inline	float			GetArbitRaduis(void) {return m_fRaduis;}
+// �������
+class RENDER3D_EXPORT_CLASS SmtArbvCamera : public SmtPerspCamera {
+ public:
+  SmtArbvCamera(LP3DRENDERDEVICE p3DRenderDevice, Viewport3D &viewport);
+  virtual ~SmtArbvCamera(void);
 
-	public:
-		void					SetArbitMove(long deltX,long deltY);
+ public:
+  inline void SetArbitRaduis(float fRaduis) { m_fRaduis = fRaduis; }
+  inline float GetArbitRaduis(void) { return m_fRaduis; }
 
-	private:
-		float					m_fRaduis;
-	};
+ public:
+  void SetArbitMove(long deltX, long deltY);
 
-	enum class View3dCameraKind { kPersp, kArbv, kFps };
+ private:
+  float m_fRaduis;
+};
 
-	RENDER3D_EXPORT_API SmtPerspCamera* make_view3d_camera(View3dCameraKind kind,
-	                                                 LP3DRENDERDEVICE device,
-	                                                 Viewport3D& viewport);
-}
+enum class View3dCameraKind { kPersp, kArbv, kFps };
+
+RENDER3D_EXPORT_API SmtPerspCamera *make_view3d_camera(View3dCameraKind kind,
+                                                       LP3DRENDERDEVICE device,
+                                                       Viewport3D &viewport);
+}  // namespace render
 
 #if !defined(RENDER3D_EXPORTS)
-#if     defined( _DEBUG)
-#          pragma comment(lib,"legacy_render_d.lib")
-#       else
-#          pragma comment(lib,"legacy_render.lib")
-#	    endif
+#if defined(_DEBUG)
+#pragma comment(lib, "legacy_render_d.lib")
+#else
+#pragma comment(lib, "legacy_render.lib")
+#endif
 #endif
 
-#endif //_RD3DCAMERA_H
+#endif  //_RD3DCAMERA_H

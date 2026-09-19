@@ -1,5 +1,5 @@
 /*
-File:    gl_indexbuffer.h 
+File:    gl_indexbuffer.h
 
 Desc:    SmtGLIndexBuffer,  opengl VertexBuffer ��
 
@@ -14,47 +14,45 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _GLINDEXBUFFER_H
 #define _GLINDEXBUFFER_H
 
-#include "legacy/render/render3d/indexbuffer.h"
 #include "legacy/render/gl/gl_prerequisites.h"
+#include "legacy/render/render3d/indexbuffer.h"
 
-namespace render
-{
-	class SmtGLIndexBuffer : public SmtIndexBuffer
-	{
-	protected:
-		SmtGLIndexBuffer();         
-		SmtGLIndexBuffer( const SmtGLIndexBuffer& );   
-		SmtGLIndexBuffer& operator =( const SmtGLIndexBuffer& ); 
+namespace render {
+class SmtGLIndexBuffer : public SmtIndexBuffer {
+ protected:
+  SmtGLIndexBuffer();
+  SmtGLIndexBuffer(const SmtGLIndexBuffer&);
+  SmtGLIndexBuffer& operator=(const SmtGLIndexBuffer&);
 
-	public:
-		SmtGLIndexBuffer( int count);
-		~SmtGLIndexBuffer();
+ public:
+  SmtGLIndexBuffer(int count);
+  ~SmtGLIndexBuffer();
 
-		long					PrepareForDrawing();
-		long					EndDrawing();
+  long PrepareForDrawing();
+  long EndDrawing();
 
-		long					Lock();
-		long					Unlock();
-		bool					IsLocked() const { return m_bLocked; }
+  long Lock();
+  long Unlock();
+  bool IsLocked() const { return m_bLocked; }
 
-		void*					GetIndexData();
-		ulong					GetIndexCount() const { return m_dwIndexCount; }
-		ulong					GetIndexStride() const { return m_dwStrideIndex; }
+  void* GetIndexData();
+  ulong GetIndexCount() const { return m_dwIndexCount; }
+  ulong GetIndexStride() const { return m_dwStrideIndex; }
 
-		void					Index(uint index);
+  void Index(uint index);
 
-	private: 
-		bool					m_bLocked;						// flag to specify if buffer is locked        
+ private:
+  bool m_bLocked;  // flag to specify if buffer is locked
 
-		ulong					m_dwIndexCount;					// number of vertex in buffer
-		ulong					m_dwStrideIndex;				// stride of entire index data
-		uint					*m_pIndex;						// pointer to head of current vertex
+  ulong m_dwIndexCount;   // number of vertex in buffer
+  ulong m_dwStrideIndex;  // stride of entire index data
+  uint* m_pIndex;         // pointer to head of current vertex
 
-		//----------------------------------------------------------------------
-		// OpenGL related members
-		//--
-		uint					*m_pGLIndex;					// Buffer containing index data
-	};
-}
+  //----------------------------------------------------------------------
+  // OpenGL related members
+  //--
+  uint* m_pGLIndex;  // Buffer containing index data
+};
+}  // namespace render
 
-#endif //_GLINDEXBUFFER_H
+#endif  //_GLINDEXBUFFER_H

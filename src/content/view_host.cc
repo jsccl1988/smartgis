@@ -4,7 +4,7 @@
 #include "content/public/view_host.h"
 
 #include "content/public/event_bus.h"
-#include "sdb/edit/edit_session.h"
+#include "gis/edit/edit_session.h"
 #include "tool/legacy_msg.h"
 #include "tool/workspace.h"
 
@@ -12,18 +12,18 @@ namespace content {
 
 struct ViewHost::Impl {
   EventBus events;
-  std::unique_ptr<sdb::MemoryEditSession> owned;
-  sdb::EditSession* edits = nullptr;
+  std::unique_ptr<gis::MemoryEditSession> owned;
+  gis::EditSession* edits = nullptr;
   std::unique_ptr<tool::Workspace> workspace;
 };
 
 ViewHost::ViewHost() : ViewHost(nullptr) {}
 
-ViewHost::ViewHost(sdb::EditSession* edits) : impl_(std::make_unique<Impl>()) {
+ViewHost::ViewHost(gis::EditSession* edits) : impl_(std::make_unique<Impl>()) {
   if (edits) {
     impl_->edits = edits;
   } else {
-    impl_->owned = std::make_unique<sdb::MemoryEditSession>();
+    impl_->owned = std::make_unique<gis::MemoryEditSession>();
     impl_->edits = impl_->owned.get();
   }
   impl_->workspace =
@@ -36,7 +36,7 @@ EventBus* ViewHost::events() {
   return impl_ ? &impl_->events : nullptr;
 }
 
-sdb::EditSession* ViewHost::edits() {
+gis::EditSession* ViewHost::edits() {
   return impl_ ? impl_->edits : nullptr;
 }
 
@@ -68,12 +68,7 @@ bool ViewHost::dispatch_input(const InputEvent& e) {
 }
 
 bool ViewHost::execute_legacy(long gt_msg) {
-  const char* id = tool::command_id_from_gt_msg(gt_msg);
-  if (!id) {
-    return false;
-  }
-  execute(id);
-  return true;
+  return tool::try_execute_gt_msg(workspace(), gt_msg);
 }
 
 void ViewHost::release_exclusive() {

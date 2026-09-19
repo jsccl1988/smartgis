@@ -1,10 +1,12 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Single AFX extension-DLL attach for ui_legacy (gui/mfc_ex/xview/xcatalog/xambox/chart).
+// Single AFX extension-DLL attach for ui_legacy
+// (gui/mfc_ex/xview/xcatalog/xambox/chart).
 
 #include "stdafx.h"
 #include <afxdllx.h>
+
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -18,8 +20,7 @@ extern HINSTANCE g_hInstance;
 
 static AFX_EXTENSION_MODULE SmtUiLegacyDLL = {NULL, NULL};
 
-extern "C" int APIENTRY DllMain(HINSTANCE hInstance,
-                                DWORD dwReason,
+extern "C" int APIENTRY DllMain(HINSTANCE hInstance, DWORD dwReason,
                                 LPVOID lpReserved) {
   UNREFERENCED_PARAMETER(lpReserved);
 

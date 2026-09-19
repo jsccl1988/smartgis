@@ -6,7 +6,7 @@ All rights reserved.
 # Views controls: public toolkit vs app composition
 
 **Date:** 2026-09-13  
-**Status:** accepted (three-phase implementation)  
+**Status:** accepted (three-phase implementation); **nesting note superseded** by [`2026-09-19-ui-views-subdir-responsibility-design.md`](2026-09-19-ui-views-subdir-responsibility-design.md) (headers live under `kernel` / `primitives` / `dialogs` / `gis` / `map`; includes `"ui/views/<area>/foo.h"`)  
 **Scope:** Make `src/ui/views` a reusable public toolkit (`ui::views`) and move GIS chrome panels out of hand-painted app code. This document covers all three phases at a high level. Product C++ is not specified here in full; follow the in-tree headers.
 
 ## Goal
@@ -25,18 +25,18 @@ Every chrome scheme in the multiprocess note stays supported: leftover MFC, View
 | `src/app/` leftover | MFC `SmartGis.exe` | `Smt_*` |
 | `src/render/skia` | Canvas backend for Views chrome (not a widget kit) | `render::skia` |
 
-Includes stay `"ui/views/foo.h"`. No public nest `src/ui/views/controls/` or `src/ui/views/widget/`. Physical folders `kernel/` / `primitives/` / `gis/` under `src/ui/views` hold `.cc` only; public headers stay at the module root (see `src/ui/views/README.md`).
+Includes use `"ui/views/<area>/foo.h"` (see 2026-09-19 subdir design). Do **not** add ad-hoc nests like `src/ui/views/controls/` or `src/ui/views/widget/`. Responsibility partitions `kernel/` / `primitives/` / `dialogs/` / `gis/` / `map/` / `testing/` hold colocated headers and sources (see `src/ui/views/README.md`).
 
 ```
 src/app/views          compose Widget + toolkit widgets
         │
         ▼
-src/ui/views           public ui::views (flat includes)
-  *.h at root; kernel/ | primitives/ | gis/ hold .cc only
-  View / Widget / Theme / primitives
+src/ui/views           public ui::views (partitioned includes)
+  views.h umbrella; kernel/ | primitives/ | dialogs/ | gis/ | map/
+  View / Widget / Theme / primitives / dialogs
   CatalogView / LayerTree / AttributeTable / FeatureInfo / StatusBar
   AmboxView / ChartView
-  MapViewport (native HWND hang; attach modes unchanged)
+  map/MapViewport (native HWND hang; attach modes unchanged)
         │
         ▼
 src/render/skia        fill / text only
@@ -116,7 +116,7 @@ These are public toolkit types (same include root). They consume `Theme` and pri
 | --- | --- |
 | Public API | `ui::views` (two levels; helpers in `detail` or anonymous) |
 | Functions | `snake_case`; C++23 |
-| Theme | Optional dark `Theme::current()`; GIS widgets include `"ui/views/theme.h"` |
+| Theme | Optional dark `Theme::current()`; GIS widgets include `"ui/views/kernel/theme.h"` |
 | Native combo | No HWND combobox; Combobox is a View + child list |
 | File/message | Win32 `GetOpenFileNameW` / `MessageBoxW` |
 | Tests | `views_unittests` (no MFC); app `--self-test` unchanged |

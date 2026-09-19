@@ -1,9 +1,13 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "legacy/render/bridge/leftover_record.h"
-
+#include <cstdint>
 #include <cstdio>
+
+#include "legacy/render/bridge/leftover_record.h"
+#include "legacy/render/bridge/renderdevice.h"
+#include "gis/map/map.h"
+#include "render/rhi/rhi.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -42,6 +46,8 @@ render::scene::LeftoverRecorder* smt_render_session() {
 }  // namespace
 
 int main() {
+  using render::bind_rhi_present;
+  using render::rhi::Backend;
   using render::scene::leftover_session;
   using render::scene::leftover_session_is_process_wide;
 
@@ -55,13 +61,41 @@ int main() {
   expect(&leftover_session() == &leftover_session(),
          "leftover_session is stable");
 
+  // Present strangler: Init(HWND) → session without FlyCube on shared HWND.
+  void* fake_hwnd = reinterpret_cast<void*>(static_cast<uintptr_t>(0x1234));
+  bind_rhi_present(fake_hwnd);
+  expect(leftover_session().native_window() == fake_hwnd,
+         "bind_rhi_present stores HWND");
+  expect(leftover_session().device() != nullptr,
+         "bind_rhi_present ensures recording Device");
+  expect(leftover_session().device()->backend() == Backend::kNull,
+         "bind_rhi_present stays on Null (no FlyCube on GDI HWND)");
+
   expect(leftover_session().begin(32, 32), "shared session begin");
   expect(leftover_session().is_open(), "session stays open across calls");
   expect(leftover_session().device() != nullptr, "shared Device");
   expect(leftover_session().list() != nullptr, "shared CommandList");
+  expect(leftover_session().device()->backend() == Backend::kNull,
+         "begin keeps Null after present bind");
   expect(exported && exported->device() == leftover_session().device(),
          "same Device pointer from both modules");
   leftover_session().finish();
+
+  // GDI RenderMap helper: empty map still opens Null session + finish.
+  gis::SmtMap empty_map;
+  expect(render::scene::leftover_record_map_frame(fake_hwnd, 16, 16,
+                                                  &empty_map),
+         "leftover_record_map_frame on Null");
+  expect(leftover_session().device() != nullptr,
+         "map frame keeps recording Device");
+  expect(leftover_session().device()->backend() == Backend::kNull,
+         "map frame stays Null after GDI paint helper");
+  expect(!render::scene::leftover_record_map_frame(fake_hwnd, 0, 16,
+                                                   &empty_map),
+         "map frame rejects zero size");
+  expect(!render::scene::leftover_record_map_frame(fake_hwnd, 16, 16, nullptr),
+         "map frame rejects null map");
+
   leftover_session().release();
 #else
   leftover_session();

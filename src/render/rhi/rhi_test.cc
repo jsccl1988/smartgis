@@ -184,6 +184,75 @@ int main() {
              stub->solid_b == 0.3f && stub->solid_a == 0.4f,
          "solid rgba values");
 
+  list->set_pipeline(render::rhi::PipelineId::kOcean);
+  list->set_blend_mode(render::rhi::BlendMode::kSrcAlpha);
+  list->set_depth_mode(render::rhi::DepthMode::kTestOnly);
+  render::rhi::OceanGpuParams ocean_p;
+  ocean_p.height_scale = 2.5f;
+  list->set_ocean_params(ocean_p);
+  render::rhi::CloudGpuParams cloud_p;
+  cloud_p.cover = 0.6f;
+  list->set_cloud_params(cloud_p);
+  expect(stub->set_pipeline_calls == 1, "set_pipeline recorded");
+  expect(stub->last_pipeline == render::rhi::PipelineId::kOcean,
+         "pipeline id ocean");
+  expect(stub->last_blend == render::rhi::BlendMode::kSrcAlpha, "blend srcA");
+  expect(stub->last_depth == render::rhi::DepthMode::kTestOnly, "depth test");
+  expect(stub->set_ocean_params_calls >= 1, "ocean params");
+  expect(stub->last_ocean.height_scale == 2.5f, "ocean height scale");
+  ocean_p.disp_scale = 1.75f;
+  list->set_ocean_params(ocean_p);
+  expect(stub->last_ocean.disp_scale == 1.75f, "ocean disp scale");
+  expect(stub->set_cloud_params_calls == 1, "cloud params");
+  expect(stub->last_cloud.cover == 0.6f, "cloud cover");
+
+  expect(!null->supports_compute(), "null supports_compute false");
+  list->set_compute_pipeline(render::rhi::ComputePipelineId::kOceanSpectrum);
+  render::rhi::OceanFftGpuParams fft_p;
+  fft_p.size = 32;
+  fft_p.log2_size = 5;
+  fft_p.spectrum_model =
+      static_cast<uint32_t>(render::rhi::OceanSpectrumModel::kJonswap);
+  fft_p.disp_scale = 0.9f;
+  fft_p.chop = 1.0f;
+  list->set_ocean_fft_params(fft_p);
+  list->bind_compute_uav(tex, 0);
+  list->dispatch(4, 4, 1);
+  list->uav_barrier();
+  expect(stub->set_compute_pipeline_calls == 1, "compute pipeline recorded");
+  expect(stub->last_compute_pipeline ==
+             render::rhi::ComputePipelineId::kOceanSpectrum,
+         "compute id spectrum");
+  expect(stub->set_ocean_fft_params_calls == 1, "fft params");
+  expect(stub->last_ocean_fft.size == 32, "fft size");
+  expect(stub->last_ocean_fft.spectrum_model ==
+             static_cast<uint32_t>(render::rhi::OceanSpectrumModel::kJonswap),
+         "jonswap model");
+  expect(stub->last_ocean_fft.disp_scale == 0.9f, "fft disp_scale");
+
+  list->set_compute_pipeline(
+      render::rhi::ComputePipelineId::kOceanDisplacementSpectrum);
+  list->dispatch(4, 4, 1);
+  expect(stub->last_compute_pipeline ==
+             render::rhi::ComputePipelineId::kOceanDisplacementSpectrum,
+         "displace pipeline");
+  expect(stub->bind_compute_uav_calls == 1, "bind uav");
+  expect(stub->dispatch_calls == 2, "dispatch");
+  expect(stub->last_dispatch_x == 4 && stub->last_dispatch_y == 4,
+         "dispatch groups");
+  expect(stub->uav_barrier_calls == 1, "uav barrier");
+
+  RenderPassDesc depth_pass;
+  depth_pass.width = 32;
+  depth_pass.height = 32;
+  depth_pass.enable_depth = true;
+  depth_pass.depth_load_op = render::rhi::DepthLoadOp::kClear;
+  list->begin_render_pass(depth_pass);
+  list->end_render_pass();
+  expect(stub->depth_enabled_pass_calls >= 1, "depth-enabled pass");
+  expect(stub->end_render_pass_calls >= 1, "end_render_pass counted");
+  expect(stub->begin_render_pass_calls >= 2, "multi begin_render_pass");
+
   // Same-frame 2D + 3D: one Device, one CommandList, one execute/submit.
   const uint32_t submits_before = null->execute_count();
   render::rhi::CommandList* frame = null->create_command_list();

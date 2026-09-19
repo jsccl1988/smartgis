@@ -1,0 +1,97 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Pure lon/lat ring tests — no GIS_EXPORTS. Leftover DEM + Views both compile this in.
+source_set("land_mask") {
+  sources = [
+    "land_mask.cc",
+    "land_mask.h",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+# Compiled into //src/gis:gis (dll_stem = gis).
+source_set("world_sources") {
+  sources = [
+    "dem_raster.cc",
+    "dem_raster.h",
+    "scene.cc",
+    "scene.h",
+    "tessellate.cc",
+    "tessellate.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+    "SDB_EXPORTS",
+  ]
+  public_deps = [
+    "//src/gis/assets:assets_sources",
+    "//third_party:gdal",
+  ]
+  deps = [
+    ":land_mask",
+    "//src/algorithm/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/datasource/gdal:ogr_codec",
+  ]
+}
+
+group("world") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+# Legacy GN alias (former scene group name).
+group("scene") {
+  public_deps = [ ":world" ]
+}
+
+test("scene_test") {
+  output_name = "scene_test"
+  sources = [ "scene_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":world",
+    "//src/algorithm/geo:geo",
+    "//src/base:base",
+    "//third_party:gdal",
+  ]
+}
+
+test("land_mask_test") {
+  output_name = "land_mask_test"
+  sources = [ "land_mask_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":land_mask" ]
+}
+
+test("dem_raster_test") {
+  output_name = "dem_raster_test"
+  sources = [ "dem_raster_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":world",
+    "//third_party:gdal",
+  ]
+}
+
+test("tessellate_style_test") {
+  output_name = "tessellate_style_test"
+  sources = [ "tessellate_style_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":world",
+    "//src/base:base",
+    "//third_party:gdal",
+  ]
+}

@@ -8,6 +8,7 @@
 #include <cstring>
 #include <string>
 #include <thread>
+#include <atomic>
 
 #include <winrt/Microsoft.UI.Dispatching.h>
 #include <winrt/Microsoft.UI.Windowing.h>
@@ -88,23 +89,27 @@ constexpr int kMinWindowWidth = 1024;
 constexpr int kMinWindowHeight = 700;
 
 void ensure_usable_window_size(
-    ::winrt::Microsoft::UI::Xaml::Window const& window) {
+    ::winrt::Microsoft::UI::Xaml::Window const& window,
+    HWND native_hwnd) {
   try {
     auto app_window = window.AppWindow();
-    if (!app_window) {
-      return;
-    }
-    if (auto presenter =
-            app_window.Presenter()
-                .try_as<::winrt::Microsoft::UI::Windowing::OverlappedPresenter>()) {
-      presenter.PreferredMinimumWidth(kMinWindowWidth);
-      presenter.PreferredMinimumHeight(kMinWindowHeight);
-    }
-    const auto size = app_window.Size();
-    if (size.Width < kMinWindowWidth || size.Height < kMinWindowHeight) {
+    if (app_window) {
+      if (auto presenter =
+              app_window.Presenter()
+                  .try_as<::winrt::Microsoft::UI::Windowing::OverlappedPresenter>()) {
+        presenter.PreferredMinimumWidth(kMinWindowWidth);
+        presenter.PreferredMinimumHeight(kMinWindowHeight);
+      }
       app_window.Resize({kInitialWindowWidth, kInitialWindowHeight});
     }
   } catch (::winrt::hresult_error const&) {
+  }
+  // WinUI 3 unpackaged often ignores AppWindow.Resize (screenshot showed
+  // 512x320 with a 25px-tall map popup). Force the Win32 frame directly.
+  if (native_hwnd && IsWindow(native_hwnd)) {
+    SetWindowPos(native_hwnd, nullptr, 0, 0, kInitialWindowWidth,
+                 kInitialWindowHeight,
+                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
   }
 }
 
@@ -114,7 +119,7 @@ MainWindow::MainWindow() {
   window_ = ::winrt::Microsoft::UI::Xaml::Window();
   window_.Title(L"SmartGIS WinUI");
   // Early attempt — may be ignored until Activate; activate() re-applies.
-  ensure_usable_window_size(window_);
+  ensure_usable_window_size(window_, nullptr);
   try {
     map_host_ = std::make_unique<MapHost>();
     session_ = content::MapContents::Create();
@@ -132,11 +137,21 @@ MainWindow::MainWindow() {
 }
 
 MainWindow::~MainWindow() {
+  // Stop deferred size heal before tearing down the map HWND / session.
+  if (size_heal_timer_) {
+    size_heal_timer_.Stop();
+    size_heal_timer_ = nullptr;
+  }
   if (render_thread_.joinable()) {
     render_thread_.join();
   }
+  // Destroy MapHost (timers, child HWND, HostView users) before Shutdown
+  // deletes MapWidgetHostViewImpl — same pattern as BrowserView teardown to
+  // avoid late WM_TIMER / WM_PAINT heap corruption (STATUS_HEAP_CORRUPTION).
+  map_host_.reset();
   if (session_) {
     session_->Shutdown();
+    delete session_;
     session_ = nullptr;
   }
 }
@@ -145,30 +160,120 @@ void MainWindow::activate() {
   window_.Activate();
   // Constructor Resize is often discarded for WinUI 3 unpackaged windows;
   // apply again after Activate so Catalog+Ambox leave a real map column.
-  ensure_usable_window_size(window_);
+  ensure_usable_window_size(window_, native_hwnd());
   set_status(L"Starting GPU…");
   content::MapContents* session = session_;
-  auto queue = window_.DispatcherQueue();
   if (render_thread_.joinable()) {
     render_thread_.join();
   }
-  render_thread_ = std::thread([this, session, queue]() {
-    const bool ok = session && session->StartRenderProcess();
-    queue.TryEnqueue(
-        winrt::Microsoft::UI::Dispatching::DispatcherQueuePriority::Normal,
-        [this, ok]() {
-          ensure_usable_window_size(window_);
-          if (ok) {
-            attach_map();
-            set_status(L"Ready");
-          } else {
-            set_status(L"GPU failed (StartRenderProcess)");
-          }
-          if (map_host_) {
-            map_host_->sync_layout();
-          }
-        });
+
+  // Start GPU off the UI thread, but pump Win32 messages here until Hello
+  // returns — then attach_map() synchronously. TryEnqueue-only attach raced
+  // OnLaunched / --self-test (DispatcherQueue not drained → white slot /
+  // view_id=0 / map-frame-fail).
+  std::atomic<bool> gpu_done{false};
+  std::atomic<bool> gpu_ok{false};
+  render_thread_ = std::thread([session, &gpu_done, &gpu_ok]() {
+    gpu_ok.store(session && session->StartRenderProcess());
+    gpu_done.store(true);
   });
+
+  while (!gpu_done.load()) {
+    MSG msg;
+    while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+      TranslateMessage(&msg);
+      DispatchMessageW(&msg);
+    }
+    Sleep(10);
+  }
+  if (render_thread_.joinable()) {
+    render_thread_.join();
+  }
+
+  ensure_usable_window_size(window_, native_hwnd());
+  attach_map();
+  if (gpu_ok.load()) {
+    set_status(L"Ready");
+  } else {
+    set_status(L"GPU failed — local MapScene only");
+  }
+  // WinUI unpackaged keeps restoring ~512x320 at 240 DPI; AppWindow.Resize and
+  // a single SetWindowPos are overwritten. Pump + force-size until the frame
+  // is usable so the owned map popup is not a 25px strip.
+  {
+    HWND hwnd = native_hwnd();
+    for (int i = 0; i < 20; ++i) {
+      if (hwnd && IsWindow(hwnd)) {
+        SetWindowPos(hwnd, nullptr, 0, 0, kInitialWindowWidth,
+                     kInitialWindowHeight,
+                     SWP_NOMOVE | SWP_NOZORDER | SWP_SHOWWINDOW);
+      }
+      MSG msg;
+      while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+      }
+      if (map_host_) {
+        map_host_->sync_layout();
+      }
+      RECT wr = {};
+      if (hwnd && GetWindowRect(hwnd, &wr)) {
+        const int fw = wr.right - wr.left;
+        const int fh = wr.bottom - wr.top;
+        if (fw >= kMinWindowWidth && fh >= kMinWindowHeight) {
+          break;
+        }
+      }
+      Sleep(50);
+    }
+  }
+  if (map_host_) {
+    map_host_->sync_layout();
+    if (HWND child = map_host_->map_child_hwnd()) {
+      InvalidateRect(child, nullptr, FALSE);
+      UpdateWindow(child);
+    }
+  }
+  // After the XAML loop is alive, maximize / resize on the UI dispatcher.
+  // A worker-thread SetWindowPos raced WinUI init and could tear down the
+  // process; UI-thread AppWindow + SetWindowPos after a short timer is safe.
+  {
+    auto queue = window_.DispatcherQueue();
+    size_heal_timer_ = queue.CreateTimer();
+    size_heal_timer_.Interval(std::chrono::milliseconds(600));
+    size_heal_timer_.IsRepeating(false);
+    size_heal_timer_.Tick([this](auto&&, auto&&) {
+      size_heal_timer_.Stop();
+      HWND hwnd = native_hwnd();
+      // Prefer a large restored frame — Maximize races some WinAppSDK builds.
+      if (hwnd && IsWindow(hwnd)) {
+        ShowWindow(hwnd, SW_RESTORE);
+        SetWindowPos(hwnd, nullptr, 40, 40, kInitialWindowWidth,
+                     kInitialWindowHeight,
+                     SWP_NOZORDER | SWP_SHOWWINDOW);
+      }
+      try {
+        if (auto app_window = window_.AppWindow()) {
+          app_window.Resize({kInitialWindowWidth, kInitialWindowHeight});
+          if (auto presenter =
+                  app_window.Presenter()
+                      .try_as<::winrt::Microsoft::UI::Windowing::
+                                  OverlappedPresenter>()) {
+            presenter.PreferredMinimumWidth(kMinWindowWidth);
+            presenter.PreferredMinimumHeight(kMinWindowHeight);
+          }
+        }
+      } catch (::winrt::hresult_error const&) {
+      }
+      if (map_host_) {
+        map_host_->sync_layout();
+        if (HWND child = map_host_->map_child_hwnd()) {
+          InvalidateRect(child, nullptr, FALSE);
+        }
+      }
+    });
+    size_heal_timer_.Start();
+  }
 }
 
 HWND MainWindow::native_hwnd() const {
@@ -223,9 +328,11 @@ void MainWindow::select_map_tab(int index) {
     map_host_->show_kind(kind);
     map_host_->sync_layout();
     if (index == 2) {
+      map_host_->set_active_tool("view3d.trackball");
       run_tool_command("view3d.trackball");
       set_status(L"3D");
     } else {
+      map_host_->set_active_tool("view.pan");
       run_tool_command("view.pan");
       set_status(index == 0 ? L"Map Edit" : L"Data");
     }
@@ -246,7 +353,11 @@ bool MainWindow::run_tool_command(std::string_view command_id) {
     id = "view.pan";
   }
   try {
+    map_host_->set_active_tool(id);
     session_->ActivateTool(map_host_->view_id(), id.c_str());
+    if (id == "view.backend.rhi" || id == "view.backend.maplibre") {
+      session_->SetRenderBackend(id == "view.backend.maplibre" ? 1u : 0u);
+    }
   } catch (::winrt::hresult_error const&) {
     return false;
   }
@@ -254,6 +365,10 @@ bool MainWindow::run_tool_command(std::string_view command_id) {
     set_status(L"Selection cleared");
   } else if (id == "edit.append.point") {
     set_status(L"Committed");
+  } else if (id == "view.backend.maplibre") {
+    set_status(L"Render: MapLibre (Track A)");
+  } else if (id == "view.backend.rhi") {
+    set_status(L"Render: RHI (Track B)");
   } else {
     std::wstring w(L"Activated ");
     w.append(id.begin(), id.end());
@@ -345,6 +460,13 @@ void MainWindow::wire_menu() {
   auto scene_item = make_flyout(L"3D");
   scene_item.Click([this](auto&&, auto&&) { select_map_tab(2); });
   view_menu.Items().Append(scene_item);
+  auto rhi_item = make_flyout(L"RHI");
+  rhi_item.Click([this](auto&&, auto&&) { run_tool_command("view.backend.rhi"); });
+  view_menu.Items().Append(rhi_item);
+  auto maplibre_item = make_flyout(L"MapLibre");
+  maplibre_item.Click(
+      [this](auto&&, auto&&) { run_tool_command("view.backend.maplibre"); });
+  view_menu.Items().Append(maplibre_item);
   menu_bar_.Items().Append(view_menu);
 
   MenuBarItem tools_menu;
@@ -556,6 +678,8 @@ void MainWindow::build_chrome() {
   work.Children().Append(catalog_panel_);
 
   wire_map_tabs();
+  // Keep a usable map column even when Catalog+Ambox take fixed pixels.
+  map_column_.MinWidth(480);
   Grid::SetColumn(map_column_, 1);
   work.Children().Append(map_column_);
 

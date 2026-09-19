@@ -22,10 +22,10 @@ Copyright (c) 2010 CCL. All rights reserved.
 #include "base/core/bas_struct.h"
 #include "base/core/core.h"
 #include "ogrsf_frmts.h"
-#include "sdb/feature/feature.h"
+#include "gis/feature/feature.h"
 
 using namespace base;
-using namespace sdb;
+using namespace gis;
 
 #ifdef _AFXEXT  // support MFC
 //////////////////////////////////////////////////////////////////////////

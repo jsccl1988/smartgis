@@ -4,7 +4,7 @@
 #ifndef PLUGIN_PRINT_PRINT_PREVIEW_DIALOG_H_
 #define PLUGIN_PRINT_PRINT_PREVIEW_DIALOG_H_
 
-#include "ui/views/view.h"
+#include "ui/views/kernel/view.h"
 
 namespace plugin {
 

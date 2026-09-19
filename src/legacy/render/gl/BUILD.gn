@@ -51,6 +51,7 @@ source_set("render_gl_sources") {
     "//src/legacy/render/bridge:leftover_record",
     "//src/legacy/render/bridge:render_sources",
     "//src/legacy/render/render3d:render3d_sources",
+    "//src/gis/datasource/gdal:ogr_text_encoding",
     "//third_party:CxImage",
     "//third_party:khronos_gl",
   ]
@@ -72,7 +73,7 @@ test("gl_map_paint_test") {
   configs = [ "//build:legacy" ]
   deps = [
     "//src/legacy/render:legacy_render",
-    "//src/sdb:sdb",
+    "//src/gis:gis",
     "//testing/data:china_map_samples",
     "//third_party:gdal",
   ]

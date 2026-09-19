@@ -11,15 +11,19 @@ source_set("gdi_common_sources") {
     "gdi_aux_api.cpp",
     "gdi_bufpool.cpp",
     "gdi_renderbuf.cpp",
+    "map_carto2d.cc",
+    "map_carto2d.h",
   ]
   configs += [
     "//build:legacy",
     "//src/legacy/render:legacy_render_exports",
   ]
   defines = [ "_USRDLL" ]
+  include_dirs += [ "//src" ]
   deps = [
     "//src/base:base",
     "//src/base:core",
+    "//src/gis/datasource/gdal:ogr_text_encoding",
     "//third_party:CxImage",
   ]
 }
@@ -43,8 +47,8 @@ source_set("render_gdi_sources") {
     "//src/base:core",
     "//src/legacy/render/bridge:leftover_record",
     "//src/legacy/render/bridge:render_sources",
-    "//src/sdb/datasource/gdal:ogr_codec",
-    "//src/sdb/map:gis",
+    "//src/gis/datasource/gdal:ogr_codec",
+    "//src/gis/map:gis",
     "//third_party:CxImage",
     "//third_party:gdal",
   ]
@@ -52,6 +56,16 @@ source_set("render_gdi_sources") {
 
 group("render_gdi") {
   public_deps = [ "//src/legacy/render:legacy_render" ]
+}
+
+test("map_carto2d_test") {
+  output_name = "map_carto2d_test"
+  sources = [
+    "map_carto2d.cc",
+    "map_carto2d_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
 }
 
 # Hidden HWND + china_plp.geojson → GDI realtime paint must produce pixels.
@@ -62,8 +76,8 @@ test("gdi_map_paint_test") {
   configs = [ "//build:legacy" ]
   deps = [
     "//src/legacy/render:legacy_render",
-    "//src/sdb/datasource/gdal:ogr_codec",
-    "//src/sdb/map:gis",
+    "//src/gis/datasource/gdal:ogr_codec",
+    "//src/gis/map:gis",
     "//testing/data:china_map_samples",
     "//third_party:gdal",
   ]

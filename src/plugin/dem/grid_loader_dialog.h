@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include "ui/views/view.h"
+#include "ui/views/kernel/view.h"
 
 namespace content {
 class PluginHost;
@@ -20,7 +20,7 @@ class Textfield;
 
 namespace plugin {
 
-// Views dialog for height-map rasters → DEM grid processing.
+// Views dialog for height-map rasters 鈫?DEM grid processing.
 class GridLoaderDialog : public ui::views::View {
  public:
   explicit GridLoaderDialog(content::PluginHost* host);

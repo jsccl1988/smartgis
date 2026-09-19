@@ -14,8 +14,8 @@ Added three OGR DB provider enum values (`PROVIDER_POSTGRES`, `PROVIDER_GPKG`, `
 Created test + GN wiring without `ogr_connect.h` / `ogr_connect.cc`:
 
 ```
-ninja: error: '../src/sdb/datasource/gdal/ogr_connect.cc', needed by
-'obj/src/sdb/datasource/gdal/ogr_codec/ogr_connect.obj', missing and no known rule to make it
+ninja: error: '../src/gis/datasource/gdal/ogr_connect.cc', needed by
+'obj/src/gis/datasource/gdal/ogr_codec/ogr_connect.obj', missing and no known rule to make it
 Exit code: 1
 ```
 
@@ -36,7 +36,7 @@ All brief assertions pass: provider support flags, GDAL driver names, GPKG file 
 
 ## Implementation
 
-### Provider enum (`src/sdb/layer/layer.h`)
+### Provider enum (`src/gis/layer/layer.h`)
 
 Appended after `PROVIDER_MYSQL` (no reorder):
 
@@ -79,14 +79,14 @@ Shared helpers in anonymous namespace:
 - `ogr_codec` source_set — `ogr_connect.h/.cc`
 - `sde_gdal` shared library — `gdal_driver.cc/.h` (still returns `false`)
 - `sde_gdal_test` executable
-- `//:test_all` includes `//src/sdb/datasource/gdal:sde_gdal_test`
+- `//:test_all` includes `//src/gis/datasource/gdal:sde_gdal_test`
 
 **Build fixes beyond brief text (required for green build on MSVC /C++17):**
 
 1. `ogr_codec`: `configs += [ "//build:legacy" ]` + `public_configs` so `layer.h` transitive includes resolve for the test target.
 2. Extra link deps on `ogr_codec` / `sde_gdal_test`: `//src/algorithm/geo:geo`, `//src/base:base` (inline methods in `layer.h` pull geometry symbols).
 3. `snprintf` instead of `std::snprintf` (MSVC `/std:c++17` does not expose `std::snprintf`).
-4. Parent deps: `src/sdb/BUILD.gn` and `src/sdb/datasource/BUILD.gn` reference `sde_gdal` instead of removed `gdal_seam`.
+4. Parent deps: `src/gis/BUILD.gn` and `src/gis/datasource/BUILD.gn` reference `sde_gdal` instead of removed `gdal_seam`.
 
 ## Self-Review
 
@@ -96,14 +96,14 @@ Shared helpers in anonymous namespace:
 | No OgrDataSource / feature codec | Yes — only connect helpers |
 | `register_gdal_driver()` still false | Yes |
 | C++17 only (no concepts/NTTP/C++23) | Yes |
-| Namespaces / snake_case on new free functions | Yes — `sdb::datasource` |
+| Namespaces / snake_case on new free functions | Yes — `gis::datasource` |
 | Copyright headers on new files | Yes — 2026 Mogu Authors |
 | `build.bat te` green | Yes |
 | No second GDAL / SOCI / Qt | Yes |
 
 **Concerns:**
 
-- Commit includes `BUILD.gn`, `src/sdb/BUILD.gn`, `src/sdb/datasource/BUILD.gn`, and `gdal_driver.*` in addition to brief `git add` list — required for GN graph and DLL stub to compile.
+- Commit includes `BUILD.gn`, `src/gis/BUILD.gn`, `src/gis/datasource/BUILD.gn`, and `gdal_driver.*` in addition to brief `git add` list — required for GN graph and DLL stub to compile.
 - `layer.h` committed as a new file (promoted layout); enum append is the functional change for this task.
 - Initial mistaken commit including unrelated staged renames was reset; final commit `6cb270b` contains only 10 task-scoped files.
 
@@ -111,15 +111,15 @@ Shared helpers in anonymous namespace:
 
 | File | Action |
 | --- | --- |
-| `src/sdb/layer/layer.h` | Modified — provider enum values |
-| `src/sdb/datasource/gdal/ogr_connect.h` | Created — traits + free fn declarations |
-| `src/sdb/datasource/gdal/ogr_connect.cc` | Created — trait bodies + dispatch |
-| `src/sdb/datasource/gdal/sde_gdal_test.cc` | Created — connect checks test |
-| `src/sdb/datasource/gdal/BUILD.gn` | Created — ogr_codec, sde_gdal, test |
-| `src/sdb/datasource/gdal/gdal_driver.h/.cc` | Created — stub (pre-existing seam) |
+| `src/gis/layer/layer.h` | Modified — provider enum values |
+| `src/gis/datasource/gdal/ogr_connect.h` | Created — traits + free fn declarations |
+| `src/gis/datasource/gdal/ogr_connect.cc` | Created — trait bodies + dispatch |
+| `src/gis/datasource/gdal/sde_gdal_test.cc` | Created — connect checks test |
+| `src/gis/datasource/gdal/BUILD.gn` | Created — ogr_codec, sde_gdal, test |
+| `src/gis/datasource/gdal/gdal_driver.h/.cc` | Created — stub (pre-existing seam) |
 | `BUILD.gn` | Created — test_all wiring |
-| `src/sdb/BUILD.gn` | Created — sde_gdal dep |
-| `src/sdb/datasource/BUILD.gn` | Created — sde_gdal dep |
+| `src/gis/BUILD.gn` | Created — sde_gdal dep |
+| `src/gis/datasource/BUILD.gn` | Created — sde_gdal dep |
 
 ## Co-author trailer fix (review finding)
 

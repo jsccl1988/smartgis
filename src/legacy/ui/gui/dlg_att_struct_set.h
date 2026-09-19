@@ -2,9 +2,9 @@
 
 #include <vector>
 
-#include "ogrsf_frmts.h"
 #include "legacy/ui/gui/resource.h"
 #include "legacy/ui/mfc_ex/grid_ctrl_support.h"
+#include "ogrsf_frmts.h"
 
 // MFC leftover field-schema editor backed by OGRFeatureDefn / OGRLayer.
 class CDlgAttStructSet : public CDialog {

@@ -38,8 +38,8 @@ source_set("leftover_record") {
     "//src/base:base",
     "//src/render:rhi",
     "//src/render/scene:scene",
-    "//src/sdb/map:gis",
-    "//src/sdb/scene:scene",
+    "//src/gis/map:gis",
+    "//src/gis/world:world",
   ]
 }
 
@@ -51,7 +51,7 @@ test("leftover_record_test") {
   deps = [
     ":leftover_record",
     "//src/algorithm/geo:geo",
-    "//src/sdb/map:gis",
+    "//src/gis/map:gis",
     "//third_party:gdal",
   ]
 }
@@ -75,7 +75,7 @@ source_set("render_sources") {
     "//src/base:base",
     "//src/base:core",
     "//src/render:rhi",
-    "//src/sdb/map:gis",
+    "//src/gis/map:gis",
   ]
 }
 

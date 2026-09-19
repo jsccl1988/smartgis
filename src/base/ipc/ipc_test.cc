@@ -102,10 +102,12 @@ void test_pickle_host_bodies() {
   p_in.x_px = -4;
   p_in.y_px = 8;
   p_in.dpi = 96.f;
+  p_in.pointer_count = 2;
   content::PointerEventWire p_out = {};
   const std::string pw = base::ipc::encode(p_in);
   expect(base::ipc::decode(pw.data(), pw.size(), &p_out), "pointer decode");
-  expect(p_out.t_qpc == 99 && p_out.x_px == -4 && p_out.dpi == 96.f,
+  expect(p_out.t_qpc == 99 && p_out.x_px == -4 && p_out.dpi == 96.f &&
+             p_out.pointer_count == 2,
          "pointer fields");
 
   content::ResizeSurfaceBody r_in;

@@ -160,6 +160,8 @@ class MapContentsImpl final : public MapContents {
   void ActivateTool(uint32_t view_id, const char* tool_id) override;
   void Activate(uint32_t view_id, const char* tool_id);
   void Dispatch(uint32_t view_id, const InputEvent& e) override;
+  void SetRenderBackend(uint32_t kind) override;
+  uint32_t RenderBackend() const override { return backend_kind_; }
 
   bool send_msg_empty(HostMsg type, uint32_t view_id);
   template <typename T>
@@ -238,6 +240,7 @@ class MapContentsImpl final : public MapContents {
   uint32_t hello_ok_ = 0;
   bool oop_ = false;
   std::wstring status_ = L"down";
+  uint32_t backend_kind_ = 0;
 };
 
 void MapWidgetHostViewImpl::Create(const CreateParams& params,
@@ -588,6 +591,14 @@ void MapContentsImpl::ActivateTool(uint32_t view_id, const char* tool_id) {
   Activate(view_id, tool_id);
 }
 
+void MapContentsImpl::SetRenderBackend(uint32_t kind) {
+  backend_kind_ = kind == 1u ? 1u : 0u;
+  RenderBackendWire body;
+  body.kind = backend_kind_;
+  // GPU process only — do not route through the renderer pipe.
+  pipe_.send_msg(HostMsg::kSetRenderBackend, 0, body);
+}
+
 void MapContentsImpl::Activate(uint32_t view_id, const char* tool_id) {
   ToolBody body;
   body.tool_id = tool_id ? tool_id : "";
@@ -604,6 +615,7 @@ void MapContentsImpl::Dispatch(uint32_t view_id, const InputEvent& e) {
   w.wheel = e.wheel;
   w.key = e.key;
   w.dpi = 96.f;
+  w.pointer_count = e.pointer_count;
   if (e.kind == InputEvent::Kind::kTextCommit) {
     send_tool_msg(HostMsg::kTextCommit, view_id, w);
     return;

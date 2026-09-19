@@ -8,99 +8,105 @@
 
 #if _MSC_VER > 1000
 #pragma once
-#endif // _MSC_VER > 1000
+#endif  // _MSC_VER > 1000
 
 #include "legacy/ui/mfc_ex/gridctrl/grid_btn_cell_base.h"
 
-class AFX_EXT_CLASS CGridBtnCell : public CGridBtnCellBase
-{
-    DECLARE_DYNCREATE(CGridBtnCell)
-public:
-    CGridBtnCell();
-    virtual ~CGridBtnCell();
+class AFX_EXT_CLASS CGridBtnCell : public CGridBtnCellBase {
+  DECLARE_DYNCREATE(CGridBtnCell)
+ public:
+  CGridBtnCell();
+  virtual ~CGridBtnCell();
 
-    virtual void Reset();
+  virtual void Reset();
 
-    virtual void operator=(CGridCellBase& cell)
-    {
-        CGridBtnCellBase::operator=( cell);
-    }
+  virtual void operator=(CGridCellBase& cell) {
+    CGridBtnCellBase::operator=(cell);
+  }
 
-public:
-    virtual void SetText(LPCTSTR szText)    { m_strText = szText; }
-    virtual LPCTSTR  GetText() const        { return static_cast<LPCTSTR>(m_strText); }
+ public:
+  virtual void SetText(LPCTSTR szText) { m_strText = szText; }
+  virtual LPCTSTR GetText() const { return static_cast<LPCTSTR>(m_strText); }
 
-    virtual void SetFormat(DWORD nFormat)   { m_nFormat = nFormat; }
-    virtual DWORD GetFormat() const         { return m_nFormat; }
+  virtual void SetFormat(DWORD nFormat) { m_nFormat = nFormat; }
+  virtual DWORD GetFormat() const { return m_nFormat; }
 
+  // for drawing things like buttons and check marks within a cell
+  //  you can have more than one control per cell
+ public:
+  virtual unsigned char GetDrawCtlNbrMax() { return NBR_CTLS; }
 
+  UINT GetDrawCtlType(int aiWhich) {
+    ASSERT(aiWhich < GetDrawCtlNbrMax());
+    return (UINT)(DrawCtl[aiWhich].ucType);
+  }
 
-// for drawing things like buttons and check marks within a cell
-//  you can have more than one control per cell
-public:
-    virtual unsigned char GetDrawCtlNbrMax() { return NBR_CTLS; }
+  void SetDrawCtlType(int aiWhich, UINT auiType) {
+    ASSERT(aiWhich < GetDrawCtlNbrMax());
+    DrawCtl[aiWhich].ucType = (unsigned char)auiType;
+  }
 
-    UINT GetDrawCtlType( int aiWhich)
-        { ASSERT( aiWhich < GetDrawCtlNbrMax());
-          return (UINT)(DrawCtl[ aiWhich].ucType); }
+  UINT GetDrawCtlState(int aiWhich) {
+    ASSERT(aiWhich < GetDrawCtlNbrMax());
+    return (UINT)(DrawCtl[aiWhich].sState);
+  }
 
-    void SetDrawCtlType( int aiWhich, UINT auiType)
-        { ASSERT( aiWhich < GetDrawCtlNbrMax());
-          DrawCtl[ aiWhich].ucType = (unsigned char)auiType; }
+  void SetDrawCtlState(int aiWhich, UINT auiState) {
+    ASSERT(aiWhich < GetDrawCtlNbrMax());
+    ASSERT(auiState < USHRT_MAX);
+    DrawCtl[aiWhich].sState = (short)auiState;
+  }
 
-    UINT GetDrawCtlState( int aiWhich)
-        { ASSERT( aiWhich < GetDrawCtlNbrMax());
-          return (UINT)(DrawCtl[ aiWhich].sState); }
+  int GetDrawCtlWidth(int aiWhich) {
+    ASSERT(aiWhich < GetDrawCtlNbrMax());
+    return DrawCtl[aiWhich].iWidth;
+  }
 
-    void SetDrawCtlState( int aiWhich, UINT auiState)
-        { ASSERT( aiWhich < GetDrawCtlNbrMax());
-          ASSERT( auiState < USHRT_MAX);
-          DrawCtl[ aiWhich].sState = (short)auiState; }
+  void SetDrawCtlWidth(int aiWhich, int aiWidth) {
+    ASSERT(aiWhich < GetDrawCtlNbrMax());
+    DrawCtl[aiWhich].iWidth = aiWidth;
+  }
 
-    int GetDrawCtlWidth( int aiWhich)
-        { ASSERT( aiWhich < GetDrawCtlNbrMax());
-          return DrawCtl[ aiWhich].iWidth; }
+  CTL_ALIGN GetDrawCtlAlign(int aiWhich) {
+    ASSERT(aiWhich < GetDrawCtlNbrMax());
+    return (CTL_ALIGN)DrawCtl[aiWhich].ucAlign;
+  }
 
-    void SetDrawCtlWidth( int aiWhich, int aiWidth)
-        { ASSERT( aiWhich < GetDrawCtlNbrMax());
-          DrawCtl[ aiWhich].iWidth = aiWidth; }
+  void SetDrawCtlAlign(int aiWhich, CTL_ALIGN aucAlign) {
+    ASSERT(aiWhich < GetDrawCtlNbrMax());
+    ASSERT(aucAlign < CTL_ALIGN_FENCE);
+    DrawCtl[aiWhich].ucAlign = (unsigned char)aucAlign;
+  }
 
-    CTL_ALIGN GetDrawCtlAlign( int aiWhich)
-        { ASSERT( aiWhich < GetDrawCtlNbrMax());
-          return (CTL_ALIGN) DrawCtl[ aiWhich].ucAlign; }
+  const char* GetDrawCtlBtnText(int aiWhich) {
+    ASSERT(aiWhich < GetDrawCtlNbrMax());
+    if (strBtnAry[aiWhich].IsEmpty()) return NULL;
+    return strBtnAry[aiWhich];
+  }
 
-    void SetDrawCtlAlign( int aiWhich, CTL_ALIGN aucAlign)
-        { ASSERT( aiWhich < GetDrawCtlNbrMax());
-          ASSERT( aucAlign < CTL_ALIGN_FENCE);
-          DrawCtl[ aiWhich].ucAlign = (unsigned char)aucAlign; }
+  void SetDrawCtlBtnText(int aiWhich, const char* apszText) {
+    ASSERT(aiWhich < GetDrawCtlNbrMax());
+    if (apszText == NULL) strBtnAry[aiWhich].Empty();
+    strBtnAry[aiWhich] = apszText;
+  }
 
-    const char* GetDrawCtlBtnText( int aiWhich)
-        { ASSERT( aiWhich < GetDrawCtlNbrMax());
-          if( strBtnAry[ aiWhich].IsEmpty())
-              return NULL;
-          return strBtnAry[ aiWhich]; }
+  BOOL GetDrawCtlIsMbrRadioGrp(int aiWhich) {
+    ASSERT(aiWhich < GetDrawCtlNbrMax());
+    return (BOOL)DrawCtl[aiWhich].ucIsMbrRadioGrp;
+  }
 
-    void SetDrawCtlBtnText( int aiWhich, const char* apszText)
-        { ASSERT( aiWhich < GetDrawCtlNbrMax());
-          if( apszText == NULL)
-              strBtnAry[ aiWhich].Empty();
-          strBtnAry[ aiWhich] = apszText; }
+  void SetDrawCtlIsMbrRadioGrp(int aiWhich, BOOL abOn) {
+    ASSERT(aiWhich < GetDrawCtlNbrMax());
+    DrawCtl[aiWhich].ucIsMbrRadioGrp = abOn ? 1 : 0;
+  }
 
-    BOOL GetDrawCtlIsMbrRadioGrp( int aiWhich)
-        { ASSERT( aiWhich < GetDrawCtlNbrMax());
-          return (BOOL)DrawCtl[ aiWhich].ucIsMbrRadioGrp; }
+ protected:
+  CString m_strText;  // Cell text (or binary data if you wish...)
+  DWORD m_nFormat;
+  enum { NBR_CTLS = 4 };
 
-    void SetDrawCtlIsMbrRadioGrp( int aiWhich, BOOL abOn)
-        { ASSERT( aiWhich < GetDrawCtlNbrMax());
-          DrawCtl[ aiWhich].ucIsMbrRadioGrp = abOn ? 1 : 0;}
-
-protected:
-    CString  m_strText;     // Cell text (or binary data if you wish...)
-    DWORD m_nFormat;
-    enum { NBR_CTLS = 4};
-
-    STRUCT_DRAWCTL DrawCtl[ NBR_CTLS]; // Stores draw control information
-    CString strBtnAry[ NBR_CTLS];         // button text -- for push buttons
+  STRUCT_DRAWCTL DrawCtl[NBR_CTLS];  // Stores draw control information
+  CString strBtnAry[NBR_CTLS];       // button text -- for push buttons
 };
 
-#endif // !defined(AFX_GRIDBTNCELL_H__937E4927_EF80_11D3_B75F_00C04F6A7AE6__INCLUDED_)
+#endif  // !defined(AFX_GRIDBTNCELL_H__937E4927_EF80_11D3_B75F_00C04F6A7AE6__INCLUDED_)

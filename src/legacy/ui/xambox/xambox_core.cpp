@@ -2,7 +2,9 @@
 
 #include "stdafx.h"
 #include "legacy/ui/xambox/xambox_core.h"
+
 #include <afxdllx.h>
+
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -12,8 +14,7 @@
 
 static AFX_EXTENSION_MODULE SmtXAMBoxCoreDLL = {NULL, NULL};
 
-extern "C" int APIENTRY DllMain(HINSTANCE hInstance,
-                                DWORD dwReason,
+extern "C" int APIENTRY DllMain(HINSTANCE hInstance, DWORD dwReason,
                                 LPVOID lpReserved) {
   UNREFERENCED_PARAMETER(lpReserved);
   if (dwReason == DLL_PROCESS_ATTACH) {

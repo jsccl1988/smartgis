@@ -1,7 +1,7 @@
 /*
-File:    gl_mipmapfuncimp.h 
+File:    gl_mipmapfuncimp.h
 
-Desc:    
+Desc:
 
 Version: Version 1.0
 
@@ -18,24 +18,21 @@ Copyright (c) 2010 CCL. All rights reserved.
 #include "legacy/render/gl/gl_mipmapfunc.h"
 #include "legacy/render/gl/gl_prerequisites.h"
 
-namespace render
-{
-	class SmtMipmapFuncImpl : public SmtMipmapFunc
-	{
-	public:
-		SmtMipmapFuncImpl();
-		virtual ~SmtMipmapFuncImpl();
+namespace render {
+class SmtMipmapFuncImpl : public SmtMipmapFunc {
+ public:
+  SmtMipmapFuncImpl();
+  virtual ~SmtMipmapFuncImpl();
 
-	public:
-		virtual long				Initialize(LPGLRENDERDEVICE pGLRenderDevice);
+ public:
+  virtual long Initialize(LPGLRENDERDEVICE pGLRenderDevice);
 
-	public:
-		virtual void				glGenerateMipmap(GLenum target);
+ public:
+  virtual void glGenerateMipmap(GLenum target);
 
-	private:
-		PFNGLGENERATEMIPMAPEXTPROC _glGenerateMipmap;
+ private:
+  PFNGLGENERATEMIPMAPEXTPROC _glGenerateMipmap;
+};
+}  // namespace render
 
-	};
-}
-
-#endif //_VSYNC_FUNCSIMP_H
+#endif  //_VSYNC_FUNCSIMP_H

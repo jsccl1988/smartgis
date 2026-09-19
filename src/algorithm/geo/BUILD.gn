@@ -7,6 +7,7 @@ import("//testing/test.gni")
 # Compiled into //src/algorithm:algorithm (dll_stem = algorithm).
 source_set("geo_sources") {
   sources = [
+    "geo_ops.cc",
     "grid.cpp",
     "tin.cpp",
   ]

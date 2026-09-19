@@ -2,39 +2,39 @@
 //
 
 #include "stdafx.h"
-#include "legacy/ui/xview/view_core.h"
 #include "legacy/ui/xview/view_2d.h"
 
 #include "base/core/core.h"
 #include "base/core/log.h"
-#include "sdb/carto/stylemanager.h"
+#include "legacy/ui/xview/view_core.h"
+#include "base/carto/stylemanager.h"
 #include "sys/sysmanager.h"
-namespace sdb {
+namespace gis {
 class SmtFeature;
 }
+#include <algorithm>
+#include <cstring>
 #include <vector>
 
 #include "base/core/api.h"
 #include "base/core/listenermanager.h"
 #include "content/public/view_host.h"
-#include "plugin/legacy/module_manager.h"
-#include "plugin/legacy/plugin_msg.h"
-#include "sdb/carto/style_api.h"
-#include "sdb/feature/feature.h"
-#include "sdb/map/map.h"
 #include "legacy/tool/group/defs.h"
 #include "legacy/tool/group/flashtool.h"
+#include "legacy/tool/group/selecttool.h"
+#include "legacy/tool/group/viewctrltool.h"
 #include "legacy/tool/t_iatoolmanager.h"
-#include "tool/workspace.h"
 #include "legacy/ui/xcatalog/mapmgr.h"
-
-#include <algorithm>
-#include <cstring>
-#include <vector>
+#include "plugin/legacy/module_manager.h"
+#include "plugin/legacy/plugin_msg.h"
+#include "base/carto/style_api.h"
+#include "gis/feature/feature.h"
+#include "gis/map/map.h"
+#include "tool/workspace.h"
 
 using namespace base;
 using namespace geo;
-using namespace sdb;
+using namespace gis;
 using namespace render;
 using namespace tool;
 using namespace sys;
@@ -85,6 +85,11 @@ void paint_aux_overlay(LPRENDERDEVICE device, const tool::AuxOverlay *overlay) {
 namespace ui {
 IMPLEMENT_DYNCREATE(Smt2DXView, SmtXView)
 
+namespace {
+// Posted after SetOperMap so framing runs outside OnInitialUpdate / nested pumps.
+constexpr UINT kMsgFrameOperMap = WM_APP + 0x2D01;
+}  // namespace
+
 static void Notify2DXViewOperMap(void *p2DXView, SmtMap *pMap) {
   if (p2DXView != NULL) static_cast<Smt2DXView *>(p2DXView)->SetOperMap(pMap);
 }
@@ -98,6 +103,8 @@ Smt2DXView::Smt2DXView() {
   m_pFlashTool = NULL;
 
   m_pSmtOperMap = NULL;
+  m_bOperMapFramed = false;
+  m_bFramingOperMap = false;
   m_uiRefreshTimer = 0;
   m_uiNotifyTimer = 0;
   ui::SmtMapMgr::get_singleton_ptr()->Set2DXViewNotify(&Notify2DXViewOperMap);
@@ -126,6 +133,7 @@ ON_WM_RBUTTONUP()
 ON_WM_CONTEXTMENU()
 ON_WM_SETCURSOR()
 ON_WM_ERASEBKGND()
+ON_MESSAGE(kMsgFrameOperMap, &Smt2DXView::OnFrameOperMap)
 
 END_MESSAGE_MAP()
 
@@ -187,6 +195,12 @@ void Smt2DXView::OnDestroy() {
 void Smt2DXView::OnSize(UINT nType, int cx, int cy) {
   SmtXView::OnSize(nType, cx, cy);
 
+  // frame_oper_map already Resize+ZoomToRect; a nested WM_SIZE must not
+  // wipe buffers mid-paint.
+  if (m_bFramingOperMap) {
+    return;
+  }
+
   if (m_pRenderDevice && cx > 0 && cy > 0) {
     SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
     SmtSysPra sysPra = pSysMgr->get_sys_pra();
@@ -204,7 +218,14 @@ void Smt2DXView::OnSize(UINT nType, int cx, int cy) {
 
     m_pRenderDevice->Resize(0, 0, cx, cy);
     m_pRenderDevice->SetRenderPra(rdPra);
-    m_pRenderDevice->RefreshDirectly(m_pSmtOperMap, lrt);
+    // Deferred PostMessage(EDIT) often runs SetOperMap before the child has
+    // a non-zero client size, so framing never ran. Finish it here once.
+    if (m_pSmtOperMap && !m_bOperMapFramed) {
+      LOGGING(LOG_INFO, "OnSize: framing oper map %dx%d", cx, cy);
+      frame_oper_map(/*realtime=*/true);
+    } else {
+      m_pRenderDevice->RefreshDirectly(m_pSmtOperMap, lrt);
+    }
   }
 }
 
@@ -228,6 +249,17 @@ void Smt2DXView::OnTimer(UINT_PTR nIDEvent) {
     } break;
     case 70: {
       if (m_pRenderDevice && m_bActive) {
+        // Catch the deferred-EDIT case: SetOperMap ran at 0x0 client and no
+        // later WM_SIZE arrived with a positive size.
+        if (m_pSmtOperMap && !m_bOperMapFramed) {
+          CRect client;
+          GetClientRect(&client);
+          if (client.Width() > 0 && client.Height() > 0) {
+            LOGGING(LOG_INFO, "OnTimer: deferred frame_oper_map %dx%d",
+                    client.Width(), client.Height());
+            frame_oper_map(/*realtime=*/true);
+          }
+        }
         SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
         SmtSysPra sysPra = pSysMgr->get_sys_pra();
         Smt2DRenderPra rdPra;
@@ -403,7 +435,7 @@ bool Smt2DXView::CreateMainMenu() {
 //////////////////////////////////////////////////////////////////////////
 bool Smt2DXView::CreateRender(void) {
   SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
-SmtSysPra sysPra = pSysMgr->get_sys_pra();
+  SmtSysPra sysPra = pSysMgr->get_sys_pra();
 
   string strMapRenderDevice = sysPra.str2DRenderDeviceName;
   m_pRenderer = new SmtRenderer(AfxGetInstanceHandle());
@@ -427,7 +459,7 @@ SmtSysPra sysPra = pSysMgr->get_sys_pra();
 }
 
 bool Smt2DXView::CreateTools(void) {
-SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
+  SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
 
   SmtGroupToolFactory::CreateGroupTool(m_pViewCtrlTool,
                                        GroupToolType::GTT_ViewControl);
@@ -460,8 +492,21 @@ SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
 
   m_pViewCtrlTool->SetActive();
 
+  // Close SP1b bind window: browse 2D gets a host so ViewCtrl/Select/Flash
+  // stay on Workspace pointers. Edit view may reset_view_host afterward.
+  if (!view_host()) {
+    reset_view_host(new content::ViewHost());
+  }
+  tool::Workspace *ws = view_host() ? view_host()->workspace() : NULL;
+  if (SmtViewCtrlTool *view_ctrl =
+          dynamic_cast<SmtViewCtrlTool *>(m_pViewCtrlTool)) {
+    view_ctrl->bind_workspace(ws);
+  }
+  if (SmtSelectTool *select = dynamic_cast<SmtSelectTool *>(m_pSelectTool)) {
+    select->bind_workspace(ws);
+  }
   if (SmtFlashTool *flash = dynamic_cast<SmtFlashTool *>(m_pFlashTool)) {
-    flash->bind_workspace(view_host() ? view_host()->workspace() : NULL);
+    flash->bind_workspace(ws);
   }
 
   LOGGING(LOG_INFO, "Init GroupTools ok!");
@@ -469,8 +514,66 @@ SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
   return true;
 }
 
+bool Smt2DXView::frame_oper_map(bool realtime) {
+  if (!m_pRenderDevice || !m_pSmtOperMap) {
+    return false;
+  }
+  if (m_bFramingOperMap) {
+    LOGGING(LOG_INFO, "frame_oper_map: re-entrant skip");
+    return false;
+  }
+  CRect client;
+  GetClientRect(&client);
+  const int cx = client.Width();
+  const int cy = client.Height();
+  if (cx <= 0 || cy <= 0) {
+    LOGGING(LOG_INFO, "frame_oper_map: skip (client %dx%d)", cx, cy);
+    return false;
+  }
+
+  m_bFramingOperMap = true;
+
+  m_pRenderDevice->Resize(0, 0, cx, cy);
+
+  Envelope env;
+  m_pSmtOperMap->CalEnvelope();
+  m_pSmtOperMap->get_envelope(env);
+  bool framed = false;
+  if (env.is_init()) {
+    fRect frt;
+    envelope_to_rect(frt, env);
+    const float pad_x = (std::max)(frt.width() / 40.f, 0.01f);
+    const float pad_y = (std::max)(frt.height() / 40.f, 0.01f);
+    frt.rt.x += pad_x;
+    frt.rt.y += pad_y;
+    frt.lb.x -= pad_x;
+    frt.lb.y -= pad_y;
+    // ZoomToRect already paints when realtime; no second RefreshDirectly.
+    const int zr = m_pRenderDevice->ZoomToRect(m_pSmtOperMap, frt, realtime);
+    framed = (zr == SMT_ERR_NONE);
+    LOGGING(LOG_INFO,
+            "frame_oper_map: ZoomToRect rt=%d zr=%d env=(%.3f,%.3f)-(%.3f,%.3f)",
+            realtime ? 1 : 0, zr, env.MinX, env.MinY, env.MaxX, env.MaxY);
+  } else {
+    lRect lrt;
+    lrt.lb.x = 0;
+    lrt.rt.y = 0;
+    lrt.rt.x = cx;
+    lrt.lb.y = cy;
+    const int rr =
+        m_pRenderDevice->RefreshDirectly(m_pSmtOperMap, lrt, realtime);
+    framed = (rr == SMT_ERR_NONE);
+    LOGGING(LOG_INFO, "frame_oper_map: empty envelope RefreshDirectly=%d", rr);
+  }
+
+  m_bOperMapFramed = framed;
+  m_bFramingOperMap = false;
+  return framed;
+}
+
 void Smt2DXView::SetOperMap(SmtMap *pSmtMap) {
   m_pSmtOperMap = pSmtMap;
+  m_bOperMapFramed = false;
 
   if (m_pViewCtrlTool) m_pViewCtrlTool->SetOperMap(m_pSmtOperMap);
 
@@ -478,37 +581,10 @@ void Smt2DXView::SetOperMap(SmtMap *pSmtMap) {
 
   if (m_pFlashTool) m_pFlashTool->SetOperMap(m_pSmtOperMap);
 
-  // Frame + paint without broadcasting (avoids re-entrancy during bring-up).
+  // Frame + one realtime paint. BCG deferred EDIT1 often has a 0x0 client
+  // here; OnSize finishes framing when the child is actually laid out.
   if (m_pRenderDevice && m_pSmtOperMap) {
-    CRect client;
-    GetClientRect(&client);
-    const int cx = client.Width();
-    const int cy = client.Height();
-    if (cx > 0 && cy > 0) {
-      m_pRenderDevice->Resize(0, 0, cx, cy);
-      Envelope env;
-      m_pSmtOperMap->CalEnvelope();
-      m_pSmtOperMap->get_envelope(env);
-      if (env.is_init()) {
-        fRect frt;
-        envelope_to_rect(frt, env);
-        const float pad_x = (std::max)(frt.width() / 40.f, 0.01f);
-        const float pad_y = (std::max)(frt.height() / 40.f, 0.01f);
-        frt.rt.x += pad_x;
-        frt.rt.y += pad_y;
-        frt.lb.x -= pad_x;
-        frt.lb.y -= pad_y;
-        m_pRenderDevice->ZoomToRect(m_pSmtOperMap, frt, true);
-      }
-      lRect lrt;
-      lrt.lb.x = 0;
-      lrt.rt.y = 0;
-      lrt.rt.x = cx;
-      lrt.lb.y = cy;
-      // First attach must paint on this thread. Default proxy paint waits
-      // for Timer()+m_bActive, which leaves EDIT1 white on first show.
-      m_pRenderDevice->RefreshDirectly(m_pSmtOperMap, lrt, true);
-    }
+    frame_oper_map(/*realtime=*/true);
   }
   // Start refresh timers only after the map is attached.
   if (m_uiRefreshTimer == 0 || m_uiNotifyTimer == 0) {
@@ -559,7 +635,3 @@ void Smt2DXView::apply_workspace_draft(const tool::Draft &draft) {
   SmtBaseTool *tool =
       mgr ? dynamic_cast<SmtBaseTool *>(mgr->GetActiveIATool()) : NULL;
   if (tool && tool->GetOwnerWnd() == m_hWnd) {
-    tool->apply_draft(draft);
-  }
-}
-}  // namespace ui

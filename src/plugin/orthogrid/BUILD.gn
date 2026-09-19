@@ -24,7 +24,7 @@ source_set("orthogrid_kernel") {
     "//src/algorithm/geo:geo",
     "//src/base:base",
     "//src/base:core",
-    "//src/sdb/map:gis",
+    "//src/gis/map:gis",
     "//third_party:eigen",
   ]
 }

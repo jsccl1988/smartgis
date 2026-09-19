@@ -59,12 +59,35 @@ void pump_ticks(MapHost* host, int ticks) {
 
 bool wait_frame_ok(MapHost* host, uint32_t timeout_ms) {
   if (!host || !host->session() || host->view_id() == 0) {
+    self_test_mark("wait-precheck-fail");
     return false;
   }
-  if (!host->session()->WaitFrameReady(host->view_id(), timeout_ms)) {
-    return false;
+  const DWORD start = GetTickCount();
+  while (GetTickCount() - start < timeout_ms) {
+    host->sync_layout();
+    if (host->session()->WaitFrameReady(host->view_id(), 200)) {
+      if (host->has_presented_frame() && host->has_live_map_pixels()) {
+        return true;
+      }
+      self_test_mark("frame-ready-no-surface");
+    }
+    MSG msg;
+    while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+      TranslateMessage(&msg);
+      DispatchMessageW(&msg);
+    }
+    if (HWND child = host->map_child_hwnd()) {
+      InvalidateRect(child, nullptr, FALSE);
+    }
+    Sleep(16);
   }
-  return host->has_presented_frame() && host->has_live_map_pixels();
+  if (!host->has_presented_frame()) {
+    self_test_mark("no-presented-frame");
+  }
+  if (!host->has_live_map_pixels()) {
+    self_test_mark("no-live-pixels");
+  }
+  return false;
 }
 
 }  // namespace
@@ -206,7 +229,28 @@ void App::OnLaunched(
                       break;
                     }
                   }
-                  wcscat_s(china_w, L"china_plp.geojson");
+                  wcscat_s(china_w, L"china_city.gpkg");
+                  if (GetFileAttributesW(china_w) == INVALID_FILE_ATTRIBUTES) {
+                    // Truncate filename after last path sep, try geojson then plp.
+                    for (int i = static_cast<int>(wcslen(china_w)) - 1; i >= 0;
+                         --i) {
+                      if (china_w[i] == L'\\' || china_w[i] == L'/') {
+                        china_w[i + 1] = L'\0';
+                        break;
+                      }
+                    }
+                    wcscat_s(china_w, L"china_city.geojson");
+                  }
+                  if (GetFileAttributesW(china_w) == INVALID_FILE_ATTRIBUTES) {
+                    for (int i = static_cast<int>(wcslen(china_w)) - 1; i >= 0;
+                         --i) {
+                      if (china_w[i] == L'\\' || china_w[i] == L'/') {
+                        china_w[i + 1] = L'\0';
+                        break;
+                      }
+                    }
+                    wcscat_s(china_w, L"china_plp.geojson");
+                  }
                   if (GetFileAttributesW(china_w) != INVALID_FILE_ATTRIBUTES) {
                     char utf8[MAX_PATH * 4] = {};
                     WideCharToMultiByte(CP_UTF8, 0, china_w, -1, utf8,
@@ -223,9 +267,9 @@ void App::OnLaunched(
                         "\"}";
                     host->session()->CatalogCall(json.c_str());
                     pump_ticks(host, 12);
-                    self_test_mark("china-plp-ok");
+                    self_test_mark("china-map-ok");
                   } else {
-                    self_test_mark("china-plp-missing");
+                    self_test_mark("china-map-missing");
                   }
                 }
               }

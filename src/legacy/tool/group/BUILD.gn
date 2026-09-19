@@ -39,10 +39,10 @@ source_set("tool_group_sources") {
     # IA tools live in leftover_tool.dll; this source_set is compiled into
     # ui_legacy. Dep the DLL group, not tool_sources (avoids double-link).
     "//src/legacy/tool:tool",
-    "//src/sdb/datasource/gdal:ogr_codec",
-    "//src/sdb/datasource/mgr:sde_mgr",
-    "//src/sdb/edit:map_edit",
-    "//src/sdb/map:gis",
+    "//src/gis/datasource/gdal:ogr_codec",
+    "//src/gis/datasource/mgr:sde_mgr",
+    "//src/gis/edit:map_edit",
+    "//src/gis/map:gis",
     "//src/sys:sys",
     "//src/tool:dispatch",
     "//third_party:gdal",

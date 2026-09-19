@@ -6,6 +6,8 @@
 
 namespace tool {
 
+class Workspace;
+
 // Leftover GT_MSG_CMD_* values. Keep in sync with legacy/tool/group/defs.h.
 enum : long {
   kGtMsgViewZoomIn = 0x3002,
@@ -46,6 +48,11 @@ enum : long {
 
 // Maps leftover GT_MSG_CMD_* to v1 command ids. nullptr if unknown.
 const char* command_id_from_gt_msg(long msg);
+
+// Forwards a mapped GT_MSG_* to Workspace::execute. False if workspace is
+// null or the msg has no command id. Shared by ViewHost::execute_legacy and
+// leftover group-tool notify stranglers.
+bool try_execute_gt_msg(Workspace* workspace, long gt_msg);
 
 }  // namespace tool
 

@@ -15,47 +15,44 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define _GT_FLASH_TOOL_H
 
 #include "legacy/tool/group/basetool.h"
-#include "sdb/datasource/mgr/datasourcemgr.h"
+#include "gis/datasource/mgr/datasource_mgr.h"
 
 namespace tool {
 class Workspace;
 }
 
-namespace tool
-{
-	class SmtFlashTool:public SmtBaseTool
-	{
-	public:
-		SmtFlashTool();
-		virtual ~SmtFlashTool();
-		int					Init(LPRENDERDEVICE pMrdRenderDevice,SmtMap *pOperSmtMap,HWND hWnd,pfnToolCallBack pfnCallBack = NULL,void* pToFollow = NULL);
-		int					AuxDraw();
-		int					Timer();
+namespace tool {
+class SmtFlashTool : public SmtBaseTool {
+ public:
+  SmtFlashTool();
+  virtual ~SmtFlashTool();
+  int Init(LPRENDERDEVICE pMrdRenderDevice, SmtMap* pOperSmtMap, HWND hWnd,
+           pfnToolCallBack pfnCallBack = NULL, void* pToFollow = NULL);
+  int AuxDraw();
+  int Timer();
 
-	public:
-		int					notify(long nMsg,SmtListenerMsg &param);
+ public:
+  int notify(long nMsg, SmtListenerMsg& param);
 
-		// Session flag lives on tool::Workspace (ViewHost). Leftover m_bFlash
-		// is only used when no workspace is bound.
-		void				bind_workspace(tool::Workspace* workspace) {
-			m_workspace = workspace;
-		}
+  // Session flag lives on tool::Workspace (ViewHost). Leftover m_bFlash
+  // is only used when no workspace is bound.
+  void bind_workspace(tool::Workspace* workspace) { m_workspace = workspace; }
 
-	protected:
-		bool				session_flashing() const;
+ protected:
+  bool session_flashing() const;
 
-		sdb::ScratchLayer m_resultLayer;
-		tool::Workspace*	m_workspace;
-		
-		string				m_strFlashStyle1;
-		string				m_strFlashStyle2;
-		string				m_strFlashStyle;
-		eFlashMode			m_flsMode;
+  gis::ScratchLayer m_resultLayer;
+  tool::Workspace* m_workspace = nullptr;
 
-		bool				m_bFlash;
-		bool				m_bStyle1;
-		double				m_fScaleDelt;
-	};
-}
+  string m_strFlashStyle1;
+  string m_strFlashStyle2;
+  string m_strFlashStyle;
+  eFlashMode m_flsMode;
 
-#endif //_GT_FLASH_TOOL_H
+  bool m_bFlash;
+  bool m_bStyle1;
+  double m_fScaleDelt;
+};
+}  // namespace tool
+
+#endif  //_GT_FLASH_TOOL_H

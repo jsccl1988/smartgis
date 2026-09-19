@@ -53,6 +53,7 @@ executable("app_winui") {
   ]
   deps = [
     "//src/app/views:map_scene",
+    "//src/app/views:scene3d_controller",
     "//src/content:content",
     "//src/gpu:gpu_lib",
     "//testing/data:china_map_samples",

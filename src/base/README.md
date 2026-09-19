@@ -27,7 +27,7 @@ GN labels `//src/base:core`, `//src/base:base`, `//src/base:platform`,
 | **archive** | `archive/` | `//src/base/archive:archive` | BinarySink / Serializer（A1；平台 DLL `public_deps`） |
 | **ipc** | `ipc/` | `//src/base/ipc:ipc` | Named pipe + pickle + invitation / DataPipe / Node+Portal / PendingRemote（mojom 形状，无 IDL；static；非 DLL） |
 | **core leftovers** | `core/`（sources） | `core_sources` → `:base` | `listener` / `command` / `msg*` / `api` / structs / `core_assert` — **deferred** |
-| **carto** | `../sdb/carto/` | `carto_sources` → `:base` | Cartographic pen / brush / `Envelope` |
+| **carto** | `../base/carto/` | `carto_sources` → `:base` | Cartographic pen / brush / `Envelope` |
 | **xml** | `../legacy/xml/` | `xml_sources` → `:base` | TinyXML leftover |
 | **sys** | `../sys/` | `sys_sources` → `:base` | `SmtSysManager` + `SmtWinService` + `MemShare` |
 | **net** | `../net/` | `net_sources` → `:base` | HTTP / RPC (asio + cpp-httplib) |

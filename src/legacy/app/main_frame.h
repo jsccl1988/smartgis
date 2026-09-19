@@ -1,87 +1,81 @@
 // main_frame.h : CMainFrame ��Ľӿ�
 //
 #pragma once
+#include "legacy/ui/mfc_ex/stacked_wnd_dock_bar.h"
+#include "legacy/ui/mfc_ex/tabbed_wnd_dock_bar.h"
+#include "legacy/ui/xambox/amb_amboxmgrdocbar.h"
+#include "legacy/ui/xcatalog/3dobjxcatalog.h"
 #include "legacy/ui/xcatalog/dsxcatalog.h"
 #include "legacy/ui/xcatalog/mapdocxcatalog.h"
-#include "legacy/ui/xcatalog/3dobjxcatalog.h"
-
-#include "legacy/ui/xambox/amb_amboxmgrdocbar.h"
-#include "legacy/ui/mfc_ex/tabbed_wnd_dock_bar.h"
-#include "legacy/ui/mfc_ex/stacked_wnd_dock_bar.h"
 
 using namespace ui;
 using namespace ui;
 
 #define CMainWnd CBCGPMDIFrameWnd
 
-class CMainFrame : public CMainWnd
-{
-	DECLARE_DYNAMIC(CMainFrame)
-public:
-	CMainFrame();
+class CMainFrame : public CMainWnd {
+  DECLARE_DYNAMIC(CMainFrame)
+ public:
+  CMainFrame();
 
-// ����
-public:
+  // ����
+ public:
+  // ����
+ public:
+  // ��д
+ public:
+  void UpdateMDITabs(BOOL bResetMDIChild);
+  CBCGPMDIChildWnd* CreateDocumentWindow(LPCTSTR lpcszDocName);
+  virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
 
-// ����
-public:
-
-// ��д
-public:
-	void						UpdateMDITabs (BOOL bResetMDIChild);
-	CBCGPMDIChildWnd*			CreateDocumentWindow (LPCTSTR lpcszDocName);
-	virtual BOOL				PreCreateWindow(CREATESTRUCT& cs);
-
-// ʵ��
-public:
-	virtual ~CMainFrame();
+  // ʵ��
+ public:
+  virtual ~CMainFrame();
 #ifdef _DEBUG
-	virtual void AssertValid() const;
-	virtual void Dump(CDumpContext& dc) const;
+  virtual void AssertValid() const;
+  virtual void Dump(CDumpContext& dc) const;
 #endif
 
-protected:  // �ؼ���Ƕ���Ա
-	CBCGPMenuBar				m_wndMenuBar;  // New menu bar
-//	CBCGPToolBar				m_wndToolBar; // Application toolbar
-	CBCGPStatusBar				m_wndStatusBar;
-	TabbedWndDockBar			m_wndCatalogDocBar;
-	SmtAMBoxMgrDocBar			m_wndAMBoxMgrDocBar;
-	
-// ���ɵ���Ϣӳ�亯��
-protected:
-	afx_msg int					OnCreate(LPCREATESTRUCT lpCreateStruct);
-	afx_msg void				OnDestroy();
-	
-	afx_msg void				OnAppLook(UINT id);
-	afx_msg LRESULT				OnGetTabToolTip(WPARAM wp, LPARAM lp);
-	afx_msg void				OnWndMapedit();
-	afx_msg void				OnWndMapdata();
-	afx_msg void				OnWnd3d();
+ protected:                   // �ؼ���Ƕ���Ա
+  CBCGPMenuBar m_wndMenuBar;  // New menu bar
+  //	CBCGPToolBar				m_wndToolBar; // Application toolbar
+  CBCGPStatusBar m_wndStatusBar;
+  TabbedWndDockBar m_wndCatalogDocBar;
+  SmtAMBoxMgrDocBar m_wndAMBoxMgrDocBar;
 
-	DECLARE_MESSAGE_MAP()
-	
-public:
-	void						SetStatusBarString(UINT index,CString str);
+  // ���ɵ���Ϣӳ�亯��
+ protected:
+  afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
+  afx_msg void OnDestroy();
 
-private:
-	void						InitStatusBar(void);
-	bool						InitCatalogDockBar(void);
-	bool						InitAMBoxMgrDockBar(void);
+  afx_msg void OnAppLook(UINT id);
+  afx_msg LRESULT OnGetTabToolTip(WPARAM wp, LPARAM lp);
+  afx_msg void OnWndMapedit();
+  afx_msg void OnWndMapdata();
+  afx_msg void OnWnd3d();
 
-private:
-	//
-	bool						InitMapDocCatalog(void);
-	bool						Init3DObjCatalog(void);
-	bool						InitDSCatalog(void);
+  DECLARE_MESSAGE_MAP()
 
-protected:
-	UINT						m_nAppLook;
+ public:
+  void SetStatusBarString(UINT index, CString str);
 
-private:
-	//
-	SmtMapDocXCatalog			*m_pMapDocCatalog;
-	Smt3DObjXCatalog			*m_p3DObjCatalog;
-	SmtDSXCatalog				*m_pDSCatalog;
+ private:
+  void InitStatusBar(void);
+  bool InitCatalogDockBar(void);
+  bool InitAMBoxMgrDockBar(void);
+
+ private:
+  //
+  bool InitMapDocCatalog(void);
+  bool Init3DObjCatalog(void);
+  bool InitDSCatalog(void);
+
+ protected:
+  UINT m_nAppLook;
+
+ private:
+  //
+  SmtMapDocXCatalog* m_pMapDocCatalog;
+  Smt3DObjXCatalog* m_p3DObjCatalog;
+  SmtDSXCatalog* m_pDSCatalog;
 };
-
-

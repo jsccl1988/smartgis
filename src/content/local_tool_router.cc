@@ -24,7 +24,7 @@ void LocalToolRouter::close(uint32_t view_id) {
   hosts_.erase(view_id);
 }
 
-void LocalToolRouter::bind_edits(uint32_t view_id, sdb::EditSession* edits) {
+void LocalToolRouter::bind_edits(uint32_t view_id, gis::EditSession* edits) {
   hosts_[view_id] = std::make_unique<ViewHost>(edits);
 }
 

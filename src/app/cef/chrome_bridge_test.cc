@@ -59,6 +59,19 @@ void test_parse_topic_panel_action() {
   expect(msg.command_id == "selection.clear", "panel cmd");
 }
 
+void test_parse_topic_backend_commands() {
+  const char* json =
+      R"({"topic":"tool.command","payload":{"command":"view.backend.maplibre"}})";
+  app::cef::BridgeMessage msg;
+  expect(app::cef::detail::parse_bridge_message(json, &msg), "backend parse");
+  expect(msg.type == app::cef::BridgeType::kActivateTool, "backend type");
+  expect(msg.command_id == "view.backend.maplibre", "backend cmd");
+  const char* rhi =
+      R"({"api_version":1,"type":"ActivateTool","command_id":"view.backend.rhi"})";
+  expect(app::cef::detail::parse_bridge_message(rhi, &msg), "rhi parse");
+  expect(msg.command_id == "view.backend.rhi", "rhi cmd");
+}
+
 void test_parse_topic_workspace_ids() {
   const char* json =
       R"({"topic":"tool.command","payload":{"command":"view3d.trackball",)"
@@ -76,6 +89,44 @@ void test_reject_unknown_topic() {
   expect(!app::cef::detail::parse_bridge_message(json, &msg), "unknown topic");
 }
 
+void test_parse_pointer_wheel() {
+  const char* json =
+      R"({"api_version":1,"type":"PointerEvent","kind":"wheel",)"
+      R"("x":12,"y":18,"wheel":120})";
+  app::cef::BridgeMessage msg;
+  expect(app::cef::detail::parse_bridge_message(json, &msg), "ptr parse");
+  expect(msg.type == app::cef::BridgeType::kPointerEvent, "ptr type");
+  expect(msg.pointer_kind == "wheel", "ptr kind");
+  expect(msg.slot_rect.x == 12 && msg.slot_rect.y == 18, "ptr xy");
+  expect(msg.wheel == 120, "ptr wheel");
+}
+
+void test_parse_pointer_drag_and_pinch() {
+  const char* drag =
+      R"({"api_version":1,"type":"PointerEvent","kind":"drag","x":4,"y":5})";
+  app::cef::BridgeMessage msg;
+  expect(app::cef::detail::parse_bridge_message(drag, &msg), "drag parse");
+  expect(msg.pointer_kind == "drag", "drag kind");
+  const char* pinch =
+      R"({"topic":"map.gesture","payload":{"kind":"pinch","x":8,"y":9,)"
+      R"("scale":1.25}})";
+  expect(app::cef::detail::parse_bridge_message(pinch, &msg), "pinch parse");
+  expect(msg.type == app::cef::BridgeType::kPointerEvent, "pinch type");
+  expect(msg.pointer_kind == "pinch", "pinch kind");
+  expect(msg.scale > 1.2f && msg.scale < 1.3f, "pinch scale");
+  const char* pan2 =
+      R"({"api_version":1,"type":"PointerEvent","kind":"move","x":10,"y":20,)"
+      R"("pointer_count":2})";
+  expect(app::cef::detail::parse_bridge_message(pan2, &msg), "2finger parse");
+  expect(msg.pointer_count == 2, "2finger count");
+  const char* hwheel =
+      R"({"api_version":1,"type":"PointerEvent","kind":"wheel","x":1,"y":2,)"
+      R"("wheel":120,"flags":33554432})";
+  expect(app::cef::detail::parse_bridge_message(hwheel, &msg), "hwheel parse");
+  expect(msg.wheel == 120, "hwheel wheel");
+  expect(msg.flags == 0x02000000u, "hwheel horizontal flag");
+}
+
 }  // namespace
 
 int main() {
@@ -84,7 +135,10 @@ int main() {
   test_parse_topic_tool_command();
   test_parse_topic_panel_action();
   test_parse_topic_workspace_ids();
+  test_parse_topic_backend_commands();
   test_reject_unknown_topic();
+  test_parse_pointer_wheel();
+  test_parse_pointer_drag_and_pinch();
   if (g_fails != 0) {
     std::fprintf(stderr, "%d failure(s)\n", g_fails);
     return 1;

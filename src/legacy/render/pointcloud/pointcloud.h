@@ -14,10 +14,10 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _MD3D_POINTCLOUD_H
 #define _MD3D_POINTCLOUD_H
 
-#include "legacy/render/render3d/videobuffer.h"
-#include "legacy/render/render3d/3drenderdevice.h"
-#include "legacy/render/scene3d/bl3d_object.h"
 #include "base/core/core.h"
+#include "legacy/render/render3d/3drenderdevice.h"
+#include "legacy/render/render3d/videobuffer.h"
+#include "legacy/render/scene3d/bl3d_object.h"
 #include "legacy/render/scene3d/bl3d_vertexocttree.h"
 
 #if !defined(POINTCLOUD_EXPORT_DEFINED)
@@ -33,48 +33,48 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 using namespace render;
 
-namespace render
-{
-	class POINTCLOUD_EXPORT_CLASS Smt3DPointCloud :public Smt3DObject
-	{
-	public:
-		Smt3DPointCloud();
-		virtual~Smt3DPointCloud();
+namespace render {
+class POINTCLOUD_EXPORT_CLASS Smt3DPointCloud : public Smt3DObject {
+ public:
+  Smt3DPointCloud();
+  virtual ~Smt3DPointCloud();
 
-	public:
-		long					Init(Vector3& vPos,SmtMaterial&matMaterial);
-		long					Update(LP3DRENDERDEVICE p3DRenderDevice,float fElapsed); 
-		long					Create(LP3DRENDERDEVICE p3DRenderDevice); 
-		long					Render(LP3DRENDERDEVICE p3DRenderDevice); 
-		long					Destroy();
+ public:
+  long Init(Vector3& vPos, SmtMaterial& matMaterial);
+  long Update(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed);
+  long Create(LP3DRENDERDEVICE p3DRenderDevice);
+  long Render(LP3DRENDERDEVICE p3DRenderDevice);
+  long Destroy();
 
-	public:
-		inline	bool			GetShowOctNodeBox(void){ return m_bShowOctNodeBox;}
-		inline	void			SetShowOctNodeBox(bool bShow = true){ m_bShowOctNodeBox = bShow;}
+ public:
+  inline bool GetShowOctNodeBox(void) { return m_bShowOctNodeBox; }
+  inline void SetShowOctNodeBox(bool bShow = true) {
+    m_bShowOctNodeBox = bShow;
+  }
 
-	public:
-		bool					Read3DPointCloud(const char* szFilePath);
+ public:
+  bool Read3DPointCloud(const char* szFilePath);
 
-		inline	SmtVertexOctTree &GetVertexOctTree(void) { return m_vtxOctTree;}
+  inline SmtVertexOctTree& GetVertexOctTree(void) { return m_vtxOctTree; }
 
-	private:
-		SmtVertexOctTree		m_vtxOctTree;
+ private:
+  SmtVertexOctTree m_vtxOctTree;
 
-		SmtVertexBuffer*		m_pVertexBuffer;
+  SmtVertexBuffer* m_pVertexBuffer;
 
-		SmtVertex3DList			m_vtxList;
-		bool					m_bShowOctNodeBox;
+  SmtVertex3DList m_vtxList;
+  bool m_bShowOctNodeBox;
 
-		bool					m_bReadOK;
-	};
-}
+  bool m_bReadOK;
+};
+}  // namespace render
 
 #if !defined(POINTCLOUD_EXPORTS)
-#if   defined( _DEBUG)
-#          pragma comment(lib,"legacy_render_d.lib")
-#       else
-#          pragma comment(lib,"legacy_render.lib")
-#	    endif  
+#if defined(_DEBUG)
+#pragma comment(lib, "legacy_render_d.lib")
+#else
+#pragma comment(lib, "legacy_render.lib")
+#endif
 #endif
 
-#endif //_MD3D_POINTCLOUD_H
+#endif  //_MD3D_POINTCLOUD_H

@@ -58,8 +58,8 @@ def pick_path(base: str, candidates: list[str], includer_rel: str) -> str | None
                 return "tool/command.h"
             return "base/core/command.h"
         if base == "scene.h":
-            if includer_rel.startswith("sdb/"):
-                return "sdb/scene/scene.h"
+            if includer_rel.startswith("gis/"):
+                return "gis/world/scene.h"
             return "render/scene/scene.h"
         if base.startswith("gdi_"):
             if "gdi_simple" in includer_rel:

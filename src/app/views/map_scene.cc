@@ -9,8 +9,12 @@
 #include <cstring>
 #include <string_view>
 
+#include "content/public/feature_attrs.h"
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
+#include "gis/datasource/gdal/ogr_text_encoding.h"
+#include "gis/world/land_mask.h"
+#include "tool/camera_nav.h"
 
 namespace app {
 namespace {
@@ -120,19 +124,6 @@ bool kind_is_point(const char* kind) {
                   std::strcmp(kind, "city") == 0);
 }
 
-std::wstring utf8_to_wide(const std::string& utf8) {
-  if (utf8.empty()) {
-    return {};
-  }
-  const int n = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
-  if (n <= 1) {
-    return {};
-  }
-  std::wstring out(static_cast<size_t>(n - 1), L'\0');
-  MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, out.data(), n);
-  return out;
-}
-
 bool layer_name_is_text(const char* layer_name) {
   return layer_name && (std::strcmp(layer_name, "text") == 0 ||
                         std::strcmp(layer_name, "anno") == 0 ||
@@ -223,125 +214,159 @@ void label_anchor(const MapScene::Feature& f, double* mx, double* my) {
   *my = sy / n;
 }
 
-bool feature_from_ogr(OGRFeature* ogr_feat, MapScene::Feature* out,
-                      content::FeatureId id, const char* ogr_layer_name) {
+void copy_ogr_fields(OGRFeature* ogr_feat, MapScene::Feature* out) {
   if (!ogr_feat || !out) {
+    return;
+  }
+  out->fields.clear();
+  OGRFeatureDefn* defn = ogr_feat->GetDefnRef();
+  if (!defn) {
+    return;
+  }
+  const int field_count = defn->GetFieldCount();
+  for (int i = 0; i < field_count && static_cast<int>(out->fields.size()) < 12;
+       ++i) {
+    if (!ogr_feat->IsFieldSetAndNotNull(i)) {
+      continue;
+    }
+    OGRFieldDefn* fd = defn->GetFieldDefn(i);
+    if (!fd) {
+      continue;
+    }
+    const char* fname = fd->GetNameRef();
+    out->fields.push_back(
+        {fname && fname[0] ? fname : "field",
+         gis::datasource::ogr_bytes_to_utf8(ogr_feat->GetFieldAsString(i))});
+  }
+}
+
+bool fill_polygon_feature(OGRPolygon* poly, MapScene::Feature* out,
+                          const char* ogr_layer_name) {
+  if (!poly || !out) {
     return false;
   }
+  out->kind = MapScene::GeomKind::kPolygon;
+  out->points.clear();
+  out->selected = false;
+  if (OGRLinearRing* ext = poly->getExteriorRing()) {
+    append_ring(ext, &out->points);
+  }
+  apply_kind_override(out, ogr_layer_name);
+  return out->points.size() >= 3;
+}
+
+bool fill_line_feature(OGRLineString* line, MapScene::Feature* out,
+                       const char* ogr_layer_name) {
+  if (!line || !out) {
+    return false;
+  }
+  out->kind = MapScene::GeomKind::kLine;
+  out->points.clear();
+  out->selected = false;
+  append_ring(line, &out->points);
+  apply_kind_override(out, ogr_layer_name);
+  return out->points.size() >= 2;
+}
+
+// One MapScene::Feature per drawable part. MultiPolygon / MultiLineString must
+// expand every part — keeping only the largest ring leaves Xinjiang/Qinghai
+// (and island archipelagos) as white holes while rivers still draw through.
+size_t features_from_ogr(OGRFeature* ogr_feat,
+                         std::vector<MapScene::Feature>* out,
+                         const char* ogr_layer_name) {
+  if (!ogr_feat || !out) {
+    return 0;
+  }
+  out->clear();
   OGRGeometry* geom = ogr_feat->GetGeometryRef();
   if (!geom || geom->IsEmpty()) {
-    return false;
-  }
-  out->id = id;
-  out->points.clear();
-  out->fields.clear();
-  out->selected = false;
-
-  // Keep name / anno / angle / color / kind and a few other attributes.
-  OGRFeatureDefn* defn = ogr_feat->GetDefnRef();
-  if (defn) {
-    const int field_count = defn->GetFieldCount();
-    for (int i = 0; i < field_count && static_cast<int>(out->fields.size()) < 12;
-         ++i) {
-      if (!ogr_feat->IsFieldSetAndNotNull(i)) {
-        continue;
-      }
-      OGRFieldDefn* fd = defn->GetFieldDefn(i);
-      if (!fd) {
-        continue;
-      }
-      const char* fname = fd->GetNameRef();
-      out->fields.push_back({fname && fname[0] ? fname : "field",
-                             ogr_feat->GetFieldAsString(i)});
-    }
+    return 0;
   }
 
   const OGRwkbGeometryType flat = wkbFlatten(geom->getGeometryType());
   if (flat == wkbPoint) {
+    MapScene::Feature f;
+    copy_ogr_fields(ogr_feat, &f);
     auto* pt = geom->toPoint();
-    out->kind = MapScene::GeomKind::kPoint;
-    out->points.push_back({pt->getX(), -pt->getY()});
-    apply_kind_override(out, ogr_layer_name);
-    return true;
+    f.kind = MapScene::GeomKind::kPoint;
+    f.points.push_back({pt->getX(), -pt->getY()});
+    apply_kind_override(&f, ogr_layer_name);
+    out->push_back(std::move(f));
+    return 1;
   }
   if (flat == wkbLineString || flat == wkbLinearRing) {
-    out->kind = MapScene::GeomKind::kLine;
-    append_ring(geom->toLineString(), &out->points);
-    apply_kind_override(out, ogr_layer_name);
-    return out->points.size() >= 2;
+    MapScene::Feature f;
+    copy_ogr_fields(ogr_feat, &f);
+    if (!fill_line_feature(geom->toLineString(), &f, ogr_layer_name)) {
+      return 0;
+    }
+    out->push_back(std::move(f));
+    return 1;
   }
   if (flat == wkbPolygon) {
-    out->kind = MapScene::GeomKind::kPolygon;
-    OGRPolygon* poly = geom->toPolygon();
-    if (OGRLinearRing* ext = poly->getExteriorRing()) {
-      append_ring(ext, &out->points);
+    MapScene::Feature f;
+    copy_ogr_fields(ogr_feat, &f);
+    if (!fill_polygon_feature(geom->toPolygon(), &f, ogr_layer_name)) {
+      return 0;
     }
-    apply_kind_override(out, ogr_layer_name);
-    return out->points.size() >= 3;
+    out->push_back(std::move(f));
+    return 1;
   }
   if (flat == wkbMultiPoint) {
     auto* multi = geom->toMultiPoint();
-    if (multi->getNumGeometries() < 1) {
-      return false;
+    if (!multi || multi->getNumGeometries() < 1) {
+      return 0;
     }
+    MapScene::Feature f;
+    copy_ogr_fields(ogr_feat, &f);
     auto* pt = multi->getGeometryRef(0)->toPoint();
-    out->kind = MapScene::GeomKind::kPoint;
-    out->points.push_back({pt->getX(), -pt->getY()});
-    apply_kind_override(out, ogr_layer_name);
-    return true;
+    f.kind = MapScene::GeomKind::kPoint;
+    f.points.push_back({pt->getX(), -pt->getY()});
+    apply_kind_override(&f, ogr_layer_name);
+    out->push_back(std::move(f));
+    return 1;
   }
   if (flat == wkbMultiLineString) {
     auto* multi = geom->toMultiLineString();
-    if (multi->getNumGeometries() < 1) {
-      return false;
-    }
-    out->kind = MapScene::GeomKind::kLine;
-    append_ring(multi->getGeometryRef(0)->toLineString(), &out->points);
-    apply_kind_override(out, ogr_layer_name);
-    return out->points.size() >= 2;
-  }
-  if (flat == wkbMultiPolygon) {
-    auto* multi = geom->toMultiPolygon();
     if (!multi || multi->getNumGeometries() < 1) {
-      return false;
+      return 0;
     }
-    // Prefer the largest exterior ring so islands-only leftovers are not the
-    // sole representative when we store one Feature per OGR feature.
-    out->kind = MapScene::GeomKind::kPolygon;
-    int best_i = 0;
-    int best_n = -1;
     const int ngeom = multi->getNumGeometries();
+    out->reserve(static_cast<size_t>(ngeom));
     for (int i = 0; i < ngeom; ++i) {
       OGRGeometry* part = multi->getGeometryRef(i);
       if (!part) {
         continue;
       }
-      OGRPolygon* poly = part->toPolygon();
-      if (!poly) {
+      MapScene::Feature f;
+      copy_ogr_fields(ogr_feat, &f);
+      if (fill_line_feature(part->toLineString(), &f, ogr_layer_name)) {
+        out->push_back(std::move(f));
+      }
+    }
+    return out->size();
+  }
+  if (flat == wkbMultiPolygon) {
+    auto* multi = geom->toMultiPolygon();
+    if (!multi || multi->getNumGeometries() < 1) {
+      return 0;
+    }
+    const int ngeom = multi->getNumGeometries();
+    out->reserve(static_cast<size_t>(ngeom));
+    for (int i = 0; i < ngeom; ++i) {
+      OGRGeometry* part = multi->getGeometryRef(i);
+      if (!part) {
         continue;
       }
-      OGRLinearRing* ext = poly->getExteriorRing();
-      const int n = ext ? ext->getNumPoints() : 0;
-      if (n > best_n) {
-        best_n = n;
-        best_i = i;
+      MapScene::Feature f;
+      copy_ogr_fields(ogr_feat, &f);
+      if (fill_polygon_feature(part->toPolygon(), &f, ogr_layer_name)) {
+        out->push_back(std::move(f));
       }
     }
-    OGRGeometry* best = multi->getGeometryRef(best_i);
-    if (!best) {
-      return false;
-    }
-    OGRPolygon* poly = best->toPolygon();
-    if (!poly) {
-      return false;
-    }
-    if (OGRLinearRing* ext = poly->getExteriorRing()) {
-      append_ring(ext, &out->points);
-    }
-    apply_kind_override(out, ogr_layer_name);
-    return out->points.size() >= 3;
+    return out->size();
   }
-  return false;
+  return 0;
 }
 
 }  // namespace
@@ -358,6 +383,62 @@ void MapScene::clear() {
   last_open_was_ogr_ = false;
 }
 
+std::vector<std::string> china_seed_relative_paths() {
+  // Prefer prefecture china_city (SmartGis.exe-like overview) over schematic
+  // china_plp (~46 features). Keep plp + views sample as last-resort fallbacks.
+  return {
+      "china_city.gpkg",
+      "china_city.geojson",
+      "testing\\data\\china_city.gpkg",
+      "testing\\data\\china_city.geojson",
+      "..\\testing\\data\\china_city.gpkg",
+      "..\\testing\\data\\china_city.geojson",
+      "..\\..\\testing\\data\\china_city.gpkg",
+      "..\\..\\testing\\data\\china_city.geojson",
+      "china_plp.geojson",
+      "testing\\data\\china_plp.geojson",
+      "..\\testing\\data\\china_plp.geojson",
+      "..\\..\\testing\\data\\china_plp.geojson",
+      "views_ogr_sample.geojson",
+      "testing\\data\\views_ogr_sample.geojson",
+      "..\\testing\\data\\views_ogr_sample.geojson",
+      "..\\..\\testing\\data\\views_ogr_sample.geojson",
+  };
+}
+
+COLORREF map_scene_map_bg_color() {
+  return RGB(255, 255, 255);
+}
+
+COLORREF map_scene_river_color() {
+  return RGB(64, 140, 196);
+}
+
+COLORREF map_scene_admin_stroke_color() {
+  return RGB(58, 70, 84);
+}
+
+COLORREF map_scene_point_fill_color() {
+  return RGB(20, 20, 20);
+}
+
+COLORREF map_scene_area_fill_color(const char* adcode, uint32_t feature_id) {
+  // Soft pastel categorical fills (SmartGis EDIT1 thematic look).
+  static const COLORREF kPastels[] = {
+      RGB(232, 198, 210), RGB(210, 198, 232), RGB(198, 220, 210),
+      RGB(232, 220, 186), RGB(198, 210, 232), RGB(220, 210, 198),
+      RGB(210, 232, 220), RGB(232, 210, 198), RGB(186, 210, 220),
+      RGB(220, 198, 210), RGB(198, 232, 210), RGB(210, 210, 220),
+  };
+  uint32_t h = feature_id * 2654435761u;
+  if (adcode && adcode[0]) {
+    for (const char* p = adcode; *p; ++p) {
+      h = h * 131u + static_cast<unsigned char>(*p);
+    }
+  }
+  return kPastels[h % (sizeof(kPastels) / sizeof(kPastels[0]))];
+}
+
 bool MapScene::try_bootstrap_china_plp() {
   char exe_dir[MAX_PATH] = {};
   DWORD n = GetModuleFileNameA(nullptr, exe_dir, MAX_PATH);
@@ -370,27 +451,7 @@ bool MapScene::try_bootstrap_china_plp() {
       break;
     }
   }
-  // Prefer china_plp (schematic area/line/point/text) over dense city packs so
-  // first paint reads as a normal China map overview, not a zoomed city cluster.
-  const char* relative[] = {
-      "china_plp.geojson",
-      "testing\\data\\china_plp.geojson",
-      "..\\testing\\data\\china_plp.geojson",
-      "..\\..\\testing\\data\\china_plp.geojson",
-      "china_city.gpkg",
-      "china_city.geojson",
-      "views_ogr_sample.geojson",
-      "testing\\data\\china_city.gpkg",
-      "testing\\data\\china_city.geojson",
-      "testing\\data\\views_ogr_sample.geojson",
-      "..\\testing\\data\\china_city.gpkg",
-      "..\\testing\\data\\china_city.geojson",
-      "..\\testing\\data\\views_ogr_sample.geojson",
-      "..\\..\\testing\\data\\china_city.gpkg",
-      "..\\..\\testing\\data\\china_city.geojson",
-      "..\\..\\testing\\data\\views_ogr_sample.geojson",
-  };
-  for (const char* rel : relative) {
+  for (const std::string& rel : china_seed_relative_paths()) {
     const std::string cand = std::string(exe_dir) + rel;
     DWORD attr = GetFileAttributesA(cand.c_str());
     if (attr == INVALID_FILE_ATTRIBUTES ||
@@ -563,13 +624,22 @@ bool MapScene::ingest_ogr_path(const std::string& path) {
       if (!feat) {
         break;
       }
-      Feature f;
-      if (!feature_from_ogr(feat.get(), &f, next_feature_id(), lname)) {
+      std::vector<Feature> parts;
+      if (features_from_ogr(feat.get(), &parts, lname) == 0) {
         continue;
       }
-      layer.features.push_back(std::move(f));
-      ++taken;
-      ++total_features;
+      for (Feature& part : parts) {
+        if (taken >= kMaxFeaturesPerLayer) {
+          break;
+        }
+        part.id = next_feature_id();
+        layer.features.push_back(std::move(part));
+        ++taken;
+        ++total_features;
+      }
+      if (taken >= kMaxFeaturesPerLayer) {
+        break;
+      }
     }
     if (!layer.features.empty()) {
       loaded.push_back(std::move(layer));
@@ -897,21 +967,124 @@ void MapScene::apply_pan(int dx_px, int dy_px) {
 }
 
 void MapScene::apply_zoom_at(int view_x, int view_y, double factor) {
-  if (factor <= 0.0) {
+  tool::zoom_at_client_point(&pan_x_, &pan_y_, &scale_, view_x, view_y, factor);
+}
+
+void MapScene::apply_pinch(int view_x, int view_y, double scale) {
+  const int32_t wheel = tool::scale_to_wheel_delta(scale);
+  if (wheel == 0) {
     return;
   }
-  double mx = 0;
-  double my = 0;
-  view_to_map(view_x, view_y, &mx, &my);
-  scale_ *= factor;
-  if (scale_ < 0.0001) {
-    scale_ = 0.0001;
+  apply_zoom_at(view_x, view_y, tool::wheel_zoom_factor(wheel));
+}
+
+content::Extent2 MapScene::world_extent() const {
+  double minx = 0;
+  double miny = 0;
+  double maxx = 0;
+  double maxy = 0;
+  if (!compute_extent(&minx, &miny, &maxx, &maxy)) {
+    return kChinaLonLatExtent;
   }
-  if (scale_ > 1.0e6) {
-    scale_ = 1.0e6;
+  // Stored as lon / -lat.
+  return content::Extent2{minx, -maxy, maxx, -miny};
+}
+
+content::Extent2 MapScene::view_world_extent(int view_w, int view_h) const {
+  if (view_w <= 0) {
+    view_w = 800;
   }
-  pan_x_ = static_cast<double>(view_x) - mx * scale_;
-  pan_y_ = static_cast<double>(view_y) - my * scale_;
+  if (view_h <= 0) {
+    view_h = 600;
+  }
+  double x0 = 0;
+  double y0 = 0;
+  double x1 = 0;
+  double y1 = 0;
+  view_to_map(0, 0, &x0, &y0);
+  view_to_map(view_w, view_h, &x1, &y1);
+  const double xmin = (std::min)(x0, x1);
+  const double xmax = (std::max)(x0, x1);
+  const double lat0 = -y0;
+  const double lat1 = -y1;
+  return content::Extent2{xmin, (std::min)(lat0, lat1), xmax,
+                          (std::max)(lat0, lat1)};
+}
+
+void MapScene::apply_world_extent(const content::Extent2& e, int view_w,
+                                 int view_h) {
+  if (!extent_nonempty(e)) {
+    return;
+  }
+  if (view_w <= 0) {
+    view_w = 800;
+  }
+  if (view_h <= 0) {
+    view_h = 600;
+  }
+  const double minx = e.xmin;
+  const double maxx = e.xmax;
+  const double miny = -e.ymax;
+  const double maxy = -e.ymin;
+  const double dx = (std::max)(maxx - minx, 1e-9);
+  const double dy = (std::max)(maxy - miny, 1e-9);
+  const double sx = static_cast<double>(view_w) / dx;
+  const double sy = static_cast<double>(view_h) / dy;
+  scale_ = (std::min)(sx, sy);
+  if (scale_ <= 0.0) {
+    scale_ = 1.0;
+  }
+  const double cx = 0.5 * (minx + maxx);
+  const double cy = 0.5 * (miny + maxy);
+  pan_x_ = 0.5 * view_w - cx * scale_;
+  pan_y_ = 0.5 * view_h - cy * scale_;
+}
+
+void MapScene::export_land_rings(
+    std::vector<gis::LonLatRing>* out) const {
+  if (!out) {
+    return;
+  }
+  out->clear();
+  auto append_layer = [&](const Layer& layer) {
+    for (const Feature& f : layer.features) {
+      if (f.kind != GeomKind::kPolygon || f.points.size() < 3) {
+        continue;
+      }
+      gis::LonLatRing ring;
+      ring.x.reserve(f.points.size());
+      ring.y.reserve(f.points.size());
+      for (const Vertex& p : f.points) {
+        ring.x.push_back(p.x);
+        ring.y.push_back(-p.y);  // undo map-space Y flip
+      }
+      out->push_back(std::move(ring));
+    }
+  };
+  // Prefer `area` so DEM coastline matches the 2D prefecture fill.
+  bool used_area = false;
+  for (const Layer& layer : layers_) {
+    if (!layer.visible) {
+      continue;
+    }
+    if (layer.name == "area") {
+      append_layer(layer);
+      used_area = true;
+    }
+  }
+  if (used_area && !out->empty()) {
+    return;
+  }
+  for (const Layer& layer : layers_) {
+    if (!layer.visible) {
+      continue;
+    }
+    if (layer.name == "line" || layer.name == "point" ||
+        layer.name == "text") {
+      continue;
+    }
+    append_layer(layer);
+  }
 }
 
 void MapScene::fit_extent(int view_w, int view_h) {
@@ -961,21 +1134,47 @@ void MapScene::fit_extent(int view_w, int view_h) {
 }
 
 void MapScene::paint(HDC hdc, int width_px, int height_px) const {
+  paint(hdc, width_px, height_px, true);
+}
+
+void MapScene::paint(HDC hdc, int width_px, int height_px,
+                     bool fill_background) const {
   if (!hdc || width_px <= 0 || height_px <= 0) {
     return;
+  }
+
+  // White map canvas (SmartGis.exe EDIT look). Callers may have filled a
+  // dark placeholder; overwrite so product shells match leftover 2D.
+  if (fill_background) {
+    HBRUSH bg = CreateSolidBrush(map_scene_map_bg_color());
+    RECT full = {0, 0, width_px, height_px};
+    FillRect(hdc, &full, bg);
+    DeleteObject(bg);
   }
 
   // Reuse a few GDI objects for the whole frame. Creating Pen/Brush/Font per
   // feature leaked when early-continue skipped DeleteObject, and exhausted the
   // per-process GDI quota (~10k) on china_city (~1.4k features × 30 Hz).
   HPEN pens[4] = {};
-  pens[0] = CreatePen(PS_SOLID, 1, RGB(55, 120, 165));   // polygon outline
-  pens[1] = CreatePen(PS_SOLID, 2, RGB(64, 140, 220));   // river
-  pens[2] = CreatePen(PS_SOLID, 2, RGB(255, 150, 50));   // other line
-  pens[3] = CreatePen(PS_SOLID, 3, RGB(255, 220, 60));   // selected
-  HBRUSH poly_brush = CreateSolidBrush(RGB(40, 90, 130));
-  HBRUSH point_brush = CreateSolidBrush(RGB(255, 230, 90));
-  HBRUSH selected_brush = CreateSolidBrush(RGB(255, 220, 60));
+  pens[0] =
+      CreatePen(PS_SOLID, 1, map_scene_admin_stroke_color());  // polygon outline
+  pens[1] = CreatePen(PS_SOLID, 2, map_scene_river_color());   // river
+  pens[2] = CreatePen(PS_SOLID, 2, RGB(120, 110, 90));         // other line
+  pens[3] = CreatePen(PS_SOLID, 3, RGB(200, 120, 40));         // selected
+  // Fixed pastel brushes (no per-feature CreateSolidBrush).
+  static const COLORREF kPastels[] = {
+      RGB(232, 198, 210), RGB(210, 198, 232), RGB(198, 220, 210),
+      RGB(232, 220, 186), RGB(198, 210, 232), RGB(220, 210, 198),
+      RGB(210, 232, 220), RGB(232, 210, 198), RGB(186, 210, 220),
+      RGB(220, 198, 210), RGB(198, 232, 210), RGB(210, 210, 220),
+  };
+  constexpr size_t kPastelCount = sizeof(kPastels) / sizeof(kPastels[0]);
+  HBRUSH pastel_brushes[kPastelCount] = {};
+  for (size_t i = 0; i < kPastelCount; ++i) {
+    pastel_brushes[i] = CreateSolidBrush(kPastels[i]);
+  }
+  HBRUSH point_brush = CreateSolidBrush(map_scene_point_fill_color());
+  HBRUSH selected_brush = CreateSolidBrush(RGB(255, 200, 80));
   HFONT fonts[3] = {};
   fonts[0] = CreateFontW(-13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                          DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
@@ -995,6 +1194,20 @@ void MapScene::paint(HDC hdc, int width_px, int height_px) const {
   HGDIOBJ old_font = SelectObject(hdc, fonts[0] ? fonts[0] : stock_font);
   SetBkMode(hdc, TRANSPARENT);
 
+  auto pastel_index = [](const Feature& f) -> size_t {
+    const char* adcode = field_value(f, "adcode");
+    uint32_t h = 2166136261u;
+    for (uint8_t i = 0; i < f.id.len && i < sizeof(f.id.bytes); ++i) {
+      h = (h ^ f.id.bytes[i]) * 16777619u;
+    }
+    if (adcode && adcode[0]) {
+      for (const char* p = adcode; *p; ++p) {
+        h = h * 131u + static_cast<unsigned char>(*p);
+      }
+    }
+    return static_cast<size_t>(h % kPastelCount);
+  };
+
   auto draw_label = [&](int vx, int vy, const std::string& name, COLORREF color,
                         int font_idx, int dx, int dy) {
     if (name.empty()) {
@@ -1005,19 +1218,44 @@ void MapScene::paint(HDC hdc, int width_px, int height_px) const {
         vy + dy > height_px + 40) {
       return;
     }
-    const std::wstring w = utf8_to_wide(name);
+    const std::wstring w = gis::datasource::ogr_bytes_to_wide(name);
     if (w.empty()) {
       return;
     }
     HFONT font = fonts[font_idx < 0 ? 0 : (font_idx > 2 ? 2 : font_idx)];
     SelectObject(hdc, font ? font : stock_font);
+    const int x = vx + dx;
+    const int y = vy + dy;
+    const int n = static_cast<int>(w.size());
+    // Light halo for CJK on pastel fills.
+    SetTextColor(hdc, RGB(255, 255, 255));
+    const int halo[8][2] = {{-1, 0},  {1, 0},  {0, -1}, {0, 1},
+                            {-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+    for (const auto& d : halo) {
+      TextOutW(hdc, x + d[0], y + d[1], w.c_str(), n);
+    }
     SetTextColor(hdc, color);
-    TextOutW(hdc, vx + dx, vy + dy, w.c_str(), static_cast<int>(w.size()));
+    TextOutW(hdc, x, y, w.c_str(), n);
   };
 
   // After fit_extent on China, scale_ is typically ~8–15; avoid drowning the
   // frame in 400+ city labels at country view.
   const bool draw_dense_text = scale_ >= 18.0;
+  bool has_text_features = false;
+  for (const Layer& layer : layers_) {
+    if (!layer.visible) {
+      continue;
+    }
+    for (const Feature& f : layer.features) {
+      if (f.kind == GeomKind::kText) {
+        has_text_features = true;
+        break;
+      }
+    }
+    if (has_text_features) {
+      break;
+    }
+  }
   constexpr size_t kMaxPolyPts = 2048;
   const GeomKind order[] = {GeomKind::kPolygon, GeomKind::kLine,
                             GeomKind::kPoint, GeomKind::kText};
@@ -1041,17 +1279,17 @@ void MapScene::paint(HDC hdc, int width_px, int height_px) const {
           int vy = 0;
           map_to_view(f.points[0].x, f.points[0].y, &vx, &vy);
           int font_idx = 0;
-          COLORREF ink = RGB(255, 250, 235);
+          COLORREF ink = RGB(32, 28, 22);
           if (cls && std::strcmp(cls, "title") == 0) {
             font_idx = 2;
-            ink = RGB(255, 252, 240);
+            ink = RGB(24, 20, 16);
           } else if (cls && std::strcmp(cls, "region_label") == 0) {
             font_idx = 1;
           } else if (cls && std::strcmp(cls, "river_label") == 0) {
-            ink = RGB(180, 220, 255);
+            ink = RGB(16, 48, 88);
           }
           if (f.selected) {
-            ink = RGB(255, 220, 60);
+            ink = RGB(200, 120, 40);
           }
           draw_label(vx, vy, feature_display_name(f), ink, font_idx, -20, -8);
           continue;
@@ -1067,10 +1305,10 @@ void MapScene::paint(HDC hdc, int width_px, int height_px) const {
           }
           SelectObject(hdc, f.selected ? selected_brush : point_brush);
           SelectObject(hdc, f.selected ? pens[3] : pens[0]);
-          Ellipse(hdc, vx - 4, vy - 4, vx + 4, vy + 4);
+          Ellipse(hdc, vx - 3, vy - 3, vx + 3, vy + 3);
           SelectObject(hdc, GetStockObject(NULL_BRUSH));
-          if (draw_dense_text) {
-            draw_label(vx, vy, feature_display_name(f), RGB(255, 240, 180), 0, 7,
+          if (draw_dense_text && !has_text_features) {
+            draw_label(vx, vy, feature_display_name(f), RGB(40, 32, 20), 0, 7,
                        -8);
           }
           continue;
@@ -1078,10 +1316,13 @@ void MapScene::paint(HDC hdc, int width_px, int height_px) const {
 
         if (f.kind == GeomKind::kLine) {
           const char* cls = field_value(f, "class");
+          const char* kind = field_value(f, "kind");
           HPEN pen = pens[2];
           if (f.selected) {
             pen = pens[3];
-          } else if (cls && std::strcmp(cls, "river") == 0) {
+          } else if ((cls && std::strcmp(cls, "river") == 0) ||
+                     (kind && (std::strcmp(kind, "river") == 0 ||
+                               std::strcmp(kind, "water") == 0))) {
             pen = pens[1];
           }
           SelectObject(hdc, pen ? pen : GetStockObject(BLACK_PEN));
@@ -1118,20 +1359,24 @@ void MapScene::paint(HDC hdc, int width_px, int height_px) const {
           // the present timer repaints ~30 Hz; per-feature GDI creates exhaust
           // the process quota and crash the host even when DeleteObject is called.
           SelectObject(hdc, f.selected ? pens[3] : pens[0]);
-          SelectObject(hdc, f.selected ? selected_brush : poly_brush);
+          HBRUSH fill = f.selected ? selected_brush
+                                   : pastel_brushes[pastel_index(f)];
+          SelectObject(hdc, fill ? fill : GetStockObject(LTGRAY_BRUSH));
           Polygon(hdc, pts.data(), static_cast<int>(pts.size()));
           SelectObject(hdc, GetStockObject(NULL_BRUSH));
           Polyline(hdc, pts.data(), static_cast<int>(pts.size()));
-          // Region name at overview scales (sparse labels, not city clutter).
-          double mx = 0;
-          double my = 0;
-          label_anchor(f, &mx, &my);
-          int lvx = 0;
-          int lvy = 0;
-          map_to_view(mx, my, &lvx, &lvy);
-          draw_label(lvx, lvy, feature_display_name(f),
-                     draw_dense_text ? RGB(200, 230, 255) : RGB(40, 36, 28), 0,
-                     -12, -6);
+          // Region name only when there is no dedicated text layer (china_plp
+          // already has kind=label points). Avoid stacking the same CJK name.
+          if (!has_text_features) {
+            double mx = 0;
+            double my = 0;
+            label_anchor(f, &mx, &my);
+            int lvx = 0;
+            int lvy = 0;
+            map_to_view(mx, my, &lvx, &lvy);
+            draw_label(lvx, lvy, feature_display_name(f), RGB(32, 28, 22), 0,
+                       -12, -6);
+          }
         }
       }
     }
@@ -1145,8 +1390,10 @@ void MapScene::paint(HDC hdc, int width_px, int height_px) const {
       DeleteObject(font);
     }
   }
-  if (poly_brush) {
-    DeleteObject(poly_brush);
+  for (HBRUSH brush : pastel_brushes) {
+    if (brush) {
+      DeleteObject(brush);
+    }
   }
   if (point_brush) {
     DeleteObject(point_brush);
@@ -1161,7 +1408,7 @@ void MapScene::paint(HDC hdc, int width_px, int height_px) const {
   }
 
   SetBkMode(hdc, TRANSPARENT);
-  SetTextColor(hdc, RGB(230, 240, 250));
+  SetTextColor(hdc, RGB(60, 70, 80));
   SelectObject(hdc, stock_font);
   wchar_t line[160];
   swprintf_s(line, L"Layers %zu  Features %zu  scale %.4g%s", layers_.size(),
@@ -1225,51 +1472,21 @@ void MapScene::fill_attribute_rows(std::vector<std::string>* columns,
 }
 
 std::string MapScene::feature_token(const content::FeatureId& id) {
-  std::string token = "fid:";
-  for (uint8_t i = 0; i < id.len && i < sizeof(id.bytes); ++i) {
-    char hex[3];
-    std::snprintf(hex, sizeof(hex), "%02x",
-                  static_cast<unsigned>(id.bytes[i]));
-    token += hex;
-  }
-  return token;
+  return content::encode_feature_token(id);
 }
 
 content::FeatureId MapScene::feature_id_from_token(const std::string& token) {
-  content::FeatureId id{};
-  std::string_view hex = token;
-  constexpr std::string_view kPrefix = "fid:";
-  if (hex.size() >= kPrefix.size() && hex.substr(0, kPrefix.size()) == kPrefix) {
-    hex.remove_prefix(kPrefix.size());
-  }
-  size_t n = 0;
-  for (size_t i = 0; i + 1 < hex.size() && n < sizeof(id.bytes); i += 2) {
-    unsigned v = 0;
-    if (std::sscanf(hex.data() + i, "%2x", &v) != 1) {
-      break;
-    }
-    id.bytes[n++] = static_cast<uint8_t>(v);
-  }
-  id.len = static_cast<uint8_t>(n);
-  return id;
+  return content::decode_feature_token(token);
 }
 
 bool MapScene::update_feature_field(const std::string& token,
                                     const std::string& field,
                                     const std::string& value) {
-  const content::FeatureId id = feature_id_from_token(token);
-  Feature* f = find_feature(id);
-  if (!f || field.empty()) {
+  Feature* f = find_feature(feature_id_from_token(token));
+  if (!f) {
     return false;
   }
-  for (Field& item : f->fields) {
-    if (item.name == field) {
-      item.value = value;
-      return true;
-    }
-  }
-  f->fields.push_back({field, value});
-  return true;
+  return content::apply_named_field(&f->fields, field, value);
 }
 
 MapScene::Layer* MapScene::find_layer(const std::string& id) {

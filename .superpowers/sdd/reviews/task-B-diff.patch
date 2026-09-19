@@ -1,0 +1,504 @@
+﻿ src/ui/views/dialogs/add_basemap_dialog.cc       | 12 ++++++------
+ src/ui/views/dialogs/add_basemap_dialog.h        |  8 ++++----
+ src/ui/views/dialogs/att_struct_dialog.cc        | 16 ++++++++--------
+ src/ui/views/dialogs/att_struct_dialog.h         |  6 +++---
+ src/ui/views/dialogs/create_datasource_dialog.cc | 12 ++++++------
+ src/ui/views/dialogs/create_datasource_dialog.h  |  6 +++---
+ src/ui/views/dialogs/create_layer_dialog.cc      | 12 ++++++------
+ src/ui/views/dialogs/create_layer_dialog.h       |  6 +++---
+ src/ui/views/dialogs/create_map_dialog.cc        | 10 +++++-----
+ src/ui/views/dialogs/create_map_dialog.h         |  6 +++---
+ src/ui/views/dialogs/dialog.cc                   | 12 ++++++------
+ src/ui/views/dialogs/dialog.h                    |  8 ++++----
+ src/ui/views/dialogs/file_picker.cc              |  4 ++--
+ src/ui/views/dialogs/file_picker.h               |  6 +++---
+ src/ui/views/dialogs/input_text_dialog.cc        | 10 +++++-----
+ src/ui/views/dialogs/input_text_dialog.h         |  6 +++---
+ src/ui/views/dialogs/message_box.cc              |  4 ++--
+ src/ui/views/dialogs/message_box.h               |  6 +++---
+ src/ui/views/dialogs/select_one_dialog.cc        | 10 +++++-----
+ src/ui/views/dialogs/select_one_dialog.h         |  6 +++---
+ 20 files changed, 83 insertions(+), 83 deletions(-)
+diff --git a/src/ui/views/dialogs/add_basemap_dialog.cc b/src/ui/views/dialogs/add_basemap_dialog.cc
+index b96ffc9..55e6e4d 100644
+--- a/src/ui/views/dialogs/add_basemap_dialog.cc
++++ b/src/ui/views/dialogs/add_basemap_dialog.cc
+@@ -1,16 +1,16 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/add_basemap_dialog.h"
++#include "ui/views/dialogs/add_basemap_dialog.h"
+ 
+ #include <memory>
+ #include <utility>
+ 
+-#include "ui/views/combobox.h"
+-#include "ui/views/dialog.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/textfield.h"
++#include "ui/views/primitives/combobox.h"
++#include "ui/views/dialogs/dialog.h"
++#include "ui/views/primitives/label.h"
++#include "ui/views/kernel/layout.h"
++#include "ui/views/primitives/textfield.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/dialogs/add_basemap_dialog.h b/src/ui/views/dialogs/add_basemap_dialog.h
+index 6dd0041..a0d0fb1 100644
+--- a/src/ui/views/dialogs/add_basemap_dialog.h
++++ b/src/ui/views/dialogs/add_basemap_dialog.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_ADD_BASEMAP_DIALOG_H_
+-#define UI_VIEWS_ADD_BASEMAP_DIALOG_H_
++#ifndef UI_VIEWS_DIALOGS_ADD_BASEMAP_DIALOG_H_
++#define UI_VIEWS_DIALOGS_ADD_BASEMAP_DIALOG_H_
+ 
+ #include <string>
+ 
+@@ -12,7 +12,7 @@ namespace ui {
+ namespace views {
+ 
+ // Modal form: online basemap URL (XYZ or WMTS template) + optional name.
+-// Does not depend on sdb::tile; host calls make_xyz_map_layer / WMTS APIs.
++// Does not depend on gis::tile; host calls make_xyz_map_layer / WMTS APIs.
+ class AddBasemapDialog {
+  public:
+   struct Result {
+@@ -28,4 +28,4 @@ class AddBasemapDialog {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_ADD_BASEMAP_DIALOG_H_
++#endif  // UI_VIEWS_DIALOGS_ADD_BASEMAP_DIALOG_H_
+diff --git a/src/ui/views/dialogs/att_struct_dialog.cc b/src/ui/views/dialogs/att_struct_dialog.cc
+index 6e3cb29..af1566b 100644
+--- a/src/ui/views/dialogs/att_struct_dialog.cc
++++ b/src/ui/views/dialogs/att_struct_dialog.cc
+@@ -1,18 +1,18 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/att_struct_dialog.h"
++#include "ui/views/dialogs/att_struct_dialog.h"
+ 
+ #include <memory>
+ #include <utility>
+ 
+-#include "ui/views/button.h"
+-#include "ui/views/combobox.h"
+-#include "ui/views/dialog.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/table_view.h"
+-#include "ui/views/textfield.h"
++#include "ui/views/primitives/button.h"
++#include "ui/views/primitives/combobox.h"
++#include "ui/views/dialogs/dialog.h"
++#include "ui/views/primitives/label.h"
++#include "ui/views/kernel/layout.h"
++#include "ui/views/primitives/table_view.h"
++#include "ui/views/primitives/textfield.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/dialogs/att_struct_dialog.h b/src/ui/views/dialogs/att_struct_dialog.h
+index 9c2ddc1..9c38330 100644
+--- a/src/ui/views/dialogs/att_struct_dialog.h
++++ b/src/ui/views/dialogs/att_struct_dialog.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_ATT_STRUCT_DIALOG_H_
+-#define UI_VIEWS_ATT_STRUCT_DIALOG_H_
++#ifndef UI_VIEWS_DIALOGS_ATT_STRUCT_DIALOG_H_
++#define UI_VIEWS_DIALOGS_ATT_STRUCT_DIALOG_H_
+ 
+ #include <string>
+ #include <vector>
+@@ -28,4 +28,4 @@ class AttStructDialog {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_ATT_STRUCT_DIALOG_H_
++#endif  // UI_VIEWS_DIALOGS_ATT_STRUCT_DIALOG_H_
+diff --git a/src/ui/views/dialogs/create_datasource_dialog.cc b/src/ui/views/dialogs/create_datasource_dialog.cc
+index 677c20d..0aef439 100644
+--- a/src/ui/views/dialogs/create_datasource_dialog.cc
++++ b/src/ui/views/dialogs/create_datasource_dialog.cc
+@@ -1,16 +1,16 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/create_datasource_dialog.h"
++#include "ui/views/dialogs/create_datasource_dialog.h"
+ 
+ #include <memory>
+ #include <utility>
+ 
+-#include "ui/views/combobox.h"
+-#include "ui/views/dialog.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/textfield.h"
++#include "ui/views/primitives/combobox.h"
++#include "ui/views/dialogs/dialog.h"
++#include "ui/views/primitives/label.h"
++#include "ui/views/kernel/layout.h"
++#include "ui/views/primitives/textfield.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/dialogs/create_datasource_dialog.h b/src/ui/views/dialogs/create_datasource_dialog.h
+index 69f9262..44dab03 100644
+--- a/src/ui/views/dialogs/create_datasource_dialog.h
++++ b/src/ui/views/dialogs/create_datasource_dialog.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_CREATE_DATASOURCE_DIALOG_H_
+-#define UI_VIEWS_CREATE_DATASOURCE_DIALOG_H_
++#ifndef UI_VIEWS_DIALOGS_CREATE_DATASOURCE_DIALOG_H_
++#define UI_VIEWS_DIALOGS_CREATE_DATASOURCE_DIALOG_H_
+ 
+ #include <string>
+ 
+@@ -25,4 +25,4 @@ class CreateDatasourceDialog {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_CREATE_DATASOURCE_DIALOG_H_
++#endif  // UI_VIEWS_DIALOGS_CREATE_DATASOURCE_DIALOG_H_
+diff --git a/src/ui/views/dialogs/create_layer_dialog.cc b/src/ui/views/dialogs/create_layer_dialog.cc
+index 1af08f5..d50a477 100644
+--- a/src/ui/views/dialogs/create_layer_dialog.cc
++++ b/src/ui/views/dialogs/create_layer_dialog.cc
+@@ -1,16 +1,16 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/create_layer_dialog.h"
++#include "ui/views/dialogs/create_layer_dialog.h"
+ 
+ #include <memory>
+ #include <utility>
+ 
+-#include "ui/views/combobox.h"
+-#include "ui/views/dialog.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/textfield.h"
++#include "ui/views/primitives/combobox.h"
++#include "ui/views/dialogs/dialog.h"
++#include "ui/views/primitives/label.h"
++#include "ui/views/kernel/layout.h"
++#include "ui/views/primitives/textfield.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/dialogs/create_layer_dialog.h b/src/ui/views/dialogs/create_layer_dialog.h
+index 05e4321..9dfb63e 100644
+--- a/src/ui/views/dialogs/create_layer_dialog.h
++++ b/src/ui/views/dialogs/create_layer_dialog.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_CREATE_LAYER_DIALOG_H_
+-#define UI_VIEWS_CREATE_LAYER_DIALOG_H_
++#ifndef UI_VIEWS_DIALOGS_CREATE_LAYER_DIALOG_H_
++#define UI_VIEWS_DIALOGS_CREATE_LAYER_DIALOG_H_
+ 
+ #include <string>
+ 
+@@ -25,4 +25,4 @@ class CreateLayerDialog {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_CREATE_LAYER_DIALOG_H_
++#endif  // UI_VIEWS_DIALOGS_CREATE_LAYER_DIALOG_H_
+diff --git a/src/ui/views/dialogs/create_map_dialog.cc b/src/ui/views/dialogs/create_map_dialog.cc
+index 058b7f6..5ed342b 100644
+--- a/src/ui/views/dialogs/create_map_dialog.cc
++++ b/src/ui/views/dialogs/create_map_dialog.cc
+@@ -1,15 +1,15 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/create_map_dialog.h"
++#include "ui/views/dialogs/create_map_dialog.h"
+ 
+ #include <memory>
+ #include <utility>
+ 
+-#include "ui/views/dialog.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/textfield.h"
++#include "ui/views/dialogs/dialog.h"
++#include "ui/views/primitives/label.h"
++#include "ui/views/kernel/layout.h"
++#include "ui/views/primitives/textfield.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/dialogs/create_map_dialog.h b/src/ui/views/dialogs/create_map_dialog.h
+index a5c8289..18a1822 100644
+--- a/src/ui/views/dialogs/create_map_dialog.h
++++ b/src/ui/views/dialogs/create_map_dialog.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_CREATE_MAP_DIALOG_H_
+-#define UI_VIEWS_CREATE_MAP_DIALOG_H_
++#ifndef UI_VIEWS_DIALOGS_CREATE_MAP_DIALOG_H_
++#define UI_VIEWS_DIALOGS_CREATE_MAP_DIALOG_H_
+ 
+ #include <string>
+ 
+@@ -20,4 +20,4 @@ class CreateMapDialog {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_CREATE_MAP_DIALOG_H_
++#endif  // UI_VIEWS_DIALOGS_CREATE_MAP_DIALOG_H_
+diff --git a/src/ui/views/dialogs/dialog.cc b/src/ui/views/dialogs/dialog.cc
+index a4bf926..efc1ab3 100644
+--- a/src/ui/views/dialogs/dialog.cc
++++ b/src/ui/views/dialogs/dialog.cc
+@@ -1,13 +1,13 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/dialog.h"
++#include "ui/views/dialogs/dialog.h"
+ 
+-#include "ui/views/button.h"
+-#include "ui/views/dpi.h"
+-#include "ui/views/event.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/widget.h"
++#include "ui/views/primitives/button.h"
++#include "ui/views/kernel/dpi.h"
++#include "ui/views/kernel/event.h"
++#include "ui/views/kernel/layout.h"
++#include "ui/views/kernel/widget.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/dialogs/dialog.h b/src/ui/views/dialogs/dialog.h
+index 9c8a263..e127b7f 100644
+--- a/src/ui/views/dialogs/dialog.h
++++ b/src/ui/views/dialogs/dialog.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_DIALOG_H_
+-#define UI_VIEWS_DIALOG_H_
++#ifndef UI_VIEWS_DIALOGS_DIALOG_H_
++#define UI_VIEWS_DIALOGS_DIALOG_H_
+ 
+ #include <memory>
+ 
+@@ -11,7 +11,7 @@
+ #endif
+ #include <windows.h>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -43,4 +43,4 @@ class Dialog {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_DIALOG_H_
++#endif  // UI_VIEWS_DIALOGS_DIALOG_H_
+diff --git a/src/ui/views/dialogs/file_picker.cc b/src/ui/views/dialogs/file_picker.cc
+index 826dda9..c07f929 100644
+--- a/src/ui/views/dialogs/file_picker.cc
++++ b/src/ui/views/dialogs/file_picker.cc
+@@ -1,7 +1,7 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/file_picker.h"
++#include "ui/views/dialogs/file_picker.h"
+ 
+ #ifndef WIN32_LEAN_AND_MEAN
+ #define WIN32_LEAN_AND_MEAN
+@@ -9,7 +9,7 @@
+ #include <windows.h>
+ #include <commdlg.h>
+ 
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/dialogs/file_picker.h b/src/ui/views/dialogs/file_picker.h
+index 5778a82..6115e1a 100644
+--- a/src/ui/views/dialogs/file_picker.h
++++ b/src/ui/views/dialogs/file_picker.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_FILE_PICKER_H_
+-#define UI_VIEWS_FILE_PICKER_H_
++#ifndef UI_VIEWS_DIALOGS_FILE_PICKER_H_
++#define UI_VIEWS_DIALOGS_FILE_PICKER_H_
+ 
+ #include <string>
+ 
+@@ -30,4 +30,4 @@ FilePickerResult pick_save_file(HWND owner, const wchar_t* filter);
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_FILE_PICKER_H_
++#endif  // UI_VIEWS_DIALOGS_FILE_PICKER_H_
+diff --git a/src/ui/views/dialogs/input_text_dialog.cc b/src/ui/views/dialogs/input_text_dialog.cc
+index 2e0ec1f..08d0f22 100644
+--- a/src/ui/views/dialogs/input_text_dialog.cc
++++ b/src/ui/views/dialogs/input_text_dialog.cc
+@@ -1,15 +1,15 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/input_text_dialog.h"
++#include "ui/views/dialogs/input_text_dialog.h"
+ 
+ #include <memory>
+ #include <utility>
+ 
+-#include "ui/views/dialog.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/textfield.h"
++#include "ui/views/dialogs/dialog.h"
++#include "ui/views/primitives/label.h"
++#include "ui/views/kernel/layout.h"
++#include "ui/views/primitives/textfield.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/dialogs/input_text_dialog.h b/src/ui/views/dialogs/input_text_dialog.h
+index 21d3bb9..507de70 100644
+--- a/src/ui/views/dialogs/input_text_dialog.h
++++ b/src/ui/views/dialogs/input_text_dialog.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_INPUT_TEXT_DIALOG_H_
+-#define UI_VIEWS_INPUT_TEXT_DIALOG_H_
++#ifndef UI_VIEWS_DIALOGS_INPUT_TEXT_DIALOG_H_
++#define UI_VIEWS_DIALOGS_INPUT_TEXT_DIALOG_H_
+ 
+ #include <string>
+ 
+@@ -23,4 +23,4 @@ class InputTextDialog {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_INPUT_TEXT_DIALOG_H_
++#endif  // UI_VIEWS_DIALOGS_INPUT_TEXT_DIALOG_H_
+diff --git a/src/ui/views/dialogs/message_box.cc b/src/ui/views/dialogs/message_box.cc
+index 7cd9a7b..dd62bd5 100644
+--- a/src/ui/views/dialogs/message_box.cc
++++ b/src/ui/views/dialogs/message_box.cc
+@@ -1,14 +1,14 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/message_box.h"
++#include "ui/views/dialogs/message_box.h"
+ 
+ #ifndef WIN32_LEAN_AND_MEAN
+ #define WIN32_LEAN_AND_MEAN
+ #endif
+ #include <windows.h>
+ 
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/dialogs/message_box.h b/src/ui/views/dialogs/message_box.h
+index 3d5a922..cabe415 100644
+--- a/src/ui/views/dialogs/message_box.h
++++ b/src/ui/views/dialogs/message_box.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_MESSAGE_BOX_H_
+-#define UI_VIEWS_MESSAGE_BOX_H_
++#ifndef UI_VIEWS_DIALOGS_MESSAGE_BOX_H_
++#define UI_VIEWS_DIALOGS_MESSAGE_BOX_H_
+ 
+ #include <string>
+ 
+@@ -26,4 +26,4 @@ void show_message_box(MessageBoxKind kind, const std::string& text, HWND owner);
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_MESSAGE_BOX_H_
++#endif  // UI_VIEWS_DIALOGS_MESSAGE_BOX_H_
+diff --git a/src/ui/views/dialogs/select_one_dialog.cc b/src/ui/views/dialogs/select_one_dialog.cc
+index 707671c..715d71d 100644
+--- a/src/ui/views/dialogs/select_one_dialog.cc
++++ b/src/ui/views/dialogs/select_one_dialog.cc
+@@ -1,16 +1,16 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/select_one_dialog.h"
++#include "ui/views/dialogs/select_one_dialog.h"
+ 
+ #include <memory>
+ #include <string>
+ #include <utility>
+ 
+-#include "ui/views/combobox.h"
+-#include "ui/views/dialog.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
++#include "ui/views/primitives/combobox.h"
++#include "ui/views/dialogs/dialog.h"
++#include "ui/views/primitives/label.h"
++#include "ui/views/kernel/layout.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/dialogs/select_one_dialog.h b/src/ui/views/dialogs/select_one_dialog.h
+index ee2974a..06270c3 100644
+--- a/src/ui/views/dialogs/select_one_dialog.h
++++ b/src/ui/views/dialogs/select_one_dialog.h
+@@ -1,8 +1,8 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_SELECT_ONE_DIALOG_H_
+-#define UI_VIEWS_SELECT_ONE_DIALOG_H_
++#ifndef UI_VIEWS_DIALOGS_SELECT_ONE_DIALOG_H_
++#define UI_VIEWS_DIALOGS_SELECT_ONE_DIALOG_H_
+ 
+ #include <string>
+ #include <vector>
+@@ -25,4 +25,4 @@ class SelectOneDialog {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_SELECT_ONE_DIALOG_H_
++#endif  // UI_VIEWS_DIALOGS_SELECT_ONE_DIALOG_H_

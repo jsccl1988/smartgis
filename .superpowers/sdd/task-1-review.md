@@ -1,13 +1,13 @@
 ### Spec Compliance
 
-- ✅ Three OGR DB providers appended after `PROVIDER_MYSQL` without reordering existing DB members (`src/sdb/layer/layer.h:43-45`)
-- ✅ Public API unchanged from brief: `is_db_provider_supported`, `gdal_driver_name`, `make_gdal_open_target` (`src/sdb/datasource/gdal/ogr_connect.h:42-44`)
-- ✅ Mid-task constraint: `db_provider_traits<Provider>` primary template + full specializations for GPKG/Postgres/SpatiaLite; free functions dispatch via `switch` (`src/sdb/datasource/gdal/ogr_connect.h:14-40`, `ogr_connect.cc:64-101`)
+- ✅ Three OGR DB providers appended after `PROVIDER_MYSQL` without reordering existing DB members (`src/gis/layer/layer.h:43-45`)
+- ✅ Public API unchanged from brief: `is_db_provider_supported`, `gdal_driver_name`, `make_gdal_open_target` (`src/gis/datasource/gdal/ogr_connect.h:42-44`)
+- ✅ Mid-task constraint: `db_provider_traits<Provider>` primary template + full specializations for GPKG/Postgres/SpatiaLite; free functions dispatch via `switch` (`src/gis/datasource/gdal/ogr_connect.h:14-40`, `ogr_connect.cc:64-101`)
 - ✅ `sde_gdal_test.cc` matches brief verbatim (all assertions for support flags, driver names, GPKG path, PG connection string, ACCESS empty target)
-- ✅ GN wiring: `ogr_codec`, `sde_gdal` (`dll_stem = "SmtSDEGdalDevice"`), `sde_gdal_test` (`src/sdb/datasource/gdal/BUILD.gn:7-49`)
-- ✅ `//:test_all` includes `//src/sdb/datasource/gdal:sde_gdal_test` (`BUILD.gn:34-39`)
-- ✅ `register_gdal_driver()` still returns `false` (`src/sdb/datasource/gdal/gdal_driver.cc:9-13`)
-- ✅ `src/ado` not dropped — `//src/sdb/datasource/ado:sde_ado` retained in datasource deps (`src/sdb/BUILD.gn:16`, `src/sdb/datasource/BUILD.gn:7`)
+- ✅ GN wiring: `ogr_codec`, `sde_gdal` (`dll_stem = "SmtSDEGdalDevice"`), `sde_gdal_test` (`src/gis/datasource/gdal/BUILD.gn:7-49`)
+- ✅ `//:test_all` includes `//src/gis/datasource/gdal:sde_gdal_test` (`BUILD.gn:34-39`)
+- ✅ `register_gdal_driver()` still returns `false` (`src/gis/datasource/gdal/gdal_driver.cc:9-13`)
+- ✅ `src/ado` not dropped — `//src/gis/datasource/ado:sde_ado` retained in datasource deps (`src/gis/BUILD.gn:16`, `src/gis/datasource/BUILD.gn:7`)
 - ✅ Copyright headers on all new engineering files (2026 Mogu Authors)
 - ✅ No vendored SOCI/nanodbc/libpqxx/SQLiteCpp/Qt/second GDAL tree in diff
 - ✅ No `content/public` changes in diff

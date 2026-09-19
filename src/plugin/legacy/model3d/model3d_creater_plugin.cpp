@@ -25,7 +25,7 @@
 #include "legacy/ui/xcatalog/scenemgr.h"
 
 using namespace render;
-using namespace sdb;
+using namespace gis;
 using namespace sys;
 using namespace plugin;
 using namespace ui;

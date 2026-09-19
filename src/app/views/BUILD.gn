@@ -5,15 +5,21 @@
 # Output: out/SmartGisViews.exe. Leftover MFC sources stay in src/app/.
 
 import("//build/config/win/application.gni")
+import("//testing/test.gni")
 
 # Shared in-process map document (OGR + overlay). Used by Views, WinUI, CEF.
 source_set("map_scene") {
   sources = [
+    "blit_frame_cache.cc",
+    "blit_frame_cache.h",
+    "map_host_extent.h",
     "map_scene.cc",
     "map_scene.h",
   ]
   deps = [
     "//src/content:content",
+    "//src/gis/datasource/gdal:ogr_text_encoding",
+    "//src/gis/world:land_mask",
     "//src/tool:dispatch",
     "//third_party:gdal",
   ]
@@ -24,21 +30,59 @@ source_set("map_scene") {
   ]
 }
 
+# 3D orbit / DEM wireframe host — shared by Views + WinUI (SmartGis parity).
+# Mesh + present_gpu go through gis::DemRaster → World → GpuScene (no leftover
+# dem_height_field_static). Atmosphere ocean/cloud passes optional (default off).
+source_set("scene3d_controller") {
+  sources = [
+    "scene3d_controller.cc",
+    "scene3d_controller.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":map_scene",
+    "//src/content:content",
+    "//src/gis:gis",
+    "//src/gis/world:land_mask",
+    "//src/gis/world:world",
+    "//src/render:rhi",
+    "//src/render/scene:scene",
+    "//src/tool:dispatch",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
+# SP5: product shell must not link leftover DLLs / MFC chrome.
 win32_app("views") {
   output_name = "SmartGisViews"
+  assert_no_deps = [
+    "//src/legacy/app:*",
+    "//src/legacy/render:legacy_render",
+    "//src/legacy/render:legacy_render_all",
+    "//src/legacy/render:scene3d",
+    "//src/legacy/render/scene3d:dem_height_field_static",
+    "//src/legacy/tool:*",
+    "//src/legacy/ui:*",
+    "//src/ui:ui_legacy",
+  ]
   sources = [
     "app_commands.cc",
     "app_commands.h",
     "browser_view.cc",
     "browser_view.h",
     "main.cc",
+    "map_hwnd_gestures.cc",
+    "map_hwnd_gestures.h",
+    "map_host_extent.h",
     "plugin_chrome.cc",
     "plugin_chrome.h",
-    "scene3d_controller.cc",
-    "scene3d_controller.h",
   ]
   deps = [
     ":map_scene",
+    ":scene3d_controller",
     "//src/content:content",
     "//src/content:view_host",
     "//src/gpu:gpu_lib",
@@ -49,7 +93,8 @@ win32_app("views") {
     "//src/plugin/print:print_views",
     "//src/plugin/proj:proj_views",
     "//src/render:rhi",
-    "//src/sdb/tile:tile",
+    "//src/gis/tile:tile",
+    "//src/gis/world:land_mask",
     "//src/tool:dispatch",
     "//src/ui/views:views",
     "//third_party:gdal",
@@ -58,10 +103,53 @@ win32_app("views") {
     "//testing/data:china_map_samples",
     "//third_party:gdal_runtime_dlls",
   ]
-  libs = [ "shell32.lib" ]
+  libs = [
+    "comctl32.lib",
+    "shell32.lib",
+  ]
+}
+
+# Views-only camera / extent / atmosphere wiring test (Null RHI; no leftover HWND).
+test("scene3d_controller_test") {
+  output_name = "scene3d_controller_test"
+  sources = [ "scene3d_controller_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":map_scene",
+    ":scene3d_controller",
+    "//src/content:content",
+    "//src/gis:gis",
+    "//src/gis/world:land_mask",
+    "//src/gis/world:world",
+    "//src/render:rhi",
+    "//src/render/scene:scene",
+    "//src/tool:dispatch",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
 }
 
 # Alias so `ninja -C out SmartGisViews` matches output_name / peers.
 group("SmartGisViews") {
   deps = [ ":views" ]
+}
+
+test("map_scene_test") {
+  output_name = "map_scene_test"
+  sources = [ "map_scene_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":map_scene",
+    "//src/content:content",
+    "//src/gis/datasource/gdal:ogr_text_encoding",
+    "//src/gis/world:land_mask",
+    "//src/tool:dispatch",
+    "//third_party:gdal",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
 }

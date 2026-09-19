@@ -19,25 +19,442 @@
 #include "render/rhi/rhi.h"
 #include "tool/interaction.h"
 #include "tool/workspace.h"
-#include "ui/views/catalog_view.h"
-#include "ui/views/dpi.h"
-#include "ui/views/layout_check.h"
-#include "ui/views/map_viewport.h"
-#include "ui/views/menu_bar.h"
-#include "ui/views/status_bar.h"
-#include "ui/views/view.h"
+#include "ui/views/gis/catalog_view.h"
+#include "ui/views/kernel/dpi.h"
+#include "ui/views/kernel/layout_check.h"
+#include "ui/views/map/map_viewport.h"
+#include "ui/views/primitives/menu_bar.h"
+#include "ui/views/gis/status_bar.h"
+#include "ui/views/kernel/view.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <cmath>
 #include <string>
 #include <vector>
+#include <cwctype>
 
 namespace {
 
 bool cmd_has_self_test() {
   const wchar_t* cmd = GetCommandLineW();
   return cmd && wcsstr(cmd, L"--self-test");
+}
+
+// Automated 3D atmosphere demos (distinct from full --self-test chrome path).
+// Modes: land | ocean | full | coast
+enum class AtmosphereShowcaseMode {
+  kNone,
+  kLand,
+  kOcean,
+  kFull,
+  kCoast,
+};
+
+AtmosphereShowcaseMode parse_atmosphere_showcase() {
+  const wchar_t* cmd = GetCommandLineW();
+  if (!cmd) {
+    return AtmosphereShowcaseMode::kNone;
+  }
+  // Accept both `--atmosphere-showcase=land` and `--atmosphere-showcase land`
+  // (cmd.exe may treat '=' as a token separator).
+  const wchar_t* p = wcsstr(cmd, L"--atmosphere-showcase");
+  if (!p) {
+    return AtmosphereShowcaseMode::kNone;
+  }
+  p += wcslen(L"--atmosphere-showcase");
+  while (*p == L' ' || *p == L'\t' || *p == L'=') {
+    ++p;
+  }
+  if (wcsncmp(p, L"land", 4) == 0 && (p[4] == 0 || iswspace(p[4]) || p[4] == L'"')) {
+    return AtmosphereShowcaseMode::kLand;
+  }
+  if (wcsncmp(p, L"ocean", 5) == 0 &&
+      (p[5] == 0 || iswspace(p[5]) || p[5] == L'"')) {
+    return AtmosphereShowcaseMode::kOcean;
+  }
+  if (wcsncmp(p, L"full", 4) == 0 && (p[4] == 0 || iswspace(p[4]) || p[4] == L'"')) {
+    return AtmosphereShowcaseMode::kFull;
+  }
+  if (wcsncmp(p, L"coast", 5) == 0 &&
+      (p[5] == 0 || iswspace(p[5]) || p[5] == L'"')) {
+    return AtmosphereShowcaseMode::kCoast;
+  }
+  return AtmosphereShowcaseMode::kNone;
+}
+
+const char* atmosphere_showcase_name(AtmosphereShowcaseMode mode) {
+  switch (mode) {
+    case AtmosphereShowcaseMode::kLand:
+      return "land";
+    case AtmosphereShowcaseMode::kOcean:
+      return "ocean";
+    case AtmosphereShowcaseMode::kFull:
+      return "full";
+    case AtmosphereShowcaseMode::kCoast:
+      return "coast";
+    case AtmosphereShowcaseMode::kNone:
+    default:
+      return "none";
+  }
+}
+
+void pump_briefly(DWORD ms);
+void self_test_detach_maps(app::BrowserView& browser);
+
+void showcase_mark(const char* step) {
+  wchar_t path[MAX_PATH] = {};
+  DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
+  if (n == 0 || n >= MAX_PATH) {
+    return;
+  }
+  for (int i = static_cast<int>(n) - 1; i >= 0; --i) {
+    if (path[i] == L'\\' || path[i] == L'/') {
+      path[i + 1] = L'\0';
+      break;
+    }
+  }
+  if (wcscat_s(path, L"atmosphere-showcase-mark.txt") != 0) {
+    return;
+  }
+  FILE* f = nullptr;
+  if (_wfopen_s(&f, path, L"a") == 0 && f) {
+    std::fprintf(f, "%s\n", step);
+    std::fflush(f);
+    std::fclose(f);
+  }
+}
+
+bool capture_hwnd_bmp(HWND hwnd, const wchar_t* filename) {
+  if (!hwnd || !IsWindow(hwnd) || !filename) {
+    return false;
+  }
+  RECT rc = {};
+  if (!GetClientRect(hwnd, &rc)) {
+    return false;
+  }
+  const int w = rc.right - rc.left;
+  const int h = rc.bottom - rc.top;
+  if (w < 8 || h < 8) {
+    return false;
+  }
+  HDC wnd_dc = GetDC(hwnd);
+  if (!wnd_dc) {
+    return false;
+  }
+  HDC mem = CreateCompatibleDC(wnd_dc);
+  HBITMAP bmp = CreateCompatibleBitmap(wnd_dc, w, h);
+  if (!mem || !bmp) {
+    if (bmp) {
+      DeleteObject(bmp);
+    }
+    if (mem) {
+      DeleteDC(mem);
+    }
+    ReleaseDC(hwnd, wnd_dc);
+    return false;
+  }
+  HGDIOBJ old = SelectObject(mem, bmp);
+  // PrintWindow catches GPU-composited child content better than BitBlt alone.
+#ifndef PW_CLIENTONLY
+#define PW_CLIENTONLY 0x00000001
+#endif
+  const BOOL printed = PrintWindow(hwnd, mem, PW_CLIENTONLY);
+  if (!printed) {
+    BitBlt(mem, 0, 0, w, h, wnd_dc, 0, 0, SRCCOPY);
+  }
+
+  BITMAPINFOHEADER bi{};
+  bi.biSize = sizeof(bi);
+  bi.biWidth = w;
+  bi.biHeight = -h;  // top-down
+  bi.biPlanes = 1;
+  bi.biBitCount = 24;
+  bi.biCompression = BI_RGB;
+  const int stride = ((w * 3 + 3) / 4) * 4;
+  std::vector<unsigned char> pixels(static_cast<size_t>(stride) *
+                                    static_cast<size_t>(h));
+  const int got = GetDIBits(mem, bmp, 0, h, pixels.data(),
+                            reinterpret_cast<BITMAPINFO*>(&bi), DIB_RGB_COLORS);
+  SelectObject(mem, old);
+  DeleteObject(bmp);
+  DeleteDC(mem);
+  ReleaseDC(hwnd, wnd_dc);
+  if (got != h) {
+    return false;
+  }
+
+  BITMAPFILEHEADER fh{};
+  fh.bfType = 0x4D42;
+  fh.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+  fh.bfSize = fh.bfOffBits + static_cast<DWORD>(pixels.size());
+
+  FILE* out = nullptr;
+  if (_wfopen_s(&out, filename, L"wb") != 0 || !out) {
+    return false;
+  }
+  std::fwrite(&fh, sizeof(fh), 1, out);
+  std::fwrite(&bi, sizeof(bi), 1, out);
+  std::fwrite(pixels.data(), 1, pixels.size(), out);
+  std::fclose(out);
+  return true;
+}
+
+int run_atmosphere_showcase(app::BrowserView& browser,
+                            AtmosphereShowcaseMode mode) {
+  const char* name = atmosphere_showcase_name(mode);
+  std::fprintf(stderr, "atmosphere-showcase mode=%s\n", name);
+  showcase_mark(name);
+
+  browser.select_map_tab(2);
+  showcase_mark("tab3d");
+  pump_briefly(600);
+  showcase_mark("pumped");
+  ui::views::MapViewport* scene = browser.map_scene_viewport();
+  if (!scene || !scene->native_view() || !IsWindow(scene->native_view())) {
+    std::fprintf(stderr, "atmosphere-showcase: 3D viewport HWND missing\n");
+    self_test_detach_maps(browser);
+    return 50;
+  }
+  showcase_mark("scene-hwnd-ok");
+
+  // Prefer an already-hung FlyCube; otherwise open a device on the 3D HWND.
+  // Default: Null RHI (deterministic exit). Set SMT_ATMOSPHERE_SHOWCASE_GPU=1
+  // to use FlyCube/DX12 — note: some hosts hang inside present_gpu on a
+  // post-detach swapchain; Null still exercises ocean→land→cloud recording.
+  render::rhi::Device* device =
+      static_cast<render::rhi::Device*>(scene->rhi_device());
+  bool owns_device = false;
+  const bool want_gpu = []() {
+    if (const char* env = std::getenv("SMT_ATMOSPHERE_SHOWCASE_GPU")) {
+      return env[0] == '1' && env[1] == '\0';
+    }
+    return false;
+  }();
+  std::fprintf(stderr, "atmosphere-showcase: attach_mode=%d rhi=%p gpu=%d\n",
+               static_cast<int>(scene->attach_mode()),
+               static_cast<void*>(device), want_gpu ? 1 : 0);
+  if (scene->attach_mode() != ui::views::MapViewport::AttachMode::kFlyCube ||
+      !device || !want_gpu) {
+    showcase_mark(want_gpu ? "flycube-acquire" : "null-acquire");
+    if (scene->attach_mode() ==
+            ui::views::MapViewport::AttachMode::kContentMapView ||
+        scene->attach_mode() == ui::views::MapViewport::AttachMode::kFlyCube) {
+      scene->detach();
+      showcase_mark("detached");
+      pump_briefly(100);
+    }
+    HWND hwnd = scene->native_view();
+    if (!hwnd) {
+      scene->realize_native();
+      hwnd = scene->native_view();
+    }
+    if (!hwnd) {
+      std::fprintf(stderr, "atmosphere-showcase: HWND gone after detach\n");
+      self_test_detach_maps(browser);
+      return 50;
+    }
+    showcase_mark("hwnd-ready");
+    device = render::rhi::create_device(
+        want_gpu ? render::rhi::preferred_gpu_backend()
+                 : render::rhi::Backend::kNull);
+    if (!device) {
+      std::fprintf(stderr, "atmosphere-showcase: create_device failed\n");
+      showcase_mark("device-missing");
+      self_test_detach_maps(browser);
+      return 51;
+    }
+    showcase_mark("device-created");
+    RECT rc = {};
+    GetClientRect(hwnd, &rc);
+    render::rhi::DeviceDesc desc;
+    desc.native_window = want_gpu ? hwnd : nullptr;
+    desc.width = rc.right > 0 ? static_cast<uint32_t>(rc.right) : 640;
+    desc.height = rc.bottom > 0 ? static_cast<uint32_t>(rc.bottom) : 480;
+    if (!device->initialize(desc)) {
+      std::fprintf(stderr, "atmosphere-showcase: device initialize failed\n");
+      device->shutdown();
+      showcase_mark("device-missing");
+      self_test_detach_maps(browser);
+      return 51;
+    }
+    if (want_gpu) {
+      if (render::rhi::CommandList* warm = device->create_command_list()) {
+        render::rhi::RenderPassDesc pass;
+        pass.clear_r = 0.05f;
+        pass.clear_g = 0.12f;
+        pass.clear_b = 0.18f;
+        pass.clear_a = 1.f;
+        pass.width = desc.width;
+        pass.height = desc.height;
+        warm->begin_render_pass(pass);
+        warm->set_viewport(0, 0, static_cast<float>(desc.width),
+                           static_cast<float>(desc.height), 0, 1);
+        warm->end_render_pass();
+        warm->close();
+        device->execute(warm);
+        device->destroy_command_list(warm);
+        device->present();
+      }
+    }
+    showcase_mark(want_gpu ? "device-init-gpu" : "device-init-null");
+    owns_device = true;
+  }
+  showcase_mark(want_gpu ? "flycube-ok" : "null-ok");
+
+  app::Scene3dController* cam = browser.scene3d();
+  if (!cam) {
+    if (owns_device && device) {
+      device->shutdown();
+    }
+    self_test_detach_maps(browser);
+    return 50;
+  }
+
+  // Distinct camera nudge so frames are not the default identity orbit.
+  cam->apply_pan(40, -18);
+  cam->apply_wheel_at(320, 240, 120, 640, 480);
+
+  switch (mode) {
+    case AtmosphereShowcaseMode::kLand:
+      // Leave Environment unset — DEM / land present only.
+      break;
+    case AtmosphereShowcaseMode::kOcean:
+      cam->seed_atmosphere_procedural();
+      cam->set_ocean_enabled(true);
+      cam->set_cloud_enabled(false);
+      break;
+    case AtmosphereShowcaseMode::kFull:
+      cam->enable_atmosphere_demo();
+      break;
+    case AtmosphereShowcaseMode::kCoast: {
+      // East China Sea coastal window — different extent from full China.
+      const content::Extent2 coast{118.0, 28.0, 128.0, 36.0};
+      cam->apply_world_extent(coast);
+      cam->enable_atmosphere_demo();
+      break;
+    }
+    case AtmosphereShowcaseMode::kNone:
+    default:
+      if (owns_device && device) {
+        device->shutdown();
+      }
+      self_test_detach_maps(browser);
+      return 53;
+  }
+
+  const gis::atmosphere::Environment* env = cam->atmosphere();
+  const bool want_ocean =
+      mode == AtmosphereShowcaseMode::kOcean ||
+      mode == AtmosphereShowcaseMode::kFull ||
+      mode == AtmosphereShowcaseMode::kCoast;
+  const bool want_cloud = mode == AtmosphereShowcaseMode::kFull ||
+                           mode == AtmosphereShowcaseMode::kCoast;
+  if (mode == AtmosphereShowcaseMode::kLand) {
+    if (env && (env->ocean_enabled() || env->cloud_enabled())) {
+      std::fprintf(stderr,
+                   "atmosphere-showcase: land mode still has passes on\n");
+      if (owns_device && device) {
+        device->shutdown();
+      }
+      self_test_detach_maps(browser);
+      return 53;
+    }
+  } else {
+    if (!env) {
+      std::fprintf(stderr, "atmosphere-showcase: Environment missing\n");
+      if (owns_device && device) {
+        device->shutdown();
+      }
+      self_test_detach_maps(browser);
+      return 53;
+    }
+    if (env->ocean_enabled() != want_ocean ||
+        env->cloud_enabled() != want_cloud) {
+      std::fprintf(stderr,
+                   "atmosphere-showcase: flag mismatch ocean=%d cloud=%d "
+                   "(want %d/%d)\n",
+                   env->ocean_enabled() ? 1 : 0, env->cloud_enabled() ? 1 : 0,
+                   want_ocean ? 1 : 0, want_cloud ? 1 : 0);
+      if (owns_device && device) {
+        device->shutdown();
+      }
+      self_test_detach_maps(browser);
+      return 53;
+    }
+    if (env->field_store().layer_count() == 0) {
+      std::fprintf(stderr, "atmosphere-showcase: FieldStore empty\n");
+      if (owns_device && device) {
+        device->shutdown();
+      }
+      self_test_detach_maps(browser);
+      return 53;
+    }
+  }
+  showcase_mark("config-ok");
+  std::fprintf(stderr, "atmosphere-showcase: ocean=%d cloud=%d layers=%zu\n",
+               env && env->ocean_enabled() ? 1 : 0,
+               env && env->cloud_enabled() ? 1 : 0,
+               env ? env->field_store().layer_count() : 0u);
+
+  constexpr uint32_t kW = 640;
+  constexpr uint32_t kH = 480;
+  int presents = 0;
+  for (int i = 0; i < 3; ++i) {
+    char frame_mark[32];
+    std::snprintf(frame_mark, sizeof(frame_mark), "present-%d", i);
+    showcase_mark(frame_mark);
+    if (!cam->present_gpu(device, kW, kH)) {
+      std::fprintf(stderr, "atmosphere-showcase: present_gpu failed frame %d\n",
+                   i);
+      cam->abandon_mesh();
+      if (owns_device && device) {
+        device->shutdown();
+      }
+      self_test_detach_maps(browser);
+      return 52;
+    }
+    ++presents;
+    pump_briefly(50);
+  }
+  showcase_mark("present-ok");
+  std::fprintf(stderr, "atmosphere-showcase: presented %d frames %ux%u\n",
+               presents, kW, kH);
+
+  // Best-effort window capture next to the exe (out/).
+  wchar_t bmp_path[MAX_PATH] = {};
+  if (GetModuleFileNameW(nullptr, bmp_path, MAX_PATH) > 0) {
+    for (int i = static_cast<int>(wcslen(bmp_path)) - 1; i >= 0; --i) {
+      if (bmp_path[i] == L'\\' || bmp_path[i] == L'/') {
+        bmp_path[i + 1] = L'\0';
+        break;
+      }
+    }
+    wchar_t file[64] = {};
+    swprintf_s(file, L"atmosphere-showcase-%S.bmp", name);
+    if (wcscat_s(bmp_path, file) == 0) {
+      HWND capture_hwnd = scene->native_view();
+      if (capture_hwnd_bmp(capture_hwnd, bmp_path)) {
+        showcase_mark("bmp-ok");
+        std::fwprintf(stderr, L"atmosphere-showcase: wrote %ls\n", bmp_path);
+      } else {
+        showcase_mark("bmp-skip");
+        std::fprintf(stderr, "atmosphere-showcase: BMP capture skipped\n");
+      }
+    }
+  }
+
+  cam->abandon_mesh();
+  if (owns_device && device) {
+    device->shutdown();
+    // Intentionally leak Device* — FlyCube teardown has corrupted heaps
+    // when operator delete runs after a live DX12 session (see MapViewport).
+  }
+  self_test_detach_maps(browser);
+  showcase_mark("pass");
+  std::fprintf(stderr, "atmosphere-showcase: PASS mode=%s\n", name);
+  return 0;
 }
 
 void pump_briefly(DWORD ms) {
@@ -116,12 +533,54 @@ bool viewport_has_presented_frame(ui::views::MapViewport* pane) {
 
 int BrowserMain(const content::ContentMainParams&) {
   ui::views::enable_process_dpi_awareness();
+  const AtmosphereShowcaseMode showcase = parse_atmosphere_showcase();
+  // Do NOT set SMT_PREFER_FLYCUBE_3D before BrowserView::init — preferring
+  // FlyCube during multi-viewport attach can hang DX12 init on some hosts.
+  // Showcase acquires FlyCube after the shell is up (see run_atmosphere_showcase).
+  {
+    wchar_t diag[MAX_PATH] = {};
+    if (GetModuleFileNameW(nullptr, diag, MAX_PATH) > 0) {
+      for (int i = static_cast<int>(wcslen(diag)) - 1; i >= 0; --i) {
+        if (diag[i] == L'\\' || diag[i] == L'/') {
+          diag[i + 1] = L'\0';
+          break;
+        }
+      }
+      if (wcscat_s(diag, L"atmosphere-showcase-cmdline.txt") == 0) {
+        FILE* f = nullptr;
+        if (_wfopen_s(&f, diag, L"w") == 0 && f) {
+          const wchar_t* cmd = GetCommandLineW();
+          std::fwprintf(f, L"cmd=%s\nshowcase=%hs\n", cmd ? cmd : L"(null)",
+                        atmosphere_showcase_name(showcase));
+          std::fclose(f);
+        }
+      }
+    }
+  }
   const bool self_test = cmd_has_self_test();
   app::BrowserView browser;
   if (!browser.init()) {
     return 1;
   }
   browser.show();
+  if (showcase != AtmosphereShowcaseMode::kNone) {
+    wchar_t mark_path[MAX_PATH] = {};
+    if (GetModuleFileNameW(nullptr, mark_path, MAX_PATH) > 0) {
+      for (int i = static_cast<int>(wcslen(mark_path)) - 1; i >= 0; --i) {
+        if (mark_path[i] == L'\\' || mark_path[i] == L'/') {
+          mark_path[i + 1] = L'\0';
+          break;
+        }
+      }
+      wcscat_s(mark_path, L"atmosphere-showcase-mark.txt");
+      DeleteFileW(mark_path);
+    }
+    pump_briefly(400);
+    if (!browser.hwnd() || !IsWindow(browser.hwnd())) {
+      return 2;
+    }
+    return run_atmosphere_showcase(browser, showcase);
+  }
   if (self_test) {
     wchar_t mark_path[MAX_PATH] = {};
     if (GetModuleFileNameW(nullptr, mark_path, MAX_PATH) > 0) {
@@ -307,6 +766,19 @@ int BrowserMain(const content::ContentMainParams&) {
       return 20;
     }
     self_test_mark("selection-ok");
+    if (!browser.run_tool_command("view.backend.maplibre")) {
+      return 43;
+    }
+    if (!status || status->status().find("MapLibre") == std::string::npos) {
+      return 44;
+    }
+    if (!browser.run_tool_command("view.backend.rhi")) {
+      return 45;
+    }
+    if (!status || status->status().find("RHI") == std::string::npos) {
+      return 46;
+    }
+    self_test_mark("backend-ok");
     // Document layers + features (Catalog / overlay paint).
     if (!browser.document() || browser.document()->layer_count() == 0) {
       self_test_detach_maps(browser);
@@ -323,7 +795,7 @@ int BrowserMain(const content::ContentMainParams&) {
       }
     }
     self_test_mark("layers-ok");
-    // Prefer out/china_city.gpkg (四图层); else geojson; else china_plp.
+    // Prefer out/china_city.gpkg (鍥涘浘灞?; else geojson; else china_plp.
     {
       wchar_t sample_w[MAX_PATH] = {};
       if (GetModuleFileNameW(nullptr, sample_w, MAX_PATH) > 0) {
@@ -362,15 +834,15 @@ int BrowserMain(const content::ContentMainParams&) {
             static const char kGeojson[] =
                 "{\"type\":\"FeatureCollection\",\"name\":\"china_plp\","
                 "\"features\":["
-                "{\"type\":\"Feature\",\"properties\":{\"name\":\"北京点\","
+                "{\"type\":\"Feature\",\"properties\":{\"name\":\"Beijing\","
                 "\"kind\":\"point\"},"
                 "\"geometry\":{\"type\":\"Point\",\"coordinates\":"
                 "[116.3974,39.9093]}},"
-                "{\"type\":\"Feature\",\"properties\":{\"name\":\"京津走廊\","
+                "{\"type\":\"Feature\",\"properties\":{\"name\":\"Jingjin\","
                 "\"kind\":\"line\"},"
                 "\"geometry\":{\"type\":\"LineString\",\"coordinates\":"
                 "[[116.3974,39.9093],[116.7,39.7],[117.2,39.12]]}},"
-                "{\"type\":\"Feature\",\"properties\":{\"name\":\"华北面\","
+                "{\"type\":\"Feature\",\"properties\":{\"name\":\"Huabei\","
                 "\"kind\":\"area\"},"
                 "\"geometry\":{\"type\":\"Polygon\",\"coordinates\":"
                 "[[[116.2,39.7],[116.8,39.7],[116.8,40.1],[116.2,40.1],"
@@ -426,7 +898,7 @@ int BrowserMain(const content::ContentMainParams&) {
           return layers;
         }());
         self_test_mark("ogr-ok");
-        self_test_mark("china-plp-ok");
+        self_test_mark(city_pack ? "china-city-ok" : "china-plp-ok");
       }
     }
     // Pan tool must activate without crash (Map tab).
@@ -462,6 +934,28 @@ int BrowserMain(const content::ContentMainParams&) {
       }
       self_test_mark("pan-ok");
     }
+    // Wheel-to-cursor must change overlay scale (not view-center zoom).
+    {
+      content::ViewHost* host = browser.edit_view_host();
+      const double scale0 = browser.document()->scale();
+      content::InputEvent wheel{};
+      wheel.kind = content::InputEvent::Kind::kWheel;
+      wheel.x_px = 40;
+      wheel.y_px = 40;
+      wheel.wheel = 120;
+      if (!host || !host->dispatch_input(wheel) ||
+          std::fabs(browser.document()->scale() - scale0) < 1e-9) {
+        self_test_detach_maps(browser);
+        return 47;
+      }
+      const render::rhi::CameraMatrices ortho =
+          browser.scene3d()->camera_matrices_ortho(800.f, 600.f);
+      if (ortho.kind != render::rhi::CameraKind::kOrtho) {
+        self_test_detach_maps(browser);
+        return 48;
+      }
+      self_test_mark("wheel-cursor-ok");
+    }
     // FlyCube orbit camera matrices must track chrome yaw/pitch.
     {
       const float yaw_after = browser.scene3d()->yaw();
@@ -489,6 +983,10 @@ int BrowserMain(const content::ContentMainParams&) {
           scene->attach_mode() ==
               ui::views::MapViewport::AttachMode::kFlyCube &&
           scene->rhi_device()) {
+        // Optional atmosphere exercise: demo on for self-test only; normal
+        // launches leave ocean/cloud disabled.
+        browser.scene3d()->enable_atmosphere_demo();
+        self_test_mark("atmosphere-demo");
         if (!browser.scene3d()->present_gpu(
                 static_cast<render::rhi::Device*>(scene->rhi_device()), 64,
                 64)) {

@@ -1,0 +1,52 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# MapLibre-subset StyleDocument + SymbolLibrary + RuleEngine.
+# Compiled into //src/gis:gis (dll_stem = sdb).
+source_set("style_sources") {
+  sources = [
+    "expression.cc",
+    "expression.h",
+    "json_mini.cc",
+    "json_mini.h",
+    "paint_resolve.cc",
+    "paint_resolve.h",
+    "style_document.cc",
+    "style_document.h",
+    "style_rules.cc",
+    "style_rules.h",
+    "style_types.cc",
+    "style_types.h",
+    "symbol_library.cc",
+    "symbol_library.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+    "SDB_EXPORTS",
+  ]
+  public_deps = [ "//src/base:base" ]
+  deps = [ "//src/base:core" ]
+}
+
+group("style") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+test("style_test") {
+  output_name = "style_test"
+  sources = [ "style_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":style",
+    "//src/base:base",
+    "//src/base:core",
+  ]
+}

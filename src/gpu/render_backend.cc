@@ -30,6 +30,9 @@ bool env_is_track_a() {
          std::strcmp(buf, "maplibre") == 0;
 }
 
+bool g_has_override = false;
+RenderBackendKind g_override = RenderBackendKind::kTrackBRhi;
+
 }  // namespace
 
 TileFetchFn make_net_tile_fetch() {
@@ -54,10 +57,37 @@ TileFetchFn make_net_tile_fetch() {
 }
 
 RenderBackendKind select_render_backend() {
+  if (g_has_override) {
+    return g_override;
+  }
   if (env_is_track_a()) {
     return RenderBackendKind::kTrackAMapLibre;
   }
   return RenderBackendKind::kTrackBRhi;
+}
+
+void set_render_backend(RenderBackendKind kind) {
+  g_has_override = true;
+  g_override = kind;
+}
+
+void clear_render_backend_override() {
+  g_has_override = false;
+}
+
+bool apply_render_backend_command(const char* command_id) {
+  if (!command_id || command_id[0] == '\0') {
+    return false;
+  }
+  if (std::strcmp(command_id, kCmdViewBackendMapLibre) == 0) {
+    set_render_backend(RenderBackendKind::kTrackAMapLibre);
+    return true;
+  }
+  if (std::strcmp(command_id, kCmdViewBackendRhi) == 0) {
+    set_render_backend(RenderBackendKind::kTrackBRhi);
+    return true;
+  }
+  return false;
 }
 
 const char* render_backend_name(RenderBackendKind kind) {

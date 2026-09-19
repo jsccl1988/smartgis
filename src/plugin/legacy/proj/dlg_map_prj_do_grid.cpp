@@ -13,19 +13,19 @@
 #include "algorithm/proj/projection.h"
 #include "base/core/api.h"
 #include "base/core/msg.h"
-#include "sdb/carto/stylemanager.h"
+#include "base/carto/stylemanager.h"
 #include "plugin/host/legacy_cmd.h"
 #include "plugin/legacy/plugin_msg.h"
-#include "sdb/feature/feature.h"
-#include "sdb/layer/layer.h"
-#include "sdb/map/map.h"
+#include "gis/feature/feature.h"
+#include "gis/layer/layer.h"
+#include "gis/map/map.h"
 #include "sys/sysmanager.h"
 #include "legacy/tool/group/defs.h"
 #include "legacy/tool/t_msg.h"
 #include "legacy/ui/xcatalog/mapmgr.h"
 
 using namespace base;
-using namespace sdb;
+using namespace gis;
 using namespace geo;
 using namespace geo;
 using namespace sys;

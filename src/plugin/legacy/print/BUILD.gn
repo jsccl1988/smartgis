@@ -21,7 +21,7 @@ smt_mfc_shared_library("plugin_print") {
     "//src/legacy/ui/xview:xview",
     "//src/legacy/ui/xcatalog:xcatalog",
     "//src/algorithm/geo:geo",
-    "//src/sdb/map:gis",
+    "//src/gis/map:gis",
     "//third_party:gdal",
   ]
 }

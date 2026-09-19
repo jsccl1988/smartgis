@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include "ui/views/view.h"
+#include "ui/views/kernel/view.h"
 
 namespace plugin {
 

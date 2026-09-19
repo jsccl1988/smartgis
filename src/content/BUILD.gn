@@ -19,7 +19,11 @@ source_set("content") {
     "app/renderer_main.h",
     "common/ipc.cc",
     "common/ipc.h",
+    "catalog_layers.cc",
+    "feature_attrs.cc",
     "map_contents.cc",
+    "public/catalog_layers.h",
+    "public/feature_attrs.h",
     "public/host_protocol.h",
     "public/map_contents.h",
     "public/map_contents_observer.h",
@@ -51,7 +55,7 @@ source_set("view_host") {
   public_deps = [ ":content" ]
   include_dirs += [ "//src" ]
   deps = [
-    "//src/sdb/edit:edit",
+    "//src/gis/edit:edit",
     "//src/tool:dispatch",
   ]
 }
@@ -61,4 +65,20 @@ test("content_view_host_test") {
   sources = [ "view_host_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [ ":view_host" ]
+}
+
+# HWND-free attribute token / named-field helpers (SP3 host extract).
+test("content_feature_attrs_test") {
+  output_name = "content_feature_attrs_test"
+  sources = [ "feature_attrs_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":content" ]
+}
+
+# HWND-free Catalog LayerDesc JSON (SP3 catalog snapshot).
+test("content_catalog_layers_test") {
+  output_name = "content_catalog_layers_test"
+  sources = [ "catalog_layers_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":content" ]
 }

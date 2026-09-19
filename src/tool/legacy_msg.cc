@@ -3,6 +3,9 @@
 
 #include "tool/legacy_msg.h"
 
+#include "tool/command.h"
+#include "tool/workspace.h"
+
 namespace tool {
 
 const char* command_id_from_gt_msg(long msg) {
@@ -68,6 +71,18 @@ const char* command_id_from_gt_msg(long msg) {
       return nullptr;
     }
   }
+}
+
+bool try_execute_gt_msg(Workspace* workspace, long gt_msg) {
+  if (!workspace) {
+    return false;
+  }
+  const char* id = command_id_from_gt_msg(gt_msg);
+  if (!id) {
+    return false;
+  }
+  CommandArgs args;
+  return workspace->execute(id, args);
 }
 
 }  // namespace tool

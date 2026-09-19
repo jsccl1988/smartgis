@@ -1,7 +1,7 @@
 /*
-File:    gl_vsyncfunc.h 
+File:    gl_vsyncfunc.h
 
-Desc:    
+Desc:
 
 Version: Version 1.0
 
@@ -17,23 +17,21 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 #include "legacy/render/gl/gl_prerequisites.h"
 
-namespace render
-{
-	class SmtGLRenderDevice;
-	typedef class SmtGLRenderDevice *LPGLRENDERDEVICE;
+namespace render {
+class SmtGLRenderDevice;
+typedef class SmtGLRenderDevice *LPGLRENDERDEVICE;
 
-	class SmtVSyncFunc
-	{
-	public:
-		SmtVSyncFunc();
-		virtual ~SmtVSyncFunc();
-		virtual long		Initialize(LPGLRENDERDEVICE pGLRenderDevice);
+class SmtVSyncFunc {
+ public:
+  SmtVSyncFunc();
+  virtual ~SmtVSyncFunc();
+  virtual long Initialize(LPGLRENDERDEVICE pGLRenderDevice);
 
-	public:
-		virtual int			WaitForVSync();
-		virtual void		EnableVSync();
-		virtual void		DisableVSync();
-	};
-}
+ public:
+  virtual int WaitForVSync();
+  virtual void EnableVSync();
+  virtual void DisableVSync();
+};
+}  // namespace render
 
-#endif //_VSYNC_FUNCS_H
+#endif  //_VSYNC_FUNCS_H

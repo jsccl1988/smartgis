@@ -12,7 +12,7 @@ namespace gpu {
 // raster layers (+ raster-opacity). Raster `layer.source` binds Style
 // `sources` via SourceRegistry / TileProvider; request tile_url_templates
 // remain a fallback when source id is empty. Visible XYZ tiles come from
-// MapPaintRequest.extent (+ zoom) via sdb::tile::tiles_for_viewport;
+// MapPaintRequest.extent (+ zoom) via gis::tile::tiles_for_viewport;
 // degenerate extent keeps the legacy single tile 0/0/0. TileFetchFn injects
 // offline.
 bool paint_track_a_basemap(detail::PresentTarget* present,

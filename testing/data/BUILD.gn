@@ -3,11 +3,13 @@
 
 # Schematic China map sample (regions / rivers / cities / labels) next to exes.
 # Prefers china_city.gpkg (prefecture four-layer pack); china_plp remains fallback.
+# china_dem.tif: country DEM for leftover / Views 3D (build via build_china_dem.py).
 copy("china_map_samples") {
   sources = [
     "china_city.gpkg",
     "china_city.geojson",
     "china_city.LICENSE.txt",
+    "china_dem.tif",
     "china_plp.geojson",
     "views_ogr_sample.geojson",
   ]
@@ -16,6 +18,7 @@ copy("china_map_samples") {
 
 # Rebuild offline pack (network + pyshp). Not part of default ninja; run manually:
 #   py -3 testing/data/build_china_city.py
+#   py -3 testing/data/build_china_dem.py
 # PIN: testing/data/china_city.PIN.txt
 group("china_city_data") {
   data_deps = [ ":china_map_samples" ]

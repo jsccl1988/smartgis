@@ -85,6 +85,16 @@ int main() {
   expect(sg_host_view_kind(host) == 1, "show data");
   sg_host_show_kind(host, 2);
   expect(sg_host_view_kind(host) == 2, "show 3d");
+  // Scene3dController WinUI parity: trackball + wheel must not kill the HWND.
+  sg_host_activate_tool(host, "view3d.trackball");
+  sg_host_dispatch_pointer(host, 2, 40, 48, 0);   // LDown
+  sg_host_dispatch_pointer(host, 0, 64, 72, 0);   // Move
+  sg_host_dispatch_pointer(host, 3, 64, 72, 0);   // LUp
+  sg_host_dispatch_pointer(host, 1, 40, 48, 120); // Wheel
+  RedrawWindow(child, nullptr, nullptr,
+               RDW_INVALIDATE | RDW_UPDATENOW | RDW_ERASE);
+  expect(IsWindow(child), "3d child live after scene3d gestures");
+  expect(sg_host_view_kind(host) == 2, "still 3d after gestures");
   sg_host_show_kind(host, 0);
   expect(sg_host_view_kind(host) == 0, "show map");
   expect(static_cast<HWND>(sg_host_map_child_hwnd(host)) == child,
@@ -108,6 +118,10 @@ int main() {
     SendMessageW(child, WM_RBUTTONDOWN, 0, MAKELPARAM(24, 20));
     SendMessageW(child, WM_RBUTTONUP, 0, MAKELPARAM(24, 20));
     sg_host_activate_tool(host, (i % 2) ? "selection.point" : "view.pan");
+    sg_host_dispatch_pointer(host, 2, 20, 24, 0);
+    sg_host_dispatch_pointer(host, 0, 28, 30, 0);
+    sg_host_dispatch_pointer(host, 3, 28, 30, 0);
+    sg_host_dispatch_pointer(host, 1, 20, 24, 120);
     sg_host_catalog_call(host, "{\"op\":\"refresh\"}");
   }
   expect(IsWindow(child), "child live after click fuzz");

@@ -117,4 +117,17 @@ function reportMapSlot() {
   });
 }
 
+function postPointer(kind, x, y, extra) {
+  const body = Object.assign(
+    {
+      kind,
+      x: Math.round(x),
+      y: Math.round(y),
+    },
+    extra || {}
+  );
+  post("PointerEvent", body);
+}
+
 window.smartgis_report_map_slot = reportMapSlot;
+window.smartgis_post_pointer = postPointer;

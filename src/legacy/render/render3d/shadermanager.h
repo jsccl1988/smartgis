@@ -15,45 +15,42 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _RD3D_SHADERMANAGER_H
 #define _RD3D_SHADERMANAGER_H
 
-#include "legacy/render/render3d/shader.h"
 #include <map>
+
+#include "legacy/render/render3d/shader.h"
 
 using namespace base;
 using namespace render;
 
-namespace render
-{
-	typedef vector<SmtShader*>						vShaderPtrs;
-	typedef map<string,SmtShader*>					mapNameToShaderPtrs;
-	typedef pair<string,SmtShader*>					pairNameToShaderPtr;
+namespace render {
+typedef vector<SmtShader*> vShaderPtrs;
+typedef map<string, SmtShader*> mapNameToShaderPtrs;
+typedef pair<string, SmtShader*> pairNameToShaderPtr;
 
-	class RENDER3D_EXPORT_CLASS SmtShaderManager
-	{
-	public:
-		SmtShaderManager(void);
-		virtual ~SmtShaderManager(void);
+class RENDER3D_EXPORT_CLASS SmtShaderManager {
+ public:
+  SmtShaderManager(void);
+  virtual ~SmtShaderManager(void);
 
-	public:
-		long							AddShader(SmtShader* pShader);
-		SmtShader*						GetShader(const char * szName);
-		void							DestroyShader(const char * szName);
-		void							DestroyAllShader(void);
+ public:
+  long AddShader(SmtShader* pShader);
+  SmtShader* GetShader(const char* szName);
+  void DestroyShader(const char* szName);
+  void DestroyAllShader(void);
 
-		void							GetAllShaderName(vector<string> &vStrAllShaderName);
+  void GetAllShaderName(vector<string>& vStrAllShaderName);
 
-	private:
-        mapNameToShaderPtrs				m_mapNameToShaderPtrs;
-
-	};
-}
+ private:
+  mapNameToShaderPtrs m_mapNameToShaderPtrs;
+};
+}  // namespace render
 
 #if !defined(RENDER3D_EXPORTS)
-#if     defined( _DEBUG)
-#          pragma comment(lib,"legacy_render_d.lib")
-#       else
-#          pragma comment(lib,"legacy_render.lib")
-#	    endif
+#if defined(_DEBUG)
+#pragma comment(lib, "legacy_render_d.lib")
+#else
+#pragma comment(lib, "legacy_render.lib")
+#endif
 #endif
 
-
-#endif //_RD3D_SHADERSMANAGER_H
+#endif  //_RD3D_SHADERSMANAGER_H

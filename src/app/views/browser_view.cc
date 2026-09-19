@@ -16,37 +16,42 @@
 #endif
 #include <windows.h>
 
+#include "app/views/blit_frame_cache.h"
 #include "app/views/app_commands.h"
+#include "app/views/map_host_extent.h"
 #include "app/views/plugin_chrome.h"
+#include "content/public/catalog_layers.h"
 #include "content/public/events.h"
 #include "content/public/map_contents.h"
 #include "content/public/map_types.h"
+#include "content/public/map_widget_host_view.h"
 #include "content/public/view_host.h"
 #include "render/rhi/rhi.h"
-#include "sdb/edit/edit_session.h"
-#include "sdb/tile/tile_map_layer.h"
+#include "gis/edit/edit_session.h"
+#include "gis/tile/tile_map_layer.h"
+#include "tool/camera_nav.h"
 #include "tool/command.h"
 #include "tool/gestures.h"
 #include "tool/workspace.h"
-#include "ui/views/add_basemap_dialog.h"
-#include "ui/views/ambox_view.h"
-#include "ui/views/att_struct_dialog.h"
-#include "ui/views/attribute_table.h"
-#include "ui/views/catalog_view.h"
-#include "ui/views/create_datasource_dialog.h"
-#include "ui/views/create_layer_dialog.h"
-#include "ui/views/create_map_dialog.h"
-#include "ui/views/feature_info.h"
-#include "ui/views/file_picker.h"
-#include "ui/views/input_text_dialog.h"
-#include "ui/views/layer_tree.h"
-#include "ui/views/layout.h"
-#include "ui/views/map_viewport.h"
-#include "ui/views/menu_bar.h"
-#include "ui/views/splitter.h"
-#include "ui/views/status_bar.h"
-#include "ui/views/tab_strip.h"
-#include "ui/views/view.h"
+#include "ui/views/dialogs/add_basemap_dialog.h"
+#include "ui/views/gis/ambox_view.h"
+#include "ui/views/dialogs/att_struct_dialog.h"
+#include "ui/views/gis/attribute_table.h"
+#include "ui/views/gis/catalog_view.h"
+#include "ui/views/dialogs/create_datasource_dialog.h"
+#include "ui/views/dialogs/create_layer_dialog.h"
+#include "ui/views/dialogs/create_map_dialog.h"
+#include "ui/views/gis/feature_info.h"
+#include "ui/views/dialogs/file_picker.h"
+#include "ui/views/dialogs/input_text_dialog.h"
+#include "ui/views/gis/layer_tree.h"
+#include "ui/views/kernel/layout.h"
+#include "ui/views/map/map_viewport.h"
+#include "ui/views/primitives/menu_bar.h"
+#include "ui/views/kernel/splitter.h"
+#include "ui/views/gis/status_bar.h"
+#include "ui/views/primitives/tab_strip.h"
+#include "ui/views/kernel/view.h"
 
 namespace app {
 namespace detail {
@@ -126,56 +131,24 @@ void populate_catalog_after_open(ui::views::CatalogView* catalog,
   }
 }
 
-int hex_nibble(char c) {
-  if (c >= '0' && c <= '9') {
-    return c - '0';
+// True when ContentMapView has a shared DIB generation (GPU demo DEM / frame).
+bool viewport_has_shared_frame(ui::views::MapViewport* pane) {
+  if (!pane ||
+      pane->attach_mode() !=
+          ui::views::MapViewport::AttachMode::kContentMapView) {
+    return false;
   }
-  if (c >= 'a' && c <= 'f') {
-    return c - 'a' + 10;
+  content::MapContents* session = pane->map_contents();
+  if (!session || pane->view_id() == 0) {
+    return false;
   }
-  if (c >= 'A' && c <= 'F') {
-    return c - 'A' + 10;
+  content::MapWidgetHostView* view = session->HostView(pane->view_id());
+  if (!view) {
+    return false;
   }
-  return -1;
-}
-
-// Map AttributeTable opaque tokens to FeatureId for EditSession::commit.
-// Accepts "fid:" + hex (selection feedback) or raw opaque bytes.
-content::FeatureId feature_id_from_opaque_token(const std::string& token) {
-  content::FeatureId id{};
-  if (token.empty()) {
-    return id;
-  }
-  std::string_view hex = token;
-  constexpr std::string_view kPrefix = "fid:";
-  if (hex.size() >= kPrefix.size() && hex.substr(0, kPrefix.size()) == kPrefix) {
-    hex.remove_prefix(kPrefix.size());
-  }
-  const bool even_hex =
-      !hex.empty() && (hex.size() % 2) == 0 && hex.size() <= 64;
-  if (even_hex) {
-    bool ok = true;
-    uint8_t bytes[32] = {};
-    size_t n = 0;
-    for (size_t i = 0; i + 1 < hex.size() && n < sizeof(bytes); i += 2) {
-      const int hi = hex_nibble(hex[i]);
-      const int lo = hex_nibble(hex[i + 1]);
-      if (hi < 0 || lo < 0) {
-        ok = false;
-        break;
-      }
-      bytes[n++] = static_cast<uint8_t>((hi << 4) | lo);
-    }
-    if (ok && n > 0) {
-      id.len = static_cast<uint8_t>(n);
-      std::memcpy(id.bytes, bytes, n);
-      return id;
-    }
-  }
-  id.len = static_cast<uint8_t>(
-      token.size() < sizeof(id.bytes) ? token.size() : sizeof(id.bytes));
-  std::memcpy(id.bytes, token.data(), id.len);
-  return id;
+  const content::SharedSurface surface = view->Latest();
+  return surface.generation > 0 && surface.nt_handle != nullptr &&
+         surface.width_px >= 8 && surface.height_px >= 8;
 }
 
 }  // namespace detail
@@ -185,6 +158,12 @@ BrowserView::BrowserView() = default;
 BrowserView::~BrowserView() {
   // Stop present timers / clear HWND userdata before the Widget tears down
   // the view tree (avoids heap corruption from late WM_TIMER/WM_PAINT).
+  edit_gestures_.detach();
+  data_gestures_.detach();
+  scene_gestures_.detach();
+  if (map_session_) {
+    map_session_->SetObserver(nullptr);
+  }
   scene3d_.abandon_mesh();
   if (map_edit_) {
     map_edit_->detach();
@@ -226,12 +205,20 @@ bool BrowserView::init() {
 
   build_contents();
   document_.seed_default();
+  scene3d_.bind_map(&document_);
   wire_map_scene();
   attach_viewports();
+  scene3d_.bind_contents(map_session_.get(),
+                         map_scene_ ? map_scene_->view_id() : 0);
+  if (map_session_) {
+    map_session_->SetObserver(this);
+  }
+  attach_hwnd_gestures();
   wire_catalog();
   wire_edit_feedback();
   // seed_default fits to 800x600; re-fit once HWND sizes are real.
   fit_map_extent();
+  push_shared_extent();
   sync_status();
   return true;
 }
@@ -270,6 +257,8 @@ void BrowserView::build_contents() {
   menu->add_item("Draw", [this]() { run_tool_command("edit.append.point"); });
   menu->add_item("Clear", [this]() { run_tool_command("selection.clear"); });
   menu->add_item("Undo", [this]() { run_tool_command("edit.undo"); });
+  menu->add_item("RHI", [this]() { run_tool_command("view.backend.rhi"); });
+  menu->add_item("MapLibre", [this]() { run_tool_command("view.backend.maplibre"); });
   menu->add_item("Plugins", [this]() { on_plugins(); });
 
   auto catalog = std::make_unique<ui::views::CatalogView>();
@@ -291,7 +280,7 @@ void BrowserView::build_contents() {
   map_tabs->add_tab("Map", std::move(map_edit));
   map_tabs->add_tab("Data", std::move(map_data));
   map_tabs->add_tab("3D", std::move(map_scene));
-  // Width 0 → Splitter treats map tabs as the flex pane (catalog stays ~240).
+  // Width 0 鈫?Splitter treats map tabs as the flex pane (catalog stays ~240).
   map_tabs->set_preferred_size({0, 0});
   map_tabs->set_change([this](int i) { switch_map_tab(i); });
   map_tabs_ = map_tabs.get();
@@ -376,8 +365,8 @@ void BrowserView::attach_viewports() {
     }
   }
   widget_.layout_contents();
-  // After layout, HWND clients are real — push surface size so GPU demo
-  // frames are not stuck at the 64×64 attach fallback (avoids StretchDIBits
+  // After layout, HWND clients are real 鈥?push surface size so GPU demo
+  // frames are not stuck at the 64脳64 attach fallback (avoids StretchDIBits
   // pixelation).
   for (ui::views::MapViewport* pane : {map_edit_, map_data_, map_scene_}) {
     if (!pane || !pane->native_view()) {
@@ -435,20 +424,58 @@ void BrowserView::wire_catalog() {
   });
 }
 
+void BrowserView::schedule_overlay_full_redraw() {
+  HWND h = nullptr;
+  if (ui::views::MapViewport* pane = active_map()) {
+    h = pane->native_view();
+  }
+  if (!h) {
+    h = hwnd();
+  }
+  if (!h) {
+    return;
+  }
+  constexpr UINT_PTR kId = 0x424C54u;
+  KillTimer(h, kId);
+  SetTimer(h, kId, static_cast<UINT>(tool::kBlitDebounceMs),
+           [](HWND hwnd, UINT, UINT_PTR id, DWORD) {
+             KillTimer(hwnd, id);
+             InvalidateRect(hwnd, nullptr, FALSE);
+           });
+}
+
 void BrowserView::wire_map_scene() {
   auto paint2d = [this](HDC hdc, const RECT& rc) {
-    document_.paint(hdc, rc.right, rc.bottom);
+    const int w = rc.right - rc.left;
+    const int h = rc.bottom - rc.top;
+    if (blit_.in_preview() && blit_.present(hdc, w, h)) {
+      return;
+    }
+    document_.paint(hdc, w, h, true);
+    blit_.capture(hdc, w, h);
   };
   auto paint3d = [this](HDC hdc, const RECT& rc) {
-    if (map_scene_ &&
-        map_scene_->attach_mode() ==
-            ui::views::MapViewport::AttachMode::kFlyCube) {
-      scene3d_.paint_hud(hdc, rc.right, rc.bottom);
-    } else {
-      scene3d_.paint(hdc, rc.right, rc.bottom);
+    const int w = rc.right - rc.left;
+    const int h = rc.bottom - rc.top;
+    if (w <= 0 || h <= 0) {
+      return;
     }
-    // Overlay China / map vectors so the 3D tab shows more than FPS/compass.
-    document_.paint(hdc, rc.right, rc.bottom);
+    const auto mode = map_scene_ ? map_scene_->attach_mode()
+                                 : ui::views::MapViewport::AttachMode::kNone;
+    // WinUI MapHost parity:
+    // - FlyCube: present_gpu already drew DEM → HUD only.
+    // - ContentMapView with shared DIB: GPU demo DEM is present → HUD only.
+    // - Otherwise (placeholder / late DIB): GDI seed_china_dem wireframe.
+    const bool flycube = mode == ui::views::MapViewport::AttachMode::kFlyCube;
+    const bool content_frame =
+        mode == ui::views::MapViewport::AttachMode::kContentMapView &&
+        detail::viewport_has_shared_frame(map_scene_);
+    if (flycube || content_frame) {
+      scene3d_.paint_hud(hdc, w, h);
+    } else {
+      scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+    }
+    document_.paint(hdc, w, h, false);
   };
   if (map_edit_) {
     map_edit_->set_overlay_paint(paint2d);
@@ -482,7 +509,7 @@ void BrowserView::sync_catalog_from_scene() {
     return;
   }
   std::vector<ui::views::LayerTree::LayerDesc> layers;
-  for (const MapScene::LayerDesc& d : document_.layer_descs()) {
+  for (const content::LayerDesc& d : document_.layer_descs()) {
     ui::views::LayerTree::LayerDesc row;
     row.id = d.id;
     row.name = d.name;
@@ -546,6 +573,8 @@ void BrowserView::fit_map_extent() {
     }
   }
   document_.fit_extent(w, h);
+  scene3d_.apply_world_extent(document_.world_extent());
+  push_shared_extent();
   invalidate_map_overlays();
   if (status_bar_) {
     if (document_.last_open_was_ogr()) {
@@ -569,9 +598,28 @@ void BrowserView::handle_draft(const tool::Draft& draft) {
 
   if (tool_id && std::strncmp(tool_id, "view3d.", 7) == 0) {
     scene3d_.apply_draft(draft);
+    forward_draft_to_contents(draft);
     if (map_scene_) {
       map_scene_->invalidate_native();
     }
+    return;
+  }
+
+  // Always-on horizontal wheel / two-finger pan drafts (before select/draw).
+  if (draft.kind == tool::DraftKind::kRect &&
+      tool::draft_flags::is_touch_pan(draft.flags) &&
+      draft.points.size() >= 2 && tool::is_navigate_tool(tool_id)) {
+    const int dx = draft.points.back().x_px - draft.points.front().x_px;
+    const int dy = draft.points.back().y_px - draft.points.front().y_px;
+    int vw = 800;
+    int vh = 600;
+    active_view_size(&vw, &vh);
+    blit_.begin_pan(vw, vh, dx, dy);
+    document_.apply_pan(dx, dy);
+    forward_draft_to_contents(draft);
+    push_shared_extent();
+    invalidate_map_overlays();
+    schedule_overlay_full_redraw();
     return;
   }
 
@@ -623,23 +671,79 @@ void BrowserView::handle_draft(const tool::Draft& draft) {
       draft.kind == tool::DraftKind::kRect && draft.points.size() >= 2) {
     const int dx = draft.points.back().x_px - draft.points.front().x_px;
     const int dy = draft.points.back().y_px - draft.points.front().y_px;
+    int vw = 800;
+    int vh = 600;
+    active_view_size(&vw, &vh);
+    blit_.begin_pan(vw, vh, dx, dy);
     document_.apply_pan(dx, dy);
+    forward_draft_to_contents(draft);
+    push_shared_extent();
     invalidate_map_overlays();
+    schedule_overlay_full_redraw();
     return;
   }
 
   if (tool_id && std::strcmp(tool_id, "view.zoom_in") == 0 &&
       !draft.points.empty()) {
+    int vw = 800;
+    int vh = 600;
+    active_view_size(&vw, &vh);
+    blit_.begin_zoom(vw, vh, draft.points.front().x_px,
+                     draft.points.front().y_px, 1.25);
     document_.apply_zoom_at(draft.points.front().x_px,
                             draft.points.front().y_px, 1.25);
+    forward_draft_to_contents(draft);
+    push_shared_extent();
     invalidate_map_overlays();
+    schedule_overlay_full_redraw();
     return;
   }
   if (tool_id && std::strcmp(tool_id, "view.zoom_out") == 0 &&
       !draft.points.empty()) {
+    int vw = 800;
+    int vh = 600;
+    active_view_size(&vw, &vh);
+    blit_.begin_zoom(vw, vh, draft.points.front().x_px,
+                     draft.points.front().y_px, 0.8);
     document_.apply_zoom_at(draft.points.front().x_px,
                             draft.points.front().y_px, 0.8);
+    forward_draft_to_contents(draft);
+    push_shared_extent();
     invalidate_map_overlays();
+    schedule_overlay_full_redraw();
+    return;
+  }
+
+  // Always-on map UX: wheel / double-click zoom toward cursor (not view center).
+  if (draft.kind == tool::DraftKind::kWheel && !draft.points.empty() &&
+      tool::is_navigate_tool(tool_id)) {
+    const double factor = tool::wheel_zoom_factor(draft.wheel);
+    int vw = 800;
+    int vh = 600;
+    active_view_size(&vw, &vh);
+    blit_.begin_zoom(vw, vh, draft.points.front().x_px,
+                     draft.points.front().y_px, factor);
+    document_.apply_zoom_at(draft.points.front().x_px,
+                            draft.points.front().y_px, factor);
+    forward_draft_to_contents(draft);
+    push_shared_extent();
+    invalidate_map_overlays();
+    schedule_overlay_full_redraw();
+    return;
+  }
+  if (draft.kind == tool::DraftKind::kPoint &&
+      tool::is_navigate_tool(tool_id) && !draft.points.empty()) {
+    int vw = 800;
+    int vh = 600;
+    active_view_size(&vw, &vh);
+    blit_.begin_zoom(vw, vh, draft.points.front().x_px,
+                     draft.points.front().y_px, 1.25);
+    document_.apply_zoom_at(draft.points.front().x_px,
+                            draft.points.front().y_px, 1.25);
+    forward_draft_to_contents(draft);
+    push_shared_extent();
+    invalidate_map_overlays();
+    schedule_overlay_full_redraw();
   }
 }
 
@@ -676,7 +780,9 @@ void BrowserView::wire_edit_feedback() {
         invalidate_map_overlays();
       });
   extent_sub_ = edit_host_->events()->subscribe<content::ExtentChanged>(
-      [this](const content::ExtentChanged&) { fit_map_extent(); });
+      [this](const content::ExtentChanged& ev) {
+        OnExtentChanged(ev.view_id, ev.extent);
+      });
 
   if (attribute_table_) {
     attribute_table_->set_on_cell_commit(
@@ -688,8 +794,8 @@ void BrowserView::wire_edit_feedback() {
           }
           content::ViewHost* host = active_view_host();
           if (host && host->edits()) {
-            sdb::FeatureMutation mutation;
-            mutation.op = sdb::EditOp::kModify;
+            gis::FeatureMutation mutation;
+            mutation.op = gis::EditOp::kModify;
             mutation.id = MapScene::feature_id_from_token(feature_token);
             host->edits()->commit(mutation);
           }
@@ -754,6 +860,15 @@ bool BrowserView::run_tool_command(std::string_view command_id) {
   if (id == "view.full" || id == "view3d.full") {
     fit_map_extent();
     set_status_message("View full extent");
+    return true;
+  }
+  if (id == "view.backend.rhi" || id == "view.backend.maplibre") {
+    const uint32_t kind = (id == "view.backend.maplibre") ? 1u : 0u;
+    if (map_session_) {
+      map_session_->SetRenderBackend(kind);
+    }
+    set_status_message(kind ? "Render: MapLibre (Track A)"
+                            : "Render: RHI (Track B)");
     return true;
   }
   if (id == "selection.clear") {
@@ -827,11 +942,11 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
     if (!ui::views::AddBasemapDialog::run(hwnd, &out) || out.url.empty()) {
       return;
     }
-    sdb::MapLayer layer;
+    gis::MapLayer layer;
     if (out.kind == "wmts") {
-      layer = sdb::tile::make_wmts_map_layer(out.url);
+      layer = gis::tile::make_wmts_map_layer(out.url);
     } else {
-      layer = sdb::tile::make_xyz_map_layer(out.url);
+      layer = gis::tile::make_xyz_map_layer(out.url);
     }
     if (layer.leftover() == nullptr) {
       status("Basemap URL rejected");
@@ -1058,6 +1173,22 @@ void BrowserView::switch_map_tab(int i) {
   if (map_tabs_ && map_tabs_->active() != i) {
     map_tabs_->set_active(i);
   }
+  // TabStrip show/hides native map HWNDs via View::set_visible; also force
+  // Win32 visibility so self-test / rapid tab switches cannot leave the active
+  // pane hidden when sync_native_bounds skips a no-op SetWindowPos.
+  auto sync_hwnd = [](ui::views::MapViewport* pane, bool show) {
+    if (!pane) {
+      return;
+    }
+    if (HWND hwnd = pane->native_view()) {
+      if (IsWindow(hwnd)) {
+        ShowWindow(hwnd, show ? SW_SHOWNA : SW_HIDE);
+      }
+    }
+  };
+  sync_hwnd(map_edit_, i == 0);
+  sync_hwnd(map_data_, i == 1);
+  sync_hwnd(map_scene_, i == 2);
   // TabStrip show/hides native map HWNDs; never destroy/recreate on switch.
   if (ui::views::MapViewport* pane = active_map()) {
     if (HWND hwnd = pane->native_view()) {
@@ -1076,6 +1207,15 @@ void BrowserView::switch_map_tab(int i) {
     if (i == 2) {
       // Basic pan/orbit for the 3D tab when a ViewHost is wired.
       host->activate("view3d.trackball");
+      // WinUI show_kind parity: re-bind Scene3d view id + China extent so DEM
+      // seed / present_gpu / GDI paint share the same world frame.
+      if (map_scene_) {
+        scene3d_.bind_contents(map_session_.get(), map_scene_->view_id());
+      }
+      push_shared_extent();
+      if (map_scene_) {
+        map_scene_->invalidate_native();
+      }
     } else {
       host->activate("view.pan");
     }
@@ -1111,6 +1251,141 @@ content::ViewHost* BrowserView::active_view_host() const {
     return scene_host_.get();
   }
   return edit_host_.get();
+}
+
+void BrowserView::active_view_size(int* w, int* h) const {
+  int width = 800;
+  int height = 600;
+  if (ui::views::MapViewport* pane = active_map()) {
+    if (HWND hwnd = pane->native_view()) {
+      RECT rc = {};
+      GetClientRect(hwnd, &rc);
+      if (rc.right > 32) {
+        width = rc.right;
+      }
+      if (rc.bottom > 32) {
+        height = rc.bottom;
+      }
+    }
+  }
+  if (w) {
+    *w = width;
+  }
+  if (h) {
+    *h = height;
+  }
+}
+
+void BrowserView::push_shared_extent() {
+  if (syncing_extent_) {
+    return;
+  }
+  int w = 800;
+  int h = 600;
+  active_view_size(&w, &h);
+  content::Extent2 e = document_.view_world_extent(w, h);
+  if (!extent_looks_like_china(e)) {
+    const content::Extent2 world = document_.world_extent();
+    e = extent_looks_like_china(world) ? world : kChinaLonLatExtent;
+  }
+  scene3d_.apply_world_extent(e);
+  if (!map_session_) {
+    return;
+  }
+  syncing_extent_ = true;
+  for (ui::views::MapViewport* pane : {map_edit_, map_data_, map_scene_}) {
+    if (pane && pane->view_id() != 0) {
+      map_session_->SetExtent(pane->view_id(), e);
+    }
+  }
+  scene3d_.push_extent_to_contents();
+  syncing_extent_ = false;
+}
+
+void BrowserView::OnExtentChanged(uint32_t /*view_id*/,
+                                 const content::Extent2& e) {
+  if (syncing_extent_ || !extent_nonempty(e)) {
+    return;
+  }
+  int w = 800;
+  int h = 600;
+  active_view_size(&w, &h);
+  syncing_extent_ = true;
+  document_.apply_world_extent(e, w, h);
+  scene3d_.apply_world_extent(e);
+  syncing_extent_ = false;
+  invalidate_map_overlays();
+}
+
+void BrowserView::forward_draft_to_contents(const tool::Draft& draft) {
+  if (!map_session_) {
+    return;
+  }
+  ui::views::MapViewport* pane = active_map();
+  const uint32_t view_id = pane ? pane->view_id() : 0;
+  if (view_id == 0) {
+    return;
+  }
+  content::InputEvent e{};
+  e.flags = draft.flags;
+  if (!draft.points.empty()) {
+    e.x_px = draft.points.back().x_px;
+    e.y_px = draft.points.back().y_px;
+  }
+  if (draft.kind == tool::DraftKind::kWheel) {
+    e.kind = content::InputEvent::Kind::kWheel;
+    e.wheel = draft.wheel;
+    if (!draft.points.empty()) {
+      e.x_px = draft.points.front().x_px;
+      e.y_px = draft.points.front().y_px;
+    }
+    map_session_->Dispatch(view_id, e);
+    return;
+  }
+  if (draft.kind == tool::DraftKind::kRect && draft.points.size() >= 2) {
+    e.kind = content::InputEvent::Kind::kLDown;
+    e.x_px = draft.points.front().x_px;
+    e.y_px = draft.points.front().y_px;
+    map_session_->Dispatch(view_id, e);
+    e.kind = content::InputEvent::Kind::kMouseMove;
+    e.x_px = draft.points.back().x_px;
+    e.y_px = draft.points.back().y_px;
+    map_session_->Dispatch(view_id, e);
+    e.kind = content::InputEvent::Kind::kLUp;
+    map_session_->Dispatch(view_id, e);
+  }
+}
+
+void BrowserView::attach_hwnd_gestures() {
+  auto on_pinch = [this](int x, int y, double scale) {
+    handle_pinch(x, y, scale);
+  };
+  if (map_edit_ && map_edit_->native_view()) {
+    edit_gestures_.attach(map_edit_->native_view(), on_pinch);
+  }
+  if (map_data_ && map_data_->native_view()) {
+    data_gestures_.attach(map_data_->native_view(), on_pinch);
+  }
+  if (map_scene_ && map_scene_->native_view()) {
+    scene_gestures_.attach(map_scene_->native_view(), on_pinch);
+  }
+}
+
+void BrowserView::handle_pinch(int view_x, int view_y, double scale) {
+  int w = 800;
+  int h = 600;
+  active_view_size(&w, &h);
+  const int tab = map_tabs_ ? map_tabs_->active() : 0;
+  if (tab == 2) {
+    scene3d_.apply_pinch(view_x, view_y, scale, w, h);
+    if (map_scene_) {
+      map_scene_->invalidate_native();
+    }
+  } else {
+    document_.apply_pinch(view_x, view_y, scale);
+  }
+  push_shared_extent();
+  invalidate_map_overlays();
 }
 
 }  // namespace app

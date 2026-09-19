@@ -48,6 +48,8 @@ enum class HostMsg : uint16_t {
   kSharedHandle = 28,
   kTextCommit = 29,
   kShutdown = 30,
+  // GPU paint path: 0 = Track B RHI, 1 = Track A MapLibre. No child restart.
+  kSetRenderBackend = 31,
 };
 
 enum class HostFlag : uint16_t {
@@ -80,10 +82,12 @@ struct PointerEventWire {
   int32_t wheel;
   uint32_t key;
   float dpi;
+  // 0/1 = single; >=2 = multitouch midpoint in x/y (see InputEvent).
+  uint32_t pointer_count;
 
   template <typename Ar>
   void archive(Ar&& ar) {
-    ar(t_qpc, kind, flags, x_px, y_px, wheel, key, dpi);
+    ar(t_qpc, kind, flags, x_px, y_px, wheel, key, dpi, pointer_count);
   }
 };
 
@@ -192,6 +196,16 @@ struct ToolBody {
   template <typename Ar>
   void archive(Ar&& ar) {
     ar(tool_id);
+  }
+};
+
+// kSetRenderBackend: 0 = Track B RHI / GpuScene, 1 = Track A MapLibre.
+struct RenderBackendWire {
+  uint32_t kind = 0;
+
+  template <typename Ar>
+  void archive(Ar&& ar) {
+    ar(kind);
   }
 };
 

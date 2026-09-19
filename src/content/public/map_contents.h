@@ -54,6 +54,11 @@ class MapContents {
   virtual void ActivateTool(uint32_t view_id, const char* tool_id) = 0;
   virtual void Dispatch(uint32_t view_id, const InputEvent& e) = 0;
 
+  // Tell --type=gpu which 2D paint path to use. 0 = Track B RHI, 1 = Track A
+  // MapLibre. Hot-swap; both tracks paint into PresentTarget (no GL/DX restart).
+  virtual void SetRenderBackend(uint32_t kind) = 0;
+  virtual uint32_t RenderBackend() const = 0;
+
   virtual void SetObserver(MapContentsObserver* observer) = 0;
   virtual bool WaitFrameReady(uint32_t view_id, uint32_t timeout_ms) = 0;
 };

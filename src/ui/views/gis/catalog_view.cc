@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/catalog_view.h"
+#include "ui/views/gis/catalog_view.h"
 
 #include <functional>
 #include <iterator>
@@ -10,14 +10,14 @@
 #include <utility>
 
 #include "render/skia/canvas.h"
-#include "ui/views/context_menu.h"
-#include "ui/views/label.h"
-#include "ui/views/layer_tree.h"
-#include "ui/views/layout.h"
-#include "ui/views/tab_strip.h"
-#include "ui/views/theme.h"
-#include "ui/views/tree_view.h"
-#include "ui/views/widget.h"
+#include "ui/views/primitives/context_menu.h"
+#include "ui/views/primitives/label.h"
+#include "ui/views/gis/layer_tree.h"
+#include "ui/views/kernel/layout.h"
+#include "ui/views/primitives/tab_strip.h"
+#include "ui/views/kernel/theme.h"
+#include "ui/views/primitives/tree_view.h"
+#include "ui/views/kernel/widget.h"
 
 namespace ui {
 namespace views {

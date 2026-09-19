@@ -1,29 +1,29 @@
 ### Task 1: Providers and GDAL open targets
 
 **Files:**
-- Modify: `src/sdb/layer/layer.h` (`eSmtDBProvider`)
-- Create: `src/sdb/datasource/gdal/ogr_connect.h`
-- Create: `src/sdb/datasource/gdal/ogr_connect.cc`
-- Create: `src/sdb/datasource/gdal/sde_gdal_test.cc`
-- Modify: `src/sdb/datasource/gdal/BUILD.gn`
+- Modify: `src/gis/layer/layer.h` (`eSmtDBProvider`)
+- Create: `src/gis/datasource/gdal/ogr_connect.h`
+- Create: `src/gis/datasource/gdal/ogr_connect.cc`
+- Create: `src/gis/datasource/gdal/sde_gdal_test.cc`
+- Modify: `src/gis/datasource/gdal/BUILD.gn`
 - Modify: `BUILD.gn` (`test_all`)
 
 **Interfaces:**
 - Consumes: `Smt_GIS::SmtDataSourceInfo`, existing `PROVIDER_ACCESS` / `PROVIDER_SQLSERVER`
 - Produces:
-  - `sdb::datasource::is_db_provider_supported(uint provider) -> bool`
-  - `sdb::datasource::gdal_driver_name(uint provider) -> const char*` (`"PostgreSQL"`, `"GPKG"`, `"SQLite"`, or `nullptr`)
-  - `sdb::datasource::make_gdal_open_target(const SmtDataSourceInfo& info) -> std::string`
+  - `gis::datasource::is_db_provider_supported(uint provider) -> bool`
+  - `gis::datasource::gdal_driver_name(uint provider) -> const char*` (`"PostgreSQL"`, `"GPKG"`, `"SQLite"`, or `nullptr`)
+  - `gis::datasource::make_gdal_open_target(const SmtDataSourceInfo& info) -> std::string`
 
 - [ ] **Step 1: Write the failing test**
 
-Create `src/sdb/datasource/gdal/sde_gdal_test.cc`:
+Create `src/gis/datasource/gdal/sde_gdal_test.cc`:
 
 ```cpp
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "sdb/datasource/gdal/ogr_connect.h"
+#include "gis/datasource/gdal/ogr_connect.h"
 
 #include "layer.h"
 
@@ -53,34 +53,34 @@ void expect(bool ok, const char* msg) {
 }  // namespace
 
 int main() {
-  expect(!sdb::datasource::is_db_provider_supported(PROVIDER_ACCESS),
+  expect(!gis::datasource::is_db_provider_supported(PROVIDER_ACCESS),
          "ACCESS unsupported");
-  expect(!sdb::datasource::is_db_provider_supported(PROVIDER_SQLSERVER),
+  expect(!gis::datasource::is_db_provider_supported(PROVIDER_SQLSERVER),
          "SQLSERVER unsupported");
-  expect(sdb::datasource::is_db_provider_supported(PROVIDER_GPKG),
+  expect(gis::datasource::is_db_provider_supported(PROVIDER_GPKG),
          "GPKG supported");
-  expect(sdb::datasource::is_db_provider_supported(PROVIDER_POSTGRES),
+  expect(gis::datasource::is_db_provider_supported(PROVIDER_POSTGRES),
          "POSTGRES supported");
-  expect(sdb::datasource::is_db_provider_supported(PROVIDER_SPATIALITE),
+  expect(gis::datasource::is_db_provider_supported(PROVIDER_SPATIALITE),
          "SPATIALITE supported");
 
-  expect(std::strcmp(sdb::datasource::gdal_driver_name(PROVIDER_GPKG), "GPKG") ==
+  expect(std::strcmp(gis::datasource::gdal_driver_name(PROVIDER_GPKG), "GPKG") ==
              0,
          "GPKG driver name");
-  expect(std::strcmp(sdb::datasource::gdal_driver_name(PROVIDER_POSTGRES),
+  expect(std::strcmp(gis::datasource::gdal_driver_name(PROVIDER_POSTGRES),
                      "PostgreSQL") == 0,
          "PG driver name");
-  expect(std::strcmp(sdb::datasource::gdal_driver_name(PROVIDER_SPATIALITE),
+  expect(std::strcmp(gis::datasource::gdal_driver_name(PROVIDER_SPATIALITE),
                      "SQLite") == 0,
          "SQLite driver name");
-  expect(sdb::datasource::gdal_driver_name(PROVIDER_ACCESS) == nullptr,
+  expect(gis::datasource::gdal_driver_name(PROVIDER_ACCESS) == nullptr,
          "ACCESS has no driver");
 
   SmtDataSourceInfo gpkg;
   gpkg.unProvider = PROVIDER_GPKG;
   std::strcpy(gpkg.db.szService, "C:\\tmp\\ds");
   std::strcpy(gpkg.db.szDBName, "sample1.gpkg");
-  std::string gpkg_path = sdb::datasource::make_gdal_open_target(gpkg);
+  std::string gpkg_path = gis::datasource::make_gdal_open_target(gpkg);
   expect(gpkg_path.find("sample1.gpkg") != std::string::npos, "GPKG path");
   expect(gpkg_path.find("PG:") == std::string::npos, "GPKG is not PG:");
 
@@ -90,7 +90,7 @@ int main() {
   std::strcpy(pg.db.szDBName, "gis");
   std::strcpy(pg.szUID, "u");
   std::strcpy(pg.szPWD, "secret");
-  std::string pg_target = sdb::datasource::make_gdal_open_target(pg);
+  std::string pg_target = gis::datasource::make_gdal_open_target(pg);
   expect(pg_target.find("PG:") == 0, "PG prefix");
   expect(pg_target.find("host=127.0.0.1") != std::string::npos, "PG host");
   expect(pg_target.find("port=5432") != std::string::npos, "PG port");
@@ -100,7 +100,7 @@ int main() {
 
   SmtDataSourceInfo access;
   access.unProvider = PROVIDER_ACCESS;
-  expect(sdb::datasource::make_gdal_open_target(access).empty(),
+  expect(gis::datasource::make_gdal_open_target(access).empty(),
          "ACCESS target empty");
 
   if (g_fails) {
@@ -112,7 +112,7 @@ int main() {
 }
 ```
 
-Append to `eSmtDBProvider` in `src/sdb/layer/layer.h` **after** `PROVIDER_MYSQL` (do not reorder):
+Append to `eSmtDBProvider` in `src/gis/layer/layer.h` **after** `PROVIDER_MYSQL` (do not reorder):
 
 ```cpp
 		PROVIDER_MYSQL,				//MySQL 数据库
@@ -121,7 +121,7 @@ Append to `eSmtDBProvider` in `src/sdb/layer/layer.h` **after** `PROVIDER_MYSQL`
 		PROVIDER_SPATIALITE,			// SpatiaLite file
 ```
 
-Replace `src/sdb/datasource/gdal/BUILD.gn` with:
+Replace `src/gis/datasource/gdal/BUILD.gn` with:
 
 ```gn
 # Copyright (c) 2026 The Mogu Authors.
@@ -138,7 +138,7 @@ source_set("ogr_codec") {
   include_dirs += [ "//src" ]
   deps = [
     "//src/base:core",
-    "//src/sdb/map:gis",
+    "//src/gis/map:gis",
   ]
 }
 
@@ -153,7 +153,7 @@ smt_shared_library("sde_gdal") {
   deps = [
     ":ogr_codec",
     "//src/base:core",
-    "//src/sdb/map:gis",
+    "//src/gis/map:gis",
     "//third_party:gdal",
   ]
 }
@@ -165,7 +165,7 @@ test("sde_gdal_test") {
   deps = [
     ":ogr_codec",
     "//src/base:core",
-    "//src/sdb/map:gis",
+    "//src/gis/map:gis",
   ]
 }
 ```
@@ -177,7 +177,7 @@ group("test_all") {
   testonly = true
   deps = [
     "//testing/e2e:exe_smoke",
-    "//src/sdb/datasource/gdal:sde_gdal_test",
+    "//src/gis/datasource/gdal:sde_gdal_test",
   ]
 }
 ```
@@ -192,7 +192,7 @@ Expected: link or compile fails (`ogr_connect.h` missing) **or** if you stub emp
 
 - [ ] **Step 3: Write minimal implementation**
 
-`src/sdb/datasource/gdal/ogr_connect.h`:
+`src/gis/datasource/gdal/ogr_connect.h`:
 
 ```cpp
 // Copyright (c) 2026 The Mogu Authors.
@@ -205,7 +205,7 @@ Expected: link or compile fails (`ogr_connect.h` missing) **or** if you stub emp
 
 #include <string>
 
-namespace sdb {
+namespace gis {
 namespace datasource {
 
 bool is_db_provider_supported(uint provider);
@@ -213,24 +213,24 @@ const char* gdal_driver_name(uint provider);
 std::string make_gdal_open_target(const Smt_GIS::SmtDataSourceInfo& info);
 
 }  // namespace datasource
-}  // namespace sdb
+}  // namespace gis
 
 #endif  // SDB_DATASOURCE_GDAL_OGR_CONNECT_H_
 ```
 
-`src/sdb/datasource/gdal/ogr_connect.cc`:
+`src/gis/datasource/gdal/ogr_connect.cc`:
 
 ```cpp
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "sdb/datasource/gdal/ogr_connect.h"
+#include "gis/datasource/gdal/ogr_connect.h"
 
 #include <cstdio>
 #include <cstring>
 #include <string>
 
-namespace sdb {
+namespace gis {
 namespace datasource {
 
 bool is_db_provider_supported(uint provider) {
@@ -283,7 +283,7 @@ std::string make_gdal_open_target(const Smt_GIS::SmtDataSourceInfo& info) {
 }
 
 }  // namespace datasource
-}  // namespace sdb
+}  // namespace gis
 ```
 
 - [ ] **Step 4: Run the tests and make sure they pass**
@@ -297,7 +297,7 @@ Expected: `out\sde_gdal_test.exe` prints `sde_gdal_test connect checks ok` and e
 - [ ] **Step 5: Commit**
 
 ```bat
-git add src/sdb/layer/layer.h src/sdb/datasource/gdal/ogr_connect.h src/sdb/datasource/gdal/ogr_connect.cc src/sdb/datasource/gdal/sde_gdal_test.cc src/sdb/datasource/gdal/BUILD.gn BUILD.gn
+git add src/gis/layer/layer.h src/gis/datasource/gdal/ogr_connect.h src/gis/datasource/gdal/ogr_connect.cc src/gis/datasource/gdal/sde_gdal_test.cc src/gis/datasource/gdal/BUILD.gn BUILD.gn
 git commit -m "Add OGR DB provider ids and GDAL open-target helper."
 ```
 

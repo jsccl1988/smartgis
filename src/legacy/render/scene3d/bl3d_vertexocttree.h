@@ -1,5 +1,5 @@
 /*
-File:    bl3d_mdloctree.h 
+File:    bl3d_mdloctree.h
 
 Desc:    �˲���
 
@@ -14,113 +14,117 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _BL3D_MDLOCTREE_H
 #define _BL3D_MDLOCTREE_H
 
-#include "base/core/core.h"
-#include "legacy/render/render3d/videobuffer.h"
-#include "legacy/render/render3d/3drenderdevice.h"
-#include "render/math/math.h"
-#include "legacy/render/render3d/base.h"
-#include "legacy/render/scene3d/bl3d_bas_struct.h"
 #include "base/core/bas_struct.h"
+#include "base/core/core.h"
+#include "legacy/render/render3d/3drenderdevice.h"
+#include "legacy/render/render3d/base.h"
+#include "legacy/render/render3d/videobuffer.h"
+#include "legacy/render/scene3d/bl3d_bas_struct.h"
+#include "render/math/math.h"
 
 using namespace render;
 
-namespace render
-{
-	extern int						g_nMdlMaxTargets;
-	extern int						g_nMdlMaxSubdivision;
-	extern int						g_nMdlCurrentSubdivision;
-	extern int						g_nMdlCurRenderTarget;
-	extern int						g_nMdlTotalLeafNode;
+namespace render {
+extern int g_nMdlMaxTargets;
+extern int g_nMdlMaxSubdivision;
+extern int g_nMdlCurrentSubdivision;
+extern int g_nMdlCurRenderTarget;
+extern int g_nMdlTotalLeafNode;
 
-	class SmtVertexOctTree;
-	class SCENE3D_EXPORT_CLASS SmtVertexOctTreeNode
-	{
-		friend class SmtVertexOctTree;
-	public:
-		SmtVertexOctTreeNode();
-		~SmtVertexOctTreeNode();
+class SmtVertexOctTree;
+class SCENE3D_EXPORT_CLASS SmtVertexOctTreeNode {
+  friend class SmtVertexOctTree;
 
-	public:
-		//�����ڵ�
-		long						CreateNode(SmtVertex3DList &lstVers,Vector3 vCenter,byte octCode,double width,LP3DRENDERDEVICE p3DRenderDevice);
+ public:
+  SmtVertexOctTreeNode();
+  ~SmtVertexOctTreeNode();
 
-		//��ȡ�ӽڵ���������
-		Vector3						GetSubNodeCenter(int nSubID);	
-	
-		//��ȡ�˲�������
-		uint						GetSubNodeCode(int nSubID);	
-		
-		//�����ӽڵ�
-		void						CreateSubNode(SmtVertexOctTreeNode*pParentNode,SmtVertexOctTreeNode*&pSub,SmtVertex3DList &lstVers,vector<bool> vbInSubNode,int nVertexs,int nSubID,LP3DRENDERDEVICE p3DRenderDevice);
+ public:
+  // �����ڵ�
+  long CreateNode(SmtVertex3DList &lstVers, Vector3 vCenter, byte octCode,
+                  double width, LP3DRENDERDEVICE p3DRenderDevice);
 
-		//////////////////////////////////////////////////////////////////////////
+  // ��ȡ�ӽڵ���������
+  Vector3 GetSubNodeCenter(int nSubID);
 
-		//��Ⱦ�ڵ�����
-		void						RenderNodeObject(LP3DRENDERDEVICE p3DRenderDevice,SmtFrustum &smtFrustum,bool bShowOctNodeBox = true);
+  // ��ȡ�˲�������
+  uint GetSubNodeCode(int nSubID);
 
-		//��ȡ���������
-		int							GetSubDepth();
+  // �����ӽڵ�
+  void CreateSubNode(SmtVertexOctTreeNode *pParentNode,
+                     SmtVertexOctTreeNode *&pSub, SmtVertex3DList &lstVers,
+                     vector<bool> vbInSubNode, int nVertexs, int nSubID,
+                     LP3DRENDERDEVICE p3DRenderDevice);
 
-		//Ѱ�ҵ����ڵ���С��Χ�����ڽڵ�ָ��
-		SmtVertexOctTreeNode*		FindMinBoxOctNode(const Vector3& point);
+  //////////////////////////////////////////////////////////////////////////
 
-	protected:
-		SmtVertexOctTreeNode		*pParentNode;
-		SmtVertexOctTreeNode		*pSubNodes[8];	
-		Vector3						vCenterPos;
-		double						fWidth;
-		uint						unOctCode;
-		bool						bSubDivided;
-		SmtVertex3DList				vertexList;	
-		SmtVertexBuffer*			pVertexBuffer;
+  // ��Ⱦ�ڵ�����
+  void RenderNodeObject(LP3DRENDERDEVICE p3DRenderDevice,
+                        SmtFrustum &smtFrustum, bool bShowOctNodeBox = true);
 
-		bool						bSelected;
-	};
+  // ��ȡ���������
+  int GetSubDepth();
 
-	class SCENE3D_EXPORT_CLASS SmtVertexOctTree
-	{
-	public:
-		SmtVertexOctTree();
-		virtual ~SmtVertexOctTree();
+  // Ѱ�ҵ����ڵ���С��Χ�����ڽڵ�ָ��
+  SmtVertexOctTreeNode *FindMinBoxOctNode(const Vector3 &point);
 
-	public:
-		//�����˲���
-		long						CreateOctTree(SmtVertex3DList &lstVers,LP3DRENDERDEVICE p3DRenderDevice);
-		
-		//��Ⱦ�˲���
-		void						RenderTree(LP3DRENDERDEVICE p3DRenderDevice,bool bShowOctNodeBox = true);
+ protected:
+  SmtVertexOctTreeNode *pParentNode;
+  SmtVertexOctTreeNode *pSubNodes[8];
+  Vector3 vCenterPos;
+  double fWidth;
+  uint unOctCode;
+  bool bSubDivided;
+  SmtVertex3DList vertexList;
+  SmtVertexBuffer *pVertexBuffer;
 
-		//���ٰ˲���
-		long						DestroyTree();
+  bool bSelected;
+};
 
-		//////////////////////////////////////////////////////////////////////////
-		//��ȡ�������
-		inline int					GetDepth(void){return m_nDepth;}
+class SCENE3D_EXPORT_CLASS SmtVertexOctTree {
+ public:
+  SmtVertexOctTree();
+  virtual ~SmtVertexOctTree();
 
-		//����
-		bool						HitTestOctNode(const Vector3 & point);
+ public:
+  // �����˲���
+  long CreateOctTree(SmtVertex3DList &lstVers,
+                     LP3DRENDERDEVICE p3DRenderDevice);
 
-		void						GetDebugString(char *szBuf,int nBufLength);
+  // ��Ⱦ�˲���
+  void RenderTree(LP3DRENDERDEVICE p3DRenderDevice,
+                  bool bShowOctNodeBox = true);
 
-	protected:
-		void						GetSceneDimensions(SmtVertex3DList &lstVers);
+  // ���ٰ˲���
+  long DestroyTree();
 
-	protected:
-		SmtVertexOctTreeNode		*m_pRootNode;
-		Aabb						m_aabbScene;
-		SmtFrustum					m_Frustum;
-		int							m_nDepth;
-	};
+  //////////////////////////////////////////////////////////////////////////
+  // ��ȡ�������
+  inline int GetDepth(void) { return m_nDepth; }
 
-}
+  // ����
+  bool HitTestOctNode(const Vector3 &point);
 
-#if     !defined(SCENE3D_EXPORTS)
-#if     defined(_DEBUG)
-#          pragma comment(lib,"legacy_render_d.lib")
-#       else
-#          pragma comment(lib,"legacy_render.lib")
-#	    endif
+  void GetDebugString(char *szBuf, int nBufLength);
+
+ protected:
+  void GetSceneDimensions(SmtVertex3DList &lstVers);
+
+ protected:
+  SmtVertexOctTreeNode *m_pRootNode;
+  Aabb m_aabbScene;
+  SmtFrustum m_Frustum;
+  int m_nDepth;
+};
+
+}  // namespace render
+
+#if !defined(SCENE3D_EXPORTS)
+#if defined(_DEBUG)
+#pragma comment(lib, "legacy_render_d.lib")
+#else
+#pragma comment(lib, "legacy_render.lib")
+#endif
 #endif
 
-
-#endif //_BL3D_MDLOCTREE_H
+#endif  //_BL3D_MDLOCTREE_H

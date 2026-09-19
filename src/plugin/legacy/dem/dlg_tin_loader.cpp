@@ -14,7 +14,7 @@
 #include "algorithm/geo/geometry.h"
 #include "legacy/ui/xcatalog/scenemgr.h"
 
-using namespace sdb;
+using namespace gis;
 using namespace plugin;
 using namespace sys;
 using namespace plugin;

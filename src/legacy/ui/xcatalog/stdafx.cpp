@@ -3,5 +3,3 @@
 // stdafx.obj ������Ԥ����������Ϣ
 
 #include "stdafx.h"
-
-

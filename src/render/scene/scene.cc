@@ -3,9 +3,9 @@
 
 #include "render/scene/scene.h"
 
-#include "sdb/layer/layer.h"
-#include "sdb/model/model.h"
-#include "sdb/scene/tessellate.h"
+#include "gis/layer/layer.h"
+#include "gis/assets/model.h"
+#include "gis/world/tessellate.h"
 
 #include "ogrsf_frmts.h"
 
@@ -19,31 +19,31 @@ namespace {
 
 constexpr uint32_t kPositionStride = 3 * sizeof(float);
 
-sdb::scene::LineCap line_cap_from_paint(const std::string& cap) {
+gis::LineCap line_cap_from_paint(const std::string& cap) {
   if (cap == "round") {
-    return sdb::scene::LineCap::kRound;
+    return gis::LineCap::kRound;
   }
   if (cap == "square") {
-    return sdb::scene::LineCap::kSquare;
+    return gis::LineCap::kSquare;
   }
-  return sdb::scene::LineCap::kButt;
+  return gis::LineCap::kButt;
 }
 
-sdb::scene::LineJoin line_join_from_paint(const std::string& join) {
+gis::LineJoin line_join_from_paint(const std::string& join) {
   if (join == "round") {
-    return sdb::scene::LineJoin::kRound;
+    return gis::LineJoin::kRound;
   }
   if (join == "bevel") {
-    return sdb::scene::LineJoin::kBevel;
+    return gis::LineJoin::kBevel;
   }
-  return sdb::scene::LineJoin::kMiter;
+  return gis::LineJoin::kMiter;
 }
 
 // MapLibre line-* (pixels) → LineTessOptions. Dash lengths are converted to
 // world units with the same world_units_per_pixel as stroke width.
-sdb::scene::LineTessOptions line_options_from_paint(
-    const sdb::style::ResolvedPaint& paint, double world_units_per_pixel) {
-  sdb::scene::LineTessOptions options;
+gis::LineTessOptions line_options_from_paint(
+    const gis::style::ResolvedPaint& paint, double world_units_per_pixel) {
+  gis::LineTessOptions options;
   options.pixel_width = paint.line_width;
   options.world_units_per_pixel = world_units_per_pixel;
   options.cap = line_cap_from_paint(paint.line_cap);
@@ -61,7 +61,7 @@ sdb::scene::LineTessOptions line_options_from_paint(
 // fixed world half-extent 0.05). Approximate circle-radius (pixels) as a
 // diamond (4 tris) scaled by world_units_per_pixel.
 void append_circle_diamond(double x, double y, double z, double radius_world,
-                           sdb::scene::TessMesh& out) {
+                           gis::TessMesh& out) {
   if (radius_world <= 0) {
     return;
   }
@@ -101,7 +101,7 @@ void append_circle_diamond(double x, double y, double z, double radius_world,
   out.indices.push_back(base + 1);
 }
 
-void append_mesh(sdb::scene::TessMesh& dst, const sdb::scene::TessMesh& src) {
+void append_mesh(gis::TessMesh& dst, const gis::TessMesh& src) {
   if (src.indices.empty()) {
     return;
   }
@@ -114,26 +114,26 @@ void append_mesh(sdb::scene::TessMesh& dst, const sdb::scene::TessMesh& src) {
 }
 
 bool tessellate_geom_paint_aware(const OGRGeometry* geom,
-                                 const sdb::style::ResolvedPaint* paint,
+                                 const gis::style::ResolvedPaint* paint,
                                  double world_units_per_pixel,
-                                 sdb::scene::TessMesh& out) {
+                                 gis::TessMesh& out) {
   if (!geom) {
     return false;
   }
   const OGRwkbGeometryType flat = wkbFlatten(geom->getGeometryType());
-  if (paint && paint->type == sdb::style::LayerType::kLine &&
+  if (paint && paint->type == gis::style::LayerType::kLine &&
       (flat == wkbLineString || flat == wkbLinearRing)) {
     // tessellate_line resets its out mesh — always stage then merge.
-    sdb::scene::TessMesh part;
-    const sdb::scene::LineTessOptions options =
+    gis::TessMesh part;
+    const gis::LineTessOptions options =
         line_options_from_paint(*paint, world_units_per_pixel);
-    if (!sdb::scene::tessellate_line(geom->toLineString(), options, part)) {
+    if (!gis::tessellate_line(geom->toLineString(), options, part)) {
       return false;
     }
     append_mesh(out, part);
     return true;
   }
-  if (paint && paint->type == sdb::style::LayerType::kCircle &&
+  if (paint && paint->type == gis::style::LayerType::kCircle &&
       flat == wkbPoint) {
     const auto* pt = geom->toPoint();
     const double radius_world =
@@ -161,8 +161,8 @@ bool tessellate_geom_paint_aware(const OGRGeometry* geom,
     return any;
   }
   // Fill / unknown / non-styled geom types keep legacy tessellate_geometry.
-  sdb::scene::TessMesh part;
-  if (!sdb::scene::tessellate_geometry(geom, part)) {
+  gis::TessMesh part;
+  if (!gis::tessellate_geometry(geom, part)) {
     return false;
   }
   append_mesh(out, part);
@@ -171,22 +171,22 @@ bool tessellate_geom_paint_aware(const OGRGeometry* geom,
 
 bool tessellate_vector_instance(const GpuInstance& inst,
                                 double world_units_per_pixel,
-                                sdb::scene::TessMesh& out) {
+                                gis::TessMesh& out) {
   out.positions.clear();
   out.indices.clear();
   out.has_image = false;
-  const sdb::style::ResolvedPaint* paint =
+  const gis::style::ResolvedPaint* paint =
       inst.has_paint ? &inst.paint : nullptr;
   const bool style_stroke =
-      paint && (paint->type == sdb::style::LayerType::kLine ||
-                paint->type == sdb::style::LayerType::kCircle);
+      paint && (paint->type == gis::style::LayerType::kLine ||
+                paint->type == gis::style::LayerType::kCircle);
 
   if (!style_stroke) {
     if (inst.ogr_layer) {
-      return sdb::scene::tessellate_layer(inst.ogr_layer, out);
+      return gis::tessellate_layer(inst.ogr_layer, out);
     }
     if (!inst.geoms.empty()) {
-      return sdb::scene::tessellate_geoms(inst.geoms.data(), inst.geoms.size(),
+      return gis::tessellate_geoms(inst.geoms.data(), inst.geoms.size(),
                                           out);
     }
     return false;
@@ -240,7 +240,7 @@ void argb_to_rgba(uint32_t argb, float opacity, float* r, float* g, float* b,
   }
 }
 
-void apply_paint_scalars(const sdb::style::ResolvedPaint& paint,
+void apply_paint_scalars(const gis::style::ResolvedPaint& paint,
                          GpuScene::GpuMesh* mesh) {
   if (!mesh) {
     return;
@@ -277,13 +277,13 @@ render::rhi::TextureDesc texture_desc_from_bytes(uint32_t byte_size) {
   return desc;
 }
 
-bool layer_image_pixels(const sdb::SmtLayer* layer, const void** data,
+bool layer_image_pixels(const gis::SmtLayer* layer, const void** data,
                         uint32_t* byte_size) {
   if (!layer || !data || !byte_size) {
     return false;
   }
-  if (layer->GetLayerType() == sdb::LYR_TITLE) {
-    const auto* tiles = static_cast<const sdb::SmtTileLayer*>(layer);
+  if (layer->GetLayerType() == gis::LYR_TITLE) {
+    const auto* tiles = static_cast<const gis::SmtTileLayer*>(layer);
     const int n = tiles->GetTileCount();
     for (int i = 0; i < n; ++i) {
       const base::SmtTile* tile = tiles->GetTile(i);
@@ -295,10 +295,10 @@ bool layer_image_pixels(const sdb::SmtLayer* layer, const void** data,
     }
     return false;
   }
-  if (layer->GetLayerType() != sdb::LYR_RASTER) {
+  if (layer->GetLayerType() != gis::LYR_RASTER) {
     return false;
   }
-  const auto* raster = static_cast<const sdb::SmtRasterLayer*>(layer);
+  const auto* raster = static_cast<const gis::SmtRasterLayer*>(layer);
   char* buf = nullptr;
   long size = 0;
   long code = 0;
@@ -333,7 +333,7 @@ render::rhi::Texture* upload_rgba_texture(render::rhi::Device* device,
 }
 
 render::rhi::Texture* upload_layer_texture(render::rhi::Device* device,
-                                           const sdb::SmtLayer* layer) {
+                                           const gis::SmtLayer* layer) {
   const void* pixels = nullptr;
   uint32_t byte_size = 0;
   if (!layer_image_pixels(layer, &pixels, &byte_size)) {
@@ -346,7 +346,7 @@ render::rhi::Texture* upload_layer_texture(render::rhi::Device* device,
 // tries a binary file read. Encoded image formats (PNG/JPEG) are not decoded
 // here — path must already hold raw RGBA8 (or the read is skipped).
 render::rhi::Texture* upload_symbol_texture(
-    render::rhi::Device* device, const sdb::style::SymbolEntry& symbol) {
+    render::rhi::Device* device, const gis::style::SymbolEntry& symbol) {
   if (!device) {
     return nullptr;
   }
@@ -453,7 +453,7 @@ bool upload_mesh(render::rhi::Device* device, const float* positions,
 void record_kind(render::rhi::CommandList* list,
                  const render::rhi::RenderPassDesc& pass, uint32_t width,
                  uint32_t height, const std::vector<GpuScene::GpuMesh>& meshes,
-                 sdb::scene::NodeKind kind) {
+                 gis::NodeKind kind, bool* pass_opened) {
   bool any = false;
   for (const auto& mesh : meshes) {
     if (mesh.kind == kind && mesh.index_count > 0 && mesh.vertex &&
@@ -465,9 +465,23 @@ void record_kind(render::rhi::CommandList* list,
   if (!any) {
     return;
   }
-  list->begin_render_pass(pass);
+  render::rhi::RenderPassDesc local = pass;
+  if (pass_opened && *pass_opened) {
+    // Subsequent kinds share the frame; do not replace the clear color/depth.
+    local.load_op = render::rhi::ColorLoadOp::kLoad;
+    if (local.enable_depth) {
+      local.depth_load_op = render::rhi::DepthLoadOp::kLoad;
+    }
+  }
+  list->begin_render_pass(local);
+  if (pass_opened) {
+    *pass_opened = true;
+  }
   list->set_viewport(0, 0, static_cast<float>(width), static_cast<float>(height),
                      0, 1);
+  if (pass.enable_depth) {
+    list->set_depth_mode(render::rhi::DepthMode::kWrite);
+  }
   for (const auto& mesh : meshes) {
     if (mesh.kind != kind || mesh.index_count == 0 || !mesh.vertex ||
         !mesh.index) {
@@ -489,9 +503,9 @@ void record_kind(render::rhi::CommandList* list,
 
 }  // namespace
 
-void rgba_from_resolved_paint(const sdb::style::ResolvedPaint& paint, float* r,
+void rgba_from_resolved_paint(const gis::style::ResolvedPaint& paint, float* r,
                               float* g, float* b, float* a) {
-  using sdb::style::LayerType;
+  using gis::style::LayerType;
   uint32_t argb = paint.fill_color;
   float opacity = paint.fill_opacity;
   switch (paint.type) {
@@ -525,6 +539,7 @@ GpuScene::GpuScene()
       view_min_y_(0),
       view_max_x_(1),
       view_max_y_(1),
+      view_camera_set_(false),
       solid_r_(0.f),
       solid_g_(1.f),
       solid_b_(1.f),
@@ -554,6 +569,15 @@ void GpuScene::clear_view_ortho() {
   meshes_dirty_ = true;
 }
 
+void GpuScene::set_view_camera(const render::rhi::CameraMatrices& camera) {
+  view_camera_ = camera;
+  view_camera_set_ = true;
+}
+
+void GpuScene::clear_view_camera() {
+  view_camera_set_ = false;
+}
+
 void GpuScene::set_solid_color(float r, float g, float b, float a) {
   solid_r_ = r;
   solid_g_ = g;
@@ -570,7 +594,7 @@ void GpuScene::set_solid_color_from_colorref(long colorref) {
 }
 
 bool GpuScene::set_instance_paint(size_t index,
-                                 const sdb::style::ResolvedPaint& paint) {
+                                 const gis::style::ResolvedPaint& paint) {
   if (index >= instances_.size()) {
     return false;
   }
@@ -585,11 +609,11 @@ void GpuScene::clear_instance_paint(size_t index) {
     return;
   }
   instances_[index].has_paint = false;
-  instances_[index].paint = sdb::style::ResolvedPaint();
+  instances_[index].paint = gis::style::ResolvedPaint();
   meshes_dirty_ = true;
 }
 
-void GpuScene::set_background_paint(const sdb::style::ResolvedPaint& paint) {
+void GpuScene::set_background_paint(const gis::style::ResolvedPaint& paint) {
   // Background layers use fill_color / fill_opacity (style maps
   // background-color into fill_* on ResolvedPaint when present).
   argb_to_rgba(paint.fill_color, paint.fill_opacity, &background_r_,
@@ -635,8 +659,8 @@ void GpuScene::resolve_view_envelope(uint32_t width, uint32_t height,
     have_box = true;
   } else {
     for (const GpuInstance& inst : instances_) {
-      if (inst.kind != sdb::scene::NodeKind::kRasterLayer &&
-          inst.kind != sdb::scene::NodeKind::kVectorLayer) {
+      if (inst.kind != gis::NodeKind::kRasterLayer &&
+          inst.kind != gis::NodeKind::kVectorLayer) {
         continue;
       }
       if (!have_box) {
@@ -725,48 +749,61 @@ bool GpuScene::rebuild_meshes(render::rhi::Device* device, uint32_t width,
     const bool want_symbol =
         inst.has_paint && inst.paint.has_symbol &&
         (!inst.paint.symbol.bytes.empty() || !inst.paint.symbol.path.empty());
-    sdb::scene::TessMesh cpu;
+    gis::TessMesh cpu;
     bool have = false;
-    if (inst.kind == sdb::scene::NodeKind::kVectorLayer &&
+    if (inst.kind == gis::NodeKind::kVectorLayer &&
         (inst.ogr_layer || !inst.geoms.empty())) {
       have = tessellate_vector_instance(inst, world_units_per_pixel, cpu);
-    } else if (inst.kind == sdb::scene::NodeKind::kVectorLayer && inst.tin) {
-      have = sdb::scene::tessellate_tin(inst.tin, cpu);
-    } else if (inst.kind == sdb::scene::NodeKind::kVectorLayer && inst.grid) {
-      have = sdb::scene::tessellate_grid(inst.grid, cpu);
-    } else if (inst.kind == sdb::scene::NodeKind::kRasterLayer && inst.layer) {
-      if (inst.layer->GetLayerType() == sdb::LYR_TITLE) {
-        have = sdb::scene::tessellate_tile_layer(
-            static_cast<const sdb::SmtTileLayer*>(inst.layer), cpu);
+    } else if (inst.kind == gis::NodeKind::kVectorLayer && inst.tin) {
+      have = gis::tessellate_tin(inst.tin, cpu);
+    } else if (inst.kind == gis::NodeKind::kVectorLayer && inst.grid) {
+      have = gis::tessellate_grid(inst.grid, cpu);
+    } else if (inst.kind == gis::NodeKind::kRasterLayer && inst.layer) {
+      if (inst.layer->GetLayerType() == gis::LYR_TITLE) {
+        have = gis::tessellate_tile_layer(
+            static_cast<const gis::SmtTileLayer*>(inst.layer), cpu);
       } else {
-        have = sdb::scene::tessellate_raster_layer(
-            static_cast<const sdb::SmtRasterLayer*>(inst.layer), cpu);
+        have = gis::tessellate_raster_layer(
+            static_cast<const gis::SmtRasterLayer*>(inst.layer), cpu);
       }
-    } else if (inst.kind == sdb::scene::NodeKind::kModel && inst.model) {
-      sdb::model::Mesh flat;
-      if (sdb::model::flatten_meshes(*inst.model, flat)) {
+    } else if (inst.kind == gis::NodeKind::kModel && inst.model) {
+      gis::Mesh flat;
+      if (gis::flatten_meshes(*inst.model, flat)) {
         cpu.positions = flat.positions;
         cpu.indices = flat.indices;
         have = true;
       }
-    } else if ((inst.kind == sdb::scene::NodeKind::kModel ||
-                inst.kind == sdb::scene::NodeKind::kTerrain ||
-                inst.kind == sdb::scene::NodeKind::kPointCloud) &&
+    } else if (inst.kind == gis::NodeKind::kTerrain) {
+      // Prefer CPU DEM mesh from World; else geom_3d; else AABB box.
+      if (!inst.terrain_positions.empty() && !inst.terrain_indices.empty() &&
+          (inst.terrain_positions.size() % 3) == 0 &&
+          (inst.terrain_indices.size() % 3) == 0) {
+        cpu.positions = inst.terrain_positions;
+        cpu.indices = inst.terrain_indices;
+        have = true;
+      } else if (inst.geom_3d) {
+        have = gis::tessellate_3d_geometry(inst.geom_3d, cpu);
+      } else {
+        have = gis::tessellate_aabb(inst.min_x, inst.min_y, inst.min_z,
+                                    inst.max_x, inst.max_y, inst.max_z, cpu);
+      }
+    } else if ((inst.kind == gis::NodeKind::kModel ||
+                inst.kind == gis::NodeKind::kPointCloud) &&
                inst.geom_3d) {
-      have = sdb::scene::tessellate_3d_geometry(inst.geom_3d, cpu);
-    } else if (inst.kind == sdb::scene::NodeKind::kTileset) {
+      have = gis::tessellate_3d_geometry(inst.geom_3d, cpu);
+    } else if (inst.kind == gis::NodeKind::kTileset) {
       // Prefer decoded tile content (glTF/GLB/b3dm via decode_content*). When
       // URIs are missing or tinygltf is unavailable, keep the AABB bridge.
       for (const std::string& uri : inst.visible_uris) {
         if (uri.empty()) {
           continue;
         }
-        sdb::model::ModelAsset asset;
-        if (!sdb::model::decode_content_file(uri.c_str(), asset)) {
+        gis::ModelAsset asset;
+        if (!gis::decode_content_file(uri.c_str(), asset)) {
           continue;
         }
-        sdb::model::Mesh flat;
-        if (!sdb::model::flatten_meshes(asset, flat) || flat.indices.empty()) {
+        gis::Mesh flat;
+        if (!gis::flatten_meshes(asset, flat) || flat.indices.empty()) {
           continue;
         }
         const uint32_t base =
@@ -779,7 +816,7 @@ bool GpuScene::rebuild_meshes(render::rhi::Device* device, uint32_t width,
         have = true;
       }
       if (!have) {
-        have = sdb::scene::tessellate_aabb(inst.min_x, inst.min_y, inst.min_z,
+        have = gis::tessellate_aabb(inst.min_x, inst.min_y, inst.min_z,
                                            inst.max_x, inst.max_y, inst.max_z,
                                            cpu);
       }
@@ -820,7 +857,7 @@ const GpuInstance* GpuScene::instance_at(size_t index) const {
   return &instances_[index];
 }
 
-void GpuScene::sync_from(const sdb::scene::World& world) {
+void GpuScene::sync_from(const gis::World& world) {
   if (world.generation() == synced_generation_) {
     return;
   }
@@ -828,7 +865,7 @@ void GpuScene::sync_from(const sdb::scene::World& world) {
   const size_t n = world.node_count();
   instances_.reserve(n);
   for (size_t i = 0; i < n; ++i) {
-    const sdb::scene::Node* node = world.node_at(i);
+    const gis::Node* node = world.node_at(i);
     if (!node) {
       continue;
     }
@@ -850,6 +887,8 @@ void GpuScene::sync_from(const sdb::scene::World& world) {
     inst.model = node->model;
     inst.tileset = node->tileset;
     inst.visible_uris = node->visible_uris;
+    inst.terrain_positions = node->terrain_positions;
+    inst.terrain_indices = node->terrain_indices;
     inst.has_paint = false;
     instances_.push_back(inst);
   }
@@ -877,13 +916,17 @@ bool GpuScene::record_draws(render::rhi::Device* device,
   pass.clear_a = background_a_;
   pass.width = width;
   pass.height = height;
+  pass.load_op = color_load_op_;
+  pass.enable_depth = enable_depth_;
+  pass.depth_load_op = depth_load_op_;
+  pass.depth_clear = 1.f;
 
   bool have_3d = false;
   for (const GpuInstance& inst : instances_) {
-    if (inst.kind == sdb::scene::NodeKind::kModel ||
-        inst.kind == sdb::scene::NodeKind::kTerrain ||
-        inst.kind == sdb::scene::NodeKind::kPointCloud ||
-        inst.kind == sdb::scene::NodeKind::kTileset) {
+    if (inst.kind == gis::NodeKind::kModel ||
+        inst.kind == gis::NodeKind::kTerrain ||
+        inst.kind == gis::NodeKind::kPointCloud ||
+        inst.kind == gis::NodeKind::kTileset) {
       have_3d = true;
     }
   }
@@ -895,22 +938,31 @@ bool GpuScene::record_draws(render::rhi::Device* device,
   resolve_view_envelope(width, height, &minx, &miny, &maxx, &maxy);
 
   // One CommandList: raster/tile underlay, then 2D vectors, then 3D models.
+  // First kind may clear; later kinds use ColorLoadOp::kLoad.
+  bool pass_opened = color_load_op_ == render::rhi::ColorLoadOp::kLoad;
   list->bind_camera(render::rhi::make_ortho_camera(
       static_cast<float>(minx), static_cast<float>(maxx),
       static_cast<float>(miny), static_cast<float>(maxy), -1.f, 1.f));
   record_kind(list, pass, width, height, meshes_,
-              sdb::scene::NodeKind::kRasterLayer);
+              gis::NodeKind::kRasterLayer, &pass_opened);
   record_kind(list, pass, width, height, meshes_,
-              sdb::scene::NodeKind::kVectorLayer);
+              gis::NodeKind::kVectorLayer, &pass_opened);
   if (have_3d) {
-    const float aspect = static_cast<float>(width) / static_cast<float>(height);
-    list->bind_camera(render::rhi::make_perspective_camera(0.785398f, aspect,
-                                                           0.1f, 100.f));
+    if (view_camera_set_) {
+      list->bind_camera(view_camera_);
+    } else {
+      const float aspect =
+          static_cast<float>(width) / static_cast<float>(height);
+      list->bind_camera(render::rhi::make_perspective_camera(0.785398f, aspect,
+                                                             0.1f, 100.f));
+    }
   }
   record_kind(list, pass, width, height, meshes_,
-              sdb::scene::NodeKind::kModel);
+              gis::NodeKind::kModel, &pass_opened);
   record_kind(list, pass, width, height, meshes_,
-              sdb::scene::NodeKind::kTileset);
+              gis::NodeKind::kTerrain, &pass_opened);
+  record_kind(list, pass, width, height, meshes_,
+              gis::NodeKind::kTileset, &pass_opened);
 
   if (meshes_.empty()) {
     list->begin_render_pass(pass);

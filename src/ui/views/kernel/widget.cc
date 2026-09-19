@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/widget.h"
+#include "ui/views/kernel/widget.h"
 
 #include <cmath>
 #include <cstdint>
@@ -10,9 +10,9 @@
 #include <windowsx.h>
 
 #include "render/skia/canvas.h"
-#include "ui/views/dialog_host.h"
-#include "ui/views/dpi.h"
-#include "ui/views/theme.h"
+#include "ui/views/kernel/dialog_host.h"
+#include "ui/views/kernel/dpi.h"
+#include "ui/views/kernel/theme.h"
 
 #ifndef WM_DPICHANGED
 #define WM_DPICHANGED 0x02E0

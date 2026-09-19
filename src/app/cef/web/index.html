@@ -19,6 +19,8 @@ All rights reserved.
     <button id="btn-select" type="button" data-cmd="selection.point">Select</button>
     <button id="btn-draw" type="button" data-cmd="edit.append.point">Draw</button>
     <button id="btn-clear" type="button" data-cmd="selection.clear">Clear</button>
+    <button id="btn-backend-rhi" type="button" data-cmd="view.backend.rhi">RHI</button>
+    <button id="btn-backend-maplibre" type="button" data-cmd="view.backend.maplibre">MapLibre</button>
     <span class="brand">SmartGIS CEF</span>
   </div>
   <div id="body-row">
@@ -40,8 +42,8 @@ All rights reserved.
         <button type="button" data-tab="1">Data</button>
         <button type="button" data-tab="2">3D</button>
       </div>
-      <!-- Native map HWND covers this placeholder (sibling, not CEF child). -->
-      <div id="map-slot">map slot</div>
+      <!-- Native map HWND covers this hole (sibling, not CEF child). -->
+      <div id="map-slot" aria-label="Map viewport"></div>
     </main>
     <aside id="ambox">
       <div class="panel-title">Ambox</div>

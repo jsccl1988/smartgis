@@ -1,0 +1,51 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Compiled into //src/render:render (dll_stem = render).
+# Deps rhi_sources (not :rhi group) to avoid a render ↔ atmosphere cycle.
+source_set("atmosphere_sources") {
+  sources = [
+    "cloud_pass.cc",
+    "cloud_pass.h",
+    "field_texture.cc",
+    "field_texture.h",
+    "ocean_pass.cc",
+    "ocean_pass.h",
+  ]
+  include_dirs += [ "//src" ]
+  defines = [ "RENDER_EXPORTS" ]
+  deps = [
+    "//src/render:rhi_sources",
+  ]
+}
+
+group("atmosphere") {
+  public_deps = [ "//src/render:render" ]
+}
+
+# In-process Null RHI smoke (RENDER_EXPORTS) to avoid LNK1168 on render.dll.
+test("cloud_pass_test") {
+  output_name = "cloud_pass_test"
+  sources = [
+    "cloud_pass.cc",
+    "cloud_pass_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  defines = [ "RENDER_EXPORTS" ]
+  deps = [ "//src/render:rhi_sources" ]
+}
+
+test("ocean_pass_test") {
+  output_name = "ocean_pass_test"
+  sources = [
+    "field_texture.cc",
+    "ocean_pass.cc",
+    "ocean_pass_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  defines = [ "RENDER_EXPORTS" ]
+  deps = [ "//src/render:rhi_sources" ]
+}

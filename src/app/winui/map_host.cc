@@ -3,6 +3,9 @@
 
 #include "app/winui/map_host.h"
 
+#include "app/views/map_host_extent.h"
+#include "tool/camera_nav.h"
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -12,6 +15,8 @@
 #include <string>
 #include <vector>
 
+#include <winrt/Microsoft.UI.Input.h>
+#include <winrt/Microsoft.UI.Xaml.Input.h>
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.UI.h>
@@ -90,6 +95,9 @@ MapHost::MapHost() {
       winrt::Microsoft::UI::Xaml::HorizontalAlignment::Stretch);
   panel_.VerticalAlignment(
       winrt::Microsoft::UI::Xaml::VerticalAlignment::Stretch);
+  // Layout-only slot: no DXGI swap chain is attached. Keep the panel
+  // transparent so a late HWND does not flash an empty white surface.
+  panel_.Opacity(0);
 
   winrt::Windows::UI::Color slot_bg{255, 28, 42, 58};
   root_.Background(winrt::Microsoft::UI::Xaml::Media::SolidColorBrush(slot_bg));
@@ -118,6 +126,7 @@ MapHost::MapHost() {
              winrt::Microsoft::UI::Xaml::SizeChangedEventArgs const&) {
         sync_layout();
       });
+  wire_panel_pointers();
 }
 
 MapHost::~MapHost() {
@@ -163,6 +172,10 @@ void MapHost::attach_session(content::MapContents* session, HWND window_hwnd) {
   if (!session_) {
     status_.Text(L"No MapContents session");
     status_.Visibility(winrt::Microsoft::UI::Xaml::Visibility::Visible);
+    // Still create the overlay so seed MapScene can paint without GPU.
+    attach_child_hwnd();
+    start_present_timer();
+    sync_layout();
     return;
   }
   // Views parity: seed China PLP (polygon/line/point + labels) in-process.
@@ -170,7 +183,177 @@ void MapHost::attach_session(content::MapContents* session, HWND window_hwnd) {
     map_scene_.seed_default();
   }
   session_->SetObserver(this);
+  scene3d_.bind_map(&map_scene_);
   show_kind(content::ViewKind::kMapEdit);
+}
+
+void MapHost::set_active_tool(std::string_view tool_id) {
+  if (tool_id.empty()) {
+    return;
+  }
+  active_tool_.assign(tool_id.begin(), tool_id.end());
+  if (active_tool_ == "selection.clear") {
+    map_scene_.clear_selection();
+    if (child_hwnd_) {
+      InvalidateRect(child_hwnd_, nullptr, FALSE);
+    }
+  }
+}
+
+void MapHost::apply_pointer(const content::InputEvent& ev) {
+  RECT rc = {};
+  int w = last_layout_w_;
+  int h = last_layout_h_;
+  if (child_hwnd_ && IsWindow(child_hwnd_)) {
+    GetClientRect(child_hwnd_, &rc);
+    w = rc.right - rc.left;
+    h = rc.bottom - rc.top;
+  }
+  if (w < 8 || h < 8) {
+    return;
+  }
+
+  if (ev.kind == content::InputEvent::Kind::kWheel) {
+    const double factor = ev.wheel > 0 ? 1.15 : (1.0 / 1.15);
+    blit_.begin_zoom(w, h, ev.x_px, ev.y_px, factor);
+    map_scene_.apply_zoom_at(ev.x_px, ev.y_px, factor);
+    if (child_hwnd_) {
+      InvalidateRect(child_hwnd_, nullptr, FALSE);
+      schedule_full_redraw();
+    }
+    return;
+  }
+
+  const bool is_pan = active_tool_.empty() || active_tool_ == "view.pan" ||
+                      active_tool_ == "view3d.trackball";
+  const bool is_select =
+      active_tool_ == "selection.point" || active_tool_ == "select" ||
+      active_tool_ == "identify";
+  const bool is_zoom_in = active_tool_ == "view.zoom_in";
+  const bool is_zoom_out = active_tool_ == "view.zoom_out";
+
+  if (ev.kind == content::InputEvent::Kind::kLDown) {
+    dragging_ = true;
+    last_pointer_x_ = ev.x_px;
+    last_pointer_y_ = ev.y_px;
+    if (child_hwnd_) {
+      SetCapture(child_hwnd_);
+    }
+    if (is_select) {
+      map_scene_.hit_test(ev.x_px, ev.y_px, w, h);
+    } else if (is_zoom_in) {
+      blit_.begin_zoom(w, h, ev.x_px, ev.y_px, 1.15);
+      map_scene_.apply_zoom_at(ev.x_px, ev.y_px, 1.15);
+      schedule_full_redraw();
+    } else if (is_zoom_out) {
+      blit_.begin_zoom(w, h, ev.x_px, ev.y_px, 1.0 / 1.15);
+      map_scene_.apply_zoom_at(ev.x_px, ev.y_px, 1.0 / 1.15);
+      schedule_full_redraw();
+    }
+    if (child_hwnd_) {
+      InvalidateRect(child_hwnd_, nullptr, FALSE);
+    }
+    return;
+  }
+  if (ev.kind == content::InputEvent::Kind::kLUp ||
+      ev.kind == content::InputEvent::Kind::kRUp) {
+    dragging_ = false;
+    ReleaseCapture();
+    return;
+  }
+  if (ev.kind == content::InputEvent::Kind::kMouseMove && dragging_ && is_pan) {
+    const int dx = ev.x_px - last_pointer_x_;
+    const int dy = ev.y_px - last_pointer_y_;
+    blit_.begin_pan(w, h, dx, dy);
+    map_scene_.apply_pan(dx, dy);
+    last_pointer_x_ = ev.x_px;
+    last_pointer_y_ = ev.y_px;
+    if (child_hwnd_) {
+      InvalidateRect(child_hwnd_, nullptr, FALSE);
+      schedule_full_redraw();
+    }
+  }
+}
+
+void MapHost::schedule_full_redraw() {
+  if (!child_hwnd_ || !IsWindow(child_hwnd_)) {
+    return;
+  }
+  KillTimer(child_hwnd_, kBlitTimerId);
+  SetTimer(child_hwnd_, kBlitTimerId,
+           static_cast<UINT>(tool::kBlitDebounceMs), nullptr);
+}
+
+void MapHost::commit_blit_preview() {
+  blit_.end_preview();
+  if (child_hwnd_) {
+    InvalidateRect(child_hwnd_, nullptr, FALSE);
+  }
+}
+
+void MapHost::wire_panel_pointers() {
+  using winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs;
+  panel_.PointerPressed(
+      [this](winrt::Windows::Foundation::IInspectable const&,
+             PointerRoutedEventArgs const& e) {
+        const auto pt = e.GetCurrentPoint(panel_);
+        const float scale = panel_scale();
+        content::InputEvent ev{};
+        ev.kind = pt.Properties().IsRightButtonPressed()
+                      ? content::InputEvent::Kind::kRDown
+                      : content::InputEvent::Kind::kLDown;
+        ev.x_px = static_cast<int32_t>(pt.Position().X * scale);
+        ev.y_px = static_cast<int32_t>(pt.Position().Y * scale);
+        apply_pointer(ev);
+        if (session_ && view_id_ != 0) {
+          session_->Dispatch(view_id_, ev);
+        }
+      });
+  panel_.PointerMoved(
+      [this](winrt::Windows::Foundation::IInspectable const&,
+             PointerRoutedEventArgs const& e) {
+        const auto pt = e.GetCurrentPoint(panel_);
+        const float scale = panel_scale();
+        content::InputEvent ev{};
+        ev.kind = content::InputEvent::Kind::kMouseMove;
+        ev.x_px = static_cast<int32_t>(pt.Position().X * scale);
+        ev.y_px = static_cast<int32_t>(pt.Position().Y * scale);
+        apply_pointer(ev);
+        if (session_ && view_id_ != 0) {
+          session_->Dispatch(view_id_, ev);
+        }
+      });
+  panel_.PointerReleased(
+      [this](winrt::Windows::Foundation::IInspectable const&,
+             PointerRoutedEventArgs const& e) {
+        const auto pt = e.GetCurrentPoint(panel_);
+        const float scale = panel_scale();
+        content::InputEvent ev{};
+        ev.kind = pt.Properties().IsRightButtonPressed()
+                      ? content::InputEvent::Kind::kRUp
+                      : content::InputEvent::Kind::kLUp;
+        ev.x_px = static_cast<int32_t>(pt.Position().X * scale);
+        ev.y_px = static_cast<int32_t>(pt.Position().Y * scale);
+        apply_pointer(ev);
+        if (session_ && view_id_ != 0) {
+          session_->Dispatch(view_id_, ev);
+        }
+      });
+  panel_.PointerWheelChanged(
+      [this](winrt::Windows::Foundation::IInspectable const&,
+             PointerRoutedEventArgs const& e) {
+        const auto pt = e.GetCurrentPoint(panel_);
+        const float scale = panel_scale();
+        content::InputEvent ev{};
+        ev.kind = content::InputEvent::Kind::kWheel;
+        ev.x_px = static_cast<int32_t>(pt.Position().X * scale);
+        ev.y_px = static_cast<int32_t>(pt.Position().Y * scale);
+        ev.wheel = pt.Properties().MouseWheelDelta();
+        apply_pointer(ev);
+        if (session_ && view_id_ != 0) {
+          session_->Dispatch(view_id_, ev);
+        }
+      });
 }
 
 bool MapHost::open_map_path(const std::string& path) {
@@ -197,7 +380,7 @@ void MapHost::OnFrameReady(uint32_t view_id, uint32_t generation) {
     return;
   }
   painted_generation_ = generation;
-  // Invalidate from the UI thread — this callback runs on the pipe recv
+  // Invalidate from the UI thread -- this callback runs on the pipe recv
   // thread; posting avoids WinUI / message-pump races that freeze chrome.
   PostMessageW(child_hwnd_, WM_USER + 40, 0, 0);
 }
@@ -207,7 +390,7 @@ void MapHost::show_kind(content::ViewKind kind) {
     return;
   }
   const int idx = slot_index(kind);
-  // Same kind already live: only re-sync HWND to the panel (Views parity —
+  // Same kind already live: only re-sync HWND to the panel (Views parity --
   // never CloseView/OpenView just because the chrome tab was clicked again).
   if (slots_[idx].view_id != 0 && kind_ == kind && view_ == slots_[idx].view) {
     if (view_) {
@@ -236,6 +419,18 @@ void MapHost::show_kind(content::ViewKind kind) {
   view_id_ = slots_[idx].view_id;
   view_ = slots_[idx].view;
   painted_generation_ = 0;
+
+  // Views parity: frame China (or MapScene world) so GPU / 3D DEM match
+  // SmartGis.exe leftover extents instead of an empty default.
+  {
+    content::Extent2 e = map_scene_.world_extent();
+    if (!app::extent_looks_like_china(e)) {
+      e = app::kChinaLonLatExtent;
+    }
+    session_->SetExtent(view_id_, e);
+    scene3d_.bind_contents(session_, view_id_);
+    scene3d_.apply_world_extent(e);
+  }
 
   attach_child_hwnd();
   if (view_) {
@@ -276,7 +471,9 @@ HWND MapHost::resolve_island_hwnd() const {
   EnumIslandCtx ctx;
   EnumChildWindows(window_hwnd_, enum_island_proc,
                    reinterpret_cast<LPARAM>(&ctx));
-  return ctx.found ? ctx.found : window_hwnd_;
+  // Do not fall back to the top-level HWND: DIP?px coords are island-client
+  // space and must be MapWindowPoints'd onto the top-level client.
+  return ctx.found;
 }
 
 float MapHost::panel_scale() const {
@@ -303,19 +500,25 @@ void MapHost::attach_child_hwnd() {
   if (!window_hwnd_) {
     return;
   }
-  if (!island_hwnd_) {
-    island_hwnd_ = resolve_island_hwnd();
-  }
-  HWND parent = island_hwnd_ ? island_hwnd_ : window_hwnd_;
+  island_hwnd_ = resolve_island_hwnd();
   register_child_class();
-  if (child_hwnd_ && GetParent(child_hwnd_) != parent) {
-    destroy_child_hwnd();
+  // Owned WS_POPUP (not WS_CHILD): screenshot proof that a top-level WS_CHILD
+  // sibling is fully covered by DesktopChildSiteBridge DirectComposition, so
+  // the user sees only the XAML slot background while PrintWindow(child) still
+  // shows the GPU DIB + MapScene.
+  if (child_hwnd_) {
+    const LONG_PTR style = GetWindowLongPtrW(child_hwnd_, GWL_STYLE);
+    const HWND owner = GetWindow(child_hwnd_, GW_OWNER);
+    if ((style & WS_POPUP) == 0 || owner != window_hwnd_) {
+      destroy_child_hwnd();
+    }
   }
   if (!child_hwnd_) {
     last_layout_x_ = last_layout_y_ = last_layout_w_ = last_layout_h_ = -1;
     child_hwnd_ = CreateWindowExW(
-        0, kChildClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, 1,
-        1, parent, nullptr, GetModuleHandleW(nullptr), this);
+        WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, kChildClass, L"",
+        WS_POPUP | WS_VISIBLE | WS_CLIPSIBLINGS, 0, 0, 1, 1, window_hwnd_,
+        nullptr, GetModuleHandleW(nullptr), this);
   }
   if (view_ && child_hwnd_) {
     content::MapWidgetHostView::CreateParams params;
@@ -328,6 +531,9 @@ void MapHost::attach_child_hwnd() {
 void MapHost::destroy_child_hwnd() {
   stop_present_timer();
   if (child_hwnd_) {
+    // Clear userdata before DestroyWindow so nested WM_TIMER / WM_PAINT
+    // during teardown cannot touch a half-destroyed MapHost.
+    SetWindowLongPtrW(child_hwnd_, GWLP_USERDATA, 0);
     DestroyWindow(child_hwnd_);
     child_hwnd_ = nullptr;
   }
@@ -409,22 +615,33 @@ void MapHost::set_map_surface_visible(bool visible) {
 }
 
 void MapHost::sync_layout() {
-  if (!child_hwnd_ || !panel_) {
+  if (!child_hwnd_ || !panel_ || !window_hwnd_) {
     return;
+  }
+  // Heal tiny unpackaged frames (DPI 240 often boots at ~512x320 and collapses
+  // the map row to ~25px). Owned popup cannot show a usable map until the
+  // owner is large enough for Catalog+Ambox+map.
+  {
+    HWND root = GetWindow(child_hwnd_, GW_OWNER);
+    if (!root) {
+      root = window_hwnd_;
+    }
+    RECT fr = {};
+    if (root && GetWindowRect(root, &fr)) {
+      const int fw = fr.right - fr.left;
+      const int fh = fr.bottom - fr.top;
+      if (fw < 1024 || fh < 700) {
+        SetWindowPos(root, nullptr, 0, 0, 1280, 800,
+                     SWP_NOMOVE | SWP_NOZORDER | SWP_SHOWWINDOW);
+      }
+    }
   }
   if (!island_hwnd_) {
     island_hwnd_ = resolve_island_hwnd();
-    if (island_hwnd_ && GetParent(child_hwnd_) != island_hwnd_) {
-      // Re-parent once the XAML island HWND is known so DIP coords match.
-      const HWND old = child_hwnd_;
-      child_hwnd_ = nullptr;
-      DestroyWindow(old);
-      attach_child_hwnd();
-      start_present_timer();
-      if (!child_hwnd_) {
-        return;
-      }
-    }
+  }
+  if (!island_hwnd_) {
+    // XAML island HWND not ready yet -- SizeChanged / Loaded will retry.
+    return;
   }
 
   // Force a layout pass so ActualWidth/Height match the chrome grid after
@@ -444,8 +661,8 @@ void MapHost::sync_layout() {
   }
 
   const float scale = panel_scale();
-  // Transform relative to XamlRoot content when available — matches the
-  // DesktopChildSiteBridge client origin after re-parenting.
+  // DIP origin relative to XamlRoot content (= island client origin after
+  // scale). Then MapWindowPoints onto the top-level client (child parent).
   winrt::Windows::Foundation::Point origin{0.f, 0.f};
   try {
     winrt::Microsoft::UI::Xaml::UIElement relative{nullptr};
@@ -466,44 +683,55 @@ void MapHost::sync_layout() {
     }
   }
 
-  const int x = static_cast<int>(origin.X * scale + (origin.X >= 0 ? 0.5f : -0.5f));
-  const int y = static_cast<int>(origin.Y * scale + (origin.Y >= 0 ? 0.5f : -0.5f));
+  const int x_island =
+      static_cast<int>(origin.X * scale + (origin.X >= 0 ? 0.5f : -0.5f));
+  const int y_island =
+      static_cast<int>(origin.Y * scale + (origin.Y >= 0 ? 0.5f : -0.5f));
   const int pw = static_cast<int>(w * scale + 0.5f);
   const int ph = static_cast<int>(h * scale + 0.5f);
   if (pw < 1 || ph < 1) {
     return;
   }
 
-  // Skip no-op SetWindowPos: repeated SWP_SHOWWINDOW thrash causes flicker
-  // against XAML chrome (same lesson as ui::views::View::sync_native_bounds).
+  POINT pts[2] = {{x_island, y_island}, {x_island + pw, y_island + ph}};
+  // Screen coords for owned WS_POPUP (island client ? desktop).
+  MapWindowPoints(island_hwnd_, nullptr, pts, 2);
+  const int x = pts[0].x;
+  const int y = pts[0].y;
+  const int mapped_w = pts[1].x - pts[0].x;
+  const int mapped_h = pts[1].y - pts[0].y;
+  const int use_w = mapped_w > 0 ? mapped_w : pw;
+  const int use_h = mapped_h > 0 ? mapped_h : ph;
+
+  // Skip no-op SetWindowPos: repeated SWP_SHOWWINDOW thrash causes flicker.
   RECT wr = {};
   GetWindowRect(child_hwnd_, &wr);
-  POINT tl = {wr.left, wr.top};
-  if (HWND parent = GetParent(child_hwnd_)) {
-    ScreenToClient(parent, &tl);
-  }
   const int cur_w = wr.right - wr.left;
   const int cur_h = wr.bottom - wr.top;
   const bool shown = IsWindowVisible(child_hwnd_) != FALSE;
-  const bool same = tl.x == x && tl.y == y && cur_w == pw && cur_h == ph && shown;
-  const bool size_changed =
-      last_layout_w_ != pw || last_layout_h_ != ph || cur_w != pw || cur_h != ph;
+  const bool same =
+      wr.left == x && wr.top == y && cur_w == use_w && cur_h == use_h && shown;
+  const bool size_changed = last_layout_w_ != use_w || last_layout_h_ != use_h ||
+                            cur_w != use_w || cur_h != use_h;
   if (!same) {
-    // HWND_TOP: keep the island above the opaque SwapChainPanel slot chrome.
-    SetWindowPos(child_hwnd_, HWND_TOP, x, y, pw, ph,
+    SetWindowPos(child_hwnd_, HWND_TOP, x, y, use_w, use_h,
                  SWP_NOACTIVATE | SWP_SHOWWINDOW);
     InvalidateRect(child_hwnd_, nullptr, FALSE);
   }
   last_layout_x_ = x;
   last_layout_y_ = y;
-  last_layout_w_ = pw;
-  last_layout_h_ = ph;
+  last_layout_w_ = use_w;
+  last_layout_h_ = use_h;
 
   if (view_ && (size_changed || !has_presented_frame())) {
-    view_->Resize(pw, ph, scale * 96.f);
+    view_->Resize(use_w, use_h, scale * 96.f);
   }
-  if (size_changed && map_scene_.feature_count() > 0) {
-    map_scene_.fit_extent(pw, ph);
+  if (size_changed) {
+    if (map_scene_.feature_count() > 0) {
+      map_scene_.fit_extent(use_w, use_h);
+      scene3d_.apply_world_extent(map_scene_.world_extent());
+    }
+    InvalidateRect(child_hwnd_, nullptr, FALSE);
   }
 }
 
@@ -522,7 +750,7 @@ bool MapHost::present_latest_frame(HDC hdc, const RECT& client_rc) const {
   if (!hdc || !view_) {
     return false;
   }
-  // Copy Latest under the HostView lock, then map — never hold UI paint
+  // Copy Latest under the HostView lock, then map -- never hold UI paint
   // across a SetLatest that could replace the handle mid-blit.
   const content::SharedSurface surface = view_->Latest();
   if (!surface.nt_handle || surface.generation == 0 || surface.width_px == 0 ||
@@ -592,30 +820,71 @@ void MapHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   }
   const int w = rc.right - rc.left;
   const int h = rc.bottom - rc.top;
+  if (kind_ != content::ViewKind::kScene3d && blit_.in_preview() &&
+      blit_.present(hdc, w, h)) {
+    return;
+  }
   bool presented = present_latest_frame(hdc, rc);
   if (!presented) {
     const bool scene3d = kind_ == content::ViewKind::kScene3d;
-    const HBRUSH brush =
-        CreateSolidBrush(scene3d ? RGB(32, 28, 48) : RGB(28, 42, 58));
-    FillRect(hdc, &rc, brush);
-    DeleteObject(brush);
+    if (scene3d && w > 0 && h > 0) {
+      // Same GDI DEM wireframe fallback as SmartGisViews when GPU DIB is late.
+      scene3d_.paint(hdc, w, h);
+    } else {
+      const HBRUSH brush =
+          CreateSolidBrush(scene3d ? RGB(18, 32, 48) : RGB(255, 255, 255));
+      FillRect(hdc, &rc, brush);
+      DeleteObject(brush);
+    }
+  } else if (kind_ == content::ViewKind::kScene3d && w > 0 && h > 0) {
+    scene3d_.paint_hud(hdc, w, h);
   }
   // Views parity: overlay OGR vectors (polygon / line / point + name labels)
   // on top of the GPU base frame. This is the product China map content.
+  // Paint offscreen then BitBlt -- WinUI child HDCs have shown heap corruption
+  // (0xC0000374) under china_city MultiPolygon expand (~1k area parts) when
+  // Polygon()/TextOutW hit the live paint HDC during layout storms.
   if (w > 0 && h > 0 && map_scene_.feature_count() > 0) {
-    map_scene_.paint(hdc, w, h);
-  } else if (!presented) {
+    const bool fill_bg = kind_ != content::ViewKind::kScene3d;
+    HDC mem = CreateCompatibleDC(hdc);
+    HBITMAP dib = nullptr;
+    HGDIOBJ old = nullptr;
+    if (mem) {
+      dib = CreateCompatibleBitmap(hdc, w, h);
+      if (dib) {
+        old = SelectObject(mem, dib);
+        if (fill_bg) {
+          HBRUSH bg = CreateSolidBrush(RGB(255, 255, 255));
+          RECT full = {0, 0, w, h};
+          FillRect(mem, &full, bg);
+          DeleteObject(bg);
+        } else {
+          BitBlt(mem, 0, 0, w, h, hdc, 0, 0, SRCCOPY);
+        }
+        map_scene_.paint(mem, w, h, /*fill_background=*/false);
+        BitBlt(hdc, 0, 0, w, h, mem, 0, 0, SRCCOPY);
+        SelectObject(mem, old);
+        DeleteObject(dib);
+        DeleteDC(mem);
+      } else {
+        DeleteDC(mem);
+        map_scene_.paint(hdc, w, h, fill_bg);
+      }
+    } else {
+      map_scene_.paint(hdc, w, h, fill_bg);
+    }
+  } else if (!presented && kind_ != content::ViewKind::kScene3d) {
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, RGB(230, 236, 242));
-    const wchar_t* line1 =
-        kind_ == content::ViewKind::kScene3d
-            ? L"SmartGIS 3D scene (WinUI host)"
-            : L"SmartGIS map (WinUI host)";
+    SetTextColor(hdc, RGB(60, 70, 80));
+    const wchar_t* line1 = L"SmartGIS map (WinUI host)";
     DrawTextW(hdc, line1, -1, const_cast<RECT*>(&rc),
               DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     RECT rc2 = rc;
     rc2.top += 28;
     DrawTextW(hdc, process_path(), -1, &rc2, DT_CENTER | DT_TOP | DT_SINGLELINE);
+  }
+  if (kind_ != content::ViewKind::kScene3d && w > 0 && h > 0) {
+    blit_.capture(hdc, w, h);
   }
 }
 
@@ -632,13 +901,23 @@ LRESULT CALLBACK MapHost::child_wnd_proc(HWND hwnd,
     self = reinterpret_cast<MapHost*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
   }
 
-  if (msg == WM_TIMER && wparam == kPresentTimerId && self && self->view_) {
-    const content::SharedSurface surface = self->view_->Latest();
-    if (surface.generation != 0 &&
-        surface.generation != self->painted_generation_) {
-      self->painted_generation_ = surface.generation;
-      InvalidateRect(hwnd, nullptr, FALSE);
-      self->update_status_overlay();
+  if (msg == WM_TIMER && wparam == kBlitTimerId && self) {
+    KillTimer(hwnd, kBlitTimerId);
+    self->commit_blit_preview();
+    return 0;
+  }
+
+  if (msg == WM_TIMER && wparam == kPresentTimerId && self) {
+    // Re-sync screen position when the owner window is dragged / DPI changes.
+    self->sync_layout();
+    if (self->view_) {
+      const content::SharedSurface surface = self->view_->Latest();
+      if (surface.generation != 0 &&
+          surface.generation != self->painted_generation_) {
+        self->painted_generation_ = surface.generation;
+        InvalidateRect(hwnd, nullptr, FALSE);
+        self->update_status_overlay();
+      }
     }
     return 0;
   }
@@ -650,7 +929,7 @@ LRESULT CALLBACK MapHost::child_wnd_proc(HWND hwnd,
     bool dispatch = false;
     switch (msg) {
       case WM_MOUSEMOVE: {
-        // Throttle move IPC — raw move storms blocked Dispatch() on the UI
+        // Throttle move IPC -- raw move storms blocked Dispatch() on the UI
         // thread when the GPU republished full DIBs (white-screen hang).
         static DWORD last_move_ms = 0;
         const DWORD now = GetTickCount();
@@ -679,7 +958,7 @@ LRESULT CALLBACK MapHost::child_wnd_proc(HWND hwnd,
         dispatch = true;
         break;
       case WM_MOUSEWHEEL: {
-        // WM_MOUSEWHEEL lParam is screen coords — convert to client.
+        // WM_MOUSEWHEEL lParam is screen coords -- convert to client.
         POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
         ScreenToClient(hwnd, &pt);
         ev.x_px = pt.x;
@@ -689,10 +968,22 @@ LRESULT CALLBACK MapHost::child_wnd_proc(HWND hwnd,
         dispatch = true;
         break;
       }
+      case WM_MOUSEHWHEEL: {
+        POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+        ScreenToClient(hwnd, &pt);
+        ev.x_px = pt.x;
+        ev.y_px = pt.y;
+        ev.kind = content::InputEvent::Kind::kWheel;
+        ev.wheel = GET_WHEEL_DELTA_WPARAM(wparam);
+        ev.flags = content::input_flags::kHorizontalWheel;
+        dispatch = true;
+        break;
+      }
       default:
         break;
     }
     if (dispatch) {
+      self->apply_pointer(ev);
       self->session_->Dispatch(self->view_id_, ev);
     }
   }

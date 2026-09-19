@@ -31,8 +31,8 @@ source_set("stat_chart_sources") {
     "//src/base:base",
     "//src/base:core",
     "//src/algorithm/stat:stat",
-    "//src/sdb/datasource/mgr:sde_mgr",
-    "//src/sdb/map:gis",
+    "//src/gis/datasource/mgr:sde_mgr",
+    "//src/gis/map:gis",
     "//src/sys:sys",
     "//third_party:gdal",
   ]

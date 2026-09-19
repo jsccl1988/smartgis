@@ -2,13 +2,13 @@
 // All rights reserved.
 
 #include "stdafx.h"
-#include "legacy/ui/xcatalog/xcatalog_core.h"
 #include "legacy/ui/xcatalog/dlg_create_layer.h"
 
-#include "sdb/feature/feature.h"
-#include "sdb/layer/layer.h"
+#include "legacy/ui/xcatalog/xcatalog_core.h"
+#include "gis/feature/feature.h"
+#include "gis/layer/layer.h"
 
-using namespace sdb;
+using namespace gis;
 using namespace base;
 
 IMPLEMENT_DYNAMIC(CDlgCreateLayer, CDialog)
@@ -35,13 +35,13 @@ void CDlgCreateLayer::DoDataExchange(CDataExchange* pDX) {
 }
 
 BEGIN_MESSAGE_MAP(CDlgCreateLayer, CDialog)
-  ON_BN_CLICKED(IDOK, &CDlgCreateLayer::OnBnClickedOk)
-  ON_NOTIFY(NM_CLICK, IDC_FCLS_TREE, &CDlgCreateLayer::OnNMClickFclsTree)
-  ON_EN_CHANGE(IDC_EDIT_LAYER_NAME, &CDlgCreateLayer::OnEnChangeEditLayerName)
-  ON_EN_CHANGE(IDC_EDIT_XMIN, &CDlgCreateLayer::OnEnChangeEditXmin)
-  ON_EN_CHANGE(IDC_EDIT_YMIN, &CDlgCreateLayer::OnEnChangeEditYmin)
-  ON_EN_CHANGE(IDC_EDIT_XMAX, &CDlgCreateLayer::OnEnChangeEditXmax)
-  ON_EN_CHANGE(IDC_EDIT_YMAX, &CDlgCreateLayer::OnEnChangeEditYmax)
+ON_BN_CLICKED(IDOK, &CDlgCreateLayer::OnBnClickedOk)
+ON_NOTIFY(NM_CLICK, IDC_FCLS_TREE, &CDlgCreateLayer::OnNMClickFclsTree)
+ON_EN_CHANGE(IDC_EDIT_LAYER_NAME, &CDlgCreateLayer::OnEnChangeEditLayerName)
+ON_EN_CHANGE(IDC_EDIT_XMIN, &CDlgCreateLayer::OnEnChangeEditXmin)
+ON_EN_CHANGE(IDC_EDIT_YMIN, &CDlgCreateLayer::OnEnChangeEditYmin)
+ON_EN_CHANGE(IDC_EDIT_XMAX, &CDlgCreateLayer::OnEnChangeEditXmax)
+ON_EN_CHANGE(IDC_EDIT_YMAX, &CDlgCreateLayer::OnEnChangeEditYmax)
 END_MESSAGE_MAP()
 
 void CDlgCreateLayer::OnBnClickedOk() {

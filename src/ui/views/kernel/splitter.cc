@@ -1,12 +1,12 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/splitter.h"
+#include "ui/views/kernel/splitter.h"
 
 #include <algorithm>
 
 #include "render/skia/canvas.h"
-#include "ui/views/theme.h"
+#include "ui/views/kernel/theme.h"
 
 namespace ui {
 namespace views {

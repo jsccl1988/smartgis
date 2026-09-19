@@ -18,7 +18,7 @@ source_set("scene_sources") {
   public_deps = [ "//third_party:gdal" ]
   deps = [
     "//src/render:rhi_sources",
-    "//src/sdb/scene:scene",
+    "//src/gis/world:world",
   ]
 }
 
@@ -45,7 +45,7 @@ test("unified_draw_test") {
   deps = [
     ":scene",
     "//src/algorithm/geo:geo",
-    "//src/sdb/map:gis",
+    "//src/gis/map:gis",
     "//third_party:gdal",
   ]
   if (smt_has_flycube) {

@@ -6,12 +6,12 @@
 #include "gpu/maplibre_runtime.h"
 
 #include "net/http/http.h"
-#include "sdb/style/paint_resolve.h"
-#include "sdb/style/style_document.h"
-#include "sdb/tile/source_registry.h"
-#include "sdb/tile/style_source.h"
-#include "sdb/tile/tile_provider.h"
-#include "sdb/tile/xyz_math.h"
+#include "gis/style/paint_resolve.h"
+#include "gis/style/style_document.h"
+#include "gis/tile/source_registry.h"
+#include "gis/tile/style_source.h"
+#include "gis/tile/tile_provider.h"
+#include "gis/tile/xyz_math.h"
 
 #include <algorithm>
 #include <cmath>
@@ -244,8 +244,8 @@ bool extent_is_valid(const content::Extent2& e) {
   return e.xmax > e.xmin && e.ymax > e.ymin;
 }
 
-sdb::tile::Viewport viewport_from_request(const MapPaintRequest& req) {
-  sdb::tile::Viewport vp;
+gis::tile::Viewport viewport_from_request(const MapPaintRequest& req) {
+  gis::tile::Viewport vp;
   vp.min_x = req.extent.xmin;
   vp.min_y = req.extent.ymin;
   vp.max_x = req.extent.xmax;
@@ -254,12 +254,12 @@ sdb::tile::Viewport viewport_from_request(const MapPaintRequest& req) {
   return vp;
 }
 
-std::vector<sdb::tile::TileCoord> visible_tile_coords(
+std::vector<gis::tile::TileCoord> visible_tile_coords(
     const MapPaintRequest& req) {
   if (!extent_is_valid(req.extent)) {
-    return {sdb::tile::TileCoord{0, 0, 0}};
+    return {gis::tile::TileCoord{0, 0, 0}};
   }
-  return sdb::tile::tiles_for_viewport(viewport_from_request(req));
+  return gis::tile::tiles_for_viewport(viewport_from_request(req));
 }
 
 // Map tile world rect into present pixels and overwrite |dst| (same layer).
@@ -341,7 +341,7 @@ void blit_tile_world(std::vector<uint8_t>* dst, uint32_t dw, uint32_t dh,
 
 bool mosaic_tile_bytes(std::vector<uint8_t>* layer, uint32_t w, uint32_t h,
                        const MapPaintRequest& req,
-                       const sdb::tile::TileCoord& coord,
+                       const gis::tile::TileCoord& coord,
                        const std::string& body) {
   if (body.empty()) {
     return false;
@@ -356,7 +356,7 @@ bool mosaic_tile_bytes(std::vector<uint8_t>* layer, uint32_t w, uint32_t h,
     return false;
   }
   const base::fRect world =
-      sdb::tile::tile_world_rect(coord.z, coord.x, coord.y);
+      gis::tile::tile_world_rect(coord.z, coord.x, coord.y);
   blit_tile_world(layer, w, h, req.extent, world, tile, tw, th);
   return true;
 }
@@ -374,18 +374,18 @@ std::vector<std::string> collect_templates(const MapPaintRequest& req) {
 
 // Bind Style JSON `sources` into a SourceRegistry (raster XYZ only).
 // Injected |fetch| wraps TileProvider so tests need no real HTTP.
-sdb::tile::SourceRegistry bind_style_source_registry(
+gis::tile::SourceRegistry bind_style_source_registry(
     const char* style_json,
     const TileFetchFn& fetch) {
-  sdb::tile::SourceRegistry registry;
+  gis::tile::SourceRegistry registry;
   if (!style_json || !style_json[0]) {
     return registry;
   }
-  std::vector<sdb::tile::StyleSourceDesc> sources;
+  std::vector<gis::tile::StyleSourceDesc> sources;
   // Fill rasters even when the doc also has vector / unsupported entries.
-  (void)sdb::tile::parse_style_sources(std::string(style_json), &sources);
+  (void)gis::tile::parse_style_sources(std::string(style_json), &sources);
   for (const auto& desc : sources) {
-    if (registry.bind_raster(desc) != sdb::tile::StyleSourceStatus::kOk) {
+    if (registry.bind_raster(desc) != gis::tile::StyleSourceStatus::kOk) {
       continue;
     }
     if (!fetch) {
@@ -411,10 +411,10 @@ bool style_has_bindable_raster_sources(const char* style_json) {
   if (!style_json || !style_json[0]) {
     return false;
   }
-  std::vector<sdb::tile::StyleSourceDesc> sources;
-  (void)sdb::tile::parse_style_sources(std::string(style_json), &sources);
+  std::vector<gis::tile::StyleSourceDesc> sources;
+  (void)gis::tile::parse_style_sources(std::string(style_json), &sources);
   for (const auto& desc : sources) {
-    if (sdb::tile::is_raster_bindable(desc)) {
+    if (gis::tile::is_raster_bindable(desc)) {
       return true;
     }
   }
@@ -438,10 +438,10 @@ bool paint_from_style_document(detail::PresentTarget* present,
   const size_t nbytes =
       static_cast<size_t>(w) * static_cast<size_t>(h) * 4u;
 
-  sdb::style::StyleDocument doc;
+  gis::style::StyleDocument doc;
   const bool parsed =
       req.style_json &&
-      sdb::style::parse_style_document(std::string(req.style_json), &doc);
+      gis::style::parse_style_document(std::string(req.style_json), &doc);
 
   std::vector<uint8_t> pixels(nbytes, 0);
   // Default solid when style is missing or has no background layer.
@@ -450,7 +450,7 @@ bool paint_from_style_document(detail::PresentTarget* present,
   }
 
   const std::vector<std::string> templates = collect_templates(req);
-  sdb::tile::SourceRegistry source_registry =
+  gis::tile::SourceRegistry source_registry =
       bind_style_source_registry(req.style_json, req.fetch);
   size_t request_template_index = 0;
 
@@ -460,10 +460,10 @@ bool paint_from_style_document(detail::PresentTarget* present,
     }
     std::vector<uint8_t> layer(nbytes, 0);
     bool any = false;
-    const std::vector<sdb::tile::TileCoord> coords = visible_tile_coords(req);
-    for (const sdb::tile::TileCoord& c : coords) {
+    const std::vector<gis::tile::TileCoord> coords = visible_tile_coords(req);
+    for (const gis::tile::TileCoord& c : coords) {
       const std::string url =
-          sdb::tile::format_xyz_url(tmpl, c.z, c.x, c.y);
+          gis::tile::format_xyz_url(tmpl, c.z, c.x, c.y);
       const TileFetchResult res = req.fetch(url);
       if (!res.ok || res.body.empty()) {
         continue;
@@ -486,7 +486,7 @@ bool paint_from_style_document(detail::PresentTarget* present,
   // Prefer SourceRegistry + TileProvider when the layer binds a source id.
   // With a valid extent, fetch the viewport XYZ set; otherwise keep 0/0/0.
   auto composite_raster_provider =
-      [&](const std::shared_ptr<sdb::tile::TileProvider>& provider,
+      [&](const std::shared_ptr<gis::tile::TileProvider>& provider,
           float opacity) {
         if (!req.fetch || !provider || !provider->is_open()) {
           return;
@@ -494,15 +494,15 @@ bool paint_from_style_document(detail::PresentTarget* present,
         std::vector<uint8_t> layer(nbytes, 0);
         bool any = false;
         if (!extent_is_valid(req.extent)) {
-          const sdb::tile::TileImage image =
-              provider->fetch_tile(sdb::tile::TileCoord{0, 0, 0});
+          const gis::tile::TileImage image =
+              provider->fetch_tile(gis::tile::TileCoord{0, 0, 0});
           if (decode_tile_bgra(image.bytes, w, h, &layer)) {
             any = true;
           }
         } else {
-          const std::vector<sdb::tile::TileImage> images =
+          const std::vector<gis::tile::TileImage> images =
               provider->fetch_visible(viewport_from_request(req));
-          for (const sdb::tile::TileImage& image : images) {
+          for (const gis::tile::TileImage& image : images) {
             if (image.bytes.empty()) {
               continue;
             }
@@ -521,14 +521,14 @@ bool paint_from_style_document(detail::PresentTarget* present,
     bool painted_background = false;
     size_t raster_layers = 0;
     for (const auto& layer : doc.layers) {
-      if (layer.type == sdb::style::LayerType::kBackground) {
+      if (layer.type == gis::style::LayerType::kBackground) {
         uint32_t argb = 0xFF000000u | (static_cast<uint32_t>(k_default_r) << 16) |
                         (static_cast<uint32_t>(k_default_g) << 8) |
                         static_cast<uint32_t>(k_default_b);
         auto cit = layer.paint.find("background-color");
         if (cit != layer.paint.end()) {
           uint32_t parsed_argb = 0;
-          if (sdb::style::parse_color(cit->second, &parsed_argb)) {
+          if (gis::style::parse_color(cit->second, &parsed_argb)) {
             argb = parsed_argb;
           }
         }
@@ -546,7 +546,7 @@ bool paint_from_style_document(detail::PresentTarget* present,
         continue;
       }
 
-      if (layer.type != sdb::style::LayerType::kRaster) {
+      if (layer.type != gis::style::LayerType::kRaster) {
         continue;
       }
       ++raster_layers;

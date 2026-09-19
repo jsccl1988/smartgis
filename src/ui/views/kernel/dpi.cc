@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/dpi.h"
+#include "ui/views/kernel/dpi.h"
 
 #include <cmath>
 

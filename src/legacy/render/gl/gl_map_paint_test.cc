@@ -1,20 +1,19 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "legacy/render/render3d/3drenderdevice.h"
-#include "legacy/render/render3d/camera.h"
-#include "legacy/render/scene3d/bl3d_scene.h"
-#include "legacy/render/scene3d/map_to_scene.h"
-
-#include "gdal.h"
-#include "gdal_priv.h"
-#include "ogrsf_frmts.h"
-
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <string>
 #include <vector>
+
+#include "gdal.h"
+#include "gdal_priv.h"
+#include "legacy/render/render3d/3drenderdevice.h"
+#include "legacy/render/render3d/camera.h"
+#include "legacy/render/scene3d/bl3d_scene.h"
+#include "legacy/render/scene3d/map_to_scene.h"
+#include "ogrsf_frmts.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -126,9 +125,9 @@ int main() {
     return 1;
   }
 
-  GDALDataset* ds = static_cast<GDALDataset*>(GDALOpenEx(
-      path.c_str(), GDAL_OF_VECTOR | GDAL_OF_READONLY, nullptr, nullptr,
-      nullptr));
+  GDALDataset* ds = static_cast<GDALDataset*>(
+      GDALOpenEx(path.c_str(), GDAL_OF_VECTOR | GDAL_OF_READONLY, nullptr,
+                 nullptr, nullptr));
   expect(ds != nullptr, "GDALOpenEx china_plp");
   expect(ds && ds->GetLayerCount() > 0, "china_plp has a layer");
   if (!ds || ds->GetLayerCount() < 1) {
@@ -138,8 +137,8 @@ int main() {
     return 1;
   }
 
-  HWND hwnd = CreateWindowExW(0, L"STATIC", L"gl-map-paint-test", WS_POPUP, 0, 0,
-                              400, 300, nullptr, nullptr,
+  HWND hwnd = CreateWindowExW(0, L"STATIC", L"gl-map-paint-test", WS_POPUP, 0,
+                              0, 400, 300, nullptr, nullptr,
                               GetModuleHandleW(nullptr), nullptr);
   expect(hwnd != nullptr, "CreateWindowEx STATIC");
   if (!hwnd) {
@@ -224,8 +223,7 @@ int main() {
   std::fprintf(stderr, "kinds region=%d line=%d dot=%d anno=%d\n", n_region,
                n_line, n_dot, n_anno);
 
-  const int seeded =
-      render::seed_geojson_into_scene(dev, &scene, path.c_str());
+  const int seeded = render::seed_geojson_into_scene(dev, &scene, path.c_str());
   expect(seeded >= (city_pack ? 100 : 20), "seed China sample into 3D scene");
   std::fprintf(stderr, "step: seeded=%d\n", seeded);
   std::fflush(stderr);

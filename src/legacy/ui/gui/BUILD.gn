@@ -35,7 +35,7 @@ source_set("gui_sources") {
     "//src/base:base",
     "//src/base:core",
     "//src/algorithm/geo:geo",
-    "//src/sdb/map:gis",
+    "//src/gis/map:gis",
     "//src/sys:sys",
     "//third_party:gdal",
   ]

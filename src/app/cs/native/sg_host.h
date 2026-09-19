@@ -53,6 +53,12 @@ SG_HOST_EXPORT int sg_host_has_live_pixels(const SgHost* host);
 
 SG_HOST_EXPORT void sg_host_catalog_call(SgHost* host, const char* json);
 SG_HOST_EXPORT void sg_host_activate_tool(SgHost* host, const char* tool_id);
+// kind matches content::InputEvent::Kind (0=move, 1=wheel, 2=ldown, 3=lup).
+SG_HOST_EXPORT void sg_host_dispatch_pointer(SgHost* host,
+                                             int kind,
+                                             int x_px,
+                                             int y_px,
+                                             int wheel);
 SG_HOST_EXPORT int sg_host_wait_frame(SgHost* host, uint32_t timeout_ms);
 
 #ifdef __cplusplus

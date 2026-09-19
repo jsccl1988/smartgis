@@ -1,0 +1,43 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Compiled into //src/gis:gis (dll_stem = sdb).
+source_set("edit_sources") {
+  sources = [
+    "command_edit_session.cc",
+    "edit_session.cc",
+    "edit_session.h",
+  ]
+  include_dirs += [
+    "//src",
+    "//src/base/core",
+  ]
+  # Export EditSession hierarchy from the sdb DLL (see gis_export.h).
+  defines = [ "GIS_EXPORTS" ]
+  deps = [ "//src/base:core" ]
+}
+
+source_set("map_edit_sources") {
+  sources = [
+    "map_edit_session.cc",
+    "map_edit_session.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  defines = [ "GIS_EXPORTS" ]
+  deps = [
+    ":edit_sources",
+    "//src/gis/datasource/gdal:ogr_codec",
+    "//third_party:gdal",
+  ]
+}
+
+group("edit") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+group("map_edit") {
+  public_deps = [ "//src/gis:gis" ]
+}

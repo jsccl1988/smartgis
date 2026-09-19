@@ -4,7 +4,7 @@
 #ifndef PLUGIN_PROJ_MAP_PRJ_GRID_PAGE_H_
 #define PLUGIN_PROJ_MAP_PRJ_GRID_PAGE_H_
 
-#include "ui/views/view.h"
+#include "ui/views/kernel/view.h"
 
 namespace content {
 class PluginHost;

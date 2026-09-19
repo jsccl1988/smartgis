@@ -3,7 +3,8 @@
 
 #include "app/cef/cef_map_slot.h"
 
-#include "app/views/map_scene.h"
+#include "app/views/map_host_extent.h"
+#include "tool/camera_nav.h"
 #include "content/public/map_contents.h"
 #include "content/public/map_widget_host_view.h"
 #include "content/public/view_host.h"
@@ -71,15 +72,54 @@ bool CefMapSlot::create(HWND parent,
   if (!child_hwnd_) {
     return false;
   }
+  GESTURECONFIG gc = {};
+  gc.dwID = GID_ZOOM;
+  gc.dwWant = GC_ZOOM;
+  SetGestureConfig(child_hwnd_, 0, 1, &gc, sizeof(gc));
   if (view_) {
     content::MapWidgetHostView::CreateParams params;
     params.parent_hwnd = child_hwnd_;
     view_->Create(params, content::MapWidgetHostView::Preferences());
     view_->SetPresentMode(content::PresentMode::kSoftwareDib);
   }
+  bind_scene3d();
   start_present_timer();
   set_visible(false);
   return true;
+}
+
+void CefMapSlot::set_document(MapScene* document) {
+  document_ = document;
+  bind_scene3d();
+}
+
+MapScene* CefMapSlot::dem_map_scene() {
+  return document_ ? document_ : &map_scene_;
+}
+
+const MapScene* CefMapSlot::dem_map_scene() const {
+  return document_ ? document_ : &map_scene_;
+}
+
+void CefMapSlot::bind_scene3d() {
+  MapScene* scene = dem_map_scene();
+  if (scene->feature_count() == 0) {
+    // Owned fallback only — do not mutate a shared chrome document here.
+    if (scene == &map_scene_) {
+      map_scene_.seed_default();
+    }
+  }
+  scene3d_.bind_map(scene);
+  if (!session_ || view_id_ == 0) {
+    return;
+  }
+  content::Extent2 e = scene->world_extent();
+  if (!app::extent_looks_like_china(e)) {
+    e = app::kChinaLonLatExtent;
+  }
+  session_->SetExtent(view_id_, e);
+  scene3d_.bind_contents(session_, view_id_);
+  scene3d_.apply_world_extent(e);
 }
 
 void CefMapSlot::destroy() {
@@ -137,9 +177,15 @@ void CefMapSlot::sync_layout(const RectPx& rect_px, float dpi) {
   if (view_ && (size_changed || dpi_changed || !has_presented_frame())) {
     view_->Resize(rect_px.w, rect_px.h, dpi * 96.f);
   }
-  if (size_changed && document_ && document_->feature_count() > 0) {
-    document_->fit_extent(rect_px.w, rect_px.h);
-    InvalidateRect(child_hwnd_, nullptr, FALSE);
+  if (size_changed) {
+    MapScene* scene = dem_map_scene();
+    if (scene->feature_count() > 0) {
+      scene->fit_extent(rect_px.w, rect_px.h);
+      if (kind_ == content::ViewKind::kScene3d) {
+        scene3d_.apply_world_extent(scene->world_extent());
+      }
+      InvalidateRect(child_hwnd_, nullptr, FALSE);
+    }
   }
 }
 
@@ -266,25 +312,128 @@ bool CefMapSlot::present_latest_frame(HDC hdc, const RECT& client_rc) {
   return true;
 }
 
+void CefMapSlot::client_size(int* w, int* h) const {
+  int cw = last_layout_w_;
+  int ch = last_layout_h_;
+  if (child_hwnd_) {
+    RECT rc = {};
+    GetClientRect(child_hwnd_, &rc);
+    cw = rc.right - rc.left;
+    ch = rc.bottom - rc.top;
+  }
+  if (w) {
+    *w = cw;
+  }
+  if (h) {
+    *h = ch;
+  }
+}
+
+void CefMapSlot::schedule_full_redraw() {
+  if (!child_hwnd_) {
+    return;
+  }
+  KillTimer(child_hwnd_, kBlitTimerId);
+  SetTimer(child_hwnd_, kBlitTimerId,
+           static_cast<UINT>(tool::kBlitDebounceMs), nullptr);
+}
+
+void CefMapSlot::commit_blit_preview() {
+  blit_.end_preview();
+  invalidate();
+}
+
+void CefMapSlot::preview_zoom_at(int x_px, int y_px, double factor) {
+  int w = 0;
+  int h = 0;
+  client_size(&w, &h);
+  if (kind_ == content::ViewKind::kScene3d) {
+    if (w >= 8 && h >= 8) {
+      const int32_t wheel = factor > 1.0 ? WHEEL_DELTA : -WHEEL_DELTA;
+      scene3d_.apply_wheel_at(x_px, y_px, wheel, w, h);
+    }
+    invalidate();
+    schedule_full_redraw();
+    return;
+  }
+  if (w >= 8 && h >= 8) {
+    blit_.begin_zoom(w, h, x_px, y_px, factor);
+  }
+  if (document_) {
+    document_->apply_zoom_at(x_px, y_px, factor);
+  }
+  invalidate();
+  schedule_full_redraw();
+}
+
+void CefMapSlot::preview_pan(int dx_px, int dy_px) {
+  if (kind_ == content::ViewKind::kScene3d) {
+    scene3d_.apply_pan(dx_px, dy_px);
+    invalidate();
+    schedule_full_redraw();
+    return;
+  }
+  int w = 0;
+  int h = 0;
+  client_size(&w, &h);
+  if (w >= 8 && h >= 8) {
+    blit_.begin_pan(w, h, dx_px, dy_px);
+  }
+  if (document_) {
+    document_->apply_pan(dx_px, dy_px);
+  }
+  invalidate();
+  schedule_full_redraw();
+}
+
+void CefMapSlot::apply_scene3d_draft(const tool::Draft& draft) {
+  if (kind_ != content::ViewKind::kScene3d) {
+    return;
+  }
+  scene3d_.apply_draft(draft);
+  invalidate();
+  schedule_full_redraw();
+}
+
 void CefMapSlot::paint_to_dc(HDC hdc, const RECT& rc) {
   if (!hdc) {
     return;
   }
-  if (!present_latest_frame(hdc, rc)) {
-    const bool scene3d = kind_ == content::ViewKind::kScene3d;
-    const HBRUSH brush =
-        CreateSolidBrush(scene3d ? RGB(32, 28, 48) : RGB(28, 42, 58));
-    FillRect(hdc, &rc, brush);
-    DeleteObject(brush);
-    SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, RGB(230, 236, 242));
-    const wchar_t* line = render_ok_ ? L"Map slot (waiting for frame)"
-                                     : L"Map slot (GPU not started)";
-    DrawTextW(hdc, line, -1, const_cast<RECT*>(&rc),
-              DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+  const int w = rc.right > 0 ? rc.right : 1;
+  const int h = rc.bottom > 0 ? rc.bottom : 1;
+  if (kind_ != content::ViewKind::kScene3d && blit_.in_preview() &&
+      blit_.present(hdc, w, h)) {
+    return;
   }
-  if (document_ && rc.right > 0 && rc.bottom > 0) {
-    document_->paint(hdc, rc.right, rc.bottom);
+  const bool presented = present_latest_frame(hdc, rc);
+  if (!presented) {
+    const bool scene3d = kind_ == content::ViewKind::kScene3d;
+    if (scene3d && w > 0 && h > 0) {
+      // Same GDI DEM wireframe fallback as WinUI / Views when GPU DIB is late.
+      scene3d_.paint(hdc, w, h);
+    } else {
+      const HBRUSH brush =
+          CreateSolidBrush(scene3d ? RGB(18, 32, 48) : RGB(255, 255, 255));
+      FillRect(hdc, &rc, brush);
+      DeleteObject(brush);
+      SetBkMode(hdc, TRANSPARENT);
+      SetTextColor(hdc, scene3d ? RGB(230, 236, 242) : RGB(60, 70, 80));
+      const wchar_t* line = render_ok_ ? L"Map slot (waiting for frame)"
+                                       : L"Map slot (GPU not started)";
+      DrawTextW(hdc, line, -1, const_cast<RECT*>(&rc),
+                DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
+  } else if (kind_ == content::ViewKind::kScene3d && w > 0 && h > 0) {
+    scene3d_.paint_hud(hdc, w, h);
+  }
+  MapScene* overlay = dem_map_scene();
+  if (overlay && overlay->feature_count() > 0 && rc.right > 0 &&
+      rc.bottom > 0) {
+    const bool fill_bg = kind_ != content::ViewKind::kScene3d;
+    overlay->paint(hdc, rc.right, rc.bottom, fill_bg);
+  }
+  if (kind_ != content::ViewKind::kScene3d && w > 0 && h > 0) {
+    blit_.capture(hdc, w, h);
   }
 }
 
@@ -349,6 +498,66 @@ void CefMapSlot::dispatch_mouse(content::InputEvent::Kind kind,
   }
 }
 
+void CefMapSlot::dispatch_pinch_zoom(int x_px, int y_px, double scale) {
+  if (!visible_ || scale <= 0.0) {
+    return;
+  }
+  if (kind_ == content::ViewKind::kScene3d) {
+    int w = 0;
+    int h = 0;
+    client_size(&w, &h);
+    if (w >= 8 && h >= 8) {
+      scene3d_.apply_pinch(x_px, y_px, scale, w, h);
+      invalidate();
+      schedule_full_redraw();
+    }
+    return;
+  }
+  const int wheel = scale > 1.0 ? WHEEL_DELTA : (scale < 1.0 ? -WHEEL_DELTA : 0);
+  if (wheel == 0) {
+    return;
+  }
+  content::InputEvent e{};
+  e.kind = content::InputEvent::Kind::kWheel;
+  e.x_px = x_px;
+  e.y_px = y_px;
+  e.wheel = wheel;
+  if (view_host_) {
+    view_host_->dispatch_input(e);
+  }
+  if (session_ && view_id_ != 0) {
+    session_->Dispatch(view_id_, e);
+  }
+  preview_zoom_at(x_px, y_px, scale > 1.0 ? 1.25 : 0.8);
+}
+
+bool CefMapSlot::handle_gesture(WPARAM, LPARAM lparam) {
+  GESTUREINFO gi = {};
+  gi.cbSize = sizeof(gi);
+  if (!GetGestureInfo(reinterpret_cast<HGESTUREINFO>(lparam), &gi)) {
+    return false;
+  }
+  const bool handled = gi.dwID == GID_ZOOM || gi.dwID == GID_BEGIN ||
+                       gi.dwID == GID_END;
+  if (gi.dwID == GID_BEGIN) {
+    last_zoom_distance_ = gi.ullArguments;
+    zoom_gesture_active_ = true;
+  } else if (gi.dwID == GID_END) {
+    zoom_gesture_active_ = false;
+    last_zoom_distance_ = 0;
+  } else if (gi.dwID == GID_ZOOM && zoom_gesture_active_ &&
+             last_zoom_distance_ > 0 && gi.ullArguments > 0) {
+    const double scale = static_cast<double>(gi.ullArguments) /
+                         static_cast<double>(last_zoom_distance_);
+    last_zoom_distance_ = gi.ullArguments;
+    POINT pt = {gi.ptsLocation.x, gi.ptsLocation.y};
+    ScreenToClient(child_hwnd_, &pt);
+    dispatch_pinch_zoom(pt.x, pt.y, scale);
+  }
+  CloseGestureInfoHandle(reinterpret_cast<HGESTUREINFO>(lparam));
+  return handled;
+}
+
 LRESULT CALLBACK CefMapSlot::wnd_proc(HWND hwnd,
                                       UINT msg,
                                       WPARAM wparam,
@@ -371,6 +580,11 @@ LRESULT CALLBACK CefMapSlot::wnd_proc(HWND hwnd,
     case WM_ERASEBKGND:
       return 1;
     case WM_TIMER:
+      if (self && wparam == kBlitTimerId) {
+        KillTimer(hwnd, kBlitTimerId);
+        self->commit_blit_preview();
+        return 0;
+      }
       if (self && wparam == kPresentTimerId && self->view_) {
         const content::SharedSurface surface = self->view_->Latest();
         if (surface.generation != 0 &&
@@ -427,6 +641,11 @@ LRESULT CALLBACK CefMapSlot::wnd_proc(HWND hwnd,
         self->dispatch_mouse(content::InputEvent::Kind::kMouseMove, lparam, 0);
       }
       return 0;
+    case WM_GESTURE:
+      if (self && self->handle_gesture(wparam, lparam)) {
+        return 0;
+      }
+      break;
     case WM_MOUSEWHEEL:
       if (self) {
         POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
@@ -434,12 +653,8 @@ LRESULT CALLBACK CefMapSlot::wnd_proc(HWND hwnd,
         const LPARAM client_lp = MAKELPARAM(pt.x, pt.y);
         self->dispatch_mouse(content::InputEvent::Kind::kWheel, client_lp,
                              GET_WHEEL_DELTA_WPARAM(wparam));
-        if (self->document_) {
-          const int delta = GET_WHEEL_DELTA_WPARAM(wparam);
-          const double factor = delta > 0 ? 1.25 : 0.8;
-          self->document_->apply_zoom_at(pt.x, pt.y, factor);
-          self->invalidate();
-        }
+        const int delta = GET_WHEEL_DELTA_WPARAM(wparam);
+        self->preview_zoom_at(pt.x, pt.y, delta > 0 ? 1.25 : 0.8);
       }
       return 0;
     case WM_KEYDOWN:

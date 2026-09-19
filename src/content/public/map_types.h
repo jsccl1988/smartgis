@@ -22,6 +22,12 @@ struct Extent2 {
   double ymax;
 };
 
+// Bits for InputEvent::flags beyond Win32 MK_* (high range).
+namespace input_flags {
+// WM_MOUSEHWHEEL / trackpad two-finger horizontal → pan (not zoom).
+constexpr uint32_t kHorizontalWheel = 0x02000000u;
+}  // namespace input_flags
+
 struct InputEvent {
   enum class Kind {
     kMouseMove,
@@ -43,7 +49,19 @@ struct InputEvent {
   uint32_t key;
   char32_t text[8];
   uint64_t t_qpc;
+  // Active contacts for this sample. 0/1 = mouse or single finger; >=2 =
+  // multitouch with (x_px, y_px) at the contact midpoint (or host average).
+  uint32_t pointer_count;
 };
+
+inline bool is_multitouch(const InputEvent& e) {
+  return e.pointer_count >= 2;
+}
+
+inline bool is_horizontal_wheel(const InputEvent& e) {
+  return e.kind == InputEvent::Kind::kWheel &&
+         (e.flags & input_flags::kHorizontalWheel) != 0;
+}
 
 struct FeatureId {
   uint8_t bytes[32];

@@ -112,6 +112,7 @@ if (smt_build_cef && smt_has_cef) {
       ":cef_web_assets",
       ":chrome_bridge_parse",
       "//src/app/views:map_scene",
+      "//src/app/views:scene3d_controller",
       "//src/content:content",
       "//src/content:view_host",
       "//src/gpu:gpu_lib",

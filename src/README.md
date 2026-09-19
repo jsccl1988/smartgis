@@ -1,6 +1,6 @@
 # SmartGIS `src/`
 
-Five locked layers plus algorithm / plugin / ui. Nesting: `src/<layer>/<module>` (datasource drivers nest as `sdb/datasource/<driver>` like QGIS `providers/*`).
+Five locked layers plus algorithm / plugin / ui. Nesting: `src/<layer>/<module>` (datasource drivers nest as `gis/datasource/<driver>` like QGIS `providers/*`).
 
 GN targets keep short names (`sde_gdal`, `render_gl`). DLL stems stay `Smt*` (`dll_stem`). C++ `Smt_*` ABI is unchanged.
 
@@ -9,27 +9,27 @@ GN targets keep short names (`sde_gdal`, `render_gl`). DLL stems stay `Smt*` (`d
 | Layer | Tree | Role |
 | --- | --- | --- |
 | **app** | `app/{views,winui,cef,cs}`；MFC 壳 → `legacy/app/`（含 `app_core`） | Endgame/prototype hosts only. No `src/chrome/`. Namespace `app` (+ `detail`). |
-| **content** | `content/public` | Stable map/session/view API. App/UI hosts include only this — not sdb or render devices. Local chrome tools: `ViewHost` / `LocalToolRouter` (Workspace + EventBus + EditSession); leftover IPC is the OOP adapter. |
-| **sdb** | `sdb/{feature,layer,map,crs,datasource/*,model,scene,tile,style}` | Spatial DB / GIS model + CPU models / World + HTTP XYZ tiles + Style JSON (`sdb::style`). GDAL decorator driver `"SDBD"` (`SdbdDataset` owns stock inner datasets). |
+| **content** | `content/public` | Stable map/session/view API. App/UI hosts include only this — not gis model headers or render devices. Local chrome tools: `ViewHost` / `LocalToolRouter` (Workspace + EventBus + EditSession); leftover IPC is the OOP adapter. |
+| **gis** | `gis/{feature,layer,map,crs,datasource/*,assets,world,tile,style}` | **GIS 模型层**（不是 literal DB）+ CPU assets / World + HTTP XYZ tiles + Style JSON (`gis::style`). GDAL decorator driver `"SDBD"` (`SdbdDataset` owns stock inner datasets). |
 | **render** | `render/` + RHI + GPU scene | Unified 2D+3D via `render/rhi` (FlyCube DX12/Vulkan). `gpu/` is the process. |
-| **base** | `base/`（`:foundation` + platform DLL leftovers） | foundation = log/threading/files/archive/ipc；产品 DLL `dll_stem=platform`；carto → `sdb/carto` |
+| **base** | `base/`（`:foundation` + platform DLL leftovers） | foundation = log/threading/files/archive/ipc；产品 DLL `dll_stem=platform`；carto → `base/carto` |
 
 ## OSS GIS ↔ this tree
 
 | QGIS / GDAL / GEOS / PROJ | This repo |
 | --- | --- |
-| `providers/*`, OGR drivers | `src/sdb/datasource/gdal`（`mem` / `smf` / `ws` 目录已移除；文件/内存矢量打开走 GDAL / `SDBD`） |
-| `QgsFeature` / `QgsVectorLayer` / `QgsProject` | `OGRFeature` / `OGRLayer` / `SmtMap` (`sdb/feature` keeps `SmtFeatureType` only) |
-| `QgsCoordinateReferenceSystem` | `src/sdb/crs` (id on the layer); transforms in `algorithm/proj` |
+| `providers/*`, OGR drivers | `src/gis/datasource/gdal`（`mem` / `smf` / `ws` 目录已移除；文件/内存矢量打开走 GDAL / `SDBD`） |
+| `QgsFeature` / `QgsVectorLayer` / `QgsProject` | `OGRFeature` / `OGRLayer` / `SmtMap` (`gis/feature` keeps `SmtFeatureType` only) |
+| `QgsCoordinateReferenceSystem` | `src/gis/crs` (id on the layer); transforms in `algorithm/proj` |
 | GEOS predicates/ops | Call `OGRGeometry` (`Intersects` / `Buffer` / …); GEOS is inside `//third_party:gdal`. `SmtGeoCore` is TIN/grid/surface meshes only. Delaunay: `src/algorithm/tin`. Do not vendor a second GEOS |
 | PROJ transforms | `src/algorithm/proj` (PROJ 9 adapter only) |
 | QgsMapRenderer / canvas | `src/render` + `render/rhi` |
 | processing / analysis | `src/algorithm/` |
 | `qgis_gui` | `src/ui/views`（终局）；leftover MFC → `src/legacy/ui/` |
 | `qgis_app` | `src/app/{views,winui,cef,cs}`；MFC `SmartGis.exe` → `src/legacy/app/` |
-| libqgis_core embedder API | `src/content/public` (thin; not all of sdb) |
+| libqgis_core embedder API | `src/content/public` (thin; not all of gis) |
 | QgsApplication / settings | `src/base` |
-| PDAL / point I/O | future `sdb/datasource` driver; `render/pointcloud` is the 3D engine |
+| PDAL / point I/O | future `gis/datasource` driver; `render/pointcloud` is the 3D engine |
 
 ## Also
 
@@ -37,22 +37,22 @@ GN targets keep short names (`sde_gdal`, `render_gl`). DLL stems stay `Smt*` (`d
 - **plugin/** — host `plugin::Registry` + leftover `SmtAuxModule`; chrome talks through `content::PluginHost`; Python embed; zip / `plugins.json` store. Spec: `docs/superpowers/specs/2026-09-13-plugin-host-design.md`. Domain children keep leftover `dll_stem`.
 - **ui/** — endgame `ui/views` only. Leftover MFC chrome (`gui` / `mfc_ex` / `xview` / `xcatalog` / `xambox` / `chart`) → `legacy/ui/`（`dll_stem=ui_legacy`；`//src/ui:ui_legacy` 转发）。
 - **legacy/** — leftover trees under `legacy/{app,ui,render,tool}`（见 [`legacy/README.md`](legacy/README.md)）。MFC exe：`build.bat legacy_app` → `//src/legacy/app:app`。Spec: `docs/superpowers/specs/2026-09-14-app-legacy-split-design.md`.
-- **tool/** — endgame `//src/tool:dispatch` only (Command / Interaction / Workspace). Leftover `SmtIATool` / `SmtGroupTool` live under `legacy/tool/` (+ `group/`); optional `//src/legacy/tool:legacy_tool_all`, not in `src_all` by default. Pointer/wheel go only through `ViewHost` / Workspace; leftover tools apply completed drafts (`apply_draft`), they do not own a second Interaction. Live rubber-band is `Interaction::aux_overlay` painted by leftover chrome. 3D cameras are `make_view3d_camera`. `flash` start/stop is command-driven; leftover GDI blink honors those commands plus `SET_FLASH_DATA` / mode. Map writes stay on `sdb::EditSession`. Domain events: `content::EventBus`. Host composition is `content::ViewHost`. Mapped `GT_MSG_*` / `AM_MSG` execute on the host **and** leftover Notify (product effect / dialogs); unmapped menus do not broadcast. Specs: `docs/superpowers/specs/2026-09-13-tool-event-dispatch-design.md`, `docs/superpowers/archive/specs/2026-09-13-tool-legacy-split-design.md`.
+- **tool/** — endgame `//src/tool:dispatch` only (Command / Interaction / Workspace). Leftover `SmtIATool` / `SmtGroupTool` live under `legacy/tool/` (+ `group/`); optional `//src/legacy/tool:legacy_tool_all`, not in `src_all` by default. Pointer/wheel go only through `ViewHost` / Workspace; leftover tools apply completed drafts (`apply_draft`), they do not own a second Interaction. Live rubber-band is `Interaction::aux_overlay` painted by leftover chrome. 3D cameras are `make_view3d_camera`. `flash` start/stop is command-driven; leftover GDI blink honors those commands plus `SET_FLASH_DATA` / mode. Map writes stay on `gis::EditSession`. Domain events: `content::EventBus`. Host composition is `content::ViewHost`. Mapped `GT_MSG_*` / `AM_MSG` execute on the host **and** leftover Notify (product effect / dialogs); unmapped menus do not broadcast. Specs: `docs/superpowers/specs/2026-09-13-tool-event-dispatch-design.md`, `docs/superpowers/archive/specs/2026-09-13-tool-legacy-split-design.md`.
 - **net/** — `SmtNetCore`: `pack/` (BinarySink + Pickle), `http/`, `rpc/`, `udp/`. Include `"net/http/http.h"`. No mogu POSIX `net/`. No product web GIS / mapd / WMS stack.
 - **gpu/** — `SmartGisRender.exe`
 - **sys** — stays beside base
 
 ## GDAL seam
 
-`src/sdb/datasource/gdal` (`SmtSDEGdalDevice`) registers the in-tree **SDBD** GDAL driver (`GDALOpenEx("SDBD:MEM:…")` / `SDBD:GPKG:…`). Layer management is `GDALDataset` / `OGRLayer` / `OGRFeature`, not `SmtDataSource` / `SmtVectorLayer` / `SmtFeature`. Product fields are OGR only — `SmtAttribute`/`SmtField` left `gis` (optional leftover `//src/sdb/map:leftover_attr`; MFC att UI reads `OGRLayer`). Raster scratch: `CreateMemRasLayer` → `OgrRasterLayer` + GDAL **MEM** (`/vsimem` encoded blob；`Open(文件)` 回填 blob). `SmtMemRasLayer` / `SmtMemTileLayer` / `CreateMemTileLayer` removed (`sde_mem` DLL gone). 2D tiles: `src/sdb/tile` (`TileProvider` + LRU/disk + WMTS parse + `make_xyz_map_layer` via `net::HttpClient` HTTPS; Views `AddBasemapDialog`; not OGR / `SDBD:MEM`). Missing GPKG/PostgreSQL drivers fail Open honestly. No second GDAL tree.
+`src/gis/datasource/gdal` (`SmtSDEGdalDevice`) registers the in-tree **SDBD** GDAL driver (`GDALOpenEx("SDBD:MEM:…")` / `SDBD:GPKG:…`). Layer management is `GDALDataset` / `OGRLayer` / `OGRFeature`, not `SmtDataSource` / `SmtVectorLayer` / `SmtFeature`. Product fields are OGR only — `SmtAttribute`/`SmtField` left `gis` (optional leftover `//src/gis/map:leftover_attr`; MFC att UI reads `OGRLayer`). Raster scratch: `CreateMemRasLayer` → `OgrRasterLayer` + GDAL **MEM** (`/vsimem` encoded blob；`Open(文件)` 回填 blob). `SmtMemRasLayer` / `SmtMemTileLayer` / `CreateMemTileLayer` removed (`sde_mem` DLL gone). 2D tiles: `src/gis/tile` (`TileProvider` + LRU/disk + WMTS parse + `make_xyz_map_layer` via `net::HttpClient` HTTPS; Views `AddBasemapDialog`; not OGR / `SDBD:MEM`). Missing GPKG/PostgreSQL drivers fail Open honestly. No second GDAL tree.
 
-## Model v1 (`sdb::model`)
+## Model v1 (`gis::model`)
 
 Standalone files go through `load_file` (Assimp when `smt_has_assimp`; otherwise only the built-in `"cube"`). 3D Tiles are an explicit `tileset.json` plus `select_tiles`; content `.gltf` / `.glb` / `.b3dm` is `decode_content` via tinygltf. A `.gltf` file is not a tileset. Leftover `src/legacy/render/model3d` is not the default loader. World v1 handles: `attach_model` / `attach_tileset` / `attach_terrain` / `attach_pointcloud`.
 
 ## RHI v1
 
-`src/render/rhi`: Facade `Device` / `CommandList` / `Buffer` (null + leftover GDI/GL + FlyCube DX12/Vulkan). `bind_camera` takes ortho (2D GIS) or perspective (3D leftover) `CameraMatrices`; FlyCube uploads those as GPU constants and samples uploaded raster/tile textures on DX12. `World::attach_map` keeps `OGRLayer*` (vector) and leftover `SmtLayer*` (raster/tile); `attach_3d_geometry` keeps `OGRGeometry*`. `sdb::scene::tessellate_*` turns OGR Point/LineString/Polygon and `Smt3DSurface` into GPU verts. `GpuScene::record` uploads those meshes and issues 2D then 3D on **one** CommandList. Leftover `SmtVertexBuffer` / `SmtIndexBuffer` (host or GL, ABI unchanged) copy through `render::scene::upload_leftover_buffers` onto the same `Device` and `record_leftover_draw` on the same CommandList. GDI / GDI-simple / GL / SmtRender share one leftover RHI session via `render::scene::leftover_session()` (owned in `SmtRender`). `SmtRenderDevice::Init(HWND)` calls `BindRhiPresent`. Debug compiles FlyCube `/MDd` from the junction into `out/flycube`; Release links the MD prebuilt. D3D9/D3DX tree removed. Spec: `docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`.
+`src/render/rhi`: Facade `Device` / `CommandList` / `Buffer` (null + leftover GDI/GL + FlyCube DX12/Vulkan). `bind_camera` takes ortho (2D GIS) or perspective (3D leftover) `CameraMatrices`; FlyCube uploads those as GPU constants and samples uploaded raster/tile textures on DX12. `World::attach_map` keeps `OGRLayer*` (vector) and leftover `SmtLayer*` (raster/tile); `attach_3d_geometry` keeps `OGRGeometry*`. `gis::tessellate_*` turns OGR Point/LineString/Polygon and `Smt3DSurface` into GPU verts. `GpuScene::record` uploads those meshes and issues 2D then 3D on **one** CommandList. Leftover `SmtVertexBuffer` / `SmtIndexBuffer` (host or GL, ABI unchanged) copy through `render::scene::upload_leftover_buffers` onto the same `Device` and `record_leftover_draw` on the same CommandList. GDI / GDI-simple / GL / SmtRender share one leftover RHI session via `render::scene::leftover_session()` (owned in `SmtRender`). `SmtRenderDevice::Init(HWND)` calls `BindRhiPresent`. Debug compiles FlyCube `/MDd` from the junction into `out/flycube`; Release links the MD prebuilt. D3D9/D3DX tree removed. Spec: `docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`.
 
 ## Build
 

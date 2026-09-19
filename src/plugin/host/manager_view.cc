@@ -7,9 +7,9 @@
 
 #include "content/public/plugin_host.h"
 #include "plugin/host/registry.h"
-#include "ui/views/button.h"
-#include "ui/views/label.h"
-#include "ui/views/table_view.h"
+#include "ui/views/primitives/button.h"
+#include "ui/views/primitives/label.h"
+#include "ui/views/primitives/table_view.h"
 
 namespace plugin {
 namespace {

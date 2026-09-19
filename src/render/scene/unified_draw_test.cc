@@ -3,12 +3,12 @@
 
 #include "render/rhi/rhi.h"
 #include "render/scene/scene.h"
-#include "sdb/scene/scene.h"
-#include "sdb/scene/tessellate.h"
+#include "gis/world/scene.h"
+#include "gis/world/tessellate.h"
 
 #include "algorithm/geo/geometry.h"
 #include "algorithm/geo/geometry.h"
-#include "sdb/layer/layer.h"
+#include "gis/layer/layer.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -36,12 +36,12 @@ int count_index(const std::vector<uint32_t>& counts, uint32_t n) {
   return c;
 }
 
-class TestRasterLayer : public sdb::SmtRasterLayer {
+class TestRasterLayer : public gis::SmtRasterLayer {
  public:
   bool Create() override { return true; }
   bool Open(const char*) override { return true; }
   bool Close() override { return true; }
-  bool Fetch(sdb::eSmtFetchType) override { return true; }
+  bool Fetch(gis::eSmtFetchType) override { return true; }
   long CreaterRaster(const char* buf, long size, const base::fRect& rect,
                      long code) override {
     buf_ = buf;
@@ -78,12 +78,12 @@ class TestRasterLayer : public sdb::SmtRasterLayer {
   base::fRect rect_{};
 };
 
-class TestTileLayer : public sdb::SmtTileLayer {
+class TestTileLayer : public gis::SmtTileLayer {
  public:
   bool Create() override { return true; }
   bool Open(const char*) override { return true; }
   bool Close() override { return true; }
-  bool Fetch(sdb::eSmtFetchType) override { return true; }
+  bool Fetch(gis::eSmtFetchType) override { return true; }
   void CalEnvelope() override {}
   int GetTileCount() const override { return static_cast<int>(tiles_.size()); }
   void MoveFirst() const override { it_ = 0; }
@@ -127,6 +127,10 @@ int main() {
   using render::rhi::StubCommandList;
   using render::rhi::create_device;
 
+  // Unbuffered so abort/hang still leaves a breadcrumb (matches scene_gpu_test).
+  setvbuf(stdout, nullptr, _IONBF, 0);
+  setvbuf(stderr, nullptr, _IONBF, 0);
+
   OGRPoint pt(1, 2);
   OGRLineString line;
   line.addPoint(0, 0);
@@ -140,8 +144,8 @@ int main() {
   poly.addRing(&ring);
 
   const OGRGeometry* geoms[] = {&pt, &line, &poly};
-  sdb::scene::TessMesh expect_2d;
-  expect(sdb::scene::tessellate_geoms(geoms, 3, expect_2d),
+  gis::TessMesh expect_2d;
+  expect(gis::tessellate_geoms(geoms, 3, expect_2d),
          "tessellate point+line+poly");
   expect(expect_2d.indices.size() >= 12, "2d feature index count");
 
@@ -164,8 +168,8 @@ int main() {
   t1.c = 3;
   surf.add_triangle(&t0);
   surf.add_triangle(&t1);
-  sdb::scene::TessMesh expect_3d;
-  expect(sdb::scene::tessellate_3d_surface(&surf, expect_3d), "tess 3d surf");
+  gis::TessMesh expect_3d;
+  expect(gis::tessellate_3d_surface(&surf, expect_3d), "tess 3d surf");
   expect(expect_3d.indices.size() == 6, "3d quad is two triangles");
 
   OGRLinearRing ring3d;
@@ -178,13 +182,13 @@ int main() {
   OGRPolygon poly3d;
   poly3d.addRing(&ring3d);
 
-  sdb::scene::World world;
+  gis::World world;
   expect(world.attach_vector_geoms("roads", geoms, 3) != nullptr,
          "attach 2d GIS geoms");
   expect(world.attach_3d_geometry(&poly3d, "surface") != nullptr,
          "attach 3d GIS surface");
   expect(world.node_count() == 2, "vector + 3d");
-  expect(world.node_at(0)->kind == sdb::scene::NodeKind::kVectorLayer,
+  expect(world.node_at(0)->kind == gis::NodeKind::kVectorLayer,
          "vector kind");
   expect(world.node_at(1)->geom_3d == &poly3d, "3d pointer");
 
@@ -192,8 +196,8 @@ int main() {
   arc.addPoint(0, 0);
   arc.addPoint(1, 1);
   arc.addPoint(2, 0);
-  sdb::scene::TessMesh expect_arc;
-  expect(sdb::scene::tessellate_arc(&arc, expect_arc), "tess arc");
+  gis::TessMesh expect_arc;
+  expect(gis::tessellate_arc(&arc, expect_arc), "tess arc");
   expect(expect_arc.indices.size() == 12, "arc index count");
   const OGRGeometry* arc_geoms[] = {&arc};
   expect(world.attach_vector_geoms("arc", arc_geoms, 1) != nullptr,
@@ -206,8 +210,8 @@ int main() {
   fan_ring.closeRings();
   OGRPolygon fan;
   fan.addRing(&fan_ring);
-  sdb::scene::TessMesh expect_fan;
-  expect(sdb::scene::tessellate_fan(&fan, expect_fan), "tess fan");
+  gis::TessMesh expect_fan;
+  expect(gis::tessellate_fan(&fan, expect_fan), "tess fan");
   expect(expect_fan.indices.size() == 3, "fan index count");
   const OGRGeometry* fan_geoms[] = {&fan};
   expect(world.attach_vector_geoms("fan", fan_geoms, 1) != nullptr,
@@ -225,8 +229,8 @@ int main() {
   tin_tri.b = 1;
   tin_tri.c = 2;
   tin.add_triangle(&tin_tri);
-  sdb::scene::TessMesh expect_tin;
-  expect(sdb::scene::tessellate_tin(&tin, expect_tin), "tess tin");
+  gis::TessMesh expect_tin;
+  expect(gis::tessellate_tin(&tin, expect_tin), "tess tin");
   expect(expect_tin.indices.size() == 3, "tin index count");
   expect(world.attach_tin(&tin, "tin") != nullptr, "attach tin");
 
@@ -235,8 +239,8 @@ int main() {
   grid.set_node(0, 1, geo::RawPoint(1, 0));
   grid.set_node(1, 0, geo::RawPoint(0, 1));
   grid.set_node(1, 1, geo::RawPoint(1, 1));
-  sdb::scene::TessMesh expect_grid;
-  expect(sdb::scene::tessellate_grid(&grid, expect_grid), "tess grid");
+  gis::TessMesh expect_grid;
+  expect(gis::tessellate_grid(&grid, expect_grid), "tess grid");
   expect(expect_grid.indices.size() == 6, "grid index count");
   expect(world.attach_grid(&grid, "grid") != nullptr, "attach grid");
 
@@ -249,8 +253,8 @@ int main() {
   ras_rect.rt.y = 6;
   char pixels[4] = {9, 8, 7, 6};
   raster.CreaterRaster(pixels, 4, ras_rect, 1);
-  sdb::scene::TessMesh expect_ras;
-  expect(sdb::scene::tessellate_raster_layer(&raster, expect_ras),
+  gis::TessMesh expect_ras;
+  expect(gis::tessellate_raster_layer(&raster, expect_ras),
          "tess raster");
   expect(expect_ras.indices.size() == 6, "raster index count");
   expect(world.attach_raster_layer(&raster) != nullptr, "attach raster");
@@ -271,8 +275,8 @@ int main() {
   tile1.rtTileRect.rt.y = 2;
   tiles.AppendTile(&tile0, false);
   tiles.AppendTile(&tile1, false);
-  sdb::scene::TessMesh expect_tiles;
-  expect(sdb::scene::tessellate_tile_layer(&tiles, expect_tiles), "tess tiles");
+  gis::TessMesh expect_tiles;
+  expect(gis::tessellate_tile_layer(&tiles, expect_tiles), "tess tiles");
   expect(expect_tiles.indices.size() == 12, "tile index count");
   expect(world.attach_tile_layer(&tiles) != nullptr, "attach tiles");
   expect(world.node_count() == 8, "mixed remaining GIS nodes");
@@ -359,5 +363,7 @@ int main() {
     return 1;
   }
   std::fprintf(stdout, "unified_draw_test: ok\n");
-  return 0;
+  std::fflush(stdout);
+  // Same FlyCube-linked CRT hang as scene_gpu_test after NullDevice stub leaks.
+  std::_Exit(0);
 }

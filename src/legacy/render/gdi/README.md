@@ -2,6 +2,10 @@
 
 SmartGIS GDI 渲染设备，提供基于 Windows GDI 的 2D 地图渲染实现。
 
+## Present strangler（SP2）
+
+`SmtGdiRenderDevice::Init(HWND)` 调用 `render::bind_rhi_present(hWnd)`，把视口 HWND 接到 `leftover_session()`（Null 录制）。`RenderMap` 在 **GDI 画完之后** 经 `leftover_record_map_frame` best-effort 录 GIS（先录再画会白屏）。**本 HWND 的 present 仍由 GDI（BitBlt / InvalidateRect）独占**。见 [present-facade 规格](../../../../docs/superpowers/specs/2026-09-19-legacy-render-present-facade-design.md)。
+
 ## 模块简介
 
 SmtGdiRenderDevice 是 SmartGIS 系统的 GDI 渲染设备实现，提供了基于 Windows GDI（Graphics Device Interface）的 2D 地图渲染功能。该模块实现了 `SmtRenderDevice` 接口，支持双缓冲绘图和多线程绘图技术。

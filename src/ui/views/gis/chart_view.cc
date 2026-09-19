@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/chart_view.h"
+#include "ui/views/gis/chart_view.h"
 
 #include <algorithm>
 #include <cmath>
@@ -10,7 +10,7 @@
 #include <utility>
 
 #include "render/skia/canvas.h"
-#include "ui/views/theme.h"
+#include "ui/views/kernel/theme.h"
 
 namespace ui {
 namespace views {

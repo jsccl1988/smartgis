@@ -4,24 +4,22 @@
 #pragma once
 
 #ifndef __AFXWIN_H__
-	#error "�ڰ������ļ�֮ǰ������stdafx.h�������� PCH �ļ�"
+#error "�ڰ������ļ�֮ǰ������stdafx.h�������� PCH �ļ�"
 #endif
 
-#include "legacy/ui/xambox/resource.h"		// ������
-
+#include "legacy/ui/xambox/resource.h"  // ������
 
 // CSmtXAMBoxCoreApp
 // �йش���ʵ�ֵ���Ϣ������� xambox_core.cpp
 //
 
-class CSmtXAMBoxCoreApp : public CWinApp
-{
-public:
-	CSmtXAMBoxCoreApp();
+class CSmtXAMBoxCoreApp : public CWinApp {
+ public:
+  CSmtXAMBoxCoreApp();
 
-// ��д
-public:
-	virtual BOOL InitInstance();
+  // ��д
+ public:
+  virtual BOOL InitInstance();
 
-	DECLARE_MESSAGE_MAP()
+  DECLARE_MESSAGE_MAP()
 };

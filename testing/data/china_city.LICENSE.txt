@@ -40,11 +40,30 @@ Sources
 Build
 -----
   py -3 testing/data/build_china_city.py
+  py -3 testing/data/build_china_dem.py
 
 Caches downloads under out/china_city_src/. Writes testing/data/china_city.gpkg
 and copies to out/china_city.gpkg. See china_city.PIN.txt for SHA-256.
+
+china_dem.tif
+-------------
+Country-wide Float32 elevation grid (EPSG:4326) for leftover / Views 3D.
+
+Default build (real DEM):
+  py -3 testing/data/build_china_dem.py
+  Source: AWS Open Data elevation-tiles-prod GeoTIFF tiles
+    https://s3.amazonaws.com/elevation-tiles-prod/geotiff/{z}/{x}/{y}.tif
+  (Mapzen / Nextzen terrain stack: SRTM, GMTED2010, NED, ETOPO1 and related
+  public elevation layers; see https://github.com/tilezen/joerd ).
+  Land outline cutline from DataV national boundary JSON when available.
+  Tile cache: out/china_dem_src/
+
+Offline fallback:
+  py -3 testing/data/build_china_dem.py --source synthetic
 
 Forbidden uses
 --------------
 Do not present this package as an official national boundary dataset or as
 having a surveying / mapping publication number (审图号).
+Do not present china_dem.tif as a surveyed cadastral product; it is an
+engineering demo mosaic of public elevation sources.

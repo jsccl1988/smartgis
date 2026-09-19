@@ -3,7 +3,12 @@
 
 #include "gpu/present.h"
 
+#include "gis/world/dem_raster.h"
+
+#include <algorithm>
+#include <cmath>
 #include <cstring>
+#include <vector>
 
 #include <d3d11.h>
 #include <d3d11_1.h>
@@ -322,41 +327,103 @@ void PresentTarget::paint_demo_frame(content::ViewKind kind) {
   SelectObject(mem, old_pen);
   DeleteObject(grid_pen);
 
-  // Keep a light grid only. Product vectors (China PLP / OGR layers) are
-  // painted by the Views host overlay (MapScene) — demo polylines here used
-  // to look like "the map" and hide real lon/lat data.
+  // 2D panes: light grid only (chrome overlays MapScene vectors).
+  // Scene3d: synthetic DEM wireframe (no GDAL in the GPU process — sample
+  // raster load here raced chrome and faulted Views --self-test).
   if (kind == content::ViewKind::kScene3d) {
-    HPEN feat_pen = CreatePen(PS_SOLID, 2, feature);
-    old_pen = SelectObject(mem, feat_pen);
-    // Wireframe cube — proves the 3D pane is not an empty clear.
-    const int cx = w / 2;
-    const int cy = h / 2;
-    const int s = (w < h ? w : h) / 5;
-    const POINT front[5] = {{cx - s, cy - s},
-                            {cx + s, cy - s},
-                            {cx + s, cy + s},
-                            {cx - s, cy + s},
-                            {cx - s, cy - s}};
-    const POINT back[5] = {{cx - s / 2, cy - s - s / 2},
-                           {cx + s + s / 2, cy - s - s / 2},
-                           {cx + s + s / 2, cy + s / 2},
-                           {cx - s / 2, cy + s / 2},
-                           {cx - s / 2, cy - s - s / 2}};
-    Polyline(mem, front, 5);
-    Polyline(mem, back, 5);
-    for (int i = 0; i < 4; ++i) {
-      MoveToEx(mem, front[i].x, front[i].y, nullptr);
-      LineTo(mem, back[i].x, back[i].y);
+    gis::DemRaster dem;
+    dem.fill_synthetic_china();
+    std::vector<float> xyz;
+    std::vector<uint32_t> indices;
+    if (dem.build_mesh(32, &xyz, &indices) && xyz.size() >= 9 &&
+        indices.size() >= 3) {
+      float minx = xyz[0], maxx = xyz[0];
+      float miny = xyz[1], maxy = xyz[1];
+      float minz = xyz[2], maxz = xyz[2];
+      for (size_t i = 0; i + 2 < xyz.size(); i += 3) {
+        minx = (std::min)(minx, xyz[i]);
+        maxx = (std::max)(maxx, xyz[i]);
+        miny = (std::min)(miny, xyz[i + 1]);
+        maxy = (std::max)(maxy, xyz[i + 1]);
+        minz = (std::min)(minz, xyz[i + 2]);
+        maxz = (std::max)(maxz, xyz[i + 2]);
+      }
+      const float cx = 0.5f * (minx + maxx);
+      const float cy = 0.5f * (miny + maxy);
+      const float cz = 0.5f * (minz + maxz);
+      const float span =
+          (std::max)(maxx - minx, (std::max)(maxz - minz, 1.f));
+      const float s = 3.2f / span;
+      constexpr float kYaw = 0.55f;
+      constexpr float kPitch = 0.4f;
+      constexpr float kDist = 3.2f;
+      const float cyaw = std::cos(kYaw);
+      const float syaw = std::sin(kYaw);
+      const float cp = std::cos(kPitch);
+      const float sp = std::sin(kPitch);
+      auto project = [&](float x, float y, float z, int* sx, int* sy) {
+        x = (x - cx) * s;
+        y = (y - cy) * s;
+        z = (z - cz) * s;
+        const float x1 = x * cyaw - z * syaw;
+        const float z1 = x * syaw + z * cyaw;
+        const float y2 = y * cp - z1 * sp;
+        const float z2 = y * sp + z1 * cp;
+        const float depth = z2 + kDist;
+        const float inv = depth > 0.15f ? (1.f / depth) : (1.f / 0.15f);
+        const float f = 280.f * inv;
+        if (sx) {
+          *sx = w / 2 + static_cast<int>(std::lround(x1 * f));
+        }
+        if (sy) {
+          *sy = h / 2 - static_cast<int>(std::lround(y2 * f));
+        }
+      };
+      HPEN feat_pen = CreatePen(PS_SOLID, 1, RGB(140, 190, 120));
+      old_pen = SelectObject(mem, feat_pen);
+      const size_t ntri =
+          (std::min)(indices.size() / 3, static_cast<size_t>(400));
+      for (size_t t = 0; t < ntri; ++t) {
+        const uint32_t i0 = indices[t * 3];
+        const uint32_t i1 = indices[t * 3 + 1];
+        const uint32_t i2 = indices[t * 3 + 2];
+        if ((i0 + 1) * 3 > xyz.size() || (i1 + 1) * 3 > xyz.size() ||
+            (i2 + 1) * 3 > xyz.size()) {
+          continue;
+        }
+        int p0[2] = {};
+        int p1[2] = {};
+        int p2[2] = {};
+        project(xyz[i0 * 3], xyz[i0 * 3 + 1], xyz[i0 * 3 + 2], &p0[0],
+                &p0[1]);
+        project(xyz[i1 * 3], xyz[i1 * 3 + 1], xyz[i1 * 3 + 2], &p1[0],
+                &p1[1]);
+        project(xyz[i2 * 3], xyz[i2 * 3 + 1], xyz[i2 * 3 + 2], &p2[0],
+                &p2[1]);
+        MoveToEx(mem, p0[0], p0[1], nullptr);
+        LineTo(mem, p1[0], p1[1]);
+        LineTo(mem, p2[0], p2[1]);
+        LineTo(mem, p0[0], p0[1]);
+      }
+      SelectObject(mem, old_pen);
+      DeleteObject(feat_pen);
+    } else {
+      HPEN feat_pen = CreatePen(PS_SOLID, 2, feature);
+      old_pen = SelectObject(mem, feat_pen);
+      const int midx = w / 2;
+      const int midy = h / 2;
+      const int s = (w < h ? w : h) / 5;
+      Rectangle(mem, midx - s, midy - s, midx + s, midy + s);
+      SelectObject(mem, old_pen);
+      DeleteObject(feat_pen);
     }
-    SelectObject(mem, old_pen);
-    DeleteObject(feat_pen);
   }
 
   SetBkMode(mem, TRANSPARENT);
   SetTextColor(mem, ink);
   const wchar_t* title =
       (kind == content::ViewKind::kScene3d)
-          ? L"3D scene"
+          ? L"3D DEM"
           : (kind == content::ViewKind::kMapData) ? L"Datasource"
                                                  : L"Map";
   TextOutW(mem, 12, 12, title, lstrlenW(title));

@@ -15,6 +15,7 @@ smt_shared_library("host") {
   include_dirs += [ "//src" ]
   deps = [
     "//src/app/views:map_scene",
+    "//src/app/views:scene3d_controller",
     "//src/content:content",
     "//testing/data:china_map_samples",
   ]

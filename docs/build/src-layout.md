@@ -41,7 +41,7 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 | `qgis_gui` / `qgis_app` | `src/ui/` / `src/app/` |
 | libqgis_core for embedders | `src/content/public` |
 
-`sdb/datasource/gdal` is `SmtSDEGdalDevice`: a decorator `GDALDriver` `"SDBD"` whose `SdbdDataset` owns a stock inner `GDALDataset` (Memory / GPKG / PostgreSQL / file). Callers use `GDALOpenEx("SDBD:…")` and may `dynamic_cast` to `SdbdDataset` / `SdbdLayer`. Do not patch `third_party/.src/gdal` or resurrect `OgrDataSource`. I/O types are `GDALDataset` / `OGRLayer` / `OGRFeature`；产品 ABI 是 `sdb::Feature` / `sdb::MapLayer`（组合持有 OGR）。栅格草稿：`CreateMemRasLayer` → `OgrRasterLayer` + GDAL **MEM**（编码 blob 在 `/vsimem`；`Open(文件)` 会回填 blob 供 `GetRasterNoClone`）；`SmtMemRasLayer` 已移除。`CreateMemTileLayer` / `SmtMemTileLayer` / `sde_mem` 已切除。2D 瓦片：`src/sdb/tile`（`TileProvider` + LRU/磁盘缓存 + WMTS 最小解析 + `make_xyz_map_layer` / Views `AddBasemapDialog`；HTTP(S) 经 net+OpenSSL；不进 `SDBD:MEM`）。`SmtAttribute`/`SmtField` 已退出 `gis`（字段走 OGR）；可选 leftover `//src/sdb/map:leftover_attr`；MFC att-struct UI 读/写 `OGRLayer`。
+`sdb/datasource/gdal`（或 `gis/datasource/gdal`）is `SmtSDEGdalDevice`: a decorator `GDALDriver` `"SDBD"` whose `SdbdDataset` owns a stock inner `GDALDataset` (Memory / GPKG / PostgreSQL / file). Callers use `GDALOpenEx("SDBD:…")` and may `dynamic_cast` to `SdbdDataset` / `SdbdLayer`. **Remote mogu sdbd** uses `PROVIDER_SDBD` + `SdbdClient` (HTTP+FnRPC), not the local Handler prefix. Do not patch `third_party/.src/gdal` or resurrect `OgrDataSource`. I/O types are `GDALDataset` / `OGRLayer` / `OGRFeature`；产品 ABI 是 `sdb::Feature` / `sdb::MapLayer`（组合持有 OGR）。栅格草稿：`CreateMemRasLayer` → `OgrRasterLayer` + GDAL **MEM**（编码 blob 在 `/vsimem`；`Open(文件)` 会回填 blob 供 `GetRasterNoClone`）；`SmtMemRasLayer` 已移除。`CreateMemTileLayer` / `SmtMemTileLayer` / `sde_mem` 已切除。2D 瓦片：`src/sdb/tile`（`TileProvider` + LRU/磁盘缓存 + WMTS 最小解析 + `make_xyz_map_layer` / Views `AddBasemapDialog`；HTTP(S) 经 net+OpenSSL；不进 `SDBD:MEM`）。`SmtAttribute`/`SmtField` 已退出 `gis`（字段走 OGR）；可选 leftover `//src/sdb/map:leftover_attr`；MFC att-struct UI 读/写 `OGRLayer`。
 
 ## DLL 粒度（Phase 1 终态）
 
@@ -65,7 +65,7 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 | --- | --- | --- | --- |
 | Foundation | `src/base/`（含 `archive`/`ipc` + core leftovers）, `sdb/carto`, `legacy/xml`, `sys`, `net` | **`//src/base:foundation`**（static 聚合）。**产品一 DLL**：`dll_stem=platform` | yes → 产品 DLL；foundation 经 deps 链入 |
 | Core data model | `sdb/{feature,layer,map,model,scene,tile,style,carto}` | GIS 模型 + CPU assets / World / TileProvider / StyleDocument；**一 DLL `sdb`**（`carto` 链入平台 DLL） | yes → `sdb` |
-| Datasource | `sdb/datasource/{mgr,gdal}` | 并入 `sdb` DLL。SMF/WS/mem leftovers 已删 | yes → `sdb` |
+| Datasource | `sdb/datasource/{mgr,gdal}`（树或已迁 `gis/datasource`） | 并入 `sdb`/`gis` DLL。SMF/WS/mem leftovers 已删。**`PROVIDER_SDBD`**：`DataSourceMgr::open_dataset` → `SdbdRemoteDataset` + `SdbdClient` 双通道对接 WSL mogu sdbd（HTTP `/api/v1/sdbd/*` 默认 `:8021`；FnRPC `sdbd.*` 默认 `:9032`；`szUrl` 为 `http(s)://…` 或 `sdbd-rpc://host:port`）。本地 `SdbdHandler` 仍用 `/sdbd/api/v1/*`，勿混用。活体硬测：`sdbd_live_test`（非 SKIP） | yes → `sdb`/`gis` |
 | Algorithm | `algorithm/{geo,proj,tin,stat}` | **一 DLL `algorithm`**。Scene Vector/Matrix 在 `render/math`。**Not** dem/orthogrid（插件）/ chart（`ui_legacy`） | yes → `algorithm` |
 | Render | `render/{rhi,scene,skia,math}` | Endgame **一 DLL `render`**。Leftover 引擎在 `legacy/render/` → optional `legacy_render` DLL | yes → `render`；leftover optional |
 | Plugin | `plugin/` + children | Host `//src/plugin/host:host`（source_set）。域插件 **各一 DLL**。Spec: `2026-09-14-plugin-subdir-layout-design.md` | host + widgets |
@@ -165,7 +165,7 @@ Include dirs: `BUILDCONFIG` puts **`//src` before `//`** so `#include "base/…"
 
 | Tree | Stem | Extension | Include |
 | --- | --- | --- | --- |
-| New (`content`, `gpu`, `app/{views,winui,cef,cs}`, `ui/views`, `render/{skia,rhi,scene}`, `sdb/{model,scene}`, `net`) | `snake_case` | `.cc` / `.h` (`net` keeps `.cpp`) | `"content/public/map_view.h"`, `"ui/views/view.h"`, `"gpu/gpu.h"`, `"render/rhi/rhi.h"`, `"sdb/scene/scene.h"`, `"net/http/http.h"` (`//src` on the include path) |
+| New (`content`, `gpu`, `app/{views,winui,cef,cs}`, `ui/views`, `render/{skia,rhi,scene}`, `sdb/{model,scene}`, `net`) | `snake_case` | `.cc` / `.h` (`net` keeps `.cpp`) | `"content/public/map_view.h"`, `"ui/views/kernel/view.h"`, `"gpu/gpu.h"`, `"render/rhi/rhi.h"`, `"sdb/scene/scene.h"`, `"net/http/http.h"` (`//src` on the include path) |
 | Legacy product (`legacy/app` MFC, `legacy/ui/{gui,mfc_ex,xview,…}`, `plugin/*`, …) | `snake_case` | keep `.cpp` | still module-root `"main_frame.h"` / `"grid_ctrl.h"`（产品代码用 `"legacy/app/…"` / `"legacy/ui/…"`） |
 
 - Drop file prefixes (`smt_`, `vw_`, `cata_`, `baog_`, `msvr_`, `am_`, `gt_`, `wa_`, `bl_`, `rd_`, plus module tags `gis_` / `geo_` / `sde_`). On-disk **DLL stems** follow reorg 终态（[`abi-rename-map.md`](abi-rename-map.md)）；legacy `Smt_*` 命名空间仍可能存在直至 ABI cutover 收尾。

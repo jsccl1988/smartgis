@@ -34,11 +34,11 @@ source_set("xview_sources") {
   ]
   deps = [
     "//src/content:view_host",
-    "//src/sdb/edit:map_edit",
+    "//src/gis/edit:map_edit",
     "//src/base:base",
     "//src/base:core",
     "//src/algorithm/geo:geo",
-    "//src/sdb/map:gis",
+    "//src/gis/map:gis",
     "//src/legacy/render/bridge:render",
     "//src/legacy/render/render3d:render3d",
     "//src/legacy/render/scene3d:scene3d",
@@ -47,7 +47,8 @@ source_set("xview_sources") {
     "//src/plugin:plugin",
     "//src/plugin:legacy_cmd",
     "//src/legacy/tool:tool",
-    "//src/sdb/datasource/mgr:sde_mgr",
+    "//src/tool:dispatch",
+    "//src/gis/datasource/mgr:sde_mgr",
   ]
 }
 

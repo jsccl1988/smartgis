@@ -14,7 +14,11 @@
 #endif
 #include <windows.h>
 
+#include "app/views/map_host_extent.h"
+#include "content/public/catalog_layers.h"
+#include "content/public/feature_attrs.h"
 #include "content/public/map_types.h"
+#include "gis/world/land_mask.h"
 #include "tool/gestures.h"
 
 namespace app {
@@ -34,10 +38,7 @@ class MapScene {
     double y = 0;
   };
 
-  struct Field {
-    std::string name;
-    std::string value;
-  };
+  using Field = content::NamedField;
 
   struct Feature {
     content::FeatureId id{};
@@ -54,19 +55,14 @@ class MapScene {
     std::vector<Feature> features;
   };
 
-  // Opaque layer row for Catalog mirrors (no ui::views dependency).
-  struct LayerDesc {
-    std::string id;
-    std::string name;
-    bool visible = true;
-    bool active = false;
-  };
+  // Opaque Catalog row; HWND-free wire type lives in content::LayerDesc.
+  using LayerDesc = content::LayerDesc;
 
   MapScene();
 
-  // Prefer china city / PLP samples beside the exe (or testing/data);
-  // multi-layer packs expose area / line / point / text. Falls back to a
-  // Demo layer so Catalog/map are never empty.
+  // Prefer china_city (gpkg/geojson) beside the exe (or testing/data), then
+  // schematic china_plp. Multi-layer packs expose area / line / point / text.
+  // Falls back to a Demo layer so Catalog/map are never empty.
   void seed_default();
 
   // Open path via OGR (GPKG / Shapefile / GeoJSON / …). On success replaces
@@ -110,11 +106,28 @@ class MapScene {
 
   void apply_pan(int dx_px, int dy_px);
   void apply_zoom_at(int view_x, int view_y, double factor);
+  void apply_pinch(int view_x, int view_y, double scale);
   // Fit all visible feature envelopes into a view of |view_w| x |view_h|.
   void fit_extent(int view_w, int view_h);
 
+  // Current overlay scale (pixels per map unit). Used by --self-test.
+  double scale() const { return scale_; }
+
+  // Feature envelope in lon/lat (Y unflipped). China box when empty.
+  content::Extent2 world_extent() const;
+  // Visible client rect in lon/lat after pan/zoom.
+  content::Extent2 view_world_extent(int view_w, int view_h) const;
+  // Frame the overlay to a leftover / MapContents lon/lat extent.
+  void apply_world_extent(const content::Extent2& e, int view_w, int view_h);
+
   // Overlay vectors onto the map HWND after GPU present.
+  // 2D fills a white SmartGis-like canvas; pass fill_background=false on 3D
+  // so DEM / FlyCube frames are not wiped.
   void paint(HDC hdc, int width_px, int height_px) const;
+  void paint(HDC hdc, int width_px, int height_px, bool fill_background) const;
+
+  // Visible polygon rings in lon/lat (Y unflipped). Used to mask DEM.
+  void export_land_rings(std::vector<gis::LonLatRing>* out) const;
 
   // Inspector helpers (string-only; no leftover GIS pointers).
   void fill_feature_info_fields(const Feature& f,
@@ -124,6 +137,7 @@ class MapScene {
                            std::vector<std::vector<std::string>>* rows,
                            std::vector<std::string>* tokens) const;
 
+  // Opaque tokens / field apply delegate to content::feature_attrs (no HWND).
   static std::string feature_token(const content::FeatureId& id);
   static content::FeatureId feature_id_from_token(const std::string& token);
 
@@ -156,6 +170,19 @@ class MapScene {
   double scale_ = 1.0;
   bool last_open_was_ogr_ = false;
 };
+
+// Ordered relative paths for default China seed (exe-dir / testing/data).
+// china_city packs must precede china_plp so product shells match SmartGis.exe
+// prefecture overview rather than the 46-feature schematic PLP.
+std::vector<std::string> china_seed_relative_paths();
+
+// SmartGis.exe 2D cartography colors used by MapScene::paint (white map,
+// pastel areas, blue rivers, dark strokes / points).
+COLORREF map_scene_map_bg_color();
+COLORREF map_scene_area_fill_color(const char* adcode, uint32_t feature_id);
+COLORREF map_scene_river_color();
+COLORREF map_scene_admin_stroke_color();
+COLORREF map_scene_point_fill_color();
 
 }  // namespace app
 

@@ -2,6 +2,10 @@
 
 SmartGIS OpenGL 渲染设备，提供基于 OpenGL 的 3D 地图渲染实现。
 
+## Present strangler（SP2）
+
+`SmtGLRenderDevice::Init(HWND)` 调用 `render::bind_rhi_present(hWnd)`，把视口 HWND 接到进程级 `leftover_session()`（默认 Null Device 录制）。**本 HWND 的 present 仍由 GL（SwapBuffers）独占**；禁止在此创建 FlyCube。详见 [present-facade 规格](../../../../docs/superpowers/specs/2026-09-19-legacy-render-present-facade-design.md)。
+
 ## 模块简介
 
 SmtGLRenderDevice 是 SmartGIS 系统的 OpenGL 渲染设备实现，提供了基于 OpenGL 的 3D 地图渲染功能。该模块实现了 3D 渲染设备接口，支持 OpenGL 的硬件加速渲染。

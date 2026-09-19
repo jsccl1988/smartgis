@@ -1,0 +1,50 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Compiled into //src/gis:gis (dll_stem = gis).
+source_set("assets_sources") {
+  sources = [
+    "model.cc",
+    "model.h",
+    "model_assimp.cc",
+    "model_internal.h",
+    "tileset.cc",
+    "tileset.h",
+    "tileset_decode.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+    "SDB_EXPORTS",
+  ]
+  deps = []
+  if (smt_has_assimp) {
+    defines += [ "SMT_HAS_ASSIMP" ]
+    deps += [ "//third_party:assimp" ]
+  }
+  if (smt_has_tinygltf) {
+    defines += [ "SMT_HAS_TINYGLTF" ]
+    deps += [ "//third_party:tinygltf" ]
+  }
+}
+
+group("assets") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+# Legacy GN alias (former model group name).
+group("model") {
+  public_deps = [ ":assets" ]
+}
+
+test("model_test") {
+  output_name = "model_test"
+  sources = [ "model_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":assets" ]
+}

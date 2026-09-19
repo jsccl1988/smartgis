@@ -15,9 +15,9 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _MD3D_CUBE_H
 #define _MD3D_CUBE_H
 
+#include "legacy/render/render3d/3drenderdevice.h"
 #include "legacy/render/render3d/3drenderer.h"
 #include "legacy/render/render3d/videobuffer.h"
-#include "legacy/render/render3d/3drenderdevice.h"
 #include "legacy/render/scene3d/bl3d_object.h"
 
 #if !defined(MODEL3D_EXPORT_DEFINED)
@@ -33,36 +33,33 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 using namespace render;
 
-namespace render
-{
-	class MODEL3D_EXPORT_CLASS SmtCube :public Smt3DObject
-	{
-	public:
+namespace render {
+class MODEL3D_EXPORT_CLASS SmtCube : public Smt3DObject {
+ public:
+  SmtCube(LP3DRENDERDEVICE pRenderDevice, Vector3 vCenter, float width);
+  virtual ~SmtCube();
 
-		SmtCube(LP3DRENDERDEVICE pRenderDevice,Vector3 vCenter, float width);
-		virtual~SmtCube();
+ public:
+  long Init(Vector3& vPos, SmtMaterial& matMaterial,
+            const char* szTexName = "");
+  long Create(LP3DRENDERDEVICE p3DRenderDevice);
+  long Render(LP3DRENDERDEVICE p3DRenderDevice);
+  long Update(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed);
+  long Destroy();
 
-	public:
-		long					Init(Vector3& vPos,SmtMaterial&matMaterial,const char* szTexName = "");
-		long					Create(LP3DRENDERDEVICE p3DRenderDevice); 
-		long					Render(LP3DRENDERDEVICE p3DRenderDevice); 
-		long					Update(LP3DRENDERDEVICE p3DRenderDevice,float fElapsed); 
-		long					Destroy();
+ private:
+  SmtVertexBuffer* m_pVertexBuffer;
+  Vector3 m_vCenter;
+  float m_fWidth;
+};
+}  // namespace render
 
-	private:
-		SmtVertexBuffer*		m_pVertexBuffer;
-		Vector3					m_vCenter;
-		float					m_fWidth;
-	};
-}
-
-#if     !defined(MODEL3D_EXPORTS)
-#if     defined(_DEBUG)
-#          pragma comment(lib,"legacy_render_d.lib")
-#       else
-#          pragma comment(lib,"legacy_render.lib")
-#	    endif
+#if !defined(MODEL3D_EXPORTS)
+#if defined(_DEBUG)
+#pragma comment(lib, "legacy_render_d.lib")
+#else
+#pragma comment(lib, "legacy_render.lib")
+#endif
 #endif
 
-
-#endif //_MD3D_CUBE_H
+#endif  //_MD3D_CUBE_H

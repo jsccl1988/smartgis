@@ -1,5 +1,5 @@
 /*
-File:    bl3d_sceneoctree.h 
+File:    bl3d_sceneoctree.h
 
 Desc:    �˲���
 
@@ -15,113 +15,121 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define _BL3D_SCENEOCTREE_H
 
 #include "base/core/core.h"
-
-#include "render/math/math.h"
 #include "legacy/render/render3d/base.h"
-#include "legacy/render/scene3d/bl3d_object.h"
 #include "legacy/render/scene3d/bl3d_bas_struct.h"
+#include "legacy/render/scene3d/bl3d_object.h"
+#include "render/math/math.h"
 
-namespace render
-{
-	extern int							g_nSceneMaxTargets;
-	extern int							g_nSceneMaxSubdivision;
-	extern int							g_nSceneCurrentSubdivision;
-	extern int							g_nSceneCurRenderTarget;
-	extern int							g_nSceneTotalLeafNode;
+namespace render {
+extern int g_nSceneMaxTargets;
+extern int g_nSceneMaxSubdivision;
+extern int g_nSceneCurrentSubdivision;
+extern int g_nSceneCurRenderTarget;
+extern int g_nSceneTotalLeafNode;
 
-	class SmtSceneOctTree;
-	class SCENE3D_EXPORT_CLASS SmtSceneOctTreeNode
-	{
-		friend class SmtSceneOctTree;
-	public:
-		SmtSceneOctTreeNode();
-		~SmtSceneOctTreeNode();
-	public:
-		//�����ڵ�
-		long							CreateNode(vSmt3DObjectPtrs &v3DObjectPtrs,int nTarget,Vector3 vCenter,float width);
+class SmtSceneOctTree;
+class SCENE3D_EXPORT_CLASS SmtSceneOctTreeNode {
+  friend class SmtSceneOctTree;
 
-		//
-		Vector3							GetSubNodeCenter(int nSubID);		
+ public:
+  SmtSceneOctTreeNode();
+  ~SmtSceneOctTreeNode();
 
-		//
-		void							CreateSubNode(SmtSceneOctTreeNode*pParentNode,SmtSceneOctTreeNode*&pSub,vSmt3DObjectPtrs &v3DObjectPtrs,vector<bool> vbInSubNode,int nTargets,int nSubID);
+ public:
+  // �����ڵ�
+  long CreateNode(vSmt3DObjectPtrs &v3DObjectPtrs, int nTarget, Vector3 vCenter,
+                  float width);
 
-		void							UpdateNodeObject(LP3DRENDERDEVICE p3DRenderDevice,float fElapsed);
-		void							RenderNodeObject(LP3DRENDERDEVICE p3DRenderDevice,SmtFrustum &smtFrustum,bool bShowOctNodeBox = true);
-		void							SelectNodeObject(vSmt3DObjectPtrs &vSelected3DObjects, LP3DRENDERDEVICE p3DRenderDevice,SmtFrustum &smtFrustum,const lPoint& point );
+  //
+  Vector3 GetSubNodeCenter(int nSubID);
 
-		void							NodeObjectModelMatrixMultiply(Matrix&matTransform);
-		void							NodeObjectWorldMatrixMultiply(Matrix&matTransform);
+  //
+  void CreateSubNode(SmtSceneOctTreeNode *pParentNode,
+                     SmtSceneOctTreeNode *&pSub,
+                     vSmt3DObjectPtrs &v3DObjectPtrs, vector<bool> vbInSubNode,
+                     int nTargets, int nSubID);
 
+  void UpdateNodeObject(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed);
+  void RenderNodeObject(LP3DRENDERDEVICE p3DRenderDevice,
+                        SmtFrustum &smtFrustum, bool bShowOctNodeBox = true);
+  void SelectNodeObject(vSmt3DObjectPtrs &vSelected3DObjects,
+                        LP3DRENDERDEVICE p3DRenderDevice,
+                        SmtFrustum &smtFrustum, const lPoint &point);
 
-	public:
-		//�Ƿ��ڽڵ��Χ����
-		bool							IsInOctNodeAabbBox(const Vector3& point);
+  void NodeObjectModelMatrixMultiply(Matrix &matTransform);
+  void NodeObjectWorldMatrixMultiply(Matrix &matTransform);
 
-		//Ѱ�ҵ����ڵ���С��Χ�����ڽڵ�ָ��
-		SmtSceneOctTreeNode*			FindMinBoxOctNode(const Ray &ray );
+ public:
+  // �Ƿ��ڽڵ��Χ����
+  bool IsInOctNodeAabbBox(const Vector3 &point);
 
-		//Ѱ�ҵ����ڵ���С��Χ�����ڽڵ�ָ��
-		SmtSceneOctTreeNode*			FindMinBoxOctNode(LP3DRENDERDEVICE p3DRenderDevice,const lPoint& point);
+  // Ѱ�ҵ����ڵ���С��Χ�����ڽڵ�ָ��
+  SmtSceneOctTreeNode *FindMinBoxOctNode(const Ray &ray);
 
-	protected:
-		SmtSceneOctTreeNode				*pParentNode;
-		SmtSceneOctTreeNode				*pSubNodes[8];	
-		Vector3							vCenterPos;
-		float							fWidth;
-		string							strCode;
-		bool							bSubDivided;
-		vSmt3DObjectPtrs				v3DObjectPtrs;	
-		int								nTargetCount;		
-	};
+  // Ѱ�ҵ����ڵ���С��Χ�����ڽڵ�ָ��
+  SmtSceneOctTreeNode *FindMinBoxOctNode(LP3DRENDERDEVICE p3DRenderDevice,
+                                         const lPoint &point);
 
-	class SmtScene;
-	class SCENE3D_EXPORT_CLASS SmtSceneOctTree:public Smt3DRenderable,public Smt3DMovable
-	{
-	public:
-		friend class SmtScene;
-	
-		SmtSceneOctTree();
-		virtual ~SmtSceneOctTree();
+ protected:
+  SmtSceneOctTreeNode *pParentNode;
+  SmtSceneOctTreeNode *pSubNodes[8];
+  Vector3 vCenterPos;
+  float fWidth;
+  string strCode;
+  bool bSubDivided;
+  vSmt3DObjectPtrs v3DObjectPtrs;
+  int nTargetCount;
+};
 
-	public:
-		void							SetShowNodeBox(bool bShowNodeBox = true ) {m_bShowNodeBox = bShowNodeBox;}
-		bool							IsShowNodeBox(void)	{return m_bShowNodeBox;}
+class SmtScene;
+class SCENE3D_EXPORT_CLASS SmtSceneOctTree : public Smt3DRenderable,
+                                             public Smt3DMovable {
+ public:
+  friend class SmtScene;
 
-		long							CreateOctTree(vSmt3DObjectPtrs &v3DObjectPtrs);
-		long							DestroyTree();
+  SmtSceneOctTree();
+  virtual ~SmtSceneOctTree();
 
-	public:
-		long							Update(LP3DRENDERDEVICE p3DRenderDevice,float fElapsed); 
-		long							Render(LP3DRENDERDEVICE p3DRenderDevice); 
+ public:
+  void SetShowNodeBox(bool bShowNodeBox = true) {
+    m_bShowNodeBox = bShowNodeBox;
+  }
+  bool IsShowNodeBox(void) { return m_bShowNodeBox; }
 
-		void							GetDebugString(char *szBuf,int nBufLength);
+  long CreateOctTree(vSmt3DObjectPtrs &v3DObjectPtrs);
+  long DestroyTree();
 
-	public:
-		void							ObjectModelMatrixMultiply(Matrix&matTransform);
-		void							ObjectWordlMatrixMultiply(Matrix&matTransform);
+ public:
+  long Update(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed);
+  long Render(LP3DRENDERDEVICE p3DRenderDevice);
 
-		long							Select3DObject(vSmt3DObjectPtrs &vSelected3DObjects, LP3DRENDERDEVICE p3DRenderDevice,const lPoint& point );
+  void GetDebugString(char *szBuf, int nBufLength);
 
-	protected:
-		void							GetSceneDimensions(vSmt3DObjectPtrs &v3DObjectPtrs);
+ public:
+  void ObjectModelMatrixMultiply(Matrix &matTransform);
+  void ObjectWordlMatrixMultiply(Matrix &matTransform);
 
-	protected:
-		SmtSceneOctTreeNode				*m_pRootNode;
-		Aabb							m_aabbScene;
-		SmtFrustum						m_Frustum;
-		bool							m_bShowNodeBox;
-		int								m_nAllRenderTargetsNum;
-	};
-}
+  long Select3DObject(vSmt3DObjectPtrs &vSelected3DObjects,
+                      LP3DRENDERDEVICE p3DRenderDevice, const lPoint &point);
 
-#if     !defined(SCENE3D_EXPORTS)
-#if     defined(_DEBUG)
-#          pragma comment(lib,"legacy_render_d.lib")
-#       else
-#          pragma comment(lib,"legacy_render.lib")
-#	    endif
+ protected:
+  void GetSceneDimensions(vSmt3DObjectPtrs &v3DObjectPtrs);
+
+ protected:
+  SmtSceneOctTreeNode *m_pRootNode;
+  Aabb m_aabbScene;
+  SmtFrustum m_Frustum;
+  bool m_bShowNodeBox;
+  int m_nAllRenderTargetsNum;
+};
+}  // namespace render
+
+#if !defined(SCENE3D_EXPORTS)
+#if defined(_DEBUG)
+#pragma comment(lib, "legacy_render_d.lib")
+#else
+#pragma comment(lib, "legacy_render.lib")
+#endif
 #endif
 
-
-#endif //_BL3D_SCENEOCTREE_H
+#endif  //_BL3D_SCENEOCTREE_H

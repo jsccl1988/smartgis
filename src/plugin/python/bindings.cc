@@ -20,11 +20,11 @@
 #include "content/public/events.h"
 #include "content/public/plugin_host.h"
 #include "tool/command.h"
-#include "ui/views/button.h"
-#include "ui/views/checkbox.h"
-#include "ui/views/label.h"
-#include "ui/views/textfield.h"
-#include "ui/views/widget.h"
+#include "ui/views/primitives/button.h"
+#include "ui/views/primitives/checkbox.h"
+#include "ui/views/primitives/label.h"
+#include "ui/views/primitives/textfield.h"
+#include "ui/views/kernel/widget.h"
 
 #include <memory>
 #include <string>

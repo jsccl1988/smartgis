@@ -112,36 +112,38 @@ bool announce_and_paint(cd::Pipe* pipe,
     r = 0x28;
   }
   (void)hwnd;
-  if (select_render_backend() == RenderBackendKind::kTrackAMapLibre &&
-      slot->kind != content::ViewKind::kScene3d) {
-    MapPaintRequest req;
-    req.kind = slot->kind;
-    req.extent = slot->extent;
-    req.style_json =
-        "{\"version\":8,\"name\":\"gpu-default\",\"layers\":["
-        "{\"id\":\"bg\",\"type\":\"background\","
-        "\"paint\":{\"background-color\":\"#4080C0\"}}]}";
-    char xyz[512] = {};
-    if (GetEnvironmentVariableA("SMT_XYZ_URL", xyz, sizeof(xyz)) > 0) {
-      req.tile_url_template = xyz;
-    }
-    // Wire product HTTP only when there is a template or Style `sources`.
-    // Adapter skips rasters on ok=false; background still paints.
-    const bool has_template =
-        (req.tile_url_template && req.tile_url_template[0] != '\0') ||
-        !req.tile_url_templates.empty();
-    const bool has_sources =
-        req.style_json && std::strstr(req.style_json, "\"sources\"");
-    if (has_template || has_sources) {
-      req.fetch = make_net_tile_fetch();
-    }
-    if (paint_map_frame(&slot->present, req)) {
-      return send_shared_surface(pipe, view_id, &slot->present);
-    }
+  // Scene3d: land-masked DEM wireframe (not flat MapLibre). Chrome HUD /
+  // FlyCube present_gpu sit on top — SmartGis.exe 3D parity.
+  if (slot->kind == content::ViewKind::kScene3d) {
+    slot->present.paint_clear(b, g, r, 0xFF);
+    slot->present.paint_demo_frame(content::ViewKind::kScene3d);
+    return send_shared_surface(pipe, view_id, &slot->present);
   }
-  // Track B / 3D: clear once, then demo geometry until GpuScene submit lands.
+  // Map / Data: Track A MapLibre (or software basemap). Chrome overlays
+  // MapScene vectors on this DIB.
+  MapPaintRequest req;
+  req.kind = slot->kind;
+  req.extent = slot->extent;
+  req.style_json =
+      "{\"version\":8,\"name\":\"gpu-map\",\"layers\":["
+      "{\"id\":\"bg\",\"type\":\"background\","
+      "\"paint\":{\"background-color\":\"#4080C0\"}}]}";
+  char xyz[512] = {};
+  if (GetEnvironmentVariableA("SMT_XYZ_URL", xyz, sizeof(xyz)) > 0) {
+    req.tile_url_template = xyz;
+  }
+  const bool has_template =
+      (req.tile_url_template && req.tile_url_template[0] != '\0') ||
+      !req.tile_url_templates.empty();
+  const bool has_sources =
+      req.style_json && std::strstr(req.style_json, "\"sources\"");
+  if (has_template || has_sources) {
+    req.fetch = make_net_tile_fetch();
+  }
+  if (paint_map_frame(&slot->present, req)) {
+    return send_shared_surface(pipe, view_id, &slot->present);
+  }
   slot->present.paint_clear(b, g, r, 0xFF);
-  slot->present.paint_demo_frame(slot->kind);
   return send_shared_surface(pipe, view_id, &slot->present);
 }
 
@@ -158,8 +160,14 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
 
   HANDLE parent = nullptr;
   if (args.parent_pid != 0) {
+    // PROCESS_DUP_HANDLE is required so PresentTarget can DuplicateHandle the
+    // DIB/DXGI share into the UI process (pickle nt_handle). SYNCHRONIZE-only
+    // fallback made SharedHandle empty → FrameReady without Latest() → white.
     parent = OpenProcess(SYNCHRONIZE | PROCESS_DUP_HANDLE, FALSE,
                          args.parent_pid);
+    if (!parent) {
+      parent = OpenProcess(PROCESS_DUP_HANDLE, FALSE, args.parent_pid);
+    }
     if (!parent) {
       parent = OpenProcess(SYNCHRONIZE, FALSE, args.parent_pid);
     }
@@ -258,8 +266,10 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
           slot.present.mode() != slot.mode;
       slot.attached = true;
       if (!need_new) {
-        // Visibility / duplicate Attach must not recreate the DIB — that was
-        // another UI-thread stall path when Catalog toggled the island.
+        // Visibility / duplicate Attach must not recreate the DIB, but still
+        // republish SharedHandle + FrameReady so chrome that attached late
+        // (WinUI sync attach after Hello) receives Latest().
+        (void)send_shared_surface(&pipe, h.view_id, &slot.present);
         continue;
       }
       if (!slot.present.resize(slot.width_px, slot.height_px, slot.mode,
@@ -314,7 +324,7 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
     if (type == content::HostMsg::kPointerEvent) {
       // Do not rebuild/publish a full DIB on every mouse move — that fills the
       // pipe and blocks chrome's UI thread inside Dispatch (white-screen hang).
-      // Scene3d keeps a throttled redraw so orbit/demo still updates.
+      // Scene3d keeps a throttled redraw so the map/terrain frame still updates.
       auto it = views.find(h.view_id);
       if (it == views.end() || it->second.present.generation() == 0) {
         continue;
@@ -332,8 +342,31 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
                          static_cast<HWND>(adapter->hwnd()));
       continue;
     }
-    if (type == content::HostMsg::kActivateTool ||
-        type == content::HostMsg::kSetSelection ||
+    if (type == content::HostMsg::kActivateTool) {
+      content::ToolBody body;
+      if (cd::decode_payload(payload, &body) &&
+          apply_render_backend_command(body.tool_id.c_str())) {
+        for (auto& kv : views) {
+          announce_and_paint(&pipe, kv.first, &kv.second,
+                             static_cast<HWND>(adapter->hwnd()));
+        }
+      }
+      continue;
+    }
+    if (type == content::HostMsg::kSetRenderBackend) {
+      content::RenderBackendWire body;
+      if (cd::decode_payload(payload, &body)) {
+        set_render_backend(body.kind == 1
+                               ? RenderBackendKind::kTrackAMapLibre
+                               : RenderBackendKind::kTrackBRhi);
+      }
+      for (auto& kv : views) {
+        announce_and_paint(&pipe, kv.first, &kv.second,
+                           static_cast<HWND>(adapter->hwnd()));
+      }
+      continue;
+    }
+    if (type == content::HostMsg::kSetSelection ||
         type == content::HostMsg::kLegendQuery ||
         type == content::HostMsg::kCatalogOp ||
         type == content::HostMsg::kPluginCall ||

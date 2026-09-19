@@ -34,11 +34,11 @@ GN / 跑法总入口：[`testing/README.md`](../../testing/README.md)。
 
 ### L0 — `views_unittests`
 
-- 路径：`src/ui/views/views_unittests.cc`（GN：`//src/ui/views:views_unittests`）。
+- 路径：`src/ui/views/testing/views_unittests.cc`（GN：`//src/ui/views:views_unittests`）。
 - 控制台自测：无 MFC、多数用例不 `CreateWindow`；合成鼠标/键盘驱动 kernel / primitives / GIS 面板。
 - 覆盖示例：Theme / Skia canvas API、焦点与 Tab 遍历、BoxLayout、Button / Textfield / Checkbox / Radio / Combobox、TabStrip、Table / AttributeTable、LayerTree、Splitter、ScrollView、**AmboxView**（`CommandCatalog` 分组 + 滚动内容 + `layout_check`）、MenuBar、DPI、`layout_check`。
 - 模态挡板：`set_message_box_suppressed_for_test` / `set_file_picker_modals_suppressed_for_test`。
-- 布局不变量：`ui/views/layout_check.h`（`collect_layout_violations`；无 golden 图）。
+- 布局不变量：`ui/views/kernel/layout_check.h`（`collect_layout_violations`；无 golden 图）。
 
 ```bat
 build.bat te
@@ -67,6 +67,38 @@ out\views_unittests.exe
 | 36–38 | 图层 / Catalog 空或 HWND 显隐 |
 | 39 | China PLP 包络不在中国经纬度范围 |
 | 40–42 | `view.pan` 激活或输入分发失败 |
+
+### L1′ — Atmosphere 3D showcase（`SmartGisViews.exe --atmosphere-showcase=`）
+
+独立于完整 `--self-test`：切到 3D 页，按模式配置大气，连续 `present_gpu` 三帧后退出。
+默认 **Null RHI**（确定性 exit 0）。`SMT_ATMOSPHERE_SHOWCASE_GPU=1` 时在 3D HWND
+上拉 FlyCube/DX12（启动期勿设 `SMT_PREFER_FLYCUBE_3D=1`，多 viewport attach 易挂死；
+本机 post-detach FlyCube `present_gpu` 也曾挂起）。旁路产物：`out/atmosphere-showcase-mark.txt`、
+`atmosphere-showcase-<mode>.bmp`、`atmosphere-showcase-cmdline.txt`。
+
+| 模式 | 含义 |
+| --- | --- |
+| `land` | 大气未挂载；仅 land/DEM present |
+| `ocean` | procedural 场 + ocean on / cloud off |
+| `full` | `enable_atmosphere_demo()`（海+云） |
+| `coast` | 东海附近 extent + full demo |
+
+| 退出码 | 含义 |
+| --- | --- |
+| 0 | 通过 |
+| 1 / 2 | init / 顶层 HWND（与自测同） |
+| 50 | 3D viewport HWND 缺失 |
+| 51 | device `create` / `initialize` 失败 |
+| 52 | `present_gpu` 失败 |
+| 53 | 大气开关或 FieldStore 状态不符 |
+
+```bat
+set SMT_RUN_FLYCUBE_GPU=1
+out\SmartGisViews.exe --atmosphere-showcase=land
+out\SmartGisViews.exe --atmosphere-showcase=ocean
+out\SmartGisViews.exe --atmosphere-showcase=full
+out\SmartGisViews.exe --atmosphere-showcase=coast
+```
 
 ### L1′ — `SmartGisWinui.exe --self-test`
 
@@ -99,9 +131,9 @@ out\views_unittests.exe
 
 ### L2 — `views_pixel_tests`
 
-- 路径：`src/ui/views/views_pixel_tests.cc`（GN：`//src/ui/views:views_pixel_tests`）；离屏 GDI 捕获 + PNG 基线（WIC 读写）。
-- 脚手架：`src/ui/views/pixel_harness.{h,cc}`、`pixel_png_wic.cc`。
-- 基线目录：`src/ui/views/testdata/*.png`（壳控件 only：Label+Button、TabStrip、StatusBar、Ambox 默认条；不含 MapViewport 像素）。
+- 路径：`src/ui/views/testing/views_pixel_tests.cc`（GN：`//src/ui/views:views_pixel_tests`）；离屏 GDI 捕获 + PNG 基线（WIC 读写）。
+- 脚手架：`src/ui/views/testing/pixel_harness.{h,cc}`、`pixel_png_wic.cc`。
+- 基线目录：`src/ui/views/testing/testdata/*.png`（壳控件 only：Label+Button、TabStrip、StatusBar、Ambox 默认条；不含 MapViewport 像素）。
 - 环境：96 DIP（`device_scale_factor = 1`）、Segoe UI 12px 与 `Theme::measure_text_utf8` 对齐；比较时默认每通道 ±2、坏点比例 ≤ 0.5%。
 - 更新基线（仓库根目录 cwd，与 `build.bat te` 一致）：
 
@@ -167,9 +199,9 @@ build.bat e2e
 | [`testing/README.md`](../../testing/README.md) | GN 测试入口 |
 | [`src/ui/views/README.md`](../../src/ui/views/README.md) | 工具箱 + `views_unittests` |
 | [`src/app/views/README.md`](../../src/app/views/README.md) | 产品壳 + `--self-test` |
-| `src/ui/views/layout_check.h` | 布局不变量 |
-| `src/ui/views/testdata/` | L2 PNG 基线与说明 |
+| `src/ui/views/kernel/layout_check.h` | 布局不变量 |
+| `src/ui/views/testing/testdata/` | L2 PNG 基线与说明 |
 
 ---
 
-**最后更新：** 2026-09-18
+**最后更新：** 2026-09-19

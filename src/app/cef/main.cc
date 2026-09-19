@@ -32,6 +32,31 @@ bool cmd_has_self_test() {
   return cmd && wcsstr(cmd, L"--self-test");
 }
 
+void maybe_set_gpu_exe_override() {
+  wchar_t root[MAX_PATH] = {};
+  const DWORD n = GetModuleFileNameW(nullptr, root, MAX_PATH);
+  if (n == 0 || n >= MAX_PATH) {
+    return;
+  }
+  for (int i = static_cast<int>(n) - 1; i >= 0; --i) {
+    if (root[i] == L'\\' || root[i] == L'/') {
+      root[i] = L'\0';
+      break;
+    }
+  }
+  const wchar_t* names[] = {L"SmartGisRender.exe", L"SmartGisRenderD.exe"};
+  for (const wchar_t* name : names) {
+    wchar_t path[MAX_PATH] = {};
+    if (swprintf_s(path, L"%s\\%s", root, name) <= 0) {
+      continue;
+    }
+    if (GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES) {
+      content::MapContents::SetGpuExeOverride(path);
+      return;
+    }
+  }
+}
+
 struct BrowserState {
   app::cef::LayoutHost layout;
   CefRefPtr<app::cef::CefBrowserHost> browser_host;
@@ -95,6 +120,7 @@ int BrowserMain(const content::ContentMainParams& params) {
     return 40;
   }
 
+  maybe_set_gpu_exe_override();
   state->session = content::MapContents::Create();
   const bool render_ok =
       state->session && state->session->StartRenderProcess();

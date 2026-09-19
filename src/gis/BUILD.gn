@@ -1,0 +1,41 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# GIS model layer (QGIS qgis_core analogue) — not a literal database.
+# One DLL (dll_stem = gis): map/feature + sde_mgr + sde_gdal + tile/assets/world/atmosphere/edit/style.
+# feature ≈ OGRFeature, layer ≈ OGRLayer, map ≈ QgsProject,
+# datasource/<driver> ≈ GDAL/OGR / QGIS providers.
+# Stable labels //src/gis/map:gis, :sde_mgr, :sde_gdal → group to :gis.
+
+import("//build/smartgis.gni")
+
+smt_shared_library("gis") {
+  dll_stem = "gis"
+  defines = [
+    "SDB_EXPORTS",
+    "GIS_EXPORTS",
+    "SDE_MGR_EXPORTS",
+    "SDE_GDAL_EXPORTS",
+  ]
+  deps = [
+    "//src/gis/map:gis_sources",
+    "//src/gis/datasource/gdal:sde_gdal_sources",
+    "//src/gis/datasource/mgr:sde_mgr_sources",
+    "//src/gis/tile:tile_sources",
+    "//src/gis/assets:assets_sources",
+    "//src/gis/world:world_sources",
+    "//src/gis/atmosphere:atmosphere_sources",
+    "//src/gis/edit:edit_sources",
+    "//src/gis/edit:map_edit_sources",
+    "//src/gis/style:style_sources",
+  ]
+  public_deps = [ "//third_party:gdal" ]
+}
+
+group("gis_all") {
+  public_deps = [ ":gis" ]
+}
+
+group("datasource") {
+  public_deps = [ ":gis" ]
+}

@@ -3,5 +3,3 @@
 // stdafx.obj ������Ԥ����������Ϣ
 
 #include "legacy/app/stdafx.h"
-
-

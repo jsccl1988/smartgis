@@ -24,9 +24,14 @@ ninja -C out render_backend_test
 | Package | `maplibre-native` in `third_party/manifest.json` |
 | Ref | `ios-v6.30.0` (`0ffe6336b4e7266c75c13337b4aa1d0f2b0877d5`) |
 | Dest | `third_party/.src/maplibre-native` |
+| Vendor tarball cache | `third_party/.src/_cache/maplibre-vendor` |
+| CMake binary dir | `third_party/.build/maplibre-native` |
+| Installed lib | `out/third_party/maplibre` (`mbgl-core.lib`) |
 | Linked lib | `//third_party/maplibre:maplibre_native` (`mln::Map` still-image) |
 
-Record the resolved commit after fetch in `PIN.txt` (written by the fetch/overlay step). Do not `rmtree` CEF / FlyCube junctions.
+Record the resolved commit after fetch in `PIN.txt` (written by the fetch/overlay step). Do not `rmtree` CEF / FlyCube junctions. Do not clone Native into `out/` — `out/` is Ninja/CMake output only.
+
+A full Windows OpenGL core build uses the pin tree plus `vendor/` (from the cache above) and vcpkg under `platform/windows/vendor/vcpkg`. Pass `-S third_party/.src/maplibre-native -B third_party/.build/maplibre-native` so CMake does not recreate `build-windows-opengl` inside `.src`.
 
 ## What links today
 

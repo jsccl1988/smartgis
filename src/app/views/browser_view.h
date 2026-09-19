@@ -8,11 +8,15 @@
 #include <string>
 #include <string_view>
 
+#include "app/views/blit_frame_cache.h"
+#include "app/views/map_hwnd_gestures.h"
 #include "app/views/map_scene.h"
-#include "content/public/event_bus.h"
-#include "tool/gestures.h"
 #include "app/views/scene3d_controller.h"
-#include "ui/views/widget.h"
+#include "content/public/event_bus.h"
+#include "content/public/map_contents_observer.h"
+#include "content/public/map_types.h"
+#include "tool/gestures.h"
+#include "ui/views/kernel/widget.h"
 
 namespace content {
 class MapContents;
@@ -37,8 +41,8 @@ namespace app {
 class PluginChrome;
 
 // Product chrome: single-window IDE layout (MenuBar, splitters, TabStrip).
-// Business panels are composed, never painted by this host.
-class BrowserView {
+// Map panes host the shared MapContents scene (same leftover SmartGis session).
+class BrowserView : public content::MapContentsObserver {
  public:
   BrowserView();
   ~BrowserView();
@@ -71,7 +75,7 @@ class BrowserView {
   const Scene3dController* scene3d() const { return &scene3d_; }
 
   // Activate or fire a Workspace / chrome tool id; updates the status bar.
-  // Aliases: select|identify → selection.point, pan → view.pan.
+  // Aliases: select|identify 鈫?selection.point, pan 鈫?view.pan.
   bool run_tool_command(std::string_view command_id);
 
  private:
@@ -86,6 +90,12 @@ class BrowserView {
   // Fit document extent into the active map HWND (Catalog View / view.full).
   void fit_map_extent();
   void handle_draft(const tool::Draft& draft);
+  void OnExtentChanged(uint32_t view_id, const content::Extent2& e) override;
+  void push_shared_extent();
+  void forward_draft_to_contents(const tool::Draft& draft);
+  void attach_hwnd_gestures();
+  void handle_pinch(int view_x, int view_y, double scale);
+  void active_view_size(int* w, int* h) const;
   // Fill Ambox from Workspace + PluginHost CommandCatalogs (id-prefix groups).
   void populate_ambox();
   void on_catalog_command(const std::string& command_id);
@@ -120,6 +130,14 @@ class BrowserView {
   ui::views::MapViewport* map_scene_ = nullptr;
   ui::views::TabStrip* map_tabs_ = nullptr;
   ui::views::StatusBar* status_bar_ = nullptr;
+
+  MapHwndGestures edit_gestures_;
+  MapHwndGestures data_gestures_;
+  MapHwndGestures scene_gestures_;
+  BlitFrameCache blit_;
+  bool syncing_extent_ = false;
+
+  void schedule_overlay_full_redraw();
 };
 
 }  // namespace app

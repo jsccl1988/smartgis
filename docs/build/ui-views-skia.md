@@ -20,7 +20,7 @@ This is the durable destination. **This pass ports leftover MFC chrome** into `u
 | Leftover MFC exe | `SmartGis.exe` until parity | `src/legacy/app/` | — |
 | Legacy chrome | MFC Feature Pack / `src/legacy/ui` (retire after parity) | `src/legacy/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | `Smt_*` |
 
-**Nesting cap** stays `src/<layer>/<module>`. `src/app/views` is OK; do **not** add `src/ui/views/widget/` or `src/app/views/widget/` as a public nest. Paint stays `src/render/skia` (not `src/ui/gfx`) so Skia remains a render backend, not a third UI nest.
+**Nesting cap** stays `src/<layer>/<module>`. `src/app/views` is OK; do **not** add ad-hoc nests like `src/ui/views/widget/` or `src/app/views/widget/`. Under `src/ui/views`, six **responsibility partitions** (`kernel` / `primitives` / `dialogs` / `gis` / `map` / `testing`) are allowed as public include paths (`"ui/views/kernel/view.h"`); they are not a third semantic UI layer. Paint stays `src/render/skia` (not `src/ui/gfx`) so Skia remains a render backend, not a third UI nest. See [`../superpowers/specs/2026-09-19-ui-views-subdir-responsibility-design.md`](../superpowers/specs/2026-09-19-ui-views-subdir-responsibility-design.md).
 
 Local **mgis** (`c:\Dev\src\gis\mgis`) is WTL + `gui/` + `content::MapView` (`CreateParams { HWND parent_hwnd }`). **mogu** Chromium Views is not on this machine. Naming: `ui/views` = toolkit, `src/app/` = product shells, `render/skia` = canvas.
 
@@ -50,13 +50,16 @@ src/app/views/                product chrome (SmartGisViews.exe only)
   (does not paint catalog / ambox / chart / layer panels by hand)
 
 src/ui/views/                    toolkit (opt-in //:ui_views)
-  root *.h                       — public headers; include stays "ui/views/foo.h"
-  kernel/ | primitives/ | gis/   — .cc only (physical folders; not a public nest)
-  Widget, View, Splitter, layout, events, Theme
+  views.h / views.cc             — umbrella only at root
+  kernel/ | primitives/ | dialogs/ | gis/ | map/
+                                 — headers + sources colocated (public partitions)
+  testing/                       — harness, views_*tests, testdata goldens
+  Widget, View, Splitter, layout, events, Theme (kernel/)
   primitives (Button, Label, Textfield, …)
-  GIS widgets (CatalogView, LayerTree, AttributeTable, AmboxView, ChartView, …)
-  MapViewport                    — View that hosts the map HWND + ViewHost
-  include: "ui/views/...."       — //src on the include path
+  dialogs (Dialog, FilePicker, GIS create/att/basemap, …)
+  GIS panels (CatalogView, LayerTree, AttributeTable, AmboxView, ChartView, …)
+  map/MapViewport                — View that hosts the map HWND + ViewHost
+  include: "ui/views/<area>/...." — //src on the include path
 
 src/app/{views,winui}/          endgame / prototype hosts only
 
@@ -128,4 +131,4 @@ Same hang as mgis `content::MapView::CreateParams { HWND parent_hwnd }`: the she
 
 ---
 
-**最后更新：** 2026-09-15
+**最后更新：** 2026-09-19

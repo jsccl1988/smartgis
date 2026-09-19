@@ -107,8 +107,10 @@ int run_self_test(LayoutHost& layout,
   if (!bridge.document()->has_china_extent()) {
     return 44;
   }
-  self_test_mark("china-plp-ok");
-  self_test_mark("china-plp-layers-ok");
+  self_test_mark(bridge.document()->feature_count() >= 200 ? "china-city-ok"
+                                                           : "china-plp-ok");
+  self_test_mark(bridge.document()->layer_count() >= 4 ? "china-city-layers-ok"
+                                                       : "china-plp-layers-ok");
 
   // Regression: per-feature CreatePen/Brush/Font + early-continue used to leak
   // GDI objects and crash while the present timer repainted china_city.

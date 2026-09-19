@@ -1,16 +1,16 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/attribute_table.h"
+#include "ui/views/gis/attribute_table.h"
 
 #include <memory>
 #include <utility>
 
 #include "render/skia/canvas.h"
-#include "ui/views/layout.h"
-#include "ui/views/scroll_view.h"
-#include "ui/views/table_view.h"
-#include "ui/views/theme.h"
+#include "ui/views/kernel/layout.h"
+#include "ui/views/primitives/scroll_view.h"
+#include "ui/views/primitives/table_view.h"
+#include "ui/views/kernel/theme.h"
 
 namespace ui {
 namespace views {

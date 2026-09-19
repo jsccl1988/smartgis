@@ -1,20 +1,19 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "legacy/render/bridge/renderdevice.h"
-#include "sdb/carto/envelope.h"
-#include "sdb/datasource/gdal/ogr_feature_codec.h"
-#include "sdb/map/map.h"
-
-#include "gdal.h"
-#include "gdal_priv.h"
-#include "ogrsf_frmts.h"
-
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <string>
 #include <vector>
+
+#include "gdal.h"
+#include "gdal_priv.h"
+#include "legacy/render/bridge/renderdevice.h"
+#include "ogrsf_frmts.h"
+#include "base/carto/envelope.h"
+#include "gis/datasource/gdal/ogr_feature_codec.h"
+#include "gis/map/map.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -132,8 +131,8 @@ OGRLayer* add_donut_with_holes(GDALDataset* ds) {
   outer.addPoint(70.0, 55.0);
   outer.closeRings();
   poly.addRing(&outer);
-  // Five 4-vertex holes: old DrawPloygon used ring index i as getX(i)/lpPoint[i]
-  // and OOB-crashed once i >= hole vertex count.
+  // Five 4-vertex holes: old DrawPloygon used ring index i as
+  // getX(i)/lpPoint[i] and OOB-crashed once i >= hole vertex count.
   for (int h = 0; h < 5; ++h) {
     OGRLinearRing hole;
     const double x = 75.0 + h * 10.0;
@@ -164,9 +163,9 @@ int main() {
     return 1;
   }
 
-  GDALDataset* ds = static_cast<GDALDataset*>(GDALOpenEx(
-      path.c_str(), GDAL_OF_VECTOR | GDAL_OF_READONLY, nullptr, nullptr,
-      nullptr));
+  GDALDataset* ds = static_cast<GDALDataset*>(
+      GDALOpenEx(path.c_str(), GDAL_OF_VECTOR | GDAL_OF_READONLY, nullptr,
+                 nullptr, nullptr));
   expect(ds != nullptr, "GDALOpenEx china_plp");
   expect(ds && ds->GetLayerCount() > 0, "china_plp has a layer");
   if (!ds || ds->GetLayerCount() < 1) {
@@ -180,7 +179,7 @@ int main() {
   int n_line = 0;
   int n_dot = 0;
   int n_anno = 0;
-  sdb::SmtMap map;
+  gis::SmtMap map;
   for (int li = 0; li < ds->GetLayerCount(); ++li) {
     OGRLayer* lyr = ds->GetLayer(li);
     if (!lyr) {
@@ -188,15 +187,15 @@ int main() {
     }
     lyr->ResetReading();
     while (OGRFeature* feat = lyr->GetNextFeature()) {
-      const sdb::SmtFeatureType ft =
-          sdb::datasource::infer_feature_type(feat, sdb::SmtFtUnknown);
-      if (ft == sdb::SmtFtSurface) {
+      const gis::SmtFeatureType ft =
+          gis::datasource::infer_feature_type(feat, gis::SmtFtUnknown);
+      if (ft == gis::SmtFtSurface) {
         ++n_region;
-      } else if (ft == sdb::SmtFtCurve) {
+      } else if (ft == gis::SmtFtCurve) {
         ++n_line;
-      } else if (ft == sdb::SmtFtDot) {
+      } else if (ft == gis::SmtFtDot) {
         ++n_dot;
-      } else if (ft == sdb::SmtFtAnno) {
+      } else if (ft == gis::SmtFtAnno) {
         ++n_anno;
       }
       OGRFeature::DestroyFeature(feat);
@@ -222,9 +221,9 @@ int main() {
     expect(map.AddLayer(donut), "AddLayer donut holes");
   }
 
-  HWND hwnd =
-      CreateWindowExW(0, L"STATIC", L"gdi-map-paint-test", WS_POPUP, 0, 0, 400,
-                      300, nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
+  HWND hwnd = CreateWindowExW(0, L"STATIC", L"gdi-map-paint-test", WS_POPUP, 0,
+                              0, 400, 300, nullptr, nullptr,
+                              GetModuleHandleW(nullptr), nullptr);
   expect(hwnd != nullptr, "CreateWindowEx STATIC");
   if (!hwnd) {
     GDALClose(ds);
@@ -293,7 +292,8 @@ int main() {
   frt.rt.y = static_cast<float>(env.MaxY);
   std::fprintf(stderr, "step: zoom-begin\n");
   std::fflush(stderr);
-  expect(dev->ZoomToRect(&map, frt, true) == SMT_ERR_NONE, "ZoomToRect realtime");
+  expect(dev->ZoomToRect(&map, frt, true) == SMT_ERR_NONE,
+         "ZoomToRect realtime");
   std::fprintf(stderr, "step: zoom-ok\n");
   std::fflush(stderr);
 
@@ -315,6 +315,23 @@ int main() {
   const int painted = count_non_white(hwnd, 400, 300);
   expect(painted > 20, "realtime paint produced non-white pixels");
   std::fprintf(stderr, "realtime non-white samples: %d\n", painted);
+
+  // Wheel-style preview zoom must not crash (virViewport race / blit size).
+  std::fprintf(stderr, "step: preview-zoom-begin\n");
+  std::fflush(stderr);
+  base::lPoint cursor;
+  cursor.x = 200;
+  cursor.y = 150;
+  for (int i = 0; i < 12; ++i) {
+    const float fscale = (i % 2 == 0) ? 0.9f : 1.1f;
+    expect(dev->PreviewZoomScale(cursor, fscale) == SMT_ERR_NONE,
+           "PreviewZoomScale");
+    expect(dev->Refresh() == SMT_ERR_NONE, "Refresh after preview zoom");
+  }
+  expect(dev->ScheduleDelayedRedraw(&map) == SMT_ERR_NONE,
+         "ScheduleDelayedRedraw after preview");
+  std::fprintf(stderr, "step: preview-zoom-ok\n");
+  std::fflush(stderr);
 
   if (destroy) {
     destroy(dev);

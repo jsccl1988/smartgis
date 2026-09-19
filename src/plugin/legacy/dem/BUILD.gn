@@ -34,7 +34,7 @@ smt_mfc_shared_library("plugin_dem") {
     "//src/legacy/ui/xview:xview",
     "//src/legacy/ui/xcatalog:xcatalog",
     "//src/legacy/ui/mfc_ex:mfc_ex",
-    "//src/sdb/map:gis",
+    "//src/gis/map:gis",
     "//src/sys:sys",
     "//third_party:gdal",
   ]

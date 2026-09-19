@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include "ui/views/view.h"
+#include "ui/views/kernel/view.h"
 
 namespace content {
 class PluginHost;
@@ -22,7 +22,7 @@ class Textfield;
 
 namespace plugin {
 
-// Views dialog for ASCII XYZ point files → DEM TIN processing.
+// Views dialog for ASCII XYZ point files 鈫?DEM TIN processing.
 class TinLoaderDialog : public ui::views::View {
  public:
   explicit TinLoaderDialog(content::PluginHost* host);

@@ -3,8 +3,12 @@
 
 #include "app/cs/native/sg_host.h"
 
+#include "app/views/blit_frame_cache.h"
+#include "app/views/map_host_extent.h"
 #include "app/views/map_scene.h"
+#include "app/views/scene3d_controller.h"
 #include "content/public/map_contents.h"
+#include "tool/camera_nav.h"
 #include "content/public/map_contents_observer.h"
 #include "content/public/map_widget_host_view.h"
 
@@ -25,6 +29,7 @@ namespace {
 
 constexpr wchar_t kChildClass[] = L"SmartGisCsMapHost";
 constexpr UINT_PTR kPresentTimerId = 1;
+constexpr UINT_PTR kBlitTimerId = 2;
 
 void register_child_class();
 
@@ -231,6 +236,10 @@ struct SgHost : public content::MapContentsObserver {
   bool map_slot_to_screen(int x, int y, int w, int h, int* sx, int* sy,
                           int* sw, int* sh);
   void apply_popup_bounds(int sx, int sy, int sw, int sh, bool force_fit);
+  void apply_pointer(const content::InputEvent& ev);
+  void schedule_full_redraw();
+  void commit_blit_preview();
+  void bind_scene3d();
   static int slot_index(content::ViewKind kind);
   static LRESULT CALLBACK owner_subclass_proc(HWND hwnd,
                                               UINT msg,
@@ -241,6 +250,7 @@ struct SgHost : public content::MapContentsObserver {
 
   content::MapContents* session = nullptr;
   app::MapScene document;
+  app::Scene3dController scene3d_;
   mutable std::mutex document_mu_;
   bool document_seeded_ = false;
   bool seed_started_ = false;
@@ -267,6 +277,11 @@ struct SgHost : public content::MapContentsObserver {
   int last_sh_ = -1;
   content::ViewKind kind_ = content::ViewKind::kMapEdit;
   content::MapWidgetHostView* view_ = nullptr;
+  std::string active_tool_{"view.pan"};
+  bool dragging_ = false;
+  int last_pointer_x_ = 0;
+  int last_pointer_y_ = 0;
+  mutable app::BlitFrameCache blit_;
 };
 
 int SgHost::slot_index(content::ViewKind kind) {
@@ -503,6 +518,25 @@ void SgHost::show_kind(content::ViewKind kind) {
     view_->SetVisible(true);
   }
   ensure_document_seeded();
+  bind_scene3d();
+}
+
+void SgHost::bind_scene3d() {
+  scene3d_.bind_map(&document);
+  if (!session || view_id_ == 0) {
+    return;
+  }
+  content::Extent2 e;
+  {
+    std::lock_guard<std::mutex> lock(document_mu_);
+    e = document.world_extent();
+  }
+  if (!app::extent_looks_like_china(e)) {
+    e = app::kChinaLonLatExtent;
+  }
+  session->SetExtent(view_id_, e);
+  scene3d_.bind_contents(session, view_id_);
+  scene3d_.apply_world_extent(e);
 }
 
 bool SgHost::present_latest_frame(HDC hdc, const RECT& client_rc) const {
@@ -578,19 +612,35 @@ void SgHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   }
   const int w = rc.right > 0 ? rc.right : 1;
   const int h = rc.bottom > 0 ? rc.bottom : 1;
-  if (!present_latest_frame(hdc, rc)) {
-    const bool scene3d = kind_ == content::ViewKind::kScene3d;
-    const HBRUSH brush =
-        CreateSolidBrush(scene3d ? RGB(32, 28, 48) : RGB(28, 42, 58));
-    FillRect(hdc, &rc, brush);
-    DeleteObject(brush);
+  if (kind_ != content::ViewKind::kScene3d && blit_.in_preview() &&
+      blit_.present(hdc, w, h)) {
+    return;
   }
-  // Overlay China PLP / OGR vectors + annotations (same as Views / CEF).
-  if (kind_ != content::ViewKind::kScene3d) {
+  const bool presented = present_latest_frame(hdc, rc);
+  if (!presented) {
+    const bool scene3d = kind_ == content::ViewKind::kScene3d;
+    if (scene3d && w > 0 && h > 0) {
+      scene3d_.paint(hdc, w, h);
+    } else {
+      const HBRUSH brush =
+          CreateSolidBrush(scene3d ? RGB(18, 32, 48) : RGB(255, 255, 255));
+      FillRect(hdc, &rc, brush);
+      DeleteObject(brush);
+    }
+  } else if (kind_ == content::ViewKind::kScene3d && w > 0 && h > 0) {
+    scene3d_.paint_hud(hdc, w, h);
+  }
+  // Overlay China city / OGR vectors + annotations (same as Views / WinUI).
+  // 3D tab skips white wipe so DEM / GPU frames stay visible.
+  {
     std::lock_guard<std::mutex> lock(document_mu_);
     if (document.feature_count() > 0) {
-      document.paint(hdc, w, h);
+      const bool fill_bg = kind_ != content::ViewKind::kScene3d;
+      document.paint(hdc, w, h, fill_bg);
     }
+  }
+  if (kind_ != content::ViewKind::kScene3d && w > 0 && h > 0) {
+    blit_.capture(hdc, w, h);
   }
 }
 
@@ -619,6 +669,9 @@ void SgHost::fit_document_to_client() {
     last_fit_h_ = h;
     needs_extent_fit_ = false;
   }
+  if (kind_ == content::ViewKind::kScene3d) {
+    bind_scene3d();
+  }
   invalidate_map();
 }
 
@@ -639,6 +692,131 @@ void SgHost::paint_child() const {
 void SgHost::invalidate_map() {
   if (child_hwnd_ && IsWindow(child_hwnd_)) {
     InvalidateRect(child_hwnd_, nullptr, FALSE);
+  }
+}
+
+void SgHost::schedule_full_redraw() {
+  if (!child_hwnd_ || !IsWindow(child_hwnd_)) {
+    return;
+  }
+  KillTimer(child_hwnd_, kBlitTimerId);
+  SetTimer(child_hwnd_, kBlitTimerId,
+           static_cast<UINT>(tool::kBlitDebounceMs), nullptr);
+}
+
+void SgHost::commit_blit_preview() {
+  blit_.end_preview();
+  invalidate_map();
+}
+
+void SgHost::apply_pointer(const content::InputEvent& ev) {
+  RECT rc = {};
+  int w = last_sw_;
+  int h = last_sh_;
+  if (child_hwnd_ && IsWindow(child_hwnd_)) {
+    GetClientRect(child_hwnd_, &rc);
+    w = rc.right - rc.left;
+    h = rc.bottom - rc.top;
+  }
+  if (w < 8 || h < 8) {
+    return;
+  }
+
+  if (kind_ == content::ViewKind::kScene3d) {
+    if (ev.kind == content::InputEvent::Kind::kWheel) {
+      scene3d_.apply_wheel_at(ev.x_px, ev.y_px, ev.wheel, w, h);
+      invalidate_map();
+      schedule_full_redraw();
+      return;
+    }
+    const bool is_pan = active_tool_.empty() || active_tool_ == "view.pan" ||
+                        active_tool_ == "view3d.trackball";
+    if (ev.kind == content::InputEvent::Kind::kLDown) {
+      dragging_ = true;
+      last_pointer_x_ = ev.x_px;
+      last_pointer_y_ = ev.y_px;
+      if (child_hwnd_) {
+        SetCapture(child_hwnd_);
+      }
+      return;
+    }
+    if (ev.kind == content::InputEvent::Kind::kLUp ||
+        ev.kind == content::InputEvent::Kind::kRUp) {
+      dragging_ = false;
+      ReleaseCapture();
+      return;
+    }
+    if (ev.kind == content::InputEvent::Kind::kMouseMove && dragging_ &&
+        is_pan) {
+      const int dx = ev.x_px - last_pointer_x_;
+      const int dy = ev.y_px - last_pointer_y_;
+      scene3d_.apply_pan(dx, dy);
+      last_pointer_x_ = ev.x_px;
+      last_pointer_y_ = ev.y_px;
+      invalidate_map();
+      schedule_full_redraw();
+    }
+    return;
+  }
+
+  std::lock_guard<std::mutex> lock(document_mu_);
+  if (document.feature_count() == 0) {
+    return;
+  }
+
+  if (ev.kind == content::InputEvent::Kind::kWheel) {
+    const double factor = ev.wheel > 0 ? 1.15 : (1.0 / 1.15);
+    blit_.begin_zoom(w, h, ev.x_px, ev.y_px, factor);
+    document.apply_zoom_at(ev.x_px, ev.y_px, factor);
+    invalidate_map();
+    schedule_full_redraw();
+    return;
+  }
+
+  const bool is_pan = active_tool_.empty() || active_tool_ == "view.pan" ||
+                      active_tool_ == "view3d.trackball";
+  const bool is_select =
+      active_tool_ == "selection.point" || active_tool_ == "select" ||
+      active_tool_ == "identify";
+  const bool is_zoom_in = active_tool_ == "view.zoom_in";
+  const bool is_zoom_out = active_tool_ == "view.zoom_out";
+
+  if (ev.kind == content::InputEvent::Kind::kLDown) {
+    dragging_ = true;
+    last_pointer_x_ = ev.x_px;
+    last_pointer_y_ = ev.y_px;
+    if (child_hwnd_) {
+      SetCapture(child_hwnd_);
+    }
+    if (is_select) {
+      document.hit_test(ev.x_px, ev.y_px, w, h);
+    } else if (is_zoom_in) {
+      blit_.begin_zoom(w, h, ev.x_px, ev.y_px, 1.15);
+      document.apply_zoom_at(ev.x_px, ev.y_px, 1.15);
+      schedule_full_redraw();
+    } else if (is_zoom_out) {
+      blit_.begin_zoom(w, h, ev.x_px, ev.y_px, 1.0 / 1.15);
+      document.apply_zoom_at(ev.x_px, ev.y_px, 1.0 / 1.15);
+      schedule_full_redraw();
+    }
+    invalidate_map();
+    return;
+  }
+  if (ev.kind == content::InputEvent::Kind::kLUp ||
+      ev.kind == content::InputEvent::Kind::kRUp) {
+    dragging_ = false;
+    ReleaseCapture();
+    return;
+  }
+  if (ev.kind == content::InputEvent::Kind::kMouseMove && dragging_ && is_pan) {
+    const int dx = ev.x_px - last_pointer_x_;
+    const int dy = ev.y_px - last_pointer_y_;
+    blit_.begin_pan(w, h, dx, dy);
+    document.apply_pan(dx, dy);
+    last_pointer_x_ = ev.x_px;
+    last_pointer_y_ = ev.y_px;
+    invalidate_map();
+    schedule_full_redraw();
   }
 }
 
@@ -676,6 +854,12 @@ LRESULT CALLBACK SgHost::child_wnd_proc(HWND hwnd,
     SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
   } else {
     self = reinterpret_cast<SgHost*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+  }
+
+  if (msg == WM_TIMER && wparam == kBlitTimerId && self) {
+    KillTimer(hwnd, kBlitTimerId);
+    self->commit_blit_preview();
+    return 0;
   }
 
   if (msg == WM_TIMER && wparam == kPresentTimerId) {
@@ -734,10 +918,22 @@ LRESULT CALLBACK SgHost::child_wnd_proc(HWND hwnd,
         dispatch = true;
         break;
       }
+      case WM_MOUSEHWHEEL: {
+        POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+        ScreenToClient(hwnd, &pt);
+        ev.x_px = pt.x;
+        ev.y_px = pt.y;
+        ev.kind = content::InputEvent::Kind::kWheel;
+        ev.wheel = GET_WHEEL_DELTA_WPARAM(wparam);
+        ev.flags = content::input_flags::kHorizontalWheel;
+        dispatch = true;
+        break;
+      }
       default:
         break;
     }
     if (dispatch) {
+      self->apply_pointer(ev);
       self->session->Dispatch(self->view_id_, ev);
     }
   }
@@ -919,6 +1115,15 @@ int sg_host_has_presented_frame(const SgHost* host) {
 }
 
 int sg_host_has_live_pixels(const SgHost* host) {
+  if (!host) {
+    return 0;
+  }
+  {
+    std::lock_guard<std::mutex> lock(host->document_mu_);
+    if (host->document.feature_count() >= 3) {
+      return 1;
+    }
+  }
   if (!sg_host_has_presented_frame(host)) {
     return 0;
   }
@@ -952,10 +1157,38 @@ void sg_host_catalog_call(SgHost* host, const char* json) {
 }
 
 void sg_host_activate_tool(SgHost* host, const char* tool_id) {
-  if (!host || !host->session || host->view_id_ == 0 || !tool_id || !tool_id[0]) {
+  if (!host || !tool_id || !tool_id[0]) {
+    return;
+  }
+  host->active_tool_ = tool_id;
+  if (host->active_tool_ == "selection.clear") {
+    std::lock_guard<std::mutex> lock(host->document_mu_);
+    host->document.clear_selection();
+    host->invalidate_map();
+  }
+  if (!host->session || host->view_id_ == 0) {
     return;
   }
   host->session->ActivateTool(host->view_id_, tool_id);
+}
+
+void sg_host_dispatch_pointer(SgHost* host,
+                              int kind,
+                              int x_px,
+                              int y_px,
+                              int wheel) {
+  if (!host) {
+    return;
+  }
+  content::InputEvent ev{};
+  ev.kind = static_cast<content::InputEvent::Kind>(kind);
+  ev.x_px = x_px;
+  ev.y_px = y_px;
+  ev.wheel = wheel;
+  host->apply_pointer(ev);
+  if (host->session && host->view_id_ != 0) {
+    host->session->Dispatch(host->view_id_, ev);
+  }
 }
 
 int sg_host_wait_frame(SgHost* host, uint32_t timeout_ms) {

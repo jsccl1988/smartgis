@@ -2,8 +2,10 @@
 // All rights reserved.
 
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using SmartGis.Host;
 using Windows.Foundation;
@@ -33,6 +35,10 @@ public sealed class MapView : Grid
         SizeChanged += (_, _) => QueueSyncIsland();
         Loaded += OnLoaded;
         Unloaded += (_, _) => Session.SetVisible(false);
+        PointerPressed += OnPointerPressed;
+        PointerMoved += OnPointerMoved;
+        PointerReleased += OnPointerReleased;
+        PointerWheelChanged += OnPointerWheelChanged;
     }
 
     public MapSession Session { get; }
@@ -181,5 +187,44 @@ public sealed class MapView : Grid
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         QueueSyncIsland();
+    }
+
+    private void DispatchXamlPointer(int kind, PointerRoutedEventArgs e, int wheel = 0)
+    {
+        try
+        {
+            var pt = e.GetCurrentPoint(this);
+            var scale = XamlRoot?.RasterizationScale ?? 1.0;
+            var x = (int)Math.Round(pt.Position.X * scale);
+            var y = (int)Math.Round(pt.Position.Y * scale);
+            Session.DispatchPointer(kind, x, y, wheel);
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    private void OnPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        var right = e.GetCurrentPoint(this).Properties.IsRightButtonPressed;
+        DispatchXamlPointer(right ? 5 : 2, e);
+    }
+
+    private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        DispatchXamlPointer(0, e);
+    }
+
+    private void OnPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        var right = e.GetCurrentPoint(this).Properties.IsRightButtonPressed;
+        DispatchXamlPointer(right ? 6 : 3, e);
+    }
+
+    // Wheel/pan: native sg_host StretchBlts the last DIB; full MapScene paint
+    // is debounced (~200ms) so 1338-feature China does not tessellate every tick.
+    private void OnPointerWheelChanged(object sender, PointerRoutedEventArgs e)
+    {
+        DispatchXamlPointer(1, e, e.GetCurrentPoint(this).Properties.MouseWheelDelta);
     }
 }

@@ -2,174 +2,158 @@
 //
 
 #include "stdafx.h"
+
 #include "legacy/ui/gui/dlg_2d_feature_info.h"
-#include "sdb/carto/envelope.h"
+
 #include "base/core/log.h"
-
 #include "ogrsf_frmts.h"
+#include "base/carto/envelope.h"
 
-using namespace sdb;
+using namespace gis;
 
 // CDlg2DFeatureInfo �Ի���
 
 IMPLEMENT_DYNAMIC(CDlg2DFeatureInfo, CDialog)
 
 CDlg2DFeatureInfo::CDlg2DFeatureInfo(CWnd* pParent /*=NULL*/)
-	: CDialog(CDlg2DFeatureInfo::IDD, pParent)
-	,m_pSmtFea(NULL)
-{
+    : CDialog(CDlg2DFeatureInfo::IDD, pParent), m_pSmtFea(NULL) {}
 
+CDlg2DFeatureInfo::~CDlg2DFeatureInfo() { m_pSmtFea = NULL; }
+
+void CDlg2DFeatureInfo::DoDataExchange(CDataExchange* pDX) {
+  DDX_Control(pDX, IDC_STEXT_GEOM, m_geomInfo);
+  DDX_Control(pDX, IDC_GRID_ATT, m_attGrid);
+  CDialog::DoDataExchange(pDX);
 }
-
-CDlg2DFeatureInfo::~CDlg2DFeatureInfo()
-{
-	m_pSmtFea = NULL;
-}
-
-void CDlg2DFeatureInfo::DoDataExchange(CDataExchange* pDX)
-{
-	DDX_Control(pDX,IDC_STEXT_GEOM,m_geomInfo);
-	DDX_Control(pDX, IDC_GRID_ATT,m_attGrid);
-	CDialog::DoDataExchange(pDX);
-}
-
 
 BEGIN_MESSAGE_MAP(CDlg2DFeatureInfo, CDialog)
-	ON_BN_CLICKED(IDOK, &CDlg2DFeatureInfo::OnBnClickedOk)
+ON_BN_CLICKED(IDOK, &CDlg2DFeatureInfo::OnBnClickedOk)
 END_MESSAGE_MAP()
-
 
 // CDlg2DFeatureInfo ��Ϣ��������
 
-BOOL CDlg2DFeatureInfo::OnInitDialog()
-{
-	CDialog::OnInitDialog();
+BOOL CDlg2DFeatureInfo::OnInitDialog() {
+  CDialog::OnInitDialog();
 
-	// TODO:  �ڴ����Ӷ���ĳ�ʼ��?	//return TRUE;
-	
-	m_attGrid.SetTextBkColor(RGB(0xFF, 0xFF, 0xE0));
-	m_attGrid.SetEditable(FALSE);
+  // TODO:  �ڴ����Ӷ���ĳ�ʼ��?	//return TRUE;
 
-	if (m_pSmtFea)
-	{
-		//
-		UpdateGeomInfo();
+  m_attGrid.SetTextBkColor(RGB(0xFF, 0xFF, 0xE0));
+  m_attGrid.SetEditable(FALSE);
 
-		//
-		InitAttGridHead();
-		UpdateAttGridContent();
-	}
+  if (m_pSmtFea) {
+    //
+    UpdateGeomInfo();
 
-	return TRUE;  // return TRUE unless you set the focus to a control
-	// �쳣: OCX ����ҳӦ���� FALSE
+    //
+    InitAttGridHead();
+    UpdateAttGridContent();
+  }
+
+  return TRUE;  // return TRUE unless you set the focus to a control
+                // �쳣: OCX ����ҳӦ���� FALSE
 }
 
-void CDlg2DFeatureInfo::UpdateGeomInfo()
-{
-	CString strGeomInfo;
-	OGRGeometry *pSmtGeom = m_pSmtFea->getGeometryRef();
-	if (!pSmtGeom) {
-		return;
-	}
-	if (pSmtGeom->getGeometryType() == wkbPoint)
-	{
-		OGRPoint *pPoint = pSmtGeom->toPoint();
-		OGREnvelope env;
-		pSmtGeom->getEnvelope(&env);
-		strGeomInfo.Format("  ����:%s\n  x:%f\ty:%f",pSmtGeom->getGeometryName(),pPoint->getX(),pPoint->getY());
-	}
-	else
-	{
-		OGREnvelope env;
-		pSmtGeom->getEnvelope(&env);
-		strGeomInfo.Format("  ����:%s\n  x min:%f\ty min:%f\n  x max:%f\ty max:%f",pSmtGeom->getGeometryName(),env.MinX,env.MinY,env.MaxX,env.MaxY);
-	}
+void CDlg2DFeatureInfo::UpdateGeomInfo() {
+  CString strGeomInfo;
+  OGRGeometry* pSmtGeom = m_pSmtFea->getGeometryRef();
+  if (!pSmtGeom) {
+    return;
+  }
+  if (pSmtGeom->getGeometryType() == wkbPoint) {
+    OGRPoint* pPoint = pSmtGeom->toPoint();
+    OGREnvelope env;
+    pSmtGeom->getEnvelope(&env);
+    strGeomInfo.Format("  ����:%s\n  x:%f\ty:%f", pSmtGeom->getGeometryName(),
+                       pPoint->getX(), pPoint->getY());
+  } else {
+    OGREnvelope env;
+    pSmtGeom->getEnvelope(&env);
+    strGeomInfo.Format("  ����:%s\n  x min:%f\ty min:%f\n  x max:%f\ty max:%f",
+                       pSmtGeom->getGeometryName(), env.MinX, env.MinY,
+                       env.MaxX, env.MaxY);
+  }
 
-	m_geomInfo.SetWindowText(strGeomInfo);
+  m_geomInfo.SetWindowText(strGeomInfo);
 }
 
-void CDlg2DFeatureInfo::InitAttGridHead()
-{
-	m_attGrid.DeleteAllItems();
+void CDlg2DFeatureInfo::InitAttGridHead() {
+  m_attGrid.DeleteAllItems();
 
-	m_attGrid.SetColumnCount(3);
-	m_attGrid.SetRowCount(1);
+  m_attGrid.SetColumnCount(3);
+  m_attGrid.SetRowCount(1);
 
-	m_attGrid.SetFixedRowCount(1);
-	m_attGrid.SetFixedColumnCount(1);
+  m_attGrid.SetFixedRowCount(1);
+  m_attGrid.SetFixedColumnCount(1);
 
-	m_attGrid.SetColumnWidth(0,80);									//�����п� 
-	m_attGrid.SetColumnWidth(1,80);									//�����п� 
-	m_attGrid.SetColumnWidth(2,120);								//�����п�
+  m_attGrid.SetColumnWidth(0, 80);   // �����п�
+  m_attGrid.SetColumnWidth(1, 80);   // �����п�
+  m_attGrid.SetColumnWidth(2, 120);  // �����п�
 
-	GV_ITEM	item;
-	item.mask = GVIF_TEXT|GVIF_FORMAT;
-	item.nFormat = DT_CENTER;
+  GV_ITEM item;
+  item.mask = GVIF_TEXT | GVIF_FORMAT;
+  item.nFormat = DT_CENTER;
 
-	//��������
-	item.row = 0;
-	item.col = 0;
-	item.strText = _T("��������");
-	m_attGrid.SetItem(&item);
+  // ��������
+  item.row = 0;
+  item.col = 0;
+  item.strText = _T("��������");
+  m_attGrid.SetItem(&item);
 
-	//��������
-	item.col++;
-	item.strText = _T("��������");
-	m_attGrid.SetItem(&item);
+  // ��������
+  item.col++;
+  item.strText = _T("��������");
+  m_attGrid.SetItem(&item);
 
+  // ����ֵ
+  item.col++;
+  item.strText = _T("����ֵ");
+  m_attGrid.SetItem(&item);
 
-	//����ֵ
-	item.col++;
-	item.strText = _T("����ֵ");
-	m_attGrid.SetItem(&item);
-
-	//m_attGrid.AutoSizeColumns();
+  // m_attGrid.AutoSizeColumns();
 }
 
-void CDlg2DFeatureInfo::UpdateAttGridContent()
-{
-	if (NULL == m_pSmtFea)
-		return ;
+void CDlg2DFeatureInfo::UpdateAttGridContent() {
+  if (NULL == m_pSmtFea) return;
 
-	OGRFeature* ogr = m_pSmtFea->ogr();
-	if (!ogr) {
-		return;
-	}
-	OGRFeatureDefn* defn = ogr->GetDefnRef();
-	if (!defn) {
-		return;
-	}
+  OGRFeature* ogr = m_pSmtFea->ogr();
+  if (!ogr) {
+    return;
+  }
+  OGRFeatureDefn* defn = ogr->GetDefnRef();
+  if (!defn) {
+    return;
+  }
 
-	const int field_count = defn->GetFieldCount();
-	m_attGrid.SetRowCount(field_count + 1);
+  const int field_count = defn->GetFieldCount();
+  m_attGrid.SetRowCount(field_count + 1);
 
-	GV_ITEM	item;
-	item.mask = GVIF_TEXT|GVIF_FORMAT;
-	item.nFormat = DT_CENTER;
+  GV_ITEM item;
+  item.mask = GVIF_TEXT | GVIF_FORMAT;
+  item.nFormat = DT_CENTER;
 
-	for (int i = 0; i < field_count; i++)
-	{
-		OGRFieldDefn* fld = defn->GetFieldDefn(i);
-		if (!fld) {
-			continue;
-		}
-		item.row = i + 1;
+  for (int i = 0; i < field_count; i++) {
+    OGRFieldDefn* fld = defn->GetFieldDefn(i);
+    if (!fld) {
+      continue;
+    }
+    item.row = i + 1;
 
-		item.col = 0;
-		item.strText = fld->GetNameRef();
-		m_attGrid.SetItem(&item);
+    item.col = 0;
+    item.strText = fld->GetNameRef();
+    m_attGrid.SetItem(&item);
 
-		item.col++;
-		item.strText = OGRFieldDefn::GetFieldTypeName(fld->GetType());
-		m_attGrid.SetItem(&item);
+    item.col++;
+    item.strText = OGRFieldDefn::GetFieldTypeName(fld->GetType());
+    m_attGrid.SetItem(&item);
 
-		item.col++;
-		item.strText = ogr->IsFieldSet(i) ? ogr->GetFieldAsString(i) : _T("");
-		m_attGrid.SetItem(&item);
-	}
+    item.col++;
+    item.strText = ogr->IsFieldSet(i) ? ogr->GetFieldAsString(i) : _T("");
+    m_attGrid.SetItem(&item);
+  }
 }
 
-void CDlg2DFeatureInfo::OnBnClickedOk()
-{
-	// TODO: �ڴ����ӿؼ�֪ͨ�����������?	OnOK();
+void CDlg2DFeatureInfo::OnBnClickedOk() {
+  // Product chrome writeback is HWND-free: content::apply_named_field via
+  // AttributeTable / MapScene. This MFC dialog stays a read-only shell.
+  OnOK();
 }

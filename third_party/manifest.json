@@ -299,11 +299,13 @@
       "git_sparse_paths": [
         "include",
         "src",
+        "cmake",
+        "shaders",
+        "vendor",
         "platform/default",
-        "platform/windows",
-        "vendor/maplibre-native-base"
+        "platform/windows"
       ],
-      "note": "Optional GPU Track A. Monorepo tag ios-v6.30.0. Lands in .src/maplibre-native. Do not rmtree CEF/flycube. Windows still-image links //third_party/maplibre:maplibre_native; full mbgl-core needs vendor/codegen/EGL."
+      "note": "Optional GPU Track A. Monorepo tag ios-v6.30.0. Lands in .src/maplibre-native. Vendor tarball cache: .src/_cache/maplibre-vendor. CMake binary dir: third_party/.build/maplibre-native. Install prefix: out/third_party/maplibre. Do not rmtree CEF/flycube. Do not checkout into out/. Windows still-image links //third_party/maplibre:maplibre_native."
     },
     {
       "name": "eigen",

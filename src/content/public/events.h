@@ -22,12 +22,19 @@ struct ExtentChanged {
   Extent2 extent{};
 };
 
+// Chrome / Workspace asked the GPU process to switch map paint.
+// kind: 0 = Track B RHI / GpuScene, 1 = Track A MapLibre.
+struct RenderBackendChanged {
+  uint32_t view_id = 0;
+  uint32_t kind = 0;
+};
+
 // Fired after EditSession::commit succeeds (e.g. draw.* draft → append).
 // Chrome status / inspectors subscribe; widgets never hold SmtFeature*.
 struct EditCommitted {
   uint32_t view_id = 0;
   FeatureId id{};
-  // Mirrors sdb::EditOp without pulling sdb into the event header.
+  // Mirrors gis::EditOp without pulling sdb into the event header.
   enum class Op { kAppend = 0, kDelete = 1, kModify = 2 };
   Op op = Op::kAppend;
 };

@@ -12,12 +12,12 @@ This is a whole-branch review, not a merge-PR gate.
 ### Strengths
 
 - **One vector class + traits, not seven ADO `*fcls` copies.** `feature_kind_traits<Ft>` plus `visit_feature_kind` / `for_each_extra_field` drive `OgrVectorLayer::Create` WKB and extra fields (`ogr_feature_kind.h:136-167`, `ogr_vec_layer.cc:34-48`). `db_provider_traits<Provider>` holds GPKG / PostgreSQL / SpatiaLite open targets (`ogr_connect.h:14-40`).
-- **Manager really instantiates OGR.** Both `CreateTmpDataSource` and `CreateDataSource` for `DS_DB_ADO` do `new sdb::datasource::OgrDataSource()` (`datasourcemgr.cpp:174-177`, `221-224`). No `SmtAdoDataSource`, no `comsuppw.lib`.
+- **Manager really instantiates OGR.** Both `CreateTmpDataSource` and `CreateDataSource` for `DS_DB_ADO` do `new gis::datasource::OgrDataSource()` (`datasourcemgr.cpp:174-177`, `221-224`). No `SmtAdoDataSource`, no `comsuppw.lib`.
 - **ACCESS / SQL Server Open is hard-false.** Unsupported providers never call GDAL (`ogr_dataset.cc:153-157`). Tests cover it (`sde_gdal_test.cc:418-422`).
 - **Shared codec is real and SMF calls it.** `CopyOGRFeaToSmtFea` → `copy_ogr_feature_to_smt`, then SMF-only default style + random pen/brush (`smf_ogrsupport.cpp:60-97`). Random colors stay out of the codec, as specified.
-- **ADO is actually off `src_all`.** `src/BUILD.gn` `src_all` has no `//src/ado:ado`. `src/sdb/BUILD.gn` and `src/sdb/datasource/BUILD.gn` list `sde_gdal`, not `sde_ado`. `gn desc out //src:src_all deps --all` matches **zero** `ado` / `sde_ado` targets. Leftover `src/ado` and `sdb/datasource/ado` BUILD files remain on disk only (their sole GN edge is `sde_ado` → `//src/ado:ado`, unreferenced).
+- **ADO is actually off `src_all`.** `src/BUILD.gn` `src_all` has no `//src/ado:ado`. `src/gis/BUILD.gn` and `src/gis/datasource/BUILD.gn` list `sde_gdal`, not `sde_ado`. `gn desc out //src:src_all deps --all` matches **zero** `ado` / `sde_ado` targets. Leftover `src/ado` and `gis/datasource/ado` BUILD files remain on disk only (their sole GN edge is `sde_ado` → `//src/ado:ado`, unreferenced).
 - **Docs and app default were updated in the same change set.** Root README, `src/README.md`, `docs/build/src-layout.md`, and `docs/README.md` state the OGR DB path. `app_smtapp.cpp` looks for `sample1.gpkg` and sets `PROVIDER_GPKG`.
-- **Namespaces and new-file headers match the new-tree rules** (`sdb::datasource`, snake_case, 2026 Mogu copyright on `src/sdb/datasource/gdal/*`).
+- **Namespaces and new-file headers match the new-tree rules** (`gis::datasource`, snake_case, 2026 Mogu copyright on `src/gis/datasource/gdal/*`).
 - **No SOCI / nanodbc / second GDAL / Qt.** Raster create is `SMT_ERR_UNSUPPORTED` rather than a private `geom_points` blob table (`ogr_raster_layer.cc:45-49`).
 
 ---
@@ -32,7 +32,7 @@ Empty catalog when `sample1.gpkg` is missing is specified. Existing Access `.mds
 #### Important (Should Fix)
 
 1. **GPKG / SpatiaLite Open is not GPKG — Shapefile directory fallback (spec gap)**  
-   - File: `src/sdb/datasource/gdal/ogr_dataset.cc:72-104`, `169-188`  
+   - File: `src/gis/datasource/gdal/ogr_dataset.cc:72-104`, `169-188`  
    - Issue: This `gdal_sdk` has no GPKG / SQLite / PostgreSQL drivers (implementer claim; consistent with the fallback and with `src/README.md:49`). `file_create_driver` rewrites the open target to a path-without-extension and `Create`s an **ESRI Shapefile directory**. Tests named “GPKG Create/Open” never assert a `.gpkg` file, the `GPKG` driver, or `GDALGetDriverShortName`.  
    - Why it matters: Spec success is “GPKG still works if PostgreSQL is missing” and “create a temp `.gpkg`”. Product `PROVIDER_GPKG` writes a folder of `.shp`/`.dbf` instead of a GeoPackage. No transactions, no same-file raster, Shapefile field/geometry limits. `sde_gdal_test` can stay green forever without a GPKG driver.  
    - Fix: Treat missing GPKG as **Open/Create failure** with the already-logged driver list (matches the PostgreSQL path). Keep Shapefile only behind an explicit test-only env (e.g. `SMT_ALLOW_SHAPEFILE_FALLBACK`) **or** rebuild `gdal_sdk` with GPKG/SQLite. Add `expect(GetDriverByName("GPKG") || getenv("SMT_ALLOW_SHAPEFILE_FALLBACK"), …)` and assert the created artifact is a `.gpkg` when the driver exists.
@@ -44,7 +44,7 @@ Empty catalog when `sample1.gpkg` is missing is specified. Existing Access `.mds
    - Fix: `strcpy(info.db.szDBName, szFileName)` (or `sample1.gpkg`).
 
 3. **`sde_gdal` DLL is a stub; `ogr_codec` swallowed the device**  
-   - File: `src/sdb/datasource/gdal/BUILD.gn:7-47`  
+   - File: `src/gis/datasource/gdal/BUILD.gn:7-47`  
    - Issue: Spec put dataset / layers / codec in `smt_shared_library("sde_gdal")` and a **thin** `ogr_codec` source_set. Implementation compiles `ogr_dataset.cc`, `ogr_vec_layer.cc`, `ogr_raster_layer.cc` into `ogr_codec`. `sde_gdal` only has `gdal_driver.cc`. `register_gdal_driver()` is never called (`Open` uses `GDALAllRegister` directly). SMF and mgr **statically** link the whole DB device.  
    - Why it matters: `SmtSDEGdalDevice` is not the runtime provider. SMF pays for dataset/layer TUs it should not own. Layering will get worse when someone LoadLibrary-s the DLL and finds no `OgrDataSource`.  
    - Fix: Move dataset/layer sources to `sde_gdal` (export or keep mgr linking that target only). Leave `ogr_codec` as connect + feature_kind + codec. Call `register_gdal_driver()` from `Open`.
@@ -83,7 +83,7 @@ Empty catalog when `sample1.gpkg` is missing is specified. Existing Access `.mds
 
 1. **`gdal_driver.h` comments are stale** (`gdal_driver.h:7-18`) — still describes a future seam “beside ado”.  
 2. **`src-layout.md` DLL table still lists `SmtSDEAdoDevice` and omits `SmtSDEGdalDevice`** (`docs/build/src-layout.md:103-106`). Prose is correct; the table is not.  
-3. **`build/BUILD.gn` `legacy` include_dirs still add `sdb/datasource/ado` and `src/ado`** (`build/BUILD.gn:49`, `75`) — leftover `-I` only, not a `src_all` link.  
+3. **`build/BUILD.gn` `legacy` include_dirs still add `gis/datasource/ado` and `src/ado`** (`build/BUILD.gn:49`, `75`) — leftover `-I` only, not a `src_all` link.  
 4. **SMF still contains unused `CopyOGRGeomToSmtGeom` / `CopyOGRAttToSmtAtt`** (`smf_ogrsupport.cpp:100-208`) after the codec switch.  
 5. **Open failure does not log a password-redacted target** (`ogr_dataset.cc:190-193`); spec asked for driver + redacted target + CPL message.  
 6. **PostgreSQL `host:port` uses `rfind(':')`** (`ogr_connect.cc:29-32`) — breaks IPv6. Password is unescaped in `PG:`.  
@@ -99,7 +99,7 @@ Empty catalog when `sample1.gpkg` is missing is specified. Existing Access `.mds
 
 ### ADO off `src_all`?
 
-**Yes.** Link graph for `//src:src_all` / `//src/sdb:datasource` is `sde_gdal` + mem/smf/ws/mgr. `//src/ado:ado` and `//src/sdb/datasource/ado:sde_ado` are not dependencies. `gn desc out //src:src_all deps --all` has no ado hits.
+**Yes.** Link graph for `//src:src_all` / `//src/gis:datasource` is `sde_gdal` + mem/smf/ws/mgr. `//src/ado:ado` and `//src/gis/datasource/ado:sde_ado` are not dependencies. `gn desc out //src:src_all deps --all` has no ado hits.
 
 Caveats (not src_all, but leftover):
 

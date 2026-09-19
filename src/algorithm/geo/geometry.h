@@ -8,7 +8,7 @@
 
 #include "base/core/bas_struct.h"
 #include "algorithm/geo/matrix2d.h"
-#include "sdb/carto/envelope.h"
+#include "base/carto/envelope.h"
 #include "ogr_geometry.h"
 
 #if defined(GEO_EXPORTS)

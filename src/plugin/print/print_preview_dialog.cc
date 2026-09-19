@@ -6,8 +6,8 @@
 #include <memory>
 
 #include "plugin/widgets/map_preview.h"
-#include "ui/views/button.h"
-#include "ui/views/file_picker.h"
+#include "ui/views/primitives/button.h"
+#include "ui/views/dialogs/file_picker.h"
 
 namespace plugin {
 namespace {

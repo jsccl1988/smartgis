@@ -8,8 +8,8 @@
 #include "content/public/plugin_host.h"
 #include "plugin/proj/map_prj_grid_page.h"
 #include "plugin/proj/map_prj_xy_page.h"
-#include "ui/views/layout.h"
-#include "ui/views/tab_strip.h"
+#include "ui/views/kernel/layout.h"
+#include "ui/views/primitives/tab_strip.h"
 
 namespace plugin {
 

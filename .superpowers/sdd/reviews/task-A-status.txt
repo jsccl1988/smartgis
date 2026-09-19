@@ -1,0 +1,49 @@
+﻿ M src/ui/views/add_basemap_dialog.h
+ M src/ui/views/kernel/dialog_host.cc
+RM src/ui/views/dialog_host.h -> src/ui/views/kernel/dialog_host.h
+ M src/ui/views/kernel/dpi.cc
+RM src/ui/views/dpi.h -> src/ui/views/kernel/dpi.h
+RM src/ui/views/event.h -> src/ui/views/kernel/event.h
+ M src/ui/views/kernel/layout.cc
+RM src/ui/views/layout.h -> src/ui/views/kernel/layout.h
+ M src/ui/views/kernel/layout_check.cc
+RM src/ui/views/layout_check.h -> src/ui/views/kernel/layout_check.h
+ M src/ui/views/kernel/splitter.cc
+RM src/ui/views/splitter.h -> src/ui/views/kernel/splitter.h
+ M src/ui/views/kernel/theme.cc
+RM src/ui/views/theme.h -> src/ui/views/kernel/theme.h
+ M src/ui/views/kernel/view.cc
+RM src/ui/views/view.h -> src/ui/views/kernel/view.h
+ M src/ui/views/kernel/widget.cc
+RM src/ui/views/widget.h -> src/ui/views/kernel/widget.h
+ M src/ui/views/map_viewport.h
+ M src/ui/views/primitives/button.cc
+RM src/ui/views/button.h -> src/ui/views/primitives/button.h
+ M src/ui/views/primitives/checkbox.cc
+RM src/ui/views/checkbox.h -> src/ui/views/primitives/checkbox.h
+ M src/ui/views/primitives/combobox.cc
+RM src/ui/views/combobox.h -> src/ui/views/primitives/combobox.h
+ M src/ui/views/primitives/context_menu.cc
+RM src/ui/views/context_menu.h -> src/ui/views/primitives/context_menu.h
+ M src/ui/views/primitives/dialog.cc
+ M src/ui/views/primitives/file_picker.cc
+ M src/ui/views/primitives/input_text_dialog.cc
+ M src/ui/views/primitives/label.cc
+RM src/ui/views/label.h -> src/ui/views/primitives/label.h
+ M src/ui/views/primitives/menu_bar.cc
+RM src/ui/views/menu_bar.h -> src/ui/views/primitives/menu_bar.h
+ M src/ui/views/primitives/message_box.cc
+ M src/ui/views/primitives/radio_button.cc
+RM src/ui/views/radio_button.h -> src/ui/views/primitives/radio_button.h
+ M src/ui/views/primitives/scroll_view.cc
+RM src/ui/views/scroll_view.h -> src/ui/views/primitives/scroll_view.h
+ M src/ui/views/primitives/select_one_dialog.cc
+ M src/ui/views/primitives/tab_strip.cc
+RM src/ui/views/tab_strip.h -> src/ui/views/primitives/tab_strip.h
+ M src/ui/views/primitives/table_view.cc
+RM src/ui/views/table_view.h -> src/ui/views/primitives/table_view.h
+ M src/ui/views/primitives/textfield.cc
+RM src/ui/views/textfield.h -> src/ui/views/primitives/textfield.h
+ M src/ui/views/primitives/tree_view.cc
+RM src/ui/views/tree_view.h -> src/ui/views/primitives/tree_view.h
+?? src/ui/views/touch_multitouch.h

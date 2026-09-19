@@ -114,6 +114,9 @@ BridgeType bridge_type_from_topic(std::string_view topic) {
   if (topic == "tool.command" || topic == "panel.action") {
     return BridgeType::kActivateTool;
   }
+  if (topic == "map.pointer" || topic == "map.gesture") {
+    return BridgeType::kPointerEvent;
+  }
   return BridgeType::kUnknown;
 }
 
@@ -166,6 +169,9 @@ BridgeType bridge_type_from_string(std::string_view type) {
   if (type == "Ready") {
     return BridgeType::kReady;
   }
+  if (type == "PointerEvent") {
+    return BridgeType::kPointerEvent;
+  }
   return BridgeType::kUnknown;
 }
 
@@ -203,6 +209,8 @@ const char* bridge_type_to_string(BridgeType type) {
       return "ViewCursor";
     case BridgeType::kReady:
       return "Ready";
+    case BridgeType::kPointerEvent:
+      return "PointerEvent";
     default:
       return "Unknown";
   }
@@ -260,6 +268,10 @@ bool parse_bridge_message(std::string_view json, BridgeMessage* out) {
   }
   read_string_field(json, "path", &out->path);
   read_string_field(json, "slot_id", &out->slot_id);
+  read_string_field(json, "kind", &out->pointer_kind);
+  if (out->pointer_kind.empty()) {
+    read_string_field(json, "gesture", &out->pointer_kind);
+  }
   read_string_field(json, "what", &out->query_what);
   read_string_field(json, "text", &out->text);
   if (find_key(json, "code", &i)) {
@@ -267,6 +279,18 @@ bool parse_bridge_message(std::string_view json, BridgeMessage* out) {
   }
   if (find_key(json, "dpi", &i)) {
     read_float_at(json, i, &out->dpi);
+  }
+  if (find_key(json, "wheel", &i)) {
+    read_int_at(json, i, &out->wheel);
+  }
+  if (find_key(json, "flags", &i)) {
+    read_uint_at(json, i, &out->flags);
+  }
+  if (find_key(json, "scale", &i)) {
+    read_float_at(json, i, &out->scale);
+  }
+  if (find_key(json, "pointer_count", &i)) {
+    read_uint_at(json, i, &out->pointer_count);
   }
   int x = 0, y = 0, w = 0, h = 0;
   if (find_key(json, "x", &i)) {
@@ -346,6 +370,13 @@ std::string serialize_bridge_message(const BridgeMessage& msg) {
     oss << ",\"x\":" << msg.slot_rect.x << ",\"y\":" << msg.slot_rect.y
         << ",\"w\":" << msg.slot_rect.w << ",\"h\":" << msg.slot_rect.h
         << ",\"dpi\":" << msg.dpi;
+  }
+  if (msg.type == BridgeType::kPointerEvent) {
+    oss << ",\"kind\":\"" << json_escape_string(msg.pointer_kind) << "\""
+        << ",\"x\":" << msg.slot_rect.x << ",\"y\":" << msg.slot_rect.y
+        << ",\"wheel\":" << msg.wheel << ",\"flags\":" << msg.flags
+        << ",\"scale\":" << msg.scale
+        << ",\"pointer_count\":" << msg.pointer_count;
   }
   if (!msg.query_what.empty()) {
     oss << ",\"what\":\"" << json_escape_string(msg.query_what) << "\"";

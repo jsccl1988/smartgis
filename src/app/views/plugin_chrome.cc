@@ -16,7 +16,7 @@
 #include "plugin/proj/proj_commands.h"
 #include "plugin/host/registry.h"
 #include "tool/command.h"
-#include "ui/views/dialog.h"
+#include "ui/views/dialogs/dialog.h"
 
 namespace app {
 namespace {

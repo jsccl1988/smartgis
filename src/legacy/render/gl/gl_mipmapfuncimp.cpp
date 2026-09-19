@@ -1,30 +1,25 @@
 #include "legacy/render/gl/gl_mipmapfuncimp.h"
+
 #include "legacy/render/gl/gl_3drenderdevice.h"
 
-namespace render
-{
-	SmtMipmapFuncImpl::SmtMipmapFuncImpl()
-	{
-	}
+namespace render {
+SmtMipmapFuncImpl::SmtMipmapFuncImpl() {}
 
-	SmtMipmapFuncImpl::~SmtMipmapFuncImpl()
-	{
-	}
+SmtMipmapFuncImpl::~SmtMipmapFuncImpl() {}
 
-	long SmtMipmapFuncImpl::Initialize(LPGLRENDERDEVICE pGLRenderDevice)
-	{
-		_glGenerateMipmap = (PFNGLGENERATEMIPMAPEXTPROC) pGLRenderDevice->GetProcAddress("glGenerateMipmap");
+long SmtMipmapFuncImpl::Initialize(LPGLRENDERDEVICE pGLRenderDevice) {
+  _glGenerateMipmap =
+      (PFNGLGENERATEMIPMAPEXTPROC)pGLRenderDevice->GetProcAddress(
+          "glGenerateMipmap");
 
-		if (NULL == _glGenerateMipmap)
-		{
-			return SMT_ERR_FAILURE;
-		}
-		
-		return SMT_ERR_NONE;
-	}
+  if (NULL == _glGenerateMipmap) {
+    return SMT_ERR_FAILURE;
+  }
 
-	void SmtMipmapFuncImpl::glGenerateMipmap(GLenum target)
-	{
-		 _glGenerateMipmap(target);
-	}
+  return SMT_ERR_NONE;
 }
+
+void SmtMipmapFuncImpl::glGenerateMipmap(GLenum target) {
+  _glGenerateMipmap(target);
+}
+}  // namespace render

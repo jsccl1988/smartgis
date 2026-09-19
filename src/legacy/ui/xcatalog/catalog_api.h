@@ -19,23 +19,22 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define XCATALOG_EXPORT __declspec(dllimport)
 #endif
 
-
 #include "base/core/core.h"
-#include "sdb/layer/layer.h"
+#include "gis/layer/layer.h"
 
 using namespace base;
-using namespace sdb;
+using namespace gis;
 //////////////////////////////////////////////////////////////////////////
 //
-long		XCATALOG_EXPORT		LayerMgrAppend(void);
-long		XCATALOG_EXPORT		LayerMgrRemove(const char *szSelLayerName);
+long XCATALOG_EXPORT LayerMgrAppend(void);
+long XCATALOG_EXPORT LayerMgrRemove(const char *szSelLayerName);
 
 #if !defined(XCATALOG_EXPORTS)
-#if     defined( _DEBUG)
-#          pragma comment(lib,"ui_legacy_d.lib")
-#       else
-#          pragma comment(lib,"ui_legacy.lib")
-#	    endif
+#if defined(_DEBUG)
+#pragma comment(lib, "ui_legacy_d.lib")
+#else
+#pragma comment(lib, "ui_legacy.lib")
+#endif
 #endif
 
-#endif //_CATA_API_H
+#endif  //_CATA_API_H

@@ -8,6 +8,8 @@ import("//testing/test.gni")
 # Leftover SmtIATool lives at //src/legacy/tool:tool.
 source_set("dispatch") {
   sources = [
+    "camera_nav.cc",
+    "camera_nav.h",
     "command.cc",
     "command.h",
     "gestures.cc",
@@ -20,7 +22,7 @@ source_set("dispatch") {
     "workspace.h",
   ]
   include_dirs += [ "//src" ]
-  deps = [ "//src/sdb/edit:edit" ]
+  deps = [ "//src/gis/edit:edit" ]
 }
 
 test("tool_dispatch_test") {
@@ -31,4 +33,18 @@ test("tool_dispatch_test") {
     ":dispatch",
     "//src/plugin:legacy_cmd",
   ]
+}
+
+test("camera_nav_test") {
+  output_name = "camera_nav_test"
+  sources = [ "camera_nav_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":dispatch" ]
+}
+
+test("gestures_test") {
+  output_name = "gestures_test"
+  sources = [ "gestures_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":dispatch" ]
 }

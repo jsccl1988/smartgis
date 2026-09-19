@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 
-#include "ui/views/layout.h"
+#include "ui/views/kernel/layout.h"
 
 namespace plugin {
 namespace {

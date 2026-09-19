@@ -1,0 +1,2130 @@
+﻿ src/ui/views/gis/add_basemap_dialog.cc       | 113 --------------------
+ src/ui/views/gis/ambox_view.h                |  86 +++++++++++++++
+ src/ui/views/gis/att_struct_dialog.cc        | 153 ---------------------------
+ src/ui/views/gis/attribute_table.h           |  99 +++++++++++++++++
+ src/ui/views/gis/catalog_view.h              |  95 +++++++++++++++++
+ src/ui/views/gis/chart_view.h                |  54 ++++++++++
+ src/ui/views/gis/create_datasource_dialog.cc |  92 ----------------
+ src/ui/views/gis/create_layer_dialog.cc      |  91 ----------------
+ src/ui/views/gis/create_map_dialog.cc        |  65 ------------
+ src/ui/views/gis/feature_info.h              |  53 ++++++++++
+ src/ui/views/gis/layer_tree.h                |  99 +++++++++++++++++
+ src/ui/views/gis/status_bar.h                |  52 +++++++++
+ src/ui/views/{gis => map}/map_viewport.cc    |   0
+ src/ui/views/map/map_viewport.h              | 139 ++++++++++++++++++++++++
+ src/ui/views/map/touch_multitouch.cc         | 119 +++++++++++++++++++++
+ src/ui/views/map/touch_multitouch.h          |  47 ++++++++
+ 16 files changed, 843 insertions(+), 514 deletions(-)
+ src/ui/views/gis/ambox_view.cc      |  14 ++--
+ src/ui/views/gis/ambox_view.h       |   8 +--
+ src/ui/views/gis/attribute_table.cc |  10 +--
+ src/ui/views/gis/attribute_table.h  |   8 +--
+ src/ui/views/gis/catalog_view.cc    |  18 ++---
+ src/ui/views/gis/catalog_view.h     |  10 +--
+ src/ui/views/gis/chart_view.cc      |   4 +-
+ src/ui/views/gis/chart_view.h       |  12 ++--
+ src/ui/views/gis/feature_info.cc    |  10 +--
+ src/ui/views/gis/feature_info.h     |   8 +--
+ src/ui/views/gis/layer_tree.cc      |   6 +-
+ src/ui/views/gis/layer_tree.h       |   8 +--
+ src/ui/views/gis/status_bar.cc      |  10 +--
+ src/ui/views/gis/status_bar.h       |   8 +--
+ src/ui/views/map/map_viewport.cc    | 130 ++++++++++++++++++++++++++++++++----
+ src/ui/views/map/map_viewport.h     |   5 +-
+ 16 files changed, 188 insertions(+), 81 deletions(-)
+diff --git a/src/ui/views/gis/ambox_view.cc b/src/ui/views/gis/ambox_view.cc
+index 1181535..801b669 100644
+--- a/src/ui/views/gis/ambox_view.cc
++++ b/src/ui/views/gis/ambox_view.cc
+@@ -1,7 +1,7 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/ambox_view.h"
++#include "ui/views/gis/ambox_view.h"
+ 
+ #include <string>
+ #include <string_view>
+@@ -11,12 +11,12 @@
+ #include "content/public/plugin_host.h"
+ #include "render/skia/canvas.h"
+ #include "tool/command.h"
+-#include "ui/views/button.h"
+-#include "ui/views/dpi.h"
+-#include "ui/views/label.h"
+-#include "ui/views/scroll_view.h"
+-#include "ui/views/theme.h"
+-#include "ui/views/widget.h"
++#include "ui/views/primitives/button.h"
++#include "ui/views/kernel/dpi.h"
++#include "ui/views/primitives/label.h"
++#include "ui/views/primitives/scroll_view.h"
++#include "ui/views/kernel/theme.h"
++#include "ui/views/kernel/widget.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/gis/ambox_view.h b/src/ui/views/gis/ambox_view.h
+index c025780..94df68a 100644
+--- a/src/ui/views/gis/ambox_view.h
++++ b/src/ui/views/gis/ambox_view.h
+@@ -1,15 +1,15 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_AMBOX_VIEW_H_
+-#define UI_VIEWS_AMBOX_VIEW_H_
++#ifndef UI_VIEWS_GIS_AMBOX_VIEW_H_
++#define UI_VIEWS_GIS_AMBOX_VIEW_H_
+ 
+ #include <functional>
+ #include <memory>
+ #include <string>
+ #include <vector>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace content {
+ class PluginHost;
+@@ -83,4 +83,4 @@ class AmboxView : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_AMBOX_VIEW_H_
++#endif  // UI_VIEWS_GIS_AMBOX_VIEW_H_
+diff --git a/src/ui/views/gis/attribute_table.cc b/src/ui/views/gis/attribute_table.cc
+index ebbe5e8..93e47ca 100644
+--- a/src/ui/views/gis/attribute_table.cc
++++ b/src/ui/views/gis/attribute_table.cc
+@@ -1,16 +1,16 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/attribute_table.h"
++#include "ui/views/gis/attribute_table.h"
+ 
+ #include <memory>
+ #include <utility>
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/scroll_view.h"
+-#include "ui/views/table_view.h"
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/layout.h"
++#include "ui/views/primitives/scroll_view.h"
++#include "ui/views/primitives/table_view.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/gis/attribute_table.h b/src/ui/views/gis/attribute_table.h
+index 7f8fb1b..7319f87 100644
+--- a/src/ui/views/gis/attribute_table.h
++++ b/src/ui/views/gis/attribute_table.h
+@@ -1,14 +1,14 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_ATTRIBUTE_TABLE_H_
+-#define UI_VIEWS_ATTRIBUTE_TABLE_H_
++#ifndef UI_VIEWS_GIS_ATTRIBUTE_TABLE_H_
++#define UI_VIEWS_GIS_ATTRIBUTE_TABLE_H_
+ 
+ #include <functional>
+ #include <string>
+ #include <vector>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -96,4 +96,4 @@ class AttributeTable : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_ATTRIBUTE_TABLE_H_
++#endif  // UI_VIEWS_GIS_ATTRIBUTE_TABLE_H_
+diff --git a/src/ui/views/gis/catalog_view.cc b/src/ui/views/gis/catalog_view.cc
+index bd0aacb..02978c2 100644
+--- a/src/ui/views/gis/catalog_view.cc
++++ b/src/ui/views/gis/catalog_view.cc
+@@ -1,7 +1,7 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/catalog_view.h"
++#include "ui/views/gis/catalog_view.h"
+ 
+ #include <functional>
+ #include <iterator>
+@@ -10,14 +10,14 @@
+ #include <utility>
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/context_menu.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layer_tree.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/tab_strip.h"
+-#include "ui/views/theme.h"
+-#include "ui/views/tree_view.h"
+-#include "ui/views/widget.h"
++#include "ui/views/primitives/context_menu.h"
++#include "ui/views/primitives/label.h"
++#include "ui/views/gis/layer_tree.h"
++#include "ui/views/kernel/layout.h"
++#include "ui/views/primitives/tab_strip.h"
++#include "ui/views/kernel/theme.h"
++#include "ui/views/primitives/tree_view.h"
++#include "ui/views/kernel/widget.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/gis/catalog_view.h b/src/ui/views/gis/catalog_view.h
+index a1880f1..8a0d354 100644
+--- a/src/ui/views/gis/catalog_view.h
++++ b/src/ui/views/gis/catalog_view.h
+@@ -1,15 +1,15 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_CATALOG_VIEW_H_
+-#define UI_VIEWS_CATALOG_VIEW_H_
++#ifndef UI_VIEWS_GIS_CATALOG_VIEW_H_
++#define UI_VIEWS_GIS_CATALOG_VIEW_H_
+ 
+ #include <functional>
+ #include <string>
+ #include <vector>
+ 
+-#include "ui/views/layer_tree.h"
+-#include "ui/views/view.h"
++#include "ui/views/gis/layer_tree.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -92,4 +92,4 @@ class CatalogView : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_CATALOG_VIEW_H_
++#endif  // UI_VIEWS_GIS_CATALOG_VIEW_H_
+diff --git a/src/ui/views/gis/chart_view.cc b/src/ui/views/gis/chart_view.cc
+index afc5998..08809e4 100644
+--- a/src/ui/views/gis/chart_view.cc
++++ b/src/ui/views/gis/chart_view.cc
+@@ -1,7 +1,7 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/chart_view.h"
++#include "ui/views/gis/chart_view.h"
+ 
+ #include <algorithm>
+ #include <cmath>
+@@ -10,7 +10,7 @@
+ #include <utility>
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/gis/chart_view.h b/src/ui/views/gis/chart_view.h
+index b9ce4fa..9ff9196 100644
+--- a/src/ui/views/gis/chart_view.h
++++ b/src/ui/views/gis/chart_view.h
+@@ -1,18 +1,18 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_CHART_VIEW_H_
+-#define UI_VIEWS_CHART_VIEW_H_
++#ifndef UI_VIEWS_GIS_CHART_VIEW_H_
++#define UI_VIEWS_GIS_CHART_VIEW_H_
+ 
+ #include <string>
+ #include <vector>
+ 
+-#if __has_include("ui/views/dialog.h")
+-#include "ui/views/dialog.h"
++#if __has_include("ui/views/dialogs/dialog.h")
++#include "ui/views/dialogs/dialog.h"
+ #define UI_VIEWS_CHART_HAS_DIALOG 1
+ #endif
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -51,4 +51,4 @@ class ChartView : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_CHART_VIEW_H_
++#endif  // UI_VIEWS_GIS_CHART_VIEW_H_
+diff --git a/src/ui/views/gis/feature_info.cc b/src/ui/views/gis/feature_info.cc
+index df71e9c..0d50628 100644
+--- a/src/ui/views/gis/feature_info.cc
++++ b/src/ui/views/gis/feature_info.cc
+@@ -1,16 +1,16 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/feature_info.h"
++#include "ui/views/gis/feature_info.h"
+ 
+ #include <memory>
+ #include <utility>
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/table_view.h"
+-#include "ui/views/theme.h"
++#include "ui/views/primitives/label.h"
++#include "ui/views/kernel/layout.h"
++#include "ui/views/primitives/table_view.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/gis/feature_info.h b/src/ui/views/gis/feature_info.h
+index 4fc85f4..0168dbd 100644
+--- a/src/ui/views/gis/feature_info.h
++++ b/src/ui/views/gis/feature_info.h
+@@ -1,13 +1,13 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_FEATURE_INFO_H_
+-#define UI_VIEWS_FEATURE_INFO_H_
++#ifndef UI_VIEWS_GIS_FEATURE_INFO_H_
++#define UI_VIEWS_GIS_FEATURE_INFO_H_
+ 
+ #include <string>
+ #include <vector>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -50,4 +50,4 @@ class FeatureInfo : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_FEATURE_INFO_H_
++#endif  // UI_VIEWS_GIS_FEATURE_INFO_H_
+diff --git a/src/ui/views/gis/layer_tree.cc b/src/ui/views/gis/layer_tree.cc
+index 273ec91..7045d7c 100644
+--- a/src/ui/views/gis/layer_tree.cc
++++ b/src/ui/views/gis/layer_tree.cc
+@@ -1,14 +1,14 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/layer_tree.h"
++#include "ui/views/gis/layer_tree.h"
+ 
+ #include <cstddef>
+ #include <utility>
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/theme.h"
+-#include "ui/views/widget.h"
++#include "ui/views/kernel/theme.h"
++#include "ui/views/kernel/widget.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/gis/layer_tree.h b/src/ui/views/gis/layer_tree.h
+index 75060c5..a9aa519 100644
+--- a/src/ui/views/gis/layer_tree.h
++++ b/src/ui/views/gis/layer_tree.h
+@@ -1,14 +1,14 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_LAYER_TREE_H_
+-#define UI_VIEWS_LAYER_TREE_H_
++#ifndef UI_VIEWS_GIS_LAYER_TREE_H_
++#define UI_VIEWS_GIS_LAYER_TREE_H_
+ 
+ #include <functional>
+ #include <string>
+ #include <vector>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -96,4 +96,4 @@ class LayerTree : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_LAYER_TREE_H_
++#endif  // UI_VIEWS_GIS_LAYER_TREE_H_
+diff --git a/src/ui/views/gis/status_bar.cc b/src/ui/views/gis/status_bar.cc
+index 0cdf54d..05440c2 100644
+--- a/src/ui/views/gis/status_bar.cc
++++ b/src/ui/views/gis/status_bar.cc
+@@ -1,17 +1,17 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/status_bar.h"
++#include "ui/views/gis/status_bar.h"
+ 
+ #include <format>
+ #include <memory>
+ #include <utility>
+ 
+ #include "render/skia/canvas.h"
+-#include "ui/views/dpi.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/theme.h"
++#include "ui/views/kernel/dpi.h"
++#include "ui/views/primitives/label.h"
++#include "ui/views/kernel/layout.h"
++#include "ui/views/kernel/theme.h"
+ 
+ namespace ui {
+ namespace views {
+diff --git a/src/ui/views/gis/status_bar.h b/src/ui/views/gis/status_bar.h
+index bea6e37..b733921 100644
+--- a/src/ui/views/gis/status_bar.h
++++ b/src/ui/views/gis/status_bar.h
+@@ -1,12 +1,12 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#ifndef UI_VIEWS_STATUS_BAR_H_
+-#define UI_VIEWS_STATUS_BAR_H_
++#ifndef UI_VIEWS_GIS_STATUS_BAR_H_
++#define UI_VIEWS_GIS_STATUS_BAR_H_
+ 
+ #include <string>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace ui {
+ namespace views {
+@@ -49,4 +49,4 @@ class StatusBar : public View {
+ }  // namespace views
+ }  // namespace ui
+ 
+-#endif  // UI_VIEWS_STATUS_BAR_H_
++#endif  // UI_VIEWS_GIS_STATUS_BAR_H_
+diff --git a/src/ui/views/map/map_viewport.cc b/src/ui/views/map/map_viewport.cc
+index fe81da2..2916459 100644
+--- a/src/ui/views/map/map_viewport.cc
++++ b/src/ui/views/map/map_viewport.cc
+@@ -1,7 +1,7 @@
+ // Copyright (c) 2026 The Mogu Authors.
+ // All rights reserved.
+ 
+-#include "ui/views/map_viewport.h"
++#include "ui/views/map/map_viewport.h"
+ 
+ #include <cstdint>
+ #include <cstdio>
+@@ -17,8 +17,8 @@
+ 
+ #include "render/rhi/rhi.h"
+ #include "render/skia/canvas.h"
+-#include "ui/views/dpi.h"
+-#include "ui/views/widget.h"
++#include "ui/views/kernel/dpi.h"
++#include "ui/views/kernel/widget.h"
+ 
+ #if defined(__has_include)
+ #if __has_include("content/public/map_contents.h")
+@@ -93,16 +93,35 @@ bool init_device_seh(void* device, HWND hwnd) {
+   }
+ }
+ 
+-// Same Win32 鈫?InputEvent mapping as leftover dispatch_chrome_message.
++// Same Win32 鈫?InputEvent mapping as leftover dispatch_chrome_message for
++// mouse / wheel / key. Two-finger pan: WM_POINTER* 鈫?TouchMultitouchTracker
++// (midpoint, pointer_count >= 2), matching CEF shell.js.
+ bool route_view_host_input(content::ViewHost* host,
+                            HWND hwnd,
+                            UINT message,
+                            WPARAM wparam,
+-                           LPARAM lparam) {
++                           LPARAM lparam,
++                           bool suppress_mouse) {
+ #ifdef SMT_HAS_VIEW_HOST
+   if (!host) {
+     return false;
+   }
++  if (suppress_mouse) {
++    switch (message) {
++      case WM_MOUSEMOVE:
++      case WM_LBUTTONDOWN:
++      case WM_LBUTTONUP:
++      case WM_LBUTTONDBLCLK:
++      case WM_RBUTTONDOWN:
++      case WM_RBUTTONUP:
++      case WM_RBUTTONDBLCLK:
++      case WM_MBUTTONDOWN:
++      case WM_MBUTTONUP:
++        return true;  // swallow primary-contact mouse synthesis
++      default:
++        break;
++    }
++  }
+   content::InputEvent e{};
+   switch (message) {
+     case WM_MOUSEMOVE:
+@@ -126,6 +145,14 @@ bool route_view_host_input(content::ViewHost* host,
+     case WM_RBUTTONDBLCLK:
+       e.kind = content::InputEvent::Kind::kRDClick;
+       break;
++    case WM_MBUTTONDOWN:
++      e.kind = content::InputEvent::Kind::kRDown;
++      e.flags = MK_MBUTTON;
++      break;
++    case WM_MBUTTONUP:
++      e.kind = content::InputEvent::Kind::kRUp;
++      e.flags = MK_MBUTTON;
++      break;
+     case WM_MOUSEWHEEL: {
+       e.kind = content::InputEvent::Kind::kWheel;
+       e.wheel = static_cast<int32_t>(GET_WHEEL_DELTA_WPARAM(wparam));
+@@ -136,6 +163,9 @@ bool route_view_host_input(content::ViewHost* host,
+       }
+       e.x_px = pt.x;
+       e.y_px = pt.y;
++      if (e.flags & MK_SHIFT) {
++        e.wheel = -e.wheel;
++      }
+       return host->dispatch_input(e);
+     }
+     case WM_KEYDOWN:
+@@ -155,6 +185,69 @@ bool route_view_host_input(content::ViewHost* host,
+   (void)message;
+   (void)wparam;
+   (void)lparam;
++  (void)suppress_mouse;
++  return false;
++#endif
++}
++
++// Maps WM_POINTER* touch contacts into multitouch InputEvents.
++bool route_view_host_pointer(content::ViewHost* host,
++                             HWND hwnd,
++                             UINT message,
++                             WPARAM wparam,
++                             TouchMultitouchTracker* tracker) {
++#ifdef SMT_HAS_VIEW_HOST
++  if (!host || !tracker || !hwnd) {
++    return false;
++  }
++  switch (message) {
++    case WM_POINTERDOWN:
++    case WM_POINTERUPDATE:
++    case WM_POINTERUP:
++    case WM_POINTERCAPTURECHANGED:
++      break;
++    default:
++      return false;
++  }
++
++  const UINT32 pointer_id = GET_POINTERID_WPARAM(wparam);
++  POINTER_INPUT_TYPE pointer_type = PT_POINTER;
++  if (!GetPointerType(pointer_id, &pointer_type) ||
++      pointer_type != PT_TOUCH) {
++    return false;
++  }
++
++  POINTER_INFO info = {};
++  if (!GetPointerInfo(pointer_id, &info)) {
++    return false;
++  }
++  POINT pt = info.ptPixelLocation;
++  ScreenToClient(hwnd, &pt);
++  const int32_t x_px = pt.x;
++  const int32_t y_px = pt.y;
++
++  content::InputEvent e{};
++  bool have_sample = false;
++  if (message == WM_POINTERDOWN) {
++    have_sample = tracker->on_contact_down(pointer_id, x_px, y_px, &e);
++  } else if (message == WM_POINTERUPDATE) {
++    have_sample = tracker->on_contact_move(pointer_id, x_px, y_px, &e);
++  } else {
++    // UP / CAPTURECHANGED: drop the contact (lost capture counts as lift).
++    have_sample = tracker->on_contact_up(pointer_id, x_px, y_px, &e);
++  }
++  if (!have_sample) {
++    // Multitouch session: swallow remaining pointer noise so DefWindowProc
++    // does not synthesize mouse. Single-finger: fall through for mouse.
++    return tracker->suppress_mouse();
++  }
++  return host->dispatch_input(e);
++#else
++  (void)host;
++  (void)hwnd;
++  (void)message;
++  (void)wparam;
++  (void)tracker;
+   return false;
+ #endif
+ }
+@@ -228,9 +321,9 @@ bool MapViewport::attach() {
+   SetWindowLongPtrW(native_view(), GWLP_USERDATA,
+                     reinterpret_cast<LONG_PTR>(this));
+ 
+-  // Scene3d: prefer FlyCube for live orbit camera when requested (or when
+-  // content hang is unavailable). Default self-test keeps content-first to
+-  // avoid FlyCube CRT teardown issues on machines without a stable adapter.
++  // Scene3d: default ContentMapView (stable --self-test). Chrome overlays a
++  // land-masked DEM (Scene3dController::paint) on that DIB 鈥?not flat MapLibre.
++  // Opt into FlyCube shaded DEM + orbit present_gpu with SMT_PREFER_FLYCUBE_3D=1.
+   const bool prefer_flycube_3d = []() {
+     if (const char* env = std::getenv("SMT_PREFER_FLYCUBE_3D")) {
+       return env[0] == '1' && env[1] == '\0';
+@@ -297,6 +390,7 @@ bool MapViewport::attach() {
+ void MapViewport::detach() {
+   stop_present_timer();
+   release_backbuffer();
++  touch_tracker_.clear();
+ #ifdef SMT_HAS_CONTENT_MAP_SESSION
+   if (owns_session_ && session_) {
+     session_->Shutdown();
+@@ -658,7 +752,9 @@ bool MapViewport::ensure_backbuffer(int width_px, int height_px) {
+   // (or placeholder) before BitBlt so we never show an empty DIB.
+   painted_generation_ = 0;
+   RECT fill = {0, 0, width_px, height_px};
+-  HBRUSH brush = CreateSolidBrush(RGB(27, 58, 75));
++  const COLORREF bg = (role_ == Role::kScene3d) ? RGB(18, 32, 48)
++                                                 : RGB(255, 255, 255);
++  HBRUSH brush = CreateSolidBrush(bg);
+   FillRect(mem, &fill, brush);
+   DeleteObject(brush);
+   return true;
+@@ -683,11 +779,13 @@ void MapViewport::paint_map_content(HDC target, const RECT& client_rc) {
+     // Pure GDI placeholder 鈥?avoid Skia Canvas on the retained mem DC (its
+     // per-call BitBlt + DIB teardown has corrupted the process heap before).
+     RECT fill = {0, 0, client_rc.right, client_rc.bottom};
+-    HBRUSH brush = CreateSolidBrush(RGB(27, 58, 75));
++    const bool scene3d = role_ == Role::kScene3d;
++    HBRUSH brush =
++        CreateSolidBrush(scene3d ? RGB(18, 32, 48) : RGB(255, 255, 255));
+     FillRect(target, &fill, brush);
+     DeleteObject(brush);
+     SetBkMode(target, TRANSPARENT);
+-    SetTextColor(target, RGB(220, 230, 240));
++    SetTextColor(target, scene3d ? RGB(220, 230, 240) : RGB(60, 70, 80));
+     const wchar_t* title = L"SmartGIS map HWND";
+     if (role_ == Role::kScene3d) {
+       title = L"SmartGIS 3D HWND";
+@@ -695,7 +793,7 @@ void MapViewport::paint_map_content(HDC target, const RECT& client_rc) {
+       title = L"SmartGIS data HWND";
+     }
+     TextOutW(target, 16, 16, title, lstrlenW(title));
+-    SetTextColor(target, RGB(160, 200, 180));
++    SetTextColor(target, scene3d ? RGB(160, 200, 180) : RGB(90, 110, 100));
+     const wchar_t* text = status_ ? status_ : L"Map viewport";
+     TextOutW(target, 16, 40, text, lstrlenW(text));
+   }
+@@ -879,7 +977,13 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
+     SetFocus(hwnd);
+   }
+   if (self &&
+-      route_view_host_input(self->view_host_, hwnd, msg, wparam, lparam)) {
++      route_view_host_pointer(self->view_host_, hwnd, msg, wparam,
++                              &self->touch_tracker_)) {
++    return 0;
++  }
++  if (self &&
++      route_view_host_input(self->view_host_, hwnd, msg, wparam, lparam,
++                            self->touch_tracker_.suppress_mouse())) {
+     return 0;
+   }
+   return DefWindowProcW(hwnd, msg, wparam, lparam);
+diff --git a/src/ui/views/map/map_viewport.h b/src/ui/views/map/map_viewport.h
+index 3bf4ba7..f1691de 100644
+--- a/src/ui/views/map/map_viewport.h
++++ b/src/ui/views/map/map_viewport.h
+@@ -12,7 +12,8 @@
+ #endif
+ #include <windows.h>
+ 
+-#include "ui/views/view.h"
++#include "ui/views/map/touch_multitouch.h"
++#include "ui/views/kernel/view.h"
+ 
+ namespace content {
+ class MapContents;
+@@ -131,6 +132,8 @@ class MapViewport : public View {
+   HBITMAP back_old_ = nullptr;
+   int back_w_ = 0;
+   int back_h_ = 0;
++  // WM_POINTER touch contacts 鈫?midpoint InputEvent (pointer_count >= 2).
++  TouchMultitouchTracker touch_tracker_;
+ };
+ 
+ }  // namespace views
+diff --git a/src/ui/views/gis/add_basemap_dialog.cc b/src/ui/views/gis/add_basemap_dialog.cc
+deleted file mode 100644
+index b96ffc9..0000000
+--- a/src/ui/views/gis/add_basemap_dialog.cc
++++ /dev/null
+@@ -1,113 +0,0 @@
+-// Copyright (c) 2026 The Mogu Authors.
+-// All rights reserved.
+-
+-#include "ui/views/add_basemap_dialog.h"
+-
+-#include <memory>
+-#include <utility>
+-
+-#include "ui/views/combobox.h"
+-#include "ui/views/dialog.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/textfield.h"
+-
+-namespace ui {
+-namespace views {
+-namespace {
+-
+-class AddBasemapForm : public View {
+- public:
+-  explicit AddBasemapForm(AddBasemapDialog::Result* sink) : sink_(sink) {
+-    auto box = std::make_unique<BoxLayout>(BoxLayout::Orientation::kVertical);
+-
+-    auto name_label = std::make_unique<Label>("Layer name");
+-    name_label->set_preferred_size({360, 22});
+-    auto name = std::make_unique<Textfield>();
+-    name->set_preferred_size({360, 28});
+-    if (sink_ && !sink_->name.empty()) {
+-      name->set_text(sink_->name);
+-    } else if (name) {
+-      name->set_text("Basemap");
+-    }
+-    name_ = name.get();
+-    name_->set_change([this]() { flush(); });
+-
+-    auto kind_label = std::make_unique<Label>("Kind");
+-    kind_label->set_preferred_size({360, 22});
+-    auto kind = std::make_unique<Combobox>();
+-    kind->set_preferred_size({360, 28});
+-    kind->add_item("xyz");
+-    kind->add_item("wmts");
+-    kind->set_selected_index(0);
+-    kind_ = kind.get();
+-    kind_->set_change([this](int) { flush(); });
+-
+-    auto url_label =
+-        std::make_unique<Label>("URL template ({z}/{x}/{y} or WMTS)");
+-    url_label->set_preferred_size({360, 22});
+-    auto url = std::make_unique<Textfield>();
+-    url->set_preferred_size({360, 28});
+-    if (sink_ && !sink_->url.empty()) {
+-      url->set_text(sink_->url);
+-    }
+-    url_ = url.get();
+-    url_->set_change([this]() { flush(); });
+-
+-    set_layout_manager(std::move(box));
+-    add_child(std::move(name_label));
+-    add_child(std::move(name));
+-    add_child(std::move(kind_label));
+-    add_child(std::move(kind));
+-    add_child(std::move(url_label));
+-    add_child(std::move(url));
+-    set_preferred_size({380, 170});
+-    flush();
+-  }
+-
+-  ~AddBasemapForm() override { flush(); }
+-
+- private:
+-  void flush() {
+-    if (!sink_) {
+-      return;
+-    }
+-    if (name_) {
+-      sink_->name = name_->text();
+-    }
+-    if (kind_) {
+-      sink_->kind = kind_->selected_text();
+-    }
+-    if (url_) {
+-      sink_->url = url_->text();
+-    }
+-  }
+-
+-  Textfield* name_ = nullptr;
+-  Combobox* kind_ = nullptr;
+-  Textfield* url_ = nullptr;
+-  AddBasemapDialog::Result* sink_ = nullptr;
+-};
+-
+-}  // namespace
+-
+-bool AddBasemapDialog::run(HWND owner, Result* out) {
+-  Result local = out ? *out : Result{};
+-  if (local.kind.empty()) {
+-    local.kind = "xyz";
+-  }
+-  if (local.name.empty()) {
+-    local.name = "Basemap";
+-  }
+-  auto form = std::make_unique<AddBasemapForm>(&local);
+-  const Dialog::Result result =
+-      Dialog::run_modal(owner, L"Add online basemap", 440, 260, std::move(form));
+-  if (result.accepted && out) {
+-    *out = std::move(local);
+-    return true;
+-  }
+-  return result.accepted;
+-}
+-
+-}  // namespace views
+-}  // namespace ui
+diff --git a/src/ui/views/gis/ambox_view.h b/src/ui/views/gis/ambox_view.h
+new file mode 100644
+index 0000000..c025780
+--- /dev/null
++++ b/src/ui/views/gis/ambox_view.h
+@@ -0,0 +1,86 @@
++// Copyright (c) 2026 The Mogu Authors.
++// All rights reserved.
++
++#ifndef UI_VIEWS_AMBOX_VIEW_H_
++#define UI_VIEWS_AMBOX_VIEW_H_
++
++#include <functional>
++#include <memory>
++#include <string>
++#include <vector>
++
++#include "ui/views/view.h"
++
++namespace content {
++class PluginHost;
++}
++
++namespace tool {
++class CommandCatalog;
++}
++
++namespace ui {
++namespace views {
++
++// Outlook-style toolbox: vertical groups of Label + Button command rows.
++// Replaces leftover SmtAMBoxMgrDocBar / SmtXAMBox (CBCGPOutlookBar). Does
++// not wrap CView or any MFC bar.
++class AmboxView : public View {
++ public:
++  struct Item {
++    std::string id;
++    std::string label;
++  };
++
++  struct Group {
++    std::string name;
++    std::vector<Item> items;
++  };
++
++  using CommandHandler = std::function<void(const std::string& id)>;
++
++  AmboxView();
++  ~AmboxView() override;
++
++  void set_groups(std::vector<Group> groups);
++  const std::vector<Group>& groups() const { return groups_; }
++
++  void set_command_handler(CommandHandler handler);
++
++  // When |host| / |host->commands()| is null, installs dummy Select / Pan /
++  // Edit groups (Identify is a Select item). Otherwise groups come from
++  // CommandCatalog::for_each by id prefix. Includes only content/public
++  // from the .cc.
++  void populate_from_plugin_host(content::PluginHost* host);
++
++  // Build toolbox groups from one CommandCatalog (testable without PluginHost).
++  void populate_from_commands(tool::CommandCatalog* catalog);
++
++  // Merge ids from several catalogs (Workspace + PluginHost) into groups.
++  // Null entries are skipped; empty list behaves like a null catalog.
++  void populate_from_commands(
++      const std::vector<tool::CommandCatalog*>& catalogs);
++
++  void layout() override;
++
++ protected:
++  void paint_self(render::skia::Canvas* canvas) override;
++
++ private:
++  class GroupBlock;
++
++  void rebuild();
++  void fire_command(const std::string& id);
++  int measure_content_height(float scale) const;
++
++  std::vector<Group> groups_;
++  CommandHandler handler_;
++  std::vector<GroupBlock*> blocks_;
++  class ScrollView* scroll_ = nullptr;
++  View* content_ = nullptr;
++};
++
++}  // namespace views
++}  // namespace ui
++
++#endif  // UI_VIEWS_AMBOX_VIEW_H_
+diff --git a/src/ui/views/gis/att_struct_dialog.cc b/src/ui/views/gis/att_struct_dialog.cc
+deleted file mode 100644
+index 6e3cb29..0000000
+--- a/src/ui/views/gis/att_struct_dialog.cc
++++ /dev/null
+@@ -1,153 +0,0 @@
+-// Copyright (c) 2026 The Mogu Authors.
+-// All rights reserved.
+-
+-#include "ui/views/att_struct_dialog.h"
+-
+-#include <memory>
+-#include <utility>
+-
+-#include "ui/views/button.h"
+-#include "ui/views/combobox.h"
+-#include "ui/views/dialog.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/table_view.h"
+-#include "ui/views/textfield.h"
+-
+-namespace ui {
+-namespace views {
+-namespace {
+-
+-const char* kTypeLabels[] = {"Integer", "Double", "String", "Date"};
+-
+-class AttStructForm : public View {
+- public:
+-  explicit AttStructForm(std::vector<AttField>* fields) : fields_(fields) {
+-    if (fields_) {
+-      rows_ = *fields_;
+-    }
+-    auto box = std::make_unique<BoxLayout>(BoxLayout::Orientation::kVertical);
+-
+-    auto table = std::make_unique<TableView>();
+-    table->set_columns({"Name", "Type"});
+-    table->set_preferred_size({400, 160});
+-    table_ = table.get();
+-    table_->set_row_click([this](int row) { selected_ = row; });
+-
+-    auto name_label = std::make_unique<Label>("Field name");
+-    name_label->set_preferred_size({400, 22});
+-    auto name = std::make_unique<Textfield>();
+-    name->set_preferred_size({400, 28});
+-    name_ = name.get();
+-
+-    auto type_label = std::make_unique<Label>("Field type");
+-    type_label->set_preferred_size({400, 22});
+-    auto type = std::make_unique<Combobox>();
+-    type->set_preferred_size({400, 28});
+-    for (const char* label : kTypeLabels) {
+-      type->add_item(label);
+-    }
+-    type->set_selected_index(0);
+-    type_ = type.get();
+-
+-    auto buttons = std::make_unique<View>();
+-    auto row_box =
+-        std::make_unique<BoxLayout>(BoxLayout::Orientation::kHorizontal);
+-    auto add = std::make_unique<Button>("Add");
+-    add->set_preferred_size({80, 28});
+-    add->set_click([this]() { add_field(); });
+-    auto remove = std::make_unique<Button>("Remove");
+-    remove->set_preferred_size({80, 28});
+-    remove->set_click([this]() { remove_field(); });
+-    buttons->set_layout_manager(std::move(row_box));
+-    buttons->add_child(std::move(add));
+-    buttons->add_child(std::move(remove));
+-    buttons->set_preferred_size({400, 32});
+-
+-    box->set_flex_for_view(table_, 1);
+-    set_layout_manager(std::move(box));
+-    add_child(std::move(table));
+-    add_child(std::move(name_label));
+-    add_child(std::move(name));
+-    add_child(std::move(type_label));
+-    add_child(std::move(type));
+-    add_child(std::move(buttons));
+-    set_preferred_size({420, 280});
+-    rebuild_table();
+-  }
+-
+-  ~AttStructForm() override { flush(); }
+-
+- private:
+-  void flush() {
+-    if (fields_) {
+-      *fields_ = rows_;
+-    }
+-  }
+-
+-  void rebuild_table() {
+-    if (!table_) {
+-      return;
+-    }
+-    table_->clear_rows();
+-    for (const AttField& field : rows_) {
+-      table_->add_row({field.name, field.type});
+-    }
+-  }
+-
+-  void add_field() {
+-    AttField field;
+-    field.name = name_ ? name_->text() : std::string();
+-    field.type = type_ ? type_->selected_text() : std::string("String");
+-    if (field.name.empty()) {
+-      return;
+-    }
+-    rows_.push_back(std::move(field));
+-    rebuild_table();
+-    selected_ = static_cast<int>(rows_.size()) - 1;
+-    if (table_) {
+-      table_->set_selected_row(selected_);
+-    }
+-    flush();
+-  }
+-
+-  void remove_field() {
+-    if (selected_ < 0 || static_cast<size_t>(selected_) >= rows_.size()) {
+-      return;
+-    }
+-    rows_.erase(rows_.begin() + selected_);
+-    if (selected_ >= static_cast<int>(rows_.size())) {
+-      selected_ = static_cast<int>(rows_.size()) - 1;
+-    }
+-    rebuild_table();
+-    if (table_ && selected_ >= 0) {
+-      table_->set_selected_row(selected_);
+-    }
+-    flush();
+-  }
+-
+-  std::vector<AttField>* fields_ = nullptr;
+-  std::vector<AttField> rows_;
+-  TableView* table_ = nullptr;
+-  Textfield* name_ = nullptr;
+-  Combobox* type_ = nullptr;
+-  int selected_ = -1;
+-};
+-
+-}  // namespace
+-
+-bool AttStructDialog::run(HWND owner, std::vector<AttField>* fields) {
+-  std::vector<AttField> local = fields ? *fields : std::vector<AttField>();
+-  auto form = std::make_unique<AttStructForm>(&local);
+-  const Dialog::Result result =
+-      Dialog::run_modal(owner, L"Attribute Structure", 460, 360,
+-                        std::move(form));
+-  if (result.accepted && fields) {
+-    *fields = std::move(local);
+-    return true;
+-  }
+-  return result.accepted;
+-}
+-
+-}  // namespace views
+-}  // namespace ui
+diff --git a/src/ui/views/gis/attribute_table.h b/src/ui/views/gis/attribute_table.h
+new file mode 100644
+index 0000000..7f8fb1b
+--- /dev/null
++++ b/src/ui/views/gis/attribute_table.h
+@@ -0,0 +1,99 @@
++// Copyright (c) 2026 The Mogu Authors.
++// All rights reserved.
++
++#ifndef UI_VIEWS_ATTRIBUTE_TABLE_H_
++#define UI_VIEWS_ATTRIBUTE_TABLE_H_
++
++#include <functional>
++#include <string>
++#include <vector>
++
++#include "ui/views/view.h"
++
++namespace ui {
++namespace views {
++
++class ScrollView;
++class TableView;
++
++// Public GIS attribute grid. Hosts a TableView inside a ScrollView; callers
++// pass string cells and opaque feature tokens, never SmtFeature* or sdb field
++// objects. Cell commits go through on_cell_commit(token, field, value).
++class AttributeTable : public View {
++ public:
++  using Changed = std::function<void()>;
++  using Selected = std::function<void(int row)>;
++  // Host writeback. Return false to reject; the table reverts the cell.
++  using CellCommit = std::function<bool(const std::string& feature_token,
++                                        const std::string& field,
++                                        const std::string& value)>;
++
++  struct CellEdit {
++    int row = 0;
++    int col = 0;
++    std::string value;
++  };
++
++  AttributeTable();
++
++  void set_columns(const std::vector<std::string>& cols);
++  void set_rows(const std::vector<std::vector<std::string>>& rows);
++  void add_row(const std::vector<std::string>& cells);
++  void clear();
++
++  // Opaque per-row feature tokens parallel to data rows (string ids only).
++  void set_row_tokens(std::vector<std::string> tokens);
++  const std::string& row_token(int row) const;
++
++  void set_on_cell_commit(CellCommit fn);
++
++  // Programmatic write: update cell then invoke on_cell_commit.
++  bool commit_cell(int row, int col, const std::string& value);
++  // Batch write; stops on first host rejection.
++  bool commit_cells(const std::vector<CellEdit>& edits);
++
++  // In-place edit: type chars, Enter/blur commits, Escape cancels.
++  bool begin_edit(int row, int col);
++  void cancel_edit();
++  bool is_editing() const { return editing_; }
++
++  int selected_row() const;
++  int row_count() const;
++  void set_changed(Changed fn);
++  void set_selected(Selected fn);
++  bool on_mouse_event(const MouseEvent& event) override;
++  bool on_key_event(const KeyEvent& event) override;
++  bool on_char_event(const CharEvent& event) override;
++  void on_blur() override;
++
++  TableView* table() { return table_; }
++  const TableView* table() const { return table_; }
++
++ protected:
++  void paint_self(render::skia::Canvas* canvas) override;
++
++ private:
++  void notify_changed();
++  void sync_content_size();
++  bool finish_edit(bool commit);
++  bool delete_edit_last_char();
++  void on_cell_activate(int row, int col);
++
++  ScrollView* scroll_ = nullptr;
++  TableView* table_ = nullptr;
++  Changed changed_;
++  Selected selected_;
++  CellCommit on_cell_commit_;
++  std::vector<std::string> row_tokens_;
++
++  bool editing_ = false;
++  int edit_row_ = -1;
++  int edit_col_ = -1;
++  std::string edit_original_;
++  std::string edit_buffer_;
++};
++
++}  // namespace views
++}  // namespace ui
++
++#endif  // UI_VIEWS_ATTRIBUTE_TABLE_H_
+diff --git a/src/ui/views/gis/catalog_view.h b/src/ui/views/gis/catalog_view.h
+new file mode 100644
+index 0000000..a1880f1
+--- /dev/null
++++ b/src/ui/views/gis/catalog_view.h
+@@ -0,0 +1,95 @@
++// Copyright (c) 2026 The Mogu Authors.
++// All rights reserved.
++
++#ifndef UI_VIEWS_CATALOG_VIEW_H_
++#define UI_VIEWS_CATALOG_VIEW_H_
++
++#include <functional>
++#include <string>
++#include <vector>
++
++#include "ui/views/layer_tree.h"
++#include "ui/views/view.h"
++
++namespace ui {
++namespace views {
++
++class Label;
++class TabStrip;
++class TreeView;
++
++// Left chrome catalog: title plus Layers / Datasources / Maps pages.
++// Nodes are opaque string IDs; this widget never stores GIS pointers.
++// Product hosts populate trees and handle set_command ids.
++class CatalogView : public View {
++ public:
++  // One row in a datasource or map-doc tree. parent_id empty means root.
++  struct CatalogNode {
++    std::string id;
++    std::string parent_id;
++    std::string label;
++    bool checked = false;
++  };
++
++  using Command = std::function<void(const std::string& command_id)>;
++
++  CatalogView();
++
++  void set_title(std::string title);
++  const std::string& title() const;
++
++  LayerTree* layer_tree() { return layer_tree_; }
++  const LayerTree* layer_tree() const { return layer_tree_; }
++
++  TreeView* source_tree() { return source_tree_; }
++  const TreeView* source_tree() const { return source_tree_; }
++
++  TreeView* map_tree() { return map_tree_; }
++  const TreeView* map_tree() const { return map_tree_; }
++
++  // Flat names become root nodes on the Datasources page (legacy helper).
++  void set_source_names(const std::vector<std::string>& names);
++
++  void set_source_tree(const std::vector<CatalogNode>& nodes);
++  void set_map_docs(const std::vector<CatalogNode>& nodes);
++
++  // Replace Layers page from a host layer list (open-map / CatalogCall mirror).
++  // Non-empty |layers| clears demo rows. Empty |layers| installs demo fallback.
++  void populate_layers(const std::vector<LayerTree::LayerDesc>& layers);
++
++  // Install the single demo row used when no real layer list is available.
++  void populate_demo_layers();
++
++  // True while Layers page still shows the demo fallback row.
++  bool using_demo_layers() const { return using_demo_layers_; }
++
++  // Host callback for context-menu command ids such as catalog.layer.create.
++  void set_command(Command fn);
++
++  TabStrip* source_tabs() { return tabs_; }
++  const TabStrip* source_tabs() const { return tabs_; }
++
++ protected:
++  void paint_self(render::skia::Canvas* canvas) override;
++
++ private:
++  void populate_tree(TreeView* tree, const std::vector<CatalogNode>& nodes);
++  void fire_command(const std::string& command_id);
++  void show_layer_menu(Point screen);
++  void show_source_menu(Point screen);
++  void show_map_menu(Point screen);
++  HWND owner_hwnd() const;
++
++  Label* title_ = nullptr;
++  TabStrip* tabs_ = nullptr;
++  LayerTree* layer_tree_ = nullptr;
++  TreeView* source_tree_ = nullptr;
++  TreeView* map_tree_ = nullptr;
++  Command command_;
++  bool using_demo_layers_ = false;
++};
++
++}  // namespace views
++}  // namespace ui
++
++#endif  // UI_VIEWS_CATALOG_VIEW_H_
+diff --git a/src/ui/views/gis/chart_view.h b/src/ui/views/gis/chart_view.h
+new file mode 100644
+index 0000000..b9ce4fa
+--- /dev/null
++++ b/src/ui/views/gis/chart_view.h
+@@ -0,0 +1,54 @@
++// Copyright (c) 2026 The Mogu Authors.
++// All rights reserved.
++
++#ifndef UI_VIEWS_CHART_VIEW_H_
++#define UI_VIEWS_CHART_VIEW_H_
++
++#include <string>
++#include <vector>
++
++#if __has_include("ui/views/dialog.h")
++#include "ui/views/dialog.h"
++#define UI_VIEWS_CHART_HAS_DIALOG 1
++#endif
++
++#include "ui/views/view.h"
++
++namespace ui {
++namespace views {
++
++// Bar + polyline series chart painted through the Skia fill/text stub.
++// Replaces leftover SmtChart / CDlg2DXChartView (SmtStaDiagram).
++class ChartView : public View {
++ public:
++  struct SeriesPoint {
++    std::string label;
++    double value = 0;
++  };
++
++  ChartView();
++
++  void set_title(std::string title);
++  const std::string& title() const { return title_; }
++
++  void set_series(std::vector<SeriesPoint> series);
++  const std::vector<SeriesPoint>& series() const { return series_; }
++
++#ifdef UI_VIEWS_CHART_HAS_DIALOG
++  static Dialog::Result run_modal(HWND owner,
++                                  const wchar_t* title,
++                                  const std::vector<SeriesPoint>& series);
++#endif
++
++ protected:
++  void paint_self(render::skia::Canvas* canvas) override;
++
++ private:
++  std::string title_;
++  std::vector<SeriesPoint> series_;
++};
++
++}  // namespace views
++}  // namespace ui
++
++#endif  // UI_VIEWS_CHART_VIEW_H_
+diff --git a/src/ui/views/gis/create_datasource_dialog.cc b/src/ui/views/gis/create_datasource_dialog.cc
+deleted file mode 100644
+index 677c20d..0000000
+--- a/src/ui/views/gis/create_datasource_dialog.cc
++++ /dev/null
+@@ -1,92 +0,0 @@
+-// Copyright (c) 2026 The Mogu Authors.
+-// All rights reserved.
+-
+-#include "ui/views/create_datasource_dialog.h"
+-
+-#include <memory>
+-#include <utility>
+-
+-#include "ui/views/combobox.h"
+-#include "ui/views/dialog.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/textfield.h"
+-
+-namespace ui {
+-namespace views {
+-namespace {
+-
+-class CreateDatasourceForm : public View {
+- public:
+-  explicit CreateDatasourceForm(CreateDatasourceDialog::Result* sink)
+-      : sink_(sink) {
+-    auto box = std::make_unique<BoxLayout>(BoxLayout::Orientation::kVertical);
+-    auto name_label = std::make_unique<Label>("Datasource name");
+-    name_label->set_preferred_size({320, 22});
+-    auto name = std::make_unique<Textfield>();
+-    name->set_preferred_size({320, 28});
+-    if (sink_ && !sink_->name.empty()) {
+-      name->set_text(sink_->name);
+-    }
+-    name_ = name.get();
+-    name_->set_change([this]() { flush(); });
+-
+-    auto type_label = std::make_unique<Label>("Type");
+-    type_label->set_preferred_size({320, 22});
+-    auto type = std::make_unique<Combobox>();
+-    type->set_preferred_size({320, 28});
+-    type->add_item("MEM");
+-    type->add_item("file");
+-    type->add_item("GPKG");
+-    type->set_selected_index(0);
+-    type_ = type.get();
+-    type_->set_change([this](int) { flush(); });
+-
+-    set_layout_manager(std::move(box));
+-    add_child(std::move(name_label));
+-    add_child(std::move(name));
+-    add_child(std::move(type_label));
+-    add_child(std::move(type));
+-    set_preferred_size({340, 120});
+-    flush();
+-  }
+-
+-  ~CreateDatasourceForm() override { flush(); }
+-
+- private:
+-  void flush() {
+-    if (!sink_) {
+-      return;
+-    }
+-    if (name_) {
+-      sink_->name = name_->text();
+-    }
+-    if (type_) {
+-      sink_->type = type_->selected_text();
+-    }
+-  }
+-
+-  Textfield* name_ = nullptr;
+-  Combobox* type_ = nullptr;
+-  CreateDatasourceDialog::Result* sink_ = nullptr;
+-};
+-
+-}  // namespace
+-
+-bool CreateDatasourceDialog::run(HWND owner, Result* out) {
+-  Result local = out ? *out : Result{};
+-  if (local.type.empty()) {
+-    local.type = "MEM";
+-  }
+-  auto form = std::make_unique<CreateDatasourceForm>(&local);
+-  const Dialog::Result result =
+-      Dialog::run_modal(owner, L"Create Datasource", 400, 200, std::move(form));
+-  if (result.accepted && out) {
+-    *out = std::move(local);
+-    return true;
+-  }
+-  return result.accepted;
+-}
+-
+-}  // namespace views
+-}  // namespace ui
+diff --git a/src/ui/views/gis/create_layer_dialog.cc b/src/ui/views/gis/create_layer_dialog.cc
+deleted file mode 100644
+index 1af08f5..0000000
+--- a/src/ui/views/gis/create_layer_dialog.cc
++++ /dev/null
+@@ -1,91 +0,0 @@
+-// Copyright (c) 2026 The Mogu Authors.
+-// All rights reserved.
+-
+-#include "ui/views/create_layer_dialog.h"
+-
+-#include <memory>
+-#include <utility>
+-
+-#include "ui/views/combobox.h"
+-#include "ui/views/dialog.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/textfield.h"
+-
+-namespace ui {
+-namespace views {
+-namespace {
+-
+-class CreateLayerForm : public View {
+- public:
+-  explicit CreateLayerForm(CreateLayerDialog::Result* sink) : sink_(sink) {
+-    auto box = std::make_unique<BoxLayout>(BoxLayout::Orientation::kVertical);
+-    auto name_label = std::make_unique<Label>("Layer name");
+-    name_label->set_preferred_size({320, 22});
+-    auto name = std::make_unique<Textfield>();
+-    name->set_preferred_size({320, 28});
+-    if (sink_ && !sink_->name.empty()) {
+-      name->set_text(sink_->name);
+-    }
+-    name_ = name.get();
+-    name_->set_change([this]() { flush(); });
+-
+-    auto type_label = std::make_unique<Label>("Geometry type");
+-    type_label->set_preferred_size({320, 22});
+-    auto type = std::make_unique<Combobox>();
+-    type->set_preferred_size({320, 28});
+-    type->add_item("Point");
+-    type->add_item("Line");
+-    type->add_item("Polygon");
+-    type->set_selected_index(0);
+-    type_ = type.get();
+-    type_->set_change([this](int) { flush(); });
+-
+-    set_layout_manager(std::move(box));
+-    add_child(std::move(name_label));
+-    add_child(std::move(name));
+-    add_child(std::move(type_label));
+-    add_child(std::move(type));
+-    set_preferred_size({340, 120});
+-    flush();
+-  }
+-
+-  ~CreateLayerForm() override { flush(); }
+-
+- private:
+-  void flush() {
+-    if (!sink_) {
+-      return;
+-    }
+-    if (name_) {
+-      sink_->name = name_->text();
+-    }
+-    if (type_) {
+-      sink_->geometry_type = type_->selected_text();
+-    }
+-  }
+-
+-  Textfield* name_ = nullptr;
+-  Combobox* type_ = nullptr;
+-  CreateLayerDialog::Result* sink_ = nullptr;
+-};
+-
+-}  // namespace
+-
+-bool CreateLayerDialog::run(HWND owner, Result* out) {
+-  Result local = out ? *out : Result{};
+-  if (local.geometry_type.empty()) {
+-    local.geometry_type = "Point";
+-  }
+-  auto form = std::make_unique<CreateLayerForm>(&local);
+-  const Dialog::Result result =
+-      Dialog::run_modal(owner, L"Create Layer", 400, 200, std::move(form));
+-  if (result.accepted && out) {
+-    *out = std::move(local);
+-    return true;
+-  }
+-  return result.accepted;
+-}
+-
+-}  // namespace views
+-}  // namespace ui
+diff --git a/src/ui/views/gis/create_map_dialog.cc b/src/ui/views/gis/create_map_dialog.cc
+deleted file mode 100644
+index 058b7f6..0000000
+--- a/src/ui/views/gis/create_map_dialog.cc
++++ /dev/null
+@@ -1,65 +0,0 @@
+-// Copyright (c) 2026 The Mogu Authors.
+-// All rights reserved.
+-
+-#include "ui/views/create_map_dialog.h"
+-
+-#include <memory>
+-#include <utility>
+-
+-#include "ui/views/dialog.h"
+-#include "ui/views/label.h"
+-#include "ui/views/layout.h"
+-#include "ui/views/textfield.h"
+-
+-namespace ui {
+-namespace views {
+-namespace {
+-
+-class CreateMapForm : public View {
+- public:
+-  explicit CreateMapForm(std::string* sink) : sink_(sink) {
+-    auto box = std::make_unique<BoxLayout>(BoxLayout::Orientation::kVertical);
+-    auto label = std::make_unique<Label>("Map name");
+-    label->set_preferred_size({320, 22});
+-    auto name = std::make_unique<Textfield>();
+-    name->set_preferred_size({320, 28});
+-    if (sink_ && !sink_->empty()) {
+-      name->set_text(*sink_);
+-    }
+-    name_ = name.get();
+-    name_->set_change([this]() { flush(); });
+-    set_layout_manager(std::move(box));
+-    add_child(std::move(label));
+-    add_child(std::move(name));
+-    set_preferred_size({340, 70});
+-  }
+-
+-  ~CreateMapForm() override { flush(); }
+-
+- private:
+-  void flush() {
+-    if (sink_ && name_) {
+-      *sink_ = name_->text();
+-    }
+-  }
+-
+-  Textfield* name_ = nullptr;
+-  std::string* sink_ = nullptr;
+-};
+-
+-}  // namespace
+-
+-bool CreateMapDialog::run(HWND owner, std::string* name) {
+-  std::string local = name ? *name : std::string();
+-  auto form = std::make_unique<CreateMapForm>(&local);
+-  const Dialog::Result result =
+-      Dialog::run_modal(owner, L"Create Map", 380, 160, std::move(form));
+-  if (result.accepted && name) {
+-    *name = std::move(local);
+-    return true;
+-  }
+-  return result.accepted;
+-}
+-
+-}  // namespace views
+-}  // namespace ui
+diff --git a/src/ui/views/gis/feature_info.h b/src/ui/views/gis/feature_info.h
+new file mode 100644
+index 0000000..4fc85f4
+--- /dev/null
++++ b/src/ui/views/gis/feature_info.h
+@@ -0,0 +1,53 @@
++// Copyright (c) 2026 The Mogu Authors.
++// All rights reserved.
++
++#ifndef UI_VIEWS_FEATURE_INFO_H_
++#define UI_VIEWS_FEATURE_INFO_H_
++
++#include <string>
++#include <vector>
++
++#include "ui/views/view.h"
++
++namespace ui {
++namespace views {
++
++class Label;
++class TableView;
++
++// Read-only identify inspector: feature token plus name/value field pairs.
++// Hosts pass strings only; this widget never stores SmtFeature*.
++class FeatureInfo : public View {
++ public:
++  struct Field {
++    std::string name;
++    std::string value;
++  };
++
++  FeatureInfo();
++
++  void set_feature_id(std::string id);
++  const std::string& feature_id() const { return feature_id_; }
++
++  void set_fields(const std::vector<Field>& fields);
++  void clear();
++
++  size_t field_count() const { return field_count_; }
++
++ protected:
++  void paint_self(render::skia::Canvas* canvas) override;
++
++ private:
++  void rebuild_table();
++
++  Label* id_label_ = nullptr;
++  TableView* table_ = nullptr;
++  std::string feature_id_;
++  std::vector<Field> fields_;
++  size_t field_count_ = 0;
++};
++
++}  // namespace views
++}  // namespace ui
++
++#endif  // UI_VIEWS_FEATURE_INFO_H_
+diff --git a/src/ui/views/gis/layer_tree.h b/src/ui/views/gis/layer_tree.h
+new file mode 100644
+index 0000000..75060c5
+--- /dev/null
++++ b/src/ui/views/gis/layer_tree.h
+@@ -0,0 +1,99 @@
++// Copyright (c) 2026 The Mogu Authors.
++// All rights reserved.
++
++#ifndef UI_VIEWS_LAYER_TREE_H_
++#define UI_VIEWS_LAYER_TREE_H_
++
++#include <functional>
++#include <string>
++#include <vector>
++
++#include "ui/views/view.h"
++
++namespace ui {
++namespace views {
++
++// Vertical layer list: name + visibility checkbox. IDs are opaque strings;
++// this control never stores SmtLayer* or other GIS pointers.
++class LayerTree : public View {
++ public:
++  // One opaque layer row for host-driven populate (CatalogCall / open-map).
++  struct LayerDesc {
++    std::string id;
++    std::string name;
++    bool visible = true;
++    bool active = false;
++  };
++
++  using VisibleChanged = std::function<void(const std::string& id, bool visible)>;
++  using SelectionChanged = std::function<void(const std::string& id)>;
++  using ContextRequested =
++      std::function<void(const std::string& id, Point screen)>;
++
++  LayerTree();
++  ~LayerTree() override;
++
++  void clear();
++  void add_layer(std::string id, std::string name, bool visible);
++
++  // Replace all rows from |layers|. Selects the first entry with active=true
++  // (else the first row). Does not fire visible_changed.
++  void set_layers(const std::vector<LayerDesc>& layers);
++
++  // Select |id| as the active layer (fires selection_changed when it changes).
++  void select_layer(const std::string& id);
++
++  // Update checkbox state without notifying visible_changed (host sync).
++  void set_layer_visible(const std::string& id, bool visible);
++
++  void set_visible_changed(VisibleChanged fn);
++  void set_selection_changed(SelectionChanged fn);
++  void set_context_requested(ContextRequested fn);
++
++  const std::string& selected_id() const { return selected_id_; }
++  size_t layer_count() const { return rows_.size(); }
++
++  // Fills opaque id/name/visibility for |index|. Returns false if out of range.
++  bool layer_at(size_t index,
++                std::string* id,
++                std::string* name,
++                bool* visible) const;
++
++  // Remove |id| from the list. Returns false if missing.
++  bool remove_layer(const std::string& id);
++
++  // Move |id| by |delta| rows (-1 up / +1 down). Returns false if blocked.
++  bool move_layer(const std::string& id, int delta);
++
++  // Layer on/off for |id|, not View::is_visible() (layout / paint / hit-test).
++  bool is_layer_visible(const std::string& id) const;
++
++  void layout() override;
++  bool on_mouse_event(const MouseEvent& event) override;
++
++ protected:
++  void paint_self(render::skia::Canvas* canvas) override;
++
++ private:
++  class LayerRow;
++
++  friend class LayerRow;
++
++  LayerRow* row_at(const std::string& id) const;
++  LayerRow* row_at_point(int x, int y) const;
++  void select_id(const std::string& id);
++  void notify_visible(const std::string& id, bool visible);
++  bool handle_row_mouse(LayerRow* row, const MouseEvent& event);
++  Point to_screen(int x, int y) const;
++
++  std::vector<LayerRow*> rows_;
++  std::string selected_id_;
++  VisibleChanged visible_changed_;
++  SelectionChanged selection_changed_;
++  ContextRequested context_requested_;
++};
++
++}  // namespace views
++}  // namespace ui
++
++#endif  // UI_VIEWS_LAYER_TREE_H_
+diff --git a/src/ui/views/gis/status_bar.h b/src/ui/views/gis/status_bar.h
+new file mode 100644
+index 0000000..bea6e37
+--- /dev/null
++++ b/src/ui/views/gis/status_bar.h
+@@ -0,0 +1,52 @@
++// Copyright (c) 2026 The Mogu Authors.
++// All rights reserved.
++
++#ifndef UI_VIEWS_STATUS_BAR_H_
++#define UI_VIEWS_STATUS_BAR_H_
++
++#include <string>
++
++#include "ui/views/view.h"
++
++namespace ui {
++namespace views {
++
++class Label;
++
++// Bottom strip: scale, CRS, XY, and a flexible status message.
++class StatusBar : public View {
++ public:
++  StatusBar();
++
++  void set_xy(double x, double y);
++  void set_scale(double scale);
++  void set_message(std::string text);
++
++  void set_scale_text(std::string text);
++  void set_crs_text(std::string text);
++  void set_coord_text(std::string text);
++  void set_status(std::string text);
++
++  const std::string& scale_text() const;
++  const std::string& crs_text() const;
++  const std::string& coord_text() const;
++  const std::string& status() const;
++  const std::string& message() const { return status(); }
++
++  void on_device_scale_factor_changed(float old_scale,
++                                     float new_scale) override;
++
++ protected:
++  void paint_self(render::skia::Canvas* canvas) override;
++
++ private:
++  Label* scale_ = nullptr;
++  Label* crs_ = nullptr;
++  Label* coord_ = nullptr;
++  Label* status_ = nullptr;
++};
++
++}  // namespace views
++}  // namespace ui
++
++#endif  // UI_VIEWS_STATUS_BAR_H_
+diff --git a/src/ui/views/gis/map_viewport.cc b/src/ui/views/map/map_viewport.cc
+similarity index 100%
+rename from src/ui/views/gis/map_viewport.cc
+rename to src/ui/views/map/map_viewport.cc
+diff --git a/src/ui/views/map/map_viewport.h b/src/ui/views/map/map_viewport.h
+new file mode 100644
+index 0000000..3bf4ba7
+--- /dev/null
++++ b/src/ui/views/map/map_viewport.h
+@@ -0,0 +1,139 @@
++// Copyright (c) 2026 The Mogu Authors.
++// All rights reserved.
++
++#ifndef UI_VIEWS_MAP_VIEWPORT_H_
++#define UI_VIEWS_MAP_VIEWPORT_H_
++
++#include <cstdint>
++#include <functional>
++
++#ifndef NOMINMAX
++#define NOMINMAX
++#endif
++#include <windows.h>
++
++#include "ui/views/view.h"
++
++namespace content {
++class MapContents;
++class ViewHost;
++}
++
++namespace ui {
++namespace views {
++
++// Native-hosted map pane. Hang is mgis-like: parent HWND + child HWND.
++// Pixels still come from existing gis + render, or the same PE with --type=gpu.
++class MapViewport : public View {
++ public:
++  enum class AttachMode {
++    kNone,
++    kContentMapView,
++    kOopRender,
++    kFlyCube,
++    kLocalDevice,
++    kPlaceholder,
++  };
++
++  // Which MapContents::OpenView kind this pane should request.
++  enum class Role {
++    kMapEdit,
++    kMapData,
++    kScene3d,
++  };
++
++  MapViewport();
++  ~MapViewport() override;
++
++  void set_role(Role role);
++  Role role() const { return role_; }
++
++  void set_view_host(content::ViewHost* host);
++  content::ViewHost* view_host() const { return view_host_; }
++
++  // Non-owning shared session. When unset, attach() may create one.
++  void set_map_contents(content::MapContents* session);
++  content::MapContents* map_contents() const { return session_; }
++
++  uint32_t view_id() const { return view_id_; }
++
++  // Prefer content::MapWidgetHostView (OpenView kind from Role). Scene3d uses
++  // FlyCube first when SMT_PREFER_FLYCUBE_3D=1 (live orbit camera); otherwise
++  // content then FlyCube fallback. Map Edit: OOP / FlyCube / LoadLibrary.
++  // SMT_PREFER_GDI_DEVICE=1 skips FlyCube on Map Edit.
++  bool attach();
++  AttachMode attach_mode() const { return mode_; }
++  const wchar_t* status_text() const { return status_; }
++  bool wait_ready(uint32_t timeout_ms);
++
++  void detach();
++
++  // Optional chrome overlay after GPU/present (layer vectors, selection).
++  using OverlayPaint = std::function<void(HDC hdc, const RECT& client)>;
++  void set_overlay_paint(OverlayPaint fn);
++  // Scene3d + FlyCube: record/draw/present using the hung RHI device.
++  // Signature: (rhi::Device*, width_px, height_px) 鈫?present ok.
++  using GpuPresentFn =
++      std::function<bool(void* rhi_device, uint32_t width_px, uint32_t height_px)>;
++  void set_gpu_present(GpuPresentFn fn);
++  void* rhi_device() const { return rhi_device_; }
++  void invalidate_native();
++
++  void on_device_scale_factor_changed(float old_scale,
++                                     float new_scale) override;
++
++ protected:
++  HWND create_native_view(HWND parent) override;
++  void paint_self(render::skia::Canvas* canvas) override;
++
++ private:
++  bool try_content_map_view();
++  bool try_oop_render();
++  bool try_flycube_device();
++  bool try_local_device();
++  void paint_child_placeholder();
++  // Blit MapWidgetHostView::Latest() (software DIB) into |hdc|. Chrome owns
++  // the HWND; GPU only publishes shared pixels (see map_widget_host_view.h).
++  bool present_latest_frame(HDC hdc, const RECT& client_rc);
++  void start_present_timer();
++  void stop_present_timer();
++  void resize_host_surface(int width_px, int height_px);
++  float surface_dpi() const;
++  void release_rhi_device();
++  // Offscreen DIB used so present + overlay land as one BitBlt (no flicker).
++  bool ensure_backbuffer(int width_px, int height_px);
++  void release_backbuffer();
++  void paint_map_content(HDC target, const RECT& client_rc);
++
++  static LRESULT CALLBACK child_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam,
++                                         LPARAM lparam);
++
++  static constexpr UINT_PTR kPresentTimerId = 1;
++
++  AttachMode mode_ = AttachMode::kNone;
++  Role role_ = Role::kMapEdit;
++  const wchar_t* status_ = L"";
++  content::MapContents* session_ = nullptr;
++  content::ViewHost* view_host_ = nullptr;
++  bool owns_session_ = false;
++  HANDLE render_process_ = nullptr;
++  HANDLE render_job_ = nullptr;
++  void* local_device_ = nullptr;
++  HMODULE local_module_ = nullptr;
++  // Owning render::rhi::Device* when AttachMode::kFlyCube.
++  void* rhi_device_ = nullptr;
++  uint32_t view_id_ = 0;
++  uint32_t painted_generation_ = 0;
++  OverlayPaint overlay_paint_;
++  GpuPresentFn gpu_present_;
++  HDC back_dc_ = nullptr;
++  HBITMAP back_dib_ = nullptr;
++  HBITMAP back_old_ = nullptr;
++  int back_w_ = 0;
++  int back_h_ = 0;
++};
++
++}  // namespace views
++}  // namespace ui
++
++#endif  // UI_VIEWS_MAP_VIEWPORT_H_
+diff --git a/src/ui/views/map/touch_multitouch.cc b/src/ui/views/map/touch_multitouch.cc
+new file mode 100644
+index 0000000..512d7ed
+--- /dev/null
++++ b/src/ui/views/map/touch_multitouch.cc
+@@ -0,0 +1,119 @@
++// Copyright (c) 2026 The Mogu Authors.
++// All rights reserved.
++
++#include "ui/views/map/touch_multitouch.h"
++
++namespace ui {
++namespace views {
++namespace {
++
++void clamp_multitouch_count(content::InputEvent* out) {
++  if (out && out->pointer_count < 2) {
++    out->pointer_count = 2;
++  }
++}
++
++}  // namespace
++
++bool TouchMultitouchTracker::midpoint(int32_t* x_px, int32_t* y_px) const {
++  if (contacts_.size() < 2 || !x_px || !y_px) {
++    return false;
++  }
++  int64_t sum_x = 0;
++  int64_t sum_y = 0;
++  for (const auto& entry : contacts_) {
++    sum_x += entry.second.first;
++    sum_y += entry.second.second;
++  }
++  const int64_t n = static_cast<int64_t>(contacts_.size());
++  *x_px = static_cast<int32_t>(sum_x / n);
++  *y_px = static_cast<int32_t>(sum_y / n);
++  return true;
++}
++
++void TouchMultitouchTracker::fill_sample(content::InputEvent::Kind kind,
++                                         content::InputEvent* out) const {
++  if (!out) {
++    return;
++  }
++  *out = content::InputEvent{};
++  out->kind = kind;
++  out->pointer_count = static_cast<uint32_t>(contacts_.size());
++  int32_t x = 0;
++  int32_t y = 0;
++  if (midpoint(&x, &y)) {
++    out->x_px = x;
++    out->y_px = y;
++  }
++  clamp_multitouch_count(out);
++}
++
++bool TouchMultitouchTracker::on_contact_down(uint32_t id, int32_t x_px,
++                                             int32_t y_px,
++                                             content::InputEvent* out) {
++  contacts_[id] = {x_px, y_px};
++  if (contacts_.size() < 2) {
++    return false;
++  }
++  if (!multitouch_active_) {
++    multitouch_active_ = true;
++    fill_sample(content::InputEvent::Kind::kLDown, out);
++    return true;
++  }
++  fill_sample(content::InputEvent::Kind::kMouseMove, out);
++  return true;
++}
++
++bool TouchMultitouchTracker::on_contact_move(uint32_t id, int32_t x_px,
++                                             int32_t y_px,
++                                             content::InputEvent* out) {
++  auto it = contacts_.find(id);
++  if (it == contacts_.end()) {
++    return false;
++  }
++  it->second = {x_px, y_px};
++  if (!multitouch_active_ || contacts_.size() < 2) {
++    return false;
++  }
++  fill_sample(content::InputEvent::Kind::kMouseMove, out);
++  return true;
++}
++
++bool TouchMultitouchTracker::on_contact_up(uint32_t id, int32_t x_px,
++                                           int32_t y_px,
++                                           content::InputEvent* out) {
++  auto it = contacts_.find(id);
++  if (it == contacts_.end()) {
++    return false;
++  }
++  it->second = {x_px, y_px};
++  const bool emit = multitouch_active_;
++  content::InputEvent sample{};
++  if (emit) {
++    if (contacts_.size() >= 2) {
++      fill_sample(content::InputEvent::Kind::kLUp, &sample);
++    } else {
++      sample.kind = content::InputEvent::Kind::kLUp;
++      sample.x_px = x_px;
++      sample.y_px = y_px;
++      sample.pointer_count = 2;
++    }
++  }
++  contacts_.erase(it);
++  if (contacts_.size() < 2) {
++    multitouch_active_ = false;
++  }
++  if (emit && out) {
++    *out = sample;
++    clamp_multitouch_count(out);
++  }
++  return emit;
++}
++
++void TouchMultitouchTracker::clear() {
++  contacts_.clear();
++  multitouch_active_ = false;
++}
++
++}  // namespace views
++}  // namespace ui
+diff --git a/src/ui/views/map/touch_multitouch.h b/src/ui/views/map/touch_multitouch.h
+new file mode 100644
+index 0000000..c1ab05a
+--- /dev/null
++++ b/src/ui/views/map/touch_multitouch.h
+@@ -0,0 +1,47 @@
++// Copyright (c) 2026 The Mogu Authors.
++// All rights reserved.
++
++#ifndef UI_VIEWS_MAP_TOUCH_MULTITOUCH_H_
++#define UI_VIEWS_MAP_TOUCH_MULTITOUCH_H_
++
++#include <cstdint>
++#include <unordered_map>
++#include <utility>
++
++#include "content/public/map_types.h"
++
++namespace ui {
++namespace views {
++
++// Tracks PT_TOUCH contacts and builds content::InputEvent samples for
++// two-or-more-finger midpoint pan (same contract as CEF shell.js).
++// Single-finger stays out of this path so mouse synthesis keeps working.
++class TouchMultitouchTracker {
++ public:
++  // Fills |out| when a multitouch InputEvent should be dispatched.
++  bool on_contact_down(uint32_t id, int32_t x_px, int32_t y_px,
++                       content::InputEvent* out);
++  bool on_contact_move(uint32_t id, int32_t x_px, int32_t y_px,
++                       content::InputEvent* out);
++  bool on_contact_up(uint32_t id, int32_t x_px, int32_t y_px,
++                     content::InputEvent* out);
++
++  // While true, HWND mouse messages must be ignored (primary-contact
++  // synthesis would otherwise fight the midpoint stream).
++  bool suppress_mouse() const { return multitouch_active_; }
++
++  void clear();
++  size_t contact_count() const { return contacts_.size(); }
++
++ private:
++  bool midpoint(int32_t* x_px, int32_t* y_px) const;
++  void fill_sample(content::InputEvent::Kind kind, content::InputEvent* out) const;
++
++  std::unordered_map<uint32_t, std::pair<int32_t, int32_t>> contacts_;
++  bool multitouch_active_ = false;
++};
++
++}  // namespace views
++}  // namespace ui
++
++#endif  // UI_VIEWS_MAP_TOUCH_MULTITOUCH_H_

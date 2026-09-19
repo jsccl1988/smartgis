@@ -9,12 +9,12 @@
 #include <string>
 
 #include "content/public/plugin_host.h"
-#include "ui/views/button.h"
-#include "ui/views/checkbox.h"
-#include "ui/views/combobox.h"
-#include "ui/views/file_picker.h"
-#include "ui/views/label.h"
-#include "ui/views/textfield.h"
+#include "ui/views/primitives/button.h"
+#include "ui/views/primitives/checkbox.h"
+#include "ui/views/primitives/combobox.h"
+#include "ui/views/dialogs/file_picker.h"
+#include "ui/views/primitives/label.h"
+#include "ui/views/primitives/textfield.h"
 
 namespace plugin {
 namespace {

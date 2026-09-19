@@ -9,10 +9,10 @@
 
 #include "content/public/plugin_host.h"
 #include "plugin/proj/proj_commands.h"
-#include "ui/views/button.h"
-#include "ui/views/label.h"
-#include "ui/views/layout.h"
-#include "ui/views/textfield.h"
+#include "ui/views/primitives/button.h"
+#include "ui/views/primitives/label.h"
+#include "ui/views/kernel/layout.h"
+#include "ui/views/primitives/textfield.h"
 
 namespace plugin {
 namespace {

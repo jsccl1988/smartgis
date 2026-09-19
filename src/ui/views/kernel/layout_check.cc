@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/layout_check.h"
+#include "ui/views/kernel/layout_check.h"
 
 #include <cstdio>
 #include <cstring>
@@ -12,9 +12,9 @@
 #include <windows.h>
 
 #include "render/skia/canvas.h"
-#include "ui/views/combobox.h"
-#include "ui/views/dpi.h"
-#include "ui/views/scroll_view.h"
+#include "ui/views/primitives/combobox.h"
+#include "ui/views/kernel/dpi.h"
+#include "ui/views/primitives/scroll_view.h"
 
 namespace ui {
 namespace views {

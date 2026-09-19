@@ -1,0 +1,38 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef UI_VIEWS_PRIMITIVES_LABEL_H_
+#define UI_VIEWS_PRIMITIVES_LABEL_H_
+
+#include <string>
+
+#include "render/skia/color.h"
+#include "ui/views/kernel/view.h"
+
+namespace ui {
+namespace views {
+
+// Static text node. Color defaults to the current Theme text.
+class Label : public View {
+ public:
+  explicit Label(std::string text);
+  void set_text(std::string text);
+  const std::string& text() const;
+  void set_color(render::skia::Color color);
+  void clear_color();
+  void on_device_scale_factor_changed(float old_scale,
+                                     float new_scale) override;
+
+ protected:
+  void paint_self(render::skia::Canvas* canvas) override;
+
+ private:
+  std::string text_;
+  render::skia::Color color_ = 0;
+  bool has_color_ = false;
+};
+
+}  // namespace views
+}  // namespace ui
+
+#endif  // UI_VIEWS_PRIMITIVES_LABEL_H_

@@ -41,6 +41,7 @@ vendor）时才 vendored skip。薄 `BUILD.gn` 包装目录 **不** 算源码树。强制重拉：
 | `manifest.json` | `incubator_third_party_manifest_v1`（GIS 条目复用 mgis；另加本仓包） |
 | `tools/` | mogu `fetch.py` / `install.py` / `batch.py` / `deps.py` |
 | `.src/` | **所有库源码**（gitignore）：fetch 克隆，或本地 junction → mgis |
+| `.src/_cache/` | 可选下载缓存（gitignore），例如 MapLibre vendor tarball |
 | `.build/<pkg>/` | 单包 CMake 树（gitignore） |
 | `.install/` | 合并安装前缀（gitignore）；GN `third_party_install_prefix` |
 | `gn/` | `tp.gni` + 门面 `config`/`group` |
@@ -73,4 +74,4 @@ mklink /J third_party\.src\gdal c:\Dev\src\gis\mgis\third_party\gdal
 
 ---
 
-**最后更新：** 2026-09-13
+**最后更新：** 2026-09-19

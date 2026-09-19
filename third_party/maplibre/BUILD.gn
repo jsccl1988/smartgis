@@ -2,7 +2,8 @@
 # All rights reserved.
 
 # Optional Windows still-image Map (mln::Map). Not in src_all / all.
-# Full mbgl-core (EGL / codegen / vendor) is not built here.
+# Do not compile MapLibre Native from source here. If a prebuilt
+# mbgl-core.lib is already under out/third_party/maplibre/lib, link it.
 
 import("//src/gpu/maplibre.gni")
 
@@ -11,6 +12,13 @@ _mln_native = exec_script("//build/file_exists.py",
                             "third_party/.src/maplibre-native/include/mln/map/map.hpp",
                           ],
                           "trim string")
+
+# Release /MD artifact from a prior Native build. Never a ninja compile of core.
+_mbgl_core_lib = exec_script("//build/file_exists.py",
+                             [
+                               "out/third_party/maplibre/lib/mbgl-core.lib",
+                             ],
+                             "trim string")
 
 config("maplibre_native_config") {
   include_dirs += [ "include" ]
@@ -22,6 +30,11 @@ config("maplibre_native_config") {
       "//third_party/.src/maplibre-native/vendor/maplibre-native-base/deps/geometry.hpp/include",
     ]
     defines += [ "SMT_HAS_NATIVE_MLN_MAP" ]
+  }
+  if (_mbgl_core_lib == "1") {
+    lib_dirs += [ "$root_out_dir/third_party/maplibre/lib" ]
+    libs += [ "mbgl-core.lib" ]
+    defines += [ "SMT_HAS_MBGL_CORE_LIB" ]
   }
 }
 

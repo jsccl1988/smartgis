@@ -1,13 +1,13 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "ui/views/view.h"
+#include "ui/views/kernel/view.h"
 
 #include <cmath>
 
 #include "render/skia/canvas.h"
-#include "ui/views/layout.h"
-#include "ui/views/widget.h"
+#include "ui/views/kernel/layout.h"
+#include "ui/views/kernel/widget.h"
 
 namespace ui {
 namespace views {

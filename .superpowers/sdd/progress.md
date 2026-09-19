@@ -25,6 +25,6 @@ Branch: `master` (no topic branch)
 
 ## Deleted vs kept
 
-Deleted: `src/ado`, `src/sdb/datasource/ado`, `src/SmtAdoCore`, `src/SmtSDEAdoDevice` (nothing in src_all/mgr/plugin/app linked them). Dead SMF `CopyOGRGeomToSmtGeom` / `CopyOGRAttToSmtAtt`. Shapefile-as-GPKG fallback.
+Deleted: `src/ado`, `src/gis/datasource/ado`, `src/SmtAdoCore`, `src/SmtSDEAdoDevice` (nothing in src_all/mgr/plugin/app linked them). Dead SMF `CopyOGRGeomToSmtGeom` / `CopyOGRAttToSmtAtt`. Shapefile-as-GPKG fallback.
 
 Kept: `ogr_codec` (SMF + tests still use connect/codec) and `sde_gdal` (dataset/layers). SMF type-map helpers used by `smfveclayer.cpp`.

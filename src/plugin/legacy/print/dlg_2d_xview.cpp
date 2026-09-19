@@ -6,11 +6,11 @@
 #include "plugin/legacy/print/dlg_2d_xview.h"
 
 #include "legacy/ui/xcatalog/mapmgr.h"
-#include "sdb/feature/feature_api.h"
-#include "sdb/datasource/mgr/datasourcemgr.h"
+#include "gis/feature/feature_api.h"
+#include "gis/datasource/mgr/datasource_mgr.h"
 
-using namespace sdb;
-using namespace sdb;
+using namespace gis;
+using namespace gis;
 using namespace ui;
 
 // CDlg2DXView �Ի���

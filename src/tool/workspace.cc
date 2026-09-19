@@ -9,6 +9,9 @@
 
 #include "content/public/event_bus.h"
 #include "content/public/events.h"
+#include "content/public/map_types.h"
+#include "tool/camera_nav.h"
+#include "tool/gestures.h"
 
 namespace tool {
 namespace {
@@ -21,13 +24,29 @@ class WheelZoomDraft final : public Interaction {
     if (e.kind != content::InputEvent::Kind::kWheel) {
       return false;
     }
-    if (cb_) {
-      Draft d;
-      d.kind = DraftKind::kWheel;
-      d.wheel = e.wheel;
-      d.points.push_back({e.x_px, e.y_px});
-      cb_(d);
+    if (!cb_) {
+      return true;
     }
+    if (content::is_horizontal_wheel(e)) {
+      // Trackpad / mouse horizontal wheel → touch-pan shaped draft.
+      const int32_t dx = tool::hwheel_pan_dx(e.wheel);
+      if (dx == 0) {
+        return true;
+      }
+      Draft d;
+      d.kind = DraftKind::kRect;
+      d.flags = draft_flags::kTouchPan;
+      d.points.push_back({e.x_px, e.y_px});
+      d.points.push_back({e.x_px + dx, e.y_px});
+      cb_(d);
+      return true;
+    }
+    Draft d;
+    d.kind = DraftKind::kWheel;
+    d.wheel = e.wheel;
+    d.flags = e.flags;
+    d.points.push_back({e.x_px, e.y_px});
+    cb_(d);
     return true;
   }
 
@@ -37,7 +56,7 @@ class WheelZoomDraft final : public Interaction {
 
 }  // namespace
 
-Workspace::Workspace(content::EventBus* events, sdb::EditSession* edits)
+Workspace::Workspace(content::EventBus* events, gis::EditSession* edits)
     : events_(events), edits_(edits), dispatcher_(&catalog_) {
   router_.set_stack(&stack_);
   router_.add_always_on(std::make_unique<WheelZoomDraft>(bind_draft()));
@@ -59,9 +78,13 @@ bool Workspace::activate(std::string_view interaction_id) {
 
 bool Workspace::dispatch_input(const content::InputEvent& e) {
   Interaction* cur = stack_.current();
-  if (e.kind == content::InputEvent::Kind::kWheel && cur) {
+  if (cur) {
     const char* id = cur->id();
     if (id && std::strncmp(id, "view3d.", 7) == 0) {
+      return cur->on_input(e);
+    }
+    // Drawing / select keep exclusive capture; navigate gets cursor-zoom.
+    if (e.kind == content::InputEvent::Kind::kWheel && !is_navigate_tool(id)) {
       return cur->on_input(e);
     }
   }
@@ -89,7 +112,13 @@ void Workspace::bind_activate(const char* command_id,
 }
 
 DraftCallback Workspace::bind_draft() {
-  return [this](const Draft& draft) { on_draft(draft); };
+  return [this](const Draft& draft) {
+    Draft stamped = draft;
+    if (stamped.flags == 0 && pending_draft_flags_ != 0) {
+      stamped.flags = pending_draft_flags_;
+    }
+    on_draft(stamped);
+  };
 }
 
 content::FeatureId Workspace::id_from_draft(const Draft& draft) {
@@ -144,8 +173,8 @@ void Workspace::on_draft(const Draft& draft) {
     return;
   }
   if (std::strncmp(id, "draw.", 5) == 0 && edits_) {
-    sdb::FeatureMutation mutation;
-    mutation.op = sdb::EditOp::kAppend;
+    gis::FeatureMutation mutation;
+    mutation.op = gis::EditOp::kAppend;
     mutation.id = id_from_draft(draft);
     if (edits_->commit(mutation) && events_) {
       content::EditCommitted ev;
@@ -164,6 +193,8 @@ void Workspace::register_builtins() {
   interactions_.add("view3d.fps", [cb]() { return make_view3d_fps(cb); });
   interactions_.add("select.point", [cb]() { return make_select_point(cb); });
   interactions_.add("select.rect", [cb]() { return make_select_rect(cb); });
+  interactions_.add("select.circle",
+                    [cb]() { return make_select_circle(cb); });
   interactions_.add("select.polygon",
                     [cb]() { return make_select_polygon(cb); });
   interactions_.add("draw.point", [cb]() { return make_draw_point(cb); });
@@ -204,6 +235,24 @@ void Workspace::register_builtins() {
     }
     return true;
   });
+  catalog_.add("view.backend.rhi", [this](const CommandArgs& args) {
+    if (events_) {
+      content::RenderBackendChanged ev;
+      ev.view_id = args.view_id;
+      ev.kind = 0;
+      events_->publish(ev);
+    }
+    return true;
+  });
+  catalog_.add("view.backend.maplibre", [this](const CommandArgs& args) {
+    if (events_) {
+      content::RenderBackendChanged ev;
+      ev.view_id = args.view_id;
+      ev.kind = 1;
+      events_->publish(ev);
+    }
+    return true;
+  });
   catalog_.add("view3d.full", [this](const CommandArgs& args) {
     if (events_) {
       content::ExtentChanged ev;
@@ -223,6 +272,7 @@ void Workspace::register_builtins() {
 
   catalog_.add("selection.clear", [this](const CommandArgs& args) {
     last_draft_ = Draft{};
+    pending_draft_flags_ = 0;
     if (events_) {
       content::SelectionChanged ev;
       ev.view_id = args.view_id;
@@ -239,6 +289,7 @@ void Workspace::register_builtins() {
   });
   catalog_.add("edit.cancel", [this](const CommandArgs&) {
     last_draft_ = Draft{};
+    pending_draft_flags_ = 0;
     while (stack_.pop()) {
     }
     return true;

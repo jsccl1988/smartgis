@@ -20,8 +20,8 @@
 #include "plugin/host/signature_test_key.h"
 #include "plugin/host/store.h"
 #include "tool/command.h"
-#include "ui/views/file_picker.h"
-#include "ui/views/message_box.h"
+#include "ui/views/dialogs/file_picker.h"
+#include "ui/views/dialogs/message_box.h"
 
 #include "httplib.h"
 
@@ -120,7 +120,7 @@ int main() {
            "leftover baogrid stem");
     expect(std::string(plugin::legacy_id_from_stem("FooBar")) == "legacy.foobar",
            "unknown stem");
-    expect(std::string(plugin::legacy_id_from_display_name("DEM生成")) ==
+    expect(std::string(plugin::legacy_id_from_display_name("DEM鐢熸垚")) ==
                "smartgis.dem",
            "dem display");
   }
@@ -453,12 +453,12 @@ int main() {
     expect(plugin::register_print(host), "register print");
     expect(plugin::register_model3d(host), "register model3d");
     expect(plugin::register_orthogrid(host), "register orthogrid");
-    // input_boundary returns false without a workspace linestring tool — no UI.
+    // input_boundary returns false without a workspace linestring tool 鈥?no UI.
     expect(!host->execute("baogrid.input_boundary_0", {}),
            "baogrid input no tool");
     expect(!host->execute("orthogrid.input_boundary_0", {}),
            "orthogrid input no tool");
-    // Modals suppressed above: save_boundary cancels without 另存为.
+    // Modals suppressed above: save_boundary cancels without 鍙﹀瓨涓?
     expect(!host->execute("orthogrid.save_boundary", {}),
            "orthogrid save cancelled");
     expect(!host->execute("baogrid.save_boundary", {}),

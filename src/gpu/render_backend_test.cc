@@ -58,6 +58,33 @@ int main() {
          "track_a name");
   clear_backend_env();
 
+  // Runtime override (chrome command / HostMsg). Beats SMT_MAP_BACKEND.
+  gpu::set_render_backend(gpu::RenderBackendKind::kTrackAMapLibre);
+  expect(gpu::select_render_backend() == gpu::RenderBackendKind::kTrackAMapLibre,
+         "runtime override Track A");
+  gpu::set_render_backend(gpu::RenderBackendKind::kTrackBRhi);
+  expect(gpu::select_render_backend() == gpu::RenderBackendKind::kTrackBRhi,
+         "runtime override Track B");
+  SetEnvironmentVariableA("SMT_MAP_BACKEND", "a");
+  gpu::set_render_backend(gpu::RenderBackendKind::kTrackBRhi);
+  expect(gpu::select_render_backend() == gpu::RenderBackendKind::kTrackBRhi,
+         "override beats SMT_MAP_BACKEND");
+  gpu::clear_render_backend_override();
+  expect(gpu::select_render_backend() == gpu::RenderBackendKind::kTrackAMapLibre,
+         "cleared override uses env");
+  clear_backend_env();
+  expect(gpu::select_render_backend() == gpu::RenderBackendKind::kTrackBRhi,
+         "default after clear");
+  expect(gpu::apply_render_backend_command("view.backend.maplibre"),
+         "command maplibre");
+  expect(gpu::select_render_backend() == gpu::RenderBackendKind::kTrackAMapLibre,
+         "command sets Track A");
+  expect(gpu::apply_render_backend_command("view.backend.rhi"), "command rhi");
+  expect(gpu::select_render_backend() == gpu::RenderBackendKind::kTrackBRhi,
+         "command sets Track B");
+  expect(!gpu::apply_render_backend_command("view.pan"), "unknown command");
+  gpu::clear_render_backend_override();
+
   if (gpu::maplibre_runtime_compiled()) {
     std::fprintf(stdout, "smt_enable_maplibre: runtime TU compiled\n");
 #if defined(SMT_HAS_MAPLIBRE_LIB)
