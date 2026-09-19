@@ -85,10 +85,8 @@ void paint_aux_overlay(LPRENDERDEVICE device, const tool::AuxOverlay *overlay) {
 namespace ui {
 IMPLEMENT_DYNCREATE(Smt2DXView, SmtXView)
 
-namespace {
 // Posted after SetOperMap so framing runs outside OnInitialUpdate / nested pumps.
-constexpr UINT kMsgFrameOperMap = WM_APP + 0x2D01;
-}  // namespace
+#define SMT_MSG_FRAME_OPER_MAP (WM_APP + 0x2D01)
 
 static void Notify2DXViewOperMap(void *p2DXView, SmtMap *pMap) {
   if (p2DXView != NULL) static_cast<Smt2DXView *>(p2DXView)->SetOperMap(pMap);
@@ -133,7 +131,7 @@ ON_WM_RBUTTONUP()
 ON_WM_CONTEXTMENU()
 ON_WM_SETCURSOR()
 ON_WM_ERASEBKGND()
-ON_MESSAGE(kMsgFrameOperMap, &Smt2DXView::OnFrameOperMap)
+ON_MESSAGE(SMT_MSG_FRAME_OPER_MAP, OnFrameOperMap)
 
 END_MESSAGE_MAP()
 
@@ -218,11 +216,9 @@ void Smt2DXView::OnSize(UINT nType, int cx, int cy) {
 
     m_pRenderDevice->Resize(0, 0, cx, cy);
     m_pRenderDevice->SetRenderPra(rdPra);
-    // Deferred PostMessage(EDIT) often runs SetOperMap before the child has
-    // a non-zero client size, so framing never ran. Finish it here once.
+    // Prefer posted framing over sync ZoomToRect during layout.
     if (m_pSmtOperMap && !m_bOperMapFramed) {
-      LOGGING(LOG_INFO, "OnSize: framing oper map %dx%d", cx, cy);
-      frame_oper_map(/*realtime=*/true);
+      request_oper_map_frame();
     } else {
       m_pRenderDevice->RefreshDirectly(m_pSmtOperMap, lrt);
     }
@@ -247,11 +243,18 @@ void Smt2DXView::OnTimer(UINT_PTR nIDEvent) {
 
       if (m_pFlashTool) m_pFlashTool->Timer();
     } break;
+    case 71: {
+      KillTimer(71);
+      if (m_pSmtOperMap && !m_bOperMapFramed && !m_bFramingOperMap) {
+        LOGGING(LOG_INFO, "OnTimer(71): deferred frame_oper_map");
+        frame_oper_map(/*realtime=*/true);
+      }
+    } break;
     case 70: {
       if (m_pRenderDevice && m_bActive) {
         // Catch the deferred-EDIT case: SetOperMap ran at 0x0 client and no
-        // later WM_SIZE arrived with a positive size.
-        if (m_pSmtOperMap && !m_bOperMapFramed) {
+        // later WM_SIZE / posted frame arrived with a positive size.
+        if (m_pSmtOperMap && !m_bOperMapFramed && !m_bFramingOperMap) {
           CRect client;
           GetClientRect(&client);
           if (client.Width() > 0 && client.Height() > 0) {
@@ -571,6 +574,23 @@ bool Smt2DXView::frame_oper_map(bool realtime) {
   return framed;
 }
 
+void Smt2DXView::request_oper_map_frame() {
+  if (!m_pSmtOperMap || m_bOperMapFramed || m_bFramingOperMap) {
+    return;
+  }
+  // Timer (not PostMessage): BCG OnInitialUpdate still nests a pump that
+  // would run a posted frame mid-construction and AV in ZoomToRect.
+  SetTimer(71, 50, nullptr);
+}
+
+LRESULT Smt2DXView::OnFrameOperMap(WPARAM, LPARAM) {
+  if (!m_bOperMapFramed && !m_bFramingOperMap) {
+    LOGGING(LOG_INFO, "OnFrameOperMap: framing");
+    frame_oper_map(/*realtime=*/true);
+  }
+  return 0;
+}
+
 void Smt2DXView::SetOperMap(SmtMap *pSmtMap) {
   m_pSmtOperMap = pSmtMap;
   m_bOperMapFramed = false;
@@ -581,11 +601,10 @@ void Smt2DXView::SetOperMap(SmtMap *pSmtMap) {
 
   if (m_pFlashTool) m_pFlashTool->SetOperMap(m_pSmtOperMap);
 
-  // Frame + one realtime paint. BCG deferred EDIT1 often has a 0x0 client
-  // here; OnSize finishes framing when the child is actually laid out.
-  if (m_pRenderDevice && m_pSmtOperMap) {
-    frame_oper_map(/*realtime=*/true);
-  }
+  // Do not ZoomToRect here: OnInitialUpdate / BCG nested pumps re-enter OnSize
+  // and ACCESS_VIOLATION mid-paint. Frame via timer after the pump is idle.
+  request_oper_map_frame();
+
   // Start refresh timers only after the map is attached.
   if (m_uiRefreshTimer == 0 || m_uiNotifyTimer == 0) {
     SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
@@ -635,3 +654,7 @@ void Smt2DXView::apply_workspace_draft(const tool::Draft &draft) {
   SmtBaseTool *tool =
       mgr ? dynamic_cast<SmtBaseTool *>(mgr->GetActiveIATool()) : NULL;
   if (tool && tool->GetOwnerWnd() == m_hWnd) {
+    tool->apply_draft(draft);
+  }
+}
+}  // namespace ui

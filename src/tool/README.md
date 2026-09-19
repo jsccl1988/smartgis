@@ -29,4 +29,9 @@ GN：`//src/tool:dispatch` 进日常 `src_all`。leftover DLL 另编 `//src/lega
 
 **SP1b（行为搬迁）**：bound 时指针只走 `Workspace::dispatch_input` → Interaction → `Draft`（含 `Draft.flags` 细类型）；leftover ViewCtrl / Select / Append / **3DViewCtrl** 仅 bind + notify 同步 + `apply_draft` 副作用。`Input*` 保留 `GTT_*` 工厂 ABI，几何仅 `apply_draft`（无指针状态机）；bound 数字化由 `draw.*` 覆盖。见 [`docs/superpowers/specs/2026-09-19-tool-behavior-migration-design.md`](../../docs/superpowers/specs/2026-09-19-tool-behavior-migration-design.md)。
 
-**双指平移**：`content::InputEvent::pointer_count >= 2` 时，`(x_px,y_px)` 为触点中点；`view.pan` / `view3d.*` 发带 `draft_flags::kTouchPan` 的 `kRect` Draft。CEF `shell.js` 与 Views `MapViewport`（`WM_POINTER*` → `TouchMultitouchTracker`）均已转发。触控板 / 鼠标横向滚轮走 `WM_MOUSEHWHEEL`（或 CEF `deltaX`）+ `input_flags::kHorizontalWheel`，由 always-on `wheel.zoom` 转成同形状的 touch-pan Draft。`MapHwndGestures` 只消费 `GID_ZOOM` 并 **block** `GID_PAN`，避免吞掉双指平移。
+**双指平移**：双指左右（及任意方向）拖动是**平移**，不是缩放。路径：
+1. 触屏 `WM_GESTURE` **`GID_PAN`** → `MapHwndGestures` → `apply_pan`（Views）
+2. `WM_POINTER*` 中点 → `TouchMultitouchTracker` → `view.pan` / `view3d.*` 带 `draft_flags::kTouchPan` 的 `kRect` Draft（CEF `shell.js` 同契约）
+3. 触控板横向滚轮 `WM_MOUSEHWHEEL` / CEF `deltaX` → `input_flags::kHorizontalWheel` → always-on 转成同形状 touch-pan Draft
+
+捏合（`GID_ZOOM` / pinch）才是缩放。`MapHwndGestures` **接收并处理** `GID_PAN`，不在 pan 会话里再叠一层 pointer 平移。

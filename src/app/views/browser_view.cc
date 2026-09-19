@@ -1360,14 +1360,15 @@ void BrowserView::attach_hwnd_gestures() {
   auto on_pinch = [this](int x, int y, double scale) {
     handle_pinch(x, y, scale);
   };
+  auto on_pan = [this](int dx, int dy) { handle_gesture_pan(dx, dy); };
   if (map_edit_ && map_edit_->native_view()) {
-    edit_gestures_.attach(map_edit_->native_view(), on_pinch);
+    edit_gestures_.attach(map_edit_->native_view(), on_pinch, on_pan);
   }
   if (map_data_ && map_data_->native_view()) {
-    data_gestures_.attach(map_data_->native_view(), on_pinch);
+    data_gestures_.attach(map_data_->native_view(), on_pinch, on_pan);
   }
   if (map_scene_ && map_scene_->native_view()) {
-    scene_gestures_.attach(map_scene_->native_view(), on_pinch);
+    scene_gestures_.attach(map_scene_->native_view(), on_pinch, on_pan);
   }
 }
 
@@ -1386,6 +1387,28 @@ void BrowserView::handle_pinch(int view_x, int view_y, double scale) {
   }
   push_shared_extent();
   invalidate_map_overlays();
+}
+
+void BrowserView::handle_gesture_pan(int dx_px, int dy_px) {
+  if (dx_px == 0 && dy_px == 0) {
+    return;
+  }
+  int vw = 800;
+  int vh = 600;
+  active_view_size(&vw, &vh);
+  const int tab = map_tabs_ ? map_tabs_->active() : 0;
+  if (tab == 2) {
+    scene3d_.apply_pan(dx_px, dy_px);
+    if (map_scene_) {
+      map_scene_->invalidate_native();
+    }
+  } else {
+    blit_.begin_pan(vw, vh, dx_px, dy_px);
+    document_.apply_pan(dx_px, dy_px);
+  }
+  push_shared_extent();
+  invalidate_map_overlays();
+  schedule_overlay_full_redraw();
 }
 
 }  // namespace app

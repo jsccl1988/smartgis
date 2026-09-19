@@ -20,7 +20,7 @@ MapHwndGestures::~MapHwndGestures() {
   detach();
 }
 
-void MapHwndGestures::attach(HWND hwnd, PinchFn on_pinch) {
+void MapHwndGestures::attach(HWND hwnd, PinchFn on_pinch, PanFn on_pan) {
   detach();
   if (!hwnd || !IsWindow(hwnd) || !on_pinch) {
     return;
@@ -31,15 +31,16 @@ void MapHwndGestures::attach(HWND hwnd, PinchFn on_pinch) {
   }
   hwnd_ = hwnd;
   on_pinch_ = std::move(on_pinch);
-  // Want pinch zoom; block pan so two-finger pan reaches WM_POINTER* →
-  // TouchMultitouchTracker instead of being swallowed as GID_PAN.
+  on_pan_ = std::move(on_pan);
+  // Pinch zoom + two-finger pan (left/right/any direction). Do not enable
+  // single-finger pan flags — those would steal the mouse / one-finger path.
   GESTURECONFIG gc[2] = {};
   gc[0].dwID = GID_ZOOM;
   gc[0].dwWant = GC_ZOOM;
   gc[0].dwBlock = 0;
   gc[1].dwID = GID_PAN;
-  gc[1].dwWant = 0;
-  gc[1].dwBlock = GC_PAN;
+  gc[1].dwWant = GC_PAN | GC_PAN_WITH_INERTIA;
+  gc[1].dwBlock = 0;
   SetGestureConfig(hwnd_, 0, 2, gc, sizeof(GESTURECONFIG));
 }
 
@@ -49,9 +50,13 @@ void MapHwndGestures::detach() {
   }
   hwnd_ = nullptr;
   on_pinch_ = {};
+  on_pan_ = {};
   pinch_.reset();
   last_zoom_arg_ = 0;
   zooming_ = false;
+  last_pan_x_ = 0;
+  last_pan_y_ = 0;
+  panning_ = false;
 }
 
 LRESULT CALLBACK MapHwndGestures::subclass_proc(HWND hwnd, UINT msg,
@@ -75,6 +80,11 @@ bool MapHwndGestures::on_message(UINT msg, WPARAM wparam, LPARAM lparam) {
 #ifdef WM_POINTERDOWN
   if (msg == WM_POINTERDOWN || msg == WM_POINTERUPDATE ||
       msg == WM_POINTERUP || msg == WM_POINTERLEAVE) {
+    // While GID_PAN owns the two-finger drag, swallow pointers so
+    // TouchMultitouchTracker does not double-apply the same pan.
+    if (panning_) {
+      return true;
+    }
     handle_pointer(msg, wparam, lparam);
     return false;
   }
@@ -90,38 +100,66 @@ bool MapHwndGestures::handle_gesture(LPARAM lparam) {
   if (!GetGestureInfo(handle, &gi)) {
     return false;
   }
-  // Only consume zoom. Closing other gesture handles after GetGestureInfo is
-  // required; returning true prevents DefWindowProc from seeing a stale handle.
-  if (gi.dwID != GID_ZOOM) {
-    CloseGestureInfoHandle(handle);
-    return true;
-  }
+
   POINT pt = {gi.ptsLocation.x, gi.ptsLocation.y};
   if (hwnd_) {
     ScreenToClient(hwnd_, &pt);
   }
-  if (gi.dwFlags & GF_BEGIN) {
-    last_zoom_arg_ = gi.ullArguments;
-    zooming_ = true;
-  } else if (zooming_ && last_zoom_arg_ > 0 && gi.ullArguments > 0 &&
-             on_pinch_) {
-    const double scale = static_cast<double>(gi.ullArguments) /
-                         static_cast<double>(last_zoom_arg_);
-    last_zoom_arg_ = gi.ullArguments;
-    if (scale > 0.0) {
-      on_pinch_(pt.x, pt.y, scale);
+
+  if (gi.dwID == GID_PAN) {
+    // Two-finger drag (including left/right) → map pan.
+    if (gi.dwFlags & GF_BEGIN) {
+      last_pan_x_ = pt.x;
+      last_pan_y_ = pt.y;
+      panning_ = true;
+    } else if (panning_ && on_pan_) {
+      const int dx = pt.x - last_pan_x_;
+      const int dy = pt.y - last_pan_y_;
+      last_pan_x_ = pt.x;
+      last_pan_y_ = pt.y;
+      if (dx != 0 || dy != 0) {
+        on_pan_(dx, dy);
+      }
     }
+    if (gi.dwFlags & GF_END) {
+      panning_ = false;
+    }
+    CloseGestureInfoHandle(handle);
+    return true;
   }
-  if (gi.dwFlags & GF_END) {
-    zooming_ = false;
-    last_zoom_arg_ = 0;
+
+  if (gi.dwID == GID_ZOOM) {
+    if (gi.dwFlags & GF_BEGIN) {
+      last_zoom_arg_ = gi.ullArguments;
+      zooming_ = true;
+    } else if (zooming_ && last_zoom_arg_ > 0 && gi.ullArguments > 0 &&
+               on_pinch_) {
+      const double scale = static_cast<double>(gi.ullArguments) /
+                           static_cast<double>(last_zoom_arg_);
+      last_zoom_arg_ = gi.ullArguments;
+      if (scale > 0.0 && tool::scale_to_wheel_delta(scale) != 0) {
+        on_pinch_(pt.x, pt.y, scale);
+      }
+    }
+    if (gi.dwFlags & GF_END) {
+      zooming_ = false;
+      last_zoom_arg_ = 0;
+    }
+    CloseGestureInfoHandle(handle);
+    return true;
   }
+
   CloseGestureInfoHandle(handle);
   return true;
 }
 
 void MapHwndGestures::handle_pointer(UINT msg, WPARAM wparam, LPARAM lparam) {
 #ifdef WM_POINTERDOWN
+  // During an active GID_PAN session, skip pinch sampling so pan is not
+  // mixed with accidental scale from the same two contacts.
+  if (panning_) {
+    return;
+  }
   const UINT32 id = GET_POINTERID_WPARAM(wparam);
   POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
   if (hwnd_) {
@@ -138,7 +176,6 @@ void MapHwndGestures::handle_pointer(UINT msg, WPARAM wparam, LPARAM lparam) {
   if (msg == WM_POINTERUPDATE && on_pinch_) {
     double scale = 0;
     if (pinch_.on_move(id, pt.x, pt.y, &scale) && scale > 0.0) {
-      // Deadband: pure two-finger pan must not micro-zoom.
       if (tool::scale_to_wheel_delta(scale) != 0) {
         on_pinch_(pt.x, pt.y, scale);
       }

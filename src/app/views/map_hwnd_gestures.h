@@ -15,13 +15,16 @@
 
 namespace app {
 
-// Subclasses a map HWND for pinch zoom (WM_GESTURE GID_ZOOM / WM_POINTER*).
-// Two-finger pan stays on MapViewport → TouchMultitouchTracker (WM_POINTER*)
-// and trackpad horizontal wheel (WM_MOUSEHWHEEL). Attach is a no-op when the
-// HWND cannot take a subclass (then pinch is unavailable).
+// Subclasses a map HWND for touch gestures:
+// - GID_ZOOM / WM_POINTER pinch → zoom
+// - GID_PAN (two-finger drag, including left/right) → pan
+// Trackpad horizontal wheel stays on MapViewport (WM_MOUSEHWHEEL).
+// Attach is a no-op when the HWND cannot take a subclass.
 class MapHwndGestures {
  public:
   using PinchFn = std::function<void(int cursor_x, int cursor_y, double scale)>;
+  // Pixel delta in client space (positive dx = content moves right).
+  using PanFn = std::function<void(int dx_px, int dy_px)>;
 
   MapHwndGestures() = default;
   ~MapHwndGestures();
@@ -29,7 +32,7 @@ class MapHwndGestures {
   MapHwndGestures(const MapHwndGestures&) = delete;
   MapHwndGestures& operator=(const MapHwndGestures&) = delete;
 
-  void attach(HWND hwnd, PinchFn on_pinch);
+  void attach(HWND hwnd, PinchFn on_pinch, PanFn on_pan = {});
   void detach();
   HWND hwnd() const { return hwnd_; }
 
@@ -43,9 +46,13 @@ class MapHwndGestures {
 
   HWND hwnd_ = nullptr;
   PinchFn on_pinch_;
+  PanFn on_pan_;
   tool::PointerPinchTracker pinch_;
   ULONGLONG last_zoom_arg_ = 0;
   bool zooming_ = false;
+  int last_pan_x_ = 0;
+  int last_pan_y_ = 0;
+  bool panning_ = false;
 };
 
 }  // namespace app

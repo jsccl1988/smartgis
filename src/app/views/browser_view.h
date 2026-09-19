@@ -95,6 +95,7 @@ class BrowserView : public content::MapContentsObserver {
   void forward_draft_to_contents(const tool::Draft& draft);
   void attach_hwnd_gestures();
   void handle_pinch(int view_x, int view_y, double scale);
+  void handle_gesture_pan(int dx_px, int dy_px);
   void active_view_size(int* w, int* h) const;
   // Fill Ambox from Workspace + PluginHost CommandCatalogs (id-prefix groups).
   void populate_ambox();
