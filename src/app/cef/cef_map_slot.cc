@@ -414,49 +414,48 @@ void CefMapSlot::paint_to_dc(HDC hdc, const RECT& rc) {
   }
   const int w = rc.right > 0 ? rc.right : 1;
   const int h = rc.bottom > 0 ? rc.bottom : 1;
-  if (kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() &&
-      w > 0 && h > 0) {
-    const bool ok = scene3d_rhi_.present(
-        const_cast<Scene3dController*>(&scene3d_),
-        static_cast<uint32_t>(w), static_cast<uint32_t>(h));
-    if (ok) {
-      scene3d_.paint_hud(hdc, w, h);
-    } else {
+  // Scene3d: DemRaster height mesh owns the frame (true 3D relief). Never blit
+  // ContentMapView / MapScene ortho fills here — they hide elevation (screenshot
+  // failure: flat provinces + pitch HUD). FlyCube present is handled in
+  // paint_child so a software BitBlt cannot cover the HWND swapchain.
+  if (kind_ == content::ViewKind::kScene3d) {
+    if (scene3d_rhi_.is_live() && w > 0 && h > 0) {
+      const bool ok = scene3d_rhi_.present(
+          const_cast<Scene3dController*>(&scene3d_),
+          static_cast<uint32_t>(w), static_cast<uint32_t>(h));
+      if (ok) {
+        scene3d_.paint_hud(hdc, w, h);
+      } else {
+        scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+      }
+      return;
+    }
+    if (w > 0 && h > 0) {
       scene3d_.paint(hdc, w, h, /*fill_background=*/true);
     }
     return;
   }
-  if (kind_ != content::ViewKind::kScene3d && blit_.in_preview() &&
-      blit_.present(hdc, w, h)) {
+  if (blit_.in_preview() && blit_.present(hdc, w, h)) {
     return;
   }
   const bool presented = present_latest_frame(hdc, rc);
   if (!presented) {
-    const bool scene3d = kind_ == content::ViewKind::kScene3d;
-    if (scene3d && w > 0 && h > 0) {
-      // GDI DEM wireframe fallback when FlyCube / shared DIB is unavailable.
-      scene3d_.paint(hdc, w, h);
-    } else {
-      const HBRUSH brush =
-          CreateSolidBrush(scene3d ? RGB(18, 32, 48) : RGB(255, 255, 255));
-      FillRect(hdc, &rc, brush);
-      DeleteObject(brush);
-      SetBkMode(hdc, TRANSPARENT);
-      SetTextColor(hdc, scene3d ? RGB(230, 236, 242) : RGB(60, 70, 80));
-      const wchar_t* line = render_ok_ ? L"Map slot (waiting for frame)"
-                                       : L"Map slot (GPU not started)";
-      DrawTextW(hdc, line, -1, const_cast<RECT*>(&rc),
-                DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    }
-  } else if (kind_ == content::ViewKind::kScene3d && w > 0 && h > 0) {
-    scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+    const HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
+    FillRect(hdc, &rc, brush);
+    DeleteObject(brush);
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, RGB(60, 70, 80));
+    const wchar_t* line = render_ok_ ? L"Map slot (waiting for frame)"
+                                     : L"Map slot (GPU not started)";
+    DrawTextW(hdc, line, -1, const_cast<RECT*>(&rc),
+              DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   }
   MapScene* overlay = dem_map_scene();
-  if (kind_ != content::ViewKind::kScene3d && overlay &&
-      overlay->feature_count() > 0 && rc.right > 0 && rc.bottom > 0) {
-    overlay->paint(hdc, rc.right, rc.bottom, /*fill_background=*/true);
+  if (overlay && overlay->feature_count() > 0 && rc.right > 0 &&
+      rc.bottom > 0) {
+    overlay->paint(hdc, rc.right, rc.bottom, /*fill_background=*/!presented);
   }
-  if (kind_ != content::ViewKind::kScene3d && w > 0 && h > 0) {
+  if (w > 0 && h > 0) {
     blit_.capture(hdc, w, h);
   }
 }
@@ -471,6 +470,14 @@ void CefMapSlot::paint_child() {
   GetClientRect(child_hwnd_, &rc);
   const int w = rc.right;
   const int h = rc.bottom;
+  // Match MapViewport Scene3d+FlyCube: present to the HWND swapchain, then
+  // HUD-only on the window DC. Do not BitBlt an offscreen DIB over GPU frames.
+  if (kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() && w > 0 &&
+      h > 0) {
+    paint_to_dc(hdc, rc);
+    EndPaint(child_hwnd_, &ps);
+    return;
+  }
   if (w > 0 && h > 0) {
     HDC mem = CreateCompatibleDC(hdc);
     BITMAPINFO bi = {};

@@ -27,7 +27,8 @@ int BrowserMain(const content::ContentMainParams&) {
   });
 
   app::winui::detail::shutdown_windows_app_sdk();
-  if (app::winui::detail::App::is_self_test_cmd()) {
+  if (app::winui::detail::App::is_self_test_cmd() ||
+      app::winui::detail::App::is_exit_teardown_test_cmd()) {
     return app::winui::detail::App::self_test_exit_code();
   }
   return 0;

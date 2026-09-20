@@ -176,7 +176,9 @@ void DemRaster::fit_vertical_exaggeration() {
   const float span =
       static_cast<float>((std::max)(maxx_ - minx_, maxy_ - miny_));
   const float peak = (std::max)(80.f, max_m_ - min_m_);
-  vert_exag_ = (span * 0.09f) / peak;
+  // ~0.20 of geographic span → Tibet/plateau read clearly under orbit pitch
+  // (0.09 looked nearly flat once ContentMapView provinces were removed).
+  vert_exag_ = (span * 0.20f) / peak;
 }
 
 float DemRaster::meters_at(int col, int row) const {

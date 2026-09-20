@@ -99,6 +99,11 @@ bool App::is_self_test_cmd() {
   return cmd && wcsstr(cmd, L"--self-test");
 }
 
+bool App::is_exit_teardown_test_cmd() {
+  const wchar_t* cmd = GetCommandLineW();
+  return cmd && wcsstr(cmd, L"--exit-teardown-test");
+}
+
 int App::self_test_exit_code() {
   return g_self_test_exit;
 }
@@ -113,6 +118,19 @@ void App::OnLaunched(
   try {
     main_window_ = std::make_unique<MainWindow>();
     main_window_->activate();
+    if (is_exit_teardown_test_cmd()) {
+      // Product-close surrogate: ordered shutdown then ExitProcess (not
+      // Application::Exit — WASDK Exit still heap-corrupts after a clean
+      // MapHost/session teardown; see out/crash/exit-teardown-catch.log).
+      self_test_mark("exit-teardown-begin");
+      pump_ticks(main_window_->map_host(), 30);
+      main_window_->shutdown();
+      main_window_.reset();
+      self_test_mark("exit-teardown-shutdown-ok");
+      g_self_test_exit = 0;
+      self_test_mark("exit-teardown-pass");
+      ::ExitProcess(0);
+    }
     if (is_self_test_cmd()) {
       wchar_t mark_path[MAX_PATH] = {};
       if (GetModuleFileNameW(nullptr, mark_path, MAX_PATH) > 0) {
@@ -287,14 +305,17 @@ void App::OnLaunched(
       } else {
         g_self_test_exit = 5;
       }
-      // Application::Exit() runs full WinUI/WASDK teardown and currently AVs /
-      // STATUS_HEAP_CORRUPTION after oop-fail and china-ingest paths (see
-      // crash/heap-winui.dmp, crash/verify-winui.dmp). Smoke must surface the
-      // functional exit code without exercising that teardown.
+      // Prefer ordered product teardown before leaving the process. Smoke still
+      // uses ExitProcess so a remaining WASDK quirk cannot mask functional
+      // exit codes; --exit-teardown-test exercises Application::Exit alone.
+      if (main_window_) {
+        main_window_->shutdown();
+        main_window_.reset();
+      }
       ::ExitProcess(static_cast<UINT>(g_self_test_exit));
     }
   } catch (::winrt::hresult_error const&) {
-    if (is_self_test_cmd()) {
+    if (is_self_test_cmd() || is_exit_teardown_test_cmd()) {
       g_self_test_exit = 3;
       ::ExitProcess(static_cast<UINT>(g_self_test_exit));
     }

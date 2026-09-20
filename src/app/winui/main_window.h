@@ -34,6 +34,10 @@ class MainWindow {
   HWND native_hwnd() const;
   MapHost* map_host() const { return map_host_.get(); }
 
+  // Ordered teardown for File→Exit / Window.Closed / Application::Exit.
+  // Idempotent: safe to call from Closed and from the destructor.
+  void shutdown();
+
   // True when Menu / Catalog / Ambox / Inspector / Status / map tabs exist.
   bool has_ide_chrome() const;
   // Switch Map Edit (0) / Data (1) / 3D (2). Used by --self-test.
@@ -54,6 +58,7 @@ class MainWindow {
   void on_open();
   void on_exit();
   void highlight_map_tab(int index);
+  void wire_closed();
 
   winrt::Microsoft::UI::Xaml::Window window_{nullptr};
   winrt::Microsoft::UI::Xaml::Controls::Grid root_{nullptr};
@@ -76,6 +81,8 @@ class MainWindow {
   std::thread render_thread_;
   winrt::Microsoft::UI::Dispatching::DispatcherQueueTimer size_heal_timer_{
       nullptr};
+  winrt::event_token closed_token_{};
+  bool shutting_down_ = false;
   int active_tab_ = 0;
 };
 

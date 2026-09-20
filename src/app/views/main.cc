@@ -184,8 +184,9 @@ HWND create_atmosphere_showcase_hwnd(uint32_t width_px, uint32_t height_px) {
 }
 
 // Linger policy for GPU showcase.
-// unset / "-1" / "until-close" → keep presenting until the showcase HWND is closed.
-// "0" → no linger.  positive ms → timed linger (automation).
+// GPU always stays until the present HWND is closed (sticky LINGER_MS must not
+// auto-kill the window). Opt-in timed CI: SMT_ATMOSPHERE_SHOWCASE_TIMED_MS>0.
+// SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=0 skips linger (capture-only).
 struct AtmosphereShowcaseLinger {
   bool until_close = false;
   DWORD ms = 0;
@@ -193,17 +194,24 @@ struct AtmosphereShowcaseLinger {
 
 AtmosphereShowcaseLinger atmosphere_showcase_linger(bool want_gpu) {
   AtmosphereShowcaseLinger out;
-  if (const char* env = std::getenv("SMT_ATMOSPHERE_SHOWCASE_LINGER_MS")) {
-    if (_stricmp(env, "until-close") == 0 || std::strcmp(env, "-1") == 0) {
-      out.until_close = want_gpu;
-      return out;
-    }
-    const int v = std::atoi(env);
-    out.ms = v > 0 ? static_cast<DWORD>(v) : 0u;
+  if (!want_gpu) {
     return out;
   }
-  // Interactive default: stay up until the user closes the present window.
-  out.until_close = want_gpu;
+  if (const char* timed = std::getenv("SMT_ATMOSPHERE_SHOWCASE_TIMED_MS")) {
+    const int v = std::atoi(timed);
+    if (v > 0) {
+      out.ms = static_cast<DWORD>(v);
+      return out;
+    }
+  }
+  if (const char* env = std::getenv("SMT_ATMOSPHERE_SHOWCASE_LINGER_MS")) {
+    // Only "0" is honored; positive values are ignored so leftover shell env
+    // cannot force a flash-and-exit.
+    if (std::strcmp(env, "0") == 0) {
+      return out;
+    }
+  }
+  out.until_close = true;
   return out;
 }
 
@@ -417,8 +425,8 @@ int run_atmosphere_showcase(app::BrowserView& browser,
 
   // Default: Null RHI (deterministic exit). Set SMT_ATMOSPHERE_SHOWCASE_GPU=1
   // for FlyCube/DX12 on a dedicated 640x480 present window (not the tiny tab
-  // child). Optional SMT_ATMOSPHERE_SHOWCASE_LINGER_MS (GPU default:
-  // until-close; set a positive ms for timed automation).
+  // child). GPU lingers until the present HWND is closed; CI may set
+  // SMT_ATMOSPHERE_SHOWCASE_TIMED_MS, or LINGER_MS=0 to skip.
   const bool want_gpu = []() {
     if (const char* env = std::getenv("SMT_ATMOSPHERE_SHOWCASE_GPU")) {
       return env[0] == '1' && env[1] == '\0';

@@ -119,22 +119,39 @@ MapHost::MapHost() {
   panel_.SizeChanged(
       [this](winrt::Windows::Foundation::IInspectable const&,
              winrt::Microsoft::UI::Xaml::SizeChangedEventArgs const&) {
-        sync_layout();
+        if (!shutting_down_) {
+          sync_layout();
+        }
       });
   root_.Loaded([this](winrt::Windows::Foundation::IInspectable const&,
                       winrt::Microsoft::UI::Xaml::RoutedEventArgs const&) {
-    sync_layout();
+    if (!shutting_down_) {
+      sync_layout();
+    }
   });
   root_.SizeChanged(
       [this](winrt::Windows::Foundation::IInspectable const&,
              winrt::Microsoft::UI::Xaml::SizeChangedEventArgs const&) {
-        sync_layout();
+        if (!shutting_down_) {
+          sync_layout();
+        }
       });
   wire_panel_pointers();
 }
 
 MapHost::~MapHost() {
+  begin_shutdown();
+}
+
+void MapHost::begin_shutdown() {
+  if (shutting_down_) {
+    return;
+  }
+  shutting_down_ = true;
   stop_present_timer();
+  if (child_hwnd_ && IsWindow(child_hwnd_)) {
+    KillTimer(child_hwnd_, kBlitTimerId);
+  }
   if (session_) {
     session_->SetObserver(nullptr);
   }
@@ -166,6 +183,9 @@ void MapHost::close_all_views() {
 }
 
 void MapHost::attach_session(content::MapContents* session, HWND window_hwnd) {
+  if (shutting_down_) {
+    return;
+  }
   if (session_ && session_ != session) {
     session_->SetObserver(nullptr);
     close_all_views();
@@ -300,6 +320,9 @@ void MapHost::wire_panel_pointers() {
   panel_.PointerPressed(
       [this](winrt::Windows::Foundation::IInspectable const&,
              PointerRoutedEventArgs const& e) {
+        if (shutting_down_) {
+          return;
+        }
         const auto pt = e.GetCurrentPoint(panel_);
         const float scale = panel_scale();
         content::InputEvent ev{};
@@ -316,6 +339,9 @@ void MapHost::wire_panel_pointers() {
   panel_.PointerMoved(
       [this](winrt::Windows::Foundation::IInspectable const&,
              PointerRoutedEventArgs const& e) {
+        if (shutting_down_) {
+          return;
+        }
         const auto pt = e.GetCurrentPoint(panel_);
         const float scale = panel_scale();
         content::InputEvent ev{};
@@ -330,6 +356,9 @@ void MapHost::wire_panel_pointers() {
   panel_.PointerReleased(
       [this](winrt::Windows::Foundation::IInspectable const&,
              PointerRoutedEventArgs const& e) {
+        if (shutting_down_) {
+          return;
+        }
         const auto pt = e.GetCurrentPoint(panel_);
         const float scale = panel_scale();
         content::InputEvent ev{};
@@ -346,6 +375,9 @@ void MapHost::wire_panel_pointers() {
   panel_.PointerWheelChanged(
       [this](winrt::Windows::Foundation::IInspectable const&,
              PointerRoutedEventArgs const& e) {
+        if (shutting_down_) {
+          return;
+        }
         const auto pt = e.GetCurrentPoint(panel_);
         const float scale = panel_scale();
         content::InputEvent ev{};
@@ -390,7 +422,7 @@ void MapHost::OnFrameReady(uint32_t view_id, uint32_t generation) {
 }
 
 void MapHost::show_kind(content::ViewKind kind) {
-  if (!session_) {
+  if (shutting_down_ || !session_) {
     return;
   }
   const int idx = slot_index(kind);
@@ -412,31 +444,22 @@ void MapHost::show_kind(content::ViewKind kind) {
   }
 
   kind_ = kind;
+  bool flycube_live = false;
   if (kind == content::ViewKind::kScene3d &&
       app::prefer_scene3d_flycube()) {
     attach_child_hwnd();
     if (scene3d_rhi_.try_attach(child_hwnd_)) {
-      view_id_ = slots_[idx].view_id;
-      view_ = slots_[idx].view;
-      painted_generation_ = 0;
-      {
-        content::Extent2 e = map_scene_.world_extent();
-        if (!app::extent_looks_like_china(e)) {
-          e = app::kChinaLonLatExtent;
-        }
-        scene3d_.bind_contents(session_, view_id_);
-        scene3d_.apply_world_extent(e);
-      }
-      start_present_timer();
-      sync_layout();
-      update_status_overlay();
-      return;
+      flycube_live = true;
+    } else {
+      scene3d_rhi_.release();
     }
-    scene3d_rhi_.release();
   } else {
     scene3d_rhi_.release();
   }
 
+  // Always OpenView for Scene3d, including FlyCube present_gpu. Self-test
+  // wait_frame_ok requires view_id != 0 and WaitFrameReady; early-return
+  // without OpenView left view_id_=0 (wait-precheck-fail / exit 10).
   if (slots_[idx].view_id == 0) {
     slots_[idx].view_id = session_->OpenView(kind);
     // Software DIB: GPU publishes shared pixels; this HWND presents Latest().
@@ -456,12 +479,16 @@ void MapHost::show_kind(content::ViewKind kind) {
     if (!app::extent_looks_like_china(e)) {
       e = app::kChinaLonLatExtent;
     }
-    session_->SetExtent(view_id_, e);
+    if (view_id_ != 0) {
+      session_->SetExtent(view_id_, e);
+    }
     scene3d_.bind_contents(session_, view_id_);
     scene3d_.apply_world_extent(e);
   }
 
-  attach_child_hwnd();
+  if (!flycube_live) {
+    attach_child_hwnd();
+  }
   if (view_) {
     view_->SetVisible(true);
   }
@@ -592,6 +619,12 @@ bool MapHost::has_synced_map_layout() const {
 }
 
 bool MapHost::has_presented_frame() const {
+  // FlyCube Scene3d paints via present_gpu; DIB generation may stay 0 while
+  // the HWND swapchain has already presented a live frame.
+  if (kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() &&
+      scene3d_rhi_.last_present_ok()) {
+    return true;
+  }
   if (!view_) {
     return false;
   }
@@ -645,7 +678,7 @@ void MapHost::set_map_surface_visible(bool visible) {
 }
 
 void MapHost::sync_layout() {
-  if (!child_hwnd_ || !panel_ || !window_hwnd_) {
+  if (shutting_down_ || !child_hwnd_ || !panel_ || !window_hwnd_) {
     return;
   }
   // Heal tiny unpackaged frames (DPI 240 often boots at ~512x320 and collapses
@@ -766,6 +799,14 @@ void MapHost::sync_layout() {
                           static_cast<uint32_t>(use_h));
     }
     InvalidateRect(child_hwnd_, nullptr, FALSE);
+  }
+  // Kick one FlyCube present during layout so self-test can observe
+  // last_present_ok without waiting solely on the present timer.
+  if (kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() &&
+      child_hwnd_ && use_w > 8 && use_h > 8) {
+    (void)scene3d_rhi_.present(&scene3d_, static_cast<uint32_t>(use_w),
+                               static_cast<uint32_t>(use_h));
+    UpdateWindow(child_hwnd_);
   }
 }
 
@@ -957,6 +998,9 @@ LRESULT CALLBACK MapHost::child_wnd_proc(HWND hwnd,
   }
 
   if (msg == WM_TIMER && wparam == kPresentTimerId && self) {
+    if (self->shutting_down_) {
+      return 0;
+    }
     // Re-sync screen position when the owner window is dragged / DPI changes.
     self->sync_layout();
     if (self->kind_ == content::ViewKind::kScene3d &&
@@ -976,7 +1020,7 @@ LRESULT CALLBACK MapHost::child_wnd_proc(HWND hwnd,
     return 0;
   }
 
-  if (self && self->session_ && self->view_id_ != 0) {
+  if (self && !self->shutting_down_ && self->session_ && self->view_id_ != 0) {
     content::InputEvent ev{};
     ev.x_px = static_cast<int32_t>(GET_X_LPARAM(lparam));
     ev.y_px = static_cast<int32_t>(GET_Y_LPARAM(lparam));
@@ -1051,10 +1095,16 @@ LRESULT CALLBACK MapHost::child_wnd_proc(HWND hwnd,
   }
 
   if (msg == WM_PAINT && self) {
-    self->paint_child();
+    if (!self->shutting_down_) {
+      self->paint_child();
+    } else {
+      PAINTSTRUCT ps;
+      BeginPaint(hwnd, &ps);
+      EndPaint(hwnd, &ps);
+    }
     return 0;
   }
-  if (msg == WM_PRINTCLIENT && self) {
+  if (msg == WM_PRINTCLIENT && self && !self->shutting_down_) {
     RECT rc;
     GetClientRect(hwnd, &rc);
     self->paint_to_dc(reinterpret_cast<HDC>(wparam), rc);

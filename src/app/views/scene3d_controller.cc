@@ -50,9 +50,11 @@ void normalize_mesh(std::vector<float>* xyz) {
   const float cz = 0.5f * (minz + maxz);
   const float span = (std::max)(maxx - minx, (std::max)(maxz - minz, 1.f));
   const float s = 3.2f / span;
+  // Extra elev scale after XY normalize so pitch reveals mountains (option b).
+  constexpr float kElevBoost = 1.6f;
   for (size_t i = 0; i + 2 < xyz->size(); i += 3) {
     (*xyz)[i] = ((*xyz)[i] - cx) * s;
-    (*xyz)[i + 1] = ((*xyz)[i + 1] - cy) * s;
+    (*xyz)[i + 1] = ((*xyz)[i + 1] - cy) * s * kElevBoost;
     (*xyz)[i + 2] = ((*xyz)[i + 2] - cz) * s;
   }
 }

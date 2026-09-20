@@ -118,12 +118,13 @@ void ensure_usable_window_size(
 MainWindow::MainWindow() {
   window_ = ::winrt::Microsoft::UI::Xaml::Window();
   window_.Title(L"SmartGIS WinUI");
-  // Early attempt — may be ignored until Activate; activate() re-applies.
+  // Early attempt -- may be ignored until Activate; activate() re-applies.
   ensure_usable_window_size(window_, nullptr);
+  wire_closed();
   try {
     map_host_ = std::make_unique<MapHost>();
     session_ = content::MapContents::Create();
-    // Do not StartRenderProcess here — it blocks up to ~30s on pipe/Hello and
+    // Do not StartRenderProcess here -- it blocks up to ~30s on pipe/Hello and
     // freezes WinUI before the first paint (white client / Not Responding).
     build_chrome();
   } catch (::winrt::hresult_error const&) {
@@ -137,23 +138,75 @@ MainWindow::MainWindow() {
 }
 
 MainWindow::~MainWindow() {
-  // Stop deferred size heal before tearing down the map HWND / session.
+  shutdown();
+}
+
+void MainWindow::wire_closed() {
+  if (!window_ || closed_token_) {
+    return;
+  }
+  // X button / system close must tear down MapHost before WASDK destroys the
+  // Window tree; otherwise present-timer + SizeChanged AVs (verify-winui.dmp).
+  closed_token_ = window_.Closed(
+      [this](::winrt::Windows::Foundation::IInspectable const&,
+             ::winrt::Microsoft::UI::Xaml::WindowEventArgs const&) {
+        // X button: same ordered teardown + hard exit (skip broken WASDK Exit).
+        shutdown();
+        ::ExitProcess(0);
+      });
+}
+
+void MainWindow::shutdown() {
+  if (shutting_down_) {
+    return;
+  }
+  shutting_down_ = true;
+
+  if (closed_token_ && window_) {
+    try {
+      window_.Closed(closed_token_);
+    } catch (::winrt::hresult_error const&) {
+    }
+    closed_token_ = {};
+  }
+
   if (size_heal_timer_) {
-    size_heal_timer_.Stop();
+    try {
+      size_heal_timer_.Stop();
+    } catch (::winrt::hresult_error const&) {
+    }
     size_heal_timer_ = nullptr;
   }
   if (render_thread_.joinable()) {
     render_thread_.join();
   }
-  // Drop Xaml tree first so SizeChanged / Loaded / pointer handlers cannot
-  // touch MapHost while we destroy child HWNDs (exit-path 0xC0000374).
+
+  // Stop MapHost timers / CloseView / destroy HWND before clearing XAML so
+  // SizeChanged / Loaded / pointer handlers cannot touch a dying host.
+  if (map_host_) {
+    map_host_->begin_shutdown();
+  }
+
   try {
-    window_.Content(nullptr);
+    if (window_) {
+      window_.Content(nullptr);
+    }
   } catch (::winrt::hresult_error const&) {
   }
-  // Destroy MapHost (timers, child HWND, HostView users) before Shutdown
-  // deletes MapWidgetHostViewImpl — same pattern as BrowserView teardown to
-  // avoid late WM_TIMER / WM_PAINT heap corruption (STATUS_HEAP_CORRUPTION).
+  root_ = nullptr;
+  menu_bar_ = nullptr;
+  catalog_panel_ = nullptr;
+  catalog_tree_ = nullptr;
+  ambox_panel_ = nullptr;
+  map_column_ = nullptr;
+  tab_map_ = tab_data_ = tab_scene_ = nullptr;
+  inspector_panel_ = nullptr;
+  insp_feature_ = insp_attrs_ = nullptr;
+  inspector_body_ = nullptr;
+  status_bar_ = nullptr;
+
+  // Destroy MapHost (HostView users) before Shutdown deletes
+  // MapWidgetHostViewImpl -- avoid late WM_TIMER / WM_PAINT heap corruption.
   map_host_.reset();
   if (session_) {
     session_->Shutdown();
@@ -167,15 +220,15 @@ void MainWindow::activate() {
   // Constructor Resize is often discarded for WinUI 3 unpackaged windows;
   // apply again after Activate so Catalog+Ambox leave a real map column.
   ensure_usable_window_size(window_, native_hwnd());
-  set_status(L"Starting GPU…");
+  set_status(L"Starting GPU...");
   content::MapContents* session = session_;
   if (render_thread_.joinable()) {
     render_thread_.join();
   }
 
   // Start GPU off the UI thread, but pump Win32 messages here until Hello
-  // returns — then attach_map() synchronously. TryEnqueue-only attach raced
-  // OnLaunched / --self-test (DispatcherQueue not drained → white slot /
+  // returns --then attach_map() synchronously. TryEnqueue-only attach raced
+  // OnLaunched / --self-test (DispatcherQueue not drained ->white slot /
   // view_id=0 / map-frame-fail).
   std::atomic<bool> gpu_done{false};
   std::atomic<bool> gpu_ok{false};
@@ -201,7 +254,7 @@ void MainWindow::activate() {
   if (gpu_ok.load()) {
     set_status(L"Ready");
   } else {
-    set_status(L"GPU failed — local MapScene only");
+    set_status(L"GPU failed -- local MapScene only");
   }
   // WinUI unpackaged keeps restoring ~512x320 at 240 DPI; AppWindow.Resize and
   // a single SetWindowPos are overwritten. Pump + force-size until the frame
@@ -249,9 +302,12 @@ void MainWindow::activate() {
     size_heal_timer_.Interval(std::chrono::milliseconds(600));
     size_heal_timer_.IsRepeating(false);
     size_heal_timer_.Tick([this](auto&&, auto&&) {
+      if (shutting_down_) {
+        return;
+      }
       size_heal_timer_.Stop();
       HWND hwnd = native_hwnd();
-      // Prefer a large restored frame — Maximize races some WinAppSDK builds.
+      // Prefer a large restored frame --Maximize races some WinAppSDK builds.
       if (hwnd && IsWindow(hwnd)) {
         ShowWindow(hwnd, SW_RESTORE);
         SetWindowPos(hwnd, nullptr, 40, 40, kInitialWindowWidth,
@@ -271,7 +327,7 @@ void MainWindow::activate() {
         }
       } catch (::winrt::hresult_error const&) {
       }
-      if (map_host_) {
+      if (!shutting_down_ && map_host_) {
         map_host_->sync_layout();
         if (HWND child = map_host_->map_child_hwnd()) {
           InvalidateRect(child, nullptr, FALSE);
@@ -439,7 +495,11 @@ void MainWindow::on_open() {
 }
 
 void MainWindow::on_exit() {
-  ::winrt::Microsoft::UI::Xaml::Application::Current().Exit();
+  // Ordered teardown first. Application::Exit() still trips WASDK heap
+  // corruption even after MapHost/session are gone (--exit-teardown-test);
+  // ExitProcess matches the smoke harness and keeps product close safe.
+  shutdown();
+  ::ExitProcess(0);
 }
 
 void MainWindow::wire_menu() {
@@ -710,7 +770,7 @@ void MainWindow::build_chrome() {
   root_.SizeChanged(
       [this](::winrt::Windows::Foundation::IInspectable const&,
              ::winrt::Microsoft::UI::Xaml::SizeChangedEventArgs const&) {
-        if (map_host_) {
+        if (!shutting_down_ && map_host_) {
           map_host_->sync_layout();
         }
       });
@@ -719,14 +779,14 @@ void MainWindow::build_chrome() {
 }
 
 void MainWindow::attach_map() {
-  if (!map_host_) {
+  if (!map_host_ || shutting_down_) {
     return;
   }
   map_host_->attach_session(session_, native_hwnd());
   window_.DispatcherQueue().TryEnqueue(
       winrt::Microsoft::UI::Dispatching::DispatcherQueuePriority::Normal,
       [this]() {
-        if (map_host_) {
+        if (!shutting_down_ && map_host_) {
           map_host_->sync_layout();
         }
       });

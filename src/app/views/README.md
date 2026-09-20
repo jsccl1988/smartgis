@@ -81,11 +81,12 @@ FlyCube 会写 `flycube-camera-ok`，并在 present 前开 `enable_atmosphere_de
 
 大气 3D 端到端 showcase。默认 **Null RHI**（可重复退出 0）；
 真 GPU：`set SMT_ATMOSPHERE_SHOWCASE_GPU=1`（独立 640×480 展示窗 + FlyCube/DX12）。
-GPU 默认 **一直显示直到关掉展示窗**；自动化设 `SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=1500`（毫秒）或 `0` 跳过。
+GPU **永远显示直到关掉展示窗**（忽略残留的正数 `LINGER_MS`）。自动化用
+`SMT_ATMOSPHERE_SHOWCASE_TIMED_MS=1500`，或 `SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=0` 跳过停留。
 
 ```bat
 set SMT_ATMOSPHERE_SHOWCASE_GPU=1
-rem automation only: set SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=1500
+rem automation only: set SMT_ATMOSPHERE_SHOWCASE_TIMED_MS=1500
 out\SmartGisViews.exe --atmosphere-showcase=full
 ```
 

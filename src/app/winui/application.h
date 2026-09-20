@@ -26,6 +26,7 @@ struct App : winrt::Microsoft::UI::Xaml::ApplicationT<
       winrt::Microsoft::UI::Xaml::LaunchActivatedEventArgs const& args);
 
   static bool is_self_test_cmd();
+  static bool is_exit_teardown_test_cmd();
   static int self_test_exit_code();
 
   winrt::Microsoft::UI::Xaml::Markup::IXamlType GetXamlType(

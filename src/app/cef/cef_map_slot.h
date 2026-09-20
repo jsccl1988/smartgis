@@ -29,9 +29,10 @@ class ViewHost;
 namespace app {
 namespace cef {
 
-// Sibling map HWND (not under the CEF control tree). Presents MapContents
-// software-DIB frames, overlays MapScene vectors, and for kScene3d owns a
-// Scene3dController + MapScene (WinUI paint / paint_hud parity).
+// Sibling map HWND (not under the CEF control tree). 2D tabs present
+// MapContents DIBs + MapScene vectors; kScene3d owns Scene3dController and
+// paints DemRaster height mesh (FlyCube present_gpu or GDI facets) — not a
+// flat ContentMapView / MapScene plane tilted by pitch alone.
 class CefMapSlot {
  public:
   using ViewMenuRequested = std::function<void(POINT screen)>;

@@ -647,44 +647,41 @@ void SgHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   }
   const int w = rc.right > 0 ? rc.right : 1;
   const int h = rc.bottom > 0 ? rc.bottom : 1;
-  if (kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() &&
-      w > 0 && h > 0) {
-    const bool ok = scene3d_rhi_.present(
-        const_cast<app::Scene3dController*>(&scene3d_),
-        static_cast<uint32_t>(w), static_cast<uint32_t>(h));
-    if (ok) {
-      scene3d_.paint_hud(hdc, w, h);
-    } else {
+  // Scene3d: DemRaster mesh owns the frame (CEF / Views parity). Do not blit
+  // ContentMapView ortho under DEM — flat provinces hide relief.
+  if (kind_ == content::ViewKind::kScene3d) {
+    if (scene3d_rhi_.is_live() && w > 0 && h > 0) {
+      const bool ok = scene3d_rhi_.present(
+          const_cast<app::Scene3dController*>(&scene3d_),
+          static_cast<uint32_t>(w), static_cast<uint32_t>(h));
+      if (ok) {
+        scene3d_.paint_hud(hdc, w, h);
+      } else {
+        scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+      }
+      return;
+    }
+    if (w > 0 && h > 0) {
       scene3d_.paint(hdc, w, h, /*fill_background=*/true);
     }
     return;
   }
-  if (kind_ != content::ViewKind::kScene3d && blit_.in_preview() &&
-      blit_.present(hdc, w, h)) {
+  if (blit_.in_preview() && blit_.present(hdc, w, h)) {
     return;
   }
   const bool presented = present_latest_frame(hdc, rc);
   if (!presented) {
-    const bool scene3d = kind_ == content::ViewKind::kScene3d;
-    if (scene3d && w > 0 && h > 0) {
-      scene3d_.paint(hdc, w, h);
-    } else {
-      const HBRUSH brush =
-          CreateSolidBrush(scene3d ? RGB(18, 32, 48) : RGB(255, 255, 255));
-      FillRect(hdc, &rc, brush);
-      DeleteObject(brush);
-    }
-  } else if (kind_ == content::ViewKind::kScene3d && w > 0 && h > 0) {
-    scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+    const HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
+    FillRect(hdc, &rc, brush);
+    DeleteObject(brush);
   }
-  // Overlay China city / OGR vectors on 2D only — 3D land fills hid DEM relief.
-  if (kind_ != content::ViewKind::kScene3d) {
+  {
     std::lock_guard<std::mutex> lock(document_mu_);
     if (document.feature_count() > 0) {
-      document.paint(hdc, w, h, /*fill_background=*/true);
+      document.paint(hdc, w, h, /*fill_background=*/!presented);
     }
   }
-  if (kind_ != content::ViewKind::kScene3d && w > 0 && h > 0) {
+  if (w > 0 && h > 0) {
     blit_.capture(hdc, w, h);
   }
 }

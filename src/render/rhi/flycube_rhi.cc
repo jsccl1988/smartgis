@@ -1043,6 +1043,12 @@ class FlycubeDevice : public Device {
   explicit FlycubeDevice(Backend backend) : backend_(backend) {}
 
   bool initialize(const DeviceDesc& desc) override {
+    // WM_SIZE / Scene3dRhiSession::resize re-call initialize on a live device.
+    // DXGI allows only one flip-model swapchain per HWND; leaving the old
+    // chain bound makes CreateSwapChainForHwnd fail and FlyCube CHECK abort().
+    if (instance_ || fc_device_ || swapchain_) {
+      shutdown();
+    }
     width_ = desc.width;
     height_ = desc.height;
     hwnd_ = static_cast<HWND>(desc.native_window);
@@ -1098,6 +1104,10 @@ class FlycubeDevice : public Device {
 
   void shutdown() override {
     wait_for_idle();
+    for (uint32_t i = 0; i < kFrameCount; ++i) {
+      graphics_lists_[i].reset();
+      graphics_fence_values_[i] = 0;
+    }
     solid_set_.reset();
     ocean_set_.reset();
     cloud_set_.reset();
@@ -1181,11 +1191,14 @@ class FlycubeDevice : public Device {
     if (fly_list->has_draws() || fly_list->has_dispatches()) {
       return execute_offscreen(fly_list);
     }
+    // Empty close: still serialize before Reset — FlyCube may pool allocators.
+    wait_for_idle();
     auto fc_list = fc_device_->CreateCommandList(::CommandListType::kGraphics);
     if (fc_list) {
       fc_list->Reset();
       fc_list->Close();
       command_queue_->ExecuteCommandLists({fc_list});
+      wait_for_idle();
     }
     return true;
   }
@@ -1348,6 +1361,7 @@ class FlycubeDevice : public Device {
     upload->UpdateUploadBufferWithTextureData(
         0, aligned_row, buffer_size, data, row_bytes, row_bytes * num_rows,
         row_bytes, static_cast<uint32_t>(num_rows), 1);
+    wait_for_idle();
     auto fc_list = fc_device_->CreateCommandList(::CommandListType::kGraphics);
     if (!fc_list) {
       return false;
@@ -1783,7 +1797,16 @@ class FlycubeDevice : public Device {
     command_queue_->Wait(fence_, fence_value_);
     std::shared_ptr<Resource> back_buffer =
         swapchain_->GetBackBuffer(frame_index);
-    auto fc_list = fc_device_->CreateCommandList(::CommandListType::kGraphics);
+    // Per-frame command list: wait for this slot's prior Execute before Reset
+    // (avoids D3D12 COMMAND_ALLOCATOR_SYNC when FlyCube pools allocators).
+    if (graphics_fence_values_[frame_index] != 0) {
+      fence_->Wait(graphics_fence_values_[frame_index]);
+    }
+    if (!graphics_lists_[frame_index]) {
+      graphics_lists_[frame_index] =
+          fc_device_->CreateCommandList(::CommandListType::kGraphics);
+    }
+    auto fc_list = graphics_lists_[frame_index];
     if (!fc_list || !back_buffer) {
       return false;
     }
@@ -1868,6 +1891,8 @@ class FlycubeDevice : public Device {
                                ResourceState::kPresent}});
     fc_list->Close();
     command_queue_->ExecuteCommandLists({fc_list});
+    command_queue_->Signal(fence_, ++fence_value_);
+    graphics_fence_values_[frame_index] = fence_value_;
     return true;
   }
 
@@ -1881,6 +1906,7 @@ class FlycubeDevice : public Device {
     if (!ensure_compute_pipelines()) {
       return false;
     }
+    wait_for_idle();
     auto fc_list = fc_device_->CreateCommandList(::CommandListType::kGraphics);
     if (!fc_list) {
       return false;
@@ -2137,6 +2163,7 @@ class FlycubeDevice : public Device {
   uint32_t width_ = 0;
   uint32_t height_ = 0;
   uint64_t fence_value_ = 0;
+  uint64_t graphics_fence_values_[kFrameCount] = {};
   uint32_t gpu_sampled_draws_ = 0;
   bool pipelines_ready_ = false;
   bool compute_ready_ = false;
@@ -2147,6 +2174,7 @@ class FlycubeDevice : public Device {
   std::shared_ptr<CommandQueue> command_queue_;
   std::shared_ptr<Swapchain> swapchain_;
   std::shared_ptr<Fence> fence_;
+  std::shared_ptr<::CommandList> graphics_lists_[kFrameCount];
   std::vector<std::shared_ptr<View>> back_buffer_views_;
   std::shared_ptr<Resource> depth_texture_;
   std::shared_ptr<View> depth_view_;

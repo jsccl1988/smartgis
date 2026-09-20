@@ -71,47 +71,107 @@ std::string find_china_plp() {
   return {};
 }
 
-int count_non_white(HWND hwnd, int w, int h) {
-  HDC hdc = GetDC(hwnd);
-  if (!hdc) {
+// STATIC's DefWindowProc paints a white client; Refresh() blits map pixels
+// directly to the HWND DC, so a later WM_PAINT races and yields 0 non-white
+// samples. Own class: no erase, empty paint — retain the direct blit.
+LRESULT CALLBACK paint_test_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam,
+                                     LPARAM lparam) {
+  if (msg == WM_ERASEBKGND) {
+    return 1;
+  }
+  if (msg == WM_PAINT) {
+    PAINTSTRUCT ps;
+    BeginPaint(hwnd, &ps);
+    EndPaint(hwnd, &ps);
+    return 0;
+  }
+  return DefWindowProcW(hwnd, msg, wparam, lparam);
+}
+
+HWND create_paint_test_hwnd() {
+  static const wchar_t kClass[] = L"SmartGisGdiMapPaintTest";
+  static bool registered = false;
+  if (!registered) {
+    WNDCLASSEXW wc = {};
+    wc.cbSize = sizeof(wc);
+    wc.lpfnWndProc = paint_test_wnd_proc;
+    wc.hInstance = GetModuleHandleW(nullptr);
+    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc.lpszClassName = kClass;
+    if (!RegisterClassExW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
+      return nullptr;
+    }
+    registered = true;
+  }
+  return CreateWindowExW(0, kClass, L"gdi-map-paint-test", WS_POPUP, 0, 0, 400,
+                         300, nullptr, nullptr, GetModuleHandleW(nullptr),
+                         nullptr);
+}
+
+int count_non_white_hbitmap(HBITMAP bmp) {
+  if (!bmp) {
+    return 0;
+  }
+  BITMAP bm = {};
+  if (GetObject(bmp, sizeof(bm), &bm) == 0 || bm.bmWidth <= 0 ||
+      bm.bmHeight <= 0) {
     return 0;
   }
   BITMAPINFO bmi = {};
   bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-  bmi.bmiHeader.biWidth = w;
-  bmi.bmiHeader.biHeight = -h;
+  bmi.bmiHeader.biWidth = bm.bmWidth;
+  bmi.bmiHeader.biHeight = -bm.bmHeight;
   bmi.bmiHeader.biPlanes = 1;
   bmi.bmiHeader.biBitCount = 32;
   bmi.bmiHeader.biCompression = BI_RGB;
-  void* bits = nullptr;
-  HDC mem = CreateCompatibleDC(hdc);
-  HBITMAP bmp = CreateDIBSection(mem, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-  if (!mem || !bmp || !bits) {
-    if (bmp) {
-      DeleteObject(bmp);
-    }
-    if (mem) {
-      DeleteDC(mem);
-    }
-    ReleaseDC(hwnd, hdc);
+  const int pixels = bm.bmWidth * bm.bmHeight;
+  std::vector<std::uint32_t> bits(static_cast<size_t>(pixels));
+  HDC hdc = GetDC(nullptr);
+  const int got =
+      GetDIBits(hdc, bmp, 0, static_cast<UINT>(bm.bmHeight), bits.data(), &bmi,
+                DIB_RGB_COLORS);
+  ReleaseDC(nullptr, hdc);
+  if (got <= 0) {
     return 0;
   }
-  HGDIOBJ old = SelectObject(mem, bmp);
-  BitBlt(mem, 0, 0, w, h, hdc, 0, 0, SRCCOPY);
-  const auto* px = static_cast<const std::uint32_t*>(bits);
   int n = 0;
-  for (int i = 0; i < w * h; i += 4) {
-    const unsigned r = px[i] & 0xff;
-    const unsigned g = (px[i] >> 8) & 0xff;
-    const unsigned b = (px[i] >> 16) & 0xff;
+  for (int i = 0; i < pixels; i += 4) {
+    const unsigned r = bits[static_cast<size_t>(i)] & 0xff;
+    const unsigned g = (bits[static_cast<size_t>(i)] >> 8) & 0xff;
+    const unsigned b = (bits[static_cast<size_t>(i)] >> 16) & 0xff;
     if (r < 250 && g < 250 && b < 250) {
       ++n;
     }
   }
-  SelectObject(mem, old);
-  DeleteObject(bmp);
-  DeleteDC(mem);
-  ReleaseDC(hwnd, hdc);
+  return n;
+}
+
+// Count painted samples from the device map buffer (authoritative). HWND
+// GetDC readback under DWM is flaky after Refresh()'s direct BitBlt.
+int count_map_buf_non_white(render::LPRENDERDEVICE dev) {
+  if (!dev) {
+    return 0;
+  }
+  char dir[MAX_PATH] = {};
+  if (GetTempPathA(MAX_PATH, dir) == 0) {
+    return 0;
+  }
+  char path[MAX_PATH] = {};
+  if (sprintf_s(path, "%sgdi_map_paint_%lu.bmp", dir,
+                static_cast<unsigned long>(GetCurrentProcessId())) <= 0) {
+    return 0;
+  }
+  if (dev->SaveImage(path, render::MRD_BL_MAP) != SMT_ERR_NONE) {
+    return 0;
+  }
+  HBITMAP bmp = static_cast<HBITMAP>(LoadImageA(
+      nullptr, path, IMAGE_BITMAP, 0, 0,
+      LR_LOADFROMFILE | LR_CREATEDIBSECTION));
+  DeleteFileA(path);
+  const int n = count_non_white_hbitmap(bmp);
+  if (bmp) {
+    DeleteObject(bmp);
+  }
   return n;
 }
 
@@ -221,10 +281,8 @@ int main() {
     expect(map.AddLayer(donut), "AddLayer donut holes");
   }
 
-  HWND hwnd = CreateWindowExW(0, L"STATIC", L"gdi-map-paint-test", WS_POPUP, 0,
-                              0, 400, 300, nullptr, nullptr,
-                              GetModuleHandleW(nullptr), nullptr);
-  expect(hwnd != nullptr, "CreateWindowEx STATIC");
+  HWND hwnd = create_paint_test_hwnd();
+  expect(hwnd != nullptr, "CreateWindowEx paint-test");
   if (!hwnd) {
     GDALClose(ds);
     if (donut_ds) {
@@ -232,6 +290,8 @@ int main() {
     }
     return 1;
   }
+  // Hidden WS_POPUP DCs do not retain BitBlt; match gl_map_paint_test.
+  ShowWindow(hwnd, SW_SHOWNOACTIVATE);
   // GetPixel needs a shown window; DWM does not retain bits for hidden HWNDs.
   ShowWindow(hwnd, SW_SHOWNOACTIVATE);
   UpdateWindow(hwnd);
@@ -312,7 +372,8 @@ int main() {
   dev->RenderMap();
   GdiFlush();
 
-  const int painted = count_non_white(hwnd, 400, 300);
+  // Assert the map offscreen buffer — not HWND pixels (DWM readback flakes).
+  const int painted = count_map_buf_non_white(dev);
   expect(painted > 20, "realtime paint produced non-white pixels");
   std::fprintf(stderr, "realtime non-white samples: %d\n", painted);
 

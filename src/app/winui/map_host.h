@@ -41,6 +41,8 @@ class MapHost : public content::MapContentsObserver {
   winrt::Microsoft::UI::Xaml::Controls::Grid root_element() const;
 
   void attach_session(content::MapContents* session, HWND window_hwnd);
+  // Stop timers / views / HWND before XAML Content is cleared on Exit.
+  void begin_shutdown();
   // Open Map Edit / Data / Scene3d (keeps prior views alive).
   void show_kind(content::ViewKind kind);
   void sync_layout();
@@ -130,6 +132,7 @@ class MapHost : public content::MapContentsObserver {
   content::ViewKind kind_ = content::ViewKind::kMapEdit;
   std::string active_tool_{"view.pan"};
   bool dragging_ = false;
+  bool shutting_down_ = false;
   int last_pointer_x_ = 0;
   int last_pointer_y_ = 0;
 };

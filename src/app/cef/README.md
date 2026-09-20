@@ -47,10 +47,20 @@ with `tool::Workspace`.
 
 Startup seeds `out/china_plp.geojson` via shared `app::MapScene` (OGR) and
 forwards the same path through `MapContents::CatalogCall`. The sample is a
-normal map pack: **区 / 线 / 点 / 注记** layers painted over the GPU frame.
-Catalog lists those four layers. Map HWND right-click shows the 2D view menu
-(Zoom In / Out / Pan / Full / Refresh). Open / Add layer pick a file and call
-`MapScene::open_path`.
+normal map pack: **区 / 线 / 点 / 注记** layers painted over the GPU frame
+on **Map / Data** tabs only. Catalog lists those four layers. Map HWND
+right-click shows the 2D view menu (Zoom In / Out / Pan / Full / Refresh).
+Open / Add layer pick a file and call `MapScene::open_path`.
+
+### 3D tab (true DEM relief)
+
+`kScene3d` uses shared `Scene3dController` → `gis::DemRaster` height mesh
+(FlyCube `present_gpu` or GDI facets). Pitch / orbit must reveal mountains /
+plateau — not a flat province MapScene tilted by the camera. 2D vector
+drape-as-texture on the DEM mesh is deferred (GpuScene is solid-shaded today).
+
+Verify: open the **3D** tab, drag to pitch — Tibet/west should rise vs east
+coast; HUD shows `pitch` / `dist`. Restart `SmartGisCef.exe` after rebuild.
 
 Wheel / drag / pinch land on `ChromeBridge` as `PointerEvent` (or topic
 `map.pointer` / `map.gesture`) and are forwarded to `ViewHost` plus
