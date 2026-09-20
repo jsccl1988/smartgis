@@ -388,7 +388,7 @@ size_t features_from_ogr(OGRFeature* ogr_feat,
     out->reserve(static_cast<size_t>(ngeom));
     for (int i = 0; i < ngeom; ++i) {
       OGRGeometry* part = multi->getGeometryRef(i);
-      if (!part) {
+      if (!part || wkbFlatten(part->getGeometryType()) != wkbLineString) {
         continue;
       }
       MapScene::Feature f;
@@ -408,7 +408,7 @@ size_t features_from_ogr(OGRFeature* ogr_feat,
     out->reserve(static_cast<size_t>(ngeom));
     for (int i = 0; i < ngeom; ++i) {
       OGRGeometry* part = multi->getGeometryRef(i);
-      if (!part) {
+      if (!part || wkbFlatten(part->getGeometryType()) != wkbPolygon) {
         continue;
       }
       MapScene::Feature f;
@@ -692,7 +692,11 @@ bool MapScene::ingest_ogr_path(const std::string& path) {
   if (loaded.empty() || total_features == 0) {
     return false;
   }
-  layers_ = std::move(loaded);
+  // Replace in place: clear first so a failed prior document cannot leave
+  // overlapping Layer storage while |loaded| is moved (debug CRT has tripped
+  // RtlValidateHeap on ~vector<Layer> after assign).
+  layers_.clear();
+  layers_.swap(loaded);
   active_layer_id_ = layers_.front().id;
   selected_id_ = {};
   // Multi-layer GPKG already uses real OGR names (area/line/point/text).

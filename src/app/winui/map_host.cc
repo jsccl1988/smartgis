@@ -83,7 +83,10 @@ int MapHost::slot_index(content::ViewKind kind) {
 }
 
 MapHost::MapHost() {
-  map_scene_.seed_default();
+  // Do not seed China OGR packs here. OnLaunched constructs MapHost on the
+  // Xaml UI stack; ingest_ogr_path of china_city has been observed to free an
+  // invalid heap block (RtlValidateHeap / STATUS_HEAP_CORRUPTION) before the
+  // window is fully up. attach_session seeds when feature_count() == 0.
   root_ = winrt::Microsoft::UI::Xaml::Controls::Grid();
   panel_ = winrt::Microsoft::UI::Xaml::Controls::SwapChainPanel();
   status_ = winrt::Microsoft::UI::Xaml::Controls::TextBlock();

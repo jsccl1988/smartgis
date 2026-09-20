@@ -287,12 +287,16 @@ void App::OnLaunched(
       } else {
         g_self_test_exit = 5;
       }
-      ::winrt::Microsoft::UI::Xaml::Application::Current().Exit();
+      // Application::Exit() runs full WinUI/WASDK teardown and currently AVs /
+      // STATUS_HEAP_CORRUPTION after oop-fail and china-ingest paths (see
+      // crash/heap-winui.dmp, crash/verify-winui.dmp). Smoke must surface the
+      // functional exit code without exercising that teardown.
+      ::ExitProcess(static_cast<UINT>(g_self_test_exit));
     }
   } catch (::winrt::hresult_error const&) {
     if (is_self_test_cmd()) {
       g_self_test_exit = 3;
-      ::winrt::Microsoft::UI::Xaml::Application::Current().Exit();
+      ::ExitProcess(static_cast<UINT>(g_self_test_exit));
     }
   }
 }

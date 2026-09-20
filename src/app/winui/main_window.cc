@@ -145,6 +145,12 @@ MainWindow::~MainWindow() {
   if (render_thread_.joinable()) {
     render_thread_.join();
   }
+  // Drop Xaml tree first so SizeChanged / Loaded / pointer handlers cannot
+  // touch MapHost while we destroy child HWNDs (exit-path 0xC0000374).
+  try {
+    window_.Content(nullptr);
+  } catch (::winrt::hresult_error const&) {
+  }
   // Destroy MapHost (timers, child HWND, HostView users) before Shutdown
   // deletes MapWidgetHostViewImpl — same pattern as BrowserView teardown to
   // avoid late WM_TIMER / WM_PAINT heap corruption (STATUS_HEAP_CORRUPTION).
