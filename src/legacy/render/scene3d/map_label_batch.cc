@@ -140,9 +140,11 @@ bool rasterize_label_bgra(const std::wstring& wide, int px_h, int halo_px,
   bgra->resize(static_cast<size_t>(w) * static_cast<size_t>(h) * 4u);
   const int stride = data.Stride;
   auto* src_base = static_cast<const unsigned char*>(data.Scan0);
-  // Flip vertically for GL texture origin.
+  // Keep GDI+ top-down row order. Screen ortho is also top-down
+  // (gluOrtho2D y=0 at top) and the quad maps V=0 to the top edge, so an
+  // extra GL-style bottom-up flip would invert the glyphs.
   for (int y = 0; y < h; ++y) {
-    const unsigned char* row = src_base + (h - 1 - y) * stride;
+    const unsigned char* row = src_base + y * stride;
     unsigned char* dst =
         bgra->data() + static_cast<size_t>(y) * static_cast<size_t>(w) * 4u;
     std::memcpy(dst, row, static_cast<size_t>(w) * 4u);
