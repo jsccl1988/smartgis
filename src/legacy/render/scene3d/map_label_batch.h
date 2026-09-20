@@ -30,7 +30,7 @@ struct MapLabel {
   int priority = 5;
 };
 
-// Screen-space 3D labels with halo and collision declutter.
+// Screen-space 3D labels: GDI+ AA textures + halo, with collision declutter.
 class SCENE3D_EXPORT_CLASS MapLabelBatch : public Smt3DObject {
  public:
   MapLabelBatch();

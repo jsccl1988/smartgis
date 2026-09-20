@@ -195,18 +195,28 @@ long SmtGLRenderDevice::DrawText(uint unID, float x, float y,
 
   glColor4f(color.fRed, color.fGreen, color.fBlue, color.fA);
 
+  const GLboolean had_depth = glIsEnabled(GL_DEPTH_TEST);
+  const GLboolean had_blend = glIsEnabled(GL_BLEND);
+  const GLboolean had_texture = glIsEnabled(GL_TEXTURE_2D);
+  const GLboolean had_lighting = glIsEnabled(GL_LIGHTING);
+
   glDisable(GL_LIGHTING);
   glDisable(GL_TEXTURE_2D);
+  // Screen-space bitmaps must ignore the terrain depth buffer or glyphs clip.
+  glDisable(GL_DEPTH_TEST);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   GLint viewport[4];
   glGetIntegerv(GL_VIEWPORT, viewport);
 
-  glLoadIdentity();
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
   glLoadIdentity();
   gluOrtho2D(0, viewport[2], viewport[3], 0);
   glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadIdentity();
 
   HDC hDC = m_hPaintDC ? m_hPaintDC : ::GetDC(m_hWnd);
   if (hDC) {
@@ -219,8 +229,24 @@ long SmtGLRenderDevice::DrawText(uint unID, float x, float y,
   glMatrixMode(GL_PROJECTION);
   glPopMatrix();
   glMatrixMode(GL_MODELVIEW);
+  glPopMatrix();
 
-  glEnable(GL_TEXTURE_2D);
+  if (had_depth) {
+    glEnable(GL_DEPTH_TEST);
+  }
+  if (had_lighting) {
+    glEnable(GL_LIGHTING);
+  }
+  if (had_blend) {
+    glEnable(GL_BLEND);
+  } else {
+    glDisable(GL_BLEND);
+  }
+  if (had_texture) {
+    glEnable(GL_TEXTURE_2D);
+  } else {
+    glDisable(GL_TEXTURE_2D);
+  }
 
   return SMT_ERR_NONE;
 }

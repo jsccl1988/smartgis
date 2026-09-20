@@ -33,6 +33,7 @@ source_set("scene3d_sources") {
   deps = [
     "//src/algorithm/geo:geo",
     "//src/base:core",
+    "//src/legacy/render/gdi:gdi_common_sources",
     "//src/legacy/render/model3d:model3d_sources",
     "//src/legacy/render/render3d:render3d_sources",
     "//src/render/math:bounds",
@@ -40,6 +41,11 @@ source_set("scene3d_sources") {
     "//src/gis/datasource/gdal:ogr_codec",
     "//src/gis/world:world",
     "//third_party:gdal",
+  ]
+  libs = [
+    "gdiplus.lib",
+    "opengl32.lib",
+    "glu32.lib",
   ]
 }
 
