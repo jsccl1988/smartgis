@@ -1,7 +1,6 @@
 #include "legacy/render/gdi/gdi_renderthread.h"
 
 #include "base/core/api.h"
-#include "legacy/render/bridge/leftover_record.h"
 #include "legacy/render/gdi/map_carto2d.h"
 #include "base/core/log.h"
 #include "legacy/render/gdi/resource.h"
@@ -226,9 +225,8 @@ int SmtGdiRenderThread::RenderMap(const SmtMap *pMap, int x, int y, int w,
         RenderLayer(pMap->GetLeftoverLayer(i), op);
       }
     }
-    // After GDI draw: Null recording must not precede BitBlt (white canvas).
-    render::scene::leftover_record_map_frame(
-        m_hWnd, static_cast<uint32_t>(w), static_cast<uint32_t>(h), pMap);
+    // Leftover tessellate is not run on the GDI worker paint path (white
+    // canvas + heap overflow on large OGR packs). See gdi_renderdevice.cpp.
   }
 
   m_smtRenderBuf.EndDC();
@@ -236,14 +234,15 @@ int SmtGdiRenderThread::RenderMap(const SmtMap *pMap, int x, int y, int w,
 
   m_smtSharedBuf.ClearBuf(x, y, w,
                           h /*,(COLORREF)::GetSysColor(COLOR_WINDOW)*/);
-  m_smtRenderBuf.SwapBuf(m_smtSharedBuf, x, y, w, h, x, y, w, h,
-                         BLT_TRANSPARENT,
+  // Stretch the full map buffer — TransparentBlt keyed on white can drop
+  // near-white carto fills and leave the shared buffer empty.
+  m_smtRenderBuf.SwapBuf(m_smtSharedBuf, x, y, w, h, x, y, w, h, BLT_STRETCH,
                          SRCCOPY /*,(COLORREF)::GetSysColor(COLOR_WINDOW)*/);
 
   m_virViewport1 = m_smtRC.viewport;
   m_virViewport2 = m_smtRC.viewport;
 
-  return SMT_ERR_FAILURE;
+  return SMT_ERR_NONE;
 }
 
 int SmtGdiRenderThread::SwapBuf(int destOrgx, int destOrgy, int destW,

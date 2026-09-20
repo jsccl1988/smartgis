@@ -60,7 +60,8 @@ class MapViewport : public View {
 
   // Prefer content::MapWidgetHostView (OpenView kind from Role). Scene3d tries
   // FlyCube / present_gpu first by default; set SMT_FORCE_CONTENT_MAPVIEW_3D=1
-  // (or legacy SMT_PREFER_FLYCUBE_3D=0) to skip to ContentMapView. Map Edit:
+  // Default Scene3d: ContentMapView SoT stereo. Opt in FlyCube with
+  // SMT_PREFER_FLYCUBE_3D=1 (or FORCE_CONTENT=1 to force ContentMapView). Map Edit:
   // OOP / FlyCube / LoadLibrary. SMT_PREFER_GDI_DEVICE=1 skips FlyCube.
   bool attach();
   AttachMode attach_mode() const { return mode_; }

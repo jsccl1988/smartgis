@@ -33,8 +33,8 @@ class PresentTarget {
   bool paint_bgra(const uint8_t* bgra, uint32_t stride_bytes);
   // Copy out BGRA8. Requires a software DIB (or a prior paint_bgra that kept bits).
   bool copy_bgra(uint8_t* dst, size_t dst_bytes) const;
-  // Draw a kind-specific demo frame (grid + sample features) into the DIB.
-  // Used until a real map/scene submit path fills the surface.
+  // Draw a kind-specific frame into the DIB. Scene3d: filled elevation DEM
+  // underlay (chrome paints the orbitable SoT overlay). 2D: grid only.
   void paint_demo_frame(content::ViewKind kind);
   void copy_from_hwnd(HWND hwnd);
 

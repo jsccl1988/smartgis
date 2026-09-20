@@ -7,7 +7,6 @@
 
 #include "base/core/api.h"
 #include "base/core/log.h"
-#include "legacy/render/bridge/leftover_record.h"
 #include "legacy/render/gdi/gdi_aux_api.h"
 #include "legacy/render/gdi/gdi_gdiplus.h"
 #include "legacy/render/gdi/gdi_renderthread.h"
@@ -866,17 +865,10 @@ int SmtGdiRenderDevice::RenderMap(const SmtMap *pMap, int op) {
     }
   }
 
-  // Null recording after GDI paint: tessellate+GpuScene before BitBlt left
-  // the map buffer white (gdi_map_paint_test). Present stays GDI-owned.
-  {
-    const uint32_t w = m_Viewport.m_fVWidth > 0.f
-                           ? static_cast<uint32_t>(m_Viewport.m_fVWidth)
-                           : 64u;
-    const uint32_t h = m_Viewport.m_fVHeight > 0.f
-                           ? static_cast<uint32_t>(m_Viewport.m_fVHeight)
-                           : 64u;
-    render::scene::leftover_record_map_frame(m_hWnd, w, h, pMap);
-  }
+  // Do not call leftover_record_map_frame here. Tessellating china_city (1k+
+  // features) on the GDI paint path raced BitBlt (white HWND) and tripped CRT
+  // heap corruption (write past Client block). GPU leftover stays on the
+  // separate ScheduleDelayedRedraw / MapViewport path (see renderdevice.h).
 
   return SMT_ERR_NONE;
 }

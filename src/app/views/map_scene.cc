@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <string_view>
 
 #include "content/public/feature_attrs.h"
@@ -1223,6 +1224,9 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
   // Reuse a few GDI objects for the whole frame. Creating Pen/Brush/Font per
   // feature leaked when early-continue skipped DeleteObject, and exhausted the
   // per-process GDI quota (~10k) on china_city (~1.4k features × 30 Hz).
+  // Font heights are DIP → device px so 150%/200% displays stay readable.
+  const int dpi = std::max(96, GetDeviceCaps(hdc, LOGPIXELSY));
+  auto dip_px = [dpi](int px96) { return -MulDiv(px96, dpi, 96); };
   HPEN pens[4] = {};
   pens[0] =
       CreatePen(PS_SOLID, 1, map_scene_admin_stroke_color());  // polygon outline
@@ -1233,18 +1237,23 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
   HBRUSH point_brush = CreateSolidBrush(map_scene_point_fill_color());
   HBRUSH selected_brush = CreateSolidBrush(RGB(255, 200, 80));
   HFONT fonts[3] = {};
-  fonts[0] = CreateFontW(-13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+  fonts[0] = CreateFontW(dip_px(16), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                          DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
                          CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                          DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
-  fonts[1] = CreateFontW(-16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+  fonts[1] = CreateFontW(dip_px(20), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                          DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
                          CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                          DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
-  fonts[2] = CreateFontW(-22, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+  fonts[2] = CreateFontW(dip_px(28), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
                          DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
                          CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                          DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
+  HFONT status_font =
+      CreateFontW(dip_px(14), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+                  DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                  CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS,
+                  L"Microsoft YaHei UI");
   HGDIOBJ stock_font = GetStockObject(DEFAULT_GUI_FONT);
   HGDIOBJ old_pen = SelectObject(hdc, pens[0] ? pens[0] : GetStockObject(BLACK_PEN));
   HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
@@ -1322,14 +1331,14 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
           int vy = 0;
           map_to_view(f.points[0].x, f.points[0].y, &vx, &vy);
           int font_idx = 0;
-          COLORREF ink = RGB(32, 28, 22);
+          COLORREF ink = RGB(20, 18, 14);
           if (cls && std::strcmp(cls, "title") == 0) {
             font_idx = 2;
-            ink = RGB(24, 20, 16);
+            ink = RGB(12, 10, 8);
           } else if (cls && std::strcmp(cls, "region_label") == 0) {
             font_idx = 1;
           } else if (cls && std::strcmp(cls, "river_label") == 0) {
-            ink = RGB(16, 48, 88);
+            ink = RGB(8, 36, 72);
           }
           if (f.selected) {
             ink = RGB(200, 120, 40);
@@ -1456,12 +1465,123 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
   }
 
   SetBkMode(hdc, TRANSPARENT);
-  SetTextColor(hdc, RGB(60, 70, 80));
-  SelectObject(hdc, stock_font);
+  SetTextColor(hdc, RGB(24, 28, 32));
+  SelectObject(hdc, status_font ? status_font : stock_font);
   wchar_t line[160];
   swprintf_s(line, L"Layers %zu  Features %zu  scale %.4g%s", layers_.size(),
              feature_count(), scale_, last_open_was_ogr_ ? L"  OGR" : L"");
   TextOutW(hdc, 12, height_px > 48 ? height_px - 36 : 12, line, lstrlenW(line));
+  if (status_font) {
+    SelectObject(hdc, stock_font);
+    DeleteObject(status_font);
+  }
+}
+
+void MapScene::paint_labels_projected(
+    HDC hdc, int width_px, int height_px,
+    const std::function<void(double lon, double lat, int* sx, int* sy)>&
+        project) const {
+  if (!hdc || width_px <= 0 || height_px <= 0 || !project) {
+    return;
+  }
+  HFONT font = CreateFontW(16, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+                           DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                           CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                           DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
+  HGDIOBJ old_font =
+      SelectObject(hdc, font ? font : GetStockObject(DEFAULT_GUI_FONT));
+  SetBkMode(hdc, TRANSPARENT);
+
+  auto draw_label = [&](int vx, int vy, const std::string& name) {
+    if (name.empty()) {
+      return;
+    }
+    if (vx < -80 || vy < -40 || vx > width_px + 80 || vy > height_px + 40) {
+      return;
+    }
+    const std::wstring w = gis::datasource::ogr_bytes_to_wide(name);
+    if (w.empty()) {
+      return;
+    }
+    const int n = static_cast<int>(w.size());
+    SetTextColor(hdc, RGB(20, 24, 32));
+    const int halo[8][2] = {{-1, 0},  {1, 0},  {0, -1}, {0, 1},
+                            {-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+    for (const auto& d : halo) {
+      TextOutW(hdc, vx + d[0], vy + d[1], w.c_str(), n);
+    }
+    SetTextColor(hdc, RGB(245, 248, 252));
+    TextOutW(hdc, vx, vy, w.c_str(), n);
+  };
+
+  constexpr size_t kMaxLabels = 48;
+  size_t drawn = 0;
+  bool has_text = false;
+  for (const Layer& layer : layers_) {
+    if (!layer.visible) {
+      continue;
+    }
+    for (const Feature& f : layer.features) {
+      if (f.kind == GeomKind::kText) {
+        has_text = true;
+        break;
+      }
+    }
+    if (has_text) {
+      break;
+    }
+  }
+
+  auto emit = [&](const Feature& f) {
+    if (drawn >= kMaxLabels) {
+      return;
+    }
+    const std::string name = feature_display_name(f);
+    if (name.empty()) {
+      return;
+    }
+    double mx = 0;
+    double my = 0;
+    label_anchor(f, &mx, &my);
+    // Map space Y is -lat.
+    const double lon = mx;
+    const double lat = -my;
+    int sx = 0;
+    int sy = 0;
+    project(lon, lat, &sx, &sy);
+    draw_label(sx, sy, name);
+    ++drawn;
+  };
+
+  if (has_text) {
+    for (const Layer& layer : layers_) {
+      if (!layer.visible || drawn >= kMaxLabels) {
+        continue;
+      }
+      for (const Feature& f : layer.features) {
+        if (f.kind == GeomKind::kText && !f.points.empty()) {
+          emit(f);
+        }
+      }
+    }
+  } else {
+    // china_plp-style: region centroids carry the place name.
+    for (const Layer& layer : layers_) {
+      if (!layer.visible || drawn >= kMaxLabels) {
+        continue;
+      }
+      for (const Feature& f : layer.features) {
+        if (f.kind == GeomKind::kPolygon && f.points.size() >= 3) {
+          emit(f);
+        }
+      }
+    }
+  }
+
+  SelectObject(hdc, old_font);
+  if (font) {
+    DeleteObject(font);
+  }
 }
 
 void MapScene::fill_feature_info_fields(

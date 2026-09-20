@@ -7,7 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted  
-**Related:** 三层伞状深度设计（模型 / 渲染 / 计算 + leftover 映射）见 [`2026-09-13-model-render-compute-design.md`](2026-09-13-model-render-compute-design.md)。产品语言 C++23。FlyCube 源码用本机 `C:\Dev\src\open\topic\graphic-engine`，不要 GitHub fetch。  
+**Related:** 三层伞状深度设计（模型 / 渲染 / 计算 + leftover 映射）见 [`2026-09-13-model-render-compute-design.md`](2026-09-13-model-render-compute-design.md)。产品语言 C++23。FlyCube 源码用本机 `C:\Dev\src\open\topic\graphic-engine`，不要 GitHub fetch。**P0 upgrade (lit solid / style→3D albedo / CPU frustum / GPU smoke):** [`2026-09-20-rhi-3d-capability-p0-design.md`](2026-09-20-rhi-3d-capability-p0-design.md) · plan [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md)。  
 **Scope:** one implementation plan. Expand `render::rhi` to a modern engine-shaped RHI with FlyCube as the GPU backend (DX12 and Vulkan on Windows). Move logical model I/O and scene/spatial management out of `render/{model3d,scene3d}` into `sdb`. Keep a GPU-resident scene in `render/scene`.
 
 ## Goal

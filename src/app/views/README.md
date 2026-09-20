@@ -63,18 +63,19 @@ Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把�
 `kScene3d`）+ `SetExtent`（有中国范围则全幅中国）。2D 为正交，3D 为透视。
 手势：滚轮对光标缩放、平移；HWND 允许时双指捏合（`WM_GESTURE` / 指针）。
 
-3D 页：`view3d.trackball` 更新 `Scene3dController`。默认优先 **FlyCube / RHI**
-（`present_gpu` 每帧着色 DEM + 轨道相机；成功时 chrome 只叠 `paint_hud`）。
-无 FlyCube 或 present 失败时回退 ContentMapView / GDI `paint()`。
+3D 页：`view3d.trackball` 更新 `Scene3dController`。默认 **ContentMapView SoT**
+（leftover stereo：高程着色 DEM + 注记 + 指南针，对齐 `SmartGis.exe`）。
+可选 FlyCube 纯色 RHI：`set SMT_PREFER_FLYCUBE_3D=1`（成功时 chrome 只叠
+`paint_hud`）。无 ContentMapView 时 GDI `paint()` 兜底。
 
-若本机 DX12 在多视口 attach 时挂起，可退回 ContentMapView：
+若要强制 ContentMapView（或关闭 FlyCube）：
 
 ```bat
 set SMT_FORCE_CONTENT_MAPVIEW_3D=1
 out\SmartGisViews.exe
 ```
 
-（兼容：`SMT_PREFER_FLYCUBE_3D=0` 效果相同。旧的 `=1` 已无必要——默认即 RHI。）
+（`SMT_PREFER_FLYCUBE_3D=0` 效果相同；`=1` 才启用 FlyCube RHI。）
 
 无 GPU 时 GDI DEM 线框兜底。`--self-test` 断言 OGR 进层与相机矩阵；若挂上
 FlyCube 会写 `flycube-camera-ok`，并在 present 前开 `enable_atmosphere_demo()`。

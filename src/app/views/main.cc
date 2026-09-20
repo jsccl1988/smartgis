@@ -85,6 +85,54 @@ AtmosphereShowcaseMode parse_atmosphere_showcase() {
   return AtmosphereShowcaseMode::kNone;
 }
 
+// Parse `--atmosphere-fields=spec` / `--atmosphere-fields spec`.
+// Spec: path[:channel[:time]][,path...] (UTF-8 after conversion).
+std::string parse_atmosphere_fields_spec() {
+  const wchar_t* cmd = GetCommandLineW();
+  if (!cmd) {
+    return {};
+  }
+  const wchar_t* p = wcsstr(cmd, L"--atmosphere-fields");
+  if (!p) {
+    return {};
+  }
+  p += wcslen(L"--atmosphere-fields");
+  while (*p == L' ' || *p == L'\t' || *p == L'=') {
+    ++p;
+  }
+  if (*p == L'"') {
+    ++p;
+    const wchar_t* end = wcschr(p, L'"');
+    if (!end) {
+      return {};
+    }
+    const int n = WideCharToMultiByte(CP_UTF8, 0, p,
+                                      static_cast<int>(end - p), nullptr, 0,
+                                      nullptr, nullptr);
+    std::string out(n > 0 ? static_cast<size_t>(n) : 0, '\0');
+    if (n > 0) {
+      WideCharToMultiByte(CP_UTF8, 0, p, static_cast<int>(end - p), out.data(),
+                          n, nullptr, nullptr);
+    }
+    return out;
+  }
+  const wchar_t* end = p;
+  while (*end && !iswspace(*end)) {
+    ++end;
+  }
+  if (end == p) {
+    return {};
+  }
+  const int n = WideCharToMultiByte(CP_UTF8, 0, p, static_cast<int>(end - p),
+                                    nullptr, 0, nullptr, nullptr);
+  std::string out(n > 0 ? static_cast<size_t>(n) : 0, '\0');
+  if (n > 0) {
+    WideCharToMultiByte(CP_UTF8, 0, p, static_cast<int>(end - p), out.data(), n,
+                        nullptr, nullptr);
+  }
+  return out;
+}
+
 const char* atmosphere_showcase_name(AtmosphereShowcaseMode mode) {
   switch (mode) {
     case AtmosphereShowcaseMode::kLand:
@@ -885,6 +933,13 @@ int BrowserMain(const content::ContentMainParams&) {
   app::BrowserView browser;
   if (!browser.init()) {
     return 1;
+  }
+  const std::string fields_spec = parse_atmosphere_fields_spec();
+  if (!fields_spec.empty()) {
+    std::fprintf(stderr, "atmosphere-fields: %s\n", fields_spec.c_str());
+    if (!browser.apply_atmosphere_fields(fields_spec)) {
+      std::fprintf(stderr, "atmosphere-fields: load failed\n");
+    }
   }
   browser.show();
   if (showcase != AtmosphereShowcaseMode::kNone) {

@@ -16,7 +16,7 @@ bool force_content_mapview_3d() {
       return true;
     }
   }
-  // Legacy invert: SMT_PREFER_FLYCUBE_3D=0 forces ContentMapView first.
+  // Explicit opt-out of FlyCube keeps ContentMapView + chrome GDI SoT.
   if (const char* prefer = std::getenv("SMT_PREFER_FLYCUBE_3D")) {
     if (prefer[0] == '0' && prefer[1] == '\0') {
       return true;
@@ -26,7 +26,18 @@ bool force_content_mapview_3d() {
 }
 
 bool prefer_scene3d_flycube() {
-  return !force_content_mapview_3d();
+  // Default: ContentMapView OpenView + chrome Scene3dController GDI SoT
+  // (elevation DEM + labels + compass). Opt in solid FlyCube RHI with
+  // SMT_PREFER_FLYCUBE_3D=1; FORCE_CONTENT also disables FlyCube.
+  if (force_content_mapview_3d()) {
+    return false;
+  }
+  if (const char* prefer = std::getenv("SMT_PREFER_FLYCUBE_3D")) {
+    if (prefer[0] == '1' && prefer[1] == '\0') {
+      return true;
+    }
+  }
+  return false;
 }
 
 Scene3dRhiSession::~Scene3dRhiSession() {

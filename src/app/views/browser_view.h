@@ -26,6 +26,7 @@ class ViewHost;
 namespace ui {
 namespace views {
 class AmboxView;
+class AtmospherePanel;
 class AttributeTable;
 class CatalogView;
 class FeatureInfo;
@@ -78,12 +79,16 @@ class BrowserView : public content::MapContentsObserver {
   // Aliases: select|identify 鈫?selection.point, pan 鈫?view.pan.
   bool run_tool_command(std::string_view command_id);
 
+  // Apply --atmosphere-fields= path[:channel[:time]][,...] after init.
+  bool apply_atmosphere_fields(std::string_view spec);
+
  private:
   void build_contents();
   void attach_viewports();
   void wire_catalog();
   void wire_edit_feedback();
   void wire_map_scene();
+  void wire_atmosphere_panel();
   void sync_catalog_from_scene();
   void sync_inspectors_from_scene();
   void invalidate_map_overlays();
@@ -126,6 +131,7 @@ class BrowserView : public content::MapContentsObserver {
   ui::views::AmboxView* ambox_ = nullptr;
   ui::views::FeatureInfo* feature_info_ = nullptr;
   ui::views::AttributeTable* attribute_table_ = nullptr;
+  ui::views::AtmospherePanel* atmosphere_panel_ = nullptr;
   ui::views::MapViewport* map_edit_ = nullptr;
   ui::views::MapViewport* map_data_ = nullptr;
   ui::views::MapViewport* map_scene_ = nullptr;

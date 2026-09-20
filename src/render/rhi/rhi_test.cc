@@ -231,6 +231,31 @@ int main() {
   expect(stub->set_cloud_params_calls == 1, "cloud params");
   expect(stub->last_cloud.cover == 0.6f, "cloud cover");
 
+  // Task 2: LightParams + kLitSolid (Null recording).
+  list->set_pipeline(render::rhi::PipelineId::kLitSolid);
+  render::rhi::LightParams light{};
+  light.dir[0] = -0.4f;
+  light.dir[1] = -0.8f;
+  light.dir[2] = -0.35f;
+  light.ambient = 0.25f;
+  light.color[0] = 1.f;
+  light.color[1] = 0.95f;
+  light.color[2] = 0.9f;
+  light.intensity = 1.1f;
+  list->set_light_params(light);
+  expect(stub->set_pipeline_calls == 2, "set_pipeline lit solid");
+  expect(stub->last_pipeline == render::rhi::PipelineId::kLitSolid,
+         "pipeline id lit solid");
+  expect(static_cast<uint32_t>(render::rhi::PipelineId::kLitSolid) == 5u,
+         "kLitSolid after kCloud without renumber");
+  expect(static_cast<uint32_t>(render::rhi::PipelineId::kOcean) == 3u &&
+             static_cast<uint32_t>(render::rhi::PipelineId::kCloud) == 4u,
+         "ocean/cloud ids unchanged");
+  expect(stub->set_light_params_calls == 1, "set_light_params recorded");
+  expect(stub->last_light.ambient == 0.25f, "light ambient");
+  expect(stub->last_light.intensity == 1.1f, "light intensity");
+  expect(stub->last_light.color[1] == 0.95f, "light color g");
+
   expect(!null->supports_compute(), "null supports_compute false");
   list->set_compute_pipeline(render::rhi::ComputePipelineId::kOceanSpectrum);
   render::rhi::OceanFftGpuParams fft_p;
@@ -358,11 +383,52 @@ int main() {
       plist->begin_render_pass(clear);
       plist->set_viewport(0, 0, 64, 64, 0, 1);
       plist->set_solid_color(0.2f, 0.4f, 0.6f, 1.f);
+
+      // Task 5: lit solid smoke — pos+normal triangle through kLitSolid.
+      const float lit_verts[] = {
+          0.f,  0.5f, 0.f, 0.f, 0.f, 1.f,   // tip
+          -0.5f, -0.5f, 0.f, 0.f, 0.f, 1.f,  // BL
+          0.5f, -0.5f, 0.f, 0.f, 0.f, 1.f,   // BR
+      };
+      const uint32_t lit_indices[] = {0u, 1u, 2u};
+      render::rhi::Buffer* lit_vb = dx12->create_buffer(
+          sizeof(lit_verts), render::rhi::BufferUsage::kVertex);
+      render::rhi::Buffer* lit_ib = dx12->create_buffer(
+          sizeof(lit_indices), render::rhi::BufferUsage::kIndex);
+      expect(lit_vb != nullptr && lit_ib != nullptr, "lit buffers");
+      expect(dx12->upload(lit_vb, lit_verts, sizeof(lit_verts)),
+             "upload lit vb");
+      expect(dx12->upload(lit_ib, lit_indices, sizeof(lit_indices)),
+             "upload lit ib");
+      render::rhi::CameraMatrices lit_cam =
+          render::rhi::make_orbit_camera(0.f, 0.35f, 3.2f, 0.785398f,
+                                         1.f /* aspect */, 0.1f, 100.f);
+      plist->bind_camera(lit_cam);
+      plist->set_pipeline(render::rhi::PipelineId::kLitSolid);
+      render::rhi::LightParams gpu_light{};
+      gpu_light.dir[0] = -0.4f;
+      gpu_light.dir[1] = -0.8f;
+      gpu_light.dir[2] = -0.35f;
+      gpu_light.ambient = 0.25f;
+      gpu_light.color[0] = 1.f;
+      gpu_light.color[1] = 0.95f;
+      gpu_light.color[2] = 0.9f;
+      gpu_light.intensity = 1.1f;
+      plist->set_light_params(gpu_light);
+      plist->set_solid_color(0.35f, 0.65f, 0.9f, 1.f);
+      plist->bind_vertex_buffer(lit_vb, 0, 6u * sizeof(float));
+      plist->bind_index_buffer(lit_ib, 0);
+      plist->draw_indexed(3, 1, 0, 0, 0);
+
       plist->end_render_pass();
       plist->close();
-      expect(dx12->execute(plist), "dx12 clear execute");
+      expect(dx12->execute(plist), "dx12 clear+lit execute");
       dx12->present();
       std::fprintf(stdout, "rhi_test: dx12 present ok\n");
+      std::fprintf(stdout, "rhi_test: lit ok\n");
+      // Release GPU buffers before device shutdown (avoids teardown races).
+      dx12->destroy_buffer(lit_ib);
+      dx12->destroy_buffer(lit_vb);
     }
     dx12->shutdown();
     if (hwnd) {

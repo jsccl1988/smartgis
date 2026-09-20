@@ -31,14 +31,23 @@ class TableView : public View {
   bool set_cell(int row, int col, const std::string& value);
   bool on_mouse_event(const MouseEvent& e) override;
 
+  // Row geometry in physical pixels (24 DIP each at scale 1.0).
+  int header_height() const;
+  int row_height() const;
+  // Content-sized column width in pixels. Last column absorbs leftover width
+  // so Name/Value inspectors do not split the pane 50/50.
+  int column_width(int col) const;
+
+  void on_device_scale_factor_changed(float old_scale,
+                                     float new_scale) override;
+
  protected:
   void paint_self(render::skia::Canvas* canvas) override;
 
  private:
   int row_at_point(int y) const;
   int col_at_point(int x) const;
-  int header_height() const { return 22; }
-  int row_height() const { return 20; }
+  float scale_factor() const;
 
   std::vector<std::string> columns_;
   std::vector<std::vector<std::string>> rows_;

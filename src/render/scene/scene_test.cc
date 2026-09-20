@@ -2,6 +2,7 @@
 // All rights reserved.
 
 #include "render/scene/scene.h"
+#include "render/scene/frustum_aabb.h"
 #include "render/rhi/rhi.h"
 #include "gis/assets/model.h"
 #include "gis/assets/tileset.h"
@@ -125,6 +126,14 @@ int main() {
     expect(mesh_stub->index_counts.size() >= 1 &&
                mesh_stub->index_counts[0] == 6,
            "terrain mesh 6 indices");
+    // P0 Task 3: 3D lit solid + POS+NORMAL stride.
+    expect(mesh_stub->set_pipeline_calls >= 1, "terrain lit set_pipeline");
+    expect(mesh_stub->last_pipeline == render::rhi::PipelineId::kLitSolid,
+           "terrain pipeline kLitSolid");
+    expect(mesh_stub->set_light_params_calls >= 1, "terrain set_light_params");
+    expect(terrain_gpu.mesh_count() >= 1, "terrain mesh uploaded");
+    expect(terrain_gpu.mesh_at(0)->stride == 6 * sizeof(float),
+           "terrain lit stride 6 floats");
 
     // SP4 knife 3: external orbit camera on record.
     const render::rhi::CameraMatrices orbit =
@@ -161,6 +170,12 @@ int main() {
       static_cast<render::rhi::StubCommandList*>(model_list);
   expect(model_stub->draw_indexed_calls >= 1, "cube draw");
   expect(model_stub->set_solid_color_calls >= 1, "solid color on cube");
+  expect(model_stub->last_pipeline == render::rhi::PipelineId::kLitSolid,
+         "model pipeline kLitSolid");
+  expect(model_stub->set_light_params_calls >= 1, "model set_light_params");
+  expect(model_gpu.mesh_count() >= 1 &&
+             model_gpu.mesh_at(0)->stride == 6 * sizeof(float),
+         "model lit stride 6 floats");
   expect(model_stub->index_counts.size() >= 1 &&
              model_stub->index_counts[0] == 36,
          "unit cube 36 indices");
@@ -541,6 +556,181 @@ int main() {
            "big circle height ~20");
     expect((bc_maxy - bc_miny) > (sc_maxy - sc_miny) * 4.5f,
            "big circle larger than small");
+  }
+
+  // P0 Task 3: 3D lit + paint albedo on GpuMesh.solid_*; 2D stays non-lit.
+  {
+    gis::World lit_world;
+    gis::Node* terrain = lit_world.attach_terrain("lit_dem", 0.0, 0.0, 0.0, 1.0,
+                                                  1.0, 1.0);
+    expect(terrain != nullptr, "attach lit terrain");
+    const float positions[] = {
+        0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 1.f, 0.f, 0.f, 1.f,
+    };
+    const uint32_t indices[] = {0, 1, 2, 0, 2, 3};
+    expect(lit_world.set_terrain_mesh(terrain->id, positions, 12, indices, 6),
+           "set lit terrain mesh");
+
+    render::scene::GpuScene lit_gpu;
+    lit_gpu.sync_from(lit_world);
+    gis::style::ResolvedPaint fill;
+    fill.type = gis::style::LayerType::kFill;
+    fill.fill_color = 0xFF3366CC;  // opaque blue-ish
+    fill.fill_opacity = 1.f;
+    expect(lit_gpu.set_instance_paint(0, fill), "set terrain paint");
+
+    float er = 0;
+    float eg = 0;
+    float eb = 0;
+    float ea = 0;
+    render::scene::rgba_from_resolved_paint(fill, &er, &eg, &eb, &ea);
+
+    render::rhi::CommandList* lit_list = device->create_command_list();
+    expect(lit_gpu.record(device.get(), lit_list, 64, 64), "record lit paint");
+    auto* lit_stub = static_cast<render::rhi::StubCommandList*>(lit_list);
+    expect(lit_stub->last_pipeline == render::rhi::PipelineId::kLitSolid,
+           "lit paint pipeline");
+    expect(lit_stub->set_light_params_calls >= 1, "lit paint light");
+    expect(lit_gpu.mesh_count() >= 1, "lit paint mesh");
+    const render::scene::GpuScene::GpuMesh* lit_mesh = lit_gpu.mesh_at(0);
+    expect(lit_mesh && lit_mesh->solid_r > er - 0.02f &&
+               lit_mesh->solid_r < er + 0.02f &&
+               lit_mesh->solid_g > eg - 0.02f &&
+               lit_mesh->solid_g < eg + 0.02f &&
+               lit_mesh->solid_b > eb - 0.02f &&
+               lit_mesh->solid_b < eb + 0.02f &&
+               lit_mesh->solid_a > ea - 0.02f &&
+               lit_mesh->solid_a < ea + 0.02f,
+           "set_instance_paint albedo on GpuMesh.solid_*");
+    expect(lit_mesh->stride == 6 * sizeof(float), "lit paint stride");
+    // Interleaved NORMAL after POSITION: first face is in XY (z varies) so
+    // generated normal should be mostly +Y or -Y (not zero).
+    auto* vb = static_cast<render::rhi::StubBuffer*>(lit_mesh->vertex);
+    expect(vb && vb->bytes.size() >= 6 * sizeof(float), "lit vb bytes");
+    if (vb && vb->bytes.size() >= 6 * sizeof(float)) {
+      const float* v0 = reinterpret_cast<const float*>(vb->bytes.data());
+      const float nx = v0[3];
+      const float ny = v0[4];
+      const float nz = v0[5];
+      const float len2 = nx * nx + ny * ny + nz * nz;
+      expect(len2 > 0.5f && len2 < 1.5f, "generated normal near unit length");
+    }
+
+    // 2D vector record must not switch to kLitSolid.
+    OGRLineString road;
+    road.addPoint(0.0, 0.0);
+    road.addPoint(10.0, 0.0);
+    const OGRGeometry* geoms[] = {&road};
+    gis::World vec_world;
+    expect(vec_world.attach_vector_geoms("poly2d", geoms, 1) != nullptr,
+           "attach 2d");
+    render::scene::GpuScene vec_gpu;
+    vec_gpu.sync_from(vec_world);
+    render::rhi::CommandList* vec_list = device->create_command_list();
+    expect(vec_gpu.record(device.get(), vec_list, 64, 64), "record 2d");
+    auto* vec_stub = static_cast<render::rhi::StubCommandList*>(vec_list);
+    expect(vec_stub->set_pipeline_calls == 0 ||
+               vec_stub->last_pipeline != render::rhi::PipelineId::kLitSolid,
+           "2d does not use kLitSolid");
+    if (vec_gpu.mesh_count() >= 1) {
+      expect(vec_gpu.mesh_at(0)->stride == 3 * sizeof(float) ||
+                 vec_gpu.mesh_at(0)->stride == 5 * sizeof(float),
+             "2d stride remains pos or pos+uv");
+    }
+  }
+
+  // P0 Task 4: CPU frustum vs AABB (pure + GpuScene ≥64 instances).
+  {
+    float identity[16];
+    render::rhi::set_identity4(identity);
+    const render::scene::FrustumPlanes id_planes =
+        render::scene::extract_frustum_planes(identity, identity);
+    expect(render::scene::aabb_intersects_frustum(-1.f, -1.f, -1.f, 1.f, 1.f,
+                                                  1.f, id_planes),
+           "unit aabb intersects identity frustum");
+    expect(!render::scene::aabb_intersects_frustum(10.f, 10.f, 10.f, 11.f, 11.f,
+                                                   11.f, id_planes),
+           "far aabb culled by identity frustum");
+
+    const render::rhi::CameraMatrices persp =
+        render::rhi::make_perspective_camera(0.785398f, 1.f, 0.1f, 100.f);
+    const render::scene::FrustumPlanes persp_planes =
+        render::scene::extract_frustum_planes(persp);
+    expect(render::scene::aabb_intersects_frustum(-0.5f, -0.5f, -0.5f, 0.5f,
+                                                  0.5f, 0.5f, persp_planes),
+           "origin aabb visible to default perspective");
+    expect(!render::scene::aabb_intersects_frustum(500.f, -0.5f, -0.5f, 501.f,
+                                                   0.5f, 0.5f, persp_planes),
+           "x=500 aabb culled by default perspective");
+
+    gis::World cull_world;
+    constexpr int kHalf = 32;
+    constexpr int kTotal = 64;
+    for (int i = 0; i < kTotal; ++i) {
+      char name[32];
+      std::snprintf(name, sizeof(name), "cull_%d", i);
+      if (i < kHalf) {
+        const double x = (i % 4) * 0.4 - 0.6;
+        const double y = ((i / 4) % 4) * 0.4 - 0.6;
+        const double z = (i / 16) * 0.3 - 0.3;
+        cull_world.add_node(gis::NodeKind::kTerrain, name, x, y, z, x + 0.3,
+                            y + 0.3, z + 0.3);
+      } else {
+        const double x = 400.0 + static_cast<double>(i - kHalf) * 2.0;
+        cull_world.add_node(gis::NodeKind::kTerrain, name, x, -0.2, -0.2,
+                            x + 0.5, 0.2, 0.2);
+      }
+    }
+    render::scene::GpuScene cull_gpu;
+    cull_gpu.sync_from(cull_world);
+    expect(cull_gpu.instance_count() ==
+               static_cast<size_t>(kTotal),
+           "64 cull instances");
+
+    render::rhi::CommandList* full_list = device->create_command_list();
+    expect(cull_gpu.record(device.get(), full_list, 64, 64),
+           "record 64 without camera cull");
+    auto* full_stub =
+        static_cast<render::rhi::StubCommandList*>(full_list);
+    expect(full_stub->draw_indexed_calls ==
+               static_cast<uint32_t>(kTotal),
+           "no camera: draw all 64");
+
+    const render::rhi::CameraMatrices orbit =
+        render::rhi::make_orbit_camera(0.f, 0.25f, 4.f, 0.785398f, 1.f, 0.1f,
+                                       100.f);
+    cull_gpu.set_view_camera(orbit);
+    render::rhi::CommandList* cull_list = device->create_command_list();
+    expect(cull_gpu.record(device.get(), cull_list, 64, 64),
+           "record 64 with frustum cull");
+    auto* cull_stub =
+        static_cast<render::rhi::StubCommandList*>(cull_list);
+    expect(cull_stub->draw_indexed_calls <
+               static_cast<uint32_t>(kTotal),
+           "frustum cull drops some draws");
+    expect(cull_stub->draw_indexed_calls >=
+               static_cast<uint32_t>(kHalf) - 4u,
+           "near-half still drawn");
+    expect(cull_stub->draw_indexed_calls <=
+               static_cast<uint32_t>(kHalf) + 4u,
+           "far-half mostly culled");
+
+    // Wide orbit still includes near boxes; far boxes stay out.
+    const render::rhi::CameraMatrices wide =
+        render::rhi::make_orbit_camera(0.f, 0.f, 3.f, 1.2f, 1.f, 0.1f, 200.f);
+    cull_gpu.set_view_camera(wide);
+    render::rhi::CommandList* wide_list = device->create_command_list();
+    expect(cull_gpu.record(device.get(), wide_list, 64, 64),
+           "record wide frustum");
+    auto* wide_stub =
+        static_cast<render::rhi::StubCommandList*>(wide_list);
+    expect(wide_stub->draw_indexed_calls >=
+               static_cast<uint32_t>(kHalf) - 2u,
+           "wide frustum keeps near boxes");
+    expect(wide_stub->draw_indexed_calls <
+               static_cast<uint32_t>(kTotal),
+           "wide frustum still culls far boxes");
+    cull_gpu.clear_view_camera();
   }
 
   device->shutdown();

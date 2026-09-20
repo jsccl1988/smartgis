@@ -101,7 +101,9 @@ flowchart LR
 - **`FieldGrid`**：lon/lat 矩形规则网（`min_lon/lat`、`max_lon/lat`、`cols`、`rows`）。  
 - **时间**：线性插值；空间越界 **clamp**。  
 - **`FieldLayer`**：单通道一层；带 `FieldSourceKind`（`kExternal` / `kProcedural`）、`priority`、`valid_mask`、可选时间片。  
-- **`FieldStore`**：按通道聚合多层；公开缝：`set_layer` / `upload_slice` / `sample`。  
+- **`FieldStore`**：按通道聚合多层；公开缝：`set_layer` / `upload_slice` / `sample` / `timed_slice_range`。  
+- **External ingest**：`ingest_gdal_field`（单文件）与 `ingest_gdal_field_series`（路径列表 + `time_sec` 列表）。  
+- **`Environment` 时间轴**：`load_external_series`、`timed_field_range`、`scrub_time_sec` / `advance_time_sec` / `clamp_time_to_field`（会话时钟）。  
 - **Procedural 底图**：保证无 External 文件时 demo / 单测可跑。  
 - **External**：GDAL 路径；无 GRIB/NetCDF 驱动时以 GeoTIFF / 规则栅格为准，不自研解码器。  
 - **预留**：`ProceduralStep` 浅水步进接口，首版可不实现。

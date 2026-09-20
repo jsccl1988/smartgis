@@ -647,19 +647,17 @@ void SgHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   }
   const int w = rc.right > 0 ? rc.right : 1;
   const int h = rc.bottom > 0 ? rc.bottom : 1;
-  // Scene3d: DemRaster mesh owns the frame (CEF / Views parity). Do not blit
-  // ContentMapView ortho under DEM — flat provinces hide relief.
+  // Scene3d: orbitable GDI DEM SoT is primary; FlyCube only when preferred.
   if (kind_ == content::ViewKind::kScene3d) {
-    if (scene3d_rhi_.is_live() && w > 0 && h > 0) {
+    if (scene3d_rhi_.is_live() && app::prefer_scene3d_flycube() && w > 0 &&
+        h > 0) {
       const bool ok = scene3d_rhi_.present(
           const_cast<app::Scene3dController*>(&scene3d_),
           static_cast<uint32_t>(w), static_cast<uint32_t>(h));
       if (ok) {
         scene3d_.paint_hud(hdc, w, h);
-      } else {
-        scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+        return;
       }
-      return;
     }
     if (w > 0 && h > 0) {
       scene3d_.paint(hdc, w, h, /*fill_background=*/true);
@@ -909,7 +907,8 @@ LRESULT CALLBACK SgHost::child_wnd_proc(HWND hwnd,
       return 0;
     }
     if (self->kind_ == content::ViewKind::kScene3d &&
-        self->scene3d_rhi_.is_live() && IsWindowVisible(hwnd)) {
+        self->scene3d_rhi_.is_live() && app::prefer_scene3d_flycube() &&
+        IsWindowVisible(hwnd)) {
       InvalidateRect(hwnd, nullptr, FALSE);
       return 0;
     }

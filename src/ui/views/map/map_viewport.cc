@@ -335,23 +335,25 @@ bool MapViewport::attach() {
   SetWindowLongPtrW(native_view(), GWLP_USERDATA,
                     reinterpret_cast<LONG_PTR>(this));
 
-  // Scene3d: prefer FlyCube / present_gpu by default (RHI shaded DEM + orbit).
-  // Opt out to ContentMapView with SMT_FORCE_CONTENT_MAPVIEW_3D=1 when DX12
-  // init hangs; legacy SMT_PREFER_FLYCUBE_3D=0 has the same effect.
-  const bool force_content_3d = []() {
+  // Scene3d default: ContentMapView leftover stereo (SoT — elevation + labels).
+  // Opt in FlyCube solid RHI with SMT_PREFER_FLYCUBE_3D=1.
+  const bool prefer_flycube_3d = []() {
     if (const char* env = std::getenv("SMT_FORCE_CONTENT_MAPVIEW_3D")) {
       if (env[0] == '1' && env[1] == '\0') {
-        return true;
+        return false;
       }
     }
     if (const char* prefer = std::getenv("SMT_PREFER_FLYCUBE_3D")) {
-      if (prefer[0] == '0' && prefer[1] == '\0') {
+      if (prefer[0] == '1' && prefer[1] == '\0') {
         return true;
+      }
+      if (prefer[0] == '0' && prefer[1] == '\0') {
+        return false;
       }
     }
     return false;
   }();
-  if (role_ == Role::kScene3d && !force_content_3d) {
+  if (role_ == Role::kScene3d && prefer_flycube_3d) {
     if (try_flycube_device()) {
       mode_ = AttachMode::kFlyCube;
       status_ = L"3D FlyCube RHI present (DX12)";
@@ -363,7 +365,7 @@ bool MapViewport::attach() {
   if (try_content_map_view()) {
     mode_ = AttachMode::kContentMapView;
     status_ = (role_ == Role::kScene3d)
-                  ? L"content::MapWidgetHostView (3D)"
+                  ? L"content::MapWidgetHostView (3D SoT)"
                   : L"content::MapWidgetHostView";
     start_present_timer();
     paint_child_placeholder();

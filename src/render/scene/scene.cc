@@ -6,9 +6,11 @@
 #include "gis/layer/layer.h"
 #include "gis/assets/model.h"
 #include "gis/world/tessellate.h"
+#include "render/scene/frustum_aabb.h"
 
 #include "ogrsf_frmts.h"
 
+#include <cmath>
 #include <cstddef>
 #include <fstream>
 #include <vector>
@@ -18,6 +20,81 @@ namespace scene {
 namespace {
 
 constexpr uint32_t kPositionStride = 3 * sizeof(float);
+constexpr uint32_t kLitPositionNormalStride = 6 * sizeof(float);
+
+bool is_lit_kind(gis::NodeKind kind) {
+  return kind == gis::NodeKind::kTerrain || kind == gis::NodeKind::kModel ||
+         kind == gis::NodeKind::kTileset;
+}
+
+// Expand xyz-only positions to interleaved POSITION+NORMAL (6 floats/vert)
+// for PipelineId::kLitSolid. Accumulates area-weighted face normals, then
+// normalizes; zero-length falls back to +Y so FlyCube lit VS never sees 0.
+void interleave_positions_with_normals(const float* positions,
+                                       size_t position_count,
+                                       const uint32_t* indices,
+                                       size_t index_count,
+                                       std::vector<float>* out) {
+  if (!out || !positions || position_count < 3 || (position_count % 3) != 0) {
+    return;
+  }
+  const size_t verts = position_count / 3;
+  std::vector<float> normals(verts * 3, 0.f);
+  if (indices && index_count >= 3) {
+    for (size_t t = 0; t + 2 < index_count; t += 3) {
+      const uint32_t i0 = indices[t];
+      const uint32_t i1 = indices[t + 1];
+      const uint32_t i2 = indices[t + 2];
+      if (i0 >= verts || i1 >= verts || i2 >= verts) {
+        continue;
+      }
+      const float* p0 = positions + i0 * 3;
+      const float* p1 = positions + i1 * 3;
+      const float* p2 = positions + i2 * 3;
+      const float e1x = p1[0] - p0[0];
+      const float e1y = p1[1] - p0[1];
+      const float e1z = p1[2] - p0[2];
+      const float e2x = p2[0] - p0[0];
+      const float e2y = p2[1] - p0[1];
+      const float e2z = p2[2] - p0[2];
+      const float nx = e1y * e2z - e1z * e2y;
+      const float ny = e1z * e2x - e1x * e2z;
+      const float nz = e1x * e2y - e1y * e2x;
+      normals[i0 * 3 + 0] += nx;
+      normals[i0 * 3 + 1] += ny;
+      normals[i0 * 3 + 2] += nz;
+      normals[i1 * 3 + 0] += nx;
+      normals[i1 * 3 + 1] += ny;
+      normals[i1 * 3 + 2] += nz;
+      normals[i2 * 3 + 0] += nx;
+      normals[i2 * 3 + 1] += ny;
+      normals[i2 * 3 + 2] += nz;
+    }
+  }
+  out->resize(verts * 6);
+  for (size_t i = 0; i < verts; ++i) {
+    float nx = normals[i * 3 + 0];
+    float ny = normals[i * 3 + 1];
+    float nz = normals[i * 3 + 2];
+    const float len2 = nx * nx + ny * ny + nz * nz;
+    if (len2 > 1e-12f) {
+      const float inv = 1.f / std::sqrt(len2);
+      nx *= inv;
+      ny *= inv;
+      nz *= inv;
+    } else {
+      nx = 0.f;
+      ny = 1.f;
+      nz = 0.f;
+    }
+    (*out)[i * 6 + 0] = positions[i * 3 + 0];
+    (*out)[i * 6 + 1] = positions[i * 3 + 1];
+    (*out)[i * 6 + 2] = positions[i * 3 + 2];
+    (*out)[i * 6 + 3] = nx;
+    (*out)[i * 6 + 4] = ny;
+    (*out)[i * 6 + 5] = nz;
+  }
+}
 
 gis::LineCap line_cap_from_paint(const std::string& cap) {
   if (cap == "round") {
@@ -382,7 +459,8 @@ render::rhi::Texture* upload_symbol_texture(
 
 bool upload_mesh(render::rhi::Device* device, const float* positions,
                  size_t position_count, const uint32_t* indices,
-                 size_t index_count, bool with_uv, GpuScene::GpuMesh* out) {
+                 size_t index_count, bool with_uv, bool with_normals,
+                 GpuScene::GpuMesh* out) {
   if (!device || !out || !positions || !indices || position_count == 0 ||
       index_count == 0 || (position_count % 3) != 0) {
     return false;
@@ -426,6 +504,16 @@ bool upload_mesh(render::rhi::Device* device, const float* positions,
     vb_data = interleaved.data();
     vb_bytes = static_cast<uint32_t>(interleaved.size() * sizeof(float));
     stride = 5 * sizeof(float);
+  } else if (with_normals) {
+    // Lit solid: POSITION + NORMAL (matches FlyCube lit VS input layout).
+    interleave_positions_with_normals(positions, position_count, indices,
+                                      index_count, &interleaved);
+    if (interleaved.empty()) {
+      return false;
+    }
+    vb_data = interleaved.data();
+    vb_bytes = static_cast<uint32_t>(interleaved.size() * sizeof(float));
+    stride = kLitPositionNormalStride;
   }
   const uint32_t ib_bytes = static_cast<uint32_t>(index_count * sizeof(uint32_t));
   out->vertex = device->create_buffer(vb_bytes, render::rhi::BufferUsage::kVertex);
@@ -453,14 +541,23 @@ bool upload_mesh(render::rhi::Device* device, const float* positions,
 void record_kind(render::rhi::CommandList* list,
                  const render::rhi::RenderPassDesc& pass, uint32_t width,
                  uint32_t height, const std::vector<GpuScene::GpuMesh>& meshes,
-                 gis::NodeKind kind, bool* pass_opened) {
+                 gis::NodeKind kind, bool* pass_opened,
+                 const FrustumPlanes* cull_frustum) {
   bool any = false;
   for (const auto& mesh : meshes) {
-    if (mesh.kind == kind && mesh.index_count > 0 && mesh.vertex &&
-        mesh.index) {
-      any = true;
-      break;
+    if (mesh.kind != kind || mesh.index_count == 0 || !mesh.vertex ||
+        !mesh.index) {
+      continue;
     }
+    if (cull_frustum &&
+        !aabb_intersects_frustum(mesh.aabb_min_x, mesh.aabb_min_y,
+                                 mesh.aabb_min_z, mesh.aabb_max_x,
+                                 mesh.aabb_max_y, mesh.aabb_max_z,
+                                 *cull_frustum)) {
+      continue;
+    }
+    any = true;
+    break;
   }
   if (!any) {
     return;
@@ -482,13 +579,34 @@ void record_kind(render::rhi::CommandList* list,
   if (pass.enable_depth) {
     list->set_depth_mode(render::rhi::DepthMode::kWrite);
   }
+  const bool lit = is_lit_kind(kind);
+  bool lit_bound = false;
   for (const auto& mesh : meshes) {
     if (mesh.kind != kind || mesh.index_count == 0 || !mesh.vertex ||
         !mesh.index) {
       continue;
     }
+    // CPU frustum cull when an external view camera is bound (P0). Without a
+    // cull frustum, preserve legacy full-draw behavior.
+    if (cull_frustum &&
+        !aabb_intersects_frustum(mesh.aabb_min_x, mesh.aabb_min_y,
+                                 mesh.aabb_min_z, mesh.aabb_max_x,
+                                 mesh.aabb_max_y, mesh.aabb_max_z,
+                                 *cull_frustum)) {
+      continue;
+    }
     if (mesh.texture) {
+      // Textured path keeps kAuto / bind_texture (2D raster + rare 3D icons).
       list->bind_texture(mesh.texture, 0);
+    } else if (lit) {
+      // 3D terrain / model / tileset: Lambert lit solid + default LightParams.
+      if (!lit_bound) {
+        list->set_pipeline(render::rhi::PipelineId::kLitSolid);
+        list->set_light_params(render::rhi::LightParams{});
+        lit_bound = true;
+      }
+      list->set_solid_color(mesh.solid_r, mesh.solid_g, mesh.solid_b,
+                            mesh.solid_a);
     } else {
       list->set_solid_color(mesh.solid_r, mesh.solid_g, mesh.solid_b,
                             mesh.solid_a);
@@ -743,6 +861,12 @@ bool GpuScene::rebuild_meshes(render::rhi::Device* device, uint32_t width,
     mesh.solid_a = solid_a_;
     mesh.line_width = 1.f;
     mesh.circle_radius = 5.f;
+    mesh.aabb_min_x = static_cast<float>(inst.min_x);
+    mesh.aabb_min_y = static_cast<float>(inst.min_y);
+    mesh.aabb_min_z = static_cast<float>(inst.min_z);
+    mesh.aabb_max_x = static_cast<float>(inst.max_x);
+    mesh.aabb_max_y = static_cast<float>(inst.max_y);
+    mesh.aabb_max_z = static_cast<float>(inst.max_z);
     if (inst.has_paint) {
       apply_paint_scalars(inst.paint, &mesh);
     }
@@ -824,11 +948,53 @@ bool GpuScene::rebuild_meshes(render::rhi::Device* device, uint32_t width,
     if (!have) {
       continue;
     }
+    const bool with_uv = cpu.has_image || want_symbol;
+    // Lit kinds upload POSITION+NORMAL unless textured (UV path wins).
+    const bool with_normals = is_lit_kind(inst.kind) && !with_uv;
     if (!upload_mesh(device, cpu.positions.data(), cpu.positions.size(),
-                     cpu.indices.data(), cpu.indices.size(),
-                     cpu.has_image || want_symbol, &mesh)) {
+                     cpu.indices.data(), cpu.indices.size(), with_uv,
+                     with_normals, &mesh)) {
       clear_meshes();
       return false;
+    }
+    // Frustum cull must use vertex/world draw space. Instance min/max may still
+    // be geographic lon/lat while DEM vertices are orbit-normalized.
+    if (cpu.positions.size() >= 3) {
+      float mn_x = cpu.positions[0];
+      float mn_y = cpu.positions[1];
+      float mn_z = cpu.positions[2];
+      float mx_x = mn_x;
+      float mx_y = mn_y;
+      float mx_z = mn_z;
+      for (size_t i = 0; i + 2 < cpu.positions.size(); i += 3) {
+        const float x = cpu.positions[i];
+        const float y = cpu.positions[i + 1];
+        const float z = cpu.positions[i + 2];
+        if (x < mn_x) {
+          mn_x = x;
+        }
+        if (y < mn_y) {
+          mn_y = y;
+        }
+        if (z < mn_z) {
+          mn_z = z;
+        }
+        if (x > mx_x) {
+          mx_x = x;
+        }
+        if (y > mx_y) {
+          mx_y = y;
+        }
+        if (z > mx_z) {
+          mx_z = z;
+        }
+      }
+      mesh.aabb_min_x = mn_x;
+      mesh.aabb_min_y = mn_y;
+      mesh.aabb_min_z = mn_z;
+      mesh.aabb_max_x = mx_x;
+      mesh.aabb_max_y = mx_y;
+      mesh.aabb_max_z = mx_z;
     }
     if (cpu.has_image && inst.layer) {
       mesh.texture = upload_layer_texture(device, inst.layer);
@@ -943,10 +1109,18 @@ bool GpuScene::record_draws(render::rhi::Device* device,
   list->bind_camera(render::rhi::make_ortho_camera(
       static_cast<float>(minx), static_cast<float>(maxx),
       static_cast<float>(miny), static_cast<float>(maxy), -1.f, 1.f));
+  // CPU frustum cull only when an external view camera is set. Default
+  // perspective bind keeps legacy full-draw so GIS lon/lat AABBs still record.
+  const FrustumPlanes* cull_frustum = nullptr;
+  FrustumPlanes cull_planes_storage;
+  if (view_camera_set_) {
+    cull_planes_storage = extract_frustum_planes(view_camera_);
+    cull_frustum = &cull_planes_storage;
+  }
   record_kind(list, pass, width, height, meshes_,
-              gis::NodeKind::kRasterLayer, &pass_opened);
+              gis::NodeKind::kRasterLayer, &pass_opened, nullptr);
   record_kind(list, pass, width, height, meshes_,
-              gis::NodeKind::kVectorLayer, &pass_opened);
+              gis::NodeKind::kVectorLayer, &pass_opened, nullptr);
   if (have_3d) {
     if (view_camera_set_) {
       list->bind_camera(view_camera_);
@@ -958,11 +1132,11 @@ bool GpuScene::record_draws(render::rhi::Device* device,
     }
   }
   record_kind(list, pass, width, height, meshes_,
-              gis::NodeKind::kModel, &pass_opened);
+              gis::NodeKind::kModel, &pass_opened, cull_frustum);
   record_kind(list, pass, width, height, meshes_,
-              gis::NodeKind::kTerrain, &pass_opened);
+              gis::NodeKind::kTerrain, &pass_opened, cull_frustum);
   record_kind(list, pass, width, height, meshes_,
-              gis::NodeKind::kTileset, &pass_opened);
+              gis::NodeKind::kTileset, &pass_opened, cull_frustum);
 
   if (meshes_.empty()) {
     list->begin_render_pass(pass);

@@ -76,21 +76,24 @@ bool CefMapSlot::create(HWND parent,
   gc.dwWant = GC_ZOOM;
   SetGestureConfig(child_hwnd_, 0, 1, &gc, sizeof(gc));
 
+  // Scene3d: ContentMapView SoT by default. Optional FlyCube when preferred;
+  // always OpenView so stereo DIBs remain available (WinUI parity).
+  bool flycube_live = false;
   if (kind_ == content::ViewKind::kScene3d && prefer_scene3d_flycube() &&
       scene3d_rhi_.try_attach(child_hwnd_)) {
-    view_id_ = 0;
-    view_ = nullptr;
+    flycube_live = true;
   } else {
     scene3d_rhi_.release();
-    view_id_ = session_->OpenView(kind_);
-    view_ = session_->AttachSurface(view_id_, content::PresentMode::kSoftwareDib);
-    if (view_) {
-      content::MapWidgetHostView::CreateParams params;
-      params.parent_hwnd = child_hwnd_;
-      view_->Create(params, content::MapWidgetHostView::Preferences());
-      view_->SetPresentMode(content::PresentMode::kSoftwareDib);
-    }
   }
+  view_id_ = session_->OpenView(kind_);
+  view_ = session_->AttachSurface(view_id_, content::PresentMode::kSoftwareDib);
+  if (view_) {
+    content::MapWidgetHostView::CreateParams params;
+    params.parent_hwnd = child_hwnd_;
+    view_->Create(params, content::MapWidgetHostView::Preferences());
+    view_->SetPresentMode(content::PresentMode::kSoftwareDib);
+  }
+  (void)flycube_live;
   bind_scene3d();
   start_present_timer();
   set_visible(false);
@@ -414,21 +417,18 @@ void CefMapSlot::paint_to_dc(HDC hdc, const RECT& rc) {
   }
   const int w = rc.right > 0 ? rc.right : 1;
   const int h = rc.bottom > 0 ? rc.bottom : 1;
-  // Scene3d: DemRaster height mesh owns the frame (true 3D relief). Never blit
-  // ContentMapView / MapScene ortho fills here — they hide elevation (screenshot
-  // failure: flat provinces + pitch HUD). FlyCube present is handled in
-  // paint_child so a software BitBlt cannot cover the HWND swapchain.
+  // Scene3d: orbitable GDI DEM SoT (elevation + labels + compass) is primary.
+  // ContentMapView DIB is a static GPU demo — do not leave it as the frame.
+  // FlyCube solid RHI only when preferred and live.
   if (kind_ == content::ViewKind::kScene3d) {
-    if (scene3d_rhi_.is_live() && w > 0 && h > 0) {
+    if (scene3d_rhi_.is_live() && prefer_scene3d_flycube() && w > 0 && h > 0) {
       const bool ok = scene3d_rhi_.present(
           const_cast<Scene3dController*>(&scene3d_),
           static_cast<uint32_t>(w), static_cast<uint32_t>(h));
       if (ok) {
         scene3d_.paint_hud(hdc, w, h);
-      } else {
-        scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+        return;
       }
-      return;
     }
     if (w > 0 && h > 0) {
       scene3d_.paint(hdc, w, h, /*fill_background=*/true);
@@ -470,10 +470,10 @@ void CefMapSlot::paint_child() {
   GetClientRect(child_hwnd_, &rc);
   const int w = rc.right;
   const int h = rc.bottom;
-  // Match MapViewport Scene3d+FlyCube: present to the HWND swapchain, then
-  // HUD-only on the window DC. Do not BitBlt an offscreen DIB over GPU frames.
-  if (kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() && w > 0 &&
-      h > 0) {
+  // Match MapViewport Scene3d: FlyCube presents to HWND swapchain (HUD only).
+  // ContentMapView SoT composes offscreen then BitBlt.
+  if (kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() &&
+      prefer_scene3d_flycube() && w > 0 && h > 0) {
     paint_to_dc(hdc, rc);
     EndPaint(child_hwnd_, &ps);
     return;

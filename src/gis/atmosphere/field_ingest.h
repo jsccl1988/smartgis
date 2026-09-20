@@ -4,6 +4,8 @@
 #ifndef GIS_ATMOSPHERE_FIELD_INGEST_H_
 #define GIS_ATMOSPHERE_FIELD_INGEST_H_
 
+#include <cstddef>
+
 #include "gis/atmosphere/field_channel.h"
 #include "gis/atmosphere/field_store.h"
 #include "gis/gis_export.h"
@@ -26,6 +28,18 @@ struct FieldIngestOptions {
 GIS_EXPORT bool ingest_gdal_field(FieldStore* store, const char* path,
                                   FieldChannel channel,
                                   const FieldIngestOptions& opts = {});
+
+// Batch GeoTIFF (or GDAL-openable) paths as External time slices for one
+// channel. |paths| and |times| must each have |count| entries; per-slice
+// time comes from |times| (opts.time_sec ignored). band/priority/kind from
+// |opts|. Returns false if count==0, null args, or any slice fails (earlier
+// successful slices may already be present in |store|).
+GIS_EXPORT bool ingest_gdal_field_series(FieldStore* store,
+                                         FieldChannel channel,
+                                         const char* const* paths,
+                                         const double* times,
+                                         std::size_t count,
+                                         const FieldIngestOptions& opts = {});
 
 }  // namespace atmosphere
 }  // namespace gis

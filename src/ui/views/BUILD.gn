@@ -53,6 +53,8 @@ source_set("views") {
     "primitives/radio_button.h",
     "primitives/scroll_view.cc",
     "primitives/scroll_view.h",
+    "primitives/slider.cc",
+    "primitives/slider.h",
     "primitives/tab_strip.cc",
     "primitives/tab_strip.h",
     "primitives/table_view.cc",
@@ -87,6 +89,8 @@ source_set("views") {
     # GIS panels
     "gis/ambox_view.cc",
     "gis/ambox_view.h",
+    "gis/atmosphere_panel.cc",
+    "gis/atmosphere_panel.h",
     "gis/attribute_table.cc",
     "gis/attribute_table.h",
     "gis/catalog_view.cc",

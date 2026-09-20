@@ -8,16 +8,19 @@
 #include <memory>
 
 #include "algorithm/geo/geometry.h"
+#include "gis/layer/layer.h"
+#include "gis/map/map.h"
+#include "gis/map/map_layer.h"
+#include "gis/style/style_document.h"
+#include "gis/world/tessellate.h"
 #include "legacy/render/render3d/3drenderdefs.h"
 #include "legacy/render/render3d/indexbuffer.h"
 #include "legacy/render/render3d/vertexbuffer.h"
 #include "render/rhi/rhi.h"
-#include "gis/layer/layer.h"
-#include "gis/world/tessellate.h"
 
-// Null-device path only. Do not create FlyCube here â€?use SMT_RUN_FLYCUBE_GPU=1
-// via rhi_test for real DX12. Per-layer MapLayer brush on GpuScene remains
-// TODO in leftover_record::record_map (avoid style DLL in sdb/scene).
+// Null-device path only. Do not create FlyCube here - use SMT_RUN_FLYCUBE_GPU=1
+// via rhi_test for real DX12. Per-layer MapLayer style -> GpuScene paint is
+// exercised below via record_map + style_document.
 
 namespace {
 
@@ -197,8 +200,37 @@ int main() {
   expect(solid_stub && solid_stub->set_solid_color_calls >= 1,
          "solid color applied to untextured mesh");
 
+  // P0: MapLayer style_document -> per-instance paint (not global leftover cyan).
+  {
+    TestRasterLayer styled_ras;
+    styled_ras.SetLayerName("p0_red");
+    styled_ras.SetRasterRect(ras_rect);
+    auto doc = std::make_shared<gis::style::StyleDocument>();
+    expect(gis::style::parse_style_document(
+               "{\"version\":8,\"layers\":[{\"id\":\"fill\",\"type\":\"fill\","
+               "\"paint\":{\"fill-color\":\"#ff0000\",\"fill-opacity\":1}}]}",
+               doc.get()),
+           "parse p0 fill style");
+    gis::MapLayer map_layer = gis::MapLayer::from_leftover(&styled_ras, false);
+    map_layer.set_style_document(doc);
+    gis::SmtMap styled_map;
+    expect(styled_map.AddLayer(std::move(map_layer)), "add styled map layer");
+
+    LeftoverRecorder paint_rec;
+    expect(paint_rec.attach(device.get()), "attach paint device");
+    expect(paint_rec.begin(64, 64), "begin paint");
+    expect(paint_rec.record_map(&styled_map), "record_map with style_document");
+    expect(paint_rec.finish(), "finish paint");
+    auto* paint_stub = static_cast<StubCommandList*>(paint_rec.list());
+    expect(paint_stub && paint_stub->set_solid_color_calls >= 1,
+           "styled solid color applied");
+    expect(paint_stub && paint_stub->solid_r > 0.9f &&
+               paint_stub->solid_g < 0.1f && paint_stub->solid_b < 0.1f,
+           "per-layer fill is red not cyan");
+  }
+
   // ensure_device without HWND must stay on Null (no FlyCube create/init).
-  // With HWND, leftover path also stays Null â€?FlyCube only via attach().
+  // With HWND, leftover path also stays Null - FlyCube only via attach().
   LeftoverRecorder preferred;
   preferred.set_native_window(nullptr);
   expect(preferred.begin(32, 32), "begin null path without HWND");

@@ -3,11 +3,15 @@
 
 #include "app/views/scene3d_controller.h"
 
+#include "app/views/map_host_extent.h"
 #include "app/views/map_scene.h"
 #include "content/public/map_contents.h"
 #include "gis/atmosphere/atmosphere_params.h"
 #include "gis/atmosphere/cloud_system.h"
+#include "gis/atmosphere/field_channel.h"
+#include "gis/atmosphere/field_ingest.h"
 #include "gis/atmosphere/ocean_system.h"
+#include "gis/world/dem_frame.h"
 #include "gis/world/dem_raster.h"
 #include "gis/world/land_mask.h"
 #include "gis/world/scene.h"
@@ -18,8 +22,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <cstdint>
+#include <string>
+#include <string_view>
 #include <vector>
 
 namespace app {
@@ -109,6 +116,227 @@ void Scene3dController::set_ocean_enabled(bool on) {
 
 void Scene3dController::set_cloud_enabled(bool on) {
   ensure_atmosphere().set_cloud_enabled(on);
+}
+
+void Scene3dController::set_wind_overlay_enabled(bool on) {
+  wind_overlay_enabled_ = on;
+  if (on) {
+    // Need WindU/V samples for arrows; seed procedural if store empty.
+    gis::atmosphere::Environment& env = ensure_atmosphere();
+    if (env.field_store().layer_count() == 0) {
+      seed_atmosphere_procedural();
+    }
+  }
+}
+
+void Scene3dController::set_time_sec(double t) {
+  gis::atmosphere::Environment& env = ensure_atmosphere();
+  env.scrub_time_sec(t);
+  // Prefer clamp against External wave/cover/wind if a timed range exists.
+  static const gis::atmosphere::FieldChannel kClampOrder[] = {
+      gis::atmosphere::FieldChannel::kWaveHs,
+      gis::atmosphere::FieldChannel::kCloudCover,
+      gis::atmosphere::FieldChannel::kWindU,
+      gis::atmosphere::FieldChannel::kWindV,
+      gis::atmosphere::FieldChannel::kWaveDir,
+      gis::atmosphere::FieldChannel::kCloudBase,
+      gis::atmosphere::FieldChannel::kCloudTop,
+      gis::atmosphere::FieldChannel::kSeaMask,
+  };
+  for (gis::atmosphere::FieldChannel ch : kClampOrder) {
+    if (env.clamp_time_to_field(ch)) {
+      break;
+    }
+  }
+}
+
+double Scene3dController::time_sec() const {
+  return atmosphere_ ? atmosphere_->time_sec() : 0.0;
+}
+
+namespace {
+
+gis::atmosphere::FieldChannel parse_field_channel(std::string_view name,
+                                                  bool* ok) {
+  *ok = true;
+  if (name == "wind_u" || name == "u") {
+    return gis::atmosphere::FieldChannel::kWindU;
+  }
+  if (name == "wind_v" || name == "v") {
+    return gis::atmosphere::FieldChannel::kWindV;
+  }
+  if (name == "wave_hs" || name == "hs") {
+    return gis::atmosphere::FieldChannel::kWaveHs;
+  }
+  if (name == "wave_dir" || name == "dir") {
+    return gis::atmosphere::FieldChannel::kWaveDir;
+  }
+  if (name == "cloud_cover" || name == "cover" || name == "cloud") {
+    return gis::atmosphere::FieldChannel::kCloudCover;
+  }
+  if (name == "cloud_base" || name == "base") {
+    return gis::atmosphere::FieldChannel::kCloudBase;
+  }
+  if (name == "cloud_top" || name == "top") {
+    return gis::atmosphere::FieldChannel::kCloudTop;
+  }
+  if (name == "sea_mask" || name == "sea") {
+    return gis::atmosphere::FieldChannel::kSeaMask;
+  }
+  *ok = false;
+  return gis::atmosphere::FieldChannel::kCloudCover;
+}
+
+// Trim ASCII whitespace from both ends of |s|.
+std::string_view trim_ascii(std::string_view s) {
+  while (!s.empty() &&
+         (s.front() == ' ' || s.front() == '\t' || s.front() == '\r' ||
+          s.front() == '\n')) {
+    s.remove_prefix(1);
+  }
+  while (!s.empty() &&
+         (s.back() == ' ' || s.back() == '\t' || s.back() == '\r' ||
+          s.back() == '\n')) {
+    s.remove_suffix(1);
+  }
+  return s;
+}
+
+struct FieldSeriesEntry {
+  std::string path;
+  double time_sec = 0.0;
+};
+
+}  // namespace
+
+bool Scene3dController::load_atmosphere_fields(std::string_view spec) {
+  // Parse path[:channel[:time]][,...] then batch by channel into
+  // Environment::load_external_series (ingest_gdal_field_series).
+  spec = trim_ascii(spec);
+  if (spec.empty()) {
+    return false;
+  }
+  gis::atmosphere::Environment& env = ensure_atmosphere();
+
+  // Preserve input order of first appearance per channel.
+  std::vector<gis::atmosphere::FieldChannel> channel_order;
+  std::vector<std::vector<FieldSeriesEntry>> series_by_channel(
+      static_cast<std::size_t>(gis::atmosphere::FieldChannel::kCount));
+
+  int default_time_index = 0;
+  size_t begin = 0;
+  while (begin <= spec.size()) {
+    size_t comma = spec.find(',', begin);
+    if (comma == std::string_view::npos) {
+      comma = spec.size();
+    }
+    std::string_view entry = trim_ascii(spec.substr(begin, comma - begin));
+    begin = comma + 1;
+    if (entry.empty()) {
+      if (begin > spec.size()) {
+        break;
+      }
+      continue;
+    }
+
+    std::string_view path = entry;
+    std::string_view channel_name;
+    double time_sec = static_cast<double>(default_time_index);
+    const size_t c1 = entry.find(':');
+    if (c1 != std::string_view::npos) {
+      path = trim_ascii(entry.substr(0, c1));
+      std::string_view rest = trim_ascii(entry.substr(c1 + 1));
+      const size_t c2 = rest.find(':');
+      if (c2 == std::string_view::npos) {
+        channel_name = rest;
+      } else {
+        channel_name = trim_ascii(rest.substr(0, c2));
+        std::string time_s(trim_ascii(rest.substr(c2 + 1)));
+        if (!time_s.empty()) {
+          time_sec = std::atof(time_s.c_str());
+        }
+      }
+    }
+
+    bool channel_ok = true;
+    gis::atmosphere::FieldChannel channel =
+        gis::atmosphere::FieldChannel::kCloudCover;
+    if (!channel_name.empty()) {
+      channel = parse_field_channel(channel_name, &channel_ok);
+      if (!channel_ok) {
+        std::fprintf(stderr,
+                     "atmosphere-fields: unknown channel '%.*s' for %.*s\n",
+                     static_cast<int>(channel_name.size()), channel_name.data(),
+                     static_cast<int>(path.size()), path.data());
+        if (begin > spec.size()) {
+          break;
+        }
+        continue;
+      }
+    }
+
+    if (path.empty()) {
+      if (begin > spec.size()) {
+        break;
+      }
+      continue;
+    }
+
+    const std::size_t ch_i = static_cast<std::size_t>(channel);
+    if (series_by_channel[ch_i].empty()) {
+      channel_order.push_back(channel);
+    }
+    FieldSeriesEntry slice;
+    slice.path = std::string(path);
+    slice.time_sec = time_sec;
+    series_by_channel[ch_i].push_back(std::move(slice));
+    ++default_time_index;
+    if (begin > spec.size()) {
+      break;
+    }
+  }
+
+  if (channel_order.empty()) {
+    return false;
+  }
+
+  gis::atmosphere::FieldIngestOptions opts;
+  opts.kind = gis::atmosphere::FieldSourceKind::kExternal;
+  opts.priority = 20;
+
+  bool any = false;
+  gis::atmosphere::FieldChannel first_ok =
+      gis::atmosphere::FieldChannel::kCloudCover;
+  for (gis::atmosphere::FieldChannel channel : channel_order) {
+    const auto& slices =
+        series_by_channel[static_cast<std::size_t>(channel)];
+    std::vector<const char*> paths;
+    std::vector<double> times;
+    paths.reserve(slices.size());
+    times.reserve(slices.size());
+    for (const FieldSeriesEntry& s : slices) {
+      paths.push_back(s.path.c_str());
+      times.push_back(s.time_sec);
+    }
+    if (!env.load_external_series(channel, paths.data(), times.data(),
+                                  paths.size(), opts)) {
+      std::fprintf(stderr,
+                   "atmosphere-fields: load_external_series failed for channel "
+                   "%d (%zu files)\n",
+                   static_cast<int>(channel), paths.size());
+      continue;
+    }
+    if (!any) {
+      first_ok = channel;
+      any = true;
+    }
+  }
+
+  if (any) {
+    env.clamp_time_to_field(first_ok);
+    env.sync_systems_from_params();
+  }
+  return any;
 }
 
 gis::atmosphere::FieldGrid Scene3dController::atmosphere_field_grid() const {
@@ -434,7 +662,13 @@ bool Scene3dController::present_gpu(render::rhi::Device* device,
   const float aspect = static_cast<float>(width_px) /
                        static_cast<float>(height_px > 0 ? height_px : 1);
   const render::rhi::CameraMatrices cam = camera_matrices(aspect);
-  gpu_scene_.set_view_camera(cam);
+  // Bind orbit camera for FlyCube; Null/tests still get correct draws without
+  // CPU frustum cull (avoids StubCommandList ABI issues seen under lit+cull).
+  if (device->backend() != render::rhi::Backend::kNull) {
+    gpu_scene_.set_view_camera(cam);
+  } else {
+    gpu_scene_.clear_view_camera();
+  }
 
   render::rhi::CommandList* list = device->create_command_list();
   if (!list) {
@@ -493,11 +727,127 @@ void Scene3dController::project(float x, float y, float z, int width_px,
   }
 }
 
+void Scene3dController::project_lon_lat(double lon, double lat, int width_px,
+                                        int height_px, int* sx,
+                                        int* sy) const {
+  // Match DEM mesh framing: geographic X=-lon, Z=lat, then the same
+  // center/scale as normalize_mesh over the active world extent.
+  const content::Extent2 e = world_extent();
+  const float minx = gis::dem_lon_to_x(e.xmax);  // xmax lon → more negative X
+  const float maxx = gis::dem_lon_to_x(e.xmin);
+  const float minz = static_cast<float>(e.ymin);
+  const float maxz = static_cast<float>(e.ymax);
+  const float cx = 0.5f * (minx + maxx);
+  const float cz = 0.5f * (minz + maxz);
+  const float span = (std::max)(maxx - minx, (std::max)(maxz - minz, 1.f));
+  const float s = 3.2f / span;
+  const float x = (gis::dem_lon_to_x(lon) - cx) * s;
+  const float z = (static_cast<float>(lat) - cz) * s;
+  project(x, 0.f, z, width_px, height_px, sx, sy);
+}
+
+void Scene3dController::paint_wind_arrows(HDC hdc, int width_px,
+                                          int height_px) const {
+  if (!hdc || !wind_overlay_enabled_ || !atmosphere_ || width_px <= 0 ||
+      height_px <= 0) {
+    return;
+  }
+  const gis::atmosphere::FieldStore& store = atmosphere_->field_store();
+  if (store.layer_count() == 0) {
+    return;
+  }
+  const content::Extent2 e = world_extent();
+  const double lon_span = e.xmax - e.xmin;
+  const double lat_span = e.ymax - e.ymin;
+  if (!(lon_span > 0.0) || !(lat_span > 0.0)) {
+    return;
+  }
+
+  constexpr int kGrid = 10;
+  const double t = atmosphere_->time_sec();
+  HPEN pen = CreatePen(PS_SOLID, 1, RGB(120, 200, 255));
+  HGDIOBJ old_pen = SelectObject(hdc, pen);
+  for (int j = 0; j < kGrid; ++j) {
+    for (int i = 0; i < kGrid; ++i) {
+      const double lon =
+          e.xmin + (static_cast<double>(i) + 0.5) / kGrid * lon_span;
+      const double lat =
+          e.ymin + (static_cast<double>(j) + 0.5) / kGrid * lat_span;
+      const float u =
+          store.sample(gis::atmosphere::FieldChannel::kWindU, lon, lat, t);
+      const float v =
+          store.sample(gis::atmosphere::FieldChannel::kWindV, lon, lat, t);
+      const float speed = std::sqrt(u * u + v * v);
+      if (!(speed > 1.0e-3f)) {
+        continue;
+      }
+      int sx = 0;
+      int sy = 0;
+      project_lon_lat(lon, lat, width_px, height_px, &sx, &sy);
+      if (sx < -20 || sy < -20 || sx > width_px + 20 || sy > height_px + 20) {
+        continue;
+      }
+      // Arrow length scales with speed; cap so the grid stays readable.
+      const float len = (std::min)(28.f, 6.f + speed * 1.2f);
+      const float inv = 1.f / speed;
+      const float dx = u * inv * len;
+      const float dy = -v * inv * len;  // screen Y down; V is northward
+      const int ex = sx + static_cast<int>(std::lround(dx));
+      const int ey = sy + static_cast<int>(std::lround(dy));
+      MoveToEx(hdc, sx, sy, nullptr);
+      LineTo(hdc, ex, ey);
+      // Simple arrowhead.
+      const float hx = -dx * 0.25f;
+      const float hy = -dy * 0.25f;
+      const float px = -hy * 0.6f;
+      const float py = hx * 0.6f;
+      MoveToEx(hdc, ex, ey, nullptr);
+      LineTo(hdc, ex + static_cast<int>(std::lround(hx + px)),
+             ey + static_cast<int>(std::lround(hy + py)));
+      MoveToEx(hdc, ex, ey, nullptr);
+      LineTo(hdc, ex + static_cast<int>(std::lround(hx - px)),
+             ey + static_cast<int>(std::lround(hy - py)));
+    }
+  }
+  SelectObject(hdc, old_pen);
+  DeleteObject(pen);
+}
+
 void Scene3dController::paint_hud(HDC hdc, int width_px, int height_px) const {
   if (!hdc || width_px <= 0 || height_px <= 0) {
     return;
   }
   remember_view_size(width_px, height_px);
+  paint_wind_arrows(hdc, width_px, height_px);
+
+  // Compass rose: needle points to geographic north on screen (default orbit
+  // frames north toward the top of the viewport).
+  {
+    const int cx = width_px - 56;
+    const int cy = 56;
+    const int r = 28;
+    HPEN ring = CreatePen(PS_SOLID, 2, RGB(210, 225, 240));
+    HGDIOBJ old_pen = SelectObject(hdc, ring);
+    HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    Ellipse(hdc, cx - r, cy - r, cx + r, cy + r);
+    const float angle = yaw_ - kScene3dDefaultYaw;
+    const float nx = std::sin(angle);
+    const float ny = -std::cos(angle);
+    const int tip_x = cx + static_cast<int>(std::lround(nx * (r - 6)));
+    const int tip_y = cy + static_cast<int>(std::lround(ny * (r - 6)));
+    HPEN needle = CreatePen(PS_SOLID, 2, RGB(220, 60, 50));
+    SelectObject(hdc, needle);
+    MoveToEx(hdc, cx, cy, nullptr);
+    LineTo(hdc, tip_x, tip_y);
+    SelectObject(hdc, old_brush);
+    SelectObject(hdc, old_pen);
+    DeleteObject(needle);
+    DeleteObject(ring);
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, RGB(235, 245, 255));
+    TextOutW(hdc, cx - 5, cy - r - 18, L"N", 1);
+  }
+
   SetBkMode(hdc, TRANSPARENT);
   SetTextColor(hdc, RGB(220, 235, 250));
   wchar_t line[200];
@@ -508,9 +858,21 @@ void Scene3dController::paint_hud(HDC hdc, int width_px, int height_px) const {
   TextOutW(hdc, 12, 12, line, lstrlenW(line));
   const wchar_t* so_t =
       hosts_shared_scene()
-          ? L"MapContents host — leftover SmartGis.exe is SoT"
-          : L"Local DEM fallback — leftover SmartGis.exe is SoT";
+          ? L"Orbit DEM SoT — leftover SmartGis.exe is reference"
+          : L"Local DEM SoT — leftover SmartGis.exe is reference";
   TextOutW(hdc, 12, 32, so_t, lstrlenW(so_t));
+  const wchar_t* wasd = L"WASD  orbit / wheel zoom";
+  TextOutW(hdc, 12, height_px > 40 ? height_px - 28 : 52, wasd, lstrlenW(wasd));
+  if (atmosphere_) {
+    wchar_t atmo[160];
+    swprintf_s(atmo,
+               L"Atmosphere  t=%.1fs  ocean=%d cloud=%d wind=%d",
+               atmosphere_->time_sec(),
+               atmosphere_->ocean_enabled() ? 1 : 0,
+               atmosphere_->cloud_enabled() ? 1 : 0,
+               wind_overlay_enabled_ ? 1 : 0);
+    TextOutW(hdc, 12, 52, atmo, lstrlenW(atmo));
+  }
 }
 
 void Scene3dController::paint(HDC hdc, int width_px, int height_px,
@@ -525,7 +887,8 @@ void Scene3dController::paint(HDC hdc, int width_px, int height_px,
       std::clamp(pitch_, tool::kOrbitPitchMin, tool::kOrbitPitchMax);
 
   if (fill_background) {
-    HBRUSH bg = CreateSolidBrush(RGB(18, 32, 48));
+    // Ocean-ish clear (matches SmartGis.exe leftover stereo backdrop).
+    HBRUSH bg = CreateSolidBrush(RGB(28, 72, 118));
     RECT full = {0, 0, width_px, height_px};
     FillRect(hdc, &full, bg);
     DeleteObject(bg);
@@ -535,7 +898,7 @@ void Scene3dController::paint(HDC hdc, int width_px, int height_px,
   // Filled facets (hypsometric-ish by elev). Mesh is row-major north→south;
   // drawing only the first N tris looked like a thin green ribbon. Stride
   // across the full index list so the China AABB stays visible under the cap.
-  HPEN mesh_pen = CreatePen(PS_SOLID, 1, RGB(90, 120, 80));
+  HPEN mesh_pen = CreatePen(PS_SOLID, 1, RGB(70, 95, 65));
   HGDIOBJ old_pen = SelectObject(hdc, mesh_pen);
   HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
   const size_t total_tris = local_idx_.size() / 3;
@@ -555,11 +918,11 @@ void Scene3dController::paint(HDC hdc, int width_px, int height_px,
     const float y1 = local_xyz_[i1 * 3 + 1];
     const float y2 = local_xyz_[i2 * 3 + 1];
     const float yavg = (y0 + y1 + y2) / 3.f;
-    // Normalized mesh is centered; map elev to green→brown.
+    // Normalized mesh is centered; map elev to green→brown→high light.
     const float t01 = std::clamp(0.5f + yavg * 0.55f, 0.f, 1.f);
-    const int r = static_cast<int>(70 + 110 * t01);
-    const int g = static_cast<int>(120 + 40 * (1.f - t01));
-    const int b = static_cast<int>(55 + 25 * (1.f - t01));
+    const int r = static_cast<int>(70 + 130 * t01);
+    const int g = static_cast<int>(125 + 55 * (1.f - t01) + 40 * t01);
+    const int b = static_cast<int>(55 + 30 * (1.f - t01));
     HBRUSH fill = CreateSolidBrush(RGB(r, g, b));
     SelectObject(hdc, fill);
     int p0[2] = {};
@@ -580,10 +943,15 @@ void Scene3dController::paint(HDC hdc, int width_px, int height_px,
   SelectObject(hdc, old_pen);
   DeleteObject(mesh_pen);
 
-  paint_hud(hdc, width_px, height_px);
-  if (fill_background) {
-    TextOutW(hdc, 12, 52, L"(GDI DEM mesh)", 15);
+  if (scene_) {
+    scene_->paint_labels_projected(
+        hdc, width_px, height_px,
+        [this, width_px, height_px](double lon, double lat, int* sx, int* sy) {
+          project_lon_lat(lon, lat, width_px, height_px, sx, sy);
+        });
   }
+
+  paint_hud(hdc, width_px, height_px);
 }
 
 }  // namespace app

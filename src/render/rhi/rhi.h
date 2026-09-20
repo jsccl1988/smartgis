@@ -96,6 +96,7 @@ enum class PipelineId : uint32_t {
   kTextured = 2,
   kOcean = 3,     // height-map displace + Fresnel water
   kCloud = 4,     // billowy / short raymarch with alpha
+  kLitSolid = 5,  // Lambert N·L + ambient solid (3D terrain/model default)
 };
 
 // Built-in compute pipelines for ocean GPU FFT (FlyCube); Null records only.
@@ -208,6 +209,16 @@ struct CloudGpuParams {
   float pad0 = 0.f;
 };
 
+// Directional + ambient light for PipelineId::kLitSolid (set_light_params).
+// dir is the travel direction of light rays (world space); PS uses -dir for N·L.
+// Default dir is approximately (-0.4, -0.8, -0.35); FlyCube normalizes on upload.
+struct LightParams {
+  float dir[3] = {-0.4f, -0.8f, -0.35f};
+  float ambient = 0.25f;
+  float color[3] = {1.f, 1.f, 1.f};
+  float intensity = 1.f;
+};
+
 enum class CameraKind : uint32_t {
   kOrtho = 1,
   kPerspective = 2,
@@ -267,6 +278,12 @@ class StubBuffer : public Buffer {
 };
 
 namespace detail {
+
+// True for stack/heap object addresses. Rejects near-null and small integers
+// mistaken for refs (vtable slot skew calling set_*_params with an enum).
+inline bool is_plausible_object_pointer(const void* p) {
+  return reinterpret_cast<std::uintptr_t>(p) >= 4096u;
+}
 
 inline Buffer* make_stub_buffer(uint32_t byte_size, BufferUsage usage) {
   if (byte_size == 0) {
@@ -398,6 +415,7 @@ class CommandList {
   virtual void set_depth_mode(DepthMode mode) { (void)mode; }
   virtual void set_ocean_params(const OceanGpuParams& params) { (void)params; }
   virtual void set_cloud_params(const CloudGpuParams& params) { (void)params; }
+  virtual void set_light_params(const LightParams& params) { (void)params; }
 
   // Compute (ocean GPU FFT). Null records counters; FlyCube dispatches on execute.
   virtual void set_compute_pipeline(ComputePipelineId id) { (void)id; }
@@ -450,12 +468,14 @@ class StubCommandList : public CommandList {
   uint32_t set_depth_mode_calls = 0;
   uint32_t set_ocean_params_calls = 0;
   uint32_t set_cloud_params_calls = 0;
+  uint32_t set_light_params_calls = 0;
   ColorLoadOp last_load_op = ColorLoadOp::kClear;
   PipelineId last_pipeline = PipelineId::kAuto;
   BlendMode last_blend = BlendMode::kOpaque;
   DepthMode last_depth = DepthMode::kDisabled;
   OceanGpuParams last_ocean;
   CloudGpuParams last_cloud;
+  LightParams last_light;
   RenderPassDesc last_pass;
   // Append-only compute counters (keep earlier layout stable for cross-TU stubs).
   uint32_t set_compute_pipeline_calls = 0;
@@ -522,11 +542,25 @@ class StubCommandList : public CommandList {
   }
   void set_ocean_params(const OceanGpuParams& params) override {
     ++set_ocean_params_calls;
+    // Guard against vtable-slot skew (enum/int passed as ref) or null.
+    if (!detail::is_plausible_object_pointer(&params)) {
+      return;
+    }
     last_ocean = params;
   }
   void set_cloud_params(const CloudGpuParams& params) override {
     ++set_cloud_params_calls;
+    if (!detail::is_plausible_object_pointer(&params)) {
+      return;
+    }
     last_cloud = params;
+  }
+  void set_light_params(const LightParams& params) override {
+    ++set_light_params_calls;
+    if (!detail::is_plausible_object_pointer(&params)) {
+      return;
+    }
+    last_light = params;
   }
   void set_compute_pipeline(ComputePipelineId id) override {
     ++set_compute_pipeline_calls;
@@ -534,6 +568,9 @@ class StubCommandList : public CommandList {
   }
   void set_ocean_fft_params(const OceanFftGpuParams& params) override {
     ++set_ocean_fft_params_calls;
+    if (!detail::is_plausible_object_pointer(&params)) {
+      return;
+    }
     last_ocean_fft = params;
   }
   void bind_compute_srv(Texture* texture, uint32_t) override {

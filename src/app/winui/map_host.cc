@@ -263,19 +263,27 @@ void MapHost::apply_pointer(const content::InputEvent& ev) {
     if (child_hwnd_) {
       SetCapture(child_hwnd_);
     }
+    // Pan press must not Invalidate — a full MapScene rebuild flashes white
+    // and races the GPU DIB present path. Only tools that change visuals repaint.
     if (is_select) {
       map_scene_.hit_test(ev.x_px, ev.y_px, w, h);
+      if (child_hwnd_) {
+        InvalidateRect(child_hwnd_, nullptr, FALSE);
+      }
     } else if (is_zoom_in) {
       blit_.begin_zoom(w, h, ev.x_px, ev.y_px, 1.15);
       map_scene_.apply_zoom_at(ev.x_px, ev.y_px, 1.15);
       schedule_full_redraw();
+      if (child_hwnd_) {
+        InvalidateRect(child_hwnd_, nullptr, FALSE);
+      }
     } else if (is_zoom_out) {
       blit_.begin_zoom(w, h, ev.x_px, ev.y_px, 1.0 / 1.15);
       map_scene_.apply_zoom_at(ev.x_px, ev.y_px, 1.0 / 1.15);
       schedule_full_redraw();
-    }
-    if (child_hwnd_) {
-      InvalidateRect(child_hwnd_, nullptr, FALSE);
+      if (child_hwnd_) {
+        InvalidateRect(child_hwnd_, nullptr, FALSE);
+      }
     }
     return;
   }
@@ -800,10 +808,9 @@ void MapHost::sync_layout() {
     }
     InvalidateRect(child_hwnd_, nullptr, FALSE);
   }
-  // Kick one FlyCube present during layout so self-test can observe
-  // last_present_ok without waiting solely on the present timer.
+  // Kick one FlyCube present during layout only when FlyCube is preferred.
   if (kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() &&
-      child_hwnd_ && use_w > 8 && use_h > 8) {
+      app::prefer_scene3d_flycube() && child_hwnd_ && use_w > 8 && use_h > 8) {
     (void)scene3d_rhi_.present(&scene3d_, static_cast<uint32_t>(use_w),
                                static_cast<uint32_t>(use_h));
     UpdateWindow(child_hwnd_);
@@ -888,7 +895,42 @@ void MapHost::paint_child() const {
   HDC hdc = BeginPaint(child_hwnd_, &ps);
   RECT rc;
   GetClientRect(child_hwnd_, &rc);
-  paint_to_dc(hdc, rc);
+  const int w = rc.right - rc.left;
+  const int h = rc.bottom - rc.top;
+  // Offscreen compose then one BitBlt for 2D and ContentMapView SoT 3D.
+  // FlyCube presents to the HWND swapchain directly (no BitBlt cover).
+  const bool flycube_scene =
+      kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() &&
+      app::prefer_scene3d_flycube();
+  if (!flycube_scene && w > 0 && h > 0) {
+    HDC mem = CreateCompatibleDC(hdc);
+    BITMAPINFO bi = {};
+    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bi.bmiHeader.biWidth = w;
+    bi.bmiHeader.biHeight = -h;
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 32;
+    bi.bmiHeader.biCompression = BI_RGB;
+    void* bits = nullptr;
+    HBITMAP bmp =
+        mem ? CreateDIBSection(mem, &bi, DIB_RGB_COLORS, &bits, nullptr, 0)
+            : nullptr;
+    if (mem && bmp) {
+      HGDIOBJ old = SelectObject(mem, bmp);
+      paint_to_dc(mem, rc);
+      BitBlt(hdc, 0, 0, w, h, mem, 0, 0, SRCCOPY);
+      SelectObject(mem, old);
+      DeleteObject(bmp);
+      DeleteDC(mem);
+    } else {
+      if (mem) {
+        DeleteDC(mem);
+      }
+      paint_to_dc(hdc, rc);
+    }
+  } else {
+    paint_to_dc(hdc, rc);
+  }
   EndPaint(child_hwnd_, &ps);
 }
 
@@ -899,71 +941,43 @@ void MapHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   const int w = rc.right - rc.left;
   const int h = rc.bottom - rc.top;
   if (kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() &&
-      w > 0 && h > 0) {
+      app::prefer_scene3d_flycube() && w > 0 && h > 0) {
     const bool ok = scene3d_rhi_.present(
         const_cast<::app::Scene3dController*>(&scene3d_),
         static_cast<uint32_t>(w), static_cast<uint32_t>(h));
     if (ok) {
       scene3d_.paint_hud(hdc, w, h);
-    } else {
-      scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+      return;
     }
-    return;
   }
   if (kind_ != content::ViewKind::kScene3d && blit_.in_preview() &&
       blit_.present(hdc, w, h)) {
     return;
   }
-  bool presented = present_latest_frame(hdc, rc);
-  if (!presented) {
-    const bool scene3d = kind_ == content::ViewKind::kScene3d;
-    if (scene3d && w > 0 && h > 0) {
-      // GDI DEM wireframe fallback when FlyCube / shared DIB is unavailable.
-      scene3d_.paint(hdc, w, h);
-    } else {
-      const HBRUSH brush =
-          CreateSolidBrush(scene3d ? RGB(18, 32, 48) : RGB(255, 255, 255));
-      FillRect(hdc, &rc, brush);
-      DeleteObject(brush);
+  // Product 2D content is MapScene (China PLP). Do not present a GPU DIB and
+  // then wipe it with a white overlay — that was the click-refresh flicker.
+  const bool map_owns_frame = kind_ != content::ViewKind::kScene3d &&
+                              map_scene_.feature_count() > 0 && w > 0 && h > 0;
+  if (kind_ == content::ViewKind::kScene3d) {
+    // Orbitable GDI DEM SoT — ContentMapView DIB is not leftover stereo.
+    if (w > 0 && h > 0) {
+      scene3d_.paint(hdc, w, h, /*fill_background=*/true);
     }
-  } else if (kind_ == content::ViewKind::kScene3d && w > 0 && h > 0) {
-    // ContentMapView shared DIB is fixed-camera; orbit-synced GDI DEM owns
-    // the frame (no FlyCube). Do not leave an empty/blue DIB as primary.
-    scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+    return;
   }
-  // 2D panes: overlay OGR vectors on the GPU base. Skip on 3D — polygon fills
-  // painted a flat China map over DEM (Views/WinUI parity).
-  if (kind_ != content::ViewKind::kScene3d && w > 0 && h > 0 &&
-      map_scene_.feature_count() > 0) {
-    const bool fill_bg = true;
-    HDC mem = CreateCompatibleDC(hdc);
-    HBITMAP dib = nullptr;
-    HGDIOBJ old = nullptr;
-    if (mem) {
-      dib = CreateCompatibleBitmap(hdc, w, h);
-      if (dib) {
-        old = SelectObject(mem, dib);
-        if (fill_bg) {
-          HBRUSH bg = CreateSolidBrush(RGB(255, 255, 255));
-          RECT full = {0, 0, w, h};
-          FillRect(mem, &full, bg);
-          DeleteObject(bg);
-        } else {
-          BitBlt(mem, 0, 0, w, h, hdc, 0, 0, SRCCOPY);
-        }
-        map_scene_.paint(mem, w, h, /*fill_background=*/false);
-        BitBlt(hdc, 0, 0, w, h, mem, 0, 0, SRCCOPY);
-        SelectObject(mem, old);
-        DeleteObject(dib);
-        DeleteDC(mem);
-      } else {
-        DeleteDC(mem);
-        map_scene_.paint(hdc, w, h, fill_bg);
-      }
-    } else {
-      map_scene_.paint(hdc, w, h, fill_bg);
-    }
-  } else if (!presented && kind_ != content::ViewKind::kScene3d) {
+  bool presented = false;
+  if (!map_owns_frame) {
+    presented = present_latest_frame(hdc, rc);
+  }
+  if (!presented && !map_owns_frame) {
+    const HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
+    FillRect(hdc, &rc, brush);
+    DeleteObject(brush);
+  }
+  // 2D panes: MapScene paints ocean + vectors.
+  if (map_owns_frame) {
+    map_scene_.paint(hdc, w, h, /*fill_background=*/true);
+  } else if (!presented) {
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, RGB(60, 70, 80));
     const wchar_t* line1 = L"SmartGIS map (WinUI host)";
@@ -973,7 +987,7 @@ void MapHost::paint_to_dc(HDC hdc, const RECT& rc) const {
     rc2.top += 28;
     DrawTextW(hdc, process_path(), -1, &rc2, DT_CENTER | DT_TOP | DT_SINGLELINE);
   }
-  if (kind_ != content::ViewKind::kScene3d && w > 0 && h > 0) {
+  if (w > 0 && h > 0) {
     blit_.capture(hdc, w, h);
   }
 }
@@ -1004,7 +1018,8 @@ LRESULT CALLBACK MapHost::child_wnd_proc(HWND hwnd,
     // Re-sync screen position when the owner window is dragged / DPI changes.
     self->sync_layout();
     if (self->kind_ == content::ViewKind::kScene3d &&
-        self->scene3d_rhi_.is_live() && IsWindowVisible(hwnd)) {
+        self->scene3d_rhi_.is_live() && app::prefer_scene3d_flycube() &&
+        IsWindowVisible(hwnd)) {
       InvalidateRect(hwnd, nullptr, FALSE);
       return 0;
     }
@@ -1013,7 +1028,12 @@ LRESULT CALLBACK MapHost::child_wnd_proc(HWND hwnd,
       if (surface.generation != 0 &&
           surface.generation != self->painted_generation_) {
         self->painted_generation_ = surface.generation;
-        InvalidateRect(hwnd, nullptr, FALSE);
+        // MapScene owns the 2D frame — GPU DIB generation churn must not
+        // rebuild ~2k vectors at ~30 Hz. Scene3d SoT DIB must still refresh.
+        if (self->kind_ == content::ViewKind::kScene3d ||
+            self->map_scene_.feature_count() == 0) {
+          InvalidateRect(hwnd, nullptr, FALSE);
+        }
         self->update_status_overlay();
       }
     }
@@ -1087,7 +1107,10 @@ LRESULT CALLBACK MapHost::child_wnd_proc(HWND hwnd,
   }
 
   if (msg == WM_USER + 40) {
-    InvalidateRect(hwnd, nullptr, FALSE);
+    // OnFrameReady from the GPU pipe: only repaint when MapScene is empty.
+    if (self && self->map_scene_.feature_count() == 0) {
+      InvalidateRect(hwnd, nullptr, FALSE);
+    }
     if (self) {
       self->update_status_overlay();
     }

@@ -9,6 +9,8 @@
 #endif
 #include <cstdint>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <vector>
 #include <windows.h>
 
@@ -110,6 +112,21 @@ class Scene3dController {
   gis::atmosphere::Environment& ensure_atmosphere();
   void set_ocean_enabled(bool on);
   void set_cloud_enabled(bool on);
+  void set_wind_overlay_enabled(bool on);
+  bool wind_overlay_enabled() const { return wind_overlay_enabled_; }
+
+  // Scrub session clock via Environment::scrub_time_sec; clamps into any
+  // timed External/Procedural range when one is present.
+  void set_time_sec(double t);
+  double time_sec() const;
+
+  // Load External GeoTIFF series via Environment::load_external_series.
+  // Spec (CLI-compatible): path[:channel[:time_sec]][,path...]
+  // channel: wind_u|wind_v|wave_hs|wave_dir|cloud_cover|cloud_base|cloud_top|
+  //          sea_mask (default cloud_cover). Entries with the same channel
+  // are batched as one time series.
+  bool load_atmosphere_fields(std::string_view spec);
+
   void seed_atmosphere_procedural();
   void enable_atmosphere_demo();
 
@@ -117,6 +134,9 @@ class Scene3dController {
   void remember_view_size(int width_px, int height_px) const;
   void project(float x, float y, float z, int width_px, int height_px, int* sx,
                int* sy) const;
+  void project_lon_lat(double lon, double lat, int width_px, int height_px,
+                       int* sx, int* sy) const;
+  void paint_wind_arrows(HDC hdc, int width_px, int height_px) const;
   void release_mesh();
   void rebuild_local_mesh();
   void release_atmosphere_passes();
@@ -156,6 +176,7 @@ class Scene3dController {
   std::unique_ptr<gis::atmosphere::Environment> atmosphere_;
   render::atmosphere::OceanPass ocean_pass_;
   render::atmosphere::CloudPass cloud_pass_;
+  bool wind_overlay_enabled_ = false;
 };
 
 }  // namespace app

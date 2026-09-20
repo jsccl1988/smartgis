@@ -5,6 +5,7 @@
 #define APP_VIEWS_MAP_SCENE_H_
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -125,6 +126,14 @@ class MapScene {
   // so DEM / FlyCube frames are not wiped.
   void paint(HDC hdc, int width_px, int height_px) const;
   void paint(HDC hdc, int width_px, int height_px, bool fill_background) const;
+
+  // Scene3d: place-name labels via a lon/lat→view projector (orbit camera).
+  // Stored map Y is -lat; converts before calling |project|. Caps count at
+  // country scale so the DEM stays readable (SmartGis.exe SoT parity).
+  void paint_labels_projected(
+      HDC hdc, int width_px, int height_px,
+      const std::function<void(double lon, double lat, int* sx, int* sy)>&
+          project) const;
 
   // Visible polygon rings in lon/lat (Y unflipped). Used to mask DEM.
   void export_land_rings(std::vector<gis::LonLatRing>* out) const;

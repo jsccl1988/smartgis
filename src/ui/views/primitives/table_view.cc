@@ -4,14 +4,42 @@
 #include "ui/views/primitives/table_view.h"
 
 #include "render/skia/canvas.h"
+#include "ui/views/kernel/dpi.h"
 #include "ui/views/kernel/theme.h"
+#include "ui/views/kernel/widget.h"
 
 namespace ui {
 namespace views {
+namespace {
+
+constexpr int kHeaderHeightDip = 24;
+constexpr int kRowHeightDip = 24;
+
+}  // namespace
 
 TableView::TableView() {
   set_preferred_size({320, 160});
   set_focusable(true);
+}
+
+float TableView::scale_factor() const {
+  if (widget()) {
+    return widget()->device_scale_factor();
+  }
+  return 1.f;
+}
+
+int TableView::header_height() const {
+  return dip_to_px(kHeaderHeightDip, scale_factor());
+}
+
+int TableView::row_height() const {
+  return dip_to_px(kRowHeightDip, scale_factor());
+}
+
+void TableView::on_device_scale_factor_changed(float old_scale, float new_scale) {
+  View::on_device_scale_factor_changed(old_scale, new_scale);
+  schedule_paint();
 }
 
 void TableView::set_columns(const std::vector<std::string>& cols) {

@@ -21,8 +21,9 @@ namespace app {
 
 class Scene3dController;
 
-// True when SMT_FORCE_CONTENT_MAPVIEW_3D=1, or legacy SMT_PREFER_FLYCUBE_3D=0.
-// Opt out of the default Scene3d FlyCube / present_gpu path (DX12 hang hosts).
+// True when SMT_FORCE_CONTENT_MAPVIEW_3D=1, or SMT_PREFER_FLYCUBE_3D=0.
+// Default Scene3d: ContentMapView OpenView + chrome GDI DEM SoT. Set
+// SMT_PREFER_FLYCUBE_3D=1 for FlyCube RHI (chrome HUD only when present ok).
 bool force_content_mapview_3d();
 
 // Prefer FlyCube RHI for kScene3d unless force_content_mapview_3d().

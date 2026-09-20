@@ -24,7 +24,12 @@ Copyright (c) 2010 CCL. All rights reserved.
 #include "gis/feature/feature.h"
 #include "gis/map/map.h"
 
-#if defined(RENDER_EXPORTS)
+#if defined(LEGACY_RENDER_EXPORTS)
+#define RENDER_EXPORT_API __declspec(dllexport)
+#define RENDER_EXPORT_CLASS __declspec(dllexport)
+#elif defined(RENDER_EXPORTS)
+// Historical //src/render macro — do not set when compiling legacy_render
+// (conflicts with render_d.dll GpuScene exports; see legacy_render BUILD.gn).
 #define RENDER_EXPORT_API __declspec(dllexport)
 #define RENDER_EXPORT_CLASS __declspec(dllexport)
 #else

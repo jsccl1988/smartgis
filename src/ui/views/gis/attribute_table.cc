@@ -17,9 +17,6 @@ namespace views {
 
 namespace {
 
-constexpr int kHeaderH = 24;
-constexpr int kRowH = 20;
-
 const std::string& empty_token() {
   static const std::string kEmpty;
   return kEmpty;
@@ -314,8 +311,9 @@ void AttributeTable::sync_content_size() {
   }
   const int width = bounds().width > 0 ? bounds().width
                                        : preferred_size().width;
-  const int height =
-      kHeaderH + static_cast<int>(table_->row_count()) * kRowH;
+  // Match TableView DIP→px metrics so HiDPI GDI chrome text does not crowd.
+  const int height = table_->header_height() +
+                     static_cast<int>(table_->row_count()) * table_->row_height();
   table_->set_preferred_size({width, height});
   if (scroll_) {
     scroll_->layout();

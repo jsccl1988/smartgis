@@ -8,10 +8,12 @@ import("//build/smartgis.gni")
 
 # Every TU in this DLL must see dllexport for sibling leftovers (avoids
 # dllimport of locally-defined symbols when headers cross module lines).
+# Do not define RENDER_EXPORTS here — that macro belongs to //src/render
+# (render_d.dll / render_export.h). Sharing it made GpuScene inlines
+# dllexport into leftover_session.obj and LNK2005 against render_d.dll.lib.
 config("legacy_render_exports") {
   defines = [
     "LEGACY_RENDER_EXPORTS",
-    "RENDER_EXPORTS",
     "RENDER3D_EXPORTS",
     "RENDER_GDI_EXPORTS",
     "RENDER_GDI_SIMPLE_EXPORTS",
@@ -27,7 +29,6 @@ smt_shared_library("legacy_render") {
   dll_stem = "legacy_render"
   defines = [
     "LEGACY_RENDER_EXPORTS",
-    "RENDER_EXPORTS",
     "RENDER3D_EXPORTS",
     "RENDER_GDI_EXPORTS",
     "RENDER_GDI_SIMPLE_EXPORTS",

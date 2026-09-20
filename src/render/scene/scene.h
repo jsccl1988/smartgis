@@ -121,6 +121,8 @@ class RENDER_EXPORT GpuScene {
   void set_depth_load_op(render::rhi::DepthLoadOp op) { depth_load_op_ = op; }
 
   // GPU-uploaded triangle mesh for one World node (tessellated GIS geom).
+  // Lit 3D kinds (terrain/model/tileset) use stride = 6 floats
+  // (POSITION+NORMAL); 2D solid stays 3, textured 5.
   struct GpuMesh {
     gis::NodeKind kind;
     render::rhi::Buffer* vertex;
@@ -135,6 +137,13 @@ class RENDER_EXPORT GpuScene {
     // Style scalars applied at tessellate time (line ribbon / circle diamond).
     float line_width;
     float circle_radius;
+    // World-space AABB from the source GpuInstance (CPU frustum cull).
+    float aabb_min_x;
+    float aabb_min_y;
+    float aabb_min_z;
+    float aabb_max_x;
+    float aabb_max_y;
+    float aabb_max_z;
   };
 
   // Uploaded mesh inspection (null-device tests / debug).

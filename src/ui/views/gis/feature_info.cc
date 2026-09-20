@@ -61,11 +61,16 @@ void FeatureInfo::rebuild_table() {
   table_->set_columns({"Name", "Value"});
   if (fields_.empty()) {
     table_->add_row({"(no fields)", ""});
-    return;
+  } else {
+    for (const auto& field : fields_) {
+      table_->add_row({field.name, field.value});
+    }
   }
-  for (const auto& field : fields_) {
-    table_->add_row({field.name, field.value});
-  }
+  const int width =
+      bounds().width > 0 ? bounds().width : preferred_size().width;
+  const int height = table_->header_height() +
+                     static_cast<int>(table_->row_count()) * table_->row_height();
+  table_->set_preferred_size({width, height});
 }
 
 void FeatureInfo::paint_self(render::skia::Canvas* canvas) {

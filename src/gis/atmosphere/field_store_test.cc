@@ -113,6 +113,31 @@ int main() {
                 1e-4f, "time clamp low");
     expect_near(store.sample(FieldChannel::kCloudCover, 5.0, 5.0, 20.0), 10.f,
                 1e-4f, "time clamp high");
+
+    double t_min = -1.0;
+    double t_max = -1.0;
+    expect(store.timed_slice_range(FieldChannel::kCloudCover, &t_min, &t_max),
+           "timed range exists");
+    expect_near(static_cast<float>(t_min), 0.f, 1e-6f, "range min");
+    expect_near(static_cast<float>(t_max), 10.f, 1e-6f, "range max");
+  }
+
+  // Temporal lerp + valid_mask: invalid bracket falls back to the other side.
+  {
+    FieldStore store;
+    const auto grid = make_grid(1, 1);
+    const float v0[] = {2.f};
+    const float v1[] = {8.f};
+    const uint8_t mask_bad[] = {0};
+    const uint8_t mask_ok[] = {1};
+    expect(store.upload_slice(FieldChannel::kWaveHs, FieldSourceKind::kExternal,
+                              5, grid, v0, 1, mask_bad, 1, 0.0),
+           "upload masked t0");
+    expect(store.upload_slice(FieldChannel::kWaveHs, FieldSourceKind::kExternal,
+                              5, grid, v1, 1, mask_ok, 1, 10.0),
+           "upload valid t1");
+    expect_near(store.sample(FieldChannel::kWaveHs, 5.0, 5.0, 5.0), 8.f, 1e-4f,
+                "lerp uses valid bracket only");
   }
 
   // Empty channel → 0.
@@ -120,6 +145,10 @@ int main() {
     FieldStore store;
     expect_near(store.sample(FieldChannel::kSeaMask, 0.0, 0.0, 0.0), 0.f, 0.f,
                 "empty returns 0");
+    double t_min = 0.0;
+    double t_max = 0.0;
+    expect(!store.timed_slice_range(FieldChannel::kSeaMask, &t_min, &t_max),
+           "empty has no timed range");
   }
 
   if (g_fails != 0) {

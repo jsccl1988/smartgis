@@ -4,7 +4,6 @@
 
 #include "base/core/api.h"
 #include "base/core/log.h"
-#include "legacy/render/bridge/leftover_record.h"
 #include "legacy/render/gdi_simple/gdi_aux_api.h"
 #include "legacy/render/gdi_simple/resource.h"
 #include "ogrsf_frmts.h"
@@ -640,17 +639,8 @@ int SmtGdiSimpleRenderDevice::RenderMap(const SmtMap *pMap, int op) {
     }
   }
 
-  // After GDI draw (same ordering as main GDI): Null record must not run
-  // before BitBlt or the map buffer can stay white.
-  {
-    const uint32_t w = m_Viewport.m_fVWidth > 0.f
-                           ? static_cast<uint32_t>(m_Viewport.m_fVWidth)
-                           : 64u;
-    const uint32_t h = m_Viewport.m_fVHeight > 0.f
-                           ? static_cast<uint32_t>(m_Viewport.m_fVHeight)
-                           : 64u;
-    render::scene::leftover_record_map_frame(m_hWnd, w, h, pMap);
-  }
+  // Leftover tessellate stays off the GDI paint path (white canvas / heap
+  // overflow on large OGR packs). See gdi_renderdevice.cpp.
 
   return SMT_ERR_NONE;
 }

@@ -101,5 +101,25 @@ bool ingest_gdal_field(FieldStore* store, const char* path,
       mask.empty() ? nullptr : mask.data(), mask.size(), opts.time_sec);
 }
 
+bool ingest_gdal_field_series(FieldStore* store, FieldChannel channel,
+                              const char* const* paths, const double* times,
+                              std::size_t count,
+                              const FieldIngestOptions& opts) {
+  if (!store || !paths || !times || count == 0) {
+    return false;
+  }
+  for (std::size_t i = 0; i < count; ++i) {
+    if (!paths[i] || !paths[i][0]) {
+      return false;
+    }
+    FieldIngestOptions slice_opts = opts;
+    slice_opts.time_sec = times[i];
+    if (!ingest_gdal_field(store, paths[i], channel, slice_opts)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 }  // namespace atmosphere
 }  // namespace gis

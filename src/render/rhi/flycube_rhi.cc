@@ -23,6 +23,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <cmath>
 #include <fstream>
 #include <memory>
 #include <stdexcept>
@@ -82,6 +83,17 @@ struct CloudCb {
   float pad0;
 };
 
+struct LightCb {
+  float dir_x;
+  float dir_y;
+  float dir_z;
+  float ambient;
+  float color_r;
+  float color_g;
+  float color_b;
+  float intensity;
+};
+
 struct OceanFftCb {
   uint32_t size;
   uint32_t log2_size;
@@ -118,6 +130,7 @@ struct RecordedDraw {
   DepthMode depth = DepthMode::kDisabled;
   OceanGpuParams ocean;
   CloudGpuParams cloud;
+  LightParams light;
   uint32_t index_count = 0;
   uint32_t instance_count = 1;
   uint32_t first_index = 0;
@@ -217,6 +230,7 @@ class FlycubeCommandList : public StubCommandList {
   DepthMode depth = DepthMode::kDisabled;
   OceanGpuParams ocean;
   CloudGpuParams cloud;
+  LightParams light;
   OceanFftGpuParams ocean_fft;
 
   bool had_pass() const { return !passes.empty(); }
@@ -267,6 +281,10 @@ class FlycubeCommandList : public StubCommandList {
   void set_cloud_params(const CloudGpuParams& params) override {
     cloud = params;
     StubCommandList::set_cloud_params(params);
+  }
+  void set_light_params(const LightParams& params) override {
+    light = params;
+    StubCommandList::set_light_params(params);
   }
   void set_compute_pipeline(ComputePipelineId id) override {
     compute_pipeline = id;
@@ -352,6 +370,7 @@ class FlycubeCommandList : public StubCommandList {
     draw.depth = depth;
     draw.ocean = ocean;
     draw.cloud = cloud;
+    draw.light = light;
     draw.index_count = index_count;
     draw.instance_count = instance_count;
     draw.first_index = first_index;
@@ -495,6 +514,70 @@ cbuffer ColorCB : register(b1)
 float4 main() : SV_TARGET
 {
     return color;
+}
+)";
+
+constexpr const char* kVsLitSolid = R"(
+cbuffer CameraCB : register(b0)
+{
+    float4x4 view;
+    float4x4 proj;
+};
+
+struct VSIn
+{
+    float3 pos : POSITION;
+    float3 nrm : NORMAL;
+};
+
+struct VSOut
+{
+    float4 pos : SV_POSITION;
+    float3 nrm : TEXCOORD0;
+};
+
+VSOut main(VSIn input)
+{
+    VSOut output;
+    float4 eye = mul(view, float4(input.pos, 1.0));
+    output.pos = mul(proj, eye);
+    // Mesh positions are world-space; pass world normals for Lambert.
+    output.nrm = input.nrm;
+    return output;
+}
+)";
+
+constexpr const char* kPsLitSolid = R"(
+cbuffer ColorCB : register(b1)
+{
+    float4 color;
+};
+cbuffer LightCB : register(b2)
+{
+    float dir_x;
+    float dir_y;
+    float dir_z;
+    float ambient;
+    float color_r;
+    float color_g;
+    float color_b;
+    float intensity;
+};
+
+struct PSIn
+{
+    float4 pos : SV_POSITION;
+    float3 nrm : TEXCOORD0;
+};
+
+float4 main(PSIn input) : SV_TARGET
+{
+    float3 N = normalize(input.nrm);
+    float3 L = normalize(-float3(dir_x, dir_y, dir_z));
+    float ndotl = saturate(dot(N, L));
+    float3 light_rgb = float3(color_r, color_g, color_b) * intensity;
+    float3 lit = color.rgb * (ambient + light_rgb * ndotl);
+    return float4(lit, color.a);
 }
 )";
 
@@ -1109,22 +1192,28 @@ class FlycubeDevice : public Device {
       graphics_fence_values_[i] = 0;
     }
     solid_set_.reset();
+    lit_solid_set_.reset();
     ocean_set_.reset();
     cloud_set_.reset();
     sampled_pipeline_.reset();
     sampled_depth_pipeline_.reset();
     solid_pipeline_.reset();
     solid_depth_pipeline_.reset();
+    lit_solid_pipeline_.reset();
+    lit_solid_depth_pipeline_.reset();
     ocean_pipeline_.reset();
     cloud_pipeline_.reset();
     sampled_layout_.reset();
     solid_layout_.reset();
+    lit_solid_layout_.reset();
     ocean_layout_.reset();
     cloud_layout_.reset();
     vs_textured_.reset();
     ps_textured_.reset();
     vs_solid_.reset();
     ps_solid_.reset();
+    vs_lit_solid_.reset();
+    ps_lit_solid_.reset();
     vs_ocean_.reset();
     ps_ocean_.reset();
     vs_cloud_.reset();
@@ -1135,6 +1224,8 @@ class FlycubeDevice : public Device {
     camera_cb_view_.reset();
     color_cb_.reset();
     color_cb_view_.reset();
+    light_cb_.reset();
+    light_cb_view_.reset();
     ocean_cb_.reset();
     ocean_cb_view_.reset();
     cloud_cb_.reset();
@@ -1386,6 +1477,7 @@ class FlycubeDevice : public Device {
       return false;
     }
     std::string vs_tex_path, ps_tex_path, vs_solid_path, ps_solid_path;
+    std::string vs_lit_path, ps_lit_path;
     std::string vs_ocean_path, ps_ocean_path, vs_cloud_path, ps_cloud_path;
     if (!write_temp_hlsl("smartgis_rhi_vs_tex.hlsl", kVsTextured,
                          &vs_tex_path) ||
@@ -1395,6 +1487,10 @@ class FlycubeDevice : public Device {
                          &vs_solid_path) ||
         !write_temp_hlsl("smartgis_rhi_ps_solid.hlsl", kPsSolid,
                          &ps_solid_path) ||
+        !write_temp_hlsl("smartgis_rhi_vs_lit_solid.hlsl", kVsLitSolid,
+                         &vs_lit_path) ||
+        !write_temp_hlsl("smartgis_rhi_ps_lit_solid.hlsl", kPsLitSolid,
+                         &ps_lit_path) ||
         !write_temp_hlsl("smartgis_rhi_vs_ocean.hlsl", kVsOcean,
                          &vs_ocean_path) ||
         !write_temp_hlsl("smartgis_rhi_ps_ocean.hlsl", kPsOcean,
@@ -1414,6 +1510,10 @@ class FlycubeDevice : public Device {
         {vs_solid_path, "main", ShaderType::kVertex, "6_0"});
     ps_solid_ = fc_device_->CompileShader(
         {ps_solid_path, "main", ShaderType::kPixel, "6_0"});
+    vs_lit_solid_ = fc_device_->CompileShader(
+        {vs_lit_path, "main", ShaderType::kVertex, "6_0"});
+    ps_lit_solid_ = fc_device_->CompileShader(
+        {ps_lit_path, "main", ShaderType::kPixel, "6_0"});
     vs_ocean_ = fc_device_->CompileShader(
         {vs_ocean_path, "main", ShaderType::kVertex, "6_0"});
     ps_ocean_ = fc_device_->CompileShader(
@@ -1423,11 +1523,13 @@ class FlycubeDevice : public Device {
     ps_cloud_ = fc_device_->CompileShader(
         {ps_cloud_path, "main", ShaderType::kPixel, "6_0"});
     if (!vs_textured_ || !ps_textured_ || !vs_solid_ || !ps_solid_ ||
-        !vs_ocean_ || !ps_ocean_ || !vs_cloud_ || !ps_cloud_) {
+        !vs_lit_solid_ || !ps_lit_solid_ || !vs_ocean_ || !ps_ocean_ ||
+        !vs_cloud_ || !ps_cloud_) {
       return false;
     }
     if (vs_textured_->GetBlob().empty() || ps_textured_->GetBlob().empty() ||
         vs_solid_->GetBlob().empty() || ps_solid_->GetBlob().empty() ||
+        vs_lit_solid_->GetBlob().empty() || ps_lit_solid_->GetBlob().empty() ||
         vs_ocean_->GetBlob().empty() || ps_ocean_->GetBlob().empty() ||
         vs_cloud_->GetBlob().empty() || ps_cloud_->GetBlob().empty()) {
       return false;
@@ -1443,6 +1545,10 @@ class FlycubeDevice : public Device {
         MemoryType::kUpload,
         {.size = Align(sizeof(ColorCb), align),
          .usage = BindFlag::kConstantBuffer});
+    light_cb_ = fc_device_->CreateBuffer(
+        MemoryType::kUpload,
+        {.size = Align(sizeof(LightCb), align),
+         .usage = BindFlag::kConstantBuffer});
     ocean_cb_ = fc_device_->CreateBuffer(
         MemoryType::kUpload,
         {.size = Align(sizeof(OceanCb), align),
@@ -1451,7 +1557,7 @@ class FlycubeDevice : public Device {
         MemoryType::kUpload,
         {.size = Align(sizeof(CloudCb), align),
          .usage = BindFlag::kConstantBuffer});
-    if (!camera_cb_ || !color_cb_ || !ocean_cb_ || !cloud_cb_) {
+    if (!camera_cb_ || !color_cb_ || !light_cb_ || !ocean_cb_ || !cloud_cb_) {
       return false;
     }
     ViewDesc cb_view = {
@@ -1460,9 +1566,11 @@ class FlycubeDevice : public Device {
     };
     camera_cb_view_ = fc_device_->CreateView(camera_cb_, cb_view);
     color_cb_view_ = fc_device_->CreateView(color_cb_, cb_view);
+    light_cb_view_ = fc_device_->CreateView(light_cb_, cb_view);
     ocean_cb_view_ = fc_device_->CreateView(ocean_cb_, cb_view);
     cloud_cb_view_ = fc_device_->CreateView(cloud_cb_, cb_view);
     solid_set_.reset();
+    lit_solid_set_.reset();
     ocean_set_.reset();
     cloud_set_.reset();
     sampler_ = fc_device_->CreateSampler({
@@ -1472,12 +1580,13 @@ class FlycubeDevice : public Device {
     });
     ViewDesc sampler_view = {.view_type = ViewType::kSampler};
     sampler_view_ = fc_device_->CreateView(sampler_, sampler_view);
-    if (!camera_cb_view_ || !color_cb_view_ || !ocean_cb_view_ ||
-        !cloud_cb_view_ || !sampler_view_) {
+    if (!camera_cb_view_ || !color_cb_view_ || !light_cb_view_ ||
+        !ocean_cb_view_ || !cloud_cb_view_ || !sampler_view_) {
       return false;
     }
 
     BindKey cam_tex, tex_key, samp_key, cam_solid, color_solid;
+    BindKey cam_lit, color_lit, light_lit;
     BindKey cam_ocean, ocean_cb_key, ocean_cb_ps_key, ocean_tex, ocean_samp;
     BindKey cam_cloud, cloud_cb_key;
     try {
@@ -1486,6 +1595,9 @@ class FlycubeDevice : public Device {
       samp_key = ps_textured_->GetBindKey("linear_sampler");
       cam_solid = vs_solid_->GetBindKey("CameraCB");
       color_solid = ps_solid_->GetBindKey("ColorCB");
+      cam_lit = vs_lit_solid_->GetBindKey("CameraCB");
+      color_lit = ps_lit_solid_->GetBindKey("ColorCB");
+      light_lit = ps_lit_solid_->GetBindKey("LightCB");
       cam_ocean = vs_ocean_->GetBindKey("CameraCB");
       ocean_cb_key = vs_ocean_->GetBindKey("OceanCB");
       ocean_cb_ps_key = ps_ocean_->GetBindKey("OceanCB");
@@ -1500,6 +1612,8 @@ class FlycubeDevice : public Device {
         {.bind_keys = {cam_tex, tex_key, samp_key}});
     solid_layout_ = fc_device_->CreateBindingSetLayout(
         {.bind_keys = {cam_solid, color_solid}});
+    lit_solid_layout_ = fc_device_->CreateBindingSetLayout(
+        {.bind_keys = {cam_lit, color_lit, light_lit}});
     // OceanCB is used by both VS (displace) and PS (fresnel). D3D12 root
     // signatures are stage-scoped via BindKey::shader_type, so both keys
     // must be listed or CreatePipelineState fails (abort in debug FlyCube).
@@ -1508,7 +1622,8 @@ class FlycubeDevice : public Device {
                        ocean_samp}});
     cloud_layout_ = fc_device_->CreateBindingSetLayout(
         {.bind_keys = {cam_cloud, cloud_cb_key}});
-    if (!sampled_layout_ || !solid_layout_ || !ocean_layout_ || !cloud_layout_) {
+    if (!sampled_layout_ || !solid_layout_ || !lit_solid_layout_ ||
+        !ocean_layout_ || !cloud_layout_) {
       return false;
     }
 
@@ -1543,6 +1658,10 @@ class FlycubeDevice : public Device {
          3 * sizeof(float)}};
     auto pos_input = std::vector<InputLayoutDesc>{
         {0, "POSITION", gli::FORMAT_RGB32_SFLOAT_PACK32, 3 * sizeof(float), 0}};
+    auto lit_input = std::vector<InputLayoutDesc>{
+        {0, "POSITION", gli::FORMAT_RGB32_SFLOAT_PACK32, 6 * sizeof(float), 0},
+        {0, "NORMAL", gli::FORMAT_RGB32_SFLOAT_PACK32, 6 * sizeof(float),
+         3 * sizeof(float)}};
 
     GraphicsPipelineDesc sampled_desc = {
         .shaders = {vs_textured_, ps_textured_},
@@ -1569,6 +1688,19 @@ class FlycubeDevice : public Device {
     solid_depth_desc.depth_stencil_format = depth_fmt;
     solid_depth_desc.depth_stencil_desc = depth_write;
 
+    GraphicsPipelineDesc lit_desc = {
+        .shaders = {vs_lit_solid_, ps_lit_solid_},
+        .layout = lit_solid_layout_,
+        .input = lit_input,
+        .color_formats = {color},
+        .depth_stencil_format = gli::format::FORMAT_UNDEFINED,
+        .depth_stencil_desc = depth_off,
+        .blend_desc = opaque_blend,
+    };
+    GraphicsPipelineDesc lit_depth_desc = lit_desc;
+    lit_depth_desc.depth_stencil_format = depth_fmt;
+    lit_depth_desc.depth_stencil_desc = depth_write;
+
     GraphicsPipelineDesc ocean_desc = {
         .shaders = {vs_ocean_, ps_ocean_},
         .layout = ocean_layout_,
@@ -1593,10 +1725,14 @@ class FlycubeDevice : public Device {
         fc_device_->CreateGraphicsPipeline(sampled_depth_desc);
     solid_pipeline_ = fc_device_->CreateGraphicsPipeline(solid_desc);
     solid_depth_pipeline_ = fc_device_->CreateGraphicsPipeline(solid_depth_desc);
+    lit_solid_pipeline_ = fc_device_->CreateGraphicsPipeline(lit_desc);
+    lit_solid_depth_pipeline_ =
+        fc_device_->CreateGraphicsPipeline(lit_depth_desc);
     ocean_pipeline_ = fc_device_->CreateGraphicsPipeline(ocean_desc);
     cloud_pipeline_ = fc_device_->CreateGraphicsPipeline(cloud_desc);
     pipelines_ready_ = sampled_pipeline_ && sampled_depth_pipeline_ &&
                        solid_pipeline_ && solid_depth_pipeline_ &&
+                       lit_solid_pipeline_ && lit_solid_depth_pipeline_ &&
                        ocean_pipeline_ && cloud_pipeline_;
     return pipelines_ready_;
   }
@@ -1683,6 +1819,28 @@ class FlycubeDevice : public Device {
     cloud_cb_->UpdateUploadBuffer(0, &cb, sizeof(cb));
   }
 
+  void write_light_params(const LightParams& p) {
+    LightCb cb{};
+    float dx = p.dir[0];
+    float dy = p.dir[1];
+    float dz = p.dir[2];
+    const float len = std::sqrt(dx * dx + dy * dy + dz * dz);
+    if (len > 1e-6f) {
+      dx /= len;
+      dy /= len;
+      dz /= len;
+    }
+    cb.dir_x = dx;
+    cb.dir_y = dy;
+    cb.dir_z = dz;
+    cb.ambient = p.ambient;
+    cb.color_r = p.color[0];
+    cb.color_g = p.color[1];
+    cb.color_b = p.color[2];
+    cb.intensity = p.intensity;
+    light_cb_->UpdateUploadBuffer(0, &cb, sizeof(cb));
+  }
+
   std::shared_ptr<BindingSet> make_sampled_set(FlycubeTexture* tex) {
     BindKey cam = vs_textured_->GetBindKey("CameraCB");
     BindKey tex_key = ps_textured_->GetBindKey("base_color_texture");
@@ -1704,6 +1862,21 @@ class FlycubeDevice : public Device {
     solid_set_->WriteBindings(
         {.bindings = {{cam, camera_cb_view_}, {color, color_cb_view_}}});
     return solid_set_;
+  }
+
+  std::shared_ptr<BindingSet> lit_solid_binding_set() {
+    if (lit_solid_set_) {
+      return lit_solid_set_;
+    }
+    BindKey cam = vs_lit_solid_->GetBindKey("CameraCB");
+    BindKey color = ps_lit_solid_->GetBindKey("ColorCB");
+    BindKey light = ps_lit_solid_->GetBindKey("LightCB");
+    lit_solid_set_ = fc_device_->CreateBindingSet(lit_solid_layout_);
+    lit_solid_set_->WriteBindings(
+        {.bindings = {{cam, camera_cb_view_},
+                      {color, color_cb_view_},
+                      {light, light_cb_view_}}});
+    return lit_solid_set_;
   }
 
   std::shared_ptr<BindingSet> make_ocean_set(FlycubeTexture* height) {
@@ -1762,6 +1935,19 @@ class FlycubeDevice : public Device {
         write_cloud_params(draw.cloud);
         fc_list->BindPipeline(cloud_pipeline_);
         fc_list->BindBindingSet(cloud_binding_set());
+      } else if (id == PipelineId::kLitSolid && lit_solid_pipeline_) {
+        write_solid_color(draw.solid_r, draw.solid_g, draw.solid_b,
+                          draw.solid_a);
+        write_light_params(draw.light);
+        if (pass_has_depth &&
+            (draw.depth == DepthMode::kWrite ||
+             draw.depth == DepthMode::kTestOnly) &&
+            lit_solid_depth_pipeline_) {
+          fc_list->BindPipeline(lit_solid_depth_pipeline_);
+        } else {
+          fc_list->BindPipeline(lit_solid_pipeline_);
+        }
+        fc_list->BindBindingSet(lit_solid_binding_set());
       } else if (id == PipelineId::kTextured && tex && tex->srv()) {
         if (pass_has_depth && sampled_depth_pipeline_) {
           fc_list->BindPipeline(sampled_depth_pipeline_);
@@ -2182,6 +2368,8 @@ class FlycubeDevice : public Device {
   std::shared_ptr<Shader> ps_textured_;
   std::shared_ptr<Shader> vs_solid_;
   std::shared_ptr<Shader> ps_solid_;
+  std::shared_ptr<Shader> vs_lit_solid_;
+  std::shared_ptr<Shader> ps_lit_solid_;
   std::shared_ptr<Shader> vs_ocean_;
   std::shared_ptr<Shader> ps_ocean_;
   std::shared_ptr<Shader> vs_cloud_;
@@ -2193,6 +2381,7 @@ class FlycubeDevice : public Device {
   std::shared_ptr<Shader> cs_ocean_displace_;
   std::shared_ptr<BindingSetLayout> sampled_layout_;
   std::shared_ptr<BindingSetLayout> solid_layout_;
+  std::shared_ptr<BindingSetLayout> lit_solid_layout_;
   std::shared_ptr<BindingSetLayout> ocean_layout_;
   std::shared_ptr<BindingSetLayout> cloud_layout_;
   std::shared_ptr<BindingSetLayout> spectrum_layout_;
@@ -2204,6 +2393,8 @@ class FlycubeDevice : public Device {
   std::shared_ptr<Pipeline> sampled_depth_pipeline_;
   std::shared_ptr<Pipeline> solid_pipeline_;
   std::shared_ptr<Pipeline> solid_depth_pipeline_;
+  std::shared_ptr<Pipeline> lit_solid_pipeline_;
+  std::shared_ptr<Pipeline> lit_solid_depth_pipeline_;
   std::shared_ptr<Pipeline> ocean_pipeline_;
   std::shared_ptr<Pipeline> cloud_pipeline_;
   std::shared_ptr<Pipeline> spectrum_pipeline_;
@@ -2215,6 +2406,8 @@ class FlycubeDevice : public Device {
   std::shared_ptr<View> camera_cb_view_;
   std::shared_ptr<Resource> color_cb_;
   std::shared_ptr<View> color_cb_view_;
+  std::shared_ptr<Resource> light_cb_;
+  std::shared_ptr<View> light_cb_view_;
   std::shared_ptr<Resource> ocean_cb_;
   std::shared_ptr<View> ocean_cb_view_;
   std::shared_ptr<Resource> cloud_cb_;
@@ -2222,6 +2415,7 @@ class FlycubeDevice : public Device {
   std::shared_ptr<Resource> fft_cb_;
   std::shared_ptr<View> fft_cb_view_;
   std::shared_ptr<BindingSet> solid_set_;
+  std::shared_ptr<BindingSet> lit_solid_set_;
   std::shared_ptr<BindingSet> ocean_set_;
   std::shared_ptr<BindingSet> cloud_set_;
   std::shared_ptr<Resource> sampler_;

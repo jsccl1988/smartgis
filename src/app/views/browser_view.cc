@@ -26,6 +26,7 @@
 #include "content/public/map_types.h"
 #include "content/public/map_widget_host_view.h"
 #include "content/public/view_host.h"
+#include "gis/atmosphere/field_channel.h"
 #include "render/rhi/rhi.h"
 #include "gis/edit/edit_session.h"
 #include "gis/tile/tile_map_layer.h"
@@ -35,6 +36,7 @@
 #include "tool/workspace.h"
 #include "ui/views/dialogs/add_basemap_dialog.h"
 #include "ui/views/gis/ambox_view.h"
+#include "ui/views/gis/atmosphere_panel.h"
 #include "ui/views/dialogs/att_struct_dialog.h"
 #include "ui/views/gis/attribute_table.h"
 #include "ui/views/gis/catalog_view.h"
@@ -312,11 +314,15 @@ void BrowserView::build_contents() {
   feature_info_ = feature_info.get();
   auto attribute_table = std::make_unique<ui::views::AttributeTable>();
   attribute_table_ = attribute_table.get();
+  auto atmosphere_panel = std::make_unique<ui::views::AtmospherePanel>();
+  atmosphere_panel_ = atmosphere_panel.get();
 
   auto inspector = std::make_unique<ui::views::TabStrip>();
-  inspector->set_preferred_size({0, 160});
+  inspector->set_preferred_size({0, 180});
   inspector->add_tab("FeatureInfo", std::move(feature_info));
   inspector->add_tab("AttributeTable", std::move(attribute_table));
+  inspector->add_tab("Atmosphere", std::move(atmosphere_panel));
+  wire_atmosphere_panel();
 
   auto columns = std::make_unique<ui::views::Splitter>(
       ui::views::Splitter::Orientation::kVertical);
@@ -462,13 +468,13 @@ void BrowserView::wire_map_scene() {
     }
     const auto mode = map_scene_ ? map_scene_->attach_mode()
                                  : ui::views::MapViewport::AttachMode::kNone;
-    // DEM is the 3D tab primary. Opaque MapScene land fills used to paint a
-    // flat "ordinary map" over the mesh (user: 3D 还是普通地图).
-    // - FlyCube + successful present_gpu → HUD only (do not GDI-wipe RHI).
-    // - present failed / ContentMapView / placeholder → GDI DEM fallback.
-    // Do not call document_.paint here — 2D ortho polygons hide relief.
+    // Orbitable SoT = Scene3dController GDI DEM (elevation + labels + compass).
+    // ContentMapView DIB is a static GPU demo underlay — never leave it as the
+    // only frame (that showed wireframe / solid olive and ignored orbit).
+    // FlyCube + present_gpu → HUD only.
     const bool flycube = mode == ui::views::MapViewport::AttachMode::kFlyCube;
-    const bool gpu_ok = flycube && map_scene_ && map_scene_->last_gpu_present_ok();
+    const bool gpu_ok =
+        flycube && map_scene_ && map_scene_->last_gpu_present_ok();
     if (gpu_ok) {
       scene3d_.paint_hud(hdc, w, h);
     } else {
@@ -500,6 +506,86 @@ void BrowserView::wire_map_scene() {
     scene_host_->workspace()->set_draft_observer(on_draft);
   }
   sync_inspectors_from_scene();
+}
+
+void BrowserView::wire_atmosphere_panel() {
+  if (!atmosphere_panel_) {
+    return;
+  }
+  atmosphere_panel_->set_time_range(0.0, 3600.0);
+  atmosphere_panel_->set_time_sec(scene3d_.time_sec());
+  atmosphere_panel_->set_ocean_checked(false);
+  atmosphere_panel_->set_cloud_checked(false);
+  atmosphere_panel_->set_wind_checked(false);
+
+  atmosphere_panel_->set_time_change([this](double t) {
+    scene3d_.set_time_sec(t);
+    invalidate_map_overlays();
+  });
+  atmosphere_panel_->set_ocean_change([this](bool on) {
+    if (on) {
+      const auto* env = scene3d_.atmosphere();
+      if (!env || env->field_store().layer_count() == 0) {
+        scene3d_.seed_atmosphere_procedural();
+      }
+    }
+    scene3d_.set_ocean_enabled(on);
+    invalidate_map_overlays();
+  });
+  atmosphere_panel_->set_cloud_change([this](bool on) {
+    if (on) {
+      const auto* env = scene3d_.atmosphere();
+      if (!env || env->field_store().layer_count() == 0) {
+        scene3d_.seed_atmosphere_procedural();
+      }
+    }
+    scene3d_.set_cloud_enabled(on);
+    invalidate_map_overlays();
+  });
+  atmosphere_panel_->set_wind_change([this](bool on) {
+    scene3d_.set_wind_overlay_enabled(on);
+    invalidate_map_overlays();
+  });
+}
+
+bool BrowserView::apply_atmosphere_fields(std::string_view spec) {
+  const bool ok = scene3d_.load_atmosphere_fields(spec);
+  if (ok && atmosphere_panel_) {
+    double t_min = 0.0;
+    double t_max = 3600.0;
+    if (auto* env = scene3d_.atmosphere()) {
+      static const gis::atmosphere::FieldChannel kRangeOrder[] = {
+          gis::atmosphere::FieldChannel::kWaveHs,
+          gis::atmosphere::FieldChannel::kCloudCover,
+          gis::atmosphere::FieldChannel::kWindU,
+          gis::atmosphere::FieldChannel::kWindV,
+          gis::atmosphere::FieldChannel::kWaveDir,
+          gis::atmosphere::FieldChannel::kCloudBase,
+          gis::atmosphere::FieldChannel::kCloudTop,
+          gis::atmosphere::FieldChannel::kSeaMask,
+      };
+      for (gis::atmosphere::FieldChannel ch : kRangeOrder) {
+        if (env->timed_field_range(ch, &t_min, &t_max)) {
+          break;
+        }
+      }
+    }
+    if (t_max < t_min) {
+      std::swap(t_min, t_max);
+    }
+    if (t_max <= t_min) {
+      t_max = t_min + 1.0;
+    }
+    atmosphere_panel_->set_time_range(t_min, t_max);
+    atmosphere_panel_->set_time_sec(scene3d_.time_sec());
+  }
+  if (ok) {
+    invalidate_map_overlays();
+    set_status_message("Atmosphere fields loaded");
+  } else {
+    set_status_message("Atmosphere fields load failed");
+  }
+  return ok;
 }
 
 void BrowserView::sync_catalog_from_scene() {

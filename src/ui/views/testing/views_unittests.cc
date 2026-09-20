@@ -4,6 +4,7 @@
 // Console self-test for the public ui::views kernel and primitives.
 // Run: out\views_unittests.exe [--self-test]
 
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <memory>
@@ -14,6 +15,7 @@
 #include "render/skia/color.h"
 #include "tool/command.h"
 #include "ui/views/gis/ambox_view.h"
+#include "ui/views/gis/atmosphere_panel.h"
 #include "ui/views/gis/attribute_table.h"
 #include "ui/views/primitives/button.h"
 #include "ui/views/gis/catalog_view.h"
@@ -31,6 +33,7 @@
 #include "ui/views/primitives/menu_bar.h"
 #include "ui/views/primitives/radio_button.h"
 #include "ui/views/primitives/scroll_view.h"
+#include "ui/views/primitives/slider.h"
 #include "ui/views/kernel/splitter.h"
 #include "ui/views/gis/status_bar.h"
 #include "ui/views/primitives/tab_strip.h"
@@ -330,6 +333,48 @@ void test_checkbox_toggle() {
   expect(checks == 2, "checkbox change twice");
 }
 
+void test_slider_and_atmosphere_panel() {
+  Slider slider;
+  slider.set_bounds({0, 0, 200, 24});
+  slider.set_range(0.0, 100.0);
+  int changes = 0;
+  double last = -1.0;
+  slider.set_change([&](double v) {
+    ++changes;
+    last = v;
+  });
+  slider.set_value(40.0);
+  expect(std::abs(slider.value() - 40.0) < 1e-9, "slider set_value");
+  expect(slider.on_mouse_event(mouse_down(100, 12)), "slider drag start");
+  expect(changes >= 1, "slider change on drag");
+  expect(last >= 0.0 && last <= 100.0, "slider value in range");
+
+  AtmospherePanel panel;
+  panel.set_bounds({0, 0, 280, 180});
+  int time_n = 0;
+  int ocean_n = 0;
+  double time_last = -1.0;
+  bool ocean_last = false;
+  panel.set_time_range(0.0, 60.0);
+  panel.set_time_change([&](double t) {
+    ++time_n;
+    time_last = t;
+  });
+  panel.set_ocean_change([&](bool on) {
+    ++ocean_n;
+    ocean_last = on;
+  });
+  panel.set_time_sec(15.0);
+  expect(std::abs(panel.time_sec() - 15.0) < 1e-9, "panel time");
+  panel.set_ocean_checked(true);
+  expect(panel.ocean_checked(), "panel ocean checked");
+  // Toggle via checkbox child is covered by checkbox tests; exercise setters.
+  expect(ocean_n == 0, "setter does not fire change");
+  (void)time_n;
+  (void)time_last;
+  (void)ocean_last;
+}
+
 void test_radio_exclusive_group() {
   View host;
   auto a = std::make_unique<RadioButton>("A", 1);
@@ -404,7 +449,10 @@ void test_table_and_attribute_selection() {
   table.add_row({"2", "b"});
   int row = -1;
   table.set_row_click([&](int i) { row = i; });
-  expect(table.on_mouse_event(mouse_up(10, 22 + 10)), "table row click");
+  // Header/row are 24 DIP at scale 1.0 (see TableView metrics).
+  expect(table.header_height() == 24, "table header dip");
+  expect(table.row_height() == 24, "table row dip");
+  expect(table.on_mouse_event(mouse_up(10, 24 + 10)), "table row click");
   expect(table.selected_row() == 0, "row 0 selected");
   expect(row == 0, "row click callback");
   expect(table.row_count() == 2, "table row_count");
@@ -1093,6 +1141,7 @@ int main() {
   test_label_button_preferred_from_measure();
   test_textfield_set_text_char_backspace();
   test_checkbox_toggle();
+  test_slider_and_atmosphere_panel();
   test_radio_exclusive_group();
   test_combobox_select();
   test_tab_strip_switch_page();

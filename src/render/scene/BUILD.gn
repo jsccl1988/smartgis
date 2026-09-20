@@ -8,6 +8,8 @@ import("//testing/test.gni")
 # Deps rhi_sources (not :rhi group) to avoid a render ↔ scene cycle.
 source_set("scene_sources") {
   sources = [
+    "frustum_aabb.cc",
+    "frustum_aabb.h",
     "scene.cc",
     "scene.h",
   ]

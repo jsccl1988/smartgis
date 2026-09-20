@@ -112,8 +112,7 @@ bool announce_and_paint(cd::Pipe* pipe,
     r = 0x28;
   }
   (void)hwnd;
-  // Scene3d: land-masked DEM wireframe (not flat MapLibre). Chrome HUD /
-  // FlyCube present_gpu sit on top — SmartGis.exe 3D parity.
+  // Scene3d: land-masked DEM underlay (chrome paints orbitable SoT on top).
   if (slot->kind == content::ViewKind::kScene3d) {
     slot->present.paint_clear(b, g, r, 0xFF);
     slot->present.paint_demo_frame(content::ViewKind::kScene3d);

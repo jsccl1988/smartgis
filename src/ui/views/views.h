@@ -30,6 +30,7 @@
 #include "ui/views/primitives/menu_bar.h"
 #include "ui/views/primitives/radio_button.h"
 #include "ui/views/primitives/scroll_view.h"
+#include "ui/views/primitives/slider.h"
 #include "ui/views/primitives/tab_strip.h"
 #include "ui/views/primitives/table_view.h"
 #include "ui/views/primitives/textfield.h"
@@ -49,6 +50,7 @@
 
 // GIS panels
 #include "ui/views/gis/ambox_view.h"
+#include "ui/views/gis/atmosphere_panel.h"
 #include "ui/views/gis/attribute_table.h"
 #include "ui/views/gis/catalog_view.h"
 #include "ui/views/gis/chart_view.h"

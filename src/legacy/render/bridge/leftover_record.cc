@@ -6,6 +6,10 @@
 #include "base/carto/style.h"
 #include "base/carto/stylemanager.h"
 #include "gis/map/map.h"
+#include "gis/map/map_layer.h"
+#include "gis/style/style_document.h"
+#include "gis/style/style_rules.h"
+#include "gis/style/style_types.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -142,9 +146,8 @@ bool LeftoverRecorder::record_map(const gis::SmtMap* map) {
     gpu_.clear_view_ortho();
   }
   // Default leftover brush cyan; prefer first MapLayer style brush when the
-  // style manager has resolved that name.
-  // TODO: per-layer solid on GpuInstance / Node without pulling StyleManager
-  // into sdb/scene; per-feature Feature::style() during tessellate.
+  // style manager has resolved that name. Layers with style_document override
+  // per GpuInstance after sync_from (P0 MapLibre fill/line paint).
   long brush = 0x00FFFF00;
   const int layer_count = map->GetLayerCount();
   for (int i = 0; i < layer_count; ++i) {
@@ -162,9 +165,45 @@ bool LeftoverRecorder::record_map(const gis::SmtMap* map) {
     }
   }
   gpu_.set_solid_color_from_colorref(brush);
+
+  if (!open_ || !list_ || !device_) {
+    return false;
+  }
+  if (pass_open_) {
+    list_->end_render_pass();
+    pass_open_ = false;
+  }
+
   gis::World world;
   world.attach_map(map);
-  return record_world(world);
+  gpu_.sync_from(world);
+
+  gis::style::AttrMap empty_attrs;
+  for (int i = 0; i < layer_count; ++i) {
+    const gis::MapLayer* layer = map->GetMapLayer(i);
+    if (!layer || !layer->style_document()) {
+      continue;
+    }
+    gis::style::ResolvedPaint paint;
+    if (!gis::style::resolve(*layer->style_document(), nullptr, empty_attrs,
+                             /*zoom=*/10.0, /*source_layer=*/"", &paint)) {
+      continue;
+    }
+    const gis::SmtLayer* leftover = map->GetLeftoverLayer(i);
+    const OGRLayer* ogr = map->GetOgrLayer(i);
+    for (size_t j = 0; j < gpu_.instance_count(); ++j) {
+      const GpuInstance* inst = gpu_.instance_at(j);
+      if (!inst) {
+        continue;
+      }
+      if ((leftover && inst->layer == leftover) ||
+          (ogr && inst->ogr_layer == ogr)) {
+        gpu_.set_instance_paint(j, paint);
+      }
+    }
+  }
+
+  return gpu_.record_draws(device_, list_, width_, height_);
 }
 
 bool LeftoverRecorder::record_3d(render::SmtVertexBuffer* vb,

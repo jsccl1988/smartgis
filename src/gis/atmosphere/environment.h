@@ -4,10 +4,13 @@
 #ifndef GIS_ATMOSPHERE_ENVIRONMENT_H_
 #define GIS_ATMOSPHERE_ENVIRONMENT_H_
 
+#include <cstddef>
 #include <vector>
 
 #include "gis/atmosphere/atmosphere_params.h"
 #include "gis/atmosphere/cloud_system.h"
+#include "gis/atmosphere/field_channel.h"
+#include "gis/atmosphere/field_ingest.h"
 #include "gis/atmosphere/field_store.h"
 #include "gis/atmosphere/ocean_system.h"
 #include "gis/gis_export.h"
@@ -60,6 +63,25 @@ class GIS_EXPORT Environment {
   // Seed procedural baseline + turn ocean and cloud on (unit / self-test).
   void enable_demo(const FieldGrid& grid,
                    const std::vector<LonLatRing>* land_rings);
+
+  // Load External GeoTIFF (or GDAL-openable) time series into field_store_.
+  // On success, session clock is set to times[0]. Views/showcase may wrap
+  // this behind --atmosphere-fields= (Phase 1.2 host lane).
+  bool load_external_series(FieldChannel channel, const char* const* paths,
+                            const double* times, std::size_t count,
+                            const FieldIngestOptions& opts = {});
+
+  // Min/max over timed slices of |channel| in field_store_ (any kind/priority).
+  bool timed_field_range(FieldChannel channel, double* out_min,
+                         double* out_max) const;
+
+  // Session time scrub: set absolute clock or advance by dt (seconds).
+  void scrub_time_sec(double t) { set_time_sec(t); }
+  void advance_time_sec(double dt_sec) { set_time_sec(time_sec_ + dt_sec); }
+
+  // Clamp session clock into timed_field_range(|channel|) when a range exists.
+  // Returns false if no timed slices (clock unchanged).
+  bool clamp_time_to_field(FieldChannel channel);
 
  private:
   AtmosphereParams params_;

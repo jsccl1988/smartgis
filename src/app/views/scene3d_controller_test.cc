@@ -33,18 +33,22 @@ void expect(bool ok, const char* msg) {
 }  // namespace
 
 int main() {
-  // Default: prefer FlyCube / RHI for Scene3d; opt out via FORCE_CONTENT.
+  // Default: ContentMapView SoT stereo; opt in FlyCube via PREFER_FLYCUBE=1.
   {
     _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "");
     _putenv_s("SMT_PREFER_FLYCUBE_3D", "");
-    expect(app::prefer_scene3d_flycube(), "default prefer FlyCube");
+    expect(!app::prefer_scene3d_flycube(), "default prefer ContentMapView SoT");
     expect(!app::force_content_mapview_3d(), "default not force content");
+    _putenv_s("SMT_PREFER_FLYCUBE_3D", "1");
+    expect(app::prefer_scene3d_flycube(), "PREFER_FLYCUBE=1 enables FlyCube");
+    _putenv_s("SMT_PREFER_FLYCUBE_3D", "");
     _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "1");
     expect(app::force_content_mapview_3d(), "FORCE_CONTENT=1");
     expect(!app::prefer_scene3d_flycube(), "FORCE_CONTENT disables FlyCube");
     _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "");
     _putenv_s("SMT_PREFER_FLYCUBE_3D", "0");
     expect(app::force_content_mapview_3d(), "legacy PREFER_FLYCUBE=0");
+    expect(!app::prefer_scene3d_flycube(), "PREFER_FLYCUBE=0 disables FlyCube");
     _putenv_s("SMT_PREFER_FLYCUBE_3D", "");
   }
 
@@ -198,6 +202,39 @@ int main() {
   cam.enable_atmosphere_demo();
   expect(env.ocean_enabled() && env.cloud_enabled(), "demo enables both");
   expect(env.field_store().layer_count() > 0, "demo seeded fields");
+
+  // Wind overlay: sample seeded WindU/V into GDI arrows (CPU path).
+  {
+    app::Scene3dController wind_cam;
+    wind_cam.bind_map(&scene);
+    wind_cam.seed_atmosphere_procedural();
+    wind_cam.set_wind_overlay_enabled(true);
+    expect(wind_cam.wind_overlay_enabled(), "wind overlay on");
+    wind_cam.set_time_sec(12.5);
+    expect(std::abs(wind_cam.time_sec() - 12.5) < 1e-9, "time scrub");
+    HDC screen = GetDC(nullptr);
+    if (screen) {
+      HDC mem = CreateCompatibleDC(screen);
+      BITMAPINFO bi = {};
+      bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+      bi.bmiHeader.biWidth = 64;
+      bi.bmiHeader.biHeight = -64;
+      bi.bmiHeader.biPlanes = 1;
+      bi.bmiHeader.biBitCount = 32;
+      void* bits = nullptr;
+      HBITMAP dib =
+          CreateDIBSection(mem, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
+      if (dib) {
+        HGDIOBJ old = SelectObject(mem, dib);
+        wind_cam.paint_hud(mem, 64, 64);
+        SelectObject(mem, old);
+        DeleteObject(dib);
+      }
+      DeleteDC(mem);
+      ReleaseDC(nullptr, screen);
+    }
+    wind_cam.abandon_mesh();
+  }
 
   // Ocean-only: seed without cloud pass.
   {

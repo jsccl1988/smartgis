@@ -287,6 +287,34 @@ float FieldStore::sample(FieldChannel channel, double lon, double lat,
   return 0.0f;
 }
 
+bool FieldStore::timed_slice_range(FieldChannel channel, double* out_min,
+                                   double* out_max) const {
+  if (!out_min || !out_max) {
+    return false;
+  }
+  bool found = false;
+  double t_min = 0.0;
+  double t_max = 0.0;
+  for (const FieldLayer& layer : layers_) {
+    if (layer.channel != channel || is_timeless(layer.time_sec)) {
+      continue;
+    }
+    if (!found) {
+      t_min = t_max = layer.time_sec;
+      found = true;
+    } else {
+      t_min = (std::min)(t_min, layer.time_sec);
+      t_max = (std::max)(t_max, layer.time_sec);
+    }
+  }
+  if (!found) {
+    return false;
+  }
+  *out_min = t_min;
+  *out_max = t_max;
+  return true;
+}
+
 const FieldLayer* FieldStore::layer_at(std::size_t index) const {
   if (index >= layers_.size()) {
     return nullptr;

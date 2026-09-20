@@ -30,5 +30,17 @@ GN：`//src/render:render_all` 进日常 `src_all`。leftover DLL 另编 `//src/
 - Views `MapViewport`：`try_flycube_device` 在 LoadLibrary GDI 之前；`SMT_PREFER_GDI_DEVICE=1` 可强制 leftover DLL。
 - 2D：`set_solid_color` / 地图默认 brush cyan；`record_map` 可从首个 `MapLayer::style_name` 取 brush；`set_view_ortho` + envelope。Per-layer/per-feature style 仍 TODO。
 - 3D：`ModelAsset` → GpuScene 上传；tileset `visible_uris` → `decode_content_file` → mesh，失败回退 AABB。
-- 测试：`rhi_test` / `unified_draw_test` 默认跳过 FlyCube HWND/init（`SMT_RUN_FLYCUBE_GPU=1`）；`NullDevice` 的 destroy 故意泄漏 stub（避免 FlyCube 链接下 `operator delete` 挂死）；`scene_gpu_test` / `leftover_record_test` 仅走 Null。ColorCB BindingSet 缓存。
+- 测试：`rhi_test` / `unified_draw_test` 默认跳过 FlyCube HWND/init（`SMT_RUN_FLYCUBE_GPU=1` 时 DX12 present + lit solid）；`NullDevice` 的 destroy 故意泄漏 stub（避免 FlyCube 链接下 `operator delete` 挂死）；`scene_gpu_test` / `leftover_record_test` 仅走 Null。ColorCB BindingSet 缓存。
 - 海洋 GPU FFT：FlyCube `supports_compute()` 时 `OceanPass` 走 spectrum + radix-2 compute；Null / Gerstner / quality0 回退 CPU。真机同样用 `SMT_RUN_FLYCUBE_GPU=1`。
+
+## Optional FlyCube GPU smoke
+
+CI / default builds stay on Null. To exercise real DX12 present + lit solid (`kLitSolid` / `set_light_params`; skip-not-red if no adapter):
+
+```bat
+set SMT_RUN_FLYCUBE_GPU=1
+ninja -C out rhi_test
+ninja -C out scene_gpu_test
+```
+
+Optional: `ninja -C out unified_draw_test`. GN labels: `//src/render:rhi_test`, `//src/render/scene:scene_gpu_test`, `//src/render/scene:unified_draw_test`. Style paint regression (Null): `ninja -C out leftover_record_test` (`//src/legacy/render/bridge:leftover_record_test`). `rhi_test` with env=1 logs `dx12 present ok` and `lit ok` on success, or `skip present` when initialize fails.

@@ -68,8 +68,16 @@ class GIS_EXPORT FieldStore {
 
   // Spatially bilinear (or nearest) sample with clamp; temporal lerp when
   // multiple slices exist. Returns 0 when no contributing layer.
+  // valid_mask: 0 cells are skipped (bilinear falls back to nearest valid;
+  // temporal lerp uses the other bracket when one side is invalid; priority
+  // fallthrough when a higher source is fully invalid at the point).
   float sample(FieldChannel channel, double lon, double lat,
                double time_sec) const;
+
+  // Min/max time_sec over non-NaN (timed) slices of |channel|. Returns false
+  // when no timed slices exist (timeless-only or empty).
+  bool timed_slice_range(FieldChannel channel, double* out_min,
+                         double* out_max) const;
 
   std::size_t layer_count() const { return layers_.size(); }
   const FieldLayer* layer_at(std::size_t index) const;

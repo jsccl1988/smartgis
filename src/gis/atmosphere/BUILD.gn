@@ -122,6 +122,7 @@ test("environment_test") {
     "cloud_system.cc",
     "environment.cc",
     "environment_test.cc",
+    "field_ingest.cc",
     "field_store.cc",
     "ocean_system.cc",
     "procedural.cc",
@@ -132,5 +133,6 @@ test("environment_test") {
   deps = [
     "//src/base:base",
     "//src/gis/world:land_mask",
+    "//third_party:gdal",
   ]
 }
