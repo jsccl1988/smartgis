@@ -258,10 +258,44 @@ enum class MapLineRole { kWater, kRoad, kOther };
 
 MapLineRole map_scene_line_role(const char* kind, const char* feature_class);
 bool map_scene_line_is_major_class(const char* kind, const char* feature_class);
-// |length| is map-space polyline length (degrees on lon/lat packs).
+// |length| is map-space polyline length in degrees (see length_as_degrees).
 bool map_scene_line_visible_at_scale(MapLineRole role, double length,
                                     bool major_class, double scale);
 int map_scene_line_stroke_px(MapLineRole role, double length, double scale);
+
+// One piece of a water/road network. Empty name does not match other names.
+struct MapStemSpan {
+  const char* name = nullptr;
+  double length = 0;
+  double x0 = 0;
+  double y0 = 0;
+  double x1 = 0;
+  double y1 = 0;
+};
+
+// Component length of spans[index]. Same non-empty name joins a stem.
+// Touching endpoints join only when the names are not two different labels,
+// so a named tributary does not swallow the trunk it meets.
+double map_scene_stem_length(const MapStemSpan* spans, size_t count,
+                             size_t index, double touch_tol);
+
+// Mid-length point and tangent of a polyline (y-down atan2, folded to
+// [-90, 90] so glyphs stay upright). Not the vertex centroid.
+struct MapLineLabelAnchor {
+  double x = 0;
+  double y = 0;
+  double angle_deg = 0;
+  bool ok = false;
+};
+
+MapLineLabelAnchor map_scene_line_label_anchor(const double* xs,
+                                              const double* ys, size_t count);
+
+// True when the bbox fits a lon/lat frame. Projected meter windows do not.
+bool map_scene_extent_is_lonlat(double minx, double miny, double maxx,
+                               double maxy);
+// Meters become degrees (~111320 m). Lon/lat lengths are unchanged.
+double map_scene_length_as_degrees(double length, bool lonlat);
 
 }  // namespace app
 

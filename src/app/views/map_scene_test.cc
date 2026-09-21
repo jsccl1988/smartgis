@@ -401,6 +401,54 @@ int main() {
            "river width changes with scale");
     expect(app::map_scene_line_stroke_px(app::MapLineRole::kRoad, 8.0, 12.0) >= 1,
            "road stroke is positive");
+
+    app::MapStemSpan parts[] = {
+        {"ChangJiang", 1.0, 100.0, 30.0, 101.0, 30.0},
+        {"ChangJiang", 1.0, 110.0, 30.0, 111.0, 30.0},
+        {"ChangJiang", 1.0, 120.0, 30.0, 121.0, 30.0},
+    };
+    const double stem =
+        app::map_scene_stem_length(parts, 3, 0, 0.05);
+    expect(stem > 2.9 && stem < 3.1, "same-name pieces form one stem");
+    expect(!app::map_scene_line_visible_at_scale(app::MapLineRole::kWater, 1.0,
+                                                false, 12.0),
+           "one short piece fails the country gate");
+    expect(app::map_scene_line_visible_at_scale(app::MapLineRole::kWater, stem,
+                                               false, 12.0),
+           "stem length passes the country gate");
+    app::MapStemSpan tributary[] = {
+        {"ChangJiang", 2.0, 0.0, 0.0, 2.0, 0.0},
+        {"Jialing", 0.4, 2.0, 0.0, 2.4, 0.0},
+    };
+    const double trib =
+        app::map_scene_stem_length(tributary, 2, 1, 0.05);
+    expect(trib > 0.3 && trib < 0.5, "named tributary stays separate");
+
+    const double xs[] = {0.0, 4.0, 4.0};
+    const double ys[] = {0.0, 0.0, 2.0};
+    const app::MapLineLabelAnchor anchor =
+        app::map_scene_line_label_anchor(xs, ys, 3);
+    expect(anchor.ok, "line label anchor");
+    expect(anchor.x > 2.9 && anchor.x < 3.1 && anchor.y > -0.05 &&
+               anchor.y < 0.05,
+           "label sits at mid-length, not a later vertex");
+    expect(anchor.angle_deg > -1.0 && anchor.angle_deg < 1.0,
+           "tangent follows the mid segment");
+    expect(anchor.y < 0.2, "not the vertex centroid");
+
+    expect(app::map_scene_extent_is_lonlat(73.0, 18.0, 135.0, 54.0),
+           "China bbox is lon/lat");
+    expect(!app::map_scene_extent_is_lonlat(400000.0, 3000000.0, 500000.0,
+                                           3500000.0),
+           "meter window is not lon/lat");
+    const double long_m = app::map_scene_length_as_degrees(300000.0, false);
+    const double short_m = app::map_scene_length_as_degrees(400.0, false);
+    expect(app::map_scene_line_visible_at_scale(app::MapLineRole::kWater, long_m,
+                                               false, 12.0),
+           "long meter river still passes country gate");
+    expect(!app::map_scene_line_visible_at_scale(app::MapLineRole::kWater,
+                                                short_m, false, 12.0),
+           "short meter creek is culled");
   }
 
   if (g_fails) {

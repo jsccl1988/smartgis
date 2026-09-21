@@ -1039,6 +1039,11 @@ MapLineRole map_scene_line_role(const char* kind, const char* feature_class) {
   return MapLineRole::kOther;
 }
 
+// Default china_city line layers are Natural Earth rivers and lakes
+// (name + kind only). The seed has no highway geometry, so this path stays
+// idle until a dataset carries kind/class/highway/line_kind road attributes.
+// Do not synthesize a national road network.
+
 bool map_scene_line_is_major_class(const char* kind,
                                   const char* feature_class) {
   auto major = [](const char* s) {
@@ -1093,6 +1098,125 @@ int map_scene_line_stroke_px(MapLineRole role, double length, double scale) {
     return trunk ? 4 : 2;
   }
   return scale < 48.0 ? 1 : 2;
+}
+
+double map_scene_stem_length(const MapStemSpan* spans, size_t count,
+                             size_t index, double touch_tol) {
+  if (!spans || index >= count) {
+    return 0.0;
+  }
+  if (touch_tol < 0.0) {
+    touch_tol = 0.0;
+  }
+  std::vector<size_t> parent(count);
+  for (size_t i = 0; i < count; ++i) {
+    parent[i] = i;
+  }
+  auto find_root = [&parent](size_t i) {
+    while (parent[i] != i) {
+      parent[i] = parent[parent[i]];
+      i = parent[i];
+    }
+    return i;
+  };
+  auto unite = [&find_root, &parent](size_t a, size_t b) {
+    a = find_root(a);
+    b = find_root(b);
+    if (a != b) {
+      parent[b] = a;
+    }
+  };
+  auto named = [](const char* s) { return s && s[0]; };
+  const double tol2 = touch_tol * touch_tol;
+  auto endpoints_close = [tol2](double ax, double ay, double bx, double by) {
+    const double dx = ax - bx;
+    const double dy = ay - by;
+    return dx * dx + dy * dy <= tol2;
+  };
+  for (size_t i = 0; i < count; ++i) {
+    for (size_t j = i + 1; j < count; ++j) {
+      const bool same = named(spans[i].name) && named(spans[j].name) &&
+                        std::strcmp(spans[i].name, spans[j].name) == 0;
+      const bool different = named(spans[i].name) && named(spans[j].name) &&
+                             std::strcmp(spans[i].name, spans[j].name) != 0;
+      const bool touch =
+          endpoints_close(spans[i].x0, spans[i].y0, spans[j].x0, spans[j].y0) ||
+          endpoints_close(spans[i].x0, spans[i].y0, spans[j].x1, spans[j].y1) ||
+          endpoints_close(spans[i].x1, spans[i].y1, spans[j].x0, spans[j].y0) ||
+          endpoints_close(spans[i].x1, spans[i].y1, spans[j].x1, spans[j].y1);
+      if (same || (touch && !different)) {
+        unite(i, j);
+      }
+    }
+  }
+  const size_t root = find_root(index);
+  double sum = 0.0;
+  for (size_t i = 0; i < count; ++i) {
+    if (find_root(i) == root) {
+      sum += spans[i].length;
+    }
+  }
+  return sum;
+}
+
+MapLineLabelAnchor map_scene_line_label_anchor(const double* xs, const double* ys,
+                                              size_t count) {
+  MapLineLabelAnchor out;
+  if (!xs || !ys || count < 2) {
+    return out;
+  }
+  double total = 0.0;
+  for (size_t i = 1; i < count; ++i) {
+    total += std::hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]);
+  }
+  const double half = total * 0.5;
+  double acc = 0.0;
+  for (size_t i = 1; i < count; ++i) {
+    const double dx = xs[i] - xs[i - 1];
+    const double dy = ys[i] - ys[i - 1];
+    const double seg = std::hypot(dx, dy);
+    if (acc + seg + 1e-12 < half && i + 1 < count) {
+      acc += seg;
+      continue;
+    }
+    const double t =
+        seg > 1e-12 ? std::clamp((half - acc) / seg, 0.0, 1.0) : 0.0;
+    out.x = xs[i - 1] + t * dx;
+    out.y = ys[i - 1] + t * dy;
+    double deg = std::atan2(dy, dx) * (180.0 / 3.14159265358979323846);
+    if (deg > 90.0) {
+      deg -= 180.0;
+    }
+    if (deg <= -90.0) {
+      deg += 180.0;
+    }
+    out.angle_deg = deg;
+    out.ok = true;
+    return out;
+  }
+  return out;
+}
+
+bool map_scene_extent_is_lonlat(double minx, double miny, double maxx,
+                               double maxy) {
+  if (!(maxx > minx) || !(maxy > miny)) {
+    return true;
+  }
+  if (minx < -180.0 || maxx > 180.0 || miny < -90.0 || maxy > 90.0) {
+    return false;
+  }
+  if ((maxx - minx) > 360.0 || (maxy - miny) > 180.0) {
+    return false;
+  }
+  return true;
+}
+
+double map_scene_length_as_degrees(double length, bool lonlat) {
+  if (lonlat) {
+    return length;
+  }
+  constexpr double kMetersPerDegree = 111320.0;
+  return length / kMetersPerDegree;
 }
 
 COLORREF map_scene_admin_stroke_color() {
@@ -2081,7 +2205,8 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
   SetBkMode(hdc, TRANSPARENT);
 
   auto draw_label = [&](int vx, int vy, const std::string& name, COLORREF color,
-                        int font_idx, int dx, int dy) {
+                        int font_idx, int dx, int dy, double angle_deg,
+                        bool along_line) {
     if (name.empty()) {
       return;
     }
@@ -2095,7 +2220,18 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
       return;
     }
     HFONT font = fonts[font_idx < 0 ? 0 : (font_idx > 2 ? 2 : font_idx)];
-    SelectObject(hdc, font ? font : stock_font);
+    HFONT rotated = nullptr;
+    if (along_line && std::fabs(angle_deg) > 0.5) {
+      const int esc = static_cast<int>(std::lround(-angle_deg * 10.0));
+      const int px96 = font_idx >= 2 ? 22 : (font_idx == 1 ? 16 : 13);
+      const int weight = font_idx >= 2 ? FW_SEMIBOLD
+                                        : (font_idx == 1 ? FW_MEDIUM : FW_NORMAL);
+      rotated = CreateFontW(dip_px(px96), 0, esc, esc, weight, FALSE, FALSE,
+                            FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                            CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                            DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
+    }
+    SelectObject(hdc, rotated ? rotated : (font ? font : stock_font));
     const int x = vx + dx;
     const int y = vy + dy;
     const int n = static_cast<int>(w.size());
@@ -2108,6 +2244,10 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
     }
     SetTextColor(hdc, color);
     TextOutW(hdc, x, y, w.c_str(), n);
+    if (rotated) {
+      SelectObject(hdc, font ? font : stock_font);
+      DeleteObject(rotated);
+    }
   };
 
   // Country fit is scale ~8–16. Dense POI text waits until the view is
@@ -2124,6 +2264,8 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
     int importance = 0;
     COLORREF ink = RGB(20, 18, 14);
     std::string name;
+    double angle_deg = 0;
+    bool along_line = false;
   };
   std::vector<PendingLabel> pending_labels;
   pending_labels.reserve(label_cap * 2);
@@ -2171,6 +2313,96 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
   const double view_max_x = (std::max)(map_x0, map_x1);
   const double view_min_y = (std::min)(map_y0, map_y1);
   const double view_max_y = (std::max)(map_y0, map_y1);
+  const content::Extent2 scene_ext = world_extent();
+  const bool extent_lonlat = map_scene_extent_is_lonlat(
+      scene_ext.xmin, scene_ext.ymin, scene_ext.xmax, scene_ext.ymax);
+  const double touch_tol = extent_lonlat ? 0.02 : 2000.0;
+
+  struct StemHeld {
+    const Feature* feature = nullptr;
+    std::string key;
+    double length = 0;
+    double x0 = 0;
+    double y0 = 0;
+    double x1 = 0;
+    double y1 = 0;
+  };
+  std::vector<StemHeld> stem_held;
+  auto consider_stem = [&](const Feature& f) {
+    if (f.kind != GeomKind::kLine || f.points.size() < 2) {
+      return;
+    }
+    const char* cls = field_value(f, "class");
+    if (!cls) {
+      cls = field_value(f, "fclass");
+    }
+    if (!cls) {
+      cls = field_value(f, "highway");
+    }
+    const char* kind = field_value(f, "kind");
+    const char* line_kind = field_value(f, "line_kind");
+    const char* role_kind = kind;
+    if (line_kind && line_kind[0] &&
+        (!kind || std::strcmp(kind, "line") == 0)) {
+      role_kind = line_kind;
+    }
+    const MapLineRole role = map_scene_line_role(role_kind, cls);
+    if (role != MapLineRole::kWater && role != MapLineRole::kRoad) {
+      return;
+    }
+    StemHeld held;
+    held.feature = &f;
+    held.key = feature_display_name(f);
+    if (held.key.empty()) {
+      const char* rid = field_value(f, "river_id");
+      if (!rid || !rid[0]) {
+        rid = field_value(f, "id");
+      }
+      if (rid && rid[0]) {
+        held.key = std::string("id:") + rid;
+      }
+    }
+    held.x0 = f.points.front().x;
+    held.y0 = f.points.front().y;
+    held.x1 = f.points.back().x;
+    held.y1 = f.points.back().y;
+    for (size_t i = 1; i < f.points.size(); ++i) {
+      held.length += std::hypot(f.points[i].x - f.points[i - 1].x,
+                                f.points[i].y - f.points[i - 1].y);
+    }
+    stem_held.push_back(std::move(held));
+  };
+  for (const Layer& layer : layers_) {
+    if (!layer.visible) {
+      continue;
+    }
+    for (const Feature& f : layer.features) {
+      consider_stem(f);
+    }
+  }
+  std::vector<MapStemSpan> stem_spans(stem_held.size());
+  for (size_t i = 0; i < stem_held.size(); ++i) {
+    stem_spans[i] = {stem_held[i].key.c_str(), stem_held[i].length,
+                     stem_held[i].x0, stem_held[i].y0, stem_held[i].x1,
+                     stem_held[i].y1};
+  }
+  std::map<const Feature*, double> stem_raw;
+  for (size_t i = 0; i < stem_held.size(); ++i) {
+    stem_raw[stem_held[i].feature] =
+        map_scene_stem_length(stem_spans.data(), stem_spans.size(), i, touch_tol);
+  }
+
+  struct AlongCand {
+    double rank_len = 0;
+    int vx = 0;
+    int vy = 0;
+    double angle = 0;
+    int importance = 0;
+    COLORREF ink = RGB(8, 36, 72);
+    std::string name;
+  };
+  std::map<std::string, AlongCand> along_best;
+
   const GeomKind order[] = {GeomKind::kPolygon, GeomKind::kLine,
                             GeomKind::kPoint, GeomKind::kText};
   for (GeomKind pass : order) {
@@ -2272,8 +2504,15 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
                miny > view_max_y)) {
             continue;
           }
+          double stem = length;
+          const auto stem_it = stem_raw.find(&f);
+          if (stem_it != stem_raw.end()) {
+            stem = (std::max)(stem, stem_it->second);
+          }
+          const double gated =
+              map_scene_length_as_degrees(stem, extent_lonlat);
           if (!f.selected &&
-              !map_scene_line_visible_at_scale(role, length, major, scale_)) {
+              !map_scene_line_visible_at_scale(role, gated, major, scale_)) {
             continue;
           }
           COLORREF fill_c = 0;
@@ -2283,15 +2522,15 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
               style_colors_for_feature(layer, f, &fill_c, &stroke_c, &style_w);
           HPEN pen = pens[3];
           if (!f.selected) {
-            const int sw = map_scene_line_stroke_px(role, length, scale_);
+            const int sw = map_scene_line_stroke_px(role, gated, scale_);
             COLORREF col = RGB(220, 210, 190);
             if (role == MapLineRole::kWater) {
               const bool lake = ascii_icontains(role_kind, "lake") ||
                                 ascii_icontains(cls, "lake");
               col = lake ? RGB(140, 186, 214) : map_scene_river_color();
             } else if (role == MapLineRole::kRoad) {
-              col = (major || length >= 3.0) ? map_scene_road_color()
-                                             : RGB(176, 170, 158);
+              col = (major || gated >= 3.0) ? map_scene_road_color()
+                                            : RGB(176, 170, 158);
             } else if (styled) {
               col = stroke_c;
               (void)style_w;
@@ -2323,6 +2562,66 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
             }
             last_x = vx;
             last_y = vy;
+          }
+          if (role == MapLineRole::kWater || role == MapLineRole::kRoad) {
+            std::string along_name = feature_display_name(f);
+            if (!along_name.empty()) {
+              std::vector<double> xs;
+              std::vector<double> ys;
+              std::vector<double> run_x;
+              std::vector<double> run_y;
+              auto take_run = [&]() {
+                if (run_x.size() > xs.size()) {
+                  xs = run_x;
+                  ys = run_y;
+                }
+                run_x.clear();
+                run_y.clear();
+              };
+              for (const Vertex& p : f.points) {
+                const bool inside = p.x >= view_min_x && p.x <= view_max_x &&
+                                    p.y >= view_min_y && p.y <= view_max_y;
+                if (!inside) {
+                  take_run();
+                  continue;
+                }
+                run_x.push_back(p.x);
+                run_y.push_back(p.y);
+              }
+              take_run();
+              if (xs.size() < 2) {
+                xs.clear();
+                ys.clear();
+                for (const Vertex& p : f.points) {
+                  xs.push_back(p.x);
+                  ys.push_back(p.y);
+                }
+              }
+              const MapLineLabelAnchor anchor = map_scene_line_label_anchor(
+                  xs.data(), ys.data(), xs.size());
+              if (anchor.ok) {
+                int lvx = 0;
+                int lvy = 0;
+                map_to_view(anchor.x, anchor.y, &lvx, &lvy);
+                int importance = label_importance(f);
+                if (importance < 1) {
+                  importance = 1;
+                }
+                auto found = along_best.find(along_name);
+                if (found == along_best.end() || gated > found->second.rank_len) {
+                  AlongCand cand;
+                  cand.rank_len = gated;
+                  cand.vx = lvx;
+                  cand.vy = lvy;
+                  cand.angle = anchor.angle_deg;
+                  cand.importance = importance;
+                  cand.ink = role == MapLineRole::kWater ? RGB(8, 36, 72)
+                                                        : RGB(90, 70, 30);
+                  cand.name = std::move(along_name);
+                  along_best[cand.name] = std::move(cand);
+                }
+              }
+            }
           }
           continue;
         }
@@ -2377,6 +2676,22 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
     }
   }
 
+  for (auto& kv : along_best) {
+    AlongCand& cand = kv.second;
+    if (cand.importance < min_label_importance || cand.name.empty()) {
+      continue;
+    }
+    PendingLabel lab;
+    lab.vx = cand.vx;
+    lab.vy = cand.vy;
+    lab.importance = cand.importance;
+    lab.ink = cand.ink;
+    lab.name = std::move(cand.name);
+    lab.angle_deg = cand.angle;
+    lab.along_line = true;
+    pending_labels.push_back(std::move(lab));
+  }
+
   // Higher-importance labels claim occupancy first (province before county).
   std::sort(pending_labels.begin(), pending_labels.end(),
             [](const PendingLabel& a, const PendingLabel& b) {
@@ -2400,15 +2715,32 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
     SelectObject(hdc, font ? font : stock_font);
     SIZE text_sz = {};
     GetTextExtentPoint32W(hdc, w.c_str(), static_cast<int>(w.size()), &text_sz);
+    int origin_x = lab.vx + lab.dx;
+    int origin_y = lab.vy + lab.dy;
+    int box_w = (std::max)(8, static_cast<int>(text_sz.cx));
+    int box_h = (std::max)(8, static_cast<int>(text_sz.cy));
+    if (lab.along_line) {
+      const double rad = lab.angle_deg * (3.14159265358979323846 / 180.0);
+      const double c = std::cos(rad);
+      const double s = std::sin(rad);
+      const double hx = 0.5 * static_cast<double>(text_sz.cx);
+      const double hy = 0.5 * static_cast<double>(text_sz.cy);
+      origin_x += static_cast<int>(std::lround(-hx * c + hy * s));
+      origin_y += static_cast<int>(std::lround(-hx * s - hy * c));
+      box_w = (std::max)(
+          8, static_cast<int>(std::lround(std::fabs(c) * text_sz.cx +
+                                         std::fabs(s) * text_sz.cy)));
+      box_h = (std::max)(
+          8, static_cast<int>(std::lround(std::fabs(s) * text_sz.cx +
+                                         std::fabs(c) * text_sz.cy)));
+    }
     int px = 0;
     int py = 0;
-    if (!label_occ.try_place(lab.vx + lab.dx, lab.vy + lab.dy,
-                             (std::max)(8, static_cast<int>(text_sz.cx)),
-                             (std::max)(8, static_cast<int>(text_sz.cy)), &px,
-                             &py)) {
+    if (!label_occ.try_place(origin_x, origin_y, box_w, box_h, &px, &py)) {
       continue;
     }
-    draw_label(px, py, lab.name, lab.ink, font_idx, 0, 0);
+    draw_label(px, py, lab.name, lab.ink, font_idx, 0, 0, lab.angle_deg,
+               lab.along_line);
     ++labels_drawn;
   }
 
