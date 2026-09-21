@@ -252,9 +252,14 @@ int smt_stereo_hwnd_present(void* view, float yaw, float pitch,
   if (!v || !v->device || !v->scene || !v->camera) {
     return 0;
   }
-  if (v->width <= 0 || v->height <= 0) {
-    RECT rc = {};
+  RECT rc = {};
+  if (v->hwnd) {
     GetClientRect(v->hwnd, &rc);
+  }
+  if (rc.right > 0 && rc.bottom > 0 &&
+      (rc.right != v->width || rc.bottom != v->height)) {
+    resize_view(v, rc.right, rc.bottom);
+  } else if (v->width <= 0 || v->height <= 0) {
     resize_view(v, rc.right > 0 ? rc.right : 1, rc.bottom > 0 ? rc.bottom : 1);
   }
   apply_orbit_camera(v, yaw, pitch, distance);

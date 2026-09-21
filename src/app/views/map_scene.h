@@ -231,8 +231,37 @@ std::vector<std::string> china_seed_relative_paths();
 COLORREF map_scene_map_bg_color();
 COLORREF map_scene_area_fill_color(const char* adcode, uint32_t feature_id);
 COLORREF map_scene_river_color();
+COLORREF map_scene_road_color();
 COLORREF map_scene_admin_stroke_color();
 COLORREF map_scene_point_fill_color();
+
+// Screen-space label box (right/bottom exclusive), used for collision tests.
+struct MapLabelBox {
+  int left = 0;
+  int top = 0;
+  int right = 0;
+  int bottom = 0;
+};
+
+bool map_scene_label_boxes_overlap(MapLabelBox a, MapLabelBox b);
+// Greedy in given order: a box that intersects an accepted box is dropped.
+size_t map_scene_accept_label_count(const MapLabelBox* boxes, size_t count);
+
+// Country fit on China is about scale 8–16. 3 = province/capital, 2 = city,
+// 1 = county or river label, 0 = dense POI.
+int map_scene_label_min_importance(double scale);
+// Name-only rank (anno/name suffixes and provincial capitals). 0 if unknown.
+int map_scene_place_name_importance(const char* utf8_name);
+
+// Water, road, or unclassified line. Generic kind "line" is kOther.
+enum class MapLineRole { kWater, kRoad, kOther };
+
+MapLineRole map_scene_line_role(const char* kind, const char* feature_class);
+bool map_scene_line_is_major_class(const char* kind, const char* feature_class);
+// |length| is map-space polyline length (degrees on lon/lat packs).
+bool map_scene_line_visible_at_scale(MapLineRole role, double length,
+                                    bool major_class, double scale);
+int map_scene_line_stroke_px(MapLineRole role, double length, double scale);
 
 }  // namespace app
 

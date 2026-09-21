@@ -93,9 +93,9 @@ bool CefMapSlot::create(HWND parent,
     view_->Create(params, content::MapWidgetHostView::Preferences());
     view_->SetPresentMode(content::PresentMode::kSoftwareDib);
   }
-  if (kind_ == content::ViewKind::kScene3d && !flycube_live) {
-    (void)scene3d_stereo_.try_attach(child_hwnd_);
-  } else {
+  // Do not create the GL stereo device on the initial 1x1 child. Attach once
+  // sync_layout has a real client (see size_changed branch).
+  if (flycube_live) {
     scene3d_stereo_.release();
   }
   bind_scene3d();
@@ -206,6 +206,13 @@ void CefMapSlot::sync_layout(const RectPx& rect_px, float dpi) {
     if (scene3d_rhi_.is_live() && rect_px.w > 0 && rect_px.h > 0) {
       scene3d_rhi_.resize(child_hwnd_, static_cast<uint32_t>(rect_px.w),
                           static_cast<uint32_t>(rect_px.h));
+    }
+    if (kind_ == content::ViewKind::kScene3d && rect_px.w > 8 &&
+        rect_px.h > 8 && !prefer_scene3d_flycube()) {
+      if (!scene3d_stereo_.is_live()) {
+        (void)scene3d_stereo_.try_attach(child_hwnd_);
+      }
+      scene3d_stereo_.resize(rect_px.w, rect_px.h);
     }
   }
 }
@@ -479,8 +486,18 @@ void CefMapSlot::paint_child() {
   GetClientRect(child_hwnd_, &rc);
   const int w = rc.right;
   const int h = rc.bottom;
+  // Leftover GL SwapBuffers on this HWND. An offscreen DIB BitBlt does not
+  // capture the GL front buffer and then covers it.
+  if (kind_ == content::ViewKind::kScene3d && w > 0 && h > 0 &&
+      !(scene3d_rhi_.is_live() && prefer_scene3d_flycube())) {
+    if (scene3d_stereo_.try_present_sot(child_hwnd_, hdc, w, h, scene3d_.yaw(),
+                                        scene3d_.pitch(),
+                                        scene3d_.distance())) {
+      EndPaint(child_hwnd_, &ps);
+      return;
+    }
+  }
   // Match MapViewport Scene3d: FlyCube presents to HWND swapchain (HUD only).
-  // ContentMapView SoT composes offscreen then BitBlt.
   if (kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() &&
       prefer_scene3d_flycube() && w > 0 && h > 0) {
     paint_to_dc(hdc, rc);

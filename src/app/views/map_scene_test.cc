@@ -337,6 +337,72 @@ int main() {
     }
   }
 
+  // Label collision and scale gates (no golden pixels).
+  {
+    const app::MapLabelBox a{0, 0, 40, 16};
+    const app::MapLabelBox b{30, 0, 70, 16};
+    const app::MapLabelBox c{80, 0, 120, 16};
+    expect(app::map_scene_label_boxes_overlap(a, b), "label boxes overlap");
+    expect(!app::map_scene_label_boxes_overlap(a, c), "separated boxes");
+    const app::MapLabelBox stacked[] = {a, b, a};
+    expect(app::map_scene_accept_label_count(stacked, 3) == 1,
+           "overlapping labels collapse to one");
+    const app::MapLabelBox apart[] = {a, c};
+    expect(app::map_scene_accept_label_count(apart, 2) == 2,
+           "separated labels both accepted");
+
+    expect(app::map_scene_label_min_importance(12.0) == 3,
+           "country scale keeps capitals");
+    expect(app::map_scene_label_min_importance(30.0) == 2,
+           "mid scale adds cities");
+    expect(app::map_scene_label_min_importance(70.0) == 1,
+           "closer scale adds counties");
+    expect(app::map_scene_label_min_importance(120.0) == 0,
+           "close scale allows POI text");
+    expect(app::map_scene_place_name_importance("北京市") == 3,
+           "municipality is country rank");
+    expect(app::map_scene_place_name_importance("苏州市") == 2,
+           "prefecture city is mid rank");
+    expect(app::map_scene_place_name_importance("黑龙江省") == 3,
+           "province name is country rank");
+    expect(app::map_scene_place_name_importance("北京市") >=
+               app::map_scene_label_min_importance(12.0),
+           "capital survives country gate");
+    expect(app::map_scene_place_name_importance("苏州市") <
+               app::map_scene_label_min_importance(12.0),
+           "ordinary city hidden at country scale");
+
+    expect(app::map_scene_line_role("river", nullptr) == app::MapLineRole::kWater,
+           "river role");
+    expect(app::map_scene_line_role("line", "road") == app::MapLineRole::kRoad,
+           "road class");
+    expect(app::map_scene_line_role("lake", nullptr) == app::MapLineRole::kWater,
+           "lake is water");
+    expect(!app::map_scene_line_visible_at_scale(app::MapLineRole::kWater, 0.5,
+                                                false, 12.0),
+           "short river hidden at country scale");
+    expect(app::map_scene_line_visible_at_scale(app::MapLineRole::kWater, 8.0,
+                                               false, 12.0),
+           "long river kept at country scale");
+    expect(app::map_scene_line_visible_at_scale(app::MapLineRole::kWater, 0.5,
+                                               false, 120.0),
+           "short river returns when zoomed in");
+    expect(!app::map_scene_line_visible_at_scale(app::MapLineRole::kRoad, 0.4,
+                                                false, 12.0),
+           "short road hidden at country scale");
+    expect(app::map_scene_line_visible_at_scale(app::MapLineRole::kRoad, 1.0,
+                                               true, 12.0),
+           "major-class road kept at country scale");
+    expect(app::map_scene_road_color() != app::map_scene_river_color(),
+           "road ink differs from river");
+    expect(app::map_scene_line_stroke_px(app::MapLineRole::kWater, 8.0, 12.0) !=
+               app::map_scene_line_stroke_px(app::MapLineRole::kWater, 8.0,
+                                            60.0),
+           "river width changes with scale");
+    expect(app::map_scene_line_stroke_px(app::MapLineRole::kRoad, 8.0, 12.0) >= 1,
+           "road stroke is positive");
+  }
+
   if (g_fails) {
     std::fprintf(stderr, "%d map_scene_test fail(s)\n", g_fails);
     return 1;

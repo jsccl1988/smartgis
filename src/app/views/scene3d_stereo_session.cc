@@ -3,6 +3,8 @@
 
 #include "app/views/scene3d_stereo_session.h"
 
+#include <cstdio>
+
 namespace app {
 namespace {
 
@@ -14,7 +16,25 @@ HMODULE load_legacy_render() {
   const wchar_t* names[] = {L"legacy_render.dll", L"legacy_render_d.dll",
                             nullptr};
 #endif
+  // CEF / WinUI often have a cwd that is not out/. Load beside this PE first.
+  wchar_t dir[MAX_PATH] = {};
+  const DWORD n = GetModuleFileNameW(nullptr, dir, MAX_PATH);
+  if (n > 0 && n < MAX_PATH) {
+    if (wchar_t* slash = wcsrchr(dir, L'\\')) {
+      *(slash + 1) = L'\0';
+    }
+  } else {
+    dir[0] = L'\0';
+  }
   for (const wchar_t** p = names; *p; ++p) {
+    if (dir[0]) {
+      wchar_t full[MAX_PATH] = {};
+      if (swprintf_s(full, L"%s%s", dir, *p) > 0) {
+        if (HMODULE m = LoadLibraryW(full)) {
+          return m;
+        }
+      }
+    }
     if (HMODULE m = LoadLibraryW(*p)) {
       return m;
     }
@@ -56,6 +76,7 @@ bool Scene3dStereoSession::try_attach(HWND hwnd) {
     release();
     return false;
   }
+  host_ = hwnd;
   RECT rc = {};
   GetClientRect(hwnd, &rc);
   if (rc.right > 0 && rc.bottom > 0) {
@@ -69,6 +90,7 @@ void Scene3dStereoSession::release() {
     destroy_(view_);
   }
   view_ = nullptr;
+  host_ = nullptr;
   create_ = nullptr;
   destroy_ = nullptr;
   resize_ = nullptr;
@@ -102,6 +124,13 @@ bool Scene3dStereoSession::present_to_dc(HDC hdc, int width_px, int height_px,
   resize(width_px, height_px);
   if (!present(yaw, pitch, distance)) {
     return false;
+  }
+  // Double-buffered GL is not in the GDI DC. BitBlt from the GL HWND copies
+  // black/stale GDI and, when the caller then blits a DIB back, covers
+  // SwapBuffers. If |hdc| already belongs to the GL window, the present is
+  // the frame.
+  if (host_ && WindowFromDC(hdc) == host_) {
+    return true;
   }
   if (blit_) {
     return blit_(view_, hdc, width_px, height_px) != 0;

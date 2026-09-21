@@ -971,7 +971,15 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
         return 0;
       }
     }
-    // Map / 3D placeholder: composite present + vector overlay offscreen,
+    // Scene3d SoT: leftover GL SwapBuffers (or GDI) on this HWND. A backbuffer
+    // BitBlt does not contain the GL front buffer and would cover it.
+    if (self && self->role_ == Role::kScene3d && self->overlay_paint_ &&
+        width_px > 0 && height_px > 0) {
+      self->overlay_paint_(hdc, rc);
+      EndPaint(hwnd, &ps);
+      return 0;
+    }
+    // Map placeholder: composite present + vector overlay offscreen,
     // then one BitBlt so the user never sees a half-drawn frame.
     if (self && width_px > 0 && height_px > 0 &&
         self->ensure_backbuffer(width_px, height_px)) {

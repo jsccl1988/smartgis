@@ -211,8 +211,37 @@ std::string feature_display_name(const MapScene::Feature& f) {
   return {};
 }
 
-// Cartographic importance 0 (POI) .. 3 (title / province). Drives font size and
-// country-scale density gates so prefecture packs stay readable.
+bool ascii_icontains(const char* hay, const char* needle) {
+  if (!hay || !needle || !needle[0]) {
+    return false;
+  }
+  const size_t n = std::strlen(needle);
+  for (const char* p = hay; *p; ++p) {
+    size_t i = 0;
+    for (; i < n; ++i) {
+      unsigned char a = static_cast<unsigned char>(p[i]);
+      unsigned char b = static_cast<unsigned char>(needle[i]);
+      if (a == 0) {
+        return false;
+      }
+      if (a >= 'A' && a <= 'Z') {
+        a = static_cast<unsigned char>(a - 'A' + 'a');
+      }
+      if (b >= 'A' && b <= 'Z') {
+        b = static_cast<unsigned char>(b - 'A' + 'a');
+      }
+      if (a != b) {
+        break;
+      }
+    }
+    if (i == n) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Cartographic importance 0 (POI) .. 3 (title / province / capital).
 int label_importance(const MapScene::Feature& f) {
   const char* cls = field_value(f, "class");
   if (cls) {
@@ -226,39 +255,32 @@ int label_importance(const MapScene::Feature& f) {
       return 1;
     }
   }
+  const std::string name = feature_display_name(f);
+  const int by_name = map_scene_place_name_importance(name.c_str());
+  // Capitals and provinces stay on the country frame even when adcode is
+  // only prefecture-level (DataV city packs).
+  if (by_name >= 3) {
+    return 3;
+  }
   if (const char* adcode = field_value(f, "adcode")) {
     const size_t n = std::strlen(adcode);
     if (n >= 6) {
       const bool z45 = adcode[4] == '0' && adcode[5] == '0';
       const bool z23 = adcode[2] == '0' && adcode[3] == '0';
       if (z45 && z23) {
-        return 3;  // province / municipality
+        return 3;
       }
       if (z45) {
-        return 2;  // prefecture
+        return 2;
       }
-      return 1;  // county / district
+      if (by_name > 0) {
+        return by_name;
+      }
+      return 1;
     }
   }
-  const std::string name = feature_display_name(f);
-  if (name.empty()) {
-    return 0;
-  }
-  const std::wstring w = gis::datasource::ogr_bytes_to_wide(name);
-  auto ends_with = [&w](std::wstring_view suffix) {
-    return w.size() >= suffix.size() &&
-           w.compare(w.size() - suffix.size(), suffix.size(), suffix) == 0;
-  };
-  if (ends_with(L"特别行政区") || ends_with(L"自治区") || ends_with(L"省")) {
-    return 3;
-  }
-  if (ends_with(L"自治州") || ends_with(L"地区") || ends_with(L"盟") ||
-      ends_with(L"州") || ends_with(L"市")) {
-    return 2;
-  }
-  if (ends_with(L"县") || ends_with(L"区") || ends_with(L"旗") ||
-      ends_with(L"镇") || ends_with(L"乡")) {
-    return 1;
+  if (by_name > 0) {
+    return by_name;
   }
   if (const char* kind = field_value(f, "kind")) {
     if (std::strcmp(kind, "city") == 0) {
@@ -278,55 +300,65 @@ int label_font_index(int importance) {
   return 0;
 }
 
-struct LabelBudget {
-  int min_importance = 0;
-  size_t max_labels = 48;
-  int cell_w = 80;
-  int cell_h = 24;
-};
-
-LabelBudget label_budget_for_scale(double scale) {
-  // fit_extent on China → scale ~8–15; keep province/prefecture only until zoomed.
-  if (scale < 10.0) {
-    return {2, 32, 100, 28};
+size_t label_cap_for_scale(double scale) {
+  if (scale < 22.0) {
+    return 36;
   }
-  if (scale < 18.0) {
-    return {1, 64, 84, 24};
+  if (scale < 48.0) {
+    return 80;
   }
-  return {0, 140, 68, 20};
+  if (scale < 96.0) {
+    return 120;
+  }
+  return 160;
 }
 
-// Screen-space occupancy so overlapping CJK names do not stack into illegible ink.
+// Glyph boxes, not a single anchor cell. A 2px pad is stored so neighbors
+// do not touch. A few offsets are tried before the label is dropped.
 class LabelOccupancy {
  public:
-  LabelOccupancy(int width_px, int height_px, int cell_w, int cell_h)
-      : cell_w_(std::max(8, cell_w)),
-        cell_h_(std::max(8, cell_h)),
-        cols_(std::max(1, (width_px + cell_w_ - 1) / cell_w_)),
-        rows_(std::max(1, (height_px + cell_h_ - 1) / cell_h_)) {
-    used_.assign(static_cast<size_t>(cols_ * rows_), 0);
-  }
+  LabelOccupancy(int view_w, int view_h) : view_w_(view_w), view_h_(view_h) {}
 
-  bool try_claim(int x, int y) {
-    const int c = x / cell_w_;
-    const int r = y / cell_h_;
-    if (c < 0 || r < 0 || c >= cols_ || r >= rows_) {
+  bool try_place(int x, int y, int w, int h, int* placed_x, int* placed_y) {
+    if (!placed_x || !placed_y || w <= 0 || h <= 0) {
       return false;
     }
-    const size_t idx = static_cast<size_t>(r * cols_ + c);
-    if (used_[idx]) {
-      return false;
+    const int dxs[5] = {0, 0, 10, 0, -10};
+    const int dys[5] = {0, -(h + 2), 0, h + 2, 0};
+    for (int i = 0; i < 5; ++i) {
+      const int left = x + dxs[i];
+      const int top = y + dys[i];
+      MapLabelBox box{left, top, left + w, top + h};
+      if (box.right < -20 || box.bottom < -12 || box.left > view_w_ + 20 ||
+          box.top > view_h_ + 12) {
+        continue;
+      }
+      MapLabelBox padded{box.left - 2, box.top - 2, box.right + 2,
+                         box.bottom + 2};
+      if (conflicts(padded)) {
+        continue;
+      }
+      accepted_.push_back(padded);
+      *placed_x = left;
+      *placed_y = top;
+      return true;
     }
-    used_[idx] = 1;
-    return true;
+    return false;
   }
 
  private:
-  int cell_w_;
-  int cell_h_;
-  int cols_;
-  int rows_;
-  std::vector<uint8_t> used_;
+  bool conflicts(MapLabelBox box) const {
+    for (const MapLabelBox& prev : accepted_) {
+      if (map_scene_label_boxes_overlap(prev, box)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  int view_w_;
+  int view_h_;
+  std::vector<MapLabelBox> accepted_;
 };
 
 void ensure_anno_from_name(MapScene::Feature* out) {
@@ -879,6 +911,188 @@ COLORREF map_scene_map_bg_color() {
 
 COLORREF map_scene_river_color() {
   return RGB(100, 160, 208);
+}
+
+COLORREF map_scene_road_color() {
+  // Distinct from river blue: Baidu-like highway gold.
+  return RGB(196, 164, 106);
+}
+
+bool map_scene_label_boxes_overlap(MapLabelBox a, MapLabelBox b) {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom &&
+         b.top < a.bottom;
+}
+
+size_t map_scene_accept_label_count(const MapLabelBox* boxes, size_t count) {
+  if (!boxes || count == 0) {
+    return 0;
+  }
+  std::vector<MapLabelBox> accepted;
+  accepted.reserve(count);
+  for (size_t i = 0; i < count; ++i) {
+    bool hit = false;
+    for (const MapLabelBox& prev : accepted) {
+      if (map_scene_label_boxes_overlap(prev, boxes[i])) {
+        hit = true;
+        break;
+      }
+    }
+    if (!hit) {
+      accepted.push_back(boxes[i]);
+    }
+  }
+  return accepted.size();
+}
+
+int map_scene_label_min_importance(double scale) {
+  // fit_extent(China) lands near scale 8–16. The old gate (importance >= 1
+  // once scale >= 10, every POI once scale >= 18) still dumped cities.
+  if (scale < 22.0) {
+    return 3;
+  }
+  if (scale < 48.0) {
+    return 2;
+  }
+  if (scale < 96.0) {
+    return 1;
+  }
+  return 0;
+}
+
+int map_scene_place_name_importance(const char* utf8_name) {
+  if (!utf8_name || !utf8_name[0]) {
+    return 0;
+  }
+  const std::wstring w = gis::datasource::ogr_bytes_to_wide(utf8_name);
+  if (w.empty()) {
+    return 0;
+  }
+  auto ends_with = [&w](std::wstring_view suffix) {
+    return w.size() >= suffix.size() &&
+           w.compare(w.size() - suffix.size(), suffix.size(), suffix) == 0;
+  };
+  if (ends_with(L"特别行政区") || ends_with(L"自治区") || ends_with(L"省")) {
+    return 3;
+  }
+  std::wstring stem = w;
+  auto strip = [&stem](std::wstring_view suffix) {
+    if (stem.size() > suffix.size() &&
+        stem.compare(stem.size() - suffix.size(), suffix.size(), suffix) ==
+            0) {
+      stem.resize(stem.size() - suffix.size());
+    }
+  };
+  strip(L"特别行政区");
+  strip(L"自治区");
+  strip(L"市");
+  strip(L"省");
+  static constexpr const wchar_t* kCapitals[] = {
+      L"北京",     L"天津", L"上海", L"重庆", L"石家庄", L"太原", L"呼和浩特",
+      L"沈阳",     L"长春", L"哈尔滨", L"南京", L"杭州", L"合肥", L"福州",
+      L"南昌",     L"济南", L"郑州", L"武汉", L"长沙", L"广州", L"南宁",
+      L"海口",     L"成都", L"贵阳", L"昆明", L"拉萨", L"西安", L"兰州",
+      L"西宁",     L"银川", L"乌鲁木齐", L"香港", L"澳门", L"台北",
+  };
+  for (const wchar_t* cap : kCapitals) {
+    if (stem == cap) {
+      return 3;
+    }
+  }
+  if (ends_with(L"自治州") || ends_with(L"地区") || ends_with(L"盟") ||
+      ends_with(L"州") || ends_with(L"市")) {
+    return 2;
+  }
+  if (ends_with(L"县") || ends_with(L"区") || ends_with(L"旗") ||
+      ends_with(L"镇") || ends_with(L"乡")) {
+    return 1;
+  }
+  return 0;
+}
+
+MapLineRole map_scene_line_role(const char* kind, const char* feature_class) {
+  auto generic = [](const char* s) {
+    return !s || !s[0] || std::strcmp(s, "line") == 0 ||
+           std::strcmp(s, "corridor") == 0;
+  };
+  auto water = [](const char* s) {
+    return ascii_icontains(s, "river") || ascii_icontains(s, "water") ||
+           ascii_icontains(s, "lake") || ascii_icontains(s, "stream") ||
+           ascii_icontains(s, "canal");
+  };
+  auto road = [](const char* s) {
+    return ascii_icontains(s, "road") || ascii_icontains(s, "highway") ||
+           ascii_icontains(s, "street") || ascii_icontains(s, "motorway") ||
+           ascii_icontains(s, "trunk");
+  };
+  if (!generic(kind) && water(kind)) {
+    return MapLineRole::kWater;
+  }
+  if (!generic(feature_class) && water(feature_class)) {
+    return MapLineRole::kWater;
+  }
+  if (!generic(kind) && road(kind)) {
+    return MapLineRole::kRoad;
+  }
+  if (!generic(feature_class) && road(feature_class)) {
+    return MapLineRole::kRoad;
+  }
+  return MapLineRole::kOther;
+}
+
+bool map_scene_line_is_major_class(const char* kind,
+                                  const char* feature_class) {
+  auto major = [](const char* s) {
+    return ascii_icontains(s, "motorway") || ascii_icontains(s, "trunk") ||
+           ascii_icontains(s, "highway") || ascii_icontains(s, "primary") ||
+           ascii_icontains(s, "national") || ascii_icontains(s, "express") ||
+           ascii_icontains(s, "高速") || ascii_icontains(s, "国道");
+  };
+  return major(kind) || major(feature_class);
+}
+
+bool map_scene_line_visible_at_scale(MapLineRole role, double length,
+                                    bool major_class, double scale) {
+  if (major_class) {
+    // Classed arterials still need a minimum run so ramps do not fill
+    // the country frame.
+    if (scale < 22.0) {
+      return length >= 0.6;
+    }
+    return length >= 0.05 || scale >= 96.0;
+  }
+  double min_len = 0.0;
+  if (role == MapLineRole::kWater) {
+    if (scale < 22.0) {
+      min_len = 2.5;
+    } else if (scale < 48.0) {
+      min_len = 0.8;
+    } else if (scale < 96.0) {
+      min_len = 0.25;
+    }
+  } else if (role == MapLineRole::kRoad) {
+    if (scale < 22.0) {
+      min_len = 2.0;
+    } else if (scale < 48.0) {
+      min_len = 0.7;
+    } else if (scale < 96.0) {
+      min_len = 0.15;
+    }
+  }
+  return length + 1e-9 >= min_len;
+}
+
+int map_scene_line_stroke_px(MapLineRole role, double length, double scale) {
+  const bool trunk = length >= (role == MapLineRole::kRoad ? 3.0 : 4.0);
+  if (role == MapLineRole::kWater || role == MapLineRole::kRoad) {
+    if (scale < 22.0) {
+      return trunk ? 2 : 1;
+    }
+    if (scale < 96.0) {
+      return trunk ? 3 : 2;
+    }
+    return trunk ? 4 : 2;
+  }
+  return scale < 48.0 ? 1 : 2;
 }
 
 COLORREF map_scene_admin_stroke_color() {
@@ -1896,10 +2110,11 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
     TextOutW(hdc, x, y, w.c_str(), n);
   };
 
-  // After fit_extent on China, scale_ is typically ~8–15; avoid drowning the
-  // frame in 400+ city labels at country view.
-  const bool draw_dense_text = scale_ >= 18.0;
-  const LabelBudget label_budget = label_budget_for_scale(scale_);
+  // Country fit is scale ~8–16. Dense POI text waits until the view is
+  // actually close; the old scale>=18 gate still stacked city names.
+  const bool draw_dense_text = scale_ >= 96.0;
+  const int min_label_importance = map_scene_label_min_importance(scale_);
+  const size_t label_cap = label_cap_for_scale(scale_);
 
   struct PendingLabel {
     int vx = 0;
@@ -1911,11 +2126,11 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
     std::string name;
   };
   std::vector<PendingLabel> pending_labels;
-  pending_labels.reserve(label_budget.max_labels * 2);
+  pending_labels.reserve(label_cap * 2);
   auto queue_place_label = [&](int vx, int vy, const Feature& f, COLORREF ink,
                                int dx, int dy) {
     const int importance = label_importance(f);
-    if (importance < label_budget.min_importance) {
+    if (importance < min_label_importance) {
       return;
     }
     std::string name = feature_display_name(f);
@@ -1946,6 +2161,16 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
     }
   }
   constexpr size_t kMaxPolyPts = 2048;
+  double map_x0 = 0;
+  double map_y0 = 0;
+  double map_x1 = 0;
+  double map_y1 = 0;
+  view_to_map(-48, -48, &map_x0, &map_y0);
+  view_to_map(width_px + 48, height_px + 48, &map_x1, &map_y1);
+  const double view_min_x = (std::min)(map_x0, map_x1);
+  const double view_max_x = (std::max)(map_x0, map_x1);
+  const double view_min_y = (std::min)(map_y0, map_y1);
+  const double view_max_y = (std::max)(map_y0, map_y1);
   const GeomKind order[] = {GeomKind::kPolygon, GeomKind::kLine,
                             GeomKind::kPoint, GeomKind::kText};
   for (GeomKind pass : order) {
@@ -1960,10 +2185,6 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
 
         if (f.kind == GeomKind::kText) {
           const char* cls = field_value(f, "class");
-          if (!draw_dense_text && cls &&
-              std::strcmp(cls, "region_label") == 0) {
-            continue;
-          }
           int vx = 0;
           int vy = 0;
           map_to_view(f.points[0].x, f.points[0].y, &vx, &vy);
@@ -1989,7 +2210,7 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
             continue;
           }
           // Thin Baidu-like POI: white halo + soft fill (scale-aware radius).
-          const int r = scale_ < 18.0 ? 1 : 2;
+          const int r = scale_ < 48.0 ? 1 : 2;
           const int outer = r + 1;
           HBRUSH ring = CreateSolidBrush(RGB(255, 255, 255));
           SelectObject(hdc, ring);
@@ -2017,33 +2238,91 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
 
         if (f.kind == GeomKind::kLine) {
           const char* cls = field_value(f, "class");
+          if (!cls) {
+            cls = field_value(f, "fclass");
+          }
+          if (!cls) {
+            cls = field_value(f, "highway");
+          }
           const char* kind = field_value(f, "kind");
-          HPEN pen = pens[2];
+          const char* line_kind = field_value(f, "line_kind");
+          const char* role_kind = kind;
+          if (line_kind && line_kind[0] &&
+              (!kind || std::strcmp(kind, "line") == 0)) {
+            role_kind = line_kind;
+          }
+          const MapLineRole role = map_scene_line_role(role_kind, cls);
+          const bool major = map_scene_line_is_major_class(role_kind, cls);
+          double minx = f.points[0].x;
+          double maxx = minx;
+          double miny = f.points[0].y;
+          double maxy = miny;
+          double length = 0.0;
+          for (size_t i = 1; i < f.points.size(); ++i) {
+            const Vertex& a = f.points[i - 1];
+            const Vertex& b = f.points[i];
+            length += std::hypot(b.x - a.x, b.y - a.y);
+            minx = (std::min)(minx, b.x);
+            maxx = (std::max)(maxx, b.x);
+            miny = (std::min)(miny, b.y);
+            maxy = (std::max)(maxy, b.y);
+          }
+          if (!f.selected &&
+              (maxx < view_min_x || minx > view_max_x || maxy < view_min_y ||
+               miny > view_max_y)) {
+            continue;
+          }
+          if (!f.selected &&
+              !map_scene_line_visible_at_scale(role, length, major, scale_)) {
+            continue;
+          }
           COLORREF fill_c = 0;
           COLORREF stroke_c = 0;
-          int stroke_w = 2;
-          if (f.selected) {
-            pen = pens[3];
-          } else if (style_colors_for_feature(layer, f, &fill_c, &stroke_c,
-                                              &stroke_w)) {
-            pen = style_pen(stroke_c, stroke_w);
-          } else if ((cls && std::strcmp(cls, "river") == 0) ||
-                     (kind && (std::strcmp(kind, "river") == 0 ||
-                               std::strcmp(kind, "water") == 0))) {
-            pen = pens[1];
+          int style_w = 2;
+          const bool styled =
+              style_colors_for_feature(layer, f, &fill_c, &stroke_c, &style_w);
+          HPEN pen = pens[3];
+          if (!f.selected) {
+            const int sw = map_scene_line_stroke_px(role, length, scale_);
+            COLORREF col = RGB(220, 210, 190);
+            if (role == MapLineRole::kWater) {
+              const bool lake = ascii_icontains(role_kind, "lake") ||
+                                ascii_icontains(cls, "lake");
+              col = lake ? RGB(140, 186, 214) : map_scene_river_color();
+            } else if (role == MapLineRole::kRoad) {
+              col = (major || length >= 3.0) ? map_scene_road_color()
+                                             : RGB(176, 170, 158);
+            } else if (styled) {
+              col = stroke_c;
+              (void)style_w;
+            }
+            pen = style_pen(col, sw);
           }
           SelectObject(hdc, pen ? pen : GetStockObject(BLACK_PEN));
+          const int min_step = (!f.selected && scale_ < 22.0) ? 2 : 0;
           bool first = true;
-          for (const Vertex& p : f.points) {
+          int last_x = 0;
+          int last_y = 0;
+          for (size_t i = 0; i < f.points.size(); ++i) {
             int vx = 0;
             int vy = 0;
-            map_to_view(p.x, p.y, &vx, &vy);
+            map_to_view(f.points[i].x, f.points[i].y, &vx, &vy);
+            const bool last = i + 1 == f.points.size();
+            if (!first && !last && min_step > 0) {
+              const int dx = vx - last_x;
+              const int dy = vy - last_y;
+              if (dx * dx + dy * dy < min_step * min_step) {
+                continue;
+              }
+            }
             if (first) {
               MoveToEx(hdc, vx, vy, nullptr);
               first = false;
             } else {
               LineTo(hdc, vx, vy);
             }
+            last_x = vx;
+            last_y = vy;
           }
           continue;
         }
@@ -2106,20 +2385,30 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
               }
               return a.name.size() < b.name.size();
             });
-  LabelOccupancy label_occ(width_px, height_px, label_budget.cell_w,
-                           label_budget.cell_h);
+  LabelOccupancy label_occ(width_px, height_px);
   size_t labels_drawn = 0;
   for (const PendingLabel& lab : pending_labels) {
-    if (labels_drawn >= label_budget.max_labels) {
+    if (labels_drawn >= label_cap) {
       break;
     }
-    const int ax = lab.vx + lab.dx;
-    const int ay = lab.vy + lab.dy;
-    if (!label_occ.try_claim(ax, ay)) {
+    const std::wstring w = gis::datasource::ogr_bytes_to_wide(lab.name);
+    if (w.empty()) {
       continue;
     }
-    draw_label(lab.vx, lab.vy, lab.name, lab.ink,
-               label_font_index(lab.importance), lab.dx, lab.dy);
+    const int font_idx = label_font_index(lab.importance);
+    HFONT font = fonts[font_idx];
+    SelectObject(hdc, font ? font : stock_font);
+    SIZE text_sz = {};
+    GetTextExtentPoint32W(hdc, w.c_str(), static_cast<int>(w.size()), &text_sz);
+    int px = 0;
+    int py = 0;
+    if (!label_occ.try_place(lab.vx + lab.dx, lab.vy + lab.dy,
+                             (std::max)(8, static_cast<int>(text_sz.cx)),
+                             (std::max)(8, static_cast<int>(text_sz.cy)), &px,
+                             &py)) {
+      continue;
+    }
+    draw_label(px, py, lab.name, lab.ink, font_idx, 0, 0);
     ++labels_drawn;
   }
 
@@ -2214,8 +2503,8 @@ void MapScene::paint_labels_projected(
     TextOutW(hdc, vx, vy, w.c_str(), n);
   };
 
-  constexpr size_t kMaxLabels = 48;
-  size_t drawn = 0;
+  const int min_imp = map_scene_label_min_importance(scale_);
+  const size_t cap = label_cap_for_scale(scale_);
   bool has_text = false;
   for (const Layer& layer : layers_) {
     if (!layer.visible) {
@@ -2232,50 +2521,78 @@ void MapScene::paint_labels_projected(
     }
   }
 
-  auto emit = [&](const Feature& f) {
-    if (drawn >= kMaxLabels) {
+  struct ProjLabel {
+    int sx = 0;
+    int sy = 0;
+    int importance = 0;
+    std::string name;
+  };
+  std::vector<ProjLabel> pending;
+  auto consider = [&](const Feature& f) {
+    const int importance = label_importance(f);
+    if (importance < min_imp) {
       return;
     }
-    const std::string name = feature_display_name(f);
+    std::string name = feature_display_name(f);
     if (name.empty()) {
       return;
     }
     double mx = 0;
     double my = 0;
     label_anchor(f, &mx, &my);
-    // Map space Y is -lat.
-    const double lon = mx;
-    const double lat = -my;
     int sx = 0;
     int sy = 0;
-    project(lon, lat, &sx, &sy);
-    draw_label(sx, sy, name);
-    ++drawn;
+    project(mx, -my, &sx, &sy);
+    if (sx < -80 || sy < -40 || sx > width_px + 80 || sy > height_px + 40) {
+      return;
+    }
+    pending.push_back({sx, sy, importance, std::move(name)});
   };
 
-  if (has_text) {
-    for (const Layer& layer : layers_) {
-      if (!layer.visible || drawn >= kMaxLabels) {
-        continue;
-      }
-      for (const Feature& f : layer.features) {
+  for (const Layer& layer : layers_) {
+    if (!layer.visible) {
+      continue;
+    }
+    for (const Feature& f : layer.features) {
+      if (has_text) {
         if (f.kind == GeomKind::kText && !f.points.empty()) {
-          emit(f);
+          consider(f);
         }
+      } else if (f.kind == GeomKind::kPolygon && f.points.size() >= 3) {
+        consider(f);
       }
     }
-  } else {
-    // china_plp-style: region centroids carry the place name.
-    for (const Layer& layer : layers_) {
-      if (!layer.visible || drawn >= kMaxLabels) {
-        continue;
-      }
-      for (const Feature& f : layer.features) {
-        if (f.kind == GeomKind::kPolygon && f.points.size() >= 3) {
-          emit(f);
-        }
-      }
+  }
+
+  std::sort(pending.begin(), pending.end(),
+            [](const ProjLabel& a, const ProjLabel& b) {
+              if (a.importance != b.importance) {
+                return a.importance > b.importance;
+              }
+              return a.name.size() < b.name.size();
+            });
+
+  LabelOccupancy label_occ(width_px, height_px);
+  size_t drawn = 0;
+  for (const ProjLabel& lab : pending) {
+    if (drawn >= cap) {
+      break;
     }
+    const std::wstring w = gis::datasource::ogr_bytes_to_wide(lab.name);
+    if (w.empty()) {
+      continue;
+    }
+    int bw = 4;
+    for (wchar_t ch : w) {
+      bw += (ch < 128) ? 8 : 16;
+    }
+    int px = 0;
+    int py = 0;
+    if (!label_occ.try_place(lab.sx, lab.sy - 8, bw, 18, &px, &py)) {
+      continue;
+    }
+    draw_label(px, py, lab.name);
+    ++drawn;
   }
 
   SelectObject(hdc, old_font);

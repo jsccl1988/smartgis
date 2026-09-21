@@ -51,6 +51,7 @@ class Scene3dStereoSession {
 
   HMODULE module_ = nullptr;
   void* view_ = nullptr;
+  HWND host_ = nullptr;
   CreateFn create_ = nullptr;
   DestroyFn destroy_ = nullptr;
   ResizeFn resize_ = nullptr;

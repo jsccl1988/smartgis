@@ -906,11 +906,19 @@ void MapHost::paint_child() const {
   GetClientRect(child_hwnd_, &rc);
   const int w = rc.right - rc.left;
   const int h = rc.bottom - rc.top;
-  // Offscreen compose then one BitBlt for 2D and ContentMapView SoT 3D.
-  // FlyCube presents to the HWND swapchain directly (no BitBlt cover).
   const bool flycube_scene =
       kind_ == content::ViewKind::kScene3d && scene3d_rhi_.is_live() &&
       app::prefer_scene3d_flycube();
+  // Leftover GL presents to this HWND. Do not cover SwapBuffers with a DIB.
+  if (kind_ == content::ViewKind::kScene3d && !flycube_scene && w > 0 &&
+      h > 0) {
+    if (scene3d_stereo_.try_present_sot(child_hwnd_, hdc, w, h, scene3d_.yaw(),
+                                        scene3d_.pitch(),
+                                        scene3d_.distance())) {
+      EndPaint(child_hwnd_, &ps);
+      return;
+    }
+  }
   if (!flycube_scene && w > 0 && h > 0) {
     HDC mem = CreateCompatibleDC(hdc);
     BITMAPINFO bi = {};
