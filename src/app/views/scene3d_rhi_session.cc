@@ -26,8 +26,8 @@ bool force_content_mapview_3d() {
 }
 
 bool prefer_scene3d_flycube() {
-  // Default: ContentMapView OpenView + chrome Scene3dController GDI SoT
-  // (elevation DEM + labels + compass). Opt in solid FlyCube RHI with
+  // Default: leftover OpenGL stereo via Scene3dStereoSession LoadLibrary
+  // (legacy_render.dll) or GDI DEM SoT. Opt in solid FlyCube RHI with
   // SMT_PREFER_FLYCUBE_3D=1; FORCE_CONTENT also disables FlyCube.
   if (force_content_mapview_3d()) {
     return false;

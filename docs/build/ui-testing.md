@@ -67,6 +67,16 @@ out\views_unittests.exe
 | 36–38 | 图层 / Catalog 空或 HWND 显隐 |
 | 39 | China PLP 包络不在中国经纬度范围 |
 | 40–42 | `view.pan` 激活或输入分发失败 |
+| 60 | M0：`edit.append.linestring` 激活/输入/要素未增加 |
+| 61 | M0：FeatureInfo 未填充（选择失败或 inspector 空） |
+| 62 | M0：`write_path` 失败 |
+| 63 | M0：写出 GeoJSON 再打开失败 |
+| 70 | M1：china_city 缺 `text` 注记层 |
+| 71 | M1：Style JSON 加载/resolve 失败 |
+| 72 | M1：XYZ basemap underlay 零瓦片 |
+| 73 | M1：`export_bmp` 失败或非 BM 头 |
+
+`--self-test` marks（节选）：`m0-line-ok` / `m0-featureinfo-ok` / `m0-save-ok`；`m1-labels-ok` / `m1-style-ok` / `m1-basemap-ok` / `m1-export-ok`。
 
 ### L1′ — Atmosphere 3D showcase（`SmartGisViews.exe --atmosphere-showcase=`）
 

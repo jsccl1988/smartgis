@@ -335,7 +335,7 @@ bool MapViewport::attach() {
   SetWindowLongPtrW(native_view(), GWLP_USERDATA,
                     reinterpret_cast<LONG_PTR>(this));
 
-  // Scene3d default: ContentMapView leftover stereo (SoT — elevation + labels).
+  // Scene3d default: ContentMapView hang + chrome leftover stereo / GDI SoT.
   // Opt in FlyCube solid RHI with SMT_PREFER_FLYCUBE_3D=1.
   const bool prefer_flycube_3d = []() {
     if (const char* env = std::getenv("SMT_FORCE_CONTENT_MAPVIEW_3D")) {
@@ -777,7 +777,7 @@ bool MapViewport::ensure_backbuffer(int width_px, int height_px) {
   painted_generation_ = 0;
   RECT fill = {0, 0, width_px, height_px};
   const COLORREF bg = (role_ == Role::kScene3d) ? RGB(18, 32, 48)
-                                                 : RGB(255, 255, 255);
+                                                 : RGB(170, 211, 223);
   HBRUSH brush = CreateSolidBrush(bg);
   FillRect(mem, &fill, brush);
   DeleteObject(brush);
@@ -805,7 +805,7 @@ void MapViewport::paint_map_content(HDC target, const RECT& client_rc) {
     RECT fill = {0, 0, client_rc.right, client_rc.bottom};
     const bool scene3d = role_ == Role::kScene3d;
     HBRUSH brush =
-        CreateSolidBrush(scene3d ? RGB(18, 32, 48) : RGB(255, 255, 255));
+        CreateSolidBrush(scene3d ? RGB(18, 32, 48) : RGB(170, 211, 223));
     FillRect(target, &fill, brush);
     DeleteObject(brush);
     SetBkMode(target, TRANSPARENT);
@@ -925,6 +925,11 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
   if (msg == WM_TIMER && wparam == kPresentTimerId) {
     if (self && self->mode_ == AttachMode::kContentMapView) {
 #ifdef SMT_HAS_CONTENT_MAP_SESSION
+      if (self->role_ == Role::kScene3d && IsWindowVisible(hwnd)) {
+        // Leftover stereo / GDI SoT need continuous refresh (orbit + HUD).
+        InvalidateRect(hwnd, nullptr, FALSE);
+        return 0;
+      }
       if (self->session_ && self->view_id_ != 0) {
         if (content::MapWidgetHostView* view =
                 self->session_->HostView(self->view_id_)) {

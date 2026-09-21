@@ -203,8 +203,9 @@ const float								SMT_C_INVALID_FLOAT_VALUE = 1E+10;
 
 #define SMT_EQUAL(a,b)					(fabs(a - b) < 1E-5)
 
-#define toString(x)						#x					//ת�ַ���
-#define makeChar(x)						#@x					//ת�ַ���a = makeChar(b) �ȼ��� a='b'
+#define toString(x)						#x
+// MSVC /Zc:preprocessor rejects the non-standard #@ charizing operator.
+#define makeChar(x)						(#x)[0]
 
 //////////////////////////////////////////////////////////////////////////
 //

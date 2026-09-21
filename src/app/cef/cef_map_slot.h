@@ -12,6 +12,7 @@
 #include "app/views/map_scene.h"
 #include "app/views/scene3d_controller.h"
 #include "app/views/scene3d_rhi_session.h"
+#include "app/views/scene3d_stereo_session.h"
 #include "content/public/map_types.h"
 #include "tool/gestures.h"
 
@@ -30,9 +31,8 @@ namespace app {
 namespace cef {
 
 // Sibling map HWND (not under the CEF control tree). 2D tabs present
-// MapContents DIBs + MapScene vectors; kScene3d owns Scene3dController and
-// paints DemRaster height mesh (FlyCube present_gpu or GDI facets) — not a
-// flat ContentMapView / MapScene plane tilted by pitch alone.
+// MapContents DIBs + MapScene vectors; kScene3d prefers leftover OpenGL
+// stereo (LoadLibrary legacy_render) matching SmartGis.exe.
 class CefMapSlot {
  public:
   using ViewMenuRequested = std::function<void(POINT screen)>;
@@ -109,6 +109,7 @@ class CefMapSlot {
   MapScene map_scene_;
   Scene3dController scene3d_;
   mutable Scene3dRhiSession scene3d_rhi_;
+  mutable Scene3dStereoSession scene3d_stereo_;
   ViewMenuRequested view_menu_requested_;
   uint32_t view_id_ = 0;
   content::ViewKind kind_ = content::ViewKind::kMapEdit;

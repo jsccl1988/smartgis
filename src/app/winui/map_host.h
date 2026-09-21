@@ -16,6 +16,7 @@
 #include "app/views/map_scene.h"
 #include "app/views/scene3d_controller.h"
 #include "app/views/scene3d_rhi_session.h"
+#include "app/views/scene3d_stereo_session.h"
 #include "app/winui/detail/map_session.h"
 #include "content/public/map_contents_observer.h"
 
@@ -118,8 +119,9 @@ class MapHost : public content::MapContentsObserver {
   ::app::MapScene map_scene_;
   // Mutable: paint_to_dc is const (WinUI paint path) but present_gpu / GDI paint mutate.
   mutable ::app::Scene3dController scene3d_;
-  // FlyCube / present_gpu for kScene3d (default); ContentMapView + GDI fallback.
+  // FlyCube / present_gpu for kScene3d when preferred; leftover stereo default.
   mutable ::app::Scene3dRhiSession scene3d_rhi_;
+  mutable ::app::Scene3dStereoSession scene3d_stereo_;
   HWND window_hwnd_ = nullptr;
   HWND island_hwnd_ = nullptr;
   HWND child_hwnd_ = nullptr;

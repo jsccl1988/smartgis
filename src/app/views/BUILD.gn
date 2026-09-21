@@ -18,6 +18,7 @@ source_set("map_scene") {
   ]
   deps = [
     "//src/content:content",
+    "//src/gis:gis",
     "//src/gis/datasource/gdal:ogr_text_encoding",
     "//src/gis/world:land_mask",
     "//src/tool:dispatch",
@@ -39,6 +40,8 @@ source_set("scene3d_controller") {
     "scene3d_controller.h",
     "scene3d_rhi_session.cc",
     "scene3d_rhi_session.h",
+    "scene3d_stereo_session.cc",
+    "scene3d_stereo_session.h",
   ]
   include_dirs += [ "//src" ]
   deps = [
@@ -145,11 +148,13 @@ test("map_scene_test") {
   deps = [
     ":map_scene",
     "//src/content:content",
+    "//src/gis:gis",
     "//src/gis/datasource/gdal:ogr_text_encoding",
     "//src/gis/world:land_mask",
     "//src/tool:dispatch",
     "//third_party:gdal",
   ]
+  data_deps = [ "//testing/data:china_map_samples" ]
   libs = [
     "gdi32.lib",
     "user32.lib",

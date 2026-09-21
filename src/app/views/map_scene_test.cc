@@ -5,10 +5,16 @@
 
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
+#include "gis/style/style_document.h"
+#include "gis/style/style_rules.h"
+#include "gis/tile/tile_provider.h"
 #include "gis/world/land_mask.h"
+#include "net/http/http.h"
+#include "tool/gestures.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -196,6 +202,139 @@ int main() {
            "remaining run is mainland lat");
     DeleteFileA(path.c_str());
     RemoveDirectoryA(dir.c_str());
+  }
+
+  // M0: append line → write_path GeoJSON → reopen via OGR.
+  {
+    char tmp[MAX_PATH] = {};
+    const DWORD n = GetTempPathA(MAX_PATH, tmp);
+    expect(n > 0 && n < MAX_PATH, "temp path for write_path");
+    std::string out = std::string(tmp) + "map_scene_m0_write.geojson";
+    DeleteFileA(out.c_str());
+
+    app::MapScene a;
+    expect(a.create_layer("edit_line", "LineString"), "create line layer");
+    tool::Draft draft{};
+    draft.kind = tool::DraftKind::kLineString;
+    draft.points = {{10, 10}, {200, 150}};
+    const content::FeatureId id =
+        a.append_from_draft(draft, "draw.linestring");
+    expect(id.len != 0, "append line id");
+    expect(a.write_path(out), "write_path");
+    expect(GetFileAttributesA(out.c_str()) != INVALID_FILE_ATTRIBUTES,
+           "file exists");
+
+    app::MapScene b;
+    expect(b.open_path(out), "reopen written");
+    expect(b.last_open_was_ogr(), "reopen via OGR");
+    expect(b.feature_count() >= 1, "reopen feature");
+    DeleteFileA(out.c_str());
+  }
+
+  // M1: StyleDocument resolve + basemap underlay count + export BMP magic.
+  {
+    const char* kStyle =
+        "{"
+        "\"version\":8,"
+        "\"name\":\"m1\","
+        "\"layers\":[{"
+        "\"id\":\"area-fill\","
+        "\"type\":\"fill\","
+        "\"source-layer\":\"area\","
+        "\"paint\":{\"fill-color\":\"#c8e6c9\"}"
+        "},{"
+        "\"id\":\"line-default\","
+        "\"type\":\"line\","
+        "\"source-layer\":\"line\","
+        "\"paint\":{\"line-color\":\"#1565c0\",\"line-width\":2}"
+        "},{"
+        "\"id\":\"point-circle\","
+        "\"type\":\"circle\","
+        "\"source-layer\":\"point\","
+        "\"paint\":{\"circle-color\":\"#e65100\"}"
+        "}]"
+        "}";
+    auto doc = std::make_shared<gis::style::StyleDocument>();
+    expect(gis::style::parse_style_document(kStyle, doc.get()),
+           "parse m1 style");
+    app::MapScene scene;
+    scene.set_style_document(doc);
+    expect(scene.has_style_document(), "has style");
+    gis::style::AttrMap attrs;
+    gis::style::ResolvedPaint paint;
+    expect(scene.resolve_style_for_test("area", attrs, 10.0, &paint),
+           "resolve area");
+    expect(paint.fill_color == 0xFFC8E6C9u, "area fill #c8e6c9");
+    expect(paint.fill_color != 0xFFF5F3E9u, "area fill != Baidu cream");
+
+    auto provider = std::make_shared<gis::tile::TileProvider>();
+    expect(provider->open_xyz("http://tiles.local/{z}/{x}/{y}.png"),
+           "basemap open_xyz");
+    provider->set_fetch_fn([](const std::string&) {
+      net::HttpResult res;
+      res.ok = true;
+      res.status = 200;
+      res.body = "PNG-STUB";
+      return res;
+    });
+    scene.set_basemap_provider(provider);
+    expect(scene.has_basemap_provider(), "has basemap");
+    scene.apply_world_extent({73.0, 18.0, 135.0, 54.0}, 256, 256);
+    HDC screen = GetDC(nullptr);
+    HDC mem = CreateCompatibleDC(screen);
+    BITMAPINFO bmi = {};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = 256;
+    bmi.bmiHeader.biHeight = -256;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+    void* bits = nullptr;
+    HBITMAP dib =
+        CreateDIBSection(mem, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    expect(dib != nullptr, "basemap CreateDIBSection");
+    HGDIOBJ old = SelectObject(mem, dib);
+    scene.paint(mem, 256, 256);
+    expect(scene.basemap_tiles_drawn() > 0, "basemap tiles drawn");
+    SelectObject(mem, old);
+    if (dib) {
+      DeleteObject(dib);
+    }
+    DeleteDC(mem);
+    ReleaseDC(nullptr, screen);
+
+    char tmp[MAX_PATH] = {};
+    expect(GetTempPathA(MAX_PATH, tmp) > 0, "export temp");
+    std::string bmp = std::string(tmp) + "map_scene_m1_export.bmp";
+    DeleteFileA(bmp.c_str());
+    expect(scene.export_bmp(bmp, 320, 240), "export_bmp");
+    FILE* bf = nullptr;
+    expect(fopen_s(&bf, bmp.c_str(), "rb") == 0 && bf, "open export bmp");
+    char magic[2] = {};
+    expect(bf && std::fread(magic, 1, 2, bf) == 2, "read BM");
+    if (bf) {
+      std::fclose(bf);
+    }
+    expect(magic[0] == 'B' && magic[1] == 'M', "BMP magic");
+    DeleteFileA(bmp.c_str());
+
+    // Optional: load shipped china_city.style.json when present beside cwd/out.
+    const char* style_cands[] = {
+        "china_city.style.json",
+        "out\\china_city.style.json",
+        "testing\\data\\china_city.style.json",
+    };
+    for (const char* cand : style_cands) {
+      app::MapScene styled;
+      if (styled.load_style_path(cand)) {
+        expect(styled.has_style_document(), "load china_city.style.json");
+        gis::style::ResolvedPaint rp;
+        expect(styled.resolve_style_for_test("line", {}, 8.0, &rp),
+               "resolve line from file");
+        expect(rp.line_color == 0xFF1565C0u, "line #1565c0");
+        break;
+      }
+    }
   }
 
   if (g_fails) {

@@ -60,7 +60,7 @@ M0→M1 必须串行（壳不合拢，制图落在旧窗上）。M2 可与 M1 �
 
 | 能力域 | QGIS | Cesium | ArcGIS Pro | SmartGIS 现状 | 目标级 | 主规格 / 计划 | 里程碑 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 桌面壳 / 控件 | A | — | A | C（Views）+ leftover | A | [ui-views-mfc-migration](../superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md) **active**；[ui-views-skia](ui-views-skia.md)；[shell-compile-gate](../superpowers/specs/2026-09-19-shell-compile-gate-design.md) **active**；[M0 plan](../superpowers/plans/2026-09-20-m0-views-main-path.md) | **M0** |
+| 桌面壳 / 控件 | A | — | A | B（M0 自测口令绿；深度编辑仍弱）+ leftover | A | [ui-views-mfc-migration](../superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md) **active**；[ui-views-skia](ui-views-skia.md)；[shell-compile-gate](../superpowers/specs/2026-09-19-shell-compile-gate-design.md) **active**；[M0 plan](../superpowers/plans/2026-09-20-m0-views-main-path.md) | **M0** |
 | 数据模型 / OGR | A | B | A | B（GDAL/SDBD 已定） | A | [ogr-db](../superpowers/specs/2026-09-13-ogr-db-datasource-design.md)、[gdal-layer](../superpowers/specs/2026-09-13-gdal-layer-management-design.md)、[feature-maplayer](../superpowers/specs/2026-09-13-sdb-feature-maplayer-composition-design.md) **accepted** | M0–M1 |
 | 2D 瓦片底图 | A | A | A | B–C（XYZ/WMTS 最小） | B→A | [tile-layer-provider](../superpowers/specs/2026-09-13-tile-layer-provider-design.md) **active**（Phase 0–1 landed） | **M1** |
 | 制图样式 / 符号 | A | B | A | C（MapLibre 子集） | B→A | [sdb-style-document](../superpowers/specs/2026-09-14-sdb-style-document-design.md) **active** | **M1** |
@@ -162,8 +162,8 @@ M0→M1 必须串行（壳不合拢，制图落在旧窗上）。M2 可与 M1 �
 
 | 里程碑 | 可演示 / 可测口令 |
 | --- | --- |
-| **M0** | 仅 `SmartGisViews.exe`：打开 GPKG → 平移缩放 → FeatureInfo → 追加一条线并保存；`build.bat e2e` 绿。执行计划：[`../superpowers/plans/2026-09-20-m0-views-main-path.md`](../superpowers/plans/2026-09-20-m0-views-main-path.md) |
-| **M1** | Style JSON 驱动矢量着色 + XYZ 底图 + china_city 注记可读；导出/打印一页 PDF 或位图 |
+| **M0** | 仅 `SmartGisViews.exe`：打开 GPKG → 平移缩放 → FeatureInfo → 追加一条线并保存；`build.bat e2e` 绿。执行计划：[`../superpowers/plans/2026-09-20-m0-views-main-path.md`](../superpowers/plans/2026-09-20-m0-views-main-path.md)（2026-09-20：`m0-line-ok` / `m0-featureinfo-ok` / `m0-save-ok` + e2e 绿） |
+| **M1** | Style JSON 驱动矢量着色 + XYZ 底图 + china_city 注记可读；导出一页 BMP（`m1-labels-ok` / `m1-style-ok` / `m1-basemap-ok` / `m1-export-ok`；exit 70–73）。执行计划：[`../superpowers/plans/2026-09-20-m1-carto-style-tile-export.md`](../superpowers/plans/2026-09-20-m1-carto-style-tile-export.md)（2026-09-20：`--self-test` + `build.bat e2e` 绿） |
 | **M2** | Views「处理」面板列出 ≥10 个算子；buffer/clip 批跑写回图层 |
 | **M3** | 城市 DEM + 至少一个 3D Tiles 集流式加载不炸内存；大气海/云按 upgrade 判据开/关 |
 | **M4** | 两客户端先后编辑同一 PostGIS 层有冲突提示或检出；`content::` 样例嵌入方能开图 |

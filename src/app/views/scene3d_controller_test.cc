@@ -168,8 +168,9 @@ int main() {
               const unsigned r = c & 0xff;
               const unsigned g = (c >> 8) & 0xff;
               const unsigned b = (c >> 16) & 0xff;
-              // Background clear is RGB(18,32,48); DEM fills are greener.
-              if (g > 80 && g > r && g > b) {
+              // Background clear is black; DEM fills are hypsometric (green /
+              // yellow / pink). Count any non-black land-like pixel.
+              if ((r + g + b) > 80 && !(r < 20 && g < 20 && b < 20)) {
                 ++hits;
                 min_x = (std::min)(min_x, x);
                 max_x = (std::max)(max_x, x);

@@ -57,18 +57,20 @@ Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把�
 - 自测：优先 `out/china_city.gpkg` / `.geojson`（≥4 层或 kind 四分、要素量级远高于示意 PLP）
 
 菜单 **Open** 或 Catalog「加载 shp」选上述文件即可；状态栏显示 `Opened (OGR): …`。
-图层右键 **View** 缩放到全图。
+图层右键 **View** 缩放到全图。菜单 **DrawLine** = `edit.append.linestring`；
+**Save** = 将当前 active 可见层写出为 GeoJSON（`MapScene::write_path`）。
 
 地图页是 **共享场景宿主**：`MapContents::OpenView`（`kMapEdit` / `kMapData` /
 `kScene3d`）+ `SetExtent`（有中国范围则全幅中国）。2D 为正交，3D 为透视。
 手势：滚轮对光标缩放、平移；HWND 允许时双指捏合（`WM_GESTURE` / 指针）。
 
-3D 页：`view3d.trackball` 更新 `Scene3dController`。默认 **ContentMapView SoT**
-（leftover stereo：高程着色 DEM + 注记 + 指南针，对齐 `SmartGis.exe`）。
-可选 FlyCube 纯色 RHI：`set SMT_PREFER_FLYCUBE_3D=1`（成功时 chrome 只叠
-`paint_hud`）。无 ContentMapView 时 GDI `paint()` 兜底。
+3D 页：`view3d.trackball` 更新 `Scene3dController`。默认 **leftover OpenGL stereo**
+（`Scene3dStereoSession` `LoadLibrary(legacy_render[_d].dll)` → `smt_stereo_hwnd_*`：
+高程着色 DEM + 铺盖矢量 + 注记 + 海洋平面 + HUD，对齐 `SmartGis.exe`）。DLL 缺失时
+GDI `Scene3dController::paint()` 兜底（连续高程色 + 海洋平面 + 注记）。
+可选 FlyCube RHI：`set SMT_PREFER_FLYCUBE_3D=1`（成功时 chrome 只叠 `paint_hud`）。
 
-若要强制 ContentMapView（或关闭 FlyCube）：
+强制关闭 FlyCube / 走 ContentMapView 挂接：
 
 ```bat
 set SMT_FORCE_CONTENT_MAPVIEW_3D=1
@@ -77,7 +79,7 @@ out\SmartGisViews.exe
 
 （`SMT_PREFER_FLYCUBE_3D=0` 效果相同；`=1` 才启用 FlyCube RHI。）
 
-无 GPU 时 GDI DEM 线框兜底。`--self-test` 断言 OGR 进层与相机矩阵；若挂上
+`--self-test` 断言 OGR 进层与相机矩阵；若挂上
 FlyCube 会写 `flycube-camera-ok`，并在 present 前开 `enable_atmosphere_demo()`。
 
 大气 3D 端到端 showcase。默认 **Null RHI**（可重复退出 0）；

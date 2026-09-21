@@ -5,15 +5,22 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <functional>
+#include <map>
+#include <memory>
 #include <string_view>
+#include <vector>
 
 #include "content/public/feature_attrs.h"
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
 #include "gis/datasource/gdal/ogr_text_encoding.h"
+#include "gis/style/style_document.h"
+#include "gis/style/style_rules.h"
+#include "gis/tile/xyz_math.h"
 #include "gis/world/land_mask.h"
 #include "tool/camera_nav.h"
 
@@ -203,6 +210,124 @@ std::string feature_display_name(const MapScene::Feature& f) {
   }
   return {};
 }
+
+// Cartographic importance 0 (POI) .. 3 (title / province). Drives font size and
+// country-scale density gates so prefecture packs stay readable.
+int label_importance(const MapScene::Feature& f) {
+  const char* cls = field_value(f, "class");
+  if (cls) {
+    if (std::strcmp(cls, "title") == 0) {
+      return 3;
+    }
+    if (std::strcmp(cls, "region_label") == 0) {
+      return 2;
+    }
+    if (std::strcmp(cls, "river_label") == 0) {
+      return 1;
+    }
+  }
+  if (const char* adcode = field_value(f, "adcode")) {
+    const size_t n = std::strlen(adcode);
+    if (n >= 6) {
+      const bool z45 = adcode[4] == '0' && adcode[5] == '0';
+      const bool z23 = adcode[2] == '0' && adcode[3] == '0';
+      if (z45 && z23) {
+        return 3;  // province / municipality
+      }
+      if (z45) {
+        return 2;  // prefecture
+      }
+      return 1;  // county / district
+    }
+  }
+  const std::string name = feature_display_name(f);
+  if (name.empty()) {
+    return 0;
+  }
+  const std::wstring w = gis::datasource::ogr_bytes_to_wide(name);
+  auto ends_with = [&w](std::wstring_view suffix) {
+    return w.size() >= suffix.size() &&
+           w.compare(w.size() - suffix.size(), suffix.size(), suffix) == 0;
+  };
+  if (ends_with(L"特别行政区") || ends_with(L"自治区") || ends_with(L"省")) {
+    return 3;
+  }
+  if (ends_with(L"自治州") || ends_with(L"地区") || ends_with(L"盟") ||
+      ends_with(L"州") || ends_with(L"市")) {
+    return 2;
+  }
+  if (ends_with(L"县") || ends_with(L"区") || ends_with(L"旗") ||
+      ends_with(L"镇") || ends_with(L"乡")) {
+    return 1;
+  }
+  if (const char* kind = field_value(f, "kind")) {
+    if (std::strcmp(kind, "city") == 0) {
+      return 2;
+    }
+  }
+  return 0;
+}
+
+int label_font_index(int importance) {
+  if (importance >= 3) {
+    return 2;
+  }
+  if (importance >= 2) {
+    return 1;
+  }
+  return 0;
+}
+
+struct LabelBudget {
+  int min_importance = 0;
+  size_t max_labels = 48;
+  int cell_w = 80;
+  int cell_h = 24;
+};
+
+LabelBudget label_budget_for_scale(double scale) {
+  // fit_extent on China → scale ~8–15; keep province/prefecture only until zoomed.
+  if (scale < 10.0) {
+    return {2, 32, 100, 28};
+  }
+  if (scale < 18.0) {
+    return {1, 64, 84, 24};
+  }
+  return {0, 140, 68, 20};
+}
+
+// Screen-space occupancy so overlapping CJK names do not stack into illegible ink.
+class LabelOccupancy {
+ public:
+  LabelOccupancy(int width_px, int height_px, int cell_w, int cell_h)
+      : cell_w_(std::max(8, cell_w)),
+        cell_h_(std::max(8, cell_h)),
+        cols_(std::max(1, (width_px + cell_w_ - 1) / cell_w_)),
+        rows_(std::max(1, (height_px + cell_h_ - 1) / cell_h_)) {
+    used_.assign(static_cast<size_t>(cols_ * rows_), 0);
+  }
+
+  bool try_claim(int x, int y) {
+    const int c = x / cell_w_;
+    const int r = y / cell_h_;
+    if (c < 0 || r < 0 || c >= cols_ || r >= rows_) {
+      return false;
+    }
+    const size_t idx = static_cast<size_t>(r * cols_ + c);
+    if (used_[idx]) {
+      return false;
+    }
+    used_[idx] = 1;
+    return true;
+  }
+
+ private:
+  int cell_w_;
+  int cell_h_;
+  int cols_;
+  int rows_;
+  std::vector<uint8_t> used_;
+};
 
 void ensure_anno_from_name(MapScene::Feature* out) {
   if (!out || out->kind != MapScene::GeomKind::kText) {
@@ -423,6 +548,116 @@ size_t features_from_ogr(OGRFeature* ogr_feat,
   return 0;
 }
 
+constexpr double kPi = 3.14159265358979323846;
+
+double lon_to_merc_x(double lon) {
+  return lon * gis::tile::k_web_mercator_half / 180.0;
+}
+
+double lat_to_merc_y(double lat) {
+  const double clamped = std::max(-85.05112878, std::min(85.05112878, lat));
+  const double rad = clamped * kPi / 180.0;
+  return std::log(std::tan(kPi / 4.0 + rad / 2.0)) *
+         gis::tile::k_web_mercator_half / kPi;
+}
+
+double merc_x_to_lon(double x) {
+  return x * 180.0 / gis::tile::k_web_mercator_half;
+}
+
+double merc_y_to_lat(double y) {
+  const double rad =
+      2.0 * (std::atan(std::exp(y * kPi / gis::tile::k_web_mercator_half)) -
+             kPi / 4.0);
+  return rad * 180.0 / kPi;
+}
+
+COLORREF argb_to_colorref(uint32_t argb) {
+  return RGB(static_cast<int>((argb >> 16) & 0xFF),
+             static_cast<int>((argb >> 8) & 0xFF),
+             static_cast<int>(argb & 0xFF));
+}
+
+// MapLibre-ish zoom from overlay scale (px per map unit / degree).
+double zoom_from_scale(double scale) {
+  const double z = 8.0 + std::log2(std::max(scale, 1e-3));
+  if (z < 0.0) {
+    return 0.0;
+  }
+  if (z > 22.0) {
+    return 22.0;
+  }
+  return z;
+}
+
+std::vector<std::string> style_seed_relative_paths() {
+  return {
+      "china_city.style.json",
+      "testing\\data\\china_city.style.json",
+      "..\\testing\\data\\china_city.style.json",
+      "..\\..\\testing\\data\\china_city.style.json",
+  };
+}
+
+bool read_file_bytes(const std::string& path, std::string* out) {
+  if (!out || path.empty()) {
+    return false;
+  }
+  FILE* f = nullptr;
+  if (fopen_s(&f, path.c_str(), "rb") != 0 || !f) {
+    return false;
+  }
+  if (std::fseek(f, 0, SEEK_END) != 0) {
+    std::fclose(f);
+    return false;
+  }
+  const long len = std::ftell(f);
+  if (len < 0) {
+    std::fclose(f);
+    return false;
+  }
+  if (std::fseek(f, 0, SEEK_SET) != 0) {
+    std::fclose(f);
+    return false;
+  }
+  out->assign(static_cast<size_t>(len), '\0');
+  const size_t n = std::fread(out->data(), 1, out->size(), f);
+  std::fclose(f);
+  return n == out->size();
+}
+
+bool write_bmp_file(const std::string& path, int width_px, int height_px,
+                    const void* bits, int stride_bytes) {
+  if (path.empty() || !bits || width_px <= 0 || height_px <= 0 ||
+      stride_bytes <= 0) {
+    return false;
+  }
+  const DWORD image_bytes =
+      static_cast<DWORD>(stride_bytes) * static_cast<DWORD>(height_px);
+  BITMAPFILEHEADER bfh = {};
+  bfh.bfType = 0x4D42;  // 'BM'
+  bfh.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+  bfh.bfSize = bfh.bfOffBits + image_bytes;
+  BITMAPINFOHEADER bih = {};
+  bih.biSize = sizeof(BITMAPINFOHEADER);
+  bih.biWidth = width_px;
+  bih.biHeight = height_px;  // bottom-up
+  bih.biPlanes = 1;
+  bih.biBitCount = 32;
+  bih.biCompression = BI_RGB;
+  bih.biSizeImage = image_bytes;
+  FILE* f = nullptr;
+  if (fopen_s(&f, path.c_str(), "wb") != 0 || !f) {
+    return false;
+  }
+  const bool ok =
+      std::fwrite(&bfh, 1, sizeof(bfh), f) == sizeof(bfh) &&
+      std::fwrite(&bih, 1, sizeof(bih), f) == sizeof(bih) &&
+      std::fwrite(bits, 1, image_bytes, f) == image_bytes;
+  std::fclose(f);
+  return ok;
+}
+
 }  // namespace
 
 MapScene::MapScene() = default;
@@ -435,6 +670,183 @@ void MapScene::clear() {
   pan_y_ = 0;
   scale_ = 1.0;
   last_open_was_ogr_ = false;
+  basemap_tiles_drawn_ = 0;
+}
+
+void MapScene::set_style_document(
+    std::shared_ptr<gis::style::StyleDocument> doc) {
+  style_doc_ = std::move(doc);
+}
+
+void MapScene::clear_style_document() {
+  style_doc_.reset();
+}
+
+bool MapScene::load_style_path(const std::string& path) {
+  std::string json;
+  if (!read_file_bytes(path, &json)) {
+    return false;
+  }
+  auto doc = std::make_shared<gis::style::StyleDocument>();
+  if (!gis::style::parse_style_document(json, doc.get())) {
+    return false;
+  }
+  style_doc_ = std::move(doc);
+  return true;
+}
+
+void MapScene::set_basemap_provider(
+    std::shared_ptr<gis::tile::TileProvider> provider) {
+  basemap_ = std::move(provider);
+  basemap_tiles_drawn_ = 0;
+}
+
+void MapScene::clear_basemap_provider() {
+  basemap_.reset();
+  basemap_tiles_drawn_ = 0;
+}
+
+bool MapScene::resolve_style_for_test(const std::string& source_layer,
+                                     const gis::style::AttrMap& attrs,
+                                     double zoom,
+                                     gis::style::ResolvedPaint* out) const {
+  if (!style_doc_ || !out) {
+    return false;
+  }
+  return gis::style::resolve(*style_doc_, nullptr, attrs, zoom, source_layer,
+                             out);
+}
+
+bool MapScene::style_colors_for_feature(const Layer& layer, const Feature& f,
+                                       COLORREF* fill, COLORREF* stroke,
+                                       int* stroke_width) const {
+  if (!style_doc_ || !fill || !stroke || !stroke_width) {
+    return false;
+  }
+  gis::style::AttrMap attrs;
+  for (const Field& field : f.fields) {
+    attrs[field.name] = field.value;
+  }
+  gis::style::ResolvedPaint paint;
+  if (!gis::style::resolve(*style_doc_, nullptr, attrs, zoom_from_scale(scale_),
+                           layer.name, &paint)) {
+    return false;
+  }
+  switch (f.kind) {
+    case GeomKind::kPolygon:
+      *fill = argb_to_colorref(paint.fill_color);
+      *stroke = map_scene_admin_stroke_color();
+      *stroke_width = 1;
+      return true;
+    case GeomKind::kLine:
+      *stroke = argb_to_colorref(paint.line_color);
+      *fill = *stroke;
+      *stroke_width = std::max(1, static_cast<int>(std::lround(paint.line_width)));
+      return true;
+    case GeomKind::kPoint:
+      *fill = argb_to_colorref(paint.circle_color);
+      *stroke = *fill;
+      *stroke_width = 1;
+      return true;
+    default:
+      return false;
+  }
+}
+
+void MapScene::paint_basemap_underlay(HDC hdc, int width_px,
+                                     int height_px) const {
+  basemap_tiles_drawn_ = 0;
+  if (!hdc || !basemap_ || !basemap_->is_open() || width_px <= 0 ||
+      height_px <= 0) {
+    return;
+  }
+  const content::Extent2 world = view_world_extent(width_px, height_px);
+  gis::tile::Viewport vp;
+  vp.min_x = lon_to_merc_x(world.xmin);
+  vp.max_x = lon_to_merc_x(world.xmax);
+  vp.min_y = lat_to_merc_y(world.ymin);
+  vp.max_y = lat_to_merc_y(world.ymax);
+  if (vp.min_x > vp.max_x) {
+    std::swap(vp.min_x, vp.max_x);
+  }
+  if (vp.min_y > vp.max_y) {
+    std::swap(vp.min_y, vp.max_y);
+  }
+  const std::vector<gis::tile::TileImage> tiles =
+      basemap_->fetch_visible(vp, 2);
+  basemap_tiles_drawn_ = tiles.size();
+  for (const gis::tile::TileImage& tile : tiles) {
+    const double lon0 = merc_x_to_lon(tile.world_rect.lb.x);
+    const double lon1 = merc_x_to_lon(tile.world_rect.rt.x);
+    const double lat0 = merc_y_to_lat(tile.world_rect.lb.y);
+    const double lat1 = merc_y_to_lat(tile.world_rect.rt.y);
+    // Map-space Y is -lat.
+    int vx0 = 0;
+    int vy0 = 0;
+    int vx1 = 0;
+    int vy1 = 0;
+    map_to_view(lon0, -lat1, &vx0, &vy0);
+    map_to_view(lon1, -lat0, &vx1, &vy1);
+    if (vx0 > vx1) {
+      std::swap(vx0, vx1);
+    }
+    if (vy0 > vy1) {
+      std::swap(vy0, vy1);
+    }
+    if (vx1 < 0 || vy1 < 0 || vx0 > width_px || vy0 > height_px) {
+      continue;
+    }
+    // Encoded PNG decode is optional; a tinted quad proves underlay coverage.
+    const int shade = 90 + ((tile.coord.x + tile.coord.y) & 7) * 12;
+    HBRUSH brush =
+        CreateSolidBrush(RGB(shade, 110 + (tile.coord.z % 5) * 8, 140));
+    RECT rc = {vx0, vy0, vx1 + 1, vy1 + 1};
+    FillRect(hdc, &rc, brush);
+    DeleteObject(brush);
+  }
+}
+
+bool MapScene::export_bmp(const std::string& path, int width_px,
+                         int height_px) const {
+  if (path.empty() || width_px <= 0 || height_px <= 0) {
+    return false;
+  }
+  HDC screen = GetDC(nullptr);
+  if (!screen) {
+    return false;
+  }
+  HDC mem = CreateCompatibleDC(screen);
+  if (!mem) {
+    ReleaseDC(nullptr, screen);
+    return false;
+  }
+  BITMAPINFO bmi = {};
+  bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bmi.bmiHeader.biWidth = width_px;
+  bmi.bmiHeader.biHeight = height_px;  // bottom-up for BMP write
+  bmi.bmiHeader.biPlanes = 1;
+  bmi.bmiHeader.biBitCount = 32;
+  bmi.bmiHeader.biCompression = BI_RGB;
+  void* bits = nullptr;
+  HBITMAP dib =
+      CreateDIBSection(mem, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+  if (!dib || !bits) {
+    if (dib) {
+      DeleteObject(dib);
+    }
+    DeleteDC(mem);
+    ReleaseDC(nullptr, screen);
+    return false;
+  }
+  HGDIOBJ old = SelectObject(mem, dib);
+  paint(mem, width_px, height_px, true);
+  const int stride = ((width_px * 32 + 31) / 32) * 4;
+  const bool ok = write_bmp_file(path, width_px, height_px, bits, stride);
+  SelectObject(mem, old);
+  DeleteObject(dib);
+  DeleteDC(mem);
+  ReleaseDC(nullptr, screen);
+  return ok;
 }
 
 std::vector<std::string> china_seed_relative_paths() {
@@ -512,6 +924,21 @@ bool MapScene::try_bootstrap_china_plp() {
 
 void MapScene::seed_default() {
   if (try_bootstrap_china_plp()) {
+    char exe_dir[MAX_PATH] = {};
+    DWORD n = GetModuleFileNameA(nullptr, exe_dir, MAX_PATH);
+    if (n > 0 && n < MAX_PATH) {
+      for (int i = static_cast<int>(n) - 1; i >= 0; --i) {
+        if (exe_dir[i] == '\\' || exe_dir[i] == '/') {
+          exe_dir[i + 1] = '\0';
+          break;
+        }
+      }
+      for (const std::string& rel : style_seed_relative_paths()) {
+        if (load_style_path(std::string(exe_dir) + rel)) {
+          break;
+        }
+      }
+    }
     return;
   }
   clear();
@@ -634,6 +1061,158 @@ bool MapScene::open_path(const std::string& path) {
   active_layer_id_ = layer.id;
   layers_.push_back(std::move(layer));
   return false;
+}
+
+bool MapScene::write_path(const std::string& path) const {
+  if (path.empty()) {
+    return false;
+  }
+  const Layer* layer = find_layer(active_layer_id_);
+  if (!layer || !layer->visible || layer->features.empty()) {
+    layer = nullptr;
+    for (const Layer& candidate : layers_) {
+      if (candidate.visible && !candidate.features.empty()) {
+        layer = &candidate;
+        break;
+      }
+    }
+  }
+  if (!layer || layer->features.empty()) {
+    return false;
+  }
+
+  const GeomKind dominant = layer->features.front().kind;
+  OGRwkbGeometryType wkb = wkbUnknown;
+  switch (dominant) {
+    case GeomKind::kPoint:
+    case GeomKind::kText:
+      wkb = wkbPoint;
+      break;
+    case GeomKind::kLine:
+      wkb = wkbLineString;
+      break;
+    case GeomKind::kPolygon:
+      wkb = wkbPolygon;
+      break;
+  }
+  if (wkb == wkbUnknown) {
+    return false;
+  }
+
+  GDALAllRegister();
+  GDALDriver* driver = GetGDALDriverManager()->GetDriverByName("GeoJSON");
+  if (!driver) {
+    return false;
+  }
+  {
+    GDALDataset* existing = static_cast<GDALDataset*>(GDALOpenEx(
+        path.c_str(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr));
+    if (existing) {
+      GDALClose(existing);
+      if (driver->Delete(path.c_str()) != CE_None) {
+        DeleteFileA(path.c_str());
+      }
+    }
+  }
+  GDALDataset* ds = driver->Create(path.c_str(), 0, 0, 0, GDT_Unknown, nullptr);
+  if (!ds) {
+    return false;
+  }
+  OGRLayer* ogr_layer = ds->CreateLayer(
+      layer->name.empty() ? "layer" : layer->name.c_str(), nullptr, wkb,
+      nullptr);
+  if (!ogr_layer) {
+    GDALClose(ds);
+    return false;
+  }
+
+  std::vector<std::string> field_names;
+  for (const Feature& f : layer->features) {
+    if (f.kind != dominant) {
+      continue;
+    }
+    for (const Field& field : f.fields) {
+      if (field.name.empty()) {
+        continue;
+      }
+      bool seen = false;
+      for (const std::string& n : field_names) {
+        if (n == field.name) {
+          seen = true;
+          break;
+        }
+      }
+      if (!seen) {
+        field_names.push_back(field.name);
+      }
+    }
+  }
+  for (const std::string& name : field_names) {
+    OGRFieldDefn defn(name.c_str(), OFTString);
+    if (ogr_layer->CreateField(&defn) != OGRERR_NONE) {
+      GDALClose(ds);
+      return false;
+    }
+  }
+
+  size_t written = 0;
+  for (const Feature& f : layer->features) {
+    if (f.kind != dominant || f.points.empty()) {
+      continue;
+    }
+    OGRFeatureUniquePtr feat(
+        OGRFeature::CreateFeature(ogr_layer->GetLayerDefn()));
+    if (!feat) {
+      continue;
+    }
+    for (size_t fi = 0; fi < field_names.size(); ++fi) {
+      const char* v = field_value(f, field_names[fi].c_str());
+      if (v) {
+        feat->SetField(static_cast<int>(fi), v);
+      }
+    }
+
+    // Undo map-space Y flip (stored as lon / -lat) back to CRS84.
+    if (dominant == GeomKind::kPoint || dominant == GeomKind::kText) {
+      OGRPoint pt(f.points.front().x, -f.points.front().y);
+      feat->SetGeometry(&pt);
+    } else if (dominant == GeomKind::kLine) {
+      if (f.points.size() < 2) {
+        continue;
+      }
+      OGRLineString line;
+      for (const Vertex& p : f.points) {
+        line.addPoint(p.x, -p.y);
+      }
+      feat->SetGeometry(&line);
+    } else if (dominant == GeomKind::kPolygon) {
+      if (f.points.size() < 3) {
+        continue;
+      }
+      OGRLinearRing ring;
+      for (const Vertex& p : f.points) {
+        ring.addPoint(p.x, -p.y);
+      }
+      if (ring.getNumPoints() >= 2) {
+        const double x0 = ring.getX(0);
+        const double y0 = ring.getY(0);
+        const int last = ring.getNumPoints() - 1;
+        if (x0 != ring.getX(last) || y0 != ring.getY(last)) {
+          ring.addPoint(x0, y0);
+        }
+      }
+      OGRPolygon poly;
+      poly.addRing(&ring);
+      feat->SetGeometry(&poly);
+    }
+
+    if (ogr_layer->CreateFeature(feat.get()) == OGRERR_NONE) {
+      ++written;
+    }
+  }
+
+  GDALClose(ds);
+  return written > 0;
 }
 
 bool MapScene::ingest_ogr_path(const std::string& path) {
@@ -1221,6 +1800,8 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
     DeleteObject(bg);
   }
 
+  paint_basemap_underlay(hdc, width_px, height_px);
+
   // Reuse a few GDI objects for the whole frame. Creating Pen/Brush/Font per
   // feature leaked when early-continue skipped DeleteObject, and exhausted the
   // per-process GDI quota (~10k) on china_city (~1.4k features × 30 Hz).
@@ -1236,21 +1817,46 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
   HBRUSH land_brush = CreateSolidBrush(map_scene_area_fill_color(nullptr, 0));
   HBRUSH point_brush = CreateSolidBrush(map_scene_point_fill_color());
   HBRUSH selected_brush = CreateSolidBrush(RGB(255, 200, 80));
+  // Style-driven colors: cache pens/brushes per COLORREF for this frame only.
+  std::map<COLORREF, HBRUSH> style_brushes;
+  std::map<uint64_t, HPEN> style_pens;
+  auto style_brush = [&](COLORREF c) -> HBRUSH {
+    auto it = style_brushes.find(c);
+    if (it != style_brushes.end()) {
+      return it->second;
+    }
+    HBRUSH b = CreateSolidBrush(c);
+    style_brushes.emplace(c, b);
+    return b;
+  };
+  auto style_pen = [&](COLORREF c, int width) -> HPEN {
+    const uint64_t key =
+        (static_cast<uint64_t>(static_cast<uint32_t>(c)) << 16) |
+        static_cast<uint64_t>(static_cast<uint16_t>(std::max(1, width)));
+    auto it = style_pens.find(key);
+    if (it != style_pens.end()) {
+      return it->second;
+    }
+    HPEN p = CreatePen(PS_SOLID, std::max(1, width), c);
+    style_pens.emplace(key, p);
+    return p;
+  };
   HFONT fonts[3] = {};
-  fonts[0] = CreateFontW(dip_px(16), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+  // Baidu-like hierarchy: small body / medium prefecture / large province title.
+  fonts[0] = CreateFontW(dip_px(13), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                          DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
                          CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                          DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
-  fonts[1] = CreateFontW(dip_px(20), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+  fonts[1] = CreateFontW(dip_px(16), 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE,
                          DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
                          CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                          DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
-  fonts[2] = CreateFontW(dip_px(28), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+  fonts[2] = CreateFontW(dip_px(22), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
                          DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
                          CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                          DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
   HFONT status_font =
-      CreateFontW(dip_px(14), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+      CreateFontW(dip_px(13), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
                   DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                   CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS,
                   L"Microsoft YaHei UI");
@@ -1293,6 +1899,37 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
   // After fit_extent on China, scale_ is typically ~8–15; avoid drowning the
   // frame in 400+ city labels at country view.
   const bool draw_dense_text = scale_ >= 18.0;
+  const LabelBudget label_budget = label_budget_for_scale(scale_);
+
+  struct PendingLabel {
+    int vx = 0;
+    int vy = 0;
+    int dx = 0;
+    int dy = 0;
+    int importance = 0;
+    COLORREF ink = RGB(20, 18, 14);
+    std::string name;
+  };
+  std::vector<PendingLabel> pending_labels;
+  pending_labels.reserve(label_budget.max_labels * 2);
+  auto queue_place_label = [&](int vx, int vy, const Feature& f, COLORREF ink,
+                               int dx, int dy) {
+    const int importance = label_importance(f);
+    if (importance < label_budget.min_importance) {
+      return;
+    }
+    std::string name = feature_display_name(f);
+    if (name.empty()) {
+      return;
+    }
+    if (vx + dx < -80 || vy + dy < -40 || vx + dx > width_px + 80 ||
+        vy + dy > height_px + 40) {
+      return;
+    }
+    pending_labels.push_back(
+        {vx, vy, dx, dy, importance, ink, std::move(name)});
+  };
+
   bool has_text_features = false;
   for (const Layer& layer : layers_) {
     if (!layer.visible) {
@@ -1330,20 +1967,16 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
           int vx = 0;
           int vy = 0;
           map_to_view(f.points[0].x, f.points[0].y, &vx, &vy);
-          int font_idx = 0;
           COLORREF ink = RGB(20, 18, 14);
           if (cls && std::strcmp(cls, "title") == 0) {
-            font_idx = 2;
             ink = RGB(12, 10, 8);
-          } else if (cls && std::strcmp(cls, "region_label") == 0) {
-            font_idx = 1;
           } else if (cls && std::strcmp(cls, "river_label") == 0) {
             ink = RGB(8, 36, 72);
           }
           if (f.selected) {
             ink = RGB(200, 120, 40);
           }
-          draw_label(vx, vy, feature_display_name(f), ink, font_idx, -20, -8);
+          queue_place_label(vx, vy, f, ink, -20, -8);
           continue;
         }
 
@@ -1363,13 +1996,21 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
           SelectObject(hdc, GetStockObject(NULL_PEN));
           Ellipse(hdc, vx - outer, vy - outer, vx + outer + 1, vy + outer + 1);
           DeleteObject(ring);
-          SelectObject(hdc, f.selected ? selected_brush : point_brush);
+          COLORREF fill_c = map_scene_point_fill_color();
+          COLORREF stroke_c = fill_c;
+          int stroke_w = 1;
+          const bool styled =
+              !f.selected &&
+              style_colors_for_feature(layer, f, &fill_c, &stroke_c, &stroke_w);
+          HBRUSH fill_brush =
+              f.selected ? selected_brush
+                         : (styled ? style_brush(fill_c) : point_brush);
+          SelectObject(hdc, fill_brush);
           SelectObject(hdc, f.selected ? pens[3] : pens[0]);
           Ellipse(hdc, vx - r, vy - r, vx + r + 1, vy + r + 1);
           SelectObject(hdc, GetStockObject(NULL_BRUSH));
           if (draw_dense_text && !has_text_features) {
-            draw_label(vx, vy, feature_display_name(f), RGB(40, 32, 20), 0, 7,
-                       -8);
+            queue_place_label(vx, vy, f, RGB(40, 32, 20), 7, -8);
           }
           continue;
         }
@@ -1378,8 +2019,14 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
           const char* cls = field_value(f, "class");
           const char* kind = field_value(f, "kind");
           HPEN pen = pens[2];
+          COLORREF fill_c = 0;
+          COLORREF stroke_c = 0;
+          int stroke_w = 2;
           if (f.selected) {
             pen = pens[3];
+          } else if (style_colors_for_feature(layer, f, &fill_c, &stroke_c,
+                                              &stroke_w)) {
+            pen = style_pen(stroke_c, stroke_w);
           } else if ((cls && std::strcmp(cls, "river") == 0) ||
                      (kind && (std::strcmp(kind, "river") == 0 ||
                                std::strcmp(kind, "water") == 0))) {
@@ -1418,8 +2065,19 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
           // Do NOT CreatePen/Brush per polygon — china_city has ~476 areas and
           // the present timer repaints ~30 Hz; per-feature GDI creates exhaust
           // the process quota and crash the host even when DeleteObject is called.
-          SelectObject(hdc, f.selected ? pens[3] : pens[0]);
-          HBRUSH fill = f.selected ? selected_brush : land_brush;
+          COLORREF fill_c = map_scene_area_fill_color(nullptr, 0);
+          COLORREF stroke_c = map_scene_admin_stroke_color();
+          int stroke_w = 1;
+          const bool styled =
+              !f.selected &&
+              style_colors_for_feature(layer, f, &fill_c, &stroke_c, &stroke_w);
+          SelectObject(hdc, f.selected
+                                ? pens[3]
+                                : (styled ? style_pen(stroke_c, stroke_w)
+                                          : pens[0]));
+          HBRUSH fill = f.selected
+                            ? selected_brush
+                            : (styled ? style_brush(fill_c) : land_brush);
           SelectObject(hdc, fill ? fill : GetStockObject(LTGRAY_BRUSH));
           Polygon(hdc, pts.data(), static_cast<int>(pts.size()));
           SelectObject(hdc, GetStockObject(NULL_BRUSH));
@@ -1433,12 +2091,36 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
             int lvx = 0;
             int lvy = 0;
             map_to_view(mx, my, &lvx, &lvy);
-            draw_label(lvx, lvy, feature_display_name(f), RGB(32, 28, 22), 0,
-                       -12, -6);
+            queue_place_label(lvx, lvy, f, RGB(32, 28, 22), -12, -6);
           }
         }
       }
     }
+  }
+
+  // Higher-importance labels claim occupancy first (province before county).
+  std::sort(pending_labels.begin(), pending_labels.end(),
+            [](const PendingLabel& a, const PendingLabel& b) {
+              if (a.importance != b.importance) {
+                return a.importance > b.importance;
+              }
+              return a.name.size() < b.name.size();
+            });
+  LabelOccupancy label_occ(width_px, height_px, label_budget.cell_w,
+                           label_budget.cell_h);
+  size_t labels_drawn = 0;
+  for (const PendingLabel& lab : pending_labels) {
+    if (labels_drawn >= label_budget.max_labels) {
+      break;
+    }
+    const int ax = lab.vx + lab.dx;
+    const int ay = lab.vy + lab.dy;
+    if (!label_occ.try_claim(ax, ay)) {
+      continue;
+    }
+    draw_label(lab.vx, lab.vy, lab.name, lab.ink,
+               label_font_index(lab.importance), lab.dx, lab.dy);
+    ++labels_drawn;
   }
 
   SelectObject(hdc, old_font);
@@ -1463,14 +2145,32 @@ void MapScene::paint(HDC hdc, int width_px, int height_px,
       DeleteObject(pen);
     }
   }
+  for (auto& kv : style_brushes) {
+    if (kv.second) {
+      DeleteObject(kv.second);
+    }
+  }
+  for (auto& kv : style_pens) {
+    if (kv.second) {
+      DeleteObject(kv.second);
+    }
+  }
 
+  // Opaque status strip — avoids ghosting / illegible overlap on dense labels.
   SetBkMode(hdc, TRANSPARENT);
-  SetTextColor(hdc, RGB(24, 28, 32));
   SelectObject(hdc, status_font ? status_font : stock_font);
   wchar_t line[160];
   swprintf_s(line, L"Layers %zu  Features %zu  scale %.4g%s", layers_.size(),
              feature_count(), scale_, last_open_was_ogr_ ? L"  OGR" : L"");
-  TextOutW(hdc, 12, height_px > 48 ? height_px - 36 : 12, line, lstrlenW(line));
+  const int status_y = height_px > 48 ? height_px - 36 : 12;
+  SIZE text_sz = {};
+  GetTextExtentPoint32W(hdc, line, lstrlenW(line), &text_sz);
+  RECT status_rc = {8, status_y - 4, 16 + text_sz.cx, status_y + text_sz.cy + 4};
+  HBRUSH status_bg = CreateSolidBrush(RGB(245, 243, 233));
+  FillRect(hdc, &status_rc, status_bg);
+  DeleteObject(status_bg);
+  SetTextColor(hdc, RGB(24, 28, 32));
+  TextOutW(hdc, 12, status_y, line, lstrlenW(line));
   if (status_font) {
     SelectObject(hdc, stock_font);
     DeleteObject(status_font);

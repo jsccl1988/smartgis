@@ -76,8 +76,8 @@ bool CefMapSlot::create(HWND parent,
   gc.dwWant = GC_ZOOM;
   SetGestureConfig(child_hwnd_, 0, 1, &gc, sizeof(gc));
 
-  // Scene3d: ContentMapView SoT by default. Optional FlyCube when preferred;
-  // always OpenView so stereo DIBs remain available (WinUI parity).
+  // Scene3d: leftover GL stereo SoT by default. Optional FlyCube when preferred;
+  // always OpenView so self-test wait_frame remains available (WinUI parity).
   bool flycube_live = false;
   if (kind_ == content::ViewKind::kScene3d && prefer_scene3d_flycube() &&
       scene3d_rhi_.try_attach(child_hwnd_)) {
@@ -93,7 +93,11 @@ bool CefMapSlot::create(HWND parent,
     view_->Create(params, content::MapWidgetHostView::Preferences());
     view_->SetPresentMode(content::PresentMode::kSoftwareDib);
   }
-  (void)flycube_live;
+  if (kind_ == content::ViewKind::kScene3d && !flycube_live) {
+    (void)scene3d_stereo_.try_attach(child_hwnd_);
+  } else {
+    scene3d_stereo_.release();
+  }
   bind_scene3d();
   start_present_timer();
   set_visible(false);
@@ -135,6 +139,7 @@ void CefMapSlot::bind_scene3d() {
 
 void CefMapSlot::destroy() {
   stop_present_timer();
+  scene3d_stereo_.release();
   scene3d_rhi_.release();
   if (child_hwnd_) {
     DestroyWindow(child_hwnd_);
@@ -417,9 +422,8 @@ void CefMapSlot::paint_to_dc(HDC hdc, const RECT& rc) {
   }
   const int w = rc.right > 0 ? rc.right : 1;
   const int h = rc.bottom > 0 ? rc.bottom : 1;
-  // Scene3d: orbitable GDI DEM SoT (elevation + labels + compass) is primary.
+  // Scene3d: leftover GL stereo SoT → GDI DEM. FlyCube only when preferred.
   // ContentMapView DIB is a static GPU demo — do not leave it as the frame.
-  // FlyCube solid RHI only when preferred and live.
   if (kind_ == content::ViewKind::kScene3d) {
     if (scene3d_rhi_.is_live() && prefer_scene3d_flycube() && w > 0 && h > 0) {
       const bool ok = scene3d_rhi_.present(
@@ -431,6 +435,11 @@ void CefMapSlot::paint_to_dc(HDC hdc, const RECT& rc) {
       }
     }
     if (w > 0 && h > 0) {
+      if (scene3d_stereo_.try_present_sot(child_hwnd_, hdc, w, h,
+                                          scene3d_.yaw(), scene3d_.pitch(),
+                                          scene3d_.distance())) {
+        return;
+      }
       scene3d_.paint(hdc, w, h, /*fill_background=*/true);
     }
     return;
@@ -618,7 +627,7 @@ LRESULT CALLBACK CefMapSlot::wnd_proc(HWND hwnd,
       }
       if (self && wparam == kPresentTimerId) {
         if (self->kind_ == content::ViewKind::kScene3d &&
-            self->scene3d_rhi_.is_live() && IsWindowVisible(hwnd)) {
+            IsWindowVisible(hwnd)) {
           InvalidateRect(hwnd, nullptr, FALSE);
           return 0;
         }

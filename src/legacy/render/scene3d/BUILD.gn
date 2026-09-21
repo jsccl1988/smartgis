@@ -22,6 +22,8 @@ source_set("scene3d_sources") {
     "map_to_scene.h",
     "scene_to_world.cc",
     "scene_to_world.h",
+    "stereo_hwnd_view.cc",
+    "stereo_hwnd_view.h",
     "stereo_terrain.cc",
     "stereo_terrain.h",
   ]

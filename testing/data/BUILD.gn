@@ -8,6 +8,7 @@ copy("china_map_samples") {
   sources = [
     "china_city.gpkg",
     "china_city.geojson",
+    "china_city.style.json",
     "china_city.LICENSE.txt",
     "china_dem.tif",
     "china_plp.geojson",

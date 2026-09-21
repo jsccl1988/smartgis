@@ -658,7 +658,8 @@ bool Scene3dController::present_gpu(render::rhi::Device* device,
     mesh_device_ = device;
   }
   gpu_scene_.sync_from(terrain_world_);
-  gpu_scene_.set_solid_color(0.62f, 0.70f, 0.48f, 1.f);
+  // Mid hypsometric (yellow-green highland foothills) — not flat olive FlyCube.
+  gpu_scene_.set_solid_color(0.78f, 0.72f, 0.42f, 1.f);
   const float aspect = static_cast<float>(width_px) /
                        static_cast<float>(height_px > 0 ? height_px : 1);
   const render::rhi::CameraMatrices cam = camera_matrices(aspect);
@@ -875,6 +876,35 @@ void Scene3dController::paint_hud(HDC hdc, int width_px, int height_px) const {
   }
 }
 
+namespace {
+
+// Leftover SmartGis.exe hypsometric character: low green→yellow, high pink/white.
+COLORREF hypsometric_rgb(float t01) {
+  t01 = std::clamp(t01, 0.f, 1.f);
+  int r = 0;
+  int g = 0;
+  int b = 0;
+  if (t01 < 0.35f) {
+    const float u = t01 / 0.35f;
+    r = static_cast<int>(70 + 140 * u);
+    g = static_cast<int>(140 + 70 * u);
+    b = static_cast<int>(55 + 20 * (1.f - u));
+  } else if (t01 < 0.65f) {
+    const float u = (t01 - 0.35f) / 0.30f;
+    r = static_cast<int>(210 + 25 * u);
+    g = static_cast<int>(210 - 40 * u);
+    b = static_cast<int>(75 + 40 * u);
+  } else {
+    const float u = (t01 - 0.65f) / 0.35f;
+    r = static_cast<int>(235 + 20 * u);
+    g = static_cast<int>(170 + 70 * u);
+    b = static_cast<int>(115 + 120 * u);
+  }
+  return RGB(r, g, b);
+}
+
+}  // namespace
+
 void Scene3dController::paint(HDC hdc, int width_px, int height_px,
                               bool fill_background) const {
   if (!hdc || width_px <= 0 || height_px <= 0) {
@@ -887,24 +917,77 @@ void Scene3dController::paint(HDC hdc, int width_px, int height_px,
       std::clamp(pitch_, tool::kOrbitPitchMin, tool::kOrbitPitchMax);
 
   if (fill_background) {
-    // Ocean-ish clear (matches SmartGis.exe leftover stereo backdrop).
-    HBRUSH bg = CreateSolidBrush(RGB(28, 72, 118));
+    // Black void behind the ocean plane (leftover stereo SoT).
+    HBRUSH bg = CreateSolidBrush(RGB(0, 0, 0));
     RECT full = {0, 0, width_px, height_px};
     FillRect(hdc, &full, bg);
     DeleteObject(bg);
   }
 
   const_cast<Scene3dController*>(this)->rebuild_local_mesh();
-  // Filled facets (hypsometric-ish by elev). Mesh is row-major north→south;
-  // drawing only the first N tris looked like a thin green ribbon. Stride
-  // across the full index list so the China AABB stays visible under the cap.
-  HPEN mesh_pen = CreatePen(PS_SOLID, 1, RGB(70, 95, 65));
+
+  // Light-blue ocean / base plane under the DEM AABB (leftover character).
+  if (!local_xyz_.empty()) {
+    float minx = local_xyz_[0];
+    float maxx = minx;
+    float miny = local_xyz_[1];
+    float maxy = miny;
+    float minz = local_xyz_[2];
+    float maxz = minz;
+    for (size_t i = 0; i + 2 < local_xyz_.size(); i += 3) {
+      minx = (std::min)(minx, local_xyz_[i]);
+      maxx = (std::max)(maxx, local_xyz_[i]);
+      miny = (std::min)(miny, local_xyz_[i + 1]);
+      maxy = (std::max)(maxy, local_xyz_[i + 1]);
+      minz = (std::min)(minz, local_xyz_[i + 2]);
+      maxz = (std::max)(maxz, local_xyz_[i + 2]);
+    }
+    const float y_plane = miny - 0.02f * (std::max)(maxy - miny, 0.05f);
+    int c[4][2] = {};
+    project(minx, y_plane, minz, width_px, height_px, &c[0][0], &c[0][1]);
+    project(maxx, y_plane, minz, width_px, height_px, &c[1][0], &c[1][1]);
+    project(maxx, y_plane, maxz, width_px, height_px, &c[2][0], &c[2][1]);
+    project(minx, y_plane, maxz, width_px, height_px, &c[3][0], &c[3][1]);
+    const POINT ocean[4] = {{c[0][0], c[0][1]},
+                            {c[1][0], c[1][1]},
+                            {c[2][0], c[2][1]},
+                            {c[3][0], c[3][1]}};
+    HBRUSH ocean_br = CreateSolidBrush(RGB(120, 190, 230));
+    HPEN ocean_pen = CreatePen(PS_SOLID, 1, RGB(90, 160, 210));
+    HGDIOBJ old_pen = SelectObject(hdc, ocean_pen);
+    HGDIOBJ old_brush = SelectObject(hdc, ocean_br);
+    Polygon(hdc, ocean, 4);
+    SelectObject(hdc, old_brush);
+    SelectObject(hdc, old_pen);
+    DeleteObject(ocean_br);
+    DeleteObject(ocean_pen);
+  }
+
+  // Continuous DEM: draw all tris up to a high cap. Sparse stride left
+  // fragmented olive ribbons (not leftover hypsometric land).
+  HPEN mesh_pen = CreatePen(PS_NULL, 0, RGB(0, 0, 0));
   HGDIOBJ old_pen = SelectObject(hdc, mesh_pen);
   HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
   const size_t total_tris = local_idx_.size() / 3;
-  constexpr size_t kMaxDraw = 2800;
+  constexpr size_t kMaxDraw = 24000;
   const size_t step =
       total_tris > kMaxDraw ? (total_tris + kMaxDraw - 1) / kMaxDraw : 1;
+
+  float elev_min = 0.f;
+  float elev_max = 0.f;
+  bool elev_init = false;
+  for (size_t i = 1; i + 2 < local_xyz_.size(); i += 3) {
+    const float y = local_xyz_[i];
+    if (!elev_init) {
+      elev_min = elev_max = y;
+      elev_init = true;
+    } else {
+      elev_min = (std::min)(elev_min, y);
+      elev_max = (std::max)(elev_max, y);
+    }
+  }
+  const float elev_span = (std::max)(elev_max - elev_min, 1.0e-3f);
+
   size_t drawn = 0;
   for (size_t t = 0; t < total_tris && drawn < kMaxDraw; t += step, ++drawn) {
     const unsigned i0 = local_idx_[t * 3];
@@ -918,12 +1001,8 @@ void Scene3dController::paint(HDC hdc, int width_px, int height_px,
     const float y1 = local_xyz_[i1 * 3 + 1];
     const float y2 = local_xyz_[i2 * 3 + 1];
     const float yavg = (y0 + y1 + y2) / 3.f;
-    // Normalized mesh is centered; map elev to green→brown→high light.
-    const float t01 = std::clamp(0.5f + yavg * 0.55f, 0.f, 1.f);
-    const int r = static_cast<int>(70 + 130 * t01);
-    const int g = static_cast<int>(125 + 55 * (1.f - t01) + 40 * t01);
-    const int b = static_cast<int>(55 + 30 * (1.f - t01));
-    HBRUSH fill = CreateSolidBrush(RGB(r, g, b));
+    const float t01 = (yavg - elev_min) / elev_span;
+    HBRUSH fill = CreateSolidBrush(hypsometric_rgb(t01));
     SelectObject(hdc, fill);
     int p0[2] = {};
     int p1[2] = {};

@@ -20,6 +20,7 @@
 #include "app/views/app_commands.h"
 #include "app/views/map_host_extent.h"
 #include "app/views/plugin_chrome.h"
+#include "app/views/scene3d_rhi_session.h"
 #include "content/public/catalog_layers.h"
 #include "content/public/events.h"
 #include "content/public/map_contents.h"
@@ -30,6 +31,7 @@
 #include "render/rhi/rhi.h"
 #include "gis/edit/edit_session.h"
 #include "gis/tile/tile_map_layer.h"
+#include "gis/tile/tile_provider.h"
 #include "tool/camera_nav.h"
 #include "tool/command.h"
 #include "tool/gestures.h"
@@ -176,6 +178,7 @@ BrowserView::~BrowserView() {
   if (map_scene_) {
     map_scene_->detach();
   }
+  scene3d_stereo_.release();
   if (plugins_) {
     plugins_->shutdown();
     plugins_.reset();
@@ -251,12 +254,17 @@ void BrowserView::build_contents() {
   auto menu = std::make_unique<ui::views::MenuBar>();
   menu->set_preferred_size({0, 28});
   menu->add_item("Open", [this]() { on_open(); });
+  menu->add_item("Save", [this]() { on_save_document(); });
+  menu->add_item("Export", [this]() { on_export_document(); });
   menu->add_item("Exit", [this]() { on_exit(); });
   menu->add_item("Map", [this]() { switch_map_tab(0); });
   menu->add_item("Data", [this]() { switch_map_tab(1); });
   menu->add_item("3D", [this]() { switch_map_tab(2); });
   menu->add_item("Select", [this]() { run_tool_command("selection.point"); });
   menu->add_item("Draw", [this]() { run_tool_command("edit.append.point"); });
+  menu->add_item("DrawLine", [this]() {
+    run_tool_command("edit.append.linestring");
+  });
   menu->add_item("Clear", [this]() { run_tool_command("selection.clear"); });
   menu->add_item("Undo", [this]() { run_tool_command("edit.undo"); });
   menu->add_item("RHI", [this]() { run_tool_command("view.backend.rhi"); });
@@ -387,6 +395,10 @@ void BrowserView::attach_viewports() {
                    MAKELPARAM(rc.right, rc.bottom));
     }
   }
+  // Prefetch leftover GL stereo on the 3D HWND (SP5 LoadLibrary; no link).
+  if (map_scene_ && map_scene_->native_view()) {
+    (void)scene3d_stereo_.try_attach(map_scene_->native_view());
+  }
 }
 
 void BrowserView::wire_catalog() {
@@ -430,6 +442,11 @@ void BrowserView::wire_catalog() {
   });
 }
 
+void BrowserView::commit_blit_preview() {
+  blit_.end_preview();
+  invalidate_map_overlays();
+}
+
 void BrowserView::schedule_overlay_full_redraw() {
   HWND h = nullptr;
   if (ui::views::MapViewport* pane = active_map()) {
@@ -442,11 +459,19 @@ void BrowserView::schedule_overlay_full_redraw() {
     return;
   }
   constexpr UINT_PTR kId = 0x424C54u;
+  // TIMERPROC cannot capture |this|; stash owner for debounce commit.
+  SetPropW(h, L"SmtBlitBrowser", reinterpret_cast<HANDLE>(this));
   KillTimer(h, kId);
   SetTimer(h, kId, static_cast<UINT>(tool::kBlitDebounceMs),
            [](HWND hwnd, UINT, UINT_PTR id, DWORD) {
              KillTimer(hwnd, id);
-             InvalidateRect(hwnd, nullptr, FALSE);
+             auto* self = reinterpret_cast<BrowserView*>(
+                 GetPropW(hwnd, L"SmtBlitBrowser"));
+             if (self) {
+               self->commit_blit_preview();
+             } else {
+               InvalidateRect(hwnd, nullptr, FALSE);
+             }
            });
 }
 
@@ -468,18 +493,22 @@ void BrowserView::wire_map_scene() {
     }
     const auto mode = map_scene_ ? map_scene_->attach_mode()
                                  : ui::views::MapViewport::AttachMode::kNone;
-    // Orbitable SoT = Scene3dController GDI DEM (elevation + labels + compass).
-    // ContentMapView DIB is a static GPU demo underlay — never leave it as the
-    // only frame (that showed wireframe / solid olive and ignored orbit).
-    // FlyCube + present_gpu → HUD only.
+    // Priority: FlyCube (opt-in) → leftover GL stereo (SoT) → GDI DEM.
+    // ContentMapView DIB is not leftover stereo — never leave it as the frame.
     const bool flycube = mode == ui::views::MapViewport::AttachMode::kFlyCube;
     const bool gpu_ok =
         flycube && map_scene_ && map_scene_->last_gpu_present_ok();
     if (gpu_ok) {
       scene3d_.paint_hud(hdc, w, h);
-    } else {
-      scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+      return;
     }
+    HWND hwnd = map_scene_ ? map_scene_->native_view() : nullptr;
+    if (scene3d_stereo_.try_present_sot(hwnd, hdc, w, h, scene3d_.yaw(),
+                                        scene3d_.pitch(),
+                                        scene3d_.distance())) {
+      return;
+    }
+    scene3d_.paint(hdc, w, h, /*fill_background=*/true);
   };
   if (map_edit_) {
     map_edit_->set_overlay_paint(paint2d);
@@ -1026,12 +1055,18 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
     if (!ui::views::AddBasemapDialog::run(hwnd, &out) || out.url.empty()) {
       return;
     }
-    gis::MapLayer layer;
-    if (out.kind == "wmts") {
-      layer = gis::tile::make_wmts_map_layer(out.url);
-    } else {
-      layer = gis::tile::make_xyz_map_layer(out.url);
+    auto provider = std::make_shared<gis::tile::TileProvider>();
+    const bool opened = (out.kind == "wmts")
+                            ? provider->open_wmts_template(out.url)
+                            : provider->open_xyz(out.url);
+    if (!opened) {
+      status("Basemap URL rejected");
+      return;
     }
+    // Keep MapLayer validation so CatalogCall JSON stays meaningful.
+    gis::MapLayer layer = (out.kind == "wmts")
+                              ? gis::tile::make_wmts_map_layer(out.url)
+                              : gis::tile::make_xyz_map_layer(out.url);
     if (layer.leftover() == nullptr) {
       status("Basemap URL rejected");
       return;
@@ -1039,11 +1074,10 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
     const std::string name =
         out.name.empty() ? std::string("Basemap") : out.name;
     document_.create_layer(name, out.kind);
+    document_.set_basemap_provider(std::move(provider));
     sync_catalog_from_scene();
     sync_inspectors_from_scene();
     invalidate_map_overlays();
-    // Content/render still consumes CatalogCall JSON; tile MapLayer is
-    // validated here. Full scene attach lands when map host accepts kind=tile.
     detail::catalog_call(
         session, std::string("{\"op\":\"add_basemap\",\"name\":\"") +
                      detail::json_escape(name) + "\",\"kind\":\"" +
@@ -1130,14 +1164,7 @@ void BrowserView::on_catalog_command(const std::string& command_id) {
     return;
   }
   if (command_id == "catalog.map.save" || command_id == "catalog.map.save_as") {
-    const ui::views::FilePickerResult file =
-        ui::views::pick_save_file(hwnd, L"Map\0*.smtmap\0All\0*.*\0");
-    if (file.accepted) {
-      detail::catalog_call(
-          session, std::string("{\"op\":\"save\",\"path\":\"") +
-                       detail::json_escape(file.path) + "\"}");
-      status("Saved " + file.path);
-    }
+    on_save_document();
     return;
   }
   if (command_id == "catalog.layer.remove" ||
@@ -1215,6 +1242,17 @@ void BrowserView::on_open() {
                                       detail::json_escape(cmd.path) + "\"}");
   }
   document_.open_path(cmd.path);
+  // Sibling Style JSON (path.style.json or china_city.style.json beside path).
+  {
+    std::string style_cand = cmd.path + ".style.json";
+    if (!document_.load_style_path(style_cand)) {
+      const size_t slash = cmd.path.find_last_of("/\\");
+      const std::string dir =
+          slash == std::string::npos ? std::string()
+                                     : cmd.path.substr(0, slash + 1);
+      document_.load_style_path(dir + "china_city.style.json");
+    }
+  }
   sync_catalog_from_scene();
   sync_inspectors_from_scene();
   fit_map_extent();
@@ -1235,6 +1273,43 @@ void BrowserView::on_open() {
                             std::to_string(document_.feature_count()) +
                             " features)");
   }
+}
+
+void BrowserView::on_save_document() {
+  const ui::views::FilePickerResult file = ui::views::pick_save_file(
+      hwnd(), L"GeoJSON\0*.geojson\0All\0*.*\0");
+  if (!file.accepted || file.path.empty()) {
+    set_status_message("Save cancelled");
+    return;
+  }
+  if (!document_.write_path(file.path)) {
+    set_status_message("Save failed");
+    return;
+  }
+  set_status_message(std::string("Saved (OGR): ") + file.path);
+}
+
+void BrowserView::on_export_document() {
+  const ui::views::FilePickerResult file = ui::views::pick_save_file(
+      hwnd(), L"Bitmap\0*.bmp\0All\0*.*\0");
+  if (!file.accepted || file.path.empty()) {
+    set_status_message("Export cancelled");
+    return;
+  }
+  int w = 1280;
+  int h = 720;
+  active_view_size(&w, &h);
+  if (w <= 0) {
+    w = 1280;
+  }
+  if (h <= 0) {
+    h = 720;
+  }
+  if (!document_.export_bmp(file.path, w, h)) {
+    set_status_message("Export BMP failed");
+    return;
+  }
+  set_status_message(std::string("Exported BMP: ") + file.path);
 }
 
 void BrowserView::on_exit() {
@@ -1295,6 +1370,13 @@ void BrowserView::switch_map_tab(int i) {
       // seed / present_gpu / GDI paint share the same world frame.
       if (map_scene_) {
         scene3d_.bind_contents(map_session_.get(), map_scene_->view_id());
+        if (HWND hwnd = map_scene_->native_view()) {
+          if (!prefer_scene3d_flycube()) {
+            (void)scene3d_stereo_.try_attach(hwnd);
+          } else {
+            scene3d_stereo_.release();
+          }
+        }
       }
       // Recover from edge-on / over-zoomed orbit (thin green DEM strip).
       scene3d_.reset();

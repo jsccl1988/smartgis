@@ -371,8 +371,10 @@ Expected: 全部绿；`exe_smoke` 中 `SmartGisViews.exe` PASS。
 
 ## Done when
 
-1. `map_scene_test` 含 write 往返且 PASS。  
-2. `SmartGisViews.exe --self-test` exit 0，含 `m0-line-ok` / `m0-featureinfo-ok` / `m0-save-ok`。  
-3. `build.bat e2e` 绿。  
-4. 差距矩阵已回写本 plan 链接与 M0 成熟度。  
-5. 无新的终局→legacy include。
+1. [x] `map_scene_test` 含 write 往返且 PASS。  
+2. [x] `SmartGisViews.exe --self-test` exit 0，含 `m0-line-ok` / `m0-featureinfo-ok` / `m0-save-ok`。  
+3. [x] `build.bat e2e` 绿。  
+4. [x] 差距矩阵已回写本 plan 链接与 M0 成熟度。  
+5. [x] 无新的终局→legacy include。
+
+**Landed (implementation):** 2026-09-20 — Tasks 1–4 on `master`（无 commit，待用户要求再提交）。

@@ -8,6 +8,7 @@
 #include <shellapi.h>
 
 #include "app/views/browser_view.h"
+#include "app/views/map_host_extent.h"
 #include "content/app/content_main.h"
 #include "content/app/renderer_main.h"
 #include "content/public/events.h"
@@ -15,16 +16,20 @@
 #include "content/public/map_types.h"
 #include "content/public/map_widget_host_view.h"
 #include "content/public/view_host.h"
+#include "gis/style/style_document.h"
+#include "gis/tile/tile_provider.h"
 #include "gpu/gpu.h"
+#include "net/http/http.h"
 #include "render/rhi/rhi.h"
 #include "tool/interaction.h"
 #include "tool/workspace.h"
 #include "ui/views/gis/catalog_view.h"
+#include "ui/views/gis/feature_info.h"
+#include "ui/views/gis/status_bar.h"
 #include "ui/views/kernel/dpi.h"
 #include "ui/views/kernel/layout_check.h"
 #include "ui/views/map/map_viewport.h"
 #include "ui/views/primitives/menu_bar.h"
-#include "ui/views/gis/status_bar.h"
 #include "ui/views/kernel/view.h"
 
 #include <algorithm>
@@ -32,6 +37,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
+#include <memory>
 #include <string>
 #include <vector>
 #include <cwctype>
@@ -598,7 +604,7 @@ int run_atmosphere_showcase(app::BrowserView& browser,
 
   switch (mode) {
     case AtmosphereShowcaseMode::kLand:
-      // Leave Environment unset â€” DEM / land present only.
+      // Leave Environment unset â€?DEM / land present only.
       break;
     case AtmosphereShowcaseMode::kOcean:
       cam->seed_atmosphere_procedural();
@@ -609,7 +615,7 @@ int run_atmosphere_showcase(app::BrowserView& browser,
       cam->enable_atmosphere_demo();
       break;
     case AtmosphereShowcaseMode::kCoast: {
-      // East China Sea coastal window â€” different extent from full China.
+      // East China Sea coastal window â€?different extent from full China.
       const content::Extent2 coast{118.0, 28.0, 128.0, 36.0};
       cam->apply_world_extent(coast);
       cam->enable_atmosphere_demo();
@@ -802,7 +808,7 @@ int run_atmosphere_showcase(app::BrowserView& browser,
   cam->abandon_mesh();
   if (owns_device && device) {
     device->shutdown();
-    // Intentionally leak Device* â€” FlyCube teardown has corrupted heaps
+    // Intentionally leak Device* â€?FlyCube teardown has corrupted heaps
     // when operator delete runs after a live DX12 session (see MapViewport).
   }
   if (owned_present_hwnd) {
@@ -1146,6 +1152,86 @@ int BrowserMain(const content::ContentMainParams&) {
       return 20;
     }
     self_test_mark("selection-ok");
+
+    // M0: append linestring â†?FeatureInfo â†?write_path roundtrip.
+    {
+      const size_t before = browser.document()->feature_count();
+      if (!browser.run_tool_command("edit.append.linestring")) {
+        self_test_detach_maps(browser);
+        return 60;
+      }
+      tool::Interaction* line_tool = host->workspace()->stack().current();
+      if (!line_tool ||
+          std::strcmp(line_tool->id(), "draw.linestring") != 0) {
+        self_test_detach_maps(browser);
+        return 60;
+      }
+      content::InputEvent v0{};
+      v0.kind = content::InputEvent::Kind::kLDown;
+      v0.x_px = 20;
+      v0.y_px = 20;
+      content::InputEvent v1{};
+      v1.kind = content::InputEvent::Kind::kLDown;
+      v1.x_px = 80;
+      v1.y_px = 60;
+      content::InputEvent fin{};
+      fin.kind = content::InputEvent::Kind::kRDown;
+      fin.x_px = 80;
+      fin.y_px = 60;
+      if (!host->dispatch_input(v0) || !host->dispatch_input(v1) ||
+          !host->dispatch_input(fin)) {
+        self_test_detach_maps(browser);
+        return 60;
+      }
+      if (browser.document()->feature_count() <= before) {
+        self_test_detach_maps(browser);
+        return 60;
+      }
+      self_test_mark("m0-line-ok");
+
+      std::vector<std::string> cols;
+      std::vector<std::vector<std::string>> rows;
+      std::vector<std::string> tokens;
+      browser.document()->fill_attribute_rows(&cols, &rows, &tokens);
+      if (tokens.empty()) {
+        self_test_detach_maps(browser);
+        return 61;
+      }
+      const content::FeatureId pick =
+          app::MapScene::feature_id_from_token(tokens.back());
+      if (!browser.document()->select_feature(pick)) {
+        self_test_detach_maps(browser);
+        return 61;
+      }
+      browser.refresh_inspectors();
+      ui::views::FeatureInfo* info = browser.feature_info();
+      if (!info || info->feature_id().empty()) {
+        self_test_detach_maps(browser);
+        return 61;
+      }
+      self_test_mark("m0-featureinfo-ok");
+
+      char tmp[MAX_PATH] = {};
+      if (GetTempPathA(MAX_PATH, tmp) == 0) {
+        self_test_detach_maps(browser);
+        return 62;
+      }
+      std::string out = std::string(tmp) + "smartgis_m0_selftest.geojson";
+      DeleteFileA(out.c_str());
+      if (!browser.document()->write_path(out)) {
+        self_test_detach_maps(browser);
+        return 62;
+      }
+      app::MapScene probe;
+      if (!probe.open_path(out) || probe.feature_count() < 1) {
+        DeleteFileA(out.c_str());
+        self_test_detach_maps(browser);
+        return 63;
+      }
+      DeleteFileA(out.c_str());
+      self_test_mark("m0-save-ok");
+    }
+
     if (!browser.run_tool_command("view.backend.maplibre")) {
       return 43;
     }
@@ -1175,7 +1261,7 @@ int BrowserMain(const content::ContentMainParams&) {
       }
     }
     self_test_mark("layers-ok");
-    // Prefer out/china_city.gpkg (é¥æ¶˜æµ˜çž?; else geojson; else china_plp.
+    // Prefer out/china_city.gpkg (é¥æ¶˜æµ˜çž?; else geojson; else china_plp.
     {
       wchar_t sample_w[MAX_PATH] = {};
       if (GetModuleFileNameW(nullptr, sample_w, MAX_PATH) > 0) {
@@ -1279,6 +1365,145 @@ int BrowserMain(const content::ContentMainParams&) {
         }());
         self_test_mark("ogr-ok");
         self_test_mark(city_pack ? "china-city-ok" : "china-plp-ok");
+
+        // M1: labels + Style JSON + mock basemap + export BMP.
+        {
+          if (city_pack) {
+            bool found_text_layer = false;
+            for (const auto& d : browser.document()->layer_descs()) {
+              if (d.name == "text") {
+                found_text_layer = true;
+                break;
+              }
+            }
+            if (!found_text_layer) {
+              std::fprintf(stderr, "M1: china_city missing text layer\n");
+              self_test_detach_maps(browser);
+              return 70;
+            }
+          }
+          self_test_mark("m1-labels-ok");
+
+          char style_path[MAX_PATH] = {};
+          bool style_loaded = false;
+          if (GetModuleFileNameA(nullptr, style_path, MAX_PATH) > 0) {
+            for (int i = static_cast<int>(std::strlen(style_path)) - 1; i >= 0;
+                 --i) {
+              if (style_path[i] == '\\' || style_path[i] == '/') {
+                style_path[i + 1] = '\0';
+                break;
+              }
+            }
+            std::string cand =
+                std::string(style_path) + "china_city.style.json";
+            style_loaded = browser.document()->load_style_path(cand);
+          }
+          if (!style_loaded) {
+            const char* kInline =
+                "{\"version\":8,\"name\":\"m1\",\"layers\":[{"
+                "\"id\":\"area-fill\",\"type\":\"fill\","
+                "\"source-layer\":\"area\","
+                "\"paint\":{\"fill-color\":\"#c8e6c9\"}}]}";
+            auto doc = std::make_shared<gis::style::StyleDocument>();
+            if (!gis::style::parse_style_document(kInline, doc.get())) {
+              self_test_detach_maps(browser);
+              return 71;
+            }
+            browser.document()->set_style_document(std::move(doc));
+          }
+          gis::style::ResolvedPaint rp;
+          if (!browser.document()->resolve_style_for_test("area", {}, 10.0,
+                                                          &rp) ||
+              rp.fill_color != 0xFFC8E6C9u) {
+            std::fprintf(stderr, "M1: style resolve failed\n");
+            self_test_detach_maps(browser);
+            return 71;
+          }
+          self_test_mark("m1-style-ok");
+
+          auto provider = std::make_shared<gis::tile::TileProvider>();
+          if (!provider->open_xyz("http://tiles.local/{z}/{x}/{y}.png")) {
+            self_test_detach_maps(browser);
+            return 72;
+          }
+          provider->set_fetch_fn([](const std::string&) {
+            net::HttpResult res;
+            res.ok = true;
+            res.status = 200;
+            res.body = "PNG-STUB";
+            return res;
+          });
+          browser.document()->set_basemap_provider(provider);
+          browser.document()->apply_world_extent(app::kChinaLonLatExtent, 256, 256);
+          HDC screen = GetDC(nullptr);
+          HDC mem = CreateCompatibleDC(screen);
+          BITMAPINFO bmi = {};
+          bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+          bmi.bmiHeader.biWidth = 256;
+          bmi.bmiHeader.biHeight = -256;
+          bmi.bmiHeader.biPlanes = 1;
+          bmi.bmiHeader.biBitCount = 32;
+          bmi.bmiHeader.biCompression = BI_RGB;
+          void* bits = nullptr;
+          HBITMAP dib =
+              CreateDIBSection(mem, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+          if (!dib) {
+            DeleteDC(mem);
+            ReleaseDC(nullptr, screen);
+            self_test_detach_maps(browser);
+            return 72;
+          }
+          HGDIOBJ old = SelectObject(mem, dib);
+          browser.document()->paint(mem, 256, 256);
+          const size_t tiles = browser.document()->basemap_tiles_drawn();
+          SelectObject(mem, old);
+          DeleteObject(dib);
+          DeleteDC(mem);
+          ReleaseDC(nullptr, screen);
+          if (tiles == 0) {
+            std::fprintf(stderr, "M1: basemap drew zero tiles\n");
+            self_test_detach_maps(browser);
+            return 72;
+          }
+          self_test_mark("m1-basemap-ok");
+
+          char tmp[MAX_PATH] = {};
+          if (GetTempPathA(MAX_PATH, tmp) == 0) {
+            self_test_detach_maps(browser);
+            return 73;
+          }
+          std::string bmp = std::string(tmp) + "smartgis_m1_selftest.bmp";
+          DeleteFileA(bmp.c_str());
+          if (!browser.document()->export_bmp(bmp, 320, 240)) {
+            self_test_detach_maps(browser);
+            return 73;
+          }
+          FILE* bf = nullptr;
+          if (fopen_s(&bf, bmp.c_str(), "rb") != 0 || !bf) {
+            self_test_detach_maps(browser);
+            return 73;
+          }
+          char magic[2] = {};
+          const size_t n = std::fread(magic, 1, 2, bf);
+          std::fclose(bf);
+          DeleteFileA(bmp.c_str());
+          if (n != 2 || magic[0] != 'B' || magic[1] != 'M') {
+            self_test_detach_maps(browser);
+            return 73;
+          }
+          self_test_mark("m1-export-ok");
+          // Restore product framing so later pan/wheel self-tests see the
+          // real map HWND extent (M1 used a 256×256 offscreen frame).
+          if (ui::views::MapViewport* pane = browser.map_viewport()) {
+            if (HWND hwnd = pane->native_view()) {
+              RECT rc = {};
+              GetClientRect(hwnd, &rc);
+              const int w = rc.right > 0 ? rc.right : 800;
+              const int h = rc.bottom > 0 ? rc.bottom : 600;
+              browser.document()->fit_extent(w, h);
+            }
+          }
+        }
       }
     }
     // Pan tool must activate without crash (Map tab).

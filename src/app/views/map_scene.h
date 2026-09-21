@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -19,6 +20,8 @@
 #include "content/public/catalog_layers.h"
 #include "content/public/feature_attrs.h"
 #include "content/public/map_types.h"
+#include "gis/style/style_types.h"
+#include "gis/tile/tile_provider.h"
 #include "gis/world/land_mask.h"
 #include "tool/gestures.h"
 
@@ -72,6 +75,36 @@ class MapScene {
   // cannot be opened as a vector source. Returns true when at least one OGR
   // feature was ingested.
   bool open_path(const std::string& path);
+
+  // Write the active visible layer to |path| as GeoJSON (OGR "GeoJSON" driver).
+  // Falls back to the first visible non-empty layer. Returns false if no
+  // features, driver missing, or Create failed. Map-space Y is unflipped to
+  // CRS84 lat so reopen via open_path matches ingest.
+  bool write_path(const std::string& path) const;
+
+  // Optional MapLibre-subset style. When set, paint uses ResolvedPaint colors
+  // for matching source-layer names; otherwise Baidu defaults remain.
+  void set_style_document(std::shared_ptr<gis::style::StyleDocument> doc);
+  void clear_style_document();
+  bool load_style_path(const std::string& path);
+  bool has_style_document() const { return static_cast<bool>(style_doc_); }
+
+  // Optional XYZ/WMTS TileProvider drawn under vectors (mockable via set_fetch_fn).
+  void set_basemap_provider(std::shared_ptr<gis::tile::TileProvider> provider);
+  void clear_basemap_provider();
+  bool has_basemap_provider() const {
+    return basemap_ && basemap_->is_open();
+  }
+  // Tiles drawn on the last paint() call (self-test / unit tests).
+  size_t basemap_tiles_drawn() const { return basemap_tiles_drawn_; }
+
+  // Paint to a memory DC and write a 32-bpp BMP (one page export).
+  bool export_bmp(const std::string& path, int width_px, int height_px) const;
+
+  // Test helper: resolve paint for a Catalog layer name + attrs at |zoom|.
+  bool resolve_style_for_test(const std::string& source_layer,
+                              const gis::style::AttrMap& attrs, double zoom,
+                              gis::style::ResolvedPaint* out) const;
 
   void clear();
 
@@ -178,6 +211,14 @@ class MapScene {
   double pan_y_ = 0;
   double scale_ = 1.0;
   bool last_open_was_ogr_ = false;
+  std::shared_ptr<gis::style::StyleDocument> style_doc_;
+  std::shared_ptr<gis::tile::TileProvider> basemap_;
+  mutable size_t basemap_tiles_drawn_ = 0;
+
+  void paint_basemap_underlay(HDC hdc, int width_px, int height_px) const;
+  bool style_colors_for_feature(const Layer& layer, const Feature& f,
+                                COLORREF* fill, COLORREF* stroke,
+                                int* stroke_width) const;
 };
 
 // Ordered relative paths for default China seed (exe-dir / testing/data).

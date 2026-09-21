@@ -8,6 +8,7 @@
 #include "app/views/map_scene.h"
 #include "app/views/scene3d_controller.h"
 #include "app/views/scene3d_rhi_session.h"
+#include "app/views/scene3d_stereo_session.h"
 #include "content/public/map_contents.h"
 #include "tool/camera_nav.h"
 #include "content/public/map_contents_observer.h"
@@ -254,6 +255,7 @@ struct SgHost : public content::MapContentsObserver {
   app::MapScene document;
   app::Scene3dController scene3d_;
   mutable app::Scene3dRhiSession scene3d_rhi_;
+  mutable app::Scene3dStereoSession scene3d_stereo_;
   mutable std::mutex document_mu_;
   bool document_seeded_ = false;
   bool seed_started_ = false;
@@ -322,6 +324,7 @@ void SgHost::attach_child_hwnd() {
 
 void SgHost::destroy_child_hwnd() {
   stop_present_timer();
+  scene3d_stereo_.release();
   scene3d_rhi_.release();
   remove_owner_subclass();
   if (child_hwnd_) {
@@ -510,6 +513,7 @@ void SgHost::show_kind(content::ViewKind kind) {
   if (kind == content::ViewKind::kScene3d && app::prefer_scene3d_flycube()) {
     // Prefer FlyCube when the popup HWND already exists (after SyncLayout).
     if (child_hwnd_ && try_scene3d_rhi()) {
+      scene3d_stereo_.release();
       view_id_ = slots_[idx].view_id;
       view_ = slots_[idx].view;
       painted_generation_ = 0;
@@ -534,15 +538,19 @@ void SgHost::show_kind(content::ViewKind kind) {
   if (child_hwnd_) {
     attach_child_hwnd();
     if (kind == content::ViewKind::kScene3d && app::prefer_scene3d_flycube()) {
-      (void)try_scene3d_rhi();
+      if (try_scene3d_rhi()) {
+        scene3d_stereo_.release();
+      }
+    } else if (kind == content::ViewKind::kScene3d) {
+      (void)scene3d_stereo_.try_attach(child_hwnd_);
     }
-    if (view_) {
-      view_->SetVisible(true);
-    }
-    start_present_timer();
-  } else if (view_) {
+  } else if (kind != content::ViewKind::kScene3d) {
+    scene3d_stereo_.release();
+  }
+  if (view_) {
     view_->SetVisible(true);
   }
+  start_present_timer();
   ensure_document_seeded();
   bind_scene3d();
 }
@@ -647,7 +655,7 @@ void SgHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   }
   const int w = rc.right > 0 ? rc.right : 1;
   const int h = rc.bottom > 0 ? rc.bottom : 1;
-  // Scene3d: orbitable GDI DEM SoT is primary; FlyCube only when preferred.
+  // Scene3d: leftover GL stereo SoT → GDI DEM. FlyCube only when preferred.
   if (kind_ == content::ViewKind::kScene3d) {
     if (scene3d_rhi_.is_live() && app::prefer_scene3d_flycube() && w > 0 &&
         h > 0) {
@@ -660,6 +668,11 @@ void SgHost::paint_to_dc(HDC hdc, const RECT& rc) const {
       }
     }
     if (w > 0 && h > 0) {
+      if (scene3d_stereo_.try_present_sot(child_hwnd_, hdc, w, h,
+                                          scene3d_.yaw(), scene3d_.pitch(),
+                                          scene3d_.distance())) {
+        return;
+      }
       scene3d_.paint(hdc, w, h, /*fill_background=*/true);
     }
     return;
@@ -906,9 +919,7 @@ LRESULT CALLBACK SgHost::child_wnd_proc(HWND hwnd,
     if (!self || self->child_hwnd_ != hwnd || !IsWindow(hwnd)) {
       return 0;
     }
-    if (self->kind_ == content::ViewKind::kScene3d &&
-        self->scene3d_rhi_.is_live() && app::prefer_scene3d_flycube() &&
-        IsWindowVisible(hwnd)) {
+    if (self->kind_ == content::ViewKind::kScene3d && IsWindowVisible(hwnd)) {
       InvalidateRect(hwnd, nullptr, FALSE);
       return 0;
     }
@@ -1102,6 +1113,8 @@ void sg_host_sync_layout(SgHost* host, int x, int y, int w, int h, float dpi) {
     if (host->kind_ == content::ViewKind::kScene3d &&
         app::prefer_scene3d_flycube()) {
       (void)host->try_scene3d_rhi();
+    } else if (host->kind_ == content::ViewKind::kScene3d) {
+      (void)host->scene3d_stereo_.try_attach(host->child_hwnd_);
     }
     host->start_present_timer();
     host->ensure_document_seeded();

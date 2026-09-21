@@ -1,0 +1,43 @@
+{
+  "version": 8,
+  "name": "china_city",
+  "layers": [
+    {
+      "id": "area-fill",
+      "type": "fill",
+      "source-layer": "area",
+      "paint": {
+        "fill-color": "#c8e6c9",
+        "fill-opacity": 1
+      }
+    },
+    {
+      "id": "line-default",
+      "type": "line",
+      "source-layer": "line",
+      "paint": {
+        "line-color": "#1565c0",
+        "line-width": 2
+      }
+    },
+    {
+      "id": "point-circle",
+      "type": "circle",
+      "source-layer": "point",
+      "paint": {
+        "circle-color": "#e65100",
+        "circle-radius": 3
+      }
+    },
+    {
+      "id": "text-symbol",
+      "type": "symbol",
+      "source-layer": "text",
+      "layout": {
+        "text-field": "{name}",
+        "text-size": 14
+      },
+      "paint": {}
+    }
+  ]
+}

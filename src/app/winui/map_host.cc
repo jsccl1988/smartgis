@@ -496,6 +496,14 @@ void MapHost::show_kind(content::ViewKind kind) {
 
   if (!flycube_live) {
     attach_child_hwnd();
+    if (kind == content::ViewKind::kScene3d && child_hwnd_) {
+      (void)scene3d_stereo_.try_attach(child_hwnd_);
+    }
+  } else {
+    scene3d_stereo_.release();
+  }
+  if (kind != content::ViewKind::kScene3d) {
+    scene3d_stereo_.release();
   }
   if (view_) {
     view_->SetVisible(true);
@@ -594,6 +602,7 @@ void MapHost::attach_child_hwnd() {
 
 void MapHost::destroy_child_hwnd() {
   stop_present_timer();
+  scene3d_stereo_.release();
   scene3d_rhi_.release();
   if (child_hwnd_) {
     // Clear userdata before DestroyWindow so nested WM_TIMER / WM_PAINT
@@ -959,8 +968,13 @@ void MapHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   const bool map_owns_frame = kind_ != content::ViewKind::kScene3d &&
                               map_scene_.feature_count() > 0 && w > 0 && h > 0;
   if (kind_ == content::ViewKind::kScene3d) {
-    // Orbitable GDI DEM SoT — ContentMapView DIB is not leftover stereo.
+    // Leftover GL stereo (SoT) → GDI DEM fallback.
     if (w > 0 && h > 0) {
+      if (scene3d_stereo_.try_present_sot(child_hwnd_, hdc, w, h,
+                                          scene3d_.yaw(), scene3d_.pitch(),
+                                          scene3d_.distance())) {
+        return;
+      }
       scene3d_.paint(hdc, w, h, /*fill_background=*/true);
     }
     return;
@@ -1017,9 +1031,7 @@ LRESULT CALLBACK MapHost::child_wnd_proc(HWND hwnd,
     }
     // Re-sync screen position when the owner window is dragged / DPI changes.
     self->sync_layout();
-    if (self->kind_ == content::ViewKind::kScene3d &&
-        self->scene3d_rhi_.is_live() && app::prefer_scene3d_flycube() &&
-        IsWindowVisible(hwnd)) {
+    if (self->kind_ == content::ViewKind::kScene3d && IsWindowVisible(hwnd)) {
       InvalidateRect(hwnd, nullptr, FALSE);
       return 0;
     }

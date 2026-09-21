@@ -12,6 +12,7 @@
 #include "app/views/map_hwnd_gestures.h"
 #include "app/views/map_scene.h"
 #include "app/views/scene3d_controller.h"
+#include "app/views/scene3d_stereo_session.h"
 #include "content/public/event_bus.h"
 #include "content/public/map_contents_observer.h"
 #include "content/public/map_types.h"
@@ -66,6 +67,10 @@ class BrowserView : public content::MapContentsObserver {
   ui::views::MapViewport* map_viewport() const { return map_edit_; }
   ui::views::MapViewport* map_data_viewport() const { return map_data_; }
   ui::views::MapViewport* map_scene_viewport() const { return map_scene_; }
+  ui::views::FeatureInfo* feature_info() const { return feature_info_; }
+  ui::views::AttributeTable* attribute_table() const {
+    return attribute_table_;
+  }
   // Switch Map | Data | 3D tabs (0/1/2). Used by --self-test for 3D cover.
   void select_map_tab(int index) { switch_map_tab(index); }
 
@@ -78,6 +83,9 @@ class BrowserView : public content::MapContentsObserver {
   // Activate or fire a Workspace / chrome tool id; updates the status bar.
   // Aliases: select|identify 鈫?selection.point, pan 鈫?view.pan.
   bool run_tool_command(std::string_view command_id);
+
+  // Refresh FeatureInfo / AttributeTable from MapScene selection (self-test).
+  void refresh_inspectors() { sync_inspectors_from_scene(); }
 
   // Apply --atmosphere-fields= path[:channel[:time]][,...] after init.
   bool apply_atmosphere_fields(std::string_view spec);
@@ -106,6 +114,8 @@ class BrowserView : public content::MapContentsObserver {
   void populate_ambox();
   void on_catalog_command(const std::string& command_id);
   void on_open();
+  void on_save_document();
+  void on_export_document();
   void on_exit();
   void on_plugins();
   void switch_map_tab(int i);
@@ -116,6 +126,7 @@ class BrowserView : public content::MapContentsObserver {
 
   MapScene document_;
   Scene3dController scene3d_;
+  Scene3dStereoSession scene3d_stereo_;
   std::unique_ptr<content::ViewHost> edit_host_;
   std::unique_ptr<content::ViewHost> data_host_;
   std::unique_ptr<content::ViewHost> scene_host_;
@@ -145,6 +156,8 @@ class BrowserView : public content::MapContentsObserver {
   bool syncing_extent_ = false;
 
   void schedule_overlay_full_redraw();
+  // End StretchBlt preview and force a full MapScene paint (MapHost parity).
+  void commit_blit_preview();
 };
 
 }  // namespace app

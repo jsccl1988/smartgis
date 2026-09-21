@@ -3,6 +3,8 @@
 
 #include "app/views/blit_frame_cache.h"
 
+#include "app/views/map_scene.h"
+
 namespace app {
 
 BlitFrameCache::~BlitFrameCache() { destroy(); }
@@ -91,8 +93,9 @@ bool BlitFrameCache::present(HDC dst, int view_w, int view_h) const {
   if (!dst || !preview_ || !has_frame() || view_w <= 0 || view_h <= 0) {
     return false;
   }
+  // Match MapScene ocean canvas so zoom/pan preview edges do not flash white.
   RECT full = {0, 0, view_w, view_h};
-  HBRUSH bg = CreateSolidBrush(RGB(255, 255, 255));
+  HBRUSH bg = CreateSolidBrush(map_scene_map_bg_color());
   FillRect(dst, &full, bg);
   DeleteObject(bg);
   SetStretchBltMode(dst, HALFTONE);
