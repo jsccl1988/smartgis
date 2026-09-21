@@ -815,6 +815,16 @@ void MapHost::sync_layout() {
       scene3d_rhi_.resize(child_hwnd_, static_cast<uint32_t>(use_w),
                           static_cast<uint32_t>(use_h));
     }
+    // GL viewport is whatever size the child had at attach (often 1x1).
+    // Grow it with the popup; present also resizes, but layout is the first
+    // moment the client is real.
+    if (kind_ == content::ViewKind::kScene3d && child_hwnd_ && use_w > 8 &&
+        use_h > 8 && !app::prefer_scene3d_flycube()) {
+      if (!scene3d_stereo_.is_live()) {
+        (void)scene3d_stereo_.try_attach(child_hwnd_);
+      }
+      scene3d_stereo_.resize(use_w, use_h);
+    }
     InvalidateRect(child_hwnd_, nullptr, FALSE);
   }
   // Kick one FlyCube present during layout only when FlyCube is preferred.
@@ -976,13 +986,16 @@ void MapHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   const bool map_owns_frame = kind_ != content::ViewKind::kScene3d &&
                               map_scene_.feature_count() > 0 && w > 0 && h > 0;
   if (kind_ == content::ViewKind::kScene3d) {
-    // Leftover GL stereo (SoT) → GDI DEM fallback.
-    if (w > 0 && h > 0) {
+    // Leftover GL stereo (SoT) on the child HWND. Memory DCs are BitBlt back
+    // over SwapBuffers, so they get the GDI DEM only.
+    if (w > 0 && h > 0 && GetObjectType(hdc) != OBJ_MEMDC) {
       if (scene3d_stereo_.try_present_sot(child_hwnd_, hdc, w, h,
                                           scene3d_.yaw(), scene3d_.pitch(),
                                           scene3d_.distance())) {
         return;
       }
+      scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+    } else if (w > 0 && h > 0) {
       scene3d_.paint(hdc, w, h, /*fill_background=*/true);
     }
     return;

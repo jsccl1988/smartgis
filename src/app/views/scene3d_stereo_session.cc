@@ -126,10 +126,10 @@ bool Scene3dStereoSession::present_to_dc(HDC hdc, int width_px, int height_px,
     return false;
   }
   // Double-buffered GL is not in the GDI DC. BitBlt from the GL HWND copies
-  // black/stale GDI and, when the caller then blits a DIB back, covers
-  // SwapBuffers. If |hdc| already belongs to the GL window, the present is
-  // the frame.
-  if (host_ && WindowFromDC(hdc) == host_) {
+  // black/stale GDI. If that DC is the GL window (or any non-memory DC the
+  // caller will show in place), the present is already the frame.
+  const HWND from_dc = WindowFromDC(hdc);
+  if (!host_ || from_dc == host_ || GetObjectType(hdc) != OBJ_MEMDC) {
     return true;
   }
   if (blit_) {

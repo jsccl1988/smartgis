@@ -483,6 +483,14 @@ void SgHost::apply_popup_bounds(int sx, int sy, int sw, int sh, bool force_fit) 
     scene3d_rhi_.resize(child_hwnd_, static_cast<uint32_t>(sw),
                         static_cast<uint32_t>(sh));
   }
+  // Child often attaches at 1x1 before the island has a real client.
+  if (size_changed && kind_ == content::ViewKind::kScene3d && sw > 8 &&
+      sh > 8 && !app::prefer_scene3d_flycube()) {
+    if (!scene3d_stereo_.is_live()) {
+      (void)scene3d_stereo_.try_attach(child_hwnd_);
+    }
+    scene3d_stereo_.resize(sw, sh);
+  }
   if (force_fit || size_changed || needs_extent_fit_) {
     fit_document_to_client();
   }
@@ -667,12 +675,16 @@ void SgHost::paint_to_dc(HDC hdc, const RECT& rc) const {
         return;
       }
     }
-    if (w > 0 && h > 0) {
+    // Stereo SwapBuffers targets the child HWND. Memory DCs must not present:
+    // a later BitBlt of that DIB covers the GL front buffer.
+    if (w > 0 && h > 0 && GetObjectType(hdc) != OBJ_MEMDC) {
       if (scene3d_stereo_.try_present_sot(child_hwnd_, hdc, w, h,
                                           scene3d_.yaw(), scene3d_.pitch(),
                                           scene3d_.distance())) {
         return;
       }
+      scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+    } else if (w > 0 && h > 0) {
       scene3d_.paint(hdc, w, h, /*fill_background=*/true);
     }
     return;
@@ -680,20 +692,30 @@ void SgHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   if (blit_.in_preview() && blit_.present(hdc, w, h)) {
     return;
   }
-  const bool presented = present_latest_frame(hdc, rc);
-  if (!presented) {
-    const HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
-    FillRect(hdc, &rc, brush);
-    DeleteObject(brush);
+  // Same rule as WinUI: China MapScene owns the 2D frame. Leaving a GPU DIB
+  // underneath skips the ocean fill and shows the old line/label pass.
+  const int paint_w = rc.right - rc.left;
+  const int paint_h = rc.bottom - rc.top;
+  bool map_owns_frame = false;
+  {
+    std::lock_guard<std::mutex> lock(document_mu_);
+    map_owns_frame = document.feature_count() > 0 && paint_w > 0 && paint_h > 0;
+  }
+  if (!map_owns_frame) {
+    if (!present_latest_frame(hdc, rc)) {
+      const HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
+      FillRect(hdc, &rc, brush);
+      DeleteObject(brush);
+    }
   }
   {
     std::lock_guard<std::mutex> lock(document_mu_);
-    if (document.feature_count() > 0) {
-      document.paint(hdc, w, h, /*fill_background=*/!presented);
+    if (document.feature_count() > 0 && paint_w > 0 && paint_h > 0) {
+      document.paint(hdc, paint_w, paint_h, /*fill_background=*/true);
     }
   }
-  if (w > 0 && h > 0) {
-    blit_.capture(hdc, w, h);
+  if (paint_w > 0 && paint_h > 0) {
+    blit_.capture(hdc, paint_w, paint_h);
   }
 }
 
@@ -738,6 +760,18 @@ void SgHost::paint_child() const {
   HDC hdc = BeginPaint(child_hwnd_, &ps);
   RECT rc;
   GetClientRect(child_hwnd_, &rc);
+  const int w = rc.right - rc.left;
+  const int h = rc.bottom - rc.top;
+  // Leftover GL SwapBuffers on this HWND. Do not compose a DIB over it.
+  if (kind_ == content::ViewKind::kScene3d && w > 0 && h > 0 &&
+      !(scene3d_rhi_.is_live() && app::prefer_scene3d_flycube())) {
+    if (scene3d_stereo_.try_present_sot(child_hwnd_, hdc, w, h, scene3d_.yaw(),
+                                        scene3d_.pitch(),
+                                        scene3d_.distance())) {
+      EndPaint(child_hwnd_, &ps);
+      return;
+    }
+  }
   paint_to_dc(hdc, rc);
   EndPaint(child_hwnd_, &ps);
 }

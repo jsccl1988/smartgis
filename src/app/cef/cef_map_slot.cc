@@ -441,12 +441,17 @@ void CefMapSlot::paint_to_dc(HDC hdc, const RECT& rc) {
         return;
       }
     }
-    if (w > 0 && h > 0) {
+    // Stereo SwapBuffers targets the child HWND. A memory DC is later BitBlt
+    // over that window and would hide the GL front buffer, so only GDI-fallback
+    // into it. Window DCs (BeginPaint) present in place.
+    if (w > 0 && h > 0 && GetObjectType(hdc) != OBJ_MEMDC) {
       if (scene3d_stereo_.try_present_sot(child_hwnd_, hdc, w, h,
                                           scene3d_.yaw(), scene3d_.pitch(),
                                           scene3d_.distance())) {
         return;
       }
+      scene3d_.paint(hdc, w, h, /*fill_background=*/true);
+    } else if (w > 0 && h > 0) {
       scene3d_.paint(hdc, w, h, /*fill_background=*/true);
     }
     return;
@@ -454,25 +459,34 @@ void CefMapSlot::paint_to_dc(HDC hdc, const RECT& rc) {
   if (blit_.in_preview() && blit_.present(hdc, w, h)) {
     return;
   }
-  const bool presented = present_latest_frame(hdc, rc);
-  if (!presented) {
-    const HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
-    FillRect(hdc, &rc, brush);
-    DeleteObject(brush);
-    SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, RGB(60, 70, 80));
-    const wchar_t* line = render_ok_ ? L"Map slot (waiting for frame)"
-                                     : L"Map slot (GPU not started)";
-    DrawTextW(hdc, line, -1, const_cast<RECT*>(&rc),
-              DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-  }
+  // Product 2D is MapScene (scale tiers, collision, river gates). A GPU DIB
+  // left underneath keeps the old cartography visible wherever the scene
+  // does not fill.
   MapScene* overlay = dem_map_scene();
-  if (overlay && overlay->feature_count() > 0 && rc.right > 0 &&
-      rc.bottom > 0) {
-    overlay->paint(hdc, rc.right, rc.bottom, /*fill_background=*/!presented);
+  const int paint_w = rc.right - rc.left;
+  const int paint_h = rc.bottom - rc.top;
+  const bool map_owns_frame =
+      overlay && overlay->feature_count() > 0 && paint_w > 0 && paint_h > 0;
+  bool presented = false;
+  if (!map_owns_frame) {
+    presented = present_latest_frame(hdc, rc);
+    if (!presented) {
+      const HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
+      FillRect(hdc, &rc, brush);
+      DeleteObject(brush);
+      SetBkMode(hdc, TRANSPARENT);
+      SetTextColor(hdc, RGB(60, 70, 80));
+      const wchar_t* line = render_ok_ ? L"Map slot (waiting for frame)"
+                                       : L"Map slot (GPU not started)";
+      DrawTextW(hdc, line, -1, const_cast<RECT*>(&rc),
+                DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
   }
-  if (w > 0 && h > 0) {
-    blit_.capture(hdc, w, h);
+  if (map_owns_frame) {
+    overlay->paint(hdc, paint_w, paint_h, /*fill_background=*/true);
+  }
+  if (paint_w > 0 && paint_h > 0) {
+    blit_.capture(hdc, paint_w, paint_h);
   }
 }
 
