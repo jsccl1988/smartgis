@@ -26,18 +26,13 @@ bool force_content_mapview_3d() {
 }
 
 bool prefer_scene3d_flycube() {
-  // Default: leftover OpenGL stereo via Scene3dStereoSession LoadLibrary
-  // (legacy_render.dll) or GDI DEM SoT. Opt in solid FlyCube RHI with
-  // SMT_PREFER_FLYCUBE_3D=1; FORCE_CONTENT also disables FlyCube.
+  // Default: FlyCube RHI (present_gpu). Opt out with FORCE_CONTENT=1 or
+  // SMT_PREFER_FLYCUBE_3D=0 (hang-prone hosts / --self-test). Stereo and
+  // GDI DEM remain paint fallbacks when attach or present fails.
   if (force_content_mapview_3d()) {
     return false;
   }
-  if (const char* prefer = std::getenv("SMT_PREFER_FLYCUBE_3D")) {
-    if (prefer[0] == '1' && prefer[1] == '\0') {
-      return true;
-    }
-  }
-  return false;
+  return true;
 }
 
 Scene3dRhiSession::~Scene3dRhiSession() {

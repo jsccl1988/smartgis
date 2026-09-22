@@ -10,12 +10,24 @@
 #include <windows.h>
 #include <shellapi.h>
 
+#include <cstdlib>
+
 #include <winrt/Microsoft.UI.Xaml.h>
 #include <winrt/Windows.Foundation.h>
 
 namespace {
 
 int BrowserMain(const content::ContentMainParams&) {
+  // Hang-free --self-test / exit-teardown: force ContentMapView before App
+  // constructs MapHost Scene3d. Product runs keep FlyCube default.
+  {
+    const wchar_t* cmd = GetCommandLineW();
+    if (cmd && (wcsstr(cmd, L"--self-test") ||
+                wcsstr(cmd, L"--exit-teardown-test"))) {
+      _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "1");
+    }
+  }
+
   winrt::init_apartment(winrt::apartment_type::single_threaded);
 
   if (!app::winui::detail::initialize_windows_app_sdk()) {

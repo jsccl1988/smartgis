@@ -41,6 +41,12 @@ public partial class App : Application
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
+        // Hang-free --self-test: force ContentMapView before native MapHost.
+        // Product interactive runs keep the FlyCube default.
+        if (IsSelfTest())
+        {
+            Environment.SetEnvironmentVariable("SMT_FORCE_CONTENT_MAPVIEW_3D", "1");
+        }
         _window = new MainWindow();
         _window.Activate();
         if (!IsSelfTest())

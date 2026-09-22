@@ -4,15 +4,19 @@ China city offline basemap (china_city.gpkg)
 Purpose
 -------
 Engineering / developer default map for SmartGis Views (prefecture-level
-area, major rivers as lines, city points, Chinese text anchors). Not a
-survey product and not for official cartographic publication.
+area, major rivers and trunk roads as lines, city points, Chinese text
+anchors). Not a survey product and not for official cartographic publication.
 
 Layers
 ------
 area, line, point, text  — CRS EPSG:4326 / OGC CRS84
 
+line.kind: river | lake | road
+line.class (roads): motorway | trunk | primary  (OSM-like tags for MapScene)
+
 Also produced: china_city.geojson (same features, single FeatureCollection with
-kind=area|line|point|text) for hosts that still probe .geojson before .gpkg.
+kind=area|line|point|text; roads use line_kind=road + class=) for hosts that
+still probe .geojson before .gpkg.
 
 Sources
 -------
@@ -27,13 +31,20 @@ Sources
      engineering use is common practice for this public endpoint — verify
      current terms before shipping a product basemap.
 
-2) Line layer (rivers / lake centerlines)
+2) Line layer — rivers / lake centerlines
    - Natural Earth 10m rivers and lake centerlines
    - https://www.naturalearthdata.com/
    - https://naciscdn.org/naturalearth/10m/physical/ne_10m_rivers_lake_centerlines.zip
    - License: public domain (Natural Earth)
 
-3) Point / text
+3) Line layer — national trunk roads (China bbox clip)
+   - Natural Earth 10m roads (Major Highway + low-scalerank Unknown/Road)
+   - https://naciscdn.org/naturalearth/10m/cultural/ne_10m_roads.zip
+   - Mapped to kind=road, class=motorway|trunk|primary for MapScene styling
+   - Simplified cap (~1500 road features) for repo size
+   - License: public domain (Natural Earth)
+
+4) Point / text
    - Derived from area centroids / DataV center fields; `anno` holds Chinese
      labels for leftover Anno-compatible painting.
 

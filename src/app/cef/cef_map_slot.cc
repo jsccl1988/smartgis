@@ -76,8 +76,8 @@ bool CefMapSlot::create(HWND parent,
   gc.dwWant = GC_ZOOM;
   SetGestureConfig(child_hwnd_, 0, 1, &gc, sizeof(gc));
 
-  // Scene3d: leftover GL stereo SoT by default. Optional FlyCube when preferred;
-  // always OpenView so self-test wait_frame remains available (WinUI parity).
+  // Scene3d: FlyCube first when preferred; stereo/GDI fallback on attach fail.
+  // Always OpenView so self-test wait_frame remains available (WinUI parity).
   bool flycube_live = false;
   if (kind_ == content::ViewKind::kScene3d && prefer_scene3d_flycube() &&
       scene3d_rhi_.try_attach(child_hwnd_)) {
@@ -429,7 +429,7 @@ void CefMapSlot::paint_to_dc(HDC hdc, const RECT& rc) {
   }
   const int w = rc.right > 0 ? rc.right : 1;
   const int h = rc.bottom > 0 ? rc.bottom : 1;
-  // Scene3d: leftover GL stereo SoT → GDI DEM. FlyCube only when preferred.
+  // Scene3d: FlyCube → leftover GL stereo → GDI DEM.
   // ContentMapView DIB is a static GPU demo — do not leave it as the frame.
   if (kind_ == content::ViewKind::kScene3d) {
     if (scene3d_rhi_.is_live() && prefer_scene3d_flycube() && w > 0 && h > 0) {

@@ -33,21 +33,21 @@ void expect(bool ok, const char* msg) {
 }  // namespace
 
 int main() {
-  // Default: ContentMapView SoT stereo; opt in FlyCube via PREFER_FLYCUBE=1.
+  // Default: FlyCube RHI; opt out via FORCE_CONTENT=1 or PREFER_FLYCUBE=0.
   {
     _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "");
     _putenv_s("SMT_PREFER_FLYCUBE_3D", "");
-    expect(!app::prefer_scene3d_flycube(), "default prefer ContentMapView SoT");
+    expect(app::prefer_scene3d_flycube(), "default prefer FlyCube RHI");
     expect(!app::force_content_mapview_3d(), "default not force content");
     _putenv_s("SMT_PREFER_FLYCUBE_3D", "1");
-    expect(app::prefer_scene3d_flycube(), "PREFER_FLYCUBE=1 enables FlyCube");
+    expect(app::prefer_scene3d_flycube(), "PREFER_FLYCUBE=1 keeps FlyCube");
     _putenv_s("SMT_PREFER_FLYCUBE_3D", "");
     _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "1");
     expect(app::force_content_mapview_3d(), "FORCE_CONTENT=1");
     expect(!app::prefer_scene3d_flycube(), "FORCE_CONTENT disables FlyCube");
     _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "");
     _putenv_s("SMT_PREFER_FLYCUBE_3D", "0");
-    expect(app::force_content_mapview_3d(), "legacy PREFER_FLYCUBE=0");
+    expect(app::force_content_mapview_3d(), "PREFER_FLYCUBE=0 forces content");
     expect(!app::prefer_scene3d_flycube(), "PREFER_FLYCUBE=0 disables FlyCube");
     _putenv_s("SMT_PREFER_FLYCUBE_3D", "");
   }

@@ -335,8 +335,9 @@ bool MapViewport::attach() {
   SetWindowLongPtrW(native_view(), GWLP_USERDATA,
                     reinterpret_cast<LONG_PTR>(this));
 
-  // Scene3d default: ContentMapView hang + chrome leftover stereo / GDI SoT.
-  // Opt in FlyCube solid RHI with SMT_PREFER_FLYCUBE_3D=1.
+  // Scene3d default: FlyCube RHI. Opt out with FORCE_CONTENT=1 or
+  // SMT_PREFER_FLYCUBE_3D=0 (mirrors app::prefer_scene3d_flycube; ui/ cannot
+  // link app/). Stereo / ContentMapView / GDI remain fallbacks.
   const bool prefer_flycube_3d = []() {
     if (const char* env = std::getenv("SMT_FORCE_CONTENT_MAPVIEW_3D")) {
       if (env[0] == '1' && env[1] == '\0') {
@@ -344,14 +345,11 @@ bool MapViewport::attach() {
       }
     }
     if (const char* prefer = std::getenv("SMT_PREFER_FLYCUBE_3D")) {
-      if (prefer[0] == '1' && prefer[1] == '\0') {
-        return true;
-      }
       if (prefer[0] == '0' && prefer[1] == '\0') {
         return false;
       }
     }
-    return false;
+    return true;
   }();
   if (role_ == Role::kScene3d && prefer_flycube_3d) {
     if (try_flycube_device()) {

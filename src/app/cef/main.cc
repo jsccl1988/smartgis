@@ -22,6 +22,7 @@
 #include "content/public/map_contents.h"
 #include "gpu/gpu.h"
 
+#include <cstdlib>
 #include <memory>
 #include <string>
 
@@ -88,6 +89,11 @@ void on_layout_resize(void* user) {
 int BrowserMain(const content::ContentMainParams& params) {
   auto state = std::make_unique<BrowserState>();
   state->self_test = cmd_has_self_test();
+  // Hang-free smoke: force ContentMapView before Scene3d slot create.
+  // Product interactive runs keep the FlyCube default.
+  if (state->self_test) {
+    _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "1");
+  }
 
   if (!state->layout.create(params.instance)) {
     return 1;

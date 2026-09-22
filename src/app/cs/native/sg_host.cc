@@ -663,7 +663,7 @@ void SgHost::paint_to_dc(HDC hdc, const RECT& rc) const {
   }
   const int w = rc.right > 0 ? rc.right : 1;
   const int h = rc.bottom > 0 ? rc.bottom : 1;
-  // Scene3d: leftover GL stereo SoT → GDI DEM. FlyCube only when preferred.
+  // Scene3d: FlyCube → leftover GL stereo → GDI DEM.
   if (kind_ == content::ViewKind::kScene3d) {
     if (scene3d_rhi_.is_live() && app::prefer_scene3d_flycube() && w > 0 &&
         h > 0) {

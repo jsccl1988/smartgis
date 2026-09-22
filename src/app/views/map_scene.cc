@@ -1039,10 +1039,9 @@ MapLineRole map_scene_line_role(const char* kind, const char* feature_class) {
   return MapLineRole::kOther;
 }
 
-// Default china_city line layers are Natural Earth rivers and lakes
-// (name + kind only). The seed has no highway geometry, so this path stays
-// idle until a dataset carries kind/class/highway/line_kind road attributes.
-// Do not synthesize a national road network.
+// china_city line layer mixes Natural Earth rivers (kind=river|lake) and
+// trunk roads (kind=road, class=motorway|trunk|primary). Road styling fires
+// when kind/class/highway/line_kind look like roads.
 
 bool map_scene_line_is_major_class(const char* kind,
                                   const char* feature_class) {

@@ -22,11 +22,10 @@ namespace app {
 class Scene3dController;
 
 // True when SMT_FORCE_CONTENT_MAPVIEW_3D=1, or SMT_PREFER_FLYCUBE_3D=0.
-// Default Scene3d: ContentMapView OpenView + chrome GDI DEM SoT. Set
-// SMT_PREFER_FLYCUBE_3D=1 for FlyCube RHI (chrome HUD only when present ok).
+// Opt-out of the product FlyCube default (ContentMapView + stereo/GDI SoT).
 bool force_content_mapview_3d();
 
-// Prefer FlyCube RHI for kScene3d unless force_content_mapview_3d().
+// Prefer FlyCube RHI for kScene3d by default unless force_content_mapview_3d().
 bool prefer_scene3d_flycube();
 
 // Owns a FlyCube (or preferred GPU) RHI device bound to an HWND for

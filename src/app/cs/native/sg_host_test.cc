@@ -28,7 +28,7 @@ void expect(bool ok, const char* msg) {
 int main() {
   // Headless HWND fuzz repeatedly attaches/releases FlyCube DX12; that path
   // has known heap/stack corruption on teardown. Force ContentMapView + GDI
-  // for this smoke (product default remains FlyCube / present_gpu).
+  // for this smoke (product default is FlyCube / present_gpu).
   _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "1");
 
   SgHost* first = sg_host_create();

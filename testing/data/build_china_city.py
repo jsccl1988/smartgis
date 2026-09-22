@@ -3,11 +3,13 @@
 # All rights reserved.
 """Build offline china_city.gpkg (area / line / point / text) for Views.
 
-Downloads Aliyun DataV prefecture polygons and Natural Earth rivers (cached
-under out/china_city_src/), then writes EPSG:4326 layers:
+Downloads Aliyun DataV prefecture polygons, Natural Earth rivers, and Natural
+Earth trunk roads (cached under out/china_city_src/), then writes EPSG:4326
+layers:
 
   area   MultiPolygon  name, adcode
-  line   MultiLineString name, kind
+  line   MultiLineString name, kind[, class]
+         kind=river|lake|road; class=motorway|trunk|primary for roads
   point  Point         name, kind=city
   text   Point         anno, name, angle, color
 
@@ -15,7 +17,7 @@ Usage:
   py -3 testing/data/build_china_city.py
   py -3 testing/data/build_china_city.py --out out/china_city.gpkg
 
-Requires: Python 3.10+, pyshp (for rivers shapefile). Network on first run.
+Requires: Python 3.10+, pyshp (for NE shapefiles). Network on first run.
 """
 
 from __future__ import annotations
@@ -42,6 +44,10 @@ DATAV_PLAIN = "https://geo.datav.aliyun.com/areas_v3/bound/{code}.json"
 NE_RIVERS_URLS = (
     "https://naciscdn.org/naturalearth/10m/physical/ne_10m_rivers_lake_centerlines.zip",
     "https://naturalearth.s3.amazonaws.com/10m_physical/ne_10m_rivers_lake_centerlines.zip",
+)
+NE_ROADS_URLS = (
+    "https://naciscdn.org/naturalearth/10m/cultural/ne_10m_roads.zip",
+    "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_roads.zip",
 )
 
 # Direct-controlled municipalities / SARs / Taiwan: keep province polygon as
@@ -84,7 +90,7 @@ def _download_first(urls: tuple[str, ...], dest: Path) -> None:
     raise RuntimeError(f"download failed for {dest}: {last}")
 
 
-def fetch_sources(cache: Path) -> tuple[Path, Path, Path]:
+def fetch_sources(cache: Path) -> tuple[Path, Path, Path, Path]:
     cache.mkdir(parents=True, exist_ok=True)
     china = cache / "china_full.json"
     _download(DATAV_CHINA, china)
@@ -113,12 +119,22 @@ def fetch_sources(cache: Path) -> tuple[Path, Path, Path]:
     rivers_zip = cache / "ne_rivers.zip"
     _download_first(NE_RIVERS_URLS, rivers_zip)
     rivers_dir = cache / "ne_rivers"
-    marker = rivers_dir / "ne_10m_rivers_lake_centerlines.shp"
-    if not marker.exists():
+    rivers_marker = rivers_dir / "ne_10m_rivers_lake_centerlines.shp"
+    if not rivers_marker.exists():
         rivers_dir.mkdir(exist_ok=True)
         with zipfile.ZipFile(rivers_zip, "r") as zf:
             zf.extractall(rivers_dir)
-    return china, provinces, marker
+
+    roads_zip = cache / "ne_roads.zip"
+    _download_first(NE_ROADS_URLS, roads_zip)
+    roads_dir = cache / "ne_roads"
+    roads_marker = roads_dir / "ne_10m_roads.shp"
+    if not roads_marker.exists():
+        roads_dir.mkdir(exist_ok=True)
+        with zipfile.ZipFile(roads_zip, "r") as zf:
+            zf.extractall(roads_dir)
+
+    return china, provinces, rivers_marker, roads_marker
 
 
 # --- minimal WKB + GeoPackage writers (EPSG:4326) ---
@@ -504,7 +520,12 @@ def build_line_features(shp_path: Path) -> list[dict]:
             if len(segments) == 1
             else {"type": "MultiLineString", "coordinates": segments}
         )
-        lines.append({"geometry": geom, "properties": {"name": name, "kind": kind}})
+        lines.append(
+            {
+                "geometry": geom,
+                "properties": {"name": name, "kind": kind, "class": ""},
+            }
+        )
 
     # Prefer named / major rivers: keep features that intersect China densely.
     # Cap to a few hundred for size while retaining recognizable trunk rivers.
@@ -514,6 +535,91 @@ def build_line_features(shp_path: Path) -> list[dict]:
         lines = named[:350] + unnamed[:50]
     return lines
 
+
+def _ne_road_class(type_raw: str, scalerank: int) -> str | None:
+    """Map Natural Earth road type → OSM-like class, or None to drop."""
+    t = (type_raw or "").strip().lower()
+    if "ferry" in t or "track" in t:
+        return None
+    if "major highway" in t or "beltway" in t:
+        return "motorway"
+    if "secondary highway" in t:
+        return "trunk"
+    # NE 10m China often tags arterials as Unknown; keep low scalerank only.
+    if t in ("", "unknown"):
+        if scalerank <= 5:
+            return "trunk"
+        if scalerank <= 6:
+            return "primary"
+        return None
+    # Keep a thin primary set for national framing; drop local roads.
+    if t == "road" and scalerank <= 3:
+        return "primary"
+    return None
+
+
+def build_road_features(shp_path: Path) -> list[dict]:
+    """Natural Earth 10m roads clipped to China; motorway/trunk/primary only."""
+    try:
+        import shapefile  # type: ignore
+    except ImportError as e:
+        raise SystemExit(
+            "pyshp is required to read Natural Earth roads. "
+            "Install: py -3 -m pip install pyshp"
+        ) from e
+
+    sf = shapefile.Reader(str(shp_path))
+    fields = [f[0] for f in sf.fields[1:]]
+    roads: list[dict] = []
+    for sr in sf.iterShapeRecords():
+        shape = sr.shape
+        rec = dict(zip(fields, sr.record))
+        type_raw = str(rec.get("type") or rec.get("TYPE") or "")
+        try:
+            scalerank = int(rec.get("scalerank") or rec.get("SCALERANK") or 99)
+        except (TypeError, ValueError):
+            scalerank = 99
+        road_class = _ne_road_class(type_raw, scalerank)
+        if not road_class:
+            continue
+        parts = list(shape.parts) + [len(shape.points)]
+        segments: list[list] = []
+        for i in range(len(parts) - 1):
+            seg = [
+                [float(p[0]), float(p[1])]
+                for p in shape.points[parts[i] : parts[i + 1]]
+            ]
+            for clipped in _clip_segment_to_bbox(seg):
+                segments.append(clipped)
+        if not segments:
+            continue
+        name = rec.get("name") or rec.get("NAME") or rec.get("name_en") or ""
+        if isinstance(name, bytes):
+            name = name.decode("utf-8", errors="replace")
+        name = str(name).strip()
+        geom = (
+            {"type": "LineString", "coordinates": segments[0]}
+            if len(segments) == 1
+            else {"type": "MultiLineString", "coordinates": segments}
+        )
+        roads.append(
+            {
+                "geometry": geom,
+                "properties": {
+                    "name": name,
+                    "kind": "road",
+                    "class": road_class,
+                },
+            }
+        )
+
+    # Cap size with a balanced motorway/trunk/primary mix for national framing.
+    if len(roads) > 1500:
+        motorway = [f for f in roads if f["properties"]["class"] == "motorway"]
+        trunk = [f for f in roads if f["properties"]["class"] == "trunk"]
+        primary = [f for f in roads if f["properties"]["class"] == "primary"]
+        roads = motorway[:700] + trunk[:500] + primary[:300]
+    return roads
 
 def sha256_file(path: Path) -> str:
     h = hashlib.sha256()
@@ -545,7 +651,7 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    china, provinces, rivers_shp = fetch_sources(args.cache)
+    china, provinces, rivers_shp, roads_shp = fetch_sources(args.cache)
     print("Building area…", flush=True)
     areas = build_area_features(china, provinces)
     print(f"  area features: {len(areas)}", flush=True)
@@ -553,7 +659,12 @@ def main() -> int:
     print(f"  point/text: {len(points)}/{len(texts)}", flush=True)
     print("Building lines from Natural Earth rivers…", flush=True)
     lines = build_line_features(rivers_shp)
-    print(f"  line features: {len(lines)}", flush=True)
+    print(f"  river/lake features: {len(lines)}", flush=True)
+    print("Building lines from Natural Earth roads…", flush=True)
+    roads = build_road_features(roads_shp)
+    print(f"  road features: {len(roads)}", flush=True)
+    lines = lines + roads
+    print(f"  line features total: {len(lines)}", flush=True)
 
     layers = {
         "area": {
@@ -579,7 +690,7 @@ def main() -> int:
         },
         "line": {
             "geom_type": "GEOMETRY",  # LineString or MultiLineString
-            "columns": [("name", "TEXT"), ("kind", "TEXT")],
+            "columns": [("name", "TEXT"), ("kind", "TEXT"), ("class", "TEXT")],
             "features": lines,
         },
         "point": {
@@ -623,14 +734,18 @@ def main() -> int:
             }
         )
     for ln in lines:
+        props = {
+            "name": ln["properties"].get("name") or "",
+            "kind": "line",
+            "line_kind": ln["properties"].get("kind") or "river",
+        }
+        cls = ln["properties"].get("class") or ""
+        if cls:
+            props["class"] = cls
         fc_features.append(
             {
                 "type": "Feature",
-                "properties": {
-                    "name": ln["properties"].get("name") or "",
-                    "kind": "line",
-                    "line_kind": ln["properties"].get("kind") or "river",
-                },
+                "properties": props,
                 "geometry": ln["geometry"],
             }
         )
@@ -695,7 +810,8 @@ def main() -> int:
 
     print(
         "counts:",
-        f"area={len(areas)} line={len(lines)} point={len(points)} text={len(texts)}",
+        f"area={len(areas)} line={len(lines)} "
+        f"(roads={len(roads)}) point={len(points)} text={len(texts)}",
         flush=True,
     )
     return 0

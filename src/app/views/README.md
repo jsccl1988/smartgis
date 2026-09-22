@@ -64,22 +64,22 @@ Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把�
 `kScene3d`）+ `SetExtent`（有中国范围则全幅中国）。2D 为正交，3D 为透视。
 手势：滚轮对光标缩放、平移；HWND 允许时双指捏合（`WM_GESTURE` / 指针）。
 
-3D 页：`view3d.trackball` 更新 `Scene3dController`。默认 **leftover OpenGL stereo**
-（`Scene3dStereoSession` `LoadLibrary(legacy_render[_d].dll)` → `smt_stereo_hwnd_*`：
-高程着色 DEM + 铺盖矢量 + 注记 + 海洋平面 + HUD，对齐 `SmartGis.exe`）。DLL 缺失时
-GDI `Scene3dController::paint()` 兜底（连续高程色 + 海洋平面 + 注记）。
-可选 FlyCube RHI：`set SMT_PREFER_FLYCUBE_3D=1`（成功时 chrome 只叠 `paint_hud`）。
+3D 页：`view3d.trackball` 更新 `Scene3dController`。默认 **FlyCube RHI**
+（`Scene3dRhiSession` / `present_gpu`；成功时 chrome 只叠 `paint_hud`）。
+挂接或 present 失败时回退 leftover OpenGL stereo
+（`Scene3dStereoSession` `LoadLibrary(legacy_render[_d].dll)`）再回退
+GDI `Scene3dController::paint()`。
 
-强制关闭 FlyCube / 走 ContentMapView 挂接：
+强制关闭 FlyCube / 走 ContentMapView + stereo/GDI：
 
 ```bat
 set SMT_FORCE_CONTENT_MAPVIEW_3D=1
 out\SmartGisViews.exe
 ```
 
-（`SMT_PREFER_FLYCUBE_3D=0` 效果相同；`=1` 才启用 FlyCube RHI。）
+（`SMT_PREFER_FLYCUBE_3D=0` 效果相同。）
 
-`--self-test` 断言 OGR 进层与相机矩阵；若挂上
+`--self-test` 会强制 ContentMapView（挂起规避），并断言 OGR 进层与相机矩阵；若挂上
 FlyCube 会写 `flycube-camera-ok`，并在 present 前开 `enable_atmosphere_demo()`。
 
 大气 3D 端到端 showcase。默认 **Null RHI**（可重复退出 0）；

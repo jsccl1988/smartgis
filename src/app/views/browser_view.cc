@@ -493,7 +493,7 @@ void BrowserView::wire_map_scene() {
     }
     const auto mode = map_scene_ ? map_scene_->attach_mode()
                                  : ui::views::MapViewport::AttachMode::kNone;
-    // Priority: FlyCube (opt-in) → leftover GL stereo (SoT) → GDI DEM.
+    // Priority: FlyCube → leftover GL stereo → GDI DEM.
     // ContentMapView DIB is not leftover stereo — never leave it as the frame.
     const bool flycube = mode == ui::views::MapViewport::AttachMode::kFlyCube;
     const bool gpu_ok =
