@@ -10,6 +10,8 @@
 
 namespace plugin {
 
+// Catalog entry (public product face). Implementation lives in
+// gis/analysis/ops; this header only forwards.
 struct BuiltinOpDesc {
   const char* id;
   const char* title;
@@ -19,6 +21,7 @@ const std::vector<BuiltinOpDesc>& builtin_op_catalog();
 
 // Run one operator synchronously (GeoJSON file → GeoJSON file).
 // args_json keys: input, output, distance, clip.
+// Thin forward to gis::detail::run_builtin_op.
 bool run_builtin_op(std::string_view processing_id, std::string_view args_json);
 
 }  // namespace plugin

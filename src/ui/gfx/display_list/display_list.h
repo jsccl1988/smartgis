@@ -4,7 +4,7 @@
 #ifndef UI_GFX_DISPLAY_LIST_DISPLAY_LIST_H_
 #define UI_GFX_DISPLAY_LIST_DISPLAY_LIST_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -18,13 +18,13 @@ namespace gfx {
 class Canvas;
 class DisplayList;
 
-UI_VIEWS_EXPORT void display_list_begin(DisplayList* list);
-UI_VIEWS_EXPORT void display_list_end();
-UI_VIEWS_EXPORT DisplayList* display_list_recorder();
+UI_EXPORT void display_list_begin(DisplayList* list);
+UI_EXPORT void display_list_end();
+UI_EXPORT DisplayList* display_list_recorder();
 // A view records when its paint inputs change; a later dirty rect replays
 // only commands that intersect that rect. This is not a second widget tree.
 // The command list stays in the header so it is not a separate container type.
-class UI_VIEWS_EXPORT DisplayList {
+class UI_EXPORT DisplayList {
  public:
   void clear() {
     cmds_.clear();

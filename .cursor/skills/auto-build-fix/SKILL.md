@@ -18,7 +18,7 @@ All rights reserved.
 
 **自动构建并修复直至成功为止**
 
-Drive the loop through **`build.bat`** at the repo root. Canonical transcript: **`out/build.log`**.
+Drive the loop through **`build.bat`** at the repo root. Canonical transcripts: **`out/Debug/build.log`** and **`out/Release/build.log`**. Prefer **`build.bat debug …`** for a faster fix loop.
 
 ## Authorization
 
@@ -28,37 +28,38 @@ Normative allow rule: **`.cursor/rules/build/agent-may-build.mdc`**.
 
 ## Hard rules — how to build
 
-1. **Entry:** from the **smartgis** repo root, run `.\build.bat` (or `cmd /c build.bat`).
-2. **Engineering management is GN.** `build.bat` → `gn gen out` + `ninja -C out`. Aliases: `m` / `te` / `a` / `b`.
-3. **Do not** invent bare `gn gen` / `ninja -C out` as the primary loop unless `build.bat` is missing/broken and you are fixing the entry itself.
+1. **Entry:** from the **smartgis** repo root, run `.\build.bat` (or `cmd /c build.bat`). Default builds **both** `out/Debug` and `out/Release`; use `build.bat debug` / `build.bat release` for one config.
+2. **Engineering management is GN.** `build.bat` → `gn gen out/Debug|Release` + `ninja -C out/Debug|Release`. Aliases: `m` / `te` / `a` / `b`.
+3. **Do not** invent bare `gn gen` / `ninja` as the primary loop unless `build.bat` is missing/broken and you are fixing the entry itself.
 4. **Do not** use `SmartGIS.sln` / MSBuild / `build.bat sln` as the fix loop. That track is rejected. `vs2008/` is leftover only.
 5. Product sources are **`src/`**.
-6. **Tools:** `build\bin\gn.exe` + ninja; `build.bat` writes `out/environment.x64.x64` via PowerShell.
-7. Output root is **`out/`** only. Do not use `out/Default`. Third-party CMake install prefix is **`out/third_party`**. See `.cursor/rules/build/build-output.mdc`.
+6. **Tools:** `build\bin\gn.exe` + ninja; `build.bat` writes `out/environment.x64.x64` (copied into each config dir) via PowerShell.
+7. Gen roots are **`out/Debug`** and **`out/Release`**. Do not use bare `out/` or `out/Default` as a gen root. Third-party CMake install prefix is **`out/third_party`**. See `.cursor/rules/build/build-output.mdc`.
 
 ```bat
 .\build.bat
-.\build.bat te
+.\build.bat debug
+.\build.bat debug te
 ```
 
 Mapping: `docs/build/mogu-mapping.md`.
 
 ## Fix loop (log-driven)
 
-1. Run `.\build.bat` from repo root.
-2. Parse **`out/build.log`**:
+1. Run `.\build.bat debug` from repo root (or full `.\build.bat` when verifying both configs).
+2. Parse **`out/Debug/build.log`** (and **`out/Release/build.log`** if that config was built):
    - `FAILED:` / `ninja: build stopped`
    - every real **`error:`** / linker failure
    - actionable **`warning:`**
 3. Fix **root cause** in source or `BUILD.gn` (not `#if 0`, not `-Wno-*` unless asked).
-4. Rebuild via the same `.\build.bat`.
+4. Rebuild via the same `.\build.bat` invocation.
 5. Repeat until the **done bar**.
 
-**Done bar:** exit **0**, no `FAILED:`, no remaining **`error:`** in **`out/build.log`**.
+**Done bar:** exit **0**, no `FAILED:`, no remaining **`error:`** in the config log(s) that were built.
 
 ## Evidence before success
 
-Claim green **only** after a fresh successful `.\build.bat`. Show command, exit 0, and log confirmation.
+Claim green **only** after a fresh successful `.\build.bat` (or the scoped `debug`/`release` command used in the loop). Show command, exit 0, and log confirmation.
 
 ## Hard stops
 

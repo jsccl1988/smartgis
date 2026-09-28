@@ -137,7 +137,7 @@ build.bat map_scene_test
 
 | 旧 include | 文件 |
 | --- | --- |
-| `render/map2d/map_effect.h` | `src/render/map2d/map_effect.cc`，`src/app/views/document/map_scene.cc`，`src/render/graph/frame_graph_test.cc` |
+| `render/map2d/map_effect.h` | `src/render/map2d/map_effect.cc`，`src/content/browser/document/map_scene.cc`，`src/render/graph/frame_graph_test.cc` |
 | `render/map2d/pass.h` | `map_effect.cc`，`pass.cc`，`glyph_windows.cc`，`detail/atlas.cc`，`pass_test.cc`，`map_scene.cc`，`frame_graph_test.cc` |
 | `render/map2d/detail/atlas.h` | `pass.cc`，`detail/atlas.cc`，`detail/upload.h` |
 | `render/map2d/detail/encode.h` | `pass.cc`，`detail/encode.cc` |

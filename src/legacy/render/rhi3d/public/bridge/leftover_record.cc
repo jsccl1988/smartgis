@@ -3,8 +3,8 @@
 
 #include "legacy/render/rhi3d/public/bridge/leftover_record.h"
 
-#include "base/carto/style.h"
-#include "base/carto/stylemanager.h"
+#include "legacy/carto/style.h"
+#include "legacy/carto/stylemanager.h"
 #include "gis/model/map/map.h"
 #include "gis/model/map/map_layer.h"
 #include "gis/present/style/style_document.h"
@@ -138,7 +138,7 @@ bool LeftoverRecorder::record_map(const gis::SmtMap* map) {
   if (!map) {
     return false;
   }
-  base::Envelope env;
+  gis::Envelope env;
   map->get_envelope(env);
   if (env.is_init()) {
     gpu_.set_view_ortho(env.MinX, env.MinY, env.MaxX, env.MaxY);

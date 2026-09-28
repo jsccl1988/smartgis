@@ -6,18 +6,19 @@
 #include <utility>
 
 #include "content/public/plugin_host.h"
-#include "plugin/product/dem/dem_commands.h"
+#include "plugin/product/dem/commands.h"
 #include "plugin/runtime/host/manager_view.h"
 #include "plugin/runtime/host/manifest.h"
-#include "plugin/product/model3d/model3d_commands.h"
+#include "plugin/product/model3d/commands.h"
 #include "plugin/product/orthogrid/commands.h"
-#include "plugin/product/print/print_commands.h"
+#include "plugin/product/print/commands.h"
 #include "plugin/runtime/processing/builtin_ops.h"
 #include "plugin/runtime/host/processing.h"
-#include "plugin/product/proj/proj_commands.h"
 #include "plugin/runtime/host/registry.h"
+#include "plugin/runtime/python/runtime.h"
 #include "tool/command/command.h"
-#include "ui/views/dialogs/shell/dialog.h"
+#include "ui/views/dialogs/dialog.h"
+#include "ui/views/kernel/paint/painter_registry.h"
 
 namespace app {
 namespace {
@@ -48,16 +49,31 @@ PluginShell::~PluginShell() {
   shutdown();
 }
 
+void PluginShell::init_python() {
+  python_ = std::make_unique<plugin::PythonRuntime>();
+  if (!python_->init()) {
+    // Soft: product runs without embeddable CPython.
+    return;
+  }
+  plugin::bind_registry_python(registry_.get(), python_.get());
+  python_->bind_host(host_.get());
+}
+
 bool PluginShell::init(content::EventBus* events) {
   catalog_ = std::make_unique<tool::CommandCatalog>();
   host_.reset(content::create_plugin_host(catalog_.get(), events, nullptr));
   if (!host_) {
     return false;
   }
+  // Keep PainterRegistry out of content/: wire withdraw here only.
+  host_->set_ui_withdraw_hook([](std::string_view id) {
+    ui::views::PainterRegistry::get().withdraw_plugin(id);
+  });
   registry_ = std::make_unique<plugin::Registry>();
   pool_ = std::make_unique<plugin::ProcessingPool>(
       plugin::ProcessingMode::kThread);
   plugin::attach_host_processing(host_.get(), pool_.get());
+  init_python();
   return start_builtins();
 }
 
@@ -68,6 +84,12 @@ void PluginShell::shutdown() {
         registry_->set_enabled(rec.manifest.id, false, host_.get());
       }
     }
+  }
+  if (python_) {
+    plugin::clear_gis_console_bridge();
+    plugin::bind_gis_host_for_analysis(nullptr);
+    python_->shutdown();
+    python_.reset();
   }
   pool_.reset();
   host_.reset();
@@ -102,6 +124,10 @@ plugin::ProcessingPool* PluginShell::processing_pool() const {
   return pool_.get();
 }
 
+plugin::PythonRuntime* PluginShell::python_runtime() const {
+  return python_.get();
+}
+
 void PluginShell::flush_processing_for_test() {
   if (pool_) {
     pool_->flush_for_test();
@@ -123,6 +149,24 @@ bool PluginShell::execute(std::string_view command_id) {
   return host_->execute(command_id, tool::CommandArgs{});
 }
 
+bool PluginShell::ensure_python() {
+  if (!python_) {
+    init_python();
+  }
+  if (!python_ || !python_->is_ready()) {
+    return false;
+  }
+  python_->bind_host(host_.get());
+  return true;
+}
+
+std::string PluginShell::eval_python(std::string_view code) {
+  if (!ensure_python()) {
+    return "error: python not ready";
+  }
+  return python_->eval(code);
+}
+
 bool PluginShell::start_builtins() {
   if (!registry_ || !host_) {
     return false;
@@ -133,12 +177,12 @@ bool PluginShell::start_builtins() {
     const char* name;
     bool (*start)(content::PluginHost*);
   };
+  // Display names match leftover AuxModule Ambox labels (UTF-8).
   const Builtin builtins[] = {
-      {"smartgis.dem", "DEM", plugin::register_dem},
-      {"smartgis.proj", "Map Project", plugin::register_proj},
-      {"smartgis.print", "Map Print", plugin::register_print},
-      {"smartgis.model3d", "3D Model", plugin::register_model3d},
-      {"smartgis.baogrid", "Orthogrid", plugin::register_orthogrid},
+      {"smartgis.dem", "DEM生成", plugin::register_dem},
+      {"smartgis.print", "地图打印", plugin::register_print},
+      {"smartgis.model3d", "三维创建", plugin::register_model3d},
+      {"smartgis.baogrid", "正交格网", plugin::register_orthogrid},
       {"smartgis.processing", "Processing", plugin::register_builtin_processing},
   };
 

@@ -6,8 +6,7 @@
 
 #include <cstdint>
 #include <functional>
-#include <map>
-#include <string>
+#include <memory>
 #include <string_view>
 
 #include "tool/tool_export.h"
@@ -22,22 +21,31 @@ struct CommandArgs {
 
 using CommandHandler = std::function<bool(const CommandArgs&)>;
 
-class SMT_TOOL_EXPORT CommandCatalog {
+// String-id → handler map. Methods exported; class not — avoids C4251 on pimpl.
+class CommandCatalog {
  public:
-  bool add(std::string_view id, CommandHandler handler);
-  const CommandHandler* find(std::string_view id) const;
-  bool contains(std::string_view id) const;
+  TOOL_EXPORT CommandCatalog();
+  TOOL_EXPORT ~CommandCatalog();
+
+  CommandCatalog(const CommandCatalog&) = delete;
+  CommandCatalog& operator=(const CommandCatalog&) = delete;
+
+  TOOL_EXPORT bool add(std::string_view id, CommandHandler handler);
+  TOOL_EXPORT const CommandHandler* find(std::string_view id) const;
+  TOOL_EXPORT bool contains(std::string_view id) const;
   // Visit registered ids in map order. Empty |fn| is a no-op.
-  void for_each(const std::function<void(std::string_view id)>& fn) const;
+  TOOL_EXPORT void for_each(
+      const std::function<void(std::string_view id)>& fn) const;
 
  private:
-  std::map<std::string, CommandHandler> handlers_;
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
-class SMT_TOOL_EXPORT CommandDispatcher {
+class CommandDispatcher {
  public:
-  explicit CommandDispatcher(CommandCatalog* catalog);
-  bool execute(std::string_view id, const CommandArgs& args);
+  TOOL_EXPORT explicit CommandDispatcher(CommandCatalog* catalog);
+  TOOL_EXPORT bool execute(std::string_view id, const CommandArgs& args);
 
  private:
   CommandCatalog* catalog_ = nullptr;

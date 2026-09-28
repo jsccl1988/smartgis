@@ -28,26 +28,31 @@ All rights reserved.
 
 ```bat
 build.bat
-build.bat te
+build.bat debug
+build.bat release
+build.bat debug te
 ```
+
+默认 **同时** gen/ninja **`out/Debug`**（`is_debug=true`）与 **`out/Release`**（`is_debug=false`）。`build.bat debug|release …` 只编一套。`te` / `e2e` 跑测只使用 **Debug** 产物。
 
 ```bat
-gn gen out --args="is_debug=true is_build_third_party=false"
-gn args out --list
-ninja -C out all
+gn gen out/Debug --args="is_debug=true is_build_third_party=false"
+gn args out/Debug --list
+ninja -C out/Debug all
 ```
 
-入口脚本：仓库根 `build.bat`（可带 `m` / `te` / `a` / `b` / `app` / `views`）。文档索引：[`docs/README.md`](../docs/README.md)。
+入口脚本：仓库根 `build.bat`（可带 `debug` / `release`、`m` / `te` / `a` / `b` / `app` / `views`）。文档索引：[`docs/README.md`](../docs/README.md)。产物约定：[`.cursor/rules/build/build-output.mdc`](../.cursor/rules/build/build-output.mdc)。
 
 ## 与 mogu 的差异（有意保留）
 
-- **不**使用 Bazel dual-build。GN 吃 `third_party/.install`；`build.bat t` → `third_party/tools/batch.py` 装 prefix（对齐 mogu `build.sh build t`）。`out/third_party` 可 junction 到 `.install`（运行时搜 DLL）
+- **不**使用 Bazel dual-build。GN 吃 `third_party/.install`；`build.bat t` → `third_party/tools/batch.py` 装 prefix（对齐 mogu `build.sh build t`）。`out/third_party`（及各 config 下的 `third_party`）可 junction 到 `.install`（运行时搜 DLL）
 - **不**把 sln / `vs2008/` / `branches/` 当工程入口（见 [`docs/README.md`](../docs/README.md)）
 - **不**默认打开 `/W4` 或 sanitizers
 - `use_fast_debug` 已声明，MSVC 仍用 `/Zi`
+- Gen 根是 **`out/Debug` / `out/Release`**（不是裸 `out/`，也不是 `out/Default`）
 
 新增编译选项时：在 `config/` 加 `config()`，再 `configs +=`，不要改单个 target 的裸 flags。
 
 ---
 
-**最后更新：** 2026-09-13
+**最后更新：** 2026-09-28

@@ -5,14 +5,20 @@
 
 #include <cstdlib>
 
-#include "gis/present/style/detail/json_mini.h"
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 namespace gis {
 namespace style {
 namespace {
 
-using detail::JsonKind;
-using detail::JsonValue;
+std::string write_json(const rapidjson::Value& v) {
+  rapidjson::StringBuffer buf;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
+  v.Accept(writer);
+  return std::string(buf.GetString(), buf.GetSize());
+}
 
 bool is_expr_op(const std::string& op) {
   return op == "get" || op == "literal" || op == "zoom" || op == "==" ||
@@ -72,45 +78,50 @@ bool compare_expr(const std::string& op, const ExprValue& left,
   return false;
 }
 
-bool eval_json(const JsonValue& v, const AttrMap& attrs, double zoom,
+bool eval_json(const rapidjson::Value& v, const AttrMap& attrs, double zoom,
                ExprValue* out) {
   if (!out) {
     return false;
   }
   *out = ExprValue();
 
-  switch (v.kind) {
-    case JsonKind::kNull:
-      out->kind = ExprValue::Kind::kNull;
-      return true;
-    case JsonKind::kBool:
-      out->kind = ExprValue::Kind::kBool;
-      out->b = v.b;
-      return true;
-    case JsonKind::kNumber:
-      out->kind = ExprValue::Kind::kNumber;
-      out->n = v.n;
-      return true;
-    case JsonKind::kString:
-      out->kind = ExprValue::Kind::kString;
-      out->s = v.s;
-      return true;
-    case JsonKind::kArray:
-      break;
-    default:
-      return false;
+  if (v.IsNull()) {
+    out->kind = ExprValue::Kind::kNull;
+    return true;
   }
-
-  if (v.a.empty() || !v.a[0].is_string() || !is_expr_op(v.a[0].s)) {
+  if (v.IsBool()) {
+    out->kind = ExprValue::Kind::kBool;
+    out->b = v.GetBool();
+    return true;
+  }
+  if (v.IsNumber()) {
+    out->kind = ExprValue::Kind::kNumber;
+    out->n = v.GetDouble();
+    return true;
+  }
+  if (v.IsString()) {
+    out->kind = ExprValue::Kind::kString;
+    out->s = std::string(v.GetString(), v.GetStringLength());
+    return true;
+  }
+  if (!v.IsArray()) {
     return false;
   }
 
-  const std::string& op = v.a[0].s;
+  if (v.Empty() || !v[0].IsString()) {
+    return false;
+  }
+  const std::string op(v[0].GetString(), v[0].GetStringLength());
+  if (!is_expr_op(op)) {
+    return false;
+  }
+
   if (op == "get") {
-    if (v.a.size() < 2 || !v.a[1].is_string()) {
+    if (v.Size() < 2 || !v[1].IsString()) {
       return false;
     }
-    auto it = attrs.find(v.a[1].s);
+    const std::string key(v[1].GetString(), v[1].GetStringLength());
+    auto it = attrs.find(key);
     if (it == attrs.end()) {
       out->kind = ExprValue::Kind::kNull;
       return true;
@@ -120,32 +131,33 @@ bool eval_json(const JsonValue& v, const AttrMap& attrs, double zoom,
     return true;
   }
   if (op == "literal") {
-    if (v.a.size() < 2) {
+    if (v.Size() < 2) {
       return false;
     }
     // Payload is taken as-is (do not treat nested arrays as expressions).
-    const JsonValue& payload = v.a[1];
-    switch (payload.kind) {
-      case JsonKind::kNull:
-        out->kind = ExprValue::Kind::kNull;
-        return true;
-      case JsonKind::kBool:
-        out->kind = ExprValue::Kind::kBool;
-        out->b = payload.b;
-        return true;
-      case JsonKind::kNumber:
-        out->kind = ExprValue::Kind::kNumber;
-        out->n = payload.n;
-        return true;
-      case JsonKind::kString:
-        out->kind = ExprValue::Kind::kString;
-        out->s = payload.s;
-        return true;
-      default:
-        out->kind = ExprValue::Kind::kString;
-        out->s = detail::json_to_string(payload);
-        return true;
+    const rapidjson::Value& payload = v[1];
+    if (payload.IsNull()) {
+      out->kind = ExprValue::Kind::kNull;
+      return true;
     }
+    if (payload.IsBool()) {
+      out->kind = ExprValue::Kind::kBool;
+      out->b = payload.GetBool();
+      return true;
+    }
+    if (payload.IsNumber()) {
+      out->kind = ExprValue::Kind::kNumber;
+      out->n = payload.GetDouble();
+      return true;
+    }
+    if (payload.IsString()) {
+      out->kind = ExprValue::Kind::kString;
+      out->s = std::string(payload.GetString(), payload.GetStringLength());
+      return true;
+    }
+    out->kind = ExprValue::Kind::kString;
+    out->s = write_json(payload);
+    return true;
   }
   if (op == "zoom") {
     out->kind = ExprValue::Kind::kNumber;
@@ -154,13 +166,13 @@ bool eval_json(const JsonValue& v, const AttrMap& attrs, double zoom,
   }
 
   // Binary comparisons (reuse filter-style numeric/string rules).
-  if (v.a.size() < 3) {
+  if (v.Size() < 3) {
     return false;
   }
   ExprValue left;
   ExprValue right;
-  if (!eval_json(v.a[1], attrs, zoom, &left) ||
-      !eval_json(v.a[2], attrs, zoom, &right)) {
+  if (!eval_json(v[1], attrs, zoom, &left) ||
+      !eval_json(v[2], attrs, zoom, &right)) {
     return false;
   }
   out->kind = ExprValue::Kind::kBool;
@@ -174,12 +186,14 @@ bool looks_like_expression(const std::string& raw) {
   if (raw.empty() || raw[0] != '[') {
     return false;
   }
-  JsonValue root;
-  if (!detail::parse_json(raw.data(), raw.size(), &root) || !root.is_array() ||
-      root.a.empty() || !root.a[0].is_string()) {
+  rapidjson::Document root;
+  root.Parse(raw.data(), static_cast<rapidjson::SizeType>(raw.size()));
+  if (root.HasParseError() || !root.IsArray() || root.Empty() ||
+      !root[0].IsString()) {
     return false;
   }
-  return is_expr_op(root.a[0].s);
+  return is_expr_op(
+      std::string(root[0].GetString(), root[0].GetStringLength()));
 }
 
 bool eval_expression(const std::string& json, const AttrMap& attrs, double zoom,
@@ -187,8 +201,9 @@ bool eval_expression(const std::string& json, const AttrMap& attrs, double zoom,
   if (!out || json.empty()) {
     return false;
   }
-  JsonValue root;
-  if (!detail::parse_json(json.data(), json.size(), &root)) {
+  rapidjson::Document root;
+  root.Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
+  if (root.HasParseError()) {
     return false;
   }
   return eval_json(root, attrs, zoom, out);

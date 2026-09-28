@@ -41,7 +41,7 @@ source_set("world_sources") {
     "//src/gis/kernel/geo:geo_sources",
     "//src/base:base",
     "//src/base:core",
-    "//src/gis/datasource/ogr:ogr_codec",
+    "//src/gis/datasource/provider/impl/ogr:ogr_codec",
   ]
 }
 

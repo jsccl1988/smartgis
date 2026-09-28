@@ -18,7 +18,7 @@ All rights reserved.
 **MAY edit:**
 - `src/gis/kernel/geo/**`（仅必要时扩 buffer/clip 辅助）
 - `src/plugin/processing/**`（新建：内置算子贡献）
-- `src/ui/views/gis/processing_panel.*`（新建）
+- `src/ui/gis/processing_panel.*`（新建）
 - `src/app/views/shell/plugin/plugin_shell.*`（注册算子）
 - `src/app/views/browser_view.*` / `browser_view.h`（挂面板 + 菜单「处理」）
 - `src/app/views/BUILD.gn`、`src/ui/views/BUILD.gn`、相关 test

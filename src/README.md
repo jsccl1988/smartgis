@@ -13,7 +13,7 @@ GN targets keep short names (`sde_gdal`, `render_gl`). DLL stems stay `Smt*` (`d
 | **gis** | `gis/{model/{feature,layer,map,crs,edit},datasource/*,present/{style,tile},vista/{frame,world,assets,domain},kernel/{geo,proj,tin,stat}}` | **GIS 模型层**（不是 literal DB）+ CPU `MapFrame` / World + HTTP XYZ tiles + Style JSON (`gis::style`) + 空间内核（`geo` / `proj` / `tin` / `stat`），同一 `gis.dll`。`domain/atmosphere` 是 `kAtmosphere` 会话包。目录分组不增加公开命名空间。GDAL decorator driver `"SDBD"` (`SdbdDataset` owns stock inner datasets). |
 | **render** | `render/{rhi,scene,graph,skia}` | Unified 2D+3D via `render/rhi` (FlyCube DX12/Vulkan), `GpuScene`, frame graph. `gpu/` is the process. Scene math is `base/math`. |
 | **effect** | `effect/{map,atmosphere}` | GPU map and atmosphere passes. `source_set` linked by callers, not a DLL. |
-| **base** | `base/`（`:foundation` + base DLL leftovers + `math/`） | foundation = log/threading/files/archive/ipc；产品 DLL `dll_stem=base`；carto → `base/carto`。`base/math`（`//src/base/math:math`、`:bounds`）是场景数学，命名空间仍为 `render`，不进 `base.dll` |
+| **base** | `base/`（`:foundation` + base DLL leftovers + `math/`） | foundation = log/threading/files/archive/ipc；产品 DLL `dll_stem=base`；leftover style → `legacy/carto`；`gis::Envelope` → `gis/model/envelope.h`。`base/math`（`//src/base/math:math`、`:bounds`）是场景数学，命名空间仍为 `render`，不进 `base.dll` |
 
 ## OSS GIS ↔ this tree
 

@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_PRIMITIVES_BUTTON_RADIO_BUTTON_H_
 #define UI_VIEWS_PRIMITIVES_BUTTON_RADIO_BUTTON_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <functional>
 #include <string>
 
@@ -14,7 +14,7 @@ namespace ui {
 namespace views {
 
 // Exclusive radio option within a group_id among sibling RadioButtons.
-class UI_VIEWS_EXPORT RadioButton : public View {
+class UI_EXPORT RadioButton : public View {
  public:
   RadioButton(std::string label, int group_id);
   void set_selected(bool on);
@@ -24,6 +24,7 @@ class UI_VIEWS_EXPORT RadioButton : public View {
   void set_change(std::function<void()> fn);
   bool on_mouse_event(const MouseEvent& e) override;
   bool on_key_event(const KeyEvent& e) override;
+  std::string_view paint_role() const override;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;

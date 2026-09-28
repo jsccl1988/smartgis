@@ -30,6 +30,10 @@ void Textfield::set_change(std::function<void()> fn) {
   change_ = std::move(fn);
 }
 
+void Textfield::set_submit(std::function<void()> fn) {
+  submit_ = std::move(fn);
+}
+
 void Textfield::notify_change() {
   schedule_paint();
   if (change_) {
@@ -69,6 +73,12 @@ bool Textfield::on_key_event(const KeyEvent& e) {
   if (e.vk == VK_BACK) {
     return delete_last_char();
   }
+  if (e.vk == VK_RETURN) {
+    if (submit_) {
+      submit_();
+    }
+    return true;
+  }
   return false;
 }
 
@@ -105,5 +115,9 @@ void Textfield::paint_self(ui::gfx::Canvas* canvas) {
                     is_enabled() ? t.text : t.text_muted);
 }
 
+
+std::string_view Textfield::paint_role() const {
+  return "textfield";
+}
 }  // namespace views
 }  // namespace ui

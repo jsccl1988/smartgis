@@ -23,6 +23,10 @@ group("gbenchmark") {
   public_deps = [ "//third_party/gn:gbenchmark" ]
 }
 
+group("gbenchmark_main") {
+  public_deps = [ "//third_party/gn:gbenchmark_main" ]
+}
+
 group("benchmark") {
   public_deps = [ "//third_party/gn:benchmark" ]
 }
@@ -125,6 +129,26 @@ group("octree") {
 
 group("CLI11") {
   public_deps = [ "//third_party/gn:CLI11" ]
+}
+
+group("rapidjson") {
+  public_deps = [ "//third_party/gn:rapidjson" ]
+}
+
+group("concurrentqueue") {
+  public_deps = [ "//third_party/gn:concurrentqueue" ]
+}
+
+group("pugixml") {
+  public_deps = [ "//third_party/gn:pugixml" ]
+}
+
+group("yoga") {
+  public_deps = [ "//third_party/gn:yoga" ]
+}
+
+group("protobuf") {
+  public_deps = [ "//third_party/gn:protobuf" ]
 }
 
 group("chromium") {

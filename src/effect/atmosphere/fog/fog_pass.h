@@ -23,20 +23,22 @@ namespace atmosphere {
 
 // Height / distance fog knobs (GIS visibility). Depth attaches via shared RT.
 struct FogDrawParams {
-  float density = 0.04f;
+  // Tuned for China orbit (~3.2 camera span).
+  float density = 0.08f;
   // Soft falloff above this world Y (orbit-normalized units).
   float height_falloff = 1.2f;
   float base_height = 0.0f;
   // Characteristic distance for exponential fog (same units as camera).
-  float visibility = 6.0f;
+  float visibility = 4.0f;
   float color_r = 0.70f;
   float color_g = 0.76f;
   float color_b = 0.84f;
-  float max_opacity = 0.65f;
+  float max_opacity = 0.55f;
 };
 
-// Post-opaque haze: fullscreen quad with SrcAlpha. Uses shared depth load /
-// test-only so terrain/ocean already in the depth buffer occlude the fog.
+// Post-opaque haze: dedicated fog HLSL on a fullscreen NDC triangle (SrcAlpha).
+// Depth sampling against the shared RT remains deferred — this pass soft-washes
+// the frame without a depth test.
 class FogPass {
  public:
   FogPass();
@@ -48,7 +50,7 @@ class FogPass {
   void set_params(const FogDrawParams& params);
   const FogDrawParams& params() const { return params_; }
 
-  // Exponential distance × height attenuation in [0, 1].
+  // Exponential distance × height attenuation in [0, 1] (CPU mirror of kPsFog).
   static float fog_factor(const FogDrawParams& p, float distance,
                          float height_y);
 
@@ -56,7 +58,7 @@ class FogPass {
   bool record(render::rhi::Device* device, render::rhi::CommandList* list, uint32_t width,
               uint32_t height, const render::rhi::CameraMatrices* camera);
 
-  // Solid program created for the device passed to record. Null before that.
+  // Fog graphics program created for the device passed to record. Null before.
   render::rhi::Pipeline* pipeline() const { return pipeline_; }
 
   void release();

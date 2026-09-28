@@ -7,7 +7,7 @@
 #include <memory>
 #include <string>
 
-#include "base/carto/envelope.h"
+#include "gis/model/envelope.h"
 #include "gis/model/feature/feature.h"
 #include "gis/gis_export.h"
 #include "gis/model/layer/layer.h"
@@ -61,7 +61,7 @@ class GIS_EXPORT MapLayer {
   }
   void set_style_document(std::shared_ptr<style::StyleDocument> doc);
 
-  void get_envelope(base::Envelope* out) const;
+  void get_envelope(gis::Envelope* out) const;
   void cal_envelope();
 
  private:

@@ -1,9 +1,45 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #include "StdAfx.h"
 #include "legacy/ui/xambox/amb_amboxmgrdocbar.h"
 
 #include "legacy/ui/xambox/amb_xambox.h"
 
+#include <string>
+
 namespace ui {
+namespace {
+
+// Leftover AM / dock titles are CP936 narrow strings (/execution-charset:.936).
+// When the process ACP is UTF-8 (Windows Beta), Outlook tabs must receive UTF-8
+// or Chinese glyphs become '?'.
+CString ambox_title_for_display(const char* name) {
+  if (!name || !name[0]) {
+    return CString();
+  }
+  if (::GetACP() != 65001) {
+    return CString(name);
+  }
+  const int wlen = ::MultiByteToWideChar(936, 0, name, -1, nullptr, 0);
+  if (wlen <= 0) {
+    return CString(name);
+  }
+  std::wstring wide(static_cast<size_t>(wlen), L'\0');
+  ::MultiByteToWideChar(936, 0, name, -1, &wide[0], wlen);
+  const int u8len = ::WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, nullptr,
+                                          0, nullptr, nullptr);
+  if (u8len <= 0) {
+    return CString(name);
+  }
+  std::string utf8(static_cast<size_t>(u8len), '\0');
+  ::WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, &utf8[0], u8len, nullptr,
+                        nullptr);
+  return CString(utf8.c_str());
+}
+
+}  // namespace
+
 /////////////////////////////////////////////////////////////////////////////
 // SmtAMBoxMgrDocBar
 
@@ -35,7 +71,7 @@ SmtAMBoxMgrDocBar::~SmtAMBoxMgrDocBar() {
 }
 
 void SmtAMBoxMgrDocBar::OnContextMenu(CWnd* /*pWnd*/, CPoint /*point*/) {
-  // TODO: �ڴ˴�������Ϣ�����������
+  // TODO: Add your message handler code here
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -89,8 +125,11 @@ bool SmtAMBoxMgrDocBar::AddWnd(CWnd* pWnd, CString strTitle) {
     return false;
   }
 
+  // main_frame passes CP936 literals; normalize when ACP is UTF-8.
+  const CString title = ambox_title_for_display(strTitle.GetString());
+
   pContainer->AddControl(
-      pWnd, strTitle, 0, TRUE,
+      pWnd, title, 0, TRUE,
       CBRS_BCGP_FLOAT | CBRS_BCGP_AUTOHIDE | CBRS_BCGP_RESIZE);
   pWnd->ShowWindow(SW_SHOW);
 

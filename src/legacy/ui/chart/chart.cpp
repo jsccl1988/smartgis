@@ -3,7 +3,7 @@
 #include "legacy/ui/chart/chart.h"
 
 #include "legacy/core/api.h"
-#include "base/carto/stylemanager.h"
+#include "legacy/carto/stylemanager.h"
 #include "gis/model/feature/feature.h"
 #include "legacy/sys/sysmanager.h"
 

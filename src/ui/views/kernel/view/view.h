@@ -4,8 +4,9 @@
 #ifndef UI_VIEWS_KERNEL_VIEW_VIEW_H_
 #define UI_VIEWS_KERNEL_VIEW_VIEW_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #ifndef NOMINMAX
@@ -20,9 +21,13 @@
 #include "ui/views/kernel/shell/event.h"
 
 namespace ui {
+namespace gfx {
+class Canvas;
+}
 namespace views {
 
 class LayoutManager;
+class PaintDelegate;
 class Widget;
 
 // Geometry types live in ui::gfx; re-exported here so existing views call
@@ -32,7 +37,7 @@ using Size = ui::gfx::Size;
 using Rect = ui::gfx::Rect;
 
 // Retained-mode node. Children are owned. Optional native HWND (map host).
-class UI_VIEWS_EXPORT View {
+class UI_EXPORT View {
  public:
   View();
   virtual ~View();
@@ -88,11 +93,21 @@ class UI_VIEWS_EXPORT View {
   void mark_needs_layout();
   bool needs_layout() const { return needs_layout_; }
 
+  // Non-owning. Caller must clear or outlive this View.
+  void set_paint_delegate(PaintDelegate* delegate);
+  PaintDelegate* paint_delegate() const { return paint_delegate_; }
+
+  // Used by builtin RoleForwardPainter to invoke protected paint_self.
+  void paint_contents_for_painter(ui::gfx::Canvas* canvas);
+
   // ScrollView writes the viewport in the same coordinate space as bounds.
   // Empty means "no hint" (the view uses the canvas clip or its own bounds).
   void set_exposed_rect(const Rect& rect);
   const Rect& exposed_rect() const { return exposed_; }
 
+  // Keep layout/paint/event slots at stable vtable offsets across the
+  // ui_views PE and consumer EXEs. Append new virtuals below — never insert
+  // above.
   virtual void layout();
   virtual void paint(ui::gfx::Canvas* canvas);
   // Records dirty DisplayLists (UI/recording thread only), then appends a
@@ -110,6 +125,15 @@ class UI_VIEWS_EXPORT View {
 
   // Walk this subtree, invoking on_device_scale_factor_changed on each node.
   void propagate_device_scale_factor_changed(float old_scale, float new_scale);
+
+  // When true, layout_check skips "child-outside-parent" for this node's
+  // children (ScrollView content / Combobox dropdown overlay).
+  virtual bool allows_child_overflow() const { return false; }
+
+  // Stable type key for PainterRegistry (e.g. "button"). Empty = no registry
+  // lookup; subclass paint_self runs instead. Appended after legacy virtuals
+  // so cross-DLL View subclasses keep layout/paint slots.
+  virtual std::string_view paint_role() const;
 
   View* get_view_at(int x, int y);
 
@@ -164,6 +188,7 @@ class UI_VIEWS_EXPORT View {
   bool commands_ready_ = false;
   Rect exposed_{};
   ui::gfx::DisplayList commands_;
+  PaintDelegate* paint_delegate_ = nullptr;
 };
 
 }  // namespace views

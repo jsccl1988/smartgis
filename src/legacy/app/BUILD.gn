@@ -17,7 +17,7 @@ smt_shared_library("app_core") {
     "//src/gis/kernel/geo:geo",
     "//src/gis/model/map:gis",
     "//src/plugin:plugin",
-    "//src/gis/datasource/mgr:sde_mgr",
+    "//src/legacy/datasource/mgr:sde_mgr",
     "//src/legacy/sys:sys",
     "//src/legacy/tool:tool",
     "//src/legacy/ui/xcatalog:xcatalog",
@@ -52,7 +52,7 @@ smt_mfc_executable("app") {
     "//src/plugin:plugin",
     "//src/legacy/render/rhi2d:rhi2d",
     "//src/legacy/render/rhi3d:rhi",
-    "//src/gis/datasource/mgr:sde_mgr",
+    "//src/legacy/datasource/mgr:sde_mgr",
     "//src/legacy/sys:sys",
     "//src/legacy/tool:tool",
     "//src/legacy/tool/group:tool_group",
@@ -62,6 +62,7 @@ smt_mfc_executable("app") {
     "//src/legacy/ui/xcatalog:xcatalog",
     "//src/legacy/ui/xview:xview",
     "//testing/data:china_map_samples",
+    "//testing/data:am_terrain_samples",
   ]
 }
 

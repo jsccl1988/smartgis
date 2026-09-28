@@ -150,5 +150,9 @@ void Slider::paint_self(ui::gfx::Canvas* canvas) {
   }
 }
 
+
+std::string_view Slider::paint_role() const {
+  return "slider";
+}
 }  // namespace views
 }  // namespace ui

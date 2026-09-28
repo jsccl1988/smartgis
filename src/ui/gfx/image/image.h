@@ -4,7 +4,7 @@
 #ifndef UI_GFX_IMAGE_IMAGE_H_
 #define UI_GFX_IMAGE_IMAGE_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <cstdint>
 #include <vector>
 
@@ -15,7 +15,7 @@ namespace gfx {
 
 // Thin BGRA8 bitmap for shell chrome (icons, badges). Not a GIS texture,
 // not ImageSkia, and not a decode pipeline.
-class UI_VIEWS_EXPORT Image {
+class UI_EXPORT Image {
  public:
   Image() = default;
   Image(int width, int height);

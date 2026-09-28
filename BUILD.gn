@@ -24,10 +24,15 @@ group("all_with_tests") {
   ]
 }
 
-# No benchmark targets yet; group exists so `b` / build.bat b stay valid.
+# Console / GIS / RHI google/benchmark targets (build.bat b / build.bat debug b).
 group("benchmark_all") {
   testonly = true
-  deps = []
+  deps = [
+    "//src/content:content_console_bench",
+    "//src/ui/views:views_bench",
+    "//src/gis:gis_benchmark_all",
+    "//src/render/testing:render_benchmark_all",
+  ]
 }
 
 # SP5: endgame / shell tests only — no leftover paint / scene3d / MFC exe.
@@ -37,45 +42,32 @@ group("test_shell") {
   deps = [
     "//testing/e2e:exe_smoke",
     "//src/ui/views:views_unittests",
+    "//src/ui/views:views_interactive_tests",
+    "//src/ui/views:markup_unittests",
+    "//src/app/ui_designer:ui_designer",
     "//src/ui/views:views_pixel_tests",
     "//src/content:content_view_host_test",
+    "//src/content:debug_agent_test",
+    "//src/content:content_console_coverage_test",
     "//src/content:content_feature_attrs_test",
     "//src/content:content_catalog_layers_test",
-    "//src/app/views:map_scene_test",
-    "//src/app/views:scene3d_presenter_test",
+    "//src/content:map_scene_test",
+    "//src/content:scene3d_presenter_test",
     "//src/app/views:view_commands_test",
-    "//src/app/views:view_navigation_test",
-    "//src/gis/vista/world:dem_raster_test",
-    "//src/gis/datasource/ogr:ogr_text_encoding_test",
-    "//src/gis/datasource/sdbd:sdbd_client_test",
-    "//src/gis/datasource/sdbd:sdbd_live_test",
-    "//src/gis/vista/world:land_mask_test",
-    "//src/gis/vista/domain/atmosphere:field_store_test",
-    "//src/gis/vista/domain/atmosphere:procedural_test",
-    "//src/gis/vista/domain/atmosphere:field_ingest_test",
+    "//src/content:view_navigation_test",
+    "//src/gis:gis_test_all",
     "//src/tool:camera_nav_test",
     "//src/tool:tool_dispatch_test",
     "//src/tool:draft_test",
-    "//src/gis/datasource/gdal:sde_gdal_test",
-    "//src/gis/model/map:select_query_test",
-    "//src/gis/present/tile:tile_test",
-    "//src/gis/present/style:style_test",
-    "//src/gis/vista/frame:frame_test",
     "//src/effect/map:map_effect_test",
-    "//src/gis/kernel/geo:geo_ogr_test",
-    "//src/gis/kernel/proj:proj_test",
-    "//src/gis/kernel/stat:stat_expr_test",
-    "//src/gis/kernel/tin:tin_delaunay_test",
-    "//src/gis/kernel/tin:tin_xyz_test",
-    "//src/gis/vista/assets:model_test",
-    "//src/gis/vista/world:world_test",
-    "//src/gis/vista/world:tessellate_style_test",
     "//src/render:rhi_test",
+    "//src/render/testing:rhi_suite_test",
     "//src/effect/scene:scene_gpu_test",
     "//src/effect/scene:unified_draw_test",
     "//src/gpu:render_backend_test",
     "//src/base/core:menu_test",
     "//src/base/ipc:ipc_test",
+    "//src/base/trace:trace_test",
     # Plugin pathway (Registry / PluginHost / processing ops / M4 embed sample).
     "//src/plugin:plugin_host_test",
     "//src/plugin/runtime/processing:processing_ops_test",
@@ -194,6 +186,7 @@ group("ui_legacy") {
 group("ui_views") {
   deps = [
     "//src/ui/gfx:gfx",
+    "//src/ui/gis:gis",
     "//src/ui/views:views",
   ]
   if (smt_build_views) {
@@ -203,6 +196,11 @@ group("ui_views") {
 
 group("views") {
   deps = [ ":ui_views" ]
+}
+
+# Declarative UI designer / editor (always available; no map).
+group("UiDesigner") {
+  deps = [ "//src/app/ui_designer:ui_designer" ]
 }
 
 # GPU process. Only loaded when smt_build_render=true (build.bat render).

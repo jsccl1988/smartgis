@@ -9,7 +9,7 @@
 
 #include "plugin/runtime/host/plugin_host_export.h"
 #include "ui/views/map/map_viewport.h"
-#include "ui/views/gis/shell/status_bar.h"
+#include "ui/gis/shell/status_bar.h"
 #include "ui/views/kernel/view/view.h"
 
 namespace plugin {

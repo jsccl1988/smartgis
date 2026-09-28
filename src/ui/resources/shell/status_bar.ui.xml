@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="status_bar">
+  <style src="status_bar.ui.css"/>
+  <hbox id="root" class="bar">
+    <label id="scale" text="Scale"/>
+    <label id="crs" text="CRS"/>
+    <label id="coord" text="XY"/>
+    <label id="status" text=""/>
+  </hbox>
+</ui>

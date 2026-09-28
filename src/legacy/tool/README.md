@@ -9,7 +9,7 @@ Leftover 2010 `SmtIATool` / group tools and the GT_MSG → endgame Workspace bri
 
 | Subdir | Role | GN |
 | --- | --- | --- |
-| `iatool/` | `SmtIATool`, manager, `t_msg`, `TOOL_EXPORT` | `//src/legacy/tool/iatool:tool_sources` → `dll_stem=legacy_tool` |
+| `iatool/` | `SmtIATool`, manager, `t_msg`, `LEGACY_TOOL_EXPORT` | `//src/legacy/tool/iatool:tool_sources` → `dll_stem=legacy_tool` |
 | `adapter/` | `GT_MSG_*` → `tool::Workspace` (`msg.h` / `msg.cc`; `namespace tool`) | `//src/legacy/tool/adapter:adapter` (source_set; not the DLL) |
 | `group/{base,view,select,input,factory}` | `Smt*Tool` + factory; root keeps `defs.h` / RC / `res/` (sources → `ui_legacy`) | `//src/legacy/tool/group:tool_group_sources` |
 

@@ -3,12 +3,18 @@
 
 #include "gis/vista/world/terrain/tessellate.h"
 
+#include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <vector>
 
+#include "base/memory/arena.h"
+#include "base/memory/object_pool.h"
+#include "base/trace/process_trace.h"
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "ogrsf_frmts.h"
-#include "gis/datasource/ogr/codec/ogr_feature_codec.h"
+#include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
 #include "gis/model/layer/layer.h"
 
 namespace gis {
@@ -16,6 +22,68 @@ namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kEps = 1e-9;
+
+struct TessTraceStats {
+  std::atomic<int64_t> geom_us{0};
+  std::atomic<int64_t> geom_n{0};
+  std::atomic<int64_t> poly_fan_us{0};
+  std::atomic<int64_t> line_us{0};
+  std::atomic<int64_t> line_n{0};
+  std::atomic<int64_t> line_points_us{0};
+  std::atomic<int64_t> line_dash_us{0};
+  std::atomic<int64_t> line_solid_us{0};
+
+  void reset() {
+    geom_us.store(0, std::memory_order_relaxed);
+    geom_n.store(0, std::memory_order_relaxed);
+    poly_fan_us.store(0, std::memory_order_relaxed);
+    line_us.store(0, std::memory_order_relaxed);
+    line_n.store(0, std::memory_order_relaxed);
+    line_points_us.store(0, std::memory_order_relaxed);
+    line_dash_us.store(0, std::memory_order_relaxed);
+    line_solid_us.store(0, std::memory_order_relaxed);
+  }
+};
+
+TessTraceStats& tess_trace_stats() {
+  static TessTraceStats stats;
+  return stats;
+}
+
+struct ScopedTessCpu {
+  std::atomic<int64_t>* bucket = nullptr;
+  std::chrono::steady_clock::time_point begin{};
+
+  explicit ScopedTessCpu(std::atomic<int64_t>* b) {
+    if (!base::tracing_enabled() || !b) {
+      return;
+    }
+    bucket = b;
+    begin = std::chrono::steady_clock::now();
+  }
+
+  ~ScopedTessCpu() {
+    if (!bucket) {
+      return;
+    }
+    const auto us = std::chrono::duration_cast<std::chrono::microseconds>(
+                        std::chrono::steady_clock::now() - begin)
+                        .count();
+    bucket->fetch_add(us, std::memory_order_relaxed);
+  }
+
+  ScopedTessCpu(const ScopedTessCpu&) = delete;
+  ScopedTessCpu& operator=(const ScopedTessCpu&) = delete;
+};
+
+void flush_tess_bucket(const char* name, int64_t us) {
+  if (us <= 0) {
+    return;
+  }
+  const auto end = std::chrono::steady_clock::now();
+  const auto begin = end - std::chrono::microseconds(us);
+  base::process_trace().add(name, "map2d.tess", begin, end);
+}
 
 struct Vec2 {
   double x = 0;
@@ -27,6 +95,31 @@ struct PolyPt {
   double y = 0;
   double z = 0;
 };
+
+// Per-worker scratch pools (tessellate_* runs under parallel_for).
+base::ObjectPool<std::vector<PolyPt>>& poly_pt_vec_pool() {
+  thread_local base::ObjectPool<std::vector<PolyPt>> pool(
+      16, nullptr, [](std::vector<PolyPt>* v) { v->clear(); });
+  return pool;
+}
+
+base::ObjectPool<std::vector<Vec2>>& vec2_vec_pool() {
+  thread_local base::ObjectPool<std::vector<Vec2>> pool(
+      8, nullptr, [](std::vector<Vec2>* v) { v->clear(); });
+  return pool;
+}
+
+base::ObjectPool<std::vector<std::vector<PolyPt>>>& dash_vec_pool() {
+  thread_local base::ObjectPool<std::vector<std::vector<PolyPt>>> pool(
+      4, nullptr, [](std::vector<std::vector<PolyPt>>* v) { v->clear(); });
+  return pool;
+}
+
+void clear_tessellate_tls_scratch() {
+  if (base::MemoryResource* tls = base::tls_memory_resource()) {
+    tls->clear(64 * 1024);
+  }
+}
 
 Vec2 operator+(Vec2 a, Vec2 b) { return {a.x + b.x, a.y + b.y}; }
 Vec2 operator-(Vec2 a, Vec2 b) { return {a.x - b.x, a.y - b.y}; }
@@ -126,7 +219,8 @@ void tessellate_line_legacy(const OGRLineString* line, TessMesh& out) {
   }
 }
 
-void tessellate_ring_fan(const OGRLinearRing* ring, TessMesh& out) {
+void tessellate_ring_fan(const OGRLinearRing* ring, const FillTessOptions& opts,
+                         TessMesh& out) {
   if (!ring) {
     return;
   }
@@ -138,26 +232,91 @@ void tessellate_ring_fan(const OGRLinearRing* ring, TessMesh& out) {
   if (n < 3) {
     return;
   }
-  const uint32_t base = vert_count(out);
-  for (int i = 0; i < n; ++i) {
-    append_xyz(out, static_cast<float>(ring->getX(i)),
-               static_cast<float>(ring->getY(i)), 0);
+
+  OGREnvelope env;
+  ring->getEnvelope(&env);
+  const double diag = std::hypot(env.MaxX - env.MinX, env.MaxY - env.MinY);
+  const double wupp = opts.world_units_per_pixel;
+  // Sub-pixel fill: skip (wash already covers tiny scraps at carto zooms).
+  if (wupp > 0 && diag < 0.75 * wupp) {
+    return;
   }
-  for (int i = 1; i + 1 < n; ++i) {
+
+  const int max_verts =
+      opts.max_fan_verts > 3 ? opts.max_fan_verts : 64;
+  // Screen-space floor when wupp known; else ~1/128 of envelope (coarser than
+  // the old 1/512 pass that still walked every OGR vertex).
+  double min_d = diag > kEps ? diag / 128.0 : kEps;
+  if (wupp > 0) {
+    min_d = (std::max)(min_d, wupp);
+  }
+  const double min_d2 = min_d * min_d;
+
+  // Dense rings: stride OGR reads first so we never touch all verts.
+  int stride = 1;
+  if (n > max_verts * 2) {
+    stride = (n + max_verts - 1) / max_verts;
+    if (stride < 1) {
+      stride = 1;
+    }
+  }
+
+  auto pts_holder = poly_pt_vec_pool().allocate();
+  std::vector<PolyPt>& pts = *pts_holder;
+  pts.reserve(static_cast<size_t>((std::min)(n, max_verts)));
+  pts.push_back({ring->getX(0), ring->getY(0), 0});
+  for (int i = stride; i < n; i += stride) {
+    const double x = ring->getX(i);
+    const double y = ring->getY(i);
+    const double dx = x - pts.back().x;
+    const double dy = y - pts.back().y;
+    if (dx * dx + dy * dy >= min_d2) {
+      pts.push_back({x, y, 0});
+      if (static_cast<int>(pts.size()) >= max_verts - 1) {
+        break;
+      }
+    }
+  }
+  {
+    const double x = ring->getX(n - 1);
+    const double y = ring->getY(n - 1);
+    const double dx = x - pts.back().x;
+    const double dy = y - pts.back().y;
+    if (dx * dx + dy * dy >= kEps * kEps) {
+      if (static_cast<int>(pts.size()) >= max_verts && pts.size() >= 2) {
+        pts.back() = {x, y, 0};
+      } else {
+        pts.push_back({x, y, 0});
+      }
+    }
+  }
+  if (pts.size() < 3) {
+    return;
+  }
+
+  const uint32_t base = vert_count(out);
+  for (const PolyPt& p : pts) {
+    append_xyz(out, static_cast<float>(p.x), static_cast<float>(p.y), 0);
+  }
+  const int m = static_cast<int>(pts.size());
+  for (int i = 1; i + 1 < m; ++i) {
     out.indices.push_back(base);
     out.indices.push_back(base + static_cast<uint32_t>(i));
     out.indices.push_back(base + static_cast<uint32_t>(i + 1));
   }
 }
 
-void tessellate_polygon(const OGRPolygon* poly, TessMesh& out) {
+void tessellate_polygon(const OGRPolygon* poly, const FillTessOptions& opts,
+                        TessMesh& out) {
+  ScopedTessCpu cpu(&tess_trace_stats().poly_fan_us);
   if (!poly) {
     return;
   }
-  tessellate_ring_fan(poly->getExteriorRing(), out);
+  tessellate_ring_fan(poly->getExteriorRing(), opts, out);
 }
 
-bool tessellate_geom_into(const OGRGeometry* geom, TessMesh& out) {
+bool tessellate_geom_into(const OGRGeometry* geom, const FillTessOptions& opts,
+                          TessMesh& out) {
   if (!geom) {
     return false;
   }
@@ -173,7 +332,7 @@ bool tessellate_geom_into(const OGRGeometry* geom, TessMesh& out) {
       return true;
     case wkbPolygon:
     case wkbTriangle:
-      tessellate_polygon(geom->toPolygon(), out);
+      tessellate_polygon(geom->toPolygon(), opts, out);
       return true;
     case wkbMultiPoint:
     case wkbMultiLineString:
@@ -187,7 +346,7 @@ bool tessellate_geom_into(const OGRGeometry* geom, TessMesh& out) {
       const int n = col->getNumGeometries();
       bool any = false;
       for (int i = 0; i < n; ++i) {
-        if (tessellate_geom_into(col->getGeometryRef(i), out)) {
+        if (tessellate_geom_into(col->getGeometryRef(i), opts, out)) {
           any = true;
         }
       }
@@ -359,26 +518,77 @@ void emit_end_caps(const std::vector<PolyPt>& pts, double hw, LineCap cap,
 
 bool append_solid_polyline(const std::vector<PolyPt>& pts, double hw,
                            const LineTessOptions& options, TessMesh& out) {
+  ScopedTessCpu cpu(&tess_trace_stats().line_solid_us);
   if (pts.size() < 2 || hw <= 0) {
     return false;
   }
 
-  // Drop zero-length edges before stroking.
-  std::vector<PolyPt> clean;
+  // Thin / far-zoom strokes: drop round fans (CPU-heavy) and prefer bevel/butt.
+  LineJoin join = options.join;
+  LineCap cap = options.cap;
+  int round_segments = options.round_segments;
+  double min_seg = kEps;
+  bool skip_joins = false;
+  double px = 0;
+  if (options.world_units_per_pixel > 0) {
+    min_seg = options.world_units_per_pixel * 1.5;
+    px = options.pixel_width > 0
+             ? options.pixel_width
+             : (2.0 * hw / options.world_units_per_pixel);
+    if (px <= 2.5) {
+      if (join == LineJoin::kRound) {
+        join = LineJoin::kBevel;
+      }
+      if (cap == LineCap::kRound) {
+        cap = LineCap::kButt;
+      }
+      round_segments = 0;
+      // Quads abut; join wedges are invisible at ~1–2 px width.
+      skip_joins = true;
+    } else if (px <= 4.0) {
+      if (join == LineJoin::kRound) {
+        join = LineJoin::kBevel;
+      }
+      round_segments = (std::min)(round_segments, 4);
+    }
+  }
+
+  // Drop short edges (sub-pixel at current wupp) before stroking.
+  auto clean_holder = poly_pt_vec_pool().allocate();
+  std::vector<PolyPt>& clean = *clean_holder;
   clean.reserve(pts.size());
   clean.push_back(pts.front());
-  for (size_t i = 1; i < pts.size(); ++i) {
+  const double min_seg2 = min_seg * min_seg;
+  constexpr size_t kMaxClean = 128;
+  for (size_t i = 1; i + 1 < pts.size(); ++i) {
     const double dx = pts[i].x - clean.back().x;
     const double dy = pts[i].y - clean.back().y;
-    if (dx * dx + dy * dy > kEps * kEps) {
+    if (dx * dx + dy * dy >= min_seg2) {
       clean.push_back(pts[i]);
+      if (clean.size() >= kMaxClean - 1) {
+        break;
+      }
+    }
+  }
+  {
+    const PolyPt& last = pts.back();
+    const double dx = last.x - clean.back().x;
+    const double dy = last.y - clean.back().y;
+    const double d2 = dx * dx + dy * dy;
+    if (d2 >= kEps * kEps) {
+      if ((d2 < min_seg2 || clean.size() >= kMaxClean) && clean.size() >= 2) {
+        clean.back() = last;
+      } else {
+        clean.push_back(last);
+      }
     }
   }
   if (clean.size() < 2) {
     return false;
   }
 
-  std::vector<Vec2> dirs;
+  auto dirs_holder = vec2_vec_pool().allocate();
+  std::vector<Vec2>& dirs = *dirs_holder;
   dirs.reserve(clean.size() - 1);
   for (size_t i = 0; i + 1 < clean.size(); ++i) {
     dirs.push_back(vec_normalize(
@@ -389,11 +599,13 @@ bool append_solid_polyline(const std::vector<PolyPt>& pts, double hw,
   for (size_t i = 0; i + 1 < clean.size(); ++i) {
     emit_segment_quad(clean[i], clean[i + 1], vec_perp(dirs[i]), hw, out);
   }
-  for (size_t i = 1; i + 1 < clean.size(); ++i) {
-    emit_join(clean[i], dirs[i - 1], dirs[i], hw, options.join,
-              options.miter_limit, options.round_segments, out);
+  if (!skip_joins) {
+    for (size_t i = 1; i + 1 < clean.size(); ++i) {
+      emit_join(clean[i], dirs[i - 1], dirs[i], hw, join, options.miter_limit,
+                round_segments, out);
+    }
   }
-  emit_end_caps(clean, hw, options.cap, options.round_segments, out);
+  emit_end_caps(clean, hw, cap, round_segments, out);
   return out.indices.size() > before;
 }
 
@@ -495,8 +707,12 @@ bool append_styled_polyline(const std::vector<PolyPt>& pts,
   if (pts.size() < 2 || hw <= 0) {
     return false;
   }
-  std::vector<std::vector<PolyPt>> dashes;
-  dash_split(pts, options.dasharray, dashes);
+  auto dashes_holder = dash_vec_pool().allocate();
+  std::vector<std::vector<PolyPt>>& dashes = *dashes_holder;
+  {
+    ScopedTessCpu cpu(&tess_trace_stats().line_dash_us);
+    dash_split(pts, options.dasharray, dashes);
+  }
   bool any = false;
   for (const auto& dash : dashes) {
     if (append_solid_polyline(dash, hw, options, out)) {
@@ -517,6 +733,77 @@ std::vector<PolyPt> line_to_points(const OGRLineString* line) {
     pts.push_back({line->getX(i), line->getY(i), line->getZ(i)});
   }
   return pts;
+}
+
+// Screen-aware OGR → pts: stride dense rings, drop sub-pixel edges, cap verts.
+void line_to_points_decimated(const OGRLineString* line,
+                              const LineTessOptions& options,
+                              std::vector<PolyPt>& pts) {
+  pts.clear();
+  if (!line) {
+    return;
+  }
+  const int n = line->getNumPoints();
+  if (n < 2) {
+    return;
+  }
+
+  constexpr int kMaxLineVerts = 128;
+  const double wupp = options.world_units_per_pixel;
+  if (wupp > 0) {
+    OGREnvelope env;
+    line->getEnvelope(&env);
+    const double diag =
+        std::hypot(env.MaxX - env.MinX, env.MaxY - env.MinY);
+    // Sub-pixel stroke: invisible at carto zooms.
+    if (diag < 0.5 * wupp) {
+      return;
+    }
+  }
+
+  // Coarser than the old 0.75 px solid pass — samples before solid emit.
+  double min_seg = kEps;
+  if (wupp > 0) {
+    min_seg = wupp * 1.5;
+  }
+  const double min_seg2 = min_seg * min_seg;
+
+  int stride = 1;
+  if (n > kMaxLineVerts * 2) {
+    stride = (n + kMaxLineVerts - 1) / kMaxLineVerts;
+    if (stride < 1) {
+      stride = 1;
+    }
+  }
+
+  pts.reserve(static_cast<size_t>((std::min)(n, kMaxLineVerts)));
+  pts.push_back({line->getX(0), line->getY(0), line->getZ(0)});
+  for (int i = stride; i + 1 < n; i += stride) {
+    const double x = line->getX(i);
+    const double y = line->getY(i);
+    const double dx = x - pts.back().x;
+    const double dy = y - pts.back().y;
+    if (dx * dx + dy * dy >= min_seg2) {
+      pts.push_back({x, y, line->getZ(i)});
+      if (static_cast<int>(pts.size()) >= kMaxLineVerts - 1) {
+        break;
+      }
+    }
+  }
+  {
+    const double x = line->getX(n - 1);
+    const double y = line->getY(n - 1);
+    const double z = line->getZ(n - 1);
+    const double dx = x - pts.back().x;
+    const double dy = y - pts.back().y;
+    if (dx * dx + dy * dy >= kEps * kEps) {
+      if (static_cast<int>(pts.size()) >= kMaxLineVerts && pts.size() >= 2) {
+        pts.back() = {x, y, z};
+      } else {
+        pts.push_back({x, y, z});
+      }
+    }
+  }
 }
 
 }  // namespace
@@ -547,8 +834,18 @@ double resolve_line_half_width(const LineTessOptions& options) {
 }
 
 bool tessellate_geometry(const OGRGeometry* geom, TessMesh& out) {
+  return tessellate_geometry(geom, FillTessOptions{}, out);
+}
+
+bool tessellate_geometry(const OGRGeometry* geom,
+                         const FillTessOptions& fill_options, TessMesh& out) {
+  ScopedTessCpu cpu(&tess_trace_stats().geom_us);
+  if (base::tracing_enabled()) {
+    tess_trace_stats().geom_n.fetch_add(1, std::memory_order_relaxed);
+  }
+  clear_tessellate_tls_scratch();
   reset_mesh(out);
-  if (!tessellate_geom_into(geom, out)) {
+  if (!tessellate_geom_into(geom, fill_options, out)) {
     return false;
   }
   return !out.indices.empty();
@@ -556,24 +853,28 @@ bool tessellate_geometry(const OGRGeometry* geom, TessMesh& out) {
 
 bool tessellate_geoms(const OGRGeometry* const* geoms, size_t count,
                       TessMesh& out) {
+  clear_tessellate_tls_scratch();
   reset_mesh(out);
   if (!geoms || count == 0) {
     return false;
   }
+  const FillTessOptions opts;
   for (size_t i = 0; i < count; ++i) {
-    tessellate_geom_into(geoms[i], out);
+    tessellate_geom_into(geoms[i], opts, out);
   }
   return !out.indices.empty();
 }
 
 bool tessellate_layer(OGRLayer* layer, TessMesh& out) {
+  clear_tessellate_tls_scratch();
   reset_mesh(out);
   if (!layer) {
     return false;
   }
+  const FillTessOptions opts;
   layer->ResetReading();
   while (OGRFeature* feat = layer->GetNextFeature()) {
-    tessellate_geom_into(feat->GetGeometryRef(), out);
+    tessellate_geom_into(feat->GetGeometryRef(), opts, out);
     OGRFeature::DestroyFeature(feat);
   }
   return !out.indices.empty();
@@ -622,7 +923,7 @@ bool tessellate_fan(const OGRPolygon* fan, TessMesh& out) {
   if (!fan) {
     return false;
   }
-  tessellate_polygon(fan, out);
+  tessellate_polygon(fan, FillTessOptions{}, out);
   return !out.indices.empty();
 }
 
@@ -687,7 +988,7 @@ bool tessellate_raster_layer(const gis::SmtRasterLayer* layer, TessMesh& out) {
   base::fRect rect;
   if (layer->GetRasterRect(rect) != SMT_ERR_NONE ||
       !rect_has_area(rect.lb.x, rect.lb.y, rect.rt.x, rect.rt.y)) {
-    base::Envelope env;
+    gis::Envelope env;
     layer->get_envelope(env);
     rect.lb.x = static_cast<float>(env.MinX);
     rect.lb.y = static_cast<float>(env.MinY);
@@ -732,7 +1033,7 @@ bool tessellate_tile_layer(const gis::SmtTileLayer* layer, TessMesh& out) {
   if (!out.indices.empty()) {
     return true;
   }
-  base::Envelope env;
+  gis::Envelope env;
   layer->get_envelope(env);
   if (!rect_has_area(env.MinX, env.MinY, env.MaxX, env.MaxY)) {
     return false;
@@ -742,6 +1043,7 @@ bool tessellate_tile_layer(const gis::SmtTileLayer* layer, TessMesh& out) {
 }
 
 bool tessellate_line(const OGRLineString* line, TessMesh& out) {
+  clear_tessellate_tls_scratch();
   reset_mesh(out);
   if (!line || line->getNumPoints() < 2) {
     return false;
@@ -752,21 +1054,63 @@ bool tessellate_line(const OGRLineString* line, TessMesh& out) {
 
 bool tessellate_line(const OGRLineString* line, const LineTessOptions& options,
                      TessMesh& out) {
+  ScopedTessCpu cpu(&tess_trace_stats().line_us);
+  if (base::tracing_enabled()) {
+    tess_trace_stats().line_n.fetch_add(1, std::memory_order_relaxed);
+  }
+  clear_tessellate_tls_scratch();
   reset_mesh(out);
   if (!line) {
     return false;
   }
-  return append_styled_polyline(line_to_points(line), options, out);
+  auto pts_holder = poly_pt_vec_pool().allocate();
+  std::vector<PolyPt>& pts = *pts_holder;
+  {
+    ScopedTessCpu points_cpu(&tess_trace_stats().line_points_us);
+    line_to_points_decimated(line, options, pts);
+  }
+  return append_styled_polyline(pts, options, out);
+}
+
+void reset_tess_trace_stats() {
+  tess_trace_stats().reset();
+}
+
+void flush_tess_trace_stats() {
+  if (!base::tracing_enabled()) {
+    return;
+  }
+  TessTraceStats& s = tess_trace_stats();
+  // One Complete span per bucket; duration is CPU-us sum (may exceed wall
+  // under parallel_for — that is intentional for cost attribution).
+  flush_tess_bucket("tess_geom", s.geom_us.load(std::memory_order_relaxed));
+  flush_tess_bucket("tess_poly_fan",
+                    s.poly_fan_us.load(std::memory_order_relaxed));
+  flush_tess_bucket("tess_line", s.line_us.load(std::memory_order_relaxed));
+  flush_tess_bucket("tess_line_points",
+                    s.line_points_us.load(std::memory_order_relaxed));
+  flush_tess_bucket("tess_line_dash",
+                    s.line_dash_us.load(std::memory_order_relaxed));
+  flush_tess_bucket("tess_line_solid",
+                    s.line_solid_us.load(std::memory_order_relaxed));
+  base::process_trace().add_counter(
+      "tess_geom_n", "map2d.tess",
+      s.geom_n.load(std::memory_order_relaxed));
+  base::process_trace().add_counter(
+      "tess_line_n", "map2d.tess",
+      s.line_n.load(std::memory_order_relaxed));
 }
 
 bool tessellate_polyline(const float* xyz, size_t point_count,
                          size_t stride_floats, const LineTessOptions& options,
                          TessMesh& out) {
+  clear_tessellate_tls_scratch();
   reset_mesh(out);
   if (!xyz || point_count < 2 || (stride_floats != 2 && stride_floats != 3)) {
     return false;
   }
-  std::vector<PolyPt> pts;
+  auto pts_holder = poly_pt_vec_pool().allocate();
+  std::vector<PolyPt>& pts = *pts_holder;
   pts.reserve(point_count);
   for (size_t i = 0; i < point_count; ++i) {
     const float* p = xyz + i * stride_floats;

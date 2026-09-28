@@ -3,6 +3,7 @@
 
 #include "ui/views/kernel/compositor/shell_compositor.h"
 
+#include <algorithm>
 #include <utility>
 
 #include "ui/gfx/canvas/canvas.h"
@@ -128,7 +129,9 @@ HWND ShellCompositor::maybe_take_wake_hwnd_locked(std::uint64_t generation) {
   return hwnd;
 }
 
-std::uint64_t ShellCompositor::present(HDC hdc, const RECT& dest) {
+std::uint64_t ShellCompositor::present(HDC hdc,
+                                       const RECT& dest,
+                                       ui::gfx::Color fallback_fill) {
   if (!hdc) {
     return 0;
   }
@@ -143,16 +146,42 @@ std::uint64_t ShellCompositor::present(HDC hdc, const RECT& dest) {
   LARGE_INTEGER t0 = {};
   QueryPerformanceCounter(&t0);
 
+  // Always paint an opaque fill first. The shell HWND uses NULL_BRUSH and
+  // swallows WM_ERASEBKGND; during resize/move the published front often lags
+  // the client size, and an unclipped BitBlt would leave holes (desktop show-
+  // through) or read past the DIB.
+  const std::uint8_t fill_r =
+      static_cast<std::uint8_t>((fallback_fill >> 16) & 0xff);
+  const std::uint8_t fill_g =
+      static_cast<std::uint8_t>((fallback_fill >> 8) & 0xff);
+  const std::uint8_t fill_b =
+      static_cast<std::uint8_t>(fallback_fill & 0xff);
+  HBRUSH brush = CreateSolidBrush(RGB(fill_r, fill_g, fill_b));
+  if (brush) {
+    RECT fill_rc = dest;
+    FillRect(hdc, &fill_rc, brush);
+    DeleteObject(brush);
+  }
+
   std::uint64_t presented_gen = 0;
   {
     std::lock_guard<std::mutex> lock(mu_);
     Dib& front = buffers_[front_];
     if (front.dc && front.bits && front.w > 0 && front.h > 0) {
-      if (BitBlt(hdc, blt_x, blt_y, blt_w, blt_h, front.dc, blt_x, blt_y,
-                 SRCCOPY) != FALSE) {
-        // Capture under the same lock as the blit so OnShellPublished cannot
-        // observe a newer published_gen_ than the pixels just shown.
-        presented_gen = published_gen_;
+      const int src_x = blt_x;
+      const int src_y = blt_y;
+      if (src_x < front.w && src_y < front.h) {
+        const int copy_w =
+            (std::min)(blt_w, front.w - src_x);
+        const int copy_h =
+            (std::min)(blt_h, front.h - src_y);
+        if (copy_w > 0 && copy_h > 0 &&
+            BitBlt(hdc, blt_x, blt_y, copy_w, copy_h, front.dc, src_x, src_y,
+                   SRCCOPY) != FALSE) {
+          // Capture under the same lock as the blit so OnShellPublished cannot
+          // observe a newer published_gen_ than the pixels just shown.
+          presented_gen = published_gen_;
+        }
       }
     }
   }
@@ -243,7 +272,6 @@ void ShellCompositor::raster_active() {
     HFONT font = ensure_font_locked(frame.font_px);
     HGDIOBJ old_font = font ? SelectObject(back.dc, font) : nullptr;
 
-    ui::gfx::Canvas canvas(back.dc, back.w, back.h);
     Rect dirty = frame.dirty;
     if (dirty.width <= 0 || dirty.height <= 0) {
       dirty = Rect{0, 0, frame.width_px, frame.height_px};
@@ -271,13 +299,22 @@ void ShellCompositor::raster_active() {
         front.h == frame.height_px) {
       BitBlt(back.dc, 0, 0, frame.width_px, frame.height_px, front.dc, 0, 0,
              SRCCOPY);
+      // GDI mutated the DIB under any retained Skia WrapPixels — drop it before
+      // constructing Canvas so chrome does not paint into a stale wrap.
+      ui::gfx::Canvas::discard_retained_surface();
     }
-    if (dirty.width > 0 && dirty.height > 0) {
-      canvas.fill_rect(dirty.x, dirty.y, dirty.width, dirty.height,
-                       frame.clear_color);
-      frame.display_list.replay_clipped(&canvas, dirty.x, dirty.y,
-                                        dirty.x + dirty.width,
-                                        dirty.y + dirty.height);
+
+    {
+      // Canvas (and Skia present_if_owned) must finish before publish/swap so
+      // WM_PAINT never BitBlts a front that still lacks the latest raster.
+      ui::gfx::Canvas canvas(back.dc, back.w, back.h);
+      if (dirty.width > 0 && dirty.height > 0) {
+        canvas.fill_rect(dirty.x, dirty.y, dirty.width, dirty.height,
+                         frame.clear_color);
+        frame.display_list.replay_clipped(&canvas, dirty.x, dirty.y,
+                                          dirty.x + dirty.width,
+                                          dirty.y + dirty.height);
+      }
     }
 
     if (font) {

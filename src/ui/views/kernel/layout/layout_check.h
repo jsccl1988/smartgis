@@ -4,8 +4,9 @@
 #ifndef UI_VIEWS_KERNEL_LAYOUT_LAYOUT_CHECK_H_
 #define UI_VIEWS_KERNEL_LAYOUT_LAYOUT_CHECK_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -18,27 +19,42 @@ namespace views {
 // views_unittests and SmartGisViews --self-test. Optional paint_fingerprint
 // locks a fixed-size scene via GDI DIB hash (no external screenshot deps).
 
-UI_VIEWS_EXPORT bool rect_non_negative(const Rect& r);
-UI_VIEWS_EXPORT bool rect_contains_rect(const Rect& outer, const Rect& inner);
+UI_EXPORT bool rect_non_negative(const Rect& r);
+UI_EXPORT bool rect_contains_rect(const Rect& outer, const Rect& inner);
 
 // True when |inner| center is within |tol_px| of |outer| center (view space).
-UI_VIEWS_EXPORT bool rect_approximately_centered(const Rect& inner,
+UI_EXPORT bool rect_approximately_centered(const Rect& inner,
                                  const Rect& outer,
                                  int tol_px);
 
 // Walk |root| (visible nodes). Appends human-readable violation codes:
 //   "negative-bounds@…", "child-outside-parent@…", "zero-size-leaf@…"
 // Returns the number of issues found.
-UI_VIEWS_EXPORT int collect_layout_violations(const View* root, std::vector<std::string>* out);
+UI_EXPORT int collect_layout_violations(const View* root, std::vector<std::string>* out);
+
+// True when two axis-aligned rects share a positive-area intersection.
+UI_EXPORT bool rects_overlap_positive(const Rect& a, const Rect& b);
+
+// Walk |root|: for each parent, report pairs of locally-visible children whose
+// bounds overlap with positive area (classic "stacked controls" bug).
+// Codes: "sibling-overlap@parent>(ax,ay,aw,ah)x(bx,by,bw,bh)".
+// Parents with allows_child_overflow() are skipped. Returns issue count.
+UI_EXPORT int collect_sibling_overlaps(const View* root,
+                                       std::vector<std::string>* out);
 
 // Menu / tab shell: item height and horizontal gap at |scale|.
-UI_VIEWS_EXPORT bool menu_item_metrics_ok(int item_width_px,
+UI_EXPORT bool menu_item_metrics_ok(int item_width_px,
                           int item_height_px,
                           float scale);
 
 // Paint |root| into a |width|×|height| 32-bpp DIB and return an FNV-1a hash of
 // the pixels. Lays out |root| to fill the surface first. Returns 0 on failure.
-UI_VIEWS_EXPORT std::uint32_t paint_fingerprint(View* root, int width, int height);
+UI_EXPORT std::uint32_t paint_fingerprint(View* root, int width, int height);
+
+// Write violation lines to |path| (creates parent dirs). Returns false on I/O
+// failure. Empty |issues| still writes a zero-byte-ok marker line "# clean".
+UI_EXPORT bool write_layout_issues_file(const std::filesystem::path& path,
+                                        const std::vector<std::string>& issues);
 
 }  // namespace views
 }  // namespace ui

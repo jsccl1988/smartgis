@@ -1,0 +1,24 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+config("concurrency_config") {
+  include_dirs += [ "//src" ]
+}
+
+source_set("concurrency") {
+  sources = [
+    "append_buffer.h",
+    "concurrent.h",
+    "debugger.h",
+    "hazard_ptr.h",
+    "left_right.h",
+    "partition.h",
+    "queue.h",
+    "rcu_ptr.h",
+  ]
+  public_configs = [ ":concurrency_config" ]
+  public_deps = [
+    "//src/base/synchronization:synchronization",
+    "//third_party:concurrentqueue",
+  ]
+}

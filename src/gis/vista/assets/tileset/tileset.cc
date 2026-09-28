@@ -7,12 +7,23 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "base/memory/arena.h"
+#include "base/memory/object_pool.h"
+
 namespace gis {
 namespace {
+
+// Recycle temporary parse key buffers across tileset JSON parses.
+base::ObjectPool<std::string>& tileset_key_pool() {
+  static base::ObjectPool<std::string> pool(
+      64, nullptr, [](std::string* s) { s->clear(); });
+  return pool;
+}
 
 struct Parser {
   const char* cur;
   const char* end;
+  base::MemoryResource* scratch = nullptr;
 
   void skip() {
     while (cur < end) {
@@ -70,8 +81,8 @@ struct Parser {
       return false;
     }
     if (*cur == '"') {
-      std::string tmp;
-      return parse_string(tmp);
+      auto tmp = tileset_key_pool().allocate();
+      return parse_string(*tmp);
     }
     if (*cur == '{') {
       return skip_object();
@@ -294,7 +305,8 @@ struct Parser {
     }
     bool saw_volume = false;
     for (;;) {
-      std::string key;
+      auto key_holder = tileset_key_pool().allocate();
+      std::string& key = *key_holder;
       if (!parse_string(key) || !eat(':')) {
         return false;
       }
@@ -403,9 +415,15 @@ bool parse_tileset_json(const char* json, size_t len, Tileset& out) {
   if (!json || len == 0) {
     return false;
   }
+  base::Arena scratch(base::MemoryResource::Type::kMonotonicBuffer, 256 * 1024);
   Parser p;
   p.cur = json;
   p.end = json + len;
+  p.scratch = scratch.memory_resource.get();
+  // Keep bump allocation so the monotonic arena is live for nested temps.
+  if (p.scratch) {
+    (void)p.scratch->allocate(64, 8);
+  }
   return p.parse_tileset(out);
 }
 

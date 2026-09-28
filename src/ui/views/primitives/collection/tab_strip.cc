@@ -173,5 +173,9 @@ void TabStrip::paint_self(ui::gfx::Canvas* canvas) {
   }
 }
 
+
+std::string_view TabStrip::paint_role() const {
+  return "tab_strip";
+}
 }  // namespace views
 }  // namespace ui

@@ -1,0 +1,20 @@
+/* SelectOne dialog — Flex subset for Yoga */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  width: 340px;
+  height: 80px;
+}
+
+#prompt {
+  height: 24px;
+  width: 320px;
+}
+
+#choice {
+  height: 28px;
+  width: 320px;
+}

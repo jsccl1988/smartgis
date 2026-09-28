@@ -5,8 +5,8 @@
 #include <vector>
 
 #include "base/core/log.h"
-#include "gis/datasource/mgr/datasource_mgr.h"
-#include "gis/datasource/ogr/codec/ogr_feature_codec.h"
+#include "legacy/datasource/mgr/datasource_mgr.h"
+#include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "gis/model/feature/feature.h"
 #include "gis/model/map/map.h"

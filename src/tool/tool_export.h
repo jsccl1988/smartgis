@@ -4,22 +4,14 @@
 #ifndef TOOL_TOOL_EXPORT_H_
 #define TOOL_TOOL_EXPORT_H_
 
-// GN defines SMT_TOOL_EXPORTS when building //src/tool:tool (dll_stem = tool).
-// Do not reuse TOOL_EXPORTS / TOOL_EXPORT — those belong to
-// //src/legacy/tool:legacy_tool (dll_stem = legacy_tool).
+// GN defines TOOL_EXPORTS when building //src/tool:tool (dll_stem = tool).
+// Leftover IATool uses LEGACY_TOOL_EXPORT / LEGACY_TOOL_EXPORTS
+// (//src/legacy/tool:legacy_tool). Link consumers via GN deps — no pragma lib.
 
-#if defined(SMT_TOOL_EXPORTS)
-#define SMT_TOOL_EXPORT __declspec(dllexport)
+#if defined(TOOL_EXPORTS)
+#define TOOL_EXPORT __declspec(dllexport)
 #else
-#define SMT_TOOL_EXPORT __declspec(dllimport)
-#endif
-
-#if !defined(SMT_TOOL_EXPORTS)
-#if defined(_DEBUG)
-#pragma comment(lib, "tool_d.lib")
-#else
-#pragma comment(lib, "tool.lib")
-#endif
+#define TOOL_EXPORT __declspec(dllimport)
 #endif
 
 #endif  // TOOL_TOOL_EXPORT_H_

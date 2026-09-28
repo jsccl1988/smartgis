@@ -5,6 +5,8 @@
 #include "render/rhi/flycube/device.h"
 #include "render/rhi/flycube/pipeline/hlsl.h"
 
+#include "base/core/log.h"
+
 #ifdef SMT_HAS_FLYCUBE
 #include "ApiType/ApiType.h"
 #endif
@@ -71,7 +73,16 @@ bool FlycubeDevice::initialize(const DeviceDesc& desc) {
     // Recreate the chain only — do not shutdown() — or every pass's Pipeline*
     // dangles (programs_.clear) and the next record/destroy AVs on 0xDD.
     if (fc_device_ && instance_) {
-      return recreate_swapchain(desc);
+      const bool ok = recreate_swapchain(desc);
+      if (!ok) {
+        LOGGING(LOG_ERROR,
+                "rhi.flycube recreate_swapchain fail hwnd=%p %ux%u",
+                desc.native_window, desc.width, desc.height);
+      } else {
+        LOGGING(LOG_INFO, "rhi.flycube recreate_swapchain ok hwnd=%p %ux%u",
+                desc.native_window, desc.width, desc.height);
+      }
+      return ok;
     }
     if (instance_ || swapchain_) {
       shutdown();
@@ -84,11 +95,14 @@ bool FlycubeDevice::initialize(const DeviceDesc& desc) {
 
     instance_ = CreateInstance(flycube_api(backend_));
     if (!instance_) {
+      LOGGING(LOG_ERROR, "rhi.flycube CreateInstance fail backend=%d",
+              static_cast<int>(backend_));
       return false;
     }
 
     const auto adapters = instance_->EnumerateAdapters();
     if (adapters.empty()) {
+      LOGGING(LOG_ERROR, "rhi.flycube EnumerateAdapters empty");
       return false;
     }
     size_t idx = static_cast<size_t>(adapter_index_);
@@ -99,17 +113,20 @@ bool FlycubeDevice::initialize(const DeviceDesc& desc) {
     adapter_ = adapters[idx];
     fc_device_ = adapter_->CreateDevice();
     if (!fc_device_) {
+      LOGGING(LOG_ERROR, "rhi.flycube Adapter::CreateDevice fail idx=%zu", idx);
       adapter_.reset();
       return false;
     }
 
     command_queue_ = fc_device_->GetCommandQueue(::CommandListType::kGraphics);
     if (!command_queue_) {
+      LOGGING(LOG_ERROR, "rhi.flycube GetCommandQueue(Graphics) fail");
       return false;
     }
 
     fence_ = fc_device_->CreateFence(0);
     if (!fence_) {
+      LOGGING(LOG_ERROR, "rhi.flycube CreateFence fail");
       return false;
     }
 
@@ -118,6 +135,10 @@ bool FlycubeDevice::initialize(const DeviceDesc& desc) {
       swapchain_ = fc_device_->CreateSwapchain(surface, width_, height_,
                                                kFrameCount, false);
       if (!swapchain_) {
+        LOGGING(LOG_ERROR,
+                "rhi.flycube CreateSwapchain fail hwnd=%p %ux%u (DXGI often "
+                "rejects a second flip chain on the same HWND)",
+                hwnd_, width_, height_);
         return false;
       }
       back_buffer_views_.resize(kFrameCount);
@@ -129,11 +150,15 @@ bool FlycubeDevice::initialize(const DeviceDesc& desc) {
         back_buffer_views_[i] =
             fc_device_->CreateView(swapchain_->GetBackBuffer(i), view_desc);
         if (!back_buffer_views_[i]) {
+          LOGGING(LOG_ERROR, "rhi.flycube CreateView(backbuffer %u) fail", i);
           return false;
         }
       }
     }
 
+    LOGGING(LOG_INFO,
+            "rhi.flycube initialize ok hwnd=%p %ux%u adapter=%zu backend=%d",
+            hwnd_, width_, height_, idx, static_cast<int>(backend_));
     return fc_device_ != nullptr;
   }
 

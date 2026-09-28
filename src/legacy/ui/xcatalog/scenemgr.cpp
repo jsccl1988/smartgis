@@ -7,7 +7,7 @@
 #include "legacy/tool/iatool/t_msg.h"
 #include "legacy/ui/xcatalog/3dobjxcatalog.h"
 #include "legacy/ui/xcatalog/mapdocxcatalog.h"
-#include "gis/datasource/mgr/datasource_mgr.h"
+#include "legacy/datasource/mgr/datasource_mgr.h"
 
 using namespace gis;
 using namespace gis;

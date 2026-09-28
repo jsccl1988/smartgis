@@ -23,8 +23,8 @@ struct AtmosphereParams {
   bool fog_enabled = false;
 
   // Fog visibility knobs (orbit-normalized units; projected to FogDrawParams).
-  float fog_density = 0.04f;
-  float fog_visibility = 6.0f;
+  float fog_density = 0.08f;
+  float fog_visibility = 4.0f;
   float fog_height_falloff = 1.2f;
   float fog_max_opacity = 0.55f;
 };

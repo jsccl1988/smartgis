@@ -437,8 +437,8 @@ int run_atmosphere_showcase_impl(app::Browser& browser,
   showcase_mark(want_gpu ? "device-init-gpu" : "device-init-null");
   showcase_mark(want_gpu ? "flycube-ok" : "null-ok");
 
-  app::Scene3dPresenter* cam = browser.scene3d();
-  app::OrbitFrame* orbit = browser.orbit_frame();
+  content::Scene3dPresenter* cam = browser.scene3d();
+  content::OrbitFrame* orbit = browser.orbit_frame();
   if (!cam || !orbit) {
     device->shutdown();
     if (owned_present_hwnd) {
@@ -458,18 +458,18 @@ int run_atmosphere_showcase_impl(app::Browser& browser,
       // Leave Environment unset — DEM / land present only.
       break;
     case AtmosphereShowcaseMode::kOcean:
-      cam->seed_atmosphere_procedural();
-      cam->set_ocean_enabled(true);
-      cam->set_cloud_enabled(false);
+      cam->atmosphere_session().seed_procedural();
+      cam->atmosphere_session().set_ocean_enabled(true);
+      cam->atmosphere_session().set_cloud_enabled(false);
       break;
     case AtmosphereShowcaseMode::kFull:
-      cam->enable_atmosphere_demo();
+      cam->atmosphere_session().enable_demo();
       break;
     case AtmosphereShowcaseMode::kCoast: {
       // East China Sea coastal window — different extent from full China.
       const content::Extent2 coast{118.0, 28.0, 128.0, 36.0};
       orbit->apply_world_extent(coast);
-      cam->enable_atmosphere_demo();
+      cam->atmosphere_session().enable_demo();
       break;
     }
     case AtmosphereShowcaseMode::kNone:
@@ -482,7 +482,8 @@ int run_atmosphere_showcase_impl(app::Browser& browser,
       return 53;
   }
 
-  const gis::atmosphere::Environment* env = cam->atmosphere();
+  const gis::atmosphere::Environment* env =
+      cam->atmosphere_session().environment();
   const bool want_ocean =
       mode == AtmosphereShowcaseMode::kOcean ||
       mode == AtmosphereShowcaseMode::kFull ||

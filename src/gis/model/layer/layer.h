@@ -8,11 +8,11 @@
 #include <cstring>
 
 #include "gis/kernel/geo/mesh/geometry.h"
+#include "gis/model/envelope.h"
 #include "ogrsf_frmts.h"
-#include "gis/datasource/ogr/codec/ogr_feature_kind.h"
+#include "gis/datasource/provider/impl/ogr/codec/ogr_feature_kind.h"
 #include "gis/model/feature/feature.h"
 
-using namespace base;
 using namespace base;
 
 #define MAX_DS_NAME MAX_NAME_LENGTH

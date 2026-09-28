@@ -23,11 +23,11 @@
 #include <windows.h>
 
 #include "app/views/shell/browser/commands/app_commands.h"
-#include "app/views/camera/map_host_extent.h"
-#include "app/views/camera/view_frame.h"
+#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/view_frame.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
 #include "app/views/shell/browser/commands/view_commands.h"
-#include "plugin/product/dem/dem_commands.h"
+#include "plugin/product/dem/commands.h"
 #include "plugin/product/orthogrid/commands.h"
 #include "plugin/runtime/host/registry.h"
 #include "content/public/catalog_layers.h"
@@ -44,28 +44,33 @@
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
 #include "tool/workspace/workspace.h"
-#include "ui/views/dialogs/gis/add_basemap_dialog.h"
-#include "ui/views/gis/shell/ambox_view.h"
+#include "ui/gis/dialogs/add_basemap_dialog.h"
+#include "ui/gis/shell/ambox_view.h"
 #include "plugin/runtime/processing/builtin_ops.h"
 #include "plugin/runtime/processing/ops_runner.h"
-#include "ui/views/gis/panel/atmosphere_panel.h"
-#include "ui/views/dialogs/gis/att_struct_dialog.h"
-#include "ui/views/gis/inspect/attribute_table.h"
-#include "ui/views/gis/catalog/catalog_view.h"
-#include "ui/views/dialogs/gis/create_datasource_dialog.h"
-#include "ui/views/dialogs/gis/create_layer_dialog.h"
-#include "ui/views/dialogs/gis/create_map_dialog.h"
-#include "ui/views/gis/inspect/feature_info.h"
-#include "ui/views/dialogs/shell/file_picker.h"
-#include "ui/views/dialogs/shell/input_text_dialog.h"
-#include "ui/views/gis/catalog/layer_tree.h"
-#include "ui/views/gis/panel/processing_panel.h"
+#include "ui/gis/shell/atmosphere_panel.h"
+#include "ui/gis/dialogs/att_struct_dialog.h"
+#include "ui/gis/inspect/attribute_table.h"
+#include "ui/gis/catalog/catalog_view.h"
+#include "ui/gis/dialogs/create_datasource_dialog.h"
+#include "ui/gis/dialogs/create_layer_dialog.h"
+#include "ui/gis/dialogs/create_map_dialog.h"
+#include "ui/gis/inspect/feature_info.h"
+#include "ui/views/dialogs/file_picker.h"
+#include "ui/views/dialogs/input_text_dialog.h"
+#include "ui/gis/catalog/layer_tree.h"
+#include "ui/gis/style/layer_properties_panel.h"
+#include "ui/gis/style/legend_panel.h"
+#include "ui/gis/inspect/measure_panel.h"
+#include "ui/gis/analysis/processing_panel.h"
+#include "ui/gis/inspect/selection_panel.h"
+#include "ui/gis/style/symbology_panel.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/map/map_viewport.h"
 #include "ui/views/primitives/menu/context_menu.h"
 #include "ui/views/primitives/menu/menu_bar.h"
 #include "ui/views/kernel/layout/splitter.h"
-#include "ui/views/gis/shell/status_bar.h"
+#include "ui/gis/shell/status_bar.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 #include "ui/views/kernel/view/view.h"
 
@@ -113,6 +118,9 @@ void BrowserView::sync_inspectors_from_scene() {
       feature_info_->set_fields(fields);
     }
   }
+  sync_selection_panel_from_scene();
+  sync_legend_panel_from_scene();
+  sync_layer_properties_from_scene();
 }
 
 void BrowserView::wire_edit_feedback() {

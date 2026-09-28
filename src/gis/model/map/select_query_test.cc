@@ -9,7 +9,7 @@
 #include "gdal.h"
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
-#include "gis/datasource/mgr/datasource_mgr.h"
+#include "legacy/datasource/mgr/datasource_mgr.h"
 #include "gis/model/feature/feature.h"
 #include "gis/model/feature/feature_api.h"
 #include "gis/model/map/map.h"
@@ -48,6 +48,8 @@ std::string exe_dir() {
 std::string find_china_plp() {
   const std::string dir = exe_dir();
   const char* rel[] = {
+      "..\\data\\china_plp.geojson",
+      "data\\china_plp.geojson",
       "china_plp.geojson",
       "testing\\data\\china_plp.geojson",
       "..\\testing\\data\\china_plp.geojson",

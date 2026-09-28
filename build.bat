@@ -47,22 +47,39 @@ if not exist "%GN_PATH%gn.exe" (
 )
 
 if not exist ".\out" mkdir ".\out"
+if not exist ".\out\Debug" mkdir ".\out\Debug"
+if not exist ".\out\Release" mkdir ".\out\Release"
 
-REM Ninja MSVC wrapper env (no Python required).
+REM Ninja MSVC wrapper env (no Python required). Shared file + per-config copies
+REM because ninja -t msvc resolves environment.* under the -C out dir.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0build\config\win\write_msvc_env.ps1" -OutFile "%~dp0out\environment.x64.x64" -Arch x64
 if errorlevel 1 (
   echo ERROR: failed to write out\environment.x64.x64
   popd
   exit /b 1
 )
+copy /Y "%~dp0out\environment.x64.x64" "%~dp0out\Debug\environment.x64.x64" >nul
+copy /Y "%~dp0out\environment.x64.x64" "%~dp0out\Release\environment.x64.x64" >nul
 
-REM Optional first arg: mogu-style aliases (m/te/a/b/app) or a raw ninja target.
+REM Optional first arg: debug|release (config filter), then mogu-style aliases
+REM (m/te/a/b/app) or a raw ninja target. Default: build both configs.
 REM `sln` is rejected: engineering management is GN only.
+set "BUILD_DEBUG=1"
+set "BUILD_RELEASE=1"
+set "TARGET_ARG=%~1"
+if /I "%~1"=="debug" (
+  set "BUILD_RELEASE=0"
+  set "TARGET_ARG=%~2"
+) else if /I "%~1"=="release" (
+  set "BUILD_DEBUG=0"
+  set "TARGET_ARG=%~2"
+)
+
 set "NINJA_TARGET="
 set "BUILD_APP=false"
 set "BUILD_RENDER=false"
 set "BUILD_VIEWS=false"
-if /I "%~1"=="sln" (
+if /I "!TARGET_ARG!"=="sln" (
   echo ERROR: MSBuild/sln is not an engineering entry. Use build.bat ^(GN^).>&2
   echo vs2008\ and branches\ were removed; engineering entry is GN only.>&2
   popd
@@ -70,7 +87,7 @@ if /I "%~1"=="sln" (
 )
 
 REM mogu build.sh / mgis build.bat t: batch install to third_party/.install
-if /I "%~1"=="t" (
+if /I "!TARGET_ARG!"=="t" (
   if exist "%LocalAppData%\Programs\Python\Python312\python.exe" (
     set "TP_PY=%LocalAppData%\Programs\Python\Python312\python.exe"
   ) else if exist "%LocalAppData%\Programs\Python\Launcher\py.exe" (
@@ -84,10 +101,25 @@ if /I "%~1"=="t" (
   ) else if exist "%ProgramFiles%\CMake\bin\cmake.exe" (
     set "PATH=%ProgramFiles%\CMake\bin;!PATH!"
   )
-  if "%~2"=="" (
-    "!TP_PY!" "%~dp0third_party\tools\batch.py" --manifest "%~dp0third_party\manifest.json" --install-prefix "%~dp0third_party\.install" --build-type Debug
+  REM Config filter: `build.bat release t` installs Release DLLs (gdal.dll);
+  REM bare `build.bat t` / `debug t` keep Debug (gdald.dll). Both can coexist
+  REM under the same .install prefix.
+  set "TP_BUILD_TYPE=Debug"
+  if "!BUILD_RELEASE!"=="1" if "!BUILD_DEBUG!"=="0" set "TP_BUILD_TYPE=Release"
+  REM For `build.bat t <pkg>` the package is %~2 when no config prefix, else %~3.
+  set "TP_PKG="
+  if /I "%~1"=="debug" (
+    set "TP_PKG=%~3"
+  ) else if /I "%~1"=="release" (
+    set "TP_PKG=%~3"
   ) else (
-    "!TP_PY!" "%~dp0third_party\tools\batch.py" --manifest "%~dp0third_party\manifest.json" --install-prefix "%~dp0third_party\.install" --build-type Debug --package "%~2"
+    set "TP_PKG=%~2"
+  )
+  echo === third_party batch install ^(build-type=!TP_BUILD_TYPE!^) ===
+  if "!TP_PKG!"=="" (
+    "!TP_PY!" "%~dp0third_party\tools\batch.py" --manifest "%~dp0third_party\manifest.json" --install-prefix "%~dp0third_party\.install" --build-type "!TP_BUILD_TYPE!"
+  ) else (
+    "!TP_PY!" "%~dp0third_party\tools\batch.py" --manifest "%~dp0third_party\manifest.json" --install-prefix "%~dp0third_party\.install" --build-type "!TP_BUILD_TYPE!" --package "!TP_PKG!"
   )
   set "ERR=!ERRORLEVEL!"
   if !ERR! EQU 0 (
@@ -95,53 +127,54 @@ if /I "%~1"=="t" (
     if not exist "%~dp0out\third_party" (
       mklink /J "%~dp0out\third_party" "%~dp0third_party\.install"
     )
+    if not exist "%~dp0out\Debug\third_party" (
+      mklink /J "%~dp0out\Debug\third_party" "%~dp0third_party\.install"
+    )
+    if not exist "%~dp0out\Release\third_party" (
+      mklink /J "%~dp0out\Release\third_party" "%~dp0third_party\.install"
+    )
   )
   popd
   exit /b !ERR!
 )
-if not "%~1"=="" (
-  if /I "%~1"=="m" (
+
+if not "!TARGET_ARG!"=="" (
+  if /I "!TARGET_ARG!"=="m" (
     set "NINJA_TARGET=all"
-  ) else if /I "%~1"=="te" (
+  ) else if /I "!TARGET_ARG!"=="te" (
     set "NINJA_TARGET=test_all"
-  ) else if /I "%~1"=="a" (
+  ) else if /I "!TARGET_ARG!"=="a" (
     set "NINJA_TARGET=all_with_tests"
-  ) else if /I "%~1"=="b" (
+  ) else if /I "!TARGET_ARG!"=="b" (
     set "NINJA_TARGET=benchmark_all"
-  ) else if /I "%~1"=="app" (
+  ) else if /I "!TARGET_ARG!"=="app" (
     REM Product entry is Views after Phase 2 gate. MFC: build.bat legacy_app
     set "NINJA_TARGET=views"
     set "BUILD_VIEWS=true"
-  ) else if /I "%~1"=="legacy_app" (
+  ) else if /I "!TARGET_ARG!"=="legacy_app" (
     set "NINJA_TARGET=legacy_app_all"
     set "BUILD_APP=true"
-  ) else if /I "%~1"=="ui_legacy" (
+  ) else if /I "!TARGET_ARG!"=="ui_legacy" (
     set "NINJA_TARGET=ui_legacy"
     set "BUILD_APP=true"
-  ) else if /I "%~1"=="smartgis" (
+  ) else if /I "!TARGET_ARG!"=="smartgis" (
     REM Deprecated alias for leftover MFC SmartGis.exe (opt-in).
     set "NINJA_TARGET=legacy_app_all"
     set "BUILD_APP=true"
-  ) else if /I "%~1"=="views" (
+  ) else if /I "!TARGET_ARG!"=="views" (
     set "NINJA_TARGET=views"
     set "BUILD_VIEWS=true"
-  ) else if /I "%~1"=="render" (
+  ) else if /I "!TARGET_ARG!"=="render" (
     set "NINJA_TARGET=render"
     set "BUILD_RENDER=true"
-  ) else if /I "%~1"=="e2e" (
+  ) else if /I "!TARGET_ARG!"=="e2e" (
     set "NINJA_TARGET=e2e"
     set "BUILD_APP=true"
     set "BUILD_VIEWS=true"
     set "BUILD_RENDER=true"
   ) else (
-    set "NINJA_TARGET=%~1"
+    set "NINJA_TARGET=!TARGET_ARG!"
   )
-)
-
-"%GN_PATH%gn.exe" gen out --root=./ --ide=vs2019 --args="is_debug=true is_build_third_party=false smt_run_vs_env_script=false vs_version=180 msvc_installed=true smt_build_app=!BUILD_APP! smt_build_views=!BUILD_VIEWS! smt_build_render=!BUILD_RENDER!"
-if errorlevel 1 (
-  popd
-  exit /b 1
 )
 
 where ninja >nul 2>&1
@@ -151,35 +184,84 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if defined NINJA_TARGET (
-  ninja -j 16 -C ./out !NINJA_TARGET! > ./out/build.log
-) else (
-  ninja -j 16 -C ./out > ./out/build.log
+set "ERR=0"
+set "LAST_LOG="
+
+if "!BUILD_DEBUG!"=="1" (
+  call :build_config Debug true
+  set "CFG_RC=!ERRORLEVEL!"
+  if !CFG_RC! NEQ 0 (
+    set "ERR=!CFG_RC!"
+    goto :finish
+  )
 )
-set "ERR=%ERRORLEVEL%"
-if !ERR! EQU 0 (
+
+if "!BUILD_RELEASE!"=="1" (
+  call :build_config Release false
+  set "CFG_RC=!ERRORLEVEL!"
+  if !CFG_RC! NEQ 0 (
+    set "ERR=!CFG_RC!"
+    goto :finish
+  )
+)
+
+REM te / e2e runners use Debug binaries only.
+if "!BUILD_DEBUG!"=="1" (
   if /I "!NINJA_TARGET!"=="e2e" (
-    echo Running out\exe_smoke.exe --require-all
-    ".\out\exe_smoke.exe" --require-all
+    echo Running out\Debug\exe_smoke.exe --require-all
+    ".\out\Debug\exe_smoke.exe" --require-all
     set "ERR=!ERRORLEVEL!"
   ) else if /I "!NINJA_TARGET!"=="test_all" (
     set "UNIT_ERR=0"
-        for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe leftover_record_test.exe leftover_session_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe tin_xyz_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_view_host_test.exe content_feature_attrs_test.exe content_catalog_layers_test.exe content_embed_sample_test.exe land_mask_test.exe views_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe map_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe gdi_map_paint_test.exe map_carto2d_test.exe gl_map_paint_test.exe dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe) do (
-      if exist ".\out\%%T" (
-        echo Running out\%%T
-        ".\out\%%T"
+    for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe leftover_record_test.exe leftover_session_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe tin_xyz_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_view_host_test.exe content_feature_attrs_test.exe content_catalog_layers_test.exe content_embed_sample_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe map_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe gdi_map_paint_test.exe map_carto2d_test.exe gl_map_paint_test.exe dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe) do (
+      if exist ".\out\Debug\%%T" (
+        echo Running out\Debug\%%T
+        ".\out\Debug\%%T"
         if !ERRORLEVEL! NEQ 0 set "UNIT_ERR=!ERRORLEVEL!"
       )
     )
-    if exist ".\out\exe_smoke.exe" (
-      echo Running out\exe_smoke.exe
-      ".\out\exe_smoke.exe"
+    if exist ".\out\Debug\exe_smoke.exe" (
+      echo Running out\Debug\exe_smoke.exe
+      ".\out\Debug\exe_smoke.exe"
       set "ERR=!ERRORLEVEL!"
     )
     if !UNIT_ERR! NEQ 0 set "ERR=!UNIT_ERR!"
   )
 )
-echo Exit code: %ERR%
-echo Log: %~dp0out\build.log
+
+:finish
+echo Exit code: !ERR!
+if defined LAST_LOG (
+  echo Log: !LAST_LOG!
+) else (
+  echo Log: %~dp0out\Debug\build.log / %~dp0out\Release\build.log
+)
 popd
-exit /b %ERR%
+exit /b !ERR!
+
+REM ---------------------------------------------------------------------------
+REM :build_config <OutDirName> <is_debug true|false>
+REM ---------------------------------------------------------------------------
+:build_config
+set "OUT_NAME=%~1"
+set "IS_DEBUG=%~2"
+set "OUT_DIR=out\%OUT_NAME%"
+set "GN_ARGS=is_debug=%IS_DEBUG% is_build_third_party=false smt_run_vs_env_script=false vs_version=180 msvc_installed=true smt_build_app=!BUILD_APP! smt_build_views=!BUILD_VIEWS! smt_build_render=!BUILD_RENDER!"
+
+echo === gn gen %OUT_DIR% ^(is_debug=%IS_DEBUG%^) ===
+"%GN_PATH%gn.exe" gen "%OUT_DIR%" --root=./ --ide=vs2019 --args="!GN_ARGS!"
+if errorlevel 1 exit /b 1
+
+echo === ninja -C %OUT_DIR% !NINJA_TARGET! ===
+if defined NINJA_TARGET (
+  ninja -j 16 -C "./%OUT_DIR%" !NINJA_TARGET! > "./%OUT_DIR%/build.log"
+) else (
+  ninja -j 16 -C "./%OUT_DIR%" > "./%OUT_DIR%/build.log"
+)
+set "CFG_ERR=!ERRORLEVEL!"
+set "LAST_LOG=%~dp0%OUT_DIR%\build.log"
+if !CFG_ERR! NEQ 0 (
+  echo ERROR: ninja failed for %OUT_DIR% ^(exit !CFG_ERR!^). See !LAST_LOG!
+  exit /b !CFG_ERR!
+)
+exit /b 0

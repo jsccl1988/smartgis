@@ -17,7 +17,7 @@ MapLibre 风格 Style JSON **v1+ 子集**、外置符号库、属性/比例尺�
 | `resolve` / `eval_filter` | 选层 + 产出 `ResolvedPaint` |
 | `to_smt_style` | 桥到遗留 `base::SmtStyle` |
 
-**不是** `base/carto`（POD 笔刷 + Envelope），也不是 `render`（只消费 paint）。
+**不是** `legacy/carto`（POD 笔刷；`gis::Envelope` 在 `gis/model`），也不是 `render`（只消费 paint）。
 
 规格：`docs/superpowers/specs/2026-09-14-sdb-style-document-design.md`。
 
@@ -32,4 +32,4 @@ MapLibre 风格 Style JSON **v1+ 子集**、外置符号库、属性/比例尺�
 
 ## Expression 子集（v1+）
 
-paint/layout 值为 JSON 数组且首元为算子时，在 `fill_resolved_paint` / `resolve` 中求值为常量（`AttrMap` + zoom）。仍用 `json_mini`，不引入第三套 JSON 库。
+paint/layout 值为 JSON 数组且首元为算子时，在 `fill_resolved_paint` / `resolve` 中求值为常量（`AttrMap` + zoom）。JSON 解析/写出走 RapidJSON（`//third_party:rapidjson`）。

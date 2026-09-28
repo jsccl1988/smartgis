@@ -7,7 +7,7 @@
 #include "legacy/core/core.h"
 #include "base/core/log.h"
 #include "legacy/ui/xview/view_core.h"
-#include "base/carto/stylemanager.h"
+#include "legacy/carto/stylemanager.h"
 #include "legacy/sys/sysmanager.h"
 #include <algorithm>
 #include <cstring>
@@ -24,7 +24,7 @@
 #include "legacy/ui/xcatalog/mapmgr.h"
 #include "legacy/plugin/module_manager.h"
 #include "legacy/plugin/plugin_msg.h"
-#include "base/carto/style_api.h"
+#include "legacy/carto/style_api.h"
 #include "gis/model/feature/feature.h"
 #include "gis/model/map/map.h"
 #include "tool/nav/camera_nav.h"

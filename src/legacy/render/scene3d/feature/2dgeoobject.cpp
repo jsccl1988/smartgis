@@ -8,6 +8,7 @@
 
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "gis/kernel/tin/api/tin.h"
+#include "gis/model/envelope.h"
 #include "legacy/core/bas_struct.h"
 #include "legacy/render/rhi3d/public/state/statesmanager.h"
 
@@ -168,8 +169,8 @@ long Smt2DGeoObject::Create(LP3DRENDERDEVICE p3DRenderDevice) {
       break;
   }
 
-  Envelope env;
-  copy_envelope(*m_pGeom, &env);
+  gis::Envelope env;
+  geo::copy_envelope(*m_pGeom, &env);
 
   const float h00 = height_at(env.MinX, env.MinY);
   const float h10 = height_at(env.MaxX, env.MinY);

@@ -13,7 +13,7 @@ All rights reserved.
 
 **Tech Stack:** C++23, GN, `ui::views` / `ui::gfx` / `gpu::detail`, existing FlyCube RHI. No Qt. No `--type=gpu` this phase.
 
-**Spec:** [`../specs/2026-09-13-ui-views-controls-design.md`](../specs/2026-09-13-ui-views-controls-design.md) § UI compositor thread (Chromium roles) — dated twin archived at [`../archive/specs/2026-09-28-ui-compositor-thread-design.md`](../archive/specs/2026-09-28-ui-compositor-thread-design.md)
+**Spec:** [`../specs/2026-09-13-ui-views-controls-design.md`](../specs/2026-09-27-views-desktop-shell-design.md) § UI compositor thread (Chromium roles) — dated twin archived at [`../archive/specs/2026-09-28-ui-compositor-thread-design.md`](../archive/specs/2026-09-28-ui-compositor-thread-design.md)
 
 ## Global Constraints
 
@@ -74,10 +74,10 @@ All rights reserved.
 ### P5 — DWM-aligned BeginFrame (after P4)
 
 - [x] BeginFrame **timer stub** on Display / `PresentMailbox` (~16 ms) driving produce when `frame_request_` advances
-- [ ] BeginFrame source aligned with DWM / display refresh (Windows) — **deferred** (`IDXGIOutput::WaitForVBlank` / DWM clock TODO)
-- [ ] Drive Activate / next Commit from BeginFrame; stop free-running present loops — **partial** (Display stub only; shell Commit still UI `WM_PAINT`)
+- [x] BeginFrame source aligned with DWM / display refresh (Windows) — `ui::gfx::VblankClock` (`IDXGIOutput::WaitForVBlank`); Sleep fallback via `set_interval_ms` / 16 ms
+- [ ] Drive Activate / next Commit from BeginFrame; stop free-running present loops — **partial** (Display + PresentMailbox paced by vblank; shell Commit still UI `WM_PAINT`)
 - [x] Ensure BeginFrame stops first in shutdown (`prepare_close` → `detach` / `stop_display_thread` before `shutdown_compositor`)
-- [ ] Counters: present → BeginFrame latency visible under PaintCounters or sibling metric — **deferred** with DWM clock
+- [x] Counters: present → BeginFrame latency visible under PaintCounters (`begin_frame_qpc` / `begin_frame_to_present_qpc` on MapViewport Display path)
 - [ ] Human verify: steady frame pacing; no regression vs P4 Submit path
 
 ## Shutdown (cross-cutting; land with P2+ and finish in P4/P5)
@@ -111,10 +111,11 @@ Shared files: `widget.*`, `map_viewport.*`, `frame_sink.*`, `display.*`, root `B
 
 | Item | Why |
 | --- | --- |
-| DWM BeginFrame clock | Timer stub only; WaitForVBlank / DWM stats later |
+| DWM BeginFrame clock | Landed: `ui::gfx::VblankClock` + MapViewport / PresentMailbox |
 | HUD-as-quad in submitted frame | `commit_shell_overlay` staged; FlyCube still uses GDI HUD after present |
 | views ↔ gpu `PresentMailbox` merge | Layering: views must not hard-dep `//src/gpu` |
 | Multi-worker raster | P3 starts with 1 worker |
+| Shell Commit driven by BeginFrame | Still UI `WM_PAINT`; vblank paces Display present only |
 
 Human verify:
 

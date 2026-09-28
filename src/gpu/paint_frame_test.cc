@@ -2,7 +2,7 @@
 // All rights reserved.
 
 #include "gpu/frame_sink.h"
-#include "gpu/compositor/frame_composer.h"
+#include "gpu/compositor/composer/composer.h"
 #include "gpu/device/gpu_device_hub.h"
 #include "gpu/display/output_surface.h"
 
@@ -446,13 +446,13 @@ int main() {
   expect(px[0] == 0x66 && px[1] == 0x44 && px[2] == 0x22 && px[3] == 0xFF,
          "net miss keeps background");
 
-  // M0: FrameComposer + GpuDeviceHub (software default, primary adapter).
+  // M0: FrameComposer + GpuDeviceHub (RHI default, primary adapter).
   {
     SetEnvironmentVariableA("SMT_GPU_COMPOSE", nullptr);
     gpu::detail::clear_compose_backend_override();
     expect(gpu::detail::select_compose_backend() ==
-               gpu::detail::ComposeBackend::kSoftware,
-           "default compose backend is software");
+               gpu::detail::ComposeBackend::kRhi,
+           "default compose backend is RHI");
     gpu::detail::OutputSurface hub_surface;
     expect(hub_surface.resize(8, 8, content::PresentMode::kSoftwareDib, nullptr),
            "hub surface resize");

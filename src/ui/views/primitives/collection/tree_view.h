@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_PRIMITIVES_COLLECTION_TREE_VIEW_H_
 #define UI_VIEWS_PRIMITIVES_COLLECTION_TREE_VIEW_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <functional>
 #include <map>
 #include <string>
@@ -19,7 +19,7 @@ class ScrollView;
 
 // Hierarchical rows with optional checkbox, selection, and expand/collapse.
 // Empty |parent_id| inserts a root. Paints with Theme; scrolls via ScrollView.
-class UI_VIEWS_EXPORT TreeView : public View {
+class UI_EXPORT TreeView : public View {
  public:
   using NodeId = std::string;
   using SelectionChanged = std::function<void(const NodeId&)>;
@@ -37,9 +37,11 @@ class UI_VIEWS_EXPORT TreeView : public View {
   void set_checked_changed(CheckedChanged fn);
   void set_context_requested(ContextRequested fn);
   const NodeId& selected_id() const { return selected_id_; }
+  void select_id(const NodeId& id);
 
   void layout() override;
   bool on_mouse_event(const MouseEvent& event) override;
+  std::string_view paint_role() const override;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;
@@ -65,7 +67,6 @@ class UI_VIEWS_EXPORT TreeView : public View {
   void update_content_size();
   int row_at_point(int x, int y) const;
   Rect row_rect(int i) const;
-  void select_id(const NodeId& id);
   void toggle_check(const NodeId& id);
   void toggle_expand(const NodeId& id);
   Point to_screen(int x, int y) const;

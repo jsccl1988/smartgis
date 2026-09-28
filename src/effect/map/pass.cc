@@ -3,6 +3,7 @@
 
 #include "effect/map/pass.h"
 
+#include <memory>
 #include <vector>
 
 #include "effect/map/detail/atlas.h"
@@ -11,11 +12,18 @@
 #include "effect/map/detail/upload.h"
 #include "render/programs/programs.h"
 #include "render/rhi/rhi.h"
+#include "base/memory/arena.h"
+#include "base/trace/process_trace.h"
 
 namespace effect {
 namespace map {
 
-Pass::Pass() = default;
+struct Pass::DrawCache {
+  std::vector<detail::UploadedDraw> world_draws;
+  std::vector<detail::UploadedDraw> full_draws;
+};
+
+Pass::Pass() : draw_cache_(std::make_unique<DrawCache>()) {}
 
 Pass::~Pass() { abandon(); }
 
@@ -48,6 +56,10 @@ void Pass::abandon() {
   textured_pipeline_ = nullptr;
   buffers_.clear();
   textures_.clear();
+  if (draw_cache_) {
+    draw_cache_->world_draws.clear();
+    draw_cache_->full_draws.clear();
+  }
   device_ = nullptr;
 }
 
@@ -62,7 +74,13 @@ void Pass::release_uploaded() {
   }
   buffers_.clear();
   textures_.clear();
+  if (draw_cache_) {
+    draw_cache_->world_draws.clear();
+    draw_cache_->full_draws.clear();
+  }
 }
+
+void Pass::invalidate_uploaded() { release_uploaded(); }
 
 bool Pass::record(
     render::rhi::Device* device, render::rhi::CommandList* list,
@@ -81,11 +99,41 @@ bool Pass::record(
   if (!world_items && !overlay_items) {
     return true;
   }
+  if (!draw_cache_) {
+    draw_cache_ = std::make_unique<DrawCache>();
+  }
+  // Fresh TLS scratch for place/upload temps this record.
+  if (base::MemoryResource* tls = base::tls_memory_resource()) {
+    tls->clear(256 * 1024);
+  }
+  BASE_TRACE_EVENT("upload", "map2d.upload");
   if (device_ != nullptr && device_ != device) {
     destroy_pipelines();
     abandon();
   }
   device_ = device;
+
+  // Camera-only reuse: dual-speed interactive / static present keeps Layout
+  // MapFrame but must not re-place + re-upload every BeginFrame.
+  if (world_items && overlay_items && !draw_cache_->full_draws.empty()) {
+    if (!ensure_pipelines()) {
+      return false;
+    }
+    detail::encode_draws(list, view, frame, draw_cache_->full_draws, camera,
+                         color_op, /*close_list=*/true, solid_pipeline_,
+                         textured_pipeline_);
+    return true;
+  }
+  if (world_items && !overlay_items && !draw_cache_->world_draws.empty()) {
+    if (!ensure_pipelines()) {
+      return false;
+    }
+    detail::encode_draws(list, view, frame, draw_cache_->world_draws, camera,
+                         color_op, /*close_list=*/true, solid_pipeline_,
+                         textured_pipeline_);
+    return true;
+  }
+
   // Pass §2 (plan map2d-frame §2): MapFrame only — no legacy, no palette in GPU.
   // Background is encode clear (background_rgba × background_opacity), not mesh.
   // Item order is Layout painter order; subset filters world vs icon/text overlay.
@@ -127,6 +175,12 @@ bool Pass::record(
   }
   detail::encode_draws(list, view, subset, draws, camera, load_op, close_list,
                        solid_pipeline_, textured_pipeline_);
+  if (world_items && overlay_items) {
+    draw_cache_->full_draws = draws;
+    // world_draws filled on the next world-only interactive record.
+  } else if (world_items) {
+    draw_cache_->world_draws = draws;
+  }
   return true;
 }
 

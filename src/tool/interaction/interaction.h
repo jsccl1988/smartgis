@@ -6,9 +6,7 @@
 
 #include <cstdint>
 #include <functional>
-#include <map>
 #include <memory>
-#include <string>
 #include <string_view>
 #include <vector>
 
@@ -30,7 +28,8 @@ struct AuxOverlay {
   std::vector<AuxPoint> points;
 };
 
-class SMT_TOOL_EXPORT Interaction {
+// Class-exported for vtable; no STL data members.
+class TOOL_EXPORT Interaction {
  public:
   virtual ~Interaction() = default;
   virtual const char* id() const = 0;
@@ -44,47 +43,62 @@ class SMT_TOOL_EXPORT Interaction {
 
 using InteractionFactory = std::function<std::unique_ptr<Interaction>()>;
 
-class SMT_TOOL_EXPORT InteractionRegistry {
+// Methods exported; class not — avoids C4251 on pimpl.
+class InteractionRegistry {
  public:
-  bool add(std::string_view id, InteractionFactory factory);
-  std::unique_ptr<Interaction> make(std::string_view id) const;
+  TOOL_EXPORT InteractionRegistry();
+  TOOL_EXPORT ~InteractionRegistry();
+
+  InteractionRegistry(const InteractionRegistry&) = delete;
+  InteractionRegistry& operator=(const InteractionRegistry&) = delete;
+
+  TOOL_EXPORT bool add(std::string_view id, InteractionFactory factory);
+  TOOL_EXPORT std::unique_ptr<Interaction> make(std::string_view id) const;
 
  private:
-  std::map<std::string, InteractionFactory> factories_;
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
-class SMT_TOOL_EXPORT InteractionStack {
+class InteractionStack {
  public:
-  InteractionStack() = default;
+  TOOL_EXPORT InteractionStack();
+  TOOL_EXPORT ~InteractionStack();
+
   InteractionStack(const InteractionStack&) = delete;
   InteractionStack& operator=(const InteractionStack&) = delete;
 
-  Interaction* current() const;
-  bool activate(std::string_view id, const InteractionRegistry& registry);
-  bool push(std::string_view id, const InteractionRegistry& registry);
-  bool pop();
+  TOOL_EXPORT Interaction* current() const;
+  TOOL_EXPORT bool activate(std::string_view id,
+                            const InteractionRegistry& registry);
+  TOOL_EXPORT bool push(std::string_view id,
+                        const InteractionRegistry& registry);
+  TOOL_EXPORT bool pop();
 
  private:
-  std::vector<std::unique_ptr<Interaction>> stack_;
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
-class SMT_TOOL_EXPORT InputRouter {
+class InputRouter {
  public:
-  InputRouter() = default;
+  TOOL_EXPORT InputRouter();
+  TOOL_EXPORT ~InputRouter();
+
   InputRouter(const InputRouter&) = delete;
   InputRouter& operator=(const InputRouter&) = delete;
 
-  void add_always_on(std::unique_ptr<Interaction> handler);
-  void set_stack(InteractionStack* stack);
-  bool dispatch(const content::InputEvent& e);
+  TOOL_EXPORT void add_always_on(std::unique_ptr<Interaction> handler);
+  TOOL_EXPORT void set_stack(InteractionStack* stack);
+  TOOL_EXPORT bool dispatch(const content::InputEvent& e);
 
  private:
-  std::vector<std::unique_ptr<Interaction>> always_on_;
-  InteractionStack* stack_ = nullptr;
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_wheel_zoom();
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_hover_cursor();
+TOOL_EXPORT std::unique_ptr<Interaction> make_wheel_zoom();
+TOOL_EXPORT std::unique_ptr<Interaction> make_hover_cursor();
 
 }  // namespace tool
 

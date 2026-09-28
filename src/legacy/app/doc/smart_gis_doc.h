@@ -1,5 +1,5 @@
 // Session / map open logic lives in SmtApp (core/) and endgame
-// content::MapContents / app::MapScene — not in this document class.
+// content::MapContents / content::MapScene — not in this document class.
 // TODO(sp3): Keep as a thin CDocument for MDI templates; do not grow GIS state
 // here.
 

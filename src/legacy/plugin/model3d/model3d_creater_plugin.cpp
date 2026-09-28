@@ -22,8 +22,8 @@
 #include "legacy/ui/gui/gui_api.h"
 #include "legacy/ui/xcatalog/mapmgr.h"
 #include "legacy/ui/xcatalog/scenemgr.h"
-#include "plugin/product/dem/grid_loader.h"
-#include "plugin/product/dem/tin_loader.h"
+#include "plugin/product/dem/processing/grid_loader.h"
+#include "plugin/product/dem/processing/tin_loader.h"
 
 using namespace render;
 using namespace gis;
@@ -134,6 +134,7 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
     return SMT_ERR_NONE;
 
   SmtSceneMgr *pSceneMgr = SmtSceneMgr::get_singleton_ptr();
+  if (NULL == pSceneMgr) return SMT_ERR_FAILURE;
   SmtScene *pScene = pSceneMgr->GetScenePtr();
   if (NULL == pScene) return SMT_ERR_FAILURE;
 
@@ -148,8 +149,7 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
                       szFilter, NULL);
 
       if (dlg.DoModal() == IDCANCEL) {
-        AfxMessageBox("ï¿½ï¿½Ã»ï¿½ï¿½Ñ¡ï¿½ï¿½Òªï¿½ò¿ªµï¿½ï¿½Ä¼ï¿½!");
-        return false;
+        return SMT_ERR_NONE;
       }
 
       SmtMaterial matMaterial;
@@ -231,7 +231,7 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
       string strAppPath = get_app_path();
       char szFilePath[TEMP_BUFFER_SIZE];
       sprintf(szFilePath, "%s%s", strAppPath.c_str(),
-              "rs\\terrain\\ground.bmp");
+              "..\\data\\rs\\terrain\\ground.bmp");
 
       Smt3DSurface gridSurf;
       GridLoadOptions gridOpt;
@@ -264,7 +264,7 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
       string strAppPath = get_app_path();
       char szFilePath[TEMP_BUFFER_SIZE];
       sprintf(szFilePath, "%s%s", strAppPath.c_str(),
-              "rs\\terrain\\ground.dat");
+              "..\\data\\rs\\terrain\\ground.dat");
 
       SmtTinFileFmt tfFmt;
       Smt3DSurface tinSurf;
@@ -275,12 +275,12 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
       pTerrain->SetYScale(0.05);
       pTerrain->SetZScale(0.05);
 
-      tfFmt.iX = 3;
-      tfFmt.iY = 4;
-      tfFmt.iZ = 5;
-      tfFmt.nCol = 5;
+      tfFmt.iX = 0;
+      tfFmt.iY = 1;
+      tfFmt.iZ = 2;
+      tfFmt.nCol = 3;
       tfFmt.nHeadSkip = 0;
-      tfFmt.nLineSkip = 3;
+      tfFmt.nLineSkip = 0;
       tfFmt.nSeparatorType = ST_COMMA;
 
       Vector3 origin(30, 30, 30);
@@ -298,6 +298,7 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
     case SMT_MSG_3DMODELCREATER_6: {
       // ï¿½ï¿½ï¿½ï¿½TIN
       SmtMapMgr *pSmtMapMgr = SmtMapMgr::get_singleton_ptr();
+      if (NULL == pSmtMapMgr) break;
       SmtLayer *pLayer = pSmtMapMgr->GetActiveLayer();
 
       if (NULL == pLayer || LYR_VECTOR != pLayer->GetLayerType()) break;
@@ -307,10 +308,15 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
         string strAppPath = get_app_path();
         char szFilePath[TEMP_BUFFER_SIZE];
         sprintf(szFilePath, "%s%s", strAppPath.c_str(),
-                "rs\\terrain\\ground.dat");
+                "..\\data\\rs\\terrain\\ground.dat");
 
         SmtTinFileFmt fileFmt;
-        fileFmt.nLineSkip = 2;
+        fileFmt.nLineSkip = 0;
+        fileFmt.nCol = 3;
+        fileFmt.iX = 0;
+        fileFmt.iY = 1;
+        fileFmt.iZ = 2;
+        fileFmt.nSeparatorType = ST_COMMA;
         Smt3DSurface tinSurf;
         if (SMT_ERR_NONE ==
             load_ascii_xyz_tin(szFilePath, fileFmt, 1.f, 1.f, 1.f, &tinSurf)) {
@@ -328,8 +334,7 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
             if (pSmtMapMgr->AppendFeature(pSmtFeature, false)) {
               SmtListenerMsg param;
               param.hSrcWnd = GetActiveWindow();
-              ::MessageBox(::GetActiveWindow(), "ï¿½ï¿½ï¿½É³É¹ï¿½!", "ï¿½ï¿½Ê¾",
-                           MB_OK);
+              ::MessageBox(::GetActiveWindow(), "创建成功!", "提示", MB_OK);
               (void)plugin::command_id_from_am_msg(
                   SMT_MSG_KEY(GT_MSG_VIEW_ZOOMREFRESH, param.hSrcWnd));
               post_ia_tool_msg(
@@ -340,11 +345,11 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
           }
         }
       } else
-        ::MessageBox(::GetActiveWindow(), "ï¿½ë¼¤ï¿½ï¿½TINÍ¼ï¿½ï¿½!",
-                     "ï¿½ï¿½Ê¾", MB_OK);
+        ::MessageBox(::GetActiveWindow(), "请激活TIN图层!", "提示", MB_OK);
     } break;
     case SMT_MSG_3DMODELCREATER_7: {
       SmtMapMgr *pSmtMapMgr = SmtMapMgr::get_singleton_ptr();
+      if (NULL == pSmtMapMgr) break;
       SmtLayer *pLayer = pSmtMapMgr->GetActiveLayer();
 
       if (NULL == pLayer || LYR_VECTOR != pLayer->GetLayerType()) break;
@@ -386,11 +391,11 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
           pSceneMgr->Add3DObject(p2DGeoObj);
         }
       } else
-        ::MessageBox(::GetActiveWindow(), "ï¿½ë¼¤ï¿½ï¿½ï¿½Í¼ï¿½ï¿?", "ï¿½ï¿½Ê¾",
-                     MB_OK);
+        ::MessageBox(::GetActiveWindow(), "请激活点图层!", "提示", MB_OK);
     } break;
     case SMT_MSG_3DMODELCREATER_8: {
       SmtMapMgr *pSmtMapMgr = SmtMapMgr::get_singleton_ptr();
+      if (NULL == pSmtMapMgr) break;
       SmtLayer *pLayer = pSmtMapMgr->GetActiveLayer();
 
       if (NULL == pLayer || LYR_VECTOR != pLayer->GetLayerType()) break;
@@ -421,11 +426,11 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
 
         pSceneMgr->CreateOctTreeSceneMgr();
       } else
-        ::MessageBox(::GetActiveWindow(), "curve layer required", "hint",
-                     MB_OK);
+        ::MessageBox(::GetActiveWindow(), "请激活线图层!", "提示", MB_OK);
     } break;
     case SMT_MSG_3DMODELCREATER_9: {
       SmtMapMgr *pSmtMapMgr = SmtMapMgr::get_singleton_ptr();
+      if (NULL == pSmtMapMgr) break;
       SmtLayer *pLayer = pSmtMapMgr->GetActiveLayer();
 
       if (NULL == pLayer || LYR_VECTOR != pLayer->GetLayerType()) break;
@@ -456,8 +461,7 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
 
         pSceneMgr->CreateOctTreeSceneMgr();
       } else
-        ::MessageBox(::GetActiveWindow(), "ï¿½ë¼¤ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½!",
-                     "ï¿½ï¿½Ê¾", MB_OK);
+        ::MessageBox(::GetActiveWindow(), "请激活面图层!", "提示", MB_OK);
     } break;
   }
 

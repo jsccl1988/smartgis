@@ -21,7 +21,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 #endif
 
 #include "legacy/core/core.h"
-#include "gis/datasource/mgr/datasource_mgr.h"
+#include "legacy/datasource/mgr/datasource_mgr.h"
 #include "gis/model/layer/layer.h"
 #include "gis/model/map/map.h"
 

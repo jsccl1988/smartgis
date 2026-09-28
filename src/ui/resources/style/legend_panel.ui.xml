@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="legend_panel">
+  <style src="legend_panel.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title" text="Legend"/>
+    <table id="table" columns="On,Label,Swatch"/>
+  </vbox>
+</ui>

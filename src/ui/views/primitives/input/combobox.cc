@@ -263,5 +263,9 @@ void Combobox::paint_self(ui::gfx::Canvas* canvas) {
   }
 }
 
+
+std::string_view Combobox::paint_role() const {
+  return "combobox";
+}
 }  // namespace views
 }  // namespace ui

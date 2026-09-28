@@ -260,5 +260,9 @@ void ScrollView::paint_self(ui::gfx::Canvas* canvas) {
   canvas->fill_rect(b.x, b.y, b.width, b.height, t.control_bg);
 }
 
+
+std::string_view ScrollView::paint_role() const {
+  return "scroll_view";
+}
 }  // namespace views
 }  // namespace ui

@@ -2,7 +2,7 @@
 #ifndef _GT_FLASH_TOOL_H
 #define _GT_FLASH_TOOL_H
 
-#include "gis/datasource/mgr/datasource_mgr.h"
+#include "legacy/datasource/mgr/datasource_mgr.h"
 #include "legacy/tool/group/base/basetool.h"
 
 namespace tool {

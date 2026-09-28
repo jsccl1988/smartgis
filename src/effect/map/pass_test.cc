@@ -251,6 +251,8 @@ int main() {
   }
 
   {
+    // MapFrame content changed — camera-only reuse must not keep prior uploads.
+    pass.invalidate_uploaded();
     render::rhi::CommandList* list = device->create_command_list();
     gis::vista::MapFrame frame;
     frame.background_rgba = 0xFF000000u;
@@ -281,6 +283,7 @@ int main() {
 
   {
     StubGlyphRasterizer glyphs;
+    pass.invalidate_uploaded();
     render::rhi::CommandList* list = device->create_command_list();
     gis::vista::MapFrame frame;
     frame.background_rgba = 0xFF1B3A4Cu;
@@ -319,6 +322,7 @@ int main() {
 
   {
     FailingGlyphRasterizer glyphs;
+    pass.invalidate_uploaded();
     render::rhi::CommandList* list = device->create_command_list();
     gis::vista::MapFrame frame;
     frame.background_rgba = 0xFFFFFFFFu;

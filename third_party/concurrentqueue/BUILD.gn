@@ -1,0 +1,14 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Header-only moodycamel concurrentqueue.
+# Include as: #include "concurrentqueue/moodycamel/concurrentqueue.h"
+# Sources also mirrored under third_party/.src/concurrentqueue (manifest pin).
+
+config("concurrentqueue_headers") {
+  include_dirs += [ "//third_party/concurrentqueue/include" ]
+}
+
+group("concurrentqueue") {
+  public_configs = [ ":concurrentqueue_headers" ]
+}

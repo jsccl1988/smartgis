@@ -6,6 +6,8 @@
 #include "plugin/runtime/python/runtime.h"
 #include "plugin/runtime/host/registry.h"
 #include "tool/command/command.h"
+#include "ui/views/dialogs/file_picker.h"
+#include "ui/views/dialogs/message_box.h"
 
 #include <cstdio>
 #include <filesystem>
@@ -56,8 +58,18 @@ int main() {
                     "def start(host):\n"
                     "    def _run(args):\n"
                     "        return True\n"
+                    "    def _dlg():\n"
+                    "        return None\n"
+                    "    def _proc(args_json):\n"
+                    "        return args_json == '{}'\n"
                     "    host.contribute_command('smartgis.sample_hello',"
                     " 'sample.hello', 'Hello', 'tools', _run)\n"
+                    "    host.contribute_dialog('smartgis.sample_hello',"
+                    " 'sample.dlg', 'Dlg', _dlg)\n"
+                    "    host.contribute_dock('smartgis.sample_hello',"
+                    " 'sample.dock', 'Dock', 'right', _dlg)\n"
+                    "    host.contribute_processing('smartgis.sample_hello',"
+                    " 'sample.proc', 'Proc', _proc)\n"
                     "def stop():\n"
                     "    pass\n"),
          "write ok plugin");
@@ -72,6 +84,61 @@ int main() {
       content::create_plugin_host(&catalog, &bus, nullptr);
   expect(py.start((tmp / "ok").string(), "plugin.py", host), "start ok");
   expect(host->execute("sample.hello", {}), "sample.hello");
+  expect(host->open_dialog("sample.dlg"), "open sample.dlg");
+  expect(host->run_processing("sample.proc", "{}"), "run sample.proc");
+
+  {
+    const std::string out = py.eval(
+        "import smartgis\n"
+        "print(smartgis.content.host.open_dialog('sample.dlg'))\n"
+        "print(smartgis.content.host.run_processing('sample.proc', '{}'))");
+    expect(out.find("True") != std::string::npos, "host open/run via eval");
+  }
+
+  ui::views::set_file_picker_modals_suppressed_for_test(true);
+  ui::views::set_message_box_suppressed_for_test(true);
+  {
+    const std::string out = py.eval(
+        "import smartgis\n"
+        "r = smartgis.ui.pick_open_file('*.txt')\n"
+        "smartgis.ui.show_message_box('info', 'x')\n"
+        "print(repr(r))");
+    expect(out.find("False") != std::string::npos, "pick_open suppressed");
+  }
+  ui::views::set_file_picker_modals_suppressed_for_test(false);
+  ui::views::set_message_box_suppressed_for_test(false);
+
+  {
+    const std::string out = py.eval("1 + 1");
+    expect(out.find("2") != std::string::npos, "eval 1+1");
+  }
+  {
+    const std::string out = py.eval("import smartgis.gis.analysis as a; len(a.ops())");
+    expect(!out.empty() && out.find("error") == std::string::npos,
+           "import smartgis.gis.analysis");
+  }
+  {
+    const std::string out = py.eval(
+        "import smartgis\n"
+        "smartgis.debug.set_tracing(True)\n"
+        "print(smartgis.debug.tracing_enabled())\n"
+        "cm = smartgis.debug.trace_event('py_test', 'plugin')\n"
+        "cm.__enter__()\n"
+        "cm.__exit__(None, None, None)\n"
+        "smartgis.debug.set_tracing(False)\n"
+        "print(smartgis.debug.tracing_enabled())");
+    expect(out.find("True") != std::string::npos, "debug tracing on");
+    expect(out.find("False") != std::string::npos, "debug tracing off");
+  }
+  {
+    const std::string out = py.eval(
+        "import smartgis\n"
+        "print(smartgis.tool.activate('edit.append.linestring'))");
+    expect(out.find("False") != std::string::npos ||
+               out.find("True") != std::string::npos,
+           "tool.activate no crash");
+  }
+
   py.stop();
 
   expect(!py.start((tmp / "boom").string(), "plugin.py", host),

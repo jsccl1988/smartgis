@@ -10,7 +10,7 @@
 #include "legacy/tool/group/defs.h"
 #include "legacy/ui/xcatalog/mapmgr.h"
 #include "legacy/ui/xcatalog/scenemgr.h"
-#include "plugin/product/dem/tin_loader.h"
+#include "plugin/product/dem/processing/tin_loader.h"
 using namespace gis;
 using namespace plugin;
 using namespace sys;
@@ -141,7 +141,6 @@ void CDlgTinLoader::OnBnClickedBtnSelvertexfile() {
                   szFilter, NULL);
 
   if (dlg.DoModal() == IDCANCEL) {
-    AfxMessageBox("��û��ѡ��Ҫ�򿪵��ļ�!");
     return;
   }
 
@@ -159,7 +158,6 @@ void CDlgTinLoader::OnBnClickedBtnSeltexfile() {
                   szFilter, NULL);
 
   if (dlg.DoModal() == IDCANCEL) {
-    AfxMessageBox("��û��ѡ��Ҫ�򿪵��ļ�!");
     return;
   }
 
@@ -415,16 +413,16 @@ void CDlgTinLoader::OnBnClickedOk() {
   m_cmbX.GetLBText(m_cmbX.GetCurSel(), strIX);
   m_cmbY.GetLBText(m_cmbY.GetCurSel(), strIY);
   m_cmbZ.GetLBText(m_cmbZ.GetCurSel(), strIZ);
-  sscanf(strIX, "��%d��", &m_iX);
-  sscanf(strIY, "��%d��", &m_iY);
-  sscanf(strIZ, "��%d��", &m_iZ);
+  sscanf(strIX, "第%d列", &m_iX);
+  sscanf(strIY, "第%d列", &m_iY);
+  sscanf(strIZ, "第%d列", &m_iZ);
 
   m_iX--;
   m_iY--;
   m_iZ--;
 
   if (m_iX == m_iY) {
-    ::MessageBox(::GetActiveWindow(), "XYѡ��ͬ������!", "��ʾ", MB_OK);
+    ::MessageBox(::GetActiveWindow(), "XY选择不能相同!", "提示", MB_OK);
     return;
   }
 

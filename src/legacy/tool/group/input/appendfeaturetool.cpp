@@ -5,9 +5,9 @@
 #include <cstdint>
 #include <memory>
 
-#include "base/carto/style_api.h"
-#include "base/carto/stylemanager.h"
-#include "gis/datasource/ogr/codec/ogr_feature_codec.h"
+#include "legacy/carto/style_api.h"
+#include "legacy/carto/stylemanager.h"
+#include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
 #include "gis/model/feature/feature.h"
 #include "gis/model/map/map.h"
 #include "legacy/core/api.h"

@@ -114,10 +114,16 @@ void test_pickle_host_bodies() {
   r_in.w = 1280;
   r_in.h = 720;
   r_in.dpi = 144.f;
+  r_in.monitor_luid_low = 0xabcdef01u;
+  r_in.monitor_luid_high = 0x12345678u;
+  r_in.adapter_hint = 2;
   content::ResizeSurfaceBody r_out;
   const std::string rw = base::ipc::encode(r_in);
   expect(base::ipc::decode(rw.data(), rw.size(), &r_out), "resize decode");
-  expect(r_out.w == 1280 && r_out.h == 720 && r_out.dpi == 144.f,
+  expect(r_out.w == 1280 && r_out.h == 720 && r_out.dpi == 144.f &&
+             r_out.monitor_luid_low == 0xabcdef01u &&
+             r_out.monitor_luid_high == 0x12345678u &&
+             r_out.adapter_hint == 2,
          "resize fields");
 }
 

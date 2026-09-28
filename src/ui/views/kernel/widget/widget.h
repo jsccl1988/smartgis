@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_KERNEL_WIDGET_WIDGET_H_
 #define UI_VIEWS_KERNEL_WIDGET_WIDGET_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -22,26 +22,38 @@ namespace ui {
 namespace views {
 
 class ShellCompositor;
+class ThemeObserver;
 
 // Top-level native HWND that owns a View tree and dispatches input / paint.
-class UI_VIEWS_EXPORT Widget {
+class UI_EXPORT Widget {
  public:
+  // kSystem keeps OS non-client chrome. kCustom uses a caption-less HWND
+  // (WS_POPUP + thickframe) and collapses NC into the client so FrameView
+  // can paint the caption (CSD). Do not combine kCustom with WS_CAPTION —
+  // DWM would still draw a second OS title bar.
+  enum class FrameKind {
+    kSystem,
+    kCustom,
+  };
+
   struct InitParams {
     const wchar_t* title = L"SmartGIS Views";
     // Client size. Defaults are DIPs (|size_in_dips| true) so 1280x800 looks
     // like a normal desktop shell on Per-Monitor DPI hosts.
     // Owned popups (|owner| set) always treat this as *client* size; Widget
-    // expands to outer shell via dialog_host / AdjustWindowRectEx.
+    // expands to outer shell via dialog_host / AdjustWindowRectEx unless
+    // |frame_kind| is kCustom (outer == client).
     int width = 1280;
     int height = 800;
     HWND owner = nullptr;
     // When true (default), |width|/|height| are DIPs scaled by owner/screen DPI.
     // Set false only when the caller already computed physical pixels.
     bool size_in_dips = true;
+    FrameKind frame_kind = FrameKind::kSystem;
   };
 
   Widget();
-  ~Widget();
+  virtual ~Widget();
 
   Widget(const Widget&) = delete;
   Widget& operator=(const Widget&) = delete;
@@ -49,6 +61,7 @@ class UI_VIEWS_EXPORT Widget {
   bool init(const InitParams& params);
   void set_contents_view(std::unique_ptr<View> contents);
   View* contents_view() const { return contents_.get(); }
+  FrameKind frame_kind() const { return frame_kind_; }
   HWND hwnd() const { return hwnd_; }
 
   // Latest published shell raster (BGRA8, top-down). Valid until the next
@@ -104,11 +117,14 @@ class UI_VIEWS_EXPORT Widget {
   bool send_char(const CharEvent& event);
 
  private:
+  friend class WidgetThemeWatch;
+  void on_theme_changed();
   static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam,
                                    LPARAM lparam);
   static Widget* from_hwnd(HWND hwnd);
 
   LRESULT handle_message(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
+  LRESULT handle_nc_hit_test(int screen_x, int screen_y);
   void on_paint();
   void on_shell_published_message(std::uint64_t generation);
   void maybe_notify_shell_published(std::uint64_t published_gen);
@@ -130,6 +146,7 @@ class UI_VIEWS_EXPORT Widget {
   HWND hwnd_ = nullptr;
   std::unique_ptr<View> contents_;
   std::unique_ptr<ShellCompositor> compositor_;
+  FrameKind frame_kind_ = FrameKind::kSystem;
   View* focused_ = nullptr;
   View* hovered_ = nullptr;
   View* pressed_ = nullptr;
@@ -151,6 +168,9 @@ class UI_VIEWS_EXPORT Widget {
   std::uint64_t last_shell_published_notified_ = 0;
   // Coalesce kShellPublishedMessage → one InvalidateRect while paints pending.
   bool shell_wake_invalidate_pending_ = false;
+  // Heap-owned so Widget stays layout-stable across the DLL boundary
+  // (no ThemeObserver base; hwnd()/scale stay at fixed offsets for inlines).
+  std::unique_ptr<ThemeObserver> theme_watch_;
 };
 
 }  // namespace views

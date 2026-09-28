@@ -6,7 +6,7 @@
 #include "legacy/ui/chart/dlg_2d_x_chart_view.h"
 #include "legacy/ui/chart/resource.h"
 #include "legacy/ui/xcatalog/mapmgr.h"
-#include "gis/datasource/mgr/datasource_mgr.h"
+#include "legacy/datasource/mgr/datasource_mgr.h"
 #include "gis/model/feature/feature_api.h"
 
 using namespace gis;
@@ -64,12 +64,17 @@ BOOL CDlg2DXChartView::InitGreateChart(void) {
 BOOL CDlg2DXChartView::InitGreateXView(void) {
   m_p2DXView = new Smt2DXView();
 
-  m_p2DXView->BindDlgItem(this, IDC_XVIEW_CONTAINER);
+  if (m_p2DXView->BindDlgItem(this, IDC_XVIEW_CONTAINER) != SMT_ERR_NONE) {
+    SMT_SAFE_DELETE(m_p2DXView);
+    return FALSE;
+  }
 
   if (m_p2DXView->GetSafeHwnd())
     m_p2DXView->OnInitialUpdate();
-  else
+  else {
+    SMT_SAFE_DELETE(m_p2DXView);
     return FALSE;
+  }
 
   m_p2DXView->SetOperMap(m_chart.GetSmtMapPtr());
 

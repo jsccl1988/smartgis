@@ -22,6 +22,8 @@ __pycache__/
 node_modules/
 /bin/
 /temp/
+# Local scratch (agent one-shots, retired cutover scripts). Not versioned.
+/.tmp/
 # China city pack download cache (regenerate via testing/data/build_china_city.py).
 /testing/data/_china_cache/
 /testing/data/_china_100000_full.json

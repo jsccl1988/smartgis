@@ -22,7 +22,7 @@ source_set("assets_sources") {
     "GIS_EXPORTS",
     "SDB_EXPORTS",
   ]
-  deps = []
+  deps = [ "//src/base:foundation" ]
   if (smt_has_assimp) {
     defines += [ "SMT_HAS_ASSIMP" ]
     deps += [ "//third_party:assimp" ]

@@ -92,6 +92,16 @@ struct LineTessOptions {
   int round_segments = 8;
 };
 
+// Options for polygon fill fan tessellation (exterior ring only).
+//
+// When `world_units_per_pixel` > 0, rings smaller than ~0.75 px are skipped and
+// ring verts are decimated in screen space (min edge ≈ 1 px) before fanning.
+struct FillTessOptions {
+  double world_units_per_pixel = 0;
+  // Hard cap after decimation; dense admin rings stay cheap to draw.
+  int max_fan_verts = 64;
+};
+
 // half_width_world = 0.5 * pixel_width * world_units_per_pixel.
 GIS_EXPORT double line_half_width_world(double pixel_width,
                                         double world_units_per_pixel);
@@ -107,6 +117,9 @@ GIS_EXPORT double line_half_width_from_envelope(double pixel_width,
 GIS_EXPORT double resolve_line_half_width(const LineTessOptions& options);
 
 GIS_EXPORT bool tessellate_geometry(const OGRGeometry* geom, TessMesh& out);
+GIS_EXPORT bool tessellate_geometry(const OGRGeometry* geom,
+                                    const FillTessOptions& fill_options,
+                                    TessMesh& out);
 GIS_EXPORT bool tessellate_geoms(const OGRGeometry* const* geoms, size_t count,
                                  TessMesh& out);
 GIS_EXPORT bool tessellate_layer(OGRLayer* layer, TessMesh& out);
@@ -140,6 +153,11 @@ GIS_EXPORT bool tessellate_polyline(const float* xyz, size_t point_count,
 GIS_EXPORT bool tessellate_aabb(double min_x, double min_y, double min_z,
                                 double max_x, double max_y, double max_z,
                                 TessMesh& out);
+
+// Process-trace helpers: accumulate CPU-us under parallel_for (no per-call
+// mutex), then flush one Complete span per bucket (dur = CPU sum).
+GIS_EXPORT void reset_tess_trace_stats();
+GIS_EXPORT void flush_tess_trace_stats();
 
 }  // namespace gis
 

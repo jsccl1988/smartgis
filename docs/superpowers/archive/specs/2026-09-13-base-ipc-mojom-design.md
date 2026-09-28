@@ -1,0 +1,577 @@
+<!--
+
+Copyright (c) 2026 The Mogu Authors.
+
+All rights reserved.
+
+-->
+
+> **Status: superseded** (2026-09-28 merge B). Merged into [`../../specs/2026-09-14-base-root-hybrid-design.md`](../../specs/2026-09-14-base-root-hybrid-design.md) — §ipc / mojom (folded). Do not revise here except mechanical link fixes; revise the living umbrella in place.
+
+
+
+
+# Base IPC + named pipe / pickle (OOP map)
+
+
+
+**Date:** 2026-09-13  
+
+**Status:** superseded (2026-09-28 merge B)
+
+**Scope:** one implementation plan. Move host transport out of `content/common/ipc.h` into repo-root `base/ipc`, use **Win32 named pipe + mogu BinarySink/pickle** (C++ structs with `archive()`；BinarySink helpers 在 `base/archive`，`base::`；**codec 依赖 `base/archive`，不依赖 `net`**；`net::Pickle` 仍在 `src/net/pack/pickle.h`), name the multiprocess map stack like Chromium `WebContents` / `RenderProcessHost` / `Widget`, and use **one PE with Chromium-style `--type=` entry points** (no `SmartGisRender.exe`). **No Chromium. No protobuf. No mojom generator.**
+
+
+
+## Goal
+
+
+
+Windows OOP map rendering uses **product IPC**: Win32 named pipe + mogu **BinarySink/pickle** wire. C++ message structs implement `archive()` for encode/decode. A **standalone GPU process** (`--type=gpu`) owns all **2D and 3D** map painting (GL / D3D11 / scene3d). The browser only presents. Same PE: `content::ContentMain`, children relaunch `SmartGis.exe` with `--type=`. Language floor is **C++23 for the whole tree**.
+
+
+
+## Non-goals
+
+
+
+- Do not vendor Blink, Chromium `content/`, viz, Chromium `ui/views`, or Skia wholesale.
+
+- Do not add Chromium Mojo, mojom, or a sparse `chromium/chromium` pin.
+
+- Do not use protobuf for the **current** named-pipe / BinarySink IPC wire (see archive design). Product protobuf is **allowed** for MVT and new protocols; a future IPC migration is a separate plan ([`2026-09-28-third-party-json-xml-protobuf-design.md`](2026-09-28-third-party-json-xml-protobuf-design.md)).
+
+- Do not ship a second map image (`SmartGisRender.exe`). Children are `SmartGis.exe --type=…`.
+
+- Do not run `SmtRenderDevice`, GL, D3D11, or 3D engines in the browser process.
+
+- Do not put 2D and 3D on different GPU processes (one GPU process, N surfaces, mixed `ViewKind`).
+
+- Do not replace present with Chromium viz / command buffer.
+
+- Do not put `kIoCall` on the map widget pipe (that is `--type=utility` in v1.5).
+
+- Qt is banned.
+
+
+
+## Language (whole repo)
+
+
+
+Windows `declare_args` `cc_std` is **`c++23`**, same as the non-Windows branch in `build/BUILDCONFIG.gn`. `c_std` stays `c17` on Windows unless a separate change needs C23.
+
+
+
+- Legacy `Smt_*` TUs compile as C++23; fix conformance errors in place. Do not leave a second `cc_std` for `smt_shared_library`.
+
+- Traits in this spec may use C++20 concepts, `requires`, `if constexpr`, and C++23 that MSVC v145 accepts.
+
+
+
+## Architecture
+
+
+
+One product image, `ContentMain` dispatch (Chromium-style switch names only — **not** Chromium IPC):
+
+
+
+```
+
+out/SmartGis.exe                          # same PE
+
+  (default / --type=browser)             BrowserMain — Views chrome
+
+  --type=renderer                         RendererMain — SmtMap / SmtIATool
+
+  --type=gpu                              GpuMain — D3D11/GL present
+
+  --type=utility                          UtilityMain — reserved (IO/SDE)
+
+```
+
+
+
+```
+
+Browser (no --type)
+
+  MapContents / MapWidgetHostView          present only
+
+  RendererProcessHost + GpuProcessHost     two children, always
+
+       │
+
+       ├─ SmartGis.exe --type=renderer     SmtMap / SmtIATool (CPU)
+
+       │    MapWidget  (input, tools, catalog)
+
+       │
+
+       └─ SmartGis.exe --type=gpu         2D + 3D paint + DXGI handle
+
+            Gpu / GpuHost                  one device, N surfaces
+
+```
+
+
+
+`--ui=views|web|winui` is **browser-only**. Child processes never load WebView2, WinUI, MFC, or Views chrome.
+
+
+
+`RendererProcessHost::Launch` / `GpuProcessHost::Launch` use `GetModuleFileNameW(nullptr)`, copy the browser command line, set `--type=renderer` or `--type=gpu`, append `--pipe=` (see Invitation). Never a different `output_name`. Product topology is **always two children**. `--in-process-gpu` is debug-only and **default off**.
+
+
+
+## Single binary / ContentMain
+
+
+
+```
+
+wWinMain → content::ContentMain(ContentMainParams)
+
+             CommandLine --type=
+
+             kBrowser   → BrowserMain
+
+             kRenderer  → RendererMain
+
+             kGpu       → GpuMain
+
+             kUtility   → UtilityMain
+
+```
+
+
+
+Switch names match Chromium process labels: `--type=renderer`, `--type=gpu`, `--type=utility`. Browser is the default (omit `--type` or `--type=browser`).
+
+
+
+| Label | This repo |
+
+| --- | --- |
+
+| `SmartGis.exe` | `out/SmartGis.exe` |
+
+| `--type=renderer` | `SmtMap` + `SmtIATool` only. **No** D3D/GL device |
+
+| `--type=gpu` | **Required** child. One GPU device paints **2D and 3D** |
+
+| `--type=utility` | future IO/SDE payload |
+
+| `--in-process-gpu` | GPU Main inside renderer. **Default off.** Debug / CI only |
+
+| `--in-process-renderer` | all Mains in the browser (dev only, default off) |
+
+
+
+Default launch: Browser starts **Renderer and GPU**. Present and `Smt*Render*` / `scene3d` / `terrain` / `pointcloud` run only in `GpuMain`.
+
+
+
+GN: one `executable("smartgis")` links browser + renderer + gpu + utility mains. `src_all` stays 31 DLLs and does not link this exe. `build.bat render` becomes `out\SmartGis.exe --type=renderer --self-test` (and `--type=gpu --self-test`). Retire `//src/gpu:gpu` as a separate `console_app`.
+
+
+
+**Product wire:** Win32 named pipe + length-prefixed frames. Payloads are **pickle BinarySink** blobs produced/consumed by C++ structs with `archive()`. This is the **only** v1 transport — not an escape hatch for a future Chromium Mojo pin.
+
+**Mojo concept map (no Chromium, no mojom):**
+
+| Mojo / ipcz | This repo (`base::ipc`) |
+| --- | --- |
+| PlatformChannel | `PlatformChannel` (pre-connected duplex pipe pair) |
+| OutgoingInvitation / IncomingInvitation | `OutgoingInvitation` / `IncomingInvitation` |
+| `--mojo-platform-channel-handle=` | `--ipc-channel-handle=` (inherited HANDLE) |
+| Message pipe | `Channel` (named-pipe frames, pickle payload) |
+| Request id | `Frame.seq` |
+| MojoWrapPlatformHandle | `wrap_into` / `handle_to_token` / `handle_from_token` |
+| ScopedIPCSupport | `ScopedIpcSupport` watches `Channel::readable_event` via `WaitForMultipleObjects` (no 200ms poll). `wait_readable` arms an overlapped header `ReadFile` only after the pipe is connected; timeout 0 polls without cancelling. Receiver dtor flush + `shared_ptr` pump state. |
+| Receiver / Remote | `Receiver` + `MessageListener` / `Remote` (no IDL) |
+| PendingRemote / PendingReceiver | `PendingRemote` / `PendingReceiver` / `InterfaceEndpoint::create_pair` — **mojom shape only**, not a mojom toolchain (no `.mojom`, no Chromium generator) |
+| DataPipe | `DataPipeProducer` / `DataPipeConsumer` (shared-memory ring + events; ends travel as 3 frame attachments) |
+| ipcz Node / Portal | in-tree `Node` + `Portal`. `offer_portal` transfers a dedicated pipe **HANDLE attachment** (plus open-frame ids). Not `//third_party/ipcz`. |
+| DXGI / shared NT handle | `kSharedHandle` metadata pickle + **handle list `[0]`** only. `SharedHandleWire` has no `nt_handle`. |
+| Renderer invitation | same-PE: two `OutgoingInvitation` launches (`"gpu"`, `"renderer"`). `--pipe=` leftover `SmartGisRender.exe` only. |
+| RendererMain | HostMsg loop: OpenView/ViewReady, ActivateTool + pointer/text → `tool::Workspace`, SetExtent→ExtentChanged (chrome forwards to GPU). No D3D/GL. `--self-test` exits without a GPU device. |
+
+Invitation is the same-PE child bootstrap. `--pipe=` remains a fallback for leftover `SmartGisRender.exe`. This is a **mojom-shaped C++ API**, not Chromium mojom.
+
+
+
+## Components
+
+
+
+| Unit | Role | Depends on |
+
+| --- | --- | --- |
+
+| `base::ipc` (`base/ipc`) | Named pipe server/client, frame envelope, BinarySink encode/decode | `base/archive`（`base::` BinarySink helpers；**not** `net`） |
+
+| `content::MapContents` | Public session API (today `MapSession`) | `RendererProcessHost` |
+
+| `MapContentsObserver` | Frame / extent / death callbacks | none (chrome implements) |
+
+| `MapWidgetHostView` | Public viewport; `latest()` shared surface | `MapWidgetHost` |
+
+| `content::ContentMain` | `wWinMain` dispatch on `--type=` | app + content |
+
+| `RendererProcessHost` | Launch `SmartGis.exe --type=renderer` via invitation (`attach("renderer")`) | `base::ipc` |
+
+| `GpuProcessHost` | Always launch `--type=gpu`; TDR restarts this process only | `base::ipc` |
+
+| `MapWidgetHost` | Per-view proxy; `Forward*` input to **renderer** | pipe messages |
+
+| `gpu::GpuMain` | `--type=gpu` entry; 2D+3D backends | `src/gpu`, `src/render/*` |
+
+
+
+`MapRenderProcessHost` is an alias for `RendererProcessHost` during the rename; do not keep both in public headers.
+
+
+
+Public headers stay under `src/content/public/` (no `public/browser/` third nest). Includes: `"content/public/map_contents.h"`.
+
+
+
+`//src:src_all` does **not** depend on IPC wire internals beyond what chrome needs through `content` public API.
+
+
+
+## Chromium naming (public API only)
+
+
+
+| Retired | v1 |
+
+| --- | --- |
+
+| `content::MapSession` | `content::MapContents` |
+
+| `MapSessionClient` | `content::MapContentsObserver` |
+
+| `create_map_session()` | `MapContents::Create()` |
+
+| `MapView` | `content::MapWidgetHostView` |
+
+| hidden pipe owner | `content::RendererProcessHost` (`GpuProcessHost` for `--type=gpu`) |
+
+| per `view_id` | `content::MapWidgetHost` |
+
+| `ToolRouter` | methods on `MapWidgetHost` (optional typedef during the move) |
+
+
+
+Delete `map_session.h` / `map_view.h` / `tool_router.h` after hosts are updated. No long-lived aliases.
+
+
+
+**Method names on this stack are PascalCase** (`StartRenderProcess`, `OpenView`, `AttachSurface`), matching Chromium public API shape. `Smt_*` ABI stays as today.
+
+
+
+## Wire format (pickle BinarySink)
+
+
+
+**Frame envelope** (all messages):
+
+
+
+| Field | Type | 说明 |
+
+| --- | --- | --- |
+
+| `magic` | `u32` | `'SMT1'` |
+
+| `version` | `u16` | 协议主版本（**3**: `seq` + handle list） |
+
+| `type` | `u16` | message discriminant |
+
+| `flags` | `u16` | `kJson` / `kBinary` / `kNeedAck` / `kHasHandles` |
+
+| `handle_count` | `u16` | attached platform handles (max 8) |
+
+| `view_id` | `u32` | `0` = session 级 |
+
+| `seq` | `u32` | request / reply token |
+
+| `payload_bytes` | `u32` | pickle blob length |
+
+| `payload` | bytes | BinarySink output from `struct.archive()` |
+
+| `handles` | `u64[handle_count]` | HANDLE tokens valid in the peer |
+
+
+
+**C++ structs** (examples — implement `void archive(Archive& ar)` or project equivalent):
+
+
+
+- `Hello` / `HelloAck` — protocol version, GPU caps
+
+- `OpenView` / `ViewReady` — `ViewKind`, `view_id` (**id assigned in renderer**)
+
+- `CloseView`, `SetExtent`, `ExtentChanged`, `SetSelection`, `SelectionChanged`
+
+- `LegendQuery` / `LegendSnapshot`, `CatalogOp` / `CatalogDelta` (JSON string in payload for v1)
+
+- `ActivateTool`, `DispatchPointer`, `DispatchText`
+
+- **`PluginCall`** — `{ plugin_id, method, bytes }` on the **same envelope** (future plugin IPC; no second IDL)
+
+- **`PluginEvent`** — renderer → browser plugin callback
+
+- `AttachSurface`, `ResizeSurface`, `FrameReady`, `ResetGpu` — on GPU session (same pipe family or dedicated GPU pipe name; v1 may multiplex on one pipe with `type`)
+
+- `RenderDied` / `ContextLost`, `PrintRequest` / `PrintPage`
+
+
+
+Shared value types in structs: `ViewKind`, `PresentMode`, `Extent2`, `PointerEvent`, `FeatureId`, `GpuCaps`, `FramePixels` (`generation`, dimensions, `format`, platform `HANDLE` for pixels — serialized as inheritable handle token on wire).
+
+
+
+Fire-and-forget: extent and pointer. Reply + 15s timeout: `Hello`. Reply + 30s: `OpenView`. Timeouts must not block the UI thread (IO thread decode, replies posted to UI runner).
+
+
+
+Do **not** run mojom, protobuf, or a parallel JSON-only protocol for control messages.
+
+
+
+## GPU process (2D + 3D)
+
+
+
+Standalone `--type=gpu` is **required**. It is the only process allowed to create a GL or D3D11 device.
+
+
+
+| `ViewKind` | GPU backend (v1) | Not |
+
+| --- | --- | --- |
+
+| `kMapEdit` / `kMapData` | `SmtRender` + `SmtGLRenderDevice` (GDI = `kSoftwareDib`) | D3DX9 |
+
+| `kScene3d` | `legacy/render/render3d` + `scene3d` / `terrain` / `pointcloud` | D3D9 path removed |
+
+
+
+One GPU device, **N surfaces**, mixed 2D and 3D views in the same process. Browser `MapWidgetHostView` only **opens** the shared handle; it does not draw the map.
+
+
+
+Renderer never calls `D3D11CreateDevice`. After `SmtIATool` mutates the map, it submits frames to GPU via wire messages. TDR: GPU process dies or `ContextLost` → `GpuProcessHost` relaunches `--type=gpu`; **renderer stays**; browser drops handles and waits for new `FrameReady`.
+
+
+
+Hidden HWND for `SmtRenderDevice::Init` exists **only** in the GPU process.
+
+
+
+## Invitation / child launch
+
+
+
+**v1.1:** `OutgoingInvitation` + inherited `--ipc-channel-handle=`. `--pipe=` remains fallback for leftover render exe.
+
+
+
+1. Same PE: two `OutgoingInvitation` objects. Each `attach`s one name (`"gpu"` / `"renderer"`) and `launch_with_invitation` relaunches this image with `--type=` plus `--ipc-channel-handle=`. `InvitationBody.pipe0/pipe1` is for **one child, two pipes** — not a substitute for two processes. One Job `KILL_ON_JOB_CLOSE` for both children.
+
+2. Leftover `SmartGisRender.exe` only: browser `CreateNamedPipeW` + child `--pipe=`. Same-PE must not use `--pipe=` as the primary path.
+
+3. Each child `IncomingInvitation::accept` + `extract`, sends `Hello`; browser replies `HelloAck`. `RendererMain` runs the HostMsg tool/view loop (`tool::Workspace`) until `kShutdown` or parent death (no D3D/GL). GPU publishes DXGI/DIB via frame attachments. Chrome routes tools/pointers to `renderer_pipe_` and surfaces to the GPU pipe.
+
+4. Renderer may later receive a brokered GPU portal (pipe-over-pipe) so it can submit paint without the browser marshalling every frame.
+
+
+
+Do **not** pass `--mojo-platform-channel-handle=`. Do **not** fetch Chromium for invitation.
+
+
+
+Later task (not v1): replace `--pipe=` string bootstrap with a richer invitation struct on the same pickle wire — still **no** second IDL.
+
+
+
+Crash: renderer disconnect → `RendererDied` → relaunch renderer, keep GPU if still up. GPU `ContextLost` / death → relaunch **GPU only**, renderer stays, drop `SharedSurface` handles.
+
+
+
+## UI events
+
+
+
+Map pointers are taken on the **UI-process native viewport**, then forwarded by `MapWidgetHost`. Ribbon, tree, dialogs, and accelerators are consumed in chrome. Events that miss the map never call `DispatchPointer`.
+
+
+
+### Pipeline
+
+
+
+```
+
+User → chrome (ribbon/tree/dialog hit-test) → stop
+
+     → MapWidgetHostView::OnNativeEvent
+
+          DIP → physical pixels; origin = map HWND client origin
+
+          WM_LBUTTONDOWN: SetCapture on the UI HWND (not the GPU process)
+
+     → MapWidgetHost::Forward*
+
+          coalesce queued MouseMove (keep latest + button state)
+
+          Down / Up / Wheel / Key are never coalesced
+
+     → DispatchPointer(view_id, PointerEvent)   // fire-and-forget on pipe
+
+     → renderer SmtIATool::MouseMove / LButtonDown / …
+
+     → renderer Submit2d|Submit3d to GPU
+
+     ← FrameReady(handle)   // GPU process
+
+     ← ViewCursor / ExtentChanged / ContextMenu
+
+```
+
+
+
+`ActivateTool` is a command, not an event. Coordinates are **surface physical pixels**.
+
+
+
+Hosts must not include wire codecs; they call PascalCase methods on `MapWidgetHostView` / `MapContents`.
+
+
+
+## Traits (reduce copies)
+
+
+
+```cpp
+
+enum class ProcessRole { kBrowser, kRenderer, kGpu };
+
+```
+
+
+
+**Archive traits** for `Extent2`, `PointerEvent` ↔ `content::InputEvent`, `FeatureId`, `FramePixels` ↔ `content::SharedSurface`, `PresentMode`, `ViewKind` — all via `archive()` on structs, not a code generator.
+
+
+
+**PresentBackendTraits<PresentMode>**: `kSharedTexture`, `kSoftwareDib`, `kChildHwnd`. Instantiated **only** in `--type=gpu`.
+
+
+
+**NativeInputTraits<NativeEvent>**: Win32 `MSG`, WinUI pointer args, Views events → `content::InputEvent`.
+
+
+
+**Allowed TMP:** concepts, `requires`, `if constexpr`, explicit specialization.  
+
+**Not on the main path:** a second IDL, protobuf, Mojo.
+
+
+
+## Testing / success
+
+
+
+| Check | Evidence |
+
+| --- | --- |
+
+| Language | `build.bat` (`//:all`) green at `cc_std=c++23` |
+
+| Wire | `Hello` / `HelloAck` over named pipe within 15s |
+
+| Handle | `FrameReady` carries inheritable pixel handle from `--type=gpu` |
+
+| 2D+3D | `OpenView(kMapEdit)` and `OpenView(kScene3d)` both present from the **same** GPU process |
+
+| Input | Map HWND mouse/wheel reaches **renderer** `SmtIATool`; ribbon hit does not |
+
+| Rebind GPU | Kill GPU process → new `--type=gpu` → new handles; renderer stays |
+
+| Rebind renderer | Kill renderer → new `--type=renderer`; GPU can stay |
+
+| Isolation | `SmtCore` compile lines do not pull IPC wire headers |
+
+| Plugin shape | `PluginCall { plugin_id, method, bytes }` defined on same envelope (may be stub until wired) |
+
+
+
+`out\SmartGis.exe --type=gpu --self-test` must create a D3D or GL device and a shared handle **without** a browser HWND. `--type=renderer --self-test` must not create a GPU device.
+
+
+
+`content/public` C++ that chrome includes stays free of pipe implementation details.
+
+
+
+## Docs to update in the same implementation change
+
+
+
+- `docs/build/ui-shell-multiprocess.md` §0.2 / §0.4 — Browser + Renderer + **standalone GPU**; one `SmartGis.exe`; named pipe + pickle.
+
+- `docs/build/src-layout.md` — `base/ipc`, `content` Chromium-style type names, C++23, `ContentMain`.
+
+- Root `README.md` — C++23; `build.bat render` → `SmartGis.exe --type=`; refresh **最后更新**.
+
+- `build/README.md` — `cc_std` default.
+
+- `docs/README.md` — link this spec.
+
+- Hosts under `src/app/{winui,views}` — `MapContents` / PascalCase; browser-only `--ui=`.
+
+
+
+## Risks
+
+
+
+- Pickle wire versioning: bump `version` field; never run two transports in parallel.
+
+- WinUI C++/WinRT under C++23: fix projections or isolate that target only.
+
+- Legacy MFC / 2010 sources under C++23: fix errors, do not weaken the standard.
+
+- TDR vs Job: GPU restart must not kill renderer.
+
+- GL + D3D11 in one GPU process: share DXGI device; do not spawn a second GPU process.
+
+- Handle inheritance vs antivirus: keep `HANDLE_LIST` or duplicate via broker message on pipe.
+
+
+
+## Success
+
+
+
+- Repo compiles as C++23 (`build.bat`).
+
+- Chrome `MapContents::Create()` starts `SmartGis.exe --type=renderer` **and** `--type=gpu` with `--pipe=`.
+
+- No `SmartGisRender.exe` on the product path.
+
+- 2D and 3D frames both come from the GPU process `FrameReady` handle.
+
+- Killing GPU relaunches `--type=gpu` only; killing renderer relaunches `--type=renderer`.
+
+- 31 DLLs still have no wire codec on their include path.
+
+- No Chromium pin, no mojom, no protobuf in the product IPC path.
+
+

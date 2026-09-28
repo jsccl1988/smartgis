@@ -1,0 +1,89 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/benchmark.gni")
+import("//testing/test.gni")
+
+# ConnectionSpec + DatasetHandle. No dep on provider (avoids GN cycle:
+# provider returns DatasetHandle and depends on :session_core).
+source_set("session_core") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+  sources = [
+    "connection_spec.cc",
+    "connection_spec.h",
+    "dataset_handle.cc",
+    "dataset_handle.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/gis/model/map:gis_sources",
+    "//src/base:base",
+    "//src/base:core",
+    "//third_party:gdal",
+  ]
+}
+
+# DataSession entry. Depends on provider registry (Task 2).
+source_set("session_sources") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+  sources = [
+    "data_session.cc",
+    "data_session.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":session_core",
+    "//src/gis/datasource/provider:provider_sources",
+    "//src/gis/model/map:gis_sources",
+    "//src/base:base",
+    "//src/base:core",
+    "//third_party:gdal",
+  ]
+}
+
+group("session") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+test("datasource_session_test") {
+  output_name = "datasource_session_test"
+  sources = [ "datasource_session_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    "//src/gis:gis",
+    "//third_party:gdal",
+  ]
+  data_deps = [
+    "//src/gis:gis",
+    "//third_party:gdal_runtime_dlls",
+  ]
+}
+
+# google/benchmark for mem create + OGR iterate (informational).
+# Do not set configs= here: benchmark.gni forwards it and would replace
+# default //build/config:cc_std (unlike test.gni which appends).
+# Custom main registers GDAL before RunSpecifiedBenchmarks.
+benchmark("datasource_benchmark") {
+  output_name = "datasource_benchmark"
+  sources = [ "datasource_benchmark.cc" ]
+  include_dirs += [ "//src" ]
+  use_benchmark_main = false
+  deps = [
+    "//src/gis:gis",
+    "//third_party:gdal",
+  ]
+  data_deps = [
+    "//src/gis:gis",
+    "//third_party:gdal_runtime_dlls",
+  ]
+}

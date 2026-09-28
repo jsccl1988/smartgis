@@ -2,7 +2,7 @@
 
 #include "legacy/ui/chart/diagramdata.h"
 
-#include "gis/datasource/mgr/datasource_mgr.h"
+#include "legacy/datasource/mgr/datasource_mgr.h"
 
 using namespace gis;
 

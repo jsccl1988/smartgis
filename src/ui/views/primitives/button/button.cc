@@ -121,5 +121,9 @@ void Button::paint_self(ui::gfx::Canvas* canvas) {
   }
 }
 
+
+std::string_view Button::paint_role() const {
+  return "button";
+}
 }  // namespace views
 }  // namespace ui

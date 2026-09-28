@@ -14,11 +14,16 @@ All rights reserved.
 | 层 | 名称 | 本仓状态 | 入口 |
 | --- | --- | --- | --- |
 | **L0** | 工具箱单测（合成事件） | **已有** | `out\views_unittests.exe` |
-| **L1** | 进程内交互序列 | 规划（仿 Kombucha 轻量 API） | 未来 `views_interactive_tests` |
+| **L1** | 进程内交互序列 | **已有**（Wave1；[`ui-testing` P2](#分期) + living §UI interactive harness） | `out\views_interactive_tests.exe`（GN `//src/ui/views:views_interactive_tests`；harness `src/ui/views/testing/harness/`） |
+| **L1b** | 壳/合成 perf 微基准 | **已有**（非默认 `te`） | `out\views_bench.exe`（GN `//src/ui/views:views_bench`） |
+| **L1c** | UI 视觉取证（Scheme 1 A+C） | **已有**（**非**默认 `te` 门禁） | 失败/`SMT_UI_FORENSICS=1` → `out\ui_forensics\`；`tools\debug\scripts\ui_visual_forensics.py` |
 | **L1′** | 产品壳语义路径 | **已有** | `SmartGisViews.exe --self-test`；`SmartGisWinui.exe --self-test`；`SmartGisCef.exe --self-test`（有 CEF pin 时） |
 | **L2** | 壳像素回归 | **已有**；地图帧不进默认基线 | `out\views_pixel_tests.exe` |
 | **L3** | 黑盒 UIA / FlaUI | **低优先**（自绘 Views 缺 Provider） | 暂缓 |
 | **L4** | 产品 exe 冒烟 | **已有** | `build.bat e2e` → `exe_smoke` |
+| **Console L0** | Agent / 命令矩阵 | **规划中**（living §Console coverage） | `content_console_coverage_test` → `build.bat te` |
+| **Console L1** | Console / 数据+视口 soft 时序 | **规划中**（非默认 `te`） | `content_console_bench` → `build.bat b` → `console_bench.json` |
+| **Console L2** | 壳 Console 驱动冒烟 | **规划中** | `SmartGisViews.exe --self-test-console`（+ 可选 OpenCppCoverage） |
 
 GN / 跑法总入口：[`testing/README.md`](../../testing/README.md)。
 
@@ -43,6 +48,50 @@ GN / 跑法总入口：[`testing/README.md`](../../testing/README.md)。
 ```bat
 build.bat te
 out\views_unittests.exe
+```
+
+### L1 — `views_interactive_tests`（Wave1 已绿）
+
+- **设计已锁定：** living spec [`2026-09-27-views-desktop-shell-design.md`](../superpowers/specs/2026-09-27-views-desktop-shell-design.md) §UI interactive harness + overlay bench；实现清单 [`2026-09-28-ui-interactive-overlay-bench.md`](../superpowers/plans/2026-09-28-ui-interactive-overlay-bench.md)。
+- **路径：** `src/ui/views/testing/interactive/views_interactive_tests.cc`；harness `src/ui/views/testing/harness/`（`EventGenerator` / `ViewsTestBase` / `OverlayScene`）。
+- **GN：** `//src/ui/views:views_interactive_tests` → `out\views_interactive_tests.exe`；行为矩阵 `src/ui/views/testing/interactive/interactive_matrix.md`（仍待补全）。
+- **Wave1：** 壳 compositor / `PainterRegistry` / `PaintCommit` overlay；**Wave2：** `MapViewport` / `AuxOverlay` 语义（不读地图像素）。
+- **Live 编排：** DebugAgent `ui.*` + `tools/debug/scripts/ui_smoke.py`（与 C++ harness 语义对齐，非替代 L1′）。
+- **覆盖率：** OpenCppCoverage 经 `testing/scripts/open_cpp_coverage_views.ps1` 可选 CI；**不**阻塞默认 `build.bat te`。
+
+```bat
+build.bat debug views_interactive_tests
+out\views_interactive_tests.exe
+```
+
+### L1b — `views_bench`（perf，已有；非默认 te）
+
+- **GN：** `//src/ui/views:views_bench` → `out\views_bench.exe`；源码 `src/ui/views/testing/bench/views_bench.cc`。
+- **用途：** `EventGenerator.click`、`OverlayScene.commit`（1/4/16 层）、`ShellCompositor.commit+wait` 微基准；CI 可选采集 stdout 时序。
+
+```bat
+build.bat debug views_bench
+out\views_bench.exe
+```
+
+### L1c — UI visual forensics（Scheme 1 A+C；已落地）
+
+- **设计已锁定：** living spec [`2026-09-27-views-desktop-shell-design.md`](../superpowers/specs/2026-09-27-views-desktop-shell-design.md) §UI visual forensics (A+C)；实现清单 [`2026-09-28-ui-visual-forensics.md`](../superpowers/plans/2026-09-28-ui-visual-forensics.md)。
+- **Mode A（默认行为）：** L0 / L1′ 仍以语义断言与 `layout_check` 为门禁；**失败时**（或 `SMT_UI_FORENSICS=1`）写入 `out\ui_forensics\<run_id>\`：
+  - `layout_issues.txt`（含 sibling-overlap 建议项）
+  - `manifest.json`（View 树 bounds；L0 `dump_ui_forensics` 还可写 `frame_0000.png`）
+- **C++：** `layout_check` 增补 `collect_sibling_overlaps` / `write_layout_issues_file`；`testing/forensics/ui_forensics.*`；`views_unittests` 场景（TabStrip / Ambox / Gantt geom / dump）；`RenderTracePanel::set_embedded` 收起重复 chrome 以修甘特泳道；DebugAgent `ui.capture_shell` + `:ui capture [path]`。
+- **Mode C（可选）：** `tools\debug\scripts\ui_visual_forensics.py` **未**接入默认 `build.bat te`。
+  - `--list-runs` / `--analyze <dir>` / `--record-all [--frames N] [--out DIR]`
+  - 离线：兄弟 AABB 重叠、TabStrip、Ambox y 间距、Gantt 车道间距（manifest 有度量时）
+- **场景矩阵：** Catalog 标签不堆叠；Ambox 无 y 塌缩；Gantt 车道间距；Map↔3D 仅语义 marks，无地图像素 golden。
+
+```bat
+dir out\ui_forensics
+set SMT_UI_FORENSICS=1
+out\Debug\views_unittests.exe
+py -3 tools\debug\scripts\ui_visual_forensics.py --list-runs
+py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run_id>
 ```
 
 ### L1′ — `SmartGisViews.exe --self-test`
@@ -163,6 +212,35 @@ out\views_pixel_tests.exe --update-goldens
 
 - 已接入 `//:test_all`；`build.bat te` 会编译并运行。
 
+### Console coverage + performance（L0 / L1 / L2）
+
+Living 设计：[`2026-09-27-views-desktop-shell-design.md`](../superpowers/specs/2026-09-27-views-desktop-shell-design.md) **§Console coverage + performance**；清单 [`2026-09-28-debug-console.md`](../superpowers/plans/2026-09-28-debug-console.md) Task 6。
+
+| 层 | 目标 | 入口 | 产物 / 备注 |
+| --- | --- | --- | --- |
+| **L0** | `content_console_coverage_test` | `build.bat te`（`//:test_all`） | Headless Agent / 命令矩阵 |
+| **L1** | `content_console_bench` | `build.bat b`（`//:benchmark_all`） | `console_bench.json`（数据 + 视口 soft 时序；非默认 `te`） |
+| **L2** | `SmartGisViews.exe --self-test-console` | 壳 e2e / 自测 | Console 驱动产品路径；JSON 视实现 |
+
+**OpenCppCoverage（可选，不阻塞 `te`）：**
+
+```powershell
+powershell -File testing\scripts\open_cpp_coverage_console.ps1
+```
+
+- 优先 PATH 上的 `OpenCppCoverage.exe`；缺失则打印 skip 并以 **exit 0** 退出（不炸 CI）。
+- 默认跑 `out\Debug\content_console_coverage_test.exe`（可选再跑 `debug_agent_test.exe`）。
+- Sources：`src\content\browser\debug`、`src\base\log`。
+- 导出 HTML / cobertura → `out\Debug\coverage\console\`。
+
+Views 工具箱可选覆盖率（同样不阻塞 `te`）：`testing\scripts\open_cpp_coverage_views.ps1` → `out\Debug\coverage\views\`。
+
+```bat
+build.bat te
+build.bat b
+out\Debug\SmartGisViews.exe --self-test-console
+```
+
 ### L4 — `exe_smoke`
 
 - 路径：`testing/e2e/exe_smoke.cc`。
@@ -200,7 +278,7 @@ build.bat e2e
 | --- | --- | --- |
 | **P0** | `views_unittests` 已入 `//:test_all`；`build.bat te` 会编译并跑 L0；`build.bat e2e` 跑 L1′+L4 | `te` / `e2e` 绿 |
 | **P1** | 接入 gtest；按模块拆 `views_unittests`；`--self-test=suite` 可选过滤 | 可过滤套件 |
-| **P2** | 轻量交互序列 fixture（进程内 Click → Wait → CheckView） | `views_interactive_tests` |
+| **P2** | 轻量交互序列 fixture（进程内 Click → Wait → CheckView + `OverlayScene` 壳 overlay；living spec §UI interactive harness） | `views_interactive_tests`（已绿）+ `interactive_matrix.md`（待补）；Agent `ui.*` + `tools/debug/scripts/ui_smoke.py`（live 壳）；OpenCppCoverage 可选 `testing/scripts/open_cpp_coverage_views.ps1` |
 | **P3** | 扩展 L2 场景 + 假数据夹具覆盖 Open 路径 | 外观 + 数据回归 |
 
 ## 不做 / 慎做
@@ -217,11 +295,17 @@ build.bat e2e
 | --- | --- |
 | [`ui-views-skia.md`](ui-views-skia.md) | UI 终局 |
 | [`testing/README.md`](../../testing/README.md) | GN 测试入口 |
-| [`src/ui/views/README.md`](../../src/ui/views/README.md) | 工具箱 + `views_unittests` |
+| [`src/ui/views/README.md`](../../src/ui/views/README.md) | 工具箱 + `views_unittests` + L1 harness |
+| [`../superpowers/specs/2026-09-27-views-desktop-shell-design.md`](../superpowers/specs/2026-09-27-views-desktop-shell-design.md) | §UI interactive harness + overlay bench；§UI visual forensics (A+C)；§Console coverage + performance |
+| [`../superpowers/plans/2026-09-28-ui-interactive-overlay-bench.md`](../superpowers/plans/2026-09-28-ui-interactive-overlay-bench.md) | L1/L1b 实现清单 |
+| [`../superpowers/plans/2026-09-28-ui-visual-forensics.md`](../superpowers/plans/2026-09-28-ui-visual-forensics.md) | L1c 取证实现清单 |
+| [`../superpowers/plans/2026-09-28-debug-console.md`](../superpowers/plans/2026-09-28-debug-console.md) | Debug Console + Task 6 coverage/bench |
+| `testing/scripts/open_cpp_coverage_console.ps1` | Console 可选 OpenCppCoverage |
+| `testing/scripts/open_cpp_coverage_views.ps1` | Views 可选 OpenCppCoverage |
 | [`src/app/views/README.md`](../../src/app/views/README.md) | 产品壳 + `--self-test` |
 | `src/ui/views/kernel/layout_check.h` | 布局不变量 |
 | `src/ui/views/testing/testdata/` | L2 PNG 基线与说明 |
 
 ---
 
-**最后更新：** 2026-09-19
+**最后更新：** 2026-09-28

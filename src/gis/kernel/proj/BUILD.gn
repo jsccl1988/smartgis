@@ -2,6 +2,7 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//testing/benchmark.gni")
 import("//testing/test.gni")
 
 # PROJ 9 comes from //third_party:gdal (public_deps :PROJ; copies
@@ -38,6 +39,23 @@ group("proj") {
 test("proj_test") {
   output_name = "proj_test"
   sources = [ "api/proj_test.cpp" ]
+  include_dirs += [
+    "//src/gis/kernel/proj",
+    "//src/base/core",
+    "//src",
+  ]
+  deps = [
+    ":proj",
+    "//src/base:core",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}
+
+# google/benchmark for project_point / transform_xy / naive_webmerc.
+benchmark("proj_benchmark") {
+  output_name = "proj_benchmark"
+  sources = [ "api/proj_benchmark.cc" ]
   include_dirs += [
     "//src/gis/kernel/proj",
     "//src/base/core",

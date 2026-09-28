@@ -17,15 +17,15 @@ config("gpu_config") {
 # gfx: use :gfx_headers only — do not pull ui_views.dll / content / tool here.
 source_set("gpu_backend") {
   sources = [
-    "compositor/compositor_frame.h",
-    "compositor/frame_composer.cc",
-    "compositor/frame_composer.h",
-    "compositor/rhi_composer.cc",
-    "compositor/rhi_composer.h",
-    "compositor/rhi_underlay_bridge.cc",
-    "compositor/rhi_underlay_bridge.h",
-    "compositor/software_renderer.cc",
-    "compositor/software_renderer.h",
+    "compositor/composer/composer.cc",
+    "compositor/composer/composer.h",
+    "compositor/composer/rhi_composer.cc",
+    "compositor/composer/rhi_composer.h",
+    "compositor/composer/software_composer.cc",
+    "compositor/composer/software_composer.h",
+    "compositor/frame/frame.h",
+    "compositor/underlay/underlay_bridge.cc",
+    "compositor/underlay/underlay_bridge.h",
     "device/adapter_id.h",
     "device/gpu_device_hub.cc",
     "device/gpu_device_hub.h",
@@ -60,6 +60,8 @@ source_set("gpu_backend") {
     "//src/render:rhi",
     "//src/render/graph:graph",
     "//src/ui/gfx:gfx_headers",
+    # DWM / DXGI BeginFrame clock (shared with MapViewport; not ui_views.dll).
+    "//src/ui/gfx:vblank_wait",
   ]
   libs = [
     "d3d11.lib",

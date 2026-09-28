@@ -4,7 +4,7 @@
 #ifndef UI_GFX_RASTER_PAINT_STATS_H_
 #define UI_GFX_RASTER_PAINT_STATS_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <cstdint>
 
 
@@ -20,6 +20,10 @@ struct PaintCounters {
   std::uint64_t commit_qpc = 0;
   std::uint64_t raster_qpc = 0;
   std::uint64_t present_qpc = 0;
+  // BeginFrame (DWM/vblank) → present latency gate (Debug accumulates).
+  std::uint64_t begin_frame_qpc = 0;
+  std::uint64_t begin_frame_to_present_qpc = 0;
+  std::uint64_t begin_frame_count = 0;
   std::uint64_t commit_count = 0;
   std::uint64_t activate_count = 0;
   std::uint64_t paint_pixels = 0;
@@ -32,23 +36,26 @@ struct PaintCounters {
   std::uint64_t measure_text = 0;
 };
 
-UI_VIEWS_EXPORT PaintCounters paint_counters();
-UI_VIEWS_EXPORT void reset_paint_counters();
+UI_EXPORT PaintCounters paint_counters();
+UI_EXPORT void reset_paint_counters();
 
-UI_VIEWS_EXPORT void note_widget_paint_qpc(std::uint64_t ticks);
-UI_VIEWS_EXPORT void note_map_paint_qpc(std::uint64_t ticks);
-UI_VIEWS_EXPORT void note_commit_qpc(std::uint64_t ticks);
-UI_VIEWS_EXPORT void note_raster_qpc(std::uint64_t ticks);
-UI_VIEWS_EXPORT void note_present_qpc(std::uint64_t ticks);
-UI_VIEWS_EXPORT void note_commit();
-UI_VIEWS_EXPORT void note_activate();
-UI_VIEWS_EXPORT void note_paint_area(std::uint64_t pixels, std::uint64_t rcpaint);
-UI_VIEWS_EXPORT void note_layout();
-UI_VIEWS_EXPORT void note_create_font();
-UI_VIEWS_EXPORT void note_utf8_conversion();
-UI_VIEWS_EXPORT void note_canvas_ctor();
-UI_VIEWS_EXPORT void note_create_brush();
-UI_VIEWS_EXPORT void note_measure_text();
+UI_EXPORT void note_widget_paint_qpc(std::uint64_t ticks);
+UI_EXPORT void note_map_paint_qpc(std::uint64_t ticks);
+UI_EXPORT void note_commit_qpc(std::uint64_t ticks);
+UI_EXPORT void note_raster_qpc(std::uint64_t ticks);
+UI_EXPORT void note_present_qpc(std::uint64_t ticks);
+// Records a BeginFrame tick (QPC timestamp) and optional present latency.
+UI_EXPORT void note_begin_frame_qpc(std::uint64_t qpc_ticks);
+UI_EXPORT void note_begin_frame_to_present_qpc(std::uint64_t ticks);
+UI_EXPORT void note_commit();
+UI_EXPORT void note_activate();
+UI_EXPORT void note_paint_area(std::uint64_t pixels, std::uint64_t rcpaint);
+UI_EXPORT void note_layout();
+UI_EXPORT void note_create_font();
+UI_EXPORT void note_utf8_conversion();
+UI_EXPORT void note_canvas_ctor();
+UI_EXPORT void note_create_brush();
+UI_EXPORT void note_measure_text();
 
 }  // namespace gfx
 }  // namespace ui

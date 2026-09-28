@@ -1,9 +1,55 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
+#
+# Slim benchmark() template. Always links google/benchmark
+# (//third_party:gbenchmark). Default also links benchmark_main
+# (provides main). Set use_benchmark_main = false for a custom main
+# (e.g. env-gated GPU benches).
 
 template("benchmark") {
   executable(target_name) {
-    forward_variables_from(invoker, "*")
+    forward_variables_from(invoker,
+                           "*",
+                           [
+                             "configs",
+                             "deps",
+                             "use_benchmark_main",
+                           ])
     testonly = true
+    if (defined(invoker.configs)) {
+      configs += invoker.configs
+    }
+    if (is_win) {
+      configs += [ "//build/config/win:console_subsystem" ]
+    }
+
+    _deps = []
+    if (defined(invoker.deps)) {
+      _deps += invoker.deps
+    }
+    _deps += [ "//third_party:gbenchmark" ]
+
+    _use_main = true
+    if (defined(invoker.use_benchmark_main)) {
+      _use_main = invoker.use_benchmark_main
+    }
+    if (_use_main) {
+      _deps += [ "//third_party:gbenchmark_main" ]
+      # Force-pull main from the static archive under /NODEFAULTLIB.
+      if (is_win) {
+        if (!defined(ldflags)) {
+          ldflags = []
+        }
+        ldflags += [ "/INCLUDE:main" ]
+      }
+    }
+    deps = _deps
+
+    if (is_win) {
+      if (!defined(libs)) {
+        libs = []
+      }
+      libs += [ "shlwapi.lib" ]
+    }
   }
 }

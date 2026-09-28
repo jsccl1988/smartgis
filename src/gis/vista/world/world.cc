@@ -96,7 +96,7 @@ void World::attach_map(const gis::SmtMap* map) {
   for (int i = 0; i < count; ++i) {
     if (OGRLayer* ogr = const_cast<OGRLayer*>(map->GetOgrLayer(i))) {
       OGREnvelope ogr_env;
-      base::Envelope env;
+      gis::Envelope env;
       if (ogr->GetExtent(&ogr_env, TRUE) == OGRERR_NONE) {
         env.MinX = ogr_env.MinX;
         env.MinY = ogr_env.MinY;
@@ -114,7 +114,7 @@ void World::attach_map(const gis::SmtMap* map) {
     if (!layer) {
       continue;
     }
-    base::Envelope env;
+    gis::Envelope env;
     layer->get_envelope(env);
     NodeKind kind = NodeKind::kRasterLayer;
     Node* node = add_node(kind, layer->GetLayerName(), env.MinX, env.MinY, 0,
@@ -140,7 +140,7 @@ Node* World::attach_vector_geoms(const char* name,
     if (!geoms[i]) {
       continue;
     }
-    base::Envelope env;
+    gis::Envelope env;
     geo::copy_envelope(*geoms[i], &env);
     if (!have_env) {
       min_x = env.MinX;
@@ -181,7 +181,7 @@ Node* World::attach_tin(const geo::Tin* tin, const char* name) {
   if (!tin || tin->is_empty()) {
     return nullptr;
   }
-  base::Envelope env;
+  gis::Envelope env;
   tin->get_envelope(&env);
   Node* node = add_node(NodeKind::kVectorLayer, name, env.MinX, env.MinY, 0,
                         env.MaxX, env.MaxY, 0);
@@ -195,7 +195,7 @@ Node* World::attach_grid(const geo::Grid* grid, const char* name) {
   if (!grid || grid->is_empty()) {
     return nullptr;
   }
-  base::Envelope env;
+  gis::Envelope env;
   grid->get_envelope(&env);
   Node* node = add_node(NodeKind::kVectorLayer, name, env.MinX, env.MinY, 0,
                         env.MaxX, env.MaxY, 0);
@@ -210,7 +210,7 @@ Node* World::attach_raster_layer(const gis::SmtRasterLayer* layer) {
     return nullptr;
   }
   base::fRect rect;
-  base::Envelope env;
+  gis::Envelope env;
   if (layer->GetRasterRect(rect) == SMT_ERR_NONE && rect.width() > 0 &&
       rect.height() > 0) {
     env.MinX = rect.lb.x;
@@ -232,7 +232,7 @@ Node* World::attach_tile_layer(const gis::SmtTileLayer* layer) {
   if (!layer) {
     return nullptr;
   }
-  base::Envelope env;
+  gis::Envelope env;
   layer->get_envelope(env);
   const int n = layer->GetTileCount();
   for (int i = 0; i < n; ++i) {

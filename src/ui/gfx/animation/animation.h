@@ -4,14 +4,14 @@
 #ifndef UI_GFX_ANIMATION_ANIMATION_H_
 #define UI_GFX_ANIMATION_ANIMATION_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 namespace ui {
 namespace gfx {
 
 // Minimal linear animation skeleton for shell chrome. Not a Chromium
 // AnimationContainer / multi-curve stack. Hosts drive |step| with a 0..1
 // progress value; this type does not own a timer thread.
-class UI_VIEWS_EXPORT Animation {
+class UI_EXPORT Animation {
  public:
   Animation() = default;
   virtual ~Animation();

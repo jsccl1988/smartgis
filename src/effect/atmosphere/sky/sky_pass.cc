@@ -11,11 +11,45 @@
 #include "effect/atmosphere/detail/math.h"
 #include "effect/atmosphere/detail/mesh.h"
 #include "effect/atmosphere/detail/raster.h"
-#include "render/programs/programs.h"
+#include "effect/atmosphere/sky/constants.h"
+#include "effect/atmosphere/sky/hlsl.h"
 #include "render/rhi/rhi.h"
 
 namespace effect {
 namespace atmosphere {
+namespace {
+
+constexpr uint32_t kSkyConstantSlot = 1;
+
+render::rhi::GraphicsPipelineDesc sky_graphics_desc() {
+  static constexpr render::rhi::BindingSlot kBindings[] = {
+      {.slot = 0,
+       .kind = render::rhi::BindingKind::kConstantBuffer,
+       .stage = render::rhi::ShaderStage::kVertex,
+       .size_bytes = 128,
+       .hlsl_name = "CameraCB"},
+      {.slot = kSkyConstantSlot,
+       .kind = render::rhi::BindingKind::kConstantBuffer,
+       .stage = render::rhi::ShaderStage::kPixel,
+       .size_bytes = sizeof(SkyConstants),
+       .hlsl_name = "SkyCB"},
+  };
+  render::rhi::GraphicsPipelineDesc desc;
+  desc.vertex.hlsl = kVsSky;
+  desc.pixel.hlsl = kPsSky;
+  desc.vertex_layout = render::rhi::VertexLayout::kPosition;
+  desc.bindings = kBindings;
+  desc.binding_count = sizeof(kBindings) / sizeof(kBindings[0]);
+  desc.blend = render::rhi::BlendMode::kOpaque;
+  // Backdrop only: never write depth so ocean/terrain always composite on top.
+  desc.compile_depth_off = true;
+  desc.compile_depth_write = false;
+  desc.compile_depth_test = false;
+  desc.camera_slot = 0;
+  return desc;
+}
+
+}  // namespace
 
 SkyPass::SkyPass() = default;
 
@@ -124,8 +158,7 @@ bool SkyPass::ensure_pipeline(render::rhi::Device* device) {
   }
   destroy_pipeline();
   pipeline_device_ = device;
-  pipeline_ = device->create_graphics_pipeline(
-      render::programs::solid_pipeline_desc());
+  pipeline_ = device->create_graphics_pipeline(sky_graphics_desc());
   return pipeline_ != nullptr;
 }
 
@@ -197,18 +230,31 @@ bool SkyPass::record(render::rhi::Device* device, render::rhi::CommandList* list
     return false;
   }
 
-  float r = 0.f;
-  float g = 0.f;
-  float b = 0.f;
-  average_sky_rgb(params_, &r, &g, &b);
+  SkyConstants sky{};
+  sky.sun_x = params_.sun_x;
+  sky.sun_y = params_.sun_y;
+  sky.sun_z = params_.sun_z;
+  sky.zenith_r = params_.zenith_r;
+  sky.zenith_g = params_.zenith_g;
+  sky.zenith_b = params_.zenith_b;
+  sky.horizon_r = params_.horizon_r;
+  sky.horizon_g = params_.horizon_g;
+  sky.horizon_b = params_.horizon_b;
+  sky.sunset_r = params_.sunset_r;
+  sky.sunset_g = params_.sunset_g;
+  sky.sunset_b = params_.sunset_b;
+  sky.sun_glow = params_.sun_glow_strength;
+  if (camera) {
+    detail::eye_from_view(camera->view, &sky.cam_x, &sky.cam_y, &sky.cam_z);
+  }
 
   detail::set_fullscreen_viewport(list, width, height);
   detail::bind_camera_if(list, camera);
   detail::apply_raster(
-      list, {pipeline_, render::rhi::BlendMode::kOpaque, render::rhi::DepthMode::kWrite});
-  // Slot 1 is the solid program's color float4.
-  const float color[4] = {r, g, b, 1.0f};
-  list->set_constants(1, color, static_cast<uint32_t>(sizeof(color)));
+      list, {pipeline_, render::rhi::BlendMode::kOpaque,
+             render::rhi::DepthMode::kDisabled});
+  list->set_constants(kSkyConstantSlot, &sky,
+                      static_cast<uint32_t>(sizeof(sky)));
   detail::draw_indexed_mesh(list, vertex_, index_, 3 * sizeof(float),
                             index_count_);
   return true;

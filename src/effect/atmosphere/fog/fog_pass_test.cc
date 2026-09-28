@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <memory>
 
+#include "effect/atmosphere/fog/constants.h"
 #include "render/rhi/rhi.h"
 
 namespace {
@@ -60,11 +61,15 @@ int main() {
   expect(stub != nullptr, "stub list");
   if (stub) {
     expect(stub->last_pipeline == fog.pipeline() && fog.pipeline() != nullptr,
-           "fog solid pipeline");
-    const auto* color = stub->constant_at(1);
-    expect(color != nullptr && color->byte_size == 16, "fog color slot 1");
+           "fog dedicated pipeline");
+    const auto* fog_cb = stub->constant_at(1);
+    expect(fog_cb != nullptr &&
+               fog_cb->byte_size == sizeof(effect::atmosphere::FogConstants),
+           "fog FogCB slot 1");
     expect(stub->last_blend == render::rhi::BlendMode::kSrcAlpha,
            "fog alpha blend");
+    expect(stub->last_depth == render::rhi::DepthMode::kDisabled,
+           "fog fullscreen haze skips depth");
     expect(stub->draw_indexed_calls >= 1u, "fog drew indexed");
   }
 

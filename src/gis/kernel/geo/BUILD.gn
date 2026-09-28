@@ -2,6 +2,7 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//testing/benchmark.gni")
 import("//testing/test.gni")
 
 # Compiled into //src/gis:gis (dll_stem = gis). :geo is the consumer label.
@@ -41,6 +42,21 @@ test("geo_ogr_test") {
   deps = [
     ":geo",
     "//src/base/math:math",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}
+
+# google/benchmark for geo::buffer vs OGRGeometry::Buffer.
+benchmark("geo_benchmark") {
+  output_name = "geo_benchmark"
+  sources = [ "ops/geo_benchmark.cc" ]
+  include_dirs += [
+    "//src/gis/kernel/geo",
+    "//src",
+  ]
+  deps = [
+    ":geo",
     "//third_party:gdal",
   ]
   data_deps = [ "//third_party:gdal_runtime_dlls" ]

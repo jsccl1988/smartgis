@@ -8,7 +8,7 @@
 // Records quads. Does not present.
 
 #include "content/public/map_types.h"
-#include "gpu/compositor/compositor_frame.h"
+#include "gpu/compositor/frame/frame.h"
 
 namespace gpu {
 namespace detail {

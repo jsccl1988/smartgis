@@ -4,7 +4,10 @@
 # GIS product tree (QGIS qgis_core + analysis kernels) — not a literal database.
 # One DLL (dll_stem = gis). Top-level groups (no extra public namespace):
 #   model/{feature,layer,map,crs,edit}
-#   datasource/{mgr,gdal,ogr,sdbd}
+#   datasource/{session,provider,pipeline}  L3 under provider/impl/{sdbd,ogr,gdal}
+#     L1 session → L2 provider → L3 impl; L4 pipeline
+#     leftover DataSourceMgr → //src/legacy/datasource/mgr
+
 #   present/{style,tile}  — StyleDocument, symbols, tiles; inputs to MapFrame.
 #                           Not folded into vista.
 #   vista/{frame,world,assets,domain}
@@ -12,6 +15,7 @@
 #       world is the gis::World node graph
 #       domain/atmosphere is the only implemented DomainKind session (kAtmosphere)
 #   kernel/{geo,proj,tin,stat}
+#   analysis/{ops,geometry,raster} — processing kernels; plugin:: only forwards
 # //src/gis:algorithm and :geom forward to :gis.
 # In-DLL source_sets depend on //src/gis/kernel/geo:geo_sources (not :geo)
 # so the group can point back at this DLL without a GN cycle.
@@ -26,8 +30,10 @@ smt_shared_library("gis") {
   ]
   deps = [
     "//src/gis/model/map:gis_sources",
-    "//src/gis/datasource/gdal:sde_gdal_sources",
-    "//src/gis/datasource/mgr:sde_mgr_sources",
+    "//src/gis/datasource/provider/impl/gdal:sde_gdal_sources",
+    "//src/legacy/datasource/mgr:sde_mgr_sources",
+    "//src/gis/datasource/session:session_sources",
+    "//src/gis/datasource/provider:provider_sources",
     "//src/gis/present/tile:tile_sources",
     "//src/gis/vista/assets:assets_sources",
     "//src/gis/vista/world:world_sources",
@@ -41,9 +47,12 @@ smt_shared_library("gis") {
     "//src/gis/kernel/proj:proj_sources",
     "//src/gis/kernel/stat:stat_sources",
     "//src/gis/kernel/tin:tin_sources",
+    "//src/gis/analysis:analysis_sources",
   ]
   # TileProvider / Sdbd headers expose net::; consumers that include them need net.lib.
+  # LOGGING / log_sink live in base.dll (not statically absorbed via foundation).
   public_deps = [
+    "//src/base:base",
     "//src/net:net",
     "//third_party:gdal",
   ]
@@ -69,4 +78,50 @@ group("geom") {
 
 group("algorithm_all") {
   public_deps = [ ":gis" ]
+}
+
+# Functional coverage aggregate for //:test_all / Console :gis test.
+group("gis_test_all") {
+  testonly = true
+  deps = [
+    "//src/gis/kernel/geo:geo_ogr_test",
+    "//src/gis/kernel/proj:proj_test",
+    "//src/gis/kernel/stat:stat_expr_test",
+    "//src/gis/kernel/tin:tin_delaunay_test",
+    "//src/gis/kernel/tin:tin_xyz_test",
+    "//src/gis/datasource/session:datasource_session_test",
+    "//src/gis/datasource/pipeline:feature_load_pipeline_test",
+    "//src/gis/datasource/provider/impl/gdal:sde_gdal_test",
+    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding_test",
+    "//src/gis/datasource/provider/impl/sdbd:sdbd_client_test",
+    "//src/gis/datasource/provider/impl/sdbd:sdbd_live_test",
+    "//src/gis/model/feature:feature_test",
+    "//src/gis/model/map:select_query_test",
+    "//src/gis/model/edit:edit_conflict_test",
+    "//src/gis/present/style:style_test",
+    "//src/gis/present/tile:tile_test",
+    "//src/gis/vista/frame:frame_test",
+    "//src/gis/vista/world:world_test",
+    "//src/gis/vista/world:land_mask_test",
+    "//src/gis/vista/world:dem_raster_test",
+    "//src/gis/vista/world:tessellate_style_test",
+    "//src/gis/vista/assets:model_test",
+    "//src/gis/vista/assets:tileset_test",
+    "//src/gis/vista/domain/atmosphere:field_store_test",
+    "//src/gis/vista/domain/atmosphere:procedural_test",
+    "//src/gis/vista/domain/atmosphere:field_ingest_test",
+    "//src/gis/vista/domain/atmosphere:cloud_system_test",
+    "//src/gis/vista/domain/atmosphere:ocean_system_test",
+    "//src/gis/vista/domain/atmosphere:environment_test",
+  ]
+}
+
+# google/benchmark for //:benchmark_all / Console :gis bench.
+group("gis_benchmark_all") {
+  testonly = true
+  deps = [
+    "//src/gis/kernel/geo:geo_benchmark",
+    "//src/gis/kernel/proj:proj_benchmark",
+    "//src/gis/datasource/session:datasource_benchmark",
+  ]
 }

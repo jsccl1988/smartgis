@@ -1,0 +1,30 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/config/win/application.gni")
+
+win32_app("ui_designer") {
+  output_name = "UiDesigner"
+  sources = [
+    "main.cc",
+    "designer_app.cc",
+    "designer_app.h",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/ui/views:markup_resources",
+    "//src/ui/views:views",
+    "//third_party:pugixml",
+  ]
+  include_dirs += [ "//src" ]
+  libs = [
+    "comctl32.lib",
+    "comdlg32.lib",
+    "shell32.lib",
+    "user32.lib",
+  ]
+}
+
+group("UiDesigner") {
+  deps = [ ":ui_designer" ]
+}

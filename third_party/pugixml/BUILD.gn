@@ -1,0 +1,18 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# pugixml (MIT). Sources in third_party/.src/pugixml.
+
+_pugi_src = "//third_party/.src/pugixml/src"
+
+config("pugixml_headers") {
+  include_dirs += [ _pugi_src ]
+}
+
+source_set("pugixml") {
+  sources = [
+    "$_pugi_src/pugixml.cpp",
+    "$_pugi_src/pugixml.hpp",
+  ]
+  public_configs = [ ":pugixml_headers" ]
+}

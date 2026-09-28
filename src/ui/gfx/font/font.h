@@ -4,7 +4,7 @@
 #ifndef UI_GFX_FONT_FONT_H_
 #define UI_GFX_FONT_FONT_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <string>
 
 #include "ui/gfx/geometry/size.h"
@@ -23,7 +23,7 @@ struct Font {
 // Approximate ink size for |text| with |font|. GDI path uses a temporary HFONT
 // when an HDC is available via CreateCompatibleDC; otherwise returns a
 // character-count estimate. Empty / null text → {0,0}.
-UI_VIEWS_EXPORT Size measure_text_with_font(const Font& font, const wchar_t* text);
+UI_EXPORT Size measure_text_with_font(const Font& font, const wchar_t* text);
 
 }  // namespace gfx
 }  // namespace ui

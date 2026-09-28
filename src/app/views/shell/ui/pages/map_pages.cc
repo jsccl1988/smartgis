@@ -18,25 +18,28 @@
 #include <utility>
 #include <vector>
 
+#include "base/core/log.h"
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
 
 #include "app/views/shell/browser/commands/app_commands.h"
-#include "app/views/camera/map_host_extent.h"
+#include "content/browser/camera/map_host_extent.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
 #include "app/views/shell/browser/commands/view_commands.h"
-#include "plugin/product/dem/dem_commands.h"
+#include "plugin/product/dem/commands.h"
 #include "plugin/product/orthogrid/commands.h"
 #include "plugin/runtime/host/registry.h"
-#include "app/views/present/scene3d/session/scene3d_rhi_session.h"
+#include "content/browser/present/scene3d/policy/scene3d_rhi_session.h"
 #include "content/public/catalog_layers.h"
 #include "content/public/map_contents.h"
 #include "content/public/map_types.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
 #include "gis/vista/domain/atmosphere/field/field_channel.h"
+#include "gis/vista/domain/atmosphere/systems/environment.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/raster/shell_raster.h"
 #include "gis/model/edit/session/edit_session.h"
@@ -46,28 +49,29 @@
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
 #include "tool/workspace/workspace.h"
-#include "ui/views/dialogs/gis/add_basemap_dialog.h"
-#include "ui/views/gis/shell/ambox_view.h"
+#include "ui/gis/dialogs/add_basemap_dialog.h"
+#include "ui/gis/shell/ambox_view.h"
 #include "plugin/runtime/processing/builtin_ops.h"
 #include "plugin/runtime/processing/ops_runner.h"
-#include "ui/views/gis/panel/atmosphere_panel.h"
-#include "ui/views/dialogs/gis/att_struct_dialog.h"
-#include "ui/views/gis/inspect/attribute_table.h"
-#include "ui/views/gis/catalog/catalog_view.h"
-#include "ui/views/dialogs/gis/create_datasource_dialog.h"
-#include "ui/views/dialogs/gis/create_layer_dialog.h"
-#include "ui/views/dialogs/gis/create_map_dialog.h"
-#include "ui/views/gis/inspect/feature_info.h"
-#include "ui/views/dialogs/shell/file_picker.h"
-#include "ui/views/dialogs/shell/input_text_dialog.h"
-#include "ui/views/gis/catalog/layer_tree.h"
-#include "ui/views/gis/panel/processing_panel.h"
+#include "ui/gis/shell/atmosphere_panel.h"
+#include "ui/gis/dialogs/att_struct_dialog.h"
+#include "ui/gis/inspect/attribute_table.h"
+#include "ui/gis/catalog/catalog_view.h"
+#include "ui/gis/dialogs/create_datasource_dialog.h"
+#include "ui/gis/dialogs/create_layer_dialog.h"
+#include "ui/gis/dialogs/create_map_dialog.h"
+#include "ui/gis/inspect/feature_info.h"
+#include "ui/views/dialogs/file_picker.h"
+#include "ui/views/dialogs/input_text_dialog.h"
+#include "ui/gis/catalog/layer_tree.h"
+#include "ui/gis/analysis/processing_panel.h"
 #include "ui/views/kernel/layout/layout.h"
+#include "ui/views/kernel/shell/theme.h"
 #include "ui/views/map/map_viewport.h"
 #include "ui/views/primitives/menu/context_menu.h"
 #include "ui/views/primitives/menu/menu_bar.h"
 #include "ui/views/kernel/layout/splitter.h"
-#include "ui/views/gis/shell/status_bar.h"
+#include "ui/gis/shell/status_bar.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 #include "ui/views/kernel/view/view.h"
 
@@ -79,16 +83,21 @@ void BrowserView::attach_viewports() {
   // Ensure every map tab page has a real client rect before OpenView/Resize
   // (inactive tabs used to keep 0x0 bounds).
   widget_.layout_contents();
+  LOGGING(LOG_INFO, "rhi.attach_viewports: layout done; Map Edit attaches now");
 
   struct Bind {
     ui::views::MapViewport* pane;
     content::ViewHost* host;
     const char* tool;
+    bool attach_now;
   };
+  // Only DX12-init the visible Map Edit pane at startup. Data + 3D realize
+  // HWND only � three FlyCube devices each busy-waited up to ~5s and made
+  // SmartGisViews feel stuck on launch (debug D3D12 layers amplify this).
   const Bind binds[] = {
-      {map_edit_, browser_->edit_host(), "view.pan"},
-      {map_data_, browser_->data_host(), "view.pan"},
-      {map_scene_, browser_->scene_host(), "view3d.trackball"},
+      {map_edit_, browser_->edit_host(), "view.pan", true},
+      {map_data_, browser_->data_host(), "view.pan", false},
+      {map_scene_, browser_->scene_host(), "view3d.trackball", false},
   };
   for (const Bind& b : binds) {
     if (!b.pane) {
@@ -98,8 +107,17 @@ void BrowserView::attach_viewports() {
     if (browser_->map_session()) {
       b.pane->set_map_contents(browser_->map_session());
     }
-    b.pane->attach();
-    if (b.host) {
+    if (b.attach_now) {
+      b.pane->attach();
+    } else {
+      if (!b.pane->native_view()) {
+        b.pane->realize_native();
+      }
+      if (HWND hwnd = b.pane->native_view()) {
+        ShowWindow(hwnd, SW_HIDE);
+      }
+    }
+    if (b.host && b.attach_now) {
       b.host->activate(b.tool);
     }
   }
@@ -109,6 +127,11 @@ void BrowserView::attach_viewports() {
       return;
     }
     pane->sync_native_bounds();
+    // Size-notify only panes that already own a present device; deferred
+    // Data/3D attach on first tab focus.
+    if (pane->attach_mode() == ui::views::MapViewport::AttachMode::kNone) {
+      return;
+    }
     RECT rc = {};
     GetClientRect(pane->native_view(), &rc);
     if (rc.right > 0 && rc.bottom > 0) {
@@ -116,39 +139,53 @@ void BrowserView::attach_viewports() {
                    MAKELPARAM(rc.right, rc.bottom));
     }
   });
-  // Prefetch leftover GL stereo only when FlyCube is not the Scene3d SoT.
+  // Prefetch leftover GL stereo only when Stereo/GL is the selected engine.
   // Attaching stereo under FlyCube races the DX12 HWND and has corrupted heaps.
-  if (map_scene_ && map_scene_->native_view() && !prefer_scene3d_flycube()) {
+  // Scene3d FlyCube itself is deferred until the 3D tab is focused.
+  if (map_scene_ && map_scene_->native_view() &&
+      map_scene_->attach_mode() != ui::views::MapViewport::AttachMode::kNone &&
+      prefer_scene3d_stereo_gl()) {
     (void)browser_->scene3d_stereo()->try_attach(map_scene_->native_view());
   }
 }
 
 void BrowserView::wire_map_scene() {
-  auto paint2d = [this](HDC hdc, const RECT& rc) {
-    const int w = rc.right - rc.left;
-    const int h = rc.bottom - rc.top;
-    if (browser_->blit()->in_preview() && browser_->blit()->present(hdc, w, h)) {
-      return;
-    }
-    // Shared browser_->document(): present_gpu sets last_gpu_present_ok on success.
-    // SMT_FORCE_GDI_MAP_OVERLAY=1 skips 2D gpu_present_ in MapViewport.
-    const bool force_gdi = []() {
-      if (const char* env = std::getenv("SMT_FORCE_GDI_MAP_OVERLAY")) {
-        return env[0] == '1' && env[1] == '\0';
+  auto paint2d_for = [this](ui::views::MapViewport* pane) {
+    return [this, pane](HDC hdc, const RECT& rc) {
+      const int w = rc.right - rc.left;
+      const int h = rc.bottom - rc.top;
+      if (browser_->blit()->in_preview() &&
+          browser_->blit()->present(hdc, w, h)) {
+        return;
       }
-      return false;
-    }();
-    if (!force_gdi && browser_->map2d()->last_gpu_present_ok()) {
-      browser_->map2d()->paint_annotation_overlay(hdc, w, h);
-    } else {
-      browser_->map2d()->paint(hdc, w, h, true);
-      browser_->blit()->capture(hdc, w, h);
-    }
-    content::ViewHost* host = active_view_host();
-    if (browser_->flash_lit() && host && host->workspace() &&
-        host->workspace()->flashing()) {
-      browser_->map2d()->paint_flash_overlay(hdc, w, h);
-    }
+      // GDI overlay paints into |hdc| (backbuffer DIB). FlyCube present_gpu
+      // writes the DXGI swapchain — last_gpu_present_ok must NOT skip full
+      // GDI here or the DIB stays teal/empty (annotations only). Only
+      // ContentMapView SharedSurface blit into this DC is a true SoT skip.
+      // SMT_FORCE_GDI_MAP_OVERLAY=1 skips 2D gpu_present_ in MapViewport.
+      const bool force_gdi = []() {
+        if (const char* env = std::getenv("SMT_FORCE_GDI_MAP_OVERLAY")) {
+          return env[0] == '1' && env[1] == '\0';
+        }
+        return false;
+      }();
+      const bool content_sot =
+          pane &&
+          pane->attach_mode() ==
+              ui::views::MapViewport::AttachMode::kContentMapView &&
+          pane->last_content_present_ok();
+      if (!force_gdi && content_sot) {
+        browser_->map2d()->paint_annotation_overlay(hdc, w, h);
+      } else {
+        browser_->map2d()->paint(hdc, w, h, true);
+        browser_->blit()->capture(hdc, w, h);
+      }
+      content::ViewHost* host = active_view_host();
+      if (browser_->flash_lit() && host && host->workspace() &&
+          host->workspace()->flashing()) {
+        browser_->map2d()->paint_flash_overlay(hdc, w, h);
+      }
+    };
   };
   auto paint3d = [this](HDC hdc, const RECT& rc) {
     const int w = rc.right - rc.left;
@@ -158,7 +195,7 @@ void BrowserView::wire_map_scene() {
     }
     const auto mode = map_scene_ ? map_scene_->attach_mode()
                                  : ui::views::MapViewport::AttachMode::kNone;
-    // Priority: FlyCube → leftover GL stereo → ContentMapView DIB → GDI DEM.
+    // Priority: FlyCube → (opt-in) leftover GL stereo → ContentMapView → GDI DEM.
     const bool flycube = mode == ui::views::MapViewport::AttachMode::kFlyCube;
     const bool content_map =
         mode == ui::views::MapViewport::AttachMode::kContentMapView;
@@ -168,8 +205,15 @@ void BrowserView::wire_map_scene() {
       browser_->scene3d()->paint_hud(hdc, w, h);
       return;
     }
+    // When FlyCube is the product SoT (default), never re-attach leftover GL
+    // on the same HWND — try_present_sot would race the DX12 swapchain and
+    // permanently stamp the HUD badge as Stereo/GL even after RHI recovers.
+    // Stereo/GL is only allowed when the user selected that engine.
+    const bool allow_stereo_fallback =
+        prefer_scene3d_stereo_gl() && !flycube;
     HWND hwnd = map_scene_ ? map_scene_->native_view() : nullptr;
-    if (browser_->scene3d_stereo()->try_present_sot(
+    if (allow_stereo_fallback &&
+        browser_->scene3d_stereo()->try_present_sot(
             hwnd, hdc, w, h, browser_->orbit_frame()->yaw(),
             browser_->orbit_frame()->pitch(),
             browser_->orbit_frame()->distance())) {
@@ -183,13 +227,18 @@ void BrowserView::wire_map_scene() {
       browser_->scene3d()->paint_hud(hdc, w, h);
       return;
     }
+    // FlyCube attached but present not yet ok (or failed): software DEM SoT
+    // into the paint DC. Keep the RHI label so the badge is not "Stereo/GL".
+    if (flycube) {
+      browser_->scene3d()->set_render_engine_name("FlyCube/DX12");
+    }
     browser_->scene3d()->paint(hdc, w, h, /*fill_background=*/true);
   };
   for (ui::views::MapViewport* pane : {map_edit_, map_data_}) {
     if (!pane) {
       continue;
     }
-    pane->set_overlay_paint(paint2d);
+    pane->set_overlay_paint(paint2d_for(pane));
     // Per-pane shell: shared Map2dPresenter content, pane-local DrawRequest.shell.
     pane->set_gpu_present(
         [this, pane](void* device, uint32_t w, uint32_t h) -> bool {
@@ -239,7 +288,7 @@ void BrowserView::commit_widget_shell_to_maps(const ui::views::Rect& dirty) {
   const uint32_t shell_stride =
       shell.stride_bytes != 0 ? shell.stride_bytes : shell.width_px * 4u;
   HWND widget_hwnd = widget_.hwnd();
-  // Empty dirty ⇒ publish to every pane. Non-empty ⇒ skip panes the paint did
+  // Empty dirty �?publish to every pane. Non-empty �?skip panes the paint did
   // not touch so menu/button hover does not memcpy+wake map HWNDs.
   const bool filter = !dirty.is_empty();
   for_each_map_viewport([&](ui::views::MapViewport* pane) {
@@ -286,9 +335,11 @@ void BrowserView::commit_widget_shell_to_maps(const ui::views::Rect& dirty) {
     const uint8_t* crop =
         shell.bgra + static_cast<size_t>(y0) * shell_stride +
         static_cast<size_t>(x0) * 4u;
+    // Opaque Theme clear under native map holes must not src-over FlyCube.
+    const ui::views::Theme& theme = ui::views::Theme::current();
     pane->commit_shell_overlay(crop, static_cast<uint32_t>(crop_w),
-                               static_cast<uint32_t>(crop_h), shell_stride,
-                               gen);
+                               static_cast<uint32_t>(crop_h), shell_stride, gen,
+                               theme.shell_bg, theme.map_placeholder);
   });
 }
 
@@ -406,19 +457,21 @@ void BrowserView::attach_hwnd_gestures() {
   auto on_pan = [this](int dx, int dy) {
     browser_->handle_gesture_pan(dx, dy);
   };
-  if (map_edit_ && map_edit_->native_view()) {
-    browser_->edit_gestures()->attach(map_edit_->native_view(), on_pinch, on_pan);
-    configure_gestures(browser_->edit_gestures());
-  }
-  if (map_data_ && map_data_->native_view()) {
-    browser_->data_gestures()->attach(map_data_->native_view(), on_pinch, on_pan);
-    configure_gestures(browser_->data_gestures());
-  }
-  if (map_scene_ && map_scene_->native_view()) {
-    browser_->scene_gestures()->attach(map_scene_->native_view(), on_pinch,
-                                       on_pan);
-    configure_gestures(browser_->scene_gestures());
-  }
+  // Only wire gestures for panes that already own a present device. Data/3D
+  // are HWND-only until first tab focus (see attach_viewports / switch_map_tab).
+  auto try_attach = [&](ui::views::MapViewport* pane, MapHwndGestures* g) {
+    if (!pane || !g || !pane->native_view()) {
+      return;
+    }
+    if (pane->attach_mode() == ui::views::MapViewport::AttachMode::kNone) {
+      return;
+    }
+    g->attach(pane->native_view(), on_pinch, on_pan);
+    configure_gestures(g);
+  };
+  try_attach(map_edit_, browser_->edit_gestures());
+  try_attach(map_data_, browser_->data_gestures());
+  try_attach(map_scene_, browser_->scene_gestures());
 }
 
 void BrowserView::configure_gestures(MapHwndGestures* gestures) {
@@ -477,6 +530,35 @@ void BrowserView::switch_map_tab(int i) {
   sync_hwnd(map_edit_, i == 0);
   sync_hwnd(map_data_, i == 1);
   sync_hwnd(map_scene_, i == 2);
+
+  // Lazy FlyCube: Data/3D were HWND-only at startup.
+  if (ui::views::MapViewport* pane = active_map()) {
+    if (pane->attach_mode() == ui::views::MapViewport::AttachMode::kNone) {
+      LOGGING(LOG_INFO, "rhi.switch_map_tab lazy attach tab=%d", i);
+      pane->attach();
+      pane->sync_native_bounds();
+      // Gestures were skipped while AttachMode::kNone.
+      auto on_pinch = [this](int x, int y, double scale) {
+        browser_->handle_pinch(x, y, scale);
+      };
+      auto on_pan = [this](int dx, int dy) {
+        browser_->handle_gesture_pan(dx, dy);
+      };
+      MapHwndGestures* g = nullptr;
+      if (pane == map_data_) {
+        g = browser_->data_gestures();
+      } else if (pane == map_scene_) {
+        g = browser_->scene_gestures();
+      } else {
+        g = browser_->edit_gestures();
+      }
+      if (g && pane->native_view()) {
+        g->attach(pane->native_view(), on_pinch, on_pan);
+        configure_gestures(g);
+      }
+    }
+  }
+
   // TabStrip show/hides native map HWNDs; never destroy/recreate on switch.
   if (ui::views::MapViewport* pane = active_map()) {
     if (HWND hwnd = pane->native_view()) {
@@ -500,11 +582,29 @@ void BrowserView::switch_map_tab(int i) {
       if (map_scene_) {
         browser_->scene3d()->bind_contents(browser_->map_session(), map_scene_->view_id());
         if (HWND hwnd = map_scene_->native_view()) {
-          if (!prefer_scene3d_flycube()) {
+          if (prefer_scene3d_stereo_gl()) {
             (void)browser_->scene3d_stereo()->try_attach(hwnd);
           } else {
             browser_->scene3d_stereo()->release();
           }
+        }
+      }
+      // Defer China atmosphere seed until the 3D tab is first opened (startup
+      // used to run enable_atmosphere_demo during init_chrome).
+      if (browser_->document()->has_china_extent()) {
+        if (gis::atmosphere::Environment* env =
+                browser_->scene3d()->atmosphere_session().environment()) {
+          if (!env->ocean_enabled() && !env->cloud_enabled()) {
+            browser_->scene3d()->atmosphere_session().enable_demo();
+          }
+        } else {
+          browser_->scene3d()->atmosphere_session().enable_demo();
+        }
+        if (atmosphere_panel_) {
+          atmosphere_panel_->set_ocean_checked(true);
+          atmosphere_panel_->set_cloud_checked(true);
+          atmosphere_panel_->set_sky_checked(true);
+          atmosphere_panel_->set_fog_checked(true);
         }
       }
       // Recover from edge-on / over-zoomed orbit (thin green DEM strip).

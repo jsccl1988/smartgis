@@ -63,7 +63,7 @@ KEEP_PROVINCE_AS_AREA = {
 }
 
 # Approximate China bbox for river clip (degrees, CRS84). Matches
-# app::kChinaLonLatExtent so leftover / Views overview framing agrees.
+# content::kChinaLonLatExtent so leftover / Views overview framing agrees.
 CHINA_BBOX = (73.0, 18.0, 135.0, 54.0)
 
 

@@ -38,14 +38,14 @@ struct Color {
 // LightCB (dir xyz, ambient, color rgb, intensity) and the former
 // LightParams{} defaults.
 struct Light {
-  float dir_x = -0.4f;
-  float dir_y = -0.8f;
-  float dir_z = -0.35f;
-  float ambient = 0.25f;
+  float dir_x = -0.35f;
+  float dir_y = -0.85f;
+  float dir_z = -0.4f;
+  float ambient = 0.42f;
   float color_r = 1.f;
-  float color_g = 1.f;
-  float color_b = 1.f;
-  float intensity = 1.f;
+  float color_g = 0.97f;
+  float color_b = 0.9f;
+  float intensity = 1.15f;
 };
 
 static_assert(sizeof(Color) == 16, "color constant is one float4");

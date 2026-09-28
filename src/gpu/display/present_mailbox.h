@@ -31,13 +31,12 @@ struct PresentSubmit {
   std::function<void(bool ok, uint32_t frame_token)> completion;
 };
 
-// Vsync-oriented BeginFrame source. Today: timer stub on the display thread.
-// TODO(compositor): replace with DWM composition clock / DXGI frame statistics
-// once paint counters show shell is no longer blocked on GPU present.
+// Vsync-oriented BeginFrame source. Uses IDXGIOutput::WaitForVBlank
+// (ui::gfx::VblankClock); |set_interval_ms| is the Sleep fallback only.
 class BeginFrameSource {
  public:
   virtual ~BeginFrameSource() = default;
-  // Interval hint in milliseconds (timer stub). Ignored by a future DWM clock.
+  // Fallback Sleep interval in milliseconds when DXGI WaitForVBlank fails.
   virtual void set_interval_ms(uint32_t interval_ms) = 0;
   virtual void start() = 0;
   virtual void stop() = 0;

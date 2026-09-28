@@ -1,0 +1,45 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//testing/benchmark.gni")
+import("//testing/test.gni")
+
+# Industry-shaped RHI scenarios shared by suite + benches (testonly).
+source_set("scenarios") {
+  testonly = true
+  sources = [
+    "scenarios.cc",
+    "scenarios.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/render:render" ]
+}
+
+test("rhi_suite_test") {
+  output_name = "rhi_suite_test"
+  sources = [ "rhi_suite_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":scenarios" ]
+}
+
+# Null google/benchmark → //:benchmark_all / build.bat b
+benchmark("rhi_bench") {
+  output_name = "rhi_bench"
+  sources = [ "rhi_bench.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":scenarios" ]
+}
+
+# Optional DX12 benches (not in default benchmark_all). Custom main for env skip.
+benchmark("rhi_gpu_bench") {
+  output_name = "rhi_gpu_bench"
+  sources = [ "rhi_gpu_bench.cc" ]
+  include_dirs += [ "//src" ]
+  use_benchmark_main = false
+  deps = [ ":scenarios" ]
+}
+
+group("render_benchmark_all") {
+  testonly = true
+  deps = [ ":rhi_bench" ]
+}

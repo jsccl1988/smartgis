@@ -39,7 +39,7 @@ bool Grid::is_empty() const {
   return m_nRow < 1 || m_nCol < 1 || nodes_.IsEmpty();
 }
 
-void Grid::get_envelope(Envelope* psEnvelope) const {
+void Grid::get_envelope(gis::Envelope* psEnvelope) const {
   if (psEnvelope == nullptr || is_empty()) {
     return;
   }

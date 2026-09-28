@@ -383,6 +383,31 @@ int main() {
            "InputRegion �?draw.polygon");
   }
 
+  {
+    // view.pan RMB drag → ZoomToRect draft (kZoomRect); click emits nothing.
+    tool::Workspace ws(nullptr, nullptr);
+    int zoom_rects = 0;
+    ws.set_draft_observer([&](const tool::Draft& d) {
+      if (d.kind == tool::DraftKind::kRect &&
+          tool::draft_flags::is_zoom_rect(d.flags)) {
+        ++zoom_rects;
+      }
+    });
+    expect(ws.execute("view.pan", {}), "activate pan for RMB zoom");
+    expect(ws.dispatch_input(at(content::InputEvent::Kind::kRDown, 10, 10)),
+           "RMB zoom down");
+    expect(ws.dispatch_input(at(content::InputEvent::Kind::kMouseMove, 80, 60)),
+           "RMB zoom drag");
+    expect(ws.dispatch_input(at(content::InputEvent::Kind::kRUp, 80, 60)),
+           "RMB zoom up");
+    expect(zoom_rects == 1, "pan RMB drag emits ZoomToRect");
+    expect(ws.dispatch_input(at(content::InputEvent::Kind::kRDown, 5, 5)),
+           "RMB click down");
+    expect(ws.dispatch_input(at(content::InputEvent::Kind::kRUp, 5, 5)),
+           "RMB click up");
+    expect(zoom_rects == 1, "pan RMB click does not emit zoom");
+  }
+
   if (g_fails) {
     std::fprintf(stderr, "gestures_test: %d fail(s)\n", g_fails);
     return 1;

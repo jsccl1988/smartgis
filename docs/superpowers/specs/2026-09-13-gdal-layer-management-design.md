@@ -7,12 +7,13 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted  
-**Scope:** 图层的打开 / 创建 / 列举 / 编辑 / 查询 / 关闭一律走 GDAL Dataset / Layer（矢量）或 GDAL raster（栅格）。本文件管 `sdb` 数据源与图层，不管桌面 chrome。
+**Updated:** 2026-09-28 — §GIS coverage + performance benchmarks (CLI + Console). merge B: compressed child specs into this living umbrella (see §Folded topics). Do not open new dated twins.
+**Scope:** 图层的打开 / 创建 / 列举 / 编辑 / 查询 / 关闭一律走 GDAL Dataset / Layer（矢量）或 GDAL raster（栅格）。本文件管 `sdb` 数据源与图层，不管桌面 chrome。新树编排入口见文末 **§ DataSession / Provider facade**。
 
-**Sibling:**
+**Sibling (folded — see §Folded topics; revise this file):**
 
-- 数据库路径（PostGIS / GeoPackage / SpatiaLite，ADO 退出 `src_all`）见 [`2026-09-13-ogr-db-datasource-design.md`](2026-09-13-ogr-db-datasource-design.md)。
-- **2D 地图瓦片（XYZ/WMTS）** 见 [`2026-09-13-tile-layer-provider-design.md`](2026-09-13-tile-layer-provider-design.md) — **另开 spec，不进本文，也不进 `SDBD:MEM` / OGR Memory。**
+- 数据库路径（PostGIS / GeoPackage / SpatiaLite）→ archive [`2026-09-13-ogr-db-datasource-design.md`](../archive/specs/2026-09-13-ogr-db-datasource-design.md)。
+- **2D 地图瓦片（XYZ/WMTS）** → archive [`2026-09-13-tile-layer-provider-design.md`](../archive/specs/2026-09-13-tile-layer-provider-design.md)；新需求写在本伞 `§`，不另开 dated twin。
 
 ADO 源码删除由另一条工作流负责。本文不恢复、不重写、不阻挡那条删除。
 
@@ -21,18 +22,18 @@ ADO 源码删除由另一条工作流负责。本文不恢复、不重写、不�
 停止按驱动复制一套 C++ 图层子类，也**不再**用 `SmtDataSource` / `SmtVectorLayer` / `SmtFeature` 当产品 ABI。
 
 - **事实源与调用方类型** 都是 `GDALDataset` + `OGRLayer` + `OGRFeature`（矢量）或 `GDALRasterBand` / 子数据集（栅格）。v1 **不是**适配器层。
-- **sdbd 是 GDAL 驱动**（`GDALDriverManager` 名 `"SDBD"`，连接前缀 `SDBD:`）。`GDALAllRegister()` + `register_sdbd_driver()`。打开：`GDALOpenEx("SDBD:MEM:name")` 或 `SDBD:GPKG:path` / `SDBD:PostgreSQL:PG:…`。mgis 没有同名 GDAL 驱动（只有 HTTP `:8021` / `sdbd://`）；本仓 `sdbd://` 在进程内落到 Memory，不另开 HTTP 守护。
+- **sdbd 是 GDAL 驱动**（`GDALDriverManager` 名 `"SDBD"`，连接前缀 `SDBD:`，实现于 `gis/datasource/provider/impl/sdbd/driver/`）。`GDALAllRegister()` + `register_sdbd_driver()`。打开：`GDALOpenEx("SDBD:MEM:name")` 或 `SDBD:GPKG:path` / `SDBD:PostgreSQL:PG:…`。mgis 没有同名 GDAL 驱动（只有 HTTP `:8021` / `sdbd://`）；本仓 `sdbd://` 在进程内落到 Memory。**无**进程内 HTTP `SdbdHandler`（已删）；远程 mogu 见 [`2026-09-19-sdbd-wsl-client-design.md`](../archive/specs/2026-09-19-sdbd-wsl-client-design.md)（`PROVIDER_SDBD` + `SdbdClient`）。
 - 文件 / 库 / 内存共用这一套 GDAL 对象。Memory = GDAL Memory 驱动（经 `SDBD:MEM:` 或直接 `Memory`）。
 - 驱动是否编进当前 `gdal_sdk` 是运行时问题。缺 GPKG / PG 时 `Open` 失败并打日志，不另写 C++ 读写器。
 
-产品调用方 ABI 是 `sdb::Feature` / `sdb::MapLayer`（组合持有 `OGRFeature*` / `OGRLayer*`）；事实源与 I/O 仍是 GDAL/OGR。细节见 [`2026-09-13-sdb-feature-maplayer-composition-design.md`](2026-09-13-sdb-feature-maplayer-composition-design.md)。不要再维护 `SmtAttribute` 第二套字段存储（已删除；MFC att-struct UI 改读 `OGRLayer`）。
+产品调用方 ABI 是 `sdb::Feature` / `sdb::MapLayer`（组合持有 `OGRFeature*` / `OGRLayer*`）；事实源与 I/O 仍是 GDAL/OGR。细节见 [`2026-09-13-sdb-feature-maplayer-composition-design.md`](../archive/specs/2026-09-13-sdb-feature-maplayer-composition-design.md)。不要再维护 `SmtAttribute` 第二套字段存储（已删除；MFC att-struct UI 改读 `OGRLayer`）。
 
 ## Non-goals
 
 - 不要再 vendor 一份 GDAL / GEOS / PROJ。只链 `//third_party:gdal`（现有 `gdal_sdk`）。
 - 不要 Qt。桌面终局是 Views + Skia；本文不改 `src/ui` / `src/app` chrome。
 - 不要保留 `SmtFeature` / `SmtVectorLayer` / `SmtDataSource` 作为图层 ABI（几何算法 / `SmtStyle` 可独立留下）。
-- 不要在本文周期实现 WMS / WFS / XYZ 瓦片，也不要把 `SmtTileLayer` 硬塞进 OGR。瓦片见 sibling [`2026-09-13-tile-layer-provider-design.md`](2026-09-13-tile-layer-provider-design.md)；**禁止**用 OGR Memory / `SDBD:MEM` 冒充瓦片。
+- 不要在本文周期实现 WMS / WFS / XYZ 瓦片，也不要把 `SmtTileLayer` 硬塞进 OGR。瓦片见 sibling [`2026-09-13-tile-layer-provider-design.md`](../archive/specs/2026-09-13-tile-layer-provider-design.md)；**禁止**用 OGR Memory / `SDBD:MEM` 冒充瓦片。
 - 不要恢复 ADO / `msado15` / `DS_TB` / 按类型 `*Fcls` SQL。另一 agent 删 leftover ADO 文件时不要冲突。
 - 不要为缺 GPKG / PG 的 SDK 手写读写器。
 - 不要改 `content/public` 的稳定嵌入 API。
@@ -64,8 +65,8 @@ Select / Flash：CreateMemVecLayer()
 | 设备 | 图层实现 | 是否已经 OGR/GDAL | 持久化 |
 | --- | --- | --- | --- |
 | SDBD / `SdbdDataset` | `SdbdLayer` + `OgrRasterLayer` | 是 | GDAL |
-| *(已删 MemTile)* | — | — | 见 [tile-layer-provider](2026-09-13-tile-layer-provider-design.md) |
-| *(已删 WS)* | — | — | 见 [tile-layer-provider](2026-09-13-tile-layer-provider-design.md) |
+| *(已删 MemTile)* | — | — | 见 [tile-layer-provider](../archive/specs/2026-09-13-tile-layer-provider-design.md) |
+| *(已删 WS)* | — | — | 见 [tile-layer-provider](../archive/specs/2026-09-13-tile-layer-provider-design.md) |
 | ADO `*Fcls` | 按要素类型子类 | 已退出 `src_all` | — |
 
 `SmtLayer` 虚接口在 `src/sdb/layer/layer.h`（raster/tile leftover）。工具层用 `CreateMemVecLayer()` 当查询结果层。
@@ -107,7 +108,7 @@ DS_WS 枚举残留                  源码树 datasource/ws 已删；打开拒�
 
 1. **适配器优先（`OgrDataSource` + `SmtFeature`）** — 已撤销。那是第二套存储语义。
 2. **继续按格式扩 C++ 子类**（`SmtGpkgVecLayer`…）— 正是本文要结束的爆炸。
-3. **sdbd 作为 GDAL 旁边的 HTTP/IPC 侧车** — sdbd 必须是 `GDALDriverManager` 里的驱动；JSON 路由只是对该驱动的调用，不是另一套数据集。
+3. **sdbd 作为 GDAL 旁边的 HTTP/IPC 侧车** — sdbd 必须是 `GDALDriverManager` 里的驱动；远程 JSON 经 WSL mogu + `SdbdClient`，不是进程内第二套数据集。本地 HTTP handler 已移除（2026-09-28）。
 
 公共命名空间仍两层：`sdb::datasource`。新辅助放 `sdb::datasource::detail`。
 
@@ -126,7 +127,7 @@ DS_WS 枚举残留                  源码树 datasource/ws 已删；打开拒�
 | `DS_FILE_SMF` | `PROVIDER_SHAPE` | `file.szPath` + `file.szFileName`（`.shp` 或目录） | 从 `SmtSmfDataSource` 并入 |
 | `DS_FILE_SMF` | `PROVIDER_OGR_SUPPORT` | 同一路径，`GDALOpenEx` 自动认驱动 | GeoJSON 等；GPKG 作**文件**打开也走这里 |
 | `DS_MEM` | `PROVIDER_MEM_VER1` | `MEM:` / Memory 驱动 `Create` | 查询结果、闪烁、未落盘草稿 |
-| `DS_WS` | `PROVIDER_SMARTGIS` | — | **源码已删**；`make_sdbd_open_target` 返回空；瓦片见 [tile-layer-provider](2026-09-13-tile-layer-provider-design.md) |
+| `DS_WS` | `PROVIDER_SMARTGIS` | — | **源码已删**；`make_sdbd_open_target` 返回空；瓦片见 [tile-layer-provider](../archive/specs/2026-09-13-tile-layer-provider-design.md) |
 
 `DS_DB_ODBC` / `DS_DB_MYSQL` / `DS_DB_ORACLE` 保持枚举占位，`Create*` 返回 null 并打日志。不要再做一套设备。
 
@@ -154,7 +155,7 @@ URL 前缀（`sdb:` / `sfile:` / `smem:` / `sws:`）可继续写进 `.dsm`，便
 | B. 永远保留 `SmtMem*` | 文件/库用 OGR，草稿仍用 `vector<SmtFeature*>` | 继续两套 Query / 游标 / Append。 |
 | C. 混合（采用） | 事实源 = Memory / 文件 / 库的 `OGRLayer`；`Fetch` 后解码进 `features_` 只服务 `MoveFirst` / `GetFeature(i)` ABI | 不引入第三种图层类；大图层可后续改成按需 `GetFeature` 而不全量 `Fetch`。 |
 
-栅格草稿：优先 `MEM` 栅格或内存 `GDALDataset`；在 raster I/O 补齐之前，`OgrRasterLayer` 可以暂存 buffer，但 **Create/Open 不得再假装成功却不挂 GDAL**。瓦片（未来 `TileProvider`；`SmtMemTileLayer` 死工厂已切除）见 [tile-layer-provider](2026-09-13-tile-layer-provider-design.md)，**不进 `SDBD:MEM`**，不阻塞矢量统一。
+栅格草稿：优先 `MEM` 栅格或内存 `GDALDataset`；在 raster I/O 补齐之前，`OgrRasterLayer` 可以暂存 buffer，但 **Create/Open 不得再假装成功却不挂 GDAL**。瓦片（未来 `TileProvider`；`SmtMemTileLayer` 死工厂已切除）见 [tile-layer-provider](../archive/specs/2026-09-13-tile-layer-provider-design.md)，**不进 `SDBD:MEM`**，不阻塞矢量统一。
 
 `Query(pGQueryDesc, pPQueryDesc, pQueryResult)`：空间过滤走 `OGRLayer::SetSpatialFilter`，简单属性走 `SetAttributeFilter`。结果写入调用方传入的 `SmtVectorLayer*`（选择工具会传入 Memory 适配层）。OGR 表达不了的谓词：扫描 + 现有内存几何判定，结果仍 Append 到那个 Memory 层。不要为 Query 再 new `SmtMemVecLayer`。
 
@@ -184,7 +185,7 @@ Shapefile 限制（10 字符字段名、无原生事务、无 TIN）留在驱动
 
 产品 2D 瓦片（HTTP(S) XYZ/WMTS、`MapLayer(kind=tile)`、与 GDAL WMS 的可选关系）一律见 sibling：
 
-**[`2026-09-13-tile-layer-provider-design.md`](2026-09-13-tile-layer-provider-design.md)**
+**[`2026-09-13-tile-layer-provider-design.md`](../archive/specs/2026-09-13-tile-layer-provider-design.md)**
 
 本文不恢复 WS 设备，不把瓦片塞进 OGR / `SDBD:MEM`。WFS 只读矢量若需要，另走 OGR WFS + 同一矢量适配器（仍非本文实现）。
 
@@ -194,7 +195,7 @@ Shapefile 限制（10 字符字段名、无原生事务、无 TIN）留在驱动
 | --- | --- | --- |
 | `SmtVectorLayer` / 点线面 / Anno / TIN / Grid | `OGRLayer` | 必须。Grid 优先做成同数据集里的 GDAL raster；否则已有 MultiPoint + `grid_row` / `grid_col`。 |
 | `SmtRasterLayer` / `SmtFtChildImage` | `GDALDataset` 栅格 / 子数据集 / GPKG tiles | 必须补齐 `OgrRasterLayer`（今天 Create/Open 为 false）。缺栅格创建能力则 `SMT_ERR_UNSUPPORTED` + 日志，不发明 blob 表。 |
-| `SmtTileLayer` / `SmtLayer_Tile` | 不是 OGR | **不在本文。** 见 [tile-layer-provider](2026-09-13-tile-layer-provider-design.md)；勿用 Memory 冒充。 |
+| `SmtTileLayer` / `SmtLayer_Tile` | 不是 OGR | **不在本文。** 见 [tile-layer-provider](../archive/specs/2026-09-13-tile-layer-provider-design.md)；勿用 Memory 冒充。 |
 
 同一 GPKG 可以既有矢量层又有栅格；`fill_layer_infos()` 已经扫 `GetLayerCount()`，应同时扫栅格子数据集并把 `unFeatureType` 标成 `SmtLayer_Ras`。`SmtMap` 仍按 `GetLayerType()` 区分绘制，不需要知道 GDAL。
 
@@ -216,7 +217,7 @@ Shapefile 限制（10 字符字段名、无原生事务、无 TIN）留在驱动
 允许：
 
 - `SmtStyle` 与 `src/algorithm` 几何类型独立存在（不是要素门面）。
-- `SmtTileLayer` / `DS_WS` 残留 → [tile-layer-provider](2026-09-13-tile-layer-provider-design.md)。
+- `SmtTileLayer` / `DS_WS` 残留 → [tile-layer-provider](../archive/specs/2026-09-13-tile-layer-provider-design.md)。
 - 工具 / 地图 `#include` `ogrsf_frmts.h` / `gdal_priv.h`。
 
 `LoadLibrary` 导出宏保持。SMF/Mem 图层子类离开产品路径；删磁盘文件是后续清理。
@@ -286,7 +287,7 @@ struct mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1> {
 | 3 | `DS_MEM` + Memory 驱动；`CreateMemVecLayer` 改接线 | select/flash 仍拿到 `SmtVectorLayer*`；Query 写入 Memory 层 |
 | 4（已完成核心） | `OgrRasterLayer` + GDAL MEM；`CreateMemRasLayer` 改线；删 `SmtMemRasLayer` | MEM Create/Open/CreaterRaster/GetRaster 绿；文件 Open 可用；GPKG 内嵌栅格列举可后续加强 |
 | 5 | 产品路径不再链接 `sde_smf` / `sde_mem`（二者源码树与 GN 已移除）；测试覆盖文件 + SDBD:MEM +（可选）PG | `src_all` 可不依赖 SMF/Mem 图层实现 |
-| 6（非 v1） | WFS → 同一矢量适配器；瓦片 → [tile-layer-provider](2026-09-13-tile-layer-provider-design.md) | — |
+| 6（非 v1） | WFS → 同一矢量适配器；瓦片 → [tile-layer-provider](../archive/specs/2026-09-13-tile-layer-provider-design.md) | — |
 
 每个阶段都要 `build.bat` 与 `build.bat te` 保持绿。阶段 5 之前不要删 `src/sdb/datasource/smf`、`mem` 目录——先改调用方。不要在这些阶段里碰 ADO 删除。
 
@@ -344,4 +345,207 @@ struct mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1> {
 - 缺 GPKG 驱动时产品仍能打开 shapefile 与 Memory 层；错误信息说明缺的是驱动，不是 API。
 - 无第二份 GDAL，无 Qt，无 ADO 回潮。
 
-**最后更新：** 2026-09-14
+**最后更新：** 2026-09-28
+
+---
+
+## § DataSession / Provider facade（新树产品入口）
+
+**Status:** accepted（本 §）  
+**Updated:** 2026-09-28  
+**Approach:** Facade + Adapter（方案 1）  
+**Migration:** 仅新树（`app/views`、`content`、新 `tool`、pipeline 调用方）；`legacy/*` 继续用 `gis::DataSourceMgr`，本轮不改其 API、不删。  
+**Considered living:** 本文（GDAL 图层后端）+ [`2026-09-13-sdb-feature-maplayer-composition-design.md`](../archive/specs/2026-09-13-sdb-feature-maplayer-composition-design.md) + [`2026-09-19-sdbd-wsl-client-design.md`](../archive/specs/2026-09-19-sdbd-wsl-client-design.md)。本 § 是编排层，不是第二套 I/O 存储；不新开 dated twin。
+
+### Goal
+
+- 新树打开数据源经 **`gis::datasource::DataSession`**，产品只拿 **`gis::MapLayer` / `gis::Feature`**（组合 ABI；代码在 `gis::`，文档历史名 `sdb::`）。
+- Provider 注册表取代 `DataSourceMgr::open_dataset` 的二分 if（本地 `open_sdbd_dataset` vs 远程 `open_provider_sdbd_dataset`）。
+- **禁止** 新代码依赖 `DataSourceMgr`；`session` / `provider` **禁止** 依赖 `mgr`。
+- 遗留 `legacy/datasource/mgr` 冻结：仅 bugfix；DSM catalog / `move_*` / 单例留给 legacy。
+
+### Non-goals
+
+- 不删、不改名 `DataSourceMgr` 公共 API（本轮）。
+- 不把远程 sdbd 强行并进单一 `GDALOpenEx` 路径。
+- 不改 `content/public`；不引入 Qt；不 vendor 第二 GDAL。
+- 不在本轮迁移 `legacy/ui/xcatalog` / `legacy/tool` / `smtapp`。
+
+### Layout
+
+| 路径 | 角色 |
+| --- | --- |
+| `datasource/session/` | L1：`ConnectionSpec`、`DatasetHandle`、`DataSession` |
+| `datasource/provider/` | L2：`Provider`、`ProviderRegistry`、Local/Remote SDBD |
+| `datasource/provider/impl/sdbd/` | L3：`client/` · `driver/` · `remote/` · `codec/` |
+| `datasource/provider/impl/ogr/` | L3：`codec/` · `text/` · `raster/` |
+| `datasource/provider/impl/gdal/` | L3：`register_gdal_driver` 聚合入口 |
+| `datasource/pipeline/` | L4：feature load Pipeline（header-only） |
+| `legacy/datasource/mgr/` | 遗留 `DataSourceMgr`（冻结；不在 `gis/datasource` 顶层） |
+
+依赖方向：`session` → `provider` → `sdbd|ogr`。公开命名空间两层：`gis::datasource`；内部 `gis::datasource::detail`。
+
+### Core types
+
+```cpp
+namespace gis {
+namespace datasource {
+
+enum class ProviderKind { kLocalSdbd, kRemoteSdbd };
+
+// Product connection description. Bridges to SmtDataSourceInfo for adapters.
+struct ConnectionSpec {
+  ProviderKind kind = ProviderKind::kLocalSdbd;
+  std::string name;
+  std::string url;  // remote base / sdbd-rpc://…
+  // Optional local file/db fields (empty unused).
+  std::string path;
+  std::string file_name;
+  std::string service;
+  std::string db_name;
+  std::string uid;
+  std::string pwd;
+  uint ds_type = 0;       // eDSType when needed
+  uint provider_id = 0;   // eSmt*Provider when needed
+
+  SmtDataSourceInfo to_info() const;
+  static ConnectionSpec from_info(const SmtDataSourceInfo& info);
+  static ProviderKind kind_from_info(const SmtDataSourceInfo& info);
+};
+
+// RAII owned GDALDataset. Product lists layers as MapLayer (!owns ogr).
+class DatasetHandle {
+ public:
+  DatasetHandle() = default;
+  explicit DatasetHandle(GDALDataset* owned);
+  ~DatasetHandle();
+  DatasetHandle(DatasetHandle&&) noexcept;
+  DatasetHandle& operator=(DatasetHandle&&) noexcept;
+  DatasetHandle(const DatasetHandle&) = delete;
+  DatasetHandle& operator=(const DatasetHandle&) = delete;
+
+  explicit operator bool() const;
+  GDALDataset* gdal() const;          // non-owning view
+  GDALDataset* release();             // give up ownership
+
+  int layer_count() const;
+  MapLayer layer_at(int index) const;           // MapLayer::from_ogr
+  MapLayer layer_by_name(const char* name) const;
+};
+
+class Provider {
+ public:
+  virtual ~Provider() = default;
+  virtual ProviderKind kind() const = 0;
+  virtual DatasetHandle open(const ConnectionSpec& spec) = 0;
+};
+
+class ProviderRegistry {
+ public:
+  void register_provider(std::unique_ptr<Provider> provider);
+  Provider* find(ProviderKind kind) const;
+  DatasetHandle open(const ConnectionSpec& spec) const;
+  static ProviderRegistry make_default();  // local + remote registered
+};
+
+// New-tree entry. Not a process singleton; callers own the session.
+class DataSession {
+ public:
+  DataSession();  // make_default registry
+  explicit DataSession(ProviderRegistry registry);
+
+  DatasetHandle open(const ConnectionSpec& spec);
+  DatasetHandle open(const SmtDataSourceInfo& info);  // via from_info
+
+  // Scratch Memory vector layer (owned MapLayer via adopt_dataset).
+  MapLayer create_mem_vector_layer(const char* name = "scratch");
+};
+
+}  // namespace datasource
+}  // namespace gis
+```
+
+### Data flow
+
+```
+DataSession::open(spec)
+  → ProviderRegistry::open
+      → LocalSdbdProvider  → open_sdbd_dataset(info) → DatasetHandle
+      → RemoteSdbdProvider → open_provider_sdbd_dataset(info) → DatasetHandle
+  → caller: handle.layer_at(i) → MapLayer
+  → Feature via OGR cursor / pipeline decode (existing Feature composition)
+```
+
+`kind_from_info`：`unProvider == PROVIDER_SDBD` → `kRemoteSdbd`，否则 `kLocalSdbd`（与现 `DataSourceMgr::open_dataset` 一致）。
+
+### Error / ownership
+
+- `open` 失败返回 empty `DatasetHandle`（`operator bool` false）；不抛。
+- `DatasetHandle` 析构 `GDALClose`；`MapLayer::from_ogr` 不拥有层；scratch 用 `MapLayer::adopt_dataset`。
+- 不暴露 `move_first` / DSM 给新 API。
+
+### Testing
+
+- 单测 `datasource_session_test`：`ConnectionSpec` round-trip；`DataSession` 打开 `DS_MEM` → `layer_count` / `MapLayer` 名；远程可不连网（仅测 registry 选中 `kRemoteSdbd` 或 mock 失败 empty）。
+- 挂 `//:test_all`；不替代 `sde_gdal_test` / `sdbd_live_test`。
+
+### Success（本 §）
+
+- 新树可 `#include "gis/datasource/session/data_session.h"` 打开本地 MEM/GPKG 并拿到 `MapLayer`。
+- `ProviderRegistry` 可扩展；`mgr` 无新增调用点来自新树。
+- `build.bat` + session 单测绿。
+
+---
+
+## §GIS coverage + performance benchmarks（2026-09-28）
+
+**Status:** accepted  
+**Plan:** [`../plans/2026-09-28-gis-coverage-benchmark.md`](../plans/2026-09-28-gis-coverage-benchmark.md)  
+**As-built matrix:** [`../../build/gis-test-matrix.md`](../../build/gis-test-matrix.md)
+
+### Intent
+
+Ship **functional coverage** (industry-capability matrix vs GDAL / GEOS / PROJ / QGIS-shaped surfaces) **and** **compiler coverage reports** for `src/gis`, plus **performance baselines** with dual-run on critical paths. Entry points: CLI (`build.bat te` / `b`) **and** Diagnostic Tools Console (`:gis test` / `:gis bench`).
+
+### Architecture
+
+- Aggregate `//src/gis:gis_test_all` → root `//:test_all` / `test_shell`.
+- Aggregate `//src/gis:gis_benchmark_all` → root `//:benchmark_all` (`build.bat b`).
+- Benchmarks use **QPC micro-bench** style matching `views_bench` / `content_console_bench` (not a second harness). `//third_party:gbenchmark` remains available but is not required for v1 GIS benches.
+- Dual benches on critical paths: product API vs raw OGR / GEOS / PROJ (same `gdal_sdk`).
+- Coverage: `testing/coverage/gis_coverage.ps1` runs `gis_test_all` exes; OpenCppCoverage when present → `out/Debug/coverage/gis/`; else functional summary + matrix.
+- Console spawns the same exes (no duplicate test logic).
+
+### Scope (v1 = full tree)
+
+`kernel` (geo/proj/tin/stat) · `datasource` · `model` · `present` · `vista`.
+
+### Non-goals
+
+- No second GEOS/PROJ vendor; no Qt; no new dated design twin.
+- Coverage not a default gate inside plain `build.bat` (separate coverage entry).
+- No fail ceilings on benches in v1 (informational print; regression thresholds later).
+
+### Success
+
+- Missing GIS unit tests listed in the matrix are registered under `gis_test_all`.
+- `build.bat debug b` builds/runs at least geo / proj / datasource benches.
+- `:gis test` / `:gis bench` work when DebugAgent is enabled.
+- Coverage script produces a report directory under `out/*/coverage/gis/`.
+
+---
+
+## Folded topics (2026-09-28 merge B)
+
+Former hot specs are under `archive/specs/` (`superseded`). **Revise this file** (append `§`) for new requirements in this topic. Do not create a new `YYYY-MM-DD-*-design.md`.
+
+| Former hot spec | Section / note |
+| --- | --- |
+| [`../archive/specs/2026-09-13-ogr-db-datasource-design.md`](../archive/specs/2026-09-13-ogr-db-datasource-design.md) | §OGR DB datasource (folded) |
+| [`../archive/specs/2026-09-13-sdb-feature-maplayer-composition-design.md`](../archive/specs/2026-09-13-sdb-feature-maplayer-composition-design.md) | §Feature / MapLayer composition (folded) |
+| [`../archive/specs/2026-09-13-tile-layer-provider-design.md`](../archive/specs/2026-09-13-tile-layer-provider-design.md) | §Tile layer provider (folded) |
+| [`../archive/specs/2026-09-14-sdb-style-document-design.md`](../archive/specs/2026-09-14-sdb-style-document-design.md) | §SDB style document (folded) |
+| [`../archive/specs/2026-09-18-china-city-map-plpt-design.md`](../archive/specs/2026-09-18-china-city-map-plpt-design.md) | §China city map / PLPT sample (folded) |
+| [`../archive/specs/2026-09-19-sdb-subdir-rename-design.md`](../archive/specs/2026-09-19-sdb-subdir-rename-design.md) | §SDB subdirectory rename (folded) |
+| [`../archive/specs/2026-09-19-sdbd-wsl-client-design.md`](../archive/specs/2026-09-19-sdbd-wsl-client-design.md) | §sdbd WSL client (folded) |
+

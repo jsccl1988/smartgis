@@ -1,0 +1,31 @@
+/* SpatialAnalysisPanel — history_host filled in C++ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  width: 300px;
+  height: 420px;
+}
+
+#title { width: 220px; height: 22px; }
+#ops { width: 280px; height: 90px; }
+#params { width: 280px; height: 60px; }
+#param_edit { width: 280px; height: 24px; }
+#progress { width: 280px; height: 18px; }
+
+.commands {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  width: 280px;
+  height: 28px;
+}
+
+#run, #cancel { width: 80px; height: 28px; }
+
+.history_host {
+  width: 280px;
+  height: 140px;
+}

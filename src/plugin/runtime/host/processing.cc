@@ -4,13 +4,19 @@
 #include "plugin/runtime/host/processing.h"
 
 #include <chrono>
+#include <utility>
 
 #include "plugin/runtime/host/operation_result.h"
 
 namespace plugin {
 
 ProcessingPool::ProcessingPool(ProcessingMode mode) : mode_(mode) {
-  worker_ = std::thread([this]() { worker_main(); });
+  const std::size_t workers =
+      mode_ == ProcessingMode::kUtilityStub
+          ? 1
+          : base::execution::NThreadPool::Thread::hardware_concurrency();
+  executor_ = std::make_unique<base::execution::NThreadPoolExecutor>(
+      workers == 0 ? 1 : workers);
 }
 
 ProcessingPool::~ProcessingPool() {
@@ -19,46 +25,78 @@ ProcessingPool::~ProcessingPool() {
     stop_ = true;
   }
   cv_.notify_all();
-  if (worker_.joinable()) {
-    worker_.join();
-  }
+  // Drain in-flight work by waiting until inflight_ hits zero.
+  std::unique_lock<std::mutex> lock(mu_);
+  cv_.wait(lock, [&]() { return inflight_ == 0; });
+  executor_.reset();
 }
 
 ProcessingMode ProcessingPool::mode() const {
   return mode_;
 }
 
-bool ProcessingPool::submit(std::string processing_id, std::string args_json,
-                            content::ProcessingFactory factory,
-                            std::function<void(bool ok, std::string message)> done) {
-  if (processing_id.empty() || !factory) {
+void ProcessingPool::enqueue_done(std::function<void()> fn) {
+  std::lock_guard<std::mutex> lock(mu_);
+  done_queue_.push_back(std::move(fn));
+  --inflight_;
+  cv_.notify_all();
+}
+
+bool ProcessingPool::submit(
+    std::string processing_id, std::string args_json,
+    content::ProcessingFactory factory,
+    std::function<void(bool ok, std::string message)> done) {
+  if (processing_id.empty() || !factory || !executor_ || stop_) {
     return false;
   }
   {
     std::lock_guard<std::mutex> lock(mu_);
-    jobs_.push(Job{std::move(processing_id), std::move(args_json),
-                   std::move(factory), std::move(done)});
+    if (stop_) {
+      return false;
+    }
+    ++inflight_;
   }
-  cv_.notify_one();
+  Job job{std::move(processing_id), std::move(args_json), std::move(factory),
+          std::move(done)};
+  (void)executor_->execute([this, job = std::move(job)]() mutable {
+    bool ok = false;
+    std::string message;
+    set_operation_result("");
+    try {
+      ok = job.factory(nullptr, job.args);
+      message = operation_result();
+    } catch (...) {
+      ok = false;
+      message = "factory threw";
+      set_operation_result(message);
+    }
+    enqueue_done([done = std::move(job.done), ok,
+                  message = std::move(message)]() {
+      if (done) {
+        done(ok, message);
+      }
+    });
+  });
   return true;
 }
 
 void ProcessingPool::flush_for_test() {
   for (;;) {
     std::unique_lock<std::mutex> lock(mu_);
-    if (jobs_.empty() && done_queue_.empty()) {
+    if (inflight_ == 0 && done_queue_.empty()) {
       return;
     }
     auto dones = std::move(done_queue_);
     done_queue_.clear();
+    const bool waiting = inflight_ > 0 && dones.empty();
+    if (waiting) {
+      cv_.wait_for(lock, std::chrono::milliseconds(1));
+      continue;
+    }
     lock.unlock();
     for (auto& fn : dones) {
       fn();
     }
-    if (!dones.empty()) {
-      continue;
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 }
 
@@ -77,40 +115,6 @@ void attach_host_processing(content::PluginHost* host, ProcessingPool* pool) {
             },
             [](bool, std::string) {});
       });
-}
-
-void ProcessingPool::worker_main() {
-  for (;;) {
-    Job job;
-    {
-      std::unique_lock<std::mutex> lock(mu_);
-      cv_.wait(lock, [&]() { return stop_ || !jobs_.empty(); });
-      if (stop_ && jobs_.empty()) {
-        return;
-      }
-      job = std::move(jobs_.front());
-      jobs_.pop();
-    }
-    bool ok = false;
-    std::string message;
-    set_operation_result("");
-    try {
-      ok = job.factory(nullptr, job.args);
-      message = operation_result();
-    } catch (...) {
-      ok = false;
-      message = "factory threw";
-      set_operation_result(message);
-    }
-    {
-      std::lock_guard<std::mutex> lock(mu_);
-      done_queue_.push_back([done = std::move(job.done), ok, message]() {
-        if (done) {
-          done(ok, message);
-        }
-      });
-    }
-  }
 }
 
 }  // namespace plugin

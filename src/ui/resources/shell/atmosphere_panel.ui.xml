@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="atmosphere_panel">
+  <style src="atmosphere_panel.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title" text="Atmosphere"/>
+    <label id="time" text="t = 0.0 s"/>
+    <slider id="scrub"/>
+    <checkbox id="ocean" text="Ocean"/>
+    <checkbox id="cloud" text="Cloud"/>
+    <checkbox id="sky" text="Sky"/>
+    <checkbox id="fog" text="Fog"/>
+    <checkbox id="wind" text="Wind arrows"/>
+  </vbox>
+</ui>

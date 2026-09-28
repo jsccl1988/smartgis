@@ -1,0 +1,92 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef UI_GIS_DEBUG_DIAGNOSTIC_TOOLS_PANEL_H_
+#define UI_GIS_DEBUG_DIAGNOSTIC_TOOLS_PANEL_H_
+
+#include "ui/ui_export.h"
+
+#include <chrono>
+#include <functional>
+#include <memory>
+#include <string>
+
+#include "ui/views/kernel/view/view.h"
+
+namespace ui {
+namespace views {
+
+class Button;
+class Checkbox;
+class DebugConsolePanel;
+class Label;
+class RenderTracePanel;
+class TabStrip;
+
+// VS-style bottom Diagnostic Tools: Output | Console | CPU | Memory.
+// Allocate via make_diagnostic_tools_panel() for cross-module View ownership.
+class UI_EXPORT DiagnosticToolsPanel : public View {
+ public:
+  DiagnosticToolsPanel();
+  ~DiagnosticToolsPanel() override;
+
+  void set_visible_tools(bool on);
+  bool is_tools_visible() const { return visible_; }
+
+  DebugConsolePanel* output_pane() { return output_; }
+  DebugConsolePanel* console_pane() { return console_; }
+  RenderTracePanel* cpu_pane() { return cpu_; }
+
+  void set_console_submit(std::function<void(const std::string&)> fn);
+
+  void on_device_scale_factor_changed(float old_scale,
+                                     float new_scale) override;
+
+ protected:
+  void paint_self(ui::gfx::Canvas* canvas) override;
+
+ private:
+  void on_record();
+  void on_stop();
+  void on_clear();
+  void on_export();
+  void on_refresh();
+  void sample_memory();
+  void refresh_memory_stats();
+  void update_status();
+  void maybe_auto_refresh();
+  // 500ms Win32 timer — never schedule_paint from paint_self (that caused
+  // full-rate shell republish + map flicker while tools were open).
+  void arm_refresh_timer(bool on);
+  void on_refresh_timer();
+  static void CALLBACK refresh_timer_proc(HWND hwnd, UINT msg, UINT_PTR id,
+                                          DWORD time);
+
+  bool visible_ = false;
+  HWND refresh_timer_hwnd_ = nullptr;
+  Label* title_ = nullptr;
+  Label* status_ = nullptr;
+  Label* memory_stats_ = nullptr;
+  Button* record_ = nullptr;
+  Button* stop_ = nullptr;
+  Button* clear_ = nullptr;
+  Button* export_ = nullptr;
+  Button* refresh_ = nullptr;
+  Checkbox* arm_ = nullptr;
+  Checkbox* track_allocs_ = nullptr;
+  Checkbox* echo_commands_ = nullptr;
+  TabStrip* tabs_ = nullptr;
+  DebugConsolePanel* output_ = nullptr;
+  DebugConsolePanel* console_ = nullptr;
+  RenderTracePanel* cpu_ = nullptr;
+  View* memory_page_ = nullptr;
+  std::chrono::steady_clock::time_point last_auto_refresh_{};
+};
+
+UI_EXPORT std::unique_ptr<DiagnosticToolsPanel>
+make_diagnostic_tools_panel();
+
+}  // namespace views
+}  // namespace ui
+
+#endif  // UI_GIS_DEBUG_DIAGNOSTIC_TOOLS_PANEL_H_

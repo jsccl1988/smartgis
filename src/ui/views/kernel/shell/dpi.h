@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_KERNEL_SHELL_DPI_H_
 #define UI_VIEWS_KERNEL_SHELL_DPI_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <cmath>
 
 #ifndef NOMINMAX
@@ -46,15 +46,15 @@ inline int px_to_dip(int px, float scale_factor) {
 }
 
 // Prefer GetDpiForWindow; fall back to monitor / system LOGPIXELSX.
-UI_VIEWS_EXPORT unsigned dpi_for_hwnd(HWND hwnd);
+UI_EXPORT unsigned dpi_for_hwnd(HWND hwnd);
 
 // Clamp a top-level window box so it stays inside the monitor work area near
 // |anchor| (owner HWND or nullptr for the primary work area).
-UI_VIEWS_EXPORT void clamp_rect_to_work_area(int* x, int* y, int width, int height, HWND anchor);
+UI_EXPORT void clamp_rect_to_work_area(int* x, int* y, int width, int height, HWND anchor);
 
 // Best-effort Per-Monitor V2, then per-monitor, then system DPI aware.
 // Safe to call more than once; returns true if any awareness mode engaged.
-UI_VIEWS_EXPORT bool enable_process_dpi_awareness();
+UI_EXPORT bool enable_process_dpi_awareness();
 
 }  // namespace views
 }  // namespace ui

@@ -12,12 +12,16 @@ import("//testing/test.gni")
 source_set("python") {
   sources = [
     "bindings.cc",
+    "gis_bindings.cc",
+    "gis_bindings.h",
     "runtime.cc",
     "runtime.h",
   ]
   include_dirs += [ "//src" ]
   deps = [
+    "//src/base:base",
     "//src/plugin:host",
+    "//src/plugin/runtime/processing:processing_ops",
     "//src/ui/views:views",
   ]
   if (smt_python_enabled) {
@@ -47,6 +51,8 @@ test("plugin_python_test") {
   sources = [ "python_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [ ":python" ]
+  # Samples live under //src/plugin/runtime/samples/{hello,analysis,product_orchestrate}.
+  # Tests load hello only; do not retarget SMT_PLUGIN_HELLO_DIR without updating python_test.cc.
   defines += [ "SMT_PLUGIN_HELLO_DIR=\"" +
                rebase_path("//src/plugin/runtime/samples/hello") + "\"" ]
   if (smt_python_enabled) {

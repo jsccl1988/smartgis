@@ -7,9 +7,9 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted  
-**Updated:** 2026-09-28 — deep merge: frame graph, generic pipeline, GPU-process accelerate, P0 3D capability folded here. Former twins under `archive/specs/`.  
-**Related:** model/render/compute [`2026-09-13-model-render-compute-design.md`](2026-09-13-model-render-compute-design.md)；atmosphere [`2026-09-19-atmosphere-ocean-cloud-design.md`](2026-09-19-atmosphere-ocean-cloud-design.md)；Views 2D frame [`2026-09-27-map2d-frame-design.md`](2026-09-27-map2d-frame-design.md)；legacy present SP2 in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；as-built [`../../../src/render/README.md`](../../../src/render/README.md)、[`../../../src/gpu/README.md`](../../../src/gpu/README.md)；RHI subdir landed [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)。  
-**Plans:** RHI scene [`../plans/2026-09-13-render-rhi-scene.md`](../plans/2026-09-13-render-rhi-scene.md) · frame graph [`../plans/2026-09-27-render-frame-graph.md`](../plans/2026-09-27-render-frame-graph.md) · gpu accelerate [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) · P0 [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md)。  
+**Updated:** 2026-09-28 — §GPU-process accelerate A+C (default `kRhi`; `SMT_GPU_COMPOSE=software` escape; monitor LUID on Attach/Resize; sticky per-adapter software fallback).
+**Related:** model/compute · atmosphere · map2d folded into this file (§Folded topics); legacy present SP2 in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；Views shell [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md)；as-built [`../../../src/render/README.md`](../../../src/render/README.md)、[`../../../src/gpu/README.md`](../../../src/gpu/README.md)；RHI subdir landed [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)。  
+**Plans:** RHI scene [`../plans/2026-09-13-render-rhi-scene.md`](../plans/2026-09-13-render-rhi-scene.md) · frame graph [`../plans/2026-09-27-render-frame-graph.md`](../plans/2026-09-27-render-frame-graph.md) · gpu accelerate [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) · P0 [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md) · suite/bench [`../plans/2026-09-28-render-rhi-suite-bench.md`](../plans/2026-09-28-render-rhi-suite-bench.md)。  
 **Scope:** Living RHI + dual scene + in-process frame graph + GPU-process compose. FlyCube DX12/Vulkan. Logical world in `gis`/`sdb`; GPU cache in `render/scene`. Do **not** open new dated RHI/layout twins — revise sections below.
 
 ## Goal
@@ -420,14 +420,105 @@ One viewport, one camera, one `CommandList`, one `execute`/`present`. Passes onl
 
 `ViewInput` is width/height + one camera + non-owning `Effect*` list — does not name `GpuScene` / `MapFrame` / `AtmosphereFrame`. Archive detail: [`../archive/specs/2026-09-27-render-frame-graph-design.md`](../archive/specs/2026-09-27-render-frame-graph-design.md).
 
+### Scene3d present spans（2026-09-28）
+
+When `base::tracing_enabled()`: `scene3d` / `scene3d.present` / `scene3d.mesh` / `scene3d.atmosphere` / `scene3d.gdi` wrap presenter + GPU + software paths (same `process_trace` as Map2d). See base §Trace + views §RenderTrace.
+
 ---
 
 ## §GPU-process accelerate（merged 2026-09-28）
 
-Compose/present for `--type=gpu` (`src/gpu`) only. Chrome never blends final frames. Multi-adapter first-class: `GpuDeviceHub` + `AdapterId`; one GPU process × N devices. IR stays `CompositorFrame` / `DrawQuad`. `FrameComposer`: `kSoftware` default, `kRhi` opt-in. Layout of `src/gpu` is **landed** as-built in `src/gpu/README.md`. In-process `render::graph::present` (Views) is a **different** path from this section. Archive: [`../archive/specs/2026-09-27-gpu-rhi-accelerate-design.md`](../archive/specs/2026-09-27-gpu-rhi-accelerate-design.md).
+Compose/present for `--type=gpu` (`src/gpu`) only. Shell / browser / Views never final-compose. Multi-adapter first-class: `GpuDeviceHub` + `AdapterId`. IR stays `CompositorFrame` / `DrawQuad`. Layout of `src/gpu` is **landed** as-built in `src/gpu/README.md`. In-process `render::graph::present` (Views) is a **different** path from this section. Plan checklist: [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md). Archive: [`../archive/specs/2026-09-27-gpu-rhi-accelerate-design.md`](../archive/specs/2026-09-27-gpu-rhi-accelerate-design.md).
+
+### A+C locked decisions (2026-09-28)
+
+| Topic | Choice |
+| --- | --- |
+| Default `ComposeBackend` | **`kRhi`**. Unset / empty / unknown `SMT_GPU_COMPOSE` → `kRhi`. Explicit `SMT_GPU_COMPOSE=software` is the escape hatch (case-insensitive). Test override APIs remain. |
+| Sticky fallback | On hard RHI / present failure for adapter A: sticky **software** for **that adapter only** (`GpuDeviceHub` sticky bit); other adapters keep RHI when healthy. |
+| Topology | **One** `--type=gpu` process × **N** adapter device slots. Not N gpu processes. **No** single-frame multi-GPU split / cross-adapter mosaic in one compose. |
+| Shell role | Shell consumes NT shared handles / DIB only — **never** blends the final frame. |
+| Monitor affinity | `AttachSurfaceBody` / `ResizeSurfaceBody` carry `monitor_luid_low` / `monitor_luid_high` (DXGI adapter LUID of the output’s monitor). Optional `adapter_hint` (`0xffffffff` = unset). `gpu_main` binds / rebinds the `OutputSurface` via `GpuDeviceHub` (`prefer_adapter_for_monitor` / `rebind_surface_to_monitor` by LUID). **`HMONITOR` is not sent over IPC** (shell-local only when resolving LUID). |
+
+### Phases
+
+| Phase | Scope |
+| --- | --- |
+| **P0** | Default compose = RHI; `SMT_GPU_COMPOSE=software` escape; sticky per-adapter software fallback; docs/tests match. |
+| **P1** | LUID fields on Attach/Resize IPC; shell fills LUID; `gpu_main` rebinds via hub (not primary-only forever). |
+| **P2** | TDR / device-lost → sticky software + generation bump wired from recovery path; as-built docs / dual-adapter notes. |
 
 ---
 
 ## §P0 3D capability（merged 2026-09-28）
 
 Lit solid path, style→3D albedo, CPU frustum, GPU smoke — checklist in [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md). Pipeline entry is via §Generic pipeline (`Pipeline*` + constants), not `PipelineId::{kOcean,kCloud}`. Archive: [`../archive/specs/2026-09-20-rhi-3d-capability-p0-design.md`](../archive/specs/2026-09-20-rhi-3d-capability-p0-design.md).
+
+---
+
+## §Content `present/scene3d` slim（2026-09-28）
+
+Align with `present/map2d`: thin facade + capability dirs; no pure-forward Presenter API.
+
+| Path | Role |
+| --- | --- |
+| `scene3d_presenter.*` | bind / `present_gpu` / `paint*` / accessors only |
+| `atmosphere/` | `AtmosphereSession` (Environment + pass prepare + M3 hooks) |
+| `frame/` | `OrbitGeoFrame` + `rebuild_terrain_mesh` |
+| `gpu/` / `software/` | FlyCube present / GDI paint |
+| `policy/` | `prefer_scene3d_flycube` / `force_content_mapview_3d` |
+| `stereo/` | `Scene3dStereoSession` (legacy_render LoadLibrary) |
+
+Callers use `atmosphere_session()` / `gpu()` / `software()`. Deleted Presenter forwards: atmosphere toggles, wireframe, `paint_engine_logo` static. Geo frame filled once via `ensure_geo_frame()` before prepare; DEM mesh rebuild lives in `frame/terrain_mesh`. As-built: [`../../../src/content/browser/present/README.md`](../../../src/content/browser/present/README.md).
+
+---
+
+## §RHI suite / coverage / bench（2026-09-28）
+
+**Status:** accepted  
+**Plan:** [`../plans/2026-09-28-render-rhi-suite-bench.md`](../plans/2026-09-28-render-rhi-suite-bench.md)
+
+Headless functional matrix + performance benches for `render::rhi` / `graph`, plus Debug Console harness entry. Matches industry RHI sample surfaces (Device / Resource / Pipeline / CommandList / Present / Compute / Frame graph) without vendoring a second RHI.
+
+| Locked | Choice |
+| --- | --- |
+| Layout | Shared scenarios in `src/render/testing/` (`render::detail`); product DLL does **not** depend on testing |
+| Functional | `rhi_suite_test` (Null) → `test_shell` / `test_all`; keep existing `rhi_test` GPU smoke (`SMT_RUN_FLYCUBE_GPU=1`) |
+| Bench CI | `rhi_bench` (Null, **google/benchmark**) → `benchmark_all` / `build.bat b` |
+| Bench GPU | `rhi_gpu_bench` (DX12); **not** in default `benchmark_all`; env or explicit ninja target |
+| Console | `:rhi test\|bench` spawn sibling exes (same pattern as `:gis test\|bench`) |
+| Coverage Phase 1 | API/feature matrix checklist below (scenarios) |
+| Coverage Phase 2 | OpenCppCoverage / MSVC report scoped to `src/render` (follow-up; does not block Phase 1) |
+| google/benchmark | **Required** for all `benchmark()` targets via `testing/benchmark.gni` → `//third_party:gbenchmark` (+ `gbenchmark_main` by default). Install: `build.bat t benchmark`. |
+
+### Scenario matrix (Phase 1)
+
+| Scenario | Industry RHI analogue | Null | GPU (opt) |
+| --- | --- | --- | --- |
+| `device_lifecycle` | Device create / init / shutdown | required | required when adapter |
+| `resources` | Buffer / Texture create + upload | required | required |
+| `pipeline_bind` | Graphics pipeline + set_pipeline / constants | required | required |
+| `record_present` | begin/end pass, draw, execute, present | required | required |
+| `graph_present` | Frame graph four-slot present | required | optional |
+| `compute_smoke` | Dispatch when `supports_compute` | skip-ok on Null | required when compute |
+
+### Non-goals
+
+- No second RHI / Skia-as-map-RHI / Qt Lab window.
+- No mandatory true-GPU CI.
+- No embedding FlyCube types in public headers.
+
+---
+
+## Folded topics (2026-09-28 merge B)
+
+Former hot specs are under `archive/specs/` (`superseded`). **Revise this file** (append `§`) for new requirements in this topic. Do not create a new `YYYY-MM-DD-*-design.md`.
+
+| Former hot spec | Section / note |
+| --- | --- |
+| [`../archive/specs/2026-09-13-model-render-compute-design.md`](../archive/specs/2026-09-13-model-render-compute-design.md) | §Model / render / compute umbrella (folded) |
+| [`../archive/specs/2026-09-14-render-math-refactor-design.md`](../archive/specs/2026-09-14-render-math-refactor-design.md) | §Render math (folded) |
+| [`../archive/specs/2026-09-14-render-skia-canvas-design.md`](../archive/specs/2026-09-14-render-skia-canvas-design.md) | §Skia canvas chrome (folded) |
+| [`../archive/specs/2026-09-19-atmosphere-ocean-cloud-design.md`](../archive/specs/2026-09-19-atmosphere-ocean-cloud-design.md) | §Atmosphere / ocean / cloud + weather domain (folded) |
+| [`../archive/specs/2026-09-27-map2d-frame-design.md`](../archive/specs/2026-09-27-map2d-frame-design.md) | §Map2d CPU frame + Views present (folded) |
+

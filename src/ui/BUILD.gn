@@ -2,7 +2,7 @@
 # All rights reserved.
 
 # Compatibility aliases: MFC shell DLL lives in //src/legacy/ui:ui_legacy.
-# Endgame toolkit stays //src/ui/views (see views/BUILD.gn).
+# Endgame toolkit: //src/ui/views + product GIS chrome //src/ui/gis.
 # App-gated via //:smartgis (smt_build_app). Not in //src:src_all.
 
 group("ui_legacy") {
@@ -12,4 +12,9 @@ group("ui_legacy") {
 # Opt-in aggregator for MFC UI (build.bat app / //:smartgis).
 group("ui") {
   public_deps = [ ":ui_legacy" ]
+}
+
+# Product GIS panels + dialogs (same ui_views.dll / UI_EXPORT).
+group("gis") {
+  public_deps = [ "//src/ui/gis:gis" ]
 }

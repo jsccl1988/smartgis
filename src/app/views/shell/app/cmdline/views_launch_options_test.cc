@@ -53,6 +53,17 @@ int main() {
   {
     auto o = parse_vec({L"SmartGisViews.exe", L"--self-test"});
     expect(o.ok && o.self_test, "self-test");
+    expect(!o.self_test_console, "self-test alone no console");
+  }
+  {
+    auto o = parse_vec({L"SmartGisViews.exe", L"--self-test-console"});
+    expect(o.ok && o.self_test_console, "self-test-console");
+    expect(!o.self_test, "console alone no self-test");
+  }
+  {
+    auto o = parse_vec(
+        {L"SmartGisViews.exe", L"--self-test", L"--self-test-console"});
+    expect(o.ok && o.self_test && o.self_test_console, "both self-test flags");
   }
   {
     auto o =

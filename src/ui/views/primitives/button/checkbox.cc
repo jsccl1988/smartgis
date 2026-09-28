@@ -95,5 +95,9 @@ void Checkbox::paint_self(ui::gfx::Canvas* canvas) {
   }
 }
 
+
+std::string_view Checkbox::paint_role() const {
+  return "checkbox";
+}
 }  // namespace views
 }  // namespace ui

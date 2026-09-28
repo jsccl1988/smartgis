@@ -9,11 +9,11 @@ All rights reserved.
 
 **Goal:** Windows `gis/datasource` 经 `SdbdClient` **HTTP+FnRPC 双通道**对接 WSL mogu `sdbd`，`PROVIDER_SDBD` 经 `DataSourceMgr` 打开，活体 e2e 硬依赖 `:8021` 与 `:9032`；同变更将 `SmtDataSourceMgr` 改名为 `DataSourceMgr`。
 
-**Architecture:** 并行两车道——(A) mgr 改名；(B) HTTP `SdbdClient`。汇合后 (C) **FnRPC 传输** + `PROVIDER_SDBD` + `SdbdRemoteDataset` + mgr 接线 + 双通道 live。本地 `SdbdHandler` 保留。
+**Architecture:** 并行两车道——(A) mgr 改名；(B) HTTP `SdbdClient`。汇合后 (C) **FnRPC 传输** + `PROVIDER_SDBD` + `SdbdRemoteDataset` + mgr 接线 + 双通道 live。**2026-09-28：** 本地 `SdbdHandler` / `/sdbd/api/v1/*` 已删；SDBD 树为 `client/`、`driver/`、`remote/`、`codec/`（无 `decorator/`）。
 
 **Tech Stack:** C++23、`net::HttpClient`、`net::RpcClient`、GDAL/OGR、`sdbd_json`、GN `out/`、`build.bat te` / `e2e`、WSL `flow_host --plugin=libsdbd.so`。
 
-**Spec:** [`docs/superpowers/specs/2026-09-19-sdbd-wsl-client-design.md`](../specs/2026-09-19-sdbd-wsl-client-design.md)
+**Spec:** [`docs/superpowers/specs/2026-09-13-gdal-layer-management-design.md`](../specs/2026-09-13-gdal-layer-management-design.md)
 
 ## Global Constraints
 
@@ -22,7 +22,7 @@ All rights reserved.
 - 新/改名函数 `snake_case`；类型 PascalCase；公共命名空间至多两层（`gis` / `gis::datasource`）。
 - 注释英文；对话/本计划文档中文。
 - 只用 `net::HttpClient`；不改 mogu 仓；不 vendor Qt / 第二 HTTP。
-- 产品 API 前缀 `/api/v1/sdbd/*`；本地 Handler 前缀 `/sdbd/api/v1/*` 勿混。
+- 产品 API 前缀 `/api/v1/sdbd/*` only（本地 Handler 已移除）。
 - Live `:8021` **硬失败**（非 SKIP）。
 - **不要** `git commit`，除非用户当次明确要求。
 - 构建：`build.bat` / `out/` only。
@@ -44,9 +44,12 @@ All rights reserved.
 | --- | --- |
 | `src/gis/datasource/mgr/datasource_mgr.h/.cc` | 由 `datasourcemgr.*` 改名；类型 `DataSourceMgr` |
 | 调用点（legacy/plugin/tests） | include + 类型 + 成员 `snake_case` |
-| `src/gis/datasource/sdbd/client/sdbd_client.h/.cc` | mogu HTTP 客户端 |
-| `src/gis/datasource/sdbd/sdbd_mogu_types.h`（可选并入 client） | mogu JSON 结果 POD |
-| `src/gis/datasource/sdbd/decorator/sdbd_remote_dataset.h/.cc` | 远程产品面 |
+| `src/gis/datasource/provider/impl/sdbd/client/sdbd_client.h/.cc` | mogu HTTP 客户端 |
+| `src/gis/datasource/provider/impl/sdbd/sdbd_mogu_types.h`（可选并入 client） | mogu JSON 结果 POD |
+| `src/gis/datasource/provider/impl/sdbd/remote/sdbd_remote_dataset.h/.cc` | 远程产品面 |
+| `src/gis/datasource/provider/impl/sdbd/remote/sdbd_live_test.cc` | 硬 live e2e |
+| `src/gis/datasource/provider/impl/sdbd/codec/sdbd_json.h/.cc` | 瘦 JSON codec |
+| `src/gis/datasource/provider/impl/sdbd/driver/sdbd_driver.h/.cc` 等 | `SDBD:` GDAL 装饰驱动 |
 | `src/gis/model/layer/layer.h` | `PROVIDER_SDBD` |
 | `ogr_connect.*` | `db_provider_traits<PROVIDER_SDBD>`；`sdbd_base_url(info)` |
 | `sde_gdal_test.cc` 或 `sdbd_live_test.cc` | 硬 live e2e |
@@ -85,10 +88,10 @@ All rights reserved.
 ### Task B1: `SdbdClient` for mogu `/api/v1/sdbd/*`
 
 **Files:**
-- Create: `src/gis/datasource/sdbd/client/sdbd_client.h`
-- Create: `src/gis/datasource/sdbd/sdbd_client.cc`
-- Create: `src/gis/datasource/sdbd/sdbd_client_test.cc`（可假 HTTP：先测 URL 拼接 + JSON 解析；活体放 Task C）
-- Modify: `src/gis/datasource/gdal/BUILD.gn` — 把 client 加入 `sde_gdal_sources`，`deps += [ "//src/net:net" ]`；加 `test("sdbd_client_test")`
+- Create: `src/gis/datasource/provider/impl/sdbd/client/sdbd_client.h`
+- Create: `src/gis/datasource/provider/impl/sdbd/sdbd_client.cc`
+- Create: `src/gis/datasource/provider/impl/sdbd/sdbd_client_test.cc`（可假 HTTP：先测 URL 拼接 + JSON 解析；活体放 Task C）
+- Modify: `src/gis/datasource/provider/impl/gdal/BUILD.gn` — 把 client 加入 `sde_gdal_sources`，`deps += [ "//src/net:net" ]`；加 `test("sdbd_client_test")`
 
 **Interfaces:**
 - Consumes: `net::HttpClient::get/post`；现有 `parse_json` / `Json`（`sdbd_json`）
@@ -154,7 +157,7 @@ std::string sdbd_default_base_url();  // env SG_SDBD_BASE or http://127.0.0.1:80
 
 **Files:**
 - Modify: `src/gis/model/layer/layer.h` — `eSmtDBProvider` 追加 `PROVIDER_SDBD`
-- Modify: `src/gis/datasource/ogr/codec/ogr_connect.h/.cc`
+- Modify: `src/gis/datasource/provider/impl/ogr/codec/ogr_connect.h/.cc`
 
 **Interfaces:**
 - Produces:
@@ -182,7 +185,7 @@ std::string sdbd_base_url_from_info(const gis::SmtDataSourceInfo& info);
 ### Task C2: `SdbdRemoteDataset` + `DataSourceMgr::open_dataset` 接线
 
 **Files:**
-- Create: `src/gis/datasource/sdbd/decorator/sdbd_remote_dataset.h/.cc`
+- Create: `src/gis/datasource/provider/impl/sdbd/remote/sdbd_remote_dataset.h/.cc`
 - Modify: `datasource_mgr.cc` `open_dataset` / `create_data_source`
 - Modify: `BUILD.gn` sources
 
@@ -229,7 +232,7 @@ return gis::datasource::open_sdbd_dataset(info);
 ### Task C3: Live e2e harness（硬依赖）
 
 **Files:**
-- Create or extend: `src/gis/datasource/sdbd/sdbd_live_test.cc`（推荐独立 exe，挂 `test_all` / `te`）
+- Create or extend: `src/gis/datasource/provider/impl/sdbd/sdbd_live_test.cc`（推荐独立 exe，挂 `test_all` / `te`）
 - Modify: root/`src` test 图、`BUILD.gn`
 - Helper: `ensure_sdbd_alive()` in test TU
 
@@ -276,7 +279,7 @@ wsl -e bash -lc "MOGU_ROOT=${SG_MOGU_ROOT:-/home/ccl/dev/src/mogu}; cd \"$MOGU_R
 | SdbdClient `/api/v1/sdbd/*` | B1 |
 | PROVIDER_SDBD + mgr 打开 | C1+C2 |
 | 硬 live e2e | C3 |
-| 本地 Handler 保留 | 不删文件；A/B 不碰 Handler 合同 |
+| 本地 Handler | **已删**（2026-09-28）；保留 `SDBD:` GDAL 驱动于 `sdbd/driver/` |
 | DataSourceMgr 改名 | A1 |
 | net::HttpClient only | B1 |
 | 不改 mogu | 全任务 |

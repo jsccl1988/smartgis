@@ -16,7 +16,7 @@ All rights reserved.
 | --- | --- |
 | 分层与 OSS 对照 | [`src-layout.md`](src-layout.md)、[`../src/README.md`](../../src/README.md) |
 | UI 终局 | [`ui-views-skia.md`](ui-views-skia.md) |
-| 模型 / 渲染 / 计算 | [`../superpowers/specs/2026-09-13-model-render-compute-design.md`](../superpowers/specs/2026-09-13-model-render-compute-design.md) |
+| 模型 / 渲染 / 计算 | [`../superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../superpowers/specs/2026-09-13-render-rhi-scene-design.md) |
 
 ---
 
@@ -60,22 +60,22 @@ M0–M4 验收口令均挂在 `SmartGisViews.exe --self-test`；计划：`docs/s
 
 | 能力域 | QGIS | Cesium | ArcGIS Pro | SmartGIS 现状 | 目标级 | 主规格 / 计划 | 里程碑 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 桌面壳 / 控件 | A | — | A | B（M0 自测口令绿；深度编辑仍弱）+ leftover | A | [ui-views-mfc-migration](../superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md) **active**；[ui-views-skia](ui-views-skia.md)；[shell-compile-gate](../superpowers/specs/2026-09-19-shell-compile-gate-design.md) **active**；[M0 plan](../superpowers/plans/2026-09-20-m0-views-main-path.md) | **M0** |
-| 数据模型 / OGR | A | B | A | B（GDAL/SDBD 已定） | A | [ogr-db](../superpowers/specs/2026-09-13-ogr-db-datasource-design.md)、[gdal-layer](../superpowers/specs/2026-09-13-gdal-layer-management-design.md)、[feature-maplayer](../superpowers/specs/2026-09-13-sdb-feature-maplayer-composition-design.md) **accepted** | M0–M1 |
-| 2D 瓦片底图 | A | A | A | B–C（XYZ/WMTS 最小） | B→A | [tile-layer-provider](../superpowers/specs/2026-09-13-tile-layer-provider-design.md) **active**（Phase 0–1 landed） | **M1** |
-| 制图样式 / 符号 | A | B | A | C（MapLibre 子集） | B→A | [sdb-style-document](../superpowers/specs/2026-09-14-sdb-style-document-design.md) **active** | **M1** |
-| 注记 / 离线底图 | A | B | A | C（china_city 在推） | B | [china-city-map-plpt](../superpowers/specs/2026-09-18-china-city-map-plpt-design.md) **active** | **M1** |
-| 布局打印 | A | — | A | D（新栈）/ leftover print | B | [plugin-full-upgrade](../superpowers/specs/2026-09-14-plugin-full-upgrade-design.md)；print 插件 | M1 末 |
+| 桌面壳 / 控件 | A | — | A | B（M0 自测口令绿；深度编辑仍弱）+ leftover | A | [ui-views-mfc-migration](../superpowers/specs/2026-09-27-views-desktop-shell-design.md) **active**；[ui-views-skia](ui-views-skia.md)；[shell-compile-gate](../superpowers/specs/2026-09-19-shell-compile-gate-design.md) **active**；[M0 plan](../superpowers/plans/2026-09-20-m0-views-main-path.md) | **M0** |
+| 数据模型 / OGR | A | B | A | B（GDAL/SDBD 已定） | A | [ogr-db](../superpowers/specs/2026-09-13-gdal-layer-management-design.md)、[gdal-layer](../superpowers/specs/2026-09-13-gdal-layer-management-design.md)、[feature-maplayer](../superpowers/specs/2026-09-13-gdal-layer-management-design.md) **accepted** | M0–M1 |
+| 2D 瓦片底图 | A | A | A | B–C（XYZ/WMTS 最小） | B→A | [tile-layer-provider](../superpowers/specs/2026-09-13-gdal-layer-management-design.md) **active**（Phase 0–1 landed） | **M1** |
+| 制图样式 / 符号 | A | B | A | C（MapLibre 子集） | B→A | [sdb-style-document](../superpowers/specs/2026-09-13-gdal-layer-management-design.md) **active** | **M1** |
+| 注记 / 离线底图 | A | B | A | C（china_city 在推） | B | [china-city-map-plpt](../superpowers/specs/2026-09-13-gdal-layer-management-design.md) **active** | **M1** |
+| 布局打印 | A | — | A | D（新栈）/ leftover print | B | [plugin-full-upgrade](../superpowers/specs/2026-09-13-plugin-host-design.md)；print 插件 | M1 末 |
 | 编辑 / 捕捉 / 拓扑 | A | — | A | C（EditSession）+ leftover 工具 | B→A | [tool-event-dispatch](../superpowers/specs/2026-09-13-tool-event-dispatch-design.md) **accepted**；[tool-behavior-migration](../superpowers/specs/2026-09-19-tool-behavior-migration-design.md) **active**；[legacy-tool-workspace](../superpowers/specs/2026-09-19-legacy-tool-workspace-strangler-design.md) **active** | **M0** / M4 |
 | Processing / 分析 | A | — | A | C–D（algorithm 核有，无工具箱） | B | [algorithm-layer-oss](../superpowers/specs/2026-09-13-algorithm-layer-oss-design.md) **accepted**；[plugin-host](../superpowers/specs/2026-09-13-plugin-host-design.md) Processing 契约 | **M2** |
-| RHI / 双场景 | — | A | A | B–C（FlyCube + World/GpuScene） | A | [render-rhi-scene](../superpowers/specs/2026-09-13-render-rhi-scene-design.md)、[model-render-compute](../superpowers/specs/2026-09-13-model-render-compute-design.md) **accepted**；[scene3d-world-gpuscene](../superpowers/specs/2026-09-19-scene3d-world-gpuscene-design.md) **active** | **M3** |
+| RHI / 双场景 | — | A | A | B–C（FlyCube + World/GpuScene） | A | [render-rhi-scene](../superpowers/specs/2026-09-13-render-rhi-scene-design.md)、[model-render-compute](../superpowers/specs/2026-09-13-render-rhi-scene-design.md) **accepted**；[scene3d-world-gpuscene](../superpowers/specs/2026-09-19-scene3d-world-gpuscene-design.md) **active** | **M3** |
 | 3D 模型 / Tiles | B | A | A | C（Assimp + tileset 最小） | B→A | model-render-compute §模型；`gis::model` | **M3** |
-| 地形 DEM | B | A | A | B–C（DEM 插件 + World 对齐中） | B | [leftover-scene3d-dem-unify](../superpowers/specs/2026-09-19-leftover-scene3d-dem-unify-design.md) **accepted** | M3 |
+| 地形 DEM | B | A | A | B–C（DEM 插件 + World 对齐中） | B | [leftover-scene3d-dem-unify](../superpowers/specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md) **accepted** | M3 |
 | 点云 | B | B | A | D–C（引擎有；PDAL I/O future） | C→B | `src/README` PDAL future | M3 后 |
-| 大气 / 海 / 云 | — | B | B（多维） | C（v1 规格 + 升级计划） | B（差异化） | [atmosphere-ocean-cloud](../superpowers/specs/2026-09-19-atmosphere-ocean-cloud-design.md) **accepted**；[upgrade plan](../superpowers/plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md) **active** | M3 旁路 |
+| 大气 / 海 / 云 | — | B | B（多维） | C（v1 规格 + 升级计划） | B（差异化） | [atmosphere-ocean-cloud](../superpowers/specs/2026-09-13-render-rhi-scene-design.md) **accepted**；[upgrade plan](../superpowers/plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md) **active** | M3 旁路 |
 | OGC / Web 服务栈 | A | A | A | —（产品 Web GIS 已删） | — / 客户端子集 | net + TileProvider；**不**复活 mapd | 可选客户端 |
-| 远程 sdbd | — | — | B | B–C（WSL 客户端规格） | B | [sdbd-wsl-client](../superpowers/specs/2026-09-19-sdbd-wsl-client-design.md) **accepted** | M4 |
-| 插件 / Python | A | B | A | C（Host + embed） | B | [plugin-host](../superpowers/specs/2026-09-13-plugin-host-design.md)、[plugin-full-upgrade](../superpowers/specs/2026-09-14-plugin-full-upgrade-design.md) **accepted** | M2–M4 |
+| 远程 sdbd | — | — | B | B–C（WSL 客户端规格） | B | [sdbd-wsl-client](../superpowers/specs/2026-09-13-gdal-layer-management-design.md) **accepted** | M4 |
+| 插件 / Python | A | B | A | C（Host + embed） | B | [plugin-host](../superpowers/specs/2026-09-13-plugin-host-design.md)、[plugin-full-upgrade](../superpowers/specs/2026-09-13-plugin-host-design.md) **accepted** | M2–M4 |
 | 嵌入 SDK | B | A | A | C（`content::`） | B | content/public；[ui-shell-multiprocess](ui-shell-multiprocess.md) | M4 |
 | 跨平台 | A | A | Windows 主 | D（Windows-first） | C（后置） | — | 不进 M0–M3 |
 | 企业版本库 / 身份 | B | — | A | D | C→B | 无独立规格 | **M4** |

@@ -12,7 +12,7 @@
 | `geo::Tin` | `geometry.h` | 三角网（Delaunay **输出** / 绘制） | 包装 `OGRTriangulatedSurface`。Delaunay 在 `gis/kernel/tin`（GEOS）。`SmtTriangle.bDelete` 是旁路数组，不是第二套几何引擎。 |
 | `geo::Surface3d` | `geometry.h` | XYZ 三角网（地形 / model3d） | 薄派生 `Tin`（结点带 Z）。已删 `3dgeometry.h`。 |
 
-`geometry.h` 另有 `copy_envelope`（OGR → `base::Envelope`）和查询位 `SpatialRelation`。不要把它当成 OGR 兼容层。
+`geometry.h` 另有 `copy_envelope`（OGR → `gis::Envelope`）和查询位 `SpatialRelation`。不要把它当成 OGR 兼容层。
 
 ## 文件
 

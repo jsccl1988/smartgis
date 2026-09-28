@@ -218,5 +218,9 @@ void MenuBar::paint_self(ui::gfx::Canvas* canvas) {
   }
 }
 
+
+std::string_view MenuBar::paint_role() const {
+  return "menu_bar";
+}
 }  // namespace views
 }  // namespace ui

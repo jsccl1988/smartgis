@@ -27,7 +27,7 @@ smt_mfc_shared_library("plugin_model3d") {
     "//src/legacy/render/scene3d:scene3d",
     "//src/legacy/render/rhi3d:rhi",
     "//src/legacy/plugin/dem:plugin_dem",
-    "//src/plugin/product/dem:dem_loaders",
+    "//src/plugin/product/dem:dem_processing",
     "//third_party:gdal",
   ]
 }

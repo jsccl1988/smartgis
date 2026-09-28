@@ -49,8 +49,14 @@ struct NameMap {
 };
 
 constexpr NameMap kNames[] = {
+    // Match leftover AuxModule set_name() display strings (UTF-8 source).
+    {"DEM创建", "smartgis.dem"},
     {"DEM生成", "smartgis.dem"},
+    {"地图投影", "smartgis.proj"},
+    {"地图打印", "smartgis.print"},
+    {"三维创建", "smartgis.model3d"},
     {"三维对象", "smartgis.model3d"},
+    {"正交格网", "smartgis.baogrid"},
     {"边界适应正交网格", "smartgis.baogrid"},
 };
 

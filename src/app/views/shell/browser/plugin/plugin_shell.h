@@ -5,6 +5,7 @@
 #define APP_VIEWS_PLUGIN_SHELL_H_
 
 #include <memory>
+#include <string>
 #include <string_view>
 
 #ifndef NOMINMAX
@@ -19,6 +20,7 @@ class PluginHost;
 
 namespace plugin {
 class ProcessingPool;
+class PythonRuntime;
 class Registry;
 }  // namespace plugin
 
@@ -47,18 +49,25 @@ class PluginShell {
   tool::CommandCatalog* commands() const;
   plugin::Registry* registry() const;
   plugin::ProcessingPool* processing_pool() const;
+  plugin::PythonRuntime* python_runtime() const;
   void flush_processing_for_test();
   bool run_processing(std::string_view processing_id,
                        std::string_view args_json);
   bool execute(std::string_view command_id);
 
+  // Ensure CPython is up and host is bound into smartgis.content.host.
+  bool ensure_python();
+  std::string eval_python(std::string_view code);
+
  private:
+  void init_python();
   bool start_builtins();
 
   std::unique_ptr<tool::CommandCatalog> catalog_;
   std::unique_ptr<content::PluginHost> host_;
   std::unique_ptr<plugin::Registry> registry_;
   std::unique_ptr<plugin::ProcessingPool> pool_;
+  std::unique_ptr<plugin::PythonRuntime> python_;
 };
 
 }  // namespace app

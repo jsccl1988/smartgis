@@ -25,26 +25,28 @@ All rights reserved.
 | [`build/abi-rename-map.md`](build/abi-rename-map.md) | include / dll_stem / 导出宏 |
 | [`build/ui-views-skia.md`](build/ui-views-skia.md) | 桌面 UI 终局：Views + Skia |
 | [`build/ui-testing.md`](build/ui-testing.md) | GUI / Views 测试分层（L0–L4） |
+| [`build/gis-test-matrix.md`](build/gis-test-matrix.md) | `src/gis` 功能矩阵 + 覆盖率/基准入口 |
 | [`build/ui-shell-multiprocess.md`](build/ui-shell-multiprocess.md) | 可替换 chrome + 多进程渲染 |
+| [`build/views-window-process.html`](build/views-window-process.html) | Views 窗口体系 / 进程体系（启动·运行·关闭） |
 
 ### Superpowers（in-flight）
 
-**默认改 living，禁止为子目录 / SP 切片再开 dated twin。** 短表与门槛：[`superpowers/README.md`](superpowers/README.md)。规则：`.cursor/rules/repo/superpowers-docs.mdc`。
+**默认改 living 伞的 `§`，禁止轻易开新 dated topic。** 仅 9 行 Active 表：[`superpowers/README.md`](superpowers/README.md)。规则：`.cursor/rules/repo/superpowers-docs.mdc`。
 
 | Living 真源 | 内容 |
 | --- | --- |
-| [`superpowers/specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md`](superpowers/specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md) | Leftover SP0–SP5（含 layout / SP1b / SP4b） |
-| [`superpowers/specs/2026-09-13-render-rhi-scene-design.md`](superpowers/specs/2026-09-13-render-rhi-scene-design.md) | RHI + 双场景 + frame graph + GPU compose + P0 |
-| [`superpowers/specs/2026-09-19-atmosphere-ocean-cloud-design.md`](superpowers/specs/2026-09-19-atmosphere-ocean-cloud-design.md) | 大气 + 天气域边界 |
-| [`superpowers/specs/2026-09-13-tool-event-dispatch-design.md`](superpowers/specs/2026-09-13-tool-event-dispatch-design.md) | Tool dispatch + `src/tool` 布局 |
-| [`superpowers/specs/2026-09-27-views-desktop-shell-design.md`](superpowers/specs/2026-09-27-views-desktop-shell-design.md) | `app/views` 壳 + capability + CLI11 入口 |
-| [`superpowers/specs/2026-09-27-map2d-frame-design.md`](superpowers/specs/2026-09-27-map2d-frame-design.md) | Views 2D CPU 帧 + RHI present |
-| [`superpowers/specs/2026-09-13-ui-views-controls-design.md`](superpowers/specs/2026-09-13-ui-views-controls-design.md) § UI compositor thread | UI compositor 线程角色（P0–P5；含 Shell present async） |
-| [`superpowers/specs/2026-09-13-model-render-compute-design.md`](superpowers/specs/2026-09-13-model-render-compute-design.md) | 模型 / 渲染 / 计算伞状 |
-| [`superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md`](superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md) | MFC → Views 迁移 |
-| [`superpowers/archive/`](superpowers/archive/) | 已落地 / 废止（含 2026-09-28 深度合并的 SP/layout twins） |
+| [`superpowers/specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md`](superpowers/specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md) | Leftover SP0–SP5 |
+| [`superpowers/specs/2026-09-13-render-rhi-scene-design.md`](superpowers/specs/2026-09-13-render-rhi-scene-design.md) | RHI + 双场景 + map2d + atmosphere + model/compute |
+| [`superpowers/specs/2026-09-27-views-desktop-shell-design.md`](superpowers/specs/2026-09-27-views-desktop-shell-design.md) | `app/views` 壳 + toolkit + markup + panels + debug console |
+| [`superpowers/specs/2026-09-13-tool-event-dispatch-design.md`](superpowers/specs/2026-09-13-tool-event-dispatch-design.md) | Tool dispatch + `src/tool` |
+| [`superpowers/specs/2026-09-14-base-root-hybrid-design.md`](superpowers/specs/2026-09-14-base-root-hybrid-design.md) | `src/base` (+ memory / PA-E / execution / codecs) |
+| [`superpowers/specs/2026-09-13-gdal-layer-management-design.md`](superpowers/specs/2026-09-13-gdal-layer-management-design.md) | GIS datasource / GDAL / SDB / Session+Provider |
+| [`superpowers/specs/2026-09-13-plugin-host-design.md`](superpowers/specs/2026-09-13-plugin-host-design.md) | Plugin host / contributions / store |
+| [`superpowers/specs/2026-09-13-algorithm-layer-oss-design.md`](superpowers/specs/2026-09-13-algorithm-layer-oss-design.md) | Algorithm layer (OSS) |
+| [`superpowers/specs/2026-09-13-net-asio-httplib-design.md`](superpowers/specs/2026-09-13-net-asio-httplib-design.md) | Net (asio / httplib) |
+| [`superpowers/archive/`](superpowers/archive/) | 已落地 / 废止 / merge-B 子 topic |
 
-其它仍在 `superpowers/specs/` 的文件（数据源、插件、DLL、CEF/WinUI 等）按各文件 `Status` 为准；实现勾选见 `superpowers/plans/`。
+实现勾选见各伞挂靠的 `superpowers/plans/`；不要为已有伞再开平行 design。
 
 没有第二份 `doc/` 目录。2010 的说明已经并进故事里；不要把那份 sln、那条 Web 发布当现状。
 
@@ -58,7 +60,7 @@ All rights reserved.
 
 所以才重写。不是要把实验室抹掉，也不是要把地形和点云再清点一遍。旧栈太倔。换手，只为让那张还能干活的图活下去。树还在长，新旧叠在同一棵树上。这不是陈列柜，是一份一起住过的代码还没说完的话。
 
-目录怎么分，见 [`build/src-layout.md`](build/src-layout.md)。模型、场景，见 [`superpowers/specs/2026-09-13-model-render-compute-design.md`](superpowers/specs/2026-09-13-model-render-compute-design.md)。
+目录怎么分，见 [`build/src-layout.md`](build/src-layout.md)。模型、场景，见 [`superpowers/specs/2026-09-13-render-rhi-scene-design.md`](superpowers/specs/2026-09-13-render-rhi-scene-design.md)。
 
 ---
 

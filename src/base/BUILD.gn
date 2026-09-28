@@ -26,14 +26,23 @@ source_set("foundation") {
     "util/library.h",
     "util/plugin.h",
     "files/read_file.h",
-    "memory/object_pool.h",
     "time/elapsed_timer.h",
     "time/frame_timer.h",
+    "util/type_utils.h",
+    "tuple/tuple.h",
+    "tuple/algorithm.h",
+    # Memory / concurrency / sync / trace live in dedicated source_sets.
   ]
   public_configs = [ ":foundation_config" ]
   public_deps = [
     "//src/base/archive:archive",
+    "//src/base/concurrency:concurrency",
+    "//src/base/execution:execution",
     "//src/base/ipc:ipc",
+    "//src/base/log:log",
+    "//src/base/memory:memory",
+    "//src/base/synchronization:synchronization",
+    "//src/base/trace:trace",
   ]
 }
 
@@ -47,12 +56,17 @@ smt_shared_library("base") {
   defines = [ "BASE_EXPORTS" ]
   deps = [
     ":foundation",
-    "//src/base/carto:carto_sources",
+    "//src/legacy/carto:carto_sources",
+    "//src/base/log:log_sources",
+    "//src/base/trace:process_trace_sources",
     "//src/legacy/core:core_sources",
-    "//src/legacy/xml:xml_sources",
     "//src/legacy/sys:sys_sources",
   ]
-  public_deps = [ "//src/base/archive:archive" ]
+  public_deps = [
+    "//src/base/archive:archive",
+    "//src/base/log:log",
+    "//src/base/trace:trace",
+  ]
 }
 
 # Legacy GN label; same DLL as :base (disk stem is base, not platform).

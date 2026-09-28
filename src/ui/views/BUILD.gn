@@ -1,17 +1,35 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Views toolkit + shell gfx → one DLL (dll_stem = ui_views).
+# Views toolkit + shell gfx + product GIS chrome → one DLL (dll_stem = ui_views).
 # Product exe is //src/app/views (import/link, not LoadLibrary).
 # Not in //src:src_all or //src/ui:ui (MFC).
+# Single export: UI_EXPORT / UI_EXPORTS (ui/ui_export.h) for all of //src/ui.
 #
 # Sibling DLLs (import-link only — never absorb their TUs into this PE):
 #   //src/content:content  (dll_stem=content; :view_host group → :content)
 #   //src/tool:tool        (dll_stem=tool; content already public_deps :tool)
 #   //src/render:rhi       (group → render.dll)
 #
+# Layered source_sets (first-cut GN decoupling; still one DLL via :ui_views):
+#   views_kernel           — View/Widget/layout/shell/paint/compositor (no
+#                            primitives/dialogs/markup deps or includes)
+#   views_control_factory  — ControlFactory + MarkupAttrs registry only (kernel;
+#                            no pugixml/Yoga/MarkupDocument)
+#   views_primitives       — Button/Label/… + primitive markup registration
+#                            (deps factory registry, not full markup)
+#   views_markup           — XML/CSS/Yoga + layout/GIS placeholder registration
+#   views_dialogs          — Dialog shell + MessageBox/FilePicker/InputText/
+#                            SelectOne (toolkit only; GIS dialogs → //src/ui/gis)
+#   views_map              — MapViewport + TouchMultitouch
+# Aggregate :views_sources (+ make_default TU) + //src/ui/gis:gis_sources
+# → :ui_views → group :views. GIS TUs stay under ui/gis/; same PE / UI_EXPORT.
+#
 # Public includes are responsibility-partitioned:
 #   "ui/views/<area>/<group>/foo.h"
+# markup/ nests style|document|layout|factory|loader (+ testdata/).
+# Product .ui.xml/.ui.css live in //src/ui/resources/<area>/ (copied to
+# out/ui/<area>/; relative path preserved).
 # map/ stays flat (viewport + touch). testing/ is test-only
 # (not linked into :ui_views): testing/unit and testing/pixel.
 # Goldens stay at testing/testdata/.
@@ -20,6 +38,7 @@
 
 import("//build/smartgis.gni")
 import("//src/ui/gfx/skia.gni")
+import("//testing/benchmark.gni")
 import("//testing/test.gni")
 
 config("views_config") {
@@ -27,9 +46,20 @@ config("views_config") {
   defines += [ "NOMINMAX" ]
 }
 
-source_set("views_sources") {
+# Shared compile flags for every TU that lands in ui_views.dll.
+_views_layer_defines = [ "UI_EXPORTS" ]
+_views_layer_configs = [ ":views_config" ]
+_views_layer_libs = [
+  "comdlg32.lib",
+  "dwrite.lib",
+  "gdi32.lib",
+  "ole32.lib",
+  "shell32.lib",
+  "user32.lib",
+]
+
+source_set("views_kernel") {
   sources = [
-    # Kernel (Chromium-aligned partitions under kernel/)
     "kernel/compositor/shell_compositor.cc",
     "kernel/compositor/shell_compositor.h",
     "kernel/layout/layout.cc",
@@ -41,6 +71,11 @@ source_set("views_sources") {
     "kernel/layout/view_traits.h",
     "kernel/paint/paint_commit.cc",
     "kernel/paint/paint_commit.h",
+    "kernel/paint/painter.h",
+    "kernel/paint/painter_registry.cc",
+    "kernel/paint/painter_registry.h",
+    "kernel/paint/register_default_painters.cc",
+    "kernel/paint/register_default_painters.h",
     "kernel/shell/dialog_host.cc",
     "kernel/shell/dialog_host.h",
     "kernel/shell/dpi.cc",
@@ -48,115 +83,183 @@ source_set("views_sources") {
     "kernel/shell/event.h",
     "kernel/shell/theme.cc",
     "kernel/shell/theme.h",
+    "kernel/shell/theme_service.cc",
+    "kernel/shell/theme_service.h",
+    "kernel/frame/caption_button.cc",
+    "kernel/frame/caption_button.h",
+    "kernel/frame/frame_view.cc",
+    "kernel/frame/frame_view.h",
     "kernel/view/view.cc",
     "kernel/view/view.h",
     "kernel/widget/widget.cc",
     "kernel/widget/widget.h",
+  ]
+  defines = _views_layer_defines
+  public_deps = [
+    "//src/base:base",
+    "//src/base:foundation",
+    "//src/ui/gfx:gfx_sources",
+  ]
+  public_configs = _views_layer_configs
+  libs = _views_layer_libs
+}
 
-    # Primitives
+# Registry API only: tag → View creators. Lives under markup/factory/ for
+# includes but is a separate GN target so primitives can register without
+# Yoga/pugixml.
+source_set("views_control_factory") {
+  sources = [
+    "markup/factory/control_factory.cc",
+    "markup/factory/control_factory.h",
+  ]
+  defines = _views_layer_defines
+  public_deps = [ ":views_kernel" ]
+  public_configs = _views_layer_configs
+  libs = _views_layer_libs
+}
+
+source_set("views_primitives") {
+  sources = [
     "primitives/button/button.cc",
     "primitives/button/button.h",
     "primitives/button/checkbox.cc",
     "primitives/button/checkbox.h",
-    "primitives/input/combobox.cc",
-    "primitives/input/combobox.h",
-    "primitives/menu/context_menu.cc",
-    "primitives/menu/context_menu.h",
-    "primitives/text/label.cc",
-    "primitives/text/label.h",
-    "primitives/menu/menu_bar.cc",
-    "primitives/menu/menu_bar.h",
     "primitives/button/radio_button.cc",
     "primitives/button/radio_button.h",
     "primitives/collection/scroll_view.cc",
     "primitives/collection/scroll_view.h",
-    "primitives/input/slider.cc",
-    "primitives/input/slider.h",
     "primitives/collection/tab_strip.cc",
     "primitives/collection/tab_strip.h",
     "primitives/collection/table_view.cc",
     "primitives/collection/table_view.h",
-    "primitives/text/textfield.cc",
-    "primitives/text/textfield.h",
     "primitives/collection/tree_view.cc",
     "primitives/collection/tree_view.h",
+    "primitives/input/combobox.cc",
+    "primitives/input/combobox.h",
+    "primitives/input/slider.cc",
+    "primitives/input/slider.h",
+    "primitives/menu/context_menu.cc",
+    "primitives/menu/context_menu.h",
+    "primitives/menu/menu_bar.cc",
+    "primitives/menu/menu_bar.h",
+    "primitives/register_markup_controls.cc",
+    "primitives/register_markup_controls.h",
+    "primitives/text/label.cc",
+    "primitives/text/label.h",
+    "primitives/text/textfield.cc",
+    "primitives/text/textfield.h",
+  ]
+  defines = _views_layer_defines
+  public_deps = [
+    ":views_control_factory",
+    ":views_kernel",
+  ]
+  public_configs = _views_layer_configs
+  libs = _views_layer_libs
+}
 
-    # Dialogs
-    "dialogs/gis/add_basemap_dialog.cc",
-    "dialogs/gis/add_basemap_dialog.h",
-    "dialogs/gis/att_struct_dialog.cc",
-    "dialogs/gis/att_struct_dialog.h",
-    "dialogs/gis/create_datasource_dialog.cc",
-    "dialogs/gis/create_datasource_dialog.h",
-    "dialogs/gis/create_layer_dialog.cc",
-    "dialogs/gis/create_layer_dialog.h",
-    "dialogs/gis/create_map_dialog.cc",
-    "dialogs/gis/create_map_dialog.h",
-    "dialogs/shell/dialog.cc",
-    "dialogs/shell/dialog.h",
-    "dialogs/shell/file_picker.cc",
-    "dialogs/shell/file_picker.h",
-    "dialogs/shell/input_text_dialog.cc",
-    "dialogs/shell/input_text_dialog.h",
-    "dialogs/shell/message_box.cc",
-    "dialogs/shell/message_box.h",
-    "dialogs/shell/select_one_dialog.cc",
-    "dialogs/shell/select_one_dialog.h",
+source_set("views_markup") {
+  sources = [
+    "markup/document/markup_document.cc",
+    "markup/document/markup_document.h",
+    "markup/document/named_view_map.cc",
+    "markup/document/named_view_map.h",
+    "markup/factory/placeholder_view.cc",
+    "markup/factory/placeholder_view.h",
+    "markup/factory/register_markup_tags.cc",
+    "markup/factory/register_markup_tags.h",
+    "markup/layout/yoga_layout_manager.cc",
+    "markup/layout/yoga_layout_manager.h",
+    "markup/loader/markup_loader.cc",
+    "markup/loader/markup_loader.h",
+    "markup/style/css_parser.cc",
+    "markup/style/css_parser.h",
+    "markup/style/flex_style.cc",
+    "markup/style/flex_style.h",
+  ]
+  defines = _views_layer_defines
+  public_deps = [
+    ":views_control_factory",
+    ":views_kernel",
+    "//third_party:pugixml",
+    "//third_party:yoga",
+  ]
+  public_configs = _views_layer_configs
+  libs = _views_layer_libs
+}
 
-    # GIS panels
-    "gis/shell/ambox_view.cc",
-    "gis/shell/ambox_view.h",
-    "gis/panel/atmosphere_panel.cc",
-    "gis/panel/atmosphere_panel.h",
-    "gis/inspect/attribute_table.cc",
-    "gis/inspect/attribute_table.h",
-    "gis/catalog/catalog_view.cc",
-    "gis/catalog/catalog_view.h",
-    "gis/panel/chart_view.cc",
-    "gis/panel/chart_view.h",
-    "gis/inspect/feature_info.cc",
-    "gis/inspect/feature_info.h",
-    "gis/catalog/layer_tree.cc",
-    "gis/catalog/layer_tree.h",
-    "gis/panel/processing_panel.cc",
-    "gis/panel/processing_panel.h",
-    "gis/shell/status_bar.cc",
-    "gis/shell/status_bar.h",
+source_set("views_dialogs") {
+  sources = [
+    "dialogs/dialog.cc",
+    "dialogs/dialog.h",
+    "dialogs/file_picker.cc",
+    "dialogs/file_picker.h",
+    "dialogs/input_text_dialog.cc",
+    "dialogs/input_text_dialog.h",
+    "dialogs/message_box.cc",
+    "dialogs/message_box.h",
+    "dialogs/select_one_dialog.cc",
+    "dialogs/select_one_dialog.h",
+  ]
+  defines = _views_layer_defines
+  public_deps = [ ":views_primitives" ]
+  public_configs = _views_layer_configs
+  libs = _views_layer_libs
+}
 
-    # Map viewport hang
+source_set("views_map") {
+  sources = [
     "map/map_viewport.cc",
     "map/map_viewport.h",
     "map/touch_multitouch.cc",
     "map/touch_multitouch.h",
-
-    # Umbrella
-    "views.cc",
-    "views.h",
   ]
-  defines = [ "UI_VIEWS_EXPORTS" ]
-  # gfx_sources objects compile into ui_views.dll (same PE).
-  # content / tool / render are shared_library edges (import-link).
+  defines = _views_layer_defines
   public_deps = [
+    ":views_kernel",
     "//src/content:content",
     "//src/content:view_host",
     "//src/render:rhi",
     "//src/tool:tool",
-    "//src/ui/gfx:gfx_sources",
   ]
-  public_configs = [ ":views_config" ]
-  libs = [
-    "comdlg32.lib",
-    "dwrite.lib",
-    "gdi32.lib",
-    "user32.lib",
+  public_configs = _views_layer_configs
+  libs = _views_layer_libs
+}
+
+# Aggregate TUs + layer glue. Concrete ControlFactory::make_default lives here
+# so neither views_markup nor views_control_factory gains a GN edge onto
+# views_primitives for registration.
+source_set("views_sources") {
+  sources = [
+    "markup/factory/control_factory_default.cc",
+    "views.cc",
+    "views.h",
   ]
+  defines = _views_layer_defines
+  public_deps = [
+    ":views_control_factory",
+    ":views_dialogs",
+    ":views_kernel",
+    ":views_map",
+    ":views_markup",
+    ":views_primitives",
+    "//src/content:content",
+    "//src/content:view_host",
+    "//src/render:rhi",
+    "//src/tool:tool",
+  ]
+  public_configs = _views_layer_configs
+  libs = _views_layer_libs
 }
 
 smt_shared_library("ui_views") {
   dll_stem = "ui_views"
-  defines = [ "UI_VIEWS_EXPORTS" ]
-  deps = [ ":views_sources" ]
-  # Re-export sibling DLL edges so consumers of :views / :gfx import-link
+  defines = [ "UI_EXPORTS" ]
+  deps = [
+    ":views_sources",
+    "//src/ui/gis:gis_sources",
+  ]
+  # Re-export sibling DLL edges so consumers of :views / :gfx / :gis import-link
   # content.dll + tool.dll + render.dll (not static source_sets).
   public_deps = [
     "//src/content:content",
@@ -185,26 +288,199 @@ group("views") {
   public_deps = [ ":ui_views" ]
 }
 
+# Markup assets under //src/ui/resources/<area>/; preserve relative path in
+# shared out/ui/<area>/ (sibling of Debug/Release, same pattern as out/data/)
+# so both configs share one pack. load_markup("dialogs/create_map.ui.xml")
+# resolves via <exe>/../ui/<rel>. Test samples stay flat under out/ui/.
+# $root_out_dir is out/Debug or out/Release; ../ui is out/ui.
+copy("markup_resources_toolkit") {
+  sources = [
+    "//src/ui/resources/toolkit/input_text.ui.css",
+    "//src/ui/resources/toolkit/input_text.ui.xml",
+    "//src/ui/resources/toolkit/select_one.ui.css",
+    "//src/ui/resources/toolkit/select_one.ui.xml",
+  ]
+  outputs = [ "$root_out_dir/../ui/toolkit/{{source_file_part}}" ]
+}
+
+copy("markup_resources_dialogs") {
+  sources = [
+    "//src/ui/resources/dialogs/add_basemap.ui.css",
+    "//src/ui/resources/dialogs/add_basemap.ui.xml",
+    "//src/ui/resources/dialogs/att_struct.ui.css",
+    "//src/ui/resources/dialogs/att_struct.ui.xml",
+    "//src/ui/resources/dialogs/create_datasource.ui.css",
+    "//src/ui/resources/dialogs/create_datasource.ui.xml",
+    "//src/ui/resources/dialogs/create_layer.ui.css",
+    "//src/ui/resources/dialogs/create_layer.ui.xml",
+    "//src/ui/resources/dialogs/create_map.ui.css",
+    "//src/ui/resources/dialogs/create_map.ui.xml",
+  ]
+  outputs = [ "$root_out_dir/../ui/dialogs/{{source_file_part}}" ]
+}
+
+copy("markup_resources_shell") {
+  sources = [
+    "//src/ui/resources/shell/atmosphere_panel.ui.css",
+    "//src/ui/resources/shell/atmosphere_panel.ui.xml",
+    "//src/ui/resources/shell/status_bar.ui.css",
+    "//src/ui/resources/shell/status_bar.ui.xml",
+  ]
+  outputs = [ "$root_out_dir/../ui/shell/{{source_file_part}}" ]
+}
+
+copy("markup_resources_inspect") {
+  sources = [
+    "//src/ui/resources/inspect/attribute_table.ui.css",
+    "//src/ui/resources/inspect/attribute_table.ui.xml",
+    "//src/ui/resources/inspect/feature_info.ui.css",
+    "//src/ui/resources/inspect/feature_info.ui.xml",
+    "//src/ui/resources/inspect/measure_panel.ui.css",
+    "//src/ui/resources/inspect/measure_panel.ui.xml",
+    "//src/ui/resources/inspect/selection_panel.ui.css",
+    "//src/ui/resources/inspect/selection_panel.ui.xml",
+  ]
+  outputs = [ "$root_out_dir/../ui/inspect/{{source_file_part}}" ]
+}
+
+copy("markup_resources_style") {
+  sources = [
+    "//src/ui/resources/style/layer_properties_panel.ui.css",
+    "//src/ui/resources/style/layer_properties_panel.ui.xml",
+    "//src/ui/resources/style/legend_panel.ui.css",
+    "//src/ui/resources/style/legend_panel.ui.xml",
+    "//src/ui/resources/style/symbology_panel.ui.css",
+    "//src/ui/resources/style/symbology_panel.ui.xml",
+  ]
+  outputs = [ "$root_out_dir/../ui/style/{{source_file_part}}" ]
+}
+
+copy("markup_resources_analysis") {
+  sources = [
+    "//src/ui/resources/analysis/geoprocessing_history_panel.ui.css",
+    "//src/ui/resources/analysis/geoprocessing_history_panel.ui.xml",
+    "//src/ui/resources/analysis/processing_panel.ui.css",
+    "//src/ui/resources/analysis/processing_panel.ui.xml",
+    "//src/ui/resources/analysis/spatial_analysis_panel.ui.css",
+    "//src/ui/resources/analysis/spatial_analysis_panel.ui.xml",
+  ]
+  outputs = [ "$root_out_dir/../ui/analysis/{{source_file_part}}" ]
+}
+
+copy("markup_resources_catalog") {
+  sources = [
+    "//src/ui/resources/catalog/catalog_view.ui.css",
+    "//src/ui/resources/catalog/catalog_view.ui.xml",
+  ]
+  outputs = [ "$root_out_dir/../ui/catalog/{{source_file_part}}" ]
+}
+
+copy("markup_resources_testdata") {
+  sources = [
+    "markup/testdata/preview_sample.ui.css",
+    "markup/testdata/preview_sample.ui.xml",
+  ]
+  outputs = [ "$root_out_dir/../ui/{{source_file_part}}" ]
+}
+
+group("markup_resources") {
+  deps = [
+    ":markup_resources_analysis",
+    ":markup_resources_catalog",
+    ":markup_resources_dialogs",
+    ":markup_resources_inspect",
+    ":markup_resources_shell",
+    ":markup_resources_style",
+    ":markup_resources_testdata",
+    ":markup_resources_toolkit",
+  ]
+}
+
+# Headless input + overlay helpers for interactive tests and benches.
+source_set("views_test_harness") {
+  testonly = true
+  sources = [
+    "testing/harness/event_generator.cc",
+    "testing/harness/event_generator.h",
+    "testing/harness/overlay_scene.cc",
+    "testing/harness/overlay_scene.h",
+    "testing/harness/views_test_base.cc",
+    "testing/harness/views_test_base.h",
+  ]
+  public_deps = [ ":views" ]
+  public_configs = [ ":views_config" ]
+}
+
+# EventGenerator-driven control interaction (console self-test).
+test("views_interactive_tests") {
+  output_name = "views_interactive_tests"
+  sources = [ "testing/interactive/views_interactive_tests.cc" ]
+  deps = [
+    ":views",
+    ":views_test_harness",
+  ]
+}
+
+# google/benchmark for harness paths (custom main: ThemeService bootstrap).
+benchmark("views_bench") {
+  output_name = "views_bench"
+  sources = [ "testing/bench/views_bench.cc" ]
+  use_benchmark_main = false
+  deps = [
+    ":views",
+    ":views_test_harness",
+  ]
+}
+
 # Console self-test for primitive / kernel behavior (no MFC).
 test("views_unittests") {
   output_name = "views_unittests"
   sources = [ "testing/unit/views_unittests.cc" ]
-  deps = [ ":views" ]
+  deps = [
+    ":markup_resources",
+    ":views",
+    ":views_pixel_harness",
+    "//src/ui/gis:gis",
+    # VblankClock is not exported from ui_views.dll; link the tiny source_set.
+    "//src/ui/gfx:vblank_wait",
+  ]
+}
+
+# Markup / Yoga flex layout unit tests (no MFC).
+test("markup_unittests") {
+  output_name = "markup_unittests"
+  sources = [ "testing/unit/markup_unittests.cc" ]
+  deps = [
+    ":markup_resources",
+    ":views",
+  ]
 }
 
 # L2 shell pixel regression (offscreen GDI + PNG goldens under testing/testdata/).
-test("views_pixel_tests") {
-  output_name = "views_pixel_tests"
+# Shared offscreen PNG helpers + Mode A forensics dump (test-only).
+source_set("views_pixel_harness") {
+  testonly = true
   sources = [
+    "testing/forensics/ui_forensics.cc",
+    "testing/forensics/ui_forensics.h",
     "testing/pixel/pixel_harness.cc",
     "testing/pixel/pixel_harness.h",
     "testing/pixel/pixel_png_wic.cc",
-    "testing/pixel/views_pixel_tests.cc",
   ]
   deps = [ ":views" ]
   libs = [
     "gdi32.lib",
     "ole32.lib",
     "windowscodecs.lib",
+  ]
+}
+
+test("views_pixel_tests") {
+  output_name = "views_pixel_tests"
+  sources = [ "testing/pixel/views_pixel_tests.cc" ]
+  deps = [
+    ":views",
+    ":views_pixel_harness",
+    "//src/ui/gis:gis",
   ]
 }

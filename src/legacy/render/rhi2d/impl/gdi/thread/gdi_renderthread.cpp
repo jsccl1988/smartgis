@@ -1,6 +1,6 @@
 #include "legacy/render/rhi2d/impl/gdi/thread/gdi_renderthread.h"
 
-#include "base/carto/style_api.h"
+#include "legacy/carto/style_api.h"
 #include "base/core/log.h"
 #include "legacy/core/api.h"
 #include "legacy/render/rhi2d/impl/gdi/carto/map_carto2d.h"

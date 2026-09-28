@@ -1,0 +1,23 @@
+/* GeoprocessingHistoryPanel */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  width: 280px;
+  height: 140px;
+}
+
+#title { width: 200px; height: 18px; }
+#table { width: 260px; height: 70px; }
+
+.commands {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  width: 260px;
+  height: 28px;
+}
+
+#rerun, #clear { width: 72px; height: 26px; }

@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -16,35 +17,50 @@
 #include "ui/gfx/canvas/shell_canvas_backend.h"
 #include "ui/gfx/color/color.h"
 #include "ui/gfx/display_list/display_list.h"
+#include "ui/gfx/display/vblank_wait.h"
 #include "ui/gfx/raster/paint_stats.h"
 #include "tool/command/command.h"
-#include "ui/views/gis/shell/ambox_view.h"
-#include "ui/views/gis/panel/atmosphere_panel.h"
-#include "ui/views/gis/inspect/attribute_table.h"
+#include "ui/gis/shell/ambox_view.h"
+#include "ui/gis/shell/atmosphere_panel.h"
+#include "ui/gis/inspect/attribute_table.h"
 #include "ui/views/primitives/button/button.h"
-#include "ui/views/gis/catalog/catalog_view.h"
+#include "ui/gis/catalog/catalog_view.h"
 #include "ui/views/primitives/button/checkbox.h"
 #include "ui/views/primitives/input/combobox.h"
-#include "ui/views/dialogs/shell/dialog.h"
+#include "ui/views/dialogs/dialog.h"
 #include "ui/views/kernel/shell/dialog_host.h"
 #include "ui/views/kernel/shell/dpi.h"
-#include "ui/views/gis/inspect/feature_info.h"
+#include "ui/gis/inspect/feature_info.h"
 #include "ui/views/primitives/text/label.h"
-#include "ui/views/gis/catalog/layer_tree.h"
+#include "ui/gis/catalog/layer_tree.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/layout/layout_check.h"
+#include "ui/views/testing/forensics/ui_forensics.h"
+#include "ui/views/kernel/paint/painter.h"
+#include "ui/views/kernel/paint/painter_registry.h"
+#include "ui/views/kernel/paint/register_default_painters.h"
 #include "ui/views/map/map_viewport.h"
 #include "ui/views/primitives/menu/menu_bar.h"
-#include "ui/views/gis/panel/processing_panel.h"
+#include "ui/gis/analysis/processing_panel.h"
+#include "ui/gis/inspect/measure_panel.h"
+#include "ui/gis/inspect/selection_panel.h"
+#include "ui/gis/analysis/geoprocessing_history_panel.h"
+#include "ui/gis/style/legend_panel.h"
+#include "ui/gis/analysis/spatial_analysis_panel.h"
+#include "ui/gis/style/symbology_panel.h"
+#include "ui/gis/style/legend_panel.h"
+#include "ui/gis/style/layer_properties_panel.h"
+#include "ui/gis/analysis/spatial_analysis_panel.h"
 #include "ui/views/primitives/button/radio_button.h"
 #include "ui/views/primitives/collection/scroll_view.h"
 #include "ui/views/primitives/input/slider.h"
 #include "ui/views/kernel/layout/splitter.h"
-#include "ui/views/gis/shell/status_bar.h"
+#include "ui/gis/shell/status_bar.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 #include "ui/views/primitives/collection/table_view.h"
 #include "ui/views/primitives/text/textfield.h"
 #include "ui/views/kernel/shell/theme.h"
+#include "ui/views/kernel/shell/theme_service.h"
 #include "ui/views/map/touch_multitouch.h"
 #include "ui/views/primitives/collection/tree_view.h"
 #include "ui/views/kernel/compositor/shell_compositor.h"
@@ -103,8 +119,75 @@ KeyEvent key_down(std::uint32_t vk) {
 void test_utf8_and_theme() {
   expect(utf8_to_wide("ok") == L"ok", "utf8_to_wide");
   expect(wide_to_utf8(L"ok") == "ok", "wide_to_utf8");
+  ThemeService::get().ensure_builtin_packs();
+  expect(ThemeService::get().set_theme("dark"), "set dark");
   expect(Theme::current().accent == ui::gfx::color_rgb(0, 122, 204),
-         "theme accent");
+         "dark theme accent");
+  expect(ThemeService::get().set_theme("light"), "set light");
+  expect(Theme::current().shell_bg == ui::gfx::color_rgb(245, 245, 245),
+         "light shell_bg");
+  expect(!ThemeService::get().set_theme("missing"), "unknown theme fails");
+  expect(ThemeService::get().set_theme("dark"), "restore dark");
+}
+
+void test_painter_registry_and_delegate() {
+  register_default_painters();
+  expect(PainterRegistry::get().find("button") != nullptr,
+         "builtin button painter");
+
+  class CountingPainter final : public Painter {
+   public:
+    int paints = 0;
+    void paint(View* view, ui::gfx::Canvas* canvas) override {
+      ++paints;
+      (void)view;
+      (void)canvas;
+    }
+  };
+  class OrderDelegate final : public PaintDelegate {
+   public:
+    std::string order;
+    void paint_before(View*, ui::gfx::Canvas*) override { order += 'B'; }
+    void paint_after(View*, ui::gfx::Canvas*) override { order += 'A'; }
+  };
+  class RoleView final : public View {
+   public:
+    int self_paints = 0;
+    std::string_view paint_role() const override { return "unittest_role"; }
+
+   protected:
+    void paint_self(ui::gfx::Canvas*) override { ++self_paints; }
+  };
+
+  auto painter = std::make_unique<CountingPainter>();
+  CountingPainter* raw = painter.get();
+  PainterRegistry::get().register_painter("unittest_role", std::move(painter));
+
+  RoleView view;
+  view.set_bounds({0, 0, 20, 20});
+  OrderDelegate del;
+  view.set_paint_delegate(&del);
+
+  ui::gfx::DisplayList list;
+  view.append_commands_to(&list);
+  expect(raw->paints == 1, "registry painter used");
+  expect(view.self_paints == 0, "paint_self skipped when painter set");
+  expect(del.order == "BA", "delegate before then after");
+
+  auto plug = std::make_unique<CountingPainter>();
+  CountingPainter* plug_raw = plug.get();
+  PainterRegistry::get().register_painter_for_plugin(
+      "unittest_plug", "unittest_role", std::move(plug));
+  view.invalidate_commands();
+  del.order.clear();
+  ui::gfx::DisplayList list2;
+  view.append_commands_to(&list2);
+  expect(plug_raw->paints == 1, "plugin painter used");
+  expect(raw->paints == 1, "builtin not called while overridden");
+
+  PainterRegistry::get().withdraw_plugin("unittest_plug");
+  expect(PainterRegistry::get().find("unittest_role") == raw,
+         "withdraw restores prior painter");
 }
 
 void test_shell_canvas_preference() {
@@ -439,6 +522,57 @@ void test_slider_and_atmosphere_panel() {
   expect(proc.selected_id() == "native.clip", "selected clip id");
   (void)run_n;
   (void)ran;
+
+  MeasurePanel measure;
+  measure.set_mode(MeasurePanel::Mode::kArea);
+  expect(measure.mode() == MeasurePanel::Mode::kArea, "measure mode area");
+  int mode_n = 0;
+  measure.set_mode_change([&](MeasurePanel::Mode) { ++mode_n; });
+  measure.set_results({{"total", "12.5"}});
+  expect(measure.result_count() == 1u, "measure results");
+  (void)mode_n;
+
+  SelectionPanel selection;
+  selection.set_count(3);
+  expect(selection.count() == 3, "selection count");
+  selection.set_layers({{"l1", "Roads", 2}});
+  expect(selection.layer_count() == 1u, "selection layers");
+  std::string sel_cmd;
+  selection.set_command([&](const std::string& id) { sel_cmd = id; });
+  (void)sel_cmd;
+
+  SymbologyPanel symbology;
+  symbology.set_layer("layer.1", "line");
+  expect(symbology.layer_token() == "layer.1", "symbology layer");
+  symbology.set_fields({"name", "type"});
+  symbology.set_paint({{"line-color", "#336699"}, {"line-width", "2"}});
+  expect(symbology.paint().size() == 2u, "symbology paint");
+  int apply_n = 0;
+  symbology.set_apply_handler(
+      [&](const SymbologyPanel::PaintKv&) { ++apply_n; });
+  (void)apply_n;
+
+  LegendPanel legend;
+  legend.set_entries({{"e1", "Class A", "#f00", true}});
+  expect(legend.entry_count() == 1u, "legend entries");
+
+  LayerPropertiesPanel layer_props;
+  expect(layer_props.symbology() != nullptr, "layer props symbology");
+  layer_props.set_source_text("file:demo.gpkg");
+  expect(layer_props.source_text() == "file:demo.gpkg", "layer props source");
+
+  SpatialAnalysisPanel analysis;
+  analysis.set_operators({{"native.buffer", "Buffer", "overlay"},
+                          {"native.clip", "Clip", "overlay"}});
+  expect(analysis.operator_count() == 2u, "analysis ops");
+  expect(analysis.select_id("native.buffer"), "analysis select");
+  analysis.set_params({{"distance", "10", "meters"}});
+  expect(analysis.params().size() == 1u, "analysis params");
+  analysis.set_progress(0.5, "running");
+  expect(std::abs(analysis.progress() - 0.5) < 1e-9, "analysis progress");
+  expect(analysis.history() != nullptr, "analysis history");
+  analysis.history()->append_entry({"12:00", "native.buffer", "ok"});
+  expect(analysis.history()->entry_count() == 1u, "history entry");
 }
 
 void test_radio_exclusive_group() {
@@ -1075,6 +1209,86 @@ void test_layout_invariants_smoke() {
   expect(!menu_item_metrics_ok(8, 10, 1.5f), "menu metrics too small");
 }
 
+void test_sibling_overlap_detection() {
+  View host;
+  host.set_bounds({0, 0, 200, 100});
+  auto a = std::make_unique<View>();
+  auto b = std::make_unique<View>();
+  a->set_bounds({10, 10, 80, 40});
+  b->set_bounds({50, 20, 80, 40});  // overlaps a
+  host.add_child(std::move(a));
+  host.add_child(std::move(b));
+  std::vector<std::string> issues;
+  expect(collect_sibling_overlaps(&host, &issues) > 0, "overlap detected");
+  expect(!issues.empty(), "overlap code present");
+
+  View clean;
+  clean.set_bounds({0, 0, 200, 100});
+  auto c = std::make_unique<View>();
+  auto d = std::make_unique<View>();
+  c->set_bounds({0, 0, 80, 40});
+  d->set_bounds({0, 50, 80, 40});
+  clean.add_child(std::move(c));
+  clean.add_child(std::move(d));
+  issues.clear();
+  expect(collect_sibling_overlaps(&clean, &issues) == 0, "no overlap clean");
+}
+
+void test_gantt_lane_geom_spaced() {
+  GanttLaneGeom g{};
+  expect(compute_gantt_lane_geom(0, 200, 8, 5, &g), "geom ok");
+  expect(g.lane_h >= 14, "min lane height");
+  expect(g.lane_top == 8, "chrome inset");
+  // Five labels must not share the same y.
+  const int y0 = g.lane_top;
+  const int y1 = g.lane_top + g.lane_h;
+  expect(y1 - y0 >= 14, "lanes vertically spaced");
+}
+
+void test_tab_strip_catalog_labels_have_cells() {
+  TabStrip tabs;
+  tabs.set_bounds({0, 0, 240, 280});
+  tabs.add_tab("Layers", std::make_unique<View>());
+  tabs.add_tab("Sources", std::make_unique<View>());
+  tabs.add_tab("Maps", std::make_unique<View>());
+  tabs.layout();
+  const int cell_w = tabs.bounds().width / 3;
+  expect(cell_w >= 40, "catalog tab cell wide enough");
+  const Size layers = measure_text_utf8("Layers");
+  expect(layers.width > 0 && layers.width < cell_w + 24,
+         "Layers label roughly fits cell (clip OK)");
+}
+
+void test_ambox_buttons_not_collapsed() {
+  AmboxView ambox;
+  ambox.set_bounds({0, 0, 200, 400});
+  ambox.populate_from_commands(nullptr);
+  ambox.layout();
+  expect(ambox.groups().size() >= 2, "ambox groups");
+  expect(ambox.preferred_size().height >= 28, "ambox preferred height");
+  std::vector<std::string> issues;
+  expect(collect_layout_violations(&ambox, &issues) == 0,
+         "ambox layout clean");
+}
+
+void test_forensics_dump_writes_manifest() {
+  View root;
+  root.set_bounds({0, 0, 120, 80});
+  auto child = std::make_unique<View>();
+  child->set_bounds({8, 8, 40, 24});
+  root.add_child(std::move(child));
+  ForensicsDumpOptions opt;
+  opt.root = std::filesystem::temp_directory_path() / "smartgis_ui_forensics";
+  opt.run_id = "unit_probe";
+  opt.write_png = true;
+  opt.frame_width = 120;
+  opt.frame_height = 80;
+  const ForensicsDumpResult r = dump_ui_forensics(&root, {}, opt);
+  expect(r.ok, "forensics dump ok");
+  expect(std::filesystem::exists(r.dir / "manifest.json"), "manifest exists");
+  expect(std::filesystem::exists(r.dir / "layout_issues.txt"), "issues exists");
+}
+
 void test_tab_strip_page_bounds_align() {
   TabStrip tabs;
   tabs.set_bounds({100, 50, 300, 200});
@@ -1131,7 +1345,7 @@ void test_box_layout_flex_keeps_preferred() {
   host.add_child(std::move(flex));
   host.layout();
   expect(a->bounds().width == 60, "fixed keeps preferred");
-  // leftover = 300 - (60+80) = 160 â†’ flex = 80 + 160
+  // leftover = 300 - (60+80) = 160 â†?flex = 80 + 160
   expect(b->bounds().width == 240, "flex preferred + leftover");
   expect(a->bounds().x + a->bounds().width == b->bounds().x,
          "no overlap between siblings");
@@ -1207,7 +1421,7 @@ void test_dialog_close_noop() {
 }
 
 void test_dialog_host_geometry() {
-  RECT owner = {100, 200, 500, 600};  // 400è„³400
+  RECT owner = {100, 200, 500, 600};  // 400è„?00
   const OwnedPopupGeom g = center_outer_on_owner_rect(owner, 200, 100);
   expect(g.x == 200, "popup x centered on owner");
   expect(g.y == 350, "popup y centered on owner");
@@ -1252,6 +1466,37 @@ void test_widget_hwnd_and_map_viewport() {
          "map_viewport not attached");
 }
 
+void test_custom_frame_hides_os_caption() {
+  // Regression: kCustom must not keep WS_CAPTION (double title bar).
+  Widget widget;
+  Widget::InitParams params;
+  params.title = L"CSD test";
+  params.width = 320;
+  params.height = 240;
+  params.size_in_dips = true;
+  params.frame_kind = Widget::FrameKind::kCustom;
+  expect(widget.init(params), "custom frame init");
+  expect(widget.hwnd() != nullptr, "custom frame hwnd");
+  expect(widget.frame_kind() == Widget::FrameKind::kCustom,
+         "frame_kind custom");
+
+  const LONG style = GetWindowLongW(widget.hwnd(), GWL_STYLE);
+  expect((style & WS_CAPTION) == 0, "custom frame has no WS_CAPTION");
+  expect((style & WS_THICKFRAME) != 0, "custom frame keeps thickframe");
+  expect((style & WS_MINIMIZEBOX) != 0, "top-level custom has minimize");
+  expect((style & WS_MAXIMIZEBOX) != 0, "top-level custom has maximize");
+
+  RECT wr = {};
+  RECT cr = {};
+  GetWindowRect(widget.hwnd(), &wr);
+  GetClientRect(widget.hwnd(), &cr);
+  expect((wr.right - wr.left) == (cr.right - cr.left),
+         "custom frame client width == window");
+  expect((wr.bottom - wr.top) == (cr.bottom - cr.top),
+         "custom frame client height == window");
+  // Destructor sets destroying_ before DestroyWindow (avoids PostQuitMessage).
+}
+
 void test_touch_multitouch_midpoint() {
   TouchMultitouchTracker tracker;
   content::InputEvent e{};
@@ -1288,12 +1533,12 @@ void test_touch_multitouch_midpoint() {
 }
 
 void test_dpi_scale_math() {
-  expect(scale_factor_from_dpi(96) == 1.f, "96 dpi éˆ«?1.0");
-  expect(scale_factor_from_dpi(144) == 1.5f, "144 dpi éˆ«?1.5");
-  expect(scale_factor_from_dpi(192) == 2.f, "192 dpi éˆ«?2.0");
-  expect(scale_factor_from_dpi(0) == 1.f, "0 dpi éˆ«?1.0");
+  expect(scale_factor_from_dpi(96) == 1.f, "96 dpi éˆ?1.0");
+  expect(scale_factor_from_dpi(144) == 1.5f, "144 dpi éˆ?1.5");
+  expect(scale_factor_from_dpi(192) == 2.f, "192 dpi éˆ?2.0");
+  expect(scale_factor_from_dpi(0) == 1.f, "0 dpi éˆ?1.0");
   expect(dip_to_px(100, 1.5f) == 150, "dip_to_px 100@1.5");
-  expect(dip_to_px(10, 1.25f) == 13, "dip_to_px rounds 12.5éˆ«?3");
+  expect(dip_to_px(10, 1.25f) == 13, "dip_to_px rounds 12.5éˆ?3");
   expect(px_to_dip(150, 1.5f) == 100, "px_to_dip 150@1.5");
   expect(dpi_for_hwnd(nullptr) >= 96u, "dpi_for_hwnd screen fallback");
 }
@@ -1379,7 +1624,7 @@ void test_paint_fingerprint_locked_scene() {
   const std::uint32_t b = paint_fingerprint(root.get(), 80, 40);
   expect(a != 0, "fingerprint non-zero");
   expect(a == b, "fingerprint stable");
-  // Different size must not collide with the locked 80è„³40 scene (best-effort).
+  // Different size must not collide with the locked 80è„?0 scene (best-effort).
   const std::uint32_t c = paint_fingerprint(root.get(), 81, 40);
   expect(c != a, "fingerprint size-sensitive");
 }
@@ -1580,6 +1825,74 @@ void test_shell_compositor_async_publish_wake() {
   DestroyWindow(hwnd);
 }
 
+// Resize/move leaves the client larger than the last published DIB. present()
+// must fill the paint rect (NULL_BRUSH + WM_ERASEBKGND=1 otherwise shows
+// desktop) and BitBlt only the intersection with the front buffer.
+void test_shell_compositor_present_fills_when_buffer_lags() {
+  BITMAPINFO bmi = {};
+  bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bmi.bmiHeader.biWidth = 32;
+  bmi.bmiHeader.biHeight = -32;
+  bmi.bmiHeader.biPlanes = 1;
+  bmi.bmiHeader.biBitCount = 32;
+  bmi.bmiHeader.biCompression = BI_RGB;
+  void* bits = nullptr;
+  HBITMAP dib =
+      CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+  expect(dib != nullptr && bits != nullptr, "present test dest DIB");
+  if (!dib || !bits) {
+    return;
+  }
+  HDC mem = CreateCompatibleDC(nullptr);
+  expect(mem != nullptr, "present test mem DC");
+  if (!mem) {
+    DeleteObject(dib);
+    return;
+  }
+  HGDIOBJ old = SelectObject(mem, dib);
+  auto* px = static_cast<std::uint32_t*>(bits);
+  for (int i = 0; i < 32 * 32; ++i) {
+    px[i] = 0x00FF00FFu;  // poison magenta (BI_RGB BGRA)
+  }
+
+  const ui::gfx::Color fill = ui::gfx::color_rgb(55, 66, 77);
+  ShellCompositor compositor;
+  compositor.start();
+  RECT dest = {0, 0, 32, 32};
+  expect(compositor.present(mem, dest, fill) == 0, "empty present gen 0");
+  // BI_RGB little-endian: B,G,R,(A/unused)
+  const std::uint32_t fill_bgra =
+      (77u) | (66u << 8) | (55u << 16);
+  expect((px[0] & 0x00FFFFFFu) == fill_bgra, "empty present fills corner");
+  expect((px[16 * 32 + 16] & 0x00FFFFFFu) == fill_bgra,
+         "empty present fills center");
+
+  PaintCommit frame;
+  frame.width_px = 8;
+  frame.height_px = 8;
+  frame.dirty = Rect{0, 0, 8, 8};
+  frame.font_px = 12;
+  frame.clear_color = ui::gfx::color_rgb(1, 2, 3);
+  frame.generation = 3;
+  compositor.commit(std::move(frame));
+  expect(compositor.wait_published(3), "small frame published");
+
+  for (int i = 0; i < 32 * 32; ++i) {
+    px[i] = 0x00FF00FFu;
+  }
+  expect(compositor.present(mem, dest, fill) == 3, "lag present gen 3");
+  const std::uint32_t small_bgra = (3u) | (2u << 8) | (1u << 16);
+  expect((px[2 * 32 + 2] & 0x00FFFFFFu) == small_bgra,
+         "lag present copies front pixels");
+  expect((px[20 * 32 + 20] & 0x00FFFFFFu) == fill_bgra,
+         "lag present fills outside front");
+
+  compositor.shutdown();
+  SelectObject(mem, old);
+  DeleteDC(mem);
+  DeleteObject(dib);
+}
+
 void test_set_layers_layouts_once() {
   LayerTree tree;
   tree.set_bounds({0, 0, 220, 400});
@@ -1667,10 +1980,30 @@ void test_set_text_caches_measure() {
   expect(paint_counters().create_font == fonts, "font cache hit");
 }
 
+void test_vblank_clock_wait_returns() {
+  ui::gfx::VblankClock clock;
+  clock.set_hwnd(nullptr);
+  const DWORD t0 = GetTickCount();
+  (void)clock.wait_next(16);
+  const DWORD t1 = GetTickCount();
+  (void)clock.wait_next(16);
+  const DWORD t2 = GetTickCount();
+  // Two waits should each finish within ~3 frames even on a slow panel.
+  expect(t1 - t0 < 200, "first WaitForVBlank/fallback returns promptly");
+  expect(t2 - t1 < 200, "second WaitForVBlank/fallback returns promptly");
+  reset_paint_counters();
+  ui::gfx::note_begin_frame_qpc(1);
+  ui::gfx::note_begin_frame_to_present_qpc(10);
+  expect(paint_counters().begin_frame_count == 1, "begin_frame count");
+  expect(paint_counters().begin_frame_to_present_qpc == 10,
+         "begin_frame latency accumulates");
+}
+
 }  // namespace
 
 int main() {
   test_utf8_and_theme();
+  test_painter_registry_and_delegate();
   test_shell_canvas_preference();
   test_skia_canvas_api();
   test_kernel_visible_enabled_focus_hover();
@@ -1701,6 +2034,11 @@ int main() {
   test_menu_bar_add_menu();
   test_ambox_skips_view_navigation();
   test_layout_invariants_smoke();
+  test_sibling_overlap_detection();
+  test_gantt_lane_geom_spaced();
+  test_tab_strip_catalog_labels_have_cells();
+  test_ambox_buttons_not_collapsed();
+  test_forensics_dump_writes_manifest();
   test_tab_strip_page_bounds_align();
   test_box_layout_insets_and_spacing();
   test_box_layout_flex_keeps_preferred();
@@ -1711,6 +2049,7 @@ int main() {
   test_dialog_host_geometry();
   test_layout_center_helper();
   test_widget_hwnd_and_map_viewport();
+  test_custom_frame_hides_os_caption();
   test_touch_multitouch_midpoint();
   test_dpi_scale_math();
   test_device_scale_recomputes_preferred();
@@ -1722,10 +2061,12 @@ int main() {
   test_hover_paint_skips_unrelated_views();
   test_paint_commit_snapshot_isolation();
   test_shell_compositor_async_publish_wake();
+  test_shell_compositor_present_fills_when_buffer_lags();
   test_set_layers_layouts_once();
   test_scroll_skips_layout_when_preferred_unchanged();
   test_table_paints_viewport_rows_only();
   test_set_text_caches_measure();
+  test_vblank_clock_wait_returns();
 
   if (g_fails) {
     std::fprintf(stderr, "views_unittests: %d failed\n", g_fails);

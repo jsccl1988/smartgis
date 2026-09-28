@@ -16,7 +16,9 @@ namespace content {
 // registering leftover mapmgr stays at the call site.
 
 // Relative candidates under each search root, preferred order first.
-// Roots should already include a trailing path separator when needed.
+// Prefers shared `out/data/` (exe is under out/Debug|Release → `../data/`),
+// then `data/` next to the exe, flat next-to-exe, and testing/data fallbacks.
+// Roots may include a trailing separator.
 CONTENT_EXPORT std::vector<std::string> resolve_sample_map_candidates(
     const std::vector<std::string>& search_roots);
 

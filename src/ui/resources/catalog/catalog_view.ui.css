@@ -1,0 +1,17 @@
+/* CatalogView — TabStrip + trees filled in C++ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+  width: 240px;
+  height: 320px;
+}
+
+#title { width: 240px; height: 36px; }
+
+.tabs_host {
+  width: 240px;
+  height: 280px;
+  flex-grow: 1;
+}

@@ -135,6 +135,18 @@ std::vector<AdapterInfo> GpuDeviceHub::enumerate_adapters() const {
   return hardware.empty() ? listed : hardware;
 }
 
+AdapterId GpuDeviceHub::adapter_for_luid(uint64_t luid) const {
+  if (luid == 0) {
+    return primary_adapter();
+  }
+  for (const AdapterInfo& info : enumerate_adapters()) {
+    if (info.luid == luid) {
+      return info.id;
+    }
+  }
+  return primary_adapter();
+}
+
 AdapterId GpuDeviceHub::prefer_adapter_for_monitor(void* hmonitor) const {
   if (!hmonitor) {
     return primary_adapter();

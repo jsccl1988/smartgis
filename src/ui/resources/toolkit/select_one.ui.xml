@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="select_one">
+  <style src="select_one.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="prompt" text="Select one"/>
+    <combobox id="choice"/>
+  </vbox>
+</ui>

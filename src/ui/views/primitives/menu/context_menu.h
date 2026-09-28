@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_PRIMITIVES_MENU_CONTEXT_MENU_H_
 #define UI_VIEWS_PRIMITIVES_MENU_CONTEXT_MENU_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <functional>
 #include <string>
 #include <vector>
@@ -25,7 +25,7 @@ struct MenuItem {
 };
 
 // Shows a Win32 TrackPopupMenu at |screen| (screen pixels) owned by |owner|.
-UI_VIEWS_EXPORT void show_context_menu(HWND owner, Point screen, const std::vector<MenuItem>& items);
+UI_EXPORT void show_context_menu(HWND owner, Point screen, const std::vector<MenuItem>& items);
 
 }  // namespace views
 }  // namespace ui

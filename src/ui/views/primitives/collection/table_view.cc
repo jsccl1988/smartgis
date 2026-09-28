@@ -266,5 +266,9 @@ void TableView::paint_self(ui::gfx::Canvas* canvas) {
   }
 }
 
+
+std::string_view TableView::paint_role() const {
+  return "table_view";
+}
 }  // namespace views
 }  // namespace ui

@@ -80,6 +80,10 @@ bool FlycubeProgram::compile_shader(const ShaderSource& source, ::ShaderType typ
   if (!write_temp_hlsl(file.c_str(), source.hlsl, &path)) {
     return false;
   }
+  // FlyCube CompileShader aborts if dxcompiler.dll is missing beside the PE.
+  if (!ensure_dxc_beside_exe()) {
+    return false;
+  }
   std::shared_ptr<::Shader> shader =
       device_->CompileShader({path, entry, type, profile});
   if (!shader || shader->GetBlob().empty()) {

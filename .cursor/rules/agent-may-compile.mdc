@@ -10,18 +10,19 @@ All rights reserved.
 
 # 代理可以自行编译
 
-Agent **可以**启动编译、链接，以及为验证构建而运行测试/产品二进制。优先用仓库根目录 `build.bat`；产物只在 `out/`。
+Agent **可以**启动编译、链接，以及为验证构建而运行测试/产品二进制。优先用仓库根目录 `build.bat`；产物在 `out/Debug` / `out/Release`。迭代修复时优先 `build.bat debug …`。
 
 ## 允许
 
 ```bat
 build.bat
-build.bat te
+build.bat debug
+build.bat debug te
 build.bat e2e
 build.bat <single_target>
 ```
 
-也可在诊断需要时使用 `gn` / `ninja`。不要用 `out/Default`，不要用 `vs2008/SmartGIS.sln` 作为修复主循环。
+也可在诊断需要时使用 `gn` / `ninja`。不要用裸 `out/` 或 `out/Default` 作 gen 根，不要用 `vs2008/SmartGIS.sln` 作为修复主循环。
 
 ## Skill 循环
 

@@ -3,7 +3,7 @@
 
 #include "legacy/render/scene3d/bridge/map_label_batch.h"
 
-#include "gis/datasource/ogr/text/ogr_text_encoding.h"
+#include "gis/datasource/provider/impl/ogr/text/ogr_text_encoding.h"
 #include "legacy/render/rhi3d/public/device/3drenderdevice.h"
 #include "legacy/render/rhi2d/impl/gdi/gdiaux/gdi_gdiplus.h"
 #include "legacy/render/scene3d/dem/dem_height_field.h"

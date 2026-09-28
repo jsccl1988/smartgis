@@ -1,9 +1,10 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Schematic China map sample (regions / rivers / cities / labels) next to exes.
+# Schematic China map samples under shared out/data/ (sibling of Debug/Release).
 # Prefers china_city.gpkg (prefecture four-layer pack); china_plp remains fallback.
 # china_dem.tif: country DEM for leftover / Views 3D (build via build_china_dem.py).
+# $root_out_dir is out/Debug or out/Release; ../data is out/data.
 copy("china_map_samples") {
   sources = [
     "china_city.gpkg",
@@ -15,7 +16,17 @@ copy("china_map_samples") {
     "m3_city_tileset.json",
     "views_ogr_sample.geojson",
   ]
-  outputs = [ "$root_out_dir/{{source_file_part}}" ]
+  outputs = [ "$root_out_dir/../data/{{source_file_part}}" ]
+}
+
+# Leftover model3d AM sample heightmap / TIN under out/data/rs/terrain/
+# (exe dir + "..\\data\\rs\\terrain\\...").
+copy("am_terrain_samples") {
+  sources = [
+    "rs/terrain/ground.bmp",
+    "rs/terrain/ground.dat",
+  ]
+  outputs = [ "$root_out_dir/../data/rs/terrain/{{source_file_part}}" ]
 }
 
 # Rebuild offline pack (network + pyshp). Not part of default ninja; run manually:
@@ -23,5 +34,8 @@ copy("china_map_samples") {
 #   py -3 testing/data/build_china_dem.py
 # PIN: testing/data/china_city.PIN.txt
 group("china_city_data") {
-  data_deps = [ ":china_map_samples" ]
+  data_deps = [
+    ":china_map_samples",
+    ":am_terrain_samples",
+  ]
 }

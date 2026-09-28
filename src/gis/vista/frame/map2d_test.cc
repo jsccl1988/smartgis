@@ -220,7 +220,8 @@ int main() {
     roads.source_layer = "road";
     roads.geoms.push_back(&line);
     gis::style::AttrMap attrs;
-    attrs["name"] = "E-W";
+    attrs["name"] = "East";
+    attrs["class"] = "title";
     roads.attrs.push_back(attrs);
     LayoutInput in;
     in.view = square_view(200, 10);
@@ -458,6 +459,53 @@ int main() {
                count_kind(icon_only, DrawKind::kIcon) == 1 &&
                icon_only.items[0].symbol_id == "pin",
            "missing metrics skips text");
+  }
+
+  // Parallel tess path (≥2 geoms / flattened MultiLineString parts) keeps counts.
+  {
+    gis::style::StyleDocument doc;
+    expect(parse_style(
+               "{"
+               "\"version\":8,\"layers\":["
+               "{\"id\":\"land\",\"type\":\"fill\",\"source-layer\":\"land\","
+               "\"paint\":{\"fill-color\":\"#f5f3e9\",\"fill-opacity\":1}},"
+               "{\"id\":\"road\",\"type\":\"line\",\"source-layer\":\"road\","
+               "\"paint\":{\"line-color\":\"#ffffff\",\"line-width\":2}}"
+               "]}",
+               &doc),
+           "parallel tess keeps draw counts");
+    std::vector<OGRPolygon> polys(4);
+    std::vector<OGRLinearRing> rings(4);
+    LayerBatch land;
+    land.source_layer = "land";
+    for (size_t i = 0; i < polys.size(); ++i) {
+      const double o = static_cast<double>(i) * 2.0;
+      rings[i].addPoint(o, o);
+      rings[i].addPoint(o + 1.0, o);
+      rings[i].addPoint(o + 0.5, o + 1.0);
+      rings[i].closeRings();
+      polys[i].addRing(&rings[i]);
+      land.geoms.push_back(&polys[i]);
+    }
+    OGRMultiLineString multi;
+    for (int i = 0; i < 6; ++i) {
+      OGRLineString* seg = new OGRLineString();
+      seg->addPoint(i, 0);
+      seg->addPoint(i, 5);
+      multi.addGeometryDirectly(seg);
+    }
+    LayerBatch roads;
+    roads.source_layer = "road";
+    roads.geoms.push_back(&multi);
+    LayoutInput in;
+    in.view = square_view(200, 20);
+    in.style = &doc;
+    in.zoom = 8;
+    const gis::vista::MapFrame frame = layout.build(in, {land, roads});
+    expect(count_kind(frame, DrawKind::kFill) == 4,
+           "parallel fill emits one item per polygon");
+    expect(count_kind(frame, DrawKind::kLine) == 6,
+           "parallel line flattens MultiLineString parts");
   }
 
   // Embedded cartography document parses and keeps casing before fill.

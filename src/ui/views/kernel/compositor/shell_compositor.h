@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_KERNEL_COMPOSITOR_SHELL_COMPOSITOR_H_
 #define UI_VIEWS_KERNEL_COMPOSITOR_SHELL_COMPOSITOR_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <condition_variable>
 #include <cstdint>
 #include <mutex>
@@ -16,6 +16,7 @@
 #include <windows.h>
 
 #include "ui/gfx/raster/shell_raster.h"
+#include "ui/gfx/color/color.h"
 #include "ui/views/kernel/paint/paint_commit.h"
 
 namespace ui {
@@ -31,7 +32,7 @@ inline constexpr UINT kShellPublishedMessage = WM_APP + 0x5343;  // 'SC'
 // WM_PAINT only BitBlts the published front buffer (never waits on the worker).
 // After publish the worker may PostMessage kShellPublishedMessage to a
 // registered HWND (wake only — no BeginPaint / DestroyWindow).
-class UI_VIEWS_EXPORT ShellCompositor {
+class UI_EXPORT ShellCompositor {
  public:
   ShellCompositor();
   ~ShellCompositor();
@@ -56,10 +57,16 @@ class UI_VIEWS_EXPORT ShellCompositor {
   bool wait_published(std::uint64_t generation);
 
   // UI thread: BitBlt the published front buffer into |hdc| for |dest|.
+  // Pixels outside the front buffer (or when no buffer is published yet) are
+  // filled with |fallback_fill| so NULL_BRUSH clients never show the desktop
+  // during resize/move before the worker publishes a matching size.
   // Returns the published generation that was blitted, or 0 if nothing was
-  // drawn. Callers that fire OnShellPublished must use this value (not a
-  // later published_generation() read) so notify cannot race ahead of present.
-  std::uint64_t present(HDC hdc, const RECT& dest);
+  // drawn from the front buffer. Callers that fire OnShellPublished must use
+  // this value (not a later published_generation() read) so notify cannot race
+  // ahead of present.
+  std::uint64_t present(HDC hdc,
+                        const RECT& dest,
+                        ui::gfx::Color fallback_fill);
 
   ui::gfx::ShellRaster shell_raster() const;
   std::uint64_t published_generation() const;

@@ -11,6 +11,7 @@ SmartGIS 渲染终局树：只保留 RHI / GpuScene / 帧图。场景数学在 `
 | `rhi/flycube/` | 唯一真 GPU。`device.h`、`command/command_list.h`、`resource/resources.h` 是 RHI 适配。`command/recorder.h`、`resource/gpu.h`、`pipeline/`、`compute/` 不包含 `rhi.h`。子目录文件不带 `flycube_` 前缀 |
 | `scene/` | GPU 缓存：`render::scene::GpuScene`。网格、细分和 `frustum_aabb` 留在这里 |
 | `graph/` | `present` 加 opaque 适配器（`OpaqueEffect`，槽 `kOpaque`）。一帧一个相机、一条命令列表、一次 present。只按 `Effect` 槽走：`kBeforeOpaque`、`kOpaque`、`kAfterOpaque`、`kOverlay`。不点名 `GpuScene`、`MapFrame`、`AtmosphereFrame` |
+| `testing/` | 业内对照场景库 + `rhi_suite_test`（Null）+ `rhi_bench`（google/benchmark，进 `benchmark_all`）+ `rhi_gpu_bench`（可选 DX12）。Console：`:rhi test\|bench` |
 
 GN：`//src/render:render_all` 进日常 `src_all`。leftover DLL 另编 `//src/legacy/render:legacy_render_all`（默认不进 `src_all`）。
 

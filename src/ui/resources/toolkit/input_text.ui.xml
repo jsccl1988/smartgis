@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="input_text">
+  <style src="input_text.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="prompt" text="Value"/>
+    <textfield id="value"/>
+  </vbox>
+</ui>

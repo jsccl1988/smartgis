@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_PRIMITIVES_INPUT_SLIDER_H_
 #define UI_VIEWS_PRIMITIVES_INPUT_SLIDER_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <functional>
 
 #include "ui/views/kernel/view/view.h"
@@ -14,7 +14,7 @@ namespace views {
 
 // Horizontal value scrubber. Value is clamped to [min, max]; drag or click
 // moves the thumb. Used by AtmospherePanel time scrub and similar shell.
-class UI_VIEWS_EXPORT Slider : public View {
+class UI_EXPORT Slider : public View {
  public:
   Slider();
 
@@ -29,6 +29,7 @@ class UI_VIEWS_EXPORT Slider : public View {
 
   bool on_mouse_event(const MouseEvent& e) override;
   bool on_key_event(const KeyEvent& e) override;
+  std::string_view paint_role() const override;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;

@@ -5,31 +5,53 @@
 
 #include <sstream>
 
-#include "gis/present/style/detail/json_mini.h"
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 namespace gis {
 namespace style {
 namespace {
 
-using detail::JsonKind;
-using detail::JsonValue;
+using Allocator = rapidjson::Document::AllocatorType;
 
-std::string value_as_string(const JsonValue& v) {
-  switch (v.kind) {
-    case JsonKind::kString:
-      return v.s;
-    case JsonKind::kNumber: {
-      std::ostringstream os;
-      os << v.n;
-      return os.str();
-    }
-    case JsonKind::kBool:
-      return v.b ? "true" : "false";
-    case JsonKind::kNull:
-      return "";
-    default:
-      return detail::json_to_string(v);
+const rapidjson::Value* member(const rapidjson::Value& obj, const char* key) {
+  if (!obj.IsObject()) {
+    return nullptr;
   }
+  auto it = obj.FindMember(key);
+  return it == obj.MemberEnd() ? nullptr : &it->value;
+}
+
+std::string write_json(const rapidjson::Value& v) {
+  rapidjson::StringBuffer buf;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
+  v.Accept(writer);
+  return std::string(buf.GetString(), buf.GetSize());
+}
+
+std::string value_as_string(const rapidjson::Value& v) {
+  if (v.IsString()) {
+    return std::string(v.GetString(), v.GetStringLength());
+  }
+  if (v.IsNumber()) {
+    std::ostringstream os;
+    os << v.GetDouble();
+    return os.str();
+  }
+  if (v.IsBool()) {
+    return v.GetBool() ? "true" : "false";
+  }
+  if (v.IsNull()) {
+    return "";
+  }
+  return write_json(v);
+}
+
+rapidjson::Value make_string(const std::string& s, Allocator& alloc) {
+  rapidjson::Value v;
+  v.SetString(s.c_str(), static_cast<rapidjson::SizeType>(s.size()), alloc);
+  return v;
 }
 
 FilterOp filter_op_from_string(const std::string& s) {
@@ -108,12 +130,13 @@ const char* filter_op_to_string(FilterOp op) {
   }
 }
 
-bool parse_filter(const JsonValue& v, FilterNode* out) {
-  if (!v.is_array() || v.a.empty() || !v.a[0].is_string()) {
+bool parse_filter(const rapidjson::Value& v, FilterNode* out) {
+  if (!v.IsArray() || v.Empty() || !v[0].IsString()) {
     *out = FilterNode();
     return true;
   }
-  out->op = filter_op_from_string(v.a[0].s);
+  out->op = filter_op_from_string(
+      std::string(v[0].GetString(), v[0].GetStringLength()));
   out->key.clear();
   out->value.clear();
   out->values.clear();
@@ -123,9 +146,9 @@ bool parse_filter(const JsonValue& v, FilterNode* out) {
     case FilterOp::kAll:
     case FilterOp::kAny:
     case FilterOp::kNone:
-      for (size_t i = 1; i < v.a.size(); ++i) {
+      for (rapidjson::SizeType i = 1; i < v.Size(); ++i) {
         FilterNode child;
-        if (!parse_filter(v.a[i], &child)) {
+        if (!parse_filter(v[i], &child)) {
           return false;
         }
         out->children.push_back(std::move(child));
@@ -133,19 +156,19 @@ bool parse_filter(const JsonValue& v, FilterNode* out) {
       return true;
     case FilterOp::kHas:
     case FilterOp::kNotHas:
-      if (v.a.size() < 2 || !v.a[1].is_string()) {
+      if (v.Size() < 2 || !v[1].IsString()) {
         return false;
       }
-      out->key = v.a[1].s;
+      out->key = std::string(v[1].GetString(), v[1].GetStringLength());
       return true;
     case FilterOp::kIn:
     case FilterOp::kNotIn:
-      if (v.a.size() < 2 || !v.a[1].is_string()) {
+      if (v.Size() < 2 || !v[1].IsString()) {
         return false;
       }
-      out->key = v.a[1].s;
-      for (size_t i = 2; i < v.a.size(); ++i) {
-        out->values.push_back(value_as_string(v.a[i]));
+      out->key = std::string(v[1].GetString(), v[1].GetStringLength());
+      for (rapidjson::SizeType i = 2; i < v.Size(); ++i) {
+        out->values.push_back(value_as_string(v[i]));
       }
       return true;
     case FilterOp::kEq:
@@ -154,11 +177,11 @@ bool parse_filter(const JsonValue& v, FilterNode* out) {
     case FilterOp::kLte:
     case FilterOp::kGt:
     case FilterOp::kGte:
-      if (v.a.size() < 3 || !v.a[1].is_string()) {
+      if (v.Size() < 3 || !v[1].IsString()) {
         return false;
       }
-      out->key = v.a[1].s;
-      out->value = value_as_string(v.a[2]);
+      out->key = std::string(v[1].GetString(), v[1].GetStringLength());
+      out->value = value_as_string(v[2]);
       return true;
     default:
       *out = FilterNode();
@@ -166,22 +189,15 @@ bool parse_filter(const JsonValue& v, FilterNode* out) {
   }
 }
 
-JsonValue filter_to_json(const FilterNode& f) {
-  JsonValue arr;
-  arr.kind = JsonKind::kArray;
+rapidjson::Value filter_to_json(const FilterNode& f, Allocator& alloc) {
+  rapidjson::Value arr(rapidjson::kArrayType);
   if (f.op == FilterOp::kTrue) {
     return arr;
   }
-  JsonValue op;
-  op.kind = JsonKind::kString;
-  op.s = filter_op_to_string(f.op);
-  arr.a.push_back(std::move(op));
+  arr.PushBack(make_string(filter_op_to_string(f.op), alloc), alloc);
 
   auto push_str = [&](const std::string& s) {
-    JsonValue j;
-    j.kind = JsonKind::kString;
-    j.s = s;
-    arr.a.push_back(std::move(j));
+    arr.PushBack(make_string(s, alloc), alloc);
   };
 
   switch (f.op) {
@@ -189,7 +205,7 @@ JsonValue filter_to_json(const FilterNode& f) {
     case FilterOp::kAny:
     case FilterOp::kNone:
       for (const auto& c : f.children) {
-        arr.a.push_back(filter_to_json(c));
+        arr.PushBack(filter_to_json(c, alloc), alloc);
       }
       break;
     case FilterOp::kHas:
@@ -211,100 +227,103 @@ JsonValue filter_to_json(const FilterNode& f) {
   return arr;
 }
 
-void parse_string_map(const JsonValue* obj,
+void parse_string_map(const rapidjson::Value* obj,
                       std::map<std::string, std::string>* out) {
   out->clear();
-  if (!obj || !obj->is_object()) {
+  if (!obj || !obj->IsObject()) {
     return;
   }
-  for (const auto& kv : obj->o) {
-    (*out)[kv.first] = value_as_string(kv.second);
+  for (auto it = obj->MemberBegin(); it != obj->MemberEnd(); ++it) {
+    (*out)[std::string(it->name.GetString(), it->name.GetStringLength())] =
+        value_as_string(it->value);
   }
 }
 
-bool parse_layer(const JsonValue& v, StyleLayer* out) {
-  if (!v.is_object()) {
+bool parse_layer(const rapidjson::Value& v, StyleLayer* out) {
+  if (!v.IsObject()) {
     return false;
   }
   *out = StyleLayer();
-  if (const JsonValue* id = v.get("id")) {
+  if (const rapidjson::Value* id = member(v, "id")) {
     out->id = value_as_string(*id);
   }
-  if (const JsonValue* type = v.get("type")) {
+  if (const rapidjson::Value* type = member(v, "type")) {
     out->type = layer_type_from_string(value_as_string(*type));
   }
-  if (const JsonValue* source = v.get("source")) {
+  if (const rapidjson::Value* source = member(v, "source")) {
     out->source = value_as_string(*source);
   }
-  if (const JsonValue* sl = v.get("source-layer")) {
+  if (const rapidjson::Value* sl = member(v, "source-layer")) {
     out->source_layer = value_as_string(*sl);
   }
-  if (const JsonValue* mz = v.get("minzoom"); mz && mz->is_number()) {
-    out->minzoom = mz->n;
+  if (const rapidjson::Value* mz = member(v, "minzoom"); mz && mz->IsNumber()) {
+    out->minzoom = mz->GetDouble();
     out->has_minzoom = true;
   }
-  if (const JsonValue* xz = v.get("maxzoom"); xz && xz->is_number()) {
-    out->maxzoom = xz->n;
+  if (const rapidjson::Value* xz = member(v, "maxzoom"); xz && xz->IsNumber()) {
+    out->maxzoom = xz->GetDouble();
     out->has_maxzoom = true;
   }
-  if (const JsonValue* filter = v.get("filter")) {
+  if (const rapidjson::Value* filter = member(v, "filter")) {
     if (!parse_filter(*filter, &out->filter)) {
       return false;
     }
   }
-  parse_string_map(v.get("paint"), &out->paint);
-  parse_string_map(v.get("layout"), &out->layout);
+  parse_string_map(member(v, "paint"), &out->paint);
+  parse_string_map(member(v, "layout"), &out->layout);
   return !out->id.empty() && out->type != LayerType::kUnknown;
 }
 
-JsonValue string_map_to_json(const std::map<std::string, std::string>& m) {
-  JsonValue obj;
-  obj.kind = JsonKind::kObject;
+rapidjson::Value string_map_to_json(const std::map<std::string, std::string>& m,
+                                    Allocator& alloc) {
+  rapidjson::Value obj(rapidjson::kObjectType);
   for (const auto& kv : m) {
-    JsonValue s;
-    s.kind = JsonKind::kString;
-    s.s = kv.second;
-    obj.o.emplace(kv.first, std::move(s));
+    rapidjson::Value key;
+    key.SetString(kv.first.c_str(),
+                  static_cast<rapidjson::SizeType>(kv.first.size()), alloc);
+    obj.AddMember(key, make_string(kv.second, alloc), alloc);
   }
   return obj;
 }
 
-JsonValue layer_to_json(const StyleLayer& layer) {
-  JsonValue obj;
-  obj.kind = JsonKind::kObject;
+rapidjson::Value layer_to_json(const StyleLayer& layer, Allocator& alloc) {
+  rapidjson::Value obj(rapidjson::kObjectType);
   auto put_str = [&](const char* key, const std::string& s) {
     if (s.empty()) {
       return;
     }
-    JsonValue j;
-    j.kind = JsonKind::kString;
-    j.s = s;
-    obj.o.emplace(key, std::move(j));
+    rapidjson::Value k;
+    k.SetString(key, alloc);
+    obj.AddMember(k, make_string(s, alloc), alloc);
   };
   put_str("id", layer.id);
   put_str("type", layer_type_to_string(layer.type));
   put_str("source", layer.source);
   put_str("source-layer", layer.source_layer);
   if (layer.has_minzoom) {
-    JsonValue n;
-    n.kind = JsonKind::kNumber;
-    n.n = layer.minzoom;
-    obj.o.emplace("minzoom", std::move(n));
+    rapidjson::Value k;
+    k.SetString("minzoom", alloc);
+    obj.AddMember(k, layer.minzoom, alloc);
   }
   if (layer.has_maxzoom) {
-    JsonValue n;
-    n.kind = JsonKind::kNumber;
-    n.n = layer.maxzoom;
-    obj.o.emplace("maxzoom", std::move(n));
+    rapidjson::Value k;
+    k.SetString("maxzoom", alloc);
+    obj.AddMember(k, layer.maxzoom, alloc);
   }
   if (layer.filter.op != FilterOp::kTrue) {
-    obj.o.emplace("filter", filter_to_json(layer.filter));
+    rapidjson::Value k;
+    k.SetString("filter", alloc);
+    obj.AddMember(k, filter_to_json(layer.filter, alloc), alloc);
   }
   if (!layer.paint.empty()) {
-    obj.o.emplace("paint", string_map_to_json(layer.paint));
+    rapidjson::Value k;
+    k.SetString("paint", alloc);
+    obj.AddMember(k, string_map_to_json(layer.paint, alloc), alloc);
   }
   if (!layer.layout.empty()) {
-    obj.o.emplace("layout", string_map_to_json(layer.layout));
+    rapidjson::Value k;
+    k.SetString("layout", alloc);
+    obj.AddMember(k, string_map_to_json(layer.layout, alloc), alloc);
   }
   return obj;
 }
@@ -312,33 +331,35 @@ JsonValue layer_to_json(const StyleLayer& layer) {
 }  // namespace
 
 bool parse_style_document(const char* json, size_t len, StyleDocument* out) {
-  if (!out) {
+  if (!out || !json || len == 0) {
     return false;
   }
-  JsonValue root;
-  if (!detail::parse_json(json, len, &root) || !root.is_object()) {
+  rapidjson::Document root;
+  root.Parse(json, static_cast<rapidjson::SizeType>(len));
+  if (root.HasParseError() || !root.IsObject()) {
     return false;
   }
   *out = StyleDocument();
-  if (const JsonValue* ver = root.get("version"); ver && ver->is_number()) {
-    out->version = static_cast<int>(ver->n);
+  if (const rapidjson::Value* ver = member(root, "version");
+      ver && ver->IsNumber()) {
+    out->version = static_cast<int>(ver->GetDouble());
   } else {
     return false;
   }
-  if (const JsonValue* name = root.get("name")) {
+  if (const rapidjson::Value* name = member(root, "name")) {
     out->name = value_as_string(*name);
   }
-  if (const JsonValue* sprite = root.get("sprite")) {
+  if (const rapidjson::Value* sprite = member(root, "sprite")) {
     out->sprite = value_as_string(*sprite);
   }
-  if (const JsonValue* glyphs = root.get("glyphs")) {
+  if (const rapidjson::Value* glyphs = member(root, "glyphs")) {
     out->glyphs = value_as_string(*glyphs);
   }
-  const JsonValue* layers = root.get("layers");
-  if (!layers || !layers->is_array()) {
+  const rapidjson::Value* layers = member(root, "layers");
+  if (!layers || !layers->IsArray()) {
     return false;
   }
-  for (const auto& layer_json : layers->a) {
+  for (const auto& layer_json : layers->GetArray()) {
     StyleLayer layer;
     if (!parse_layer(layer_json, &layer)) {
       return false;
@@ -353,37 +374,40 @@ bool parse_style_document(const std::string& json, StyleDocument* out) {
 }
 
 std::string serialize_style_document(const StyleDocument& doc) {
-  JsonValue root;
-  root.kind = JsonKind::kObject;
-  JsonValue ver;
-  ver.kind = JsonKind::kNumber;
-  ver.n = doc.version;
-  root.o.emplace("version", std::move(ver));
+  rapidjson::Document root;
+  root.SetObject();
+  Allocator& alloc = root.GetAllocator();
+
+  {
+    rapidjson::Value k;
+    k.SetString("version", alloc);
+    root.AddMember(k, doc.version, alloc);
+  }
   if (!doc.name.empty()) {
-    JsonValue n;
-    n.kind = JsonKind::kString;
-    n.s = doc.name;
-    root.o.emplace("name", std::move(n));
+    rapidjson::Value k;
+    k.SetString("name", alloc);
+    root.AddMember(k, make_string(doc.name, alloc), alloc);
   }
   if (!doc.sprite.empty()) {
-    JsonValue s;
-    s.kind = JsonKind::kString;
-    s.s = doc.sprite;
-    root.o.emplace("sprite", std::move(s));
+    rapidjson::Value k;
+    k.SetString("sprite", alloc);
+    root.AddMember(k, make_string(doc.sprite, alloc), alloc);
   }
   if (!doc.glyphs.empty()) {
-    JsonValue g;
-    g.kind = JsonKind::kString;
-    g.s = doc.glyphs;
-    root.o.emplace("glyphs", std::move(g));
+    rapidjson::Value k;
+    k.SetString("glyphs", alloc);
+    root.AddMember(k, make_string(doc.glyphs, alloc), alloc);
   }
-  JsonValue layers;
-  layers.kind = JsonKind::kArray;
+  rapidjson::Value layers(rapidjson::kArrayType);
   for (const auto& layer : doc.layers) {
-    layers.a.push_back(layer_to_json(layer));
+    layers.PushBack(layer_to_json(layer, alloc), alloc);
   }
-  root.o.emplace("layers", std::move(layers));
-  return detail::json_to_string(root);
+  {
+    rapidjson::Value k;
+    k.SetString("layers", alloc);
+    root.AddMember(k, layers, alloc);
+  }
+  return write_json(root);
 }
 
 }  // namespace style

@@ -15,6 +15,8 @@
 #include "plugin/runtime/host/registry.h"
 #include "plugin/runtime/host/signature.h"
 
+#include <rapidjson/document.h>
+
 namespace plugin {
 namespace {
 
@@ -118,57 +120,67 @@ bool parse_store_zip(std::string_view bytes, std::vector<ZipEntry>* out,
   return !out->empty();
 }
 
-bool json_quoted(const std::string& body, const char* key, std::string* out) {
-  if (!out || !key) {
+bool read_string_member(const rapidjson::Value& obj,
+                        const char* key,
+                        std::string* out) {
+  if (!out || !obj.IsObject()) {
     return false;
   }
-  const std::string needle = std::string("\"") + key + "\"";
-  const size_t pos = body.find(needle);
-  if (pos == std::string::npos) {
+  const auto it = obj.FindMember(key);
+  if (it == obj.MemberEnd() || !it->value.IsString()) {
     return false;
   }
-  const size_t colon = body.find(':', pos + needle.size());
-  if (colon == std::string::npos) {
-    return false;
-  }
-  const size_t q1 = body.find('"', colon + 1);
-  if (q1 == std::string::npos) {
-    return false;
-  }
-  std::string value;
-  for (size_t i = q1 + 1; i < body.size(); ++i) {
-    if (body[i] == '\\' && i + 1 < body.size()) {
-      value.push_back(body[i + 1]);
-      ++i;
-      continue;
-    }
-    if (body[i] == '"') {
-      *out = std::move(value);
-      return true;
-    }
-    value.push_back(body[i]);
-  }
-  return false;
+  *out = std::string(it->value.GetString(), it->value.GetStringLength());
+  return true;
 }
 
-bool find_index_plugin(const std::string& body, const std::string& id,
-                       std::string* download, std::string* sha,
+bool match_index_plugin(const rapidjson::Value& obj,
+                        const std::string& id,
+                        std::string* download,
+                        std::string* sha,
+                        std::string* sig) {
+  std::string found;
+  if (!read_string_member(obj, "id", &found) || found != id) {
+    return false;
+  }
+  return read_string_member(obj, "download_url", download) &&
+         read_string_member(obj, "sha256", sha) &&
+         read_string_member(obj, "sig_url", sig);
+}
+
+bool find_index_plugin(const std::string& body,
+                       const std::string& id,
+                       std::string* download,
+                       std::string* sha,
                        std::string* sig) {
-  const std::string needle = std::string("\"id\"") ;
-  size_t pos = 0;
-  while ((pos = body.find(needle, pos)) != std::string::npos) {
-    std::string found;
-    const std::string slice = body.substr(pos, 4000);
-    if (!json_quoted(slice, "id", &found) || found != id) {
-      pos += needle.size();
-      continue;
-    }
-    if (!json_quoted(slice, "download_url", download) ||
-        !json_quoted(slice, "sha256", sha) ||
-        !json_quoted(slice, "sig_url", sig)) {
+  rapidjson::Document root;
+  root.Parse(body.c_str());
+  if (root.HasParseError()) {
+    return false;
+  }
+  auto scan_array = [&](const rapidjson::Value& arr) -> bool {
+    if (!arr.IsArray()) {
       return false;
     }
+    for (const auto& item : arr.GetArray()) {
+      if (match_index_plugin(item, id, download, sha, sig)) {
+        return true;
+      }
+    }
+    return false;
+  };
+  if (scan_array(root)) {
     return true;
+  }
+  if (root.IsObject()) {
+    for (auto it = root.MemberBegin(); it != root.MemberEnd(); ++it) {
+      if (scan_array(it->value)) {
+        return true;
+      }
+      if (match_index_plugin(it->value, id, download, sha, sig)) {
+        return true;
+      }
+    }
   }
   return false;
 }

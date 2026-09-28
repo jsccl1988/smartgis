@@ -10,7 +10,18 @@
 namespace content {
 namespace {
 
+// Prefer shared out/data/ (GN china_map_samples → $root_out_dir/../data).
+// Exe lives in out/Debug|Release, so ../data is the shared pack. Also try
+// data/ next to the exe, flat next-to-exe, and testing/data fallbacks.
 const char* k_relative_candidates[] = {
+    "../data/china_city.gpkg",
+    "../data/china_city.geojson",
+    "../data/china_plp.geojson",
+    "../data/views_ogr_sample.geojson",
+    "data/china_city.gpkg",
+    "data/china_city.geojson",
+    "data/china_plp.geojson",
+    "data/views_ogr_sample.geojson",
     "china_city.gpkg",
     "china_city.geojson",
     "china_plp.geojson",

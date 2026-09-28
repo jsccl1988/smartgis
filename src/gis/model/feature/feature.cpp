@@ -7,7 +7,7 @@
 
 #include "legacy/core/core.h"
 #include "ogrsf_frmts.h"
-#include "base/carto/stylemanager.h"
+#include "legacy/carto/stylemanager.h"
 
 namespace gis {
 namespace {

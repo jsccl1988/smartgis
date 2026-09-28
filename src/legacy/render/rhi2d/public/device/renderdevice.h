@@ -4,8 +4,8 @@
 #ifndef _RD_RENDERDEVICE_H
 #define _RD_RENDERDEVICE_H
 
-#include "base/carto/style.h"
-#include "base/carto/style_bas_struct.h"
+#include "legacy/carto/style.h"
+#include "legacy/carto/style_bas_struct.h"
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "gis/model/feature/feature.h"
 #include "gis/model/map/map.h"

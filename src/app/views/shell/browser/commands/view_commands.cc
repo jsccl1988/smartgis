@@ -112,6 +112,13 @@ constexpr ShellRow kFileEditLayer[] = {
 
 constexpr ShellRow kViewTail[] = {
     {"View", "Refresh", "view.refresh"},
+    {"View", "Theme: Dark", "view.theme.dark"},
+    {"View", "Theme: Light", "view.theme.light"},
+    {"View", "Preferences…", "view.preferences"},
+    {"View", "Toggle Diagnostic Tools", "view.debug_console"},
+    {"View", "Engine: FlyCube/DX12", "view.engine.flycube"},
+    {"View", "Engine: Stereo/GL", "view.engine.stereo_gl"},
+    {"View", "Engine: GDI", "view.engine.gdi"},
     {"View", "RHI", "view.backend.rhi"},
     {"View", "MapLibre", "view.backend.maplibre"},
 };

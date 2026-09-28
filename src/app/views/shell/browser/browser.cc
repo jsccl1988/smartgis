@@ -5,12 +5,14 @@
 
 #include <cstring>
 
-#include "app/views/camera/map_host_extent.h"
 #include "app/views/shell/browser/browser_ui_delegate.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
+#include "base/core/log.h"
+#include "base/trace/process_trace.h"
+#include "content/browser/camera/map_host_extent.h"
 #include "content/public/map_contents.h"
 #include "content/public/view_host.h"
-#include "plugin/product/dem/dem_commands.h"
+#include "plugin/product/dem/commands.h"
 
 namespace app {
 
@@ -18,9 +20,7 @@ Browser::Browser() = default;
 
 Browser::~Browser() {
   prepare_close();
-  if (map_session_) {
-    map_session_->SetObserver(nullptr);
-  }
+  session_.clear_map_contents_observer();
   if (plugins_) {
     plugins_->shutdown();
     plugins_.reset();
@@ -29,23 +29,33 @@ Browser::~Browser() {
 }
 
 bool Browser::init() {
-  edit_host_ = std::make_unique<content::ViewHost>();
-  data_host_ = std::make_unique<content::ViewHost>();
-  scene_host_ = std::make_unique<content::ViewHost>();
-  map_session_.reset(content::MapContents::Create());
-  if (map_session_ && !map_session_->StartRenderProcess()) {
-    map_session_.reset();
+  BASE_TRACE_EVENT("Browser.init.body", "startup");
+  {
+    BASE_TRACE_EVENT("Session.init_hosts", "startup");
+    LOGGING(LOG_INFO, "startup: session.init_hosts");
+    session_.init_hosts();
   }
 
-  plugins_ = std::make_unique<PluginShell>();
-  if (!plugins_->init(edit_host_->events())) {
-    plugins_.reset();
-    return false;
+  {
+    BASE_TRACE_EVENT("PluginShell.init", "startup");
+    LOGGING(LOG_INFO, "startup: PluginShell.init");
+    plugins_ = std::make_unique<PluginShell>();
+    if (!session_.edit_host() ||
+        !plugins_->init(session_.edit_host()->events())) {
+      LOGGING(LOG_ERROR, "startup: PluginShell.init failed");
+      plugins_.reset();
+      return false;
+    }
   }
 
-  ui_ = create_browser_ui(this);
-  if (!ui_) {
-    return false;
+  {
+    BASE_TRACE_EVENT("CreateBrowserUi", "startup");
+    LOGGING(LOG_INFO, "startup: create_browser_ui");
+    ui_ = create_browser_ui(this);
+    if (!ui_) {
+      LOGGING(LOG_ERROR, "startup: create_browser_ui failed");
+      return false;
+    }
   }
 
   plugin::set_dem_surface_writer(
@@ -53,8 +63,8 @@ bool Browser::init() {
              int triangle_count, const char* op) {
         const char* name =
             (op && std::strstr(op, "grid")) ? "DEM grid" : "DEM tin";
-        if (!document_.add_triangle_layer(name, xyz, point_count, triangles,
-                                          triangle_count)) {
+        if (!session_.document().add_triangle_layer(
+                name, xyz, point_count, triangles, triangle_count)) {
           return false;
         }
         if (ui_) {
@@ -64,7 +74,13 @@ bool Browser::init() {
         return true;
       });
 
-  return ui_->init_chrome();
+  BASE_TRACE_EVENT("InitChrome", "startup");
+  LOGGING(LOG_INFO, "startup: init_chrome");
+  const bool ok = ui_->init_chrome();
+  if (!ok) {
+    LOGGING(LOG_ERROR, "startup: init_chrome failed");
+  }
+  return ok;
 }
 
 void Browser::show() {
@@ -85,11 +101,7 @@ void Browser::prepare_close() {
     return;
   }
   prepare_close_done_ = true;
-  edit_gestures_.detach();
-  data_gestures_.detach();
-  scene_gestures_.detach();
-  scene3d_.abandon_mesh();
-  scene3d_stereo_.release();
+  session_.prepare_close();
   if (ui_) {
     ui_->prepare_chrome_close();
   }
@@ -140,7 +152,7 @@ ui::views::MapViewport* Browser::map_scene_viewport() const {
 }
 
 content::ViewHost* Browser::edit_view_host() const {
-  return edit_host_.get();
+  return session_.edit_host();
 }
 
 void Browser::refit_active_view() {
@@ -163,14 +175,11 @@ void Browser::OnExtentChanged(uint32_t /*view_id*/, const content::Extent2& e) {
   if (syncing_extent_ || !extent_nonempty(e)) {
     return;
   }
-  int w = 800;
-  int h = 600;
-  if (ui_) {
-    ui_->active_view_size(&w, &h);
-  }
+  // 2D ViewFrame is owned by shell pan/wheel navigation. Applying remote
+  // ExtentChanged here races in-flight push_shared_extent echoes and undoes
+  // cursor zoom (self-test exit 47). Orbit still tracks the shared extent.
   syncing_extent_ = true;
-  view_frame_.apply_world_extent(e, w, h);
-  orbit_.apply_world_extent(e);
+  session_.orbit_frame().apply_world_extent(e);
   syncing_extent_ = false;
   if (ui_) {
     refresh_scale();

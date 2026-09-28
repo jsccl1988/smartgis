@@ -8,9 +8,9 @@
 #include "gis/gis_export.h"
 #include <vector>
 
-#include "legacy/core/bas_struct.h"
+#include "gis/model/envelope.h"
 #include "gis/kernel/geo/mesh/matrix2d.h"
-#include "base/carto/envelope.h"
+#include "legacy/core/bas_struct.h"
 #include "ogr_geometry.h"
 
 namespace geo {
@@ -33,7 +33,7 @@ enum SpatialRelation {
 // Cutover aliases (old type names still appear in leftover call sites).
 using SmtSpatialRs = SpatialRelation;
 
-inline void copy_envelope(const OGRGeometry& geom, base::Envelope* envelope) {
+inline void copy_envelope(const OGRGeometry& geom, gis::Envelope* envelope) {
   if (envelope == nullptr) {
     return;
   }
@@ -58,7 +58,7 @@ class GIS_EXPORT Grid {
   Grid* clone() const;
   void clear();
   bool is_empty() const;
-  void get_envelope(base::Envelope* psEnvelope) const;
+  void get_envelope(gis::Envelope* psEnvelope) const;
 
   void set_size(int nRow, int nCol);
   void resize(int nRow, int nCol);
@@ -95,7 +95,7 @@ class GIS_EXPORT Tin {
   Tin* clone() const;
   void clear();
   bool is_empty() const;
-  void get_envelope(base::Envelope* psEnvelope) const;
+  void get_envelope(gis::Envelope* psEnvelope) const;
   void get_envelope(OGREnvelope3D* env) const;
 
   OGRPoint get_point(int index) const;

@@ -1,0 +1,27 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Compiled into //src/gis:gis. Public product API remains plugin::
+# (thin forwarders under plugin/runtime/processing).
+source_set("analysis_sources") {
+  sources = [
+    "ops/ops_runner.cc",
+    "ops/ops_runner.h",
+  ]
+  include_dirs += [ "//src" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+  public_deps = [
+    "//third_party:gdal",
+    "//third_party:rapidjson",
+  ]
+  deps = [ "//src/base:base" ]
+}
+
+group("analysis") {
+  public_deps = [ "//src/gis:gis" ]
+}

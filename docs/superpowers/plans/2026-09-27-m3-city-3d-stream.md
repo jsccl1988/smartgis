@@ -27,7 +27,7 @@ All rights reserved.
 
 **MUST NOT edit:**
 - `src/app/views/main.cc`、`browser_view.*`、`map_scene.*`
-- `src/plugin/processing/**`、`src/ui/views/gis/processing*`
+- `src/plugin/processing/**`、`src/ui/gis/processing*`
 - `src/gis/model/edit/**`、`src/content/**`（除只读）
 - M2/M4 计划文件
 

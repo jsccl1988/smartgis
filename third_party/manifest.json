@@ -336,6 +336,58 @@
       "git_ref": "v2.4.2",
       "install_skip": true,
       "note": "CLIUtils/CLI11 header-only command-line parser (BSD-3). Sources in .src/CLI11; thin GN at third_party/CLI11. Used by SmartGisViews process entry."
+    },
+    {
+      "name": "rapidjson",
+      "git_url": "http://localhost:3000/ccl/rapidjson.git",
+      "git_url_fallbacks": [
+        "https://github.com/Tencent/rapidjson.git"
+      ],
+      "git_ref": "v1.1.0",
+      "install_skip": true,
+      "note": "Tencent/rapidjson header-only (MIT). Product JSON parse/write only — no homemade json_mini. Sources in .src/rapidjson; thin GN //third_party/rapidjson."
+    },
+    {
+      "name": "concurrentqueue",
+      "git_url": "http://localhost:3000/ccl/concurrentqueue.git",
+      "git_url_fallbacks": [
+        "https://github.com/cameron314/concurrentqueue.git"
+      ],
+      "git_ref": "v1.0.4",
+      "install_skip": true,
+      "note": "moodycamel concurrentqueue header-only (BSD). Sources in .src/concurrentqueue; include layout third_party/concurrentqueue/include/concurrentqueue/moodycamel/. Thin GN //third_party:concurrentqueue. Used by base/concurrency/queue.h PushOnlyQueue."
+    },
+    {
+      "name": "pugixml",
+      "git_url": "http://localhost:3000/ccl/pugixml.git",
+      "git_url_fallbacks": [
+        "https://github.com/zeux/pugixml.git"
+      ],
+      "git_ref": "v1.14",
+      "install_skip": true,
+      "note": "zeux/pugixml (MIT). Replaces vendored TinyXML under src/legacy/xml. Sources in .src/pugixml; thin GN //third_party/pugixml compiles src/pugixml.cpp."
+    },
+    {
+      "name": "yoga",
+      "git_url": "http://localhost:3000/ccl/yoga.git",
+      "git_url_fallbacks": [
+        "https://github.com/facebook/yoga.git"
+      ],
+      "git_ref": "v3.2.1",
+      "install_skip": true,
+      "note": "facebook/yoga W3C Flexbox (MIT). Sources in .src/yoga; thin GN //third_party/yoga compiles yoga/*.cpp for Views MarkupLayout."
+    },
+    {
+      "name": "protobuf",
+      "git_url": "http://localhost:3000/ccl/protobuf.git",
+      "git_url_fallbacks": [
+        "https://github.com/protocolbuffers/protobuf.git"
+      ],
+      "git_ref": "v25.3",
+      "build_system": "cmake",
+      "install_skip": true,
+      "skip_fetch_all": true,
+      "note": "Official protobuf C++ (BSD-3). Policy allows product + future IPC; this pin is opt-in (skip_fetch_all). Enable fetch + cmake install when MVT or a proto consumer lands. Thin GN //third_party/protobuf when .install headers exist."
     }
   ]
 }

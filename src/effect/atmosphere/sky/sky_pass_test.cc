@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <memory>
 
+#include "effect/atmosphere/sky/constants.h"
 #include "render/rhi/rhi.h"
 
 namespace {
@@ -80,9 +81,11 @@ int main() {
   expect(stub != nullptr, "stub list");
   if (stub) {
     expect(stub->last_pipeline == sky.pipeline() && sky.pipeline() != nullptr,
-           "sky solid pipeline");
-    const auto* color = stub->constant_at(1);
-    expect(color != nullptr && color->byte_size == 16, "sky color slot 1");
+           "sky HLSL pipeline");
+    const auto* sky_cb = stub->constant_at(1);
+    expect(sky_cb != nullptr &&
+               sky_cb->byte_size == sizeof(effect::atmosphere::SkyConstants),
+           "sky SkyCB slot 1");
     expect(stub->draw_indexed_calls >= 1u, "sky drew indexed");
   }
 

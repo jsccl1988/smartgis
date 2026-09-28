@@ -14,8 +14,12 @@
 #include "plugin/product/orthogrid/detail/boundary_solve.h"
 #include "plugin/runtime/host/operation_result.h"
 #include "tool/command/command.h"
-#include "ui/views/dialogs/shell/file_picker.h"
-#include "ui/views/dialogs/shell/message_box.h"
+#include "ui/views/dialogs/file_picker.h"
+#include "ui/views/dialogs/message_box.h"
+
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 namespace plugin {
 namespace {
@@ -94,17 +98,16 @@ bool json_get_string(std::string_view json,
   if (!out || !key || json.empty()) {
     return false;
   }
-  const std::string needle = std::string("\"") + key + "\":\"";
-  const size_t pos = json.find(needle);
-  if (pos == std::string_view::npos) {
+  rapidjson::Document doc;
+  doc.Parse(json.data(), static_cast<rapidjson::SizeType>(json.size()));
+  if (doc.HasParseError() || !doc.IsObject()) {
     return false;
   }
-  const size_t start = pos + needle.size();
-  const size_t end = json.find('"', start);
-  if (end == std::string_view::npos || end < start) {
+  const auto it = doc.FindMember(key);
+  if (it == doc.MemberEnd() || !it->value.IsString()) {
     return false;
   }
-  *out = std::string(json.substr(start, end - start));
+  *out = std::string(it->value.GetString(), it->value.GetStringLength());
   return !out->empty();
 }
 
@@ -182,8 +185,15 @@ bool handle_load_boundary(content::PluginHost* host, const tool::CommandArgs&) {
   if (!picked.accepted || picked.path.empty()) {
     return false;
   }
-  const std::string json = std::string("{\"path\":\"") + picked.path + "\"}";
-  return host->run_processing("baogrid.create_orth_grid", json);
+  const std::string path_u8 = picked.path;
+  rapidjson::StringBuffer buf;
+  rapidjson::Writer<rapidjson::StringBuffer> w(buf);
+  w.StartObject();
+  w.Key("path");
+  w.String(path_u8.c_str(), static_cast<rapidjson::SizeType>(path_u8.size()));
+  w.EndObject();
+  return host->run_processing("baogrid.create_orth_grid",
+                              std::string(buf.GetString(), buf.GetSize()));
 }
 
 // Load gridbnd and solve Dirichlet Laplace on the file's boundary nodes.

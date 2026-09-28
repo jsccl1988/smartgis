@@ -67,6 +67,23 @@ void note_present_qpc(std::uint64_t ticks) {
 #endif
 }
 
+void note_begin_frame_qpc(std::uint64_t qpc_ticks) {
+#if !defined(NDEBUG)
+  g_counters.begin_frame_qpc = qpc_ticks;
+  ++g_counters.begin_frame_count;
+#else
+  (void)qpc_ticks;
+#endif
+}
+
+void note_begin_frame_to_present_qpc(std::uint64_t ticks) {
+#if !defined(NDEBUG)
+  g_counters.begin_frame_to_present_qpc += ticks;
+#else
+  (void)ticks;
+#endif
+}
+
 void note_commit() {
 #if !defined(NDEBUG)
   ++g_counters.commit_count;

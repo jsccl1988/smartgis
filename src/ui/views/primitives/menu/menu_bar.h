@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_PRIMITIVES_MENU_MENU_BAR_H_
 #define UI_VIEWS_PRIMITIVES_MENU_MENU_BAR_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <functional>
 #include <string>
 #include <vector>
@@ -18,7 +18,7 @@ namespace views {
 // Top shell strip of utf8 labels. add_item runs a callback. add_menu stores
 // child rows and opens show_context_menu under that top item when activated.
 // Alt focuses the bar; Left/Right moves hover.
-class UI_VIEWS_EXPORT MenuBar : public View {
+class UI_EXPORT MenuBar : public View {
  public:
   using Invoke = std::function<void()>;
 
@@ -41,6 +41,7 @@ class UI_VIEWS_EXPORT MenuBar : public View {
   bool on_key_event(const KeyEvent& event) override;
   void on_device_scale_factor_changed(float old_scale,
                                      float new_scale) override;
+  std::string_view paint_role() const override;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;

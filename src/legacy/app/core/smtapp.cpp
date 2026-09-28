@@ -5,14 +5,14 @@
 #include <string>
 #include <vector>
 
-#include "base/carto/stylemanager.h"
+#include "legacy/carto/stylemanager.h"
 #include "base/core/log.h"
 #include "base/files/read_file.h"
 #include "base/util/plugin.h"
 #include "content/public/map_bootstrap.h"
 #include "gdal_priv.h"
-#include "gis/datasource/gdal/gdal_driver.h"
-#include "gis/datasource/mgr/datasource_mgr.h"
+#include "gis/datasource/provider/impl/gdal/gdal_driver.h"
+#include "legacy/datasource/mgr/datasource_mgr.h"
 #include "legacy/core/api.h"
 #include "legacy/core/core_exception.h"
 #include "legacy/core/listenermanager.h"

@@ -1,0 +1,28 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Process-wide log ring buffer for Debug Console / Agent.
+# Implementation lives in base.dll (one sink across content / ui_views / gis).
+
+import("//testing/test.gni")
+
+source_set("log") {
+  sources = [ "log_sink.h" ]
+  public_configs = [ "//src/base:foundation_config" ]
+}
+
+source_set("log_sources") {
+  sources = [ "log_sink.cc" ]
+  defines = [ "BASE_EXPORTS" ]
+  public_deps = [ ":log" ]
+  public_configs = [ "//src/base:foundation_config" ]
+}
+
+test("log_sink_test") {
+  output_name = "log_sink_test"
+  sources = [ "log_sink_test.cc" ]
+  deps = [
+    ":log",
+    "//src/base:base",
+  ]
+}

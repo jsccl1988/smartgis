@@ -1,5 +1,5 @@
 ---
-description: GN/Ninja build output must be out/ at repo root only
+description: GN/Ninja build output uses out/Debug and out/Release gen roots
 alwaysApply: true
 ---
 
@@ -10,17 +10,27 @@ All rights reserved.
 
 # Build output directory
 
-- **Only** use repository root **`out/`** as the GN/Ninja output directory (`out/build.ninja`, binaries under `out/`).
-- **Do not** use **`out/Default`** or any other subdirectory of `out/` as the gen root — not for docs, scripts, or examples.
-- Use repo-root **`build.bat`** / **`build.bat te`**. Resolve built binaries under **`$REPO_ROOT/out/`** only.
-- **Third-party CMake install prefix** is **`out/third_party`**. This is **not** mogu’s `third_party/.install`. Do not invent a second install root.
-- Do not use `vs2008/SmartGIS.sln` as a build entry. Intermediates for leftover sln tools stay out of `out/`.
+- GN/Ninja **gen roots** are **`out/Debug`** (`is_debug=true`) and **`out/Release`** (`is_debug=false`). Binaries live under those dirs (`out/Debug/build.ninja`, `out/Release/SmartGisViews.exe`, …).
+- **Do not** use bare **`out/`** as a gen root. **Do not** use **`out/Default`**.
+- Default **`build.bat`** builds **both** configs. Prefer a single config when iterating: `build.bat debug …` / `build.bat release …`.
+- Shared (not a gen root):
+  - `out/environment.x64.x64` (copied into each config dir for `ninja -t msvc`)
+  - `out/third_party` ? `third_party/.install` junction
+  - **`out/data/`** — sample maps / DEM / AM terrain (GN `//testing/data:china_map_samples` writes `$root_out_dir/../data`)
+  - **`out/ui/`** — Views markup `.ui.xml` / `.ui.css` (GN `//src/ui/views:markup_resources` writes `$root_out_dir/../ui`)
+- Logs: `out/Debug/build.log`, `out/Release/build.log`.
+- Resolve product/test binaries under **`out/Debug/`** (default for `te` / `e2e` runners) or **`out/Release/`**.
+- Third-party CMake install prefix remains **`out/third_party`** (junction to `.install`). Do not invent a second install root.
+- Do not use `vs2008/SmartGIS.sln` as a build entry.
 
 ```bat
-gn gen out --root=./ --args="is_debug=true is_build_third_party=false"
-ninja -C out all
+build.bat
+build.bat debug
+build.bat release te
+gn gen out/Debug --root=./ --args="is_debug=true is_build_third_party=false"
+ninja -C out/Debug all
 ```
 
 ## Agent compile
 
-Agents **may** run `build.bat`, `gn`, `ninja`, and `out/*.exe` when fixing or verifying builds/tests. Prefer repo-root **`build.bat`**. See **`.cursor/rules/build/agent-may-build.mdc`**. Do not invent `third_party/.install` or a second GN out dir; do not use `SmartGIS.sln` / MSBuild as the fix loop.
+Agents **may** run `build.bat`, `gn`, `ninja`, and `out/Debug|Release/*.exe` when fixing or verifying builds/tests. Prefer repo-root **`build.bat`** (use `build.bat debug …` for a faster loop). See **`.cursor/rules/build/agent-may-build.mdc`**. Do not invent `third_party/.install` as a gen root; do not use `SmartGIS.sln` / MSBuild as the fix loop.

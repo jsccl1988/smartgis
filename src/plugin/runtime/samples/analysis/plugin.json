@@ -1,0 +1,22 @@
+{
+  "id": "smartgis.sample_analysis",
+  "name": "Sample Analysis",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "python",
+  "author": "The Mogu Authors",
+  "description": "Sample kind=python analysis plugin (dialog + flood/path processing ceiling stubs)",
+  "entry": "plugin.py",
+  "contributes": {
+    "commands": [
+      {"id": "sample.analysis.open", "title": "Sample Analysis", "menu": "tools"}
+    ],
+    "dialogs": [
+      {"id": "sample.analysis.dlg", "title": "Sample Analysis"}
+    ],
+    "processing": [
+      {"id": "sample.flood_fill", "title": "Flood fill (stub)"},
+      {"id": "sample.cost_path", "title": "Cost path (stub)"}
+    ]
+  }
+}

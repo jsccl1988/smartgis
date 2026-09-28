@@ -1,6 +1,6 @@
 #include "legacy/tool/group/base/basetool.h"
 
-#include "base/carto/style_api.h"
+#include "legacy/carto/style_api.h"
 #include "legacy/sys/sysmanager.h"
 #include "legacy/tool/group/factory/grouptoolfactory.h"
 

@@ -49,8 +49,17 @@ void Splitter::set_collapsed(bool collapsed) {
     saved_primary_ = primary_extent_;
   } else if (saved_primary_ > 0) {
     primary_extent_ = saved_primary_;
+  } else {
+    // Collapsed before the first real layout â€?re-seed from preferred sizes.
+    split_seeded_ = false;
   }
   collapsed_ = collapsed;
+  layout();
+  schedule_paint();
+}
+
+void Splitter::reseed() {
+  split_seeded_ = false;
   layout();
   schedule_paint();
 }
@@ -86,8 +95,12 @@ void Splitter::seed_split_if_needed() {
   const int inner = std::max(0, main_extent() - kBarPx);
   fixed_secondary_px_ = 0;
   if (pa <= 0 && pb <= 0) {
-    primary_extent_ = inner / 2;
-    resize_policy_ = ResizePolicy::kProportional;
+    // Both flex / hidden: primary keeps the work area; secondary stays at 0
+    // until preferred size or a user drag grows it (Diagnostic Tools starts
+    // at preferred 0 â€?must not seed a 50/50 split that starves the map).
+    primary_extent_ = inner;
+    fixed_secondary_px_ = 0;
+    resize_policy_ = ResizePolicy::kSecondaryFixed;
   } else if (pa <= 0) {
     // BrowserView pattern: flexible map/work pane + fixed ambox/inspector.
     primary_extent_ = inner - pb;
@@ -243,5 +256,9 @@ void Splitter::paint_self(ui::gfx::Canvas* canvas) {
   canvas->fill_rect(bar.x, bar.y, bar.width, bar.height, fill);
 }
 
+
+std::string_view Splitter::paint_role() const {
+  return "splitter";
+}
 }  // namespace views
 }  // namespace ui

@@ -13,16 +13,10 @@
 #endif
 #include <windows.h>
 
-#include "app/views/camera/orbit_frame.h"
-#include "app/views/camera/view_frame.h"
-#include "app/views/camera/view_navigation.h"
-#include "app/views/document/map_scene.h"
-#include "app/views/input/map_hwnd_gestures.h"
-#include "app/views/present/host/blit_frame_cache.h"
-#include "app/views/present/map2d/map2d_presenter.h"
-#include "app/views/present/scene3d/scene3d_presenter.h"
-#include "app/views/present/scene3d/session/scene3d_stereo_session.h"
 #include "app/views/shell/browser/browser_ui_delegate.h"
+#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/map_session.h"
+#include "content/browser/present/scene3d/policy/scene3d_rhi_session.h"
 #include "content/public/event_bus.h"
 #include "content/public/map_contents_observer.h"
 #include "content/public/map_types.h"
@@ -48,10 +42,31 @@ class View;
 
 namespace app {
 
+using content::MapScene;
+using content::ViewFrame;
+using content::OrbitFrame;
+using content::ViewNavigation;
+using content::ViewBookmark;
+using content::Map2dPresenter;
+using content::Scene3dPresenter;
+using content::Scene3dStereoSession;
+using content::BlitFrameCache;
+using content::MapHwndGestures;
+using content::format_view_scale;
+using content::kChinaLonLatExtent;
+using content::kScene3dDefaultYaw;
+using content::Scene3dEngine;
+using content::prefer_scene3d_flycube;
+using content::prefer_scene3d_gdi;
+using content::prefer_scene3d_stereo_gl;
+using content::scene3d_engine;
+using content::set_scene3d_engine;
+using content::extent_looks_like_china;
+
 class PluginShell;
 
-// Process-root controller for SmartGisViews: owns the map session and
-// presenters. Chrome is owned via BrowserUiDelegate (BrowserView).
+// Chrome controller: owns PluginShell + BrowserUiDelegate. Map document /
+// camera / present / gestures live on content::MapSession (WebContents-ish).
 class Browser : public content::MapContentsObserver {
  public:
   Browser();
@@ -70,6 +85,9 @@ class Browser : public content::MapContentsObserver {
   BrowserUiDelegate* ui() { return ui_.get(); }
   const BrowserUiDelegate* ui() const { return ui_.get(); }
 
+  content::MapSession& session() { return session_; }
+  const content::MapSession& session() const { return session_; }
+
   // UI forwards (self-test / showcase).
   HWND hwnd() const;
   ui::views::View* contents_view() const;
@@ -84,28 +102,44 @@ class Browser : public content::MapContentsObserver {
   ui::views::MapViewport* map_scene_viewport() const;
   content::ViewHost* edit_view_host() const;
 
-  MapScene* document() { return &document_; }
-  const MapScene* document() const { return &document_; }
-  Scene3dPresenter* scene3d() { return &scene3d_; }
-  const Scene3dPresenter* scene3d() const { return &scene3d_; }
-  ViewFrame* view_frame() { return &view_frame_; }
-  const ViewFrame* view_frame() const { return &view_frame_; }
-  OrbitFrame* orbit_frame() { return &orbit_; }
-  const OrbitFrame* orbit_frame() const { return &orbit_; }
-  Map2dPresenter* map2d() { return &map2d_; }
-  const Map2dPresenter* map2d() const { return &map2d_; }
-  Scene3dStereoSession* scene3d_stereo() { return &scene3d_stereo_; }
-  BlitFrameCache* blit() { return &blit_; }
-  ViewNavigation* navigation() { return &navigation_; }
-  const ViewNavigation* navigation() const { return &navigation_; }
-  content::MapContents* map_session() { return map_session_.get(); }
+  content::MapScene* document() { return &session_.document(); }
+  const content::MapScene* document() const { return &session_.document(); }
+  content::Scene3dPresenter* scene3d() { return &session_.scene3d(); }
+  const content::Scene3dPresenter* scene3d() const {
+    return &session_.scene3d();
+  }
+  content::ViewFrame* view_frame() { return &session_.view_frame(); }
+  const content::ViewFrame* view_frame() const {
+    return &session_.view_frame();
+  }
+  content::OrbitFrame* orbit_frame() { return &session_.orbit_frame(); }
+  const content::OrbitFrame* orbit_frame() const {
+    return &session_.orbit_frame();
+  }
+  content::Map2dPresenter* map2d() { return &session_.map2d(); }
+  const content::Map2dPresenter* map2d() const { return &session_.map2d(); }
+  content::Scene3dStereoSession* scene3d_stereo() {
+    return &session_.scene3d_stereo();
+  }
+  content::BlitFrameCache* blit() { return &session_.blit(); }
+  content::ViewNavigation* navigation() { return &session_.navigation(); }
+  const content::ViewNavigation* navigation() const {
+    return &session_.navigation();
+  }
+  content::MapContents* map_session() { return session_.map_contents(); }
   PluginShell* plugins() { return plugins_.get(); }
-  content::ViewHost* edit_host() { return edit_host_.get(); }
-  content::ViewHost* data_host() { return data_host_.get(); }
-  content::ViewHost* scene_host() { return scene_host_.get(); }
-  MapHwndGestures* edit_gestures() { return &edit_gestures_; }
-  MapHwndGestures* data_gestures() { return &data_gestures_; }
-  MapHwndGestures* scene_gestures() { return &scene_gestures_; }
+  content::ViewHost* edit_host() { return session_.edit_host(); }
+  content::ViewHost* data_host() { return session_.data_host(); }
+  content::ViewHost* scene_host() { return session_.scene_host(); }
+  content::MapHwndGestures* edit_gestures() {
+    return &session_.edit_gestures();
+  }
+  content::MapHwndGestures* data_gestures() {
+    return &session_.data_gestures();
+  }
+  content::MapHwndGestures* scene_gestures() {
+    return &session_.scene_gestures();
+  }
 
   bool syncing_extent() const { return syncing_extent_; }
   void set_syncing_extent(bool v) { syncing_extent_ = v; }
@@ -153,32 +187,17 @@ class Browser : public content::MapContentsObserver {
   void handle_gesture_pan(int dx_px, int dy_px);
   void pull_orbit_extent();
 
-  // MapContentsObserver — extent sync into ViewFrame / OrbitFrame.
+  // MapContentsObserver ? extent sync into ViewFrame / OrbitFrame.
   void OnExtentChanged(uint32_t view_id, const content::Extent2& e) override;
 
  private:
-  // Session / present / input — owned here, not by chrome.
-  MapScene document_;
-  ViewFrame view_frame_;
-  OrbitFrame orbit_;
-  Map2dPresenter map2d_;
-  Scene3dPresenter scene3d_;
-  Scene3dStereoSession scene3d_stereo_;
-  std::unique_ptr<content::ViewHost> edit_host_;
-  std::unique_ptr<content::ViewHost> data_host_;
-  std::unique_ptr<content::ViewHost> scene_host_;
-  std::unique_ptr<content::MapContents> map_session_;
+  content::MapSession session_;
   std::unique_ptr<PluginShell> plugins_;
 
   content::EventBus::Connection selection_sub_;
   content::EventBus::Connection edit_sub_;
   content::EventBus::Connection extent_sub_;
 
-  MapHwndGestures edit_gestures_;
-  MapHwndGestures data_gestures_;
-  MapHwndGestures scene_gestures_;
-  BlitFrameCache blit_;
-  ViewNavigation navigation_;
   content::Extent2 extent_watch_{};
   bool navigation_baselined_ = false;
   bool extent_watch_open_ = false;

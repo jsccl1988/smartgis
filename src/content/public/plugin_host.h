@@ -54,6 +54,12 @@ using ProcessingFactory =
 // Header-only seam so content does not GN-dep plugin::ProcessingPool.
 using ProcessingEnqueue = std::function<bool(
     std::string processing_id, std::string args_json, ProcessingFactory factory)>;
+// Content must not #include ui/views. App shell installs painters via this
+// callback (typically PainterRegistry::register_painter_for_plugin).
+using UiPainterInstaller = std::function<void()>;
+// App shell sets this so withdraw can clear Views painters without a content
+// → ui/views include edge.
+using UiWithdrawHook = std::function<void(std::string_view plugin_id)>;
 
 class CONTENT_EXPORT PluginHost {
  public:
@@ -79,6 +85,10 @@ class CONTENT_EXPORT PluginHost {
   virtual bool contribute_processing(std::string_view plugin_id,
                                      const ProcessingContribution& proc,
                                      ProcessingFactory factory) = 0;
+  // Runs |install| when args are valid and records ownership for withdraw.
+  virtual bool contribute_painter(std::string_view plugin_id,
+                                  std::string_view role,
+                                  UiPainterInstaller install) = 0;
 
   virtual bool execute(std::string_view command_id,
                        const tool::CommandArgs& args) = 0;
@@ -87,19 +97,22 @@ class CONTENT_EXPORT PluginHost {
                               std::string_view args_json) = 0;
 
   virtual void withdraw(std::string_view plugin_id) = 0;
+  virtual void set_ui_withdraw_hook(UiWithdrawHook hook) = 0;
+
+  virtual plugin::ProcessingPool* processing_pool() = 0;
+  virtual void set_processing_pool(plugin::ProcessingPool* pool) = 0;
+  virtual void set_processing_enqueue(ProcessingEnqueue fn) = 0;
 
   // Commands still owned after contribute_command. Withdrawn ids are omitted.
   // |title| is the string passed to contribute_command (may be empty).
+  // Appended after processing_* so cross-DLL PluginHost subclasses keep
+  // withdraw / pool slots stable — never insert above.
   virtual void for_each_command(
       const std::function<void(std::string_view plugin_id,
                                std::string_view command_id,
                                std::string_view title)>& fn) const {
     (void)fn;
   }
-
-  virtual plugin::ProcessingPool* processing_pool() = 0;
-  virtual void set_processing_pool(plugin::ProcessingPool* pool) = 0;
-  virtual void set_processing_enqueue(ProcessingEnqueue fn) = 0;
 };
 
 CONTENT_EXPORT PluginHost* create_plugin_host(tool::CommandCatalog* catalog,

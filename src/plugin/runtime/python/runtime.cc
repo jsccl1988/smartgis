@@ -252,6 +252,109 @@ bool PythonRuntime::is_ready() const {
   return ready_;
 }
 
+std::string PythonRuntime::eval(std::string_view code) {
+#if defined(SMT_HAS_PYTHON)
+  if (!ready_ || !Py_IsInitialized()) {
+    return "error: python not ready";
+  }
+  if (code.empty()) {
+    return {};
+  }
+
+  PyGILState_STATE gil = PyGILState_Ensure();
+  PyObject* main_mod = PyImport_AddModule("__main__");
+  if (!main_mod) {
+    PyGILState_Release(gil);
+    return "error: no __main__";
+  }
+  PyObject* globals = PyModule_GetDict(main_mod);
+  PyObject* code_obj =
+      PyUnicode_FromStringAndSize(code.data(), static_cast<Py_ssize_t>(code.size()));
+  if (!code_obj) {
+    PyErr_Clear();
+    PyGILState_Release(gil);
+    return "error: bad code string";
+  }
+  if (PyDict_SetItemString(globals, "_sg_code", code_obj) < 0) {
+    Py_DECREF(code_obj);
+    PyErr_Clear();
+    PyGILState_Release(gil);
+    return "error: cannot set _sg_code";
+  }
+  Py_DECREF(code_obj);
+
+  static const char kHelper[] =
+      "import io, sys\n"
+      "_buf = io.StringIO()\n"
+      "_old = sys.stdout\n"
+      "sys.stdout = _buf\n"
+      "_err = None\n"
+      "_val = None\n"
+      "try:\n"
+      "    try:\n"
+      "        _val = eval(_sg_code, globals())\n"
+      "    except SyntaxError:\n"
+      "        exec(_sg_code, globals())\n"
+      "        _val = None\n"
+      "except Exception as e:\n"
+      "    _err = e\n"
+      "finally:\n"
+      "    sys.stdout = _old\n"
+      "_sg_out = _buf.getvalue()\n"
+      "if _err is not None:\n"
+      "    _sg_out += (('' if not _sg_out else '\\n') + "
+      "f'{type(_err).__name__}: {_err}')\n"
+      "elif _val is not None:\n"
+      "    _sg_out += (('' if not _sg_out else '\\n') + repr(_val))\n";
+
+  PyObject* run = PyRun_String(kHelper, Py_file_input, globals, globals);
+  std::string out;
+  if (!run) {
+    if (PyErr_Occurred()) {
+      PyObject *ptype = nullptr, *pval = nullptr, *ptb = nullptr;
+      PyErr_Fetch(&ptype, &pval, &ptb);
+      PyErr_NormalizeException(&ptype, &pval, &ptb);
+      PyObject* s = pval ? PyObject_Str(pval) : nullptr;
+      const char* msg = s ? PyUnicode_AsUTF8(s) : "python error";
+      out = std::string("error: ") + (msg ? msg : "python error");
+      Py_XDECREF(s);
+      Py_XDECREF(ptype);
+      Py_XDECREF(pval);
+      Py_XDECREF(ptb);
+    } else {
+      out = "error: eval failed";
+    }
+  } else {
+    Py_DECREF(run);
+    PyObject* out_obj = PyDict_GetItemString(globals, "_sg_out");
+    if (out_obj && PyUnicode_Check(out_obj)) {
+      const char* utf8 = PyUnicode_AsUTF8(out_obj);
+      if (utf8) {
+        out = utf8;
+      }
+    }
+  }
+  PyDict_DelItemString(globals, "_sg_code");
+  PyDict_DelItemString(globals, "_sg_out");
+  PyGILState_Release(gil);
+  return out;
+#else
+  (void)code;
+  return "error: python not compiled in";
+#endif
+}
+
+void PythonRuntime::bind_host(content::PluginHost* host) {
+#if defined(SMT_HAS_PYTHON)
+  if (!ready_ || !Py_IsInitialized()) {
+    return;
+  }
+  bind_python_host(host);
+#else
+  (void)host;
+#endif
+}
+
 void bind_registry_python(Registry* registry, PythonRuntime* runtime) {
   if (!registry || !runtime) {
     return;

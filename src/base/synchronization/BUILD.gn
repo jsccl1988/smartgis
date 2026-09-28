@@ -1,0 +1,23 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Header-only sync primitives (no base::mutex).
+
+config("synchronization_config") {
+  include_dirs += [ "//src" ]
+}
+
+source_set("synchronization") {
+  sources = [
+    "align.h",
+    "barrier.h",
+    "futex.h",
+    "future.h",
+    "latch.h",
+    "semaphore.h",
+    "spin_backoff.h",
+    "spin_lock.h",
+    "waiter.h",
+  ]
+  public_configs = [ ":synchronization_config" ]
+}

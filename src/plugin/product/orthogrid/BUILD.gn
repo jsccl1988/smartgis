@@ -4,11 +4,12 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-# Views commands + Eigen Laplace. The 2010 Orthogrid class lives in
-# //src/legacy/plugin/orthogrid:orthogrid_kernel so this target does not
-# pull the GIS/MFC graph.
-# This group only loads that target into the GN graph. orthogrid_views does
-# not depend on it.
+# Product package: commands.* + manifest/plugin.json + detail/ (Laplace).
+# Views registration stays in register_orthogrid; plugin.json is the declared
+# contract (PluginShell may load it later). The 2010 Orthogrid class lives in
+# //src/legacy/plugin/orthogrid:orthogrid_kernel so orthogrid_views does not
+# pull the GIS/MFC graph. legacy_orthogrid_kernel only loads that target into
+# the GN graph; orthogrid_views does not depend on it.
 group("legacy_orthogrid_kernel") {
   deps = [ "//src/legacy/plugin/orthogrid:orthogrid_kernel" ]
 }
@@ -31,6 +32,7 @@ source_set("orthogrid_views") {
     "//src/plugin/runtime/host:host",
     "//src/ui/views:views",
     "//third_party:eigen",
+    "//third_party:rapidjson",
   ]
 }
 
@@ -39,11 +41,11 @@ test("orthogrid_laplace_test") {
   sources = [
     "detail/boundary_solve.cc",
     "detail/laplace_solver.cc",
-    "detail/laplace_solver_test.cc",
+    "tests/laplace_solver_test.cc",
   ]
   include_dirs += [
     "//src",
-    "//src/plugin/product/orthogrid/detail",
+    "//src/plugin/product/orthogrid",
   ]
   deps = [ "//third_party:eigen" ]
 }

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="preview_sample">
+  <style src="preview_sample.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="title" text="UiDesigner sample"/>
+    <hbox id="row" class="row">
+      <button id="ok" text="OK"/>
+      <button id="cancel" text="Cancel"/>
+    </hbox>
+    <textfield id="note" text="edit me"/>
+  </vbox>
+</ui>

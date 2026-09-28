@@ -7,7 +7,7 @@
 // Tile raster: Style walk records solid and image quads. Does not present.
 // raster_tile_quads is the only entry display includes from this directory.
 
-#include "gpu/compositor/compositor_frame.h"
+#include "gpu/compositor/frame/frame.h"
 #include "gpu/frame_sink.h"
 
 namespace gpu {

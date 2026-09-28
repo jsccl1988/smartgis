@@ -1,0 +1,42 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# mogu-aligned Chrome Trace buffer + span_recorder (header-mostly).
+
+import("//testing/test.gni")
+
+# Trace types + macros. Method bodies compile into base.dll (see
+# process_trace_sources) so deque snapshots never run under other DLLs.
+source_set("trace") {
+  sources = [
+    "chrome_trace.h",
+    "detail/json_append.h",
+    "diagnostic_bootstrap.h",
+    "process_trace.h",
+    "span.h",
+    "span_recorder.h",
+    "trace.h",
+  ]
+  public_configs = [ "//src/base:foundation_config" ]
+  public_deps = [ "//third_party:rapidjson" ]
+}
+
+# Compiled into base.dll (BASE_EXPORTS). Not a standalone target for apps —
+# pull //src/base:base when calling process_trace() across module boundaries.
+source_set("process_trace_sources") {
+  sources = [
+    "diagnostic_bootstrap.cc",
+    "process_trace.cc",
+    "trace.cc",
+  ]
+  defines = [ "BASE_EXPORTS" ]
+  public_deps = [ ":trace" ]
+  public_configs = [ "//src/base:foundation_config" ]
+}
+
+test("trace_test") {
+  output_name = "trace_test"
+  sources = [ "trace_test.cc" ]
+  # process_trace() lives in base.dll (BASE_EXPORT); headers alone are not enough.
+  deps = [ "//src/base:base" ]
+}

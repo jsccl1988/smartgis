@@ -1,0 +1,30 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Compiled into //src/gis:gis (dll_stem = gis).
+# Adapters over sdbd local/remote open; no deps on datasource/mgr.
+source_set("provider_sources") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+  sources = [
+    "local_sdbd_provider.cc",
+    "local_sdbd_provider.h",
+    "provider.h",
+    "provider_registry.cc",
+    "provider_registry.h",
+    "remote_sdbd_provider.cc",
+    "remote_sdbd_provider.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/gis/datasource/session:session_core",
+    "//src/gis/datasource/provider/impl/sdbd:sdbd_sources",
+    "//src/base:base",
+    "//third_party:gdal",
+  ]
+}

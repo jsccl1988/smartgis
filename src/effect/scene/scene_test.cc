@@ -208,7 +208,7 @@ int main() {
   render::programs::Light model_light{};
   expect(read_constant(model_stub, render::programs::kLightSlot, &model_light,
                        sizeof(model_light)) &&
-             model_light.ambient == 0.25f && model_light.intensity == 1.f,
+             model_light.ambient == 0.42f && model_light.intensity == 1.15f,
          "model light constant");
   expect(model_gpu.mesh_count() >= 1 &&
              model_gpu.mesh_at(0)->stride == 6 * sizeof(float),
@@ -649,7 +649,7 @@ int main() {
     expect(lit_stub->set_constants_calls >= 1, "lit paint constants");
     expect(read_constant(lit_stub, render::programs::kLightSlot, &lit_light,
                          sizeof(lit_light)) &&
-               lit_light.ambient == 0.25f,
+               lit_light.ambient == 0.42f,
            "lit paint light");
     expect(lit_gpu.mesh_count() >= 1, "lit paint mesh");
     const effect::scene::GpuScene::GpuMesh* lit_mesh = lit_gpu.mesh_at(0);

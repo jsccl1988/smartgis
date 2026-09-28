@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_PRIMITIVES_COLLECTION_TABLE_VIEW_H_
 #define UI_VIEWS_PRIMITIVES_COLLECTION_TABLE_VIEW_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <functional>
 #include <string>
 #include <vector>
@@ -15,7 +15,7 @@ namespace ui {
 namespace views {
 
 // Columnar preview table with an optional selected row.
-class UI_VIEWS_EXPORT TableView : public View {
+class UI_EXPORT TableView : public View {
  public:
   TableView();
   void set_columns(const std::vector<std::string>& cols);
@@ -44,6 +44,7 @@ class UI_VIEWS_EXPORT TableView : public View {
 
   // Data rows emitted by the last paint_self. Header is not included.
   int last_painted_row_count() const { return last_painted_rows_; }
+  std::string_view paint_role() const override;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;

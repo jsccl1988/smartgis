@@ -7,6 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted (user skipped remaining section gates; implement from this spec + the sibling plan)  
+**Updated:** 2026-09-28 — §product–Python P0–P3 landed + P4 skeleton; §gis analysis ownership; dual-runtime / smartgis.gis  
 **Scope:** one implementation plan, one cycle. Land a QGIS-shaped extension platform: host + contribution points, in-process Python, QGIS-style store, Views rewrite of leftover plugin dialogs, and processing isolation for algorithm workers only. Do not implement product C++ in this document.
 
 ## Goal
@@ -649,3 +650,274 @@ Plugin UI is in-process, like QGIS. The only isolation boundary is **algorithm w
 - Multi-interpreter Python, pip install into the embed, or third-party Python GIS stacks.
 - Plugin sandbox (seccomp / job object) for native code.
 - Renaming `content::MapSession` to `MapContents` globally (this spec adds `MapContents` as the plugin face only).
+
+---
+
+## §smartgis.gis bindings — phase 1（2026-09-28）
+
+**Status:** active  
+**Updated:** 2026-09-28  
+**Plan:** [`../plans/2026-09-28-gis-python-spatial-analysis.md`](../plans/2026-09-28-gis-python-spatial-analysis.md)  
+**Shell contract:** [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md) §GIS Python Console
+
+Extends **Python runtime and bindings** above. End-state module tree mirrors `src/gis` (`model`, `datasource`, `kernel`, `vista`, `present`). Phase 1 only:
+
+| Python | Role |
+| --- | --- |
+| `smartgis.gis.analysis.ops()` | Catalog of `native.*` processing ids |
+| `smartgis.gis.analysis.run(id, **params)` | Write active → `PluginHost::run_processing` → load result → refresh |
+| `smartgis.gis.analysis.buffer/clip/…` | Thin wrappers over `run` |
+| `PythonRuntime::eval` | Console / Agent in-process execution |
+| `GisConsoleBridge` | Map document write/load/refresh callbacks (no GIS headers in Agent) |
+
+Unbound submodules (`model`, `datasource`, …) may be absent or raise a clear `NotImplementedError` until later phases. No PyQt. Bindings stay under `src/plugin/runtime/python/`.
+
+---
+
+## §Python dual-runtime（embed + worker）（2026-09-28）
+
+**Status:** active  
+**Updated:** 2026-09-28  
+**Plan:** [`../plans/2026-09-28-gis-python-spatial-analysis.md`](../plans/2026-09-28-gis-python-spatial-analysis.md)  
+**Shell:** [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md) §GIS Python Console / §Diagnostic Tools  
+**Algorithm:** [`2026-09-13-algorithm-layer-oss-design.md`](2026-09-13-algorithm-layer-oss-design.md) §Python-facing analysis
+
+### Locked (brainstorming)
+
+| # | Choice |
+| --- | --- |
+| 1 | **Dual track (A):** in-process CPython embed **and** out-of-process Debug worker, in parallel — not B/C single-track. |
+| 2 | **One API surface:** package name `smartgis` + shared `.pyi`. Embed = native extension; worker = JSON-RPC thin client with the same method names where serializable. |
+| 3 | **Embed owns:** `kind=python` plugins, `contribute_dock` / dialog / command / processing, live `PluginHost` / Views widgets, default Console `:py` / bare-line GIS (`PythonRuntime::eval`). |
+| 4 | **Worker owns:** DAP / Pyright long `:run`, crash-isolated heavy scripts, optional scipy/networkx; talks to chrome only via `DebugAgent`. |
+| 5 | **Heavy spatial analysis** (flood, least-cost path): Python **orchestrates**; kernels land in `gis/analysis` then `plugin::` / `contribute_processing` — no Shapely / second GEOS. |
+| 6 | **Debug profile:** `smartgis.debug` binds `base::process_trace` / `set_tracing_enabled` so plugins register spans visible in Diagnostic Tools CPU tab. |
+| 7 | No second conda/venv per plugin; no Qt/PyQt; no per-plugin UI process. |
+
+### Capability map (product goals → seams)
+
+| Goal | Embed | Worker | Notes |
+| --- | --- | --- | --- |
+| Analysis panel in UI | `contribute_dock` / `contribute_dialog` + sample plugin | — | SpatialAnalysisPanel stays primary chrome; plugins add docks/dialogs |
+| Console Python syntax | `eval` default | DAP / long file | Bare lines + `:py` prefer embed when `py_eval` bound |
+| Pure-analysis scripting ceiling | `smartgis.gis.analysis` + `contribute_processing` | Same ids via Agent `cmd` / RPC | Catalog grows with `gis/analysis` |
+| Plugin ↔ Debug full surface | `smartgis.debug.profile_*` | `py.register` + Agent methods | Same Diagnostic Tools dock |
+| Flood / road optimal path | `analysis.run` / plugin processing | Heavy prep off chrome | Kernels later; API reserved |
+| Scene GIS 2D/3D objects | `smartgis.gis.scene.*` via shell bridge to `MapScene` | RPC mirrors | Same document; present mode Map/Data/3D |
+| Style / system config | `smartgis.gis.style.*` + `smartgis.ui.config` (ThemeService) | RPC mirrors | StyleDocument path + UI theme packs |
+
+### Runtime ownership
+
+```
+PluginShell
+  ├── plugin::PythonRuntime   (embed; one interpreter)
+  ├── content::PluginHost
+  └── GisConsoleBridge → Map document write/load/refresh
+
+DebugAgent
+  ├── host.py_eval → PythonRuntime::eval   (preferred)
+  └── OOP spawn / py_sock worker           (fallback + DAP)
+```
+
+### Python host contributions (embed)
+
+Beyond `contribute_command`, expose on `smartgis.Host`:
+
+- `contribute_dock(plugin_id, id, title, area, factory_callable)`
+- `contribute_dialog(plugin_id, id, title, factory_callable)`
+- `contribute_processing(plugin_id, id, title, factory_callable)` — factory `(host, args_json) -> bool`; must not touch Views
+
+### `smartgis.debug` (both tracks; embed native, worker RPC)
+
+| Symbol | Behavior |
+| --- | --- |
+| `debug.set_tracing(on: bool)` | `base::set_tracing_enabled` |
+| `debug.trace_event(name, cat)` | context manager → `ScopedTraceEvent` |
+| `debug.tracing_enabled()` | bool |
+
+### Flood / path (ceiling, phased)
+
+1. **API:** `smartgis.gis.analysis.run("native.cost_path" | "native.flood_fill", …)` once `gis/analysis` catalog entries exist; until then plugins may `contribute_processing` with clear `not implemented` / sample stub.  
+2. **Do not** vendor a hydrology engine in this slice.  
+3. Sample `kind=python` plugin may ship a **dialog** that collects DEM/network params and calls processing when available.
+
+### Scene + style + system config（2026-09-28 expand）
+
+**Status:** active  
+**Shell wiring:** `GisConsoleBridge` extended; set from `BrowserView` when Diagnostic Tools / Python init.
+
+Same `MapScene` backs Map (2D) and 3D tabs. Python does **not** include `MapScene` headers — string/callback bridge only (Agent stays free of GIS types).
+
+| Python | Behavior |
+| --- | --- |
+| `smartgis.gis.scene.layers()` | list of `{id,name,visible,active}` from `layer_descs` |
+| `smartgis.gis.scene.select_layer(id)` | `MapScene::select_layer` + refresh |
+| `smartgis.gis.scene.set_visible(id, on)` | `set_layer_visible` + refresh |
+| `smartgis.gis.scene.extent()` | `{min_x,min_y,max_x,max_y}` or None |
+| `smartgis.gis.scene.open(path)` / `write(path)` | `open_path` / `write_path` |
+| `smartgis.gis.scene.feature_count()` | int |
+| `smartgis.gis.scene.present_mode()` | `"map2d"` \| `"data"` \| `"scene3d"` |
+| `smartgis.gis.scene.set_present_mode(mode)` | Map tab strip index 0/1/2 |
+| `smartgis.gis.style.has_document()` | bool |
+| `smartgis.gis.style.load(path)` | `load_style_path` (`.style.json`) |
+| `smartgis.gis.style.clear()` | `clear_style_document` |
+| `smartgis.gis.style.summary()` | `{name,version,layers:[ids…]}` or None |
+| `smartgis.ui.config.themes()` | ThemeService packs `{id,label}` |
+| `smartgis.ui.config.theme_id()` / `set_theme(id)` | active UI theme + persist |
+
+**Non-goals this expand:** per-vertex 3D mesh editing API; full StyleDocument paint-key mutation from Python (load/replace file first); CEF/WinUI theme.
+
+### Non-goals (this §)
+
+- Unify embed and worker into one process.  
+- Full flood / network solver kernels.  
+- Shell auto-layout of every `contribute_dock` (register + open path first; chrome mount can follow).
+
+---
+
+## §product–Python division（L1 substrate / L2 seams / L3 orchestration）（2026-09-28）
+
+**Status:** active  
+**Updated:** 2026-09-28 — P0–P3 landed; P4 skeleton/policy + samples (industry_pack / product_orchestrate / analysis)  
+**Locked choice:** approach **C** — C++ capability substrate + Python product orchestration (not A: Python-only console; not B: rewrite all product business in Python).  
+**Related:** §Python dual-runtime above; [`../plans/2026-09-28-gis-python-spatial-analysis.md`](../plans/2026-09-28-gis-python-spatial-analysis.md); product trees under `src/plugin/product/`; sample template [`../../../src/plugin/runtime/samples/industry_pack/`](../../../src/plugin/runtime/samples/industry_pack/).
+
+### Goal
+
+Raise the ceiling for extending `src/plugin/product` without claiming that every product behavior can be a pure-Python reimplementation. Stable kernels and host widgets stay C++; product flow (commands, dialogs, docks, industry variants) prefers Python once L2 bindings are complete. Builtin C++ remains the reference / fallback implementation.
+
+### Three layers
+
+```
+L3  Product orchestration   — Python preferred (kind=python); builtin C++ as reference
+L2  Host seams              — C++ PluginHost + thin smartgis.* bindings (must be complete)
+L1  Capability substrate    — always C++; grow via stable processing / tool / widget ids
+```
+
+**One-liner:** Python does not implement kernels; it calls them. C++ does not accumulate product workflows; it exposes composable capabilities.
+
+### L1 — must stay C++ (ceiling grows with the catalog)
+
+| Capability | Contract shape | Notes |
+| --- | --- | --- |
+| TIN / heightmap / Delaunay | `dem.tin_from_xyz`, `dem.grid_from_heightmap` | Loaders + numeric mesh |
+| Orthogrid Laplace | `baogrid.create_orth_grid` / `orthogrid.create_orth_grid` | Solver in `product/orthogrid/detail` |
+| Projection transforms | `proj.*` processing (when registered) | PROJ / GDAL stack |
+| OGR / GEOS operators | `native.*` via `plugin::` → `gis/analysis/ops` | Kernels in `gis.dll`; no second GEOS / Shapely |
+| Surface / mesh write-back | `DemSurfaceWriter`-class host callbacks | Document consistency; no `SmtMap*` in Python |
+| 3D scene object writes | scene-device primitives | Point cloud / water / terrain / layer→3D |
+| Print preview canvas | `MapPreviewView` (+ export kernels) | Views/Skia composite control |
+| Boundary digitize | `tool` ids (e.g. `edit.append.linestring`) | Interaction state machine |
+
+Ids are the ABI. Do not change semantics of a published processing / tool / dialog id; add a new id instead.
+
+### L2 — C++ owned, Python must call (binding completeness = ceiling)
+
+Expose on embed `smartgis` (worker mirrors where serializable):
+
+| Seam | Status intent |
+| --- | --- |
+| `Host.contribute_command` | Landed |
+| `Host.contribute_dialog` / `contribute_dock` / `contribute_processing` | Required; designed in §Python dual-runtime, bind next |
+| `host.run_processing` / `open_dialog` / `tool.execute` | Required |
+| `smartgis.ui` file_picker / message_box | Required for product-parity orchestration |
+| `smartgis.gis.analysis` / `scene` / `style` | Phase-1 landed; grow catalog, not GIS headers |
+| `smartgis.tool.activate(tool_id)` | Required for orthogrid digitize bridge |
+| `smartgis.debug.profile_*` | Dual-runtime lock |
+
+**Rule:** any side-effect API that product C++ uses today must land as processing, tool, dialog id, or Host/GisConsoleBridge callback. No Python-only bypass into legacy map/scene types.
+
+### L3 — Python preferred (product shape replaceable)
+
+| Product module | Keep in C++ (L1 / widgets) | Move to Python when L2 ready |
+| --- | --- | --- |
+| `dem` | Loaders, processing, surface writer | Param dialogs, command wiring, validation copy |
+| `proj` | Transform kernels | Wizard / tabs, batch lists, messaging |
+| `print` | `MapPreviewView`, export kernels | Open preview, path pick, page options orchestration |
+| `orthogrid` | Laplace; optional `.gridbnd` IO | Arm boundary, activate digitize tool, assemble processing args, industry grid policy |
+| `model3d` | Scene-device write primitives | Menus, file pick, layer→3D step orchestration |
+
+Builtin `kind=builtin` plugins remain the **reference and performance fallback**. Same contribution ids may be supplied by a trusted `kind=python` package for orchestration; **do not** let Python redefine L1 processing semantics. Prefer: builtin fallback + Python industry packs for L3 only.
+
+### P4 path (pragmatic — not full builtin deletion)
+
+**Policy (landed 2026-09-28):** Industry packs are **`kind=python` L3** packages that orchestrate published L1 ids (`dem.*`, `native.*`, …) via `Host.contribute_command` → `host.run_processing`. Builtin C++ keeps **L1 kernels + reference dialogs/docks** until a surface is **explicitly withdrawn per plugin**. Full deletion of builtin UI is **out of scope**.
+
+| Deliverable | Status |
+| --- | --- |
+| Document this P4 path on the living § | **landed** 2026-09-28 |
+| Template sample `src/plugin/runtime/samples/industry_pack/` | **skeleton landed** 2026-09-28 |
+| Migrate all product modules to Python packs | **not started** (follow-on; per-plugin) |
+
+Template: contribute industry commands only; call `dem.tin_from_xyz` / `native.buffer` (and peers); state in README that builtin remains reference fallback.
+
+### Contract rules
+
+1. One capability → one stable id (`dem.tin_from_xyz` never changes meaning).
+2. Processing factories (C++ or Python) must not touch Views / dialogs.
+3. Document writes only through writer / EditSession seams — Python never includes `MapScene` / leftover map headers.
+4. Heavy work: L1 kernels; short scripts: embed; long / crash-prone: Debug worker (dual-runtime).
+5. Industry depth = Python plugin packages under store; do not fork `src/plugin/product` trees per customer.
+
+### Phased delivery
+
+| Phase | Deliverable | Ceiling unlocked | Progress (2026-09-28) |
+| --- | --- | --- | --- |
+| P0 | Bind `contribute_dialog` / `dock` / `processing` + file_picker / message_box | Real `kind=python` plugins, not command-only | **landed** |
+| P1 | dem / orthogrid kernels only via processing; one Python sample + keep builtin UI | Product orchestration convertible to Python | **landed** — `samples/product_orchestrate` + analysis sample |
+| P2 | `tool.activate` + baogrid digitize bridge | Interactive product flows in Python | **landed** — `smartgis.tool.activate` + shell `ActivateTool` wire |
+| P3 | Scene-device primitives + thin model3d bindings | 3D orchestration | **landed** — `Model3dSceneWriter` + `model3d.*` processing |
+| P4 | Builtin retreats to L1 + reference UI; industry packs default Python | Extension main path = Python | **skeleton / policy landed** — not full migration; see **P4 path** + `samples/industry_pack/` |
+
+### Non-goals (this §)
+
+- Rewriting TIN / Laplace / GEOS / PROJ kernels in Python.
+- Per-vertex mesh editing as a first-class Python API (may follow later under render / scene umbrellas).
+- Per-plugin conda / venv / pip into the embed.
+- Plugin UI in a child process.
+- Claiming `src/plugin/product` is fully replaceable by pure Python without L1/L2.
+- **Deleting all builtin product UI in P4** — reference dialogs stay until per-plugin withdrawal.
+
+### Rejected alternatives
+
+| Option | Why rejected |
+| --- | --- |
+| A — product stays C++-only; Python = console only | Too low a ceiling for store / industry packs |
+| B — move all product business into Python | UI, digitize, 3D, and write-back seams explode; duplicates L1 |
+
+---
+
+## §gis analysis ownership（2026-09-28）
+
+**Status:** active  
+**Updated:** 2026-09-28  
+**Related:** [`2026-09-13-algorithm-layer-oss-design.md`](2026-09-13-algorithm-layer-oss-design.md) §Python-facing analysis; [`../../build/src-layout.md`](../../build/src-layout.md)
+
+### Locked
+
+| # | Choice |
+| --- | --- |
+| 1 | Directory **`src/gis/analysis/`** (peer to `kernel` / `model`). |
+| 2 | Layout: `ops/` (native GeoJSON runners), `geometry/` / `raster/` (future typed objects; README skeleton this cycle). |
+| 3 | **Public product API** remains `plugin::BuiltinOpDesc` / `builtin_op_catalog` / `run_builtin_op` (declared under `plugin/runtime/processing`). |
+| 4 | Implementation is **`gis::detail`** in `gis.dll` (`GIS_EXPORT`); plugin `.cc` only forwards. |
+| 5 | Core algorithms and analysis objects do **not** land under `src/plugin/` going forward. Domain product plugins may orchestrate via processing ids. |
+| 6 | `gis/kernel/geo/ops` stays for low-level GEOS/OGR helpers; `analysis/ops` may call it. |
+
+### Non-goals (this slice)
+
+- Do not introduce a third public namespace for callers (`gis::analysis::*` as product API).
+- Do not move dem / orthogrid / model3d product kernels in this change.
+- Do not add a QGIS-style `ProcessingAlgorithm` base class yet.
+
+---
+
+## Folded topics (2026-09-28 merge B)
+
+Former hot specs are under `archive/specs/` (`superseded`). **Revise this file** (append `§`) for new requirements in this topic. Do not create a new `YYYY-MM-DD-*-design.md`.
+
+| Former hot spec | Section / note |
+| --- | --- |
+| [`../archive/specs/2026-09-14-plugin-full-upgrade-design.md`](../archive/specs/2026-09-14-plugin-full-upgrade-design.md) | §Plugin full upgrade (folded) |
+| [`../archive/specs/2026-09-14-plugin-subdir-layout-design.md`](../archive/specs/2026-09-14-plugin-subdir-layout-design.md) | §Plugin subdirectory layout (folded) |
+

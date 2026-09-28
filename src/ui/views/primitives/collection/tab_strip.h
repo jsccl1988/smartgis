@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_PRIMITIVES_COLLECTION_TAB_STRIP_H_
 #define UI_VIEWS_PRIMITIVES_COLLECTION_TAB_STRIP_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <functional>
 #include <memory>
 #include <string>
@@ -17,7 +17,7 @@ namespace views {
 
 // Tab host. add_tab takes ownership of the page View. Click a tab to
 // show that page; only the active page is laid out and painted.
-class UI_VIEWS_EXPORT TabStrip : public View {
+class UI_EXPORT TabStrip : public View {
  public:
   TabStrip();
   int add_tab(std::string title, std::unique_ptr<View> page);
@@ -30,6 +30,7 @@ class UI_VIEWS_EXPORT TabStrip : public View {
   void on_device_scale_factor_changed(float old_scale,
                                      float new_scale) override;
   void layout() override;
+  std::string_view paint_role() const override;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;

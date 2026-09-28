@@ -6,7 +6,7 @@
 
 #include <vector>
 
-#include "base/carto/envelope.h"
+#include "gis/model/envelope.h"
 #include "gis/model/feature/feature.h"
 #include "gis/gis_export.h"
 #include "gis/model/layer/layer.h"

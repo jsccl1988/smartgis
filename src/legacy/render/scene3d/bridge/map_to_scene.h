@@ -56,7 +56,7 @@ LEGACY_RENDER_EXPORT int seed_geojson_into_scene(LP3DRENDERDEVICE device,
                                                  SmtScene* scene,
                                                  const char* path);
 
-// Resolve china_plp.geojson next to the exe / testing/data and seed it.
+// Resolve china sample map under shared out/data/ (exe → ../data) / testing/data.
 LEGACY_RENDER_EXPORT int seed_sample_map_into_scene(LP3DRENDERDEVICE device,
                                                     SmtScene* scene);
 

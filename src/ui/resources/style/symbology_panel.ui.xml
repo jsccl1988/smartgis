@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="symbology_panel">
+  <style src="symbology_panel.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title" text="Symbology"/>
+    <label id="layer" text="Layer: (none)"/>
+    <combobox id="field"/>
+    <table id="paint" columns="Key,Value"/>
+    <textfield id="value"/>
+    <button id="apply" text="Apply"/>
+  </vbox>
+</ui>

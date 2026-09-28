@@ -67,6 +67,10 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
   app.add_option("--type", type, "Process role: browser|renderer|gpu|utility")
       ->capture_default_str();
   app.add_flag("--self-test", out.self_test, "Run Views shell self-test");
+  app.add_flag("--self-test-console", out.self_test_console,
+               "Run DebugAgent console self-test + console_bench.json");
+  app.add_flag("--debug-console", out.debug_console,
+               "Start Debug Agent + allow Debug Console");
   app.add_option("--atmosphere-showcase", showcase,
                  "Atmosphere demo: land|ocean|full|coast");
   app.add_option("--atmosphere-fields", out.atmosphere_fields,

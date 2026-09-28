@@ -34,7 +34,7 @@ source_set("map_edit_sources") {
   defines = [ "GIS_EXPORTS" ]
   deps = [
     ":edit_sources",
-    "//src/gis/datasource/ogr:ogr_codec",
+    "//src/gis/datasource/provider/impl/ogr:ogr_codec",
     "//third_party:gdal",
   ]
 }

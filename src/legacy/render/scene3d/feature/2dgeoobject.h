@@ -2,7 +2,7 @@
 #ifndef _MD3D_2DGEOOBJECT_H
 #define _MD3D_2DGEOOBJECT_H
 
-#include "base/carto/style.h"
+#include "legacy/carto/style.h"
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "legacy/render/legacy_render_export.h"
 #include "legacy/render/rhi3d/public/device/3drenderdevice.h"

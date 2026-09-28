@@ -10,7 +10,7 @@
 #include "legacy/tool/group/defs.h"
 #include "legacy/ui/xcatalog/mapmgr.h"
 #include "legacy/ui/xcatalog/scenemgr.h"
-#include "plugin/product/dem/grid_loader.h"
+#include "plugin/product/dem/processing/grid_loader.h"
 using namespace gis;
 using namespace plugin;
 using namespace sys;
@@ -118,7 +118,6 @@ void CDlgGridLoader::OnBnClickedBtnSelhmapfile() {
                   szFilter, NULL);
 
   if (dlg.DoModal() == IDCANCEL) {
-    AfxMessageBox("��û��ѡ��Ҫ�򿪵��ļ�!");
     return;
   }
 
@@ -134,7 +133,6 @@ void CDlgGridLoader::OnBnClickedBtnSeltexfile() {
                   szFilter, NULL);
 
   if (dlg.DoModal() == IDCANCEL) {
-    AfxMessageBox("��û��ѡ��Ҫ�򿪵��ļ�!");
     return;
   }
 

@@ -1,0 +1,33 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# `src/ui/resources`
+
+Product declarative UI assets (`.ui.xml` / `.ui.css`) for Views markup dialogs
+and GIS panels. Layout mirrors `src/ui/gis/<area>/` (+ `toolkit/` for generic
+views dialogs).
+
+| Area | Assets |
+| --- | --- |
+| `toolkit/` | `input_text`, `select_one` |
+| `dialogs/` | AddBasemap, AttStruct, CreateDatasource/Layer/Map |
+| `catalog/` | CatalogView (tabs host) |
+| `shell/` | StatusBar, AtmospherePanel |
+| `inspect/` | Measure, Selection, FeatureInfo, AttributeTable |
+| `style/` | Legend, Symbology, LayerProperties |
+| `analysis/` | SpatialAnalysis, Processing, GeoprocessingHistory |
+| `debug/` | reserved (Diagnostic/Ambox stay C++-dynamic) |
+
+GN `:markup_resources` copies each area to shared **`out/ui/<area>/`**
+(sibling of Debug/Release, same pattern as `out/data/`). Runtime:
+
+```text
+load_markup("dialogs/create_map.ui.xml")
+load_markup("inspect/measure_panel.ui.xml")
+```
+
+Resolves via `<exe>/../ui/<rel>`, `<exe>/ui/<rel>`, and
+`src/ui/resources/<rel>` when running from a source tree. Test samples under
+`views/markup/testdata/` stay flat in `out/ui/`.

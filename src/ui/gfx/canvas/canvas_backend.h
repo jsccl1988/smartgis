@@ -5,7 +5,7 @@
 #define UI_GFX_CANVAS_CANVAS_BACKEND_H_
 
 // Internal Canvas raster backends. Not for Views paint_self.
-// Symbols stay inside ui_views.dll (no UI_VIEWS_EXPORT).
+// Symbols stay inside ui_views.dll (no UI_EXPORT).
 
 #include <windows.h>
 

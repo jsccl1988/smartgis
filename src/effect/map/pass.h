@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -90,6 +91,10 @@ class Pass {
   render::rhi::Pipeline* solid_pipeline() const { return solid_pipeline_; }
   render::rhi::Pipeline* textured_pipeline() const { return textured_pipeline_; }
 
+  // Drop cached uploads so the next record() re-places and re-uploads.
+  // Call when MapFrame content changes (layout rebuild).
+  void invalidate_uploaded();
+
  private:
   // Drop GPU ids without destroy_*. Callers may tear down Device first.
   void abandon();
@@ -102,6 +107,10 @@ class Pass {
   render::rhi::Pipeline* textured_pipeline_ = nullptr;
   std::vector<render::rhi::Buffer*> buffers_;
   std::vector<render::rhi::Texture*> textures_;
+  // Opaque so pass.h does not pull detail::UploadedDraw into every TU that
+  // only forward-declares Pass (unique_ptr delete needs a complete Pass only).
+  struct DrawCache;
+  std::unique_ptr<DrawCache> draw_cache_;
 };
 
 }  // namespace map

@@ -3,27 +3,28 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# mogu ¡ú smartgis ¹¤³Ì¹ÜÀí¶ÔÕÕ
+# mogu â†’ smartgis å·¥ç¨‹ç®¡ç†å¯¹ç…§
 
-ÎÄµµË÷Òı£º[`../README.md`](../README.md)¡£Source of truth: WSL `/home/ccl/dev/src/mogu`£¨±¾»úÎ´¼ì³ö£©¡£±¾²Ö¹¤³ÌÈë¿ÚÊÇ **GN**£¬²»ÊÇ sln¡£
+æ–‡æ¡£ç´¢å¼•ï¼š[`../README.md`](../README.md)ã€‚Source of truth: WSL `/home/ccl/dev/src/mogu`ï¼ˆæœ¬æœºæœªæ£€å‡ºï¼‰ã€‚æœ¬ä»“å·¥ç¨‹å…¥å£æ˜¯ **GN**ï¼Œä¸æ˜¯ slnã€‚
 
-| mogu | smartgis | ×´Ì¬ |
+| mogu | smartgis | çŠ¶æ€ |
 | --- | --- | --- |
-| `build.sh` + `m`/`te`/`a`/`b` | ¸ùÄ¿Â¼ `build.bat`£¨Í¬±ğÃû£© | ÒÑ½¨ |
-| `BUILD.gn` ¸ù×é | Í¬ | ÒÑ½¨ |
-| `.gn` ¡ú `//build/BUILDCONFIG.gn` | Í¬£¨Windows toolchain ¾­ mgis ÊÊÅä£© | ÒÑ½¨ |
-| Ä£¿éÊ÷ÔÚ²Ö¿â¸ù£¨`base/` ¡­£© | Foundation ÕæÔ´ÔÚ **`src/base/`**£¨`//src/base:foundation`£©£»²Ö¿â¸ù `base/` ½ö±¡ alias¡£GIS / UI / render µÈ²úÆ·ÈÔÔÚ **`src/`** ·Ö²ã¡£¶ÔÕÕ [`src-layout.md`](src-layout.md)¡¢[`../superpowers/specs/2026-09-14-base-root-hybrid-design.md`](../superpowers/specs/2026-09-14-base-root-hybrid-design.md) | Phases 0¨C6 ÊÕ¿Ú£»ÕæÔ´ÒÑÇ¨Èë `src/` |
-| `//base:base`£¨static / header-mostly£© | Ê×Ñ¡ **`//src/base:foundation`**£¨`//base:base` ÈÔ×ª·¢£©¡£**²»ÊÇ**²úÆ· DLL¡£²úÆ·Æ½Ì¨ DLL **`dll_stem=base`**£¨`base.dll` / `base_d.dll`£© | Hybrid ÊÕ¿Ú + under-`src/` Ç¨Ö· |
-| `third_party/` | `third_party/`£¨`manifest.json` + Ô´ÂëÔÚ `.src/`£»±¡ `BUILD.gn` ×ª·¢ `//third_party:<name>` ¡ú `third_party/gn/`£»GIS pin ¸´ÓÃ mgis Gitea£© | ÒÑ½¨ |
-| `third_party/.install` / `build t` ×° prefix | **¶ÔÆë**£»`build.bat t` ¡ú `tools/batch.py` ×°µ½ `.install`¡£Windows ±¾µØ fallback£º`.install` ¿É junction ¡ú mgis `out/third_party`¡£`out/third_party` ¿ÉÔÙ junction µ½ `.install`£¨ÔËĞĞÊ±ËÑ DLL£©£»GN ³Ô `.install`¡£²»ÔÚ ninja Àï cmake sqlite3/PROJ/gdal | ÒÑ¶ÔÆë |
-| `out/` + `out/build.log` | Í¬ | ÒÑ½¨ |
-| Bazel | **²»°á** | Ìø¹ı |
-| ¡ª | `vs2008/` / `branches/` | **ÒÑÉ¾³ı**£»Èë¿ÚÖ»ÓĞ GN |
-| ¡ª | `build.bat app` / `//:smartgis` | `out/SmartGis.exe`£¨MFC Feature Pack `CMFC*` via `bcg_cmfc.h`£»²»ÔÚ GN `group("all")`£© |
-| Chromium `ui/views` + Skia | `src/ui/views` + `src/ui/gfx`£¬×é `//:ui_views` | **ÖÕ¾Ö×ÀÃæ UI**£¨±¾»ú mogu Views Ê÷Î´¼ì³ö£»¶ÔÆë Chromium Ãû + ±¾²Ö `src/ui` / `src/render`£©¡£¶ÔÕÕ [`ui-views-skia.md`](ui-views-skia.md) |
-| Qt / WinUI / WebView2 / Feature Pack-as-endgame | ¡ª | **²»²ÉÓÃ**£¨Feature Pack Ö»ÊÇµ±Ç°ÄÜ±àÍ¨µÄÒÅÁô¿Ç£¬²»ÊÇÖÕ¾Ö£© |
-| mogu `base::mutex` | ¡ª | **²»°á**£»ĞÂÊ÷ `std::mutex` |
+| `build.sh` + `m`/`te`/`a`/`b` | æ ¹ç›®å½• `build.bat`ï¼ˆåŒåˆ«åï¼‰ | å·²å»º |
+| `BUILD.gn` æ ¹ç»„ | åŒ | å·²å»º |
+| `.gn` â†’ `//build/BUILDCONFIG.gn` | åŒï¼ˆWindows toolchain ç» mgis é€‚é…ï¼‰ | å·²å»º |
+| æ¨¡å—æ ‘åœ¨ä»“åº“æ ¹ï¼ˆ`base/` â€¦ï¼‰ | Foundation çœŸæºåœ¨ **`src/base/`**ï¼ˆ`//src/base:foundation`ï¼‰ï¼›ä»“åº“æ ¹ `base/` ä»…è–„ aliasã€‚GIS / UI / render ç­‰äº§å“ä»åœ¨ **`src/`** åˆ†å±‚ã€‚å¯¹ç…§ [`src-layout.md`](src-layout.md)ã€[`../superpowers/specs/2026-09-14-base-root-hybrid-design.md`](../superpowers/specs/2026-09-14-base-root-hybrid-design.md) | Phases 0â€“6 æ”¶å£ï¼›çœŸæºå·²è¿å…¥ `src/` |
+| `//base:base`ï¼ˆstatic / header-mostlyï¼‰ | é¦–é€‰ **`//src/base:foundation`**ï¼ˆ`//base:base` ä»è½¬å‘ï¼‰ã€‚**ä¸æ˜¯**äº§å“ DLLã€‚äº§å“å¹³å° DLL **`dll_stem=base`**ï¼ˆ`base.dll` / `base_d.dll`ï¼‰ | Hybrid æ”¶å£ + under-`src/` è¿å€ |
+| `third_party/` | `third_party/`ï¼ˆ`manifest.json` + æºç åœ¨ `.src/`ï¼›è–„ `BUILD.gn` è½¬å‘ `//third_party:<name>` â†’ `third_party/gn/`ï¼›GIS pin å¤ç”¨ mgis Giteaï¼‰ | å·²å»º |
+| `third_party/.install` / `build t` è£… prefix | **å¯¹é½**ï¼›`build.bat t` â†’ `tools/batch.py` è£…åˆ° `.install`ã€‚Windows æœ¬åœ° fallbackï¼š`.install` å¯ junction â†’ mgis `out/third_party`ã€‚`out/third_party` å¯å† junction åˆ° `.install`ï¼ˆè¿è¡Œæ—¶æœ DLLï¼‰ï¼›GN åƒ `.install`ã€‚ä¸åœ¨ ninja é‡Œ cmake sqlite3/PROJ/gdal | å·²å¯¹é½ |
+| `out/` + `out/build.log` | **`out/Debug` + `out/Release`**ï¼ˆå„æœ‰ `build.log`ï¼‰ï¼›é»˜è®¤ `build.bat` ç¼–ä¸¤å¥— | å·²å»º |
+| Bazel | **ä¸æ¬** | è·³è¿‡ |
+| â€” | `vs2008/` / `branches/` | **å·²åˆ é™¤**ï¼›å…¥å£åªæœ‰ GN |
+| â€” | `build.bat app` / `//:smartgis` | `out/SmartGis.exe`ï¼ˆMFC Feature Pack `CMFC*` via `bcg_cmfc.h`ï¼›ä¸åœ¨ GN `group("all")`ï¼‰ |
+| Chromium `ui/views` + Skia | `src/ui/views` + `src/ui/gfx`ï¼Œç»„ `//:ui_views` | **ç»ˆå±€æ¡Œé¢ UI**ï¼ˆæœ¬æœº mogu Views æ ‘æœªæ£€å‡ºï¼›å¯¹é½ Chromium å + æœ¬ä»“ `src/ui` / `src/render`ï¼‰ã€‚å¯¹ç…§ [`ui-views-skia.md`](ui-views-skia.md) |
+| Qt / WinUI / WebView2 / Feature Pack-as-endgame | â€” | **ä¸é‡‡ç”¨**ï¼ˆFeature Pack åªæ˜¯å½“å‰èƒ½ç¼–é€šçš„é—ç•™å£³ï¼Œä¸æ˜¯ç»ˆå±€ï¼‰ |
+| mogu `base::mutex` | â€” | **ä¸æ¬**ï¼›æ–°æ ‘ `std::mutex` |
+| mogu `base/execution` (+ sync/concurrency) | `src/base/execution` ç­‰ï¼›è§ [`../superpowers/specs/2026-09-14-base-root-hybrid-design.md`](../superpowers/specs/2026-09-14-base-root-hybrid-design.md) | Hybrid è½åœ°ä¸­ï¼ˆWindows å¯ç§»æ¤ IOï¼›io_uring é—¨æ§ï¼‰ |
 
 ---
 
-**×îºó¸üĞÂ£º** 2026-09-28
+**æœ€åæ›´æ–°ï¼š** 2026-09-28

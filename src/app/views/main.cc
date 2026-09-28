@@ -11,20 +11,31 @@
 
 #include "app/views/shell/app/views_content_host.h"
 #include "app/views/shell/app/cmdline/views_launch_options.h"
+#include "base/core/log.h"
+#include "base/trace/diagnostic_bootstrap.h"
+#include "base/trace/process_trace.h"
 #include "content/app/content_main.h"
 #include "ui/gfx/canvas/shell_canvas_backend.h"
 
 int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
+  base::maybe_init_tracing_from_env();
+  base::start_always_on_diagnostics();
+  BASE_TRACE_EVENT("wWinMain", "startup");
+  LOGGING(LOG_INFO, "startup: wWinMain begin");
+
   int argc = 0;
   wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
   app::ViewsLaunchOptions options =
       app::parse_views_launch_options(argc, argv);
   if (!options.ok) {
+    LOGGING(LOG_WARNING, "startup: launch options parse failed exit=%d",
+            options.exit_code);
     if (argv) {
       LocalFree(argv);
     }
     return options.exit_code;
   }
+  LOGGING(LOG_INFO, "startup: launch options ok process_type set");
 
   ui::gfx::apply_shell_canvas_preference(
       options.shell_canvas.empty() ? nullptr : options.shell_canvas.c_str());
@@ -38,7 +49,11 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
 
   app::ViewsContentHost host;
   host.options = std::move(options);
+  LOGGING(LOG_INFO, "startup: content_main dispatch");
   const int rc = content::content_main(params, host);
+  LOGGING(LOG_INFO, "startup: content_main returned %d", rc);
+  base::maybe_dump_tracing_to_env();
+  base::stop_always_on_diagnostics();
   if (argv) {
     LocalFree(argv);
   }

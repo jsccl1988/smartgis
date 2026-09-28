@@ -1,0 +1,6 @@
+/* AttributeTable — TableView root; ScrollView wrap in C++ */
+
+#table {
+  width: 320px;
+  height: 160px;
+}

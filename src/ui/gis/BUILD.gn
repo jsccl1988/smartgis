@@ -1,0 +1,100 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Product GIS chrome on top of //src/ui/views (panels + GIS dialogs).
+# Layering: gfx → views → ui/gis → app.
+# Same PE as //src/ui/views:ui_views (dll_stem = ui_views); UI_EXPORT only.
+# Namespace stays ui::views for now; includes are "ui/gis/...".
+
+import("//build/smartgis.gni")
+import("//src/ui/gfx/skia.gni")
+
+config("gis_config") {
+  include_dirs += [ "//src" ]
+  defines += [ "NOMINMAX" ]
+}
+
+_gis_defines = [ "UI_EXPORTS" ]
+_gis_configs = [ ":gis_config" ]
+_gis_libs = [
+  "comdlg32.lib",
+  "dwrite.lib",
+  "gdi32.lib",
+  "user32.lib",
+]
+
+# TUs land in ui_views.dll via //src/ui/views:ui_views deps.
+# Depend on views_sources (not :views) to avoid a source_set ↔ DLL cycle.
+source_set("gis_sources") {
+  sources = [
+    "gis.cc",
+    "gis.h",
+    "analysis/geoprocessing_history_panel.cc",
+    "analysis/geoprocessing_history_panel.h",
+    "analysis/processing_panel.cc",
+    "analysis/processing_panel.h",
+    "analysis/spatial_analysis_panel.cc",
+    "analysis/spatial_analysis_panel.h",
+    "catalog/catalog_view.cc",
+    "catalog/catalog_view.h",
+    "catalog/layer_tree.cc",
+    "catalog/layer_tree.h",
+    "debug/debug_console_panel.cc",
+    "debug/debug_console_panel.h",
+    "debug/diagnostic_tools_panel.cc",
+    "debug/diagnostic_tools_panel.h",
+    "debug/render_trace_panel.cc",
+    "debug/render_trace_panel.h",
+    "dialogs/add_basemap_dialog.cc",
+    "dialogs/add_basemap_dialog.h",
+    "dialogs/att_struct_dialog.cc",
+    "dialogs/att_struct_dialog.h",
+    "dialogs/create_datasource_dialog.cc",
+    "dialogs/create_datasource_dialog.h",
+    "dialogs/create_layer_dialog.cc",
+    "dialogs/create_layer_dialog.h",
+    "dialogs/create_map_dialog.cc",
+    "dialogs/create_map_dialog.h",
+    "inspect/attribute_table.cc",
+    "inspect/attribute_table.h",
+    "inspect/feature_info.cc",
+    "inspect/feature_info.h",
+    "inspect/measure_panel.cc",
+    "inspect/measure_panel.h",
+    "inspect/selection_panel.cc",
+    "inspect/selection_panel.h",
+    "shell/ambox_view.cc",
+    "shell/ambox_view.h",
+    "shell/atmosphere_panel.cc",
+    "shell/atmosphere_panel.h",
+    "shell/chart_view.cc",
+    "shell/chart_view.h",
+    "shell/status_bar.cc",
+    "shell/status_bar.h",
+    "style/layer_properties_panel.cc",
+    "style/layer_properties_panel.h",
+    "style/legend_panel.cc",
+    "style/legend_panel.h",
+    "style/symbology_panel.cc",
+    "style/symbology_panel.h",
+  ]
+  defines = _gis_defines
+  public_deps = [
+    "//src/content:content",
+    "//src/content:view_host",
+    "//src/tool:tool",
+    "//src/ui/views:views_sources",
+  ]
+  public_configs = _gis_configs
+  libs = _gis_libs
+}
+
+# Stable label; same DLL as //src/ui/views:ui_views.
+group("gis") {
+  public_deps = [ "//src/ui/views:ui_views" ]
+}
+
+# Compatibility alias for older deps that named the shared_library target.
+group("ui_gis") {
+  public_deps = [ ":gis" ]
+}

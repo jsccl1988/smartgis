@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="processing_panel">
+  <style src="processing_panel.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title" text="Processing"/>
+    <table id="table" columns="Id,Title"/>
+    <button id="run" text="Run"/>
+  </vbox>
+</ui>

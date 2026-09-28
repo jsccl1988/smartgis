@@ -96,5 +96,9 @@ void Label::paint_self(ui::gfx::Canvas* canvas) {
   }
 }
 
+
+std::string_view Label::paint_role() const {
+  return "label";
+}
 }  // namespace views
 }  // namespace ui

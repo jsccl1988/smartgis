@@ -14,22 +14,22 @@ namespace tool {
 // only — no leftover render types. Wheel / pinch stay in client coordinates.
 
 // WHEEL_DELTA (120) → multiplicative scale. Positive wheel zooms in.
-SMT_TOOL_EXPORT double wheel_zoom_factor(int32_t wheel_delta);
+TOOL_EXPORT double wheel_zoom_factor(int32_t wheel_delta);
 
 // WM_MOUSEHWHEEL / trackpad horizontal delta → pan pixels (screen X).
 // Positive wheel (scroll right) pans content right.
-SMT_TOOL_EXPORT int32_t hwheel_pan_dx(int32_t wheel_delta);
+TOOL_EXPORT int32_t hwheel_pan_dx(int32_t wheel_delta);
 
 // Convert two finger-pixel distances into a WHEEL_DELTA-class step so leftover
 // and shell hosts share one zoom path. Distances <= 1 px are rejected.
-SMT_TOOL_EXPORT int32_t pinch_to_wheel_delta(double dist0, double dist1);
+TOOL_EXPORT int32_t pinch_to_wheel_delta(double dist0, double dist1);
 
 // Tracker / gesture `scale` is new/old distance (1.2 = pinch-out). Maps that
 // ratio onto pinch_to_wheel_delta without hitting the 1 px guard.
-SMT_TOOL_EXPORT int32_t scale_to_wheel_delta(double scale);
+TOOL_EXPORT int32_t scale_to_wheel_delta(double scale);
 
 // Keep the map point under (cursor_x, cursor_y) fixed while scale changes.
-SMT_TOOL_EXPORT void zoom_at_client_point(double* pan_x, double* pan_y,
+TOOL_EXPORT void zoom_at_client_point(double* pan_x, double* pan_y,
                                           double* scale, int cursor_x,
                                           int cursor_y, double factor);
 
@@ -54,26 +54,26 @@ constexpr int kBlitDebounceMs = 200;
 
 // Last-frame StretchBlt dest so the world point under the cursor stays put.
 // |factor| > 1 zooms in (dest grows around the cursor).
-SMT_TOOL_EXPORT BlitDestRect zoom_blit_dest(int view_w, int view_h,
+TOOL_EXPORT BlitDestRect zoom_blit_dest(int view_w, int view_h,
                                             int cursor_x, int cursor_y,
                                             double factor);
 
 // New world envelope after zoom-to-cursor (same contract as apply_zoom_at).
-SMT_TOOL_EXPORT WorldExtent zoom_world_extent(const WorldExtent& last,
+TOOL_EXPORT WorldExtent zoom_world_extent(const WorldExtent& last,
                                               int view_w, int view_h,
                                               int cursor_x, int cursor_y,
                                               double factor);
 
 // Fit |extent| into the view. |pad_fraction| is inset on each side (0 = tight).
 // Writes pan/scale in the same pixel space as zoom_at_client_point.
-SMT_TOOL_EXPORT void frame_world_extent(double* pan_x, double* pan_y,
+TOOL_EXPORT void frame_world_extent(double* pan_x, double* pan_y,
                                         double* scale,
                                         const WorldExtent& extent, int view_w,
                                         int view_h, double pad_fraction);
 
-SMT_TOOL_EXPORT BlitDestRect pan_blit_dest(int view_w, int view_h, int dx_px,
+TOOL_EXPORT BlitDestRect pan_blit_dest(int view_w, int view_h, int dx_px,
                                            int dy_px);
-SMT_TOOL_EXPORT WorldExtent pan_world_extent(const WorldExtent& last,
+TOOL_EXPORT WorldExtent pan_world_extent(const WorldExtent& last,
                                              int view_w, int view_h,
                                              int dx_px, int dy_px);
 
@@ -83,19 +83,19 @@ SMT_TOOL_EXPORT WorldExtent pan_world_extent(const WorldExtent& last,
 inline constexpr float kOrbitPitchMin = -0.55f;
 inline constexpr float kOrbitPitchMax = 1.05f;
 
-SMT_TOOL_EXPORT void orbit_from_drag(float* yaw, float* pitch, int dx_px,
+TOOL_EXPORT void orbit_from_drag(float* yaw, float* pitch, int dx_px,
                                      int dy_px, float sensitivity);
 
 // Dolly along the look vector. Positive wheel → closer to look-at.
-SMT_TOOL_EXPORT float dolly_distance(float distance, int32_t wheel_delta,
+TOOL_EXPORT float dolly_distance(float distance, int32_t wheel_delta,
                                      float min_d, float max_d);
 
 // True when the active tool id is a navigate / view-control tool (or empty).
 // Drawing / select tools keep exclusive pointer capture.
-SMT_TOOL_EXPORT bool is_navigate_tool(const char* tool_id);
+TOOL_EXPORT bool is_navigate_tool(const char* tool_id);
 
 // Two-finger pinch tracker. Client pixels. scale_out is new/old distance.
-class SMT_TOOL_EXPORT PointerPinchTracker {
+class TOOL_EXPORT PointerPinchTracker {
  public:
   void reset();
   void on_down(uint32_t id, int x, int y);

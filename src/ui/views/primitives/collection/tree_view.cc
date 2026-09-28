@@ -295,5 +295,9 @@ void TreeView::paint_rows(ui::gfx::Canvas* canvas) {
   }
 }
 
+
+std::string_view TreeView::paint_role() const {
+  return "tree_view";
+}
 }  // namespace views
 }  // namespace ui

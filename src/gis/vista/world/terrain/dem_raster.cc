@@ -207,9 +207,9 @@ void DemRaster::fit_vertical_exaggeration() {
   const float span =
       static_cast<float>((std::max)(maxx_ - minx_, maxy_ - miny_));
   const float peak = (std::max)(80.f, max_m_ - min_m_);
-  // ~0.20 of geographic span → Tibet/plateau read clearly under orbit pitch
-  // (0.09 looked nearly flat once ContentMapView provinces were removed).
-  vert_exag_ = (span * 0.20f) / peak;
+  // Match leftover DemHeightField (span * 0.09 / peak): milder relief so
+  // draped imagery and orbit pitch read like SmartGis.exe.
+  vert_exag_ = (span * 0.09f) / peak;
 }
 
 float DemRaster::meters_at(int col, int row) const {
@@ -526,6 +526,10 @@ std::string find_sample_dem_path() {
     }
   }
   const char* rel[] = {
+      "..\\data\\china_dem.tif",
+      "..\\data\\china_dem.tiff",
+      "data\\china_dem.tif",
+      "data\\china_dem.tiff",
       "china_dem.tif",
       "china_dem.tiff",
       "testing\\data\\china_dem.tif",

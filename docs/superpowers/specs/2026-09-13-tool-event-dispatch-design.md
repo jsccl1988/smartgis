@@ -7,7 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted (v1 landed)  
-**Updated:** 2026-09-28 — merged `src/tool` subdirectory layout (scheme C). Leftover group layout / SP1 strangler: [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP1.  
+**Updated:** 2026-09-28 — §DLL ABI + Workspace composition (pimpl / DraftPipeline / NavBridge). Export macros: endgame `TOOL_EXPORT` / leftover `LEGACY_TOOL_EXPORT`. Leftover group / SP1: [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP1.  
 **Related:** leftover path split [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](../archive/specs/2026-09-13-tool-legacy-split-design.md); archived layout twin [`../archive/specs/2026-09-27-tool-subdirectory-layout-design.md`](../archive/specs/2026-09-27-tool-subdirectory-layout-design.md); as-built [`../../../src/tool/README.md`](../../../src/tool/README.md).  
 **Scope:** Session dispatch (Command / Input / Operation / Domain Event) + **endgame directory layout**. Do not open new tool-layout dated specs — revise §Subdirectory layout below.
 
@@ -390,6 +390,43 @@ Endgame `src/tool/<module>/` (scheme C, break includes, no root shim):
 | `draft/` | Draft POD + factories（原 `gestures`） |
 | `nav/` | Camera nav math（原 `camera_nav`） |
 | `workspace/` | `Workspace` session |
-| Aggregate GN | `//src/tool:dispatch`（仍 source_set，非 DLL） |
+| Aggregate GN | `//src/tool:dispatch` → `//src/tool:tool`（`dll_stem=tool`） |
 
 `GT_MSG` 映射在 **`src/legacy/tool/adapter/`**（`//src/legacy/tool/adapter:adapter`，include `legacy/tool/adapter/msg.h`）；公开 API 命名空间仍为 `tool`。Leftover `group/` 子目录见 umbrella §SP1。As-built：`src/tool/README.md`。Archive twin：[`../archive/specs/2026-09-27-tool-subdirectory-layout-design.md`](../archive/specs/2026-09-27-tool-subdirectory-layout-design.md)。
+
+---
+
+## §Export macros（2026-09-28）
+
+DLL export naming (no `SMT_*` prefix):
+
+| PE | Define | Macro | Header |
+| --- | --- | --- | --- |
+| `tool.dll`（`//src/tool:tool`） | `TOOL_EXPORTS` | `TOOL_EXPORT` | `src/tool/tool_export.h` |
+| `legacy_tool.dll` | `LEGACY_TOOL_EXPORTS` | `LEGACY_TOOL_EXPORT` | `src/legacy/tool/tool_export.h` |
+
+Endgame owns the short `TOOL_*` family; leftover mirrors `LEGACY_RENDER_*`. As-built: [`docs/build/abi-rename-map.md`](../../build/abi-rename-map.md). Do not reintroduce `SMT_TOOL_EXPORT`.
+
+---
+
+## §DLL ABI + Workspace composition（2026-09-28）
+
+**Status:** accepted  
+**Plan:** [`../plans/2026-09-28-tool-dll-abi-workspace.md`](../plans/2026-09-28-tool-dll-abi-workspace.md)
+
+### Locked
+
+| Topic | Choice |
+| --- | --- |
+| Package | Keep `dll_stem=tool` |
+| Export surface | Methods on `Workspace` / `CommandCatalog` / stack/router exported (`TOOL_EXPORT` on members); class not dllexport (MSVC C4251). `Interaction` stays class-exported (vtable). Factories + nav math + POD remain. `CommandCatalog` stays usable by PluginHost |
+| `Workspace` shape | **pimpl** (match `content::ViewHost`); accessors `catalog()` / `stack()` / … remain for tests + `ViewHost::release_exclusive` |
+| Composition | `tool::detail::DraftPipeline` (observer / hit / append / selection events) + `tool::detail::NavBridge` (`view.full` / `view.refresh`) inside `Workspace::Impl` |
+| Linking | No `#pragma comment(lib)` in `tool_export.h`; consumers link via GN `deps` |
+| Leftover (C) | Only change call sites blocked by API (e.g. `release_exclusive` stays via `stack().pop` or Workspace helper) |
+
+### Success
+
+- `src/tool/**` builds with **no C4251** on tool types
+- `tool_dispatch_test` / `draft_test` / `view_host_test` green
+- README + `docs/build/src-layout.md` / abi-rename-map say `dll_stem=tool` + `TOOL_EXPORT` (not source_set / not `SMT_TOOL_*`)

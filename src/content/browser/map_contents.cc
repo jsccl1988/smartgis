@@ -19,6 +19,8 @@
 #include "content/common/ipc.h"
 #include "content/app/process_type.h"
 
+#include <dxgi.h>
+
 namespace content {
 namespace detail {
 
@@ -49,6 +51,75 @@ std::wstring make_session_id() {
   wchar_t buf[80];
   swprintf_s(buf, L"%u-%lu", GetCurrentProcessId(), GetTickCount());
   return buf;
+}
+
+using CreateDxgiFactory1Fn = HRESULT(WINAPI*)(REFIID, void**);
+
+// Load CreateDXGIFactory1 without linking dxgi.lib (content.dll uses
+// /NODEFAULTLIB; pragma comment(lib) is ignored).
+CreateDxgiFactory1Fn load_create_dxgi_factory1() {
+  HMODULE dxgi = LoadLibraryW(L"dxgi.dll");
+  if (!dxgi) {
+    return nullptr;
+  }
+  return reinterpret_cast<CreateDxgiFactory1Fn>(
+      GetProcAddress(dxgi, "CreateDXGIFactory1"));
+}
+
+// Fill DXGI AdapterLuid for the monitor nearest to |hwnd|.
+// Leaves *low/*high unchanged when hwnd is null or DXGI lookup fails.
+void fill_monitor_luid(HWND hwnd, uint32_t* low, uint32_t* high) {
+  if (!hwnd || !low || !high) {
+    return;
+  }
+  const HMONITOR monitor =
+      MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+  if (!monitor) {
+    return;
+  }
+  const CreateDxgiFactory1Fn create_factory = load_create_dxgi_factory1();
+  if (!create_factory) {
+    return;
+  }
+  IDXGIFactory1* factory = nullptr;
+  if (FAILED(create_factory(__uuidof(IDXGIFactory1),
+                            reinterpret_cast<void**>(&factory))) ||
+      !factory) {
+    return;
+  }
+  bool matched = false;
+  for (UINT i = 0; !matched; ++i) {
+    IDXGIAdapter1* adapter = nullptr;
+    if (factory->EnumAdapters1(i, &adapter) == DXGI_ERROR_NOT_FOUND) {
+      break;
+    }
+    if (!adapter) {
+      continue;
+    }
+    DXGI_ADAPTER_DESC1 desc = {};
+    if (FAILED(adapter->GetDesc1(&desc))) {
+      adapter->Release();
+      continue;
+    }
+    for (UINT oi = 0; !matched; ++oi) {
+      IDXGIOutput* output = nullptr;
+      if (adapter->EnumOutputs(oi, &output) == DXGI_ERROR_NOT_FOUND) {
+        break;
+      }
+      if (!output) {
+        continue;
+      }
+      DXGI_OUTPUT_DESC od = {};
+      if (SUCCEEDED(output->GetDesc(&od)) && od.Monitor == monitor) {
+        *low = static_cast<uint32_t>(desc.AdapterLuid.LowPart);
+        *high = static_cast<uint32_t>(desc.AdapterLuid.HighPart);
+        matched = true;
+      }
+      output->Release();
+    }
+    adapter->Release();
+  }
+  factory->Release();
 }
 
 }  // namespace
@@ -221,6 +292,10 @@ void MapWidgetHostViewImpl::Resize(int width_px, int height_px, float dpi) {
   body.w = static_cast<uint32_t>(width_px);
   body.h = static_cast<uint32_t>(height_px);
   body.dpi = dpi;
+  if (parent_hwnd_) {
+    fill_monitor_luid(static_cast<HWND>(parent_hwnd_), &body.monitor_luid_low,
+                      &body.monitor_luid_high);
+  }
   session_->send_msg(HostMsg::kResizeSurface, view_id_, body);
 }
 
@@ -239,6 +314,10 @@ void MapWidgetHostViewImpl::SetPresentMode(PresentMode mode) {
   AttachSurfaceBody body;
   body.present_mode = static_cast<uint32_t>(mode);
   body.visible = 1;
+  if (parent_hwnd_) {
+    fill_monitor_luid(static_cast<HWND>(parent_hwnd_), &body.monitor_luid_low,
+                      &body.monitor_luid_high);
+  }
   session_->send_msg(HostMsg::kAttachSurface, view_id_, body);
 }
 
@@ -246,6 +325,10 @@ void MapWidgetHostViewImpl::SetVisible(bool visible) {
   AttachSurfaceBody body;
   body.present_mode = static_cast<uint32_t>(present_mode_);
   body.visible = visible ? 1u : 0u;
+  if (parent_hwnd_) {
+    fill_monitor_luid(static_cast<HWND>(parent_hwnd_), &body.monitor_luid_low,
+                      &body.monitor_luid_high);
+  }
   session_->send_msg(HostMsg::kAttachSurface, view_id_, body);
 }
 
@@ -469,6 +552,10 @@ MapWidgetHostView* MapContentsImpl::AttachSurface(uint32_t view_id, PresentMode 
   }
   AttachSurfaceBody body;
   body.present_mode = static_cast<uint32_t>(mode);
+  if (view && view->NativeHwnd()) {
+    fill_monitor_luid(static_cast<HWND>(view->NativeHwnd()),
+                      &body.monitor_luid_low, &body.monitor_luid_high);
+  }
   pipe_.send_msg(HostMsg::kAttachSurface, view_id, body);
   return view;
 }

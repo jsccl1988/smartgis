@@ -38,6 +38,9 @@ class GpuDeviceHub {
 
   AdapterId primary_adapter() const { return kAdapterPrimary; }
 
+  // Match DXGI AdapterLuid from enumerate_adapters(); luid==0 or miss → primary.
+  AdapterId adapter_for_luid(uint64_t luid) const;
+
   // Best-effort monitor affinity; falls back to primary.
   AdapterId prefer_adapter_for_monitor(void* hmonitor) const;
 

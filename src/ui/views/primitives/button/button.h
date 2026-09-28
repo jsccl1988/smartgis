@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_PRIMITIVES_BUTTON_BUTTON_H_
 #define UI_VIEWS_PRIMITIVES_BUTTON_BUTTON_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <functional>
 #include <string>
 
@@ -15,7 +15,7 @@ namespace views {
 
 // Clickable text button with hover / press / disabled paint and keyboard
 // Activate (Space / Return when focused).
-class UI_VIEWS_EXPORT Button : public View {
+class UI_EXPORT Button : public View {
  public:
   explicit Button(std::string text);
   void set_text(std::string text);
@@ -25,6 +25,7 @@ class UI_VIEWS_EXPORT Button : public View {
   bool on_key_event(const KeyEvent& e) override;
   void on_device_scale_factor_changed(float old_scale,
                                      float new_scale) override;
+  std::string_view paint_role() const override;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;

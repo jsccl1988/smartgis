@@ -17,7 +17,7 @@ All rights reserved.
 
 **Related specs:**  
 [`2026-09-27-atmosphere-subdirectory-layout-design.md`](../specs/2026-09-27-atmosphere-subdirectory-layout-design.md) (layout, landed) ·  
-[`2026-09-19-atmosphere-ocean-cloud-design.md`](../specs/2026-09-19-atmosphere-ocean-cloud-design.md) (capability) ·  
+[`2026-09-19-atmosphere-ocean-cloud-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) (capability) ·  
 [`2026-09-19-scene3d-world-gpuscene-design.md`](../specs/2026-09-19-scene3d-world-gpuscene-design.md) (DEM → World)
 
 ## Global Constraints
@@ -78,7 +78,7 @@ All rights reserved.
 ## Task 5: Verify
 
 - [x] `build.bat` / ninja: `sky_pass_test` `fog_pass_test` `atmosphere_frame_test` `dem_raster_test` `scene3d_controller_test` — all PASS (2026-09-27)
-- [ ] Archive plan when fully green and accepted (leave active until physical `kSky`/`kFog` / clipmap decision)
+- [x] 2026-09-28: dedicated `sky/hlsl.h` + `fog/hlsl.h` (pixel sky + view-ray fog); DEM `vert_exag` → leftover `0.09` (clipmap / fog depth-sample still Deferred)
 
 ## Non-goals
 
@@ -86,8 +86,8 @@ All rights reserved.
 
 ## Gap vs full GIS prod
 
-| Item | This plan | Full prod |
+| Item | This plan (2026-09-28) | Full prod |
 | --- | --- | --- |
-| Sky | Analytical dome + sun tint via `kSolid` | Physically based LUT + `kSky` |
-| Fog | Height/distance factor on FS quad; shared depth attach | Depth-sampled volumetric / aerial perspective |
+| Sky | Dedicated HLSL dome PS (zenith→horizon + sun glow) | Physically based LUT + multi-scatter |
+| Fog | View-ray distance×height HLSL FS; shared depth Deferred | Depth-sampled volumetric / aerial perspective |
 | Terrain LOD | Discrete `max_edge` buckets from camera distance | Clipmaps / CDLOD / GPU tessellation |

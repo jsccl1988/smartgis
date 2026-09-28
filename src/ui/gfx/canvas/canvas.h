@@ -8,7 +8,7 @@
 // (shell_canvas_backend.h). Both backends may be linked; consumers must not
 // #ifdef on SMT_HAS_SKIA. See docs/build/ui-views-skia.md.
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <windows.h>
 
 #include "ui/gfx/color/color.h"
@@ -23,7 +23,7 @@ class CanvasBackend;
 
 // Immediate-mode canvas used by ui::views. Map pixels stay on
 // leftover / RHI paths, not here.
-class UI_VIEWS_EXPORT Canvas {
+class UI_EXPORT Canvas {
  public:
   Canvas(HDC hdc, int width, int height);
   ~Canvas();

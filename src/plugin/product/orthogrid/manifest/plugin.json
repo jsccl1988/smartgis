@@ -1,0 +1,63 @@
+{
+  "id": "smartgis.baogrid",
+  "name": "边界适应正交网格",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "builtin",
+  "author": "The Mogu Authors",
+  "description": "Boundary-adapted orthographic grid digitize, save/load, and Laplace solve.",
+  "contributes": {
+    "commands": [
+      {
+        "id": "baogrid.input_boundary_0",
+        "title": "Input boundary 0",
+        "menu": "tools.baogrid"
+      },
+      {
+        "id": "baogrid.input_boundary_2",
+        "title": "Input boundary 2",
+        "menu": "tools.baogrid"
+      },
+      {
+        "id": "baogrid.save_boundary",
+        "title": "Save grid boundary",
+        "menu": "tools.baogrid"
+      },
+      {
+        "id": "baogrid.load_boundary",
+        "title": "Load grid boundary",
+        "menu": "tools.baogrid"
+      },
+      {
+        "id": "orthogrid.input_boundary_0",
+        "title": "Input boundary 0",
+        "menu": "tools.baogrid"
+      },
+      {
+        "id": "orthogrid.input_boundary_2",
+        "title": "Input boundary 2",
+        "menu": "tools.baogrid"
+      },
+      {
+        "id": "orthogrid.save_boundary",
+        "title": "Save grid boundary",
+        "menu": "tools.baogrid"
+      },
+      {
+        "id": "orthogrid.load_boundary",
+        "title": "Load grid boundary",
+        "menu": "tools.baogrid"
+      }
+    ],
+    "processing": [
+      {
+        "id": "baogrid.create_orth_grid",
+        "title": "Create orth grid"
+      },
+      {
+        "id": "orthogrid.create_orth_grid",
+        "title": "Create orth grid"
+      }
+    ]
+  }
+}

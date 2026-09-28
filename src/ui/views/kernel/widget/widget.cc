@@ -5,6 +5,8 @@
 
 #include <cmath>
 #include <cstdint>
+#include <algorithm>
+#include <functional>
 #include <vector>
 
 #include <windowsx.h>
@@ -13,6 +15,9 @@
 #include "ui/views/kernel/shell/dialog_host.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
+#include "ui/views/kernel/shell/theme_service.h"
+#include "ui/views/kernel/paint/register_default_painters.h"
+#include "ui/views/kernel/frame/frame_view.h"
 #include "ui/views/kernel/paint/paint_commit.h"
 #include "ui/views/kernel/compositor/shell_compositor.h"
 
@@ -25,6 +30,20 @@
 
 namespace ui {
 namespace views {
+
+class WidgetThemeWatch : public ThemeObserver {
+ public:
+  explicit WidgetThemeWatch(Widget* widget) : widget_(widget) {}
+  void on_theme_changed() override {
+    if (widget_) {
+      widget_->on_theme_changed();
+    }
+  }
+
+ private:
+  Widget* widget_ = nullptr;
+};
+
 namespace {
 
 const wchar_t kWidgetClass[] = L"SmartGisViewsWidget";
@@ -46,6 +65,10 @@ void collect_focusable(View* v, std::vector<View*>* out) {
 Widget::Widget() {}
 
 Widget::~Widget() {
+  if (theme_watch_) {
+    ThemeService::get().remove_observer(theme_watch_.get());
+    theme_watch_.reset();
+  }
   destroying_ = true;
   will_close_fired_ = true;
   will_close_.reset();
@@ -64,6 +87,9 @@ Widget::~Widget() {
 
 bool Widget::init(const InitParams& params) {
   enable_process_dpi_awareness();
+  ThemeService::get().ensure_builtin_packs();
+  ThemeService::get().load_persisted();
+  register_default_painters();
 
   static bool registered = false;
   if (!registered) {
@@ -81,33 +107,67 @@ bool Widget::init(const InitParams& params) {
   if (!registered) {
     return false;
   }
+
+  frame_kind_ = params.frame_kind;
+  const bool custom = frame_kind_ == FrameKind::kCustom;
+  // Custom frame must not include WS_CAPTION: DWM would still paint the OS
+  // title bar even when WM_NCCALCSIZE collapses NC, causing a double caption
+  // (white system bar + FrameView). Match owned dialogs: WS_POPUP + thickframe.
+  // Top-level adds min/max boxes; WS_EX_APPWINDOW keeps a taskbar button.
   const DWORD style =
-      params.owner ? kOwnedDialogStyle
-                   : (WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN);
+      custom
+          ? (WS_POPUP | WS_THICKFRAME | WS_SYSMENU | WS_CLIPCHILDREN |
+             (params.owner ? 0u : (WS_MINIMIZEBOX | WS_MAXIMIZEBOX)))
+          : (params.owner ? kOwnedDialogStyle
+                          : (WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN));
+  const DWORD ex_style =
+      (custom && !params.owner) ? WS_EX_APPWINDOW : 0u;
   int x = CW_USEDEFAULT;
   int y = CW_USEDEFAULT;
   int width = params.width;
   int height = params.height;
   if (params.owner) {
-    // Dialog callers pass client size (DIPs when size_in_dips). Shared host
-    // scales, expands via AdjustWindowRectEx, centers on owner, clamps work.
-    OwnedPopupGeom place;
-    if (params.size_in_dips) {
-      place = place_owned_dialog(params.owner, params.width, params.height,
-                                 style, 0);
+    if (custom) {
+      float scale = scale_factor_from_dpi(dpi_for_hwnd(params.owner));
+      int client_w = params.size_in_dips ? dip_to_px(params.width, scale)
+                                         : params.width;
+      int client_h = params.size_in_dips ? dip_to_px(params.height, scale)
+                                         : params.height;
+      // Custom frame: CreateWindow size == client (WM_NCCALCSIZE collapses NC).
+      // Add caption height into the requested client so dialogs keep body size.
+      client_h += dip_to_px(32, scale);
+      RECT owner_rc = {};
+      if (IsWindow(params.owner)) {
+        GetWindowRect(params.owner, &owner_rc);
+      }
+      OwnedPopupGeom place =
+          center_outer_on_owner_rect(owner_rc, client_w, client_h);
+      x = place.x;
+      y = place.y;
+      width = place.outer_width;
+      height = place.outer_height;
     } else {
-      const float scale =
-          scale_factor_from_dpi(dpi_for_hwnd(params.owner));
-      place = place_owned_dialog(params.owner, px_to_dip(params.width, scale),
-                                 px_to_dip(params.height, scale), style, 0);
+      // Dialog callers pass client size (DIPs when size_in_dips). Shared host
+      // scales, expands via AdjustWindowRectEx, centers on owner, clamps work.
+      OwnedPopupGeom place;
+      if (params.size_in_dips) {
+        place = place_owned_dialog(params.owner, params.width, params.height,
+                                   style, 0);
+      } else {
+        const float scale =
+            scale_factor_from_dpi(dpi_for_hwnd(params.owner));
+        place =
+            place_owned_dialog(params.owner, px_to_dip(params.width, scale),
+                               px_to_dip(params.height, scale), style, 0);
+      }
+      x = place.x;
+      y = place.y;
+      width = place.outer_width;
+      height = place.outer_height;
     }
-    x = place.x;
-    y = place.y;
-    width = place.outer_width;
-    height = place.outer_height;
   } else {
     // Top-level shell: InitParams is *client* size. Scale DIPs, expand to
-    // outer CreateWindow box, then clamp so HiDPI defaults stay on-screen.
+    // outer CreateWindow box (system frame) or keep as-is (custom CSD).
     int client_w = params.width;
     int client_h = params.height;
     if (params.size_in_dips) {
@@ -121,7 +181,12 @@ bool Widget::init(const InitParams& params) {
     if (client_h < 120) {
       client_h = 120;
     }
-    client_to_outer_size(client_w, client_h, style, 0, &width, &height);
+    if (custom) {
+      width = client_w;
+      height = client_h;
+    } else {
+      client_to_outer_size(client_w, client_h, style, 0, &width, &height);
+    }
     MONITORINFO mi = {};
     mi.cbSize = sizeof(mi);
     POINT origin = {};
@@ -137,9 +202,9 @@ bool Widget::init(const InitParams& params) {
       }
     }
   }
-  hwnd_ = CreateWindowExW(0, kWidgetClass, params.title, style, x, y, width,
-                          height, params.owner, nullptr, GetModuleHandleW(nullptr),
-                          this);
+  hwnd_ = CreateWindowExW(ex_style, kWidgetClass, params.title, style, x, y,
+                          width, height, params.owner, nullptr,
+                          GetModuleHandleW(nullptr), this);
   if (!hwnd_) {
     return false;
   }
@@ -149,6 +214,8 @@ bool Widget::init(const InitParams& params) {
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
   }
   sync_dpi_from_hwnd();
+  theme_watch_ = std::make_unique<WidgetThemeWatch>(this);
+  ThemeService::get().add_observer(theme_watch_.get());
   compositor_ = std::make_unique<ShellCompositor>();
   compositor_->start();
   return true;
@@ -533,9 +600,119 @@ LRESULT CALLBACK Widget::wnd_proc(HWND hwnd, UINT msg, WPARAM wparam,
   return self->handle_message(hwnd, msg, wparam, lparam);
 }
 
+void Widget::on_theme_changed() {
+  if (contents_) {
+    std::function<void(View*)> dirty = [&](View* v) {
+      if (!v) {
+        return;
+      }
+      v->invalidate_commands();
+      for (size_t i = 0; i < v->child_count(); ++i) {
+        dirty(v->child_at(i));
+      }
+    };
+    dirty(contents_.get());
+  }
+  schedule_paint();
+}
+
+LRESULT Widget::handle_nc_hit_test(int screen_x, int screen_y) {
+  if (!hwnd_) {
+    return HTCLIENT;
+  }
+  POINT pt = {screen_x, screen_y};
+  ScreenToClient(hwnd_, &pt);
+  RECT cr = {};
+  GetClientRect(hwnd_, &cr);
+  const int w = cr.right - cr.left;
+  const int h = cr.bottom - cr.top;
+  const int border = (std::max)(1, dip_to_px(6, device_scale_factor_));
+
+  WINDOWPLACEMENT wp = {};
+  wp.length = sizeof(wp);
+  GetWindowPlacement(hwnd_, &wp);
+  const bool maximized = (wp.showCmd == SW_SHOWMAXIMIZED);
+
+  if (!maximized) {
+    const bool left = pt.x < border;
+    const bool right = pt.x >= w - border;
+    const bool top = pt.y < border;
+    const bool bottom = pt.y >= h - border;
+    if (top && left) {
+      return HTTOPLEFT;
+    }
+    if (top && right) {
+      return HTTOPRIGHT;
+    }
+    if (bottom && left) {
+      return HTBOTTOMLEFT;
+    }
+    if (bottom && right) {
+      return HTBOTTOMRIGHT;
+    }
+    if (left) {
+      return HTLEFT;
+    }
+    if (right) {
+      return HTRIGHT;
+    }
+    if (top) {
+      return HTTOP;
+    }
+    if (bottom) {
+      return HTBOTTOM;
+    }
+  }
+
+  auto* frame = dynamic_cast<FrameView*>(contents_.get());
+  const int caption_h = frame ? frame->caption_height_px()
+                              : dip_to_px(32, device_scale_factor_);
+  if (pt.y >= 0 && pt.y < caption_h) {
+    if (frame && frame->point_in_caption_controls(pt.x, pt.y)) {
+      return HTCLIENT;
+    }
+    return HTCAPTION;
+  }
+  return HTCLIENT;
+}
+
 LRESULT Widget::handle_message(HWND hwnd, UINT msg, WPARAM wparam,
                                LPARAM lparam) {
   switch (msg) {
+    case WM_NCCALCSIZE:
+      if (frame_kind_ == FrameKind::kCustom) {
+        // Client area fills the entire window; FrameView paints the caption.
+        // Handle both wParam TRUE and FALSE — falling through to DefWindowProc
+        // would re-apply WS_CAPTION insets and show a second OS title bar.
+        return 0;
+      }
+      break;
+    case WM_NCHITTEST:
+      if (frame_kind_ == FrameKind::kCustom) {
+        return handle_nc_hit_test(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+      }
+      break;
+    case WM_NCLBUTTONDBLCLK:
+      if (frame_kind_ == FrameKind::kCustom && wparam == HTCAPTION) {
+        WINDOWPLACEMENT wp = {};
+        wp.length = sizeof(wp);
+        GetWindowPlacement(hwnd, &wp);
+        ShowWindow(hwnd, (wp.showCmd == SW_SHOWMAXIMIZED) ? SW_RESTORE
+                                                          : SW_MAXIMIZE);
+        if (auto* frame = dynamic_cast<FrameView*>(contents_.get())) {
+          frame->sync_maximize_button(wp.showCmd != SW_SHOWMAXIMIZED);
+        }
+        return 0;
+      }
+      break;
+    case WM_SIZE:
+      if (frame_kind_ == FrameKind::kCustom) {
+        if (auto* frame = dynamic_cast<FrameView*>(contents_.get())) {
+          frame->sync_maximize_button(wparam == SIZE_MAXIMIZED);
+        }
+      }
+      on_size(LOWORD(lparam), HIWORD(lparam));
+      return 0;
     case WM_PAINT:
       on_paint();
       return 0;
@@ -544,9 +721,6 @@ LRESULT Widget::handle_message(HWND hwnd, UINT msg, WPARAM wparam,
       return 0;
     case WM_ERASEBKGND:
       return 1;
-    case WM_SIZE:
-      on_size(LOWORD(lparam), HIWORD(lparam));
-      return 0;
     case WM_GETDPISCALEDSIZE: {
       auto* size = reinterpret_cast<SIZE*>(lparam);
       const unsigned new_dpi = static_cast<unsigned>(wparam);
@@ -721,7 +895,8 @@ void Widget::on_paint() {
   // Present only: BitBlt the published front buffer into the update region.
   // Use the generation returned by present (same lock as BitBlt) — a separate
   // published_generation() read can race ahead of the pixels just shown.
-  const std::uint64_t presented_gen = compositor_->present(hdc, ps.rcPaint);
+  const std::uint64_t presented_gen =
+      compositor_->present(hdc, ps.rcPaint, Theme::current().shell_bg);
   EndPaint(hwnd_, &ps);
 
   maybe_notify_shell_published(presented_gen);
@@ -748,8 +923,11 @@ void Widget::on_size(int width, int height) {
       compositor_->release_buffers();
     }
   }
-  full_paint_pending_ = true;
   layout_contents();
+  // Force a full shell Commit+Present. Setting full_paint_pending alone is not
+  // enough: without InvalidateRect, resize/move can leave WS_CLIPCHILDREN holes
+  // and a lagging front DIB unpainted (desktop show-through / overlap).
+  schedule_paint();
 }
 
 bool Widget::dispatch_mouse(MouseEvent::Type type, WPARAM wparam, LPARAM lparam,

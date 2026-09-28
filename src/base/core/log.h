@@ -6,9 +6,12 @@
 
 #include <cstdio>
 #include <ctime>
+#include <string>
+#include <utility>
 
 #include "base/core/build_config.h"
 #include "base/core/macros.h"
+#include "base/log/log_sink.h"
 
 #if defined(OS_WIN)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -98,6 +101,7 @@ inline const char* log_timestamp_cached() {
 #define LOG_TRACE CLR_BOLDCYAN
 
 // fflush: when stderr is redirected to a file, libc may fully buffer it.
+// Also appends to base::log_sink() for Debug Console / Agent subscribers.
 #define LOGGING(level, ...)                                                   \
   do {                                                                        \
     fprintf(LOG_DEVICE, "%s [%s] %s TID [%d] FUNC:[%s] [%d] [%s] ", level,   \
@@ -107,6 +111,7 @@ inline const char* log_timestamp_cached() {
     fprintf(LOG_DEVICE, __VA_ARGS__);                                         \
     fprintf(LOG_DEVICE, "\n");                                                \
     fflush(LOG_DEVICE);                                                       \
+    ::base::log_write(#level, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
   } while (0)
 
 #endif  // BASE_CORE_LOG_H_

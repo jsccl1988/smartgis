@@ -23,6 +23,9 @@ enum class AtmosphereShowcaseMode {
 struct ViewsLaunchOptions {
   content::ProcessType process_type = content::ProcessType::kBrowser;
   bool self_test = false;
+  // Shorter console-driven shell path (DebugAgent + bench JSON).
+  bool self_test_console = false;
+  bool debug_console = false;
   AtmosphereShowcaseMode atmosphere_showcase = AtmosphereShowcaseMode::kNone;
   std::string atmosphere_fields;
   // Empty = unset (caller may fall back to env SMT_SHELL_CANVAS).

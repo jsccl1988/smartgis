@@ -2,7 +2,7 @@
 
 #include "legacy/plugin/print/dlg_2d_xview.h"
 
-#include "gis/datasource/mgr/datasource_mgr.h"
+#include "legacy/datasource/mgr/datasource_mgr.h"
 #include "gis/model/feature/feature_api.h"
 #include "legacy/plugin/print/map_print.h"
 #include "legacy/ui/xcatalog/mapmgr.h"
@@ -46,14 +46,24 @@ void CDlg2DXView::OnDestroy() {
 BOOL CDlg2DXView::InitGreateXView(void) {
   m_p2DXView = new Smt2DXView();
 
-  m_p2DXView->BindDlgItem(this, IDC_XVIEW_CONTAINER);
+  if (m_p2DXView->BindDlgItem(this, IDC_PRINT_XVIEW_CONTAINER) !=
+      SMT_ERR_NONE) {
+    SMT_SAFE_DELETE(m_p2DXView);
+    return FALSE;
+  }
 
   if (m_p2DXView->GetSafeHwnd())
     m_p2DXView->OnInitialUpdate();
-  else
+  else {
+    SMT_SAFE_DELETE(m_p2DXView);
     return FALSE;
+  }
 
-  m_p2DXView->SetOperMap(SmtMapMgr::get_singleton_ptr()->GetSmtMapPtr());
+  SmtMapMgr* map_mgr = SmtMapMgr::get_singleton_ptr();
+  if (!map_mgr || !map_mgr->GetSmtMapPtr()) {
+    return TRUE;  // Preview HWND is up; map bind is optional.
+  }
+  m_p2DXView->SetOperMap(map_mgr->GetSmtMapPtr());
 
   return TRUE;
 }

@@ -7,8 +7,8 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted  
-**Tree (2026-09-27):** sources are `src/gis/{geo,proj,tin,stat}` and link into `gis.dll` (`//src/gis:gis`; `//src/gis:algorithm` forwards). Paths in this spec that say `src/algorithm` or a separate algorithm DLL are the pre-move layout.  
-**Related:** 三层伞状深度设计（模型 / 渲染 / 计算）见 [`2026-09-13-model-render-compute-design.md`](2026-09-13-model-render-compute-design.md)。产品语言 C++23（traits 写法与本文 C++20 草图兼容）。  
+**Tree (2026-09-28):** sources are `src/gis/{model,datasource,present,vista,kernel,analysis}` and link into `gis.dll` (`//src/gis:gis`; `//src/gis:algorithm` forwards). Paths in this spec that say `src/algorithm` or a separate algorithm DLL are the pre-move layout.  
+**Related:** 模型 / 渲染 / 计算伞状已并入 [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)（原 twin 在 archive）。产品语言 C++23（traits 写法与本文 C++20 草图兼容）。  
 **Scope:** wrap the already-shipped `gdal_sdk` GEOS C API and PROJ 9; merge math + 3D math + 3D geo into one `SmtGeoCore` DLL; retire self-written projections and the DEM algorithm DLL; move MFC charts to legacy UI. Sibling agents implement by package. This document does not implement C++.
 
 ## Goal
@@ -383,3 +383,16 @@ Phase 1 (geo) updates algorithm rows if this spec’s layout edit is already on 
 - `algorithm/dem` is gone; `plugin/dem` opens rasters with GDAL.
 - Chart sources live under `src/ui/chart`; `algorithm/stat` still owns numbers.
 - No second GEOS/PROJ, no glm/Eigen, no Qt.
+
+## §Python-facing analysis stays on OpsRunner（2026-09-28）
+
+**Status:** active  
+**Updated:** 2026-09-28 — kernels in `src/gis/analysis`; `plugin::` thin forward only  
+**Plan:** [`../plans/2026-09-28-gis-python-spatial-analysis.md`](../plans/2026-09-28-gis-python-spatial-analysis.md)  
+**Related:** plugin-host §Python dual-runtime; plugin-host §gis analysis ownership
+
+Console / Panel spatial analysis must call the existing **`plugin::run_builtin_op`** public face (`native.buffer`, `clip`, overlays, …). Do **not** add a parallel Python-side GEOS (Shapely) or a second C++ operator table.
+
+**Ownership (locked):** implementation lives in **`src/gis/analysis/`** (`ops/` runner now; `geometry/` / `raster/` for future typed objects). `plugin/runtime/processing` only forwards. New core algorithms and objects do **not** land under `src/plugin/`. New operators land in `gis/analysis` first; Python wraps `plugin::` / `PluginHost::run_processing`.
+
+**Reserved (not implemented this slice):** `native.cost_path` (road / least-cost), `native.flood_fill` (simple inundation). Catalog may list them only after a real factory exists under `gis/analysis/raster` (or equivalent); until then Python plugins use `contribute_processing` stubs or raise a clear error from `analysis.run`.

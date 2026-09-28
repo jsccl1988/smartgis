@@ -7,20 +7,18 @@ All rights reserved.
 
 **Status:** active  
 **Date:** 2026-09-19  
-**Updated:** 2026-09-28 — **deep merge (option B):** SP1–SP5 child specs and 09-27/28 layout twins folded into this file. Former children live under `docs/superpowers/archive/specs/` (`superseded` / `landed`).  
+**Updated:** 2026-09-28 — merge B: compressed child specs into this living umbrella (see §Folded topics). Do not open new dated twins.
 **Scope:** Living design for leftover strangler program **SP0–SP5**: order, technique, dependency direction, parallel rules, ABI, and **locked decisions per SP**. Implementation checklists stay in `docs/superpowers/plans/` (linked below). Physical package splits already done; revise **sections here** — do not open new dated SP / layout twins.  
 **Related (accepted / landed — do not reopen):**
 
 | Topic | Spec / as-built |
 | --- | --- |
-| Render leftover physical split | [`2026-09-13-render-legacy-split-design.md`](2026-09-13-render-legacy-split-design.md) |
-| App / UI leftover physical split | [`2026-09-14-app-legacy-split-design.md`](2026-09-14-app-legacy-split-design.md) |
+| Render leftover physical split | [`2026-09-13-render-legacy-split-design.md`](../archive/specs/2026-09-13-render-legacy-split-design.md) |
+| App / UI leftover physical split | [`2026-09-14-app-legacy-split-design.md`](../archive/specs/2026-09-14-app-legacy-split-design.md) |
 | Tool leftover physical split | [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](../archive/specs/2026-09-13-tool-legacy-split-design.md) |
-| RHI + World / GpuScene + frame graph | [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md) |
-| Model / render / compute umbrella | [`2026-09-13-model-render-compute-design.md`](2026-09-13-model-render-compute-design.md) |
+| RHI + World / GpuScene + frame graph (+ model/compute folded) | [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md) |
 | Tool session dispatch + `src/tool` layout | [`2026-09-13-tool-event-dispatch-design.md`](2026-09-13-tool-event-dispatch-design.md) |
-| Views ← MFC chrome | [`2026-09-13-ui-views-mfc-migration-design.md`](2026-09-13-ui-views-mfc-migration-design.md) |
-| `app/views` shell + capability dirs | [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md) |
+| `app/views` shell + Views toolkit / MFC migration | [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md) |
 | Product as-built | [`../../build/src-layout.md`](../../build/src-layout.md), [`../../build/ui-views-skia.md`](../../build/ui-views-skia.md) |
 
 **Plans (checklists — not second designs):**
@@ -29,8 +27,8 @@ All rights reserved.
 | --- | --- |
 | SP1 | [`../plans/2026-09-19-legacy-tool-workspace-strangler.md`](../plans/2026-09-19-legacy-tool-workspace-strangler.md) |
 | SP1b | [`../plans/2026-09-19-tool-behavior-migration.md`](../plans/2026-09-19-tool-behavior-migration.md) |
-| SP2 | [`../plans/2026-09-19-legacy-render-present-facade.md`](../plans/2026-09-19-legacy-render-present-facade.md) · dual-run [`../plans/2026-09-27-legacy-render-subdirectory-dual-run.md`](../plans/2026-09-27-legacy-render-subdirectory-dual-run.md) |
-| SP3 | [`../plans/2026-09-19-legacy-host-behavior-extract.md`](../plans/2026-09-19-legacy-host-behavior-extract.md) · app layout [`../plans/2026-09-27-legacy-app-subdirectory-layout.md`](../plans/2026-09-27-legacy-app-subdirectory-layout.md) |
+| SP2 | [`../plans/2026-09-19-legacy-render-present-facade.md`](../plans/2026-09-19-legacy-render-present-facade.md) · dual-run [`../archive/plans/2026-09-27-legacy-render-subdirectory-dual-run.md`](../archive/plans/2026-09-27-legacy-render-subdirectory-dual-run.md) |
+| SP3 | [`../plans/2026-09-19-legacy-host-behavior-extract.md`](../plans/2026-09-19-legacy-host-behavior-extract.md) · app layout [`../archive/plans/2026-09-27-legacy-app-subdirectory-layout.md`](../archive/plans/2026-09-27-legacy-app-subdirectory-layout.md) |
 | SP4 | [`../plans/2026-09-19-scene3d-world-gpuscene.md`](../plans/2026-09-19-scene3d-world-gpuscene.md) · SP4b [`../plans/2026-09-28-scene3d-index-octree.md`](../plans/2026-09-28-scene3d-index-octree.md) |
 | SP5 | [`../plans/2026-09-19-shell-compile-gate.md`](../plans/2026-09-19-shell-compile-gate.md) |
 
@@ -229,3 +227,20 @@ src/legacy/render/
 - [x] Active 表 / `docs/README.md` 指向本文
 
 实现工作只改代码 + 勾选 plan；**不要**为子目录或 SP 切片再开 dated design。
+
+---
+
+## Folded topics (2026-09-28 merge B)
+
+Former hot specs are under `archive/specs/` (`superseded`). **Revise this file** (append `§`) for new requirements in this topic. Do not create a new `YYYY-MM-DD-*-design.md`.
+
+| Former hot spec | Section / note |
+| --- | --- |
+| [`../archive/specs/2026-09-13-code-style-include-abi-cutover-design.md`](../archive/specs/2026-09-13-code-style-include-abi-cutover-design.md) | §ABI / include cutover (folded) |
+| [`../archive/specs/2026-09-13-render-legacy-split-design.md`](../archive/specs/2026-09-13-render-legacy-split-design.md) | §SP2 / related render leftover split |
+| [`../archive/specs/2026-09-14-app-legacy-split-design.md`](../archive/specs/2026-09-14-app-legacy-split-design.md) | §SP3 / related app leftover split |
+| [`../archive/specs/2026-09-14-dll-reorganization-design.md`](../archive/specs/2026-09-14-dll-reorganization-design.md) | §DLL / package stems (folded) |
+| [`../archive/specs/2026-09-19-leftover-gdiplus-carto-design.md`](../archive/specs/2026-09-19-leftover-gdiplus-carto-design.md) | §GDI+ carto leftover (folded) |
+| [`../archive/specs/2026-09-19-leftover-scene3d-dem-unify-design.md`](../archive/specs/2026-09-19-leftover-scene3d-dem-unify-design.md) | §SP4 scene3d DEM unify (folded) |
+| [`../archive/specs/2026-09-19-legacy-two-finger-pan-design.md`](../archive/specs/2026-09-19-legacy-two-finger-pan-design.md) | §two-finger pan (folded) |
+

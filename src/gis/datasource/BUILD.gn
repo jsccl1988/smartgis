@@ -1,8 +1,16 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Provider drivers (QGIS providers/*). Children: mgr, gdal (register), ogr (codec), sdbd (remote).
-# Merged into //src/gis:gis.
+# Datasource tree (merged into //src/gis:gis).
+#
+# Top-level layers (see README.md):
+#   L1 session/
+#   L2 provider/              — ProviderRegistry + adapters
+#   L3 provider/impl/{sdbd,ogr,gdal}
+#   L4 pipeline/
+#
+# Leftover DataSourceMgr: //src/legacy/datasource/mgr
+
 group("datasource") {
   public_deps = [ "//src/gis:gis" ]
 }

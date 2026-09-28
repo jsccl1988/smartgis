@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="att_struct">
+  <style src="att_struct.ui.css"/>
+  <vbox id="root" class="form">
+    <table id="fields" columns="Name,Type"/>
+    <label id="name_label" text="Field name"/>
+    <textfield id="name"/>
+    <label id="type_label" text="Field type"/>
+    <combobox id="type">
+      <item text="Integer"/>
+      <item text="Double"/>
+      <item text="String"/>
+      <item text="Date"/>
+    </combobox>
+    <hbox id="buttons" class="row">
+      <button id="add" text="Add"/>
+      <button id="remove" text="Remove"/>
+    </hbox>
+  </vbox>
+</ui>

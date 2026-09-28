@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_KERNEL_PAINT_PAINT_COMMIT_H_
 #define UI_VIEWS_KERNEL_PAINT_PAINT_COMMIT_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <cstdint>
 
 #include "ui/gfx/color/color.h"
@@ -30,7 +30,7 @@ struct PaintCommit {
 // Records dirty View DisplayLists on the calling thread (thread_local
 // recorder), then copies commands into |out|. Returns false if arguments are
 // invalid. Does not touch HWND or present.
-UI_VIEWS_EXPORT bool commit_view_tree(View* root,
+UI_EXPORT bool commit_view_tree(View* root,
                       const Rect& dirty,
                       int width_px,
                       int height_px,

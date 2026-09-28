@@ -9,8 +9,11 @@
 
 #include "content/public/event_bus.h"
 #include "content/public/map_types.h"
-#include "tool/nav/camera_nav.h"
+#include "gis/model/edit/session/edit_session.h"
 #include "tool/draft/draft.h"
+#include "tool/nav/camera_nav.h"
+#include "tool/workspace/draft_pipeline.h"
+#include "tool/workspace/nav_bridge.h"
 
 namespace tool {
 namespace {
@@ -27,7 +30,6 @@ class WheelZoomDraft final : public Interaction {
       return true;
     }
     if (content::is_horizontal_wheel(e)) {
-      // Trackpad / mouse horizontal wheel → touch-pan shaped draft.
       const int32_t dx = tool::hwheel_pan_dx(e.wheel);
       if (dx == 0) {
         return true;
@@ -55,293 +57,231 @@ class WheelZoomDraft final : public Interaction {
 
 }  // namespace
 
+struct Workspace::Impl {
+  content::EventBus* events = nullptr;
+  gis::EditSession* edits = nullptr;
+  CommandCatalog catalog;
+  CommandDispatcher dispatcher{&catalog};
+  InteractionRegistry interactions;
+  InteractionStack stack;
+  InputRouter router;
+  detail::DraftPipeline drafts;
+  detail::NavBridge nav;
+  bool flashing = false;
+
+  DraftCallback bind_draft() {
+    return [this](const Draft& draft) {
+      drafts.on_draft(draft, stack.current(), events, edits);
+    };
+  }
+
+  void bind_activate(const char* command_id, const char* interaction_id) {
+    catalog.add(command_id, [this, interaction_id](const CommandArgs&) {
+      return stack.activate(interaction_id, interactions);
+    });
+  }
+
+  void register_builtins() {
+    DraftCallback cb = bind_draft();
+    interactions.add("view3d.trackball",
+                     [cb]() { return make_view3d_trackball(cb); });
+    interactions.add("view3d.sphere", [cb]() { return make_view3d_sphere(cb); });
+    interactions.add("view3d.fps", [cb]() { return make_view3d_fps(cb); });
+    interactions.add("select.point", [cb]() { return make_select_point(cb); });
+    interactions.add("select.rect", [cb]() { return make_select_rect(cb); });
+    interactions.add("select.circle",
+                     [cb]() { return make_select_circle(cb); });
+    interactions.add("select.polygon",
+                     [cb]() { return make_select_polygon(cb); });
+    interactions.add("draw.point", [cb]() { return make_draw_point(cb); });
+    interactions.add("draw.linestring",
+                     [cb]() { return make_draw_linestring(cb); });
+    interactions.add("draw.polygon", [cb]() { return make_draw_polygon(cb); });
+    interactions.add("draw.rect", [cb]() { return make_draw_rect(cb); });
+    interactions.add("view.zoom_in", [cb]() { return make_view_zoom_in(cb); });
+    interactions.add("view.zoom_out",
+                     [cb]() { return make_view_zoom_out(cb); });
+    interactions.add("view.pan", [cb]() { return make_view_pan(cb); });
+
+    bind_activate("view.zoom_in", "view.zoom_in");
+    bind_activate("view.zoom_out", "view.zoom_out");
+    bind_activate("view.pan", "view.pan");
+    bind_activate("view3d.trackball", "view3d.trackball");
+    bind_activate("view3d.sphere", "view3d.sphere");
+    bind_activate("view3d.fps", "view3d.fps");
+    bind_activate("selection.point", "select.point");
+    bind_activate("selection.rect", "select.rect");
+    bind_activate("selection.polygon", "select.polygon");
+    bind_activate("edit.append.point", "draw.point");
+    bind_activate("edit.append.linestring", "draw.linestring");
+    bind_activate("edit.append.polygon", "draw.polygon");
+    interactions.add("edit.vertex", [cb]() { return make_edit_vertex(cb); });
+    bind_activate("edit.vertex", "edit.vertex");
+
+    catalog.add("view.full", [this](const CommandArgs& args) {
+      return nav.publish_nav("view.full", args, events);
+    });
+    catalog.add("view.refresh", [this](const CommandArgs& args) {
+      return nav.publish_nav("view.refresh", args, events);
+    });
+    catalog.add("view.backend.rhi", [this](const CommandArgs& args) {
+      if (events) {
+        content::RenderBackendChanged ev;
+        ev.view_id = args.view_id;
+        ev.kind = 0;
+        events->publish(ev);
+      }
+      return true;
+    });
+    catalog.add("view.backend.maplibre", [this](const CommandArgs& args) {
+      if (events) {
+        content::RenderBackendChanged ev;
+        ev.view_id = args.view_id;
+        ev.kind = 1;
+        events->publish(ev);
+      }
+      return true;
+    });
+    catalog.add("view3d.full", [this](const CommandArgs& args) {
+      if (events) {
+        content::ExtentChanged ev;
+        ev.view_id = args.view_id;
+        events->publish(ev);
+      }
+      return true;
+    });
+    catalog.add("flash.start", [this](const CommandArgs&) {
+      flashing = true;
+      return true;
+    });
+    catalog.add("flash.stop", [this](const CommandArgs&) {
+      flashing = false;
+      return true;
+    });
+
+    catalog.add("selection.clear", [this](const CommandArgs& args) {
+      drafts.clear_last_draft();
+      if (events) {
+        content::SelectionChanged ev;
+        ev.view_id = args.view_id;
+        events->publish(ev);
+      }
+      return true;
+    });
+
+    catalog.add("edit.undo", [this](const CommandArgs&) {
+      return edits && edits->can_undo() && edits->undo();
+    });
+    catalog.add("edit.redo", [this](const CommandArgs&) {
+      return edits && edits->can_redo() && edits->redo();
+    });
+    catalog.add("edit.cancel", [this](const CommandArgs&) {
+      drafts.clear_last_draft();
+      while (stack.pop()) {
+      }
+      return true;
+    });
+  }
+};
+
 Workspace::Workspace(content::EventBus* events, gis::EditSession* edits)
-    : events_(events), edits_(edits), dispatcher_(&catalog_) {
-  router_.set_stack(&stack_);
-  router_.add_always_on(std::make_unique<WheelZoomDraft>(bind_draft()));
-  router_.add_always_on(make_hover_cursor());
-  register_builtins();
+    : impl_(std::make_unique<Impl>()) {
+  impl_->events = events;
+  impl_->edits = edits;
+  impl_->router.set_stack(&impl_->stack);
+  impl_->router.add_always_on(
+      std::make_unique<WheelZoomDraft>(impl_->bind_draft()));
+  impl_->router.add_always_on(make_hover_cursor());
+  impl_->register_builtins();
+}
+
+Workspace::~Workspace() = default;
+
+CommandCatalog& Workspace::catalog() {
+  return impl_->catalog;
+}
+
+CommandDispatcher& Workspace::dispatcher() {
+  return impl_->dispatcher;
+}
+
+InteractionRegistry& Workspace::interactions() {
+  return impl_->interactions;
+}
+
+InteractionStack& Workspace::stack() {
+  return impl_->stack;
+}
+
+InputRouter& Workspace::router() {
+  return impl_->router;
+}
+
+const Draft& Workspace::last_draft() const {
+  return impl_->drafts.last_draft();
+}
+
+bool Workspace::flashing() const {
+  return impl_ && impl_->flashing;
+}
+
+void Workspace::set_draft_flags(uint32_t flags) {
+  impl_->drafts.set_pending_flags(flags);
+}
+
+uint32_t Workspace::draft_flags() const {
+  return impl_->drafts.pending_flags();
 }
 
 void Workspace::set_draft_observer(DraftCallback observer) {
-  draft_observer_ = std::move(observer);
+  impl_->drafts.set_observer(std::move(observer));
 }
 
 void Workspace::set_feature_hit(FeatureHit fn) {
-  feature_hit_ = std::move(fn);
+  impl_->drafts.set_feature_hit(std::move(fn));
 }
 
 void Workspace::set_nav_command(NavCommand fn) {
-  nav_command_ = std::move(fn);
+  impl_->nav.set_nav_command(std::move(fn));
 }
 
 void Workspace::set_shell_owns_append(bool on) {
-  shell_owns_append_ = on;
+  impl_->drafts.set_shell_owns_append(on);
 }
 
 bool Workspace::execute(std::string_view command_id, const CommandArgs& args) {
-  return dispatcher_.execute(command_id, args);
+  return impl_->dispatcher.execute(command_id, args);
 }
 
 bool Workspace::activate(std::string_view interaction_id) {
-  return stack_.activate(interaction_id, interactions_);
+  return impl_->stack.activate(interaction_id, impl_->interactions);
 }
 
 bool Workspace::dispatch_input(const content::InputEvent& e) {
-  Interaction* cur = stack_.current();
+  Interaction* cur = impl_->stack.current();
   if (cur) {
     const char* id = cur->id();
     if (id && std::strncmp(id, "view3d.", 7) == 0) {
       return cur->on_input(e);
     }
-    // Drawing / select keep exclusive capture; navigate gets cursor-zoom.
     if (e.kind == content::InputEvent::Kind::kWheel && !is_navigate_tool(id)) {
       return cur->on_input(e);
     }
   }
-  return router_.dispatch(e);
+  return impl_->router.dispatch(e);
 }
 
 void Workspace::aux_draw() {
-  if (Interaction* cur = stack_.current()) {
+  if (Interaction* cur = impl_->stack.current()) {
     cur->aux_draw();
   }
 }
 
 const AuxOverlay* Workspace::live_preview() const {
-  if (Interaction* cur = stack_.current()) {
+  if (Interaction* cur = impl_->stack.current()) {
     return cur->aux_overlay();
   }
   return nullptr;
-}
-
-void Workspace::bind_activate(const char* command_id,
-                              const char* interaction_id) {
-  catalog_.add(command_id, [this, interaction_id](const CommandArgs&) {
-    return activate(interaction_id);
-  });
-}
-
-DraftCallback Workspace::bind_draft() {
-  return [this](const Draft& draft) {
-    Draft stamped = draft;
-    if (stamped.flags == 0 && pending_draft_flags_ != 0) {
-      stamped.flags = pending_draft_flags_;
-    }
-    on_draft(stamped);
-  };
-}
-
-content::FeatureId Workspace::id_from_draft(const Draft& draft) {
-  content::FeatureId id{};
-  id.len = 1;
-  id.bytes[0] = static_cast<uint8_t>(draft.kind);
-  return id;
-}
-
-void Workspace::on_draft(const Draft& draft) {
-  last_draft_ = draft;
-  Interaction* cur = stack_.current();
-  const char* id = cur ? cur->id() : "";
-  content::FeatureId resolved{};
-  const bool select_tool = id && std::strncmp(id, "select.", 7) == 0;
-  const bool vertex_tool = id && std::strcmp(id, "edit.vertex") == 0;
-  if (feature_hit_ && (select_tool || vertex_tool)) {
-    resolved = feature_hit_(draft);
-  }
-  if (draft_observer_) {
-    draft_observer_(draft);
-  }
-  if (draft.kind == DraftKind::kWheel) {
-    if (events_) {
-      events_->publish(content::ExtentChanged{});
-    }
-    return;
-  }
-  if (!cur) {
-    return;
-  }
-  if (select_tool) {
-    // Real ids only. A miss publishes an empty selection (clears highlight).
-    if (events_ && feature_hit_) {
-      content::SelectionChanged ev;
-      if (resolved.len > 0) {
-        ev.ids.push_back(resolved);
-      }
-      events_->publish(ev);
-    }
-    return;
-  }
-  if (vertex_tool) {
-    if (resolved.len == 0 || !edits_) {
-      return;
-    }
-    gis::FeatureMutation mutation;
-    mutation.op = gis::EditOp::kModify;
-    mutation.id = resolved;
-    if (edits_->commit(mutation) && events_) {
-      content::EditCommitted ev;
-      ev.id = mutation.id;
-      ev.op = content::EditCommitted::Op::kModify;
-      events_->publish(ev);
-    }
-    return;
-  }
-  if (std::strncmp(id, "view3d.", 7) == 0) {
-    if (draft.kind == DraftKind::kPick) {
-      if (events_) {
-        content::SelectionChanged ev;
-        ev.ids.push_back(id_from_draft(draft));
-        events_->publish(ev);
-      }
-      return;
-    }
-    if (events_) {
-      events_->publish(content::ExtentChanged{});
-    }
-    return;
-  }
-  if (std::strncmp(id, "view.", 5) == 0) {
-    if (events_) {
-      events_->publish(content::ExtentChanged{});
-    }
-    return;
-  }
-  if (std::strncmp(id, "draw.", 5) == 0) {
-    // Views shell writes geometry once via MapScene::append_from_draft.
-    if (shell_owns_append_) {
-      return;
-    }
-    if (!edits_) {
-      return;
-    }
-    gis::FeatureMutation mutation;
-    mutation.op = gis::EditOp::kAppend;
-    mutation.id = id_from_draft(draft);
-    if (edits_->commit(mutation) && events_) {
-      content::EditCommitted ev;
-      ev.id = mutation.id;
-      ev.op = content::EditCommitted::Op::kAppend;
-      events_->publish(ev);
-    }
-  }
-}
-
-void Workspace::register_builtins() {
-  DraftCallback cb = bind_draft();
-  interactions_.add("view3d.trackball",
-                    [cb]() { return make_view3d_trackball(cb); });
-  interactions_.add("view3d.sphere", [cb]() { return make_view3d_sphere(cb); });
-  interactions_.add("view3d.fps", [cb]() { return make_view3d_fps(cb); });
-  interactions_.add("select.point", [cb]() { return make_select_point(cb); });
-  interactions_.add("select.rect", [cb]() { return make_select_rect(cb); });
-  interactions_.add("select.circle",
-                    [cb]() { return make_select_circle(cb); });
-  interactions_.add("select.polygon",
-                    [cb]() { return make_select_polygon(cb); });
-  interactions_.add("draw.point", [cb]() { return make_draw_point(cb); });
-  interactions_.add("draw.linestring",
-                    [cb]() { return make_draw_linestring(cb); });
-  interactions_.add("draw.polygon", [cb]() { return make_draw_polygon(cb); });
-  interactions_.add("draw.rect", [cb]() { return make_draw_rect(cb); });
-  interactions_.add("view.zoom_in", [cb]() { return make_view_zoom_in(cb); });
-  interactions_.add("view.zoom_out", [cb]() { return make_view_zoom_out(cb); });
-  interactions_.add("view.pan", [cb]() { return make_view_pan(cb); });
-
-  bind_activate("view.zoom_in", "view.zoom_in");
-  bind_activate("view.zoom_out", "view.zoom_out");
-  bind_activate("view.pan", "view.pan");
-  bind_activate("view3d.trackball", "view3d.trackball");
-  bind_activate("view3d.sphere", "view3d.sphere");
-  bind_activate("view3d.fps", "view3d.fps");
-  bind_activate("selection.point", "select.point");
-  bind_activate("selection.rect", "select.rect");
-  bind_activate("selection.polygon", "select.polygon");
-  bind_activate("edit.append.point", "draw.point");
-  bind_activate("edit.append.linestring", "draw.linestring");
-  bind_activate("edit.append.polygon", "draw.polygon");
-  interactions_.add("edit.vertex", [cb]() { return make_edit_vertex(cb); });
-  bind_activate("edit.vertex", "edit.vertex");
-
-  auto publish_nav = [this](std::string_view command_id, const CommandArgs& args) {
-    content::Extent2 extent{};
-    if (nav_command_) {
-      extent = nav_command_(command_id);
-    }
-    if (events_) {
-      content::ExtentChanged ev;
-      ev.view_id = args.view_id;
-      ev.extent = extent;
-      events_->publish(ev);
-    }
-    return true;
-  };
-  catalog_.add("view.full", [publish_nav](const CommandArgs& args) {
-    return publish_nav("view.full", args);
-  });
-  catalog_.add("view.refresh", [publish_nav](const CommandArgs& args) {
-    return publish_nav("view.refresh", args);
-  });
-  catalog_.add("view.backend.rhi", [this](const CommandArgs& args) {
-    if (events_) {
-      content::RenderBackendChanged ev;
-      ev.view_id = args.view_id;
-      ev.kind = 0;
-      events_->publish(ev);
-    }
-    return true;
-  });
-  catalog_.add("view.backend.maplibre", [this](const CommandArgs& args) {
-    if (events_) {
-      content::RenderBackendChanged ev;
-      ev.view_id = args.view_id;
-      ev.kind = 1;
-      events_->publish(ev);
-    }
-    return true;
-  });
-  catalog_.add("view3d.full", [this](const CommandArgs& args) {
-    if (events_) {
-      content::ExtentChanged ev;
-      ev.view_id = args.view_id;
-      events_->publish(ev);
-    }
-    return true;
-  });
-  catalog_.add("flash.start", [this](const CommandArgs&) {
-    flashing_ = true;
-    return true;
-  });
-  catalog_.add("flash.stop", [this](const CommandArgs&) {
-    flashing_ = false;
-    return true;
-  });
-
-  catalog_.add("selection.clear", [this](const CommandArgs& args) {
-    // EventBus matches by type name so this publish reaches exe subscribers.
-    last_draft_ = Draft{};
-    pending_draft_flags_ = 0;
-    if (events_) {
-      content::SelectionChanged ev;
-      ev.view_id = args.view_id;
-      events_->publish(ev);
-    }
-    return true;
-  });
-
-  catalog_.add("edit.undo", [this](const CommandArgs&) {
-    return edits_ && edits_->can_undo() && edits_->undo();
-  });
-  catalog_.add("edit.redo", [this](const CommandArgs&) {
-    return edits_ && edits_->can_redo() && edits_->redo();
-  });
-  catalog_.add("edit.cancel", [this](const CommandArgs&) {
-    last_draft_ = Draft{};
-    pending_draft_flags_ = 0;
-    while (stack_.pop()) {
-    }
-    return true;
-  });
 }
 
 }  // namespace tool

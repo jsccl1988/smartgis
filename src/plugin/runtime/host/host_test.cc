@@ -4,15 +4,14 @@
 #include "content/public/event_bus.h"
 #include "content/public/plugin_host.h"
 #include "plugin/product/orthogrid/commands.h"
-#include "plugin/product/dem/dem_commands.h"
+#include "plugin/product/dem/commands.h"
 #include "legacy/plugin/adapter/am.h"
 #include "legacy/plugin/adapter/cmd.h"
 #include "legacy/tool/adapter/msg.h"
 #include "plugin/runtime/host/manager_view.h"
 #include "plugin/runtime/host/manifest.h"
-#include "plugin/product/model3d/model3d_commands.h"
-#include "plugin/product/print/print_commands.h"
-#include "plugin/product/proj/proj_commands.h"
+#include "plugin/product/model3d/commands.h"
+#include "plugin/product/print/commands.h"
 #include "plugin/runtime/host/official_key.h"
 #include "plugin/runtime/host/processing.h"
 #include "plugin/runtime/host/registry.h"
@@ -20,8 +19,9 @@
 #include "plugin/runtime/host/signature_test_key.h"
 #include "plugin/runtime/host/store.h"
 #include "tool/command/command.h"
-#include "ui/views/dialogs/shell/file_picker.h"
-#include "ui/views/dialogs/shell/message_box.h"
+#include "ui/views/dialogs/dialog.h"
+#include "ui/views/dialogs/file_picker.h"
+#include "ui/views/dialogs/message_box.h"
 
 #include "httplib.h"
 
@@ -45,9 +45,10 @@ void expect(bool ok, const char* msg) {
 }  // namespace
 
 int main() {
-  // Headless: never block on Win32 Save As / Open / MessageBox.
+  // Headless: never block on Win32 Save As / Open / MessageBox / Dialog.
   ui::views::set_file_picker_modals_suppressed_for_test(true);
   ui::views::set_message_box_suppressed_for_test(true);
+  ui::views::Dialog::set_dialog_modals_suppressed_for_test(true);
   {
     plugin::Manifest m;
     std::string err;
@@ -120,9 +121,18 @@ int main() {
            "leftover baogrid stem");
     expect(std::string(plugin::am_id_from_stem("FooBar")) == "legacy.foobar",
            "unknown stem");
+    expect(std::string(plugin::am_id_from_display_name("DEM创建")) ==
+               "smartgis.dem",
+           "am display DEM创建");
     expect(std::string(plugin::am_id_from_display_name("DEM生成")) ==
                "smartgis.dem",
            "dem display");
+    expect(std::string(plugin::am_id_from_display_name("地图打印")) ==
+               "smartgis.print",
+           "print display");
+    expect(std::string(plugin::am_id_from_display_name("地图投影")) ==
+               "smartgis.proj",
+           "proj display");
   }
   {
     content::EventBus bus;
@@ -449,20 +459,51 @@ int main() {
     content::PluginHost* host =
         content::create_plugin_host(nullptr, nullptr, nullptr);
     expect(plugin::register_dem(host), "register dem");
-    expect(plugin::register_proj(host), "register proj");
     expect(plugin::register_print(host), "register print");
     expect(plugin::register_model3d(host), "register model3d");
     expect(plugin::register_orthogrid(host), "register orthogrid");
-    // input_boundary returns false without a workspace linestring tool �?no UI.
+
+    // All product AM dialog commands: bodies construct; modal pump suppressed.
+    expect(host->execute("dem.load_tin", {}), "dem tin dialog");
+    expect(host->execute("dem.load_grid", {}), "dem grid dialog");
+    expect(host->execute("dem.about", {}), "dem about dialog");
+    expect(host->execute("print.preview", {}), "print preview dialog");
+
+    // model3d: no scene device -> false (message box suppressed); must not crash.
+    expect(!host->execute("model3d.add_sphere", {}), "model3d sphere no scene");
+    expect(!host->execute("model3d.add_water", {}), "model3d water no scene");
+    expect(!host->execute("model3d.add_terrain_grid", {}),
+           "model3d terrain grid no scene");
+    expect(!host->execute("model3d.add_terrain_tin", {}),
+           "model3d terrain tin no scene");
+    expect(!host->execute("model3d.create_tin", {}), "model3d create tin");
+    expect(!host->execute("model3d.layer_points_to_3d", {}),
+           "model3d points 3d");
+    expect(!host->execute("model3d.layer_lines_to_3d", {}),
+           "model3d lines 3d");
+    expect(!host->execute("model3d.layer_polygons_to_3d", {}),
+           "model3d polygons 3d");
+    expect(!host->execute("model3d.add_pointcloud", {}),
+           "model3d pointcloud cancelled");
+
+    // input_boundary returns false without a workspace linestring tool.
     expect(!host->execute("baogrid.input_boundary_0", {}),
            "baogrid input no tool");
+    expect(!host->execute("baogrid.input_boundary_2", {}),
+           "baogrid input2 no tool");
     expect(!host->execute("orthogrid.input_boundary_0", {}),
            "orthogrid input no tool");
-    // Modals suppressed above: save_boundary cancels without 鍙﹀瓨涓?
+    expect(!host->execute("orthogrid.input_boundary_2", {}),
+           "orthogrid input2 no tool");
+    // Modals suppressed above: save/load boundary cancel without Win32 UI.
     expect(!host->execute("orthogrid.save_boundary", {}),
            "orthogrid save cancelled");
     expect(!host->execute("baogrid.save_boundary", {}),
            "baogrid save cancelled");
+    expect(!host->execute("orthogrid.load_boundary", {}),
+           "orthogrid load cancelled");
+    expect(!host->execute("baogrid.load_boundary", {}),
+           "baogrid load cancelled");
     delete host;
   }
   {
@@ -512,18 +553,6 @@ int main() {
     expect(host->run_processing("test.async", "{}"), "async queue");
     pool.flush_for_test();
     expect(worker != submitter, "host factory off caller");
-    delete host;
-  }
-  {
-    content::PluginHost* host =
-        content::create_plugin_host(nullptr, nullptr, nullptr);
-    expect(plugin::register_proj(host), "register proj factory");
-    expect(host->run_processing(
-               "proj.transform_xy",
-               "{\"L\":120.0,\"B\":36.0,\"scale_ruler\":1}"),
-           "transform xy");
-    const plugin::TransformXyOutput xy = plugin::consume_transform_xy_output();
-    expect(xy.valid, "proj factory wrote xy");
     delete host;
   }
   if (g_fails) {

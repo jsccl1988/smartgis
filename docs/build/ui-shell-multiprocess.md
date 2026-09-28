@@ -404,7 +404,7 @@ v1 适配器路径：
 **产品意图（现行）：** 真 CEF Binary Distribution 画 HTML IDE chrome；顶层 Win32 客户区用 **分区 HWND**——CEF browser HWND 只填 chrome；地图是 sibling 子 HWND（`CefMapSlot`），经 `content` host ABI present / 输入。**不**挖洞、**不** OSR 叠层地图。
 
 - 树：`src/app/cef` → `out/SmartGisCef.exe`（`build.bat cef`，`smt_build_cef=true`）。默认不进 `group("all")` / `src_all`。
-- Spec：[`docs/superpowers/specs/2026-09-14-app-cef-hwnd-host-design.md`](../superpowers/specs/2026-09-14-app-cef-hwnd-host-design.md)。
+- Spec：[`docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md`](../superpowers/specs/2026-09-27-views-desktop-shell-design.md)。
 - 历史：本节曾写 WebView2 sibling；WebView2 路径已删除。宿主形态仍是 sibling HWND + `content`，chrome 换成 CEF。
 
 ```text

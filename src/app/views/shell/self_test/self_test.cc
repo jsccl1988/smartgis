@@ -8,7 +8,7 @@
 #include <windows.h>
 #include <shellapi.h>
 
-#include "app/views/camera/map_host_extent.h"
+#include "content/browser/camera/map_host_extent.h"
 #include "content/app/content_main.h"
 #include "content/embed/embed_sample.h"
 #include "content/public/event_bus.h"
@@ -24,22 +24,27 @@
 #include "render/rhi/rhi.h"
 #include "tool/interaction/interaction.h"
 #include "tool/workspace/workspace.h"
-#include "ui/views/gis/catalog/catalog_view.h"
-#include "ui/views/gis/inspect/feature_info.h"
-#include "ui/views/gis/shell/status_bar.h"
+#include "ui/gis/catalog/catalog_view.h"
+#include "ui/gis/inspect/feature_info.h"
+#include "ui/gis/shell/status_bar.h"
 #include "ui/views/kernel/shell/dpi.h"
+#include "base/trace/process_trace.h"
 #include "ui/views/kernel/layout/layout_check.h"
 #include "ui/views/map/map_viewport.h"
 #include "ui/views/primitives/menu/menu_bar.h"
 #include "ui/views/kernel/view/view.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
+#include <system_error>
 #include <vector>
 #include <cwctype>
 
@@ -114,6 +119,10 @@ bool viewport_has_presented_frame(ui::views::MapViewport* pane) {
 }  // namespace
 
 int run_views_self_test(Browser& browser) {
+  struct TraceDumpOnExit {
+    ~TraceDumpOnExit() { base::maybe_dump_tracing_to_env(); }
+  } trace_dump_on_exit;
+  (void)trace_dump_on_exit;
     wchar_t mark_path[MAX_PATH] = {};
     if (detail::exe_sidecar_path(mark_path, MAX_PATH, L"self-test-mark.txt")) {
       DeleteFileW(mark_path);
@@ -338,7 +347,7 @@ int run_views_self_test(Browser& browser) {
         return 61;
       }
       const content::FeatureId pick =
-          app::MapScene::feature_id_from_token(tokens.back());
+          content::MapScene::feature_id_from_token(tokens.back());
       if (!browser.document()->select_feature(pick)) {
         self_test_detach_maps(browser);
         return 61;
@@ -369,7 +378,7 @@ int run_views_self_test(Browser& browser) {
         self_test_detach_maps(browser);
         return 62;
       }
-      app::MapScene probe;
+      content::MapScene probe;
       if (!probe.open_path(out) || probe.feature_count() < 1) {
         DeleteFileA(out);
         self_test_detach_maps(browser);
@@ -408,14 +417,20 @@ int run_views_self_test(Browser& browser) {
       }
     }
     self_test_mark("layers-ok");
-    // Prefer out/china_city.gpkg (Ã©ÂÂ¥Ã¦Â¶ÂÃ¦ÂµÂÃ§ÂÂ?; else geojson; else china_plp.
+    // Prefer shared out/data/china_city.gpkg; else geojson; else china_plp.
     {
       wchar_t sample_w[MAX_PATH] = {};
       if (detail::exe_dir_with_slash(sample_w, MAX_PATH)) {
         char sample_a[MAX_PATH] = {};
         bool opened = false;
         bool city_pack = false;
-        const wchar_t* candidates[] = {L"china_city.gpkg",
+        const wchar_t* candidates[] = {L"..\\data\\china_city.gpkg",
+                                       L"..\\data\\china_city.geojson",
+                                       L"..\\data\\china_plp.geojson",
+                                       L"data\\china_city.gpkg",
+                                       L"data\\china_city.geojson",
+                                       L"data\\china_plp.geojson",
+                                       L"china_city.gpkg",
                                        L"china_city.geojson",
                                        L"china_plp.geojson"};
         for (const wchar_t* name : candidates) {
@@ -437,7 +452,13 @@ int run_views_self_test(Browser& browser) {
           }
         }
         if (!opened) {
-          wcscat_s(sample_w, L"views_ogr_selftest.geojson");
+          // Stub under shared out/data/ (exe is out/Debug|Release).
+          wchar_t data_dir[MAX_PATH] = {};
+          if (wcscpy_s(data_dir, sample_w) == 0 &&
+              wcscat_s(data_dir, L"..\\data") == 0) {
+            CreateDirectoryW(data_dir, nullptr);
+          }
+          wcscat_s(sample_w, L"..\\data\\views_ogr_selftest.geojson");
           FILE* sf = nullptr;
           if (_wfopen_s(&sf, sample_w, L"wb") == 0 && sf) {
             static const char kGeojson[] =
@@ -538,8 +559,16 @@ int run_views_self_test(Browser& browser) {
               }
             }
             std::string cand =
-                std::string(style_path) + "china_city.style.json";
+                std::string(style_path) + "..\\data\\china_city.style.json";
             style_loaded = browser.document()->load_style_path(cand);
+            if (!style_loaded) {
+              cand = std::string(style_path) + "data\\china_city.style.json";
+              style_loaded = browser.document()->load_style_path(cand);
+            }
+            if (!style_loaded) {
+              cand = std::string(style_path) + "china_city.style.json";
+              style_loaded = browser.document()->load_style_path(cand);
+            }
           }
           if (!style_loaded) {
             const char* kInline =
@@ -682,16 +711,33 @@ int run_views_self_test(Browser& browser) {
     // Wheel-to-cursor must change overlay scale (not view-center zoom).
     {
       content::ViewHost* host = browser.edit_view_host();
+      if (!host) {
+        self_test_detach_maps(browser);
+        return 47;
+      }
       const double scale0 = browser.view_frame()->scale();
       content::InputEvent wheel{};
       wheel.kind = content::InputEvent::Kind::kWheel;
       wheel.x_px = 40;
       wheel.y_px = 40;
-      wheel.wheel = 120;
-      if (!host || !host->dispatch_input(wheel) ||
-          std::fabs(browser.view_frame()->scale() - scale0) < 1e-9) {
+      // Zoom out first: zoom-in can no-op if scale is already near the clamp.
+      wheel.wheel = -120;
+      if (!host->dispatch_input(wheel)) {
+        std::fprintf(stderr, "wheel-cursor: dispatch_input failed\n");
         self_test_detach_maps(browser);
         return 47;
+      }
+      if (std::fabs(browser.view_frame()->scale() - scale0) < 1e-9) {
+        // Retry zoom-in in case an observer reset the first delta.
+        wheel.wheel = 120;
+        if (!host->dispatch_input(wheel) ||
+            std::fabs(browser.view_frame()->scale() - scale0) < 1e-9) {
+          std::fprintf(stderr,
+                       "wheel-cursor: scale unchanged (was %.9g now %.9g)\n",
+                       scale0, browser.view_frame()->scale());
+          self_test_detach_maps(browser);
+          return 47;
+        }
       }
       const render::rhi::CameraMatrices ortho =
           browser.orbit_frame()->camera_matrices_ortho(800.f, 600.f);
@@ -730,7 +776,7 @@ int run_views_self_test(Browser& browser) {
           scene->rhi_device()) {
         // Optional atmosphere exercise: demo on for self-test only; normal
         // launches leave ocean/cloud disabled.
-        browser.scene3d()->enable_atmosphere_demo();
+        browser.scene3d()->atmosphere_session().enable_demo();
         self_test_mark("atmosphere-demo");
         if (!browser.scene3d()->present_gpu(
                 static_cast<render::rhi::Device*>(scene->rhi_device()), 64,
@@ -749,7 +795,45 @@ int run_views_self_test(Browser& browser) {
     const int layout_fails =
         ui::views::collect_layout_violations(browser.contents_view(),
                                              &layout_issues);
+    // Sibling overlaps are advisory in the product shell (some stacks are
+    // intentional); L0 forensics tests assert them on synthetic trees.
+    std::vector<std::string> overlap_issues;
+    ui::views::collect_sibling_overlaps(browser.contents_view(),
+                                        &overlap_issues);
     self_test_mark("layout-checked");
+    const bool force_dump = [] {
+      const char* v = std::getenv("SMT_UI_FORENSICS");
+      return v && v[0] && !(v[0] == '0' && v[1] == '\0');
+    }();
+    if (layout_fails > 0 || force_dump) {
+      // Mode A: dump text forensics on failure (or SMT_UI_FORENSICS=1).
+      // Product binary stays free of testonly dump_ui_forensics; write the
+      // layout issues + a minimal manifest (no shell PNG / view tree).
+      namespace fs = std::filesystem;
+      const auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                             std::chrono::system_clock::now().time_since_epoch())
+                             .count();
+      const std::string run_id = "self_test_" + std::to_string(stamp);
+      const fs::path dir = fs::path("out") / "ui_forensics" / run_id;
+      std::error_code ec;
+      fs::create_directories(dir, ec);
+      std::vector<std::string> all = layout_issues;
+      all.insert(all.end(), overlap_issues.begin(), overlap_issues.end());
+      ui::views::write_layout_issues_file(dir / "layout_issues.txt", all);
+      {
+        std::ofstream man(dir / "manifest.json", std::ios::binary);
+        if (man) {
+          man << "{\n"
+              << "  \"run_id\": \"" << run_id << "\",\n"
+              << "  \"exe\": \"SmartGisViews.exe\",\n"
+              << "  \"scenario\": \"--self-test\",\n"
+              << "  \"issue_count\": " << all.size() << ",\n"
+              << "  \"marks\": [\"layout-checked\"]\n"
+              << "}\n";
+        }
+      }
+      std::fprintf(stderr, "ui forensics: %s\n", dir.string().c_str());
+    }
     if (layout_fails > 0) {
       for (const std::string& issue : layout_issues) {
         std::fprintf(stderr, "layout smoke: %s\n", issue.c_str());
@@ -835,7 +919,7 @@ int run_views_self_test(Browser& browser) {
     // M3: DEM seed + tileset stream + atmosphere toggle.
     {
       std::string err;
-      if (!browser.scene3d()->run_m3_self_test_hooks(&err)) {
+      if (!browser.scene3d()->atmosphere_session().run_m3_self_test_hooks(&err)) {
         std::fprintf(stderr, "M3 self-test failed: %s\n", err.c_str());
         self_test_detach_maps(browser);
         if (err == "m3-dem-ok") {

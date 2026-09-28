@@ -6,9 +6,9 @@
 #include <cmath>
 #include <vector>
 
-#include "base/carto/style_api.h"
+#include "legacy/carto/style_api.h"
 #include "base/core/log.h"
-#include "gis/datasource/ogr/codec/ogr_feature_codec.h"
+#include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
 #include "legacy/core/api.h"
 #include "legacy/render/rhi2d/impl/gdi/carto/map_carto2d.h"
 #include "legacy/render/rhi2d/impl/gdi/gdiaux/gdi_aux_api.h"

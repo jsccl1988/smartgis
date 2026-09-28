@@ -24,7 +24,11 @@ source_set("map_sources") {
     "pass.h",
   ]
   include_dirs += [ "//src" ]
-  deps = [ "//src/render:render" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:foundation",
+    "//src/render:render",
+  ]
   libs = [ "gdiplus.lib" ]
 }
 
@@ -47,6 +51,8 @@ test("map_effect_test") {
   libs = [ "gdiplus.lib" ]
   # frame.h pulls gis/gis_export.h (auto-link gis.lib).
   deps = [
+    "//src/base:base",
+    "//src/base:foundation",
     "//src/gis:gis",
     "//src/render:programs_sources",
     "//src/render:rhi_sources",

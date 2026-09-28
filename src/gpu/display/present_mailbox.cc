@@ -4,23 +4,25 @@
 #include "gpu/display/present_mailbox.h"
 
 #include <atomic>
-#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <mutex>
 #include <thread>
 #include <utility>
 
+#include "ui/gfx/display/vblank_wait.h"
+
 namespace gpu {
 namespace {
 
-// Timer-based BeginFrame stub. DWM composition clock is deferred (P5).
-class TimerBeginFrameSource final : public BeginFrameSource {
+// DWM / DXGI BeginFrame: WaitForVBlank on the primary monitor, with a Sleep
+// fallback when DXGI output cannot be resolved (interval_ms).
+class DwmBeginFrameSource final : public BeginFrameSource {
  public:
-  explicit TimerBeginFrameSource(std::function<void()> on_tick)
+  explicit DwmBeginFrameSource(std::function<void()> on_tick)
       : on_tick_(std::move(on_tick)) {}
 
-  ~TimerBeginFrameSource() override { stop(); }
+  ~DwmBeginFrameSource() override { stop(); }
 
   void set_interval_ms(uint32_t interval_ms) override {
     interval_ms_.store(interval_ms == 0 ? 16u : interval_ms,
@@ -39,7 +41,7 @@ class TimerBeginFrameSource final : public BeginFrameSource {
     if (!running_.exchange(false)) {
       return;
     }
-    cv_.notify_all();
+    // WaitForVBlank may block up to one refresh; join after it returns.
     if (thread_.joinable()) {
       thread_.join();
     }
@@ -51,30 +53,24 @@ class TimerBeginFrameSource final : public BeginFrameSource {
 
  private:
   void run() {
-    std::unique_lock<std::mutex> lock(mu_);
+    ui::gfx::VblankClock clock;
+    clock.set_hwnd(nullptr);
     while (running_.load(std::memory_order_acquire)) {
-      const uint32_t ms = interval_ms_.load(std::memory_order_relaxed);
-      cv_.wait_for(lock, std::chrono::milliseconds(ms), [this]() {
-        return !running_.load(std::memory_order_acquire);
-      });
+      const uint32_t fallback_ms =
+          interval_ms_.load(std::memory_order_relaxed);
+      clock.wait_next(fallback_ms);
       if (!running_.load(std::memory_order_acquire)) {
         break;
       }
-      lock.unlock();
-      // TODO(compositor): DWM composition clock / IDXGIOutput::WaitForVBlank
-      // instead of this steady timer once counters justify the complexity.
       if (on_tick_) {
         on_tick_();
       }
-      lock.lock();
     }
   }
 
   std::function<void()> on_tick_;
   std::atomic<uint32_t> interval_ms_{16};
   std::atomic<bool> running_{false};
-  std::mutex mu_;
-  std::condition_variable cv_;
   std::thread thread_;
 };
 
@@ -89,7 +85,7 @@ struct PresentMailbox::Impl {
   std::thread worker;
   std::function<bool()> should_produce;
   std::function<PresentSubmit()> produce_frame;
-  std::unique_ptr<TimerBeginFrameSource> begin_frame;
+  std::unique_ptr<DwmBeginFrameSource> begin_frame;
 
   void ensure_worker() {
     if (worker.joinable()) {
@@ -152,7 +148,7 @@ struct PresentMailbox::Impl {
 };
 
 PresentMailbox::PresentMailbox() : impl_(std::make_unique<Impl>()) {
-  impl_->begin_frame = std::make_unique<TimerBeginFrameSource>([this]() {
+  impl_->begin_frame = std::make_unique<DwmBeginFrameSource>([this]() {
     impl_->on_begin_frame_tick();
   });
 }

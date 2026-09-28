@@ -5,8 +5,8 @@ All rights reserved.
 
 # ABI / include rename map (cutover)
 
-Spec (include/ABI cutover): [`../superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md`](../superpowers/specs/2026-09-13-code-style-include-abi-cutover-design.md)  
-Spec (DLL reorg): [`../superpowers/specs/2026-09-14-dll-reorganization-design.md`](../superpowers/specs/2026-09-14-dll-reorganization-design.md)  
+Spec (include/ABI cutover): [`../superpowers/specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md`](../superpowers/specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md)  
+Spec (DLL reorg): [`../superpowers/specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md`](../superpowers/specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md)  
 Spec (foundation Hybrid；真源仅 `src/base/`，无仓库根物理 `base/`): [`../superpowers/specs/2026-09-14-base-root-hybrid-design.md`](../superpowers/specs/2026-09-14-base-root-hybrid-design.md)  
 Plan: [`../superpowers/plans/2026-09-14-dll-reorganization.md`](../superpowers/plans/2026-09-14-dll-reorganization.md)
 
@@ -35,13 +35,13 @@ Status: **in progress** (include/snake_case cutover still open；foundation Hybr
 
 | 终态 `dll_stem` | 吸收的 cutover 短名 / 树 | 门控 / 备注 | 状态 |
 | --- | --- | --- | --- |
-| **`base`** | leftovers + `base/carto` + `legacy/xml` + `sys`。`archive`/`ipc` / `:foundation` **不是**本 stem | 默认 `src_all` | **完成** |
+| **`base`** | leftovers + `legacy/carto` + `legacy/xml` + `sys`。`archive`/`ipc` / `:foundation` **不是**本 stem；`gis::Envelope` 在 `gis` | 默认 `src_all` | **完成** |
 | **`net`** | `src/net`（原 Phase 1 曾并入 base；已抽出） | 默认 `src_all`；import-link | **完成** |
 | `gis` | 原 `sdb`（gis/sde_* / tile/model/…）+ 原 `algorithm`（geo/proj/tin/stat） | 默认 `src_all`；已切断 → `legacy_render` | **完成** |
 | `render` | endgame `src/render/{rhi,scene,skia,…}` | 默认 `src_all`；**不含** leftover | **完成** |
 | `content` | `src/content/**` | 默认 `src_all`；import-link | **完成** |
-| `tool` | `src/tool/**`（`SMT_TOOL_*`；非 leftover `legacy_tool`） | 默认 `src_all`；`:dispatch` 转发 | **完成** |
-| `ui_views` | `ui/views` + `ui/gfx`（同 PE） | SmartGisViews / plugin_host；`:gfx_headers` 给 gpu | **完成** |
+| `tool` | `src/tool/**`（`TOOL_EXPORT` / `TOOL_EXPORTS`；非 leftover `legacy_tool`） | 默认 `src_all`；`:dispatch`→`:tool` | **完成** |
+| `ui_views` | `ui/views` + `ui/gfx` + `ui/gis`（同 PE；`UI_EXPORT`） | SmartGisViews / plugin_host；`:gfx_headers` 给 gpu | **完成** |
 | `plugin_host` | `plugin/runtime/host` + widgets（`PLUGIN_HOST_*`） | Views 宿主；非 legacy `PLUGIN_EXPORT` | **完成** |
 | `ui_legacy` | `gui` … `stat_chart`（+ `tool_group_sources`） | `smt_build_app` | **完成** |
 | `legacy_render` | leftover engines under `legacy/render/**` | optional | **完成** |
@@ -77,12 +77,12 @@ Status: **in progress** (include/snake_case cutover still open；foundation Hybr
 | `gis` | `GIS_EXPORTS`（及子模块） | `GIS_EXPORT` / … | 原 `SDB_*` / `GEO_*` / … |
 | `render` | `RENDER_EXPORTS` | `RENDER_EXPORT` | — |
 | `content` | `CONTENT_EXPORTS` | `CONTENT_EXPORT` | — |
-| `tool` | `SMT_TOOL_EXPORTS` | `SMT_TOOL_EXPORT` | 勿与 leftover `TOOL_*` 混 |
-| `ui_views` | `UI_VIEWS_EXPORTS` | `UI_VIEWS_EXPORT` | gfx 同 PE |
+| `tool` | `TOOL_EXPORTS` | `TOOL_EXPORT` | 终局 `tool.dll`；勿与 leftover 混 |
+| `ui_views` | `UI_EXPORTS` | `UI_EXPORT` | gfx + `ui/gis` 同 PE；头 `ui/ui_export.h` |
 | `plugin_host` | `PLUGIN_HOST_EXPORTS` | `PLUGIN_HOST_EXPORT` | 勿用 legacy `PLUGIN_EXPORT` |
 | `ui_legacy` | `UI_LEGACY_EXPORTS` | `UI_LEGACY_EXPORT` | `GUI_*` / … |
 | `legacy_render` | `LEGACY_RENDER_EXPORTS` | `LEGACY_RENDER_EXPORT` | 各 leftover `*_EXPORT` |
-| `legacy_tool` | `LEGACY_TOOL_EXPORTS` | `LEGACY_TOOL_EXPORT` | `TOOL_*` |
+| `legacy_tool` | `LEGACY_TOOL_EXPORTS` | `LEGACY_TOOL_EXPORT` | 曾用 `TOOL_*`；已让给终局 |
 
 ## 历史：2010 `Smt*` → cutover 短名
 
@@ -181,9 +181,9 @@ Stable plugin ids (`smartgis.dem`, …) stay. Phase 2：**不**把域插件并�
 
 ## Tools
 
-- `tools/cutover/scan_abi_residuals.py` — fail if flat includes / `Export_Smt` / `dll_stem = "Smt` remain
-- `tools/cutover/rewrite_includes.py` — rewrite flat `#include "x.h"` using unique map + collision rules
-- `tools/cutover/rewrite_exports.py` — rename Export_Smt* tokens and BUILD dll_stem
+- `.tmp/cutover/scan_abi_residuals.py` (local, not versioned) — fail if flat includes / `Export_Smt` / `dll_stem = "Smt` remain
+- `.tmp/cutover/rewrite_includes.py` — rewrite flat `#include "x.h"` using unique map + collision rules
+- `.tmp/cutover/rewrite_exports.py` — rename Export_Smt* tokens and BUILD dll_stem
 
 ---
 

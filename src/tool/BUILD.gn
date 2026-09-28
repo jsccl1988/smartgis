@@ -5,11 +5,11 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Session-scoped Command / Input / Workspace → one DLL (dll_stem = tool).
-# Not the leftover IATool DLL (//src/legacy/tool:legacy_tool, TOOL_EXPORTS).
+# Not leftover IATool (//src/legacy/tool:legacy_tool, LEGACY_TOOL_EXPORTS).
 # GT_MSG adapter: //src/legacy/tool/adapter:adapter (not part of :tool).
 # Layout: src/tool/{command,interaction,draft,nav,workspace}/
 #
-# In-DLL source_sets use SMT_TOOL_EXPORTS (not TOOL_EXPORTS — legacy clash).
+# In-DLL source_sets use TOOL_EXPORTS (legacy uses LEGACY_TOOL_EXPORTS).
 # Stable groups (:dispatch, :command, …) forward to :tool for existing deps.
 # content/public/map_types.h and event_bus.h are header-only ABI; this DLL
 # does not link //src/content (avoids a content↔tool DLL cycle).
@@ -25,7 +25,7 @@ source_set("command_sources") {
     "tool_export.h",
   ]
   public_configs = [ ":tool_config" ]
-  defines = [ "SMT_TOOL_EXPORTS" ]
+  defines = [ "TOOL_EXPORTS" ]
 }
 
 source_set("interaction_sources") {
@@ -34,7 +34,7 @@ source_set("interaction_sources") {
     "interaction/interaction.h",
   ]
   public_configs = [ ":tool_config" ]
-  defines = [ "SMT_TOOL_EXPORTS" ]
+  defines = [ "TOOL_EXPORTS" ]
 }
 
 source_set("nav_sources") {
@@ -43,7 +43,7 @@ source_set("nav_sources") {
     "nav/camera_nav.h",
   ]
   public_configs = [ ":tool_config" ]
-  defines = [ "SMT_TOOL_EXPORTS" ]
+  defines = [ "TOOL_EXPORTS" ]
 }
 
 source_set("draft_sources") {
@@ -52,17 +52,21 @@ source_set("draft_sources") {
     "draft/draft.h",
   ]
   public_configs = [ ":tool_config" ]
-  defines = [ "SMT_TOOL_EXPORTS" ]
+  defines = [ "TOOL_EXPORTS" ]
   deps = [ ":interaction_sources" ]
 }
 
 source_set("workspace_sources") {
   sources = [
+    "workspace/draft_pipeline.cc",
+    "workspace/draft_pipeline.h",
+    "workspace/nav_bridge.cc",
+    "workspace/nav_bridge.h",
     "workspace/workspace.cc",
     "workspace/workspace.h",
   ]
   public_configs = [ ":tool_config" ]
-  defines = [ "SMT_TOOL_EXPORTS" ]
+  defines = [ "TOOL_EXPORTS" ]
   deps = [
     ":command_sources",
     ":draft_sources",
@@ -76,7 +80,7 @@ source_set("workspace_sources") {
 # Product tool DLL. Disk stem: tool.dll / tool_d.dll.
 smt_shared_library("tool") {
   dll_stem = "tool"
-  defines = [ "SMT_TOOL_EXPORTS" ]
+  defines = [ "TOOL_EXPORTS" ]
   deps = [
     ":command_sources",
     ":draft_sources",

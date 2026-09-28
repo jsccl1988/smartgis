@@ -4,15 +4,16 @@
 #ifndef LEGACY_TOOL_TOOL_EXPORT_H_
 #define LEGACY_TOOL_TOOL_EXPORT_H_
 
-// GN defines TOOL_EXPORTS when building legacy_tool (dll_stem = legacy_tool).
+// GN defines LEGACY_TOOL_EXPORTS when building legacy_tool
+// (dll_stem = legacy_tool). Endgame //src/tool uses TOOL_EXPORT.
 
-#if defined(TOOL_EXPORTS)
-#define TOOL_EXPORT __declspec(dllexport)
+#if defined(LEGACY_TOOL_EXPORTS)
+#define LEGACY_TOOL_EXPORT __declspec(dllexport)
 #else
-#define TOOL_EXPORT __declspec(dllimport)
+#define LEGACY_TOOL_EXPORT __declspec(dllimport)
 #endif
 
-#if !defined(TOOL_EXPORTS)
+#if !defined(LEGACY_TOOL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "legacy_tool_d.lib")
 #else

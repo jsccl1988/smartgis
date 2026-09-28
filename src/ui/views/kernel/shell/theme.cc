@@ -10,13 +10,13 @@
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/raster/paint_stats.h"
 #include "ui/views/kernel/shell/dpi.h"
+#include "ui/views/kernel/shell/theme_service.h"
 
 namespace ui {
 namespace views {
 
 const Theme& Theme::current() {
-  static const Theme kDark;
-  return kDark;
+  return ThemeService::get().theme();
 }
 
 std::wstring utf8_to_wide(const std::string& u8) {

@@ -5,6 +5,9 @@
 
 #include "gdal_priv.h"
 
+#include "base/execution/executor/pool/global_executor.h"
+#include "base/execution/parallel/for.h"
+
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -72,28 +75,33 @@ bool ingest_gdal_field(FieldStore* store, const char* path,
   // FieldGrid row 0 is min_lat; north-up GeoTIFF row 0 is max_lat — flip.
   if (north_up && n_y > 1) {
     std::vector<float> flipped(values.size());
-    for (int row = 0; row < n_y; ++row) {
-      const int src = row;
-      const int dst = n_y - 1 - row;
-      for (int col = 0; col < n_x; ++col) {
-        flipped[static_cast<std::size_t>(dst) * static_cast<std::size_t>(n_x) +
-                static_cast<std::size_t>(col)] =
-            values[static_cast<std::size_t>(src) * static_cast<std::size_t>(n_x) +
-                   static_cast<std::size_t>(col)];
-      }
-    }
+    base::execution::GlobalNThreadPoolExecutor executor;
+    base::execution::parallel_for(
+        executor, 0, n_y, [&](int row) {
+          const int dst = n_y - 1 - row;
+          for (int col = 0; col < n_x; ++col) {
+            flipped[static_cast<std::size_t>(dst) *
+                        static_cast<std::size_t>(n_x) +
+                    static_cast<std::size_t>(col)] =
+                values[static_cast<std::size_t>(row) *
+                           static_cast<std::size_t>(n_x) +
+                       static_cast<std::size_t>(col)];
+          }
+        });
     values.swap(flipped);
   }
 
   std::vector<uint8_t> mask;
   if (nodata_ok) {
     mask.assign(values.size(), 1);
-    for (std::size_t i = 0; i < values.size(); ++i) {
-      if (std::isnan(values[i]) ||
-          std::abs(static_cast<double>(values[i]) - nodata) < 1e-6) {
-        mask[i] = 0;
-      }
-    }
+    base::execution::GlobalNThreadPoolExecutor executor;
+    base::execution::parallel_for(
+        executor, std::size_t{0}, values.size(), [&](std::size_t i) {
+          if (std::isnan(values[i]) ||
+              std::abs(static_cast<double>(values[i]) - nodata) < 1e-6) {
+            mask[i] = 0;
+          }
+        });
   }
 
   return store->upload_slice(

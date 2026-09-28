@@ -37,6 +37,7 @@ source_set("tile_sources") {
   public_deps = [
     "//src/net:net",
     "//third_party:gdal",
+    "//third_party:rapidjson",
   ]
   deps = [
     "//src/base:base",

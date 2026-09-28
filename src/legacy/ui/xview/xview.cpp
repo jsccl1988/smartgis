@@ -239,7 +239,12 @@ long SmtXView::BindWind(HWND hWnd) {
 }
 
 long SmtXView::BindDlgItem(CDialog* pDlg, UINT nItemID) {
-  if (NULL == pDlg && NULL == pDlg->GetSafeHwnd()) return SMT_ERR_INVALID_PARAM;
+  // Must be ||: a non-null CDialog with a null HWND must not call GetDlgItem
+  // (MFC winocc.cpp ASSERT(::IsWindow(m_hWnd))).
+  if (pDlg == nullptr || pDlg->GetSafeHwnd() == nullptr ||
+      !::IsWindow(pDlg->GetSafeHwnd())) {
+    return SMT_ERR_INVALID_PARAM;
+  }
 
   CWnd* pItemWnd = pDlg->GetDlgItem(nItemID);
 

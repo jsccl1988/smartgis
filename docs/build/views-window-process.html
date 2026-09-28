@@ -1,0 +1,751 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SmartGIS Views — 窗口体系与进程体系</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a222c;
+    --panel2: #222c38;
+    --border: #2e3a48;
+    --text: #e7eef6;
+    --muted: #93a4b8;
+    --accent: #3d9cf0;
+    --accent2: #5ec4a8;
+    --warn: #e0a54b;
+    --code: #c8d6e5;
+    --browser: #3d9cf0;
+    --renderer: #5ec4a8;
+    --gpu: #e0a54b;
+    --ui: #b08cff;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font: 15px/1.55 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1200px 600px at 10% -10%, #1a2a3d 0%, transparent 55%),
+      radial-gradient(900px 500px at 100% 0%, #1a2f2a 0%, transparent 50%),
+      var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .path {
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 0.9em;
+    color: var(--code);
+  }
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 22px 80px;
+  }
+  header.hero {
+    border: 1px solid var(--border);
+    background: linear-gradient(160deg, var(--panel) 0%, #15202b 100%);
+    border-radius: 12px;
+    padding: 28px 28px 22px;
+    margin-bottom: 22px;
+  }
+  header.hero h1 {
+    margin: 0 0 8px;
+    font-size: 1.65rem;
+    letter-spacing: -0.02em;
+  }
+  header.hero p {
+    margin: 0;
+    color: var(--muted);
+    max-width: 62ch;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--panel2);
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .chip b { color: var(--text); font-weight: 600; }
+  nav.toc {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+  nav.toc a {
+    display: block;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+    color: var(--text);
+    text-decoration: none;
+  }
+  nav.toc a:hover {
+    border-color: var(--accent);
+    background: var(--panel2);
+  }
+  nav.toc span {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  section {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 22px 24px;
+    margin-bottom: 18px;
+  }
+  section h2 {
+    margin: 0 0 12px;
+    font-size: 1.25rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+  }
+  section h3 {
+    margin: 20px 0 8px;
+    font-size: 1.05rem;
+    color: var(--accent2);
+  }
+  p, li { color: var(--text); }
+  .muted { color: var(--muted); }
+  .note {
+    border-left: 3px solid var(--warn);
+    background: #2a2418;
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    color: #f0e0c0;
+    margin: 12px 0;
+    font-size: 0.95em;
+  }
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  @media (max-width: 800px) {
+    .grid2 { grid-template-columns: 1fr; }
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92em;
+    margin: 10px 0 4px;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--panel2); color: var(--muted); font-weight: 600; }
+  .diagram {
+    background: #0c1117;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    overflow-x: auto;
+    margin: 12px 0;
+  }
+  .diagram svg { display: block; margin: 0 auto; max-width: 100%; }
+  .flow {
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 12.5px;
+    line-height: 1.45;
+    white-space: pre;
+    color: #c5d4e4;
+    margin: 0;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .steps {
+    counter-reset: step;
+    list-style: none;
+    padding: 0;
+    margin: 8px 0;
+  }
+  .steps li {
+    counter-increment: step;
+    position: relative;
+    padding: 10px 12px 10px 48px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel2);
+    margin-bottom: 8px;
+  }
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 12px; top: 10px;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #041018;
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .tree {
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    background: #0c1117;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    color: #c5d4e4;
+    white-space: pre;
+  }
+  .cls { color: #9cdcfe; }
+  .file { color: #ce9178; }
+  .role-b { color: var(--browser); }
+  .role-r { color: var(--renderer); }
+  .role-g { color: var(--gpu); }
+  .role-u { color: var(--ui); }
+  footer {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>Views 窗口体系 · 进程体系</h1>
+  <p>
+    终局产品壳 <code>SmartGisViews.exe</code> 的 as-built 总览：
+    单 PE 按 <code>--type=</code> 分派进程角色；Browser 侧用 Chromium 风格
+    <code>ui::views::Widget</code> 托管 chrome，地图 HWND 挂在
+    <code>MapViewport</code> 上。不含 Legacy MFC / WinUI / CEF。
+  </p>
+  <div class="meta">
+    <span class="chip"><b>范围</b> Views 终局</span>
+    <span class="chip"><b>入口</b> src/app/views/main.cc</span>
+    <span class="chip"><b>产物</b> out/Debug|Release/SmartGisViews.exe</span>
+    <span class="chip"><b>更新</b> 2026-09-28</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#overview">总览<span>单 PE · 分层</span></a>
+  <a href="#process">进程体系<span>分派 · 子进程 · IPC</span></a>
+  <a href="#window">窗口体系<span>Widget · View 树</span></a>
+  <a href="#lifecycle">生命周期<span>启动 · 运行 · 关闭</span></a>
+  <a href="#classes">关键类索引<span>路径速查</span></a>
+</nav>
+
+<!-- ===================== OVERVIEW ===================== -->
+<section id="overview">
+  <h2>1. 总览</h2>
+  <p>
+    一个映像、四个角色。用户启动不带 <code>--type</code> 时进入
+    <span class="role-b">Browser</span>（UI + chrome）。
+    同一 PE 可被 Browser 以 <code>CreateProcess</code> 再拉起为
+    <span class="role-g">GPU</span> / <span class="role-r">Renderer</span> 子进程。
+    Utility 角色在 Views host 里未链接（直接返回 1）。
+  </p>
+
+  <div class="diagram" aria-label="process overview">
+<svg viewBox="0 0 980 320" xmlns="http://www.w3.org/2000/svg" role="img">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7c90"/>
+    </marker>
+  </defs>
+  <!-- PE box -->
+  <rect x="20" y="20" width="940" height="280" rx="12" fill="#0c1117" stroke="#2e3a48"/>
+  <text x="40" y="48" fill="#93a4b8" font-size="13" font-family="Segoe UI,sans-serif">SmartGisViews.exe（同一 PE）</text>
+
+  <!-- Browser -->
+  <rect x="50" y="70" width="280" height="200" rx="10" fill="#132033" stroke="#3d9cf0" stroke-width="2"/>
+  <text x="70" y="98" fill="#3d9cf0" font-size="15" font-weight="700" font-family="Segoe UI,sans-serif">Browser</text>
+  <text x="70" y="122" fill="#c8d6e5" font-size="12" font-family="Consolas,monospace">wWinMain</text>
+  <text x="70" y="142" fill="#c8d6e5" font-size="12" font-family="Consolas,monospace">→ content_main</text>
+  <text x="70" y="162" fill="#c8d6e5" font-size="12" font-family="Consolas,monospace">→ run_browser_main</text>
+  <text x="70" y="182" fill="#c8d6e5" font-size="12" font-family="Consolas,monospace">→ Browser / Widget</text>
+  <text x="70" y="210" fill="#93a4b8" font-size="11" font-family="Segoe UI,sans-serif">窗口 · 手势 · present</text>
+  <text x="70" y="230" fill="#93a4b8" font-size="11" font-family="Segoe UI,sans-serif">MapSession / MapContents</text>
+  <text x="70" y="250" fill="#93a4b8" font-size="11" font-family="Segoe UI,sans-serif">Job Object 管孩子</text>
+
+  <!-- Renderer -->
+  <rect x="400" y="70" width="240" height="90" rx="10" fill="#10241f" stroke="#5ec4a8" stroke-width="2"/>
+  <text x="420" y="98" fill="#5ec4a8" font-size="15" font-weight="700" font-family="Segoe UI,sans-serif">Renderer</text>
+  <text x="420" y="120" fill="#c8d6e5" font-size="12" font-family="Consolas,monospace">--type=renderer</text>
+  <text x="420" y="140" fill="#93a4b8" font-size="11" font-family="Segoe UI,sans-serif">Workspace / 工具 / 输入</text>
+
+  <!-- GPU -->
+  <rect x="400" y="180" width="240" height="90" rx="10" fill="#2a2214" stroke="#e0a54b" stroke-width="2"/>
+  <text x="420" y="208" fill="#e0a54b" font-size="15" font-weight="700" font-family="Segoe UI,sans-serif">GPU</text>
+  <text x="420" y="230" fill="#c8d6e5" font-size="12" font-family="Consolas,monospace">--type=gpu</text>
+  <text x="420" y="250" fill="#93a4b8" font-size="11" font-family="Segoe UI,sans-serif">draw_and_swap · FrameReady</text>
+
+  <!-- Utility -->
+  <rect x="700" y="120" width="230" height="100" rx="10" fill="#1a1628" stroke="#b08cff" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="720" y="150" fill="#b08cff" font-size="15" font-weight="700" font-family="Segoe UI,sans-serif">Utility（预留）</text>
+  <text x="720" y="172" fill="#c8d6e5" font-size="12" font-family="Consolas,monospace">--type=utility</text>
+  <text x="720" y="194" fill="#93a4b8" font-size="11" font-family="Segoe UI,sans-serif">Views host 返回 1</text>
+
+  <!-- arrows -->
+  <line x1="330" y1="115" x2="395" y2="115" stroke="#6b7c90" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="330" y1="225" x2="395" y2="225" stroke="#6b7c90" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="340" y="105" fill="#6b7c90" font-size="10" font-family="Segoe UI,sans-serif">invite</text>
+  <text x="340" y="215" fill="#6b7c90" font-size="10" font-family="Segoe UI,sans-serif">pipe</text>
+</svg>
+  </div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--browser)"></i>Browser UI</span>
+    <span><i class="dot" style="background:var(--renderer)"></i>Renderer</span>
+    <span><i class="dot" style="background:var(--gpu)"></i>GPU（今日 OOP 主路径）</span>
+    <span><i class="dot" style="background:var(--ui)"></i>Utility 预留</span>
+  </div>
+
+  <div class="note">
+    <b>As-built 要点：</b>
+    <code>MapContentsImpl::StartRenderProcess</code> 当前用 named pipe 拉起
+    <code>--type=gpu</code>（注释标明 invitation 双启仍是 WIP）。
+    Renderer 入口 <code>RendererMain</code> 已接 invitation；Browser 内多数地图逻辑仍经
+    <code>MapSession</code> 进程内 present（Map2d / Scene3d）。
+  </div>
+
+  <h3>分层（谁该碰什么）</h3>
+  <table>
+    <thead>
+      <tr><th>层</th><th>路径</th><th>职责</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Product shell</td>
+        <td><code>src/app/views/</code></td>
+        <td>PE 入口、Browser、BrowserView、PluginShell</td>
+      </tr>
+      <tr>
+        <td>Views toolkit</td>
+        <td><code>src/ui/views/</code></td>
+        <td>Widget / View / FrameView / MapViewport / 控件</td>
+      </tr>
+      <tr>
+        <td>GIS chrome</td>
+        <td><code>src/ui/gis/</code></td>
+        <td>Catalog / 属性 / 分析等产品面板</td>
+      </tr>
+      <tr>
+        <td>Shell paint</td>
+        <td><code>src/ui/gfx/</code></td>
+        <td>Skia/GDI canvas；不负责控件树</td>
+      </tr>
+      <tr>
+        <td>Content</td>
+        <td><code>src/content/</code></td>
+        <td>进程分派、MapContents、MapSession、host 协议</td>
+      </tr>
+      <tr>
+        <td>GPU</td>
+        <td><code>src/gpu/</code></td>
+        <td>GpuMain、frame_sink、compositor</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ===================== PROCESS ===================== -->
+<section id="process">
+  <h2>2. 进程体系</h2>
+
+  <h3>2.1 分派：content_main + ViewsContentHost</h3>
+  <p>
+    <code>wWinMain</code> 解析 CLI（CLI11）后填充 <code>ContentMainParams</code>，
+    交给模板函数 <code>content::content_main</code>。Host 必须满足
+    <code>content_main_host</code> concept（四个 <code>*_main</code>）。
+  </p>
+
+  <div class="diagram">
+<pre class="flow">wWinMain (src/app/views/main.cc)
+  │  parse_views_launch_options  →  ViewsLaunchOptions
+  │  apply_shell_canvas_preference
+  ▼
+content::content_main(params, ViewsContentHost)
+  │  process_type_set ? params.process_type
+  │                  : ProcessTypeFromCommandLine(--type=)
+  ├── kBrowser  → host.browser_main  → app::run_browser_main
+  ├── kRenderer → host.renderer_main → content::RendererMain
+  ├── kGpu      → host.gpu_main      → gpu::GpuMain
+  └── kUtility  → host.utility_main  → return 1  (未链接)</pre>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>角色</th><th>开关</th><th>入口函数</th><th>主要循环</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="role-b">Browser</td>
+        <td>省略 / <code>browser</code></td>
+        <td><code>app::run_browser_main</code></td>
+        <td><code>Widget::run_loop</code>（GetMessage）</td>
+      </tr>
+      <tr>
+        <td class="role-r">Renderer</td>
+        <td><code>--type=renderer</code></td>
+        <td><code>content::RendererMain</code></td>
+        <td>IPC recv → Workspace / 工具</td>
+      </tr>
+      <tr>
+        <td class="role-g">GPU</td>
+        <td><code>--type=gpu</code></td>
+        <td><code>gpu::GpuMain</code></td>
+        <td>pipe + PeekMessage → draw / FrameReady</td>
+      </tr>
+      <tr>
+        <td>Utility</td>
+        <td><code>--type=utility</code></td>
+        <td>Views host stub</td>
+        <td>未实现（返回 1）</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>2.2 子进程启动（Browser → GPU）</h3>
+  <p>
+    <code>content::MapContents</code> 实现（<code>MapContentsImpl</code>）在
+    <code>StartRenderProcess</code> 里：
+  </p>
+  <ol class="steps">
+    <li>创建 Job Object（<code>KILL_ON_JOB_CLOSE</code>），Browser 退出则杀子进程。</li>
+    <li>建 named pipe server：<code>--pipe=</code> / <code>--session=</code> / <code>--parent-pid=</code>。</li>
+    <li><code>CreateProcessW</code> 同一 exe，命令行追加 <code>--type=gpu</code>。</li>
+    <li>子进程进 Job；等待 client connect；收 <code>kHello</code>，回 <code>kHelloAck</code>。</li>
+    <li>起 <code>recv_thread_</code> 收 FrameReady / SharedHandle 等。</li>
+  </ol>
+  <p class="muted">
+    并行存在 <code>launch_invited_child</code>（OutgoingInvitation），供未来
+    renderer+gpu 双启；今日热路径仍是 pipe GPU。
+  </p>
+
+  <h3>2.3 Renderer / GPU 运行时</h3>
+  <div class="grid2">
+    <div>
+      <h3 style="margin-top:0">RendererMain</h3>
+      <ul>
+        <li><code>IncomingInvitation::accept</code> → Channel <code>"renderer"</code></li>
+        <li>发 <code>kHello</code>（role=renderer）</li>
+        <li>循环：父进程退出 / <code>kShutdown</code> 结束</li>
+        <li><code>kOpenView</code> → ViewSlot + <code>tool::Workspace</code></li>
+        <li>指针 / 工具 / catalog / plugin 经 Workspace 分发</li>
+        <li><b>禁止</b>加载 D3D/GL（paint 只在 GPU）</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="margin-top:0">GpuMain</h3>
+      <ul>
+        <li>解析 argv；<code>--self-test</code> 走短路径</li>
+        <li>否则 <code>run_server</code>：接 pipe 或 invitation</li>
+        <li><code>kHello</code>（role=gpu）→ 等 <code>kHelloAck</code></li>
+        <li><code>kOpenView</code> / resize / draw 请求</li>
+        <li><code>draw_and_swap</code> → SharedHandle + <code>kFrameReady</code></li>
+        <li>兼跑隐藏 HWND 的 Win32 消息泵</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>2.4 关闭子进程</h3>
+  <div class="diagram">
+<pre class="flow">MapContentsImpl::Shutdown()
+  running_ = false
+  pipe_.send_empty(kShutdown)           // GPU
+  renderer_pipe_.send_empty(kShutdown)  // Renderer（若已启）
+  close pipes → join recv threads
+  WaitForSingleObject(process_, 3000)
+  CloseHandle job_                      // KILL_ON_JOB_CLOSE 兜底</pre>
+  </div>
+</section>
+
+<!-- ===================== WINDOW ===================== -->
+<section id="window">
+  <h2>3. 窗口体系</h2>
+  <p>
+    Browser 不直接碰 HWND 布局细节。它通过 <code>BrowserUiDelegate</code>
+    抽象（实现类 <code>BrowserView</code>）驱动 chrome。
+    顶层原生窗口是 <code>ui::views::Widget</code>（一个 HWND + View 树 + 消息泵）。
+  </p>
+
+  <h3>3.1 所有权链</h3>
+  <div class="diagram">
+<pre class="flow"><span class="cls">Browser</span>
+  ├── <span class="cls">MapSession</span>          文档 / 相机 / Map2d / Scene3d / ViewHost×3 / gestures
+  ├── <span class="cls">PluginShell</span>         插件贡献（Ambox 命令等）
+  └── <span class="cls">BrowserUiDelegate</span> → <span class="cls">BrowserView</span>
+        └── <span class="cls">Widget</span>  (HWND "SmartGIS Views", FrameKind::kCustom)
+              └── <span class="cls">FrameView</span>  (自绘标题栏 / 最大化按钮)
+                    └── client root (BoxLayout vertical)
+                          ├── MenuBar
+                          ├── main Splitter (vertical)
+                          │     ├── columns Splitter
+                          │     │     ├── work Splitter (horizontal)
+                          │     │     │     ├── Catalog | Map TabStrip
+                          │     │     │     │              ├── MapViewport(kMapEdit)
+                          │     │     │     │              ├── MapViewport(kMapData)
+                          │     │     │     │              └── MapViewport(kScene3d)
+                          │     │     │     └── AmboxView
+                          │     │     └── inspector TabStrip (FeatureInfo / …)
+                          │     └── diagnostic tools
+                          └── StatusBar</pre>
+  </div>
+
+  <h3>3.2 关键类型角色</h3>
+  <table>
+    <thead>
+      <tr><th>类型</th><th>角色</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>Widget</code></td>
+        <td>顶层 HWND；DPI、paint、输入、modal / run_loop；<code>will_close</code> 钩子</td>
+      </tr>
+      <tr>
+        <td><code>FrameView</code></td>
+        <td>CSD 标题栏；client 挂产品 root</td>
+      </tr>
+      <tr>
+        <td><code>View</code> + layout</td>
+        <td>控件树；BoxLayout / Splitter / TabStrip</td>
+      </tr>
+      <tr>
+        <td><code>MapViewport</code></td>
+        <td>托管地图 child HWND；绑定 ViewHost / MapContents；shell overlay</td>
+      </tr>
+      <tr>
+        <td><code>MapSession</code></td>
+        <td>WebContents-ish：文档、三视图 host、present、导航、blit</td>
+      </tr>
+      <tr>
+        <td><code>MapContents</code></td>
+        <td>host ABI + OOP GPU 子进程管道（observer：Browser）</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>3.3 地图 HWND 挂接</h3>
+  <p>
+    <code>BrowserView::init_chrome</code> → <code>attach_viewports()</code>：
+    三个 <code>MapViewport</code> 分别对 Edit / Data / Scene3d 角色挂 child HWND，
+    再绑 <code>ViewHost</code>、手势、<code>MapContents</code> observer。
+    Shell 栅格通过 <code>Widget::set_on_shell_published</code> 提交到地图 overlay
+    （chrome 与地图合成，不在 Widget 里混画 GPU 帧）。
+  </p>
+</section>
+
+<!-- ===================== LIFECYCLE ===================== -->
+<section id="lifecycle">
+  <h2>4. 生命周期：启动 · 运行 · 关闭</h2>
+
+  <h3>4.1 启动（Browser）</h3>
+  <ol class="steps">
+    <li><code>wWinMain</code>：tracing、CLI、shell canvas 偏好、<code>ContentMainParams</code>。</li>
+    <li><code>content_main</code> → <code>ViewsContentHost::browser_main</code> → <code>run_browser_main</code>。</li>
+    <li>DPI awareness；可选强制 ContentMapView（self-test / showcase）。</li>
+    <li><code>Browser::init</code>：
+      <code>session_.init_hosts()</code> → <code>PluginShell</code> →
+      <code>create_browser_ui</code> → <code>ui_->init_chrome()</code>。</li>
+    <li><code>BrowserView::init_chrome</code>：
+      <code>Widget::init</code>（CSD 1280×800 DIP）→
+      <code>set_will_close</code> → <code>build_contents</code> →
+      绑 Map2d/Scene3d → <code>attach_viewports</code> / gestures / catalog。</li>
+    <li>可选启动 debug console；加载 atmosphere fields。</li>
+    <li><code>Browser::show</code> → <code>widget_.show</code> + fit extent。</li>
+    <li>正常路径 <code>browser->run_loop()</code>；self-test / showcase 走旁路。</li>
+  </ol>
+
+  <h3>4.2 运行</h3>
+  <div class="diagram">
+<pre class="flow">Widget::run_loop()
+  └── GetMessage / DispatchMessage
+        ├── WM_PAINT / shell compositor  →  Skia/GDI shell raster
+        ├── 鼠标键盘  →  View 树 hit-test / focus
+        ├── MapViewport child HWND  →  手势 / Draft / present
+        │     ├── 进程内 Map2dPresenter / Scene3dPresenter
+        │     └── 可选 MapContents OOP GPU（SharedHandle present）
+        └── WM_CLOSE  →  fire_will_close → DestroyWindow → PostQuitMessage</pre>
+  </div>
+
+  <h3>4.3 关闭（顺序敏感）</h3>
+  <p class="muted">
+    必须先拆地图 HWND / FlyCube，再 DestroyWindow，避免 userdata / present 悬空。
+  </p>
+  <ol class="steps">
+    <li>用户关窗 → <code>WM_CLOSE</code> → <code>Widget::fire_will_close</code>。</li>
+    <li>回调 <code>Browser::prepare_close</code>（幂等）：
+      <code>session_.prepare_close()</code> →
+      <code>ui_->prepare_chrome_close()</code> →
+      三个 <code>MapViewport::detach()</code>。</li>
+    <li><code>DestroyWindow</code>；消息泵退出；<code>run_browser_main</code> 返回。</li>
+    <li><code>~Browser</code>：再次 <code>prepare_close</code> → 清 observer →
+      <code>PluginShell::shutdown</code> → <code>ui_.reset()</code>
+      （析构 <code>BrowserView</code> / <code>Widget</code>）。</li>
+    <li>若曾 OOP：<code>MapContents::Shutdown</code> 发 <code>kShutdown</code>、关 Job。</li>
+  </ol>
+
+  <div class="diagram">
+<pre class="flow">WM_CLOSE
+  → Widget::will_close_  →  Browser::prepare_close
+       ├── MapSession::prepare_close
+       └── BrowserView::prepare_chrome_close
+             └── MapViewport::detach × 3
+  → DestroyWindow(hwnd)
+  → run_loop 返回
+  → ~Browser
+       ├── prepare_close (no-op if done)
+       ├── plugins_->shutdown()
+       └── ui_.reset()  →  ~BrowserView → ~Widget</pre>
+  </div>
+</section>
+
+<!-- ===================== CLASSES ===================== -->
+<section id="classes">
+  <h2>5. 关键类 / 文件索引</h2>
+  <table>
+    <thead>
+      <tr><th>符号</th><th>文件</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>wWinMain</code></td>
+        <td class="file">src/app/views/main.cc</td>
+        <td>PE 入口</td>
+      </tr>
+      <tr>
+        <td><code>ViewsContentHost</code></td>
+        <td class="file">src/app/views/shell/app/views_content_host.h</td>
+        <td>四角色桥接</td>
+      </tr>
+      <tr>
+        <td><code>content_main</code></td>
+        <td class="file">src/content/app/content_main.h</td>
+        <td>进程分派模板</td>
+      </tr>
+      <tr>
+        <td><code>ProcessType</code></td>
+        <td class="file">src/content/app/process_type.h</td>
+        <td>browser/renderer/gpu/utility</td>
+      </tr>
+      <tr>
+        <td><code>run_browser_main</code></td>
+        <td class="file">src/app/views/shell/app/browser_main.cc</td>
+        <td>Browser 装配与 run_loop</td>
+      </tr>
+      <tr>
+        <td><code>Browser</code></td>
+        <td class="file">src/app/views/shell/browser/browser.{h,cc}</td>
+        <td>壳控制器；MapContentsObserver</td>
+      </tr>
+      <tr>
+        <td><code>BrowserUiDelegate</code></td>
+        <td class="file">src/app/views/shell/browser/browser_ui_delegate.h</td>
+        <td>chrome 抽象面</td>
+      </tr>
+      <tr>
+        <td><code>BrowserView</code></td>
+        <td class="file">src/app/views/shell/ui/browser_view.{h,cc}</td>
+        <td>Widget + 面板装配</td>
+      </tr>
+      <tr>
+        <td><code>PluginShell</code></td>
+        <td class="file">src/app/views/shell/browser/plugin/plugin_shell.h</td>
+        <td>插件宿主</td>
+      </tr>
+      <tr>
+        <td><code>Widget</code></td>
+        <td class="file">src/ui/views/kernel/widget/widget.{h,cc}</td>
+        <td>顶层 HWND / 消息泵</td>
+      </tr>
+      <tr>
+        <td><code>FrameView</code></td>
+        <td class="file">src/ui/views/kernel/frame/frame_view.h</td>
+        <td>自绘标题栏</td>
+      </tr>
+      <tr>
+        <td><code>MapViewport</code></td>
+        <td class="file">src/ui/views/map/map_viewport.{h,cc}</td>
+        <td>地图 child HWND 宿主</td>
+      </tr>
+      <tr>
+        <td><code>MapSession</code></td>
+        <td class="file">src/content/browser/map_session.h</td>
+        <td>文档与 present 会话</td>
+      </tr>
+      <tr>
+        <td><code>MapContents</code></td>
+        <td class="file">src/content/public/map_contents.h<br>src/content/browser/map_contents.cc</td>
+        <td>host ABI + 子进程</td>
+      </tr>
+      <tr>
+        <td><code>RendererMain</code></td>
+        <td class="file">src/content/renderer/renderer_main.cc</td>
+        <td>Renderer 进程入口</td>
+      </tr>
+      <tr>
+        <td><code>GpuMain</code></td>
+        <td class="file">src/gpu/gpu_main.cc · src/gpu/gpu.h</td>
+        <td>GPU 进程入口</td>
+      </tr>
+      <tr>
+        <td><code>HostMsg</code></td>
+        <td class="file">src/content/common/host_protocol.h</td>
+        <td>pipe/IPC 消息枚举</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>延伸阅读</h3>
+  <ul>
+    <li><a href="ui-views-skia.md">ui-views-skia.md</a> — Views + Skia 终局决策</li>
+    <li><a href="ui-shell-multiprocess.md">ui-shell-multiprocess.md</a> — 多进程壳设计长文</li>
+    <li><a href="../../src/gpu/README.md">src/gpu/README.md</a> — GPU 帧管线</li>
+    <li><a href="../superpowers/specs/2026-09-27-views-desktop-shell-design.md">views-desktop-shell living spec</a></li>
+  </ul>
+</section>
+
+<footer>
+  SmartGIS docs/build — Views window &amp; process map · as-built 2026-09-28
+</footer>
+
+</div>
+</body>
+</html>

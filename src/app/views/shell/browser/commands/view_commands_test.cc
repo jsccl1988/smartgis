@@ -54,6 +54,9 @@ int main() {
       expect(std::string_view(rows[i].id).find("view.backend.") ==
                  std::string_view::npos,
              "nav table has no backend id");
+      expect(std::string_view(rows[i].id).find("view.engine.") ==
+                 std::string_view::npos,
+             "nav table has no engine id");
     }
   }
 
@@ -69,6 +72,7 @@ int main() {
   }
   for (const std::string& id : ids) {
     expect(id.find("view.backend.") == std::string::npos, "no backend id");
+    expect(id.find("view.engine.") == std::string::npos, "no engine id");
   }
 
   const std::vector<ui::views::MenuItem> items =
@@ -82,20 +86,24 @@ int main() {
     expect(!items[0].separator, "nav rows are not separators");
   }
 
+  // nav(10) + separator(1) + tail(10) = 21
   const app::ShellMenus menus = app::build_shell_menus({}, {});
   expect(menus.file.size() == 4, "file menu count");
   expect(menus.edit.size() == 3, "edit menu count");
   expect(menus.layer.size() == 4, "layer menu count");
-  expect(menus.view.size() == 14, "view menu is nav plus tail");
-  if (menus.file.size() == 4 && menus.view.size() == 14 &&
+  expect(menus.view.size() == 21, "view menu is nav plus tail");
+  if (menus.file.size() == 4 && menus.view.size() == 21 &&
       menus.layer.size() == 4) {
     expect(menus.file[0].label == "Open", "file starts at Open");
     expect(menus.file[3].label == "Exit", "file ends at Exit");
     expect(menus.view[0].label == "Pan", "view starts at Pan");
     expect(menus.view[10].separator, "view separator after nav");
     expect(menus.view[11].label == "Refresh", "refresh after separator");
-    expect(menus.view[12].label == "RHI", "rhi row");
-    expect(menus.view[13].label == "MapLibre", "maplibre row");
+    expect(menus.view[16].label == "Engine: FlyCube/DX12", "engine flycube");
+    expect(menus.view[17].label == "Engine: Stereo/GL", "engine stereo");
+    expect(menus.view[18].label == "Engine: GDI", "engine gdi");
+    expect(menus.view[19].label == "RHI", "rhi row");
+    expect(menus.view[20].label == "MapLibre", "maplibre row");
     expect(menus.layer[3].label == "Zoom to layer", "layer zoom row");
   }
 

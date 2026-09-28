@@ -27,7 +27,7 @@ source_set("gdi_common_sources") {
   deps = [
     "//src/base:base",
     "//src/base:core",
-    "//src/gis/datasource/ogr:ogr_text_encoding",
+    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
     "//third_party:CxImage",
   ]
   libs = [ "gdiplus.lib" ]
@@ -52,7 +52,7 @@ source_set("render_gdi_sources") {
     "//src/base:core",
     "//src/legacy/render/rhi3d:leftover_record",
     "//src/legacy/render/rhi2d:rhi2d_sources",
-    "//src/gis/datasource/ogr:ogr_codec",
+    "//src/gis/datasource/provider/impl/ogr:ogr_codec",
     "//src/gis/model/map:gis",
     "//third_party:CxImage",
     "//third_party:gdal",
@@ -81,7 +81,7 @@ test("gdi_map_paint_test") {
   configs = [ "//build:legacy" ]
   deps = [
     "//src/legacy/render:legacy_render",
-    "//src/gis/datasource/ogr:ogr_codec",
+    "//src/gis/datasource/provider/impl/ogr:ogr_codec",
     "//src/gis/model/map:gis",
     "//testing/data:china_map_samples",
     "//third_party:gdal",

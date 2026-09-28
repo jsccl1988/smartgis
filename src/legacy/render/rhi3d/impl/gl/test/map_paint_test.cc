@@ -49,6 +49,12 @@ std::string exe_dir() {
 std::string find_china_plp() {
   const std::string dir = exe_dir();
   const char* rel[] = {
+      "..\\data\\china_city.gpkg",
+      "..\\data\\china_city.geojson",
+      "..\\data\\china_plp.geojson",
+      "data\\china_city.gpkg",
+      "data\\china_city.geojson",
+      "data\\china_plp.geojson",
       "china_city.gpkg",
       "china_city.geojson",
       "china_plp.geojson",

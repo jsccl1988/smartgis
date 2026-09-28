@@ -8,7 +8,7 @@ All rights reserved.
 Implementation of `FogPass` (public header: `../fog_pass.h`).
 
 Height / distance exponential fog for GIS visibility. Records a load-only
-alpha-blended pass with shared depth test (`DepthMode::kTestOnly`). Wired
+alpha-blended fullscreen NDC pass (`DepthMode::kDisabled`). Wired
 through `AtmosphereFrame::record_post_opaque` after clouds.
 
 Depth-sampled volumetric fog / leftover GL `SetFog` are out of scope — see

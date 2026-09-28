@@ -28,6 +28,11 @@ struct PixelBuffer {
 PixelBuffer capture_view_tree(std::unique_ptr<View> root, int width, int height,
                               float device_scale_factor = 1.f);
 
+// Non-owning capture: temporarily sizes |root| to |width|×|height|, paints,
+// then restores prior bounds. Safe for product shell trees during forensics.
+PixelBuffer capture_view(View* root, int width, int height,
+                         float device_scale_factor = 1.f);
+
 struct PixelCompareOptions {
   // Per-channel tolerance for GDI antialiasing / minor driver drift.
   int max_channel_delta = 2;

@@ -14,7 +14,7 @@
 #include "legacy/ui/xcatalog/mapmgr.h"
 #include "legacy/ui/xcatalog/xcatalog_core.h"
 #include "legacy/plugin/plugin_msg.h"
-#include "gis/datasource/mgr/datasource_mgr.h"
+#include "legacy/datasource/mgr/datasource_mgr.h"
 #include "gis/model/feature/feature_api.h"
 #include "gis/model/layer/layer.h"
 #include "gis/model/map/map.h"

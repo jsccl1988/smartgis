@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="selection_panel">
+  <style src="selection_panel.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title" text="Selection"/>
+    <label id="count" text="Selected: 0"/>
+    <table id="table" columns="Layer,Count"/>
+    <hbox id="commands" class="commands">
+      <button id="clear" text="Clear"/>
+      <button id="invert" text="Invert"/>
+      <button id="zoom" text="Zoom"/>
+      <button id="export" text="Export"/>
+    </hbox>
+  </vbox>
+</ui>

@@ -3,8 +3,8 @@
 
 #include "app/views/shell/browser/commands/app_commands.h"
 
-#include "ui/views/dialogs/shell/file_picker.h"
-#include "ui/views/dialogs/shell/message_box.h"
+#include "ui/views/dialogs/file_picker.h"
+#include "ui/views/dialogs/message_box.h"
 
 namespace app {
 

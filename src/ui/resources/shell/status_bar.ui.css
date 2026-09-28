@@ -1,0 +1,31 @@
+/* StatusBar — horizontal strip */
+
+.bar {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  padding: 0px;
+  width: 400px;
+  height: 24px;
+  align-items: center;
+}
+
+#scale {
+  width: 90px;
+  height: 22px;
+}
+
+#crs {
+  width: 110px;
+  height: 22px;
+}
+
+#coord {
+  width: 180px;
+  height: 22px;
+}
+
+#status {
+  height: 22px;
+  flex-grow: 1;
+}

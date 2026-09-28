@@ -43,7 +43,7 @@ source_set("xcatalog_sources") {
     "//src/gis/model/map:gis",
     "//src/plugin:plugin",
     "//src/legacy/render/rhi3d:rhi",
-    "//src/gis/datasource/mgr:sde_mgr",
+    "//src/legacy/datasource/mgr:sde_mgr",
     "//third_party:gdal",
     "//src/legacy/render/scene3d:scene3d",
     "//src/legacy/sys:sys",

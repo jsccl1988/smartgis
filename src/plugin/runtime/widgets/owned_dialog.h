@@ -7,7 +7,7 @@
 #include <memory>
 
 #include "plugin/runtime/host/plugin_host_export.h"
-#include "ui/views/dialogs/shell/dialog.h"
+#include "ui/views/dialogs/dialog.h"
 
 namespace plugin {
 

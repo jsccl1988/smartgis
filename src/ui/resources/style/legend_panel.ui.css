@@ -1,0 +1,20 @@
+/* LegendPanel */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  width: 280px;
+  height: 180px;
+}
+
+#title {
+  width: 220px;
+  height: 22px;
+}
+
+#table {
+  width: 260px;
+  height: 120px;
+}

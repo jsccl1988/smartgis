@@ -23,7 +23,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 #include "legacy/core/bas_struct.h"
 #include "legacy/core/core.h"
 #include "legacy/ui/chart/diagramdata.h"
-#include "base/carto/style.h"
+#include "legacy/carto/style.h"
 
 using namespace base;
 using namespace base;

@@ -16,7 +16,7 @@ using namespace tool;
     SmtIAToolManager *pIAToolMgr = SmtIAToolManager::get_singleton_ptr(); \
     pIAToolMgr->notify(pIATool, lMsg, param);                             \
   }
-TOOL_EXPORT long post_ia_tool_msg(SmtIATool *pIATool, long lMsg,
+LEGACY_TOOL_EXPORT long post_ia_tool_msg(SmtIATool *pIATool, long lMsg,
                                   SmtListenerMsg &param);
 
 #endif  //_T_MSG_H

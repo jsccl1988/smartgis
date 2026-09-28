@@ -6,12 +6,13 @@
 
 #include <condition_variable>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <string>
-#include <thread>
 #include <vector>
 
+#include "base/execution/executor/pool/nthread_executor.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/host/plugin_host_export.h"
 
@@ -19,7 +20,8 @@ namespace plugin {
 
 enum class ProcessingMode { kThread, kUtilityStub };
 
-// One worker thread for algorithm factories. UI stays on the caller thread.
+// Worker pool for algorithm factories. UI stays on the caller thread;
+// completion callbacks are queued for flush_for_test / host drain.
 class PLUGIN_HOST_EXPORT ProcessingPool {
  public:
   explicit ProcessingPool(ProcessingMode mode);
@@ -39,15 +41,15 @@ class PLUGIN_HOST_EXPORT ProcessingPool {
     std::function<void(bool, std::string)> done;
   };
 
-  void worker_main();
+  void enqueue_done(std::function<void()> fn);
 
   ProcessingMode mode_;
+  std::unique_ptr<base::execution::NThreadPoolExecutor> executor_;
   std::mutex mu_;
   std::condition_variable cv_;
-  std::queue<Job> jobs_;
   std::vector<std::function<void()>> done_queue_;
   bool stop_ = false;
-  std::thread worker_;
+  size_t inflight_ = 0;
 };
 
 // Binds host->run_processing to pool->submit without a content→plugin GN edge.

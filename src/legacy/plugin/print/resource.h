@@ -1,9 +1,10 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
 // Used by am_map_print.rc
-#define IDC_XVIEW_CONTAINER 4000
 #define IDD_DLG_2DXVIEW 4000
 #define IDC_BTN_SAVE 4001
+// Unique name+value: must not collide with IDD or chart's IDC_XVIEW_CONTAINER.
+#define IDC_PRINT_XVIEW_CONTAINER 4002
 
 // Next default values for new objects
 #ifdef APSTUDIO_INVOKED

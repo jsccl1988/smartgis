@@ -1,0 +1,16 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Official protobuf. Prefer installed prefix when cmake install has run;
+# otherwise expose headers from the fetched source tree for include probing.
+
+config("protobuf_headers") {
+  include_dirs += [
+    "//third_party/.install/include",
+    "//third_party/.src/protobuf/src",
+  ]
+}
+
+group("protobuf") {
+  public_configs = [ ":protobuf_headers" ]
+}

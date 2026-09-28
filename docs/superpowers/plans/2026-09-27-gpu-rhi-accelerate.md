@@ -51,7 +51,7 @@ All rights reserved.
 
 - Each `OutputSurface` / view is pinned to an `AdapterId`; unbound → `kAdapterPrimary`.
 
-- Default compose backend remains `kSoftware` until explicitly opted in (`SMT_GPU_COMPOSE=rhi` or test override). Fallback is **per adapter**.
+- ~~Default compose backend remains `kSoftware` until explicitly opted in (`SMT_GPU_COMPOSE=rhi` or test override). Fallback is **per adapter**.~~ **Superseded** by **Follow-up: default RHI + monitor LUID (A+C)** below — default is now `kRhi`; `SMT_GPU_COMPOSE=software` is the escape; sticky fallback remains **per adapter**.
 
 - Wire command `view.backend.rhi` still means `ContentSource::kDirect` — do not overload it to mean FlyCube in this plan.
 
@@ -492,4 +492,48 @@ Expected: default suite green; with `SMT_GPU_COMPOSE=rhi`, RhiComposer path runs
 
 
 Plan complete when saved. Implementation continues on `master` under the multi-GPU GPU-process compose model. Prefer subagent-driven execution per task with human `build.bat` gates between tasks.
+
+
+
+---
+
+
+
+## Follow-up: default RHI + monitor LUID (A+C)
+
+
+
+> Living design: [../specs/2026-09-13-render-rhi-scene-design.md](../specs/2026-09-13-render-rhi-scene-design.md) §GPU-process accelerate (A+C). Earlier Global Constraints that said software-default are **superseded** by this section.
+
+
+
+**Locked:** default `ComposeBackend` = `kRhi` (unset `SMT_GPU_COMPOSE` → `kRhi`); `SMT_GPU_COMPOSE=software` escape; sticky per-adapter software fallback; Attach/Resize carry monitor LUID (+ optional `adapter_hint`); `HMONITOR` never on the wire; topology stays 1 gpu process × N adapters; shell never final-compose.
+
+
+
+### P0 — Default RHI compose
+
+
+
+- [x] Flip / verify `select_compose_backend` / env parse: unset / empty / unknown → `kRhi`; only `SMT_GPU_COMPOSE=software` → `kSoftware` (`src/gpu/compositor/composer/composer.cc`, `composer.h`).
+- [x] Keep sticky per-adapter software fallback on RHI init / hard present failure (`src/gpu/device/gpu_device_hub.*`, `make_frame_composer`).
+- [x] Update unit tests expecting software-default (`src/gpu/*_test.cc` / `gpu_rhi_composer_test`).
+- [x] Align as-built wording: `src/gpu/README.md` Multi-GPU + living §GPU-process accelerate.
+
+### P1 — Monitor LUID IPC + rebind
+
+
+
+- [x] Extend `AttachSurfaceBody` / `ResizeSurfaceBody` with `monitor_luid_low` / `monitor_luid_high` and optional `adapter_hint` (`0xffffffff` = unset) — `src/content/common/host_protocol.h`.
+- [x] Shell / browser fill LUID from local `HMONITOR` (do **not** put `HMONITOR` on IPC) — e.g. `src/content/browser/map_contents.cc`, Views map host as needed.
+- [x] `gpu_main` on Attach/Resize: resolve adapter via `GpuDeviceHub` and `bind_surface` / `rebind_surface_to_monitor` (LUID), not forever-primary — `src/gpu/gpu_main.cc`, `src/gpu/device/gpu_device_hub.*`.
+- [ ] Tests: Attach/Resize with LUID pins expected `AdapterId`; primary-only path remains fallback when LUID unset.
+
+### P2 — TDR recovery + docs
+
+
+
+- [ ] Wire device-lost / TDR recovery to `notify_device_lost` → sticky software + surface generation bump for that adapter (`src/gpu/device/gpu_device_hub.*`, display / present path).
+- [ ] Dual-adapter sticky-fallback hand notes + as-built refresh (`src/gpu/README.md`, `docs/build/ui-shell-multiprocess.md` if behavior changes).
+- [ ] Confirm shell still never final-compose; no single-frame multi-GPU split.
 

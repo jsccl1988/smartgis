@@ -23,6 +23,7 @@ source_set("frame_sources") {
     "SDB_EXPORTS",
   ]
   deps = [
+    "//src/base:foundation",
     "//src/gis/present/style:style_sources",
     "//src/gis/vista/world:world_sources",
   ]

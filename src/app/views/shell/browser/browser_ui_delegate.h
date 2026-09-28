@@ -18,6 +18,10 @@ namespace content {
 class ViewHost;
 }  // namespace content
 
+namespace tool {
+struct Draft;
+}  // namespace tool
+
 namespace ui {
 namespace views {
 class AmboxView;
@@ -67,6 +71,9 @@ class BrowserUiDelegate {
   virtual content::ViewHost* active_view_host() const = 0;
   virtual void active_view_size(int* w, int* h) const = 0;
   virtual bool scene3d_tab_active() const = 0;
+
+  // When Measure panel is armed, consume draw drafts as measurements (no edit).
+  virtual bool try_consume_measure_draft(const tool::Draft& draft) = 0;
 
   virtual void set_status_message(const std::string& text) = 0;
   virtual void invalidate_map_overlays() = 0;

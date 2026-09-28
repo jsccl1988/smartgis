@@ -1,0 +1,73 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# OGR field codec and connection traits. May be linked into the gis DLL and
+# into leftover render DLLs (each target gets its own copy; symbols are not
+# SDE_GDAL_EXPORT).
+
+# Windows charset helper only (no GDAL). Views + leftover GDI both decode
+# OGR field bytes with this so GBK is not treated as loose UTF-8.
+source_set("ogr_text_encoding") {
+  sources = [
+    "text/ogr_text_encoding.cc",
+    "text/ogr_text_encoding.h",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+source_set("ogr_codec") {
+  sources = [
+    "codec/ogr_connect.cc",
+    "codec/ogr_connect.h",
+    "codec/ogr_feature_codec.cc",
+    "codec/ogr_feature_codec.h",
+    "codec/ogr_feature_kind.h",
+  ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  include_dirs += [ "//src" ]
+  public_deps = [
+    "//src/gis/datasource/pipeline:pipeline",
+    "//third_party:gdal",
+  ]
+  deps = [
+    ":ogr_text_encoding",
+    # Grid/Tin live in gis.dll. Do not dep :geo (group → that DLL; this
+    # source_set is linked into it, so that cycles) or :geo_sources
+    # (leftover DLLs also link this source_set and would duplicate the objs).
+    # Out-of-DLL callers already depend on //src/gis/kernel/geo:geo.
+    "//src/base:base",
+    "//src/base:core",
+    "//src/base:foundation",
+  ]
+}
+
+# Raster scratch layer. Compiled into //src/gis:gis via sde_gdal_sources.
+source_set("ogr_raster") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+  sources = [
+    "raster/ogr_raster_layer.cc",
+    "raster/ogr_raster_layer.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":ogr_codec",
+    "//src/base:base",
+    "//src/base:core",
+    "//third_party:gdal",
+  ]
+}
+
+test("ogr_text_encoding_test") {
+  output_name = "ogr_text_encoding_test"
+  sources = [ "text/ogr_text_encoding_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":ogr_text_encoding" ]
+}

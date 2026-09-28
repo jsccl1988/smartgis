@@ -34,11 +34,14 @@ config("gtest_cfg") {
   ]
 }
 
+# Mirror gtest: Debug installs benchmarkd.lib / benchmark_maind.lib (MDd);
+# Release installs benchmark.lib / benchmark_main.lib (MD).
 config("benchmark_cfg") {
-  libs += [
-    "$_tp/lib/benchmark.lib",
-    "$_tp/lib/benchmark_main.lib",
-  ]
+  libs += [ "$_tp/lib/benchmark$_d.lib" ]
+}
+
+config("benchmark_main_cfg") {
+  libs += [ "$_tp/lib/benchmark_main$_d.lib" ]
 }
 
 config("sqlite3_cfg") {
@@ -183,8 +186,17 @@ group("gbenchmark") {
   ]
 }
 
-group("benchmark") {
+# Provides ::main via benchmark_main.lib. Prefer //testing/benchmark.gni.
+group("gbenchmark_main") {
   public_deps = [ ":gbenchmark" ]
+  public_configs = [ ":benchmark_main_cfg" ]
+}
+
+group("benchmark") {
+  public_deps = [
+    ":gbenchmark",
+    ":gbenchmark_main",
+  ]
 }
 
 group("sqlite3") {
@@ -349,6 +361,28 @@ group("octree") {
 
 group("CLI11") {
   public_deps = [ "//third_party/CLI11:CLI11" ]
+}
+
+group("rapidjson") {
+  public_deps = [ "//third_party/rapidjson:rapidjson" ]
+}
+
+group("concurrentqueue") {
+  public_deps = [ "//third_party/concurrentqueue:concurrentqueue" ]
+}
+
+group("pugixml") {
+  public_deps = [ "//third_party/pugixml:pugixml" ]
+}
+
+group("yoga") {
+  public_deps = [ "//third_party/yoga:yoga" ]
+}
+
+group("protobuf") {
+  if (smt_has_protobuf) {
+    public_deps = [ "//third_party/protobuf:protobuf" ]
+  }
 }
 
 group("chromium") {

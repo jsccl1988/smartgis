@@ -11,11 +11,12 @@ enum class StrokeMode { kPoint, kRect, kLine, kPolygon };
 class StrokeInteraction final : public Interaction {
  public:
   StrokeInteraction(const char* id, StrokeMode mode, DraftCallback cb,
-                    uint32_t default_flags)
+                    uint32_t default_flags, bool allow_rbutton_stroke = false)
       : id_(id),
         mode_(mode),
         cb_(std::move(cb)),
-        default_flags_(default_flags) {}
+        default_flags_(default_flags),
+        allow_rbutton_stroke_(allow_rbutton_stroke) {}
 
   const char* id() const override { return id_; }
 
@@ -24,6 +25,7 @@ class StrokeInteraction final : public Interaction {
     captured_ = false;
     has_hover_ = false;
     swallow_up_ = false;
+    rbutton_stroke_ = false;
     overlay_ = {};
   }
 
@@ -32,6 +34,7 @@ class StrokeInteraction final : public Interaction {
     captured_ = false;
     has_hover_ = false;
     swallow_up_ = false;
+    rbutton_stroke_ = false;
     overlay_ = {};
   }
 
@@ -59,9 +62,11 @@ class StrokeInteraction final : public Interaction {
           return true;
         }
         return false;
-      case StrokeMode::kRect:
-        if (e.kind == Kind::kLDown) {
+      case StrokeMode::kRect: {
+        if (e.kind == Kind::kLDown ||
+            (allow_rbutton_stroke_ && e.kind == Kind::kRDown)) {
           captured_ = true;
+          rbutton_stroke_ = (e.kind == Kind::kRDown);
           pts_.clear();
           pts_.push_back({e.x_px, e.y_px});
           refresh_overlay();
@@ -76,7 +81,10 @@ class StrokeInteraction final : public Interaction {
           refresh_overlay();
           return true;
         }
-        if (e.kind == Kind::kLUp && captured_) {
+        const bool finish_up =
+            (e.kind == Kind::kLUp && captured_ && !rbutton_stroke_) ||
+            (e.kind == Kind::kRUp && captured_ && rbutton_stroke_);
+        if (finish_up) {
           if (pts_.empty()) {
             pts_.push_back({e.x_px, e.y_px});
           }
@@ -85,18 +93,41 @@ class StrokeInteraction final : public Interaction {
           } else {
             pts_.back() = {e.x_px, e.y_px};
           }
+          const int ox = pts_.front().x_px;
+          const int oy = pts_.front().y_px;
+          const int adx = e.x_px > ox ? e.x_px - ox : ox - e.x_px;
+          const int ady = e.y_px > oy ? e.y_px - oy : oy - e.y_px;
+          const bool was_r = rbutton_stroke_;
           captured_ = false;
+          rbutton_stroke_ = false;
+          // RMB click (no drag): release only so the shell context menu can
+          // run. LMB click still emits a point-sized rect → 1.25x zoom.
+          if (was_r && adx <= 4 && ady <= 4) {
+            pts_.clear();
+            overlay_ = {};
+            return true;
+          }
           emit(DraftKind::kRect);
           return true;
         }
-        if (e.kind == Kind::kRDown ||
-            (e.kind == Kind::kKeyDown && e.key == 0x1B)) {
+        // Esc cancels. Right-down cancels only when zoom_in is not using
+        // right-button rubber-band.
+        if (e.kind == Kind::kKeyDown && e.key == 0x1B) {
           captured_ = false;
+          rbutton_stroke_ = false;
+          pts_.clear();
+          overlay_ = {};
+          return true;
+        }
+        if (!allow_rbutton_stroke_ && e.kind == Kind::kRDown) {
+          captured_ = false;
+          rbutton_stroke_ = false;
           pts_.clear();
           overlay_ = {};
           return true;
         }
         return false;
+      }
       case StrokeMode::kLine:
       case StrokeMode::kPolygon:
         if (e.kind == Kind::kLDown) {
@@ -191,12 +222,14 @@ class StrokeInteraction final : public Interaction {
   StrokeMode mode_;
   DraftCallback cb_;
   uint32_t default_flags_ = 0;
+  bool allow_rbutton_stroke_ = false;
   std::vector<DraftPoint> pts_;
   AuxOverlay overlay_{};
   AuxPoint hover_{};
   bool captured_ = false;
   bool has_hover_ = false;
   bool swallow_up_ = false;
+  bool rbutton_stroke_ = false;
 };
 
 // 2D view.pan: continuous drag pan (mouse or touch); two-finger midpoint pan
@@ -226,21 +259,57 @@ class ViewPanInteraction final : public Interaction {
     }
     if (e.kind == Kind::kLDown) {
       captured_ = true;
+      zoom_stroke_ = false;
+      pts_.clear();
+      pts_.push_back({e.x_px, e.y_px});
+      return true;
+    }
+    // RMB drag while pan is active → ZoomToRect (product right-drag zoom).
+    if (e.kind == Kind::kRDown) {
+      captured_ = true;
+      zoom_stroke_ = true;
       pts_.clear();
       pts_.push_back({e.x_px, e.y_px});
       return true;
     }
     if (e.kind == Kind::kMouseMove && captured_) {
+      if (zoom_stroke_) {
+        if (pts_.size() == 1) {
+          pts_.push_back({e.x_px, e.y_px});
+        } else {
+          pts_.back() = {e.x_px, e.y_px};
+        }
+        return true;
+      }
       emit_delta(e.x_px, e.y_px, /*touch=*/false);
       return true;
     }
-    if (e.kind == Kind::kLUp && captured_) {
+    if (e.kind == Kind::kLUp && captured_ && !zoom_stroke_) {
       emit_delta(e.x_px, e.y_px, /*touch=*/false);
       reset();
       return true;
     }
-    if (e.kind == Kind::kRDown ||
-        (e.kind == Kind::kKeyDown && e.key == 0x1B)) {
+    if (e.kind == Kind::kRUp && captured_ && zoom_stroke_) {
+      if (pts_.empty()) {
+        pts_.push_back({e.x_px, e.y_px});
+      }
+      if (pts_.size() == 1) {
+        pts_.push_back({e.x_px, e.y_px});
+      } else {
+        pts_.back() = {e.x_px, e.y_px};
+      }
+      const int ox = pts_.front().x_px;
+      const int oy = pts_.front().y_px;
+      const int adx = e.x_px > ox ? e.x_px - ox : ox - e.x_px;
+      const int ady = e.y_px > oy ? e.y_px - oy : oy - e.y_px;
+      // Click: release only (shell shows the context menu). Drag: zoom draft.
+      if (adx > 4 || ady > 4) {
+        emit_zoom_rect();
+      }
+      reset();
+      return true;
+    }
+    if (e.kind == Kind::kKeyDown && e.key == 0x1B) {
       reset();
       return true;
     }
@@ -252,6 +321,18 @@ class ViewPanInteraction final : public Interaction {
     pts_.clear();
     captured_ = false;
     multitouch_ = false;
+    zoom_stroke_ = false;
+  }
+
+  void emit_zoom_rect() {
+    if (!cb_ || pts_.size() < 2) {
+      return;
+    }
+    Draft d;
+    d.kind = DraftKind::kRect;
+    d.flags = default_flags_ | draft_flags::kZoomRect;
+    d.points = pts_;
+    cb_(d);
   }
 
   bool on_multitouch(const content::InputEvent& e) {
@@ -310,6 +391,7 @@ class ViewPanInteraction final : public Interaction {
   std::vector<DraftPoint> pts_;
   bool captured_ = false;
   bool multitouch_ = false;
+  bool zoom_stroke_ = false;
 };
 
 // Pixel-space 3D camera drag / look. Camera math stays in leftover ApplyDraft.
@@ -602,9 +684,10 @@ std::unique_ptr<Interaction> make_draw_rect(DraftCallback on_complete,
 
 std::unique_ptr<Interaction> make_view_zoom_in(DraftCallback on_complete,
                                                uint32_t default_flags) {
+  // Left or right rubber-band → ZoomToRect (legacy L-drag; RMB drag zoom).
   return std::make_unique<StrokeInteraction>(
       "view.zoom_in", StrokeMode::kRect, std::move(on_complete),
-      default_flags);
+      default_flags, /*allow_rbutton_stroke=*/true);
 }
 
 std::unique_ptr<Interaction> make_view_zoom_out(DraftCallback on_complete,

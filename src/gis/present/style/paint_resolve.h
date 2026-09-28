@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <string>
 
-#include "base/carto/style.h"
+#include "legacy/carto/style.h"
 #include "gis/gis_export.h"
 #include "gis/present/style/style_types.h"
 #include "gis/present/style/symbol_library.h"

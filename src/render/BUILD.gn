@@ -64,13 +64,13 @@ test("rhi_test") {
   include_dirs += [ "//src" ]
   deps = [ ":rhi" ]
 }
-
 smt_shared_library("render") {
   dll_stem = "render"
   defines = [ "RENDER_EXPORTS" ]
   deps = [
     ":programs_sources",
     ":rhi_sources",
+    "//src/base:base",
     "//src/render/graph:graph_sources",
   ]
   # Forward FlyCube presence to consumers (tests / Views) that branch on

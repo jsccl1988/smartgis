@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="create_datasource">
+  <style src="create_datasource.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="name_label" text="Datasource name"/>
+    <textfield id="name"/>
+    <label id="type_label" text="Type"/>
+    <combobox id="type">
+      <item text="MEM"/>
+      <item text="file"/>
+      <item text="GPKG"/>
+    </combobox>
+  </vbox>
+</ui>

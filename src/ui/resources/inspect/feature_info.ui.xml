@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="feature_info">
+  <style src="feature_info.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="id" text="Feature"/>
+    <table id="table" columns="Name,Value"/>
+  </vbox>
+</ui>

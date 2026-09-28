@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="geoprocessing_history_panel">
+  <style src="geoprocessing_history_panel.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title" text="History"/>
+    <table id="table" columns="Time,Op,Status"/>
+    <hbox id="commands" class="commands">
+      <button id="rerun" text="Rerun"/>
+      <button id="clear" text="Clear"/>
+    </hbox>
+  </vbox>
+</ui>

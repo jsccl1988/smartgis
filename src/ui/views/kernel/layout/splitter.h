@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_KERNEL_LAYOUT_SPLITTER_H_
 #define UI_VIEWS_KERNEL_LAYOUT_SPLITTER_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include "ui/views/kernel/view/view.h"
 
 namespace ui {
@@ -15,7 +15,7 @@ namespace views {
 // On host resize (before any user drag): a pane with preferred size 0 absorbs
 // growth; a pane with positive preferred size stays fixed. After a drag, the
 // split ratio is preserved when the host grows or shrinks.
-class UI_VIEWS_EXPORT Splitter : public View {
+class UI_EXPORT Splitter : public View {
  public:
   enum class Orientation { kHorizontal, kVertical };
 
@@ -24,8 +24,12 @@ class UI_VIEWS_EXPORT Splitter : public View {
   void set_collapsed(bool collapsed);
   bool is_collapsed() const { return collapsed_; }
 
+  // Clear the one-shot seed and lay out again from child preferred sizes.
+  void reseed();
+
   void layout() override;
   bool on_mouse_event(const MouseEvent& event) override;
+  std::string_view paint_role() const override;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;

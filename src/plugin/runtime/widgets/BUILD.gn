@@ -17,7 +17,10 @@ source_set("widgets_sources") {
   ]
   include_dirs += [ "//src" ]
   defines = [ "PLUGIN_HOST_EXPORTS" ]
-  public_deps = [ "//src/ui/views:views" ]
+  public_deps = [
+    "//src/ui/gis:gis",
+    "//src/ui/views:views",
+  ]
 }
 
 group("widgets") {

@@ -1,0 +1,41 @@
+/* AttStruct dialog — Flex subset for Yoga */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  width: 420px;
+  height: 280px;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  height: 32px;
+}
+
+#fields {
+  width: 400px;
+  height: 160px;
+  flex-grow: 1;
+}
+
+#name_label,
+#type_label {
+  height: 22px;
+  width: 400px;
+}
+
+#name,
+#type {
+  height: 28px;
+  width: 400px;
+}
+
+#add,
+#remove {
+  width: 80px;
+  height: 28px;
+}

@@ -92,9 +92,9 @@ src/app/views/
 
 Include examples:
 
-- `app/views/document/map_scene.h`
-- `app/views/camera/view_frame.h`
-- `app/views/camera/orbit_frame.h`
+- `content/browser/document/map_scene.h`
+- `content/browser/camera/view_frame.h`
+- `content/browser/camera/orbit_frame.h`
 - `app/views/present/map2d/map2d_presenter.h`
 - `app/views/present/scene3d/scene3d_presenter.h`
 

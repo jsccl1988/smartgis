@@ -47,7 +47,7 @@ void Tin::clear() {
 
 bool Tin::is_empty() const { return nodes_.empty(); }
 
-void Tin::get_envelope(Envelope* psEnvelope) const {
+void Tin::get_envelope(gis::Envelope* psEnvelope) const {
   if (psEnvelope == nullptr || nodes_.empty()) {
     return;
   }

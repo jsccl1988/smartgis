@@ -9,7 +9,10 @@
 
 #include <algorithm>
 #include <fstream>
-#include <sstream>
+
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 namespace plugin {
 
@@ -243,55 +246,31 @@ bool Registry::unload(std::string_view id, content::PluginHost* host) {
 
 namespace {
 
-std::string json_escape(const std::string& s) {
-  std::string o;
-  o.reserve(s.size());
-  for (char c : s) {
-    if (c == '"' || c == '\\') {
-      o.push_back('\\');
-    }
-    o.push_back(c);
-  }
-  return o;
-}
-
-void write_string_array(std::ostringstream& os, const char* key,
+void write_string_array(rapidjson::Writer<rapidjson::StringBuffer>& w,
+                        const char* key,
                         const std::vector<std::string>& ids) {
-  os << "\"" << key << "\":[";
-  for (size_t i = 0; i < ids.size(); ++i) {
-    if (i) {
-      os << ",";
-    }
-    os << "\"" << json_escape(ids[i]) << "\"";
+  w.Key(key);
+  w.StartArray();
+  for (const std::string& id : ids) {
+    w.String(id.c_str(), static_cast<rapidjson::SizeType>(id.size()));
   }
-  os << "]";
+  w.EndArray();
 }
 
-std::vector<std::string> parse_string_array(const std::string& body,
+std::vector<std::string> parse_string_array(const rapidjson::Value& root,
                                             const char* key) {
   std::vector<std::string> out;
-  const std::string needle = std::string("\"") + key + "\"";
-  const size_t k = body.find(needle);
-  if (k == std::string::npos) {
+  if (!root.IsObject()) {
     return out;
   }
-  const size_t lb = body.find('[', k);
-  const size_t rb = body.find(']', lb == std::string::npos ? k : lb);
-  if (lb == std::string::npos || rb == std::string::npos) {
+  const auto it = root.FindMember(key);
+  if (it == root.MemberEnd() || !it->value.IsArray()) {
     return out;
   }
-  size_t i = lb + 1;
-  while (i < rb) {
-    const size_t q1 = body.find('"', i);
-    if (q1 == std::string::npos || q1 >= rb) {
-      break;
+  for (const auto& v : it->value.GetArray()) {
+    if (v.IsString()) {
+      out.emplace_back(v.GetString(), v.GetStringLength());
     }
-    const size_t q2 = body.find('"', q1 + 1);
-    if (q2 == std::string::npos || q2 > rb) {
-      break;
-    }
-    out.emplace_back(body.substr(q1 + 1, q2 - q1 - 1));
-    i = q2 + 1;
   }
   return out;
 }
@@ -306,17 +285,17 @@ bool Registry::save_state() const {
   if (state_path_.empty()) {
     return true;
   }
-  std::ostringstream os;
-  os << "{";
-  write_string_array(os, "trusted_unsigned", trusted_unsigned_ids_);
-  os << ",";
-  write_string_array(os, "enabled", enabled_ids_);
-  os << "}";
+  rapidjson::StringBuffer buf;
+  rapidjson::Writer<rapidjson::StringBuffer> w(buf);
+  w.StartObject();
+  write_string_array(w, "trusted_unsigned", trusted_unsigned_ids_);
+  write_string_array(w, "enabled", enabled_ids_);
+  w.EndObject();
   std::ofstream out(state_path_, std::ios::binary);
   if (!out) {
     return false;
   }
-  out << os.str();
+  out.write(buf.GetString(), static_cast<std::streamsize>(buf.GetSize()));
   return static_cast<bool>(out);
 }
 
@@ -330,8 +309,13 @@ bool Registry::load_state() {
   }
   const std::string body((std::istreambuf_iterator<char>(in)),
                          std::istreambuf_iterator<char>());
-  trusted_unsigned_ids_ = parse_string_array(body, "trusted_unsigned");
-  enabled_ids_ = parse_string_array(body, "enabled");
+  rapidjson::Document root;
+  root.Parse(body.c_str());
+  if (root.HasParseError() || !root.IsObject()) {
+    return false;
+  }
+  trusted_unsigned_ids_ = parse_string_array(root, "trusted_unsigned");
+  enabled_ids_ = parse_string_array(root, "enabled");
   for (const std::string& id : trusted_unsigned_ids_) {
     if (PluginRecord* rec = find_mut(id)) {
       if (rec->manifest.kind != PluginKind::kBuiltin) {

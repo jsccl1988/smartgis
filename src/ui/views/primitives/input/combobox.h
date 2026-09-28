@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_PRIMITIVES_INPUT_COMBOBOX_H_
 #define UI_VIEWS_PRIMITIVES_INPUT_COMBOBOX_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <functional>
 #include <string>
 #include <vector>
@@ -16,7 +16,7 @@ namespace views {
 
 // String list dropdown. Click toggles a child item list; Up/Down cycles
 // when focused. Not a native HWND combo.
-class UI_VIEWS_EXPORT Combobox : public View {
+class UI_EXPORT Combobox : public View {
  public:
   Combobox();
   void add_item(std::string item);
@@ -31,6 +31,8 @@ class UI_VIEWS_EXPORT Combobox : public View {
   void layout() override;
   void on_device_scale_factor_changed(float old_scale,
                                      float new_scale) override;
+  bool allows_child_overflow() const override { return true; }
+  std::string_view paint_role() const override;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;

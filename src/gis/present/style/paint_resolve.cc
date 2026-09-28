@@ -6,8 +6,16 @@
 #include <cstdio>
 #include <cstdlib>
 
+// paint_resolve.h → legacy carto → windows.h may define min/max.
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
+#include <rapidjson/document.h>
+
 #include "gis/present/style/expression.h"
-#include "gis/present/style/detail/json_mini.h"
 #include "gis/present/style/symbol_library.h"
 
 namespace gis {
@@ -144,17 +152,18 @@ void parse_float_array(const std::string& raw, std::vector<float>* out) {
   if (raw.empty() || raw[0] != '[') {
     return;
   }
-  detail::JsonValue root;
-  if (!detail::parse_json(raw.data(), raw.size(), &root) || !root.is_array()) {
+  rapidjson::Document root;
+  root.Parse(raw.data(), static_cast<rapidjson::SizeType>(raw.size()));
+  if (root.HasParseError() || !root.IsArray()) {
     return;
   }
   // Skip expression forms; only accept literal number arrays.
-  if (!root.a.empty() && root.a[0].is_string()) {
+  if (!root.Empty() && root[0].IsString()) {
     return;
   }
-  for (const auto& e : root.a) {
-    if (e.is_number()) {
-      out->push_back(static_cast<float>(e.n));
+  for (const auto& e : root.GetArray()) {
+    if (e.IsNumber()) {
+      out->push_back(static_cast<float>(e.GetDouble()));
     }
   }
 }
@@ -163,14 +172,14 @@ void parse_xy_offset(const std::string& raw, float* x, float* y) {
   if (raw.empty() || raw[0] != '[') {
     return;
   }
-  detail::JsonValue root;
-  if (!detail::parse_json(raw.data(), raw.size(), &root) || !root.is_array() ||
-      root.a.size() < 2) {
+  rapidjson::Document root;
+  root.Parse(raw.data(), static_cast<rapidjson::SizeType>(raw.size()));
+  if (root.HasParseError() || !root.IsArray() || root.Size() < 2) {
     return;
   }
-  if (root.a[0].is_number() && root.a[1].is_number()) {
-    *x = static_cast<float>(root.a[0].n);
-    *y = static_cast<float>(root.a[1].n);
+  if (root[0].IsNumber() && root[1].IsNumber()) {
+    *x = static_cast<float>(root[0].GetDouble());
+    *y = static_cast<float>(root[1].GetDouble());
   }
 }
 

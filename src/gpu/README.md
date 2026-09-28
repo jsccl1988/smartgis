@@ -16,9 +16,10 @@ the final frame.
    (`frame_sink.h`). Callers never include `compositor/` or `raster/` headers.
 2. **Record then present — compose only here.** Raster TUs append `DrawQuad`s
    into a `RenderPass`; display wraps that into one `CompositorFrame`; a
-   `FrameComposer` (software default) blends the root pass and presents onto
-   `OutputSurface` **once** per frame. Software compose is a **per-adapter**
-   fallback inside this process, never in shell.
+   `FrameComposer` (default **RHI**; `SMT_GPU_COMPOSE=software` escape) blends
+   the root pass and presents onto `OutputSurface` **once** per frame. Software
+   compose is a **per-adapter** sticky fallback inside this process, never in
+   shell.
 3. **Multi-adapter hub.** `GpuDeviceHub` pins each `OutputSurface` to an
    `AdapterId` (default `kAdapterPrimary`). One GPU process drives N device
    slots; present is per-output.
@@ -27,10 +28,9 @@ the final frame.
    **Tile**: Style JSON + XYZ via `gis::style` / `gis::tile`. Selection:
    `set_content_source` > `SMT_MAP_BACKEND=a|track_a|maplibre` >
    command `view.backend.maplibre` / `view.backend.rhi`.
-5. **Compositor is display IR + compose, not a second engine.** `compositor/`
-   holds the frame model (`DrawQuad` / `RenderPass` /
-   `CompositorFrame`) and CPU src-over (`kSolid`, `kBgra`, optional `replaces`).
-   It does not own fetch, Style walk, or DXGI creation.
+5. **Compositor is display IR + compose, not a second engine.** Split under
+   `compositor/`: `frame/` (IR), `composer/` (`FrameComposer` + software/rhi),
+   `underlay/` (graph/scene bridge). Does not own fetch, Style walk, or DXGI.
 6. **Surface is pixels only.** `OutputSurface` owns DXGI shared texture or DIB
    on a pinned adapter; demo drawing is not an `OutputSurface` method.
 
@@ -63,8 +63,9 @@ flowchart TB
   end
 
   subgraph Comp["compositor/"]
-    CF["CompositorFrame = RenderPass* + DrawQuad*"]
-    FC["FrameComposer — software|rhi per adapter"]
+    Frame["frame/ — DrawQuad / RenderPass / CompositorFrame"]
+    CompSR["composer/ — software_composer | rhi_composer"]
+    Under["underlay/ — graph / GpuScene bridge"]
   end
 
   subgraph GIS["//src/gis/present"]
@@ -80,12 +81,13 @@ flowchart TB
   Disp -->|kTile| Tile
   Tile --> Style
   Tile --> TP
-  Direct --> CF
-  Tile --> CF
-  Disp --> FC
-  Hub --> FC
-  CF --> FC
-  FC -->|present once| OS
+  Direct --> Frame
+  Tile --> Frame
+  Disp --> CompSR
+  Hub --> CompSR
+  Frame --> CompSR
+  CompSR --> Under
+  CompSR -->|present once| OS
 ```
 
 ### Frame pipeline (one present)
@@ -115,11 +117,14 @@ sequenceDiagram
 | `frame_sink.h` | `DrawRequest`, `ContentSource`, `draw_and_swap` |
 | `device/` | `AdapterId`, `GpuDeviceHub` (multi-adapter slots + RHI devices) |
 | `display/` | Choose content; submit one `CompositorFrame`; `OutputSurface` |
-| `compositor/` | IR + `FrameComposer` / `RhiComposer` / underlay bridge |
+| `compositor/frame/` | IR: `DrawQuad` / `RenderPass` / `CompositorFrame` (`frame.h`) |
+| `compositor/composer/` | `FrameComposer` + `software_composer` / `rhi_composer` |
+| `compositor/underlay/` | Frame Graph / GpuScene underlay bridge |
 | `raster/tile/` | Style walk records quads; decode, mosaic, fetch |
 | `raster/direct/` | GDI demo bitmap and DEM mesh record quads |
 
-Layout note: [`docs/superpowers/specs/2026-09-27-gpu-subdirectory-layout-design.md`](../../docs/superpowers/specs/2026-09-27-gpu-subdirectory-layout-design.md).
+Layout note: as-built in this README; historical layout design in
+[`docs/superpowers/archive/specs/2026-09-27-gpu-subdirectory-layout-design.md`](../../docs/superpowers/archive/specs/2026-09-27-gpu-subdirectory-layout-design.md).
 
 Wire names `SMT_MAP_BACKEND=…maplibre` and `view.backend.maplibre` still select
 `ContentSource::kTile` (StyleDocument + TileProvider). They do **not** mean
@@ -131,15 +136,25 @@ were **removed** (2026-09-27); see archived
 
 **Model:** one `--type=gpu` process × **N** adapter device slots. Not N gpu
 processes. Shell / browser never compose; they consume NT shared handles /
-DIB from this process only.
+DIB from this process only. **No** single-frame multi-GPU split.
+
+**Default compose:** `ComposeBackend::kRhi` when `SMT_GPU_COMPOSE` is unset /
+empty / unknown. Escape hatch: `SMT_GPU_COMPOSE=software` (case-insensitive).
+Hard RHI failure → sticky **software** for **that adapter only**.
+
+**Monitor affinity:** `AttachSurfaceBody` / `ResizeSurfaceBody` carry
+`monitor_luid_low` / `monitor_luid_high` (and optional `adapter_hint`,
+`0xffffffff` = unset). Shell resolves LUID from a local `HMONITOR` — **`HMONITOR`
+is not sent over IPC**. `gpu_main` binds / **rebinds** the surface via
+`GpuDeviceHub` (not forever primary-only).
 
 | Concept | Role |
 | --- | --- |
 | `AdapterId` | DXGI `EnumAdapters1` index (`kAdapterPrimary = 0`) |
 | `GpuDeviceHub` | Process-wide singleton: slots, surface pin map, RHI devices, texture cache, underlay Effects |
 | `OutputSurface` | DXGI shared texture or DIB; `adapter_id_` pin; `create_dxgi` opens that adapter |
-| `FrameComposer` | One instance per draw on one `AdapterId` (`SoftwareComposer` or `RhiComposer`) |
-| `prefer_adapter_for_monitor` / `rebind_surface_to_monitor` | DXGI output↔`HMONITOR` affinity APIs (**hub ready**; **not** yet driven by `gpu_main` IPC) |
+| `FrameComposer` | One instance per draw on one `AdapterId` (default `RhiComposer`; `SoftwareComposer` escape / sticky) |
+| `prefer_adapter_for_monitor` / `rebind_surface_to_monitor` | LUID / DXGI output affinity; **`gpu_main` rebinds** on Attach/Resize from monitor LUID |
 | `notify_device_lost` | Drop RHI + cache, sticky software, bump surface generation (tests / recovery hook) |
 
 ### Process topology
@@ -192,17 +207,17 @@ sequenceDiagram
   participant Comp as FrameComposer on AdapterId
   participant RHI as render::rhi::Device
 
-  Main->>Hub: bind_surface(surf, AdapterId) / pin default primary
+  Main->>Hub: bind/rebind from monitor LUID (Attach/Resize)
   Main->>Surf: resize → create_dxgi(EnumAdapters1(id))
   Main->>Raster: record RenderPass quads
   Raster-->>Main: CompositorFrame
   Main->>Comp: make_frame_composer(backend, AdapterId)
-  alt SMT_GPU_COMPOSE=rhi and device live
+  alt default kRhi (or SMT_GPU_COMPOSE unset) and device live
     Comp->>Hub: ensure_rhi_device(adapter)
     Hub-->>Comp: Device (adapter_index)
     Comp->>RHI: import_shared_nt_handle / GPU compose
     RHI-->>Surf: composed_into_imported_shared or copy_bgra
-  else software / sticky fallback
+  else SMT_GPU_COMPOSE=software / sticky fallback
     Comp->>Surf: blend + upload_bgra
   end
   Main-->>Shell: SharedHandle + FrameReady
@@ -215,6 +230,8 @@ sequenceDiagram
 | `CompositorFrame` IR | **As-built** |
 | Compose only in `--type=gpu` (not shell) | **As-built** (normative) |
 | `FrameComposer` seam + `SoftwareComposer` | **As-built** |
+| Default compose `kRhi`; `SMT_GPU_COMPOSE=software` escape | **Normative (A+C)** |
+| Sticky per-adapter software fallback | **As-built** |
 | `GpuDeviceHub` + `AdapterId` pin | **As-built** |
 | DXGI enumerate + `D3D11CreateDevice` on pin | **As-built** |
 | Per-adapter `ensure_rhi_device` (`adapter_index`) | **As-built** (Dx12 preferred; Null / sticky software fallback) |
@@ -223,15 +240,16 @@ sequenceDiagram
 | GPU compose `kSolid` / `kBgra` / `replaces` | **As-built**; import path sets `composed_into_imported_shared` |
 | Per-adapter texture cache | **As-built** |
 | Frame Graph / GpuScene underlay bridge | **As-built** (record only) |
-| `notify_device_lost` / generation bump | **As-built** (API + tests; not auto-TDR wired from OS) |
-| Monitor affinity APIs | **As-built** on hub; **`gpu_main` still pins primary** (no HMONITOR in Attach/Resize IPC yet) |
+| `notify_device_lost` / generation bump | **As-built** (API + tests; auto-TDR from OS = P2) |
+| Monitor LUID on Attach/Resize; `gpu_main` rebind | **Normative (A+C P1)** — hub APIs ready; IPC LUID fields + rebind path |
 | Headless / DIB-only | `upload_bgra` only (no NT import) |
 | Cross-adapter D3D11↔DX12 (mismatched LUID) | **Best-effort** — `OpenSharedHandle` may fail |
 
 `view.backend.rhi` only selects `ContentSource::kDirect`, not FlyCube.
-`//src/gpu:gpu_backend` deps `//src/render:rhi` (+ graph/scene) for `SMT_GPU_COMPOSE=rhi`.
+`//src/gpu:gpu_backend` deps `//src/render:rhi` (+ graph/scene) for RHI compose.
 
-- Spec: [`docs/superpowers/specs/2026-09-27-gpu-rhi-accelerate-design.md`](../../docs/superpowers/specs/2026-09-27-gpu-rhi-accelerate-design.md)
+- Spec: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md) §GPU-process accelerate
+- Archive: [`docs/superpowers/archive/specs/2026-09-27-gpu-rhi-accelerate-design.md`](../../docs/superpowers/archive/specs/2026-09-27-gpu-rhi-accelerate-design.md)
 - Plan: [`docs/superpowers/plans/2026-09-27-gpu-rhi-accelerate.md`](../../docs/superpowers/plans/2026-09-27-gpu-rhi-accelerate.md)
 
 ## Tile frames

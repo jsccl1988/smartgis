@@ -102,5 +102,9 @@ void RadioButton::paint_self(ui::gfx::Canvas* canvas) {
   }
 }
 
+
+std::string_view RadioButton::paint_role() const {
+  return "radio_button";
+}
 }  // namespace views
 }  // namespace ui

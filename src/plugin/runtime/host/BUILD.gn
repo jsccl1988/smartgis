@@ -40,12 +40,14 @@ source_set("host_sources") {
   defines = [ "PLUGIN_HOST_EXPORTS" ]
   deps = [
     "//src/legacy/plugin/adapter:am",
+    "//src/base:foundation",
     "//src/base:core",
     "//src/content:content",
     "//src/net:net",
     "//src/tool:dispatch",
     "//src/ui/views:views",
     "//third_party:ed25519",
+    "//third_party:rapidjson",
   ]
 }
 
@@ -77,11 +79,9 @@ test("plugin_host_test") {
     "//src/plugin/product/model3d:model3d_views",
     "//src/plugin/product/orthogrid:orthogrid_views",
     "//src/plugin/product/print:print_views",
-    "//src/plugin/product/proj:proj_views",
     "//third_party:cpp_httplib",
   ]
   data_deps = [
-    "//src/gis/kernel/proj:proj",
     "//third_party:gdal_runtime_dlls",
   ]
   libs += [ "ws2_32.lib" ]

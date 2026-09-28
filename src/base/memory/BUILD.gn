@@ -1,0 +1,31 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# mogu-aligned memory (header-mostly). Excludes kProtobuf MemoryResource.
+
+import("//testing/test.gni")
+
+source_set("memory") {
+  sources = [
+    "allocation_tracker.h",
+    "allocator.h",
+    "arena.h",
+    "memory_resource.h",
+    "noncopyable.h",
+    "object_pool.h",
+    "sample_trace.h",
+    "scope_guard.h",
+    "singleton.h",
+  ]
+  public_configs = [ "//src/base:foundation_config" ]
+  public_deps = [ "//third_party:concurrentqueue" ]
+}
+
+test("memory_test") {
+  output_name = "memory_test"
+  sources = [ "memory_test.cc" ]
+  deps = [
+    ":memory",
+    "//src/base:base",
+  ]
+}

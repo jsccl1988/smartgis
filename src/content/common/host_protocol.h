@@ -145,13 +145,19 @@ struct OpenViewBody {
 };
 
 // AttachSurface / SetPresentMode / SetVisible.
+// Optional monitor affinity (DXGI AdapterLuid) trails legacy fields for
+// pickle forward/backward wire order; unset hint is kAdapterInvalid.
 struct AttachSurfaceBody {
   uint32_t present_mode = 0;
   uint32_t visible = 1;
+  uint32_t monitor_luid_low = 0;
+  uint32_t monitor_luid_high = 0;
+  uint32_t adapter_hint = 0xffffffffu;  // kAdapterInvalid — unset
 
   template <typename Ar>
   void archive(Ar&& ar) {
-    ar(present_mode, visible);
+    ar(present_mode, visible, monitor_luid_low, monitor_luid_high,
+       adapter_hint);
   }
 };
 
@@ -160,10 +166,13 @@ struct ResizeSurfaceBody {
   uint32_t w = 64;
   uint32_t h = 64;
   float dpi = 96.f;
+  uint32_t monitor_luid_low = 0;
+  uint32_t monitor_luid_high = 0;
+  uint32_t adapter_hint = 0xffffffffu;  // kAdapterInvalid — unset
 
   template <typename Ar>
   void archive(Ar&& ar) {
-    ar(w, h, dpi);
+    ar(w, h, dpi, monitor_luid_low, monitor_luid_high, adapter_hint);
   }
 };
 

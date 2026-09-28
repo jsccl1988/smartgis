@@ -21,7 +21,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 #endif
 
 #include "legacy/ui/xcatalog/xcatalog.h"
-#include "gis/datasource/mgr/datasource_mgr.h"
+#include "legacy/datasource/mgr/datasource_mgr.h"
 
 using namespace gis;
 // SmtXCatalog

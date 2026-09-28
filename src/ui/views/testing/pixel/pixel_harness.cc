@@ -52,6 +52,51 @@ bool read_bgra_from_bitmap(HBITMAP bitmap, int width, int height,
 
 }  // namespace
 
+PixelBuffer capture_view(View* root, int width, int height,
+                         float device_scale_factor) {
+  PixelBuffer out;
+  if (!root || width <= 0 || height <= 0) {
+    return out;
+  }
+  const Rect prior = root->bounds();
+  root->set_bounds({0, 0, width, height});
+  root->layout();
+
+  HDC screen = GetDC(nullptr);
+  HDC mem = CreateCompatibleDC(screen);
+  HBITMAP bmp = CreateCompatibleBitmap(screen, width, height);
+  HGDIOBJ old_bmp = SelectObject(mem, bmp);
+  HFONT font = create_shell_font();
+  HGDIOBJ old_font = SelectObject(mem, font);
+  (void)device_scale_factor;
+
+  const ui::gfx::Color clear = Theme::current().shell_bg;
+  {
+    ui::gfx::Canvas canvas(mem, width, height);
+    canvas.fill_rect(0, 0, width, height, clear);
+    root->paint(&canvas);
+  }
+
+  SelectObject(mem, old_font);
+  DeleteObject(font);
+  out.width = width;
+  out.height = height;
+  if (!read_bgra_from_bitmap(bmp, width, height, &out.bgra)) {
+    out.bgra.clear();
+    out.width = 0;
+    out.height = 0;
+  }
+
+  SelectObject(mem, old_bmp);
+  DeleteObject(bmp);
+  DeleteDC(mem);
+  ReleaseDC(nullptr, screen);
+
+  root->set_bounds(prior);
+  root->layout();
+  return out;
+}
+
 PixelBuffer capture_view_tree(std::unique_ptr<View> root, int width,
                               int height, float device_scale_factor) {
   PixelBuffer out;
@@ -70,38 +115,7 @@ PixelBuffer capture_view_tree(std::unique_ptr<View> root, int width,
   if (!painted) {
     return out;
   }
-  painted->layout();
-
-  HDC screen = GetDC(nullptr);
-  HDC mem = CreateCompatibleDC(screen);
-  HBITMAP bmp = CreateCompatibleBitmap(screen, width, height);
-  HGDIOBJ old_bmp = SelectObject(mem, bmp);
-  HFONT font = create_shell_font();
-  HGDIOBJ old_font = SelectObject(mem, font);
-
-  const ui::gfx::Color clear = Theme::current().shell_bg;
-  {
-    ui::gfx::Canvas canvas(mem, width, height);
-    canvas.fill_rect(0, 0, width, height, clear);
-    painted->paint(&canvas);
-  }
-
-  SelectObject(mem, old_font);
-  DeleteObject(font);
-  out.width = width;
-  out.height = height;
-  if (!read_bgra_from_bitmap(bmp, width, height, &out.bgra)) {
-    out.bgra.clear();
-    out.width = 0;
-    out.height = 0;
-  }
-
-  SelectObject(mem, old_bmp);
-  DeleteObject(bmp);
-  DeleteDC(mem);
-  ReleaseDC(nullptr, screen);
-  widget.reset();
-  return out;
+  return capture_view(painted, width, height, device_scale_factor);
 }
 
 PixelCompareResult compare_pixel_buffers(const PixelBuffer& actual,

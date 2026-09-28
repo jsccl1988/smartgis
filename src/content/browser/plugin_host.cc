@@ -41,6 +41,11 @@ struct DockRec {
   DialogFactory factory;
 };
 
+struct PainterRec {
+  std::string plugin_id;
+  std::string role;
+};
+
 class PluginHostImpl final : public PluginHost {
  public:
   PluginHostImpl(tool::CommandCatalog* catalog,
@@ -61,6 +66,10 @@ class PluginHostImpl final : public PluginHost {
     enqueue_ = std::move(fn);
   }
 
+  void set_ui_withdraw_hook(UiWithdrawHook hook) override {
+    ui_withdraw_hook_ = std::move(hook);
+  }
+
   bool contribute_command(std::string_view plugin_id,
                           std::string_view command_id,
                           std::string_view title,
@@ -74,8 +83,10 @@ class PluginHostImpl final : public PluginHost {
     if (handlers_.contains(cid) && !withdrawn_commands_.contains(cid)) {
       return false;
     }
+    // Catalog and handlers_ both own a callable — copy into the catalog first
+    // so |handler| is not left empty for PluginHost::execute.
     if (catalog_ && !catalog_->contains(cid)) {
-      if (!catalog_->add(cid, handler)) {
+      if (!catalog_->add(cid, tool::CommandHandler{handler})) {
         return false;
       }
     }
@@ -125,20 +136,31 @@ class PluginHostImpl final : public PluginHost {
     return true;
   }
 
+  bool contribute_painter(std::string_view plugin_id,
+                          std::string_view role,
+                          UiPainterInstaller install) override {
+    if (plugin_id.empty() || role.empty() || !install) {
+      return false;
+    }
+    install();
+    painters_.push_back({std::string(plugin_id), std::string(role)});
+    return true;
+  }
+
   bool execute(std::string_view command_id,
                const tool::CommandArgs& args) override {
     if (withdrawn_commands_.count(std::string(command_id))) {
       return false;
     }
     auto it = handlers_.find(std::string(command_id));
-    if (it == handlers_.end()) {
-      if (!catalog_) {
-        return false;
-      }
-      tool::CommandDispatcher disp(catalog_);
-      return disp.execute(command_id, args);
+    if (it != handlers_.end() && it->second) {
+      return it->second(args);
     }
-    return it->second(args);
+    if (!catalog_) {
+      return false;
+    }
+    tool::CommandDispatcher disp(catalog_);
+    return disp.execute(command_id, args);
   }
 
   bool open_dialog(std::string_view dialog_id) override {
@@ -200,6 +222,14 @@ class PluginHostImpl final : public PluginHost {
                                   return r.plugin_id == pid;
                                 }),
                  docks_.end());
+    painters_.erase(std::remove_if(painters_.begin(), painters_.end(),
+                                   [&](const PainterRec& r) {
+                                     return r.plugin_id == pid;
+                                   }),
+                    painters_.end());
+    if (ui_withdraw_hook_) {
+      ui_withdraw_hook_(plugin_id);
+    }
   }
 
   void for_each_command(
@@ -234,6 +264,7 @@ class PluginHostImpl final : public PluginHost {
   MapContents* maps_ = nullptr;
   plugin::ProcessingPool* pool_ = nullptr;
   ProcessingEnqueue enqueue_;
+  UiWithdrawHook ui_withdraw_hook_;
 
   std::map<std::string, tool::CommandHandler> handlers_;
   std::map<std::string, std::string> command_owners_;
@@ -243,6 +274,7 @@ class PluginHostImpl final : public PluginHost {
   std::map<std::string, ProcessingRec> processing_;
   std::vector<MenuRec> menus_;
   std::vector<DockRec> docks_;
+  std::vector<PainterRec> painters_;
 };
 
 }  // namespace

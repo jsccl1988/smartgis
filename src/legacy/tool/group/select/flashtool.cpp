@@ -5,9 +5,9 @@
 
 #include <cstring>
 
-#include "base/carto/style_api.h"
-#include "base/carto/stylemanager.h"
-#include "gis/datasource/mgr/datasource_mgr.h"
+#include "legacy/carto/style_api.h"
+#include "legacy/carto/stylemanager.h"
+#include "legacy/datasource/mgr/datasource_mgr.h"
 #include "gis/model/feature/feature.h"
 #include "gis/model/feature/feature_api.h"
 #include "gis/model/map/map.h"

@@ -44,16 +44,34 @@ struct Args {
   bool self_test = false;
 };
 
-void pin_surface_adapter(detail::OutputSurface* surface) {
+// Resolve GPU adapter from Attach/Resize body: explicit hint, else LUID, else
+// primary. bind_surface is enough when DXGI recreate happens on resize.
+detail::AdapterId resolve_adapter_from_affinity(uint32_t adapter_hint,
+                                                uint32_t monitor_luid_low,
+                                                uint32_t monitor_luid_high) {
+  detail::GpuDeviceHub& hub = detail::device_hub();
+  if (adapter_hint != detail::kAdapterInvalid) {
+    return static_cast<detail::AdapterId>(adapter_hint);
+  }
+  const uint64_t luid =
+      (static_cast<uint64_t>(monitor_luid_high) << 32) |
+      static_cast<uint64_t>(monitor_luid_low);
+  if (luid != 0) {
+    return hub.adapter_for_luid(luid);
+  }
+  return hub.primary_adapter();
+}
+
+void pin_surface_adapter(detail::OutputSurface* surface,
+                         uint32_t adapter_hint,
+                         uint32_t monitor_luid_low,
+                         uint32_t monitor_luid_high) {
   if (!surface) {
     return;
   }
-  detail::GpuDeviceHub& hub = detail::device_hub();
-  detail::AdapterId id = hub.adapter_of(surface);
-  if (id == detail::kAdapterInvalid) {
-    id = hub.primary_adapter();
-  }
-  (void)hub.bind_surface(surface, id);
+  const detail::AdapterId id = resolve_adapter_from_affinity(
+      adapter_hint, monitor_luid_low, monitor_luid_high);
+  (void)detail::device_hub().bind_surface(surface, id);
 }
 
 Args parse_args(int argc, wchar_t** argv) {
@@ -247,6 +265,8 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
       if (cd::decode_payload(payload, &body)) {
         slot.mode = static_cast<content::PresentMode>(body.present_mode);
       }
+      pin_surface_adapter(&slot.present, body.adapter_hint,
+                          body.monitor_luid_low, body.monitor_luid_high);
       const bool need_new =
           !slot.attached || slot.present.generation() == 0 ||
           slot.present.mode() != slot.mode;
@@ -258,7 +278,6 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
         (void)send_shared_surface(&pipe, h.view_id, &slot.present);
         continue;
       }
-      pin_surface_adapter(&slot.present);
       if (!slot.present.resize(slot.width_px, slot.height_px, slot.mode,
                                parent)) {
         continue;
@@ -272,6 +291,8 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
       if (!cd::decode_payload(payload, &body)) {
         continue;
       }
+      pin_surface_adapter(&slot.present, body.adapter_hint,
+                          body.monitor_luid_low, body.monitor_luid_high);
       const uint32_t new_w = body.w < 1 ? 1 : body.w;
       const uint32_t new_h = body.h < 1 ? 1 : body.h;
       // Duplicate LayoutSlot / tab sync must not release the live DIB — shell
@@ -284,7 +305,6 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
       slot.width_px = new_w;
       slot.height_px = new_h;
       slot.dpi = body.dpi;
-      pin_surface_adapter(&slot.present);
       if (!slot.present.resize(slot.width_px, slot.height_px, slot.mode,
                                parent)) {
         continue;

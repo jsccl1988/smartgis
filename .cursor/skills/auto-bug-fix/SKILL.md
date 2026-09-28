@@ -30,8 +30,8 @@ When this skill is invoked, attached (`@auto-bug-fix` / `/auto-bug-fix`), or fol
 
 ## Hard rules — how to run
 
-1. **Entry:** from the **smartgis** repo root, run `.\build.bat e2e`. Then `.\build.bat te` — `e2e` compiles `//:test_all` but **does not run** unit tests; it only runs `out\exe_smoke.exe --require-all`.
-2. **Engineering management is GN.** `out/` only. Aliases: `e2e` / `te` / `a`. Do not invent bare `gn gen` / `ninja -C out` as the primary loop unless `build.bat` is missing/broken.
+1. **Entry:** from the **smartgis** repo root, run `.\build.bat e2e`. Then `.\build.bat te` — `e2e` compiles `//:test_all` but **does not run** unit tests; it only runs `out\Debug\exe_smoke.exe --require-all`. Prefer `build.bat debug e2e` / `build.bat debug te` when iterating a single config.
+2. **Engineering management is GN.** Gen roots `out/Debug` + `out/Release`. Aliases: `e2e` / `te` / `a`. Do not invent bare `gn gen` / `ninja` as the primary loop unless `build.bat` is missing/broken.
 3. **Do not** use `SmartGIS.sln` / MSBuild / `build.bat sln`. `vs2008/` is leftover only.
 4. Product sources are **`src/`**. Hosts: Views (`SmartGisViews.exe`) is the destination; leftover MFC (`SmartGis.exe`) is process smoke only. Do not treat WinUI / CEF as the endgame shell.
 5. **CBM first** (`user-codebase-memory-mcp`, project `smartgis`, `root_path` `C:/Dev/src/gis/smartgis`). Grep/Glob only if CBM is down, the user named an exact path, or the search is already scoped (`path` required).
@@ -47,7 +47,7 @@ When this skill is invoked, attached (`@auto-bug-fix` / `/auto-bug-fix`), or fol
 
 1. Run `.\build.bat e2e` from repo root (builds chrome / GPU / `exe_smoke`, then `--require-all`).
 2. Run `.\build.bat te` (builds `//:test_all`, then listed `*_test.exe` + `exe_smoke`).
-3. Parse **`out/build.log`** *and* the test runner / `exe_smoke` transcript:
+3. Parse **`out/Debug/build.log`** (and `out/Release/build.log` if built) *and* the test runner / `exe_smoke` transcript:
    - ninja: `FAILED:` / `ninja: build stopped` / `error:` / linker failure
    - `exe_smoke`: `FAIL  <exe>` (exit / timeout / CreateProcess / `--require-all` missing PE). `SKIP` is not green under `--require-all`.
    - unit tests: non-zero exit, `FAILED`, assertion text, `--self-test` codes (`docs/build/ui-testing.md`)

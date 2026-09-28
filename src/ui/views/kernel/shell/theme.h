@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_KERNEL_SHELL_THEME_H_
 #define UI_VIEWS_KERNEL_SHELL_THEME_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <string>
 
 #include "ui/gfx/color/color.h"
@@ -13,7 +13,7 @@
 namespace ui {
 namespace views {
 
-// Dark shell colors matching the Views catalog blues/grays.
+// Shell color snapshot for the active ThemeService pack.
 struct Theme {
   ui::gfx::Color shell_bg = ui::gfx::color_rgb(30, 30, 30);
   ui::gfx::Color panel_bg = ui::gfx::color_rgb(37, 37, 38);
@@ -29,19 +29,22 @@ struct Theme {
   ui::gfx::Color control_disabled = ui::gfx::color_rgb(45, 45, 45);
   ui::gfx::Color control_unchecked = ui::gfx::color_rgb(50, 50, 50);
   ui::gfx::Color map_placeholder = ui::gfx::color_rgb(27, 58, 75);
+  ui::gfx::Color caption_bg = ui::gfx::color_rgb(37, 37, 38);
+  ui::gfx::Color caption_button_hover = ui::gfx::color_rgb(60, 60, 60);
+  ui::gfx::Color caption_close_hover = ui::gfx::color_rgb(196, 43, 28);
 
-  static UI_VIEWS_EXPORT const Theme& current();
+  static UI_EXPORT const Theme& current();
 };
 
-UI_VIEWS_EXPORT std::wstring utf8_to_wide(const std::string& u8);
-UI_VIEWS_EXPORT std::string wide_to_utf8(const wchar_t* w);
+UI_EXPORT std::wstring utf8_to_wide(const std::string& u8);
+UI_EXPORT std::string wide_to_utf8(const wchar_t* w);
 
 // Ink size at |device_scale| (1 = 96 DPI). The returned pixels are already
 // device pixels for a 12 DIP Segoe UI face — do not multiply by scale again.
-UI_VIEWS_EXPORT Size measure_text_utf8(const std::string& text);
-UI_VIEWS_EXPORT Size measure_text_utf8(const std::string& text, float device_scale);
+UI_EXPORT Size measure_text_utf8(const std::string& text);
+UI_EXPORT Size measure_text_utf8(const std::string& text, float device_scale);
 
-UI_VIEWS_EXPORT void draw_focus_ring(ui::gfx::Canvas* canvas, const Rect& bounds);
+UI_EXPORT void draw_focus_ring(ui::gfx::Canvas* canvas, const Rect& bounds);
 
 }  // namespace views
 }  // namespace ui

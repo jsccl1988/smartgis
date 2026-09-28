@@ -3,7 +3,7 @@
 
 #include "gpu/display/display.h"
 
-#include "gpu/compositor/frame_composer.h"
+#include "gpu/compositor/composer/composer.h"
 #include "gpu/device/gpu_device_hub.h"
 #include "gpu/raster/direct/direct.h"
 #include "gpu/raster/tile/tile_quads.h"

@@ -9,7 +9,7 @@ import("//build/smartgis.gni")
 
 smt_shared_library("legacy_tool") {
   dll_stem = "legacy_tool"
-  defines = [ "TOOL_EXPORTS" ]
+  defines = [ "LEGACY_TOOL_EXPORTS" ]
   deps = [ "//src/legacy/tool/iatool:tool_sources" ]
   # tool_group_sources compile into //src/legacy/ui:ui_legacy when smt_build_app
   # (GUI dialogs ↔ tools would otherwise form a DLL link cycle).

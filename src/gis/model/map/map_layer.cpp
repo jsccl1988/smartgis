@@ -126,11 +126,11 @@ void MapLayer::set_style_document(std::shared_ptr<style::StyleDocument> doc) {
   style_document_ = std::move(doc);
 }
 
-void MapLayer::get_envelope(base::Envelope* out) const {
+void MapLayer::get_envelope(gis::Envelope* out) const {
   if (!out) {
     return;
   }
-  *out = base::Envelope();
+  *out = gis::Envelope();
   if (leftover_) {
     leftover_->get_envelope(*out);
     return;

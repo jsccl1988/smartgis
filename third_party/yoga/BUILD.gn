@@ -1,0 +1,43 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# facebook/yoga v3 (MIT). Sources in third_party/.src/yoga.
+# Public include: #include <yoga/Yoga.h> (root = .src/yoga).
+
+_yoga_root = "//third_party/.src/yoga"
+_yoga_src = "$_yoga_root/yoga"
+
+config("yoga_headers") {
+  include_dirs += [ _yoga_root ]
+}
+
+config("yoga_flags") {
+  # Match Yoga CMake defaults; keep RTTI on for product C++ consumers.
+  cflags_cc = [ "/EHsc" ]
+}
+
+source_set("yoga") {
+  sources = [
+    "$_yoga_src/YGConfig.cpp",
+    "$_yoga_src/YGEnums.cpp",
+    "$_yoga_src/YGNode.cpp",
+    "$_yoga_src/YGNodeLayout.cpp",
+    "$_yoga_src/YGNodeStyle.cpp",
+    "$_yoga_src/YGPixelGrid.cpp",
+    "$_yoga_src/YGValue.cpp",
+    "$_yoga_src/algorithm/AbsoluteLayout.cpp",
+    "$_yoga_src/algorithm/Baseline.cpp",
+    "$_yoga_src/algorithm/Cache.cpp",
+    "$_yoga_src/algorithm/CalculateLayout.cpp",
+    "$_yoga_src/algorithm/FlexLine.cpp",
+    "$_yoga_src/algorithm/PixelGrid.cpp",
+    "$_yoga_src/config/Config.cpp",
+    "$_yoga_src/debug/AssertFatal.cpp",
+    "$_yoga_src/debug/Log.cpp",
+    "$_yoga_src/event/event.cpp",
+    "$_yoga_src/node/LayoutResults.cpp",
+    "$_yoga_src/node/Node.cpp",
+  ]
+  public_configs = [ ":yoga_headers" ]
+  configs += [ ":yoga_flags" ]
+}

@@ -4,8 +4,9 @@
 #ifndef UI_VIEWS_PRIMITIVES_TEXT_LABEL_H_
 #define UI_VIEWS_PRIMITIVES_TEXT_LABEL_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <string>
+#include <string_view>
 
 #include "ui/gfx/color/color.h"
 #include "ui/views/kernel/view/view.h"
@@ -14,7 +15,7 @@ namespace ui {
 namespace views {
 
 // Static text node. Color defaults to the current Theme text.
-class UI_VIEWS_EXPORT Label : public View {
+class UI_EXPORT Label : public View {
  public:
   explicit Label(std::string text);
   void set_text(std::string text);
@@ -23,6 +24,7 @@ class UI_VIEWS_EXPORT Label : public View {
   void clear_color();
   void on_device_scale_factor_changed(float old_scale,
                                      float new_scale) override;
+  std::string_view paint_role() const override;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;

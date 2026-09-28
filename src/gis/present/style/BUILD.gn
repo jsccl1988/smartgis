@@ -10,8 +10,6 @@ source_set("style_sources") {
   sources = [
     "expression.cc",
     "expression.h",
-    "detail/json_mini.cc",
-    "detail/json_mini.h",
     "paint_resolve.cc",
     "paint_resolve.h",
     "style_document.cc",
@@ -31,7 +29,10 @@ source_set("style_sources") {
     "GIS_EXPORTS",
     "SDB_EXPORTS",
   ]
-  public_deps = [ "//src/base:base" ]
+  public_deps = [
+    "//src/base:base",
+    "//third_party:rapidjson",
+  ]
   deps = [ "//src/base:core" ]
 }
 

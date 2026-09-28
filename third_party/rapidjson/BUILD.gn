@@ -1,0 +1,15 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Header-only RapidJSON. Sources in third_party/.src/rapidjson.
+
+config("rapidjson_headers") {
+  include_dirs += [ "//third_party/.src/rapidjson/include" ]
+  # Do not set NOMINMAX here — it is public and breaks legacy MFC that relies
+  # on windows.h min/max. Call sites that include RapidJSON after Win32 must
+  # #undef min/max locally (see sdbd_json.h / paint_resolve.cc).
+}
+
+group("rapidjson") {
+  public_configs = [ ":rapidjson_headers" ]
+}

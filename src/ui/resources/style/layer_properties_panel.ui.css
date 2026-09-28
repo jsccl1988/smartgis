@@ -1,0 +1,18 @@
+/* LayerPropertiesPanel — TabStrip filled in C++ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  width: 300px;
+  height: 260px;
+}
+
+#title { width: 220px; height: 20px; }
+
+.tabs_host {
+  width: 280px;
+  height: 220px;
+  flex-grow: 1;
+}

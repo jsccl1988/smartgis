@@ -31,7 +31,7 @@ source_set("stat_chart_sources") {
     "//src/base:base",
     "//src/base:core",
     "//src/gis/kernel/stat:stat",
-    "//src/gis/datasource/mgr:sde_mgr",
+    "//src/legacy/datasource/mgr:sde_mgr",
     "//src/gis/model/map:gis",
     "//src/legacy/sys:sys",
     "//third_party:CxImage",

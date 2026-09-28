@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="layer_properties_panel">
+  <style src="layer_properties_panel.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title" text="Layer Properties"/>
+    <panel id="tabs_host" class="tabs_host"/>
+  </vbox>
+</ui>

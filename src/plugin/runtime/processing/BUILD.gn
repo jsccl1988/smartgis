@@ -4,17 +4,14 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-# GeoJSON operator runners (no PluginHost / content / gis).
+# Thin plugin:: forwarders to gis::detail (implementation in gis.dll).
 source_set("processing_ops") {
   sources = [
     "ops_runner.cc",
     "ops_runner.h",
   ]
   include_dirs += [ "//src" ]
-  deps = [
-    "//src/gis/kernel/geo:geo",
-    "//third_party:gdal",
-  ]
+  public_deps = [ "//src/gis:gis" ]
 }
 
 source_set("processing_views") {

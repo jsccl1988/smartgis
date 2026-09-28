@@ -40,9 +40,8 @@ struct SkyDrawParams {
   float sun_glow_strength = 0.55f;
 };
 
-// Far-sky / horizon tint driven by sun direction. Records a dome with the
-// shared solid graphics program. Analytical tint is a float4 on constant
-// slot 1. Full sky HLSL is deferred.
+// Far-sky / horizon tint driven by sun direction. Records a dome with a
+// dedicated sky HLSL pipeline (CameraCB + SkyCB), not a solid average color.
 class SkyPass {
  public:
   SkyPass();
@@ -62,7 +61,8 @@ class SkyPass {
                              float dir_z, float* out_r, float* out_g,
                              float* out_b);
 
-  // Average tint used for the solid dome draw (zenith vs horizon vs sun).
+  // Average tint for tests and AtmosphereFrame clear color (zenith / horizon /
+  // sun samples). Not used for the GPU dome draw.
   static void average_sky_rgb(const SkyDrawParams& p, float* out_r,
                               float* out_g, float* out_b);
 
@@ -70,7 +70,7 @@ class SkyPass {
   bool record(render::rhi::Device* device, render::rhi::CommandList* list, uint32_t width,
               uint32_t height, const render::rhi::CameraMatrices* camera);
 
-  // Solid program created for the device passed to record. Null before that.
+  // Sky program created for the device passed to record. Null before that.
   render::rhi::Pipeline* pipeline() const { return pipeline_; }
 
   void release();

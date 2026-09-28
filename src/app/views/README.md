@@ -14,7 +14,8 @@ layout + 公开 `ui::views` 控件 + 命令接线。不手绘 catalog / feature 
 ui::views::Widget
   RootView  BoxLayout vertical
     MenuBar          File / Edit / View / Layer（下拉，无平铺按钮）
-                     View 与地图右键共用导航表；其后分隔线 + Refresh / RHI / MapLibre
+                     View 与地图右键共用导航表；其后分隔线 + Refresh /
+                     Toggle Diagnostic Tools / RHI / MapLibre
                      Layer：创建、底图、移除、缩放到图层
     Splitter vertical (flex)
       Splitter horizontal
@@ -23,26 +24,29 @@ ui::views::Widget
           TabStrip (flex): Map | Data | 3D
             各页 MapViewport（非活动 HWND 隐藏）
         AmboxView (~200)
-      TabStrip inspector: FeatureInfo | AttributeTable
+      TabStrip inspector: FeatureInfo | AttributeTable | …
+      DebugConsolePanel（底栏 Diagnostic Tools，默认折叠；View → Toggle Diagnostic Tools）
+        tabs: Output | Console | CPU | Memory
     StatusBar
 ```
 
+Debug Console / LogSink / Agent / Python worker：见
+[`docs/superpowers/specs/2026-09-28-debug-console-design.md`](../../docs/superpowers/specs/2026-09-28-debug-console-design.md)。
+启用：`--debug-console` / `SG_DEBUG=1` / 菜单 Toggle。
 三个地图页各自一个 `MapViewport` + `content::ViewHost`（2D 编辑 / 2D 浏览 /
 3D）。`MapContents` 会话共享；`OpenView` 分别为 `kMapEdit` / `kMapData` /
 `kScene3d`。3D 若无法挂接则保持 native 占位，鼠标不崩。
 
-源码按职责分目录（无根目录转发头）。Chromium 分层契约见 living shell spec
-**§Chromium-style app/views layering**：`shell/ui` → `shell/browser` →
-`{document,camera,present,input}`；**禁止** `present` → `shell`；**`camera/`
-是 shell 的兄弟目录**（不进 shell）。`shell/` 布局：`shell/app/`（`browser_main`、
-`ViewsContentHost`、`cmdline/`）、`shell/browser/`（`Browser` 会话控制器 +
-`commands/` / `nav/` / `plugin/`）、`shell/ui/`（`BrowserView` Widget 树 + `BrowserUiDelegate` 实现 +
-`pages/` / `panels/`；GN `:shell_ui` → `:shell_browser`）、`shell/showcase/`、
-`shell/self_test/`。能力目录：
-`document/`（`MapScene`）、`camera/`（`ViewFrame`、`OrbitFrame`、
-`ViewNavigation`）、`present/`（facade + `frame`/`paint`/`session`/`host`，见
-[`present/README.md`](present/README.md)）、`input/`（`MapHwndGestures`）。
-`main.cc` 仅 `wWinMain` 胶水。
+源码按职责分目录（无根目录转发头）。Chromium 分层见 living shell spec
+**§Content sink**：`app/views` 只留 `shell/`（≈ chrome）。`Browser` 持有
+`content::MapSession`（≈ WebContents：拥有 `MapScene` / camera / present /
+gestures / ViewHosts / `MapContents*`）；能力实现在
+`src/content/browser/{document,camera,present,input}`；GDI paint 在
+`content/browser/present/*/paint/`。`shell/ui` → `shell/browser` →
+`//src/content:map_session`；**禁止** `present` → `shell`。`shell/`：`app/`、
+`browser/`、`ui/`、`showcase/`、`self_test/`。`main.cc` 仅 `wWinMain` 胶水。
+Present README：
+[`../../content/browser/present/README.md`](../../content/browser/present/README.md)。
 
 `wWinMain` → CLI11 解析 → `content::content_main`（`process_type_set`），
 再进 `browser_main` / `gpu_main` / `renderer_main`。同一 PE 以 `--type=gpu`
@@ -64,11 +68,11 @@ Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把�
 `seed_default` / 自测优先加载 **`china_city.gpkg`**（地级四层：`area` /
 `line` / `point` / `text`）；缺失时回退 `china_plp.geojson`。样例数据：
 
-- 仓库：`testing/data/china_city.gpkg`（约 3.4MB；构建复制到 `out/`；同目录有匹配的 `china_city.geojson`）
+- 仓库：`testing/data/china_city.gpkg`（约 3.4MB；构建复制到共享 `out/data/`；同目录有匹配的 `china_city.geojson`）
 - 生成：`py -3 testing/data/build_china_city.py`（DataV 地级界 + Natural Earth 河流）
 - 许可 / PIN：`testing/data/china_city.LICENSE.txt`、`china_city.PIN.txt`
 - 兜底：`testing/data/china_plp.geojson`
-- 自测：优先 `out/china_city.gpkg` / `.geojson`（≥4 层或 kind 四分、要素量级远高于示意 PLP）
+- 自测：优先 `out/data/china_city.gpkg` / `.geojson`（≥4 层或 kind 四分、要素量级远高于示意 PLP）
 
 菜单 **Open** 或 Catalog「加载 shp」选上述文件即可；状态栏显示 `Opened (OGR): …`。
 图层右键 **View** 缩放到全图。菜单 **DrawLine** = `edit.append.linestring`；
@@ -90,18 +94,15 @@ out\SmartGisViews.exe
 ```
 
 3D 页：`view3d.trackball` 更新 `OrbitFrame` / `Scene3dPresenter`。默认
-**FlyCube RHI**（`present_gpu`；成功时 shell 只叠 `paint_hud`）。挂接或
-present 失败时回退 leftover OpenGL stereo 再回退 GDI
-`Scene3dPresenter::paint()`。
+**FlyCube RHI**（`present_gpu`；成功时 shell 只叠 `paint_hud`）。挂接失败时
+回退 ContentMapView / GDI `Scene3dPresenter::paint()`。**不会**在 FlyCube
+SoT 下再挂 leftover OpenGL（同 HWND 抢 swapchain 会把徽章永久钉成
+`Stereo/GL`）。
 
-强制关闭 3D FlyCube / 走 ContentMapView + stereo/GDI：
-
-```bat
-set SMT_FORCE_CONTENT_MAPVIEW_3D=1
-out\SmartGisViews.exe
-```
-
-（`SMT_PREFER_FLYCUBE_3D=0` 效果相同。）
+**手动切换 3D 引擎**（不经环境变量）：菜单 **View → Engine: FlyCube/DX12 /
+Stereo/GL / GDI**，或 `content::set_scene3d_engine(...)`。命令 id：
+`view.engine.flycube` / `view.engine.stereo_gl` / `view.engine.gdi`。切换时
+会 detach/reattach Scene3d `MapViewport`，并按选择挂放 stereo。
 
 3D HUD 显示引擎名；画面**右下角**有引擎 Logo 徽章（与真实后端一致：
 `FlyCube/DX12` / `Stereo/GL` / `GDI` / `ContentMapView` / `Null`）。DEM 默认
@@ -113,7 +114,7 @@ set SMT_SCENE3D_WIREFRAME=1
 out\SmartGisViews.exe
 ```
 
-`--self-test` 会强制 ContentMapView（挂起规避），并断言 OGR 进层与相机矩阵；若挂上
+`--self-test` 会 `set_scene3d_engine(kGdi)`（挂起规避），并断言 OGR 进层与相机矩阵；若挂上
 FlyCube 会写 `flycube-camera-ok`，并在 present 前开 `enable_atmosphere_demo()`。
 
 大气 3D 端到端 showcase。默认 **Null RHI**（可重复退出 0）；
@@ -138,7 +139,7 @@ out\SmartGisViews.exe --atmosphere-showcase=full
 `out\atmosphere-showcase-<mode>.bmp`（GPU 要求 BMP 有可见像素信号）。
 失败码：50 HWND、51 非 FlyCube、52 present、53 开关/场状态不符、54 BMP 全黑/无信号。
 
-说明：showcase 启动前会自动设 `SMT_FORCE_CONTENT_MAPVIEW_3D=1`，避免
+说明：showcase 启动前会 `set_scene3d_engine(kGdi)`，避免
 `BrowserView::init` 多视口 FlyCube 挂起；GPU 绘制走独立 640×480 present HWND。
 GPU BMP 需至少 2 种可见色（拒绝纯 clear）。根因修复：透视投影改为 RH，与 look_at（看向 -Z）一致。
 
@@ -157,6 +158,8 @@ out\SmartGisViews.exe --self-test
 
 ---
 
+菜单 **Engine: FlyCube/DX12 / Stereo/GL / GDI** 发 `view.engine.*`，经
+`content::set_scene3d_engine` 切换 3D 呈现后端并 reattach Scene3d 视口。
 菜单 **RHI** / **MapLibre** 发 `view.backend.rhi` / `view.backend.maplibre`，经
 `MapContents::SetRenderBackend` 通知 `--type=gpu` 切换 direct / tile
 （`maplibre` 为 tile 的历史别名，非 MapLibre Native；热切换，不重启 GPU

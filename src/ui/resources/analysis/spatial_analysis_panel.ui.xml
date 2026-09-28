@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="spatial_analysis_panel">
+  <style src="spatial_analysis_panel.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title" text="Spatial Analysis"/>
+    <table id="ops" columns="Category,Id,Title"/>
+    <table id="params" columns="Name,Value"/>
+    <textfield id="param_edit"/>
+    <label id="progress" text="Progress: idle"/>
+    <hbox id="commands" class="commands">
+      <button id="run" text="Run"/>
+      <button id="cancel" text="Cancel"/>
+    </hbox>
+    <panel id="history_host" class="history_host"/>
+  </vbox>
+</ui>

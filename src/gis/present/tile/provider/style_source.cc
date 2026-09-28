@@ -5,15 +5,28 @@
 
 #include <memory>
 
-#include "gis/present/style/detail/json_mini.h"
+// Windows.h may already have defined min/max; RapidJSON needs the names free.
+#ifdef max
+#undef max
+#endif
+#ifdef min
+#undef min
+#endif
+#include <rapidjson/document.h>
+
 #include "gis/present/tile/provider/tile_map_layer.h"
 
 namespace gis {
 namespace tile {
 namespace {
 
-using style::detail::JsonKind;
-using style::detail::JsonValue;
+const rapidjson::Value* member(const rapidjson::Value& obj, const char* key) {
+  if (!obj.IsObject()) {
+    return nullptr;
+  }
+  auto it = obj.FindMember(key);
+  return it == obj.MemberEnd() ? nullptr : &it->value;
+}
 
 StyleSourceType type_from_string(const std::string& s) {
   if (s == "raster") {
@@ -34,7 +47,8 @@ bool has_xyz_placeholders(const std::string& tmpl) {
          tmpl.find("{y}") != std::string::npos;
 }
 
-StyleSourceStatus fill_from_object(const std::string& id, const JsonValue& obj,
+StyleSourceStatus fill_from_object(const std::string& id,
+                                   const rapidjson::Value& obj,
                                    StyleSourceDesc* out) {
   if (!out) {
     return StyleSourceStatus::kNotObject;
@@ -44,39 +58,40 @@ StyleSourceStatus fill_from_object(const std::string& id, const JsonValue& obj,
   if (id.empty()) {
     return StyleSourceStatus::kMissingId;
   }
-  if (!obj.is_object()) {
+  if (!obj.IsObject()) {
     return StyleSourceStatus::kNotObject;
   }
 
-  const JsonValue* type_v = obj.get("type");
-  if (!type_v || !type_v->is_string()) {
+  const rapidjson::Value* type_v = member(obj, "type");
+  if (!type_v || !type_v->IsString()) {
     return StyleSourceStatus::kMissingType;
   }
-  out->type = type_from_string(type_v->s);
+  out->type = type_from_string(
+      std::string(type_v->GetString(), type_v->GetStringLength()));
 
-  if (const JsonValue* ts = obj.get("tileSize")) {
-    if (ts->is_number()) {
-      out->tile_size = static_cast<int>(ts->n);
+  if (const rapidjson::Value* ts = member(obj, "tileSize")) {
+    if (ts->IsNumber()) {
+      out->tile_size = static_cast<int>(ts->GetDouble());
     }
   }
-  if (const JsonValue* mz = obj.get("minzoom")) {
-    if (mz->is_number()) {
-      out->minzoom = static_cast<int>(mz->n);
+  if (const rapidjson::Value* mz = member(obj, "minzoom")) {
+    if (mz->IsNumber()) {
+      out->minzoom = static_cast<int>(mz->GetDouble());
       out->has_minzoom = true;
     }
   }
-  if (const JsonValue* mz = obj.get("maxzoom")) {
-    if (mz->is_number()) {
-      out->maxzoom = static_cast<int>(mz->n);
+  if (const rapidjson::Value* mz = member(obj, "maxzoom")) {
+    if (mz->IsNumber()) {
+      out->maxzoom = static_cast<int>(mz->GetDouble());
       out->has_maxzoom = true;
     }
   }
 
-  if (const JsonValue* tiles = obj.get("tiles")) {
-    if (tiles->is_array()) {
-      for (const JsonValue& t : tiles->a) {
-        if (t.is_string() && !t.s.empty()) {
-          out->tiles.push_back(t.s);
+  if (const rapidjson::Value* tiles = member(obj, "tiles")) {
+    if (tiles->IsArray()) {
+      for (const auto& t : tiles->GetArray()) {
+        if (t.IsString() && t.GetStringLength() > 0) {
+          out->tiles.emplace_back(t.GetString(), t.GetStringLength());
         }
       }
     }
@@ -105,20 +120,20 @@ StyleSourceStatus fill_from_object(const std::string& id, const JsonValue& obj,
   return StyleSourceStatus::kOk;
 }
 
-const JsonValue* find_sources_object(const JsonValue& root) {
-  if (!root.is_object()) {
+const rapidjson::Value* find_sources_object(const rapidjson::Value& root) {
+  if (!root.IsObject()) {
     return nullptr;
   }
-  if (const JsonValue* sources = root.get("sources")) {
-    if (sources->is_object()) {
+  if (const rapidjson::Value* sources = member(root, "sources")) {
+    if (sources->IsObject()) {
       return sources;
     }
     return nullptr;
   }
   // Bare sources map: every value is an object with a "type" field.
-  bool looks_like_sources = !root.o.empty();
-  for (const auto& kv : root.o) {
-    if (!kv.second.is_object() || !kv.second.get("type")) {
+  bool looks_like_sources = root.MemberCount() > 0;
+  for (auto it = root.MemberBegin(); it != root.MemberEnd(); ++it) {
+    if (!it->value.IsObject() || !member(it->value, "type")) {
       looks_like_sources = false;
       break;
     }
@@ -171,11 +186,12 @@ const char* style_source_status_name(StyleSourceStatus s) {
 
 StyleSourceStatus parse_style_source(const std::string& id, const char* json,
                                      size_t len, StyleSourceDesc* out) {
-  if (!json || !out) {
+  if (!json || !out || len == 0) {
     return StyleSourceStatus::kInvalidJson;
   }
-  JsonValue root;
-  if (!style::detail::parse_json(json, len, &root)) {
+  rapidjson::Document root;
+  root.Parse(json, static_cast<rapidjson::SizeType>(len));
+  if (root.HasParseError()) {
     return StyleSourceStatus::kInvalidJson;
   }
   return fill_from_object(id, root, out);
@@ -189,23 +205,25 @@ StyleSourceStatus parse_style_source(const std::string& id,
 
 StyleSourceStatus parse_style_sources(const char* json, size_t len,
                                       std::vector<StyleSourceDesc>* out) {
-  if (!json || !out) {
+  if (!json || !out || len == 0) {
     return StyleSourceStatus::kInvalidJson;
   }
   out->clear();
-  JsonValue root;
-  if (!style::detail::parse_json(json, len, &root)) {
+  rapidjson::Document root;
+  root.Parse(json, static_cast<rapidjson::SizeType>(len));
+  if (root.HasParseError()) {
     return StyleSourceStatus::kInvalidJson;
   }
-  const JsonValue* sources = find_sources_object(root);
+  const rapidjson::Value* sources = find_sources_object(root);
   if (!sources) {
     return StyleSourceStatus::kNotObject;
   }
 
   StyleSourceStatus aggregate = StyleSourceStatus::kOk;
-  for (const auto& kv : sources->o) {
+  for (auto it = sources->MemberBegin(); it != sources->MemberEnd(); ++it) {
     StyleSourceDesc desc;
-    const StyleSourceStatus st = fill_from_object(kv.first, kv.second, &desc);
+    const std::string sid(it->name.GetString(), it->name.GetStringLength());
+    const StyleSourceStatus st = fill_from_object(sid, it->value, &desc);
     if (st == StyleSourceStatus::kOk) {
       out->push_back(std::move(desc));
       continue;

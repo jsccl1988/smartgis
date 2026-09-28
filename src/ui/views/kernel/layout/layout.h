@@ -4,7 +4,7 @@
 #ifndef UI_VIEWS_KERNEL_LAYOUT_LAYOUT_H_
 #define UI_VIEWS_KERNEL_LAYOUT_LAYOUT_H_
 
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <utility>
 #include <vector>
 
@@ -14,7 +14,7 @@ namespace ui {
 namespace views {
 
 // Positions children of a host View and reports preferred host size.
-class UI_VIEWS_EXPORT LayoutManager {
+class UI_EXPORT LayoutManager {
  public:
   virtual ~LayoutManager() = default;
   virtual void layout(View* host) = 0;
@@ -40,7 +40,7 @@ class LayoutCrtp : public LayoutManager {
 
 // Single visible child fills the host. Extra visible children share the same
 // rect (overlay); prefer one child for shell panels.
-class UI_VIEWS_EXPORT FillLayout : public LayoutCrtp<FillLayout> {
+class UI_EXPORT FillLayout : public LayoutCrtp<FillLayout> {
  public:
   void layout(View* host) final;
   Size get_preferred_size(const View* host) const final;
@@ -62,7 +62,7 @@ class UI_VIEWS_EXPORT FillLayout : public LayoutCrtp<FillLayout> {
 // Cross axis: stretch to the host's inner cross size.
 // The per-child loop is a template on Axis (see layout.cc): one preferred-size
 // query, no orientation branch, flex in a flat table.
-class UI_VIEWS_EXPORT BoxLayout : public LayoutCrtp<BoxLayout> {
+class UI_EXPORT BoxLayout : public LayoutCrtp<BoxLayout> {
  public:
   enum class Orientation {
     kHorizontal,

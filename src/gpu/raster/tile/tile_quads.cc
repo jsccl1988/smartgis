@@ -3,7 +3,7 @@
 
 #include "gpu/raster/tile/tile_quads.h"
 
-#include "gpu/compositor/software_renderer.h"
+#include "gpu/compositor/composer/software_composer.h"
 #include "gpu/raster/tile/mosaic.h"
 #include "gis/present/style/paint_resolve.h"
 #include "gis/present/style/style_document.h"

@@ -6,9 +6,10 @@
 # smt_has_skia plus a local pin (runtime --shell-canvas / SMT_SHELL_CANVAS).
 # Final frame compose stays in //src/gpu.
 #
-# Public responsibility dirs: geometry/ color/ canvas/ display_list/ raster/
-# image/ font/ animation/. Includes: "ui/gfx/<area>/....". No root shims.
+# Public responsibility dirs: geometry/ color/ canvas/ display/ display_list/
+# raster/ image/ font/ animation/. Includes: "ui/gfx/<area>/....". No root shims.
 # Stable label :gfx forwards to the ui_views DLL; :gfx_headers is include-only.
+# :vblank_wait is a tiny DXGI source_set shared with //src/gpu (no ui_views.dll).
 
 import("//build/smartgis.gni")
 import("skia.gni")
@@ -55,6 +56,20 @@ config("skia_real_libs") {
   ]
 }
 
+# DXGI WaitForVBlank helper. Linked into ui_views (via gfx_sources) and
+# gpu_backend — keep free of UI_EXPORTS / Views types.
+source_set("vblank_wait") {
+  sources = [
+    "display/vblank_wait.cc",
+    "display/vblank_wait.h",
+  ]
+  public_configs = [ ":skia_config" ]
+  libs = [
+    "dxgi.lib",
+    "user32.lib",
+  ]
+}
+
 source_set("gfx_sources") {
   sources = [
     "animation/animation.cc",
@@ -82,8 +97,9 @@ source_set("gfx_sources") {
     "skia.cc",
     "skia.h",
   ]
-  defines = [ "UI_VIEWS_EXPORTS" ]
+  defines = [ "UI_EXPORTS" ]
   public_configs = [ ":skia_config" ]
+  public_deps = [ ":vblank_wait" ]
   # GDI path always links gdi32; real Skia also BitBlts via gdi32.
   # font.cc uses CreateFontW / GetTextExtentPoint32W.
   libs = [

@@ -7,7 +7,7 @@
 
 #include "base/core/log.h"
 #include "ogrsf_frmts.h"
-#include "base/carto/envelope.h"
+#include "gis/model/envelope.h"
 
 using namespace gis;
 

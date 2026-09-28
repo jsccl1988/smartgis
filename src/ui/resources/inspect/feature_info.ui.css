@@ -1,0 +1,13 @@
+/* FeatureInfo */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  width: 280px;
+  height: 180px;
+}
+
+#id { width: 240px; height: 24px; }
+#table { width: 260px; height: 140px; flex-grow: 1; }

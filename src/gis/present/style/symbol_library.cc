@@ -3,7 +3,7 @@
 
 #include "gis/present/style/symbol_library.h"
 
-#include "gis/present/style/detail/json_mini.h"
+#include <rapidjson/document.h>
 
 namespace gis {
 namespace style {
@@ -29,6 +29,14 @@ std::string join_path(const std::string& root, const std::string& rel) {
   return root + sep + rel;
 }
 
+const rapidjson::Value* member(const rapidjson::Value& obj, const char* key) {
+  if (!obj.IsObject()) {
+    return nullptr;
+  }
+  auto it = obj.FindMember(key);
+  return it == obj.MemberEnd() ? nullptr : &it->value;
+}
+
 }  // namespace
 
 void SymbolLibrary::clear() { entries_.clear(); }
@@ -36,26 +44,31 @@ void SymbolLibrary::clear() { entries_.clear(); }
 void SymbolLibrary::set_root(const std::string& root_dir) { root_ = root_dir; }
 
 bool SymbolLibrary::load_manifest(const char* json, size_t len) {
-  detail::JsonValue root;
-  if (!detail::parse_json(json, len, &root) || !root.is_object()) {
+  if (!json || len == 0) {
     return false;
   }
-  const detail::JsonValue* symbols = root.get("symbols");
-  if (!symbols || !symbols->is_array()) {
+  rapidjson::Document root;
+  root.Parse(json, static_cast<rapidjson::SizeType>(len));
+  if (root.HasParseError() || !root.IsObject()) {
     return false;
   }
-  for (const auto& item : symbols->a) {
-    if (!item.is_object()) {
+  const rapidjson::Value* symbols = member(root, "symbols");
+  if (!symbols || !symbols->IsArray()) {
+    return false;
+  }
+  for (const auto& item : symbols->GetArray()) {
+    if (!item.IsObject()) {
       return false;
     }
-    const detail::JsonValue* id = item.get("id");
-    const detail::JsonValue* path = item.get("path");
-    if (!id || !id->is_string() || !path || !path->is_string()) {
+    const rapidjson::Value* id = member(item, "id");
+    const rapidjson::Value* path = member(item, "path");
+    if (!id || !id->IsString() || !path || !path->IsString()) {
       return false;
     }
     SymbolEntry entry;
-    entry.id = id->s;
-    entry.path = join_path(root_, path->s);
+    entry.id = std::string(id->GetString(), id->GetStringLength());
+    entry.path = join_path(
+        root_, std::string(path->GetString(), path->GetStringLength()));
     upsert(std::move(entry));
   }
   return true;

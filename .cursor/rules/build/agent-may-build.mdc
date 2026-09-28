@@ -18,23 +18,24 @@ From the **smartgis** repo root:
 
 ```bat
 .\build.bat
-.\build.bat te
+.\build.bat debug
+.\build.bat debug te
 .\build.bat e2e
 .\build.bat <single_target>
 ```
 
-Prefer `build.bat` over bare `gn` / `ninja` unless fixing the entry itself. Output root stays **`out/`** only (see `.cursor/rules/build/build-output.mdc`).
+Prefer `build.bat` over bare `gn` / `ninja` unless fixing the entry itself. Gen roots are **`out/Debug`** and **`out/Release`** (see `.cursor/rules/build/build-output.mdc`). For a faster agent loop, prefer **`build.bat debug …`**.
 
 ## Allowed
 
-- `build.bat` (any argument, including `te`, `e2e`, `m`, `a`, `b`, or a single target)
+- `build.bat` (any argument, including `debug` / `release`, `te`, `e2e`, `m`, `a`, `b`, or a single target)
 - `gn`, `ninja` when needed to diagnose or recover the GN loop
-- Product / test binaries under `out\` (e.g. `*_test.exe`, `exe_smoke.exe`, `SmartGisViews.exe --self-test`)
+- Product / test binaries under `out\Debug\` or `out\Release\` (e.g. `*_test.exe`, `exe_smoke.exe`, `SmartGisViews.exe --self-test`)
 
 ## Still forbidden
 
 - `SmartGIS.sln` / MSBuild / `build.bat sln` as the fix loop (`vs2008/` is leftover only)
-- `out/Default` or inventing a second install root
+- Bare `out/` or `out/Default` as a gen root; inventing a second install root
 
 ## Skills
 

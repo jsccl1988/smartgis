@@ -12,7 +12,7 @@ using namespace base;
 namespace tool {
 typedef int (*pfnToolCallBack)(long nMsg, SmtListenerMsg &param);
 
-class TOOL_EXPORT SmtIATool : public SmtListener {
+class LEGACY_TOOL_EXPORT SmtIATool : public SmtListener {
  public:
   SmtIATool();
   virtual ~SmtIATool(void);

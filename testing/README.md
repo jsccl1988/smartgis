@@ -5,12 +5,31 @@ All rights reserved.
 
 # testing
 
-GN helpers for unit tests and (optional) benchmarks.
+GN helpers for unit tests and google/benchmark targets.
 
 | File | Role |
 | --- | --- |
 | `test.gni` | `test("name")` → executable（gtest 尚未接入） |
-| `benchmark.gni` | `benchmark("name")` → executable |
+| `benchmark.gni` | `benchmark("name")` → executable + `//third_party:gbenchmark` (+ `gbenchmark_main` by default) |
+
+## Register a benchmark
+
+```gn
+import("//testing/benchmark.gni")
+
+benchmark("geo_benchmark") {
+  sources = [ "ops/geo_benchmark.cc" ]
+  deps = [ ":geo" ]
+}
+```
+
+Custom `main` (bootstrap / env skip): set `use_benchmark_main = false` and call
+`benchmark::Initialize` / `RunSpecifiedBenchmarks` yourself.
+
+JSON / console reporters: pass `--benchmark_format=json --benchmark_out=path`
+(or `SG_CONSOLE_BENCH_JSON` for `content_console_bench`).
+
+Then add `"//<module>:<name>"` to root `//:benchmark_all` (`BUILD.gn`).
 
 ## Register a test
 
@@ -55,10 +74,11 @@ build.bat te
 
 ```bat
 build.bat te
+build.bat b
 ```
 
 Aliases match mogu: `te` = `//:test_all`, `a` = `//:all_with_tests`, `b` = `//:benchmark_all`. Extra: `e2e` = `//:e2e`.
 
 ---
 
-**最后更新：** 2026-09-14
+**最后更新：** 2026-09-28

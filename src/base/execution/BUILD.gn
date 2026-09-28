@@ -1,0 +1,66 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//testing/test.gni")
+
+config("execution_config") {
+  include_dirs += [ "//src" ]
+}
+
+# Header-mostly mogu-aligned execution stack (L1–L5 + parallel/pipeline/mr).
+source_set("execution") {
+  sources = [
+    "execution.h",
+    "execution_adapters.h",
+    "execution_executor.h",
+    "async/sender_receiver.h",
+    "executor/executor.h",
+    "executor/contexts/context.h",
+    "executor/contexts/nthread.h",
+    "executor/contexts/bthread.h",
+    "executor/pool/thread_pool_executor.h",
+    "executor/pool/nthread_executor.h",
+    "executor/pool/bthread_executor.h",
+    "executor/pool/inline_executor.h",
+    "executor/pool/new_thread_executor.h",
+    "executor/pool/global_executor.h",
+    "executor/pool/numa_executor.h",
+    "executor/pool/simd_executor.h",
+    "executor/io/io_executor.h",
+    "executor/io/io_uring_executor.h",
+    "executor/io/io_lane.h",
+    "executor/device/gpu_executor.h",
+    "executor/policies/batch_executor.h",
+    "executor/policies/lazy_executor.h",
+    "futures/combinators/continuation.h",
+    "futures/combinators/async.h",
+    "futures/combinators/then.h",
+    "futures/combinators/when_all.h",
+    "futures/combinators/when_any.h",
+    "parallel/for.h",
+    "parallel/detail/completion_latch.h",
+    "parallel/detail/grain.h",
+    "pipeline/pipeline.h",
+    "map_reduce/map_reduce.h",
+    "map_reduce/channel.h",
+    "map_reduce/io.h",
+    "map_reduce/mapper.h",
+    "map_reduce/reducer.h",
+    "map_reduce/value.h",
+  ]
+  public_configs = [
+    ":execution_config",
+    "//src/base:foundation_config",
+  ]
+  public_deps = [
+    "//src/base/concurrency:concurrency",
+    "//src/base/synchronization:synchronization",
+    "//src/base/trace:trace",
+  ]
+}
+
+test("execution_test") {
+  output_name = "execution_test"
+  sources = [ "execution_test.cc" ]
+  deps = [ ":execution" ]
+}

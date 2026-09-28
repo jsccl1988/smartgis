@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="measure_panel">
+  <style src="measure_panel.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title" text="Measure"/>
+    <label id="unit" text="Unit: m"/>
+    <radiobutton id="length" text="Length" group="1"/>
+    <radiobutton id="area" text="Area" group="1"/>
+    <radiobutton id="azimuth" text="Azimuth" group="1"/>
+    <table id="table" columns="Label,Value"/>
+  </vbox>
+</ui>

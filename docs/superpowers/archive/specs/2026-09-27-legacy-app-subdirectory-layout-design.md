@@ -80,7 +80,7 @@ Flat package today (CBM + tree):
 | --- | --- | --- |
 | Sample / china map open helpers in `smtapp.cpp` (`resolve_sample_geojson`, `open_or_create_sample_geojson_ds`, parts of `InitSmtMap` / `InitSmtDataSource`) | HWND-free but trapped in `app_core` | **`content`** (public header + `.cc` + unit test) |
 | `InitStyleMgr` / listener / aux module load | Mostly leftover singletons | Thin keep in `core/`; extract only pure path/policy helpers if clearly HWND-free |
-| Edit draft commit | `MapScene::append_from_draft` (viewport-bound) | Split: HWND-free commit helper → **`content`**; viewport transform stays **`app::MapScene`** |
+| Edit draft commit | `MapScene::append_from_draft` (viewport-bound) | Split: HWND-free commit helper → **`content`**; viewport transform stays **`content::MapScene`** |
 | MFC view paint / SetOperMap / framing | Inside `smart_*_view` + xview | Presentable policy already on Views path; MFC views become **thin** adapters (no new GDI engine) |
 | CatalogCall pipe | Stub beyond snapshot JSON | Optional thin progress only; full delta pipe stays later |
 

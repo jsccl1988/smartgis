@@ -44,6 +44,8 @@ constexpr uint32_t kFamilySelect = 4;
 constexpr uint32_t kSelectCircleCode = 1;
 // High bit outside Win32 MK_* and (family<<16)|code packing: two-finger pan.
 constexpr uint32_t kTouchPan = 0x01000000u;
+// RMB rubber-band zoom while view.pan is active (not a pan delta).
+constexpr uint32_t kZoomRect = 0x02000000u;
 
 inline constexpr uint32_t pack(uint32_t family, uint32_t code) {
   return (family << kFamilyShift) | (code & kCodeMask);
@@ -61,41 +63,44 @@ inline constexpr bool is_select_circle(uint32_t flags) {
 inline constexpr bool is_touch_pan(uint32_t flags) {
   return (flags & kTouchPan) != 0;
 }
+inline constexpr bool is_zoom_rect(uint32_t flags) {
+  return (flags & kZoomRect) != 0;
+}
 }  // namespace draft_flags
 
 using DraftCallback = std::function<void(const Draft&)>;
 
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_select_point(
+TOOL_EXPORT std::unique_ptr<Interaction> make_select_point(
     DraftCallback on_complete, uint32_t default_flags = 0);
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_select_rect(
+TOOL_EXPORT std::unique_ptr<Interaction> make_select_rect(
     DraftCallback on_complete, uint32_t default_flags = 0);
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_select_circle(
+TOOL_EXPORT std::unique_ptr<Interaction> make_select_circle(
     DraftCallback on_complete);
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_select_polygon(
+TOOL_EXPORT std::unique_ptr<Interaction> make_select_polygon(
     DraftCallback on_complete, uint32_t default_flags = 0);
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_draw_point(
+TOOL_EXPORT std::unique_ptr<Interaction> make_draw_point(
     DraftCallback on_complete, uint32_t default_flags = 0);
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_draw_linestring(
+TOOL_EXPORT std::unique_ptr<Interaction> make_draw_linestring(
     DraftCallback on_complete, uint32_t default_flags = 0);
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_draw_polygon(
+TOOL_EXPORT std::unique_ptr<Interaction> make_draw_polygon(
     DraftCallback on_complete, uint32_t default_flags = 0);
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_draw_rect(
+TOOL_EXPORT std::unique_ptr<Interaction> make_draw_rect(
     DraftCallback on_complete, uint32_t default_flags = 0);
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_view_zoom_in(
+TOOL_EXPORT std::unique_ptr<Interaction> make_view_zoom_in(
     DraftCallback on_complete, uint32_t default_flags = 0);
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_view_zoom_out(
+TOOL_EXPORT std::unique_ptr<Interaction> make_view_zoom_out(
     DraftCallback on_complete, uint32_t default_flags = 0);
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_view_pan(
+TOOL_EXPORT std::unique_ptr<Interaction> make_view_pan(
     DraftCallback on_complete, uint32_t default_flags = 0);
 // Click a vertex of the already-selected feature. The shell resolves the
 // real FeatureId; this interaction only emits the pixel draft.
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_edit_vertex(
+TOOL_EXPORT std::unique_ptr<Interaction> make_edit_vertex(
     DraftCallback on_complete);
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_view3d_trackball(
+TOOL_EXPORT std::unique_ptr<Interaction> make_view3d_trackball(
     DraftCallback on_complete);
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_view3d_sphere(
+TOOL_EXPORT std::unique_ptr<Interaction> make_view3d_sphere(
     DraftCallback on_complete);
-SMT_TOOL_EXPORT std::unique_ptr<Interaction> make_view3d_fps(
+TOOL_EXPORT std::unique_ptr<Interaction> make_view3d_fps(
     DraftCallback on_complete);
 
 }  // namespace tool

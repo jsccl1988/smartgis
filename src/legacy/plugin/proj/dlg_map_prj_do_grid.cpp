@@ -7,7 +7,7 @@
 #include <fstream>
 #include <iomanip>
 
-#include "base/carto/stylemanager.h"
+#include "legacy/carto/stylemanager.h"
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "gis/kernel/proj/api/projection.h"
 #include "gis/model/feature/feature.h"
@@ -167,7 +167,7 @@ void CDlgMapPrjDoGrid::OnBnClickedBtnDogrid() {
     if (!fill_gauss_grid(oSmtGrid, m_fBmin, m_fBmax, m_fLmin, m_fLmax, m_fDB,
                          m_fDL, m_lScaleRuler)) {
       SMT_SAFE_DELETE(pSmtFeature);
-      ::MessageBox(::GetActiveWindow(), "ͶӰʧ��!", "��ʾ", MB_OK);
+      ::MessageBox(::GetActiveWindow(), "投影失败!", "提示", MB_OK);
       return;
     }
     OutputRes(oSmtGrid);
@@ -179,12 +179,12 @@ void CDlgMapPrjDoGrid::OnBnClickedBtnDogrid() {
     if (pSmtMapMgr->AppendFeature(pSmtFeature, false)) {
       SmtListenerMsg param;
       param.hSrcWnd = m_hWnd;
-      ::MessageBox(::GetActiveWindow(), "���ɳɹ�!", "��ʾ", MB_OK);
+      ::MessageBox(::GetActiveWindow(), "生成成功!", "提示", MB_OK);
       (void)plugin::command_id_from_am_msg(GT_MSG_VIEW_ZOOMREFRESH);
       post_ia_tool_msg(SMT_IATOOL_MSG_BROADCAST, GT_MSG_VIEW_ZOOMREFRESH,
                        param);
     } else
       SMT_SAFE_DELETE(pSmtFeature);
   } else
-    ::MessageBox(::GetActiveWindow(), "�뼤��GRIDͼ��!", "��ʾ", MB_OK);
+    ::MessageBox(::GetActiveWindow(), "请激活GRID图层!", "提示", MB_OK);
 }

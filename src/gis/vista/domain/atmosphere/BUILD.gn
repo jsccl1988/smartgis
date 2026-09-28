@@ -33,6 +33,7 @@ source_set("atmosphere_sources") {
   public_deps = [
     "//src/gis/vista/domain:domain_sources",
     "//src/gis/vista/world:land_mask",
+    "//src/base:foundation",
     "//third_party:gdal",
   ]
   deps = [
@@ -86,6 +87,7 @@ test("field_ingest_test") {
   defines = [ "GIS_EXPORTS" ]
   deps = [
     "//src/base:base",
+    "//src/base:foundation",
     "//third_party:gdal",
   ]
 }

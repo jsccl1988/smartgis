@@ -1,0 +1,17 @@
+{
+  "id": "smartgis.print",
+  "name": "地图打印",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "builtin",
+  "author": "The Mogu Authors",
+  "description": "Map print preview and export",
+  "contributes": {
+    "commands": [
+      {"id": "print.preview", "title": "打印", "menu": "file"}
+    ],
+    "dialogs": [
+      {"id": "print.preview", "title": "打印"}
+    ]
+  }
+}

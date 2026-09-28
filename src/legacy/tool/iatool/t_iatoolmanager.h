@@ -8,7 +8,7 @@
 #include "legacy/tool/tool_export.h"
 
 namespace tool {
-class TOOL_EXPORT SmtIAToolManager {
+class LEGACY_TOOL_EXPORT SmtIAToolManager {
  public:
   virtual ~SmtIAToolManager(void);
 

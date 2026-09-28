@@ -1,7 +1,7 @@
 #include "legacy/tool/group/input/inputpointtool.h"
 
-#include "base/carto/style_api.h"
-#include "base/carto/stylemanager.h"
+#include "legacy/carto/style_api.h"
+#include "legacy/carto/stylemanager.h"
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "legacy/core/api.h"
 #include "legacy/sys/sysmanager.h"

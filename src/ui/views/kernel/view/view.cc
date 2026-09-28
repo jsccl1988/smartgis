@@ -8,6 +8,8 @@
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/raster/paint_stats.h"
 #include "ui/views/kernel/layout/layout.h"
+#include "ui/views/kernel/paint/painter.h"
+#include "ui/views/kernel/paint/painter_registry.h"
 #include "ui/views/kernel/widget/widget.h"
 
 namespace ui {
@@ -252,7 +254,18 @@ void View::ensure_commands_recorded() {
   // Null HDC: Canvas draw ops only append to the thread_local recorder.
   ui::gfx::Canvas recorder(nullptr, bounds_.width, bounds_.height);
   ui::gfx::display_list_begin(&commands_);
-  paint_self(&recorder);
+  if (paint_delegate_) {
+    paint_delegate_->paint_before(this, &recorder);
+  }
+  const std::string_view role = paint_role();
+  if (Painter* painter = PainterRegistry::get().find(role)) {
+    painter->paint(this, &recorder);
+  } else {
+    paint_self(&recorder);
+  }
+  if (paint_delegate_) {
+    paint_delegate_->paint_after(this, &recorder);
+  }
   ui::gfx::display_list_end();
   commands_ready_ = true;
   commands_dirty_ = false;
@@ -438,6 +451,19 @@ HWND View::create_native_view(HWND) {
 }
 
 void View::paint_self(ui::gfx::Canvas*) {}
+
+std::string_view View::paint_role() const {
+  return {};
+}
+
+void View::set_paint_delegate(PaintDelegate* delegate) {
+  paint_delegate_ = delegate;
+  invalidate_commands();
+}
+
+void View::paint_contents_for_painter(ui::gfx::Canvas* canvas) {
+  paint_self(canvas);
+}
 
 }  // namespace views
 }  // namespace ui

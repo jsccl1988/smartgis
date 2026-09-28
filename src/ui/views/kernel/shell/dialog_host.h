@@ -7,7 +7,7 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include "ui/ui_views_export.h"
+#include "ui/ui_export.h"
 #include <windows.h>
 
 namespace ui {
@@ -26,7 +26,7 @@ inline constexpr DWORD kOwnedDialogStyle =
     WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_CLIPCHILDREN;
 
 // Client pixels → outer CreateWindow size for |style| / |ex_style|.
-UI_VIEWS_EXPORT void client_to_outer_size(int client_w_px,
+UI_EXPORT void client_to_outer_size(int client_w_px,
                           int client_h_px,
                           DWORD style,
                           DWORD ex_style,
@@ -35,19 +35,19 @@ UI_VIEWS_EXPORT void client_to_outer_size(int client_w_px,
 
 // Center an outer box on |owner_window_rect| (screen coords). Pure geometry;
 // does not query monitors.
-UI_VIEWS_EXPORT OwnedPopupGeom center_outer_on_owner_rect(const RECT& owner_window_rect,
+UI_EXPORT OwnedPopupGeom center_outer_on_owner_rect(const RECT& owner_window_rect,
                                           int outer_w,
                                           int outer_h);
 
 // True when |popup| center is within |tol_px| of |owner| center (screen).
-UI_VIEWS_EXPORT bool rect_approximately_centered(const RECT& popup,
+UI_EXPORT bool rect_approximately_centered(const RECT& popup,
                                  const RECT& owner,
                                  int tol_px);
 
 // Place a modal: DIP client size → DPI scale (from |owner|) → outer size →
 // center on owner → clamp to work area. Safe when |owner| is null/invalid
 // (uses screen DPI and CW-style origin near primary work area).
-UI_VIEWS_EXPORT OwnedPopupGeom place_owned_dialog(HWND owner,
+UI_EXPORT OwnedPopupGeom place_owned_dialog(HWND owner,
                                   int client_w_dip,
                                   int client_h_dip,
                                   DWORD style = kOwnedDialogStyle,

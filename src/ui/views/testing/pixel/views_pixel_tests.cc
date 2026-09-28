@@ -11,11 +11,11 @@
 #include <memory>
 #include <string>
 
-#include "ui/views/gis/shell/ambox_view.h"
+#include "ui/gis/shell/ambox_view.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/text/label.h"
 #include "ui/views/testing/pixel/pixel_harness.h"
-#include "ui/views/gis/shell/status_bar.h"
+#include "ui/gis/shell/status_bar.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 
 namespace {

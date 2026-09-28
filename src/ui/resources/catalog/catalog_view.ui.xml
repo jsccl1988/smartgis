@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="catalog_view">
+  <style src="catalog_view.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title" text="Catalog"/>
+    <panel id="tabs_host" class="tabs_host"/>
+  </vbox>
+</ui>

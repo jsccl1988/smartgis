@@ -36,15 +36,15 @@ Design: [`docs/superpowers/specs/2026-09-27-legacy-app-subdirectory-layout-desig
 
 | Concern | Landing |
 | --- | --- |
-| Attribute / Catalog JSON | Already `content::feature_attrs` / `catalog_layers` + `app::MapScene` |
+| Attribute / Catalog JSON | Already `content::feature_attrs` / `catalog_layers` + `content::MapScene` |
 | Sample / china path policy | `content::resolve_sample_map_candidates` / `try_resolve_existing_sample_map` — `SmtApp` calls them |
 | GDAL open + leftover mapmgr / style | Still orchestrated in `core/smtapp.cpp` (leftover singletons) |
-| Draft commit HWND-free seam | Deferred — see `TODO(sp3)` / plan Task 5; viewport math stays in `app::MapScene` |
+| Draft commit HWND-free seam | Deferred — see `TODO(sp3)` / plan Task 5; viewport math stays in `content::MapScene` |
 | MFC view paint / SetOperMap | Thin `view/*` forwarders over `legacy/ui/xview` |
 
 ## China map bootstrap
 
-- 启动时 `SmtApp::DelayInit` / `InitSmtMap` 优先加载 `out/china_city.gpkg`（`area`/`line`/`point`/`text` 四层地级底图），缺包再试 `china_city.geojson` / `china_plp.geojson`。面按 `name`/`adcode` 哈希分色；注记用 YaHei + UTF-8 `TextOutW`。
+- 启动时 `SmtApp::DelayInit` / `InitSmtMap` 优先加载 `out/data/china_city.gpkg`（`area`/`line`/`point`/`text` 四层地级底图），缺包再试 `china_city.geojson` / `china_plp.geojson`。面按 `name`/`adcode` 哈希分色；注记用 YaHei + UTF-8 `TextOutW`。
 - `--self-test`：断言图层 ≥1 且要素 ≥3，写 `china-plp-ok`；Edit 视图创建后若 BCG 卡住，由 `CSmartMapEditView::OnCreate` 看门狗 `TerminateProcess(0)`。
 - **交互**：`InitInstance` 先显示主框，再 `DelayInit`（只打开一次 `china_city`），再 **`PostMessage(ID_WND_MAPEDIT)`** 延后开 Edit 2D——避免在无外层消息泵时同步 `OpenDocumentFile` 导致 BCG MDI Tab 在 `CView::OnInitialUpdate` 死锁（标题栏「未响应」）。**不**在启动时拉 3D。Data / 3D 按需打开。`--self-test` 仍同步开 Edit（看门狗兜底）。
 - **开 3D**：菜单 **窗口(&W) → 三维窗口(&3)**（`ID_WND_3D`）。动态视图菜单会替换 RC 菜单，因此该弹出项挂在 `append_mdi_window_menu` 上。

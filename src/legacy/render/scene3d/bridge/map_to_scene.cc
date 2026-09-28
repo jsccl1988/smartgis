@@ -3,10 +3,10 @@
 
 #include "legacy/render/scene3d/bridge/map_to_scene.h"
 
-#include "base/carto/style.h"
+#include "legacy/carto/style.h"
 #include "gdal.h"
 #include "gdal_priv.h"
-#include "gis/datasource/ogr/codec/ogr_feature_codec.h"
+#include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
 #include "gis/vista/world/terrain/dem_frame.h"
 #include "legacy/render/scene3d/bridge/map_label_batch.h"
 #include "legacy/render/scene3d/bridge/scene_to_world.h"
@@ -569,6 +569,12 @@ int seed_sample_map_into_scene(LP3DRENDERDEVICE device, SmtScene* scene) {
     }
   }
   const char* rel[] = {
+      "..\\data\\china_city.gpkg",
+      "..\\data\\china_city.geojson",
+      "..\\data\\china_plp.geojson",
+      "data\\china_city.gpkg",
+      "data\\china_city.geojson",
+      "data\\china_plp.geojson",
       "china_city.gpkg",
       "china_city.geojson",
       "china_plp.geojson",

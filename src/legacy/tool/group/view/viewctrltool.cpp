@@ -5,8 +5,8 @@
 
 #include <cstdint>
 
-#include "base/carto/style_api.h"
-#include "base/carto/stylemanager.h"
+#include "legacy/carto/style_api.h"
+#include "legacy/carto/stylemanager.h"
 #include "gis/model/feature/feature.h"
 #include "gis/model/map/map.h"
 #include "legacy/core/api.h"

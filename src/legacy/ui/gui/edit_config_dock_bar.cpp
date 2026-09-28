@@ -3,8 +3,8 @@
 
 #include "legacy/ui/gui/edit_config_dock_bar.h"
 
-#include "base/carto/style_api.h"
-#include "base/carto/stylemanager.h"
+#include "legacy/carto/style_api.h"
+#include "legacy/carto/stylemanager.h"
 #include "legacy/sys/sysmanager.h"
 
 using namespace base;

@@ -3,7 +3,7 @@
 
 #include <cstring>
 
-#include "base/carto/stylemanager.h"
+#include "legacy/carto/stylemanager.h"
 #include "legacy/core/api.h"
 #include "legacy/core/listenermanager.h"
 #include "legacy/plugin/adapter/cmd.h"
@@ -171,7 +171,7 @@ int OrthogridPlugin::Init2DStuff(void) {
   if (NULL != pLayer && pLayer->GetLayerType() == LYR_VECTOR) {
     SmtVectorLayer *pVLayer = (SmtVectorLayer *)pLayer;
     if (leftover_layer_feature_type(pVLayer) != SmtFtGrid) {
-      ::MessageBox(::GetActiveWindow(), "�뼤��GRIDͼ��!", "��ʾ", MB_OK);
+      ::MessageBox(::GetActiveWindow(), "请激活GRID图层!", "提示", MB_OK);
       return SMT_ERR_FAILURE;
     }
   } else
@@ -287,7 +287,7 @@ int OrthogridPlugin::OnEndInputBnd(OGRLineString *pLineString) {
 
         if (pSmtMapMgr->AppendFeature(pSmtFeature, false)) {
           SmtListenerMsg param;
-          ::MessageBox(::GetActiveWindow(), "���ɳɹ�!", "��ʾ", MB_OK);
+          ::MessageBox(::GetActiveWindow(), "生成成功!", "提示", MB_OK);
           (void)plugin::command_id_from_am_msg(GT_MSG_VIEW_ZOOMREFRESH);
           post_ia_tool_msg(SMT_IATOOL_MSG_BROADCAST, GT_MSG_VIEW_ZOOMREFRESH,
                            param);
@@ -337,7 +337,7 @@ void OrthogridPlugin::LoadFromFile(void) {
 
       if (pSmtMapMgr->AppendFeature(pSmtFeature, false)) {
         SmtListenerMsg param;
-        ::MessageBox(::GetActiveWindow(), "���ɳɹ�!", "��ʾ", MB_OK);
+        ::MessageBox(::GetActiveWindow(), "生成成功!", "提示", MB_OK);
         (void)plugin::command_id_from_am_msg(GT_MSG_VIEW_ZOOMREFRESH);
         post_ia_tool_msg(SMT_IATOOL_MSG_BROADCAST, GT_MSG_VIEW_ZOOMREFRESH,
                          param);

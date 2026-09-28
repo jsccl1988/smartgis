@@ -7,7 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-20  
 **Status:** active  
-**Spec (living, accepted):** [`../specs/2026-09-19-atmosphere-ocean-cloud-design.md`](../specs/2026-09-19-atmosphere-ocean-cloud-design.md)  
+**Spec (living, accepted):** [`../specs/2026-09-19-atmosphere-ocean-cloud-design.md`](../specs/2026-09-13-render-rhi-scene-design.md)  
 **Predecessor plan (v1 scaffold landed):** [`2026-09-19-atmosphere-ocean-cloud.md`](2026-09-19-atmosphere-ocean-cloud.md)  
 **Related:** RHI / GpuScene [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md)；World / GpuScene [`../specs/2026-09-19-scene3d-world-gpuscene-design.md`](../specs/2026-09-19-scene3d-world-gpuscene-design.md)；**子目录布局（已落地）** [`../specs/2026-09-27-atmosphere-subdirectory-layout-design.md`](../specs/2026-09-27-atmosphere-subdirectory-layout-design.md) · [`../archive/plans/2026-09-27-atmosphere-subdirectory-layout.md`](../archive/plans/2026-09-27-atmosphere-subdirectory-layout.md)
 

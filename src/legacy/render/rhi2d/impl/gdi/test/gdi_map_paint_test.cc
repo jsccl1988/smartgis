@@ -7,10 +7,10 @@
 #include <string>
 #include <vector>
 
-#include "base/carto/envelope.h"
+#include "gis/model/envelope.h"
 #include "gdal.h"
 #include "gdal_priv.h"
-#include "gis/datasource/ogr/codec/ogr_feature_codec.h"
+#include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
 #include "gis/model/map/map.h"
 #include "legacy/render/rhi2d/public/device/renderdevice.h"
 #include "ogrsf_frmts.h"
@@ -49,6 +49,12 @@ std::string exe_dir() {
 std::string find_china_plp() {
   const std::string dir = exe_dir();
   const char* rel[] = {
+      "..\\data\\china_city.gpkg",
+      "..\\data\\china_city.geojson",
+      "..\\data\\china_plp.geojson",
+      "data\\china_city.gpkg",
+      "data\\china_city.geojson",
+      "data\\china_plp.geojson",
       "china_city.gpkg",
       "china_city.geojson",
       "china_plp.geojson",
@@ -341,7 +347,7 @@ int main() {
   pra.lPointRaduis = 4;
   dev->SetRenderPra(pra);
 
-  base::Envelope env;
+  gis::Envelope env;
   map.CalEnvelope();
   map.get_envelope(env);
   expect(env.is_init(), "map envelope");

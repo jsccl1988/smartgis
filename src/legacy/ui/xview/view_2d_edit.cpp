@@ -14,7 +14,7 @@
 #include "legacy/tool/group/select/selecttool.h"
 #include "legacy/tool/group/view/viewctrltool.h"
 #include "legacy/ui/xview/view_core.h"
-#include "base/carto/stylemanager.h"
+#include "legacy/carto/stylemanager.h"
 #include "gis/model/edit/map_edit/map_edit_session.h"
 #include "gis/model/feature/feature.h"
 #include "gis/model/map/map.h"

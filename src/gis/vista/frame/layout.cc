@@ -7,7 +7,12 @@
 #include <cmath>
 #include <cstddef>
 #include <utility>
+#include <vector>
 
+#include "base/execution/executor/pool/global_executor.h"
+#include "base/execution/parallel/for.h"
+#include "base/memory/arena.h"
+#include "base/trace/process_trace.h"
 #include "gis/vista/frame/detail/collision.h"
 #include "gis/present/style/paint_resolve.h"
 #include "gis/present/style/style_rules.h"
@@ -20,6 +25,11 @@ namespace {
 
 constexpr int kCircleSegments = 32;
 constexpr float kPi = 3.14159265f;
+// Tessellation grain: below this, stay serial (pool overhead). Trace showed
+// china batches often sit near this floor; 2 matches visible_layer parallel_for.
+constexpr size_t kParallelTessMinGeoms = 2;
+// Prefer auto grain (span / (workers*4)); fixed grain=1 oversubscribed Debug.
+constexpr size_t kParallelTessGrain = 0;
 
 double world_units_per_pixel(const View& view) {
   if (view.width_px == 0 || view.max_x <= view.min_x) {
@@ -234,6 +244,12 @@ LineTessOptions line_options(const gis::style::ResolvedPaint& paint,
   opts.join = parse_join(paint.line_join);
   opts.pixel_width = paint.line_width;
   opts.world_units_per_pixel = wupp;
+  // Default round fans are expensive; thin strokes use fewer wedges.
+  if (paint.line_width <= 2.f) {
+    opts.round_segments = 4;
+  } else if (paint.line_width <= 4.f) {
+    opts.round_segments = 6;
+  }
   if (wupp > 0) {
     opts.dasharray.reserve(paint.line_dasharray.size());
     for (float dash : paint.line_dasharray) {
@@ -543,33 +559,178 @@ void emit_raster(const gis::style::StyleLayer& layer, const LayoutInput& in,
   }
 }
 
-void emit_fill(const gis::style::StyleLayer& layer, const LayoutInput& in,
-               const std::vector<LayerBatch>& layers, MapFrame* frame) {
-  for (const LayerBatch& batch : layers) {
-    if (!layer_uses_batch(layer, batch)) {
-      continue;
+struct FillJob {
+  size_t layer_ord = 0;
+  const OGRGeometry* geom = nullptr;
+  gis::style::ResolvedPaint paint;
+  bool pattern = false;
+};
+
+// Emit one or more consecutive fill layers. Jobs from all layers share one
+// parallel_for; results are appended in layer order (painter z).
+void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
+                const LayoutInput& in, const std::vector<LayerBatch>& layers,
+                double wupp, MapFrame* frame) {
+  if (fill_layers.empty()) {
+    return;
+  }
+  std::vector<FillJob> jobs;
+  for (size_t li = 0; li < fill_layers.size(); ++li) {
+    const gis::style::StyleLayer& layer = *fill_layers[li];
+    for (const LayerBatch& batch : layers) {
+      if (!layer_uses_batch(layer, batch)) {
+        continue;
+      }
+      for (size_t i = 0; i < batch.geoms.size(); ++i) {
+        const OGRGeometry* geom = batch.geoms[i];
+        if (!geom) {
+          continue;
+        }
+        const gis::style::AttrMap attrs = attrs_at(batch, i);
+        if (!gis::style::eval_filter(layer.filter, attrs)) {
+          continue;
+        }
+        gis::style::ResolvedPaint paint;
+        gis::style::fill_resolved_paint(layer, nullptr, attrs, in.zoom, &paint);
+        jobs.push_back(FillJob{li, geom, paint,
+                               find_symbol(in, paint.fill_pattern) != nullptr});
+      }
     }
-    for (size_t i = 0; i < batch.geoms.size(); ++i) {
-      const OGRGeometry* geom = batch.geoms[i];
-      if (!geom) {
+  }
+  if (jobs.empty()) {
+    return;
+  }
+  FillTessOptions fill_opts;
+  fill_opts.world_units_per_pixel = wupp;
+  auto to_item = [fill_opts](const FillJob& job) -> std::pair<DrawItem, bool> {
+    gis::TessMesh mesh;
+    if (!gis::tessellate_geometry(job.geom, fill_opts, mesh) ||
+        mesh.indices.empty()) {
+      return {{}, false};
+    }
+    DrawItem item = mesh_item(mesh, DrawKind::kFill, job.paint.fill_color,
+                              job.paint.fill_opacity);
+    if (job.pattern) {
+      item.symbol_id = job.paint.fill_pattern;
+    }
+    return {std::move(item), true};
+  };
+  if (jobs.size() < kParallelTessMinGeoms) {
+    for (const FillJob& job : jobs) {
+      auto [item, ok] = to_item(job);
+      if (ok) {
+        frame->items.push_back(std::move(item));
+      }
+    }
+    return;
+  }
+  std::vector<DrawItem> items(jobs.size());
+  std::vector<char> valid(jobs.size(), 0);
+  base::execution::GlobalNThreadPoolExecutor executor;
+  base::execution::parallel_for(
+      executor, size_t{0}, jobs.size(),
+      [&](size_t i) {
+        auto [item, ok] = to_item(jobs[i]);
+        if (!ok) {
+          return;
+        }
+        items[i] = std::move(item);
+        valid[i] = 1;
+      },
+      kParallelTessGrain);
+  // Preserve layer order even if jobs were interleaved in the vector by layer.
+  for (size_t li = 0; li < fill_layers.size(); ++li) {
+    for (size_t i = 0; i < jobs.size(); ++i) {
+      if (valid[i] && jobs[i].layer_ord == li) {
+        frame->items.push_back(std::move(items[i]));
+      }
+    }
+  }
+}
+
+void emit_fill(const gis::style::StyleLayer& layer, const LayoutInput& in,
+               const std::vector<LayerBatch>& layers, double wupp,
+               MapFrame* frame) {
+  std::vector<const gis::style::StyleLayer*> one{&layer};
+  emit_fills(one, in, layers, wupp, frame);
+}
+
+struct LineJob {
+  size_t layer_ord = 0;
+  const OGRLineString* line = nullptr;
+  LineTessOptions opts;
+  uint32_t rgba = 0;
+  float opacity = 1.f;
+};
+
+void emit_lines(const std::vector<const gis::style::StyleLayer*>& line_layers,
+                const LayoutInput& in, const std::vector<LayerBatch>& layers,
+                double wupp, MapFrame* frame) {
+  if (line_layers.empty()) {
+    return;
+  }
+  std::vector<LineJob> jobs;
+  for (size_t li = 0; li < line_layers.size(); ++li) {
+    const gis::style::StyleLayer& layer = *line_layers[li];
+    for (const LayerBatch& batch : layers) {
+      if (!layer_uses_batch(layer, batch)) {
         continue;
       }
-      const gis::style::AttrMap attrs = attrs_at(batch, i);
-      if (!gis::style::eval_filter(layer.filter, attrs)) {
-        continue;
+      for (size_t i = 0; i < batch.geoms.size(); ++i) {
+        const OGRGeometry* geom = batch.geoms[i];
+        if (!geom) {
+          continue;
+        }
+        const gis::style::AttrMap attrs = attrs_at(batch, i);
+        if (!gis::style::eval_filter(layer.filter, attrs)) {
+          continue;
+        }
+        gis::style::ResolvedPaint paint;
+        gis::style::fill_resolved_paint(layer, nullptr, attrs, in.zoom, &paint);
+        const LineTessOptions opts = line_options(paint, wupp);
+        for_each_line(geom, [&](const OGRLineString* line) {
+          jobs.push_back(LineJob{li, line, opts, paint.line_color,
+                                 paint.line_opacity});
+        });
       }
-      gis::style::ResolvedPaint paint;
-      gis::style::fill_resolved_paint(layer, nullptr, attrs, in.zoom, &paint);
+    }
+  }
+  if (jobs.empty()) {
+    return;
+  }
+  if (jobs.size() < kParallelTessMinGeoms) {
+    for (const LineJob& job : jobs) {
       gis::TessMesh mesh;
-      if (!gis::tessellate_geometry(geom, mesh) || mesh.indices.empty()) {
+      if (!gis::tessellate_line(job.line, job.opts, mesh) ||
+          mesh.indices.empty()) {
         continue;
       }
-      DrawItem item =
-          mesh_item(mesh, DrawKind::kFill, paint.fill_color, paint.fill_opacity);
-      if (find_symbol(in, paint.fill_pattern)) {
-        item.symbol_id = paint.fill_pattern;
+      frame->items.push_back(
+          mesh_item(mesh, DrawKind::kLine, job.rgba, job.opacity));
+    }
+    return;
+  }
+  std::vector<DrawItem> items(jobs.size());
+  std::vector<char> valid(jobs.size(), 0);
+  base::execution::GlobalNThreadPoolExecutor executor;
+  base::execution::parallel_for(
+      executor, size_t{0}, jobs.size(),
+      [&](size_t i) {
+        gis::TessMesh mesh;
+        if (!gis::tessellate_line(jobs[i].line, jobs[i].opts, mesh) ||
+            mesh.indices.empty()) {
+          return;
+        }
+        items[i] =
+            mesh_item(mesh, DrawKind::kLine, jobs[i].rgba, jobs[i].opacity);
+        valid[i] = 1;
+      },
+      kParallelTessGrain);
+  for (size_t li = 0; li < line_layers.size(); ++li) {
+    for (size_t i = 0; i < jobs.size(); ++i) {
+      if (valid[i] && jobs[i].layer_ord == li) {
+        frame->items.push_back(std::move(items[i]));
       }
-      frame->items.push_back(std::move(item));
     }
   }
 }
@@ -577,32 +738,8 @@ void emit_fill(const gis::style::StyleLayer& layer, const LayoutInput& in,
 void emit_line(const gis::style::StyleLayer& layer, const LayoutInput& in,
                const std::vector<LayerBatch>& layers, double wupp,
                MapFrame* frame) {
-  for (const LayerBatch& batch : layers) {
-    if (!layer_uses_batch(layer, batch)) {
-      continue;
-    }
-    for (size_t i = 0; i < batch.geoms.size(); ++i) {
-      const OGRGeometry* geom = batch.geoms[i];
-      if (!geom) {
-        continue;
-      }
-      const gis::style::AttrMap attrs = attrs_at(batch, i);
-      if (!gis::style::eval_filter(layer.filter, attrs)) {
-        continue;
-      }
-      gis::style::ResolvedPaint paint;
-      gis::style::fill_resolved_paint(layer, nullptr, attrs, in.zoom, &paint);
-      const LineTessOptions opts = line_options(paint, wupp);
-      for_each_line(geom, [&](const OGRLineString* line) {
-        gis::TessMesh mesh;
-        if (!gis::tessellate_line(line, opts, mesh) || mesh.indices.empty()) {
-          return;
-        }
-        frame->items.push_back(mesh_item(mesh, DrawKind::kLine, paint.line_color,
-                                         paint.line_opacity));
-      });
-    }
-  }
+  std::vector<const gis::style::StyleLayer*> one{&layer};
+  emit_lines(one, in, layers, wupp, frame);
 }
 
 void emit_circles(const gis::style::StyleLayer& layer, const LayoutInput& in,
@@ -769,6 +906,14 @@ void emit_symbols(const gis::style::StyleLayer& layer, const LayoutInput& in,
 
 MapFrame Layout::build(const LayoutInput& in,
                        const std::vector<LayerBatch>& layers) const {
+  // Reset TLS hybrid scratch for this build so label/token temps reuse
+  // arena blocks instead of churning the process heap across frames.
+  if (base::MemoryResource* tls = base::tls_memory_resource()) {
+    tls->clear(base::Arena::kInitialSize);
+  }
+  if (base::tracing_enabled()) {
+    gis::reset_tess_trace_stats();
+  }
   MapFrame frame;
   if (!in.style) {
     return frame;
@@ -781,32 +926,78 @@ MapFrame Layout::build(const LayoutInput& in,
     grid.reset(fblc, static_cast<int>(in.view.width_px),
                static_cast<int>(in.view.height_px));
   }
+
+  std::vector<const gis::style::StyleLayer*> pending_fills;
+  std::vector<const gis::style::StyleLayer*> pending_lines;
+  auto flush_fills = [&]() {
+    if (pending_fills.empty()) {
+      return;
+    }
+    BASE_TRACE_EVENT("emit_fill", "map2d.layout");
+    emit_fills(pending_fills, in, layers, wupp, &frame);
+    pending_fills.clear();
+  };
+  auto flush_lines = [&]() {
+    if (pending_lines.empty()) {
+      return;
+    }
+    BASE_TRACE_EVENT("emit_line", "map2d.layout");
+    emit_lines(pending_lines, in, layers, wupp, &frame);
+    pending_lines.clear();
+  };
+
   for (const gis::style::StyleLayer& layer : in.style->layers) {
     if (!gis::style::layer_matches_zoom(layer, in.zoom)) {
       continue;
     }
     switch (layer.type) {
       case gis::style::LayerType::kBackground:
+        flush_fills();
+        flush_lines();
         apply_background(layer, in.zoom, &frame);
         break;
       case gis::style::LayerType::kRaster:
-        emit_raster(layer, in, &frame);
+        flush_fills();
+        flush_lines();
+        {
+          BASE_TRACE_EVENT("emit_raster", "map2d.layout");
+          emit_raster(layer, in, &frame);
+        }
         break;
       case gis::style::LayerType::kFill:
-        emit_fill(layer, in, layers, &frame);
+        flush_lines();
+        pending_fills.push_back(&layer);
         break;
       case gis::style::LayerType::kLine:
-        emit_line(layer, in, layers, wupp, &frame);
+        flush_fills();
+        pending_lines.push_back(&layer);
         break;
       case gis::style::LayerType::kCircle:
-        emit_circles(layer, in, layers, wupp, &frame);
+        flush_fills();
+        flush_lines();
+        {
+          BASE_TRACE_EVENT("emit_circle", "map2d.layout");
+          emit_circles(layer, in, layers, wupp, &frame);
+        }
         break;
       case gis::style::LayerType::kSymbol:
-        emit_symbols(layer, in, layers, fblc, &grid, &frame);
+        flush_fills();
+        flush_lines();
+        {
+          BASE_TRACE_EVENT("emit_symbol", "map2d.layout");
+          emit_symbols(layer, in, layers, fblc, &grid, &frame);
+        }
         break;
       default:
+        flush_fills();
+        flush_lines();
         break;
     }
+  }
+  flush_fills();
+  flush_lines();
+  if (base::tracing_enabled()) {
+    gis::flush_tess_trace_stats();
   }
   return frame;
 }

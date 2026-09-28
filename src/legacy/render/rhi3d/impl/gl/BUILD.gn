@@ -55,7 +55,7 @@ source_set("gl_sources") {
     "//src/legacy/render/rhi3d:leftover_record",
     "//src/legacy/render/rhi2d:rhi2d_sources",
     "//src/legacy/render/rhi3d:rhi_sources",
-    "//src/gis/datasource/ogr:ogr_text_encoding",
+    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
     "//third_party:CxImage",
     "//third_party:khronos_gl",
   ]

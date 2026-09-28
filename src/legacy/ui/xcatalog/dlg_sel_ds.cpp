@@ -5,7 +5,7 @@
 #include "legacy/ui/xcatalog/dlg_sel_ds.h"
 
 #include "legacy/ui/xcatalog/xcatalog_core.h"
-#include "gis/datasource/mgr/datasource_mgr.h"
+#include "legacy/datasource/mgr/datasource_mgr.h"
 
 using namespace gis;
 
