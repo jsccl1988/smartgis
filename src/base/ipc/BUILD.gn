@@ -2,26 +2,26 @@
 # All rights reserved.
 
 # Named-pipe + BinarySink codec (via //src/base/archive). Static foundation
-# (//src/base:foundation); Chrome hosts must not include these headers.
+# (//src/base:foundation); Shell hosts must not include these headers.
 
 import("//testing/test.gni")
 
 source_set("ipc_sources") {
   sources = [
-    "channel.cc",
-    "channel.h",
-    "codec.h",
-    "data_pipe.cc",
-    "data_pipe.h",
-    "endpoint.h",
-    "handle.cc",
-    "handle.h",
-    "invitation.cc",
-    "invitation.h",
-    "portal.cc",
-    "portal.h",
-    "receiver.cc",
-    "receiver.h",
+    "channel/channel.cc",
+    "channel/channel.h",
+    "codec/codec.h",
+    "data_pipe/data_pipe.cc",
+    "data_pipe/data_pipe.h",
+    "endpoint/endpoint.h",
+    "handle/handle.cc",
+    "handle/handle.h",
+    "invitation/invitation.cc",
+    "invitation/invitation.h",
+    "portal/portal.cc",
+    "portal/portal.h",
+    "receiver/receiver.cc",
+    "receiver/receiver.h",
   ]
   public_deps = [ "//src/base/archive:archive" ]
   public_configs = [ "//src/base:foundation_config" ]

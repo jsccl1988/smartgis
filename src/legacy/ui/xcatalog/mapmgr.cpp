@@ -3,11 +3,11 @@
 
 #include <algorithm>
 
-#include "base/core/api.h"
+#include "legacy/core/api.h"
 #include "base/core/log.h"
 #include "gdal_priv.h"
 #include "legacy/tool/group/defs.h"
-#include "legacy/tool/t_msg.h"
+#include "legacy/tool/iatool/t_msg.h"
 #include "legacy/ui/xcatalog/mapdocxcatalog.h"
 #include "ogrsf_frmts.h"
 #include "gis/datasource/mgr/datasource_mgr.h"

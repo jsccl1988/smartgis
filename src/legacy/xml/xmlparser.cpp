@@ -381,7 +381,6 @@ const char* TiXmlBase::SkipWhiteSpace(const char* p, TiXmlEncoding encoding) {
 // One of TinyXML's more performance demanding functions. Try to keep the memory
 // overhead down. The "assign" optimization removes over 10% of the execution
 // time.
-//
 const char* TiXmlBase::ReadName(const char* p, TIXML_STRING* name,
                                 TiXmlEncoding encoding) {
   // Oddly, not supported on some comilers,
@@ -393,7 +392,6 @@ const char* TiXmlBase::ReadName(const char* p, TIXML_STRING* name,
   // Names start with letters or underscores.
   // Of course, in unicode, tinyxml has no idea what a letter *is*. The
   // algorithm is generous.
-  //
   // After that, they can be letters, underscores, numbers,
   // hyphens, or colons. (Colons are valid ony for namespaces,
   // but tinyxml can't tell namespaces from names.)
@@ -580,7 +578,6 @@ void TiXmlDocument::StreamIn(std::istream* in, TIXML_STRING* tag) {
   // The basic issue with a document is that we don't know what we're
   // streaming. Read something presumed to be a tag (and hope), then
   // identify it, and call the appropriate stream method on the tag.
-  //
   // This "pre-streaming" will never read the closing ">" so the
   // sub-tag can orient itself.
 
@@ -747,7 +744,6 @@ TiXmlNode* TiXmlNode::Identify(const char* p, TiXmlEncoding encoding) {
   // - Comments: <!--
   // - Decleration: <?xml
   // - Everthing else is unknown to tinyxml.
-  //
 
   const char* xmlHeader = {"<?xml"};
   const char* commentHeader = {"<!--"};
@@ -1200,7 +1196,6 @@ const char* TiXmlComment::Parse(const char* p, TiXmlParsingData* data,
   // [ 1475201 ] TinyXML parses entities in comments
   // Oops - ReadText doesn't work, because we don't want to parse the entities.
   // p = ReadText( p, &value, false, endTag, false, encoding );
-  //
   // from the XML spec:
   /*
    [Definition: Comments may appear anywhere in a document outside other markup;

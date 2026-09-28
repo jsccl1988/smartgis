@@ -5,30 +5,12 @@ import("//build/smartgis.gni")
 
 # Optional leftover tools → one DLL (dll_stem = legacy_tool).
 # Not in //src:src_all. Opt-in: ninja -C out legacy_tool / legacy_tool_all
-
-source_set("tool_sources") {
-  sources = [
-    "t_iatool.cpp",
-    "t_iatoolmanager.cpp",
-    "t_msg.cpp",
-  ]
-  include_dirs += [ "//src" ]
-  configs += [ "//build:legacy" ]
-  defines = [
-    "_USRDLL",
-    "TOOL_EXPORTS",
-  ]
-  deps = [ "//src/base:core" ]
-}
+# Layout: iatool/ (ABI) + adapter/ (GT_MSG bridge source_set) + group/ (→ ui_legacy).
 
 smt_shared_library("legacy_tool") {
   dll_stem = "legacy_tool"
-  defines = [
-    "LEGACY_TOOL_EXPORTS",
-    "TOOL_EXPORTS",
-    "TOOL_GROUP_EXPORTS",
-  ]
-  deps = [ ":tool_sources" ]
+  defines = [ "TOOL_EXPORTS" ]
+  deps = [ "//src/legacy/tool/iatool:tool_sources" ]
   # tool_group_sources compile into //src/legacy/ui:ui_legacy when smt_build_app
   # (GUI dialogs ↔ tools would otherwise form a DLL link cycle).
   public_deps = [ "//src/base:base" ]

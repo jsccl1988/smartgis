@@ -11,7 +11,7 @@ source_set("xml_sources") {
   configs += [ "//build:legacy" ]
   defines = [
     "_USRDLL",
-    "CORE_EXPORTS=1",
+    "BASE_EXPORTS=1",
   ]
   sources = [
     "xml.cpp",

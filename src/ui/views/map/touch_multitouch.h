@@ -4,6 +4,7 @@
 #ifndef UI_VIEWS_MAP_TOUCH_MULTITOUCH_H_
 #define UI_VIEWS_MAP_TOUCH_MULTITOUCH_H_
 
+#include "ui/ui_views_export.h"
 #include <cstdint>
 #include <unordered_map>
 #include <utility>
@@ -16,7 +17,7 @@ namespace views {
 // Tracks PT_TOUCH contacts and builds content::InputEvent samples for
 // two-or-more-finger midpoint pan (same contract as CEF shell.js).
 // Single-finger stays out of this path so mouse synthesis keeps working.
-class TouchMultitouchTracker {
+class UI_VIEWS_EXPORT TouchMultitouchTracker {
  public:
   // Fills |out| when a multitouch InputEvent should be dispatched.
   bool on_contact_down(uint32_t id, int32_t x_px, int32_t y_px,

@@ -6,7 +6,7 @@ All rights reserved.
 # 业界差距矩阵：QGIS / Cesium / ArcGIS Pro
 
 **Status:** active  
-**Date:** 2026-09-20  
+**Date:** 2026-09-27  
 **Scope:** 以 SmartGIS 产品愿景（桌面原生 C++、「走进去干活」的图）为锚，对照三家标杆的能力下限；把差距映射到现有 `docs/superpowers` 规格/计划与建议里程碑。  
 **非目标：** 不宣称要对齐三家全部产品线；不重新打开已锁定的拒绝项（Qt、Cesium Native 全家桶、第二套 GEOS、产品 Web GIS/mapd）。
 
@@ -47,12 +47,12 @@ All rights reserved.
 | 里程碑 | 一句话成功判据 | 大致对标 |
 | --- | --- | --- |
 | **M0** | Views 主壳能独立完成：开图 → 漫游 → 查属性 → 简单编辑；日常停编 MFC。计划：[`../superpowers/plans/2026-09-20-m0-views-main-path.md`](../superpowers/plans/2026-09-20-m0-views-main-path.md) | 桌面 GIS 下限 |
-| **M1** | Style + 瓦片 + 标注/中国底图闭环；出图可打印一页 | ≈ QGIS 基础制图 |
-| **M2** | Processing 可发现工具箱（≥ 核心空间算子 + 批跑） | ≈ QGIS Processing 入口 |
-| **M3** | 城市场景：地形 LOD + 3D Tiles 流式 + 稳定帧；大气旁路可演示 | ≈ Cesium / Pro 3D 观感下限 |
-| **M4** | 企业数据缝：PostGIS/GPKG 多用户编辑下限 + 拓扑/捕捉；SDK/文档可嵌入 | ≈ Pro / Enterprise 入门 |
+| **M1** | Style + 瓦片 + 标注/中国底图闭环；出图可打印一页（已绿） | ≈ QGIS 基础制图 |
+| **M2** | Processing 工具箱 ≥10 算子 + buffer/clip（`m2-*-ok`；已绿） | ≈ QGIS Processing 入口 |
+| **M3** | DEM + 3D Tiles 流式 + 大气（`m3-*-ok`；已绿） | ≈ Cesium / Pro 3D 观感下限 |
+| **M4** | 乐观冲突 + `content::` 嵌入（`m4-*-ok`；已绿） | ≈ Pro / Enterprise 入门 |
 
-M0→M1 必须串行（壳不合拢，制图落在旧窗上）。M2 可与 M1 后半并行。M3 依赖 RHI/World 车道，可与 M1 部分并行。M4 最晚。
+M0–M4 验收口令均挂在 `SmartGisViews.exe --self-test`；计划：`docs/superpowers/plans/2026-09-20-m0-*.md`、`2026-09-20-m1-*.md`、`2026-09-27-m{2,3,4}-*.md`。
 
 ---
 
@@ -164,9 +164,9 @@ M0→M1 必须串行（壳不合拢，制图落在旧窗上）。M2 可与 M1 �
 | --- | --- |
 | **M0** | 仅 `SmartGisViews.exe`：打开 GPKG → 平移缩放 → FeatureInfo → 追加一条线并保存；`build.bat e2e` 绿。执行计划：[`../superpowers/plans/2026-09-20-m0-views-main-path.md`](../superpowers/plans/2026-09-20-m0-views-main-path.md)（2026-09-20：`m0-line-ok` / `m0-featureinfo-ok` / `m0-save-ok` + e2e 绿） |
 | **M1** | Style JSON 驱动矢量着色 + XYZ 底图 + china_city 注记可读；导出一页 BMP（`m1-labels-ok` / `m1-style-ok` / `m1-basemap-ok` / `m1-export-ok`；exit 70–73）。执行计划：[`../superpowers/plans/2026-09-20-m1-carto-style-tile-export.md`](../superpowers/plans/2026-09-20-m1-carto-style-tile-export.md)（2026-09-20：`--self-test` + `build.bat e2e` 绿） |
-| **M2** | Views「处理」面板列出 ≥10 个算子；buffer/clip 批跑写回图层 |
-| **M3** | 城市 DEM + 至少一个 3D Tiles 集流式加载不炸内存；大气海/云按 upgrade 判据开/关 |
-| **M4** | 两客户端先后编辑同一 PostGIS 层有冲突提示或检出；`content::` 样例嵌入方能开图 |
+| **M2** | Views「处理」面板 ≥10 算子；buffer/clip 写回。计划：[`../superpowers/plans/2026-09-27-m2-processing-toolbox.md`](../superpowers/plans/2026-09-27-m2-processing-toolbox.md)（`m2-panel-ok` / `m2-buffer-ok` / `m2-clip-ok`；exit 80–82；2026-09-27：`--self-test` + `build.bat e2e` / `te` 绿） |
+| **M3** | DEM + 3D Tiles 流式 + 大气开关。计划：[`../superpowers/plans/2026-09-27-m3-city-3d-stream.md`](../superpowers/plans/2026-09-27-m3-city-3d-stream.md)（`m3-dem-ok` / `m3-tiles-ok` / `m3-atmosphere-ok`；exit 90–92；2026-09-27：`--self-test` + `build.bat e2e` / `te` 绿） |
+| **M4** | 双会话乐观冲突 + `content::open_map_host_path`。计划：[`../superpowers/plans/2026-09-27-m4-enterprise-edit-embed.md`](../superpowers/plans/2026-09-27-m4-enterprise-edit-embed.md)（`m4-conflict-ok` / `m4-embed-ok`；exit 100–101；2026-09-27：`--self-test` + `build.bat e2e` / `te` 绿） |
 
 ---
 
@@ -176,4 +176,4 @@ M0→M1 必须串行（壳不合拢，制图落在旧窗上）。M2 可与 M1 �
 - 里程碑完成后：把可复述事实写入本文件或 `src/` 模块 README；相关 plan 按 [superpowers-docs](../../.cursor/rules/repo/superpowers-docs.mdc) 归档。
 - 不在此文件展开实现 checklist（那是 `docs/superpowers/plans/` 的职责）。
 
-**最后更新：** 2026-09-20
+**最后更新：** 2026-09-27

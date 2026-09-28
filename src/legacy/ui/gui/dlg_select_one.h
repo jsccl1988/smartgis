@@ -1,7 +1,7 @@
 #pragma once
 
 // CDlgSelectOne �Ի���
-#include "base/core/bas_struct.h"
+#include "legacy/core/bas_struct.h"
 #include "legacy/ui/gui/resource.h"
 
 class CDlgSelectOne : public CDialog {

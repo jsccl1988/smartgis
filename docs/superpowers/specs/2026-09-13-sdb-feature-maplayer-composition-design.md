@@ -179,8 +179,8 @@ Query：结果写入 **可拥有** 的 Memory `MapLayer`；空间/属性过滤�
 
 | 删除 / 退出主路径 | 替代 | 状态（2026-09-14） |
 | --- | --- | --- |
-| `SmtFeature` 类 | `sdb::Feature` | 主路径已迁 |
-| `SmtAttribute` / `SmtField` | `OGRFeature` 字段 API | **已退出 `gis`**：MFC att-struct UI（`SmtAttStructEditDlg`）改读/写 `OGRLayer`/`OGRFeatureDefn`；`SmtLayer::m_pAtt` 已删。源码留在 `//src/sdb/map:leftover_attr`（`attribute.h` 含 `#error` 门控），不进主路径。 |
+| `SmtFeature` 类 | `gis::Feature` | 类名为 `Feature`；`using SmtFeature = Feature` 留给 leftover TU。PascalCase 方法是头内转发，不再有第二份实现。 |
+| `SmtAttribute` / `SmtField` | `OGRFeature` 字段 API | **已删除**：无链接方。MFC att-struct UI（`SmtAttStructEditDlg`）读/写 `OGRLayer`/`OGRFeatureDefn`。 |
 | `Smt3DFeature` | `Feature` + material 侧车 | 主路径已迁 |
 | `using SmtVectorLayer = OGRLayer` 产品 ABI | `MapLayer` 或直接 `OGRLayer*` 仅在 datasource 内部 | 进行中 |
 | `SmtMap::Entry` 双指针 | `MapLayer` | 已迁 |
@@ -194,11 +194,11 @@ Query：结果写入 **可拥有** 的 Memory `MapLayer`；空间/属性过滤�
 
 ## Testing
 
-- 单测（若已有 gis/feature 测试）：Feature own/borrow/release；MapLayer adopt Memory 层析构销毁。
+- 单测（若已有 gis/model/feature 测试）：Feature own/borrow/release；MapLayer adopt Memory 层析构销毁。
 - `build.bat` 编通 `src_all` 相关目标；Append/Query 冒烟走 Memory 层。
 
 ## Docs
 
 同变更更新：`docs/README.md` 索引；`docs/build/src-layout.md` 中 feature/map 一句；本 sibling 交叉引用。
 
-**最后更新：** 2026-09-14（`SmtAttribute`/`SmtField` 已退出 `gis`；MFC att UI 走 OGR schema；leftover 目标 `//src/sdb/map:leftover_attr`）
+**最后更新：** 2026-09-27（`gis::Feature`；`SmtAttribute`/`SmtField` 与 `leftover_attr` 已删除；PascalCase 仅为头内转发）

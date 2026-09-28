@@ -4,35 +4,32 @@
 #include "stdafx.h"
 #include "legacy/ui/xview/view_2d.h"
 
-#include "base/core/core.h"
+#include "legacy/core/core.h"
 #include "base/core/log.h"
 #include "legacy/ui/xview/view_core.h"
 #include "base/carto/stylemanager.h"
-#include "sys/sysmanager.h"
-namespace gis {
-class SmtFeature;
-}
+#include "legacy/sys/sysmanager.h"
 #include <algorithm>
 #include <cstring>
 #include <vector>
 
-#include "base/core/api.h"
-#include "base/core/listenermanager.h"
+#include "legacy/core/api.h"
+#include "legacy/core/listenermanager.h"
 #include "content/public/view_host.h"
 #include "legacy/tool/group/defs.h"
-#include "legacy/tool/group/flashtool.h"
-#include "legacy/tool/group/selecttool.h"
-#include "legacy/tool/group/viewctrltool.h"
-#include "legacy/tool/t_iatoolmanager.h"
+#include "legacy/tool/group/select/flashtool.h"
+#include "legacy/tool/group/select/selecttool.h"
+#include "legacy/tool/group/view/viewctrltool.h"
+#include "legacy/tool/iatool/t_iatoolmanager.h"
 #include "legacy/ui/xcatalog/mapmgr.h"
-#include "plugin/legacy/module_manager.h"
-#include "plugin/legacy/plugin_msg.h"
+#include "legacy/plugin/module_manager.h"
+#include "legacy/plugin/plugin_msg.h"
 #include "base/carto/style_api.h"
-#include "gis/feature/feature.h"
-#include "gis/map/map.h"
-#include "tool/camera_nav.h"
-#include "tool/gestures.h"
-#include "tool/workspace.h"
+#include "gis/model/feature/feature.h"
+#include "gis/model/map/map.h"
+#include "tool/nav/camera_nav.h"
+#include "tool/draft/draft.h"
+#include "tool/workspace/workspace.h"
 
 using namespace base;
 using namespace geo;
@@ -274,9 +271,10 @@ void Smt2DXView::OnTimer(UINT_PTR nIDEvent) {
         rdPra.lPointRaduis = sysPra.lPointRaduis;
 
         m_pRenderDevice->SetRenderPra(rdPra);
+        // Timer() invalidates only when a delayed worker frame is ready.
+        // Do not PostMessage(WM_PAINT) every tick — that flooded the UI
+        // pump (~20 Hz) and made dock controls lag behind the mouse.
         m_pRenderDevice->Timer();
-
-        if (m_bActive) PostMessage(WM_PAINT);
       }
     } break;
     default:

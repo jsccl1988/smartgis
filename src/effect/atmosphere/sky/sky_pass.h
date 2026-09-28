@@ -1,0 +1,95 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef EFFECT_ATMOSPHERE_SKY_PASS_H_
+#define EFFECT_ATMOSPHERE_SKY_PASS_H_
+
+#include <cstdint>
+
+
+namespace render {
+namespace rhi {
+class Buffer;
+class CommandList;
+class Device;
+class Pipeline;
+struct CameraMatrices;
+}  // namespace rhi
+
+}  // namespace render
+
+namespace effect {
+namespace atmosphere {
+
+// POD knobs for a simple analytical sky (GIS 3D far-field).
+struct SkyDrawParams {
+  float sun_x = 0.0f;
+  float sun_y = 0.7071f;
+  float sun_z = 0.7071f;
+  // Orbit-normalized dome radius (matches Scene3dController framing).
+  float dome_radius = 8.0f;
+  float zenith_r = 0.10f;
+  float zenith_g = 0.28f;
+  float zenith_b = 0.88f;
+  float horizon_r = 0.62f;
+  float horizon_g = 0.72f;
+  float horizon_b = 0.78f;
+  float sunset_r = 0.95f;
+  float sunset_g = 0.42f;
+  float sunset_b = 0.18f;
+  float sun_glow_strength = 0.55f;
+};
+
+// Far-sky / horizon tint driven by sun direction. Records a dome with the
+// shared solid graphics program. Analytical tint is a float4 on constant
+// slot 1. Full sky HLSL is deferred.
+class SkyPass {
+ public:
+  SkyPass();
+  ~SkyPass();
+
+  SkyPass(const SkyPass&) = delete;
+  SkyPass& operator=(const SkyPass&) = delete;
+
+  void set_params(const SkyDrawParams& params);
+  const SkyDrawParams& params() const { return params_; }
+
+  void set_sun_direction(float x, float y, float z);
+  void set_sun_from_azimuth_elevation(float azimuth_rad, float elevation_rad);
+
+  // Sample RGB for a unit view direction (Y-up). Pure helper for tests / Null.
+  static void sample_sky_rgb(const SkyDrawParams& p, float dir_x, float dir_y,
+                             float dir_z, float* out_r, float* out_g,
+                             float* out_b);
+
+  // Average tint used for the solid dome draw (zenith vs horizon vs sun).
+  static void average_sky_rgb(const SkyDrawParams& p, float* out_r,
+                              float* out_g, float* out_b);
+
+  // Draw into an open CommandList (Frame owns begin/end_render_pass).
+  bool record(render::rhi::Device* device, render::rhi::CommandList* list, uint32_t width,
+              uint32_t height, const render::rhi::CameraMatrices* camera);
+
+  // Solid program created for the device passed to record. Null before that.
+  render::rhi::Pipeline* pipeline() const { return pipeline_; }
+
+  void release();
+
+ private:
+  bool ensure_dome_mesh(render::rhi::Device* device);
+  bool ensure_pipeline(render::rhi::Device* device);
+  void destroy_pipeline();
+
+  SkyDrawParams params_;
+  render::rhi::Device* device_ = nullptr;
+  render::rhi::Device* pipeline_device_ = nullptr;
+  render::rhi::Pipeline* pipeline_ = nullptr;
+  render::rhi::Buffer* vertex_ = nullptr;
+  render::rhi::Buffer* index_ = nullptr;
+  uint32_t index_count_ = 0;
+};
+
+}  // namespace atmosphere
+}  // namespace effect
+
+#endif  // EFFECT_ATMOSPHERE_SKY_PASS_H_

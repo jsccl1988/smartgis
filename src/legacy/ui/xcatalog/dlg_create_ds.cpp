@@ -4,7 +4,7 @@
 #include "stdafx.h"
 #include "legacy/ui/xcatalog/dlg_create_ds.h"
 
-#include "base/core/api.h"
+#include "legacy/core/api.h"
 #include "legacy/ui/xcatalog/xcatalog_core.h"
 #include "gis/datasource/mgr/datasource_mgr.h"
 using namespace gis;

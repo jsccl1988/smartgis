@@ -29,7 +29,7 @@ All rights reserved.
 |------|--------|
 | Spec | `docs/superpowers/specs/2026-09-19-leftover-scene3d-dem-unify-design.md` |
 | Plan | `docs/superpowers/plans/2026-09-19-leftover-scene3d-dem-unify.md` |
-| Task G (gis) | `src/gis/world/dem_raster.{h,cc}`, optional `dem_frame.h`, `dem_raster_test.cc`, BUILD.gn if needed |
+| Task G (gis) | `src/gis/scene/world/dem_raster.{h,cc}`, optional `dem_frame.h`, `dem_raster_test.cc`, BUILD.gn if needed |
 | Task A (hosts) | `src/app/views/scene3d_controller.{h,cc}`, `scene3d_controller_test.cc`, `main.cc` only if self-test yaw asserts |
 | Task L (leftover 2a) | `src/legacy/render/scene3d/dem_height_field.{h,cc}`, `map_to_scene.{h,cc}`, `dem_stereo_test.cc`, maybe `dem_to_world.*` |
 | Do not touch | `src/legacy/render/bridge/**`, leftover 2b OnDraw→controller |
@@ -38,7 +38,7 @@ All rights reserved.
 
 ## Task G: DemRaster cutline + shared frame constants — PARALLEL with L
 
-**Paths only:** `src/gis/world/**` (+ this plan/spec). Do **not** edit `src/legacy/**` or `src/app/**`.
+**Paths only:** `src/gis/scene/world/**` (+ this plan/spec). Do **not** edit `src/legacy/**` or `src/app/**`.
 
 - [x] **G1** Add shared default orbit yaw constant (e.g. `kDemDefaultOrbitYaw = π − 0.55f`) in a small gis header; comment ties to leftover south-of-target / 上北下南.
 - [x] **G2** Align `seed_china_dem_into_world` cutline with leftover: if loaded path contains `china_dem`, **skip** `mask_outside_rings` even when rings are passed; synthetic / other rasters may mask with mainland-contains caution (document in comment).

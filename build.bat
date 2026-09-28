@@ -60,14 +60,8 @@ REM Optional first arg: mogu-style aliases (m/te/a/b/app) or a raw ninja target.
 REM `sln` is rejected: engineering management is GN only.
 set "NINJA_TARGET="
 set "BUILD_APP=false"
-set "BUILD_WINUI=false"
-set "BUILD_CEF=false"
 set "BUILD_RENDER=false"
 set "BUILD_VIEWS=false"
-set "BUILD_CS=false"
-set "ENABLE_MAPLIBRE=false"
-if /I "%SMT_ENABLE_MAPLIBRE%"=="true" set "ENABLE_MAPLIBRE=true"
-if /I "%SMT_ENABLE_MAPLIBRE%"=="1" set "ENABLE_MAPLIBRE=true"
 if /I "%~1"=="sln" (
   echo ERROR: MSBuild/sln is not an engineering entry. Use build.bat ^(GN^).>&2
   echo vs2008\ and branches\ were removed; engineering entry is GN only.>&2
@@ -134,56 +128,17 @@ if not "%~1"=="" (
   ) else if /I "%~1"=="render" (
     set "NINJA_TARGET=render"
     set "BUILD_RENDER=true"
-  ) else if /I "%~1"=="winui" (
-    set "NINJA_TARGET=winui"
-    set "BUILD_WINUI=true"
-  ) else if /I "%~1"=="cef" (
-    set "NINJA_TARGET=cef"
-    set "BUILD_CEF=true"
-  ) else if /I "%~1"=="cs" (
-    REM C# PE cannot --type=gpu; needs sibling SmartGisRender.exe (README).
-    set "NINJA_TARGET=cs"
-    set "BUILD_CS=true"
-    set "BUILD_RENDER=true"
   ) else if /I "%~1"=="e2e" (
     set "NINJA_TARGET=e2e"
     set "BUILD_APP=true"
     set "BUILD_VIEWS=true"
     set "BUILD_RENDER=true"
-    set "BUILD_WINUI=true"
-    REM CEF stays off by default so machines without the Binary Dist pin do not fail e2e.
   ) else (
     set "NINJA_TARGET=%~1"
   )
 )
 
-if /I "!BUILD_WINUI!"=="true" (
-  call "%~dp0src\app\winui\ensure_wasdk.bat"
-  if errorlevel 1 (
-    popd
-    exit /b 1
-  )
-)
-
-if /I "!BUILD_CEF!"=="true" (
-  if not exist "%~dp0third_party\cef\binary\include\cef_version.h" (
-    echo CEF Binary Distribution missing. See third_party/cef/README.md
-    popd
-    exit /b 1
-  )
-)
-
-if /I "!BUILD_CS!"=="true" (
-  where dotnet >nul 2>&1
-  if errorlevel 1 (
-    echo ERROR: dotnet SDK not on PATH. Install .NET 8 SDK for build.bat cs.
-    echo See src/app/cs/README.md
-    popd
-    exit /b 1
-  )
-)
-
-"%GN_PATH%gn.exe" gen out --root=./ --ide=vs2019 --args="is_debug=true is_build_third_party=false smt_run_vs_env_script=false vs_version=180 msvc_installed=true smt_build_app=!BUILD_APP! smt_build_views=!BUILD_VIEWS! smt_build_render=!BUILD_RENDER! smt_build_winui=!BUILD_WINUI! smt_build_cef=!BUILD_CEF! smt_build_cs=!BUILD_CS! smt_enable_maplibre=!ENABLE_MAPLIBRE!"
+"%GN_PATH%gn.exe" gen out --root=./ --ide=vs2019 --args="is_debug=true is_build_third_party=false smt_run_vs_env_script=false vs_version=180 msvc_installed=true smt_build_app=!BUILD_APP! smt_build_views=!BUILD_VIEWS! smt_build_render=!BUILD_RENDER!"
 if errorlevel 1 (
   popd
   exit /b 1
@@ -209,7 +164,7 @@ if !ERR! EQU 0 (
     set "ERR=!ERRORLEVEL!"
   ) else if /I "!NINJA_TARGET!"=="test_all" (
     set "UNIT_ERR=0"
-        for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe leftover_record_test.exe leftover_session_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe tin_xyz_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe gestures_test.exe camera_nav_test.exe content_view_host_test.exe content_feature_attrs_test.exe content_catalog_layers_test.exe land_mask_test.exe views_unittests.exe views_pixel_tests.exe ipc_test.exe chrome_bridge_test.exe render_backend_test.exe tile_test.exe style_test.exe sg_host_test.exe map_scene_test.exe scene3d_controller_test.exe dem_raster_test.exe gdi_map_paint_test.exe map_carto2d_test.exe gl_map_paint_test.exe dem_stereo_test.exe menu_test.exe select_query_test.exe) do (
+        for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe leftover_record_test.exe leftover_session_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe tin_xyz_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_view_host_test.exe content_feature_attrs_test.exe content_catalog_layers_test.exe content_embed_sample_test.exe land_mask_test.exe views_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe map_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe gdi_map_paint_test.exe map_carto2d_test.exe gl_map_paint_test.exe dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe) do (
       if exist ".\out\%%T" (
         echo Running out\%%T
         ".\out\%%T"

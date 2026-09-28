@@ -20,7 +20,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define XCATALOG_EXPORT __declspec(dllimport)
 #endif
 
-#include "base/core/core.h"
+#include "legacy/core/core.h"
 // SmtXCatalog
 namespace ui {
 class XCATALOG_EXPORT SmtXCatalog : public CTreeCtrl {

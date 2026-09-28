@@ -19,11 +19,11 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define XVIEW_EXPORT __declspec(dllimport)
 #endif
 
-#include "legacy/render/bridge/renderdevice.h"
-#include "legacy/render/bridge/renderer.h"
-#include "legacy/tool/group/grouptoolfactory.h"
+#include "legacy/render/rhi2d/public/device/renderdevice.h"
+#include "legacy/render/rhi2d/public/device/renderer.h"
+#include "legacy/tool/group/factory/grouptoolfactory.h"
 #include "legacy/ui/xview/xview.h"
-#include "gis/map/map.h"
+#include "gis/model/map/map.h"
 
 using namespace render;
 using namespace tool;

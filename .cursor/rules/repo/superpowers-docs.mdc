@@ -1,5 +1,5 @@
 ---
-description: Superpowers specs/plans lifecycle — no topic booklets; revise or supersede; archive when landed
+description: Superpowers specs/plans lifecycle — high bar for new files; revise living; archive when landed
 alwaysApply: true
 ---
 
@@ -14,14 +14,38 @@ All rights reserved.
 
 `docs/superpowers/` holds **in-flight decisions and open plans only**. Product / module as-built lives in **`docs/build/`**, **`docs/README.md`**, and module READMEs under `src/` / `core/` / `build/`. This repo does **not** use mogu’s `docs/app|infra|common` four-pillar trees.
 
-## Do
+## Default: revise in place
 
-- **Read** `docs/README.md` and **search** `docs/superpowers/` plus `docs/build/` before writing a new spec or plan.
-- **Revise in place** or mark the old spec `superseded` and open one replacement. One topic → one living spec.
-- New spec **only** for a new subsystem, or a fork that cannot be a section of the existing spec.
-- Put **`Status: active | accepted | landed | superseded`** on the first metadata line of every new or edited spec.
-- When a plan is fully done: **same change** move that spec + plan to `docs/superpowers/archive/{specs,plans}/` (keep filenames) and put as-built facts in `docs/build/` (or the module README).
-- If `docs/superpowers/README.md` exists, keep it as a **living Active table** plus an Archive pointer. Do not rebuild a full inventory.
+1. **Read** `docs/superpowers/README.md` (Active table), `docs/README.md`, and search `docs/superpowers/` + `docs/build/` **before** writing any new spec or plan.
+2. **One topic → one living spec.** Prefer appending a `§` section to the existing living file over creating `YYYY-MM-DD-*-design.md`.
+3. Put **`Status: active | accepted | landed | superseded`** on the first metadata line of every new or edited spec. Refresh **Updated:** when merging.
+4. When a plan is fully done: **same change** move that spec + plan to `docs/superpowers/archive/{specs,plans}/` (keep filenames) and put as-built facts in `docs/build/` (or the module README).
+5. Keep `docs/superpowers/README.md` as a **short Active table** + Archive pointer. Do not rebuild a full inventory in `docs/README.md`.
+
+## Gate: when a **new** dated spec is allowed
+
+Open a **new** `docs/superpowers/specs/YYYY-MM-DD-*-design.md` **only if all** of the following hold:
+
+1. It is a **new top-level subsystem** (no existing living row covers it), **or** an **incompatible fork** of an existing contract that cannot be a section without lying.
+2. The author can name, in the new file’s metadata, **which living file was considered** and **why a § merge is impossible** (one short paragraph). If that paragraph cannot be written honestly → **revise the living file**.
+3. The topic is **not** any of the ban list below.
+
+### Ban list — never a new hot spec (use living § or as-built)
+
+| Topic shape | Where it belongs |
+| --- | --- |
+| Subdirectory / scheme C layout / include break / dual-run file moves | Module `README.md` + `docs/build/src-layout.md`, or a § under the owning living (e.g. umbrella SP, tool-event-dispatch, render-rhi-scene) |
+| SP1–SP5 / SP1b / SP4b slices of leftover strangler | `docs/superpowers/specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md` |
+| RHI pipeline / frame graph / GPU-process compose / P0 lit | `docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md` |
+| Atmosphere pass + weather domain boundary | `docs/superpowers/specs/2026-09-19-atmosphere-ocean-cloud-design.md` |
+| `app/views` menus + capability dirs | `docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md` |
+| Views 2D CPU frame + RHI present / GDI fallback | `docs/superpowers/specs/2026-09-27-map2d-frame-design.md` |
+| `src/tool` module dirs | `docs/superpowers/specs/2026-09-13-tool-event-dispatch-design.md` |
+
+### Plans
+
+- **Prefer one plan per living spec** (or per SP checklist already linked from the umbrella). Do not open a plan that only restates a layout move.
+- Brainstorming / writing-plans skills that default to a new dated file: **stop** and revise the living Active row instead unless the Gate above passes.
 
 ## Don’t
 
@@ -30,14 +54,16 @@ All rights reserved.
 - **Don’t** treat `docs/superpowers/` as product documentation.
 - **Don’t** rewrite archived bodies except mechanical link fixes.
 - **Don’t** archive a file when unsure — leave it in the hot directory.
+- **Don’t** reopen archived `superseded` / `landed` specs as living twins.
 
 ## Layout
 
 | Path | Role |
-|------|------|
-| `docs/superpowers/specs/` | `active` / `accepted` |
+| --- | --- |
+| `docs/superpowers/README.md` | Active living table (short) |
+| `docs/superpowers/specs/` | `active` / `accepted` living only |
 | `docs/superpowers/plans/` | Open checkbox plans |
-| `docs/superpowers/archive/` | `landed` / `superseded` (create when first landing) |
+| `docs/superpowers/archive/` | `landed` / `superseded` |
 
 ## Related
 

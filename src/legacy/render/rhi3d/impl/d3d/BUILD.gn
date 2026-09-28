@@ -1,0 +1,42 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
+# D3D11 leftover impl under rhi/impl/d3d/ (parallel to impl/gl/).
+# Layout (B' colocated): device/caps/buffer/ext. No D3DX; Windows D3D11 + DXGI.
+source_set("d3d_sources") {
+  sources = [
+    "buffer/indexbuffer.cpp",
+    "buffer/vertexbuffer.cpp",
+    "caps/devicecaps.cpp",
+    "device/3drenderdevice.cpp",
+    "device/rdev_mtx.cpp",
+    "device/rdev_render.cpp",
+    "device/rdev_resources.cpp",
+    "device/statesmanager.cpp",
+    "ext/extinterface.cpp",
+  ]
+  configs += [
+    "//build:legacy",
+    "//src/legacy/render:legacy_render_exports",
+  ]
+  defines = [ "_USRDLL" ]
+  deps = [
+    "//src/gis/kernel/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/legacy/render/rhi3d:leftover_record",
+    "//src/legacy/render/rhi2d:rhi2d_sources",
+    "//src/legacy/render/rhi3d:rhi_sources",
+  ]
+  libs = [
+    "d3d11.lib",
+    "dxgi.lib",
+  ]
+}
+
+group("d3d") {
+  public_deps = [ "//src/legacy/render:legacy_render" ]
+}

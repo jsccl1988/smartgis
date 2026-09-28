@@ -10,7 +10,7 @@
 #pragma once
 #endif  // _MSC_VER > 1000
 
-#include "base/core/core.h"
+#include "legacy/core/core.h"
 
 class AFX_EXT_CLASS TabbedWndDockBar : public CBCGPDockingControlBar {
  public:

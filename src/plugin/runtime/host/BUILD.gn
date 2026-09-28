@@ -1,0 +1,88 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Plugin host / shared runtime DLL (dll_stem = plugin_host).
+# Product *_views stay source_sets (Phase-2 per-stem DLLs later).
+# Leftover *.am LoadLibrary stays via //src/legacy/plugin/adapter:am.
+# Do not use PLUGIN_EXPORT — that is legacy AuxModule (dll_stem = plugin).
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+config("plugin_host_config") {
+  include_dirs += [
+    "//src",
+    "//src/base/core",
+  ]
+}
+
+source_set("host_sources") {
+  sources = [
+    "operation_result.cc",
+    "operation_result.h",
+    "manager_view.cc",
+    "manager_view.h",
+    "manifest.cc",
+    "manifest.h",
+    "official_key.h",
+    "plugin_host_export.h",
+    "processing.cc",
+    "processing.h",
+    "registry.cc",
+    "registry.h",
+    "signature.cc",
+    "signature.h",
+    "signature_test_key.h",
+    "store.cc",
+    "store.h",
+  ]
+  public_configs = [ ":plugin_host_config" ]
+  defines = [ "PLUGIN_HOST_EXPORTS" ]
+  deps = [
+    "//src/legacy/plugin/adapter:am",
+    "//src/base:core",
+    "//src/content:content",
+    "//src/net:net",
+    "//src/tool:dispatch",
+    "//src/ui/views:views",
+    "//third_party:ed25519",
+  ]
+}
+
+# Product host API + shared widgets runtime. Disk: plugin_host.dll / _d.
+smt_shared_library("host") {
+  dll_stem = "plugin_host"
+  defines = [ "PLUGIN_HOST_EXPORTS" ]
+  deps = [
+    ":host_sources",
+    "//src/plugin/runtime/widgets:widgets_sources",
+  ]
+  public_deps = [
+    "//src/content:content",
+    "//src/tool:dispatch",
+    "//src/ui/views:views",
+  ]
+  public_configs = [ ":plugin_host_config" ]
+}
+
+test("plugin_host_test") {
+  output_name = "plugin_host_test"
+  sources = [ "host_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":host",
+    "//src/legacy/plugin/adapter:am",
+    "//src/legacy/plugin/adapter:cmd",
+    "//src/plugin/product/dem:dem_views",
+    "//src/plugin/product/model3d:model3d_views",
+    "//src/plugin/product/orthogrid:orthogrid_views",
+    "//src/plugin/product/print:print_views",
+    "//src/plugin/product/proj:proj_views",
+    "//third_party:cpp_httplib",
+  ]
+  data_deps = [
+    "//src/gis/kernel/proj:proj",
+    "//third_party:gdal_runtime_dlls",
+  ]
+  libs += [ "ws2_32.lib" ]
+}

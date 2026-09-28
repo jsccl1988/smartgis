@@ -3,7 +3,7 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-Status: active
+Status: active（Phase 1 + 产品 import-link DLL 已落地；Task 8 域插件核对仍开）
 
 # DLL reorganization Implementation Plan
 
@@ -11,9 +11,11 @@ Status: active
 >
 > **本轮用户指令：** 设计已批准，「并行执行无需再确认」；在 **master** 上改；**不要 commit**（除非用户另行要求）。
 
-**Goal:** 按 Goal D + 粒度 C，将平台碎 DLL 收敛为「一层一 DLL」（`base` / `sdb` / `algorithm` / `render` + app-gated `ui_legacy`），optional leftover 独立；Phase 2 保持每插件一 DLL。
+**Goal:** 按 Goal D + 粒度 C，将平台碎 DLL 收敛为「一层一 DLL」，再落地产品 import-link DLL（下表）；optional leftover 独立；Phase 2 域插件仍一 DLL；legacy `*.am` 仍 LoadLibrary。
 
-**Architecture:** 只改 `smt_shared_library` / `dll_stem` / export 边界；子模块保留细 `source_set` + 旧 GN 标签以 `group` 转发到新 DLL。迁移期 GN 同时定义旧 `*_EXPORTS` 与新 `FOO_EXPORTS`（见 design）。依赖序：algorithm（或 base）→ sdb（先切断 `gis`→`render3d`）→ render → ui_legacy → optional legacy_* → 文档回写。
+**As-built product stems (2026-09-28):** `base` · `gis` · `render` · `net` · `content` · `ui_views` · `tool` · `plugin_host`（+ app-gated `ui_legacy` / optional `legacy_*`）。
+
+**Architecture:** 只改 `smt_shared_library` / `dll_stem` / export 边界；子模块保留细 `source_set` + 旧 GN 标签以 `group` 转发到新 DLL。`net` 已从 `base` 抽出；原 `sdb`/`algorithm` 并入 `gis`。
 
 **Tech Stack:** GN/`smt_shared_library`（`build/smartgis.gni`）、Ninja `out/`、`build.bat` 针对性目标、MSVC `__declspec(dllexport/dllimport)`。
 
@@ -27,27 +29,30 @@ Status: active
 - 禁止：重排源码树、重开全仓 include cutover、把 `legacy_render` 并进 `render`、平台↔插件反向依赖、Qt。
 - 插件 `LoadLibrary` 字符串 / stable ids（`smartgis.dem` 等）Phase 2 保持；**不要**把 `geo`/`proj`/`tin`/`stat` 误当成插件 stem。
 - Copyright：`Copyright (c) 2026 The Mogu Authors.`；源码注释英文；文档中文。
-- 验证：优先 `build.bat` / `ninja -C out <target>` 针对性目标；非必要不跑全量长时间 build。
+- 验证：优先 `build.bat` / `ninja -C out <target>` 针对性目标；非必要不跑全量长时间 build。**Agent 不代跑编译**（见 `no-agent-build`）。
 
-## File map（按批）
+## File map（按批；历史）
 
-| Batch | Paths | Responsibility |
-| --- | --- | --- |
-| 0 Prep | `src/sdb/map/BUILD.gn` + 调用方 | 切断 `gis` → `render3d`（sdb 合并前置） |
-| 1 algorithm | `src/algorithm/**/BUILD.gn`、export/`#pragma comment(lib)` | `geo`+`proj`+`tin`+`stat` → `dll_stem=algorithm` |
-| 2 base | `src/base/**`、`src/sys`、`src/net` | `core`+`style`+`sys`+`net` → `dll_stem=base` |
-| 3 sdb | `src/sdb/**/BUILD.gn` | `gis`+`sde_*`+tile/model/scene/edit → `dll_stem=sdb` |
-| 4 render | `src/render/**/BUILD.gn` | endgame source_sets → `dll_stem=render` |
-| 5 ui_legacy | `src/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | → `dll_stem=ui_legacy`（`smt_build_app`） |
-| 6 optional | `src/legacy/render/**`、`src/legacy/tool/**` | → `legacy_render` / `legacy_tool` |
-| 7 docs | `abi-rename-map.md`、`src-layout.md`、本 plan 勾选 | 终态 stem 表 + 一层一 DLL 叙述 |
+| Batch | Paths | Responsibility | 状态 |
+| --- | --- | --- | --- |
+| 0 Prep | `gis` → 切断 `legacy_render` | sdb/gis 合并前置 | done |
+| 1–3 | algorithm + sdb → **`gis`** | 原独立 algorithm/sdb stem 已并入 | done |
+| 2′ | `net` 从 `base` 抽出 | `//src/net:net` | done |
+| 4 | `render` | endgame → `dll_stem=render` | done |
+| 5 | `ui_legacy` | `smt_build_app` | done |
+| 6 | optional leftover | `legacy_render` / `legacy_tool` | done |
+| 7 | docs | abi-rename-map / src-layout / design | done（持续修订） |
+| 8 | `content` / `tool` / `ui_views` / `plugin_host` | 产品 import-link DLL | done |
+| 9 | SmartGisViews + gpu↔gfx | exe import-link；`:gfx_headers` | done |
 
-**明确不做清单：**
+**明确不做清单（修订后）：**
 
-- 不把 `content` / `tool/dispatch` / `plugin/host` 做成产品 DLL。
-- 不强制 `app_core` 并入平台五 DLL。
-- 不改插件域 `dll_stem`（Phase 2 仅核对）。
+- ~~不把 `content` / `tool` / `plugin/host` 做成产品 DLL~~ → **已做成**（见 Task 10）。
+- 不强制 `app_core` 并入平台 DLL。
+- 不把 `ui_views` 拆成独立 `gfx.dll`（gfx 对象留在 `ui_views` PE；gpu 用 `:gfx_headers`）。
+- 不改域插件 LoadLibrary 字符串（Phase 2 仅核对）。
 - 不在本 plan 执行全量 include/ABI snake_case cutover。
+- 产品 `*_views` / `processing_views` / `effect_*` / `gpu` 仍为 source_set（有意）。
 
 ## 批次依赖与验证口令
 
@@ -163,14 +168,14 @@ Expected: 产出 `out/algorithm_d.dll`（debug）；不再产出独立的 `geo_d
 ### Task 2: base — core/style/sys/net → 单一 `base` DLL
 
 **Files:**
-- Modify: `src/base/BUILD.gn`、`src/base/core/BUILD.gn`、`src/sys/BUILD.gn`、`src/net/BUILD.gn`
+- Modify: `src/base/BUILD.gn`、`src/base/core/BUILD.gn`、`src/legacy/sys/BUILD.gn`、`src/net/BUILD.gn`
 - Modify: 各层 export 头中 `#pragma comment(lib, "core|style|sys|net…")` → `base` / `base_d`
 - Modify: 所有 `dll_stem` 引用与 exe/plugin deps（经 group 转发可减量）
 
 **Interfaces:**
 - Produces: `dll_stem = "base"`；`BASE_EXPORTS` + 旧 `CORE_EXPORTS`/`STYLE_EXPORTS`/`SYS_EXPORTS`/`NET_EXPORTS` 并存
 - `ipc` / `archive` 仍为 source_set，链进该 DLL
-- 保留 `//src/base:core`、`//src/base:base`（今日 style）、`//src/sys:sys`、`//src/net:net` 为 **group → `:base` 聚合库**（或统一到 `//src/base:base` 一名，须在本任务内选定并改完所有 GN 引用）
+- 保留 `//src/base:core`、`//src/base:base`（今日 style）、`//src/legacy/sys:sys`、`//src/net:net` 为 **group → `:base` 聚合库**（或统一到 `//src/base:base` 一名，须在本任务内选定并改完所有 GN 引用）
 
 - [x] **Step 1: 盘点四库 sources/deps，确认无 `base`→`sdb`/`algorithm`/`render` 边**
 
@@ -182,7 +187,7 @@ CBM / BUILD：`core_sources` 仅 CxImage；`style_sources` 无外向；`sys_sour
 
 - [x] **Step 3: 旧标签 group 转发；更新 pragma / 测试 deps**
 
-`//src/base:core`、`//src/base/core:core`、`//src/sys:sys`、`//src/net:net`、`//src/base/ipc:ipc` → `//src/base:base`。头文件 `#pragma comment(lib)` → `base` / `base_d`。
+`//src/base:core`、`//src/base/core:core`、`//src/legacy/sys:sys`、`//src/net:net`、`//src/base/ipc:ipc` → `//src/base:base`。头文件 `#pragma comment(lib)` → `base` / `base_d`。
 
 - [x] **Step 4: 验证**
 
@@ -313,19 +318,21 @@ ninja -C out sde_gdal_test
 
 - [x] **Step 2: 确认 `src/BUILD.gn` `src_all` 无 leftover**
 
-`src_all` 仅平台四 DLL + content/plugin/dispatch；无 `legacy_*`。
+`src_all`：`base` / `net` / `gis` / `render` / `content` / `tool` + leftover `plugin`；无 `legacy_*`。
 
 - [x] **Step 3: 不要 commit**
 
 ---
 
-### Task 8: Phase 2 核对（无强制改 stem）
+### Task 8: Phase 2 核对（无强制改域插件 stem）
 
 **Files:**
 - `src/plugin/**/BUILD.gn`、host LoadLibrary / `*.am` 适配路径
 - `docs/build/abi-rename-map.md` Plugin stem 段
 
-- [ ] **Step 1: 确认每插件仍一 DLL；host 仍为 source_set**
+- [ ] **Step 1: 确认每域插件仍一 DLL；`*.am` 仍 LoadLibrary**
+
+> **2026-09-28：** `plugin_host` 已是产品 DLL（`PLUGIN_HOST_*`）；legacy AuxModule 仍为 `plugin` / `*.am`。Views `*_views` 仍为 source_set。
 
 - [ ] **Step 2: 确认平台合并未改 `plugin_dem` 等 LoadLibrary 字符串**
 
@@ -342,24 +349,48 @@ ninja -C out sde_gdal_test
 
 - [x] **Step 1: 与 design 终态表对齐回写**
 
-> **2026-09-14：** `abi-rename-map.md` / `src-layout.md` / `docs/README.md` 已回写；`ui_legacy` 标**完成**（`ui_legacy_d.dll`）。Phase 1 平台 + optional leftover 均完成；spec 归档留待 Task 8 核对后另变更集。
+> **2026-09-14：** Phase 1 平台 + optional leftover 回写。  
+> **2026-09-28：** 修订 design/plan/src-layout/abi-rename-map：`net` 独立；`gis` 替代 sdb/algorithm；`content`/`tool`/`ui_views`/`plugin_host` 入产品 DLL 表；gpu→`:gfx_headers`。
 
 - [x] **Step 2: 不要 commit**（除非用户要求一次文档+代码提交）
+
+---
+
+### Task 10: 产品 import-link DLL + SmartGisViews + gpu↔gfx（2026-09-28）
+
+**Files:**
+- `src/{content,tool,ui/views,plugin/runtime/host,net}/**/BUILD.gn`（DLL 已落地）
+- `src/app/views/BUILD.gn` — SmartGisViews deps 显式 import-link
+- `src/ui/gfx/BUILD.gn` — `:gfx_headers`；`:gfx` 仍 → `ui_views`
+- `src/gpu/BUILD.gn` — deps `:gfx_headers` only
+- living design / src-layout / abi-rename-map
+
+- [x] **Step 1: 产品 DLL 集 import-link（非 LoadLibrary）**
+
+`base` / `gis` / `render` / `net` / `content` / `ui_views` / `tool` / `plugin_host`。产物在 `out/` 与 exe 同目录。
+
+- [x] **Step 2: gpu 不拉 `ui_views`**
+
+`:gfx_headers`（include）；Views 单 PE 不变。
+
+- [x] **Step 3: 不要 commit**
+
 ---
 
 ## Self-review（对照 spec）
 
 | Spec 要求 | Plan 任务 |
 | --- | --- |
-| Phase 1：`base`/`sdb`/`algorithm`/`render`/`ui_legacy` | Task 2/4/1/5/6 |
-| `sys`/`net` 并入 `base` | Task 2 |
-| 切断 `gis`→`render3d` | Task 3 |
+| Phase 1：`base`/`gis`/`render`/`ui_legacy` | Task 1–6（sdb/algorithm → gis） |
+| `sys` 并入 `base`；`net` 独立 | Task 2 / 2′ |
+| 切断 `gis`→`legacy_render` | Task 3 |
 | optional `legacy_render`/`legacy_tool` | Task 7 |
-| Phase 2 插件一 DLL；host source_set | Task 8 |
-| export 双 define / 别名 | 各 Task Step 的 defines |
+| `content`/`tool`/`ui_views`/`plugin_host` DLL | Task 10 |
+| Phase 2 域插件一 DLL；`*.am` LoadLibrary | Task 8 |
+| SmartGisViews import-link；gpu↔gfx 薄边 | Task 10 |
 | 回写 abi-rename-map + src-layout | Task 9 |
 | 不改目录树 / 不重开 include cutover | Global Constraints |
 
 ## 执行说明
 
-本轮可立即执行 **Task 1**（algorithm）。Task 2 与 Task 1 可并行于不同 agent，但勿同时改同一 `BUILD.gn`。Task 4 必须在 Task 3 之后。
+Phase 1–Task 10 代码边已在 master；用户本地验证：`build.bat`（或 `build.bat app` / Views 目标）。Agent 不代跑编译。

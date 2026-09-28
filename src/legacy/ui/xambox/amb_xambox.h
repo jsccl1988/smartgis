@@ -20,8 +20,8 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define XAMBOX_EXPORT __declspec(dllimport)
 #endif
 
-#include "base/core/core.h"
-#include "plugin/legacy/module.h"
+#include "legacy/core/core.h"
+#include "legacy/plugin/module.h"
 // SmtXAMBox
 using namespace plugin;
 

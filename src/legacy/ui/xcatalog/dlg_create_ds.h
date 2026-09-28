@@ -1,7 +1,7 @@
 #pragma once
 #include "legacy/ui/xcatalog/resource.h"
 #include "afxwin.h"
-#include "gis/layer/layer.h"
+#include "gis/model/layer/layer.h"
 
 using namespace gis;
 // CDlgCreateDS �Ի���

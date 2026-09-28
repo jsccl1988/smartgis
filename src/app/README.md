@@ -3,21 +3,16 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# `src/app` — product hosts
+# `src/app` — product host
 
-Endgame / prototype shells only (three interchangeable product chromes):
+Desktop shell is Views only.
 
 | Path | Binary | Notes |
 | --- | --- | --- |
-| `views/` | `SmartGisViews.exe` | Destination chrome (`build.bat views`) |
-| `winui/` | `SmartGisWinui.exe` | Non-endgame prototype (`build.bat winui`) |
-| `cef/` | `SmartGisCef.exe` | CEF HTML chrome + HWND map slots (`build.bat cef`) |
-| `cs/` | `SmartGisCs.exe` | C# WinUI 3 host + `MapView` control (`build.bat cs`) |
+| `views/` | `SmartGisViews.exe` | Product shell (`build.bat app` / `build.bat views`) |
 
-Product contract (all four): MenuBar · Catalog · Ambox · Map Edit|Data|3D ·
-Inspector (FeatureInfo / Attribute) · StatusBar. Toolkit differs; regions and
-command ids align. Map present stays on `content` / GPU (CEF and C# use
-`SmartGisRender.exe` escape hatch).
+Product contract: MenuBar · Catalog · Ambox · Map Edit\|Data\|3D · Inspector
+(FeatureInfo / Attribute) · StatusBar. Map present stays on `content` / GPU.
 
 MFC `SmartGis.exe` and `app_core` live in [`../legacy/app/`](../legacy/app/).
-Do not reintroduce MFC frame/`CView` sources here.
+Do not reintroduce MFC frame/`CView` sources here, or CEF / WinUI / C# hosts.

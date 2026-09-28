@@ -1,0 +1,22 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Leftover SmtSysManager. Compiled into //src/base:base (base.dll).
+# Same absorption pattern as //src/legacy/xml:xml_sources.
+
+source_set("sys_sources") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "BASE_EXPORTS=1",
+  ]
+  sources = [
+    "sysmanager.cpp",
+  ]
+}
+
+group("sys") {
+  public_deps = [ "//src/base:base" ]
+}

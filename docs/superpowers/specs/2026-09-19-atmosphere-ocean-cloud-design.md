@@ -7,16 +7,18 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-19  
-**Scope:** 在 Views 新栈（`gis::World` + `render::scene::GpuScene` + `Scene3dController`）上落地大气旁路：双通道 `FieldStore`、GPU FFT 海洋、体积云；External / Procedural 对等；**不接** leftover `scene3d` / `SmtScene`。  
-**Related:** RHI 双场景 [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)；World / GpuScene [`2026-09-19-scene3d-world-gpuscene-design.md`](2026-09-19-scene3d-world-gpuscene-design.md)；岸线掩膜 [`../../src/gis/world/land_mask.h`](../../src/gis/world/land_mask.h)。  
-**Plan:** [`../plans/2026-09-19-atmosphere-ocean-cloud.md`](../plans/2026-09-19-atmosphere-ocean-cloud.md)
+**Updated:** 2026-09-28 — China 3D geo-alignment (`OrbitGeoFrame`); paths → `gis/vista/domain/atmosphere` + `effect/atmosphere`; host `Scene3dPresenter`.  
+**Scope:** Views 新栈大气旁路（`FieldStore`、GPU 海/云/天空/雾）+ **天气域与 GPU pass 解耦**；**不接** leftover `scene3d` / `SmtScene`；**不做** Map2d 大气叠层。  
+**Related:** RHI / frame graph [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)；SP4 World/GpuScene in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP4；岸线掩膜 as-built `gis` terrain；layout as-built [`../../../src/effect/atmosphere/`](../../../src/effect/atmosphere/) · archived layout [`../archive/specs/2026-09-27-atmosphere-subdirectory-layout-design.md`](../archive/specs/2026-09-27-atmosphere-subdirectory-layout-design.md)。  
+**Plan:** [`../plans/2026-09-19-atmosphere-ocean-cloud.md`](../plans/2026-09-19-atmosphere-ocean-cloud.md) · upgrade [`../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md`](../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md) · sky/fog/LOD [`../plans/2026-09-27-sky-fog-terrain-lod.md`](../plans/2026-09-27-sky-fog-terrain-lod.md)
 
 ## Goal
 
-1. 提供会话级 **`gis::atmosphere::Environment`**（时间轴、太阳、开关），旁挂在 `MapScene` / `Scene3dController`，**不进** `gis::NodeKind`。  
+1. 提供会话级 **`gis::atmosphere::Environment`**（时间轴、太阳、开关），旁挂在 `MapScene` / `Scene3dPresenter`，**不进** `gis::NodeKind`。  
 2. **`FieldStore`** 作为唯一共享场平面：External（GDAL NetCDF/GRIB/GeoTIFF）与 Procedural 按 priority + `valid_mask` 混合；无文件时 Procedural 底图可跑。  
-3. **`render::atmosphere`** 提供海面 FFT/位移、云 raymarch、场纹理上传；只依赖 `render::rhi`（经 `atmosphere_sources` → render DLL），不新建 Device。  
-4. 绘制顺序：天空 → 海面 → 陆地/模型（现有）→ 体积云 → 可选后处理；岸线海=非陆（复用 `land_mask` / `kSeaMask`）。
+3. **`effect::atmosphere`**（`src/effect/atmosphere`）提供海面 FFT/位移、云 raymarch、天空/雾；只依赖 `render::rhi` / frame graph，不新建 Device。  
+4. 绘制顺序：天空 → 海面 → 陆地/模型（现有）→ 体积云 → 雾；岸线海=非陆（复用 `land_mask` / `kSeaMask`）。  
+5. **中国 3D 地理对齐**：DEM 与 atmosphere 共用同一 `OrbitGeoFrame`（lon/lat → orbit，X=-lon）。
 
 ## Non-goals
 
@@ -34,9 +36,9 @@ All rights reserved.
 
 | 层 | 命名空间 / 路径 | 职责 |
 | --- | --- | --- |
-| 逻辑场 | `gis::atmosphere` → `src/gis/atmosphere/` | `Environment`、`FieldStore`、ingest、procedural、`OceanSystem`、`CloudSystem` |
-| GPU pass | `render::atmosphere` → `src/render/atmosphere/` | `FieldTexture`、`OceanPass`、`CloudPass` |
-| 宿主 | `src/app/views/` | `Scene3dController` 可选挂载 Environment；默认关，自测/demo 开 |
+| 逻辑场 | `gis::atmosphere` → `src/gis/vista/domain/atmosphere/` | `Environment`、`FieldStore`、ingest、procedural、`OceanSystem`、`CloudSystem` |
+| GPU pass | `effect::atmosphere` → `src/effect/atmosphere/` | `AtmosphereFrame` / `AtmosphereEffects`、`OceanPass`、`CloudPass`、`SkyPass`、`FogPass` |
+| 宿主 | `src/app/views/present/scene3d/` | `Scene3dPresenter` + `OrbitGeoFrame`；默认关，demo/showcase/面板开 |
 
 ### 数据流
 
@@ -49,7 +51,7 @@ flowchart LR
   cloud[CloudSystem]
   passO[OceanPass]
   passC[CloudPass]
-  views[Scene3dController]
+  views[Scene3dPresenter]
 
   ingest --> store
   proc --> store
@@ -66,7 +68,7 @@ flowchart LR
 
 | Topic | Choice |
 | --- | --- |
-| 宿主 | Views 新栈 only；与 `Scene3dController` 同一 lon/lat 与相机矩阵 |
+| 宿主 | Views 新栈 only；与 `Scene3dPresenter` 同一 lon/lat 与相机矩阵 |
 | 场模型 | 双通道对等；混合规则 = priority 高者覆盖 + `valid_mask` |
 | 海洋 | v1 GPU FFT 波谱（Phillips/JONSWAP 简化）；可降级 Gerstner；接口仍称 FFT 路径 |
 | 云 | 视锥 raymarch；单次散射 + 啤酒定律；质量档在 `AtmosphereParams` |
@@ -77,9 +79,12 @@ flowchart LR
 
 | 路径 | 内容 |
 | --- | --- |
-| `src/gis/atmosphere/` | `environment`、`field_*`、`ocean_system`、`cloud_system`、`BUILD.gn` + `*_test.cc` |
-| `src/render/atmosphere/` | `ocean_pass`、`cloud_pass`、`field_texture`、`BUILD.gn` |
+| `src/gis/scene/atmosphere/` | `environment`、`field_*`、`ocean_system`、`cloud_system`、`BUILD.gn` + `*_test.cc` |
+| `src/render/atmosphere/` | 公开头：`ocean_pass` / `cloud_pass` / `field_texture`（+ 布局后的 `atmosphere_frame`）；实现子目录见 layout spec |
 | 接线 | `src/gis/BUILD.gn` deps `atmosphere_sources`；`src/render/BUILD.gn` deps `atmosphere_sources`（deps `rhi_sources`，避免 cycle） |
+
+> **Layout note (2026-09-27):** 物理子目录、`AtmosphereFrame`、sky/fog 槽位与 GIS 3D 诉求映射以 [`2026-09-27-atmosphere-subdirectory-layout-design.md`](2026-09-27-atmosphere-subdirectory-layout-design.md) 为准（plan 已归档 landed）。本文仍是 **能力 / 场模型 / FFT·云算法** 的 living 真源。  
+> **Sky / Fog / DEM LOD (2026-09-27):** 最小 `SkyPass` / `FogPass`（analytical + `kSolid`）与 `DemRaster::lod_max_edge` 已落地；见 plan [`../plans/2026-09-27-sky-fog-terrain-lod.md`](../plans/2026-09-27-sky-fog-terrain-lod.md)。完整 LUT / clipmap 仍 Deferred。
 
 ---
 
@@ -153,7 +158,7 @@ flowchart LR
 - **着色器**：`PipelineId::{kOcean,kCloud}`（HLSL via FlyCube `CompileShader`）；海洋 = GPU FFT compute（JONSWAP/Phillips 频谱 + bit-reverse + radix-2 + Tessendorf Dx/Dz → RGBA8，R=h / G=Dx / B=Dz）或 CPU FFT/Gerstner 回退 + VS 位移 + PS Fresnel；云 = 甲板网格 + PS 短程 raymarch，`BlendMode::kSrcAlpha`。  
 - **GPU FFT compute**：`ComputePipelineId::{kOceanSpectrum,kOceanFftBitReverse,kOceanFftButterfly,kOceanDisplacementSpectrum,kOceanHeightEncode}`；FlyCube `CreateComputePipeline` / `Dispatch`；能量归一化在 CPU 计算 `amp_scale`（σ=Hs/4）；Null / `quality==0` / Gerstner / `prefer_gpu_fft=false` 走 CPU。真机可选 `SMT_RUN_FLYCUBE_GPU=1`。  
 - `Environment` 挂在 Views 会话；默认大气关；`--self-test` 在 FlyCube present 前调用 `enable_atmosphere_demo()`。  
-- 与 `Scene3dController` 同一 lon/lat 范围与相机矩阵（`set_view_camera`）。
+- 与 `Scene3dPresenter` 同一 lon/lat 范围与相机矩阵（`set_view_camera`）。
 
 ### Honest limits (remaining)
 
@@ -186,3 +191,49 @@ flowchart LR
 - 完整 External NetCDF/GRIB 驱动矩阵与业务气象产品。  
 - 多次散射、完整浅水步进、交互式天气编辑 UI。  
 - leftover scene3d 大气迁移（明确不做）。
+
+---
+
+## §Weather domain（merged 2026-09-28）
+
+**原则：** 天气（状态机、时间轴、气象场、预报/回放）是 **GIS 领域态**；`effect::atmosphere` 只消费 **窄 POD + 纹理句柄**，不拥有 GRIB/NetCDF、业务类型或会话时钟。
+
+```
+Views / CLI → 会话意图
+        ▼
+gis 天气/环境域 (Environment + FieldStore + Systems)
+        │  Scene3dPresenter::prepare_atmosphere_* (+ OrbitGeoFrame)
+        ▼
+effect::atmosphere (GPU only) → AtmosphereFrame → render::graph / rhi
+```
+
+| Locked | Choice |
+| --- | --- |
+| 依赖 | `effect` Pass **不** deps `gis`；Pass 单测可无 `gis::` include |
+| Pass 顺序 | sky → ocean → opaque → cloud → fog（不变） |
+| 天气职责 | 投影参数；不改 GPU 管线语义 |
+| 布局 | colocated `effect/atmosphere/<module>/`（landed）；能力续作改本文 / upgrade plan |
+
+**Non-goals:** 本轮不建完整 GCM；不把天气逻辑写进 `*Pass`/HLSL；不新建 weather DLL。历史全文见 [`../archive/specs/2026-09-27-weather-domain-boundary-design.md`](../archive/specs/2026-09-27-weather-domain-boundary-design.md)。
+
+---
+
+## §China 3D geo-alignment（2026-09-28）
+
+**问题：** 中国 DEM 经 `normalize_mesh`（mesh AABB）进 orbit；海洋用固定 `patch_half_extent=2.4` 且 Y=0；海掩膜 UV 按 lon↑ 填格，但 mesh X=-lon 导致东西翻转；云 deck 硬编码米制/orbit 混用。表现为海岸/海洋/云与中国地图「空间切换」。
+
+**锁定：**
+
+| Topic | Choice |
+| --- | --- |
+| 共享帧 | `app::OrbitGeoFrame`（`present/scene3d/frame/orbit_geo_frame.h`）= `OrbitFrame::project_lon_lat` 同一公式：`X=-lon`、`Z=lat`、span→3.2、`kElevBoost=1.6` |
+| DEM | `rebuild_local_mesh` 用 **world_extent** 建 frame（非 land AABB），再 `capture_elev_center` + `normalize_xyz` |
+| Ocean | 矩形 patch 对齐 extent orbit XZ + pad；`patch_y = sea_level_y()`；Hs 经 `meters_to_orbit_y`；UV **U 翻转** 对齐 lon-increasing 掩膜 |
+| Cloud | `set_deck_orbit` / `set_slab_orbit` 由 prepare 投影 GIS 米 → orbit Y |
+| Sky / Fog | `enable_demo` 与 showcase full/coast 打开；雾 `base_height = sea_level_y()` |
+| Map2d | **out of scope** — 不做 2D 大气叠层 |
+| 进程 | 仍 in-process FlyCube；不经 GPU-process |
+
+**接缝：** `prepare_atmosphere_*` 只读 `geo_frame_`；`present_gpu` → `AtmosphereEffects` + `OpaqueEffect` → `render::graph::present`。
+
+**验证：** `scene3d_presenter_test`；`SmartGisViews.exe --atmosphere-showcase=full`（可选 `SMT_ATMOSPHERE_SHOWCASE_GPU=1`）。

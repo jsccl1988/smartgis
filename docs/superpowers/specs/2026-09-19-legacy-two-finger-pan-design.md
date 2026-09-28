@@ -29,7 +29,7 @@ Status: accepted
 
 ## Files
 
-- `src/legacy/ui/xview/view_chrome.cc` / `.h` — primary wiring
+- `src/legacy/ui/xview/view_shell.cc` / `.h` — primary wiring
 - `src/legacy/ui/xview/view_3d.cpp` / `xview.cpp` — pass `HWND`; treat `WM_MOUSEHWHEEL` like wheel for return
 
 ## Arbitration

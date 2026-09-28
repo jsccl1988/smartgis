@@ -7,8 +7,10 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted  
-**Related:** 三层伞状深度设计（模型 / 渲染 / 计算 + leftover 映射）见 [`2026-09-13-model-render-compute-design.md`](2026-09-13-model-render-compute-design.md)。产品语言 C++23。FlyCube 源码用本机 `C:\Dev\src\open\topic\graphic-engine`，不要 GitHub fetch。**P0 upgrade (lit solid / style→3D albedo / CPU frustum / GPU smoke):** [`2026-09-20-rhi-3d-capability-p0-design.md`](2026-09-20-rhi-3d-capability-p0-design.md) · plan [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md)。  
-**Scope:** one implementation plan. Expand `render::rhi` to a modern engine-shaped RHI with FlyCube as the GPU backend (DX12 and Vulkan on Windows). Move logical model I/O and scene/spatial management out of `render/{model3d,scene3d}` into `sdb`. Keep a GPU-resident scene in `render/scene`.
+**Updated:** 2026-09-28 — deep merge: frame graph, generic pipeline, GPU-process accelerate, P0 3D capability folded here. Former twins under `archive/specs/`.  
+**Related:** model/render/compute [`2026-09-13-model-render-compute-design.md`](2026-09-13-model-render-compute-design.md)；atmosphere [`2026-09-19-atmosphere-ocean-cloud-design.md`](2026-09-19-atmosphere-ocean-cloud-design.md)；Views 2D frame [`2026-09-27-map2d-frame-design.md`](2026-09-27-map2d-frame-design.md)；legacy present SP2 in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；as-built [`../../../src/render/README.md`](../../../src/render/README.md)、[`../../../src/gpu/README.md`](../../../src/gpu/README.md)；RHI subdir landed [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)。  
+**Plans:** RHI scene [`../plans/2026-09-13-render-rhi-scene.md`](../plans/2026-09-13-render-rhi-scene.md) · frame graph [`../plans/2026-09-27-render-frame-graph.md`](../plans/2026-09-27-render-frame-graph.md) · gpu accelerate [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) · P0 [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md)。  
+**Scope:** Living RHI + dual scene + in-process frame graph + GPU-process compose. FlyCube DX12/Vulkan. Logical world in `gis`/`sdb`; GPU cache in `render/scene`. Do **not** open new dated RHI/layout twins — revise sections below.
 
 ## Goal
 
@@ -18,7 +20,7 @@ One `RenderDevice` path draws **2D maps and 3D worlds** through the same command
 
 - Do not vendor Cesium Native, OpenSceneGraph, Filament, Diligent, bgfx, or a second GDAL/GEOS.
 - Do not leak FlyCube, Assimp, or tinygltf types in public headers under `src/`.
-- Do not treat Skia as the map RHI (Skia remains chrome paint in `render/skia`).
+- Do not treat Skia as the map RHI (Skia remains chrome paint in `ui/gfx`).
 - Do not revive D3D9 / D3DX (`src/render/d3d` was deleted).
 - Do not rewrite leftover `Smt_*` ABI or merge DLLs. `SmtRenderDevice::Init(HWND)` remains the MFC present seam.
 - Do not put logical scene graphs back under `render/scene3d` / `render/model3d`.
@@ -68,7 +70,7 @@ Nesting stays `src/<layer>/<module>`. Public C++ is two levels; helpers go in `d
 
 | Tree | Namespace | GN | Role |
 | --- | --- | --- | --- |
-| `src/render/rhi/` | `render::rhi` | part of `//src/render:render` | Facade + backends |
+| `src/render/rhi/` | `render::rhi` | part of `//src/render:render` | Facade (`rhi.h`/`rhi.cc`) + `stub/stub_device.cc` + `flycube/{device,resources,command_list,pipelines,execute,compute}.cc` + internal `flycube_*.h` |
 | `third_party/flycube` | (private) | `//third_party:flycube` when fetched | DX12 / Vulkan / Metal |
 | `src/sdb/model/` | `sdb::model` | `//src/sdb/model:model` | Assimp CPU assets + 3D Tiles |
 | `src/sdb/scene/` | `sdb::scene` | `//src/sdb/scene:scene` | World, nodes, spatial query |
@@ -150,7 +152,7 @@ Backend preferred_gpu_backend();  // Windows: kDx12
 - `create_device(kNull)` always initializes. Command lists record counters for tests (`StubCommandList`).
 - `create_device(kGdi)` / `kGl` keep today’s HWND present (`InvalidateRect` / no-op). Their command lists are stubs so 2D leftover views do not crash if something records a pass.
 - `BindRhiPresent(HWND)` continues to create the GDI leftover device. New code (`gpu`, Views map viewport) uses `preferred_gpu_backend()`.
-- FlyCube headers appear only in `flycube_rhi.cc`. Mapping: `Device` → FlyCube `Device` + `Swapchain`; `CommandList` → FlyCube `CommandList`; `execute` → `CommandQueue::ExecuteCommandLists`; `present` → `Swapchain::Present`.
+- FlyCube headers appear only under `rhi/flycube/` (internal split: `flycube_{types,resources,command_list,shaders,device}.h` + impl TUs). `flycube_device.h` forward-declares command-list / Buffer / Texture; full types stay in the dedicated headers. Mapping: `Device` → FlyCube `Device` + `Swapchain`; `CommandList` → FlyCube `CommandList`; `execute` → `CommandQueue::ExecuteCommandLists`; `present` → `Swapchain::Present`.
 
 Public RHI now includes `Buffer` + `create_buffer` / `upload` / `bind_vertex_buffer` / `bind_index_buffer`, `Texture` + `create_texture` / `upload_texture` / `bind_texture` for raster/tile quads, and `bind_camera` / `CameraMatrices`. FlyCube types stay out of `rhi.h`. When `SMT_HAS_FLYCUBE` is on (Debug compiles `/MDd` FlyCube into `out/flycube`; Release links the MD prebuilt), initialized devices upload to FlyCube heaps, bind view/proj constants, sample uploaded textures in a DX12 pipeline, and can clear/present a swapchain. Null-path tests stay CPU stubs (`bind_texture` / `bind_camera` counters). Optional: `rhi_test` initializes DX12 on a hidden HWND and skips (does not fail) when the machine has no adapter. Leftover GDI `RenderMap` and leftover GL `DrawIndexedPrimitives` record through `render::scene::leftover_session()`, a process-wide `LeftoverRecorder` owned by `SmtRender` (`smt_leftover_session` export) so GDI / GDI-simple / GL / SmtRender share one Device + CommandList.
 
@@ -354,13 +356,20 @@ Optional: if FlyCube is linked, `rhi_test` tries `initialize` on a hidden HWND a
 - Root `README.md` — one line that map/3D GPU is FlyCube RHI; refresh **最后更新**.
 - `docs/README.md` — link this spec.
 
-## Optional GPU Track A (MapLibre Native)
+## Optional GPU tile basemap (StyleDocument; not MapLibre Native)
 
-`src/gpu` can select a 2D basemap backend **below** `content/public`:
+`src/gpu` can select a 2D basemap backend **below** `content/public`
+(as-built: [`../../../src/gpu/README.md`](../../../src/gpu/README.md)):
 
-- Default **Track B**: existing demo / FlyCube `GpuScene` (2D+3D same frame). `kScene3d` stays here.
-- Optional **Track A**: `SMT_MAP_BACKEND=a` paints style background + one XYZ raster via `TileProvider` into `PresentTarget` (shared texture / DIB). Chrome still only blits `Latest()`.
-- GN `smt_enable_maplibre` (default **false**) links `//third_party/maplibre:maplibre_native` (`mln::Map` still-image into `PresentTarget`). Fetch the pin with `python third_party/tools/fetch.py --package maplibre-native` (`ios-v6.30.0` → `.src/maplibre-native`). Full `mbgl::Map` + HeadlessFrontend is not built (vendor / codegen / EGL). Do not include mln/mbgl from `app/` or `content/public`.
+- Default **direct** (`ContentSource::kDirect`): demo grid / Scene3d DEM underlay
+  via `raster/direct` → `CompositorFrame` → `SoftwareRenderer` → `OutputSurface`.
+- Optional **tile** (`SMT_MAP_BACKEND=a|track_a|maplibre` or `view.backend.maplibre`):
+  StyleDocument + XYZ mosaic via `raster/tile` into the same compositor path
+  (shared DXGI / DIB). Chrome still only presents the shared surface. Wire name
+  `maplibre` means tile, **not** MapLibre Native.
+- MapLibre Native product pin / `smt_enable_maplibre` / `maplibre_link` were
+  **removed** (2026-09-27; deferred reconsider). Do not include mln/mbgl from
+  `app/`, `content/public`, or `gpu/`.
 
 ## Risks
 
@@ -376,3 +385,49 @@ Optional: if FlyCube is linked, `rhi_test` tries `initialize` on a hidden HWND a
 - 2D layer nodes and 3D model nodes record into **one** `CommandList` via `GpuScene::record`.
 - Public headers under `src/` do not `#include` FlyCube, Assimp, or tinygltf.
 - `SmtRenderDevice::Init` still compiles and still calls `BindRhiPresent`.
+
+---
+
+## §Generic pipeline（merged 2026-09-28）
+
+**Supersedes** earlier `PipelineId` / `set_ocean_params` / `set_cloud_params` / `set_light_params` / `set_solid_color` command contract in this file.
+
+| Locked | Choice |
+| --- | --- |
+| Pipeline identity | Heap `Pipeline*` from `create_graphics_pipeline` / `create_compute_pipeline` |
+| Effect params | `set_constants(slot, bytes, size)` + `BindingSlot` |
+| Camera | Keep `bind_camera`; optional `camera_slot` on graphics desc |
+| Vertex layouts | `kPosition` / `kPositionUv` / `kPositionNormal` |
+| No effect names | `rhi.h` has no ocean/cloud/light/FFT/solid symbols |
+| Shared programs | solid / textured / lit under `src/render/programs/` |
+| Null / GDI / GL | Stub pipelines when no FlyCube compile |
+
+Non-goals: no second raster backend; no FlyCube types in public headers; atmosphere physics stays in atmosphere living. Archive: [`../archive/specs/2026-09-27-rhi-generic-pipeline-design.md`](../archive/specs/2026-09-27-rhi-generic-pipeline-design.md).
+
+---
+
+## §Frame graph（merged 2026-09-28）
+
+One viewport, one camera, one `CommandList`, one `execute`/`present`. Passes only record.
+
+| Layer | Home |
+| --- | --- |
+| Backend | `render::rhi` |
+| Render Scene | `render::scene::GpuScene` (GPU cache only) |
+| Frame graph | `render::graph` — `Effect` / slots / `present` / `OpaqueEffect` |
+| Map / atmosphere GPU passes | `src/effect/map`, `src/effect/atmosphere` (`effect::*`); **not** compiled into `render.dll` deps of those passes |
+| CPU frame | `gis::vista` (`MapFrame`); see map2d-frame living |
+
+`ViewInput` is width/height + one camera + non-owning `Effect*` list — does not name `GpuScene` / `MapFrame` / `AtmosphereFrame`. Archive detail: [`../archive/specs/2026-09-27-render-frame-graph-design.md`](../archive/specs/2026-09-27-render-frame-graph-design.md).
+
+---
+
+## §GPU-process accelerate（merged 2026-09-28）
+
+Compose/present for `--type=gpu` (`src/gpu`) only. Chrome never blends final frames. Multi-adapter first-class: `GpuDeviceHub` + `AdapterId`; one GPU process × N devices. IR stays `CompositorFrame` / `DrawQuad`. `FrameComposer`: `kSoftware` default, `kRhi` opt-in. Layout of `src/gpu` is **landed** as-built in `src/gpu/README.md`. In-process `render::graph::present` (Views) is a **different** path from this section. Archive: [`../archive/specs/2026-09-27-gpu-rhi-accelerate-design.md`](../archive/specs/2026-09-27-gpu-rhi-accelerate-design.md).
+
+---
+
+## §P0 3D capability（merged 2026-09-28）
+
+Lit solid path, style→3D albedo, CPU frustum, GPU smoke — checklist in [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md). Pipeline entry is via §Generic pipeline (`Pipeline*` + constants), not `PipelineId::{kOcean,kCloud}`. Archive: [`../archive/specs/2026-09-20-rhi-3d-capability-p0-design.md`](../archive/specs/2026-09-20-rhi-3d-capability-p0-design.md).

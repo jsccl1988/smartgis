@@ -10,7 +10,7 @@
 
 namespace content {
 
-// Chrome implements this. MapContents does not include mojo.
+// Shell implements this. MapContents does not include mojo.
 class MapContentsObserver {
  public:
   virtual ~MapContentsObserver() = default;

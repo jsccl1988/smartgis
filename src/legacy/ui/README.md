@@ -3,7 +3,7 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# `src/legacy/ui` — leftover MFC chrome
+# `src/legacy/ui` — leftover MFC shell
 
 Six MFC UI trees merged into one DLL (`dll_stem=ui_legacy`). Physically moved out of `src/ui/` so that tree only holds the endgame toolkit (`views/`).
 

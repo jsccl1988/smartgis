@@ -65,17 +65,22 @@ $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $dumpPath = Join-Path $OutDir "$stamp-catch.dmp"
 $catchLog = Join-Path $OutDir "$stamp-catch.log"
 
-$pdbForCdb = $PdbDir -replace '\\', '\\'
-$dumpForCdb = $dumpPath -replace '\\', '\\'
 $publicSym = 'SRV*C:\Symbols*https://msdl.microsoft.com/download/symbols'
 
-# On second-chance exception: dump then quit. Analyze runs separately.
-$catchCommands = @(
-  ".sympath+ $pdbForCdb"
+# -g runs until the first break (the AV). -c then executes. Nested quotes in
+# Start-Process were swallowing sxe, so the commands live in a file cdb
+# reads with $$< (no spaces in out/crash paths).
+$cmdFile = Join-Path $OutDir "$stamp-cdb.txt"
+@(
+  ".sympath+ $PdbDir"
   ".sympath+ $publicSym"
   '.reload'
-  "sxe -c `".dump /ma $dumpForCdb; q`" *"
-) -join '; '
+  'k'
+  '!analyze -v'
+  ".dump /ma $dumpPath"
+  'q'
+) | Set-Content -LiteralPath $cmdFile -Encoding ascii
+$catchCommands = "`$`$<$cmdFile"
 
 $argList = New-Object System.Collections.Generic.List[string]
 $argList.Add('-g')
@@ -98,8 +103,17 @@ Write-Host "dump target: $dumpPath"
 Write-Host "catch log: $catchLog"
 Write-Host "timeout: ${TimeoutSec}s"
 
+# Windows PowerShell 5.1 Start-Process does not quote array arguments, so
+# the -c command string was parsed as the debuggee path.
+function Quote-CdbArg([string]$s) {
+  if ($s -notmatch '[\s"]') {
+    return $s
+  }
+  return '"' + ($s -replace '"', '\"') + '"'
+}
+$argString = ($argList | ForEach-Object { Quote-CdbArg $_ }) -join ' '
 $proc = Start-Process -FilePath $CdbPath `
-  -ArgumentList $argList.ToArray() `
+  -ArgumentList $argString `
   -WorkingDirectory $RepoRoot `
   -PassThru `
   -NoNewWindow

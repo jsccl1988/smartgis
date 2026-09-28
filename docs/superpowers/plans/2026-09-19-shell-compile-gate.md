@@ -5,6 +5,9 @@ All rights reserved.
 
 # SP5 Shell compile gate — Implementation Plan
 
+
+> **Design living:** SP decisions live in [../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md](../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md). This file is the checklist only.
+
 > **For agentic workers:** follow checkboxes; stay on `master`; no commit unless asked.
 
 **Goal:** 钉死默认壳 / `src_all` 不拉 leftover 聚合；文档写清 opt-in；GN `assert_no_deps` + group 分离。  

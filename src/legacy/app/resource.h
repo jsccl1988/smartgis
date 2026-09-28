@@ -1,7 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
 // Used by smart_gis.rc
-//
 #define IDD_ABOUTBOX 100
 #define IDP_OLE_INIT_FAILED 100
 #define ID_DOCB_LEFT 101
@@ -57,7 +56,6 @@
 #define ID_INDICATOR_LB 59143
 
 // Next default values for new objects
-//
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE 161

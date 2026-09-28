@@ -9,22 +9,22 @@
 #include <filesystem>
 #include <string>
 
-#include "algorithm/geo/geometry.h"
-#include "algorithm/geo/matrix2d.h"
+#include "gis/kernel/geo/mesh/geometry.h"
+#include "gis/kernel/geo/mesh/matrix2d.h"
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
 #include "base/carto/style.h"
 #include "gis/datasource/gdal/gdal_driver.h"
-#include "gis/datasource/gdal/ogr_connect.h"
-#include "gis/datasource/gdal/ogr_feature_codec.h"
-#include "gis/datasource/gdal/ogr_raster_layer.h"
-#include "gis/datasource/gdal/sdbd_dataset.h"
-#include "gis/datasource/gdal/sdbd_gdal_driver.h"
-#include "gis/datasource/gdal/sdbd_handler.h"
-#include "gis/datasource/gdal/sdbd_layer.h"
+#include "gis/datasource/ogr/codec/ogr_connect.h"
+#include "gis/datasource/ogr/codec/ogr_feature_codec.h"
+#include "gis/datasource/ogr/raster/ogr_raster_layer.h"
+#include "gis/datasource/sdbd/decorator/sdbd_dataset.h"
+#include "gis/datasource/sdbd/decorator/sdbd_gdal_driver.h"
+#include "gis/datasource/sdbd/decorator/sdbd_handler.h"
+#include "gis/datasource/sdbd/decorator/sdbd_layer.h"
 #include "gis/datasource/mgr/datasource_mgr.h"
-#include "gis/feature/feature.h"
-#include "gis/layer/layer.h"
+#include "gis/model/feature/feature.h"
+#include "gis/model/layer/layer.h"
 
 using namespace geo;
 using base::fRect;

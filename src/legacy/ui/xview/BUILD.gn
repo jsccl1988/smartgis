@@ -24,8 +24,8 @@ source_set("xview_sources") {
     "view_2d_edit.cpp",
     "view_2d.cpp",
     "view_3d.cpp",
-    "view_chrome.cc",
-    "view_chrome.h",
+    "view_shell.cc",
+    "view_shell.h",
     "xview.cpp",
   ]
   include_dirs += [
@@ -34,16 +34,15 @@ source_set("xview_sources") {
   ]
   deps = [
     "//src/content:view_host",
-    "//src/gis/edit:map_edit",
+    "//src/gis/model/edit:map_edit",
     "//src/base:base",
     "//src/base:core",
-    "//src/algorithm/geo:geo",
-    "//src/gis/map:gis",
-    "//src/legacy/render/bridge:render",
-    "//src/legacy/render/render3d:render3d",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/model/map:gis",
+    "//src/legacy/render/rhi3d:rhi",
+    "//src/legacy/render/rhi3d:rhi",
     "//src/legacy/render/scene3d:scene3d",
-    "//src/sys:sys",
-    "//src/legacy/render/model3d:model3d",
+    "//src/legacy/sys:sys",
     "//src/plugin:plugin",
     "//src/plugin:legacy_cmd",
     "//src/legacy/tool:tool",

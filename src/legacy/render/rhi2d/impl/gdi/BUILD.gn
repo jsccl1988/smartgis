@@ -1,0 +1,93 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Shared GDI helpers (aux / bufpool / renderbuf / carto). Compiled once into
+# the legacy_render DLL for SmtGdiRenderDevice.
+# Layout (B′ colocated): .h next to .cpp under subdirs.
+# Note: Windows forbids a path segment named "aux"; use gdiaux/ instead.
+source_set("gdi_common_sources") {
+  sources = [
+    "gdiaux/gdi_aux_api.cpp",
+    "buffer/gdi_bufpool.cpp",
+    "gdiaux/gdi_gdiplus.cpp",
+    "gdiaux/gdi_gdiplus.h",
+    "buffer/gdi_renderbuf.cpp",
+    "carto/map_carto2d.cc",
+    "carto/map_carto2d.h",
+  ]
+  configs += [
+    "//build:legacy",
+    "//src/legacy/render:legacy_render_exports",
+  ]
+  defines = [ "_USRDLL" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/datasource/ogr:ogr_text_encoding",
+    "//third_party:CxImage",
+  ]
+  libs = [ "gdiplus.lib" ]
+}
+
+# Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
+source_set("render_gdi_sources") {
+  sources = [
+    "device/gdi_renderdevice.cpp",
+    "thread/gdi_renderthread.cpp",
+    "thread/gdi_renderthread_draw.cpp",
+  ]
+  configs += [
+    "//build:legacy",
+    "//src/legacy/render:legacy_render_exports",
+  ]
+  defines = [ "_USRDLL" ]
+  deps = [
+    ":gdi_common_sources",
+    "//src/gis/kernel/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/legacy/render/rhi3d:leftover_record",
+    "//src/legacy/render/rhi2d:rhi2d_sources",
+    "//src/gis/datasource/ogr:ogr_codec",
+    "//src/gis/model/map:gis",
+    "//third_party:CxImage",
+    "//third_party:gdal",
+  ]
+}
+
+group("render_gdi") {
+  public_deps = [ "//src/legacy/render:legacy_render" ]
+}
+
+test("map_carto2d_test") {
+  output_name = "map_carto2d_test"
+  sources = [
+    "carto/map_carto2d.cc",
+    "carto/map_carto2d_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+}
+
+# Hidden HWND + china_plp.geojson → GDI realtime paint must produce pixels.
+test("gdi_map_paint_test") {
+  output_name = "gdi_map_paint_test"
+  sources = [ "test/gdi_map_paint_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    "//src/legacy/render:legacy_render",
+    "//src/gis/datasource/ogr:ogr_codec",
+    "//src/gis/model/map:gis",
+    "//testing/data:china_map_samples",
+    "//third_party:gdal",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}

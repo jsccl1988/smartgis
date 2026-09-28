@@ -343,6 +343,14 @@ group("tinygltf") {
   }
 }
 
+group("octree") {
+  public_deps = [ "//third_party/octree:octree" ]
+}
+
+group("CLI11") {
+  public_deps = [ "//third_party/CLI11:CLI11" ]
+}
+
 group("chromium") {
   public_configs = [ ":chromium_cfg" ]
 }
@@ -375,5 +383,7 @@ group("third_party_all") {
     ":antlr4",
     ":khronos_gl",
     ":ed25519",
+    ":octree",
+    ":CLI11",
   ]
 }

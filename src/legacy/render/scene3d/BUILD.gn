@@ -5,44 +5,60 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
+# Layout (B, colocated, P2.4 + SP4b): scene/ index/ primitive/ feature/
+# surface/ dem/ bridge/ test/.
 source_set("scene3d_sources") {
   sources = [
-    "bl3d_scene.cpp",
-    "bl3d_sceneocttree.cpp",
-    "bl3d_sceneocttreenode.cpp",
-    "bl3d_vertexocttree.cpp",
-    "bl3d_vertextreenode.cpp",
-    "dem_height_field.cc",
-    "dem_height_field.h",
-    "dem_to_world.cc",
-    "dem_to_world.h",
-    "map_label_batch.cc",
-    "map_label_batch.h",
-    "map_to_scene.cc",
-    "map_to_scene.h",
-    "scene_to_world.cc",
-    "scene_to_world.h",
-    "stereo_hwnd_view.cc",
-    "stereo_hwnd_view.h",
-    "stereo_terrain.cc",
-    "stereo_terrain.h",
+    "scene/scene.cpp",
+    "index/octree.cpp",
+    "index/octree_node.cpp",
+    "index/vertex_octree.cpp",
+    "index/vertex_octree_node.cpp",
+    "dem/dem_height_field.cc",
+    "dem/dem_height_field.h",
+    "dem/dem_to_world.cc",
+    "dem/dem_to_world.h",
+    "dem/stereo_hwnd_view.cc",
+    "dem/stereo_hwnd_view.h",
+    "dem/stereo_terrain.cc",
+    "dem/stereo_terrain.h",
+    "bridge/map_label_batch.cc",
+    "bridge/map_label_batch.h",
+    "bridge/map_to_scene.cc",
+    "bridge/map_to_scene.h",
+    "bridge/scene_to_world.cc",
+    "bridge/scene_to_world.h",
+    "primitive/cube.cpp",
+    "primitive/northarray.cpp",
+    "primitive/sphere.cpp",
+    "primitive/water.cpp",
+    "feature/2dgeoobject.cpp",
+    "feature/3dgeoobject.cpp",
+    "surface/pointcloud.cpp",
+    "surface/terrain.cpp",
   ]
   configs += [
     "//build:legacy",
     "//src/legacy/render:legacy_render_exports",
   ]
-  defines = [ "_USRDLL" ]
+  # NOMINMAX: unibn Octree.hpp uses std::max; windows.h max macros break it.
+  defines = [
+    "_USRDLL",
+    "NOMINMAX",
+  ]
   deps = [
-    "//src/algorithm/geo:geo",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/kernel/tin:tin",
+    "//src/base:base",
     "//src/base:core",
-    "//src/legacy/render/gdi:gdi_common_sources",
-    "//src/legacy/render/model3d:model3d_sources",
-    "//src/legacy/render/render3d:render3d_sources",
-    "//src/render/math:bounds",
+    "//src/legacy/render/rhi2d/impl/gdi:gdi_common_sources",
+    "//src/legacy/render/rhi3d:rhi_sources",
+    "//src/base/math:bounds",
     "//src/base/carto:carto",
-    "//src/gis/datasource/gdal:ogr_codec",
-    "//src/gis/world:world",
+    "//src/gis/datasource/ogr:ogr_codec",
+    "//src/gis/vista/world:world",
     "//third_party:gdal",
+    "//third_party:octree",
   ]
   libs = [
     "gdiplus.lib",
@@ -57,13 +73,13 @@ group("scene3d") {
 
 test("dem_stereo_test") {
   output_name = "dem_stereo_test"
-  sources = [ "dem_stereo_test.cc" ]
+  sources = [ "test/dem_stereo_test.cc" ]
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
   deps = [
     "//src/legacy/render:legacy_render",
-    "//src/gis/world:world",
-    "//src/render/math:bounds",
+    "//src/gis/vista/world:world",
+    "//src/base/math:bounds",
     "//third_party:gdal",
   ]
 }

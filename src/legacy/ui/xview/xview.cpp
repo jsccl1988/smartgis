@@ -5,16 +5,16 @@
 #include "legacy/ui/xview/xview.h"
 
 #include "base/core/log.h"
-#include "base/core/msg.h"
+#include "legacy/core/msg.h"
 #include "content/public/view_host.h"
-#include "legacy/tool/t_iatoolmanager.h"
-#include "legacy/tool/t_msg.h"
-#include "legacy/ui/xview/view_chrome.h"
+#include "legacy/tool/iatool/t_iatoolmanager.h"
+#include "legacy/tool/iatool/t_msg.h"
+#include "legacy/ui/xview/view_shell.h"
 #include "legacy/ui/xview/view_core.h"
-#include "plugin/host/legacy_cmd.h"
-#include "plugin/legacy/module_manager.h"
-#include "plugin/legacy/plugin_msg.h"
-#include "tool/workspace.h"
+#include "legacy/plugin/adapter/cmd.h"
+#include "legacy/plugin/module_manager.h"
+#include "legacy/plugin/plugin_msg.h"
+#include "tool/workspace/workspace.h"
 
 // SmtXView
 using namespace base;
@@ -83,11 +83,13 @@ BOOL SmtXView::PreTranslateMessage(MSG* pMsg) {
 }
 
 LRESULT SmtXView::WindowProc(UINT message, WPARAM wParam, LPARAM lParam) {
-  if (dispatch_chrome_message(m_pViewHost, m_hWnd, message, wParam, lParam)) {
+  if (dispatch_shell_message(m_pViewHost, m_hWnd, message, wParam, lParam)) {
     if (m_pViewHost && m_pViewHost->workspace()) {
       m_pViewHost->workspace()->aux_draw();
       // Invalidate while rubber-band is live, and on button-up even
       // after overlay clears so QUICK is flushed in OnDraw.
+      // Coalesce: only mark dirty — do not UpdateWindow. Mouse-move storms
+      // otherwise serialize full OnDraw/RenderMap on the UI thread.
       const bool overlay = m_pViewHost->workspace()->live_preview() != nullptr;
       const bool stroke_end =
           (message == WM_LBUTTONUP || message == WM_RBUTTONUP);
@@ -130,7 +132,7 @@ void SmtXView::bind_draft_observer() {
 void SmtXView::apply_workspace_draft(const tool::Draft&) {}
 
 void SmtXView::dispatch_menu_command(unsigned int msg) {
-  if (!route_chrome_command(msg)) {
+  if (!route_shell_command(msg)) {
     return;
   }
   SmtListenerMsg param;
@@ -151,7 +153,7 @@ void SmtXView::dispatch_menu_command(unsigned int msg) {
   }
 }
 
-bool SmtXView::route_chrome_command(unsigned int msg) {
+bool SmtXView::route_shell_command(unsigned int msg) {
   if (!m_pViewHost) {
     return false;
   }

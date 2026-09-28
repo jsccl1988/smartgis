@@ -1,0 +1,97 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
+# OpenGL impl backend under leftover rhi/impl/gl/ (was top-level legacy/render/gl/).
+# Layout (B' colocated): .h next to .cpp under device/caps/ext/buffer/text.
+# File basenames drop the gl_ prefix (types/SmtGL* unchanged).
+# Former label: //src/legacy/render/gl:render_gl_sources → :gl_sources.
+source_set("gl_sources") {
+  sources = [
+    "device/3drenderdevice.cpp",
+    "caps/devicecaps.cpp",
+    "ext/extinterface.cpp",
+    "ext/fbofunc.cpp",
+    "ext/fbofuncimp.cpp",
+    "buffer/indexbuffer.cpp",
+    "ext/mipmapfunc.cpp",
+    "ext/mipmapfuncimp.cpp",
+    "ext/multitexturefuncimp.cpp",
+    "ext/mutitexturefunc.cpp",
+    "device/rdev_effect.cpp",
+    "device/rdev_fastdraw.cpp",
+    "device/rdev_fbo.cpp",
+    "device/rdev_font.cpp",
+    "device/rdev_misc.cpp",
+    "device/rdev_mtx.cpp",
+    "device/rdev_render.cpp",
+    "device/rdev_shader.cpp",
+    "device/rdev_textures.cpp",
+    "device/rdev_util.cpp",
+    "device/rdev_vba.cpp",
+    "device/rdev_vbo.cpp",
+    "ext/shaderfunc.cpp",
+    "ext/shaderfuncimp.cpp",
+    "device/statesmanager.cpp",
+    "text/text.cpp",
+    "ext/vbofunc.cpp",
+    "ext/vbofuncimp.cpp",
+    "buffer/vertexbuffer.cpp",
+    "ext/vsyncfunc.cpp",
+    "ext/vsyncfuncimp.cpp",
+  ]
+  configs += [
+    "//build:legacy",
+    "//src/legacy/render:legacy_render_exports",
+  ]
+  defines = [ "_USRDLL" ]
+  deps = [
+    "//src/gis/kernel/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/legacy/render/rhi3d:leftover_record",
+    "//src/legacy/render/rhi2d:rhi2d_sources",
+    "//src/legacy/render/rhi3d:rhi_sources",
+    "//src/gis/datasource/ogr:ogr_text_encoding",
+    "//third_party:CxImage",
+    "//third_party:khronos_gl",
+  ]
+  libs = [
+    "opengl32.lib",
+    "glu32.lib",
+  ]
+}
+
+# Compat alias for former //src/legacy/render/gl:render_gl_sources.
+group("render_gl_sources") {
+  public_deps = [ ":gl_sources" ]
+}
+
+group("render_gl") {
+  public_deps = [ "//src/legacy/render:legacy_render" ]
+}
+
+group("gl") {
+  public_deps = [ "//src/legacy/render:legacy_render" ]
+}
+
+# Shown HWND + china_plp.geojson → leftover GL must produce non-black pixels.
+test("gl_map_paint_test") {
+  output_name = "gl_map_paint_test"
+  sources = [ "test/map_paint_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    "//src/legacy/render:legacy_render",
+    "//src/gis:gis",
+    "//testing/data:china_map_samples",
+    "//third_party:gdal",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}

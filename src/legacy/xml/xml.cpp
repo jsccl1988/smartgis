@@ -59,7 +59,6 @@ void TiXmlBase::EncodeString(const TIXML_STRING& str, TIXML_STRING* outString) {
       // Hexadecimal character reference.
       // Pass through unchanged.
       // &#xA9;	-- copyright symbol, for example.
-      //
       // The -1 is a bug fix from Rob Laveaux. It keeps
       // an overflow from happening if there is no ';'.
       // There are actually 2 ways to exit this loop -
@@ -779,7 +778,6 @@ bool TiXmlDocument::LoadFile(FILE* file, TiXmlEncoding encoding) {
   // parsing, by translating both the two-character sequence #xD #xA and any #xD
   // that is not followed by #xA to a single #xA character.
   // </quote>
-  //
   // It is not clear fgets does that, and certainly isn't clear it works cross
   // platform. Generally, you expect fgets to translate from the convention of
   // the OS to the c/unix convention, and not work generally.
@@ -803,7 +801,6 @@ bool TiXmlDocument::LoadFile(FILE* file, TiXmlEncoding encoding) {
   // Process the buffer in place to normalize new lines. (See comment above.)
   // Copies from the 'p' to 'q' pointer, where p can advance faster if
   // a newline-carriage return is hit.
-  //
   // Wikipedia:
   // Systems based on ASCII or a compatible character set use either LF  (Line
   // feed, '\n', 0x0A, 10 in decimal) or CR (Carriage return, '\r', 0x0D, 13 in

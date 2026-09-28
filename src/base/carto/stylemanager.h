@@ -14,10 +14,12 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _BL_STYLEMANAGER_H
 #define _BL_STYLEMANAGER_H
 
+
+#include "base/core/export.h"
 #include "base/carto/style.h"
 
 namespace base {
-class STYLE_EXPORT SmtStyleManager {
+class BASE_EXPORT SmtStyleManager {
  private:
   SmtStyleManager(void);
 
@@ -55,11 +57,11 @@ class STYLE_EXPORT SmtStyleManager {
 };
 }  // namespace base
 
-#if !defined(STYLE_EXPORTS)
+#if !defined(BASE_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "platform_d.lib")
+#pragma comment(lib, "base_d.lib")
 #else
-#pragma comment(lib, "platform.lib")
+#pragma comment(lib, "base.lib")
 #endif
 #endif
 

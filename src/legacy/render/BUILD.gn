@@ -12,51 +12,35 @@ import("//build/smartgis.gni")
 # (render_d.dll / render_export.h). Sharing it made GpuScene inlines
 # dllexport into leftover_session.obj and LNK2005 against render_d.dll.lib.
 config("legacy_render_exports") {
-  defines = [
-    "LEGACY_RENDER_EXPORTS",
-    "RENDER3D_EXPORTS",
-    "RENDER_GDI_EXPORTS",
-    "RENDER_GDI_SIMPLE_EXPORTS",
-    "RENDER_GL_EXPORTS",
-    "SCENE3D_EXPORTS",
-    "MODEL3D_EXPORTS",
-    "POINTCLOUD_EXPORTS",
-    "TERRAIN_EXPORTS",
-  ]
+  defines = [ "LEGACY_RENDER_EXPORTS" ]
 }
 
 smt_shared_library("legacy_render") {
   dll_stem = "legacy_render"
-  defines = [
-    "LEGACY_RENDER_EXPORTS",
-    "RENDER3D_EXPORTS",
-    "RENDER_GDI_EXPORTS",
-    "RENDER_GDI_SIMPLE_EXPORTS",
-    "RENDER_GL_EXPORTS",
-    "SCENE3D_EXPORTS",
-    "MODEL3D_EXPORTS",
-    "POINTCLOUD_EXPORTS",
-    "TERRAIN_EXPORTS",
-  ]
+  defines = [ "LEGACY_RENDER_EXPORTS" ]
   deps = [
-    "//src/legacy/render/bridge:render_sources",
-    "//src/legacy/render/gdi:render_gdi_sources",
-    "//src/legacy/render/gdi_simple:render_gdi_simple_sources",
-    "//src/legacy/render/gl:render_gl_sources",
-    "//src/legacy/render/model3d:model3d_sources",
-    "//src/legacy/render/pointcloud:pointcloud_sources",
-    "//src/legacy/render/render3d:render3d_sources",
+    "//src/legacy/render/rhi2d:rhi2d_sources",
+    "//src/legacy/render/rhi2d/impl/gdi:render_gdi_sources",
+    "//src/legacy/render/rhi3d:rhi_sources",
+    "//src/legacy/render/rhi3d/impl/d3d:d3d_sources",
+    "//src/legacy/render/rhi3d/impl/gl:gl_sources",
     "//src/legacy/render/scene3d:scene3d_sources",
-    "//src/legacy/render/terrain:terrain_sources",
+    # RHI Device/CommandList (render_d.dll). GpuScene is caller-linked from
+    # //src/effect/scene:scene_sources via leftover_record, not this DLL.
+    "//src/render:render",
   ]
   public_deps = [
     "//src/base:base",
-    "//src/render/math:math",
+    "//src/base/math:math",
     "//third_party:gdal",
+    # Public RHI headers inline SmtTexture::Load, which includes ximage.h.
+    "//third_party:CxImage",
   ]
   libs = [
     "opengl32.lib",
     "glu32.lib",
+    "d3d11.lib",
+    "dxgi.lib",
   ]
 }
 

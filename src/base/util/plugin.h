@@ -58,10 +58,20 @@ class plugin : public library {
       state_ = plugin_state::error;
       return false;
     }
-    // Prefer SmartGIS legacy exports when present.
+    // Prefer snake_case; fall back to leftover PascalCase AM exports
+    // (GetProcAddress is case-sensitive on Windows).
     version_ = resolve<fn_version>("get_plugin_version");
     start_ = resolve<fn_start>("start_plugin");
     stop_ = resolve<fn_stop>("stop_plugin");
+    if (!version_) {
+      version_ = resolve<fn_version>("GetPluginVersion");
+    }
+    if (!start_) {
+      start_ = resolve<fn_start>("StartPlugin");
+    }
+    if (!stop_) {
+      stop_ = resolve<fn_stop>("StopPlugin");
+    }
     if (!version_) {
       version_ = resolve<fn_version>("version");
     }

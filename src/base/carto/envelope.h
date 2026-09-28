@@ -14,18 +14,12 @@ Copyright (c) 2010 CCL. All rights reserved.
 #ifndef _BL_ENVELOPE_H
 #define _BL_ENVELOPE_H
 
-#include "base/core/core.h"
 
-#ifndef STYLE_EXPORT
-#if defined(STYLE_EXPORTS)
-#define STYLE_EXPORT __declspec(dllexport)
-#else
-#define STYLE_EXPORT __declspec(dllimport)
-#endif
-#endif
+#include "base/core/export.h"
+#include "legacy/core/core.h"
 
 namespace base {
-class STYLE_EXPORT Envelope {
+class BASE_EXPORT Envelope {
  public:
   Envelope();
   virtual ~Envelope() = default;
@@ -47,11 +41,11 @@ class STYLE_EXPORT Envelope {
 };
 }  // namespace base
 
-#if !defined(STYLE_EXPORTS)
+#if !defined(BASE_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "platform_d.lib")
+#pragma comment(lib, "base_d.lib")
 #else
-#pragma comment(lib, "platform.lib")
+#pragma comment(lib, "base.lib")
 #endif
 #endif
 

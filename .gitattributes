@@ -1,0 +1,43 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Match .editorconfig: LF by default; CRLF only for Windows scripts.
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary / generated — never convert
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.bmp binary
+*.webp binary
+*.pdf binary
+*.zip binary
+*.7z binary
+*.gz binary
+*.dll binary
+*.exe binary
+*.lib binary
+*.pdb binary
+*.obj binary
+*.o binary
+*.a binary
+*.so binary
+*.dylib binary
+*.wasm binary
+*.gpkg binary
+*.tif binary
+*.tiff binary
+*.shp binary
+*.dbf binary
+*.shx binary
+*.sbn binary
+*.sbx binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary

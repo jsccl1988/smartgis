@@ -4,7 +4,7 @@
 #include "stdafx.h"
 #include "legacy/ui/xambox/amb_xambox.h"
 
-#include "base/core/msg_def.h"
+#include "legacy/core/msg_def.h"
 #include "legacy/ui/xambox/xambox_core.h"
 
 // SmtXAMBox

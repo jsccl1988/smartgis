@@ -1,0 +1,49 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Views commands + Eigen Laplace. The 2010 Orthogrid class lives in
+# //src/legacy/plugin/orthogrid:orthogrid_kernel so this target does not
+# pull the GIS/MFC graph.
+# This group only loads that target into the GN graph. orthogrid_views does
+# not depend on it.
+group("legacy_orthogrid_kernel") {
+  deps = [ "//src/legacy/plugin/orthogrid:orthogrid_kernel" ]
+}
+
+source_set("orthogrid_views") {
+  sources = [
+    "commands.cc",
+    "commands.h",
+    "detail/boundary_solve.cc",
+    "detail/boundary_solve.h",
+    "detail/laplace_solver.cc",
+    "detail/laplace_solver.h",
+  ]
+  include_dirs += [
+    "//src",
+    "//src/plugin/product/orthogrid",
+  ]
+  deps = [
+    "//src/content:content",
+    "//src/plugin/runtime/host:host",
+    "//src/ui/views:views",
+    "//third_party:eigen",
+  ]
+}
+
+test("orthogrid_laplace_test") {
+  output_name = "orthogrid_laplace_test"
+  sources = [
+    "detail/boundary_solve.cc",
+    "detail/laplace_solver.cc",
+    "detail/laplace_solver_test.cc",
+  ]
+  include_dirs += [
+    "//src",
+    "//src/plugin/product/orthogrid/detail",
+  ]
+  deps = [ "//third_party:eigen" ]
+}

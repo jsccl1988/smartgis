@@ -6,14 +6,15 @@
 
 #include <cstdint>
 
-// GPU process payload. Linked into the chrome PE so ContentMain can
+// GPU process payload. Linked into the shell PE so ContentMain can
 // dispatch --type=gpu in the same image. Renderer must not call this
 // for paint; GpuMain owns D3D/GL.
 namespace gpu {
 
-class Adapter {
+// Loads leftover DLLs and a hidden HWND. Not a paint adapter.
+class LegacyHost {
  public:
-  virtual ~Adapter() = default;
+  virtual ~LegacyHost() = default;
   virtual bool load_legacy_dlls() = 0;
   virtual bool bind_view(uint32_t view_id, void* legacy_map) = 0;
   virtual void* render_device(uint32_t view_id) = 0;
@@ -21,7 +22,7 @@ class Adapter {
   virtual void* hwnd() const = 0;
 };
 
-Adapter* create_adapter();
+LegacyHost* create_legacy_host();
 int GpuMain(int argc, wchar_t** argv);
 int render_main(int argc, wchar_t** argv);
 int run_self_test(const wchar_t* exe_path);

@@ -11,7 +11,7 @@ reps = [
     ("GetAppPath()", "get_app_path()"),
     ("GetParentDictory(", "get_parent_directory("),
     ('#include "datasourcemgr.h"', '#include "gis/datasource/mgr/datasourcemgr.h"'),
-    ('#include "api.h"', '#include "base/core/api.h"'),
+    ('#include "api.h"', '#include "legacy/core/api.h"'),
     ('#include "xcatalog_core.h"', '#include "ui/xcatalog/xcatalog_core.h"'),
     ('#include "dlg_sel_layer.h"', '#include "ui/xcatalog/dlg_sel_layer.h"'),
     ('#include "dlg_sel_ds.h"', '#include "ui/xcatalog/dlg_sel_ds.h"'),

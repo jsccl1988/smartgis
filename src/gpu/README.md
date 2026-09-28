@@ -5,29 +5,248 @@ All rights reserved.
 
 # `src/gpu`
 
-`--type=gpu` payload. Chrome talks only to `content/public`; this tree owns paint.
-Do not `#include` `mln/` or `mbgl/` from `app/` / `content/`.
+`--type=gpu` payload. Shell talks only to `content/public`; this tree owns paint
+**and final compose**. MapLibre Native is **not** in this tree (pin removed;
+reconsider later). Browser / renderer / shell must **not** blend map layers into
+the final frame.
 
-## Render backends
+## Core principles
 
-| Track | How to select | What paints |
-| --- | --- | --- |
-| **B (default)** | unset `SMT_MAP_BACKEND` | Demo clear + GDI features; 3D stays here / `GpuScene` |
-| **A** | `SMT_MAP_BACKEND=a` | 2D basemap via `paint_map_frame` → `paint_track_a_basemap` |
+1. **One draw entry.** Process and tests paint only through `draw_and_swap`
+   (`frame_sink.h`). Callers never include `compositor/` or `raster/` headers.
+2. **Record then present — compose only here.** Raster TUs append `DrawQuad`s
+   into a `RenderPass`; display wraps that into one `CompositorFrame`; a
+   `FrameComposer` (software default) blends the root pass and presents onto
+   `OutputSurface` **once** per frame. Software compose is a **per-adapter**
+   fallback inside this process, never in shell.
+3. **Multi-adapter hub.** `GpuDeviceHub` pins each `OutputSurface` to an
+   `AdapterId` (default `kAdapterPrimary`). One GPU process drives N device
+   slots; present is per-output.
+4. **Two content sources, not three.** **Direct** (default): demo grid for 2D,
+   Scene3d DEM underlay in the same call (returns true — not a third mode).
+   **Tile**: Style JSON + XYZ via `gis::style` / `gis::tile`. Selection:
+   `set_content_source` > `SMT_MAP_BACKEND=a|track_a|maplibre` >
+   command `view.backend.maplibre` / `view.backend.rhi`.
+5. **Compositor is display IR + compose, not a second engine.** `compositor/`
+   holds the frame model (`DrawQuad` / `RenderPass` /
+   `CompositorFrame`) and CPU src-over (`kSolid`, `kBgra`, optional `replaces`).
+   It does not own fetch, Style walk, or DXGI creation.
+6. **Surface is pixels only.** `OutputSurface` owns DXGI shared texture or DIB
+   on a pinned adapter; demo drawing is not an `OutputSurface` method.
 
-### Track A richness
+If tile cannot draw because the surface is null or its size is 0, the same call
+clears the direct color when a surface exists.
 
-1. Parse Style JSON with `gis::style::StyleDocument` (`//src/gis/style`).
+Process entry stays `gpu/gpu.h`.
+
+## Architecture
+
+```mermaid
+flowchart TB
+  subgraph Boundary["Public boundary"]
+    GpuH["gpu/gpu.h — GpuMain / LegacyHost"]
+    FS["frame_sink.h — DrawRequest / ContentSource / draw_and_swap"]
+  end
+
+  subgraph Display["display/"]
+    Disp["display.cc — select source + submit"]
+    OS["OutputSurface — DXGI / DIB + upload_bgra @ AdapterId"]
+  end
+
+  subgraph Device["device/"]
+    Hub["GpuDeviceHub — AdapterId → DeviceSlot × N"]
+  end
+
+  subgraph Raster["raster/"]
+    Direct["direct/ — demo grid + Scene3d DEM quads"]
+    Tile["tile/ — Style walk + XYZ mosaic quads"]
+  end
+
+  subgraph Comp["compositor/"]
+    CF["CompositorFrame = RenderPass* + DrawQuad*"]
+    FC["FrameComposer — software|rhi per adapter"]
+  end
+
+  subgraph GIS["//src/gis/present"]
+    Style["StyleDocument"]
+    TP["TileProvider / tiles_for_viewport"]
+  end
+
+  GpuH --> FS
+  FS --> Disp
+  Disp --> Hub
+  Hub --> OS
+  Disp -->|kDirect / Scene3d| Direct
+  Disp -->|kTile| Tile
+  Tile --> Style
+  Tile --> TP
+  Direct --> CF
+  Tile --> CF
+  Disp --> FC
+  Hub --> FC
+  CF --> FC
+  FC -->|present once| OS
+```
+
+### Frame pipeline (one present)
+
+```mermaid
+sequenceDiagram
+  participant Caller as GpuMain / test
+  participant Disp as display::draw_and_swap
+  participant Hub as GpuDeviceHub
+  participant Raster as raster direct|tile
+  participant Comp as FrameComposer
+  participant Surf as OutputSurface
+
+  Caller->>Disp: DrawRequest + OutputSurface*
+  Disp->>Hub: bind_surface(adapter)
+  Disp->>Disp: select_content_source / Scene3d→direct
+  Disp->>Raster: record RenderPass quads
+  Raster-->>Disp: RenderPass (back→front)
+  Disp->>Comp: CompositorFrame (root pass) on AdapterId
+  Comp->>Comp: blend / GPU compose (gpu process only)
+  Comp->>Surf: present once (upload_bgra or RHI)
+  Surf-->>Caller: shared handle / DIB ready
+```
+
+| Directory | Role |
+| --- | --- |
+| `frame_sink.h` | `DrawRequest`, `ContentSource`, `draw_and_swap` |
+| `device/` | `AdapterId`, `GpuDeviceHub` (multi-adapter slots + RHI devices) |
+| `display/` | Choose content; submit one `CompositorFrame`; `OutputSurface` |
+| `compositor/` | IR + `FrameComposer` / `RhiComposer` / underlay bridge |
+| `raster/tile/` | Style walk records quads; decode, mosaic, fetch |
+| `raster/direct/` | GDI demo bitmap and DEM mesh record quads |
+
+Layout note: [`docs/superpowers/specs/2026-09-27-gpu-subdirectory-layout-design.md`](../../docs/superpowers/specs/2026-09-27-gpu-subdirectory-layout-design.md).
+
+Wire names `SMT_MAP_BACKEND=…maplibre` and `view.backend.maplibre` still select
+`ContentSource::kTile` (StyleDocument + TileProvider). They do **not** mean
+MapLibre Native is linked. Native pin / `smt_enable_maplibre` / `maplibre_link`
+were **removed** (2026-09-27); see archived
+[`docs/superpowers/archive/specs/2026-09-27-maplibre-out-of-gpu-design.md`](../../docs/superpowers/archive/specs/2026-09-27-maplibre-out-of-gpu-design.md).
+
+## Multi-GPU (as-built)
+
+**Model:** one `--type=gpu` process × **N** adapter device slots. Not N gpu
+processes. Shell / browser never compose; they consume NT shared handles /
+DIB from this process only.
+
+| Concept | Role |
+| --- | --- |
+| `AdapterId` | DXGI `EnumAdapters1` index (`kAdapterPrimary = 0`) |
+| `GpuDeviceHub` | Process-wide singleton: slots, surface pin map, RHI devices, texture cache, underlay Effects |
+| `OutputSurface` | DXGI shared texture or DIB; `adapter_id_` pin; `create_dxgi` opens that adapter |
+| `FrameComposer` | One instance per draw on one `AdapterId` (`SoftwareComposer` or `RhiComposer`) |
+| `prefer_adapter_for_monitor` / `rebind_surface_to_monitor` | DXGI output↔`HMONITOR` affinity APIs (**hub ready**; **not** yet driven by `gpu_main` IPC) |
+| `notify_device_lost` | Drop RHI + cache, sticky software, bump surface generation (tests / recovery hook) |
+
+### Process topology
+
+```mermaid
+flowchart LR
+  subgraph Shell["browser / shell / Views"]
+    UI["Present SharedHandle / DIB only"]
+  end
+
+  subgraph GpuProc["ONE --type=gpu process"]
+    Hub["GpuDeviceHub"]
+    subgraph Slot0["DeviceSlot AdapterId=0"]
+      D3D0["D3D11 OutputSurface"]
+      RHI0["RHI Device optional"]
+      FC0["FrameComposer"]
+    end
+    subgraph SlotN["DeviceSlot AdapterId=N"]
+      D3DN["D3D11 OutputSurface"]
+      RHIN["RHI Device optional"]
+      FCN["FrameComposer"]
+    end
+  end
+
+  UI -->|IPC SharedHandleWire| GpuProc
+  Hub --> Slot0
+  Hub --> SlotN
+  FC0 -->|present once| D3D0
+  FCN -->|present once| D3DN
+  RHI0 -.->|import NT / compose| D3D0
+  RHIN -.->|import NT / compose| D3DN
+```
+
+**Not the model:**
+
+```mermaid
+flowchart LR
+  C[shell] --> G0["gpu process A"]
+  C --> G1["gpu process B"]
+```
+
+### Per-frame path (multi-adapter)
+
+```mermaid
+sequenceDiagram
+  participant Main as gpu_main / draw_and_swap
+  participant Hub as GpuDeviceHub
+  participant Surf as OutputSurface
+  participant Raster as raster direct|tile
+  participant Comp as FrameComposer on AdapterId
+  participant RHI as render::rhi::Device
+
+  Main->>Hub: bind_surface(surf, AdapterId) / pin default primary
+  Main->>Surf: resize → create_dxgi(EnumAdapters1(id))
+  Main->>Raster: record RenderPass quads
+  Raster-->>Main: CompositorFrame
+  Main->>Comp: make_frame_composer(backend, AdapterId)
+  alt SMT_GPU_COMPOSE=rhi and device live
+    Comp->>Hub: ensure_rhi_device(adapter)
+    Hub-->>Comp: Device (adapter_index)
+    Comp->>RHI: import_shared_nt_handle / GPU compose
+    RHI-->>Surf: composed_into_imported_shared or copy_bgra
+  else software / sticky fallback
+    Comp->>Surf: blend + upload_bgra
+  end
+  Main-->>Shell: SharedHandle + FrameReady
+```
+
+### Capability boundary
+
+| Item | Status |
+| --- | --- |
+| `CompositorFrame` IR | **As-built** |
+| Compose only in `--type=gpu` (not shell) | **As-built** (normative) |
+| `FrameComposer` seam + `SoftwareComposer` | **As-built** |
+| `GpuDeviceHub` + `AdapterId` pin | **As-built** |
+| DXGI enumerate + `D3D11CreateDevice` on pin | **As-built** |
+| Per-adapter `ensure_rhi_device` (`adapter_index`) | **As-built** (Dx12 preferred; Null / sticky software fallback) |
+| FlyCube `import_shared_nt_handle` / compose-into-shared | **As-built** when `SMT_HAS_FLYCUBE` + DXGI shared (`READ\|WRITE` NT) |
+| `copy_bgra_to_imported_shared` | **As-built** (CPU blend → GPU copy when compose-direct fails) |
+| GPU compose `kSolid` / `kBgra` / `replaces` | **As-built**; import path sets `composed_into_imported_shared` |
+| Per-adapter texture cache | **As-built** |
+| Frame Graph / GpuScene underlay bridge | **As-built** (record only) |
+| `notify_device_lost` / generation bump | **As-built** (API + tests; not auto-TDR wired from OS) |
+| Monitor affinity APIs | **As-built** on hub; **`gpu_main` still pins primary** (no HMONITOR in Attach/Resize IPC yet) |
+| Headless / DIB-only | `upload_bgra` only (no NT import) |
+| Cross-adapter D3D11↔DX12 (mismatched LUID) | **Best-effort** — `OpenSharedHandle` may fail |
+
+`view.backend.rhi` only selects `ContentSource::kDirect`, not FlyCube.
+`//src/gpu:gpu_backend` deps `//src/render:rhi` (+ graph/scene) for `SMT_GPU_COMPOSE=rhi`.
+
+- Spec: [`docs/superpowers/specs/2026-09-27-gpu-rhi-accelerate-design.md`](../../docs/superpowers/specs/2026-09-27-gpu-rhi-accelerate-design.md)
+- Plan: [`docs/superpowers/plans/2026-09-27-gpu-rhi-accelerate.md`](../../docs/superpowers/plans/2026-09-27-gpu-rhi-accelerate.md)
+
+## Tile frames
+
+1. Parse Style JSON with `gis::style::StyleDocument` (`//src/gis/present/style`).
 2. Parse Style `sources` with `gis::tile::parse_style_sources` → `SourceRegistry`
-   / `TileProvider` (`//src/gis/tile`); raster `layer.source` must match a
+   / `TileProvider` (`//src/gis/present/tile`); raster `layer.source` must match a
    source id (missing id → skip that layer).
-3. Walk `layers` in order into `PresentTarget`:
+3. Walk `layers` in order into a `RenderPass` (back to front), then one present:
    - `background`: `background-color` + `background-opacity`
    - `raster`: fetch via `TileFetchFn` (injected into TileProvider) +
      `raster-opacity` (src-over)
-4. **Viewport XYZ mosaic**: when `MapPaintRequest.extent` is valid
+4. **Viewport XYZ mosaic**: when `DrawRequest.extent` is valid
    (`xmax > xmin` and `ymax > ymin`), call `gis::tile::tiles_for_viewport`
-   (zoom from `MapPaintRequest.zoom`, or `estimate_zoom` when `zoom < 0`).
+   (zoom from `DrawRequest.zoom`, or `estimate_zoom` when `zoom < 0`).
    Each visible tile is fetched and blitted by its Web Mercator world rect into
    the present size. Degenerate / empty extent keeps the legacy single tile
    `z/x/y = 0/0/0` stretched to the full surface (old tests stay green).
@@ -38,7 +257,7 @@ Do not `#include` `mln/` or `mbgl/` from `app/` / `content/`.
    pass (keeps `SMT_XYZ_URL` / callers working).
 6. No network / no `fetch`: background-only frames still succeed.
 
-`MapPaintRequest::fetch` is the TileProvider hook at the call site — do not add a
+`DrawRequest::fetch` is the TileProvider hook at the call site — do not add a
 second HTTP cache inside gpu. `--type=gpu` (`gpu_main`) injects
 `make_net_tile_fetch()` (wraps `net::HttpClient::get`, same stack as
 `TileProvider` default) when `SMT_XYZ_URL` / `tile_url_templates` or Style
@@ -49,40 +268,14 @@ second HTTP cache inside gpu. `--type=gpu` (`gpu_main`) injects
 ```bat
 set SMT_MAP_BACKEND=a
 set SMT_XYZ_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
-REM launch chrome / views host that spawns --type=gpu as usual
+REM launch shell / views host that spawns --type=gpu as usual
 ```
 
-Expect: Track A paints background, then composites the **viewport XYZ set**
+Expect: basemap paint draws the background, then composites the **viewport XYZ set**
 (from the surface extent via `tiles_for_viewport`) over HTTP(S). Before the
-host sets a non-degenerate extent, the adapter falls back to a single
+host sets a non-degenerate extent, basemap paint uses a single
 `z/x/y = 0/0/0` tile. Unset `SMT_XYZ_URL` → background only, process stays up.
 Bad template or offline → same background fallback (no crash).
-
-## MapLibre Native pin (optional)
-
-GN `smt_enable_maplibre=false` by default (not in `src_all` / `all`).
-
-```bat
-set SMT_ENABLE_MAPLIBRE=true
-build.bat render_backend_test.exe
-```
-
-Or `gn gen out --args="is_debug=true smt_enable_maplibre=true"`.
-
-Pin path: `third_party/.src/maplibre-native/include/` (`mbgl/map/map.hpp` or
-`mln/map.hpp`). See [`third_party/maplibre/README.md`](../../third_party/maplibre/README.md).
-
-### `mln::Map` still vs adapter
-
-| Path | Role |
-| --- | --- |
-| **`mln::Map` still** (`maplibre_runtime` → facade) | Background (+ opacity) still-image only; no tile fetch / multi-raster |
-| **`maplibre_adapter`** | Authoritative Track A: StyleDocument + ordered rasters + opacities |
-
-When the pin is linked, background-only requests may paint through the facade
-(so the link stays live). Requests with templates/`sources` + `fetch` always use
-the adapter. Full `mbgl::Map` + HeadlessFrontend / mbgl-core is not built on this
-MSVC tree.
 
 ## Tests
 
@@ -91,9 +284,11 @@ build.bat render_backend_test.exe
 out\render_backend_test.exe
 ```
 
-Covers backend env selection, `background-opacity`, multi-raster +
-`raster-opacity`, Style `sources` + `layer.source` binding (injected
-`TileFetchFn`, no real HTTP / no request templates), viewport XYZ mosaic
-(non-`0/0/0` fetch + world-rect blit), degenerate-extent fallback to
-`0/0/0`, offline background, and `make_net_tile_fetch` invalid-URL /
-miss-keeps-background.
+Covers content-source selection (`set_content_source` beats the environment),
+default direct demo clear, Scene3d `draw_and_swap` drawing the demo frame
+and returning true, `background-opacity`, multi-raster + `raster-opacity`,
+Style `sources` + `layer.source` binding (injected `TileFetchFn`, no real HTTP
+/ no request templates), viewport XYZ mosaic (non-`0/0/0` fetch + world-rect
+blit), degenerate-extent fallback to `0/0/0`, offline background, and
+`make_net_tile_fetch` invalid-URL / miss-keeps-background. Basemap pixel
+checks select basemap first.

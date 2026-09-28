@@ -5,10 +5,10 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Endgame render layer → one DLL (dll_stem = render):
-#   rhi + scene + skia + atmosphere + math/bounds source_sets.
+#   rhi + programs + graph traversal. GPU scene is //src/effect/scene (caller-linked).
+# Shell raster lives in //src/ui/gfx, not this DLL.
 # Does NOT include //src/legacy/render/** (optional leftover DLL).
-# math/bounds stay linkable source_sets for algorithm/legacy consumers so they
-# do not pull this DLL; they are also chained into :render.
+# Scene math is //src/base/math:{math,bounds} and is not linked into this DLL.
 
 config("rhi_flycube") {
   defines = [ "SMT_HAS_FLYCUBE" ]
@@ -16,12 +16,24 @@ config("rhi_flycube") {
 
 source_set("rhi_sources") {
   sources = [
-    "rhi/flycube_rhi.cc",
-    "rhi/gdi_rhi.cc",
-    "rhi/gl_rhi.cc",
-    "rhi/null_rhi.cc",
+    "rhi/flycube/command/command_list.cc",
+    "rhi/flycube/command/command_list.h",
+    "rhi/flycube/command/recorder.cc",
+    "rhi/flycube/command/recorder.h",
+    "rhi/flycube/device.cc",
+    "rhi/flycube/device.h",
+    "rhi/flycube/execute.cc",
+    "rhi/flycube/pipeline/hlsl.cc",
+    "rhi/flycube/pipeline/hlsl.h",
+    "rhi/flycube/pipeline/program.cc",
+    "rhi/flycube/pipeline/program.h",
+    "rhi/flycube/resource/gpu.h",
+    "rhi/flycube/resource/resources.cc",
+    "rhi/flycube/resource/resources.h",
+    "rhi/flycube/shared_import.cc",
     "rhi/rhi.cc",
     "rhi/rhi.h",
+    "rhi/stub/stub_device.cc",
   ]
   include_dirs += [ "//src" ]
   defines = [ "RENDER_EXPORTS" ]
@@ -29,6 +41,16 @@ source_set("rhi_sources") {
     public_configs = [ ":rhi_flycube" ]
     deps = [ "//third_party:flycube" ]
   }
+}
+
+source_set("programs_sources") {
+  sources = [
+    "programs/programs.h",
+    "programs/programs.cc",
+  ]
+  include_dirs += [ "//src" ]
+  defines = [ "RENDER_EXPORTS" ]
+  public_deps = [ ":rhi_sources" ]
 }
 
 # Stable label; forwards to the render DLL.
@@ -47,30 +69,19 @@ smt_shared_library("render") {
   dll_stem = "render"
   defines = [ "RENDER_EXPORTS" ]
   deps = [
+    ":programs_sources",
     ":rhi_sources",
-    "//src/render/atmosphere:atmosphere_sources",
-    "//src/render/math:bounds",
-    "//src/render/math:math",
-    "//src/render/scene:scene_sources",
-    "//src/render/skia:skia_sources",
-  ]
-  # scene headers expose gis::scene types; bounds uses base macros.
-  public_deps = [
-    "//src/base:base",
-    "//src/gis:gis",
+    "//src/render/graph:graph_sources",
   ]
   # Forward FlyCube presence to consumers (tests / Views) that branch on
   # SMT_HAS_FLYCUBE; source_set public_configs do not flow through the DLL.
-  # Do not forward skia_real_config here — it pulls Skia include_dirs into every
-  # render consumer. Canvas ABI is backend-stable without SMT_HAS_SKIA in TUs.
   if (smt_has_flycube) {
     public_configs = [ ":rhi_flycube" ]
   }
 }
 
-# Endgame aggregator. Skia GDI stub is part of the render DLL (Views consumers
-# still use //src/render/skia:skia → :render). Leftover engines stay under
-# //src/legacy/render.
+# Endgame aggregator. Leftover engines stay under //src/legacy/render.
+# Views shell raster is //src/ui/gfx:gfx (not this DLL).
 group("render_all") {
   public_deps = [ ":render" ]
 }

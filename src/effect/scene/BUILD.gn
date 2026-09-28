@@ -1,0 +1,51 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Caller-linked GPU scene and opaque adapter. Not part of render.dll.
+# Effect stays exported from frame_graph.h; GpuScene and OpaqueEffect are
+# ordinary classes in this binary.
+source_set("scene_sources") {
+  sources = [
+    "frustum_aabb.cc",
+    "frustum_aabb.h",
+    "opaque_effect.cc",
+    "opaque_effect.h",
+    "scene.cc",
+    "scene.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  public_deps = [
+    "//src/gis/vista/world:world",
+    "//src/render:render",
+    "//third_party:gdal",
+  ]
+}
+
+test("scene_gpu_test") {
+  output_name = "scene_gpu_test"
+  sources = [ "scene_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [ ":scene_sources" ]
+}
+
+test("unified_draw_test") {
+  output_name = "unified_draw_test"
+  sources = [ "unified_draw_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":scene_sources",
+    "//src/base:base",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/model/map:gis",
+  ]
+  if (smt_has_flycube) {
+    defines = [ "SMT_HAS_FLYCUBE" ]
+  }
+}

@@ -4,7 +4,7 @@
 #include "stdafx.h"
 #include "legacy/ui/xcatalog/dlg_sel_layer.h"
 
-#include "base/core/api.h"
+#include "legacy/core/api.h"
 #include "legacy/ui/xcatalog/dlg_sel_ds.h"
 #include "legacy/ui/xcatalog/xcatalog_core.h"
 #include "gis/datasource/mgr/datasource_mgr.h"

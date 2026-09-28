@@ -21,11 +21,11 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 #include <mutex>
 
-#include "base/core/core.h"
-#include "base/core/env_struct.h"
-#include "legacy/render/scene3d/bl3d_scene.h"
-#include "gis/feature/feature.h"
-#include "gis/map/map.h"
+#include "legacy/core/core.h"
+#include "legacy/core/env_struct.h"
+#include "legacy/render/scene3d/scene/scene.h"
+#include "gis/model/feature/feature.h"
+#include "gis/model/map/map.h"
 
 using namespace gis;
 using namespace render;

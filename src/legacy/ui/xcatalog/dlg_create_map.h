@@ -2,7 +2,7 @@
 
 #include "legacy/ui/xcatalog/resource.h"
 // CDlgCreateMap �Ի���
-#include "base/core/bas_struct.h"
+#include "legacy/core/bas_struct.h"
 
 class CDlgCreateMap : public CDialog {
   DECLARE_DYNAMIC(CDlgCreateMap)

@@ -24,6 +24,9 @@ enum class Backend {
   kGl,
 };
 
+// Human-readable RHI / present path for HUD / status (e.g. "FlyCube/DX12").
+RENDER_EXPORT const char* backend_display_name(Backend backend);
+
 enum class CommandListType { kGraphics, kCompute, kCopy };
 
 enum class BufferUsage : uint32_t {
@@ -69,10 +72,12 @@ struct TextureDesc {
 };
 
 struct DeviceDesc {
+  DeviceDesc() : native_window(nullptr), width(0), height(0), adapter_index(0) {}
   void* native_window;
   uint32_t width;
   uint32_t height;
-  DeviceDesc() : native_window(nullptr), width(0), height(0) {}
+  // DXGI / FlyCube adapter ordinal (GpuDeviceHub AdapterId). 0 = first.
+  uint32_t adapter_index;
 };
 
 // Color attachment load at begin_render_pass. FlyCube executes each
@@ -89,54 +94,6 @@ enum class DepthLoadOp : uint32_t {
   kLoad = 1,
 };
 
-// Built-in graphics pipelines. FlyCube compiles HLSL; Null records the id.
-enum class PipelineId : uint32_t {
-  kAuto = 0,      // textured if a texture is bound, else solid
-  kSolid = 1,
-  kTextured = 2,
-  kOcean = 3,     // height-map displace + Fresnel water
-  kCloud = 4,     // billowy / short raymarch with alpha
-  kLitSolid = 5,  // Lambert N·L + ambient solid (3D terrain/model default)
-};
-
-// Built-in compute pipelines for ocean GPU FFT (FlyCube); Null records only.
-enum class ComputePipelineId : uint32_t {
-  kNone = 0,
-  kOceanSpectrum = 1,  // JONSWAP (or Phillips) → RG32F height spectrum + seed
-  kOceanFftBitReverse = 2,  // 1D bit-reverse along row or column
-  kOceanFftButterfly = 3,   // radix-2 Cooley-Tukey stage (ping-pong)
-  kOceanHeightEncode = 4,   // complex → RGBA8 (R=h, G=Dx, B=Dz)
-  // Height spectrum → Dx/Dz spectrum: -i * chop * (k_axis/|k|) * ĥ
-  kOceanDisplacementSpectrum = 5,
-};
-
-// Spectrum shape for kOceanSpectrum (energy still normalized to Hs on CPU).
-enum class OceanSpectrumModel : uint32_t {
-  kPhillips = 0,  // low-quality / legacy fallback
-  kJonswap = 1,   // peak-enhanced directional JONSWAP-lite
-};
-
-// Constants for ocean compute FFT (set_ocean_fft_params).
-struct OceanFftGpuParams {
-  uint32_t size = 64;
-  uint32_t log2_size = 6;
-  uint32_t stage = 0;      // butterfly stage; 0 → len=2
-  uint32_t direction = 0;  // 0 = rows/X (or Dx), 1 = columns/Y (or Dz)
-  float time_sec = 0.f;
-  float wind_speed = 5.f;
-  float wind_dir_rad = 0.f;
-  float amp_scale = 1.f;  // energy-normalized amplitude (Hs → σ = Hs/4)
-  float patch_size = 100.f;
-  float height_scale = 1.f;  // RGBA encode scale for height (R)
-  float disp_scale = 1.f;    // RGBA encode scale for Dx/Dz (G/B)
-  float chop = 1.f;          // Tessendorf horizontal displacement strength
-  uint32_t spectrum_model =
-      static_cast<uint32_t>(OceanSpectrumModel::kJonswap);
-  uint32_t encode_channel = 0;  // 0=R height, 1=G Dx, 2=B Dz
-  float gamma = 3.3f;           // JONSWAP peak enhancement
-  float pad = 0.f;
-};
-
 enum class BlendMode : uint32_t {
   kOpaque = 0,
   kSrcAlpha = 1,  // src.rgb * src.a + dst.rgb * (1 - src.a)
@@ -147,6 +104,171 @@ enum class DepthMode : uint32_t {
   kWrite = 1,     // depth test + write
   kTestOnly = 2,  // depth test, no write (soft clouds)
 };
+
+enum class ShaderStage : uint32_t { kVertex, kPixel, kCompute };
+
+enum class BindingKind : uint32_t {
+  kConstantBuffer,
+  kSrv,
+  kUav,
+  kSampler,
+};
+
+// Vertex fetch layouts the product shaders use. FlyCube maps these to input
+// elements; the header does not name a backend input-layout type.
+enum class VertexLayout : uint32_t {
+  kPosition,        // float3
+  kPositionUv,      // float3 + float2
+  kPositionNormal,  // float3 + float3
+};
+
+struct ShaderSource {
+  const char* hlsl = nullptr;
+  const char* entry = "main";
+  const char* profile = "6_0";
+};
+
+// slot is the index passed to set_constants / bind_texture / bind_compute_*.
+// hlsl_name is the shader bind name (for example "CameraCB"). The same slot
+// may be listed twice (vertex and pixel); one set_constants writes every match.
+struct BindingSlot {
+  uint32_t slot = 0;
+  BindingKind kind = BindingKind::kConstantBuffer;
+  ShaderStage stage = ShaderStage::kVertex;
+  uint32_t size_bytes = 0;
+  const char* hlsl_name = nullptr;
+};
+
+struct GraphicsPipelineDesc {
+  ShaderSource vertex;
+  ShaderSource pixel;
+  VertexLayout vertex_layout = VertexLayout::kPosition;
+  const BindingSlot* bindings = nullptr;
+  uint32_t binding_count = 0;
+  BlendMode blend = BlendMode::kOpaque;
+  bool compile_depth_off = true;
+  bool compile_depth_write = false;
+  bool compile_depth_test = false;
+  int32_t camera_slot = 0;  // -1: bind_camera does not write a constant
+};
+
+struct ComputePipelineDesc {
+  ShaderSource compute;
+  const BindingSlot* bindings = nullptr;
+  uint32_t binding_count = 0;
+};
+
+// Opaque program. Callers hold the pointer and compare it in tests.
+class Pipeline {
+ public:
+  virtual ~Pipeline() = default;
+};
+
+// CPU stand-in used by null and leftover backends. Records the binding table
+// so command lists can drop oversized constant writes at draw time.
+class StubPipeline : public Pipeline {
+ public:
+  StubPipeline(bool compute, std::vector<BindingSlot> bindings,
+               int32_t camera_slot)
+      : compute_(compute),
+        bindings_(std::move(bindings)),
+        camera_slot_(camera_slot) {}
+
+  bool is_compute() const { return compute_; }
+  int32_t camera_slot() const { return camera_slot_; }
+  const std::vector<BindingSlot>& bindings() const { return bindings_; }
+
+  // 0 when this pipeline has no constant buffer at slot.
+  uint32_t constant_slot_size(uint32_t slot) const {
+    uint32_t size = 0;
+    bool found = false;
+    for (const BindingSlot& binding : bindings_) {
+      if (binding.kind != BindingKind::kConstantBuffer || binding.slot != slot) {
+        continue;
+      }
+      if (!found) {
+        size = binding.size_bytes;
+        found = true;
+      }
+    }
+    return found ? size : 0;
+  }
+
+ private:
+  bool compute_ = false;
+  std::vector<BindingSlot> bindings_;
+  int32_t camera_slot_ = -1;
+};
+
+namespace detail {
+
+inline bool binding_slot_named(const BindingSlot& binding) {
+  return binding.hlsl_name != nullptr && binding.hlsl_name[0] != '\0';
+}
+
+inline bool constant_slots_consistent(const BindingSlot* bindings,
+                                      uint32_t binding_count) {
+  if (binding_count > 0 && bindings == nullptr) {
+    return false;
+  }
+  for (uint32_t i = 0; i < binding_count; ++i) {
+    if (!binding_slot_named(bindings[i])) {
+      return false;
+    }
+    if (bindings[i].kind != BindingKind::kConstantBuffer) {
+      continue;
+    }
+    for (uint32_t j = 0; j < i; ++j) {
+      if (bindings[j].kind == BindingKind::kConstantBuffer &&
+          bindings[j].slot == bindings[i].slot &&
+          bindings[j].size_bytes != bindings[i].size_bytes) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+inline bool camera_slot_ok(const GraphicsPipelineDesc& desc) {
+  if (desc.camera_slot < 0) {
+    return true;
+  }
+  const auto slot = static_cast<uint32_t>(desc.camera_slot);
+  for (uint32_t i = 0; i < desc.binding_count; ++i) {
+    const BindingSlot& binding = desc.bindings[i];
+    if (binding.kind == BindingKind::kConstantBuffer && binding.slot == slot &&
+        binding.size_bytes >= 128u) {
+      return true;
+    }
+  }
+  return false;
+}
+
+inline bool graphics_pipeline_desc_ok(const GraphicsPipelineDesc& desc) {
+  if (desc.vertex.hlsl == nullptr || desc.vertex.hlsl[0] == '\0' ||
+      desc.pixel.hlsl == nullptr || desc.pixel.hlsl[0] == '\0') {
+    return false;
+  }
+  return constant_slots_consistent(desc.bindings, desc.binding_count) &&
+         camera_slot_ok(desc);
+}
+
+inline bool compute_pipeline_desc_ok(const ComputePipelineDesc& desc) {
+  if (desc.compute.hlsl == nullptr || desc.compute.hlsl[0] == '\0') {
+    return false;
+  }
+  return constant_slots_consistent(desc.bindings, desc.binding_count);
+}
+
+inline std::vector<BindingSlot> copy_bindings(const BindingSlot* bindings,
+                                              uint32_t binding_count) {
+  if (bindings == nullptr || binding_count == 0) {
+    return {};
+  }
+  return std::vector<BindingSlot>(bindings, bindings + binding_count);
+}
+
+}  // namespace detail
 
 struct RenderPassDesc {
   float clear_r;
@@ -171,52 +293,6 @@ struct RenderPassDesc {
         enable_depth(false),
         depth_load_op(DepthLoadOp::kClear),
         depth_clear(1.f) {}
-};
-
-// GPU constants for PipelineId::kOcean (uploaded by set_ocean_params).
-struct OceanGpuParams {
-  float deep_r = 0.02f;
-  float deep_g = 0.12f;
-  float deep_b = 0.28f;
-  float deep_a = 1.f;
-  float shallow_r = 0.15f;
-  float shallow_g = 0.45f;
-  float shallow_b = 0.55f;
-  float shallow_a = 1.f;
-  float fresnel_bias = 0.04f;
-  float fresnel_power = 5.f;
-  float height_scale = 1.f;
-  float cam_x = 0.f;
-  float cam_y = 2.f;
-  float cam_z = 4.f;
-  float disp_scale = 1.f;  // horizontal chop decode (G/B of height map)
-  float pad1 = 0.f;
-};
-
-// GPU constants for PipelineId::kCloud (uploaded by set_cloud_params).
-struct CloudGpuParams {
-  float sun_x = 0.f;
-  float sun_y = 0.7071f;
-  float sun_z = 0.7071f;
-  float cover = 1.f;
-  float base_m = 1000.f;
-  float top_m = 3000.f;
-  float extinction = 0.02f;
-  float steps = 16.f;
-  float cam_x = 0.f;
-  float cam_y = 0.f;
-  float cam_z = 4.f;
-  float pad0 = 0.f;
-};
-
-// Directional + ambient light for PipelineId::kLitSolid (set_light_params).
-// dir is the travel direction of light rays (world space); PS uses -dir for N·L.
-// Default dir is approximately (-0.4, -0.8, -0.35); FlyCube normalizes on upload.
-struct LightParams {
-  float dir[3] = {-0.4f, -0.8f, -0.35f};
-  float ambient = 0.25f;
-  float color[3] = {1.f, 1.f, 1.f};
-  float intensity = 1.f;
 };
 
 enum class CameraKind : uint32_t {
@@ -400,28 +476,17 @@ class CommandList {
     (void)slot;
   }
   virtual void bind_camera(const CameraMatrices& camera) { (void)camera; }
-  // Solid-color draw path (vector fills / untextured meshes). FlyCube uploads
-  // a ColorCB; null/stub backends only record the values.
-  virtual void set_solid_color(float r, float g, float b, float a) {
-    (void)r;
-    (void)g;
-    (void)b;
-    (void)a;
+  // Graphics or compute program. nullptr skips the later draw or dispatch.
+  virtual void set_pipeline(Pipeline* pipeline) { (void)pipeline; }
+  // Latest bytes for one constant slot. Ignored when data is null or size is 0.
+  // Does not require a pipeline to be bound first.
+  virtual void set_constants(uint32_t slot, const void* data, uint32_t byte_size) {
+    (void)slot;
+    (void)data;
+    (void)byte_size;
   }
-  // Select a built-in pipeline (ocean/cloud/solid/textured). kAuto picks
-  // textured vs solid from the bound texture.
-  virtual void set_pipeline(PipelineId id) { (void)id; }
   virtual void set_blend_mode(BlendMode mode) { (void)mode; }
   virtual void set_depth_mode(DepthMode mode) { (void)mode; }
-  virtual void set_ocean_params(const OceanGpuParams& params) { (void)params; }
-  virtual void set_cloud_params(const CloudGpuParams& params) { (void)params; }
-  virtual void set_light_params(const LightParams& params) { (void)params; }
-
-  // Compute (ocean GPU FFT). Null records counters; FlyCube dispatches on execute.
-  virtual void set_compute_pipeline(ComputePipelineId id) { (void)id; }
-  virtual void set_ocean_fft_params(const OceanFftGpuParams& params) {
-    (void)params;
-  }
   virtual void bind_compute_srv(Texture* texture, uint32_t slot) {
     (void)texture;
     (void)slot;
@@ -447,17 +512,12 @@ class StubCommandList : public CommandList {
   uint32_t bind_index_calls = 0;
   uint32_t bind_texture_calls = 0;
   uint32_t bind_camera_calls = 0;
-  uint32_t set_solid_color_calls = 0;
+  uint32_t set_constants_calls = 0;
   Texture* last_texture = nullptr;
   CameraMatrices last_camera;
-  float solid_r = 0.85f;
-  float solid_g = 0.85f;
-  float solid_b = 0.90f;
-  float solid_a = 1.f;
   bool closed = false;
   bool pass_open = false;
   std::vector<uint32_t> index_counts;
-  // Append-only counters (keep earlier layout stable for cross-TU stubs).
   uint32_t begin_render_pass_calls = 0;
   uint32_t end_render_pass_calls = 0;
   uint32_t clear_load_calls = 0;
@@ -466,29 +526,37 @@ class StubCommandList : public CommandList {
   uint32_t set_pipeline_calls = 0;
   uint32_t set_blend_mode_calls = 0;
   uint32_t set_depth_mode_calls = 0;
-  uint32_t set_ocean_params_calls = 0;
-  uint32_t set_cloud_params_calls = 0;
-  uint32_t set_light_params_calls = 0;
   ColorLoadOp last_load_op = ColorLoadOp::kClear;
-  PipelineId last_pipeline = PipelineId::kAuto;
+  Pipeline* last_pipeline = nullptr;
   BlendMode last_blend = BlendMode::kOpaque;
   DepthMode last_depth = DepthMode::kDisabled;
-  OceanGpuParams last_ocean;
-  CloudGpuParams last_cloud;
-  LightParams last_light;
   RenderPassDesc last_pass;
-  // Append-only compute counters (keep earlier layout stable for cross-TU stubs).
-  uint32_t set_compute_pipeline_calls = 0;
-  uint32_t set_ocean_fft_params_calls = 0;
   uint32_t bind_compute_srv_calls = 0;
   uint32_t bind_compute_uav_calls = 0;
   uint32_t dispatch_calls = 0;
   uint32_t uav_barrier_calls = 0;
-  ComputePipelineId last_compute_pipeline = ComputePipelineId::kNone;
-  OceanFftGpuParams last_ocean_fft;
   uint32_t last_dispatch_x = 0;
   uint32_t last_dispatch_y = 0;
   uint32_t last_dispatch_z = 0;
+
+  // Last set_constants body per slot. Writes larger than 256 bytes increment
+  // the counter and record the size, but do not keep the bytes.
+  struct ConstantRecord {
+    uint32_t slot = 0;
+    uint32_t byte_size = 0;
+    uint8_t bytes[256] = {};
+    bool has_bytes = false;
+  };
+  std::vector<ConstantRecord> constants;
+
+  const ConstantRecord* constant_at(uint32_t slot) const {
+    for (const ConstantRecord& record : constants) {
+      if (record.slot == slot) {
+        return &record;
+      }
+    }
+    return nullptr;
+  }
 
   void set_viewport(float, float, float, float, float, float) override {}
   void begin_render_pass(const RenderPassDesc& desc) override {
@@ -521,16 +589,32 @@ class StubCommandList : public CommandList {
     ++bind_camera_calls;
     last_camera = camera;
   }
-  void set_solid_color(float r, float g, float b, float a) override {
-    ++set_solid_color_calls;
-    solid_r = r;
-    solid_g = g;
-    solid_b = b;
-    solid_a = a;
-  }
-  void set_pipeline(PipelineId id) override {
+  void set_pipeline(Pipeline* pipeline) override {
     ++set_pipeline_calls;
-    last_pipeline = id;
+    last_pipeline = pipeline;
+  }
+  void set_constants(uint32_t slot, const void* data, uint32_t byte_size) override {
+    if (data == nullptr || byte_size == 0) {
+      return;
+    }
+    ++set_constants_calls;
+    ConstantRecord* found = nullptr;
+    for (ConstantRecord& record : constants) {
+      if (record.slot == slot) {
+        found = &record;
+        break;
+      }
+    }
+    if (found == nullptr) {
+      constants.push_back(ConstantRecord{});
+      found = &constants.back();
+      found->slot = slot;
+    }
+    found->byte_size = byte_size;
+    found->has_bytes = byte_size <= 256u;
+    if (found->has_bytes) {
+      std::memcpy(found->bytes, data, byte_size);
+    }
   }
   void set_blend_mode(BlendMode mode) override {
     ++set_blend_mode_calls;
@@ -539,39 +623,6 @@ class StubCommandList : public CommandList {
   void set_depth_mode(DepthMode mode) override {
     ++set_depth_mode_calls;
     last_depth = mode;
-  }
-  void set_ocean_params(const OceanGpuParams& params) override {
-    ++set_ocean_params_calls;
-    // Guard against vtable-slot skew (enum/int passed as ref) or null.
-    if (!detail::is_plausible_object_pointer(&params)) {
-      return;
-    }
-    last_ocean = params;
-  }
-  void set_cloud_params(const CloudGpuParams& params) override {
-    ++set_cloud_params_calls;
-    if (!detail::is_plausible_object_pointer(&params)) {
-      return;
-    }
-    last_cloud = params;
-  }
-  void set_light_params(const LightParams& params) override {
-    ++set_light_params_calls;
-    if (!detail::is_plausible_object_pointer(&params)) {
-      return;
-    }
-    last_light = params;
-  }
-  void set_compute_pipeline(ComputePipelineId id) override {
-    ++set_compute_pipeline_calls;
-    last_compute_pipeline = id;
-  }
-  void set_ocean_fft_params(const OceanFftGpuParams& params) override {
-    ++set_ocean_fft_params_calls;
-    if (!detail::is_plausible_object_pointer(&params)) {
-      return;
-    }
-    last_ocean_fft = params;
   }
   void bind_compute_srv(Texture* texture, uint32_t) override {
     ++bind_compute_srv_calls;
@@ -626,6 +677,52 @@ class Device {
   virtual uint32_t execute_count() const { return 0; }
   // True when the backend can compile/dispatch compute (FlyCube). Null = false.
   virtual bool supports_compute() const { return false; }
+
+  virtual Pipeline* create_graphics_pipeline(const GraphicsPipelineDesc& desc) {
+    if (!detail::graphics_pipeline_desc_ok(desc)) {
+      return nullptr;
+    }
+    return new StubPipeline(false,
+                            detail::copy_bindings(desc.bindings, desc.binding_count),
+                            desc.camera_slot);
+  }
+  virtual Pipeline* create_compute_pipeline(const ComputePipelineDesc& desc) {
+    if (!detail::compute_pipeline_desc_ok(desc)) {
+      return nullptr;
+    }
+    return new StubPipeline(true,
+                            detail::copy_bindings(desc.bindings, desc.binding_count),
+                            -1);
+  }
+  virtual void destroy_pipeline(Pipeline* pipeline) { delete pipeline; }
+
+  // Optional DXGI NT shared-handle import for GPU-process present into the
+  // browser-facing surface. Default false until a backend implements it.
+  // |nt_handle| is a Win32 HANDLE value (void* to avoid windows.h here).
+  virtual bool import_shared_nt_handle(void* nt_handle, uint32_t width_px,
+                                       uint32_t height_px) {
+    (void)nt_handle;
+    (void)width_px;
+    (void)height_px;
+    return false;
+  }
+  // Copy one BGRA8 buffer into the imported shared texture. Requires a prior
+  // successful import_shared_nt_handle on this device.
+  virtual bool copy_bgra_to_imported_shared(const uint8_t* bgra,
+                                            uint32_t stride_bytes,
+                                            uint32_t width_px,
+                                            uint32_t height_px) {
+    (void)bgra;
+    (void)stride_bytes;
+    (void)width_px;
+    (void)height_px;
+    return false;
+  }
+  // True after import_shared_nt_handle succeeded for the current generation.
+  virtual bool has_imported_shared() const { return false; }
+  // True when the last successful execute() wrote color into the imported
+  // shared texture (compose-direct path). Cleared on the next execute/import.
+  virtual bool composed_into_imported_shared() const { return false; }
 };
 
 RENDER_EXPORT Device* create_device(Backend backend);

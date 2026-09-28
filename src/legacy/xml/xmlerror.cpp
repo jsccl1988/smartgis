@@ -28,9 +28,7 @@ distribution.
 // The goal of the seperate error file is to make the first
 // step towards localization. tinyxml (currently) only supports
 // english error messages, but the could now be translated.
-//
 // It also cleans up the code a bit.
-//
 
 const char* TiXmlBase::errorString[TIXML_ERROR_STRING_COUNT] = {
     "No error",

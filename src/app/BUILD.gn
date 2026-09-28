@@ -1,9 +1,5 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Endgame / prototype hosts only.
-# - views/  → SmartGisViews.exe  (//src/app/views:views)
-# - winui/  → SmartGisWinui.exe  (//src/app/winui:app_winui)
-# - cef/    → SmartGisCef.exe    (//src/app/cef:cef)  opt-in smt_build_cef
-# - cs/     → SmartGisCs.exe     (//src/app/cs:cs)    opt-in smt_build_cs
+# Product host: views/ → SmartGisViews.exe (//src/app/views:views).
 # MFC SmartGis.exe lives in //src/legacy/app:app.

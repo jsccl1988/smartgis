@@ -1,0 +1,39 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# *.am scan and AM_MSG_* → catalog ids. source_set only (not the AuxModule DLL
+# //src/legacy/plugin:plugin). Public API stays namespace plugin.
+# :am calls Registry::add_manifest but does not deps
+# //src/plugin/runtime/host:host — host deps :am, and an upward edge
+# would cycle. Registry / Manifest headers are reached via //src.
+
+source_set("cmd") {
+  sources = [
+    "cmd.cc",
+    "cmd.h",
+  ]
+  include_dirs += [ "//src" ]
+  public_deps = [
+    "//src/legacy/tool/adapter:adapter",
+    "//src/tool:dispatch",
+  ]
+}
+
+source_set("am") {
+  sources = [
+    "am.cc",
+    "am.h",
+  ]
+  include_dirs += [ "//src" ]
+}
+
+# Compatibility aliases for older deps / docs that still say :legacy_*.
+group("legacy_cmd") {
+  public_deps = [ ":cmd" ]
+}
+
+group("legacy_am") {
+  public_deps = [ ":am" ]
+}

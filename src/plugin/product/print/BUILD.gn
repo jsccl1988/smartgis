@@ -1,0 +1,20 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+source_set("print_views") {
+  sources = [
+    "print_commands.cc",
+    "print_commands.h",
+    "print_preview_dialog.cc",
+    "print_preview_dialog.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/content:content",
+    "//src/plugin/runtime/host:host",
+    "//src/plugin/runtime/widgets:widgets",
+    "//src/ui/views:views",
+  ]
+}

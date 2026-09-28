@@ -21,7 +21,7 @@ Make `SmartGisViews` the product plugin entry: builtins start via `plugin::Regis
 | A1 | Wire **only** `SmartGisViews` (`src/app/views`). MFC `SmartGis.exe` keeps `InitSmtAuxModules`. |
 | S1 | Startup loads **five builtins only** (dem / proj / print / model3d / orthogrid), all enabled. No zip / `*.am` scan. |
 | M1 | Menu entry opens **Plugin Manager** (`ManagerView`) for enable/disable. No install-from-zip UI required this program. |
-| Ownership | `BrowserView` owns a chrome helper (`app::PluginChrome`) that holds Registry + PluginHost + ProcessingPool + CommandCatalog. |
+| Ownership | `BrowserView` owns a chrome helper (`app::PluginShell`) that holds Registry + PluginHost + ProcessingPool + CommandCatalog. |
 | Parallel | Agents edit **non-overlapping trees**; see path partition below. |
 
 ## Non-goals (still out)
@@ -39,7 +39,7 @@ Make `SmartGisViews` the product plugin entry: builtins start via `plugin::Regis
 SmartGisViews (BrowserView)
   MapContents session     ← content/public/map_contents.h (GPU session)
   ViewHost ×3             ← EventBus / tools
-  PluginChrome            ← separate TU (avoids MapContents name clash)
+  PluginShell            ← separate TU (avoids MapContents name clash)
     tool::CommandCatalog
     content::PluginHost   ← create_plugin_host(catalog, events, plugin_map*)
     plugin::Registry
@@ -50,14 +50,14 @@ SmartGisViews (BrowserView)
   plugin/{dem,proj,print,model3d,orthogrid}  (*_views source_sets)
 ```
 
-**MapContents name clash:** `content/public/map_contents.h` and `content/public/plugin_host.h` both declare `content::MapContents`. Product chrome **must not** include both in one TU. `PluginChrome` lives in `app/views/plugin_chrome.*` and includes only `plugin_host.h`. Session map stays on `BrowserView` via `map_contents.h`. Plugin-face map may be `nullptr` in A (dialogs that need extent use host later) or a tiny adapter type local to `plugin_chrome.cc` that does **not** share the session class name in headers included by `browser_view.cc`.
+**MapContents name clash:** `content/public/map_contents.h` and `content/public/plugin_host.h` both declare `content::MapContents`. Product chrome **must not** include both in one TU. `PluginShell` lives in `app/views/plugin_shell.*` and includes only `plugin_host.h`. Session map stays on `BrowserView` via `map_contents.h`. Plugin-face map may be `nullptr` in A (dialogs that need extent use host later) or a tiny adapter type local to `plugin_shell.cc` that does **not** share the session class name in headers included by `browser_view.cc`.
 
 ## Phase A — Cutover (Views wiring)
 
 ### Behavior
 
-1. `BrowserView::init` constructs `PluginChrome` after ViewHosts / session exist.
-2. `PluginChrome::start_builtins()`:
+1. `BrowserView::init` constructs `PluginShell` after ViewHosts / session exist.
+2. `PluginShell::start_builtins()`:
    - `add_manifest` for `smartgis.dem|proj|print|model3d|baogrid` (`kind=builtin`, `api_version=2`, `TrustClass::kBuiltin`). Tree name is `orthogrid`; stable plugin id remains `smartgis.baogrid`.
    - `register_builtin_hooks(id, register_X, stop_noop)` where `register_X` is `plugin::register_dem` / `register_proj` / `register_print` / `register_model3d` / `register_orthogrid`.
    - `set_enabled(id, true, host)` for each.
@@ -69,8 +69,8 @@ SmartGisViews (BrowserView)
 
 | Path | Role |
 | --- | --- |
-| `src/app/views/plugin_chrome.h` `.cc` | Owns catalog / host / registry / pool; start_builtins; show_manager |
-| `src/app/views/browser_view.h` `.cc` | Owns `unique_ptr<PluginChrome>`; menu item; destroy order |
+| `src/app/views/shell/plugin/plugin_shell.h` `.cc` | Owns catalog / host / registry / pool; start_builtins; show_manager |
+| `src/app/views/browser_view.h` `.cc` | Owns `unique_ptr<PluginShell>`; menu item; destroy order |
 | `src/app/views/BUILD.gn` | deps on `//src/plugin:host` + five `*_views` targets + `//src/tool:dispatch` |
 
 ### Acceptance A
@@ -118,6 +118,18 @@ Align with `docs/build/abi-rename-map.md` and the repo cutover design, **scoped 
 2. Proj processing already gated by `PLUGIN_PROJ_VIEWS_USE_PROJ_API` — enable for Views build and cover with host_test.
 3. Orthogrid / model3d / print: ensure command handlers do not crash without scene; deepen where kernels exist (`orthogrid` Laplace / boundary I/O; model3d scene ops behind null checks).
 4. Docs and code use **orthogrid** naming; `baogrid` only as historical alias in abi map.
+
+### Views seam (2026-09-27)
+
+Dialog factories must not construct a `ui::views::View` on the stack. `plugin::show_owned_dialog` (`plugin/runtime/widgets/owned_dialog.h`) moves the body into `ui::views::Dialog::run_modal`, which owns it until close. DEM, proj, and print use that path. Orthogrid and model3d do not contribute dialogs.
+
+Processing and command failures publish a JSON string through `plugin::set_operation_result`. `ProcessingPool` copies that string into the existing `done(bool, std::string)` callback. There is no second plugin system and no new map type.
+
+- DEM `tin_from_xyz` / `grid_from_heightmap` still call the MFC-free loaders. `PluginHost` has no `EditSession`, and `MapContents::DispatchPlugin` has no surface schema, so a successful load returns `{"error":"no_map_seam",...}` and `false` instead of dropping the surface.
+- Proj `transform_grid` keeps `project_point` and stores nodes in `TransformGridOutput` (`consume_transform_grid_output`).
+- Orthogrid `create_orth_grid_processing` loads a real `gridbnd` body and runs product Laplace (`detail/boundary_solve`). A header-only file does not succeed. Save-boundary after a successful pick returns `{"error":"not_available_without_legacy_kernel"}` because the 2010 session is not on the Views graph.
+- model3d commands stay `false` with `{"error":"no_scene_device",...}` until a device pointer exists on `PluginHost` / `MapContents`.
+- Print preview Save reports `{"error":"export_not_implemented"}` after a path is chosen. Showing the preview dialog is the Views fix.
 
 ### Acceptance D
 

@@ -15,11 +15,12 @@
 #endif
 #include <windows.h>
 
-#include "base/ipc/handle.h"
-#include "base/ipc/invitation.h"
+#include "base/ipc/handle/handle.h"
+#include "base/ipc/invitation/invitation.h"
 #include "content/common/ipc.h"
-#include "gpu/present.h"
-#include "gpu/render_backend.h"
+#include "gpu/device/gpu_device_hub.h"
+#include "gpu/display/output_surface.h"
+#include "gpu/frame_sink.h"
 
 namespace gpu {
 namespace {
@@ -32,9 +33,8 @@ struct SurfaceSlot {
   uint32_t height_px = 64;
   float dpi = 96.f;
   content::Extent2 extent{};
-  detail::PresentTarget present;
+  detail::OutputSurface present;
   bool attached = false;
-  DWORD last_pointer_paint_ms = 0;
 };
 
 struct Args {
@@ -43,6 +43,18 @@ struct Args {
   std::wstring session;
   bool self_test = false;
 };
+
+void pin_surface_adapter(detail::OutputSurface* surface) {
+  if (!surface) {
+    return;
+  }
+  detail::GpuDeviceHub& hub = detail::device_hub();
+  detail::AdapterId id = hub.adapter_of(surface);
+  if (id == detail::kAdapterInvalid) {
+    id = hub.primary_adapter();
+  }
+  (void)hub.bind_surface(surface, id);
+}
 
 Args parse_args(int argc, wchar_t** argv) {
   Args a;
@@ -63,7 +75,7 @@ Args parse_args(int argc, wchar_t** argv) {
 
 bool send_shared_surface(cd::Pipe* pipe,
                          uint32_t view_id,
-                         detail::PresentTarget* present) {
+                         detail::OutputSurface* present) {
   if (!pipe || !present) {
     return false;
   }
@@ -93,34 +105,10 @@ bool send_shared_surface(cd::Pipe* pipe,
   return pipe->send_msg(content::HostMsg::kFrameReady, view_id, fr);
 }
 
-bool announce_and_paint(cd::Pipe* pipe,
-                        uint32_t view_id,
-                        SurfaceSlot* slot,
-                        HWND hwnd) {
-  // Distinct clears so Map / Data / 3D panes are visibly different once chrome
-  // presents Latest() into the HWND.
-  uint8_t b = 0x40;
-  uint8_t g = 0x80;
-  uint8_t r = 0xC0;
-  if (slot->kind == content::ViewKind::kMapData) {
-    b = 0x30;
-    g = 0x70;
-    r = 0x50;
-  } else if (slot->kind == content::ViewKind::kScene3d) {
-    b = 0x90;
-    g = 0x40;
-    r = 0x28;
-  }
-  (void)hwnd;
-  // Scene3d: land-masked DEM underlay (chrome paints orbitable SoT on top).
-  if (slot->kind == content::ViewKind::kScene3d) {
-    slot->present.paint_clear(b, g, r, 0xFF);
-    slot->present.paint_demo_frame(content::ViewKind::kScene3d);
-    return send_shared_surface(pipe, view_id, &slot->present);
-  }
-  // Map / Data: Track A MapLibre (or software basemap). Chrome overlays
-  // MapScene vectors on this DIB.
-  MapPaintRequest req;
+bool announce_and_paint(cd::Pipe* pipe, uint32_t view_id, SurfaceSlot* slot) {
+  // Shell overlays MapScene vectors. Scene3d is direct content inside
+  // draw_and_swap; this call does not branch on kind.
+  DrawRequest req;
   req.kind = slot->kind;
   req.extent = slot->extent;
   req.style_json =
@@ -139,10 +127,7 @@ bool announce_and_paint(cd::Pipe* pipe,
   if (has_template || has_sources) {
     req.fetch = make_net_tile_fetch();
   }
-  if (paint_map_frame(&slot->present, req)) {
-    return send_shared_surface(pipe, view_id, &slot->present);
-  }
-  slot->present.paint_clear(b, g, r, 0xFF);
+  (void)draw_and_swap(&slot->present, req);
   return send_shared_surface(pipe, view_id, &slot->present);
 }
 
@@ -159,7 +144,7 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
 
   HANDLE parent = nullptr;
   if (args.parent_pid != 0) {
-    // PROCESS_DUP_HANDLE is required so PresentTarget can DuplicateHandle the
+    // PROCESS_DUP_HANDLE is required so OutputSurface can DuplicateHandle the
     // DIB/DXGI share into the UI process (pickle nt_handle). SYNCHRONIZE-only
     // fallback made SharedHandle empty → FrameReady without Latest() → white.
     parent = OpenProcess(SYNCHRONIZE | PROCESS_DUP_HANDLE, FALSE,
@@ -172,9 +157,11 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
     }
   }
 
-  std::unique_ptr<Adapter> adapter(create_adapter());
-  adapter->load_legacy_dlls();
-  adapter->init_hidden_hwnd(64, 64);
+  std::unique_ptr<LegacyHost> host(create_legacy_host());
+  host->load_legacy_dlls();
+  // One hidden window for legacy device Init. Resize only updates the present
+  // target; another CreateWindowExW would leak the previous HWND.
+  host->init_hidden_hwnd(64, 64);
 
   cd::Pipe pipe;
   if (invited.is_valid()) {
@@ -266,17 +253,17 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
       slot.attached = true;
       if (!need_new) {
         // Visibility / duplicate Attach must not recreate the DIB, but still
-        // republish SharedHandle + FrameReady so chrome that attached late
+        // republish SharedHandle + FrameReady so shell that attached late
         // (WinUI sync attach after Hello) receives Latest().
         (void)send_shared_surface(&pipe, h.view_id, &slot.present);
         continue;
       }
+      pin_surface_adapter(&slot.present);
       if (!slot.present.resize(slot.width_px, slot.height_px, slot.mode,
                                parent)) {
         continue;
       }
-      (void)announce_and_paint(&pipe, h.view_id, &slot,
-                               static_cast<HWND>(adapter->hwnd()));
+      (void)announce_and_paint(&pipe, h.view_id, &slot);
       continue;
     }
     if (type == content::HostMsg::kResizeSurface) {
@@ -287,7 +274,7 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
       }
       const uint32_t new_w = body.w < 1 ? 1 : body.w;
       const uint32_t new_h = body.h < 1 ? 1 : body.h;
-      // Duplicate LayoutSlot / tab sync must not release the live DIB — chrome
+      // Duplicate LayoutSlot / tab sync must not release the live DIB — shell
       // may still be mapping it for StretchDIBits (CEF flicker + AV).
       if (slot.present.generation() != 0 && slot.width_px == new_w &&
           slot.height_px == new_h) {
@@ -297,14 +284,12 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
       slot.width_px = new_w;
       slot.height_px = new_h;
       slot.dpi = body.dpi;
+      pin_surface_adapter(&slot.present);
       if (!slot.present.resize(slot.width_px, slot.height_px, slot.mode,
                                parent)) {
         continue;
       }
-      adapter->init_hidden_hwnd(static_cast<int>(slot.width_px),
-                                static_cast<int>(slot.height_px));
-      announce_and_paint(&pipe, h.view_id, &slot,
-                         static_cast<HWND>(adapter->hwnd()));
+      announce_and_paint(&pipe, h.view_id, &slot);
       continue;
     }
     if (type == content::HostMsg::kSetExtent) {
@@ -321,33 +306,16 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
       continue;
     }
     if (type == content::HostMsg::kPointerEvent) {
-      // Do not rebuild/publish a full DIB on every mouse move — that fills the
-      // pipe and blocks chrome's UI thread inside Dispatch (white-screen hang).
-      // Scene3d keeps a throttled redraw so the map/terrain frame still updates.
-      auto it = views.find(h.view_id);
-      if (it == views.end() || it->second.present.generation() == 0) {
-        continue;
-      }
-      SurfaceSlot& slot = it->second;
-      if (slot.kind != content::ViewKind::kScene3d) {
-        continue;
-      }
-      const DWORD now = GetTickCount();
-      if (now - slot.last_pointer_paint_ms < 33) {
-        continue;
-      }
-      slot.last_pointer_paint_ms = now;
-      announce_and_paint(&pipe, h.view_id, &slot,
-                         static_cast<HWND>(adapter->hwnd()));
+      // Extent and camera stay as stored. A pointer tick must not republish
+      // the same Scene3d preview (2D panes already skip this message).
       continue;
     }
     if (type == content::HostMsg::kActivateTool) {
       content::ToolBody body;
       if (cd::decode_payload(payload, &body) &&
-          apply_render_backend_command(body.tool_id.c_str())) {
+          apply_content_source_command(body.tool_id.c_str())) {
         for (auto& kv : views) {
-          announce_and_paint(&pipe, kv.first, &kv.second,
-                             static_cast<HWND>(adapter->hwnd()));
+          announce_and_paint(&pipe, kv.first, &kv.second);
         }
       }
       continue;
@@ -355,13 +323,11 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
     if (type == content::HostMsg::kSetRenderBackend) {
       content::RenderBackendWire body;
       if (cd::decode_payload(payload, &body)) {
-        set_render_backend(body.kind == 1
-                               ? RenderBackendKind::kTrackAMapLibre
-                               : RenderBackendKind::kTrackBRhi);
+        set_content_source(body.kind == 1 ? ContentSource::kTile
+                                         : ContentSource::kDirect);
       }
       for (auto& kv : views) {
-        announce_and_paint(&pipe, kv.first, &kv.second,
-                           static_cast<HWND>(adapter->hwnd()));
+        announce_and_paint(&pipe, kv.first, &kv.second);
       }
       continue;
     }
@@ -370,15 +336,14 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
         type == content::HostMsg::kCatalogOp ||
         type == content::HostMsg::kPluginCall ||
         type == content::HostMsg::kTextCommit) {
-      // No present republish — chrome already holds Latest().
+      // No present republish — shell already holds Latest().
       continue;
     }
     if (type == content::HostMsg::kResetGpu) {
       for (auto& kv : views) {
         kv.second.present.resize(kv.second.width_px, kv.second.height_px,
                                  kv.second.mode, parent);
-        announce_and_paint(&pipe, kv.first, &kv.second,
-                           static_cast<HWND>(adapter->hwnd()));
+        announce_and_paint(&pipe, kv.first, &kv.second);
       }
     }
   }

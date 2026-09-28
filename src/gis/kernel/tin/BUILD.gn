@@ -1,0 +1,66 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# GEOS 3.13 Delaunay (geos_c) via //third_party:gdal. Runtime DLLs match
+# the shared third_party install prefix so geos_c.dll / geos.dll sit
+# next to the exe.
+# Compiled into //src/gis:gis (dll_stem = gis). :tin is the consumer label.
+source_set("tin_sources") {
+  sources = [
+    "api/tin_api.cpp",
+    "geos/tin_geos_backend.cpp",
+    "xyz/xyz_points.cc",
+  ]
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+  public_deps = [ "//src/base/math:math" ]
+  deps = [
+    "//src/gis/kernel/geo:geo_sources",
+    "//src/base:base",
+    "//src/base:core",
+    "//third_party:gdal",
+  ]
+}
+
+group("tin") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+test("tin_delaunay_test") {
+  output_name = "tin_delaunay_test"
+  sources = [ "geos/tin_delaunay_test.cc" ]
+  include_dirs += [
+    "//src/gis/kernel/tin",
+    "//src/gis/kernel/geo",
+    "//src",
+  ]
+  deps = [
+    ":tin",
+    "//src/gis/kernel/geo:geo",
+    "//src/base:core",
+    "//src/base/math:math",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}
+
+test("tin_xyz_test") {
+  output_name = "tin_xyz_test"
+  sources = [ "xyz/tin_xyz_test.cc" ]
+  include_dirs += [
+    "//src/gis/kernel/tin",
+    "//src",
+  ]
+  deps = [
+    ":tin",
+    "//src/base:core",
+    "//src/base/math:math",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}

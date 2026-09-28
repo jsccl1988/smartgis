@@ -3,19 +3,22 @@
 
 import("//build/smartgis.gni")
 
-# Leftover MFC app core DLL (dll_stem stays app_core). Source: smtapp.cpp.
+# Leftover MFC app core DLL (dll_stem stays app_core). Source: core/smtapp.cpp.
+# Layout: core/ (SmtApp) + shell/ (CWinApp/frames) + doc/ + view/ (thin CView) +
+# res/ + root PCH/RC. GN labels :app :app_core :legacy_app_all stay frozen.
 smt_shared_library("app_core") {
   dll_stem = "app_core"
   defines = [ "APP_CORE_EXPORTS" ]
-  sources = [ "smtapp.cpp" ]
+  sources = [ "core/smtapp.cpp" ]
   deps = [
     "//src/base:base",
     "//src/base:core",
-    "//src/algorithm/geo:geo",
-    "//src/gis/map:gis",
+    "//src/content:map_bootstrap",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/model/map:gis",
     "//src/plugin:plugin",
     "//src/gis/datasource/mgr:sde_mgr",
-    "//src/sys:sys",
+    "//src/legacy/sys:sys",
     "//src/legacy/tool:tool",
     "//src/legacy/ui/xcatalog:xcatalog",
   ]
@@ -27,30 +30,30 @@ smt_mfc_executable("app") {
   # Match #include "legacy/app/stdafx.h" under -I../src (MSVC /Yc name must match).
   precompiled_header = "legacy/app/stdafx.h"
   sources = [
-    "child_frame.cpp",
-    "main_frame.cpp",
-    "smart_3d_view.cpp",
-    "smart_data_source_view.cpp",
-    "smart_gis.cpp",
+    "shell/child_frame.cpp",
+    "shell/main_frame.cpp",
+    "shell/smart_gis.cpp",
     "smart_gis.rc",
-    "smart_gis_doc.cpp",
-    "smart_gis_view.cpp",
-    "smart_map_edit_view.cpp",
     "stdafx.cpp",
+    "doc/smart_gis_doc.cpp",
+    "view/smart_3d_view.cpp",
+    "view/smart_data_source_view.cpp",
+    "view/smart_gis_view.cpp",
+    "view/smart_map_edit_view.cpp",
   ]
   deps = [
     ":app_core",
     "//src/base:base",
     "//src/base:core",
-    "//src/algorithm/geo:geo",
-    "//src/gis/map:gis",
-    "//src/legacy/render/model3d:model3d",
-    "//src/plugin:plugin",
-    "//src/legacy/render/bridge:render",
-    "//src/legacy/render/render3d:render3d",
-    "//src/gis/datasource/mgr:sde_mgr",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/model/map:gis",
+    "//src/legacy/plugin:am_plugins",
     "//src/legacy/render/scene3d:scene3d",
-    "//src/sys:sys",
+    "//src/plugin:plugin",
+    "//src/legacy/render/rhi2d:rhi2d",
+    "//src/legacy/render/rhi3d:rhi",
+    "//src/gis/datasource/mgr:sde_mgr",
+    "//src/legacy/sys:sys",
     "//src/legacy/tool:tool",
     "//src/legacy/tool/group:tool_group",
     "//src/legacy/ui/gui:gui",

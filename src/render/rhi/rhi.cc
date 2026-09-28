@@ -118,6 +118,22 @@ Device* create_gdi_device();
 Device* create_gl_device();
 Device* create_flycube_device(Backend backend);
 
+const char* backend_display_name(Backend backend) {
+  switch (backend) {
+    case Backend::kDx12:
+      return "FlyCube/DX12";
+    case Backend::kVulkan:
+      return "FlyCube/Vulkan";
+    case Backend::kGdi:
+      return "GDI";
+    case Backend::kGl:
+      return "Stereo/GL";
+    case Backend::kNull:
+    default:
+      return "Null";
+  }
+}
+
 Device* create_device(Backend backend) {
   switch (backend) {
     case Backend::kGdi:

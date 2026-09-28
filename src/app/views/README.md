@@ -3,7 +3,7 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# `src/app/views` — Scheme 3 chrome
+# `src/app/views` — Scheme 3 shell
 
 Product shell for **Views + Skia**。`SmartGisViews.exe` 是宿主：`Widget` +
 layout + 公开 `ui::views` 控件 + 命令接线。不手绘 catalog / feature / status。
@@ -13,8 +13,9 @@ layout + 公开 `ui::views` 控件 + 命令接线。不手绘 catalog / feature 
 ```
 ui::views::Widget
   RootView  BoxLayout vertical
-    MenuBar          Open / Exit / Map / Data / 3D / Select / Draw / Clear /
-                     Undo / RHI / MapLibre / Plugins
+    MenuBar          File / Edit / View / Layer（下拉，无平铺按钮）
+                     View 与地图右键共用导航表；其后分隔线 + Refresh / RHI / MapLibre
+                     Layer：创建、底图、移除、缩放到图层
     Splitter vertical (flex)
       Splitter horizontal
         Splitter horizontal
@@ -30,9 +31,22 @@ ui::views::Widget
 3D）。`MapContents` 会话共享；`OpenView` 分别为 `kMapEdit` / `kMapData` /
 `kScene3d`。3D 若无法挂接则保持 native 占位，鼠标不崩。
 
-`wWinMain` → `content::ContentMain`，带 `browser_main`、`gpu_main`
-（`gpu::GpuMain`）、`renderer_main`。同一 PE 以 `--type=gpu` /
-`--type=renderer` 再拉起。地图挂接仍走 `MapViewport::attach()`；原生 HWND
+源码按职责分目录（无根目录转发头）。Chromium 分层契约见 living shell spec
+**§Chromium-style app/views layering**：`shell/ui` → `shell/browser` →
+`{document,camera,present,input}`；**禁止** `present` → `shell`；**`camera/`
+是 shell 的兄弟目录**（不进 shell）。`shell/` 布局：`shell/app/`（`browser_main`、
+`ViewsContentHost`、`cmdline/`）、`shell/browser/`（`Browser` 会话控制器 +
+`commands/` / `nav/` / `plugin/`）、`shell/ui/`（`BrowserView` Widget 树 + `BrowserUiDelegate` 实现 +
+`pages/` / `panels/`；GN `:shell_ui` → `:shell_browser`）、`shell/showcase/`、
+`shell/self_test/`。能力目录：
+`document/`（`MapScene`）、`camera/`（`ViewFrame`、`OrbitFrame`、
+`ViewNavigation`）、`present/`（facade + `frame`/`paint`/`session`/`host`，见
+[`present/README.md`](present/README.md)）、`input/`（`MapHwndGestures`）。
+`main.cc` 仅 `wWinMain` 胶水。
+
+`wWinMain` → CLI11 解析 → `content::content_main`（`process_type_set`），
+再进 `browser_main` / `gpu_main` / `renderer_main`。同一 PE 以 `--type=gpu`
+/ `--type=renderer` 再拉起。地图挂接仍走 `MapViewport::attach()`；原生 HWND
 把鼠标 / 键 / 滚轮转给 `ViewHost::dispatch_input`。
 
 ```bat
@@ -64,13 +78,23 @@ Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把�
 `kScene3d`）+ `SetExtent`（有中国范围则全幅中国）。2D 为正交，3D 为透视。
 手势：滚轮对光标缩放、平移；HWND 允许时双指捏合（`WM_GESTURE` / 指针）。
 
-3D 页：`view3d.trackball` 更新 `Scene3dController`。默认 **FlyCube RHI**
-（`Scene3dRhiSession` / `present_gpu`；成功时 chrome 只叠 `paint_hud`）。
-挂接或 present 失败时回退 leftover OpenGL stereo
-（`Scene3dStereoSession` `LoadLibrary(legacy_render[_d].dll)`）再回退
-GDI `Scene3dController::paint()`。
+**2D 主路径 = RHI**：Map/Data 页默认 FlyCube；`MapScene::present_gpu` 把可见矢量层交给 `gis::vista::Layout` 生成 `MapFrame`，再由 `effect::map::Pass` 录到调用方 `Device` 并 present。成功时注记在帧内（`kText`），`paint_annotation_overlay` 只描选中；失败或强制时回退全量 GDI `MapScene::paint`（含注记）。
 
-强制关闭 FlyCube / 走 ContentMapView + stereo/GDI：
+```bat
+rem 强制 2D 走 ContentMapView / 跳过 FlyCube：
+set SMT_FORCE_CONTENT_MAPVIEW_2D=1
+rem 或: set SMT_PREFER_FLYCUBE_2D=0
+rem 强制 GDI 全量 overlay（仍可挂 FlyCube HWND，但不走 present_gpu）：
+set SMT_FORCE_GDI_MAP_OVERLAY=1
+out\SmartGisViews.exe
+```
+
+3D 页：`view3d.trackball` 更新 `OrbitFrame` / `Scene3dPresenter`。默认
+**FlyCube RHI**（`present_gpu`；成功时 shell 只叠 `paint_hud`）。挂接或
+present 失败时回退 leftover OpenGL stereo 再回退 GDI
+`Scene3dPresenter::paint()`。
+
+强制关闭 3D FlyCube / 走 ContentMapView + stereo/GDI：
 
 ```bat
 set SMT_FORCE_CONTENT_MAPVIEW_3D=1
@@ -78,6 +102,16 @@ out\SmartGisViews.exe
 ```
 
 （`SMT_PREFER_FLYCUBE_3D=0` 效果相同。）
+
+3D HUD 显示引擎名；画面**右下角**有引擎 Logo 徽章（与真实后端一致：
+`FlyCube/DX12` / `Stereo/GL` / `GDI` / `ContentMapView` / `Null`）。DEM 默认
+叠 hypsometric 着色；若存在 `china_rs.tif` / `china_imagery.tif`（exe 旁或
+`testing/data/`）则 draping 遥感影像。TIN 线框：
+
+```bat
+set SMT_SCENE3D_WIREFRAME=1
+out\SmartGisViews.exe
+```
 
 `--self-test` 会强制 ContentMapView（挂起规避），并断言 OGR 进层与相机矩阵；若挂上
 FlyCube 会写 `flycube-camera-ok`，并在 present 前开 `enable_atmosphere_demo()`。
@@ -124,7 +158,8 @@ out\SmartGisViews.exe --self-test
 ---
 
 菜单 **RHI** / **MapLibre** 发 `view.backend.rhi` / `view.backend.maplibre`，经
-`MapContents::SetRenderBackend` 通知 `--type=gpu` 切换 Track B / Track A（热切换，
-不重启 GPU 子进程）。CEF HTML 同命令 id（`ActivateTool` / `tool.command` topic）。
+`MapContents::SetRenderBackend` 通知 `--type=gpu` 切换 direct / tile
+（`maplibre` 为 tile 的历史别名，非 MapLibre Native；热切换，不重启 GPU
+子进程）。CEF HTML 同命令 id（`ActivateTool` / `tool.command` topic）。
 
-**最后更新：** 2026-09-19
+**最后更新：** 2026-09-28

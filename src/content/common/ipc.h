@@ -9,9 +9,10 @@
 #include <utility>
 #include <vector>
 
-#include "base/ipc/channel.h"
-#include "base/ipc/handle.h"
-#include "content/public/host_protocol.h"
+#include "base/ipc/channel/channel.h"
+#include "base/ipc/handle/handle.h"
+#include "content/common/host_protocol.h"
+#include "content/content_export.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -22,7 +23,7 @@ namespace content {
 namespace detail {
 
 // Host named pipe: length-prefixed pickle frames (base::ipc::Channel).
-class Pipe {
+class CONTENT_EXPORT Pipe {
  public:
   bool create_server(const std::wstring& path) {
     return ch_.create_server(path);

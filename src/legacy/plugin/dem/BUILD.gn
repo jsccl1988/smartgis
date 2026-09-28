@@ -1,0 +1,40 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+smt_mfc_shared_library("plugin_dem") {
+  dll_stem = "plugin_dem"
+  am_plugin = true
+  defines = [ "PLUGIN_DEM_EXPORTS" ]
+  sources = [
+    "dlg_about.cpp",
+    "dlg_grid_loader.cpp",
+    "dlg_tin_loader.cpp",
+    "dem_creater.cpp",
+    "dem_creater.rc",
+    "demcreater_plug.cpp",
+    "stdafx.cpp",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    "//src/plugin/product/dem:dem_loaders",
+    "//src/legacy/plugin/adapter:cmd",
+    "//src/legacy/plugin:plugin",
+    "//src/base:core",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/kernel/tin:tin",
+    "//src/legacy/tool:tool",
+    "//src/legacy/render/rhi3d:rhi",
+    "//src/legacy/render/scene3d:scene3d",
+    "//src/legacy/ui/xview:xview",
+    "//src/legacy/ui/xcatalog:xcatalog",
+    "//src/legacy/ui/mfc_ex:mfc_ex",
+    "//src/gis/model/map:gis",
+    "//src/legacy/sys:sys",
+    "//third_party:gdal",
+  ]
+}

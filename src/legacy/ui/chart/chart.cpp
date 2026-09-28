@@ -2,10 +2,10 @@
 
 #include "legacy/ui/chart/chart.h"
 
-#include "base/core/api.h"
+#include "legacy/core/api.h"
 #include "base/carto/stylemanager.h"
-#include "gis/feature/feature.h"
-#include "sys/sysmanager.h"
+#include "gis/model/feature/feature.h"
+#include "legacy/sys/sysmanager.h"
 
 using namespace sys;
 

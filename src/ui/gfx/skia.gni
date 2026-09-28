@@ -1,0 +1,8 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# smt_has_skia lives in //build/smartgis.gni (single declare_args home).
+# Import that gni (or this file after smartgis.gni) before branching on it.
+# Enable: gn args → smt_has_skia=true (and pin on disk), then
+# --shell-canvas=skia or SMT_SHELL_CANVAS=skia.
+import("//build/smartgis.gni")

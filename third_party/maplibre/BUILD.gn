@@ -1,56 +1,13 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Optional Windows still-image Map (mln::Map). Not in src_all / all.
-# Do not compile MapLibre Native from source here. If a prebuilt
-# mbgl-core.lib is already under out/third_party/maplibre/lib, link it.
-
-import("//src/gpu/maplibre.gni")
-
-_mln_native = exec_script("//build/file_exists.py",
-                          [
-                            "third_party/.src/maplibre-native/include/mln/map/map.hpp",
-                          ],
-                          "trim string")
-
-# Release /MD artifact from a prior Native build. Never a ninja compile of core.
-_mbgl_core_lib = exec_script("//build/file_exists.py",
-                             [
-                               "out/third_party/maplibre/lib/mbgl-core.lib",
-                             ],
-                             "trim string")
-
-config("maplibre_native_config") {
-  include_dirs += [ "include" ]
-  defines += [ "SMT_HAS_MAPLIBRE_LIB" ]
-  if (_mln_native == "1") {
-    include_dirs += [
-      "//third_party/.src/maplibre-native/include",
-      "//third_party/.src/maplibre-native/platform/default/include",
-      "//third_party/.src/maplibre-native/vendor/maplibre-native-base/deps/geometry.hpp/include",
-    ]
-    defines += [ "SMT_HAS_NATIVE_MLN_MAP" ]
-  }
-  if (_mbgl_core_lib == "1") {
-    lib_dirs += [ "$root_out_dir/third_party/maplibre/lib" ]
-    libs += [ "mbgl-core.lib" ]
-    defines += [ "SMT_HAS_MBGL_CORE_LIB" ]
-  }
-}
-
-static_library("maplibre_native") {
-  sources = [ "src/mln_map.cc" ]
-  public_configs = [ ":maplibre_native_config" ]
-}
-
-# Optional compile probe of the pin headers. Not a dep of src_all / gpu.
-if (_mln_native == "1") {
-  source_set("native_map_probe") {
-    sources = [ "src/native_map_probe.cc" ]
-    public_configs = [ ":maplibre_native_config" ]
-  }
-}
+# MapLibre Native product pin removed (2026-09-27). Decision: delete the mln/mbgl
+# link from the product tree; reconsider later. Do not reintroduce
+# smt_enable_maplibre or //third_party/maplibre:maplibre_native until then.
+#
+# Vendor checkout under third_party/.src/maplibre-native (if present from a prior
+# fetch) is not linked. Thin wrappers under include/ and src/ are retained on
+# disk for a future pin but are not GN sources.
 
 group("maplibre") {
-  public_deps = [ ":maplibre_native" ]
 }

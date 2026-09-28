@@ -120,10 +120,10 @@ SdbdRemoteDataset (product facade)
 
 | Path | Responsibility |
 | --- | --- |
-| `src/gis/layer/layer.h` | `PROVIDER_SDBD` |
-| `src/gis/datasource/gdal/sdbd_client.h/.cc` | HTTP 客户端 |
-| `src/gis/datasource/gdal/sdbd_remote_dataset.h/.cc` | 远程产品面 |
-| `src/gis/datasource/gdal/ogr_connect.h/.cc` | traits / open 元数据 |
+| `src/gis/model/layer/layer.h` | `PROVIDER_SDBD` |
+| `src/gis/datasource/sdbd/client/sdbd_client.h/.cc` | HTTP 客户端 |
+| `src/gis/datasource/sdbd/decorator/sdbd_remote_dataset.h/.cc` | 远程产品面 |
+| `src/gis/datasource/ogr/codec/ogr_connect.h/.cc` | traits / open 元数据 |
 | `src/gis/datasource/mgr/datasource_mgr.h/.cc` | 由 `datasourcemgr.*` 改名；类型 `DataSourceMgr`；`PROVIDER_SDBD` 分支 |
 | `src/gis/datasource/gdal/BUILD.gn` + mgr `BUILD.gn` + test | deps `//src/net`；live 测试；更新 include |
 | 全仓调用点 | `SmtDataSourceMgr` → `DataSourceMgr`；成员 → `snake_case` |

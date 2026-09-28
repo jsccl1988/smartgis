@@ -34,9 +34,9 @@ source_set("gui_sources") {
   deps = [
     "//src/base:base",
     "//src/base:core",
-    "//src/algorithm/geo:geo",
-    "//src/gis/map:gis",
-    "//src/sys:sys",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/model/map:gis",
+    "//src/legacy/sys:sys",
     "//third_party:gdal",
   ]
 }

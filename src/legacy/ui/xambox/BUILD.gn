@@ -3,7 +3,7 @@
 
 import("//build/smartgis.gni")
 
-# Aux-module box chrome. Compiled into //src/legacy/ui:ui_legacy.
+# Aux-module box shell. Compiled into //src/legacy/ui:ui_legacy.
 source_set("xambox_sources") {
   configs += [
     "//build:legacy",
@@ -29,7 +29,7 @@ source_set("xambox_sources") {
     "//src/base:base",
     "//src/base:core",
     "//src/plugin:plugin",
-    "//src/sys:sys",
+    "//src/legacy/sys:sys",
   ]
 }
 

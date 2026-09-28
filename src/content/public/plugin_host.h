@@ -8,9 +8,10 @@
 #include <string>
 #include <string_view>
 
+#include "content/content_export.h"
 #include "content/public/event_bus.h"
 #include "content/public/map_types.h"
-#include "tool/command.h"
+#include "tool/command/command.h"
 
 namespace plugin {
 class ProcessingPool;
@@ -40,13 +41,10 @@ struct ProcessingContribution {
   std::string title;
 };
 
-class MapContents {
- public:
-  virtual ~MapContents() = default;
-  virtual uint32_t active_view_id() const = 0;
-  virtual Extent2 extent() const = 0;
-  virtual void set_extent(const Extent2& e) = 0;
-};
+// Real MapContents lives in content/public/map_contents.h. Keep a forward
+// declaration here so PluginHost TUs that must not include that header (and
+// TUs that already include it) do not hit C2011 redefinition.
+class MapContents;
 
 class PluginHost;
 
@@ -57,7 +55,7 @@ using ProcessingFactory =
 using ProcessingEnqueue = std::function<bool(
     std::string processing_id, std::string args_json, ProcessingFactory factory)>;
 
-class PluginHost {
+class CONTENT_EXPORT PluginHost {
  public:
   virtual ~PluginHost() = default;
 
@@ -90,14 +88,23 @@ class PluginHost {
 
   virtual void withdraw(std::string_view plugin_id) = 0;
 
+  // Commands still owned after contribute_command. Withdrawn ids are omitted.
+  // |title| is the string passed to contribute_command (may be empty).
+  virtual void for_each_command(
+      const std::function<void(std::string_view plugin_id,
+                               std::string_view command_id,
+                               std::string_view title)>& fn) const {
+    (void)fn;
+  }
+
   virtual plugin::ProcessingPool* processing_pool() = 0;
   virtual void set_processing_pool(plugin::ProcessingPool* pool) = 0;
   virtual void set_processing_enqueue(ProcessingEnqueue fn) = 0;
 };
 
-PluginHost* create_plugin_host(tool::CommandCatalog* catalog,
-                               EventBus* events,
-                               MapContents* maps);
+CONTENT_EXPORT PluginHost* create_plugin_host(tool::CommandCatalog* catalog,
+                                              EventBus* events,
+                                              MapContents* maps);
 
 }  // namespace content
 

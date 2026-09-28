@@ -1,5 +1,12 @@
 # Smt3DBaseLib
 
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+**As-built layout (B′ colocated, P2.4 + SP4b):** `scene/` `index/` `primitive/` `feature/` `surface/` `dem/` `bridge/` `test/`. Aggregate GN: `//src/legacy/render/scene3d:scene3d_sources` → `//src/legacy/render:legacy_render`. Includes: `legacy/render/scene3d/<module>/<file>.h` (e.g. `scene/scene.h`, `index/octree.h`). No `bl3d_` basenames; no forwarding shims. Spatial point index vendor: `//third_party:octree` (jbehley/unibn `Octree.hpp`, MIT).
+
 SmartGIS 3D 基础库，提供 3D 场景管理、对象管理和空间索引功能。
 
 ## 模块简介

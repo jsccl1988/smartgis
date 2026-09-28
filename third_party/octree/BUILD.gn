@@ -1,0 +1,12 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Header-only unibn Octree (jbehley/octree). Sources in third_party/.src/octree.
+
+config("octree_headers") {
+  include_dirs += [ "//third_party/.src/octree" ]
+}
+
+group("octree") {
+  public_configs = [ ":octree_headers" ]
+}

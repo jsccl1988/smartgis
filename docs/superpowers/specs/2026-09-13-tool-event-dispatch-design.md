@@ -7,8 +7,9 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted (v1 landed)  
-**Related:** leftover path split [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](../archive/specs/2026-09-13-tool-legacy-split-design.md).  
-**Scope:** one implementation plan. Replace the 2010 `SmtIATool` = event-bus + mouse-state-machine mash-up with four channels (Command, Input, Operation, Domain Event), scoped per map session/view. Align with QGIS `QAction`/`QgsMapTool` and ArcGIS `ICommand`/`ITool`. Do not rewrite leftover `Smt_*` ABI in this change.
+**Updated:** 2026-09-28 — merged `src/tool` subdirectory layout (scheme C). Leftover group layout / SP1 strangler: [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP1.  
+**Related:** leftover path split [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](../archive/specs/2026-09-13-tool-legacy-split-design.md); archived layout twin [`../archive/specs/2026-09-27-tool-subdirectory-layout-design.md`](../archive/specs/2026-09-27-tool-subdirectory-layout-design.md); as-built [`../../../src/tool/README.md`](../../../src/tool/README.md).  
+**Scope:** Session dispatch (Command / Input / Operation / Domain Event) + **endgame directory layout**. Do not open new tool-layout dated specs — revise §Subdirectory layout below.
 
 ## Goal
 
@@ -81,8 +82,8 @@ Chrome includes only `content/public`. It must not include `t_iatool.h`.
 | `Interaction` / `Stack` / `InputRouter` | `src/tool/interaction.h` | `tool` | Mouse state machines |
 | `Workspace` | `src/tool/workspace.h` | `tool` | Composition root per view |
 | `EditSession` | `src/sdb/edit/edit_session.h` | `sdb` | Undoable document mutations |
-| `command_id_from_gt_msg` | `src/tool/legacy_msg.h` | `tool` | `GT_MSG_*` ? string id |
-| Leftover | `src/legacy/tool/t_*.h`, `legacy/tool/group` | `Smt_IATool` | Unchanged DLL |
+| `command_id_from_gt_msg` | `src/legacy/tool/adapter/msg.h` | `tool` | `GT_MSG_*` → string id |
+| Leftover | `src/legacy/tool/iatool/t_*.h`, `legacy/tool/group` | `Smt_IATool` | Unchanged DLL |
 
 New modules are **source_sets**, not DLLs. `//src/tool:dispatch` and `//src/sdb/edit:edit` join `src_all`. Tests: `tool_dispatch_test`.
 
@@ -309,7 +310,7 @@ const char* command_id_from_gt_msg(long msg);  // nullptr if unknown
 }
 ```
 
-`command_id_from_gt_msg` uses numeric copies of leftover `GT_MSG_CMD_*` in `legacy_msg.h` (do not include `legacy/tool/group/defs.h` from dispatch TUs ? that header pulls WinSock through `msg.h` and breaks ASIO/`fd_set`). Keep the enum in sync with `defs.h`.
+`command_id_from_gt_msg` uses numeric copies of leftover `GT_MSG_CMD_*` in `legacy/tool/adapter/msg.h` (do not include `legacy/tool/group/defs.h` from dispatch TUs — that header pulls WinSock through group `msg.h` and breaks ASIO/`fd_set`). Keep the enum in sync with `defs.h`.
 
 ## Data flow
 
@@ -375,3 +376,20 @@ Leftover `AppendFuncItems` / `Notify` longs resolve through `plugin::command_id_
 - OL-style multi-interaction stack.
 
 v2 (this change): leftover `SmtSelectTool` / `SmtAppendFeatureTool` mouse and undo go through `Interaction` / `MapEditSession`.
+
+---
+
+## §Subdirectory layout（merged 2026-09-28）
+
+Endgame `src/tool/<module>/` (scheme C, break includes, no root shim):
+
+| Module | Role |
+| --- | --- |
+| `command/` | Command catalog / dispatcher |
+| `interaction/` | Interaction stack |
+| `draft/` | Draft POD + factories（原 `gestures`） |
+| `nav/` | Camera nav math（原 `camera_nav`） |
+| `workspace/` | `Workspace` session |
+| Aggregate GN | `//src/tool:dispatch`（仍 source_set，非 DLL） |
+
+`GT_MSG` 映射在 **`src/legacy/tool/adapter/`**（`//src/legacy/tool/adapter:adapter`，include `legacy/tool/adapter/msg.h`）；公开 API 命名空间仍为 `tool`。Leftover `group/` 子目录见 umbrella §SP1。As-built：`src/tool/README.md`。Archive twin：[`../archive/specs/2026-09-27-tool-subdirectory-layout-design.md`](../archive/specs/2026-09-27-tool-subdirectory-layout-design.md)。

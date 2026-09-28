@@ -1,0 +1,30 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef CONTENT_PUBLIC_MAP_BOOTSTRAP_H_
+#define CONTENT_PUBLIC_MAP_BOOTSTRAP_H_
+
+#include <string>
+#include <vector>
+
+#include "content/content_export.h"
+
+namespace content {
+
+// HWND-free sample / china map path policy (SP3 host extract).
+// Leftover SmtApp and Views open paths share these helpers; opening GDAL /
+// registering leftover mapmgr stays at the call site.
+
+// Relative candidates under each search root, preferred order first.
+// Roots should already include a trailing path separator when needed.
+CONTENT_EXPORT std::vector<std::string> resolve_sample_map_candidates(
+    const std::vector<std::string>& search_roots);
+
+// Pick the first existing candidate file. Returns false if none exist.
+CONTENT_EXPORT bool try_resolve_existing_sample_map(
+    const std::vector<std::string>& search_roots,
+    std::string* out_path);
+
+}  // namespace content
+
+#endif  // CONTENT_PUBLIC_MAP_BOOTSTRAP_H_

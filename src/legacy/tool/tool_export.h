@@ -1,10 +1,11 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef TOOL_TOOL_EXPORT_H_
-#define TOOL_TOOL_EXPORT_H_
+#ifndef LEGACY_TOOL_TOOL_EXPORT_H_
+#define LEGACY_TOOL_TOOL_EXPORT_H_
 
-// GN defines TOOL_EXPORTS when building the tool DLL.
+// GN defines TOOL_EXPORTS when building legacy_tool (dll_stem = legacy_tool).
+
 #if defined(TOOL_EXPORTS)
 #define TOOL_EXPORT __declspec(dllexport)
 #else
@@ -19,4 +20,4 @@
 #endif
 #endif
 
-#endif  // TOOL_TOOL_EXPORT_H_
+#endif  // LEGACY_TOOL_TOOL_EXPORT_H_

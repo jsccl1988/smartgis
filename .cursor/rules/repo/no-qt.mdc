@@ -3,11 +3,17 @@ description: HARD RULE — no Qt (Widgets, Quick/QML, Network, Qt5/Qt6, find_pac
 alwaysApply: true
 ---
 
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+
 # No Qt in this repository
 
 **This rule is always on (`alwaysApply: true`). Qt is a rejected modern-UI path for SmartGIS; do not add it later as a “helpful” alternative.**
 
-Desktop chrome **endgame** is Chromium-style Views + Skia (`src/ui/views`, `src/render/skia`) — see `ui-views-skia.mdc`. Qt is never an alternative. Skia as a **render backend** is OK; that is not permission to pull Qt.
+Desktop chrome **endgame** is Chromium-style Views + Skia (`src/ui/views`, `src/ui/gfx`) — see `ui-views-skia.mdc`. Qt is never an alternative. Skia as a **render backend** is OK; that is not permission to pull Qt.
 
 ## Do
 

@@ -1,0 +1,54 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Caller-linked map GPU pass. Not part of render.dll. Effect stays exported
+# from frame_graph.h; MapEffect / Pass are ordinary classes in this binary.
+source_set("map_sources") {
+  sources = [
+    "detail/atlas.cc",
+    "detail/atlas.h",
+    "detail/color.h",
+    "detail/encode.cc",
+    "detail/encode.h",
+    "detail/place.cc",
+    "detail/place.h",
+    "detail/upload.cc",
+    "detail/upload.h",
+    "glyph_windows.cc",
+    "map_effect.cc",
+    "map_effect.h",
+    "pass.cc",
+    "pass.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/render:render" ]
+  libs = [ "gdiplus.lib" ]
+}
+
+# In-process Null RHI smoke. Compiles the pass here (RENDER_EXPORTS) so the
+# test does not load render.dll. The stub rasterizer needs no window; GDI+
+# is linked because the WindowsGlyphRasterizer vtable lives in this binary.
+test("map_effect_test") {
+  output_name = "map2d_pass_test"
+  sources = [
+    "detail/atlas.cc",
+    "detail/encode.cc",
+    "detail/place.cc",
+    "detail/upload.cc",
+    "glyph_windows.cc",
+    "pass.cc",
+    "pass_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  defines = [ "RENDER_EXPORTS" ]
+  libs = [ "gdiplus.lib" ]
+  # frame.h pulls gis/gis_export.h (auto-link gis.lib).
+  deps = [
+    "//src/gis:gis",
+    "//src/render:programs_sources",
+    "//src/render:rhi_sources",
+  ]
+}

@@ -99,7 +99,7 @@ inline void BCGCBProCleanUp() {}
 //
 // DPI policy for leftover MFC SmartGis.exe (industry visual-test baseline):
 // stay process DPI-unaware. Dialog templates, dock metrics, and Feature Pack
-// chrome are authored in physical pixels (2010-era). Calling
+// shell are authored in physical pixels (2010-era). Calling
 // SetProcessDPIAware() without Per-Monitor V2 layout scaling clips captions
 // ("ataloc"), misaligns menu/dock bars, and mis-centers modal dialogs on
 // high-DPI displays. Windows then bitmap-scales the whole UI coherently.

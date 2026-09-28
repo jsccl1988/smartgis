@@ -3,8 +3,8 @@
 
 #include <algorithm>
 
-#include "base/core/api.h"
-#include "legacy/tool/t_msg.h"
+#include "legacy/core/api.h"
+#include "legacy/tool/iatool/t_msg.h"
 #include "legacy/ui/xcatalog/3dobjxcatalog.h"
 #include "legacy/ui/xcatalog/mapdocxcatalog.h"
 #include "gis/datasource/mgr/datasource_mgr.h"

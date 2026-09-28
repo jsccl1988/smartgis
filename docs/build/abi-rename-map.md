@@ -10,7 +10,7 @@ Spec (DLL reorg): [`../superpowers/specs/2026-09-14-dll-reorganization-design.md
 Spec (foundation Hybrid；真源仅 `src/base/`，无仓库根物理 `base/`): [`../superpowers/specs/2026-09-14-base-root-hybrid-design.md`](../superpowers/specs/2026-09-14-base-root-hybrid-design.md)  
 Plan: [`../superpowers/plans/2026-09-14-dll-reorganization.md`](../superpowers/plans/2026-09-14-dll-reorganization.md)
 
-Status: **in progress** (include/snake_case cutover still open；foundation Hybrid Phases 0–6 已收口，真源在 `src/base`)。**DLL reorg Phase 1 已落地**（`platform` / `sdb` / `algorithm` / `render` / `ui_legacy` + optional `legacy_render` / `legacy_tool`）；产品平台 DLL **`dll_stem=platform` 已落地**（`platform.dll` / `platform_d.dll`）。Phase 2 插件 stem 保持不变。
+Status: **in progress** (include/snake_case cutover still open；foundation Hybrid Phases 0–6 已收口，真源在 `src/base`)。**DLL reorg as-built 2026-09-28：** 产品 import-link stems — `base` · `gis` · `render` · `net`（从 base 抽出）· `content` · `ui_views` · `tool` · `plugin_host`；+ app-gated `ui_legacy` / optional `legacy_*`。Phase 2 域插件 stem 保持；`*.am` 仍 LoadLibrary。
 
 ## Include root
 
@@ -27,65 +27,60 @@ Status: **in progress** (include/snake_case cutover still open；foundation Hybr
 | Release | `{dll_stem}.dll` / `{dll_stem}.lib` |
 | Debug | `{dll_stem}_d.dll` / `{dll_stem}_d.lib` |
 
-例：`platform_d.dll`；`ui_legacy_d.dll`。**不是**尾缀大写 `D`（旧形 `xxxD.dll` 已退役）。头文件 `#pragma comment(lib, …)` 与 `GetModuleHandle` 字符串跟同一规则。
+例：`base_d.dll`；`ui_legacy_d.dll`。**不是**尾缀大写 `D`（旧形 `xxxD.dll` 已退役）。头文件 `#pragma comment(lib, …)` 与 `GetModuleHandle` 字符串跟同一规则。
 
 ## DLL reorg 终态（Phase 1 / 2）+ 平台 stem 重命名
 
-一层一平台 DLL；optional leftover 独立；**每插件仍一 DLL**。细 `source_set` / 旧 GN 标签经 `group` 转发到新 DLL。核对自 2026-09-14 `BUILD.gn` `dll_stem`。
+一层一平台 DLL + 产品 import-link DLL；optional leftover 独立；域插件 / `*.am` 仍一 stem。细 `source_set` / 旧 GN 标签经 `group` 转发。核对自 2026-09-28 `BUILD.gn` `dll_stem`。
 
 | 终态 `dll_stem` | 吸收的 cutover 短名 / 树 | 门控 / 备注 | 状态 |
 | --- | --- | --- | --- |
-| **`platform`** | 剩余 `core` leftovers + `sdb/carto` + `legacy/xml` + `sys` + `net`。`src/base` 的 `archive`/`ipc`（`:foundation` public_deps / static）**不是**本 DLL 的 stem | 默认 `src_all`；Hybrid consolidator | **完成**（`platform.dll` / `platform_d.dll`） |
-| `algorithm` | `geo`, `proj`, `tin`, `stat` | 默认 `src_all` | **完成** |
-| `sdb` | `gis`, `sde_mgr`, `sde_gdal`；`tile` / `model` / `scene` / `edit` source_set 链入 | 默认 `src_all`；已切断 → `legacy_render` | **完成** |
-| `render` | endgame `src/render/{rhi,scene,skia,…}` | 默认 `src_all`；**不含** `legacy/render/**` | **完成** |
-| `ui_legacy` | `gui`, `mfc_ex`, `xview`, `xcatalog`, `xambox`, `stat_chart`（另含 `tool_group_sources` 以免与 `legacy_tool` 环依赖） | `smt_build_app` / `build.bat ui_legacy`；不进默认 `src_all`；产物 `ui_legacy_d.dll` | **完成** |
-| `legacy_render` | leftover `render` bridge、`render3d`、`render_gdi`、`render_gdi_simple`、`render_gl`、`scene3d`、`model3d`、`pointcloud`、`terrain` | optional；不进默认 `src_all` | **完成** |
-| `legacy_tool` | `tool`（`tool_group` 源链入 `ui_legacy`，见上） | optional；不进默认 `src_all` | **完成** |
-| `plugin_dem` / `plugin_proj` / `plugin_print` / `plugin_model3d` / `plugin_orthogrid` | （不变） | Phase 2：每插件一 DLL | **保持** |
-| `plugin` | leftover AuxModule 运行时 | Phase 2 | **保持** |
-| `app_core` | （不变） | app-gated；本轮不强制并入平台 | **保持** |
+| **`base`** | leftovers + `base/carto` + `legacy/xml` + `sys`。`archive`/`ipc` / `:foundation` **不是**本 stem | 默认 `src_all` | **完成** |
+| **`net`** | `src/net`（原 Phase 1 曾并入 base；已抽出） | 默认 `src_all`；import-link | **完成** |
+| `gis` | 原 `sdb`（gis/sde_* / tile/model/…）+ 原 `algorithm`（geo/proj/tin/stat） | 默认 `src_all`；已切断 → `legacy_render` | **完成** |
+| `render` | endgame `src/render/{rhi,scene,skia,…}` | 默认 `src_all`；**不含** leftover | **完成** |
+| `content` | `src/content/**` | 默认 `src_all`；import-link | **完成** |
+| `tool` | `src/tool/**`（`SMT_TOOL_*`；非 leftover `legacy_tool`） | 默认 `src_all`；`:dispatch` 转发 | **完成** |
+| `ui_views` | `ui/views` + `ui/gfx`（同 PE） | SmartGisViews / plugin_host；`:gfx_headers` 给 gpu | **完成** |
+| `plugin_host` | `plugin/runtime/host` + widgets（`PLUGIN_HOST_*`） | Views 宿主；非 legacy `PLUGIN_EXPORT` | **完成** |
+| `ui_legacy` | `gui` … `stat_chart`（+ `tool_group_sources`） | `smt_build_app` | **完成** |
+| `legacy_render` | leftover engines under `legacy/render/**` | optional | **完成** |
+| `legacy_tool` | leftover `legacy/tool/**` | optional | **完成** |
+| `plugin_dem` … / `plugin` | 域插件 / AuxModule | Phase 2；`*.am` LoadLibrary | **保持** |
+| `app_core` | （不变） | app-gated | **保持** |
 
-仍为 **source_set**（不成产品 DLL）：`content`、`tool/dispatch`、`plugin/host`、`ui/views`。可选 leftover：`leftover_attr`（`sdb/map`）。已移除 stem：`sde_mem` / `sde_smf` / `sde_ws` 等。
+仍为 **source_set**（有意）：产品 `*_views` / `processing_views`、`effect/*`、`gpu`、`base/math`、legacy adapters。已移除 stem：`leftover_attr`、`sde_mem` / `sde_smf` / `sde_ws`、独立 `sdb`/`algorithm`。
 
 ### Cutover 短名 → reorg 终态
 
 | Cutover `dll_stem` | 终态 `dll_stem` | Phase |
 | --- | --- | --- |
-| `core` | **`platform`** | 1 + Hybrid Phase 6 |
-| `style` | **`platform`**（源在 `sdb/carto`） | 1 + Hybrid Phase 6 |
-| `sys` | **`platform`** | 1 + Hybrid Phase 6 |
-| `net` | **`platform`** | 1 + Hybrid Phase 6 |
-| `gis` | `sdb` | 1 |
-| `sde_mgr` | `sdb` | 1 |
-| `sde_gdal` | `sdb` | 1 |
-| `geo` | `algorithm` | 1 |
-| `proj` | `algorithm` | 1 |
-| `tin` | `algorithm` | 1 |
-| `stat` | `algorithm` | 1 |
-| *(endgame render / rhi / skia / scene SS)* | `render` | 1 |
-| `gui` | `ui_legacy` | 1 |
-| `mfc_ex` | `ui_legacy` | 1 |
-| `xview` | `ui_legacy` | 1 |
-| `xcatalog` | `ui_legacy` | 1 |
-| `xambox` | `ui_legacy` | 1 |
-| `stat_chart` | `ui_legacy` | 1 |
-| `render` (bridge leftover), `render3d`, `render_gdi`, `render_gdi_simple`, `render_gl`, `scene3d`, `model3d`, `pointcloud`, `terrain` | `legacy_render` | 1 optional |
-| `tool` | `legacy_tool` | 1 optional |
-| `tool_group` | `ui_legacy`（源） / 标签仍可 group 转发 | 1 实现例外 |
-| `plugin_dem` … `plugin_orthogrid` | *(unchanged)* | 2 |
-| `plugin` | *(unchanged)* | 2 |
+| `core` / `style` / `sys` | **`base`** | 1 + Hybrid |
+| `net` | **`net`**（独立；非 base） | 1′ extract |
+| `gis` / `sde_mgr` / `sde_gdal` / 原 `sdb` | **`gis`** | 1 |
+| `geo` / `proj` / `tin` / `stat` / 原 `algorithm` | **`gis`** | 1 |
+| endgame render SS | `render` | 1 |
+| — | `content` / `tool` / `ui_views` / `plugin_host` | product import-link |
+| `gui` … `stat_chart` | `ui_legacy` | 1 |
+| leftover engines | `legacy_render` | 1 optional |
+| leftover `tool` | `legacy_tool` | 1 optional |
+| leftover `tool_group` 源 | `ui_legacy` | 1 例外 |
+| `plugin_dem` … / `plugin` | *(unchanged)* | 2 |
 | `app_core` | `app_core` | — |
 
 ### Export 宏（终态 DLL）
 
 | DLL | Build define | Header macro | 迁移期旧宏 |
 | --- | --- | --- | --- |
-| `platform` | `BASE_EXPORTS` | `BASE_EXPORT` | `CORE_*` / `STYLE_*` / `SYS_*` / `NET_*` 可别名或双 define |
-| `sdb` | `SDB_EXPORTS` | `SDB_EXPORT` | `GIS_*` / `SDE_*` |
-| `algorithm` | `ALGORITHM_EXPORTS` | `ALGORITHM_EXPORT` | `GEO_*` / `PROJ_*` / `TIN_*` / `STAT_*` |
+| `base` | `BASE_EXPORTS` | `BASE_EXPORT` | `CORE_*` / `STYLE_*` / `SYS_*` |
+| `net` | `NET_EXPORTS` | `NET_EXPORT` | — |
+| `gis` | `GIS_EXPORTS`（及子模块） | `GIS_EXPORT` / … | 原 `SDB_*` / `GEO_*` / … |
 | `render` | `RENDER_EXPORTS` | `RENDER_EXPORT` | — |
-| `ui_legacy` | `UI_LEGACY_EXPORTS` | `UI_LEGACY_EXPORT` | `GUI_*` / `MFC_EX_*` / `XVIEW_*` / … |
+| `content` | `CONTENT_EXPORTS` | `CONTENT_EXPORT` | — |
+| `tool` | `SMT_TOOL_EXPORTS` | `SMT_TOOL_EXPORT` | 勿与 leftover `TOOL_*` 混 |
+| `ui_views` | `UI_VIEWS_EXPORTS` | `UI_VIEWS_EXPORT` | gfx 同 PE |
+| `plugin_host` | `PLUGIN_HOST_EXPORTS` | `PLUGIN_HOST_EXPORT` | 勿用 legacy `PLUGIN_EXPORT` |
+| `ui_legacy` | `UI_LEGACY_EXPORTS` | `UI_LEGACY_EXPORT` | `GUI_*` / … |
 | `legacy_render` | `LEGACY_RENDER_EXPORTS` | `LEGACY_RENDER_EXPORT` | 各 leftover `*_EXPORT` |
 | `legacy_tool` | `LEGACY_TOOL_EXPORTS` | `LEGACY_TOOL_EXPORT` | `TOOL_*` |
 
@@ -108,7 +103,7 @@ Status: **in progress** (include/snake_case cutover still open；foundation Hybr
 | SmtRender | render | RENDER_EXPORT | RENDER_EXPORT |
 | Smt3DRenderer | render3d | RENDER3D_EXPORT | RENDER3D_EXPORT |
 | SmtGdiRenderDevice | render_gdi | RENDER_GDI_EXPORT | RENDER_GDI_EXPORT |
-| SmtGdiSimpleRenderDevice | render_gdi_simple | RENDER_GDI_SIMPLE_EXPORT | RENDER_GDI_SIMPLE_EXPORT |
+| SmtGdiSimpleRenderDevice *(retired)* | *(was `render_gdi_simple`)* | — | Alias → `CreateRenderDevice` / `SmtGdiRenderDevice` |
 | SmtGLRenderDevice | render_gl | RENDER_GL_EXPORT / RENDER3D_EXPORT (gl) | RENDER_GL_EXPORT |
 | Smt3DBaseLib | scene3d | SCENE3D_EXPORT | SCENE3D_EXPORT |
 | Smt3DMdLib | model3d | MODEL3D_EXPORT | MODEL3D_EXPORT |
@@ -152,8 +147,8 @@ GN `defines` for export: use the **export macro name** as the define that means 
 
 | Basename | Paths | Rule |
 | --- | --- | --- |
-| `command.h` | `base/core/command.h`, `tool/command.h` | Prefer path sharing longest dir prefix with includer; else `tool/command.h` for `tool/**`, `base/core/command.h` for others |
-| `gdi_aux_api.h` / `gdi_bufpool.h` / `gdi_renderbuf.h` | `legacy/render/gdi/…`, `legacy/render/gdi_simple/…` | Prefer same `gdi` vs `gdi_simple` as includer |
+| `command.h` | `legacy/core/command.h`, `tool/command.h` | Prefer path sharing longest dir prefix with includer; else `tool/command.h` for `tool/**`, `legacy/core/command.h` for others |
+| `gdi_aux_api.h` / `gdi_bufpool.h` / `gdi_renderbuf.h` | `legacy/render/rhi2d/impl/gdi/…` | Prefer `rhi2d/impl/gdi/` (`gdi_simple/` removed; former top `gdi/` collapsed) |
 | `scene.h` | `render/scene/scene.h`, `sdb/scene/scene.h` | Prefer same layer as includer (`render/` vs `sdb/`) |
 | `resource.h` / `stdafx.h` / `targetver.h` | many modules | Prefer header under the same module directory as the includer |
 

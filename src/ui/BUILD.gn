@@ -1,7 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Compatibility aliases: MFC chrome DLL lives in //src/legacy/ui:ui_legacy.
+# Compatibility aliases: MFC shell DLL lives in //src/legacy/ui:ui_legacy.
 # Endgame toolkit stays //src/ui/views (see views/BUILD.gn).
 # App-gated via //:smartgis (smt_build_app). Not in //src:src_all.
 

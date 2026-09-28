@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 
-#include "gis/datasource/mgr/sde_mgr_export.h"
-#include "gis/layer/layer.h"
+#include "gis/gis_export.h"
+#include "gis/model/layer/layer.h"
 
 class GDALDataset;
 class OGRLayer;
@@ -24,7 +24,7 @@ struct ScratchLayer {
 };
 
 // Owns registered GDAL datasets (DSM catalog) and scratch MEM layers.
-class SDE_MGR_EXPORT DataSourceMgr {
+class GIS_EXPORT DataSourceMgr {
  private:
   DataSourceMgr();
 

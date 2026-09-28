@@ -75,8 +75,16 @@ out\views_unittests.exe
 | 71 | M1：Style JSON 加载/resolve 失败 |
 | 72 | M1：XYZ basemap underlay 零瓦片 |
 | 73 | M1：`export_bmp` 失败或非 BM 头 |
+| 80 | M2：Processing 面板算子数 &lt; 10 或缺 `native.buffer` / `native.clip` |
+| 81 | M2：`native.buffer` 批跑或写回图层失败（&lt;1 feature） |
+| 82 | M2：`native.clip` 批跑或写回图层失败（&lt;1 feature） |
+| 90 | M3：DEM 种子 / 高程信号失败（`m3-dem-ok`） |
+| 91 | M3：3D Tiles 流式 / 缓存失败（`m3-tiles-ok`） |
+| 92 | M3：大气开关失败（`m3-atmosphere-ok`） |
+| 100 | M4：乐观编辑冲突未检出 |
+| 101 | M4：`content::open_map_host_path` 嵌入失败 |
 
-`--self-test` marks（节选）：`m0-line-ok` / `m0-featureinfo-ok` / `m0-save-ok`；`m1-labels-ok` / `m1-style-ok` / `m1-basemap-ok` / `m1-export-ok`。
+`--self-test` marks（节选）：`m0-*`；`m1-*`；`m2-panel-ok` / `m2-buffer-ok` / `m2-clip-ok`；`m3-dem-ok` / `m3-tiles-ok` / `m3-atmosphere-ok`；`m4-conflict-ok` / `m4-embed-ok`。
 
 ### L1′ — Atmosphere 3D showcase（`SmartGisViews.exe --atmosphere-showcase=`）
 

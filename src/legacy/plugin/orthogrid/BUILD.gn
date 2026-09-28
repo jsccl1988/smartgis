@@ -1,0 +1,55 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# 2010 Orthogrid class (CreateOrthGrid / CvtToGrid / LoadGridBndFromFile).
+# Laplace stays in //src/plugin/product/orthogrid and is compiled here so the
+# DLL does not depend on orthogrid_views.
+source_set("orthogrid_kernel") {
+  sources = [
+    "kernel/curve.cpp",
+    "kernel/detail/polyline.cpp",
+    "kernel/grid.cpp",
+    "kernel/grid_create.cpp",
+    "kernel/grid_modify.cpp",
+    "kernel/region.cpp",
+    "//src/plugin/product/orthogrid/detail/laplace_solver.cc",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/gis/kernel/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/model/map:gis",
+    "//third_party:eigen",
+  ]
+}
+
+smt_mfc_shared_library("plugin_orthogrid") {
+  dll_stem = "plugin_orthogrid"
+  am_plugin = true
+  sources = [
+    "creater.cpp",
+    "creater.rc",
+    "plug.cpp",
+    "stdafx.cpp",
+  ]
+  include_dirs += [
+    "//src/legacy/plugin/orthogrid",
+    "//src",
+  ]
+  deps = [
+    ":orthogrid_kernel",
+    "//src/gis/kernel/geo:geo",
+    "//src/base:core",
+    "//src/legacy/plugin/adapter:cmd",
+    "//src/legacy/plugin:plugin",
+    "//src/legacy/tool:tool",
+    "//src/legacy/tool/group:tool_group",
+    "//src/legacy/ui/xcatalog:xcatalog",
+    "//src/legacy/ui/xview:xview",
+    "//src/legacy/sys:sys",
+    "//third_party:eigen",
+  ]
+}

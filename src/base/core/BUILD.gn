@@ -4,32 +4,9 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-# Compiled into //src/base:base (dll_stem = platform).
-# Foundation headers (log/macros/export/…) live alongside leftovers in this
-# directory; aggregate target is //src/base:foundation.
-# Phase 6: xml → //src/legacy/xml; matrix2d → //src/algorithm/geo.
-# Remaining: listener / command / msg / api / bas_struct / env_struct /
-# core_assert — deferred (wide product fan-out via #include "base/core/…").
-
-source_set("core_sources") {
-  configs += [ "//build:legacy" ]
-  deps = [
-    "//src/base:foundation",
-    "//third_party:CxImage",
-  ]
-  defines = [
-    "_USRDLL",
-    "CORE_EXPORTS=1",
-  ]
-  sources = [
-    "api.cpp",
-    "core_assert.cpp",
-    "command.cpp",
-    "listener.cpp",
-    "listenermanager.cpp",
-    "msg.cpp",
-  ]
-}
+# Foundation headers (log/macros/export/debug/build_config) live here and are
+# aggregated by //src/base:foundation. Leftover Smt sources moved to
+# //src/legacy/core:core_sources (still linked into base.dll).
 
 group("core") {
   public_deps = [ "//src/base:base" ]

@@ -3,7 +3,7 @@
 
 import("//testing/test.gni")
 
-# Product exe smoke: launch each chrome / GPU process with --self-test.
+# Product exe smoke: launch each shell / GPU process with --self-test.
 # build.bat e2e builds the exes (all smt_build_* flags) then runs this.
 test("exe_smoke") {
   output_name = "exe_smoke"

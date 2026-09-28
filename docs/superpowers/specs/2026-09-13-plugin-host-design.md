@@ -121,7 +121,7 @@ Leftover plugin `CDialog`s rewrite to `ui::views`. Shared `plugin::MapPreviewVie
 | `Registry` | `src/plugin/registry.h` | `plugin` | Discover, verify, enable/disable, start/stop. Owned by chrome |
 | `Signature` | `src/plugin/signature.h` | `plugin` | SHA-256 + ed25519 verify; trust store |
 | `Store` | `src/plugin/store.h` | `plugin` | Local dir scan, zip install/uninstall, HTTP `plugins.json` |
-| `LegacyAmAdapter` | `src/plugin/legacy_am.h` | `plugin` | Calls leftover `SmtPluginManager` for `*.am` only |
+| `LegacyAmAdapter` | `src/legacy/plugin/adapter/am.h` | `plugin` | Calls leftover `SmtPluginManager` for `*.am` only |
 | `PluginHost` / `MapContents` | `src/content/public/plugin_host.h` | `content` | QgsInterface analogue; contribution points |
 | Contribution points | same header | `content` | command, menu, dock, dialog, processing |
 | Views form controls | `src/ui/views/*.h` (flat; no `controls/` nest) | `ui::views` | Label, Button, Textfield, Checkbox, RadioButton, Combobox, TabStrip, TableView, FilePicker, MessageBox |
@@ -583,7 +583,7 @@ No gtest.
 | `src/plugin/signature.h` `.cc` | SHA-256 + ed25519 |
 | `src/plugin/official_key.h` | pinned 32-byte official public key |
 | `src/plugin/store.h` `.cc` | local + HTTP index + zip |
-| `src/plugin/legacy_am.h` `.cc` | `*.am` adapter |
+| `src/legacy/plugin/adapter/am.h` `.cc` | `*.am` adapter |
 | `src/plugin/processing.h` `.cc` | worker pool |
 | `src/plugin/manager_view.h` `.cc` | Plugin Manager Views |
 | `src/plugin/widgets/map_preview.h` `.cc` | shared preview |

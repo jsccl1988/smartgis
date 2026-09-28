@@ -3,6 +3,14 @@
   "name": "china_city",
   "layers": [
     {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#aad3df",
+        "background-opacity": 1
+      }
+    },
+    {
       "id": "area-fill",
       "type": "fill",
       "source-layer": "area",

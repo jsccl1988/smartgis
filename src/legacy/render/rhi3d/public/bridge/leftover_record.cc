@@ -1,0 +1,324 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#include "legacy/render/rhi3d/public/bridge/leftover_record.h"
+
+#include "base/carto/style.h"
+#include "base/carto/stylemanager.h"
+#include "gis/model/map/map.h"
+#include "gis/model/map/map_layer.h"
+#include "gis/present/style/style_document.h"
+#include "gis/present/style/style_rules.h"
+#include "gis/present/style/style_types.h"
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+namespace render {
+namespace scene {
+
+LeftoverRecorder::LeftoverRecorder()
+    : device_(nullptr),
+      list_(nullptr),
+      native_window_(nullptr),
+      width_(0),
+      height_(0),
+      owned_device_(false),
+      open_(false),
+      pass_open_(false) {}
+
+LeftoverRecorder::~LeftoverRecorder() { release(); }
+
+void LeftoverRecorder::set_native_window(void* native_window) {
+  native_window_ = native_window;
+}
+
+bool LeftoverRecorder::bind_present_hwnd(void* native_window) {
+  native_window_ = native_window;
+  if (device_) {
+    return true;
+  }
+  // Null only: creating DX12/Vulkan on the same HWND as SmtGdiRenderDevice
+  // caused STATUS_FATAL_APP_EXIT (0xC000041D). MapViewport / gpu attach a
+  // preferred_gpu Device on their own HWND instead.
+  device_ = render::rhi::create_device(render::rhi::Backend::kNull);
+  owned_device_ = device_ != nullptr;
+  return device_ && device_->initialize(render::rhi::DeviceDesc());
+}
+
+bool LeftoverRecorder::ensure_device() {
+  if (device_) {
+    return true;
+  }
+  // Leftover recording defaults to Null. Never auto-create preferred GPU
+  // from native_window_ alone (shared with GDI/GL present). Use attach().
+  device_ = render::rhi::create_device(render::rhi::Backend::kNull);
+  owned_device_ = device_ != nullptr;
+  return device_ && device_->initialize(render::rhi::DeviceDesc());
+}
+
+void LeftoverRecorder::destroy_list() {
+  if (device_ && list_) {
+    device_->destroy_command_list(list_);
+  }
+  list_ = nullptr;
+  open_ = false;
+  pass_open_ = false;
+}
+
+void LeftoverRecorder::clear_leftover_3d() {
+  for (LeftoverGpuMesh& mesh : leftover_3d_) {
+    destroy_leftover_mesh(device_, &mesh);
+  }
+  leftover_3d_.clear();
+}
+
+bool LeftoverRecorder::attach(render::rhi::Device* device) {
+  if (!device) {
+    return false;
+  }
+  release();
+  device_ = device;
+  owned_device_ = false;
+  return true;
+}
+
+bool LeftoverRecorder::begin(uint32_t width, uint32_t height) {
+  if (width == 0 || height == 0) {
+    return false;
+  }
+  width_ = width;
+  height_ = height;
+  if (!ensure_device()) {
+    return false;
+  }
+  if (pass_open_ && list_) {
+    list_->end_render_pass();
+    pass_open_ = false;
+  }
+  destroy_list();
+  clear_leftover_3d();
+  list_ = device_->create_command_list();
+  if (!list_) {
+    return false;
+  }
+  open_ = true;
+  return true;
+}
+
+bool LeftoverRecorder::record_world(const gis::World& world) {
+  if (!open_ || !list_ || !device_) {
+    return false;
+  }
+  if (pass_open_) {
+    list_->end_render_pass();
+    pass_open_ = false;
+  }
+  gpu_.sync_from(world);
+  return gpu_.record_draws(device_, list_, width_, height_);
+}
+
+bool leftover_record_map_frame(void* native_window, uint32_t width,
+                               uint32_t height, const gis::SmtMap* map) {
+  if (!map || width == 0 || height == 0) {
+    return false;
+  }
+  LeftoverRecorder& rec = leftover_session();
+  if (native_window) {
+    rec.set_native_window(native_window);
+  }
+  if (!rec.begin(width, height) || !rec.record_map(map)) {
+    return false;
+  }
+  return rec.finish();
+}
+
+bool LeftoverRecorder::record_map(const gis::SmtMap* map) {
+  if (!map) {
+    return false;
+  }
+  base::Envelope env;
+  map->get_envelope(env);
+  if (env.is_init()) {
+    gpu_.set_view_ortho(env.MinX, env.MinY, env.MaxX, env.MaxY);
+  } else {
+    gpu_.clear_view_ortho();
+  }
+  // Default leftover brush cyan; prefer first MapLayer style brush when the
+  // style manager has resolved that name. Layers with style_document override
+  // per GpuInstance after sync_from (P0 MapLibre fill/line paint).
+  long brush = 0x00FFFF00;
+  const int layer_count = map->GetLayerCount();
+  for (int i = 0; i < layer_count; ++i) {
+    const gis::MapLayer* layer = map->GetMapLayer(i);
+    if (!layer || layer->style_name().empty()) {
+      continue;
+    }
+    base::SmtStyleManager* mgr = base::SmtStyleManager::get_singleton_ptr();
+    if (!mgr) {
+      break;
+    }
+    if (base::SmtStyle* style = mgr->get_style(layer->style_name().c_str())) {
+      brush = style->get_brush_desc().lBrushColor;
+      break;
+    }
+  }
+  gpu_.set_solid_color_from_colorref(brush);
+
+  if (!open_ || !list_ || !device_) {
+    return false;
+  }
+  if (pass_open_) {
+    list_->end_render_pass();
+    pass_open_ = false;
+  }
+
+  gis::World world;
+  world.attach_map(map);
+  gpu_.sync_from(world);
+
+  gis::style::AttrMap empty_attrs;
+  for (int i = 0; i < layer_count; ++i) {
+    const gis::MapLayer* layer = map->GetMapLayer(i);
+    if (!layer || !layer->style_document()) {
+      continue;
+    }
+    gis::style::ResolvedPaint paint;
+    if (!gis::style::resolve(*layer->style_document(), nullptr, empty_attrs,
+                             /*zoom=*/10.0, /*source_layer=*/"", &paint)) {
+      continue;
+    }
+    const gis::SmtLayer* leftover = map->GetLeftoverLayer(i);
+    const OGRLayer* ogr = map->GetOgrLayer(i);
+    for (size_t j = 0; j < gpu_.instance_count(); ++j) {
+      const effect::scene::GpuInstance* inst = gpu_.instance_at(j);
+      if (!inst) {
+        continue;
+      }
+      if ((leftover && inst->layer == leftover) ||
+          (ogr && inst->ogr_layer == ogr)) {
+        gpu_.set_instance_paint(j, paint);
+      }
+    }
+  }
+
+  return gpu_.record_draws(device_, list_, width_, height_);
+}
+
+bool LeftoverRecorder::record_3d(render::SmtVertexBuffer* vb,
+                                 render::SmtIndexBuffer* ib) {
+  if (!open_ || !list_ || !device_) {
+    return false;
+  }
+  LeftoverGpuMesh mesh;
+  if (!upload_leftover_buffers(device_, vb, ib, &mesh)) {
+    return false;
+  }
+  leftover_3d_.push_back(mesh);
+  if (!pass_open_) {
+    render::rhi::RenderPassDesc pass;
+    pass.clear_r = 0;
+    pass.clear_g = 0.2f;
+    pass.clear_b = 0.4f;
+    pass.clear_a = 1;
+    pass.width = width_;
+    pass.height = height_;
+    list_->begin_render_pass(pass);
+    list_->set_viewport(0, 0, static_cast<float>(width_),
+                        static_cast<float>(height_), 0, 1);
+    pass_open_ = true;
+  }
+  const float aspect =
+      height_ > 0 ? static_cast<float>(width_) / static_cast<float>(height_)
+                  : 1.f;
+  list_->bind_camera(
+      render::rhi::make_perspective_camera(0.785398f, aspect, 0.1f, 100.f));
+  return record_leftover_draw(list_, leftover_3d_.back());
+}
+
+bool LeftoverRecorder::finish() {
+  if (!list_) {
+    return false;
+  }
+  if (pass_open_) {
+    list_->end_render_pass();
+    pass_open_ = false;
+  }
+  list_->close();
+  const bool ok = device_ && device_->execute(list_);
+  open_ = false;
+  return ok;
+}
+
+void LeftoverRecorder::release() {
+  if (pass_open_ && list_) {
+    list_->end_render_pass();
+    pass_open_ = false;
+  }
+  gpu_.release();
+  clear_leftover_3d();
+  destroy_list();
+  if (owned_device_ && device_) {
+    device_->shutdown();
+    delete device_;
+  }
+  device_ = nullptr;
+  owned_device_ = false;
+  width_ = 0;
+  height_ = 0;
+}
+
+namespace {
+
+LeftoverRecorder* resolve_smt_render_session() {
+#ifdef _WIN32
+  using SessionFn = LeftoverRecorder* (*)();
+  // Bridge leftover DLL (dll_stem = legacy_render), not endgame render.
+  static const wchar_t* kNames[] = {L"legacy_render_d.dll",
+                                    L"legacy_render.dll"};
+  HMODULE module = nullptr;
+  for (const wchar_t* name : kNames) {
+    module = GetModuleHandleW(name);
+    if (module) {
+      break;
+    }
+  }
+  if (!module) {
+    for (const wchar_t* name : kNames) {
+      module = LoadLibraryW(name);
+      if (module) {
+        break;
+      }
+    }
+  }
+  if (!module) {
+    return nullptr;
+  }
+  auto* fn = reinterpret_cast<SessionFn>(
+      GetProcAddress(module, "smt_leftover_session"));
+  if (!fn) {
+    return nullptr;
+  }
+  return fn();
+#else
+  return nullptr;
+#endif
+}
+
+}  // namespace
+
+LeftoverRecorder& leftover_session() {
+  if (LeftoverRecorder* shared = resolve_smt_render_session()) {
+    return *shared;
+  }
+  static LeftoverRecorder local;
+  return local;
+}
+
+bool leftover_session_is_process_wide() {
+  return resolve_smt_render_session() != nullptr;
+}
+
+}  // namespace scene
+}  // namespace render

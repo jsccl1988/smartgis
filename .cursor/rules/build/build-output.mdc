@@ -21,6 +21,6 @@ gn gen out --root=./ --args="is_debug=true is_build_third_party=false"
 ninja -C out all
 ```
 
-## Agent compile (differs from mogu)
+## Agent compile
 
-mogu’s **`agent-no-auto-build.mdc`** is **not** in force here. When the user asks to build / fix compile, follow **`.cursor/skills/auto-build-fix/SKILL.md`** (`build.bat`, log `out/build.log`). Do not invent `third_party/.install` or a second GN out dir.
+Agents **may** run `build.bat`, `gn`, `ninja`, and `out/*.exe` when fixing or verifying builds/tests. Prefer repo-root **`build.bat`**. See **`.cursor/rules/build/agent-may-build.mdc`**. Do not invent `third_party/.install` or a second GN out dir; do not use `SmartGIS.sln` / MSBuild as the fix loop.

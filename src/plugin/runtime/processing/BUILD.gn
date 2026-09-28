@@ -1,0 +1,42 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# GeoJSON operator runners (no PluginHost / content / gis).
+source_set("processing_ops") {
+  sources = [
+    "ops_runner.cc",
+    "ops_runner.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/gis/kernel/geo:geo",
+    "//third_party:gdal",
+  ]
+}
+
+source_set("processing_views") {
+  sources = [
+    "builtin_ops.cc",
+    "builtin_ops.h",
+  ]
+  include_dirs += [ "//src" ]
+  public_deps = [ ":processing_ops" ]
+  deps = [
+    "//src/content:content",
+    "//src/plugin/runtime/host:host",
+  ]
+}
+
+test("processing_ops_test") {
+  output_name = "processing_ops_test"
+  sources = [ "builtin_ops_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":processing_ops",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}

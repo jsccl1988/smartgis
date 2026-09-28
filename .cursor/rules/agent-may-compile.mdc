@@ -1,0 +1,30 @@
+---
+description: 代理可以自行编译；通过 build.bat 验证与修复
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# 代理可以自行编译
+
+Agent **可以**启动编译、链接，以及为验证构建而运行测试/产品二进制。优先用仓库根目录 `build.bat`；产物只在 `out/`。
+
+## 允许
+
+```bat
+build.bat
+build.bat te
+build.bat e2e
+build.bat <single_target>
+```
+
+也可在诊断需要时使用 `gn` / `ninja`。不要用 `out/Default`，不要用 `vs2008/SmartGIS.sln` 作为修复主循环。
+
+## Skill 循环
+
+`auto-build-fix` / `auto-bug-fix` / `auto-idle-pipeline` 要求跑构建或测试时，按 skill **代跑**并迭代到绿，不要只改代码后把命令甩给用户。
+
+规范细则见 **`.cursor/rules/build/agent-may-build.mdc`**。

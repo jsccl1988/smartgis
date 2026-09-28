@@ -17,9 +17,9 @@ Plan: [`../plans/2026-09-19-sdb-subdir-rename.md`](../plans/2026-09-19-sdb-subdi
 
 | # | 决策 | 终态 |
 | --- | --- | --- |
-| 1 | `src/base/carto` → `src/base/carto` | include `"base/carto/..."`；仍链入 `//src/base:base`（`dll_stem=platform`）；命名空间保持 `base` |
-| 2 | `src/gis/world` → `…/world` | 目录 `src/gis/world`；职责 = 逻辑 World |
-| 3 | `src/gis/assets` → `…/assets` | 目录 `src/gis/assets`；职责 = CPU mesh / tileset assets |
+| 1 | `src/base/carto` → `src/base/carto` | include `"base/carto/..."`；仍链入 `//src/base:base`（`dll_stem=base`）；命名空间保持 `base` |
+| 2 | `src/gis/scene/world` → `…/world` | 目录 `src/gis/scene/world`；职责 = 逻辑 World |
+| 3 | `src/gis/scene/assets` → `…/assets` | 目录 `src/gis/scene/assets`；职责 = CPU mesh / tileset assets |
 | 4 | 语义澄清 | **`gis` = GIS 模型层**，不是 literal DB；文档写明 |
 | 5 | 整层 `sdb` → `gis` | 目录 `src/gis/`；include `"gis/..."`；命名空间 `gis::`；GN `//src/gis`；`dll_stem=gis` |
 

@@ -4,7 +4,7 @@
 #ifndef SDB_DATASOURCE_GDAL_GDAL_DRIVER_H_
 #define SDB_DATASOURCE_GDAL_GDAL_DRIVER_H_
 
-#include "gis/datasource/gdal/ogr_export.h"
+#include "gis/gis_export.h"
 
 // GDAL/OGR device (SmtSDEGdalDevice). Also registers the in-tree SDBD
 // driver. Do not vendor a second GDAL tree.
@@ -13,7 +13,7 @@ namespace gis {
 namespace datasource {
 
 // GDALAllRegister() plus register_sdbd_driver().
-SDE_GDAL_EXPORT bool register_gdal_driver();
+GIS_EXPORT bool register_gdal_driver();
 
 }  // namespace datasource
 }  // namespace gis

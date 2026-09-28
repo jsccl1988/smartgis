@@ -3,18 +3,18 @@
 
 import("//build/smartgis.gni")
 
-# Cartographic pen/brush/Envelope (NOT MapLibre Style JSON — that is //src/gis/style).
+# Cartographic pen/brush/Envelope (NOT MapLibre Style JSON — that is //src/gis/present/style).
 #
-# DLL choice: compiled into the product platform DLL (//src/base:base,
-# dll_stem=platform). Preferring the gis DLL would create a link cycle:
-# algorithm/geo includes Envelope, while gis already depends on algorithm.
-# Revisit when Envelope is header-only / no longer exported from platform.
+# DLL choice: compiled into the product base DLL (//src/base:base,
+# dll_stem=base). geo (inside gis.dll) includes Envelope, so gis.dll
+# depends on base. Do not move carto into gis.dll.
+# Revisit when Envelope is header-only / no longer exported from base.
 
 source_set("carto_sources") {
   configs += [ "//build:legacy" ]
   defines = [
     "_USRDLL",
-    "STYLE_EXPORTS=1",
+    "BASE_EXPORTS=1",
   ]
   sources = [
     "style_api.cpp",

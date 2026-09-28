@@ -4,22 +4,22 @@
 #include "stdafx.h"
 #include "legacy/ui/xcatalog/3dobjxcatalog.h"
 
-#include "base/core/api.h"
+#include "legacy/core/api.h"
 #include "base/core/log.h"
-#include "base/core/msg.h"
-#include "legacy/render/model3d/sphere.h"
-#include "legacy/render/model3d/water.h"
-#include "legacy/render/terrain/terrain.h"
+#include "legacy/core/msg.h"
+#include "legacy/render/scene3d/primitive/sphere.h"
+#include "legacy/render/scene3d/primitive/water.h"
+#include "legacy/render/scene3d/surface/terrain.h"
 #include "legacy/tool/group/defs.h"
-#include "legacy/tool/t_iatoolmanager.h"
+#include "legacy/tool/iatool/t_iatoolmanager.h"
 #include "legacy/ui/xcatalog/mapmgr.h"
 #include "legacy/ui/xcatalog/scenemgr.h"
 #include "legacy/ui/xcatalog/xcatalog_core.h"
 #include "gis/datasource/mgr/datasource_mgr.h"
-#include "gis/feature/feature_api.h"
-#include "gis/layer/layer.h"
-#include "gis/map/map.h"
-#include "sys/sysmanager.h"
+#include "gis/model/feature/feature_api.h"
+#include "gis/model/layer/layer.h"
+#include "gis/model/map/map.h"
+#include "legacy/sys/sysmanager.h"
 
 using namespace render;
 using namespace render;
@@ -144,7 +144,7 @@ bool Smt3DObjXCatalog::Update3DObjTree() {
   SetRedraw(FALSE);
   SetTextColor(RGB(0, 0, 255));
 
-  m_hRoot = InsertItem("��ά����");
+  m_hRoot = InsertItem("三维对象");
 
   SmtSceneMgr *pSceneMgr = SmtSceneMgr::get_singleton_ptr();
 

@@ -6,13 +6,13 @@
 #include <cstring>
 #include <fstream>
 
-#include "base/core/api.h"
+#include "legacy/core/api.h"
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
 #include "gis/datasource/gdal/gdal_driver.h"
-#include "gis/datasource/gdal/ogr_raster_layer.h"
-#include "gis/datasource/gdal/sdbd_dataset.h"
-#include "gis/datasource/gdal/sdbd_remote_dataset.h"
+#include "gis/datasource/ogr/raster/ogr_raster_layer.h"
+#include "gis/datasource/sdbd/decorator/sdbd_dataset.h"
+#include "gis/datasource/sdbd/decorator/sdbd_remote_dataset.h"
 
 using namespace gis;
 using namespace base;

@@ -305,7 +305,7 @@
         "platform/default",
         "platform/windows"
       ],
-      "note": "Optional GPU Track A. Monorepo tag ios-v6.30.0. Lands in .src/maplibre-native. Vendor tarball cache: .src/_cache/maplibre-vendor. CMake binary dir: third_party/.build/maplibre-native. Install prefix: out/third_party/maplibre. Do not rmtree CEF/flycube. Do not checkout into out/. Windows still-image links //third_party/maplibre:maplibre_native."
+      "note": "Deferred 2026-09-27: product MapLibre Native pin removed (no smt_enable_maplibre / maplibre_native link). Manifest kept for a future reconsider. Monorepo tag ios-v6.30.0. Lands in .src/maplibre-native if fetched. Do not rmtree CEF/flycube. Do not checkout into out/."
     },
     {
       "name": "eigen",
@@ -316,6 +316,26 @@
         "Eigen"
       ],
       "note": "Header-only Eigen 3.4.0 (MPL2). SparseLU backend for orthogrid Laplace / elliptic grid generation only — not geo Vector types. Reused existing Gitea mirror; not re-uploaded. No cmake install."
+    },
+    {
+      "name": "octree",
+      "git_url": "http://localhost:3000/ccl/octree.git",
+      "git_url_fallbacks": [
+        "https://github.com/jbehley/octree.git"
+      ],
+      "git_ref": "8e3927d48d5ce61f94aab6090d77b4434f87dc89",
+      "install_skip": true,
+      "note": "jbehley/octree unibn Octree.hpp MIT header-only. Sources in .src/octree; thin GN at third_party/octree. Used by legacy/render/scene3d/index adapter only."
+    },
+    {
+      "name": "CLI11",
+      "git_url": "http://localhost:3000/ccl/CLI11.git",
+      "git_url_fallbacks": [
+        "https://github.com/CLIUtils/CLI11.git"
+      ],
+      "git_ref": "v2.4.2",
+      "install_skip": true,
+      "note": "CLIUtils/CLI11 header-only command-line parser (BSD-3). Sources in .src/CLI11; thin GN at third_party/CLI11. Used by SmartGisViews process entry."
     }
   ]
 }

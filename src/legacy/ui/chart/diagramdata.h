@@ -20,10 +20,10 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define STAT_CHART_EXPORT __declspec(dllimport)
 #endif
 
-#include "base/core/core.h"
+#include "legacy/core/core.h"
 #include "gis/datasource/mgr/datasource_mgr.h"
-#include "gis/layer/layer.h"
-#include "gis/map/map.h"
+#include "gis/model/layer/layer.h"
+#include "gis/model/map/map.h"
 
 using namespace base;
 using namespace gis;

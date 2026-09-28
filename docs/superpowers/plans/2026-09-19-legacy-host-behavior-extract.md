@@ -5,6 +5,9 @@ All rights reserved.
 
 # SP3 Host behavior extract — Implementation Plan
 
+
+> **Design living:** SP decisions live in [../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md](../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md). This file is the checklist only.
+
 > **For agentic workers:** follow checkboxes; stay on `master`; no commit unless asked.
 
 **Goal:** Extract HWND-free host session helpers into `content` (attribute writeback + Catalog LayerDesc JSON); wire `MapScene` / CEF / Views; keep MFC dlg thin.  
@@ -68,6 +71,6 @@ All rights reserved.
 4. [x] `bind_workspace`：已在 `legacy/ui/xview` 薄接线，本轮不改 `legacy/tool`。
 
 **Deferred (still out of this task):**
-- Edit draft commit (`append_from_draft` viewport seam) — SP1 tool / later.
+- Edit draft commit / map bootstrap — **handed to** [`2026-09-27-legacy-app-subdirectory-layout.md`](2026-09-27-legacy-app-subdirectory-layout.md) (not a second SP3 fork).
 - `CatalogCall` / `CatalogDelta` pipe payload beyond snapshot JSON — later incremental.
 - SP5 默认停编 leftover 闸门。

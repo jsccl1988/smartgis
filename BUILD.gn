@@ -1,10 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-import("//src/app/cef/cef.gni")
-import("//src/app/cs/cs.gni")
-import("//src/app/winui/winui.gni")
-import("//src/render/skia/skia.gni")
+import("//src/ui/gfx/skia.gni")
 
 # Root groups match mogu / mgis: all, test_all, all_with_tests, benchmark_all
 # plus shorthand aliases m / te / a / b.
@@ -45,36 +42,44 @@ group("test_shell") {
     "//src/content:content_feature_attrs_test",
     "//src/content:content_catalog_layers_test",
     "//src/app/views:map_scene_test",
-    "//src/app/views:scene3d_controller_test",
-    "//src/gis/world:dem_raster_test",
-    "//src/gis/datasource/gdal:ogr_text_encoding_test",
-    "//src/gis/datasource/gdal:sdbd_client_test",
-    "//src/gis/datasource/gdal:sdbd_live_test",
-    "//src/gis/world:land_mask_test",
-    "//src/gis/atmosphere:field_store_test",
-    "//src/gis/atmosphere:procedural_test",
-    "//src/gis/atmosphere:field_ingest_test",
+    "//src/app/views:scene3d_presenter_test",
+    "//src/app/views:view_commands_test",
+    "//src/app/views:view_navigation_test",
+    "//src/gis/vista/world:dem_raster_test",
+    "//src/gis/datasource/ogr:ogr_text_encoding_test",
+    "//src/gis/datasource/sdbd:sdbd_client_test",
+    "//src/gis/datasource/sdbd:sdbd_live_test",
+    "//src/gis/vista/world:land_mask_test",
+    "//src/gis/vista/domain/atmosphere:field_store_test",
+    "//src/gis/vista/domain/atmosphere:procedural_test",
+    "//src/gis/vista/domain/atmosphere:field_ingest_test",
     "//src/tool:camera_nav_test",
+    "//src/tool:tool_dispatch_test",
+    "//src/tool:draft_test",
     "//src/gis/datasource/gdal:sde_gdal_test",
-    "//src/gis/map:select_query_test",
-    "//src/gis/tile:tile_test",
-    "//src/gis/style:style_test",
-    "//src/algorithm/geo:geo_ogr_test",
-    "//src/algorithm/proj:proj_test",
-    "//src/algorithm/stat:stat_expr_test",
-    "//src/algorithm/tin:tin_delaunay_test",
-    "//src/algorithm/tin:tin_xyz_test",
-    "//src/gis/assets:model_test",
-    "//src/gis/world:scene_test",
-    "//src/gis/world:tessellate_style_test",
+    "//src/gis/model/map:select_query_test",
+    "//src/gis/present/tile:tile_test",
+    "//src/gis/present/style:style_test",
+    "//src/gis/vista/frame:frame_test",
+    "//src/effect/map:map_effect_test",
+    "//src/gis/kernel/geo:geo_ogr_test",
+    "//src/gis/kernel/proj:proj_test",
+    "//src/gis/kernel/stat:stat_expr_test",
+    "//src/gis/kernel/tin:tin_delaunay_test",
+    "//src/gis/kernel/tin:tin_xyz_test",
+    "//src/gis/vista/assets:model_test",
+    "//src/gis/vista/world:world_test",
+    "//src/gis/vista/world:tessellate_style_test",
     "//src/render:rhi_test",
-    "//src/render/scene:scene_gpu_test",
-    "//src/render/scene:unified_draw_test",
+    "//src/effect/scene:scene_gpu_test",
+    "//src/effect/scene:unified_draw_test",
     "//src/gpu:render_backend_test",
     "//src/base/core:menu_test",
     "//src/base/ipc:ipc_test",
-    "//src/app/cef:chrome_bridge_test",
-    "//src/app/cs:sg_host_test",
+    # Plugin pathway (Registry / PluginHost / processing ops / M4 embed sample).
+    "//src/plugin:plugin_host_test",
+    "//src/plugin/runtime/processing:processing_ops_test",
+    "//src/content:content_embed_sample_test",
   ]
 }
 
@@ -83,9 +88,9 @@ group("test_all") {
   testonly = true
   deps = [
     ":test_shell",
-    "//src/legacy/render/gdi:gdi_map_paint_test",
-    "//src/legacy/render/gdi:map_carto2d_test",
-    "//src/legacy/render/gl:gl_map_paint_test",
+    "//src/legacy/render/rhi2d/impl/gdi:gdi_map_paint_test",
+    "//src/legacy/render/rhi2d/impl/gdi:map_carto2d_test",
+    "//src/legacy/render/rhi3d/impl/gl:gl_map_paint_test",
   ]
   if (smt_build_app) {
     deps += [ "//src/legacy/app:app" ]
@@ -101,15 +106,6 @@ group("e2e") {
   }
   if (smt_build_views) {
     deps += [ ":ui_views" ]
-  }
-  if (smt_build_winui) {
-    deps += [ ":winui" ]
-  }
-  if (smt_build_cef && smt_has_cef) {
-    deps += [ ":cef" ]
-  }
-  if (smt_build_cs) {
-    deps += [ ":cs" ]
   }
   if (smt_build_render) {
     deps += [ ":render" ]
@@ -136,19 +132,20 @@ group("te") {
 }
 
 # mogu-aligned foundation under //src/base:foundation (source_set; not a DLL).
-# Product platform DLL is //src/base:base with dll_stem=platform.
+# Product platform DLL is //src/base:base with dll_stem=base.
 # Compatibility: //:base → foundation (no physical repo-root base/ directory).
 group("base") {
   public_deps = [ "//src/base:foundation" ]
 }
 
-# Thin aliases under //core → foundation. Prefer //src/base:foundation.
+# Historic //core:core. Same target as //:base. Prefer //src/base:foundation.
 group("core") {
-  public_deps = [ "//core:core" ]
+  public_deps = [ "//src/base:foundation" ]
 }
 
+# Historic //core:core_all. Whole product tree. Prefer //src:src_all.
 group("core_all") {
-  public_deps = [ "//core:core_all" ]
+  public_deps = [ "//src:src_all" ]
 }
 
 # Leftover MFC SmartGis.exe — opt-in only (build.bat legacy_app / smartgis).
@@ -196,7 +193,7 @@ group("ui_legacy") {
 # SP5: must not pull legacy_*_all / ui_legacy (see //src/app/views:views assert_no_deps).
 group("ui_views") {
   deps = [
-    "//src/render/skia:skia",
+    "//src/ui/gfx:gfx",
     "//src/ui/views:views",
   ]
   if (smt_build_views) {
@@ -206,32 +203,6 @@ group("ui_views") {
 
 group("views") {
   deps = [ ":ui_views" ]
-}
-
-# Scheme 2 WinUI chrome. Loaded only when smt_build_winui=true.
-group("winui") {
-  deps = []
-  if (smt_build_winui) {
-    deps += [ "//src/app/winui:app_winui" ]
-  }
-}
-
-# CEF chrome (scheme 1 partitioned HWND). Opt-in; not in group("all").
-group("cef") {
-  deps = []
-  if (smt_build_cef && smt_has_cef) {
-    deps += [ "//src/app/cef:cef" ]
-  }
-}
-
-# C# WinUI host (external embedder + SmartGisCs.exe). Opt-in; not in all.
-# build.bat cs also sets smt_build_render so SmartGisRender.exe is rebuilt
-# beside the C# PE (C# cannot --type=gpu).
-group("cs") {
-  deps = [ "//src/app/cs:cs" ]
-  if (smt_build_render) {
-    deps += [ "//src/gpu:gpu" ]
-  }
 }
 
 # GPU process. Only loaded when smt_build_render=true (build.bat render).

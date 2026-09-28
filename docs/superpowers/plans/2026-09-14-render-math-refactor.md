@@ -283,7 +283,7 @@ Quat slerp(const Quat& a, const Quat& b, float t);
 
 - [ ] **Step 3: `Frustum`**
 
-从 VP 提取六平面（可参考 `gl_rdev_misc.cpp` 逻辑，但用 `Plane` 类型）；`intersects(Aabb)` 委托 `Aabb::cull` 或独立实现。
+从 VP 提取六平面（可参考 `rdev_misc.cpp` 逻辑，但用 `Plane` 类型）；`intersects(Aabb)` 委托 `Aabb::cull` 或独立实现。
 
 - [ ] **Step 4: 测试**
 

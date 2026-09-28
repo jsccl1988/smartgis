@@ -8,9 +8,11 @@
 #include <string_view>
 #include <vector>
 
+#include "content/content_export.h"
+
 namespace content {
 
-// Opaque Catalog / LayerTree row for chrome mirrors. No GIS pointers, no HWND.
+// Opaque Catalog / LayerTree row for shell mirrors. No GIS pointers, no HWND.
 struct LayerDesc {
   std::string id;
   std::string name;
@@ -19,12 +21,13 @@ struct LayerDesc {
 };
 
 // Escape a string for embedding inside a JSON double-quoted value.
-std::string json_escape_string(std::string_view text);
+CONTENT_EXPORT std::string json_escape_string(std::string_view text);
 
 // Serialize |layers| to a JSON array consumed by CEF CatalogDelta / LegendSnapshot:
 // [{"id":"...","name":"...","visible":true}, ...]
 // |active| is intentionally omitted to match the existing CEF wire format.
-std::string layers_to_catalog_json(const std::vector<LayerDesc>& layers);
+CONTENT_EXPORT std::string layers_to_catalog_json(
+    const std::vector<LayerDesc>& layers);
 
 }  // namespace content
 

@@ -3,44 +3,29 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# MapLibre Native pin (optional)
+# MapLibre Native pin (deferred)
 
-Do **not** vendor the MapLibre Native tree into git. Same discipline as Skia / FlyCube: fetch into `third_party/.src/`.
+**Status (2026-09-27):** Product integration **removed**. Decision: delete the
+mln/mbgl pin from the build graph; reconsider later. There is no
+`smt_enable_maplibre`, no `//third_party/maplibre:maplibre_native` link target,
+and no `src/gpu` / `src/render/maplibre` probe.
 
-## Enable
+Do **not** treat GPU `ContentSource::kTile` / `SMT_MAP_BACKEND=maplibre` /
+`view.backend.maplibre` as MapLibre Native — those wire names select the
+StyleDocument + TileProvider tile path only.
 
-```bat
-python third_party\tools\fetch.py --package maplibre-native
-gn gen out --args="is_debug=true smt_enable_maplibre=true"
-ninja -C out render_backend_test
-```
+## What remains on disk
 
-`smt_enable_maplibre` stays **false** by default and is **not** in `src_all` / `all`.
-
-## Pin
-
-| Field | Value |
+| Path | Role |
 | --- | --- |
-| Package | `maplibre-native` in `third_party/manifest.json` |
-| Ref | `ios-v6.30.0` (`0ffe6336b4e7266c75c13337b4aa1d0f2b0877d5`) |
-| Dest | `third_party/.src/maplibre-native` |
-| Vendor tarball cache | `third_party/.src/_cache/maplibre-vendor` |
-| CMake binary dir | `third_party/.build/maplibre-native` |
-| Installed lib | `out/third_party/maplibre` (`mbgl-core.lib`) |
-| Linked lib | `//third_party/maplibre:maplibre_native` (`mln::Map` still-image) |
+| `third_party/maplibre/BUILD.gn` | Empty `group("maplibre")` — not linked |
+| `third_party/maplibre/include/`, `src/` | Former thin `mln::Map` wrappers; unused by product GN |
+| `third_party/manifest.json` → `maplibre-native` | Fetch metadata kept; `skip_fetch_all` |
+| `third_party/.src/maplibre-native` | Optional prior checkout; not a product dep |
 
-Record the resolved commit after fetch in `PIN.txt` (written by the fetch/overlay step). Do not `rmtree` CEF / FlyCube junctions. Do not clone Native into `out/` — `out/` is Ninja/CMake output only.
+## Reconsider later
 
-A full Windows OpenGL core build uses the pin tree plus `vendor/` (from the cache above) and vcpkg under `platform/windows/vendor/vcpkg`. Pass `-S third_party/.src/maplibre-native -B third_party/.build/maplibre-native` so CMake does not recreate `build-windows-opengl` inside `.src`.
-
-## What links today
-
-When `smt_enable_maplibre=true`, GPU Track A (`SMT_MAP_BACKEND=a`) constructs `mln::Map`, loads style JSON, and paints one BGRA frame into `PresentTarget`. `maplibre_map_linked()` is true only in that binary.
-
-`mln::Map` in `third_party/maplibre/include/mln/map.hpp` is the Windows still-image facade linked into GPU Track A.
-
-The pin's real type is `include/mln/map/map.hpp` (`mln::Map(RendererFrontend&, MapObserver&, MapOptions, ResourceOptions, …)` + `renderStill`). HeadlessFrontend lives under `platform/default`; Windows backends are EGL/WGL. A full core build needs vendor/vcpkg, style codegen, and those GPU backends — not produced in this tree.
-
-## Fallback
-
-Without the flag (default), Track A still paints style background + one XYZ raster through the adapter. Pin-off tests stay green (`mln_map=0`).
+If product opts back in: reintroduce a thin GN target, an optional
+`declare_args` flag, and a clear owner module — **not** under `src/gpu` paint
+core, and **not** inside `src/effect/map` Pass. Until then, do not enable
+Track A via gpu or claim still-image paint through `mln::Map`.

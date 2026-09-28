@@ -7,6 +7,7 @@ All rights reserved.
 
 Status: active  
 Date: 2026-09-19  
+Updated: 2026-09-28 — geometry (`Point`/`Size`/`Rect`) owned by `ui::gfx`; see skia-canvas living § 职责子目录.  
 Plan: [`../plans/2026-09-19-ui-views-subdir-responsibility.md`](../plans/2026-09-19-ui-views-subdir-responsibility.md)
 
 ## 背景
@@ -40,7 +41,7 @@ src/ui/views/
   BUILD.gn
   README.md
   views.h / views.cc
-  kernel/       View Widget Layout Theme Event Dpi Splitter DialogHost LayoutCheck
+  kernel/       view/ widget/ layout/ shell/ paint/ compositor/  (Chromium-aligned)
   primitives/   Button Label Textfield Checkbox Radio Combobox
                 TabStrip TableView TreeView ScrollView MenuBar ContextMenu
   dialogs/      Dialog FilePicker MessageBox InputText SelectOne
@@ -50,7 +51,7 @@ src/ui/views/
   testing/      pixel_harness pixel_png_wic views_unittests views_pixel_tests testdata/
 ```
 
-禁止更深公开 nest（例如 `gis/panels/`、`dialogs/gis/`）。
+禁止无职责的随意更深 nest（例如 `gis/panels/`）。允许 Chromium 对齐的职责子分区（`kernel/view/`、`dialogs/gis/`、`primitives/button/` 等）。
 
 ## 依赖边界（逻辑，非多 target）
 
@@ -86,7 +87,7 @@ testing 可依赖上述全部；产品库不反向依赖 testing
 
 | 区域 | 文件（茎名） |
 | --- | --- |
-| kernel | `view` `widget` `layout` `layout_check` `theme` `event` `dpi` `splitter` `dialog_host` |
+| kernel | `view/` `widget/` `layout/` `shell/` `paint/` `compositor/`（见 § Kernel Chromium-aligned partitions） |
 | primitives | `button` `label` `textfield` `checkbox` `radio_button` `combobox` `tab_strip` `table_view` `tree_view` `scroll_view` `menu_bar` `context_menu` |
 | dialogs | `dialog` `file_picker` `message_box` `input_text_dialog` `select_one_dialog` `create_datasource_dialog` `create_layer_dialog` `create_map_dialog` `att_struct_dialog` `add_basemap_dialog` |
 | gis | `catalog_view` `layer_tree` `attribute_table` `feature_info` `status_bar` `ambox_view` `chart_view` |
@@ -116,8 +117,26 @@ testing 可依赖上述全部；产品库不反向依赖 testing
 - `views_unittests` / `views_pixel_tests` 源与 goldens 在 `testing/`
 - 关键：`build.bat` 构建 `views` 及相关测试（环境允许时）
 
+## Kernel Chromium-aligned partitions（2026-09-28）
+
+`kernel/` 内再按 Chromium Views 角色切公开子目录（仍两层命名空间 `ui::views`，无根转发 shim）。原 `kernel/tree/` 已拆掉：
+
+| Chromium-ish 角色 | 路径 | 主要类型 |
+| --- | --- | --- |
+| View hierarchy | `kernel/view/` | `View` |
+| Widget / native HWND | `kernel/widget/` | `Widget` |
+| Layout managers | `kernel/layout/` | `LayoutManager`、`Splitter`、`view_traits` |
+| Theme / DPI / events / dialog host | `kernel/shell/` | `Theme`、`Dpi`、`Event`、`DialogHost` |
+| Paint commit / DisplayList bridge | `kernel/paint/` | `PaintCommit`、`commit_view_tree` |
+| Shell compositor (pending/active + raster) | `kernel/compositor/` | `ShellCompositor` |
+
+Include：`"ui/views/kernel/<partition>/foo.h"`。不 vendor Aura/cc；`compositor/` 仅壳侧 seam。线程角色见 [`2026-09-13-ui-views-controls-design.md`](2026-09-13-ui-views-controls-design.md) § UI compositor thread。
+
+**Nesting 修订：** 上文「禁止更深公开 nest」仅禁止无职责的随意子树（如 `gis/panels/`）；`kernel/{view,widget,layout,shell,paint,compositor}` 与 `primitives/{button,…}` 等同为 **Chromium 对齐的职责分区**，允许。
+
 ## 相关
 
 - As-built：[`docs/build/ui-views-skia.md`](../../build/ui-views-skia.md)
 - Controls：[`2026-09-13-ui-views-controls-design.md`](2026-09-13-ui-views-controls-design.md)（本设计修订其 nesting 段）
 - 模块 README：[`src/ui/views/README.md`](../../../src/ui/views/README.md)
+- Compositor 线程：[`2026-09-13-ui-views-controls-design.md`](2026-09-13-ui-views-controls-design.md) § UI compositor thread

@@ -1,0 +1,55 @@
+---
+description: Colocate each C++ header with its .cc/.cpp in the same directory
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Colocated headers and sources
+
+A directory is one unit: the header and its implementation live **side by side**. This applies to new files and to any move or subdirectory split under `src/`, `core/`, `algorithm/`, and `testing/`.
+
+## Do
+
+- Put `foo.h` next to `foo.cc` or `foo.cpp` in the **same directory**.
+- When splitting a module by responsibility, **move the header with its translation unit**. Includes use that path (`layer/module/unit/file.h`).
+- Keep header-only companions in the directory of the module that owns them.
+- In the same change, update `BUILD.gn` sources and every `#include`.
+- Match the sibling extension (`.cc` or `.cpp`) already used in that subtree.
+
+```
+// GOOD
+src/legacy/render/gdi/device/gdi_renderdevice.h
+src/legacy/render/gdi/device/gdi_renderdevice.cpp
+#include "legacy/render/gdi/device/gdi_renderdevice.h"
+```
+
+## Don’t
+
+- **Don’t** leave public headers at the parent and move only `.cpp` into a child (headers-at-top).
+- **Don’t** add an `include/` + `src/` (or `inc/` + `src/`) split for product code.
+- **Don’t** leave a forwarding header at the old path after a move.
+- **Don’t** drive-by relocate trees that are already colocated, or rewrite `third_party/` / `branches/`.
+
+```
+// BAD — header and body split
+src/legacy/render/gdi/gdi_renderdevice.h
+src/legacy/render/gdi/device/gdi_renderdevice.cpp
+
+// BAD — parallel include tree
+src/foo/include/foo/bar.h
+src/foo/src/bar.cc
+```
+
+## Exceptions
+
+- A module-root **umbrella** that only re-exports (`views.h`) may stay at that root.
+- An already-locked embedder surface (`src/content/public/`) stays until its own spec moves it.
+- Third-party and generated headers keep the vendor layout.
+
+## Relation to other rules
+
+**`.cursor/rules/style/refactoring.mdc`** (reshape by responsibility), **`.cursor/rules/style/tree-style.mdc`** (match siblings), **`docs/build/src-layout.md`** (nesting cap). Colocation wins over keeping a split include path; do not add a shim header to preserve the old path.

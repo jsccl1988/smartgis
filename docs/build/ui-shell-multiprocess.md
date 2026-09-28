@@ -56,7 +56,7 @@ All rights reserved.
 | --- | --- | --- | --- | --- |
 | **Browser / UI** | `SmartGis.exe`（省略 `--type` 或 `--type=browser`；方案切换时可用 `SmartGisWinui.exe` / `SmartGisViews.exe` 并行装） | 窗口、ribbon/tree/property/dialog、**仅 present** 共享表面、把输入经 host 转给 renderer | 仅 chrome + `content` 客户端 + 方案专用 UI。**不** Load `SmtGisCore` / `SmtSDEGdalDevice` | GDAL 连接串 / 数据集、`SmtRenderDevice::Init`、GL/D3D11 设备 |
 | **Renderer** | **同一 PE** `SmartGis.exe --type=renderer` | `SmtMap` / `SmtIATool`、pick/hit-test、工具与 catalog 逻辑（CPU）；`Submit2d` / `Submit3d` 到 GPU | `SmtCore`、`SmtSysCore`、`SmtBaseLib`、`SmtGeoCore`、`SmtGisCore`、`SmtGisPrj`、`SmtToolCore`、`SmtGroupToolCore`、`SmtAuxModule` + 各 `SmtAM*`（UI-less 部分） | MFC `CView`、BCG dock、WebView2、WinUI 控件、**任何** GL/D3D11 设备 |
-| **GPU**（**必需**独立子进程） | **同一 PE** `SmartGis.exe --type=gpu` | **全部 2D 与 3D 绘制**：`kMapEdit` / `kMapData`（`SmtRender` + GL/GDI）与 `kScene3d`（`render3d` + `scene3d` / `terrain` / `pointcloud`）；共享 DXGI 句柄 + `FrameReady` | `SmtRender`、`SmtGLRenderDevice`、`SmtGdiRenderDevice`、`SmtGdiSimpleRenderDevice`、`Smt3DRenderer`、`scene3d` / `model3d` / `terrain` / `pointcloud` | 可见 chrome HWND、WebView2、WinUI、`SmtIATool` 输入路由 |
+| **GPU**（**必需**独立子进程） | **同一 PE** `SmartGis.exe --type=gpu` | **全部 2D 与 3D 绘制**：`kMapEdit` / `kMapData`（`SmtRender` + GL/GDI）与 `kScene3d`（`legacy/render/rhi3d` + `scene3d`）；共享 DXGI 句柄 + `FrameReady` | `SmtRender`、`SmtGLRenderDevice`、`SmtGdiRenderDevice`、`SmtGdiSimpleRenderDevice`、`Smt3DRenderer`、`scene3d`（含原 model/terrain/pointcloud） | 可见 chrome HWND、WebView2、WinUI、`SmtIATool` 输入路由 |
 | **Utility / IO**（可选，v1.5） | **同一 PE** `SmartGis.exe --type=utility` | `sde/gdal`、`net`、目录枚举 | `SmtSDEDeviceMgr`、`SmtSDEGdalDevice`、`SmtSDEMemDevice`、`SmtNetCore`、`SmtMapService`（服务端读） | HWND、GPU 设备、chrome |
 
 **没有 `SmartGisRender.exe` 作为产品 GPU 映像。** 今日 `//src/gpu:gpu` / `build.bat render` 的独立 console exe 是过渡；终局是 `--type=gpu` 入口链进同一 `executable("smartgis")`。
@@ -80,7 +80,7 @@ flowchart LR
     Chrome --> Presenter
   end
 
-  subgraph IPC["Mojo pipes + GPU handle"]
+  subgraph IPC["named pipe + GPU handle"]
     MojR["MapWidget / MapWidgetHost"]
     MojG["Gpu / GpuHost"]
     Tex["DXGI shared texture / NT handle"]
@@ -93,8 +93,12 @@ flowchart LR
   end
 
   subgraph GpuProc["SmartGis.exe --type=gpu"]
-    GpuMain["2D SmtRender + 3D scene3d"]
-    GpuMain --> Tex
+    FS["frame_sink draw_and_swap"]
+    Raster["raster direct|tile → quads"]
+    Comp["compositor SoftwareRenderer"]
+    Surf["OutputSurface upload_bgra"]
+    FS --> Raster --> Comp --> Surf
+    Surf --> Tex
   end
 
   subgraph IO["SmartGis.exe --type=utility (optional)"]
@@ -104,10 +108,12 @@ flowchart LR
   HostClient <--> MojR
   MojR <--> MapW
   Submit --> MojG
-  MojG <--> GpuMain
+  MojG <--> FS
   Tex --> Presenter
   MapW -.->|v1.5| Sde
 ```
+
+GPU paint internals (record quads → blend once → present): [`../../src/gpu/README.md`](../../src/gpu/README.md).
 
 父进程用 Job Object 管子进程：Browser 退出则杀子进程；**renderer 崩溃** → `RendererDied` → 重启 `--type=renderer`（GPU 可仍在）；**GPU 崩溃 / TDR** → 仅重启 `--type=gpu`，browser 丢弃旧 handle 并等待新 `FrameReady`。
 
@@ -359,11 +365,11 @@ v1 适配器路径：
 
 | 后端 | 角色 |
 | --- | --- |
-| `legacy/render/gl`（现有 leftover） | v1 主路径 |
+| `legacy/render/rhi3d/impl/gl`（现有 leftover；原 `legacy/render/gl`） | v1 主路径 |
 | GDI / GDI Simple（`legacy/render/gdi` 等） | 软件回退、打印栅格化 |
 | Skia canvas（未来 `third_party/skia`，canvas only） | 2D 矢量/文字质量；不是 chrome toolkit |
 | DXGI / D3D11+ | 共享纹理与 present；**不是** D3DX9 |
-| `legacy/render/render3d` + `scene3d` / `terrain` / `pointcloud` | `ViewKind::kScene3d`；离开 D3DX |
+| `legacy/render/rhi3d` + `scene3d`（含原 model/terrain/pointcloud） | `ViewKind::kScene3d`；离开 D3DX |
 
 ### 0.8 多视图 / 多窗口
 
@@ -500,13 +506,13 @@ UI 进程 = WinUI 3 / WinAppSDK。`IMapSession` / pipe / `SmartGisRender.exe` �
 
 ## 3. 方案 3 — Chromium Views + Aura + Skia
 
-**实现状态（2026-09-13）：** 变体 **(b)** 已落地为薄 Views-like + GDI 后备 `render::skia` canvas，**不是** CEF / 整树 Chromium。
+**实现状态（2026-09-13）：** 变体 **(b)** 已落地为薄 Views-like + GDI 后备 `ui::gfx` canvas，**不是** CEF / 整树 Chromium。
 
 | 槽 | 路径 | 产物 |
 | --- | --- | --- |
 | 工具箱 | `src/ui/views/` (`ui::views`) | `//src/ui/views:views` |
-| 画布 | `src/render/skia/`（无 Skia 树；fill/text） | `//src/render/skia:skia` |
-| 产品壳 | `src/app/views/`（mogu/Chromium `chrome/`） | `out/SmartGisViews.exe`（`build.bat views` / `smt_build_views`） |
+| 画布 | `src/ui/gfx/`（无 Skia 树；fill/text） | `//src/ui/gfx:gfx` |
+| 产品壳 | `src/app/views/`（upstream Views shell） | `out/SmartGisViews.exe`（`build.bat views` / `smt_build_views`） |
 | 地图挂接 | `MapViewport` 子 HWND：`content::MapView`（若 `src/content/public` 存在）→ `CreateProcess SmartGisRender.exe`（与兄弟壳同一 ABI）→ `LoadLibrary` + `SmtRenderDevice::Init` → 占位 |
 
 `src/app/` 只保留 MFC `SmartGis.exe`。不要再开 `src/app/views/`。默认 `build.bat` 仍是 31 个 DLL。兄弟原型（WebView2 / WinUI）允许并存，但不是终局。

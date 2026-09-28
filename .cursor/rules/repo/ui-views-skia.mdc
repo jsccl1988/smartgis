@@ -3,13 +3,19 @@ description: HARD RULE — desktop UI endgame is Chromium Views + Skia; not Qt, 
 alwaysApply: true
 ---
 
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+
 # Desktop UI endgame: Views + Skia
 
 **This rule is always on (`alwaysApply: true`).** The chosen high-ceiling UI is in-process C++ **Chromium-style Views** (widget / layout / events) plus **Skia** (paint), hosting the existing map viewport (`src/render`, `src/map` / `src/feature`). Details: `docs/build/ui-views-skia.md`.
 
 ## Do
 
-- New shell toolkit lives in `src/ui/views/` (`ui::views`). Skia backend stub in `src/render/skia/` (`render::skia`).
+- New shell toolkit lives in `src/ui/views/` (`ui::views`). Skia backend stub in `src/ui/gfx/` (`ui::gfx`).
 - Product hosts live under `src/app/` (`app/views`, `app/winui`). Do not reintroduce `src/chrome/` or a WebView2 / `src/web` stack.
 - Keep the map as a hosted viewport (HWND / native view) on the existing C++ render + GIS stack.
 - Treat `src/ui/{gui,mfc_ex,xview,xcatalog,xambox}` and leftover MFC sources in `src/app/` as **legacy**. Feature Pack (`CMFC*`) is a bridge to get an exe, not the destination.

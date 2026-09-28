@@ -15,15 +15,12 @@ All rights reserved.
 #ifndef _BL_STYLE_H
 #define _BL_STYLE_H
 
-#include "base/core/core.h"
 
-#if defined(STYLE_EXPORTS)
-#define STYLE_EXPORT __declspec(dllexport)
-#else
-#define STYLE_EXPORT __declspec(dllimport)
-#endif
-#include "base/core/bas_struct.h"
-#include "base/core/env_struct.h"
+#include "base/core/export.h"
+#include "legacy/core/core.h"
+
+#include "legacy/core/bas_struct.h"
+#include "legacy/core/env_struct.h"
 
 namespace base {
 enum StType {
@@ -112,7 +109,7 @@ struct SmtSymbolDesc {
   }
 };
 
-class STYLE_EXPORT SmtStyle {
+class BASE_EXPORT SmtStyle {
  public:
   SmtStyle(void);
   SmtStyle(const char *szName, const SmtPenDesc &penDesc,
@@ -170,7 +167,7 @@ class STYLE_EXPORT SmtStyle {
 
 typedef vector<SmtStyle *> StylePtrList;
 
-class STYLE_EXPORT SmtStyleTable {
+class BASE_EXPORT SmtStyleTable {
  public:
   SmtStyleTable(void);
   ~SmtStyleTable(void);
@@ -199,11 +196,11 @@ class STYLE_EXPORT SmtStyleTable {
 };
 }  // namespace base
 
-#if !defined(STYLE_EXPORTS)
+#if !defined(BASE_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "platform_d.lib")
+#pragma comment(lib, "base_d.lib")
 #else
-#pragma comment(lib, "platform.lib")
+#pragma comment(lib, "base.lib")
 #endif
 #endif
 

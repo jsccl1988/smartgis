@@ -1,3 +1,4 @@
+#include "base/core/export.h"
 /*
 www.sourceforge.net/projects/tinyxml
 Original code (2.0 and earlier )copyright (c) 2000-2006 Lee Thomason
@@ -23,7 +24,7 @@ must not be misrepresented as being the original software.
 distribution.
 */
 
-#include "base/core/core.h"
+#include "legacy/core/core.h"
 
 #ifndef TINYXML_INCLUDED
 #define TINYXML_INCLUDED
@@ -40,7 +41,6 @@ distribution.
 #include <stdlib.h>
 #include <string.h>
 
-// Help out windows:
 #if defined(_DEBUG) && !defined(DEBUG)
 #define DEBUG
 #endif
@@ -411,7 +411,7 @@ class TiXmlBase {
   in a document, or stand on its own. The type of a TiXmlNode
   can be queried, and it can be cast to its more defined type.
 */
-class CORE_EXPORT TiXmlNode : public TiXmlBase {
+class BASE_EXPORT TiXmlNode : public TiXmlBase {
   friend class TiXmlDocument;
   friend class TiXmlElement;
 
@@ -594,9 +594,6 @@ class CORE_EXPORT TiXmlNode : public TiXmlBase {
   }  ///< STL std::string form.
 #endif
 
-  /** Add a new node related to this. Adds a child past the LastChild.
-    Returns a pointer to the new object or NULL if an error occured.
-  */
   TiXmlNode* InsertEndChild(const TiXmlNode& addThis);
 
   /** Add a new node related to this. Adds a child past the LastChild.
@@ -610,19 +607,10 @@ class CORE_EXPORT TiXmlNode : public TiXmlBase {
   */
   TiXmlNode* LinkEndChild(TiXmlNode* addThis);
 
-  /** Add a new node related to this. Adds a child before the specified child.
-    Returns a pointer to the new object or NULL if an error occured.
-  */
   TiXmlNode* InsertBeforeChild(TiXmlNode* beforeThis, const TiXmlNode& addThis);
 
-  /** Add a new node related to this. Adds a child after the specified child.
-    Returns a pointer to the new object or NULL if an error occured.
-  */
   TiXmlNode* InsertAfterChild(TiXmlNode* afterThis, const TiXmlNode& addThis);
 
-  /** Replace a child of this node.
-    Returns a pointer to the new object or NULL if an error occured.
-  */
   TiXmlNode* ReplaceChild(TiXmlNode* replaceThis, const TiXmlNode& withThis);
 
   /// delete_ a child of this node.
@@ -723,9 +711,6 @@ class CORE_EXPORT TiXmlNode : public TiXmlBase {
   */
   int Type() const { return type; }
 
-  /** Return a pointer to the Document this node lives in.
-    Returns null if not in a document.
-  */
   const TiXmlDocument* GetDocument() const;
   TiXmlDocument* GetDocument() {
     return const_cast<TiXmlDocument*>(
@@ -853,7 +838,7 @@ class CORE_EXPORT TiXmlNode : public TiXmlBase {
       part of the tinyXML document object model. There are other
       suggested ways to look at this problem.
 */
-class CORE_EXPORT TiXmlAttribute : public TiXmlBase {
+class BASE_EXPORT TiXmlAttribute : public TiXmlBase {
   friend class TiXmlAttributeSet;
 
  public:
@@ -984,7 +969,7 @@ class CORE_EXPORT TiXmlAttribute : public TiXmlBase {
     - I like circular lists
     - it demonstrates some independence from the (typical) doubly linked list.
 */
-class CORE_EXPORT TiXmlAttributeSet {
+class BASE_EXPORT TiXmlAttributeSet {
  public:
   TiXmlAttributeSet();
   ~TiXmlAttributeSet();
@@ -1027,7 +1012,7 @@ class CORE_EXPORT TiXmlAttributeSet {
   and can contain other elements, text, comments, and unknowns.
   Elements also contain an arbitrary number of attributes.
 */
-class CORE_EXPORT TiXmlElement : public TiXmlNode {
+class BASE_EXPORT TiXmlElement : public TiXmlNode {
  public:
   /// Construct an element.
   TiXmlElement(const char* in_value);
@@ -1154,8 +1139,6 @@ class CORE_EXPORT TiXmlElement : public TiXmlNode {
   */
   void SetDoubleAttribute(const char* name, double value);
 
-  /** Deletes an attribute with the given name.
-   */
   void RemoveAttribute(const char* name);
 #ifdef TIXML_USE_STL
   void RemoveAttribute(const std::string& name) {
@@ -1226,8 +1209,6 @@ class CORE_EXPORT TiXmlElement : public TiXmlNode {
   }  ///< Cast to a more defined type. Will return null not of the requested
      ///< type.
 
-  /** Walk the XML tree visiting this node and all of its children.
-   */
   virtual bool Accept(TiXmlVisitor* visitor) const;
 
  protected:
@@ -1249,9 +1230,7 @@ class CORE_EXPORT TiXmlElement : public TiXmlNode {
   TiXmlAttributeSet attributeSet;
 };
 
-/**	An XML comment.
- */
-class CORE_EXPORT TiXmlComment : public TiXmlNode {
+class BASE_EXPORT TiXmlComment : public TiXmlNode {
  public:
   /// Constructs an empty comment.
   TiXmlComment() : TiXmlNode(TiXmlNode::TINYXML_COMMENT) {}
@@ -1284,8 +1263,6 @@ class CORE_EXPORT TiXmlComment : public TiXmlNode {
   }  ///< Cast to a more defined type. Will return null not of the requested
      ///< type.
 
-  /** Walk the XML tree visiting this node and all of its children.
-   */
   virtual bool Accept(TiXmlVisitor* visitor) const;
 
  protected:
@@ -1305,7 +1282,7 @@ class CORE_EXPORT TiXmlComment : public TiXmlNode {
   you generally want to leave it alone, but you can change the output mode with
   SetCDATA() and query it with CDATA().
 */
-class CORE_EXPORT TiXmlText : public TiXmlNode {
+class BASE_EXPORT TiXmlText : public TiXmlNode {
   friend class TiXmlElement;
 
  public:
@@ -1352,8 +1329,6 @@ class CORE_EXPORT TiXmlText : public TiXmlNode {
   }  ///< Cast to a more defined type. Will return null not of the requested
      ///< type.
 
-  /** Walk the XML tree visiting this node and all of its children.
-   */
   virtual bool Accept(TiXmlVisitor* content) const;
 
  protected:
@@ -1385,7 +1360,7 @@ class CORE_EXPORT TiXmlText : public TiXmlNode {
   handled as special cases, not generic attributes, simply
   because there can only be at most 3 and they are always the same.
 */
-class CORE_EXPORT TiXmlDeclaration : public TiXmlNode {
+class BASE_EXPORT TiXmlDeclaration : public TiXmlNode {
  public:
   /// Construct an empty declaration.
   TiXmlDeclaration() : TiXmlNode(TiXmlNode::TINYXML_DECLARATION) {}
@@ -1430,8 +1405,6 @@ class CORE_EXPORT TiXmlDeclaration : public TiXmlNode {
   }  ///< Cast to a more defined type. Will return null not of the requested
      ///< type.
 
-  /** Walk the XML tree visiting this node and all of its children.
-   */
   virtual bool Accept(TiXmlVisitor* visitor) const;
 
  protected:
@@ -1454,7 +1427,7 @@ class CORE_EXPORT TiXmlDeclaration : public TiXmlNode {
 
   DTD tags get thrown into TiXmlUnknowns.
 */
-class CORE_EXPORT TiXmlUnknown : public TiXmlNode {
+class BASE_EXPORT TiXmlUnknown : public TiXmlNode {
  public:
   TiXmlUnknown() : TiXmlNode(TiXmlNode::TINYXML_UNKNOWN) {}
   virtual ~TiXmlUnknown() {}
@@ -1482,8 +1455,6 @@ class CORE_EXPORT TiXmlUnknown : public TiXmlNode {
   }  ///< Cast to a more defined type. Will return null not of the requested
      ///< type.
 
-  /** Walk the XML tree visiting this node and all of its children.
-   */
   virtual bool Accept(TiXmlVisitor* content) const;
 
  protected:
@@ -1500,7 +1471,7 @@ class CORE_EXPORT TiXmlUnknown : public TiXmlNode {
   XML pieces. It can be saved, loaded, and printed to the screen.
   The 'value' of a document node is the xml file name.
 */
-class CORE_EXPORT TiXmlDocument : public TiXmlNode {
+class BASE_EXPORT TiXmlDocument : public TiXmlNode {
  public:
   /// Create an empty document, that has no name.
   TiXmlDocument();
@@ -1518,10 +1489,6 @@ class CORE_EXPORT TiXmlDocument : public TiXmlNode {
 
   virtual ~TiXmlDocument() {}
 
-  /** load a file using the current document value.
-    Returns true if successful. Will delete any existing
-    document data before loading.
-  */
   bool LoadFile(TiXmlEncoding encoding = TIXML_DEFAULT_ENCODING);
   /// Save a file using the current document value. Returns true if successful.
   bool SaveFile() const;
@@ -1636,8 +1603,6 @@ class CORE_EXPORT TiXmlDocument : public TiXmlNode {
     // errorLocation.last = 0;
   }
 
-  /** Write the document to standard out using formatted printing ("pretty
-   * print"). */
   void Print() const { Print(stdout, 0); }
 
   /* Write the document to a string using formatted printing ("pretty print").
@@ -1662,8 +1627,6 @@ class CORE_EXPORT TiXmlDocument : public TiXmlNode {
   }  ///< Cast to a more defined type. Will return null not of the requested
      ///< type.
 
-  /** Walk the XML tree visiting this node and all of its children.
-   */
   virtual bool Accept(TiXmlVisitor* content) const;
 
  protected:
@@ -1766,7 +1729,7 @@ class CORE_EXPORT TiXmlDocument : public TiXmlNode {
   }
   @endverbatim
 */
-class CORE_EXPORT TiXmlHandle {
+class BASE_EXPORT TiXmlHandle {
  public:
   /// Create a handle from any node (at any depth of the tree.) This can be a
   /// null pointer.
@@ -1822,21 +1785,13 @@ class CORE_EXPORT TiXmlHandle {
   }
 #endif
 
-  /** Return the handle as a TiXmlNode. This may return null.
-   */
   TiXmlNode* ToNode() const { return node; }
-  /** Return the handle as a TiXmlElement. This may return null.
-   */
   TiXmlElement* ToElement() const {
     return ((node && node->ToElement()) ? node->ToElement() : 0);
   }
-  /**	Return the handle as a TiXmlText. This may return null.
-   */
   TiXmlText* ToText() const {
     return ((node && node->ToText()) ? node->ToText() : 0);
   }
-  /** Return the handle as a TiXmlUnknown. This may return null.
-   */
   TiXmlUnknown* ToUnknown() const {
     return ((node && node->ToUnknown()) ? node->ToUnknown() : 0);
   }
@@ -1881,7 +1836,7 @@ class CORE_EXPORT TiXmlHandle {
   fprintf( stdout, "%s", printer.CStr() );
   @endverbatim
 */
-class CORE_EXPORT TiXmlPrinter : public TiXmlVisitor {
+class BASE_EXPORT TiXmlPrinter : public TiXmlVisitor {
  public:
   TiXmlPrinter()
       : depth(0),
@@ -1952,11 +1907,11 @@ class CORE_EXPORT TiXmlPrinter : public TiXmlVisitor {
 #pragma warning(pop)
 #endif
 
-#if !defined(CORE_EXPORTS)
+#if !defined(BASE_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "platform_d.lib")
+#pragma comment(lib, "base_d.lib")
 #else
-#pragma comment(lib, "platform.lib")
+#pragma comment(lib, "base.lib")
 #endif
 #endif
 

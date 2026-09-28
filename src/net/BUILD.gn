@@ -4,7 +4,7 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-# Compiled into //src/base:base (same pattern as sys_sources / style_sources).
+# Object TUs for the product net DLL (HTTP / RPC).
 source_set("net_sources") {
   configs += [ "//build:legacy" ]
   defines = [
@@ -25,9 +25,20 @@ source_set("net_sources") {
   libs = [ "ws2_32.lib" ]
 }
 
-# Label alias: callers that still name //src/net:net get the base DLL.
-group("net") {
-  public_deps = [ "//src/base:base" ]
+# Product net DLL. Disk stem: net.dll / net_d.dll. Import-linked (not LoadLibrary).
+smt_shared_library("net") {
+  dll_stem = "net"
+  defines = [
+    "NET_EXPORTS",
+    "CPPHTTPLIB_OPENSSL_SUPPORT",
+  ]
+  deps = [ ":net_sources" ]
+  public_deps = [
+    "//third_party:asio",
+    "//third_party:cpp_httplib",
+    "//third_party:openssl",
+  ]
+  libs = [ "ws2_32.lib" ]
 }
 
 test("net_test") {
@@ -36,7 +47,7 @@ test("net_test") {
   include_dirs += [ "//src" ]
   defines = [ "CPPHTTPLIB_OPENSSL_SUPPORT" ]
   deps = [
-    "//src/base:base",
+    ":net",
     "//src/base/archive:archive",
     "//third_party:asio",
     "//third_party:cpp_httplib",

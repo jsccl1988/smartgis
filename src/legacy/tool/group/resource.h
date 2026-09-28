@@ -1,7 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
 // Used by group_tool_core.rc
-//
 #define IDC_CURSOR_ZOOMOUT 101
 #define IDC_CURSOR_CROSS 102
 #define IDC_CURSOR_IDENTIFY 103
@@ -13,7 +12,6 @@
 #define IDC_CURSOR_FIRSTPERSON 108
 
 // Next default values for new objects
-//
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE 107

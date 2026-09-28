@@ -39,16 +39,15 @@ source_set("xcatalog_sources") {
   deps = [
     "//src/base:base",
     "//src/base:core",
-    "//src/algorithm/geo:geo",
-    "//src/gis/map:gis",
-    "//src/legacy/render/model3d:model3d",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/model/map:gis",
     "//src/plugin:plugin",
-    "//src/legacy/render/render3d:render3d",
+    "//src/legacy/render/rhi3d:rhi",
     "//src/gis/datasource/mgr:sde_mgr",
     "//third_party:gdal",
     "//src/legacy/render/scene3d:scene3d",
-    "//src/sys:sys",
-    "//src/legacy/render/terrain:terrain",
+    "//src/legacy/sys:sys",
+    "//src/legacy/render/scene3d:scene3d",
     "//src/legacy/tool:tool",
   ]
 }

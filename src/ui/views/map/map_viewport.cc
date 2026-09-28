@@ -3,7 +3,9 @@
 
 #include "ui/views/map/map_viewport.h"
 
+#include <chrono>
 #include <cstdint>
+#include <fstream>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -16,9 +18,10 @@
 #include <windowsx.h>
 
 #include "render/rhi/rhi.h"
-#include "render/skia/canvas.h"
-#include "ui/views/kernel/dpi.h"
-#include "ui/views/kernel/widget.h"
+#include "ui/gfx/canvas/canvas.h"
+#include "ui/gfx/raster/paint_stats.h"
+#include "ui/views/kernel/shell/dpi.h"
+#include "ui/views/kernel/widget/widget.h"
 
 #if defined(__has_include)
 #if __has_include("content/public/map_contents.h")
@@ -93,7 +96,7 @@ bool init_device_seh(void* device, HWND hwnd) {
   }
 }
 
-// Same Win32 → InputEvent mapping as leftover dispatch_chrome_message for
+// Same Win32 → InputEvent mapping as leftover dispatch_shell_message for
 // mouse / wheel / key. Two-finger pan: WM_POINTER* → TouchMultitouchTracker
 // (midpoint, pointer_count >= 2), matching CEF shell.js.
 bool route_view_host_input(content::ViewHost* host,
@@ -274,6 +277,7 @@ MapViewport::MapViewport() {
 
 MapViewport::~MapViewport() {
   detach();
+  stop_display_thread();
 }
 
 void MapViewport::set_role(Role role) {
@@ -309,17 +313,18 @@ HWND MapViewport::create_native_view(HWND parent) {
     registered = RegisterClassExW(&wc) != 0;
   }
   HWND hwnd = CreateWindowExW(0, kMapClass, L"",
-                              WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
+                              WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS |
+                                  WS_CLIPCHILDREN,
                               0, 0, 1, 1, parent, nullptr,
                               GetModuleHandleW(nullptr), this);
   return hwnd;
 }
 
-void MapViewport::paint_self(render::skia::Canvas* canvas) {
+void MapViewport::paint_self(ui::gfx::Canvas* canvas) {
   if (!canvas) {
     return;
   }
-  // Native child paints the map. Chrome draws a caption strip above if
+  // Native child paints the map. Shell draws a caption strip above if
   // the host left a gap; here the child fills the view.
 }
 
@@ -335,9 +340,9 @@ bool MapViewport::attach() {
   SetWindowLongPtrW(native_view(), GWLP_USERDATA,
                     reinterpret_cast<LONG_PTR>(this));
 
-  // Scene3d default: FlyCube RHI. Opt out with FORCE_CONTENT=1 or
-  // SMT_PREFER_FLYCUBE_3D=0 (mirrors app::prefer_scene3d_flycube; ui/ cannot
-  // link app/). Stereo / ContentMapView / GDI remain fallbacks.
+  // Scene3d / Map 2D default: FlyCube RHI. Opt out with FORCE_CONTENT_* or
+  // SMT_PREFER_FLYCUBE_*=0 (ui/ cannot link app/). ContentMapView / OOP / GDI
+  // remain fallbacks.
   const bool prefer_flycube_3d = []() {
     if (const char* env = std::getenv("SMT_FORCE_CONTENT_MAPVIEW_3D")) {
       if (env[0] == '1' && env[1] == '\0') {
@@ -345,6 +350,19 @@ bool MapViewport::attach() {
       }
     }
     if (const char* prefer = std::getenv("SMT_PREFER_FLYCUBE_3D")) {
+      if (prefer[0] == '0' && prefer[1] == '\0') {
+        return false;
+      }
+    }
+    return true;
+  }();
+  const bool prefer_flycube_2d = []() {
+    if (const char* env = std::getenv("SMT_FORCE_CONTENT_MAPVIEW_2D")) {
+      if (env[0] == '1' && env[1] == '\0') {
+        return false;
+      }
+    }
+    if (const char* prefer = std::getenv("SMT_PREFER_FLYCUBE_2D")) {
       if (prefer[0] == '0' && prefer[1] == '\0') {
         return false;
       }
@@ -359,6 +377,15 @@ bool MapViewport::attach() {
       return true;
     }
   }
+  if ((role_ == Role::kMapEdit || role_ == Role::kMapData) && prefer_flycube_2d) {
+    if (try_flycube_device()) {
+      mode_ = AttachMode::kFlyCube;
+      status_ = (role_ == Role::kMapData) ? L"2D data FlyCube RHI (DX12)"
+                                         : L"2D map FlyCube RHI (DX12)";
+      start_present_timer();
+      return true;
+    }
+  }
 
   if (try_content_map_view()) {
     mode_ = AttachMode::kContentMapView;
@@ -369,7 +396,7 @@ bool MapViewport::attach() {
     paint_child_placeholder();
     return true;
   }
-  // Map Edit: leftover OOP / FlyCube / LoadLibrary. Scene3d: FlyCube fallback.
+  // Map Edit fallbacks: OOP / FlyCube / LoadLibrary. Scene3d: FlyCube again.
   if (role_ == Role::kMapEdit) {
     if (try_oop_render()) {
       mode_ = AttachMode::kOopRender;
@@ -379,12 +406,20 @@ bool MapViewport::attach() {
     }
     if (try_flycube_device()) {
       mode_ = AttachMode::kFlyCube;
-      status_ = L"FlyCube RHI present (DX12)";
+      status_ = L"2D map FlyCube RHI (DX12)";
+      start_present_timer();
       return true;
     }
     if (try_local_device()) {
       mode_ = AttachMode::kLocalDevice;
       status_ = L"CreateRenderDevice (LoadLibrary)";
+      return true;
+    }
+  } else if (role_ == Role::kMapData) {
+    if (try_flycube_device()) {
+      mode_ = AttachMode::kFlyCube;
+      status_ = L"2D data FlyCube RHI (DX12)";
+      start_present_timer();
       return true;
     }
   } else if (role_ == Role::kScene3d) {
@@ -441,10 +476,12 @@ void MapViewport::detach() {
     local_device_ = nullptr;
   }
   local_module_ = nullptr;
+  // Drain Display mailbox and destroy Device before HWND teardown.
   release_rhi_device();
+  stop_display_thread();
   view_id_ = 0;
   mode_ = AttachMode::kNone;
-  last_gpu_present_ok_ = false;
+  last_gpu_present_ok_.store(false, std::memory_order_release);
 }
 
 void MapViewport::set_overlay_paint(OverlayPaint fn) {
@@ -452,13 +489,101 @@ void MapViewport::set_overlay_paint(OverlayPaint fn) {
 }
 
 void MapViewport::set_gpu_present(GpuPresentFn fn) {
+  // Callback runs on the Display mailbox thread (P4), not on WM_PAINT.
   gpu_present_ = std::move(fn);
+  request_frame();
+}
+
+void MapViewport::set_gpu_submit(GpuSubmitFn fn) {
+  gpu_submit_ = std::move(fn);
+  request_frame();
+}
+
+void MapViewport::commit_shell_overlay(const uint8_t* bgra, uint32_t width_px,
+                                       uint32_t height_px,
+                                       uint32_t stride_bytes,
+                                       uint64_t generation) {
+  // Copy immediately; ShellRaster pointers must not outlive the caller.
+  // FlyCube present folds this into DrawRequest.shell via snapshot + overlay.
+  if (!bgra || width_px == 0 || height_px == 0) {
+    return;
+  }
+  const uint32_t stride =
+      stride_bytes != 0 ? stride_bytes : width_px * 4u;
+  if (stride < width_px * 4u) {
+    return;
+  }
+  bool changed = false;
+  {
+    std::lock_guard<std::mutex> lock(shell_mu_);
+    if (generation != 0 &&
+        generation == shell_generation_.load(std::memory_order_relaxed) &&
+        shell_width_px_ == width_px && shell_height_px_ == height_px &&
+        !shell_bgra_.empty()) {
+      return;
+    }
+    shell_bgra_.resize(static_cast<size_t>(width_px) * height_px * 4u);
+    for (uint32_t y = 0; y < height_px; ++y) {
+      std::memcpy(shell_bgra_.data() + static_cast<size_t>(y) * width_px * 4u,
+                  bgra + static_cast<size_t>(y) * stride,
+                  static_cast<size_t>(width_px) * 4u);
+    }
+    shell_width_px_ = width_px;
+    shell_height_px_ = height_px;
+    shell_stride_bytes_ = width_px * 4u;
+    if (generation == 0) {
+      shell_generation_.fetch_add(1, std::memory_order_acq_rel);
+    } else {
+      shell_generation_.store(generation, std::memory_order_release);
+    }
+    changed = true;
+  }
+  // Map-region shell changed: wake BeginFrame so HUD lands in the next GPU
+  // present. Chrome-only dirty must be filtered by the caller (BrowserView).
+  if (changed) {
+    request_frame();
+  }
+}
+
+bool MapViewport::snapshot_shell_overlay(std::vector<uint8_t>* out_bgra,
+                                         ui::gfx::ShellRaster* out_shell,
+                                         uint64_t* out_generation) const {
+  if (!out_bgra || !out_shell) {
+    return false;
+  }
+  std::lock_guard<std::mutex> lock(shell_mu_);
+  if (shell_bgra_.empty() || shell_width_px_ == 0 || shell_height_px_ == 0) {
+    *out_shell = {};
+    if (out_generation) {
+      *out_generation = 0;
+    }
+    return false;
+  }
+  *out_bgra = shell_bgra_;
+  out_shell->bgra = out_bgra->data();
+  out_shell->width_px = shell_width_px_;
+  out_shell->height_px = shell_height_px_;
+  out_shell->stride_bytes = shell_stride_bytes_ != 0
+                                ? shell_stride_bytes_
+                                : shell_width_px_ * 4u;
+  if (out_generation) {
+    *out_generation = shell_generation_.load(std::memory_order_acquire);
+  }
+  return true;
+}
+
+void MapViewport::request_frame() {
+  frame_request_.fetch_add(1, std::memory_order_acq_rel);
+  signal_display();
+  if (HWND hwnd = native_view()) {
+    // Timer rule: InvalidateRect only while generation advances. BeginFrame
+    // owns GPU present; this wakes ContentMapView / overlay paths.
+    InvalidateRect(hwnd, nullptr, FALSE);
+  }
 }
 
 void MapViewport::invalidate_native() {
-  if (HWND hwnd = native_view()) {
-    InvalidateRect(hwnd, nullptr, FALSE);
-  }
+  request_frame();
 }
 
 bool MapViewport::wait_ready(uint32_t timeout_ms) {
@@ -602,15 +727,286 @@ bool MapViewport::try_oop_render() {
   return true;
 }
 
-void MapViewport::release_rhi_device() {
+void MapViewport::ensure_display_thread() {
+  std::lock_guard<std::mutex> lock(display_mu_);
+  if (display_started_) {
+    return;
+  }
+  display_stop_ = false;
+  display_started_ = true;
+  display_thread_ = std::thread([this]() { display_thread_main(); });
+}
+
+void MapViewport::stop_display_thread() {
+  {
+    std::lock_guard<std::mutex> lock(display_mu_);
+    if (!display_started_) {
+      return;
+    }
+    display_stop_ = true;
+  }
+  display_cv_.notify_all();
+  if (display_thread_.joinable()) {
+    display_thread_.join();
+  }
+  {
+    std::lock_guard<std::mutex> lock(display_mu_);
+    display_started_ = false;
+    display_queue_.clear();
+  }
+}
+
+void MapViewport::signal_display() {
+  display_cv_.notify_all();
+}
+
+void MapViewport::enqueue_display_task(DisplayTask task) {
+  ensure_display_thread();
+  {
+    std::lock_guard<std::mutex> lock(display_mu_);
+    // Coalesce resize ops; keep ordering for init/destroy.
+    if (task.op == DisplayOp::kResize) {
+      for (auto it = display_queue_.begin(); it != display_queue_.end();) {
+        if (it->op == DisplayOp::kResize) {
+          it = display_queue_.erase(it);
+        } else {
+          ++it;
+        }
+      }
+    }
+    display_queue_.push_back(task);
+  }
+  display_cv_.notify_one();
+}
+
+void MapViewport::display_run_present(uint32_t width_px, uint32_t height_px,
+                                     uint32_t frame_token) {
   if (!rhi_device_) {
     return;
   }
-  auto* device = static_cast<render::rhi::Device*>(rhi_device_);
+  bool ok = false;
+  if (gpu_submit_) {
+    ok = gpu_submit_(rhi_device_, width_px, height_px, frame_token);
+  } else if (gpu_present_) {
+    ok = gpu_present_(rhi_device_, width_px, height_px);
+  } else {
+    return;
+  }
+  last_gpu_present_ok_.store(ok, std::memory_order_release);
+  if (ok) {
+    frame_presented_.store(frame_token, std::memory_order_release);
+  }
+}
+
+void MapViewport::display_run_begin_frame() {
+  // Scheduler: produce only when a frame was requested and not yet presented.
+  // Steady-state orbit must not force shell full repaints (no InvalidateRect).
+  if (role_ != Role::kScene3d) {
+    if (const char* env = std::getenv("SMT_FORCE_GDI_MAP_OVERLAY")) {
+      if (env[0] == '1' && env[1] == '\0') {
+        return;
+      }
+    }
+  }
+  const uint32_t requested =
+      frame_request_.load(std::memory_order_acquire);
+  const uint32_t presented =
+      frame_presented_.load(std::memory_order_acquire);
+  if (requested == presented) {
+    return;
+  }
+  if (!rhi_device_ || (!gpu_present_ && !gpu_submit_)) {
+    return;
+  }
+  uint32_t w = 0;
+  uint32_t h = 0;
+  {
+    std::lock_guard<std::mutex> lock(display_mu_);
+    w = display_client_w_ != 0 ? display_client_w_ : 1;
+    h = display_client_h_ != 0 ? display_client_h_ : 1;
+  }
+  display_run_present(w, h, requested);
+}
+
+void MapViewport::shutdown_rhi_on_display_thread() {
+#ifdef SMT_HAS_FLYCUBE
+  render::rhi::Device* device = nullptr;
+  {
+    std::lock_guard<std::mutex> lock(display_mu_);
+    device = static_cast<render::rhi::Device*>(rhi_device_);
+    rhi_device_ = nullptr;
+    last_gpu_present_ok_.store(false, std::memory_order_release);
+  }
+  if (!device) {
+    return;
+  }
   device->shutdown();
-  // FlyCube CRT / allocator can heap-corrupt on operator delete after a live
-  // DX12 session; leak the facade (matches rhi_test / unified_draw_test).
+#else
   rhi_device_ = nullptr;
+#endif
+}
+
+void MapViewport::display_thread_main() {
+  // P5: timer-based BeginFrame stub on the Display thread.
+  // TODO(compositor): DWM composition clock / IDXGIOutput::WaitForVBlank
+  // once paint counters show the shell is no longer blocked on GPU present.
+  constexpr auto k_begin_frame = std::chrono::milliseconds(16);
+  for (;;) {
+    DisplayTask task;
+    bool have_task = false;
+    {
+      std::unique_lock<std::mutex> lock(display_mu_);
+      display_cv_.wait_for(lock, k_begin_frame, [this]() {
+        return display_stop_ || !display_queue_.empty();
+      });
+      if (display_stop_ && display_queue_.empty()) {
+        break;
+      }
+      if (!display_queue_.empty()) {
+        task = display_queue_.front();
+        display_queue_.pop_front();
+        have_task = true;
+      }
+    }
+    if (have_task) {
+#ifdef SMT_HAS_FLYCUBE
+      if (task.op == DisplayOp::kInit) {
+        if (rhi_device_) {
+          auto* old = static_cast<render::rhi::Device*>(rhi_device_);
+          old->shutdown();
+          rhi_device_ = nullptr;
+        }
+        render::rhi::Device* device =
+            render::rhi::create_device(render::rhi::preferred_gpu_backend());
+        if (!device) {
+          {
+            std::lock_guard<std::mutex> lock(display_mu_);
+            display_init_ = DisplayInit::kFail;
+          }
+          display_cv_.notify_all();
+          continue;
+        }
+        render::rhi::DeviceDesc desc;
+        desc.native_window = task.hwnd;
+        desc.width = task.width_px != 0 ? task.width_px : 1;
+        desc.height = task.height_px != 0 ? task.height_px : 1;
+        if (!device->initialize(desc)) {
+          device->shutdown();
+          {
+            std::lock_guard<std::mutex> lock(display_mu_);
+            display_init_ = DisplayInit::kFail;
+          }
+          display_cv_.notify_all();
+          continue;
+        }
+        render::rhi::CommandList* list = device->create_command_list();
+        if (list) {
+          render::rhi::RenderPassDesc pass;
+          pass.clear_r = 0.05f;
+          pass.clear_g = 0.12f;
+          pass.clear_b = 0.18f;
+          pass.clear_a = 1.f;
+          pass.width = desc.width;
+          pass.height = desc.height;
+          list->begin_render_pass(pass);
+          list->set_viewport(0, 0, static_cast<float>(desc.width),
+                             static_cast<float>(desc.height), 0, 1);
+          list->end_render_pass();
+          list->close();
+          device->execute(list);
+          device->destroy_command_list(list);
+        }
+        device->present();
+        {
+          std::lock_guard<std::mutex> lock(display_mu_);
+          rhi_device_ = device;
+          display_client_w_ = desc.width;
+          display_client_h_ = desc.height;
+          display_init_ = DisplayInit::kOk;
+        }
+        display_cv_.notify_all();
+        // The clear above is not a scene frame. wire_map_scene() requests a
+        // frame before attach(); consuming that token here left BeginFrame
+        // idle and WM_PAINT skipped GDI because last_gpu_present_ok_ was
+        // already true — both 2D and 3D stayed on the dark clear.
+        last_gpu_present_ok_.store(false, std::memory_order_release);
+        if (gpu_present_ || gpu_submit_) {
+          const uint32_t requested =
+              frame_request_.load(std::memory_order_acquire);
+          display_run_present(desc.width, desc.height,
+                              requested == 0 ? 1u : requested);
+          if (requested == 0 &&
+              last_gpu_present_ok_.load(std::memory_order_acquire)) {
+            frame_request_.store(1, std::memory_order_release);
+          }
+        }
+        display_cv_.notify_all();
+        continue;
+      }
+      if (task.op == DisplayOp::kResize && rhi_device_) {
+        auto* device = static_cast<render::rhi::Device*>(rhi_device_);
+        render::rhi::DeviceDesc desc;
+        desc.native_window = task.hwnd;
+        desc.width = task.width_px != 0 ? task.width_px : 1;
+        desc.height = task.height_px != 0 ? task.height_px : 1;
+        device->initialize(desc);
+        {
+          std::lock_guard<std::mutex> lock(display_mu_);
+          display_client_w_ = desc.width;
+          display_client_h_ = desc.height;
+        }
+        continue;
+      }
+      if (task.op == DisplayOp::kDestroy) {
+        if (rhi_device_) {
+          auto* device = static_cast<render::rhi::Device*>(rhi_device_);
+          device->shutdown();
+          // FlyCube CRT / allocator can heap-corrupt on operator delete after
+          // a live DX12 session; leak the facade (matches rhi_test).
+          rhi_device_ = nullptr;
+        }
+        last_gpu_present_ok_.store(false, std::memory_order_release);
+        {
+          std::lock_guard<std::mutex> lock(display_mu_);
+          display_destroy_ack_ = true;
+        }
+        display_cv_.notify_all();
+        continue;
+      }
+#else
+      (void)task;
+#endif
+    } else if (!display_stop_) {
+      display_run_begin_frame();
+    }
+  }
+  // stop_display_thread joins without a kDestroy when init was abandoned.
+  // Drop the swapchain here or GDI/content present cannot cover the HWND.
+  shutdown_rhi_on_display_thread();
+}
+
+void MapViewport::release_rhi_device() {
+  if (!rhi_device_ && !display_started_) {
+    return;
+  }
+  if (!display_started_) {
+    if (rhi_device_) {
+      auto* device = static_cast<render::rhi::Device*>(rhi_device_);
+      device->shutdown();
+      rhi_device_ = nullptr;
+    }
+    return;
+  }
+  // Must not run on the Display thread (would deadlock).
+  {
+    std::lock_guard<std::mutex> lock(display_mu_);
+    display_destroy_ack_ = false;
+  }
+  enqueue_display_task(DisplayTask{DisplayOp::kDestroy, nullptr, 0, 0});
+  std::unique_lock<std::mutex> lock(display_mu_);
+  display_cv_.wait(lock, [this]() {
+    return display_destroy_ack_ || display_stop_;
+  });
 }
 
 bool MapViewport::try_flycube_device() {
@@ -627,57 +1023,45 @@ bool MapViewport::try_flycube_device() {
   if (!hwnd) {
     return false;
   }
-  release_rhi_device();
-  render::rhi::Device* device =
-      render::rhi::create_device(render::rhi::preferred_gpu_backend());
-  if (!device) {
-    return false;
-  }
   RECT rc = {};
   GetClientRect(hwnd, &rc);
-  render::rhi::DeviceDesc desc;
-  desc.native_window = hwnd;
-  desc.width = rc.right > 0 ? static_cast<uint32_t>(rc.right) : 1;
-  desc.height = rc.bottom > 0 ? static_cast<uint32_t>(rc.bottom) : 1;
-  if (!device->initialize(desc)) {
-    device->shutdown();
-    // Do not delete — FlyCube teardown has corrupted the process heap.
-    return false;
+  const uint32_t w = rc.right > 0 ? static_cast<uint32_t>(rc.right) : 1;
+  const uint32_t h = rc.bottom > 0 ? static_cast<uint32_t>(rc.bottom) : 1;
+  release_rhi_device();
+  ensure_display_thread();
+  {
+    std::lock_guard<std::mutex> lock(display_mu_);
+    display_init_ = DisplayInit::kPending;
   }
-  // One clear+present proves the swapchain is live; GIS draws land later via
-  // LeftoverRecorder / GpuScene on the same HWND session.
-  render::rhi::CommandList* list = device->create_command_list();
-  if (list) {
-    render::rhi::RenderPassDesc pass;
-    pass.clear_r = 0.05f;
-    pass.clear_g = 0.12f;
-    pass.clear_b = 0.18f;
-    pass.clear_a = 1.f;
-    pass.width = desc.width;
-    pass.height = desc.height;
-    list->begin_render_pass(pass);
-    list->set_viewport(0, 0, static_cast<float>(desc.width),
-                       static_cast<float>(desc.height), 0, 1);
-    list->end_render_pass();
-    list->close();
-    device->execute(list);
-    device->destroy_command_list(list);
+  enqueue_display_task(DisplayTask{DisplayOp::kInit, hwnd, w, h});
+  // DX12 initialize is popped from the queue before it returns. Waiting on
+  // an empty queue treated every attach as failure (~1ms) and left the
+  // swapchain showing the pre-fit clear.
+  for (int i = 0; i < 5000; ++i) {
+    DisplayInit state = DisplayInit::kPending;
+    {
+      std::lock_guard<std::mutex> lock(display_mu_);
+      state = display_init_;
+    }
+    if (state == DisplayInit::kOk) {
+      return true;
+    }
+    if (state == DisplayInit::kFail) {
+      break;
+    }
+    Sleep(1);
   }
-  device->present();
-  rhi_device_ = device;
-  return true;
+  stop_display_thread();
+  return false;
 #endif
 }
 
 bool MapViewport::try_local_device() {
-  // Device DLLs that export CreateRenderDevice (current dll_stem + _d).
+  // Optional leftover DLL (dll_stem = legacy_render). gdi_simple / per-engine
+  // stems were retired; CreateRenderDevice is the sole GDI factory export.
   const wchar_t* names[] = {
-      L"render_gdi_simple_d.dll",
-      L"render_gdi_d.dll",
-      L"render_gl_d.dll",
-      L"render_gdi_simple.dll",
-      L"render_gdi.dll",
-      L"render_gl.dll",
+      L"legacy_render_d.dll",
+      L"legacy_render.dll",
       nullptr,
   };
   local_module_ = load_first(names);
@@ -782,6 +1166,60 @@ bool MapViewport::ensure_backbuffer(int width_px, int height_px) {
   return true;
 }
 
+bool MapViewport::export_bmp(const std::string& path) const {
+  if (path.empty() || !frame_ready_ || !back_dib_ || !back_dc_ || back_w_ <= 0 ||
+      back_h_ <= 0) {
+    return false;
+  }
+  const int width = back_w_;
+  const int height = back_h_;
+  const int stride = width * 4;
+  std::vector<std::uint8_t> pixels(static_cast<size_t>(stride) * height);
+  BITMAPINFO bmi = {};
+  bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bmi.bmiHeader.biWidth = width;
+  bmi.bmiHeader.biHeight = height;
+  bmi.bmiHeader.biPlanes = 1;
+  bmi.bmiHeader.biBitCount = 32;
+  bmi.bmiHeader.biCompression = BI_RGB;
+  if (!GetDIBits(back_dc_, back_dib_, 0, static_cast<UINT>(height),
+                 pixels.data(), &bmi, DIB_RGB_COLORS)) {
+    return false;
+  }
+  const std::uint32_t pixel_bytes =
+      static_cast<std::uint32_t>(stride) * static_cast<std::uint32_t>(height);
+  std::ofstream out(path, std::ios::binary);
+  if (!out) {
+    return false;
+  }
+  const std::uint32_t file_size = 54u + pixel_bytes;
+  const unsigned char header[54] = {
+      'B', 'M',
+      static_cast<unsigned char>(file_size),
+      static_cast<unsigned char>(file_size >> 8),
+      static_cast<unsigned char>(file_size >> 16),
+      static_cast<unsigned char>(file_size >> 24),
+      0, 0, 0, 0, 54, 0, 0, 0, 40, 0, 0, 0,
+      static_cast<unsigned char>(width),
+      static_cast<unsigned char>(width >> 8),
+      static_cast<unsigned char>(width >> 16),
+      static_cast<unsigned char>(width >> 24),
+      static_cast<unsigned char>(height),
+      static_cast<unsigned char>(height >> 8),
+      static_cast<unsigned char>(height >> 16),
+      static_cast<unsigned char>(height >> 24),
+      1, 0, 32, 0, 0, 0, 0, 0,
+      static_cast<unsigned char>(pixel_bytes),
+      static_cast<unsigned char>(pixel_bytes >> 8),
+      static_cast<unsigned char>(pixel_bytes >> 16),
+      static_cast<unsigned char>(pixel_bytes >> 24),
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  out.write(reinterpret_cast<const char*>(header), 54);
+  out.write(reinterpret_cast<const char*>(pixels.data()),
+            static_cast<std::streamsize>(pixels.size()));
+  return static_cast<bool>(out);
+}
+
 void MapViewport::paint_map_content(HDC target, const RECT& client_rc) {
   if (!target) {
     return;
@@ -879,12 +1317,10 @@ bool MapViewport::present_latest_frame(HDC hdc, const RECT& client_rc) {
     UnmapViewOfFile(bits);
     return false;
   }
-  // Copy out of the shared mapping before StretchDIBits so a concurrent GPU
-  // resize cannot invalidate the source mid-blit.
-  std::vector<uint8_t> local(bytes);
-  std::memcpy(local.data(), bits, bytes);
-  UnmapViewOfFile(bits);
-
+  // SharedSurface exposes an NT section handle, not a stable heap pointer.
+  // The view stays mapped only for this blit — no second std::vector on the
+  // UI thread. A raster thread is intentionally not started here; see the P2
+  // gate on the FlyCube present call.
   BITMAPINFO bi = {};
   bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
   bi.bmiHeader.biWidth = static_cast<LONG>(surface.width_px);
@@ -897,12 +1333,14 @@ bool MapViewport::present_latest_frame(HDC hdc, const RECT& client_rc) {
   const int ok =
       StretchDIBits(hdc, 0, 0, dst_w, dst_h, 0, 0,
                     static_cast<int>(surface.width_px),
-                    static_cast<int>(surface.height_px), local.data(), &bi,
+                    static_cast<int>(surface.height_px), bits, &bi,
                     DIB_RGB_COLORS, SRCCOPY);
+  UnmapViewOfFile(bits);
   if (ok == 0 || ok == GDI_ERROR) {
     return false;
   }
   painted_generation_ = surface.generation;
+  frame_ready_ = true;
   return true;
 #else
   (void)hdc;
@@ -940,34 +1378,86 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
       }
 #endif
     } else if (self && self->mode_ == AttachMode::kFlyCube &&
-               self->role_ == Role::kScene3d && IsWindowVisible(hwnd)) {
-      InvalidateRect(hwnd, nullptr, FALSE);
+               IsWindowVisible(hwnd) &&
+               (self->role_ == Role::kScene3d ||
+                self->role_ == Role::kMapEdit ||
+                self->role_ == Role::kMapData)) {
+      // Invalidate only while a frame was requested and not yet presented.
+      // BeginFrame on the Display thread owns GPU present (P4/P5).
+      const uint32_t req =
+          self->frame_request_.load(std::memory_order_acquire);
+      const uint32_t presented =
+          self->frame_presented_.load(std::memory_order_acquire);
+      if (req != presented) {
+        InvalidateRect(hwnd, nullptr, FALSE);
+      }
     }
     return 0;
   }
   if (msg == WM_PAINT) {
+    LARGE_INTEGER t0 = {};
+    QueryPerformanceCounter(&t0);
     PAINTSTRUCT ps = {};
     HDC hdc = BeginPaint(hwnd, &ps);
     RECT rc = {};
     GetClientRect(hwnd, &rc);
     const int width_px = rc.right > 0 ? rc.right : 0;
     const int height_px = rc.bottom > 0 ? rc.bottom : 0;
-    // Scene3d + FlyCube: GPU presents to the HWND swapchain. On success the
-    // chrome overlay is HUD-only; on present failure fall through to GDI DEM.
-    if (self && self->role_ == Role::kScene3d &&
-        self->mode_ == AttachMode::kFlyCube && self->rhi_device_ &&
-        self->gpu_present_) {
-      const uint32_t w = width_px > 0 ? static_cast<uint32_t>(width_px) : 1;
-      const uint32_t h = height_px > 0 ? static_cast<uint32_t>(height_px) : 1;
-      self->last_gpu_present_ok_ =
-          self->gpu_present_(self->rhi_device_, w, h);
-      if (self->last_gpu_present_ok_) {
-        if (self->overlay_paint_) {
-          self->overlay_paint_(hdc, rc);
+    // FlyCube (2D MapScene or 3D Scene3d): GPU presents on the Display mailbox
+    // thread via BeginFrame — never synchronously here (P4/P5).
+    const bool flycube_gpu_role =
+        self &&
+        (self->role_ == Role::kScene3d || self->role_ == Role::kMapEdit ||
+         self->role_ == Role::kMapData);
+    if (flycube_gpu_role && self->mode_ == AttachMode::kFlyCube &&
+        self->rhi_device_ && (self->gpu_present_ || self->gpu_submit_)) {
+      const bool force_gdi_overlay = []() {
+        if (const char* env = std::getenv("SMT_FORCE_GDI_MAP_OVERLAY")) {
+          return env[0] == '1' && env[1] == '\0';
         }
-        EndPaint(hwnd, &ps);
-        return 0;
+        return false;
+      }();
+      if (!force_gdi_overlay || self->role_ == Role::kScene3d) {
+        {
+          std::lock_guard<std::mutex> lock(self->display_mu_);
+          self->display_client_w_ =
+              width_px > 0 ? static_cast<uint32_t>(width_px) : 1;
+          self->display_client_h_ =
+              height_px > 0 ? static_cast<uint32_t>(height_px) : 1;
+        }
+        self->signal_display();
+        if (self->last_gpu_present_ok_.load(std::memory_order_acquire)) {
+          // Shell HUD is folded into the GPU frame (commit_shell_overlay →
+          // snapshot → present_gpu DrawRequest.shell overlay). Do not GDI
+          // overlay_paint_ after DXGI present — it fights the swapchain.
+          EndPaint(hwnd, &ps);
+          LARGE_INTEGER t1 = {};
+          QueryPerformanceCounter(&t1);
+          if (t1.QuadPart > t0.QuadPart) {
+            ui::gfx::note_map_paint_qpc(
+                static_cast<std::uint64_t>(t1.QuadPart - t0.QuadPart));
+          }
+          return 0;
+        }
+      } else {
+        self->last_gpu_present_ok_.store(false, std::memory_order_release);
       }
+    }
+    // Scene3d + ContentMapView (self-test / hang-safe attach): blit GPU DIB
+    // first, then shell overlay (stereo / HUD). Overlay must not treat the
+    // DIB as leftover stereo.
+    if (self && self->role_ == Role::kScene3d &&
+        self->mode_ == AttachMode::kContentMapView &&
+        self->overlay_paint_ && width_px > 0 && height_px > 0) {
+      if (!self->present_latest_frame(hdc, rc)) {
+        RECT fill = {0, 0, rc.right, rc.bottom};
+        HBRUSH brush = CreateSolidBrush(RGB(18, 32, 48));
+        FillRect(hdc, &fill, brush);
+        DeleteObject(brush);
+      }
+      self->overlay_paint_(hdc, rc);
+      EndPaint(hwnd, &ps);
+      return 0;
     }
     // Scene3d SoT: leftover GL SwapBuffers (or GDI) on this HWND. A backbuffer
     // BitBlt does not contain the GL front buffer and would cover it.
@@ -987,6 +1477,11 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
       self->paint_map_content(hdc, rc);
     }
     EndPaint(hwnd, &ps);
+    LARGE_INTEGER t1 = {};
+    QueryPerformanceCounter(&t1);
+    if (t1.QuadPart > t0.QuadPart) {
+      ui::gfx::note_map_paint_qpc(static_cast<std::uint64_t>(t1.QuadPart - t0.QuadPart));
+    }
     return 0;
   }
   if (msg == WM_ERASEBKGND) {
@@ -995,6 +1490,12 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
   if (msg == WM_SIZE && self) {
     const int cx = static_cast<int>(LOWORD(lparam));
     const int cy = static_cast<int>(HIWORD(lparam));
+    if (cx <= 0 || cy <= 0) {
+      self->release_backbuffer();
+    }
+    if (self->mode_ == AttachMode::kFlyCube) {
+      self->frame_request_.fetch_add(1, std::memory_order_acq_rel);
+    }
     self->resize_host_surface(cx, cy);
     if (self->local_device_) {
       auto* obj = static_cast<DeviceObj*>(self->local_device_);
@@ -1002,13 +1503,12 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
         obj->vtbl->Resize(obj, 0, 0, cx, cy);
       }
     }
-    if (self->rhi_device_ && cx > 0 && cy > 0) {
-      auto* device = static_cast<render::rhi::Device*>(self->rhi_device_);
-      render::rhi::DeviceDesc desc;
-      desc.native_window = hwnd;
-      desc.width = static_cast<uint32_t>(cx);
-      desc.height = static_cast<uint32_t>(cy);
-      device->initialize(desc);
+    // FlyCube resize/present stay on the Display mailbox thread (P4).
+    if (self->mode_ == AttachMode::kFlyCube && cx > 0 && cy > 0) {
+      self->enqueue_display_task(MapViewport::DisplayTask{
+          MapViewport::DisplayOp::kResize, hwnd, static_cast<uint32_t>(cx),
+          static_cast<uint32_t>(cy)});
+      self->signal_display();
     }
   }
   if (self && (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN)) {

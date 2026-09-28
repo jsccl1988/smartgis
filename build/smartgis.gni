@@ -31,6 +31,12 @@ _smt_has_tinygltf_h = exec_script("//build/file_exists.py",
 smt_has_assimp = _smt_has_assimp_h == "1"
 smt_has_tinygltf = _smt_has_tinygltf_h == "1"
 
+declare_args() {
+  # Link real Skia paint TU into //src/ui/gfx (default off — GDI remains
+  # the supported shell canvas). Enable with gn args smt_has_skia=true.
+  smt_has_skia = false
+}
+
 template("smt_shared_library") {
   shared_library(target_name) {
     forward_variables_from(invoker, "*", [ "configs", "dll_stem" ])
@@ -56,9 +62,11 @@ template("smt_shared_library") {
 
 # Shared MFC DLL (MBCS). DAO headers are gone in VS 18 MFC.
 # Set mfc_extension = true for AFX extension DLLs that already have DllMain.
+# Set am_plugin = true for leftover AuxModule plugins: emit
+# out/plugin/<dll_stem>[_d].am so SmtApp::InitSmtAuxModules can LoadLibrary them.
 template("smt_mfc_shared_library") {
   smt_shared_library(target_name) {
-    forward_variables_from(invoker, "*", [ "configs", "mfc_extension" ])
+    forward_variables_from(invoker, "*", [ "configs", "mfc_extension", "am_plugin" ])
     configs = [ "//build:mfc" ]
     if (!defined(invoker.mfc_extension) || !invoker.mfc_extension) {
       configs += [ "//build:mfc_startup" ]
@@ -78,6 +86,10 @@ template("smt_mfc_shared_library") {
     }
     if (!defined(precompiled_source)) {
       precompiled_source = "stdafx.cpp"
+    }
+    if (defined(invoker.am_plugin) && invoker.am_plugin) {
+      output_extension = ".am"
+      output_dir = "$root_out_dir/plugin"
     }
   }
 }

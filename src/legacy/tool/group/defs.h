@@ -1,20 +1,8 @@
+// Copyright (c) 2010 CCL. All rights reserved.
+
 #ifndef _GT_DEFS_H
 #define _GT_DEFS_H
-#include "base/core/msg.h"
-/*
-File:    gt_defs.h
-
-Desc:    grouptool defines
-
-Version: Version 1.0
-
-Writter:  �´���
-
-Date:    2011.3.27
-
-Copyright (c) 2010 CCL. All rights reserved.
-*/
-
+#include "legacy/core/msg.h"
 enum eViewMode {
   VM_ZoomOff,
   VM_ZoomIn,
@@ -55,22 +43,22 @@ enum eRegionType { RT_Fan, RT_Rect, RT_Polygon };
 
 // smt msg
 // 2d tool
-#define GT_MSG_DEFAULT_PROCESS (SMT_MSG_2D_TOOL + 0)  // Ĭ�ϴ���
-#define GT_MSG_INVALID (SMT_MSG_2D_TOOL + 1)          // ��Ч��Ϣ
-#define GT_MSG_RET_DELEGATE (SMT_MSG_2D_TOOL + 2)     // ί�У�����
+#define GT_MSG_DEFAULT_PROCESS (SMT_MSG_2D_TOOL + 0)
+#define GT_MSG_INVALID (SMT_MSG_2D_TOOL + 1)
+#define GT_MSG_RET_DELEGATE (SMT_MSG_2D_TOOL + 2)
 
 // input point tool
 #define GT_MSG_BEGIN_INPUT_POINT \
-  (SMT_MSG_2D_TOOL + GT_TOOL_MAX_MSG_COUNT)  // �����빤�߿�ʼ��Ϣ
+  (SMT_MSG_2D_TOOL + GT_TOOL_MAX_MSG_COUNT)
 #define GT_MSG_SET_INPUT_POINT_TYPE \
-  (GT_MSG_BEGIN_INPUT_POINT + 1)  // �������������
+  (GT_MSG_BEGIN_INPUT_POINT + 1)
 #define GT_MSG_GET_INPUT_POINT_TYPE \
-  (GT_MSG_BEGIN_INPUT_POINT + 2)  // ��ȡ���������
+  (GT_MSG_BEGIN_INPUT_POINT + 2)
 #define GT_MSG_GET_INPUT_ANNO_ANGLE \
-  (GT_MSG_BEGIN_INPUT_POINT + 3)  // ��ȡ����ע�ǺͽǶ�(���������ע�ǵĻ�)
-#define GT_MSG_RET_INPUT_POINT (GT_MSG_BEGIN_INPUT_POINT + 4)  // ���������
+  (GT_MSG_BEGIN_INPUT_POINT + 3)
+#define GT_MSG_RET_INPUT_POINT (GT_MSG_BEGIN_INPUT_POINT + 4)
 #define GT_MSG_END_INPUT_POINT \
-  (GT_MSG_BEGIN_INPUT_POINT + GT_TOOL_MAX_MSG_COUNT)  // �����빤�߽�����Ϣ
+  (GT_MSG_BEGIN_INPUT_POINT + GT_TOOL_MAX_MSG_COUNT)
 
 // input line tool
 #define GT_MSG_BEGIN_INPUT_LINE (GT_MSG_END_INPUT_POINT + 1)
@@ -124,7 +112,6 @@ enum eRegionType { RT_Fan, RT_Rect, RT_Polygon };
 #define GT_MSG_SET_3DVIEW_MODE (GT_MSG_BEGIN_3DVIEWCTRL + 2)
 #define GT_MSG_END_3DVIEWCTRL (GT_MSG_BEGIN_3DVIEWCTRL + GT_TOOL_MAX_MSG_COUNT)
 
-//////////////////////////////////////////////////////////////////////////
 // view control tool
 #define GT_MSG_CMD_VIEWCTRL_BEGIN SMT_MSG_CMD_BEGIN
 #define GT_MSG_VIEW_ZOOMIN (GT_MSG_CMD_VIEWCTRL_BEGIN + 1)

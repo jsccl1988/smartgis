@@ -1,11 +1,20 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# GIS model layer (QGIS qgis_core analogue) — not a literal database.
-# One DLL (dll_stem = gis): map/feature + sde_mgr + sde_gdal + tile/assets/world/atmosphere/edit/style.
-# feature ≈ OGRFeature, layer ≈ OGRLayer, map ≈ QgsProject,
-# datasource/<driver> ≈ GDAL/OGR / QGIS providers.
-# Stable labels //src/gis/map:gis, :sde_mgr, :sde_gdal → group to :gis.
+# GIS product tree (QGIS qgis_core + analysis kernels) — not a literal database.
+# One DLL (dll_stem = gis). Top-level groups (no extra public namespace):
+#   model/{feature,layer,map,crs,edit}
+#   datasource/{mgr,gdal,ogr,sdbd}
+#   present/{style,tile}  — StyleDocument, symbols, tiles; inputs to MapFrame.
+#                           Not folded into vista.
+#   vista/{frame,world,assets,domain}
+#       frame is the CPU MapFrame (ortho now, perspective later); no RHI
+#       world is the gis::World node graph
+#       domain/atmosphere is the only implemented DomainKind session (kAtmosphere)
+#   kernel/{geo,proj,tin,stat}
+# //src/gis:algorithm and :geom forward to :gis.
+# In-DLL source_sets depend on //src/gis/kernel/geo:geo_sources (not :geo)
+# so the group can point back at this DLL without a GN cycle.
 
 import("//build/smartgis.gni")
 
@@ -14,22 +23,30 @@ smt_shared_library("gis") {
   defines = [
     "SDB_EXPORTS",
     "GIS_EXPORTS",
-    "SDE_MGR_EXPORTS",
-    "SDE_GDAL_EXPORTS",
   ]
   deps = [
-    "//src/gis/map:gis_sources",
+    "//src/gis/model/map:gis_sources",
     "//src/gis/datasource/gdal:sde_gdal_sources",
     "//src/gis/datasource/mgr:sde_mgr_sources",
-    "//src/gis/tile:tile_sources",
-    "//src/gis/assets:assets_sources",
-    "//src/gis/world:world_sources",
-    "//src/gis/atmosphere:atmosphere_sources",
-    "//src/gis/edit:edit_sources",
-    "//src/gis/edit:map_edit_sources",
-    "//src/gis/style:style_sources",
+    "//src/gis/present/tile:tile_sources",
+    "//src/gis/vista/assets:assets_sources",
+    "//src/gis/vista/world:world_sources",
+    "//src/gis/vista/domain/atmosphere:atmosphere_sources",
+    "//src/gis/vista/domain:domain_sources",
+    "//src/gis/model/edit:edit_sources",
+    "//src/gis/model/edit:map_edit_sources",
+    "//src/gis/present/style:style_sources",
+    "//src/gis/vista/frame:frame_sources",
+    "//src/gis/kernel/geo:geo_sources",
+    "//src/gis/kernel/proj:proj_sources",
+    "//src/gis/kernel/stat:stat_sources",
+    "//src/gis/kernel/tin:tin_sources",
   ]
-  public_deps = [ "//third_party:gdal" ]
+  # TileProvider / Sdbd headers expose net::; consumers that include them need net.lib.
+  public_deps = [
+    "//src/net:net",
+    "//third_party:gdal",
+  ]
 }
 
 group("gis_all") {
@@ -37,5 +54,19 @@ group("gis_all") {
 }
 
 group("datasource") {
+  public_deps = [ ":gis" ]
+}
+
+# Former algorithm.dll. Kernels are objects in gis.dll; these labels remain
+# so existing deps do not need a second target name.
+group("algorithm") {
+  public_deps = [ ":gis" ]
+}
+
+group("geom") {
+  public_deps = [ ":gis" ]
+}
+
+group("algorithm_all") {
   public_deps = [ ":gis" ]
 }

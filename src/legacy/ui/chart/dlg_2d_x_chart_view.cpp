@@ -7,7 +7,7 @@
 #include "legacy/ui/chart/resource.h"
 #include "legacy/ui/xcatalog/mapmgr.h"
 #include "gis/datasource/mgr/datasource_mgr.h"
-#include "gis/feature/feature_api.h"
+#include "gis/model/feature/feature_api.h"
 
 using namespace gis;
 using namespace gis;

@@ -36,7 +36,7 @@ All rights reserved.
 
 | 主题 | 选择 |
 | --- | --- |
-| 桌面壳 | Chromium-style Views + Skia（`src/ui/views`、`src/render/skia`）。禁止 Qt |
+| 桌面壳 | Chromium-style Views + Skia（`src/ui/views`、`src/ui/gfx`）。禁止 Qt |
 | GPU | FlyCube（DX12 默认 present，Vulkan 同行）。源码用本机 `C:\Dev\src\open\topic\graphic-engine`，**禁止为了编过而 GitHub fetch**。公开 Facade `render::rhi`，公开头零 FlyCube 类型 |
 | Debug CRT | FlyCube Debug 已按 `/MDd` 编进 `out/flycube` |
 | 场景 | 双场景：`sdb::scene::World`（逻辑 / 查询）+ `render::scene::GpuScene`（GPU 实例 / 录制） |
@@ -58,7 +58,7 @@ All rights reserved.
 | **A. `sdb::model` + `sdb::scene::World` + 双场景（推荐）** | CPU 资产与 GIS 查询离开 `render/`；GPU 只同步 generation | **采用。** 与已落地头文件一致，查询与绘制解耦 |
 | B. Cesium Native 一锅端 | 瓦片 / 地形 / 相机全包 | 拒绝：体量大、许可与依赖失控、公开类型会泄漏 |
 | C. OpenSceneGraph 当场景+加载器 | 现成 scene graph | 拒绝：绑定旧 GL，第二套场景语义 |
-| D. 继续在 `legacy/render/model3d` + `legacy/render/scene3d` 长逻辑图 | 2010 `SmtScene` 八叉树 | 拒绝：render 上翻依赖、无法做 GIS 查询与 GPU 分家 |
+| D. 继续在 `legacy/render/scene3d`（含原 model3d 图元）长逻辑图 | 2010 `SmtScene` 八叉树 | 拒绝：render 上翻依赖、无法做 GIS 查询与 GPU 分家 |
 
 ### 3.2 渲染后端
 
@@ -84,7 +84,7 @@ All rights reserved.
 flowchart TB
   subgraph app_layer["app / content / ui::views"]
     APP["SmartGisViews / ContentMain / MapViewport HWND"]
-    SKIA["render::skia  壳画布 only"]
+    SKIA["ui::gfx  壳画布 only"]
   end
 
   subgraph sdb_layer["sdb"]
@@ -133,7 +133,7 @@ flowchart TB
 
 | From | May depend on | Must not depend on |
 | --- | --- | --- |
-| `app` / `content` / `ui::views` | `sdb`、`render::rhi`、`render::scene`、`render::skia` | FlyCube 头、Assimp/tinygltf 头 |
+| `app` / `content` / `ui::views` | `sdb`、`render::rhi`、`render::scene`、`ui::gfx` | FlyCube 头、Assimp/tinygltf 头 |
 | `sdb` | `algorithm/geo`、`algorithm/proj`、GDAL/OGR | `render/rhi`、`render/scene`、FlyCube |
 | `render::scene` | `sdb/scene`、`render/rhi` | `sdb` 回写、FlyCube 头 |
 | `render::rhi` 公开头 | 无第三方 GPU 类型 | FlyCube / D3D12 / Vulkan 头 |
@@ -152,12 +152,12 @@ flowchart TB
 | 数据 | 目标位置 | leftover 现状 | 迁移策略 |
 | --- | --- | --- | --- |
 | 矢量 / 栅格要素、图层、地图文档 | `sdb/{feature,layer,map}` + GDAL Dataset/Layer | 已在 sdb | 保持。World `attach_map` 只挂一层一个节点，不拷要素 |
-| 独立三维文件（OBJ/FBX/DAE/glTF/GLB） | `sdb::model::load_file` → `ModelAsset` | `legacy/render/model3d`（`Smt3DMdLib`：cube/sphere/water/…） | 新加载走 Assimp。leftover 图元 DLL 继续给 2010 视图，**不再加格式** |
+| 独立三维文件（OBJ/FBX/DAE/glTF/GLB） | `sdb::model::load_file` → `ModelAsset` | `legacy/render/scene3d/primitive`（原 `model3d`：cube/sphere/water/…） | 新加载走 Assimp。leftover 图元 DLL 继续给 2010 视图，**不再加格式** |
 | 3D Tiles | `sdb::model::Tileset` + `select_tiles` | 无 | 显式 `tileset.json` 1.0/1.1。内容 glTF/GLB/b3dm 经 tinygltf。不是 Assimp |
 | 逻辑场景 / 拾取 / 图层顺序 | `sdb::scene::World` | `legacy/render/scene3d`（`SmtScene` + 八叉树） | 新查询走 World 线性 AABB（节点多了再 pin libspatialindex）。不移植 2010 八叉树 |
 | TIN / Grid / 曲面容器 | `algorithm/geo`（`SmtTin` / `SmtGrid` / `Smt3DSurface`） | 同左 + leftover 地形引擎 | World `attach_tin` / `attach_grid`；绘制前 CPU tessellate |
-| 地形引擎（相机贴地、分页） | 远期 `NodeKind::kTerrain` + GpuScene | `legacy/render/terrain`（`Smt3DTerrain`） | v1 当 name handle；网格数据走 Tin/Grid。Quantized-Mesh / Cesium 地形 **不做** |
-| 点云 | 远期 `NodeKind::kPointCloud` | `legacy/render/pointcloud` | v1 同 handle。LAS/LAZ（PDAL）是后续 pin，不是假装 glTF |
+| 地形引擎（相机贴地、分页） | 远期 `NodeKind::kTerrain` + GpuScene | `legacy/render/scene3d/surface/terrain.*`（`Smt3DTerrain`） | v1 当 name handle；网格数据走 Tin/Grid。Quantized-Mesh / Cesium 地形 **不做** |
+| 点云 | 远期 `NodeKind::kPointCloud` | `legacy/render/scene3d/surface/pointcloud.*` | v1 同 handle。LAS/LAZ（PDAL）是后续 pin，不是假装 glTF |
 
 CPU tessellation（`sdb::scene` 的 `tessellate_*`）**属于模型侧**：产出 xyz + index，不含 `render::rhi` 类型。GpuScene 只负责 upload / bind / draw。
 
@@ -186,7 +186,7 @@ flowchart LR
 | 失败 | 返回 false，不抛 | JSON 失败不返回半棵树；无 tinygltf 时仍可选瓦，`decode_content` 为 false |
 | v1 不做 | 嵌入式 3D Tiles、Draco | implicit tiling、i3dm、pnts、cmpt、Draco |
 
-**禁止：** 把 `.gltf` 目录当成 tileset；用 Assimp 解 b3dm；在 `legacy/render/model3d` 再写一套加载器。
+**禁止：** 把 `.gltf` 目录当成 tileset；用 Assimp 解 b3dm；在 `legacy/render/scene3d` 再写一套 leftover 格式加载器。
 
 Assimp 未链接时：`load_file` 除内建 `"cube"`（`load_unit_cube`）外一律 false。这是已落地行为，保持。
 
@@ -226,13 +226,13 @@ Assimp 未链接时：`load_file` 除内建 `"cube"`（`load_unit_cube`）外一
 
 - 本机源：`C:\Dev\src\open\topic\graphic-engine`。GN 通过 `third_party/.src/flycube` **junction / 指向该树**，或直接链已编好的 `out/flycube`。`manifest.json` 的 Gitea/GitHub 行只是镜像备案，**实现 agent 不要 GitHub clone 来救编译**。
 - 公开：`#include "render/rhi/rhi.h"`。`Device` / `CommandList` / `Buffer` / `Backend`。
-- 私有：仅 `flycube_rhi.cc`（及同目录实现 TU）包含 FlyCube。映射：`Device`→FlyCube Device+Swapchain；`CommandList`→FlyCube CommandList；`execute`→`CommandQueue::ExecuteCommandLists`；`present`→`Swapchain::Present`。
+- 私有：仅 `rhi/flycube/`（内部头与实现 TU）包含 FlyCube。映射：`Device`→FlyCube Device+Swapchain；`CommandList`→FlyCube CommandList；`execute`→`CommandQueue::ExecuteCommandLists`；`present`→`Swapchain::Present`。
 - Windows：`kDx12` 默认 present，`kVulkan` 必须能 `create_device`。无适配器时 `initialize()` 为 false，测试 skip 而非 fail。
 - `smt_has_flycube` 为 false 时 stub TU 仍进 `src_all`，`initialize()` 失败。
 
 ### 6.3 Skia 的位置
 
-`src/render/skia` 只给 **Views 壳**（按钮、树、表、主题）。禁止：
+`src/ui/gfx` 只给 **Views 壳**（按钮、树、表、主题）。禁止：
 
 - 用 Skia 画 GIS 矢量 / 地形 / 模型（那是 FlyCube）
 - 把 Skia 当 widget 工具箱（那是 `ui::views`）
@@ -248,18 +248,15 @@ Assimp 未链接时：`load_file` 除内建 `"cube"`（`load_unit_cube`）外一
 | --- | --- | --- | --- |
 | `render/rhi/` | （新）Facade | **保留并长肉** | — |
 | `render/scene/` | （新）GpuScene only | **保留**。不再放 `leftover_*` | — |
-| `render/skia/` | 壳画布 stub | **保留**，永不做 GIS GPU | — |
+| `ui/gfx/` | 壳画布 stub | **保留**，永不做 GIS GPU | — |
 | `render/math/` | Eigen Vector/Matrix/Aabb | **保留**（场景数学） | 不要搬回 `algorithm/geo` |
 | `legacy/render/bridge/`（`renderdevice.*` / `renderer.*` / `leftover_*`） | `SmtRenderDevice` / `SmtRenderer` Bridge；`leftover_mesh` / `leftover_record` / `leftover_session` | **适配器**：目标仍是 `Init(HWND)` → `BindRhiPresent`；`leftover_mesh` 是 2010 VB/IB → 同一 Device 的适配缝。**本轮 present 缝可断**；DLL 仍可经 `legacy_render_all` 另编。新代码不在此加 3D API | MFC 地图视图消失 / leftover 3D 改走 GpuScene 后删 |
 | `legacy/render/gdi/` | `SmtGdiRenderDevice` | HWND present 适配。`create_device(kGdi)` stub list | 同上 |
 | `legacy/render/gdi_simple/` | 简化 GDI 设备 | 同 gdi，不再分叉功能 | 同上 |
-| `legacy/render/gl/` | `SmtGLRenderDevice` | HWND / 旧 immediate 适配。`create_device(kGl)` | 3D MFC 视图切到 GpuScene 后删 |
+| `legacy/render/rhi3d/impl/gl/` | `SmtGLRenderDevice` | HWND / 旧 immediate 适配。`create_device(kGl)` | 3D MFC 视图切到 GpuScene 后删 |
 | `d3d/` | D3D9 / D3DX | **已删除** | 禁止复活 |
-| `legacy/render/render3d/` | `Smt3DRenderer` 设备/相机/VB/IB | 网格字节经 `legacy/render/bridge` 的 `leftover_mesh` 上传到 RHI；不要在此写 FlyCube | leftover 相机/状态机被 GpuScene 取代后删 |
-| `legacy/render/scene3d/` | `SmtScene` + 八叉树 | 逻辑场景 → `sdb::scene::World`。八叉树不移植 | World 覆盖拾取/附着后，3D 视图停用 `SmtScene` 即可删 |
-| `legacy/render/model3d/` | 内置 cube/sphere/… | 新资产 → `sdb::model`。内置图元可当测试网格，不扩格式 | Assimp 覆盖演示模型后删 |
-| `legacy/render/terrain/` | `Smt3DTerrain` | `NodeKind::kTerrain` + Tin/Grid tessellate | 新地形通路能画 DEM 网格后删 |
-| `legacy/render/pointcloud/` | `Smt3DPointCloud` | `NodeKind::kPointCloud` | 有 CPU 点容器 + GpuScene 绘制后删 |
+| `legacy/render/rhi3d/` | `Smt3DRenderer` 设备/相机/VB/IB | 网格字节经 `legacy/render/bridge` 的 `leftover_mesh` 上传到 RHI；不要在此写 FlyCube | leftover 相机/状态机被 GpuScene 取代后删 |
+| `legacy/render/scene3d/` | `SmtScene` + 八叉树；flat 内置图元 / terrain / pointcloud（原独立 tops） | 逻辑场景 → `sdb::scene::World`。八叉树不移植；新资产 → `sdb::model`；terrain/pointcloud → `NodeKind` | World / Assimp / DEM 通路覆盖后删 |
 
 **适配期原则：** leftover DLL `dll_stem` / `Smt_*` ABI 不动；只允许朝 Facade **单向** 靠（present、拷 VB/IB）。禁止在 leftover 目录新增 Assimp、Tiles、FlyCube include。终局 `render` **禁止**依赖 `legacy_render`。
 
@@ -310,7 +307,7 @@ Assimp 未链接时：`load_file` 除内建 `"cube"`（`load_unit_cube`）外一
 | 资产 | leftover | 目标 |
 | --- | --- | --- |
 | `SmtTin` / `SmtGrid` / `Smt3DSurface` | 容器仍在 `algorithm/geo` | **保留容器**；填充走 `tin` 后端，不保留 2010 自写 incremental/divide 源为第三 fallback |
-| `legacy/render/terrain` | 引擎 + 贴图/LOD | 数据面 = Grid/Tin；引擎面 = 适配后删 |
+| `legacy/render/scene3d/surface/terrain.*` | 引擎 + 贴图/LOD | 数据面 = Grid/Tin；引擎面 = 适配后删 |
 | `CreateDelaunayTin_Div` / `_Inc` | 两个导出名 | 两个名字、**一条** `tin_backend_traits` |
 | 高程文件 | 旧 BMP 私有解析 | GDAL 任意栅格；XYZ 走 `tin::read_xyz_points` |
 
@@ -348,7 +345,7 @@ Compute shader 源码与 FlyCube 管线留在 `render/rhi` 实现 TU，**算法�
 | **CDT** | TIN fallback | MPL-2 | **仅当** 随船 `geos_c.h` 缺 Delaunay 符号。`third_party/cdt` |
 | **meshoptimizer** | 大瓦片 index 优化 | MIT | **不 pin**，直到有性能证据 |
 | **libspatialindex** | World AABB 加速 | MIT | manifest 已有、产品未接。节点多了再说 |
-| **Skia** | 壳 canvas | BSD-3 | 不整树 vendor；`render/skia` stub |
+| **Skia** | 壳 canvas | BSD-3 | 不整树 vendor；`ui/gfx` stub |
 | **PDAL** | LAS/LAZ | BSD-3 | **不 pin**（点云 v2） |
 | Cesium Native / OSG / Filament / Diligent / bgfx | — | — | **禁止** |
 | Qt / Chromium 整树 / D3D9 D3DX | — | — | **禁止** |
@@ -381,7 +378,7 @@ GEOS LGPL：只使用已随 `gdal_sdk` 提供的共享库，产品侧走 `geos_c
 - `Geometry2` / `Geometry3`，或第二套虚函数几何树。
 - 第二份 GEOS / PROJ / GDAL。
 - 把 glTF 文件假装成 3D Tiles；v1 implicit tiles / Draco / i3dm / pnts / cmpt。
-- 把逻辑场景图写回 `legacy/render/scene3d` / `legacy/render/model3d`。
+- 把逻辑场景图写回 `legacy/render/scene3d`。
 - 改 leftover `Smt_*` ABI / 合并 DLL。
 - mogu `base::mutex`。
 - 本文档落地 C++（`src/render` 实现属另一 agent）。

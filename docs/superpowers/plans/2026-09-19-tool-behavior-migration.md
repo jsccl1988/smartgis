@@ -5,6 +5,9 @@ All rights reserved.
 
 # SP1b: Tool 行为搬迁 Implementation Plan
 
+
+> **Design living:** SP decisions live in [../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md](../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md). This file is the checklist only.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Bound 路径下 view/select/draw 指针只由 `tool::Interaction` 消费并产出 `Draft`（含固定 `Draft.flags` 细类型），leftover ViewCtrl/Select/Append 变薄为 bind + notify + `apply_draft`；过关门 A = T+H+L。

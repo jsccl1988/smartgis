@@ -19,8 +19,8 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define XCATALOG_EXPORT __declspec(dllimport)
 #endif
 
-#include "base/core/core.h"
-#include "gis/layer/layer.h"
+#include "legacy/core/core.h"
+#include "gis/model/layer/layer.h"
 
 using namespace base;
 using namespace gis;

@@ -19,10 +19,10 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define GUI_EXPORT __declspec(dllimport)
 #endif
 
-#include "base/core/bas_struct.h"
-#include "base/core/core.h"
+#include "legacy/core/bas_struct.h"
+#include "legacy/core/core.h"
 #include "ogrsf_frmts.h"
-#include "gis/feature/feature.h"
+#include "gis/model/feature/feature.h"
 
 using namespace base;
 using namespace gis;

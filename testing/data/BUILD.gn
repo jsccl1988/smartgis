@@ -12,6 +12,7 @@ copy("china_map_samples") {
     "china_city.LICENSE.txt",
     "china_dem.tif",
     "china_plp.geojson",
+    "m3_city_tileset.json",
     "views_ogr_sample.geojson",
   ]
   outputs = [ "$root_out_dir/{{source_file_part}}" ]

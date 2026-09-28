@@ -1,76 +1,157 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Stable map session / viewport ABI for every src/app host
-# (Chromium content/public). No MFC. Include as "content/public/...".
-# Implementation may use sdb + render + gpu; public headers stay thin.
+# Embedder API is the public/ headers (incl. map_bootstrap). No MFC.
+# Pipe frames live in common/host_protocol.h (not an embedder header).
+#   app/       ContentMain + process-type switch
+#   browser/   browser-process MapContents, catalog, attrs, plugin host
+#   renderer/  --type=renderer child
+#   view/      in-process ViewHost + LocalToolRouter
+#   embed/     HWND-free embed sample
+#   common/    host pipe + frame ABI
+#
+# One DLL (dll_stem = content). In-DLL source_sets use CONTENT_EXPORTS;
+# stable group labels forward to :content for existing deps.
+# tool::Workspace / Command* live in //src/tool:tool (dll_stem = tool) —
+# import-link that DLL; do not compile dispatch source_sets into content.
 
+import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 config("content_config") {
   include_dirs += [ "//src" ]
 }
 
-source_set("content") {
+# HWND-free sample / china map path policy (SP3).
+source_set("map_bootstrap_sources") {
   sources = [
-    "app/content_main.cc",
+    "browser/map_bootstrap.cc",
+    "public/map_bootstrap.h",
+  ]
+  public_configs = [ ":content_config" ]
+  defines = [ "CONTENT_EXPORTS" ]
+}
+
+source_set("content_sources") {
+  sources = [
     "app/content_main.h",
-    "app/renderer_main.cc",
-    "app/renderer_main.h",
+    "app/process_type.cc",
+    "app/process_type.h",
+    "browser/catalog_layers.cc",
+    "browser/feature_attrs.cc",
+    "browser/map_contents.cc",
+    "browser/plugin_host.cc",
+    "common/host_protocol.h",
     "common/ipc.cc",
     "common/ipc.h",
-    "catalog_layers.cc",
-    "feature_attrs.cc",
-    "map_contents.cc",
+    "content_export.h",
     "public/catalog_layers.h",
     "public/feature_attrs.h",
-    "public/host_protocol.h",
     "public/map_contents.h",
     "public/map_contents_observer.h",
     "public/map_types.h",
-    "public/map_widget_host_view.h",
-    "plugin_host.cc",
     "public/plugin_host.h",
-    "public/process_type.cc",
-    "public/process_type.h",
+    "renderer/renderer_main.cc",
+    "renderer/renderer_main.h",
   ]
   public_configs = [ ":content_config" ]
+  defines = [ "CONTENT_EXPORTS" ]
   public_deps = [
     "//src/base/ipc:ipc",
-    "//src/tool:dispatch",
+    "//src/tool:tool",
   ]
 }
 
-# Per-view Workspace + EventBus + EditSession. Leftover xview hosts this.
-source_set("view_host") {
+# Per-view Workspace + EventBus + EditSession.
+source_set("view_host_sources") {
   sources = [
-    "local_tool_router.cc",
     "public/event_bus.h",
-    "public/events.h",
-    "public/local_tool_router.h",
     "public/view_host.h",
-    "view_host.cc",
+    "view/local_tool_router.cc",
+    "view/local_tool_router.h",
+    "view/view_host.cc",
   ]
   public_configs = [ ":content_config" ]
-  public_deps = [ ":content" ]
+  defines = [ "CONTENT_EXPORTS" ]
+  public_deps = [ ":content_sources" ]
   include_dirs += [ "//src" ]
   deps = [
-    "//src/gis/edit:edit",
-    "//src/tool:dispatch",
+    "//src/gis/model/edit:edit",
+    "//src/legacy/tool/adapter:adapter",
+    "//src/tool:tool",
   ]
+}
+
+# M4: minimal embed open path (MapContents + ViewHost); no PluginHost change.
+source_set("embed_sample_sources") {
+  sources = [
+    "embed/embed_sample.cc",
+    "embed/embed_sample.h",
+  ]
+  public_configs = [ ":content_config" ]
+  defines = [ "CONTENT_EXPORTS" ]
+  public_deps = [ ":view_host_sources" ]
+  include_dirs += [ "//src" ]
+}
+
+# Product content DLL. Disk stem: content.dll / content_d.dll.
+smt_shared_library("content") {
+  dll_stem = "content"
+  defines = [ "CONTENT_EXPORTS" ]
+  deps = [
+    ":content_sources",
+    ":embed_sample_sources",
+    ":map_bootstrap_sources",
+    ":view_host_sources",
+  ]
+  # Headers under public/ pull tool::Command* and (via ViewHost call sites)
+  # gis::EditSession; forward those edges so consumers import-link tool.dll /
+  # gis.dll (not statically absorb dispatch TUs into content.dll).
+  public_deps = [
+    "//src/gis/model/edit:edit",
+    "//src/tool:tool",
+  ]
+  public_configs = [ ":content_config" ]
+}
+
+# Stable labels — same DLL as :content.
+group("map_bootstrap") {
+  public_deps = [ ":content" ]
+}
+
+group("view_host") {
+  public_deps = [ ":content" ]
+}
+
+group("embed_sample") {
+  public_deps = [ ":content" ]
 }
 
 test("content_view_host_test") {
   output_name = "content_view_host_test"
-  sources = [ "view_host_test.cc" ]
+  sources = [ "view/view_host_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [ ":view_host" ]
+}
+
+test("content_embed_sample_test") {
+  output_name = "content_embed_sample_test"
+  sources = [ "embed/embed_sample_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":embed_sample" ]
+}
+
+test("content_main_test") {
+  output_name = "content_main_test"
+  sources = [ "app/content_main_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":content" ]
 }
 
 # HWND-free attribute token / named-field helpers (SP3 host extract).
 test("content_feature_attrs_test") {
   output_name = "content_feature_attrs_test"
-  sources = [ "feature_attrs_test.cc" ]
+  sources = [ "browser/feature_attrs_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [ ":content" ]
 }
@@ -78,7 +159,15 @@ test("content_feature_attrs_test") {
 # HWND-free Catalog LayerDesc JSON (SP3 catalog snapshot).
 test("content_catalog_layers_test") {
   output_name = "content_catalog_layers_test"
-  sources = [ "catalog_layers_test.cc" ]
+  sources = [ "browser/catalog_layers_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [ ":content" ]
+}
+
+# HWND-free sample / china map path policy (SP3 map bootstrap).
+test("content_map_bootstrap_test") {
+  output_name = "content_map_bootstrap_test"
+  sources = [ "browser/map_bootstrap_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":map_bootstrap" ]
 }

@@ -4,17 +4,17 @@
 import("//build/smartgis.gni")
 
 # Compiled into //src/gis:gis (dll_stem = sdb).
-# No deps on //src/gis/map:gis or :sde_gdal groups (same DLL — avoid GN cycles).
+# No deps on //src/gis/model/map:gis or :sde_gdal groups (same DLL — avoid GN cycles).
 source_set("sde_mgr_sources") {
   configs += [ "//build:legacy" ]
   defines = [
     "_USRDLL",
-    "SDE_MGR_EXPORTS",
+    "GIS_EXPORTS",
   ]
   sources = [ "datasource_mgr.cc" ]
   include_dirs += [ "//src" ]
   deps = [
-    "//src/algorithm/geo:geo",
+    "//src/gis/kernel/geo:geo_sources",
     "//src/base:base",
     "//src/base:core",
     "//third_party:gdal",

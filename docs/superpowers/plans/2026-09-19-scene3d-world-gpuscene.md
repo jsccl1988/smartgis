@@ -5,6 +5,9 @@ All rights reserved.
 
 # SP4 Scene3D → World / GpuScene — Implementation Plan
 
+
+> **Design living:** SP decisions live in [../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md](../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md). This file is the checklist only.
+
 > **For agentic workers:** follow checkboxes; stay on `master`; no commit unless asked.
 
 **Goal:** Align leftover DEM / scene3d seed path with RHI dual scene (`gis::World` + `GpuScene`); thin adapters only.  
@@ -12,7 +15,7 @@ All rights reserved.
 
 ## Constraints
 
-- Path partition: `src/legacy/render/scene3d/**`, `src/gis/world/**`, `src/render/scene/**`（仅必要时）, docs。  
+- Path partition: `src/legacy/render/scene3d/**`, `src/gis/scene/world/**`, `src/render/scene/**`（仅必要时）, docs。  
   Views 薄接线允许：`src/app/views/scene3d_controller.*` + `BUILD.gn`（不碰 bridge / tool / app MFC）。  
 - **Do not** edit `src/legacy/render/bridge/**` present 热点。  
 - No Qt; English source comments; copyright 2026; `snake_case` new APIs.  
@@ -38,10 +41,10 @@ All rights reserved.
 
 **Files:**
 - Modify: `src/legacy/render/scene3d/dem_height_field.cc`
-- Modify: `src/legacy/render/scene3d/BUILD.gn`（`scene3d_sources` deps `//src/gis/world:land_mask`）
+- Modify: `src/legacy/render/scene3d/BUILD.gn`（`scene3d_sources` deps `//src/gis/scene/world:land_mask`）
 
 **Steps:**
-1. [x] `#include "gis/world/land_mask.h"`；删除本文件内重复 even-odd 实现。  
+1. [x] `#include "gis/scene/world/terrain/land_mask.h"`；删除本文件内重复 even-odd 实现。  
 2. [x] `point_in_lonlat_ring` / `any_ring_contains` 转发 `gis::`（保留 `render::` 导出；bbox  cull 留在 leftover 壳）。  
 3. [x] `mask_outside_rings` 经 `any_ring_contains` → `gis::point_in_lonlat_ring`。  
 4. [x] `dem_stereo_test` 既有掩膜用例仍绿。
@@ -51,7 +54,7 @@ All rights reserved.
 ### Task 3: DEM envelope → World / GpuScene 缝（第一刀）
 
 **Files:**
-- Create: `src/legacy/render/scene3d/dem_to_world.h`
+- Create: `src/legacy/render/scene3d/dem/dem_to_world.h`
 - Create: `src/legacy/render/scene3d/dem_to_world.cc`
 - Modify: `src/legacy/render/scene3d/BUILD.gn` + `dem_stereo_test` deps  
 - Modify: `src/legacy/render/scene3d/dem_stereo_test.cc`
@@ -76,7 +79,7 @@ All rights reserved.
 ### Task 5: DEM mesh + map/Views 实线（第二刀）
 
 **Files:**
-- Modify: `src/gis/world/scene.h` / `scene.cc`（`set_terrain_mesh` / Node mesh 字段）
+- Modify: `src/gis/scene/world/scene/scene.h` / `scene.cc`（`set_terrain_mesh` / Node mesh 字段）
 - Modify: `src/legacy/render/scene3d/dem_to_world.*`（`build_mesh` → World）
 - Modify: `src/legacy/render/scene3d/map_to_scene.*`（`seed_dem_into_map_world` + `map_seeded_world`）
 - Modify: `src/render/scene/scene.*`（terrain mesh / AABB fallback upload + `record_kind(kTerrain)`）
@@ -97,7 +100,7 @@ All rights reserved.
 
 **Files:**
 - Create: `src/legacy/render/scene3d/scene_to_world.*`（AABB→GIS + `seed_smt_scene_aabbs_into_world`）
-- Create: `src/gis/world/dem_raster.*` + `dem_raster_test`
+- Create: `src/gis/scene/world/dem_raster.*` + `dem_raster_test`
 - Modify: `bl3d_scene.cpp`（`CreateOctTreeSceneMgr` 一切换点）、`map_to_scene.cc`
 - Modify: `src/render/scene/scene.*`（`set_view_camera`）
 - Modify: `src/app/views/scene3d_controller.*` + `BUILD.gn`（去 `dem_height_field_static`；`present_gpu`→`GpuScene::record`）

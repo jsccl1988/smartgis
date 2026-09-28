@@ -6,21 +6,21 @@
 
 #include "base/core/build_config.h"
 
-// //src/base:foundation is a source_set / static aggregate, not a product DLL.
-// COMPONENT_BUILD may later export symbols; until then BASE_EXPORT is empty.
+// Single export for //src/base:base (dll_stem = base).
+// GN sets BASE_EXPORTS on the source_sets compiled into that DLL.
+// Foundation (:foundation) does not set BASE_EXPORTS; do not annotate
+// header-only foundation symbols with BASE_EXPORT.
 
-#if defined(COMPONENT_BUILD)
-#if defined(COMPILER_MSVC)
-#if defined(BASE_IMPLEMENTATION)
+#if defined(BASE_EXPORTS)
+#if defined(COMPILER_MSVC) || defined(_WIN32)
 #define BASE_EXPORT __declspec(dllexport)
-#else
-#define BASE_EXPORT __declspec(dllimport)
-#endif
 #else
 #define BASE_EXPORT __attribute__((visibility("default")))
 #endif
+#elif defined(COMPILER_MSVC) || defined(_WIN32)
+#define BASE_EXPORT __declspec(dllimport)
 #else
 #define BASE_EXPORT
-#endif  // defined(COMPONENT_BUILD)
+#endif
 
 #endif  // BASE_CORE_EXPORT_H_

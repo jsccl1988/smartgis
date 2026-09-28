@@ -1,13 +1,25 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Chromium-style Views toolkit. Product exe is //src/app/views.
+# Views toolkit + shell gfx → one DLL (dll_stem = ui_views).
+# Product exe is //src/app/views (import/link, not LoadLibrary).
 # Not in //src:src_all or //src/ui:ui (MFC).
 #
+# Sibling DLLs (import-link only — never absorb their TUs into this PE):
+#   //src/content:content  (dll_stem=content; :view_host group → :content)
+#   //src/tool:tool        (dll_stem=tool; content already public_deps :tool)
+#   //src/render:rhi       (group → render.dll)
+#
 # Public includes are responsibility-partitioned:
-#   "ui/views/{kernel,primitives,dialogs,gis,map}/foo.h"
-# Single source_set; testing/ is test-only (not linked into :views).
+#   "ui/views/<area>/<group>/foo.h"
+# map/ stays flat (viewport + touch). testing/ is test-only
+# (not linked into :ui_views): testing/unit and testing/pixel.
+# Goldens stay at testing/testdata/.
+# Stable labels :views and //src/ui/gfx:gfx forward to :ui_views.
+# //src/ui/gfx:gfx_headers is include-only (gpu / present; no this DLL).
 
+import("//build/smartgis.gni")
+import("//src/ui/gfx/skia.gni")
 import("//testing/test.gni")
 
 config("views_config") {
@@ -15,94 +27,101 @@ config("views_config") {
   defines += [ "NOMINMAX" ]
 }
 
-source_set("views") {
+source_set("views_sources") {
   sources = [
-    # Kernel
-    "kernel/dialog_host.cc",
-    "kernel/dialog_host.h",
-    "kernel/dpi.cc",
-    "kernel/dpi.h",
-    "kernel/event.h",
-    "kernel/layout.cc",
-    "kernel/layout.h",
-    "kernel/layout_check.cc",
-    "kernel/layout_check.h",
-    "kernel/splitter.cc",
-    "kernel/splitter.h",
-    "kernel/theme.cc",
-    "kernel/theme.h",
-    "kernel/view.cc",
-    "kernel/view.h",
-    "kernel/widget.cc",
-    "kernel/widget.h",
+    # Kernel (Chromium-aligned partitions under kernel/)
+    "kernel/compositor/shell_compositor.cc",
+    "kernel/compositor/shell_compositor.h",
+    "kernel/layout/layout.cc",
+    "kernel/layout/layout.h",
+    "kernel/layout/layout_check.cc",
+    "kernel/layout/layout_check.h",
+    "kernel/layout/splitter.cc",
+    "kernel/layout/splitter.h",
+    "kernel/layout/view_traits.h",
+    "kernel/paint/paint_commit.cc",
+    "kernel/paint/paint_commit.h",
+    "kernel/shell/dialog_host.cc",
+    "kernel/shell/dialog_host.h",
+    "kernel/shell/dpi.cc",
+    "kernel/shell/dpi.h",
+    "kernel/shell/event.h",
+    "kernel/shell/theme.cc",
+    "kernel/shell/theme.h",
+    "kernel/view/view.cc",
+    "kernel/view/view.h",
+    "kernel/widget/widget.cc",
+    "kernel/widget/widget.h",
 
     # Primitives
-    "primitives/button.cc",
-    "primitives/button.h",
-    "primitives/checkbox.cc",
-    "primitives/checkbox.h",
-    "primitives/combobox.cc",
-    "primitives/combobox.h",
-    "primitives/context_menu.cc",
-    "primitives/context_menu.h",
-    "primitives/label.cc",
-    "primitives/label.h",
-    "primitives/menu_bar.cc",
-    "primitives/menu_bar.h",
-    "primitives/radio_button.cc",
-    "primitives/radio_button.h",
-    "primitives/scroll_view.cc",
-    "primitives/scroll_view.h",
-    "primitives/slider.cc",
-    "primitives/slider.h",
-    "primitives/tab_strip.cc",
-    "primitives/tab_strip.h",
-    "primitives/table_view.cc",
-    "primitives/table_view.h",
-    "primitives/textfield.cc",
-    "primitives/textfield.h",
-    "primitives/tree_view.cc",
-    "primitives/tree_view.h",
+    "primitives/button/button.cc",
+    "primitives/button/button.h",
+    "primitives/button/checkbox.cc",
+    "primitives/button/checkbox.h",
+    "primitives/input/combobox.cc",
+    "primitives/input/combobox.h",
+    "primitives/menu/context_menu.cc",
+    "primitives/menu/context_menu.h",
+    "primitives/text/label.cc",
+    "primitives/text/label.h",
+    "primitives/menu/menu_bar.cc",
+    "primitives/menu/menu_bar.h",
+    "primitives/button/radio_button.cc",
+    "primitives/button/radio_button.h",
+    "primitives/collection/scroll_view.cc",
+    "primitives/collection/scroll_view.h",
+    "primitives/input/slider.cc",
+    "primitives/input/slider.h",
+    "primitives/collection/tab_strip.cc",
+    "primitives/collection/tab_strip.h",
+    "primitives/collection/table_view.cc",
+    "primitives/collection/table_view.h",
+    "primitives/text/textfield.cc",
+    "primitives/text/textfield.h",
+    "primitives/collection/tree_view.cc",
+    "primitives/collection/tree_view.h",
 
     # Dialogs
-    "dialogs/add_basemap_dialog.cc",
-    "dialogs/add_basemap_dialog.h",
-    "dialogs/att_struct_dialog.cc",
-    "dialogs/att_struct_dialog.h",
-    "dialogs/create_datasource_dialog.cc",
-    "dialogs/create_datasource_dialog.h",
-    "dialogs/create_layer_dialog.cc",
-    "dialogs/create_layer_dialog.h",
-    "dialogs/create_map_dialog.cc",
-    "dialogs/create_map_dialog.h",
-    "dialogs/dialog.cc",
-    "dialogs/dialog.h",
-    "dialogs/file_picker.cc",
-    "dialogs/file_picker.h",
-    "dialogs/input_text_dialog.cc",
-    "dialogs/input_text_dialog.h",
-    "dialogs/message_box.cc",
-    "dialogs/message_box.h",
-    "dialogs/select_one_dialog.cc",
-    "dialogs/select_one_dialog.h",
+    "dialogs/gis/add_basemap_dialog.cc",
+    "dialogs/gis/add_basemap_dialog.h",
+    "dialogs/gis/att_struct_dialog.cc",
+    "dialogs/gis/att_struct_dialog.h",
+    "dialogs/gis/create_datasource_dialog.cc",
+    "dialogs/gis/create_datasource_dialog.h",
+    "dialogs/gis/create_layer_dialog.cc",
+    "dialogs/gis/create_layer_dialog.h",
+    "dialogs/gis/create_map_dialog.cc",
+    "dialogs/gis/create_map_dialog.h",
+    "dialogs/shell/dialog.cc",
+    "dialogs/shell/dialog.h",
+    "dialogs/shell/file_picker.cc",
+    "dialogs/shell/file_picker.h",
+    "dialogs/shell/input_text_dialog.cc",
+    "dialogs/shell/input_text_dialog.h",
+    "dialogs/shell/message_box.cc",
+    "dialogs/shell/message_box.h",
+    "dialogs/shell/select_one_dialog.cc",
+    "dialogs/shell/select_one_dialog.h",
 
     # GIS panels
-    "gis/ambox_view.cc",
-    "gis/ambox_view.h",
-    "gis/atmosphere_panel.cc",
-    "gis/atmosphere_panel.h",
-    "gis/attribute_table.cc",
-    "gis/attribute_table.h",
-    "gis/catalog_view.cc",
-    "gis/catalog_view.h",
-    "gis/chart_view.cc",
-    "gis/chart_view.h",
-    "gis/feature_info.cc",
-    "gis/feature_info.h",
-    "gis/layer_tree.cc",
-    "gis/layer_tree.h",
-    "gis/status_bar.cc",
-    "gis/status_bar.h",
+    "gis/shell/ambox_view.cc",
+    "gis/shell/ambox_view.h",
+    "gis/panel/atmosphere_panel.cc",
+    "gis/panel/atmosphere_panel.h",
+    "gis/inspect/attribute_table.cc",
+    "gis/inspect/attribute_table.h",
+    "gis/catalog/catalog_view.cc",
+    "gis/catalog/catalog_view.h",
+    "gis/panel/chart_view.cc",
+    "gis/panel/chart_view.h",
+    "gis/inspect/feature_info.cc",
+    "gis/inspect/feature_info.h",
+    "gis/catalog/layer_tree.cc",
+    "gis/catalog/layer_tree.h",
+    "gis/panel/processing_panel.cc",
+    "gis/panel/processing_panel.h",
+    "gis/shell/status_bar.cc",
+    "gis/shell/status_bar.h",
 
     # Map viewport hang
     "map/map_viewport.cc",
@@ -114,25 +133,62 @@ source_set("views") {
     "views.cc",
     "views.h",
   ]
+  defines = [ "UI_VIEWS_EXPORTS" ]
+  # gfx_sources objects compile into ui_views.dll (same PE).
+  # content / tool / render are shared_library edges (import-link).
   public_deps = [
     "//src/content:content",
     "//src/content:view_host",
     "//src/render:rhi",
-    "//src/render/skia:skia",
-    "//src/tool:dispatch",
+    "//src/tool:tool",
+    "//src/ui/gfx:gfx_sources",
   ]
   public_configs = [ ":views_config" ]
   libs = [
     "comdlg32.lib",
+    "dwrite.lib",
     "gdi32.lib",
     "user32.lib",
   ]
 }
 
+smt_shared_library("ui_views") {
+  dll_stem = "ui_views"
+  defines = [ "UI_VIEWS_EXPORTS" ]
+  deps = [ ":views_sources" ]
+  # Re-export sibling DLL edges so consumers of :views / :gfx import-link
+  # content.dll + tool.dll + render.dll (not static source_sets).
+  public_deps = [
+    "//src/content:content",
+    "//src/content:view_host",
+    "//src/render:rhi",
+    "//src/tool:tool",
+  ]
+  # source_set public_configs do not flow through the DLL to consumers.
+  public_configs = [
+    ":views_config",
+    "//src/ui/gfx:skia_config",
+  ]
+  if (smt_has_skia) {
+    public_configs += [ "//src/ui/gfx:skia_real_config" ]
+  }
+  libs = [
+    "comdlg32.lib",
+    "dwrite.lib",
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
+# Stable label; same DLL as :ui_views.
+group("views") {
+  public_deps = [ ":ui_views" ]
+}
+
 # Console self-test for primitive / kernel behavior (no MFC).
 test("views_unittests") {
   output_name = "views_unittests"
-  sources = [ "testing/views_unittests.cc" ]
+  sources = [ "testing/unit/views_unittests.cc" ]
   deps = [ ":views" ]
 }
 
@@ -140,10 +196,10 @@ test("views_unittests") {
 test("views_pixel_tests") {
   output_name = "views_pixel_tests"
   sources = [
-    "testing/pixel_harness.cc",
-    "testing/pixel_harness.h",
-    "testing/pixel_png_wic.cc",
-    "testing/views_pixel_tests.cc",
+    "testing/pixel/pixel_harness.cc",
+    "testing/pixel/pixel_harness.h",
+    "testing/pixel/pixel_png_wic.cc",
+    "testing/pixel/views_pixel_tests.cc",
   ]
   deps = [ ":views" ]
   libs = [

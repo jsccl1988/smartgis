@@ -5,8 +5,8 @@
 #include "legacy/ui/xcatalog/dlg_create_map.h"
 
 #include "legacy/ui/xcatalog/xcatalog_core.h"
-#include "gis/feature/feature.h"
-#include "gis/layer/layer.h"
+#include "gis/model/feature/feature.h"
+#include "gis/model/layer/layer.h"
 
 using namespace gis;
 using namespace base;

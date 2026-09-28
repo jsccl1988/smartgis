@@ -9,7 +9,7 @@ All rights reserved.
 
 **Goal:** Wire SmartGisViews to Registry/PluginHost (builtins + ManagerView), retire MFC dialogs from the Views path, align `src/plugin` style/ABI on the new path, and replace domain processing stubs with real kernels.
 
-**Architecture:** `BrowserView` owns `app::PluginChrome` (separate TU to avoid dual `content::MapContents` headers). Five builtin `register_*` hooks start on launch. DEM loaders become MFC-free for `dem_views`. Parallel lanes edit disjoint trees on `master`.
+**Architecture:** `BrowserView` owns `app::PluginShell` (separate TU to avoid dual `content::MapContents` headers). Five builtin `register_*` hooks start on launch. DEM loaders become MFC-free for `dem_views`. Parallel lanes edit disjoint trees on `master`.
 
 **Tech Stack:** C++23, GN/Ninja (`out/` only), existing `plugin_host_test`, no Qt, no new Manager singleton.
 
@@ -26,8 +26,8 @@ All rights reserved.
 
 | Path | Responsibility |
 | --- | --- |
-| `src/app/views/plugin_chrome.h` `.cc` | Registry + PluginHost + pool + builtins + Manager widget |
-| `src/app/views/browser_view.*` | Own PluginChrome; Plugins menu |
+| `src/app/views/shell/plugin_shell.h` `.cc` | Registry + PluginHost + pool + builtins + Manager widget |
+| `src/app/views/browser_view.*` | Own PluginShell; Plugins menu |
 | `src/app/views/BUILD.gn` | deps |
 | `src/plugin/dem/tin_loader_core.*` (or rewrite `tin_loader.cpp` without stdafx) | MFC-free XYZ→TIN |
 | `src/plugin/dem/grid_loader_core.*` | MFC-free heightmap→grid |
@@ -41,21 +41,21 @@ All rights reserved.
 
 ---
 
-### Task 1: PluginChrome + BrowserView (Phase A)
+### Task 1: PluginShell + BrowserView (Phase A)
 
 **Files:**
-- Create: `src/app/views/plugin_chrome.h`
-- Create: `src/app/views/plugin_chrome.cc`
+- Create: `src/app/views/shell/plugin_shell.h`
+- Create: `src/app/views/shell/plugin_shell.cc`
 - Modify: `src/app/views/browser_view.h`
 - Modify: `src/app/views/browser_view.cc`
 - Modify: `src/app/views/BUILD.gn`
 
 **Interfaces:**
 - Consumes: `content::create_plugin_host`, `plugin::Registry`, `plugin::ProcessingPool`, `plugin::register_{dem,proj,print,model3d,orthogrid}`, `plugin::ManagerView`, `content::ViewHost::events`
-- Produces: `app::PluginChrome` with `bool init(content::EventBus* events)`, `void shutdown()`, `bool show_manager()`, `content::PluginHost* host()`, `plugin::Registry* registry()`
+- Produces: `app::PluginShell` with `bool init(content::EventBus* events)`, `void shutdown()`, `bool show_manager()`, `content::PluginHost* host()`, `plugin::Registry* registry()`
 
-- [x] **Step 1: Add `plugin_chrome.h`**
-- [x] **Step 2: Implement `plugin_chrome.cc`**
+- [x] **Step 1: Add `plugin_shell.h`**
+- [x] **Step 2: Implement `plugin_shell.cc`**
 - [x] **Step 3: BrowserView**
 - [x] **Step 4: BUILD.gn**
 - [x] **Step 5: Build** `build.bat views` → `SmartGisViews.exe` linked (2026-09-14). Do not commit.

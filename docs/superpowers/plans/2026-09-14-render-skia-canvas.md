@@ -5,13 +5,13 @@ All rights reserved.
 
 Status: active
 
-# render::skia 壳画布 Implementation Plan
+# ui::gfx 壳画布 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 为 Views 壳补齐 `render::skia::Canvas` 最小 2D API（GDI stub），用测试锁住行为，并写清真 Skia 本机 pin 的准入与默认关闭路径。
+**Goal:** 为 Views 壳补齐 `ui::gfx::Canvas` 最小 2D API（GDI stub），用测试锁住行为，并写清真 Skia 本机 pin 的准入与默认关闭路径。
 
-**Architecture:** 公开 API 固定在 `src/render/skia/canvas.h`；v1 继续 GDI32（**不用 GDI+**）。Views `paint_self` 只依赖该 API。真 Skia 为可选实现，经本机 pin + `smt_has_skia`，**不进 `src_all`**。地图 paint 仍走 RHI / leftover，禁止混入本模块。
+**Architecture:** 公开 API 固定在 `src/ui/gfx/canvas.h`；v1 继续 GDI32（**不用 GDI+**）。Views `paint_self` 只依赖该 API。真 Skia 为可选实现，经本机 pin + `smt_has_skia`，**不进 `src_all`**。地图 paint 仍走 RHI / leftover，禁止混入本模块。
 
 **Tech Stack:** C++23、GN/Ninja（`out/` only）、Win32 GDI32、现有 `views_unittests` / `SmartGisViews.exe --self-test`。
 
@@ -22,18 +22,18 @@ Status: active
 - Spec：`docs/superpowers/specs/2026-09-14-render-skia-canvas-design.md`。
 - 禁止：GDI+、Qt、用 RHI 画壳、Skia 画 GIS、Skia 当 widget kit、drive-by vendor 整树 Chromium/Skia。
 - Copyright：新文件 `Copyright (c) 2026 The Mogu Authors.`；源码注释英文；文档中文。
-- 公共命名空间 ≤2（`render::skia`）；新函数 `snake_case`。
-- `//src/render/skia:skia` 经 `//:ui_views`；**永不**默认进 `//src:src_all`。
+- 公共命名空间 ≤2（`ui::gfx`）；新函数 `snake_case`。
+- `//src/ui/gfx:gfx` 经 `//:ui_views`；**永不**默认进 `//src:src_all`。
 
 ## File map
 
 | Path | Responsibility |
 | --- | --- |
-| `src/render/skia/canvas.h` | 公开 `Canvas` + `Size`；最小 API |
-| `src/render/skia/canvas.cc` | GDI stub 实现（fill/stroke/line/text/measure/clip/save/restore） |
-| `src/render/skia/color.h` | 保持 ARGB；本计划不改语义 |
-| `src/render/skia/BUILD.gn` | `source_set("skia")`；可选真 Skia 源 / 开关 |
-| `src/render/skia/README.md` | stub 说明 + 真 Skia pin / 准入 |
+| `src/ui/gfx/canvas.h` | 公开 `Canvas` + `Size`；最小 API |
+| `src/ui/gfx/canvas.cc` | GDI stub 实现（fill/stroke/line/text/measure/clip/save/restore） |
+| `src/ui/gfx/color.h` | 保持 ARGB；本计划不改语义 |
+| `src/ui/gfx/BUILD.gn` | `source_set("gfx")`；可选真 Skia 源 / 开关 |
+| `src/ui/gfx/README.md` | stub 说明 + 真 Skia pin / 准入 |
 | `src/ui/views/kernel/theme.cc` | `draw_focus_ring` 改用 `stroke_rect` |
 | `src/ui/views/gis/chart_view.cc` | 轴线改用 `draw_line` / `stroke_rect` |
 | `src/ui/views/views_unittests.cc` | canvas API 行为测试 + 既有回归 |
@@ -55,12 +55,12 @@ Status: active
 ### Task 1: 锁定 API 头文件 + 失败测试（阶段 A 前半）
 
 **Files:**
-- Modify: `src/render/skia/canvas.h`
+- Modify: `src/ui/gfx/canvas.h`
 - Modify: `src/ui/views/views_unittests.cc`
-- Modify: `src/render/skia/README.md`（一句指向 design/plan）
+- Modify: `src/ui/gfx/README.md`（一句指向 design/plan）
 
 **Interfaces:**
-- Produces: `render::skia::Size`；`Canvas::{stroke_rect,draw_line,measure_text,clip_rect,save,restore}` 声明
+- Produces: `ui::gfx::Size`；`Canvas::{stroke_rect,draw_line,measure_text,clip_rect,save,restore}` 声明
 
 - [x] **Step 1: 在 `canvas.h` 增加 `Size` 与新方法声明**
 
@@ -106,7 +106,7 @@ class Canvas {
 在现有 `expect(...)` 风格旁新增一段（可用 memory DC）：
 
 ```cpp
-#include "render/skia/canvas.h"
+#include "ui/gfx/canvas/canvas.h"
 
 void test_skia_canvas_api() {
   HDC screen = GetDC(nullptr);
@@ -116,13 +116,13 @@ void test_skia_canvas_api() {
   HBITMAP bmp = CreateCompatibleBitmap(screen, W, H);
   HGDIOBJ old = SelectObject(mem, bmp);
 
-  render::skia::Canvas c(mem, W, H);
-  c.fill_rect(0, 0, W, H, render::skia::color_rgb(0, 0, 0));
-  c.stroke_rect(2, 2, 20, 10, render::skia::color_rgb(255, 0, 0), 1);
-  c.draw_line(0, 0, 10, 10, render::skia::color_rgb(0, 255, 0), 1);
+  ui::gfx::Canvas c(mem, W, H);
+  c.fill_rect(0, 0, W, H, ui::gfx::color_rgb(0, 0, 0));
+  c.stroke_rect(2, 2, 20, 10, ui::gfx::color_rgb(255, 0, 0), 1);
+  c.draw_line(0, 0, 10, 10, ui::gfx::color_rgb(0, 255, 0), 1);
   c.save();
   c.clip_rect(8, 8, 16, 16);
-  c.fill_rect(0, 0, W, H, render::skia::color_rgb(0, 0, 255));
+  c.fill_rect(0, 0, W, H, ui::gfx::color_rgb(0, 0, 255));
   c.restore();
   const auto sz = c.measure_text(L"Ab");
   expect(sz.width > 0 && sz.height > 0, "measure_text Ab");
@@ -144,7 +144,7 @@ Run: `build.bat views`（或 `ninja -C out views_unittests`）
 
 Expected: 链接/编译失败（未实现的新符号），或测例失败——记下错误后进入 Task 2。
 
-- [x] **Step 4: 更新 `src/render/skia/README.md`**
+- [x] **Step 4: 更新 `src/ui/gfx/README.md`**
 
 加一句：最小 API 与阶段见 `docs/superpowers/specs/2026-09-14-render-skia-canvas-design.md`；实现计划见 `docs/superpowers/plans/2026-09-14-render-skia-canvas.md`。刷新「最后更新」为 2026-09-14。
 
@@ -153,9 +153,9 @@ Expected: 链接/编译失败（未实现的新符号），或测例失败——
 ### Task 2: GDI stub 实现（阶段 A 后半）
 
 **Files:**
-- Modify: `src/render/skia/canvas.cc`
-- Modify: `src/render/skia/canvas.h`（若需 clip 栈成员）
-- Modify: `src/render/skia/BUILD.gn`（仍只需 `gdi32.lib`；**禁止**加 `gdiplus`）
+- Modify: `src/ui/gfx/canvas.cc`
+- Modify: `src/ui/gfx/canvas.h`（若需 clip 栈成员）
+- Modify: `src/ui/gfx/BUILD.gn`（仍只需 `gdi32.lib`；**禁止**加 `gdiplus`）
 
 **Interfaces:**
 - Consumes: Task 1 声明
@@ -260,7 +260,7 @@ Expected: PASS（含 `test_skia_canvas_api` 与既有 Views 用例）。
 - [x] **Step 1: 改写 `draw_focus_ring`**
 
 ```cpp
-void draw_focus_ring(render::skia::Canvas* canvas, const Rect& bounds) {
+void draw_focus_ring(ui::gfx::Canvas* canvas, const Rect& bounds) {
   if (!canvas) {
     return;
   }
@@ -296,17 +296,17 @@ Expected: 全部 PASS / 冒烟退出码 0。
 ### Task 4: 真 Skia 准入脚手架（阶段 C，默认关闭）
 
 **Files:**
-- Modify: `src/render/skia/BUILD.gn`
-- Modify: `src/render/skia/README.md`
+- Modify: `src/ui/gfx/BUILD.gn`
+- Modify: `src/ui/gfx/README.md`
 - Modify: `docs/build/ui-views-skia.md`（Status 段补「canvas：GDI stub 默认；真 Skia 可选」）
-- Create: `src/render/skia/canvas_skia.cc`（阶段 D：本机 pin + 预编译 lib 时链接真后端）
+- Create: `src/ui/gfx/canvas_skia.cc`（阶段 D：本机 pin + 预编译 lib 时链接真后端）
 
 **Interfaces:**
 - Produces: `declare_args()` 中 `smt_has_skia = false`；文档写清 pin 路径约定
 
 - [x] **Step 1: GN 开关（默认 false）**
 
-在合适的 args 文件或 `src/render/skia/BUILD.gn` 顶部：
+在合适的 args 文件或 `src/ui/gfx/BUILD.gn` 顶部：
 
 ```gn
 declare_args() {
@@ -315,11 +315,11 @@ declare_args() {
 }
 ```
 
-`source_set("skia")` 在 `smt_has_skia == false` 时继续只用 `canvas.cc`（GDI）。为 true 时才追加真 Skia TU / include / libs（具体路径写 README，例如本机 `C:/Dev/src/open/.../skia` junction → `third_party/.src/skia`，**与 FlyCube 同模式**）。
+`source_set("gfx")` 在 `smt_has_skia == false` 时继续只用 `canvas.cc`（GDI）。为 true 时才追加真 Skia TU / include / libs（具体路径写 README，例如本机 `C:/Dev/src/open/.../skia` junction → `third_party/.src/skia`，**与 FlyCube 同模式**）。
 
 - [x] **Step 2: README 准入清单**
 
-把 design「真 Skia 准入条件」六条抄入 `src/render/skia/README.md`（中文可；保持与 design 一致）。强调：默认 GDI；开启失败须 fallback，不得让 `build.bat views` 在无 pin 机器上挂。
+把 design「真 Skia 准入条件」六条抄入 `src/ui/gfx/README.md`（中文可；保持与 design 一致）。强调：默认 GDI；开启失败须 fallback，不得让 `build.bat views` 在无 pin 机器上挂。
 
 - [x] **Step 3: 验证默认路径**
 
@@ -356,14 +356,15 @@ Expected: 与 Task 3 相同，全绿。
 - `docs/README.md`（索引）
 - 落地后：`docs/build/ui-views-skia.md` Status 一句
 
-- [ ] **Step 1:** 实现全部 Task 1–4 后，若行为已是 as-built，把本 plan/spec 标 `Status: landed` 并按 `superpowers-docs.mdc` **同一变更**移入 `docs/superpowers/archive/{specs,plans}/`，as-built 事实写入 `docs/build/ui-views-skia.md`。
+- [x] **Step E1:** 运行时双后端（`CanvasBackend` + `shell_canvas_backend` + CLI/env）— 2026-09-28
+- [ ] **Step 1:** 实现全部 Task 后，若行为已是 as-built，把本 plan/spec 标 `Status: landed` 并按 `superpowers-docs.mdc` **同一变更**移入 `docs/superpowers/archive/{specs,plans}/`，as-built 事实写入 `docs/build/ui-views-skia.md`。
 - [ ] **Step 2:** **未**完成实现前保持 `Status: active`；仅文档审阅循环时 revise in place，不开平行空壳。
 
 ---
 
 ## 阶段摘要（审阅用）
 
-1. **边界**：壳 paint = `render::skia`；地图 = RHI/leftover；禁止 RHI 画壳、Skia 画 GIS、GDI+、Qt、整树 vendor。
+1. **边界**：壳 paint = `ui::gfx`；地图 = RHI/leftover；禁止 RHI 画壳、Skia 画 GIS、GDI+、Qt、整树 vendor。
 2. **现状**：仅 `fill_rect` / `draw_text`；边框与轴线靠 1–2px 矩形冒充；无 clip / measure。
 3. **阶段 A**：GDI stub 补齐 `stroke_rect` / `draw_line` / `measure_text` / `clip_rect` / `save` / `restore`。
 4. **阶段 B**：`theme` focus ring、`ChartView` 轴等改用新 API；可选文字测宽。

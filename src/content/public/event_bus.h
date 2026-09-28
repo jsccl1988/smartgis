@@ -6,18 +6,73 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <utility>
 #include <vector>
 
-// Session-scoped typed pub/sub. Not a process singleton. Main thread only.
+#include "content/public/map_types.h"
+
+// Domain facts that already happened, and the session bus that publishes them.
+// Not RPC and not pointer routing. The bus is not a process singleton.
+// Main thread only.
 namespace content {
+
+struct SelectionChanged {
+  uint32_t view_id = 0;
+  std::vector<FeatureId> ids;
+};
+
+struct ExtentChanged {
+  uint32_t view_id = 0;
+  Extent2 extent{};
+};
+
+// Shell / Workspace asked the GPU process to switch map paint.
+// kind: 0 = Track B RHI / GpuScene, 1 = Track A MapLibre.
+struct RenderBackendChanged {
+  uint32_t view_id = 0;
+  uint32_t kind = 0;
+};
+
+// Fired after EditSession::commit succeeds (e.g. draw.* draft → append).
+// Shell status / inspectors subscribe; widgets never hold SmtFeature*.
+struct EditCommitted {
+  uint32_t view_id = 0;
+  FeatureId id{};
+  // Mirrors gis::EditOp without pulling sdb into the event header.
+  enum class Op { kAppend = 0, kDelete = 1, kModify = 2 };
+  Op op = Op::kAppend;
+};
+
+// Stable id string, not a per-module static address. publish() is compiled
+// into tool.dll while tests subscribe from the exe; a function-local static
+// would be a different pointer in each module and the slot would never match.
+template <typename E>
+const char* event_type_name();
+
+template <>
+inline const char* event_type_name<SelectionChanged>() {
+  return "content.SelectionChanged";
+}
+template <>
+inline const char* event_type_name<ExtentChanged>() {
+  return "content.ExtentChanged";
+}
+template <>
+inline const char* event_type_name<RenderBackendChanged>() {
+  return "content.RenderBackendChanged";
+}
+template <>
+inline const char* event_type_name<EditCommitted>() {
+  return "content.EditCommitted";
+}
 
 class EventBus {
   struct Slot {
     std::uint64_t id = 0;
-    const void* type = nullptr;
+    const char* type_name = nullptr;
     std::function<void(const void*)> fn;
   };
 
@@ -31,12 +86,6 @@ class EventBus {
                   slots.end());
     }
   };
-
-  template <typename E>
-  static const void* event_key() {
-    static const char key = 0;
-    return &key;
-  }
 
  public:
   class Connection {
@@ -90,7 +139,7 @@ class EventBus {
     const std::uint64_t id = hub_->next_id++;
     Slot slot;
     slot.id = id;
-    slot.type = event_key<E>();
+    slot.type_name = event_type_name<E>();
     slot.fn = [fn = std::move(fn)](const void* p) {
       fn(*static_cast<const E*>(p));
     };
@@ -105,10 +154,11 @@ class EventBus {
     if (!hub_) {
       return;
     }
-    const void* type = event_key<E>();
+    const char* type_name = event_type_name<E>();
     std::vector<std::function<void(const void*)>> fns;
     for (const Slot& slot : hub_->slots) {
-      if (slot.type == type) {
+      if (slot.type_name != nullptr &&
+          std::strcmp(slot.type_name, type_name) == 0) {
         fns.push_back(slot.fn);
       }
     }

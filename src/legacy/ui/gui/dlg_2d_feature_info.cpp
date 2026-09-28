@@ -153,7 +153,7 @@ void CDlg2DFeatureInfo::UpdateAttGridContent() {
 }
 
 void CDlg2DFeatureInfo::OnBnClickedOk() {
-  // Product chrome writeback is HWND-free: content::apply_named_field via
+  // Product shell writeback is HWND-free: content::apply_named_field via
   // AttributeTable / MapScene. This MFC dialog stays a read-only shell.
   OnOK();
 }

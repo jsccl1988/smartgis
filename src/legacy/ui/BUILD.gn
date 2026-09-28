@@ -3,7 +3,7 @@
 
 import("//build/smartgis.gni")
 
-# MFC chrome → one DLL (dll_stem = ui_legacy).
+# MFC shell → one DLL (dll_stem = ui_legacy).
 # Absorbs: gui / mfc_ex / xview / xcatalog / xambox / stat_chart.
 # App-gated via //src/ui:ui (forwarder) and //:smartgis (smt_build_app).
 # Not in //src:src_all. Endgame toolkit stays //src/ui/views.
@@ -39,6 +39,9 @@ smt_shared_library("ui_legacy") {
     # Explicit: /NODEFAULTLIB ignores #pragma comment(lib) from headers.
     "//src/gis:gis",
   ]
+  # view_2d.h → texture.h Load() includes ximage.h; plugins compile those
+  # headers and need cximage_pub on the include path.
+  public_deps = [ "//third_party:CxImage" ]
 }
 
 # Opt-in aggregator for MFC UI (build.bat app / //:smartgis).

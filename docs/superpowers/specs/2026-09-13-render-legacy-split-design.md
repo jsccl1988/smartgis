@@ -69,7 +69,7 @@ src/legacy/render/
 
 | Consumer | May depend on |
 | --- | --- |
-| `src_all` / 新代码 | `render::rhi`, `render::scene::GpuScene`, `render/math`, `render/skia` |
+| `src_all` / 新代码 | `render::rhi`, `render::scene::GpuScene`, `render/math`, `ui/gfx` |
 | MFC / plugin / xview / tool_group（本轮） | `legacy/render/…`（改断点后仍可编 `legacy_render_all` + `smt_build_app`） |
 | `legacy_render` → `render/rhi` / `render/math` | 允许（单向靠 Facade） |
 | `render` 终局 → `legacy_render` | **禁止** |

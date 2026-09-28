@@ -29,7 +29,7 @@ All rights reserved.
 | `src/base/archive/BUILD.gn` | GN `source_set("archive")`；无 → net |
 | `src/net/pack/pickle.h` | `net::Pickle`；deps → `base/archive` |
 | `src/net/pack/archive.h` | 兼容 shim（`using` 别名；勿经此特化 traits） |
-| `src/base/ipc/codec.h` | encode/decode → `base::Serializer` |
+| `src/base/ipc/codec/codec.h` | encode/decode → `base::Serializer` |
 | `src/net/rpc/wire.h` | `base::binary_format_traits<RpcMessage>` 特化 |
 
 ---

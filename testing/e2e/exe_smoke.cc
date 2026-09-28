@@ -3,7 +3,6 @@
 
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 #include <cwctype>
 #include <string>
 #include <vector>
@@ -14,26 +13,22 @@
 #include <windows.h>
 
 // End-to-end smoke: launch each product exe with --self-test, observe the
-// expected window when the chrome has one, and require exit code 0.
+// expected window when the shell has one, and require exit code 0.
 // Missing binaries are skipped unless --require-all is passed.
 
 namespace {
 
 struct Case {
   const wchar_t* file;
-  const wchar_t* title;  // nullptr = console / no chrome window
+  const wchar_t* title;  // nullptr = console / no shell window
   DWORD timeout_ms;
   bool close_when_visible;  // MFC can sit on a modal after ShowWindow
-  // build.bat e2e leaves CEF off; a leftover SmartGisCef.exe must not fail
-  // --require-all when its Binary Dist / self-test is broken.
-  bool optional;
+  bool optional;            // e.g. CEF — skip unless SMT_SMOKE_CEF=1
 };
 
 const Case kCases[] = {
     {L"SmartGisRender.exe", nullptr, 45000, false, false},
     {L"SmartGisViews.exe", L"SmartGIS Views", 30000, false, false},
-    {L"SmartGisWinui.exe", L"SmartGIS", 45000, false, false},
-    {L"SmartGisCef.exe", L"SmartGIS CEF", 60000, false, true},
     {L"SmartGis.exe", L"SmartGis", 60000, true, false},
 };
 
@@ -186,7 +181,7 @@ RunResult run_case(const std::wstring& dir, const Case& c) {
     if (c.title && !r.window_seen) {
       r.window_seen = window_for_pid(pi.dwProcessId, c.title);
     }
-    // GUI chrome: once the window exists, ask it to quit. MFC may be
+    // GUI shell: once the window exists, ask it to quit. MFC may be
     // sitting on an "error" modal and will not process --self-test quit.
     if (c.close_when_visible && r.window_seen && !asked_close) {
       close_windows_of(pi.dwProcessId);

@@ -1,0 +1,34 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# One present. Compiled into the render DLL. Deps rhi_sources only.
+# Map and atmosphere passes depend on this target, not the reverse.
+# Do not include scene.h, map headers, or atmosphere headers here.
+source_set("graph_sources") {
+  sources = [
+    "frame_graph.cc",
+    "frame_graph.h",
+  ]
+  include_dirs += [ "//src" ]
+  defines = [ "RENDER_EXPORTS" ]
+  deps = [ "//src/render:rhi_sources" ]
+}
+
+group("graph") {
+  public_deps = [ "//src/render:render" ]
+}
+
+test("frame_graph_test") {
+  output_name = "frame_graph_test"
+  sources = [ "frame_graph_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":graph",
+    "//src/effect/map:map_sources",
+    "//src/gis:gis",
+    "//third_party:gdal",
+  ]
+}

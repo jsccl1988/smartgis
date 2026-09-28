@@ -9,6 +9,7 @@ All rights reserved.
 **Status:** accepted（Phase 1+2 已落地；日常停编 MFC，opt-in `build.bat legacy_app`）  
 **Goal:** `src/app` 只保留终局/原型宿主；MFC `SmartGis.exe` 与 MFC chrome 树物理迁出；Views 主入口按编辑→属性表→Catalog→Ambox/插件→3D 升级；对等验收后停编 MFC 壳（源码保留）。  
 **Related:** [`2026-09-13-ui-views-mfc-migration-design.md`](2026-09-13-ui-views-mfc-migration-design.md)、[`2026-09-14-ui-leftover-chrome-parity-design.md`](2026-09-14-ui-leftover-chrome-parity-design.md)、[`docs/build/src-layout.md`](../../build/src-layout.md)、[`docs/build/ui-views-skia.md`](../../build/ui-views-skia.md)、对称先例 [`archive/specs/2026-09-13-tool-legacy-split-design.md`](../archive/specs/2026-09-13-tool-legacy-split-design.md) / [`2026-09-13-render-legacy-split-design.md`](2026-09-13-render-legacy-split-design.md)  
+**Follow-up (subdirectory + SP3 strangler):** [`2026-09-27-legacy-app-subdirectory-layout-design.md`](2026-09-27-legacy-app-subdirectory-layout-design.md) — scheme C inside `legacy/app` + interleaved host extract; does **not** reopen this file’s stop-compile / Views-default locks.  
 **Plan:** [`../plans/2026-09-14-app-legacy-split.md`](../plans/2026-09-14-app-legacy-split.md)
 
 ## Locked decisions
@@ -50,17 +51,22 @@ src/app/
 
 ### `src/legacy/app/`（MFC 壳）
 
+Phase 1 落地时为扁平包。**包内 scheme C 子目录**（`core` / `shell` / `doc` / `view`；根留 `.rc` / `resource.h` / `stdafx` / `res/`）由 [`2026-09-27-legacy-app-subdirectory-layout-design.md`](2026-09-27-legacy-app-subdirectory-layout-design.md) 锁定，勿在本文件另开平行树名（勿用 `views/` 复数兼放 doc）。
+
 ```
 src/legacy/app/
   BUILD.gn                 smt_mfc_executable("app") → SmartGis.exe
                            smt_shared_library("app_core") → dll_stem=app_core
-  smtapp.cpp / smtapp.h    SmtApp（原 app_core/app_smtapp.*）
-  main_frame.* / child_frame.* / smart_* / stdafx.* / resource.* / res/ / *.rc
+  stdafx.* / resource.h / smart_gis.rc / res/     # root freeze
+  core/                    smtapp.* → app_core
+  shell/                   smart_gis.* main_frame.* child_frame.*
+  doc/                     smart_gis_doc.*
+  view/                    smart_*_view.*（thin MFC adapters）
   group("legacy_app_all")
 ```
 
-Include：`"legacy/app/…"`（含 `"legacy/app/smtapp.h"`）。  
-GN：`//src/legacy/app:app`、`//src/legacy/app:app_core`。  
+Include：`"legacy/app/<module>/…"`（PCH 仍为 `"legacy/app/stdafx.h"`）。无扁平路径 shim。  
+GN：`//src/legacy/app:app`、`//src/legacy/app:app_core`（标签冻结）。  
 opt-in：`build.bat legacy_app` → `//:legacy_app_all`；日常 `build.bat app` → Views。
 
 > 注：旧扁平目录 `src/legacy_app/` 已并入本树并删除，勿再并行维护。

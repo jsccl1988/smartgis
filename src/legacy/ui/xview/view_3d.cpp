@@ -4,22 +4,22 @@
 #include "stdafx.h"
 #include "legacy/ui/xview/view_3d.h"
 
-#include "base/core/api.h"
-#include "base/core/listenermanager.h"
+#include "legacy/core/api.h"
+#include "legacy/core/listenermanager.h"
 #include "base/core/log.h"
 #include "content/public/view_host.h"
-#include "legacy/tool/group/3dviewctrltool.h"
-#include "legacy/tool/t_iatoolmanager.h"
-#include "legacy/ui/xview/view_chrome.h"
+#include "legacy/tool/group/view/3dviewctrltool.h"
+#include "legacy/tool/iatool/t_iatoolmanager.h"
+#include "legacy/ui/xview/view_shell.h"
 #include "legacy/ui/xview/view_core.h"
-#include "legacy/render/model3d/cube.h"
-#include "legacy/render/scene3d/map_to_scene.h"
-#include "plugin/legacy/module_manager.h"
-#include "plugin/legacy/plugin_msg.h"
-#include "sys/sysmanager.h"
-#include "tool/camera_nav.h"
-#include "tool/gestures.h"
-#include "tool/workspace.h"
+#include "legacy/render/scene3d/primitive/cube.h"
+#include "legacy/render/scene3d/bridge/map_to_scene.h"
+#include "legacy/plugin/module_manager.h"
+#include "legacy/plugin/plugin_msg.h"
+#include "legacy/sys/sysmanager.h"
+#include "tool/nav/camera_nav.h"
+#include "tool/draft/draft.h"
+#include "tool/workspace/workspace.h"
 
 using namespace render;
 using namespace sys;
@@ -111,7 +111,7 @@ void Smt3DXView::Dump(CDumpContext &dc) const { SmtXView::Dump(dc); }
 // Smt3DXView 锟斤拷息锟斤拷锟斤拷锟斤拷锟斤拷
 
 LRESULT Smt3DXView::WindowProc(UINT message, WPARAM wParam, LPARAM lParam) {
-  if (dispatch_chrome_message(view_host(), m_hWnd, message, wParam, lParam)) {
+  if (dispatch_shell_message(view_host(), m_hWnd, message, wParam, lParam)) {
     if (message == WM_MOUSEWHEEL || message == WM_MOUSEHWHEEL) {
       return TRUE;
     }
@@ -333,6 +333,11 @@ SmtGroupToolFactory::DestoryGroup3DTool(m_p3DViewCtrlTool);
 
   LOGGING(LOG_INFO, "Destory Group3DTools ok!");
 
+  // Drop scene objects while the GL context is still current. The view
+  // destructor also deletes m_pScene; doing it here avoids GL calls after
+  // Destroy() has deleted the context.
+  SMT_SAFE_DELETE(m_pScene);
+
   if (m_p3DRenderDevice) {
     m_p3DRenderDevice->Destroy();
     m_p3DRenderDevice = NULL;
@@ -468,7 +473,7 @@ SmtGroupToolFactory::CreateGroup3DTool(m_p3DViewCtrlTool,
 
   m_p3DViewCtrlTool->SetActive();
 
-  // Bound Workspace so chrome gestures (GID_PAN / HWHEEL) reach view3d.*.
+  // Bound Workspace so shell gestures (GID_PAN / HWHEEL) reach view3d.*.
   if (!view_host()) {
     reset_view_host(new content::ViewHost());
   }

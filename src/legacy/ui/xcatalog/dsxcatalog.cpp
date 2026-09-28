@@ -4,14 +4,14 @@
 #include "stdafx.h"
 #include "dsxcatalog.h"
 
-#include "base/core/api.h"
+#include "legacy/core/api.h"
 #include "base/core/log.h"
 #include "legacy/ui/xcatalog/mapmgr.h"
 #include "legacy/ui/xcatalog/xcatalog_core.h"
 #include "gis/datasource/mgr/datasource_mgr.h"
-#include "gis/feature/feature_api.h"
-#include "gis/map/map.h"
-#include "sys/sysmanager.h"
+#include "gis/model/feature/feature_api.h"
+#include "gis/model/map/map.h"
+#include "legacy/sys/sysmanager.h"
 
 // using namespace Smt_GIS;
 // using namespace Smt_SDEDevMgr;

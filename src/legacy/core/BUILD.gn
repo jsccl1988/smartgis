@@ -1,0 +1,33 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Leftover Smt listener / command / msg / api / structs / assert.
+# Compiled into //src/base:base (base.dll).
+# Same absorption pattern as //src/legacy/xml:xml_sources and
+# //src/legacy/sys:sys_sources.
+
+source_set("core_sources") {
+  configs += [ "//build:legacy" ]
+  deps = [
+    "//src/base:foundation",
+    "//third_party:CxImage",
+  ]
+  defines = [
+    "_USRDLL",
+    "BASE_EXPORTS=1",
+  ]
+  sources = [
+    "api.cpp",
+    "core_assert.cpp",
+    "command.cpp",
+    "listener.cpp",
+    "listenermanager.cpp",
+    "msg.cpp",
+  ]
+}
+
+group("core") {
+  public_deps = [ "//src/base:base" ]
+}

@@ -3,8 +3,8 @@
 
 import("//build/smartgis.gni")
 
-# Foundation (mogu-aligned, mostly header-only) + product platform DLL.
-# Disk stem for the shared library: platform → platform.dll / platform_d.dll.
+# Foundation (mogu-aligned, mostly header-only) + product base DLL.
+# Disk stem matches the src/ top-level tree: base → base.dll / base_d.dll.
 # #include "base/..." resolves via //src (see BUILDCONFIG / //build:legacy).
 
 config("foundation_config") {
@@ -41,37 +41,26 @@ group("core") {
   public_deps = [ ":base" ]
 }
 
+# //src/base/math:{math,bounds} stay separate source_sets, outside this DLL.
 smt_shared_library("base") {
-  dll_stem = "platform"
-  defines = [
-    "BASE_EXPORTS",
-    "CORE_EXPORTS=1",
-    "STYLE_EXPORTS=1",
-    "SYS_EXPORTS=1",
-    "NET_EXPORTS",
-  ]
+  dll_stem = "base"
+  defines = [ "BASE_EXPORTS" ]
   deps = [
     ":foundation",
-    "//src/base/core:core_sources",
     "//src/base/carto:carto_sources",
+    "//src/legacy/core:core_sources",
     "//src/legacy/xml:xml_sources",
-    "//src/sys:sys_sources",
-    "//src/net:net_sources",
+    "//src/legacy/sys:sys_sources",
   ]
-  public_deps = [
-    "//src/base/archive:archive",
-    "//third_party:asio",
-    "//third_party:cpp_httplib",
-  ]
-  libs = [ "ws2_32.lib" ]
+  public_deps = [ "//src/base/archive:archive" ]
 }
 
-# Alias for the disk stem name (same DLL as :base).
+# Legacy GN label; same DLL as :base (disk stem is base, not platform).
 group("platform") {
   public_deps = [ ":base" ]
 }
 
-# Optional aggregator (foundation + platform DLL).
+# Optional aggregator (foundation + base DLL).
 group("base_all") {
   public_deps = [
     ":foundation",

@@ -1,7 +1,8 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Provider drivers (QGIS providers/*, GDAL/OGR drivers). Merged into //src/gis:gis.
+# Provider drivers (QGIS providers/*). Children: mgr, gdal (register), ogr (codec), sdbd (remote).
+# Merged into //src/gis:gis.
 group("datasource") {
   public_deps = [ "//src/gis:gis" ]
 }

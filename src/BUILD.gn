@@ -1,18 +1,19 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Platform DLL merge in progress (see docs/superpowers/plans/2026-09-14-dll-reorganization.md).
-# base / algorithm / gis = one DLL each. Do not add MFC/D3D/exe here.
-# Exe is //src/legacy/app:app via root //:smartgis / build.bat legacy_app.
-# WinUI / Views hosts live under src/app/ and are not in src_all.
+# Product import-link DLL graph (see docs/superpowers/specs/2026-09-14-dll-reorganization-design.md).
+# Stems: base, gis, render, net, content, tool (+ optional leftover / ui_legacy).
+# ui_views / plugin_host are pulled by //src/app/views (SmartGisViews), not here.
+# Do not add MFC/D3D/exe. Exe: //src/legacy/app:app (legacy) or //src/app/views.
 #
 # SP5 shell compile gate: default product library graph must not pull leftover
-# engines / MFC chrome. Opt-in: //:legacy_all, build.bat legacy_app|ui_legacy,
+# engines / MFC shell. Opt-in: //:legacy_all, build.bat legacy_app|ui_legacy,
 # ninja legacy_render|legacy_tool. See docs/build/src-layout.md § Shell compile gate.
 
 group("src_all") {
-  # Forbid leftover DLL aggregators and MFC chrome in the default library graph.
-  # //src/legacy/xml is absorbed into platform.dll and is intentionally allowed.
+  # Forbid leftover DLL aggregators and MFC shell in the default library graph.
+  # //src/legacy/{xml,sys} are absorbed into base.dll and are intentionally
+  # allowed (groups forward to //src/base:base; not listed in assert_no_deps).
   assert_no_deps = [
     "//src/legacy/app:*",
     "//src/legacy/render:legacy_render",
@@ -24,20 +25,16 @@ group("src_all") {
     "//src/ui:ui_legacy",
   ]
   deps = [
-    # hosted map ABI (mgis content::MapView role; source_set, not a DLL)
-    "//src/content:content",
-    # foundation DLL (labels below all forward to //src/base:base)
-    "//src/base:core",
-    "//src/sys:sys",
+    # Product DLLs (import-link)
     "//src/base:base",
+    "//src/base:core",  # group → :base
+    "//src/legacy/sys:sys",  # group → :base
     "//src/net:net",
-    # algorithm DLL (geo / proj / tin / stat source_sets)
-    "//src/algorithm:algorithm",
-    # gis DLL (map/feature / sde_* / tile / assets / world / edit / style)
     "//src/gis:gis",
-    # render DLL (endgame rhi/scene/skia/math; not legacy_render)
     "//src/render:render_all",
+    "//src/content:content",
+    "//src/tool:tool",
+    # Leftover AuxModule runtime (LoadLibrary *.am); not plugin_host.dll
     "//src/plugin:plugin",
-    "//src/tool:dispatch",
   ]
 }

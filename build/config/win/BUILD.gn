@@ -242,10 +242,16 @@ config("win_macros") {
 
 config("target_arch") {
   if (target_cpu == "x86") {
+    # Required when TUs include <windef.h>/<winnt.h> before <windows.h>.
+    defines = [ "_X86_" ]
     ldflags = [ "/MACHINE:X86" ]
     arflags = [ "/MACHINE:X86" ]
   } else {
     assert(vs_version >= 80)
+    # MSVC predefines _M_X64; the Windows SDK still needs _AMD64_ for
+    # winnt.h PROBE_ALIGNMENT when windef.h is included ahead of windows.h
+    # (legacy core.h and similar).
+    defines = [ "_AMD64_" ]
     ldflags = [ "/MACHINE:X64" ]
     arflags = [ "/MACHINE:X64" ]
   }

@@ -5,7 +5,7 @@
 #include "legacy/ui/xcatalog/dlg_sel_fcls.h"
 
 #include "legacy/ui/xcatalog/xcatalog_core.h"
-#include "gis/feature/feature.h"
+#include "gis/model/feature/feature.h"
 
 using namespace gis;
 // CDLgSelFcls 뿯宽话框

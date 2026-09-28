@@ -5,7 +5,7 @@ All rights reserved.
 
 # Views L2 pixel goldens
 
-PNG baselines for `views_pixel_tests.exe` (shell chrome only; no map viewport pixels).
+PNG baselines for `views_pixel_tests.exe` (shell widgets only; no map viewport pixels).
 
 | File | Scene |
 | --- | --- |

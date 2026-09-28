@@ -18,7 +18,7 @@ Applies to **new** trees (`core/`, `src/` new modules, `algorithm/`). Legacy `br
 
 | Layer | Role | Examples |
 | --- | --- | --- |
-| 1–2 | **Public** API / module identity | `core`, `core::math`, `geo`, `ui::views`, `render::skia` |
+| 1–2 | **Public** API / module identity | `core`, `core::math`, `geo`, `ui::views`, `ui::gfx` |
 | 3 | **`detail` only** (internals) | `core::detail`, `geo::detail`, `ui::views::detail` |
 
 ## Hybrid placement

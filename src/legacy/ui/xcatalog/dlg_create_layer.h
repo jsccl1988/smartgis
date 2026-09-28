@@ -2,7 +2,7 @@
 
 #include "legacy/ui/xcatalog/resource.h"
 // CDlgCreateLayer �Ի���
-#include "base/core/bas_struct.h"
+#include "legacy/core/bas_struct.h"
 
 class CDlgCreateLayer : public CDialog {
   DECLARE_DYNAMIC(CDlgCreateLayer)

@@ -12,6 +12,8 @@ config("flycube_headers") {
     "$_flycube_root/3rdparty/glm",
     "$_flycube_root/3rdparty/gli",
     "$_flycube_root/3rdparty/Vulkan-Headers/include",
+    # FlyCube DX headers use <directx/d3d12.h>; some TUs also use <d3d12.h>.
+    "$_flycube_root/3rdparty/DirectX-Headers/include",
     "$_flycube_root/3rdparty/DirectX-Headers/include/directx",
     "$_flycube_root/3rdparty/SPIRV-Cross",
   ]

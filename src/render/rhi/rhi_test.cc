@@ -1,9 +1,11 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
+#include "render/programs/programs.h"
 #include "render/rhi/rhi.h"
 
 #include <cmath>
+#include <cstring>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -118,6 +120,12 @@ int main() {
   expect(null->initialize(DeviceDesc()), "null initialize");
   expect(null->backend() == Backend::kNull, "null backend");
 
+  // Stub adapters keep Backend tags; no real GDI/GL raster required.
+  std::unique_ptr<render::rhi::Device> gdi(create_device(Backend::kGdi));
+  expect(gdi != nullptr && gdi->backend() == Backend::kGdi, "gdi backend id");
+  std::unique_ptr<render::rhi::Device> gl(create_device(Backend::kGl));
+  expect(gl != nullptr && gl->backend() == Backend::kGl, "gl backend id");
+
   // One CommandList covers draw / buffer / texture / camera / solid recording.
   // Multiple create/destroy cycles have hung under FlyCube-linked headless
   // hosts (operator delete / allocator), so keep a single list and leak it.
@@ -203,89 +211,90 @@ int main() {
     mul_col(cam.proj, eye[0], eye[1], eye[2], clip);
     expect(clip[3] > 0.05f, "nearby mesh point has positive clip w");
   }
-  list->set_solid_color(0.1f, 0.2f, 0.3f, 0.4f);
-  expect(stub->set_solid_color_calls == 1, "set_solid_color recorded");
-  expect(stub->solid_r == 0.1f && stub->solid_g == 0.2f &&
-             stub->solid_b == 0.3f && stub->solid_a == 0.4f,
-         "solid rgba values");
+  const char* k_graphics_vs =
+      "float4 main(float3 pos : POSITION) : SV_POSITION { return float4(pos, 1.0); }";
+  const char* k_graphics_ps = R"(
+cbuffer ColorCB : register(b0)
+{
+    float4 color;
+};
+float4 main() : SV_TARGET { return color; }
+)";
+  const render::rhi::BindingSlot graphics_slots[] = {
+      {.slot = 0,
+       .kind = render::rhi::BindingKind::kConstantBuffer,
+       .stage = render::rhi::ShaderStage::kPixel,
+       .size_bytes = 16,
+       .hlsl_name = "ColorCB"},
+  };
+  render::rhi::GraphicsPipelineDesc graphics_desc;
+  graphics_desc.vertex.hlsl = k_graphics_vs;
+  graphics_desc.pixel.hlsl = k_graphics_ps;
+  graphics_desc.bindings = graphics_slots;
+  graphics_desc.binding_count = 1;
+  graphics_desc.camera_slot = -1;
+  render::rhi::Pipeline* graphics =
+      null->create_graphics_pipeline(graphics_desc);
+  expect(graphics != nullptr, "graphics pipeline");
+  const float color_rgba[4] = {0.1f, 0.2f, 0.3f, 0.4f};
+  list->set_pipeline(graphics);
+  list->set_constants(0, color_rgba, sizeof(color_rgba));
+  expect(stub->set_pipeline_calls == 1, "set_pipeline recorded");
+  expect(stub->last_pipeline == graphics, "graphics pipeline pointer");
+  expect(stub->set_constants_calls == 1, "set_constants recorded");
+  const render::rhi::StubCommandList::ConstantRecord* color_rec =
+      stub->constant_at(0);
+  expect(color_rec && color_rec->has_bytes &&
+             color_rec->byte_size == sizeof(color_rgba),
+         "color constant size");
+  expect(color_rec &&
+             std::memcmp(color_rec->bytes, color_rgba, sizeof(color_rgba)) == 0,
+         "color constant bytes");
 
-  list->set_pipeline(render::rhi::PipelineId::kOcean);
   list->set_blend_mode(render::rhi::BlendMode::kSrcAlpha);
   list->set_depth_mode(render::rhi::DepthMode::kTestOnly);
-  render::rhi::OceanGpuParams ocean_p;
-  ocean_p.height_scale = 2.5f;
-  list->set_ocean_params(ocean_p);
-  render::rhi::CloudGpuParams cloud_p;
-  cloud_p.cover = 0.6f;
-  list->set_cloud_params(cloud_p);
-  expect(stub->set_pipeline_calls == 1, "set_pipeline recorded");
-  expect(stub->last_pipeline == render::rhi::PipelineId::kOcean,
-         "pipeline id ocean");
   expect(stub->last_blend == render::rhi::BlendMode::kSrcAlpha, "blend srcA");
   expect(stub->last_depth == render::rhi::DepthMode::kTestOnly, "depth test");
-  expect(stub->set_ocean_params_calls >= 1, "ocean params");
-  expect(stub->last_ocean.height_scale == 2.5f, "ocean height scale");
-  ocean_p.disp_scale = 1.75f;
-  list->set_ocean_params(ocean_p);
-  expect(stub->last_ocean.disp_scale == 1.75f, "ocean disp scale");
-  expect(stub->set_cloud_params_calls == 1, "cloud params");
-  expect(stub->last_cloud.cover == 0.6f, "cloud cover");
-
-  // Task 2: LightParams + kLitSolid (Null recording).
-  list->set_pipeline(render::rhi::PipelineId::kLitSolid);
-  render::rhi::LightParams light{};
-  light.dir[0] = -0.4f;
-  light.dir[1] = -0.8f;
-  light.dir[2] = -0.35f;
-  light.ambient = 0.25f;
-  light.color[0] = 1.f;
-  light.color[1] = 0.95f;
-  light.color[2] = 0.9f;
-  light.intensity = 1.1f;
-  list->set_light_params(light);
-  expect(stub->set_pipeline_calls == 2, "set_pipeline lit solid");
-  expect(stub->last_pipeline == render::rhi::PipelineId::kLitSolid,
-         "pipeline id lit solid");
-  expect(static_cast<uint32_t>(render::rhi::PipelineId::kLitSolid) == 5u,
-         "kLitSolid after kCloud without renumber");
-  expect(static_cast<uint32_t>(render::rhi::PipelineId::kOcean) == 3u &&
-             static_cast<uint32_t>(render::rhi::PipelineId::kCloud) == 4u,
-         "ocean/cloud ids unchanged");
-  expect(stub->set_light_params_calls == 1, "set_light_params recorded");
-  expect(stub->last_light.ambient == 0.25f, "light ambient");
-  expect(stub->last_light.intensity == 1.1f, "light intensity");
-  expect(stub->last_light.color[1] == 0.95f, "light color g");
 
   expect(!null->supports_compute(), "null supports_compute false");
-  list->set_compute_pipeline(render::rhi::ComputePipelineId::kOceanSpectrum);
-  render::rhi::OceanFftGpuParams fft_p;
-  fft_p.size = 32;
-  fft_p.log2_size = 5;
-  fft_p.spectrum_model =
-      static_cast<uint32_t>(render::rhi::OceanSpectrumModel::kJonswap);
-  fft_p.disp_scale = 0.9f;
-  fft_p.chop = 1.0f;
-  list->set_ocean_fft_params(fft_p);
+  const char* k_compute = R"(
+cbuffer ParamsCB : register(b0)
+{
+    float4 params;
+};
+[numthreads(1, 1, 1)]
+void main() {}
+)";
+  const render::rhi::BindingSlot compute_slots[] = {
+      {.slot = 0,
+       .kind = render::rhi::BindingKind::kConstantBuffer,
+       .stage = render::rhi::ShaderStage::kCompute,
+       .size_bytes = 16,
+       .hlsl_name = "ParamsCB"},
+  };
+  render::rhi::ComputePipelineDesc compute_desc;
+  compute_desc.compute.hlsl = k_compute;
+  compute_desc.bindings = compute_slots;
+  compute_desc.binding_count = 1;
+  render::rhi::Pipeline* compute = null->create_compute_pipeline(compute_desc);
+  expect(compute != nullptr, "compute pipeline");
+  const float compute_words[4] = {32.f, 5.f, 0.9f, 1.f};
+  list->set_pipeline(compute);
+  list->set_constants(0, compute_words, sizeof(compute_words));
   list->bind_compute_uav(tex, 0);
   list->dispatch(4, 4, 1);
   list->uav_barrier();
-  expect(stub->set_compute_pipeline_calls == 1, "compute pipeline recorded");
-  expect(stub->last_compute_pipeline ==
-             render::rhi::ComputePipelineId::kOceanSpectrum,
-         "compute id spectrum");
-  expect(stub->set_ocean_fft_params_calls == 1, "fft params");
-  expect(stub->last_ocean_fft.size == 32, "fft size");
-  expect(stub->last_ocean_fft.spectrum_model ==
-             static_cast<uint32_t>(render::rhi::OceanSpectrumModel::kJonswap),
-         "jonswap model");
-  expect(stub->last_ocean_fft.disp_scale == 0.9f, "fft disp_scale");
-
-  list->set_compute_pipeline(
-      render::rhi::ComputePipelineId::kOceanDisplacementSpectrum);
+  expect(stub->set_pipeline_calls == 2, "compute set_pipeline");
+  expect(stub->last_pipeline == compute, "compute pipeline pointer");
+  expect(stub->set_constants_calls == 2, "compute constants recorded");
+  const render::rhi::StubCommandList::ConstantRecord* compute_rec =
+      stub->constant_at(0);
+  expect(compute_rec && compute_rec->has_bytes &&
+             compute_rec->byte_size == sizeof(compute_words) &&
+             std::memcmp(compute_rec->bytes, compute_words,
+                         sizeof(compute_words)) == 0,
+         "compute constant bytes");
   list->dispatch(4, 4, 1);
-  expect(stub->last_compute_pipeline ==
-             render::rhi::ComputePipelineId::kOceanDisplacementSpectrum,
-         "displace pipeline");
   expect(stub->bind_compute_uav_calls == 1, "bind uav");
   expect(stub->dispatch_calls == 2, "dispatch");
   expect(stub->last_dispatch_x == 4 && stub->last_dispatch_y == 4,
@@ -330,8 +339,8 @@ int main() {
 
   expect(!public_header_includes_flycube("rhi.h"),
          "public rhi.h must not include FlyCube");
-  expect(wrap_tu_includes_flycube("flycube_rhi.cc"),
-         "wrap TU flycube_rhi.cc may include FlyCube");
+  expect(wrap_tu_includes_flycube("flycube/device.cc"),
+         "wrap TU flycube/device.cc may include FlyCube");
 
   null->shutdown();
 
@@ -382,9 +391,15 @@ int main() {
       clear.height = 64;
       plist->begin_render_pass(clear);
       plist->set_viewport(0, 0, 64, 64, 0, 1);
-      plist->set_solid_color(0.2f, 0.4f, 0.6f, 1.f);
+      render::rhi::Pipeline* lit =
+          dx12->create_graphics_pipeline(render::programs::lit_pipeline_desc());
+      expect(lit != nullptr, "lit pipeline");
+      const render::programs::Color clear_tint{0.2f, 0.4f, 0.6f, 1.f};
+      plist->set_pipeline(lit);
+      plist->set_constants(render::programs::kColorSlot, &clear_tint,
+                           static_cast<uint32_t>(sizeof(clear_tint)));
 
-      // Task 5: lit solid smoke — pos+normal triangle through kLitSolid.
+      // Lit solid smoke — pos+normal triangle through the shared lit program.
       const float lit_verts[] = {
           0.f,  0.5f, 0.f, 0.f, 0.f, 1.f,   // tip
           -0.5f, -0.5f, 0.f, 0.f, 0.f, 1.f,  // BL
@@ -404,18 +419,20 @@ int main() {
           render::rhi::make_orbit_camera(0.f, 0.35f, 3.2f, 0.785398f,
                                          1.f /* aspect */, 0.1f, 100.f);
       plist->bind_camera(lit_cam);
-      plist->set_pipeline(render::rhi::PipelineId::kLitSolid);
-      render::rhi::LightParams gpu_light{};
-      gpu_light.dir[0] = -0.4f;
-      gpu_light.dir[1] = -0.8f;
-      gpu_light.dir[2] = -0.35f;
+      render::programs::Light gpu_light{};
+      gpu_light.dir_x = -0.4f;
+      gpu_light.dir_y = -0.8f;
+      gpu_light.dir_z = -0.35f;
       gpu_light.ambient = 0.25f;
-      gpu_light.color[0] = 1.f;
-      gpu_light.color[1] = 0.95f;
-      gpu_light.color[2] = 0.9f;
+      gpu_light.color_r = 1.f;
+      gpu_light.color_g = 0.95f;
+      gpu_light.color_b = 0.9f;
       gpu_light.intensity = 1.1f;
-      plist->set_light_params(gpu_light);
-      plist->set_solid_color(0.35f, 0.65f, 0.9f, 1.f);
+      plist->set_constants(render::programs::kLightSlot, &gpu_light,
+                           static_cast<uint32_t>(sizeof(gpu_light)));
+      const render::programs::Color albedo{0.35f, 0.65f, 0.9f, 1.f};
+      plist->set_constants(render::programs::kColorSlot, &albedo,
+                           static_cast<uint32_t>(sizeof(albedo)));
       plist->bind_vertex_buffer(lit_vb, 0, 6u * sizeof(float));
       plist->bind_index_buffer(lit_ib, 0);
       plist->draw_indexed(3, 1, 0, 0, 0);
@@ -427,6 +444,7 @@ int main() {
       std::fprintf(stdout, "rhi_test: dx12 present ok\n");
       std::fprintf(stdout, "rhi_test: lit ok\n");
       // Release GPU buffers before device shutdown (avoids teardown races).
+      dx12->destroy_pipeline(lit);
       dx12->destroy_buffer(lit_ib);
       dx12->destroy_buffer(lit_vb);
     }

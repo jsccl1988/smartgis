@@ -1,5 +1,9 @@
 /out
 /out_*
+# Local cdb sessions and minidumps. Canonical dumps stay under /out/crash.
+/crash/
+*.dmp
+*.mdmp
 /vendor
 # CEF Binary Dist unpack (README under third_party/cef stays tracked).
 /third_party/cef/binary/

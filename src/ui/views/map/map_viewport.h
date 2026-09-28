@@ -4,16 +4,25 @@
 #ifndef UI_VIEWS_MAP_VIEWPORT_H_
 #define UI_VIEWS_MAP_VIEWPORT_H_
 
+#include "ui/ui_views_export.h"
+#include <atomic>
+#include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <functional>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <vector>
 
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <windows.h>
 
+#include "ui/gfx/raster/shell_raster.h"
 #include "ui/views/map/touch_multitouch.h"
-#include "ui/views/kernel/view.h"
+#include "ui/views/kernel/view/view.h"
 
 namespace content {
 class MapContents;
@@ -25,7 +34,12 @@ namespace views {
 
 // Native-hosted map pane. Hang is mgis-like: parent HWND + child HWND.
 // Pixels still come from existing gis + render, or the same PE with --type=gpu.
-class MapViewport : public View {
+//
+// FlyCube present (P4/P5): a process-local Display mailbox thread exclusively
+// owns rhi::Device initialize/resize/present/destroy. WM_PAINT does not call
+// GPU present. BeginFrame (timer stub; DWM clock TODO) decides when to produce.
+// Twin API for OutputSurface draw_and_swap: gpu::PresentMailbox.
+class UI_VIEWS_EXPORT MapViewport : public View {
  public:
   enum class AttachMode {
     kNone,
@@ -58,45 +72,85 @@ class MapViewport : public View {
 
   uint32_t view_id() const { return view_id_; }
 
-  // Prefer content::MapWidgetHostView (OpenView kind from Role). Scene3d tries
-  // FlyCube / present_gpu first by default; set SMT_FORCE_CONTENT_MAPVIEW_3D=1
-  // Default Scene3d: ContentMapView SoT stereo. Opt in FlyCube with
-  // SMT_PREFER_FLYCUBE_3D=1 (or FORCE_CONTENT=1 to force ContentMapView). Map Edit:
-  // OOP / FlyCube / LoadLibrary. SMT_PREFER_GDI_DEVICE=1 skips FlyCube.
+  // Prefer content::MapWidgetHostView (OpenView kind from Role). Scene3d and
+  // Map Edit/Data try FlyCube / present_gpu first by default.
+  // SMT_FORCE_CONTENT_MAPVIEW_3D=1 / SMT_PREFER_FLYCUBE_3D=0 → 3D ContentMapView.
+  // SMT_FORCE_CONTENT_MAPVIEW_2D=1 / SMT_PREFER_FLYCUBE_2D=0 → 2D ContentMapView.
+  // SMT_PREFER_GDI_DEVICE=1 skips FlyCube. SMT_FORCE_GDI_MAP_OVERLAY=1 skips
+  // 2D gpu_present_ (caller uses full GDI MapScene::paint).
   bool attach();
   AttachMode attach_mode() const { return mode_; }
-  // Last Scene3d FlyCube gpu_present_ result (false until a successful present).
-  bool last_gpu_present_ok() const { return last_gpu_present_ok_; }
+  // Last FlyCube present result (updated on the Display mailbox thread).
+  bool last_gpu_present_ok() const {
+    return last_gpu_present_ok_.load(std::memory_order_acquire);
+  }
   const wchar_t* status_text() const { return status_; }
   bool wait_ready(uint32_t timeout_ms);
 
   void detach();
 
-  // Optional chrome overlay after GPU/present (layer vectors, selection).
+  // Optional shell overlay after GPU/present (layer vectors, selection).
   using OverlayPaint = std::function<void(HDC hdc, const RECT& client)>;
   void set_overlay_paint(OverlayPaint fn);
-  // Scene3d + FlyCube: record/draw/present using the hung RHI device.
-  // Signature: (rhi::Device*, width_px, height_px) → present ok.
+  // FlyCube present callback. Runs on the Display mailbox thread (P4), never
+  // synchronously from WM_PAINT. Signature: (rhi::Device*, w, h) → ok.
   using GpuPresentFn =
       std::function<bool(void* rhi_device, uint32_t width_px, uint32_t height_px)>;
   void set_gpu_present(GpuPresentFn fn);
+  // Optional enqueue hook for UI agents that own Commit themselves. When set,
+  // BeginFrame calls this instead of GpuPresentFn. Runs on the Display thread.
+  // UI agent may ignore GpuPresentFn and push CompositorFrame pieces here.
+  using GpuSubmitFn = std::function<bool(void* rhi_device, uint32_t width_px,
+                                         uint32_t height_px,
+                                         uint32_t frame_token)>;
+  void set_gpu_submit(GpuSubmitFn fn);
+  // Stage pane-sized shell overlay (DrawRequest.shell). Generation skips
+  // full re-copy when unchanged. When pixels actually change, requests a map
+  // frame so FlyCube present can fold HUD in-GPU. Callers must filter
+  // chrome-only dirty (BrowserView) so menu hover does not wake maps.
+  void commit_shell_overlay(const uint8_t* bgra, uint32_t width_px,
+                            uint32_t height_px, uint32_t stride_bytes,
+                            uint64_t generation);
+  uint64_t shell_overlay_generation() const {
+    return shell_generation_.load(std::memory_order_acquire);
+  }
+  // Copy staged shell for GpuPresentFn / DrawRequest.shell. Empty when none.
+  bool snapshot_shell_overlay(std::vector<uint8_t>* out_bgra,
+                              ui::gfx::ShellRaster* out_shell,
+                              uint64_t* out_generation) const;
   void* rhi_device() const { return rhi_device_; }
   void invalidate_native();
+
+  // Write the current backbuffer. False when no pixels have been presented.
+  bool export_bmp(const std::string& path) const;
 
   void on_device_scale_factor_changed(float old_scale,
                                      float new_scale) override;
 
  protected:
   HWND create_native_view(HWND parent) override;
-  void paint_self(render::skia::Canvas* canvas) override;
+  void paint_self(ui::gfx::Canvas* canvas) override;
 
  private:
+  enum class DisplayOp {
+    kInit,
+    kResize,
+    kDestroy,
+  };
+
+  struct DisplayTask {
+    DisplayOp op = DisplayOp::kInit;
+    HWND hwnd = nullptr;
+    uint32_t width_px = 0;
+    uint32_t height_px = 0;
+  };
+
   bool try_content_map_view();
   bool try_oop_render();
   bool try_flycube_device();
   bool try_local_device();
   void paint_child_placeholder();
-  // Blit MapWidgetHostView::Latest() (software DIB) into |hdc|. Chrome owns
+  // Blit MapWidgetHostView::Latest() (software DIB) into |hdc|. Shell owns
   // the HWND; GPU only publishes shared pixels (see map_widget_host_view.h).
   bool present_latest_frame(HDC hdc, const RECT& client_rc);
   void start_present_timer();
@@ -108,6 +162,17 @@ class MapViewport : public View {
   bool ensure_backbuffer(int width_px, int height_px);
   void release_backbuffer();
   void paint_map_content(HDC target, const RECT& client_rc);
+
+  void ensure_display_thread();
+  void stop_display_thread();
+  void shutdown_rhi_on_display_thread();
+  void enqueue_display_task(DisplayTask task);
+  void display_thread_main();
+  void display_run_begin_frame();
+  void display_run_present(uint32_t width_px, uint32_t height_px,
+                           uint32_t frame_token);
+  void request_frame();
+  void signal_display();
 
   static LRESULT CALLBACK child_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam,
                                          LPARAM lparam);
@@ -125,12 +190,18 @@ class MapViewport : public View {
   void* local_device_ = nullptr;
   HMODULE local_module_ = nullptr;
   // Owning render::rhi::Device* when AttachMode::kFlyCube.
+  // After init, only the Display mailbox thread may call Device methods.
   void* rhi_device_ = nullptr;
   uint32_t view_id_ = 0;
   uint32_t painted_generation_ = 0;
+  // FlyCube: invalidate only while a frame was requested and not yet presented.
+  std::atomic<uint32_t> frame_request_{1};
+  std::atomic<uint32_t> frame_presented_{0};
   OverlayPaint overlay_paint_;
   GpuPresentFn gpu_present_;
-  bool last_gpu_present_ok_ = false;
+  GpuSubmitFn gpu_submit_;
+  std::atomic<bool> last_gpu_present_ok_{false};
+  bool frame_ready_ = false;
   HDC back_dc_ = nullptr;
   HBITMAP back_dib_ = nullptr;
   HBITMAP back_old_ = nullptr;
@@ -138,6 +209,29 @@ class MapViewport : public View {
   int back_h_ = 0;
   // WM_POINTER touch contacts → midpoint InputEvent (pointer_count >= 2).
   TouchMultitouchTracker touch_tracker_;
+
+  // Display / present mailbox (P4) + BeginFrame timer stub (P5).
+  // kPending while kInit runs. Queue-empty is not failure: the task is popped
+  // before DX12 initialize returns.
+  enum class DisplayInit : int { kIdle = 0, kPending = 1, kOk = 2, kFail = 3 };
+
+  std::mutex display_mu_;
+  std::condition_variable display_cv_;
+  std::thread display_thread_;
+  bool display_stop_ = false;
+  bool display_started_ = false;
+  bool display_destroy_ack_ = false;
+  DisplayInit display_init_ = DisplayInit::kIdle;
+  std::deque<DisplayTask> display_queue_;
+  uint32_t display_client_w_ = 0;
+  uint32_t display_client_h_ = 0;
+  // Pane-cropped shell overlay for DrawRequest.shell / FlyCube overlay.
+  mutable std::mutex shell_mu_;
+  std::vector<uint8_t> shell_bgra_;
+  uint32_t shell_width_px_ = 0;
+  uint32_t shell_height_px_ = 0;
+  uint32_t shell_stride_bytes_ = 0;
+  std::atomic<uint64_t> shell_generation_{0};
 };
 
 }  // namespace views

@@ -5,6 +5,9 @@ All rights reserved.
 
 # SP1: Legacy Tool → Workspace strangler — plan
 
+
+> **Design living:** SP decisions live in [../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md](../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md). This file is the checklist only.
+
 **Date:** 2026-09-19  
 **Status:** active  
 **Spec:** [`../specs/2026-09-19-legacy-tool-workspace-strangler-design.md`](../specs/2026-09-19-legacy-tool-workspace-strangler-design.md)

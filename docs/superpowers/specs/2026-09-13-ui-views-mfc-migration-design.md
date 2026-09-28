@@ -50,7 +50,7 @@ src/ui/views                              公共工具箱 ui::views
   View / Widget / Splitter / Theme / primitives
   GIS widgets + AmboxView + ChartView + MapViewport
 
-src/render/skia                           fill / text 画布（不是控件库）
+src/ui/gfx                           fill / text 画布（不是控件库）
 src/content/public                        ViewHost / PluginHost / MapContents
 src/legacy/ui/{gui,mfc_ex,xview,xcatalog, leftover（parity 前继续编 SmartGis.exe）
         xambox,chart} + src/legacy/app
@@ -65,11 +65,11 @@ Chrome 只 include `content/public`。插件贡献走 `content::PluginHost`；`A
 | `src/ui/views/` | 工具箱内核、原语、GIS 面板、`AmboxView`、`ChartView`、`MapViewport` | toolkit / 本规格 widget |
 | `src/app/views/` | 组合 `Widget` + `Splitter` + tabs；`SmartGisViews.exe` | 产品壳 agent |
 | `src/content/public/` | `ViewHost`、`PluginHost`、`MapContents` | content / plugin |
-| `src/render/skia/` | chrome 画布 | render |
+| `src/ui/gfx/` | chrome 画布 | render |
 | `src/legacy/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | leftover MFC；本轮不删 | 冻结（只修编译） |
 | `src/legacy/app/`（`CMainFrame` / `CView`） | `SmartGis.exe` 直到 parity | 冻结 |
 
-禁止：在 `src/app/views` 再写一套 catalog / ambox / chart 手绘 `View`；禁止 `src/chrome/`；禁止把 leftover `CView` 嵌进 Views。
+禁止：在 `src/app/views` 再写一套 catalog / ambox / chart 手绘 `View`；禁止在 `src/` 下再开与 `ui/views` 平行的独立壳目录；禁止把 leftover `CView` 嵌进 Views。
 
 ## leftover MFC → Views 映射
 

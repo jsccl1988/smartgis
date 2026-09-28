@@ -220,7 +220,7 @@ Run: `build.bat views` — must not require `legacy_ui`.
 **Files:**
 - Modify: `src/tool/command.*` (`for_each` if missing — see chrome-parity plan)
 - Modify: `src/ui/views/ambox_view.*`
-- Modify: `src/app/views/plugin_chrome.*` / `browser_view.*`
+- Modify: `src/app/views/shell/plugin_shell.*` / `browser_view.*`
 
 - [x] **Step 1:** Ensure `CommandCatalog::for_each` exists + tested.
 - [x] **Step 2:** `AmboxView::populate_from_plugin_host` groups by id prefix.

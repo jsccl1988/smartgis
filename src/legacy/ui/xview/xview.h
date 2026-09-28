@@ -19,9 +19,9 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define XVIEW_EXPORT __declspec(dllimport)
 #endif
 
-#include "base/core/core.h"
-#include "base/core/listener.h"
-#include "tool/gestures.h"
+#include "legacy/core/core.h"
+#include "legacy/core/listener.h"
+#include "tool/draft/draft.h"
 using namespace base;
 
 namespace content {
@@ -80,7 +80,7 @@ class XVIEW_EXPORT SmtXView : public CView, public SmtListener {
 
   content::ViewHost* view_host() { return m_pViewHost; }
   void reset_view_host(content::ViewHost* host);
-  bool route_chrome_command(unsigned int msg);
+  bool route_shell_command(unsigned int msg);
   void bind_draft_observer();
   void dispatch_menu_command(unsigned int msg);
   virtual void apply_workspace_draft(const tool::Draft& draft);

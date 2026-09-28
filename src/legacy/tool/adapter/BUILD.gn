@@ -1,0 +1,22 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# GT_MSG_* ? tool::Workspace command ids. source_set only (not legacy_tool DLL).
+# Lives under legacy/tool/adapter so endgame src/tool stays free of leftover maps.
+# Label is //src/legacy/tool/adapter:adapter — outside //src/legacy/tool:*
+# assert_no_deps on src_all / Views (those patterns cover the parent package only).
+# Public API stays namespace tool (callers already use tool::try_execute_gt_msg).
+
+source_set("adapter") {
+  sources = [
+    "msg.cc",
+    "msg.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/tool:command",
+    "//src/tool:workspace",
+  ]
+}

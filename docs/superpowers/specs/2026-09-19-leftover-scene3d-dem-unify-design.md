@@ -7,6 +7,7 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-19  
+**Updated:** 2026-09-28 — host type/path `Scene3dPresenter` / `scene3d_presenter_test`.  
 **Supersedes prior scope:** hosts-only unify; leftover deferred 2a / cancelled 2b.
 
 ## Goal
@@ -18,12 +19,12 @@ Product hosts and leftover `SmartGis.exe` share one DEM authority and match left
 
 ## Approach (locked)
 
-**DemRaster is authority.** Leftover `DemHeightField` is a thin export shell (ABI names kept) that loads/forwards from `gis::DemRaster` (or is filled from it once at seed). `Scene3dController` already seeds via `seed_china_dem_into_world`. Shared framing constants live under `gis/` so Views never `#include` leftover.
+**DemRaster is authority.** Leftover `DemHeightField` is a thin export shell (ABI names kept) that loads/forwards from `gis::DemRaster` (or is filled from it once at seed). `Scene3dPresenter` already seeds via `seed_china_dem_into_world`. Shared framing constants live under `gis/` so Views never `#include` leftover.
 
 ```
 gis::DemRaster  (+ shared frame constants / cutline policy)
         │
-        ├─► Scene3dController → World → GpuScene / GDI paint
+        ├─► Scene3dPresenter → World → GpuScene / GDI paint
         │
         └─► DemHeightField (thin) → StereoTerrain + drape / labels
               owned per seed into SmtScene (not a sticky global skip)
@@ -33,10 +34,10 @@ gis::DemRaster  (+ shared frame constants / cutline policy)
 
 | In | Out |
 | --- | --- |
-| `src/gis/world/**` DemRaster cutline + optional frame helpers | Leftover **2b** (controller replaces GL draw) — cancelled |
+| `src/gis/scene/world/**` DemRaster cutline + optional frame helpers | Leftover **2b** (controller replaces GL draw) — cancelled |
 | `src/app/views/**` (and CEF/Cs only if yaw/cutline API reuse needs it) | SP2 `src/legacy/render/bridge/**` present |
 | `src/legacy/render/scene3d/**` 2a seed / DemHeightField shell | Atmosphere/ocean port into leftover GL |
-| Tests: `dem_raster_test`, `scene3d_controller_test`, `dem_stereo_test` | Force-commit |
+| Tests: `dem_raster_test`, `scene3d_presenter_test`, `dem_stereo_test` | Force-commit |
 
 ## Locked decisions
 
@@ -59,7 +60,7 @@ gis::DemRaster  (+ shared frame constants / cutline policy)
 - Single cutline policy used by `seed_china_dem_into_world` (parity with leftover).
 - Optional small `dem_frame` / constants header: default orbit yaw (and comment tying to `leftover_frame_pose`).
 
-### Hosts (`Scene3dController`)
+### Hosts (`Scene3dPresenter`)
 
 - Default `yaw_` from shared constant; mesh +Z = north; drop temporary `present_gpu` stderr bisect marks when done.
 - Mesh / exaggeration via existing DemRaster path; max_edge may stay 96 unless leftover mesh density must match for A (document if intentionally lower for GPU).
@@ -88,7 +89,7 @@ gis::DemRaster  (+ shared frame constants / cutline policy)
 ## Tests
 
 - `dem_raster_test`: lon/lat axes 上北下南; Tibet higher than Jiangsu; china_dem cutline skip when path matches.
-- `scene3d_controller_test`: default yaw ≈ shared constant; seeded paint / present_gpu.
+- `scene3d_presenter_test`: default yaw ≈ shared constant; seeded paint / present_gpu.
 - `dem_stereo_test`: second seed into a fresh `SmtScene` still gets terrain (no global short-circuit); DemHeightField still builds mesh after DemRaster-backed load.
 - Build: related ninja targets / `build.bat` slices green; **do not commit** unless user asks.
 

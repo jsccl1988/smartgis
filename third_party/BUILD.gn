@@ -119,6 +119,14 @@ group("tinygltf") {
   public_deps = [ "//third_party/gn:tinygltf" ]
 }
 
+group("octree") {
+  public_deps = [ "//third_party/gn:octree" ]
+}
+
+group("CLI11") {
+  public_deps = [ "//third_party/gn:CLI11" ]
+}
+
 group("chromium") {
   public_deps = [ "//third_party/gn:chromium" ]
 }

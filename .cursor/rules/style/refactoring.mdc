@@ -23,6 +23,7 @@ Use this when **replacing a large or tangled implementation** or **moving code b
 ## 2) Subdirectory and module reshaping
 
 - **Match the tree you are in**: after moves, code should still **look like siblings** in that subtree (**`.cursor/rules/style/tree-style.mdc`**). Keep naming, `BUILD.gn` patterns, and include style aligned with peers.
+- **Colocate headers with sources**: `.h` and `.cc` / `.cpp` for the same unit share one directory (**`.cursor/rules/style/colocated-sources.mdc`**). Do not leave headers at the parent while implementations move into a child.
 - **Dependency direction**: refactors must **preserve or improve** layer rules (no new upward deps from `core/` into product chrome; no “shortcut” includes that violate **`docs/build/src-layout.md`**). Update **`BUILD.gn`** `deps` / `public_deps` with every path change so the graph stays honest.
 - **Co-move artifacts**: when relocating implementation, move or re-point **tests** and **path-scoped rules** under **`.cursor/rules/`** in the **same change** when they would otherwise point at stale locations.
 - **API and churn**: prefer keeping **public include paths and binary names** stable; if you must break them, do it **deliberately** in one commit/PR and update **callers + docs** (including **root `README.md`** when behavior or top-level layout changes per **`.cursor/rules/repo/root-readme.mdc`**).
@@ -36,4 +37,4 @@ Use this when **replacing a large or tangled implementation** or **moving code b
 
 ## Relation to other rules
 
-**`.cursor/rules/style/tree-style.mdc`** (local consistency), **`.cursor/rules/style/cxx-standard.mdc`** (traits over parallel copies), **`.cursor/rules/build/build-output.mdc`** (`out/` only; user / `@auto-build-fix` owns when to compile).
+**`.cursor/rules/style/tree-style.mdc`** (local consistency), **`.cursor/rules/style/colocated-sources.mdc`** (header next to its `.cc`/`.cpp`), **`.cursor/rules/style/cxx-standard.mdc`** (traits over parallel copies), **`.cursor/rules/build/build-output.mdc`** (`out/` only; `@auto-build-fix` / agent may compile per **`agent-may-build.mdc`**).

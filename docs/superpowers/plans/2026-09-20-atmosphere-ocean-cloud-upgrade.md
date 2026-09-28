@@ -9,7 +9,7 @@ All rights reserved.
 **Status:** active  
 **Spec (living, accepted):** [`../specs/2026-09-19-atmosphere-ocean-cloud-design.md`](../specs/2026-09-19-atmosphere-ocean-cloud-design.md)  
 **Predecessor plan (v1 scaffold landed):** [`2026-09-19-atmosphere-ocean-cloud.md`](2026-09-19-atmosphere-ocean-cloud.md)  
-**Related:** RHI / GpuScene [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md)；World / GpuScene [`../specs/2026-09-19-scene3d-world-gpuscene-design.md`](../specs/2026-09-19-scene3d-world-gpuscene-design.md)
+**Related:** RHI / GpuScene [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md)；World / GpuScene [`../specs/2026-09-19-scene3d-world-gpuscene-design.md`](../specs/2026-09-19-scene3d-world-gpuscene-design.md)；**子目录布局（已落地）** [`../specs/2026-09-27-atmosphere-subdirectory-layout-design.md`](../specs/2026-09-27-atmosphere-subdirectory-layout-design.md) · [`../archive/plans/2026-09-27-atmosphere-subdirectory-layout.md`](../archive/plans/2026-09-27-atmosphere-subdirectory-layout.md)
 
 > **For agentic workers:** Implement task-by-task with checkboxes. Do **not** reopen v1 API freeze unless this plan explicitly amends the living spec. Stay on `master`. No Cesium Native, no second render engine, no GCM.
 
@@ -39,7 +39,7 @@ All rights reserved.
 
 ## 2. 现状 → 目标差距
 
-依据 living spec + 当前树（`src/gis/atmosphere/*`、`src/render/atmosphere/*`、`Scene3dController`、`rhi.h` PipelineId）。v1 scaffold / FFT / 合成顺序已在 predecessor plan 勾完。
+依据 living spec + 当前树（`src/gis/scene/atmosphere/*`、`src/render/atmosphere/*`、`Scene3dController`、`rhi.h` PipelineId）。v1 scaffold / FFT / 合成顺序已在 predecessor plan 勾完。
 
 | 子系统 | 现状（已有） | 目标（对齐档） | 差距 |
 | --- | --- | --- | --- |
@@ -107,7 +107,7 @@ All rights reserved.
 
 - [x] Phase 3.1：风场可视化（矢量箭头 CPU/GPU **或** `PipelineId` 粒子）— Views：`Scene3dController` GDI 箭头叠图（粒子 Deferred）  
 - [x] Phase 3.2：Views 最小时间轴 + ocean/cloud/wind 开关（AtmospherePanel + BrowserView 接线）  
-- [ ] Phase 3.3：（可选）Sky / aerial LUT；若超预算则标 Deferred 并保持单次散射云  
+- [x] Phase 3.3：（可选）Sky / aerial LUT — **最小 analytical SkyPass + FogPass 已落地**（`kSolid`）；完整 LUT / `kSky` HLSL 仍 Deferred（见 `2026-09-27-sky-fog-terrain-lod.md`）  
 - [ ] Phase 3.4：总验收对照 §1.2 五条  
 
 ---
@@ -156,15 +156,15 @@ All rights reserved.
 **Phase 0/1 场数据基线命令（仓库根）：**
 
 ```bat
-build.bat src/gis/atmosphere:field_store_test
-build.bat src/gis/atmosphere:field_ingest_test
-build.bat src/gis/atmosphere:environment_test
+build.bat src/gis/scene/atmosphere:field_store_test
+build.bat src/gis/scene/atmosphere:field_ingest_test
+build.bat src/gis/scene/atmosphere:environment_test
 out\field_store_test.exe
 out\field_ingest_test.exe
 out\environment_test.exe
 ```
 
-API 缝：`ingest_gdal_field` / `ingest_gdal_field_series` → `FieldStore::upload_slice` / `sample` / `timed_slice_range`；会话级 `Environment::load_external_series` / `scrub_time_sec` / `advance_time_sec` / `clamp_time_to_field`。Views `--atmosphere-fields=` 与键盘 scrub 属宿主车道（非 `src/gis/atmosphere`）。
+API 缝：`ingest_gdal_field` / `ingest_gdal_field_series` → `FieldStore::upload_slice` / `sample` / `timed_slice_range`；会话级 `Environment::load_external_series` / `scrub_time_sec` / `advance_time_sec` / `clamp_time_to_field`。Views `--atmosphere-fields=` 与键盘 scrub 属宿主车道（非 `src/gis/scene/atmosphere`）。
 
 ### 6.2 GPU 可选门禁
 

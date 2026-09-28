@@ -25,7 +25,7 @@ ADO 源码删除由另一条工作流负责。本文不恢复、不重写、不�
 - 文件 / 库 / 内存共用这一套 GDAL 对象。Memory = GDAL Memory 驱动（经 `SDBD:MEM:` 或直接 `Memory`）。
 - 驱动是否编进当前 `gdal_sdk` 是运行时问题。缺 GPKG / PG 时 `Open` 失败并打日志，不另写 C++ 读写器。
 
-产品调用方 ABI 是 `sdb::Feature` / `sdb::MapLayer`（组合持有 `OGRFeature*` / `OGRLayer*`）；事实源与 I/O 仍是 GDAL/OGR。细节见 [`2026-09-13-sdb-feature-maplayer-composition-design.md`](2026-09-13-sdb-feature-maplayer-composition-design.md)。不要再维护 `SmtAttribute` 第二套字段存储（已退出 `gis`；MFC att-struct UI 改读 `OGRLayer`；可选 leftover `//src/sdb/map:leftover_attr`）。
+产品调用方 ABI 是 `sdb::Feature` / `sdb::MapLayer`（组合持有 `OGRFeature*` / `OGRLayer*`）；事实源与 I/O 仍是 GDAL/OGR。细节见 [`2026-09-13-sdb-feature-maplayer-composition-design.md`](2026-09-13-sdb-feature-maplayer-composition-design.md)。不要再维护 `SmtAttribute` 第二套字段存储（已删除；MFC att-struct UI 改读 `OGRLayer`）。
 
 ## Non-goals
 

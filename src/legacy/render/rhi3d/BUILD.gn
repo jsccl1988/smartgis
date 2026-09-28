@@ -1,0 +1,116 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
+# Top directory: legacy/render/rhi3d/ (leftover 3D; sibling of rhi2d/).
+# Layout (B' colocated): abstract API under
+# public/{device,resource,shader,texture,state,camera,bridge}; backends under
+# impl/gl/ (OpenGL) and impl/d3d/ (D3D11).
+# Leftover abstract 3D device + leftover_* strangler; not modern src/render/rhi.
+#
+# Public 3D types are mostly header-inline. Real DLL objects come from
+# impl/{gl,d3d}, public/bridge leftover_*, plus scene3d / rhi2d.
+source_set("rhi_sources") {
+  sources = []
+  public_deps = [
+    "//src/base/math:math",
+    # texture.h Load() includes ximage.h when SMT_3DRENDERDEVICE_COMPLETE.
+    "//third_party:CxImage",
+  ]
+  deps = [
+    "//src/gis/kernel/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+  ]
+}
+
+# Copies leftover SmtVertexBuffer / SmtIndexBuffer onto modern render::rhi.
+source_set("leftover_mesh") {
+  sources = [
+    "public/bridge/leftover_mesh.cc",
+    "public/bridge/leftover_mesh.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+}
+
+test("leftover_mesh_test") {
+  output_name = "leftover_mesh_test"
+  sources = [ "public/bridge/leftover_mesh_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":leftover_mesh",
+    "//src/render:rhi",
+  ]
+}
+
+# Shared leftover 2D + 3D recorder (GpuScene + leftover_mesh).
+source_set("leftover_record") {
+  sources = [
+    "public/bridge/leftover_record.cc",
+    "public/bridge/leftover_record.h",
+    "public/bridge/leftover_session.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  public_deps = [
+    ":leftover_mesh",
+    "//src/base:base",
+    "//src/render:rhi",
+    "//src/effect/scene:scene_sources",
+    "//src/gis/model/map:gis",
+    "//src/gis/vista/world:world",
+  ]
+}
+
+test("leftover_record_test") {
+  output_name = "leftover_record_test"
+  sources = [ "public/bridge/leftover_record_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":leftover_record",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/model/map:gis",
+    "//third_party:gdal",
+  ]
+}
+
+test("leftover_session_test") {
+  output_name = "leftover_session_test"
+  sources = [ "public/bridge/leftover_session_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":leftover_record",
+    "//src/legacy/render/rhi2d:rhi2d",
+  ]
+}
+
+# Convenience aliases — real sources live under impl/{gl,d3d}.
+group("gl_sources") {
+  public_deps = [ "impl/gl:gl_sources" ]
+}
+
+group("d3d_sources") {
+  public_deps = [ "impl/d3d:d3d_sources" ]
+}
+
+group("rhi") {
+  public_deps = [ "//src/legacy/render:legacy_render" ]
+}
+
+# Former //src/legacy/render/gl:render_gl / :gl callers.
+group("gl") {
+  public_deps = [ "//src/legacy/render:legacy_render" ]
+}
+
+group("d3d") {
+  public_deps = [ "//src/legacy/render:legacy_render" ]
+}

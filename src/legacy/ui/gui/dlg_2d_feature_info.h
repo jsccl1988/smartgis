@@ -3,7 +3,7 @@
 #include "legacy/ui/mfc_ex/grid_ctrl_support.h"
 // CDlg2DFeatureInfo �Ի���
 #include "legacy/ui/gui/resource.h"
-#include "gis/feature/feature.h"
+#include "gis/model/feature/feature.h"
 using namespace gis;
 
 class CDlg2DFeatureInfo : public CDialog {

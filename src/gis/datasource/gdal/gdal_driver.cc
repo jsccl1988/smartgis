@@ -9,7 +9,7 @@
 #include <string>
 
 #include "gdal_priv.h"
-#include "gis/datasource/gdal/sdbd_gdal_driver.h"
+#include "gis/datasource/sdbd/decorator/sdbd_gdal_driver.h"
 
 namespace gis {
 namespace datasource {

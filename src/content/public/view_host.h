@@ -8,6 +8,7 @@
 #include <memory>
 #include <string_view>
 
+#include "content/content_export.h"
 #include "content/public/map_types.h"
 
 namespace gis {
@@ -22,9 +23,9 @@ namespace content {
 
 class EventBus;
 
-// Per-map-view chrome composition: Workspace + EventBus + EditSession.
+// Per-map-view shell composition: Workspace + EventBus + EditSession.
 // Public surface has no HWND, SmtMap*, or LPRENDERDEVICE.
-class ViewHost {
+class CONTENT_EXPORT ViewHost {
  public:
   ViewHost();
   explicit ViewHost(gis::EditSession* edits);
@@ -41,7 +42,7 @@ class ViewHost {
   bool activate(std::string_view interaction_id);
   bool dispatch_input(const InputEvent& e);
   // True if gt_msg maps via command_id_from_gt_msg (then execute).
-  // False if unmapped: chrome must not broadcast leftover plugins.
+  // False if unmapped: shell must not broadcast leftover plugins.
   bool execute_legacy(long gt_msg);
   void release_exclusive();
   bool flashing() const;

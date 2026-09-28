@@ -7,23 +7,50 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "content/content_export.h"
 #include "content/public/map_contents_observer.h"
 #include "content/public/map_types.h"
-#include "content/public/map_widget_host_view.h"
 
 // Browser-process session: relaunch this PE with --type=gpu, N
 // MapWidgetHostView surfaces. Hosts include only content/public.
 namespace content {
 
-class MapContents {
+// Hosted map viewport. Shell presents Latest() into its HWND.
+// GPU owns SmtRenderDevice. Do not include sdb or render device headers.
+class CONTENT_EXPORT MapWidgetHostView {
+ public:
+  struct CreateParams {
+    void* parent_hwnd;
+    CreateParams() : parent_hwnd(nullptr) {}
+  };
+
+  struct Preferences {};
+
+  virtual ~MapWidgetHostView() = default;
+
+  virtual void Create(const CreateParams& params,
+                      const Preferences& preferences) = 0;
+  virtual void Destroy() = 0;
+
+  virtual uint32_t ViewId() const = 0;
+  virtual void* NativeHwnd() const = 0;
+
+  virtual void Resize(int width_px, int height_px, float dpi) = 0;
+  virtual void Resize(int x,
+                       int y,
+                       int width_px,
+                       int height_px,
+                       float dpi) = 0;
+  virtual void SetPresentMode(PresentMode mode) = 0;
+  virtual void SetVisible(bool visible) = 0;
+  virtual SharedSurface Latest() const = 0;
+};
+
+class CONTENT_EXPORT MapContents {
  public:
   virtual ~MapContents() = default;
 
   static MapContents* Create();
-  // When set, StartRenderProcess launches this PE instead of this process.
-  // Used by C# / CEF hosts that cannot relaunch themselves as --type=gpu.
-  // Empty / null clears the override.
-  static void SetGpuExeOverride(const wchar_t* utf16_path);
 
   virtual bool StartRenderProcess() = 0;
   virtual void Shutdown() = 0;

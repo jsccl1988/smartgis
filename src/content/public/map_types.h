@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <cstddef>
 
-// Host ABI types for chrome (WebView2 / WinUI / Views). Chrome must not
+// Host ABI types for shell (WebView2 / WinUI / Views). Shell must not
 // include gis_map.h or rd_renderdevice.h.
 namespace content {
 
@@ -68,7 +68,7 @@ struct FeatureId {
   uint8_t len;
 };
 
-// Latest shared pixels. nt_handle is valid in the chrome process
+// Latest shared pixels. nt_handle is valid in the shell process
 // (DuplicateHandle from gpu). After Resize, ignore until FrameReady.
 // Try ID3D11Device::OpenSharedResource1 first; if that fails, MapViewOfFile
 // (software DIB, DXGI_FORMAT_B8G8R8A8_UNORM tightly packed).

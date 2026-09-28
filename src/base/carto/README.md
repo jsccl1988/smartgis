@@ -20,6 +20,6 @@ Namespace remains `base` for these types (ABI/call-site continuity). Export macr
 
 ## DLL
 
-Sources are `carto_sources` → **`//src/base:base`** (product platform DLL, `dll_stem=platform`).
+Sources are `carto_sources` → **`//src/base:base`** (product base DLL, `dll_stem=base`).
 
-They are **not** linked into `gis.dll`: `algorithm/geo` includes `Envelope` while `gis` already depends on `algorithm`, so putting carto in the gis DLL would cycle.
+They are **not** linked into `gis.dll`: `//src/gis/kernel/geo` (inside that DLL) includes `Envelope`, so `gis.dll` depends on platform. Moving carto into `gis.dll` would reverse that.

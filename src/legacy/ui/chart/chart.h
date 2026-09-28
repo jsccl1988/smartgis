@@ -20,8 +20,8 @@ Copyright (c) 2010 CCL. All rights reserved.
 #define STAT_CHART_EXPORT __declspec(dllimport)
 #endif
 
-#include "base/core/bas_struct.h"
-#include "base/core/core.h"
+#include "legacy/core/bas_struct.h"
+#include "legacy/core/core.h"
 #include "legacy/ui/chart/diagramdata.h"
 #include "base/carto/style.h"
 

@@ -1,0 +1,47 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Compiled into //src/gis:gis (dll_stem = gis). :geo is the consumer label.
+source_set("geo_sources") {
+  sources = [
+    "ops/geo_ops.cc",
+    "mesh/grid.cpp",
+    "mesh/tin.cpp",
+  ]
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+  public_deps = [ "//third_party:gdal" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+  ]
+}
+
+group("geo") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+group("geo_all") {
+  public_deps = [ ":geo" ]
+}
+
+test("geo_ogr_test") {
+  output_name = "geo_ogr_test"
+  sources = [ "ops/geo_ogr_test.cc" ]
+  include_dirs += [
+    "//src/gis/kernel/geo",
+    "//src",
+  ]
+  deps = [
+    ":geo",
+    "//src/base/math:math",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}

@@ -7,6 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted  
+**Tree (2026-09-27):** sources are `src/gis/{geo,proj,tin,stat}` and link into `gis.dll` (`//src/gis:gis`; `//src/gis:algorithm` forwards). Paths in this spec that say `src/algorithm` or a separate algorithm DLL are the pre-move layout.  
 **Related:** 三层伞状深度设计（模型 / 渲染 / 计算）见 [`2026-09-13-model-render-compute-design.md`](2026-09-13-model-render-compute-design.md)。产品语言 C++23（traits 写法与本文 C++20 草图兼容）。  
 **Scope:** wrap the already-shipped `gdal_sdk` GEOS C API and PROJ 9; merge math + 3D math + 3D geo into one `SmtGeoCore` DLL; retire self-written projections and the DEM algorithm DLL; move MFC charts to legacy UI. Sibling agents implement by package. This document does not implement C++.
 

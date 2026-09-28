@@ -14,15 +14,15 @@ This is the durable destination. **This pass ports leftover MFC chrome** into `u
 | Role | Choice | Path | Namespace |
 | --- | --- | --- | --- |
 | Shell toolkit (endgame) | Chromium-style Views | `src/ui/views/` | `ui::views` |
-| Chrome paint | Skia canvas (backend only) | `src/render/skia/` | `render::skia` |
+| Shell paint | Skia canvas (backend only) | `src/ui/gfx/` | `ui::gfx` |
 | Product chrome exe | `src/app/` hosts | `src/app/views/` → `out/SmartGisViews.exe` | `app` |
 | Map viewport | Hosted HWND (mgis `content::MapView` hang) | child HWND → `gis` + `render/{gdi,gl}` or OOP `SmartGisRender.exe` | legacy `Smt_*` / `content::` when present |
 | Leftover MFC exe | `SmartGis.exe` until parity | `src/legacy/app/` | — |
 | Legacy chrome | MFC Feature Pack / `src/legacy/ui` (retire after parity) | `src/legacy/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | `Smt_*` |
 
-**Nesting cap** stays `src/<layer>/<module>`. `src/app/views` is OK; do **not** add ad-hoc nests like `src/ui/views/widget/` or `src/app/views/widget/`. Under `src/ui/views`, six **responsibility partitions** (`kernel` / `primitives` / `dialogs` / `gis` / `map` / `testing`) are allowed as public include paths (`"ui/views/kernel/view.h"`); they are not a third semantic UI layer. Paint stays `src/render/skia` (not `src/ui/gfx`) so Skia remains a render backend, not a third UI nest. See [`../superpowers/specs/2026-09-19-ui-views-subdir-responsibility-design.md`](../superpowers/specs/2026-09-19-ui-views-subdir-responsibility-design.md).
+**Nesting cap** stays `src/<layer>/<module>`. `src/app/views` is OK; do **not** add ad-hoc nests at the module root (e.g. `src/ui/views/widget/` outside `kernel/`). Under `src/ui/views`, six **responsibility partitions** (`kernel` / `primitives` / `dialogs` / `gis` / `map` / `testing`) are public include roots; Chromium-aligned subgroups under them are allowed (e.g. `"ui/views/kernel/view/view.h"`, `"ui/views/kernel/widget/widget.h"`). They are not a third semantic UI namespace. Paint stays `src/ui/gfx` (`ui::gfx`) with the same style of public responsibility dirs (`geometry/` · `color/` · `canvas/` · `display_list/` · `raster/` · `image/` · `font/` · `animation/`); includes are `"ui/gfx/<area>/...."`. Skia is the optional canvas backend (`canvas/canvas_skia.cc`, `smt_has_skia`), not a widget kit and not a third semantic namespace. See [`../superpowers/specs/2026-09-19-ui-views-subdir-responsibility-design.md`](../superpowers/specs/2026-09-19-ui-views-subdir-responsibility-design.md) and [`../superpowers/specs/2026-09-14-render-skia-canvas-design.md`](../superpowers/specs/2026-09-14-render-skia-canvas-design.md) § 职责子目录.
 
-Local **mgis** (`c:\Dev\src\gis\mgis`) is WTL + `gui/` + `content::MapView` (`CreateParams { HWND parent_hwnd }`). **mogu** Chromium Views is not on this machine. Naming: `ui/views` = toolkit, `src/app/` = product shells, `render/skia` = canvas.
+Local **mgis** (`c:\Dev\src\gis\mgis`) is WTL + `gui/` + `content::MapView` (`CreateParams { HWND parent_hwnd }`). **mogu** Chromium Views is not on this machine. Naming: `ui/views` = toolkit, `src/app/` = product shells, `ui/gfx` = shell canvas.
 
 [`ui-shell-multiprocess.md`](ui-shell-multiprocess.md) scheme 3 variant **(b)** is this implementation. WinUI, CEF (`SmartGisCef.exe`), and C# WinUI (`SmartGisCs.exe`, `src/app/cs`) may exist as sibling product shells; they are **not** the Views toolkit destination. WebView2 chrome and `src/web` were removed. Qt is banned. CEF design: [`docs/superpowers/specs/2026-09-14-app-cef-hwnd-host-design.md`](../superpowers/specs/2026-09-14-app-cef-hwnd-host-design.md). C# host: [`docs/superpowers/specs/2026-09-15-app-cs-winui-host-design.md`](../superpowers/specs/2026-09-15-app-cs-winui-host-design.md).
 
@@ -37,7 +37,7 @@ Local **mgis** (`c:\Dev\src\gis\mgis`) is WTL + `gui/` + `content::MapView` (`Cr
 | **WebView2 shell + native map** | Sibling prototype only; not the endgame. |
 | Skia **as a widget kit** | No. Skia paints; Views owns widgets. |
 | Vendoring Chromium / Skia wholesale | Out of scope. |
-| Split `src/chrome/` vs leftover `src/app/` | Rejected. Hosts live in `src/app/{views,winui,cef,cs}`. |
+| Split a separate browser-shell tree vs leftover `src/app/` | Rejected. Hosts live in `src/app/{views,winui,cef,cs}`. |
 
 
 `build.bat app` / `build.bat views` build the destination chrome (`SmartGisViews.exe`). Leftover MFC：`build.bat legacy_app`（`smt_build_app`）。
@@ -68,16 +68,17 @@ src/legacy/app/                  leftover MFC SmartGis.exe + app_core
 src/legacy/ui/{gui,mfc_ex,xview, LEGACY chrome + map CView (until parity)
         xcatalog,xambox,chart}
 
-src/render/skia/                 Skia backend (GDI-backed canvas in v1)
-  canvas / paint for Views chrome
-  include: "render/skia/...."
+src/ui/gfx/                 shell paint (GDI-backed canvas in v1)
+  geometry/ color/ canvas/ display_list/ raster/
+  image/ font/ animation/   (thin stubs; not Chromium vendor)
+  include: "ui/gfx/<area>/...."
 
 src/content/public/              optional later: content::MapView
 src/legacy/render/{gdi,gl,…}     leftover map/3D devices (optional DLL)
 src/sdb/{map,feature,layer}      EXISTING map / layers / doc
 ```
 
-GN: `//src/ui/views:views` and `//src/render/skia:skia` are always-loaded source_sets via `//:ui_views`. `//src/app/views:views` (`out/SmartGisViews.exe`) loads only when `smt_build_views=true`. **Not** in `//src:src_all`, **not** a dep of GN `group("all")`.
+GN: `//src/ui/views:views` and `//src/ui/gfx:gfx` are always-loaded source_sets via `//:ui_views`. `//src/app/views:views` (`out/SmartGisViews.exe`) loads only when `smt_build_views=true`. **Not** in `//src:src_all`, **not** a dep of GN `group("all")`.
 
 ## How the map viewport hangs
 
@@ -108,11 +109,11 @@ src/app/views  (SmartGisViews.exe — only product entry)
                 4) labeled placeholder
 ```
 
-Same hang as mgis `content::MapView::CreateParams { HWND parent_hwnd }`: the shell gives the map a parent window; **GIS + render stay C++**. The map is not rewritten as Skia widgets and is not a wrapped `CView`. Chrome paint is the `render::skia` stub (GDI fill/text), not a vendored Skia tree. Migration ownership: [`docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md`](../superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md).
+Same hang as mgis `content::MapView::CreateParams { HWND parent_hwnd }`: the shell gives the map a parent window; **GIS + render stay C++**. The map is not rewritten as Skia widgets and is not a wrapped `CView`. Shell paint is the `ui::gfx` stub (GDI fill/text), not a vendored Skia tree. Migration ownership: [`docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md`](../superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md).
 
 ## Status (v1)
 
-- **Canvas：** 壳 paint 默认 **GDI stub**（`canvas.cc` / `gdi32`）：已具备 `fill_rect` / `stroke_rect` / `draw_line` / `draw_text` / `measure_text` / `clip_rect` / `save` / `restore`；Views focus ring / ChartView 轴已消费描边与线 API。阶段 D：真后端 TU `canvas_skia.cc`；本机 pin 为 WSL graphic-engine/skia 的目录符号链接；匹配的 Windows `skia.lib` 已由本机 MSVC 最小 CPU 构建落到 `third_party/.src/skia_out`（须 `/MDd` 对齐产品 CRT）。`smt_has_skia=true` 时可链接并跑 `views_unittests`；**默认仍关**；不进 `src_all` / `render_all`。见 [`src/render/skia/README.md`](../../src/render/skia/README.md)。
+- **Canvas：** 壳 paint 默认 **GDI**（`canvas_gdi.cc`）；公开 API 经 `canvas.cc` 派发。`smt_has_skia=true` + 本机 pin 时同链真 Skia（`canvas_skia.cc`），运行时 `--shell-canvas=gdi|skia` 或 `SMT_SHELL_CANVAS`（CLI 优先；默认 gdi；未链入则回落）。Views `paint_self` 无 `#ifdef`。几何在 `ui::gfx::geometry`。见 [`src/ui/gfx/README.md`](../../src/ui/gfx/README.md) 与 living [`2026-09-14-render-skia-canvas-design.md`](../superpowers/specs/2026-09-14-render-skia-canvas-design.md) § 运行时后端切换。
 - Toolkit kernel: `Widget`, `View` tree, focus / hover / press / enabled / visible, `schedule_paint`, `Theme`, `FillLayout` / `BoxLayout`, mouse/key/char dispatch, Skia stub canvas.
 - DPI: Per-Monitor V2 when available (`enable_process_dpi_awareness`), `WM_DPICHANGED` / `WM_GETDPISCALEDSIZE` on `Widget`, DIP→px helpers, preferred-size recompute on scale change, map host surface uses real window DPI (not hardcoded 96).
 - Primitives: `Label`, `Button`, `Textfield`, `Checkbox`, `RadioButton`, `Combobox`, `TabStrip`, `TableView`, plus Win32 `FilePicker` / `MessageBox`.
@@ -131,4 +132,4 @@ Same hang as mgis `content::MapView::CreateParams { HWND parent_hwnd }`: the she
 
 ---
 
-**最后更新：** 2026-09-19
+**最后更新：** 2026-09-28

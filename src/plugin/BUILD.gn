@@ -2,23 +2,36 @@
 # All rights reserved.
 
 # Plugin root: re-export labels used across the tree.
-# Physical sources live under host/, legacy/, legacy_*/, dem/, …
+# Runtime (host / processing / widgets / python) under plugin/runtime/.
+# Domain Views under plugin/product/. Leftover AuxModule is
+# //src/legacy/plugin (re-exported here as :plugin, dll_stem = plugin).
+# Host API DLL: //src/plugin/runtime/host:host (dll_stem = plugin_host).
+# :cmd / :legacy_cmd forward to //src/legacy/plugin/adapter:cmd.
 
 import("//build/smartgis.gni")
 
 group("plugin") {
-  public_deps = [ "//src/plugin/legacy:plugin" ]
+  public_deps = [ "//src/legacy/plugin:plugin" ]
 }
 
+group("cmd") {
+  public_deps = [ "//src/legacy/plugin/adapter:cmd" ]
+}
+
+# Compatibility alias for older deps.
 group("legacy_cmd") {
-  public_deps = [ "//src/plugin/host:legacy_cmd" ]
+  public_deps = [ ":cmd" ]
 }
 
 group("host") {
-  public_deps = [ "//src/plugin/host:host" ]
+  public_deps = [ "//src/plugin/runtime/host:host" ]
 }
 
 group("plugin_host_test") {
   testonly = true
-  public_deps = [ "//src/plugin/host:plugin_host_test" ]
+  public_deps = [ "//src/plugin/runtime/host:plugin_host_test" ]
+}
+
+group("processing") {
+  public_deps = [ "//src/plugin/runtime/processing:processing_views" ]
 }

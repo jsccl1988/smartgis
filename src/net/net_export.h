@@ -4,7 +4,7 @@
 #ifndef NET_NET_EXPORT_H_
 #define NET_NET_EXPORT_H_
 
-// GN defines NET_EXPORTS when building //src/base:base (dll_stem = platform).
+// GN defines NET_EXPORTS when building //src/net:net (dll_stem = net).
 #if defined(NET_EXPORTS)
 #define NET_EXPORT __declspec(dllexport)
 #else
@@ -13,9 +13,9 @@
 
 #if !defined(NET_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "platform_d.lib")
+#pragma comment(lib, "net_d.lib")
 #else
-#pragma comment(lib, "platform.lib")
+#pragma comment(lib, "net.lib")
 #endif
 #endif
 

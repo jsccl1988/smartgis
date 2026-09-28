@@ -1,15 +1,15 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "base/ipc/channel.h"
-#include "base/ipc/codec.h"
-#include "base/ipc/data_pipe.h"
-#include "base/ipc/endpoint.h"
-#include "base/ipc/handle.h"
-#include "base/ipc/invitation.h"
-#include "base/ipc/portal.h"
-#include "base/ipc/receiver.h"
-#include "content/public/host_protocol.h"
+#include "base/ipc/channel/channel.h"
+#include "base/ipc/codec/codec.h"
+#include "base/ipc/data_pipe/data_pipe.h"
+#include "base/ipc/endpoint/endpoint.h"
+#include "base/ipc/handle/handle.h"
+#include "base/ipc/invitation/invitation.h"
+#include "base/ipc/portal/portal.h"
+#include "base/ipc/receiver/receiver.h"
+#include "content/common/host_protocol.h"
 
 #include <atomic>
 #include <cstdio>

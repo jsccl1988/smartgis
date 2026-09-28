@@ -27,7 +27,8 @@ STEMS = {
     "SmtRenderer": "render",
     "Smt3DRenderer": "render3d",
     "SmtGdiRenderDevice": "render_gdi",
-    "SmtGdiSimpleRenderDevice": "render_gdi_simple",
+    # Retired: gdi_simple deleted; treat as main GDI stem.
+    "SmtGdiSimpleRenderDevice": "render_gdi",
     "SmtGLRenderDevice": "render_gl",
     "Smt3DBaseLib": "scene3d",
     "Smt3DMdLib": "model3d",
