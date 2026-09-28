@@ -26,13 +26,14 @@ int run_browser_main(const content::ContentMainParams&,
   // some hosts. Opt out with SMT_FORCE_CONTENT_MAPVIEW_3D=1 (or legacy
   // SMT_PREFER_FLYCUBE_3D=0) before Browser::init. Showcase acquires
   // FlyCube after the shell is up (see run_atmosphere_showcase).
-  // --self-test forces ContentMapView so shell smoke stays hang-free; product
-  // interactive runs keep the FlyCube default.
+  // --self-test forces ContentMapView (2D + 3D) so shell smoke stays
+  // hang-free; product interactive runs keep the FlyCube default.
   const bool self_test = options.self_test;
   // Showcase also forces ContentMapView: multi-viewport FlyCube attach during
   // Browser::init can hang; run_atmosphere_showcase opens its own present
   // HWND after the shell is up.
   if (self_test || showcase != AtmosphereShowcaseMode::kNone) {
+    _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_2D", "1");
     _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_3D", "1");
   }
   {

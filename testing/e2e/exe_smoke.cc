@@ -241,8 +241,9 @@ RunResult run_case(const std::wstring& dir, const Case& c) {
     r.status = 0;
     return r;
   }
-  // GUI: window up is the e2e proof. MFC may return -1 / stay up on a modal.
-  if (c.title && r.window_seen) {
+  // Leftover MFC may return -1 / stay on a modal after the window is up.
+  // Views / Render --self-test must exit 0; crash codes are FAIL.
+  if (c.close_when_visible && c.title && r.window_seen) {
     std::fprintf(stdout, "PASS  %ls (window=\"%ls\"; exit=0x%08lX)\n", c.file,
                  c.title, r.exit_code);
     r.status = 0;

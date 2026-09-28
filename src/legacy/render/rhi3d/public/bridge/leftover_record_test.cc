@@ -5,6 +5,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <memory>
 
 #include "gis/kernel/geo/mesh/geometry.h"
@@ -16,6 +17,7 @@
 #include "legacy/render/rhi3d/public/device/3drenderdefs.h"
 #include "legacy/render/rhi3d/public/resource/indexbuffer.h"
 #include "legacy/render/rhi3d/public/resource/vertexbuffer.h"
+#include "render/programs/programs.h"
 #include "render/rhi/rhi.h"
 
 // Null-device path only. Do not create FlyCube here - use SMT_RUN_FLYCUBE_GPU=1
@@ -31,6 +33,18 @@ void expect(bool ok, const char* msg) {
     std::fprintf(stderr, "FAIL: %s\n", msg);
     ++g_fails;
   }
+}
+
+bool read_color(const render::rhi::StubCommandList* stub,
+                render::programs::Color* out) {
+  const auto* record =
+      stub ? stub->constant_at(render::programs::kColorSlot) : nullptr;
+  if (!record || !record->has_bytes ||
+      record->byte_size != sizeof(render::programs::Color) || !out) {
+    return false;
+  }
+  std::memcpy(out, record->bytes, sizeof(*out));
+  return true;
 }
 
 class TestRasterLayer : public gis::SmtRasterLayer {
@@ -197,7 +211,9 @@ int main() {
   expect(solid_stub && solid_stub->draw_indexed_calls >= 1, "solid quad drawn");
   expect(solid_stub && solid_stub->bind_texture_calls == 0,
          "empty raster has no texture bind");
-  expect(solid_stub && solid_stub->set_solid_color_calls >= 1,
+  render::programs::Color solid_color{};
+  expect(solid_stub && solid_stub->set_constants_calls >= 1 &&
+             read_color(solid_stub, &solid_color),
          "solid color applied to untextured mesh");
 
   // P0: MapLayer style_document -> per-instance paint (not global leftover
@@ -223,10 +239,12 @@ int main() {
     expect(paint_rec.record_map(&styled_map), "record_map with style_document");
     expect(paint_rec.finish(), "finish paint");
     auto* paint_stub = static_cast<StubCommandList*>(paint_rec.list());
-    expect(paint_stub && paint_stub->set_solid_color_calls >= 1,
+    render::programs::Color paint_color{};
+    expect(paint_stub && paint_stub->set_constants_calls >= 1 &&
+               read_color(paint_stub, &paint_color),
            "styled solid color applied");
-    expect(paint_stub && paint_stub->solid_r > 0.9f &&
-               paint_stub->solid_g < 0.1f && paint_stub->solid_b < 0.1f,
+    expect(paint_color.r > 0.9f && paint_color.g < 0.1f &&
+               paint_color.b < 0.1f,
            "per-layer fill is red not cyan");
   }
 

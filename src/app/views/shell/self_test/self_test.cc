@@ -356,19 +356,26 @@ int run_views_self_test(Browser& browser) {
         self_test_detach_maps(browser);
         return 62;
       }
-      std::string out = std::string(tmp) + "smartgis_m0_selftest.geojson";
-      DeleteFileA(out.c_str());
+      // Unique name: parallel te / leftover hosts must not share one path.
+      char out[MAX_PATH] = {};
+      if (sprintf_s(out, "%ssmartgis_m0_%lu_%lu.geojson", tmp,
+                    static_cast<unsigned long>(GetCurrentProcessId()),
+                    static_cast<unsigned long>(GetTickCount())) <= 0) {
+        self_test_detach_maps(browser);
+        return 62;
+      }
+      DeleteFileA(out);
       if (!browser.document()->write_path(out)) {
         self_test_detach_maps(browser);
         return 62;
       }
       app::MapScene probe;
       if (!probe.open_path(out) || probe.feature_count() < 1) {
-        DeleteFileA(out.c_str());
+        DeleteFileA(out);
         self_test_detach_maps(browser);
         return 63;
       }
-      DeleteFileA(out.c_str());
+      DeleteFileA(out);
       self_test_mark("m0-save-ok");
     }
 
