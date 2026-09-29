@@ -1,12 +1,12 @@
 #include "legacy/app/stdafx.h"
 
-#include "legacy/app/view/smart_3d_view.h"
+#include "legacy/app/view/scene3d/scene3d_view.h"
 
 #include "base/core/log.h"
 #include "legacy/app/doc/smart_gis_doc.h"
-#include "legacy/app/shell/main_frame.h"
-#include "legacy/app/shell/smart_gis.h"
-#include "legacy/ui/xcatalog/scenemgr.h"
+#include "legacy/app/shell/frame/main.h"
+#include "legacy/app/shell/frame/app.h"
+#include "legacy/ui/catalog/scenemgr.h"
 
 using namespace base;
 using namespace ui;

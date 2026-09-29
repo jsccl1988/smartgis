@@ -91,6 +91,7 @@ BEGIN
     BEGIN
         MENUITEM "¹¤¾ßÀ¸(&T)",                     ID_VIEW_TOOLBAR
         MENUITEM "×´Ì¬À¸(&S)",                     ID_VIEW_STATUS_BAR
+        MENUITEM "Diagnostic Tools",              ID_VIEW_DIAGNOSTIC_TOOLS
     END
     POPUP "´°¿Ú"
     BEGIN

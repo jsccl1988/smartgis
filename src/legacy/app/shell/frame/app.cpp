@@ -3,21 +3,22 @@
 // Leftover CWinAppEx + MDI doc-template wiring.
 // Map/session bootstrap is SmtApp in core/; endgame host is src/app/views.
 
-#include "legacy/app/shell/smart_gis.h"
-#include "legacy/plugin/mfc_module.h"
-
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "base/core/log.h"
 #include "legacy/app/doc/smart_gis_doc.h"
-#include "legacy/app/shell/child_frame.h"
-#include "legacy/app/shell/main_frame.h"
-#include "legacy/app/view/smart_3d_view.h"
-#include "legacy/app/view/smart_data_source_view.h"
-#include "legacy/app/view/smart_gis_view.h"
-#include "legacy/app/view/smart_map_edit_view.h"
-#include "legacy/core/api.h"
+#include "legacy/app/shell/frame/child.h"
+#include "legacy/app/shell/frame/main.h"
+#include "legacy/app/shell/showcase/map2d.h"
+#include "legacy/app/shell/showcase/scene3d.h"
+#include "legacy/app/shell/frame/app.h"
+#include "legacy/app/view/scene3d/scene3d_view.h"
+#include "legacy/app/view/datasource/datasource.h"
+#include "legacy/app/view/map/map.h"
+#include "legacy/app/view/edit/edit.h"
+#include "legacy/core/util/menu.h"
+#include "legacy/plugin/runtime/auxmodule/mfc_module.h"
 #include "legacy/sys/sysmanager.h"
-#include "legacy/ui/xcatalog/mapmgr.h"
+#include "legacy/ui/catalog/mapmgr.h"
 #include "ogrsf_frmts.h"
 
 using namespace base;
@@ -30,23 +31,23 @@ using namespace ui;
 #endif
 
 class CAboutDlg : public CDialog {
- public:
+public:
   CAboutDlg();
 
   enum { IDD = IDD_ABOUTBOX };
 
- protected:
-  virtual void DoDataExchange(CDataExchange* pDX);
+protected:
+  virtual void DoDataExchange(CDataExchange *pDX);
 
- protected:
+protected:
   DECLARE_MESSAGE_MAP()
- public:
+public:
   afx_msg void OnBnClickedOk();
 };
 
 CAboutDlg::CAboutDlg() : CDialog(CAboutDlg::IDD) {}
 
-void CAboutDlg::DoDataExchange(CDataExchange* pDX) {
+void CAboutDlg::DoDataExchange(CDataExchange *pDX) {
   CDialog::DoDataExchange(pDX);
 }
 
@@ -108,7 +109,6 @@ void CMDITabOptions::Save() {
   theApp.WriteInt(_T("CustomTooltips"), m_bCustomTooltips);
 }
 
-
 BEGIN_MESSAGE_MAP(CSmartGisApp, CWinAppEx)
 ON_COMMAND(ID_APP_ABOUT, &CSmartGisApp::OnAppAbout)
 //	ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)
@@ -116,24 +116,25 @@ ON_COMMAND(ID_APP_ABOUT, &CSmartGisApp::OnAppAbout)
 ON_COMMAND(ID_FILE_PRINT_SETUP, &CWinApp::OnFilePrintSetup)
 END_MESSAGE_MAP()
 
-
 CSmartGisApp::CSmartGisApp() {
   m_pEditViewDocTemplate = NULL;
   m_pDataViewDocTemplate = NULL;
   m_p3DViewDocTemplate = NULL;
 }
 
-
 CSmartGisApp theApp;
 
-
 BOOL CSmartGisApp::InitInstance() {
-  const bool self_test = wcsstr(GetCommandLineW(), L"--self-test") != nullptr;
-  auto early_mark = [self_test](const char* step) {
+  const wchar_t *cmdline = GetCommandLineW();
+  const bool self_test = wcsstr(cmdline, L"--self-test") != nullptr;
+  const bool map2d_showcase = wcsstr(cmdline, L"--map2d-showcase") != nullptr;
+  const bool scene3d_showcase =
+      wcsstr(cmdline, L"--scene3d-showcase") != nullptr;
+  auto early_mark = [self_test](const char *step) {
     if (!self_test) {
       return;
     }
-    FILE* f = nullptr;
+    FILE *f = nullptr;
     if (fopen_s(&f, "self-test-legacy-mark.txt", "a") == 0 && f) {
       std::fprintf(f, "%s\n", step);
       std::fclose(f);
@@ -193,21 +194,38 @@ BOOL CSmartGisApp::InitInstance() {
   GetTooltipManager()->SetTooltipParams(
       BCGP_TOOLTIP_TYPE_ALL, RUNTIME_CLASS(CBCGPToolTipCtrl), &params);
 
-  if (!SmtApp::Init()) return FALSE;
+  if (!SmtApp::Init())
+    return FALSE;
   // Plugin CWinApp objects can leave this thread on a DLL module state whose
   // resource handle was null (afxwin1.inl AfxGetResourceHandle assert).
   restore_exe_mfc_module_state();
   early_mark("after-smtapp-init");
 
+  // --map2d-showcase[=china]: headless GDI paint + BMP sidecar, then exit
+  // before BCG MDI (same hang avoidance as --self-test).
+  if (map2d_showcase) {
+    const int rc = legacy_app::run_map2d_showcase_china(*this);
+    ::TerminateProcess(::GetCurrentProcess(), static_cast<UINT>(rc));
+    return FALSE;
+  }
+
+  // --scene3d-showcase[=china]: leftover GL stereo DEM + BMP, then exit
+  // before BCG MDI (mirrors Views atmosphere-showcase capture loop).
+  if (scene3d_showcase) {
+    const int rc = legacy_app::run_scene3d_showcase_china(*this);
+    ::TerminateProcess(::GetCurrentProcess(), static_cast<UINT>(rc));
+    return FALSE;
+  }
+
   // --self-test: validate China map bootstrap then exit before BCG MDI
   // doc-templates / LoadFrame. Creating CMultiDocTemplate currently hangs
   // headless under this BCG build; smoke only needs exit 0 + mark file.
   if (self_test) {
-    auto mark = [](const char* step) {
+    auto mark = [](const char *step) {
       char path[MAX_PATH] = {};
-      FILE* f = nullptr;
+      FILE *f = nullptr;
       if (app::detail::exe_sidecar_path_a(path, MAX_PATH,
-                                         "self-test-legacy-mark.txt") &&
+                                          "self-test-legacy-mark.txt") &&
           fopen_s(&f, path, "a") == 0 && f) {
         std::fprintf(f, "%s\n", step);
         std::fclose(f);
@@ -223,19 +241,19 @@ BOOL CSmartGisApp::InitInstance() {
       SmtApp::Destory();
       ::ExitProcess(10);
     }
-    SmtMap* map = SmtMapMgr::get_singleton_ptr()
+    SmtMap *map = SmtMapMgr::get_singleton_ptr()
                       ? SmtMapMgr::get_singleton_ptr()->GetSmtMapPtr()
                       : nullptr;
     const int layers = map ? map->GetLayerCount() : 0;
     long long feats = 0;
     if (map && layers > 0) {
-      if (OGRLayer* ogr = map->GetOgrLayer(0)) {
+      if (OGRLayer *ogr = map->GetOgrLayer(0)) {
         feats = ogr->GetFeatureCount(/*bForce=*/0);
         if (feats < 0) {
           ogr->ResetReading();
           feats = 0;
           while (feats < 3) {
-            OGRFeature* feat = ogr->GetNextFeature();
+            OGRFeature *feat = ogr->GetNextFeature();
             if (!feat) {
               break;
             }
@@ -258,29 +276,23 @@ BOOL CSmartGisApp::InitInstance() {
     ::TerminateProcess(::GetCurrentProcess(), 0);
   }
 
-  m_pEditViewDocTemplate =
-      new CMultiDocTemplate(IDR_MENU_EDITVIEW,
-                            RUNTIME_CLASS(CSmartGisDoc),
-                            RUNTIME_CLASS(CChildFrame),
-                            RUNTIME_CLASS(CSmartMapEditView));
+  m_pEditViewDocTemplate = new CMultiDocTemplate(
+      IDR_MENU_EDITVIEW, RUNTIME_CLASS(CSmartGisDoc),
+      RUNTIME_CLASS(CChildFrame), RUNTIME_CLASS(CSmartMapEditView));
   AddDocTemplate(m_pEditViewDocTemplate);
 
-  m_pDataViewDocTemplate =
-      new CMultiDocTemplate(IDR_MENU_DSVIEW,
-                            RUNTIME_CLASS(CSmartGisDoc),
-                            RUNTIME_CLASS(CChildFrame),
-                            RUNTIME_CLASS(CSmartDataSourceView));
+  m_pDataViewDocTemplate = new CMultiDocTemplate(
+      IDR_MENU_DSVIEW, RUNTIME_CLASS(CSmartGisDoc), RUNTIME_CLASS(CChildFrame),
+      RUNTIME_CLASS(CSmartDataSourceView));
   AddDocTemplate(m_pDataViewDocTemplate);
 
-  m_p3DViewDocTemplate =
-      new CMultiDocTemplate(IDR_MENU_3DVIEW,
-                            RUNTIME_CLASS(CSmartGisDoc),
-                            RUNTIME_CLASS(CChildFrame),
-                            RUNTIME_CLASS(CSmart3DView));
+  m_p3DViewDocTemplate = new CMultiDocTemplate(
+      IDR_MENU_3DVIEW, RUNTIME_CLASS(CSmartGisDoc), RUNTIME_CLASS(CChildFrame),
+      RUNTIME_CLASS(CSmart3DView));
 
   AddDocTemplate(m_p3DViewDocTemplate);
 
-  CMainFrame* pMainFrame = new CMainFrame;
+  CMainFrame *pMainFrame = new CMainFrame;
   if (!pMainFrame || !pMainFrame->LoadFrame(IDR_MAINFRAME)) {
     delete pMainFrame;
     return FALSE;
@@ -297,9 +309,7 @@ BOOL CSmartGisApp::InitInstance() {
   }
 
   // Show shell before china_city / OGR bootstrap so the message pump is
-  // not blocked on a hidden frame. 3D is on-demand (窗口 → 三维窗口):
-  // seed_sample_map_into_scene re-opens china_city and masks every
-  // prefecture ring onto the synthetic DEM — that is the startup hang.
+  // not blocked on a hidden frame.
   m_pMainWnd->ShowWindow(SW_SHOW);
   m_pMainWnd->UpdateWindow();
   LOGGING(LOG_INFO, "InitInstance: main window shown.");
@@ -315,9 +325,12 @@ BOOL CSmartGisApp::InitInstance() {
   // deadlock inside CView::OnInitialUpdate when InitInstance has no outer
   // message pump (title bar shows 未响应, UI thread Wait/UserRequest, CPU
   // idle). Post after return so the pump can nest safely; SetOperMap then
-  // frames/paints the bootstrapped china_city map.
-  LOGGING(LOG_INFO, "InitInstance: posting deferred Edit view open...");
+  // frames/paints the bootstrapped china_city map. Order: Edit first so
+  // Data/3D can reuse the same document via open_mdi_view.
+  LOGGING(LOG_INFO, "InitInstance: posting deferred Edit/Data/3D view open...");
   pMainFrame->PostMessage(WM_COMMAND, ID_WND_MAPEDIT, 0);
+  pMainFrame->PostMessage(WM_COMMAND, ID_WND_MAPDATA, 0);
+  pMainFrame->PostMessage(WM_COMMAND, ID_WND_3D, 0);
 
   m_pMainWnd->ShowWindow(SW_SHOWMAXIMIZED);
   pMainFrame->ShowWindow(SW_SHOWMAXIMIZED);
@@ -347,36 +360,40 @@ void CSmartGisApp::OnAppAbout() {
   aboutDlg.DoModal();
 }
 
-CView* CSmartGisApp::GetActiveDocView(CRuntimeClass* pViewClass) {
-  CDocument* pDoc =
-      ((CMainFrame*)m_pMainWnd)->GetActiveFrame()->GetActiveDocument();
-  if (pDoc == NULL) return NULL;
+CView *CSmartGisApp::GetActiveDocView(CRuntimeClass *pViewClass) {
+  CDocument *pDoc =
+      ((CMainFrame *)m_pMainWnd)->GetActiveFrame()->GetActiveDocument();
+  if (pDoc == NULL)
+    return NULL;
 
-  CView* pView;
+  CView *pView;
   POSITION pos = pDoc->GetFirstViewPosition();
   while (pos != NULL) {
     pView = pDoc->GetNextView(pos);
-    if (pView->IsKindOf(pViewClass)) return pView;
+    if (pView->IsKindOf(pViewClass))
+      return pView;
   }
   return NULL;
 }
 
-CView* CSmartGisApp::GetActiveView(void) {
-  CView* pView = ((CMainFrame*)m_pMainWnd)->GetActiveFrame()->GetActiveView();
+CView *CSmartGisApp::GetActiveView(void) {
+  CView *pView = ((CMainFrame *)m_pMainWnd)->GetActiveFrame()->GetActiveView();
   return pView;
 }
 
-CDocument* CSmartGisApp::GetActiveDoc(void) {
-  CDocument* pDoc =
-      ((CMainFrame*)m_pMainWnd)->GetActiveFrame()->GetActiveDocument();
+CDocument *CSmartGisApp::GetActiveDoc(void) {
+  CDocument *pDoc =
+      ((CMainFrame *)m_pMainWnd)->GetActiveFrame()->GetActiveDocument();
   return pDoc;
 }
 
 void CSmartGisApp::append_mdi_window_menu(HMENU menu) {
-  if (menu == NULL) return;
+  if (menu == NULL)
+    return;
 
   HMENU popup = ::CreatePopupMenu();
-  if (popup == NULL) return;
+  if (popup == NULL)
+    return;
 
   ::AppendMenuA(popup, MF_STRING, ID_WND_MAPEDIT, "地图编辑窗口");
   ::AppendMenuA(popup, MF_STRING, ID_WND_MAPDATA, "地图数据窗口");
@@ -385,14 +402,15 @@ void CSmartGisApp::append_mdi_window_menu(HMENU menu) {
     ::DestroyMenu(popup);
 }
 
-BOOL CSmartGisApp::open_mdi_view(CDocTemplate* tmpl) {
-  if (tmpl == NULL) return FALSE;
+BOOL CSmartGisApp::open_mdi_view(CDocTemplate *tmpl) {
+  if (tmpl == NULL)
+    return FALSE;
 
-  CDocument* doc = NULL;
-  CMDIChildWnd* child = NULL;
+  CDocument *doc = NULL;
+  CMDIChildWnd *child = NULL;
   if (m_pMainWnd) {
-    CFrameWnd* frame = DYNAMIC_DOWNCAST(CFrameWnd, m_pMainWnd);
-    CFrameWnd* active = frame ? frame->GetActiveFrame() : NULL;
+    CFrameWnd *frame = DYNAMIC_DOWNCAST(CFrameWnd, m_pMainWnd);
+    CFrameWnd *active = frame ? frame->GetActiveFrame() : NULL;
     if (active && active != frame) {
       child = DYNAMIC_DOWNCAST(CMDIChildWnd, active);
       doc = active->GetActiveDocument();
@@ -400,7 +418,7 @@ BOOL CSmartGisApp::open_mdi_view(CDocTemplate* tmpl) {
   }
 
   if (doc) {
-    CFrameWnd* created = tmpl->CreateNewFrame(doc, child);
+    CFrameWnd *created = tmpl->CreateNewFrame(doc, child);
     if (created) {
       tmpl->InitialUpdateFrame(created, doc);
       return TRUE;

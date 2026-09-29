@@ -4,9 +4,9 @@
 
 #include "base/core/log.h"
 #include "legacy/app/app_export.h"
-#include "legacy/core/core.h"
-#include "legacy/core/env_struct.h"
-#include "legacy/core/msg_def.h"
+#include "legacy/core/macros/macros.h"
+#include "legacy/core/types/env.h"
+#include "legacy/core/msg/msg_def.h"
 
 using namespace base;
 

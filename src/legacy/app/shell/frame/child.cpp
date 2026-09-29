@@ -1,9 +1,9 @@
 #include "legacy/app/stdafx.h"
 
-#include "legacy/app/shell/child_frame.h"
+#include "legacy/app/shell/frame/child.h"
 
 #include "base/core/log.h"
-#include "legacy/app/shell/smart_gis.h"
+#include "legacy/app/shell/frame/app.h"
 
 using namespace base;
 

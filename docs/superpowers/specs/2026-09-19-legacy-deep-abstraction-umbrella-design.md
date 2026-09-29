@@ -7,7 +7,7 @@ All rights reserved.
 
 **Status:** active  
 **Date:** 2026-09-19  
-**Updated:** 2026-09-28 — merge B: compressed child specs into this living umbrella (see §Folded topics). Do not open new dated twins.
+**Updated:** 2026-09-29 — §SP1 Layout: `bridge/{abi,msg}` + hoist `group/` capabilities; §13 point-cloud; §11b.
 **Scope:** Living design for leftover strangler program **SP0–SP5**: order, technique, dependency direction, parallel rules, ABI, and **locked decisions per SP**. Implementation checklists stay in `docs/superpowers/plans/` (linked below). Physical package splits already done; revise **sections here** — do not open new dated SP / layout twins.  
 **Related (accepted / landed — do not reopen):**
 
@@ -28,7 +28,7 @@ All rights reserved.
 | SP1 | [`../plans/2026-09-19-legacy-tool-workspace-strangler.md`](../plans/2026-09-19-legacy-tool-workspace-strangler.md) |
 | SP1b | [`../plans/2026-09-19-tool-behavior-migration.md`](../plans/2026-09-19-tool-behavior-migration.md) |
 | SP2 | [`../plans/2026-09-19-legacy-render-present-facade.md`](../plans/2026-09-19-legacy-render-present-facade.md) · dual-run [`../archive/plans/2026-09-27-legacy-render-subdirectory-dual-run.md`](../archive/plans/2026-09-27-legacy-render-subdirectory-dual-run.md) |
-| SP3 | [`../plans/2026-09-19-legacy-host-behavior-extract.md`](../plans/2026-09-19-legacy-host-behavior-extract.md) · app layout [`../archive/plans/2026-09-27-legacy-app-subdirectory-layout.md`](../archive/plans/2026-09-27-legacy-app-subdirectory-layout.md) |
+| SP3 | [`../plans/2026-09-19-legacy-host-behavior-extract.md`](../plans/2026-09-19-legacy-host-behavior-extract.md) · app layout [`../archive/plans/2026-09-27-legacy-app-subdirectory-layout.md`](../archive/plans/2026-09-27-legacy-app-subdirectory-layout.md) · UI layout [`../plans/2026-09-29-legacy-ui-subdirectory-layout.md`](../plans/2026-09-29-legacy-ui-subdirectory-layout.md) · **Feature Pack** [`../plans/2026-09-29-legacy-mfc-ex-feature-pack.md`](../plans/2026-09-29-legacy-mfc-ex-feature-pack.md) |
 | SP4 | [`../plans/2026-09-19-scene3d-world-gpuscene.md`](../plans/2026-09-19-scene3d-world-gpuscene.md) · SP4b [`../plans/2026-09-28-scene3d-index-octree.md`](../plans/2026-09-28-scene3d-index-octree.md) |
 | SP5 | [`../plans/2026-09-19-shell-compile-gate.md`](../plans/2026-09-19-shell-compile-gate.md) |
 
@@ -129,9 +129,9 @@ Chrome 只 include `content/public`。不新增 `render` 终局 → `legacy_rend
 | Helper | `tool::try_execute_gt_msg` in endgame `legacy_msg`（无 leftover include） |
 | Bound activate | `try_execute_gt_msg`；不 `SetActive` / leftover 捕获 |
 | Unbound | 旧 `Notify` 不变 |
-| Dependency | `legacy/tool/group` 可 dep `//src/tool:dispatch`；终局公开头不 dep leftover |
+| Dependency | `legacy/tool` capability sources 可 dep `//src/tool:dispatch`；终局公开头不 dep leftover |
 
-**Layout (folded):** leftover `legacy/tool/{iatool,adapter,group/{base,view,select,input,factory}}` — scheme C、无 shim；终局 `src/tool/<module>/` 见 tool-event-dispatch living。As-built：`src/legacy/tool/README.md`、`src/tool/README.md`。
+**Layout (folded, 2026-09-29):** leftover `legacy/tool/{abi,msg,nav,select,draft,base,factory}` — **终局浅镜像**（`nav`←view、`draft`←input；`abi`/`msg` 为 leftover 专用）；两 GN target（abi → `legacy_tool` DLL；msg = `source_set` 不进 DLL）；无 `group/` / `bridge/` / shim。Checklist：[`../plans/2026-09-29-legacy-tool-bridge-capability-layout.md`](../plans/2026-09-29-legacy-tool-bridge-capability-layout.md)。终局 `src/tool/<module>/` 见 tool-event-dispatch living。As-built：`src/legacy/tool/README.md`、`src/tool/README.md`。
 
 **Non-goals:** 不 rewrite 全部 `SmtIATool`；不碰 render/app/ui；不破 `dll_stem`。
 
@@ -177,11 +177,135 @@ src/legacy/render/
 
 ## 11. SP3 — Host 行为 + `legacy/app` 布局
 
-**Goal:** HWND-free 宿主单元进 `content`（Attribute / Catalog 已落地）；续作 bootstrap / draft-commit / 薄 MFC view。`legacy/app` scheme C：`core` / `shell` / `doc` / `view`；破 include；`dll_stem=app_core` / `SmartGis.exe` / opt-in `legacy_app` 冻结。
+**Goal:** HWND-free 宿主单元进 `content`（Attribute / Catalog 已落地）；续作 bootstrap / draft-commit / 薄 MFC view。`legacy/app` scheme C：`core` / `shell/{frame,dock,showcase}` / `doc` / `view/{map,edit,datasource,scene3d}`；破 include；`dll_stem=app_core` / `SmartGis.exe` / opt-in `legacy_app` 冻结。（2026-09-30：`shell`+`view` 能力子目录 + 短 stem。）
 
 **Locked:** Facade strangler；控件只传 string/token；chrome 不持 `SmtFeature*`；不另立第二套 SP3。
 
 **Path:** `content/**`、`app/views/**`、`legacy/app|ui` 抽调用点；禁改 SP1/SP2/SP4 默认树。
+
+**`legacy/ui` common（2026-09-29）：** `legacy/ui/widgets/` 持 Feature Pack glue / prop-list；sole AFX `DllMain` = `widgets/widgets_core.cpp`。`SmtAMBoxMgrDocBar`（`ambox/ambox_dock_bar`）基类：历史为 `StackedWndDockBar`，**§11c 改为直接 `CMFCOutlookBar`**。`ui_legacy` 链 `/FORCE:MULTIPLE`（多 PCH AFX 符号）。不迁终局 Views。
+
+**`legacy/ui` subdirectory layout（2026-09-29，Approach C′ — capability + top-level `res/`）：**
+
+| Lock | Choice |
+| --- | --- |
+| Scope | Capability dirs + **`res/<capability>/`** for all binary resources |
+| Technique | Scheme C — break includes, **no** old-path shim |
+| Nesting | Cap `legacy/ui/<capability>/`；resources only under `legacy/ui/res/<capability>/` |
+| ABI | Freeze `dll_stem=ui_legacy`；per-capability PCH/`*_sources`；keep `*_EXPORTS` macros |
+| Behavior | **Out of this wave** — no HWND-free extract / no Views migration |
+| Parallel | One owner path per capability; no overlapping writes |
+
+Target (Approach C′ historical; **superseded by §11c B1** below):
+
+```
+shell/ viewport/ panels/ ambox/ catalog/ dialogs/ dock/ grid/ widgets/ chart/
+res/{shell,catalog,dialogs,ambox,widgets,chart}/
+```
+
+(`dock/` + `grid/` removed by §11c waves 1–2.) Checklist: [`../plans/2026-09-29-legacy-ui-subdirectory-layout.md`](../plans/2026-09-29-legacy-ui-subdirectory-layout.md).
+
+### 11c. leftover `grid/` + `dock/` → MFC Feature Pack（2026-09-29）
+
+**Goal:** Stop maintaining in-tree Chris Maunder `CGridCtrl` (`legacy/ui/grid/`) and `StackedWndDockBar` / `TabbedWndDockBar` (`legacy/ui/dock/`) on leftover `SmartGis.exe`. Use MSVC **MFC Feature Pack** only; three UX waves. **Views / `SmartGisViews` out of scope.**
+
+**Locked:**
+
+| Lock | Choice |
+| --- | --- |
+| Product path | leftover `legacy_app` / `SmartGis.exe` only |
+| Toolkit | Feature Pack via `widgets/bcg_cmfc.h` — **not** BCG Pro, not Qt |
+| Endgame | Views + Skia; Feature Pack remains leftover bridge |
+| Depth | Delete capability dirs `grid/` and `dock/` after call sites move; flatten to Feature Pack types |
+| UX tier | controls → Visual Manager / dock flatten → IA (filter / group / search) |
+| Post-waves layout | Wave 4 **B1**: reshape to mirror `src/ui/gis` + `ui/views/map` vocabulary. **Must stay under `src/legacy/ui`** — never hoist into `src/ui` or `src/app/views` |
+| ABI | Freeze `dll_stem=ui_legacy`; sole AFX `DllMain` = `widgets/widgets_core.cpp` |
+| HWND-free | Out of this program |
+
+**Control map:**
+
+| Call site | From | To |
+| --- | --- | --- |
+| `dialogs/dlg_2d_feature_info` | `CGridCtrl` | `CMFCPropertyGridCtrl` |
+| `dialogs/dlg_att_struct_set` | `CGridCtrl` | `CMFCListCtrl` (report) |
+| `plugin/dem/views/dlg_tin_loader` | `CGridCtrl` | `CMFCListCtrl` (report) |
+| `app/shell/frame/main` Catalog | `TabbedWndDockBar` | `CDockablePane` + `CMFCTabCtrl` (no exported shim) |
+| `ambox/ambox_dock_bar` | `: StackedWndDockBar` | `: CMFCOutlookBar` / typedef |
+
+**Waves:**
+
+1. **Controls** — migrate three dialogs; delete `grid/` + `widgets/grid_ctrl_support.h`; strip `../grid` from `widgets_sources`.
+2. **Shell look** — flatten Catalog/AMBox; delete `dock/`; tune `OnAppLook`.
+3. **IA** — FeatureInfo groups+filter; Catalog search; AMBox grouped pages.
+4. **Layout align (after 1–3)** — reshape remaining `legacy/ui` dirs to endgame-like roles (see target below). Scheme C break includes; **no** leave `legacy/`.
+
+**Post-wave target tree (B1 — still `src/legacy/ui`, Feature Pack MFC):**
+
+```
+legacy/ui/
+  shell/            # ≈ app/views/shell — frame / chrome glue
+    ambox/          # ≈ ui/gis/shell AmboxView
+    chart/          # ≈ ui/gis/shell ChartView
+  map/              # ≈ ui/views/map (ex-viewport/)
+  inspect/          # ≈ ui/gis/inspect (ex-panels/)
+  catalog/          # ≈ ui/gis/catalog
+  dialogs/          # ≈ ui/gis/dialogs + toolkit modals
+  widgets/          # FP glue + sole DllMain (bcg_cmfc); leftover-only
+  res/
+    shell/{,ambox/,chart}/
+    catalog/ dialogs/ widgets/
+```
+
+No empty `analysis/` / `style/` / `debug/`. Name mapping is **semantic**, not a copy of `ui::views` kernel. Delete empty `grid/` / `dock/` (already gone after 1–2).
+
+**Non-goals:** Views parity; Ribbon rewrite; elevating Feature Pack to endgame; vendoring BCG; moving sources to `src/ui` / `src/app/views`; nesting under `legacy/ui/gis/`.
+
+**Success:** No `CGridCtrl` / `StackedWndDockBar` / `TabbedWndDockBar`; no `legacy/ui/grid` or `legacy/ui/dock`; waves 1–3 UX done; wave 4 **B1** tree landed; `ui_legacy` + `legacy_app` green; as-built README.
+
+**Path ownership:** `legacy/ui/**` + `legacy/app/shell` + `legacy/plugin/product/dem/views` as needed. Do not edit `src/ui/views` / `src/app/views`.
+
+**Checklist:** [`../plans/2026-09-29-legacy-mfc-ex-feature-pack.md`](../plans/2026-09-29-legacy-mfc-ex-feature-pack.md).
+
+---
+
+## 11b. `legacy/core` subdirectory layout（2026-09-29）
+
+**Goal:** Leftover Smt core → tight responsibility dirs; scheme C break includes; **no** migrate out of `legacy/`. Still absorbed into `base.dll` via `core_sources`.
+
+| Lock | Choice |
+| --- | --- |
+| Depth | Header-only + STL internals — stay under `legacy/core/<module>/` |
+| Technique | Scheme C — break includes, **no** old-path shim, **no** `api.h` / `.cpp` |
+| Nesting | Cap `legacy/core/<module>/`；helpers 收紧为单一 `util/` |
+| Naming | `macros`/`types`/`util`/`listener`/`command`/`msg`/`diag` |
+| ABI | Keep class `BASE_EXPORT` where plugins need vtable; free helpers are `inline` |
+| Behavior | Out of this wave — no HWND-free extract / no new foundation APIs |
+
+Target:
+
+```
+legacy/core/
+  README.md  BUILD.gn
+  macros/macros.h          # + dEPSILON / dPI / is_equal
+  types/{types,env,scalars,point,rect,variant}.h
+  util/{string,path,color,image,menu}.h   # header-only; no geom/math/variant
+  listener/listener_manager.h
+  command/command.h
+  msg/msg_def.h
+  diag/{assert,exception}.h
+```
+
+Checklist: [`../plans/2026-09-29-legacy-core-subdirectory-layout.md`](../plans/2026-09-29-legacy-core-subdirectory-layout.md).
+
+### 11b.1 `types/` — Point/Rect traits + `SmtVariant`（2026-09-29）
+
+**Goal:** Collapse parallel `l*`/`f*`/`dbf*` Point/Rect copies via `Point2`/`Point3`/`Rect` + `point_traits`/`rect_traits`; keep legacy `using` aliases. Modernize `SmtVariant` onto `std::variant` storage (owned lists/strings) with snake_case accessors. `env.h` unchanged. Stay under `legacy/core/types/`.
+
+**Layout:** `scalars.h` · `point.h` · `rect.h` · `variant.h` · umbrella `types.h`.
+
+### 11b.2 util fold — types/macros own geometry + eps（2026-09-29）
+
+**Goal:** Member-first dedupe — `Rect::{normalize,contains,cast_to}`; move `dEPSILON`/`dPI`/`is_equal` into `macros/macros.h` (`SMT_EQUAL` uses them); drop PascalCase `GetAppPath` aliases; delete unused `util/{geom,math,variant}.h` (no call sites for `var_to_*`). Keep `util/` for path/string/color/image/menu only. Scheme C — update call sites in the same change; **no** shim.
 
 ---
 
@@ -197,7 +321,9 @@ src/legacy/render/
 
 **Goal (scheme A):** 仅 `legacy/render/scene3d/**`；去 `bl3d_`；`index/` 无 `LP3DRENDERDEVICE`；MIT header-only vendor + 薄适配；保留 `SmtScene` / `SmtSceneOctTree` 导出；无 shim。
 
-**Non-goals:** 不 rewrite SP4 Success；不 wholesale 删 octree 换 World；不破 `dll_stem`；不加深嵌套。
+**Locked (2026-09-29, approach A + point-cloud upgrade):** 删除手写 `Smt*OctTreeNode` 八叉细分；`SmtSceneOctTree` 扁平物体列表 + unibn；**`SmtVertexOctTree` 仅查询**（`hit_test` / `find_nearest` / `radius_neighbors` + leftover `HitTestOctNode`）；**`Smt3DPointCloud` 拥有 VB**，N≥20万时按空间网格分块并 frustum cull。大场景物体无层级裁剪、点云分块渲染是接受的 leftover 权衡。
+
+**Non-goals:** 不 rewrite SP4 Success；不 wholesale 删 octree 换 World；不破 `dll_stem`；不加深嵌套；不引入 PCL/OpenVDB。
 
 ---
 

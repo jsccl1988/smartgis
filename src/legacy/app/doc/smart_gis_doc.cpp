@@ -3,9 +3,9 @@
 #include "legacy/app/doc/smart_gis_doc.h"
 
 #include "base/core/log.h"
-#include "legacy/app/shell/smart_gis.h"
-#include "legacy/app/view/smart_gis_view.h"
-#include "legacy/app/view/smart_map_edit_view.h"
+#include "legacy/app/shell/frame/app.h"
+#include "legacy/app/view/map/map.h"
+#include "legacy/app/view/edit/edit.h"
 
 using namespace base;
 

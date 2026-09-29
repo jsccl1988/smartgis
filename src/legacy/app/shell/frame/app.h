@@ -4,21 +4,21 @@
 #error "�ڰ������ļ�֮ǰ������stdafx.h�������� PCH �ļ�"
 #endif
 
-#include "legacy/app/resource.h"
 #include "legacy/app/core/smtapp.h"
-#include "legacy/core/core.h"
-#include "legacy/core/env_struct.h"
+#include "legacy/app/resource.h"
+#include "legacy/core/macros/macros.h"
+#include "legacy/core/types/env.h"
 
 using namespace base;
 using namespace app;
 
 class CMDITabOptions {
- public:
+public:
   CMDITabOptions();
 
   enum MDITabsType { None, MDITabsStandard, MDITabbedGroups };
 
- public:
+public:
   void Load();
   void Save();
 
@@ -26,7 +26,7 @@ class CMDITabOptions {
     return m_nMDITabsType == CMDITabOptions::None;
   }
 
- public:
+public:
   MDITabsType m_nMDITabsType;
   BOOL m_bMaximizeMDIChild;
   BOOL m_bTabsOnTop;
@@ -44,10 +44,10 @@ class CMDITabOptions {
 };
 
 class CSmartGisApp : public CWinAppEx, public SmtApp {
- public:
+public:
   CSmartGisApp();
 
- public:
+public:
   virtual BOOL InitInstance();
   virtual int ExitInstance();
 
@@ -56,33 +56,33 @@ class CSmartGisApp : public CWinAppEx, public SmtApp {
   afx_msg void OnAppAbout();
   DECLARE_MESSAGE_MAP()
 
- public:
-  inline CMultiDocTemplate* GetEditViewDocTemplate() {
+public:
+  inline CMultiDocTemplate *GetEditViewDocTemplate() {
     return m_pEditViewDocTemplate;
   }
-  inline CMultiDocTemplate* GetDataViewDocTemplate() {
+  inline CMultiDocTemplate *GetDataViewDocTemplate() {
     return m_pDataViewDocTemplate;
   }
-  inline CMultiDocTemplate* Get3DViewDocTemplate() {
+  inline CMultiDocTemplate *Get3DViewDocTemplate() {
     return m_p3DViewDocTemplate;
   }
 
   // Window popup on the dynamic view menu (RC Window menu is replaced).
   void append_mdi_window_menu(HMENU menu);
   // Open another MDI view on the active document, or a new doc if none.
-  BOOL open_mdi_view(CDocTemplate* tmpl);
+  BOOL open_mdi_view(CDocTemplate *tmpl);
 
-  CView* GetActiveDocView(CRuntimeClass* pViewClass);
-  CView* GetActiveView(void);
-  CDocument* GetActiveDoc(void);
+  CView *GetActiveDocView(CRuntimeClass *pViewClass);
+  CView *GetActiveView(void);
+  CDocument *GetActiveDoc(void);
 
- public:
+public:
   CMDITabOptions m_Options;
 
- protected:
-  CMultiDocTemplate* m_pEditViewDocTemplate;
-  CMultiDocTemplate* m_pDataViewDocTemplate;
-  CMultiDocTemplate* m_p3DViewDocTemplate;
+protected:
+  CMultiDocTemplate *m_pEditViewDocTemplate;
+  CMultiDocTemplate *m_pDataViewDocTemplate;
+  CMultiDocTemplate *m_p3DViewDocTemplate;
 };
 
 extern CSmartGisApp theApp;

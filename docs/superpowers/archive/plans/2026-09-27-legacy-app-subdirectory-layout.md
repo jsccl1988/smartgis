@@ -218,22 +218,22 @@ Expected: test PASS; legacy_app still links.
 
 ```bat
 mkdir src\legacy\app\shell src\legacy\app\doc src\legacy\app\view 2>nul
-git mv src/legacy/app/smart_gis.h src/legacy/app/shell/smart_gis.h
-git mv src/legacy/app/smart_gis.cpp src/legacy/app/shell/smart_gis.cpp
-git mv src/legacy/app/main_frame.h src/legacy/app/shell/main_frame.h
-git mv src/legacy/app/main_frame.cpp src/legacy/app/shell/main_frame.cpp
-git mv src/legacy/app/child_frame.h src/legacy/app/shell/child_frame.h
-git mv src/legacy/app/child_frame.cpp src/legacy/app/shell/child_frame.cpp
+git mv src/legacy/app/smart_gis.h src/legacy/app/shell/frame/app.h
+git mv src/legacy/app/smart_gis.cpp src/legacy/app/shell/frame/app.cpp
+git mv src/legacy/app/main_frame.h src/legacy/app/shell/frame/main.h
+git mv src/legacy/app/main_frame.cpp src/legacy/app/shell/frame/main.cpp
+git mv src/legacy/app/child_frame.h src/legacy/app/shell/frame/child.h
+git mv src/legacy/app/child_frame.cpp src/legacy/app/shell/frame/child.cpp
 git mv src/legacy/app/smart_gis_doc.h src/legacy/app/doc/smart_gis_doc.h
 git mv src/legacy/app/smart_gis_doc.cpp src/legacy/app/doc/smart_gis_doc.cpp
-git mv src/legacy/app/smart_gis_view.h src/legacy/app/view/smart_gis_view.h
-git mv src/legacy/app/smart_gis_view.cpp src/legacy/app/view/smart_gis_view.cpp
-git mv src/legacy/app/smart_map_edit_view.h src/legacy/app/view/smart_map_edit_view.h
-git mv src/legacy/app/smart_map_edit_view.cpp src/legacy/app/view/smart_map_edit_view.cpp
-git mv src/legacy/app/smart_data_source_view.h src/legacy/app/view/smart_data_source_view.h
-git mv src/legacy/app/smart_data_source_view.cpp src/legacy/app/view/smart_data_source_view.cpp
-git mv src/legacy/app/smart_3d_view.h src/legacy/app/view/smart_3d_view.h
-git mv src/legacy/app/smart_3d_view.cpp src/legacy/app/view/smart_3d_view.cpp
+git mv src/legacy/app/smart_gis_view.h src/legacy/app/view/map/map.h
+git mv src/legacy/app/smart_gis_view.cpp src/legacy/app/view/map/map.cpp
+git mv src/legacy/app/smart_map_edit_view.h src/legacy/app/view/edit/edit.h
+git mv src/legacy/app/smart_map_edit_view.cpp src/legacy/app/view/edit/edit.cpp
+git mv src/legacy/app/smart_data_source_view.h src/legacy/app/view/datasource/datasource.h
+git mv src/legacy/app/smart_data_source_view.cpp src/legacy/app/view/datasource/datasource.cpp
+git mv src/legacy/app/smart_3d_view.h src/legacy/app/view/scene3d/scene3d_view.h
+git mv src/legacy/app/smart_3d_view.cpp src/legacy/app/view/scene3d/scene3d_view.cpp
 ```
 
 - [x] **Step 2: Rewrite every moved include to `legacy/app/<module>/…`**
@@ -241,9 +241,9 @@ git mv src/legacy/app/smart_3d_view.cpp src/legacy/app/view/smart_3d_view.cpp
 No shim at old paths. Example:
 
 ```cpp
-#include "legacy/app/shell/main_frame.h"
+#include "legacy/app/shell/frame/main.h"
 #include "legacy/app/doc/smart_gis_doc.h"
-#include "legacy/app/view/smart_map_edit_view.h"
+#include "legacy/app/view/edit/edit.h"
 #include "legacy/app/core/smtapp.h"
 #include "legacy/app/stdafx.h"
 ```
@@ -256,13 +256,13 @@ smt_mfc_executable("app") {
   precompiled_header = "legacy/app/stdafx.h"
   sources = [
     "doc/smart_gis_doc.cpp",
-    "shell/child_frame.cpp",
-    "shell/main_frame.cpp",
-    "shell/smart_gis.cpp",
-    "view/smart_3d_view.cpp",
-    "view/smart_data_source_view.cpp",
-    "view/smart_gis_view.cpp",
-    "view/smart_map_edit_view.cpp",
+    "shell/frame/child.cpp",
+    "shell/frame/main.cpp",
+    "shell/frame/app.cpp",
+    "view/scene3d/scene3d_view.cpp",
+    "view/datasource/datasource.cpp",
+    "view/map/map.cpp",
+    "view/edit/edit.cpp",
     "smart_gis.rc",
     "stdafx.cpp",
   ]
@@ -301,7 +301,7 @@ Search pattern: `#include "legacy/app/smtapp.h"` / `main_frame.h` / `smart_gis_v
 - Create: `src/content/draft_commit_test.cc`
 - Modify: `src/content/BUILD.gn`
 - Modify: `src/app/views/map_scene.cc` (`append_from_draft` delegates after transform)
-- Modify: `src/legacy/app/view/smart_map_edit_view.cpp` only if it duplicates commit logic (thin comment + call leftover/xview that already goes through product path — do not pull Views into MFC)
+- Modify: `src/legacy/app/view/edit/edit.cpp` only if it duplicates commit logic (thin comment + call leftover/xview that already goes through product path — do not pull Views into MFC)
 
 **Interfaces:**
 
@@ -412,14 +412,14 @@ Expected: PASS. (Views `--self-test` optional human follow-up; agent must not ru
 | Old | New |
 | --- | --- |
 | `legacy/app/smtapp.h` | `legacy/app/core/smtapp.h` |
-| `legacy/app/smart_gis.h` | `legacy/app/shell/smart_gis.h` |
-| `legacy/app/main_frame.h` | `legacy/app/shell/main_frame.h` |
-| `legacy/app/child_frame.h` | `legacy/app/shell/child_frame.h` |
+| `legacy/app/smart_gis.h` | `legacy/app/shell/frame/app.h` |
+| `legacy/app/main_frame.h` | `legacy/app/shell/frame/main.h` |
+| `legacy/app/child_frame.h` | `legacy/app/shell/frame/child.h` |
 | `legacy/app/smart_gis_doc.h` | `legacy/app/doc/smart_gis_doc.h` |
-| `legacy/app/smart_gis_view.h` | `legacy/app/view/smart_gis_view.h` |
-| `legacy/app/smart_map_edit_view.h` | `legacy/app/view/smart_map_edit_view.h` |
-| `legacy/app/smart_data_source_view.h` | `legacy/app/view/smart_data_source_view.h` |
-| `legacy/app/smart_3d_view.h` | `legacy/app/view/smart_3d_view.h` |
+| `legacy/app/smart_gis_view.h` | `legacy/app/view/map/map.h` |
+| `legacy/app/smart_map_edit_view.h` | `legacy/app/view/edit/edit.h` |
+| `legacy/app/smart_data_source_view.h` | `legacy/app/view/datasource/datasource.h` |
+| `legacy/app/smart_3d_view.h` | `legacy/app/view/scene3d/scene3d_view.h` |
 | `legacy/app/stdafx.h` | unchanged |
 | `legacy/app/resource.h` | unchanged |
 

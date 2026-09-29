@@ -1,6 +1,5 @@
 #include "legacy/app/stdafx.h"
-
-#include "legacy/app/view/smart_map_edit_view.h"
+#include "legacy/app/view/edit/edit.h"
 
 #include <cstdio>
 #include <cstring>
@@ -9,12 +8,11 @@
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "base/core/log.h"
 #include "legacy/app/doc/smart_gis_doc.h"
-#include "legacy/app/shell/main_frame.h"
-#include "legacy/app/shell/smart_gis.h"
-#include "legacy/ui/xcatalog/mapmgr.h"
+#include "legacy/app/shell/frame/main.h"
+#include "legacy/app/shell/frame/app.h"
+#include "legacy/ui/catalog/mapmgr.h"
 
 using namespace gis;
-
 
 IMPLEMENT_DYNCREATE(CSmartMapEditView, Smt2DEditXView)
 
@@ -28,12 +26,10 @@ ON_WM_DESTROY()
 ON_WM_MOUSEMOVE()
 END_MESSAGE_MAP()
 
-
 void CSmartMapEditView::OnDraw(CDC* pDC) {
   CDocument* pDoc = GetDocument();
   Smt2DEditXView::OnDraw(pDC);
 }
-
 
 #ifdef _DEBUG
 void CSmartMapEditView::AssertValid() const { Smt2DEditXView::AssertValid(); }
@@ -44,9 +40,7 @@ void CSmartMapEditView::Dump(CDumpContext& dc) const {
 }
 #endif
 
-CSmartGisDoc* CSmartMapEditView::GetDocument()
-    const
-{
+CSmartGisDoc* CSmartMapEditView::GetDocument() const {
   ASSERT(m_pDocument->IsKindOf(RUNTIME_CLASS(CSmartGisDoc)));
   return (CSmartGisDoc*)m_pDocument;
 }
@@ -102,7 +96,7 @@ int CSmartMapEditView::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   if (::wcsstr(::GetCommandLineW(), L"--self-test") != nullptr) {
     char path[MAX_PATH] = {};
     if (app::detail::exe_sidecar_path_a(path, MAX_PATH,
-                                       "self-test-legacy-mark.txt")) {
+                                        "self-test-legacy-mark.txt")) {
       FILE* f = nullptr;
       if (fopen_s(&f, path, "a") == 0 && f) {
         std::fprintf(f, "view-ok\n");
@@ -114,7 +108,7 @@ int CSmartMapEditView::OnCreate(LPCREATESTRUCT lpCreateStruct) {
       ::Sleep(300);
       char path[MAX_PATH] = {};
       if (app::detail::exe_sidecar_path_a(path, MAX_PATH,
-                                         "self-test-legacy-mark.txt")) {
+                                          "self-test-legacy-mark.txt")) {
         FILE* f = nullptr;
         if (fopen_s(&f, path, "a") == 0 && f) {
           std::fprintf(f, "destroy-ok\n");
@@ -138,12 +132,10 @@ void CSmartMapEditView::OnDestroy() {
 void CSmartMapEditView::OnActivate(UINT nState, CWnd* pWndOther,
                                    BOOL bMinimized) {
   Smt2DEditXView::OnActivate(nState, pWndOther, bMinimized);
-
 }
 
 void CSmartMapEditView::OnActivateApp(BOOL bActive, DWORD dwThreadID) {
   Smt2DEditXView::OnActivateApp(bActive, dwThreadID);
-
 }
 
 int CSmartMapEditView::Notify(long nMsg, SmtListenerMsg& param) {

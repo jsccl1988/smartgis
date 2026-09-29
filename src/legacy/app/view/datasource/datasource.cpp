@@ -1,11 +1,11 @@
 #include "legacy/app/stdafx.h"
 
-#include "legacy/app/view/smart_data_source_view.h"
+#include "legacy/app/view/datasource/datasource.h"
 
 #include "base/core/log.h"
 #include "legacy/app/doc/smart_gis_doc.h"
-#include "legacy/app/shell/smart_gis.h"
-#include "legacy/ui/xcatalog/mapmgr.h"
+#include "legacy/app/shell/frame/app.h"
+#include "legacy/ui/catalog/mapmgr.h"
 
 using namespace gis;
 using namespace ui;

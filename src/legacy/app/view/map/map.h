@@ -4,35 +4,35 @@
 
 class CSmartGisDoc;
 class CSmartGisView : public CView {
- protected:
+protected:
   CSmartGisView();
   DECLARE_DYNCREATE(CSmartGisView)
 
- public:
-  CSmartGisDoc* GetDocument() const;
+public:
+  CSmartGisDoc *GetDocument() const;
 
- public:
-  virtual void OnDraw(CDC* pDC);
-  virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
+public:
+  virtual void OnDraw(CDC *pDC);
+  virtual BOOL PreCreateWindow(CREATESTRUCT &cs);
 
- protected:
-  virtual BOOL OnPreparePrinting(CPrintInfo* pInfo);
-  virtual void OnBeginPrinting(CDC* pDC, CPrintInfo* pInfo);
-  virtual void OnEndPrinting(CDC* pDC, CPrintInfo* pInfo);
+protected:
+  virtual BOOL OnPreparePrinting(CPrintInfo *pInfo);
+  virtual void OnBeginPrinting(CDC *pDC, CPrintInfo *pInfo);
+  virtual void OnEndPrinting(CDC *pDC, CPrintInfo *pInfo);
 
- public:
+public:
   virtual ~CSmartGisView();
 #ifdef _DEBUG
   virtual void AssertValid() const;
-  virtual void Dump(CDumpContext& dc) const;
+  virtual void Dump(CDumpContext &dc) const;
 #endif
 
- protected:
+protected:
   DECLARE_MESSAGE_MAP()
 
- public:
+public:
   virtual void OnInitialUpdate();
-  virtual void OnPrepareDC(CDC* pDC, CPrintInfo* pInfo = NULL);
+  virtual void OnPrepareDC(CDC *pDC, CPrintInfo *pInfo = NULL);
 
   afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
   afx_msg void OnDestroy();
@@ -44,13 +44,13 @@ class CSmartGisView : public CView {
   afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
   afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
   afx_msg void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
-  afx_msg BOOL OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message);
-  afx_msg BOOL OnEraseBkgnd(CDC* pDC);
-  afx_msg void OnContextMenu(CWnd* /*pWnd*/, CPoint /*point*/);
+  afx_msg BOOL OnSetCursor(CWnd *pWnd, UINT nHitTest, UINT message);
+  afx_msg BOOL OnEraseBkgnd(CDC *pDC);
+  afx_msg void OnContextMenu(CWnd * /*pWnd*/, CPoint /*point*/);
 };
 
 #ifndef _DEBUG
-inline CSmartGisDoc* CSmartGisView::GetDocument() const {
-  return reinterpret_cast<CSmartGisDoc*>(m_pDocument);
+inline CSmartGisDoc *CSmartGisView::GetDocument() const {
+  return reinterpret_cast<CSmartGisDoc *>(m_pDocument);
 }
 #endif

@@ -1,10 +1,13 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #include "legacy/app/stdafx.h"
 
-#include "legacy/app/shell/main_frame.h"
+#include "legacy/app/shell/frame/main.h"
 
-#include "legacy/app/shell/smart_gis.h"
-#include "legacy/ui/gui/config_dock_bar.h"
-#include "legacy/ui/gui/edit_config_dock_bar.h"
+#include "legacy/app/shell/frame/app.h"
+#include "legacy/ui/inspect/config_dock_bar.h"
+#include "legacy/ui/inspect/edit_config_dock_bar.h"
 
 // defs.h unused by this TU
 #include "base/core/log.h"
@@ -15,8 +18,135 @@ using namespace base;
 #define new DEBUG_NEW
 #endif
 
-
 #define IDD_PRAPROSETTING_DOCBAR 1000
+
+/////////////////////////////////////////////////////////////////////////////
+// CatalogTabDockPane — Feature Pack tab host for Catalog trees
+
+BEGIN_MESSAGE_MAP(CatalogTabDockPane, CBCGPDockingControlBar)
+ON_WM_CREATE()
+ON_WM_SIZE()
+ON_WM_CONTEXTMENU()
+ON_EN_CHANGE(CatalogTabDockPane::kFilterEditId, &CatalogTabDockPane::OnEnChangeFilter)
+END_MESSAGE_MAP()
+
+CatalogTabDockPane::CatalogTabDockPane() = default;
+
+CatalogTabDockPane::~CatalogTabDockPane() {
+  for (CWnd* wnd : m_vWndPtrs) {
+    if (wnd) {
+      wnd->DestroyWindow();
+      SMT_SAFE_DELETE(wnd);
+    }
+  }
+  m_vWndPtrs.clear();
+}
+
+int CatalogTabDockPane::OnCreate(LPCREATESTRUCT lpCreateStruct) {
+  if (CBCGPDockingControlBar::OnCreate(lpCreateStruct) == -1) {
+    return -1;
+  }
+
+  CRect rectDummy;
+  rectDummy.SetRectEmpty();
+
+  if (!m_filter_edit.Create(WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_BORDER |
+                                ES_AUTOHSCROLL,
+                            rectDummy, this, kFilterEditId)) {
+    TRACE0("Failed to create catalog filter edit\n");
+    return -1;
+  }
+  m_filter_edit.SendMessage(EM_SETCUEBANNER, TRUE,
+                            reinterpret_cast<LPARAM>(L"Filter..."));
+
+  if (!m_wndTabs.Create(CBCGPTabWnd::STYLE_3D, rectDummy, this, 1)) {
+    TRACE0("Failed to create workspace tab window\n");
+    return -1;
+  }
+  m_wndTabs.ShowWindow(SW_SHOW);
+  return 0;
+}
+
+void CatalogTabDockPane::layout_children(int cx, int cy) {
+  const int filter_h = 22;
+  if (m_filter_edit.GetSafeHwnd()) {
+    m_filter_edit.SetWindowPos(NULL, 0, 0, cx, filter_h,
+                               SWP_NOZORDER | SWP_NOACTIVATE);
+  }
+  if (m_wndTabs.GetSafeHwnd()) {
+    m_wndTabs.SetWindowPos(NULL, 0, filter_h, cx, max(0, cy - filter_h),
+                           SWP_NOZORDER | SWP_NOACTIVATE);
+  }
+}
+
+void CatalogTabDockPane::OnSize(UINT nType, int cx, int cy) {
+  CBCGPDockingControlBar::OnSize(nType, cx, cy);
+  layout_children(cx, cy);
+}
+
+HTREEITEM CatalogTabDockPane::find_tree_match(CTreeCtrl* tree, HTREEITEM item,
+                                              const CString& filter_lower) {
+  while (item) {
+    CString text = tree->GetItemText(item);
+    text.MakeLower();
+    if (text.Find(filter_lower) >= 0) {
+      return item;
+    }
+    HTREEITEM child = tree->GetChildItem(item);
+    if (child) {
+      HTREEITEM hit = find_tree_match(tree, child, filter_lower);
+      if (hit) {
+        return hit;
+      }
+    }
+    item = tree->GetNextSiblingItem(item);
+  }
+  return NULL;
+}
+
+void CatalogTabDockPane::apply_tree_filter() {
+  CString filter;
+  m_filter_edit.GetWindowText(filter);
+  filter.Trim();
+  if (filter.IsEmpty()) {
+    return;
+  }
+  filter.MakeLower();
+
+  const int tab = m_wndTabs.GetActiveTab();
+  if (tab < 0) {
+    return;
+  }
+  CWnd* page = m_wndTabs.GetTabWnd(tab);
+  CTreeCtrl* tree = DYNAMIC_DOWNCAST(CTreeCtrl, page);
+  if (!tree) {
+    return;
+  }
+  HTREEITEM hit =
+      find_tree_match(tree, tree->GetRootItem(), filter);
+  if (hit) {
+    tree->SelectItem(hit);
+    tree->EnsureVisible(hit);
+  }
+}
+
+void CatalogTabDockPane::OnEnChangeFilter() { apply_tree_filter(); }
+
+BOOL CatalogTabDockPane::add_wnd(CWnd* pWnd, CString strLabel) {
+  if (pWnd == NULL || pWnd->GetSafeHwnd() == NULL) {
+    return FALSE;
+  }
+
+  m_wndTabs.AddTab(pWnd, LPCTSTR(strLabel), (UINT)-1, FALSE);
+  m_vWndPtrs.push_back(pWnd);
+  pWnd->ShowWindow(SW_SHOW);
+  m_wndTabs.RecalcLayout();
+  m_wndTabs.RedrawWindow(
+      NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ERASE | RDW_ALLCHILDREN);
+  return TRUE;
+}
+
+void CatalogTabDockPane::OnContextMenu(CWnd* /*pWnd*/, CPoint /*point*/) {}
 
 IMPLEMENT_DYNAMIC(CMainFrame, CMainWnd)
 
@@ -28,6 +158,7 @@ ON_REGISTERED_MESSAGE(BCGM_ON_GET_TAB_TOOLTIP, OnGetTabToolTip)
 ON_COMMAND(ID_WND_MAPEDIT, &CMainFrame::OnWndMapedit)
 ON_COMMAND(ID_WND_MAPDATA, &CMainFrame::OnWndMapdata)
 ON_COMMAND(ID_WND_3D, &CMainFrame::OnWnd3d)
+ON_COMMAND(ID_VIEW_DIAGNOSTIC_TOOLS, &CMainFrame::OnViewDiagnosticTools)
 END_MESSAGE_MAP()
 
 static UINT indicators[] = {
@@ -44,7 +175,7 @@ CMainFrame::CMainFrame() {
   m_pMapDocCatalog = NULL;
   m_p3DObjCatalog = NULL;
 
-  m_nAppLook = theApp.GetInt(_T("ApplicationLook"), ID_VIEW_APPLOOK_2003);
+  m_nAppLook = theApp.GetInt(_T("ApplicationLook"), ID_VIEW_APPLOOK_2007_1);
 }
 
 CMainFrame::~CMainFrame() {}
@@ -99,22 +230,38 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct) {
     return FALSE;
   }
 
+  // Bottom Diagnostic strip (Views DiagnosticToolsPanel parity). Never nest
+  // CBCGPDockingControlBar panes inside AMBox — that crashes Feature Pack.
+  if (!m_wndDiagnosticTools.Create(
+          _T("Diagnostic"), this, CRect(0, 0, 200, 180), TRUE,
+          ID_DOCB_DIAGNOSTIC,
+          WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN |
+              CBRS_BOTTOM | CBRS_FLOAT_MULTI,
+          CBRS_BCGP_REGULAR_TABS, dwBCGStyle)) {
+    TRACE0("Failed to create Diagnostic tools bar\n");
+    return -1;
+  }
+
   EnableDocking(CBRS_ALIGN_ANY);
   // m_wndToolBar.EnableDocking(CBRS_ALIGN_ANY);
   m_wndMenuBar.EnableDocking(CBRS_ALIGN_ANY);
   m_wndCatalogDocBar.EnableDocking(CBRS_ALIGN_ANY);
   m_wndAMBoxMgrDocBar.EnableDocking(CBRS_ALIGN_ANY);
+  m_wndDiagnosticTools.EnableDocking(CBRS_ALIGN_ANY);
 
   // DockPane(&m_wndToolBar);
   DockPane(&m_wndMenuBar);
   DockPane(&m_wndCatalogDocBar, AFX_IDW_DOCKBAR_LEFT);
   DockPane(&m_wndAMBoxMgrDocBar, AFX_IDW_DOCKBAR_RIGHT);
+  DockPane(&m_wndDiagnosticTools, AFX_IDW_DOCKBAR_BOTTOM);
 
   InitStatusBar();
 
   if (!InitCatalogDockBar()) return -1;
 
   if (!InitAMBoxMgrDockBar()) return -1;
+
+  if (!InitDiagnosticToolsDockBar()) return -1;
 
   RecalcLayout();
 
@@ -164,6 +311,8 @@ void CMainFrame::SetStatusBarString(UINT index, CString str) {
 
 void CMainFrame::OnAppLook(UINT id) {
   CWaitCursor wait;
+
+  m_nAppLook = id;
 
   switch (id) {
     case ID_VIEW_APPLOOK_2003:
@@ -384,21 +533,32 @@ bool CMainFrame::InitCatalogDockBar(void) {
 bool CMainFrame::InitAMBoxMgrDockBar(void) {
   EditConfigDockBar* pEditCfgDockBar = new EditConfigDockBar();
   pEditCfgDockBar->Create(
-      _T("设置"), m_wndAMBoxMgrDocBar.GetOnerWnd(), CRect(0, 0, 300, 300), TRUE,
-      IDD_PRAPROSETTING_DOCBAR,
+      _T("设置"), m_wndAMBoxMgrDocBar.get_oner_wnd(), CRect(0, 0, 300, 300),
+      TRUE, IDD_PRAPROSETTING_DOCBAR,
       WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN);
 
-  m_wndAMBoxMgrDocBar.AddWnd(pEditCfgDockBar, "编辑参数");
+  m_wndAMBoxMgrDocBar.add_wnd(pEditCfgDockBar, "编辑参数");
 
   SysConfigDockBar* pSysCfgDockBar = new SysConfigDockBar();
   pSysCfgDockBar->Create(
-      _T("设置"), m_wndAMBoxMgrDocBar.GetOnerWnd(), CRect(0, 0, 300, 300), TRUE,
-      IDD_PRAPROSETTING_DOCBAR,
+      _T("设置"), m_wndAMBoxMgrDocBar.get_oner_wnd(), CRect(0, 0, 300, 300),
+      TRUE, IDD_PRAPROSETTING_DOCBAR,
       WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN);
 
-  m_wndAMBoxMgrDocBar.AddWnd(pSysCfgDockBar, "系统参数");
+  m_wndAMBoxMgrDocBar.add_wnd(pSysCfgDockBar, "系统参数");
 
   return m_wndAMBoxMgrDocBar.UpdateAMBoxs();
+}
+
+bool CMainFrame::InitDiagnosticToolsDockBar(void) {
+  // Panes are created in DiagnosticToolsDockBar::OnCreate (Console | RenderTrace).
+  return ::IsWindow(m_wndDiagnosticTools.GetSafeHwnd()) != FALSE;
+}
+
+void CMainFrame::OnViewDiagnosticTools() {
+  const BOOL show = !m_wndDiagnosticTools.IsVisible();
+  ShowPane(&m_wndDiagnosticTools, show, FALSE, TRUE);
+  RecalcLayout();
 }
 
 bool CMainFrame::InitMapDocCatalog(void) {
@@ -406,7 +566,7 @@ bool CMainFrame::InitMapDocCatalog(void) {
   if (!m_pMapDocCatalog->Create(
           WS_CHILD | WS_VISIBLE | TVS_HASLINES | TVS_HASBUTTONS |
               TVS_LINESATROOT | TVS_SHOWSELALWAYS,
-          CRect(0, 0, 0, 0), m_wndCatalogDocBar.GetOnerWnd(), 1)) {
+          CRect(0, 0, 0, 0), m_wndCatalogDocBar.get_oner_wnd(), 1)) {
     TRACE0("Failed to create maptree");
     return false;
   }
@@ -414,7 +574,7 @@ bool CMainFrame::InitMapDocCatalog(void) {
   m_pMapDocCatalog->ModifyStyleEx(0, WS_EX_CLIENTEDGE);
   m_pMapDocCatalog->UpdateMapTree();
 
-  m_wndCatalogDocBar.AddWnd(m_pMapDocCatalog, "地图文档");
+  m_wndCatalogDocBar.add_wnd(m_pMapDocCatalog, "地图文档");
 
   return true;
 }
@@ -424,7 +584,7 @@ bool CMainFrame::Init3DObjCatalog(void) {
   if (!m_p3DObjCatalog->Create(
           WS_CHILD | WS_VISIBLE | TVS_HASLINES | TVS_HASBUTTONS |
               TVS_LINESATROOT | TVS_SHOWSELALWAYS,
-          CRect(0, 0, 0, 0), m_wndCatalogDocBar.GetOnerWnd(), 1)) {
+          CRect(0, 0, 0, 0), m_wndCatalogDocBar.get_oner_wnd(), 1)) {
     TRACE0("Failed to create 3dobjtree");
     return false;
   }
@@ -432,7 +592,7 @@ bool CMainFrame::Init3DObjCatalog(void) {
   m_p3DObjCatalog->ModifyStyleEx(0, WS_EX_CLIENTEDGE);
   m_p3DObjCatalog->Update3DObjTree();
 
-  m_wndCatalogDocBar.AddWnd(m_p3DObjCatalog, "三维对象");
+  m_wndCatalogDocBar.add_wnd(m_p3DObjCatalog, "三维对象");
 
   return true;
 }
@@ -442,7 +602,7 @@ bool CMainFrame::InitDSCatalog(void) {
   if (!m_pDSCatalog->Create(
           WS_CHILD | WS_VISIBLE | TVS_HASLINES | TVS_HASBUTTONS |
               TVS_LINESATROOT | TVS_SHOWSELALWAYS,
-          CRect(0, 0, 0, 0), m_wndCatalogDocBar.GetOnerWnd(), 1)) {
+          CRect(0, 0, 0, 0), m_wndCatalogDocBar.get_oner_wnd(), 1)) {
     TRACE0("Failed to create dstree");
     return false;
   }
@@ -450,7 +610,7 @@ bool CMainFrame::InitDSCatalog(void) {
   m_pDSCatalog->ModifyStyleEx(0, WS_EX_CLIENTEDGE);
   m_pDSCatalog->UpdateCatalogTree();
 
-  m_wndCatalogDocBar.AddWnd(m_pDSCatalog, "数据源服务");
+  m_wndCatalogDocBar.add_wnd(m_pDSCatalog, "数据源服务");
 
   return true;
 }

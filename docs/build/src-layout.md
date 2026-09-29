@@ -11,7 +11,7 @@ All rights reserved.
 
 Product sources for GIS / UI / render stay under **`src/`**. Foundation also lives under **`src/base/`** (`:foundation` source_set). Compatibility forwards are **`//:base`** and **`//:core`** only (no physical repo-root `base/` or `core/`). Directory names under `src/` drop the 2010 `Smt` prefix. Nesting is by layer; **on-disk product DLL** follows the reorg（不再「短名各一 DLL」）。
 
-**Nesting cap:** at most `src/<layer>/<module>` (two levels under `src/`). Leftover MFC/GDI trees sit under layer `legacy/` → `src/legacy/{app,ui,render,tool,plugin,sys,xml}`.
+**Nesting cap:** at most `src/<layer>/<module>` (two levels under `src/`). Leftover MFC/GDI trees sit under layer `legacy/` → `src/legacy/{app,ui,render,tool,plugin,sys}`.
 
 **Directory vs DLL:** 目录与 GN 标签路径仍可细（`//src/gis/datasource/provider/impl/gdal:sde_gdal` 等为 group → 层 DLL）。磁盘 `dll_stem` 见上表。Debug 产出在 `out/Debug/`，stem 后加 `_d`（`base_d.dll`），不是尾缀 `D`；Release 在 `out/Release/`（无 `_d`）。
 
@@ -21,12 +21,12 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 
 | Layer | Tree | Notes |
 | --- | --- | --- |
-| app | `src/app/{views,winui,cef,cs}`；MFC 壳 → `src/legacy/app/{core,shell,doc,view}`（根留 `.rc`/`stdafx`/`res/`） | Endgame/prototype hosts only. Do not add a separate browser-shell tree. Namespace `app`. |
+| app | `src/app/{views,winui,cef,cs}`；MFC 壳 → `src/legacy/app/{core,shell/{frame,dock,showcase},doc,view/{map,edit,datasource,scene3d}}`（根留 `.rc`/`stdafx`/`res/`） | Endgame/prototype hosts only. Do not add a separate browser-shell tree. Namespace `app`. |
 | content | `src/content/public`（9 个头）+ `{app,browser,renderer,view,embed,common}` | 嵌入方只包含 `public/`：`map_types`、`map_contents`（含视口）、`map_contents_observer`、`event_bus`（含领域事件）、`view_host`、`plugin_host`、`catalog_layers`、`feature_attrs`、`map_bootstrap`。管道帧在 `common/host_protocol.h`。 |
-| sdb | `src/sdb/{feature,layer,map,crs,datasource/<driver>,model,scene,tile,style,carto}` | GIS model; CPU assets (`model`) and World (`scene`); HTTP XYZ tiles (`tile`); MapLibre-subset Style JSON / symbol / rules (`style`); cartographic POD (`carto`, linked into base.dll) |
+| sdb / gis | `src/gis/{model,datasource,present/{style,tile},vista,kernel,analysis}` + leftover `legacy/gis/present/carto` | GIS model; tiles + Style JSON (`present/style`); cartographic POD leftovers → **`gis.dll`**; World (`vista`) |
 | render | `src/render/{rhi,scene,graph,skia,math}` | Endgame: unified 2D+3D RHI (FlyCube DX12/Vulkan), `GpuScene`, frame graph, Skia stub, scene math. Leftover engines live under `src/legacy/render/…` and are **not** in `src_all` by default (optional `//src/legacy/render:legacy_render_all`). **Paint runs in `--type=gpu`**, not in browser. |
 | effect | `src/effect/{map,atmosphere}` | GPU map and atmosphere passes. `source_set` linked by callers, not a DLL, and not inside `render.dll`. |
-| base | `src/base/`（foundation only）+ `src/legacy/{carto,core,sys}` | **`//src/base:foundation`**：mogu 式 log/threading/files/… + `archive`/`ipc`。**产品 DLL** **`dll_stem=base`**（leftovers+`legacy/carto`+sys；**不含** net；XML → `//third_party:pugixml`）。HTTP/RPC → **`//src/net:net`**。`legacy/carto` = leftover style POD（**not** Style JSON）；`gis::Envelope` in `gis/model/envelope.h`。 |
+| base | `src/base/`（foundation only）+ `src/legacy/{core,sys}` | **`//src/base:foundation`**：mogu 式 log/threading/files/… + `archive`/`ipc`。**产品 DLL** **`dll_stem=base`**（leftovers+sys；**不含** net / carto；XML → `//third_party:pugixml`）。HTTP/RPC → **`//src/net:net`**。style POD → `legacy/gis/present/carto`（`gis` DLL）；`gis::Envelope` in `gis/model/envelope.h`。 |
 
 ## OSS GIS ↔ this tree
 
@@ -48,7 +48,7 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 
 | `dll_stem` | 树 / 吸收 | 默认 `src_all` / 宿主 |
 | --- | --- | --- |
-| **`base`** | leftovers + `legacy/carto` + sys。foundation（`archive`/`ipc`）`:foundation` 非 DLL。XML → pugixml（非内嵌 TinyXML） | yes |
+| **`base`** | leftovers + sys。foundation（`archive`/`ipc`）`:foundation` 非 DLL。XML → pugixml（非内嵌 TinyXML）。carto POD → `gis` | yes |
 | **`net`** | `src/net`（HTTP/RPC；从 base 抽出） | yes |
 | `gis` | `src/gis/**`（原 sdb + algorithm 内核） | yes |
 | `render` | `render/{rhi,scene,skia,…}`（endgame only） | yes |
@@ -56,7 +56,7 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 | `tool` | `src/tool/**`（`SMT_TOOL_*`；`:dispatch` 转发） | yes |
 | `ui_views` | `ui/views` + `ui/gfx` + `ui/gis`（同 PE；`UI_EXPORT`） | **no**（SmartGisViews / plugin_host） |
 | `plugin_host` | `plugin/runtime/host` + widgets（`PLUGIN_HOST_*`） | **no**（Views 宿主） |
-| `ui_legacy` | `legacy/ui/{gui,mfc_ex,…}` | **no**（`smt_build_app`） |
+| `ui_legacy` | `legacy/ui/{shell/{ambox,chart},map,inspect,catalog,dialogs,widgets}` + `res/` | **no**（`smt_build_app`） |
 | `app_core` | `legacy/app/core/smtapp.cpp` | **no**（`smt_build_app`） |
 | `legacy_render` | `legacy/render/**` | **no**（optional） |
 | `legacy_tool` | `legacy/tool/**`（非产品 `tool.dll`） | **no**（optional） |
@@ -68,26 +68,26 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 
 | Layer | Tree | Directory / product notes | In `src_all` |
 | --- | --- | --- | --- |
-| Foundation | `src/base/`（含 `archive`/`ipc`；core leftovers 在 `legacy/core`）, `legacy/{carto,core,sys}` | **`//src/base:foundation`**（static）。**产品 DLL**：`dll_stem=base`（无 net；`legacy/carto` style POD 链入）。`legacy/xml` TinyXML 已删；XML → `//third_party:pugixml` | yes → `base`；foundation 经 deps 链入 |
+| Foundation | `src/base/`（含 `archive`/`ipc`；core leftovers 在 `legacy/core`）, `legacy/{core,sys}` | **`//src/base:foundation`**（static）。**产品 DLL**：`dll_stem=base`（无 net；无 carto）。XML → `//third_party:pugixml`（`legacy/xml` 目录已删） | yes → `base`；foundation 经 deps 链入 |
 | Net | `src/net` | **`dll_stem=net`**（import-link） | yes → `net` |
-| Core data model | `src/gis/model`、`present`、`scene`（目录名仍可能写 sdb） | GIS 模型 + CPU assets / World / TileProvider / StyleDocument；**一 DLL `gis`**；`gis::Envelope` 头在 `gis/model/envelope.h`（header-only） | yes → `gis` |
-| Datasource | `gis/datasource/{session,provider,pipeline}`；L3=`provider/impl/{sdbd,ogr,gdal}` | 并入 `gis` DLL。**分层：** L1 `session/` → L2 `provider/` → L3 `provider/impl/{sdbd,ogr,gdal}`；L4 `pipeline/`。产品 ABI `MapLayer`/`Feature`。**遗留 catalog：** `legacy/datasource/mgr`。SDBD：`impl/sdbd/{client,driver,remote,codec}`；活体硬测：`impl/sdbd/remote/sdbd_live_test.cc` | yes → `gis` |
+| Core data model | `src/gis/model`、`present`、`scene`（目录名仍可能写 sdb） | GIS 模型 + CPU assets / World / TileProvider / StyleDocument / carto POD；**一 DLL `gis`**；`gis::Envelope` 头在 `gis/model/envelope.h`（header-only） | yes → `gis` |
+| Datasource | `gis/datasource/{session,provider,pipeline}`；L3=`provider/impl/{sdbd,ogr,gdal}` | 并入 `gis` DLL。**分层：** L1 `session/` → L2 `provider/` → L3 `provider/impl/{sdbd,ogr,gdal}`；L4 `pipeline/`。产品 ABI `MapLayer`/`Feature`。**遗留 catalog：** `legacy/gis/datasource`。SDBD：`impl/sdbd/{client,driver,remote,codec}`；活体硬测：`impl/sdbd/remote/sdbd_live_test.cc` | yes → `gis` |
 | Algorithm | `gis/kernel/{geo,proj,tin,stat}` + `gis/analysis/{ops,geometry,raster}` | 编进 **`gis.dll`**（`//src/gis:algorithm` 转发）。`analysis/ops` = native GeoJSON runners；`geometry`/`raster` = 后续对象落点。Scene Vector/Matrix 在 `base/math`（命名空间 `render`，不进 `base.dll`）。**Not** dem/orthogrid（插件）/ chart（`ui_legacy`） | yes → `gis` |
 | Render | `render/{rhi,scene,skia}` | Endgame **一 DLL `render`**。场景数学在 `src/base/math`（不进本 DLL）。Leftover 引擎在 `legacy/render/` → optional `legacy_render` DLL | yes → `render`；leftover optional |
-| Plugin | `plugin/runtime`（host / processing forwarders / widgets / python）+ `plugin/product`（dem / print / model3d / orthogrid；包内 `manifest`/`views`/`processing`/`tests`，样板 dem）+ leftover `legacy/plugin/`（含 legacy `proj`） | Host **`dll_stem=plugin_host`**（`//src/plugin:host`；`PLUGIN_HOST_*`）。Processing **kernels** 在 `gis/analysis`，`plugin/runtime/processing` 仅转发 `plugin::`。`*.am` / `AM_MSG` 在 `legacy/plugin/adapter`。Leftover AuxModule `//src/legacy/plugin:plugin`。MFC 域插件 `am_plugin=true` → **`out/plugin/<stem>[_d].am`**。Views 走 builtin + import-link `plugin_host`，不扫 `*.am`。包约定见 [`../superpowers/specs/2026-09-13-plugin-host-design.md`](../superpowers/specs/2026-09-13-plugin-host-design.md) § Product domain package。 | host DLL + widgets；域插件按需 |
-| UI (leftover) | `legacy/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | **一 DLL `ui_legacy`**。`//src/ui:ui_legacy` 转发 | **no**（`smt_build_app`） |
+| Plugin | `plugin/runtime`（host / processing forwarders / widgets / python）+ `plugin/product`（dem / print / model3d / orthogrid；包内 `manifest`/`views`/`processing`/`tests`，样板 dem）+ leftover `legacy/plugin/{runtime,product/<domain>/{shell,views},product/orthogrid/kernel}`（含 legacy `proj`） | Host **`dll_stem=plugin_host`**（`//src/plugin:host`；`PLUGIN_HOST_*`）。Processing **kernels** 在 `gis/analysis`，`plugin/runtime/processing` 仅转发 `plugin::`。Leftover **`runtime/{auxmodule,bridge}`**：AuxModule → `//src/legacy/plugin:plugin`；header-only `AM_MSG` → `//src/legacy/plugin/runtime:cmd`（`//src/plugin:cmd`）；`*.am` scan → `:bridge`（仅链入 `plugin_host`，忌进 `ui_legacy`）。MFC 域插件 `am_plugin=true` → **`out/plugin/<stem>[_d].am`**；域内 `shell/` + `views/`。Views 走 builtin + import-link `plugin_host`，不扫 `*.am`。包约定见 [`../superpowers/specs/2026-09-13-plugin-host-design.md`](../superpowers/specs/2026-09-13-plugin-host-design.md) § Product domain package。 | host DLL + widgets；域插件按需 |
+| UI (leftover) | `legacy/ui/{shell/{ambox,chart},map,inspect,catalog,dialogs,widgets}` + `res/{shell,shell/ambox,shell/chart,…}/` | **一 DLL `ui_legacy`**。B1 ≈ `ui/gis` + `views/map` 词汇；§11c Feature Pack（无 `grid/`/`dock/`）；scheme C；不出 `legacy/` | **no**（`smt_build_app`） |
 | UI toolkit (endgame) | `ui/views` + `ui/gfx` + `ui/gis` | **`dll_stem=ui_views`**（同 PE；`UI_EXPORT`）；`:views` / `:gfx` / `:gis` 转发；`:gfx_headers` 给 gpu | **no**（SmartGisViews） |
 | Hosted map | `content/public` + `content/{app,browser,renderer,view,common,embed}`；in-process session under `content/browser/{map_session,document,camera,present,input}`（`//src/content:map_session` source_set，**不**进 content.dll）；GDI software TUs in `content/browser/present/*/software/`（render 不得反向依赖 content；GPU 在 `*/gpu/`） | **`dll_stem=content`**（管道 / MapContents / ViewHost）；Views 另链 `:map_session` | yes → `content`（DLL）；map_session 仅 Views/exe |
 | GPU main (`--type=gpu`) | `gpu/` | 同 PE `GpuMain`；deps **`:gfx_headers`**（不拉 ui_views）。`build.bat render` 为 GPU 进程别名。 | **no** |
 | App (endgame) | `app/{views,winui,cef,cs}` | SmartGisViews import-link 产品 DLL 集 | **no** |
-| App (leftover) | `legacy/app/{core,shell,doc,view}` + 根 `.rc`/`stdafx`/`res/`（`core/smtapp.cpp` → `dll_stem=app_core`） | MFC `SmartGis.exe`（`//src/legacy/app:app`） | **no**（`smt_build_app`） |
-| Tool | `tool/{command,interaction,draft,nav,workspace}` + `gis/model/edit`；`GT_MSG` bridge at `legacy/tool/adapter` | **`dll_stem=tool`**（`:dispatch`→`:tool`）；adapter source_set；leftover → `legacy_tool`；`edit` 进 `gis` | yes → `tool` |
+| App (leftover) | `legacy/app/{core,shell/{frame,dock,showcase},doc,view/{map,edit,datasource,scene3d}}` + 根 `.rc`/`stdafx`/`res/`（`core/smtapp.cpp` → `dll_stem=app_core`） | MFC `SmartGis.exe`（`//src/legacy/app:app`） | **no**（`smt_build_app`） |
+| Tool | `tool/{command,interaction,draft,nav,workspace}` + `gis/model/edit`；`GT_MSG` bridge at `legacy/tool/msg` | **`dll_stem=tool`**（`:dispatch`→`:tool`）；adapter source_set；leftover → `legacy_tool`；`edit` 进 `gis` | yes → `tool` |
 
 **Deliberately not merged** *(directory / product splits — DLL 已按上表合并)*
 
 - `//src/base:core` / `:base` / `:platform` / `//src/legacy/sys:sys` 为 **group → `base` DLL**。`//src/net:net` 是**独立**产品 DLL。**不要**与 `//src/base:foundation`（或 `//:base` / `//:core`）混淆。
 - Homemade Vector/Matrix were removed from `gis/kernel/geo`. Scene `Vector3` / `Matrix` / bounds live in `src/base/math`（namespace `render`；不进 `base.dll` / `render.dll`）。
-- `src/legacy/carto/`（leftover `SmtStyle` / StyleManager）链入 **base.dll**。`gis::Envelope` 在 `gis/model/envelope.h`。Style JSON 在 `gis/present/style`。
+- `src/legacy/gis/present/carto/`（`SmtStyle` / StyleManager POD）链入 **gis.dll**。`gis::Envelope` 在 `gis/model/envelope.h`。Style JSON 在 `gis/present/style`。
 - `geo::geometry_traits` / `vector_traits` wrap OGR；Delaunay in `gis/kernel/tin`。No second geometry tree.
 - **不要**把 `legacy_render` 并进 `render`；**不要**把域插件并进平台 DLL；**不要**把 `ui_views` 拆成 `gfx.dll`。
 - MFC Feature Pack / `ui_legacy` stays out of default `src_all`。日常产品入口：`build.bat app` → Views。
@@ -98,7 +98,7 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 
 ### MFC Feature Pack (legacy exe bootstrap)
 
-`build.bat legacy_app` links **MFC Feature Pack** (`CMFCRibbonBar` / `CDockablePane` / `CMDIFrameWndEx` via `legacy/ui/mfc_ex/bcg_cmfc.h`). BCGControlBar Pro is **not** required and is not vendored. This is a compile bridge, **not** the destination toolkit (Views + Skia). `build.bat app` builds Views.
+`build.bat legacy_app` links **MFC Feature Pack** (`CMFCRibbonBar` / `CDockablePane` / `CMDIFrameWndEx` via `legacy/ui/widgets/bcg_cmfc.h`). BCGControlBar Pro is **not** required and is not vendored. This is a compile bridge, **not** the destination toolkit (Views + Skia). `build.bat app` builds Views.
 
 | Dep | How to satisfy |
 | --- | --- |
@@ -108,11 +108,11 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 
 | Old directory | Short (`src/…`) | Layered (`src/…`) | GN target | 终态 `dll_stem` |
 | --- | --- | --- | --- | --- |
-| `SmtCore` | `core` | `legacy/core`（foundation 头仍在 `base/core`） | `legacy/core` → `//src/base:base` | `base` |
+| `SmtCore` | `core` | `legacy/core/{macros,struct,api,listener,command,msg,diag}`（foundation 头仍在 `base/core`） | `legacy/core` → `//src/base:base` | `base` |
 | `SmtSysCore` | `sys` | `sys` | `sys` → `//src/base:base` | `base` |
 | `SmtMathLib` | `math` | `algorithm/math` | (absorbed into geo) | `gis` |
 | `Smt3DMathLib` | `math3d` | `algorithm/math3d` | (absorbed) | `gis` |
-| `SmtBaseLib` | `base` | `legacy/carto`（style POD）+ `gis/model/envelope.h` | `carto_sources` → `//src/base:base`；Envelope header-only | `base` / `gis` |
+| `SmtBaseLib` | `base` | `legacy/gis/present/carto`（style POD）+ `gis/model/envelope.h` | `carto_sources` → `//src/gis:gis`；Envelope header-only | `gis` |
 | `SmtGeoCore` | `geo` | `gis/kernel/geo` | `geo` → `//src/gis:gis` | `gis` |
 | `Smt3DGeoCore` | `geo3d` | `gis/kernel/geo` | (absorbed) | `gis` |
 | `SmtGisCore` | `gis` | `sdb/{feature,layer,map}` | `gis` → `//src/sdb:sdb` | `sdb` |
@@ -123,29 +123,29 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 | `SmtGdiSimpleRenderDevice` *(retired)* | *(was `render_gdi_simple`)* | — | Alias → `CreateRenderDevice` / `gdi/` | `legacy_render` |
 | `SmtGLRenderDevice` | `render_gl` | `legacy/render/rhi3d/impl/gl` (was `legacy/render/gl`) | → `legacy_render` | `legacy_render` |
 | `SmtD3DRenderDevice` | `render_d3d` | *(removed)* | — | — |
-| `SmtSDEDeviceMgr` | `sde_mgr` | `legacy/datasource/mgr` | → `gis` | `gis` |
+| `SmtSDEDeviceMgr` | `sde_mgr` | `legacy/gis/datasource` | → `gis` | `gis` |
 | `SmtSDEGdalDevice` | `sde_gdal` | `sdb/datasource/gdal` | → `sdb` | `sdb` |
 | `SmtSDEMemDevice` | `sde_mem` | *(removed)* | — | — |
 | `SmtSDESmfDevice` | `sde_smf` | *(removed)* | — | — |
 | `SmtSDEWSDevice` | `sde_ws` | *(removed)* | — | — |
 | `SmtToolCore` | `tool` | `legacy_tool` | → `legacy_tool` | `legacy_tool` |
-| `SmtGroupToolCore` | `tool_group` | `legacy/tool/group/{base,view,select,input,factory}` | sources → `ui_legacy`（避环） | `ui_legacy` |
+| `SmtGroupToolCore` | `tool_group` | `legacy/tool/{nav,select,draft,base,factory}` | sources → `ui_legacy`（避环） | `ui_legacy` |
 | — | `dispatch` | `tool/{command,interaction,draft,nav,workspace}` | `dispatch` | — (group→source_sets) |
-| — | `tool_adapter` | `legacy/tool/adapter` | `//src/legacy/tool/adapter:adapter` | — (source_set；`namespace tool`) |
+| — | `tool_adapter` | `legacy/tool/msg` | `//src/legacy/tool/msg:adapter` | — (source_set；`namespace tool`) |
 | — | `edit` | `sdb/edit` | → `sdb` | `sdb` |
-| `SmtGuiCore` | `gui` | `legacy/ui/gui` | → `ui_legacy` | `ui_legacy` |
-| `SmtMFCExCore` | `mfc_ex` | `legacy/ui/mfc_ex` | → `ui_legacy` | `ui_legacy` |
-| `SmtXViewCore` | `xview` | `legacy/ui/xview` | → `ui_legacy` | `ui_legacy` |
-| `SmtXCatalogCore` | `xcatalog` | `legacy/ui/xcatalog` | → `ui_legacy` | `ui_legacy` |
-| `SmtXAMBoxCore` | `xambox` | `legacy/ui/xambox` | → `ui_legacy` | `ui_legacy` |
+| `SmtGuiCore` | `dialogs` | `legacy/ui/dialogs` (+ config docks in `inspect/`) | → `ui_legacy` | `ui_legacy` |
+| `SmtMFCExCore` | `widgets` | `legacy/ui/widgets`（Feature Pack glue；Catalog dock 内联于 `legacy/app/shell`） | → `ui_legacy` | `ui_legacy` |
+| `SmtXViewCore` | `shell`+`map` | `legacy/ui/shell` · `legacy/ui/map` | → `ui_legacy` | `ui_legacy` |
+| `SmtXCatalogCore` | `catalog` | `legacy/ui/catalog` | → `ui_legacy` | `ui_legacy` |
+| `SmtXAMBoxCore` | `shell/ambox` | `legacy/ui/shell/ambox` | → `ui_legacy` | `ui_legacy` |
 | — | `views` | `ui/views` | `views` (`//:ui_views`) | — (source_set) |
 | — | `gfx` | `ui/gfx` | `//src/ui/gfx:gfx` | — (source_set) |
-| `SmtAuxModule` | `plugin` | `legacy/plugin` | `plugin` | `plugin` |
-| `SmtAM3DModelCreater` | `plugin_model3d` | `legacy/plugin/model3d` | `plugin_model3d` | `plugin_model3d` |
-| `SmtAMOrthogrid` | `plugin_orthogrid` | `legacy/plugin/orthogrid` | `plugin_orthogrid` | `plugin_orthogrid` |
-| `SmtAMDemCreater` | `plugin_dem` | `legacy/plugin/dem` | `plugin_dem` | `plugin_dem` |
-| `SmtAMMapPrint` | `plugin_print` | `legacy/plugin/print` | `plugin_print` | `plugin_print` |
-| `SmtAMMapProject` | `plugin_proj` | `legacy/plugin/proj` | `plugin_proj` | `plugin_proj` |
+| `SmtAuxModule` | `plugin` | `legacy/plugin/runtime/auxmodule` | `plugin` | `plugin` |
+| `SmtAM3DModelCreater` | `plugin_model3d` | `legacy/plugin/product/model3d` | `plugin_model3d` | `plugin_model3d` |
+| `SmtAMOrthogrid` | `plugin_orthogrid` | `legacy/plugin/product/orthogrid` | `plugin_orthogrid` | `plugin_orthogrid` |
+| `SmtAMDemCreater` | `plugin_dem` | `legacy/plugin/product/dem` | `plugin_dem` | `plugin_dem` |
+| `SmtAMMapPrint` | `plugin_print` | `legacy/plugin/product/print` | `plugin_print` | `plugin_print` |
+| `SmtAMMapProject` | `plugin_proj` | `legacy/plugin/product/proj` | `plugin_proj` | `plugin_proj` |
 | `SmartGis` | `app` | `app` | `app` | `SmartGis.exe` |
 | `SmtAppCore` | `app_core` | `app/app_core` | `app_core` | `app_core` |
 | — | `views` (exe) | `app/views` (`shell/{app,browser,ui}` + content `document` / `camera` / `present/{host,map2d,scene3d/{policy,stereo,frame,atmosphere,gpu,software}}` / `input`) | `views` | `SmartGisViews.exe` |
@@ -160,7 +160,7 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 | `Smt3DTerrain` | `terrain` | `legacy/render/scene3d/surface` (was top `terrain/`) | → `legacy_render` | `legacy_render` |
 | `SmtNetCore` | `net` | `net/{pack,http,rpc}` | → `base` | `base` |
 | `SmtStaCore` | `stat` | `gis/kernel/stat` | → `//src/gis:gis` | `gis` |
-| `SmtStaDiagram` | `stat_chart` | `legacy/ui/chart` | → `ui_legacy` | `ui_legacy` |
+| `SmtStaDiagram` | `stat_chart` | `legacy/ui/shell/chart` | → `ui_legacy` | `ui_legacy` |
 
 `app` 不进默认 `src_all`。Debug 文件名为 `{stem}_d.dll`。完整对照见 [`abi-rename-map.md`](abi-rename-map.md)。
 
@@ -173,7 +173,7 @@ Include dirs: `BUILDCONFIG` puts **`//src` before `//`** so `#include "base/…"
 | Tree | Stem | Extension | Include |
 | --- | --- | --- | --- |
 | New (`content`, `gpu`, `app/{views,winui,cef,cs}`, `ui/views`, `render/{skia,rhi,scene}`, `sdb/{model,scene}`, `net`) | `snake_case` | `.cc` / `.h` (`net` keeps `.cpp`) | `"content/public/map_contents.h"`, `"ui/views/kernel/view.h"`, `"gpu/gpu.h"`, `"render/rhi/rhi.h"`, `"sdb/scene/scene.h"`, `"net/http/http.h"` (`//src` on the include path) |
-| Legacy product (`legacy/app` MFC, `legacy/ui/{gui,mfc_ex,xview,…}`, `plugin/*`, …) | `snake_case` | keep `.cpp` | still module-root `"main_frame.h"` / `"grid_ctrl.h"`（产品代码用 `"legacy/app/…"` / `"legacy/ui/…"`） |
+| Legacy product (`legacy/app` MFC, `legacy/ui/{shell,map,inspect,…}`, `plugin/*`, …) | `snake_case` | keep `.cpp` | `"legacy/app/…"` / `"legacy/ui/…"` |
 
 - Drop file prefixes (`smt_`, `vw_`, `cata_`, `baog_`, `msvr_`, `am_`, `gt_`, `wa_`, `bl_`, `rd_`, plus module tags `gis_` / `geo_` / `sde_`). On-disk **DLL stems** follow reorg 终态（[`abi-rename-map.md`](abi-rename-map.md)）；legacy `Smt_*` 命名空间仍可能存在直至 ABI cutover 收尾。
 - CRT collisions keep a short qualifier (`core_assert.h`, `net_string.h`), not the old prefix.
@@ -181,4 +181,4 @@ Include dirs: `BUILDCONFIG` puts **`//src` before `//`** so `#include "base/…"
 
 ---
 
-**最后更新：** 2026-09-28
+**最后更新：** 2026-09-29

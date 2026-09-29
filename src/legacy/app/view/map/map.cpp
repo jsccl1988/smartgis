@@ -1,10 +1,10 @@
 #include "legacy/app/stdafx.h"
 
-#include "legacy/app/view/smart_gis_view.h"
+#include "legacy/app/view/map/map.h"
 
 #include "legacy/app/doc/smart_gis_doc.h"
-#include "legacy/app/shell/main_frame.h"
-#include "legacy/app/shell/smart_gis.h"
+#include "legacy/app/shell/frame/main.h"
+#include "legacy/app/shell/frame/app.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

@@ -3,7 +3,7 @@
 // Thin MFC forwarder over Smt2DEditXView (leftover HWND paint / Notify).
 // TODO(sp3): Viewport + command wiring belongs in src/app/views (MapScene /
 // ViewHost). Keep this class as a CView shell until leftover paint is retired.
-#include "legacy/ui/xview/view_2d_edit.h"
+#include "legacy/ui/map/view_2d_edit.h"
 using namespace ui;
 
 class CSmartGisDoc;

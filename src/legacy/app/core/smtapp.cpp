@@ -5,21 +5,21 @@
 #include <string>
 #include <vector>
 
-#include "legacy/carto/stylemanager.h"
 #include "base/core/log.h"
 #include "base/files/read_file.h"
 #include "base/util/plugin.h"
 #include "content/public/map_bootstrap.h"
 #include "gdal_priv.h"
 #include "gis/datasource/provider/impl/gdal/gdal_driver.h"
-#include "legacy/datasource/mgr/datasource_mgr.h"
-#include "legacy/core/api.h"
-#include "legacy/core/core_exception.h"
-#include "legacy/core/listenermanager.h"
-#include "legacy/plugin/module_manager.h"
+#include "legacy/gis/present/carto/stylemanager.h"
+#include "legacy/core/util/path.h"
+#include "legacy/core/diag/exception.h"
+#include "legacy/core/listener/listener_manager.h"
+#include "legacy/gis/datasource/datasource_mgr.h"
+#include "legacy/plugin/runtime/auxmodule/module_manager.h"
 #include "legacy/sys/sysmanager.h"
-#include "legacy/tool/iatool/t_iatoolmanager.h"
-#include "legacy/ui/xcatalog/mapmgr.h"
+#include "legacy/tool/abi/t_iatoolmanager.h"
+#include "legacy/ui/catalog/mapmgr.h"
 #include "ogrsf_frmts.h"
 
 using namespace plugin;
@@ -42,7 +42,7 @@ bool path_is_file(const char* path) {
 // Prefer the prefecture pack (recognizable China), then the tiny PLP stub.
 // Path policy lives in content::try_resolve_existing_sample_map (SP3).
 bool resolve_sample_geojson(std::string* out_path) {
-  const std::string app = GetAppPath();
+  const std::string app = get_app_path();
   return content::try_resolve_existing_sample_map({app}, out_path);
 }
 
@@ -114,9 +114,9 @@ bool SmtApp::Init() {
   sysPra.bShowPoint = false;
   sysPra.lPointRaduis = 5;
   sysPra.l2DViewRefreshTime = 500;
-  sysPra.l3DViewRefreshTime = 10;
+  sysPra.l3DViewRefreshTime = 33;
   sysPra.str2DRenderDeviceName = "SmtGdiRenderDevice";
-  sysPra.str3DRenderDeviceName = "OpenGL";
+  sysPra.str3DRenderDeviceName = "Direct3D";
 
   pSysMgr->set_sys_pra(sysPra);
 
@@ -242,7 +242,6 @@ bool SmtApp::InitStyleMgr(void) {
         pStyleMgr->create_style(styleConfig.szRegionFlashStyle2, stPenDesc,
                                 stBrushDesc, stAnnoDesc, stSymbolDesc);
 
-
     pStyle1->set_style_type(ST_PenDesc | ST_BrushDesc | ST_AnnoDesc |
                             ST_SymbolDesc);
     pStyle2->set_style_type(ST_PenDesc);
@@ -340,7 +339,7 @@ bool SmtApp::InitSmtDataSource(void) {
 
   DataSourceMgr* pDSMgr = DataSourceMgr::get_singleton_ptr();
   if (pDSMgr) {
-    string strAppPath = GetAppPath();
+    string strAppPath = get_app_path();
 
     string strDSMFilePath = strAppPath + "sys\\smartgis.mds";
     if (path_is_file(strDSMFilePath.c_str())) {
@@ -408,7 +407,7 @@ bool SmtApp::InitSmtMap(void) {
   if (!pMapMgr) {
     return false;
   }
-  string strDSMFilePath = GetAppPath() + "sys\\smartgis.mdoc";
+  string strDSMFilePath = get_app_path() + "sys\\smartgis.mdoc";
   if (path_is_file(strDSMFilePath.c_str())) {
     LOGGING(LOG_INFO, "InitSmtMap: OpenMap %s", strDSMFilePath.c_str());
     return pMapMgr->OpenMap(strDSMFilePath.c_str());
