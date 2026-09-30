@@ -4,7 +4,7 @@
 #ifndef _GIS_API_H
 #define _GIS_API_H
 
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 #include "gis/gis_export.h"
 #include "gis/model/layer/layer.h"
 

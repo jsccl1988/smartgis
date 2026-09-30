@@ -8,9 +8,11 @@
 #define NOMINMAX
 #endif
 #include <cstdint>
+#include <cstdio>
 #include <mutex>
 #include <vector>
 
+#include "base/time/frame_timer.h"
 #include "content/browser/camera/map_host_extent.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/host/shell_overlay_effect.h"
@@ -75,6 +77,20 @@ class Scene3dGpuPresent {
 
   // Last present/paint sets this for HUD badge (shared with software painter).
   mutable const char* render_engine_name = "pending";
+  // Present cadence for HUD "Fps%.3f" (legacy SmtScene::Render).
+  mutable float last_fps = 0.f;
+  // Stable "EngineName  FpsN.NNN" for the bottom-right logo HWND.
+  mutable char engine_fps_label_[96] = {};
+
+  void note_present_frame() const {
+    hud_fps_timer_.update();
+    last_fps = hud_fps_timer_.get_fps();
+    const char* name =
+        (render_engine_name && render_engine_name[0]) ? render_engine_name
+                                                     : "unknown";
+    std::snprintf(engine_fps_label_, sizeof(engine_fps_label_),
+                  "%s  Fps%.3f", name, last_fps);
+  }
 
  private:
   const MapScene* scene_ = nullptr;
@@ -85,6 +101,7 @@ class Scene3dGpuPresent {
   std::vector<float> local_xyz_;
   std::vector<unsigned> local_idx_;
   mutable std::mutex present_mu_;
+  mutable base::FrameTimer hud_fps_timer_;
 
   render::rhi::Device* mesh_device_ = nullptr;
   bool wireframe_enabled_ = false;

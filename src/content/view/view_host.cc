@@ -5,7 +5,7 @@
 
 #include "content/public/event_bus.h"
 #include "gis/model/edit/session/memory_edit_session.h"
-#include "legacy/tool/adapter/msg.h"
+#include "legacy/tool/msg/msg.h"
 #include "tool/workspace/workspace.h"
 
 namespace content {

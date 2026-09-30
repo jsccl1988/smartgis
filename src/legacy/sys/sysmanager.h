@@ -2,17 +2,17 @@
 // All rights reserved.
 
 // Legacy product singleton for style / map-doc / project / sys parameters.
-// Compiled into base.dll (BASE_EXPORTS / NET_EXPORTS on that DLL); callers are leftover MFC/tools
-// only.
+// Compiled into base.dll (BASE_EXPORTS / NET_EXPORTS on that DLL); callers are
+// leftover MFC/tools only.
 
 #ifndef LEGACY_SYS_SYSMANAGER_H_
 #define LEGACY_SYS_SYSMANAGER_H_
 
 #include "base/core/export.h"
 #include "base/core/log.h"
-#include "legacy/core/core.h"
-#include "legacy/core/env_struct.h"
-#include "legacy/core/msg_def.h"
+#include "legacy/core/macros/macros.h"
+#include "legacy/core/types/env.h"
+#include "legacy/core/msg/msg_def.h"
 
 using namespace base;
 

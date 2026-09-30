@@ -83,7 +83,7 @@ src/legacy/ui/
   group("ui") → :ui_legacy   # 保持旧 group 名习惯时可 group 转发
 ```
 
-Include：`"legacy/ui/gui/…"` 等（原 `"ui/gui/…"` → `"legacy/ui/gui/…"`）。  
+Include：`"legacy/ui/dialogs/…"` 等（原 `"ui/gui/…"` → `"legacy/ui/dialogs/…"`）。  
 `src/ui/views/` **不动**（终局工具箱仍在 `src/ui/views`）。  
 `//src/ui:ui_legacy` 变为 **group 转发**到 `//src/legacy/ui:ui_legacy`，或根 BUILD 直接改 deps（推荐转发一轮，减少漏改）。
 

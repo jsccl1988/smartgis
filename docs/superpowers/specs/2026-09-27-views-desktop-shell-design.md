@@ -7,7 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-27  
 **Status:** active  
-**Updated:** 2026-09-28 — §UI visual forensics (A+C); shared `out/ui/` markup pack (Debug+Release); prior: §GIS Python Console + analysis results; §Console coverage + performance; §UI interactive harness; §Declarative markup; §Global theme paint. Do not open new dated twins.
+**Updated:** 2026-09-29 — §Harness suite loop (outer JSON + ScenarioRegistry); prior: § shell/harness (showcase + self_test package); prior: §UI visual forensics (A+C); shared `out/ui/` markup pack (Debug+Release); prior: §GIS Python Console + analysis results; §Console coverage + performance; §UI interactive harness; §Declarative markup; §Global theme paint. Do not open new dated twins.
 **Related:**
 
 | Topic | Doc | Relation |
@@ -100,12 +100,26 @@ src/app/views/
       panels/
         shell_panels.cc
         inspector_sync.cc
-    showcase/
-      atmosphere_showcase.h / .cc
-    self_test/
-      self_test.h / .cc
-
-  input/                          # MapHwndGestures (moves under content/browser — §Content sink)
+    harness/
+      showcase/
+        atmosphere/
+        map2d/
+        ui/
+        input/
+      self_test/
+        self_test.h
+        probe.h / .cc
+        run_self_test.cc
+        console_self_test.cc
+        chrome_ready.cc
+        edit_m0.cc
+        layers_m1.cc
+        navigate.cc
+        present.cc
+        layout_bounds.cc
+        milestones.cc
+    util/
+      exe_sidecar_path.h
 
 # Landed under content (Approach 2):
 #   src/content/browser/document/   MapScene
@@ -271,8 +285,9 @@ src/app/views/
       browser_view.*              # Widget tree; holds Browser*
       pages/                      # map tab / viewport chrome wiring
       panels/                     # inspector / ambox / catalog chrome sync
-    showcase/
-    self_test/
+    harness/
+      showcase/
+      self_test/
   document/                       # MapScene — layers/features (≈ content data)
   camera/                         # ViewFrame, OrbitFrame, ViewNavigation — SIBLING
   present/                        # map2d / scene3d present stack (see §Present)
@@ -446,7 +461,7 @@ Shell includes only facades + `session/` + `host/` headers it needs.
 | P4 | `--type` is parsed in app; set `ContentMainParams::process_type` + `process_type_set=true`. |
 | P5 | `content_main`: if `process_type_set` use the field; else fall back to `ProcessTypeFromCommandLine` (tests / legacy). |
 | P6 | `ViewsContentHost` holds `ViewsLaunchOptions`; `shell/app/browser_main` calls `run_browser_main(params, options)` which constructs `Browser` (§Chromium Browser / BrowserView). |
-| P7 | Showcase body stays in `shell/showcase/`; self-test in `shell/self_test/`; both take `Browser&` after P2. Behavior and exit codes unchanged. |
+| P7 | Showcase body stays in `shell/harness/showcase/`; self-test in `shell/harness/self_test/`; both take `Browser&` after P2. Behavior and exit codes unchanged. |
 | P8 | No global CommandLine singleton. Public namespace stays `app` (two layers). |
 | P9 | Git: work on `master`. |
 
@@ -486,7 +501,7 @@ Split the product shell like Chromium: a **`Browser`** controller owns session s
 | B3 | Lifecycle: `run_browser_main` → `Browser` → owns `BrowserView`. |
 | B4 | Deps: `shell/ui` → `shell/browser` → `{document,camera,present,input}`. Never `present` → `shell`. `browser` must not include concrete UI widget headers (`BrowserWindow` abstract / callbacks OK). |
 | B5 | Public API A: controller accessors and command/session APIs live on `Browser`. `BrowserView` exposes UI accessors only. Public namespace stays `app`. |
-| B6 | Scope C: reshape covers process entry (`app/`), controller (`browser/`), UI (`ui/`), plus existing `showcase/` and `self_test/`. Menus / AM Box / paint rules stay as §2–§4 and map2d-frame. |
+| B6 | Scope C: reshape covers process entry (`app/`), controller (`browser/`), UI (`ui/`), plus `harness/{showcase,self_test}/`. Menus / AM Box / paint rules stay as §2–§4 and map2d-frame. |
 | B7 | Git: work on `master`. No feature branch. No new dated twin for this split. |
 
 ### Target `shell/` tree
@@ -496,8 +511,9 @@ src/app/views/shell/
   app/          # browser_main, ViewsContentHost, cmdline/
   browser/      # Browser controller + commands/ + nav/ + plugin/
   ui/           # BrowserView + pages/ + panels/
-  showcase/
-  self_test/
+  harness/
+    showcase/   # atmosphere / map2d / ui / input scene packages
+    self_test/  # probe + stage TUs + run_self_test
 ```
 
 Matches §3 and §Chromium-style app/views layering. Capability dirs stay siblings of `shell/`.
@@ -623,7 +639,7 @@ Non-goals unchanged for layout composer / topology / network.
 ## §Diagnostic Tools（2026-09-28）
 
 **Status:** active  
-**Updated:** 2026-09-28  
+**Updated:** 2026-09-29 — `base::trace::` API names  
 **Plan:** [`../plans/2026-09-28-render-trace-profiler.md`](../plans/2026-09-28-render-trace-profiler.md) (timing) + memory § in hybrid; console: [`2026-09-28-debug-console-design.md`](../archive/specs/2026-09-28-debug-console-design.md) + [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md)
 
 VS-style bottom **Diagnostic Tools** dock (replaces standalone Debug Console + Inspector `RenderTrace`):
@@ -644,13 +660,13 @@ VS-style bottom **Diagnostic Tools** dock (replaces standalone Debug Console + I
 
 | Axis | Choice |
 | --- | --- |
-| Trigger | **Process start** (`base::start_always_on_diagnostics` from `wWinMain`) |
+| Trigger | **Process start** (`base::trace::start_always_on_diagnostics` from `wWinMain`) |
 | Startup log | Full `BASE_TRACE_EVENT(..., "startup")` tree + matching `LOGGING` → `LogSink` → Output |
-| Perf Gantt | Always-on `process_trace`; CPU tab auto-refresh (~500ms while tools visible) |
+| Perf Gantt | Always-on `base::trace::process_trace`; CPU tab auto-refresh (~500ms while tools visible) |
 | Memory | 500ms sampler thread + `AllocationTracker::enable` at bootstrap; Memory tab auto-refresh |
 | Escape | Record (clear+continue) / Stop / Armed / Track allocs still work |
 
-Bootstrap API: `src/base/trace/diagnostic_bootstrap.{h,cc}`. `set_tracing_enabled(true)` clears only on **off→on** so always-on startup spans survive UI re-arm; explicit Record clears first.
+Bootstrap API: `src/base/trace/diag/diagnostic_bootstrap.{h,cc}`. `base::trace::set_tracing_enabled(true)` clears only on **off→on** so always-on startup spans survive UI re-arm; explicit Record clears first.
 
 ## §Debug Console（2026-09-28）
 
@@ -665,7 +681,7 @@ Bottom-dock **Debug Console** capabilities now live under Diagnostic Tools tabs.
 | UI | Bottom dock `DiagnosticToolsPanel` (Output + Console panes) |
 | Menu | View → Toggle Diagnostic Tools (starts `DebugAgent` if needed) |
 | Layering | Panel → Agent / `LogSink` only; no direct `SdbdClient` from views |
-| Trace | CPU/Memory tabs share `base::process_trace` (not merged with LogSink) |
+| Trace | CPU/Memory tabs share `base::trace::process_trace` (not merged with LogSink) |
 
 Full protocol, LogSink, Python worker, and sdbd bridge live in the owning spec.
 
@@ -687,7 +703,7 @@ Full protocol, LogSink, Python worker, and sdbd bridge live in the owning spec.
 | Panel | `SpatialAnalysisPanel` primary; Python plugins add analysis docks/dialogs |
 | Scene | One `MapScene`; Map/Data/3D tabs via `present_mode` |
 | Style / config | `StyleDocument` load/clear + `ThemeService` packs |
-| Profile | `smartgis.debug` → Diagnostic Tools CPU (`process_trace`) |
+| Profile | `smartgis.debug` → Diagnostic Tools CPU (`base::trace::process_trace`) |
 | Results | `{ok, text, feature_count}` + map write-back (temp GeoJSON → document open) |
 | Forbidden | Qt / PyQt; second geometry kernel; fake Python DSL |
 
@@ -1025,6 +1041,45 @@ Path: `tools/debug/scripts/ui_visual_forensics.py` (**not** wired into default `
 - [x] Add `tools/debug/scripts/ui_visual_forensics.py` with `--record`, `--record-all`, `--analyze`.
 - [x] Export manifest metrics for TabStrip, Ambox Tools, DiagnosticTools Gantt where available.
 - [x] Document L1c + runbook in [`ui-testing.md`](../../build/ui-testing.md).
+
+---
+
+## §Harness suite loop（2026-09-29）
+
+**Status:** active (Wave 1+2 landed: marks + BMP suites; registry covers browse/console/input + atmosphere/map2d/ui modes).  
+**As-built:** [`../../build/ui-testing.md`](../../build/ui-testing.md) L1′ loops; `testing/tools/loop_runner.py` + `suites/*.json`.
+
+Unify outer Python rebuild/retry loops and in-process harness paths under a shared **suite id** contract. Not product `PluginHost`.
+
+### Model
+
+| Layer | Role | Location |
+| --- | --- | --- |
+| Suite contract | id / argv / env / marks / bmp / loop | `testing/tools/suites/<id>.json` (JSON for stdlib; no PyYAML) |
+| Outer runner | kill → build → run → score → report | `testing/tools/loop_runner.py` + `loop/` |
+| Inner registry | static `id → run(Browser&)` | `shell/harness/scenario_registry.*` + `scenario_builtins.cc` |
+
+**Probes:** `marks` and `bmp` (`score_id`: `ui_shell_dark` / `map2d_china` / `atmosphere_full`). `forensics` via suite env (`SMT_UI_FORENSICS=1` on `ui.shell`). Trace / live `debug_agent` still optional later.
+
+### Decisions
+
+| # | Decision |
+| --- | --- |
+| 1 | Suite ids align across JSON and C++ (`browse`, `input`, `console`, `ui.shell`, `map2d.*`, `atmosphere.*`). |
+| 2 | Exe does **not** parse suite JSON; Python owns outer loop; C++ owns steps/marks/BMP write. |
+| 3 | Thin wrappers live under `testing/tools/case/` (`browse_loop.py`, `*_shot_loop.py`, …). |
+| 4 | Showcase cmdline modes dispatch through `ScenarioRegistry` (same ids as suites). |
+| 5 | No product PluginHost for harness; live object probes use DebugAgent (separate from default mark/BMP gates). |
+
+### Checklist
+
+- [x] `loop/` + `loop_runner.py` + suites `browse` / `input` / `console`.
+- [x] Thin wrappers for browse/input loops.
+- [x] `ScenarioRegistry` + builtins; `browser_main` dispatches browse/console/input via registry.
+- [x] Wave 2: BMP `score_id` suites (`ui.shell` / `map2d.china` / `atmosphere.full` / orthogrid / legacy.*); register atmosphere/map2d/ui showcase ids.
+- [x] Unified loader: all shot/browse loops are thin `compat` aliases; see `testing/tools/README.md`.
+- [ ] Optional: trace / live `debug_agent` probe steps.
+- [ ] Optional CI: suite JSON ids ⊆ `--dump-scenarios` (not required yet).
 
 ---
 

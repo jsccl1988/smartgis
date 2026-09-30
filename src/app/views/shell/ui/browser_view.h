@@ -142,6 +142,7 @@ class BrowserView : public BrowserUiDelegate {
   void configure_gestures(MapHwndGestures* gestures);
   void rebuild_menus();
   void on_map_right_click(HWND hwnd, int view_x, int view_y);
+  void show_pending_map_context_menu();
   void on_exit();
   void on_plugins();
   void on_processing();
@@ -186,6 +187,11 @@ class BrowserView : public BrowserUiDelegate {
   ui::views::MenuBar* menu_bar_ = nullptr;
   ui::views::StatusBar* status_bar_ = nullptr;
   bool measure_armed_ = false;
+
+  // Deferred map context menu (must not TrackPopupMenu on WM_RBUTTONUP stack).
+  HWND pending_map_menu_hwnd_ = nullptr;
+  int pending_map_menu_x_ = 0;
+  int pending_map_menu_y_ = 0;
 };
 
 }  // namespace app

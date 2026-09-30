@@ -32,13 +32,20 @@ class UI_EXPORT TabStrip : public View {
   void layout() override;
   std::string_view paint_role() const override;
 
+  // Header strip height in device pixels (DIP-scaled).
+  int tab_height() const;
+  // Absolute bounds of the clickable tab header band.
+  Rect header_bounds() const;
+  // Content-sized tab cell (label + pad); packed left-to-right in the header.
+  int tab_width_at(int i) const;
+  int tab_x_at(int i) const;
+
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;
 
  private:
   void apply_page_visibility();
   int tab_at(int x, int y) const;
-  int tab_height() const;
 
   std::vector<std::string> titles_;
   std::vector<View*> pages_;

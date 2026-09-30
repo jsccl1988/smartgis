@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "legacy/core/bas_struct.h"
+#include "legacy/core/types/types.h"
 
 namespace gis {
 namespace tile {

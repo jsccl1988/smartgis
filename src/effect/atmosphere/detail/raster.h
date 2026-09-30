@@ -40,6 +40,8 @@ inline void apply_raster(render::rhi::CommandList* list, RasterState state) {
 }
 
 // Color + depth load. Never clears. Used by post-opaque cloud and fog.
+// Fog uses DepthMode::kDisabled with a depth-attached PSO variant
+// (depth_off_ds_); keep enable_depth so the shared RT stays bound.
 inline void begin_load_pass(render::rhi::CommandList* list, uint32_t width,
                             uint32_t height) {
   render::rhi::RenderPassDesc pass;

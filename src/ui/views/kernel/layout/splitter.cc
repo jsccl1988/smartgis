@@ -50,7 +50,7 @@ void Splitter::set_collapsed(bool collapsed) {
   } else if (saved_primary_ > 0) {
     primary_extent_ = saved_primary_;
   } else {
-    // Collapsed before the first real layout â€?re-seed from preferred sizes.
+    // Collapsed before the first real layout éˆ¥?re-seed from preferred sizes.
     split_seeded_ = false;
   }
   collapsed_ = collapsed;
@@ -86,8 +86,19 @@ void Splitter::seed_split_if_needed() {
   }
   View* a = child_at(0);
   View* b = child_at(1);
-  const Size sa = a->get_preferred_size();
-  const Size sb = b->get_preferred_size();
+  // Prefer the stored preferred_size hint when it is explicitly 0 on the
+  // secondary axis so a collapsed DiagnosticToolsPanel (preferred {0,0} but
+  // BoxLayout get_preferred_size still ~200) does not steal map/3D height.
+  const Size sa_hint = a->preferred_size();
+  const Size sb_hint = b->preferred_size();
+  const Size sa_layout = a->get_preferred_size();
+  const Size sb_layout = b->get_preferred_size();
+  const int pa_hint = is_horizontal() ? axis_traits<Axis::kHorizontal>::main(sa_hint)
+                                      : axis_traits<Axis::kVertical>::main(sa_hint);
+  const int pb_hint = is_horizontal() ? axis_traits<Axis::kHorizontal>::main(sb_hint)
+                                      : axis_traits<Axis::kVertical>::main(sb_hint);
+  const Size sa = (pa_hint <= 0) ? sa_hint : sa_layout;
+  const Size sb = (pb_hint <= 0) ? sb_hint : sb_layout;
   const int pa = is_horizontal() ? axis_traits<Axis::kHorizontal>::main(sa)
                                  : axis_traits<Axis::kVertical>::main(sa);
   const int pb = is_horizontal() ? axis_traits<Axis::kHorizontal>::main(sb)
@@ -97,7 +108,7 @@ void Splitter::seed_split_if_needed() {
   if (pa <= 0 && pb <= 0) {
     // Both flex / hidden: primary keeps the work area; secondary stays at 0
     // until preferred size or a user drag grows it (Diagnostic Tools starts
-    // at preferred 0 â€?must not seed a 50/50 split that starves the map).
+    // at preferred 0 éˆ¥?must not seed a 50/50 split that starves the map).
     primary_extent_ = inner;
     fixed_secondary_px_ = 0;
     resize_policy_ = ResizePolicy::kSecondaryFixed;
@@ -150,6 +161,14 @@ void Splitter::adjust_for_host_resize() {
 void Splitter::clamp_primary() {
   const int main = main_extent();
   if (collapsed_) {
+    primary_extent_ = std::max(0, main - kBarPx);
+    return;
+  }
+  // Preference-0 secondary (DiagnosticToolsPanel collapsed): keep secondary at
+  // 0px. Forcing kMinPanePx here left a ~40px chrome strip that painted over
+  // the status bar (Diagnostic Tools / tab bleed).
+  if (resize_policy_ == ResizePolicy::kSecondaryFixed &&
+      fixed_secondary_px_ <= 0) {
     primary_extent_ = std::max(0, main - kBarPx);
     return;
   }

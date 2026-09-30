@@ -151,6 +151,115 @@ float4 main(PSIn input) : SV_TARGET
 }
 )";
 
+// Lit DEM albedo: PositionUv layout, screen-space normals, GGX specular,
+// sun self-shadow, and a two-tap derivative AA. Stride stays 5 floats.
+const char* kVsLitTextured = R"(
+cbuffer CameraCB : register(b0)
+{
+    float4x4 view;
+    float4x4 proj;
+};
+
+struct VSIn
+{
+    float3 pos : POSITION;
+    float2 uv : TEXCOORD;
+};
+
+struct VSOut
+{
+    float4 pos : SV_POSITION;
+    float2 uv : TEXCOORD0;
+    float3 world : TEXCOORD1;
+    float3 eye : TEXCOORD2;
+};
+
+VSOut main(VSIn input)
+{
+    VSOut output;
+    float4 clip = mul(view, float4(input.pos, 1.0));
+    output.pos = mul(proj, clip);
+    output.uv = input.uv;
+    output.world = input.pos;
+    // Column-major view: translation is -R * eye.
+    float3 t = float3(view._14, view._24, view._34);
+    float3x3 R = (float3x3)view;
+    output.eye = -mul(transpose(R), t);
+    return output;
+}
+)";
+
+const char* kPsLitTextured = R"(
+Texture2D base_color_texture : register(t0);
+SamplerState linear_sampler : register(s0);
+
+cbuffer ColorCB : register(b1)
+{
+    float4 tint;
+};
+cbuffer LightCB : register(b2)
+{
+    float dir_x;
+    float dir_y;
+    float dir_z;
+    float ambient;
+    float color_r;
+    float color_g;
+    float color_b;
+    float intensity;
+};
+
+struct PSIn
+{
+    float4 pos : SV_POSITION;
+    float2 uv : TEXCOORD0;
+    float3 world : TEXCOORD1;
+    float3 eye : TEXCOORD2;
+};
+
+float4 main(PSIn input) : SV_TARGET
+{
+    float2 uv = input.uv;
+    float4 tex = base_color_texture.Sample(linear_sampler, uv);
+    // Two-tap derivative AA. The RHI swapchain is 1x; this softens the
+    // draped albedo without a second color target.
+    float2 uv_px = float2(abs(ddx(uv).x) + abs(ddy(uv).x),
+                          abs(ddx(uv).y) + abs(ddy(uv).y));
+    float4 tex_b = base_color_texture.Sample(linear_sampler, uv + 0.5 * uv_px);
+    float3 albedo = tint.rgb * 0.5 * (tex.rgb + tex_b.rgb);
+
+    float3 dpdx = ddx(input.world);
+    float3 dpdy = ddy(input.world);
+    float3 N = normalize(cross(dpdx, dpdy));
+    if (N.y < 0.0)
+        N = -N;
+    float3 L = normalize(-float3(dir_x, dir_y, dir_z));
+    float ndotl_raw = dot(N, L);
+    // Sun self-shadow: slopes facing away drop to ambient.
+    float sun_shadow = smoothstep(-0.08, 0.45, ndotl_raw);
+    float ao = saturate(0.42 + 0.58 * N.y);
+
+    float3 V = normalize(input.eye - input.world);
+    float3 H = normalize(L + V);
+    float ndotv = saturate(dot(N, V));
+    float ndoth = saturate(dot(N, H));
+    float ndotl = saturate(ndotl_raw);
+    // Flats (vegetation) stay rough; steeper rock tightens the lobe.
+    float rough = saturate(0.72 - 0.35 * (1.0 - N.y));
+    float a2 = rough * rough;
+    a2 = a2 * a2;
+    float d = ndoth * ndoth * (a2 - 1.0) + 1.0;
+    float D = a2 / max(3.14159 * d * d, 1e-4);
+    float fres = pow(1.0 - ndotv, 5.0);
+    float spec = D * (0.04 + 0.96 * fres) * sun_shadow;
+
+    float3 light_rgb = float3(color_r, color_g, color_b) * intensity;
+    float3 diffuse = albedo * (ambient * ao + light_rgb * ndotl * sun_shadow);
+    float3 lit = diffuse + light_rgb * spec * 0.08;
+    return float4(saturate(lit), tex.a * tint.a);
+}
+)";
+
 constexpr uint32_t kCameraBytes = 128;
 
 const rhi::BindingSlot kSolidBindings[] = {
@@ -207,6 +316,34 @@ const rhi::BindingSlot kLitBindings[] = {
      .hlsl_name = "LightCB"},
 };
 
+const rhi::BindingSlot kLitTexturedBindings[] = {
+    {.slot = kCameraSlot,
+     .kind = rhi::BindingKind::kConstantBuffer,
+     .stage = rhi::ShaderStage::kVertex,
+     .size_bytes = kCameraBytes,
+     .hlsl_name = "CameraCB"},
+    {.slot = kColorSlot,
+     .kind = rhi::BindingKind::kConstantBuffer,
+     .stage = rhi::ShaderStage::kPixel,
+     .size_bytes = sizeof(Color),
+     .hlsl_name = "ColorCB"},
+    {.slot = kLightSlot,
+     .kind = rhi::BindingKind::kConstantBuffer,
+     .stage = rhi::ShaderStage::kPixel,
+     .size_bytes = sizeof(Light),
+     .hlsl_name = "LightCB"},
+    {.slot = kTextureSlot,
+     .kind = rhi::BindingKind::kSrv,
+     .stage = rhi::ShaderStage::kPixel,
+     .size_bytes = 0,
+     .hlsl_name = "base_color_texture"},
+    {.slot = kTextureSlot,
+     .kind = rhi::BindingKind::kSampler,
+     .stage = rhi::ShaderStage::kPixel,
+     .size_bytes = 0,
+     .hlsl_name = "linear_sampler"},
+};
+
 rhi::GraphicsPipelineDesc make_desc(const char* vs, const char* ps,
                                     rhi::VertexLayout layout,
                                     const rhi::BindingSlot* bindings,
@@ -244,6 +381,11 @@ rhi::GraphicsPipelineDesc textured_pipeline_desc() {
 rhi::GraphicsPipelineDesc lit_pipeline_desc() {
   return make_desc(kVsLitSolid, kPsLitSolid, rhi::VertexLayout::kPositionNormal,
                    kLitBindings, 3);
+}
+
+rhi::GraphicsPipelineDesc lit_textured_pipeline_desc() {
+  return make_desc(kVsLitTextured, kPsLitTextured,
+                   rhi::VertexLayout::kPositionUv, kLitTexturedBindings, 5);
 }
 
 }  // namespace programs

@@ -38,8 +38,8 @@ int main() {
   setvbuf(stderr, nullptr, _IONBF, 0);
 
   AtmosphereFrame frame;
-  expect(!frame.clears_color(), "default clears_color false");
-  expect(!frame.uses_shared_depth(), "default shared depth false");
+  expect(frame.clears_color(), "default clears_color true (opaque depth chain)");
+  expect(frame.uses_shared_depth(), "default shared depth true");
   expect(!frame.sky_enabled() && !frame.fog_enabled(),
          "default sky/fog off");
 

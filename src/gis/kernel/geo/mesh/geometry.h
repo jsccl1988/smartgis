@@ -10,7 +10,7 @@
 
 #include "gis/model/envelope.h"
 #include "gis/kernel/geo/mesh/matrix2d.h"
-#include "legacy/core/bas_struct.h"
+#include "legacy/core/types/types.h"
 #include "ogr_geometry.h"
 
 namespace geo {

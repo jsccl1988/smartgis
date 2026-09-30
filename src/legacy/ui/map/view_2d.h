@@ -1,0 +1,125 @@
+/*
+File:    vw_2dxview.h
+
+Desc:    Smt2DXView,Smt 2d view 锟教筹拷锟斤拷SmtXView
+
+Version: Version 1.0
+
+Writter:  锟铰达拷锟斤拷
+
+Date:    2010.11.17
+
+Copyright (c) 2010 CCL. All rights reserved.
+*/
+#ifndef _VW_2DXVIEW_H
+#define _VW_2DXVIEW_H
+#if defined(XVIEW_EXPORTS)
+#define XVIEW_EXPORT __declspec(dllexport)
+#else
+#define XVIEW_EXPORT __declspec(dllimport)
+#endif
+
+#include "gis/model/map/map.h"
+#include "legacy/render/rhi2d/public/device/renderdevice.h"
+#include "legacy/render/rhi2d/public/device/renderer.h"
+#include "legacy/tool/factory/grouptoolfactory.h"
+#include "legacy/ui/shell/shell.h"
+
+using namespace render;
+using namespace tool;
+using namespace gis;
+
+// Smt2DXView 锟斤拷图
+namespace ui {
+class XVIEW_EXPORT Smt2DXView : public SmtXView {
+  DECLARE_DYNCREATE(Smt2DXView)
+
+ public:
+  Smt2DXView();
+  virtual ~Smt2DXView();
+
+ public:
+  LPRENDERDEVICE GetRenderDevice(void);
+
+ public:
+  virtual void OnDraw(CDC* pDC);  // 锟斤拷写锟皆伙拷锟狡革拷锟斤拷图
+  virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam);
+
+#ifdef _DEBUG
+  virtual void AssertValid() const;
+#ifndef _WIN32_WCE
+  virtual void Dump(CDumpContext& dc) const;
+#endif
+#endif
+
+ protected:
+  DECLARE_MESSAGE_MAP()
+
+ public:
+  afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
+  afx_msg void OnDestroy();
+  afx_msg void OnSize(UINT nType, int cx, int cy);
+  afx_msg void OnMouseMove(UINT nFlags, CPoint point);
+  afx_msg void OnTimer(UINT_PTR nIDEvent);
+  afx_msg void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
+  afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+  afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
+  afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
+  afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
+  afx_msg void OnLButtonDblClk(UINT nFlags, CPoint point);
+  afx_msg void OnRButtonDblClk(UINT nFlags, CPoint point);
+  afx_msg void OnRButtonUp(UINT nFlags, CPoint point);
+
+  afx_msg BOOL OnSetCursor(CWnd* pWnd, UINT nHitTest, UINT message);
+  afx_msg BOOL OnEraseBkgnd(CDC* pDC);
+  afx_msg void OnContextMenu(CWnd* /*pWnd*/, CPoint /*point*/);
+  afx_msg LRESULT OnFrameOperMap(WPARAM wParam, LPARAM lParam);
+
+ public:
+  virtual void SetOperMap(SmtMap* pSmtMap);
+  SmtMap* GetOperMap(void);
+
+ protected:
+  bool InitCreate(void);
+  bool EndDestory(void);
+  bool CreateContexMenu();
+  bool CreateMainMenu(void);
+
+  bool CreateRender(void);
+  bool CreateTools(void);
+  void apply_workspace_draft(const tool::Draft& draft) override;
+
+  // Fit windowport to the oper-map envelope and paint. Returns true if framed.
+  bool frame_oper_map(bool realtime);
+  void request_oper_map_frame();
+
+ protected:
+  UINT m_uiNotifyTimer;
+  UINT m_uiRefreshTimer;
+
+  LPRENDERER m_pRenderer;
+  LPRENDERDEVICE m_pRenderDevice;
+
+  SmtBaseTool* m_pViewCtrlTool;
+  SmtBaseTool* m_pSelectTool;
+  SmtBaseTool* m_pFlashTool;
+
+  SmtMap* m_pSmtOperMap;
+  // Set after a successful ZoomToRect fit. Deferred EDIT1 open often hits
+  // SetOperMap while GetClientRect is still 0x0; OnSize must finish framing.
+  bool m_bOperMapFramed;
+  // Guards against OnSize re-entering frame_oper_map while ZoomToRect paints
+  // (GDI / nested pump → ACCESS_VIOLATION).
+  bool m_bFramingOperMap;
+};
+}  // namespace ui
+
+#if !defined(XVIEW_EXPORTS)
+#if defined(_DEBUG)
+#pragma comment(lib, "ui_legacy_d.lib")
+#else
+#pragma comment(lib, "ui_legacy.lib")
+#endif
+#endif
+
+#endif  //_VW_2DXVIEW_H

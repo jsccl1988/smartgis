@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <utility>
 
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 #include "gis/model/feature/feature.h"
 #include "ogrsf_frmts.h"
 

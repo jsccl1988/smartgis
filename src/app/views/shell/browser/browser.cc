@@ -8,7 +8,7 @@
 #include "app/views/shell/browser/browser_ui_delegate.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
 #include "base/core/log.h"
-#include "base/trace/process_trace.h"
+#include "base/trace/event/process_trace.h"
 #include "content/browser/camera/map_host_extent.h"
 #include "content/public/map_contents.h"
 #include "content/public/view_host.h"
@@ -43,8 +43,14 @@ bool Browser::init() {
     if (!session_.edit_host() ||
         !plugins_->init(session_.edit_host()->events())) {
       LOGGING(LOG_ERROR, "startup: PluginShell.init failed");
-      plugins_.reset();
-      return false;
+      if (plugins_) {
+        plugins_->shutdown();
+        plugins_.reset();
+      }
+      // Showcase / self-test can still paint map2d without plugins; product
+      // interactive shell keeps hard-fail by returning false below when UI
+      // creation also requires plugins. Soft-continue so chrome can load.
+      LOGGING(LOG_WARNING, "startup: continuing without PluginShell");
     }
   }
 
@@ -177,7 +183,11 @@ void Browser::OnExtentChanged(uint32_t /*view_id*/, const content::Extent2& e) {
   }
   // 2D ViewFrame is owned by shell pan/wheel navigation. Applying remote
   // ExtentChanged here races in-flight push_shared_extent echoes and undoes
-  // cursor zoom (self-test exit 47). Orbit still tracks the shared extent.
+  // cursor zoom (self-test exit 47). Orbit tracks only a China lon/lat box;
+  // pixel or world extents shrink the DEM into a sticker on the ocean.
+  if (!extent_looks_like_china(e)) {
+    return;
+  }
   syncing_extent_ = true;
   session_.orbit_frame().apply_world_extent(e);
   syncing_extent_ = false;

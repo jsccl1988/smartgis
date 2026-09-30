@@ -4,9 +4,11 @@
 #ifndef SMT_LEGACY_RENDER_SCENE3D_STEREO_HWND_VIEW_H_
 #define SMT_LEGACY_RENDER_SCENE3D_STEREO_HWND_VIEW_H_
 
-// C ABI: leftover OpenGL stereo (seed_sample_map_into_scene + SmtScene HUD)
-// for product shells that must not link legacy_render (SP5). Call via
+// C ABI: leftover stereo (seed_sample_map_into_scene + SmtScene HUD) for
+// product shells that must not link legacy_render (SP5). Call via
 // LoadLibrary("legacy_render[_d].dll") + GetProcAddress.
+// Default backend is D3D11 (CreateD3DRenderDevice). Set SMT_STEREO_API=OpenGL
+// or SMT_SCENE3D_SHOWCASE_D3D=0 to use Create3DRenderDevice (OpenGL).
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -42,6 +44,14 @@ SMT_STEREO_HWND_API int smt_stereo_hwnd_present(void* view, float yaw,
 // After present, BitBlt the HWND client into |hdc| (for paint_to_dc hosts).
 SMT_STEREO_HWND_API int smt_stereo_hwnd_blit(void* view, HDC hdc, int width_px,
                                              int height_px);
+
+// Read back the front buffer as tightly packed BGR24 (bottom-up, like BMP).
+// |out_bgr24| must hold width_px * height_px * 3 bytes. Returns non-zero on
+// success. Prefer this over GDI BitBlt — leftover GL has no PFD_SUPPORT_GDI.
+SMT_STEREO_HWND_API int smt_stereo_hwnd_capture_bgr24(void* view,
+                                                      unsigned char* out_bgr24,
+                                                      int width_px,
+                                                      int height_px);
 
 #ifdef __cplusplus
 }  // extern "C"

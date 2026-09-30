@@ -17,7 +17,7 @@
 #include "base/execution/executor/pool/global_executor.h"
 #include "base/execution/futures/combinators/async.h"
 #include "base/memory/arena.h"
-#include "base/trace/process_trace.h"
+#include "base/trace/event/process_trace.h"
 
 namespace content {
 
@@ -95,6 +95,31 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
 
   gis::style::StyleDocument parsed_style;
   const gis::style::StyleDocument* style = scene_->style_document();
+  // china_city.style.json keys source-layer area/line/point (+ circle on
+  // point). That disables carto_source_layer remap → cream wash, orange/black
+  // point squares, no river/land slots. Product china seed and showcase
+  // require default MapLibre carto (land/river/label).
+  auto style_is_china_city_pack = [](const gis::style::StyleDocument* doc) {
+    if (!doc || doc->layers.empty()) {
+      return false;
+    }
+    bool has_area_or_point = false;
+    bool has_land_or_river = false;
+    for (const gis::style::StyleLayer& layer : doc->layers) {
+      if (layer.source_layer == "land" || layer.source_layer == "river" ||
+          layer.source_layer == "label") {
+        has_land_or_river = true;
+      }
+      if (layer.source_layer == "area" || layer.source_layer == "point" ||
+          layer.source_layer == "line") {
+        has_area_or_point = true;
+      }
+    }
+    return has_area_or_point && !has_land_or_river;
+  };
+  if (style_is_china_city_pack(style)) {
+    style = nullptr;
+  }
   if (!style) {
     gis::style::parse_style_document(gis::vista::default_carto_style_json(),
                                      &parsed_style);

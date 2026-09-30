@@ -23,12 +23,15 @@ struct CloudConstants {
   float cam_x;
   float cam_y;
   float cam_z;
-  float pad0;
+  // World-space snap cell for density; 0 = full detail (quality >= 2).
+  float density_cell;
 };
 
 static_assert(sizeof(CloudConstants) == 48, "CloudCB is 48 bytes");
 static_assert(offsetof(CloudConstants, cam_x) == 32,
               "CloudCB camera row follows eight floats");
+static_assert(offsetof(CloudConstants, density_cell) == 44,
+              "CloudCB density_cell is last float");
 
 }  // namespace atmosphere
 }  // namespace effect

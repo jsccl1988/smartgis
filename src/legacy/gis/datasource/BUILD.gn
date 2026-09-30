@@ -1,0 +1,26 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Leftover DataSourceMgr — compiled into //src/gis:gis.
+# Lives under legacy/gis/datasource/; new trees use //src/gis/datasource/session.
+source_set("sde_mgr_sources") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+  sources = [ "datasource_mgr.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/gis/kernel/geo:geo_sources",
+    "//src/base:base",
+    "//src/base:core",
+    "//third_party:gdal",
+  ]
+}
+
+group("sde_mgr") {
+  public_deps = [ "//src/gis:gis" ]
+}

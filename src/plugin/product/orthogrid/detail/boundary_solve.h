@@ -5,6 +5,7 @@
 #define PLUGIN_ORTHOGRID_BOUNDARY_SOLVE_H_
 
 #include <string>
+#include <vector>
 
 namespace plugin {
 namespace detail {
@@ -13,7 +14,12 @@ namespace detail {
 // Orthogrid class (that class pulls the legacy GIS/MFC graph).
 struct BoundarySolve {
   bool ok = false;
+  int nx = 0;
+  int ny = 0;
   int node_count = 0;
+  // Solved node coordinates (row-major: index = j * nx + i). Empty on failure.
+  std::vector<double> xs;
+  std::vector<double> ys;
   // JSON the processing host already forwards: {"ok":true,"nodes":N}
   // or {"error":"..."}.
   std::string message;

@@ -110,7 +110,7 @@ Update path rows in `docs/build/src-layout.md` App layer; add `src/legacy/app/RE
 - Create: `src/legacy/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` via git mv
 - Modify: `src/legacy/ui/BUILD.gn` (from `src/ui/BUILD.gn` ui_legacy block)
 - Modify: `src/ui/BUILD.gn` — keep `views`; `group("ui_legacy")` → `public_deps = [ "//src/legacy/ui:ui_legacy" ]`
-- Modify: all `#include "ui/gui/…"` etc. → `"legacy/ui/gui/…"` (same for mfc_ex/xview/xcatalog/xambox/chart)
+- Modify: all `#include "ui/gui/…"` etc. → `"legacy/ui/dialogs/…"` (same for mfc_ex/xview/xcatalog/xambox/chart)
 - Create: `src/legacy/ui/README.md`
 
 **Interfaces:**
@@ -133,18 +133,18 @@ Leave `src/ui/views` in place.
 - [x] **Step 2: GN aggregation**
 
 Move `smt_shared_library("ui_legacy")` body to `src/legacy/ui/BUILD.gn`.  
-Source deps become `//src/legacy/ui/gui:gui_sources` etc.  
+Source deps become `//src/legacy/ui/dialogs:dialogs_sources` etc.  
 Keep `group("gui")` style labels under each submodule pointing at `ui_legacy` DLL.
 
 - [x] **Step 3: Include rewrite**
 
 | From | To |
 | --- | --- |
-| `"ui/gui/` | `"legacy/ui/gui/` |
-| `"ui/mfc_ex/` | `"legacy/ui/mfc_ex/` |
-| `"ui/xview/` | `"legacy/ui/xview/` |
-| `"ui/xcatalog/` | `"legacy/ui/xcatalog/` |
-| `"ui/xambox/` | `"legacy/ui/xambox/` |
+| `"ui/gui/` | `"legacy/ui/dialogs/` |
+| `"ui/mfc_ex/` | `"legacy/ui/widgets/` |
+| `"ui/xview/` | `"legacy/ui/shell/` |
+| `"ui/xcatalog/` | `"legacy/ui/catalog/` |
+| `"ui/xambox/` | `"legacy/ui/panels/` |
 | `"ui/chart/` | `"legacy/ui/chart/` |
 
 Do **not** rewrite `"ui/views/…"`.

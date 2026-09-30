@@ -28,7 +28,11 @@ struct OceanConstants {
   float cam_y;
   float cam_z;
   float disp_scale;
-  float pad1;
+  float sun_x;
+  float sun_y;
+  float sun_z;
+  float shininess;
+  float pad;
 };
 
 // GPU byte layout shared by the five ocean compute shaders (HLSL OceanFftCB,
@@ -52,9 +56,13 @@ struct OceanFftConstants {
   float pad;
 };
 
-static_assert(sizeof(OceanConstants) == 64, "OceanCB is 64 bytes");
+static_assert(sizeof(OceanConstants) == 80, "OceanCB is 80 bytes");
+static_assert(sizeof(OceanConstants) % 16 == 0,
+              "OceanCB size must be a multiple of 16");
 static_assert(offsetof(OceanConstants, fresnel_bias) == 32,
               "OceanCB fresnel starts after two float4s");
+static_assert(offsetof(OceanConstants, sun_x) == 60,
+              "OceanCB sun follows disp_scale");
 static_assert(sizeof(OceanFftConstants) == 64, "OceanFftCB is 64 bytes");
 static_assert(offsetof(OceanFftConstants, spectrum_model) == 48,
               "OceanFftCB spectrum_model follows three 16-byte rows");

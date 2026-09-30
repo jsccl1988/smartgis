@@ -5,43 +5,42 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
-# OpenGL impl backend under leftover rhi/impl/gl/ (was top-level legacy/render/gl/).
-# Layout (B' colocated): .h next to .cpp under device/caps/ext/buffer/text.
-# File basenames drop the gl_ prefix (types/SmtGL* unchanged).
-# Former label: //src/legacy/render/gl:render_gl_sources → :gl_sources.
+# OpenGL leftover impl under rhi3d/impl/gl/ (parallel to impl/d3d/).
+# Layout: host/resource/paint/caps/ext. File basenames drop the gl_ prefix
+# (types/SmtGL* unchanged). Former label: //src/legacy/render/gl:render_gl_sources.
 source_set("gl_sources") {
   sources = [
-    "device/3drenderdevice.cpp",
-    "caps/devicecaps.cpp",
-    "ext/extinterface.cpp",
-    "ext/fbofunc.cpp",
-    "ext/fbofuncimp.cpp",
-    "buffer/indexbuffer.cpp",
-    "ext/mipmapfunc.cpp",
-    "ext/mipmapfuncimp.cpp",
-    "ext/multitexturefuncimp.cpp",
-    "ext/mutitexturefunc.cpp",
-    "device/rdev_effect.cpp",
-    "device/rdev_fastdraw.cpp",
-    "device/rdev_fbo.cpp",
-    "device/rdev_font.cpp",
-    "device/rdev_misc.cpp",
-    "device/rdev_mtx.cpp",
-    "device/rdev_render.cpp",
-    "device/rdev_shader.cpp",
-    "device/rdev_textures.cpp",
-    "device/rdev_util.cpp",
-    "device/rdev_vba.cpp",
-    "device/rdev_vbo.cpp",
-    "ext/shaderfunc.cpp",
-    "ext/shaderfuncimp.cpp",
-    "device/statesmanager.cpp",
-    "text/text.cpp",
-    "ext/vbofunc.cpp",
-    "ext/vbofuncimp.cpp",
-    "buffer/vertexbuffer.cpp",
-    "ext/vsyncfunc.cpp",
-    "ext/vsyncfuncimp.cpp",
+    "caps/device_caps.cpp",
+    "ext/ext_interface.cpp",
+    "ext/fbo_func.cpp",
+    "ext/fbo_func_imp.cpp",
+    "ext/mipmap_func.cpp",
+    "ext/mipmap_func_imp.cpp",
+    "ext/multitexture_func_imp.cpp",
+    "ext/multitexture_func.cpp",
+    "ext/shader_func.cpp",
+    "ext/shader_func_imp.cpp",
+    "ext/vbo_func.cpp",
+    "ext/vbo_func_imp.cpp",
+    "ext/vsync_func.cpp",
+    "ext/vsync_func_imp.cpp",
+    "host/render_device.cpp",
+    "host/device_present.cpp",
+    "paint/effect.cpp",
+    "paint/fast_draw.cpp",
+    "paint/misc.cpp",
+    "paint/matrix.cpp",
+    "paint/shader.cpp",
+    "paint/util.cpp",
+    "paint/vba.cpp",
+    "paint/vbo.cpp",
+    "paint/states_manager.cpp",
+    "resource/buffer/index_buffer.cpp",
+    "resource/buffer/vertex_buffer.cpp",
+    "resource/frame_buffer.cpp",
+    "resource/font.cpp",
+    "resource/texture.cpp",
+    "resource/text/text.cpp",
   ]
   configs += [
     "//build:legacy",
@@ -93,5 +92,23 @@ test("gl_map_paint_test") {
   libs = [
     "gdi32.lib",
     "user32.lib",
+  ]
+}
+
+# Hidden HWND: CreateTexture/Build/Bind + FBO clear/unbind + CreateFont/GetFrustum.
+test("gl_texture_test") {
+  output_name = "gl_texture_test"
+  sources = [ "test/gl_texture_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    "//src/legacy/render:legacy_render",
+    "//third_party:khronos_gl",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+    "opengl32.lib",
+    "glu32.lib",
   ]
 }

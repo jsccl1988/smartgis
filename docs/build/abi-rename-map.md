@@ -35,7 +35,7 @@ Status: **in progress** (include/snake_case cutover still open；foundation Hybr
 
 | 终态 `dll_stem` | 吸收的 cutover 短名 / 树 | 门控 / 备注 | 状态 |
 | --- | --- | --- | --- |
-| **`base`** | leftovers + `legacy/carto` + `legacy/xml` + `sys`。`archive`/`ipc` / `:foundation` **不是**本 stem；`gis::Envelope` 在 `gis` | 默认 `src_all` | **完成** |
+| **`base`** | leftovers + `sys`（`legacy/xml` TinyXML 已删 → pugixml）。`archive`/`ipc` / `:foundation` **不是**本 stem；carto POD → `legacy/gis/present/carto`（`gis`）；`gis::Envelope` 在 `gis` | 默认 `src_all` | **完成** |
 | **`net`** | `src/net`（原 Phase 1 曾并入 base；已抽出） | 默认 `src_all`；import-link | **完成** |
 | `gis` | 原 `sdb`（gis/sde_* / tile/model/…）+ 原 `algorithm`（geo/proj/tin/stat） | 默认 `src_all`；已切断 → `legacy_render` | **完成** |
 | `render` | endgame `src/render/{rhi,scene,skia,…}` | 默认 `src_all`；**不含** leftover | **完成** |
@@ -147,8 +147,8 @@ GN `defines` for export: use the **export macro name** as the define that means 
 
 | Basename | Paths | Rule |
 | --- | --- | --- |
-| `command.h` | `legacy/core/command.h`, `tool/command.h` | Prefer path sharing longest dir prefix with includer; else `tool/command.h` for `tool/**`, `legacy/core/command.h` for others |
-| `gdi_aux_api.h` / `gdi_bufpool.h` / `gdi_renderbuf.h` | `legacy/render/rhi2d/impl/gdi/…` | Prefer `rhi2d/impl/gdi/` (`gdi_simple/` removed; former top `gdi/` collapsed) |
+| `command.h` | `legacy/core/command/command.h`, `tool/command.h` | Prefer path sharing longest dir prefix with includer; else `tool/command.h` for `tool/**`, `legacy/core/command/command.h` for others |
+| `gdi_aux_api.h` / `gdi_renderbuf.h` | `legacy/render/rhi2d/impl/gdi/…` | Prefer `rhi2d/impl/gdi/` (`gdi_simple/` removed; former top `gdi/` collapsed; `gdi_bufpool` removed → `base::tls_allocate`) |
 | `scene.h` | `render/scene/scene.h`, `sdb/scene/scene.h` | Prefer same layer as includer (`render/` vs `sdb/`) |
 | `resource.h` / `stdafx.h` / `targetver.h` | many modules | Prefer header under the same module directory as the includer |
 

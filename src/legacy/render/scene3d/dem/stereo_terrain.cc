@@ -5,8 +5,8 @@
 
 #include <vector>
 
-#include "legacy/render/rhi3d/public/device/3drenderdevice.h"
-#include "legacy/render/rhi3d/public/state/statesmanager.h"
+#include "legacy/render/rhi3d/public/device/render_device.h"
+#include "legacy/render/rhi3d/public/state/states_manager.h"
 
 namespace render {
 

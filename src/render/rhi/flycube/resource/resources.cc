@@ -4,6 +4,8 @@
 #include "render/rhi/flycube/device.h"
 #include "render/rhi/flycube/resource/resources.h"
 
+#include "base/core/log.h"
+
 #include <cstring>
 #include <memory>
 #include <utility>
@@ -191,10 +193,13 @@ bool FlycubeDevice::ensure_depth_buffer(uint32_t w, uint32_t h) {
     if (!fc_device_ || w == 0 || h == 0) {
       return false;
     }
-    if (depth_texture_ && depth_view_ && depth_w_ == w && depth_h_ == h) {
+    if (depth_texture_ && depth_view_ && depth_sample_facade_ &&
+        depth_w_ == w && depth_h_ == h) {
       return true;
     }
+    clear_depth_sample_facade();
     depth_view_.reset();
+    depth_srv_.reset();
     depth_texture_.reset();
     ::TextureDesc td = {
         .type = TextureType::k2D,
@@ -204,10 +209,20 @@ bool FlycubeDevice::ensure_depth_buffer(uint32_t w, uint32_t h) {
         .depth_or_array_layers = 1,
         .mip_levels = 1,
         .sample_count = 1,
-        .usage = BindFlag::kDepthStencil,
+        // DSV for opaque passes + SRV for post fog / soft particles.
+        .usage = BindFlag::kDepthStencil | BindFlag::kShaderResource,
     };
     depth_texture_ = fc_device_->CreateTexture(MemoryType::kDefault, td);
     if (!depth_texture_) {
+      // Some adapters reject DSV|SRV on D32 at large sizes. Opaque Scene3d
+      // only needs a DSV; fog SRV is optional.
+      td.usage = BindFlag::kDepthStencil;
+      depth_texture_ = fc_device_->CreateTexture(MemoryType::kDefault, td);
+    }
+    if (!depth_texture_) {
+      LOGGING(LOG_ERROR, "rhi.flycube ensure_depth_buffer CreateTexture fail "
+                         "%ux%u",
+              w, h);
       return false;
     }
     ViewDesc vd = {
@@ -215,9 +230,33 @@ bool FlycubeDevice::ensure_depth_buffer(uint32_t w, uint32_t h) {
         .dimension = ViewDimension::kTexture2D,
     };
     depth_view_ = fc_device_->CreateView(depth_texture_, vd);
+    ViewDesc srv_desc = {
+        .view_type = ViewType::kTexture,
+        .dimension = ViewDimension::kTexture2D,
+    };
+    depth_srv_ = fc_device_->CreateView(depth_texture_, srv_desc);
+    if (!depth_view_) {
+      LOGGING(LOG_ERROR, "rhi.flycube ensure_depth_buffer CreateView DSV fail "
+                         "%ux%u",
+              w, h);
+      clear_depth_sample_facade();
+      depth_view_.reset();
+      depth_srv_.reset();
+      depth_texture_.reset();
+      return false;
+    }
+    // SRV may be null when usage is DSV-only — fog sampling falls back.
+    if (!depth_srv_) {
+      LOGGING(LOG_WARNING,
+              "rhi.flycube ensure_depth_buffer DSV-only (no SRV) %ux%u", w, h);
+    }
+    const uint32_t bytes = w * h * 4u;
+    depth_sample_facade_ =
+        new FlycubeTexture(depth_texture_, depth_srv_, std::shared_ptr<View>{},
+                           w, h, bytes, TextureFormat::kD32Float);
     depth_w_ = w;
     depth_h_ = h;
-    return depth_view_ != nullptr;
+    return true;
   }
 
 #endif  // SMT_HAS_FLYCUBE

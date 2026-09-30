@@ -52,7 +52,7 @@ All rights reserved.
 | `sdb::tile::TileCache` | `src/sdb/tile/tile_cache.h` | 进程内 LRU（默认 256） |
 | `sdb::tile::TileDiskCache` | `src/sdb/tile/tile_disk_cache.*` | 可选磁盘缓存（目录可配、有界 entry） |
 | `sdb::tile::parse_wmts_capabilities` | `src/sdb/tile/wmts.*` | 最小 Capabilities → URL 模板 |
-| `base::SmtTile` | `src/legacy/core/bas_struct.h` | `pTileBuf` + `lTileBufSize` + `rtTileRect` + `lImageCode`；`typedef SmtWSTile` |
+| `base::SmtTile` | `src/legacy/core/types/types.h` | `pTileBuf` + `lTileBufSize` + `rtTileRect` + `lImageCode`；`typedef SmtWSTile` |
 | `SmtMemTileLayer` | *(removed)* | 曾为 `vector<SmtTile*>` 指针表；死工厂已切除 |
 | `CreateMemTileLayer` | *(removed from `SmtDataSourceMgr`)* | 无外部调用方；已安全删除 |
 

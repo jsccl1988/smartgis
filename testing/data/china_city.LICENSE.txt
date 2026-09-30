@@ -1,15 +1,22 @@
-China city offline basemap (china_city.gpkg)
-============================================
+China city offline basemap (china_city.gpkg + china_dem.tif)
+============================================================
 
 Purpose
 -------
-Engineering / developer default map for SmartGis Views (prefecture-level
-area, major rivers and trunk roads as lines, city points, Chinese text
-anchors). Not a survey product and not for official cartographic publication.
+Engineering / developer default map for SmartGis Views:
+  - vectors: area / line / point / text
+  - elevation: china_dem.tif for leftover / Views 3D
 
-Layers
-------
-area, line, point, text  — CRS EPSG:4326 / OGC CRS84
+Not a survey product and not for official cartographic publication.
+
+CRS
+---
+All layers: EPSG:4326 / OGC CRS84 (WGS84 lon/lat).
+Do **not** mix GCJ-02 admin (e.g. Aliyun DataV) with WGS84 rivers/roads/DEM.
+
+Layers (china_city.gpkg)
+------------------------
+area, line, point, text
 
 line.kind: river | lake | road
 line.class (roads): motorway | trunk | primary  (OSM-like tags for MapScene)
@@ -18,58 +25,32 @@ Also produced: china_city.geojson (same features, single FeatureCollection with
 kind=area|line|point|text; roads use line_kind=road + class=) for hosts that
 still probe .geojson before .gpkg.
 
-Sources
--------
-1) Prefecture (地级) administrative polygons
-   - Aliyun DataV GeoJSON API (areas_v3)
-   - Base: https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json
-   - Per-province children: https://geo.datav.aliyun.com/areas_v3/bound/{adcode}_full.json
-   - Direct-controlled municipalities / SARs / Taiwan kept as single province
-     polygons; other units use DataV `level=city` features.
-   - License / terms: follow Aliyun DataV / 高德相关开放平台数据使用说明；
-     redistribution of derived offline demo packages for non-commercial
-     engineering use is common practice for this public endpoint — verify
-     current terms before shipping a product basemap.
-
-2) Line layer — rivers / lake centerlines
-   - Natural Earth 10m rivers and lake centerlines
+Sources (aligned pack)
+----------------------
+1) Land / admin, rivers, roads, places — Natural Earth 10m (public domain)
    - https://www.naturalearthdata.com/
-   - https://naciscdn.org/naturalearth/10m/physical/ne_10m_rivers_lake_centerlines.zip
-   - License: public domain (Natural Earth)
+   - admin_1 states/provinces (CHN/TWN/HKG/MAC)
+   - rivers_lake_centerlines, roads, populated_places
+   - Same publisher + same CRS → river/road/land stay registered
 
-3) Line layer — national trunk roads (China bbox clip)
-   - Natural Earth 10m roads (Major Highway + low-scalerank Unknown/Road)
-   - https://naciscdn.org/naturalearth/10m/cultural/ne_10m_roads.zip
-   - Mapped to kind=road, class=motorway|trunk|primary for MapScene styling
-   - Simplified cap (~1500 road features) for repo size
-   - License: public domain (Natural Earth)
-
-4) Point / text
-   - Derived from area centroids / DataV center fields; `anno` holds Chinese
-     labels for leftover Anno-compatible painting.
+2) Elevation — AWS Open Data elevation-tiles-prod GeoTIFF
+   - https://s3.amazonaws.com/elevation-tiles-prod/geotiff/{z}/{x}/{y}.tif
+   - Mapzen / Nextzen terrain stack (SRTM, GMTED2010, NED, ETOPO1, …)
+   - Warped to EPSG:4326; land cutline from NE admin_1 outline
+     (testing/data/_china_ne_outline.geojson)
 
 Build
 -----
+  py -3 testing/data/build_china_city.py --with-dem
+  # or separately:
   py -3 testing/data/build_china_city.py
   py -3 testing/data/build_china_dem.py
 
-Caches downloads under out/china_city_src/. Writes testing/data/china_city.gpkg
-and copies to out/china_city.gpkg. See china_city.PIN.txt for SHA-256.
+Caches: out/china_city_src/ (NE downloads + outline), out/china_dem_src/ (tiles).
+Writes testing/data/china_city.gpkg (+ .geojson) and china_dem.tif; copies under
+out/. See china_city.PIN.txt for SHA-256.
 
-china_dem.tif
--------------
-Country-wide Float32 elevation grid (EPSG:4326) for leftover / Views 3D.
-
-Default build (real DEM):
-  py -3 testing/data/build_china_dem.py
-  Source: AWS Open Data elevation-tiles-prod GeoTIFF tiles
-    https://s3.amazonaws.com/elevation-tiles-prod/geotiff/{z}/{x}/{y}.tif
-  (Mapzen / Nextzen terrain stack: SRTM, GMTED2010, NED, ETOPO1 and related
-  public elevation layers; see https://github.com/tilezen/joerd ).
-  Land outline cutline from DataV national boundary JSON when available.
-  Tile cache: out/china_dem_src/
-
-Offline fallback:
+Offline DEM fallback:
   py -3 testing/data/build_china_dem.py --source synthetic
 
 Forbidden uses

@@ -8,9 +8,9 @@ smt_shared_library("plugin") {
   dll_stem = "plugin"
   defines = [ "PLUGIN_EXPORTS" ]
   sources = [
-    "module.cpp",
-    "module_manager.cpp",
-    "plugin_msg.cpp",
+    "runtime/auxmodule/module.cpp",
+    "runtime/auxmodule/module_manager.cpp",
+    "runtime/auxmodule/plugin_msg.cpp",
   ]
   include_dirs += [ "//src" ]
   deps = [ "//src/base:core" ]
@@ -19,10 +19,10 @@ smt_shared_library("plugin") {
 # MFC *.am plugins for SmartGis.exe (out/plugin/<stem>[_d].am).
 group("am_plugins") {
   deps = [
-    "//src/legacy/plugin/dem:plugin_dem",
-    "//src/legacy/plugin/model3d:plugin_model3d",
-    "//src/legacy/plugin/orthogrid:plugin_orthogrid",
-    "//src/legacy/plugin/print:plugin_print",
-    "//src/legacy/plugin/proj:plugin_proj",
+    "//src/legacy/plugin/product/dem:plugin_dem",
+    "//src/legacy/plugin/product/model3d:plugin_model3d",
+    "//src/legacy/plugin/product/orthogrid:plugin_orthogrid",
+    "//src/legacy/plugin/product/print:plugin_print",
+    "//src/legacy/plugin/product/proj:plugin_proj",
   ]
 }

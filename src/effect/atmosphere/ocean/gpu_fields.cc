@@ -72,6 +72,21 @@ constexpr render::rhi::BindingSlot kEncodeBindings[] = {
      .hlsl_name = "height_uav"},
 };
 
+// Shared by kCsOceanGaussianH / kCsOceanGaussianV (RGBA height ping-pong).
+constexpr render::rhi::BindingSlot kGaussianBindings[] = {
+    kFftCb,
+    {.slot = 0,
+     .kind = render::rhi::BindingKind::kSrv,
+     .stage = render::rhi::ShaderStage::kCompute,
+     .size_bytes = 0,
+     .hlsl_name = "src_tex"},
+    {.slot = 0,
+     .kind = render::rhi::BindingKind::kUav,
+     .stage = render::rhi::ShaderStage::kCompute,
+     .size_bytes = 0,
+     .hlsl_name = "dst_tex"},
+};
+
 render::rhi::ComputePipelineDesc compute_desc(
     const char* hlsl, const render::rhi::BindingSlot* bindings,
     uint32_t binding_count) {
@@ -95,6 +110,8 @@ OceanGpuFields::~OceanGpuFields() {
   butterfly_ = nullptr;
   displace_ = nullptr;
   encode_ = nullptr;
+  gaussian_h_ = nullptr;
+  gaussian_v_ = nullptr;
   pipeline_device_ = nullptr;
 }
 
@@ -115,18 +132,26 @@ void OceanGpuFields::destroy_pipelines() {
     if (encode_) {
       pipeline_device_->destroy_pipeline(encode_);
     }
+    if (gaussian_h_) {
+      pipeline_device_->destroy_pipeline(gaussian_h_);
+    }
+    if (gaussian_v_) {
+      pipeline_device_->destroy_pipeline(gaussian_v_);
+    }
   }
   spectrum_ = nullptr;
   bit_reverse_ = nullptr;
   butterfly_ = nullptr;
   displace_ = nullptr;
   encode_ = nullptr;
+  gaussian_h_ = nullptr;
+  gaussian_v_ = nullptr;
   pipeline_device_ = nullptr;
 }
 
 bool OceanGpuFields::ensure_pipelines(render::rhi::Device* device) {
   if (pipeline_device_ == device && spectrum_ && bit_reverse_ && butterfly_ &&
-      displace_ && encode_) {
+      displace_ && encode_ && gaussian_h_ && gaussian_v_) {
     return true;
   }
   destroy_pipelines();
@@ -147,7 +172,12 @@ bool OceanGpuFields::ensure_pipelines(render::rhi::Device* device) {
       kCsOceanDisplacementSpectrum, kFftIoBindings, count_of(kFftIoBindings)));
   encode_ = device->create_compute_pipeline(
       compute_desc(kCsOceanHeightEncode, kEncodeBindings, count_of(kEncodeBindings)));
-  if (!spectrum_ || !bit_reverse_ || !butterfly_ || !displace_ || !encode_) {
+  gaussian_h_ = device->create_compute_pipeline(compute_desc(
+      kCsOceanGaussianH, kGaussianBindings, count_of(kGaussianBindings)));
+  gaussian_v_ = device->create_compute_pipeline(compute_desc(
+      kCsOceanGaussianV, kGaussianBindings, count_of(kGaussianBindings)));
+  if (!spectrum_ || !bit_reverse_ || !butterfly_ || !displace_ || !encode_ ||
+      !gaussian_h_ || !gaussian_v_) {
     pipeline_device_ = device;
     destroy_pipelines();
     return false;
@@ -160,12 +190,17 @@ void OceanGpuFields::destroy_height(render::rhi::Device* owner_device) {
   if (owner_device && height_) {
     owner_device->destroy_texture(height_);
     height_ = nullptr;
-    height_n_ = 0;
   }
+  if (owner_device && blur_scratch_) {
+    owner_device->destroy_texture(blur_scratch_);
+    blur_scratch_ = nullptr;
+  }
+  height_n_ = 0;
 }
 
 void OceanGpuFields::release() {
   height_ = nullptr;
+  blur_scratch_ = nullptr;
   spectrum_a_ = nullptr;
   spectrum_b_ = nullptr;
   spectrum_seed_ = nullptr;
@@ -174,6 +209,8 @@ void OceanGpuFields::release() {
   butterfly_ = nullptr;
   displace_ = nullptr;
   encode_ = nullptr;
+  gaussian_h_ = nullptr;
+  gaussian_v_ = nullptr;
   pipeline_device_ = nullptr;
   height_n_ = 0;
   spectrum_n_ = 0;
@@ -213,11 +250,16 @@ bool OceanGpuFields::ensure_textures(render::rhi::Device* owner_device,
     }
   }
 
-  const bool need_height = !height_ || height_n_ != n || owner_device != device;
+  const bool need_height =
+      !height_ || !blur_scratch_ || height_n_ != n || owner_device != device;
   if (need_height) {
     if (height_ && owner_device) {
       owner_device->destroy_texture(height_);
       height_ = nullptr;
+    }
+    if (blur_scratch_ && owner_device) {
+      owner_device->destroy_texture(blur_scratch_);
+      blur_scratch_ = nullptr;
     }
     render::rhi::TextureDesc desc;
     desc.width = static_cast<uint32_t>(n);
@@ -226,8 +268,9 @@ bool OceanGpuFields::ensure_textures(render::rhi::Device* owner_device,
     desc.usage = render::rhi::TextureUsage::kSampled | render::rhi::TextureUsage::kStorage |
                  render::rhi::TextureUsage::kCopyDest;
     height_ = device->create_texture(desc);
+    blur_scratch_ = device->create_texture(desc);
     height_n_ = n;
-    if (!height_) {
+    if (!height_ || !blur_scratch_) {
       return false;
     }
   }
@@ -358,6 +401,21 @@ bool OceanGpuFields::record(render::rhi::Device* owner_device, render::rhi::Devi
   after_rows = run_1d(0, spectrum_a_);
   render::rhi::Texture* dz_field = run_1d(1, after_rows);
   encode_channel(dz_field, 2);
+
+  // Separable 5-tap Gaussian on the packed RGBA height map (H then V).
+  list->set_pipeline(gaussian_h_);
+  write_fft(list, cb);
+  list->bind_compute_srv(height_, 0);
+  list->bind_compute_uav(blur_scratch_, 0);
+  list->dispatch(groups, groups, 1);
+  list->uav_barrier();
+
+  list->set_pipeline(gaussian_v_);
+  write_fft(list, cb);
+  list->bind_compute_srv(blur_scratch_, 0);
+  list->bind_compute_uav(height_, 0);
+  list->dispatch(groups, groups, 1);
+  list->uav_barrier();
 
   return true;
 }

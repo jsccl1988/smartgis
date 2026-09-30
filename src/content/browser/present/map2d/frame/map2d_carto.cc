@@ -89,15 +89,13 @@ size_t map_scene_accept_label_count(const MapLabelBox* boxes, size_t count) {
 }
 
 int map_scene_label_min_importance(double scale) {
-  // fit_extent(China) lands near scale 8–16. The old gate (importance >= 1
-  // once scale >= 10, every POI once scale >= 18) still dumped cities.
+  // fit_extent(China) lands near scale 8–16. Allow prefecture / capital
+  // stems (importance 2) so FlyCube MapFrame labels match leftover GDI
+  // city names; keep counties (1) for closer zooms.
   if (scale < 22.0) {
-    return 3;
-  }
-  if (scale < 48.0) {
     return 2;
   }
-  if (scale < 96.0) {
+  if (scale < 48.0) {
     return 1;
   }
   return 0;
@@ -140,8 +138,8 @@ int map_scene_place_name_importance(const char* utf8_name) {
       L"\u676d\u5dde", L"\u5408\u80a5", L"\u798f\u5dde", L"\u5357\u660c",
       L"\u6d4e\u5357", L"\u90d1\u5dde", L"\u6b66\u6c49", L"\u957f\u6c99",
       L"\u5e7f\u5dde", L"\u5357\u5b81", L"\u6d77\u53e3", L"\u6210\u90fd",
-      L"\u8d35\u9633", L"\u6606\u660e", L"\u62c9\u8428", L"\u897f\u5b89",
-      L"\u5170\u5dde", L"\u897f\u5b81", L"\u94f6\u5ddd",
+      L"\u8d35\u9633", L"\u6606\u660e",       L"\u62c9\u8428", L"\u897f\u5b89",
+      L"\u5170\u5dde", L"\u897f\u5b81", L"\u94f6\u5ddd", L"\u5305\u5934",
       L"\u4e4c\u9c81\u6728\u9f50", L"\u9999\u6e2f", L"\u6fb3\u95e8",
       L"\u53f0\u5317",
   };
@@ -221,15 +219,17 @@ bool map_scene_line_visible_at_scale(MapLineRole role, double length,
   double min_len = 0.0;
   if (role == MapLineRole::kWater) {
     if (scale < 22.0) {
-      min_len = 2.5;
+      // Country frame: keep major NE rivers visible (leftover GDI shows a
+      // denser stem set than the old 4° gate).
+      min_len = 1.5;
     } else if (scale < 48.0) {
-      min_len = 0.8;
+      min_len = 0.6;
     } else if (scale < 96.0) {
-      min_len = 0.25;
+      min_len = 0.2;
     }
   } else if (role == MapLineRole::kRoad) {
     if (scale < 22.0) {
-      min_len = 2.0;
+      min_len = 3.0;
     } else if (scale < 48.0) {
       min_len = 0.7;
     } else if (scale < 96.0) {

@@ -55,15 +55,8 @@ class UI_EXPORT DiagnosticToolsPanel : public View {
   void refresh_memory_stats();
   void update_status();
   void maybe_auto_refresh();
-  // 500ms Win32 timer — never schedule_paint from paint_self (that caused
-  // full-rate shell republish + map flicker while tools were open).
-  void arm_refresh_timer(bool on);
-  void on_refresh_timer();
-  static void CALLBACK refresh_timer_proc(HWND hwnd, UINT msg, UINT_PTR id,
-                                          DWORD time);
 
   bool visible_ = false;
-  HWND refresh_timer_hwnd_ = nullptr;
   Label* title_ = nullptr;
   Label* status_ = nullptr;
   Label* memory_stats_ = nullptr;

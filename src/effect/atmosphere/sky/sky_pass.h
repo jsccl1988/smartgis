@@ -27,21 +27,22 @@ struct SkyDrawParams {
   float sun_y = 0.7071f;
   float sun_z = 0.7071f;
   // Orbit-normalized dome radius (matches Scene3dController framing).
-  float dome_radius = 8.0f;
-  float zenith_r = 0.10f;
-  float zenith_g = 0.28f;
-  float zenith_b = 0.88f;
-  float horizon_r = 0.62f;
-  float horizon_g = 0.72f;
-  float horizon_b = 0.78f;
-  float sunset_r = 0.95f;
-  float sunset_g = 0.42f;
-  float sunset_b = 0.18f;
-  float sun_glow_strength = 0.55f;
+  // Larger than max orbit distance (12) so the camera stays inside the dome.
+  float dome_radius = 40.0f;
+  float zenith_r = 0.08f;
+  float zenith_g = 0.24f;
+  float zenith_b = 0.82f;
+  float horizon_r = 0.60f;
+  float horizon_g = 0.73f;
+  float horizon_b = 0.88f;
+  float sunset_r = 0.90f;
+  float sunset_g = 0.48f;
+  float sunset_b = 0.30f;
+  float sun_glow_strength = 0.50f;
 };
 
-// Far-sky / horizon tint driven by sun direction. Records a dome with a
-// dedicated sky HLSL pipeline (CameraCB + SkyCB), not a solid average color.
+// Far-sky / horizon tint driven by sun direction. Records a fullscreen NDC
+// sky with a dedicated HLSL pipeline (CameraCB + SkyCB view-ray sample).
 class SkyPass {
  public:
   SkyPass();
@@ -87,6 +88,7 @@ class SkyPass {
   render::rhi::Buffer* vertex_ = nullptr;
   render::rhi::Buffer* index_ = nullptr;
   uint32_t index_count_ = 0;
+  float built_radius_ = 0.f;
 };
 
 }  // namespace atmosphere

@@ -81,7 +81,7 @@ source_set("view_host_sources") {
   include_dirs += [ "//src" ]
   deps = [
     "//src/gis/model/edit:edit",
-    "//src/legacy/tool/adapter:adapter",
+    "//src/legacy/tool/msg:adapter",
     "//src/tool:tool",
   ]
 }
@@ -279,7 +279,7 @@ source_set("map_scene") {
     ":content",
     "//src/base:foundation",
     "//src/gis:gis",
-    "//src/gis/datasource/provider/impl/ogr:ogr_codec",
+    "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
     "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
     "//src/gis/vista/world:land_mask",
     "//src/tool:dispatch",

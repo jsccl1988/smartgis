@@ -11,6 +11,22 @@
 
 namespace tool {
 namespace detail {
+namespace {
+
+gis::FeatureGeom::Kind kind_from_draft(DraftKind kind) {
+  switch (kind) {
+    case DraftKind::kLineString:
+      return gis::FeatureGeom::Kind::kLineString;
+    case DraftKind::kPolygon:
+    case DraftKind::kRect:
+      return gis::FeatureGeom::Kind::kPolygon;
+    case DraftKind::kPoint:
+    default:
+      return gis::FeatureGeom::Kind::kPoint;
+  }
+}
+
+}  // namespace
 
 void DraftPipeline::set_observer(DraftCallback observer) {
   observer_ = std::move(observer);
@@ -18,6 +34,10 @@ void DraftPipeline::set_observer(DraftCallback observer) {
 
 void DraftPipeline::set_feature_hit(FeatureHit fn) {
   feature_hit_ = std::move(fn);
+}
+
+void DraftPipeline::set_map_project(MapProject fn) {
+  map_project_ = std::move(fn);
 }
 
 void DraftPipeline::set_shell_owns_append(bool on) {
@@ -40,6 +60,43 @@ content::FeatureId DraftPipeline::id_from_draft(const Draft& draft) {
   return id;
 }
 
+gis::FeatureGeom DraftPipeline::geom_from_draft(const Draft& draft,
+                                                const MapProject& project) {
+  gis::FeatureGeom geom;
+  if (draft.points.empty()) {
+    return geom;
+  }
+  geom.kind = kind_from_draft(draft.kind);
+  geom.flags = draft.flags;
+
+  auto push_px = [&](int32_t x_px, int32_t y_px) {
+    double mx = static_cast<double>(x_px);
+    double my = static_cast<double>(y_px);
+    if (project) {
+      project(x_px, y_px, &mx, &my);
+    }
+    geom.points.push_back({mx, my});
+  };
+
+  if (draft.kind == DraftKind::kRect && draft.points.size() >= 2) {
+    const int32_t x0 = draft.points[0].x_px;
+    const int32_t y0 = draft.points[0].y_px;
+    const int32_t x1 = draft.points[1].x_px;
+    const int32_t y1 = draft.points[1].y_px;
+    push_px(x0, y0);
+    push_px(x1, y0);
+    push_px(x1, y1);
+    push_px(x0, y1);
+    push_px(x0, y0);
+    return geom;
+  }
+
+  for (const DraftPoint& p : draft.points) {
+    push_px(p.x_px, p.y_px);
+  }
+  return geom;
+}
+
 void DraftPipeline::on_draft(const Draft& draft, Interaction* current,
                              content::EventBus* events,
                              gis::EditSession* edits) {
@@ -53,6 +110,23 @@ void DraftPipeline::on_draft(const Draft& draft, Interaction* current,
   content::FeatureId resolved{};
   const bool select_tool = id && std::strncmp(id, "select.", 7) == 0;
   const bool vertex_tool = id && std::strcmp(id, "edit.vertex") == 0;
+  const bool draw_tool = id && std::strncmp(id, "draw.", 5) == 0;
+
+  // draw.*: commit FeatureGeom first so leftover/shell observers see a logged
+  // mutation and do not double-write geometry.
+  if (draw_tool && !shell_owns_append_ && edits && !stamped.points.empty()) {
+    gis::FeatureMutation mutation;
+    mutation.op = gis::EditOp::kAppend;
+    mutation.id = id_from_draft(stamped);
+    mutation.geom = geom_from_draft(stamped, map_project_);
+    if (!mutation.geom.empty() && edits->commit(mutation) && events) {
+      content::EditCommitted ev;
+      ev.id = mutation.id;
+      ev.op = content::EditCommitted::Op::kAppend;
+      events->publish(ev);
+    }
+  }
+
   if (feature_hit_ && (select_tool || vertex_tool)) {
     resolved = feature_hit_(stamped);
   }
@@ -113,23 +187,7 @@ void DraftPipeline::on_draft(const Draft& draft, Interaction* current,
     }
     return;
   }
-  if (std::strncmp(id, "draw.", 5) == 0) {
-    if (shell_owns_append_) {
-      return;
-    }
-    if (!edits) {
-      return;
-    }
-    gis::FeatureMutation mutation;
-    mutation.op = gis::EditOp::kAppend;
-    mutation.id = id_from_draft(stamped);
-    if (edits->commit(mutation) && events) {
-      content::EditCommitted ev;
-      ev.id = mutation.id;
-      ev.op = content::EditCommitted::Op::kAppend;
-      events->publish(ev);
-    }
-  }
+  // draw.* already committed above when !shell_owns_append_.
 }
 
 }  // namespace detail

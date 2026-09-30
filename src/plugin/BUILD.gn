@@ -6,7 +6,8 @@
 # Domain Views under plugin/product/. Leftover AuxModule is
 # //src/legacy/plugin (re-exported here as :plugin, dll_stem = plugin).
 # Host API DLL: //src/plugin/runtime/host:host (dll_stem = plugin_host).
-# :cmd / :legacy_cmd forward to //src/legacy/plugin/adapter:cmd.
+# :cmd forwards to //src/legacy/plugin/runtime:cmd (header-only AM_MSG map).
+# *.am scan lives on //src/legacy/plugin/runtime:bridge (plugin_host only).
 
 import("//build/smartgis.gni")
 
@@ -15,12 +16,7 @@ group("plugin") {
 }
 
 group("cmd") {
-  public_deps = [ "//src/legacy/plugin/adapter:cmd" ]
-}
-
-# Compatibility alias for older deps.
-group("legacy_cmd") {
-  public_deps = [ ":cmd" ]
+  public_deps = [ "//src/legacy/plugin/runtime:cmd" ]
 }
 
 group("host") {

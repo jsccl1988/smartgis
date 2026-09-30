@@ -92,14 +92,16 @@ struct LineTessOptions {
   int round_segments = 8;
 };
 
-// Options for polygon fill fan tessellation (exterior ring only).
+// Options for polygon fill tessellation (exterior ring only).
 //
 // When `world_units_per_pixel` > 0, rings smaller than ~0.75 px are skipped and
-// ring verts are decimated in screen space (min edge ≈ 1 px) before fanning.
+// ring verts are decimated in screen space (min edge ≈ 1 px) before ear-clip.
+// Concave admin rings (Inner Mongolia northern frontier) use ear clipping so
+// the fill boundary follows the ring — fan+PIP left V-shaped chord cuts.
 struct FillTessOptions {
   double world_units_per_pixel = 0;
   // Hard cap after decimation; dense admin rings stay cheap to draw.
-  int max_fan_verts = 64;
+  int max_fan_verts = 1024;
 };
 
 // half_width_world = 0.5 * pixel_width * world_units_per_pixel.

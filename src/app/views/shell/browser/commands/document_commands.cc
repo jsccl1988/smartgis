@@ -3,6 +3,7 @@
 
 #include "app/views/shell/browser/browser.h"
 
+#include <cstdlib>
 #include <string>
 #include <string_view>
 
@@ -74,13 +75,28 @@ bool Browser::run_tool_command(std::string_view command_id) {
   if (id == "view.engine.flycube" || id == "view.engine.stereo_gl" ||
       id == "view.engine.gdi") {
     Scene3dEngine engine = Scene3dEngine::kFlyCube;
-    const char* label = "FlyCube/DX12";
+    const char* label = "Views Scene3D (FlyCube/DX12)";
     if (id == "view.engine.stereo_gl") {
       engine = Scene3dEngine::kStereoGl;
-      label = "Stereo/GL";
+      // Default leftover stereo is D3D11; OpenGL is opt-in.
+      bool d3d = true;
+      if (const char* api = std::getenv("SMT_STEREO_API")) {
+        if (_stricmp(api, "OpenGL") == 0) {
+          d3d = false;
+        } else if (_stricmp(api, "Direct3D") == 0) {
+          d3d = true;
+        }
+      } else if (const char* flag = std::getenv("SMT_SCENE3D_SHOWCASE_D3D")) {
+        if (flag[0] == '0' || flag[0] == 'n' || flag[0] == 'N') {
+          d3d = false;
+        } else if (flag[0] == '1' || flag[0] == 'y' || flag[0] == 'Y') {
+          d3d = true;
+        }
+      }
+      label = d3d ? "Legacy Scene3D (D3D11)" : "Legacy Scene3D (OpenGL)";
     } else if (id == "view.engine.gdi") {
       engine = Scene3dEngine::kGdi;
-      label = "GDI";
+      label = "Views Scene3D (GDI)";
     }
     set_scene3d_engine(engine);
     session_.scene3d().set_render_engine_name(label);
@@ -154,15 +170,23 @@ void Browser::on_open() {
                                       detail::json_escape(cmd.path) + "\"}");
   }
   session_.document().open_path(cmd.path);
-  // Sibling Style JSON (path.style.json or china_city.style.json beside path).
-  {
+  // China sample packs: null style → default carto + carto_source_layer
+  // (matches --map2d-showcase=china). open_path already refuses
+  // china_city.style.json; still clear in case a prior doc had a style.
+  if (session_.document().has_china_extent()) {
+    session_.document().clear_style_document();
+  } else {
+    // Sibling Style JSON only (path.style.json / stem.style.json).
     std::string style_cand = cmd.path + ".style.json";
     if (!session_.document().load_style_path(style_cand)) {
       const size_t slash = cmd.path.find_last_of("/\\");
       const std::string dir =
           slash == std::string::npos ? std::string()
                                      : cmd.path.substr(0, slash + 1);
-      session_.document().load_style_path(dir + "china_city.style.json");
+      const std::string stem = detail::path_stem(cmd.path);
+      if (!stem.empty()) {
+        session_.document().load_style_path(dir + stem + ".style.json");
+      }
     }
   }
   ui_->sync_catalog_from_scene();

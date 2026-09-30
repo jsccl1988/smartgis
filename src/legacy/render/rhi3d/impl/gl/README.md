@@ -1,80 +1,84 @@
-# SmtGLRenderDevice
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
 
-SmartGIS OpenGL 渲染设备，提供基于 OpenGL 的 3D 地图渲染实现。
+# SmtGLRenderDevice (leftover OpenGL)
 
-## Present strangler（SP2）
+Windows **OpenGL** implementation of leftover `Smt3DRenderDevice`, parallel to `rhi3d/impl/d3d/`. Distinct from modern `src/render/rhi` (FlyCube).
 
-`SmtGLRenderDevice::Init(HWND)` 调用 `render::bind_rhi_present(hWnd)`，把视口 HWND 接到进程级 `leftover_session()`（默认 Null Device 录制）。**本 HWND 的 present 仍由 GL（SwapBuffers）独占**；禁止在此创建 FlyCube。本树现为 leftover `rhi3d` 的 OpenGL impl（`legacy/render/rhi3d/impl/gl/`；原 top `legacy/render/gl/`）。详见 [present-facade 规格](../../../../../../docs/superpowers/specs/2026-09-19-legacy-render-present-facade-design.md)。
+Living spec: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../../../../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md) §GL leftover capability · Plan: [`docs/superpowers/plans/2026-09-29-gl-leftover-capability.md`](../../../../../../docs/superpowers/plans/2026-09-29-gl-leftover-capability.md).
 
-## 模块简介
+## Present strangler
 
-SmtGLRenderDevice 是 SmartGIS 系统的 OpenGL 渲染设备实现，提供了基于 OpenGL 的 3D 地图渲染功能。该模块实现了 3D 渲染设备接口，支持 OpenGL 的硬件加速渲染。
+`SmtGLRenderDevice::Init(HWND)` calls `render::bind_rhi_present(hWnd)` for process-wide **Null** recording only. **This HWND’s present is owned by GL `SwapBuffers`** — do **not** create FlyCube here.
 
-## 主要功能
+## Factory (ABI unchanged)
 
-### OpenGL 渲染实现
-- 基于 OpenGL 的 3D 渲染
-- 硬件加速支持
-- 着色器支持
-- 纹理管理
+| API string | Export | Class |
+| --- | --- | --- |
+| `"OpenGL"` | `Create3DRenderDevice` | `SmtGLRenderDevice` |
+| `"Direct3D"` | `CreateD3DRenderDevice` | `SmtD3DRenderDevice` |
 
-### 3D 渲染功能
-- 3D 场景渲染
-- 3D 模型渲染
-- 地形渲染
-- 点云渲染
+Release uses shared `Release3DRenderDevice` in the same `legacy_render` DLL.
 
-## 依赖关系
+`GetBaseApi()` reports `RA_OPENGL`.
 
-- **依赖 SmtCore**: 基础库支持
-- **依赖 Smt3DRenderer**: 3D 渲染器接口
-- **依赖 OpenGL**: OpenGL 图形库
+## Directory layout
 
-## 命名空间
+Colocated units under `src/legacy/render/rhi3d/impl/gl/` (mirrors D3D `host/` · `resource/` · `paint/`):
 
-模块使用 `Smt_3Drd` 命名空间。
+| Directory | Contents |
+| --- | --- |
+| **`host/`** | `render_device.*` — facade; `device_present.cpp` — Begin/End/SwapBuffers/Draw*/DrawText |
+| **`resource/`** | `buffer/` VB·IB; `texture.cpp`; `frame_buffer.cpp`; `font.cpp`; `text/` glyph list |
+| **`paint/`** | `fast_draw` / effect / misc / matrix / shader / util / vba / vbo; `states_manager.*` |
+| **`caps/`** | `device_caps.*` |
+| **`ext/`** | `fbo_func` / `vbo_func` / `shader_func` / `multitexture_func` / `mipmap_func` / `vsync_func` (+ `*_imp`) |
+| **`test/`** | `map_paint_test.cc` (shown HWND + china_plp); `gl_texture_test.cc` (hidden HWND smoke) |
 
-## 版本信息
+GN: `//src/legacy/render/rhi3d/impl/gl:gl_sources` → `legacy_render`.
 
-- **版本**: 1.0
-- **开发时间**: 2010-2013
+## File naming (snake_case)
 
----
+Mechanical rename to match D3D/GDI leftover stems. **ABI types/exports unchanged** (`SmtGLRenderDevice`, `Create3DRenderDevice`, …).
 
-# SmtGLRenderDevice
+| Old | New |
+| --- | --- |
+| `host/3drenderdevice.*` | `host/render_device.*` |
+| `host/rdev_render.cpp` | `host/device_present.cpp` |
+| `paint/rdev_*.cpp` | `paint/{effect,fast_draw,misc,matrix,shader,util,vba,vbo}.cpp` |
+| `paint/statesmanager.*` | `paint/states_manager.*` |
+| `caps/devicecaps.*` | `caps/device_caps.*` |
+| `ext/extinterface.cpp` | `ext/ext_interface.cpp` |
+| `ext/{fbo,vbo,shader,mipmap,vsync,multitexture}func*.{h,cpp}` | `ext/*_func*.{h,cpp}` (also fix typo `mutitexturefunc` → `multitexture_func`) |
+| `resource/rdev_{textures,fbo,font}.cpp` | `resource/{texture,frame_buffer,font}.cpp` |
+| `resource/buffer/{index,vertex}buffer.*` | `resource/buffer/{index,vertex}_buffer.*` |
 
-SmartGIS OpenGL render device, providing 3D map rendering implementation based on OpenGL.
+Intentionally kept: `GLRenderDevice.mak` / `.plg` (legacy VS leftover stubs, not in GN).
 
-## Module Overview
+## Implemented (as-built)
 
-SmtGLRenderDevice is the OpenGL render device implementation of the SmartGIS system, providing 3D map rendering functionality based on OpenGL. This module implements the 3D render device interface, supporting OpenGL hardware-accelerated rendering.
+GL was already ahead of D3D on texture/FBO/font/frustum. This slice is primarily **layout alignment**, plus a few correctness fixes found by the new smoke test.
 
-## Key Features
+- **Host:** WGL context Init/Destroy/Release; `SwapBuffers` present; `bind_rhi_present` Null record only.
+- **Texture / FBO:** `CreateTexture` / `BuildTexture` / `BindTexture` / `GenerateMipmap`; FBO create/attach/bind/clear/unbind (`resource/{texture,frame_buffer}.cpp` + `ext/`). **Fixed:** `ConvertRenderBufferSlot` now accepts `COLOR_ATTACHMENT0` (was `index > 0`); attach binds the target FBO first.
+- **Font / frustum:** GDI bitmap font lists (`resource/text` + `font.cpp`); world + screen `DrawText`; `GetFrustum` from GL modelview × projection (`paint/misc.cpp`). **Fixed:** CreateFont failure path deletes the helper and releases HDC.
+- **Draw:** immediate/VBO paths, lit mesh, fastdraw, state manager.
 
-### OpenGL Rendering Implementation
-- 3D rendering based on OpenGL
-- Hardware acceleration support
-- Shader support
-- Texture management
+**Still stub / deferred:** full programmable shader manager enrichment beyond existing GL extension path; no FlyCube on this HWND; no rewrite of public `Smt_*` ABI.
 
-### 3D Rendering Features
-- 3D scene rendering
-- 3D model rendering
-- Terrain rendering
-- Point cloud rendering
+## E2E
 
-## Dependencies
+```bat
+py -3 testing\tools\case\legacy_scene3d_shot_loop.py --rounds 1
+```
 
-- **Depends on SmtCore**: Base library support
-- **Depends on Smt3DRenderer**: 3D renderer interface
-- **Depends on OpenGL**: OpenGL graphics library
+Omit `--d3d` (or set `SMT_STEREO_API=OpenGL`) for GL. Product may default to D3D11 elsewhere; this loop defaults to GL.
 
-## Namespace
+**Unit smoke:**
 
-The module uses the `Smt_3Drd` namespace.
-
-## Version Information
-
-- **Version**: 1.0
-- **Development Period**: 2010-2013
-
+```bat
+.\build.bat debug gl_texture_test
+.\build.bat debug gl_map_paint_test
+```

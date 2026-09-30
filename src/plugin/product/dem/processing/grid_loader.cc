@@ -5,7 +5,7 @@
 
 #include <vector>
 
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 #include "gdal_priv.h"
 
 namespace plugin {

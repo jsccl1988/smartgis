@@ -57,7 +57,9 @@ int encode_utf16(uint32_t codepoint, wchar_t out[3]) {
 }
 
 std::unique_ptr<Gdiplus::Font> make_font(float text_size_px) {
-  const wchar_t* faces[] = {L"Segoe UI", L"Arial", L"Tahoma"};
+  // Match map2d_frame_gdi CreateFont face so Layout advances equal GDI TextOut.
+  const wchar_t* faces[] = {L"Microsoft YaHei UI", L"Microsoft YaHei",
+                            L"Segoe UI", L"Arial", L"Tahoma"};
   for (const wchar_t* face : faces) {
     auto font = std::make_unique<Gdiplus::Font>(
         face, text_size_px, Gdiplus::FontStyleRegular, Gdiplus::UnitPixel);
@@ -69,7 +71,7 @@ std::unique_ptr<Gdiplus::Font> make_font(float text_size_px) {
 }
 
 bool measure_glyph(const Gdiplus::Font& font, const wchar_t* chars, int n,
-                   float* advance, Gdiplus::RectF* box) {
+                   float text_size_px, float* advance, Gdiplus::RectF* box) {
   Gdiplus::Bitmap probe(8, 8, PixelFormat32bppARGB);
   if (probe.GetLastStatus() != Gdiplus::Ok) {
     return false;
@@ -78,13 +80,22 @@ bool measure_glyph(const Gdiplus::Font& font, const wchar_t* chars, int n,
   if (graphics.GetLastStatus() != Gdiplus::Ok) {
     return false;
   }
+  // GenericTypographic drops MeasureString's default padding so advances
+  // track GDI TextOut pen steps used by the software map path.
+  Gdiplus::StringFormat format(Gdiplus::StringFormat::GenericTypographic());
   Gdiplus::RectF bounds;
   if (graphics.MeasureString(chars, n, &font, Gdiplus::PointF(0.f, 0.f),
-                             &bounds) != Gdiplus::Ok) {
+                             &format, &bounds) != Gdiplus::Ok) {
     return false;
   }
   if (advance) {
-    *advance = std::max(0.f, bounds.Width);
+    float adv = std::max(0.f, bounds.Width);
+    // CJK ideographs are near em-square; MeasureString can still undershoot
+    // and let Layout pack characters on top of each other.
+    if (n >= 1 && chars[0] >= 0x3000) {
+      adv = std::max(adv, text_size_px * 0.95f);
+    }
+    *advance = adv;
   }
   if (box) {
     *box = bounds;
@@ -109,7 +120,7 @@ float WindowsGlyphRasterizer::advance_px(uint32_t codepoint,
     return 0.f;
   }
   float advance = 0.f;
-  if (!measure_glyph(*font, chars, n, &advance, nullptr)) {
+  if (!measure_glyph(*font, chars, n, text_size_px, &advance, nullptr)) {
     return 0.f;
   }
   return advance;
@@ -136,7 +147,7 @@ bool WindowsGlyphRasterizer::rasterize(uint32_t codepoint, float text_size_px,
   }
   float advance = 0.f;
   Gdiplus::RectF box;
-  if (!measure_glyph(*font, chars, n, &advance, &box)) {
+  if (!measure_glyph(*font, chars, n, text_size_px, &advance, &box)) {
     return false;
   }
 

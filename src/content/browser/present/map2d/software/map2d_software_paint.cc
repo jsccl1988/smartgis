@@ -22,7 +22,7 @@
 
 #include "gis/datasource/provider/impl/ogr/text/ogr_text_encoding.h"
 #include "gis/present/tile/protocol/xyz_math.h"
-#include "base/trace/process_trace.h"
+#include "base/trace/event/process_trace.h"
 
 namespace content {
 namespace {
@@ -106,15 +106,15 @@ int label_importance(const Feature& f) {
 
 size_t label_cap_for_scale(double scale) {
   if (scale < 22.0) {
-    return 36;
+    return 16;
   }
   if (scale < 48.0) {
-    return 80;
+    return 40;
   }
   if (scale < 96.0) {
-    return 120;
+    return 80;
   }
-  return 160;
+  return 120;
 }
 
 class LabelOccupancy {
@@ -410,6 +410,17 @@ void Map2dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
     DeleteObject(bg);
   }
 
+  // Also draw labels on the software path so export_bmp / showcase captures
+  // city names next to rivers (previously only HWND overlay painted labels).
+  if (painted_frame && frame_) {
+    paint_labels_projected(
+        hdc, width_px, height_px,
+        [this](double lon, double lat, int* out_x, int* out_y) {
+          // consider() passes (mx, -my) with my already -lat → (lon, lat).
+          frame_->map_to_view(lon, -lat, out_x, out_y);
+        });
+  }
+
   {
     BASE_TRACE_EVENT("selection", "map2d.gdi");
     paint_selection_overlay(hdc, width_px, height_px);
@@ -443,14 +454,14 @@ void Map2dSoftwarePainter::paint_labels_projected(
       return;
     }
     const int n = static_cast<int>(w.size());
-    SetTextColor(hdc, RGB(20, 24, 32));
-    const int halo[8][2] = {{-1, 0},  {1, 0},  {0, -1}, {0, 1},
-                            {-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
-    for (const auto& d : halo) {
-      TextOutW(hdc, vx + d[0], vy + d[1], w.c_str(), n);
-    }
-    SetTextColor(hdc, RGB(245, 248, 252));
-    TextOutW(hdc, vx, vy, w.c_str(), n);
+  SetTextColor(hdc, RGB(255, 255, 255));
+  const int halo[8][2] = {{-1, 0},  {1, 0},  {0, -1}, {0, 1},
+                          {-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+  for (const auto& d : halo) {
+    TextOutW(hdc, vx + d[0], vy + d[1], w.c_str(), n);
+  }
+  SetTextColor(hdc, RGB(20, 24, 32));
+  TextOutW(hdc, vx, vy, w.c_str(), n);
   };
 
   const int min_imp = map_scene_label_min_importance(frame_->scale());
@@ -507,8 +518,13 @@ void Map2dSoftwarePainter::paint_labels_projected(
       if (has_text) {
         if (f.kind == GeomKind::kText && !f.points.empty()) {
           consider(f);
+        } else if (f.kind == GeomKind::kPoint && !f.points.empty()) {
+          // City points when text layer is present but sparse after collision.
+          consider(f);
         }
       } else if (f.kind == GeomKind::kPolygon && f.points.size() >= 3) {
+        consider(f);
+      } else if (f.kind == GeomKind::kPoint && !f.points.empty()) {
         consider(f);
       }
     }

@@ -8,14 +8,11 @@
 #include <functional>
 
 #include "content/public/map_types.h"
+#include "gis/model/edit/session/edit_session.h"
 #include "tool/draft/draft.h"
 
 namespace content {
 class EventBus;
-}
-
-namespace gis {
-class EditSession;
 }
 
 namespace tool {
@@ -29,9 +26,15 @@ namespace detail {
 class DraftPipeline {
  public:
   using FeatureHit = std::function<content::FeatureId(const Draft&)>;
+  // Pixel (view) → map CRS. Required for draw.* FeatureGeom commits.
+  using MapProject =
+      std::function<void(int x_px, int y_px, double* map_x, double* map_y)>;
 
   void set_observer(DraftCallback observer);
   void set_feature_hit(FeatureHit fn);
+  void set_map_project(MapProject fn);
+  // When true, draw.* skips EditSession (shell / MapScene owns geometry).
+  // Prefer false once MapProject + FeatureGeom path is wired.
   void set_shell_owns_append(bool on);
 
   void set_pending_flags(uint32_t flags);
@@ -46,10 +49,13 @@ class DraftPipeline {
 
  private:
   static content::FeatureId id_from_draft(const Draft& draft);
+  static gis::FeatureGeom geom_from_draft(const Draft& draft,
+                                          const MapProject& project);
 
   Draft last_draft_{};
   DraftCallback observer_;
   FeatureHit feature_hit_;
+  MapProject map_project_;
   uint32_t pending_flags_ = 0;
   bool shell_owns_append_ = false;
 };

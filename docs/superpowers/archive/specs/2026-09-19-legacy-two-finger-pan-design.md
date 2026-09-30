@@ -32,8 +32,8 @@ Status: superseded (2026-09-28 merge B)
 
 ## Files
 
-- `src/legacy/ui/xview/view_shell.cc` / `.h` — primary wiring
-- `src/legacy/ui/xview/view_3d.cpp` / `xview.cpp` — pass `HWND`; treat `WM_MOUSEHWHEEL` like wheel for return
+- `src/legacy/ui/shell/view_shell.cc` / `.h` — primary wiring
+- `src/legacy/ui/shell/view_3d.cpp` / `xview.cpp` — pass `HWND`; treat `WM_MOUSEHWHEEL` like wheel for return
 
 ## Arbitration
 

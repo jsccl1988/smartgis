@@ -79,18 +79,18 @@ test("sdbd_live_test") {
     "codec/sdbd_json.cc",
   ]
   # Do not set GIS_EXPORTS here — that re-exports Feature/Grid/Tin in the test
-  # PE and LNK2005s against gis_d.dll.
+  # PE and LNK2005s against gis_d.dll. Use ogr_codec_client (no GIS_EXPORTS).
   include_dirs += [
     "//src",
-    "//src/legacy/datasource/mgr",
+    "//src/legacy/gis/datasource",
   ]
   deps = [
     "//src/gis/datasource/provider/impl/gdal:sde_gdal",
-    "//src/gis/datasource/provider/impl/ogr:ogr_codec",
+    "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
     "//src/gis/kernel/geo:geo",
     "//src/base:base",
     "//src/base:core",
-    "//src/legacy/datasource/mgr:sde_mgr",
+    "//src/legacy/gis/datasource:sde_mgr",
     "//src/net:net",
     "//third_party:gdal",
     "//third_party:rapidjson",

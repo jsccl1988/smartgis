@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
-"""Build testing/data/china_dem.tif from a public real DEM (default).
+"""Build testing/data/china_dem.tif aligned with china_city vectors.
 
 Default source: AWS Open Data / Mapzen Terrain GeoTIFF tiles
   https://s3.amazonaws.com/elevation-tiles-prod/geotiff/{z}/{x}/{y}.tif
   (SRTM / GMTED / NED / ETOPO derivatives; see LICENSE notes).
+
+CRS: EPSG:4326 — same as Natural Earth china_city vectors. Land cutline
+prefers the NE admin_1 outline written by build_china_city.py (not DataV
+GCJ-02), so rivers/roads/DEM share one land mask.
 
 Pipeline:
   1) Download WebMercator tiles covering China bbox (cached under
@@ -16,12 +20,12 @@ Pipeline:
 Fallback: --source synthetic (physiography model; no network).
 
 Usage:
-  py -3 testing/data/build_china_dem.py
+  py -3 testing/data/build_china_dem.py --jobs 16
+  py -3 testing/data/build_china_city.py --with-dem
   py -3 testing/data/build_china_dem.py --zoom 6 --cols 720 --rows 450
   py -3 testing/data/build_china_dem.py --source synthetic
 
-Requires: Python 3.10+, urllib; GDAL CLI from third_party/.install/bin
-(or third_party/gdal_sdk/bin).
+Requires: Python 3.10+, urllib; GDAL CLI from third_party/.install/bin.
 """
 
 from __future__ import annotations
@@ -33,26 +37,34 @@ import os
 import struct
 import subprocess
 import sys
+import threading
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_OUT = Path(__file__).resolve().parent / "china_dem.tif"
 CACHE = REPO / "out" / "china_dem_src"
-CHINA_BBOX = (73.0, 17.5, 135.0, 54.0)  # minx, miny, maxx, maxy
+# Match build_china_city.CHINA_BBOX / content::kChinaLonLatExtent.
+CHINA_BBOX = (73.0, 18.0, 135.0, 54.0)  # minx, miny, maxx, maxy
 TILE_URL = "https://s3.amazonaws.com/elevation-tiles-prod/geotiff/{z}/{x}/{y}.tif"
-# Mirror (optional) — same Open Data bucket via cloudfront-style hosts if needed.
 TILE_URL_MIRRORS = (
     TILE_URL,
     "https://elevation-tiles-prod.s3.amazonaws.com/geotiff/{z}/{x}/{y}.tif",
 )
+DEFAULT_JOBS = 12
+_print_lock = threading.Lock()
+
+
+def _log(msg: str) -> None:
+    with _print_lock:
+        print(msg, flush=True)
 
 
 def find_gdal_bin() -> Path:
     candidates = [
         REPO / "third_party" / ".install" / "bin",
-        REPO / "third_party" / "gdal_sdk" / "bin",
-        REPO / "out" / "third_party" / ".install" / "bin",
+        REPO / "out" / "third_party" / "bin",
     ]
     for d in candidates:
         if (d / "gdalwarp.exe").is_file() or (d / "gdalwarp").is_file():
@@ -105,25 +117,77 @@ def tiles_for_bbox(bbox: tuple[float, float, float, float],
     return tiles
 
 
-def download_tile(z: int, x: int, y: int, dest: Path) -> None:
+def download_tile(z: int, x: int, y: int, dest: Path, *, quiet: bool = False) -> Path:
     if dest.exists() and dest.stat().st_size > 1000:
-        return
+        return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
     last: Exception | None = None
     for tmpl in TILE_URL_MIRRORS:
         url = tmpl.format(z=z, x=x, y=y)
         try:
-            print(f"GET {url}", flush=True)
-            urllib.request.urlretrieve(url, dest)
-            if dest.stat().st_size < 100:
+            if not quiet:
+                _log(f"GET {url}")
+            # Write to a sibling temp then rename so parallel retries cannot
+            # leave a truncated .tif that looks "cached".
+            tmp = dest.with_suffix(dest.suffix + ".part")
+            if tmp.exists():
+                tmp.unlink(missing_ok=True)
+            urllib.request.urlretrieve(url, tmp)
+            if tmp.stat().st_size < 100:
                 raise RuntimeError("tiny response")
-            return
+            tmp.replace(dest)
+            return dest
         except Exception as e:  # noqa: BLE001
             last = e
-            print(f"  fail: {e}", flush=True)
-            if dest.exists():
-                dest.unlink(missing_ok=True)
+            _log(f"  fail {z}/{x}/{y}: {e}")
+            for p in (dest, dest.with_suffix(dest.suffix + ".part")):
+                if p.exists():
+                    p.unlink(missing_ok=True)
     raise RuntimeError(f"tile z={z} x={x} y={y}: {last}")
+
+
+def download_tiles_parallel(
+    z: int, tiles: list[tuple[int, int]], jobs: int
+) -> list[Path]:
+    """Fetch terrain tiles with a thread pool; skip files already cached."""
+    jobs = max(1, min(jobs, len(tiles) or 1))
+    work: list[tuple[int, int, Path]] = []
+    paths: list[Path] = []
+    cached = 0
+    for x, y in tiles:
+        dest = CACHE / f"z{z}" / f"{x}_{y}.tif"
+        paths.append(dest)
+        if dest.exists() and dest.stat().st_size > 1000:
+            cached += 1
+        else:
+            work.append((x, y, dest))
+    _log(f"tiles z={z}: {len(tiles)} total, {cached} cached, {len(work)} to fetch "
+         f"(jobs={jobs})")
+    if not work:
+        return paths
+
+    done = 0
+    errors: list[str] = []
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        futs = {
+            pool.submit(download_tile, z, x, y, dest, quiet=True): (x, y)
+            for x, y, dest in work
+        }
+        for fut in as_completed(futs):
+            x, y = futs[fut]
+            done += 1
+            try:
+                fut.result()
+            except Exception as e:  # noqa: BLE001
+                errors.append(f"{x}/{y}: {e}")
+            if done % 10 == 0 or done == len(work):
+                _log(f"  fetched {done}/{len(work)}")
+    if errors:
+        raise RuntimeError(
+            f"{len(errors)} tile(s) failed, e.g. {errors[0]}"
+            + (f" … (+{len(errors) - 1} more)" if len(errors) > 1 else "")
+        )
+    return paths
 
 
 def write_outline_geojson(rings_path: Path, out_geojson: Path) -> bool:
@@ -169,19 +233,24 @@ def write_outline_geojson(rings_path: Path, out_geojson: Path) -> bool:
     return True
 
 
+def ensure_cutline(candidates: list[Path], cutline: Path) -> bool:
+    """Normalize NE land outline into cutline path for gdalwarp."""
+    for cand in candidates:
+        if not cand.exists() or cand.stat().st_size < 100:
+            continue
+        if cand.resolve() == cutline.resolve():
+            return True
+        if write_outline_geojson(cand, cutline):
+            return True
+    return False
+
+
 def build_real(out: Path, zoom: int, cols: int, rows: int,
-               apply_cutline: bool) -> int:
+               apply_cutline: bool, jobs: int = DEFAULT_JOBS) -> int:
     bin_dir = find_gdal_bin()
     CACHE.mkdir(parents=True, exist_ok=True)
     tiles = tiles_for_bbox(CHINA_BBOX, zoom)
-    print(f"tiles z={zoom}: {len(tiles)}", flush=True)
-    paths: list[Path] = []
-    for i, (x, y) in enumerate(tiles):
-        dest = CACHE / f"z{zoom}" / f"{x}_{y}.tif"
-        download_tile(zoom, x, y, dest)
-        paths.append(dest)
-        if (i + 1) % 10 == 0 or i + 1 == len(tiles):
-            print(f"  downloaded {i + 1}/{len(tiles)}", flush=True)
+    paths = download_tiles_parallel(zoom, tiles, jobs)
 
     list_file = CACHE / f"tiles_z{zoom}.txt"
     list_file.write_text("\n".join(str(p) for p in paths) + "\n", encoding="utf-8")
@@ -207,17 +276,15 @@ def build_real(out: Path, zoom: int, cols: int, rows: int,
 
     final_src = warped
     if apply_cutline:
+        # Prefer Natural Earth land outline (same CRS as china_city vectors).
+        # Do not use Aliyun DataV china_full.json (GCJ-02) — misaligns DEM.
         outline_candidates = [
-            Path(__file__).resolve().parent / "_china_100000_full.json",
-            REPO / "out" / "china_city_src" / "china_full.json",
+            Path(__file__).resolve().parent / "_china_ne_outline.geojson",
+            REPO / "out" / "china_city_src" / "china_outline.geojson",
+            CACHE / "china_outline.geojson",
         ]
-        cutline = CACHE / "china_outline.geojson"
-        wrote = False
-        for cand in outline_candidates:
-            if write_outline_geojson(cand, cutline):
-                wrote = True
-                break
-        if wrote:
+        cutline = CACHE / "china_outline_cut.geojson"
+        if ensure_cutline(outline_candidates, cutline):
             masked = CACHE / "china_dem_masked.tif"
             run_gdal(bin_dir, "gdalwarp", [
                 "-cutline", str(cutline),
@@ -239,7 +306,11 @@ def build_real(out: Path, zoom: int, cols: int, rows: int,
                 str(final_src),
             ])
         else:
-            print("WARN: no outline JSON; skipping cutline", flush=True)
+            print(
+                "WARN: no NE land outline; run build_china_city.py first "
+                "or pass --no-cutline. Skipping cutline.",
+                flush=True,
+            )
 
     out.parent.mkdir(parents=True, exist_ok=True)
     run_gdal(bin_dir, "gdal_translate", [
@@ -354,7 +425,7 @@ def point_in_ring(px: float, py: float, xs: list[float], ys: list[float]) -> boo
 
 
 def build_synthetic(out: Path, cols: int, rows: int) -> int:
-    outline = Path(__file__).resolve().parent / "_china_100000_full.json"
+    outline = Path(__file__).resolve().parent / "_china_ne_outline.geojson"
     rings: list[tuple[list[float], list[float]]] = []
     if outline.exists():
         data = json.loads(outline.read_text(encoding="utf-8"))
@@ -398,12 +469,24 @@ def main() -> int:
     parser.add_argument("--rows", type=int, default=450)
     parser.add_argument("--no-cutline", action="store_true",
                         help="Keep full bbox without national outline mask")
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=DEFAULT_JOBS,
+        help=f"parallel tile download workers (default: {DEFAULT_JOBS})",
+    )
     args = parser.parse_args()
     if args.source == "synthetic":
         return build_synthetic(args.out, args.cols, args.rows)
     try:
-        return build_real(args.out, args.zoom, args.cols, args.rows,
-                          apply_cutline=not args.no_cutline)
+        return build_real(
+            args.out,
+            args.zoom,
+            args.cols,
+            args.rows,
+            apply_cutline=not args.no_cutline,
+            jobs=args.jobs,
+        )
     except Exception as e:  # noqa: BLE001
         print(f"real DEM failed ({e}); falling back to synthetic", flush=True)
         return build_synthetic(args.out, args.cols, args.rows)

@@ -13,7 +13,7 @@ All rights reserved.
 
 | Path | Role |
 | --- | --- |
-| `src/base/trace/{trace,span,span_recorder,chrome_trace,process_trace,detail/json_append}.*` | Foundation tracer |
+| `src/base/trace/{event,recorder,export,log,diag,detail}/…` | Foundation tracer (`base::trace::`; see module README) |
 | `src/base/trace/trace_test.cc` + BUILD | Unit tests |
 | `src/base/BUILD.gn` / README | foundation deps |
 | `content/.../map2d/{frame_cache,gpu,software}` + scene3d present | P1 spans |

@@ -18,7 +18,7 @@ class Checkbox;
 class Label;
 
 // Chrome Trace-style render analysis for Map2d + Scene3d present paths.
-// Reads base::process_trace(); does not embed Perfetto UI.
+// Reads base::trace::process_trace(); does not embed Perfetto UI.
 // Allocate only via make_render_trace_panel() so new/delete stay in ui_views.dll.
 class UI_EXPORT RenderTracePanel : public View {
  public:
@@ -59,6 +59,7 @@ class UI_EXPORT RenderTracePanel : public View {
   Checkbox* show_map2d_ = nullptr;
   Checkbox* show_scene3d_ = nullptr;
   Checkbox* show_startup_ = nullptr;
+  Checkbox* show_gdi_ = nullptr;
 
   std::unique_ptr<State> state_;
   bool embedded_ = false;

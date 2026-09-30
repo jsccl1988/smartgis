@@ -28,10 +28,10 @@ All rights reserved.
 | --- | --- |
 | `third_party/manifest.json` + `third_party/CLI11/BUILD.gn` | Vendor CLI11 |
 | `src/content/app/content_main.h` | `process_type` / `process_type_set` |
-| `src/app/views/shell/cmdline/*` | Parse API + unit test |
-| `src/app/views/shell/browser/browser_main.*` | Browser process body |
-| `src/app/views/shell/browser/views_content_host.h` | Host adapter |
-| `src/app/views/shell/showcase/*` | Atmosphere showcase |
+| `src/app/views/shell/app/cmdline/*` | Parse API + unit test |
+| `src/app/views/shell/app/browser_main.*` | Browser process body |
+| `src/app/views/shell/app/views_content_host.h` | Host adapter |
+| `src/app/views/shell/harness/showcase/*` | Atmosphere / map2d / ui / input showcase |
 | `src/app/views/main.cc` | Thin `wWinMain` |
 | `src/app/views/BUILD.gn` | Sources + `//third_party:CLI11` |
 

@@ -68,6 +68,7 @@ class PluginShell {
   std::unique_ptr<plugin::Registry> registry_;
   std::unique_ptr<plugin::ProcessingPool> pool_;
   std::unique_ptr<plugin::PythonRuntime> python_;
+  bool shutdown_done_ = false;
 };
 
 }  // namespace app

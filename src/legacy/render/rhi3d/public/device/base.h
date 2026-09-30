@@ -6,7 +6,7 @@
 
 #include "base/math/math.h"
 #include "legacy/render/legacy_render_export.h"
-#include "legacy/render/rhi3d/public/device/3drenderdefs.h"
+#include "legacy/render/rhi3d/public/device/render_defs.h"
 
 using namespace render;
 

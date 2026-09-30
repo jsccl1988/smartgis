@@ -61,8 +61,13 @@ class Workspace {
       std::function<content::Extent2(std::string_view command_id)>;
   TOOL_EXPORT void set_nav_command(NavCommand fn);
 
-  // When set, draw.* geometry is written only by the shell observer
-  // (MapScene::append_from_draft). EditSession is not a second writer.
+  // Pixel → map CRS for DraftPipeline FeatureGeom commits on draw.*.
+  using MapProject =
+      std::function<void(int x_px, int y_px, double* map_x, double* map_y)>;
+  TOOL_EXPORT void set_map_project(MapProject fn);
+
+  // When true, draw.* skips EditSession (shell / MapScene owns geometry).
+  // Prefer false once set_map_project is wired (β FeatureGeom path).
   TOOL_EXPORT void set_shell_owns_append(bool on);
 
   // Rubber-band geometry for leftover paint. No HWND on this header.

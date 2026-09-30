@@ -306,12 +306,36 @@ bool World::set_terrain_mesh(uint64_t id, const float* positions,
       (position_count % 3) != 0 || index_count < 3 || (index_count % 3) != 0) {
     node->terrain_positions.clear();
     node->terrain_indices.clear();
+    node->terrain_uvs.clear();
     ++generation_;
     node->generation = generation_;
     return false;
   }
   node->terrain_positions.assign(positions, positions + position_count);
   node->terrain_indices.assign(indices, indices + index_count);
+  // Keep terrain_uvs when vert count still matches; clear on mismatch.
+  const size_t verts = position_count / 3;
+  if (node->terrain_uvs.size() != verts * 2u) {
+    node->terrain_uvs.clear();
+  }
+  ++generation_;
+  node->generation = generation_;
+  return true;
+}
+
+bool World::set_terrain_uvs(uint64_t id, const float* uvs, size_t float_count) {
+  Node* node = find(id);
+  if (!node || node->kind != NodeKind::kTerrain) {
+    return false;
+  }
+  const size_t verts = node->terrain_positions.size() / 3;
+  if (!uvs || verts == 0 || float_count != verts * 2u) {
+    node->terrain_uvs.clear();
+    ++generation_;
+    node->generation = generation_;
+    return false;
+  }
+  node->terrain_uvs.assign(uvs, uvs + float_count);
   ++generation_;
   node->generation = generation_;
   return true;

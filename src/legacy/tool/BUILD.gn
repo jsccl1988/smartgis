@@ -5,15 +5,69 @@ import("//build/smartgis.gni")
 
 # Optional leftover tools → one DLL (dll_stem = legacy_tool).
 # Not in //src:src_all. Opt-in: ninja -C out legacy_tool / legacy_tool_all
-# Layout: iatool/ (ABI) + adapter/ (GT_MSG bridge source_set) + group/ (→ ui_legacy).
+# Layout (endgame mirror): abi/ + msg/ + {nav,select,draft,base,factory}
+# (capability sources → ui_legacy).
 
 smt_shared_library("legacy_tool") {
   dll_stem = "legacy_tool"
   defines = [ "LEGACY_TOOL_EXPORTS" ]
-  deps = [ "//src/legacy/tool/iatool:tool_sources" ]
+  deps = [ "//src/legacy/tool/abi:tool_sources" ]
   # tool_group_sources compile into //src/legacy/ui:ui_legacy when smt_build_app
   # (GUI dialogs ↔ tools would otherwise form a DLL link cycle).
   public_deps = [ "//src/base:base" ]
+}
+
+# Compiled into //src/legacy/ui:ui_legacy (avoids a leftover_tool → ui_legacy cycle).
+source_set("tool_group_sources") {
+  sources = [
+    "base/base3dtool.cpp",
+    "base/basetool.cpp",
+    "factory/grouptoolfactory.cpp",
+    "draft/appendfeaturetool.cpp",
+    "draft/draft_to_ogr.cpp",
+    "draft/inputlinetool.cpp",
+    "draft/inputpointtool.cpp",
+    "draft/inputregiontool.cpp",
+    "select/flashtool.cpp",
+    "select/select_query_apply.cpp",
+    "select/selecttool.cpp",
+    "nav/3dviewctrltool.cpp",
+    "nav/view_zoom_apply.cpp",
+    "nav/viewctrltool.cpp",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    # Same DLL as gui: UI_LEGACY_EXPORTS so gui calls are not dllimport.
+    "UI_LEGACY_EXPORTS",
+  ]
+  deps = [
+    "//src/gis/kernel/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    # Groups → legacy_render DLL (do not dep *_sources or objects double-link).
+    "//src/legacy/render/rhi2d:rhi2d",
+    "//src/legacy/render/scene3d:scene3d",
+    "//src/legacy/render/rhi3d:rhi",
+    # IA tools live in leftover_tool.dll; this source_set is compiled into
+    # ui_legacy. Dep the DLL group, not tool_sources (avoids double-link).
+    "//src/legacy/tool:tool",
+    "//src/gis/datasource/provider/impl/ogr:ogr_codec",
+    "//src/legacy/gis/datasource:sde_mgr",
+    "//src/gis/model/edit:map_edit",
+    "//src/gis/model/map:gis",
+    "//src/legacy/sys:sys",
+    "//src/legacy/tool/msg:adapter",
+    "//src/tool:dispatch",
+    "//third_party:CxImage",
+    "//third_party:gdal",
+    # Tools include legacy/ui/gui/gui_api.h; same DLL as gui via //src/legacy/ui:ui_legacy.
+  ]
+}
+
+group("tool_group") {
+  public_deps = [ "//src/legacy/ui:ui_legacy" ]
 }
 
 group("tool") {

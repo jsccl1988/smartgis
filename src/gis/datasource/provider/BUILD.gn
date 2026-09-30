@@ -4,7 +4,7 @@
 import("//build/smartgis.gni")
 
 # Compiled into //src/gis:gis (dll_stem = gis).
-# Adapters over sdbd local/remote open; no deps on datasource/mgr.
+# Adapters over sdbd local/remote open; no deps on leftover DataSourceMgr.
 source_set("provider_sources") {
   configs += [ "//build:legacy" ]
   defines = [

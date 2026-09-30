@@ -104,7 +104,7 @@ Endgame builtins: `//src/plugin/product/<domain>:*_views` — **not** moved by t
 ## Callers (inventory, 2026-09-27)
 
 - `legacy/app/smtapp.cpp` — `module_manager.h` (`InitSmtAuxModules`).
-- `legacy/ui/xview/*`, `legacy/ui/xcatalog/*`, `legacy/ui/xambox/*` — `plugin_msg` / `module_manager` / `adapter/cmd`.
+- `legacy/ui/shell/*`, `legacy/ui/catalog/*`, `legacy/ui/panels/*` — `plugin_msg` / `module_manager` / `adapter/cmd`.
 - Domain `*_plug.cpp` — `plugin_msg` + `adapter/cmd`.
 - Views path does **not** compile domain `dlg_*.cpp` (full-upgrade Phase B).
 

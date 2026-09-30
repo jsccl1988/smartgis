@@ -57,17 +57,23 @@ struct OceanDrawParams {
   // Displaceable mesh resolution (vertices per edge); independent of FFT size.
   int mesh_resolution = 33;
 
-  float deep_r = 0.02f;
-  float deep_g = 0.12f;
-  float deep_b = 0.28f;
+  float deep_r = 0.01f;
+  float deep_g = 0.08f;
+  float deep_b = 0.22f;
   float deep_a = 1.0f;
-  float shallow_r = 0.15f;
-  float shallow_g = 0.45f;
-  float shallow_b = 0.55f;
+  float shallow_r = 0.08f;
+  float shallow_g = 0.28f;
+  float shallow_b = 0.42f;
   float shallow_a = 1.0f;
   float fresnel_bias = 0.04f;
   float fresnel_power = 5.0f;
   float sea_mask_threshold = 0.5f;
+  // Sun direction (Y-up), matching SkyDrawParams defaults.
+  float sun_x = 0.0f;
+  float sun_y = 0.7071f;
+  float sun_z = 0.7071f;
+  // Blinn-Phong specular exponent for ocean highlights.
+  float shininess = 64.0f;
 };
 
 // GPU ocean: JONSWAP/Phillips spectrum + radix-2 FFT → height + Dx/Dz; VS
@@ -82,6 +88,9 @@ class OceanPass {
 
   void set_params(const OceanDrawParams& params);
   const OceanDrawParams& params() const { return params_; }
+
+  void set_sun_direction(float x, float y, float z);
+  void set_sun_from_azimuth_elevation(float azimuth_rad, float elevation_rad);
 
   void set_time_sec(double t) { time_sec_ = t; }
   double time_sec() const { return time_sec_; }

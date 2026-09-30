@@ -5,11 +5,11 @@
 #include <cstring>
 #include <string>
 
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 #include "gdal.h"
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
-#include "legacy/datasource/mgr/datasource_mgr.h"
+#include "legacy/gis/datasource/datasource_mgr.h"
 #include "gis/model/feature/feature.h"
 #include "gis/model/feature/feature_api.h"
 #include "gis/model/map/map.h"

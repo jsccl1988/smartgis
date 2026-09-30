@@ -6,7 +6,7 @@ import("//testing/test.gni")
 
 # Session-scoped Command / Input / Workspace → one DLL (dll_stem = tool).
 # Not leftover IATool (//src/legacy/tool:legacy_tool, LEGACY_TOOL_EXPORTS).
-# GT_MSG adapter: //src/legacy/tool/adapter:adapter (not part of :tool).
+# GT_MSG adapter: //src/legacy/tool/msg:adapter (not part of :tool).
 # Layout: src/tool/{command,interaction,draft,nav,workspace}/
 #
 # In-DLL source_sets use TOOL_EXPORTS (legacy uses LEGACY_TOOL_EXPORTS).
@@ -123,7 +123,7 @@ test("tool_dispatch_test") {
   include_dirs += [ "//src" ]
   deps = [
     ":dispatch",
-    "//src/legacy/tool/adapter:adapter",
+    "//src/legacy/tool/msg:adapter",
     "//src/plugin:cmd",
   ]
 }

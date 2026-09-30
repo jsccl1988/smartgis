@@ -1,0 +1,48 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Stat chart dialogs → ui_legacy.
+source_set("stat_chart_sources") {
+  configs += [
+    "//build:legacy",
+    "//build:mfc",
+  ]
+  defines = [
+    "_USRDLL",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
+    "STAT_CHART_EXPORTS",
+  ]
+  precompiled_header = "stdafx.h"
+  precompiled_source = "stdafx.cpp"
+  include_dirs += [ "." ]
+  sources = [
+    "chart_view_dlg.cpp",
+    "diagram.rc",
+    "chart_api.cpp",
+    "chart.cpp",
+    "diagramdata.cpp",
+    "stdafx.cpp",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/kernel/stat:stat",
+    "//src/legacy/gis/datasource:sde_mgr",
+    "//src/gis/model/map:gis",
+    "//src/legacy/sys:sys",
+    "//third_party:CxImage",
+    "//third_party:gdal",
+  ]
+}
+
+group("stat_chart") {
+  public_deps = [ "//src/legacy/ui:ui_legacy" ]
+}
+
+group("chart") {
+  public_deps = [ "//src/legacy/ui:ui_legacy" ]
+}

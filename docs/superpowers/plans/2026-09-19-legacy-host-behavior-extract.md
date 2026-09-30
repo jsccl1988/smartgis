@@ -43,7 +43,7 @@ All rights reserved.
 **Files:**
 - Modify: `src/app/views/map_scene.cc` (delegate token / update)
 - Modify: `src/app/views/browser_view.cc` (remove unused `detail::feature_id_from_opaque_token`)
-- Optional: `src/legacy/ui/gui/dlg_2d_feature_info.h` English comment pointing at content API
+- Optional: `src/legacy/ui/dialogs/dlg_2d_feature_info.h` English comment pointing at content API
 
 **Steps:**
 1. [x] Include `content/public/feature_attrs.h`.

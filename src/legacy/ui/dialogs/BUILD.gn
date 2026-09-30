@@ -1,0 +1,52 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Generic MFC dialogs + config dock panels + dialogs_api → ui_legacy.
+source_set("dialogs_sources") {
+  configs += [
+    "//build:legacy",
+    "//build:mfc",
+  ]
+  defines = [
+    "_USRDLL",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
+    "GUI_EXPORTS",
+  ]
+  precompiled_header = "stdafx.h"
+  precompiled_source = "stdafx.cpp"
+  include_dirs += [
+    ".",
+    "../inspect",
+  ]
+  sources = [
+    "dialogs_api.cpp",
+    "dlg_2d_feature_info.cpp",
+    "dlg_att_struct_set.cpp",
+    "dlg_input_text.cpp",
+    "dlg_select_one.cpp",
+    "../inspect/config_dock_bar.cpp",
+    "../inspect/edit_config_dock_bar.cpp",
+    "dialogs.rc",
+    "stdafx.cpp",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/model/map:gis",
+    "//src/legacy/sys:sys",
+    "//third_party:gdal",
+  ]
+}
+
+group("dialogs") {
+  public_deps = [ "//src/legacy/ui:ui_legacy" ]
+}
+
+group("gui") {
+  public_deps = [ "//src/legacy/ui:ui_legacy" ]
+}

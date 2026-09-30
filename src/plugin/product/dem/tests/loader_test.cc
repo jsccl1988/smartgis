@@ -10,7 +10,7 @@
 #include <fstream>
 #include <string>
 
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 #include "content/public/plugin_host.h"
 #include "gdal_priv.h"
 #include "plugin/runtime/host/operation_result.h"

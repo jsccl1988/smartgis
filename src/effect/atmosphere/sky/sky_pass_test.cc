@@ -46,8 +46,12 @@ int main() {
   float hb = 0.f;
   SkyPass::sample_sky_rgb(p, 0.f, 1.f, 0.f, &zr, &zg, &zb);
   SkyPass::sample_sky_rgb(p, 0.f, 0.f, 1.f, &hr, &hg, &hb);
-  // Deeper blue at zenith: higher B and lower R than the horizon sample.
-  expect(zb > hb && zr < hr, "zenith deeper blue than horizon under high sun");
+  // Zenith is deeper/cooler (Bruneton-lite Rayleigh); horizon brighter under
+  // high sun (haze + less Rayleigh deepen).
+  expect(zr < hr, "zenith less red than horizon under high sun");
+  expect(zb > zr, "zenith cooler (more blue than red) under high sun");
+  expect((zr + zg + zb) < (hr + hg + hb),
+         "zenith darker than brightened horizon under high sun");
 
   SkyDrawParams sunset = p;
   sunset.sun_y = 0.05f;
@@ -56,6 +60,8 @@ int main() {
   float sb = 0.f;
   SkyPass::sample_sky_rgb(sunset, 0.f, 0.05f, 1.f, &sr, &sg, &sb);
   expect(sr > hr, "low sun warms horizon");
+  // Twilight ozone-ish: horizon picks up a purple bias (b rises vs high-sun).
+  expect(sb > hb * 0.85f, "twilight horizon keeps blue/purple bias");
 
   std::unique_ptr<render::rhi::Device> device(create_device(Backend::kNull));
   expect(device != nullptr, "null device");

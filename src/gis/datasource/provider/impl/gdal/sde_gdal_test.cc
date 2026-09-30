@@ -13,7 +13,7 @@
 #include "gis/kernel/geo/mesh/matrix2d.h"
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
-#include "legacy/carto/style.h"
+#include "legacy/gis/present/carto/style.h"
 #include "gis/datasource/provider/impl/gdal/gdal_driver.h"
 #include "gis/datasource/provider/impl/ogr/codec/ogr_connect.h"
 #include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
@@ -21,7 +21,7 @@
 #include "gis/datasource/provider/impl/sdbd/driver/sdbd_dataset.h"
 #include "gis/datasource/provider/impl/sdbd/driver/sdbd_driver.h"
 #include "gis/datasource/provider/impl/sdbd/driver/sdbd_layer.h"
-#include "legacy/datasource/mgr/datasource_mgr.h"
+#include "legacy/gis/datasource/datasource_mgr.h"
 #include "gis/model/feature/feature.h"
 #include "gis/model/layer/layer.h"
 

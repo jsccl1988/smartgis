@@ -5,7 +5,7 @@
 
 #include <cstring>
 
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 
 namespace gis {
 namespace tile {

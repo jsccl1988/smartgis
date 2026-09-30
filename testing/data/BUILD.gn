@@ -2,9 +2,10 @@
 # All rights reserved.
 
 # Schematic China map samples under shared out/data/ (sibling of Debug/Release).
-# Prefers china_city.gpkg (prefecture four-layer pack); china_plp remains fallback.
-# china_dem.tif: country DEM for leftover / Views 3D (build via build_china_dem.py).
-# $root_out_dir is out/Debug or out/Release; ../data is out/data.
+# Prefers china_city.gpkg (NE 10m four-layer pack + china_dem.tif); china_plp fallback.
+# Rebuild: py -3 testing/data/build_china_city.py --with-dem
+# PIN: testing/data/china_city.PIN.txt
+
 copy("china_map_samples") {
   sources = [
     "china_city.gpkg",
@@ -29,9 +30,8 @@ copy("am_terrain_samples") {
   outputs = [ "$root_out_dir/../data/rs/terrain/{{source_file_part}}" ]
 }
 
-# Rebuild offline pack (network + pyshp). Not part of default ninja; run manually:
-#   py -3 testing/data/build_china_city.py
-#   py -3 testing/data/build_china_dem.py
+# Rebuild offline pack (network + pyshp + GDAL):
+#   py -3 testing/data/build_china_city.py --with-dem
 # PIN: testing/data/china_city.PIN.txt
 group("china_city_data") {
   data_deps = [

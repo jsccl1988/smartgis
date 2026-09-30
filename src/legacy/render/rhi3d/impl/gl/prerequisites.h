@@ -4,7 +4,6 @@
 
 // WINGDIAPI / APIENTRY come from windows.h; GL/gl.h requires them first.
 #include <windows.h>
-
 #include <GL/gl.h>
 #include <GL/glu.h>
 

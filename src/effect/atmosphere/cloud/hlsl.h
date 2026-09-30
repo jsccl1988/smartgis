@@ -31,7 +31,8 @@ VSOut main(float3 pos : POSITION)
 }
 )";
 
-// Verbatim HLSL copied from the FlyCube cache (kPsCloud).
+// Verbatim HLSL (kPsCloud). Powder + silver-lining brighten scatter; Beer T stays.
+// density_cell > 0 snaps sample positions (half-res quality proxy until RHI RTs).
 inline constexpr char kPsCloud[] = R"(
 cbuffer CloudCB : register(b1)
 {
@@ -46,7 +47,7 @@ cbuffer CloudCB : register(b1)
     float cam_x;
     float cam_y;
     float cam_z;
-    float pad0;
+    float density_cell;
 };
 
 struct PSIn
@@ -60,6 +61,13 @@ float hash31(float3 p)
     p = frac(p * 0.1031);
     p += dot(p, p.yzx + 33.33);
     return frac((p.x + p.y) * p.z);
+}
+
+float3 snap_cell(float3 p, float cell)
+{
+    if (cell <= 0.0)
+        return p;
+    return floor(p / cell + 0.5) * cell;
 }
 
 float density_at(float3 p, float base_y, float top_y, float c)
@@ -103,28 +111,43 @@ float4 main(PSIn input) : SV_TARGET
     float T = 1.0;
     float3 L = float3(0.0, 0.0, 0.0);
     float3 sun = normalize(float3(sun_x, sun_y, sun_z));
+    // Silver lining peaks when the view looks toward the sun (sun behind cloud).
+    float toward_sun = saturate(dot(dir, sun));
+    float silver = toward_sun * toward_sun;
+    const float k_powder = 8.0;
+    const float k_silver = 1.5;
     for (int i = 0; i < 64; ++i)
     {
         if (i >= nsteps)
             break;
         float t = t0 + (float(i) + 0.5) * ds;
-        float3 p = cam + dir * t;
+        float3 p = snap_cell(cam + dir * t, density_cell);
         float dens = density_at(p, base_m, top_m, cover);
         if (dens <= 0.0)
             continue;
         float sigma = dens * max(extinction, 0.0);
         float step_T = exp(-sigma * ds);
-        float shadow = exp(-density_at(p + sun * ds * 4.0, base_m, top_m, cover) *
+        float shadow = exp(-density_at(snap_cell(p + sun * ds * 4.0, density_cell),
+                                       base_m, top_m, cover) *
                            max(extinction, 0.0) * ds * 4.0);
-        L += T * (1.0 - step_T) * shadow * 0.08;
+        // Powder: thin media lets light face the camera; silver edges it.
+        float powder = 1.0 - exp(-dens * k_powder);
+        float scatter = powder * (1.0 + silver * k_silver);
+        // Grey scatter only. A near-white floor (0.75+) plus src-alpha
+        // painted a white sheet over sky and DEM.
+        float3 scatter_rgb = float3(0.55, 0.58, 0.66);
+        L += T * (1.0 - step_T) * shadow * scatter_rgb * scatter * 0.45;
         T *= step_T;
-        if (T < 0.02)
+        if (T < 0.08)
             break;
     }
-    float alpha = saturate(1.0 - T);
-    if (alpha < 0.01)
+    float cover_a = saturate(1.0 - T);
+    // Veil, not a solid deck: cap alpha so land and sky stay readable.
+    float alpha = saturate(cover_a * 0.48);
+    if (alpha < 0.02)
         discard;
-    float3 rgb = saturate(L + float3(0.75, 0.78, 0.85) * alpha);
+    float3 rgb = cover_a > 0.001 ? saturate(L / cover_a) : float3(0.0, 0.0, 0.0);
+    rgb = min(rgb, float3(0.72, 0.74, 0.78));
     return float4(rgb, alpha);
 }
 )";

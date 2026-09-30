@@ -40,6 +40,15 @@ bool FlycubeDevice::composed_into_imported_shared() const {
   return composed_into_imported_;
 }
 
+void FlycubeDevice::clear_depth_sample_facade() {
+  delete depth_sample_facade_;
+  depth_sample_facade_ = nullptr;
+}
+
+Texture* FlycubeDevice::shared_depth_texture() {
+  return depth_sample_facade_;
+}
+
 bool FlycubeDevice::import_shared_nt_handle(void* nt_handle, uint32_t width_px,
                                             uint32_t height_px) {
   if (!nt_handle || width_px == 0 || height_px == 0 || !fc_device_ ||

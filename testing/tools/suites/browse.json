@@ -1,0 +1,18 @@
+{
+  "id": "browse",
+  "kind": "self_test",
+  "argv": ["--self-test"],
+  "env": {
+    "SMT_SKIP_MAP_CONTEXT_MENU": "1"
+  },
+  "mark_leaf": "self-test-mark.txt",
+  "required_marks": ["pan-ok", "browse-ok", "wheel-cursor-ok"],
+  "report_name": "browse_loop_report.json",
+  "probes": ["marks"],
+  "loop": {
+    "rounds": 6,
+    "timeout_sec": 180,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  }
+}

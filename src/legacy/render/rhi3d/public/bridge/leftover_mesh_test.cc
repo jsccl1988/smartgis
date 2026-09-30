@@ -6,9 +6,9 @@
 #include <cstdio>
 #include <memory>
 
-#include "legacy/render/rhi3d/public/device/3drenderdefs.h"
-#include "legacy/render/rhi3d/public/resource/indexbuffer.h"
-#include "legacy/render/rhi3d/public/resource/vertexbuffer.h"
+#include "legacy/render/rhi3d/public/device/render_defs.h"
+#include "legacy/render/rhi3d/public/resource/index_buffer.h"
+#include "legacy/render/rhi3d/public/resource/vertex_buffer.h"
 #include "render/rhi/rhi.h"
 
 namespace {

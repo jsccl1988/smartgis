@@ -44,6 +44,9 @@ class StubDevice : public Device {
     return tag_ == Backend::kNull ? execute_calls_ : 0;
   }
 
+  // Explicit Null/GDI/GL: no shared depth SRV (fog uses CameraCB far-ray).
+  Texture* shared_depth_texture() override { return nullptr; }
+
   CommandList* create_command_list() override { return new StubCommandList(); }
 
   void destroy_command_list(CommandList* list) override {

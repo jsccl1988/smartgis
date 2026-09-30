@@ -7,8 +7,8 @@
 #include <vector>
 
 #include "Octree.hpp"
-#include "legacy/render/rhi3d/public/device/3drenderdevice.h"
 #include "legacy/render/rhi3d/public/device/base.h"
+#include "legacy/render/rhi3d/public/device/render_device.h"
 
 namespace render {
 namespace {
@@ -18,6 +18,15 @@ struct UnibnVec3 {
   float y;
   float z;
 };
+
+bool object_aabb_in_frustum(SmtFrustum& frustum, Smt3DObject* obj) {
+  if (!obj) {
+    return false;
+  }
+  Vector3 max = obj->GetAabb().vcMax;
+  Vector3 min = obj->GetAabb().vcMin;
+  return frustum.IsBoxIn(max, min);
+}
 
 }  // namespace
 
@@ -50,16 +59,10 @@ struct SceneOctreeAux {
   }
 };
 
-int g_nSceneMaxTargets = 40;
-int g_nSceneMaxSubdivision = 6;
-int g_nSceneCurrentSubdivision = 0;
-int g_nSceneCurRenderTarget = 0;
-int g_nSceneTotalLeafNode = 0;
-
 SmtSceneOctTree::SmtSceneOctTree()
-    : m_pRootNode(NULL),
-      m_aux(new SceneOctreeAux()),
+    : m_aux(new SceneOctreeAux()),
       m_nAllRenderTargetsNum(0),
+      m_nCurRenderTargets(0),
       m_bShowNodeBox(true) {}
 
 SmtSceneOctTree::~SmtSceneOctTree() {
@@ -69,75 +72,86 @@ SmtSceneOctTree::~SmtSceneOctTree() {
 }
 
 long SmtSceneOctTree::CreateOctTree(vSmt3DObjectPtrs& v3DObjectPtrs) {
-  if (v3DObjectPtrs.size() < 1) return SMT_ERR_INVALID_PARAM;
+  if (v3DObjectPtrs.size() < 1) {
+    return SMT_ERR_INVALID_PARAM;
+  }
 
   DestroyTree();
 
-  m_nAllRenderTargetsNum = static_cast<int>(v3DObjectPtrs.size());
+  m_objects = v3DObjectPtrs;
+  m_nAllRenderTargetsNum = static_cast<int>(m_objects.size());
 
-  m_pRootNode = new SmtSceneOctTreeNode();
-
-  GetSceneDimensions(v3DObjectPtrs);
-
-  const float extent_xy =
-      static_cast<float>((std::max)(m_aabbScene.vcMax.x - m_aabbScene.vcMin.x,
-                                    m_aabbScene.vcMax.y - m_aabbScene.vcMin.y));
-  const float extent_z =
-      static_cast<float>(m_aabbScene.vcMax.z - m_aabbScene.vcMin.z);
-  m_pRootNode->fWidth = (std::max)(extent_xy, extent_z);
-
-  m_aabbScene.merge(m_aabbScene.vcCenter - m_pRootNode->fWidth / 2);
-  m_aabbScene.merge(m_aabbScene.vcCenter + m_pRootNode->fWidth / 2);
-
-  m_pRootNode->vCenterPos = m_aabbScene.vcCenter;
-
-  m_pRootNode->CreateNode(v3DObjectPtrs, static_cast<int>(v3DObjectPtrs.size()),
-                          m_pRootNode->vCenterPos, m_pRootNode->fWidth);
+  GetSceneDimensions(m_objects);
 
   if (m_aux) {
-    m_aux->rebuild_from_objects(v3DObjectPtrs);
+    m_aux->rebuild_from_objects(m_objects);
   }
 
   return SMT_ERR_NONE;
 }
 
 long SmtSceneOctTree::DestroyTree() {
-  SMT_SAFE_DELETE(m_pRootNode);
-
-  g_nSceneCurrentSubdivision = 0;
+  m_objects.clear();
   m_nAllRenderTargetsNum = 0;
-
+  m_nCurRenderTargets = 0;
   m_aabbScene = Aabb();
   if (m_aux) {
     m_aux->clear_points();
   }
-
   return SMT_ERR_NONE;
 }
 
 void SmtSceneOctTree::GetSceneDimensions(vSmt3DObjectPtrs& v3DObjectPtrs) {
-  vSmt3DObjectPtrs::iterator iter = v3DObjectPtrs.begin();
-  while (iter != v3DObjectPtrs.end()) {
-    m_aabbScene.merge((*iter)->GetAabb());
-    iter++;
+  for (Smt3DObject* obj : v3DObjectPtrs) {
+    if (obj) {
+      m_aabbScene.merge(obj->GetAabb());
+    }
   }
-
   m_aabbScene.vcCenter = (m_aabbScene.vcMax + m_aabbScene.vcMin) / 2.;
 }
 
 long SmtSceneOctTree::Update(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed) {
-  if (NULL != m_pRootNode) {
-    m_pRootNode->UpdateNodeObject(p3DRenderDevice, fElapsed);
+  m_nCurRenderTargets = 0;
+  for (Smt3DObject* obj : m_objects) {
+    if (obj) {
+      obj->Update(p3DRenderDevice, fElapsed);
+      ++m_nCurRenderTargets;
+    }
   }
   return SMT_ERR_NONE;
 }
 
 long SmtSceneOctTree::Render(LP3DRENDERDEVICE p3DRenderDevice) {
-  if (NULL != m_pRootNode && m_aux) {
-    g_nSceneCurRenderTarget = 0;
-    p3DRenderDevice->GetFrustum(m_aux->frustum);
-    m_pRootNode->RenderNodeObject(p3DRenderDevice, m_aux->frustum,
-                                  m_bShowNodeBox);
+  if (!m_aux || m_objects.empty()) {
+    return SMT_ERR_NONE;
+  }
+
+  m_nCurRenderTargets = 0;
+  p3DRenderDevice->GetFrustum(m_aux->frustum);
+
+  if (m_bShowNodeBox) {
+    SmtGPUStateManager* stateManager = p3DRenderDevice->GetStateManager();
+    stateManager->SetLight(false);
+    stateManager->Set2DTextures(false);
+    const float width = static_cast<float>(
+        (std::max)(m_aabbScene.vcMax.x - m_aabbScene.vcMin.x,
+                   (std::max)(m_aabbScene.vcMax.y - m_aabbScene.vcMin.y,
+                              m_aabbScene.vcMax.z - m_aabbScene.vcMin.z)));
+    p3DRenderDevice->DrawCube3D(m_aabbScene.vcCenter, width,
+                                SmtColor(0., 1., 0., 1.));
+    stateManager->SetLight(true);
+    stateManager->Set2DTextures(true);
+  }
+
+  for (Smt3DObject* obj : m_objects) {
+    if (!obj || !obj->IsVisible()) {
+      continue;
+    }
+    if (!object_aabb_in_frustum(m_aux->frustum, obj)) {
+      continue;
+    }
+    obj->Render(p3DRenderDevice);
+    ++m_nCurRenderTargets;
   }
   return SMT_ERR_NONE;
 }
@@ -145,32 +159,48 @@ long SmtSceneOctTree::Render(LP3DRENDERDEVICE p3DRenderDevice) {
 long SmtSceneOctTree::Select3DObject(vSmt3DObjectPtrs& vSelected3DObjects,
                                      LP3DRENDERDEVICE p3DRenderDevice,
                                      const lPoint& point) {
-  if (NULL != m_pRootNode && m_aux) {
-    g_nSceneCurRenderTarget = 0;
-    p3DRenderDevice->GetFrustum(m_aux->frustum);
-    m_pRootNode->SelectNodeObject(vSelected3DObjects, p3DRenderDevice,
-                                  m_aux->frustum, point);
+  if (!m_aux || m_objects.empty()) {
+    return SMT_ERR_FAILURE;
+  }
+
+  m_nCurRenderTargets = 0;
+  p3DRenderDevice->GetFrustum(m_aux->frustum);
+
+  for (Smt3DObject* obj : m_objects) {
+    if (!obj) {
+      continue;
+    }
+    if (!object_aabb_in_frustum(m_aux->frustum, obj)) {
+      continue;
+    }
+    if (obj->Select(p3DRenderDevice, point)) {
+      vSelected3DObjects.push_back(obj);
+    }
   }
 
   return SMT_ERR_FAILURE;
 }
 
 void SmtSceneOctTree::ObjectModelMatrixMultiply(Matrix& matTransform) {
-  if (NULL != m_pRootNode) {
-    m_pRootNode->NodeObjectModelMatrixMultiply(matTransform);
+  for (Smt3DObject* obj : m_objects) {
+    if (obj && obj->IsVisible()) {
+      obj->ModelTransMatrixMultiply(matTransform);
+    }
   }
 }
 
 void SmtSceneOctTree::ObjectWordlMatrixMultiply(Matrix& matTransform) {
-  if (NULL != m_pRootNode) {
-    m_pRootNode->NodeObjectWorldMatrixMultiply(matTransform);
+  for (Smt3DObject* obj : m_objects) {
+    if (obj && obj->IsVisible()) {
+      obj->WorldTransMatrixMultiply(matTransform);
+    }
   }
 }
 
 void SmtSceneOctTree::GetDebugString(char* szBuf, int nBufLength) {
-  snprintf(szBuf, nBufLength, "render target:%d/%d;subdivision:%d,-leaf:%d",
-           g_nSceneCurRenderTarget, m_nAllRenderTargetsNum,
-           g_nSceneCurrentSubdivision, g_nSceneTotalLeafNode);
+  const size_t indexed = m_aux ? m_aux->points.size() : 0;
+  snprintf(szBuf, nBufLength, "render target:%d/%d;unibn points:%zu",
+           m_nCurRenderTargets, m_nAllRenderTargetsNum, indexed);
 }
 
 }  // namespace render

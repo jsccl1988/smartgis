@@ -1,7 +1,7 @@
 #include "legacy/render/scene3d/surface/terrain.h"
 
 #include "base/math/math.h"
-#include "legacy/render/rhi3d/public/texture/texturemanager.h"
+#include "legacy/render/rhi3d/public/texture/texture_manager.h"
 
 using namespace render;
 using namespace render;

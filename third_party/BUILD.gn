@@ -107,6 +107,11 @@ group("khronos_gl") {
   public_deps = [ "//third_party/gn:khronos_gl" ]
 }
 
+# Opt-in MapLibre Native examples only (empty unless smt_enable_maplibre_example).
+group("maplibre") {
+  public_deps = [ "//third_party/maplibre:maplibre" ]
+}
+
 group("ed25519") {
   public_deps = [ "//third_party/gn:ed25519" ]
 }

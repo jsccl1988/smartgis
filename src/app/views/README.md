@@ -44,7 +44,7 @@ gestures / ViewHosts / `MapContents*`）；能力实现在
 `src/content/browser/{document,camera,present,input}`；GDI paint 在
 `content/browser/present/*/paint/`。`shell/ui` → `shell/browser` →
 `//src/content:map_session`；**禁止** `present` → `shell`。`shell/`：`app/`、
-`browser/`、`ui/`、`showcase/`、`self_test/`。`main.cc` 仅 `wWinMain` 胶水。
+`browser/`、`ui/`、`harness/{showcase,self_test}/`。`main.cc` 仅 `wWinMain` 胶水。
 Present README：
 [`../../content/browser/present/README.md`](../../content/browser/present/README.md)。
 
@@ -65,11 +65,13 @@ build.bat views
 
 Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把真实
 图层名与几何灌进 Catalog / 2D overlay；打不开时才回退样例要素。启动时
-`seed_default` / 自测优先加载 **`china_city.gpkg`**（地级四层：`area` /
-`line` / `point` / `text`）；缺失时回退 `china_plp.geojson`。样例数据：
+`seed_default` / 自测优先加载 **`china_city.gpkg`**（NE 10m 四层：`area` /
+`line` / `point` / `text`，EPSG:4326）；3D 用同 CRS 的 **`china_dem.tif`**。
+缺失时回退 `china_plp.geojson`。样例数据：
 
-- 仓库：`testing/data/china_city.gpkg`（约 3.4MB；构建复制到共享 `out/data/`；同目录有匹配的 `china_city.geojson`）
-- 生成：`py -3 testing/data/build_china_city.py`（DataV 地级界 + Natural Earth 河流）
+- 仓库：`testing/data/china_city.gpkg`（构建复制到共享 `out/data/`；同目录有匹配的 `china_city.geojson`）
+- 高程：`testing/data/china_dem.tif`（AWS terrain tiles → EPSG:4326，NE 陆地裁切）
+- 生成：`py -3 testing/data/build_china_city.py --with-dem`（Natural Earth 矢量 + DEM）
 - 许可 / PIN：`testing/data/china_city.LICENSE.txt`、`china_city.PIN.txt`
 - 兜底：`testing/data/china_plp.geojson`
 - 自测：优先 `out/data/china_city.gpkg` / `.geojson`（≥4 层或 kind 四分、要素量级远高于示意 PLP）
@@ -143,11 +145,37 @@ out\SmartGisViews.exe --atmosphere-showcase=full
 `BrowserView::init` 多视口 FlyCube 挂起；GPU 绘制走独立 640×480 present HWND。
 GPU BMP 需至少 2 种可见色（拒绝纯 clear）。根因修复：透视投影改为 RH，与 look_at（看向 -Z）一致。
 
+2D 地图 carto showcase（MapLibre / Baidu 色板）。打开 China 样例、`export_bmp`
+写旁路 `out\map2d-showcase-china.bmp`。自动化：`SMT_MAP2D_SHOWCASE_LINGER_MS=0`
+（当前无 linger；预留）。可选 `SMT_MAP2D_SHOWCASE_GPU=1` 额外跑 `present_gpu`。
+
+**Align 模式**（长期 Style 对齐，不链 Native）：与 china 模式相同打开
+`china_city` 样例，再加载 `maplibre/example/style_align.json`，同 mainland
+视野出 `map2d-showcase-align.bmp`。对照脚本：
+
+```bat
+out\SmartGisViews.exe --map2d-showcase=align
+python testing\tools\case\maplibre_align.py
+```
+
+```bat
+out\SmartGisViews.exe --map2d-showcase=china
+python testing\tools\case\map2d_shot_loop.py --no-build
+```
+
+失败码：54 BMP 无信号、55 样例打开失败、56 导出失败、57 presenter 缺失。
+
 ```bat
 build.bat views
 out\SmartGisViews.exe
 out\SmartGisViews.exe --self-test
+py -3 testing\tools\loop_runner.py --suite browse --no-build
+py -3 testing\tools\loop_runner.py --list
 ```
+
+Harness suites：契约在 `testing/tools/suites/*.json`，case 脚本在
+`testing/tools/case/`，与 `shell/harness/scenario_registry` id 对齐。详见
+[`docs/build/ui-testing.md`](../../../docs/build/ui-testing.md) L1′。
 
 样例也可直接 Open：`out\views_ogr_sample.geojson`（构建后可从
 `testing/data/` 复制）或仓库内 `testing/data/views_ogr_sample.geojson`。
@@ -165,4 +193,4 @@ out\SmartGisViews.exe --self-test
 （`maplibre` 为 tile 的历史别名，非 MapLibre Native；热切换，不重启 GPU
 子进程）。CEF HTML 同命令 id（`ActivateTool` / `tool.command` topic）。
 
-**最后更新：** 2026-09-28
+**最后更新：** 2026-09-29

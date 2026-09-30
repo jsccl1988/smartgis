@@ -78,8 +78,15 @@ bool PluginShell::init(content::EventBus* events) {
 }
 
 void PluginShell::shutdown() {
+  if (shutdown_done_) {
+    return;
+  }
+  shutdown_done_ = true;
+  // Disable plugins before tearing host/registry. Guard against a half-inited
+  // or already-freed registry (init failure → unique_ptr reset → ~PluginShell).
   if (registry_ && host_) {
-    for (const plugin::PluginRecord& rec : registry_->list()) {
+    const std::vector<plugin::PluginRecord> records = registry_->list();
+    for (const plugin::PluginRecord& rec : records) {
       if (rec.state == plugin::PluginState::kEnabled) {
         registry_->set_enabled(rec.manifest.id, false, host_.get());
       }

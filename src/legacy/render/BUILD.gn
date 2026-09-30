@@ -41,7 +41,20 @@ smt_shared_library("legacy_render") {
     "glu32.lib",
     "d3d11.lib",
     "dxgi.lib",
+    "d3dcompiler.lib",
   ]
+  # D3D leftover DrawIndexed runtime-links D3DCOMPILER_47.dll; ship it next to
+  # the exe so LoadLibrary(legacy_render) does not fail with STATUS_DLL_NOT_FOUND
+  # when System32 is not on the search path for the launcher.
+  data_deps = [ ":d3dcompiler_runtime_dll" ]
+}
+
+# Copy Windows SDK D3DCompiler redistributable into $root_out_dir.
+copy("d3dcompiler_runtime_dll") {
+  sources = [
+    "C:/Program Files (x86)/Windows Kits/10/Redist/D3D/x64/d3dcompiler_47.dll",
+  ]
+  outputs = [ "$root_out_dir/d3dcompiler_47.dll" ]
 }
 
 group("legacy_render_all") {

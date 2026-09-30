@@ -444,6 +444,43 @@ void BrowserView::on_map_right_click(HWND map_hwnd, int view_x, int view_y) {
   if (!map_hwnd || !browser_) {
     return;
   }
+  // TrackPopupMenu pumps messages; calling it from the map HWND subclass
+  // during WM_RBUTTONUP re-enters the gesture/input stack and can AV. Defer
+  // one tick like schedule_menu_rebuild (MapLibre-like: RMB = menu only).
+  pending_map_menu_hwnd_ = map_hwnd;
+  pending_map_menu_x_ = view_x;
+  pending_map_menu_y_ = view_y;
+  HWND owner = hwnd();
+  if (!owner) {
+    show_pending_map_context_menu();
+    return;
+  }
+  constexpr UINT_PTR kMapCtxTimer = 0x4D4354u;  // 'MCT'
+  SetPropW(owner, L"SmtMapCtxBrowser", reinterpret_cast<HANDLE>(this));
+  KillTimer(owner, kMapCtxTimer);
+  SetTimer(owner, kMapCtxTimer, 1,
+           [](HWND timer_hwnd, UINT, UINT_PTR id, DWORD) {
+             KillTimer(timer_hwnd, id);
+             auto* self = reinterpret_cast<BrowserView*>(
+                 GetPropW(timer_hwnd, L"SmtMapCtxBrowser"));
+             if (self) {
+               self->show_pending_map_context_menu();
+             }
+           });
+}
+
+void BrowserView::show_pending_map_context_menu() {
+  HWND map_hwnd = pending_map_menu_hwnd_;
+  const int view_x = pending_map_menu_x_;
+  const int view_y = pending_map_menu_y_;
+  pending_map_menu_hwnd_ = nullptr;
+  if (!map_hwnd || !IsWindow(map_hwnd) || !browser_) {
+    return;
+  }
+  // Headless / self-test: skip modal popup (would hang the pump).
+  if (GetEnvironmentVariableA("SMT_SKIP_MAP_CONTEXT_MENU", nullptr, 0) > 0) {
+    return;
+  }
   std::vector<std::string> labels;
   collect_bookmark_labels(browser_, &labels);
   const std::vector<ui::views::MenuItem> items = navigation_menu_items(

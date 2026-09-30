@@ -17,8 +17,8 @@ namespace atmosphere {
 struct ProceduralOptions {
   unsigned seed = 1;
   float wind_scale = 10.f;
-  float wave_hs_scale = 0.25f;
-  float cloud_cover_scale = 1.f;
+  float wave_hs_scale = 0.55f;
+  float cloud_cover_scale = 1.15f;
   float cloud_base_m = 800.f;
   float cloud_thickness_m = 2200.f;
 };

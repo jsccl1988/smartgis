@@ -69,6 +69,13 @@ CatalogView::CatalogView() {
   title_ = loaded.ids.find_as<Label>("title");
   View* tabs_host = loaded.ids.find("tabs_host");
 
+  // Keep Map/Data/3D and Layers/Sources/Maps on one horizontal band — a separate
+  // Catalog title row used to push source tabs down into the map chrome.
+  if (title_) {
+    title_->set_visible(false);
+    title_->set_preferred_size({0, 0});
+  }
+
   auto tabs = std::make_unique<TabStrip>();
   tabs->set_preferred_size({240, 280});
   tabs_ = tabs.get();

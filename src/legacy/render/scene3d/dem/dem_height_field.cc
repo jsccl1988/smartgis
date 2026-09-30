@@ -16,6 +16,10 @@
 #include <string>
 #include <vector>
 
+#include "base/memory/allocator.h"
+#include "base/trace/event/process_trace.h"
+#include "legacy/render/detail/frame_pipeline.h"
+
 namespace render {
 namespace {
 
@@ -342,6 +346,8 @@ bool DemHeightField::build_mesh(int max_edge, std::vector<float>* xyz,
                                 std::vector<unsigned>* indices,
                                 std::vector<float>* rgb,
                                 std::vector<float>* nrm) const {
+  BASE_TRACE_EVENT("build_mesh", "scene3d");
+  detail::log_legacy_flow("scene3d.build_mesh");
   if (!xyz || !indices || empty()) {
     return false;
   }
@@ -378,7 +384,8 @@ bool DemHeightField::build_mesh(int max_edge, std::vector<float>* xyz,
     src_row = (std::max)(0, (std::min)(rows_ - 1, src_row));
     return land_[static_cast<size_t>(index_at(src_col, src_row))] != 0;
   };
-  std::vector<int> vert_of(static_cast<size_t>(mc * mr), -1);
+  std::vector<int, base::STLAllocator<int>> vert_of(
+      static_cast<size_t>(mc * mr), -1, base::STLAllocator<int>());
   const double dx = (maxx_ - minx_) / (std::max)(1, cols_ - 1);
   const double dy = (maxy_ - miny_) / (std::max)(1, rows_ - 1);
   for (int row = 0; row < mr; ++row) {

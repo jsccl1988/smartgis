@@ -5,10 +5,10 @@
 #include <mutex>
 
 #include "base/time/frame_timer.h"
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 #include "legacy/render/legacy_render_export.h"
 #include "legacy/render/rhi3d/public/camera/camera.h"
-#include "legacy/render/rhi3d/public/device/3drenderdevice.h"
+#include "legacy/render/rhi3d/public/device/render_device.h"
 #include "legacy/render/rhi3d/public/device/base.h"
 #include "legacy/render/scene3d/index/octree.h"
 #include "legacy/render/scene3d/primitive/northarray.h"

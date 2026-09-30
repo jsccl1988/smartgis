@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "render/rhi/rhi.h"
+#include "render/programs/programs.h"
 #include "gis/vista/world/world.h"
 #include "gis/present/style/style_types.h"
 
@@ -56,6 +57,7 @@ struct GpuInstance {
   // Copied from gis::Node on sync_from (terrain mesh upload seam).
   std::vector<float> terrain_positions;
   std::vector<uint32_t> terrain_indices;
+  std::vector<float> terrain_uvs;
   std::vector<uint8_t> terrain_rgba;
   uint32_t terrain_tex_w = 0;
   uint32_t terrain_tex_h = 0;
@@ -133,6 +135,10 @@ class GpuScene {
   void set_wireframe(bool on) { wireframe_ = on; }
   bool wireframe() const { return wireframe_; }
 
+  // Directional light for lit / lit-textured DEM (defaults match Light{}).
+  void set_light(const render::programs::Light& light) { light_ = light; }
+  const render::programs::Light& light() const { return light_; }
+
   // Attach the shared depth buffer (ocean → land → clouds). First pass clears;
   // later callers should set DepthLoadOp::kLoad via set_depth_load_op.
   void set_enable_depth(bool on) { enable_depth_ = on; }
@@ -194,6 +200,7 @@ class GpuScene {
   render::rhi::Pipeline* solid_pipeline_ = nullptr;
   render::rhi::Pipeline* textured_pipeline_ = nullptr;
   render::rhi::Pipeline* lit_pipeline_ = nullptr;
+  render::rhi::Pipeline* lit_textured_pipeline_ = nullptr;
   std::vector<GpuMesh> meshes_;
   bool meshes_dirty_;
   uint32_t upload_width_;
@@ -218,6 +225,7 @@ class GpuScene {
   bool enable_depth_ = false;
   render::rhi::DepthLoadOp depth_load_op_ = render::rhi::DepthLoadOp::kClear;
   bool wireframe_ = false;
+  render::programs::Light light_{};
 };
 
 }  // namespace scene

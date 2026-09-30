@@ -4,7 +4,7 @@
 #ifndef ALGORITHM_PROJ_PROJ_BACKEND_TRAITS_H_
 #define ALGORITHM_PROJ_PROJ_BACKEND_TRAITS_H_
 
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 #include "gis/kernel/proj/backend/proj_runtime.h"
 
 #include <concepts>

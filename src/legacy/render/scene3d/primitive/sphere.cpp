@@ -3,7 +3,7 @@
 #include <math.h>
 
 #include "gis/kernel/geo/mesh/geometry.h"
-#include "legacy/core/bas_struct.h"
+#include "legacy/core/types/types.h"
 
 using namespace render;
 

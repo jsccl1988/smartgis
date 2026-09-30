@@ -1,0 +1,21 @@
+{
+  "id": "atmosphere.full",
+  "kind": "showcase",
+  "argv": ["--atmosphere-showcase", "full"],
+  "env": {
+    "SMT_ATMOSPHERE_SHOWCASE_GPU": "1",
+    "SMT_ATMOSPHERE_SHOWCASE_LINGER_MS": "0"
+  },
+  "bmp": {
+    "path": "atmosphere-showcase-full.bmp",
+    "score_id": "atmosphere_full"
+  },
+  "report_name": "scene3d_shot_report.json",
+  "probes": ["bmp"],
+  "loop": {
+    "rounds": 6,
+    "timeout_sec": 90,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  }
+}

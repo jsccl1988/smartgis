@@ -3,7 +3,7 @@
 
 #include "plugin/runtime/host/registry.h"
 
-#include "legacy/plugin/adapter/am.h"
+#include "legacy/plugin/runtime/bridge/am.h"
 
 #include "content/public/plugin_host.h"
 

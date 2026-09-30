@@ -56,26 +56,14 @@ void MapHwndGestures::clear_callbacks() {
     return;
   }
   has_callbacks_ = false;
-  {
-    PinchFn dead_pinch;
-    on_pinch_.swap(dead_pinch);
-  }
-  {
-    PanFn dead_pan;
-    on_pan_.swap(dead_pan);
-  }
-  {
-    RightClickFn dead_click;
-    on_right_click_.swap(dead_click);
-  }
-  {
-    ExtentWatchFn dead_watch;
-    on_extent_watch_.swap(dead_watch);
-  }
-  {
-    ResizeFn dead_resize;
-    on_resized_.swap(dead_resize);
-  }
+  // Assign empty instead of swap-to-temp: under MSVC a corrupted/freed
+  // std::function still AVs, but this avoids double-tidy of the temporary when
+  // only some slots were ever assigned (configure_hwnd vs configure_gestures).
+  on_pinch_ = nullptr;
+  on_pan_ = nullptr;
+  on_right_click_ = nullptr;
+  on_extent_watch_ = nullptr;
+  on_resized_ = nullptr;
 }
 
 void MapHwndGestures::set_right_click(RightClickFn fn) {

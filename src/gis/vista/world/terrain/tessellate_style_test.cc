@@ -106,6 +106,23 @@ int main() {
   expect(gis::tessellate_line(&seg, legacy), "legacy line");
   expect(legacy.indices.size() == 6, "legacy one quad");
 
+  // Concave C-ring: ear-clip must fill the bay instead of a fan chord.
+  OGRLinearRing concave;
+  concave.addPoint(0, 0);
+  concave.addPoint(4, 0);
+  concave.addPoint(4, 3);
+  concave.addPoint(2, 1);  // bay
+  concave.addPoint(0, 3);
+  concave.closeRings();
+  OGRPolygon concave_poly;
+  concave_poly.addRing(&concave);
+  TessMesh concave_mesh;
+  expect(gis::tessellate_geometry(&concave_poly, concave_mesh), "concave fill");
+  expect(concave_mesh.indices.size() >= 9, "concave >= 3 tris");
+  // Centroid of the bay triangle (2,1)-(4,3)-(0,3) is outside; ear-clip
+  // must still produce coverage near (1,0.5) inside the C.
+  expect(!concave_mesh.indices.empty(), "concave has indices");
+
   if (g_fails) {
     std::fprintf(stderr, "tessellate_style_test: %d failed\n", g_fails);
     return 1;

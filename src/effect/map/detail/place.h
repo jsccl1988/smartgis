@@ -54,7 +54,7 @@ struct PlacedMesh {
   bool solid_if_icon_missing = false;
 };
 
-// World fill/line/circle emit a half-pixel radial feather solid under the core
+// World fill/line/circle emit a one-pixel radial feather solid under the core
 // mesh (Phase 2a AA). Rotates pixel-space icon and text about anchor_x/y,
 // maps pixels into the lon/lat ortho, and emits halo quads. Raster/icon tint
 // uses DrawItem rgba × opacity at encode time.

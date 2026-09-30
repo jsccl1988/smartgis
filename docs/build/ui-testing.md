@@ -97,8 +97,16 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
 ### L1′ — `SmartGisViews.exe --self-test`
 
 - 实现：`src/app/views/main.cc`（`BrowserMain`）。
-- 真 HWND：泵消息 → 检查壳 → Map / Data / 3D 切换 → `wait_ready`（`kContentMapView` 时）→ 断言 `HostView::Latest` 出帧（marks：`map-frame-ok` / `scene-frame-ok`）→ 3D trackball 输入 → 编辑点 / 选择 / 清选 → OGR China PLP 进层（`china-plp-ok`）→ `view.pan`（`pan-ok`）→ 轨道相机矩阵 → `layout_check` → 地图 HWND 与 View bounds 对齐。
+- 真 HWND：泵消息 → 检查壳 → Map / Data / 3D 切换 → `wait_ready`（`kContentMapView` 时）→ 断言 `HostView::Latest` 出帧（marks：`map-frame-ok` / `scene-frame-ok`）→ 3D trackball 输入 → 编辑点 / 选择 / 清选（`input-point-ok`：`FeatureMutation.geom` 为 point）→ M0 折线 + FeatureGeom（`input-line-ok` / `m0-line-ok`）→ 多边形 digitize（`input-poly-ok` / `input-ok`）→ OGR China PLP 进层（`china-plp-ok`）→ `view.pan`（`pan-ok`）→ 浏览压力（`browse-ok`：多次 LMB pan + wheel，RMB 不被 pan 吞掉；`SMT_SKIP_MAP_CONTEXT_MENU=1` 跳过模态菜单）→ 光标处滚轮（`wheel-cursor-ok`）→ 轨道相机矩阵 → `layout_check` → 地图 HWND 与 View bounds 对齐。
 - 由 `exe_smoke` 拉起；窗口标题 `SmartGIS Views`。
+- 浏览回归 loop：`py -3 testing/tools/loop_runner.py --suite browse`（或 `case/browse_loop.py`；可 `--no-build`）。
+- 输入/数字化回归 loop：`py -3 testing/tools/loop_runner.py --suite input`（或 `case/input_loop.py`；可 `--no-build`）。
+- Suite 契约：`testing/tools/suites/*.json`（id 与 C++ `ScenarioRegistry` 对齐）；`--list` 列出可用 id。Case 脚本在 `testing/tools/case/`。
+- Console 短路径：`py -3 testing/tools/loop_runner.py --suite console`（`--self-test-console`；Wave 1 仅 exit 门禁）。
+  - 产品合同：`SmartGisViews.exe --input-showcase` → `out/Debug/input-self-test-mark.txt`
+  - 闸门 marks：`input-point-ok` / `input-line-ok` / `input-poly-ok` / `input-ok`（β `FeatureMutation.geom`）
+  - 仅 Map Edit 页（不切 Data/3D），避免完整 `--self-test` 的多页切换开销。
+- 完整 `--self-test` 也会写同名 `input-*` marks（在编辑点 / M0 折线 / 多边形段）。
 - C# 壳：`SmartGisCs.exe --self-test`（`build.bat cs`）。
 
 | 退出码（节选） | 含义 |
@@ -116,10 +124,12 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
 | 36–38 | 图层 / Catalog 空或 HWND 显隐 |
 | 39 | China PLP 包络不在中国经纬度范围 |
 | 40–42 | `view.pan` 激活或输入分发失败 |
-| 60 | M0：`edit.append.linestring` 激活/输入/要素未增加 |
+| 49–50 | 浏览压力失败（pan/wheel 崩溃或 RMB 被 pan 吞掉） |
+| 60 | M0：`edit.append.linestring` 激活/输入/要素未增加 / FeatureGeom 非 linestring |
 | 61 | M0：FeatureInfo 未填充（选择失败或 inspector 空） |
 | 62 | M0：`write_path` 失败 |
 | 63 | M0：写出 GeoJSON 再打开失败 |
+| 64 | Input：`edit.append.polygon` / FeatureGeom 非 polygon |
 | 70 | M1：china_city 缺 `text` 注记层 |
 | 71 | M1：Style JSON 加载/resolve 失败 |
 | 72 | M1：XYZ basemap underlay 零瓦片 |
@@ -168,7 +178,62 @@ out\SmartGisViews.exe --atmosphere-showcase=land
 out\SmartGisViews.exe --atmosphere-showcase=ocean
 out\SmartGisViews.exe --atmosphere-showcase=full
 out\SmartGisViews.exe --atmosphere-showcase=coast
+py -3 testing\tools\loop_runner.py --suite atmosphere.full --no-build
 ```
+
+视觉门禁 suite：`atmosphere.full`（`score_id=atmosphere_full`）；薄包装：`testing/tools/case/scene3d_shot_loop.py`。
+
+### L1′ — Legacy scene3d showcase（`SmartGis.exe --scene3d-showcase=`）
+
+对照 Views atmosphere / legacy map2d shot loop：无 MDI，`smt_stereo_hwnd_*`
+present 三帧后写出旁路 BMP。自动化：`SMT_SCENE3D_SHOWCASE_LINGER_MS=0`。
+
+| 模式 | 含义 |
+| --- | --- |
+| `china` | leftover GL DEM + draped china（默认） |
+
+| 退出码 | 含义 |
+| --- | --- |
+| 0 | 通过（BMP 旁路已写） |
+| 51 | stereo create / resize 失败 |
+| 52 | `smt_stereo_hwnd_present` 失败 |
+| 54 | BMP 捕获失败 / 无可见像素 |
+| 56 / 57 | 旁路路径 / HWND / DLL 失败 |
+
+```bat
+set SMT_SCENE3D_SHOWCASE_LINGER_MS=0
+out\Debug\SmartGis.exe --scene3d-showcase china
+py -3 testing\tools\case\legacy_scene3d_shot_loop.py --no-build
+rem leftover D3D11 stereo:
+py -3 testing\tools\case\legacy_scene3d_shot_loop.py --no-build --d3d
+```
+
+门禁按 leftover GL hypsometric DEM（黑 clear + 陆地绿/棕）：非粉、非贴纸青、
+有 landish、不全黑。报告：`out/Debug/legacy_scene3d_shot_report.json`。
+
+### L1′ — UI shell showcase（`SmartGisViews.exe --ui-showcase=shell`）
+
+独立壳层截图路径（对照 atmosphere / map2d shot loop）：`Browser::show` → layout_check →
+强制子窗 `RedrawWindow` → 写出 `ui-showcase-shell.bmp`。自动化：
+`SMT_UI_SHOWCASE_LINGER_MS=0`。可选 `SMT_UI_FORENSICS=1` 写 `out/ui_forensics/`。
+
+| 退出码 | 含义 |
+| --- | --- |
+| 0 | 通过（BMP 旁路已写） |
+| 2 / 4 | HWND / contents root 缺失 |
+| 30 | `layout_check` 硬失败 |
+| 54 / 55 | BMP 捕获失败 / 路径失败 |
+
+```bat
+set SMT_UI_SHOWCASE_LINGER_MS=0
+out\Debug\SmartGisViews.exe --ui-showcase=shell
+py -3 testing\tools\loop_runner.py --suite ui.shell --no-build
+```
+
+门禁按默认 **dark** `ThemeService`（shell `#1e1e1e` / accent `#007acc`）：非空白、非品红、
+暗色 chrome + 文本/强调色、色桶多样。报告：`out/Debug/ui_shot_report.json`。
+薄包装：`testing/tools/case/ui_shot_loop.py`。map2d china：`loop_runner --suite map2d.china`（或 `case/map2d_shot_loop.py`）。
+
 ### L1′ — `SmartGisWinui.exe --self-test`
 
 - 实现：`src/app/winui/application.cc`（`OnLaunched`）。
@@ -308,4 +373,4 @@ build.bat e2e
 
 ---
 
-**最后更新：** 2026-09-28
+**最后更新：** 2026-09-29

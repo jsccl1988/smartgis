@@ -3,13 +3,9 @@
 
 #include "legacy/render/scene3d/index/vertex_octree.h"
 
-#include <algorithm>
 #include <vector>
 
 #include "Octree.hpp"
-#include "legacy/core/bas_struct.h"
-#include "legacy/render/rhi3d/public/device/3drenderdevice.h"
-#include "legacy/render/rhi3d/public/device/base.h"
 
 namespace render {
 namespace {
@@ -20,11 +16,15 @@ struct UnibnVec3 {
   float z;
 };
 
+UnibnVec3 to_unibn(const Vector3& v) {
+  return UnibnVec3{static_cast<float>(v.x), static_cast<float>(v.y),
+                   static_cast<float>(v.z)};
+}
+
 }  // namespace
 
-// Frustum + unibn point index of vertex positions.
+// unibn point index of vertex positions (not exposed in header).
 struct VertexOctreeAux {
-  SmtFrustum frustum;
   std::vector<UnibnVec3> points;
   unibn::Octree<UnibnVec3> tree;
 
@@ -40,36 +40,16 @@ struct VertexOctreeAux {
     }
     points.reserve(static_cast<size_t>(lstVers.nCount));
     for (int i = 0; i < lstVers.nCount; ++i) {
-      const Vector3& v = lstVers.pVertexs[i].ver;
-      points.push_back(UnibnVec3{static_cast<float>(v.x),
-                                 static_cast<float>(v.y),
-                                 static_cast<float>(v.z)});
+      points.push_back(to_unibn(lstVers.pVertexs[i].ver));
     }
     if (!points.empty()) {
       tree.initialize(points);
     }
   }
-
-  bool has_neighbor_near(const Vector3& point, float radius) const {
-    if (points.empty()) {
-      return false;
-    }
-    UnibnVec3 q{static_cast<float>(point.x), static_cast<float>(point.y),
-                static_cast<float>(point.z)};
-    std::vector<uint32_t> hits;
-    tree.radiusNeighbors<unibn::L2Distance<UnibnVec3>>(q, radius, hits);
-    return !hits.empty();
-  }
 };
 
-int g_nMdlMaxTargets = 100;
-int g_nMdlMaxSubdivision = 5;
-int g_nMdlCurrentSubdivision = 0;
-int g_nMdlCurRenderTarget = 0;
-int g_nMdlTotalLeafNode = 0;
-
 SmtVertexOctTree::SmtVertexOctTree()
-    : m_pRootNode(NULL), m_aux(new VertexOctreeAux()), m_nDepth(0) {}
+    : m_aux(new VertexOctreeAux()), m_nDepth(0), m_nVertexCount(0) {}
 
 SmtVertexOctTree::~SmtVertexOctTree() {
   DestroyTree();
@@ -77,102 +57,82 @@ SmtVertexOctTree::~SmtVertexOctTree() {
   m_aux = NULL;
 }
 
-long SmtVertexOctTree::CreateOctTree(SmtVertex3DList& lstVers,
-                                     LP3DRENDERDEVICE p3DRenderDevice) {
-  if (lstVers.nCount < 1) return SMT_ERR_INVALID_PARAM;
+long SmtVertexOctTree::build(const SmtVertex3DList& lstVers) {
+  if (lstVers.nCount < 1 || !lstVers.pVertexs) {
+    return SMT_ERR_INVALID_PARAM;
+  }
 
   DestroyTree();
-
-  m_pRootNode = new SmtVertexOctTreeNode();
-
   GetSceneDimensions(lstVers);
-
-  const float extent_xy =
-      static_cast<float>((std::max)(m_aabbScene.vcMax.x - m_aabbScene.vcMin.x,
-                                    m_aabbScene.vcMax.y - m_aabbScene.vcMin.y));
-  const float extent_z =
-      static_cast<float>(m_aabbScene.vcMax.z - m_aabbScene.vcMin.z);
-  m_pRootNode->fWidth = (std::max)(extent_xy, extent_z);
-
-  m_aabbScene.merge(m_aabbScene.vcCenter - m_pRootNode->fWidth / 2);
-  m_aabbScene.merge(m_aabbScene.vcCenter + m_pRootNode->fWidth / 2);
-
-  m_pRootNode->vCenterPos = m_aabbScene.vcCenter;
-  m_pRootNode->unOctCode = 0;
-
-  m_pRootNode->CreateNode(lstVers, m_pRootNode->vCenterPos,
-                          m_pRootNode->unOctCode, m_pRootNode->fWidth,
-                          p3DRenderDevice);
-
-  m_nDepth = m_pRootNode->GetSubDepth();
-
+  m_nVertexCount = lstVers.nCount;
+  m_nDepth = 1;
   if (m_aux) {
     m_aux->rebuild_from_vertices(lstVers);
   }
-
   return SMT_ERR_NONE;
+}
+
+long SmtVertexOctTree::CreateOctTree(SmtVertex3DList& lstVers) {
+  return build(lstVers);
 }
 
 long SmtVertexOctTree::DestroyTree() {
-  SMT_SAFE_DELETE(m_pRootNode);
-
-  g_nMdlCurrentSubdivision = 0;
   m_aabbScene = Aabb();
+  m_nDepth = 0;
+  m_nVertexCount = 0;
   if (m_aux) {
     m_aux->clear_points();
   }
-
   return SMT_ERR_NONE;
 }
 
-void SmtVertexOctTree::GetSceneDimensions(SmtVertex3DList& lstVers) {
-  for (int i = 0; i < lstVers.nCount; i++) {
-    Vector3 vPos = lstVers.pVertexs[i].ver;
-    m_aabbScene.merge(vPos);
+void SmtVertexOctTree::GetSceneDimensions(const SmtVertex3DList& lstVers) {
+  for (int i = 0; i < lstVers.nCount; ++i) {
+    m_aabbScene.merge(lstVers.pVertexs[i].ver);
   }
-
   m_aabbScene.vcCenter = (m_aabbScene.vcMax + m_aabbScene.vcMin) / 2.;
 }
 
-void SmtVertexOctTree::RenderTree(LP3DRENDERDEVICE p3DRenderDevice,
-                                  bool bShowOctNodeBox) {
-  static char szBuf[TEMP_BUFFER_SIZE];
-  if (NULL != m_pRootNode && m_aux) {
-    g_nMdlCurRenderTarget = 0;
-    p3DRenderDevice->GetFrustum(m_aux->frustum);
-    m_pRootNode->RenderNodeObject(p3DRenderDevice, m_aux->frustum,
-                                  bShowOctNodeBox);
-    GetDebugString(szBuf, TEMP_BUFFER_SIZE);
-    p3DRenderDevice->DrawText(0, 10, 100, SmtColor(0., 1., 1.), szBuf);
+bool SmtVertexOctTree::hit_test(const Vector3& point, float radius) const {
+  if (!m_aux || m_aux->points.empty() || radius < 0.0f) {
+    return false;
   }
+  std::vector<uint32_t> hits;
+  radius_neighbors(point, radius, &hits);
+  return !hits.empty();
+}
+
+int SmtVertexOctTree::find_nearest(const Vector3& point,
+                                   float min_distance) const {
+  if (!m_aux || m_aux->points.empty()) {
+    return -1;
+  }
+  const UnibnVec3 q = to_unibn(point);
+  return static_cast<int>(
+      m_aux->tree.findNeighbor<unibn::L2Distance<UnibnVec3>>(q, min_distance));
+}
+
+void SmtVertexOctTree::radius_neighbors(const Vector3& point, float radius,
+                                        std::vector<uint32_t>* out) const {
+  if (!out) {
+    return;
+  }
+  out->clear();
+  if (!m_aux || m_aux->points.empty() || radius < 0.0f) {
+    return;
+  }
+  const UnibnVec3 q = to_unibn(point);
+  m_aux->tree.radiusNeighbors<unibn::L2Distance<UnibnVec3>>(q, radius, *out);
 }
 
 bool SmtVertexOctTree::HitTestOctNode(const Vector3& point) {
-  if (!m_pRootNode) {
-    return false;
-  }
-
-  // Prefer unibn radius query when the point index is populated.
-  if (m_aux && m_aux->has_neighbor_near(point, 1.0e-3f)) {
-    SmtVertexOctTreeNode* pNode = m_pRootNode->FindMinBoxOctNode(point);
-    if (pNode) {
-      pNode->bSelected = !pNode->bSelected;
-      return true;
-    }
-  }
-
-  SmtVertexOctTreeNode* pNode = m_pRootNode->FindMinBoxOctNode(point);
-  if (pNode) {
-    pNode->bSelected = !pNode->bSelected;
-    return true;
-  }
-  return false;
+  return hit_test(point, 1.0e-3f);
 }
 
-void SmtVertexOctTree::GetDebugString(char* szBuf, int nBufLength) {
-  snprintf(szBuf, nBufLength,
-           " Render Point:%d;SmtVertexOctTree-Depth:%d,-TotalLeafNode:%d",
-           g_nMdlCurRenderTarget, m_nDepth, g_nMdlTotalLeafNode);
+void SmtVertexOctTree::GetDebugString(char* szBuf, int nBufLength) const {
+  const size_t indexed = m_aux ? m_aux->points.size() : 0;
+  snprintf(szBuf, nBufLength, "point index unibn:%zu depth:%d", indexed,
+           m_nDepth);
 }
 
 }  // namespace render

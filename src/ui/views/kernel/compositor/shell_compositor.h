@@ -57,9 +57,9 @@ class UI_EXPORT ShellCompositor {
   bool wait_published(std::uint64_t generation);
 
   // UI thread: BitBlt the published front buffer into |hdc| for |dest|.
-  // Pixels outside the front buffer (or when no buffer is published yet) are
-  // filled with |fallback_fill| so NULL_BRUSH clients never show the desktop
-  // during resize/move before the worker publishes a matching size.
+  // Blits first; only margins not covered by the front (or the whole rect when
+  // empty) are filled with |fallback_fill| so NULL_BRUSH clients never show the
+  // desktop on resize/move — without flashing shell_bg on every hover paint.
   // Returns the published generation that was blitted, or 0 if nothing was
   // drawn from the front buffer. Callers that fire OnShellPublished must use
   // this value (not a later published_generation() read) so notify cannot race

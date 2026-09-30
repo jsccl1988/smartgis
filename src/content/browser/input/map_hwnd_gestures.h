@@ -29,7 +29,8 @@ class MapHwndGestures {
   // Pixel delta in client space (positive dx = content moves right).
   using PanFn = std::function<void(int dx_px, int dy_px)>;
   // Map canvas right-click (client pixels). A small movement still counts as
-  // a click; a drag does not open the menu.
+  // a click; a drag does not open the menu. view.pan does not consume RMB
+  // (MapLibre-like browse), so this path owns the navigation context menu.
   using RightClickFn =
       std::function<void(HWND hwnd, int client_x, int client_y)>;
   // true before a pan / zoom gesture or wheel step, false after it.

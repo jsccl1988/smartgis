@@ -5,20 +5,19 @@ All rights reserved.
 
 # `src/legacy/core`
 
-Leftover Smt core (listener / command / msg / api / structs / assert / `core.h`)
-moved out of `src/base/core` so `src/base` stays foundation-only.
+Leftover Smt core — **header-only** (STL internals). Still exposed through
+`core_sources` → `//src/base:base` for include/deps hygiene; no `.cpp` in this
+tree.
 
 | Path | Role |
 | --- | --- |
-| `core.h` | Legacy Smt macros / `SmtErr` / TRACE helpers |
-| `api.*` | Variant / string / geometry helpers (`BASE_EXPORT`) |
-| `listener*` / `listenermanager*` | Listener registration |
-| `command*` | Command stack |
-| `msg*` / `msg_def.h` | Message ids / dispatch |
-| `bas_struct.h` / `env_struct.h` | POD structs (`SmtVariant`, tiles, …) |
-| `core_assert*` / `core_exception.h` | Legacy assert / exception |
+| `macros/macros.h` | Legacy Smt macros / `SmtErr` / TRACE; `dEPSILON` / `dPI` / `is_equal` |
+| `types/` | `Point2`/`Point3`/`Rect` + traits (`normalize`/`contains`/`cast_to`); `SmtVariant`; `env.h` |
+| `util/` | Inline helpers (`string` `path` `color` `image` `menu`) |
+| `listener/listener_manager.h` | `SmtListener` + manager + post helpers |
+| `command/` | Command stack |
+| `msg/msg_def.h` | Message payloads / id ranges |
+| `diag/` | Assert / exception |
 
-Include: `#include "legacy/core/api.h"` (etc.). Foundation keepers remain at
-`#include "base/core/export.h"` / `log.h` / …. Still linked into the product
-platform DLL via `core_sources` → `//src/base:base` (same pattern as
-`legacy/xml` and `legacy/sys`).
+Include: `#include "legacy/core/util/path.h"`. `util/image.h` pulls CxImage —
+targets that include it must `deps += [ "//third_party:CxImage" ]`.

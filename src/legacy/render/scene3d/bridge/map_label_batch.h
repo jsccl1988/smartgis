@@ -40,7 +40,23 @@ class LEGACY_RENDER_EXPORT MapLabelBatch : public Smt3DObject {
  private:
   bool ensure_font(LP3DRENDERDEVICE device);
 
+  // Per unique text|priority raster (+ optional GL tex id).
+  // Vector (not unordered_map): hash-bucket vectors of debug iterators hit
+  // MSVC xmemory aligned-delete asserts under this Debug DLL CRT mix.
+  struct RasterCache {
+    std::string key;
+    std::vector<unsigned char> bgra;
+    int w = 0;
+    int h = 0;
+    unsigned gl_tex = 0;  // GLuint; 0 = not uploaded
+  };
+
+  RasterCache* find_raster(const std::string& key);
+  RasterCache* insert_raster(RasterCache&& entry);
+  void clear_raster_cache();
+
   std::vector<MapLabel> labels_;
+  std::vector<RasterCache> raster_cache_;
   uint font_id_ = 0;
   bool font_ready_ = false;
 };

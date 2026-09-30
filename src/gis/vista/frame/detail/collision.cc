@@ -70,6 +70,10 @@ int label_priority(const char* name, const char* kind, const char* cls,
       if (std::strcmp(tail4, "0000") == 0) {
         return 1;
       }
+      // Provincial capital seats (…0100) stay on the country frame.
+      if (std::strcmp(tail4, "0100") == 0 || std::strcmp(tail4, "0200") == 0) {
+        return 1;
+      }
       if (std::strcmp(tail2, "00") == 0) {
         return 2;
       }
@@ -87,21 +91,35 @@ int label_priority(const char* name, const char* kind, const char* cls,
     return 4;
   }
   if (name && *name) {
+    // UTF-8 byte literals — avoid MSVC source-charset turning CJK literals
+    // into the wrong encoding (then find() never matches and every city
+    // falls through to priority 5 / clutter).
     const std::string n(name);
-    if (n.find("省") != std::string::npos ||
-        n.find("自治区") != std::string::npos ||
-        n.find("特别行政区") != std::string::npos) {
+    static constexpr char kSheng[] = "\xe7\x9c\x81";              // 省
+    static constexpr char kZizhiqu[] = "\xe8\x87\xaa\xe6\xb2\xbb\xe5\x8c\xba";  // 自治区
+    static constexpr char kTebiexingzhengqu[] =
+        "\xe7\x89\xb9\xe5\x88\xab\xe8\xa1\x8c\xe6\x94\xbf\xe5\x8c\xba";  // 特别行政区
+    static constexpr char kZizhizhou[] =
+        "\xe8\x87\xaa\xe6\xb2\xbb\xe5\xb7\x9e";                    // 自治州
+    static constexpr char kDiqu[] = "\xe5\x9c\xb0\xe5\x8c\xba";    // 地区
+    static constexpr char kMeng[] = "\xe7\x9b\x9f";                // 盟
+    static constexpr char kXian[] = "\xe5\x8e\xbf";                // 县
+    static constexpr char kQi[] = "\xe6\x97\x97";                  // 旗
+    static constexpr char kShi[] = "\xe5\xb8\x82";                 // 市
+    if (n.find(kSheng) != std::string::npos ||
+        n.find(kZizhiqu) != std::string::npos ||
+        n.find(kTebiexingzhengqu) != std::string::npos) {
       return 1;
     }
-    if (n.find("自治州") != std::string::npos ||
-        n.find("地区") != std::string::npos ||
-        n.find("盟") != std::string::npos) {
+    if (n.find(kZizhizhou) != std::string::npos ||
+        n.find(kDiqu) != std::string::npos ||
+        n.find(kMeng) != std::string::npos) {
       return 2;
     }
-    if (n.find("县") != std::string::npos || n.find("旗") != std::string::npos) {
+    if (n.find(kXian) != std::string::npos || n.find(kQi) != std::string::npos) {
       return 6;
     }
-    if (n.find("市") != std::string::npos) {
+    if (n.find(kShi) != std::string::npos) {
       return 2;
     }
   }
@@ -117,6 +135,8 @@ int label_priority(const char* name, const char* kind, const char* cls,
 }
 
 int lod_max_priority(float fblc) {
+  // Country framing (fblc ≈ px per lon-degree). Mainland showcase sits near
+  // fblc≈13 — allow prefecture / 市 seats (priority 2), not only 省.
   if (fblc < 12.f) {
     return 1;
   }
@@ -131,15 +151,15 @@ int lod_max_priority(float fblc) {
 
 int label_budget(float fblc) {
   if (fblc < 12.f) {
-    return 28;
+    return 16;
   }
   if (fblc < 28.f) {
-    return 56;
+    return 28;
   }
   if (fblc < 60.f) {
-    return 96;
+    return 60;
   }
-  return 220;
+  return 180;
 }
 
 int label_px(int priority, float fblc) {
@@ -162,12 +182,16 @@ int halo_px(int priority) {
 
 LabelBox label_box(int x, int y, const char* text, int px_h, int priority) {
   const int h = (std::max)(12, px_h);
-  const int w = utf8_units(text) * (h * 3 / 5) + 8;
+  // CJK is roughly em-square; latin-only 3/5 under-estimates and lets labels
+  // stack on the china country frame.
+  const int units = utf8_units(text);
+  const int glyph_w = (std::max)(h * 4 / 5, h * 3 / 5);
+  const int w = units * glyph_w + 12;
   LabelBox box;
-  box.left = x - 2;
-  box.top = y - 2;
-  box.right = x + w;
-  box.bottom = y + h + 2;
+  box.left = x - 4;
+  box.top = y - 4;
+  box.right = x + w + 4;
+  box.bottom = y + h + 6;
   box.priority = priority;
   return box;
 }

@@ -5,6 +5,7 @@
 #define SMT_RENDER_MATH_MATH_H_
 
 #include "base/math/constants.h"
+#include "base/math/affine2.h"
 #include "base/math/vector.h"
 #include "base/math/matrix.h"
 #include "base/math/quat.h"

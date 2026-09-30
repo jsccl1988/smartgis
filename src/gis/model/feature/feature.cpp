@@ -5,9 +5,9 @@
 
 #include <utility>
 
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 #include "ogrsf_frmts.h"
-#include "legacy/carto/stylemanager.h"
+#include "legacy/gis/present/carto/stylemanager.h"
 
 namespace gis {
 namespace {

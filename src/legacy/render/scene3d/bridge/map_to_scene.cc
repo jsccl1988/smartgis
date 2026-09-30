@@ -3,11 +3,11 @@
 
 #include "legacy/render/scene3d/bridge/map_to_scene.h"
 
-#include "legacy/carto/style.h"
 #include "gdal.h"
 #include "gdal_priv.h"
 #include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
 #include "gis/vista/world/terrain/dem_frame.h"
+#include "legacy/gis/present/carto/style.h"
 #include "legacy/render/scene3d/bridge/map_label_batch.h"
 #include "legacy/render/scene3d/bridge/scene_to_world.h"
 #include "legacy/render/scene3d/dem/dem_to_world.h"

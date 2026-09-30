@@ -66,6 +66,12 @@ class OrbitFrame {
   // view size stay as they are.
   void reset();
 
+  // Dolly distance in world units (clamped to the wheel range).
+  void set_distance(float distance);
+
+  // Orbit pitch in radians (clamped to tool::kOrbitPitchMin/Max).
+  void set_pitch(float pitch);
+
  private:
   content::Extent2 extent_{};
   float yaw_ = kScene3dDefaultYaw;

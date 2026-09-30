@@ -4,9 +4,9 @@
 
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "legacy/render/legacy_render_export.h"
-#include "legacy/render/rhi3d/public/device/3drenderdevice.h"
-#include "legacy/render/rhi3d/public/device/3drenderer.h"
-#include "legacy/render/rhi3d/public/resource/videobuffer.h"
+#include "legacy/render/rhi3d/public/device/render_device.h"
+#include "legacy/render/rhi3d/public/device/renderer.h"
+#include "legacy/render/rhi3d/public/resource/video_buffer.h"
 #include "legacy/render/scene3d/scene/object.h"
 
 using namespace render;

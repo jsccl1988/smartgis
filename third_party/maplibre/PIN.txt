@@ -12,8 +12,10 @@ relocated: 2026-09-19
 sparse: include, src, cmake, shaders, vendor, platform/default, platform/windows
 vendor_cache: third_party/.src/_cache/maplibre-vendor
 cmake_build: third_party/.build/maplibre-native
-install_prefix: out/third_party/maplibre
-note: Deferred 2026-09-27 — product no longer links //third_party/maplibre:maplibre_native (smt_enable_maplibre removed). Pin record kept for a future reconsider. Full tree (if fetched) lives only under .src/maplibre-native — not out/maplibre-native-src.
+install_prefix: out/*/maplibre
+note: Product pin still deferred (2026-09-27). Opt-in examples via
+  smt_enable_maplibre_example + //third_party/maplibre:maplibre_examples
+  (build_native.py → mbgl-render / mbgl-glfw). Full tree under .src/maplibre-native.
 
 probe ninja native_map_probe (2026-09-18):
 - constants.hpp: M_PI undeclared — fixed in probe with _USE_MATH_DEFINES
@@ -23,5 +25,7 @@ probe ninja native_map_probe (2026-09-18):
   vendor/codegen/vcpkg graph in-session)
 - After headers: link HeadlessFrontend + platform/windows headless_backend_egl.cpp / WGL,
   then Map ctor symbols from src/mln/map/map.cpp.
-- Prebuilt Release /MD mbgl-core.lib may sit at out/third_party/maplibre/lib
-  (linked when present; not compiled from this GN file).
+- Example path (2026-09-29): CMake OpenGL+WGL builds upstream mbgl-render /
+  mbgl-glfw; GN only stamps copies under out/*/maplibre when the flag is on.
+- Local glfw patch: platform/glfw/main.cpp uses `_WIN32` (MSVC does not define
+  `WIN32` unless CMAKE_CXX_FLAGS carries /DWIN32).

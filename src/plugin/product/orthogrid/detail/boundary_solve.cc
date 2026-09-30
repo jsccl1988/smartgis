@@ -266,7 +266,11 @@ BoundarySolve solve_grid_boundary_file(const std::string& path) {
   }
 
   out.ok = true;
+  out.nx = nx;
+  out.ny = ny;
   out.node_count = static_cast<int>(nodes);
+  out.xs = std::move(xs);
+  out.ys = std::move(ys);
   out.message = std::string("{\"ok\":true,\"nodes\":") +
                 std::to_string(out.node_count) + "}";
   return out;

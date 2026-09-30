@@ -146,24 +146,13 @@ std::uint64_t ShellCompositor::present(HDC hdc,
   LARGE_INTEGER t0 = {};
   QueryPerformanceCounter(&t0);
 
-  // Always paint an opaque fill first. The shell HWND uses NULL_BRUSH and
-  // swallows WM_ERASEBKGND; during resize/move the published front often lags
-  // the client size, and an unclipped BitBlt would leave holes (desktop show-
-  // through) or read past the DIB.
-  const std::uint8_t fill_r =
-      static_cast<std::uint8_t>((fallback_fill >> 16) & 0xff);
-  const std::uint8_t fill_g =
-      static_cast<std::uint8_t>((fallback_fill >> 8) & 0xff);
-  const std::uint8_t fill_b =
-      static_cast<std::uint8_t>(fallback_fill & 0xff);
-  HBRUSH brush = CreateSolidBrush(RGB(fill_r, fill_g, fill_b));
-  if (brush) {
-    RECT fill_rc = dest;
-    FillRect(hdc, &fill_rc, brush);
-    DeleteObject(brush);
-  }
-
+  // BitBlt first, then fill only uncovered margins. Filling the whole |dest|
+  // before the blit flashed shell_bg on every mouse-move WM_PAINT (NULL_BRUSH
+  // + no erase) and looked like hollow self-drawn chrome. Resize/move still
+  // needs opaque fill where the published front lags the client size.
   std::uint64_t presented_gen = 0;
+  int copied_w = 0;
+  int copied_h = 0;
   {
     std::lock_guard<std::mutex> lock(mu_);
     Dib& front = buffers_[front_];
@@ -181,8 +170,38 @@ std::uint64_t ShellCompositor::present(HDC hdc,
           // Capture under the same lock as the blit so OnShellPublished cannot
           // observe a newer published_gen_ than the pixels just shown.
           presented_gen = published_gen_;
+          copied_w = copy_w;
+          copied_h = copy_h;
         }
       }
+    }
+  }
+
+  if (copied_w < blt_w || copied_h < blt_h) {
+    const std::uint8_t fill_r =
+        static_cast<std::uint8_t>((fallback_fill >> 16) & 0xff);
+    const std::uint8_t fill_g =
+        static_cast<std::uint8_t>((fallback_fill >> 8) & 0xff);
+    const std::uint8_t fill_b =
+        static_cast<std::uint8_t>(fallback_fill & 0xff);
+    HBRUSH brush = CreateSolidBrush(RGB(fill_r, fill_g, fill_b));
+    if (brush) {
+      if (copied_w <= 0 || copied_h <= 0) {
+        RECT fill_rc = dest;
+        FillRect(hdc, &fill_rc, brush);
+      } else {
+        if (copied_w < blt_w) {
+          RECT right = {blt_x + copied_w, blt_y, blt_x + blt_w,
+                        blt_y + blt_h};
+          FillRect(hdc, &right, brush);
+        }
+        if (copied_h < blt_h) {
+          RECT bottom = {blt_x, blt_y + copied_h, blt_x + copied_w,
+                         blt_y + blt_h};
+          FillRect(hdc, &bottom, brush);
+        }
+      }
+      DeleteObject(brush);
     }
   }
 
@@ -290,18 +309,26 @@ void ShellCompositor::raster_active() {
     if (dirty.y + dirty.height > frame.height_px) {
       dirty.height = frame.height_px - dirty.y;
     }
-    const bool full_frame = dirty.x <= 0 && dirty.y <= 0 &&
-                            dirty.width >= frame.width_px &&
-                            dirty.height >= frame.height_px;
+    bool full_frame = dirty.x <= 0 && dirty.y <= 0 &&
+                      dirty.width >= frame.width_px &&
+                      dirty.height >= frame.height_px;
     // Partial dirty: seed the back buffer from the published front so pixels
     // outside |dirty| stay correct after the swap (double-buffer ping-pong).
+    bool seeded = false;
     if (!full_frame && front.dc && front.bits && front.w == frame.width_px &&
         front.h == frame.height_px) {
       BitBlt(back.dc, 0, 0, frame.width_px, frame.height_px, front.dc, 0, 0,
              SRCCOPY);
+      seeded = true;
       // GDI mutated the DIB under any retained Skia WrapPixels — drop it before
       // constructing Canvas so chrome does not paint into a stale wrap.
       ui::gfx::Canvas::discard_retained_surface();
+    }
+    if (!full_frame && !seeded) {
+      // New/resized back with no matching front: painting only |dirty| would
+      // publish undefined pixels outside it (hollow chrome after present).
+      dirty = Rect{0, 0, frame.width_px, frame.height_px};
+      full_frame = true;
     }
 
     {
@@ -311,9 +338,13 @@ void ShellCompositor::raster_active() {
       if (dirty.width > 0 && dirty.height > 0) {
         canvas.fill_rect(dirty.x, dirty.y, dirty.width, dirty.height,
                          frame.clear_color);
-        frame.display_list.replay_clipped(&canvas, dirty.x, dirty.y,
-                                          dirty.x + dirty.width,
-                                          dirty.y + dirty.height);
+        if (full_frame) {
+          frame.display_list.replay(&canvas);
+        } else {
+          frame.display_list.replay_clipped(&canvas, dirty.x, dirty.y,
+                                            dirty.x + dirty.width,
+                                            dirty.y + dirty.height);
+        }
       }
     }
 

@@ -6,7 +6,7 @@
 #include "gis/datasource/provider/impl/ogr/codec/ogr_connect.h"
 #include "gis/datasource/provider/impl/sdbd/client/sdbd_client.h"
 #include "gis/datasource/provider/impl/sdbd/codec/sdbd_json.h"
-#include "legacy/datasource/mgr/datasource_mgr.h"
+#include "legacy/gis/datasource/datasource_mgr.h"
 #include "gis/model/layer/layer.h"
 
 #include "gdal_priv.h"

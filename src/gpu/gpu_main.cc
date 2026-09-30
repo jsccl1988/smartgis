@@ -18,6 +18,8 @@
 #include "base/ipc/handle/handle.h"
 #include "base/ipc/invitation/invitation.h"
 #include "content/common/ipc.h"
+#include "gpu/compositor/composer/composer.h"
+#include "gpu/compositor/frame/frame.h"
 #include "gpu/device/gpu_device_hub.h"
 #include "gpu/display/output_surface.h"
 #include "gpu/frame_sink.h"
@@ -25,6 +27,130 @@
 namespace gpu {
 namespace {
 namespace cd = content::detail;
+
+using SmtGdiBgraSubmitFn = bool (*)(const uint8_t* bgra, uint32_t width_px,
+                                    uint32_t height_px, uint32_t stride_bytes,
+                                    void* user);
+using SmtGdiSetBgraSubmitFn = void (*)(SmtGdiBgraSubmitFn fn, void* user);
+using SmtGdiClearBgraSubmitFn = void (*)(void);
+
+detail::OutputSurface* g_leftover_gdi_present = nullptr;
+
+void stretch_bgra_nn(const uint8_t* src, uint32_t src_stride, uint32_t src_w,
+                     uint32_t src_h, uint32_t dest_w, uint32_t dest_h,
+                     std::vector<uint8_t>* out) {
+  out->assign(static_cast<size_t>(dest_w) * dest_h * 4u, 0);
+  if (!src || src_w == 0 || src_h == 0 || dest_w == 0 || dest_h == 0) {
+    return;
+  }
+  for (uint32_t y = 0; y < dest_h; ++y) {
+    const uint32_t sy = y * src_h / dest_h;
+    const uint8_t* srow = src + static_cast<size_t>(sy) * src_stride;
+    uint8_t* drow =
+        out->data() + static_cast<size_t>(y) * static_cast<size_t>(dest_w) * 4u;
+    for (uint32_t x = 0; x < dest_w; ++x) {
+      const uint32_t sx = x * src_w / dest_w;
+      const uint8_t* sp = srow + static_cast<size_t>(sx) * 4u;
+      uint8_t* dp = drow + static_cast<size_t>(x) * 4u;
+      dp[0] = sp[0];
+      dp[1] = sp[1];
+      dp[2] = sp[2];
+      dp[3] = sp[3];
+    }
+  }
+}
+
+// Phase 3: leftover GDI BGRA → CompositorFrame → FrameComposer (RHI/software)
+// onto the pinned OutputSurface. Scales when sizes differ.
+bool leftover_gdi_bgra_upload(const uint8_t* bgra, uint32_t width_px,
+                              uint32_t height_px, uint32_t stride_bytes,
+                              void* /*user*/) {
+  detail::OutputSurface* surface = g_leftover_gdi_present;
+  if (!surface || !bgra || width_px == 0 || height_px == 0) {
+    return false;
+  }
+  if (stride_bytes < width_px * 4u) {
+    return false;
+  }
+  const uint32_t sw = surface->wire().width_px;
+  const uint32_t sh = surface->wire().height_px;
+  if (sw == 0 || sh == 0) {
+    return false;
+  }
+
+  std::vector<uint8_t> packed;
+  if (width_px == sw && height_px == sh && stride_bytes == sw * 4u) {
+    packed.assign(bgra, bgra + static_cast<size_t>(sw) * sh * 4u);
+  } else if (width_px == sw && height_px == sh) {
+    packed.resize(static_cast<size_t>(sw) * sh * 4u);
+    for (uint32_t y = 0; y < sh; ++y) {
+      std::memcpy(packed.data() + static_cast<size_t>(y) * sw * 4u,
+                  bgra + static_cast<size_t>(y) * stride_bytes, sw * 4u);
+    }
+  } else {
+    stretch_bgra_nn(bgra, stride_bytes, width_px, height_px, sw, sh, &packed);
+  }
+
+  detail::CompositorFrame frame;
+  frame.width_px = sw;
+  frame.height_px = sh;
+  detail::RenderPass pass;
+  pass.width_px = sw;
+  pass.height_px = sh;
+  detail::append_bgra_quad(&pass, std::move(packed), 1.f, /*replaces=*/true,
+                           /*texture_cache_key=*/0);
+  frame.render_pass_list.push_back(std::move(pass));
+
+  detail::AdapterId adapter = surface->adapter_id();
+  if (adapter == detail::kAdapterInvalid) {
+    adapter = detail::device_hub().primary_adapter();
+  }
+  (void)detail::device_hub().bind_surface(surface, adapter);
+  auto composer =
+      detail::make_frame_composer(detail::select_compose_backend(), adapter);
+  return composer && composer->draw_frame(surface, frame);
+}
+
+void bind_leftover_gdi_bgra_submit() {
+#ifdef _DEBUG
+  const wchar_t* stem = L"legacy_render_d.dll";
+#else
+  const wchar_t* stem = L"legacy_render.dll";
+#endif
+  HMODULE gdi = GetModuleHandleW(stem);
+  if (!gdi) {
+    gdi = GetModuleHandleW(L"legacy_render.dll");
+  }
+  if (!gdi) {
+    return;
+  }
+  auto set_fn = reinterpret_cast<SmtGdiSetBgraSubmitFn>(
+      GetProcAddress(gdi, "SmtGdiSetBgraSubmit"));
+  if (set_fn) {
+    set_fn(&leftover_gdi_bgra_upload, nullptr);
+  }
+}
+
+void clear_leftover_gdi_bgra_submit() {
+#ifdef _DEBUG
+  const wchar_t* stem = L"legacy_render_d.dll";
+#else
+  const wchar_t* stem = L"legacy_render.dll";
+#endif
+  HMODULE gdi = GetModuleHandleW(stem);
+  if (!gdi) {
+    gdi = GetModuleHandleW(L"legacy_render.dll");
+  }
+  if (!gdi) {
+    return;
+  }
+  auto clear_fn = reinterpret_cast<SmtGdiClearBgraSubmitFn>(
+      GetProcAddress(gdi, "SmtGdiClearBgraSubmit"));
+  if (clear_fn) {
+    clear_fn();
+  }
+  g_leftover_gdi_present = nullptr;
+}
 
 struct SurfaceSlot {
   content::ViewKind kind = content::ViewKind::kMapEdit;
@@ -145,6 +271,9 @@ bool announce_and_paint(cd::Pipe* pipe, uint32_t view_id, SurfaceSlot* slot) {
   if (has_template || has_sources) {
     req.fetch = make_net_tile_fetch();
   }
+  // Pin the active OutputSurface so leftover GDI publish can upload_bgra
+  // (async worker may submit after this returns).
+  g_leftover_gdi_present = &slot->present;
   (void)draw_and_swap(&slot->present, req);
   return send_shared_surface(pipe, view_id, &slot->present);
 }
@@ -177,6 +306,7 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
 
   std::unique_ptr<LegacyHost> host(create_legacy_host());
   host->load_legacy_dlls();
+  bind_leftover_gdi_bgra_submit();
   // One hidden window for legacy device Init. Resize only updates the present
   // target; another CreateWindowExW would leak the previous HWND.
   host->init_hidden_hwnd(64, 64);
@@ -278,11 +408,19 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
         (void)send_shared_surface(&pipe, h.view_id, &slot.present);
         continue;
       }
+      // Defer first paint until ResizeSurface supplies the real client size.
+      // Painting the default 64² slot here races the shell's follow-up Resize
+      // and can leave WaitFrameReady starved under load (Data tab exit 8).
+      const bool defer_first_paint =
+          slot.present.generation() == 0 && slot.width_px <= 64 &&
+          slot.height_px <= 64;
       if (!slot.present.resize(slot.width_px, slot.height_px, slot.mode,
                                parent)) {
         continue;
       }
-      (void)announce_and_paint(&pipe, h.view_id, &slot);
+      if (!defer_first_paint) {
+        (void)announce_and_paint(&pipe, h.view_id, &slot);
+      }
       continue;
     }
     if (type == content::HostMsg::kResizeSurface) {
@@ -371,6 +509,7 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
   if (parent) {
     CloseHandle(parent);
   }
+  clear_leftover_gdi_bgra_submit();
   return 0;
 }
 

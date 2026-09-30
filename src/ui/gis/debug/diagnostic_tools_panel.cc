@@ -13,7 +13,7 @@
 #include "base/memory/allocation_tracker.h"
 #include "base/memory/arena.h"
 #include "base/memory/sample_trace.h"
-#include "base/trace/process_trace.h"
+#include "base/trace/event/process_trace.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/gis/debug/debug_console_panel.h"
@@ -37,12 +37,12 @@ class MemoryPageView : public View {
 
   void refresh(bool schedule = true) {
     events_.clear();
-    base::for_each_process_trace_event(
-        [](void* ctx, int tid, base::Trace::time_point begin,
-           base::Trace::time_point end, const char* name, const char* cat,
-           base::Trace::Event::Kind kind, int64_t counter_value) {
-          auto* events = static_cast<std::vector<base::Trace::Event>*>(ctx);
-          base::Trace::Event ev;
+    base::trace::for_each_process_trace_event(
+        [](void* ctx, int tid, base::trace::Trace::time_point begin,
+           base::trace::Trace::time_point end, const char* name, const char* cat,
+           base::trace::Trace::Event::Kind kind, int64_t counter_value) {
+          auto* events = static_cast<std::vector<base::trace::Trace::Event>*>(ctx);
+          base::trace::Trace::Event ev;
           ev.tid = tid;
           ev.begin = begin;
           ev.end = end;
@@ -53,7 +53,7 @@ class MemoryPageView : public View {
           events->push_back(std::move(ev));
         },
         &events_);
-    origin_ = base::process_trace_origin();
+    origin_ = base::trace::process_trace_origin();
     if (schedule) {
       schedule_paint();
     }
@@ -68,9 +68,9 @@ class MemoryPageView : public View {
     const Rect& b = bounds();
     canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
 
-    std::vector<const base::Trace::Event*> samples;
+    std::vector<const base::trace::Trace::Event*> samples;
     for (const auto& e : events_) {
-      if (e.kind == base::Trace::Event::Kind::kCounter &&
+      if (e.kind == base::trace::Trace::Event::Kind::kCounter &&
           e.cat.find("memory") != std::string::npos) {
         samples.push_back(&e);
       }
@@ -87,7 +87,7 @@ class MemoryPageView : public View {
     int64_t max_v = 1;
     bool first = true;
     for (const auto* e : samples) {
-      const auto ts = std::chrono::duration_cast<base::Trace::duration>(
+      const auto ts = std::chrono::duration_cast<base::trace::Trace::duration>(
                           e->begin - origin_)
                           .count();
       if (first) {
@@ -119,7 +119,7 @@ class MemoryPageView : public View {
           e->name != "tracker_live") {
         continue;
       }
-      const auto ts = std::chrono::duration_cast<base::Trace::duration>(
+      const auto ts = std::chrono::duration_cast<base::trace::Trace::duration>(
                           e->begin - origin_)
                           .count();
       const int x =
@@ -143,8 +143,8 @@ class MemoryPageView : public View {
 
  private:
   Label* stats_ = nullptr;
-  std::vector<base::Trace::Event> events_;
-  base::Trace::time_point origin_{};
+  std::vector<base::trace::Trace::Event> events_;
+  base::trace::Trace::time_point origin_{};
 };
 
 }  // namespace
@@ -194,7 +194,7 @@ DiagnosticToolsPanel::DiagnosticToolsPanel() {
   arm->set_preferred_size({80, 24});
   arm_ = arm.get();
   arm_->set_change([this](bool on) {
-    base::set_tracing_enabled(on);
+    base::trace::set_tracing_enabled(on);
     update_status();
   });
 
@@ -280,7 +280,7 @@ DiagnosticToolsPanel::DiagnosticToolsPanel() {
   set_preferred_size({0, 0});
 
   // Always-on diagnostics: reflect process state (do not re-enable / clear).
-  if (base::tracing_enabled()) {
+  if (base::trace::tracing_enabled()) {
     arm_->set_checked(true);
   }
   if (base::AllocationTracker::is_enabled()) {
@@ -289,10 +289,16 @@ DiagnosticToolsPanel::DiagnosticToolsPanel() {
   last_auto_refresh_ = std::chrono::steady_clock::now();
   update_status();
   on_refresh();
+  // Start collapsed: hide chrome children so a thin splitter remnant cannot
+  // paint "Diagnostic Tools" / tabs into the status-bar band.
+  for (size_t i = 0; i < child_count(); ++i) {
+    if (View* c = child_at(i)) {
+      c->set_visible(false);
+    }
+  }
 }
 
 DiagnosticToolsPanel::~DiagnosticToolsPanel() {
-  arm_refresh_timer(false);
   if (record_) {
     record_->set_click({});
   }
@@ -343,8 +349,14 @@ void DiagnosticToolsPanel::set_visible_tools(bool on) {
   }
   visible_ = on;
   set_preferred_size(on ? Size{0, 220} : Size{0, 0});
+  // Hide chrome while collapsed so children cannot paint into a remnant strip.
   // Output keeps LogSink subscription even while collapsed so RHI / present
   // LOGGING still accumulates and snapshot_tail is not the only recovery path.
+  for (size_t i = 0; i < child_count(); ++i) {
+    if (View* c = child_at(i)) {
+      c->set_visible(on);
+    }
+  }
   if (output_) {
     output_->set_visible_console(true);
   }
@@ -355,7 +367,6 @@ void DiagnosticToolsPanel::set_visible_tools(bool on) {
     on_refresh();
     last_auto_refresh_ = std::chrono::steady_clock::now();
   }
-  arm_refresh_timer(on);
   // Parent is BrowserView's vertical main_split: reseed so preferred 0 does
   // not leave a stale half-height secondary, and preferred 220 pins tools.
   if (auto* split = dynamic_cast<Splitter*>(parent())) {
@@ -384,56 +395,18 @@ void DiagnosticToolsPanel::paint_self(ui::gfx::Canvas* canvas) {
   if (!canvas || !visible_) {
     return;
   }
-  // Late-arm if set_visible_tools ran before the Widget HWND existed.
-  if (!refresh_timer_hwnd_) {
-    arm_refresh_timer(true);
-  }
+  // Do NOT schedule_paint here — that caused full-rate shell republish flicker.
+  // Snapshot refresh is on Record/Stop/Clear/Refresh and when the user opens
+  // tools (set_visible_tools).
   const Theme& t = Theme::current();
   const Rect& b = bounds();
   canvas->fill_rect(b.x, b.y, b.width, b.height, t.control_bg);
 }
 
-void DiagnosticToolsPanel::arm_refresh_timer(bool on) {
-  if (!on) {
-    if (refresh_timer_hwnd_ && IsWindow(refresh_timer_hwnd_)) {
-      KillTimer(refresh_timer_hwnd_, reinterpret_cast<UINT_PTR>(this));
-    }
-    refresh_timer_hwnd_ = nullptr;
-    return;
-  }
-  Widget* w = widget();
-  HWND hwnd = w ? w->hwnd() : nullptr;
-  if (!hwnd || !IsWindow(hwnd)) {
-    return;
-  }
-  if (refresh_timer_hwnd_ && refresh_timer_hwnd_ != hwnd) {
-    KillTimer(refresh_timer_hwnd_, reinterpret_cast<UINT_PTR>(this));
-  }
-  refresh_timer_hwnd_ = hwnd;
-  // TIMERPROC path: WM_TIMER is not posted; avoids Widget wndproc changes.
-  SetTimer(hwnd, reinterpret_cast<UINT_PTR>(this), 500, &refresh_timer_proc);
-}
-
-void CALLBACK DiagnosticToolsPanel::refresh_timer_proc(HWND, UINT, UINT_PTR id,
-                                                      DWORD) {
-  auto* self = reinterpret_cast<DiagnosticToolsPanel*>(id);
-  if (self) {
-    self->on_refresh_timer();
-  }
-}
-
-void DiagnosticToolsPanel::on_refresh_timer() {
-  if (!visible_) {
-    return;
-  }
-  maybe_auto_refresh();
-  schedule_paint();
-}
-
 void DiagnosticToolsPanel::on_record() {
   // Fresh capture window while keeping always-on mode armed.
-  base::process_trace().clear();
-  base::set_tracing_enabled(true);
+  base::trace::process_trace().clear();
+  base::trace::set_tracing_enabled(true);
   if (arm_) {
     arm_->set_checked(true);
   }
@@ -442,7 +415,7 @@ void DiagnosticToolsPanel::on_record() {
 }
 
 void DiagnosticToolsPanel::on_stop() {
-  base::set_tracing_enabled(false);
+  base::trace::set_tracing_enabled(false);
   if (arm_) {
     arm_->set_checked(false);
   }
@@ -451,7 +424,7 @@ void DiagnosticToolsPanel::on_stop() {
 }
 
 void DiagnosticToolsPanel::on_clear() {
-  base::process_trace().clear();
+  base::trace::process_trace().clear();
   if (output_) {
     output_->clear_output();
   }
@@ -483,7 +456,7 @@ void DiagnosticToolsPanel::on_export() {
   if (!out) {
     return;
   }
-  out << base::process_trace().dump();
+  out << base::trace::process_trace().dump();
 }
 
 void DiagnosticToolsPanel::on_refresh() {
@@ -530,8 +503,8 @@ void DiagnosticToolsPanel::update_status() {
   }
   status_->set_text(std::format(
       "{} | events={} | Output/Console/CPU/Memory (auto-refresh)",
-      base::tracing_enabled() ? "Recording" : "Stopped",
-      base::process_trace().size()));
+      base::trace::tracing_enabled() ? "Recording" : "Stopped",
+      base::trace::process_trace().size()));
 }
 
 void DiagnosticToolsPanel::maybe_auto_refresh() {
@@ -543,7 +516,6 @@ void DiagnosticToolsPanel::maybe_auto_refresh() {
     return;
   }
   last_auto_refresh_ = now;
-  // Timer-driven: update snapshots; caller schedule_paint once (~2 Hz).
   if (cpu_) {
     cpu_->refresh_from_process_trace(/*schedule=*/false);
   }

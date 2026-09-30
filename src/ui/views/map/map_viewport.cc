@@ -3,6 +3,7 @@
 
 #include "ui/views/map/map_viewport.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <fstream>
@@ -22,6 +23,7 @@
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/raster/paint_stats.h"
 #include "ui/views/kernel/shell/dpi.h"
+#include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
 
 #if defined(__has_include)
@@ -48,6 +50,11 @@ namespace views {
 namespace {
 
 const wchar_t kMapClass[] = L"SmartGisMapViewport";
+// Top-level FlyCube DXGI target (flip-model fails on WS_CHILD embed panes).
+const wchar_t kFlyCubePresentClass[] = L"SmartGisFlyCubePresent";
+// Legacy-matching top HUD: black bar + yellow engine name + Fps.
+const wchar_t kIdentityHudClass[] = L"SmartGisMapIdentityHud";
+constexpr int kIdentityHudHeight = 28;
 
 using CreateRenderDeviceFn = int (*)(HINSTANCE, void*&);
 
@@ -63,10 +70,94 @@ struct DeviceObj {
   DeviceVtable* vtbl;
 };
 
+LRESULT CALLBACK identity_hud_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam,
+                                       LPARAM lparam) {
+  if (msg == WM_PAINT) {
+    PAINTSTRUCT ps = {};
+    HDC hdc = BeginPaint(hwnd, &ps);
+    RECT rc = {};
+    GetClientRect(hwnd, &rc);
+    HBRUSH brush = CreateSolidBrush(RGB(0, 0, 0));
+    FillRect(hdc, &rc, brush);
+    DeleteObject(brush);
+    const wchar_t* text =
+        reinterpret_cast<const wchar_t*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+    if (text && text[0]) {
+      SetBkMode(hdc, TRANSPARENT);
+      SetTextColor(hdc, RGB(255, 255, 0));
+      TextOutW(hdc, 8, 6, text, lstrlenW(text));
+    }
+    EndPaint(hwnd, &ps);
+    return 0;
+  }
+  if (msg == WM_ERASEBKGND) {
+    return 1;
+  }
+  if (msg == WM_NCHITTEST) {
+    // Map / orbit input hits the parent under the HUD.
+    return HTTRANSPARENT;
+  }
+  return DefWindowProcW(hwnd, msg, wparam, lparam);
+}
+
+void register_identity_hud_class() {
+  static bool done = false;
+  if (done) {
+    return;
+  }
+  WNDCLASSEXW wc = {};
+  wc.cbSize = sizeof(wc);
+  wc.lpfnWndProc = identity_hud_wnd_proc;
+  wc.hInstance = GetModuleHandleW(nullptr);
+  wc.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
+  wc.hbrBackground = nullptr;
+  wc.lpszClassName = kIdentityHudClass;
+  RegisterClassExW(&wc);
+  done = true;
+}
+
 bool file_exists(const wchar_t* path) {
   const DWORD attr = GetFileAttributesW(path);
   return attr != INVALID_FILE_ATTRIBUTES &&
          !(attr & FILE_ATTRIBUTE_DIRECTORY);
+}
+
+// Optional Scene3d swapchain downscale. A buffer smaller than the HWND client
+// (e.g. forced 640x480 on a ~2k child) clears navy on-screen even when
+// DrawIndexed succeeds — DXGI does not stretch that path the way a matching
+// showcase HWND does. Default: native client size. Opt in:
+// SMT_SCENE3D_SWAPCHAIN_MAX=1280x720 (or WIDTHxHEIGHT).
+void clamp_scene3d_swapchain_size(uint32_t* w, uint32_t* h) {
+  if (!w || !h) {
+    return;
+  }
+  // Showcase-sized present: interactive multi-k clients clear navy with
+  // DrawIndexed ok; 640x480 top-level matches the land-PASS atmosphere shot.
+  if (const char* force = std::getenv("SMT_SCENE3D_FORCE_640")) {
+    if (force[0] == '1' && force[1] == '\0') {
+      *w = 640;
+      *h = 480;
+      return;
+    }
+  }
+  const char* spec = std::getenv("SMT_SCENE3D_SWAPCHAIN_MAX");
+  if (!spec || !spec[0]) {
+    return;
+  }
+  unsigned max_w = 0;
+  unsigned max_h = 0;
+  if (std::sscanf(spec, "%ux%u", &max_w, &max_h) != 2 || max_w < 64u ||
+      max_h < 64u) {
+    return;
+  }
+  if (*w <= max_w && *h <= max_h) {
+    return;
+  }
+  const float scale =
+      (std::min)(static_cast<float>(max_w) / static_cast<float>(*w),
+                 static_cast<float>(max_h) / static_cast<float>(*h));
+  *w = (std::max)(64u, static_cast<uint32_t>(*w * scale));
+  *h = (std::max)(64u, static_cast<uint32_t>(*h * scale));
 }
 
 void exe_dir(wchar_t* out, size_t cap) {
@@ -498,6 +589,7 @@ void MapViewport::detach() {
       DestroyWindow(identity_badge_);
     }
     identity_badge_ = nullptr;
+    identity_badge_parent_ = nullptr;
   }
 #ifdef SMT_HAS_CONTENT_MAP_SESSION
   if (owns_session_ && session_) {
@@ -531,6 +623,7 @@ void MapViewport::detach() {
   // Drain Display mailbox and destroy Device before HWND teardown.
   release_rhi_device();
   stop_display_thread();
+  destroy_flycube_present_hwnd();
   view_id_ = 0;
   mode_ = AttachMode::kNone;
   last_gpu_present_ok_.store(false, std::memory_order_release);
@@ -583,11 +676,10 @@ void MapViewport::commit_shell_overlay(const uint8_t* bgra, uint32_t width_px,
                   bgra + static_cast<size_t>(y) * stride,
                   static_cast<size_t>(width_px) * 4u);
     }
-    // Native map HWNDs are skipped in shell paint; the compositor fills those
-    // holes with opaque Theme clear. Src-over of that fill on FlyCube briefly
-    // shows a correct GPU map then covers it with chrome clear (often looking
-    // like a wrong / "red" or muddy map). Zero alpha for matching hole fills;
-    // keep any real chrome HUD pixels painted into the map rect.
+    // Native map HWNDs are skipped in shell paint; parents still bleed opaque
+    // panel/shell fills into the HWND rect. Src-over of those fills on FlyCube
+    // briefly shows a correct GPU map then covers it. Zero alpha for every
+    // Theme chrome fill that can land in the map crop; keep real HUD pixels.
     auto punch = [](uint8_t* px, uint32_t argb) {
       if (argb == 0) {
         return;
@@ -600,11 +692,21 @@ void MapViewport::commit_shell_overlay(const uint8_t* bgra, uint32_t width_px,
         px[3] = 0;
       }
     };
-    if (hole_clear_argb != 0 || hole_clear_argb_alt != 0) {
-      for (uint32_t i = 0; i < width_px * height_px; ++i) {
-        uint8_t* px = shell_bgra_.data() + static_cast<size_t>(i) * 4u;
-        punch(px, hole_clear_argb);
-        punch(px, hole_clear_argb_alt);
+    const ui::views::Theme& theme = ui::views::Theme::current();
+    const uint32_t hole_colors[] = {
+        hole_clear_argb,
+        hole_clear_argb_alt,
+        theme.shell_bg,
+        theme.panel_bg,
+        theme.panel_header,
+        theme.control_bg,
+        theme.caption_bg,
+        theme.map_placeholder,
+    };
+    for (uint32_t i = 0; i < width_px * height_px; ++i) {
+      uint8_t* px = shell_bgra_.data() + static_cast<size_t>(i) * 4u;
+      for (uint32_t argb : hole_colors) {
+        punch(px, argb);
       }
     }
     shell_width_px_ = width_px;
@@ -624,6 +726,12 @@ void MapViewport::commit_shell_overlay(const uint8_t* bgra, uint32_t width_px,
   }
 }
 
+void MapViewport::note_hud_frame() {
+  std::lock_guard<std::mutex> lock(hud_fps_mu_);
+  hud_fps_timer_.update();
+  hud_fps_.store(hud_fps_timer_.get_fps(), std::memory_order_relaxed);
+}
+
 void MapViewport::sync_identity_chrome() {
   HWND hwnd = native_view();
   if (!hwnd) {
@@ -635,45 +743,114 @@ void MapViewport::sync_identity_chrome() {
   } else if (role_ == Role::kScene3d) {
     role_name = L"Scene3d";
   }
-  const wchar_t* mode_name = L"None";
-  switch (mode_) {
-    case AttachMode::kContentMapView:
-      mode_name = L"ContentMapView";
-      break;
-    case AttachMode::kOopRender:
-      mode_name = L"OopRender";
-      break;
-    case AttachMode::kFlyCube:
-      mode_name = L"FlyCube/DX12";
-      break;
-    case AttachMode::kLocalDevice:
-      mode_name = L"LocalDevice";
-      break;
-    case AttachMode::kPlaceholder:
-      mode_name = L"Placeholder";
-      break;
-    case AttachMode::kNone:
-    default:
-      mode_name = L"None";
-      break;
+
+  // Human-readable engine id (same wording as testing/tools engine shots and
+  // leftover SmartGis.exe top bar).
+  wchar_t engine_id[48] = {};
+  wchar_t engine[96] = {};
+  if (role_ == Role::kScene3d) {
+#if defined(SMT_HAS_SCENE3D_ENGINE)
+    if (content::prefer_scene3d_flycube() && mode_ == AttachMode::kFlyCube) {
+      wcscpy_s(engine_id, L"views-scene3d-dx12");
+      wcscpy_s(engine, L"Views Scene3D (FlyCube/DX12)");
+    } else if (content::prefer_scene3d_stereo_gl()) {
+      // Default leftover stereo is D3D11; OpenGL is opt-in.
+      bool d3d = true;
+      if (const char* api = std::getenv("SMT_STEREO_API")) {
+        if (_stricmp(api, "OpenGL") == 0) {
+          d3d = false;
+        } else if (_stricmp(api, "Direct3D") == 0) {
+          d3d = true;
+        }
+      } else if (const char* flag = std::getenv("SMT_SCENE3D_SHOWCASE_D3D")) {
+        if (flag[0] == '0' || flag[0] == 'n' || flag[0] == 'N') {
+          d3d = false;
+        } else if (flag[0] == '1' || flag[0] == 'y' || flag[0] == 'Y') {
+          d3d = true;
+        }
+      }
+      if (d3d) {
+        wcscpy_s(engine_id, L"legacy-scene3d-d3d");
+        wcscpy_s(engine, L"Legacy Scene3D (D3D11)");
+      } else {
+        wcscpy_s(engine_id, L"legacy-scene3d-gl");
+        wcscpy_s(engine, L"Legacy Scene3D (OpenGL)");
+      }
+    } else if (content::prefer_scene3d_gdi()) {
+      wcscpy_s(engine_id, L"views-scene3d-gdi");
+      wcscpy_s(engine, L"Views Scene3D (GDI)");
+    }
+#endif
+    if (engine[0] == L'\0') {
+      if (mode_ == AttachMode::kFlyCube) {
+        wcscpy_s(engine_id, L"views-scene3d-dx12");
+        wcscpy_s(engine, L"Views Scene3D (FlyCube/DX12)");
+      } else if (mode_ == AttachMode::kContentMapView) {
+        wcscpy_s(engine_id, L"views-scene3d-content");
+        wcscpy_s(engine, L"Views Scene3D (Content)");
+      } else {
+        wcscpy_s(engine_id, L"views-scene3d");
+        wcscpy_s(engine, L"Scene3D");
+      }
+    }
+  } else if (mode_ == AttachMode::kFlyCube) {
+    wcscpy_s(engine_id, L"views-map2d-skia");
+    wcscpy_s(engine, L"Views Map2D (Skia/RHI)");
+  } else if (mode_ == AttachMode::kLocalDevice) {
+    wcscpy_s(engine_id, L"legacy-map2d-gdi");
+    wcscpy_s(engine, L"Legacy Map2D (GDI+)");
+  } else if (mode_ == AttachMode::kContentMapView) {
+    wcscpy_s(engine_id, L"views-map2d-content");
+    wcscpy_s(engine, L"Views Map2D (Content)");
+  } else if (mode_ == AttachMode::kOopRender) {
+    wcscpy_s(engine_id, L"views-map2d-oop");
+    wcscpy_s(engine, L"Views Map2D (OOP)");
+  } else {
+    wcscpy_s(engine_id, L"views-map2d");
+    wcscpy_s(engine, L"Map2D");
   }
-  wchar_t title[128] = {};
-  _snwprintf_s(title, _TRUNCATE, L"%s · %s", role_name, mode_name);
+
+  const float fps = hud_fps_.load(std::memory_order_relaxed);
+  wchar_t title[192] = {};
+  _snwprintf_s(title, _TRUNCATE, L"%s · %s  Fps%.3f", role_name, engine, fps);
   SetWindowTextW(hwnd, title);
 
-  if (!identity_badge_ || !IsWindow(identity_badge_)) {
-    identity_badge_ =
-        CreateWindowExW(0, L"STATIC", title,
-                        WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOTIFY, 8, 8, 280,
-                        22, hwnd, nullptr, GetModuleHandleW(nullptr), nullptr);
-    if (identity_badge_) {
-      SetWindowPos(identity_badge_, HWND_TOP, 0, 0, 0, 0,
-                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+  // Match leftover SmartGis.exe: black top bar + yellow "id | Engine  Fps".
+  wchar_t hud[220] = {};
+  _snwprintf_s(hud, _TRUNCATE, L"%s | %s  Fps%.3f", engine_id, engine, fps);
+
+  HWND parent = hwnd;
+  if (flycube_present_hwnd_ && IsWindow(flycube_present_hwnd_) &&
+      IsWindowVisible(flycube_present_hwnd_)) {
+    parent = flycube_present_hwnd_;
+  }
+  RECT parent_rc = {};
+  GetClientRect(parent, &parent_rc);
+  const int bar_w = parent_rc.right > 0 ? parent_rc.right : 420;
+
+  register_identity_hud_class();
+  if (identity_badge_ &&
+      (!IsWindow(identity_badge_) || identity_badge_parent_ != parent)) {
+    if (IsWindow(identity_badge_)) {
+      DestroyWindow(identity_badge_);
     }
+    identity_badge_ = nullptr;
+    identity_badge_parent_ = nullptr;
+  }
+  if (!identity_badge_) {
+    identity_badge_ = CreateWindowExW(
+        0, kIdentityHudClass, hud, WS_CHILD | WS_VISIBLE, 0, 0, bar_w,
+        kIdentityHudHeight, parent, nullptr, GetModuleHandleW(nullptr),
+        nullptr);
+    identity_badge_parent_ = parent;
   }
   if (identity_badge_) {
-    SetWindowTextW(identity_badge_, title);
-    ShowWindow(identity_badge_, SW_SHOW);
+    wcscpy_s(identity_hud_text_, hud);
+    SetWindowLongPtrW(identity_badge_, GWLP_USERDATA,
+                      reinterpret_cast<LONG_PTR>(identity_hud_text_));
+    SetWindowPos(identity_badge_, HWND_TOP, 0, 0, bar_w, kIdentityHudHeight,
+                 SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    InvalidateRect(identity_badge_, nullptr, FALSE);
   }
 }
 
@@ -913,6 +1090,9 @@ void MapViewport::enqueue_display_task(DisplayTask task) {
 
 void MapViewport::display_run_present(uint32_t width_px, uint32_t height_px,
                                      uint32_t frame_token) {
+  if (display_stop_) {
+    return;
+  }
   if (!rhi_device_) {
     LOGGING(LOG_WARNING, "rhi.present skip: no device token=%u", frame_token);
     return;
@@ -932,6 +1112,7 @@ void MapViewport::display_run_present(uint32_t width_px, uint32_t height_px,
   last_gpu_present_ok_.store(ok, std::memory_order_release);
   if (ok) {
     frame_presented_.store(frame_token, std::memory_order_release);
+    note_hud_frame();
     if (!was_ok) {
       LOGGING(LOG_INFO, "rhi.present recovered size=%ux%u token=%u role=%d",
               width_px, height_px, frame_token, static_cast<int>(role_));
@@ -1132,27 +1313,13 @@ void MapViewport::display_thread_main() {
           display_init_ = DisplayInit::kOk;
         }
         display_cv_.notify_all();
-        // The clear above is not a scene frame. wire_map_scene() requests a
-        // frame before attach(); consuming that token here left BeginFrame
-        // idle and WM_PAINT skipped GDI because last_gpu_present_ok_ was
-        // already true — both 2D and 3D stayed on the dark clear.
+        // Do NOT call present_gpu here. Pre-show layout often hands a stale
+        // multi-k client rect; map2d present_gpu at that size blocks the
+        // Display thread so the post-attach WM_SIZE Resize never runs and the
+        // HWND stays on this navy clear. First real frame is Resize below
+        // (and BeginFrame). Keep last_gpu_present_ok_ false so GDI overlay
+        // is not skipped while waiting.
         last_gpu_present_ok_.store(false, std::memory_order_release);
-        const bool force_gdi_2d = role_ != Role::kScene3d && []() {
-          if (const char* env = std::getenv("SMT_FORCE_GDI_MAP_OVERLAY")) {
-            return env[0] == '1' && env[1] == '\0';
-          }
-          return false;
-        }();
-        if (!force_gdi_2d && (gpu_present_ || gpu_submit_)) {
-          const uint32_t requested =
-              frame_request_.load(std::memory_order_acquire);
-          display_run_present(desc.width, desc.height,
-                              requested == 0 ? 1u : requested);
-          if (requested == 0 &&
-              last_gpu_present_ok_.load(std::memory_order_acquire)) {
-            frame_request_.store(1, std::memory_order_release);
-          }
-        }
         display_cv_.notify_all();
         continue;
       }
@@ -1169,6 +1336,15 @@ void MapViewport::display_thread_main() {
           display_client_h_ = desc.height;
           display_hwnd_ = task.hwnd;
           display_vblank_.set_hwnd(task.hwnd);
+        }
+        // initialize() rebuilds the flip swapchain (navy clear). Redraw
+        // immediately — waiting for a later BeginFrame token left Map2d on
+        // the clear after the post-attach WM_SIZE shrink.
+        last_gpu_present_ok_.store(false, std::memory_order_release);
+        if (gpu_present_ || gpu_submit_) {
+          const uint32_t token =
+              frame_request_.fetch_add(1, std::memory_order_acq_rel) + 1;
+          display_run_present(desc.width, desc.height, token);
         }
         continue;
       }
@@ -1223,6 +1399,109 @@ void MapViewport::release_rhi_device() {
   });
 }
 
+void MapViewport::destroy_flycube_present_hwnd() {
+  if (flycube_present_hwnd_ && IsWindow(flycube_present_hwnd_)) {
+    DestroyWindow(flycube_present_hwnd_);
+  }
+  flycube_present_hwnd_ = nullptr;
+}
+
+void MapViewport::set_flycube_present_visible(bool show) {
+  if (!flycube_present_hwnd_ || !IsWindow(flycube_present_hwnd_)) {
+    return;
+  }
+  if (!show) {
+    ShowWindow(flycube_present_hwnd_, SW_HIDE);
+    return;
+  }
+  // Match embed client; sibling Map-Edit present must not stay above Scene3d.
+  RECT rc = {};
+  if (HWND embed = native_view()) {
+    GetClientRect(embed, &rc);
+  }
+  uint32_t w = rc.right > 0 ? static_cast<uint32_t>(rc.right) : 1;
+  uint32_t h = rc.bottom > 0 ? static_cast<uint32_t>(rc.bottom) : 1;
+  if (role_ == Role::kScene3d) {
+    clamp_scene3d_swapchain_size(&w, &h);
+  }
+  sync_flycube_present_hwnd(w, h);
+  ShowWindow(flycube_present_hwnd_, SW_SHOWNOACTIVATE);
+  SetWindowPos(flycube_present_hwnd_, HWND_TOP, 0, 0, 0, 0,
+               SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+}
+
+void MapViewport::sync_flycube_present_hwnd(uint32_t width_px,
+                                            uint32_t height_px) {
+  HWND embed = native_view();
+  if (!flycube_present_hwnd_ || !IsWindow(flycube_present_hwnd_) || !embed) {
+    return;
+  }
+  POINT tl = {0, 0};
+  ClientToScreen(embed, &tl);
+  const int w = width_px > 0 ? static_cast<int>(width_px) : 1;
+  const int h = height_px > 0 ? static_cast<int>(height_px) : 1;
+  SetWindowPos(flycube_present_hwnd_, HWND_TOP, tl.x, tl.y, w, h,
+               SWP_SHOWWINDOW | SWP_NOACTIVATE);
+}
+
+HWND MapViewport::ensure_flycube_present_hwnd(uint32_t width_px,
+                                              uint32_t height_px) {
+  HWND embed = native_view();
+  if (!embed) {
+    return nullptr;
+  }
+  if (flycube_present_hwnd_ && IsWindow(flycube_present_hwnd_)) {
+    sync_flycube_present_hwnd(width_px, height_px);
+    return flycube_present_hwnd_;
+  }
+  static bool registered = false;
+  HINSTANCE inst = GetModuleHandleW(nullptr);
+  if (!registered) {
+    WNDCLASSEXW wc = {};
+    wc.cbSize = sizeof(wc);
+    wc.style = CS_HREDRAW | CS_VREDRAW;
+    wc.lpfnWndProc = MapViewport::present_wnd_proc;
+    wc.hInstance = inst;
+    wc.hCursor = LoadCursor(nullptr, IDC_CROSS);
+    wc.hbrBackground = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
+    wc.lpszClassName = kFlyCubePresentClass;
+    registered = RegisterClassExW(&wc) != 0 ||
+                 GetLastError() == ERROR_CLASS_ALREADY_EXISTS;
+  }
+  // Free top-level present (showcase pattern). Owned WS_POPUP without
+  // WS_EX_NOREDIRECTIONBITMAP left a transparent hole over the embed; flip
+  // DXGI requires NOREDIRECTIONBITMAP. TOOLWINDOW keeps Alt-Tab clean.
+  const int w = width_px > 0 ? static_cast<int>(width_px) : 1;
+  const int h = height_px > 0 ? static_cast<int>(height_px) : 1;
+  flycube_present_hwnd_ = CreateWindowExW(
+      WS_EX_TOOLWINDOW | WS_EX_NOREDIRECTIONBITMAP, kFlyCubePresentClass,
+      L"SmartGIS FlyCube Present",
+      WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, 0, 0, w, h, nullptr, nullptr,
+      inst, this);
+  if (!flycube_present_hwnd_) {
+    LOGGING(LOG_ERROR, "rhi.flycube present HWND create failed");
+    return nullptr;
+  }
+  SetWindowLongPtrW(flycube_present_hwnd_, GWLP_USERDATA,
+                    reinterpret_cast<LONG_PTR>(this));
+  sync_flycube_present_hwnd(width_px, height_px);
+  // Follow embed visibility — Map Edit present must not cover a later Scene3d.
+  const bool embed_visible = IsWindowVisible(embed);
+  ShowWindow(flycube_present_hwnd_,
+             embed_visible ? SW_SHOWNOACTIVATE : SW_HIDE);
+  sync_identity_chrome();
+  LOGGING(LOG_INFO, "rhi.flycube present HWND=%p owner=%p %ux%u visible=%d",
+          flycube_present_hwnd_, nullptr, width_px, height_px,
+          embed_visible ? 1 : 0);
+  return flycube_present_hwnd_;
+}
+
+LRESULT CALLBACK MapViewport::present_wnd_proc(HWND hwnd, UINT msg,
+                                               WPARAM wparam, LPARAM lparam) {
+  // Reuse embed input / paint routing; DXGI owns the client area.
+  return child_wnd_proc(hwnd, msg, wparam, lparam);
+}
+
 bool MapViewport::try_flycube_device() {
   // Opt-out: MFC / leftover GDI still required for some hosts.
   if (const char* prefer = std::getenv("SMT_PREFER_GDI_DEVICE")) {
@@ -1235,15 +1514,65 @@ bool MapViewport::try_flycube_device() {
   LOGGING(LOG_ERROR, "rhi.flycube skipped: SMT_HAS_FLYCUBE not defined");
   return false;
 #else
-  HWND hwnd = native_view();
-  if (!hwnd) {
+  HWND embed = native_view();
+  if (!embed) {
     LOGGING(LOG_ERROR, "rhi.flycube fail: native_view null");
     return false;
   }
+  // Match View bounds before sampling client size — attach used to run while
+  // the embed was still at a stale oversized rect (multi-k px), and flip DXGI
+  // then cleared navy without ever showing map/DEM content.
+  sync_native_bounds();
   RECT rc = {};
-  GetClientRect(hwnd, &rc);
-  const uint32_t w = rc.right > 0 ? static_cast<uint32_t>(rc.right) : 1;
-  const uint32_t h = rc.bottom > 0 ? static_cast<uint32_t>(rc.bottom) : 1;
+  GetClientRect(embed, &rc);
+  uint32_t w = rc.right > 0 ? static_cast<uint32_t>(rc.right) : 1;
+  uint32_t h = rc.bottom > 0 ? static_cast<uint32_t>(rc.bottom) : 1;
+  const Rect& laid_out = bounds();
+  if (laid_out.width > 1 && laid_out.height > 1) {
+    const int dw = static_cast<int>(w) - laid_out.width;
+    const int dh = static_cast<int>(h) - laid_out.height;
+    if (dw > 2 || dw < -2 || dh > 2 || dh < -2) {
+      LOGGING(LOG_WARNING,
+              "rhi.flycube client/bounds mismatch %ux%u vs %dx%d; using bounds",
+              w, h, laid_out.width, laid_out.height);
+      w = static_cast<uint32_t>(laid_out.width);
+      h = static_cast<uint32_t>(laid_out.height);
+      SetWindowPos(embed, nullptr, laid_out.x, laid_out.y, laid_out.width,
+                   laid_out.height,
+                   SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS);
+    }
+  }
+  // Cap Init to the primary monitor — pre-show layout can report a child
+  // client larger than the shell briefly; DXGI at that size is fine on a
+  // real 4K host but must not exceed the screen.
+  {
+    const uint32_t screen_w =
+        static_cast<uint32_t>((std::max)(64, GetSystemMetrics(SM_CXSCREEN)));
+    const uint32_t screen_h =
+        static_cast<uint32_t>((std::max)(64, GetSystemMetrics(SM_CYSCREEN)));
+    if (w > screen_w || h > screen_h) {
+      LOGGING(LOG_WARNING,
+              "rhi.flycube clamp init %ux%u to screen %ux%u", w, h, screen_w,
+              screen_h);
+      if (w > screen_w) {
+        w = screen_w;
+      }
+      if (h > screen_h) {
+        h = screen_h;
+      }
+    }
+  }
+  if (role_ == Role::kScene3d) {
+    clamp_scene3d_swapchain_size(&w, &h);
+  }
+  // Flip-model DXGI on WS_CHILD clears navy but never shows map/DEM. All
+  // FlyCube roles present on a top-level popup over the embed (showcase
+  // pattern). Tab switch hides inactive present via set_flycube_present_visible
+  // so Map-Edit cannot cover Scene3d.
+  HWND hwnd = embed;
+  if (HWND present = ensure_flycube_present_hwnd(w, h)) {
+    hwnd = present;
+  }
   LOGGING(LOG_INFO, "rhi.flycube enqueue Init hwnd=%p size=%ux%u (client=%dx%d)",
           hwnd, w, h, static_cast<int>(rc.right), static_cast<int>(rc.bottom));
   release_rhi_device();
@@ -1445,6 +1774,7 @@ void MapViewport::paint_map_content(HDC target, const RECT& client_rc) {
   if (!target) {
     return;
   }
+  note_hud_frame();
   bool presented = false;
   if (mode_ == AttachMode::kContentMapView) {
     presented = present_latest_frame(target, client_rc);
@@ -1583,6 +1913,10 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
   auto* self =
       reinterpret_cast<MapViewport*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
   if (msg == WM_TIMER && wparam == kPresentTimerId) {
+    if (self) {
+      // Refresh legacy-style engine + Fps HUD even when GPU paint skips GDI.
+      self->sync_identity_chrome();
+    }
     if (self && self->mode_ == AttachMode::kContentMapView) {
 #ifdef SMT_HAS_CONTENT_MAP_SESSION
       if (self->role_ == Role::kScene3d && IsWindowVisible(hwnd)) {
@@ -1606,8 +1940,12 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
                (self->role_ == Role::kScene3d ||
                 self->role_ == Role::kMapEdit ||
                 self->role_ == Role::kMapData)) {
-      // Invalidate only while a frame was requested and not yet presented.
-      // BeginFrame on the Display thread owns GPU present (P4/P5).
+      // Scene3d: keep BeginFrame pacing so ocean FFT / cloud time advance.
+      // 2D roles still invalidate only while a frame token is pending.
+      if (self->role_ == Role::kScene3d) {
+        self->request_frame();
+        return 0;
+      }
       const uint32_t req =
           self->frame_request_.load(std::memory_order_acquire);
       const uint32_t presented =
@@ -1648,10 +1986,25 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
       if (!force_gdi_overlay || self->role_ == Role::kScene3d) {
         {
           std::lock_guard<std::mutex> lock(self->display_mu_);
-          self->display_client_w_ =
-              width_px > 0 ? static_cast<uint32_t>(width_px) : 1;
-          self->display_client_h_ =
-              height_px > 0 ? static_cast<uint32_t>(height_px) : 1;
+          uint32_t cw = width_px > 0 ? static_cast<uint32_t>(width_px) : 1;
+          uint32_t ch = height_px > 0 ? static_cast<uint32_t>(height_px) : 1;
+          // Prefer the FlyCube present popup client — embed GetClientRect can
+          // stay at a stale multi-k size while the popup tracks the visible
+          // tab body after show/resize.
+          if (self->flycube_present_hwnd_ &&
+              IsWindow(self->flycube_present_hwnd_)) {
+            RECT pr = {};
+            GetClientRect(self->flycube_present_hwnd_, &pr);
+            if (pr.right > 0 && pr.bottom > 0) {
+              cw = static_cast<uint32_t>(pr.right);
+              ch = static_cast<uint32_t>(pr.bottom);
+            }
+          }
+          if (self->role_ == Role::kScene3d) {
+            clamp_scene3d_swapchain_size(&cw, &ch);
+          }
+          self->display_client_w_ = cw;
+          self->display_client_h_ = ch;
         }
         self->signal_display();
         EndPaint(hwnd, &ps);
@@ -1727,9 +2080,23 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
     }
     // FlyCube resize/present stay on the Display mailbox thread (P4).
     if (self->mode_ == AttachMode::kFlyCube && cx > 0 && cy > 0) {
+      uint32_t rw = static_cast<uint32_t>(cx);
+      uint32_t rh = static_cast<uint32_t>(cy);
+      if (self->role_ == Role::kScene3d) {
+        clamp_scene3d_swapchain_size(&rw, &rh);
+      }
+      HWND present = self->flycube_present_hwnd_;
+      if (present && IsWindow(present)) {
+        // Embed WM_SIZE repositions the present popup; present WM_SIZE only
+        // resizes the swapchain (avoid SetWindowPos → WM_SIZE recursion).
+        if (hwnd != present) {
+          self->sync_flycube_present_hwnd(rw, rh);
+        }
+      } else {
+        present = hwnd;
+      }
       self->enqueue_display_task(MapViewport::DisplayTask{
-          MapViewport::DisplayOp::kResize, hwnd, static_cast<uint32_t>(cx),
-          static_cast<uint32_t>(cy)});
+          MapViewport::DisplayOp::kResize, present, rw, rh});
       self->signal_display();
     }
   }

@@ -216,4 +216,12 @@ void OrbitFrame::reset() {
   has_last_ = false;
 }
 
+void OrbitFrame::set_distance(float distance) {
+  distance_ = (std::max)(1.2f, (std::min)(distance, 12.f));
+}
+
+void OrbitFrame::set_pitch(float pitch) {
+  pitch_ = std::clamp(pitch, tool::kOrbitPitchMin, tool::kOrbitPitchMax);
+}
+
 }  // namespace content

@@ -73,8 +73,10 @@ class FlycubeDevice : public Device {
                                     uint32_t height_px) override;
   bool has_imported_shared() const override;
   bool composed_into_imported_shared() const override;
+  Texture* shared_depth_texture() override;
 
  private:
+  void clear_depth_sample_facade();
   static constexpr uint32_t kFrameCount = 2;
   void wait_for_idle();
   // WM_SIZE re-enters initialize on a live device. Drop only the swapchain
@@ -120,6 +122,10 @@ class FlycubeDevice : public Device {
   std::vector<std::shared_ptr<View>> back_buffer_views_;
   std::shared_ptr<Resource> depth_texture_;
   std::shared_ptr<View> depth_view_;
+  // Sampleable SRV over the same depth resource (fog / soft particles).
+  std::shared_ptr<View> depth_srv_;
+  // Non-owning facade returned by shared_depth_texture(); reset with depth.
+  Texture* depth_sample_facade_ = nullptr;
   // DXGI NT shared texture opened on the DX12 device (browser OutputSurface).
   std::shared_ptr<Resource> imported_shared_;
   std::shared_ptr<View> imported_rtv_;

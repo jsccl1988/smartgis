@@ -1,0 +1,76 @@
+{
+  "version": 8,
+  "name": "smartgis-maplibre-align-china",
+  "sources": {
+    "china": {
+      "type": "geojson",
+      "data": "asset://china_city.geojson"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#aad3df",
+        "background-opacity": 1
+      }
+    },
+    {
+      "id": "area-fill",
+      "type": "fill",
+      "source": "china",
+      "source-layer": "area",
+      "filter": ["==", "kind", "area"],
+      "paint": {
+        "fill-color": "#f5f3e9",
+        "fill-opacity": 1
+      }
+    },
+    {
+      "id": "river",
+      "type": "line",
+      "source": "china",
+      "source-layer": "line",
+      "filter": ["in", "line_kind", "river", "lake"],
+      "paint": {
+        "line-color": "#64a0d0",
+        "line-width": 1.5,
+        "line-opacity": 1
+      },
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      }
+    },
+    {
+      "id": "road",
+      "type": "line",
+      "source": "china",
+      "source-layer": "line",
+      "filter": ["==", "line_kind", "road"],
+      "minzoom": 5,
+      "paint": {
+        "line-color": "#e0c06a",
+        "line-width": 1.25,
+        "line-opacity": 1
+      },
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      }
+    },
+    {
+      "id": "point-circle",
+      "type": "circle",
+      "source": "china",
+      "source-layer": "point",
+      "filter": ["==", "kind", "point"],
+      "paint": {
+        "circle-color": "#e65100",
+        "circle-radius": 3,
+        "circle-opacity": 0.9
+      }
+    }
+  ]
+}

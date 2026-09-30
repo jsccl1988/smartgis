@@ -6,7 +6,6 @@
 
 #include <cstdint>
 
-
 namespace render {
 namespace rhi {
 class Buffer;
@@ -37,6 +36,8 @@ struct CloudRayInput {
   float cover = 1.0f;
   float extinction = 0.02f;
   int steps = 16;
+  // World-space density snap cell; 0 = full detail. Used as half-res proxy.
+  float density_cell = 0.0f;
 };
 
 // Single-scatter + Beer integration result along one ray.
@@ -70,6 +71,8 @@ class CloudPass {
   // quality: raymarch step budget from AtmosphereParams::quality.
   // Opens a ColorLoadOp::kLoad pass only (never clears). GPU path uses the
   // cloud graphics pipeline with alpha blend and depth test (no write).
+  // quality <= 1 uses a half-res *proxy* (fewer steps + coarser density snap);
+  // no offscreen RT until RHI grows color attachments.
   bool record(render::rhi::Device* device, render::rhi::CommandList* list, uint32_t width,
               uint32_t height, const render::rhi::CameraMatrices* camera, int quality);
 
@@ -79,7 +82,16 @@ class CloudPass {
   void release();
 
   static int step_count_for_quality(int quality);
+  // World snap cell for density; >0 when quality <= 1 (half-res proxy).
+  static float density_cell_for_quality(int quality);
+  static bool uses_half_res_proxy(int quality);
+
   static float beer_transmittance(float optical_depth);
+  // Powder ≈ 1 - exp(-density * k); brightens thin media facing the light.
+  static float powder_factor(float density);
+  // Silver edge weight from view·sun (sun behind cloud when looking toward it).
+  static float silver_lining(float dir_dot_sun);
+
   static float density_sample(float cover, float y, float base_y, float top_y,
                               float px, float py, float pz);
   static CloudRayResult march_ray(const CloudRayInput& in);

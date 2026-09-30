@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <vector>
 
 #include "effect/atmosphere/detail/math.h"
 #include "effect/atmosphere/detail/mesh.h"
@@ -22,10 +21,11 @@ namespace {
 constexpr uint32_t kSkyConstantSlot = 1;
 
 render::rhi::GraphicsPipelineDesc sky_graphics_desc() {
+  // Fullscreen NDC sky: CameraCB on PS for view-ray unproject, SkyCB for tint.
   static constexpr render::rhi::BindingSlot kBindings[] = {
       {.slot = 0,
        .kind = render::rhi::BindingKind::kConstantBuffer,
-       .stage = render::rhi::ShaderStage::kVertex,
+       .stage = render::rhi::ShaderStage::kPixel,
        .size_bytes = 128,
        .hlsl_name = "CameraCB"},
       {.slot = kSkyConstantSlot,
@@ -86,24 +86,68 @@ void SkyPass::sample_sky_rgb(const SkyDrawParams& p, float dir_x, float dir_y,
   float dz = dir_z;
   detail::normalize3(&dx, &dy, &dz);
 
-  const float elev = detail::clampf(p.sun_y, -1.0f, 1.0f);
-  const float day = detail::clampf(elev * 1.5f + 0.2f, 0.0f, 1.0f);
+  float sun_x = p.sun_x;
+  float sun_y = p.sun_y;
+  float sun_z = p.sun_z;
+  detail::normalize3(&sun_x, &sun_y, &sun_z);
+
+  const float elev = detail::clampf(sun_y, -1.0f, 1.0f);
+  const float day = detail::clampf(elev * 1.2f + 0.35f, 0.0f, 1.0f);
   const float hr = detail::lerp(p.sunset_r, p.horizon_r, day);
   const float hg = detail::lerp(p.sunset_g, p.horizon_g, day);
   const float hb = detail::lerp(p.sunset_b, p.horizon_b, day);
 
-  const float vy = detail::clampf(dy * 0.5f + 0.5f, 0.0f, 1.0f);
-  const float blend = std::pow(vy, 0.55f);
+  // Matches kPsSky: elevation blend + haze + Bruneton-lite + sun disk/corona.
+  const float elev_v = detail::clampf(dy, 0.0f, 1.0f);
+  const float blend = std::pow(elev_v, 0.65f);
   float r = detail::lerp(hr, p.zenith_r, blend);
   float g = detail::lerp(hg, p.zenith_g, blend);
   float b = detail::lerp(hb, p.zenith_b, blend);
+  const float haze = 1.0f - elev_v;
+  const float haze2 = haze * haze * 0.18f;
+  r = detail::clampf(r + hr * haze2, 0.0f, 1.0f);
+  g = detail::clampf(g + hg * haze2, 0.0f, 1.0f);
+  b = detail::clampf(b + hb * haze2, 0.0f, 1.0f);
+
+  // Bruneton-lite analytical multi-scatter tint (no LUT tables).
+  const float rayleigh = std::pow(elev_v, 0.55f);
+  r *= detail::lerp(1.0f, 0.80f, rayleigh);
+  g *= detail::lerp(1.0f, 0.94f, rayleigh);
+  b *= detail::lerp(1.0f, 1.14f, rayleigh);
+  float dir_hx = dx;
+  float dir_hz = dz;
+  float sun_hx = sun_x;
+  float sun_hz = sun_z;
+  float dir_hy = 1.0e-3f;
+  float sun_hy = 1.0e-3f;
+  detail::normalize3(&dir_hx, &dir_hy, &dir_hz);
+  detail::normalize3(&sun_hx, &sun_hy, &sun_hz);
+  const float azi =
+      detail::clampf(dir_hx * sun_hx + dir_hy * sun_hy + dir_hz * sun_hz, 0.0f,
+                     1.0f);
+  const float mie_warm =
+      std::pow(azi, 2.0f) * haze *
+      detail::clampf(1.0f - std::fabs(elev) * 0.55f, 0.0f, 1.0f);
+  r = detail::clampf(r + 0.14f * mie_warm, 0.0f, 1.0f);
+  g = detail::clampf(g + 0.055f * mie_warm, 0.0f, 1.0f);
+  b = detail::clampf(b + 0.015f * mie_warm, 0.0f, 1.0f);
+  const float twilight = detail::clampf(1.0f - std::fabs(elev) * 3.5f, 0.0f, 1.0f);
+  const float ozone =
+      twilight * detail::clampf(1.0f - elev_v * 1.15f, 0.0f, 1.0f) *
+      (0.30f + 0.70f * azi);
+  r = detail::clampf(r + 0.09f * ozone, 0.0f, 1.0f);
+  g = detail::clampf(g + 0.02f * ozone, 0.0f, 1.0f);
+  b = detail::clampf(b + 0.11f * ozone, 0.0f, 1.0f);
 
   const float sun_dot =
-      detail::clampf(dx * p.sun_x + dy * p.sun_y + dz * p.sun_z, 0.0f, 1.0f);
-  const float glow = std::pow(sun_dot, 32.0f) * p.sun_glow_strength;
-  r = detail::clampf(r + glow, 0.0f, 1.0f);
-  g = detail::clampf(g + glow * 0.9f, 0.0f, 1.0f);
-  b = detail::clampf(b + glow * 0.7f, 0.0f, 1.0f);
+      detail::clampf(dx * sun_x + dy * sun_y + dz * sun_z, 0.0f, 1.0f);
+  const float disk =
+      std::pow(sun_dot, 256.0f) * p.sun_glow_strength * 1.55f;
+  const float corona =
+      std::pow(sun_dot, 12.0f) * p.sun_glow_strength * 0.42f;
+  r = detail::clampf(r + disk * 1.0f + corona * 1.0f, 0.0f, 1.0f);
+  g = detail::clampf(g + disk * 0.96f + corona * 0.78f, 0.0f, 1.0f);
+  b = detail::clampf(b + disk * 0.88f + corona * 0.48f, 0.0f, 1.0f);
 
   if (out_r) {
     *out_r = r;
@@ -167,55 +211,22 @@ bool SkyPass::ensure_dome_mesh(render::rhi::Device* device) {
     return false;
   }
   if (detail::static_mesh_ready(device_, vertex_, index_, device) &&
-      index_count_ > 0) {
+      index_count_ >= 3) {
     return true;
   }
-
-  // Coarse hemisphere (Y-up) large enough to sit behind orbit terrain.
-  constexpr int kRings = 8;
-  constexpr int kSegs = 16;
-  const float R = params_.dome_radius > 0.5f ? params_.dome_radius : 8.0f;
-
-  std::vector<float> verts;
-  verts.reserve(static_cast<size_t>((kRings + 1) * (kSegs + 1) * 3));
-  for (int ring = 0; ring <= kRings; ++ring) {
-    const float v = static_cast<float>(ring) / static_cast<float>(kRings);
-    // 0 = zenith, 1 = horizon (slightly below to avoid a seam).
-    const float phi = v * 1.65f;
-    const float y = std::cos(phi) * R;
-    const float rad = std::sin(phi) * R;
-    for (int seg = 0; seg <= kSegs; ++seg) {
-      const float u = static_cast<float>(seg) / static_cast<float>(kSegs);
-      const float theta = u * 6.28318530718f;
-      verts.push_back(std::cos(theta) * rad);
-      verts.push_back(y);
-      verts.push_back(std::sin(theta) * rad);
-    }
+  // Oversized NDC triangle covering the clip volume (same as FogPass).
+  const float ndc[9] = {
+      -1.f, -1.f, 0.f, 3.f, -1.f, 0.f, -1.f, 3.f, 0.f,
+  };
+  const uint32_t indices[3] = {0, 1, 2};
+  const bool ok = detail::upload_static_mesh(
+      &device_, &vertex_, &index_, &index_count_, device, ndc,
+      static_cast<uint32_t>(sizeof(ndc)), indices,
+      static_cast<uint32_t>(sizeof(indices)));
+  if (ok) {
+    built_radius_ = 0.f;
   }
-
-  std::vector<uint32_t> indices;
-  indices.reserve(static_cast<size_t>(kRings * kSegs * 6));
-  const int stride = kSegs + 1;
-  for (int ring = 0; ring < kRings; ++ring) {
-    for (int seg = 0; seg < kSegs; ++seg) {
-      const uint32_t i0 = static_cast<uint32_t>(ring * stride + seg);
-      const uint32_t i1 = i0 + 1;
-      const uint32_t i2 = i0 + static_cast<uint32_t>(stride);
-      const uint32_t i3 = i2 + 1;
-      // Inward-facing so the camera at origin sees the inner surface.
-      indices.push_back(i0);
-      indices.push_back(i2);
-      indices.push_back(i1);
-      indices.push_back(i1);
-      indices.push_back(i2);
-      indices.push_back(i3);
-    }
-  }
-
-  return detail::upload_static_mesh(
-      &device_, &vertex_, &index_, &index_count_, device, verts.data(),
-      static_cast<uint32_t>(verts.size() * sizeof(float)), indices.data(),
-      static_cast<uint32_t>(indices.size() * sizeof(uint32_t)));
+  return ok;
 }
 
 bool SkyPass::record(render::rhi::Device* device, render::rhi::CommandList* list, uint32_t width,
@@ -264,6 +275,7 @@ void SkyPass::release() {
   detail::release_static_mesh(&device_, &vertex_, &index_, &index_count_);
   pipeline_ = nullptr;
   pipeline_device_ = nullptr;
+  built_radius_ = 0.f;
 }
 
 }  // namespace atmosphere

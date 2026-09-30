@@ -631,7 +631,8 @@ void test_tab_strip_switch_page() {
   tabs.add_tab("Two", std::move(p1));
   expect(tabs.active() == 0, "first tab active");
   expect(tabs.tab_count() == 2, "tab count");
-  expect(tabs.on_mouse_event(mouse_up(150, 10)), "click second tab");
+  expect(tabs.on_mouse_event(mouse_up(tabs.tab_x_at(1) + 4, 10)),
+         "click second tab");
   expect(tabs.active() == 1, "second tab active");
   expect(changed == 1, "tab change");
   expect(page1->is_visible(), "active page visible");
@@ -871,6 +872,22 @@ void test_splitter_host_resize_grows_flex_pane() {
   catalog_map.layout();
   expect(left->bounds().width == 240, "catalog stays fixed on grow");
   expect(right->bounds().width == 1100 - 6 - 240, "map tabs grow");
+
+  // Collapsed DiagnosticToolsPanel: preferred {0,0} secondary must not keep a
+  // kMinPanePx remnant that paints into the status bar.
+  Splitter tools_host(Splitter::Orientation::kVertical);
+  tools_host.set_bounds({0, 0, 800, 600});
+  auto work = std::make_unique<View>();
+  auto tools = std::make_unique<View>();
+  View* work_pane = work.get();
+  View* tools_pane = tools.get();
+  work->set_preferred_size({0, 0});
+  tools->set_preferred_size({0, 0});
+  tools_host.add_child(std::move(work));
+  tools_host.add_child(std::move(tools));
+  tools_host.layout();
+  expect(tools_pane->bounds().height == 0, "collapsed tools height 0");
+  expect(work_pane->bounds().height == 600 - 6, "work fills when tools 0");
 }
 
 void test_splitter_drag_keeps_capture() {
@@ -1203,6 +1220,18 @@ void test_layout_invariants_smoke() {
   expect(collect_layout_violations(&scroller, &issues) == 0,
          "scroll content exempt");
 
+  // Collapsed splitter secondary: preferred leaf under a zero-size parent
+  // must not fail (DiagnosticToolsPanel starts at preferred {0,0}).
+  View collapsed;
+  collapsed.set_bounds({0, 200, 400, 0});
+  auto leaf = std::make_unique<View>();
+  leaf->set_preferred_size({120, 24});
+  leaf->set_bounds({0, 200, 400, 0});
+  collapsed.add_child(std::move(leaf));
+  issues.clear();
+  expect(collect_layout_violations(&collapsed, &issues) == 0,
+         "zero-size under collapsed parent ok");
+
   expect(rect_non_negative({0, 0, 1, 1}), "non-neg ok");
   expect(!rect_non_negative({0, 0, -1, 1}), "neg width fails");
   expect(menu_item_metrics_ok(40, 28, 1.f), "menu metrics 1x");
@@ -1252,11 +1281,29 @@ void test_tab_strip_catalog_labels_have_cells() {
   tabs.add_tab("Sources", std::make_unique<View>());
   tabs.add_tab("Maps", std::make_unique<View>());
   tabs.layout();
-  const int cell_w = tabs.bounds().width / 3;
-  expect(cell_w >= 40, "catalog tab cell wide enough");
+  expect(tabs.tab_width_at(0) >= 40, "Layers tab cell wide enough");
+  expect(tabs.tab_x_at(1) == tabs.tab_x_at(0) + tabs.tab_width_at(0),
+         "Sources packs after Layers");
   const Size layers = measure_text_utf8("Layers");
-  expect(layers.width > 0 && layers.width < cell_w + 24,
-         "Layers label roughly fits cell (clip OK)");
+  expect(layers.width > 0 && layers.width < tabs.tab_width_at(0) + 8,
+         "Layers label fits packed cell");
+}
+
+void test_tab_strip_packed_not_equal_width() {
+  TabStrip tabs;
+  tabs.set_bounds({0, 0, 1200, 200});
+  tabs.add_tab("Map", std::make_unique<View>());
+  tabs.add_tab("Data", std::make_unique<View>());
+  tabs.add_tab("3D", std::make_unique<View>());
+  tabs.set_active(0);
+  tabs.layout();
+  const int map_w = tabs.tab_width_at(0);
+  expect(map_w > 0 && map_w < 200, "Map tab content-sized (not strip/3)");
+  expect(tabs.on_mouse_event(mouse_up(tabs.tab_x_at(2) + 2, 10)),
+         "3D hit near its packed cell");
+  expect(tabs.active() == 2, "3D became active");
+  expect(!tabs.on_mouse_event(mouse_up(900, 10)),
+         "empty header band not a tab");
 }
 
 void test_ambox_buttons_not_collapsed() {
@@ -1345,7 +1392,7 @@ void test_box_layout_flex_keeps_preferred() {
   host.add_child(std::move(flex));
   host.layout();
   expect(a->bounds().width == 60, "fixed keeps preferred");
-  // leftover = 300 - (60+80) = 160 �?flex = 80 + 160
+  // leftover = 300 - (60+80) = 160 ÃÂ¢ÃÂ?flex = 80 + 160
   expect(b->bounds().width == 240, "flex preferred + leftover");
   expect(a->bounds().x + a->bounds().width == b->bounds().x,
          "no overlap between siblings");
@@ -1421,7 +1468,7 @@ void test_dialog_close_noop() {
 }
 
 void test_dialog_host_geometry() {
-  RECT owner = {100, 200, 500, 600};  // 400�?00
+  RECT owner = {100, 200, 500, 600};  // 400ÃÂ¨ÃÂ?00
   const OwnedPopupGeom g = center_outer_on_owner_rect(owner, 200, 100);
   expect(g.x == 200, "popup x centered on owner");
   expect(g.y == 350, "popup y centered on owner");
@@ -1533,12 +1580,12 @@ void test_touch_multitouch_midpoint() {
 }
 
 void test_dpi_scale_math() {
-  expect(scale_factor_from_dpi(96) == 1.f, "96 dpi �?1.0");
-  expect(scale_factor_from_dpi(144) == 1.5f, "144 dpi �?1.5");
-  expect(scale_factor_from_dpi(192) == 2.f, "192 dpi �?2.0");
-  expect(scale_factor_from_dpi(0) == 1.f, "0 dpi �?1.0");
+  expect(scale_factor_from_dpi(96) == 1.f, "96 dpi ÃÂ©ÃÂ?1.0");
+  expect(scale_factor_from_dpi(144) == 1.5f, "144 dpi ÃÂ©ÃÂ?1.5");
+  expect(scale_factor_from_dpi(192) == 2.f, "192 dpi ÃÂ©ÃÂ?2.0");
+  expect(scale_factor_from_dpi(0) == 1.f, "0 dpi ÃÂ©ÃÂ?1.0");
   expect(dip_to_px(100, 1.5f) == 150, "dip_to_px 100@1.5");
-  expect(dip_to_px(10, 1.25f) == 13, "dip_to_px rounds 12.5�?3");
+  expect(dip_to_px(10, 1.25f) == 13, "dip_to_px rounds 12.5ÃÂ©ÃÂ?3");
   expect(px_to_dip(150, 1.5f) == 100, "px_to_dip 150@1.5");
   expect(dpi_for_hwnd(nullptr) >= 96u, "dpi_for_hwnd screen fallback");
 }
@@ -1624,7 +1671,7 @@ void test_paint_fingerprint_locked_scene() {
   const std::uint32_t b = paint_fingerprint(root.get(), 80, 40);
   expect(a != 0, "fingerprint non-zero");
   expect(a == b, "fingerprint stable");
-  // Different size must not collide with the locked 80�?0 scene (best-effort).
+  // Different size must not collide with the locked 80ÃÂ¨ÃÂ?0 scene (best-effort).
   const std::uint32_t c = paint_fingerprint(root.get(), 81, 40);
   expect(c != a, "fingerprint size-sensitive");
 }
@@ -1826,8 +1873,9 @@ void test_shell_compositor_async_publish_wake() {
 }
 
 // Resize/move leaves the client larger than the last published DIB. present()
-// must fill the paint rect (NULL_BRUSH + WM_ERASEBKGND=1 otherwise shows
-// desktop) and BitBlt only the intersection with the front buffer.
+// BitBlts the front first, then fills only uncovered margins (NULL_BRUSH +
+// WM_ERASEBKGND=1 otherwise shows desktop). A full front cover must not
+// FillRect the paint rect (that flash is mouse-move flicker).
 void test_shell_compositor_present_fills_when_buffer_lags() {
   BITMAPINFO bmi = {};
   bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -1886,6 +1934,64 @@ void test_shell_compositor_present_fills_when_buffer_lags() {
          "lag present copies front pixels");
   expect((px[20 * 32 + 20] & 0x00FFFFFFu) == fill_bgra,
          "lag present fills outside front");
+
+  compositor.shutdown();
+  SelectObject(mem, old);
+  DeleteDC(mem);
+  DeleteObject(dib);
+}
+
+// Full-size published front must BitBlt without a prior FillRect wipe â that
+// flash was the mouse-hover flicker / hollow chrome symptom.
+void test_shell_compositor_present_no_flash_when_front_covers() {
+  BITMAPINFO bmi = {};
+  bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bmi.bmiHeader.biWidth = 16;
+  bmi.bmiHeader.biHeight = -16;
+  bmi.bmiHeader.biPlanes = 1;
+  bmi.bmiHeader.biBitCount = 32;
+  bmi.bmiHeader.biCompression = BI_RGB;
+  void* bits = nullptr;
+  HBITMAP dib =
+      CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+  expect(dib != nullptr && bits != nullptr, "no-flash dest DIB");
+  if (!dib || !bits) {
+    return;
+  }
+  HDC mem = CreateCompatibleDC(nullptr);
+  expect(mem != nullptr, "no-flash mem DC");
+  if (!mem) {
+    DeleteObject(dib);
+    return;
+  }
+  HGDIOBJ old = SelectObject(mem, dib);
+  auto* px = static_cast<std::uint32_t*>(bits);
+
+  ShellCompositor compositor;
+  compositor.start();
+  PaintCommit frame;
+  frame.width_px = 16;
+  frame.height_px = 16;
+  frame.dirty = Rect{0, 0, 16, 16};
+  frame.font_px = 12;
+  frame.clear_color = ui::gfx::color_rgb(10, 20, 30);
+  frame.generation = 7;
+  compositor.commit(std::move(frame));
+  expect(compositor.wait_published(7), "cover frame published");
+
+  const ui::gfx::Color poison_fill = ui::gfx::color_rgb(200, 10, 10);
+  for (int i = 0; i < 16 * 16; ++i) {
+    px[i] = 0x00DEADBEu;
+  }
+  RECT dest = {0, 0, 16, 16};
+  expect(compositor.present(mem, dest, poison_fill) == 7, "cover present gen");
+  const std::uint32_t front_bgra = (30u) | (20u << 8) | (10u << 16);
+  const std::uint32_t poison_bgra = (10u) | (10u << 8) | (200u << 16);
+  expect((px[0] & 0x00FFFFFFu) == front_bgra, "cover present uses front");
+  expect((px[8 * 16 + 8] & 0x00FFFFFFu) == front_bgra,
+         "cover present center is front");
+  expect((px[0] & 0x00FFFFFFu) != poison_bgra,
+         "cover present did not leave fill flash");
 
   compositor.shutdown();
   SelectObject(mem, old);
@@ -1983,6 +2089,8 @@ void test_set_text_caches_measure() {
 void test_vblank_clock_wait_returns() {
   ui::gfx::VblankClock clock;
   clock.set_hwnd(nullptr);
+  // Cold DXGI factory/output enum can exceed a frame; warm before timing.
+  (void)clock.wait_next(16);
   const DWORD t0 = GetTickCount();
   (void)clock.wait_next(16);
   const DWORD t1 = GetTickCount();
@@ -2037,6 +2145,7 @@ int main() {
   test_sibling_overlap_detection();
   test_gantt_lane_geom_spaced();
   test_tab_strip_catalog_labels_have_cells();
+  test_tab_strip_packed_not_equal_width();
   test_ambox_buttons_not_collapsed();
   test_forensics_dump_writes_manifest();
   test_tab_strip_page_bounds_align();
@@ -2062,6 +2171,7 @@ int main() {
   test_paint_commit_snapshot_isolation();
   test_shell_compositor_async_publish_wake();
   test_shell_compositor_present_fills_when_buffer_lags();
+  test_shell_compositor_present_no_flash_when_front_covers();
   test_set_layers_layouts_once();
   test_scroll_skips_layout_when_preferred_unchanged();
   test_table_paints_viewport_rows_only();

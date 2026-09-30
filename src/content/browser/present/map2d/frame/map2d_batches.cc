@@ -18,6 +18,7 @@
 #include "base/execution/executor/pool/global_executor.h"
 #include "base/execution/parallel/for.h"
 #include "base/execution/pipeline/pipeline.h"
+#include "gis/datasource/provider/impl/ogr/text/ogr_text_encoding.h"
 
 namespace content {
 namespace detail {
@@ -102,7 +103,8 @@ int feature_label_importance(const MapScene::Feature& f) {
     return by_name;
   }
   if (const char* kind = feature_field(f, "kind")) {
-    if (std::strcmp(kind, "city") == 0) {
+    // City / seat points must clear the country-frame label gate (min 2).
+    if (std::strcmp(kind, "city") == 0 || std::strcmp(kind, "point") == 0) {
       return 2;
     }
   }
@@ -129,13 +131,19 @@ std::string carto_source_layer(const MapScene::Feature& feature) {
     return "land";
   }
   if (feature.kind == MapScene::GeomKind::kLine) {
-    if (has("river") || has("stream") || has("canal")) {
+    if (has("river") || has("stream") || has("canal") || has("lake")) {
       return "river";
     }
-    if (has("admin") || has("bound")) {
+    if (has("admin") || has("bound") || has("border")) {
       return "admin";
     }
-    return "road";
+    if (has("road") || has("highway") || has("motorway") || has("trunk") ||
+        has("primary") || has("secondary") || has("street")) {
+      return "road";
+    }
+    // china_city mixes Natural Earth rivers with sparse roads; unknown lines
+    // default to river so country frame is not filled with road casing gold.
+    return "river";
   }
   return "label";
 }
@@ -236,13 +244,19 @@ void append_layer_features(const MapScene::Layer& layer, bool use_carto_slots,
     out->owned.push_back(std::move(geom));
     std::map<std::string, std::string> attrs;
     for (const MapScene::Field& field : f.fields) {
-      attrs.emplace(field.name, field.value);
+      // Layout next_codepoint / glyph metrics require UTF-8; OGR may hand GBK.
+      if (field.name == "name" || field.name == "anno" || field.name == "text") {
+        attrs.emplace(field.name,
+                      gis::datasource::ogr_bytes_to_utf8(field.value));
+      } else {
+        attrs.emplace(field.name, field.value);
+      }
     }
     // Ensure Layout text-field fallbacks see display name.
     if (attrs.find("anno") == attrs.end() && attrs.find("name") == attrs.end()) {
       std::string display = feature_display_name(f);
       if (!display.empty()) {
-        attrs.emplace("name", std::move(display));
+        attrs.emplace("name", gis::datasource::ogr_bytes_to_utf8(display));
       }
     }
     batch->attrs.push_back(std::move(attrs));

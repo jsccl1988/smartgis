@@ -10,9 +10,10 @@
 #include "gdal.h"
 #include "gdal_priv.h"
 #include "legacy/render/rhi3d/public/camera/camera.h"
-#include "legacy/render/rhi3d/public/device/3drenderdevice.h"
+#include "legacy/render/rhi3d/public/device/render_device.h"
 #include "legacy/render/scene3d/bridge/map_to_scene.h"
 #include "legacy/render/scene3d/scene/scene.h"
+#include "legacy/render/test/paint_test_host.h"
 #include "ogrsf_frmts.h"
 
 #ifndef NOMINMAX
@@ -31,50 +32,8 @@ void expect(bool ok, const char* msg) {
   }
 }
 
-std::string exe_dir() {
-  char path[MAX_PATH] = {};
-  DWORD n = GetModuleFileNameA(nullptr, path, MAX_PATH);
-  if (n == 0 || n >= MAX_PATH) {
-    return {};
-  }
-  for (int i = static_cast<int>(n) - 1; i >= 0; --i) {
-    if (path[i] == '\\' || path[i] == '/') {
-      path[i + 1] = '\0';
-      break;
-    }
-  }
-  return path;
-}
-
 std::string find_china_plp() {
-  const std::string dir = exe_dir();
-  const char* rel[] = {
-      "..\\data\\china_city.gpkg",
-      "..\\data\\china_city.geojson",
-      "..\\data\\china_plp.geojson",
-      "data\\china_city.gpkg",
-      "data\\china_city.geojson",
-      "data\\china_plp.geojson",
-      "china_city.gpkg",
-      "china_city.geojson",
-      "china_plp.geojson",
-      "testing\\data\\china_city.gpkg",
-      "testing\\data\\china_city.geojson",
-      "testing\\data\\china_plp.geojson",
-      "..\\testing\\data\\china_city.gpkg",
-      "..\\testing\\data\\china_plp.geojson",
-      "..\\..\\testing\\data\\china_city.gpkg",
-      "..\\..\\testing\\data\\china_plp.geojson",
-  };
-  for (const char* r : rel) {
-    const std::string cand = dir + r;
-    const DWORD attr = GetFileAttributesA(cand.c_str());
-    if (attr != INVALID_FILE_ATTRIBUTES &&
-        (attr & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-      return cand;
-    }
-  }
-  return {};
+  return legacy_render::detail::find_china_vector_sample();
 }
 
 int count_non_black_hwnd(HWND hwnd, int w, int h) {
@@ -222,7 +181,8 @@ int main() {
     }
   }
   const bool city_pack = path.find("china_city") != std::string::npos;
-  expect(n_region >= (city_pack ? 100 : 8), "several region polygons");
+  // NE 10m china_city area layer is ~48 MultiPolygons (was 370 prefectures).
+  expect(n_region >= (city_pack ? 40 : 8), "several region polygons");
   expect(n_line >= 1, "line features");
   expect(n_dot >= (city_pack ? 50 : 5), "city points");
   expect(n_anno >= (city_pack ? 50 : 5), "annotation text features");
@@ -230,7 +190,7 @@ int main() {
                n_line, n_dot, n_anno);
 
   const int seeded = render::seed_geojson_into_scene(dev, &scene, path.c_str());
-  expect(seeded >= (city_pack ? 100 : 20), "seed China sample into 3D scene");
+  expect(seeded >= (city_pack ? 40 : 20), "seed China sample into 3D scene");
   std::fprintf(stderr, "step: seeded=%d\n", seeded);
   std::fflush(stderr);
 

@@ -14,9 +14,9 @@
 #include "gis/model/map/map_layer.h"
 #include "gis/present/style/style_document.h"
 #include "gis/vista/world/terrain/tessellate.h"
-#include "legacy/render/rhi3d/public/device/3drenderdefs.h"
-#include "legacy/render/rhi3d/public/resource/indexbuffer.h"
-#include "legacy/render/rhi3d/public/resource/vertexbuffer.h"
+#include "legacy/render/rhi3d/public/device/render_defs.h"
+#include "legacy/render/rhi3d/public/resource/index_buffer.h"
+#include "legacy/render/rhi3d/public/resource/vertex_buffer.h"
 #include "render/programs/programs.h"
 #include "render/rhi/rhi.h"
 
@@ -243,8 +243,7 @@ int main() {
     expect(paint_stub && paint_stub->set_constants_calls >= 1 &&
                read_color(paint_stub, &paint_color),
            "styled solid color applied");
-    expect(paint_color.r > 0.9f && paint_color.g < 0.1f &&
-               paint_color.b < 0.1f,
+    expect(paint_color.r > 0.9f && paint_color.g < 0.1f && paint_color.b < 0.1f,
            "per-layer fill is red not cyan");
   }
 

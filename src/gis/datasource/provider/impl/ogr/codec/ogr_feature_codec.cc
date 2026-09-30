@@ -5,7 +5,7 @@
 
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "gis/kernel/geo/mesh/matrix2d.h"
-#include "legacy/carto/style.h"
+#include "legacy/gis/present/carto/style.h"
 #include "base/memory/arena.h"
 #include "gis/datasource/provider/impl/ogr/codec/ogr_feature_kind.h"
 

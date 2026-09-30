@@ -13,6 +13,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <fstream>
 #include <vector>
 
@@ -26,6 +27,32 @@ constexpr uint32_t kLitPositionNormalStride = 6 * sizeof(float);
 bool is_lit_kind(gis::NodeKind kind) {
   return kind == gis::NodeKind::kTerrain || kind == gis::NodeKind::kModel ||
          kind == gis::NodeKind::kTileset;
+}
+
+bool frustum_cull_enabled() {
+  // Default off for Scene3d DEM: geographic→orbit AABB mismatches historically
+  // culled the whole terrain (blank navy clear on interactive HWND while
+  // 640x480 showcase still drew). Opt in with SMT_SCENE3D_FRUSTUM_CULL=1.
+  const char* on = std::getenv("SMT_SCENE3D_FRUSTUM_CULL");
+  if (on && on[0] == '1' && on[1] == '\0') {
+    return true;
+  }
+  const char* e = std::getenv("SMT_SCENE3D_NO_CULL");
+  if (e && e[0] == '1' && e[1] == '\0') {
+    return false;
+  }
+  return false;
+}
+
+bool mesh_culled(const GpuScene::GpuMesh& mesh,
+                 const FrustumPlanes* cull_frustum) {
+  if (!frustum_cull_enabled() || !cull_frustum) {
+    return false;
+  }
+  return !aabb_intersects_frustum(mesh.aabb_min_x, mesh.aabb_min_y,
+                                  mesh.aabb_min_z, mesh.aabb_max_x,
+                                  mesh.aabb_max_y, mesh.aabb_max_z,
+                                  *cull_frustum);
 }
 
 // Expand xyz-only positions to interleaved POSITION+NORMAL (6 floats/vert)
@@ -260,12 +287,35 @@ bool tessellate_vector_instance(const GpuInstance& inst,
                 paint->type == gis::style::LayerType::kCircle);
 
   if (!style_stroke) {
+    // Fill path: ear-clip with view resolution so concave admin rings
+    // (Inner Mongolia) keep a coherent frontier instead of fan+PIP chords.
+    gis::FillTessOptions fill_opts;
+    fill_opts.world_units_per_pixel = world_units_per_pixel;
+    fill_opts.max_fan_verts = 1024;
     if (inst.ogr_layer) {
-      return gis::tessellate_layer(inst.ogr_layer, out);
+      inst.ogr_layer->ResetReading();
+      bool any = false;
+      while (OGRFeature* feat = inst.ogr_layer->GetNextFeature()) {
+        gis::TessMesh part;
+        if (gis::tessellate_geometry(feat->GetGeometryRef(), fill_opts,
+                                     part)) {
+          append_mesh(out, part);
+          any = true;
+        }
+        OGRFeature::DestroyFeature(feat);
+      }
+      return any && !out.indices.empty();
     }
     if (!inst.geoms.empty()) {
-      return gis::tessellate_geoms(inst.geoms.data(), inst.geoms.size(),
-                                          out);
+      bool any = false;
+      for (const OGRGeometry* g : inst.geoms) {
+        gis::TessMesh part;
+        if (gis::tessellate_geometry(g, fill_opts, part)) {
+          append_mesh(out, part);
+          any = true;
+        }
+      }
+      return any && !out.indices.empty();
     }
     return false;
   }
@@ -485,7 +535,8 @@ render::rhi::Texture* upload_symbol_texture(
 bool upload_mesh(render::rhi::Device* device, const float* positions,
                  size_t position_count, const uint32_t* indices,
                  size_t index_count, bool with_uv, bool with_normals,
-                 bool uv_on_xz, GpuScene::GpuMesh* out) {
+                 bool uv_on_xz, const float* explicit_uvs,
+                 GpuScene::GpuMesh* out) {
   if (!device || !out || !positions || !indices || position_count == 0 ||
       index_count == 0 || (position_count % 3) != 0) {
     return false;
@@ -496,40 +547,55 @@ bool upload_mesh(render::rhi::Device* device, const float* positions,
   uint32_t stride = kPositionStride;
   if (with_uv) {
     const size_t verts = position_count / 3;
-    // Terrain drape uses X/Z (lon/lat plane); 2D rasters use X/Y.
-    const int u_axis = 0;
-    const int v_axis = uv_on_xz ? 2 : 1;
-    float minu = positions[u_axis];
-    float minv = positions[v_axis];
-    float maxu = minu;
-    float maxv = minv;
-    for (size_t i = 0; i < verts; ++i) {
-      const float u = positions[i * 3 + static_cast<size_t>(u_axis)];
-      const float v = positions[i * 3 + static_cast<size_t>(v_axis)];
-      if (u < minu) {
-        minu = u;
-      }
-      if (v < minv) {
-        minv = v;
-      }
-      if (u > maxu) {
-        maxu = u;
-      }
-      if (v > maxv) {
-        maxv = v;
-      }
-    }
-    const float du = (maxu - minu) > 1e-6f ? (maxu - minu) : 1.f;
-    const float dv = (maxv - minv) > 1e-6f ? (maxv - minv) : 1.f;
     interleaved.resize(verts * 5);
-    for (size_t i = 0; i < verts; ++i) {
-      interleaved[i * 5 + 0] = positions[i * 3 + 0];
-      interleaved[i * 5 + 1] = positions[i * 3 + 1];
-      interleaved[i * 5 + 2] = positions[i * 3 + 2];
-      interleaved[i * 5 + 3] =
-          (positions[i * 3 + static_cast<size_t>(u_axis)] - minu) / du;
-      interleaved[i * 5 + 4] =
-          (positions[i * 3 + static_cast<size_t>(v_axis)] - minv) / dv;
+    const bool have_explicit =
+        explicit_uvs != nullptr;
+    if (have_explicit) {
+      for (size_t i = 0; i < verts; ++i) {
+        interleaved[i * 5 + 0] = positions[i * 3 + 0];
+        interleaved[i * 5 + 1] = positions[i * 3 + 1];
+        interleaved[i * 5 + 2] = positions[i * 3 + 2];
+        interleaved[i * 5 + 3] = explicit_uvs[i * 2 + 0];
+        interleaved[i * 5 + 4] = explicit_uvs[i * 2 + 1];
+      }
+    } else {
+      // Terrain drape uses X/Z (lon/lat plane); 2D rasters use X/Y.
+      const int u_axis = 0;
+      const int v_axis = uv_on_xz ? 2 : 1;
+      float minu = positions[u_axis];
+      float minv = positions[v_axis];
+      float maxu = minu;
+      float maxv = minv;
+      for (size_t i = 0; i < verts; ++i) {
+        const float u = positions[i * 3 + static_cast<size_t>(u_axis)];
+        const float v = positions[i * 3 + static_cast<size_t>(v_axis)];
+        if (u < minu) {
+          minu = u;
+        }
+        if (v < minv) {
+          minv = v;
+        }
+        if (u > maxu) {
+          maxu = u;
+        }
+        if (v > maxv) {
+          maxv = v;
+        }
+      }
+      const float du = (maxu - minu) > 1e-6f ? (maxu - minu) : 1.f;
+      const float dv = (maxv - minv) > 1e-6f ? (maxv - minv) : 1.f;
+      for (size_t i = 0; i < verts; ++i) {
+        interleaved[i * 5 + 0] = positions[i * 3 + 0];
+        interleaved[i * 5 + 1] = positions[i * 3 + 1];
+        interleaved[i * 5 + 2] = positions[i * 3 + 2];
+        interleaved[i * 5 + 3] =
+            (positions[i * 3 + static_cast<size_t>(u_axis)] - minu) / du;
+        // DEM bake / imagery: row0 = north. Orbit Z = lat; north is max Z.
+        // Flip V so AABB fallback matches explicit mesh-grid UVs.
+        const float vn =
+            (positions[i * 3 + static_cast<size_t>(v_axis)] - minv) / dv;
+        interleaved[i * 5 + 4] = uv_on_xz ? (1.f - vn) : vn;
+      }
     }
     vb_data = interleaved.data();
     vb_bytes = static_cast<uint32_t>(interleaved.size() * sizeof(float));
@@ -574,6 +640,8 @@ void record_kind(render::rhi::CommandList* list,
                  gis::NodeKind kind, bool* pass_opened,
                  render::rhi::Pipeline* solid, render::rhi::Pipeline* textured,
                  render::rhi::Pipeline* lit_pipeline,
+                 render::rhi::Pipeline* lit_textured_pipeline,
+                 const render::programs::Light& light,
                  const FrustumPlanes* cull_frustum) {
   bool any = false;
   for (const auto& mesh : meshes) {
@@ -581,11 +649,7 @@ void record_kind(render::rhi::CommandList* list,
         !mesh.index) {
       continue;
     }
-    if (cull_frustum &&
-        !aabb_intersects_frustum(mesh.aabb_min_x, mesh.aabb_min_y,
-                                 mesh.aabb_min_z, mesh.aabb_max_x,
-                                 mesh.aabb_max_y, mesh.aabb_max_z,
-                                 *cull_frustum)) {
+    if (mesh_culled(mesh, cull_frustum)) {
       continue;
     }
     any = true;
@@ -612,38 +676,43 @@ void record_kind(render::rhi::CommandList* list,
     list->set_depth_mode(render::rhi::DepthMode::kWrite);
   }
   const bool lit = is_lit_kind(kind);
-  bool lit_bound = false;
+  bool light_bound = false;
+  auto bind_light = [&]() {
+    if (!light_bound) {
+      list->set_constants(render::programs::kLightSlot, &light,
+                          static_cast<uint32_t>(sizeof(light)));
+      light_bound = true;
+    }
+  };
   for (const auto& mesh : meshes) {
     if (mesh.kind != kind || mesh.index_count == 0 || !mesh.vertex ||
         !mesh.index) {
       continue;
     }
-    // CPU frustum cull when an external view camera is bound (P0). Without a
-    // cull frustum, preserve legacy full-draw behavior.
-    if (cull_frustum &&
-        !aabb_intersects_frustum(mesh.aabb_min_x, mesh.aabb_min_y,
-                                 mesh.aabb_min_z, mesh.aabb_max_x,
-                                 mesh.aabb_max_y, mesh.aabb_max_z,
-                                 *cull_frustum)) {
+    if (mesh_culled(mesh, cull_frustum)) {
       continue;
     }
     const render::programs::Color color{mesh.solid_r, mesh.solid_g, mesh.solid_b,
                                 mesh.solid_a};
-    if (mesh.texture) {
+    if (mesh.texture && lit && lit_textured_pipeline &&
+        kind == gis::NodeKind::kTerrain) {
+      // DEM hypsometric / draped imagery: Lambert × sample. Models keep the
+      // unlit textured path (symbol icons etc.).
+      list->set_pipeline(lit_textured_pipeline);
+      list->bind_texture(mesh.texture, render::programs::kTextureSlot);
+      bind_light();
+      list->set_constants(render::programs::kColorSlot, &color,
+                          static_cast<uint32_t>(sizeof(color)));
+    } else if (mesh.texture) {
       list->set_pipeline(textured);
       list->bind_texture(mesh.texture, render::programs::kTextureSlot);
       // kPsTextured multiplies sample by ColorCB tint (map2d opacity path).
       list->set_constants(render::programs::kColorSlot, &color,
                           static_cast<uint32_t>(sizeof(color)));
     } else if (lit) {
-      // 3D terrain / model / tileset: Lambert lit solid + default light.
+      // 3D terrain / model / tileset: Lambert lit solid + session light.
       list->set_pipeline(lit_pipeline);
-      if (!lit_bound) {
-        const render::programs::Light light{};
-        list->set_constants(render::programs::kLightSlot, &light,
-                            static_cast<uint32_t>(sizeof(light)));
-        lit_bound = true;
-      }
+      bind_light();
       list->set_constants(render::programs::kColorSlot, &color,
                           static_cast<uint32_t>(sizeof(color)));
     } else {
@@ -718,10 +787,12 @@ void GpuScene::destroy_pipelines() {
     pipeline_device_->destroy_pipeline(solid_pipeline_);
     pipeline_device_->destroy_pipeline(textured_pipeline_);
     pipeline_device_->destroy_pipeline(lit_pipeline_);
+    pipeline_device_->destroy_pipeline(lit_textured_pipeline_);
   }
   solid_pipeline_ = nullptr;
   textured_pipeline_ = nullptr;
   lit_pipeline_ = nullptr;
+  lit_textured_pipeline_ = nullptr;
   pipeline_device_ = nullptr;
 }
 
@@ -730,7 +801,7 @@ bool GpuScene::ensure_pipelines(render::rhi::Device* device) {
     return false;
   }
   if (pipeline_device_ == device && solid_pipeline_ && textured_pipeline_ &&
-      lit_pipeline_) {
+      lit_pipeline_ && lit_textured_pipeline_) {
     return true;
   }
   if (pipeline_device_ != nullptr && pipeline_device_ != device) {
@@ -749,7 +820,12 @@ bool GpuScene::ensure_pipelines(render::rhi::Device* device) {
     lit_pipeline_ =
         device->create_graphics_pipeline(render::programs::lit_pipeline_desc());
   }
-  return solid_pipeline_ && textured_pipeline_ && lit_pipeline_;
+  if (!lit_textured_pipeline_) {
+    lit_textured_pipeline_ = device->create_graphics_pipeline(
+        render::programs::lit_textured_pipeline_desc());
+  }
+  return solid_pipeline_ && textured_pipeline_ && lit_pipeline_ &&
+         lit_textured_pipeline_;
 }
 
 void GpuScene::release() {
@@ -761,6 +837,7 @@ void GpuScene::abandon() {
   solid_pipeline_ = nullptr;
   textured_pipeline_ = nullptr;
   lit_pipeline_ = nullptr;
+  lit_textured_pipeline_ = nullptr;
   pipeline_device_ = nullptr;
   meshes_.clear();
   upload_device_ = nullptr;
@@ -1052,16 +1129,31 @@ bool GpuScene::rebuild_meshes(render::rhi::Device* device, uint32_t width,
         inst.terrain_rgba.size() >=
             static_cast<size_t>(inst.terrain_tex_w) *
                 static_cast<size_t>(inst.terrain_tex_h) * 4u;
+    render::rhi::Texture* terrain_gpu_tex = nullptr;
     if (terrain_tex) {
+      terrain_gpu_tex = upload_rgba_texture_wh(device, inst.terrain_rgba.data(),
+                                               inst.terrain_tex_w,
+                                               inst.terrain_tex_h);
+    }
+    const bool terrain_tex_ok = terrain_gpu_tex != nullptr;
+    if (terrain_tex_ok) {
       cpu.has_image = true;
     }
-    const bool with_uv = cpu.has_image || want_symbol;
+    const bool with_uv = terrain_tex_ok || want_symbol;
     // Lit kinds upload POSITION+NORMAL unless textured (UV path wins).
     const bool with_normals = is_lit_kind(inst.kind) && !with_uv;
-    const bool uv_on_xz = terrain_tex;
+    const bool uv_on_xz = terrain_tex_ok;
+    const float* explicit_uvs = nullptr;
+    if (terrain_tex_ok &&
+        inst.terrain_uvs.size() == (cpu.positions.size() / 3) * 2) {
+      explicit_uvs = inst.terrain_uvs.data();
+    }
     if (!upload_mesh(device, cpu.positions.data(), cpu.positions.size(),
                      cpu.indices.data(), cpu.indices.size(), with_uv,
-                     with_normals, uv_on_xz, &mesh)) {
+                     with_normals, uv_on_xz, explicit_uvs, &mesh)) {
+      if (terrain_gpu_tex) {
+        device->destroy_texture(terrain_gpu_tex);
+      }
       clear_meshes();
       return false;
     }
@@ -1104,10 +1196,21 @@ bool GpuScene::rebuild_meshes(render::rhi::Device* device, uint32_t width,
       mesh.aabb_max_y = mx_y;
       mesh.aabb_max_z = mx_z;
     }
-    if (terrain_tex) {
-      mesh.texture = upload_rgba_texture_wh(device, inst.terrain_rgba.data(),
-                                            inst.terrain_tex_w,
-                                            inst.terrain_tex_h);
+    if (terrain_tex_ok) {
+      mesh.texture = terrain_gpu_tex;
+      // Boost land readability: hypsometric * warm land tint (not pure white).
+      // Keep Style paint albedo when set_instance_paint already filled solid_*.
+      if (!inst.has_paint) {
+        mesh.solid_r = 1.05f;
+        mesh.solid_g = 1.15f;
+        mesh.solid_b = 0.85f;
+        mesh.solid_a = 1.f;
+      }
+    } else if (inst.kind == gis::NodeKind::kTerrain && !inst.has_paint) {
+      mesh.solid_r = 0.22f;
+      mesh.solid_g = 0.58f;
+      mesh.solid_b = 0.20f;
+      mesh.solid_a = 1.f;
     } else if (cpu.has_image && inst.layer) {
       mesh.texture = upload_layer_texture(device, inst.layer);
     } else if (want_symbol) {
@@ -1167,6 +1270,7 @@ void GpuScene::sync_from(const gis::World& world) {
     inst.visible_uris = node->visible_uris;
     inst.terrain_positions = node->terrain_positions;
     inst.terrain_indices = node->terrain_indices;
+    inst.terrain_uvs = node->terrain_uvs;
     inst.terrain_rgba = node->terrain_rgba;
     inst.terrain_tex_w = node->terrain_tex_w;
     inst.terrain_tex_h = node->terrain_tex_h;
@@ -1245,10 +1349,10 @@ bool GpuScene::record_draws(render::rhi::Device* device,
   }
   record_kind(list, pass, width, height, meshes_, gis::NodeKind::kRasterLayer,
               &pass_opened, solid_pipeline_, textured_pipeline_, lit_pipeline_,
-              nullptr);
+              lit_textured_pipeline_, light_, nullptr);
   record_kind(list, pass, width, height, meshes_, gis::NodeKind::kVectorLayer,
               &pass_opened, solid_pipeline_, textured_pipeline_, lit_pipeline_,
-              nullptr);
+              lit_textured_pipeline_, light_, nullptr);
   if (have_3d && !external_camera && !view_camera_set_) {
     const float aspect =
         static_cast<float>(width) / static_cast<float>(height);
@@ -1257,13 +1361,13 @@ bool GpuScene::record_draws(render::rhi::Device* device,
   }
   record_kind(list, pass, width, height, meshes_, gis::NodeKind::kModel,
               &pass_opened, solid_pipeline_, textured_pipeline_, lit_pipeline_,
-              cull_frustum);
+              lit_textured_pipeline_, light_, cull_frustum);
   record_kind(list, pass, width, height, meshes_, gis::NodeKind::kTerrain,
               &pass_opened, solid_pipeline_, textured_pipeline_, lit_pipeline_,
-              cull_frustum);
+              lit_textured_pipeline_, light_, cull_frustum);
   record_kind(list, pass, width, height, meshes_, gis::NodeKind::kTileset,
               &pass_opened, solid_pipeline_, textured_pipeline_, lit_pipeline_,
-              cull_frustum);
+              lit_textured_pipeline_, light_, cull_frustum);
 
   if (meshes_.empty()) {
     list->begin_render_pass(pass);

@@ -59,6 +59,9 @@ static_assert(offsetof(Light, intensity) == 28, "intensity is the last float");
 RENDER_EXPORT rhi::GraphicsPipelineDesc solid_pipeline_desc();
 RENDER_EXPORT rhi::GraphicsPipelineDesc textured_pipeline_desc();
 RENDER_EXPORT rhi::GraphicsPipelineDesc lit_pipeline_desc();
+// DEM / lit kinds with a base-color texture: UV layout plus LightCB.
+// Pixel shader is a small PBR (GGX + sun self-shadow + derivative AA).
+RENDER_EXPORT rhi::GraphicsPipelineDesc lit_textured_pipeline_desc();
 
 }  // namespace programs
 }  // namespace render

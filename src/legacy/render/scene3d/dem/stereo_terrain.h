@@ -7,8 +7,8 @@
 #include <memory>
 
 #include "legacy/render/legacy_render_export.h"
-#include "legacy/render/rhi3d/public/resource/indexbuffer.h"
-#include "legacy/render/rhi3d/public/resource/vertexbuffer.h"
+#include "legacy/render/rhi3d/public/resource/index_buffer.h"
+#include "legacy/render/rhi3d/public/resource/vertex_buffer.h"
 #include "legacy/render/scene3d/dem/dem_height_field.h"
 #include "legacy/render/scene3d/scene/object.h"
 

@@ -1,0 +1,60 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# MFC shell glue + map/3D viewport views → ui_legacy.
+source_set("shell_sources") {
+  configs += [
+    "//build:legacy",
+    "//build:mfc",
+  ]
+  defines = [
+    "_USRDLL",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
+    "XVIEW_EXPORTS",
+  ]
+  precompiled_header = "stdafx.h"
+  precompiled_source = "stdafx.cpp"
+  sources = [
+    "shell.rc",
+    "stdafx.cpp",
+    "view_shell.cc",
+    "view_shell.h",
+    "shell.cpp",
+    "../map/view_2d_edit.cpp",
+    "../map/view_2d.cpp",
+    "../map/view_3d.cpp",
+  ]
+  include_dirs += [
+    ".",
+    "../map",
+    "//src",
+  ]
+  deps = [
+    "//src/content:view_host",
+    "//src/gis/model/edit:map_edit",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/model/map:gis",
+    "//src/legacy/render/rhi3d:rhi",
+    "//src/legacy/render/scene3d:scene3d",
+    "//src/legacy/sys:sys",
+    "//src/plugin:plugin",
+    "//src/plugin:cmd",
+    "//src/legacy/tool:tool",
+    "//src/tool:dispatch",
+    "//src/legacy/gis/datasource:sde_mgr",
+  ]
+}
+
+group("shell") {
+  public_deps = [ "//src/legacy/ui:ui_legacy" ]
+}
+
+group("xview") {
+  public_deps = [ "//src/legacy/ui:ui_legacy" ]
+}

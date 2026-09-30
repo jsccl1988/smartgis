@@ -90,9 +90,11 @@ void test_tab_strip_switch_via_generator() {
   tabs_ptr->set_change([&](int i) { changed = i; });
   tabs_ptr->add_tab("One", std::move(a));
   tabs_ptr->add_tab("Two", std::move(b));
+  TabStrip* tabs = tabs_ptr.get();
   host.root->add_child(std::move(tabs_ptr));
+  tabs->layout();
 
-  expect(gen.click(150, 10), "second tab click");
+  expect(gen.click(tabs->tab_x_at(1) + 4, 10), "second tab click");
   expect(changed == 1, "tab changed");
   expect(page1->is_visible(), "page1 visible");
   expect(!page0->is_visible(), "page0 hidden");

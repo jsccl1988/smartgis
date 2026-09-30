@@ -31,7 +31,8 @@
         "-Dgtest_force_shared_crt=ON",
         "-DBUILD_GMOCK=ON",
         "-DBUILD_SHARED_LIBS=OFF",
-        "-DINSTALL_GTEST=ON"
+        "-DINSTALL_GTEST=ON",
+        "-DCMAKE_DEBUG_POSTFIX=d"
       ]
     },
     {
@@ -240,7 +241,7 @@
       "git_ref": "1b03312157e97286e5737c24695a5e5313138c52",
       "build_system": "cmake",
       "install_skip": true,
-      "note": "Mirrored to Gitea from local FlyCube checkout (was shallow; unshallowed then pushed). Low-level DX12/Vulkan/Metal API behind render::rhi. Sources in .src/flycube."
+      "note": "Mirrored to Gitea from local FlyCube checkout (was shallow; unshallowed then pushed). Low-level DX12/Vulkan/Metal API behind render::rhi. Sources in .src/flycube; Release /MD libs merge into third_party/.install/lib (no flycube_prebuilt root)."
     },
     {
       "name": "assimp",
@@ -305,7 +306,7 @@
         "platform/default",
         "platform/windows"
       ],
-      "note": "Deferred 2026-09-27: product MapLibre Native pin removed (no smt_enable_maplibre / maplibre_native link). Manifest kept for a future reconsider. Monorepo tag ios-v6.30.0. Lands in .src/maplibre-native if fetched. Do not rmtree CEF/flycube. Do not checkout into out/."
+      "note": "Deferred 2026-09-27: product MapLibre Native pin removed (no smt_enable_maplibre / maplibre_native link). Manifest kept for a future reconsider. Monorepo tag ios-v6.30.0. Lands in .src/maplibre-native if fetched. Install products merge into third_party/.install. Do not rmtree CEF/flycube. Do not checkout into out/."
     },
     {
       "name": "eigen",

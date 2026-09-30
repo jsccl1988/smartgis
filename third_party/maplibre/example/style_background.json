@@ -1,0 +1,15 @@
+{
+  "version": 8,
+  "name": "smartgis-maplibre-background",
+  "sources": {},
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#1a5276",
+        "background-opacity": 1
+      }
+    }
+  ]
+}

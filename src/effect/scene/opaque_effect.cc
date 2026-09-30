@@ -16,7 +16,12 @@ render::graph::EffectSlot OpaqueEffect::slot() const {
 
 bool OpaqueEffect::clears_color() const { return false; }
 
-bool OpaqueEffect::uses_shared_depth() const { return false; }
+bool OpaqueEffect::uses_shared_depth() const {
+  // Depth chain is opened by PreOpaque when atmosphere is on; this effect only
+  // consumes ctx.shared_depth. Returning true here (with atmosphere off) made
+  // later passes assume a depth buffer that was never created.
+  return false;
+}
 
 bool OpaqueEffect::record(const render::graph::RecordContext& ctx) {
   if (!scene_ || !ctx.device || !ctx.list) {

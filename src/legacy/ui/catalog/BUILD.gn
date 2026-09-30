@@ -1,0 +1,60 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Layer / map / scene catalogs → ui_legacy.
+source_set("catalog_sources") {
+  configs += [
+    "//build:legacy",
+    "//build:mfc",
+  ]
+  defines = [
+    "_USRDLL",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
+    "XCATALOG_EXPORTS",
+  ]
+  precompiled_header = "stdafx.h"
+  precompiled_source = "stdafx.cpp"
+  include_dirs += [ "." ]
+  sources = [
+    "dlg_create_ds.cpp",
+    "dlg_create_layer.cpp",
+    "dlg_create_map.cpp",
+    "dlg_sel_fcls.cpp",
+    "dlg_sel_ds.cpp",
+    "dlg_sel_layer.cpp",
+    "catalog.rc",
+    "catalog_3d_obj.cpp",
+    "catalog_api.cpp",
+    "catalog_ds.cpp",
+    "catalog_map_doc.cpp",
+    "mapmgr.cpp",
+    "scenemgr.cpp",
+    "catalog_tree.cpp",
+    "stdafx.cpp",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/model/map:gis",
+    "//src/plugin:plugin",
+    "//src/legacy/render/rhi3d:rhi",
+    "//src/legacy/gis/datasource:sde_mgr",
+    "//third_party:gdal",
+    "//src/legacy/render/scene3d:scene3d",
+    "//src/legacy/sys:sys",
+    "//src/legacy/tool:tool",
+  ]
+}
+
+group("catalog") {
+  public_deps = [ "//src/legacy/ui:ui_legacy" ]
+}
+
+group("xcatalog") {
+  public_deps = [ "//src/legacy/ui:ui_legacy" ]
+}

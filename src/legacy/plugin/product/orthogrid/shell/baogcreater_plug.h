@@ -1,0 +1,4 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#include "legacy/plugin/product/orthogrid/shell/plug.h"

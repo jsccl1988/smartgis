@@ -17,7 +17,7 @@ MapLibre 风格 Style JSON **v1+ 子集**、外置符号库、属性/比例尺�
 | `resolve` / `eval_filter` | 选层 + 产出 `ResolvedPaint` |
 | `to_smt_style` | 桥到遗留 `base::SmtStyle` |
 
-**不是** `legacy/carto`（POD 笔刷；`gis::Envelope` 在 `gis/model`），也不是 `render`（只消费 paint）。
+**不是** `legacy/gis/present/carto`（POD 笔刷；`gis::Envelope` 在 `gis/model`），也不是 `render`（只消费 paint）。
 
 规格：`docs/superpowers/specs/2026-09-14-sdb-style-document-design.md`。
 

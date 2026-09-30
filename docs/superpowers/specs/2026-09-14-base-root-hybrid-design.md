@@ -7,7 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-14  
 **Status:** accepted（Phases 0–6 consolidator 已收口；**2026-09-15 amendment：** foundation 真源从仓库根迁入 `src/base/`；**2026-09-28：** §Trace / §Memory；**2026-09-28：** §Process malloc / PA-E）  
-**Updated:** 2026-09-28 — §Carto split (`Envelope` → `gis`；style POD → `legacy/carto`)。merge B: compressed child specs into this living umbrella (see §Folded topics). Do not open new dated twins.
+**Updated:** 2026-09-29 — carto POD → `legacy/gis/present/carto`（`gis.dll`）；§Trace Chromium-style subdir + `namespace base::trace` cutover.
 **Goal:** 将遗留 `src/base/core`（`Smt*`）对照 mogu **全部**替换到 foundation 树；制图 style / `sys` / `net` 留在产品层；分期 strangler，阶段末不留旧名转发壳。  
 **Related:** [`../../build/src-layout.md`](../../build/src-layout.md)、[`../../build/mogu-mapping.md`](../../build/mogu-mapping.md)、[`../../build/abi-rename-map.md`](../../build/abi-rename-map.md)、[`2026-09-13-code-style-include-abi-cutover-design.md`](../archive/specs/2026-09-13-code-style-include-abi-cutover-design.md)、[`2026-09-13-base-archive-design.md`](../archive/specs/2026-09-13-base-archive-design.md)、[`2026-09-13-base-ipc-mojom-design.md`](../archive/specs/2026-09-13-base-ipc-mojom-design.md)、[`2026-09-14-dll-reorganization-design.md`](../archive/specs/2026-09-14-dll-reorganization-design.md)  
 **Plan (Cursor):** `base_root_hybrid_fd0c40fd.plan.md`（会话外；本仓以本 spec + `docs/build` 为准）；**§Memory:** [`../plans/2026-09-28-base-memory.md`](../plans/2026-09-28-base-memory.md)；**§PA-E:** [`../plans/2026-09-28-partition-alloc-everywhere.md`](../plans/2026-09-28-partition-alloc-everywhere.md)
@@ -37,7 +37,7 @@ All rights reserved.
 | 手法 | **Hybrid**：薄面 port mogu header；厚/平台面按 mogu API 形状本仓 rewrite（Windows：`LoadLibrary`；无裸拷 `unistd`/`dlfcn`） |
 | 落点 | 终局 foundation = **`src/base/`**；仓库根**无**物理 `base/`、`core/`；兼容别名 `//:base` / `//:core` |
 | 边界 A — 进 foundation | `core`（headers）、`threading`、`files`、`memory`、`util`、`archive`、`ipc`、`synchronization` / `concurrency` / `execution`（见 [`2026-09-28-base-execution-design.md`](../archive/specs/2026-09-28-base-execution-design.md)）；按需 `string` / `time` / `traits` / `container` / `tuple` 子集 |
-| 边界 A — 留产品层 | 制图 pen/brush/`SmtStyle` → **`src/legacy/carto`**（仍链入 `base.dll`）；`gis::Envelope` → **`src/gis/model/envelope.h`**（header-only）；`sys`、`net` 不动 |
+| 边界 A — 留产品层 | 制图 pen/brush/`SmtStyle` → **`src/legacy/gis/present/carto`**（链入 **`gis.dll`**）；`gis::Envelope` → **`src/gis/model/envelope.h`**（header-only）；`sys`、`net` 不动 |
 | 硬排除 | 不搬 mogu `base::mutex`（新树 `std::mutex`）；不整棵搬 archive Json/Text/Yaml sink；不 vendor Chromium；不引入 Qt |
 | ABI | 破 `Smt*`；**阶段末不留**旧名转发壳；日常改动在 `master` |
 | 推进 | **分期 strangler**（每期绿再进下一期） |
@@ -51,7 +51,7 @@ All rights reserved.
 | **`//src/base:foundation`** | mogu 式 foundation | **无**产品 DLL；静态链入消费方 |
 | **`//:base`** / **`//:core`** | 根 `BUILD.gn` 转发 → `:foundation` | 无物理 `base/`、`core/` 目录 |
 | **`//src/base:base`**（+ legacy alias `:platform`） | 产品平台层 shared_library | **`dll_stem=base`** → `base.dll` / `base_d.dll` |
-| **产品平台 DLL 内容** | `legacy/core` leftovers + `legacy/carto` + xml + `sys`（net 已独立） | style POD 链入本 DLL；`gis::Envelope` 不在本 DLL |
+| **产品平台 DLL 内容** | `legacy/core` leftovers + `sys`（net 已独立；carto 已迁 `legacy/gis/present/carto` → `gis.dll`） | `gis::Envelope` 不在本 DLL |
 
 规则：
 
@@ -77,7 +77,9 @@ src/base/                 # //src/base:foundation + //src/base:base (base.dll)
 # (no repo-root base/ or core/ — //:base and //:core forward in BUILD.gn)
 src/
   legacy/core/            # Smt leftovers → core_sources → base.dll
-  legacy/carto/  legacy/{xml,sys}/  net/  plugin/
+  gis/present/{style,tile}/
+  legacy/gis/present/carto/  # leftover style POD → gis.dll
+  legacy/{sys}/  net/  plugin/
 ```
 
 ## 遗留 → 终局（摘要）
@@ -95,7 +97,7 @@ src/
 | `memshare` | **deleted**（无调用方；产品路径不需要） | Drop |
 | `timer` | `base/time` | Port/rewrite |
 | `listener` / `command` / `msg*` | 不进 foundation；已迁 `src/legacy/core`（仍编入 base.dll） | Rewrite / 删除 |
-| `xml*` | `src/legacy/xml` | 平移 |
+| `xml*` | **deleted**（TinyXML 无产品调用方；XML → pugixml） | Drop |
 | `winservice` | **deleted**（无调用方；非 Views 产品路径） | Drop |
 | `matrix2d.h` | `algorithm` 或 `sdb` | 平移 |
 | `src/base/style` | `src/sdb/carto` | 搬家 |
@@ -123,18 +125,21 @@ src/
 ## §Trace（2026-09-28）
 
 **Status:** active  
-**Plan:** [`../plans/2026-09-28-render-trace-profiler.md`](../plans/2026-09-28-render-trace-profiler.md)
+**Updated:** 2026-09-29 — Chromium-style subdirectory layout + `namespace base::trace`  
+**Plan:** [`../plans/2026-09-28-render-trace-profiler.md`](../plans/2026-09-28-render-trace-profiler.md) (landed); layout cutover [`../plans/2026-09-29-base-trace-subdir.md`](../plans/2026-09-29-base-trace-subdir.md)
 
-mogu-aligned `src/base/trace/` in foundation (header-mostly):
+mogu-aligned `src/base/trace/` in foundation (header-mostly). Public symbols live in **`namespace base::trace`** (internals in `base::trace::detail`). **No root forwarding headers.**
 
-| API | Header | Notes |
+| Subdir | API | Header |
 | --- | --- | --- |
-| `base::Trace` / `ScopedTracer` | `base/trace/trace.h` | Mutex + deque ring (no mogu `NonblockingQueue`) |
-| `process_trace` / `BASE_TRACE_EVENT` / `SMT_TRACE` | `base/trace/process_trace.h` | Process-wide; default off |
-| `SpanRecorder` | `base/trace/span_recorder.h` | Preallocated slots + overflow (P3) |
-| `export_chrome_trace` | `base/trace/chrome_trace.h` | `{"traceEvents":[...]}` |
+| `event/` | `Trace` / `ScopedTracer` / `process_trace` / `BASE_TRACE_EVENT` | `event/trace.h`, `event/process_trace.h` |
+| `recorder/` | `Span` / `SpanRecorder` | `recorder/span.h`, `recorder/span_recorder.h` |
+| `export/` | `export_chrome_trace` | `export/chrome_trace.h` |
+| `log/` | `format_trace_frame_log_lines` | `log/frame_log.h` |
+| `diag/` | `start_always_on_diagnostics` | `diag/diagnostic_bootstrap.h` |
+| `detail/` | JSON escape helpers | `detail/json_append.h` |
 
-Dump shape locked: Chrome Trace Event Format object (Perfetto / `chrome://tracing`). Categories for present: `map2d.*`, `scene3d.*`, `viewport.frame`.
+Dump shape locked: Chrome Trace Event Format object (Perfetto / `chrome://tracing`). Categories for present: `map2d.*`, `scene3d.*`, `viewport.frame`, **`gdi.frame` / `gdi.layer` / `gdi.geom`** (GDI leftover; see RHI §GDI leftover profile).
 
 GN: `//src/base/trace:trace` public_dep of `:foundation`. Test: `trace_test`.
 
@@ -240,9 +245,9 @@ All must hold before product PA-E may default on:
 | Piece | Path | DLL / linkage |
 | --- | --- | --- |
 | `gis::Envelope` | `src/gis/model/envelope.h`（header-only） | no export from `base.dll`；产品 `gis` / leftover 共用 |
-| `SmtStyle` / StyleManager / `style_api` | `src/legacy/carto/` | `carto_sources` → **`base.dll`**（`to_smt_style` 桥仍在产品 `gis`） |
+| `SmtStyle` / StyleManager / `style_api` | `src/legacy/gis/present/carto/` | `carto_sources` → **`gis.dll`**（`to_smt_style` 同 DLL） |
 
-`src/base/carto` removed. Do not confuse with GDI `legacy/render/.../gdi/carto` (`MapCarto2d`).
+`src/legacy/carto` and `src/base/carto` removed. Do not confuse with GDI `legacy/render/.../gdi` carto paint (`MapCarto2d`).
 
 ---
 

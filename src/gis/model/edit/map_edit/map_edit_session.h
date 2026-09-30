@@ -25,10 +25,14 @@ class GIS_EXPORT MapEditSession : public CommandEditSession {
 
   void bind_map(gis::SmtMap* map);
 
+  // Materializes FeatureGeom into an OGRFeature when geom is set, then logs.
+  bool commit(const FeatureMutation& mutation) override;
+
   bool commit_feature(EditOp op, OGRFeature* feature);
 
  private:
   bool apply_map(const FeatureMutation& mutation, bool undo);
+  OGRFeature* build_feature_from_geom(const FeatureGeom& geom);
 
   struct Impl;
   std::unique_ptr<Impl> impl_;

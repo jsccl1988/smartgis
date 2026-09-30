@@ -40,15 +40,15 @@ test("sde_gdal_test") {
   sources = [ "sde_gdal_test.cc" ]
   include_dirs += [
     "//src",
-    "//src/legacy/datasource/mgr",
+    "//src/legacy/gis/datasource",
   ]
   deps = [
     ":sde_gdal",
-    "//src/gis/datasource/provider/impl/ogr:ogr_codec",
+    "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
     "//src/gis/kernel/geo:geo",
     "//src/base:base",
     "//src/base:core",
-    "//src/legacy/datasource/mgr:sde_mgr",
+    "//src/legacy/gis/datasource:sde_mgr",
     "//src/gis/model/map:gis",
     "//third_party:gdal",
   ]

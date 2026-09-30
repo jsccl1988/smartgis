@@ -5,6 +5,7 @@
 #define GIS_MODEL_EDIT_SESSION_EDIT_SESSION_H_
 
 #include <cstdint>
+#include <vector>
 
 #include "content/public/map_types.h"
 #include "gis/gis_export.h"
@@ -28,6 +29,27 @@ struct ConflictError {
   content::FeatureId id{};
 };
 
+// Map-CRS vertex for FeatureGeom (no OGR on this header).
+struct MapVertex {
+  double x = 0;
+  double y = 0;
+};
+
+// Optional geometry payload for append/modify. Empty kind = id-only stub
+// (tests / hosts that resolve geometry elsewhere).
+struct FeatureGeom {
+  enum class Kind { kNone = 0, kPoint, kLineString, kPolygon };
+
+  Kind kind = Kind::kNone;
+  // Fine digitize subtype from tool::draft_flags (family<<16)|code.
+  uint32_t flags = 0;
+  std::vector<MapVertex> points;
+
+  bool empty() const {
+    return kind == Kind::kNone || points.empty();
+  }
+};
+
 // One logged feature change. host_token is copied through undo/redo so a host
 // can recover private state; 0 means the host stored nothing.
 struct FeatureMutation {
@@ -38,6 +60,7 @@ struct FeatureMutation {
   // (seeded features typically start at 1). Ignored when no store is bound.
   uint64_t base_version = 0;
   uint64_t host_token = 0;
+  FeatureGeom geom{};
 };
 
 class GIS_EXPORT EditSession {

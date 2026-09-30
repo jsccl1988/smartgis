@@ -56,7 +56,6 @@ smt_shared_library("base") {
   defines = [ "BASE_EXPORTS" ]
   deps = [
     ":foundation",
-    "//src/legacy/carto:carto_sources",
     "//src/base/log:log_sources",
     "//src/base/trace:process_trace_sources",
     "//src/legacy/core:core_sources",

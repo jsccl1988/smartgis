@@ -4,6 +4,8 @@
 #include "render/rhi/flycube/command/command_list.h"
 #include "render/rhi/flycube/device.h"
 
+#include "base/core/log.h"
+
 namespace render {
 namespace rhi {
 namespace detail {
@@ -12,20 +14,43 @@ namespace detail {
 
 void FlycubeDevice::replay_draws(::CommandList* fc_list, const Pass& segment,
                                  bool pass_has_depth) {
+  uint32_t ok = 0;
+  uint32_t skip = 0;
   for (const Draw& draw : segment.draws) {
     if (!draw.vertex || !draw.index || !draw.vertex->shared() ||
         !draw.index->shared() || draw.index_count == 0) {
+      ++skip;
       continue;
     }
     FlycubeProgram* program = find_program(draw.pipeline);
     if (!program) {
+      LOGGING(LOG_WARNING,
+              "rhi.flycube replay_draws skip: no program pipeline=%p "
+              "pass_depth=%d idx=%u",
+              draw.pipeline, pass_has_depth ? 1 : 0, draw.index_count);
+      ++skip;
       continue;
     }
     bool sampled = false;
-    if (program->replay_draw(fc_list, draw, pass_has_depth, &sampled) &&
-        sampled) {
-      ++gpu_sampled_draws_;
+    if (program->replay_draw(fc_list, draw, pass_has_depth, &sampled)) {
+      ++ok;
+      if (sampled) {
+        ++gpu_sampled_draws_;
+      }
+    } else {
+      ++skip;
     }
+  }
+  if ((ok > 0 || skip > 0) && pass_has_depth) {
+    LOGGING(LOG_INFO,
+            "rhi.flycube replay_draws ok=%u skip=%u pass_depth=1 draws=%zu "
+            "size=%ux%u",
+            ok, skip, segment.draws.size(), width_, height_);
+  }
+  if (skip > 0 && !pass_has_depth) {
+    LOGGING(LOG_WARNING,
+            "rhi.flycube replay_draws skip=%u ok=%u pass_depth=0 draws=%zu",
+            skip, ok, segment.draws.size());
   }
 }
 
@@ -63,7 +88,8 @@ bool FlycubeDevice::execute_recorded(FlycubeCommandList* recorded) {
       return false;
     }
     const bool want_draw = recorded->has_draws();
-    const bool can_draw = want_draw && ensure_graphics();
+    const bool graphics_ok = ensure_graphics();
+    const bool can_draw = want_draw && graphics_ok;
     bool need_depth = false;
     for (const Pass& seg : recorded->recorder.passes) {
       if (seg.desc.enable_depth) {
@@ -71,7 +97,16 @@ bool FlycubeDevice::execute_recorded(FlycubeCommandList* recorded) {
         break;
       }
     }
+    if (want_draw && !graphics_ok) {
+      LOGGING(LOG_ERROR,
+              "rhi.flycube execute: ensure_graphics failed size=%ux%u "
+              "(draws skipped)",
+              width_, height_);
+    }
     if (need_depth && !ensure_depth_buffer(width_, height_)) {
+      LOGGING(LOG_ERROR,
+              "rhi.flycube execute: ensure_depth_buffer failed size=%ux%u",
+              width_, height_);
       return false;
     }
 

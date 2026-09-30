@@ -20,6 +20,18 @@ namespace {
 
 constexpr float kInvFourPi = 1.0f / (4.0f * 3.14159265358979323846f);
 constexpr uint32_t kCloudConstantSlot = 1;
+// Matches kPsCloud powder / silver constants.
+constexpr float kPowderScale = 8.0f;
+constexpr float kSilverBoost = 1.5f;
+// Coarse world snap for quality <= 1 (half-res proxy; no offscreen RT).
+constexpr float kHalfResDensityCell = 64.0f;
+
+float snap_axis(float v, float cell) {
+  if (cell <= 0.0f) {
+    return v;
+  }
+  return std::floor(v / cell + 0.5f) * cell;
+}
 
 render::rhi::GraphicsPipelineDesc cloud_graphics_desc() {
   static constexpr render::rhi::BindingSlot kBindings[] = {
@@ -202,8 +214,28 @@ int CloudPass::step_count_for_quality(int quality) {
   return 8 << q;
 }
 
+bool CloudPass::uses_half_res_proxy(int quality) {
+  return quality <= 1;
+}
+
+float CloudPass::density_cell_for_quality(int quality) {
+  // Half-res proxy: snap density samples to a coarser grid until RHI can
+  // host a true half-res color attachment + upsample blit.
+  return uses_half_res_proxy(quality) ? kHalfResDensityCell : 0.0f;
+}
+
 float CloudPass::beer_transmittance(float optical_depth) {
   return std::exp(-std::max(0.0f, optical_depth));
+}
+
+float CloudPass::powder_factor(float density) {
+  const float dens = std::max(0.0f, density);
+  return 1.0f - std::exp(-dens * kPowderScale);
+}
+
+float CloudPass::silver_lining(float dir_dot_sun) {
+  const float toward = detail::clampf(dir_dot_sun, 0.0f, 1.0f);
+  return toward * toward;
 }
 
 float CloudPass::density_sample(float cover, float y, float base_y, float top_y,
@@ -254,12 +286,16 @@ CloudRayResult CloudPass::march_ray(const CloudRayInput& in) {
   float L = 0.0f;
   const float sigma_scale = std::max(0.0f, in.extinction);
   const float cover = detail::clampf(in.cover, 0.0f, 1.0f);
+  const float cell = std::max(0.0f, in.density_cell);
+  // Silver lining: sun behind the cloud when the view looks toward the sun.
+  const float dir_dot_sun = dx * sun_x + dy * sun_y + dz * sun_z;
+  const float silver = silver_lining(dir_dot_sun);
 
   for (int i = 0; i < steps; ++i) {
     const float t = t_enter + (static_cast<float>(i) + 0.5f) * ds;
-    const float px = in.origin_x + dx * t;
-    const float py = in.origin_y + dy * t;
-    const float pz = in.origin_z + dz * t;
+    float px = snap_axis(in.origin_x + dx * t, cell);
+    float py = snap_axis(in.origin_y + dy * t, cell);
+    float pz = snap_axis(in.origin_z + dz * t, cell);
     const float density =
         density_sample(cover, py, in.base_y, in.top_y, px, py, pz);
     if (density <= 0.0f) {
@@ -267,7 +303,7 @@ CloudRayResult CloudPass::march_ray(const CloudRayInput& in) {
     }
     const float sigma = density * sigma_scale;
     const float optical = sigma * ds;
-    // Beer along the view ray.
+    // Beer along the view ray (unchanged by powder / silver).
     const float step_T = beer_transmittance(optical);
     // Single scatter: isotropic phase * remaining transmittance.
     // Cheap sun shadow: one sample toward the sun through remaining slab.
@@ -278,15 +314,17 @@ CloudRayResult CloudPass::march_ray(const CloudRayInput& in) {
       if (intersect_slab_y(py, sun_y, in.base_y, in.top_y, &st0, &st1) &&
           st1 > 0.0f) {
         const float shadow_ds = std::min(st1, span) * 0.25f;
-        const float spx = px + sun_x * shadow_ds;
-        const float spy = py + sun_y * shadow_ds;
-        const float spz = pz + sun_z * shadow_ds;
+        const float spx = snap_axis(px + sun_x * shadow_ds, cell);
+        const float spy = snap_axis(py + sun_y * shadow_ds, cell);
+        const float spz = snap_axis(pz + sun_z * shadow_ds, cell);
         const float sd =
             density_sample(cover, spy, in.base_y, in.top_y, spx, spy, spz);
         shadow_T = beer_transmittance(sd * sigma_scale * shadow_ds);
       }
     }
-    L += T * (1.0f - step_T) * shadow_T * kInvFourPi;
+    const float powder = powder_factor(density);
+    const float scatter = powder * (1.0f + silver * kSilverBoost);
+    L += T * (1.0f - step_T) * shadow_T * kInvFourPi * scatter;
     T *= step_T;
     if (T < 1.0e-3f) {
       break;
@@ -351,6 +389,7 @@ bool CloudPass::record(render::rhi::Device* device, render::rhi::CommandList* li
   ray.cover = cover_;
   ray.extinction = extinction_;
   ray.steps = step_count_for_quality(quality);
+  ray.density_cell = density_cell_for_quality(quality);
   const CloudRayResult baked = march_ray(ray);
   (void)baked;
 
@@ -369,6 +408,7 @@ bool CloudPass::record(render::rhi::Device* device, render::rhi::CommandList* li
   }
   cloud.extinction = extinction_ * 40.0f;
   cloud.steps = static_cast<float>(step_count_for_quality(quality));
+  cloud.density_cell = density_cell_for_quality(quality);
   if (camera) {
     detail::eye_from_view(camera->view, &cloud.cam_x, &cloud.cam_y, &cloud.cam_z);
   }

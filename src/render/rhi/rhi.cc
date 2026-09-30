@@ -32,6 +32,8 @@ void look_at(float* m, float ex, float ey, float ez, float cx, float cy,
   const float rx = sy * fz - sz * fy;
   const float ry = sz * fx - sx * fz;
   const float rz = sx * fy - sy * fx;
+  // Column-major view (matches make_perspective_camera / HLSL mul(M, v)):
+  //   col0 = (sx,rx,-fx), col1 = (sy,ry,-fy), col2 = (sz,rz,-fz), col3 = T.
   set_identity4(m);
   m[0] = sx;
   m[1] = rx;

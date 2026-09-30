@@ -15,7 +15,7 @@
 #include "base/core/macros.h"
 #include "base/util/path.h"
 #include "base/synchronization/align.h"
-#include "base/trace/span_recorder.h"
+#include "base/trace/recorder/span_recorder.h"
 
 namespace base {
 namespace execution {

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "legacy/core/api.h"
-#include "legacy/core/listener.h"
+#include "legacy/core/util/menu.h"
+#include "legacy/core/listener/listener_manager.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX

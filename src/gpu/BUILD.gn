@@ -11,6 +11,17 @@ config("gpu_config") {
   include_dirs += [ "//src" ]
 }
 
+# CPU src-over only (CompositorFrame IR + blend_render_pass). No OutputSurface,
+# RHI, tile, or net. Safe for in-process legacy GDI buffer compose (Phase 1).
+source_set("compositor_cpu_blend") {
+  sources = [
+    "compositor/composer/software_blend.cc",
+    "compositor/composer/software_blend.h",
+    "compositor/frame/frame.h",
+  ]
+  public_configs = [ ":gpu_config" ]
+}
+
 # Output surface, software compositor, and direct/tile raster. No //src/content:content dep.
 # Basemap parses Style JSON via //src/gis/present/style and Style `sources` via
 # //src/gis/present/tile (gis.dll). content/public headers are include-only.
@@ -23,7 +34,6 @@ source_set("gpu_backend") {
     "compositor/composer/rhi_composer.h",
     "compositor/composer/software_composer.cc",
     "compositor/composer/software_composer.h",
-    "compositor/frame/frame.h",
     "compositor/underlay/underlay_bridge.cc",
     "compositor/underlay/underlay_bridge.h",
     "device/adapter_id.h",
@@ -49,6 +59,7 @@ source_set("gpu_backend") {
     "raster/tile/tile_quads.h",
   ]
   public_configs = [ ":gpu_config" ]
+  public_deps = [ ":compositor_cpu_blend" ]
   deps = [
     "//src/net:net",
     "//src/gis/present/style",

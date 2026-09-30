@@ -10,7 +10,7 @@
 #include <map>
 #include <vector>
 
-#include "base/trace/process_trace.h"
+#include "base/trace/event/process_trace.h"
 
 namespace content {
 namespace detail {
@@ -134,10 +134,12 @@ void paint_map_frame_gdi(HDC hdc, const gis::vista::MapFrame& frame,
     return p;
   };
 
-  const int dpi = std::max(96, GetDeviceCaps(hdc, LOGPIXELSY));
-  auto dip_px = [dpi](int px96) { return -MulDiv(px96, dpi, 96); };
+  // MapFrame text is already in view/bitmap pixels (Layout advances). Do not
+  // DPI-scale CreateFont here — MulDiv(px, LOGPIXELSY, 96) on a HiDPI DC
+  // draws glyphs larger than the metrics pen and stacks CJK within a label.
+  auto font_height = [](int px) { return -std::max(1, px); };
   HFONT text_font =
-      CreateFontW(dip_px(13), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+      CreateFontW(font_height(13), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                   DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                   CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS,
                   L"Microsoft YaHei UI");
@@ -196,32 +198,60 @@ void paint_map_frame_gdi(HDC hdc, const gis::vista::MapFrame& frame,
         break;
       }
       case gis::vista::DrawKind::kText: {
-        wchar_t ch = 0;
-        if (item.codepoint <= 0x10ffff) {
-          ch = static_cast<wchar_t>(item.codepoint & 0xffff);
-        }
-        if (ch == 0) {
+        // Layout emits one DrawItem per codepoint with a pixel-space glyph
+        // quad in vertices[]. Using only anchor_x/y stacks every character on
+        // the label center (garbled CJK "tofu" on the china showcase BMP).
+        const uint32_t cp = item.codepoint;
+        if (cp == 0 || cp > 0x10ffff) {
           add_us(&text_us, t0);
           break;
         }
+        wchar_t utf16[2] = {};
+        int utf16_n = 0;
+        if (cp <= 0xffff) {
+          utf16[0] = static_cast<wchar_t>(cp);
+          utf16_n = 1;
+        } else {
+          const uint32_t u = cp - 0x10000;
+          utf16[0] = static_cast<wchar_t>(0xd800 + (u >> 10));
+          utf16[1] = static_cast<wchar_t>(0xdc00 + (u & 0x3ff));
+          utf16_n = 2;
+        }
+
         int ax = static_cast<int>(std::lround(item.anchor_x));
         int ay = static_cast<int>(std::lround(item.anchor_y));
-        if (!item.pixel_space && !item.vertices.empty()) {
+        if (item.pixel_space && !item.vertices.empty()) {
+          ax = static_cast<int>(std::lround(item.vertices.front().x));
+          ay = static_cast<int>(std::lround(item.vertices.front().y));
+        } else if (!item.pixel_space && !item.vertices.empty()) {
           world_to_view(view, item.vertices.front().x, item.vertices.front().y,
                         &ax, &ay);
         }
-        HFONT rotated = nullptr;
+
+        const int font_px =
+            item.text_size_px > 0.5f
+                ? static_cast<int>(std::lround(item.text_size_px))
+                : 13;
+        HFONT glyph_font = nullptr;
         const double deg = item.angle_rad * (180.0 / 3.14159265358979323846);
         if (std::fabs(deg) > 0.5) {
           const int esc = static_cast<int>(std::lround(-deg * 10.0));
-          rotated = CreateFontW(dip_px(13), 0, esc, esc, FW_NORMAL, FALSE, FALSE,
-                                FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-                                CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-                                DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
-          if (rotated) {
-            SelectObject(hdc, rotated);
-          }
+          glyph_font =
+              CreateFontW(font_height(font_px), 0, esc, esc, FW_NORMAL, FALSE,
+                          FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                          CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                          DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
+        } else if (font_px != 13) {
+          glyph_font =
+              CreateFontW(font_height(font_px), 0, 0, 0, FW_NORMAL, FALSE, FALSE,
+                          FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                          CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                          DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
         }
+        if (glyph_font) {
+          SelectObject(hdc, glyph_font);
+        }
+
         const COLORREF ink = rgba_to_colorref(item.rgba);
         const COLORREF halo =
             item.halo_width_px > 0.f
@@ -231,14 +261,14 @@ void paint_map_frame_gdi(HDC hdc, const gis::vista::MapFrame& frame,
         const int halo_d[8][2] = {{-1, 0},  {1, 0},  {0, -1}, {0, 1},
                                   {-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
         for (const auto& d : halo_d) {
-          TextOutW(hdc, ax + d[0], ay + d[1], &ch, 1);
+          TextOutW(hdc, ax + d[0], ay + d[1], utf16, utf16_n);
         }
         SetTextColor(hdc, ink);
-        TextOutW(hdc, ax, ay, &ch, 1);
-        if (rotated) {
+        TextOutW(hdc, ax, ay, utf16, utf16_n);
+        if (glyph_font) {
           SelectObject(hdc, text_font ? text_font
                                       : GetStockObject(DEFAULT_GUI_FONT));
-          DeleteObject(rotated);
+          DeleteObject(glyph_font);
         }
         add_us(&text_us, t0);
         break;
@@ -246,14 +276,14 @@ void paint_map_frame_gdi(HDC hdc, const gis::vista::MapFrame& frame,
     }
   }
 
-  if (base::tracing_enabled()) {
+  if (base::trace::tracing_enabled()) {
     auto flush_kind = [](const char* name, int64_t us) {
       if (us <= 0) {
         return;
       }
       const auto end = std::chrono::steady_clock::now();
       const auto begin = end - std::chrono::microseconds(us);
-      base::process_trace().add(name, "map2d.gdi", begin, end);
+      base::trace::process_trace().add(name, "map2d.gdi", begin, end);
     };
     flush_kind("gdi_fill", fill_us);
     flush_kind("gdi_line", line_us);

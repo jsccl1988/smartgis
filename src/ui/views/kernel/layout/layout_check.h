@@ -42,6 +42,21 @@ UI_EXPORT bool rects_overlap_positive(const Rect& a, const Rect& b);
 UI_EXPORT int collect_sibling_overlaps(const View* root,
                                        std::vector<std::string>* out);
 
+// Shell-specific invariants for Map HWND vs tab header, status bar inside
+// root, and Catalog/Map tab-strip Y alignment. Appends codes:
+//   "map-hwnd-covers-tabs@…", "status-outside-root@…",
+//   "catalog-map-tab-y-skew@…", "inactive-map-hwnd-visible@…"
+// |map_tabs| / |catalog_tabs| should be TabStrip*; |active_map| a MapViewport.
+UI_EXPORT int collect_shell_layout_anomalies(
+    const View* root,
+    View* map_tabs,
+    View* catalog_tabs,
+    View* status_bar,
+    View* active_map,
+    View* inactive_map_a,
+    View* inactive_map_b,
+    std::vector<std::string>* out);
+
 // Menu / tab shell: item height and horizontal gap at |scale|.
 UI_EXPORT bool menu_item_metrics_ok(int item_width_px,
                           int item_height_px,

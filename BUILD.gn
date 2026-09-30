@@ -72,6 +72,8 @@ group("test_shell") {
     "//src/plugin:plugin_host_test",
     "//src/plugin/runtime/processing:processing_ops_test",
     "//src/content:content_embed_sample_test",
+    # Orthogrid: 4-edge gridbnd → Dirichlet Laplace (Views product path).
+    "//src/plugin/product/orthogrid:orthogrid_laplace_test",
   ]
 }
 
@@ -83,6 +85,7 @@ group("test_all") {
     "//src/legacy/render/rhi2d/impl/gdi:gdi_map_paint_test",
     "//src/legacy/render/rhi2d/impl/gdi:map_carto2d_test",
     "//src/legacy/render/rhi3d/impl/gl:gl_map_paint_test",
+    "//src/legacy/render/rhi3d/impl/d3d:d3d_texture_test",
   ]
   if (smt_build_app) {
     deps += [ "//src/legacy/app:app" ]
@@ -215,6 +218,6 @@ group("render") {
 group("tool_group") {
   deps = []
   if (smt_build_app) {
-    deps += [ "//src/legacy/tool/group:tool_group" ]
+    deps += [ "//src/legacy/tool:tool_group" ]
   }
 }

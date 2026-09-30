@@ -38,6 +38,7 @@ enum class TextureFormat : uint32_t {
   kRgba8 = 1,
   kRg32Float = 2,    // complex spectrum ping-pong (GPU FFT)
   kRgba32Float = 3,
+  kD32Float = 4,     // shared depth sampleable as SRV (fog / soft particles)
 };
 
 // Bitmask for TextureDesc::usage. Sampled + CopyDest is the raster default.
@@ -388,6 +389,8 @@ inline uint32_t texture_bytes_per_pixel(TextureFormat format) {
       return 8u;
     case TextureFormat::kRgba32Float:
       return 16u;
+    case TextureFormat::kD32Float:
+      return 4u;
     case TextureFormat::kRgba8:
     default:
       return 4u;
@@ -723,6 +726,11 @@ class Device {
   // True when the last successful execute() wrote color into the imported
   // shared texture (compose-direct path). Cleared on the next execute/import.
   virtual bool composed_into_imported_shared() const { return false; }
+
+  // Non-owning sampleable view of the shared depth buffer (FlyCube). Null on
+  // Null/stub backends or before the first depth-attached pass. Callers must
+  // not destroy_texture() this pointer; re-query each frame after resize.
+  virtual Texture* shared_depth_texture() { return nullptr; }
 };
 
 RENDER_EXPORT Device* create_device(Backend backend);

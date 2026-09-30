@@ -288,8 +288,8 @@ Living §: [`../specs/2026-09-27-views-desktop-shell-design.md`](../specs/2026-0
 
 Living §: [`../specs/2026-09-27-views-desktop-shell-design.md`](../specs/2026-09-27-views-desktop-shell-design.md) **§Diagnostic Tools → Always-on auto-collect**.
 
-- [x] `base::start_always_on_diagnostics` + 500ms memory sampler + AllocationTracker
-- [x] `set_tracing_enabled` clears only on off→on
+- [x] `base::trace::start_always_on_diagnostics` + 500ms memory sampler + AllocationTracker
+- [x] `base::trace::set_tracing_enabled` clears only on off→on
 - [x] Startup `BASE_TRACE_EVENT` + `LOGGING` in `wWinMain` / `BrowserMain` / `Browser::init`
 - [x] Diagnostic Tools auto-refresh; CPU Startup swimlane filter; Memory always-on samples
 

@@ -2,7 +2,7 @@
 #ifndef _RD3D_STATES_H
 #define _RD3D_STATES_H
 
-#include "legacy/render/rhi3d/public/device/3drenderdefs.h"
+#include "legacy/render/rhi3d/public/device/render_defs.h"
 #include "legacy/render/rhi3d/public/device/base.h"
 
 namespace render {

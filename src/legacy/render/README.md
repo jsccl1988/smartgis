@@ -23,13 +23,13 @@ Fat tops nest under `legacy/render/<top>/…`. After the `rhi2d` collapse, tops 
 
 | Directory | Role | Subdirs |
 | --- | --- | --- |
-| `rhi2d/` | Leftover 2D abstract API + GDI(+) impl | header-only `public/device/` + `detail/` (DLL bodies) + `impl/gdi/{device,thread,buffer,gdiaux,carto,test}/` |
+| `rhi2d/` | Leftover 2D abstract API + GDI(+) impl | `public/device/` + `detail/` + `impl/gdi/{host,worker,paint,surface,res,test}/` |
 | `rhi3d/` | Leftover abstract 3D API + OpenGL/D3D11 + leftover strangler | `public/{device,resource,shader,texture,state,camera,bridge}/` + `impl/gl/` + `impl/d3d/` |
 | `scene3d/` | Leftover scene + DEM + former model/terrain/pointcloud | `scene/` `primitive/` `feature/` `surface/` `dem/` `bridge/` `test/` |
 
 `gdi_simple/` is **removed**. `"SmtGdiSimpleRenderDevice"` aliases to `CreateRenderDevice` / `SmtGdiRenderDevice`. No `RENDER_GDI_SIMPLE_EXPORTS`.
 
-Windows note: path segment `aux` is reserved; GDI aux TUs live under `rhi2d/impl/gdi/gdiaux/`.
+Windows note: path segment `aux` is reserved; GDI+ helpers live under `rhi2d/impl/gdi/paint/gdiplus/` (no `aux/` or `gdiaux/` dir).
 
 ### `rhi2d/` layout note
 

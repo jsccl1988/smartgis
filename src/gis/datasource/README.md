@@ -21,6 +21,6 @@ pipeline  (consumes OGRLayer*; independent of session)
 | `provider/impl/gdal/` | L3 register | `register_gdal_driver()` (+ pulls sdbd/ogr into DLL) |
 | `pipeline/` | L4 exec | mogu-style produce/decode/sink feature load |
 
-**Out of tree:** leftover catalog singleton at `src/legacy/datasource/mgr/` (`DataSourceMgr`). New code must not depend on it.
+**Out of tree:** leftover catalog singleton at `src/legacy/gis/datasource/` (`DataSourceMgr`). New code must not depend on it.
 
 **Do not** add a new top-level dir without updating this table and `docs/build/src-layout.md`.

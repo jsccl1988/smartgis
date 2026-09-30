@@ -82,8 +82,8 @@ Chrome includes only `content/public`. It must not include `t_iatool.h`.
 | `Interaction` / `Stack` / `InputRouter` | `src/tool/interaction.h` | `tool` | Mouse state machines |
 | `Workspace` | `src/tool/workspace.h` | `tool` | Composition root per view |
 | `EditSession` | `src/sdb/edit/edit_session.h` | `sdb` | Undoable document mutations |
-| `command_id_from_gt_msg` | `src/legacy/tool/adapter/msg.h` | `tool` | `GT_MSG_*` → string id |
-| Leftover | `src/legacy/tool/iatool/t_*.h`, `legacy/tool/group` | `Smt_IATool` | Unchanged DLL |
+| `command_id_from_gt_msg` | `src/legacy/tool/msg/msg.h` | `tool` | `GT_MSG_*` → string id |
+| Leftover | `src/legacy/tool/abi/t_*.h`, `legacy/tool/{nav,select,draft,base,factory}` | `Smt_IATool` | Unchanged DLL |
 
 New modules are **source_sets**, not DLLs. `//src/tool:dispatch` and `//src/sdb/edit:edit` join `src_all`. Tests: `tool_dispatch_test`.
 
@@ -310,7 +310,7 @@ const char* command_id_from_gt_msg(long msg);  // nullptr if unknown
 }
 ```
 
-`command_id_from_gt_msg` uses numeric copies of leftover `GT_MSG_CMD_*` in `legacy/tool/adapter/msg.h` (do not include `legacy/tool/group/defs.h` from dispatch TUs — that header pulls WinSock through group `msg.h` and breaks ASIO/`fd_set`). Keep the enum in sync with `defs.h`.
+`command_id_from_gt_msg` uses numeric copies of leftover `GT_MSG_CMD_*` in `legacy/tool/msg/msg.h` (do not include `legacy/tool/defs.h` from dispatch TUs — that header pulls WinSock through group `msg.h` and breaks ASIO/`fd_set`). Keep the enum in sync with `defs.h`.
 
 ## Data flow
 
@@ -392,7 +392,7 @@ Endgame `src/tool/<module>/` (scheme C, break includes, no root shim):
 | `workspace/` | `Workspace` session |
 | Aggregate GN | `//src/tool:dispatch` → `//src/tool:tool`（`dll_stem=tool`） |
 
-`GT_MSG` 映射在 **`src/legacy/tool/adapter/`**（`//src/legacy/tool/adapter:adapter`，include `legacy/tool/adapter/msg.h`）；公开 API 命名空间仍为 `tool`。Leftover `group/` 子目录见 umbrella §SP1。As-built：`src/tool/README.md`。Archive twin：[`../archive/specs/2026-09-27-tool-subdirectory-layout-design.md`](../archive/specs/2026-09-27-tool-subdirectory-layout-design.md)。
+`GT_MSG` 映射在 **`src/legacy/tool/msg/`**（`//src/legacy/tool/msg:adapter`，include `legacy/tool/msg/msg.h`）；公开 API 命名空间仍为 `tool`。Leftover capability 顶层见 umbrella §SP1。As-built：`src/tool/README.md`。Archive twin：[`../archive/specs/2026-09-27-tool-subdirectory-layout-design.md`](../archive/specs/2026-09-27-tool-subdirectory-layout-design.md)。
 
 ---
 
@@ -406,6 +406,22 @@ DLL export naming (no `SMT_*` prefix):
 | `legacy_tool.dll` | `LEGACY_TOOL_EXPORTS` | `LEGACY_TOOL_EXPORT` | `src/legacy/tool/tool_export.h` |
 
 Endgame owns the short `TOOL_*` family; leftover mirrors `LEGACY_RENDER_*`. As-built: [`docs/build/abi-rename-map.md`](../../build/abi-rename-map.md). Do not reintroduce `SMT_TOOL_EXPORT`.
+
+---
+
+## §Leftover select/view apply extract（2026-09-29）
+
+**Status:** accepted
+
+### Locked
+
+| Topic | Choice |
+| --- | --- |
+| Shape | **legacy 内拆** — free helpers colocated under `group/select/` + `group/view/` |
+| Select | `select_query_apply.{h,cpp}`: Draft→query geom, scratch clear, QueryFeature + flash post |
+| View 2D | `view_zoom_apply.{h,cpp}`: wheel / pan / zoom-in-out / restore / refresh + `apply_view_draft` |
+| Shells | `SmtSelectTool` / `SmtViewCtrlTool` keep notify + bind + thin forwarders |
+| Non-goals | No Workspace/Draft fork; no move out of `legacy/`; 3D extract deferred |
 
 ---
 

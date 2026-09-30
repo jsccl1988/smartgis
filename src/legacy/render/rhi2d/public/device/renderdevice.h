@@ -4,12 +4,12 @@
 #ifndef _RD_RENDERDEVICE_H
 #define _RD_RENDERDEVICE_H
 
-#include "legacy/carto/style.h"
-#include "legacy/carto/style_bas_struct.h"
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "gis/model/feature/feature.h"
 #include "gis/model/map/map.h"
-#include "legacy/core/core.h"
+#include "legacy/gis/present/carto/style.h"
+#include "legacy/gis/present/carto/style_bas_struct.h"
+#include "legacy/core/macros/macros.h"
 #include "legacy/render/legacy_render_export.h"
 
 class OGRFeature;

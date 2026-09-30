@@ -618,10 +618,8 @@ void BrowserView::bind_gis_python_bridge() {
     } else if (mode != "map2d") {
       return false;
     }
-    map_tabs_->set_active(idx);
-    if (ui::views::View* root = contents_view()) {
-      root->schedule_paint();
-    }
+    // Full tab switch (lazy FlyCube attach + China orbit), not set_active alone.
+    switch_map_tab(idx);
     return true;
   };
   bridge.has_style_document = [this]() {

@@ -4,7 +4,7 @@
 import("//build/smartgis.gni")
 
 # Leftover SmtSysManager. Compiled into //src/base:base (base.dll).
-# Same absorption pattern as //src/legacy/xml:xml_sources.
+# Absorbed into //src/base:base (base.dll), same pattern as legacy/core.
 
 source_set("sys_sources") {
   configs += [ "//build:legacy" ]

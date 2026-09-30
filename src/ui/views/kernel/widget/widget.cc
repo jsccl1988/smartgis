@@ -823,9 +823,9 @@ void Widget::on_shell_published_message(std::uint64_t generation) {
   if (generation == 0 || generation < awaiting_publish_gen_) {
     return;
   }
-  if (shell_wake_invalidate_pending_) {
-    return;
-  }
+  // Do not drop this wake. A WM_PAINT already inside BeginPaint may BitBlt the
+  // previous front and clear the coalesce flag, so swallowing the publish
+  // leaves the new rect stale until a hover paint.
   shell_wake_invalidate_pending_ = true;
   if (awaiting_publish_dirty_.width > 0 && awaiting_publish_dirty_.height > 0) {
     RECT rc = {awaiting_publish_dirty_.x, awaiting_publish_dirty_.y,
@@ -878,26 +878,56 @@ void Widget::on_paint() {
   // kShellPublishedMessage when a newer generation is ready, and the next
   // paint BitBlts it. Wake-only paints (no pending dirty) skip Commit so a
   // publish notify cannot re-record the whole tree.
+  Rect committed_dirty{};
+  bool did_commit = false;
   if (contents_ && has_pending_paint()) {
-    Rect dirty;
-    take_pending_dirty(w, h, &dirty);
+    take_pending_dirty(w, h, &committed_dirty);
     PaintCommit frame;
     const int font_px = dip_to_px(12, device_scale_factor_);
-    if (commit_view_tree(contents_.get(), dirty, w, h, font_px,
+    if (commit_view_tree(contents_.get(), committed_dirty, w, h, font_px,
                          Theme::current().shell_bg, &frame)) {
       awaiting_publish_gen_ = frame.generation;
-      awaiting_publish_dirty_ = dirty;
+      awaiting_publish_dirty_ = committed_dirty;
       compositor_->commit(std::move(frame));
       compositor_->notify_when_published(awaiting_publish_gen_, hwnd_);
+      did_commit = true;
     }
   }
 
-  // Present only: BitBlt the published front buffer into the update region.
-  // Use the generation returned by present (same lock as BitBlt) — a separate
-  // published_generation() read can race ahead of the pixels just shown.
+  // Layout / set_bounds may expand dirty beyond BeginPaint's update region.
+  // BitBlt the union so newly exposed chrome is not left blank until hover.
+  RECT blit = ps.rcPaint;
+  if (did_commit && committed_dirty.width > 0 && committed_dirty.height > 0) {
+    const int l =
+        committed_dirty.x < blit.left ? committed_dirty.x : blit.left;
+    const int t =
+        committed_dirty.y < blit.top ? committed_dirty.y : blit.top;
+    const int r = committed_dirty.right() > blit.right ? committed_dirty.right()
+                                                       : blit.right;
+    const int b = committed_dirty.bottom() > blit.bottom
+                      ? committed_dirty.bottom()
+                      : blit.bottom;
+    blit = {l, t, r, b};
+  }
   const std::uint64_t presented_gen =
-      compositor_->present(hdc, ps.rcPaint, Theme::current().shell_bg);
+      compositor_->present(hdc, blit, Theme::current().shell_bg);
   EndPaint(hwnd_, &ps);
+
+  // Commit is async: union blit may still be the previous front. Force a
+  // follow-up paint for any committed area outside the original update rect
+  // so wake/hover is not the only path that refreshes newly exposed chrome.
+  if (did_commit && committed_dirty.width > 0 && committed_dirty.height > 0) {
+    const bool expands =
+        committed_dirty.x < ps.rcPaint.left ||
+        committed_dirty.y < ps.rcPaint.top ||
+        committed_dirty.right() > ps.rcPaint.right ||
+        committed_dirty.bottom() > ps.rcPaint.bottom;
+    if (expands) {
+      RECT rc = {committed_dirty.x, committed_dirty.y, committed_dirty.right(),
+                 committed_dirty.bottom()};
+      InvalidateRect(hwnd_, &rc, FALSE);
+    }
+  }
 
   maybe_notify_shell_published(presented_gen);
 

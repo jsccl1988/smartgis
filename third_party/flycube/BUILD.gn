@@ -4,7 +4,8 @@
 import("//build/smartgis.gni")
 
 _flycube_root = "//third_party/.src/flycube"
-_flycube_prebuilt = "//third_party/flycube_prebuilt"
+# Release /MD libs live in the unified install prefix (same as GDAL).
+_flycube_install = "//third_party/.install"
 
 config("flycube_headers") {
   include_dirs += [
@@ -49,7 +50,7 @@ if (is_debug) {
 
 config("flycube_libs") {
   # Declare debug out only when used (GN errors on unused assigns in release).
-  _flycube_lib_dir = _flycube_prebuilt
+  _flycube_lib_dir = _flycube_install
   if (is_debug) {
     _flycube_lib_dir = "$root_out_dir/flycube"
   }
@@ -57,7 +58,16 @@ config("flycube_libs") {
     "$_flycube_lib_dir/lib",
     "C:/VulkanSDK/1.4.357.0/Lib",
   ]
-  libs = _flycube_lib_names
+  # Prefer full paths in Debug: global /LIBPATH:.../.install/lib otherwise
+  # resolves bare FlyCube.lib to the Release /MD prebuilt (LNK2038).
+  libs = []
+  if (is_debug) {
+    foreach(_lib, _flycube_lib_names) {
+      libs += [ "$_flycube_lib_dir/lib/$_lib" ]
+    }
+  } else {
+    libs += _flycube_lib_names
+  }
   libs += [
     "d3d12.lib",
     "dxgi.lib",

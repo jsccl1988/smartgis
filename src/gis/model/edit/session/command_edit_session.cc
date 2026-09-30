@@ -3,7 +3,7 @@
 
 #include "gis/model/edit/session/command_edit_session.h"
 
-#include "legacy/core/command.h"
+#include "legacy/core/command/command.h"
 
 namespace gis {
 namespace {

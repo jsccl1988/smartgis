@@ -3,7 +3,7 @@
 #define _RD3D_TEXTURE_H
 
 #include "legacy/render/legacy_render_export.h"
-#include "legacy/render/rhi3d/public/device/3drenderdefs.h"
+#include "legacy/render/rhi3d/public/device/render_defs.h"
 
 namespace render {
 /**
@@ -243,14 +243,14 @@ inline void SmtTexture::SetPixel3uc(unsigned char r, unsigned char g,
 
 // Bodies call Smt3DRenderDevice. This header is included before that type is
 // complete, so the bodies are emitted only from the re-include at the bottom
-// of 3drenderdevice.h.
+// of render_device.h.
 #if defined(SMT_3DRENDERDEVICE_COMPLETE) && !defined(_RD3D_TEXTURE_METHODS)
 #define _RD3D_TEXTURE_METHODS
 
 #include <cstdio>
 
 #include "base/core/log.h"
-#include "legacy/core/api.h"
+#include "legacy/core/util/image.h"
 #include "ximage.h"
 
 namespace render {

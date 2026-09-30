@@ -3,7 +3,7 @@
 
 #include "content/browser/present/map2d/map2d_presenter.h"
 
-#include "base/trace/process_trace.h"
+#include "base/trace/event/process_trace.h"
 
 namespace content {
 

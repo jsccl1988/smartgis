@@ -4,8 +4,9 @@
 
 #include "base/core/log.h"
 #include "base/threading/thread.h"
-#include "legacy/core/api.h"
-#include "legacy/core/bas_struct.h"
+#include "base/trace/event/process_trace.h"
+#include "legacy/core/types/types.h"
+#include "legacy/render/detail/frame_pipeline.h"
 #include "legacy/render/scene3d/bridge/scene_to_world.h"
 
 namespace render {
@@ -71,6 +72,7 @@ long SmtScene::Setup() {
 }
 
 long SmtScene::Update() {
+  BASE_TRACE_EVENT("Update", "scene3d");
   if (m_pTimer && m_pCamera && m_pSceneTree) {
     m_pTimer->update();
 
@@ -102,6 +104,8 @@ long SmtScene::Update() {
 }
 
 long SmtScene::Render(void) {
+  BASE_TRACE_EVENT("Render", "scene3d");
+  detail::log_legacy_flow("scene3d.Render");
   if (NULL != m_pSceneTree && NULL != m_p3DRenderDevice && m_pTimer != NULL) {
     if (m_pCamera) m_pCamera->Apply();
 

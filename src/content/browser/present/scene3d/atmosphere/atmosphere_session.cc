@@ -19,16 +19,19 @@
 #include "effect/atmosphere/fog/fog_pass.h"
 #include "effect/atmosphere/ocean/ocean_pass.h"
 #include "effect/atmosphere/sky/sky_pass.h"
-#include "base/trace/process_trace.h"
+#include "base/trace/event/process_trace.h"
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include <windows.h>
 
 namespace content {
 
@@ -63,7 +66,58 @@ bool AtmosphereSession::prepare_for_present() {
   // Best-effort: mesh rebuild usually already filled geo_frame; fill from
   // extent when atmosphere needs it before DEM sync.
   ensure_geo_frame();
+  advance_sim_time();
   return prepare_ocean() && prepare_clouds() && prepare_sky() && prepare_fog();
+}
+
+void AtmosphereSession::advance_sim_time() {
+  if (!atmosphere_) {
+    return;
+  }
+  // Ocean FFT / cloud cover scrub need a moving clock; sky/fog are static
+  // without it and look "frozen" in interactive present.
+  if (!atmosphere_->ocean_enabled() && !atmosphere_->cloud_enabled() &&
+      !atmosphere_->sky_enabled()) {
+    return;
+  }
+  LARGE_INTEGER qpc = {};
+  QueryPerformanceCounter(&qpc);
+  const std::uint64_t now = static_cast<std::uint64_t>(qpc.QuadPart);
+  if (last_sim_qpc_ == 0) {
+    last_sim_qpc_ = now;
+    return;
+  }
+  LARGE_INTEGER freq = {};
+  QueryPerformanceFrequency(&freq);
+  const double hz = freq.QuadPart > 0 ? static_cast<double>(freq.QuadPart) : 1.0;
+  double dt = static_cast<double>(now - last_sim_qpc_) / hz;
+  last_sim_qpc_ = now;
+  // Clamp spikes (tab switch / hitch) so waves do not jump.
+  if (dt < 0.0) {
+    dt = 0.0;
+  } else if (dt > 0.1) {
+    dt = 0.1;
+  }
+  if (dt <= 0.0) {
+    return;
+  }
+  set_time_sec(atmosphere_->time_sec() + dt);
+  // Dynamic sun: ~full azimuth revolution every ~120s; mild elevation bob so
+  // DEM Lambert and ocean/sky specular read as living daylight.
+  gis::atmosphere::AtmosphereParams& p = atmosphere_->params();
+  const double t = atmosphere_->time_sec();
+  constexpr double kTwoPi = 6.283185307179586;
+  p.sun_azimuth_rad =
+      static_cast<float>(std::fmod(0.55 + t * 0.0523598775598, kTwoPi));
+  p.sun_elevation_rad =
+      static_cast<float>(0.38 + 0.28 * std::sin(t * 0.041));
+}
+
+bool AtmosphereSession::needs_continuous_present() const {
+  if (!atmosphere_) {
+    return false;
+  }
+  return atmosphere_->ocean_enabled() || atmosphere_->cloud_enabled();
 }
 
 bool AtmosphereSession::ensure_geo_frame() {
@@ -340,9 +394,13 @@ gis::atmosphere::FieldGrid AtmosphereSession::field_grid() const {
 }
 
 void AtmosphereSession::seed_procedural() {
+  seed_procedural(true);
+}
+
+void AtmosphereSession::seed_procedural(bool with_land_rings) {
   gis::atmosphere::Environment& env = ensure();
   std::vector<gis::LonLatRing> rings;
-  if (scene_) {
+  if (with_land_rings && scene_) {
     scene_->export_land_rings(&rings);
   }
   env.seed_procedural_baseline(field_grid(),
@@ -550,8 +608,28 @@ bool AtmosphereSession::prepare_ocean() {
   draw.patch_half_z = 0.5f * (max_z - min_z);
   draw.patch_half_extent =
       (std::max)(draw.patch_half_x, draw.patch_half_z);
-  draw.mesh_resolution = 33;
+  // China orbit span ≈ 3.2: keep a readable lip without swallowing DEM peaks.
+  // Prefer Gerstner for interactive full-China (GPU FFT can look flat when the
+  // height-map energy is tiny after 1/N² at this scale).
+  draw.significant_wave_height =
+      (std::max)((std::min)(draw.significant_wave_height * 4.5f, 0.22f), 0.10f);
+  draw.use_gerstner_fallback = true;
+  draw.chop = (std::max)(draw.chop, 1.15f);
+  draw.shininess = (std::max)(draw.shininess, 180.0f);
+  draw.mesh_resolution = 65;
+  // Mid-tier GIS water: deep navy, muted shelf — never near-cyan albedo.
+  draw.deep_r = 0.02f;
+  draw.deep_g = 0.07f;
+  draw.deep_b = 0.18f;
+  draw.shallow_r = 0.06f;
+  draw.shallow_g = 0.22f;
+  draw.shallow_b = 0.32f;
+  draw.fresnel_bias = 0.03f;
+  draw.fresnel_power = 6.0f;
   ocean_pass_.set_params(draw);
+  const gis::atmosphere::AtmosphereParams& p = atmosphere_->params();
+  ocean_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad,
+                                             p.sun_elevation_rad);
   ocean_pass_.set_time_sec(atmosphere_->time_sec());
 
   constexpr int kMask = 32;
@@ -562,8 +640,10 @@ bool AtmosphereSession::prepare_ocean() {
   if (!atmosphere_->ocean_system().fill_sea_mask_grid(
           atmosphere_->field_store(), extent, kMask, kMask,
           atmosphere_->time_sec(), mask.data(), mask.size())) {
-    // No mask layer yet — treat whole patch as sea.
-    std::fill(mask.begin(), mask.end(), 1.f);
+    // Fail closed: no sea_mask layer means do not cover the DEM with a
+    // full-screen ocean (mask=1). Interactive 3D used to open blank cyan
+    // when seed_procedural was skipped (has_china_extent false).
+    std::fill(mask.begin(), mask.end(), 0.f);
   }
   ocean_pass_.set_sea_mask_cpu(kMask, kMask, mask.data(), mask.size());
   return true;
@@ -587,7 +667,9 @@ bool AtmosphereSession::prepare_clouds() {
   cloud_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad,
                                              p.sun_elevation_rad);
   cloud_pass_.set_cloud_slab(sample.base_m, sample.top_m);
-  cloud_pass_.set_cover_modulation(sample.cover);
+  // Mid-tier broken deck: readable cover without bleaching DEM greens.
+  cloud_pass_.set_cover_modulation(
+      (std::max)(0.28f, (std::min)(sample.cover, 0.55f)));
 
   float min_x = 0.f;
   float max_x = 0.f;
@@ -596,10 +678,15 @@ bool AtmosphereSession::prepare_clouds() {
   gpu_->geo_frame().extent_orbit_xz(&min_x, &max_x, &min_z, &max_z);
   const float half_x = 0.5f * (max_x - min_x) + OrbitGeoFrame::kOceanPad;
   const float half_z = 0.5f * (max_z - min_z) + OrbitGeoFrame::kOceanPad;
-  const float base_y =
-      gpu_->geo_frame().sea_level_y() + gpu_->geo_frame().meters_to_orbit_y(sample.base_m);
-  const float top_y =
-      gpu_->geo_frame().sea_level_y() + gpu_->geo_frame().meters_to_orbit_y(sample.top_m);
+  // Keep a thin deck just above the terrain (full GIS cloud base would sit
+  // several orbit-units up as a gray card).
+  const float sea = gpu_->geo_frame().sea_level_y();
+  float lift = gpu_->geo_frame().meters_to_orbit_y(sample.base_m);
+  lift = (std::max)(0.18f, (std::min)(lift, 0.55f));
+  float thick = gpu_->geo_frame().meters_to_orbit_y(sample.top_m - sample.base_m);
+  thick = (std::max)(0.12f, (std::min)(thick, 0.30f));
+  const float base_y = sea + lift;
+  const float top_y = base_y + thick;
   const float deck_y = 0.5f * (base_y + top_y);
   cloud_pass_.set_deck_orbit(half_x, half_z, deck_y);
   cloud_pass_.set_slab_orbit(base_y, top_y);
@@ -614,8 +701,20 @@ bool AtmosphereSession::prepare_sky() {
   sky_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad,
                                            p.sun_elevation_rad);
   effect::atmosphere::SkyDrawParams sky = sky_pass_.params();
-  // Dome covers the China orbit frame (span ~3.2 + pad).
-  sky.dome_radius = 8.0f;
+  // Past max orbit distance (12) so zoom-out stays inside the sky.
+  sky.dome_radius = 40.0f;
+  // Industry mid-tier analytical dome: deep Rayleigh zenith, warmer haze
+  // horizon, readable sun disk/corona (Bruneton-lite, no LUT).
+  sky.zenith_r = 0.06f;
+  sky.zenith_g = 0.20f;
+  sky.zenith_b = 0.78f;
+  sky.horizon_r = 0.62f;
+  sky.horizon_g = 0.74f;
+  sky.horizon_b = 0.88f;
+  sky.sunset_r = 0.92f;
+  sky.sunset_g = 0.48f;
+  sky.sunset_b = 0.28f;
+  sky.sun_glow_strength = 0.55f;
   sky_pass_.set_params(sky);
   return true;
 }
@@ -629,12 +728,28 @@ bool AtmosphereSession::prepare_fog() {
   }
   const gis::atmosphere::AtmosphereParams& p = atmosphere_->params();
   effect::atmosphere::FogDrawParams fog;
-  fog.density = p.fog_density;
+  // Soft aerial haze on terrain only (sky depth is skipped in FogPass HLSL).
+  // Cap opacity so hypsometric greens still pass showcase landish gates.
+  fog.density = (std::max)((std::min)(p.fog_density, 0.12f), 0.05f);
   // China orbit frame span ~3.2: keep haze visible without washing terrain.
-  fog.visibility = (std::max)(1.5f, (std::min)(p.fog_visibility, 4.5f));
+  fog.visibility = (std::max)(2.4f, (std::min)(p.fog_visibility, 4.5f));
   fog.height_falloff = p.fog_height_falloff;
-  fog.max_opacity = (std::min)(p.fog_max_opacity, 0.55f);
+  fog.max_opacity = (std::min)((std::max)(p.fog_max_opacity, 0.14f), 0.24f);
   fog.base_height = gpu_->geo_frame().sea_level_y();
+  // Tint haze toward the analytical sky horizon (matches sky pass).
+  // Zero sun_glow for the tint sample — a fixed horizon ray can align with
+  // the sun and pick up disk/corona, blowing fog to near-white and washing
+  // the showcase BMP (blue_sky / landish gates fail).
+  float hr = fog.color_r;
+  float hg = fog.color_g;
+  float hb = fog.color_b;
+  effect::atmosphere::SkyDrawParams tint = sky_pass_.params();
+  tint.sun_glow_strength = 0.f;
+  effect::atmosphere::SkyPass::sample_sky_rgb(tint, 0.f, 0.05f, 1.f, &hr, &hg,
+                                              &hb);
+  fog.color_r = hr;
+  fog.color_g = hg;
+  fog.color_b = hb;
   fog_pass_.set_params(fog);
   return true;
 }

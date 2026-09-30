@@ -20,6 +20,7 @@
 #endif
 #include <windows.h>
 
+#include "base/time/frame_timer.h"
 #include "ui/gfx/raster/shell_raster.h"
 #include "ui/gfx/display/vblank_wait.h"
 #include "ui/views/map/touch_multitouch.h"
@@ -123,8 +124,10 @@ class UI_EXPORT MapViewport : public View {
                             uint64_t generation,
                             uint32_t hole_clear_argb = 0,
                             uint32_t hole_clear_argb_alt = 0);
-  // HWND title + on-client identity badge (role + attach mode).
+  // HWND title + on-client identity HUD (engine name + FPS, legacy-style).
   void sync_identity_chrome();
+  // Sample present cadence into hud_fps_ (Display or UI thread).
+  void note_hud_frame();
   uint64_t shell_overlay_generation() const {
     return shell_generation_.load(std::memory_order_acquire);
   }
@@ -134,6 +137,9 @@ class UI_EXPORT MapViewport : public View {
                               uint64_t* out_generation) const;
   void* rhi_device() const { return rhi_device_; }
   void invalidate_native();
+  // Show/hide the owned DXGI present popup with the embed pane (tab switch).
+  // Inactive Map-Edit present must not cover Scene3d.
+  void set_flycube_present_visible(bool show);
 
   // Write the current backbuffer. False when no pixels have been presented.
   bool export_bmp(const std::string& path) const;
@@ -188,8 +194,16 @@ class UI_EXPORT MapViewport : public View {
   void request_frame();
   void signal_display();
 
+  // Top-level DXGI present HWND for FlyCube (flip-model is unreliable on
+  // WS_CHILD embed panes). Sized/moved over native_view().
+  HWND ensure_flycube_present_hwnd(uint32_t width_px, uint32_t height_px);
+  void sync_flycube_present_hwnd(uint32_t width_px, uint32_t height_px);
+  void destroy_flycube_present_hwnd();
+
   static LRESULT CALLBACK child_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam,
                                          LPARAM lparam);
+  static LRESULT CALLBACK present_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam,
+                                           LPARAM lparam);
 
   static constexpr UINT_PTR kPresentTimerId = 1;
 
@@ -225,8 +239,16 @@ class UI_EXPORT MapViewport : public View {
   // WM_POINTER touch contacts → midpoint InputEvent (pointer_count >= 2).
   TouchMultitouchTracker touch_tracker_;
 
-  // On-client identity badge (WS_CHILD STATIC) for pane / SoT discrimination.
+  // On-client identity HUD (black bar + yellow engine/FPS), child of map or
+  // FlyCube present HWND so DXGI flip surfaces still show it.
   HWND identity_badge_ = nullptr;
+  HWND identity_badge_parent_ = nullptr;
+  wchar_t identity_hud_text_[220] = {};
+  mutable std::mutex hud_fps_mu_;
+  base::FrameTimer hud_fps_timer_;
+  std::atomic<float> hud_fps_{0.f};
+  // Owned top-level FlyCube present surface (Scene3d / Map2d DXGI).
+  HWND flycube_present_hwnd_ = nullptr;
 
   // Display / present mailbox (P4) + DWM/vblank BeginFrame (P5).
   // kPending while kInit runs. Queue-empty is not failure: the task is popped

@@ -126,7 +126,7 @@ Must be rewritten in the landing change (non-exhaustive inventory from explorati
 - `src/app/views/**` (`map_scene`, `browser_view`, `scene3d_controller`, `map_hwnd_gestures`, `blit_frame_cache`, `plugin_shell`, tests)
 - `src/ui/views/**`
 - `src/plugin/**` (host, domain `*_commands`, python)
-- `src/legacy/ui/xview/**`
+- `src/legacy/ui/shell/**`
 - `src/legacy/tool/group/**` (endgame headers only: `Workspace`, `Draft`, `legacy_msg`)
 - `src/tool/**` itself + tests
 

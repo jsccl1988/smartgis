@@ -13,7 +13,7 @@ GN targets keep short names (`sde_gdal`, `render_gl`). DLL stems stay `Smt*` (`d
 | **gis** | `gis/{model/{feature,layer,map,crs,edit},datasource/*,present/{style,tile},vista/{frame,world,assets,domain},kernel/{geo,proj,tin,stat}}` | **GIS 模型层**（不是 literal DB）+ CPU `MapFrame` / World + HTTP XYZ tiles + Style JSON (`gis::style`) + 空间内核（`geo` / `proj` / `tin` / `stat`），同一 `gis.dll`。`domain/atmosphere` 是 `kAtmosphere` 会话包。目录分组不增加公开命名空间。GDAL decorator driver `"SDBD"` (`SdbdDataset` owns stock inner datasets). |
 | **render** | `render/{rhi,scene,graph,skia}` | Unified 2D+3D via `render/rhi` (FlyCube DX12/Vulkan), `GpuScene`, frame graph. `gpu/` is the process. Scene math is `base/math`. |
 | **effect** | `effect/{map,atmosphere}` | GPU map and atmosphere passes. `source_set` linked by callers, not a DLL. |
-| **base** | `base/`（`:foundation` + base DLL leftovers + `math/`） | foundation = log/threading/files/archive/ipc；产品 DLL `dll_stem=base`；leftover style → `legacy/carto`；`gis::Envelope` → `gis/model/envelope.h`。`base/math`（`//src/base/math:math`、`:bounds`）是场景数学，命名空间仍为 `render`，不进 `base.dll` |
+| **base** | `base/`（`:foundation` + base DLL leftovers + `math/`） | foundation = log/threading/files/archive/ipc；产品 DLL `dll_stem=base`；style POD → `legacy/gis/present/carto`（`gis` DLL）；`gis::Envelope` → `gis/model/envelope.h`。`base/math`（`//src/base/math:math`、`:bounds`）是场景数学，命名空间仍为 `render`，不进 `base.dll` |
 
 ## OSS GIS ↔ this tree
 
@@ -34,7 +34,7 @@ GN targets keep short names (`sde_gdal`, `render_gl`). DLL stems stay `Smt*` (`d
 
 ## Also
 
-- **gis/kernel/{geo,proj,tin,stat}** — `geo` (`SmtGeoCore`: TIN/grid/surface meshes; OGC types are OGR), proj, tin, stat. Compiled into `gis.dll` (`//src/gis:gis`; `//src/gis:algorithm` forwards there). Scene Vector/Matrix live in `base/math` (Eigen, namespace `render`). Not dem (plugin + GDAL). Not orthogrid (plugin + Eigen Laplace). Chart UI is `legacy/ui/chart`（Views：`ui/views` ChartView）。
+- **gis/kernel/{geo,proj,tin,stat}** — `geo` (`SmtGeoCore`: TIN/grid/surface meshes; OGC types are OGR), proj, tin, stat. Compiled into `gis.dll` (`//src/gis:gis`; `//src/gis:algorithm` forwards there). Scene Vector/Matrix live in `base/math` (Eigen, namespace `render`). Not dem (plugin + GDAL). Not orthogrid (plugin + Eigen Laplace). Chart UI is `legacy/ui/shell/chart`（Views：`ui/views` ChartView）。
 - **plugin/** — host `plugin::Registry` + leftover `SmtAuxModule`; shell talks through `content::PluginHost`; Python embed; zip / `plugins.json` store. Spec: `docs/superpowers/specs/2026-09-13-plugin-host-design.md`. Domain children keep leftover `dll_stem`.
 - **ui/** — endgame `ui/views` only. Leftover MFC shell (`gui` / `mfc_ex` / `xview` / `xcatalog` / `xambox` / `chart`) → `legacy/ui/`（`dll_stem=ui_legacy`；`//src/ui:ui_legacy` 转发）。
 - **legacy/** — leftover trees under `legacy/{app,ui,render,tool}`（见 [`legacy/README.md`](legacy/README.md)）。MFC exe：`build.bat legacy_app` → `//src/legacy/app:app`。Spec: `docs/superpowers/specs/2026-09-14-app-legacy-split-design.md`.

@@ -22,7 +22,7 @@ All rights reserved.
 - Agent **must not** run `build.bat` / `gn` / `ninja` / any compile or test exe (human owns verify).
 - Colocated `.h` next to `.cpp`; nesting cap `legacy/render/scene3d/<module>/`; **no** old-path forwarding shims.
 - Keep `Smt*`, `LEGACY_RENDER_EXPORT`, `dll_stem = legacy_render`. New helpers: `snake_case`. Comments in English; copyright year **2026** on touched Mogu headers.
-- `index/*.h` must **not** `#include` `3drenderdevice.h` (or other full device API headers). Forward-declare `Smt3DRenderDevice` / `LP3DRENDERDEVICE` and `SmtFrustum` as needed; device use stays in `.cpp` / `scene/`.
+- `index/*.h` must **not** `#include` `render_device.h` (or other full device API headers). Forward-declare `Smt3DRenderDevice` / `LP3DRENDERDEVICE` and `SmtFrustum` as needed; device use stays in `.cpp` / `scene/`.
 - No Qt; no PCL/OpenVDB/Embree/Assimp-as-octree.
 
 ## File structure (target)
@@ -168,7 +168,7 @@ Replace `_BL3D_*` guards with `LEGACY_RENDER_SCENE3D_INDEX_OCTREE_H` style (or `
 
 In `index/octree.h` and `index/vertex_octree.h`:
 
-- Remove `#include "legacy/render/rhi3d/public/device/3drenderdevice.h"` (and videobuffer from vertex header if only used in `.cpp`).
+- Remove `#include "legacy/render/rhi3d/public/device/render_device.h"` (and videobuffer from vertex header if only used in `.cpp`).
 - Forward-declare:
 
 ```cpp
@@ -181,7 +181,7 @@ class SmtVertexBuffer;  // vertex_octree.h only
 ```
 
 - Keep `#include "legacy/render/scene3d/scene/object.h"` / `vertex3d.h` / math as needed for `vSmt3DObjectPtrs` and inheritance.
-- Thin `scene/object.h`: replace `#include "鈥?3drenderdevice.h"` with the same forward decl so index 鈫?object does not pull the full device API header.
+- Thin `scene/object.h`: replace `#include "鈥?render_device.h"` with the same forward decl so index 鈫?object does not pull the full device API header.
 
 - [x] **Step 4: Update `scene3d/BUILD.gn` sources + deps**
 
@@ -266,8 +266,8 @@ Short English class comment on `SmtSceneOctTree` / `SmtVertexOctTree`: leftover 
 
 **Files (known callers; re-scan with path-scoped search):**
 - `scene3d/{dem,bridge,primitive,feature,surface,test}/**`
-- `legacy/ui/xview/view_3d.h`, `legacy/ui/xcatalog/scenemgr.h`
-- `legacy/tool/group/base/base3dtool.h`, `legacy/tool/group/view/3dviewctrltool.{h,cpp}`
+- `legacy/ui/viewport/view_3d.h`, `legacy/ui/catalog/scenemgr.h`
+- `legacy/tool/base/base3dtool.h`, `legacy/tool/nav/3dviewctrltool.{h,cpp}`
 - `legacy/render/rhi3d/impl/gl/test/map_paint_test.cc`
 - Any remaining `bl3d_` or flat `scene3d/bl3d_*` includes
 
@@ -311,11 +311,39 @@ Set spec metadata `Plan:` to `docs/superpowers/plans/2026-09-28-scene3d-index-oc
 | --- | --- | --- |
 | 1 | Spec complete | already accepted |
 | 2 | No `bl3d_*` under scene3d; `index/`+`scene/`; `octree` spelling | disk + search |
-| 3 | `index/*.h` no `3drenderdevice.h` | header scan |
+| 3 | `index/*.h` no `render_device.h` | header scan |
 | 4 | Vendor under `third_party/` + adapter exports `SmtSceneOctTree` | `.src/octree` + GN |
 | 5 | BUILD.gn + all includes; no shims | search |
 | 6 | Behavioral parity | **human:** `build.bat` (+ `dem_stereo_test` / leftover 3D view) |
 | 7 | SP4 Success text intact | do not edit SP4 Success checkboxes |
+
+---
+
+### Task 6: Replace hand-rolled node tree with flat + unibn (approach A)
+
+**Files:**
+- Modify: `index/octree.h|.cpp`, `index/vertex_octree.h|.cpp`, `scene3d/BUILD.gn`, README, umbrella §13
+- Delete: `index/octree_node.cpp`, `index/vertex_octree_node.cpp`
+
+**Interfaces:**
+- Keep exported `SmtSceneOctTree` / `SmtVertexOctTree` methods
+- Remove exported `SmtSceneOctTreeNode` / `SmtVertexOctTreeNode`
+
+- [x] **Step 1: Flat scene octree** — object list + unibn; Render/Select/Update scan; scene AABB debug cube
+- [x] **Step 2: Flat vertex octree** — single VB + unibn; HitTest unibn-only; RenderTree draws VB
+- [x] **Step 3: Drop node TUs from BUILD.gn; delete node sources**
+- [x] **Step 4: Docs** — umbrella §13 Locked note; scene3d README as-built line
+
+---
+
+### Task 7: Point-cloud upgrade (P0 query / P1 Cloud owns VB / P2 chunks)
+
+**Files:**
+- Modify: `index/vertex_octree.h|.cpp`, `surface/pointcloud.h|.cpp`, umbrella §13, README
+
+- [x] **P0** — `build` / `hit_test` / `find_nearest` / `radius_neighbors`; index has no VB
+- [x] **P1** — `Smt3DPointCloud` owns VB + draw; index query-only via `m_point_index`
+- [x] **P2** — N≥200k reorder into spatial chunks; frustum cull per chunk draw range
 
 ---
 

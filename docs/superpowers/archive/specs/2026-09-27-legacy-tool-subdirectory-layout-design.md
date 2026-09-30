@@ -120,7 +120,7 @@ src/legacy/tool/
 Rewrite in the landing change (re-grep `legacy/tool/t_` at land time):
 
 - Internal: `src/legacy/tool/iatool/*`, `src/legacy/tool/group/{basetool,base3dtool,selecttool,viewctrltool}.*`
-- UI: `src/legacy/ui/xview/*`, `src/legacy/ui/xcatalog/*`
+- UI: `src/legacy/ui/shell/*`, `src/legacy/ui/catalog/*`
 - App: `src/legacy/app/smtapp.cpp`
 - Plugins: `src/legacy/plugin/{dem,orthogrid,print,proj,model3d}/…` (and any other hit)
 

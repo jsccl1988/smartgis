@@ -7,9 +7,9 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted  
-**Updated:** 2026-09-28 — §GPU-process accelerate A+C (default `kRhi`; `SMT_GPU_COMPOSE=software` escape; monitor LUID on Attach/Resize; sticky per-adapter software fallback).
+**Updated:** 2026-09-30 — §Legacy render Pipeline + Arena (A/B/C prep thin) · §GDI leftover worker Phase A preview.  
 **Related:** model/compute · atmosphere · map2d folded into this file (§Folded topics); legacy present SP2 in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；Views shell [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md)；as-built [`../../../src/render/README.md`](../../../src/render/README.md)、[`../../../src/gpu/README.md`](../../../src/gpu/README.md)；RHI subdir landed [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)。  
-**Plans:** RHI scene [`../plans/2026-09-13-render-rhi-scene.md`](../plans/2026-09-13-render-rhi-scene.md) · frame graph [`../plans/2026-09-27-render-frame-graph.md`](../plans/2026-09-27-render-frame-graph.md) · gpu accelerate [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) · P0 [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md) · suite/bench [`../plans/2026-09-28-render-rhi-suite-bench.md`](../plans/2026-09-28-render-rhi-suite-bench.md)。  
+**Plans:** RHI scene [`../plans/2026-09-13-render-rhi-scene.md`](../plans/2026-09-13-render-rhi-scene.md) · frame graph [`../plans/2026-09-27-render-frame-graph.md`](../plans/2026-09-27-render-frame-graph.md) · gpu accelerate [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) · P0 [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md) · suite/bench [`../plans/2026-09-28-render-rhi-suite-bench.md`](../plans/2026-09-28-render-rhi-suite-bench.md) · **D3D leftover capability** [`../plans/2026-09-29-d3d-leftover-capability.md`](../plans/2026-09-29-d3d-leftover-capability.md) · **GL leftover capability** [`../plans/2026-09-29-gl-leftover-capability.md`](../plans/2026-09-29-gl-leftover-capability.md) · GDI leftover worker [`../plans/2026-09-29-gdi-leftover-worker.md`](../plans/2026-09-29-gdi-leftover-worker.md) · GDI carto math [`../plans/2026-09-29-gdi-carto-base-math.md`](../plans/2026-09-29-gdi-carto-base-math.md) · GDI layout/compose [`../plans/2026-09-29-gdi-layout-device-compose.md`](../plans/2026-09-29-gdi-layout-device-compose.md) · GDI profile [`../plans/2026-09-29-gdi-leftover-profile.md`](../plans/2026-09-29-gdi-leftover-profile.md) · **GDI internal RHI** [`../plans/2026-09-29-gdi-internal-rhi-reshape.md`](../plans/2026-09-29-gdi-internal-rhi-reshape.md) · **Legacy Pipeline+Arena** [`../plans/2026-09-30-legacy-render-pipeline-arena.md`](../plans/2026-09-30-legacy-render-pipeline-arena.md)。  
 **Scope:** Living RHI + dual scene + in-process frame graph + GPU-process compose. FlyCube DX12/Vulkan. Logical world in `gis`/`sdb`; GPU cache in `render/scene`. Do **not** open new dated RHI/layout twins — revise sections below.
 
 ## Goal
@@ -370,6 +370,22 @@ Optional: if FlyCube is linked, `rhi_test` tries `initialize` on a hidden HWND a
 - MapLibre Native product pin / `smt_enable_maplibre` / `maplibre_link` were
   **removed** (2026-09-27; deferred reconsider). Do not include mln/mbgl from
   `app/`, `content/public`, or `gpu/`.
+- **§MapLibre Native examples (2026-09-29):** opt-in only —
+  `smt_enable_maplibre_example` + `//third_party/maplibre:maplibre_examples`
+  builds upstream `mbgl-render` (headless) and `mbgl-glfw` via CMake
+  (`third_party/maplibre/build_native.py`). Not a product pin; default off;
+  as-built [`../../../third_party/maplibre/README.md`](../../../third_party/maplibre/README.md).
+- **§MapLibre StyleDocument align (2026-09-29):** long-term capability
+  alignment **without** Native product pin. Shared Style under
+  `third_party/maplibre/example/style_align.json`; **data is the main-app
+  china_city pack** (`out/data/china_city.gpkg` / `.geojson` via
+  `//testing/data:china_map_samples`). GN copies Style to
+  `$root_out_dir/maplibre/example/`. Product:
+  `SmartGisViews --map2d-showcase=align` opens china_city + loads
+  StyleDocument (framing 80–128°E / 20–48°N, 640×480). Optional Native still
+  when `smt_enable_maplibre_example=true`. Dual stills:
+  `python testing/tools/maplibre_align.py` → `out/*/maplibre/align/`.
+  Wire name `maplibre` on tile backend remains StyleDocument tile, not Native.
 
 ## Risks
 
@@ -422,7 +438,7 @@ One viewport, one camera, one `CommandList`, one `execute`/`present`. Passes onl
 
 ### Scene3d present spans（2026-09-28）
 
-When `base::tracing_enabled()`: `scene3d` / `scene3d.present` / `scene3d.mesh` / `scene3d.atmosphere` / `scene3d.gdi` wrap presenter + GPU + software paths (same `process_trace` as Map2d). See base §Trace + views §RenderTrace.
+When `base::trace::tracing_enabled()`: `scene3d` / `scene3d.present` / `scene3d.mesh` / `scene3d.atmosphere` / `scene3d.gdi` wrap presenter + GPU + software paths (same `base::trace::process_trace` as Map2d). See base §Trace + views §RenderTrace.
 
 ---
 
@@ -439,6 +455,20 @@ Compose/present for `--type=gpu` (`src/gpu`) only. Shell / browser / Views never
 | Topology | **One** `--type=gpu` process × **N** adapter device slots. Not N gpu processes. **No** single-frame multi-GPU split / cross-adapter mosaic in one compose. |
 | Shell role | Shell consumes NT shared handles / DIB only — **never** blends the final frame. |
 | Monitor affinity | `AttachSurfaceBody` / `ResizeSurfaceBody` carry `monitor_luid_low` / `monitor_luid_high` (DXGI adapter LUID of the output’s monitor). Optional `adapter_hint` (`0xffffffff` = unset). `gpu_main` binds / rebinds the `OutputSurface` via `GpuDeviceHub` (`prefer_adapter_for_monitor` / `rebind_surface_to_monitor` by LUID). **`HMONITOR` is not sent over IPC** (shell-local only when resolving LUID). |
+
+### Legacy GDI buffer → compositor IR（2026-09-29）
+
+`src/legacy/render/rhi2d/impl/gdi/core/surface` compose/pool is map2d **compose + present**, not a generic byte arena.
+
+| Locked | Choice |
+| --- | --- |
+| Public ABI | `GdiSurface` + `GdiOwnedSurface` + pool helpers; no `SmtRenderBuf`; POINT scratch uses `base::tls_allocate` / `tls_deallocate` (no `SmtBufPool`) |
+| Phase 1 | In-process: DIBSection BGRA + `gpu::detail::blend_render_pass` via narrow `//src/gpu:compositor_cpu_blend` (no full `gpu_backend`) |
+| HWND present | GDI `BitBlt` / `TransparentBlt` / `StretchBlt` |
+| buf→buf compose | `gdi_compose` → color-key→alpha then src-over; **stretch via nearest-neighbor** then blend |
+| Surface pool | `GdiSurfacePool` reuses DIB by size; draw TUs allocate POINT scratch from TLS arena |
+| Phase 2 | `fill_compositor_frame_owned` + `submit_compositor_frame`; C ABI `SmtGdiSetBgraSubmit`; GPU process binds → `OutputSurface`. Shell still must not final-compose. |
+| Phase 3 | GPU `leftover_gdi_bgra_upload` builds `CompositorFrame` → `make_frame_composer` (RHI/software) → `draw_frame`; NN-scale when sizes differ. Test: `gdi_compose_test`. |
 
 ### Phases
 
@@ -507,6 +537,662 @@ Headless functional matrix + performance benches for `render::rhi` / `graph`, pl
 - No second RHI / Skia-as-map-RHI / Qt Lab window.
 - No mandatory true-GPU CI.
 - No embedding FlyCube types in public headers.
+
+---
+
+## §GDI leftover worker（dual-track）（2026-09-29）
+
+**Status:** accepted  
+**Plan:** [`../plans/2026-09-29-gdi-leftover-worker.md`](../plans/2026-09-29-gdi-leftover-worker.md)  
+**Code:** `src/legacy/render/rhi2d/impl/gdi/core/worker/` + `core/host/render_device.*` (+ helpers)
+
+### Why it exists
+
+`SmtGdiRenderThread` is **not** a multi-core accelerator. It is a **single worker** that runs one full-map GDI `RenderMap` off the HWND thread so the message pump stays responsive during leftover 2D paint. Dual-track keeps this path alive until Views map present is fully on RHI / `software_composer`.
+
+### Locked choices
+
+| Topic | Choice |
+| --- | --- |
+| Approach | **Thin FrameJob shell** on the existing GDI device — do **not** merge into `gpu/` compositor during dual-track |
+| Worker runtime | Dedicated **`base::execution::NThreadPoolExecutor(1)`** (serial GDI lane). Do **not** use `GlobalNThreadPoolExecutor` (overlapping GDI on the shared front is unsafe) |
+| Ordering | **B → A → C**: stability → interaction → retireable surface |
+| Speedup | Explicit **non-goal**. No claim of parallel GDI speedup |
+| Draw* growth | Forbidden on `SmtGdiRenderThread`; paint stays internal |
+| New-track coupling | Do not block RHI / frame-graph work on this leftover shell |
+
+### Phase B — stability
+
+1. **Bounded idle wait:** UI paths must not use unbounded `while (IsRendering()) Sleep(0)`. Use `request_cancel` + `wait_idle(timeout_ms)`; on timeout keep the last good front frame.
+2. **Shutdown:** Keep “no `join()` on HWND thread” (deadlock with GDI). `stop()` sets stop + cancel, notifies, detaches if needed; `has_exited` / leak-on-close stays explicit.
+3. **Buffer ownership:** Worker paints only a **private back** (`m_smtRenderBuf`). Publish to the device **front** (`ShareBuf` / map buffer) only at frame end, and only if the job **generation** still matches. Device must not `ClearBuf` / `PrepareDC` the front while the worker is publishing.
+4. **Stale / cancel:** Layer loop checks `m_stop` and per-frame cancel / generation so close and superseded zooms abandon the paint before touching HWND buffers.
+
+### Phase A — interaction
+
+1. Single submit path: pan/zoom/`ScheduleDelayedRedraw`/`ReRenderMapByProxy` only stage a pending job; `Timer` (or one tick) submits.
+2. Debounce: keep ~200 ms settle; interactive frames are droppable; settle frame must present.
+3. Present when front generation advances: Timer calls `Refresh()` only after the worker is **idle**, and only then advances the present baseline. Consuming the gen while `Refresh` early-outs on `is_busy()` left the HWND on the previous composite until a mouse-driven Refresh.
+4. **`ReRenderMapRealTime`:** cancel → urgent FrameJob → return immediately. **Do not** Sleep-poll for publish on the UI thread. Timer owns present-on-gen. No white clear flash of map fronts.
+5. **MapLibre-aligned preview:** `PreviewZoomScale` updates windowport **and** stretches `vir_viewport2` around the cursor (`paint/canvas/preview_xform.h`); pan keeps `SetCurDrawingOrg` BitBlt slide. Worker publish resets `vir_viewport1/2` to 1:1. `ReRenderMapByProxy` stages debounced settle without clearing the last-good front.
+
+### Phase C — retireable API + thread composition
+
+Public leftover surface on **`SmtGdiRenderThread`** (class name kept) shrinks to snake_case:
+
+`init` / `resize` / `submit_frame` / `cancel` / `wait_idle` / `try_present` / `shutdown` / `is_busy` / `has_pending` / gens / `has_exited`.
+
+Device (`render_device.*`) updates call sites in the **same** change — **no** dual-name wrappers.
+
+Internal composition under `impl/gdi/core/worker/` (`render::detail` worker lane):
+
+| Collaborator | Role |
+| --- | --- |
+| `GdiFrameScheduler` | `NThreadPoolExecutor(1)`, cancel/gen, coalesce, `paint_loop` |
+| `GdiMapPainter` | `render_map` / layer / feature / geometry |
+| `GdiStyleCanvas` | pen/brush/font + all draw primitives |
+
+`render_thread_draw.cpp` is deleted after the move. `SmtBufPool` already gone — POINT scratch is `base::tls_allocate`. Delete `gdi/thread` when Views map no longer binds GDI leftover present.
+
+**Note:** §GDI layout rename + device composition owns UI-thread facade helpers and worker FrameJob paint **flat under `core/`** (distinct scheduler basenames). Do not duplicate Draw* into a second lane.
+
+### Acceptance (dual-track)
+
+- Close / `--self-test`: no hang, no worker UAF on Viewport.
+- Continuous pan: UI remains interactive; blank/flash not worse than baseline.
+- Optional render-trace: `job_gen`, cancel, present generation.
+
+### Non-goals
+
+- No multi-threaded GDI feature drawing.
+- No new carto capability on the leftover thread.
+- No new dated design twin — revise this `§` only.
+
+---
+
+## §GDI layout rename + device composition（2026-09-29）
+
+**Status:** accepted  
+**Updated:** 2026-09-29 (`core/paint/` dedupe — see §GDI paint dedupe)  
+**Plan:** [`../plans/2026-09-29-gdi-layout-device-compose.md`](../plans/2026-09-29-gdi-layout-device-compose.md)  
+**Code:** `src/legacy/render/rhi2d/impl/gdi/` only (not the stale dual-run tree `src/legacy/render/gdi/` if still present)
+
+### Locked choices
+
+| Topic | Choice |
+| --- | --- |
+| File rename | Drop redundant `gdi_` file prefix under `impl/gdi/` (`render_device.*`, `compose.*`, `render_thread.*`, `aux_api.*`, `gdiplus.*`, …) |
+| Types / ABI | Keep `SmtGdiRenderDevice` / `SmtGdiRenderThread` / `CreateDevice("SmtGdiRenderDevice")` |
+| Resources | Move `resource.h` + `.rc` + icons → `impl/gdi/res/` |
+| Device split | Thin facade + composition under `core/{host,worker,paint,surface}` |
+| Device collaborators | Host: `render_device` + `host_frame_scheduler` + `image_io`. Shared paint: see §GDI paint dedupe |
+| Thread collaborators | FrameJob shell: `worker_frame_scheduler` / `render_thread`. Paint bodies under `core/paint/` |
+| Subdir tighten | Top: `core/` · `gdiaux/` · `res/` · `test/`. Under `core/`: `host/` · `worker/` · `paint/` · `surface/` |
+| Scope | No behavior change to FrameJob contract; Phase C API rename is owned by leftover-worker plan |
+
+### Target layout
+
+```
+impl/gdi/
+  core/
+    host/     render_device.* + host_frame_scheduler.* + image_io.*
+    worker/   render_thread.* + worker_frame_scheduler.*
+    paint/    style_canvas.* + map_painter.* + map_carto2d.*
+              + device_geom.h + render_context.h
+    surface/  compose.*, surface_pool.*
+  gdiaux/   aux_api.*, gdiplus.*
+  res/      resource.h, render_device.rc, icons
+  test/     compose_test.*, map_paint_test.*, map_carto2d_test.*
+```
+
+### Acceptance
+
+- Includes / `BUILD.gn` point at new paths; no leftover `gdi_*.` sources under `impl/gdi/` (except intentional symbol names like `gdi_surface_pool()`).
+- `SmtGdiRenderDevice` remains the only public device type; `.cpp` no longer hosts all Draw*/scheduler bodies.
+- Top-level subdirs: `core/` · `gdiaux/` · `res/` · `test/`; under `core/`: `host/` · `worker/` · `paint/` · `surface/`.
+- `gdi_compose_test` / `gdi_map_paint_test` / `legacy_render` still build.
+
+### Non-goals
+
+- Do not rename `SmtGdi*` or break CreateDevice string.
+- Do not merge leftover into `gpu/` compositor in this change.
+- Do not rewrite `src/legacy/render/gdi/` dual-run copies in the same wave unless that tree is deleted separately.
+
+---
+
+## §GDI paint dedupe（`core/paint/`）（2026-09-29）
+
+**Status:** accepted  
+**Updated:** 2026-09-29 (host wire + force-rebuild verify)  
+**Plan:** [`../plans/2026-09-29-gdi-paint-dedupe.md`](../plans/2026-09-29-gdi-paint-dedupe.md)  
+**Code:** `src/legacy/render/rhi2d/impl/gdi/core/{paint,host,worker}/`
+
+### Why
+
+Layout split left **two paint lanes**: host `GdiGeomDrawer` / `GdiStyleState` / `GdiLayerPainter` vs worker `GdiStyleCanvas` / `GdiMapPainter`. Living leftover-worker note already forbids a second Draw* lane.
+
+### Locked choices
+
+| Topic | Choice |
+| --- | --- |
+| Approach | Neutral **`core/paint/`**; host + worker each own an instance (share code, not DC/objects) |
+| UI sync paint | **Keep** BeginRender path + realtime fallback |
+| Wave | One wave: Draw* + style + layer orchestration |
+| Host buffers | Sync full-map uses host painter with separate back (e.g. quick) + shared map front |
+| ABI | Public `Draw*` / `Render*` / CreateDevice unchanged; delete host duplicate TUs |
+| `style()` | Replace with host `canvas()` / field accessors — no second pen/brush implementation |
+
+### Acceptance
+
+- No `host/geom_drawer.*` / `style_state.*` / `layer_painter.*`.
+- FrameJob cancel/gen/publish contract unchanged.
+- `map_carto2d_test` / `gdi_compose_test` / `gdi_map_paint_test` / `legacy_render` green.
+- No new dated design twin — this `§` only.
+
+### Non-goals
+
+- Do not kill UI-thread sync paint in this wave.
+- Do not share one canvas instance across HWND + worker threads.
+- Do not wire into `gpu/` compositor.
+
+---
+
+## §GDI core cc rename（Chromium lexicon）（2026-09-29）
+
+**Status:** accepted  
+**Updated:** 2026-09-29 (rename verified green)  
+**Plan:** [`../plans/2026-09-29-gdi-core-cc-rename.md`](../plans/2026-09-29-gdi-core-cc-rename.md)  
+**Code:** `src/legacy/render/rhi2d/impl/gdi/core/`
+
+### Why
+
+After paint dedupe, leftover still has **two types named `GdiFrameScheduler`**, Hungarian `m_smt*` members, and paint type names that do not match Chromium/cc (`PaintCanvas` / `LayerPainter` / `RasterScheduler` / UI controller). `SmtRenderDevice` Draw* ABI stays; only internals rename + thin forwards.
+
+### Locked choices
+
+| Topic | Choice |
+| --- | --- |
+| Lexicon | Chromium/cc-style names inside `impl/gdi/core` |
+| Directories | Keep `host/` · `paint/` · `worker/` · `surface/` |
+| ABI | `SmtRenderDevice` virtuals + CreateDevice string **unchanged** |
+| Device class | `SmtGdiRenderDevice` / `SmtGdiRenderThread` names **unchanged** |
+| Dual scheduler | `GdiUiController` (host) + `detail::GdiRasterScheduler` (worker) |
+| Paint types | `GdiPaintCanvas` · `GdiLayerPainter` · `GdiCartoFrame` |
+| Context type | File `paint_context.h`; type `SmtRenderContex` stays |
+| Dual-run tree | Out of scope |
+
+### Acceptance
+
+- No two types both named `GdiFrameScheduler`.
+- Device members snake_case; `ui()` / `paint_canvas_` / `layer_painter_`.
+- GDI tests + `legacy_render` green; CreateDevice still works.
+- No new dated design twin — this `§` only.
+
+### Non-goals
+
+- Do not change carto LOD/colors.
+- Do not merge into `gpu/` compositor.
+- Do not rewrite `src/legacy/render/gdi/`.
+
+---
+
+## §GDI carto + base/math 2D（2026-09-29）
+
+**Status:** accepted  
+**Plan:** [`../plans/2026-09-29-gdi-carto-base-math.md`](../plans/2026-09-29-gdi-carto-base-math.md)  
+**Code:** `src/base/math/{affine2,simd}.*` · `…/gdi/core/paint/map_carto2d.*` · GDI paint multi-point draws
+
+### Why
+
+Leftover GDI multi-point paint still calls `LPToDP` per vertex. Carto declutter (`try_keep_point`) is O(n). Both should lean on `base/math` (2D affine + optional AVX2 batch) without changing MapLibre-style carto policy.
+
+### Locked choices
+
+| Topic | Choice |
+| --- | --- |
+| Approach | **`LpToDp2` + `transform_xy_batch`** in `base/math`; carto uses `Vector2` / constants; point declutter gets a cell grid |
+| `LPToDP` semantics | Match leftover: `+0.5` then cast to `LONG`, then `Y = view_h - Y` |
+| SIMD | Same as render-math: `smt_render_math_simd` default **off** (scalar) |
+| Style / LOD | **Unchanged** (colors, priority, budget, halo) |
+| Worker | Still single GDI lane; this is CPU math on that lane, not parallel GDI |
+
+### Acceptance
+
+- Scalar batch ≡ prior per-point `LPToDP` for sample coords.
+- `math_test` + `map_carto2d_test` pass; GDI paint smoke still draws pixels.
+- No new dated design twin — revise this `§` only.
+
+### Non-goals
+
+- Do not force 2D through 4×4 `Matrix` / `transform_points_batch`.
+- Do not wrap `MapCartoBox` in leftover 3D `Aabb`.
+- Do not claim multi-core GDI speedup.
+
+---
+
+## §GDI leftover profile（base::trace + MFC log）（2026-09-29）
+
+**Status:** active  
+**Plan:** [`../plans/2026-09-29-gdi-leftover-profile.md`](../plans/2026-09-29-gdi-leftover-profile.md)  
+**Code:** `src/legacy/render/rhi2d/impl/gdi/core/worker/` + `core/surface/compose.*` · `src/base/trace/log/frame_log.h` · Legacy `shell/dock/render_trace.*` · Views `render_trace_panel` GDI filter
+
+### Why
+
+`base::trace::process_trace` + Views `RenderTracePanel` already cover map2d/scene3d. **GDI leftover** (`impl/gdi`) had zero `BASE_TRACE_EVENT`. Legacy SmartGis.exe needs a thin MFC panel that streams **text log lines** (not Views HWND host, not Chrome Trace UI dependency) so dual-track paint can be decomposed before optimizing.
+
+### Locked choices
+
+| Topic | Choice |
+| --- | --- |
+| Scope | **GDI leftover 2D only** (`rhi2d/impl/gdi`); not D3D leftover this slice |
+| Tracer | Reuse `BASE_TRACE_EVENT` / `base::trace::process_trace` — **no** parallel `GdiFrameProfiler` |
+| Categories | `gdi.frame` / `gdi.layer` / `gdi.geom` (prefix `gdi.`) |
+| Geom depth | Per **Draw\* family** aggregated per layer (sum µs → one span); **not** per feature |
+| Legacy UI | MFC thin dock: Record/Stop/Clear/Refresh + scrollable log list |
+| Log shape | Continuous frame lines from `format_trace_frame_log_lines` (poll `base::trace::process_trace`) |
+| Views | Add GDI filter checkbox on existing `RenderTracePanel` |
+| Optimize | Data-driven follow-ups after hotspots appear in the log — not part of first land |
+
+### Category table
+
+| cat | name | Where |
+| --- | --- | --- |
+| `gdi.frame` | `submit` / `paint_loop` / `RenderMap` / `compose` / `cancel` | scheduler + paint_once + compose |
+| `gdi.layer` | layer name (or `raster` / `tile` / `ogr`) | `GdiMapPainter::render_layer*` |
+| `gdi.geom` | `point` / `line` / `polygon` / `anno` / `image` / … | flush after each layer |
+
+### Acceptance
+
+- `SMT_TRACE=1` or UI Record captures GDI spans; default off stays cheap.
+- Legacy dock appends per-`RenderMap` text lines while armed.
+- Views Gantt can show/hide `gdi.*`.
+- `trace_test` covers frame-log formatter; GDI paint smoke still draws.
+
+### Non-goals
+
+- No Views Widget HWND host inside MFC.
+- No per-feature spans.
+- No mandatory Perfetto UI for legacy.
+- No new dated design twin — revise this `§` only.
+
+---
+
+## §Atmosphere look pack（ocean C / fog depth / sky / cloud）（2026-09-29）
+
+Industry look pass on `src/effect/atmosphere` without a second atmosphere tree. Living umbrella only — no new dated design twin.
+
+### Scope
+
+| Track | Deliverable |
+| --- | --- |
+| Ocean C | Separable Gaussian on FFT `height_map` + PS central-diff normals / Fresnel / sun specular / weak foam |
+| Fog | CameraCB view-ray + optional `Device::shared_depth_texture()` sample; aerial tint |
+| Sky | Fix NDC view-ray seam; sun disk; **Bruneton-lite** analytical multi-scatter (not full LUT) |
+| Cloud | Powder / silver-lining; quality≤1 half-res *proxy* (fewer/coarser steps; no offscreen RT until RHI color attachments) |
+| RHI | Shared depth created with DSV+SRV; `Device::shared_depth_texture()` non-owning |
+
+### Wiring
+
+- Passes stay under `ocean/` `fog/` `sky/` `cloud/`; `AtmosphereFrame` / `AtmosphereSession` bind depth into `FogPass::record(..., depth)`.
+- Showcase `full` stacks ocean (sea-mask + horizon clip so the far lip does not replace the sky; coast stays the close-water check) and a grey cloud veil (cover cap, no white floor).
+- DEM overview LOD sits in the dense bucket (cap 224). Albedo is elevation + slope rock/snow. Lit textured PS is GGX, sun self-shadow, and a two-tap derivative AA (swapchain stays 1×).
+- Gate: `testing/tools/scene3d_shot_loop.py` sky_delta + landish / cyan checks.
+
+### Non-goals
+
+- Full Bruneton/Hillaire LUT tables, SSR ocean, volumetric light shafts as required v1.
+- No new dated design twin — revise this `§` only.
+
+---
+
+## §Atmosphere + Map2d look structural fix（approach B）（2026-09-29）
+
+Dual-track structural fix (not tune-only, not full rewrite). Living umbrella only.
+
+### Atmosphere
+
+| Bug | Fix |
+| --- | --- |
+| Fog washes sky white | Cleared / sky depth (`>= 0.999`) → fog factor ≈ 0 (sky pass owns far-field) |
+| Ocean cyan flare | Cap Blinn-Phong specular + slightly deeper albedo |
+| Fog density floor | Keep terrain haze; do not reintroduce sun-glow in fog tint |
+
+Gate: `scene3d_shot_loop.py` `blue_sky_frac_top` + `landish` + sky_delta.
+
+### Map2d
+
+| Bug | Fix |
+| --- | --- |
+| Roads invisible at China overview | Drop road `minzoom` 12→5; casing/fill colors readable on cream (not white-on-cream) |
+| Style bind | Keep default carto + `carto_source_layer` remap (`area`→land, lines→river/admin/road) |
+| Labels | Keep importance filter; no china_city.style.json scribble overwrite |
+
+Gate: `map2d_shot_loop.py` land_cream / water / detail_frac.
+
+### Non-goals
+
+- Full atmosphere rewrite; MapLibre expression engine; leftover GDI carto rewrite beyond present compose.
+
+---
+
+## §GDI internal RHI reshape（leftover A）（2026-09-29）
+
+**Status:** accepted  
+**Updated:** 2026-09-29 — Phases 1–4 landed (Task 4 stroke/clip/blit + Task 5 `gdi.encode` traces).  
+**Plan:** [`../plans/2026-09-29-gdi-internal-rhi-reshape.md`](../plans/2026-09-29-gdi-internal-rhi-reshape.md)  
+**Code:** `src/legacy/render/rhi2d/` (`public/` + `impl/gdi/core/`)
+
+### Why
+
+Leftover GDI should read like an industry 2D RHI (Device / Surface / CommandEncoder / Resource) and grow 2D capability, while remaining a **GDI present** adapter — **not** a second FlyCube `render::rhi` backend.
+
+### Locked choices
+
+| Topic | Choice |
+| --- | --- |
+| Approach | **Internal RHI vocabulary** under `impl/gdi/core/`; thin public facade |
+| Phases | **1 Resource/Surface → 2 Encoder → 3 Draw ops → 4 Schedule/trace** |
+| ABI | **May break** `SmtRenderDevice` / callers (sync MFC/`xview`/tool) |
+| Naming | `Gdi*` types; internals in `render` / `render::detail` — **never** `render::rhi::*` |
+| Present | HWND still GDI BitBlt / Invalidate; compose IR stays `CompositorFrame` |
+| Dirs | Keep `surface/` path for buffers; add `encode/`; device stays `host/` |
+| Parallel GDI | **Non-goal** — single play lane |
+
+### Components
+
+`GdiDevice` (thin facade core) · `GdiSurface` / `GdiSurfacePool` / `GdiOwnedSurface` · `GdiCommandEncoder` / `GdiCommandBuffer` · `GdiPaintPlayer` (existing paint) · `GdiComposer` · `GdiFrameScheduler` / `GdiRenderWorker`.
+
+### Acceptance
+
+- [x] Phase 1–2 gates green (`gdi_compose_test`, `gdi_encode_test`).
+- [x] Phase 3 wire: host `BeginRender`/`EndRender` → encoder; `last_pass()`; `gdi_map_paint_test` (Draw* record = Task 4).
+- [x] Phase 4 schedule/trace (Task 5): `gdi.encode` begin/end/take + `last_pass_ops`; worker `gdi.frame`/`RenderMap` + `encode_idle` (no double-draw replay); README hard line vs `src/render/rhi`.
+- [x] Phase 3 richer Draw ops + replay pixel tests (Task 4: stroke_rect / clip / blit; text/path/blend deferred).
+- Docs draw a hard line vs `src/render/rhi` (`impl/gdi/README.md`).
+- No new dated design twin — this `§` only.
+
+### Non-goals
+
+- Do not embed FlyCube CommandList in the GDI encoder.
+- Do not claim multi-core GDI draw speedup.
+- Do not treat Skia as map RHI.
+
+---
+
+## §GDI core upgrade + dedupe（B then A2）（2026-09-29）
+
+**Status:** accepted  
+**Updated:** 2026-09-29 — B `.cc` + TLS layout-safe; A2 canvas-as-recorder + host/worker replay green.  
+**Plan:** [`../plans/2026-09-29-gdi-core-upgrade-dedupe.md`](../plans/2026-09-29-gdi-core-upgrade-dedupe.md)  
+**Code:** `src/legacy/render/rhi2d/impl/gdi/core/`
+
+### Why
+
+After reshape / paint dedupe / cc rename, `core/` still has (1) mixed `.cpp`/`.cc`, oversized paint TUs, and (2) a half-wired encoder (`Begin`/`End` record while Draw* stay immediate; `last_pass_` unused for paint). Upgrade = **B structural cleanup**, then **A2 canvas-as-recorder** so map geom goes record→single replay.
+
+### Locked choices
+
+| Topic | Choice |
+| --- | --- |
+| Order | **B then A** |
+| A depth | **A2** — FrameJob + sync `RenderMap` geom/text/pen through encoder |
+| Approach | **Canvas-as-recorder** — Draw* API stays; bind via TLS (`paint_encoder_tls.h`) so `GdiPaintCanvas` size does not shift `render_thread_` |
+| Road while encoding | Dual GDI pen polylines (not Gdiplus) |
+| ABI | `SmtRenderDevice` / CreateDevice / class names **unchanged** |
+| Namespace | Never `render::rhi` |
+
+### Acceptance
+
+- [x] Phase B: `core/` sources `.cc`; encoder TLS layout-safe; tests green.
+- [x] Phase A: blob ops + canvas record + host/worker replay; `gdi_map_paint_test` green.
+- [x] No empty encode shell / double-draw; README updated.
+- No new dated design twin — this `§` only.
+
+### Non-goals
+
+- Do not merge leftover into `gpu/` compositor.
+- Do not rewrite `src/legacy/render/gdi/` dual-run tree.
+- Do not claim multi-core GDI.
+
+---
+
+## §GDI flatten + GdiPlayer（2026-09-29）
+
+**Status:** accepted  
+**Updated:** 2026-09-29 — flat top + `paint/{canvas,encode,player,gdiplus}`  
+**Plan:** [`../plans/2026-09-29-gdi-flatten-player.md`](../plans/2026-09-29-gdi-flatten-player.md)  
+**Code:** `src/legacy/render/rhi2d/impl/gdi/{host,worker,paint,surface}/`
+
+### Why
+
+`core/` was an extra nesting layer; `encode/` and `gdiaux/` were a third play lane beside canvas immediate + encoder replay. Flat top + paint sub-layers keep record/play/capability separate without a second Player backend.
+
+### Locked choices
+
+| Topic | Choice |
+| --- | --- |
+| Top layout | `host/` `worker/` `paint/` `surface/` `res/` `test/` (no `core/`) |
+| `paint/` | `canvas/` · `encode/` · `player/` · `gdiplus/` |
+| Aux | **Delete** `gdiaux/`; live helpers → `paint/player/gdi_player.*` |
+| GDI+ | `paint/gdiplus/` — token + AA string only (not a peer ImmediatePlayer) |
+| Play | **`detail::GdiPlayer`** shared by immediate canvas + `replay()` |
+| Immediate roads | Dual GDI pens via `GdiPlayer::road_polyline` |
+| ABI | `SmtGdi*` / CreateDevice / `render::rhi` hard line unchanged |
+
+### Acceptance
+
+- [x] No `impl/gdi/core/` or `impl/gdi/gdiaux/`.
+- [x] `paint/` split into canvas/encode/player/gdiplus.
+- [x] `GdiPlayer` owns clear/stroke/polyline/road/cross/disc/anno; encoder replay calls it.
+- [x] scene3d `map_label_batch` includes `paint/gdiplus/gdiplus.h`.
+- [x] `gdi_compose_test` / `gdi_encode_test` / `map_carto2d_test` green.
+- [x] `gdi_map_paint_test` / `legacy_render` green.
+- [x] Living § + README.
+
+### Non-goals
+
+- Do not force every immediate draw through encode→replay.
+- Do not add GDI/GDI+ as two full ImmediatePlayer backends.
+- Do not merge into `gpu/` compositor.
+
+---
+
+## §D3D leftover capability（2026-09-29）
+
+**Status:** accepted  
+**Updated:** 2026-09-29 — T3 docs + as-built README; T1 texture/FBO and T2 font/frustum landed under `resource/`.  
+**Plan:** [`../plans/2026-09-29-d3d-leftover-capability.md`](../plans/2026-09-29-d3d-leftover-capability.md)  
+**Code:** `src/legacy/render/rhi3d/impl/d3d/` · as-built [`../../../src/legacy/render/rhi3d/impl/d3d/README.md`](../../../src/legacy/render/rhi3d/impl/d3d/README.md)
+
+### Why
+
+Legacy **StereoTerrain / scene3d** still ships **`SmtD3DRenderDevice`** (`"Direct3D"` factory) beside OpenGL. This slice grows **leftover D3D11** capability inside `rhi3d/impl/d3d/` so product HWNDs keep working — **not** a FlyCube strangler on the same HWND and **not** modern `render::rhi`.
+
+### Present strangler (this HWND)
+
+| Topic | Choice |
+| --- | --- |
+| Role | **Leftover capability** on the MFC / legacy scene3d viewport — parallel to `impl/gl/` |
+| FlyCube | **`Init(HWND)` may call `render::bind_rhi_present`** for process-wide Null recording only |
+| Present owner | **D3D11 `IDXGISwapChain::Present`** (and offscreen `color_tex_` blit) — **do not** create FlyCube swapchain on this HWND |
+| Modern RHI | **`src/render/rhi` (FlyCube DX12/Vulkan)** stays the new-track default; D3D11 leftover does not become `render::rhi::Backend` |
+
+### ABI and factory (locked)
+
+| Topic | Choice |
+| --- | --- |
+| Public type | **`Smt3DRenderDevice`** virtual surface unchanged |
+| Factory | **`CreateD3DRenderDevice`** export, API string **`"Direct3D"`**; shared **`Release3DRenderDevice`** in `legacy_render` |
+| Enum slot | **`GetBaseApi()` → `RA_D3D09`** (historical name); runtime is **D3D11**, not D3D9/D3DX |
+| DLL | Stays **`legacy_render`** — no merge/split for this slice |
+
+### Directory layout
+
+Industry-shaped seams under **`rhi3d/impl/d3d/`** (colocated `.h`/`.cpp`/`.cc`):
+
+| Dir | Role |
+| --- | --- |
+| **`host/`** | `SmtD3DRenderDevice` facade (`render_device.*` + `device_present.cpp`) — Init/Destroy/Release, Begin/End/Swap, Present, capture |
+| **`resource/`** | System-memory VB/IB (`buffer/`), **`texture.cc`**, **`frame_buffer.cc`**, **`font.cc`** |
+| **`paint/`** | Draw paths, matrix stack, state manager, stub shader/program manager |
+| **`caps/`** | `Smt3DDeviceCaps` defaults (`device_caps.*`) |
+| **`ext/`** | Leftover extension interface glue (`ext_interface.cpp`) |
+
+File stems are **snake_case** (aligned with GDI leftover / repo-global naming). See `impl/d3d/README.md` rename map. **Do not** rewrite `Smt_*` / factory export names.
+
+GN: `//src/legacy/render/rhi3d/impl/d3d:d3d_sources` → `legacy_render` (`d3d11.lib`, `dxgi.lib`, `d3dcompiler.lib`).
+
+### Phased capability (T0–T4)
+
+| Track | Scope |
+| --- | --- |
+| **T0** | Device + swapchain + offscreen RT, lit **DrawIndexedPrimitives** (StereoTerrain mesh), staging **`CaptureBgr24`**, line strips + **DrawScreenBgra** (MapLabelBatch) |
+| **T1** | **Texture** create/build/bind/release + **FBO** create/attach/clear/unbind (`resource/texture.cc`, `resource/frame_buffer.cc`) |
+| **T2** | **GDI bitmap font** slots + **DrawText** (world + screen) + **`GetFrustum`** (GL-compatible clip-plane extract) |
+| **T3** | Living **`§`** + plan checklist + module README + Active table link (no new dated design twin) |
+| **T4** | **`d3d_texture_test`** (hidden HWND) + **`legacy_scene3d_shot_loop.py --d3d`** in engine shot matrix |
+
+**Viewport rule:** `SetViewport` adjusts rasterizer state only; **color target resize** happens when requested size equals **HWND client size** (mid-frame 120×120 leftovers must not recreate RTs).
+
+### Non-goals
+
+- **No full GLSL shader/program port** — fixed HLSL lit mesh + compile-at-init helpers only; **`SmtShader` / `SmtProgram` manager remains stub** (failure/null).
+- **No FlyCube** device/swapchain/command list on this HWND.
+- **No `SmtVideoBuffer` GPU path** — create/destroy may exist; bind/update/map **stay stub** until a later slice.
+- **No D3D9 / D3DX resurrection**; **no** folding D3D11 into `render::rhi::kDx12`.
+- **No** rewriting **`Smt_*` export names** or merging `legacy_render` with FlyCube.
+
+### Acceptance
+
+- [x] T0 baseline draw + Present documented in module README.
+- [x] T1 texture/FBO sources under `resource/` wired in `BUILD.gn`.
+- [x] T2 font + `GetFrustum` under `resource/font.cc` + `paint/matrix.cpp`.
+- [x] T3 docs (this `§`, plan, README, superpowers index).
+- [x] T4 `d3d_texture_test` + `--d3d` shot loop green in CI/local verify.
+
+---
+
+## §GL leftover capability（2026-09-29）
+
+**Status:** accepted  
+**Updated:** 2026-09-29 — T0 `host/`·`resource/`·`paint/` layout; capability audit + `gl_texture_test`; docs.  
+**Plan:** [`../plans/2026-09-29-gl-leftover-capability.md`](../plans/2026-09-29-gl-leftover-capability.md)  
+**Code:** `src/legacy/render/rhi3d/impl/gl/` · as-built [`../../../src/legacy/render/rhi3d/impl/gl/README.md`](../../../src/legacy/render/rhi3d/impl/gl/README.md)  
+**Sibling:** §D3D leftover capability (same living umbrella; separate checklist plan). Joint name for both: **Leftover 3D capability (D3D+GL)**.
+
+### Why
+
+Legacy **StereoTerrain / scene3d** ships **`SmtGLRenderDevice`** (`"OpenGL"` factory) beside D3D11. GL already had fuller texture/FBO/font/frustum than early D3D leftover. This slice **aligns directory seams** with D3D/GDI (`host/` · `resource/` · `paint/`), keeps present ownership on WGL **`SwapBuffers`**, and adds a narrow unit smoke — **not** a FlyCube strangler and **not** modern `render::rhi`.
+
+### Present strangler (this HWND)
+
+| Topic | Choice |
+| --- | --- |
+| Role | **Leftover capability** on the MFC / legacy scene3d viewport — parallel to `impl/d3d/` |
+| FlyCube | **`Init(HWND)` calls `render::bind_rhi_present`** for process-wide Null recording only |
+| Present owner | **GL `SwapBuffers`** — **do not** create FlyCube swapchain on this HWND |
+| Modern RHI | **`src/render/rhi` (FlyCube)** stays the new-track default; leftover GL does not become `render::rhi::Backend` |
+
+### ABI and factory (locked)
+
+| Topic | Choice |
+| --- | --- |
+| Public type | **`Smt3DRenderDevice`** virtual surface unchanged |
+| Factory | **`Create3DRenderDevice`** export, API string **`"OpenGL"`**; shared **`Release3DRenderDevice`** in `legacy_render` |
+| Enum slot | **`GetBaseApi()` → `RA_OPENGL`** |
+| DLL | Stays **`legacy_render`** — no merge/split for this slice |
+
+### Directory layout
+
+Industry-shaped seams under **`rhi3d/impl/gl/`** (colocated `.h`/`.cpp`):
+
+| Dir | Role |
+| --- | --- |
+| **`host/`** | `SmtGLRenderDevice` facade (`render_device.*` + `device_present.cpp`) — Init/Destroy/Release, Begin/End/`SwapBuffers` |
+| **`resource/`** | VB/IB (`buffer/`), `texture.cpp` / `frame_buffer.cpp` / `font.cpp` + `text/` glyph helper |
+| **`paint/`** | Matrix/misc/fast_draw/effect/shader/VBA/VBO, `states_manager` |
+| **`caps/`** | `SmtGLDeviceCaps` (`device_caps.*`) |
+| **`ext/`** | Extension loaders (`*_func` / `*_func_imp`) |
+
+File stems are **snake_case** (see `impl/gl/README.md` rename map). **Do not** rewrite `Smt_*` / factory export names.
+
+GN: `//src/legacy/render/rhi3d/impl/gl:gl_sources` → `legacy_render` (`opengl32.lib`, `glu32.lib`).
+
+### Phased capability (T0–T4)
+
+| Track | Scope |
+| --- | --- |
+| **T0** | Reshape `device/`+`buffer/`+`text/` → `host/`·`resource/`·`paint/`; BUILD.gn + includes; behavior-preserving |
+| **T1** | Capability audit — texture/FBO already complete; fix clear breakage only (e.g. CreateFont fail-path leak) |
+| **T2** | Font/frustum/DrawText regression via smoke (already implemented; no ABI change) |
+| **T3** | Living **`§`** + plan checklist + module README + Active table link (no new dated design twin) |
+| **T4** | **`gl_texture_test`** (hidden HWND) + **`legacy_scene3d_shot_loop.py`** (GL default, no `--d3d`) |
+
+### Non-goals
+
+- **No FlyCube** device/swapchain/command list on this HWND.
+- **No** rewriting **`Smt_*` export names** or merging `legacy_render` with FlyCube.
+- **No** full new RHI Facade inside legacy GL.
+- **No** drive-by rename of public `SmtGL*` types or factory strings.
+- **Do not** edit `impl/d3d/` in the GL slice (coordinate via separate plans).
+
+### Acceptance
+
+- [x] T0 layout under `host/` · `resource/` · `paint/` · `caps/` · `ext/`.
+- [x] T1/T2 CreateTexture/FBO/CreateFont/GetFrustum/DrawText still wired; CreateFont fail-path leak fixed.
+- [x] T3 docs (this `§`, plan, README, superpowers index).
+- [x] T4 `gl_texture_test` + GL shot loop (verify locally with `build.bat debug`).
+
+---
+
+## §Legacy render Pipeline + Arena（trace + memory/execution）（2026-09-30）
+
+**Status:** active  
+**Plan:** [`../plans/2026-09-30-legacy-render-pipeline-arena.md`](../plans/2026-09-30-legacy-render-pipeline-arena.md)  
+**Code:** `src/legacy/render/detail/` · `rhi2d/impl/gdi` · `rhi3d/impl/{d3d,gl}` · `scene3d/`
+
+### Why
+
+GDI already has `BASE_TRACE_EVENT` (`gdi.*`). **rhi3d / scene3d** had near-zero process_trace coverage. Hot paths still use raw `new[]` / `parallel_for` without `base::execution::Pipeline` ContextHooks / Arena. Dual-run leftover needs one skeleton so RenderTrace + Memory counters tell a coherent story before further strangler cuts.
+
+### Locked choices
+
+| Topic | Choice |
+| --- | --- |
+| Scope | Full leftover tree: `rhi2d` + `rhi3d` + `scene3d` |
+| Depth | **C**: Pipeline stages + Arena / ObjectAllocator on frame temps; SpanRecorder optional |
+| External ABI | Keep `Init` / `BeginRender` / `EndRender` / `Draw*` / `Present` / `SwapBuffers` signatures (**B**) |
+| Scheduler | Keep `GdiRasterScheduler` coalesce/cancel lane; **inside** paint, prep runs `Pipeline` (produce→map→sink) |
+| Categories | `gdi.*` (existing) · `rhi3d.d3d.*` / `rhi3d.gl.*` · `scene3d.*` · `memory` counters |
+| Shared | Header-only `legacy/render/detail/frame_pipeline.h` (finish-frame memory sample + `[legacy.flow]` logs) |
+| Legacy UI | AMBox tabs **Console** (`DebugConsoleDockBar` ← `log_sink`) + **RenderTrace** (aligned with Views Diagnostic Tools) |
+
+### Phases
+
+1. Shared detail + GDI prep → Pipeline + frame-end `sample_memory_counters_to_process_trace`
+2. rhi3d present/draw spans + host VB arrays via `base::allocate`
+3. scene3d `Update`/`Render`/`build_mesh` spans + Arena for mesh scratch
+4. Legacy AMBox Console + RenderTrace docks (key `[legacy.flow]` lines in Console)
+5. (Follow-up) optional scheduler→Pipeline facade — not required for first green
+6. **Encode style dedupe (2026-09-30):** recording `prepare_for_drawing` cache hit skips redundant `set_pen`/`set_brush`; `set_encoder` flushes style cache so a new pass always emits the first pen/brush. (`GdiPlayer` same-args skip deferred — exposed AV in replay.)
+7. **Line PolyPolyline coalesce (2026-09-30):** `play_prepared_batch` merges consecutive ordinary `PrepKind::Line` runs (no road dual-pen, no river line label) into one `draw_device_polylines` → `PolyPolyline`.
+8. **Prep overview thin (2026-09-30):** stronger `overview_vertex_step` + Chebyshev `overview_thin_chebyshev(scale)` on device thin (cell 2–3 at overview). Cuts prep verts and line play density together.
+
+### Acceptance
+
+- Armed tracing shows `gdi.prep.*` / `rhi3d.*` / `scene3d.*` spans; default-off stays cheap.
+- Frame end emits `memory` counters when armed.
+- Legacy SmartGis AMBox shows **Console** (flow logs) and **RenderTrace** tabs.
+- Console surfaces `[legacy.flow]` + INFO/WARN process logs via `base::log_sink`.
+- `gdi_map_paint_test` / leftover mesh-or-scene tests / `legacy_render` / `SmartGis` link green.
+- No change to public `Smt*` virtual signatures.
+- Encode→replay: consecutive same-style features do not re-emit pen/brush ops (style cache hit).
+
+### Non-goals
+
+- Do not rip `GdiRasterScheduler` coalesce in v1 of this §.
+- Do not parallelize HDC play.
+- No new dated design twin — revise this `§` only.
 
 ---
 

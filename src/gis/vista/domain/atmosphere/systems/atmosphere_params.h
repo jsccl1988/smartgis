@@ -11,8 +11,9 @@ namespace atmosphere {
 // fog passes. Host projects these into effect::atmosphere POD.
 struct AtmosphereParams {
   // Sun direction in world/view conventions used by Scene3dController (radians).
-  float sun_azimuth_rad = 0.0f;
-  float sun_elevation_rad = 0.785398163f;  // ~45 deg
+  // ~32 deg: mid-tier sky with readable Mie horizon warmth (not washed noon).
+  float sun_azimuth_rad = 0.55f;
+  float sun_elevation_rad = 0.56f;
 
   // Cloud raymarch step budget (higher = denser samples). Ocean FFT size hint.
   int quality = 1;
@@ -23,10 +24,11 @@ struct AtmosphereParams {
   bool fog_enabled = false;
 
   // Fog visibility knobs (orbit-normalized units; projected to FogDrawParams).
-  float fog_density = 0.08f;
-  float fog_visibility = 4.0f;
-  float fog_height_falloff = 1.2f;
-  float fog_max_opacity = 0.55f;
+  // Soft defaults: aerial haze without washing DEM hypsometric greens.
+  float fog_density = 0.09f;
+  float fog_visibility = 3.6f;
+  float fog_height_falloff = 1.35f;
+  float fog_max_opacity = 0.22f;
 };
 
 }  // namespace atmosphere

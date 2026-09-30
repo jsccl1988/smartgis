@@ -121,7 +121,7 @@ src/legacy/tool/group/
 Rewrite in the landing change:
 
 - Internal: all moved TUs + `factory/grouptoolfactory.*` + `base/basetool.cpp` (factory include)
-- UI: `src/legacy/ui/xview/{view_2d,view_2d_edit,view_3d}.*`
+- UI: `src/legacy/ui/shell/{view_2d,view_2d_edit,view_3d}.*`
 - Plugins that only include `defs.h` need **no** path change
 - Comment in `src/legacy/tool/adapter/msg.h` may keep pointing at `group/defs.h`
 

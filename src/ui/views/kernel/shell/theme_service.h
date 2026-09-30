@@ -38,7 +38,9 @@ class UI_EXPORT ThemeService {
   void register_pack(ThemePack pack);
   const std::vector<ThemePack>& packs() const { return packs_; }
 
+  // |persist_to_disk| false keeps LocalAppData preference unchanged (harness).
   bool set_theme(std::string_view id);
+  bool set_theme(std::string_view id, bool persist_to_disk);
   std::string_view current_id() const { return current_id_; }
   const Theme& theme() const { return theme_; }
 

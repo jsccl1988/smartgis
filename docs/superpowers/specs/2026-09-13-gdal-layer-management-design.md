@@ -7,7 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted  
-**Updated:** 2026-09-28 — §GIS coverage + performance benchmarks (CLI + Console). merge B: compressed child specs into this living umbrella (see §Folded topics). Do not open new dated twins.
+**Updated:** 2026-09-29 — leftover `DataSourceMgr` → `legacy/gis/datasource`（原 `legacy/datasource`）。Prior: 2026-09-28 §GIS coverage + performance benchmarks (CLI + Console). merge B: compressed child specs into this living umbrella (see §Folded topics). Do not open new dated twins.
 **Scope:** 图层的打开 / 创建 / 列举 / 编辑 / 查询 / 关闭一律走 GDAL Dataset / Layer（矢量）或 GDAL raster（栅格）。本文件管 `sdb` 数据源与图层，不管桌面 chrome。新树编排入口见文末 **§ DataSession / Provider facade**。
 
 **Sibling (folded — see §Folded topics; revise this file):**
@@ -30,7 +30,7 @@ ADO 源码删除由另一条工作流负责。本文不恢复、不重写、不�
 
 ## Non-goals
 
-- 不要再 vendor 一份 GDAL / GEOS / PROJ。只链 `//third_party:gdal`（现有 `gdal_sdk`）。
+- 不要再 vendor 一份 GDAL / GEOS / PROJ。只链 `//third_party:gdal`（`third_party/.install`）。
 - 不要 Qt。桌面终局是 Views + Skia；本文不改 `src/ui` / `src/app` chrome。
 - 不要保留 `SmtFeature` / `SmtVectorLayer` / `SmtDataSource` 作为图层 ABI（几何算法 / `SmtStyle` 可独立留下）。
 - 不要在本文周期实现 WMS / WFS / XYZ 瓦片，也不要把 `SmtTileLayer` 硬塞进 OGR。瓦片见 sibling [`2026-09-13-tile-layer-provider-design.md`](../archive/specs/2026-09-13-tile-layer-provider-design.md)；**禁止**用 OGR Memory / `SDBD:MEM` 冒充瓦片。
@@ -81,7 +81,7 @@ SmtMap / tools / catalog       持 GDALDataset* / OGRLayer* / OGRFeature*
 GDALDriver "SDBD"              前缀 SDBD: ；内部再开 Memory / GPKG / Shapefile / PG
         |
         v
-third_party/gdal_sdk           唯一 GDAL
+third_party/.install           唯一 GDAL 安装前缀（旧名 gdal_sdk）
         + Memory
         + ESRI Shapefile / GeoJSON / …
         + GPKG / SQLite (SpatiaLite)
@@ -362,7 +362,7 @@ struct mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1> {
 - 新树打开数据源经 **`gis::datasource::DataSession`**，产品只拿 **`gis::MapLayer` / `gis::Feature`**（组合 ABI；代码在 `gis::`，文档历史名 `sdb::`）。
 - Provider 注册表取代 `DataSourceMgr::open_dataset` 的二分 if（本地 `open_sdbd_dataset` vs 远程 `open_provider_sdbd_dataset`）。
 - **禁止** 新代码依赖 `DataSourceMgr`；`session` / `provider` **禁止** 依赖 `mgr`。
-- 遗留 `legacy/datasource/mgr` 冻结：仅 bugfix；DSM catalog / `move_*` / 单例留给 legacy。
+- 遗留 `legacy/gis/datasource` 冻结：仅 bugfix；DSM catalog / `move_*` / 单例留给 legacy。
 
 ### Non-goals
 
@@ -381,7 +381,7 @@ struct mem_provider_traits<Smt_GIS::PROVIDER_MEM_VER1> {
 | `datasource/provider/impl/ogr/` | L3：`codec/` · `text/` · `raster/` |
 | `datasource/provider/impl/gdal/` | L3：`register_gdal_driver` 聚合入口 |
 | `datasource/pipeline/` | L4：feature load Pipeline（header-only） |
-| `legacy/datasource/mgr/` | 遗留 `DataSourceMgr`（冻结；不在 `gis/datasource` 顶层） |
+| `legacy/gis/datasource/` | 遗留 `DataSourceMgr`（冻结；不在 `gis/datasource` 顶层） |
 
 依赖方向：`session` → `provider` → `sdbd|ogr`。公开命名空间两层：`gis::datasource`；内部 `gis::datasource::detail`。
 

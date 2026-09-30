@@ -6,9 +6,10 @@
 #   model/{feature,layer,map,crs,edit}
 #   datasource/{session,provider,pipeline}  L3 under provider/impl/{sdbd,ogr,gdal}
 #     L1 session → L2 provider → L3 impl; L4 pipeline
-#     leftover DataSourceMgr → //src/legacy/datasource/mgr
+#     leftover DataSourceMgr → //src/legacy/gis/datasource
 
 #   present/{style,tile}  — StyleDocument, symbols, tiles; inputs to MapFrame.
+#                           Leftover carto POD: //src/legacy/gis/present/carto
 #                           Not folded into vista.
 #   vista/{frame,world,assets,domain}
 #       frame is the CPU MapFrame (ortho now, perspective later); no RHI
@@ -31,7 +32,7 @@ smt_shared_library("gis") {
   deps = [
     "//src/gis/model/map:gis_sources",
     "//src/gis/datasource/provider/impl/gdal:sde_gdal_sources",
-    "//src/legacy/datasource/mgr:sde_mgr_sources",
+    "//src/legacy/gis/datasource:sde_mgr_sources",
     "//src/gis/datasource/session:session_sources",
     "//src/gis/datasource/provider:provider_sources",
     "//src/gis/present/tile:tile_sources",
@@ -42,6 +43,7 @@ smt_shared_library("gis") {
     "//src/gis/model/edit:edit_sources",
     "//src/gis/model/edit:map_edit_sources",
     "//src/gis/present/style:style_sources",
+    "//src/legacy/gis/present/carto:carto_sources",
     "//src/gis/vista/frame:frame_sources",
     "//src/gis/kernel/geo:geo_sources",
     "//src/gis/kernel/proj:proj_sources",

@@ -2,12 +2,12 @@
 // All rights reserved.
 
 #include "content/public/event_bus.h"
-#include "legacy/plugin/adapter/cmd.h"
+#include "legacy/plugin/runtime/bridge/cmd.h"
 #include "gis/model/edit/session/command_edit_session.h"
 #include "gis/model/edit/session/memory_edit_session.h"
 #include "tool/command/command.h"
 #include "tool/interaction/interaction.h"
-#include "legacy/tool/adapter/msg.h"
+#include "legacy/tool/msg/msg.h"
 #include "tool/workspace/workspace.h"
 
 #include <cstdio>
@@ -293,6 +293,12 @@ int main() {
     expect(ws.dispatch_input(down), "draw down");
     expect(edits.committed_count() == 1, "append committed");
     expect(edits.committed_at(0).op == gis::EditOp::kAppend, "append op");
+    expect(!edits.committed_at(0).geom.empty(), "append FeatureGeom");
+    expect(edits.committed_at(0).geom.kind == gis::FeatureGeom::Kind::kPoint,
+           "append point kind");
+    expect(edits.committed_at(0).geom.points.size() == 1, "append one vertex");
+    expect(edits.committed_at(0).geom.points[0].x == 3.0, "append map x");
+    expect(edits.committed_at(0).geom.points[0].y == 4.0, "append map y");
     expect(ws.execute("edit.undo", {}), "edit.undo");
     expect(edits.committed_empty(), "undo cleared");
     expect(ws.execute("edit.redo", {}), "edit.redo");
@@ -408,7 +414,8 @@ int main() {
   }
 
   {
-    expect(!tool::try_execute_gt_msg(nullptr, tool::kGtMsgViewPan),
+    expect(!tool::try_execute_gt_msg(static_cast<tool::Workspace*>(nullptr),
+                                     tool::kGtMsgViewPan),
            "try_execute null ws");
     tool::Workspace ws(nullptr, nullptr);
     expect(!tool::try_execute_gt_msg(&ws, -1), "try_execute unmapped");

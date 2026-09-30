@@ -3,8 +3,7 @@
 
 #include "legacy/sys/sysmanager.h"
 
-#include "legacy/core/api.h"
-#include "legacy/core/core_exception.h"
+#include "legacy/core/diag/exception.h"
 
 namespace sys {
 

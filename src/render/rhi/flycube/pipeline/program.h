@@ -92,7 +92,11 @@ class FlycubeProgram : public Pipeline {
   std::shared_ptr<::Shader> cs_;
   std::shared_ptr<::BindingSetLayout> layout_;
   std::vector<InputLayoutDesc> input_;
+  // Color-only passes (no depth attach).
   std::shared_ptr<::Pipeline> depth_off_;
+  // Depth attach present, test/write off — D3D12 requires the PSO depth
+  // format to match the pass even when testing is disabled (sky / fog).
+  std::shared_ptr<::Pipeline> depth_off_ds_;
   std::shared_ptr<::Pipeline> depth_write_;
   std::shared_ptr<::Pipeline> depth_test_;
   std::shared_ptr<::Pipeline> compute_pipeline_;

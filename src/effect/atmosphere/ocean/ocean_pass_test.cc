@@ -68,10 +68,19 @@ int main() {
   params.use_gerstner_fallback = false;
   params.mesh_resolution = 17;
   params.patch_half_extent = 20.0f;
+  params.sun_x = 0.2f;
+  params.sun_y = 0.8f;
+  params.sun_z = 0.4f;
+  params.shininess = 48.0f;
   ocean.set_params(params);
   ocean.set_time_sec(1.25);
   ocean.set_sea_mask_cpu(mc, mr, mask.data(), mask.size());
   ocean.set_sea_mask_texture(&mask_tex);
+  ocean.set_sun_from_azimuth_elevation(0.4f, 0.7f);
+  expect(std::fabs(ocean.params().sun_x) + std::fabs(ocean.params().sun_y) +
+                 std::fabs(ocean.params().sun_z) >
+             0.5f,
+         "sun direction set");
 
   render::rhi::CommandList* list = device->create_command_list();
   expect(list != nullptr, "command list");
@@ -117,6 +126,18 @@ int main() {
   expect(ocean_cb != nullptr &&
              ocean_cb->byte_size == sizeof(effect::atmosphere::OceanConstants),
          "ocean constants slot 1");
+  expect(sizeof(effect::atmosphere::OceanConstants) == 80u,
+         "OceanCB 80 bytes with sun");
+  if (ocean_cb && ocean_cb->has_bytes &&
+      ocean_cb->byte_size >= sizeof(effect::atmosphere::OceanConstants)) {
+    const auto* oc = reinterpret_cast<const effect::atmosphere::OceanConstants*>(
+        ocean_cb->bytes);
+    expect(std::fabs(oc->sun_x - ocean.params().sun_x) < 1.0e-5f &&
+               std::fabs(oc->sun_y - ocean.params().sun_y) < 1.0e-5f &&
+               std::fabs(oc->sun_z - ocean.params().sun_z) < 1.0e-5f,
+           "ocean CB sun matches params");
+    expect(oc->shininess > 1.0f, "ocean CB shininess");
+  }
   expect(stub->bind_texture_calls >= 1, "height texture");
   expect(!ocean.used_gpu_fft(), "null falls back to CPU FFT");
   expect(!device->supports_compute(), "null has no compute");

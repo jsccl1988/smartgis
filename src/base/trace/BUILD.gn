@@ -2,6 +2,7 @@
 # All rights reserved.
 
 # mogu-aligned Chrome Trace buffer + span_recorder (header-mostly).
+# Layout: event/ recorder/ export/ log/ diag/ detail/
 
 import("//testing/test.gni")
 
@@ -9,13 +10,14 @@ import("//testing/test.gni")
 # process_trace_sources) so deque snapshots never run under other DLLs.
 source_set("trace") {
   sources = [
-    "chrome_trace.h",
     "detail/json_append.h",
-    "diagnostic_bootstrap.h",
-    "process_trace.h",
-    "span.h",
-    "span_recorder.h",
-    "trace.h",
+    "diag/diagnostic_bootstrap.h",
+    "event/process_trace.h",
+    "event/trace.h",
+    "export/chrome_trace.h",
+    "log/frame_log.h",
+    "recorder/span.h",
+    "recorder/span_recorder.h",
   ]
   public_configs = [ "//src/base:foundation_config" ]
   public_deps = [ "//third_party:rapidjson" ]
@@ -25,9 +27,9 @@ source_set("trace") {
 # pull //src/base:base when calling process_trace() across module boundaries.
 source_set("process_trace_sources") {
   sources = [
-    "diagnostic_bootstrap.cc",
-    "process_trace.cc",
-    "trace.cc",
+    "diag/diagnostic_bootstrap.cc",
+    "event/process_trace.cc",
+    "event/trace.cc",
   ]
   defines = [ "BASE_EXPORTS" ]
   public_deps = [ ":trace" ]

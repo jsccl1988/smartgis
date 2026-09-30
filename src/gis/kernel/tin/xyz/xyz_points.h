@@ -6,7 +6,7 @@
 
 
 #include "gis/gis_export.h"
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 #include "base/math/math.h"
 
 #include <vector>

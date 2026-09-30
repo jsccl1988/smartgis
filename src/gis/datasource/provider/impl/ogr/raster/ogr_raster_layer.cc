@@ -9,10 +9,10 @@
 #include <string>
 #include <vector>
 
-#include "legacy/core/api.h"
+#include "legacy/core/util/image.h"
 #include "cpl_vsi.h"
 #include "gdal_priv.h"
-#include "legacy/carto/style_api.h"
+#include "legacy/gis/present/carto/style_api.h"
 #include "gis/datasource/provider/impl/gdal/gdal_driver.h"
 
 namespace gis {

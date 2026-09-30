@@ -245,6 +245,10 @@ void Workspace::set_nav_command(NavCommand fn) {
   impl_->nav.set_nav_command(std::move(fn));
 }
 
+void Workspace::set_map_project(MapProject fn) {
+  impl_->drafts.set_map_project(std::move(fn));
+}
+
 void Workspace::set_shell_owns_append(bool on) {
   impl_->drafts.set_shell_owns_append(on);
 }

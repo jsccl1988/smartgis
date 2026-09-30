@@ -5,73 +5,84 @@ All rights reserved.
 
 # third_party
 
-¶ÔÆë mogu / mgis£º`manifest.json` ÊÇ pin Î¨Ò»ÕæÏà£»`tools/fetch.py` À­Ô´Âëµ½
-**`third_party/.src/`**£»`tools/batch.py` ×°µ½ **`third_party/.install`**¡£
-GN Ö»Ïû·Ñ¸Ã prefix£¨`gn/tp.gni` + `gn/BUILD.gn` ÃÅÃæ£©£¬**²»ÔÙ**ÓÃ
-`cmake()` ÔÚ ninja Àï±àÈý·½¡£
+ï¿½ï¿½ï¿½ï¿½ mogu / mgisï¿½ï¿½`manifest.json` ï¿½ï¿½ pin Î¨Ò»ï¿½ï¿½ï¿½à£»`tools/fetch.py` ï¿½ï¿½Ô´ï¿½ëµ½
+**`third_party/.src/`**ï¿½ï¿½`tools/batch.py` ×°ï¿½ï¿½ **`third_party/.install`**ï¿½ï¿½
+GN Ö»ï¿½ï¿½ï¿½Ñ¸ï¿½ prefixï¿½ï¿½`gn/tp.gni` + `gn/BUILD.gn` ï¿½ï¿½ï¿½æ£©ï¿½ï¿½**ï¿½ï¿½ï¿½ï¿½**ï¿½ï¿½
+`cmake()` ï¿½ï¿½ ninja ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-Gitea »ùÖ·Óë mogu / mgis ÏàÍ¬£º`http://localhost:3000/ccl`£¨`manifest.json` ¡ú
-`gitea_mirror`£©¡£`git_url` Ò»ÂÉÖ¸Ïò¸Ã org£»²ÖÒÑ´æÔÚÔò **¸´ÓÃ** mgis µÄ URL +
-rev£¬²»ÖØÐÂÉÏ´«¡£ÉÐÎ´½¨²ÖµÄ°ü´ø `git_url_fallbacks`£¨GitHub£©£¬fetch »áÏÈÊÔ
-Gitea ÔÙ»ØÍË¡£µÇ¼Ç¼û [GITEA_MIRROR.md](GITEA_MIRROR.md)¡£
+Gitea ï¿½ï¿½Ö·ï¿½ï¿½ mogu / mgis ï¿½ï¿½Í¬ï¿½ï¿½`http://localhost:3000/ccl`ï¿½ï¿½`manifest.json` ï¿½ï¿½
+`gitea_mirror`ï¿½ï¿½ï¿½ï¿½`git_url` Ò»ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ orgï¿½ï¿½ï¿½ï¿½ï¿½Ñ´ï¿½ï¿½ï¿½ï¿½ï¿½ **ï¿½ï¿½ï¿½ï¿½** mgis ï¿½ï¿½ URL +
+revï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ÖµÄ°ï¿½ï¿½ï¿½ `git_url_fallbacks`ï¿½ï¿½GitHubï¿½ï¿½ï¿½ï¿½fetch ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+Gitea ï¿½Ù»ï¿½ï¿½Ë¡ï¿½ï¿½Ç¼Ç¼ï¿½ [GITEA_MIRROR.md](GITEA_MIRROR.md)ï¿½ï¿½
 
-## Èë¿Ú
+## ï¿½ï¿½ï¿½
 
 ```bat
-REM °´ÍØÆË°²×°È«²¿ install_skip=false °ü£¨Debug + MSVC£©
+REM ï¿½ï¿½ï¿½ï¿½ï¿½Ë°ï¿½×°È«ï¿½ï¿½ install_skip=false ï¿½ï¿½ï¿½ï¿½Debug + MSVCï¿½ï¿½
 build.bat t
 
-REM µ¥°ü
+REM ï¿½ï¿½ï¿½ï¿½
 build.bat t glog
 py -3 third_party\tools\fetch.py --package glog
 py -3 third_party\tools\install.py --manifest third_party\manifest.json --package glog --src-root third_party\.src --build-root third_party\.build\glog --install-prefix third_party\.install --stamp third_party\.build\glog\.gn_publish_stamp --unified-prefix --build-type Debug
 ```
 
-`.src/<name>` ÒÑÓÐÍêÕûÊ÷£¨clone / zip / junction£©Ê± fetch **¸´ÓÃ**£¬²»»á
-`rmtree` ½ø junction Ä¿±ê¡£½öµ± `third_party/<name>/CMakeLists.txt` ÈÔÔÚ£¨ÕûÊ÷
-vendor£©Ê±²Å vendored skip¡£±¡ `BUILD.gn` °ü×°Ä¿Â¼ **²»** ËãÔ´ÂëÊ÷¡£Ç¿ÖÆÖØÀ­£º
-`set MGIS_TP_FORCE_FETCH=1`¡£
+`.src/<name>` ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½clone / zip / junctionï¿½ï¿½Ê± fetch **ï¿½ï¿½ï¿½ï¿½**ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+`rmtree` ï¿½ï¿½ junction Ä¿ï¿½ê¡£ï¿½ï¿½ï¿½ï¿½ `third_party/<name>/CMakeLists.txt` ï¿½ï¿½ï¿½Ú£ï¿½ï¿½ï¿½ï¿½ï¿½
+vendorï¿½ï¿½Ê±ï¿½ï¿½ vendored skipï¿½ï¿½ï¿½ï¿½ `BUILD.gn` ï¿½ï¿½×°Ä¿Â¼ **ï¿½ï¿½** ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+`set MGIS_TP_FORCE_FETCH=1`ï¿½ï¿½
 
-Ä¬ÈÏ `build.bat`£¨²úÆ·Í¼£©**²»**±àÈý·½Ô´Âë¡£²úÆ·Ö»ÒÀÀµ `//third_party:<name>`¡£
+Ä¬ï¿½ï¿½ `build.bat`ï¿½ï¿½ï¿½ï¿½Æ·Í¼ï¿½ï¿½**ï¿½ï¿½**ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ë¡£ï¿½ï¿½Æ·Ö»ï¿½ï¿½ï¿½ï¿½ `//third_party:<name>`ï¿½ï¿½
 
-## ½á¹¹
+## ï¿½á¹¹
 
-| Path | ËµÃ÷ |
+| Path | Ëµï¿½ï¿½ |
 | --- | --- |
-| `manifest.json` | `incubator_third_party_manifest_v1`£¨GIS ÌõÄ¿¸´ÓÃ mgis£»Áí¼Ó±¾²Ö°ü£© |
+| `manifest.json` | `incubator_third_party_manifest_v1`ï¿½ï¿½GIS ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ mgisï¿½ï¿½ï¿½ï¿½Ó±ï¿½ï¿½Ö°ï¿½ï¿½ï¿½ |
 | `tools/` | mogu `fetch.py` / `install.py` / `batch.py` / `deps.py` |
-| `.src/` | **ËùÓÐ¿âÔ´Âë**£¨gitignore£©£ºfetch ¿ËÂ¡£¬»ò±¾µØ junction ¡ú mgis |
-| `.src/_cache/` | ¿ÉÑ¡ÏÂÔØ»º´æ£¨gitignore£©£¬ÀýÈç MapLibre vendor tarball |
-| `.build/<pkg>/` | µ¥°ü CMake Ê÷£¨gitignore£© |
-| `.install/` | ºÏ²¢°²×°Ç°×º£¨gitignore£©£»GN `third_party_install_prefix` |
-| `gn/` | `tp.gni` + ÃÅÃæ `config`/`group` |
-| `BUILD.gn` | `//third_party:<name>` ¡ú `//third_party/gn:<name>` |
-| `CxImage/` `antlr4/` `ed25519/` `khronos_gl/` `flycube/` | **±¡ GN**£¨`install_skip`£©£»Ô´ÂëÔÚ `.src/<name>` |
-| `cximage_pub/` | ±¾²Ö MBCS ²¹¶¡Í·£¨overlay£¬²»ÉÏ Gitea£© |
-| `windows_app_sdk/` | ±¾µØ WinAppSDK / WebView2 ½â°ü£¨²»ÉÏ´«£»·ÇÖÕ¾Ö UI£© |
-| `python/` | ±¾µØ embeddable CPython£¨²»ÉÏ´«£© |
-| `bcg/` | **²»Òª**ÏÂÔØ»òµÁ°æ BCG |
-| `GITEA_MIRROR.md` | ¸÷²Ö Gitea ×´Ì¬ |
+| `.src/` | **ï¿½ï¿½ï¿½Ð¿ï¿½Ô´ï¿½ï¿½**ï¿½ï¿½gitignoreï¿½ï¿½ï¿½ï¿½fetch ï¿½ï¿½Â¡ï¿½ï¿½ï¿½ò±¾µï¿½ junction ï¿½ï¿½ mgis |
+| `.src/_cache/` | ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½Ø»ï¿½ï¿½æ£¨gitignoreï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ MapLibre vendor tarball |
+| `.build/<pkg>/` | ï¿½ï¿½ï¿½ï¿½ CMake ï¿½ï¿½ï¿½ï¿½gitignoreï¿½ï¿½ |
+| `.install/` | ï¿½Ï²ï¿½ï¿½ï¿½×°Ç°×ºï¿½ï¿½gitignoreï¿½ï¿½ï¿½ï¿½GN `third_party_install_prefix` |
+| `gn/` | `tp.gni` + ï¿½ï¿½ï¿½ï¿½ `config`/`group` |
+| `BUILD.gn` | `//third_party:<name>` ï¿½ï¿½ `//third_party/gn:<name>` |
+| `CxImage/` `antlr4/` `ed25519/` `khronos_gl/` `flycube/` | **ï¿½ï¿½ GN**ï¿½ï¿½`install_skip`ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½ `.src/<name>` |
+| `cximage_pub/` | ï¿½ï¿½ï¿½ï¿½ MBCS ï¿½ï¿½ï¿½ï¿½Í·ï¿½ï¿½overlayï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Giteaï¿½ï¿½ |
+| `windows_app_sdk/` | ï¿½ï¿½ï¿½ï¿½ WinAppSDK / WebView2 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¾ï¿½ UIï¿½ï¿½ |
+| `python/` | ï¿½ï¿½ï¿½ï¿½ embeddable CPythonï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ï¿½ï¿½ |
+| `bcg/` | **ï¿½ï¿½Òª**ï¿½ï¿½ï¿½Ø»ï¿½ï¿½ï¿½ï¿½ BCG |
+| `GITEA_MIRROR.md` | ï¿½ï¿½ï¿½ï¿½ Gitea ×´Ì¬ |
 
-±¾»ú¿ª·¢£º
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 ```bat
 mklink /J third_party\.install c:\Dev\src\gis\mgis\out\third_party
 mklink /J third_party\.src\gdal c:\Dev\src\gis\mgis\third_party\gdal
 ```
 
-²»ÒªÔÙ°Ñ `gdal_sdk` µ±¹«¿ªÂ·¾¶¡£²»Òª°ÑÔ´Âë junction ·ÅÔÚ `third_party/<name>/`
-¶¥²ã£¨ÄÇ»áºÍ±¡ GN ÇÀÄ¿Â¼£©¡£
+**Í³Ò»ï¿½ï¿½×°Ç°×ºï¿½ï¿½** GDALï¿½ï¿½FlyCube Release `/MD` libsï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã£ï¿½MapLibre
+Native ï¿½ï¿½ install ï¿½ï¿½ï¿½ï¿½Ò»ï¿½É½ï¿½ **`third_party/.install`**ï¿½ï¿½`bin/` / `include/` /
+`lib/` / `share/`ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½Î¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ `gdal_sdk/`ï¿½ï¿½`flycube_prebuilt/` ï¿½ï¿½
+`out/third_party/maplibre` ï¿½ï¿½Îªï¿½Ú¶ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½FlyCube Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ `.src/flycube`ï¿½ï¿½
+Release ï¿½ï¿½ `FlyCube.lib` ï¿½È¿ï¿½ï¿½ï¿½ `.install/lib` ï¿½ï¿½ï¿½É£ï¿½Debug ï¿½Ô±àµ½
+`out/*/flycube`ï¿½ï¿½ï¿½ï¿½
 
-## Óë mogu µÄ²îÒì
+**ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½** `.install/lib` Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ import libï¿½ï¿½ï¿½ï¿½Òªï¿½Ñ²ï¿½Æ· `*_d.dll.lib` /
+`base_d.dll.lib` ï¿½È¿ï¿½ï¿½ï¿½È¥ï¿½ï¿½`concurrentqueue` Í·ï¿½Ä¼ï¿½Ö»ï¿½ï¿½
+`.src/concurrentqueue/moodycamel/`ï¿½ï¿½ï¿½ï¿½ GN `include_dirs` ï¿½ï¿½ `.src`ï¿½ï¿½ï¿½ï¿½`.src`
+ï¿½ï¿½Ä¿Â¼ï¿½ï¿½Òªï¿½ï¿½ tarballï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Â¼ï¿½ï¿½ï¿½Þ¹ï¿½ symlinkï¿½ï¿½`skia` ï¿½È£ï¿½ï¿½ï¿½
 
-- Windows / MSVC£º`install.py` ÓÃ VS generator£¨¾­ mgis ²¹¶¡£©
-- ²»ÒýÈë Bazel
-- GIS °üÇåµ¥Óë mgis ÏàÍ¬£¨Gitea URL + rev Ô­Ñù¸´ÓÃ£©
-- ±¾²ÖÁíÓÐ `khronos_gl` / `flycube` / `antlr4` / `eigen` / `ed25519` µÈ
+ï¿½ï¿½Òªï¿½ï¿½Ô´ï¿½ï¿½ junction ï¿½ï¿½ï¿½ï¿½ `third_party/<name>/` ï¿½ï¿½ï¿½ã£¨ï¿½Ç»ï¿½Í±ï¿½ GN ï¿½ï¿½Ä¿Â¼ï¿½ï¿½ï¿½ï¿½
 
-`is_build_third_party` ÒÑÆúÓÃ£¬²»ÔÙÇý¶¯ `cmake()`¡£È±¿âÊ±ÏÈ `build.bat t`¡£
+## ï¿½ï¿½ mogu ï¿½Ä²ï¿½ï¿½ï¿½
+
+- Windows / MSVCï¿½ï¿½`install.py` ï¿½ï¿½ VS generatorï¿½ï¿½ï¿½ï¿½ mgis ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Bazel
+- GIS ï¿½ï¿½ï¿½åµ¥ï¿½ï¿½ mgis ï¿½ï¿½Í¬ï¿½ï¿½Gitea URL + rev Ô­ï¿½ï¿½ï¿½ï¿½ï¿½Ã£ï¿½
+- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ `khronos_gl` / `flycube` / `antlr4` / `eigen` / `ed25519` ï¿½ï¿½
+
+`is_build_third_party` ï¿½ï¿½ï¿½ï¿½ï¿½Ã£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ `cmake()`ï¿½ï¿½È±ï¿½ï¿½Ê±ï¿½ï¿½ `build.bat t`ï¿½ï¿½
 
 ---
 
-**×îºó¸üÐÂ£º** 2026-09-19
+**ï¿½ï¿½ï¿½ï¿½ï¿½Â£ï¿½** 2026-09-29

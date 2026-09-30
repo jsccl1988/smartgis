@@ -9,12 +9,22 @@
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "gis/kernel/tin/api/tin.h"
 #include "gis/model/envelope.h"
-#include "legacy/core/bas_struct.h"
-#include "legacy/render/rhi3d/public/state/statesmanager.h"
+#include "legacy/core/types/types.h"
+#include "legacy/render/rhi3d/public/state/states_manager.h"
+#include "ogr_geometry.h"
 
 using namespace render;
 
 namespace {
+
+// GDAL clone()/CreateGeometry* allocate on the GDAL heap. Plain `delete` from
+// this DLL corrupts the process heap (c0000374 after seed / idle paint).
+void release_ogr_geometry(OGRGeometry*& geom) {
+  if (geom) {
+    OGRGeometryFactory::destroyGeometry(geom);
+    geom = nullptr;
+  }
+}
 
 // Leftover 3D only needs a recognizable fill. Dense prefecture rings blow
 // constrained TIN; stride-downsample keeps the outline and a cheap fan.
@@ -294,19 +304,19 @@ bool Smt2DGeoObject::Select(LP3DRENDERDEVICE p3DRenderDevice,
 long Smt2DGeoObject::Destroy() {
   // Release VB memory
   SMT_SAFE_DELETE(m_pVertexBuffer);
-  SMT_SAFE_DELETE(m_pGeom);
+  release_ogr_geometry(m_pGeom);
   SMT_SAFE_DELETE(m_pIndexBuffer);
 
   return SMT_ERR_NONE;
 }
 
 void Smt2DGeoObject::SetGeometryDirectly(OGRGeometry *pGeom) {
-  SMT_SAFE_DELETE(m_pGeom);
+  release_ogr_geometry(m_pGeom);
   m_pGeom = pGeom;
 }
 
 void Smt2DGeoObject::SetGeometry(OGRGeometry *pGeom) {
-  SMT_SAFE_DELETE(m_pGeom);
+  release_ogr_geometry(m_pGeom);
 
   if (pGeom != NULL)
     m_pGeom = pGeom->clone();

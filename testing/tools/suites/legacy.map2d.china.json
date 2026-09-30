@@ -1,0 +1,20 @@
+{
+  "id": "legacy.map2d.china",
+  "kind": "showcase",
+  "argv": ["--map2d-showcase", "china"],
+  "env": {
+    "SMT_MAP2D_SHOWCASE_LINGER_MS": "0"
+  },
+  "bmp": {
+    "path": "legacy-map2d-showcase-china.bmp",
+    "score_id": "legacy_map2d_china"
+  },
+  "report_name": "legacy_map2d_shot_report.json",
+  "probes": ["bmp"],
+  "loop": {
+    "rounds": 6,
+    "timeout_sec": 180,
+    "build_target": "SmartGis",
+    "exe": "SmartGis.exe"
+  }
+}

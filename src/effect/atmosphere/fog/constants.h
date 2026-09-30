@@ -23,12 +23,15 @@ struct FogConstants {
   float cam_x;
   float cam_y;
   float cam_z;
-  float pad0;
+  // 1 when a depth SRV is bound; 0 selects CameraCB far-ray only.
+  float use_depth;
 };
 
 static_assert(sizeof(FogConstants) == 48, "FogCB is 48 bytes");
 static_assert(offsetof(FogConstants, cam_x) == 32,
               "FogCB camera row follows eight floats");
+static_assert(offsetof(FogConstants, use_depth) == 44,
+              "FogCB use_depth packs the last float");
 
 }  // namespace atmosphere
 }  // namespace effect

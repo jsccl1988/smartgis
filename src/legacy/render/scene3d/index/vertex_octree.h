@@ -2,100 +2,62 @@
 #ifndef LEGACY_RENDER_SCENE3D_INDEX_VERTEX_OCTREE_H
 #define LEGACY_RENDER_SCENE3D_INDEX_VERTEX_OCTREE_H
 
+#include <cstdint>
+#include <vector>
+
 #include "base/math/math.h"
-#include "legacy/core/bas_struct.h"
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
+#include "legacy/core/types/types.h"
 #include "legacy/render/legacy_render_export.h"
 #include "legacy/render/scene3d/scene/vertex3d.h"
 
 namespace render {
 
-class Smt3DRenderDevice;
-typedef Smt3DRenderDevice* LP3DRENDERDEVICE;
-class SmtFrustum;
-class SmtVertexBuffer;
-
-extern int g_nMdlMaxTargets;
-extern int g_nMdlMaxSubdivision;
-extern int g_nMdlCurrentSubdivision;
-extern int g_nMdlCurRenderTarget;
-extern int g_nMdlTotalLeafNode;
-
-class SmtVertexOctTree;
-
-// One node in the leftover vertex octree.
-class LEGACY_RENDER_EXPORT SmtVertexOctTreeNode {
-  friend class SmtVertexOctTree;
-
- public:
-  SmtVertexOctTreeNode();
-  ~SmtVertexOctTreeNode();
-
- public:
-  long CreateNode(SmtVertex3DList& lstVers, Vector3 vCenter, byte octCode,
-                  double width, LP3DRENDERDEVICE p3DRenderDevice);
-
-  Vector3 GetSubNodeCenter(int nSubID);
-
-  uint GetSubNodeCode(int nSubID);
-
-  void CreateSubNode(SmtVertexOctTreeNode* pParentNode,
-                     SmtVertexOctTreeNode*& pSub, SmtVertex3DList& lstVers,
-                     vector<bool> vbInSubNode, int nVertexs, int nSubID,
-                     LP3DRENDERDEVICE p3DRenderDevice);
-
-  void RenderNodeObject(LP3DRENDERDEVICE p3DRenderDevice,
-                        SmtFrustum& smtFrustum, bool bShowOctNodeBox = true);
-
-  int GetSubDepth();
-
-  SmtVertexOctTreeNode* FindMinBoxOctNode(const Vector3& point);
-
- protected:
-  SmtVertexOctTreeNode* pParentNode;
-  SmtVertexOctTreeNode* pSubNodes[8];
-  Vector3 vCenterPos;
-  double fWidth;
-  uint unOctCode;
-  bool bSubDivided;
-  SmtVertex3DList vertexList;
-  SmtVertexBuffer* pVertexBuffer;
-
-  bool bSelected;
-};
-
 struct VertexOctreeAux;
 
-// Leftover vertex spatial index: node walk for render; unibn point index of
-// vertex positions behind VertexOctreeAux (used by HitTestOctNode).
+// Point-cloud spatial index (unibn). Query only — no VB / draw ownership.
+// Render path lives on Smt3DPointCloud (flat or chunked VB).
 class LEGACY_RENDER_EXPORT SmtVertexOctTree {
  public:
   SmtVertexOctTree();
   virtual ~SmtVertexOctTree();
 
- public:
-  long CreateOctTree(SmtVertex3DList& lstVers,
-                     LP3DRENDERDEVICE p3DRenderDevice);
-
-  void RenderTree(LP3DRENDERDEVICE p3DRenderDevice,
-                  bool bShowOctNodeBox = true);
-
+  // Build / clear the unibn index from CPU vertex positions.
+  long build(const SmtVertex3DList& lstVers);
   long DestroyTree();
 
-  inline int GetDepth(void) { return m_nDepth; }
+  // Legacy alias for build().
+  long CreateOctTree(SmtVertex3DList& lstVers);
 
+  // True if any point lies within radius of `point` (L2).
+  bool hit_test(const Vector3& point, float radius = 1.0e-3f) const;
+
+  // Index of nearest neighbor, or -1 if empty. min_distance < 0 disables
+  // the unibn "keep away" filter.
+  int find_nearest(const Vector3& point, float min_distance = -1.0f) const;
+
+  // Append indices of all points within L2 radius into *out (cleared first).
+  void radius_neighbors(const Vector3& point, float radius,
+                        std::vector<uint32_t>* out) const;
+
+  // Leftover ABI: hit_test with default radius.
   bool HitTestOctNode(const Vector3& point);
 
-  void GetDebugString(char* szBuf, int nBufLength);
+  inline int GetDepth(void) const { return m_nDepth; }
+  inline int vertex_count() const { return m_nVertexCount; }
+  inline const Aabb& aabb() const { return m_aabbScene; }
+  inline bool empty() const { return m_nVertexCount < 1; }
+
+  void GetDebugString(char* szBuf, int nBufLength) const;
 
  protected:
-  void GetSceneDimensions(SmtVertex3DList& lstVers);
+  void GetSceneDimensions(const SmtVertex3DList& lstVers);
 
  protected:
-  SmtVertexOctTreeNode* m_pRootNode;
   Aabb m_aabbScene;
   VertexOctreeAux* m_aux;
   int m_nDepth;
+  int m_nVertexCount;
 };
 
 }  // namespace render

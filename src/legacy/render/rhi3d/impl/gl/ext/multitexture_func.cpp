@@ -1,0 +1,14 @@
+#include "legacy/render/rhi3d/impl/gl/ext/multitexture_func.h"
+
+namespace render {
+SmtMultitextureFunc::SmtMultitextureFunc() {}
+
+SmtMultitextureFunc::~SmtMultitextureFunc() {}
+
+long SmtMultitextureFunc::Initialize(LPGLRENDERDEVICE pGLRenderDevice) {
+  return SMT_ERR_NONE;
+}
+
+void SmtMultitextureFunc::glActiveTexture(GLenum texture) { ; }
+
+}  // namespace render

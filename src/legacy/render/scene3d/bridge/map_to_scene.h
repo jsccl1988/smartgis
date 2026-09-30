@@ -7,7 +7,7 @@
 #include "gis/vista/world/world.h"
 #include "legacy/render/legacy_render_export.h"
 #include "legacy/render/rhi3d/public/camera/camera.h"
-#include "legacy/render/rhi3d/public/device/3drenderdevice.h"
+#include "legacy/render/rhi3d/public/device/render_device.h"
 #include "legacy/render/scene3d/dem/dem_height_field.h"
 #include "legacy/render/scene3d/scene/scene.h"
 #include "legacy/render/scene3d/scene/vertex3d.h"
@@ -56,7 +56,8 @@ LEGACY_RENDER_EXPORT int seed_geojson_into_scene(LP3DRENDERDEVICE device,
                                                  SmtScene* scene,
                                                  const char* path);
 
-// Resolve china sample map under shared out/data/ (exe → ../data) / testing/data.
+// Resolve china sample map under shared out/data/ (exe → ../data) /
+// testing/data.
 LEGACY_RENDER_EXPORT int seed_sample_map_into_scene(LP3DRENDERDEVICE device,
                                                     SmtScene* scene);
 

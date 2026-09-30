@@ -13,11 +13,14 @@ namespace effect {
 namespace atmosphere {
 
 bool AtmosphereFrame::clears_color() const {
-  return ocean_enabled_ || sky_enabled_;
+  // Always clear: even with sky/ocean off, Scene3d needs a color+depth open
+  // so opaque DEM uses depth_write. Color-only depth_off draws clear the
+  // large interactive swapchain but rasterize nothing (640x480 showcase OK).
+  return true;
 }
 
 bool AtmosphereFrame::uses_shared_depth() const {
-  return ocean_enabled_ || cloud_enabled_ || sky_enabled_ || fog_enabled_;
+  return true;
 }
 
 bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
@@ -34,40 +37,71 @@ bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
   if (ocean_enabled_ && !ocean_pass_) {
     return false;
   }
-  if (!sky_enabled_ && !ocean_enabled_) {
-    return true;
-  }
 
-  // Sky tint drives the clear color when sky is on; else deep ocean blue.
-  float clear_r = 0.05f;
-  float clear_g = 0.12f;
-  float clear_b = 0.22f;
+  // Hard daylight clear — never the sun/horizon average (that washed pink).
+  float clear_r = 0.40f;
+  float clear_g = 0.62f;
+  float clear_b = 0.92f;
   if (sky_enabled_ && sky_pass_) {
-    SkyPass::average_sky_rgb(sky_pass_->params(), &clear_r, &clear_g, &clear_b);
+    float zr = clear_r;
+    float zg = clear_g;
+    float zb = clear_b;
+    SkyPass::sample_sky_rgb(sky_pass_->params(), 0.f, 1.f, 0.f, &zr, &zg, &zb);
+    clear_r = zr;
+    clear_g = zg;
+    clear_b = zb;
+  } else if (!sky_enabled_ && !ocean_enabled_) {
+    // Match GpuScene default background when no sky dome.
+    clear_r = 0.f;
+    clear_g = 0.2f;
+    clear_b = 0.4f;
   }
-
-  render::rhi::RenderPassDesc pass;
-  pass.width = width;
-  pass.height = height;
-  pass.clear_r = clear_r;
-  pass.clear_g = clear_g;
-  pass.clear_b = clear_b;
-  pass.clear_a = 1.f;
-  pass.load_op = render::rhi::ColorLoadOp::kClear;
-  pass.enable_depth = true;
-  pass.depth_load_op = render::rhi::DepthLoadOp::kClear;
-  pass.depth_clear = 1.f;
-  list->begin_render_pass(pass);
 
   bool ok = true;
+
+  // Sky draws into a color-only pass so the depth_off PSO (no DS format)
+  // matches the render pass. A depth-attached + depth_off draw is skipped by
+  // D3D12 when the PSO depth format is UNDEFINED.
   if (sky_enabled_) {
+    render::rhi::RenderPassDesc sky_pass;
+    sky_pass.width = width;
+    sky_pass.height = height;
+    sky_pass.clear_r = clear_r;
+    sky_pass.clear_g = clear_g;
+    sky_pass.clear_b = clear_b;
+    sky_pass.clear_a = 1.f;
+    sky_pass.load_op = render::rhi::ColorLoadOp::kClear;
+    sky_pass.enable_depth = false;
+    list->begin_render_pass(sky_pass);
     ok = sky_pass_->record(device, list, width, height, camera) && ok;
-  }
-  if (ocean_enabled_) {
-    ok = ocean_pass_->record(device, list, width, height, camera) && ok;
+    list->end_render_pass();
   }
 
-  list->end_render_pass();
+  // Ocean (and a depth clear for later opaque) share depth with terrain.
+  // Always open this pass — opaque DEM on large FlyCube HWNDs requires
+  // depth_write; color-only depth_off leaves a blank clear.
+  {
+    render::rhi::RenderPassDesc depth_pass;
+    depth_pass.width = width;
+    depth_pass.height = height;
+    depth_pass.load_op = sky_enabled_ ? render::rhi::ColorLoadOp::kLoad
+                                      : render::rhi::ColorLoadOp::kClear;
+    if (!sky_enabled_) {
+      depth_pass.clear_r = clear_r;
+      depth_pass.clear_g = clear_g;
+      depth_pass.clear_b = clear_b;
+      depth_pass.clear_a = 1.f;
+    }
+    depth_pass.enable_depth = true;
+    depth_pass.depth_load_op = render::rhi::DepthLoadOp::kClear;
+    depth_pass.depth_clear = 1.f;
+    list->begin_render_pass(depth_pass);
+    if (ocean_enabled_) {
+      ok = ocean_pass_->record(device, list, width, height, camera) && ok;
+    }
+    list->end_render_pass();
+  }
+
   return ok;
 }
 
@@ -94,7 +128,8 @@ bool AtmosphereFrame::record_post_opaque(render::rhi::Device* device,
     if (!fog_pass_) {
       return false;
     }
-    if (!fog_pass_->record(device, list, width, height, camera)) {
+    render::rhi::Texture* depth = device->shared_depth_texture();
+    if (!fog_pass_->record(device, list, width, height, camera, depth)) {
       return false;
     }
   }

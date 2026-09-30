@@ -5,11 +5,17 @@ All rights reserved.
 
 # fog/
 
-Implementation of `FogPass` (public header: `../fog_pass.h`).
+Implementation of `FogPass` (public header: `fog_pass.h`).
 
 Height / distance exponential fog for GIS visibility. Records a load-only
-alpha-blended fullscreen NDC pass (`DepthMode::kDisabled`). Wired
-through `AtmosphereFrame::record_post_opaque` after clouds.
+alpha-blended fullscreen NDC pass (`DepthMode::kDisabled`). Pixel shader uses
+sky-style `CameraCB` view-ray unproject; optional scene-depth SRV reconstructs
+aerial distance (cleared/sky depth ~1.0 uses the far-ray). Haze tint comes from
+`FogDrawParams` color (host usually mirrors analytical sky).
 
-Depth-sampled volumetric fog / leftover GL `SetFog` are out of scope — see
-`docs/superpowers/plans/2026-09-27-sky-fog-terrain-lod.md`.
+**Device depth SRV wiring is parent-owned** (`FogPass::record(..., depth)` —
+typically `Device::shared_depth_texture()`). This module only binds the texture
+when the caller passes a non-null pointer; it does not create or resize the
+shared depth buffer.
+
+Wired through `AtmosphereFrame::record_post_opaque` after clouds.

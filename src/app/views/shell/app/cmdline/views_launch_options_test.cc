@@ -39,6 +39,8 @@ int main() {
     expect(!o.self_test, "default no self-test");
     expect(o.atmosphere_showcase == app::AtmosphereShowcaseMode::kNone,
            "default no showcase");
+    expect(o.map2d_showcase == app::Map2dShowcaseMode::kNone,
+           "default no map2d showcase");
     expect(o.shell_canvas.empty(), "default shell_canvas empty");
   }
   {
@@ -66,10 +68,54 @@ int main() {
     expect(o.ok && o.self_test && o.self_test_console, "both self-test flags");
   }
   {
+    auto o = parse_vec({L"SmartGisViews.exe", L"--input-showcase"});
+    expect(o.ok && o.input_showcase, "input-showcase");
+    expect(!o.self_test, "input-showcase alone no self-test");
+  }
+  {
     auto o =
         parse_vec({L"SmartGisViews.exe", L"--atmosphere-showcase", L"ocean"});
     expect(o.ok && o.atmosphere_showcase == app::AtmosphereShowcaseMode::kOcean,
            "showcase ocean");
+  }
+  {
+    auto o =
+        parse_vec({L"SmartGisViews.exe", L"--map2d-showcase", L"china"});
+    expect(o.ok && o.map2d_showcase == app::Map2dShowcaseMode::kChina,
+           "map2d showcase china");
+  }
+  {
+    auto o =
+        parse_vec({L"SmartGisViews.exe", L"--map2d-showcase=china"});
+    expect(o.ok && o.map2d_showcase == app::Map2dShowcaseMode::kChina,
+           "map2d showcase=china");
+  }
+  {
+    auto o =
+        parse_vec({L"SmartGisViews.exe", L"--map2d-showcase=align"});
+    expect(o.ok && o.map2d_showcase == app::Map2dShowcaseMode::kAlign,
+           "map2d showcase=align");
+  }
+  {
+    auto o =
+        parse_vec({L"SmartGisViews.exe", L"--map2d-showcase=orthogrid"});
+    expect(o.ok && o.map2d_showcase == app::Map2dShowcaseMode::kOrthogrid,
+           "map2d showcase=orthogrid");
+  }
+  {
+    auto o = parse_vec({L"SmartGisViews.exe", L"--ui-showcase", L"shell"});
+    expect(o.ok && o.ui_showcase == app::UiShowcaseMode::kShell,
+           "ui-showcase shell");
+  }
+  {
+    auto o = parse_vec({L"SmartGisViews.exe", L"--ui-showcase=data"});
+    expect(o.ok && o.ui_showcase == app::UiShowcaseMode::kData,
+           "ui-showcase data");
+  }
+  {
+    auto o = parse_vec({L"SmartGisViews.exe", L"--ui-showcase=interact"});
+    expect(o.ok && o.ui_showcase == app::UiShowcaseMode::kInteract,
+           "ui-showcase interact");
   }
   {
     auto o = parse_vec(

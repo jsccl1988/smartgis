@@ -389,17 +389,60 @@ void try_load_accompanying_style(
   if (!load_style || path.empty()) {
     return;
   }
-  if (load_style(path + ".style.json")) {
+  // china_city.style.json keys source-layer area/line/point and disables
+  // MapLibre carto_source_layer remap (cream wash + blue scribble / black
+  // point squares). Default china seed and --map2d-showcase=china require a
+  // null StyleDocument → default_carto_style_json. Refuse that file even when
+  // it sits beside the gpkg as stem.style.json.
+  auto is_china_city_style = [](const std::string& style_path) {
+    // path_stem("…/china_city.style.json") → "china_city.style".
+    // Also catch "china_city.gpkg.style.json" and case variants by scanning
+    // the basename for "china_city.style".
+    const std::string stem = path_stem(style_path);
+    auto ascii_lower_eq = [](const std::string& s, const char* expect) {
+      const size_t n = std::strlen(expect);
+      if (s.size() != n) {
+        return false;
+      }
+      for (size_t i = 0; i < n; ++i) {
+        char c = s[i];
+        if (c >= 'A' && c <= 'Z') {
+          c = static_cast<char>(c - 'A' + 'a');
+        }
+        if (c != expect[i]) {
+          return false;
+        }
+      }
+      return true;
+    };
+    if (ascii_lower_eq(stem, "china_city.style")) {
+      return true;
+    }
+    // Basename contains china_city.style (e.g. china_city.gpkg.style).
+    std::string lower = stem;
+    for (char& c : lower) {
+      if (c >= 'A' && c <= 'Z') {
+        c = static_cast<char>(c - 'A' + 'a');
+      }
+    }
+    return lower.find("china_city.style") != std::string::npos;
+  };
+  auto try_load = [&](const std::string& style_path) {
+    if (is_china_city_style(style_path)) {
+      return false;
+    }
+    return load_style(style_path);
+  };
+  if (try_load(path + ".style.json")) {
     return;
   }
   const size_t slash = path.find_last_of("/\\");
   const std::string dir =
       slash == std::string::npos ? std::string() : path.substr(0, slash + 1);
   const std::string stem = path_stem(path);
-  if (!stem.empty() && load_style(dir + stem + ".style.json")) {
-    return;
+  if (!stem.empty()) {
+    try_load(dir + stem + ".style.json");
   }
-  load_style(dir + "china_city.style.json");
 }
 
 bool ingest_ogr_path(LayerStore* store, const std::string& path) {

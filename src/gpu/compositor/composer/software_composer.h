@@ -5,12 +5,12 @@
 #define GPU_COMPOSITOR_COMPOSER_SOFTWARE_COMPOSER_H_
 
 #include "gpu/compositor/composer/composer.h"
+#include "gpu/compositor/composer/software_blend.h"
 #include "gpu/compositor/frame/frame.h"
 #include "gpu/device/adapter_id.h"
 #include "gpu/display/output_surface.h"
 
 #include <cstdint>
-#include <vector>
 
 namespace gpu {
 namespace detail {
@@ -33,11 +33,6 @@ class SoftwareComposer : public FrameComposer {
  private:
   AdapterId adapter_ = kAdapterPrimary;
 };
-
-// Src-over the root pass onto transparent black. Used by tile fallback before
-// the display present, and by draw_frame.
-bool blend_render_pass(const RenderPass& pass, uint32_t width_px,
-                       uint32_t height_px, std::vector<uint8_t>* dst);
 
 }  // namespace detail
 }  // namespace gpu

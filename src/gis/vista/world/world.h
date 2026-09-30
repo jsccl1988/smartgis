@@ -64,6 +64,8 @@ struct Node {
   // leftover Y-up XYZ (X=-lon, elev, lat) + triangle indices. Empty = AABB-only.
   std::vector<float> terrain_positions;
   std::vector<uint32_t> terrain_indices;
+  // Per-vertex DEM UVs (u,v) matching terrain_rgba grid. Empty = AABB UV.
+  std::vector<float> terrain_uvs;
   // Optional RGBA8 terrain drape (China RS / hypsometric bake). Size =
   // terrain_tex_w * terrain_tex_h * 4. Empty = untextured lit solid.
   std::vector<uint8_t> terrain_rgba;
@@ -124,6 +126,8 @@ class GIS_EXPORT World {
   bool set_terrain_mesh(uint64_t id, const float* positions,
                         size_t position_count, const uint32_t* indices,
                         size_t index_count);
+  // Per-vertex DEM UVs (2 floats / vert). Must match terrain_positions/3.
+  bool set_terrain_uvs(uint64_t id, const float* uvs, size_t float_count);
   // Attach / replace RGBA8 drape texture for a kTerrain node (imagery or
   // hypsometric bake). |byte_count| must be w*h*4.
   bool set_terrain_texture(uint64_t id, const uint8_t* rgba, size_t byte_count,

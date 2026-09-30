@@ -243,26 +243,13 @@ void Browser::handle_draft(const tool::Draft& draft) {
     if (ui_->try_consume_measure_draft(draft)) {
       return;
     }
+    // EditSession append (with FeatureGeom) already ran in DraftPipeline.
+    // MapScene remains the Views display store.
     const content::FeatureId id = session_.document().append_from_draft(
         draft, tool_id,
         [this](int view_x, int view_y, double* map_x, double* map_y) {
           session_.view_frame().view_to_map(view_x, view_y, map_x, map_y);
         });
-    if (id.len > 0) {
-      if (content::ViewHost* host = ui_->active_view_host()) {
-        if (host->edits()) {
-          gis::FeatureMutation mutation;
-          mutation.op = gis::EditOp::kAppend;
-          mutation.id = id;
-          if (host->edits()->commit(mutation) && host->events()) {
-            content::EditCommitted ev;
-            ev.id = id;
-            ev.op = content::EditCommitted::Op::kAppend;
-            host->events()->publish(ev);
-          }
-        }
-      }
-    }
     if (plugin::grid_boundary_armed() && id.len > 0) {
       std::vector<std::pair<double, double>> xy;
       if (session_.document().copy_feature_xy(id, &xy) && xy.size() >= 2) {
@@ -280,7 +267,8 @@ void Browser::handle_draft(const tool::Draft& draft) {
     return;
   }
 
-  // Rubber-band ZoomToRect: view.zoom_in L/R drag, or view.pan RMB drag.
+  // Rubber-band ZoomToRect: view.zoom_in L/R drag (view.pan leaves RMB to the
+  // shell context menu — MapLibre-like browse).
   const bool zoom_rect_draft =
       draft.kind == tool::DraftKind::kRect && draft.points.size() >= 2 &&
       (tool::draft_flags::is_zoom_rect(draft.flags) ||
@@ -648,12 +636,24 @@ void Browser::push_shared_extent() {
   int w = 800;
   int h = 600;
   ui_->active_view_size(&w, &h);
-  content::Extent2 e = session_.view_frame().view_world_extent(w, h);
-  if (!extent_looks_like_china(e)) {
-    const content::Extent2 world = session_.document().world_extent();
-    e = extent_looks_like_china(world) ? world : kChinaLonLatExtent;
+  content::Extent2 e;
+  // On the 3D tab, never pull the Map-Edit 2D crop into the orbit camera —
+  // a coastal / half-ocean 2D view made DEM present as a black void with a
+  // sliver of terrain on the far edge (双击切 3D 无画面).
+  if (ui_->scene3d_tab_active()) {
+    e = session_.orbit_frame().world_extent();
+    if (!extent_looks_like_china(e)) {
+      e = kChinaLonLatExtent;
+      session_.orbit_frame().apply_world_extent(e);
+    }
+  } else {
+    e = session_.view_frame().view_world_extent(w, h);
+    if (!extent_looks_like_china(e)) {
+      const content::Extent2 world = session_.document().world_extent();
+      e = extent_looks_like_china(world) ? world : kChinaLonLatExtent;
+    }
+    session_.orbit_frame().apply_world_extent(e);
   }
-  session_.orbit_frame().apply_world_extent(e);
   refresh_scale();
   if (!session_.map_contents()) {
     return;

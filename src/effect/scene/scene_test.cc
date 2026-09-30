@@ -724,6 +724,15 @@ int main() {
                                                    0.5f, 0.5f, persp_planes),
            "x=500 aabb culled by default perspective");
 
+    // Product default keeps frustum cull off (Scene3d DEM AABB mismatch).
+    // This block opts in so GpuScene draw counts exercise the cull path.
+    const char* prev_cull = std::getenv("SMT_SCENE3D_FRUSTUM_CULL");
+    const std::string saved_cull = prev_cull ? prev_cull : "";
+    const char* prev_no_cull = std::getenv("SMT_SCENE3D_NO_CULL");
+    const std::string saved_no_cull = prev_no_cull ? prev_no_cull : "";
+    _putenv_s("SMT_SCENE3D_FRUSTUM_CULL", "1");
+    _putenv_s("SMT_SCENE3D_NO_CULL", "");
+
     gis::World cull_world;
     constexpr int kHalf = 32;
     constexpr int kTotal = 64;
@@ -792,6 +801,9 @@ int main() {
                static_cast<uint32_t>(kTotal),
            "wide frustum still culls far boxes");
     cull_gpu.clear_view_camera();
+
+    _putenv_s("SMT_SCENE3D_FRUSTUM_CULL", saved_cull.c_str());
+    _putenv_s("SMT_SCENE3D_NO_CULL", saved_no_cull.c_str());
   }
 
   {

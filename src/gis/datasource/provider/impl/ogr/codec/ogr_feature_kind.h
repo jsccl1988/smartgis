@@ -7,7 +7,7 @@
 #include <tuple>
 #include <utility>
 
-#include "legacy/core/bas_struct.h"
+#include "legacy/core/types/types.h"
 #include "ogr_core.h"
 #include "ogrsf_frmts.h"
 #include "gis/model/feature/feature.h"

@@ -5,23 +5,41 @@ All rights reserved.
 
 # `src/legacy/plugin`
 
-Leftover AuxModule runtime and domain MFC plugin DLLs (`*.am` / LoadLibrary). Not the Views endgame — builtins live under `src/plugin/product/*` with host under `src/plugin/runtime/host`.
+Leftover AuxModule runtime and domain MFC plugin DLLs (`*.am` / LoadLibrary). Not the Views endgame — builtins live under `src/plugin/product/*` with host under `src/plugin/runtime/host`. Stay under `legacy/`; do not move these sources into `src/plugin/`.
 
 ## Layout
 
+Top concepts: **`runtime/`** (leftover AuxModule + host bridge) and **`product/<domain>/`** (MFC shells).
+
+```
+legacy/plugin/
+  BUILD.gn  README.md
+  runtime/
+    auxmodule/      # SmtAuxModule ABI → //src/legacy/plugin:plugin
+    bridge/         # *.am scan (am.cc) + header-only AM_MSG map (cmd.h)
+  product/
+    <domain>/
+      BUILD.gn
+      shell/
+      views/
+      res/
+      kernel/       # orthogrid only
+```
+
 | Path | Role | GN |
 | --- | --- | --- |
-| `module*`, `plugin_msg*` | AuxModule manager + message table | `//src/legacy/plugin:plugin` (`dll_stem=plugin`) |
-| `adapter/` | `*.am` scan + `AM_MSG_*` → catalog (`source_set`) | `:am`, `:cmd` (`:legacy_*` aliases) |
-| `dem/` `proj/` `print/` `model3d/` `orthogrid/` | Domain MFC shells | `plugin_dem` / `plugin_proj` / … |
-| `orthogrid/kernel/` | 2010 `Orthogrid` class | `:orthogrid_kernel` |
+| `runtime/auxmodule/` | AuxModule manager / msg / MFC helpers | `//src/legacy/plugin:plugin` |
+| `runtime/bridge/` | `*.am` → Registry + `AM_MSG_*` → catalog (`cmd.h` header-only) | `//src/legacy/plugin/runtime:bridge` |
+| `product/<domain>/shell/` | DLL entry / plug / creater / pch / rc / def | `plugin_dem` / … |
+| `product/<domain>/views/` | MFC `dlg_*` (omit if none) | same DLL |
+| `product/orthogrid/kernel/` | 2010 `Orthogrid` class | `:orthogrid_kernel` |
 
-Includes use `legacy/plugin/….h` (no extra `legacy_` file prefix under this tree). Root `//src/plugin:plugin` and `//src/plugin:cmd` re-export leftover labels (`:legacy_cmd` alias kept).
+Includes use scheme C (`legacy/plugin/runtime/auxmodule/…`, `legacy/plugin/runtime/bridge/…`); no shim. Do not use directory name `aux/` (Windows device name).
 
 ## Docs
 
-- Freeze (landed): [`docs/superpowers/archive/specs/2026-09-27-legacy-plugin-subdirectory-layout-design.md`](../../../docs/superpowers/archive/specs/2026-09-27-legacy-plugin-subdirectory-layout-design.md)
-- Parent L1: [`docs/superpowers/specs/2026-09-14-plugin-subdir-layout-design.md`](../../../docs/superpowers/specs/2026-09-14-plugin-subdir-layout-design.md)
-- As-built table: [`docs/build/src-layout.md`](../../../docs/build/src-layout.md)
+- Plan: [`docs/superpowers/plans/2026-09-29-legacy-plugin-subdirectory-layout.md`](../../../docs/superpowers/plans/2026-09-29-legacy-plugin-subdirectory-layout.md)
+- Living: [`docs/superpowers/specs/2026-09-13-plugin-host-design.md`](../../../docs/superpowers/specs/2026-09-13-plugin-host-design.md)
+- As-built: [`docs/build/src-layout.md`](../../../docs/build/src-layout.md)
 
-Do not nest AuxModule sources into a deeper bucket or reshuffle `dlg_*` without revising the freeze spec. Preserve `Smt_*` / DEF ABI.
+Preserve `Smt_*` / DEF ABI.

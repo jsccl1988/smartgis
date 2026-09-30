@@ -230,7 +230,7 @@ Expected: PASS.
 - Delete: `src/algorithm/chart/` after the move
 
 **Interfaces:**
-- Consumes: `//src/algorithm/stat:stat`, `//src/legacy/ui/xview:xview`, `//src/base:core`
+- Consumes: `//src/algorithm/stat:stat`, `//src/legacy/ui/shell:xview`, `//src/base:core`
 - Produces: `//src/legacy/ui/chart:stat_chart` → `SmtStaDiagram.dll` (MFC; not in `src_all`)
 
 - [ ] **Step 1: Move sources and keep the same GN target name `stat_chart`**

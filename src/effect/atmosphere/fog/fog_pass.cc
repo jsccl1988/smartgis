@@ -19,15 +19,31 @@ namespace atmosphere {
 namespace {
 
 constexpr uint32_t kFogConstantSlot = 1;
+constexpr uint32_t kFogDepthSlot = 0;
 
 render::rhi::GraphicsPipelineDesc fog_graphics_desc() {
-  // Fullscreen NDC haze: pixel FogCB only (VS is clip pass-through).
+  // CameraCB + FogCB + depth SRV/sampler (optional at record time).
   static constexpr render::rhi::BindingSlot kBindings[] = {
+      {.slot = 0,
+       .kind = render::rhi::BindingKind::kConstantBuffer,
+       .stage = render::rhi::ShaderStage::kPixel,
+       .size_bytes = 128,
+       .hlsl_name = "CameraCB"},
       {.slot = kFogConstantSlot,
        .kind = render::rhi::BindingKind::kConstantBuffer,
        .stage = render::rhi::ShaderStage::kPixel,
        .size_bytes = sizeof(FogConstants),
        .hlsl_name = "FogCB"},
+      {.slot = kFogDepthSlot,
+       .kind = render::rhi::BindingKind::kSrv,
+       .stage = render::rhi::ShaderStage::kPixel,
+       .size_bytes = 0,
+       .hlsl_name = "depth_map"},
+      {.slot = kFogDepthSlot,
+       .kind = render::rhi::BindingKind::kSampler,
+       .stage = render::rhi::ShaderStage::kPixel,
+       .size_bytes = 0,
+       .hlsl_name = "linear_sampler"},
   };
   render::rhi::GraphicsPipelineDesc desc;
   desc.vertex.hlsl = kVsFog;
@@ -39,7 +55,7 @@ render::rhi::GraphicsPipelineDesc fog_graphics_desc() {
   desc.compile_depth_off = true;
   desc.compile_depth_write = false;
   desc.compile_depth_test = false;
-  desc.camera_slot = -1;
+  desc.camera_slot = 0;
   return desc;
 }
 
@@ -118,8 +134,10 @@ bool FogPass::ensure_fullscreen_mesh(render::rhi::Device* device) {
       static_cast<uint32_t>(sizeof(indices)));
 }
 
-bool FogPass::record(render::rhi::Device* device, render::rhi::CommandList* list, uint32_t width,
-                     uint32_t height, const render::rhi::CameraMatrices* camera) {
+bool FogPass::record(render::rhi::Device* device, render::rhi::CommandList* list,
+                     uint32_t width, uint32_t height,
+                     const render::rhi::CameraMatrices* camera,
+                     render::rhi::Texture* depth) {
   if (!device || !list || width == 0 || height == 0) {
     return false;
   }
@@ -139,17 +157,29 @@ bool FogPass::record(render::rhi::Device* device, render::rhi::CommandList* list
   fog.color_g = params_.color_g;
   fog.color_b = params_.color_b;
   fog.max_opacity = params_.max_opacity;
+  fog.use_depth = depth ? 1.f : 0.f;
   if (camera) {
     detail::eye_from_view(camera->view, &fog.cam_x, &fog.cam_y, &fog.cam_z);
   }
 
-  detail::begin_load_pass(list, width, height);
+  // Color-only load pass: depth_off PSO (no DS format) must match the pass or
+  // FlyCube/DX12 skips the fullscreen haze draw.
+  render::rhi::RenderPassDesc pass;
+  pass.width = width;
+  pass.height = height;
+  pass.load_op = render::rhi::ColorLoadOp::kLoad;
+  pass.enable_depth = false;
+  list->begin_render_pass(pass);
   detail::set_fullscreen_viewport(list, width, height);
+  detail::bind_camera_if(list, camera);
   detail::apply_raster(
       list, {pipeline_, render::rhi::BlendMode::kSrcAlpha,
              render::rhi::DepthMode::kDisabled});
   list->set_constants(kFogConstantSlot, &fog,
                       static_cast<uint32_t>(sizeof(fog)));
+  if (depth) {
+    list->bind_texture(depth, kFogDepthSlot);
+  }
   detail::draw_indexed_mesh(list, vertex_, index_, 3 * sizeof(float), 3);
   list->end_render_pass();
   return true;

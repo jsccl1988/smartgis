@@ -5,6 +5,7 @@
 
 #ifdef SMT_HAS_FLYCUBE
 #include "render/rhi/flycube/pipeline/hlsl.h"
+#include "base/core/log.h"
 
 #include "BindingSet/BindingSet.h"
 #include "CommandList/CommandList.h"
@@ -230,12 +231,16 @@ void FlycubeProgram::upload_slot(uint32_t slot, const void* data,
 std::shared_ptr<::Pipeline> FlycubeProgram::select_depth(bool pass_depth,
                                                         DepthMode mode) const {
   // Pass depth plus a write or test-only mode selects that variant.
-  // Anything else uses depth-off. A missing variant skips the draw.
+  // Depth-attached + kDisabled needs depth_off_ds_ (matched DS format);
+  // color-only passes keep depth_off_. A missing variant skips the draw.
   if (pass_depth && mode == DepthMode::kWrite) {
     return depth_write_;
   }
   if (pass_depth && mode == DepthMode::kTestOnly) {
     return depth_test_;
+  }
+  if (pass_depth && mode == DepthMode::kDisabled) {
+    return depth_off_ds_ ? depth_off_ds_ : depth_off_;
   }
   return depth_off_;
 }
@@ -329,6 +334,13 @@ std::unique_ptr<FlycubeProgram> FlycubeProgram::compile_graphics(
     if (!program->depth_off_) {
       return nullptr;
     }
+    // Second variant: same disabled depth state but DS format attached so
+    // sky/fog draws into shared-depth passes are not dropped by D3D12.
+    program->depth_off_ds_ = program->make_graphics_pso(
+        color_format, depth_format, true, depth_off, blend);
+    if (!program->depth_off_ds_) {
+      return nullptr;
+    }
   }
   if (desc.compile_depth_write) {
     program->depth_write_ = program->make_graphics_pso(
@@ -377,10 +389,16 @@ bool FlycubeProgram::replay_draw(::CommandList* list, const Draw& draw,
     *sampled = false;
   }
   if (!list || compute_ || !draw.vertex || !draw.index || draw.index_count == 0) {
+    LOGGING(LOG_WARNING,
+            "rhi.flycube replay_draw skip: bad args idx=%u vtx=%p ib=%p",
+            draw.index_count, draw.vertex, draw.index);
     return false;
   }
   std::shared_ptr<::Pipeline> pso = select_depth(pass_depth, draw.depth);
   if (!pso) {
+    LOGGING(LOG_WARNING,
+            "rhi.flycube replay_draw skip: no PSO pass_depth=%d mode=%d",
+            pass_depth ? 1 : 0, static_cast<int>(draw.depth));
     return false;
   }
   for (const ConstantBytes& constant : draw.constants) {
@@ -397,6 +415,9 @@ bool FlycubeProgram::replay_draw(::CommandList* list, const Draw& draw,
   // Graphics textures are SRVs. UAV slots stay empty on this path.
   std::shared_ptr<::BindingSet> set = make_binding_set(draw.textures, {});
   if (!set) {
+    LOGGING(LOG_WARNING,
+            "rhi.flycube replay_draw skip: binding set null tex_binds=%zu",
+            draw.textures.size());
     return false;
   }
   list->BindPipeline(pso);

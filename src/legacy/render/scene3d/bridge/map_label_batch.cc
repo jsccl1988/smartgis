@@ -4,18 +4,19 @@
 #include "legacy/render/scene3d/bridge/map_label_batch.h"
 
 #include "gis/datasource/provider/impl/ogr/text/ogr_text_encoding.h"
-#include "legacy/render/rhi3d/public/device/3drenderdevice.h"
-#include "legacy/render/rhi2d/impl/gdi/gdiaux/gdi_gdiplus.h"
+#include "legacy/render/rhi2d/impl/gdi/paint/gdiplus/gdiplus.h"
+#include "legacy/render/rhi3d/impl/d3d/host/render_device.h"
+#include "legacy/render/rhi3d/public/device/render_device.h"
 #include "legacy/render/scene3d/dem/dem_height_field.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <windows.h>
-#include <objidl.h>
-#include <gdiplus.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
+#include <gdiplus.h>
+#include <objidl.h>
+#include <windows.h>
 
 #include <algorithm>
 #include <cmath>
@@ -93,10 +94,22 @@ bool rasterize_label_bgra(const std::wstring& wide, int px_h, int halo_px,
   }
 
   const int pad = halo_px + 3;
+  // MeasureString can return huge/NaN bounds on bad fonts; clamp before alloc.
+  constexpr int kMaxLabelDim = 1024;
+  if (!(bounds.Width > 0.f) || !(bounds.Height > 0.f) ||
+      bounds.Width > static_cast<Gdiplus::REAL>(kMaxLabelDim) ||
+      bounds.Height > static_cast<Gdiplus::REAL>(kMaxLabelDim)) {
+    delete font;
+    return false;
+  }
   int w = static_cast<int>(std::ceil(bounds.Width)) + pad * 2;
   int h = static_cast<int>(std::ceil(bounds.Height)) + pad * 2;
   w = (std::max)(w, 16);
   h = (std::max)(h, 16);
+  if (w > kMaxLabelDim || h > kMaxLabelDim) {
+    delete font;
+    return false;
+  }
 
   Gdiplus::Bitmap bmp(w, h, PixelFormat32bppARGB);
   if (bmp.GetLastStatus() != Gdiplus::Ok) {
@@ -229,6 +242,20 @@ MapLabelBatch::MapLabelBatch() = default;
 
 MapLabelBatch::~MapLabelBatch() { Destroy(); }
 
+MapLabelBatch::RasterCache* MapLabelBatch::find_raster(const std::string& key) {
+  for (RasterCache& entry : raster_cache_) {
+    if (entry.key == key) {
+      return &entry;
+    }
+  }
+  return nullptr;
+}
+
+MapLabelBatch::RasterCache* MapLabelBatch::insert_raster(RasterCache&& entry) {
+  raster_cache_.push_back(std::move(entry));
+  return &raster_cache_.back();
+}
+
 long MapLabelBatch::Init(Vector3& vPos, SmtMaterial& matMaterial,
                          const char* szTexName) {
   return Smt3DObject::Init(vPos, matMaterial, szTexName);
@@ -266,9 +293,6 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
   if (!p3DRenderDevice || labels_.empty()) {
     return SMT_ERR_NONE;
   }
-  if (!ensure_font(p3DRenderDevice)) {
-    return SMT_ERR_FAILURE;
-  }
   const Viewport3D& vp = p3DRenderDevice->GetViewport();
   const int vw = static_cast<int>(vp.ulWidth);
   const int vh = static_cast<int>(vp.ulHeight);
@@ -303,6 +327,43 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
   declutter_map_labels(boxes.data(), static_cast<int>(boxes.size()), budget, vw,
                        vh, &keep);
 
+  // D3D leftover: GDI+ raster -> DrawScreenBgra (no GL context).
+  if (p3DRenderDevice->GetBaseApi() == RA_D3D09) {
+    auto* d3d = dynamic_cast<SmtD3DRenderDevice*>(p3DRenderDevice);
+    if (!d3d) {
+      return SMT_ERR_FAILURE;
+    }
+    for (int idx : keep) {
+      const MapLabel& lab = labels_[static_cast<size_t>(idx)];
+      const float x = static_cast<float>(sx[static_cast<size_t>(idx)]);
+      const float y = static_cast<float>(sy[static_cast<size_t>(idx)]);
+      const std::string cache_key =
+          lab.text + "|" + std::to_string(lab.priority);
+      RasterCache* cached = find_raster(cache_key);
+      if (!cached) {
+        const std::wstring wide = gis::datasource::ogr_bytes_to_wide(lab.text);
+        if (wide.empty()) {
+          continue;
+        }
+        RasterCache entry;
+        entry.key = cache_key;
+        if (!rasterize_label_bgra(wide, kLabelPx, kHaloPx,
+                                  ink_for_priority(lab.priority),
+                                  RGB(20, 22, 28), &entry.bgra, &entry.w,
+                                  &entry.h)) {
+          continue;
+        }
+        cached = insert_raster(std::move(entry));
+      }
+      d3d->DrawScreenBgra(x, y, cached->w, cached->h, cached->bgra.data());
+    }
+    return SMT_ERR_NONE;
+  }
+
+  if (!ensure_font(p3DRenderDevice)) {
+    return SMT_ERR_FAILURE;
+  }
+
   GLint viewport[4] = {};
   glGetIntegerv(GL_VIEWPORT, viewport);
   const GLboolean had_depth = glIsEnabled(GL_DEPTH_TEST);
@@ -329,7 +390,49 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
     const MapLabel& lab = labels_[static_cast<size_t>(idx)];
     const float x = static_cast<float>(sx[static_cast<size_t>(idx)]);
     const float y = static_cast<float>(sy[static_cast<size_t>(idx)]);
-    if (use_aa && draw_aa_label(x, y, lab.text, lab.priority)) {
+    if (use_aa) {
+      const std::string cache_key =
+          lab.text + "|" + std::to_string(lab.priority);
+      RasterCache* cached = find_raster(cache_key);
+      if (!cached) {
+        const std::wstring wide = gis::datasource::ogr_bytes_to_wide(lab.text);
+        if (wide.empty()) {
+          continue;
+        }
+        RasterCache entry;
+        entry.key = cache_key;
+        if (!rasterize_label_bgra(wide, kLabelPx, kHaloPx,
+                                  ink_for_priority(lab.priority),
+                                  RGB(20, 22, 28), &entry.bgra, &entry.w,
+                                  &entry.h)) {
+          continue;
+        }
+        cached = insert_raster(std::move(entry));
+      }
+      if (cached->gl_tex == 0) {
+        GLuint tex = 0;
+        glGenTextures(1, &tex);
+        if (tex == 0) {
+          continue;
+        }
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+#ifndef GL_BGRA_EXT
+        constexpr GLenum kBgra = 0x80E1;
+#else
+        constexpr GLenum kBgra = GL_BGRA_EXT;
+#endif
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, cached->w, cached->h, 0, kBgra,
+                     GL_UNSIGNED_BYTE, cached->bgra.data());
+        cached->gl_tex = tex;
+      }
+      glColor4f(1.f, 1.f, 1.f, 1.f);
+      draw_label_quad(x, y, cached->w, cached->h,
+                      static_cast<GLuint>(cached->gl_tex));
       continue;
     }
     draw_bitmap_fallback(p3DRenderDevice, font_id_, x, y, lab);
@@ -371,10 +474,22 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
 }
 
 long MapLabelBatch::Destroy() {
+  clear_raster_cache();
   labels_.clear();
   font_ready_ = false;
   font_id_ = 0;
   return SMT_ERR_NONE;
+}
+
+void MapLabelBatch::clear_raster_cache() {
+  for (RasterCache& entry : raster_cache_) {
+    if (entry.gl_tex != 0 && ::wglGetCurrentContext()) {
+      GLuint tex = static_cast<GLuint>(entry.gl_tex);
+      glDeleteTextures(1, &tex);
+      entry.gl_tex = 0;
+    }
+  }
+  raster_cache_.clear();
 }
 
 void MapLabelBatch::add_label(const MapLabel& label) {
@@ -387,6 +502,9 @@ void MapLabelBatch::add_label(const MapLabel& label) {
   m_aAbb.vcCenter = (m_aAbb.vcMax + m_aAbb.vcMin) / 2.f;
 }
 
-void MapLabelBatch::clear_labels() { labels_.clear(); }
+void MapLabelBatch::clear_labels() {
+  labels_.clear();
+  clear_raster_cache();
+}
 
 }  // namespace render

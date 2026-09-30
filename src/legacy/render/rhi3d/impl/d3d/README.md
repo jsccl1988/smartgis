@@ -5,13 +5,15 @@ All rights reserved.
 
 # SmtD3DRenderDevice (leftover D3D11)
 
-Windows **D3D11** implementation of leftover `Smt3DRenderDevice`, parallel to `rhi/impl/gl/`. Chosen over D3D12 to match the product D3D11 stack and avoid resurrecting deleted D3D9/D3DX. Distinct from modern `src/render/rhi` (FlyCube).
+Windows **D3D11** implementation of leftover `Smt3DRenderDevice`, parallel to `rhi3d/impl/gl/`. Chosen over D3D12 to match the product D3D11 stack and avoid resurrecting deleted D3D9/D3DX. Distinct from modern `src/render/rhi` (FlyCube).
+
+Living spec: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../../../../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md) §D3D leftover capability · Plan: [`docs/superpowers/plans/2026-09-29-d3d-leftover-capability.md`](../../../../../../docs/superpowers/plans/2026-09-29-d3d-leftover-capability.md).
 
 ## Present strangler
 
-`SmtD3DRenderDevice::Init(HWND)` calls `render::bind_rhi_present(hWnd)` (Null recording). **This HWND’s present is owned by D3D11 `IDXGISwapChain::Present`** — do not create FlyCube here.
+`SmtD3DRenderDevice::Init(HWND)` may call `render::bind_rhi_present(hWnd)` for process-wide **Null** recording only. **This HWND’s present is owned by D3D11 `IDXGISwapChain::Present`** — do **not** create FlyCube here.
 
-## Factory
+## Factory (ABI unchanged)
 
 | API string | Export | Class |
 | --- | --- | --- |
@@ -22,12 +24,80 @@ Release uses shared `Release3DRenderDevice` in the same `legacy_render` DLL.
 
 `GetBaseApi()` reports leftover enum `RA_D3D09` (historical name for the non-GL slot); the runtime backend is **D3D11**.
 
-## v1 scope
+## Directory layout
 
-**Implemented:** device + swapchain + RTV/DSV, Init/Destroy/Release, Begin/End/Swap/Clear/viewport resize, CPU matrix stack, system-memory VB/IB, state-manager cache, caps defaults.
+Colocated units under `src/legacy/render/rhi3d/impl/d3d/`:
 
-**Deferred:** DrawPrimitives / shaders / textures / FBO / font / video-buffer / frustum extract (return failure / null until ported).
+| Directory | Contents |
+| --- | --- |
+| **`host/`** | `render_device.*` — facade; `device_present.cpp` — Init/Destroy/Present/Swap/Clear/capture |
+| **`resource/`** | `buffer/` VB·IB (`index_buffer` / `vertex_buffer`); **`texture.cc`**; **`frame_buffer.cc`**; **`font.cc`** |
+| **`paint/`** | `draw.cpp` draw paths; `matrix.cpp` matrices + frustum; `resources.cpp` buffers + stub shaders/VideoBuffer; `states_manager.*` |
+| **`caps/`** | `device_caps.*` |
+| **`ext/`** | `ext_interface.cpp` |
+| **`test/`** | `d3d_texture_test.cc` (hidden HWND smoke) |
 
-## GN
+GN: `//src/legacy/render/rhi3d/impl/d3d:d3d_sources` → `legacy_render`.
 
-`//src/legacy/render/rhi3d/impl/d3d:d3d_sources` → `legacy_render` (`d3d11.lib`, `dxgi.lib`).
+## File naming (snake_case)
+
+Mechanical rename to match GDI leftover / repo-global stems. **ABI types/exports unchanged** (`SmtD3DRenderDevice`, `CreateD3DRenderDevice`, …).
+
+| Old | New |
+| --- | --- |
+| `host/3drenderdevice.*` | `host/render_device.*` |
+| `host/rdev_render.cpp` | `host/device_present.cpp` |
+| `paint/rdev_draw.cpp` | `paint/draw.cpp` |
+| `paint/rdev_mtx.cpp` | `paint/matrix.cpp` |
+| `paint/rdev_resources.cpp` | `paint/resources.cpp` |
+| `paint/statesmanager.*` | `paint/states_manager.*` |
+| `caps/devicecaps.*` | `caps/device_caps.*` |
+| `ext/extinterface.cpp` | `ext/ext_interface.cpp` |
+| `resource/buffer/{index,vertex}buffer.*` | `resource/buffer/{index,vertex}_buffer.*` |
+| `resource/framebuffer.cc` | `resource/frame_buffer.cc` |
+
+Public headers under `rhi3d/public/` follow the same snake_case map (`3drenderdevice.h` → `render_device.h`, …).
+
+## Implemented (as-built)
+
+**T0 — device / swapchain / mesh / capture**
+
+- D3D11 device + DXGI swapchain; offscreen **`color_tex_`** RT (Clear/Draw), blit to swapchain on Present.
+- Init/Destroy/Release, Begin/End/Swap/Clear, CPU matrix stack (heap-backed), system-memory VB/IB, state-manager cache, caps defaults.
+- **StereoTerrain DrawIndexedPrimitives** — XYZ+Normal+Diffuse lit mesh (HLSL compile-at-init, not full GLSL program port).
+- Staging **`CaptureBgr24`** (pre-Present snapshot).
+- Line strips + **DrawScreenBgra** (MapLabelBatch / draped rivers).
+
+**T1 — texture / FBO**
+
+- **Texture** create, build, bind, release (`resource/texture.cc`).
+- **Frame buffer** create/destroy, attach color (optional depth), bind/unbind, clear (`resource/frame_buffer.cc`).
+
+**T2 — font / frustum**
+
+- **GDI font** slots — `CreateFont` / `DestroyFont`; **DrawText** (world + screen) via bitmap upload (`resource/font.cc`).
+- **`GetFrustum`** — GL-compatible six-plane extract from modelview × projection (`paint/matrix.cpp`).
+
+**`SetViewport`:** rasterizer viewport only (matches GL). Framebuffer resize happens only when the requested size equals the HWND client size — mid-frame leftover 120×120 viewports must not recreate color targets.
+
+**Still stub / deferred:** **`SmtVideoBuffer`** GPU bind/update/map; **`SmtShader` / `SmtProgram`** manager (no full GLSL port); **`Transform2DTo3D`** and related pick helpers return failure until ported.
+
+## E2E
+
+```bat
+py -3 testing\tools\case\legacy_scene3d_shot_loop.py --d3d --rounds 1
+```
+
+Also wired in `testing/tools/case/run_engine_shots.py` as **`legacy-scene3d-d3d`**.
+
+Product default is **D3D11**. `--d3d` sets `SMT_STEREO_API=Direct3D` / `SMT_SCENE3D_SHOWCASE_D3D=1`; omit `--d3d` (or set `SMT_STEREO_API=OpenGL`) for GL.
+
+**Runtime:** GN copies `d3dcompiler_47.dll` (Windows Kits Redist) into `out/Debug|Release` via `//src/legacy/render:d3dcompiler_runtime_dll` — required by `legacy_render` when the D3D DrawIndexed path is linked.
+
+**Unit smoke:**
+
+```bat
+.\build.bat debug d3d_texture_test
+```
+
+**Lighting (StereoTerrain):** mesh PS mirrors leftover GL `setup_device_lights` + `COLOR_MATERIAL`: ambient 1.0 and two white directionals from `(1,1,1)` (identity-MV bake), normals in object space — see `paint/draw.cpp`.

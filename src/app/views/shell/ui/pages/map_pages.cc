@@ -40,6 +40,7 @@
 #include "content/public/view_host.h"
 #include "gis/vista/domain/atmosphere/field/field_channel.h"
 #include "gis/vista/domain/atmosphere/systems/environment.h"
+#include "gis/vista/world/terrain/land_mask.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/raster/shell_raster.h"
 #include "gis/model/edit/session/edit_session.h"
@@ -92,8 +93,10 @@ void BrowserView::attach_viewports() {
     bool attach_now;
   };
   // Only DX12-init the visible Map Edit pane at startup. Data + 3D realize
-  // HWND only � three FlyCube devices each busy-waited up to ~5s and made
+  // HWND only — three FlyCube devices each busy-waited up to ~5s and made
   // SmartGisViews feel stuck on launch (debug D3D12 layers amplify this).
+  // Realize + second layout BEFORE attach so FlyCube Init samples the tab-body
+  // client size (not a stale multi-k px rect that leaves a navy-clear present).
   const Bind binds[] = {
       {map_edit_, browser_->edit_host(), "view.pan", true},
       {map_data_, browser_->data_host(), "view.pan", false},
@@ -107,21 +110,26 @@ void BrowserView::attach_viewports() {
     if (browser_->map_session()) {
       b.pane->set_map_contents(browser_->map_session());
     }
-    if (b.attach_now) {
-      b.pane->attach();
-    } else {
-      if (!b.pane->native_view()) {
-        b.pane->realize_native();
-      }
+    if (!b.pane->native_view()) {
+      b.pane->realize_native();
+    }
+    if (!b.attach_now) {
       if (HWND hwnd = b.pane->native_view()) {
         ShowWindow(hwnd, SW_HIDE);
       }
     }
-    if (b.host && b.attach_now) {
+  }
+  widget_.layout_contents();
+  for (const Bind& b : binds) {
+    if (!b.pane || !b.attach_now) {
+      continue;
+    }
+    b.pane->sync_native_bounds();
+    b.pane->attach();
+    if (b.host) {
       b.host->activate(b.tool);
     }
   }
-  widget_.layout_contents();
   for_each_map_viewport([](ui::views::MapViewport* pane) {
     if (!pane->native_view()) {
       return;
@@ -160,21 +168,20 @@ void BrowserView::wire_map_scene() {
       }
       // GDI overlay paints into |hdc| (backbuffer DIB). FlyCube present_gpu
       // writes the DXGI swapchain — last_gpu_present_ok must NOT skip full
-      // GDI here or the DIB stays teal/empty (annotations only). Only
-      // ContentMapView SharedSurface blit into this DC is a true SoT skip.
-      // SMT_FORCE_GDI_MAP_OVERLAY=1 skips 2D gpu_present_ in MapViewport.
+      // GDI here or the DIB stays teal/empty (annotations only). Only skip
+      // full GDI when FlyCube 2D actually presented this viewport; ContentMapView
+      // SharedSurface often lands as ocean-only without vector fills.
       const bool force_gdi = []() {
         if (const char* env = std::getenv("SMT_FORCE_GDI_MAP_OVERLAY")) {
           return env[0] == '1' && env[1] == '\0';
         }
         return false;
       }();
-      const bool content_sot =
+      const bool flycube_sot =
           pane &&
-          pane->attach_mode() ==
-              ui::views::MapViewport::AttachMode::kContentMapView &&
-          pane->last_content_present_ok();
-      if (!force_gdi && content_sot) {
+          pane->attach_mode() == ui::views::MapViewport::AttachMode::kFlyCube &&
+          pane->last_gpu_present_ok();
+      if (!force_gdi && flycube_sot) {
         browser_->map2d()->paint_annotation_overlay(hdc, w, h);
       } else {
         browser_->map2d()->paint(hdc, w, h, true);
@@ -426,7 +433,13 @@ void BrowserView::wire_tool_seams() {
     ws->set_draft_observer(on_draft);
     ws->set_feature_hit(resolve);
     ws->set_nav_command(nav);
-    ws->set_shell_owns_append(true);
+    ws->set_map_project([this](int x_px, int y_px, double* map_x,
+                               double* map_y) {
+      browser_->view_frame()->view_to_map(x_px, y_px, map_x, map_y);
+    });
+    // β: DraftPipeline owns FeatureGeom → EditSession; MapScene still mirrors
+    // via handle_draft append_from_draft (no second EditSession commit).
+    ws->set_shell_owns_append(false);
   }
 }
 
@@ -514,6 +527,14 @@ void BrowserView::switch_map_tab(int i) {
     map_tabs_->set_active(i);
     map_tabs_->layout();
   }
+  // Tab body bounds must be current before FlyCube Init / ShowWindow — deferred
+  // Data/3D panes were realize_native'd hidden; a stale 1x1 client makes DX12
+  // attach "succeed" then present a blank swapchain (双击启动切 3D 无画面).
+  widget_.layout_contents();
+  if (map_tabs_) {
+    map_tabs_->layout();
+  }
+
   // TabStrip show/hides native map HWNDs via View::set_visible; also force
   // Win32 visibility so self-test / rapid tab switches cannot leave the active
   // pane hidden when sync_native_bounds skips a no-op SetWindowPos.
@@ -521,11 +542,21 @@ void BrowserView::switch_map_tab(int i) {
     if (!pane) {
       return;
     }
+    pane->sync_native_bounds();
     if (HWND hwnd = pane->native_view()) {
       if (IsWindow(hwnd)) {
         ShowWindow(hwnd, show ? SW_SHOW : SW_HIDE);
+        if (show) {
+          // Sibling Map Edit FlyCube HWND can paint above a newly shown 3D
+          // child when z-order is left unchanged after SW_HIDE/SW_SHOW.
+          SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0,
+                       SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
       }
     }
+    // Owned DXGI present popups are top-level — hiding the embed alone leaves
+    // Map-Edit's present covering Scene3d (navy clear / wrong SoT).
+    pane->set_flycube_present_visible(show);
   };
   sync_hwnd(map_edit_, i == 0);
   sync_hwnd(map_data_, i == 1);
@@ -535,6 +566,15 @@ void BrowserView::switch_map_tab(int i) {
   if (ui::views::MapViewport* pane = active_map()) {
     if (pane->attach_mode() == ui::views::MapViewport::AttachMode::kNone) {
       LOGGING(LOG_INFO, "rhi.switch_map_tab lazy attach tab=%d", i);
+      // Size + show before Init so GetClientRect is the tab body, not 1x1.
+      pane->sync_native_bounds();
+      if (HWND hwnd = pane->native_view()) {
+        if (IsWindow(hwnd)) {
+          ShowWindow(hwnd, SW_SHOW);
+          SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0,
+                       SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+      }
       pane->attach();
       pane->sync_native_bounds();
       // Gestures were skipped while AttachMode::kNone.
@@ -573,49 +613,86 @@ void BrowserView::switch_map_tab(int i) {
       }
     }
   }
+
+  // 3D tab: seed atmosphere / DEM frame even when ViewHost wiring is late —
+  // previously the whole block lived under active_view_host() and a null host
+  // skipped enable_demo + orbit reset (blank DX12 present).
+  if (i == 2 && map_scene_) {
+    browser_->scene3d()->bind_contents(browser_->map_session(),
+                                       map_scene_->view_id());
+    if (HWND hwnd = map_scene_->native_view()) {
+      if (prefer_scene3d_stereo_gl()) {
+        (void)browser_->scene3d_stereo()->try_attach(hwnd);
+      } else {
+        browser_->scene3d_stereo()->release();
+      }
+    }
+    // Drop any mesh built under a 2D Map-Edit crop before China framing.
+    browser_->scene3d()->abandon_mesh();
+    // Seed atmosphere before tool activate — trackball activation can emit a
+    // draft that nudges yaw away from the China framing below.
+    browser_->scene3d()->atmosphere_session().seed_procedural(
+        /*with_land_rings=*/true);
+    std::vector<gis::LonLatRing> land_rings;
+    if (browser_->document()) {
+      browser_->document()->export_land_rings(&land_rings);
+    }
+    // Default: ocean + sky + soft cloud deck (showcase-full look with living
+    // water). Opt out with SMT_SCENE3D_LAND_ONLY=1 or SMT_SCENE3D_ATMO=0.
+    // Fog stays off by default (washes DEM hypsometric greens); toggle via
+    // Atmosphere panel. Cloud cover is capped in prepare_clouds so sky/DEM
+    // still read.
+    bool ocean_ok = true;
+    bool sky_ok = true;
+    bool cloud_ok = true;
+    if (const char* atmo = std::getenv("SMT_SCENE3D_ATMO");
+        atmo && atmo[0] == '0' && atmo[1] == '\0') {
+      ocean_ok = false;
+      sky_ok = false;
+      cloud_ok = false;
+    }
+    if (const char* land_only = std::getenv("SMT_SCENE3D_LAND_ONLY");
+        land_only && land_only[0] == '1' && land_only[1] == '\0') {
+      ocean_ok = false;
+      sky_ok = false;
+      cloud_ok = false;
+    }
+    browser_->scene3d()->atmosphere_session().set_ocean_enabled(ocean_ok);
+    browser_->scene3d()->atmosphere_session().set_cloud_enabled(cloud_ok);
+    browser_->scene3d()->atmosphere_session().set_sky_enabled(sky_ok);
+    browser_->scene3d()->atmosphere_session().set_fog_enabled(false);
+    if (atmosphere_panel_) {
+      atmosphere_panel_->set_ocean_checked(ocean_ok);
+      atmosphere_panel_->set_cloud_checked(cloud_ok);
+      atmosphere_panel_->set_sky_checked(sky_ok);
+      atmosphere_panel_->set_fog_checked(false);
+    }
+    LOGGING(LOG_INFO,
+            "rhi.switch_map_tab scene3d rings=%zu ocean=%d cloud=%d sky=%d",
+            land_rings.size(), ocean_ok ? 1 : 0, cloud_ok ? 1 : 0,
+            sky_ok ? 1 : 0);
+  }
+
   if (content::ViewHost* host = active_view_host()) {
     if (i == 2) {
-      // Basic pan/orbit for the 3D tab when a ViewHost is wired.
       host->activate("view3d.trackball");
-      // WinUI show_kind parity: re-bind Scene3d view id + China extent so DEM
-      // seed / present_gpu / GDI paint share the same world frame.
-      if (map_scene_) {
-        browser_->scene3d()->bind_contents(browser_->map_session(), map_scene_->view_id());
-        if (HWND hwnd = map_scene_->native_view()) {
-          if (prefer_scene3d_stereo_gl()) {
-            (void)browser_->scene3d_stereo()->try_attach(hwnd);
-          } else {
-            browser_->scene3d_stereo()->release();
-          }
-        }
-      }
-      // Defer China atmosphere seed until the 3D tab is first opened (startup
-      // used to run enable_atmosphere_demo during init_chrome).
-      if (browser_->document()->has_china_extent()) {
-        if (gis::atmosphere::Environment* env =
-                browser_->scene3d()->atmosphere_session().environment()) {
-          if (!env->ocean_enabled() && !env->cloud_enabled()) {
-            browser_->scene3d()->atmosphere_session().enable_demo();
-          }
-        } else {
-          browser_->scene3d()->atmosphere_session().enable_demo();
-        }
-        if (atmosphere_panel_) {
-          atmosphere_panel_->set_ocean_checked(true);
-          atmosphere_panel_->set_cloud_checked(true);
-          atmosphere_panel_->set_sky_checked(true);
-          atmosphere_panel_->set_fog_checked(true);
-        }
-      }
-      // Recover from edge-on / over-zoomed orbit (thin green DEM strip).
-      browser_->orbit_frame()->reset();
-      browser_->push_shared_extent();
-      if (map_scene_) {
-        map_scene_->invalidate_native();
-      }
     } else {
       host->activate("view.pan");
     }
+  }
+
+  // Orbit framing AFTER tool activate — activate("view3d.trackball") historically
+  // left yaw≈-0.42 (blank/navy interactive present) while showcase keeps ~2.59.
+  if (i == 2 && map_scene_ && browser_) {
+    browser_->orbit_frame()->reset();
+    browser_->orbit_frame()->apply_world_extent(content::kChinaLonLatExtent);
+    browser_->orbit_frame()->set_distance(2.55f);
+    browser_->push_shared_extent();
+    LOGGING(LOG_INFO,
+            "rhi.switch_map_tab scene3d orbit yaw=%.2f pitch=%.2f dist=%.2f",
+            browser_->orbit_frame()->yaw(), browser_->orbit_frame()->pitch(),
+            browser_->orbit_frame()->distance());
+    map_scene_->invalidate_native();
   }
   sync_status();
 }

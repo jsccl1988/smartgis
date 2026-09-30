@@ -3,7 +3,7 @@
 #define _RD3D_SHADER_H
 
 #include "legacy/render/legacy_render_export.h"
-#include "legacy/render/rhi3d/public/device/3drenderdefs.h"
+#include "legacy/render/rhi3d/public/device/render_defs.h"
 
 namespace render {
 /**
@@ -53,7 +53,7 @@ class LEGACY_RENDER_EXPORT SmtShader {
 
 // Bodies call Smt3DRenderDevice. This header is included before that type is
 // complete, so the bodies are emitted only from the re-include at the bottom
-// of 3drenderdevice.h.
+// of render_device.h.
 #if defined(SMT_3DRENDERDEVICE_COMPLETE) && !defined(_RD3D_SHADER_METHODS)
 #define _RD3D_SHADER_METHODS
 

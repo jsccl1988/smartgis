@@ -18,7 +18,7 @@
 
 #include "plugin/runtime/python/gis_bindings.h"
 
-#include "base/trace/process_trace.h"
+#include "base/trace/event/process_trace.h"
 #include "content/public/event_bus.h"
 #include "content/public/plugin_host.h"
 #include "tool/command/command.h"
@@ -328,23 +328,23 @@ PyObject* debug_set_tracing(PyObject*, PyObject* args) {
   if (!PyArg_ParseTuple(args, "p", &on)) {
     return nullptr;
   }
-  base::set_tracing_enabled(on != 0);
+  base::trace::set_tracing_enabled(on != 0);
   Py_RETURN_NONE;
 }
 
 PyObject* debug_tracing_enabled(PyObject*, PyObject*) {
-  if (base::tracing_enabled()) {
+  if (base::trace::tracing_enabled()) {
     Py_RETURN_TRUE;
   }
   Py_RETURN_FALSE;
 }
 
-// Context manager wrapping base::ScopedTraceEvent (enter/exit).
+// Context manager wrapping base::trace::ScopedTraceEvent (enter/exit).
 struct TraceEventObject {
   PyObject_HEAD
   std::string* name;
   std::string* cat;
-  base::ScopedTraceEvent* event;
+  base::trace::ScopedTraceEvent* event;
 };
 
 PyTypeObject* g_trace_event_type = nullptr;
@@ -361,7 +361,7 @@ void trace_event_dealloc(TraceEventObject* self) {
 
 PyObject* trace_event_enter(TraceEventObject* self, PyObject*) {
   if (!self->event && self->name && self->cat) {
-    self->event = new base::ScopedTraceEvent(*self->name, *self->cat);
+    self->event = new base::trace::ScopedTraceEvent(*self->name, *self->cat);
   }
   Py_INCREF(self);
   return reinterpret_cast<PyObject*>(self);
@@ -632,7 +632,7 @@ PyMethodDef kDebugMethods[] = {
     {"tracing_enabled", debug_tracing_enabled, METH_NOARGS,
      "Whether process tracing is enabled."},
     {"trace_event", debug_trace_event, METH_VARARGS,
-     "Context manager: ScopedTraceEvent(name, cat)."},
+     "Context manager: base::trace::ScopedTraceEvent(name, cat)."},
     {nullptr, nullptr, 0, nullptr},
 };
 

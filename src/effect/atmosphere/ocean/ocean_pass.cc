@@ -51,6 +51,16 @@ render::rhi::GraphicsPipelineDesc ocean_graphics_desc() {
        .stage = render::rhi::ShaderStage::kVertex,
        .size_bytes = 0,
        .hlsl_name = "linear_sampler"},
+      {.slot = 0,
+       .kind = render::rhi::BindingKind::kSrv,
+       .stage = render::rhi::ShaderStage::kPixel,
+       .size_bytes = 0,
+       .hlsl_name = "height_map"},
+      {.slot = 0,
+       .kind = render::rhi::BindingKind::kSampler,
+       .stage = render::rhi::ShaderStage::kPixel,
+       .size_bytes = 0,
+       .hlsl_name = "linear_sampler"},
   };
   render::rhi::GraphicsPipelineDesc desc;
   desc.vertex.hlsl = kVsOcean;
@@ -117,6 +127,23 @@ void OceanPass::set_params(const OceanDrawParams& params) {
   if (params_.fft_size > 0) {
     params_.fft_size = next_pow2_clamped(params_.fft_size, 16, 128);
   }
+  detail::normalize3(&params_.sun_x, &params_.sun_y, &params_.sun_z);
+  if (params_.shininess < 1.0f) {
+    params_.shininess = 1.0f;
+  }
+}
+
+void OceanPass::set_sun_direction(float x, float y, float z) {
+  params_.sun_x = x;
+  params_.sun_y = y;
+  params_.sun_z = z;
+  detail::normalize3(&params_.sun_x, &params_.sun_y, &params_.sun_z);
+}
+
+void OceanPass::set_sun_from_azimuth_elevation(float azimuth_rad,
+                                               float elevation_rad) {
+  detail::sun_from_azimuth_elevation(azimuth_rad, elevation_rad, &params_.sun_x,
+                                     &params_.sun_y, &params_.sun_z);
 }
 
 void OceanPass::set_sea_mask_texture(FieldTexture* mask) {
@@ -408,6 +435,10 @@ bool OceanPass::record(render::rhi::Device* device, render::rhi::CommandList* li
   ocean.fresnel_power = params_.fresnel_power;
   ocean.height_scale = height_scale_;
   ocean.disp_scale = disp_scale_;
+  ocean.sun_x = params_.sun_x;
+  ocean.sun_y = params_.sun_y;
+  ocean.sun_z = params_.sun_z;
+  ocean.shininess = params_.shininess;
   if (camera) {
     // Orbit cameras put the eye translation in the view matrix translation.
     detail::eye_from_view(camera->view, &ocean.cam_x, &ocean.cam_y, &ocean.cam_z);

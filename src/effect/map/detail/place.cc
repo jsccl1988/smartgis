@@ -169,20 +169,21 @@ void tag_text(PlacedMesh* mesh, const gis::vista::DrawItem& item,
   mesh->glyph.opacity = item.opacity;
 }
 
-// Half a screen pixel in world units (same scale as line half-width from Layout).
+// One screen pixel in world units (same scale as line half-width from Layout).
 float world_half_pixel(const gis::vista::View& view) {
   if (view.width_px == 0 || view.height_px == 0) {
     return 0.f;
   }
-  const float sx = std::fabs(static_cast<float>(view.max_x - view.min_x)) /
+  const float sx = static_cast<float>(std::fabs(view.max_x - view.min_x)) /
                    static_cast<float>(view.width_px);
-  const float sy = std::fabs(static_cast<float>(view.max_y - view.min_y)) /
+  const float sy = static_cast<float>(std::fabs(view.max_y - view.min_y)) /
                    static_cast<float>(view.height_px);
-  return 0.5f * std::max(sx, sy);
+  // 1.0 px pad (was 0.5) — China outline / rivers read less jagged on FlyCube.
+  return 1.0f * (std::max)(sx, sy);
 }
 
-// Phase 2a: one-pixel radial pad under the core solid for softer edges (no MSAA).
-constexpr float kFeatherAlphaScale = 0.35f;
+// Phase 2a: soft radial pad under the core solid for softer edges (no MSAA).
+constexpr float kFeatherAlphaScale = 0.32f;
 
 void push_feather_under(PlacedMesh core, float pad, std::vector<PlacedMesh>* out) {
   if (!out || pad <= 0.f || core.vertices.empty()) {

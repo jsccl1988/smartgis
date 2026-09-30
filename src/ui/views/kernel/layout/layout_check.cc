@@ -16,6 +16,7 @@
 
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/shell/dpi.h"
+#include "ui/views/primitives/collection/tab_strip.h"
 
 namespace ui {
 namespace views {
@@ -53,14 +54,23 @@ void walk(const View* v,
     }
     ++(*count);
   }
-  // Leaves with a preferred size but zero laid-out size are usually a bug
-  // (except intentionally collapsed splitter panes).
-  if (v->child_count() == 0 && v->preferred_size().width > 0 &&
-      v->preferred_size().height > 0 && (b.width <= 0 || b.height <= 0)) {
-    if (out) {
-      out->push_back("zero-size-leaf@" + format_rect(b));
+  // Leaves with a preferred size but zero laid-out size are usually a bug.
+  // Skip when an ancestor pane is already zero-sized (collapsed Splitter
+  // secondary such as DiagnosticToolsPanel at preferred {0,0}).
+  // Also skip locally-invisible leaves (display:none / set_visible false)
+  // that still sit in the tree with stale zero bounds.
+  if (v->is_locally_visible() && v->child_count() == 0 &&
+      v->preferred_size().width > 0 && v->preferred_size().height > 0 &&
+      (b.width <= 0 || b.height <= 0)) {
+    const bool under_collapsed_ancestor =
+        parent_bounds &&
+        (parent_bounds->width <= 0 || parent_bounds->height <= 0);
+    if (!under_collapsed_ancestor) {
+      if (out) {
+        out->push_back("zero-size-leaf@" + format_rect(b));
+      }
+      ++(*count);
     }
-    ++(*count);
   }
   for (size_t i = 0; i < v->child_count(); ++i) {
     walk(v->child_at(i), v, &b, out, count);
@@ -161,6 +171,95 @@ int collect_layout_violations(const View* root, std::vector<std::string>* out) {
 int collect_sibling_overlaps(const View* root, std::vector<std::string>* out) {
   int count = 0;
   walk_sibling_overlaps(root, out, &count);
+  return count;
+}
+
+int collect_shell_layout_anomalies(const View* root,
+                                   View* map_tabs,
+                                   View* catalog_tabs,
+                                   View* status_bar,
+                                   View* active_map,
+                                   View* inactive_map_a,
+                                   View* inactive_map_b,
+                                   std::vector<std::string>* out) {
+  int count = 0;
+  auto note = [&](const std::string& code) {
+    if (out) {
+      out->push_back(code);
+    }
+    ++count;
+  };
+
+  auto* tabs = dynamic_cast<TabStrip*>(map_tabs);
+  if (tabs && active_map) {
+    const Rect header = tabs->header_bounds();
+    const Rect& map_b = active_map->bounds();
+    if (map_b.width > 0 && map_b.height > 0 &&
+        rects_overlap_positive(header, map_b)) {
+      note("map-hwnd-covers-tabs@" + format_rect(header) + "x" +
+           format_rect(map_b));
+    }
+    // View bounds should sit strictly below the header (page body).
+    if (map_b.y < header.y + header.height) {
+      note("map-page-under-header@" + format_rect(header) + ">" +
+           format_rect(map_b));
+    }
+    if (HWND hwnd = active_map->native_view()) {
+      if (IsWindow(hwnd) && IsWindowVisible(hwnd)) {
+        RECT wr = {};
+        GetWindowRect(hwnd, &wr);
+        HWND parent = GetParent(hwnd);
+        POINT tl = {wr.left, wr.top};
+        if (parent) {
+          ScreenToClient(parent, &tl);
+        }
+        const Rect hwnd_r = {tl.x, tl.y, wr.right - wr.left,
+                             wr.bottom - wr.top};
+        if (rects_overlap_positive(header, hwnd_r)) {
+          note("map-hwnd-covers-tabs@" + format_rect(header) + "x" +
+               format_rect(hwnd_r));
+        }
+      }
+    }
+  }
+
+  if (root && status_bar && status_bar->is_visible()) {
+    const Rect& rb = root->bounds();
+    const Rect& sb = status_bar->bounds();
+    if (sb.width > 0 && sb.height > 0 && !rect_contains_rect(rb, sb)) {
+      note("status-outside-root@" + format_rect(rb) + ">" + format_rect(sb));
+    }
+    if (sb.height <= 0 || sb.bottom() > rb.bottom() + 1) {
+      note("status-clipped@" + format_rect(rb) + ">" + format_rect(sb));
+    }
+  }
+
+  auto* map_strip = dynamic_cast<TabStrip*>(map_tabs);
+  auto* cat_strip = dynamic_cast<TabStrip*>(catalog_tabs);
+  if (map_strip && cat_strip && map_strip->is_visible() &&
+      cat_strip->is_visible()) {
+    const int dy = map_strip->bounds().y - cat_strip->bounds().y;
+    const int abs_dy = dy < 0 ? -dy : dy;
+    // Catalog Layers/Sources/Maps must share the Map/Data/3D band.
+    if (abs_dy > 2) {
+      note("catalog-map-tab-y-skew@dy=" + std::to_string(dy) + "@map=" +
+           format_rect(map_strip->bounds()) + "@cat=" +
+           format_rect(cat_strip->bounds()));
+    }
+  }
+
+  auto check_inactive = [&](View* pane) {
+    if (!pane || pane == active_map) {
+      return;
+    }
+    if (HWND hwnd = pane->native_view()) {
+      if (IsWindow(hwnd) && IsWindowVisible(hwnd) && !pane->is_visible()) {
+        note("inactive-map-hwnd-visible@" + format_rect(pane->bounds()));
+      }
+    }
+  };
+  check_inactive(inactive_map_a);
+  check_inactive(inactive_map_b);
   return count;
 }
 

@@ -1,13 +1,96 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# MapLibre Native product pin removed (2026-09-27). Decision: delete the mln/mbgl
-# link from the product tree; reconsider later. Do not reintroduce
-# smt_enable_maplibre or //third_party/maplibre:maplibre_native until then.
+# MapLibre Native — opt-in examples + always-on align Style assets.
+# Enable Native binaries:
+#   gn gen out/Debug --args="is_debug=true smt_enable_maplibre_example=true"
+#   ninja -C out/Debug maplibre_examples
 #
-# Vendor checkout under third_party/.src/maplibre-native (if present from a prior
-# fetch) is not linked. Thin wrappers under include/ and src/ are retained on
-# disk for a future pin but are not GN sources.
+# Product pin remains deferred: do not deps mln/mbgl from src/app, src/gpu, or
+# src/effect/map. Align Style JSON is StyleDocument-only on the product path.
+
+import("//build/smartgis.gni")
+
+# Shared Style for product ↔ Native still alignment (no mbgl link).
+# Data: china_city pack from //testing/data:china_map_samples — Style sources
+# use china_city.geojson colocated under $root_out_dir/maplibre/example/.
+copy("maplibre_example_style") {
+  sources = [
+    "example/style_background.json",
+    "example/style_align.json",
+  ]
+  outputs = [ "$root_out_dir/maplibre/example/{{source_file_part}}" ]
+}
+
+copy("maplibre_example_china_geojson") {
+  sources = [ "//testing/data/china_city.geojson" ]
+  outputs = [ "$root_out_dir/maplibre/example/china_city.geojson" ]
+}
+
+group("maplibre_example_assets") {
+  public_deps = [
+    ":maplibre_example_style",
+    ":maplibre_example_china_geojson",
+    "//testing/data:china_map_samples",
+  ]
+}
 
 group("maplibre") {
+  public_deps = [ ":maplibre_example_assets" ]
+  if (smt_enable_maplibre_example) {
+    public_deps += [ ":maplibre_examples" ]
+  }
+}
+
+if (smt_enable_maplibre_example) {
+  _mln_src = "//third_party/.src/maplibre-native"
+  _mln_out = "$root_out_dir/maplibre"
+
+  action("build_maplibre_native") {
+    script = "//third_party/maplibre/build_native.py"
+    inputs = [
+      "$_mln_src/CMakeLists.txt",
+      "//third_party/maplibre/example/style_background.json",
+      "//third_party/maplibre/example/style_align.json",
+    ]
+    outputs = [
+      "$_mln_out/bin/maplibre_headless_example.exe",
+      "$_mln_out/bin/maplibre_glfw_example.exe",
+      "$_mln_out/maplibre_headless_example.exe",
+      "$_mln_out/maplibre_glfw_example.exe",
+    ]
+    args = [
+      rebase_path(_mln_src, root_build_dir),
+      rebase_path(_mln_out, root_build_dir),
+    ]
+    if (is_debug) {
+      args += [ "Debug" ]
+    } else {
+      args += [ "Release" ]
+    }
+    deps = [ ":maplibre_example_assets" ]
+  }
+
+  group("maplibre_headless_example") {
+    public_deps = [ ":build_maplibre_native" ]
+  }
+
+  group("maplibre_glfw_example") {
+    public_deps = [ ":build_maplibre_native" ]
+  }
+
+  group("maplibre_examples") {
+    public_deps = [ ":build_maplibre_native" ]
+  }
+} else {
+  # Named stubs so `gn ls` / docs stay stable when the flag is off.
+  group("maplibre_headless_example") {
+    public_deps = [ ":maplibre_example_assets" ]
+  }
+  group("maplibre_glfw_example") {
+    public_deps = [ ":maplibre_example_assets" ]
+  }
+  group("maplibre_examples") {
+    public_deps = [ ":maplibre_example_assets" ]
+  }
 }

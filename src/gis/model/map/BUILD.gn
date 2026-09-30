@@ -38,7 +38,7 @@ test("select_query_test") {
   configs = [ "//build:legacy" ]
   deps = [
     ":gis",
-    "//src/legacy/datasource/mgr:sde_mgr",
+    "//src/legacy/gis/datasource:sde_mgr",
     "//testing/data:china_map_samples",
     "//third_party:gdal",
   ]

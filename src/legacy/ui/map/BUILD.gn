@@ -1,0 +1,14 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Map HWND hosts (ex-viewport) compile via //src/legacy/ui/shell:shell_sources.
+group("map") {
+  public_deps = [ "//src/legacy/ui:ui_legacy" ]
+}
+
+# Historical alias.
+group("viewport") {
+  public_deps = [ ":map" ]
+}

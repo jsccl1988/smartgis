@@ -1,0 +1,23 @@
+{
+  "id": "map2d.orthogrid",
+  "kind": "showcase",
+  "argv": ["--map2d-showcase=orthogrid"],
+  "env": {
+    "SMT_MAP2D_SHOWCASE_LINGER_MS": "0",
+    "SMT_SKIP_MAP_CONTEXT_MENU": "1"
+  },
+  "mark_leaf": "map2d-showcase-mark.txt",
+  "required_marks": ["orthogrid-ok", "fit-ok"],
+  "bmp": {
+    "path": "map2d-showcase-orthogrid.bmp",
+    "score_id": "map2d_orthogrid"
+  },
+  "report_name": "orthogrid_shot_report.json",
+  "probes": ["marks", "bmp"],
+  "loop": {
+    "rounds": 6,
+    "timeout_sec": 90,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  }
+}

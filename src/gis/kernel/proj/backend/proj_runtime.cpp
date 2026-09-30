@@ -13,7 +13,7 @@
 #include <sys/stat.h>
 #include <windows.h>
 
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 
 namespace proj {
 namespace detail {

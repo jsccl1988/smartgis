@@ -9,7 +9,7 @@
 #   L3 provider/impl/{sdbd,ogr,gdal}
 #   L4 pipeline/
 #
-# Leftover DataSourceMgr: //src/legacy/datasource/mgr
+# Leftover DataSourceMgr: //src/legacy/gis/datasource
 
 group("datasource") {
   public_deps = [ "//src/gis:gis" ]

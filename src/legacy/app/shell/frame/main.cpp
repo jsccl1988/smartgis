@@ -18,8 +18,6 @@ using namespace base;
 #define new DEBUG_NEW
 #endif
 
-#define IDD_PRAPROSETTING_DOCBAR 1000
-
 /////////////////////////////////////////////////////////////////////////////
 // CatalogTabDockPane — Feature Pack tab host for Catalog trees
 
@@ -531,10 +529,14 @@ bool CMainFrame::InitCatalogDockBar(void) {
 }
 
 bool CMainFrame::InitAMBoxMgrDockBar(void) {
+  // Feature Pack requires a unique control-bar ID per CDockablePane.
+  constexpr UINT kIdEditConfigDock = 2101;
+  constexpr UINT kIdSysConfigDock = 2102;
+
   EditConfigDockBar* pEditCfgDockBar = new EditConfigDockBar();
   pEditCfgDockBar->Create(
       _T("设置"), m_wndAMBoxMgrDocBar.get_oner_wnd(), CRect(0, 0, 300, 300),
-      TRUE, IDD_PRAPROSETTING_DOCBAR,
+      TRUE, kIdEditConfigDock,
       WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN);
 
   m_wndAMBoxMgrDocBar.add_wnd(pEditCfgDockBar, "编辑参数");
@@ -542,7 +544,7 @@ bool CMainFrame::InitAMBoxMgrDockBar(void) {
   SysConfigDockBar* pSysCfgDockBar = new SysConfigDockBar();
   pSysCfgDockBar->Create(
       _T("设置"), m_wndAMBoxMgrDocBar.get_oner_wnd(), CRect(0, 0, 300, 300),
-      TRUE, IDD_PRAPROSETTING_DOCBAR,
+      TRUE, kIdSysConfigDock,
       WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN);
 
   m_wndAMBoxMgrDocBar.add_wnd(pSysCfgDockBar, "系统参数");

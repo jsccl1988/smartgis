@@ -13,7 +13,7 @@
 #include "render/programs/programs.h"
 #include "render/rhi/rhi.h"
 #include "base/memory/arena.h"
-#include "base/trace/process_trace.h"
+#include "base/trace/event/process_trace.h"
 
 namespace effect {
 namespace map {
@@ -139,7 +139,7 @@ bool Pass::record(
   // Item order is Layout painter order; subset filters world vs icon/text overlay.
   // kRaster/kFill/kLine/kCircle/icon/text paths live in detail::place_frame,
   // upload_draws, encode_draws (0xAARRGGBB × DrawItem::opacity; dash in Layout).
-  // Phase 2a edge feather for world solids is in place_frame (half-pixel pad).
+  // Phase 2a edge feather for world solids is in place_frame (1px pad).
   // Overlay follows world on the same list. Keep the world buffers until the
   // next frame's world (or full) record.
   if (world_items || !overlay_items) {

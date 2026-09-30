@@ -1,0 +1,35 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Leftover plugin runtime package.
+# - auxmodule/ → //src/legacy/plugin:plugin (dll_stem=plugin). Do not fold into
+#   :bridge / :cmd.
+# - bridge/cmd.h → header-only AM_MSG map (:cmd). Safe for ui_legacy / *.am.
+# - bridge/am.cc → *.am scan into Registry (:bridge). Only link into
+#   plugin_host (host deps :bridge). Must not deps //src/plugin/runtime/host:host
+#   (host deps :bridge). Must not travel into ui_legacy — that yields LNK2019
+#   on Registry::add_manifest.
+
+source_set("cmd") {
+  sources = [ "bridge/cmd.h" ]
+  include_dirs += [ "//src" ]
+  public_deps = [
+    "//src/legacy/tool/msg:adapter",
+    "//src/tool:dispatch",
+  ]
+}
+
+source_set("bridge") {
+  sources = [
+    "bridge/am.cc",
+    "bridge/am.h",
+  ]
+  include_dirs += [ "//src" ]
+  public_deps = [ ":cmd" ]
+  # Do NOT define PLUGIN_HOST_EXPORTS here: this source_set must stay free of
+  # Registry dllexport side-effects. Only //src/plugin/runtime/host:host links
+  # these objs (host_sources deps :bridge). Tests that need scan_am should
+  # deps :host, not :bridge — otherwise am.obj + plugin_host_d.dll.lib LNK2005.
+}

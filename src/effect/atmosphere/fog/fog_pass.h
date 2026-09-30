@@ -13,6 +13,7 @@ class Buffer;
 class CommandList;
 class Device;
 class Pipeline;
+class Texture;
 struct CameraMatrices;
 }  // namespace rhi
 
@@ -21,7 +22,7 @@ struct CameraMatrices;
 namespace effect {
 namespace atmosphere {
 
-// Height / distance fog knobs (GIS visibility). Depth attaches via shared RT.
+// Height / distance fog knobs (GIS visibility). Depth SRV is optional.
 struct FogDrawParams {
   // Tuned for China orbit (~3.2 camera span).
   float density = 0.08f;
@@ -33,12 +34,12 @@ struct FogDrawParams {
   float color_r = 0.70f;
   float color_g = 0.76f;
   float color_b = 0.84f;
-  float max_opacity = 0.55f;
+  float max_opacity = 0.65f;
 };
 
 // Post-opaque haze: dedicated fog HLSL on a fullscreen NDC triangle (SrcAlpha).
-// Depth sampling against the shared RT remains deferred — this pass soft-washes
-// the frame without a depth test.
+// Optional scene-depth SRV reconstructs aerial distance; without it the PS
+// falls back to a CameraCB far-ray (Device depth wiring is parent-owned).
 class FogPass {
  public:
   FogPass();
@@ -55,8 +56,11 @@ class FogPass {
                          float height_y);
 
   // Opens a ColorLoadOp::kLoad pass (never clears). Does not close the list.
-  bool record(render::rhi::Device* device, render::rhi::CommandList* list, uint32_t width,
-              uint32_t height, const render::rhi::CameraMatrices* camera);
+  // |depth| non-null binds slot 0 and enables the depth-sample path.
+  bool record(render::rhi::Device* device, render::rhi::CommandList* list,
+              uint32_t width, uint32_t height,
+              const render::rhi::CameraMatrices* camera,
+              render::rhi::Texture* depth = nullptr);
 
   // Fog graphics program created for the device passed to record. Null before.
   render::rhi::Pipeline* pipeline() const { return pipeline_; }

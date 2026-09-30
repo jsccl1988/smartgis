@@ -9,10 +9,12 @@ mogu-aligned Chrome Trace buffer for flow dump / render profiling.
 
 | API | Header |
 | --- | --- |
-| `base::Trace` / `ScopedTracer` | `trace.h` |
-| `process_trace` / `BASE_TRACE_EVENT` / `SMT_TRACE` | `process_trace.h` |
-| `SpanRecorder` | `span_recorder.h` |
-| `export_chrome_trace` | `chrome_trace.h` |
+| `base::trace::Trace` / `ScopedTracer` | `event/trace.h` |
+| `process_trace` / `BASE_TRACE_EVENT` | `event/process_trace.h` |
+| `SpanRecorder` | `recorder/span_recorder.h` |
+| `export_chrome_trace` | `export/chrome_trace.h` |
+| `format_trace_frame_log_lines` | `log/frame_log.h` |
+| `start_always_on_diagnostics` | `diag/diagnostic_bootstrap.h` |
 
 Dump: `{"traceEvents":[...]}` (Perfetto / chrome://tracing).
 

@@ -5,7 +5,7 @@
 #define _RD3D_CAMERA_H
 
 #include "legacy/render/legacy_render_export.h"
-#include "legacy/render/rhi3d/public/device/3drenderdevice.h"
+#include "legacy/render/rhi3d/public/device/render_device.h"
 #include "legacy/render/rhi3d/public/device/base.h"
 
 namespace render {

@@ -11,8 +11,9 @@
 #include "legacy/core/macros/macros.h"
 
 // Bottom Diagnostic Tools strip (Views DiagnosticToolsPanel parity):
-// tabs Console | RenderTrace. One CBCGPDockingControlBar on the main frame
-// bottom — never nested inside AMBox.
+// Console | RenderTrace pages as plain CWnd children. Uses lightweight
+// header buttons instead of CMFCTabCtrl — Feature Pack tabs + member CWnd
+// panes crash on tab / button clicks with the dock manager.
 class DiagnosticToolsDockBar : public CBCGPDockingControlBar {
  public:
   DiagnosticToolsDockBar();
@@ -20,15 +21,20 @@ class DiagnosticToolsDockBar : public CBCGPDockingControlBar {
 
   afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
   afx_msg void OnSize(UINT nType, int cx, int cy);
+  afx_msg void OnBnConsole();
+  afx_msg void OnBnTrace();
 
   DECLARE_MESSAGE_MAP()
 
  private:
   void layout_children(int cx, int cy);
+  void show_page(int page);
 
-  CBCGPTabWnd tabs_;
+  CButton btn_console_;
+  CButton btn_trace_;
   DebugConsolePane console_;
   RenderTracePane trace_;
+  int active_page_ = 0;
 };
 
 #endif  // LEGACY_APP_SHELL_DOCK_DIAGNOSTIC_H_

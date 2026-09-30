@@ -3,7 +3,7 @@
 
 #include "gis/model/map/map_layer.h"
 
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 #include "ogrsf_frmts.h"
 
 namespace gis {

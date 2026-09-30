@@ -3,6 +3,8 @@
 
 #include "ui/views/primitives/collection/tab_strip.h"
 
+#include <algorithm>
+
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
@@ -13,8 +15,8 @@ namespace views {
 namespace {
 
 constexpr int kTabHeightDip = 28;
-constexpr int kTabPadXDip = 10;
-constexpr int kTabPadYDip = 6;
+constexpr int kTabPadXDip = 12;
+constexpr int kTabMinWidthDip = 48;
 
 float view_scale(const View* view) {
   if (view && view->widget()) {
@@ -31,6 +33,11 @@ TabStrip::TabStrip() {
 
 int TabStrip::tab_height() const {
   return dip_to_px(kTabHeightDip, view_scale(this));
+}
+
+Rect TabStrip::header_bounds() const {
+  const Rect& b = bounds();
+  return {b.x, b.y, b.width, tab_height()};
 }
 
 void TabStrip::on_device_scale_factor_changed(float old_scale, float new_scale) {
@@ -54,8 +61,6 @@ void TabStrip::set_active(int i) {
   if (i < 0 || i >= static_cast<int>(pages_.size())) {
     return;
   }
-  // Always re-apply visibility: hosts may ShowWindow/hide natives while the
-  // active index is unchanged (self-test tab flips, HWND sync).
   active_ = i;
   apply_page_visibility();
   schedule_paint();
@@ -80,20 +85,43 @@ void TabStrip::set_change(std::function<void(int)> fn) {
   change_ = std::move(fn);
 }
 
+int TabStrip::tab_width_at(int i) const {
+  if (i < 0 || i >= static_cast<int>(titles_.size())) {
+    return 0;
+  }
+  const float scale = view_scale(this);
+  // measure_text_utf8(..., scale) already returns device pixels.
+  const Size text =
+      measure_text_utf8(titles_[static_cast<size_t>(i)], scale);
+  const int pad = dip_to_px(kTabPadXDip, scale) * 2;
+  const int min_w = dip_to_px(kTabMinWidthDip, scale);
+  return std::max(min_w, text.width + pad);
+}
+
+int TabStrip::tab_x_at(int i) const {
+  const Rect& b = bounds();
+  int x = b.x;
+  for (int j = 0; j < i && j < static_cast<int>(titles_.size()); ++j) {
+    x += tab_width_at(j);
+  }
+  return x;
+}
+
 void TabStrip::apply_page_visibility() {
   const Rect& b = bounds();
   const int th = tab_height();
-  const int body_h = b.height > th ? b.height - th : 0;
-  const Rect page_bounds = {b.x, b.y + th, b.width, body_h};
+  constexpr int kHeaderGapPx = 2;
+  const int body_top = b.y + th + kHeaderGapPx;
+  const int body_h =
+      b.height > (th + kHeaderGapPx) ? b.height - th - kHeaderGapPx : 0;
+  const Rect page_bounds = {b.x, body_top, b.width, body_h};
   for (int i = 0; i < static_cast<int>(pages_.size()); ++i) {
     View* page = pages_[static_cast<size_t>(i)];
     if (!page) {
       continue;
     }
-    const bool on = (i == active_);
-    // Keep inactive pages sized so attach/resize still has a real client rect.
     page->set_bounds(page_bounds);
-    page->set_visible(on);
+    page->set_visible(i == active_);
   }
 }
 
@@ -108,18 +136,15 @@ int TabStrip::tab_at(int x, int y) const {
       x >= b.right()) {
     return -1;
   }
-  const int w = b.width / static_cast<int>(pages_.size());
-  if (w <= 0) {
-    return -1;
+  int cursor = b.x;
+  for (int i = 0; i < static_cast<int>(pages_.size()); ++i) {
+    const int w = tab_width_at(i);
+    if (x >= cursor && x < cursor + w) {
+      return i;
+    }
+    cursor += w;
   }
-  int i = (x - b.x) / w;
-  if (i < 0) {
-    i = 0;
-  }
-  if (i >= static_cast<int>(pages_.size())) {
-    i = static_cast<int>(pages_.size()) - 1;
-  }
-  return i;
+  return -1;
 }
 
 bool TabStrip::on_mouse_event(const MouseEvent& e) {
@@ -156,26 +181,31 @@ void TabStrip::paint_self(ui::gfx::Canvas* canvas) {
   if (pages_.empty()) {
     return;
   }
-  const int w = b.width / static_cast<int>(pages_.size());
-  const int text_x = dip_to_px(kTabPadXDip, scale);
-  const int text_y = b.y + dip_to_px(kTabPadYDip, scale);
+  // Active labels sit on accent — never theme text_bright (light pack is
+  // near-black and fails contrast on #007acc).
+  const ui::gfx::Color accent_label = ui::gfx::color_rgb(255, 255, 255);
   for (int i = 0; i < static_cast<int>(pages_.size()); ++i) {
-    const int x = b.x + i * w;
-    if (i == active_) {
+    const int x = tab_x_at(i);
+    const int w = tab_width_at(i);
+    const bool on = (i == active_);
+    if (on) {
       canvas->fill_rect(x, b.y, w, th, t.accent);
     }
-    // Clip label to the tab cell so long titles cannot paint into neighbors.
     canvas->save();
     canvas->clip_rect(x, b.y, w, th);
-    const std::wstring title = utf8_to_wide(titles_[static_cast<size_t>(i)]);
-    canvas->draw_text(x + text_x, text_y, title.c_str(), t.text_bright);
+    const std::string& title_u8 = titles_[static_cast<size_t>(i)];
+    const Size text = measure_text_utf8(title_u8, scale);
+    const int text_x = x + dip_to_px(kTabPadXDip, scale);
+    const int text_y = b.y + std::max(0, (th - text.height) / 2);
+    canvas->draw_text(text_x, text_y, utf8_to_wide(title_u8).c_str(),
+                      on ? accent_label : t.text);
     canvas->restore();
   }
 }
 
-
 std::string_view TabStrip::paint_role() const {
   return "tab_strip";
 }
+
 }  // namespace views
 }  // namespace ui

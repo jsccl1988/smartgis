@@ -1,4 +1,4 @@
-<!--
+﻿<!--
 Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
@@ -7,7 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted (user skipped remaining section gates; implement from this spec + the sibling plan)  
-**Updated:** 2026-09-28 — §product–Python P0–P3 landed + P4 skeleton; §gis analysis ownership; dual-runtime / smartgis.gis  
+**Updated:** 2026-09-29 — leftover `legacy/plugin` → `runtime/{auxmodule,bridge}` + `product/<domain>/{shell,views}` (`cmd.h` header-only); 2026-09-28 — §product–Python P0–P3 landed + P4 skeleton; §gis analysis ownership; dual-runtime / smartgis.gis  
 **Scope:** one implementation plan, one cycle. Land a QGIS-shaped extension platform: host + contribution points, in-process Python, QGIS-style store, Views rewrite of leftover plugin dialogs, and processing isolation for algorithm workers only. Do not implement product C++ in this document.
 
 ## Goal
@@ -122,7 +122,7 @@ Leftover plugin `CDialog`s rewrite to `ui::views`. Shared `plugin::MapPreviewVie
 | `Registry` | `src/plugin/registry.h` | `plugin` | Discover, verify, enable/disable, start/stop. Owned by chrome |
 | `Signature` | `src/plugin/signature.h` | `plugin` | SHA-256 + ed25519 verify; trust store |
 | `Store` | `src/plugin/store.h` | `plugin` | Local dir scan, zip install/uninstall, HTTP `plugins.json` |
-| `LegacyAmAdapter` | `src/legacy/plugin/adapter/am.h` | `plugin` | Calls leftover `SmtPluginManager` for `*.am` only |
+| `LegacyAmAdapter` | `src/legacy/plugin/runtime/bridge/am.h` | `plugin` | Calls leftover `SmtPluginManager` for `*.am` only |
 | `PluginHost` / `MapContents` | `src/content/public/plugin_host.h` | `content` | QgsInterface analogue; contribution points |
 | Contribution points | same header | `content` | command, menu, dock, dialog, processing |
 | Views form controls | `src/ui/views/*.h` (flat; no `controls/` nest) | `ui::views` | Label, Button, Textfield, Checkbox, RadioButton, Combobox, TabStrip, TableView, FilePicker, MessageBox |
@@ -584,7 +584,7 @@ No gtest.
 | `src/plugin/signature.h` `.cc` | SHA-256 + ed25519 |
 | `src/plugin/official_key.h` | pinned 32-byte official public key |
 | `src/plugin/store.h` `.cc` | local + HTTP index + zip |
-| `src/legacy/plugin/adapter/am.h` `.cc` | `*.am` adapter |
+| `src/legacy/plugin/runtime/bridge/am.h` `.cc` | `*.am` adapter |
 | `src/plugin/processing.h` `.cc` | worker pool |
 | `src/plugin/manager_view.h` `.cc` | Plugin Manager Views |
 | `src/plugin/widgets/map_preview.h` `.cc` | shared preview |
@@ -691,7 +691,7 @@ Unbound submodules (`model`, `datasource`, …) may be absent or raise a clear `
 | 3 | **Embed owns:** `kind=python` plugins, `contribute_dock` / dialog / command / processing, live `PluginHost` / Views widgets, default Console `:py` / bare-line GIS (`PythonRuntime::eval`). |
 | 4 | **Worker owns:** DAP / Pyright long `:run`, crash-isolated heavy scripts, optional scipy/networkx; talks to chrome only via `DebugAgent`. |
 | 5 | **Heavy spatial analysis** (flood, least-cost path): Python **orchestrates**; kernels land in `gis/analysis` then `plugin::` / `contribute_processing` — no Shapely / second GEOS. |
-| 6 | **Debug profile:** `smartgis.debug` binds `base::process_trace` / `set_tracing_enabled` so plugins register spans visible in Diagnostic Tools CPU tab. |
+| 6 | **Debug profile:** `smartgis.debug` binds `base::trace::process_trace` / `base::trace::set_tracing_enabled` so plugins register spans visible in Diagnostic Tools CPU tab. |
 | 7 | No second conda/venv per plugin; no Qt/PyQt; no per-plugin UI process. |
 
 ### Capability map (product goals → seams)
@@ -731,7 +731,7 @@ Beyond `contribute_command`, expose on `smartgis.Host`:
 
 | Symbol | Behavior |
 | --- | --- |
-| `debug.set_tracing(on: bool)` | `base::set_tracing_enabled` |
+| `debug.set_tracing(on: bool)` | `base::trace::set_tracing_enabled` |
 | `debug.trace_event(name, cat)` | context manager → `ScopedTraceEvent` |
 | `debug.tracing_enabled()` | bool |
 
@@ -912,6 +912,27 @@ Template: contribute industry commands only; call `dem.tin_from_xyz` / `native.b
 
 ---
 
+## Leftover `legacy/plugin` role layout (2026-09-29)
+
+**Status:** landed (layout only). **Plan:** [`../plans/2026-09-29-legacy-plugin-subdirectory-layout.md`](../plans/2026-09-29-legacy-plugin-subdirectory-layout.md).
+
+Unfreezes the 2026-09-27 archive freeze (“no further nesting”). Stay under `src/legacy/plugin` — do **not** move AuxModule / MFC shells into `src/plugin/{runtime,product}`. Mirror endgame buckets: leftover **`runtime/`** + **`product/`**; role names `shell` / `views` / `kernel`. Inside **`runtime/`**: **`auxmodule/`** (SmtAuxModule ABI → `//src/legacy/plugin:plugin`) and **`bridge/`** (`*.am` scan TU + header-only `cmd.h` AM_MSG map → `:bridge`). Do not name a directory `aux/` (Windows device name).
+
+```
+src/legacy/plugin/
+  runtime/
+    auxmodule/          # AuxModule DLL sources
+    bridge/             # am.cc + cmd.h (header-only)
+  product/<domain>/
+    shell/
+    views/
+    kernel/             # orthogrid only
+```
+
+Scheme C includes (`legacy/plugin/runtime/auxmodule/…`, `legacy/plugin/runtime/bridge/…`, `legacy/plugin/product/<domain>/shell/…`); no shim. `dll_stem` / DEF / `Smt_*` unchanged.
+
+---
+
 ## Folded topics (2026-09-28 merge B)
 
 Former hot specs are under `archive/specs/` (`superseded`). **Revise this file** (append `§`) for new requirements in this topic. Do not create a new `YYYY-MM-DD-*-design.md`.
@@ -919,5 +940,5 @@ Former hot specs are under `archive/specs/` (`superseded`). **Revise this file**
 | Former hot spec | Section / note |
 | --- | --- |
 | [`../archive/specs/2026-09-14-plugin-full-upgrade-design.md`](../archive/specs/2026-09-14-plugin-full-upgrade-design.md) | §Plugin full upgrade (folded) |
-| [`../archive/specs/2026-09-14-plugin-subdir-layout-design.md`](../archive/specs/2026-09-14-plugin-subdir-layout-design.md) | §Plugin subdirectory layout (folded) |
+| [`../archive/specs/2026-09-14-plugin-subdir-layout-design.md`](../archive/specs/2026-09-14-plugin-subdir-layout-design.md) | §Plugin subdirectory layout (folded); leftover half further nested 2026-09-29 → § Leftover `legacy/plugin` role layout |
 

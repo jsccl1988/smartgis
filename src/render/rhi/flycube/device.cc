@@ -37,7 +37,9 @@ bool FlycubeDevice::recreate_swapchain(const DeviceDesc& desc) {
       graphics_fence_values_[i] = 0;
     }
     depth_view_.reset();
+    depth_srv_.reset();
     depth_texture_.reset();
+    clear_depth_sample_facade();
     depth_w_ = 0;
     depth_h_ = 0;
     back_buffer_views_.clear();
@@ -171,7 +173,9 @@ void FlycubeDevice::shutdown() {
     }
     programs_.clear();
     depth_view_.reset();
+    depth_srv_.reset();
     depth_texture_.reset();
+    clear_depth_sample_facade();
     back_buffer_views_.clear();
     swapchain_.reset();
     fence_.reset();
@@ -271,10 +275,12 @@ bool FlycubeDevice::ensure_graphics() {
         color_format == gli::format::FORMAT_UNDEFINED) {
       return false;
     }
-    const uint32_t w = width_ > 0 ? width_ : 1;
-    const uint32_t h = height_ > 0 ? height_ : 1;
-    return ensure_depth_buffer(w, h) && depth_texture_ != nullptr;
-}
+    // Depth is allocated on demand when a pass sets enable_depth. Requiring a
+    // DSV here made can_draw false whenever CreateTexture(DSV|SRV) failed at
+    // large interactive HWND sizes — Scene3d cleared to background only while
+    // the same mesh/camera at 640x480 (atmosphere-showcase) still drew DEM.
+    return true;
+  }
 
 bool FlycubeDevice::ensure_compute() { return fc_device_ != nullptr; }
 

@@ -5,16 +5,21 @@ All rights reserved.
 
 # `src/legacy/tool`
 
-Leftover 2010 `SmtIATool` / group tools and the GT_MSG → endgame Workspace bridge. **Not** the desktop tool endgame (`src/tool/{command,interaction,draft,nav,workspace}`).
+Leftover 2010 `SmtIATool` / capability tools and the GT_MSG → endgame Workspace bridge. **Not** the desktop tool endgame (`src/tool/{command,interaction,draft,nav,workspace}`).
+
+Directory names **mirror** endgame modules where a twin exists (`nav` / `draft` / `select`); leftover-only glue stays as `abi` / `msg`.
 
 | Subdir | Role | GN |
 | --- | --- | --- |
-| `iatool/` | `SmtIATool`, manager, `t_msg`, `LEGACY_TOOL_EXPORT` | `//src/legacy/tool/iatool:tool_sources` → `dll_stem=legacy_tool` |
-| `adapter/` | `GT_MSG_*` → `tool::Workspace` (`msg.h` / `msg.cc`; `namespace tool`) | `//src/legacy/tool/adapter:adapter` (source_set; not the DLL) |
-| `group/{base,view,select,input,factory}` | `Smt*Tool` + factory; root keeps `defs.h` / RC / `res/` (sources → `ui_legacy`) | `//src/legacy/tool/group:tool_group_sources` |
+| `abi/` | `SmtIATool`, manager, `t_msg`, `LEGACY_TOOL_EXPORT` | `//src/legacy/tool/abi:tool_sources` → `dll_stem=legacy_tool` |
+| `msg/` | `GT_MSG_*` → `tool::Workspace` (`msg.h` / `msg.cc`; `namespace tool`) | `//src/legacy/tool/msg:adapter` (source_set; not the DLL) |
+| `nav/` | View / 3D view control + zoom apply（终局 `tool/nav` 镜像） | part of `:tool_group_sources` |
+| `select/` | Select + flash + query apply | part of `:tool_group_sources` |
+| `draft/` | Input point/line/region + append + draft_to_ogr（终局 `tool/draft` 镜像） | part of `:tool_group_sources` |
+| `base/` | `SmtBaseTool` / `SmtBase3DTool` | part of `:tool_group_sources` |
+| `factory/` | `SmtGroupToolFactory` | part of `:tool_group_sources` |
+| *(root)* | `defs.h` / RC / `res/` / `tool_export.h` | — |
 
-Aggregate: `//src/legacy/tool:legacy_tool` / `:tool` / `:legacy_tool_all` (optional; not in `src_all`).
+Aggregate: `//src/legacy/tool:legacy_tool` / `:tool` / `:legacy_tool_all` / `:tool_group_sources`（→ `ui_legacy`）.
 
-Package layout (landed): [`docs/superpowers/archive/specs/2026-09-27-legacy-tool-subdirectory-layout-design.md`](../../../docs/superpowers/archive/specs/2026-09-27-legacy-tool-subdirectory-layout-design.md).  
-Group role dirs (active): [`docs/superpowers/specs/2026-09-27-legacy-tool-group-subdirectory-layout-design.md`](../../../docs/superpowers/specs/2026-09-27-legacy-tool-group-subdirectory-layout-design.md).  
-Strangler: [`docs/superpowers/specs/2026-09-19-legacy-tool-workspace-strangler-design.md`](../../../docs/superpowers/specs/2026-09-19-legacy-tool-workspace-strangler-design.md).
+Layout: umbrella §SP1 + [`docs/superpowers/plans/2026-09-29-legacy-tool-bridge-capability-layout.md`](../../../docs/superpowers/plans/2026-09-29-legacy-tool-bridge-capability-layout.md).

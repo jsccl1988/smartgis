@@ -1,10 +1,11 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "base/trace/chrome_trace.h"
-#include "base/trace/process_trace.h"
-#include "base/trace/span_recorder.h"
-#include "base/trace/trace.h"
+#include "base/trace/event/process_trace.h"
+#include "base/trace/event/trace.h"
+#include "base/trace/export/chrome_trace.h"
+#include "base/trace/log/frame_log.h"
+#include "base/trace/recorder/span_recorder.h"
 
 #include <cassert>
 #include <cstdio>
@@ -13,9 +14,9 @@
 
 int main() {
   {
-    base::Trace tr;
+    base::trace::Trace tr;
     {
-      base::ScopedTracer scoped(tr, "layout", "map2d.layout");
+      base::trace::ScopedTracer scoped(tr, "layout", "map2d.layout");
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     tr.add("upload", "map2d.upload", tr.origin(),
@@ -26,23 +27,23 @@ int main() {
     assert(json.find("\"name\":\"layout\"") != std::string::npos);
     assert(json.find("\"cat\":\"map2d.layout\"") != std::string::npos);
     assert(json.find("\"ph\":\"X\"") != std::string::npos);
-    const auto roll = base::rollup_trace_phases(tr.snapshot_events());
+    const auto roll = base::trace::rollup_trace_phases(tr.snapshot_events());
     assert(!roll.empty());
   }
 
   {
-    base::set_tracing_enabled(false);
+    base::trace::set_tracing_enabled(false);
     {
       BASE_TRACE_EVENT("should_skip", "map2d.layout");
     }
-    assert(base::process_trace().size() == 0u);
-    base::set_tracing_enabled(true);
+    assert(base::trace::process_trace().size() == 0u);
+    base::trace::set_tracing_enabled(true);
     {
       BASE_TRACE_EVENT("gpu_present", "map2d.present");
     }
-    assert(base::process_trace().size() >= 1u);
-    base::set_tracing_enabled(false);
-    base::process_trace().clear();
+    assert(base::trace::process_trace().size() >= 1u);
+    base::trace::set_tracing_enabled(false);
+    base::trace::process_trace().clear();
   }
 
   {
@@ -75,11 +76,30 @@ int main() {
   }
 
   {
-    base::Trace tr;
+    base::trace::Trace tr;
     tr.add_counter("process_used", "memory", 1024);
     const std::string json = tr.dump();
     assert(json.find("\"ph\":\"C\"") != std::string::npos);
     assert(json.find("\"value\":1024") != std::string::npos);
+  }
+
+  {
+    base::trace::Trace tr;
+    const auto t0 = tr.origin();
+    tr.add("RenderMap", "gdi.frame", t0, t0 + std::chrono::milliseconds(10));
+    tr.add("roads", "gdi.layer", t0 + std::chrono::milliseconds(1),
+           t0 + std::chrono::milliseconds(5));
+    tr.add("line", "gdi.geom", t0 + std::chrono::milliseconds(1),
+           t0 + std::chrono::milliseconds(4));
+    tr.add("compose", "gdi.frame", t0 + std::chrono::milliseconds(8),
+           t0 + std::chrono::milliseconds(9));
+    const auto lines =
+        base::trace::format_trace_frame_log_lines(tr.snapshot_events());
+    assert(lines.size() == 1u);
+    assert(lines[0].text.find("RenderMap=") != std::string::npos);
+    assert(lines[0].text.find("L:roads=") != std::string::npos);
+    assert(lines[0].text.find("geom:line=") != std::string::npos);
+    assert(lines[0].text.find("compose=") != std::string::npos);
   }
 
   std::printf("trace_test OK\n");

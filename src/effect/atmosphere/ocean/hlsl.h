@@ -7,7 +7,7 @@
 namespace effect {
 namespace atmosphere {
 
-// Verbatim HLSL copied from the FlyCube cache (kVsOcean).
+// Ocean graphics VS: sample encoded height/disp and displace the patch mesh.
 inline constexpr char kVsOcean[] = R"(
 cbuffer CameraCB : register(b0)
 {
@@ -25,7 +25,11 @@ cbuffer OceanCB : register(b1)
     float cam_y;
     float cam_z;
     float disp_scale;
-    float pad1;
+    float sun_x;
+    float sun_y;
+    float sun_z;
+    float shininess;
+    float pad;
 };
 Texture2D height_map : register(t0);
 SamplerState linear_sampler : register(s0);
@@ -49,7 +53,14 @@ VSOut main(VSIn input)
     float height = (enc.r - 0.5) * 2.0 * height_scale;
     float dx = (enc.g - 0.5) * 2.0 * disp_scale;
     float dz = (enc.b - 0.5) * 2.0 * disp_scale;
-    float3 world = float3(input.pos.x + dx, height, input.pos.z + dz);
+    // Far lip of the China patch used to displace into the sky dome. Keep
+    // chop near the camera; flatten toward the horizon.
+    float dist_xz = length(float2(input.pos.x - cam_x, input.pos.z - cam_z));
+    float atten = saturate(1.15 - dist_xz * 0.28);
+    height *= atten;
+    dx *= atten;
+    dz *= atten;
+    float3 world = float3(input.pos.x + dx, input.pos.y + height, input.pos.z + dz);
     VSOut output;
     output.world = world;
     output.uv = input.uv;
@@ -59,7 +70,8 @@ VSOut main(VSIn input)
 }
 )";
 
-// Verbatim HLSL copied from the FlyCube cache (kPsOcean).
+// Ocean graphics PS: central-difference normals from height_map, Fresnel
+// deep/shallow, Blinn-Phong sun specular, weak high-slope foam.
 inline constexpr char kPsOcean[] = R"(
 cbuffer OceanCB : register(b1)
 {
@@ -72,8 +84,14 @@ cbuffer OceanCB : register(b1)
     float cam_y;
     float cam_z;
     float disp_scale;
-    float pad1;
+    float sun_x;
+    float sun_y;
+    float sun_z;
+    float shininess;
+    float pad;
 };
+Texture2D height_map : register(t0);
+SamplerState linear_sampler : register(s0);
 
 struct PSIn
 {
@@ -82,16 +100,58 @@ struct PSIn
     float2 uv : TEXCOORD1;
 };
 
+float3 decode_disp(float4 enc)
+{
+    return float3((enc.g - 0.5) * 2.0 * disp_scale,
+                  (enc.r - 0.5) * 2.0 * height_scale,
+                  (enc.b - 0.5) * 2.0 * disp_scale);
+}
+
 float4 main(PSIn input) : SV_TARGET
 {
-    float3 dx = ddx(input.world);
-    float3 dy = ddy(input.world);
-    float3 n = normalize(cross(dx, dy));
+    float w = 0.0;
+    float h = 0.0;
+    height_map.GetDimensions(w, h);
+    float2 texel = float2(1.0 / max(w, 1.0), 1.0 / max(h, 1.0));
+
+    float3 pl = decode_disp(height_map.Sample(linear_sampler, input.uv - float2(texel.x, 0.0)));
+    float3 pr = decode_disp(height_map.Sample(linear_sampler, input.uv + float2(texel.x, 0.0)));
+    float3 pd = decode_disp(height_map.Sample(linear_sampler, input.uv - float2(0.0, texel.y)));
+    float3 pu = decode_disp(height_map.Sample(linear_sampler, input.uv + float2(0.0, texel.y)));
+
+    // Base-grid step keeps flat water upward; displacement deltas tilt the normal.
+    float3 dPdu = (pr - pl) + float3(2.0, 0.0, 0.0);
+    float3 dPdv = (pu - pd) + float3(0.0, 0.0, 2.0);
+    float3 n = normalize(cross(dPdv, dPdu));
+    if (n.y < 0.0)
+        n = -n;
+
     float3 cam = float3(cam_x, cam_y, cam_z);
     float3 V = normalize(cam - input.world);
     float ndotv = saturate(dot(n, V));
+    // Grazing outer ring replaces SkyPass with a cyan sheet on the full
+    // China orbit. Near water (coast) stays; the horizon belongs to the sky.
+    float dist_xz = length(float2(input.world.x - cam_x, input.world.z - cam_z));
+    if (ndotv < 0.16 && dist_xz > 1.25)
+        discard;
     float f = fresnel_bias + (1.0 - fresnel_bias) * pow(1.0 - ndotv, fresnel_power);
     float3 rgb = lerp(shallow.rgb, deep.rgb, f);
+    // Grazing water should pick up sky blue, not a blown cyan albedo.
+    float3 sky_refl = float3(0.30, 0.48, 0.78);
+    rgb = lerp(rgb, sky_refl, saturate(f * 0.45));
+
+    float3 L = normalize(float3(sun_x, sun_y, sun_z));
+    float3 H = normalize(L + V);
+    // Tiny sun glint only — strong Spec blew a cyan flare over the orbit
+    // patch and replaced the sky far-field in 640x480 captures.
+    float spec = pow(saturate(dot(n, H)), max(shininess, 96.0));
+    rgb += spec * float3(0.10, 0.12, 0.14);
+
+    float slope = length(float2(pr.y - pl.y, pu.y - pd.y));
+    float foam = saturate(slope * 1.8 - 0.28) * 0.08;
+    rgb = lerp(rgb, float3(0.55, 0.68, 0.78), foam);
+    rgb = saturate(rgb);
+
     return float4(rgb, lerp(shallow.a, deep.a, f));
 }
 )";
@@ -427,6 +487,92 @@ void main(uint2 id : SV_DispatchThreadID)
         cur.b = enc;
         height_uav[id] = cur;
     }
+}
+)";
+
+// Separable 5-tap Gaussian blur (horizontal) on the encoded RGBA height map.
+// Weights [1,4,6,4,1]/16 with periodic wrap matching the FFT patch.
+inline constexpr char kCsOceanGaussianH[] = R"(
+cbuffer OceanFftCB : register(b0)
+{
+    uint size;
+    uint log2_size;
+    uint stage;
+    uint direction;
+    float time_sec;
+    float wind_speed;
+    float wind_dir_rad;
+    float amp_scale;
+    float patch_size;
+    float height_scale;
+    float disp_scale;
+    float chop;
+    uint spectrum_model;
+    uint encode_channel;
+    float gamma;
+    float pad;
+};
+
+Texture2D<float4> src_tex : register(t0);
+RWTexture2D<float4> dst_tex : register(u0);
+
+[numthreads(8, 8, 1)]
+void main(uint2 id : SV_DispatchThreadID)
+{
+    if (id.x >= size || id.y >= size)
+        return;
+    int n = (int)size;
+    int x = (int)id.x;
+    int y = (int)id.y;
+    float4 sum =
+        src_tex[uint2((uint)((x - 2 + n) % n), id.y)] * (1.0 / 16.0) +
+        src_tex[uint2((uint)((x - 1 + n) % n), id.y)] * (4.0 / 16.0) +
+        src_tex[uint2(id.x, id.y)] * (6.0 / 16.0) +
+        src_tex[uint2((uint)((x + 1) % n), id.y)] * (4.0 / 16.0) +
+        src_tex[uint2((uint)((x + 2) % n), id.y)] * (1.0 / 16.0);
+    dst_tex[id] = sum;
+}
+)";
+
+// Separable 5-tap Gaussian blur (vertical) on the encoded RGBA height map.
+inline constexpr char kCsOceanGaussianV[] = R"(
+cbuffer OceanFftCB : register(b0)
+{
+    uint size;
+    uint log2_size;
+    uint stage;
+    uint direction;
+    float time_sec;
+    float wind_speed;
+    float wind_dir_rad;
+    float amp_scale;
+    float patch_size;
+    float height_scale;
+    float disp_scale;
+    float chop;
+    uint spectrum_model;
+    uint encode_channel;
+    float gamma;
+    float pad;
+};
+
+Texture2D<float4> src_tex : register(t0);
+RWTexture2D<float4> dst_tex : register(u0);
+
+[numthreads(8, 8, 1)]
+void main(uint2 id : SV_DispatchThreadID)
+{
+    if (id.x >= size || id.y >= size)
+        return;
+    int n = (int)size;
+    int y = (int)id.y;
+    float4 sum =
+        src_tex[uint2(id.x, (uint)((y - 2 + n) % n))] * (1.0 / 16.0) +
+        src_tex[uint2(id.x, (uint)((y - 1 + n) % n))] * (4.0 / 16.0) +
+        src_tex[uint2(id.x, id.y)] * (6.0 / 16.0) +
+        src_tex[uint2(id.x, (uint)((y + 1) % n))] * (4.0 / 16.0) +
+        src_tex[uint2(id.x, (uint)((y + 2) % n))] * (1.0 / 16.0);
+    dst_tex[id] = sum;
 }
 )";
 

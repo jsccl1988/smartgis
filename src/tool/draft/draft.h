@@ -44,7 +44,7 @@ constexpr uint32_t kFamilySelect = 4;
 constexpr uint32_t kSelectCircleCode = 1;
 // High bit outside Win32 MK_* and (family<<16)|code packing: two-finger pan.
 constexpr uint32_t kTouchPan = 0x01000000u;
-// RMB rubber-band zoom while view.pan is active (not a pan delta).
+// High bit: rubber-band zoom rect (view.zoom_in / nav). Not used by view.pan.
 constexpr uint32_t kZoomRect = 0x02000000u;
 
 inline constexpr uint32_t pack(uint32_t family, uint32_t code) {

@@ -232,8 +232,9 @@ class StrokeInteraction final : public Interaction {
   bool rbutton_stroke_ = false;
 };
 
-// 2D view.pan: continuous drag pan (mouse or touch); two-finger midpoint pan
-// emits kRect drafts with draft_flags::kTouchPan.
+// 2D view.pan: MapLibre-like browse — LMB drag pans; wheel (always-on) zooms
+// at the cursor. RMB is not consumed so the shell / MFC can show the context
+// menu. Two-finger midpoint pan emits kRect drafts with draft_flags::kTouchPan.
 class ViewPanInteraction final : public Interaction {
  public:
   ViewPanInteraction(DraftCallback cb, uint32_t default_flags)
@@ -259,53 +260,16 @@ class ViewPanInteraction final : public Interaction {
     }
     if (e.kind == Kind::kLDown) {
       captured_ = true;
-      zoom_stroke_ = false;
-      pts_.clear();
-      pts_.push_back({e.x_px, e.y_px});
-      return true;
-    }
-    // RMB drag while pan is active → ZoomToRect (product right-drag zoom).
-    if (e.kind == Kind::kRDown) {
-      captured_ = true;
-      zoom_stroke_ = true;
       pts_.clear();
       pts_.push_back({e.x_px, e.y_px});
       return true;
     }
     if (e.kind == Kind::kMouseMove && captured_) {
-      if (zoom_stroke_) {
-        if (pts_.size() == 1) {
-          pts_.push_back({e.x_px, e.y_px});
-        } else {
-          pts_.back() = {e.x_px, e.y_px};
-        }
-        return true;
-      }
       emit_delta(e.x_px, e.y_px, /*touch=*/false);
       return true;
     }
-    if (e.kind == Kind::kLUp && captured_ && !zoom_stroke_) {
+    if (e.kind == Kind::kLUp && captured_) {
       emit_delta(e.x_px, e.y_px, /*touch=*/false);
-      reset();
-      return true;
-    }
-    if (e.kind == Kind::kRUp && captured_ && zoom_stroke_) {
-      if (pts_.empty()) {
-        pts_.push_back({e.x_px, e.y_px});
-      }
-      if (pts_.size() == 1) {
-        pts_.push_back({e.x_px, e.y_px});
-      } else {
-        pts_.back() = {e.x_px, e.y_px};
-      }
-      const int ox = pts_.front().x_px;
-      const int oy = pts_.front().y_px;
-      const int adx = e.x_px > ox ? e.x_px - ox : ox - e.x_px;
-      const int ady = e.y_px > oy ? e.y_px - oy : oy - e.y_px;
-      // Click: release only (shell shows the context menu). Drag: zoom draft.
-      if (adx > 4 || ady > 4) {
-        emit_zoom_rect();
-      }
       reset();
       return true;
     }
@@ -321,18 +285,6 @@ class ViewPanInteraction final : public Interaction {
     pts_.clear();
     captured_ = false;
     multitouch_ = false;
-    zoom_stroke_ = false;
-  }
-
-  void emit_zoom_rect() {
-    if (!cb_ || pts_.size() < 2) {
-      return;
-    }
-    Draft d;
-    d.kind = DraftKind::kRect;
-    d.flags = default_flags_ | draft_flags::kZoomRect;
-    d.points = pts_;
-    cb_(d);
   }
 
   bool on_multitouch(const content::InputEvent& e) {
@@ -391,7 +343,6 @@ class ViewPanInteraction final : public Interaction {
   std::vector<DraftPoint> pts_;
   bool captured_ = false;
   bool multitouch_ = false;
-  bool zoom_stroke_ = false;
 };
 
 // Pixel-space 3D camera drag / look. Camera math stays in leftover ApplyDraft.
@@ -684,7 +635,8 @@ std::unique_ptr<Interaction> make_draw_rect(DraftCallback on_complete,
 
 std::unique_ptr<Interaction> make_view_zoom_in(DraftCallback on_complete,
                                                uint32_t default_flags) {
-  // Left or right rubber-band → ZoomToRect (legacy L-drag; RMB drag zoom).
+  // Left rubber-band → ZoomToRect. Optional RMB drag when zoom_in is active
+  // (browse/pan leaves RMB to the context menu — MapLibre-like).
   return std::make_unique<StrokeInteraction>(
       "view.zoom_in", StrokeMode::kRect, std::move(on_complete),
       default_flags, /*allow_rbutton_stroke=*/true);

@@ -2,7 +2,7 @@
 #ifndef _RD_RENDERER_H
 #define _RD_RENDERER_H
 
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 #include "legacy/render/legacy_render_export.h"
 #include "legacy/render/rhi2d/public/device/renderdevice.h"
 

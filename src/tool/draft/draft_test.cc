@@ -384,28 +384,37 @@ int main() {
   }
 
   {
-    // view.pan RMB drag → ZoomToRect draft (kZoomRect); click emits nothing.
+    // view.pan is MapLibre-like: LMB pan only; RMB must not be swallowed so
+    // the shell / MFC context menu can open (no ZoomToRect on right-drag).
     tool::Workspace ws(nullptr, nullptr);
     int zoom_rects = 0;
+    int pans = 0;
     ws.set_draft_observer([&](const tool::Draft& d) {
       if (d.kind == tool::DraftKind::kRect &&
           tool::draft_flags::is_zoom_rect(d.flags)) {
         ++zoom_rects;
       }
+      if (d.kind == tool::DraftKind::kRect &&
+          !tool::draft_flags::is_zoom_rect(d.flags)) {
+        ++pans;
+      }
     });
-    expect(ws.execute("view.pan", {}), "activate pan for RMB zoom");
-    expect(ws.dispatch_input(at(content::InputEvent::Kind::kRDown, 10, 10)),
-           "RMB zoom down");
-    expect(ws.dispatch_input(at(content::InputEvent::Kind::kMouseMove, 80, 60)),
-           "RMB zoom drag");
-    expect(ws.dispatch_input(at(content::InputEvent::Kind::kRUp, 80, 60)),
-           "RMB zoom up");
-    expect(zoom_rects == 1, "pan RMB drag emits ZoomToRect");
-    expect(ws.dispatch_input(at(content::InputEvent::Kind::kRDown, 5, 5)),
-           "RMB click down");
-    expect(ws.dispatch_input(at(content::InputEvent::Kind::kRUp, 5, 5)),
-           "RMB click up");
-    expect(zoom_rects == 1, "pan RMB click does not emit zoom");
+    expect(ws.execute("view.pan", {}), "activate pan");
+    expect(!ws.dispatch_input(at(content::InputEvent::Kind::kRDown, 10, 10)),
+           "RMB down not consumed");
+    expect(!ws.dispatch_input(
+               at(content::InputEvent::Kind::kMouseMove, 80, 60)),
+           "RMB drag move not consumed");
+    expect(!ws.dispatch_input(at(content::InputEvent::Kind::kRUp, 80, 60)),
+           "RMB up not consumed");
+    expect(zoom_rects == 0, "pan RMB does not emit ZoomToRect");
+    expect(ws.dispatch_input(at(content::InputEvent::Kind::kLDown, 5, 5)),
+           "LMB pan down");
+    expect(ws.dispatch_input(at(content::InputEvent::Kind::kMouseMove, 25, 15)),
+           "LMB pan drag");
+    expect(ws.dispatch_input(at(content::InputEvent::Kind::kLUp, 25, 15)),
+           "LMB pan up");
+    expect(pans >= 1, "LMB drag emits pan drafts");
   }
 
   if (g_fails) {

@@ -3,7 +3,7 @@
 #define LEGACY_RENDER_SCENE3D_INDEX_OCTREE_H
 
 #include "base/math/math.h"
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 #include "legacy/render/legacy_render_export.h"
 #include "legacy/render/scene3d/scene/object.h"
 #include "legacy/render/scene3d/scene/vertex3d.h"
@@ -13,67 +13,11 @@ namespace render {
 // LP3DRENDERDEVICE comes from scene/object.h (forward decl only there).
 class SmtFrustum;
 
-extern int g_nSceneMaxTargets;
-extern int g_nSceneMaxSubdivision;
-extern int g_nSceneCurrentSubdivision;
-extern int g_nSceneCurRenderTarget;
-extern int g_nSceneTotalLeafNode;
-
-class SmtSceneOctTree;
-
-// One node in the leftover scene octree (AABB subdivision + object lists).
-class LEGACY_RENDER_EXPORT SmtSceneOctTreeNode {
-  friend class SmtSceneOctTree;
-
- public:
-  SmtSceneOctTreeNode();
-  ~SmtSceneOctTreeNode();
-
- public:
-  long CreateNode(vSmt3DObjectPtrs& v3DObjectPtrs, int nTarget, Vector3 vCenter,
-                  float width);
-
-  Vector3 GetSubNodeCenter(int nSubID);
-
-  void CreateSubNode(SmtSceneOctTreeNode* pParentNode,
-                     SmtSceneOctTreeNode*& pSub,
-                     vSmt3DObjectPtrs& v3DObjectPtrs, vector<bool> vbInSubNode,
-                     int nTargets, int nSubID);
-
-  void UpdateNodeObject(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed);
-  void RenderNodeObject(LP3DRENDERDEVICE p3DRenderDevice,
-                        SmtFrustum& smtFrustum, bool bShowOctNodeBox = true);
-  void SelectNodeObject(vSmt3DObjectPtrs& vSelected3DObjects,
-                        LP3DRENDERDEVICE p3DRenderDevice,
-                        SmtFrustum& smtFrustum, const lPoint& point);
-
-  void NodeObjectModelMatrixMultiply(Matrix& matTransform);
-  void NodeObjectWorldMatrixMultiply(Matrix& matTransform);
-
- public:
-  bool IsInOctNodeAabbBox(const Vector3& point);
-
-  SmtSceneOctTreeNode* FindMinBoxOctNode(const Ray& ray);
-
-  SmtSceneOctTreeNode* FindMinBoxOctNode(LP3DRENDERDEVICE p3DRenderDevice,
-                                         const lPoint& point);
-
- protected:
-  SmtSceneOctTreeNode* pParentNode;
-  SmtSceneOctTreeNode* pSubNodes[8];
-  Vector3 vCenterPos;
-  float fWidth;
-  string strCode;
-  bool bSubDivided;
-  vSmt3DObjectPtrs v3DObjectPtrs;
-  int nTargetCount;
-};
-
 class SmtScene;
 struct SceneOctreeAux;
 
-// Leftover scene spatial index: node walk for frustum render/select; unibn
-// point index of object AABB centers behind SceneOctreeAux.
+// Leftover scene spatial index: flat object list + unibn point index of AABB
+// centers. Render/Select/Update scan the list (per-object frustum AABB cull).
 class LEGACY_RENDER_EXPORT SmtSceneOctTree : public Smt3DRenderable,
                                              public Smt3DMovable {
  public:
@@ -108,11 +52,12 @@ class LEGACY_RENDER_EXPORT SmtSceneOctTree : public Smt3DRenderable,
   void GetSceneDimensions(vSmt3DObjectPtrs& v3DObjectPtrs);
 
  protected:
-  SmtSceneOctTreeNode* m_pRootNode;
+  vSmt3DObjectPtrs m_objects;
   Aabb m_aabbScene;
   SceneOctreeAux* m_aux;
   bool m_bShowNodeBox;
   int m_nAllRenderTargetsNum;
+  int m_nCurRenderTargets;
 };
 }  // namespace render
 

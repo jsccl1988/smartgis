@@ -21,7 +21,6 @@
 #include "content/browser/document/query/inspector.h"
 #include "content/public/feature_attrs.h"
 #include "gis/present/style/style_document.h"
-#include "gis/vista/frame/frame.h"
 
 namespace content {
 
@@ -99,28 +98,12 @@ bool MapScene::try_bootstrap_china_plp() {
 
 void MapScene::seed_default() {
   if (try_bootstrap_china_plp()) {
-    char exe_dir[MAX_PATH] = {};
-    DWORD n = GetModuleFileNameA(nullptr, exe_dir, MAX_PATH);
-    if (n > 0 && n < MAX_PATH) {
-      for (int i = static_cast<int>(n) - 1; i >= 0; --i) {
-        if (exe_dir[i] == '\\' || exe_dir[i] == '/') {
-          exe_dir[i + 1] = '\0';
-          break;
-        }
-      }
-      for (const std::string& rel : detail::style_seed_relative_paths()) {
-        if (load_style_path(std::string(exe_dir) + rel)) {
-          break;
-        }
-      }
-    }
-    if (!has_style_document()) {
-      auto parsed = std::make_shared<gis::style::StyleDocument>();
-      if (gis::style::parse_style_document(
-              gis::vista::default_carto_style_json(), parsed.get())) {
-        set_style_document(std::move(parsed));
-      }
-    }
+    // Match --map2d-showcase=china: clear any accompanying china_city.style.json
+    // so Map2dFrameCache uses default MapLibre carto + carto_source_layer remap
+    // (area→land, lines→river/admin/road). Binding the file style keys
+    // source-layer area/line/point and disables remap — cream wash + blue
+    // scribble / black point squares that diverge from the shot gates.
+    clear_style_document();
     return;
   }
   clear();

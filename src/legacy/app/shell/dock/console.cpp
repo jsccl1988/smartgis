@@ -34,8 +34,8 @@ ON_WM_CREATE()
 ON_WM_SIZE()
 ON_WM_TIMER()
 ON_WM_DESTROY()
-ON_BN_CLICKED(kIdClear, OnBnClear)
-ON_BN_CLICKED(kIdSubmit, OnBnSubmit)
+ON_BN_CLICKED(kIdClear, &DebugConsolePane::OnBnClear)
+ON_BN_CLICKED(kIdSubmit, &DebugConsolePane::OnBnSubmit)
 END_MESSAGE_MAP()
 
 DebugConsolePane::DebugConsolePane() = default;

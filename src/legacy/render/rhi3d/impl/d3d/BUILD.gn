@@ -2,21 +2,26 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//testing/test.gni")
 
 # Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
 # D3D11 leftover impl under rhi/impl/d3d/ (parallel to impl/gl/).
-# Layout (B' colocated): device/caps/buffer/ext. No D3DX; Windows D3D11 + DXGI.
+# Layout: host/resource/paint/caps/ext. No D3DX; Windows D3D11 + DXGI.
 source_set("d3d_sources") {
   sources = [
-    "buffer/indexbuffer.cpp",
-    "buffer/vertexbuffer.cpp",
-    "caps/devicecaps.cpp",
-    "device/3drenderdevice.cpp",
-    "device/rdev_mtx.cpp",
-    "device/rdev_render.cpp",
-    "device/rdev_resources.cpp",
-    "device/statesmanager.cpp",
-    "ext/extinterface.cpp",
+    "caps/device_caps.cpp",
+    "ext/ext_interface.cpp",
+    "host/render_device.cpp",
+    "host/device_present.cpp",
+    "paint/draw.cpp",
+    "paint/matrix.cpp",
+    "paint/resources.cpp",
+    "paint/states_manager.cpp",
+    "resource/buffer/index_buffer.cpp",
+    "resource/buffer/vertex_buffer.cpp",
+    "resource/font.cc",
+    "resource/frame_buffer.cc",
+    "resource/texture.cc",
   ]
   configs += [
     "//build:legacy",
@@ -34,9 +39,25 @@ source_set("d3d_sources") {
   libs = [
     "d3d11.lib",
     "dxgi.lib",
+    "d3dcompiler.lib",
   ]
 }
 
 group("d3d") {
   public_deps = [ "//src/legacy/render:legacy_render" ]
+}
+
+# Hidden HWND: CreateTexture/Build/Bind + FBO clear/unbind + GetFrustum.
+test("d3d_texture_test") {
+  output_name = "d3d_texture_test"
+  sources = [ "test/d3d_texture_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [ "//src/legacy/render:legacy_render" ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+    "d3d11.lib",
+    "dxgi.lib",
+  ]
 }

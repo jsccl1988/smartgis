@@ -1,0 +1,44 @@
+{
+
+  "id": "ui.interact",
+
+  "kind": "showcase",
+
+  "argv": ["--ui-showcase", "interact"],
+
+  "env": {
+
+    "SMT_UI_SHOWCASE_LINGER_MS": "0",
+
+    "SMT_UI_FORENSICS": "1",
+
+    "SMT_UI_THEME": "dark"
+
+  },
+
+  "bmp": {
+
+    "path": "ui-showcase-interact.bmp",
+
+    "score_id": "ui_shell_dark"
+
+  },
+
+  "report_name": "ui_interact_shot_report.json",
+
+  "probes": ["bmp"],
+
+  "loop": {
+
+    "rounds": 4,
+
+    "timeout_sec": 160,
+
+    "build_target": "src/app/views:views",
+
+    "exe": "SmartGisViews.exe"
+
+  }
+
+}
+

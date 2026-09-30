@@ -15,7 +15,7 @@
       "type": "fill",
       "source-layer": "area",
       "paint": {
-        "fill-color": "#c8e6c9",
+        "fill-color": "#f5f3e9",
         "fill-opacity": 1
       }
     },

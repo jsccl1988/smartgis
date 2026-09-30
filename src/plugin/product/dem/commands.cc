@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 #include <memory>
 
 #include "content/public/plugin_host.h"

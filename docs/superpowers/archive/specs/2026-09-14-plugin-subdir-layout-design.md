@@ -49,8 +49,8 @@ Depth: `plugin/{runtime|product}/…` then domain (and optional role dirs). Not 
 | `plugin/product/<domain>/dem_commands.h` | `plugin/product/<domain>/commands.h` (after package cutover) |
 | `plugin/runtime/host/legacy_am.h` | `legacy/plugin/adapter/am.h` |
 | `plugin/runtime/host/legacy_cmd.h` | `legacy/plugin/adapter/cmd.h` |
-| `plugin/module.h` | `legacy/plugin/module.h` |
-| `plugin/dem/dlg_*.h` | `legacy/plugin/dem/dlg_*.h` |
+| `plugin/module.h` | `legacy/plugin/module/module.h` |
+| `plugin/dem/dlg_*.h` | `legacy/plugin/dem/views/dlg_*.h` |
 | `plugin/product/orthogrid/{grid,curve,region,types,orthogrid}.h` and `detail/polyline.h` | `legacy/plugin/orthogrid/kernel/…` (no product shim) |
 
 ## Product domain package

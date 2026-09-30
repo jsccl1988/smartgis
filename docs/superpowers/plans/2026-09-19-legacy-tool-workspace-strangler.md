@@ -23,7 +23,7 @@ All rights reserved.
 
 ### Task 2: Flash + ViewCtrl / Select / Append
 
-**Files:** `src/legacy/tool/group/{flashtool,viewctrltool,selecttool,appendfeaturetool}.{h,cpp}`
+**Files:** `src/legacy/tool/{flashtool,viewctrltool,selecttool,appendfeaturetool}.{h,cpp}`
 
 - [x] Flash: route start/stop through `try_execute_gt_msg`
 - [x] ViewCtrl / Select / Append: `bind_workspace` + notify forwarding; skip `SetActive` when bound

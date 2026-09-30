@@ -42,6 +42,7 @@ source_set("tile_sources") {
   deps = [
     "//src/base:base",
     "//src/base:core",
+    "//third_party:CxImage",
   ]
 }
 

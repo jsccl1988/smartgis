@@ -4,19 +4,20 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-# Shared GDI helpers (aux / bufpool / renderbuf / carto). Compiled once into
-# the legacy_render DLL for SmtGdiRenderDevice.
-# Layout (B′ colocated): .h next to .cpp under subdirs.
-# Note: Windows forbids a path segment named "aux"; use gdiaux/ instead.
+# Shared GDI helpers (player / gdiplus / compose / carto).
+# Layout: host/ worker/ paint/{canvas,encode,player,gdiplus}/ surface/ res/ test/
 source_set("gdi_common_sources") {
   sources = [
-    "gdiaux/gdi_aux_api.cpp",
-    "buffer/gdi_bufpool.cpp",
-    "gdiaux/gdi_gdiplus.cpp",
-    "gdiaux/gdi_gdiplus.h",
-    "buffer/gdi_renderbuf.cpp",
-    "carto/map_carto2d.cc",
-    "carto/map_carto2d.h",
+    "surface/compose.cc",
+    "surface/compose.h",
+    "surface/surface_pool.cc",
+    "surface/surface_pool.h",
+    "paint/canvas/carto_frame.cc",
+    "paint/canvas/carto_frame.h",
+    "paint/player/gdi_player.cc",
+    "paint/player/gdi_player.h",
+    "paint/gdiplus/gdiplus.cpp",
+    "paint/gdiplus/gdiplus.h",
   ]
   configs += [
     "//build:legacy",
@@ -27,18 +28,20 @@ source_set("gdi_common_sources") {
   deps = [
     "//src/base:base",
     "//src/base:core",
+    "//src/base/math:math",
     "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
+    "//src/gpu:compositor_cpu_blend",
     "//third_party:CxImage",
   ]
   libs = [ "gdiplus.lib" ]
 }
 
-# Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
-source_set("render_gdi_sources") {
+source_set("render_gdi_thread_sources") {
   sources = [
-    "device/gdi_renderdevice.cpp",
-    "thread/gdi_renderthread.cpp",
-    "thread/gdi_renderthread_draw.cpp",
+    "paint/canvas/layer_painter.cc",
+    "worker/render_thread.cc",
+    "paint/canvas/paint_canvas.cc",
+    "worker/raster_scheduler.cc",
   ]
   configs += [
     "//build:legacy",
@@ -47,12 +50,42 @@ source_set("render_gdi_sources") {
   defines = [ "_USRDLL" ]
   deps = [
     ":gdi_common_sources",
+    ":gdi_encode_sources",
     "//src/gis/kernel/geo:geo",
     "//src/base:base",
     "//src/base:core",
+    "//src/base/math:math",
     "//src/legacy/render/rhi3d:leftover_record",
     "//src/legacy/render/rhi2d:rhi2d_sources",
-    "//src/gis/datasource/provider/impl/ogr:ogr_codec",
+    "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
+    "//src/gis/model/map:gis",
+    "//third_party:CxImage",
+    "//third_party:gdal",
+  ]
+}
+
+source_set("render_gdi_sources") {
+  sources = [
+    "host/ui_controller.cc",
+    "host/image_io.cc",
+    "host/render_device.cc",
+  ]
+  configs += [
+    "//build:legacy",
+    "//src/legacy/render:legacy_render_exports",
+  ]
+  defines = [ "_USRDLL" ]
+  deps = [
+    ":gdi_common_sources",
+    ":gdi_encode_sources",
+    ":render_gdi_thread_sources",
+    "//src/gis/kernel/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/base/math:math",
+    "//src/legacy/render/rhi3d:leftover_record",
+    "//src/legacy/render/rhi2d:rhi2d_sources",
+    "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
     "//src/gis/model/map:gis",
     "//third_party:CxImage",
     "//third_party:gdal",
@@ -66,22 +99,22 @@ group("render_gdi") {
 test("map_carto2d_test") {
   output_name = "map_carto2d_test"
   sources = [
-    "carto/map_carto2d.cc",
-    "carto/map_carto2d_test.cc",
+    "paint/canvas/carto_frame.cc",
+    "test/carto_frame_test.cc",
   ]
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
+  deps = [ "//src/base/math:math" ]
 }
 
-# Hidden HWND + china_plp.geojson → GDI realtime paint must produce pixels.
 test("gdi_map_paint_test") {
   output_name = "gdi_map_paint_test"
-  sources = [ "test/gdi_map_paint_test.cc" ]
+  sources = [ "test/map_paint_test.cc" ]
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
   deps = [
     "//src/legacy/render:legacy_render",
-    "//src/gis/datasource/provider/impl/ogr:ogr_codec",
+    "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
     "//src/gis/model/map:gis",
     "//testing/data:china_map_samples",
     "//third_party:gdal",
@@ -89,5 +122,80 @@ test("gdi_map_paint_test") {
   libs = [
     "gdi32.lib",
     "user32.lib",
+  ]
+}
+
+test("gdi_compose_test") {
+  output_name = "gdi_compose_test"
+  sources = [
+    "surface/compose.cc",
+    "surface/compose.h",
+    "surface/surface_pool.cc",
+    "surface/surface_pool.h",
+    "test/compose_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "SMT_GDI_COMPOSE_STATIC" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gpu:compositor_cpu_blend",
+    "//third_party:CxImage",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+    "Msimg32.lib",
+  ]
+}
+
+source_set("gdi_encode_sources") {
+  sources = [
+    "paint/encode/command_buffer.h",
+    "paint/encode/command_encoder.cc",
+    "paint/encode/command_encoder.h",
+  ]
+  configs += [
+    "//build:legacy",
+    "//src/legacy/render:legacy_render_exports",
+  ]
+  defines = [ "_USRDLL" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":gdi_common_sources",
+    "//src/base:base",
+    "//src/base:core",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
+test("gdi_encode_test") {
+  output_name = "gdi_encode_test"
+  sources = [
+    "paint/encode/command_buffer.h",
+    "paint/encode/command_encoder.cc",
+    "paint/encode/command_encoder.h",
+    "paint/player/gdi_player.cc",
+    "paint/player/gdi_player.h",
+    "paint/gdiplus/gdiplus.cpp",
+    "paint/gdiplus/gdiplus.h",
+    "test/encode_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "SMT_GDI_ENCODE_STATIC" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+    "gdiplus.lib",
   ]
 }

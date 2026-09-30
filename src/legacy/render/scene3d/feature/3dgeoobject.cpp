@@ -4,9 +4,21 @@
 
 #include "base/math/math.h"
 #include "gis/kernel/geo/mesh/geometry.h"
-#include "legacy/core/bas_struct.h"
+#include "legacy/core/types/types.h"
+#include "ogr_geometry.h"
 
 using namespace render;
+
+namespace {
+
+void release_ogr_geometry(OGRGeometry*& geom) {
+  if (geom) {
+    OGRGeometryFactory::destroyGeometry(geom);
+    geom = nullptr;
+  }
+}
+
+}  // namespace
 
 namespace render {
 Smt3DGeoObject::Smt3DGeoObject(void)
@@ -143,19 +155,19 @@ bool Smt3DGeoObject::Select(LP3DRENDERDEVICE p3DRenderDevice,
 long Smt3DGeoObject::Destroy() {
   // Release VB memory
   SMT_SAFE_DELETE(m_pVertexBuffer);
-  SMT_SAFE_DELETE(m_pGeom);
+  release_ogr_geometry(m_pGeom);
   SMT_SAFE_DELETE(m_pIndexBuffer);
 
   return SMT_ERR_NONE;
 }
 
 void Smt3DGeoObject::SetGeometryDirectly(OGRGeometry *pGeom) {
-  SMT_SAFE_DELETE(m_pGeom);
+  release_ogr_geometry(m_pGeom);
   m_pGeom = pGeom;
 }
 
 void Smt3DGeoObject::SetGeometry(OGRGeometry *pGeom) {
-  SMT_SAFE_DELETE(m_pGeom);
+  release_ogr_geometry(m_pGeom);
 
   if (pGeom != NULL)
     m_pGeom = pGeom->clone();

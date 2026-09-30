@@ -5,25 +5,31 @@ All rights reserved.
 
 # `src/legacy/ui` — leftover MFC shell
 
-Six MFC UI trees merged into one DLL (`dll_stem=ui_legacy`). Physically moved out of `src/ui/` so that tree only holds the endgame toolkit (`views/`).
+One DLL (`dll_stem=ui_legacy`). Physically under `legacy/` so `src/ui/` only holds the endgame toolkit (`views/` + `gis/`).
 
-| Tree | Role |
-| --- | --- |
-| `gui/` | Dialogs / dock bars |
-| `mfc_ex/` | Feature Pack helpers + grid |
-| `xview/` | Map / 3D MFC views |
-| `xcatalog/` | Layer / map / scene catalogs |
-| `xambox/` | Aux-module box |
-| `chart/` | Stat chart (`stat_chart_sources`) |
+B1 layout (2026-09-29): capability dirs mirror `src/ui/gis` / `views/map` vocabulary; scheme C; no shim; stay under `legacy/ui`. Sole AFX attach: `widgets/widgets_core.cpp`. `grid/` and `dock/` removed (Feature Pack).
+
+## Capability map (endgame vocabulary, still under `legacy/`)
+
+| Capability | ≈ endgame | Role here |
+| --- | --- | --- |
+| `shell/` | `app/views/shell` + frame PCH | xview shell / `shell.rc` |
+| `shell/ambox/` | `ui/gis/shell` AmboxView | aux-module Outlook bar |
+| `shell/chart/` | `ui/gis/shell` ChartView | leftover stat chart |
+| `map/` | `ui/views/map` | Map / 3D `CView` (ex-`viewport/`) |
+| `inspect/` | `ui/gis/inspect` | config / edit docks (ex-`panels/`) |
+| `catalog/` | `ui/gis/catalog` | trees + mgr + dialogs |
+| `dialogs/` | `ui/gis/dialogs` + toolkit dialogs | generic MFC dialogs + `dialogs_api` |
+| `widgets/` | (leftover-only FP glue) | `bcg_cmfc.h` + sole `DllMain` |
+| `res/<cap>/` | `ui/resources` | icons / `.rc2` / bitmaps (`res/shell/{ambox,chart}/`) |
 
 | Item | Value |
 | --- | --- |
 | GN | `//src/legacy/ui:ui_legacy` |
-| Forwarder | `//src/ui:ui_legacy` → above |
-| Include prefix | `"legacy/ui/gui/…"` etc. (no `"ui/gui/…"` forward headers) |
-| Gate | `smt_build_app` / `build.bat ui_legacy` / pulled by `SmartGis.exe` |
+| Include | `"legacy/ui/<capability>/…"` |
+| Gate | `smt_build_app` / `build.bat ui_legacy` |
 | Default `src_all` | **no** |
 
-`tool_group_sources` still compile into this DLL to avoid a link cycle with `legacy_tool`. Endgame Views must not depend on this tree.
+`tool_group_sources` still compile into this DLL (link-cycle avoid). Endgame Views must not depend on this tree. Feature Pack is a leftover bridge only.
 
-See: [`docs/superpowers/specs/2026-09-14-app-legacy-split-design.md`](../../docs/superpowers/specs/2026-09-14-app-legacy-split-design.md), [`docs/build/ui-views-skia.md`](../../docs/build/ui-views-skia.md).
+Historical GN aliases: `map:viewport`, `inspect:panels`, `shell/ambox:xambox`, `shell/chart:stat_chart`.

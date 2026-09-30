@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#include "base/trace/process_trace.h"
+#include "base/trace/event/process_trace.h"
 #include "gis/present/style/style_document.h"
 #include "gis/present/style/style_rules.h"
 #include "gis/vista/world/terrain/land_mask.h"
@@ -101,9 +101,9 @@ bool write_line_with_siberia_stub(const char* path) {
 int run_map2d_presenter_tests();
 
 int main() {
-  base::maybe_init_tracing_from_env();
+  base::trace::maybe_init_tracing_from_env();
   struct TraceDumpOnExit {
-    ~TraceDumpOnExit() { base::maybe_dump_tracing_to_env(); }
+    ~TraceDumpOnExit() { base::trace::maybe_dump_tracing_to_env(); }
   } trace_dump_on_exit;
   (void)trace_dump_on_exit;
 
@@ -151,14 +151,16 @@ int main() {
     DeleteFileA(path.c_str());
   }
 
-  // Prefecture pack: area rings must exceed OGR feature count (370 MultiPolygons
-  // expand to ~1000+ exterior parts). Skip quietly when data is not beside cwd.
+  // NE 10m china_city: area is MultiPolygon; expand must grow land rings past
+  // the OGR feature count. Skip quietly when data is not beside cwd.
   {
     const char* city_candidates[] = {
         "china_city.gpkg",
         "china_city.geojson",
         "out\\china_city.gpkg",
         "out\\china_city.geojson",
+        "out\\data\\china_city.gpkg",
+        "out\\data\\china_city.geojson",
         "testing\\data\\china_city.gpkg",
         "testing\\data\\china_city.geojson",
     };
@@ -169,8 +171,9 @@ int main() {
       }
       std::vector<gis::LonLatRing> rings;
       scene.export_land_rings(&rings);
-      expect(rings.size() > 400,
-             "china_city MultiPolygon parts expanded (>370)");
+      // OGR area rows are MultiPolygons; each exterior becomes one land ring.
+      expect(rings.size() > 48,
+             "china_city MultiPolygon parts expanded beyond OGR area count");
       expect(scene.feature_count() > 1500,
              "china_city total features after Multi* expand");
       break;
@@ -416,17 +419,23 @@ int main() {
     expect(content::map_scene_line_stroke_px(content::MapLineRole::kRoad, 8.0, 12.0) >= 1,
            "road stroke is positive");
 
+    // length is the cartographic span (deg); endpoints are documentary only.
+    // Country water gate uses min_len=4 at scale<22, so four 2° pieces → 8°.
     content::MapStemSpan parts[] = {
-        {"ChangJiang", 1.0, 100.0, 30.0, 101.0, 30.0},
-        {"ChangJiang", 1.0, 110.0, 30.0, 111.0, 30.0},
-        {"ChangJiang", 1.0, 120.0, 30.0, 121.0, 30.0},
+        {"ChangJiang", 2.0, 100.0, 30.0, 102.0, 30.0},
+        {"ChangJiang", 2.0, 110.0, 30.0, 112.0, 30.0},
+        {"ChangJiang", 2.0, 120.0, 30.0, 122.0, 30.0},
+        {"ChangJiang", 2.0, 130.0, 30.0, 132.0, 30.0},
     };
     const double stem =
-        content::map_scene_stem_length(parts, 3, 0, 0.05);
-    expect(stem > 2.9 && stem < 3.1, "same-name pieces form one stem");
+        content::map_scene_stem_length(parts, 4, 0, 0.05);
+    expect(stem > 7.9 && stem < 8.1, "same-name pieces form one stem");
     expect(!content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, 1.0,
                                                 false, 12.0),
            "one short piece fails the country gate");
+    expect(!content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, 3.0,
+                                                false, 12.0),
+           "mid stem still hidden at country scale");
     expect(content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, stem,
                                                false, 12.0),
            "stem length passes the country gate");
@@ -455,7 +464,9 @@ int main() {
     expect(!content::map_scene_extent_is_lonlat(400000.0, 3000000.0, 500000.0,
                                            3500000.0),
            "meter window is not lon/lat");
-    const double long_m = content::map_scene_length_as_degrees(300000.0, false);
+    // Country water gate needs >=4° (~445 km at 111320 m/deg).
+    const double long_m =
+        content::map_scene_length_as_degrees(500000.0, false);
     const double short_m = content::map_scene_length_as_degrees(400.0, false);
     expect(content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, long_m,
                                                false, 12.0),

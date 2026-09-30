@@ -14,7 +14,7 @@
 #include "gis/vista/domain/atmosphere/systems/atmosphere_params.h"
 #include "gis/vista/domain/atmosphere/field/field_channel.h"
 #include "render/rhi/rhi.h"
-#include "base/trace/process_trace.h"
+#include "base/trace/event/process_trace.h"
 
 #include <algorithm>
 #include <cmath>
@@ -184,7 +184,9 @@ void Scene3dSoftwarePainter::sync_engine_logo_overlay(HWND parent, int width_px,
     return;
   }
   SIZE box = {};
-  const bool measured = measure_engine_logo(probe, gpu_->render_engine_name, &box);
+  const char* label = gpu_->engine_fps_label_[0] ? gpu_->engine_fps_label_
+                                                : gpu_->render_engine_name;
+  const bool measured = measure_engine_logo(probe, label, &box);
   ReleaseDC(parent, probe);
   if (!measured) {
     return;
@@ -210,7 +212,7 @@ void Scene3dSoftwarePainter::sync_engine_logo_overlay(HWND parent, int width_px,
                  SWP_NOACTIVATE | SWP_SHOWWINDOW);
   }
   SetWindowLongPtrW(logo_hwnd_, GWLP_USERDATA,
-                    reinterpret_cast<LONG_PTR>(gpu_->render_engine_name));
+                    reinterpret_cast<LONG_PTR>(label));
   // Invalidate only â?UpdateWindow here re-enters while the parent is still
   // inside BeginPaint/EndPaint (FlyCube / stereo present paths).
   InvalidateRect(logo_hwnd_, nullptr, FALSE);
@@ -364,9 +366,9 @@ void Scene3dSoftwarePainter::paint_hud(HDC hdc, int width_px, int height_px) con
           : L"Local DEM SoT â?leftover SmartGis.exe is reference";
   TextOutW(hdc, 12, 32, so_t, lstrlenW(so_t));
 
-  wchar_t eng[120];
+  wchar_t eng[140];
   const char* name = gpu_->render_engine_name ? gpu_->render_engine_name : "unknown";
-  swprintf_s(eng, L"Engine  %hs%s", name,
+  swprintf_s(eng, L"Engine  %hs  Fps%.3f%s", name, gpu_->last_fps,
              gpu_->wireframe_enabled() ? L"  wireframe=on" : L"");
   TextOutW(hdc, 12, 52, eng, lstrlenW(eng));
 
@@ -397,11 +399,15 @@ void Scene3dSoftwarePainter::paint_hud(HDC hdc, int width_px, int height_px) con
   if (window_dc && swapchain_surface) {
     sync_engine_logo_overlay(hwnd, width_px, height_px);
     if (!logo_hwnd_ || !IsWindow(logo_hwnd_)) {
-      paint_engine_logo(hdc, width_px, height_px, gpu_->render_engine_name);
+      paint_engine_logo(hdc, width_px, height_px,
+                        gpu_->engine_fps_label_[0] ? gpu_->engine_fps_label_
+                                                  : gpu_->render_engine_name);
     }
   } else {
     hide_engine_logo_overlay();
-    paint_engine_logo(hdc, width_px, height_px, gpu_->render_engine_name);
+    paint_engine_logo(hdc, width_px, height_px,
+                      gpu_->engine_fps_label_[0] ? gpu_->engine_fps_label_
+                                                : gpu_->render_engine_name);
   }
 }
 
@@ -482,7 +488,7 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   std::lock_guard<std::mutex> lock(gpu_->mutex());
   gpu_->remember_view_size(width_px, height_px);
   gpu_->render_engine_name = "GDI";
-
+  gpu_->note_present_frame();
 
   if (fill_background) {
     // Black void behind the ocean plane (leftover stereo SoT).

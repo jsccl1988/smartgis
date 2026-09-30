@@ -3,15 +3,19 @@
 
 #include "legacy/render/scene3d/dem/stereo_hwnd_view.h"
 
+#include <GL/gl.h>
+
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <string>
 
 #include "gis/vista/world/terrain/dem_frame.h"
+#include "legacy/render/rhi3d/impl/d3d/host/render_device.h"
 #include "legacy/render/rhi3d/public/camera/camera.h"
-#include "legacy/render/rhi3d/public/device/3drenderdevice.h"
+#include "legacy/render/rhi3d/public/device/render_device.h"
 #include "legacy/render/scene3d/bridge/map_to_scene.h"
 #include "legacy/render/scene3d/scene/scene.h"
 
@@ -173,20 +177,51 @@ void* smt_stereo_hwnd_create(HWND hwnd) {
   }
   view->module = self;
 
-  auto create_dev = reinterpret_cast<render::_Create3DRenderDevice>(
-      GetProcAddress(self, "Create3DRenderDevice"));
+  // Default leftover stereo backend is D3D11; OpenGL is opt-in.
+  const bool want_d3d = []() {
+    if (const char* api = std::getenv("SMT_STEREO_API")) {
+      if (_stricmp(api, "OpenGL") == 0) {
+        return false;
+      }
+      if (_stricmp(api, "Direct3D") == 0) {
+        return true;
+      }
+    }
+    if (const char* d3d = std::getenv("SMT_SCENE3D_SHOWCASE_D3D")) {
+      if (d3d[0] == '0' || d3d[0] == 'n' || d3d[0] == 'N') {
+        return false;
+      }
+      if (d3d[0] == '1' || d3d[0] == 'y' || d3d[0] == 'Y') {
+        return true;
+      }
+    }
+    return true;
+  }();
+
   auto release_dev = reinterpret_cast<render::_Release3DRenderDevice>(
       GetProcAddress(self, "Release3DRenderDevice"));
-  if (!create_dev || !release_dev) {
+  if (!release_dev) {
     return nullptr;
   }
 
   LP3DRENDERDEVICE device = nullptr;
-  if (create_dev(self, device) != 0 || !device) {
-    return nullptr;
+  if (want_d3d) {
+    using CreateD3DFn = HRESULT (*)(HINSTANCE, render::Smt3DRenderDevice*&);
+    auto create_d3d = reinterpret_cast<CreateD3DFn>(
+        GetProcAddress(self, "CreateD3DRenderDevice"));
+    if (!create_d3d || create_d3d(self, device) != 0 || !device) {
+      return nullptr;
+    }
+  } else {
+    auto create_dev = reinterpret_cast<render::_Create3DRenderDevice>(
+        GetProcAddress(self, "Create3DRenderDevice"));
+    if (!create_dev || create_dev(self, device) != 0 || !device) {
+      return nullptr;
+    }
   }
   view->device = device;
-  if (device->Init(hwnd, "smt-stereo-hwnd") != SMT_ERR_NONE) {
+  if (device->Init(hwnd, want_d3d ? "smt-stereo-hwnd-d3d"
+                                  : "smt-stereo-hwnd") != SMT_ERR_NONE) {
     release_dev(device);
     return nullptr;
   }
@@ -328,6 +363,35 @@ int smt_stereo_hwnd_blit(void* view, HDC hdc, int width_px, int height_px) {
   const BOOL ok = BitBlt(hdc, 0, 0, width_px, height_px, src, 0, 0, SRCCOPY);
   ReleaseDC(v->hwnd, src);
   return ok ? 1 : 0;
+}
+
+int smt_stereo_hwnd_capture_bgr24(void* view, unsigned char* out_bgr24,
+                                  int width_px, int height_px) {
+  auto* v = static_cast<StereoHwndView*>(view);
+  if (!v || !v->device || !out_bgr24 || width_px <= 0 || height_px <= 0) {
+    return 0;
+  }
+  // Prefer D3D capture whenever the concrete device is D3D11 — do not rely
+  // solely on GetBaseApi() (leftover enum naming is easy to mis-wire).
+  if (auto* d3d = dynamic_cast<render::SmtD3DRenderDevice*>(v->device)) {
+    return d3d->CaptureBgr24(out_bgr24, width_px, height_px) == SMT_ERR_NONE
+               ? 1
+               : 0;
+  }
+  // Make GL context current, then read the presented front buffer.
+  if (v->device->BeginRender() != SMT_ERR_NONE) {
+    return 0;
+  }
+  glReadBuffer(GL_FRONT);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  // GL_BGR is core since 1.2; Windows opengl32 exposes it as GL_BGR_EXT.
+#ifndef GL_BGR
+#define GL_BGR 0x80E0
+#endif
+  glReadPixels(0, 0, width_px, height_px, GL_BGR, GL_UNSIGNED_BYTE, out_bgr24);
+  const GLenum err = glGetError();
+  v->device->EndRender();
+  return err == GL_NO_ERROR ? 1 : 0;
 }
 
 }  // extern "C"

@@ -10,6 +10,7 @@
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/paint/painter.h"
 #include "ui/views/kernel/paint/painter_registry.h"
+#include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
 
 namespace ui {
@@ -75,14 +76,43 @@ void View::set_bounds(const Rect& bounds) {
     sync_native_bounds();
     return;
   }
-  const bool resized =
-      bounds.width != bounds_.width || bounds.height != bounds_.height;
+  const Rect old = bounds_;
   bounds_ = bounds;
   commands_dirty_ = true;
-  if (resized) {
+  // Move (not only resize) must reflow children: TabStrip pages / ScrollView
+  // content are placed from this view's origin. Skipping layout on a pure move
+  // left MapViewport HWND at the old Y covering the tab headers — clicks never
+  // reached Map|Data|3D (双击壳里切不了 3D).
+  if (moved) {
     mark_needs_layout();
+    // Eager layout when a direct child owns an HWND so native bounds track
+    // before the next WM_PAINT (mouse can hit the stale HWND first).
+    if (!in_layout_) {
+      bool hwnd_child = native_hwnd_ != nullptr;
+      if (!hwnd_child) {
+        for (const auto& child : children_) {
+          if (child && child->native_view()) {
+            hwnd_child = true;
+            break;
+          }
+        }
+      }
+      if (hwnd_child) {
+        layout();
+      }
+    }
   }
   sync_native_bounds();
+  // Layout growth/shrink must invalidate old+new — otherwise newly exposed
+  // chrome stays stale until a hover schedule_paint_rect hits it.
+  if (widget_) {
+    if (old.width > 0 && old.height > 0) {
+      widget_->schedule_paint_rect(old);
+    }
+    if (bounds_.width > 0 && bounds_.height > 0) {
+      widget_->schedule_paint_rect(bounds_);
+    }
+  }
 }
 
 void View::set_preferred_size(const Size& size) {
@@ -278,7 +308,18 @@ void View::append_commands_to(ui::gfx::DisplayList* out) {
   ensure_commands_recorded();
   out->append_from(commands_);
   for (auto& child : children_) {
-    if (!child->visible_ || child->native_view()) {
+    if (!child->visible_) {
+      continue;
+    }
+    if (child->native_view()) {
+      // Parent fills often paint opaque panel_bg over the map HWND rect.
+      // Overlay punch only knows Theme hole colors — stamp map_placeholder so
+      // src-over does not flash a correct GPU frame then cover it (错位).
+      const Rect& b = child->bounds();
+      if (b.width > 0 && b.height > 0) {
+        out->fill_rect(b.x, b.y, b.width, b.height,
+                       Theme::current().map_placeholder);
+      }
       continue;
     }
     child->append_commands_to(out);
@@ -431,12 +472,15 @@ void View::sync_native_bounds() {
       cur_h == bounds_.height && shown == want_show) {
     return;
   }
-  UINT flags = SWP_NOZORDER | SWP_NOACTIVATE;
+  // NOCOPYBITS: default SetWindowPos copies the old DC into the new rect,
+  // which reads as a shifted region until the mouse forces a real paint.
+  UINT flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS;
   if (want_show != shown) {
     flags |= want_show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW;
   }
   SetWindowPos(native_hwnd_, nullptr, bounds_.x, bounds_.y, bounds_.width,
                bounds_.height, flags);
+  InvalidateRect(native_hwnd_, nullptr, FALSE);
 }
 
 void View::sync_native_tree() {

@@ -12,7 +12,7 @@
 #include "base/execution/executor/pool/global_executor.h"
 #include "base/execution/parallel/for.h"
 #include "base/memory/arena.h"
-#include "base/trace/process_trace.h"
+#include "base/trace/event/process_trace.h"
 #include "gis/vista/frame/detail/collision.h"
 #include "gis/present/style/paint_resolve.h"
 #include "gis/present/style/style_rules.h"
@@ -450,21 +450,39 @@ detail::LabelBox collision_text_box(const SymbolCand& cand, float fblc,
                                     const GlyphMetrics* metrics) {
   const int px_h = collision_text_height(cand, fblc);
   const float text_h = (std::max)(cand.text_size, static_cast<float>(px_h));
-  float total_w = static_cast<float>(detail::utf8_units(cand.text.c_str()) *
-                                     (px_h * 3 / 5));
+  // Prefer metrics advance so the collision box matches emit_kept_symbol.
+  // Estimating with utf8_units*(3/5) under-sizes CJK runs and lets labels
+  // stack on the china country frame.
+  const float units_floor =
+      static_cast<float>(detail::utf8_units(cand.text.c_str())) * text_h * 0.95f;
+  float total_w = units_floor;
   if (metrics) {
-    total_w = run_width(cand.text, text_h, metrics);
+    total_w = (std::max)(run_width(cand.text, text_h, metrics), units_floor);
   }
   const TextAnchorOff origin = text_origin(cand.text_anchor, total_w, text_h);
   const int bx =
       cand.anchor_x + static_cast<int>(std::floor(origin.x));
   const int by =
       cand.anchor_y + static_cast<int>(std::floor(origin.y));
-  detail::LabelBox box =
-      cand.angle_deg == 0.f
-          ? detail::label_box(bx, by, cand.text.c_str(), px_h, cand.priority)
-          : detail::label_box_rotated(bx, by, cand.text.c_str(), px_h,
-                                      cand.priority, cand.angle_deg);
+  const int pad = 8;
+  detail::LabelBox box;
+  box.left = bx - pad;
+  box.top = by - pad;
+  box.right = bx + static_cast<int>(std::ceil(total_w)) + pad;
+  box.bottom = by + static_cast<int>(std::ceil(text_h)) + pad;
+  box.priority = cand.priority;
+  if (cand.angle_deg != 0.f) {
+    box = detail::label_box_rotated(bx, by, cand.text.c_str(), px_h,
+                                    cand.priority, cand.angle_deg);
+    // Widen rotated estimate to at least the metrics run width.
+    const int need_w = static_cast<int>(std::ceil(total_w)) + pad * 2;
+    const int have_w = box.right - box.left;
+    if (have_w < need_w) {
+      const int grow = (need_w - have_w + 1) / 2;
+      box.left -= grow;
+      box.right += grow;
+    }
+  }
   if (cand.halo_width > 0.f) {
     detail::expand_label_box_for_halo(&box, cand.halo_width);
   }
@@ -911,7 +929,7 @@ MapFrame Layout::build(const LayoutInput& in,
   if (base::MemoryResource* tls = base::tls_memory_resource()) {
     tls->clear(base::Arena::kInitialSize);
   }
-  if (base::tracing_enabled()) {
+  if (base::trace::tracing_enabled()) {
     gis::reset_tess_trace_stats();
   }
   MapFrame frame;
@@ -996,7 +1014,7 @@ MapFrame Layout::build(const LayoutInput& in,
   }
   flush_fills();
   flush_lines();
-  if (base::tracing_enabled()) {
+  if (base::trace::tracing_enabled()) {
     gis::flush_tess_trace_stats();
   }
   return frame;

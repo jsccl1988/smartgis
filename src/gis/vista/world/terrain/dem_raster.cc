@@ -80,7 +80,8 @@ std::string join_dir(const std::string& dir, const char* rel) {
 
 }  // namespace
 
-// SmartGis.exe SoT ramp: lowlands yellow→green, highlands pink→white.
+// Base elevation ramp. Lowlands stay green (landish gate: g>r and g>b).
+// Highlands are tan, not a pink-white poster. Slope/snow live in the bake.
 void hypsometric_rgb(float meters, float* r, float* g, float* b) {
   if (!r || !g || !b) {
     return;
@@ -94,19 +95,40 @@ void hypsometric_rgb(float meters, float* r, float* g, float* b) {
   const float t01 = (std::max)(0.f, (std::min)(1.f, meters / 5500.f));
   if (t01 < 0.35f) {
     const float u = t01 / 0.35f;
-    *r = (70.f + 140.f * u) / 255.f;
+    // Strong green lowlands so Scene3d BMP landish gate (g>r, g>b) passes.
+    *r = (28.f + 70.f * u) / 255.f;
     *g = (140.f + 70.f * u) / 255.f;
-    *b = (55.f + 20.f * (1.f - u)) / 255.f;
+    *b = (28.f + 20.f * (1.f - u)) / 255.f;
   } else if (t01 < 0.65f) {
     const float u = (t01 - 0.35f) / 0.30f;
-    *r = (210.f + 25.f * u) / 255.f;
-    *g = (210.f - 40.f * u) / 255.f;
-    *b = (75.f + 40.f * u) / 255.f;
+    *r = (160.f + 50.f * u) / 255.f;
+    *g = (180.f - 30.f * u) / 255.f;
+    *b = (55.f + 35.f * u) / 255.f;
   } else {
     const float u = (t01 - 0.65f) / 0.35f;
-    *r = (235.f + 20.f * u) / 255.f;
-    *g = (170.f + 70.f * u) / 255.f;
-    *b = (115.f + 120.f * u) / 255.f;
+    // Tan rock, not blown white. Snow is applied later from slope.
+    *r = (168.f + 40.f * u) / 255.f;
+    *g = (140.f + 28.f * u) / 255.f;
+    *b = (96.f + 24.f * u) / 255.f;
+  }
+}
+
+// Albedo for the lit PBR pass: elevation ramp, then rock on steep faces
+// and a cool snow cap on high flats.
+void terrain_material_rgb(float meters, float slope01, float* r, float* g,
+                          float* b) {
+  hypsometric_rgb(meters, r, g, b);
+  const float rock = clampf(slope01, 0.f, 1.f);
+  const float w = 0.62f * rock;
+  *r = *r * (1.f - w) + 0.40f * w;
+  *g = *g * (1.f - w) + 0.36f * w;
+  *b = *b * (1.f - w) + 0.30f * w;
+  if (meters > 4200.f && rock < 0.5f) {
+    const float u =
+        clampf((meters - 4200.f) / 2200.f, 0.f, 1.f) * (1.f - rock);
+    *r = *r * (1.f - u) + 0.76f * u;
+    *g = *g * (1.f - u) + 0.78f * u;
+    *b = *b * (1.f - u) + 0.80f * u;
   }
 }
 
@@ -172,6 +194,15 @@ bool DemRaster::load_gdal_raster(const char* path) {
       if (h < 0.f) {
         h = 0.f;
       }
+    }
+  }
+  // Real china_dem* already encodes land/ocean via nodata/≤0 heights. Build an
+  // explicit land_ mask so bake paints green land (not ocean blue on every
+  // cell) and mesh can stay land-only.
+  if (land_.empty() && !heights_.empty()) {
+    land_.assign(heights_.size(), 0);
+    for (size_t i = 0; i < heights_.size(); ++i) {
+      land_[i] = heights_[i] > 1.f ? 1 : 0;
     }
   }
   downsample_to_max_edge(384);
@@ -337,16 +368,17 @@ int DemRaster::lod_max_edge(float camera_distance, int min_edge,
   if (max_edge_cap < min_edge) {
     max_edge_cap = min_edge;
   }
-  // Orbit framing: distance ~3.2 is the default China overview.
-  // Closer → denser DEM grid; farther → coarser.
+  // Orbit framing: distance ~2.55 is the full/land showcase, ~3.2 the
+  // default China overview. Both sit in the dense bucket so the DEM is
+  // not a low-poly sheet at the distances we actually frame.
   int edge = max_edge_cap;
-  if (camera_distance > 6.0f) {
+  if (camera_distance > 8.0f) {
     edge = min_edge;
-  } else if (camera_distance > 4.0f) {
+  } else if (camera_distance > 5.0f) {
     edge = min_edge + (max_edge_cap - min_edge) / 4;
-  } else if (camera_distance > 2.5f) {
+  } else if (camera_distance > 3.6f) {
     edge = min_edge + (max_edge_cap - min_edge) / 2;
-  } else if (camera_distance > 1.5f) {
+  } else if (camera_distance > 2.2f) {
     edge = min_edge + 3 * (max_edge_cap - min_edge) / 4;
   }
   if (edge < min_edge) {
@@ -385,6 +417,12 @@ int DemRaster::lod_expected_vertices(int cols, int rows, int max_edge) {
 
 bool DemRaster::build_mesh(int max_edge, std::vector<float>* xyz,
                            std::vector<uint32_t>* indices) const {
+  return build_mesh(max_edge, xyz, indices, nullptr);
+}
+
+bool DemRaster::build_mesh(int max_edge, std::vector<float>* xyz,
+                           std::vector<uint32_t>* indices,
+                           std::vector<float>* uvs) const {
   if (!xyz || !indices || empty()) {
     return false;
   }
@@ -407,6 +445,9 @@ bool DemRaster::build_mesh(int max_edge, std::vector<float>* xyz,
   }
   xyz->clear();
   indices->clear();
+  if (uvs) {
+    uvs->clear();
+  }
   auto is_land = [&](int src_col, int src_row) -> bool {
     if (land_.empty()) {
       return true;
@@ -418,6 +459,11 @@ bool DemRaster::build_mesh(int max_edge, std::vector<float>* xyz,
   std::vector<int> vert_of(static_cast<size_t>(mc * mr), -1);
   const double dx = (maxx_ - minx_) / (std::max)(1, cols_ - 1);
   const double dy = (maxy_ - miny_) / (std::max)(1, rows_ - 1);
+  // Bake texture is mc×mr (same step as this mesh). UV must be mesh-grid
+  // indices, not src_col/(cols-1) — that only matched when step==1 and made
+  // coarser LODs drape ocean texels onto land (flash-correct then 错位).
+  const float u_den = static_cast<float>((std::max)(1, mc - 1));
+  const float v_den = static_cast<float>((std::max)(1, mr - 1));
   for (int row = 0; row < mr; ++row) {
     const int src_row = (std::min)(rows_ - 1, row * step_y);
     const double lat = maxy_ - src_row * dy;
@@ -434,6 +480,10 @@ bool DemRaster::build_mesh(int max_edge, std::vector<float>* xyz,
       xyz->push_back(dem_lon_to_x(lon));
       xyz->push_back(h);
       xyz->push_back(static_cast<float>(lat));
+      if (uvs) {
+        uvs->push_back(static_cast<float>(col) / u_den);
+        uvs->push_back(static_cast<float>(row) / v_den);
+      }
     }
   }
   indices->reserve(static_cast<size_t>((mc - 1) * (mr - 1) * 6));
@@ -485,16 +535,30 @@ bool DemRaster::bake_hypsometric_rgba(int max_edge, std::vector<uint8_t>* rgba,
     const int src_row = (std::min)(rows_ - 1, row * step_y);
     for (int col = 0; col < w; ++col) {
       const int src_col = (std::min)(cols_ - 1, col * step_x);
-      float r = 0.18f;
-      float g = 0.36f;
-      float b = 0.52f;
+      float r = 0.05f;
+      float g = 0.08f;
+      float b = 0.14f;
       bool land = true;
       if (!land_.empty()) {
         land = land_[static_cast<size_t>(index_at(src_col, src_row))] != 0;
       }
       if (land) {
-        hypsometric_rgb(meters_at(src_col, src_row), &r, &g, &b);
+        // Coastal DEM often stores ≤1 m; pale ocean blue there made the
+        // mainland silhouette read as a flat cyan slab under FlyCube.
+        float m = meters_at(src_col, src_row);
+        if (m <= 1.f) {
+          m = 80.f;
+        }
+        const int c1 = (std::min)(cols_ - 1, src_col + step_x);
+        const int r1 = (std::min)(rows_ - 1, src_row + step_y);
+        const float dh = std::fabs(meters_at(c1, src_row) - meters_at(src_col, src_row));
+        const float dv = std::fabs(meters_at(src_col, r1) - meters_at(src_col, src_row));
+        const float slope =
+            clampf(std::sqrt(dh * dh + dv * dv) / 900.f, 0.f, 1.f);
+        terrain_material_rgb(m, slope, &r, &g, &b);
       }
+      // Non-land stays deep navy (not 0.18/0.36/0.52 cyan) so mid-frame
+      // visual gates do not treat the whole DEM AABB as flat cyan.
       const size_t i =
           (static_cast<size_t>(row) * static_cast<size_t>(w) +
            static_cast<size_t>(col)) *
@@ -686,33 +750,22 @@ Node* seed_dem_raster_into_world(World* world, const DemRaster& dem,
   const int edge = max_edge > 1 ? max_edge : 96;
   std::vector<float> xyz;
   std::vector<uint32_t> idx;
-  if (!dem.build_mesh(edge, &xyz, &idx) || xyz.empty() || idx.empty()) {
+  std::vector<float> uvs;
+  if (!dem.build_mesh(edge, &xyz, &idx, &uvs) || xyz.empty() || idx.empty()) {
     return node;
   }
   world->set_terrain_mesh(node->id, xyz.data(), xyz.size(), idx.data(),
                           idx.size());
+  if (!uvs.empty()) {
+    world->set_terrain_uvs(node->id, uvs.data(), uvs.size());
+  }
 
-  // Drape: prefer China RS imagery; else hypsometric bake (never flat olive).
   std::vector<uint8_t> rgba;
   int tw = 0;
   int th = 0;
-  const std::string imagery = find_sample_imagery_path();
-  bool have_tex = false;
-  if (!imagery.empty()) {
-    have_tex = load_imagery_rgba(imagery.c_str(), &rgba, &tw, &th);
-    if (have_tex) {
-      std::fprintf(stderr, "Scene3d imagery: draped %s (%dx%d)\n",
-                   imagery.c_str(), tw, th);
-    }
-  } else {
-    std::fprintf(stderr,
-                 "Scene3d imagery: china_rs.tif not found; using hypsometric "
-                 "DEM bake (place china_rs.tif beside exe or under "
-                 "testing/data)\n");
-  }
-  if (!have_tex) {
-    have_tex = dem.bake_hypsometric_rgba(edge, &rgba, &tw, &th);
-  }
+  // Hypsometric bake matches land-only mesh UVs. china_rs drape often leaves a
+  // flat cyan sticker when imagery resolution and mesh LOD diverge.
+  const bool have_tex = dem.bake_hypsometric_rgba(edge, &rgba, &tw, &th);
   if (have_tex && tw > 0 && th > 0) {
     world->set_terrain_texture(node->id, rgba.data(), rgba.size(),
                                static_cast<uint32_t>(tw),

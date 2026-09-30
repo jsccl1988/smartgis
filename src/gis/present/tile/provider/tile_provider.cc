@@ -6,7 +6,7 @@
 #include <cctype>
 #include <cstdio>
 
-#include "legacy/core/api.h"
+#include "legacy/core/util/image.h"
 #include "gis/present/tile/protocol/wmts.h"
 
 namespace gis {

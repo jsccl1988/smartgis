@@ -15,8 +15,8 @@
 #include <utility>
 #include <vector>
 
-#include "base/trace/process_trace.h"
-#include "base/trace/trace.h"
+#include "base/trace/event/process_trace.h"
+#include "base/trace/event/trace.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/kernel/layout/layout.h"
@@ -49,12 +49,16 @@ bool cat_is_startup(std::string_view cat, std::string_view name) {
   return cat.starts_with("startup") || name.starts_with("startup");
 }
 
+bool cat_is_gdi(std::string_view cat, std::string_view name) {
+  return cat.starts_with("gdi") || name.starts_with("gdi");
+}
+
 }  // namespace
 
 struct RenderTracePanel::State {
-  std::vector<base::Trace::Event> events;
-  std::vector<base::TracePhaseRollup> phases;
-  base::Trace::time_point origin{};
+  std::vector<base::trace::Trace::Event> events;
+  std::vector<base::trace::TracePhaseRollup> phases;
+  base::trace::Trace::time_point origin{};
 };
 
 RenderTracePanel::RenderTracePanel() : state_(std::make_unique<State>()) {
@@ -63,12 +67,12 @@ RenderTracePanel::RenderTracePanel() : state_(std::make_unique<State>()) {
   box->set_between_child_spacing(4);
 
   auto title =
-      std::make_unique<Label>("Perf Gantt (startup + Map2d + Scene3d)");
+      std::make_unique<Label>("Perf Gantt (startup + Map2d + Scene3d + GDI)");
   title->set_preferred_size({420, 22});
   title_ = title.get();
 
   auto status =
-      std::make_unique<Label>("Always-on â€?open Diagnostic Tools to watch");
+      std::make_unique<Label>("Always-on ï¿½?open Diagnostic Tools to watch");
   status->set_preferred_size({480, 20});
   status_ = status.get();
 
@@ -104,7 +108,7 @@ RenderTracePanel::RenderTracePanel() : state_(std::make_unique<State>()) {
   arm->set_preferred_size({80, 24});
   arm_ = arm.get();
   arm_->set_change([this](bool on) {
-    base::set_tracing_enabled(on);
+    base::trace::set_tracing_enabled(on);
     update_status();
   });
 
@@ -144,12 +148,21 @@ RenderTracePanel::RenderTracePanel() : state_(std::make_unique<State>()) {
     refresh_from_process_trace();
     update_status();
   });
+  auto show_gdi = std::make_unique<Checkbox>("GDI");
+  show_gdi->set_preferred_size({70, 24});
+  show_gdi->set_checked(true);
+  show_gdi_ = show_gdi.get();
+  show_gdi_->set_change([this](bool) {
+    refresh_from_process_trace();
+    update_status();
+  });
   auto filters = std::make_unique<View>();
   filters->set_layout_manager(std::move(filt));
   filters->set_preferred_size({480, 28});
   filters->add_child(std::move(show2d));
   filters->add_child(std::move(show3d));
   filters->add_child(std::move(show_startup));
+  filters->add_child(std::move(show_gdi));
 
   auto rollup = std::make_unique<Label>("");
   rollup->set_preferred_size({480, 56});
@@ -163,7 +176,7 @@ RenderTracePanel::RenderTracePanel() : state_(std::make_unique<State>()) {
   add_child(std::move(rollup));
   set_preferred_size({500, 260});
 
-  if (base::tracing_enabled()) {
+  if (base::trace::tracing_enabled()) {
     arm_->set_checked(true);
   }
   update_status();
@@ -197,6 +210,9 @@ RenderTracePanel::~RenderTracePanel() {
   if (show_startup_) {
     show_startup_->set_change({});
   }
+  if (show_gdi_) {
+    show_gdi_->set_change({});
+  }
   remove_all_children();
   title_ = nullptr;
   status_ = nullptr;
@@ -210,6 +226,7 @@ RenderTracePanel::~RenderTracePanel() {
   show_map2d_ = nullptr;
   show_scene3d_ = nullptr;
   show_startup_ = nullptr;
+  show_gdi_ = nullptr;
   state_.reset();
 }
 
@@ -238,7 +255,7 @@ void RenderTracePanel::set_embedded(bool embedded) {
     rollup_->set_preferred_size(rollup);
     rollup_->set_visible(!embedded);
   }
-  // Toolbar / filters are anonymous Views â€?walk children by preferred size.
+  // Toolbar / filters are anonymous Views ï¿½?walk children by preferred size.
   for (size_t i = 0; i < child_count(); ++i) {
     View* c = child_at(i);
     if (!c || c == title_ || c == status_ || c == rollup_) {
@@ -263,23 +280,26 @@ void RenderTracePanel::on_device_scale_factor_changed(float old_scale,
 
 namespace {
 
-std::vector<base::Trace::Event> visible_events(
+std::vector<base::trace::Trace::Event> visible_events(
     const RenderTracePanel::State& state,
     const Checkbox* show_map2d,
     const Checkbox* show_scene3d,
-    const Checkbox* show_startup) {
-  std::vector<base::Trace::Event> out;
+    const Checkbox* show_startup,
+    const Checkbox* show_gdi) {
+  std::vector<base::trace::Trace::Event> out;
   out.reserve(state.events.size());
   for (const auto& e : state.events) {
-    if (e.kind == base::Trace::Event::Kind::kCounter) {
+    if (e.kind == base::trace::Trace::Event::Kind::kCounter) {
       continue;
     }
     const bool is2d = cat_is_map2d(e.cat, e.name);
     const bool is3d = cat_is_scene3d(e.cat, e.name);
     const bool is_startup = cat_is_startup(e.cat, e.name);
+    const bool is_gdi = cat_is_gdi(e.cat, e.name);
     const bool want2d = !show_map2d || show_map2d->is_checked();
     const bool want3d = !show_scene3d || show_scene3d->is_checked();
     const bool want_startup = !show_startup || show_startup->is_checked();
+    const bool want_gdi = !show_gdi || show_gdi->is_checked();
     if (is2d && !want2d) {
       continue;
     }
@@ -289,7 +309,11 @@ std::vector<base::Trace::Event> visible_events(
     if (is_startup && !want_startup) {
       continue;
     }
-    if (!is2d && !is3d && !is_startup && !(want2d || want3d || want_startup)) {
+    if (is_gdi && !want_gdi) {
+      continue;
+    }
+    if (!is2d && !is3d && !is_startup && !is_gdi &&
+        !(want2d || want3d || want_startup || want_gdi)) {
       continue;
     }
     out.push_back(e);
@@ -300,8 +324,8 @@ std::vector<base::Trace::Event> visible_events(
 }  // namespace
 
 void RenderTracePanel::on_record() {
-  base::process_trace().clear();
-  base::set_tracing_enabled(true);
+  base::trace::process_trace().clear();
+  base::trace::set_tracing_enabled(true);
   if (arm_) {
     arm_->set_checked(true);
   }
@@ -309,7 +333,7 @@ void RenderTracePanel::on_record() {
 }
 
 void RenderTracePanel::on_stop() {
-  base::set_tracing_enabled(false);
+  base::trace::set_tracing_enabled(false);
   if (arm_) {
     arm_->set_checked(false);
   }
@@ -318,7 +342,7 @@ void RenderTracePanel::on_stop() {
 }
 
 void RenderTracePanel::on_clear() {
-  base::process_trace().clear();
+  base::trace::process_trace().clear();
   if (state_) {
     state_->events.clear();
     state_->phases.clear();
@@ -341,7 +365,7 @@ void RenderTracePanel::on_export() {
   if (!out) {
     return;
   }
-  out << base::process_trace().dump();
+  out << base::trace::process_trace().dump();
 }
 
 void RenderTracePanel::on_refresh() {
@@ -353,15 +377,15 @@ void RenderTracePanel::refresh_from_process_trace(bool schedule) {
   if (!state_) {
     return;
   }
-  // Copy events via DLL-safe callback â€?never assign snapshot_events() across
+  // Copy events via DLL-safe callback ï¿½?never assign snapshot_events() across
   // DLL boundaries (MSVC debug iterator / vector ABI).
   state_->events.clear();
-  base::for_each_process_trace_event(
-      [](void* ctx, int tid, base::Trace::time_point begin,
-         base::Trace::time_point end, const char* name, const char* cat,
-         base::Trace::Event::Kind kind, int64_t counter_value) {
-        auto* events = static_cast<std::vector<base::Trace::Event>*>(ctx);
-        base::Trace::Event ev;
+  base::trace::for_each_process_trace_event(
+      [](void* ctx, int tid, base::trace::Trace::time_point begin,
+         base::trace::Trace::time_point end, const char* name, const char* cat,
+         base::trace::Trace::Event::Kind kind, int64_t counter_value) {
+        auto* events = static_cast<std::vector<base::trace::Trace::Event>*>(ctx);
+        base::trace::Trace::Event ev;
         ev.tid = tid;
         ev.begin = begin;
         ev.end = end;
@@ -372,10 +396,11 @@ void RenderTracePanel::refresh_from_process_trace(bool schedule) {
         events->push_back(std::move(ev));
       },
       &state_->events);
-  state_->origin = base::process_trace_origin();
+  state_->origin = base::trace::process_trace_origin();
   const auto vis =
-      visible_events(*state_, show_map2d_, show_scene3d_, show_startup_);
-  state_->phases = base::rollup_trace_phases(vis);
+      visible_events(*state_, show_map2d_, show_scene3d_, show_startup_,
+                     show_gdi_);
+  state_->phases = base::trace::rollup_trace_phases(vis);
   if (rollup_) {
     std::string text;
     const size_t n = (std::min)(state_->phases.size(), size_t{6});
@@ -385,7 +410,7 @@ void RenderTracePanel::refresh_from_process_trace(bool schedule) {
                           p.avg_us, p.p99_us);
     }
     if (state_->phases.size() > n) {
-      text += std::format("â€?+{} phases\n", state_->phases.size() - n);
+      text += std::format("ï¿½?+{} phases\n", state_->phases.size() - n);
     }
     rollup_->set_text(text);
   }
@@ -402,7 +427,7 @@ void RenderTracePanel::update_status() {
   size_t n3 = 0;
   size_t n_startup = 0;
   for (const auto& e : state_->events) {
-    if (e.kind == base::Trace::Event::Kind::kCounter) {
+    if (e.kind == base::trace::Trace::Event::Kind::kCounter) {
       continue;
     }
     if (cat_is_map2d(e.cat, e.name)) {
@@ -417,8 +442,8 @@ void RenderTracePanel::update_status() {
   }
   status_->set_text(std::format(
       "{} | total={} startup={} map2d={} scene3d={}",
-      base::tracing_enabled() ? "Recording" : "Stopped",
-      base::process_trace().size(), n_startup, n2, n3));
+      base::trace::tracing_enabled() ? "Recording" : "Stopped",
+      base::trace::process_trace().size(), n_startup, n2, n3));
 }
 
 void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
@@ -427,6 +452,7 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
   }
   const Theme& t = Theme::current();
   const Rect& b = bounds();
+  canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
   // Prefer remaining height under chrome; embedded mode collapses chrome so
   // lane_top sits just below panel top (+ inset).
   int chrome_bottom = b.y + 8;
@@ -434,14 +460,18 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
     chrome_bottom = b.y + 150;
   }
   const auto vis =
-      visible_events(*state_, show_map2d_, show_scene3d_, show_startup_);
+      visible_events(*state_, show_map2d_, show_scene3d_, show_startup_,
+                     show_gdi_);
   if (vis.empty()) {
+    canvas->draw_text(b.x + 8, chrome_bottom + 4,
+                      L"No duration events yet ï¿½ Record or wait for refresh",
+                      t.text_muted);
     return;
   }
 
   std::unordered_map<std::string, std::size_t> lane_of;
   std::vector<std::string> lanes;
-  auto lane_key = [](const base::Trace::Event& e) {
+  auto lane_key = [](const base::trace::Trace::Event& e) {
     return e.cat.empty() ? e.name : e.cat;
   };
   for (const auto& e : vis) {
@@ -467,11 +497,11 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
   int64_t max_ts = 1;
   bool first = true;
   for (const auto& e : vis) {
-    const auto ts = std::chrono::duration_cast<base::Trace::duration>(
+    const auto ts = std::chrono::duration_cast<base::trace::Trace::duration>(
                         e.begin - state_->origin)
                         .count();
     const auto dur =
-        std::chrono::duration_cast<base::Trace::duration>(e.end - e.begin)
+        std::chrono::duration_cast<base::trace::Trace::duration>(e.end - e.begin)
             .count();
     if (first) {
       min_ts = ts;
@@ -497,11 +527,11 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
   }
 
   for (const auto& e : vis) {
-    const auto ts = std::chrono::duration_cast<base::Trace::duration>(
+    const auto ts = std::chrono::duration_cast<base::trace::Trace::duration>(
                         e.begin - state_->origin)
                         .count();
     const auto dur =
-        std::chrono::duration_cast<base::Trace::duration>(e.end - e.begin)
+        std::chrono::duration_cast<base::trace::Trace::duration>(e.end - e.begin)
             .count();
     const std::size_t li = lane_of[lane_key(e)];
     const int y = lane_top + static_cast<int>(li) * lane_h + 2;

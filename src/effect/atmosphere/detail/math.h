@@ -42,11 +42,14 @@ inline void sun_from_azimuth_elevation(float azimuth_rad, float elevation_rad,
   normalize3(x, y, z);
 }
 
-// Negated column-major view translation (elements 12..14) as a world-space eye.
+// World-space eye from a column-major view matrix (R | t) with t = -R*eye.
 inline void eye_from_view(const float view[16], float* x, float* y, float* z) {
-  *x = -view[12];
-  *y = -view[13];
-  *z = -view[14];
+  const float tx = view[12];
+  const float ty = view[13];
+  const float tz = view[14];
+  *x = -(view[0] * tx + view[1] * ty + view[2] * tz);
+  *y = -(view[4] * tx + view[5] * ty + view[6] * tz);
+  *z = -(view[8] * tx + view[9] * ty + view[10] * tz);
 }
 
 inline float sample_bilinear(const std::vector<float>& grid, int cols, int rows,

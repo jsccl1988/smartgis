@@ -10,7 +10,7 @@ All rights reserved.
 当前产品事实（以树为准，不是 2010 路径）：
 
 - 工程入口只有 GN/`build.bat`，产物只在仓库根 `out/`。`//src:src_all` 是 31 个非 MFC DLL。`//:smartgis`（`build.bat app`）才出 `out/SmartGis.exe`。
-- 产品在 `src/`：`app/`、`app/app_core`、`ui/{gui,mfc_ex,xview,xcatalog,xambox}`、`render/{gdi,gdi_simple,gl,render3d}`（D3D9 树已删；leftover 亦见 `legacy/render/`）、`gis/`、`sdb/datasource/{mgr,gdal,mem}`（`smf` / `ws` 已移除）、`map/`、`plugin/` + AM 子模块、`tool/`（终局 dispatch）+ `legacy/tool/` / `legacy/tool/group`（leftover IATool）。
+- 产品在 `src/`：`app/`、`app/app_core`、`ui/{gui,mfc_ex,xview,xcatalog,xambox}`、`render/{gdi,gdi_simple,gl,render3d}`（D3D9 树已删；leftover 亦见 `legacy/render/`）、`gis/`、`sdb/datasource/{mgr,gdal,mem}`（`smf` / `ws` 已移除）、`map/`、`plugin/` + AM 子模块、`tool/`（终局 dispatch）+ `legacy/tool/`（leftover IATool：`bridge/{abi,msg}` + capability 顶层）。
 - 遗留 ABI 保留：`Smt_*` 命名空间、`Export_Smt*`、磁盘 DLL stem（`SmtGisCore`、`SmtRender`、`SmtGLRenderDevice`、`SmtXViewCore` …）。新公共命名空间最多两层。
 - 今日桌面是 **MFC + BCGControlBar Pro**（`CBCGPMDIFrameWnd`、dock catalog、AM toolbox）。机器上可以没有 BCG；**不要盗版 BCG**。MFC Feature Pack（`CMFC*`）只允许作为可选 bootstrap exe，**不是本文的上限**。
 - 今日地图视图是进程内 HWND：`SmtXView`（`CView`）→ `SmtRenderDevice::Init(HWND)`。交互工具是 `SmtIATool`（`Smt_IATool`），插件是 `SmtAuxModule`（`Smt_AM`）。地图文档是 `Smt_GIS::SmtMap`。
@@ -355,11 +355,11 @@ v1 适配器路径：
 2. **不**创建 `CView` / `CMainFrame`。适配器自建一个 **隐藏 message-only 或 offscreen HWND**，满足 `Init(HWND)` 与 `SmtIATool::Init(HWND)`。真正像素走 FBO / D3D11 纹理，再拷到共享表面。
 3. `SmtRenderer::CreateDevice` 优先 `"GL"`。GDI / GDI Simple 仍可用，经 `kSoftwareDib` present。D3D9 不再接线。
 4. `SmtMap`、图层、选择、投影（`gis/proj`）全部留在 render（或 IO）地址空间。Chrome 只看见 token 与 JSON。
-5. `SmtIATool` / `SmtIAToolManager` 留在 render。`IToolRouter::activate("select")` 映射到今日 `gt_selecttool` 等 `legacy/tool/group` 类。
+5. `SmtIATool` / `SmtIAToolManager` 留在 leftover tool。`IToolRouter::activate("select")` 映射到今日 `gt_selecttool` 等 `legacy/tool/select` 类。
 6. `SmtAuxModule`：无 UI 的逻辑在 render 加载；要弹 MFC 对话框的 AM（`plugin/print`）v1 走两条路之一——**(A)** 对话框改 chrome（Views/WinUI），结果经 `PluginCall` 回来；**(B)** 临时仍由 render 弹跨进程 Win32 对话框（体验差，只许白名单）。
 7. 无窗口瓦片发布栈已删除；图层 I/O 走 `sdb` / GDAL。
 
-**明确不在 v1 做的：** 把 `SmtXView` 改成非 MFC。它继续服务旧 `SmartGis.exe`。新 chrome 不链接 `//src/legacy/ui/xview:xview`。
+**明确不在 v1 做的：** 把 `SmtXView` 改成非 MFC。它继续服务旧 `SmartGis.exe`。新 chrome 不链接 `//src/legacy/ui/shell:xview`。
 
 **未来 GPU（仍在 render 进程）**
 

@@ -125,10 +125,10 @@ struct OrbitGeoFrame {
 
   // Map GIS meters (cloud base/top, wave Hs) into orbit Y deltas.
   float meters_to_orbit_y(float meters) const {
-    // DEM fit_vertical_exaggeration ≈ 0.20 * geo_span / peak_m; we only have
-    // the post-normalize scale. A small fraction of horizontal scale keeps
-    // waves/clouds readable without blowing past terrain.
-    return meters * scale * kElevBoost * 0.05f;
+    // DEM verts use elev * scale * kElevBoost. Atmosphere Hs / cloud base are
+    // GIS meters on the same axis — keep a sizable fraction of that scale so
+    // China-frame waves read as living water (0.05 left Hs ≈ flat navy).
+    return meters * scale * kElevBoost * 0.40f;
   }
 };
 

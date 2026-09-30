@@ -98,9 +98,9 @@ Expected: exit 0；各打印 `*: ok`。
 ### Task 3: L leftover 变薄（ViewCtrl / Select / Append）
 
 **Files:**
-- Modify: `src/legacy/tool/group/viewctrltool.cpp`
-- Modify: `src/legacy/tool/group/selecttool.cpp`
-- Modify: `src/legacy/tool/group/appendfeaturetool.cpp`
+- Modify: `src/legacy/tool/viewctrltool.cpp`
+- Modify: `src/legacy/tool/selecttool.cpp`
+- Modify: `src/legacy/tool/appendfeaturetool.cpp`
 - （头文件仅在需声明时改）
 
 **Interfaces:**
@@ -202,9 +202,9 @@ Expected: `content_view_host_test: ok`
 > 承接 Task 1–5 已绿基线；在 **master** 继续补齐，**不 commit**。
 
 **Files:**
-- Modify: `src/legacy/ui/xview/view_2d.cpp`、`view_3d.cpp`
-- Modify: `src/legacy/tool/group/{viewctrl,select,appendfeature,3dviewctrl}tool.*`
-- Modify: `src/legacy/tool/group/input{point,line,region}tool.h`（边界注释）
+- Modify: `src/legacy/ui/shell/view_2d.cpp`、`view_3d.cpp`
+- Modify: `src/legacy/tool/{viewctrl,select,appendfeature,3dviewctrl}tool.*`
+- Modify: `src/legacy/tool/input{point,line,region}tool.h`（边界注释）
 - Modify: `src/tool/gestures_test.cc`、`src/tool/README.md`、本 plan、design §12
 
 - [x] **Step 1: P0 chrome bind** — browse `view_2d` 创建 `ViewHost` 并 bind ViewCtrl/Select/Flash；`view_3d` 创建 host + bind 3DViewCtrl
@@ -220,8 +220,8 @@ Expected: `content_view_host_test: ok`
 > 承接 Task 6；在 **master** 继续清尾，**不 commit**。不碰 SP2/SP3 大改。
 
 **Files:**
-- Modify: `src/legacy/tool/group/input{point,line,region}tool.{h,cpp}`
-- Modify: `src/legacy/tool/group/grouptoolfactory.cpp`、`appendfeaturetool.cpp`（注释）
+- Modify: `src/legacy/tool/input{point,line,region}tool.{h,cpp}`
+- Modify: `src/legacy/tool/grouptoolfactory.cpp`、`appendfeaturetool.cpp`（注释）
 - Modify: `src/tool/gestures_test.cc`、`src/tool/README.md`、本 plan、design §8.3 / §12
 
 **核实（CBM）：** `SmtInput*` 仍被 `SmtGroupToolFactory::CreateGroupTool` 与 orthogrid `CreateIAGetLineTool` 引用 → **保留** `GTT_Input*` 工厂分支与类导出；**不删** LoadLibrary ABI。

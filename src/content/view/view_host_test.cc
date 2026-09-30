@@ -6,7 +6,7 @@
 #include "content/public/view_host.h"
 #include "gis/model/edit/session/memory_edit_session.h"
 #include "tool/interaction/interaction.h"
-#include "legacy/tool/adapter/msg.h"
+#include "legacy/tool/msg/msg.h"
 #include "tool/workspace/workspace.h"
 
 #include <cstdio>

@@ -3,13 +3,13 @@
 
 #include "legacy/render/rhi3d/public/bridge/leftover_record.h"
 
-#include "legacy/carto/style.h"
-#include "legacy/carto/stylemanager.h"
 #include "gis/model/map/map.h"
 #include "gis/model/map/map_layer.h"
 #include "gis/present/style/style_document.h"
 #include "gis/present/style/style_rules.h"
 #include "gis/present/style/style_types.h"
+#include "legacy/gis/present/carto/style.h"
+#include "legacy/gis/present/carto/stylemanager.h"
 
 #ifdef _WIN32
 #include <windows.h>

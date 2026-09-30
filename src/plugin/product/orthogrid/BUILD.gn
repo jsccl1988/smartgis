@@ -7,11 +7,11 @@ import("//testing/test.gni")
 # Product package: commands.* + manifest/plugin.json + detail/ (Laplace).
 # Views registration stays in register_orthogrid; plugin.json is the declared
 # contract (PluginShell may load it later). The 2010 Orthogrid class lives in
-# //src/legacy/plugin/orthogrid:orthogrid_kernel so orthogrid_views does not
+# //src/legacy/plugin/product/orthogrid:orthogrid_kernel so orthogrid_views does not
 # pull the GIS/MFC graph. legacy_orthogrid_kernel only loads that target into
 # the GN graph; orthogrid_views does not depend on it.
 group("legacy_orthogrid_kernel") {
-  deps = [ "//src/legacy/plugin/orthogrid:orthogrid_kernel" ]
+  deps = [ "//src/legacy/plugin/product/orthogrid:orthogrid_kernel" ]
 }
 
 source_set("orthogrid_views") {

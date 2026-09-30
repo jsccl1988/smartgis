@@ -4,6 +4,7 @@
 #ifndef CONTENT_BROWSER_PRESENT_SCENE3D_ATMOSPHERE_ATMOSPHERE_SESSION_H_
 #define CONTENT_BROWSER_PRESENT_SCENE3D_ATMOSPHERE_ATMOSPHERE_SESSION_H_
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -53,12 +54,23 @@ class AtmosphereSession {
   double time_sec() const;
 
   bool load_fields(std::string_view spec);
+  // Seed FieldStore (with land rings from MapScene when available).
   void seed_procedural();
+  // Same seed; when with_land_rings is false, skip polygon export (showcase
+  // capture must not stall on dense area layers).
+  void seed_procedural(bool with_land_rings);
   void enable_demo();
+
+  // Wall-clock advance for ocean FFT / cloud animation. Called from
+  // prepare_for_present; also usable by showcase linger loops.
+  void advance_sim_time();
 
   // Project GIS samples onto pass POD (no CommandList). Uses bound gpu geo.
   bool prepare_for_present();
   void release_passes();
+
+  // True when ocean/cloud need continuous MapViewport BeginFrame pacing.
+  bool needs_continuous_present() const;
 
   // Ensure gpu geo_frame is valid for the current world extent (once per frame).
   bool ensure_geo_frame();
@@ -89,6 +101,8 @@ class AtmosphereSession {
   effect::atmosphere::FogPass fog_pass_;
   effect::atmosphere::AtmosphereFrame atmosphere_frame_;
   bool wind_overlay_enabled_ = false;
+  // QPC tick of the last advance_sim_time(); 0 = not primed.
+  std::uint64_t last_sim_qpc_ = 0;
 };
 
 }  // namespace content

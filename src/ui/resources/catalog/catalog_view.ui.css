@@ -1,4 +1,5 @@
-/* CatalogView — TabStrip + trees filled in C++ */
+/* CatalogView — TabStrip + trees filled in C++.
+   Title is hidden so Layers/Sources/Maps aligns with Map/Data/3D. */
 
 .panel {
   display: flex;
@@ -8,10 +9,14 @@
   height: 320px;
 }
 
-#title { width: 240px; height: 36px; }
+#title {
+  display: none;
+  width: 0px;
+  height: 0px;
+}
 
 .tabs_host {
   width: 240px;
-  height: 280px;
+  height: 320px;
   flex-grow: 1;
 }

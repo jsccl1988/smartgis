@@ -61,8 +61,12 @@ class OceanGpuFields {
   render::rhi::Pipeline* butterfly_ = nullptr;
   render::rhi::Pipeline* displace_ = nullptr;
   render::rhi::Pipeline* encode_ = nullptr;
+  render::rhi::Pipeline* gaussian_h_ = nullptr;
+  render::rhi::Pipeline* gaussian_v_ = nullptr;
 
   render::rhi::Texture* height_ = nullptr;
+  // RGBA8 ping-pong scratch for separable Gaussian after height encode.
+  render::rhi::Texture* blur_scratch_ = nullptr;
   render::rhi::Texture* spectrum_a_ = nullptr;
   render::rhi::Texture* spectrum_b_ = nullptr;
   render::rhi::Texture* spectrum_seed_ = nullptr;

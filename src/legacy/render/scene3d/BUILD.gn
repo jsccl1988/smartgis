@@ -11,9 +11,7 @@ source_set("scene3d_sources") {
   sources = [
     "scene/scene.cpp",
     "index/octree.cpp",
-    "index/octree_node.cpp",
     "index/vertex_octree.cpp",
-    "index/vertex_octree_node.cpp",
     "dem/dem_height_field.cc",
     "dem/dem_height_field.h",
     "dem/dem_to_world.cc",
@@ -54,8 +52,8 @@ source_set("scene3d_sources") {
     "//src/legacy/render/rhi2d/impl/gdi:gdi_common_sources",
     "//src/legacy/render/rhi3d:rhi_sources",
     "//src/base/math:bounds",
-    "//src/legacy/carto:carto",
-    "//src/gis/datasource/provider/impl/ogr:ogr_codec",
+    "//src/legacy/gis/present/carto:carto",
+    "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
     "//src/gis/vista/world:world",
     "//third_party:gdal",
     "//third_party:octree",
@@ -81,5 +79,17 @@ test("dem_stereo_test") {
     "//src/gis/vista/world:world",
     "//src/base/math:bounds",
     "//third_party:gdal",
+  ]
+}
+
+# Public china_dem → XYZRGB load gate for leftover Smt3DPointCloud.
+test("pointcloud_load_test") {
+  output_name = "pointcloud_load_test"
+  sources = [ "test/pointcloud_load_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    "//src/legacy/render:legacy_render",
+    "//testing/data:china_map_samples",
   ]
 }

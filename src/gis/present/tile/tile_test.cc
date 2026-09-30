@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 #include "gis/vista/world/terrain/tessellate.h"
 #include "gis/present/tile/provider/mvt_stub.h"
 #include "gis/present/tile/provider/provider_tile_layer.h"

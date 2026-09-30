@@ -1,4 +1,4 @@
-// Copyright (c) 2026 The Mogu Authors.
+﻿// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 // Views host PE entry. Parses launch options (CLI11), then dispatches via
@@ -12,14 +12,14 @@
 #include "app/views/shell/app/views_content_host.h"
 #include "app/views/shell/app/cmdline/views_launch_options.h"
 #include "base/core/log.h"
-#include "base/trace/diagnostic_bootstrap.h"
-#include "base/trace/process_trace.h"
+#include "base/trace/diag/diagnostic_bootstrap.h"
+#include "base/trace/event/process_trace.h"
 #include "content/app/content_main.h"
 #include "ui/gfx/canvas/shell_canvas_backend.h"
 
 int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
-  base::maybe_init_tracing_from_env();
-  base::start_always_on_diagnostics();
+  base::trace::maybe_init_tracing_from_env();
+  base::trace::start_always_on_diagnostics();
   BASE_TRACE_EVENT("wWinMain", "startup");
   LOGGING(LOG_INFO, "startup: wWinMain begin");
 
@@ -52,8 +52,8 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
   LOGGING(LOG_INFO, "startup: content_main dispatch");
   const int rc = content::content_main(params, host);
   LOGGING(LOG_INFO, "startup: content_main returned %d", rc);
-  base::maybe_dump_tracing_to_env();
-  base::stop_always_on_diagnostics();
+  base::trace::maybe_dump_tracing_to_env();
+  base::trace::stop_always_on_diagnostics();
   if (argv) {
     LocalFree(argv);
   }

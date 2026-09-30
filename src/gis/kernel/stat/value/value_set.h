@@ -10,7 +10,7 @@
 #define _CRT_DECLARE_NONSTDC_NAMES 0
 #endif
 
-#include "legacy/core/core.h"
+#include "legacy/core/macros/macros.h"
 
 #include <map>
 #include <span>

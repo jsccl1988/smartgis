@@ -111,6 +111,10 @@ void ThemeService::register_pack(ThemePack pack) {
 }
 
 bool ThemeService::set_theme(std::string_view id) {
+  return set_theme(id, true);
+}
+
+bool ThemeService::set_theme(std::string_view id, bool persist_to_disk) {
   ensure_builtin_packs();
   const auto it =
       std::find_if(packs_.begin(), packs_.end(),
@@ -118,16 +122,17 @@ bool ThemeService::set_theme(std::string_view id) {
   if (it == packs_.end()) {
     return false;
   }
-  if (current_id_ == it->id) {
-    theme_ = it->colors;
-    return true;
-  }
+  const bool id_changed = current_id_ != it->id;
   current_id_ = it->id;
   theme_ = it->colors;
-  persist();
-  for (ThemeObserver* obs : observers_) {
-    if (obs) {
-      obs->on_theme_changed();
+  if (persist_to_disk && id_changed) {
+    persist();
+  }
+  if (id_changed) {
+    for (ThemeObserver* obs : observers_) {
+      if (obs) {
+        obs->on_theme_changed();
+      }
     }
   }
   return true;

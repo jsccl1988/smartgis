@@ -40,19 +40,27 @@ class GIS_EXPORT DemRaster {
   void envelope(double* minx, double* miny, double* maxx, double* maxy) const;
 
   // Coarse XYZ (X=-lon, elev, lat) + triangle indices.
+  // Optional |uvs|: 2 floats per vertex (DEM col/row → 0..1) so land-only
+  // meshes drape the full DEM texture correctly (AABB UV samples ocean).
   bool build_mesh(int max_edge, std::vector<float>* xyz,
                   std::vector<uint32_t>* indices) const;
+  bool build_mesh(int max_edge, std::vector<float>* xyz,
+                  std::vector<uint32_t>* indices,
+                  std::vector<float>* uvs) const;
 
   // Discrete LOD buckets from camera distance (orbit / map units).
   // Near → denser mesh (larger max_edge). Clamped to [min_edge, max_edge_cap].
+  // Default cap is high enough that the China overview (distance ~2.5–3.2)
+  // is not a coarse hypsometric sheet.
   static int lod_max_edge(float camera_distance, int min_edge = 32,
-                          int max_edge_cap = 160);
+                          int max_edge_cap = 224);
 
   // Vertex count estimate for a given max_edge (for LOD tests / UI).
   static int lod_expected_vertices(int cols, int rows, int max_edge);
 
-  // Bake hypsometric RGBA8 (SoT: low yellow→green, high pink/white) sized to
-  // the DEM grid (downsampled with |max_edge|). Ocean cells stay blue-grey.
+  // Bake terrain albedo RGBA8 sized to the DEM grid (downsampled with
+  // |max_edge|). Lowlands stay green for landish gates; steep faces shift
+  // toward rock and high flats toward snow. Ocean cells stay deep navy.
   bool bake_hypsometric_rgba(int max_edge, std::vector<uint8_t>* rgba,
                              int* out_w, int* out_h) const;
 

@@ -47,6 +47,35 @@ int main() {
   Frustum fr = Frustum::from_view_proj(vp);
   assert(fr.intersects(box));
 
+  {
+    using render::LpToDp2;
+    using render::transform_xy;
+    using render::transform_xy_batch;
+    LpToDp2 a;
+    a.wox = 10.f;
+    a.woy = 20.f;
+    a.vox = 5.f;
+    a.voy = 7.f;
+    a.scale = 2.f;
+    a.view_h = 100.f;
+    a.flip_y = true;
+    long x = 0;
+    long y = 0;
+    transform_xy(a, 12.f, 24.f, &x, &y);
+    // X = LONG(5 + (12-10)*2 + 0.5) = 9
+    // Y = LONG(7 + (24-20)*2 + 0.5) = 15; flip → LONG(100-15)=85
+    assert(x == 9);
+    assert(y == 85);
+
+    const float xy_in[] = {12.f, 24.f, 10.f, 20.f};
+    long xy_out[4] = {};
+    transform_xy_batch(a, xy_in, xy_out);
+    assert(xy_out[0] == 9 && xy_out[1] == 85);
+    // origin maps to (vox+0.5, view_h-(voy+0.5))
+    assert(xy_out[2] == 5);
+    assert(xy_out[3] == static_cast<long>(100.f - 7));
+  }
+
   std::printf("math_test ok\n");
   return 0;
 }

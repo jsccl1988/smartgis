@@ -74,7 +74,7 @@ src/ui/chart               MFC modal  SmtStaDiagram  (not algorithm, not src_all
 src/sdb/crs                identity only
 ```
 
-Approach is **wrap already-shipped gdal_sdk**. `//third_party:gdal` already copies `geos.dll`, `geos_c.dll`, and the PROJ 9 runtime next to `out/`. Geo and proj add GN configs that link the matching import libraries from that same prefix (`gdal_sdk/lib`), following the existing `is_debug` → `gdald.lib` pattern. There is no second install root.
+Approach is **wrap already-shipped GDAL SDK** under `third_party/.install`. `//third_party:gdal` already copies `geos.dll`, `geos_c.dll`, and the PROJ 9 runtime next to `out/`. Geo and proj add GN configs that link the matching import libraries from that same prefix (`.install/lib`), following the existing `is_debug` → `gdald.lib` pattern. There is no second install root.
 
 ## Components
 
@@ -290,7 +290,7 @@ src/ui/chart/              # SmtStaDiagram (MFC)
 src/plugin/dem/            # UI + GDAL raster
 src/sdb/crs/               # identity only
 third_party/cdt/           # only if geos_c.h lacks the needed Delaunay symbol
-third_party/gdal_sdk/      # existing GEOS + PROJ 9 (no second copy)
+third_party/.install/      # unified prefix: GEOS + PROJ 9 (+ GDAL; no gdal_sdk root)
 ```
 
 New headers (snake_case `.h`; implementation `.cc` for new TUs):

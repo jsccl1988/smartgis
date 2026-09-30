@@ -10,7 +10,7 @@ All rights reserved.
 
 **Goal:** Console runs real CPython with `smartgis.gis.*` + `smartgis.debug`; plugins contribute analysis docks/dialogs/processing; SpatialAnalysisPanel and Console share OpsRunner; worker remains for DAP/heavy; ceiling for flood/path via processing stubs → future OpsRunner.
 
-**Architecture:** In-process `plugin::PythonRuntime` (default Console + `kind=python`); OOP worker for DAP/LSP/isolation. Shared `smartgis` API surface. `gis.analysis` → PluginHost processing + MapScene bridge. `debug.*` → `process_trace`.
+**Architecture:** In-process `plugin::PythonRuntime` (default Console + `kind=python`); OOP worker for DAP/LSP/isolation. Shared `smartgis` API surface. `gis.analysis` → PluginHost processing + MapScene bridge. `debug.*` → `base::trace::process_trace`.
 
 **Tech Stack:** CPython 3.12 embed, C API bindings, OGR/GEOS via `ops_runner`, Views Diagnostic Console, `tools/debug` worker stubs.
 
@@ -43,7 +43,7 @@ All rights reserved.
 4. SpatialAnalysisPanel status/history shows result text (feature count / ok).
 5. `plugin_python_test` still green (skip OK without Python).
 6. Python `Host.contribute_dialog` / `contribute_dock` / `contribute_processing` work; sample analysis plugin loads.
-7. `smartgis.debug.trace_event` records into `process_trace` when tracing enabled.
+7. `smartgis.debug.trace_event` records into `base::trace::process_trace` when tracing enabled.
 8. Worker `.pyi` documents shared surface; OOP spawn still works as fallback.
 9. `smartgis.gis.scene` / `gis.style` / `ui.config` read/write via shell bridge + ThemeService.
 

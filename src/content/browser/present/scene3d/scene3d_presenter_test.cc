@@ -62,6 +62,7 @@ int main() {
   content::OrbitFrame orbit;
   content::Scene3dPresenter cam;
   cam.bind_orbit(&orbit);
+  expect(!cam.hosts_shared_scene(), "fresh presenter has no MapContents");
   expect(std::fabs(content::kScene3dDefaultYaw - gis::kDemDefaultOrbitYaw) < 1e-6f,
          "host yaw aliases gis shared constant");
   expect(std::fabs(orbit.yaw() - gis::kDemDefaultOrbitYaw) < 1e-4f,

@@ -6,7 +6,7 @@
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/document/map_scene.h"
 #include "content/public/map_contents.h"
-#include "base/trace/process_trace.h"
+#include "base/trace/event/process_trace.h"
 
 #include <cstdlib>
 

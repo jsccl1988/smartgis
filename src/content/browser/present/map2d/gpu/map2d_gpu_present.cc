@@ -13,7 +13,7 @@
 #include "gis/vista/frame/frame.h"
 #include "render/graph/frame_graph.h"
 #include "render/rhi/rhi.h"
-#include "base/trace/process_trace.h"
+#include "base/trace/event/process_trace.h"
 
 namespace content {
 
