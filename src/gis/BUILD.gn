@@ -10,7 +10,9 @@
 
 #   present/{style,tile}  — StyleDocument, symbols, tiles; inputs to MapFrame.
 #                           Leftover carto POD: //src/legacy/gis/present/carto
-#                           Not folded into vista.
+#                           Leftover vista adapters: //src/legacy/gis/vista
+#                           Leftover feature tess: //src/legacy/gis/feature
+#                           Not folded into product vista sources.
 #   vista/{frame,world,assets,domain}
 #       frame is the CPU MapFrame (ortho now, perspective later); no RHI
 #       world is the gis::World node graph
@@ -44,6 +46,8 @@ smt_shared_library("gis") {
     "//src/gis/model/edit:map_edit_sources",
     "//src/gis/present/style:style_sources",
     "//src/legacy/gis/present/carto:carto_sources",
+    "//src/legacy/gis/vista:vista_sources",
+    "//src/legacy/gis/feature:feature_sources",
     "//src/gis/vista/frame:frame_sources",
     "//src/gis/kernel/geo:geo_sources",
     "//src/gis/kernel/proj:proj_sources",
@@ -53,11 +57,19 @@ smt_shared_library("gis") {
   ]
   # TileProvider / Sdbd headers expose net::; consumers that include them need net.lib.
   # LOGGING / log_sink live in base.dll (not statically absorbed via foundation).
+  # MVT gunzip needs zlib symbols on the DLL link line. CxImage.dll does not
+  # export inflate*; smt_shared_library also may not absorb CxImage:zlib static.
   public_deps = [
     "//src/base:base",
     "//src/net:net",
     "//third_party:gdal",
   ]
+  lib_dirs += [ "//third_party/.install/lib" ]
+  if (is_debug) {
+    libs += [ "zlibstaticd.lib" ]
+  } else {
+    libs += [ "zlib.lib" ]
+  }
 }
 
 group("gis_all") {
@@ -115,6 +127,8 @@ group("gis_test_all") {
     "//src/gis/vista/domain/atmosphere:cloud_system_test",
     "//src/gis/vista/domain/atmosphere:ocean_system_test",
     "//src/gis/vista/domain/atmosphere:environment_test",
+    "//src/gis/analysis:analysis_eigen_test",
+    "//src/gis/analysis:analysis_geology_test",
   ]
 }
 

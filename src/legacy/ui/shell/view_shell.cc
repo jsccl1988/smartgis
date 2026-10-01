@@ -366,6 +366,9 @@ bool dispatch_shell_message(content::ViewHost* host, HWND hwnd, UINT message,
       POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
       if (hwnd) {
         ScreenToClient(hwnd, &pt);
+        // Posted/SendMessage wheel does not focus the child; without focus
+        // some MFC paths still drop follow-up input and present looks stale.
+        ::SetFocus(hwnd);
       }
       e.x_px = pt.x;
       e.y_px = pt.y;
@@ -383,6 +386,7 @@ bool dispatch_shell_message(content::ViewHost* host, HWND hwnd, UINT message,
       POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
       if (hwnd) {
         ScreenToClient(hwnd, &pt);
+        ::SetFocus(hwnd);
       }
       e.x_px = pt.x;
       e.y_px = pt.y;
@@ -404,7 +408,22 @@ bool dispatch_shell_message(content::ViewHost* host, HWND hwnd, UINT message,
     // Swallow primary-contact mouse synthesis during multitouch / GID_PAN.
     return true;
   }
-  return dispatch_event(host, e);
+  // Workspace owns pointer/wheel; WindowProc returns without CView::OnLButton*
+  // so MFC never SetCaptures. Without capture, pan dies as soon as the cursor
+  // leaves the map client (common during drag).
+  if (hwnd && (message == WM_LBUTTONDOWN || message == WM_RBUTTONDOWN ||
+               message == WM_MBUTTONDOWN)) {
+    ::SetFocus(hwnd);
+    ::SetCapture(hwnd);
+  }
+  const bool consumed = dispatch_event(host, e);
+  if (hwnd && (message == WM_LBUTTONUP || message == WM_RBUTTONUP ||
+               message == WM_MBUTTONUP)) {
+    if (::GetCapture() == hwnd) {
+      ::ReleaseCapture();
+    }
+  }
+  return consumed;
 }
 
 }  // namespace ui

@@ -11,7 +11,8 @@ namespace app {
 class Browser;
 
 // Shell chrome capture path for --ui-showcase=shell|data|scene|catalog|interact.
-// Writes ui-showcase-<mode>.bmp next to the exe (and ui-showcase-mark.txt).
+// Writes ui-showcase-<mode>.bmp under out/<config>/captures/ui/
+// (and ui-showcase-mark.txt).
 int run_ui_showcase(Browser& browser, UiShowcaseMode mode);
 
 }  // namespace app

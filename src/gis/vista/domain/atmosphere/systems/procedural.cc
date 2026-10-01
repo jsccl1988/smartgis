@@ -165,6 +165,16 @@ void SeaMaskFromLand::apply(FieldStore* store, const FieldGrid& grid,
     return;
   }
   std::vector<float> sea(grid.cell_count());
+  // Empty rings used to mark the whole grid as sea (1). OceanPass then drew a
+  // near-black patch over China DEM (atmosphere-full / world3d BMP blackouts).
+  // Fail closed: no land outline ⇒ no ocean coverage until a DEM fallback or
+  // rings are supplied.
+  if (land_rings.empty()) {
+    std::fill(sea.begin(), sea.end(), 0.f);
+    store->set_layer(
+        make_layer(FieldChannel::kSeaMask, grid, priority, std::move(sea)));
+    return;
+  }
   for (int row = 0; row < grid.rows; ++row) {
     for (int col = 0; col < grid.cols; ++col) {
       double lon = 0.0;

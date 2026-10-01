@@ -6,7 +6,7 @@
 #include "base/math/plane.h"
 #include "base/math/vector.h"
 #include <cmath>
-namespace render
+namespace base
 {
 
 	void Obb::de_transform(const Obb &obb, const Matrix &m) 

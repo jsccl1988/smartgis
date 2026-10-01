@@ -264,8 +264,8 @@ inline SmtTexture::SmtTexture(LP3DRENDERDEVICE p3DRenderDevice, uint handle,
       m_bUseMips(false),
       m_ulPixelStride(0),
       m_bLocked(false),
-      m_pBuffer(NULL),
-      m_pCurrentPixel(NULL) {
+      m_pBuffer(nullptr),
+      m_pCurrentPixel(nullptr) {
   ;
 }
 
@@ -365,7 +365,7 @@ inline long SmtTexture::Create(ulong ulWidth, ulong ulHeight,
                                          m_texDesc.height]);
   ZeroMemory(m_pBuffer, m_ulPixelStride * m_texDesc.width * m_texDesc.height);
 
-  m_pCurrentPixel = (unsigned char *)NULL;
+  m_pCurrentPixel = (unsigned char *)nullptr;
 
   return SMT_ERR_NONE;
 }
@@ -373,7 +373,7 @@ inline long SmtTexture::Create(ulong ulWidth, ulong ulHeight,
 inline long SmtTexture::SetData(void *pData, ulong ulSize) {
   if (!IsLocked()) return SMT_ERR_FAILURE;
 
-  if (m_pBuffer == NULL || pData == NULL || ulSize < 1 ||
+  if (m_pBuffer == nullptr || pData == nullptr || ulSize < 1 ||
       ulSize != m_ulPixelStride * m_texDesc.width * m_texDesc.height)
     return SMT_ERR_FAILURE;
 
@@ -393,9 +393,9 @@ inline long SmtTexture::Lock() {
 
 inline long SmtTexture::Unlock() {
   m_bLocked = false;
-  m_pCurrentPixel = (unsigned char *)NULL;
+  m_pCurrentPixel = (unsigned char *)nullptr;
 
-  if (m_pBuffer != NULL) {
+  if (m_pBuffer != nullptr) {
     m_p3DRenderDevice->BuildTexture(this);
     //...
 
@@ -411,7 +411,7 @@ inline long SmtTexture::Load(string fileName, bool bDynamic, bool bUseMips) {
   TextureFormat texFmt;
   // CxImage's TCHAR filename ctor is wchar_t when CxImage is built UNICODE.
   FILE *fp = fopen(fileName.c_str(), "rb");
-  if (fp == NULL) return SMT_ERR_FAILURE;
+  if (fp == nullptr) return SMT_ERR_FAILURE;
   CxImage img(fp, nImageTyle);
   fclose(fp);
 

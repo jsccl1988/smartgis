@@ -1,0 +1,145 @@
+{
+  "type": "FeatureCollection",
+  "name": "traffic_network_sample",
+  "description": "Schematic Beijing CBD arterial network for traffic.cost_path showcase (not survey grade).",
+  "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "长安街", "class": "arterial", "cost": 0.6 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [116.35, 39.908], [116.37, 39.908], [116.39, 39.908],
+          [116.41, 39.908], [116.43, 39.908], [116.45, 39.908]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "二环南", "class": "ring", "cost": 0.75 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [116.35, 39.890], [116.37, 39.890], [116.39, 39.890],
+          [116.41, 39.890], [116.43, 39.890], [116.45, 39.890]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "二环北", "class": "ring", "cost": 0.75 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [116.35, 39.926], [116.37, 39.926], [116.39, 39.926],
+          [116.41, 39.926], [116.43, 39.926], [116.45, 39.926]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "西二环", "class": "ring", "cost": 0.8 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [116.35, 39.890], [116.35, 39.899], [116.35, 39.908],
+          [116.35, 39.917], [116.35, 39.926]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "东二环", "class": "ring", "cost": 0.8 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [116.45, 39.890], [116.45, 39.899], [116.45, 39.908],
+          [116.45, 39.917], [116.45, 39.926]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "西单北大街", "class": "collector", "cost": 1.0 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [116.37, 39.890], [116.37, 39.899], [116.37, 39.908],
+          [116.37, 39.917], [116.37, 39.926]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "王府井", "class": "collector", "cost": 1.0 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [116.41, 39.890], [116.41, 39.899], [116.41, 39.908],
+          [116.41, 39.917], [116.41, 39.926]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "东单北大街", "class": "collector", "cost": 1.05 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [116.43, 39.890], [116.43, 39.899], [116.43, 39.908],
+          [116.43, 39.917], [116.43, 39.926]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "前门大街", "class": "collector", "cost": 1.1 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [116.39, 39.890], [116.39, 39.899], [116.39, 39.908],
+          [116.39, 39.917], [116.39, 39.926]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "平安大街", "class": "arterial", "cost": 0.7 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [116.35, 39.917], [116.37, 39.917], [116.39, 39.917],
+          [116.41, 39.917], [116.43, 39.917], [116.45, 39.917]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "广安门内", "class": "local", "cost": 1.4 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [116.35, 39.899], [116.37, 39.899], [116.39, 39.899],
+          [116.41, 39.899], [116.43, 39.899], [116.45, 39.899]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "拥堵支路-王府井南", "class": "local", "cost": 3.5 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[116.405, 39.900], [116.41, 39.904], [116.415, 39.908]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "斜穿捷径", "class": "local", "cost": 1.2 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[116.37, 39.890], [116.39, 39.899], [116.41, 39.908], [116.43, 39.917]]
+      }
+    }
+  ]
+}

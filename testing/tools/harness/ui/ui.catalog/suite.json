@@ -1,0 +1,37 @@
+{
+  "id": "ui.catalog",
+  "kind": "showcase",
+  "argv": [
+    "--ui-showcase",
+    "catalog"
+  ],
+  "env": {
+    "SMT_UI_SHOWCASE_LINGER_MS": "0",
+    "SMT_UI_FORENSICS": "1",
+    "SMT_UI_THEME": "dark"
+  },
+  "bmp": {
+    "path": "ui-showcase-catalog.bmp",
+    "score_id": "ui_shell_dark"
+  },
+  "report_name": "ui_catalog_loop_report.json",
+  "probes": [
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 4,
+    "timeout_sec": 120,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "catalog_rows_readable",
+      "no_label_stack",
+      "no_panel_collapse",
+      "dark_theme_consistent"
+    ],
+    "expect_notes": "Catalog page shell capture; score_id=ui_shell_dark"
+  }
+}

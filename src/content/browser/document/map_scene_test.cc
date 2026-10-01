@@ -14,7 +14,7 @@
 #include "base/trace/event/process_trace.h"
 #include "gis/present/style/style_document.h"
 #include "gis/present/style/style_rules.h"
-#include "gis/vista/world/terrain/land_mask.h"
+#include "gis/vista/world/terrain/process/land_mask.h"
 #include "tool/draft/draft.h"
 
 #ifndef NOMINMAX
@@ -368,12 +368,12 @@ int main() {
     expect(content::map_scene_accept_label_count(apart, 2) == 2,
            "separated labels both accepted");
 
-    expect(content::map_scene_label_min_importance(12.0) == 3,
-           "country scale keeps capitals");
-    expect(content::map_scene_label_min_importance(30.0) == 2,
-           "mid scale adds cities");
-    expect(content::map_scene_label_min_importance(70.0) == 1,
-           "closer scale adds counties");
+    expect(content::map_scene_label_min_importance(12.0) == 2,
+           "country scale keeps capitals and prefectures");
+    expect(content::map_scene_label_min_importance(30.0) == 1,
+           "mid scale adds counties");
+    expect(content::map_scene_label_min_importance(70.0) == 0,
+           "closer scale allows POI text");
     expect(content::map_scene_label_min_importance(120.0) == 0,
            "close scale allows POI text");
     expect(content::map_scene_place_name_importance("北京市") == 3,
@@ -385,9 +385,12 @@ int main() {
     expect(content::map_scene_place_name_importance("北京市") >=
                content::map_scene_label_min_importance(12.0),
            "capital survives country gate");
-    expect(content::map_scene_place_name_importance("苏州市") <
+    expect(content::map_scene_place_name_importance("苏州市") >=
                content::map_scene_label_min_importance(12.0),
-           "ordinary city hidden at country scale");
+           "prefecture survives country gate");
+    expect(content::map_scene_place_name_importance("吴中区") <
+               content::map_scene_label_min_importance(12.0),
+           "district hidden at country scale");
 
     expect(content::map_scene_line_role("river", nullptr) == content::MapLineRole::kWater,
            "river role");
@@ -406,10 +409,18 @@ int main() {
            "short river returns when zoomed in");
     expect(!content::map_scene_line_visible_at_scale(content::MapLineRole::kRoad, 0.4,
                                                 false, 12.0),
-           "short road hidden at country scale");
-    expect(content::map_scene_line_visible_at_scale(content::MapLineRole::kRoad, 1.0,
+           "non-major road hidden at country scale");
+    // National frame keeps major/secondary arterials (score + visual review);
+    // tiny stubs stay culled so gold casing does not wash the cream land.
+    expect(!content::map_scene_line_visible_at_scale(content::MapLineRole::kRoad, 0.2,
+                                                true, 12.0),
+           "tiny major stub hidden at country scale");
+    expect(content::map_scene_line_visible_at_scale(content::MapLineRole::kRoad, 0.4,
                                                true, 12.0),
            "major-class road kept at country scale");
+    expect(content::map_scene_line_visible_at_scale(content::MapLineRole::kRoad, 1.0,
+                                               true, 48.0),
+           "major-class road remains past country scale");
     expect(content::map_scene_road_color() != content::map_scene_river_color(),
            "road ink differs from river");
     expect(content::map_scene_line_stroke_px(content::MapLineRole::kWater, 8.0, 12.0) !=
@@ -420,7 +431,8 @@ int main() {
            "road stroke is positive");
 
     // length is the cartographic span (deg); endpoints are documentary only.
-    // Country water gate uses min_len=4 at scale<22, so four 2° pieces → 8°.
+    // Country water gate uses min_len=0.8 at scale<22; stem aggregation joins
+    // same-name pieces so short segments of a major river stay visible.
     content::MapStemSpan parts[] = {
         {"ChangJiang", 2.0, 100.0, 30.0, 102.0, 30.0},
         {"ChangJiang", 2.0, 110.0, 30.0, 112.0, 30.0},
@@ -430,12 +442,12 @@ int main() {
     const double stem =
         content::map_scene_stem_length(parts, 4, 0, 0.05);
     expect(stem > 7.9 && stem < 8.1, "same-name pieces form one stem");
-    expect(!content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, 1.0,
+    expect(!content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, 0.5,
                                                 false, 12.0),
            "one short piece fails the country gate");
-    expect(!content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, 3.0,
-                                                false, 12.0),
-           "mid stem still hidden at country scale");
+    expect(content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, 2.0,
+                                               false, 12.0),
+           "mid piece alone clears the relaxed country gate");
     expect(content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, stem,
                                                false, 12.0),
            "stem length passes the country gate");

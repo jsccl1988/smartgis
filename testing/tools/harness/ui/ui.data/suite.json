@@ -1,0 +1,37 @@
+{
+  "id": "ui.data",
+  "kind": "showcase",
+  "argv": [
+    "--ui-showcase",
+    "data"
+  ],
+  "env": {
+    "SMT_UI_SHOWCASE_LINGER_MS": "0",
+    "SMT_UI_FORENSICS": "1",
+    "SMT_UI_THEME": "dark"
+  },
+  "bmp": {
+    "path": "ui-showcase-data.bmp",
+    "score_id": "ui_shell_dark"
+  },
+  "report_name": "ui_data_loop_report.json",
+  "probes": [
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 4,
+    "timeout_sec": 120,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "data_page_chrome_readable",
+      "no_panel_collapse",
+      "no_sibling_overlap",
+      "dark_theme_consistent"
+    ],
+    "expect_notes": "Data page shell capture; score_id=ui_shell_dark"
+  }
+}

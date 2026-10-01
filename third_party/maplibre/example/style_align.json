@@ -44,6 +44,23 @@
       }
     },
     {
+      "id": "road-casing",
+      "type": "line",
+      "source": "china",
+      "source-layer": "line",
+      "filter": ["==", "line_kind", "road"],
+      "minzoom": 5,
+      "paint": {
+        "line-color": "#8a7040",
+        "line-width": 2.5,
+        "line-opacity": 1
+      },
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      }
+    },
+    {
       "id": "road",
       "type": "line",
       "source": "china",

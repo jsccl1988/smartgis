@@ -1,0 +1,62 @@
+{
+  "script suite": {
+    "prefix": "ilscript",
+    "body": [
+      "// Copyright (c) 2026 The Mogu Authors.",
+      "// All rights reserved.",
+      "",
+      "script \"${1:suite.id}\" {",
+      "  seq @inproc {",
+      "    $0",
+      "  }",
+      "}"
+    ],
+    "description": "New suite script skeleton (inproc seq)"
+  },
+  "combo path": {
+    "prefix": "ilcombo",
+    "body": [
+      "seq {",
+      "  path(shell_client, [${1:240}, ${2:300}], [${3:280}, ${4:320}], [${5:320}, ${6:310}]);",
+      "  pump(40);",
+      "  chord(CTRL) {",
+      "    click(shell_client, ${7:480}, ${8:360});",
+      "  }",
+      "  pump(40);",
+      "  pan_burst(shell_client, count=${9:3}, x=${10:260}, y=${11:300}, dx=${12:28}, dy=${13:16}, pump_ms=25);",
+      "  wheel_burst(shell_client, count=${14:2}, x=${15:400}, y=${16:400}, delta=-120, pump_ms=30);",
+      "}"
+    ],
+    "description": "Pointer path + chord + pan/wheel bursts (combo demo)"
+  },
+  "run_processing inline args": {
+    "prefix": "ilproc",
+    "body": [
+      "run_processing(",
+      "  id=\"${1:op.id}\",",
+      "  args=\"{\\\"${2:key}\\\":\\\"$${3:var}\\\"}\"",
+      ");"
+    ],
+    "description": "run_processing with escaped JSON args + $var"
+  },
+  "resolve_data": {
+    "prefix": "ilresolve",
+    "body": [
+      "resolve_data(kind=\"${1:plugin}\", leaf=\"${2:sample.ext}\", as=\"${3:var}\");",
+      "require_var(name=\"${3:var}\", fail_mark=\"${3:var}-missing\");"
+    ],
+    "description": "resolve_data + require_var"
+  },
+  "export bmp + marks": {
+    "prefix": "ilexport",
+    "body": [
+      "fit_extent();",
+      "pump(ms=${1:300});",
+      "export_bmp(leaf=\"${2:out.bmp}\", frame=\"${3:document_extent}\");",
+      "mark(\"bmp-ok\");",
+      "mark(\"pass\");",
+      "detach_maps();"
+    ],
+    "description": "fit + export_bmp + pass marks"
+  }
+}

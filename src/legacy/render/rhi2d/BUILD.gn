@@ -7,10 +7,7 @@ import("//build/smartgis.gni")
 # Compiled into //src/legacy/render:legacy_render.
 # Layout mirrors rhi/: header-only public/device + impl/gdi; DLL bodies in detail/.
 source_set("rhi2d_sources") {
-  sources = [
-    "detail/bind_rhi_present.cpp",
-    "detail/renderer.cpp",
-  ]
+  sources = [ "detail/renderer.cpp" ]
   include_dirs += [ "//src" ]
   configs += [
     "//build:legacy",
@@ -18,11 +15,9 @@ source_set("rhi2d_sources") {
   ]
   defines = [ "_USRDLL" ]
   deps = [
-    "//src/legacy/render/rhi3d:leftover_record",
     "//src/gis/kernel/geo:geo",
     "//src/base:base",
     "//src/base:core",
-    "//src/render:rhi",
     "//src/gis/model/map:gis",
   ]
 }

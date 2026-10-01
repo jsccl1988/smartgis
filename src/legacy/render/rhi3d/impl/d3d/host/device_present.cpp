@@ -12,6 +12,8 @@ long SmtD3DRenderDevice::BeginRender() {
   BASE_TRACE_EVENT("BeginRender", "rhi3d.d3d");
   if (!device_ || !context_ || !rtv_) return SMT_ERR_FAILURE;
   context_->OMSetRenderTargets(1, &rtv_, dsv_);
+  mesh_draw_state_bound_ = false;
+  mesh_cb_valid_ = false;
   return SMT_ERR_NONE;
 }
 

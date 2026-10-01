@@ -4,8 +4,11 @@
 #include "plugin/product/print/views/print_preview_dialog.h"
 
 #include <memory>
+#include <string>
+#include <vector>
 
-#include "plugin/runtime/host/operation_result.h"
+#include "plugin/product/print/composer/print_composer.h"
+#include "plugin/runtime/host/processing/operation_result.h"
 #include "plugin/runtime/widgets/map_preview.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/dialogs/file_picker.h"
@@ -17,6 +20,22 @@ namespace {
 constexpr wchar_t kImageFilter[] =
     L"Image Files (*.bmp;*.gif;*.jpg;*.png;*.tif)\0*.bmp;*.gif;*.jpg;*.png;*.tif\0"
     L"All Files (*.*)\0*.*\0";
+
+bool export_composed_page(MapPreviewView* preview, const std::string& path) {
+  PrintComposerInput in;
+  in.page_width_px = 800;
+  in.page_height_px = 600;
+  in.map_units_per_px = 50.0;
+  in.scale_label = "1:50000";
+  in.legend = {{"Basemap", 0xff88aa66},
+               {"Roads", 0xffccaa44},
+               {"Labels", 0xff333333}};
+  // Prefer page layout over raw viewport export.
+  if (PrintComposer::export_page_bmp(in, path)) {
+    return true;
+  }
+  return preview && preview->export_bmp(path);
+}
 
 }  // namespace
 
@@ -32,7 +51,7 @@ PrintPreviewDialog::PrintPreviewDialog() {
     if (!picked.accepted || picked.path.empty()) {
       return;
     }
-    if (!preview_ || !preview_->export_bmp(picked.path)) {
+    if (!export_composed_page(preview_, picked.path)) {
       set_operation_result(
           "{\"error\":\"export_not_implemented\",\"op\":\"print.save\"}");
       ui::views::show_message_box(
@@ -40,7 +59,7 @@ PrintPreviewDialog::PrintPreviewDialog() {
           "Export is not implemented.");
       return;
     }
-    set_operation_result("{\"ok\":true,\"op\":\"print.save\"}");
+    set_operation_result("{\"ok\":true,\"op\":\"print.save\",\"layout\":true}");
   });
   add_child(std::move(save));
 

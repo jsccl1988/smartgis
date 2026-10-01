@@ -1,201 +1,31 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
+# GDI backend Traits + PaintBackend only. Shared host tree: //.../impl/common.
 import("//build/smartgis.gni")
-import("//testing/test.gni")
 
-# Shared GDI helpers (player / gdiplus / compose / carto).
-# Layout: host/ worker/ paint/{canvas,encode,player,gdiplus}/ surface/ res/ test/
-source_set("gdi_common_sources") {
-  sources = [
-    "surface/compose.cc",
-    "surface/compose.h",
-    "surface/surface_pool.cc",
-    "surface/surface_pool.h",
-    "paint/canvas/carto_frame.cc",
-    "paint/canvas/carto_frame.h",
-    "paint/player/gdi_player.cc",
-    "paint/player/gdi_player.h",
-    "paint/gdiplus/gdiplus.cpp",
-    "paint/gdiplus/gdiplus.h",
-  ]
-  configs += [
-    "//build:legacy",
-    "//src/legacy/render:legacy_render_exports",
-  ]
-  defines = [ "_USRDLL" ]
-  include_dirs += [ "//src" ]
-  deps = [
-    "//src/base:base",
-    "//src/base:core",
-    "//src/base/math:math",
-    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
-    "//src/gpu:compositor_cpu_blend",
-    "//third_party:CxImage",
-  ]
-  libs = [ "gdiplus.lib" ]
+group("gdi_common_sources") {
+  public_deps = [ "//src/legacy/render/rhi2d/impl/common:gdi_common_sources" ]
 }
 
-source_set("render_gdi_thread_sources") {
-  sources = [
-    "paint/canvas/layer_painter.cc",
-    "worker/render_thread.cc",
-    "paint/canvas/paint_canvas.cc",
-    "worker/raster_scheduler.cc",
-  ]
-  configs += [
-    "//build:legacy",
-    "//src/legacy/render:legacy_render_exports",
-  ]
-  defines = [ "_USRDLL" ]
-  deps = [
-    ":gdi_common_sources",
-    ":gdi_encode_sources",
-    "//src/gis/kernel/geo:geo",
-    "//src/base:base",
-    "//src/base:core",
-    "//src/base/math:math",
-    "//src/legacy/render/rhi3d:leftover_record",
-    "//src/legacy/render/rhi2d:rhi2d_sources",
-    "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
-    "//src/gis/model/map:gis",
-    "//third_party:CxImage",
-    "//third_party:gdal",
-  ]
+group("rhi2d_gdi_backend_sources") {
+  public_deps = [ "//src/legacy/render/rhi2d/impl/common:rhi2d_gdi_backend_sources" ]
 }
 
-source_set("render_gdi_sources") {
-  sources = [
-    "host/ui_controller.cc",
-    "host/image_io.cc",
-    "host/render_device.cc",
-  ]
-  configs += [
-    "//build:legacy",
-    "//src/legacy/render:legacy_render_exports",
-  ]
-  defines = [ "_USRDLL" ]
-  deps = [
-    ":gdi_common_sources",
-    ":gdi_encode_sources",
-    ":render_gdi_thread_sources",
-    "//src/gis/kernel/geo:geo",
-    "//src/base:base",
-    "//src/base:core",
-    "//src/base/math:math",
-    "//src/legacy/render/rhi3d:leftover_record",
-    "//src/legacy/render/rhi2d:rhi2d_sources",
-    "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
-    "//src/gis/model/map:gis",
-    "//third_party:CxImage",
-    "//third_party:gdal",
-  ]
+group("rhi2d_gdiplus_backend_sources") {
+  public_deps =
+      [ "//src/legacy/render/rhi2d/impl/common:rhi2d_gdiplus_backend_sources" ]
+}
+
+group("rhi2d_skia_backend_sources") {
+  public_deps =
+      [ "//src/legacy/render/rhi2d/impl/common:rhi2d_skia_backend_sources" ]
+}
+
+group("render_gdi_sources") {
+  public_deps = [ "//src/legacy/render/rhi2d/impl/common:render_gdi_sources" ]
 }
 
 group("render_gdi") {
-  public_deps = [ "//src/legacy/render:legacy_render" ]
-}
-
-test("map_carto2d_test") {
-  output_name = "map_carto2d_test"
-  sources = [
-    "paint/canvas/carto_frame.cc",
-    "test/carto_frame_test.cc",
-  ]
-  include_dirs += [ "//src" ]
-  configs = [ "//build:legacy" ]
-  deps = [ "//src/base/math:math" ]
-}
-
-test("gdi_map_paint_test") {
-  output_name = "gdi_map_paint_test"
-  sources = [ "test/map_paint_test.cc" ]
-  include_dirs += [ "//src" ]
-  configs = [ "//build:legacy" ]
-  deps = [
-    "//src/legacy/render:legacy_render",
-    "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
-    "//src/gis/model/map:gis",
-    "//testing/data:china_map_samples",
-    "//third_party:gdal",
-  ]
-  libs = [
-    "gdi32.lib",
-    "user32.lib",
-  ]
-}
-
-test("gdi_compose_test") {
-  output_name = "gdi_compose_test"
-  sources = [
-    "surface/compose.cc",
-    "surface/compose.h",
-    "surface/surface_pool.cc",
-    "surface/surface_pool.h",
-    "test/compose_test.cc",
-  ]
-  include_dirs += [ "//src" ]
-  configs = [ "//build:legacy" ]
-  defines = [ "SMT_GDI_COMPOSE_STATIC" ]
-  deps = [
-    "//src/base:base",
-    "//src/base:core",
-    "//src/gpu:compositor_cpu_blend",
-    "//third_party:CxImage",
-  ]
-  libs = [
-    "gdi32.lib",
-    "user32.lib",
-    "Msimg32.lib",
-  ]
-}
-
-source_set("gdi_encode_sources") {
-  sources = [
-    "paint/encode/command_buffer.h",
-    "paint/encode/command_encoder.cc",
-    "paint/encode/command_encoder.h",
-  ]
-  configs += [
-    "//build:legacy",
-    "//src/legacy/render:legacy_render_exports",
-  ]
-  defines = [ "_USRDLL" ]
-  include_dirs += [ "//src" ]
-  deps = [
-    ":gdi_common_sources",
-    "//src/base:base",
-    "//src/base:core",
-  ]
-  libs = [
-    "gdi32.lib",
-    "user32.lib",
-  ]
-}
-
-test("gdi_encode_test") {
-  output_name = "gdi_encode_test"
-  sources = [
-    "paint/encode/command_buffer.h",
-    "paint/encode/command_encoder.cc",
-    "paint/encode/command_encoder.h",
-    "paint/player/gdi_player.cc",
-    "paint/player/gdi_player.h",
-    "paint/gdiplus/gdiplus.cpp",
-    "paint/gdiplus/gdiplus.h",
-    "test/encode_test.cc",
-  ]
-  include_dirs += [ "//src" ]
-  configs = [ "//build:legacy" ]
-  defines = [ "SMT_GDI_ENCODE_STATIC" ]
-  deps = [
-    "//src/base:base",
-    "//src/base:core",
-    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
-  ]
-  libs = [
-    "gdi32.lib",
-    "user32.lib",
-    "gdiplus.lib",
-  ]
+  public_deps = [ "//src/legacy/render:legacy_rhi2d_gdi" ]
 }

@@ -1,0 +1,43 @@
+{
+  "id": "plugin.world3d",
+  "kind": "showcase",
+  "argv": [
+    "--plugin-showcase=world3d"
+  ],
+  "env": {
+    "SMT_SKIP_MAP_CONTEXT_MENU": "1"
+  },
+  "mark_leaf": "plugin-showcase-mark.txt",
+  "required_marks": [
+    "pointcloud-ok",
+    "present-ok",
+    "bmp-ok",
+    "pass"
+  ],
+  "bmp": {
+    "path": "plugin-showcase-world3d.bmp",
+    "score_id": "plugin_scene3d",
+    "accept_nonzero_rc_if_bmp": true,
+    "min_bytes": 10000
+  },
+  "report_name": "plugin_world3d_loop_report.json",
+  "probes": [
+    "marks",
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 4,
+    "timeout_sec": 180,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "terrain_visible",
+      "pointcloud_or_mesh",
+      "no_black_frame"
+    ],
+    "expect_notes": "world3d scene has land/mesh signal, not empty clear"
+  }
+}

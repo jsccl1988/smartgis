@@ -74,6 +74,12 @@ int main() {
   }
   {
     auto o =
+        parse_vec({L"SmartGisViews.exe", L"--atmosphere-showcase", L"legacy"});
+    expect(o.ok && o.atmosphere_showcase == app::AtmosphereShowcaseMode::kLegacy,
+           "showcase legacy");
+  }
+  {
+    auto o =
         parse_vec({L"SmartGisViews.exe", L"--atmosphere-showcase", L"ocean"});
     expect(o.ok && o.atmosphere_showcase == app::AtmosphereShowcaseMode::kOcean,
            "showcase ocean");
@@ -101,6 +107,56 @@ int main() {
         parse_vec({L"SmartGisViews.exe", L"--map2d-showcase=orthogrid"});
     expect(o.ok && o.map2d_showcase == app::Map2dShowcaseMode::kOrthogrid,
            "map2d showcase=orthogrid");
+  }
+  {
+    auto o =
+        parse_vec({L"SmartGisViews.exe", L"--plugin-showcase=world3d"});
+    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kWorld3d,
+           "plugin showcase=world3d");
+  }
+  {
+    auto o = parse_vec({L"SmartGisViews.exe", L"--plugin-showcase", L"print"});
+    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kPrint,
+           "plugin showcase print");
+  }
+  {
+    auto o =
+        parse_vec({L"SmartGisViews.exe", L"--plugin-showcase=orthogrid"});
+    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kOrthogrid,
+           "plugin showcase=orthogrid");
+  }
+  {
+    auto o =
+        parse_vec({L"SmartGisViews.exe", L"--plugin-showcase=orthogrid3d"});
+    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kOrthogrid3d,
+           "plugin showcase=orthogrid3d");
+  }
+  {
+    auto o =
+        parse_vec({L"SmartGisViews.exe", L"--plugin-showcase=traffic"});
+    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kTraffic,
+           "plugin showcase=traffic");
+  }
+  {
+    auto o = parse_vec({L"SmartGisViews.exe", L"--plugin-showcase", L"flood"});
+    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kFlood,
+           "plugin showcase flood");
+  }
+  {
+    auto o =
+        parse_vec({L"SmartGisViews.exe", L"--plugin-showcase=stormsurge"});
+    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kStormSurge,
+           "plugin showcase=stormsurge");
+  }
+  {
+    auto o = parse_vec({L"SmartGisViews.exe", L"--plugin-showcase=mine"});
+    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kMine,
+           "plugin showcase=mine");
+  }
+  {
+    auto o = parse_vec({L"SmartGisViews.exe", L"--plugin-showcase=geochem"});
+    expect(o.ok && o.plugin_showcase == app::PluginShowcaseMode::kGeochem,
+           "plugin showcase=geochem");
   }
   {
     auto o = parse_vec({L"SmartGisViews.exe", L"--ui-showcase", L"shell"});

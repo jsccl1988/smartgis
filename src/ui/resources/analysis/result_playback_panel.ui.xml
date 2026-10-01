@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="result_playback_panel">
+  <style src="result_playback_panel.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title" text="ResultPlayback"/>
+    <label id="frame" text="frame 0 / 0"/>
+    <hbox id="transport" class="row">
+      <button id="prev" text="Prev"/>
+      <button id="play" text="Play"/>
+      <button id="next" text="Next"/>
+      <checkbox id="loop" text="Loop"/>
+    </hbox>
+    <slider id="scrub"/>
+    <label id="status" text="(no session)"/>
+  </vbox>
+</ui>

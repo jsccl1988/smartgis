@@ -34,6 +34,7 @@ class MapViewport;
 class MeasurePanel;
 class MenuBar;
 class ProcessingPanel;
+class ResultPlaybackPanel;
 class SelectionPanel;
 class SpatialAnalysisPanel;
 class StatusBar;
@@ -49,6 +50,7 @@ class MapHwndGestures;
 namespace app {
 
 class Browser;
+class ReportPanel;
 using content::MapHwndGestures;
 
 // Views chrome for SmartGisViews: MenuBar, splitters, TabStrip, map panes.
@@ -126,6 +128,9 @@ class BrowserView : public BrowserUiDelegate {
   void wire_map_scene();
   void wire_atmosphere_panel();
   void wire_processing_panel();
+  void wire_result_playback_panel();
+  void wire_report_panel();
+  void sync_result_playback_timer();
   void wire_measure_panel();
   void wire_selection_panel();
   void wire_layer_properties_panel();
@@ -140,6 +145,13 @@ class BrowserView : public BrowserUiDelegate {
   void commit_widget_shell_to_maps(const ui::views::Rect& dirty);
   void attach_hwnd_gestures();
   void configure_gestures(MapHwndGestures* gestures);
+  void install_shell_wheel_forward();
+  void remove_shell_wheel_forward();
+  static LRESULT CALLBACK shell_wheel_subclass_proc(HWND hwnd, UINT msg,
+                                                    WPARAM wparam,
+                                                    LPARAM lparam,
+                                                    UINT_PTR id,
+                                                    DWORD_PTR data);
   void rebuild_menus();
   void on_map_right_click(HWND hwnd, int view_x, int view_y);
   void show_pending_map_context_menu();
@@ -151,6 +163,7 @@ class BrowserView : public BrowserUiDelegate {
                                const std::string& distance);
   void switch_map_tab(int i);
   void wire_tool_seams();
+  void sync_result_playback_from_session();
   void sync_selection_panel_from_scene();
   void sync_legend_panel_from_scene();
   void sync_layer_properties_from_scene();
@@ -180,6 +193,10 @@ class BrowserView : public BrowserUiDelegate {
   int processing_tab_ = -1;
   int feature_info_tab_ = -1;
   ui::views::TabStrip* inspector_tabs_ = nullptr;
+  // Keep map_* contiguous and stable near the historical offset: inserting
+  // playback/report fields above them skews stale map_pages.obj (parallel
+  // ninja) so wire_map_scene calls set_overlay_paint on a garbage MapViewport*
+  // → STATUS_HEAP_CORRUPTION / AV during Browser::init.
   ui::views::MapViewport* map_edit_ = nullptr;
   ui::views::MapViewport* map_data_ = nullptr;
   ui::views::MapViewport* map_scene_ = nullptr;
@@ -192,6 +209,19 @@ class BrowserView : public BrowserUiDelegate {
   HWND pending_map_menu_hwnd_ = nullptr;
   int pending_map_menu_x_ = 0;
   int pending_map_menu_y_ = 0;
+
+  // Newer chrome panels — append-only so older shell_ui TUs keep map_* offsets.
+  ui::views::ResultPlaybackPanel* result_playback_panel_ = nullptr;
+  ReportPanel* report_panel_ = nullptr;
+  int report_tab_ = -1;
+
+  // Last widget shell_generation() successfully pushed to map panes (0 = never).
+  // Unchanged gen skips commit_widget_shell_to_maps (U3 coalesce).
+  std::uint64_t last_shell_overlay_gen_ = 0;
+
+  // Shell HWND subclass for wheel→map forward (append-only; do not insert
+  // above map_* — parallel ninja stale .obj layout AV).
+  bool shell_wheel_subclassed_ = false;
 };
 
 }  // namespace app

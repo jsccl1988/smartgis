@@ -70,6 +70,17 @@ class MapSession {
   ViewHost* scene_host() const { return scene_host_.get(); }
 
  private:
+  // Hosts / MapContents first: large presenters below have historically smashed
+  // trailing unique_ptrs when a TU skews Scene3dPresenter / Map2dPresenter
+  // sizeof (multi-agent partial rebuild) — wire_tool_seams then AVs on
+  // 0xCDCDCD.. ViewHost*. Keeping owned pointers ahead of those blobs isolates
+  // the edit/data/scene seams from present-path layout drift.
+  std::unique_ptr<ViewHost> edit_host_;
+  std::unique_ptr<ViewHost> data_host_;
+  std::unique_ptr<ViewHost> scene_host_;
+  std::unique_ptr<MapContents> map_contents_;
+  bool prepare_close_done_ = false;
+
   MapScene document_;
   ViewFrame view_frame_;
   OrbitFrame orbit_;
@@ -81,13 +92,6 @@ class MapSession {
   MapHwndGestures edit_gestures_;
   MapHwndGestures data_gestures_;
   MapHwndGestures scene_gestures_;
-
-  std::unique_ptr<ViewHost> edit_host_;
-  std::unique_ptr<ViewHost> data_host_;
-  std::unique_ptr<ViewHost> scene_host_;
-  std::unique_ptr<MapContents> map_contents_;
-
-  bool prepare_close_done_ = false;
 };
 
 }  // namespace content

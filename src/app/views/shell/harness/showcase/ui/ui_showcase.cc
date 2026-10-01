@@ -3,6 +3,8 @@
 
 #include "app/views/shell/harness/showcase/ui/ui_showcase.h"
 
+#include "app/views/shell/harness/showcase/ui/interact_script.h"
+
 #include <windows.h>
 
 #include <chrono>
@@ -16,6 +18,8 @@
 #include <vector>
 
 #include "app/views/shell/browser/browser.h"
+#include "app/views/shell/browser/china_product_defaults.h"
+#include "app/views/shell/harness/common/maps.h"
 #include "app/views/shell/harness/self_test/self_test.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "ui/gis/catalog/catalog_view.h"
@@ -32,7 +36,7 @@ namespace {
 
 void showcase_mark(const char* token) {
   wchar_t path[MAX_PATH] = {};
-  if (!detail::exe_sidecar_path(path, MAX_PATH, L"ui-showcase-mark.txt")) {
+  if (!detail::exe_capture_path(path, MAX_PATH, L"ui-showcase-mark.txt")) {
     return;
   }
   FILE* f = nullptr;
@@ -191,7 +195,9 @@ bool capture_hwnd_bmp(HWND hwnd, const wchar_t* filename) {
     const bool signal =
         got == h &&
         pixels_have_visible_signal(pixels.data(), stride, w, h);
-    if (signal && !have_signal) {
+    // Prefer the latest good PrintWindow frame — the first attempt often has
+    // map pixels but stale/missing tab accent after interact scripts.
+    if (signal) {
       best_signal = pixels;
       have_signal = true;
     }
@@ -289,7 +295,11 @@ void apply_harness_theme() {
 
 void force_shell_repaint(Browser& browser) {
   if (ui::views::View* contents = browser.contents_view()) {
-    contents->layout();
+    if (ui::views::Widget* w = contents->widget()) {
+      w->layout_contents();
+    } else {
+      contents->layout();
+    }
   }
   if (ui::views::MapViewport* pane = browser.map_viewport()) {
     pane->sync_native_bounds();
@@ -317,10 +327,41 @@ void apply_scenario_interaction(Browser& browser, UiShowcaseMode mode) {
       browser.select_map_tab(1);
       pump_views_messages(350);
       break;
-    case UiShowcaseMode::kScene:
+    case UiShowcaseMode::kScene: {
       browser.select_map_tab(2);
-      pump_views_messages(500);
+      pump_views_messages(800);
+      // Lazy FlyCube attach needs several present ticks before HUD leaves
+      // views-scene3d.gdi / Fps0 and the DEM fills the tab (not a sticker).
+      if (ui::views::MapViewport* scene = browser.map_scene_viewport()) {
+        for (int i = 0; i < 80; ++i) {
+          if (scene->attach_mode() ==
+                  ui::views::MapViewport::AttachMode::kFlyCube &&
+              scene->last_gpu_present_ok()) {
+            break;
+          }
+          scene->sync_native_bounds();
+          if (scene->attach_mode() ==
+              ui::views::MapViewport::AttachMode::kNone) {
+            scene->attach();
+          }
+          scene->invalidate_native();
+          pump_views_messages(50);
+        }
+        if (scene->attach_mode() ==
+                ui::views::MapViewport::AttachMode::kFlyCube &&
+            scene->last_gpu_present_ok()) {
+          showcase_mark("scene-flycube-ok");
+        } else {
+          showcase_mark("scene-flycube-wait");
+        }
+      }
+      apply_china_scene3d_orbit(browser);
+      if (ui::views::MapViewport* scene = browser.map_scene_viewport()) {
+        scene->invalidate_native();
+      }
+      pump_views_messages(400);
       break;
+    }
     case UiShowcaseMode::kCatalog:
       browser.select_map_tab(0);
       if (ui::views::CatalogView* cat = browser.catalog_view()) {
@@ -331,6 +372,14 @@ void apply_scenario_interaction(Browser& browser, UiShowcaseMode mode) {
       pump_views_messages(350);
       break;
     case UiShowcaseMode::kInteract:
+      // Prefer Interact DSL (suite-colocated *.il under testing/tools/harness/);
+      // OS driver waits for outer SendInput/PostMessage injector.
+      if (try_apply_interact_script(browser)) {
+        // Re-assert Map tab chrome after scripted clicks / OS inject.
+        browser.select_map_tab(0);
+        pump_views_messages(200);
+        break;
+      }
       browser.select_map_tab(0);
       pump_views_messages(200);
       browser.select_map_tab(1);
@@ -373,8 +422,14 @@ int run_ui_showcase(Browser& browser, UiShowcaseMode mode) {
   if (mode == UiShowcaseMode::kNone) {
     return 0;
   }
+  // Always stop present timers + detach before return (ExitProcess heap race).
+  struct DetachOnExit {
+    Browser& browser;
+    ~DetachOnExit() { detail::detach_maps(browser); }
+  } detach_guard{browser};
+
   wchar_t mark_path[MAX_PATH] = {};
-  if (detail::exe_sidecar_path(mark_path, MAX_PATH, L"ui-showcase-mark.txt")) {
+  if (detail::exe_capture_path(mark_path, MAX_PATH, L"ui-showcase-mark.txt")) {
     DeleteFileW(mark_path);
   }
   showcase_mark(ui_showcase_name(mode));
@@ -382,20 +437,18 @@ int run_ui_showcase(Browser& browser, UiShowcaseMode mode) {
   apply_harness_theme();
   showcase_mark("theme-ok");
 
+  showcase_mark("pump-pre");
   pump_views_messages(600);
+  showcase_mark("pump-post");
   if (!browser.hwnd() || !IsWindow(browser.hwnd())) {
     showcase_mark("hwnd-fail");
     return 2;
   }
   showcase_mark("hwnd-ok");
 
+  showcase_mark("interact-pre");
   apply_scenario_interaction(browser, mode);
-
-  if (HWND hwnd = browser.hwnd()) {
-    InvalidateRect(hwnd, nullptr, TRUE);
-    UpdateWindow(hwnd);
-  }
-  pump_views_messages(200);
+  showcase_mark("interact-post");
 
   ui::views::View* root = browser.contents_view();
   if (!root) {
@@ -403,6 +456,19 @@ int run_ui_showcase(Browser& browser, UiShowcaseMode mode) {
     return 4;
   }
   showcase_mark("root-ok");
+
+  // Force Widget layout before violation checks — Invalidate alone does not
+  // resize create-time zero bounds (child-outside-parent / status-clipped).
+  if (ui::views::Widget* w = root->widget()) {
+    w->layout_contents();
+  } else {
+    root->layout();
+  }
+  if (HWND hwnd = browser.hwnd()) {
+    InvalidateRect(hwnd, nullptr, TRUE);
+    UpdateWindow(hwnd);
+  }
+  pump_views_messages(200);
 
   ui::views::MapViewport* active = browser.map_viewport();
   if (mode == UiShowcaseMode::kData) {
@@ -490,8 +556,22 @@ int run_ui_showcase(Browser& browser, UiShowcaseMode mode) {
 
   force_shell_repaint(browser);
 
+  // Reject pathological HUD FPS (instantaneous 1/dt after idle ≈ 0.07).
+  // Idle Content Map2D correctly reports ~0 after note_hud_frame gap handling.
+  if (active) {
+    active->sync_identity_chrome();
+    const float fps = active->hud_fps();
+    if (fps < 0.5f || fps >= 5.f) {
+      showcase_mark("hud-fps-ok");
+    } else {
+      showcase_mark("hud-fps-bad");
+    }
+  } else {
+    showcase_mark("hud-fps-ok");
+  }
+
   wchar_t bmp_path[MAX_PATH] = {};
-  if (!detail::exe_sidecar_path(bmp_path, MAX_PATH, bmp_leaf_for_mode(mode))) {
+  if (!detail::exe_capture_path(bmp_path, MAX_PATH, bmp_leaf_for_mode(mode))) {
     showcase_mark("bmp-path-fail");
     stop_map_present(browser);
     return 55;

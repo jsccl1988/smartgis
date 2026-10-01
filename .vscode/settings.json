@@ -1,0 +1,32 @@
+{
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "terminal.integrated.env.windows": {
+    "GIT_PAGER": "cat",
+    "TERM": "xterm-256color"
+  },
+  "files.associations": {
+    "*.g4": "antlr",
+    "*.il": "interact"
+  },
+  "antlr4.generation": {
+    "mode": "internal",
+    "language": "Cpp",
+    "listeners": false,
+    "visitors": true,
+    "alternativeJar": "${workspaceFolder}/third_party/.tools/antlr-4.13.2-complete.jar"
+  },
+  "antlr4.referencesCodeLens.enabled": true,
+  "antlr4.symbolKinds.list": true,
+  "[antlr]": {
+    "editor.semanticHighlighting.enabled": true,
+    "editor.wordBasedSuggestions": "off"
+  },
+  "[interact]": {
+    "editor.quickSuggestions": {
+      "other": true,
+      "comments": false,
+      "strings": false
+    }
+  }
+}

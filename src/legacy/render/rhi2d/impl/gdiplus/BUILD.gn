@@ -1,0 +1,23 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# GDI+ AA text / process token — used by all rhi2d ports for anno.
+source_set("aa_sources") {
+  sources = [
+    "aa/gdiplus.cpp",
+    "aa/gdiplus.h",
+  ]
+  configs += [
+    "//build:legacy",
+    "//src/legacy/render:legacy_render_exports",
+  ]
+  defines = [ "_USRDLL" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/base:base",
+    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
+  ]
+  libs = [ "gdiplus.lib" ]
+}

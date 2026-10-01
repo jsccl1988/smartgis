@@ -4,37 +4,36 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-# Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
-# D3D11 leftover impl under rhi/impl/d3d/ (parallel to impl/gl/).
+# Compiled into //src/legacy/render:legacy_render_d3d (dll_stem = legacy_render_d3d).
+# D3D11 leftover impl under rhi3d/impl/d3d/ (parallel to impl/gl/).
 # Layout: host/resource/paint/caps/ext. No D3DX; Windows D3D11 + DXGI.
 source_set("d3d_sources") {
   sources = [
-    "caps/device_caps.cpp",
+    # Header-only: caps/device_caps.h, paint/states_manager.h,
+    # resource/buffer/{index,vertex}_buffer.h
     "ext/ext_interface.cpp",
+    "host/deferred_draw.cc",
+    "host/deferred_draw.h",
     "host/render_device.cpp",
     "host/device_present.cpp",
     "paint/draw.cpp",
     "paint/matrix.cpp",
     "paint/resources.cpp",
-    "paint/states_manager.cpp",
-    "resource/buffer/index_buffer.cpp",
-    "resource/buffer/vertex_buffer.cpp",
     "resource/font.cc",
     "resource/frame_buffer.cc",
     "resource/texture.cc",
   ]
   configs += [
     "//build:legacy",
-    "//src/legacy/render:legacy_render_exports",
+    "//src/legacy/render:legacy_render_d3d_exports",
   ]
   defines = [ "_USRDLL" ]
   deps = [
     "//src/gis/kernel/geo:geo",
     "//src/base:base",
     "//src/base:core",
-    "//src/legacy/render/rhi3d:leftover_record",
-    "//src/legacy/render/rhi2d:rhi2d_sources",
-    "//src/legacy/render/rhi3d:rhi_sources",
+    "//src/base/math:math",
+    "//src/legacy/render:legacy_render",
   ]
   libs = [
     "d3d11.lib",
@@ -44,7 +43,7 @@ source_set("d3d_sources") {
 }
 
 group("d3d") {
-  public_deps = [ "//src/legacy/render:legacy_render" ]
+  public_deps = [ "//src/legacy/render:legacy_render_d3d" ]
 }
 
 # Hidden HWND: CreateTexture/Build/Bind + FBO clear/unbind + GetFrustum.
@@ -53,7 +52,7 @@ test("d3d_texture_test") {
   sources = [ "test/d3d_texture_test.cc" ]
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
-  deps = [ "//src/legacy/render:legacy_render" ]
+  deps = [ "//src/legacy/render:legacy_render_all" ]
   libs = [
     "gdi32.lib",
     "user32.lib",

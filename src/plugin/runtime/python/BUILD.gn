@@ -5,9 +5,8 @@ import("//build/python.gni")
 import("//testing/test.gni")
 
 # smt_has_python / smt_python_root: see build/python.gni.
-# Stub compiles when Python 3.12 headers+libs are absent or the arg is false.
-# Link the stable ABI (python3.lib) so a /MDd test can load the official
-# Windows CPython install without python312_d.lib.
+# Stub compiles when Python 3.12 headers+libs are absent, the arg is false,
+# or the current config is Debug (Release CPython /MD must not link into /MDd).
 
 source_set("python") {
   sources = [

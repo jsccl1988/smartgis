@@ -42,10 +42,10 @@ inline SmtTextureManager::SmtTextureManager(void) { DestroyAllTexture(); }
 inline SmtTextureManager::~SmtTextureManager(void) { DestroyAllTexture(); }
 
 inline long SmtTextureManager::AddTexture(SmtTexture* pTexture) {
-  if (NULL == pTexture) return SMT_ERR_FAILURE;
-  SmtTexture* pTexTmp = NULL;
+  if (nullptr == pTexture) return SMT_ERR_FAILURE;
+  SmtTexture* pTexTmp = nullptr;
   pTexTmp = GetTexture(pTexture->GetTextureName());
-  if (NULL == pTexTmp)
+  if (nullptr == pTexTmp)
     m_mapNameToTexturePtrs.insert(
         pairNameToTexturePtr(pTexture->GetTextureName(), pTexture));
   else {
@@ -57,7 +57,7 @@ inline long SmtTextureManager::AddTexture(SmtTexture* pTexture) {
 }
 
 inline SmtTexture* SmtTextureManager::GetTexture(const char* szName) {
-  SmtTexture* pTexture = NULL;
+  SmtTexture* pTexture = nullptr;
   mapNameToTexturePtrs::iterator mapIter;
   mapIter = m_mapNameToTexturePtrs.find(szName);
 

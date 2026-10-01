@@ -194,7 +194,9 @@ int run_map2d_presenter_tests() {
     expect(presenter.last_present_reused_layout(),
            "pan reuses cached MapFrame");
 
-    // Same camera again 鈫?settle rebuild for GPU labels.
+    // Same camera again after quiet settle debounce (~200ms) → settle rebuild
+    // for GPU labels.
+    Sleep(250);
     expect(presenter.present_gpu(device.get(), 128, 128), "settle present");
     expect(presenter.layout_build_count() == 2, "settle rebuilds layout once");
     expect(!presenter.last_present_reused_layout(),

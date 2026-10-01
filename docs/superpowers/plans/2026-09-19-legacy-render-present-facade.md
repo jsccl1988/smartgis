@@ -44,7 +44,7 @@ All rights reserved.
 ### Task 5: GDI RenderMap → leftover_session
 
 - [x] 抽出 `leftover_record_map_frame`（Null begin/record_map/finish）
-- [x] 主 GDI `SmtGdiRenderDevice::RenderMap` + `SmtGdiRenderThread::RenderMap` 接通
+- [x] 主 GDI `SmtRhi2dRenderDevice::RenderMap` + `SmtGdiRenderThread::RenderMap` 接通
 - [x] `gdi_simple` 改用同一 helper
 - [x] **顺序锁定**：helper 必须在 GDI 画完**之后**调用（先 tessellate 会导致 map buffer 全白；`gdi_map_paint_test` 对照验证）
 - [x] `leftover_session_test` 覆盖 helper（空图 / 非法尺寸 / null map）

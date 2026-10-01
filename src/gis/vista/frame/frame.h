@@ -129,11 +129,13 @@ struct LayerBatch {
 };
 
 // Inputs that are not per-feature. symbols is matched by id.
+// hillshade_tiles: host-baked DEM shade underlay (texture_key + lon/lat).
 struct LayoutInput {
   View view;
   const gis::style::StyleDocument* style = nullptr;
   double zoom = 0;
   std::vector<TileSlot> tiles;
+  std::vector<TileSlot> hillshade_tiles;
   const GlyphMetrics* metrics = nullptr;
   std::vector<SymbolAsset> symbols;
 };

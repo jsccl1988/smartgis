@@ -1,0 +1,53 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+copy("flood_resources") {
+  sources = [
+    "resources/inundate.ui.css",
+    "resources/inundate.ui.xml",
+  ]
+  outputs = [ "$root_out_dir/../plugins/flood/{{source_file_part}}" ]
+}
+
+source_set("flood_views") {
+  sources = [
+    "commands.cc",
+    "commands.h",
+    "views/inundate_dialog.cc",
+    "views/inundate_dialog.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    "//src/content:content",
+    "//src/gis:gis",
+    "//src/plugin/runtime/host:host",
+    "//src/plugin/runtime/widgets:widgets",
+    "//src/ui/views:views",
+    "//third_party:gdal",
+    "//third_party:rapidjson",
+  ]
+  data_deps = [ ":flood_resources" ]
+}
+
+test("flood_inundate_test") {
+  output_name = "flood_inundate_test"
+  sources = [ "tests/inundate_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":flood_views",
+    "//src/content:content",
+    "//src/gis:gis",
+    "//src/plugin/runtime/host:host",
+    "//third_party:gdal",
+  ]
+  data_deps = [
+    ":flood_resources",
+    "//third_party:gdal_runtime_dlls",
+  ]
+}

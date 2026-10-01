@@ -33,8 +33,11 @@ bool Browser::run_tool_command(std::string_view command_id) {
   if (dispatch_shell_navigation(command_id, -1, false, 0, 0)) {
     return true;
   }
+  if (!ui_ || command_id.empty()) {
+    return false;
+  }
   content::ViewHost* host = ui_->active_view_host();
-  if (!host || command_id.empty()) {
+  if (!host) {
     return false;
   }
   std::string id(command_id);

@@ -76,3 +76,10 @@ build.bat scene_test
 - **不**引入 Cesium Native。
 - 禁止 Qt；新函数 `snake_case`；注释英文。
 - YAGNI：不做全球 Ion；本地 fixture 即可。
+
+## Post-M3 product gaps（checkbox 迁到 gap-pin）
+
+M3 骨架口令已绿后的城市场产品差距（present 环流式、DEM 瓦片、Tiles 内容面）统一挂：
+
+- [`2026-09-30-map3d-gap-pin.md`](2026-09-30-map3d-gap-pin.md)（P0-B / P0-C / P1-C）
+- [`../../build/industry-gap-matrix.md`](../../build/industry-gap-matrix.md) §3.2.1

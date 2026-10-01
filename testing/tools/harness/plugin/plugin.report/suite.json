@@ -1,0 +1,29 @@
+{
+  "id": "plugin.report",
+  "kind": "showcase",
+  "argv": [
+    "--ui-showcase=interact"
+  ],
+  "script": "plugin.report.il",
+  "env": {
+    "SMT_SKIP_MAP_CONTEXT_MENU": "1",
+    "SMT_UI_SHOWCASE_LINGER_MS": "1500",
+    "SMT_REPORT_BROWSER": "fake"
+  },
+  "mark_leaf": "ui/ui-showcase-mark.txt",
+  "required_marks": [
+    "report-ok",
+    "pass"
+  ],
+  "accept_nonzero_rc_if_marks": true,
+  "report_name": "plugin_report_loop_report.json",
+  "probes": [
+    "marks"
+  ],
+  "loop": {
+    "rounds": 1,
+    "timeout_sec": 90,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  }
+}

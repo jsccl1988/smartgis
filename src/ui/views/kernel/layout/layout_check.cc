@@ -45,9 +45,14 @@ void walk(const View* v,
   }
   // Views that opt in via allows_child_overflow() (ScrollView content,
   // Combobox dropdown overlay) are not layout dislocations.
+  // Skip when the parent is collapsed (width/height <= 0): children still
+  // carrying preferred sizes are not dislocations until the parent is laid out.
   const bool exempt_overflow = parent && parent->allows_child_overflow();
-  if (!exempt_overflow && parent_bounds && b.width > 0 && b.height > 0 &&
-      !rect_contains_rect(*parent_bounds, b)) {
+  const bool parent_collapsed =
+      parent_bounds &&
+      (parent_bounds->width <= 0 || parent_bounds->height <= 0);
+  if (!exempt_overflow && parent_bounds && !parent_collapsed && b.width > 0 &&
+      b.height > 0 && !rect_contains_rect(*parent_bounds, b)) {
     if (out) {
       out->push_back("child-outside-parent@" + format_rect(*parent_bounds) +
                      ">" + format_rect(b));
@@ -226,11 +231,14 @@ int collect_shell_layout_anomalies(const View* root,
   if (root && status_bar && status_bar->is_visible()) {
     const Rect& rb = root->bounds();
     const Rect& sb = status_bar->bounds();
-    if (sb.width > 0 && sb.height > 0 && !rect_contains_rect(rb, sb)) {
-      note("status-outside-root@" + format_rect(rb) + ">" + format_rect(sb));
-    }
-    if (sb.height <= 0 || sb.bottom() > rb.bottom() + 1) {
-      note("status-clipped@" + format_rect(rb) + ">" + format_rect(sb));
+    // Root height 0 means layout has not run yet — not a real clip.
+    if (rb.width > 0 && rb.height > 0) {
+      if (sb.width > 0 && sb.height > 0 && !rect_contains_rect(rb, sb)) {
+        note("status-outside-root@" + format_rect(rb) + ">" + format_rect(sb));
+      }
+      if (sb.height <= 0 || sb.bottom() > rb.bottom() + 1) {
+        note("status-clipped@" + format_rect(rb) + ">" + format_rect(sb));
+      }
     }
   }
 

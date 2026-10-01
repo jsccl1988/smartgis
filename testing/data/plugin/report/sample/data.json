@@ -1,0 +1,9 @@
+{
+  "title": "sample",
+  "series": [
+    { "label": "A", "value": 12 },
+    { "label": "B", "value": 28 },
+    { "label": "C", "value": 17 },
+    { "label": "D", "value": 9 }
+  ]
+}

@@ -15,7 +15,8 @@ def kill_exe(image_name: str) -> None:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    time.sleep(0.4)
+    # Match kill_showcase_apps settle: GPU/GL driver release between rounds.
+    time.sleep(1.5)
 
 
 def run_process(

@@ -317,10 +317,12 @@ void Orthogrid::Orhogonal_SOR(void) {
   constexpr int kOuterSweeps = 8;
   for (int sweep = 0; sweep < kOuterSweeps; ++sweep) {
     pack_nodes();
-    orthogrid::GridField field{m_nX, m_nY, xs.data(), ys.data()};
+    orthogrid::GridField field;
+    field.assign_from_flat(m_nX, m_nY, xs.data(), ys.data());
     if (!orthogrid::solve_elliptic_step(field, unknown.data())) {
       break;
     }
+    field.copy_to_flat(&xs, &ys);
     unpack_nodes();
     SlideBoudary();
   }

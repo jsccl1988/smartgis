@@ -4,6 +4,9 @@
 #include "app/views/shell/harness/self_test/self_test.h"
 
 #include "app/views/shell/browser/browser.h"
+#include "app/views/shell/harness/common/maps.h"
+#include "app/views/shell/harness/common/mark.h"
+#include "app/views/shell/runtime/capability/run_script.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 
 #include <windows.h>
@@ -31,7 +34,7 @@ namespace {
 
 void console_mark(const char* step) {
   wchar_t path[MAX_PATH] = {};
-  if (!detail::exe_sidecar_path(path, MAX_PATH, L"self-test-mark.txt")) {
+  if (!detail::exe_capture_path(path, MAX_PATH, L"self-test-mark.txt")) {
     return;
   }
   FILE* f = nullptr;
@@ -43,18 +46,7 @@ void console_mark(const char* step) {
 }
 
 void console_detach_maps(Browser& browser) {
-  if (browser.scene3d()) {
-    browser.scene3d()->abandon_mesh();
-  }
-  if (ui::views::MapViewport* m = browser.map_viewport()) {
-    m->detach();
-  }
-  if (ui::views::MapViewport* m = browser.map_data_viewport()) {
-    m->detach();
-  }
-  if (ui::views::MapViewport* m = browser.map_scene_viewport()) {
-    m->detach();
-  }
+  detail::detach_maps(browser);
 }
 
 const ui::views::View* find_view_by_paint_role(const ui::views::View* root,
@@ -257,7 +249,7 @@ bool write_console_bench_json(double layers_list_ms, double extent_ms,
     if (strcpy_s(path_a, env) != 0) {
       return false;
     }
-  } else if (!detail::exe_sidecar_path_a(path_a, MAX_PATH,
+  } else if (!detail::exe_capture_path_a(path_a, MAX_PATH,
                                          "console_bench.json")) {
     return false;
   }
@@ -277,9 +269,9 @@ bool write_console_bench_json(double layers_list_ms, double extent_ms,
 
 }  // namespace
 
-int run_views_console_self_test(Browser& browser) {
+int console_self_test_body(Browser& browser) {
   wchar_t mark_path[MAX_PATH] = {};
-  if (detail::exe_sidecar_path(mark_path, MAX_PATH, L"self-test-mark.txt")) {
+  if (detail::exe_capture_path(mark_path, MAX_PATH, L"self-test-mark.txt")) {
     DeleteFileW(mark_path);
   }
   console_mark("show");
@@ -450,6 +442,14 @@ int run_views_console_self_test(Browser& browser) {
   console_detach_maps(browser);
   console_mark("detached");
   return 0;
+}
+
+int run_views_console_self_test(Browser& browser) {
+  if (try_run_suite_script(browser, "console", detail::kSelfTestMarkLeaf,
+                           /*clear_marks=*/true)) {
+    return 0;
+  }
+  return console_self_test_body(browser);
 }
 
 }  // namespace app

@@ -19,7 +19,7 @@ int run_views_self_test(Browser& browser) {
   (void)trace_dump_on_exit;
 
   wchar_t mark_path[MAX_PATH] = {};
-  if (detail::exe_sidecar_path(mark_path, MAX_PATH, L"self-test-mark.txt")) {
+  if (detail::exe_capture_path(mark_path, MAX_PATH, L"self-test-mark.txt")) {
     DeleteFileW(mark_path);
   }
 

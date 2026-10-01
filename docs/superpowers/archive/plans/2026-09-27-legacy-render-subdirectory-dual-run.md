@@ -15,7 +15,7 @@ All rights reserved.
 
 **Goal:** Keep leftover `legacy_render` dual-running safely; delete `gdi_simple`; split fat tops into responsibility subdirs; phase GDI ↔ MapLibre-style parity without blocking Views map2d/RHI.
 
-**Architecture:** Layout **B′ colocated** — each `.h` lives next to its `.cpp`/`.cc` under `legacy/render/<top>/<module>/` (P2 initially used headers-at-top; revised). Thin tops stay flat. One GDI device (`SmtGdiRenderDevice`). Modern 2D remains `gis::map2d` → `render::map2d::Pass` → RHI. Present-facade HWND rules unchanged.
+**Architecture:** Layout **B′ colocated** — each `.h` lives next to its `.cpp`/`.cc` under `legacy/render/<top>/<module>/` (P2 initially used headers-at-top; revised). Thin tops stay flat. One GDI device (`SmtRhi2dRenderDevice`). Modern 2D remains `gis::map2d` → `render::map2d::Pass` → RHI. Present-facade HWND rules unchanged.
 
 **Tech Stack:** C++23, GN/`build.bat`, Windows GDI/GDI+, FlyCube RHI (Views), existing `map_carto2d_test` / `gdi_map_paint_test`.
 
@@ -64,7 +64,7 @@ Expected hits include at least:
 
 - [x] **Step 2: Confirm product default device string**
 
-`SmtApp::Init` already sets `str2DRenderDeviceName = "SmtGdiRenderDevice"`. No override to simple found in product sources.
+`SmtApp::Init` already sets `str2DRenderDeviceName = "SmtRhi2dRenderDevice"`. No override to simple found in product sources.
 
 - [x] **Step 3: Do not commit**
 

@@ -83,20 +83,24 @@ void ViewFrame::fit_extent(const MapScene& scene, int view_w, int view_h) {
   // China prefecture packs: Natural Earth rivers that only touch the loose
   // China bbox keep foreign stubs (Siberia / Central Asia), and area layers
   // include South China Sea vertices near ~4N. Framing on all vertices zooms
-  // out so rivers appear to "spill" past provincial land. Match leftover's
-  // mainland envelope instead.
+  // out so rivers appear to "spill" past provincial land. Match maplibre_align
+  // mainland envelope (equirectangular; Mercator remains a known gap).
   if (scene.has_china_extent()) {
-    apply_world_extent(kChinaLonLatExtent, view_w, view_h);
+    apply_world_extent(kChinaMap2dFrameExtent, view_w, view_h);
     return;
   }
 
   // Prefer land polygons when present so line/point outliers do not dominate.
+  // Plugin product docs (traffic path, geochem points) are often line/point
+  // only — fall back to full vertex envelope in map space.
   double minx = 0;
   double miny = 0;
   double maxx = 0;
   double maxy = 0;
   if (!scene.polygon_fit_box(&minx, &miny, &maxx, &maxy)) {
-    return;
+    if (!scene.compute_extent(&minx, &miny, &maxx, &maxy)) {
+      return;
+    }
   }
   if (maxx - minx < 1.0) {
     const double c = 0.5 * (minx + maxx);

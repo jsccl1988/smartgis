@@ -1,4 +1,4 @@
-<!--
+﻿<!--
 Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
@@ -7,7 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-27  
 **Status:** active  
-**Updated:** 2026-09-29 — §Harness suite loop (outer JSON + ScenarioRegistry); prior: § shell/harness (showcase + self_test package); prior: §UI visual forensics (A+C); shared `out/ui/` markup pack (Debug+Release); prior: §GIS Python Console + analysis results; §Console coverage + performance; §UI interactive harness; §Declarative markup; §Global theme paint. Do not open new dated twins.
+**Updated:** 2026-10-01 — §Visual review Wave2 (browse/ui/legacy checklist + real review-prep). Prior same day — `ui/views/map` nest; §Visual review closed-loop; §Chromium Browser `plugin/analysis_writers`; §IL interaction recorder. Prior 2026-09-30 — §Shell chrome DPI/font; §Harness capability runtime; §VS Code UI Markup; §Map browse forensic; §Shell perf; §UI visual forensics; §Harness suite loop. Do not open new dated twins.
 **Related:**
 
 | Topic | Doc | Relation |
@@ -280,7 +280,7 @@ src/app/views/
       browser.*                   # owns session; public controller API
       commands/                   # pure tables / builders (no Widget)
       nav/                        # draft / extent navigation helpers on Browser
-      plugin/
+      plugin/                  # PluginShell + analysis_writers (product commit/wire)
     ui/                           # BrowserView only (≈ chrome/browser/ui)
       browser_view.*              # Widget tree; holds Browser*
       pages/                      # map tab / viewport chrome wiring
@@ -333,7 +333,7 @@ Shell may include only present **facades** + `session/` + `host/` headers it nee
 | `present/` Chromium split | facade / frame / paint / session / host | None for layout; see present README |
 | `shell/{app,browser,ui}` dirs | Present | None for paths |
 | Session ownership | Fields live on `Browser` | Done for members |
-| Controller logic | Nav / tool / catalog / file / extent bodies on `Browser` (`commands/`, `nav/`) | Residual: some pages/panels TUs still carry wide UI includes |
+| Controller logic | Nav / tool / catalog / file / extent on `Browser` (`commands/`, `nav/`); product analysis writers in `plugin/analysis_writers` | Residual: some pages/panels TUs still carry wide UI includes; analysis_writers still large (further product splits optional) |
 | Fat `browser_view.cc` | Chrome + menus/ambox/status; controller moved | Trim pages/panels include noise when touching those TUs |
 | Deps | `BrowserUiDelegate` + `create_browser_ui`; `browser.cc` does not include `browser_view.h` | Done for S5 |
 | `commands/*.cc` | Include `browser.h` only (no concrete `BrowserView`) | Done |
@@ -364,6 +364,7 @@ Shell may include only present **facades** + `session/` + `host/` headers it nee
 4. [x] S4 — `browser_view.*` is Widget chrome + thin wire; pages/panels UI accessors + forwards.
 5. [x] S5 — `BrowserUiDelegate` / `create_browser_ui`; GN `:shell_ui` → `:shell_browser` only.
 6. [x] Sync as-built blurbs in `src/app/views/README.md` / `docs/build/src-layout.md` (no new dated specs).
+7. [x] S6 — `plugin/analysis_writers.{h,cc}`: product document/scene/analysis commit helpers + `wire_plugin_analysis_writers`; `browser.cc` is lifecycle/chrome only.
 
 ---
 
@@ -479,6 +480,29 @@ wWinMain → parse_views_launch_options → ContentMainParams{process_type_set}
 - Do not rewrite showcase GPU/BMP logic.
 - Do not change renderer/gpu entry bodies.
 - Do not add Qt or a second CLI library.
+
+---
+
+## §China product defaults（interactive ↔ showcase, 2026-09-30）
+
+**Status:** active  
+**As-built:** `shell/browser/china_product_defaults.{h,cc}`; callers: `Browser::fit_map_extent`, `BrowserView::switch_map_tab`, `--map2d-showcase=china`, `--atmosphere-showcase=full`.
+
+### Locked decisions
+
+| # | Decision |
+| --- | --- |
+| C1 | Interactive bare launch keeps **FlyCube / RHI** (no `SMT_FORCE_CONTENT_MAPVIEW_2D` / GDI force). Showcase/self-test may still force GDI for BMP gates. |
+| C2 | Shared helpers: `ensure_china_maplibre_carto`, `frame_china_map2d`, `apply_china_map2d_product_defaults`, `apply_china_scene3d_atmosphere` / `_orbit` / `_product_defaults`. |
+| C3 | China 2D: clear `china_city.style.json` → default MapLibre carto; frame `kChinaLonLatExtent` at the given pixel size. |
+| C4 | China 3D: seed procedural + ocean/cloud/sky/**fog** (match atmosphere.full); orbit distance `2.55`. Opt out: `SMT_SCENE3D_ATMO=0` / `SMT_SCENE3D_LAND_ONLY=1`. |
+| C5 | Sample paths stay **exe-relative** (`out/Debug` → `../data/…`); not cwd. |
+
+### Checklist
+
+- [x] Shared helper + wire interactive Map fit / 3D tab.
+- [x] Wire map2d china + atmosphere full showcase to the same helpers.
+- [x] README note (观感对齐 vs GDI 强制).
 
 ---
 
@@ -639,7 +663,7 @@ Non-goals unchanged for layout composer / topology / network.
 ## §Diagnostic Tools（2026-09-28）
 
 **Status:** active  
-**Updated:** 2026-09-29 — `base::trace::` API names  
+**Updated:** 2026-09-30 — UI Views paint/compositor spans (`ui.views`); Trace tab + `UI` filter; UiDesigner docks Console+Trace by default  
 **Plan:** [`../plans/2026-09-28-render-trace-profiler.md`](../plans/2026-09-28-render-trace-profiler.md) (timing) + memory § in hybrid; console: [`2026-09-28-debug-console-design.md`](../archive/specs/2026-09-28-debug-console-design.md) + [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md)
 
 VS-style bottom **Diagnostic Tools** dock (replaces standalone Debug Console + Inspector `RenderTrace`):
@@ -647,6 +671,9 @@ VS-style bottom **Diagnostic Tools** dock (replaces standalone Debug Console + I
 | Item | Choice |
 | --- | --- |
 | UI | `ui::views::DiagnosticToolsPanel` bottom dock |
+| Tabs | Output \| Console \| **Trace** (was CPU) \| Memory |
+| UI paint profile | `BASE_TRACE_EVENT(..., "ui.views")` on Widget `on_paint` / layout / record_commit / present + ShellCompositor `raster` / `blt_present`; RenderTrace filter checkbox **UI** |
+| UiDesigner | View → Toggle Console+Trace; dock open by default for self-iteration |
 | Tabs | `Output` \| `Console` \| `CPU` \| `Memory` |
 | Shared bar | Record / Stop / Clear / Export / Armed / Track allocs / Echo→Output |
 | Output | LogSink only (`DebugConsolePanel` kOutput); startup `LOGGING` appears here |
@@ -1055,7 +1082,7 @@ Unify outer Python rebuild/retry loops and in-process harness paths under a shar
 
 | Layer | Role | Location |
 | --- | --- | --- |
-| Suite contract | id / argv / env / marks / bmp / loop | `testing/tools/suites/<id>.json` (JSON for stdlib; no PyYAML) |
+| Suite contract | id / argv / env / marks / bmp / loop | `testing/tools/harness/<family>/<id>/suite.json` (JSON for stdlib; no PyYAML) |
 | Outer runner | kill → build → run → score → report | `testing/tools/loop_runner.py` + `loop/` |
 | Inner registry | static `id → run(Browser&)` | `shell/harness/scenario_registry.*` + `scenario_builtins.cc` |
 
@@ -1067,21 +1094,447 @@ Unify outer Python rebuild/retry loops and in-process harness paths under a shar
 | --- | --- |
 | 1 | Suite ids align across JSON and C++ (`browse`, `input`, `console`, `ui.shell`, `map2d.*`, `atmosphere.*`). |
 | 2 | Exe does **not** parse suite JSON; Python owns outer loop; C++ owns steps/marks/BMP write. |
-| 3 | Thin wrappers live under `testing/tools/case/` (`browse_loop.py`, `*_shot_loop.py`, …). |
+| 3 | Suite dir is `suite.json` + optional `*.il` only. No colocated `*_loop.py`; entry is `loop_runner --suite <id>`. Processing args inline via `run_processing(..., args="...")` (`\"` escapes in Interact.g4). |
 | 4 | Showcase cmdline modes dispatch through `ScenarioRegistry` (same ids as suites). |
 | 5 | No product PluginHost for harness; live object probes use DebugAgent (separate from default mark/BMP gates). |
 
 ### Checklist
 
 - [x] `loop/` + `loop_runner.py` + suites `browse` / `input` / `console`.
-- [x] Thin wrappers for browse/input loops.
+- [x] Thin wrappers removed (2026-09-30 layout A); use `--suite` only.
 - [x] `ScenarioRegistry` + builtins; `browser_main` dispatches browse/console/input via registry.
 - [x] Wave 2: BMP `score_id` suites (`ui.shell` / `map2d.china` / `atmosphere.full` / orthogrid / legacy.*); register atmosphere/map2d/ui showcase ids.
-- [x] Unified loader: all shot/browse loops are thin `compat` aliases; see `testing/tools/README.md`.
+- [x] Unified loader: suites discovered from `harness/**/suite.json`; see `testing/tools/README.md`.
 - [ ] Optional: trace / live `debug_agent` probe steps.
 - [ ] Optional CI: suite JSON ids ⊆ `--dump-scenarios` (not required yet).
 
 ---
+
+## §UI interact script（A inproc + C OS）（2026-09-30）
+
+**Status:** active (Wave 2: Interact DSL + ANTLR).  
+**Updated:** 2026-09-30  
+**As-built:** `testing/tools/harness/_shared/scripts/grammar/Interact.g4` + suite-colocated `*.il`; C++/Python ANTLR visitors (gen under `out/{Debug|Release}/gen`, not checked in); `loop/interact/dsl.py` + `os_inject.py`; suites `ui.interact` / `ui.interact.os` / `ui.interact.smoke` / `ui.interact.combo`.
+
+Authoring is **Interact DSL** (`.il`). Approach C: ANTLR **visitor → AST → direct execution** (no JSON Step IR). Same grammar for inproc (C++) and OS (Python). GN `interact_antlr_gen` (JDK + `antlr-4.13.2-complete.jar`) writes lexer/parser into `$root_gen_dir`; RD mirrors removed.
+
+| Driver | Who runs steps | Injection |
+| --- | --- | --- |
+| **inproc** (`ui.interact`) | C++ DSL parse+exec | Semantic tab APIs + `dispatch_input` / `PostMessage` |
+| **os** (`ui.interact.os`) | Python DSL → HWND inject | `postmessage` / `sendinput` |
+
+| Script | Suite | Role |
+| --- | --- | --- |
+| `ui.interact.il` | `ui.interact` / `ui.interact.os` | Full chrome + map combo (BMP) |
+| `ui.interact.smoke.il` | `ui.interact.smoke` | Minimal parse/exec (marks) |
+| `ui.interact.combo.il` | `ui.interact.combo` | Mid-weight path/chord/bursts demo (marks) |
+
+### Decisions
+
+| # | Decision |
+| --- | --- |
+| 1 | Suite JSON may name `script` / `driver` / `os_inject_default`; exe does **not** parse suite JSON. Script path via `SMT_UI_INTERACT_SCRIPT`. |
+| 2 | Steps/blocks may use `@inproc` / `@os` / `@drivers(...)`; unsupported on current driver → skip. |
+| 3 | OS inject modes: `postmessage` (default) and `@inject=sendinput`. |
+| 4 | No FlaUI / UIA Provider requirement. |
+| 5 | Hardcoded `apply_scenario_interaction` remains fallback if script missing. |
+| 6 | Continuous combo: `seq` / `repeat` / `chord` / `path` / `pan_burst` / `wheel_burst`. |
+| 7 | DSL is authoring source of truth (`Interact.g4` / `.il`); JSON step scripts removed from tree. |
+| 8 | ANTLR C++/Python gen lives only under `out/*/gen` (not in git); build requires JDK. |
+
+### Checklist
+
+- [x] Shared `scripts/ui.interact.il` + inproc C++ runner.
+- [x] OS runner + suite `ui.interact.os`.
+- [x] Continuous combo ops.
+- [x] Interact.g4 + dual runtimes + smoke example suite/test.
+- [x] Combo demo script/suite (`ui.interact.combo`) + migrate remaining scripts off JSON.
+- [x] Swap RD → ANTLR gen visitors (`interact_antlr_gen` → `out/*/gen`); suffix `.il`.
+- [ ] Optional: mark probe for `interact-script-ok` / `dsl-done` on inproc suite.
+
+---
+
+## §Harness capability runtime（2026-09-30）
+
+**Status:** active (Wave 2: atomic Host verbs + full `.il` suite bodies — edit scripts without rebuild).  
+**Plan:** [`../plans/2026-09-30-harness-capability-runtime.md`](../plans/2026-09-30-harness-capability-runtime.md)  
+**As-built:** `content/browser/capability/` Host; `app/views/shell/runtime/{capability,interact,analysis}/`; Interact verbs via Host (`map2d_run` / `atmosphere_run` / `console_run` / browse / digitize); Wave 2 adds `resolve_data` / `capture_path` / `sidecar_path` / `doc_clear` / `fit_extent` / `export_bmp` / `apply_style_file` / `suppress_dialogs` / `require_plugins` with `$var` bind via `as=` (no grammar change). DebugAgent `script.run` thin wrap. Suite scripts colocated under `testing/tools/harness/<family>/<suite_id>/*.il`.
+
+### Intent
+
+Deepen the Interact DSL from **UI-only** into a **shared scenario language** for all harness suites (browse / input / map2d / atmosphere / ui / console), with Capability APIs sunk where DebugAgent can thin-wrap them — without expanding GIS Python/console product surface in Wave 1.
+
+### Layering (Approach 1)
+
+| Layer | Path | Owns |
+| --- | --- | --- |
+| Capability Host | `src/content/browser/capability/` | Callback bag + core verb helpers (`pump` / `mark` / `wait_ready` / `load_sample` / `detach_maps` / map input). No dep on `app::Browser`. |
+| Shell runtime | `src/app/views/shell/runtime/` | Three peer trees below; no flat sources at runtime root. |
+| → capability | `runtime/capability/` | `fill_host` + `run_interact_script` / `try_run_suite_script`. |
+| → interact | `runtime/interact/` | ANTLR gen + `try_apply_interact` / `is_interact_path` (`:interact`). |
+| → analysis | `runtime/analysis/` | `AnalysisPlayback` facade + `TrafficStore` / `FloodStore` / `OrthogridStore`. |
+| Harness | `src/app/views/shell/harness/` | `ScenarioRegistry` + suite adapters; showcase/self_test become thin or deleted as scripts land. |
+| Authoring | `testing/tools/harness/<family>/<suite_id>/*.il` | Source of truth for suite bodies (full migration). |
+| DebugAgent | `content/browser/debug` | `script.run` / `:script` → Host `script_run` callback only. |
+
+### Decisions
+
+| # | Decision |
+| --- | --- |
+| 1 | Grammar stays `Interact.g4` / `.il`; verbs expand beyond UI. |
+| 2 | `content` must not include `app/views`; Host is `std::function` bag (same pattern as `DebugAgentHost`). |
+| 3 | Full suite migration: C++ keeps registry + verb impl; script bodies replace showcase/self_test step code. |
+| 4 | Wave 1: Host + runtime + DebugAgent thin wrap + DSL on Host; migrate scripts incrementally with C++ fallback until marks/BMP green. |
+| 4b | Wave 2 (2026-09-30): atomic verbs + `$var`/`as=` in DSL; `plugin.*` suites are full `.il` bodies; C++ showcase body removed. |
+| 5 | No Qt; no FlaUI; OS driver path unchanged (`@os` / `loop/interact/os_inject.py`). |
+| 6 | Do not expand product Python DSL in Wave 1. |
+| 7 | Runtime layout (2026-09-30): `capability/` · `interact/` · `analysis/`; `AnalysisSession` → `AnalysisPlayback` (no shim); `fill_host` / `run_interact_script` / `try_apply_interact`. |
+
+### Checklist
+
+- [x] `content::CapabilityHost` + core helpers; GN `//src/content:capability`.
+- [x] `shell/runtime` fill Host + `run_script`; DSL uses Host for shared verbs.
+- [x] DebugAgent `script.run` + `:script <path>` wired from `BrowserView::bind_debug_agent_host`.
+- [x] Move Interact under `shell/runtime/interact/` (`apply.*`; was `dsl/`).
+- [x] Split `runtime/` into `capability/` + `interact/` + `analysis/` (stores + `AnalysisPlayback`).
+- [x] Migrate suite scripts: `ui.*` → `input` → `browse` → `map2d.*` → `atmosphere.*` → `console`.
+- [x] Update `docs/build/ui-testing.md` as-built once Wave 1 compiles green.
+- [ ] Wave 2 atomic verbs + migrate `plugin.*` `.il` full bodies; delete C++ showcase bodies when marks/BMP match.
+- [ ] Migrate `map2d.*` / `atmosphere.*` / remaining coarse `*_run` wrappers the same way.
+
+---
+
+## §Text2UI（2026-09-30）
+
+**Status:** active (landing).  
+**Hosts:** `src/ui/views/text2ui/` (API + template + validate); `src/app/ui_designer` (Generate UI + Cursor Agent `LlmBackend`).
+
+### Intent
+
+Natural-language → Views declarative markup (`.ui.xml` fragment) inside UiDesigner: palette/property edits stay; Text2UI seeds or replaces layout from a prompt.
+
+### Decisions
+
+| # | Decision |
+| --- | --- |
+| 1 | Engine **C+A**: local **TemplateEngine** by default; prompt prefix `@llm` → Cursor Agent CLI. |
+| 2 | Apply modes: **Insert under selection** (default) and **Replace document**. |
+| 3 | Entry: menu **Generate…** + **Ctrl+Shift+G**; prompt via `InputTextDialog`, mode via `SelectOneDialog`. |
+| 4 | Core lives under **`src/ui/views/text2ui/`** (namespace `ui::views`); **`ui_views` does not link `net`**. LLM is `LlmBackend` injected by the host. |
+| 5 | Default LLM backend = **Cursor Agent** (`agent -p`). Missing install → official Windows installer; missing key → paste User API Key → process env + `setx CURSOR_API_KEY`. |
+| 6 | Never Apply without **`validate_markup_fragment`** (`load_markup_bytes` wrap). Reject illegal / unparseable XML. |
+| 7 | No Qt; no OpenAI-HTTP default (optional later behind same `LlmBackend`). CI does not call real Cursor API. |
+
+### Checklist
+
+- [x] `ui::views::generate_text2ui` + template matchers + extract/validate.
+- [x] UiDesigner Generate flow + Cursor Agent backend (detect/install/key/spawn).
+- [x] Unit tests for template / `@llm` strip / extract / validate (mock LLM).
+- [x] As-built note in `src/ui/views/README.md` Markup notes when green.
+
+---
+
+## §Shell perf upgrade waves（2026-09-30）
+
+**Status:** active  
+**Plan:** [`../plans/2026-09-30-ui-shell-perf-upgrade.md`](../plans/2026-09-30-ui-shell-perf-upgrade.md)  
+**Predecessor:** [`../plans/2026-09-28-ui-compositor-thread.md`](../plans/2026-09-28-ui-compositor-thread.md) (P0–P5 roles landed; Deferred absorbed as U3–U5)
+
+Close the highest-ROI gap vs Chromium-class shell feel **without** vendoring `cc`/viz. Scenario map (as-built):
+
+| Scenario | Primary bottleneck today | Wave |
+| --- | --- | --- |
+| Shell hover | UI `record_commit` + single-worker CPU DisplayList raster | U0 → **U1** |
+| Table scroll | Dense `kText` ops on visible cells; no row-strip cache | U0 → **U2** |
+| Map + shell overlay | Shell BGRA crop/copy + dual HUD/present path | U0 → **U3** (+ U4/U5 only if needed) |
+
+### Locked choices
+
+| Axis | Choice |
+| --- | --- |
+| Strategy | **C** — scenario-ordered waves on `ShellCompositor` (reject Chromium vendor; reject property-tree big-bang) |
+| Paint backend | Stay CPU DisplayList / GDI (optional CPU Skia); **no** shell Ganesh in these waves |
+| Layering | `ui/views` must not hard-dep `//src/gpu`; overlay glue stays `src/app/views` |
+| Ship order | U0 measure → U1+U3 → U2 → optional U4/U5 |
+
+### Non-goals
+
+- Do not vendor Blink / `cc` property trees / Mojo viz / Aura.
+- Do not paint map pixels through Views DisplayList.
+- Do not invent absolute FPS SLA vs Chrome.
+
+### Checklist (summary; details in plan)
+
+- [x] U0 — `PaintCounters` + `views_bench` scenarios (hover / table / overlay)
+- [x] U1 — Dirty/record tighten (per-view cache / bounded Commit)
+- [x] U2 — Table row-strip (or glyph) cache
+- [x] U3 — Overlay coalesce + HUD-as-quad + gen skip (absorbs compositor Deferred)
+- [x] U4 — Multi-worker / tiled raster (optional)
+- [x] U5 — BeginFrame-driven shell Commit (optional)
+
+---
+
+## §Map browse forensic harness（2026-09-30）
+
+**Status:** active  
+**Plan:** [`../plans/2026-09-30-map-browse-forensic-harness.md`](../plans/2026-09-30-map-browse-forensic-harness.md)  
+**Extends:** §Harness suite loop, §Harness capability runtime, §UI interact script, §UI visual forensics  
+**Also covers:** leftover MFC `SmartGis.exe` 2D Edit browse + leftover GL/D3D scene3d showcase (freeze path; harness-only)
+
+### Goal
+
+Reproduce and **analyze** map-browse failures on **both** product shells (Views `SmartGisViews.exe` + leftover `SmartGis.exe`), covering **2D map** and **3D scene**, with:
+
+1. **Scripts** — deterministic Interact DSL / OS inject sequences (pan, wheel, browse stress, 3D orbit).
+2. **Recording** — window capture (ffmpeg gdigrab preferred; BMP frame-burst fallback) under `out/<config>/captures/`.
+3. **Symptom classes** (all in scope): hang / not responding, garbled or black frame, tracking lag (input vs pixels), crash / AV.
+
+### Locked decisions
+
+| # | Decision |
+| --- | --- |
+| 1 | Approach **A+B**: suite scripts (Interact DSL / existing showcases) + optional OS inject + sidecar **record**. |
+| 2 | Suite matrix: extend `browse`; add `browse.3d`; add `legacy.browse.2d` / `legacy.browse.3d` (or reuse `legacy.scene3d.china` + linger + inject). |
+| 3 | Record gate: `SMT_HARNESS_RECORD=1` (or suite `env`). Prefer `ffmpeg`; else N fps BMP sequence. Not a CI hard fail if ffmpeg missing. |
+| 4 | Report JSON lists `steps[]` with `t_ms` + marks + `record_path` so video timeline aligns to script. |
+| 5 | Hang: timeout + dump (existing loop timeout / optional cdb). Crash: `windbg-crash-diagnose` / `run_and_catch`. Visual: BMP score gates + human video review. Lag: optional step timestamps vs paint/mark latency in report. |
+| 6 | No Qt; no new widget kit; Legacy stays freeze except harness/path fixes. |
+| 7 | Docs: this § + plan; as-built notes in `docs/build/ui-testing.md` + `src/legacy/app/README.md` when landed. |
+
+### Suite matrix
+
+| Suite id | Exe | Script / argv | Probes |
+| --- | --- | --- | --- |
+| `browse` (extend) | SmartGisViews | `browse.il` + optional record | marks; optional frames/mp4 |
+| `browse.3d` (new) | SmartGisViews | 3D tab + orbit/drag/wheel `.il` | marks; record |
+| `legacy.browse.2d` (new) | SmartGis | OS inject on Edit map HWND after interactive bring-up (or short linger showcase) | marks/timeout; record |
+| `legacy.browse.3d` (new / alias) | SmartGis | `--scene3d-showcase` linger + inject or headless BMP + optional record of HWND | BMP gates + record |
+
+### Recording pipeline
+
+- Helper: `testing/tools/loop/record/hwnd.py` (invoked from `runner` / suite env).
+- Output: `out/<config>/captures/record/<suite_id>_<stamp>.mp4` or `…/record/*_frames/`.
+- Title / class match: `SmartGIS Views` / legacy main / showcase HWND titles already used by scene3d.
+
+### Non-goals
+
+- Absolute FPS SLA vs Chrome.
+- Recording as required CI green on machines without ffmpeg.
+- New Legacy product features beyond harness.
+
+### Checklist
+
+- [x] Record helper + suite `env` wiring
+- [x] Extend `browse` + add `browse.3d` (+ showcase dispatch if needed)
+- [x] Legacy 2D / 3D browse suites + inject
+- [x] Timeline report fields + ui-testing as-built note
+- [x] One local recorded run per shell (2D + 3D) for forensic sample
+
+---
+
+## §IL interaction recorder（hybrid OS + agent）（2026-10-01）
+
+**Status:** active  
+**Updated:** 2026-10-01  
+**As-built:** `testing/tools/loop/record/{il_recorder,os_hook,il_compact,agent_events}.py`; `loop_runner.py --record-il`; DebugAgent `record.enable` / `record.poll` / `record.clear`; `BrowserView::switch_map_tab` → `push_record_event("select_map_tab")`.
+
+### Intent
+
+Open (or attach) the product app, record a human repro session, and emit a replayable Interact `.il` (OS verbs + semantic upgrades) for bug reproduction — complementary to HWND video (`SMT_HARNESS_RECORD`).
+
+### Decisions
+
+| # | Decision |
+| --- | --- |
+| 1 | Approach: Python-first OS LL hooks + optional DebugAgent semantic poll; always write `events.jsonl`, then compact to `.il`. |
+| 2 | Entry: `il_recorder.py` core; `loop_runner --record-il` thin wrap. |
+| 3 | Stop: Ctrl+Shift+F9 hotkey + console Enter / Ctrl+C. |
+| 4 | No `Interact.g4` change; emit existing verbs only (`path` / `pan_burst` / `wheel_burst` / `drag` / `click` / `key` / `select_map_tab` @inproc). |
+| 5 | Launch sets `SG_DEBUG=1`; without Agent, still emit pure `@os` `.il`. |
+| 6 | Output: `out/<config>/captures/record/il_<stamp>/`. |
+
+### Checklist
+
+- [x] OS hook + jsonl + compact → `.il`
+- [x] `loop_runner --record-il` + attach/launch
+- [x] Hotkey + console stop
+- [x] DebugAgent `record.*` + tab semantic push
+- [x] Unit tests for compact
+- [ ] Optional: more Host verbs (`run_command`, catalog tabs) on record path
+- [ ] Optional: round-trip e2e (record → `loop_runner --suite` with generated `.il`)
+
+---
+
+## §VS Code UI Markup preview（2026-09-30）
+
+**Goal:** Edit product/plugin `.ui.xml` + `.ui.css` in Cursor/VS Code with (1) automatic approximate Webview preview and (2) one-command launch of `UiDesigner.exe` for true Views render (existing path arg + hot-reload).
+
+**Approach:** Independent in-repo extension `testing/tools/harness/_shared/scripts/vscode/vscode-ui-markup/` (`mogu.ui-markup-0.1.0`), install via `install_vscode_ui_markup.bat` (same pattern as `vscode-interact`). No C++ change required for v0.1.
+
+| Surface | Behavior |
+| --- | --- |
+| Auto preview | On open `*.ui.xml` when `mogu.uiMarkup.autoPreview` (default true) |
+| Webview | Subset map: `ui`/`vbox`/`hbox`/`label`/`button`/`textfield` + `<style src>`; linked CSS beside XML |
+| Commands | `mogu.uiMarkup.preview`, `mogu.uiMarkup.openInDesigner` |
+| Designer path | `mogu.uiDesigner.path` → `out/Debug/UiDesigner.exe` → `out/Release/` → Open dialog (persist workspace setting) |
+
+**Non-goals:** Pixel-perfect Skia parity in Webview; Custom Editor replacing the XML text buffer; shipping to Marketplace.
+
+### Checklist
+
+- [x] Extension package + Webview preview + Open in UiDesigner
+- [x] Install bat + `.vscode/README.md`
+- [ ] Optional later: richer tag map / theme tokens / single-instance designer IPC
+
+---
+
+## §Shell chrome DPI / body font（2026-09-30）
+
+**Symptom:** Interactive SmartGisViews chrome text looks too small; moving/scrolling the mouse makes glyphs jump larger. On **250% (240 DPI)** hosts the catalog still looked unreadable after the 16→18 DIP bump.
+
+**Cause:**
+
+1. Controls measure at scale `1.f` in their ctor (no `Widget` yet). `set_contents_view` used to propagate DPI only once; children added later stayed at 1× until a dirty paint rebuilt ink. Separately, `GetDpiForWindow` right after `CreateWindow` can still report 96 until the HWND is shown.
+2. **TreeView** row/indent metrics were fixed device pixels while the shell face scaled → clipped labels.
+3. **U4 parallel raster (primary “always tiny” bug):** `ShellCompositor::raster_dirty_into` painted large dirty regions onto **fresh temp DCs without selecting the shell HFONT**. `TextOutW` fell back to SYSTEM (~12px). Small hover dirties reused the back DC (font selected) → glyphs suddenly looked larger. Full-frame chrome stayed tiny forever.
+
+**Fix (toolkit):**
+
+| Seam | Behavior |
+| --- | --- |
+| `View::set_widget` | If `device_scale_factor() != 1`, call `on_device_scale_factor_changed(1, scale)` on that node |
+| `Widget::set_contents_view` | Rely on `set_widget` only (no second `propagate` — avoids double-scaling `preferred_size` ratios) |
+| `Widget::show` | Re-`sync_dpi_from_hwnd`; if scale changed, propagate + layout + paint |
+| `dpi_for_hwnd` | Prefer monitor effective DPI when `GetDpiForWindow` still reports 96 |
+| `kShellBodyFontDip` | **20** (was 16 → 18 → 20) |
+| `TreeView` | Row / indent / twisty / checkbox are DIPs × `device_scale_factor` |
+| `BrowserView` | Do not hardcode menu/status heights in raw px |
+| `ShellCompositor::raster_dirty_into` | Select shell face on every paint target (per-strip HFONT on U4 temps) |
+
+### Checklist
+
+- [x] Attach-time + show-time DPI notify; body font DIP bump
+- [x] TreeView + shell chrome preferred sizes scale with DPI (no fixed-px row clip)
+- [x] U4 parallel strip DCs select shell HFONT (no SYSTEM-font full-frame)
+- [ ] Ordinary open on 125%/150%/250% host: menu/catalog/status readable without jump on wheel/hover
+---
+
+## §Report dock（WebView2 report browser, 2026-09-30）
+
+**Status:** active  
+**Updated:** 2026-09-30  
+**Capability spec:** [`2026-09-13-plugin-host-design.md`](2026-09-13-plugin-host-design.md) §report browser capability  
+**Plan:** [`../plans/2026-09-30-plugin-report-browser.md`](../plans/2026-09-30-plugin-report-browser.md)
+
+### Goal
+
+Host an inspector **Report** tab that embeds `plugin::ReportBrowser` (v1 WebView2) for plugin-generated local HTML reports. This is **not** product chrome and does **not** reopen archived CEF HWND shell.
+
+### Locked
+
+| # | Choice |
+| --- | --- |
+| 1 | `ui::views::ReportPanel` in inspector TabStrip (`Report`), peer to Playback / Analysis. |
+| 2 | Browser installs `PluginHost::set_report_bridge` → panel `open` / `post` / `close`. |
+| 3 | Panel owns child HWND for WebView2; layout syncs bounds with the Views node. |
+| 4 | Soft-fail when Runtime / loader missing; panel shows status, shell stays up. |
+| 5 | Archived CEF product shell remains **rejected**; optional later `CefReportBrowser` only as ReportBrowser backend. |
+
+### Checklist
+
+- [x] ReportPanel + WebView2ReportBrowser + Host bridge
+- [x] Sample HTML pack + FakeReportBrowser unit test
+- [x] Python Host bindings `open_report` / `post_to_report` / `close_report`
+
+---
+
+## §Visual review closed-loop（2026-10-01）
+
+**Status:** active  
+**Updated:** 2026-10-01 (Wave2: browse/ui/legacy checklist seed + real `--review-prep` on `legacy.browse.2d` + `map2d.china`)  
+**Plan:** [`../plans/2026-10-01-harness-visual-review.md`](../plans/2026-10-01-harness-visual-review.md)  
+**Extends:** §Harness suite loop, §UI visual forensics (A+C), §Map browse forensic harness  
+**As-built:** `testing/tools/loop/review/`; `loop_runner --review-prep`; `.cursor/skills/harness-visual-review/SKILL.md`; `docs/build/ui-testing.md` §Visual review.
+
+### Goal
+
+Precipitate the multi-conversation practice that already works for product showcases:
+
+1. **Per-feature capture** — run showcase / suite → BMP under `out/<config>/captures/`.
+2. **Agent identifies all visible bugs** — `Read` an inspect PNG; enumerate numbered bugs (severity + product vs gate gap).
+3. **Human confirms** — no code fix until the user confirms or selects the list.
+4. **Closed-loop fix** — build → re-run → re-read + `score_bmp` → tighten `score_id` when a visual miss was the root cause; split crash verify from visual fix when needed.
+
+This is **agent + human** quality loop on top of existing marks/BMP gates — **not** automatic CV bug discovery and **not** default `build.bat te`.
+
+### Locked decisions
+
+| # | Decision |
+| --- | --- |
+| 1 | Approach **contract + artifacts + Cursor skill** (no heavy auto-bug CV). |
+| 2 | Optional `suite.json` block `visual_review` (`enabled`, `checklist[]`, `expect_notes`). Suites with `bmp` are reviewable by default even without the block. |
+| 3 | After BMP score (or `--review-prep`): write `*.inspect.png` (BMP→PNG for Agent `Read`) + `*_visual_review.json` stub. |
+| 4 | Review JSON `status`: `pending` → `confirmed` → `fixing` → `verified` (agent/human update; runner only creates `pending` + score snapshot). |
+| 5 | CLI: `loop_runner.py --suite <id> --review-prep` runs one round, emits inspect + review stub, does **not** fix. Existing `--bmp` score path stays. |
+| 6 | Implementation under `testing/tools/loop/review/` (`inspect_png.py`, `emit_review.py`); wire from `runner` after bmp probe. |
+| 7 | Skill: `.cursor/skills/harness-visual-review/SKILL.md` — hard gate “no fix before human confirm”; crash vs visual split; strengthen `score_id` after confirmed visual misses. |
+| 8 | **Not** in default `te` / CI hard fail. Optional `probes` entry `visual_review` only writes artifacts. |
+| 9 | Docs: this § + plan; as-built in `docs/build/ui-testing.md`; link from living Active table. |
+| 10 | Wave1 suites: `plugin.stormsurge`, `atmosphere.full`, `map2d.china`, primary `plugin.*` showcases. |
+| 11 | Wave2 suites (explicit checklist): `legacy.browse.2d` / `legacy.browse.3d`, `ui.shell` / `ui.catalog` / `ui.data` / `ui.scene` / `ui.interact` / `ui.interact.os`, `atmosphere.legacy`, `legacy.map2d.china`, `legacy.scene3d.china` (+ `.d3d`), `map2d.orthogrid`. `browse` / `browse.3d` stay marks-only (no bmp → no visual_review). |
+| 12 | Wave2 first real review runs: `legacy.browse.2d` + `map2d.china` (`--review-prep --force-run`; prefer `--no-build`). Confirmed Vision misses tighten `score_id` / `zoom_gate` in the same change set when practical. |
+
+### State machine
+
+```
+run / --review-prep
+  → captures/*.bmp + *.inspect.png + *_visual_review.json (status=pending, score snapshot)
+  → Agent Read(inspect.png) → numbered bug table
+  → Human confirm / select
+  → Agent fix → build.bat debug <target> → re-run suite
+  → re-Read + score_bmp → status=verified; tighten score_id if gate was weak
+```
+
+### Review JSON shape (v1)
+
+```json
+{
+  "suite_id": "plugin.stormsurge",
+  "status": "pending",
+  "bmp": "plugin-showcase-stormsurge.bmp",
+  "inspect_png": "plugin-showcase-stormsurge.inspect.png",
+  "score_id": "plugin_stormsurge",
+  "score": {},
+  "checklist": [],
+  "expect_notes": "",
+  "bugs": []
+}
+```
+
+`bugs[]` entries are filled by the Agent (or human) after confirm — not by the runner.
+
+### Non-goals
+
+- Auto-listing “all bugs” into CI without human confirm.
+- New pixel golden baselines for map/GPU frames.
+- Replacing L1c `ui_forensics` / Mode C analyze.
+- New dated design twin files.
+
+### Checklist
+
+- [x] `loop/review/` inspect PNG + emit review stub; wire runner + `--review-prep`
+- [x] `suite.py` parse optional `visual_review`; seed enabled suites
+- [x] Cursor skill `harness-visual-review`
+- [x] Living as-built note in `docs/build/ui-testing.md`
+- [x] One local `--review-prep` smoke on `plugin.stormsurge` or `map2d.china`
+- [x] Wave2: seed `visual_review` on browse forensic / ui / legacy / orthogrid bmp suites
+- [x] Wave2: `--review-prep --force-run` on `legacy.browse.2d` + `map2d.china` → Agent bug tables → human confirm → fix / tighten gates
+
+---
+
+## §ui/views/map subdirectory nest（2026-10-01）
+
+As-built: `src/ui/views/map/` nests by responsibility — `viewport/` (`MapViewport` + display/paint/shell/flycube + features), `input/` (`viewport_input`, `TouchMultitouch`), `chrome/` (identity HUD, embed fill), `device/` (legacy CreateRenderDevice helpers). **Public include paths stay** `"ui/views/map/map_viewport.h"` and `"ui/views/map/touch_multitouch.h"` via thin root forwards. Namespace remains `ui::views`. Module README: [`../../../src/ui/views/README.md`](../../../src/ui/views/README.md).
 
 ## Folded topics (2026-09-28 merge B)
 

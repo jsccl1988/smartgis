@@ -11,7 +11,7 @@
 #include "legacy/render/rhi3d/public/device/render_device.h"
 #include "legacy/render/rhi3d/public/device/base.h"
 #include "legacy/render/scene3d/index/octree.h"
-#include "legacy/render/scene3d/primitive/northarray.h"
+#include "legacy/render/scene3d/primitive/mesh/northarray.h"
 #include "legacy/render/scene3d/scene/object.h"
 
 using namespace base;
@@ -34,8 +34,8 @@ class LEGACY_RENDER_EXPORT SmtScene {
   inline SmtPerspCamera *GetSceneCamera() { return m_pCamera; }
   inline void SetSceneCamera(SmtPerspCamera *pCamera);
 
-  inline Aabb &GetAabb() { return m_aAbb; }
-  inline void SetAabb(Aabb &aabb) { m_aAbb = aabb; }
+  inline ::base::Aabb &GetAabb() { return m_aAbb; }
+  inline void SetAabb(::base::Aabb &aabb) { m_aAbb = aabb; }
 
  public:
   long Setup(void);
@@ -43,8 +43,9 @@ class LEGACY_RENDER_EXPORT SmtScene {
   long Render(void);
 
  public:
-  long Transform2DTo3D(Vector3 &vOrg, Vector3 &vTar, const lPoint &point);
-  long Transform3DTo2D(const Vector3 &ver3D, lPoint &point);
+  long Transform2DTo3D(::base::Vector3 &vOrg, ::base::Vector3 &vTar,
+                       const lPoint &point);
+  long Transform3DTo2D(const ::base::Vector3 &ver3D, lPoint &point);
 
  public:
   void Add3DObject(Smt3DObject *p3DObject);
@@ -63,9 +64,9 @@ class LEGACY_RENDER_EXPORT SmtScene {
   bool IsShowNodeBox(void) { return m_bShowNodeBox; }
 
  public:
-  long TransModel3DObjects(Matrix &matTransform);
+  long TransModel3DObjects(::base::Matrix &matTransform);
 
-  long TransWorld3DObjects(Matrix &matTransform);
+  long TransWorld3DObjects(::base::Matrix &matTransform);
 
   // ʰȡ
   long Select3DObject(vSmt3DObjectPtrs &vSelected3DObjects, lPoint point);

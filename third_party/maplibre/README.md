@@ -38,8 +38,8 @@ extent 80–128°E / 20–48°N).
 ## Dual align (product + optional Native)
 
 ```bat
-python testing\tools\case\maplibre_align.py
-python testing\tools\case\maplibre_align.py --skip-native
+python testing\tools\harness\_shared\case\align\maplibre_align.py
+python testing\tools\harness\_shared\case\align\maplibre_align.py --skip-native
 ```
 
 Outputs under `out\Debug\maplibre\align\`: `product.bmp`, optional

@@ -86,9 +86,11 @@ bool Scene3dStereoSession::try_attach(HWND hwnd) {
 }
 
 void Scene3dStereoSession::release() {
-  if (view_ && destroy_) {
-    destroy_(view_);
-  }
+  // Snapshot then clear first so re-entrant / double release cannot call a
+  // stale destroy_ after FreeLibrary (AV into remapped heap).
+  void* const view = view_;
+  const DestroyFn destroy = destroy_;
+  const HMODULE module = module_;
   view_ = nullptr;
   host_ = nullptr;
   create_ = nullptr;
@@ -96,10 +98,41 @@ void Scene3dStereoSession::release() {
   resize_ = nullptr;
   present_ = nullptr;
   blit_ = nullptr;
-  if (module_) {
-    FreeLibrary(module_);
-    module_ = nullptr;
+  module_ = nullptr;
+
+  if (view && destroy && module) {
+    // destroy_ must still map inside this module's allocation — VirtualQuery
+    // "executable" alone can pass for remapped pages that are not this DLL.
+    MEMORY_BASIC_INFORMATION mbi = {};
+    if (VirtualQuery(reinterpret_cast<const void*>(destroy), &mbi,
+                     sizeof(mbi)) != 0) {
+      const DWORD prot = mbi.Protect & 0xff;
+      const bool executable =
+          prot == PAGE_EXECUTE || prot == PAGE_EXECUTE_READ ||
+          prot == PAGE_EXECUTE_READWRITE || prot == PAGE_EXECUTE_WRITECOPY;
+      if (executable && mbi.State == MEM_COMMIT &&
+          mbi.AllocationBase == static_cast<void*>(module)) {
+        destroy(view);
+      }
+    }
   }
+  if (module) {
+    FreeLibrary(module);
+  }
+}
+
+void Scene3dStereoSession::abandon() {
+  // Intentionally leak view_ / module_ — FlyCube product path must not call
+  // leftover GL destroy_ when pages may already be remapped (mine/stormsurge
+  // Scene3D tab AV). Matches FlyCube Device* leak in atmosphere showcase.
+  view_ = nullptr;
+  host_ = nullptr;
+  create_ = nullptr;
+  destroy_ = nullptr;
+  resize_ = nullptr;
+  present_ = nullptr;
+  blit_ = nullptr;
+  module_ = nullptr;
 }
 
 void Scene3dStereoSession::resize(int width_px, int height_px) {

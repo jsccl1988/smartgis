@@ -5,6 +5,7 @@
 
 #include <map>
 #include <memory>
+#include <cstdlib>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -14,20 +15,24 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#include <windowsx.h>
+#include <commctrl.h>
 
 #include "content/browser/input/map_hwnd_gestures.h"
 #include "app/views/shell/browser/browser.h"
 #include "app/views/shell/browser/commands/app_commands.h"
 #include "app/views/shell/browser/commands/view_commands.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
+#include "app/views/shell/harness/common/sample.h"
 #include "content/public/map_contents.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "plugin/runtime/host/registry.h"
+#include "plugin/runtime/host/registry/registry.h"
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
 #include "tool/nav/camera_nav.h"
 #include "tool/workspace/workspace.h"
+#include "app/views/shell/ui/panels/report_panel.h"
 #include "ui/gis/catalog/catalog_view.h"
 #include "ui/gis/catalog/layer_tree.h"
 #include "ui/gis/inspect/attribute_table.h"
@@ -39,6 +44,7 @@
 #include "ui/gis/style/legend_panel.h"
 #include "ui/gis/inspect/measure_panel.h"
 #include "ui/gis/analysis/processing_panel.h"
+#include "ui/gis/analysis/result_playback_panel.h"
 #include "ui/gis/inspect/selection_panel.h"
 #include "ui/gis/analysis/spatial_analysis_panel.h"
 #include "ui/gis/shell/ambox_view.h"
@@ -80,7 +86,7 @@ namespace {
 
 // Copy bookmark labels with a hard cap. A corrupted MapSession layout can
 // make bookmarks().size() look huge; vector::reserve then throws length_error
-// and CRT abort() — seen at BrowserView::rebuild_menus during init_chrome.
+// and CRT abort() 闁?seen at BrowserView::rebuild_menus during init_chrome.
 void collect_bookmark_labels(Browser* browser,
                              std::vector<std::string>* labels) {
   if (!browser || !labels) {
@@ -160,6 +166,7 @@ BrowserView::~BrowserView() {
 }
 
 void BrowserView::prepare_chrome_close() {
+  remove_shell_wheel_forward();
   if (map_edit_) {
     map_edit_->detach();
   }
@@ -169,6 +176,61 @@ void BrowserView::prepare_chrome_close() {
   if (map_scene_) {
     map_scene_->detach();
   }
+}
+
+namespace {
+constexpr UINT_PTR kShellWheelSubclassId = 0x57484C45u;  // 'WHLE'
+}  // namespace
+
+void BrowserView::install_shell_wheel_forward() {
+  HWND shell = widget_.hwnd();
+  if (!shell || !IsWindow(shell) || shell_wheel_subclassed_) {
+    return;
+  }
+  if (SetWindowSubclass(shell, shell_wheel_subclass_proc, kShellWheelSubclassId,
+                        reinterpret_cast<DWORD_PTR>(this))) {
+    shell_wheel_subclassed_ = true;
+  }
+}
+
+void BrowserView::remove_shell_wheel_forward() {
+  HWND shell = widget_.hwnd();
+  if (shell_wheel_subclassed_ && shell && IsWindow(shell)) {
+    RemoveWindowSubclass(shell, shell_wheel_subclass_proc,
+                         kShellWheelSubclassId);
+  }
+  shell_wheel_subclassed_ = false;
+}
+
+LRESULT CALLBACK BrowserView::shell_wheel_subclass_proc(HWND hwnd, UINT msg,
+                                                       WPARAM wparam,
+                                                       LPARAM lparam,
+                                                       UINT_PTR id,
+                                                       DWORD_PTR data) {
+  auto* self = reinterpret_cast<BrowserView*>(data);
+  if (self && id == kShellWheelSubclassId &&
+      (msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL)) {
+    // FlyCube present uses SW_SHOWNOACTIVATE; focus stays on chrome so wheel
+    // arrives here. Forward when the cursor is over Map / Data / 3D input.
+    const POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+    for (ui::views::MapViewport* pane :
+         {self->map_edit_, self->map_data_, self->map_scene_}) {
+      if (!pane) {
+        continue;
+      }
+      HWND map = pane->input_hwnd();
+      if (!map || !IsWindow(map) || !IsWindowVisible(map)) {
+        continue;
+      }
+      RECT rc = {};
+      GetWindowRect(map, &rc);
+      if (PtInRect(&rc, pt)) {
+        SendMessageW(map, msg, wparam, lparam);
+        return 0;
+      }
+    }
+  }
+  return DefSubclassProc(hwnd, msg, wparam, lparam);
 }
 
 bool BrowserView::init_chrome() {
@@ -190,9 +252,16 @@ bool BrowserView::init_chrome() {
   });
   widget_.set_on_shell_published(
       [this](const ui::views::Rect& dirty) { commit_widget_shell_to_maps(dirty); });
+  install_shell_wheel_forward();
 
   build_contents();
   browser_->document()->seed_default();
+  // Zero-argv product path: seed_default only opens china when
+  // try_bootstrap_china_plp finds a file. Mirror showcase via the shared
+  // sample opener so fit_map_extent can apply China carto (has_china_extent).
+  if (browser_->document() && !browser_->document()->has_china_extent()) {
+    (void)detail::try_open_china_sample(*browser_, /*write_stub_if_missing=*/false);
+  }
   browser_->map2d()->bind(browser_->document(), browser_->view_frame());
   browser_->scene3d()->bind_orbit(browser_->orbit_frame());
   browser_->scene3d()->bind_label_frame(browser_->view_frame());
@@ -216,15 +285,58 @@ bool BrowserView::init_chrome() {
   // Re-fit after HWND sizes settle (layout may change client rect post-attach).
   browser_->fit_map_extent();
   browser_->push_shared_extent();
-  // China 3D atmosphere is seeded on first switch to the 3D tab (see
-  // switch_map_tab) so init_chrome does not pay DEM/atmosphere cost before
+  // China 3D atmosphere (same defaults as --atmosphere-showcase=full) is
+  // seeded on first switch to the 3D tab — see apply_china_scene3d_* in
+  // switch_map_tab — so init_chrome does not pay DEM/atmosphere cost before
   // the Map pane is interactive.
+  sync_inspectors_from_scene();
   sync_status();
   return true;
 }
 
 void BrowserView::show_chrome() {
   widget_.show();
+  // ShowWindow may present an empty compositor front (async raster). Re-layout
+  // and schedule shell paint only — do not call invalidate_map_overlays() here:
+  // that syncs paint_map_content while ContentMapView / Map2dPresenter are
+  // still settling and has AVd in Map2dSoftwarePainter (STL orphan) under
+  // --self-test. Kick the active map HWND asynchronously (InvalidateRect,
+  // no UpdateWindow).
+  widget_.layout_contents();
+  widget_.schedule_paint();
+  if (HWND shell = widget_.hwnd()) {
+    if (IsWindow(shell)) {
+      InvalidateRect(shell, nullptr, FALSE);
+    }
+  }
+  if (ui::views::MapViewport* pane = active_map()) {
+    pane->sync_native_bounds();
+    // Init may have finished while the shell was still hidden; lift the DXGI
+    // popup now that chrome is shown (inactive tabs stay hidden below).
+    pane->set_flycube_present_visible(true);
+    // Present may have been revealed after the first gesture attach (embed
+    // only). Rebind to input_hwnd() so pan/pinch/right-click hit the DXGI
+    // surface under plain (no-arg) launch.
+    attach_hwnd_gestures();
+    // Cold-start: display thread may have presented an empty clear before the
+    // final client size / china carto settled. Force a full Map2d rebuild so
+    // the first visible frame is not ocean-only (Fps0 hollow capture).
+    if (browser_->map2d()) {
+      browser_->map2d()->invalidate_frame_cache();
+    }
+    pane->invalidate_native();
+    if (HWND map = pane->native_view()) {
+      if (IsWindow(map)) {
+        InvalidateRect(map, nullptr, FALSE);
+      }
+    }
+  }
+  if (map_data_ && map_data_ != active_map()) {
+    map_data_->set_flycube_present_visible(false);
+  }
+  if (map_scene_ && map_scene_ != active_map()) {
+    map_scene_->set_flycube_present_visible(false);
+  }
 }
 
 int BrowserView::run_chrome_loop() {
@@ -249,12 +361,12 @@ void BrowserView::build_contents() {
       ui::views::BoxLayout::Orientation::kVertical);
 
   auto menu = std::make_unique<ui::views::MenuBar>();
-  menu->set_preferred_size({0, 28});
+  // Height comes from MenuBar DIP metrics × Widget DPI (do not hardcode px).
   menu_bar_ = menu.get();
   rebuild_menus();
 
   auto catalog = std::make_unique<ui::views::CatalogView>();
-  catalog->set_preferred_size({240, 0});
+  catalog->set_preferred_size({288, 0});
   catalog->set_title("Catalog");
   catalog_ = catalog.get();
   wire_catalog();
@@ -319,6 +431,11 @@ void BrowserView::build_contents() {
   atmosphere_panel_ = atmosphere_panel.get();
   auto processing_panel = std::make_unique<ui::views::ProcessingPanel>();
   processing_panel_ = processing_panel.get();
+  auto result_playback_panel =
+      std::make_unique<ui::views::ResultPlaybackPanel>();
+  result_playback_panel_ = result_playback_panel.get();
+  auto report_panel = std::make_unique<ReportPanel>();
+  report_panel_ = report_panel.get();
 
   auto inspector = std::make_unique<ui::views::TabStrip>();
   inspector->set_preferred_size({0, 220});
@@ -333,10 +450,14 @@ void BrowserView::build_contents() {
       inspector->add_tab("Analysis", std::move(spatial_analysis_panel));
   processing_tab_ =
       inspector->add_tab("Processing", std::move(processing_panel));
+  inspector->add_tab("Playback", std::move(result_playback_panel));
+  report_tab_ = inspector->add_tab("Report", std::move(report_panel));
   inspector->add_tab("Atmosphere", std::move(atmosphere_panel));
   inspector_tabs_ = inspector.get();
   wire_atmosphere_panel();
   wire_processing_panel();
+  wire_result_playback_panel();
+  wire_report_panel();
   wire_measure_panel();
   wire_selection_panel();
   wire_layer_properties_panel();
@@ -363,7 +484,7 @@ void BrowserView::build_contents() {
   main_split->add_child(std::move(diagnostic_tools));
 
   auto status = std::make_unique<ui::views::StatusBar>();
-  status->set_preferred_size({0, 24});
+  // Height comes from StatusBar DIP metrics × Widget DPI.
   status_bar_ = status.get();
 
   root_box->set_flex_for_view(main_split.get(), 1);
@@ -428,7 +549,19 @@ void BrowserView::sync_catalog_from_scene() {
   for (const content::LayerDesc& d : browser_->document()->layer_descs()) {
     ui::views::LayerTree::LayerDesc row;
     row.id = d.id;
-    row.name = d.name;
+    // china_city PLPT stems are short (area/line/point/text); show product
+    // labels so the Layers panel stays legible on dark chrome.
+    if (d.name == "area") {
+      row.name = "Land";
+    } else if (d.name == "line") {
+      row.name = "Lines";
+    } else if (d.name == "point") {
+      row.name = "Points";
+    } else if (d.name == "text") {
+      row.name = "Labels";
+    } else {
+      row.name = d.name;
+    }
     row.visible = d.visible;
     row.active = d.active;
     layers.push_back(std::move(row));
@@ -584,6 +717,19 @@ void BrowserView::populate_ambox() {
   if (!ambox_) {
     return;
   }
+  // Soft-skip catalog walk when parallel rebuilds leave CommandCatalog maps
+  // unreadable (AV in tool::CommandCatalog::for_each). FPS bench and map2d /
+  // plugin showcases set these env gates from BrowserMain.
+  if (const char* bench = std::getenv("SMT_MAP2D_FPS_BENCH_MS")) {
+    if (bench[0] != '\0' && std::atoi(bench) > 0) {
+      return;
+    }
+  }
+  if (const char* skip = std::getenv("SMT_SKIP_AMBOX_CATALOG")) {
+    if (skip[0] == '1' && skip[1] == '\0') {
+      return;
+    }
+  }
   std::vector<tool::CommandCatalog*> catalogs;
   if (browser_->edit_host() && browser_->edit_host()->workspace()) {
     catalogs.push_back(&browser_->edit_host()->workspace()->catalog());
@@ -594,7 +740,8 @@ void BrowserView::populate_ambox() {
     }
   }
   std::vector<ui::views::AmboxView::Group> plugin_groups;
-  if (browser_->plugins()) {
+  if (browser_->plugins() && browser_->plugins()->registry() &&
+      browser_->plugins()->host()) {
     plugin_groups = enabled_plugin_groups(browser_->plugins()->registry(),
                                           browser_->plugins()->host());
   }
@@ -617,6 +764,7 @@ void BrowserView::on_exit() {
 
 void BrowserView::on_plugins() {
   if (browser_->plugins()) {
+    (void)browser_->plugins()->ensure_builtins();
     browser_->plugins()->show_manager(widget_.hwnd());
     populate_ambox();
   }

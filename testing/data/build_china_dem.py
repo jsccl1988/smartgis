@@ -13,7 +13,7 @@ GCJ-02), so rivers/roads/DEM share one land mask.
 
 Pipeline:
   1) Download WebMercator tiles covering China bbox (cached under
-     out/china_dem_src/).
+     out/data/cache/china_dem_src/).
   2) gdalbuildvrt + gdalwarp → EPSG:4326 Float32 grid.
   3) Optional national outline cutline so ocean = NoData/0 (matches 2D map).
 
@@ -44,7 +44,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_OUT = Path(__file__).resolve().parent / "china_dem.tif"
-CACHE = REPO / "out" / "china_dem_src"
+CACHE = REPO / "out" / "data" / "cache" / "china_dem_src"
 # Match build_china_city.CHINA_BBOX / content::kChinaLonLatExtent.
 CHINA_BBOX = (73.0, 18.0, 135.0, 54.0)  # minx, miny, maxx, maxy
 TILE_URL = "https://s3.amazonaws.com/elevation-tiles-prod/geotiff/{z}/{x}/{y}.tif"
@@ -280,7 +280,7 @@ def build_real(out: Path, zoom: int, cols: int, rows: int,
         # Do not use Aliyun DataV china_full.json (GCJ-02) — misaligns DEM.
         outline_candidates = [
             Path(__file__).resolve().parent / "_china_ne_outline.geojson",
-            REPO / "out" / "china_city_src" / "china_outline.geojson",
+            REPO / "out" / "data" / "cache" / "china_city_src" / "china_outline.geojson",
             CACHE / "china_outline.geojson",
         ]
         cutline = CACHE / "china_outline_cut.geojson"

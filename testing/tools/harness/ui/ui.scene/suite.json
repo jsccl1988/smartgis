@@ -1,0 +1,37 @@
+{
+  "id": "ui.scene",
+  "kind": "showcase",
+  "argv": [
+    "--ui-showcase",
+    "scene"
+  ],
+  "env": {
+    "SMT_UI_SHOWCASE_LINGER_MS": "0",
+    "SMT_UI_FORENSICS": "1",
+    "SMT_UI_THEME": "dark"
+  },
+  "bmp": {
+    "path": "ui-showcase-scene.bmp",
+    "score_id": "ui_shell_dark"
+  },
+  "report_name": "ui_scene_loop_report.json",
+  "probes": [
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 4,
+    "timeout_sec": 140,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "scene_page_chrome_readable",
+      "viewport_host_not_collapsed",
+      "no_sibling_overlap",
+      "dark_theme_consistent"
+    ],
+    "expect_notes": "3D page shell chrome; do not golden GPU scene pixels"
+  }
+}

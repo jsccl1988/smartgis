@@ -4,6 +4,7 @@
 #include "content/browser/document/ingest/ogr_ingest.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstddef>
 #include <cstring>
 #include <functional>
@@ -15,6 +16,7 @@
 #include "gdal_priv.h"
 #include "gis/datasource/provider/impl/ogr/text/ogr_text_encoding.h"
 #include "gis/datasource/pipeline/feature_load_pipeline.h"
+#include "gis/vista/world/terrain/process/land_mask.h"
 #include "ogrsf_frmts.h"
 
 namespace content {
@@ -32,7 +34,8 @@ void append_ring(OGRLineString* ring, std::vector<Vertex>* out) {
     return;
   }
   // Cap ring density so GDI Polygon / paint stays bounded on prefecture packs.
-  constexpr int kMaxRingPoints = 2048;
+  // Prefer denser coasts/islands at china overview (was 2048 → blocky Taiwan).
+  constexpr int kMaxRingPoints = 4096;
   int step = 1;
   if (n > kMaxRingPoints) {
     step = n / kMaxRingPoints;
@@ -49,30 +52,31 @@ void append_ring(OGRLineString* ring, std::vector<Vertex>* out) {
   }
 }
 
-// Keep the longest contiguous run inside leftover mainland lon/lat
-// (map space = lon / -lat). Applies only to china_city "line" layers so
-// Natural Earth river stubs past provincial land are dropped without
-// affecting arbitrary non-China line datasets.
-void clip_china_city_line_to_mainland(std::vector<Vertex>* pts,
-                                      const char* ogr_layer_name) {
-  if (!pts || pts->size() < 2 || !ogr_layer_name) {
-    return;
-  }
-  if (std::strcmp(ogr_layer_name, "line") != 0) {
+// Keep contiguous runs inside a China lon/lat bbox (map space = lon / -lat).
+// Foreign Natural Earth stems that only graze the box are dropped. When a
+// mainland river briefly exits the box (lake / mouth), bridge runs by copying
+// the original outside vertices — never invent a straight chord between runs
+// (that drew diagonal blue artifacts across the china showcase).
+void clip_line_to_bbox_run(std::vector<Vertex>* pts) {
+  if (!pts || pts->size() < 2) {
     return;
   }
   constexpr double kMinLon = 73.0;
   constexpr double kMaxLon = 135.0;
-  // Stored Y is -lat  - mainland lat 18..54 becomes Y -54..-18.
+  // Stored Y is -lat — mainland lat 18..54 becomes Y -54..-18.
   constexpr double kMinY = -54.0;
   constexpr double kMaxY = -18.0;
   auto inside = [&](const Vertex& p) {
     return p.x >= kMinLon && p.x <= kMaxLon && p.y >= kMinY && p.y <= kMaxY;
   };
-  size_t best_begin = 0;
-  size_t best_len = 0;
+  struct Run {
+    size_t begin = 0;
+    size_t len = 0;
+  };
+  std::vector<Run> runs;
   size_t i = 0;
   const size_t n = pts->size();
+  size_t inside_total = 0;
   while (i < n) {
     while (i < n && !inside((*pts)[i])) {
       ++i;
@@ -82,23 +86,275 @@ void clip_china_city_line_to_mainland(std::vector<Vertex>* pts,
       ++i;
     }
     const size_t len = i - begin;
-    if (len > best_len) {
-      best_len = len;
-      best_begin = begin;
+    if (len >= 2) {
+      runs.push_back({begin, len});
+      inside_total += len;
     }
   }
-  if (best_len < 2) {
-    // Foreign-only stub on the china_city line layer  - drop it.
+  if (runs.empty()) {
     pts->clear();
     return;
   }
-  if (best_len == n) {
+  // Drop lines that only graze the mainland box (NE river stubs that briefly
+  // enter then scribble across ocean). Require ≥25% of samples inside.
+  if (inside_total * 4 < n) {
+    pts->clear();
     return;
   }
-  std::vector<Vertex> kept(
-      pts->begin() + static_cast<std::ptrdiff_t>(best_begin),
-      pts->begin() + static_cast<std::ptrdiff_t>(best_begin + best_len));
-  *pts = std::move(kept);
+  if (runs.size() == 1 && runs[0].len == n) {
+    return;
+  }
+
+  auto run_end = [](const Run& run) { return run.begin + run.len; };
+
+  // Chain nearby in-bbox runs without copying outside gap vertices (those
+  // became fake land diagonals). Prefer a single longest run when the gap
+  // span is large — micro-bridges only for near mouth stubs.
+  constexpr size_t kMaxBridgeVerts = 8;
+  constexpr double kMaxBridgeDeg = 0.06;
+
+  auto can_bridge = [&](const Run& a, const Run& b) {
+    if (b.begin < run_end(a)) {
+      return false;
+    }
+    const size_t gap = b.begin - run_end(a);
+    if (gap > kMaxBridgeVerts) {
+      return false;
+    }
+    const Vertex& pa = (*pts)[run_end(a) - 1];
+    const Vertex& pb = (*pts)[b.begin];
+    const double dx = pb.x - pa.x;
+    const double dy = pb.y - pa.y;
+    return dx * dx + dy * dy <= kMaxBridgeDeg * kMaxBridgeDeg;
+  };
+
+  size_t best_begin = 0;
+  size_t best_end = 1;
+  size_t best_score = runs[0].len;
+  for (size_t start = 0; start < runs.size(); ++start) {
+    size_t score = runs[start].len;
+    size_t end = start + 1;
+    while (end < runs.size() && can_bridge(runs[end - 1], runs[end])) {
+      score += runs[end].len;
+      ++end;
+    }
+    if (score > best_score) {
+      best_score = score;
+      best_begin = start;
+      best_end = end;
+    }
+  }
+
+  std::vector<Vertex> kept;
+  kept.reserve(best_score);
+  for (size_t r = best_begin; r < best_end; ++r) {
+    kept.insert(kept.end(),
+                pts->begin() + static_cast<std::ptrdiff_t>(runs[r].begin),
+                pts->begin() +
+                    static_cast<std::ptrdiff_t>(run_end(runs[r])));
+  }
+  // Drop remaining long edges (sparse NE / simplified stems) by keeping the
+  // longest short-edge contiguous span — do not clear mid-pass.
+  constexpr double kMaxEdgeDeg = 1.25;
+  size_t seg_begin = 0;
+  size_t best_seg_begin = 0;
+  size_t best_seg_len = 0;
+  auto flush_seg = [&](size_t end) {
+    const size_t len = end - seg_begin;
+    if (len > best_seg_len) {
+      best_seg_len = len;
+      best_seg_begin = seg_begin;
+    }
+  };
+  for (size_t i = 1; i < kept.size(); ++i) {
+    const double dx = kept[i].x - kept[i - 1].x;
+    const double dy = kept[i].y - kept[i - 1].y;
+    if (dx * dx + dy * dy > kMaxEdgeDeg * kMaxEdgeDeg) {
+      flush_seg(i);
+      seg_begin = i;
+    }
+  }
+  flush_seg(kept.size());
+  if (best_seg_len >= 2) {
+    pts->assign(kept.begin() + static_cast<std::ptrdiff_t>(best_seg_begin),
+                kept.begin() +
+                    static_cast<std::ptrdiff_t>(best_seg_begin + best_seg_len));
+  } else if (kept.size() >= 2) {
+    *pts = std::move(kept);
+  } else {
+    pts->clear();
+  }
+}
+
+void clip_china_city_line_to_mainland(std::vector<Vertex>* pts,
+                                      const char* ogr_layer_name) {
+  if (!pts || pts->size() < 2 || !ogr_layer_name) {
+    return;
+  }
+  if (std::strcmp(ogr_layer_name, "line") != 0) {
+    return;
+  }
+  clip_line_to_bbox_run(pts);
+}
+
+bool path_looks_like_china_city(const std::string& path) {
+  std::string stem = path_stem(path);
+  for (char& c : stem) {
+    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  }
+  return stem.find("china_city") != std::string::npos;
+}
+
+// Drop china_city river/road stubs that sit in the lon/lat bbox but outside
+// admin land polygons (the bbox includes Bohai / ECS / SCS so bbox-only clip
+// still paints blue scribble over "ocean" background).
+void clip_china_city_lines_to_land_polygons(LayerStore* store) {
+  if (!store) {
+    return;
+  }
+  std::vector<gis::LonLatRing> rings;
+  for (const MapLayer& layer : store->layers()) {
+    for (const MapFeature& f : layer.features) {
+      if (f.kind != GeomKind::kPolygon || f.points.size() < 3) {
+        continue;
+      }
+      gis::LonLatRing ring;
+      ring.x.reserve(f.points.size());
+      ring.y.reserve(f.points.size());
+      for (const Vertex& p : f.points) {
+        ring.x.push_back(p.x);
+        // Map space stores -lat; land_mask even-odd is axis-agnostic.
+        ring.y.push_back(p.y);
+      }
+      ring.prepare_bbox();
+      rings.push_back(std::move(ring));
+    }
+  }
+  if (rings.empty()) {
+    return;
+  }
+  auto point_on_land = [&](const Vertex& p) {
+    return gis::any_ring_contains(p.x, p.y, rings);
+  };
+  for (MapLayer& layer : store->layers()) {
+    auto& feats = layer.features;
+    feats.erase(
+        std::remove_if(
+            feats.begin(), feats.end(),
+            [&](MapFeature& f) {
+              if (f.kind != GeomKind::kLine || f.points.size() < 2) {
+                return false;
+              }
+              // Keep on-land runs; drop ocean-only stubs. Require ≥25% of
+              // samples on land (bbox-only still paints blue over Bohai/ECS).
+              // Chain nearby runs so lake/mouth gaps do not chop Yangtze stems.
+              struct Run {
+                size_t begin = 0;
+                size_t len = 0;
+              };
+              std::vector<Run> runs;
+              size_t i = 0;
+              const size_t n = f.points.size();
+              size_t on_land_total = 0;
+              while (i < n) {
+                while (i < n && !point_on_land(f.points[i])) {
+                  ++i;
+                }
+                const size_t begin = i;
+                while (i < n && point_on_land(f.points[i])) {
+                  ++i;
+                }
+                const size_t len = i - begin;
+                if (len >= 2) {
+                  runs.push_back({begin, len});
+                  on_land_total += len;
+                }
+              }
+              if (runs.empty()) {
+                return true;
+              }
+              if (on_land_total * 4 < n) {
+                return true;
+              }
+              auto run_end = [](const Run& run) { return run.begin + run.len; };
+              constexpr size_t kMaxBridgeVerts = 8;
+              constexpr double kMaxBridgeDeg = 0.06;
+              auto can_bridge = [&](const Run& a, const Run& b) {
+                if (b.begin < run_end(a)) {
+                  return false;
+                }
+                const size_t gap = b.begin - run_end(a);
+                if (gap > kMaxBridgeVerts) {
+                  return false;
+                }
+                const Vertex& pa = f.points[run_end(a) - 1];
+                const Vertex& pb = f.points[b.begin];
+                const double dx = pb.x - pa.x;
+                const double dy = pb.y - pa.y;
+                return dx * dx + dy * dy <= kMaxBridgeDeg * kMaxBridgeDeg;
+              };
+              size_t best_begin = 0;
+              size_t best_end = 1;
+              size_t best_score = runs[0].len;
+              for (size_t start = 0; start < runs.size(); ++start) {
+                size_t score = runs[start].len;
+                size_t end = start + 1;
+                while (end < runs.size() &&
+                       can_bridge(runs[end - 1], runs[end])) {
+                  score += runs[end].len;
+                  ++end;
+                }
+                if (score > best_score) {
+                  best_score = score;
+                  best_begin = start;
+                  best_end = end;
+                }
+              }
+              std::vector<Vertex> kept;
+              kept.reserve(best_score);
+              for (size_t r = best_begin; r < best_end; ++r) {
+                kept.insert(
+                    kept.end(),
+                    f.points.begin() +
+                        static_cast<std::ptrdiff_t>(runs[r].begin),
+                    f.points.begin() +
+                        static_cast<std::ptrdiff_t>(run_end(runs[r])));
+              }
+              constexpr double kMaxEdgeDeg = 1.25;
+              size_t seg_begin = 0;
+              size_t best_seg_begin = 0;
+              size_t best_seg_len = 0;
+              auto flush_seg = [&](size_t end) {
+                const size_t len = end - seg_begin;
+                if (len > best_seg_len) {
+                  best_seg_len = len;
+                  best_seg_begin = seg_begin;
+                }
+              };
+              for (size_t i = 1; i < kept.size(); ++i) {
+                const double dx = kept[i].x - kept[i - 1].x;
+                const double dy = kept[i].y - kept[i - 1].y;
+                if (dx * dx + dy * dy > kMaxEdgeDeg * kMaxEdgeDeg) {
+                  flush_seg(i);
+                  seg_begin = i;
+                }
+              }
+              flush_seg(kept.size());
+              if (best_seg_len >= 2) {
+                f.points.assign(
+                    kept.begin() +
+                        static_cast<std::ptrdiff_t>(best_seg_begin),
+                    kept.begin() + static_cast<std::ptrdiff_t>(
+                                       best_seg_begin + best_seg_len));
+              } else if (kept.size() >= 2) {
+                f.points = std::move(kept);
+              } else {
+                return true;
+              }
+              return false;
+            }),
+        feats.end());
+  }
 }
 
 bool kind_is_text(const char* kind) {
@@ -508,6 +764,9 @@ bool ingest_ogr_path(LayerStore* store, const std::string& path) {
   store->replace_layers(std::move(loaded));
   if (store->layers().size() == 1) {
     split_layers_by_kind_field(store);
+  }
+  if (path_looks_like_china_city(path)) {
+    clip_china_city_lines_to_land_polygons(store);
   }
   return true;
 }

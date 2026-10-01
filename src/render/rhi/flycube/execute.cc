@@ -42,10 +42,15 @@ void FlycubeDevice::replay_draws(::CommandList* fc_list, const Pass& segment,
     }
   }
   if ((ok > 0 || skip > 0) && pass_has_depth) {
-    LOGGING(LOG_INFO,
-            "rhi.flycube replay_draws ok=%u skip=%u pass_depth=1 draws=%zu "
-            "size=%ux%u",
-            ok, skip, segment.draws.size(), width_, height_);
+    // Once per process: per-frame INFO flooded stderr and cost measurable FPS.
+    static bool logged_once = false;
+    if (!logged_once) {
+      logged_once = true;
+      LOGGING(LOG_INFO,
+              "rhi.flycube replay_draws ok=%u skip=%u pass_depth=1 draws=%zu "
+              "size=%ux%u (further frames silent)",
+              ok, skip, segment.draws.size(), width_, height_);
+    }
   }
   if (skip > 0 && !pass_has_depth) {
     LOGGING(LOG_WARNING,

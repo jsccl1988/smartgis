@@ -108,7 +108,8 @@ All rights reserved.
 - [x] Phase 3.1：风场可视化（矢量箭头 CPU/GPU **或** `PipelineId` 粒子）— Views：`Scene3dController` GDI 箭头叠图（粒子 Deferred）  
 - [x] Phase 3.2：Views 最小时间轴 + ocean/cloud/wind 开关（AtmospherePanel + BrowserView 接线）  
 - [x] Phase 3.3：（可选）Sky / aerial LUT — **最小 analytical SkyPass + FogPass 已落地**（`kSolid`）；完整 LUT / `kSky` HLSL 仍 Deferred（见 `2026-09-27-sky-fog-terrain-lod.md`）  
-- [ ] Phase 3.4：总验收对照 §1.2 五条  
+- [ ] Phase 3.4：总验收对照 §1.2 五条 — **map3d-gap-pin P1-B**；真源 [`../../build/industry-gap-matrix.md`](../../build/industry-gap-matrix.md) §3.2.1  
+
 
 ---
 

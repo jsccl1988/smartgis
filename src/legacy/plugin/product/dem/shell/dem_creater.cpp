@@ -1,3 +1,5 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 
 #include "stdafx.h"
 #include "legacy/plugin/product/dem/shell/dem_creater.h"
@@ -8,22 +10,15 @@
 #define new DEBUG_NEW
 #endif
 
-//		extern "C" BOOL PASCAL EXPORT ExportedFunction()
-//		{
-//			AFX_MANAGE_STATE(AfxGetStaticModuleState());
-//		}
-
-// CSmtAMDemCreaterApp
-
 BEGIN_MESSAGE_MAP(CSmtAMDemCreaterApp, CWinApp)
 END_MESSAGE_MAP()
 
-CSmtAMDemCreaterApp::CSmtAMDemCreaterApp() { bind_plugin_dll_resources(this); }
+CSmtAMDemCreaterApp::CSmtAMDemCreaterApp() = default;
 
 CSmtAMDemCreaterApp theApp;
 
 BOOL CSmtAMDemCreaterApp::InitInstance() {
   CWinApp::InitInstance();
-
+  bind_plugin_dll_resources(this);
   return TRUE;
 }

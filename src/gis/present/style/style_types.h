@@ -14,8 +14,8 @@
 namespace gis {
 namespace style {
 
-// MapLibre-inspired layer type (v1+ subset; extrusion/heatmap/hillshade are
-// parse placeholders — no render path yet).
+// MapLibre-inspired layer type (v1+ subset). Hillshade / fill-extrusion /
+// heatmap have Style paint + layout emit; GPU density / full expressions later.
 enum class LayerType {
   kUnknown = 0,
   kFill,
@@ -117,6 +117,24 @@ struct ResolvedPaint {
   uint32_t background_color = 0xFF000000;
   float background_opacity = 1.f;
   float raster_opacity = 1.f;
+  // Hillshade paint (Style Spec key names; owned evaluation).
+  float hillshade_illumination_direction = 335.f;
+  float hillshade_exaggeration = 0.5f;
+  uint32_t hillshade_shadow_color = 0xFF000000u;
+  uint32_t hillshade_highlight_color = 0xFFFFFFFFu;
+  uint32_t hillshade_accent_color = 0xFF000000u;
+  // Fill-extrusion paint (Style Spec key names; constants only in v1).
+  float fill_extrusion_height = 0.f;
+  float fill_extrusion_base = 0.f;
+  uint32_t fill_extrusion_color = 0xFFAAAAAAu;
+  float fill_extrusion_opacity = 1.f;
+  // Heatmap paint (Style Spec key names; constants only in v1 — no weight
+  // property expressions / color ramps yet).
+  float heatmap_radius = 30.f;
+  float heatmap_weight = 1.f;
+  float heatmap_intensity = 1.f;
+  uint32_t heatmap_color = 0xFFFF6400u;
+  float heatmap_opacity = 1.f;
   SymbolEntry symbol;
   bool has_symbol = false;
 };

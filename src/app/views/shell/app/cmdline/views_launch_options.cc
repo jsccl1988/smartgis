@@ -36,6 +36,9 @@ AtmosphereShowcaseMode showcase_from_string(const std::string& value) {
   if (value == "coast") {
     return AtmosphereShowcaseMode::kCoast;
   }
+  if (value == "legacy" || value == "stereo") {
+    return AtmosphereShowcaseMode::kLegacy;
+  }
   return AtmosphereShowcaseMode::kNone;
 }
 
@@ -50,6 +53,37 @@ Map2dShowcaseMode map2d_showcase_from_string(const std::string& value) {
     return Map2dShowcaseMode::kOrthogrid;
   }
   return Map2dShowcaseMode::kNone;
+}
+
+PluginShowcaseMode plugin_showcase_from_string(const std::string& value) {
+  if (value == "world3d" || value == "dem") {
+    return PluginShowcaseMode::kWorld3d;
+  }
+  if (value == "print") {
+    return PluginShowcaseMode::kPrint;
+  }
+  if (value == "orthogrid" || value == "baogrid") {
+    return PluginShowcaseMode::kOrthogrid;
+  }
+  if (value == "orthogrid3d" || value == "hexgrid") {
+    return PluginShowcaseMode::kOrthogrid3d;
+  }
+  if (value == "traffic") {
+    return PluginShowcaseMode::kTraffic;
+  }
+  if (value == "flood") {
+    return PluginShowcaseMode::kFlood;
+  }
+  if (value == "stormsurge") {
+    return PluginShowcaseMode::kStormSurge;
+  }
+  if (value == "mine") {
+    return PluginShowcaseMode::kMine;
+  }
+  if (value == "geochem") {
+    return PluginShowcaseMode::kGeochem;
+  }
+  return PluginShowcaseMode::kNone;
 }
 
 UiShowcaseMode ui_showcase_from_string(const std::string& value) {
@@ -83,6 +117,8 @@ const char* atmosphere_showcase_name(AtmosphereShowcaseMode mode) {
       return "full";
     case AtmosphereShowcaseMode::kCoast:
       return "coast";
+    case AtmosphereShowcaseMode::kLegacy:
+      return "legacy";
     case AtmosphereShowcaseMode::kNone:
     default:
       return "none";
@@ -98,6 +134,32 @@ const char* map2d_showcase_name(Map2dShowcaseMode mode) {
     case Map2dShowcaseMode::kOrthogrid:
       return "orthogrid";
     case Map2dShowcaseMode::kNone:
+    default:
+      return "none";
+  }
+}
+
+const char* plugin_showcase_name(PluginShowcaseMode mode) {
+  switch (mode) {
+    case PluginShowcaseMode::kWorld3d:
+      return "world3d";
+    case PluginShowcaseMode::kPrint:
+      return "print";
+    case PluginShowcaseMode::kOrthogrid:
+      return "orthogrid";
+    case PluginShowcaseMode::kOrthogrid3d:
+      return "orthogrid3d";
+    case PluginShowcaseMode::kTraffic:
+      return "traffic";
+    case PluginShowcaseMode::kFlood:
+      return "flood";
+    case PluginShowcaseMode::kStormSurge:
+      return "stormsurge";
+    case PluginShowcaseMode::kMine:
+      return "mine";
+    case PluginShowcaseMode::kGeochem:
+      return "geochem";
+    case PluginShowcaseMode::kNone:
     default:
       return "none";
   }
@@ -129,6 +191,7 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
   std::string type = "browser";
   std::string showcase;
   std::string map2d_showcase;
+  std::string plugin_showcase;
   std::string ui_showcase;
   app.add_option("--type", type, "Process role: browser|renderer|gpu|utility")
       ->capture_default_str();
@@ -137,18 +200,24 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
                "Run DebugAgent console self-test + console_bench.json");
   app.add_flag("--input-showcase", out.input_showcase,
                "Lean digitize FeatureGeom gate (input_loop)");
+  app.add_flag("--browse-showcase", out.browse_showcase,
+               "Lean pan/browse/wheel gate (browse_loop)");
   app.add_flag("--debug-console", out.debug_console,
                "Start Debug Agent + allow Debug Console");
   app.add_option("--atmosphere-showcase", showcase,
-                 "Atmosphere demo: land|ocean|full|coast");
+                 "Atmosphere demo: land|ocean|full|coast|legacy");
   app.add_option("--map2d-showcase", map2d_showcase,
                  "2D map demo: china|align|orthogrid");
+  app.add_option("--plugin-showcase", plugin_showcase,
+                 "Product plugin sample+viz: world3d|print|orthogrid|orthogrid3d|traffic|flood|stormsurge|mine");
   app.add_option("--ui-showcase", ui_showcase,
                  "UI chrome demo: shell|data|scene|catalog|interact");
   app.add_option("--atmosphere-fields", out.atmosphere_fields,
                  "Field ingest spec path[:channel[:time]][,...]");
   app.add_option("--shell-canvas", out.shell_canvas,
                  "Shell canvas backend: gdi|skia");
+  app.add_option("--plugins-dir", out.plugins_dir,
+                 "Product plugin resource root (default: <exe>/../plugins)");
 
   try {
     if (argv && argc > 0) {
@@ -167,6 +236,9 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
   }
   if (!map2d_showcase.empty()) {
     out.map2d_showcase = map2d_showcase_from_string(map2d_showcase);
+  }
+  if (!plugin_showcase.empty()) {
+    out.plugin_showcase = plugin_showcase_from_string(plugin_showcase);
   }
   if (!ui_showcase.empty()) {
     out.ui_showcase = ui_showcase_from_string(ui_showcase);

@@ -1,0 +1,31 @@
+{
+  "id": "ui.interact.smoke",
+  "kind": "showcase",
+  "argv": [
+    "--ui-showcase",
+    "interact"
+  ],
+  "driver": "inproc",
+  "script": "ui.interact.smoke.il",
+  "env": {
+    "SMT_UI_SHOWCASE_LINGER_MS": "0",
+    "SMT_UI_THEME": "dark"
+  },
+  "mark_leaf": "ui-showcase-mark.txt",
+  "required_marks": [
+    "dsl-load-ok",
+    "interact-smoke-ok",
+    "dsl-done",
+    "pass"
+  ],
+  "report_name": "ui_interact_smoke_loop_report.json",
+  "probes": [
+    "marks"
+  ],
+  "loop": {
+    "rounds": 2,
+    "timeout_sec": 120,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  }
+}

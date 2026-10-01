@@ -4,26 +4,15 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-# Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
+# Compiled into //src/legacy/render:legacy_render_gl (dll_stem = legacy_render_gl).
 # OpenGL leftover impl under rhi3d/impl/gl/ (parallel to impl/d3d/).
 # Layout: host/resource/paint/caps/ext. File basenames drop the gl_ prefix
 # (types/SmtGL* unchanged). Former label: //src/legacy/render/gl:render_gl_sources.
 source_set("gl_sources") {
   sources = [
+    # ext/*_func*.h are header-only loaders; util accessors live in host/.
     "caps/device_caps.cpp",
     "ext/ext_interface.cpp",
-    "ext/fbo_func.cpp",
-    "ext/fbo_func_imp.cpp",
-    "ext/mipmap_func.cpp",
-    "ext/mipmap_func_imp.cpp",
-    "ext/multitexture_func_imp.cpp",
-    "ext/multitexture_func.cpp",
-    "ext/shader_func.cpp",
-    "ext/shader_func_imp.cpp",
-    "ext/vbo_func.cpp",
-    "ext/vbo_func_imp.cpp",
-    "ext/vsync_func.cpp",
-    "ext/vsync_func_imp.cpp",
     "host/render_device.cpp",
     "host/device_present.cpp",
     "paint/effect.cpp",
@@ -31,7 +20,6 @@ source_set("gl_sources") {
     "paint/misc.cpp",
     "paint/matrix.cpp",
     "paint/shader.cpp",
-    "paint/util.cpp",
     "paint/vba.cpp",
     "paint/vbo.cpp",
     "paint/states_manager.cpp",
@@ -44,16 +32,15 @@ source_set("gl_sources") {
   ]
   configs += [
     "//build:legacy",
-    "//src/legacy/render:legacy_render_exports",
+    "//src/legacy/render:legacy_render_gl_exports",
   ]
   defines = [ "_USRDLL" ]
   deps = [
     "//src/gis/kernel/geo:geo",
     "//src/base:base",
     "//src/base:core",
-    "//src/legacy/render/rhi3d:leftover_record",
-    "//src/legacy/render/rhi2d:rhi2d_sources",
-    "//src/legacy/render/rhi3d:rhi_sources",
+    "//src/base/math:math",
+    "//src/legacy/render:legacy_render",
     "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
     "//third_party:CxImage",
     "//third_party:khronos_gl",
@@ -70,11 +57,11 @@ group("render_gl_sources") {
 }
 
 group("render_gl") {
-  public_deps = [ "//src/legacy/render:legacy_render" ]
+  public_deps = [ "//src/legacy/render:legacy_render_gl" ]
 }
 
 group("gl") {
-  public_deps = [ "//src/legacy/render:legacy_render" ]
+  public_deps = [ "//src/legacy/render:legacy_render_gl" ]
 }
 
 # Shown HWND + china_plp.geojson → leftover GL must produce non-black pixels.
@@ -84,7 +71,7 @@ test("gl_map_paint_test") {
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
   deps = [
-    "//src/legacy/render:legacy_render",
+    "//src/legacy/render:legacy_render_all",
     "//src/gis:gis",
     "//testing/data:china_map_samples",
     "//third_party:gdal",
@@ -102,7 +89,7 @@ test("gl_texture_test") {
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
   deps = [
-    "//src/legacy/render:legacy_render",
+    "//src/legacy/render:legacy_render_all",
     "//third_party:khronos_gl",
   ]
   libs = [

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<ui name="traffic_shortest_path">
+  <style src="shortest_path.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="network_label" text="Road network (shp/geojson)"/>
+    <hbox id="network_row" class="row">
+      <textfield id="network_path"/>
+      <button id="browse_network" text="Browse..."/>
+    </hbox>
+
+    <label id="output_label" text="Output path GeoJSON"/>
+    <hbox id="output_row" class="row">
+      <textfield id="output_path" text="traffic_path.geojson"/>
+      <button id="browse_output" text="Browse..."/>
+    </hbox>
+
+    <hbox id="start_row" class="row">
+      <vbox id="start_x_box" class="field">
+        <label id="start_x_label" text="Start X"/>
+        <textfield id="start_x" text="0"/>
+      </vbox>
+      <vbox id="start_y_box" class="field">
+        <label id="start_y_label" text="Start Y"/>
+        <textfield id="start_y" text="0"/>
+      </vbox>
+    </hbox>
+
+    <hbox id="end_row" class="row">
+      <vbox id="end_x_box" class="field">
+        <label id="end_x_label" text="End X"/>
+        <textfield id="end_x" text="1"/>
+      </vbox>
+      <vbox id="end_y_box" class="field">
+        <label id="end_y_label" text="End Y"/>
+        <textfield id="end_y" text="1"/>
+      </vbox>
+    </hbox>
+
+    <hbox id="opt_row" class="row">
+      <vbox id="weight_box" class="field">
+        <label id="weight_label" text="Weight field (optional)"/>
+        <textfield id="weight_field"/>
+      </vbox>
+      <vbox id="frames_box" class="field">
+        <label id="frames_label" text="Anim frames"/>
+        <textfield id="frames" text="24"/>
+      </vbox>
+    </hbox>
+
+    <hbox id="actions" class="row actions">
+      <button id="ok" text="OK"/>
+      <button id="cancel" text="Cancel"/>
+    </hbox>
+  </vbox>
+</ui>

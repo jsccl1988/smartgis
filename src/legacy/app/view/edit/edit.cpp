@@ -56,8 +56,9 @@ void CSmartMapEditView::OnMouseMove(UINT nFlags, CPoint point) {
   if (m_pRenderDevice) m_pRenderDevice->DPToLP(point.x, point.y, x, y);
 
   CString strXY, strLB;
-  strXY.Format("x=%.2f,y=%.2f", x, y);
-  strLB.Format("��=%.2f,��=%.2f", x, y);
+  strXY.Format(_T("x=%.2f,y=%.2f"), x, y);
+  // UTF-8 source + /execution-charset:.936 — avoid corrupted legacy bytes.
+  strLB.Format(_T("经=%.2f,纬=%.2f"), x, y);
   pMain->SetStatusBarString(2, strXY);
   pMain->SetStatusBarString(1, strLB);
 }

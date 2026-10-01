@@ -15,20 +15,20 @@ def start(host):
         return bool(host.open_dialog(DIALOG_ID))
 
     def _dialog_factory():
-        # Ceiling placeholder UI until a real Views dialog is contributed.
         smartgis.ui.show_message_box(
             "info",
-            "Sample Analysis: flood_fill / cost_path are processing stubs "
-            "(empty args succeed). Real kernels land as native.* later.",
+            "Sample Analysis stubs remain for education. "
+            "Prefer builtin smartgis.traffic / smartgis.flood "
+            "(native.cost_path / native.flood_fill).",
         )
 
     def _flood_fill(args_json):
-        # Ceiling placeholder until native.flood_fill exists (phased).
+        # Educational stub; real kernel is native.flood_fill / smartgis.flood.
         text = (args_json or "").strip()
         return text in ("", "{}")
 
     def _cost_path(args_json):
-        # Ceiling placeholder until native.cost_path exists (phased).
+        # Educational stub; real kernel is native.cost_path / smartgis.traffic.
         text = (args_json or "").strip()
         return text in ("", "{}")
 

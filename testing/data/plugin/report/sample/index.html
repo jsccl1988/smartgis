@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>SmartGIS sample report</title>
+  <style>
+    body { font-family: Segoe UI, sans-serif; margin: 16px; background: #f7f7f7; color: #222; }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    #chart { width: 100%; max-width: 640px; height: 240px; background: #fff; border: 1px solid #ddd; }
+    .bar { display: inline-block; width: 40px; margin: 8px 6px 0; background: #3a7afe; vertical-align: bottom; }
+    #status { margin-top: 12px; font-size: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>Sample analysis report</h1>
+  <div id="chart"></div>
+  <div id="status">waiting for data.json / postMessage</div>
+  <script>
+    function render(data) {
+      const chart = document.getElementById('chart');
+      const status = document.getElementById('status');
+      chart.innerHTML = '';
+      const series = (data && data.series) || [];
+      let max = 1;
+      for (const p of series) { if (p.value > max) max = p.value; }
+      for (const p of series) {
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bar.style.height = Math.max(4, Math.round(180 * (p.value / max))) + 'px';
+        bar.title = (p.label || '') + ': ' + p.value;
+        chart.appendChild(bar);
+      }
+      status.textContent = 'points=' + series.length;
+    }
+    fetch('data.json').then(r => r.json()).then(render).catch(() => {
+      document.getElementById('status').textContent = 'data.json missing — use post_to_report';
+    });
+    window.chrome && window.chrome.webview && window.chrome.webview.addEventListener('message', (e) => {
+      try { render(typeof e.data === 'string' ? JSON.parse(e.data) : e.data); }
+      catch (err) { document.getElementById('status').textContent = 'bad post JSON'; }
+    });
+  </script>
+</body>
+</html>

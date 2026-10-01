@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<ui name="geochem_analyze">
+  <style src="analyze.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="input_label" text="Sample CSV (lon/lat + elements)"/>
+    <hbox id="input_row" class="row">
+      <textfield id="input_path"/>
+      <button id="browse_input" text="Browse..."/>
+    </hbox>
+
+    <label id="vector_label" text="Or vector points (optional OGR path)"/>
+    <hbox id="vector_row" class="row">
+      <textfield id="vector_path"/>
+      <button id="browse_vector" text="Browse..."/>
+    </hbox>
+
+    <label id="output_label" text="IDW output GeoTIFF"/>
+    <hbox id="output_row" class="row">
+      <textfield id="output_path" text="geochem_idw.tif"/>
+      <button id="browse_output" text="Browse..."/>
+    </hbox>
+
+    <hbox id="elem_row" class="row">
+      <vbox id="element_box" class="field">
+        <label id="element_label" text="Element"/>
+        <textfield id="element" text="Cu"/>
+      </vbox>
+      <vbox id="corr_box" class="field">
+        <label id="corr_label" text="Correlate with"/>
+        <textfield id="correlate" text="Au"/>
+      </vbox>
+      <vbox id="thr_box" class="field">
+        <label id="thr_label" text="Threshold (blank=auto)"/>
+        <textfield id="threshold"/>
+      </vbox>
+    </hbox>
+
+    <hbox id="grid_row" class="row">
+      <vbox id="cells_box" class="field">
+        <label id="cells_label" text="IDW cells"/>
+        <textfield id="cells" text="64"/>
+      </vbox>
+      <vbox id="classes_box" class="field">
+        <label id="classes_label" text="Grade classes"/>
+        <textfield id="classes" text="5"/>
+      </vbox>
+    </hbox>
+
+    <hbox id="actions" class="row actions">
+      <button id="stats" text="Stats only"/>
+      <button id="ok" text="Analyze"/>
+      <button id="cancel" text="Cancel"/>
+    </hbox>
+  </vbox>
+</ui>

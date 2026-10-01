@@ -9,12 +9,14 @@
 #include <string>
 #include <vector>
 
+#include "ui/views/kernel/layout/layout_check.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/markup/factory/control_factory.h"
 #include "ui/views/markup/style/css_parser.h"
 #include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/markup/layout/yoga_layout_manager.h"
 #include "ui/views/primitives/text/label.h"
+#include "ui/views/text2ui/text2ui.h"
 
 namespace {
 
@@ -161,6 +163,7 @@ void test_load_markup_basename_resolves_ui_dir() {
       "inspect/attribute_table.ui.xml",
       "shell/status_bar.ui.xml",
       "shell/atmosphere_panel.ui.xml",
+      "shell/main_app.ui.xml",
       "style/legend_panel.ui.xml",
       "style/symbology_panel.ui.xml",
       "style/layer_properties_panel.ui.xml",
@@ -178,6 +181,120 @@ void test_load_markup_basename_resolves_ui_dir() {
   }
 }
 
+void test_main_app_markup_no_sibling_overlap() {
+  // UiDesigner default template: Yoga must place catalog / map / ambox without
+  // stacking (regression for flex-grow + measure_func fighting).
+  ui::views::MarkupRoot root =
+      ui::views::load_markup("shell/main_app.ui.xml", {});
+  expect(root.ok(), "load main_app");
+  if (!root.ok() || !root.root) {
+    return;
+  }
+  root.root->set_bounds(ui::views::Rect{0, 0, 640, 480});
+  root.root->layout();
+
+  auto* catalog = root.ids.find("catalog");
+  auto* map = root.ids.find("map_edit");
+  auto* ambox = root.ids.find("ambox");
+  expect(catalog && map && ambox, "main_app ids");
+  if (catalog && map && ambox) {
+    expect(catalog->bounds().width > 0 && catalog->bounds().height > 0,
+           "catalog sized");
+    expect(map->bounds().width > 0 && map->bounds().height > 0, "map sized");
+    expect(ambox->bounds().width > 0 && ambox->bounds().height > 0,
+           "ambox sized");
+    expect(catalog->bounds().x < map->bounds().x, "catalog left of map");
+    expect(map->bounds().x < ambox->bounds().x, "map left of ambox");
+    expect(!ui::views::rects_overlap_positive(catalog->bounds(), map->bounds()),
+           "catalog/map no overlap");
+    expect(!ui::views::rects_overlap_positive(map->bounds(), ambox->bounds()),
+           "map/ambox no overlap");
+  }
+
+  std::vector<std::string> overlaps;
+  const int n = ui::views::collect_sibling_overlaps(root.root.get(), &overlaps);
+  if (n > 0) {
+    for (const auto& line : overlaps) {
+      std::fprintf(stderr, "overlap: %s\n", line.c_str());
+    }
+  }
+  expect(n == 0, "main_app no sibling overlaps");
+
+  if (auto* tab_map = root.ids.find("tab_map")) {
+    auto* tab_data = root.ids.find("tab_data");
+    auto* tab_3d = root.ids.find("tab_3d");
+    auto* strip = root.ids.find("map_tab_strip");
+    std::fprintf(stderr, "tab_map=%d,%d %dx%d\n", tab_map->bounds().x,
+                 tab_map->bounds().y, tab_map->bounds().width,
+                 tab_map->bounds().height);
+    if (tab_data) {
+      std::fprintf(stderr, "tab_data=%d,%d %dx%d\n", tab_data->bounds().x,
+                   tab_data->bounds().y, tab_data->bounds().width,
+                   tab_data->bounds().height);
+    }
+    if (tab_3d) {
+      std::fprintf(stderr, "tab_3d=%d,%d %dx%d\n", tab_3d->bounds().x,
+                   tab_3d->bounds().y, tab_3d->bounds().width,
+                   tab_3d->bounds().height);
+    }
+    if (strip) {
+      std::fprintf(stderr, "strip=%d,%d %dx%d children=%zu\n",
+                   strip->bounds().x, strip->bounds().y, strip->bounds().width,
+                   strip->bounds().height, strip->child_count());
+    }
+    if (tab_data && tab_3d) {
+      expect(tab_map->bounds().x < tab_data->bounds().x, "Map left of Data");
+      expect(tab_data->bounds().x < tab_3d->bounds().x, "Data left of 3D");
+      expect(!ui::views::rects_overlap_positive(tab_map->bounds(),
+                                                tab_data->bounds()),
+             "Map/Data no overlap");
+    }
+    if (strip && map) {
+      expect(map->bounds().y >= strip->bounds().y + strip->bounds().height,
+             "map_edit below map_tab_strip");
+      expect(!ui::views::rects_overlap_positive(strip->bounds(), map->bounds()),
+             "strip/map_edit no overlap");
+    }
+  }
+}
+
+void test_text2ui_template_and_extract() {
+  using ui::views::Text2UiRequest;
+  using ui::views::Text2UiResult;
+  using ui::views::extract_markup_xml;
+  using ui::views::generate_text2ui;
+  using ui::views::strip_llm_prefix;
+  using ui::views::validate_markup_fragment;
+
+  std::string rest;
+  expect(strip_llm_prefix("@llm make a toolbar", &rest), "strip @llm");
+  expect(rest == "make a toolbar", "strip rest");
+  expect(!strip_llm_prefix("button row", &rest), "no prefix");
+
+  const std::string fenced =
+      "```xml\n<hbox id=\"r\"><button id=\"a\" text=\"A\"/></hbox>\n```";
+  const std::string extracted = extract_markup_xml(fenced);
+  expect(extracted.find("<hbox") != std::string::npos, "extract hbox");
+  expect(validate_markup_fragment(extracted, nullptr), "validate extracted");
+
+  Text2UiRequest req;
+  req.prompt = "button row";
+  Text2UiResult out;
+  expect(generate_text2ui(req, &out) && out.ok, "template button row");
+  expect(!out.used_llm, "template not llm");
+  expect(out.xml_fragment.find("button") != std::string::npos, "has button");
+
+  req.prompt = "no such intent xyzzy";
+  out = {};
+  expect(!generate_text2ui(req, &out), "unmatched template fails");
+  expect(!out.error.empty(), "error message");
+
+  req.prompt = "@llm hello";
+  req.llm = nullptr;
+  out = {};
+  expect(!generate_text2ui(req, &out), "@llm without backend fails");
+}
+
 }  // namespace
 
 int main() {
@@ -191,6 +308,8 @@ int main() {
 
   test_css_parser_flex_subset();
   test_yoga_layout_row_column_gap_grow();
+  test_main_app_markup_no_sibling_overlap();
+  test_text2ui_template_and_extract();
   // Skip test_markup_factory_primitives_and_load: MarkupRoot destroy AVs when
   // the test exe and ui_views.dll disagree on View layout (paint_delegate_).
   // Nested resource resolve above is the gate for this change.

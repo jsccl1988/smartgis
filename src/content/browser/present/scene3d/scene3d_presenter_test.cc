@@ -7,7 +7,7 @@
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/browser/present/scene3d/software/scene3d_software_painter.h"
 #include "content/browser/present/scene3d/policy/scene3d_rhi_session.h"
-#include "gis/vista/world/terrain/dem_frame.h"
+#include "gis/vista/world/terrain/dem/dem_frame.h"
 #include "render/rhi/rhi.h"
 #include "tool/nav/camera_nav.h"
 #include "tool/draft/draft.h"

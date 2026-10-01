@@ -277,9 +277,10 @@ void build_gerstner_heights(int mesh_n, float hs, float dir_rad, float wind_spee
                             std::vector<float>* heights, std::vector<float>* disp_x,
                             std::vector<float>* disp_z) {
   const int verts = mesh_n * mesh_n;
-  heights->assign(static_cast<std::size_t>(verts), 0.0f);
-  disp_x->assign(static_cast<std::size_t>(verts), 0.0f);
-  disp_z->assign(static_cast<std::size_t>(verts), 0.0f);
+  // Every cell is written below — resize (no zero-fill) on the present hot path.
+  heights->resize(static_cast<std::size_t>(verts));
+  disp_x->resize(static_cast<std::size_t>(verts));
+  disp_z->resize(static_cast<std::size_t>(verts));
   const float dx = (half_extent * 2.0f) / static_cast<float>(mesh_n - 1);
   const float dz = dx;
   const float base_a = std::max(0.05f, hs) * 0.25f;

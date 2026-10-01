@@ -1,6 +1,8 @@
-// Copyright (c) 2010 CCL. All rights reserved.
-#ifndef _MIPMAP_FUNCS_H
-#define _MIPMAP_FUNCS_H
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef LEGACY_RENDER_RHI3D_IMPL_GL_EXT_MIPMAP_FUNC_H_
+#define LEGACY_RENDER_RHI3D_IMPL_GL_EXT_MIPMAP_FUNC_H_
 
 #include "legacy/render/rhi3d/impl/gl/prerequisites.h"
 
@@ -8,15 +10,17 @@ namespace render {
 class SmtGLRenderDevice;
 typedef class SmtGLRenderDevice *LPGLRENDERDEVICE;
 
+// Stub GL mipmap extension entry points (real procs live in SmtMipmapFuncImpl).
 class SmtMipmapFunc {
  public:
-  SmtMipmapFunc();
-  virtual ~SmtMipmapFunc();
-  virtual long Initialize(LPGLRENDERDEVICE pGLRenderDevice);
+  SmtMipmapFunc() = default;
+  virtual ~SmtMipmapFunc() = default;
+  virtual long Initialize(LPGLRENDERDEVICE /*pGLRenderDevice*/) {
+    return SMT_ERR_NONE;
+  }
 
- public:
-  virtual void glGenerateMipmap(GLenum target);
+  virtual void glGenerateMipmap(GLenum /*target*/) {}
 };
 }  // namespace render
 
-#endif  //_MIPMAP_FUNCS_H
+#endif  // LEGACY_RENDER_RHI3D_IMPL_GL_EXT_MIPMAP_FUNC_H_

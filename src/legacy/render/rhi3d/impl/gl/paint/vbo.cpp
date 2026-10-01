@@ -41,7 +41,7 @@ long SmtGLRenderDevice::UnbindIndexBuffer() {
 
 long SmtGLRenderDevice::UpdateBuffer(SmtVideoBuffer *buffer, void *data,
                                      uint size, VideoBufferStoreMethod method) {
-  if (NULL == buffer) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == buffer) return SMT_ERR_INVALID_PARAM;
 
   BindBuffer(buffer);
   GLenum GLMethod = ConvertVideoBufferStoreMethod(method);
@@ -53,7 +53,7 @@ long SmtGLRenderDevice::UpdateBuffer(SmtVideoBuffer *buffer, void *data,
 long SmtGLRenderDevice::UpdateIndexBuffer(SmtVideoBuffer *buffer, void *data,
                                           uint size,
                                           VideoBufferStoreMethod method) {
-  if (NULL == buffer || NULL == data) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == buffer || nullptr == data) return SMT_ERR_INVALID_PARAM;
 
   BindIndexBuffer(buffer);
 
@@ -64,7 +64,7 @@ long SmtGLRenderDevice::UpdateIndexBuffer(SmtVideoBuffer *buffer, void *data,
 }
 
 void *SmtGLRenderDevice::MapBuffer(SmtVideoBuffer *buffer, AccessMode access) {
-  if (NULL == buffer) return NULL;
+  if (nullptr == buffer) return nullptr;
 
   GLhandleARB handle = buffer->GetHandle();
   GLenum glAccess = ConvertAccess(access);
@@ -75,7 +75,7 @@ void *SmtGLRenderDevice::MapBuffer(SmtVideoBuffer *buffer, AccessMode access) {
 }
 
 long SmtGLRenderDevice::UnmapBuffer(SmtVideoBuffer *buffer) {
-  if (NULL == buffer) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == buffer) return SMT_ERR_INVALID_PARAM;
 
   GLboolean result = m_pFuncVBO->glUnmapBuffer(GL_ARRAY_BUFFER);
 
@@ -84,7 +84,7 @@ long SmtGLRenderDevice::UnmapBuffer(SmtVideoBuffer *buffer) {
 
 void *SmtGLRenderDevice::MapIndexBuffer(SmtVideoBuffer *buffer,
                                         AccessMode access) {
-  if (NULL == buffer) return NULL;
+  if (nullptr == buffer) return nullptr;
 
   GLhandleARB handle = buffer->GetHandle();
   GLenum glAccess = ConvertAccess(access);
@@ -95,7 +95,7 @@ void *SmtGLRenderDevice::MapIndexBuffer(SmtVideoBuffer *buffer,
 }
 
 long SmtGLRenderDevice::UnmapIndexBuffer(SmtVideoBuffer *buffer) {
-  if (NULL == buffer) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == buffer) return SMT_ERR_INVALID_PARAM;
 
   GLboolean result = m_pFuncVBO->glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
 

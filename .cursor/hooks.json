@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "py -3 .cursor/hooks/build_lock_gate.py",
+        "matcher": "ninja|gn(\\.exe)?\\s|build\\.bat",
+        "failClosed": false
+      }
+    ]
+  }
+}

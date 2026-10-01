@@ -98,8 +98,12 @@ struct ExprValue {
 };
 
 // Evaluate a JSON array expression (or bare literal) to a constant.
-// Supported ops: get, literal, zoom, ==, !=, <, <=, >, >=.
-// Nested arrays are evaluated recursively. Uses AttrMap + zoom.
+// Mini subset (MapLibre-shaped, not a full expression VM):
+//   get, literal, zoom,
+//   ==, !=, <, <=, >, >=,
+//   interpolate (linear | exponential), step, match, case, coalesce.
+// Color stops in interpolate lerp #RGB / #RRGGBB / #AARRGGBB / rgb().
+// Nested arrays evaluate recursively. Uses AttrMap + zoom.
 GIS_EXPORT bool eval_expression(const std::string& json, const AttrMap& attrs,
                                 double zoom, ExprValue* out);
 

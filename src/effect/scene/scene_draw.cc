@@ -1,0 +1,123 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#include "effect/scene/scene.h"
+
+#include "effect/scene/detail/draw_pass.h"
+#include "effect/scene/frustum_aabb.h"
+
+namespace effect {
+namespace scene {
+
+bool GpuScene::record_draws(render::rhi::Device* device,
+                             render::rhi::CommandList* list, uint32_t width,
+                             uint32_t height,
+                             const render::rhi::CameraMatrices* bound_camera) {
+  if (!device || !list || width == 0 || height == 0) {
+    return false;
+  }
+  if (!ensure_pipelines(device)) {
+    return false;
+  }
+  if (meshes_dirty_ || upload_device_ != device || upload_width_ != width ||
+      upload_height_ != height) {
+    if (!rebuild_meshes(device, width, height)) {
+      return false;
+    }
+  }
+
+  render::rhi::RenderPassDesc pass;
+  pass.clear_r = background_r_;
+  pass.clear_g = background_g_;
+  pass.clear_b = background_b_;
+  pass.clear_a = background_a_;
+  pass.width = width;
+  pass.height = height;
+  pass.load_op = color_load_op_;
+  pass.enable_depth = enable_depth_;
+  pass.depth_load_op = depth_load_op_;
+  pass.depth_clear = 1.f;
+
+  bool have_3d = false;
+  for (const GpuInstance& inst : instances_) {
+    if (inst.kind == gis::NodeKind::kModel ||
+        inst.kind == gis::NodeKind::kTerrain ||
+        inst.kind == gis::NodeKind::kPointCloud ||
+        inst.kind == gis::NodeKind::kTileset) {
+      have_3d = true;
+    }
+  }
+
+  double minx = 0;
+  double miny = 0;
+  double maxx = 1;
+  double maxy = 1;
+  resolve_view_envelope(width, height, &minx, &miny, &maxx, &maxy);
+
+  // A RecordContext camera is already bound by the graph. Do not bind again
+  // and do not choose ortho versus perspective.
+  const bool external_camera = bound_camera != nullptr;
+  bool pass_opened = color_load_op_ == render::rhi::ColorLoadOp::kLoad;
+  const FrustumPlanes* cull_frustum = nullptr;
+  FrustumPlanes cull_planes_storage;
+  if (external_camera) {
+    cull_planes_storage = extract_frustum_planes(*bound_camera);
+    cull_frustum = &cull_planes_storage;
+  } else if (view_camera_set_) {
+    list->bind_camera(view_camera_);
+    cull_planes_storage = extract_frustum_planes(view_camera_);
+    cull_frustum = &cull_planes_storage;
+  } else {
+    // Temporary: hosts that have not supplied a camera still bind an ortho
+    // camera for raster and vectors, then a perspective camera when a 3D
+    // instance is present.
+    list->bind_camera(render::rhi::make_ortho_camera(
+        static_cast<float>(minx), static_cast<float>(maxx),
+        static_cast<float>(miny), static_cast<float>(maxy), -1.f, 1.f));
+  }
+  detail::record_kind(list, pass, width, height, meshes_, gis::NodeKind::kRasterLayer,
+              &pass_opened, solid_pipeline_, textured_pipeline_, lit_pipeline_,
+              lit_textured_pipeline_, light_, nullptr);
+  detail::record_kind(list, pass, width, height, meshes_, gis::NodeKind::kVectorLayer,
+              &pass_opened, solid_pipeline_, textured_pipeline_, lit_pipeline_,
+              lit_textured_pipeline_, light_, nullptr);
+  if (have_3d && !external_camera && !view_camera_set_) {
+    const float aspect =
+        static_cast<float>(width) / static_cast<float>(height);
+    list->bind_camera(render::rhi::make_perspective_camera(0.785398f, aspect,
+                                                           0.1f, 100.f));
+  }
+  detail::record_kind(list, pass, width, height, meshes_, gis::NodeKind::kModel,
+              &pass_opened, solid_pipeline_, textured_pipeline_, lit_pipeline_,
+              lit_textured_pipeline_, light_, cull_frustum);
+  detail::record_kind(list, pass, width, height, meshes_, gis::NodeKind::kTerrain,
+              &pass_opened, solid_pipeline_, textured_pipeline_, lit_pipeline_,
+              lit_textured_pipeline_, light_, cull_frustum);
+  detail::record_kind(list, pass, width, height, meshes_, gis::NodeKind::kTileset,
+              &pass_opened, solid_pipeline_, textured_pipeline_, lit_pipeline_,
+              lit_textured_pipeline_, light_, cull_frustum);
+  detail::record_kind(list, pass, width, height, meshes_, gis::NodeKind::kPointCloud,
+              &pass_opened, solid_pipeline_, textured_pipeline_, lit_pipeline_,
+              lit_textured_pipeline_, light_, cull_frustum);
+
+  if (meshes_.empty()) {
+    list->begin_render_pass(pass);
+    list->set_viewport(0, 0, static_cast<float>(width),
+                       static_cast<float>(height), 0, 1);
+    list->end_render_pass();
+  }
+  return true;
+}
+
+bool GpuScene::record(render::rhi::Device* device,
+                       render::rhi::CommandList* list, uint32_t width,
+                       uint32_t height) {
+  if (!record_draws(device, list, width, height)) {
+    return false;
+  }
+  list->close();
+  return true;
+}
+
+}  // namespace scene
+}  // namespace effect

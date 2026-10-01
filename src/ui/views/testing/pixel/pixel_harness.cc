@@ -19,9 +19,10 @@ namespace views {
 namespace {
 
 HFONT create_shell_font() {
-  return CreateFontW(-12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-                     DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                     CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+  return CreateFontW(-kShellBodyFontDip, 0, 0, 0, FW_NORMAL, FALSE, FALSE,
+                     FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                     CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                     DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
 }
 
 bool read_bgra_from_bitmap(HBITMAP bitmap, int width, int height,

@@ -1,9 +1,13 @@
-// Copyright (c) 2010 CCL. All rights reserved.
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #ifndef _GL_3DRENDERDEVICE_H
 #define _GL_3DRENDERDEVICE_H
 
+#include <string>
+#include <string_view>
+
 #include "legacy/render/legacy_render_export.h"
-#include "legacy/render/rhi3d/impl/gl/caps/device_caps.h"
 #include "legacy/render/rhi3d/impl/gl/paint/states_manager.h"
 #include "legacy/render/rhi3d/impl/gl/ext/fbo_func.h"
 #include "legacy/render/rhi3d/impl/gl/ext/mipmap_func.h"
@@ -17,8 +21,9 @@ namespace render {
 #define MAX_LIGHTS 8
 
 class SmtGLText;
+class SmtGLDeviceCaps;
 
-class LEGACY_RENDER_EXPORT SmtGLRenderDevice : public Smt3DRenderDevice {
+class LEGACY_RENDER_GL_EXPORT SmtGLRenderDevice : public Smt3DRenderDevice {
  public:
   SmtGLRenderDevice(void);
   SmtGLRenderDevice(HINSTANCE hDLL);
@@ -31,10 +36,18 @@ class LEGACY_RENDER_EXPORT SmtGLRenderDevice : public Smt3DRenderDevice {
 
   inline RenderBase3DApi GetBaseApi() const { return m_rBaseApi; }
 
-  bool IsExtensionSupported(string extension);
-  void *GetProcAddress(string name);
+  // Token match against GL_EXTENSIONS (space-separated). Cached after first
+  // query while a context is current.
+  bool IsExtensionSupported(std::string_view extension);
 
-  virtual SmtGPUStateManager *GetStateManager();
+  void* GetProcAddress(std::string_view name) {
+    // wglGetProcAddress requires a NUL-terminated name.
+    const std::string zname(name);
+    return wglGetProcAddress(zname.c_str());
+  }
+
+  virtual SmtGPUStateManager *GetStateManager() { return m_pStateManager; }
+  // Defined after SmtGLDeviceCaps is complete (see device_caps.h include cycle).
   virtual Smt3DDeviceCaps *GetDeviceCaps();
 
  public:
@@ -75,7 +88,7 @@ class LEGACY_RENDER_EXPORT SmtGLRenderDevice : public Smt3DRenderDevice {
   virtual Matrix MatrixGet();
 
   // get frustum
-  virtual long GetFrustum(SmtFrustum &frustum);
+  virtual long GetFrustum(Frustum& frustum);
 
   // view
   virtual long SetViewport(Viewport3D &viewport);
@@ -273,21 +286,22 @@ class LEGACY_RENDER_EXPORT SmtGLRenderDevice : public Smt3DRenderDevice {
   vector<SmtGLText *> m_vTextPtrs;
 
  private:
-  int m_nStencilRef;
-  uint m_unStencilCmp;        // stencil cmp function
-  uint m_unStencilWriteMask;  // WriteMask
-  uint m_unStencilMask;       // mask
-  uint m_unOpStencilFail;     // stencil fail op
-  uint m_unOpStencilZPass;    // stencil pass
-  uint m_unOpStencilZFail;    // stencil pass but zbuf fail op
+  int m_nStencilRef = 0;
+  uint m_unStencilCmp = 0;         // stencil cmp function
+  uint m_unStencilWriteMask = 0;   // WriteMask
+  uint m_unStencilMask = 0;        // mask
+  uint m_unOpStencilFail = 0;      // stencil fail op
+  uint m_unOpStencilZPass = 0;     // stencil pass
+  uint m_unOpStencilZFail = 0;     // stencil pass but zbuf fail op
+  std::string gl_extensions_cache_;
 };
 }  // namespace render
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(LEGACY_RENDER_GL_EXPORTS)
 #if defined(_DEBUG)
-#pragma comment(lib, "legacy_render_d.lib")
+#pragma comment(lib, "legacy_render_gl_d.lib")
 #else
-#pragma comment(lib, "legacy_render.lib")
+#pragma comment(lib, "legacy_render_gl.lib")
 #endif
 #endif
 

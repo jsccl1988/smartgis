@@ -1,0 +1,106 @@
+{
+
+  "id": "smartgis.world3d",
+
+  "name": "三维世界 / 真三维地球",
+
+  "version": "1.1.0",
+
+  "api_version": 2,
+
+  "kind": "builtin",
+
+  "author": "The Mogu Authors",
+
+  "description": "True-3D Earth browse (China DEM + atmosphere + fly-to + city tiles) plus DEM loaders and former model3d commands",
+
+  "contributes": {
+
+    "commands": [
+
+      {"id": "world3d.open_earth", "title": "打开真三维地球", "menu": "tools"},
+
+      {"id": "world3d.fly_to", "title": "飞行到", "menu": "tools"},
+
+      {"id": "world3d.attach_city_tileset", "title": "挂载城市瓦片", "menu": "tools"},
+
+      {"id": "world3d.load_tin", "title": "离散点生成DEM", "menu": "tools"},
+
+      {"id": "world3d.load_grid", "title": "高度图生成DEM", "menu": "tools"},
+
+      {"id": "world3d.about", "title": "关于", "menu": "tools"},
+
+      {"id": "model3d.add_pointcloud", "title": "Add point cloud", "menu": "tools"},
+
+      {"id": "world3d.add_pointcloud", "title": "加载点云", "menu": "tools"},
+
+      {"id": "model3d.add_sphere", "title": "Add sphere", "menu": "tools"},
+
+      {"id": "model3d.add_water", "title": "Add water surface", "menu": "tools"},
+
+      {"id": "model3d.add_terrain_grid", "title": "Add terrain GRID", "menu": "tools"},
+
+      {"id": "model3d.add_terrain_tin", "title": "Add terrain TIN", "menu": "tools"},
+
+      {"id": "model3d.create_tin", "title": "Create TIN", "menu": "tools"},
+
+      {"id": "model3d.layer_points_to_3d", "title": "2D points to 3D", "menu": "tools"},
+
+      {"id": "model3d.layer_lines_to_3d", "title": "2D lines to 3D", "menu": "tools"},
+
+      {"id": "model3d.layer_polygons_to_3d", "title": "2D polygons to 3D", "menu": "tools"}
+
+    ],
+
+    "dialogs": [
+
+      {"id": "world3d.tin_loader", "title": "离散点生成DEM"},
+
+      {"id": "world3d.grid_loader", "title": "高度图生成DEM"},
+
+      {"id": "world3d.about", "title": "关于"}
+
+    ],
+
+    "processing": [
+
+      {"id": "world3d.open_earth", "title": "打开真三维地球"},
+
+      {"id": "world3d.fly_to", "title": "飞行到"},
+
+      {"id": "world3d.attach_city_tileset", "title": "挂载城市瓦片"},
+
+      {"id": "world3d.tin_from_xyz", "title": "TIN from XYZ"},
+
+      {"id": "world3d.grid_from_heightmap", "title": "Heightmap to DEM grid"},
+
+      {"id": "model3d.add_pointcloud", "title": "Add point cloud"},
+
+      {"id": "world3d.add_pointcloud", "title": "加载点云"},
+
+      {"id": "world3d.pdal_read", "title": "PDAL read LAS/LAZ"},
+
+      {"id": "world3d.pdal_pipeline", "title": "PDAL pipeline JSON"},
+
+      {"id": "model3d.add_sphere", "title": "Add sphere"},
+
+      {"id": "model3d.add_water", "title": "Add water surface"},
+
+      {"id": "model3d.add_terrain_grid", "title": "Add terrain GRID"},
+
+      {"id": "model3d.add_terrain_tin", "title": "Add terrain TIN"},
+
+      {"id": "model3d.create_tin", "title": "Create TIN"},
+
+      {"id": "model3d.layer_points_to_3d", "title": "2D points to 3D"},
+
+      {"id": "model3d.layer_lines_to_3d", "title": "2D lines to 3D"},
+
+      {"id": "model3d.layer_polygons_to_3d", "title": "2D polygons to 3D"}
+
+    ]
+
+  }
+
+}
+

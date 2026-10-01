@@ -2,13 +2,44 @@
 # All rights reserved.
 
 import("//build/smartgis.gni")
+import("//testing/test.gni")
 
 # Compiled into //src/gis:gis. Public product API remains plugin::
 # (thin forwarders under plugin/runtime/processing).
 source_set("analysis_sources") {
   sources = [
+    "geochem/grade.cc",
+    "geochem/grade.h",
+    "geochem/idw.cc",
+    "geochem/idw.h",
+    "geochem/samples.cc",
+    "geochem/samples.h",
+    "geochem/stats.cc",
+    "geochem/stats.h",
+    "geology/borehole.cc",
+    "geology/borehole.h",
+    "geology/prism_volume.cc",
+    "geology/prism_volume.h",
+    "geology/stratum_tin.cc",
+    "geology/stratum_tin.h",
+    "geometry/fit.cc",
+    "geometry/fit.h",
+    "network/cost_path.cc",
+    "network/cost_path.h",
     "ops/ops_runner.cc",
     "ops/ops_runner.h",
+    "raster/dem/dem_gradient.cc",
+    "raster/dem/dem_gradient.h",
+    "raster/dem/flood_fill.cc",
+    "raster/dem/flood_fill.h",
+    "raster/dem/storm_surge.cc",
+    "raster/dem/storm_surge.h",
+    "raster/dem/storm_surge_stats.cc",
+    "raster/dem/storm_surge_stats.h",
+    "raster/filter/raster_convolve.cc",
+    "raster/filter/raster_convolve.h",
+    "raster/filter/raster_smooth.cc",
+    "raster/filter/raster_smooth.h",
   ]
   include_dirs += [ "//src" ]
   defines = [
@@ -19,9 +50,57 @@ source_set("analysis_sources") {
     "//third_party:gdal",
     "//third_party:rapidjson",
   ]
-  deps = [ "//src/base:base" ]
+  deps = [
+    "//src/base:base",
+    "//src/base/math:math",
+    "//third_party:eigen",
+  ]
 }
 
 group("analysis") {
   public_deps = [ "//src/gis:gis" ]
+}
+
+test("analysis_eigen_test") {
+  output_name = "analysis_eigen_test"
+  sources = [ "analysis_eigen_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/gis:gis",
+    "//third_party:eigen",
+    "//third_party:gdal",
+  ]
+}
+
+test("analysis_geology_test") {
+  output_name = "analysis_geology_test"
+  sources = [ "geology/analysis_geology_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/gis:gis",
+    "//third_party:gdal",
+    "//third_party:rapidjson",
+  ]
+}
+
+test("analysis_storm_surge_test") {
+  output_name = "analysis_storm_surge_test"
+  sources = [ "raster/dem/storm_surge_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/gis:gis",
+    "//third_party:gdal",
+    "//third_party:rapidjson",
+  ]
+}
+
+test("analysis_geochem_test") {
+  output_name = "analysis_geochem_test"
+  sources = [ "geochem/analysis_geochem_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/gis:gis",
+    "//third_party:gdal",
+    "//third_party:rapidjson",
+  ]
 }

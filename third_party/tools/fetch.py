@@ -453,8 +453,18 @@ def _extract_http_archive(cache: Path, dest_root: Path, target: Path) -> None:
                 shutil.rmtree(tmp)
         return
     if ".tar." in lower or lower.endswith(".tgz"):
-        with tarfile.open(cache) as tf:
-            tf.extractall(dest_root)
+        # Extract to a temp dir then place onto target (same as zip): GitHub /
+        # release tarballs often unpack as <name>-<ver>/ while src_dir_name is
+        # the package stem (e.g. zlib-1.3.1.tar.gz → want .src/zlib).
+        tmp = dest_root / f".extract_{target.name}"
+        _rmtree_if_exists(tmp)
+        tmp.mkdir(parents=True, exist_ok=True)
+        try:
+            with tarfile.open(cache) as tf:
+                tf.extractall(tmp)
+            _place_http_extract(tmp, target)
+        finally:
+            _rmtree_if_exists(tmp)
         if not target.is_dir():
             raise FetchError(f"expected extract dir {target}")
         return

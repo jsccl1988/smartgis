@@ -9,6 +9,19 @@
 #include <string>
 #include <vector>
 
+#include "gis/analysis/geochem/idw.h"
+#include "gis/analysis/geochem/stats.h"
+#include "gis/analysis/geology/prism_volume.h"
+#include "gis/analysis/geology/stratum_tin.h"
+#include "gis/analysis/geometry/fit.h"
+#include "gis/analysis/network/cost_path.h"
+#include "gis/analysis/raster/dem/dem_gradient.h"
+#include "gis/analysis/raster/dem/flood_fill.h"
+#include "gis/analysis/raster/dem/storm_surge.h"
+#include "gis/analysis/raster/dem/storm_surge_stats.h"
+#include "gis/analysis/raster/filter/raster_convolve.h"
+#include "gis/analysis/raster/filter/raster_smooth.h"
+
 #define GEOS_USE_ONLY_R_API
 #include "geos_c.h"
 
@@ -37,6 +50,21 @@ const std::vector<BuiltinOpDesc> kCatalog = {
     {"native.simplify", "Simplify"},
     {"native.convex_hull", "Convex hull"},
     {"native.boundary", "Boundary"},
+    {"native.cost_path", "Least-cost / shortest path"},
+    {"native.flood_fill", "DEM inundation flood fill"},
+    {"native.storm_surge", "Coastal storm-surge inundation"},
+    {"native.storm_surge_stats",
+     "Storm-surge inundation area / depth-class / overlap stats"},
+    {"native.fit_line", "Least-squares 2D line fit (Eigen SVD)"},
+    {"native.fit_plane", "Least-squares 3D plane fit (Eigen SVD)"},
+    {"native.affine_align", "2D affine alignment (Eigen least squares)"},
+    {"native.dem_gradient", "DEM slope/aspect (Eigen Map)"},
+    {"native.raster_convolve", "Raster convolution (box3)"},
+    {"native.raster_smooth", "Raster Laplace smooth (Eigen SparseLU)"},
+    {"native.stratum_interpolate", "Stratum surface TIN from borehole CSV"},
+    {"native.stratum_prism_volume", "Stratum prism volume (top/bottom)"},
+    {"native.geochem_stats", "Geochem sample stats + histogram"},
+    {"native.geochem_idw", "Geochem IDW anomaly surface"},
 };
 
 void ignore_geos_message(const char* /*fmt*/, ...) {}
@@ -338,6 +366,49 @@ const std::vector<BuiltinOpDesc>& builtin_op_catalog() {
 
 bool run_builtin_op(std::string_view processing_id,
                     std::string_view args_json) {
+  if (processing_id == "native.cost_path") {
+    return run_cost_path_op(args_json);
+  }
+  if (processing_id == "native.flood_fill") {
+    return run_flood_fill_op(args_json);
+  }
+  if (processing_id == "native.storm_surge") {
+    return run_storm_surge_op(args_json);
+  }
+  if (processing_id == "native.storm_surge_stats") {
+    return run_storm_surge_stats_op(args_json);
+  }
+  if (processing_id == "native.fit_line") {
+    return run_fit_line_op(args_json);
+  }
+  if (processing_id == "native.fit_plane") {
+    return run_fit_plane_op(args_json);
+  }
+  if (processing_id == "native.affine_align") {
+    return run_affine_align_op(args_json);
+  }
+  if (processing_id == "native.dem_gradient") {
+    return run_dem_gradient_op(args_json);
+  }
+  if (processing_id == "native.raster_convolve") {
+    return run_raster_convolve_op(args_json);
+  }
+  if (processing_id == "native.raster_smooth") {
+    return run_raster_smooth_op(args_json);
+  }
+  if (processing_id == "native.stratum_interpolate") {
+    return run_stratum_interpolate_op(args_json);
+  }
+  if (processing_id == "native.stratum_prism_volume") {
+    return run_stratum_prism_volume_op(args_json);
+  }
+  if (processing_id == "native.geochem_stats") {
+    return run_geochem_stats_op(args_json);
+  }
+  if (processing_id == "native.geochem_idw") {
+    return run_geochem_idw_op(args_json);
+  }
+
   rapidjson::Document args;
   if (!parse_args(args_json, &args)) {
     return false;

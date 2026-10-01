@@ -5,7 +5,9 @@
 #define CONTENT_BROWSER_PRESENT_MAP2D_FRAME_MAP2D_FRAME_CACHE_H_
 
 #include <cstdint>
+#include <chrono>
 #include <mutex>
+#include <vector>
 
 #include "base/memory/arena.h"
 #include "gis/vista/frame/frame.h"
@@ -85,6 +87,12 @@ class Map2dFrameCache {
     return last_present_reused_layout_;
   }
 
+  // Host-baked DEM hillshade RGBA for Pass / GDI textured raster DrawItems.
+  // Soft-fails (returns false) when Style has no hillshade or DEM is missing.
+  bool load_raster(uint32_t texture_key, std::vector<uint8_t>* rgba, int* w,
+                   int* h) const;
+  bool has_hillshade_underlay() const { return hillshade_ready_; }
+
   // Recursive: GPU present holds this across prepare + Pass record.
   std::recursive_mutex& mutex() { return mu_; }
 
@@ -92,6 +100,7 @@ class Map2dFrameCache {
   ContentFingerprint make_fingerprint() const;
   CameraKey make_camera_key(uint32_t width_px, uint32_t height_px) const;
   bool rebuild_layout(const CameraKey& cam, const ContentFingerprint& fp);
+  void clear_hillshade_bake();
 
   const MapScene* scene_ = nullptr;
   const ViewFrame* frame_ = nullptr;
@@ -103,6 +112,18 @@ class Map2dFrameCache {
   bool last_present_was_interactive_ = false;
   bool last_present_reused_layout_ = false;
   uint64_t layout_build_count_ = 0;
+  // Last interactive present time (steady_clock). Settle waits ~200ms quiet.
+  std::chrono::steady_clock::time_point last_interactive_tp_{};
+  bool pending_interactive_clock_refresh_ = false;
+
+  // Hillshade RGBA is a heap vector installed only after Layout::build.
+  // rebuild_layout must clear prior frame/hillshade before Arena/TLS reset.
+  static constexpr uint32_t kHillshadeTextureKey = 0x48534844u;  // 'HSHD'
+  bool hillshade_ready_ = false;
+  int hillshade_w_ = 0;
+  int hillshade_h_ = 0;
+  std::vector<uint8_t> hillshade_rgba_;
+
   mutable std::recursive_mutex mu_;
   base::Arena layout_scratch_{base::MemoryResource::Type::kMonotonicBuffer,
                               1 << 20};

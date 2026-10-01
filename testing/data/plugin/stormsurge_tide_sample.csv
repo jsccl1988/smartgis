@@ -1,0 +1,11 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+# Synthetic tide series for stormsurge harness (time_h, level_m).
+time_h,level_m
+0,30.0
+1,32.0
+2,34.0
+3,36.0
+4,35.0
+5,33.0
+6,31.0

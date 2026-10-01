@@ -85,7 +85,7 @@ Status: superseded (2026-09-28 merge B)
 | `SmtNetCore` | `net` |
 | `SmtRender` | `render` |
 | `Smt3DRenderer` | `render3d` |
-| `SmtGdiRenderDevice` | `render_gdi` |
+| `SmtRhi2dRenderDevice` | `render_gdi` |
 | `SmtGdiSimpleRenderDevice` | `render_gdi_simple` |
 | `SmtGLRenderDevice` | `render_gl` |
 | `Smt3DBaseLib` | `scene3d` |

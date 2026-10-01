@@ -10,7 +10,7 @@
 
 #include <vector>
 
-namespace render {
+namespace base {
 
 // TRS transform that can be converted to a Matrix.
 class Transform {
@@ -88,6 +88,11 @@ inline Matrix Transform::matrix() const {
   return t * r * s;
 }
 
+}  // namespace base
+
+namespace render {
+using ::base::Transform;
+using ::base::TransformStack;
 }  // namespace render
 
 #endif  // SMT_RENDER_MATH_TRANSFORM_H_

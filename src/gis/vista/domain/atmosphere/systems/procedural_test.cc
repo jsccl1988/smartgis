@@ -84,6 +84,16 @@ int main() {
   expect(gis::any_ring_contains(110.0, 30.0, rings), "land PIP dual");
   expect(!gis::any_ring_contains(101.0, 21.0, rings), "ocean PIP dual");
 
+  // Empty rings must not claim the whole grid is ocean (DEM blackout).
+  {
+    FieldStore empty_store;
+    SeaMaskFromLand empty_sea;
+    empty_sea.apply(&empty_store, grid, {}, /*priority=*/0);
+    const float sea_empty =
+        empty_store.sample(FieldChannel::kSeaMask, 110.0, 30.0, 0.0);
+    expect_near(sea_empty, 0.f, 1e-4f, "empty rings => sea=0 fail-closed");
+  }
+
   gis::atmosphere::procedural_step(&store, 0.1);
   expect(true, "procedural_step no-op ok");
 

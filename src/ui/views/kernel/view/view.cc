@@ -143,6 +143,15 @@ void View::set_widget(Widget* widget) {
   for (auto& child : children_) {
     child->set_widget(widget);
   }
+  // Controls measure at scale 1.f in their ctor (no widget yet). When the
+  // tree attaches to a DPI-scaled Widget, rebuild DIP metrics once so chrome
+  // text is not stuck tiny until a later hover/scroll paint.
+  if (widget_ && widget_->device_scale_factor() > 0.f) {
+    const float scale = widget_->device_scale_factor();
+    if (std::fabs(scale - 1.f) >= 0.0001f) {
+      on_device_scale_factor_changed(1.f, scale);
+    }
+  }
 }
 
 void View::set_visible(bool visible) {
@@ -301,11 +310,24 @@ void View::ensure_commands_recorded() {
   commands_dirty_ = false;
 }
 
-void View::append_commands_to(ui::gfx::DisplayList* out) {
+void View::append_commands_to(ui::gfx::DisplayList* out,
+                              const Rect* dirty_or_null) {
   if (!out || !visible_) {
     return;
   }
+  const bool cull =
+      dirty_or_null && !dirty_or_null->is_empty();
+  if (cull && !bounds_.intersects(*dirty_or_null)) {
+    return;
+  }
   ensure_commands_recorded();
+  // Match View::paint: clip each subtree so compositor commits cannot bleed
+  // sibling chrome (UiDesigner canvas / shell panels).
+  const bool clip = bounds_.width > 0 && bounds_.height > 0;
+  if (clip) {
+    out->save();
+    out->clip_rect(bounds_.x, bounds_.y, bounds_.width, bounds_.height);
+  }
   out->append_from(commands_);
   for (auto& child : children_) {
     if (!child->visible_) {
@@ -316,13 +338,17 @@ void View::append_commands_to(ui::gfx::DisplayList* out) {
       // Overlay punch only knows Theme hole colors — stamp map_placeholder so
       // src-over does not flash a correct GPU frame then cover it (错位).
       const Rect& b = child->bounds();
-      if (b.width > 0 && b.height > 0) {
+      if (b.width > 0 && b.height > 0 &&
+          (!cull || b.intersects(*dirty_or_null))) {
         out->fill_rect(b.x, b.y, b.width, b.height,
                        Theme::current().map_placeholder);
       }
       continue;
     }
-    child->append_commands_to(out);
+    child->append_commands_to(out, dirty_or_null);
+  }
+  if (clip) {
+    out->restore();
   }
 }
 

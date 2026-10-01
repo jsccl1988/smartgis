@@ -1,0 +1,130 @@
+/* SmartGisViews main chrome — sized for UiDesigner canvas (~640x480). */
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  width: 620px;
+  height: 480px;
+  gap: 2px;
+}
+
+.menu {
+  width: 620px;
+  height: 28px;
+}
+
+.main_split {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  width: 620px;
+  gap: 2px;
+}
+
+.columns {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  width: 620px;
+  gap: 2px;
+}
+
+.work {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 1;
+  width: 620px;
+  height: 220px;
+  gap: 4px;
+}
+
+.catalog_map {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 1;
+  height: 220px;
+  gap: 4px;
+}
+
+.catalog {
+  width: 140px;
+  height: 220px;
+}
+
+.map_tabs {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  height: 220px;
+  gap: 4px;
+}
+
+.tab_strip {
+  display: flex;
+  flex-direction: row;
+  height: 28px;
+  gap: 4px;
+  padding: 2px;
+}
+
+#map_tab_strip {
+  height: 28px;
+  flex-grow: 0;
+}
+
+#map_edit {
+  flex-grow: 1;
+  min-height: 140px;
+}
+
+/* Explicit tab chip sizes — Yoga measure+row otherwise stacks Map/Data/3D. */
+#tab_map,
+#tab_data,
+#tab_3d,
+#tab_feature,
+#tab_attr,
+#tab_measure,
+#tab_selection,
+#tab_layer_props,
+#tab_legend,
+#tab_analysis,
+#tab_processing,
+#tab_atmosphere {
+  width: 72px;
+  height: 24px;
+}
+
+.map_host {
+  flex-grow: 1;
+  min-height: 120px;
+}
+
+.ambox {
+  width: 100px;
+  height: 220px;
+}
+
+.inspector {
+  display: flex;
+  flex-direction: column;
+  width: 620px;
+  height: 120px;
+  gap: 2px;
+}
+
+.inspector_page {
+  flex-grow: 1;
+  height: 80px;
+}
+
+/* Collapsed strip in designer preview — full tools live in product shell. */
+.diagnostics {
+  width: 620px;
+  height: 0px;
+  flex-grow: 0;
+}
+
+.status {
+  width: 620px;
+  height: 24px;
+}

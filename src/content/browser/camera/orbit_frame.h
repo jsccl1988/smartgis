@@ -7,7 +7,7 @@
 #include <cstdint>
 
 #include "content/browser/camera/map_host_extent.h"
-#include "gis/vista/world/terrain/dem_frame.h"
+#include "gis/vista/world/terrain/dem/dem_frame.h"
 #include "render/rhi/rhi.h"
 #include "tool/draft/draft.h"
 

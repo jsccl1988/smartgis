@@ -25,7 +25,11 @@ class Scene3dStereoSession {
 
   // Bind leftover GL stereo to |hwnd| (seed DEM + vectors + labels + HUD).
   bool try_attach(HWND hwnd);
+  // Destroy view + FreeLibrary when destroy_ is still inside |module_| image.
   void release();
+  // Drop handles without destroy_/FreeLibrary. Use under FlyCube-default SoT
+  // when leftover GL may hold a stale destroy_ into remapped heap (AV).
+  void abandon();
   bool is_live() const { return view_ != nullptr; }
 
   void resize(int width_px, int height_px);

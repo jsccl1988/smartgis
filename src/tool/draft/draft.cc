@@ -318,10 +318,16 @@ class ViewPanInteraction final : public Interaction {
     } else {
       pts_.back() = {x, y};
     }
-    emit_keep(touch);
-    if (pts_.size() >= 2) {
-      pts_[0] = pts_[1];
+    // Keep pts_[0] as the press origin for the whole stroke. apply_pan_by_points
+    // (legacy GDI) reapplies origin→end on a frozen wp0 + cumulative
+    // SetCurDrawingOrg; advancing the origin each emit left only the last
+    // fragment as the visual slide and made path/pan feel dead.
+    if (pts_.size() >= 2 && pts_[0].x_px == pts_[1].x_px &&
+        pts_[0].y_px == pts_[1].y_px) {
+      // Click / no-op up: do not emit a zero pan (avoids china redraw flash).
+      return;
     }
+    emit_keep(touch);
   }
 
   void emit_keep(bool touch) {

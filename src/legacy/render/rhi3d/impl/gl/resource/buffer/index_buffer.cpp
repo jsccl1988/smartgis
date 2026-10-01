@@ -1,46 +1,56 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #include "legacy/render/rhi3d/impl/gl/resource/buffer/index_buffer.h"
 
+#include "base/memory/arena.h"
+
 namespace render {
+namespace {
+
+uint* alloc_indices(ulong count) {
+  if (count == 0) {
+    return nullptr;
+  }
+  return static_cast<uint*>(base::allocate(sizeof(uint) * count));
+}
+
+void free_indices(uint* p, ulong count) {
+  if (!p || count == 0) {
+    return;
+  }
+  base::deallocate(p, sizeof(uint) * count);
+}
+
+}  // namespace
+
 SmtGLIndexBuffer::SmtGLIndexBuffer(int count) : SmtIndexBuffer() {
-  ulong size = 0;
-
   m_dwIndexCount = count;
-
   m_bLocked = false;
-  m_pIndex = NULL;
-  m_pGLIndex = NULL;
-
-  // Allocate memory for vertex data
-  //--
+  m_pIndex = nullptr;
   m_dwStrideIndex = sizeof(uint);
-  m_pGLIndex = new uint[m_dwIndexCount];
+  m_pGLIndex = alloc_indices(m_dwIndexCount);
 }
 
 SmtGLIndexBuffer::~SmtGLIndexBuffer() {
-  if (m_pGLIndex != NULL) {
-    delete[] m_pGLIndex;
-    m_pGLIndex = NULL;
-  }
+  free_indices(m_pGLIndex, m_dwIndexCount);
+  m_pGLIndex = nullptr;
 }
 
 long SmtGLIndexBuffer::Lock() {
   m_bLocked = true;
   m_pIndex = m_pGLIndex;
-
   return SMT_ERR_NONE;
 }
 
 long SmtGLIndexBuffer::Unlock() {
   m_bLocked = false;
-  m_pIndex = NULL;
-
+  m_pIndex = nullptr;
   return SMT_ERR_NONE;
 }
 
 void* SmtGLIndexBuffer::GetIndexData() {
-  if (NULL == m_pGLIndex) return NULL;
-
-  return (void*)m_pGLIndex;
+  return m_pGLIndex;
 }
 
 void SmtGLIndexBuffer::Index(uint index) {
@@ -49,23 +59,19 @@ void SmtGLIndexBuffer::Index(uint index) {
 }
 
 long SmtGLIndexBuffer::PrepareForDrawing() {
-  // Set pointers to arrays
-  //--
-  if (m_pGLIndex != NULL) {
+  if (m_pGLIndex) {
     glEnableClientState(GL_INDEX_ARRAY);
     glIndexPointer(m_dwIndexCount, GL_UNSIGNED_INT, m_pGLIndex);
   } else {
     glDisableClientState(GL_INDEX_ARRAY);
   }
-
   return SMT_ERR_NONE;
 }
 
 long SmtGLIndexBuffer::EndDrawing() {
-  if (m_pGLIndex != NULL) {
+  if (m_pGLIndex) {
     glDisableClientState(GL_INDEX_ARRAY);
   }
-
   return SMT_ERR_NONE;
 }
 }  // namespace render

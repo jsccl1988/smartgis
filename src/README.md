@@ -53,7 +53,7 @@ Standalone files go through `load_file` (Assimp when `smt_has_assimp`; otherwise
 
 ## RHI v1
 
-`src/render/rhi`: Facade `Device` / `CommandList` / `Buffer` (null + leftover GDI/GL + FlyCube DX12/Vulkan). `bind_camera` takes ortho (2D GIS) or perspective (3D leftover) `CameraMatrices`; FlyCube uploads those as GPU constants and samples uploaded raster/tile textures on DX12. `World::attach_map` keeps `OGRLayer*` (vector) and leftover `SmtLayer*` (raster/tile); `attach_3d_geometry` keeps `OGRGeometry*`. `gis::tessellate_*` turns OGR Point/LineString/Polygon and `Smt3DSurface` into GPU verts. `GpuScene::record` uploads those meshes and issues 2D then 3D on **one** CommandList. Leftover `SmtVertexBuffer` / `SmtIndexBuffer` (host or GL, ABI unchanged) copy through `render::scene::upload_leftover_buffers` onto the same `Device` and `record_leftover_draw` on the same CommandList. GDI / GDI-simple / GL / SmtRender share one leftover RHI session via `render::scene::leftover_session()` (owned in `SmtRender`). `SmtRenderDevice::Init(HWND)` calls `BindRhiPresent`. Debug compiles FlyCube `/MDd` from the junction into `out/flycube`; Release links the MD prebuilt. D3D9/D3DX tree removed. Spec: `docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`.
+`src/render/rhi`: Facade `Device` / `CommandList` / `Buffer` (null + leftover GDI/GL stubs + FlyCube DX12/Vulkan). `bind_camera` takes ortho (2D GIS) or perspective (3D) `CameraMatrices`; FlyCube uploads those as GPU constants and samples uploaded raster/tile textures on DX12. `World::attach_map` keeps `OGRLayer*` (vector) and leftover `SmtLayer*` (raster/tile); `attach_3d_geometry` keeps `OGRGeometry*`. `gis::tessellate_*` turns OGR Point/LineString/Polygon and `Smt3DSurface` into GPU verts. `GpuScene::record` uploads those meshes and issues 2D then 3D on **one** CommandList. Leftover HWND present stays on GDI BitBlt / GL `SwapBuffers` / D3D11 `Present` — the former `leftover_session` / `bind_rhi_present` bridge under `rhi3d/public/bridge` was removed. Debug compiles FlyCube `/MDd` from the junction into `out/flycube`; Release links the MD prebuilt. D3D9/D3DX tree removed. Spec: `docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`.
 
 ## Build
 
@@ -61,4 +61,4 @@ Standalone files go through `load_file` (Assimp when `smt_has_assimp`; otherwise
 
 ---
 
-**最后更新：** 2026-09-27
+**最后更新：** 2026-10-01

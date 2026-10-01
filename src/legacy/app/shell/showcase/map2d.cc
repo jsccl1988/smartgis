@@ -22,6 +22,7 @@
 #include "gis/model/map/map.h"
 #include "legacy/app/core/smtapp.h"
 #include "legacy/app/shell/showcase/host.h"
+#include "legacy/core/types/types.h"
 #include "legacy/render/rhi2d/public/device/renderdevice.h"
 #include "legacy/render/test/paint_test_host.h"
 #include "ogrsf_frmts.h"
@@ -30,6 +31,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <windowsx.h>
 
 namespace legacy_app {
 namespace {
@@ -55,6 +57,184 @@ void showcase_mark(const char* step) {
 HWND create_showcase_hwnd() {
   return create_showcase_popup(L"SmartGisLegacyMap2dShowcase",
                                L"legacy-map2d-showcase", kW, kH);
+}
+
+// Forensic linger: blank showcase WndProc ignored OS inject. Subclass to pan /
+// wheel via leftover view_zoom_apply, then blit front to the HWND for record.
+struct Map2dLingerNav {
+  render::LPRENDERDEVICE device = nullptr;
+  gis::SmtMap* map = nullptr;
+  bool dragging = false;
+  base::lPoint origin{};
+};
+
+Map2dLingerNav g_map2d_nav;
+
+void present_map2d_hwnd(HWND hwnd) {
+  if (!g_map2d_nav.device || !hwnd) {
+    return;
+  }
+  HDC hdc = ::GetDC(hwnd);
+  if (!hdc) {
+    return;
+  }
+  (void)g_map2d_nav.device->RenderMapToDC(hdc);
+  ::ReleaseDC(hwnd, hdc);
+}
+
+// Forensic linger must tick GDI Timer so ScheduleDelayedRedraw can debounce,
+// submit the worker, and clear SetCurDrawingOrg on publish. The blank
+// showcase_linger_from_env pump only PeekMessage/Sleep — pan/wheel then leave
+// a stuck preview (HWND washes to client gray for the rest of linger).
+void map2d_linger_with_timer(HWND hwnd, render::LPRENDERDEVICE device, int ms) {
+  if (ms <= 0 || !device) {
+    return;
+  }
+  std::fprintf(stderr, "showcase linger: SMT_MAP2D_SHOWCASE_LINGER_MS=%d (timer)\n",
+               ms);
+  std::fflush(stderr);
+  const DWORD deadline = GetTickCount() + static_cast<DWORD>(ms);
+  MSG msg = {};
+  while (static_cast<int>(deadline - GetTickCount()) > 0) {
+    while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+      TranslateMessage(&msg);
+      DispatchMessageW(&msg);
+    }
+    (void)device->Timer();
+    present_map2d_hwnd(hwnd);
+    Sleep(10);
+  }
+}
+
+// Inline leftover pan/wheel (avoid linking tool::apply_* which is not in the
+// SmartGis exe link set for this TU). Mirrors view_zoom_apply absolute pan.
+struct Map2dPanBaseline {
+  render::LPRENDERDEVICE device = nullptr;
+  base::Windowport wp0{};
+  base::lPoint origin{};
+};
+
+Map2dPanBaseline& map2d_pan_baseline() {
+  static Map2dPanBaseline baseline;
+  return baseline;
+}
+
+void invalidate_map2d_pan_baseline() {
+  map2d_pan_baseline().device = nullptr;
+}
+
+void apply_map2d_pan(base::lPoint origin, base::lPoint end) {
+  render::LPRENDERDEVICE device = g_map2d_nav.device;
+  if (!device) {
+    return;
+  }
+  // Same origin reuse after wheel must not restore a pre-zoom wp0 — see
+  // invalidate_map2d_pan_baseline() from apply_map2d_wheel.
+  Map2dPanBaseline& baseline = map2d_pan_baseline();
+  if (baseline.device != device || baseline.origin.x != origin.x ||
+      baseline.origin.y != origin.y) {
+    baseline.device = device;
+    baseline.wp0 = device->GetWindowport();
+    baseline.origin = origin;
+  }
+  device->SetWindowport(baseline.wp0);
+  float x1 = 0.f, y1 = 0.f, x2 = 0.f, y2 = 0.f;
+  device->DPToLP(origin.x, origin.y, x1, y1);
+  device->DPToLP(end.x, end.y, x2, y2);
+  device->PreviewZoomMove(fPoint(x2 - x1, y2 - y1));
+  device->SetCurDrawingOrg(lPoint(end.x - origin.x, end.y - origin.y));
+  (void)device->Refresh();
+  if (g_map2d_nav.map) {
+    device->ScheduleDelayedRedraw(g_map2d_nav.map);
+  }
+}
+
+void apply_map2d_wheel(int z_delta, base::lPoint point) {
+  render::LPRENDERDEVICE device = g_map2d_nav.device;
+  if (!device) {
+    return;
+  }
+  constexpr double kScaleDelt = 0.2;
+  const float f_scale = (z_delta < 0)
+                            ? static_cast<float>(1.0 + kScaleDelt)
+                            : static_cast<float>(1.0 - kScaleDelt);
+  device->PreviewZoomScale(point, f_scale);
+  (void)device->Refresh();
+  if (g_map2d_nav.map) {
+    device->ScheduleDelayedRedraw(g_map2d_nav.map);
+  }
+  invalidate_map2d_pan_baseline();
+}
+
+LRESULT CALLBACK map2d_linger_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam,
+                                       LPARAM lparam) {
+  switch (msg) {
+    case WM_ERASEBKGND:
+      return 1;
+    case WM_PAINT: {
+      PAINTSTRUCT ps;
+      BeginPaint(hwnd, &ps);
+      if (g_map2d_nav.device) {
+        (void)g_map2d_nav.device->RenderMapToDC(ps.hdc);
+      }
+      EndPaint(hwnd, &ps);
+      return 0;
+    }
+    case WM_LBUTTONDOWN: {
+      g_map2d_nav.dragging = true;
+      g_map2d_nav.origin =
+          base::lPoint(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+      ::SetCapture(hwnd);
+      return 0;
+    }
+    case WM_MOUSEMOVE: {
+      if (!g_map2d_nav.dragging || (wparam & MK_LBUTTON) == 0 ||
+          !g_map2d_nav.device) {
+        return 0;
+      }
+      const base::lPoint cur(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+      apply_map2d_pan(g_map2d_nav.origin, cur);
+      present_map2d_hwnd(hwnd);
+      return 0;
+    }
+    case WM_LBUTTONUP: {
+      if (g_map2d_nav.dragging && g_map2d_nav.device) {
+        const base::lPoint cur(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+        // Click with no drag must not re-apply pan (avoids SetWindowport to a
+        // stale baseline when origin matches a pre-zoom drag).
+        if (cur.x != g_map2d_nav.origin.x || cur.y != g_map2d_nav.origin.y) {
+          apply_map2d_pan(g_map2d_nav.origin, cur);
+          present_map2d_hwnd(hwnd);
+        }
+      }
+      g_map2d_nav.dragging = false;
+      ::ReleaseCapture();
+      return 0;
+    }
+    case WM_MOUSEWHEEL: {
+      if (!g_map2d_nav.device) {
+        return 0;
+      }
+      POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+      ::ScreenToClient(hwnd, &pt);
+      apply_map2d_wheel(GET_WHEEL_DELTA_WPARAM(wparam),
+                        base::lPoint(pt.x, pt.y));
+      present_map2d_hwnd(hwnd);
+      return 0;
+    }
+    default:
+      break;
+  }
+  return DefWindowProcW(hwnd, msg, wparam, lparam);
+}
+
+void attach_map2d_linger_nav(HWND hwnd, render::LPRENDERDEVICE device,
+                             gis::SmtMap* map) {
+  g_map2d_nav.device = device;
+  g_map2d_nav.map = map;
+  g_map2d_nav.dragging = false;
+  ::SetWindowLongPtrW(hwnd, GWLP_WNDPROC,
+                      reinterpret_cast<LONG_PTR>(map2d_linger_wnd_proc));
 }
 
 std::string find_china_sample() {
@@ -131,9 +311,9 @@ void dump_showcase_perf(double delay_ms, double zoom_ms, double paint_ms,
   char trace_path[MAX_PATH] = {};
   char perf_path[MAX_PATH] = {};
   const bool have_trace =
-      app::detail::exe_sidecar_path_a(trace_path, MAX_PATH, kTraceLeaf);
+      app::detail::exe_capture_path_a(trace_path, MAX_PATH, kTraceLeaf);
   const bool have_perf =
-      app::detail::exe_sidecar_path_a(perf_path, MAX_PATH, kPerfLeaf);
+      app::detail::exe_capture_path_a(perf_path, MAX_PATH, kPerfLeaf);
 
   // Write Chrome Trace JSON directly (do not rely on SetEnvironmentVariable +
   // getenv for SMT_TRACE_DUMP 鈥?CRT environ and Win32 env can diverge).
@@ -195,7 +375,7 @@ void dump_showcase_perf(double delay_ms, double zoom_ms, double paint_ms,
 int run_map2d_showcase_china(app::SmtApp& app) {
   const auto t_all = Clock::now();
   char mark_path[MAX_PATH] = {};
-  if (app::detail::exe_sidecar_path_a(mark_path, MAX_PATH, kMarkLeaf)) {
+  if (app::detail::exe_capture_path_a(mark_path, MAX_PATH, kMarkLeaf)) {
     DeleteFileA(mark_path);
   }
   showcase_mark("china");
@@ -265,9 +445,9 @@ int run_map2d_showcase_china(app::SmtApp& app) {
   UpdateWindow(hwnd);
 
 #ifdef _DEBUG
-  HMODULE dll = LoadLibraryA("legacy_render_d.dll");
+  HMODULE dll = LoadLibraryA("legacy_rhi2d_gdi_d.dll");
 #else
-  HMODULE dll = LoadLibraryA("legacy_render.dll");
+  HMODULE dll = LoadLibraryA("legacy_rhi2d_gdi.dll");
 #endif
   if (!dll) {
     showcase_mark("dll-fail");
@@ -309,13 +489,13 @@ int run_map2d_showcase_china(app::SmtApp& app) {
     return 57;
   }
 
-  Smt2DRenderPra pra = {};
+  Smt2DRenderOptions options = {};
   // Carto showcase: debug MBR / vertex crosses dominate china multipolygon
   // paint and are not part of the visual gates.
-  pra.bShowMBR = false;
-  pra.bShowPoint = false;
-  pra.lPointRaduis = 4;
-  dev->SetRenderPra(pra);
+  options.bShowMBR = false;
+  options.bShowPoint = false;
+  options.lPointRaduis = 4;
+  dev->SetRenderOptions(options);
 
   // China lon/lat framing (Views kChinaLonLatExtent). Prefer layer envelope
   // when it looks like China; otherwise force the known box.
@@ -358,7 +538,7 @@ int run_map2d_showcase_china(app::SmtApp& app) {
   // RenderMap wiped that front and paid china paint twice (~2s + ~2.5s).
   // Prefer SaveImage of the Zoom result; sync paint only if carto signal fails.
   char bmp_a[MAX_PATH] = {};
-  if (!app::detail::exe_sidecar_path_a(bmp_a, MAX_PATH, kBmpLeaf)) {
+  if (!app::detail::exe_capture_path_a(bmp_a, MAX_PATH, kBmpLeaf)) {
     showcase_mark("sidecar-fail");
     destroy(dev);
     DestroyWindow(hwnd);
@@ -425,8 +605,35 @@ int run_map2d_showcase_china(app::SmtApp& app) {
   dump_showcase_perf(delay_ms, zoom_ms, paint_ms, save_ms, ms_since(t_all),
                      paint_path);
 
-  GDALClose(ds);
-  showcase_mark("destory-ok");
+  // Blank showcase WndProc does not paint via InvalidateRect. Blit the
+  // composed front to the HWND so linger OS-inject / HWND record see pixels
+  // (PrintWindow / BitBlt of an unpainted popup were all-black).
+  {
+    HDC hdc = ::GetDC(hwnd);
+    if (hdc) {
+      if (dev->RenderMapToDC(hdc) == SMT_ERR_NONE) {
+        showcase_mark("hwnd-present-ok");
+      } else {
+        showcase_mark("hwnd-present-fail");
+      }
+      ::ReleaseDC(hwnd, hdc);
+    } else {
+      showcase_mark("hwnd-present-fail");
+    }
+  }
+
+  // Keep GDAL dataset + device alive through linger so pan/wheel re-render
+  // still has layer data. TerminateProcess skips orderly teardown.
+  attach_map2d_linger_nav(hwnd, dev, &map);
+  showcase_mark("nav-ok");
+  int linger_ms = 0;
+  if (const char* raw = std::getenv("SMT_MAP2D_SHOWCASE_LINGER_MS");
+      raw && raw[0]) {
+    linger_ms = std::atoi(raw);
+  }
+  if (linger_ms > 0) {
+    map2d_linger_with_timer(hwnd, dev, linger_ms);
+  }
   ::TerminateProcess(::GetCurrentProcess(), 0);
   return 0;
 }

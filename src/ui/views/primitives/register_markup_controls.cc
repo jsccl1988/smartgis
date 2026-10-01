@@ -93,8 +93,13 @@ void register_primitive_markup_tags(ControlFactory* factory) {
   factory->register_tag("radiobutton",
                         [](std::string_view, const MarkupAttrs& a) {
                           const int group = std::atoi(a.get("group", "0").c_str());
-                          return std::make_unique<RadioButton>(a.get("text"),
-                                                               group);
+                          auto rb = std::make_unique<RadioButton>(a.get("text"),
+                                                                  group);
+                          if (a.get("selected") == "true" ||
+                              a.get("selected") == "1") {
+                            rb->set_selected(true);
+                          }
+                          return rb;
                         });
   factory->register_tag("combobox", [](std::string_view, const MarkupAttrs&) {
     return std::make_unique<Combobox>();

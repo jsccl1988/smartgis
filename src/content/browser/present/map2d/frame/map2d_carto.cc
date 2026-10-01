@@ -198,7 +198,8 @@ bool map_scene_line_is_major_class(const char* kind,
   auto major = [](const char* s) {
     return ascii_icontains(s, "motorway") || ascii_icontains(s, "trunk") ||
            ascii_icontains(s, "highway") || ascii_icontains(s, "primary") ||
-           ascii_icontains(s, "national") || ascii_icontains(s, "express") ||
+           ascii_icontains(s, "secondary") || ascii_icontains(s, "national") ||
+           ascii_icontains(s, "express") ||
            // UTF-8 "高速" / "国道" as escapes (avoid MSVC source U+FFFD).
            ascii_icontains(s, "\xe9\xab\x98\xe9\x80\x9f") ||
            ascii_icontains(s, "\xe5\x9b\xbd\xe9\x81\x93");
@@ -208,10 +209,18 @@ bool map_scene_line_is_major_class(const char* kind,
 
 bool map_scene_line_visible_at_scale(MapLineRole role, double length,
                                     bool major_class, double scale) {
+  // MapLibre style_align.json gates road/road-casing at minzoom 5 under Web
+  // Mercator; product equirectangular china overview sits near scale 8–16
+  // (zoom_from_scale ≈ 11). Show major arterials at national frame so dual
+  // stroke casing is scoreable; keep a length floor so ramps stay culled.
+  // 0.35° ≈ 39 km — china_city trunk pieces are often shorter than 1.2°.
+  if (role == MapLineRole::kRoad && scale < 22.0) {
+    return major_class && length >= 0.35;
+  }
   if (major_class) {
     // Classed arterials still need a minimum run so ramps do not fill
-    // the country frame.
-    if (scale < 22.0) {
+    // regional frames.
+    if (scale < 48.0) {
       return length >= 0.6;
     }
     return length >= 0.05 || scale >= 96.0;
@@ -219,18 +228,16 @@ bool map_scene_line_visible_at_scale(MapLineRole role, double length,
   double min_len = 0.0;
   if (role == MapLineRole::kWater) {
     if (scale < 22.0) {
-      // Country frame: keep major NE rivers visible (leftover GDI shows a
-      // denser stem set than the old 4° gate).
-      min_len = 1.5;
+      // Country frame: prefer stem-aggregated length (batches); bare pieces
+      // still need a modest run so foreign NE stubs stay culled.
+      min_len = 0.8;
     } else if (scale < 48.0) {
-      min_len = 0.6;
+      min_len = 0.4;
     } else if (scale < 96.0) {
-      min_len = 0.2;
+      min_len = 0.15;
     }
   } else if (role == MapLineRole::kRoad) {
-    if (scale < 22.0) {
-      min_len = 3.0;
-    } else if (scale < 48.0) {
+    if (scale < 48.0) {
       min_len = 0.7;
     } else if (scale < 96.0) {
       min_len = 0.15;

@@ -7,8 +7,19 @@ namespace app {
 namespace detail {
 
 void pump_messages(DWORD ms) {
-  const DWORD end = GetTickCount() + ms;
   MSG msg;
+  // ms==0: drain the queue once without Sleep (timed FPS linger / spin present).
+  if (ms == 0) {
+    while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+      if (msg.message == WM_QUIT) {
+        return;
+      }
+      TranslateMessage(&msg);
+      DispatchMessageW(&msg);
+    }
+    return;
+  }
+  const DWORD end = GetTickCount() + ms;
   while (GetTickCount() < end) {
     while (GetTickCount() < end &&
            PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {

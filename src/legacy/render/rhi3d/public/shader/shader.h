@@ -77,7 +77,7 @@ inline long SmtShader::Load(std::string fileName, bool needToCompile,
   std::vector<char> data;
 
   FILE *sFile = fopen(fileName.c_str(), "rb");
-  if (NULL == sFile) {
+  if (nullptr == sFile) {
     return SMT_ERR_INVALID_FILE;
   }
 
@@ -90,7 +90,7 @@ inline long SmtShader::Load(std::string fileName, bool needToCompile,
   }
   fclose(sFile);
 
-  data.push_back(0);  // To get NULL-terminated string from vector
+  data.push_back(0);  // To get nullptr-terminated string from vector
 
   if (SMT_ERR_NONE !=
       m_p3DRenderDevice->LoadShaderSource(this, (char *)&data[0]))

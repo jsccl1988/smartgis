@@ -92,28 +92,32 @@ void SkyPass::sample_sky_rgb(const SkyDrawParams& p, float dir_x, float dir_y,
   detail::normalize3(&sun_x, &sun_y, &sun_z);
 
   const float elev = detail::clampf(sun_y, -1.0f, 1.0f);
-  const float day = detail::clampf(elev * 1.2f + 0.35f, 0.0f, 1.0f);
-  const float hr = detail::lerp(p.sunset_r, p.horizon_r, day);
-  const float hg = detail::lerp(p.sunset_g, p.horizon_g, day);
-  const float hb = detail::lerp(p.sunset_b, p.horizon_b, day);
+  const float day = detail::clampf(elev * 1.35f + 0.55f, 0.0f, 1.0f);
+  float sunset_r = detail::lerp(p.sunset_r, p.horizon_r, 0.55f);
+  float sunset_g = detail::lerp(p.sunset_g, p.horizon_g, 0.55f);
+  float sunset_b = detail::lerp(p.sunset_b, p.horizon_b, 0.55f);
+  sunset_r = (std::min)(sunset_r, sunset_b * 0.85f);
+  const float hr = detail::lerp(sunset_r, p.horizon_r, day);
+  const float hg = detail::lerp(sunset_g, p.horizon_g, day);
+  const float hb = detail::lerp(sunset_b, p.horizon_b, day);
 
   // Matches kPsSky: elevation blend + haze + Bruneton-lite + sun disk/corona.
   const float elev_v = detail::clampf(dy, 0.0f, 1.0f);
-  const float blend = std::pow(elev_v, 0.65f);
+  const float blend = std::pow(detail::clampf(elev_v * 1.45f, 0.0f, 1.0f), 0.38f);
   float r = detail::lerp(hr, p.zenith_r, blend);
   float g = detail::lerp(hg, p.zenith_g, blend);
   float b = detail::lerp(hb, p.zenith_b, blend);
   const float haze = 1.0f - elev_v;
-  const float haze2 = haze * haze * 0.18f;
+  const float haze2 = haze * haze * 0.02f;
   r = detail::clampf(r + hr * haze2, 0.0f, 1.0f);
   g = detail::clampf(g + hg * haze2, 0.0f, 1.0f);
   b = detail::clampf(b + hb * haze2, 0.0f, 1.0f);
 
   // Bruneton-lite analytical multi-scatter tint (no LUT tables).
   const float rayleigh = std::pow(elev_v, 0.55f);
-  r *= detail::lerp(1.0f, 0.80f, rayleigh);
-  g *= detail::lerp(1.0f, 0.94f, rayleigh);
-  b *= detail::lerp(1.0f, 1.14f, rayleigh);
+  r *= detail::lerp(1.0f, 0.72f, rayleigh);
+  g *= detail::lerp(1.0f, 0.88f, rayleigh);
+  b *= detail::lerp(1.0f, 1.22f, rayleigh);
   float dir_hx = dx;
   float dir_hz = dz;
   float sun_hx = sun_x;
@@ -127,17 +131,17 @@ void SkyPass::sample_sky_rgb(const SkyDrawParams& p, float dir_x, float dir_y,
                      1.0f);
   const float mie_warm =
       std::pow(azi, 2.0f) * haze *
-      detail::clampf(1.0f - std::fabs(elev) * 0.55f, 0.0f, 1.0f);
-  r = detail::clampf(r + 0.14f * mie_warm, 0.0f, 1.0f);
-  g = detail::clampf(g + 0.055f * mie_warm, 0.0f, 1.0f);
+      detail::clampf(1.0f - std::fabs(elev) * 0.55f, 0.0f, 1.0f) * 0.35f;
+  r = detail::clampf(r + 0.03f * mie_warm, 0.0f, 1.0f);
+  g = detail::clampf(g + 0.02f * mie_warm, 0.0f, 1.0f);
   b = detail::clampf(b + 0.015f * mie_warm, 0.0f, 1.0f);
   const float twilight = detail::clampf(1.0f - std::fabs(elev) * 3.5f, 0.0f, 1.0f);
   const float ozone =
-      twilight * detail::clampf(1.0f - elev_v * 1.15f, 0.0f, 1.0f) *
-      (0.30f + 0.70f * azi);
-  r = detail::clampf(r + 0.09f * ozone, 0.0f, 1.0f);
-  g = detail::clampf(g + 0.02f * ozone, 0.0f, 1.0f);
-  b = detail::clampf(b + 0.11f * ozone, 0.0f, 1.0f);
+      twilight * detail::clampf(1.0f - elev_v * 1.35f, 0.0f, 1.0f) *
+      (0.15f + 0.35f * azi) * 0.25f;
+  r = detail::clampf(r + 0.015f * ozone, 0.0f, 1.0f);
+  g = detail::clampf(g + 0.01f * ozone, 0.0f, 1.0f);
+  b = detail::clampf(b + 0.04f * ozone, 0.0f, 1.0f);
 
   const float sun_dot =
       detail::clampf(dx * sun_x + dy * sun_y + dz * sun_z, 0.0f, 1.0f);

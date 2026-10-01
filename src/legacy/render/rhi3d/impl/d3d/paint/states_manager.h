@@ -12,57 +12,157 @@ namespace render {
 // CPU-side pipeline state cache for the leftover D3D11 device (v1).
 class SmtD3DGPUStateManager : public SmtGPUStateManager {
  public:
-  SmtD3DGPUStateManager();
+  SmtD3DGPUStateManager()
+      : clear_depth_(1.f),
+        clear_stencil_(0),
+        line_width_(1.f),
+        point_size_(1.f) {
+    clear_color_[0] = clear_color_[1] = clear_color_[2] = 0.f;
+    clear_color_[3] = 1.f;
+    world_view_.identity();
+    projection_.identity();
+  }
 
-  SmtAlphaTestState GetAlphaTestState(void) override;
-  long SetAlphaTestState(SmtAlphaTestState& state) override;
-  long SetAlphaTest(bool enabled) override;
-  long SetAlphaTestFunc(Comparison func, float ref) override;
+  SmtAlphaTestState GetAlphaTestState(void) override { return alpha_; }
+  long SetAlphaTestState(SmtAlphaTestState& state) override {
+    alpha_ = state;
+    return SMT_ERR_NONE;
+  }
+  long SetAlphaTest(bool enabled) override {
+    alpha_.bEnabled = enabled;
+    return SMT_ERR_NONE;
+  }
+  long SetAlphaTestFunc(Comparison func, float ref) override {
+    alpha_.cmpFunc = func;
+    alpha_.fRefValue = ref;
+    return SMT_ERR_NONE;
+  }
 
-  SmtDepthTestState GetDepthTestState(void) override;
-  long SetDepthTestState(SmtDepthTestState& state) override;
-  long SetDepthTest(bool enabled) override;
-  long SetDepthTestFunc(Comparison func) override;
+  SmtDepthTestState GetDepthTestState(void) override { return depth_; }
+  long SetDepthTestState(SmtDepthTestState& state) override {
+    depth_ = state;
+    return SMT_ERR_NONE;
+  }
+  long SetDepthTest(bool enabled) override {
+    depth_.bEnabled = enabled;
+    return SMT_ERR_NONE;
+  }
+  long SetDepthTestFunc(Comparison func) override {
+    depth_.cmpFunc = func;
+    return SMT_ERR_NONE;
+  }
 
-  SmtBlendState GetBlendState(void) override;
-  long SetBlendState(SmtBlendState& state) override;
-  long SetBlending(bool enabled) override;
+  SmtBlendState GetBlendState(void) override { return blend_; }
+  long SetBlendState(SmtBlendState& state) override {
+    blend_ = state;
+    return SMT_ERR_NONE;
+  }
+  long SetBlending(bool enabled) override {
+    blend_.bEnabled = enabled;
+    return SMT_ERR_NONE;
+  }
 
-  Viewport3D GetViewportState(void) override;
-  long SetViewportState(Viewport3D& vp) override;
+  Viewport3D GetViewportState(void) override { return viewport_; }
+  long SetViewportState(Viewport3D& vp) override {
+    viewport_ = vp;
+    return SMT_ERR_NONE;
+  }
 
-  SmtColor GetColorState(void) override;
-  long SetColorState(SmtColor& colorState) override;
+  SmtColor GetColorState(void) override { return color_; }
+  long SetColorState(SmtColor& colorState) override {
+    color_ = colorState;
+    return SMT_ERR_NONE;
+  }
 
-  long Set2DTextures(bool enabled) override;
-  long Set2DRectTextures(bool enabled) override;
-  long SetSampler(TextureSampler& sampler) override;
-  long SetRectSampler(TextureSampler& sampler) override;
-  long SetTextureEnvironment(TextureEnvMode& envMode) override;
+  long Set2DTextures(bool /*enabled*/) override { return SMT_ERR_NONE; }
+  long Set2DRectTextures(bool /*enabled*/) override { return SMT_ERR_NONE; }
+  long SetSampler(TextureSampler& /*sampler*/) override {
+    return SMT_ERR_NONE;
+  }
+  long SetRectSampler(TextureSampler& /*sampler*/) override {
+    return SMT_ERR_NONE;
+  }
+  long SetTextureEnvironment(TextureEnvMode& /*envMode*/) override {
+    return SMT_ERR_NONE;
+  }
 
-  Matrix GetWorldViewMatrix(void) override;
-  Matrix GetProjectionMatrix(void) override;
-  long SetWorldViewMatrix(Matrix& matrix) override;
-  long SetProjectionMatrix(Matrix& matrix) override;
+  Matrix GetWorldViewMatrix(void) override { return world_view_; }
+  Matrix GetProjectionMatrix(void) override { return projection_; }
+  long SetWorldViewMatrix(Matrix& matrix) override {
+    world_view_ = matrix;
+    return SMT_ERR_NONE;
+  }
+  long SetProjectionMatrix(Matrix& matrix) override {
+    projection_ = matrix;
+    return SMT_ERR_NONE;
+  }
 
   long GetClearColorValue(float& red, float& green, float& blue,
-                          float& alpha) override;
+                          float& alpha) override {
+    red = clear_color_[0];
+    green = clear_color_[1];
+    blue = clear_color_[2];
+    alpha = clear_color_[3];
+    return SMT_ERR_NONE;
+  }
   long SetClearColorValue(float red, float green, float blue,
-                          float alpha = 1.f) override;
-  long GetClearDepthValue(float& depth) override;
-  long SetClearDepthValue(float depth) override;
-  long GetStencilClearValue(ulong& s) override;
-  long SetStencilClearValue(ulong s) override;
+                          float alpha = 1.f) override {
+    clear_color_[0] = red;
+    clear_color_[1] = green;
+    clear_color_[2] = blue;
+    clear_color_[3] = alpha;
+    return SMT_ERR_NONE;
+  }
+  long GetClearDepthValue(float& depth) override {
+    depth = clear_depth_;
+    return SMT_ERR_NONE;
+  }
+  long SetClearDepthValue(float depth) override {
+    clear_depth_ = depth;
+    return SMT_ERR_NONE;
+  }
+  long GetStencilClearValue(ulong& s) override {
+    s = clear_stencil_;
+    return SMT_ERR_NONE;
+  }
+  long SetStencilClearValue(ulong s) override {
+    clear_stencil_ = s;
+    return SMT_ERR_NONE;
+  }
 
-  long SetPolygonMode(FaceMode face, PolygonMode mode) override;
-  long GetLineWidth(float& size) override;
-  long SetLineWidth(float size) override;
-  long GetPointSize(float& size) override;
-  long SetPointSize(float size) override;
-  long EnableDepthOffset(PolygonMode mode, bool enabled) override;
-  long DepthOffsetParams(float rFactor, float dFactor) override;
-  long SetMaterail(bool enabled) override;
-  long SetLight(bool enabled) override;
+  long SetPolygonMode(FaceMode /*face*/, PolygonMode /*mode*/) override {
+    return SMT_ERR_NONE;
+  }
+  long GetLineWidth(float& size) override {
+    size = line_width_;
+    return SMT_ERR_NONE;
+  }
+  long SetLineWidth(float size) override {
+    line_width_ = size;
+    return SMT_ERR_NONE;
+  }
+  long GetPointSize(float& size) override {
+    size = point_size_;
+    return SMT_ERR_NONE;
+  }
+  long SetPointSize(float size) override {
+    point_size_ = size;
+    return SMT_ERR_NONE;
+  }
+  long EnableDepthOffset(PolygonMode /*mode*/, bool /*enabled*/) override {
+    return SMT_ERR_NONE;
+  }
+  long DepthOffsetParams(float /*rFactor*/, float /*dFactor*/) override {
+    return SMT_ERR_NONE;
+  }
+  long SetMaterail(bool enabled) override {
+    color_material_enabled_ = enabled;
+    return SMT_ERR_NONE;
+  }
+  long SetLight(bool enabled) override {
+    lighting_enabled_ = enabled;
+    return SMT_ERR_NONE;
+  }
 
   bool lighting_enabled() const { return lighting_enabled_; }
   bool color_material_enabled() const { return color_material_enabled_; }

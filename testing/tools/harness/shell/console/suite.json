@@ -1,0 +1,24 @@
+{
+  "id": "console",
+  "kind": "self_test",
+  "argv": [
+    "--self-test-console"
+  ],
+  "script": "console.il",
+  "env": {},
+  "mark_leaf": "self-test-mark.txt",
+  "required_marks": [
+    "console-ok",
+    "console-bench-ok"
+  ],
+  "report_name": "console_loop_report.json",
+  "probes": [
+    "marks"
+  ],
+  "loop": {
+    "rounds": 3,
+    "timeout_sec": 120,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  }
+}

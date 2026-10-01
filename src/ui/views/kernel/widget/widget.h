@@ -168,6 +168,9 @@ class UI_EXPORT Widget {
   std::uint64_t last_shell_published_notified_ = 0;
   // Coalesce kShellPublishedMessage → one InvalidateRect while paints pending.
   bool shell_wake_invalidate_pending_ = false;
+  // U5: coalesce Commits to ~1 per refresh when hover storms WM_PAINT.
+  std::int64_t last_commit_qpc_ = 0;
+  std::int64_t last_begin_frame_qpc_ = 0;
   // Heap-owned so Widget stays layout-stable across the DLL boundary
   // (no ThemeObserver base; hwnd()/scale stay at fixed offsets for inlines).
   std::unique_ptr<ThemeObserver> theme_watch_;

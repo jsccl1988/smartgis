@@ -3,6 +3,7 @@
 
 #include "plugin/product/orthogrid/detail/boundary_solve.h"
 #include "plugin/product/orthogrid/detail/laplace_solver.h"
+#include "plugin/product/orthogrid/detail/orthogonality.h"
 
 #include <cmath>
 #include <cstdint>
@@ -28,12 +29,11 @@ int idx(int nx, int i, int j) {
 
 void fill_unit_square_scrambled(int nx,
                                 int ny,
-                                std::vector<double>* xs,
-                                std::vector<double>* ys,
+                                orthogrid::GridField* grid,
                                 std::vector<std::uint8_t>* unknown) {
-  xs->assign(static_cast<size_t>(nx * ny), 0.0);
-  ys->assign(static_cast<size_t>(nx * ny), 0.0);
   unknown->assign(static_cast<size_t>(nx * ny), 0);
+  std::vector<double> xs(static_cast<size_t>(nx * ny), 0.0);
+  std::vector<double> ys(static_cast<size_t>(nx * ny), 0.0);
   const double dx = 1.0 / static_cast<double>(nx - 1);
   const double dy = 1.0 / static_cast<double>(ny - 1);
   for (int j = 0; j < ny; ++j) {
@@ -42,14 +42,15 @@ void fill_unit_square_scrambled(int nx,
       const bool interior = (i > 0 && i < nx - 1 && j > 0 && j < ny - 1);
       (*unknown)[static_cast<size_t>(k)] = interior ? 1 : 0;
       if (interior) {
-        (*xs)[static_cast<size_t>(k)] = 0.37;
-        (*ys)[static_cast<size_t>(k)] = 0.63;
+        xs[static_cast<size_t>(k)] = 0.37;
+        ys[static_cast<size_t>(k)] = 0.63;
       } else {
-        (*xs)[static_cast<size_t>(k)] = static_cast<double>(i) * dx;
-        (*ys)[static_cast<size_t>(k)] = static_cast<double>(j) * dy;
+        xs[static_cast<size_t>(k)] = static_cast<double>(i) * dx;
+        ys[static_cast<size_t>(k)] = static_cast<double>(j) * dy;
       }
     }
   }
+  grid->assign_from_flat(nx, ny, xs.data(), ys.data());
 }
 
 bool nearly(double a, double b, double tol) {
@@ -57,10 +58,12 @@ bool nearly(double a, double b, double tol) {
 }
 
 void test_rejects_tiny_grid() {
-  double x = 0.0;
-  double y = 0.0;
+  orthogrid::GridField g;
+  g.nx = 2;
+  g.ny = 2;
+  g.x = orthogrid::GridArray::Zero(2, 2);
+  g.y = orthogrid::GridArray::Zero(2, 2);
   std::uint8_t unk = 1;
-  orthogrid::GridField g{2, 2, &x, &y};
   expect(!orthogrid::solve_laplace(g, &unk), "tiny grid should fail");
 }
 
@@ -76,34 +79,28 @@ void test_no_unknowns_is_noop() {
       ys[static_cast<size_t>(idx(nx, i, j))] = static_cast<double>(j) + 2.0;
     }
   }
-  orthogrid::GridField g{nx, ny, xs.data(), ys.data()};
+  orthogrid::GridField g;
+  g.assign_from_flat(nx, ny, xs.data(), ys.data());
   expect(orthogrid::solve_laplace(g, unknown.data()), "all-Dirichlet ok");
-  expect(nearly(xs[static_cast<size_t>(idx(nx, 1, 1))], 1.0, 1e-12),
-         "Dirichlet x unchanged");
-  expect(nearly(ys[static_cast<size_t>(idx(nx, 1, 1))], 3.0, 1e-12),
-         "Dirichlet y unchanged");
+  expect(nearly(g.x(1, 1), 1.0, 1e-12), "Dirichlet x unchanged");
+  expect(nearly(g.y(1, 1), 3.0, 1e-12), "Dirichlet y unchanged");
 }
 
 void test_unit_square_recovers_bilinear() {
   const int nx = 5;
   const int ny = 5;
-  std::vector<double> xs;
-  std::vector<double> ys;
+  orthogrid::GridField g;
   std::vector<std::uint8_t> unknown;
-  fill_unit_square_scrambled(nx, ny, &xs, &ys, &unknown);
-  orthogrid::GridField g{nx, ny, xs.data(), ys.data()};
+  fill_unit_square_scrambled(nx, ny, &g, &unknown);
   expect(orthogrid::solve_laplace(g, unknown.data()), "laplace solve ok");
   const double dx = 0.25;
   const double dy = 0.25;
   for (int j = 0; j < ny; ++j) {
     for (int i = 0; i < nx; ++i) {
-      const int k = idx(nx, i, j);
-      if (!nearly(xs[static_cast<size_t>(k)], static_cast<double>(i) * dx,
-                  1e-9) ||
-          !nearly(ys[static_cast<size_t>(k)], static_cast<double>(j) * dy,
-                  1e-9)) {
-        std::fprintf(stderr, "FAIL: node (%d,%d) got (%g,%g)\n", i, j,
-                     xs[static_cast<size_t>(k)], ys[static_cast<size_t>(k)]);
+      if (!nearly(g.x(j, i), static_cast<double>(i) * dx, 1e-9) ||
+          !nearly(g.y(j, i), static_cast<double>(j) * dy, 1e-9)) {
+        std::fprintf(stderr, "FAIL: node (%d,%d) got (%g,%g)\n", i, j, g.x(j, i),
+                     g.y(j, i));
         ++g_fails;
       }
     }
@@ -113,28 +110,17 @@ void test_unit_square_recovers_bilinear() {
 void test_elliptic_step_matches_laplace_on_rectangle() {
   const int nx = 5;
   const int ny = 5;
-  std::vector<double> xs;
-  std::vector<double> ys;
+  orthogrid::GridField g;
   std::vector<std::uint8_t> unknown;
-  fill_unit_square_scrambled(nx, ny, &xs, &ys, &unknown);
-  orthogrid::GridField g{nx, ny, xs.data(), ys.data()};
-  bool ok = false;
-  for (int sweep = 0; sweep < 12; ++sweep) {
-    ok = orthogrid::solve_elliptic_step(g, unknown.data());
-    if (!ok) {
-      break;
-    }
-  }
-  expect(ok, "elliptic step ok");
+  fill_unit_square_scrambled(nx, ny, &g, &unknown);
+  expect(orthogrid::solve_elliptic_steps(g, unknown.data(), 12),
+         "elliptic steps ok");
   for (int j = 1; j < ny - 1; ++j) {
     for (int i = 1; i < nx - 1; ++i) {
-      const int k = idx(nx, i, j);
-      if (!nearly(xs[static_cast<size_t>(k)], static_cast<double>(i) * 0.25,
-                  1e-8) ||
-          !nearly(ys[static_cast<size_t>(k)], static_cast<double>(j) * 0.25,
-                  1e-8)) {
+      if (!nearly(g.x(j, i), static_cast<double>(i) * 0.25, 1e-8) ||
+          !nearly(g.y(j, i), static_cast<double>(j) * 0.25, 1e-8)) {
         std::fprintf(stderr, "FAIL: elliptic (%d,%d) got (%g,%g)\n", i, j,
-                     xs[static_cast<size_t>(k)], ys[static_cast<size_t>(k)]);
+                     g.x(j, i), g.y(j, i));
         ++g_fails;
       }
     }
@@ -161,6 +147,10 @@ void test_boundary_file_solves_rectangle() {
   expect(solved.node_count == 25, "boundary node count");
   expect(solved.message.find("\"nodes\":25") != std::string::npos,
          "boundary reports nodes");
+  expect(!solved.cell_orth.empty(), "cell orth populated");
+  expect(!solved.raster_orth.empty(), "raster orth populated");
+  expect(solved.xs.size() == 25 && solved.ys.size() == 25,
+         "boundary keeps vector coords");
 
   {
     std::ofstream out(path);
@@ -172,6 +162,32 @@ void test_boundary_file_solves_rectangle() {
   std::remove(path);
 }
 
+void test_unit_square_orthogonality_near_zero() {
+  const int nx = 5;
+  const int ny = 5;
+  orthogrid::GridField g;
+  std::vector<std::uint8_t> unknown;
+  fill_unit_square_scrambled(nx, ny, &g, &unknown);
+  expect(orthogrid::solve_laplace(g, unknown.data()), "laplace for orth");
+  const orthogrid::OrthogonalityField orth =
+      orthogrid::compute_orthogonality(g);
+  expect(orth.node_delta.size() == static_cast<size_t>(nx * ny),
+         "node orth size");
+  expect(orth.cell_delta.size() == static_cast<size_t>((nx - 1) * (ny - 1)),
+         "cell orth size");
+  float max_d = 0.f;
+  for (float d : orth.node_delta) {
+    if (d > max_d) {
+      max_d = d;
+    }
+  }
+  expect(max_d < 1e-3f, "rectangle interior nearly orthogonal");
+  expect(std::string(orthogrid::heat_class_from_delta(0.f)) == "0",
+         "heat class 0");
+  expect(std::string(orthogrid::heat_class_from_delta(40.f)) == "3",
+         "heat class 3");
+}
+
 }  // namespace
 
 int main() {
@@ -180,6 +196,7 @@ int main() {
   test_unit_square_recovers_bilinear();
   test_elliptic_step_matches_laplace_on_rectangle();
   test_boundary_file_solves_rectangle();
+  test_unit_square_orthogonality_near_zero();
   if (g_fails != 0) {
     std::fprintf(stderr, "%d failure(s)\n", g_fails);
     return 1;

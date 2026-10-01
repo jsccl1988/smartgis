@@ -2,6 +2,7 @@
 // All rights reserved.
 
 #include "app/views/shell/browser/browser.h"
+#include "app/views/shell/browser/china_product_defaults.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -24,9 +25,8 @@
 #include "content/browser/camera/map_host_extent.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
 #include "app/views/shell/browser/commands/view_commands.h"
-#include "plugin/product/dem/commands.h"
 #include "plugin/product/orthogrid/commands.h"
-#include "plugin/runtime/host/registry.h"
+#include "plugin/runtime/host/registry/registry.h"
 #include "content/public/catalog_layers.h"
 #include "content/public/map_contents.h"
 #include "content/public/map_types.h"
@@ -84,11 +84,26 @@ void Browser::apply_nav_draft(const tool::Draft& draft, bool pan,
     }
     const int dx = draft.points.back().x_px - draft.points.front().x_px;
     const int dy = draft.points.back().y_px - draft.points.front().y_px;
-    session_.blit().begin_pan(vw, vh, dx, dy);
+    // ContentMapView already presents full frames via the GPU process.
+    // begin_pan starts a GDI blit timer that races SharedSurface present
+    // (same FlyCube/shared_ptr UAF class as the ZoomToRect path below).
+    const bool content_map =
+        ui_->active_map() &&
+        ui_->active_map()->attach_mode() ==
+            ui::views::MapViewport::AttachMode::kContentMapView;
+    if (!content_map) {
+      session_.blit().begin_pan(vw, vh, dx, dy);
+    }
     session_.view_frame().apply_pan(dx, dy);
   } else {
-    session_.blit().begin_zoom(vw, vh, draft.points.front().x_px,
-                     draft.points.front().y_px, zoom_factor);
+    const bool content_map =
+        ui_->active_map() &&
+        ui_->active_map()->attach_mode() ==
+            ui::views::MapViewport::AttachMode::kContentMapView;
+    if (!content_map) {
+      session_.blit().begin_zoom(vw, vh, draft.points.front().x_px,
+                                 draft.points.front().y_px, zoom_factor);
+    }
     session_.view_frame().apply_zoom_at(draft.points.front().x_px,
                             draft.points.front().y_px, zoom_factor);
   }
@@ -108,12 +123,15 @@ void Browser::zoom_at_and_commit(int view_x, int view_y, double factor) {
 }
 
 void Browser::fit_map_extent() {
+  // Prefer Widget client size over MapViewport::native_view(): View is
+  // UI_EXPORT so the inline accessor is dllimport; a skewed MapViewport*
+  // AVs inside ui_views during early init_chrome (before attach_viewports).
   int w = 800;
   int h = 600;
-  if (ui::views::MapViewport* pane = ui_->active_map()) {
-    if (HWND hwnd = pane->native_view()) {
+  if (ui_) {
+    if (HWND chrome = ui_->hwnd()) {
       RECT rc = {};
-      GetClientRect(hwnd, &rc);
+      GetClientRect(chrome, &rc);
       if (rc.right > 32) {
         w = rc.right;
       }
@@ -122,13 +140,20 @@ void Browser::fit_map_extent() {
       }
     }
   }
-  session_.view_frame().fit_extent(session_.document(), w, h);
-  session_.orbit_frame().apply_world_extent(session_.document().world_extent());
-  push_shared_extent();
-  ui_->invalidate_map_overlays();
+  // China packs: same carto + mainland framing as --map2d-showcase=china.
+  if (session_.document().has_china_extent()) {
+    apply_china_map2d_product_defaults(*this, w, h);
+  } else {
+    session_.view_frame().fit_extent(session_.document(), w, h);
+    session_.orbit_frame().apply_world_extent(session_.document().world_extent());
+    push_shared_extent();
+  }
+  if (ui_ && ui_->hwnd()) {
+    ui_->invalidate_map_overlays();
+  }
   adopt_or_commit_extent();
   refresh_scale();
-  if (ui_->status_bar()) {
+  if (ui_ && ui_->status_bar()) {
     if (session_.document().last_open_was_ogr()) {
       ui_->status_bar()->set_crs_text(
           session_.document().has_china_extent() ? "EPSG:4326 (China)" : "EPSG:4326");
@@ -268,7 +293,7 @@ void Browser::handle_draft(const tool::Draft& draft) {
   }
 
   // Rubber-band ZoomToRect: view.zoom_in L/R drag (view.pan leaves RMB to the
-  // shell context menu — MapLibre-like browse).
+  // shell context menu �?MapLibre-like browse).
   const bool zoom_rect_draft =
       draft.kind == tool::DraftKind::kRect && draft.points.size() >= 2 &&
       (tool::draft_flags::is_zoom_rect(draft.flags) ||
@@ -319,7 +344,7 @@ void Browser::handle_draft(const tool::Draft& draft) {
         push_shared_extent();
         adopt_or_commit_extent();
         refresh_scale();
-        // Full redraw via Invalidate only — avoid blit-timer + GPU present
+        // Full redraw via Invalidate only �?avoid blit-timer + GPU present
         // racing after a rubber-band ZoomToRect (FlyCube shared_ptr UAF).
         ui_->invalidate_map_overlays();
         return;
@@ -384,6 +409,12 @@ void Browser::refresh_scale() {
 }
 
 void Browser::adopt_or_commit_extent() {
+  // Guard: draft_nav.cc is a separate Browser TU. A stale .obj vs browser.obj
+  // under parallel ninja reads ui_ at the wrong offset (NULL / 0xCD) and AVs
+  // here during init_chrome fit_map_extent � rebuild shell_browser together.
+  if (!ui_) {
+    return;
+  }
   int w = 800;
   int h = 600;
   ui_->active_view_size(&w, &h);
@@ -637,9 +668,8 @@ void Browser::push_shared_extent() {
   int h = 600;
   ui_->active_view_size(&w, &h);
   content::Extent2 e;
-  // On the 3D tab, never pull the Map-Edit 2D crop into the orbit camera —
-  // a coastal / half-ocean 2D view made DEM present as a black void with a
-  // sliver of terrain on the far edge (双击切 3D 无画面).
+  // On the 3D tab, never pull the Map-Edit 2D crop into the orbit camera �?  // a coastal / half-ocean 2D view made DEM present as a black void with a
+  // sliver of terrain on the far edge (坌击�?3D 无画�?.
   if (ui_->scene3d_tab_active()) {
     e = session_.orbit_frame().world_extent();
     if (!extent_looks_like_china(e)) {
@@ -717,15 +747,10 @@ void Browser::pull_orbit_extent() {
   if (!ui_) {
     return;
   }
-  const uint32_t view_id =
-      ui_->map_scene_viewport() ? ui_->map_scene_viewport()->view_id() : 0;
-  if (session_.map_contents() && view_id != 0) {
-    const content::Extent2 live = session_.map_contents()->Extent(view_id);
-    if (extent_nonempty(live)) {
-      session_.orbit_frame().set_extent(live);
-      return;
-    }
-  }
+  // Do not call MapContents::Extent here. Multi-agent out/ rebuilds have left
+  // MapContents ABI skew that AVs inside Extent (cdb: pull_orbit_extent /
+  // INVALID_POINTER_READ). Document world_extent + China fallback is enough
+  // for orbit init; live view sync goes through push_shared_extent / fit.
   const content::Extent2 doc = session_.document().world_extent();
   if (extent_nonempty(doc)) {
     session_.orbit_frame().set_extent(doc);

@@ -16,7 +16,7 @@ All rights reserved.
 ## Global Constraints
 
 - Work on **`master`** only; parallel agents use **non-overlapping paths**.
-- Keep `SmtGdiRenderDevice` / `SmtGdiRenderThread` / CreateDevice string + public `Draw*` / `Render*` names.
+- Keep `SmtRhi2dRenderDevice` / `SmtGdiRenderThread` / CreateDevice string + public `Draw*` / `Render*` names.
 - UI-thread sync paint must remain (BeginRender path + realtime fallback).
 - Comments in English on touched code; new functions `snake_case`.
 - **Do not** `git commit` unless the user asks.
@@ -39,13 +39,13 @@ All rights reserved.
 ### Task 1: move paint sources → `core/paint/`
 
 - [x] **Step 1:** Move worker `{style_canvas,map_painter,device_geom,render_context,map_carto2d}.*` → `core/paint/` (untracked files used filesystem move).
-- [x] **Step 2:** Update includes inside moved files; `map_painter.h` forward-declares `GdiFrameScheduler` (include `worker_frame_scheduler.h` only in `.cpp`) so paint does not pull worker into public headers.
+- [x] **Step 2:** Update includes inside moved files; `map_painter.h` forward-declares `Rhi2dFrameScheduler` (include `worker_frame_scheduler.h` only in `.cpp`) so paint does not pull worker into public headers.
 - [x] **Step 3:** Update `BUILD.gn` (common + thread + carto test), all in-tree includes, README layout table.
 - [x] **Step 4:** `build.bat debug` `map_carto2d_test` green.
 
 ### Task 2: host owns paint instance; delete duplicate TUs
 
-- [x] **Step 1:** `SmtGdiRenderDevice` owns `detail::GdiStyleCanvas` + `detail::GdiMapPainter` (separate from worker). Construct painter with host back (`m_smtQuickRenderBuf` or dedicated) + shared front `m_smtMapRenderBuf` + vir viewports + `shared_front_mutex`.
+- [x] **Step 1:** `SmtRhi2dRenderDevice` owns `detail::GdiStyleCanvas` + `detail::GdiMapPainter` (separate from worker). Construct painter with host back (`m_smtQuickRenderBuf` or dedicated) + shared front `m_smtMapRenderBuf` + vir viewports + `shared_front_mutex`.
 - [x] **Step 2:** `BeginRender` / `EndRender` / `PrepareForDrawing` / `EndDrawing` bind host canvas DC + lock_style; remove `GdiStyleState`.
 - [x] **Step 3:** Public `Draw*` → host canvas; `RenderLayer`/`Feature`/`Geometry` → host map_painter (DC already set). Full sync `RenderMap(map)` / realtime fallback → `map_painter.render_map(...)` (same prep/play as worker). Host-only: move `render_map_to_dc` / `re_render_map_by_proxy` / `re_render_map_real_time` into `render_device.cpp` (or tiny host helper file if size warrants).
 - [x] **Step 4:** Delete `geom_drawer.*` `style_state.*` `layer_painter.*`; drop friends; `style()` → `canvas()` (or equivalent accessors). Update `BUILD.gn`.

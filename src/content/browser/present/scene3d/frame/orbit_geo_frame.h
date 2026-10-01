@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "content/public/map_types.h"
-#include "gis/vista/world/terrain/dem_frame.h"
+#include "gis/vista/world/terrain/dem/dem_frame.h"
 
 namespace content {
 

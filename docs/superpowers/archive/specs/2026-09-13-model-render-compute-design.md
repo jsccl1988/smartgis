@@ -254,7 +254,7 @@ Assimp 未链接时：`load_file` 除内建 `"cube"`（`load_unit_cube`）外一
 | `ui/gfx/` | 壳画布 stub | **保留**，永不做 GIS GPU | — |
 | `render/math/` | Eigen Vector/Matrix/Aabb | **保留**（场景数学） | 不要搬回 `algorithm/geo` |
 | `legacy/render/bridge/`（`renderdevice.*` / `renderer.*` / `leftover_*`） | `SmtRenderDevice` / `SmtRenderer` Bridge；`leftover_mesh` / `leftover_record` / `leftover_session` | **适配器**：目标仍是 `Init(HWND)` → `BindRhiPresent`；`leftover_mesh` 是 2010 VB/IB → 同一 Device 的适配缝。**本轮 present 缝可断**；DLL 仍可经 `legacy_render_all` 另编。新代码不在此加 3D API | MFC 地图视图消失 / leftover 3D 改走 GpuScene 后删 |
-| `legacy/render/gdi/` | `SmtGdiRenderDevice` | HWND present 适配。`create_device(kGdi)` stub list | 同上 |
+| `legacy/render/gdi/` | `SmtRhi2dRenderDevice` | HWND present 适配。`create_device(kGdi)` stub list | 同上 |
 | `legacy/render/gdi_simple/` | 简化 GDI 设备 | 同 gdi，不再分叉功能 | 同上 |
 | `legacy/render/rhi3d/impl/gl/` | `SmtGLRenderDevice` | HWND / 旧 immediate 适配。`create_device(kGl)` | 3D MFC 视图切到 GpuScene 后删 |
 | `d3d/` | D3D9 / D3DX | **已删除** | 禁止复活 |

@@ -38,7 +38,7 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 | GEOS | `src/gis/kernel/geo`（`//src/gis:geom` → `gis` DLL）— wrap `//third_party:gdal` (`.install` `geos_c`); no second GEOS vendor |
 | PROJ | `src/gis/kernel/proj` (PROJ 9 adapter only) |
 | map canvas renderer | `src/render` + RHI |
-| processing / analysis | `src/gis/analysis/{ops,geometry,raster}` + `src/gis/kernel/{geo,proj,tin,stat}` (`gis` DLL). Product face: `plugin::run_builtin_op` (thin forward). |
+| processing / analysis | `src/gis/analysis/{ops,geometry,network,raster/{dem,filter}}` + `src/gis/kernel/{geo,proj,tin,stat}` (`gis` DLL). Product face: `plugin::run_builtin_op` (thin forward). |
 | `qgis_gui` / `qgis_app` | `src/ui/` / `src/app/` |
 | libqgis_core for embedders | `src/content/public` |
 
@@ -70,13 +70,13 @@ New public namespaces stay at most two levels (`geo`, `base::detail` for interna
 | --- | --- | --- | --- |
 | Foundation | `src/base/`（含 `archive`/`ipc`；core leftovers 在 `legacy/core`）, `legacy/{core,sys}` | **`//src/base:foundation`**（static）。**产品 DLL**：`dll_stem=base`（无 net；无 carto）。XML → `//third_party:pugixml`（`legacy/xml` 目录已删） | yes → `base`；foundation 经 deps 链入 |
 | Net | `src/net` | **`dll_stem=net`**（import-link） | yes → `net` |
-| Core data model | `src/gis/model`、`present`、`scene`（目录名仍可能写 sdb） | GIS 模型 + CPU assets / World / TileProvider / StyleDocument / carto POD；**一 DLL `gis`**；`gis::Envelope` 头在 `gis/model/envelope.h`（header-only） | yes → `gis` |
+| Core data model | `src/gis/model`、`present`、`vista`（目录名仍可能写 sdb） | GIS 模型 + CPU assets / World / TileProvider / StyleDocument / carto POD；**一 DLL `gis`**；`gis::Envelope` 头在 `gis/model/envelope.h`（header-only）。**World 子树（2026-09-30）：** `vista/world/pointcloud/{buffer,ingest{/io},process}`；`vista/world/terrain/{dem,process,mesh}`（管线 B：ingest→buffer/process→mesh）。**Frame 子树（2026-10-01）：** `vista/frame/detail/layout/{fill,line,point,raster,symbol,view_metrics,attrs,geom_mesh}` + `vista/frame/detail/collision/`（CPU MapFrame layout；ns 仍 `gis::vista::detail`） | yes → `gis` |
 | Datasource | `gis/datasource/{session,provider,pipeline}`；L3=`provider/impl/{sdbd,ogr,gdal}` | 并入 `gis` DLL。**分层：** L1 `session/` → L2 `provider/` → L3 `provider/impl/{sdbd,ogr,gdal}`；L4 `pipeline/`。产品 ABI `MapLayer`/`Feature`。**遗留 catalog：** `legacy/gis/datasource`。SDBD：`impl/sdbd/{client,driver,remote,codec}`；活体硬测：`impl/sdbd/remote/sdbd_live_test.cc` | yes → `gis` |
-| Algorithm | `gis/kernel/{geo,proj,tin,stat}` + `gis/analysis/{ops,geometry,raster}` | 编进 **`gis.dll`**（`//src/gis:algorithm` 转发）。`analysis/ops` = native GeoJSON runners；`geometry`/`raster` = 后续对象落点。Scene Vector/Matrix 在 `base/math`（命名空间 `render`，不进 `base.dll`）。**Not** dem/orthogrid（插件）/ chart（`ui_legacy`） | yes → `gis` |
+| Algorithm | `gis/kernel/{geo,proj,tin,stat}` + `gis/analysis/{ops,geometry,network,raster/{dem,filter}}` | 编进 **`gis.dll`**（`//src/gis:algorithm` 转发）。`analysis/ops` = native GeoJSON runners；`geometry` / `network` / `raster` = 内核落点（`raster` 按 `dem` vs `filter` 拆分）。Scene Vector/Matrix 在 `base/math`（命名空间 `render`，不进 `base.dll`）。**Not** dem/orthogrid（插件）/ chart（`ui_legacy`） | yes → `gis` |
 | Render | `render/{rhi,scene,skia}` | Endgame **一 DLL `render`**。场景数学在 `src/base/math`（不进本 DLL）。Leftover 引擎在 `legacy/render/` → optional `legacy_render` DLL | yes → `render`；leftover optional |
 | Plugin | `plugin/runtime`（host / processing forwarders / widgets / python）+ `plugin/product`（dem / print / model3d / orthogrid；包内 `manifest`/`views`/`processing`/`tests`，样板 dem）+ leftover `legacy/plugin/{runtime,product/<domain>/{shell,views},product/orthogrid/kernel}`（含 legacy `proj`） | Host **`dll_stem=plugin_host`**（`//src/plugin:host`；`PLUGIN_HOST_*`）。Processing **kernels** 在 `gis/analysis`，`plugin/runtime/processing` 仅转发 `plugin::`。Leftover **`runtime/{auxmodule,bridge}`**：AuxModule → `//src/legacy/plugin:plugin`；header-only `AM_MSG` → `//src/legacy/plugin/runtime:cmd`（`//src/plugin:cmd`）；`*.am` scan → `:bridge`（仅链入 `plugin_host`，忌进 `ui_legacy`）。MFC 域插件 `am_plugin=true` → **`out/plugin/<stem>[_d].am`**；域内 `shell/` + `views/`。Views 走 builtin + import-link `plugin_host`，不扫 `*.am`。包约定见 [`../superpowers/specs/2026-09-13-plugin-host-design.md`](../superpowers/specs/2026-09-13-plugin-host-design.md) § Product domain package。 | host DLL + widgets；域插件按需 |
 | UI (leftover) | `legacy/ui/{shell/{ambox,chart},map,inspect,catalog,dialogs,widgets}` + `res/{shell,shell/ambox,shell/chart,…}/` | **一 DLL `ui_legacy`**。B1 ≈ `ui/gis` + `views/map` 词汇；§11c Feature Pack（无 `grid/`/`dock/`）；scheme C；不出 `legacy/` | **no**（`smt_build_app`） |
-| UI toolkit (endgame) | `ui/views` + `ui/gfx` + `ui/gis` | **`dll_stem=ui_views`**（同 PE；`UI_EXPORT`）；`:views` / `:gfx` / `:gis` 转发；`:gfx_headers` 给 gpu | **no**（SmartGisViews） |
+| UI toolkit (endgame) | `ui/views`（含 `map/{viewport,input,chrome,device}`；根上 `map_viewport.h`/`touch_multitouch.h` 为公共转发）+ `ui/gfx` + `ui/gis` | **`dll_stem=ui_views`**（同 PE；`UI_EXPORT`）；`:views` / `:gfx` / `:gis` 转发；`:gfx_headers` 给 gpu | **no**（SmartGisViews） |
 | Hosted map | `content/public` + `content/{app,browser,renderer,view,common,embed}`；in-process session under `content/browser/{map_session,document,camera,present,input}`（`//src/content:map_session` source_set，**不**进 content.dll）；GDI software TUs in `content/browser/present/*/software/`（render 不得反向依赖 content；GPU 在 `*/gpu/`） | **`dll_stem=content`**（管道 / MapContents / ViewHost）；Views 另链 `:map_session` | yes → `content`（DLL）；map_session 仅 Views/exe |
 | GPU main (`--type=gpu`) | `gpu/` | 同 PE `GpuMain`；deps **`:gfx_headers`**（不拉 ui_views）。`build.bat render` 为 GPU 进程别名。 | **no** |
 | App (endgame) | `app/{views,winui,cef,cs}` | SmartGisViews import-link 产品 DLL 集 | **no** |
@@ -155,9 +155,10 @@ Chosen destination: Chromium-style **Views** + **Skia** + existing C++ map viewp
 | `Smt3DBaseLib` | `scene3d` | `legacy/render/scene3d` | → `legacy_render` | `legacy_render` |
 | — | `scene` | `render/scene` | → `render` | `render` |
 | — | `model` / `scene` / `tile` | `sdb/model`, `sdb/scene`, `sdb/tile` | → `sdb` | `sdb` |
-| `Smt3DMdLib` | `model3d` | `legacy/render/scene3d/{primitive,feature}` (was top `model3d/`) | → `legacy_render` | `legacy_render` |
-| `Smt3DPointCloud` | `pointcloud` | `legacy/render/scene3d/surface` (was top `pointcloud/`) | → `legacy_render` | `legacy_render` |
-| `Smt3DTerrain` | `terrain` | `legacy/render/scene3d/surface` (was top `terrain/`) | → `legacy_render` | `legacy_render` |
+| `Smt3DMdLib` | `model3d` | `legacy/render/scene3d/primitive` (was top `model3d/` + scene3d `feature/`) | → `legacy_render` | `legacy_render` |
+| `Smt3DPointCloud` | `pointcloud` | `legacy/render/scene3d/primitive` (was top `pointcloud/` / `surface/`) | → `legacy_render` | `legacy_render` |
+| `Smt3DTerrain` | `terrain` | `legacy/render/scene3d/primitive` (was top `terrain/` / `surface/`) | → `legacy_render` | `legacy_render` |
+| — | leftover vista | `legacy/gis/vista` (`DemHeightField` / dem→World / Y-up coord) | → `//src/gis:gis` | `gis` |
 | `SmtNetCore` | `net` | `net/{pack,http,rpc}` | → `base` | `base` |
 | `SmtStaCore` | `stat` | `gis/kernel/stat` | → `//src/gis:gis` | `gis` |
 | `SmtStaDiagram` | `stat_chart` | `legacy/ui/shell/chart` | → `ui_legacy` | `ui_legacy` |
@@ -181,4 +182,4 @@ Include dirs: `BUILDCONFIG` puts **`//src` before `//`** so `#include "base/…"
 
 ---
 
-**最后更新：** 2026-09-29
+**最后更新：** 2026-10-01

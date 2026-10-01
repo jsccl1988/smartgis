@@ -145,13 +145,12 @@ void Smt2DXView::OnDraw(CDC *pDC) {
   /*if (!m_bActive)
   return;*/
 
-  // Wipe QUICK, then BitBlt the composite into the WM_PAINT DC (not GetDC).
-  // RenderMap()→present(GetDC) was discarded by EndPaint / needed a click.
+  // Present the composed map into the WM_PAINT DC (not GetDC — EndPaint
+  // discarded that path). Do not Begin/EndRender(MRD_BL_QUICK) here: that
+  // encodes onto raster_back_, which is also the host/worker map back buffer,
+  // and nested OpenDocumentFile paints raced the encoder → heap corruption
+  // in GdiCommandBuffer::~GdiCommandBuffer (0xC000041D).
   if (m_pRenderDevice) {
-    if (SMT_ERR_NONE ==
-        m_pRenderDevice->BeginRender(MRD_BL_QUICK, true, nullptr, R2_COPYPEN)) {
-      m_pRenderDevice->EndRender(MRD_BL_QUICK);
-    }
     HDC paint_dc = pDC ? pDC->GetSafeHdc() : nullptr;
     m_pRenderDevice->RenderMapToDC(paint_dc);
   }
@@ -240,19 +239,19 @@ void Smt2DXView::OnSize(UINT nType, int cx, int cy) {
     SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
     SmtSysPra sysPra = pSysMgr->get_sys_pra();
     lRect lrt;
-    Smt2DRenderPra rdPra;
+    Smt2DRenderOptions rdOptions;
 
     lrt.lb.x = 0;
     lrt.rt.y = 0;
     lrt.rt.x = cx;
     lrt.lb.y = cy;
 
-    rdPra.bShowMBR = sysPra.bShowMBR;
-    rdPra.bShowPoint = sysPra.bShowPoint;
-    rdPra.lPointRaduis = sysPra.lPointRaduis;
+    rdOptions.bShowMBR = sysPra.bShowMBR;
+    rdOptions.bShowPoint = sysPra.bShowPoint;
+    rdOptions.lPointRaduis = sysPra.lPointRaduis;
 
     m_pRenderDevice->Resize(0, 0, cx, cy);
-    m_pRenderDevice->SetRenderPra(rdPra);
+    m_pRenderDevice->SetRenderOptions(rdOptions);
     // Prefer posted framing over sync ZoomToRect during layout.
     if (m_pSmtOperMap && !m_bOperMapFramed) {
       request_oper_map_frame();
@@ -302,13 +301,13 @@ void Smt2DXView::OnTimer(UINT_PTR nIDEvent) {
         }
         SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
         SmtSysPra sysPra = pSysMgr->get_sys_pra();
-        Smt2DRenderPra rdPra;
+        Smt2DRenderOptions rdOptions;
 
-        rdPra.bShowMBR = sysPra.bShowMBR;
-        rdPra.bShowPoint = sysPra.bShowPoint;
-        rdPra.lPointRaduis = sysPra.lPointRaduis;
+        rdOptions.bShowMBR = sysPra.bShowMBR;
+        rdOptions.bShowPoint = sysPra.bShowPoint;
+        rdOptions.lPointRaduis = sysPra.lPointRaduis;
 
-        m_pRenderDevice->SetRenderPra(rdPra);
+        m_pRenderDevice->SetRenderOptions(rdOptions);
         // Timer() invalidates only when a delayed worker frame is ready.
         // Do not PostMessage(WM_PAINT) every tick — that flooded the UI
         // pump (~20 Hz) and made dock controls lag behind the mouse.
@@ -346,6 +345,27 @@ void Smt2DXView::OnRButtonDown(UINT nFlags, CPoint point) {
 }
 
 BOOL Smt2DXView::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt) {
+  // MFC delivers screen coordinates. Prefer Workspace dispatch (PreviewZoomScale
+  // + Refresh) — SmtXView has no OnMouseWheel override, so the old path was a
+  // no-op CView default and zoom_gate stayed near zero.
+  POINT client = {pt.x, pt.y};
+  ScreenToClient(&client);
+  if (view_host()) {
+    content::InputEvent e{};
+    e.kind = content::InputEvent::Kind::kWheel;
+    e.wheel = static_cast<int32_t>(zDelta);
+    e.flags = static_cast<uint32_t>(nFlags);
+    e.x_px = client.x;
+    e.y_px = client.y;
+    if (view_host()->dispatch_input(e)) {
+      return TRUE;
+    }
+  }
+  if (m_pViewCtrlTool) {
+    // MouseWeel expects screen coords (it ScreenToClients internally).
+    m_pViewCtrlTool->MouseWeel(nFlags, zDelta, lPoint(pt.x, pt.y));
+    return TRUE;
+  }
   return SmtXView::OnMouseWheel(nFlags, zDelta, pt);
 }
 
@@ -563,6 +583,14 @@ bool Smt2DXView::CreateTools(void) {
     // Default browse: two-finger / hwheel pan needs view.pan on the stack.
     ws->activate("view.pan");
   }
+  // Leftover m_viewMode starts at VM_ZoomOff; align with Workspace view.pan so
+  // apply_view_draft + cursor match left-drag pan (not identify/off).
+  if (SmtViewCtrlTool *view_ctrl =
+          dynamic_cast<SmtViewCtrlTool *>(m_pViewCtrlTool)) {
+    SmtListenerMsg mode_param{};
+    mode_param.hSrcWnd = m_hWnd;
+    view_ctrl->notify(GT_MSG_VIEW_ZOOMMOVE, mode_param);
+  }
 
   LOGGING(LOG_INFO, "Init GroupTools ok!");
 
@@ -694,29 +722,25 @@ void Smt2DXView::apply_workspace_draft(const tool::Draft &draft) {
     }
     return;
   }
-  // Always-on horizontal wheel / two-finger pan — never treat as select/draw.
-  if (draft.kind == tool::DraftKind::kRect &&
-      tool::draft_flags::is_touch_pan(draft.flags)) {
-    const char *tool_id = nullptr;
-    if (view_host() && view_host()->workspace()) {
-      if (tool::Interaction *cur =
-              view_host()->workspace()->stack().current()) {
-        tool_id = cur->id();
-      }
+  const char *tool_id = nullptr;
+  if (view_host() && view_host()->workspace()) {
+    if (tool::Interaction *cur = view_host()->workspace()->stack().current()) {
+      tool_id = cur->id();
     }
-    if (tool::is_navigate_tool(tool_id) && m_pViewCtrlTool) {
-      m_pViewCtrlTool->apply_draft(draft);
-    }
+  }
+  // view.pan / view.zoom_* / touch-pan / hwheel: always ViewCtrl leftover,
+  // even if GetActiveIATool still points at Select/Append after a menu race.
+  if (draft.kind == tool::DraftKind::kRect && m_pViewCtrlTool &&
+      (tool::draft_flags::is_touch_pan(draft.flags) ||
+       tool::is_navigate_tool(tool_id))) {
+    m_pViewCtrlTool->apply_draft(draft);
     return;
   }
   // Workspace select.* must hit leftover SelectTool even if ViewCtrl is
   // still the active IA tool (point-select notify used to drop SetActive).
-  if (m_pSelectTool && view_host() && view_host()->workspace()) {
-    tool::Interaction *cur = view_host()->workspace()->stack().current();
-    if (cur && cur->id() && std::strncmp(cur->id(), "select.", 7) == 0) {
-      m_pSelectTool->apply_draft(draft);
-      return;
-    }
+  if (m_pSelectTool && tool_id && std::strncmp(tool_id, "select.", 7) == 0) {
+    m_pSelectTool->apply_draft(draft);
+    return;
   }
   SmtIAToolManager *mgr = SmtIAToolManager::get_singleton_ptr();
   SmtBaseTool *tool =

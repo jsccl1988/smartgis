@@ -1,0 +1,47 @@
+{
+  "id": "browse",
+  "kind": "showcase",
+  "argv": [
+    "--browse-showcase"
+  ],
+  "script": "browse.il",
+  "env": {
+    "SMT_SKIP_MAP_CONTEXT_MENU": "1",
+    "SMT_MAP2D_NO_HILLSHADE": "1"
+  },
+  "mark_leaf": "self-test-mark.txt",
+  "required_marks": [
+    "pan-ok",
+    "browse-ok",
+    "wheel-cursor-ok"
+  ],
+  "accept_nonzero_rc_if_marks": true,
+  "bmp": {
+    "path": "browse-showcase-2d.bmp",
+    "score_id": "map2d_china",
+    "accept_nonzero_rc_if_bmp": true,
+    "soft": true,
+    "min_bytes": 10000
+  },
+  "report_name": "browse_loop_report.json",
+  "probes": [
+    "marks",
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 6,
+    "timeout_sec": 120,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "map_not_hollow",
+      "layers_labels_readable",
+      "pan_browse_wheel_marks",
+      "no_tab_clip_layers_sources"
+    ],
+    "expect_notes": "Views 2D browse stress + shell HWND capture; soft ui_shell_dark"
+  }
+}

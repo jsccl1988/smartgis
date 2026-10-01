@@ -1,6 +1,6 @@
 /out
 /out_*
-# Local cdb sessions and minidumps. Canonical dumps stay under /out/crash.
+# Legacy repo-root crash dir (do not recreate). Canonical: out/crash/ (under /out).
 /crash/
 *.dmp
 *.mdmp
@@ -11,7 +11,11 @@
 # .NET / WinUI intermediates and stray XAML binary at repo root.
 **/obj/
 /outApp.xbf
-/.vscode
+# Keep shared editor workspace files; ignore personal/local IDE junk.
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/README.md
 /.vs
 .ide.*
 __pycache__/
@@ -19,6 +23,8 @@ __pycache__/
 *.swp
 *.log
 *.code-workspace
+# ANTLR4 vscode extension interpreter cache (next to .g4).
+**/.antlr/
 node_modules/
 /bin/
 /temp/

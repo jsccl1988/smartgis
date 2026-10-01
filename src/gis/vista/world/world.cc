@@ -3,6 +3,12 @@
 
 #include "gis/vista/world/world.h"
 
+#include <algorithm>
+#include <cstring>
+
+#include "gis/vista/world/pointcloud/process/chunk.h"
+#include "gis/vista/world/pointcloud/process/lod.h"
+
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "ogrsf_frmts.h"
 #include "gis/model/layer/layer.h"
@@ -371,6 +377,89 @@ Node* World::attach_pointcloud(const char* name, double min_x, double min_y,
                                double max_z) {
   return add_node(NodeKind::kPointCloud, name, min_x, min_y, min_z, max_x,
                   max_y, max_z);
+}
+
+bool World::set_pointcloud_points(uint64_t id, const float* xyz,
+                                  size_t point_count, const uint8_t* rgba,
+                                  size_t rgba_bytes) {
+  Node* node = find(id);
+  if (!node || node->kind != NodeKind::kPointCloud) {
+    return false;
+  }
+  if (!xyz || point_count == 0) {
+    node->point_positions.clear();
+    node->point_rgba.clear();
+    node->point_chunks.clear();
+    ++generation_;
+    node->generation = generation_;
+    return false;
+  }
+
+  PointCloud cloud;
+  cloud.xyz.assign(xyz, xyz + point_count * 3);
+  if (rgba && rgba_bytes >= point_count * 4) {
+    cloud.rgba.assign(rgba, rgba + point_count * 4);
+  }
+  cloud.recompute_bounds();
+
+  // P2: thin very large clouds before chunking (uniform stride via LOD API).
+  constexpr size_t kLodBudget = 500000;
+  if (cloud.point_count() > kLodBudget) {
+    PointCloudLodOptions lod;
+    lod.max_points = kLodBudget;
+    lod.focus_radius = 0;
+    std::vector<uint32_t> keep;
+    if (select_point_cloud_lod(cloud, lod, &keep) && !keep.empty()) {
+      PointCloud thinned;
+      thinned.xyz.reserve(keep.size() * 3);
+      if (cloud.has_color()) {
+        thinned.rgba.reserve(keep.size() * 4);
+      }
+      for (uint32_t idx : keep) {
+        thinned.xyz.push_back(cloud.xyz[idx * 3]);
+        thinned.xyz.push_back(cloud.xyz[idx * 3 + 1]);
+        thinned.xyz.push_back(cloud.xyz[idx * 3 + 2]);
+        if (cloud.has_color()) {
+          thinned.rgba.push_back(cloud.rgba[idx * 4]);
+          thinned.rgba.push_back(cloud.rgba[idx * 4 + 1]);
+          thinned.rgba.push_back(cloud.rgba[idx * 4 + 2]);
+          thinned.rgba.push_back(cloud.rgba[idx * 4 + 3]);
+        }
+      }
+      thinned.recompute_bounds();
+      cloud = std::move(thinned);
+    }
+  }
+
+  node->point_positions = std::move(cloud.xyz);
+  node->point_rgba = std::move(cloud.rgba);
+  node->min_x = cloud.min_x;
+  node->min_y = cloud.min_y;
+  node->min_z = cloud.min_z;
+  node->max_x = cloud.max_x;
+  node->max_y = cloud.max_y;
+  node->max_z = cloud.max_z;
+
+  // Rebuild cloud view for chunker (positions already moved — reconstruct).
+  PointCloud for_chunks;
+  for_chunks.xyz = node->point_positions;
+  for_chunks.rgba = node->point_rgba;
+  for_chunks.min_x = node->min_x;
+  for_chunks.min_y = node->min_y;
+  for_chunks.min_z = node->min_z;
+  for_chunks.max_x = node->max_x;
+  for_chunks.max_y = node->max_y;
+  for_chunks.max_z = node->max_z;
+  PointCloudChunkOptions chunk_opts;
+  chunk_opts.grid_axis = 8;
+  chunk_opts.max_points_per_chunk = 50000;
+  if (!build_point_cloud_chunks(for_chunks, chunk_opts, &node->point_chunks)) {
+    node->point_chunks.clear();
+  }
+
+  ++generation_;
+  node->generation = generation_;
+  return true;
 }
 
 bool World::apply_tileset_selection(

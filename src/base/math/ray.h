@@ -6,7 +6,7 @@
 
 #include "base/math/vector.h"
 
-namespace render {
+namespace base {
 
 class Aabb;
 class Matrix;
@@ -40,6 +40,10 @@ class Ray {
   bool intersects(const Obb& obb, float length, float* t) const;
 };
 
+}  // namespace base
+
+namespace render {
+using ::base::Ray;
 }  // namespace render
 
 #endif  // SMT_RENDER_MATH_RAY_H_

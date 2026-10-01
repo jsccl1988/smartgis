@@ -24,7 +24,7 @@ void clear_mark(const wchar_t* leaf) {
     return;
   }
   wchar_t path[MAX_PATH] = {};
-  if (!exe_sidecar_path(path, MAX_PATH, leaf)) {
+  if (!exe_capture_path(path, MAX_PATH, leaf)) {
     return;
   }
   DeleteFileW(path);
@@ -37,7 +37,7 @@ void write_mark(const wchar_t* leaf, const char* step, bool truncate) {
     return;
   }
   wchar_t path[MAX_PATH] = {};
-  if (!exe_sidecar_path(path, MAX_PATH, leaf)) {
+  if (!exe_capture_path(path, MAX_PATH, leaf)) {
     return;
   }
   bool use_trunc = false;

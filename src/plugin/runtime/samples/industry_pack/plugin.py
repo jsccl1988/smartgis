@@ -3,7 +3,7 @@
 
 """L3 industry-pack skeleton: orchestration only.
 
-Calls stable L1 processing ids (`dem.*`, `native.*`) through
+Calls stable L1 processing ids (`world3d.*`, `native.*`) through
 `host.run_processing`. Does not implement kernels or replace builtin
 reference UI. Builtin `kind=builtin` product plugins remain the
 reference / performance fallback until explicitly withdrawn per plugin.
@@ -18,7 +18,7 @@ def _run_tin_then_buffer(host, args):
     # so the call shape is clear without requiring sample data on disk.
     _ = args
     tin_ok = host.run_processing(
-        "dem.tin_from_xyz",
+        "world3d.tin_from_xyz",
         '{"input":"","output":""}',
     )
     if not tin_ok:

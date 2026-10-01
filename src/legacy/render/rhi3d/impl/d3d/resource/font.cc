@@ -4,10 +4,61 @@
 #include "legacy/render/rhi3d/impl/d3d/host/render_device.h"
 
 #include <cstring>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace render {
+namespace {
+
+struct TextRaster {
+  std::vector<unsigned char> bgra;
+  int w = 0;
+  int h = 0;
+};
+
+struct TextRasterCache {
+  std::unordered_map<std::string, TextRaster> by_key;
+  std::vector<std::string> lru;
+  static constexpr size_t kCap = 96;
+
+  TextRaster* find(const std::string& key) {
+    auto it = by_key.find(key);
+    if (it == by_key.end()) {
+      return nullptr;
+    }
+    for (size_t i = 0; i + 1 < lru.size(); ++i) {
+      if (lru[i] == key) {
+        lru.erase(lru.begin() + static_cast<std::ptrdiff_t>(i));
+        lru.push_back(key);
+        break;
+      }
+    }
+    return &it->second;
+  }
+
+  TextRaster* insert(std::string key, TextRaster&& raster) {
+    while (by_key.size() >= kCap && !lru.empty()) {
+      const std::string& old = lru.front();
+      by_key.erase(old);
+      lru.erase(lru.begin());
+    }
+    lru.push_back(key);
+    auto [it, _] = by_key.emplace(std::move(key), std::move(raster));
+    return &it->second;
+  }
+};
+
+std::mutex g_text_mu;
+std::unordered_map<SmtD3DRenderDevice*, TextRasterCache> g_text_caches;
+
+TextRasterCache& text_cache_for(SmtD3DRenderDevice* device) {
+  std::lock_guard<std::mutex> lock(g_text_mu);
+  return g_text_caches[device];
+}
+
+}  // namespace
 
 long SmtD3DRenderDevice::CreateFont(const char* szChType, int nHeight,
                                     int nWidth, int nWeight, bool bItalic,
@@ -59,6 +110,28 @@ long SmtD3DRenderDevice::draw_text_gdi(uint font_id, float xscreen,
     return SMT_ERR_NONE;
   }
 
+  const int cr = static_cast<int>(color.fRed * 255.f);
+  const int cg = static_cast<int>(color.fGreen * 255.f);
+  const int cb = static_cast<int>(color.fBlue * 255.f);
+  std::string key;
+  key.reserve(static_cast<size_t>(len) + 24);
+  key.append(std::to_string(font_id));
+  key.push_back('|');
+  key.append(std::to_string(cr));
+  key.push_back(',');
+  key.append(std::to_string(cg));
+  key.push_back(',');
+  key.append(std::to_string(cb));
+  key.push_back('|');
+  key.append(text, static_cast<size_t>(len));
+
+  TextRasterCache& cache = text_cache_for(this);
+  TextRaster* hit = cache.find(key);
+  if (hit && !hit->bgra.empty() && hit->w > 0 && hit->h > 0) {
+    return DrawScreenBgra(xscreen + hit->w * 0.5f, yscreen + hit->h * 0.5f,
+                          hit->w, hit->h, hit->bgra.data());
+  }
+
   HDC screen = ::GetDC(nullptr);
   HDC mem = ::CreateCompatibleDC(screen);
   if (!mem) {
@@ -93,33 +166,39 @@ long SmtD3DRenderDevice::draw_text_gdi(uint font_id, float xscreen,
   }
   HBITMAP old_bmp = static_cast<HBITMAP>(::SelectObject(mem, dib));
   ::SetBkMode(mem, TRANSPARENT);
-  ::SetTextColor(mem, RGB(static_cast<int>(color.fRed * 255.f),
-                          static_cast<int>(color.fGreen * 255.f),
-                          static_cast<int>(color.fBlue * 255.f)));
+  ::SetTextColor(mem, RGB(cr, cg, cb));
   std::memset(bits, 0, static_cast<size_t>(sz.cx) * sz.cy * 4u);
   ::TextOutA(mem, 0, 0, text, len);
 
-  // Convert GDI BGRA (opaque text on zero alpha) to premultiplied-ish BGRA
-  // with alpha from luminance so DrawScreenBgra can blend.
+  // Convert GDI BGRA (opaque text on zero alpha) to BGRA with alpha from
+  // luminance so DrawScreenBgra can blend.
   auto* px = static_cast<unsigned char*>(bits);
-  for (int i = 0; i < sz.cx * sz.cy; ++i) {
+  const int npx = sz.cx * sz.cy;
+  for (int i = 0; i < npx; ++i) {
     const unsigned char b = px[i * 4 + 0];
     const unsigned char g = px[i * 4 + 1];
     const unsigned char r = px[i * 4 + 2];
-    const unsigned char a =
+    px[i * 4 + 3] =
         static_cast<unsigned char>((static_cast<int>(r) + g + b) / 3);
-    px[i * 4 + 3] = a;
   }
 
-  const long rc = DrawScreenBgra(xscreen + sz.cx * 0.5f, yscreen + sz.cy * 0.5f,
-                                 sz.cx, sz.cy, px);
+  TextRaster raster;
+  raster.w = sz.cx;
+  raster.h = sz.cy;
+  raster.bgra.assign(px, px + static_cast<size_t>(npx) * 4u);
 
   ::SelectObject(mem, old_bmp);
   ::SelectObject(mem, old);
   ::DeleteObject(dib);
   ::DeleteDC(mem);
   if (screen) ::ReleaseDC(nullptr, screen);
-  return rc;
+
+  TextRaster* stored = cache.insert(std::move(key), std::move(raster));
+  if (!stored) {
+    return SMT_ERR_FAILURE;
+  }
+  return DrawScreenBgra(xscreen + stored->w * 0.5f, yscreen + stored->h * 0.5f,
+                        stored->w, stored->h, stored->bgra.data());
 }
 
 }  // namespace render

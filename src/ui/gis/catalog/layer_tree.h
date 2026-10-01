@@ -71,6 +71,7 @@ class UI_EXPORT LayerTree : public View {
 
   void layout() override;
   bool on_mouse_event(const MouseEvent& event) override;
+  void on_device_scale_factor_changed(float old_scale, float new_scale) override;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;
@@ -79,6 +80,11 @@ class UI_EXPORT LayerTree : public View {
   class LayerRow;
 
   friend class LayerRow;
+
+  float scale_factor() const;
+  int row_height() const;
+  int check_size() const;
+  int check_pad() const;
 
   LayerRow* row_at(const std::string& id) const;
   LayerRow* row_at_point(int x, int y) const;

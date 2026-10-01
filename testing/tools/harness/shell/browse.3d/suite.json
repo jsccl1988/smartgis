@@ -1,0 +1,47 @@
+{
+  "id": "browse.3d",
+  "kind": "showcase",
+  "argv": [
+    "--browse-showcase"
+  ],
+  "script": "browse.3d.il",
+  "env": {
+    "SMT_SKIP_MAP_CONTEXT_MENU": "1"
+  },
+  "window_title": "SmartGIS Views",
+  "mark_leaf": "self-test-mark.txt",
+  "required_marks": [
+    "browse3d-orbit-ok",
+    "browse3d-wheel-ok"
+  ],
+  "accept_nonzero_rc_if_marks": true,
+  "bmp": {
+    "path": "browse-showcase-3d.bmp",
+    "score_id": "plugin_scene3d",
+    "accept_nonzero_rc_if_bmp": true,
+    "soft": true,
+    "min_bytes": 10000
+  },
+  "report_name": "browse_3d_loop_report.json",
+  "probes": [
+    "marks",
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 6,
+    "timeout_sec": 150,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "3d_tab_active",
+      "terrain_or_globe_visible",
+      "atmosphere_or_intentional_clear",
+      "orbit_wheel_marks",
+      "no_hollow_present"
+    ],
+    "expect_notes": "Views Scene3D tab orbit/wheel; China product atmosphere face preferred over black-clear legacy"
+  }
+}

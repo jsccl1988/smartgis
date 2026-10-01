@@ -3,6 +3,8 @@
 
 #include "ui/views/primitives/text/label.h"
 
+#include <cstring>
+
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
@@ -14,8 +16,8 @@ namespace {
 
 // Matches paint_self text inset (4px each side) at 96 DPI.
 constexpr int kPadX = 8;
-constexpr int kPadY = 8;
-constexpr int kMinHeight = 24;
+constexpr int kPadY = 10;
+constexpr int kMinHeight = 28;
 
 float scale_for(const View* view) {
   if (view && view->widget()) {
@@ -44,10 +46,13 @@ void Label::rebuild_text_cache() {
 }
 
 void Label::set_text(std::string text) {
-  if (text == text_) {
-    return;
-  }
-  text_ = std::move(text);
+  // Abandon prior std::string bytes (no destructor). Concurrent rebuild skew /
+  // heap smash can flip SSO vs heap tags; operator= then _Deallocate →
+  // FAST_FAIL_INVALID_ARG (AtmospherePanel wire during init_chrome).
+  alignas(std::string) unsigned char abandoned[sizeof(std::string)];
+  std::memcpy(abandoned, &text_, sizeof(text_));
+  ::new (static_cast<void*>(&text_)) std::string(std::move(text));
+  (void)abandoned;
   rebuild_text_cache();
   schedule_paint();
 }
@@ -85,7 +90,7 @@ void Label::paint_self(ui::gfx::Canvas* canvas) {
   if (ink_scale_ != scale) {
     rebuild_text_cache();
   }
-  const int ink_h = ink_.height > 0 ? ink_.height : dip_to_px(12, scale);
+  const int ink_h = ink_.height > 0 ? ink_.height : shell_body_font_px(scale);
   const int pad_x = dip_to_px(4, scale);
   int text_y = b.y + pad_x;
   if (b.height > ink_h) {

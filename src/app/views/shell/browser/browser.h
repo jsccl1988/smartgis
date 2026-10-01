@@ -14,6 +14,7 @@
 #include <windows.h>
 
 #include "app/views/shell/browser/browser_ui_delegate.h"
+#include "app/views/shell/runtime/analysis/playback.h"
 #include "content/browser/camera/map_host_extent.h"
 #include "content/browser/map_session.h"
 #include "content/browser/present/scene3d/policy/scene3d_rhi_session.h"
@@ -76,6 +77,8 @@ class Browser : public content::MapContentsObserver {
   Browser& operator=(const Browser&) = delete;
 
   bool init();
+  // Product plugin resource root (--plugins-dir). Empty → <exe>/../plugins.
+  void set_plugins_dir(std::string path);
   void show();
   int run_loop();
 
@@ -128,6 +131,14 @@ class Browser : public content::MapContentsObserver {
   }
   content::MapContents* map_session() { return session_.map_contents(); }
   PluginShell* plugins() { return plugins_.get(); }
+  AnalysisPlayback& analysis_playback() { return analysis_playback_; }
+  const AnalysisPlayback& analysis_playback() const { return analysis_playback_; }
+
+  // ResultPlayback: show frame |index| on map2d (+ scene stand-in).
+  bool apply_analysis_frame(int index);
+  // Writes captures/<dir>/frame_XXXX.bmp + playback.json. Returns frame count.
+  int export_analysis_frames(const std::string& dir_leaf);
+
   content::ViewHost* edit_host() { return session_.edit_host(); }
   content::ViewHost* data_host() { return session_.data_host(); }
   content::ViewHost* scene_host() { return session_.scene_host(); }
@@ -192,7 +203,9 @@ class Browser : public content::MapContentsObserver {
 
  private:
   content::MapSession session_;
+  AnalysisPlayback analysis_playback_;
   std::unique_ptr<PluginShell> plugins_;
+  std::string plugins_dir_;
 
   content::EventBus::Connection selection_sub_;
   content::EventBus::Connection edit_sub_;

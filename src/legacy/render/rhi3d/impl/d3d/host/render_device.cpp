@@ -33,12 +33,12 @@ SmtD3DRenderDevice::SmtD3DRenderDevice()
       mesh_dss_(nullptr),
       mesh_bs_(nullptr),
       mesh_pipeline_ok_(false),
-      state_manager_(new SmtD3DGPUStateManager()),
+      state_manager_(std::make_unique<SmtD3DGPUStateManager>()),
       device_caps_(nullptr),
       clear_depth_(1.f),
       clear_stencil_(0),
-      modelview_stack_(new Matrix[kMatrixStackMax]()),
-      projection_stack_(new Matrix[kMatrixStackMax]()),
+      modelview_stack_(std::make_unique<Matrix[]>(kMatrixStackMax)),
+      projection_stack_(std::make_unique<Matrix[]>(kMatrixStackMax)),
       modelview_sp_(0),
       projection_sp_(0) {
   // Leftover enum still named RA_D3D09 (historical D3D9 slot); impl is D3D11.
@@ -73,12 +73,12 @@ SmtD3DRenderDevice::SmtD3DRenderDevice(HINSTANCE hDLL)
       mesh_dss_(nullptr),
       mesh_bs_(nullptr),
       mesh_pipeline_ok_(false),
-      state_manager_(new SmtD3DGPUStateManager()),
+      state_manager_(std::make_unique<SmtD3DGPUStateManager>()),
       device_caps_(nullptr),
       clear_depth_(1.f),
       clear_stencil_(0),
-      modelview_stack_(new Matrix[kMatrixStackMax]()),
-      projection_stack_(new Matrix[kMatrixStackMax]()),
+      modelview_stack_(std::make_unique<Matrix[]>(kMatrixStackMax)),
+      projection_stack_(std::make_unique<Matrix[]>(kMatrixStackMax)),
       modelview_sp_(0),
       projection_sp_(0) {
   m_rBaseApi = RA_D3D09;
@@ -226,9 +226,6 @@ long SmtD3DRenderDevice::resize_targets(UINT width, UINT height,
 long SmtD3DRenderDevice::Init(HWND hWnd, const char* logname) {
   if (!::IsWindow(hWnd)) return SMT_ERR_FAILURE;
   hwnd_ = hWnd;
-  // Present strangler: record HWND into leftover_session (Null). D3D owns
-  // Present.
-  bind_rhi_present(hWnd);
 
   m_strLogName = logname ? logname : "";
 
@@ -263,8 +260,7 @@ long SmtD3DRenderDevice::Init(HWND hWnd, const char* logname) {
     return SMT_ERR_FAILURE;
   }
 
-  delete device_caps_;
-  device_caps_ = new SmtD3DDeviceCaps(this);
+  device_caps_ = std::make_unique<SmtD3DDeviceCaps>(this);
 
   Viewport3D viewport;
   viewport.ulX = 0;
@@ -349,6 +345,13 @@ ID3D11SamplerState* SmtD3DRenderDevice::linear_sampler() {
 }
 
 long SmtD3DRenderDevice::Destroy() {
+  for (D3dDeferredSlot& s : deferred_slots_) {
+    safe_release(s.list);
+    safe_release(s.mesh_cb);
+    safe_release(s.ctx);
+  }
+  deferred_slots_.clear();
+  deferred_recording_ = false;
   release_mesh_pipeline();
   release_sprite_sidecar(this);
   release_gpu_resources();
@@ -366,21 +369,19 @@ long SmtD3DRenderDevice::Destroy() {
 
 long SmtD3DRenderDevice::Release() {
   Destroy();
-  delete device_caps_;
-  device_caps_ = nullptr;
-  delete state_manager_;
-  state_manager_ = nullptr;
-  delete[] modelview_stack_;
-  modelview_stack_ = nullptr;
-  delete[] projection_stack_;
-  projection_stack_ = nullptr;
+  device_caps_.reset();
+  state_manager_.reset();
+  modelview_stack_.reset();
+  projection_stack_.reset();
   return SMT_ERR_NONE;
 }
 
 SmtGPUStateManager* SmtD3DRenderDevice::GetStateManager() {
-  return state_manager_;
+  return state_manager_.get();
 }
 
-Smt3DDeviceCaps* SmtD3DRenderDevice::GetDeviceCaps() { return device_caps_; }
+Smt3DDeviceCaps* SmtD3DRenderDevice::GetDeviceCaps() {
+  return device_caps_.get();
+}
 
 }  // namespace render

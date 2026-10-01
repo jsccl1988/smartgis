@@ -1,0 +1,316 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Shared leftover rhi2d host tree (neutral names). Port DLLs add create_backend.cc
+# only — runtime selection is SmtRenderer::CreateDevice(chAPI) LoadLibrary.
+source_set("rhi2d_common_sources") {
+  sources = [
+    "surface/composer/composer.cc",
+    "surface/composer/composer.h",
+    "surface/composer/submit.cc",
+    "surface/composer/submit.h",
+    "surface/dib/dib.h",
+    "surface/dib/owned.cc",
+    "surface/dib/owned.h",
+    "surface/dib/pool.cc",
+    "surface/dib/pool.h",
+    "paint/carto/frame/carto_frame.cc",
+    "paint/carto/frame/carto_frame.h",
+    "paint/backend/paint_backend.h",
+  ]
+  configs += [
+    "//build:legacy",
+    "//src/legacy/render:legacy_render_exports",
+  ]
+  defines = [ "_USRDLL" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/base/math:math",
+    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
+    "//src/gpu:compositor_cpu_blend",
+    "//third_party:CxImage",
+    "//src/legacy/render/rhi2d/impl/gdiplus:aa_sources",
+  ]
+}
+
+_rhi2d_device_tree_sources = [
+  "host/present_controller.cc",
+  "host/buffer_image.cc",
+  "host/render_device.cc",
+  "host/device_interact.cc",
+  "host/device_pass.cc",
+  "host/device_draw.cc",
+  "host/preview_transform.h",
+  "paint/carto/encode/command_buffer.h",
+  "paint/carto/encode/command_encoder.cc",
+  "paint/carto/encode/command_encoder.h",
+  "paint/map/map_feature_prep.cc",
+  "paint/map/map_feature_prep.h",
+  "paint/map/map_geom_trace.cc",
+  "paint/map/map_geom_trace.h",
+  "paint/map/map_painter.cc",
+  "paint/map/map_painter.h",
+  "paint/map/map_draw_batch.cc",
+  "paint/map/map_draw_batch.h",
+  "paint/map/map_prep_pipeline.h",
+  "paint/carto/draw/points.h",
+  "paint/carto/draw/carto_draw.cc",
+  "paint/carto/draw/carto_draw.h",
+  "paint/carto/draw/draw_device.cc",
+  "paint/carto/draw/draw_device.h",
+  "paint/carto/draw/draw_mesh.cc",
+  "paint/carto/draw/draw_mesh.h",
+  "paint/carto/draw/draw_ogr.cc",
+  "paint/carto/draw/draw_ogr.h",
+  "paint/carto/draw/draw_primitives.cc",
+  "paint/carto/draw/draw_primitives.h",
+  "paint/carto/style/style.cc",
+  "paint/carto/style/style.h",
+  "paint/carto/style/xform.cc",
+  "paint/carto/style/xform.h",
+  "paint/carto/frame/context.h",
+  "paint/carto/draw/device_geom.h",
+  "paint/carto/encode/encoder_tls.h",
+  "paint/carto/draw/ogr_xy.h",
+  "paint/carto/frame/preview_xform.h",
+  # carto_frame.* lives in :rhi2d_common_sources (avoid LNK2005 when both link).
+  "cc/scheduler.cc",
+  "cc/scheduler.h",
+  "cc/layer_tree_impl.cc",
+  "cc/layer_tree_impl.h",
+  "cc/layer_tree_host.cc",
+  "cc/layer_tree_host.h",
+  "cc/raster_tile.cc",
+  "cc/raster_tile.h",
+  "cc/tile_graph_runner.cc",
+  "cc/tile_graph_runner.h",
+]
+
+template("rhi2d_device_port_sources") {
+  source_set(target_name) {
+    sources = _rhi2d_device_tree_sources + invoker.port_sources
+    configs += [ "//build:legacy" ]
+    defines = [
+      "_USRDLL",
+      "LEGACY_RHI2D_DEVICE_EXPORTS",
+    ]
+    include_dirs += [ "//src" ]
+    deps = [
+      ":rhi2d_common_sources",
+      "//src/gis/kernel/geo:geo",
+      "//src/base:base",
+      "//src/base:core",
+      "//src/base/math:math",
+      "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
+      "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
+      "//src/gis/model/map:gis",
+      "//third_party:CxImage",
+      "//third_party:gdal",
+      "//src/legacy/render/rhi2d/impl/gdiplus:aa_sources",
+    ]
+    libs = [
+      "gdi32.lib",
+      "user32.lib",
+      "gdiplus.lib",
+    ]
+  }
+}
+
+rhi2d_device_port_sources("rhi2d_gdi_backend_sources") {
+  port_sources = [
+    "../gdi/backend/gdi_backend.cc",
+    "../gdi/backend/gdi_backend.h",
+    "../gdi/create_backend.cc",
+    "../gdi/traits.h",
+  ]
+}
+
+rhi2d_device_port_sources("rhi2d_gdiplus_backend_sources") {
+  port_sources = [
+    "../gdiplus/backend/gdiplus_backend.cc",
+    "../gdiplus/backend/gdiplus_backend.h",
+    "../gdiplus/create_backend.cc",
+    "../gdiplus/traits.h",
+  ]
+}
+
+rhi2d_device_port_sources("rhi2d_skia_backend_sources") {
+  port_sources = [
+    "../skia/backend/skia_backend.cc",
+    "../skia/backend/skia_backend.h",
+    "../skia/create_backend.cc",
+    "../skia/traits.h",
+    "../gdiplus/backend/gdiplus_backend.cc",
+    "../gdiplus/backend/gdiplus_backend.h",
+  ]
+}
+
+source_set("render_gdi_sources") {
+  public_deps = [ ":rhi2d_gdi_backend_sources" ]
+}
+
+group("render_gdi") {
+  public_deps = [ "//src/legacy/render:legacy_rhi2d_gdi" ]
+}
+
+group("gdi_common_sources") {
+  public_deps = [ ":rhi2d_common_sources" ]
+}
+
+test("map_carto2d_test") {
+  output_name = "map_carto2d_test"
+  sources = [
+    "paint/carto/frame/carto_frame.cc",
+    "test/carto_frame_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [ "//src/base/math:math" ]
+}
+
+test("gdi_map_paint_test") {
+  output_name = "gdi_map_paint_test"
+  sources = [ "test/map_paint_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    "//src/legacy/render:legacy_rhi2d_gdi",
+    "//src/legacy/render:legacy_rhi2d_gdiplus",
+    "//src/legacy/render:legacy_rhi2d_skia",
+    "//src/legacy/render:legacy_render",
+    "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
+    "//src/gis/model/map:gis",
+    "//testing/data:china_map_samples",
+    "//third_party:gdal",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
+test("gdi_compose_test") {
+  output_name = "gdi_compose_test"
+  sources = [
+    "surface/composer/composer.cc",
+    "surface/composer/composer.h",
+    "surface/composer/submit.cc",
+    "surface/composer/submit.h",
+    "surface/dib/dib.h",
+    "surface/dib/owned.cc",
+    "surface/dib/owned.h",
+    "surface/dib/pool.cc",
+    "surface/dib/pool.h",
+    "test/compose_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "SMT_GDI_COMPOSE_STATIC" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gpu:compositor_cpu_blend",
+    "//third_party:CxImage",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+    "Msimg32.lib",
+  ]
+}
+
+test("gdi_cc_test") {
+  output_name = "gdi_cc_test"
+  sources = [
+    "cc/scheduler.cc",
+    "cc/scheduler.h",
+    "cc/layer_tree_impl.cc",
+    "cc/layer_tree_impl.h",
+    "cc/raster_tile.cc",
+    "cc/raster_tile.h",
+    "cc/tile_graph_runner.cc",
+    "cc/tile_graph_runner.h",
+    "test/cc_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/model/map:gis",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
+test("tile_raster_test") {
+  output_name = "tile_raster_test"
+  sources = [
+    "cc/raster_tile.cc",
+    "cc/raster_tile.h",
+    "cc/tile_graph_runner.cc",
+    "cc/tile_graph_runner.h",
+    "paint/carto/encode/command_buffer.h",
+    "paint/carto/encode/command_encoder.cc",
+    "paint/carto/encode/command_encoder.h",
+    "../gdi/backend/gdi_backend.cc",
+    "../gdi/backend/gdi_backend.h",
+    "../gdi/create_backend.cc",
+    "../gdiplus/aa/gdiplus.cpp",
+    "../gdiplus/aa/gdiplus.h",
+    "surface/dib/dib.h",
+    "surface/dib/owned.cc",
+    "surface/dib/owned.h",
+    "surface/dib/pool.cc",
+    "surface/dib/pool.h",
+    "test/tile_raster_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "SMT_GDI_ENCODE_STATIC" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+    "gdiplus.lib",
+  ]
+}
+
+test("gdi_encode_test") {
+  output_name = "gdi_encode_test"
+  sources = [
+    "paint/carto/encode/command_buffer.h",
+    "paint/carto/encode/command_encoder.cc",
+    "paint/carto/encode/command_encoder.h",
+    "../gdi/backend/gdi_backend.cc",
+    "../gdi/backend/gdi_backend.h",
+    "../gdi/create_backend.cc",
+    "../gdiplus/aa/gdiplus.cpp",
+    "../gdiplus/aa/gdiplus.h",
+    "test/encode_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "SMT_GDI_ENCODE_STATIC" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+    "gdiplus.lib",
+  ]
+}

@@ -15,9 +15,9 @@ enum {
   kIdTracePane = 5403,
 };
 
-constexpr int kTabH = 24;
-constexpr int kPad = 2;
-constexpr int kBtnW = 96;
+constexpr int kTabH = 28;
+constexpr int kPad = 4;
+constexpr int kBtnW = 100;
 
 }  // namespace
 
@@ -47,6 +47,18 @@ int DiagnosticToolsDockBar::OnCreate(LPCREATESTRUCT lpCreateStruct) {
     return -1;
   }
 
+  // Views-like chrome: YaHei UI on page tabs.
+  if (ui_font_.GetSafeHandle() == NULL) {
+    ui_font_.CreateFont(
+        -12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE, _T("Microsoft YaHei UI"));
+  }
+  if (ui_font_.GetSafeHandle() != NULL) {
+    btn_console_.SetFont(&ui_font_);
+    btn_trace_.SetFont(&ui_font_);
+  }
+
   show_page(0);
   return 0;
 }
@@ -59,6 +71,13 @@ void DiagnosticToolsDockBar::show_page(int page) {
   }
   if (::IsWindow(trace_.m_hWnd)) {
     trace_.ShowWindow(show_console ? SW_HIDE : SW_SHOW);
+  }
+  // Re-layout after show: a zero-size first paint + later ShowWindow left the
+  // RenderTrace child buttons/list at 0x0 and could AV on BN_CLICKED.
+  CRect rc;
+  GetClientRect(&rc);
+  if (rc.Width() > 0 && rc.Height() > 0) {
+    layout_children(rc.Width(), rc.Height());
   }
 }
 

@@ -14,8 +14,14 @@ namespace content {
 
 // Leftover SmartGis default China envelope (CRS84 lon/lat). Used when
 // MapContents has not published an extent yet but the host still needs a
-// full-country 2D ortho / 3D framing box.
+// full-country 2D ortho / 3D framing box. Slightly wider than the map2d
+// align frame so orbit / DEM still cover Xinjiang / Hainan.
 inline constexpr content::Extent2 kChinaLonLatExtent{73.0, 18.0, 135.0, 54.0};
+
+// Map2d mainland framing aligned with testing maplibre_align.py
+// (N/W/S/E = 48/80/20/128). Equirectangular CRS84 — not Web Mercator.
+inline constexpr content::Extent2 kChinaMap2dFrameExtent{80.0, 20.0, 128.0,
+                                                         48.0};
 
 inline bool extent_nonempty(const content::Extent2& e) {
   return e.xmax > e.xmin && e.ymax > e.ymin;

@@ -268,8 +268,14 @@ bool Workspace::dispatch_input(const content::InputEvent& e) {
     if (id && std::strncmp(id, "view3d.", 7) == 0) {
       return cur->on_input(e);
     }
+    // Exclusive draw/select tools may handle wheel; if they decline, fall
+    // through so always-on wheel.zoom still emits DraftKind::kWheel. A hard
+    // return here left legacy Edit zoom_gate at ~0 (MouseWeel also no-ops
+    // when m_workspace is bound).
     if (e.kind == content::InputEvent::Kind::kWheel && !is_navigate_tool(id)) {
-      return cur->on_input(e);
+      if (cur->on_input(e)) {
+        return true;
+      }
     }
   }
   return impl_->router.dispatch(e);

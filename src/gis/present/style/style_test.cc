@@ -270,12 +270,185 @@ int main() {
   expect(expr_paint.line_color == 0xFFFF0000u, "expr line-color");
   expect(approx_eq(expr_paint.line_width, 3.5f), "expr line-width");
 
+  // interpolate / step / match / case / coalesce (mini richness).
+  ExprValue interp_ev;
+  expect(eval_expression(
+             "[\"interpolate\",[\"linear\"],[\"zoom\"],5,1,15,5]", expr_attrs,
+             10.0, &interp_ev),
+         "eval interpolate linear");
+  expect(approx_eq(static_cast<float>(interp_ev.as_number()), 3.f),
+         "interpolate mid");
+  ExprValue interp_lo;
+  expect(eval_expression(
+             "[\"interpolate\",[\"linear\"],[\"zoom\"],5,1,15,5]", expr_attrs,
+             3.0, &interp_lo),
+         "eval interpolate clamp lo");
+  expect(approx_eq(static_cast<float>(interp_lo.as_number()), 1.f),
+         "interpolate lo");
+  ExprValue interp_color;
+  expect(eval_expression(
+             "[\"interpolate\",[\"linear\"],[\"zoom\"],0,\"#000000\",10,"
+             "\"#ffffff\"]",
+             expr_attrs, 5.0, &interp_color),
+         "eval interpolate color");
+  expect(interp_color.as_string() == "#808080", "interpolate color mid");
+  ExprValue exp_ev;
+  expect(eval_expression(
+             "[\"interpolate\",[\"exponential\",2],[\"zoom\"],0,0,10,10]",
+             expr_attrs, 5.0, &exp_ev),
+         "eval interpolate exponential");
+  {
+    const double t = 0.5;
+    const double progress = (std::pow(2.0, t) - 1.0) / (2.0 - 1.0);
+    expect(std::fabs(exp_ev.as_number() - 10.0 * progress) < 1e-4,
+           "exponential mid");
+  }
+  ExprValue step_ev;
+  expect(eval_expression("[\"step\",[\"zoom\"],1,8,2,12,4]", expr_attrs, 10.0,
+                         &step_ev),
+         "eval step");
+  expect(approx_eq(static_cast<float>(step_ev.as_number()), 2.f), "step value");
+  expr_attrs["class"] = "primary";
+  ExprValue match_ev;
+  expect(eval_expression(
+             "[\"match\",[\"get\",\"class\"],[\"primary\",\"trunk\"],\"#ff0000\","
+             "\"secondary\",\"#00ff00\",\"#000000\"]",
+             expr_attrs, 10.0, &match_ev),
+         "eval match label-array");
+  expect(match_ev.as_string() == "#ff0000", "match hit");
+  ExprValue match_def;
+  expect(eval_expression(
+             "[\"match\",[\"get\",\"class\"],\"secondary\",\"#00ff00\","
+             "\"#111111\"]",
+             expr_attrs, 10.0, &match_def),
+         "eval match default");
+  expect(match_def.as_string() == "#111111", "match default");
+  ExprValue case_ev;
+  expect(eval_expression(
+             "[\"case\",[\"==\",[\"get\",\"rank\"],\"3\"],\"#aabbcc\","
+             "\"#000000\"]",
+             expr_attrs, 10.0, &case_ev),
+         "eval case");
+  expect(case_ev.as_string() == "#aabbcc", "case true");
+  ExprValue coal_ev;
+  expect(eval_expression(
+             "[\"coalesce\",[\"get\",\"missing\"],[\"get\",\"stroke\"]]",
+             expr_attrs, 10.0, &coal_ev),
+         "eval coalesce");
+  expect(coal_ev.as_string() == "#ff0000", "coalesce value");
+
+  StyleDocument rich_doc;
+  expect(parse_style_document(
+             "{\"version\":8,\"layers\":["
+             "{\"id\":\"rl\",\"type\":\"line\",\"paint\":{"
+             "\"line-width\":[\"interpolate\",[\"linear\"],[\"zoom\"],5,1,15,5],"
+             "\"line-color\":[\"match\",[\"get\",\"class\"],\"primary\","
+             "\"#3366ff\",\"#112233\"]}},"
+             "{\"id\":\"rf\",\"type\":\"fill\",\"paint\":{"
+             "\"fill-opacity\":[\"step\",[\"zoom\"],0.2,10,0.6],"
+             "\"fill-color\":[\"case\",[\"==\",[\"get\",\"rank\"],\"3\"],"
+             "\"#00aa00\",\"#ff0000\"]}},"
+             "{\"id\":\"rc\",\"type\":\"circle\",\"paint\":{"
+             "\"circle-radius\":[\"interpolate\",[\"linear\"],[\"get\","
+             "\"rank\"],1,4,5,12],"
+             "\"circle-color\":[\"coalesce\",[\"get\",\"missing\"],"
+             "\"#abcdef\"]}},"
+             "{\"id\":\"rs\",\"type\":\"symbol\",\"layout\":{"
+             "\"text-size\":[\"interpolate\",[\"linear\"],[\"zoom\"],8,12,16,"
+             "20],\"icon-size\":[\"step\",[\"zoom\"],0.5,12,1.5]}}"
+             "]}",
+             &rich_doc),
+         "parse rich expr style");
+  ResolvedPaint rich_line;
+  fill_resolved_paint(rich_doc.layers[0], nullptr, expr_attrs, 10.0, &rich_line);
+  expect(approx_eq(rich_line.line_width, 3.f), "rich line-width");
+  expect(rich_line.line_color == 0xFF3366FFu, "rich line-color match");
+  ResolvedPaint rich_fill;
+  fill_resolved_paint(rich_doc.layers[1], nullptr, expr_attrs, 12.0, &rich_fill);
+  expect(approx_eq(rich_fill.fill_opacity, 0.6f), "rich fill-opacity step");
+  expect(rich_fill.fill_color == 0xFF00AA00u, "rich fill-color case");
+  ResolvedPaint rich_circle;
+  fill_resolved_paint(rich_doc.layers[2], nullptr, expr_attrs, 10.0,
+                      &rich_circle);
+  expect(approx_eq(rich_circle.circle_radius, 8.f), "rich circle-radius");
+  expect(rich_circle.circle_color == 0xFFABCDEFu, "rich circle coalesce");
+  ResolvedPaint rich_sym;
+  fill_resolved_paint(rich_doc.layers[3], nullptr, expr_attrs, 12.0, &rich_sym);
+  expect(approx_eq(rich_sym.text_size, 16.f), "rich text-size interpolate");
+  expect(approx_eq(rich_sym.icon_size, 1.5f), "rich icon-size step");
+
   base::SmtStyle smt = to_smt_style(paint, "roads_smt");
   expect(std::strcmp(smt.get_style_name(), "roads_smt") == 0, "smt name");
 
   ResolvedPaint zoom_miss;
   expect(!resolve(doc, &lib, attrs, 3.0, "transport", &zoom_miss),
          "zoom miss roads");
+
+  {
+    StyleDocument hs_doc;
+    expect(parse_style_document(
+               "{\"version\":8,\"layers\":[{\"id\":\"shade\",\"type\":"
+               "\"hillshade\",\"paint\":{"
+               "\"hillshade-illumination-direction\":210,"
+               "\"hillshade-exaggeration\":0.75,"
+               "\"hillshade-shadow-color\":\"#112233\","
+               "\"hillshade-highlight-color\":\"#eeddcc\""
+               "}}]}",
+               &hs_doc),
+           "parse hillshade style");
+    ResolvedPaint hs;
+    fill_resolved_paint(hs_doc.layers[0], nullptr, {}, 10.0, &hs);
+    expect(hs.type == LayerType::kHillshade, "hillshade type");
+    expect(approx_eq(hs.hillshade_illumination_direction, 210.f),
+           "hillshade direction");
+    expect(approx_eq(hs.hillshade_exaggeration, 0.75f), "hillshade exag");
+    expect(hs.hillshade_shadow_color == 0xFF112233u, "hillshade shadow");
+    expect(hs.hillshade_highlight_color == 0xFFEEDDCCu, "hillshade highlight");
+  }
+
+  {
+    StyleDocument ex_doc;
+    expect(parse_style_document(
+               "{\"version\":8,\"layers\":[{\"id\":\"bldg\",\"type\":"
+               "\"fill-extrusion\",\"paint\":{"
+               "\"fill-extrusion-height\":42,"
+               "\"fill-extrusion-base\":2,"
+               "\"fill-extrusion-color\":\"#8899aa\","
+               "\"fill-extrusion-opacity\":0.8"
+               "}}]}",
+               &ex_doc),
+           "parse fill-extrusion style");
+    ResolvedPaint ex;
+    fill_resolved_paint(ex_doc.layers[0], nullptr, {}, 14.0, &ex);
+    expect(ex.type == LayerType::kFillExtrusion, "fill-extrusion type");
+    expect(approx_eq(ex.fill_extrusion_height, 42.f), "extrusion height");
+    expect(approx_eq(ex.fill_extrusion_base, 2.f), "extrusion base");
+    expect(ex.fill_extrusion_color == 0xFF8899AAu, "extrusion color");
+    expect(approx_eq(ex.fill_extrusion_opacity, 0.8f), "extrusion opacity");
+  }
+
+  {
+    StyleDocument heat_doc;
+    expect(parse_style_document(
+               "{\"version\":8,\"layers\":[{\"id\":\"heat\",\"type\":"
+               "\"heatmap\",\"paint\":{"
+               "\"heatmap-radius\":18,"
+               "\"heatmap-weight\":0.5,"
+               "\"heatmap-intensity\":1.25,"
+               "\"heatmap-color\":\"#3366ff\","
+               "\"heatmap-opacity\":0.7"
+               "}}]}",
+               &heat_doc),
+           "parse heatmap style");
+    ResolvedPaint heat;
+    fill_resolved_paint(heat_doc.layers[0], nullptr, {}, 12.0, &heat);
+    expect(heat.type == LayerType::kHeatmap, "heatmap type");
+    expect(approx_eq(heat.heatmap_radius, 18.f), "heatmap radius");
+    expect(approx_eq(heat.heatmap_weight, 0.5f), "heatmap weight");
+    expect(approx_eq(heat.heatmap_intensity, 1.25f), "heatmap intensity");
+    expect(heat.heatmap_color == 0xFF3366FFu, "heatmap color");
+    expect(approx_eq(heat.heatmap_opacity, 0.7f), "heatmap opacity");
+  }
 
   if (g_fails) {
     std::fprintf(stderr, "%d failure(s)\n", g_fails);

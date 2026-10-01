@@ -9,12 +9,22 @@ import("//testing/test.gni")
 # ordinary classes in this binary.
 source_set("scene_sources") {
   sources = [
+    "detail/draw_pass.cc",
+    "detail/draw_pass.h",
+    "detail/paint.cc",
+    "detail/paint.h",
+    "detail/tessellate.cc",
+    "detail/tessellate.h",
+    "detail/upload.cc",
+    "detail/upload.h",
     "frustum_aabb.cc",
     "frustum_aabb.h",
     "opaque_effect.cc",
     "opaque_effect.h",
+    "rebuild.cc",
     "scene.cc",
     "scene.h",
+    "scene_draw.cc",
   ]
   include_dirs += [ "//src" ]
   configs += [ "//build:legacy" ]

@@ -268,7 +268,7 @@ DiagnosticToolsPanel::DiagnosticToolsPanel() {
   tabs_ = tabs.get();
   tabs_->add_tab("Output", std::move(output));
   tabs_->add_tab("Console", std::move(console));
-  tabs_->add_tab("CPU", std::move(cpu));
+  tabs_->add_tab("Trace", std::move(cpu));
   tabs_->add_tab("Memory", std::move(mem_host));
 
   box->set_flex_for_view(tabs.get(), 1);
@@ -502,7 +502,7 @@ void DiagnosticToolsPanel::update_status() {
     return;
   }
   status_->set_text(std::format(
-      "{} | events={} | Output/Console/CPU/Memory (auto-refresh)",
+      "{} | events={} | Output/Console/Trace/Memory (UI paint profile)",
       base::trace::tracing_enabled() ? "Recording" : "Stopped",
       base::trace::process_trace().size()));
 }

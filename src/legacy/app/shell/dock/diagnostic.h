@@ -34,6 +34,7 @@ class DiagnosticToolsDockBar : public CBCGPDockingControlBar {
   CButton btn_trace_;
   DebugConsolePane console_;
   RenderTracePane trace_;
+  CFont ui_font_;
   int active_page_ = 0;
 };
 

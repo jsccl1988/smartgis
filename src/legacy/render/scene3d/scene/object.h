@@ -70,7 +70,7 @@ class Smt3DMovable {
 // Leftover scene object: renderable + movable with a world matrix.
 class Smt3DObject : public Smt3DRenderable, public Smt3DMovable {
  public:
-  virtual long Init(Vector3& vPos, SmtMaterial& matMaterial,
+  virtual long Init(::base::Vector3& vPos, SmtMaterial& matMaterial,
                     const char* szTexName = "") {
     m_vOrgPos = vPos;
     m_matMaterial = matMaterial;

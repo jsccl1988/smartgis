@@ -198,19 +198,20 @@ Size measure_text_utf8(const std::string& text, float device_scale) {
   if (device_scale <= 0.f) {
     device_scale = 1.f;
   }
-  const int px = dip_to_px(12, device_scale);
+  const int px = shell_body_font_px(device_scale);
   const std::wstring wide = utf8_to_wide(text);
   // Draw is TextOutW with the same HFONT. Prefer that extent so 96 DPI pixels
   // stay aligned. DirectWrite layouts are cached for the same key and used
   // only when GDI cannot measure.
-  out = gdi_extent(wide, px > 0 ? px : 12);
+  const int face_px = px > 0 ? px : kShellBodyFontDip;
+  out = gdi_extent(wide, face_px);
   if (out.width > 0 || out.height > 0) {
     // Keep a DirectWrite layout for this key. Draw stays on the GDI font so
     // ink matches TextOutW; the layout is the fallback metrics source below.
-    (void)layout_for(wide, px > 0 ? px : 12);
+    (void)layout_for(wide, face_px);
     return out;
   }
-  if (IDWriteTextLayout* layout = layout_for(wide, px > 0 ? px : 12)) {
+  if (IDWriteTextLayout* layout = layout_for(wide, face_px)) {
     DWRITE_TEXT_METRICS metrics = {};
     if (SUCCEEDED(layout->GetMetrics(&metrics))) {
       out.width = static_cast<int>(metrics.width + 0.5f);

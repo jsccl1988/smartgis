@@ -1,0 +1,100 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Plugin-owned markup/assets → shared out/plugins/world3d (not out/ui).
+# Shell points --plugins-dir at out/plugins (default: <exe>/../plugins).
+copy("world3d_resources") {
+  sources = [
+    "resources/grid_loader.ui.css",
+    "resources/grid_loader.ui.xml",
+    "resources/tin_loader.ui.css",
+    "resources/tin_loader.ui.xml",
+  ]
+  outputs = [ "$root_out_dir/../plugins/world3d/{{source_file_part}}" ]
+}
+
+# MFC-free XYZ→TIN and heightmap→grid kernels for world3d_views (and legacy DLL).
+source_set("world3d_processing") {
+  sources = [
+    "processing/grid_loader.cc",
+    "processing/grid_loader.h",
+    "processing/tin_loader.cc",
+    "processing/tin_loader.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  public_deps = [
+    "//src/gis/kernel/geo:geo",
+    "//third_party:gdal",
+  ]
+  deps = [
+    "//src/gis/kernel/tin:tin",
+    "//src/base:core",
+    "//src/base/math:math",
+  ]
+}
+
+source_set("world3d_views") {
+  sources = [
+    "commands.cc",
+    "commands.h",
+    "scene_commands.cc",
+    "views/grid_loader_dialog.cc",
+    "views/grid_loader_dialog.h",
+    "views/tin_loader_dialog.cc",
+    "views/tin_loader_dialog.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    ":world3d_processing",
+    "//src/gis:gis",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/kernel/tin:tin",
+    "//src/base:core",
+    "//src/content:content",
+    "//src/plugin/runtime/host:host",
+    "//src/plugin/runtime/widgets:widgets",
+    "//src/ui/views:views",
+    "//third_party:gdal",
+    "//third_party:rapidjson",
+  ]
+  data_deps = [ ":world3d_resources" ]
+}
+
+test("world3d_loader_test") {
+  output_name = "world3d_loader_test"
+  sources = [ "tests/loader_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":world3d_processing",
+    ":world3d_views",
+    "//src/content:content",
+    "//src/plugin/runtime/host:host",
+    "//third_party:gdal",
+  ]
+  data_deps = [
+    ":world3d_resources",
+    "//src/gis/kernel/tin:tin",
+    "//src/gis/kernel/geo:geo",
+    "//third_party:gdal_runtime_dlls",
+  ]
+}
+
+test("world3d_scene_writer_test") {
+  output_name = "world3d_scene_writer_test"
+  sources = [ "tests/scene_writer_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":world3d_views",
+    "//src/content:content",
+    "//src/plugin/runtime/host:host",
+  ]
+}

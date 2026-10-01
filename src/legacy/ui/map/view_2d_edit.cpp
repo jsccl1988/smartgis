@@ -40,7 +40,7 @@ Smt2DEditXView::Smt2DEditXView() {
 
 Smt2DEditXView::~Smt2DEditXView() { ; }
 
-BEGIN_MESSAGE_MAP(Smt2DEditXView, CView)
+BEGIN_MESSAGE_MAP(Smt2DEditXView, Smt2DXView)
 ON_WM_SIZE()
 ON_WM_MOUSEMOVE()
 ON_WM_TIMER()
@@ -198,6 +198,14 @@ bool Smt2DEditXView::CreateTools(void) {
   }
   if (ws) {
     ws->activate("view.pan");
+  }
+  // Parent CreateTools already set VM_ZoomMove; re-apply after host reset so
+  // Edit's new Workspace still matches leftover pan mode + move cursor.
+  if (SmtViewCtrlTool* view_ctrl =
+          dynamic_cast<SmtViewCtrlTool*>(m_pViewCtrlTool)) {
+    SmtListenerMsg mode_param{};
+    mode_param.hSrcWnd = m_hWnd;
+    view_ctrl->notify(GT_MSG_VIEW_ZOOMMOVE, mode_param);
   }
 
   LOGGING(LOG_INFO, "Init 2DEditView GroupTools OK!");

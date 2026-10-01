@@ -66,8 +66,8 @@ class LEGACY_RENDER_EXPORT SmtLight {
   void SetSpecularValue(const SmtColor& specular);
   void SetAmbientValue(const SmtColor& ambient);
 
-  void SetPoistion(const Vector4& position);
-  void SetDirection(const Vector4& direction);
+  void SetPoistion(const ::base::Vector4& position);
+  void SetDirection(const ::base::Vector4& direction);
 
   void SetExponent(float exponent) { m_fExponent = exponent; }
   void SetCutoffAngle(float cutoffangle) { m_fCutoffAngle = cutoffangle; }
@@ -189,11 +189,11 @@ inline void SmtLight::SetAmbientValue(const SmtColor& ambient) {
   m_cAmbient = ambient;
 }
 
-inline void SmtLight::SetPoistion(const Vector4& position) {
+inline void SmtLight::SetPoistion(const ::base::Vector4& position) {
   m_vPosition = position;
 }
 
-inline void SmtLight::SetDirection(const Vector4& direction) {
+inline void SmtLight::SetDirection(const ::base::Vector4& direction) {
   m_vDirection = direction;
 }
 
@@ -245,201 +245,6 @@ inline const SmtColor& SmtMaterial::GetEmissiveValue(void) {
 
 inline float SmtMaterial::GetShininessValue(void) { return m_fShininess; }
 
-enum FrustumSide {
-  FS_RIGHT = 0,   // The RIGHT side of the frustum
-  FS_LEFT = 1,    // The LEFT	 side of the frustum
-  FS_BOTTOM = 2,  // The BOTTOM side of the frustum
-  FS_TOP = 3,     // The TOP side of the frustum
-  FS_BACK = 4,    // The BACK	side of the frustum
-  FS_FRONT = 5    // The FRONT side of the frustum
-};
-
-// Like above, instead of saying a number for the ABC and D of the plane, we
-// want to be more descriptive.
-enum PlaneData {
-  P_A = 0,  // The X value of the plane's normal
-  P_B = 1,  // The Y value of the plane's normal
-  P_C = 2,  // The Z value of the plane's normal
-  P_D = 3   // The distance the plane is from the origin
-};
-
-// Value-type frustum (not DLL-exported) to avoid LNK2005 on implicit
-// copy/assign across render3d / scene3d boundaries.
-class SmtFrustum {
- public:
-  SmtFrustum(void) = default;
-  SmtFrustum(const SmtFrustum& other) {
-    memcpy(m_frustum, other.m_frustum, sizeof(m_frustum));
-  }
-  SmtFrustum& operator=(const SmtFrustum& other) {
-    if (this != &other) {
-      memcpy(m_frustum, other.m_frustum, sizeof(m_frustum));
-    }
-    return *this;
-  }
-  ~SmtFrustum(void) = default;
-
-  void GetFrustum(float frustum[6][4]) {
-    memcpy(frustum, m_frustum, sizeof(m_frustum));
-  }
-  void SetFrustum(float frustum[6][4]) {
-    memcpy(m_frustum, frustum, sizeof(m_frustum));
-  }
-
-  bool IsPointIn(float x, float y, float z) {
-    for (int i = 0; i < 6; i++) {
-      if (m_frustum[i][P_A] * x + m_frustum[i][P_B] * y +
-              m_frustum[i][P_C] * z + m_frustum[i][P_D] <=
-          0) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  bool IsSphereIn(float x, float y, float z, float radius) {
-    for (int i = 0; i < 6; i++) {
-      if (m_frustum[i][P_A] * x + m_frustum[i][P_B] * y +
-              m_frustum[i][P_C] * z + m_frustum[i][P_D] <=
-          -radius) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  bool IsCubeIn(float x, float y, float z, float size) {
-    for (int i = 0; i < 6; i++) {
-      if (m_frustum[i][P_A] * (x - size) + m_frustum[i][P_B] * (y - size) +
-              m_frustum[i][P_C] * (z - size) + m_frustum[i][P_D] >=
-          0)
-        continue;
-      if (m_frustum[i][P_A] * (x + size) + m_frustum[i][P_B] * (y - size) +
-              m_frustum[i][P_C] * (z - size) + m_frustum[i][P_D] >=
-          0)
-        continue;
-      if (m_frustum[i][P_A] * (x - size) + m_frustum[i][P_B] * (y + size) +
-              m_frustum[i][P_C] * (z - size) + m_frustum[i][P_D] >=
-          0)
-        continue;
-      if (m_frustum[i][P_A] * (x + size) + m_frustum[i][P_B] * (y + size) +
-              m_frustum[i][P_C] * (z - size) + m_frustum[i][P_D] >=
-          0)
-        continue;
-      if (m_frustum[i][P_A] * (x - size) + m_frustum[i][P_B] * (y - size) +
-              m_frustum[i][P_C] * (z + size) + m_frustum[i][P_D] >=
-          0)
-        continue;
-      if (m_frustum[i][P_A] * (x + size) + m_frustum[i][P_B] * (y - size) +
-              m_frustum[i][P_C] * (z + size) + m_frustum[i][P_D] >=
-          0)
-        continue;
-      if (m_frustum[i][P_A] * (x - size) + m_frustum[i][P_B] * (y + size) +
-              m_frustum[i][P_C] * (z + size) + m_frustum[i][P_D] >=
-          0)
-        continue;
-      if (m_frustum[i][P_A] * (x + size) + m_frustum[i][P_B] * (y + size) +
-              m_frustum[i][P_C] * (z + size) + m_frustum[i][P_D] >=
-          0)
-        continue;
-      return false;
-    }
-    return true;
-  }
-
-  bool IsCuboidIn(float x, float y, float z, SIZE size) {
-    for (int i = 0; i < 6; i++) {
-      if (m_frustum[i][P_A] * (x - size.cx) +
-              m_frustum[i][P_B] * (y - size.cy) +
-              m_frustum[i][P_C] * (z - size.cx) + m_frustum[i][P_D] >
-          0)
-        continue;
-      if (m_frustum[i][P_A] * (x + size.cx) +
-              m_frustum[i][P_B] * (y - size.cy) +
-              m_frustum[i][P_C] * (z - size.cx) + m_frustum[i][P_D] >
-          0)
-        continue;
-      if (m_frustum[i][P_A] * (x - size.cx) +
-              m_frustum[i][P_B] * (y + size.cy) +
-              m_frustum[i][P_C] * (z - size.cx) + m_frustum[i][P_D] >
-          0)
-        continue;
-      if (m_frustum[i][P_A] * (x + size.cx) +
-              m_frustum[i][P_B] * (y + size.cy) +
-              m_frustum[i][P_C] * (z - size.cx) + m_frustum[i][P_D] >
-          0)
-        continue;
-      if (m_frustum[i][P_A] * (x - size.cx) +
-              m_frustum[i][P_B] * (y - size.cy) +
-              m_frustum[i][P_C] * (z + size.cx) + m_frustum[i][P_D] >
-          0)
-        continue;
-      if (m_frustum[i][P_A] * (x + size.cx) +
-              m_frustum[i][P_B] * (y - size.cy) +
-              m_frustum[i][P_C] * (z + size.cx) + m_frustum[i][P_D] >
-          0)
-        continue;
-      if (m_frustum[i][P_A] * (x - size.cx) +
-              m_frustum[i][P_B] * (y + size.cy) +
-              m_frustum[i][P_C] * (z + size.cx) + m_frustum[i][P_D] >
-          0)
-        continue;
-      if (m_frustum[i][P_A] * (x + size.cx) +
-              m_frustum[i][P_B] * (y + size.cy) +
-              m_frustum[i][P_C] * (z + size.cx) + m_frustum[i][P_D] >
-          0)
-        continue;
-      return false;
-    }
-    return true;
-  }
-
-  bool IsBoxIn(float max_x, float max_y, float max_z, float min_x, float min_y,
-               float min_z) {
-    for (int i = 0; i < 6; i++) {
-      if (m_frustum[i][P_A] * min_x + m_frustum[i][P_B] * min_y +
-              m_frustum[i][P_C] * min_z + m_frustum[i][P_D] >
-          0)
-        continue;
-      if (m_frustum[i][P_A] * max_x + m_frustum[i][P_B] * min_y +
-              m_frustum[i][P_C] * min_z + m_frustum[i][P_D] >
-          0)
-        continue;
-      if (m_frustum[i][P_A] * min_x + m_frustum[i][P_B] * max_y +
-              m_frustum[i][P_C] * min_z + m_frustum[i][P_D] >
-          0)
-        continue;
-      if (m_frustum[i][P_A] * max_x + m_frustum[i][P_B] * max_y +
-              m_frustum[i][P_C] * min_z + m_frustum[i][P_D] >
-          0)
-        continue;
-      if (m_frustum[i][P_A] * min_x + m_frustum[i][P_B] * min_y +
-              m_frustum[i][P_C] * max_z + m_frustum[i][P_D] >
-          0)
-        continue;
-      if (m_frustum[i][P_A] * max_x + m_frustum[i][P_B] * min_y +
-              m_frustum[i][P_C] * max_z + m_frustum[i][P_D] >
-          0)
-        continue;
-      if (m_frustum[i][P_A] * min_x + m_frustum[i][P_B] * max_y +
-              m_frustum[i][P_C] * max_z + m_frustum[i][P_D] >
-          0)
-        continue;
-      if (m_frustum[i][P_A] * max_x + m_frustum[i][P_B] * max_y +
-              m_frustum[i][P_C] * max_z + m_frustum[i][P_D] >
-          0)
-        continue;
-      return false;
-    }
-    return true;
-  }
-  bool IsBoxIn(Vector3& Max, Vector3& Min) {
-    return IsBoxIn(Max.x, Max.y, Max.z, Min.x, Min.y, Min.z);
-  }
-
- private:
-  float m_frustum[6][4]{};
-};
 }  // namespace render
 
 #if !defined(LEGACY_RENDER_EXPORTS)

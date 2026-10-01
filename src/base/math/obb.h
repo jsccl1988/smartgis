@@ -7,7 +7,7 @@
 #include "base/math/constants.h"
 #include "base/math/vector.h"
 
-namespace render {
+namespace base {
 
 class Matrix;
 class Plane;
@@ -33,6 +33,10 @@ class Obb {
                 const Vector4& v, float* min_out, float* max_out);
 };
 
+}  // namespace base
+
+namespace render {
+using ::base::Obb;
 }  // namespace render
 
 #endif  // SMT_RENDER_MATH_OBB_H_

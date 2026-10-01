@@ -1,0 +1,107 @@
+{
+  "name": "ui-markup",
+  "displayName": "SmartGIS UI Markup",
+  "description": "Preview *.ui.xml / *.ui.css (Webview approx + Open in UiDesigner).",
+  "version": "0.1.0",
+  "publisher": "mogu",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:ui-markup-xml",
+    "onCommand:mogu.uiMarkup.preview",
+    "onCommand:mogu.uiMarkup.openInDesigner"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "ui-markup-xml",
+        "aliases": [
+          "SmartGIS UI Markup",
+          "ui.xml"
+        ],
+        "extensions": [
+          ".ui.xml"
+        ],
+        "configuration": "./language-configuration-xml.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ui-markup-xml",
+        "scopeName": "text.xml.ui-markup",
+        "path": "./syntaxes/ui-markup-xml.tmLanguage.json"
+      }
+    ],
+    "configurationDefaults": {
+      "files.associations": {
+        "*.ui.css": "css"
+      }
+    },
+    "configuration": {
+      "title": "SmartGIS UI Markup",
+      "properties": {
+        "mogu.uiDesigner.path": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to UiDesigner.exe (optional; auto-detects out/Debug then out/Release)."
+        },
+        "mogu.uiMarkup.autoPreview": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open a Webview preview when a *.ui.xml file is opened."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "mogu.uiMarkup.preview",
+        "title": "UI Markup: Preview",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "mogu.uiMarkup.openInDesigner",
+        "title": "UI Markup: Open in UiDesigner",
+        "icon": "$(window)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "mogu.uiMarkup.preview",
+          "when": "resourceFilename =~ /\\.ui\\.xml$/",
+          "group": "navigation"
+        },
+        {
+          "command": "mogu.uiMarkup.openInDesigner",
+          "when": "resourceFilename =~ /\\.ui\\.xml$/",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "mogu.uiMarkup.preview",
+          "when": "resourceFilename =~ /\\.ui\\.xml$/",
+          "group": "navigation"
+        },
+        {
+          "command": "mogu.uiMarkup.openInDesigner",
+          "when": "resourceFilename =~ /\\.ui\\.xml$/",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "mogu.uiMarkup.preview",
+        "key": "ctrl+shift+v",
+        "when": "editorTextFocus && resourceFilename =~ /\\.ui\\.xml$/"
+      }
+    ]
+  }
+}

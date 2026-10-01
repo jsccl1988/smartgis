@@ -1,0 +1,38 @@
+{
+  "id": "map2d.china",
+  "kind": "showcase",
+  "argv": [
+    "--map2d-showcase",
+    "china"
+  ],
+  "script": "map2d.china.il",
+  "env": {
+    "SMT_MAP2D_SHOWCASE_LINGER_MS": "0"
+  },
+  "bmp": {
+    "path": "map2d-showcase-china.bmp",
+    "score_id": "map2d_china",
+    "accept_nonzero_rc_if_bmp": true,
+    "min_bytes": 10000
+  },
+  "report_name": "map2d_china_loop_report.json",
+  "probes": [
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 6,
+    "timeout_sec": 180,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "coastline_plausible",
+      "roads_aligned",
+      "labels_readable",
+      "no_y_flip_artifacts"
+    ],
+    "expect_notes": "China carto vs MapLibre reference; coast/roads/labels"
+  }
+}

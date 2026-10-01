@@ -142,12 +142,14 @@ float4 main(PSIn input) : SV_TARGET
             break;
     }
     float cover_a = saturate(1.0 - T);
-    // Veil, not a solid deck: cap alpha so land and sky stay readable.
-    float alpha = saturate(cover_a * 0.48);
+    // Soft veil: readable broken deck without crushing DEM to black.
+    float alpha = saturate(cover_a * 0.42);
     if (alpha < 0.02)
         discard;
     float3 rgb = cover_a > 0.001 ? saturate(L / cover_a) : float3(0.0, 0.0, 0.0);
-    rgb = min(rgb, float3(0.72, 0.74, 0.78));
+    // Floor luminance so high extinction cannot collapse to a black sheet.
+    rgb = max(rgb, float3(0.42, 0.45, 0.52));
+    rgb = min(rgb, float3(0.78, 0.80, 0.84));
     return float4(rgb, alpha);
 }
 )";

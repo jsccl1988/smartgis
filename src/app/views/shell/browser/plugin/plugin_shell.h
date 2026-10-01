@@ -41,6 +41,8 @@ class PluginShell {
   PluginShell& operator=(const PluginShell&) = delete;
 
   bool init(content::EventBus* events);
+  // Optional: set before init(). Empty → default <exe>/../plugins.
+  void set_plugins_dir(std::string path);
   void shutdown();
   bool show_manager(HWND owner);
 
@@ -59,16 +61,22 @@ class PluginShell {
   bool ensure_python();
   std::string eval_python(std::string_view code);
 
+  // Lazy: LoadLibrary + enable builtins after first chrome show (cold start).
+  bool ensure_builtins();
+
  private:
   void init_python();
   bool start_builtins();
+  void install_builtin_resource_roots();
 
   std::unique_ptr<tool::CommandCatalog> catalog_;
   std::unique_ptr<content::PluginHost> host_;
   std::unique_ptr<plugin::Registry> registry_;
   std::unique_ptr<plugin::ProcessingPool> pool_;
   std::unique_ptr<plugin::PythonRuntime> python_;
+  std::string plugins_dir_;
   bool shutdown_done_ = false;
+  bool builtins_started_ = false;
 };
 
 }  // namespace app

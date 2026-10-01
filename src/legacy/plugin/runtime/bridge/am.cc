@@ -7,8 +7,8 @@
 #include <cstring>
 #include <string>
 
-#include "plugin/runtime/host/manifest.h"
-#include "plugin/runtime/host/registry.h"
+#include "plugin/runtime/host/manifest/manifest.h"
+#include "plugin/runtime/host/registry/registry.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -35,10 +35,10 @@ struct StemMap {
 };
 
 constexpr StemMap kStems[] = {
-    {"plugin_dem", "smartgis.dem"},
+    {"plugin_dem", "smartgis.world3d"},
     {"plugin_proj", "smartgis.proj"},
     {"plugin_print", "smartgis.print"},
-    {"plugin_model3d", "smartgis.model3d"},
+    {"plugin_model3d", "smartgis.world3d"},
     {"plugin_orthogrid", "smartgis.baogrid"},
 };
 
@@ -49,9 +49,9 @@ struct NameMap {
 
 constexpr NameMap kNames[] = {
     // Match leftover AuxModule set_name() display strings (UTF-8 source).
-    {"DEM创建", "smartgis.dem"},      {"DEM生成", "smartgis.dem"},
+    {"DEM创建", "smartgis.world3d"},      {"DEM生成", "smartgis.world3d"},
     {"地图投影", "smartgis.proj"},    {"地图打印", "smartgis.print"},
-    {"三维创建", "smartgis.model3d"}, {"三维对象", "smartgis.model3d"},
+    {"三维创建", "smartgis.world3d"}, {"三维对象", "smartgis.world3d"},
     {"正交格网", "smartgis.baogrid"}, {"边界适应正交网格", "smartgis.baogrid"},
 };
 

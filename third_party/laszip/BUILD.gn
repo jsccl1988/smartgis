@@ -1,0 +1,52 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# LASzip 3.4.4 codec (Apache-2.0) — decompress only via LASunzipper.
+# Omits laszip_dll / spatial index (those need LASlib).
+
+_lz = "//third_party/.src/LASzip"
+_src = "$_lz/src"
+
+config("laszip_headers") {
+  include_dirs += [ _src ]
+}
+
+config("laszip_private") {
+  include_dirs += [ _src ]
+  defines = [
+    "UNORDERED",
+    "HAVE_UNORDERED_MAP=1",
+    "NOMINMAX",
+  ]
+}
+
+source_set("laszip_lib") {
+  sources = [
+    "$_src/arithmeticdecoder.cpp",
+    "$_src/arithmeticencoder.cpp",
+    "$_src/arithmeticmodel.cpp",
+    "$_src/integercompressor.cpp",
+    "$_src/lasmessage.cpp",
+    "$_src/lasreaditemcompressed_v1.cpp",
+    "$_src/lasreaditemcompressed_v2.cpp",
+    "$_src/lasreaditemcompressed_v3.cpp",
+    "$_src/lasreaditemcompressed_v4.cpp",
+    "$_src/lasreadpoint.cpp",
+    "$_src/lasunzipper.cpp",
+    "$_src/laswriteitemcompressed_v1.cpp",
+    "$_src/laswriteitemcompressed_v2.cpp",
+    "$_src/laswriteitemcompressed_v3.cpp",
+    "$_src/laswriteitemcompressed_v4.cpp",
+    "$_src/laswritepoint.cpp",
+    "$_src/laszip.cpp",
+    "$_src/laszipper.cpp",
+    "$_src/mydefs.cpp",
+  ]
+  configs += [ ":laszip_private" ]
+  public_configs = [ ":laszip_headers" ]
+}
+
+group("laszip") {
+  public_deps = [ ":laszip_lib" ]
+  public_configs = [ ":laszip_headers" ]
+}

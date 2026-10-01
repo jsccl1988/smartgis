@@ -26,9 +26,13 @@ SmtMapPrintPlugin *g_pAMMapPrint = NULL;
 static_assert(CMD_DLG_2DXVIEW == plugin::kAmMsgPrintPreview);
 
 extern "C" {
-int __declspec(dllexport) GetPluginVersion(void) { return 1; }
+int __declspec(dllexport) GetPluginVersion(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
+  return 1;
+}
 
 void __declspec(dllexport) StartPlugin(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
   g_pAMMapPrint = new SmtMapPrintPlugin();
   if (g_pAMMapPrint) {
     g_pAMMapPrint->Init();
@@ -36,6 +40,7 @@ void __declspec(dllexport) StartPlugin(void) {
 }
 
 void __declspec(dllexport) StopPlugin(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
   if (g_pAMMapPrint) {
     g_pAMMapPrint->Destroy();
   }

@@ -11,7 +11,11 @@ namespace app {
 class Browser;
 
 // GPU/null atmosphere present path for --atmosphere-showcase=*.
+// Prefers atmosphere.<mode>.il via CapabilityHost; falls back to body.
 int run_atmosphere_showcase(Browser& browser, AtmosphereShowcaseMode mode);
+
+// C++ body used by Host atmosphere_run and as script fallback.
+int atmosphere_showcase_body(Browser& browser, AtmosphereShowcaseMode mode);
 
 }  // namespace app
 

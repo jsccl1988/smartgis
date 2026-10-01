@@ -470,6 +470,11 @@ bool SmtApp::InitSmtListenerMgr(void) {
 bool SmtApp::InitSmtAuxModules(void) {
   const ::base::path plugin_dir(::base::self_path() + "\\plugin\\");
   for (const auto& file : ::base::list_files(plugin_dir, ".am")) {
+    // Skip leftover mis-named builds (GN ".am" → "..am"); only load "*.am".
+    const std::string name = file.filename().string();
+    if (name.size() >= 5 && name.compare(name.size() - 5, 5, "..am") == 0) {
+      continue;
+    }
     auto* plug = ::base::plugin_manager::instance().load_plugin(
         file.stem().string(), file);
     if (plug) {

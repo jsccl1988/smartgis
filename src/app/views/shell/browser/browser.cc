@@ -3,16 +3,14 @@
 
 #include "app/views/shell/browser/browser.h"
 
-#include <cstring>
-
 #include "app/views/shell/browser/browser_ui_delegate.h"
+#include "app/views/shell/browser/plugin/analysis_writers.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
 #include "base/core/log.h"
 #include "base/trace/event/process_trace.h"
 #include "content/browser/camera/map_host_extent.h"
 #include "content/public/map_contents.h"
 #include "content/public/view_host.h"
-#include "plugin/product/dem/commands.h"
 
 namespace app {
 
@@ -28,6 +26,10 @@ Browser::~Browser() {
   ui_.reset();
 }
 
+void Browser::set_plugins_dir(std::string path) {
+  plugins_dir_ = std::move(path);
+}
+
 bool Browser::init() {
   BASE_TRACE_EVENT("Browser.init.body", "startup");
   {
@@ -40,6 +42,7 @@ bool Browser::init() {
     BASE_TRACE_EVENT("PluginShell.init", "startup");
     LOGGING(LOG_INFO, "startup: PluginShell.init");
     plugins_ = std::make_unique<PluginShell>();
+    plugins_->set_plugins_dir(plugins_dir_);
     if (!session_.edit_host() ||
         !plugins_->init(session_.edit_host()->events())) {
       LOGGING(LOG_ERROR, "startup: PluginShell.init failed");
@@ -64,21 +67,7 @@ bool Browser::init() {
     }
   }
 
-  plugin::set_dem_surface_writer(
-      [this](const double* xyz, int point_count, const int* triangles,
-             int triangle_count, const char* op) {
-        const char* name =
-            (op && std::strstr(op, "grid")) ? "DEM grid" : "DEM tin";
-        if (!session_.document().add_triangle_layer(
-                name, xyz, point_count, triangles, triangle_count)) {
-          return false;
-        }
-        if (ui_) {
-          ui_->sync_catalog_from_scene();
-          ui_->invalidate_map_overlays();
-        }
-        return true;
-      });
+  wire_plugin_analysis_writers(this);
 
   BASE_TRACE_EVENT("InitChrome", "startup");
   LOGGING(LOG_INFO, "startup: init_chrome");

@@ -1,60 +1,148 @@
-// Copyright (c) 2010 CCL. All rights reserved.
-#ifndef _FBO_FUNCSIMP_H
-#define _FBO_FUNCSIMP_H
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef LEGACY_RENDER_RHI3D_IMPL_GL_EXT_FBO_FUNC_IMP_H_
+#define LEGACY_RENDER_RHI3D_IMPL_GL_EXT_FBO_FUNC_IMP_H_
 
 #include "legacy/render/rhi3d/impl/gl/ext/fbo_func.h"
-#include "legacy/render/rhi3d/impl/gl/prerequisites.h"
+#include "legacy/render/rhi3d/impl/gl/host/render_device.h"
 
 namespace render {
+
+// Binds EXT framebuffer-object entry points via wglGetProcAddress.
 class SmtFBOFuncImpl : public SmtFBOFunc {
  public:
-  SmtFBOFuncImpl();
-  virtual ~SmtFBOFuncImpl();
+  SmtFBOFuncImpl() = default;
+  ~SmtFBOFuncImpl() override = default;
 
- public:
-  virtual long Initialize(LPGLRENDERDEVICE pGLRenderDevice);
+  long Initialize(LPGLRENDERDEVICE pGLRenderDevice) override {
+    _glGenFramebuffers =
+        (PFNGLGENFRAMEBUFFERSEXTPROC)pGLRenderDevice->GetProcAddress(
+            "glGenFramebuffersEXT");
+    _glDeleteFramebuffers =
+        (PFNGLDELETEFRAMEBUFFERSEXTPROC)pGLRenderDevice->GetProcAddress(
+            "glDeleteFramebuffersEXT");
+    _glBindFramebuffer =
+        (PFNGLBINDFRAMEBUFFEREXTPROC)pGLRenderDevice->GetProcAddress(
+            "glBindFramebufferEXT");
+    _glIsFramebuffer =
+        (PFNGLISFRAMEBUFFEREXTPROC)pGLRenderDevice->GetProcAddress(
+            "glIsFramebufferEXT");
+    _glGenRenderbuffers =
+        (PFNGLGENRENDERBUFFERSEXTPROC)pGLRenderDevice->GetProcAddress(
+            "glGenRenderbuffersEXT");
+    _glDeleteRenderbuffers =
+        (PFNGLDELETERENDERBUFFERSEXTPROC)pGLRenderDevice->GetProcAddress(
+            "glDeleteRenderbuffersEXT");
+    _glBindRenderbuffer =
+        (PFNGLBINDRENDERBUFFEREXTPROC)pGLRenderDevice->GetProcAddress(
+            "glBindRenderbufferEXT");
+    _glIsRenderbuffer =
+        (PFNGLISRENDERBUFFEREXTPROC)pGLRenderDevice->GetProcAddress(
+            "glIsRenderbufferEXT");
+    _glRenderbufferStorage =
+        (PFNGLRENDERBUFFERSTORAGEEXTPROC)pGLRenderDevice->GetProcAddress(
+            "glRenderbufferStorageEXT");
+    _glFramebufferRenderbuffer =
+        (PFNGLFRAMEBUFFERRENDERBUFFEREXTPROC)pGLRenderDevice->GetProcAddress(
+            "glFramebufferRenderbufferEXT");
+    _glFramebufferTexture1D =
+        (PFNGLFRAMEBUFFERTEXTURE1DEXTPROC)pGLRenderDevice->GetProcAddress(
+            "glFramebufferTexture1D");
+    _glFramebufferTexture2D =
+        (PFNGLFRAMEBUFFERTEXTURE2DEXTPROC)pGLRenderDevice->GetProcAddress(
+            "glFramebufferTexture2D");
+    _glFramebufferTexture3D =
+        (PFNGLFRAMEBUFFERTEXTURE3DEXTPROC)pGLRenderDevice->GetProcAddress(
+            "glFramebufferTexture3D");
+    _glCheckFramebufferStatus =
+        (PFNGLCHECKFRAMEBUFFERSTATUSEXTPROC)pGLRenderDevice->GetProcAddress(
+            "glCheckFramebufferStatusEXT");
 
- public:
-  virtual void glGenFramebuffers(GLsizei count, GLuint *ids);
-  virtual void glDeleteFramebuffers(GLsizei count, GLuint *ids);
-  virtual void glBindFramebuffer(GLenum target, GLuint id);
-  virtual GLboolean glIsFramebuffer(GLuint id);
-  virtual void glGenRenderbuffers(GLsizei count, GLuint *ids);
-  virtual void glDeleteRenderbuffers(GLsizei count, GLuint *ids);
-  virtual void glBindRenderbuffer(GLenum target, GLuint id);
-  virtual GLboolean glIsRenderbuffer(GLuint id);
-  virtual void glRenderbufferStorage(GLenum target, GLenum internalFormat,
-                                     GLsizei width, GLsizei height);
-  virtual void glFramebufferRenderbuffer(GLenum target, GLenum attachment,
-                                         GLenum rbTarget, GLuint rbId);
-  virtual int getMaxColorAttachments();
-  virtual void glFramebufferTexture1D(GLenum target, GLenum attachment,
-                                      GLenum texTarget, GLuint texId,
-                                      int level);
-  virtual void glFramebufferTexture2D(GLenum target, GLenum attachment,
-                                      GLenum texTarget, GLuint texId,
-                                      int level);
-  virtual void glFramebufferTexture3D(GLenum target, GLenum attachment,
-                                      GLenum texTarget, GLuint texId, int level,
-                                      int zOffset);
-  virtual GLenum glCheckFramebufferStatus(GLenum target);
+    if (nullptr == _glGenFramebuffers || nullptr == _glDeleteFramebuffers ||
+        nullptr == _glBindFramebuffer || nullptr == _glIsFramebuffer ||
+        nullptr == _glGenRenderbuffers || nullptr == _glDeleteRenderbuffers ||
+        nullptr == _glBindRenderbuffer || nullptr == _glIsRenderbuffer ||
+        nullptr == _glRenderbufferStorage || nullptr == _glFramebufferRenderbuffer ||
+        nullptr == _glCheckFramebufferStatus) {
+      return SMT_ERR_FAILURE;
+    }
+    return SMT_ERR_NONE;
+  }
+
+  void glGenFramebuffers(GLsizei count, GLuint *ids) override {
+    _glGenFramebuffers(count, ids);
+  }
+  void glDeleteFramebuffers(GLsizei count, GLuint *ids) override {
+    _glDeleteFramebuffers(count, ids);
+  }
+  void glBindFramebuffer(GLenum target, GLuint id) override {
+    _glBindFramebuffer(target, id);
+  }
+  GLboolean glIsFramebuffer(GLuint id) override {
+    return _glIsFramebuffer(id);
+  }
+  void glGenRenderbuffers(GLsizei count, GLuint *ids) override {
+    _glGenRenderbuffers(count, ids);
+  }
+  void glDeleteRenderbuffers(GLsizei count, GLuint *ids) override {
+    _glDeleteRenderbuffers(count, ids);
+  }
+  void glBindRenderbuffer(GLenum target, GLuint id) override {
+    _glBindRenderbuffer(target, id);
+  }
+  GLboolean glIsRenderbuffer(GLuint id) override {
+    return _glIsRenderbuffer(id);
+  }
+  void glRenderbufferStorage(GLenum target, GLenum internalFormat,
+                             GLsizei width, GLsizei height) override {
+    _glRenderbufferStorage(target, internalFormat, width, height);
+  }
+  void glFramebufferRenderbuffer(GLenum target, GLenum attachment,
+                                 GLenum rbTarget, GLuint rbId) override {
+    _glFramebufferRenderbuffer(target, attachment, rbTarget, rbId);
+  }
+  int getMaxColorAttachments() override {
+    int maxColors = 0;
+    glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS_EXT, &maxColors);
+    return maxColors;
+  }
+  void glFramebufferTexture1D(GLenum target, GLenum attachment,
+                              GLenum texTarget, GLuint texId,
+                              int level) override {
+    _glFramebufferTexture1D(target, attachment, texTarget, texId, level);
+  }
+  void glFramebufferTexture2D(GLenum target, GLenum attachment,
+                              GLenum texTarget, GLuint texId,
+                              int level) override {
+    _glFramebufferTexture2D(target, attachment, texTarget, texId, level);
+  }
+  void glFramebufferTexture3D(GLenum target, GLenum attachment,
+                              GLenum texTarget, GLuint texId, int level,
+                              int zOffset) override {
+    _glFramebufferTexture3D(target, attachment, texTarget, texId, level,
+                            zOffset);
+  }
+  GLenum glCheckFramebufferStatus(GLenum target) override {
+    return _glCheckFramebufferStatus(target);
+  }
 
  private:
-  PFNGLGENFRAMEBUFFERSEXTPROC _glGenFramebuffers;
-  PFNGLDELETEFRAMEBUFFERSEXTPROC _glDeleteFramebuffers;
-  PFNGLBINDFRAMEBUFFEREXTPROC _glBindFramebuffer;
-  PFNGLISFRAMEBUFFEREXTPROC _glIsFramebuffer;
-  PFNGLGENRENDERBUFFERSEXTPROC _glGenRenderbuffers;
-  PFNGLDELETERENDERBUFFERSEXTPROC _glDeleteRenderbuffers;
-  PFNGLBINDRENDERBUFFEREXTPROC _glBindRenderbuffer;
-  PFNGLISRENDERBUFFEREXTPROC _glIsRenderbuffer;
-  PFNGLRENDERBUFFERSTORAGEEXTPROC _glRenderbufferStorage;
-  PFNGLFRAMEBUFFERRENDERBUFFEREXTPROC _glFramebufferRenderbuffer;
-  PFNGLFRAMEBUFFERTEXTURE1DEXTPROC _glFramebufferTexture1D;
-  PFNGLFRAMEBUFFERTEXTURE2DEXTPROC _glFramebufferTexture2D;
-  PFNGLFRAMEBUFFERTEXTURE3DEXTPROC _glFramebufferTexture3D;
-  PFNGLCHECKFRAMEBUFFERSTATUSEXTPROC _glCheckFramebufferStatus;
+  PFNGLGENFRAMEBUFFERSEXTPROC _glGenFramebuffers = nullptr;
+  PFNGLDELETEFRAMEBUFFERSEXTPROC _glDeleteFramebuffers = nullptr;
+  PFNGLBINDFRAMEBUFFEREXTPROC _glBindFramebuffer = nullptr;
+  PFNGLISFRAMEBUFFEREXTPROC _glIsFramebuffer = nullptr;
+  PFNGLGENRENDERBUFFERSEXTPROC _glGenRenderbuffers = nullptr;
+  PFNGLDELETERENDERBUFFERSEXTPROC _glDeleteRenderbuffers = nullptr;
+  PFNGLBINDRENDERBUFFEREXTPROC _glBindRenderbuffer = nullptr;
+  PFNGLISRENDERBUFFEREXTPROC _glIsRenderbuffer = nullptr;
+  PFNGLRENDERBUFFERSTORAGEEXTPROC _glRenderbufferStorage = nullptr;
+  PFNGLFRAMEBUFFERRENDERBUFFEREXTPROC _glFramebufferRenderbuffer = nullptr;
+  PFNGLFRAMEBUFFERTEXTURE1DEXTPROC _glFramebufferTexture1D = nullptr;
+  PFNGLFRAMEBUFFERTEXTURE2DEXTPROC _glFramebufferTexture2D = nullptr;
+  PFNGLFRAMEBUFFERTEXTURE3DEXTPROC _glFramebufferTexture3D = nullptr;
+  PFNGLCHECKFRAMEBUFFERSTATUSEXTPROC _glCheckFramebufferStatus = nullptr;
 };
 }  // namespace render
 
-#endif  //_FBO_FUNCSIMP_H
+#endif  // LEGACY_RENDER_RHI3D_IMPL_GL_EXT_FBO_FUNC_IMP_H_

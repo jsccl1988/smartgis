@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<ui name="mine_interpolate">
+  <style src="interpolate.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="csv_label" text="Borehole CSV"/>
+    <hbox id="csv_row" class="row">
+      <textfield id="csv_path"/>
+      <button id="browse_csv" text="Browse..."/>
+    </hbox>
+
+    <label id="output_label" text="Output stratum TIN JSON"/>
+    <hbox id="output_row" class="row">
+      <textfield id="output_path" text="mine_stratum_tin.json"/>
+      <button id="browse_output" text="Browse..."/>
+    </hbox>
+
+    <hbox id="stratum_row" class="row">
+      <vbox id="stratum_box" class="field">
+        <label id="stratum_label" text="Stratum id (TIN)"/>
+        <textfield id="stratum_id" text="clay"/>
+      </vbox>
+      <vbox id="top_box" class="field">
+        <label id="top_label" text="Top stratum (prism)"/>
+        <textfield id="top_stratum" text="clay"/>
+      </vbox>
+      <vbox id="bottom_box" class="field">
+        <label id="bottom_label" text="Bottom stratum"/>
+        <textfield id="bottom_stratum" text="sand"/>
+      </vbox>
+    </hbox>
+
+    <hbox id="actions" class="row actions">
+      <button id="prism" text="Prism volume"/>
+      <button id="ok" text="Interpolate"/>
+      <button id="cancel" text="Cancel"/>
+    </hbox>
+  </vbox>
+</ui>

@@ -33,7 +33,7 @@ smt_mfc_shared_library("plugin_model3d") {
     "//src/legacy/render/scene3d:scene3d",
     "//src/legacy/render/rhi3d:rhi",
     "//src/legacy/plugin/product/dem:plugin_dem",
-    "//src/plugin/product/dem:dem_processing",
+    "//src/plugin/product/world3d:world3d_processing",
     "//third_party:gdal",
   ]
 }

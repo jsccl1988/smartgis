@@ -10,7 +10,7 @@
 
 #include <span>
 
-namespace render {
+namespace base {
 
 // Batch float32 helpers. When SMT_RENDER_MATH_SIMD is set and the TU is built
 // with AVX2, an accelerated path is used; otherwise scalar loops.
@@ -22,6 +22,12 @@ void transform_points_batch(const Matrix& m, std::span<Vector3> points);
 void transform_xy_batch(const LpToDp2& a, std::span<const float> xy_in,
                         std::span<long> xy_out);
 
+}  // namespace base
+
+namespace render {
+using ::base::normalize_batch;
+using ::base::transform_points_batch;
+using ::base::transform_xy_batch;
 }  // namespace render
 
 #endif  // SMT_RENDER_MATH_SIMD_H_

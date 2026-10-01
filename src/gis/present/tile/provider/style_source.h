@@ -73,9 +73,10 @@ GIS_EXPORT StyleSourceStatus parse_style_source(const std::string& id,
 
 // Parse Style root JSON, a `{"sources":{…}}` fragment, or a bare sources map
 // object. Raster entries are appended to |out|. If any vector source is
-// present, returns kVectorUnsupported after filling prior rasters (and does
-// not pretend to decode MVT). Other unsupported types → kUnsupportedType
-// (same fill-then-status rule). Pure raster docs return kOk.
+// present, returns kVectorUnsupported after filling prior rasters (network
+// vector TileProvider bind is still deferred; use decode_mvt for local PBF).
+// Other unsupported types → kUnsupportedType (same fill-then-status rule).
+// Pure raster docs return kOk.
 GIS_EXPORT StyleSourceStatus parse_style_sources(
     const char* json, size_t len, std::vector<StyleSourceDesc>* out);
 GIS_EXPORT StyleSourceStatus

@@ -1,0 +1,43 @@
+{
+  "id": "ui.interact.os",
+  "kind": "showcase",
+  "argv": [
+    "--ui-showcase",
+    "interact"
+  ],
+  "driver": "os",
+  "os_inject_default": "postmessage",
+  "script": "../ui.interact/ui.interact.il",
+  "window_title": "SmartGIS Views",
+  "env": {
+    "SMT_UI_SHOWCASE_LINGER_MS": "0",
+    "SMT_UI_INTERACT_OS_WAIT_MS": "10000",
+    "SMT_UI_FORENSICS": "1",
+    "SMT_UI_THEME": "dark",
+    "SMT_SKIP_MAP_CONTEXT_MENU": "1"
+  },
+  "bmp": {
+    "path": "ui-showcase-interact.bmp",
+    "score_id": "ui_shell_dark"
+  },
+  "report_name": "ui_interact_os_loop_report.json",
+  "probes": [
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 3,
+    "timeout_sec": 180,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "interact_targets_visible",
+      "chrome_readable",
+      "os_inject_did_not_blank_shell",
+      "dark_theme_consistent"
+    ],
+    "expect_notes": "OS-inject interact path; same bmp stem as ui.interact"
+  }
+}

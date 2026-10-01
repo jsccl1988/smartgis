@@ -60,6 +60,7 @@ class UI_EXPORT RenderTracePanel : public View {
   Checkbox* show_scene3d_ = nullptr;
   Checkbox* show_startup_ = nullptr;
   Checkbox* show_gdi_ = nullptr;
+  Checkbox* show_ui_ = nullptr;
 
   std::unique_ptr<State> state_;
   bool embedded_ = false;

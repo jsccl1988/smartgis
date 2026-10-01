@@ -1,33 +1,33 @@
-// Copyright (c) 2010 CCL. All rights reserved.
-#ifndef _GL_3DDEVICECAPS_H
-#define _GL_3DDEVICECAPS_H
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 
+#ifndef LEGACY_RENDER_RHI3D_IMPL_GL_CAPS_DEVICE_CAPS_H_
+#define LEGACY_RENDER_RHI3D_IMPL_GL_CAPS_DEVICE_CAPS_H_
+
+#include "legacy/render/rhi3d/impl/gl/prerequisites.h"
 #include "legacy/render/rhi3d/public/device/device_caps.h"
 
 namespace render {
-class Smt3DRenderDevice;
-typedef class Smt3DRenderDevice *LP3DRENDERDEVICE;
 
+class SmtGLRenderDevice;
+
+// Reports leftover GL capability queries from extension strings / GL gets.
 class SmtGLDeviceCaps : public Smt3DDeviceCaps {
  public:
-  SmtGLDeviceCaps(LP3DRENDERDEVICE p3DRenderDevice);
-  virtual ~SmtGLDeviceCaps(void) {};
+  explicit SmtGLDeviceCaps(LP3DRENDERDEVICE p3DRenderDevice);
+  ~SmtGLDeviceCaps() override;
 
- public:
-  virtual bool IsVBOSupported();
-  virtual bool IsMipMapsSupported();
-  virtual bool IsFBOSupported();
-  virtual bool IsGLSLSupported();
-  virtual bool IsVSyncSupported();
-  virtual bool IsMultiTextureSupported();
-  virtual bool IsAnisotropySupported();
-  virtual int GetTextureSlotsCount();
-  virtual int GetMaxColorAttachments();
-  virtual float GetMaxAnisotropy();
-
- protected:
-  LP3DRENDERDEVICE m_p3DRenderDevice;
+  bool IsVSyncSupported() override;
+  bool IsAnisotropySupported() override;
+  bool IsVBOSupported();
+  bool IsMipMapsSupported();
+  bool IsFBOSupported();
+  bool IsGLSLSupported();
+  bool IsMultiTextureSupported();
+  int GetTextureSlotsCount() override;
+  int GetMaxColorAttachments() override;
+  float GetMaxAnisotropy() override;
 };
 }  // namespace render
 
-#endif  //_GL_3DDEVICECAPS_H
+#endif  // LEGACY_RENDER_RHI3D_IMPL_GL_CAPS_DEVICE_CAPS_H_

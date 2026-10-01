@@ -60,13 +60,12 @@ New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $logPath = Join-Path $OutDir "$stamp-analyze.log"
 
-# Escape backslashes for cdb command string.
-$pdbForCdb = $PdbDir -replace '\\', '\\'
+# Inline `-c "a; b"` is unsafe: `.sympath+ path` swallows `;` as part of the
+# path. Use a command file + `$$<` (same pattern as run_and_catch.ps1).
 $publicSym = 'SRV*C:\Symbols*https://msdl.microsoft.com/download/symbols'
-
-# Hard-coded analyze sequence — keep in sync with reference.md.
-$cdbCommands = @(
-  ".sympath+ $pdbForCdb"
+$cmdFile = Join-Path $OutDir "$stamp-analyze-cdb.txt"
+@(
+  ".sympath+ $PdbDir"
   ".sympath+ $publicSym"
   '.reload'
   '!analyze -v'
@@ -75,18 +74,20 @@ $cdbCommands = @(
   'kv'
   'lm vm'
   'q'
-) -join '; '
+) | Set-Content -LiteralPath $cmdFile -Encoding ascii
 
+# Avoid spaces in $$< path (cdb parser); OutDir is out/crash by default.
 $cdbArgs = @(
   '-z', $DumpPath
   '-logo', $logPath
-  '-c', $cdbCommands
+  '-c', "`$`$<$cmdFile"
 )
 
 Write-Host "cdb: $CdbPath"
 Write-Host "dump: $DumpPath"
 Write-Host "pdb: $PdbDir"
 Write-Host "log: $logPath"
+Write-Host "cmdfile: $cmdFile"
 
 & $CdbPath @cdbArgs
 $exitCode = $LASTEXITCODE

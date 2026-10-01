@@ -6,10 +6,10 @@
 
 #include <afxwin.h>
 
-// Plugin DLLs each define a CWinApp that is constructed at LoadLibrary, before
-// InitInstance. That module state keeps a null resource handle and can become
-// the thread's current state, so the next AfxGetResourceHandle() asserts in
-// afxwin1.inl. Bind this DLL's HMODULE as the resource handle when it is null.
+// Call from CWinApp::InitInstance (after CWinApp::InitInstance / AfxWinInit),
+// never from the CWinApp constructor. Setting m_hCurrentInstanceHandle before
+// mfcs InternalDllMain finishes trips dllmodul.cpp VERIFY/ASSERT on attach or
+// detach. Only fill a still-null resource handle (afxwin1.inl).
 inline void bind_plugin_dll_resources(const void* address_in_dll) {
   if (!address_in_dll) {
     return;
@@ -18,16 +18,13 @@ inline void bind_plugin_dll_resources(const void* address_in_dll) {
   if (!GetModuleHandleExW(
           GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-          static_cast<LPCWSTR>(address_in_dll), &module) ||
+          reinterpret_cast<LPCWSTR>(address_in_dll), &module) ||
       module == nullptr) {
     return;
   }
   AFX_MODULE_STATE* state = AfxGetModuleState();
   if (!state) {
     return;
-  }
-  if (state->m_hCurrentInstanceHandle == nullptr) {
-    state->m_hCurrentInstanceHandle = module;
   }
   if (state->m_hCurrentResourceHandle == nullptr) {
     state->m_hCurrentResourceHandle = module;

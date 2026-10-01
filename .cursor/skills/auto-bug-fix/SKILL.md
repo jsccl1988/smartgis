@@ -31,7 +31,7 @@ When this skill is invoked, attached (`@auto-bug-fix` / `/auto-bug-fix`), or fol
 ## Hard rules — how to run
 
 1. **Entry:** from the **smartgis** repo root, run `.\build.bat e2e`. Then `.\build.bat te` — `e2e` compiles `//:test_all` but **does not run** unit tests; it only runs `out\Debug\exe_smoke.exe --require-all`. Prefer `build.bat debug e2e` / `build.bat debug te` when iterating a single config.
-2. **Engineering management is GN.** Gen roots `out/Debug` + `out/Release`. Aliases: `e2e` / `te` / `a`. Do not invent bare `gn gen` / `ninja` as the primary loop unless `build.bat` is missing/broken.
+2. **Engineering management is GN.** Gen roots `out/Debug` + `out/Release`. Aliases: `e2e` / `te` / `a`. Do not invent bare `gn gen` / `ninja` as the primary loop unless `build.bat` is missing/broken. **`out/.build.lock` covers compile only**; `te`/`e2e` runners run unlocked after ninja. Exit **3** = compile busy — wait/report, do not bypass. Prefer `build.bat debug …`. See `.cursor/rules/build/build-lock.mdc`.
 3. **Do not** use `SmartGIS.sln` / MSBuild / `build.bat sln`. `vs2008/` is leftover only.
 4. Product sources are **`src/`**. Hosts: Views (`SmartGisViews.exe`) is the destination; leftover MFC (`SmartGis.exe`) is process smoke only. Do not treat WinUI / CEF as the endgame shell.
 5. **CBM first** (`user-codebase-memory-mcp`, project `smartgis`, `root_path` `C:/Dev/src/gis/smartgis`). Grep/Glob only if CBM is down, the user named an exact path, or the search is already scoped (`path` required).

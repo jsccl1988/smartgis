@@ -7,7 +7,7 @@ All rights reserved.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Under `src/legacy/render/rhi2d/impl/gdi/`, drop redundant `gdi_` file prefixes, move RC assets into `res/`, split `SmtGdiRenderDevice` into a thin facade plus composed helpers, then organize as `core/{host,worker,surface}` + `gdiaux/` + `res/` + `test/` ? without changing leftover ABI.
+**Goal:** Under `src/legacy/render/rhi2d/impl/gdi/`, drop redundant `gdi_` file prefixes, move RC assets into `res/`, split `SmtRhi2dRenderDevice` into a thin facade plus composed helpers, then organize as `core/{host,worker,surface}` + `gdiaux/` + `res/` + `test/` ? without changing leftover ABI.
 
 **Architecture:** Spec ?GDI layout rename + device composition in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md). File rename only; `SmtGdi*` types stay.
 
@@ -17,7 +17,7 @@ All rights reserved.
 
 - Work on **`master`** only; parallel agents use **non-overlapping paths**.
 - Scope: **`rhi2d/impl/gdi/`** only.
-- Keep `SmtGdiRenderDevice` / `SmtGdiRenderThread` / CreateDevice string.
+- Keep `SmtRhi2dRenderDevice` / `SmtGdiRenderThread` / CreateDevice string.
 - Keep FrameJob / cancel / present-on-gen behavior from leftover-worker plan.
 - Comments in English on touched code.
 - **Do not** `git commit` unless the user asks.
@@ -28,9 +28,9 @@ All rights reserved.
 | Path | Role |
 | --- | --- |
 | `core/surface/compose.*` `surface_pool.*` | DIB compose / buffers |
-| `core/host/render_device.*` | Facade `SmtGdiRenderDevice` |
+| `core/host/render_device.*` | Facade `SmtRhi2dRenderDevice` |
 | `core/host/style_state.*` `geom_drawer.*` `layer_painter.*` `image_io.*` | UI-thread collaborators |
-| `core/host/host_frame_scheduler.*` | UI stage/Timer (`render::GdiFrameScheduler`) |
+| `core/host/host_frame_scheduler.*` | UI stage/Timer (`render::Rhi2dFrameScheduler`) |
 | `core/worker/worker_frame_scheduler.*` `map_painter.*` `style_canvas.*` | Worker FrameJob |
 | `core/worker/render_thread.*` | Thin `SmtGdiRenderThread` facade |
 | `core/worker/map_carto2d.*` | Map carto 2D |

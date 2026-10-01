@@ -4,7 +4,7 @@
 #include "content/public/event_bus.h"
 #include "content/public/plugin_host.h"
 #include "plugin/runtime/python/runtime.h"
-#include "plugin/runtime/host/registry.h"
+#include "plugin/runtime/host/registry/registry.h"
 #include "tool/command/command.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/dialogs/message_box.h"

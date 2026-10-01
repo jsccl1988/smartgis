@@ -8,7 +8,7 @@
 #include "base/math/matrix.h"
 #include <cmath>
 
-namespace render
+namespace base
 {
 
 	// transform ray into matrix space

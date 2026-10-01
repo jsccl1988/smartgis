@@ -4,6 +4,7 @@
 #include "legacy/tool/nav/view_zoom_apply.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "gis/model/layer/layer.h"
@@ -12,21 +13,60 @@
 #include "tool/draft/draft.h"
 
 namespace tool {
+namespace {
+
+// Absolute-pan baseline: each MouseMove reapplies origin→end on wp0 captured
+// at drag start. Wheel / ZoomToRect mutate the live windowport; if wp0 stays
+// stale, the next click that reuses the same origin restores pre-zoom extent.
+struct PanBaseline {
+  render::LPRENDERDEVICE device = nullptr;
+  base::Windowport wp0{};
+  base::lPoint origin{};
+};
+
+PanBaseline& pan_baseline() {
+  static PanBaseline baseline;
+  return baseline;
+}
+
+void invalidate_pan_baseline() {
+  pan_baseline().device = nullptr;
+}
+
+}  // namespace
 
 void apply_wheel_zoom(render::LPRENDERDEVICE device, SmtMap* map, double scale_delt,
                       int z_delta, base::lPoint point) {
   if (!device) {
     return;
   }
+  // SysPra.fZoomScaleDelt can be 0 / unset → fScale==1 and zoom_gate stays ~0.
+  double delt = scale_delt;
+  if (!(delt > 1e-6) || !std::isfinite(delt)) {
+    delt = 0.12;
+  }
+  if (delt < 0.12) {
+    delt = 0.12;
+  }
+  if (delt > 0.25) {
+    delt = 0.25;
+  }
   float fScale;
   if (z_delta < 0) {
-    fScale = static_cast<float>(1 + scale_delt);
+    fScale = static_cast<float>(1 + delt);
   } else {
-    fScale = static_cast<float>(1 - scale_delt);
+    fScale = static_cast<float>(1 - delt);
   }
   device->PreviewZoomScale(point, fScale);
-  device->Refresh();
+  // Sync compose+present so wheel stretch is on the HWND before harness
+  // capture (InvalidateRect-only Refresh can defer past settle).
+  (void)device->RenderMap();
+  // Second present path: some GDI+ hosts discard the first BitBlt when a
+  // FrameJob publish races; Refresh invalidate+compose makes SendMessage
+  // wheel visible without waiting for SendInput retry.
+  (void)device->Refresh();
   device->ScheduleDelayedRedraw(map);
+  invalidate_pan_baseline();
 }
 
 void apply_pan_by_points(render::LPRENDERDEVICE device, SmtMap* map,
@@ -34,16 +74,16 @@ void apply_pan_by_points(render::LPRENDERDEVICE device, SmtMap* map,
   if (!device) {
     return;
   }
+  // No-op click (origin==end): do not Refresh / ScheduleDelayedRedraw — that
+  // re-encoded china on every map click and looked like a broken click.
+  if (origin.x == end.x && origin.y == end.y) {
+    return;
+  }
   // Absolute pan from drag start: each MouseMove used to PreviewZoomMove the
   // full origin→end delta on an already-mutated windowport (runaway pan) and
   // zeroed curDrawingOrg so Refresh showed a stale unshifted front until the
   // worker finished (click / settle to see the map move).
-  struct PanBaseline {
-    render::LPRENDERDEVICE device = nullptr;
-    base::Windowport wp0{};
-    base::lPoint origin{};
-  };
-  static PanBaseline baseline;
+  PanBaseline& baseline = pan_baseline();
   if (baseline.device != device || baseline.origin.x != origin.x ||
       baseline.origin.y != origin.y) {
     baseline.device = device;
@@ -83,6 +123,7 @@ void apply_zoom_in_by_points(render::LPRENDERDEVICE device, SmtMap* map,
     device->ZoomScale(map, end, static_cast<float>(1 - scale_delt));
   }
   device->Refresh();
+  invalidate_pan_baseline();
 }
 
 void apply_zoom_out_at_point(render::LPRENDERDEVICE device, SmtMap* map,
@@ -92,6 +133,7 @@ void apply_zoom_out_at_point(render::LPRENDERDEVICE device, SmtMap* map,
   }
   device->ZoomScale(map, point, static_cast<float>(1 + scale_delt));
   device->Refresh();
+  invalidate_pan_baseline();
 }
 
 void apply_zoom_restore(render::LPRENDERDEVICE device, SmtMap* map) {
@@ -134,6 +176,7 @@ void apply_zoom_restore(render::LPRENDERDEVICE device, SmtMap* map) {
 
   // Proxy re-render only — avoid Refresh() race with worker GDI buffers.
   device->ZoomToRect(map, frt, false);
+  invalidate_pan_baseline();
 }
 
 void apply_zoom_refresh(render::LPRENDERDEVICE device, SmtMap* map) {
@@ -150,6 +193,7 @@ void apply_zoom_refresh(render::LPRENDERDEVICE device, SmtMap* map) {
   pLayer->get_envelope(envelope);
   envelope_to_rect(frt, envelope);
   device->Refresh(map, frt);
+  invalidate_pan_baseline();
 }
 
 void apply_view_draft(render::LPRENDERDEVICE device, SmtMap* map, double scale_delt,

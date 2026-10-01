@@ -102,7 +102,10 @@ class CMainFrame : public CMainWnd {
   UINT m_nAppLook;
 
  private:
+  void apply_views_like_chrome_font();
+
   SmtMapDocXCatalog* m_pMapDocCatalog;
   Smt3DObjXCatalog* m_p3DObjCatalog;
   SmtDSXCatalog* m_pDSCatalog;
+  CFont ui_font_;
 };

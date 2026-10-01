@@ -216,6 +216,42 @@ PyObject* host_open_dialog(HostObject* self, PyObject* args) {
   Py_RETURN_TRUE;
 }
 
+PyObject* host_open_report(HostObject* self, PyObject* args) {
+  const char* path = nullptr;
+  if (!PyArg_ParseTuple(args, "s", &path)) {
+    return nullptr;
+  }
+  if (!self->host || !path) {
+    Py_RETURN_FALSE;
+  }
+  if (!self->host->open_report(path)) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_post_to_report(HostObject* self, PyObject* args) {
+  const char* json = nullptr;
+  if (!PyArg_ParseTuple(args, "s", &json)) {
+    return nullptr;
+  }
+  if (!self->host || !json) {
+    Py_RETURN_FALSE;
+  }
+  if (!self->host->post_to_report(json)) {
+    Py_RETURN_FALSE;
+  }
+  Py_RETURN_TRUE;
+}
+
+PyObject* host_close_report(HostObject* self, PyObject* /*args*/) {
+  if (!self->host) {
+    Py_RETURN_FALSE;
+  }
+  self->host->close_report();
+  Py_RETURN_TRUE;
+}
+
 PyObject* host_run_processing(HostObject* self, PyObject* args) {
   const char* processing_id = nullptr;
   const char* args_json = "{}";
@@ -244,6 +280,12 @@ PyMethodDef kHostMethods[] = {
      "Contribute a processing factory (no Views)."},
     {"open_dialog", reinterpret_cast<PyCFunction>(host_open_dialog),
      METH_VARARGS, "Open a contributed dialog by id."},
+    {"open_report", reinterpret_cast<PyCFunction>(host_open_report),
+     METH_VARARGS, "Open a local HTML report directory in the Report dock."},
+    {"post_to_report", reinterpret_cast<PyCFunction>(host_post_to_report),
+     METH_VARARGS, "Post JSON to the open report (window message)."},
+    {"close_report", reinterpret_cast<PyCFunction>(host_close_report),
+     METH_NOARGS, "Close the Report dock document."},
     {"run_processing", reinterpret_cast<PyCFunction>(host_run_processing),
      METH_VARARGS, "Run a contributed processing id."},
     {nullptr, nullptr, 0, nullptr},

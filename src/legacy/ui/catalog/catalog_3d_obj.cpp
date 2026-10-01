@@ -6,9 +6,9 @@
 
 #include "base/core/log.h"
 #include "legacy/core/msg/msg_def.h"
-#include "legacy/render/scene3d/primitive/sphere.h"
-#include "legacy/render/scene3d/primitive/water.h"
-#include "legacy/render/scene3d/surface/terrain.h"
+#include "legacy/render/scene3d/primitive/mesh/sphere.h"
+#include "legacy/render/scene3d/primitive/mesh/water.h"
+#include "legacy/render/scene3d/primitive/surface/terrain.h"
 #include "legacy/tool/defs.h"
 #include "legacy/tool/abi/t_iatoolmanager.h"
 #include "legacy/ui/catalog/mapmgr.h"

@@ -1,0 +1,51 @@
+{
+  "type": "FeatureCollection",
+  "name": "stormsurge_impact_sample",
+  "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "coastal_building_a", "kind": "building" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [114.22, 30.57],
+            [114.24, 30.57],
+            [114.24, 30.555],
+            [114.22, 30.555],
+            [114.22, 30.57]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "coastal_road", "kind": "road" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [114.25, 30.56],
+          [114.30, 30.555],
+          [114.35, 30.55]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "inland_building", "kind": "building" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [114.40, 30.62],
+            [114.42, 30.62],
+            [114.42, 30.60],
+            [114.40, 30.60],
+            [114.40, 30.62]
+          ]
+        ]
+      }
+    }
+  ]
+}

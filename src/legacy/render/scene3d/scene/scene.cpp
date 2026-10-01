@@ -1,15 +1,36 @@
 #include "legacy/render/scene3d/scene/scene.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <vector>
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 
 #include "base/core/log.h"
 #include "base/threading/thread.h"
 #include "base/trace/event/process_trace.h"
 #include "legacy/core/types/types.h"
 #include "legacy/render/detail/frame_pipeline.h"
-#include "legacy/render/scene3d/bridge/scene_to_world.h"
+#include "legacy/render/rhi3d/impl/common/frame/prep_runner.h"
+#include "legacy/render/scene3d/detail/d3d_deferred_objects.h"
+#include "legacy/render/scene3d/seed/scene_to_world.h"
 
 namespace render {
+namespace {
+
+bool object_aabb_in_frustum(const Frustum& frustum, Smt3DObject* obj) {
+  if (!obj) {
+    return false;
+  }
+  return frustum.intersects(obj->GetAabb());
+}
+
+}  // namespace
 SmtScene::SmtScene(void)
     : m_p3DRenderDevice(NULL),
       m_pTimer(NULL),
@@ -78,8 +99,8 @@ long SmtScene::Update() {
 
     sprintf(m_szHelpInfoBuf,
             "Move:Front:W  Left:A  Back:S  Right:D Eye : X%f  Y:%f   Z:%f ",
-            m_pCamera->GetEye().x, m_pCamera->GetEye().y,
-            m_pCamera->GetEye().z);
+            m_pCamera->eye().x, m_pCamera->eye().y,
+            m_pCamera->eye().z);
 
     if (m_bOctTreeCreated) {
       m_pSceneTree->SetShowNodeBox(m_bShowNodeBox);
@@ -107,7 +128,7 @@ long SmtScene::Render(void) {
   BASE_TRACE_EVENT("Render", "scene3d");
   detail::log_legacy_flow("scene3d.Render");
   if (NULL != m_pSceneTree && NULL != m_p3DRenderDevice && m_pTimer != NULL) {
-    if (m_pCamera) m_pCamera->Apply();
+    if (m_pCamera) m_pCamera->apply();
 
     // scene object
     if (m_bOctTreeCreated) {
@@ -120,38 +141,108 @@ long SmtScene::Render(void) {
       } else
         sprintf(m_szRenderInfoBuf, "Fps%.3f\t", m_pTimer->get_fps());
     } else {
-      sprintf(m_szRenderInfoBuf, "Fps%.3f\t", m_pTimer->get_fps());
+      // Integer FPS — D3D DrawText GDI path caches by string; fractional FPS
+      // created a unique texture every Present.
+      sprintf(m_szRenderInfoBuf, "Fps%d\t",
+              static_cast<int>(m_pTimer->get_fps() + 0.5f));
 
-      vSmt3DObjectPtrs ::iterator iter = m_v3DObjectPtrs.begin();
-      while (iter != m_v3DObjectPtrs.end()) {
-        if (NULL != (*iter) && (*iter)->IsVisible()) {
-          (*iter)->Render(m_p3DRenderDevice);
+      Frustum frustum;
+      m_p3DRenderDevice->GetFrustum(frustum);
+      const size_t n = m_v3DObjectPtrs.size();
+      std::vector<uint8_t> in_frustum(n, 0);
+      // SMT_RHI3D_SKIP_FRUSTUM=1: draw all visible objects (debug / D3D frustum
+      // extract regressions).
+      const bool skip_frustum = []() {
+        const char* e = std::getenv("SMT_RHI3D_SKIP_FRUSTUM");
+        return e && e[0] && e[0] != '0' && e[0] != 'n' && e[0] != 'N';
+      }();
+      {
+        BASE_TRACE_EVENT("frustum_cull", "rhi3d.prep");
+        detail::Rhi3dPrepRunner& prep = detail::rhi3d_shared_prep_runner();
+        prep.ensure_workers(detail::rhi3d_prep_worker_count());
+        const vSmt3DObjectPtrs& objects = m_v3DObjectPtrs;
+        prep.run_jobs(n, [&](size_t i) {
+          Smt3DObject* obj = objects[i];
+          if (!obj || !obj->IsVisible()) {
+            return;
+          }
+          if (skip_frustum || object_aabb_in_frustum(frustum, obj)) {
+            in_frustum[i] = 1;
+          }
+        });
+      }
+      std::vector<Smt3DObject*> visible;
+      visible.reserve(n);
+      for (size_t i = 0; i < n; ++i) {
+        if (!in_frustum[i]) {
+          continue;
         }
-        iter++;
+        visible.push_back(m_v3DObjectPtrs[i]);
+      }
+      LARGE_INTEGER qpf = {};
+      LARGE_INTEGER t_draw0 = {};
+      LARGE_INTEGER t_draw1 = {};
+      const bool time_draw = []() {
+        const char* e = std::getenv("SMT_RHI3D_TIME_PRESENT");
+        return e && e[0] == '1';
+      }();
+      if (time_draw) {
+        QueryPerformanceFrequency(&qpf);
+        QueryPerformanceCounter(&t_draw0);
+      }
+      if (!detail::render_objects_d3d_deferred(m_p3DRenderDevice, visible)) {
+        for (Smt3DObject* obj : visible) {
+          obj->Render(m_p3DRenderDevice);
+        }
+      }
+      if (time_draw) {
+        QueryPerformanceCounter(&t_draw1);
+        static int s_draw_prints = 0;
+        if (s_draw_prints < 5 && qpf.QuadPart > 0) {
+          const double ms = 1000.0 *
+                            static_cast<double>(t_draw1.QuadPart - t_draw0.QuadPart) /
+                            static_cast<double>(qpf.QuadPart);
+          std::fprintf(stderr,
+                       "rhi3d.scene: objects=%zu visible=%zu draw=%.2f ms\n", n,
+                       visible.size(), ms);
+          std::fflush(stderr);
+          ++s_draw_prints;
+        }
       }
     }
 
     if (m_pNorthArray && m_pNorthArray->IsVisible())
       m_pNorthArray->Render(m_p3DRenderDevice);
 
-    // 3d text
-    m_p3DRenderDevice->DrawText(m_nTimerInfoFont, 0, 0, 0, SmtColor(0., 1., 0.),
-                                "(0,0,0)");
+    // Debug HUD (D3D GDI→sprite is costly; skip unless explicitly enabled).
+    const bool draw_debug_hud = []() {
+      const char* e = std::getenv("SMT_RHI3D_DEBUG_HUD");
+      if (!e || !e[0]) {
+        return false;
+      }
+      return !(e[0] == '0' || e[0] == 'n' || e[0] == 'N' || e[0] == 'f' ||
+               e[0] == 'F');
+    }();
+    if (draw_debug_hud) {
+      // 3d text
+      m_p3DRenderDevice->DrawText(m_nTimerInfoFont, 0, 0, 0, SmtColor(0., 1., 0.),
+                                  "(0,0,0)");
 
-    // 2d text
-    m_p3DRenderDevice->DrawText(m_nHelpInfoFont, 10, 24, SmtColor(0., 0., 1.),
-                                m_szHelpInfoBuf);
-    m_p3DRenderDevice->DrawText(m_nRenderInfoFont, 10, 44, SmtColor(0., 1., 0.),
-                                m_szRenderInfoBuf);
-    m_p3DRenderDevice->DrawText(m_nTimerInfoFont, 10, 64, SmtColor(1., 1., 0.),
-                                m_pTimer->get_clock());
+      // 2d text
+      m_p3DRenderDevice->DrawText(m_nHelpInfoFont, 10, 24, SmtColor(0., 0., 1.),
+                                  m_szHelpInfoBuf);
+      m_p3DRenderDevice->DrawText(m_nRenderInfoFont, 10, 44, SmtColor(0., 1., 0.),
+                                  m_szRenderInfoBuf);
+      m_p3DRenderDevice->DrawText(m_nTimerInfoFont, 10, 64, SmtColor(1., 1., 0.),
+                                  m_pTimer->get_clock());
+    }
   }
 
   return SMT_ERR_NONE;
 }
-long SmtScene::Transform2DTo3D(Vector3 &vOrg, Vector3 &vTar,
+long SmtScene::Transform2DTo3D(::base::Vector3 &vOrg, ::base::Vector3 &vTar,
                                const lPoint &point) {
-  if (m_pCamera) m_pCamera->Apply();
+  if (m_pCamera) m_pCamera->apply();
 
   if (NULL != m_p3DRenderDevice)
     m_p3DRenderDevice->Transform2DTo3D(vOrg, vTar, point);
@@ -160,7 +251,7 @@ long SmtScene::Transform2DTo3D(Vector3 &vOrg, Vector3 &vTar,
 }
 
 long SmtScene::Transform3DTo2D(const Vector3 &ver3D, lPoint &point) {
-  if (m_pCamera) m_pCamera->Apply();
+  if (m_pCamera) m_pCamera->apply();
 
   if (NULL != m_p3DRenderDevice)
     m_p3DRenderDevice->Transform3DTo2D(ver3D, point);
@@ -248,7 +339,7 @@ void SmtScene::Get3DObjectPtrs(vSmt3DObjectPtrs &v3DObjectPtrs) {
 
 long SmtScene::Select3DObject(vSmt3DObjectPtrs &vSelected3DObjects,
                               lPoint point) {
-  if (m_pCamera) m_pCamera->Apply();
+  if (m_pCamera) m_pCamera->apply();
 
   if (m_bOctTreeCreated) {
     if (NULL != m_pSceneTree && NULL != m_p3DRenderDevice)
@@ -270,7 +361,7 @@ long SmtScene::Select3DObject(vSmt3DObjectPtrs &vSelected3DObjects,
   return SMT_ERR_NONE;
 }
 
-long SmtScene::TransModel3DObjects(Matrix &matTransform) {
+long SmtScene::TransModel3DObjects(::base::Matrix &matTransform) {
   if (m_bOctTreeCreated) {
     if (NULL != m_pSceneTree)
       m_pSceneTree->ObjectModelMatrixMultiply(matTransform);
@@ -287,7 +378,7 @@ long SmtScene::TransModel3DObjects(Matrix &matTransform) {
   return SMT_ERR_NONE;
 }
 
-long SmtScene::TransWorld3DObjects(Matrix &matTransform) {
+long SmtScene::TransWorld3DObjects(::base::Matrix &matTransform) {
   if (m_bOctTreeCreated) {
     if (NULL != m_pSceneTree)
       m_pSceneTree->ObjectWordlMatrixMultiply(matTransform);

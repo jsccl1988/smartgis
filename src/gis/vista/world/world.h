@@ -12,6 +12,7 @@
 #include "gis/gis_export.h"
 #include "gis/vista/assets/model/model.h"
 #include "gis/vista/assets/tileset/tileset.h"
+#include "gis/vista/world/pointcloud/process/chunk.h"
 
 // Logical GIS world. Spatial query lives here; GPU instances live in render.
 
@@ -71,6 +72,11 @@ struct Node {
   std::vector<uint8_t> terrain_rgba;
   uint32_t terrain_tex_w = 0;
   uint32_t terrain_tex_h = 0;
+  // Optional CPU point cloud (kPointCloud). Interleaved XYZ; rgba size 4*n.
+  std::vector<float> point_positions;
+  std::vector<uint8_t> point_rgba;
+  // Spatial buckets for frustum cull (P1). Empty = draw as one mesh.
+  std::vector<PointCloudChunk> point_chunks;
 
   Node()
       : id(0),
@@ -135,6 +141,10 @@ class GIS_EXPORT World {
   Node* attach_pointcloud(const char* name, double min_x, double min_y,
                           double min_z, double max_x, double max_y,
                           double max_z);
+  // Attach / replace CPU points on a kPointCloud node. |xyz| interleaved;
+  // |rgba| optional (4 bytes per point) or null.
+  bool set_pointcloud_points(uint64_t id, const float* xyz, size_t point_count,
+                             const uint8_t* rgba, size_t rgba_bytes);
   bool apply_tileset_selection(
       uint64_t id, const std::vector<const gis::Tile*>& visible);
 

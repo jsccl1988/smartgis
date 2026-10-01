@@ -28,7 +28,7 @@ GN：`//src/render:render_all` 进日常 `src_all`。leftover DLL 另编 `//src/
 
 - **Views 主像素路径**：地图是 `Layout` → 一个 `record_all` 的 `MapEffect` → `render::graph::present`。`Scene3dPresenter::present_gpu` 走同一个 `present`，效果顺序是大气前段、`OpaqueEffect`、大气后段。录制顺序只有四个槽：`kBeforeOpaque`、`kOpaque`（地形 / 模型 / 地图世界网格）、`kAfterOpaque`、`kOverlay`（屏幕图标和文字）。`ViewInput` 只有宽高、相机和 `Effect*` 列表。地图相机是视口经纬度的正交；三维在非 Null 后端传入透视相机。`View::mode == kPerspective` 时由宿主提供相机。壳栅格仍用 `ui/gfx`；**禁止** Skia 画 GIS 地图。
 - GDI `MapScene::paint` 为过渡/导出/强制 overlay；GPU 成功后只叠 `paint_annotation_overlay`（注记/选中）。`SMT_FORCE_GDI_MAP_OVERLAY=1` / `SMT_PREFER_FLYCUBE_2D=0` 可退回。
-- 主图 leftover 会话：`LeftoverRecorder` 默认 Null 录制；`bind_rhi_present` 只记 HWND（不在 GDI HWND 上建 FlyCube）。
+- Views 主路径不经 leftover RHI session；`rhi3d/public/bridge`（`LeftoverRecorder` / `bind_rhi_present` / `smt_leftover_session`）已删除。
 - Views `MapViewport`：Map Edit/Data/Scene3d 默认优先 FlyCube；`SMT_PREFER_GDI_DEVICE=1` 跳过。
 - 投影只在相机上：地图 `make_ortho_camera`；三维 `set_view_camera`。`set_view_ortho` 只在没设视图相机时给旧的二维种类用。
 - 测试：`map_scene_test` 覆盖 Null `present_gpu`；`rhi_test` / `scene_gpu_test` 默认 Null，`SMT_RUN_FLYCUBE_GPU=1` 真 DX12。
@@ -45,4 +45,4 @@ ninja -C out rhi_test
 ninja -C out scene_gpu_test
 ```
 
-Optional: `ninja -C out unified_draw_test`. GN labels: `//src/render:rhi_test`, `//src/render/scene:scene_gpu_test`, `//src/render/scene:unified_draw_test`. Style paint regression (Null): `ninja -C out leftover_record_test` (`//src/legacy/render/rhi3d:leftover_record_test`). `rhi_test` with env=1 logs `dx12 present ok` and `lit ok` on success, or `skip present` when initialize fails.
+Optional: `ninja -C out unified_draw_test`. GN labels: `//src/render:rhi_test`, `//src/render/scene:scene_gpu_test`, `//src/render/scene:unified_draw_test`. `rhi_test` with env=1 logs `dx12 present ok` and `lit ok` on success, or `skip present` when initialize fails.

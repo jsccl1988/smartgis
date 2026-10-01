@@ -4,11 +4,15 @@
 #include "legacy/render/scene3d/index/octree.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <vector>
 
 #include "Octree.hpp"
+#include "base/trace/event/process_trace.h"
+#include "legacy/render/rhi3d/impl/common/frame/prep_runner.h"
 #include "legacy/render/rhi3d/public/device/base.h"
 #include "legacy/render/rhi3d/public/device/render_device.h"
+#include "legacy/render/scene3d/detail/d3d_deferred_objects.h"
 
 namespace render {
 namespace {
@@ -19,20 +23,18 @@ struct UnibnVec3 {
   float z;
 };
 
-bool object_aabb_in_frustum(SmtFrustum& frustum, Smt3DObject* obj) {
+bool object_aabb_in_frustum(const Frustum& frustum, Smt3DObject* obj) {
   if (!obj) {
     return false;
   }
-  Vector3 max = obj->GetAabb().vcMax;
-  Vector3 min = obj->GetAabb().vcMin;
-  return frustum.IsBoxIn(max, min);
+  return frustum.intersects(obj->GetAabb());
 }
 
 }  // namespace
 
 // Frustum + unibn point index of object AABB centers (not exposed in header).
 struct SceneOctreeAux {
-  SmtFrustum frustum;
+  Frustum frustum;
   std::vector<UnibnVec3> points;
   unibn::Octree<UnibnVec3> tree;
 
@@ -111,7 +113,9 @@ void SmtSceneOctTree::GetSceneDimensions(vSmt3DObjectPtrs& v3DObjectPtrs) {
 }
 
 long SmtSceneOctTree::Update(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed) {
+  BASE_TRACE_EVENT("octree.Update", "scene3d");
   m_nCurRenderTargets = 0;
+  // Device-touching Updates stay serial on the FrameJob thread.
   for (Smt3DObject* obj : m_objects) {
     if (obj) {
       obj->Update(p3DRenderDevice, fElapsed);
@@ -122,6 +126,7 @@ long SmtSceneOctTree::Update(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed) {
 }
 
 long SmtSceneOctTree::Render(LP3DRENDERDEVICE p3DRenderDevice) {
+  BASE_TRACE_EVENT("octree.Render", "scene3d");
   if (!m_aux || m_objects.empty()) {
     return SMT_ERR_NONE;
   }
@@ -143,15 +148,42 @@ long SmtSceneOctTree::Render(LP3DRENDERDEVICE p3DRenderDevice) {
     stateManager->Set2DTextures(true);
   }
 
-  for (Smt3DObject* obj : m_objects) {
-    if (!obj || !obj->IsVisible()) {
+  // CPU prep: parallel AABB-in-frustum. Workers never call the device.
+  const size_t n = m_objects.size();
+  std::vector<uint8_t> in_frustum(n, 0);
+  {
+    BASE_TRACE_EVENT("frustum_cull", "rhi3d.prep");
+    detail::Rhi3dPrepRunner& prep = detail::rhi3d_shared_prep_runner();
+    prep.ensure_workers(detail::rhi3d_prep_worker_count());
+    Frustum& frustum = m_aux->frustum;
+    const vSmt3DObjectPtrs& objects = m_objects;
+    prep.run_jobs(n, [&](size_t i) {
+      Smt3DObject* obj = objects[i];
+      if (!obj || !obj->IsVisible()) {
+        return;
+      }
+      if (object_aabb_in_frustum(frustum, obj)) {
+        in_frustum[i] = 1;
+      }
+    });
+  }
+
+  std::vector<Smt3DObject*> visible;
+  visible.reserve(n);
+  for (size_t i = 0; i < n; ++i) {
+    if (!in_frustum[i]) {
       continue;
     }
-    if (!object_aabb_in_frustum(m_aux->frustum, obj)) {
-      continue;
+    visible.push_back(m_objects[i]);
+  }
+
+  if (!detail::render_objects_d3d_deferred(p3DRenderDevice, visible)) {
+    for (Smt3DObject* obj : visible) {
+      obj->Render(p3DRenderDevice);
+      ++m_nCurRenderTargets;
     }
-    obj->Render(p3DRenderDevice);
-    ++m_nCurRenderTargets;
+  } else {
+    m_nCurRenderTargets = static_cast<int>(visible.size());
   }
   return SMT_ERR_NONE;
 }

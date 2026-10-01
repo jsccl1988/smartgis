@@ -95,18 +95,30 @@ Size Canvas::measure_text(const wchar_t* text) const {
 }
 
 void Canvas::clip_rect(int x, int y, int w, int h) {
+  if (DisplayList* rec = display_list_recorder()) {
+    rec->clip_rect(x, y, w, h);
+    return;
+  }
   if (backend_) {
     backend_->clip_rect(x, y, w, h);
   }
 }
 
 void Canvas::save() {
+  if (DisplayList* rec = display_list_recorder()) {
+    rec->save();
+    return;
+  }
   if (backend_) {
     backend_->save();
   }
 }
 
 void Canvas::restore() {
+  if (DisplayList* rec = display_list_recorder()) {
+    rec->restore();
+    return;
+  }
   if (backend_) {
     backend_->restore();
   }

@@ -7,10 +7,7 @@ import("//testing/test.gni")
 # Object TUs for the product net DLL (HTTP / RPC).
 source_set("net_sources") {
   configs += [ "//build:legacy" ]
-  defines = [
-    "NET_EXPORTS",
-    "CPPHTTPLIB_OPENSSL_SUPPORT",
-  ]
+  defines = [ "NET_EXPORTS" ]
   include_dirs += [ "//src" ]
   sources = [
     "http/http.cpp",
@@ -19,8 +16,12 @@ source_set("net_sources") {
   public_deps = [
     "//third_party:asio",
     "//third_party:cpp_httplib",
-    "//third_party:openssl",
   ]
+  # Release-only: OpenSSL /MD must not link into Debug /MDd (heap corruption).
+  if (!is_debug) {
+    defines += [ "CPPHTTPLIB_OPENSSL_SUPPORT" ]
+    public_deps += [ "//third_party:openssl" ]
+  }
   deps = [ "//src/base/archive:archive" ]
   libs = [ "ws2_32.lib" ]
 }
@@ -28,16 +29,16 @@ source_set("net_sources") {
 # Product net DLL. Disk stem: net.dll / net_d.dll. Import-linked (not LoadLibrary).
 smt_shared_library("net") {
   dll_stem = "net"
-  defines = [
-    "NET_EXPORTS",
-    "CPPHTTPLIB_OPENSSL_SUPPORT",
-  ]
+  defines = [ "NET_EXPORTS" ]
   deps = [ ":net_sources" ]
   public_deps = [
     "//third_party:asio",
     "//third_party:cpp_httplib",
-    "//third_party:openssl",
   ]
+  if (!is_debug) {
+    defines += [ "CPPHTTPLIB_OPENSSL_SUPPORT" ]
+    public_deps += [ "//third_party:openssl" ]
+  }
   libs = [ "ws2_32.lib" ]
 }
 
@@ -45,14 +46,16 @@ test("net_test") {
   output_name = "net_test"
   sources = [ "net_test.cc" ]
   include_dirs += [ "//src" ]
-  defines = [ "CPPHTTPLIB_OPENSSL_SUPPORT" ]
   deps = [
     ":net",
     "//src/base/archive:archive",
     "//third_party:asio",
     "//third_party:cpp_httplib",
-    "//third_party:openssl",
   ]
+  if (!is_debug) {
+    defines = [ "CPPHTTPLIB_OPENSSL_SUPPORT" ]
+    deps += [ "//third_party:openssl" ]
+  }
   configs = [ "//build:legacy" ]
   libs = [ "ws2_32.lib" ]
 }

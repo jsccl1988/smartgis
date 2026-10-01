@@ -7,17 +7,17 @@ All rights reserved.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Upgrade `impl/gdi/core` internals: first structural cleanup (B), then canvas-as-recorder so map Draw* record into `GdiCommandEncoder` and a single `replay` paints (A2).
+**Goal:** Upgrade `impl/gdi/core` internals: first structural cleanup (B), then canvas-as-recorder so map Draw* record into `Rhi2dCommandEncoder` and a single `replay` paints (A2).
 
-**Architecture:** Spec §GDI core upgrade + dedupe in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md). Approach: `GdiPaintCanvas` keeps Draw* API; TLS encoder bind (`paint_encoder_tls.h`); leaves push typed ops + blob; host `EndRender` and worker FrameJob `take`+`replay`. No `render::rhi` symbols.
+**Architecture:** Spec §GDI core upgrade + dedupe in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md). Approach: `GdiPaintCanvas` keeps Draw* API; TLS encoder bind (`paint/carto_draw/encoder_tls.h`); leaves push typed ops + blob; host `EndRender` and worker FrameJob `take`+`replay`. No `render::rhi` symbols.
 
 **Tech Stack:** C++23, Win32 GDI/GDI+, existing `legacy_render` / GN.
 
 ## Global Constraints
 
 - Work on **`master`** only; parallel agents use **non-overlapping paths**.
-- Keep `SmtGdiRenderDevice` / `SmtGdiRenderThread` / CreateDevice string + `SmtRenderDevice` virtuals.
-- Do **not** grow `GdiPaintCanvas` with members that shift `SmtGdiRenderDevice::render_thread_` offsets.
+- Keep `SmtRhi2dRenderDevice` / `SmtGdiRenderThread` / CreateDevice string + `SmtRenderDevice` virtuals.
+- Do **not** grow `GdiPaintCanvas` with members that shift `SmtRhi2dRenderDevice::render_thread_` offsets.
 - Single GDI play lane; comments English; new helpers `snake_case`.
 - **Do not** `git commit` unless the user asks.
 - Windows forbids path segment `aux/` — keep `gdiaux/`.
@@ -27,7 +27,7 @@ All rights reserved.
 | Path | Role |
 | --- | --- |
 | `core/encode/*` | Blob-backed buffer + polyline/polygon/text/pen ops + replay |
-| `core/paint/paint_encoder_tls.h` | TLS encoder bind (layout-safe) |
+| `paint/carto_draw/encoder_tls.h` | TLS encoder bind (layout-safe) |
 | `core/paint/paint_canvas.*` | `set_encoder`; Draw* record-or-immediate |
 | `core/host/render_device.*` | EndRender: take + replay; no empty encode shell |
 | `core/worker/render_thread.*` / `layer_painter.*` | FrameJob encode session + replay |
@@ -38,13 +38,13 @@ All rights reserved.
 ### Task 1: Phase B — unify `.cc` + trim
 
 - [x] Rename `core/**/*.cpp` → `.cc`; update `BUILD.gn`.
-- [x] Encoder TLS extracted (`paint_encoder_tls.h`) so canvas size does not shift `render_thread_`.
+- [x] Encoder TLS extracted (`paint/carto_draw/encoder_tls.h`) so canvas size does not shift `render_thread_`.
 - [x] Drop noop `encode_idle`; README note.
 - [x] GDI tests green.
 
 ### Task 2: Phase A — encoder blob + richer ops
 
-- [x] `GdiCommandBuffer` blob + `append_blob`.
+- [x] `Rhi2dCommandBuffer` blob + `append_blob`.
 - [x] Ops: `kSetPen` / `kSetBrush` / `kPolyline` / `kPolyPolygon` / `kEllipse` / `kText` (+ replay).
 - [x] `gdi_encode_test` polyline smoke.
 

@@ -6,18 +6,23 @@
 #include <algorithm>
 
 #include "ui/gfx/canvas/canvas.h"
-#include "ui/views/primitives/collection/scroll_view.h"
+#include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
+#include "ui/views/primitives/collection/scroll_view.h"
 
 namespace ui {
 namespace views {
 namespace {
 
-constexpr int kRowHeight = 20;
-constexpr int kDepthIndent = 16;
-constexpr int kTwistyW = 14;
-constexpr int kCheckW = 16;
+// DIPs — must scale with Widget::device_scale_factor. A fixed 20px row at 250%
+// DPI (font ~45px) clips catalog labels so chrome looks "tiny".
+constexpr int kRowHeightDip = 24;
+constexpr int kDepthIndentDip = 16;
+constexpr int kTwistyWDip = 14;
+constexpr int kCheckWDip = 16;
+constexpr int kTextPadYDip = 3;
+constexpr int kCheckPadYDip = 2;
 
 }  // namespace
 
@@ -49,6 +54,38 @@ TreeView::TreeView() {
 }
 
 TreeView::~TreeView() = default;
+
+float TreeView::scale_factor() const {
+  if (widget()) {
+    return widget()->device_scale_factor();
+  }
+  return 1.f;
+}
+
+int TreeView::row_height() const {
+  return dip_to_px(kRowHeightDip, scale_factor());
+}
+
+int TreeView::depth_indent() const {
+  return dip_to_px(kDepthIndentDip, scale_factor());
+}
+
+int TreeView::twisty_width() const {
+  return dip_to_px(kTwistyWDip, scale_factor());
+}
+
+int TreeView::check_width() const {
+  return dip_to_px(kCheckWDip, scale_factor());
+}
+
+void TreeView::on_device_scale_factor_changed(float old_scale, float new_scale) {
+  View::on_device_scale_factor_changed(old_scale, new_scale);
+  update_content_size();
+  if (scroll_) {
+    scroll_->layout();
+  }
+  schedule_paint();
+}
 
 void TreeView::clear() {
   nodes_.clear();
@@ -125,7 +162,9 @@ void TreeView::update_content_size() {
     return;
   }
   const int w = std::max(bounds().width, 1);
-  rows_->set_preferred_size({w, static_cast<int>(visible_.size()) * kRowHeight});
+  const int rh = row_height();
+  rows_->set_preferred_size(
+      {w, static_cast<int>(visible_.size()) * std::max(rh, 1)});
 }
 
 void TreeView::layout() {
@@ -142,12 +181,16 @@ int TreeView::row_at_point(int x, int y) const {
   if (!bounds().contains(x, y)) {
     return -1;
   }
+  const int rh = row_height();
+  if (rh <= 0) {
+    return -1;
+  }
   const int scroll = scroll_ ? scroll_->scroll_offset() : 0;
   const int local = y - bounds().y + scroll;
   if (local < 0) {
     return -1;
   }
-  const int i = local / kRowHeight;
+  const int i = local / rh;
   if (i < 0 || i >= static_cast<int>(visible_.size())) {
     return -1;
   }
@@ -155,9 +198,9 @@ int TreeView::row_at_point(int x, int y) const {
 }
 
 Rect TreeView::row_rect(int i) const {
+  const int rh = row_height();
   const int scroll = scroll_ ? scroll_->scroll_offset() : 0;
-  return {bounds().x, bounds().y + i * kRowHeight - scroll, bounds().width,
-          kRowHeight};
+  return {bounds().x, bounds().y + i * rh - scroll, bounds().width, rh};
 }
 
 void TreeView::select_id(const NodeId& id) {
@@ -222,10 +265,12 @@ bool TreeView::on_mouse_event(const MouseEvent& event) {
   }
   const VisibleRow& row = visible_[static_cast<size_t>(i)];
   const Rect r = row_rect(i);
-  const int indent = r.x + row.depth * kDepthIndent;
-  const int twisty_x1 = indent + kTwistyW;
-  const int check_x0 = indent + kTwistyW;
-  const int check_x1 = check_x0 + kCheckW;
+  const int twisty_w = twisty_width();
+  const int check_w = check_width();
+  const int indent = r.x + row.depth * depth_indent();
+  const int twisty_x1 = indent + twisty_w;
+  const int check_x0 = indent + twisty_w;
+  const int check_x1 = check_x0 + check_w;
 
   if (event.type == MouseEvent::Type::kUp && event.button == 2) {
     select_id(row.id);
@@ -268,6 +313,13 @@ void TreeView::paint_rows(ui::gfx::Canvas* canvas) {
     return;
   }
   const Theme& t = Theme::current();
+  const float scale = scale_factor();
+  const int twisty_w = twisty_width();
+  const int check_w = check_width();
+  const int indent_step = depth_indent();
+  const int text_pad_y = dip_to_px(kTextPadYDip, scale);
+  const int check_pad_y = dip_to_px(kCheckPadYDip, scale);
+  const int label_gap = dip_to_px(6, scale);
   for (int i = 0; i < static_cast<int>(visible_.size()); ++i) {
     const VisibleRow& row = visible_[static_cast<size_t>(i)];
     const auto it = nodes_.find(row.id);
@@ -281,20 +333,21 @@ void TreeView::paint_rows(ui::gfx::Canvas* canvas) {
     if (row.id == selected_id_) {
       canvas->fill_rect(r.x, r.y, r.width, r.height, t.accent);
     }
-    const int indent = r.x + row.depth * kDepthIndent;
+    const int indent = r.x + row.depth * indent_step;
     if (!it->second.child_ids.empty()) {
       const wchar_t* mark = it->second.expanded ? L"-" : L"+";
-      canvas->draw_text(indent + 2, r.y + 3, mark, t.text_bright);
+      canvas->draw_text(indent + dip_to_px(2, scale), r.y + text_pad_y, mark,
+                        t.text_bright);
     }
     const ui::gfx::Color box =
         it->second.checked ? t.accent : t.control_unchecked;
-    canvas->fill_rect(indent + kTwistyW, r.y + 2, kCheckW, kCheckW, box);
+    canvas->fill_rect(indent + twisty_w, r.y + check_pad_y, check_w, check_w,
+                      box);
     const std::wstring w = utf8_to_wide(it->second.label);
-    canvas->draw_text(indent + kTwistyW + kCheckW + 6, r.y + 3, w.c_str(),
-                      t.text);
+    canvas->draw_text(indent + twisty_w + check_w + label_gap, r.y + text_pad_y,
+                      w.c_str(), t.text);
   }
 }
-
 
 std::string_view TreeView::paint_role() const {
   return "tree_view";

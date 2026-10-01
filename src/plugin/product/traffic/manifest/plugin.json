@@ -1,0 +1,24 @@
+{
+  "id": "smartgis.traffic",
+  "name": "城市交通最佳路径",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "builtin",
+  "author": "The Mogu Authors",
+  "description": "Load road networks and compute least-cost / shortest paths",
+  "contributes": {
+    "commands": [
+      {"id": "traffic.shortest_path", "title": "最佳路径分析", "menu": "tools"},
+      {"id": "traffic.export_path", "title": "导出路径", "menu": "tools"},
+      {"id": "traffic.about", "title": "关于", "menu": "tools"}
+    ],
+    "dialogs": [
+      {"id": "traffic.shortest_path", "title": "最佳路径分析"},
+      {"id": "traffic.about", "title": "关于"}
+    ],
+    "processing": [
+      {"id": "traffic.cost_path", "title": "Traffic cost path"},
+      {"id": "traffic.export_path", "title": "Export traffic path"}
+    ]
+  }
+}

@@ -3,6 +3,7 @@
 
 #include "plugin/product/orthogrid/detail/boundary_solve.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
@@ -11,18 +12,19 @@
 #include <utility>
 #include <vector>
 
+#include <Eigen/Core>
+
 #include "plugin/product/orthogrid/detail/laplace_solver.h"
+#include "plugin/product/orthogrid/detail/orthogonality.h"
 
 namespace plugin {
 namespace detail {
 namespace {
 
 constexpr int kMaxNodes = 512 * 512;
+constexpr int kDefaultRaster = 96;
 
-struct Pt {
-  double x = 0.0;
-  double y = 0.0;
-};
+using Pt = Eigen::Vector2d;
 
 struct Edge {
   int start = 0;
@@ -53,7 +55,7 @@ bool read_line(std::ifstream& in, std::string* line) {
 
 Pt sample_polyline(const std::vector<Pt>& pts, double t) {
   if (pts.empty()) {
-    return {};
+    return Pt::Zero();
   }
   if (pts.size() == 1 || t <= 0.0) {
     return pts.front();
@@ -65,12 +67,8 @@ Pt sample_polyline(const std::vector<Pt>& pts, double t) {
   const int i = static_cast<int>(scaled);
   const double f = scaled - static_cast<double>(i);
   const int j = i + 1 < static_cast<int>(pts.size()) ? i + 1 : i;
-  Pt p;
-  p.x = pts[static_cast<size_t>(i)].x +
-        (pts[static_cast<size_t>(j)].x - pts[static_cast<size_t>(i)].x) * f;
-  p.y = pts[static_cast<size_t>(i)].y +
-        (pts[static_cast<size_t>(j)].y - pts[static_cast<size_t>(i)].y) * f;
-  return p;
+  return pts[static_cast<size_t>(i)] +
+         f * (pts[static_cast<size_t>(j)] - pts[static_cast<size_t>(i)]);
 }
 
 bool parse_point(std::string_view line, Pt* out) {
@@ -80,8 +78,7 @@ bool parse_point(std::string_view line, Pt* out) {
   if (std::sscanf(tmp.c_str(), "%lf,%lf", &x, &y) != 2) {
     return false;
   }
-  out->x = x;
-  out->y = y;
+  *out = Pt(x, y);
   return true;
 }
 
@@ -164,8 +161,8 @@ bool paint_edge(const Edge& edge,
       return false;
     }
     const size_t at = static_cast<size_t>(j * nx + i);
-    (*xs)[at] = p.x;
-    (*ys)[at] = p.y;
+    (*xs)[at] = p.x();
+    (*ys)[at] = p.y();
     (*unknown)[at] = 0;
   }
   return true;
@@ -188,9 +185,158 @@ bool border_is_dirichlet(int nx,
   return true;
 }
 
+void fill_orth_fields(const orthogrid::GridField& field, BoundarySolve* out) {
+  if (!out || !out->ok) {
+    return;
+  }
+  const orthogrid::OrthogonalityField orth =
+      orthogrid::compute_orthogonality(field);
+  out->node_orth = orth.node_delta;
+  out->cell_orth = orth.cell_delta;
+  const int rw = std::min(kDefaultRaster, std::max(out->nx * 2, 16));
+  const int rh = std::min(kDefaultRaster, std::max(out->ny * 2, 16));
+  if (orthogrid::sample_orthogonality_raster(
+          field, out->node_orth.data(), rw, rh, &out->raster_orth,
+          &out->raster_min_x, &out->raster_min_y, &out->raster_max_x,
+          &out->raster_max_y)) {
+    out->raster_w = rw;
+    out->raster_h = rh;
+  }
+}
+
+BoundarySolve solve_from_painted(int nx,
+                                 int ny,
+                                 std::vector<double> xs,
+                                 std::vector<double> ys,
+                                 std::vector<std::uint8_t> unknown,
+                                 int elliptic_iters) {
+  BoundarySolve out;
+  out.elliptic_iters = std::max(0, elliptic_iters);
+  orthogrid::GridField field;
+  field.assign_from_flat(nx, ny, xs.data(), ys.data());
+  if (!orthogrid::solve_laplace(field, unknown.data())) {
+    out.message = err("laplace_failed");
+    return out;
+  }
+  auto push_frame = [&]() {
+    std::vector<double> fx;
+    std::vector<double> fy;
+    field.copy_to_flat(&fx, &fy);
+    out.frame_xs.push_back(std::move(fx));
+    out.frame_ys.push_back(std::move(fy));
+  };
+  push_frame();
+  for (int s = 0; s < out.elliptic_iters; ++s) {
+    if (!orthogrid::solve_elliptic_step(field, unknown.data())) {
+      out.message = err("elliptic_failed");
+      return out;
+    }
+    push_frame();
+  }
+  out.ok = true;
+  out.nx = nx;
+  out.ny = ny;
+  out.node_count = nx * ny;
+  field.copy_to_flat(&out.xs, &out.ys);
+  fill_orth_fields(field, &out);
+  out.message = std::string("{\"ok\":true,\"nodes\":") +
+                std::to_string(out.node_count) + ",\"elliptic_iters\":" +
+                std::to_string(out.elliptic_iters) + ",\"frames\":" +
+                std::to_string(out.frame_xs.size()) + "}";
+  return out;
+}
+
+Edge edge_from_boundary(const BoundaryEdge& be, int nx, int ny) {
+  Edge edge;
+  edge.flag = be.flag;
+  edge.pts.reserve(be.pts.size());
+  for (const auto& p : be.pts) {
+    edge.pts.emplace_back(p.first, p.second);
+  }
+  const int n = static_cast<int>(be.pts.size());
+  if (be.flag == 0) {
+    edge.start = 0;
+    edge.end = nx - 1;
+    edge.index = 0;
+  } else if (be.flag == 1) {
+    edge.start = 0;
+    edge.end = ny - 1;
+    edge.index = nx - 1;
+  } else if (be.flag == 2) {
+    edge.start = nx - 1;
+    edge.end = 0;
+    edge.index = ny - 1;
+  } else {
+    edge.start = ny - 1;
+    edge.end = 0;
+    edge.index = 0;
+  }
+  (void)n;
+  return edge;
+}
+
 }  // namespace
 
-BoundarySolve solve_grid_boundary_file(const std::string& path) {
+BoundarySolve solve_grid_boundary(const std::vector<BoundaryEdge>& edges,
+                                  int nx,
+                                  int ny,
+                                  int elliptic_iters) {
+  BoundarySolve out;
+  bool seen[4] = {};
+  for (const BoundaryEdge& e : edges) {
+    if (e.flag < 0 || e.flag > 3 || e.pts.size() < 2 || seen[e.flag]) {
+      out.message = err("boundary_unsolved");
+      return out;
+    }
+    seen[e.flag] = true;
+  }
+  if (!seen[0] || !seen[1] || !seen[2] || !seen[3]) {
+    out.message = err("boundary_unsolved");
+    return out;
+  }
+
+  int use_nx = nx;
+  int use_ny = ny;
+  if (use_nx < 3 || use_ny < 3) {
+    use_nx = 3;
+    use_ny = 3;
+    for (const BoundaryEdge& e : edges) {
+      const int n = static_cast<int>(e.pts.size());
+      if (e.flag == 0 || e.flag == 2) {
+        use_nx = std::max(use_nx, std::max(n, 3));
+      } else {
+        use_ny = std::max(use_ny, std::max(n, 3));
+      }
+    }
+  }
+  const int64_t nodes =
+      static_cast<int64_t>(use_nx) * static_cast<int64_t>(use_ny);
+  if (nodes <= 0 || nodes > kMaxNodes) {
+    out.message = err("grid_too_large");
+    return out;
+  }
+
+  const size_t n = static_cast<size_t>(nodes);
+  std::vector<double> xs(n, 0.0);
+  std::vector<double> ys(n, 0.0);
+  std::vector<std::uint8_t> unknown(n, 1);
+  for (const BoundaryEdge& be : edges) {
+    const Edge edge = edge_from_boundary(be, use_nx, use_ny);
+    if (!paint_edge(edge, use_nx, use_ny, &xs, &ys, &unknown)) {
+      out.message = err("boundary_unsolved");
+      return out;
+    }
+  }
+  if (!border_is_dirichlet(use_nx, use_ny, unknown)) {
+    out.message = err("boundary_unsolved");
+    return out;
+  }
+  return solve_from_painted(use_nx, use_ny, std::move(xs), std::move(ys),
+                            std::move(unknown), elliptic_iters);
+}
+
+BoundarySolve solve_grid_boundary_file(const std::string& path,
+                                       int elliptic_iters) {
   BoundarySolve out;
   if (path.empty()) {
     out.message = err("bad_header");
@@ -254,26 +400,8 @@ BoundarySolve solve_grid_boundary_file(const std::string& path) {
     out.message = err("boundary_unsolved");
     return out;
   }
-
-  orthogrid::GridField field;
-  field.nx = nx;
-  field.ny = ny;
-  field.x = xs.data();
-  field.y = ys.data();
-  if (!orthogrid::solve_laplace(field, unknown.data())) {
-    out.message = err("laplace_failed");
-    return out;
-  }
-
-  out.ok = true;
-  out.nx = nx;
-  out.ny = ny;
-  out.node_count = static_cast<int>(nodes);
-  out.xs = std::move(xs);
-  out.ys = std::move(ys);
-  out.message = std::string("{\"ok\":true,\"nodes\":") +
-                std::to_string(out.node_count) + "}";
-  return out;
+  return solve_from_painted(nx, ny, std::move(xs), std::move(ys),
+                            std::move(unknown), elliptic_iters);
 }
 
 }  // namespace detail

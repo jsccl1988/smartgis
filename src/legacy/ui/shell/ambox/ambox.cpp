@@ -146,11 +146,13 @@ bool SmtXAMBox::UpdateAMBoxTree(void) {
   DeleteAllItems();
   SetTextColor(RGB(0, 0, 255));
 
-  m_hRoot = InsertItem(m_pAModule->get_name(), 0, 0, TVI_ROOT);
+  m_hRoot = InsertItem(ambox_title_for_display(m_pAModule->get_name()), 0, 0,
+                       TVI_ROOT);
 
   vSmtFuncItems::iterator iter = m_vFuncItems.begin();
   while (iter != m_vFuncItems.end()) {
-    HTREEITEM hItem = InsertItem((*iter).szName, 1, 1, m_hRoot);
+    HTREEITEM hItem =
+        InsertItem(ambox_title_for_display((*iter).szName), 1, 1, m_hRoot);
     ++iter;
   }
 

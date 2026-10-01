@@ -24,7 +24,7 @@ All rights reserved.
 | Path | Role |
 | --- | --- |
 | `impl/gdi/host|worker|surface/` | Flat top (was under `core/`) |
-| `paint/canvas/` | Orchestration |
+| `paint/carto_draw/` | Orchestration |
 | `paint/encode/` | Record |
 | `paint/player/` | `GdiPlayer` play lane |
 | `paint/gdiplus/` | Token + AA text |

@@ -15,9 +15,36 @@ copy("china_map_samples") {
     "china_dem.tif",
     "china_plp.geojson",
     "m3_city_tileset.json",
+    "pointcloud_public_sample.txt",
     "views_ogr_sample.geojson",
   ]
   outputs = [ "$root_out_dir/../data/{{source_file_part}}" ]
+}
+
+# Plugin product sample+viz fixtures → out/data/plugin/
+copy("plugin_product_samples") {
+  sources = [
+    "plugin/world3d_tin_sample.xyz",
+    "plugin/world3d_dem_sample.tif",
+    "plugin/world3d_pointcloud_sample.las",
+    "plugin/orthogrid_sample.gridbnd",
+    "plugin/traffic_network_sample.geojson",
+    "plugin/flood_basin_sample.tif",
+    "plugin/stormsurge_dem_sample.tif",
+    "plugin/stormsurge_coast_sample.geojson",
+    "plugin/stormsurge_tide_sample.csv",
+    "plugin/stormsurge_impact_sample.geojson",
+    "plugin/mine_boreholes.csv",
+    "plugin/geochem_samples.csv",
+    "plugin/README.md",
+  ]
+  outputs = [ "$root_out_dir/../data/plugin/{{source_file_part}}" ]
+}
+
+# Geochem samples keep a subdirectory under out/data/plugin/geochem/.
+copy("plugin_geochem_samples") {
+  sources = [ "plugin/geochem/geochem_samples.csv" ]
+  outputs = [ "$root_out_dir/../data/plugin/geochem/{{source_file_part}}" ]
 }
 
 # Leftover model3d AM sample heightmap / TIN under out/data/rs/terrain/
@@ -37,5 +64,7 @@ group("china_city_data") {
   data_deps = [
     ":china_map_samples",
     ":am_terrain_samples",
+    ":plugin_product_samples",
+    ":plugin_geochem_samples",
   ]
 }

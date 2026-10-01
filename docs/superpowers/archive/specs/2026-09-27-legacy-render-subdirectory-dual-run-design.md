@@ -37,7 +37,7 @@ All rights reserved.
 1. **Dual-run for a while:** keep `//src/legacy/render:legacy_render` (`dll_stem = legacy_render`) loadable for MFC / leftover hosts alongside the modern Views path (`gis::map2d` + `render::map2d::Pass` / `GpuScene` + `render::rhi`). Legacy is a **strangler**, not the destination.
 2. **Subdirectory refactor inside each top-level** under `src/legacy/render` so fat modules (`gdi`, `rhi`, `scene3d`; GL under `rhi/impl/gl`) match peer layout norms (directory = responsibility; nesting cap `legacy/render/<top>/<module>/`).
 3. **GDI capability alignment** with the MapLibre-style stack used by modern 2D (StyleDocument layers, painter order, AA, road casing/fill, label collision / along-line, raster tiles) — expressed as a must / should / later matrix, not a full Style Spec port.
-4. **Delete `src/legacy/render/gdi_simple`** (sources, GN, exports, stale LoadLibrary names). One GDI device remains: `SmtGdiRenderDevice`.
+4. **Delete `src/legacy/render/gdi_simple`** (sources, GN, exports, stale LoadLibrary names). One GDI device remains: `SmtRhi2dRenderDevice`.
 
 ### 1.2 Non-goals
 
@@ -68,8 +68,8 @@ Top-level under `src/legacy/render/` (10 folders + root `BUILD.gn`):
 
 **Callers of note:**
 
-- `SmtRenderer::CreateDevice` loads `legacy_render[_d].dll`; supports `"SmtGdiRenderDevice"` (`CreateRenderDevice`) and `"SmtGdiSimpleRenderDevice"` (`CreateGdiSimpleRenderDevice`).
-- Product default in `SmtApp::Init`: `str2DRenderDeviceName = "SmtGdiRenderDevice"` — **simple is not the default**.
+- `SmtRenderer::CreateDevice` loads `legacy_render[_d].dll`; supports `"SmtRhi2dRenderDevice"` (`CreateRenderDevice`) and `"SmtGdiSimpleRenderDevice"` (`CreateGdiSimpleRenderDevice`).
+- Product default in `SmtApp::Init`: `str2DRenderDeviceName = "SmtRhi2dRenderDevice"` — **simple is not the default**.
 - `MapViewport::try_local_device` still lists obsolete stems `render_gdi_simple_d.dll` / `render_gdi_d.dll` / … before modern RHI paths — stale dual-run residue; clean when deleting simple.
 - Shared aux/bufpool/renderbuf already live once in `gdi:gdi_common_sources`; `gdi_simple` headers mostly `#include` those.
 
@@ -132,7 +132,7 @@ Legacy GDI still owns BitBlt present on its `Init(HWND)`; after paint, best-effo
 └─────────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────┐
 │ Leftover MFC / xview / SmartGis.exe (strangler, dual-run)   │
-│  SmtGdiRenderDevice::Init(HWND) → BitBlt present            │
+│  SmtRhi2dRenderDevice::Init(HWND) → BitBlt present            │
 │  bind_rhi_present → leftover_session Null record            │
 │  optional GL / scene3d on their Init HWND                   │
 └─────────────────────────────────────────────────────────────┘
@@ -305,7 +305,7 @@ src/legacy/render/
 
 Reference stacks:
 
-- **Legacy:** `SmtGdiRenderDevice` + `map_carto2d` + GDI+ (leftover-gdiplus-carto).
+- **Legacy:** `SmtRhi2dRenderDevice` + `map_carto2d` + GDI+ (leftover-gdiplus-carto).
 - **Modern:** StyleDocument + `gis::map2d::Layout` / `MapFrame` + `render::map2d::Pass` (no MapLibre Native pin).
 
 | Capability | Must (dual-run) | Should | Later |
@@ -332,7 +332,7 @@ Reference stacks:
 ### 8.1 Why delete now
 
 - Aux implementation already deduped into `gdi_common_sources`.
-- Default product device string is already `SmtGdiRenderDevice`.
+- Default product device string is already `SmtRhi2dRenderDevice`.
 - Second ~1.7k-LOC device duplicates draw paths and doubles present-facade touch points.
 - Stale DLL stems in `MapViewport` confuse dual-run debugging.
 

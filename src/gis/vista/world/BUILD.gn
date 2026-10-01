@@ -7,8 +7,8 @@ import("//testing/test.gni")
 # Pure lon/lat ring tests — no GIS_EXPORTS. Leftover DEM + Views both compile this in.
 source_set("land_mask") {
   sources = [
-    "terrain/land_mask.cc",
-    "terrain/land_mask.h",
+    "terrain/process/land_mask.cc",
+    "terrain/process/land_mask.h",
   ]
   include_dirs += [ "//src" ]
 }
@@ -18,12 +18,45 @@ source_set("world_sources") {
   sources = [
     "world.cc",
     "world.h",
-    "terrain/dem_frame.h",
-    "terrain/dem_raster.cc",
-    "terrain/dem_raster.h",
-    "terrain/tessellate.cc",
-    "terrain/tessellate.h",
+    "pointcloud/process/chunk.cc",
+    "pointcloud/process/chunk.h",
+    "pointcloud/ingest/io/las_io.cc",
+    "pointcloud/ingest/io/las_io.h",
+    "pointcloud/ingest/io/laz_io.cc",
+    "pointcloud/ingest/io/laz_io.h",
+    "pointcloud/ingest/load.cc",
+    "pointcloud/ingest/load.h",
+    "pointcloud/process/lod.cc",
+    "pointcloud/process/lod.h",
+    "pointcloud/buffer/point_cloud.cc",
+    "pointcloud/buffer/point_cloud.h",
+    "pointcloud/ingest/io/pdal_io.h",
+    "pointcloud/ingest/io/text_io.cc",
+    "pointcloud/ingest/io/text_io.h",
+    "terrain/dem/dem_frame.h",
+    "terrain/process/dem_hillshade.cc",
+    "terrain/process/dem_hillshade.h",
+    "terrain/dem/dem_raster.cc",
+    "terrain/dem/dem_raster.h",
+    "terrain/mesh/fill_tess.cc",
+    "terrain/mesh/fill_tess.h",
+    "terrain/mesh/line_tess.cc",
+    "terrain/mesh/line_tess.h",
+    "terrain/mesh/mesh_append.cc",
+    "terrain/mesh/mesh_append.h",
+    "terrain/mesh/mesh_scratch.cc",
+    "terrain/mesh/mesh_scratch.h",
+    "terrain/mesh/mesh_types.h",
+    "terrain/mesh/tess_trace.cc",
+    "terrain/mesh/tess_trace.h",
+    "terrain/mesh/tessellate.cc",
+    "terrain/mesh/tessellate.h",
   ]
+  if (smt_has_pdal) {
+    sources += [ "pointcloud/ingest/io/pdal_io.cc" ]
+  } else {
+    sources += [ "pointcloud/ingest/io/pdal_io_stub.cc" ]
+  }
   include_dirs += [ "//src" ]
   configs += [ "//build:legacy" ]
   public_configs = [ "//build:legacy" ]
@@ -35,6 +68,7 @@ source_set("world_sources") {
   public_deps = [
     "//src/gis/vista/assets:assets_sources",
     "//third_party:gdal",
+    "//third_party:octree",
   ]
   deps = [
     ":land_mask",
@@ -42,7 +76,11 @@ source_set("world_sources") {
     "//src/base:base",
     "//src/base:core",
     "//src/gis/datasource/provider/impl/ogr:ogr_codec",
+    "//third_party:laszip",
   ]
+  if (smt_has_pdal) {
+    deps += [ "//third_party:pdal" ]
+  }
 }
 
 group("world") {
@@ -64,14 +102,37 @@ test("world_test") {
 
 test("land_mask_test") {
   output_name = "land_mask_test"
-  sources = [ "terrain/land_mask_test.cc" ]
+  sources = [ "terrain/process/land_mask_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [ ":land_mask" ]
 }
 
 test("dem_raster_test") {
   output_name = "dem_raster_test"
-  sources = [ "terrain/dem_raster_test.cc" ]
+  sources = [ "terrain/dem/dem_raster_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":world",
+    "//third_party:gdal",
+  ]
+}
+
+test("pointcloud_test") {
+  output_name = "pointcloud_test"
+  sources = [ "pointcloud/pointcloud_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":world",
+    "//third_party:gdal",
+    "//third_party:laszip",
+  ]
+}
+
+test("pdal_io_test") {
+  output_name = "pdal_io_test"
+  sources = [ "pointcloud/ingest/io/pdal_io_test.cc" ]
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
   deps = [
@@ -82,7 +143,7 @@ test("dem_raster_test") {
 
 test("tessellate_style_test") {
   output_name = "tessellate_style_test"
-  sources = [ "terrain/tessellate_style_test.cc" ]
+  sources = [ "terrain/mesh/tessellate_style_test.cc" ]
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
   deps = [

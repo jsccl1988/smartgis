@@ -1,0 +1,26 @@
+{
+  "id": "smartgis.mine",
+  "name": "矿山地层插值",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "builtin",
+  "author": "The Mogu Authors",
+  "description": "Load borehole CSV, interpolate stratum TIN, and estimate prism volume",
+  "contributes": {
+    "commands": [
+      {"id": "mine.load_boreholes", "title": "导入钻孔CSV", "menu": "tools"},
+      {"id": "mine.interpolate_stratum", "title": "地层TIN插值", "menu": "tools"},
+      {"id": "mine.prism_volume", "title": "棱柱体积估算", "menu": "tools"},
+      {"id": "mine.about", "title": "关于", "menu": "tools"}
+    ],
+    "dialogs": [
+      {"id": "mine.interpolate_stratum", "title": "地层TIN插值"},
+      {"id": "mine.about", "title": "关于"}
+    ],
+    "processing": [
+      {"id": "mine.load_boreholes", "title": "Load borehole CSV"},
+      {"id": "mine.interpolate_stratum", "title": "Interpolate stratum TIN"},
+      {"id": "mine.prism_volume", "title": "Prism volume between strata"}
+    ]
+  }
+}

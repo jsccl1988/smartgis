@@ -38,7 +38,7 @@ bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
     return false;
   }
 
-  // Hard daylight clear — never the sun/horizon average (that washed pink).
+  // Hard daylight clear - never the sun/horizon average (that washed pink).
   float clear_r = 0.40f;
   float clear_g = 0.62f;
   float clear_b = 0.92f;
@@ -79,7 +79,8 @@ bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
 
   // Ocean (and a depth clear for later opaque) share depth with terrain.
   // Always open this pass — opaque DEM on large FlyCube HWNDs requires
-  // depth_write; color-only depth_off leaves a blank clear.
+  // depth_write; color-only depth_off leaves a blank clear. Ocean draw itself
+  // stays off here when Scene3dGpuPresent records ocean after DEM.
   {
     render::rhi::RenderPassDesc depth_pass;
     depth_pass.width = width;
@@ -97,6 +98,10 @@ bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
     depth_pass.depth_clear = 1.f;
     list->begin_render_pass(depth_pass);
     if (ocean_enabled_) {
+      if (!ocean_pass_) {
+        list->end_render_pass();
+        return false;
+      }
       ok = ocean_pass_->record(device, list, width, height, camera) && ok;
     }
     list->end_render_pass();

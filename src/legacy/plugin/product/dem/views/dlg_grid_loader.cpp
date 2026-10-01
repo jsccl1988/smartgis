@@ -5,12 +5,12 @@
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "legacy/plugin/product/dem/shell/dem_creater.h"
 #include "legacy/plugin/product/dem/shell/dem_dlg_helpers.h"
-#include "legacy/render/scene3d/surface/terrain.h"
+#include "legacy/render/scene3d/primitive/surface/terrain.h"
 #include "legacy/sys/sysmanager.h"
 #include "legacy/tool/defs.h"
 #include "legacy/ui/catalog/mapmgr.h"
 #include "legacy/ui/catalog/scenemgr.h"
-#include "plugin/product/dem/processing/grid_loader.h"
+#include "plugin/product/world3d/processing/grid_loader.h"
 using namespace gis;
 using namespace plugin;
 using namespace sys;

@@ -12,9 +12,9 @@ namespace ui {
 namespace views {
 namespace {
 
-constexpr int kBarHeightDip = 28;
+constexpr int kBarHeightDip = 32;
 constexpr int kItemPadXDip = 12;
-constexpr int kItemPadYDip = 6;
+constexpr int kItemPadYDip = 8;
 
 float view_scale(const View* view) {
   if (view && view->widget()) {
@@ -70,8 +70,8 @@ int MenuBar::item_width(size_t i) const {
     return 0;
   }
   const float scale = view_scale(this);
-  const Size ink = measure_text_utf8(items_[i].label);
-  return dip_to_px(ink.width, scale) + dip_to_px(kItemPadXDip, scale) * 2;
+  const Size ink = measure_text_utf8(items_[i].label, scale);
+  return ink.width + dip_to_px(kItemPadXDip, scale) * 2;
 }
 
 Rect MenuBar::item_rect(size_t i) const {

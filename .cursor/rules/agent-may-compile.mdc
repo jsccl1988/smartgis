@@ -12,9 +12,12 @@ All rights reserved.
 
 Agent **可以**启动编译、链接，以及为验证构建而运行测试/产品二进制。优先用仓库根目录 `build.bat`；产物在 `out/Debug` / `out/Release`。迭代修复时优先 `build.bat debug …`。
 
+多对话共用同一套 out：优先 `build.bat`。**编译锁默认关**；多 agent 并行编译时建 `out/.build.lock.on` 或设 `SMARTGIS_BUILD_LOCK=1`。见 **`.cursor/rules/build/build-lock.mdc`**。
+
 ## 允许
 
 ```bat
+set SMARTGIS_BUILD_OWNER=my-conversation
 build.bat
 build.bat debug
 build.bat debug te
@@ -22,10 +25,10 @@ build.bat e2e
 build.bat <single_target>
 ```
 
-也可在诊断需要时使用 `gn` / `ninja`。不要用裸 `out/` 或 `out/Default` 作 gen 根，不要用 `vs2008/SmartGIS.sln` 作为修复主循环。
+不要用裸 `out/` 或 `out/Default` 作 gen 根，不要用 `vs2008/SmartGIS.sln` 作为修复主循环，不要用裸 `ninja -C out/Debug` 绕过锁。
 
 ## Skill 循环
 
 `auto-build-fix` / `auto-bug-fix` / `auto-idle-pipeline` 要求跑构建或测试时，按 skill **代跑**并迭代到绿，不要只改代码后把命令甩给用户。
 
-规范细则见 **`.cursor/rules/build/agent-may-build.mdc`**。
+规范细则见 **`.cursor/rules/build/agent-may-build.mdc`**、**`.cursor/rules/build/build-lock.mdc`**。

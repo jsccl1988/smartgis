@@ -37,11 +37,11 @@ def start(host):
                 "col_z": 2,
             }
         )
-        ok = bool(host.run_processing("dem.tin_from_xyz", payload))
+        ok = bool(host.run_processing("world3d.tin_from_xyz", payload))
         if not ok:
             smartgis.ui.show_message_box(
                 "error",
-                "dem.tin_from_xyz failed (check path / map seam / builtin DEM).",
+                "world3d.tin_from_xyz failed (check path / map seam / builtin world3d).",
             )
         return ok
 

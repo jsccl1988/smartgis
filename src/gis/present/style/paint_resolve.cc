@@ -205,7 +205,55 @@ bool parse_color(const std::string& text, uint32_t* out_argb) {
 void fill_resolved_paint(const StyleLayer& layer, const SymbolLibrary* library,
                          const AttrMap& attrs, double zoom,
                          ResolvedPaint* out) {
-  *out = ResolvedPaint();
+  // Reset in place. Do not assign a DLL-local temporary ResolvedPaint onto a
+  // caller-owned instance (cross-module std::string/vector assign is fragile
+  // when TUs rebuild out of lockstep).
+  out->layer_id.clear();
+  out->type = LayerType::kUnknown;
+  out->fill_color = 0xFF000000;
+  out->fill_opacity = 1.f;
+  out->fill_pattern.clear();
+  out->line_color = 0xFF000000;
+  out->line_width = 1.f;
+  out->line_opacity = 1.f;
+  out->line_dasharray.clear();
+  out->line_cap.clear();
+  out->line_join.clear();
+  out->circle_color = 0xFF000000;
+  out->circle_radius = 5.f;
+  out->circle_opacity = 1.f;
+  out->icon_image.clear();
+  out->text_field.clear();
+  out->icon_size = 1.f;
+  out->text_size = 16.f;
+  out->text_anchor.clear();
+  out->icon_offset_x = 0.f;
+  out->icon_offset_y = 0.f;
+  out->symbol_placement = "point";
+  out->text_halo_color = 0;
+  out->text_halo_width = 0.f;
+  out->background_color = 0xFF000000;
+  out->background_opacity = 1.f;
+  out->raster_opacity = 1.f;
+  out->hillshade_illumination_direction = 335.f;
+  out->hillshade_exaggeration = 0.5f;
+  out->hillshade_shadow_color = 0xFF000000u;
+  out->hillshade_highlight_color = 0xFFFFFFFFu;
+  out->hillshade_accent_color = 0xFF000000u;
+  out->fill_extrusion_height = 0.f;
+  out->fill_extrusion_base = 0.f;
+  out->fill_extrusion_color = 0xFFAAAAAAu;
+  out->fill_extrusion_opacity = 1.f;
+  out->heatmap_radius = 30.f;
+  out->heatmap_weight = 1.f;
+  out->heatmap_intensity = 1.f;
+  out->heatmap_color = 0xFFFF6400u;
+  out->heatmap_opacity = 1.f;
+  out->symbol.id.clear();
+  out->symbol.path.clear();
+  out->symbol.bytes.clear();
+  out->has_symbol = false;
+
   out->layer_id = layer.id;
   out->type = layer.type;
 
@@ -249,6 +297,32 @@ void fill_resolved_paint(const StyleLayer& layer, const SymbolLibrary* library,
   out->raster_opacity =
       resolve_float(layer.paint, "raster-opacity", attrs, zoom, 1.f);
 
+  out->hillshade_illumination_direction = resolve_float(
+      layer.paint, "hillshade-illumination-direction", attrs, zoom, 335.f);
+  out->hillshade_exaggeration = resolve_float(
+      layer.paint, "hillshade-exaggeration", attrs, zoom, 0.5f);
+  apply_color("hillshade-shadow-color", &out->hillshade_shadow_color);
+  apply_color("hillshade-highlight-color", &out->hillshade_highlight_color);
+  apply_color("hillshade-accent-color", &out->hillshade_accent_color);
+
+  out->fill_extrusion_height = resolve_float(
+      layer.paint, "fill-extrusion-height", attrs, zoom, 0.f);
+  out->fill_extrusion_base =
+      resolve_float(layer.paint, "fill-extrusion-base", attrs, zoom, 0.f);
+  apply_color("fill-extrusion-color", &out->fill_extrusion_color);
+  out->fill_extrusion_opacity = resolve_float(
+      layer.paint, "fill-extrusion-opacity", attrs, zoom, 1.f);
+
+  out->heatmap_radius =
+      resolve_float(layer.paint, "heatmap-radius", attrs, zoom, 30.f);
+  out->heatmap_weight =
+      resolve_float(layer.paint, "heatmap-weight", attrs, zoom, 1.f);
+  out->heatmap_intensity =
+      resolve_float(layer.paint, "heatmap-intensity", attrs, zoom, 1.f);
+  apply_color("heatmap-color", &out->heatmap_color);
+  out->heatmap_opacity =
+      resolve_float(layer.paint, "heatmap-opacity", attrs, zoom, 1.f);
+
   out->icon_image = resolve_string(layer.layout, "icon-image", attrs, zoom);
   if (out->icon_image.empty()) {
     out->icon_image = resolve_string(layer.paint, "icon-image", attrs, zoom);
@@ -281,9 +355,16 @@ void fill_resolved_paint(const StyleLayer& layer, const SymbolLibrary* library,
     parse_xy_offset(offset, &out->icon_offset_x, &out->icon_offset_y);
   }
 
-  if (library && !out->icon_image.empty() &&
-      library->find(out->icon_image, &out->symbol)) {
-    out->has_symbol = true;
+  // Resolve into a stack entry, then move fields. Avoid SymbolEntry::operator=
+  // onto a possibly layout-skewed caller-owned ResolvedPaint::symbol.
+  if (library && !out->icon_image.empty()) {
+    SymbolEntry found;
+    if (library->find(out->icon_image, &found)) {
+      out->symbol.id = std::move(found.id);
+      out->symbol.path = std::move(found.path);
+      out->symbol.bytes.swap(found.bytes);
+      out->has_symbol = true;
+    }
   }
 }
 

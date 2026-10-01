@@ -5,11 +5,16 @@ All rights reserved.
 
 # `gis/analysis/raster`
 
-Future home for **raster / cost-surface / flood** analysis objects and kernels
-(e.g. reserved `native.cost_path`, `native.flood_fill`).
+Raster / flood analysis kernels, split by responsibility:
 
-## Rules
+| Subdir | Id | Role |
+| --- | --- | --- |
+| `dem/` | `native.flood_fill` | DEM inundation (connected cells under a water surface) |
+| `dem/` | `native.storm_surge` | Coastal storm-surge (ocean/coast seeds + surge series → mask/depth) |
+| `dem/` | `native.storm_surge_stats` | Inundation area, depth classes, buffer/overlap vs impact layer |
+| `dem/` | `native.dem_gradient` | DEM slope/aspect via Eigen `Map` finite differences |
+| `filter/` | `native.raster_convolve` | Float raster convolution (default 3×3 box) |
+| `filter/` | `native.raster_smooth` | Interior Laplace smooth via Eigen SparseLU |
 
-- Orchestration may stay in Python plugins; kernels and typed objects land
-  **here**, then register through processing / `ops` catalog.
-- Do **not** implement core raster analysis under `src/plugin/`.
+Includes: `gis/analysis/raster/dem/…`, `gis/analysis/raster/filter/…`.
+Orchestration stays in product plugins / Python; kernels live here.

@@ -7,10 +7,15 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <functional>
 #include <map>
 #include <vector>
 
 #include "base/trace/event/process_trace.h"
+
+#pragma comment(lib, "Msimg32.lib")
 
 namespace content {
 namespace detail {
@@ -94,12 +99,132 @@ void stroke_polyline(HDC hdc, const std::vector<POINT>& pts, HPEN pen) {
   SelectObject(hdc, old_pen);
 }
 
+// Stretch tightly packed RGBA8 into the axis-aligned bbox of |pts|.
+// Hillshade uses MapLibre-style multiply into the dest land (AlphaBlend
+// SRC_OVER onto export CreateDIBSection left cream flat — gray_frac≈0).
+bool blit_rgba_quad(HDC hdc, const std::vector<POINT>& pts,
+                    const std::vector<uint8_t>& rgba, int tw, int th,
+                    float opacity) {
+  if (!hdc || pts.size() < 4 || tw <= 0 || th <= 0 ||
+      rgba.size() < static_cast<size_t>(tw) * static_cast<size_t>(th) * 4u) {
+    return false;
+  }
+  LONG min_x = pts[0].x;
+  LONG max_x = pts[0].x;
+  LONG min_y = pts[0].y;
+  LONG max_y = pts[0].y;
+  for (const POINT& p : pts) {
+    min_x = (std::min)(min_x, p.x);
+    max_x = (std::max)(max_x, p.x);
+    min_y = (std::min)(min_y, p.y);
+    max_y = (std::max)(max_y, p.y);
+  }
+  const int dst_w = static_cast<int>(max_x - min_x);
+  const int dst_h = static_cast<int>(max_y - min_y);
+  if (dst_w <= 0 || dst_h <= 0) {
+    return false;
+  }
+
+  const float k =
+      (std::max)(0.f, (std::min)(1.f, opacity));
+
+  HDC mem = CreateCompatibleDC(hdc);
+  if (!mem) {
+    return false;
+  }
+  BITMAPINFO dbmi{};
+  dbmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  dbmi.bmiHeader.biWidth = dst_w;
+  dbmi.bmiHeader.biHeight = -dst_h;  // top-down
+  dbmi.bmiHeader.biPlanes = 1;
+  dbmi.bmiHeader.biBitCount = 32;
+  dbmi.bmiHeader.biCompression = BI_RGB;
+  void* dest_bits = nullptr;
+  HBITMAP dest_dib =
+      CreateDIBSection(mem, &dbmi, DIB_RGB_COLORS, &dest_bits, nullptr, 0);
+  if (!dest_dib || !dest_bits) {
+    if (dest_dib) {
+      DeleteObject(dest_dib);
+    }
+    DeleteDC(mem);
+    return false;
+  }
+  HGDIOBJ old = SelectObject(mem, dest_dib);
+  // Snapshot the land/water already painted under this quad.
+  if (!BitBlt(mem, 0, 0, dst_w, dst_h, hdc, static_cast<int>(min_x),
+              static_cast<int>(min_y), SRCCOPY)) {
+    SelectObject(mem, old);
+    DeleteObject(dest_dib);
+    DeleteDC(mem);
+    return false;
+  }
+
+  auto* dest = static_cast<uint8_t*>(dest_bits);
+  for (int dy = 0; dy < dst_h; ++dy) {
+    const int sy = (dy * th) / dst_h;
+    for (int dx = 0; dx < dst_w; ++dx) {
+      const int sx = (dx * tw) / dst_w;
+      const size_t so =
+          (static_cast<size_t>(sy) * static_cast<size_t>(tw) +
+           static_cast<size_t>(sx)) *
+          4u;
+      const unsigned a = rgba[so + 3];
+      if (a == 0) {
+        continue;
+      }
+      const float sr = static_cast<float>(rgba[so + 0]) / 255.f;
+      const float sg = static_cast<float>(rgba[so + 1]) / 255.f;
+      const float sb = static_cast<float>(rgba[so + 2]) / 255.f;
+      const float shade = 0.299f * sr + 0.587f * sg + 0.114f * sb;
+      const float m = 1.f - k + k * shade;
+      const size_t o =
+          (static_cast<size_t>(dy) * static_cast<size_t>(dst_w) +
+           static_cast<size_t>(dx)) *
+          4u;
+      // Dest DIB is BGRA.
+      dest[o + 0] = static_cast<uint8_t>(
+          (std::min)(255.f, static_cast<float>(dest[o + 0]) * m + 0.5f));
+      dest[o + 1] = static_cast<uint8_t>(
+          (std::min)(255.f, static_cast<float>(dest[o + 1]) * m + 0.5f));
+      dest[o + 2] = static_cast<uint8_t>(
+          (std::min)(255.f, static_cast<float>(dest[o + 2]) * m + 0.5f));
+    }
+  }
+
+  const BOOL ok = BitBlt(hdc, static_cast<int>(min_x), static_cast<int>(min_y),
+                         dst_w, dst_h, mem, 0, 0, SRCCOPY);
+  SelectObject(mem, old);
+  DeleteObject(dest_dib);
+  DeleteDC(mem);
+  return ok != FALSE;
+}
+
 }  // namespace
 
-void paint_map_frame_gdi(HDC hdc, const gis::vista::MapFrame& frame,
-                         const gis::vista::View& view, bool fill_background) {
+void paint_map_frame_gdi(
+    HDC hdc, const gis::vista::MapFrame& frame, const gis::vista::View& view,
+    bool fill_background,
+    const std::function<bool(uint32_t texture_key, std::vector<uint8_t>* rgba,
+                             int* w, int* h)>& load_raster) {
   if (!hdc || view.width_px == 0 || view.height_px == 0) {
     return;
+  }
+
+  {
+    size_t n_raster = 0;
+    size_t n_fill = 0;
+    for (const gis::vista::DrawItem& item : frame.items) {
+      if (item.kind == gis::vista::DrawKind::kRaster) {
+        ++n_raster;
+      } else if (item.kind == gis::vista::DrawKind::kFill) {
+        ++n_fill;
+      }
+    }
+    std::fprintf(stderr,
+                 "map2d: gdi paint items=%zu raster=%zu fill=%zu view=%.2f..%.2f "
+                 "x %.2f..%.2f\n",
+                 frame.items.size(), n_raster, n_fill, view.min_x, view.max_x,
+                 view.min_y, view.max_y);
   }
 
   if (fill_background) {
@@ -122,14 +247,25 @@ void paint_map_frame_gdi(HDC hdc, const gis::vista::MapFrame& frame,
     return b;
   };
   auto pen_for = [&](COLORREF c, int width) -> HPEN {
+    const int w = std::max(1, width);
     const uint64_t key =
         (static_cast<uint64_t>(static_cast<uint32_t>(c)) << 16) |
-        static_cast<uint64_t>(static_cast<uint16_t>(std::max(1, width)));
+        static_cast<uint64_t>(static_cast<uint16_t>(w));
     auto it = pens.find(key);
     if (it != pens.end()) {
       return it->second;
     }
-    HPEN p = CreatePen(PS_SOLID, std::max(1, width), c);
+    // Geometric round pens soften stair-steps vs PS_SOLID cosmetic pens
+    // (showcase export AA without SDF / MapLibre Native).
+    LOGBRUSH lb{};
+    lb.lbStyle = BS_SOLID;
+    lb.lbColor = c;
+    HPEN p = ExtCreatePen(PS_GEOMETRIC | PS_SOLID | PS_ENDCAP_ROUND |
+                              PS_JOIN_ROUND,
+                          w, &lb, 0, nullptr);
+    if (!p) {
+      p = CreatePen(PS_SOLID, w, c);
+    }
     pens.emplace(key, p);
     return p;
   };
@@ -178,13 +314,34 @@ void paint_map_frame_gdi(HDC hdc, const gis::vista::MapFrame& frame,
           fill_indexed_tris(hdc, pts, item.indices, brush_for(color),
                             pen_for(color, 1));
         } else {
-          stroke_polyline(hdc, pts, pen_for(color, 2));
+          // Soft understroke then core — poor-man's AA without SDF.
+          const int stroke_w = 2;
+          const COLORREF soft =
+              RGB((GetRValue(color) * 2 + 255) / 3,
+                  (GetGValue(color) * 2 + 255) / 3,
+                  (GetBValue(color) * 2 + 255) / 3);
+          stroke_polyline(hdc, pts, pen_for(soft, stroke_w + 1));
+          stroke_polyline(hdc, pts, pen_for(color, stroke_w));
         }
         add_us(&line_us, t0);
         break;
       }
       case gis::vista::DrawKind::kRaster: {
         item_to_points(item, view, &pts);
+        std::vector<uint8_t> rgba;
+        int tw = 0;
+        int th = 0;
+        const bool loaded =
+            load_raster && load_raster(item.codepoint, &rgba, &tw, &th);
+        if (loaded && blit_rgba_quad(hdc, pts, rgba, tw, th, item.opacity)) {
+          add_us(&other_us, t0);
+          break;
+        }
+        std::fprintf(stderr,
+                     "map2d: raster blit miss load=%d tw=%d th=%d pts=%zu "
+                     "key=0x%08x opacity=%.2f\n",
+                     loaded ? 1 : 0, tw, th, pts.size(), item.codepoint,
+                     item.opacity);
         if (pts.size() >= 3) {
           fill_indexed_tris(hdc, pts, item.indices, brush_for(color),
                             static_cast<HPEN>(GetStockObject(NULL_PEN)));

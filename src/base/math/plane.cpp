@@ -6,20 +6,24 @@
 #include "base/math/obb.h"
 #include "base/math/ray.h"
 #include <cmath>
-namespace render
+#include <Eigen/Geometry>
+namespace base
 {
 
 	// Calculate distance to point. Plane normal must be normalized.
+	// Hessian form n·x + d = 0 (matches classify).
 	float Plane::distance(const Vector4 &vcPoint) 
 	{
-	   return ( std::fabs(dot(m_vcN, vcPoint) - m_fD) );
+	   const Eigen::Hyperplane<float, 3> hp(m_vcN.xyz(), m_fD);
+	   return std::fabs(hp.signedDistance(vcPoint.xyz()));
 	}
 
 
 	// classify point to plane.
 	PlaneSide Plane::classify(const Vector4 &vcPoint) 
 	{
-	   float f = dot(vcPoint, m_vcN) + m_fD;
+	   const Eigen::Hyperplane<float, 3> hp(m_vcN.xyz(), m_fD);
+	   const float f = hp.signedDistance(vcPoint.xyz());
    
 	   if (f >  0.00001) return PlaneSide::kFront;
 	   if (f < -0.00001) return PlaneSide::kBack;

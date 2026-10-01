@@ -42,7 +42,7 @@ Process entry stays `gpu/gpu.h`.
 ### Leftover GDI → compose IR (as-built)
 
 `legacy_render` map buffers (`SmtRenderBuf`) compose in-process via
-`//src/gpu:compositor_cpu_blend`. On publish, optional `SmtGdiSetBgraSubmit`
+`//src/gpu:compositor_cpu_blend`. On publish, optional `SmtRhi2dSetBgraSubmit`
 hands BGRA to the GPU process. `gpu_main` binds that sink to
 `make_frame_composer` → `draw_frame` on the active `OutputSurface` (NN-scale
 when sizes differ). Shell never final-blends.

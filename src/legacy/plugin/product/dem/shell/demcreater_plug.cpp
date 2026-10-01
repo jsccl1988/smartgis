@@ -26,9 +26,13 @@ static_assert(GRID_LOAD_HEIGHT_MAP == plugin::kAmMsgDemLoadGrid);
 static_assert(TIN_LOAD_ABOUT == plugin::kAmMsgDemAbout);
 
 extern "C" {
-int __declspec(dllexport) GetPluginVersion(void) { return 1; }
+int __declspec(dllexport) GetPluginVersion(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
+  return 1;
+}
 
 void __declspec(dllexport) StartPlugin(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
   g_pDemCreater = new SmtDemCreaterPlugin();
   if (g_pDemCreater) {
     g_pDemCreater->Init();
@@ -36,6 +40,7 @@ void __declspec(dllexport) StartPlugin(void) {
 }
 
 void __declspec(dllexport) StopPlugin(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
   if (g_pDemCreater) {
     g_pDemCreater->Destroy();
   }
@@ -69,11 +74,11 @@ int SmtDemCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
   (void)param;
   const char *id = plugin::command_id_from_am_msg(lMsg);
   long cmd = lMsg;
-  if (id && std::strcmp(id, "dem.load_tin") == 0)
+  if (id && std::strcmp(id, "world3d.load_tin") == 0)
     cmd = TIN_LOAD_ASSII_FILE;
-  else if (id && std::strcmp(id, "dem.load_grid") == 0)
+  else if (id && std::strcmp(id, "world3d.load_grid") == 0)
     cmd = GRID_LOAD_HEIGHT_MAP;
-  else if (id && std::strcmp(id, "dem.about") == 0)
+  else if (id && std::strcmp(id, "world3d.about") == 0)
     cmd = TIN_LOAD_ABOUT;
   switch (cmd) {
     case TIN_LOAD_ASSII_FILE: {

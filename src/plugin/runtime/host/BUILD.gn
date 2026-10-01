@@ -2,6 +2,8 @@
 # All rights reserved.
 
 # Plugin host / shared runtime DLL (dll_stem = plugin_host).
+# Role subdirs: registry / manifest / store / signature / processing /
+# resources / ui / tests. Export macro stays at host root.
 # Product *_views stay source_sets (Phase-2 per-stem DLLs later).
 # Leftover *.am LoadLibrary stays via //src/legacy/plugin/runtime:bridge.
 # Shell / *.am plugs take //src/legacy/plugin/runtime:cmd (header-only AM_MSG).
@@ -19,23 +21,25 @@ config("plugin_host_config") {
 
 source_set("host_sources") {
   sources = [
-    "operation_result.cc",
-    "operation_result.h",
-    "manager_view.cc",
-    "manager_view.h",
-    "manifest.cc",
-    "manifest.h",
-    "official_key.h",
+    "manifest/manifest.cc",
+    "manifest/manifest.h",
     "plugin_host_export.h",
-    "processing.cc",
-    "processing.h",
-    "registry.cc",
-    "registry.h",
-    "signature.cc",
-    "signature.h",
-    "signature_test_key.h",
-    "store.cc",
-    "store.h",
+    "processing/operation_result.cc",
+    "processing/operation_result.h",
+    "processing/processing.cc",
+    "processing/processing.h",
+    "registry/registry.cc",
+    "registry/registry.h",
+    "resources/resource_roots.cc",
+    "resources/resource_roots.h",
+    "signature/official_key.h",
+    "signature/signature.cc",
+    "signature/signature.h",
+    "signature/signature_test_key.h",
+    "store/store.cc",
+    "store/store.h",
+    "ui/manager_view.cc",
+    "ui/manager_view.h",
   ]
   public_configs = [ ":plugin_host_config" ]
   defines = [ "PLUGIN_HOST_EXPORTS" ]
@@ -58,6 +62,7 @@ smt_shared_library("host") {
   defines = [ "PLUGIN_HOST_EXPORTS" ]
   deps = [
     ":host_sources",
+    "//src/plugin/runtime/browser:browser_sources",
     "//src/plugin/runtime/widgets:widgets_sources",
   ]
   public_deps = [
@@ -70,7 +75,7 @@ smt_shared_library("host") {
 
 test("plugin_host_test") {
   output_name = "plugin_host_test"
-  sources = [ "host_test.cc" ]
+  sources = [ "tests/host_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
     ":host",
@@ -78,9 +83,9 @@ test("plugin_host_test") {
     # plugin_host.dll but are not PLUGIN_HOST_EXPORT. Link the source_sets so
     # the test exe resolves them (import lib has no undecorated copies).
     "//src/legacy/plugin/runtime:bridge",
-    "//src/plugin/product/dem:dem_views",
-    "//src/plugin/product/model3d:model3d_views",
+    "//src/plugin/product/world3d:world3d_views",
     "//src/plugin/product/orthogrid:orthogrid_views",
+    "//src/plugin/product/orthogrid3d:orthogrid3d_views",
     "//src/plugin/product/print:print_views",
     "//third_party:cpp_httplib",
   ]

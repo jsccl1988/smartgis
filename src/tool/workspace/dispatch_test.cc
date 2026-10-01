@@ -438,14 +438,14 @@ int main() {
 
   {
     expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgDemLoadTin),
-                       "dem.load_tin") == 0,
-           "plugin dem tin");
+                       "world3d.load_tin") == 0,
+           "plugin world3d tin");
     expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgDemLoadGrid),
-                       "dem.load_grid") == 0,
-           "plugin dem grid");
+                       "world3d.load_grid") == 0,
+           "plugin world3d grid");
     expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgDemAbout),
-                       "dem.about") == 0,
-           "plugin dem about");
+                       "world3d.about") == 0,
+           "plugin world3d about");
     expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgProjDoPrj),
                        "proj.do_prj") == 0,
            "plugin proj");
@@ -639,7 +639,15 @@ int main() {
     expect(n == 1, "draft observer wheel");
     expect(seen.kind == tool::DraftKind::kWheel, "observer wheel kind");
     expect(ws.last_draft().kind == tool::DraftKind::kWheel, "workspace last wheel");
+    // Exclusive select must not swallow always-on wheel.zoom (legacy zoom_gate).
     expect(ws.execute("selection.rect", {}), "activate rect for observer");
+    content::InputEvent wheel2 = make_event(content::InputEvent::Kind::kWheel);
+    wheel2.wheel = -120;
+    wheel2.x_px = 5;
+    wheel2.y_px = 6;
+    expect(ws.dispatch_input(wheel2), "wheel under exclusive select");
+    expect(n == 2, "wheel draft while select.rect active");
+    expect(seen.kind == tool::DraftKind::kWheel, "wheel kind under select");
     content::InputEvent down = make_event(content::InputEvent::Kind::kLDown);
     down.x_px = 1;
     down.y_px = 2;
@@ -648,7 +656,7 @@ int main() {
     up.y_px = 9;
     expect(ws.dispatch_input(down), "observer rect down");
     expect(ws.dispatch_input(up), "observer rect up");
-    expect(n == 2, "observer rect draft");
+    expect(n == 3, "observer rect draft");
     expect(seen.kind == tool::DraftKind::kRect, "observer rect kind");
   }
 

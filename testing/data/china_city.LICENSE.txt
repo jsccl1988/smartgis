@@ -46,9 +46,10 @@ Build
   py -3 testing/data/build_china_city.py
   py -3 testing/data/build_china_dem.py
 
-Caches: out/china_city_src/ (NE downloads + outline), out/china_dem_src/ (tiles).
+Caches: out/data/cache/china_city_src/ (NE downloads + outline),
+out/data/cache/china_dem_src/ (tiles).
 Writes testing/data/china_city.gpkg (+ .geojson) and china_dem.tif; copies under
-out/. See china_city.PIN.txt for SHA-256.
+out/data/. See china_city.PIN.txt for SHA-256.
 
 Offline DEM fallback:
   py -3 testing/data/build_china_dem.py --source synthetic

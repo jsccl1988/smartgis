@@ -194,7 +194,12 @@ void build_tree(const View* host,
     apply_flex_style(yn, style, /*is_host=*/false);
     const bool has_fixed_w = style.width.has_value();
     const bool has_fixed_h = style.height.has_value();
-    if (!has_fixed_w || !has_fixed_h) {
+    // Flex-grow children are sized by the flex algorithm. Attaching a measure
+    // func fights grow (Yoga treats measured size as a hard intrinsic) and
+    // stacks siblings in UiDesigner main_app hbox/vbox previews.
+    const bool has_grow =
+        style.flex_grow.has_value() || style.flex.has_value();
+    if ((!has_fixed_w || !has_fixed_h) && !has_grow) {
       YGNodeSetMeasureFunc(yn, measure_view);
     }
     YGNodeInsertChild(tree->root, yn, YGNodeGetChildCount(tree->root));

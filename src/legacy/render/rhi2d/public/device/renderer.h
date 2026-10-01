@@ -1,4 +1,5 @@
-// Copyright (c) 2010 CCL. All rights reserved.
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 #ifndef _RD_RENDERER_H
 #define _RD_RENDERER_H
 
@@ -7,20 +8,23 @@
 #include "legacy/render/rhi2d/public/device/renderdevice.h"
 
 namespace render {
+// Loads per-API leftover 2D backend DLLs (legacy_rhi2d_gdi / gdiplus / skia)
+// and resolves Create*/DestroyRenderDevice via GetProcAddress.
+// Failure paths log via LOGGING(LOG_ERROR); they do not show MessageBox.
 class LEGACY_RENDER_EXPORT SmtRenderer {
  public:
-  SmtRenderer(HINSTANCE hInst);
-  ~SmtRenderer(void);
+  explicit SmtRenderer(HINSTANCE hInst);
+  ~SmtRenderer();
 
   int CreateDevice(const char* chAPI);
-  LPRENDERDEVICE GetDevice(void);
+  LPRENDERDEVICE GetDevice(void) { return m_pDevice; }
+  HINSTANCE GetModule(void) { return m_hDLL; }
   void Release(void);
 
  private:
-  LPRENDERDEVICE m_pDevice;
-  HINSTANCE m_hInst;
-  HMODULE m_hDLL;
-  const char* destroy_name_ = nullptr;
+  LPRENDERDEVICE m_pDevice = nullptr;
+  HINSTANCE m_hInst = nullptr;
+  HMODULE m_hDLL = nullptr;
 };
 
 typedef SmtRenderer* LPRENDERER;

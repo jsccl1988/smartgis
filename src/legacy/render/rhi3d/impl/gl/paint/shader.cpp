@@ -15,7 +15,7 @@ SmtShader *SmtGLRenderDevice::CreateVertexShader(const char *szName) {
     return pNewShader;
   else {
     SMT_SAFE_DELETE(pNewShader);
-    return NULL;
+    return nullptr;
   }
 }
 
@@ -29,7 +29,7 @@ SmtShader *SmtGLRenderDevice::CreatePixelShader(const char *szName) {
     return pNewShader;
   else {
     SMT_SAFE_DELETE(pNewShader);
-    return NULL;
+    return nullptr;
   }
 }
 
@@ -46,7 +46,7 @@ SmtProgram *SmtGLRenderDevice::CreateProgram(const char *szName) {
     return pNewProgram;
   else {
     SMT_SAFE_DELETE(pNewProgram);
-    return NULL;
+    return nullptr;
   }
 }
 
@@ -56,7 +56,7 @@ SmtProgram *SmtGLRenderDevice::GetProgram(const char *szName) {
 
 long SmtGLRenderDevice::LoadShaderSource(SmtShader *shader, char *source) {
   GLhandleARB handle = shader->GetHandle();
-  m_pFuncShaders->glShaderSource(handle, 1, (const GLchar **)&source, NULL);
+  m_pFuncShaders->glShaderSource(handle, 1, (const GLchar **)&source, nullptr);
 
   return SMT_ERR_NONE;
 }
@@ -82,9 +82,9 @@ long SmtGLRenderDevice::IsShaderCompiled(SmtShader *shader) {
 }
 
 char *SmtGLRenderDevice::GetShaderLog(SmtShader *shader) {
-  if (NULL == shader) return NULL;
+  if (nullptr == shader) return nullptr;
 
-  GLchar *log = 0;
+  GLchar *log = nullptr;
   int logLength = 0;
   int charsWritten = 0;
   GLhandleARB handle = shader->GetHandle();
@@ -92,7 +92,7 @@ char *SmtGLRenderDevice::GetShaderLog(SmtShader *shader) {
   m_pFuncShaders->glGetObjectParameteriv(handle, GL_OBJECT_INFO_LOG_LENGTH_ARB,
                                          &logLength);
 
-  if (logLength < 1) return NULL;
+  if (logLength < 1) return nullptr;
 
   log = new GLchar[logLength];
 
@@ -103,7 +103,7 @@ char *SmtGLRenderDevice::GetShaderLog(SmtShader *shader) {
 
 long SmtGLRenderDevice::DestroyShader(const char *szName) {
   SmtShader *shader = m_shaderMgr.GetShader(szName);
-  if (NULL == shader) return SMT_ERR_FAILURE;
+  if (nullptr == shader) return SMT_ERR_FAILURE;
 
   GLhandleARB handle = shader->GetHandle();
   if (handle != 0) {
@@ -116,7 +116,7 @@ long SmtGLRenderDevice::DestroyShader(const char *szName) {
 }
 
 long SmtGLRenderDevice::BindProgram(SmtProgram *program) {
-  if (NULL == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return SMT_ERR_FAILURE;
 
   m_pFuncShaders->glUseProgram(program->GetHandle());
 
@@ -131,7 +131,7 @@ long SmtGLRenderDevice::UnbindProgram() {
 
 long SmtGLRenderDevice::SetProgramVertexShader(SmtProgram *program,
                                                SmtShader *shader) {
-  if (NULL == program || NULL == shader) return SMT_ERR_FAILURE;
+  if (nullptr == program || nullptr == shader) return SMT_ERR_FAILURE;
 
   m_pFuncShaders->glAttachShader(program->GetHandle(), shader->GetHandle());
 
@@ -140,7 +140,7 @@ long SmtGLRenderDevice::SetProgramVertexShader(SmtProgram *program,
 
 long SmtGLRenderDevice::SetProgramPixelShader(SmtProgram *program,
                                               SmtShader *shader) {
-  if (NULL == program || NULL == shader) return SMT_ERR_FAILURE;
+  if (nullptr == program || nullptr == shader) return SMT_ERR_FAILURE;
 
   m_pFuncShaders->glAttachShader(program->GetHandle(), shader->GetHandle());
 
@@ -148,7 +148,7 @@ long SmtGLRenderDevice::SetProgramPixelShader(SmtProgram *program,
 }
 
 long SmtGLRenderDevice::LinkProgram(SmtProgram *program) {
-  if (NULL == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return SMT_ERR_FAILURE;
 
   m_pFuncShaders->glLinkProgram(program->GetHandle());
 
@@ -156,7 +156,7 @@ long SmtGLRenderDevice::LinkProgram(SmtProgram *program) {
 }
 
 long SmtGLRenderDevice::IsProgramLinked(SmtProgram *program) {
-  if (NULL == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return SMT_ERR_FAILURE;
 
   int linkStatus = 0;
 
@@ -170,10 +170,10 @@ long SmtGLRenderDevice::IsProgramLinked(SmtProgram *program) {
 }
 
 char *SmtGLRenderDevice::GetProgramLinkLog(SmtProgram *program) {
-  if (NULL == program) return NULL;
+  if (nullptr == program) return nullptr;
 
   int logLength;
-  char *log = NULL;
+  char *log = nullptr;
   GLhandleARB handle = program->GetHandle();
   m_pFuncShaders->glGetObjectParameteriv(handle, GL_OBJECT_INFO_LOG_LENGTH_ARB,
                                          &logLength);
@@ -191,7 +191,7 @@ char *SmtGLRenderDevice::GetProgramLinkLog(SmtProgram *program) {
 long SmtGLRenderDevice::DestroyProgram(const char *szName) {
   SmtProgram *program = m_progamMgr.GetProgram(szName);
 
-  if (NULL == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return SMT_ERR_FAILURE;
 
   GLhandleARB handle = program->GetHandle();
 
@@ -206,7 +206,7 @@ long SmtGLRenderDevice::DestroyProgram(const char *szName) {
 
 long SmtGLRenderDevice::SetProgramVector(SmtProgram *program, string &param,
                                          const Vector4 &value) {
-  if (NULL == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return SMT_ERR_FAILURE;
 
   GLhandleARB handle = program->GetHandle();
 
@@ -220,7 +220,7 @@ long SmtGLRenderDevice::SetProgramVector(SmtProgram *program, string &param,
 
 long SmtGLRenderDevice::SetProgramVector(SmtProgram *program, string &param,
                                          const Vector3 &value) {
-  if (NULL == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return SMT_ERR_FAILURE;
 
   GLhandleARB handle = program->GetHandle();
 
@@ -233,7 +233,7 @@ long SmtGLRenderDevice::SetProgramVector(SmtProgram *program, string &param,
 
 long SmtGLRenderDevice::SetProgramVector(SmtProgram *program, string &param,
                                          const Vector2 &value) {
-  if (NULL == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return SMT_ERR_FAILURE;
 
   GLhandleARB handle = program->GetHandle();
 
@@ -247,7 +247,7 @@ long SmtGLRenderDevice::SetProgramVector(SmtProgram *program, string &param,
 
 long SmtGLRenderDevice::SetProgramFloat(SmtProgram *program, string &param,
                                         float value) {
-  if (NULL == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return SMT_ERR_FAILURE;
 
   GLhandleARB handle = program->GetHandle();
 
@@ -261,7 +261,7 @@ long SmtGLRenderDevice::SetProgramFloat(SmtProgram *program, string &param,
 
 long SmtGLRenderDevice::SetProgramInt(SmtProgram *program, string &param,
                                       int value) {
-  if (NULL == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return SMT_ERR_FAILURE;
 
   GLhandleARB handle = program->GetHandle();
 
@@ -275,7 +275,7 @@ long SmtGLRenderDevice::SetProgramInt(SmtProgram *program, string &param,
 
 long SmtGLRenderDevice::GetProgramFloat(SmtProgram *program, string &param,
                                         float *value) {
-  if (NULL == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return SMT_ERR_FAILURE;
 
   GLhandleARB handle = program->GetHandle();
 
@@ -289,7 +289,7 @@ long SmtGLRenderDevice::GetProgramFloat(SmtProgram *program, string &param,
 
 long SmtGLRenderDevice::SetProgramTexture(SmtProgram *program, string &param,
                                           int texture) {
-  if (NULL == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return SMT_ERR_FAILURE;
 
   GLhandleARB handle = program->GetHandle();
 

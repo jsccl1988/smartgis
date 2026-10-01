@@ -1,0 +1,21 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Microsoft.Web.WebView2 loader + headers for ReportBrowser (v1).
+
+import("//build/smartgis.gni")
+
+config("webview2_config") {
+  include_dirs += [ "include" ]
+  libs = [ rebase_path("bin/x64/WebView2Loader.dll.lib", root_build_dir) ]
+}
+
+copy("webview2_loader_dll") {
+  sources = [ "bin/x64/WebView2Loader.dll" ]
+  outputs = [ "$root_out_dir/WebView2Loader.dll" ]
+}
+
+group("webview2") {
+  public_configs = [ ":webview2_config" ]
+  deps = [ ":webview2_loader_dll" ]
+}

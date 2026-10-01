@@ -10,8 +10,8 @@
 #include <fstream>
 #include <string>
 
-#include "legacy/render/scene3d/dem/dem_height_field.h"
-#include "legacy/render/scene3d/surface/pointcloud.h"
+#include "legacy/gis/vista/dem_height_field.h"
+#include "legacy/render/scene3d/primitive/surface/pointcloud.h"
 
 namespace {
 

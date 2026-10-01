@@ -7,10 +7,11 @@
 #include <string>
 #include <vector>
 
-#include "gis/vista/frame/detail/collision.h"
+#include "gis/vista/frame/detail/collision/collision.h"
 #include "gis/vista/frame/frame.h"
 #include "gis/present/style/paint_resolve.h"
 #include "gis/present/style/style_document.h"
+#include "gis/present/style/style_rules.h"
 #include "ogrsf_frmts.h"
 
 namespace {
@@ -236,6 +237,160 @@ int main() {
       }
     }
     expect(flat, "along-line angle sign");
+  }
+
+  // Collision helpers: path length, pose fractions, mixed-script estimate.
+  {
+    const int xy[] = {0, 0, 100, 0, 100, 50};
+    expect(almost_eq(gis::vista::detail::line_path_length_px(xy, 3), 150.f),
+           "line_path_length_px");
+    gis::vista::detail::LineLabelPose mid;
+    gis::vista::detail::LineLabelPose q;
+    expect(gis::vista::detail::line_label_pose_at(xy, 3, 0.5f, &mid),
+           "pose_at mid");
+    expect(gis::vista::detail::line_label_pose_at(xy, 3, 0.25f, &q),
+           "pose_at quarter");
+    expect(mid.x == 75 && mid.y == 0, "pose_at mid xy");
+    expect(q.x == 37 || q.x == 38, "pose_at quarter x");
+    expect(gis::vista::detail::line_fits_label(100.f, 80.f), "line_fits ok");
+    expect(!gis::vista::detail::line_fits_label(80.f, 100.f), "line_fits reject");
+    float slots[8];
+    const int n = gis::vista::detail::line_label_slot_fractions(8, slots);
+    expect(n >= 5 && almost_eq(slots[0], 0.5f), "slot fractions mid first");
+    // Latin narrower than CJK at same unit count ("AB" vs two CJK).
+    const float latin =
+        gis::vista::detail::estimate_run_width_px("AB", 20.f);
+    const char cjk[] = "\xe4\xb8\xad\xe5\x9b\xbd";  // 中国
+    const float wide = gis::vista::detail::estimate_run_width_px(cjk, 20.f);
+    expect(wide > latin * 1.4f, "CJK estimate wider than Latin");
+    gis::vista::detail::LabelBox upright;
+    upright.left = 0;
+    upright.top = 0;
+    upright.right = 40;
+    upright.bottom = 10;
+    upright.priority = 1;
+    const gis::vista::detail::LabelBox rot =
+        gis::vista::detail::rotate_label_box(upright, 90.f);
+    expect(rot.right - rot.left >= 10 && rot.bottom - rot.top >= 40,
+           "rotate_label_box aabb");
+  }
+
+  // Point blocker at line midpoint: road label still places via alternate slot.
+  {
+    gis::style::StyleDocument doc;
+    expect(parse_style(
+               "{"
+               "\"version\":8,\"layers\":["
+               "{\"id\":\"blocker\",\"type\":\"symbol\",\"source-layer\":\"poi\","
+               "\"layout\":{\"text-field\":\"{name}\",\"text-size\":20,"
+               "\"text-anchor\":\"center\"}},"
+               "{\"id\":\"road-label\",\"type\":\"symbol\",\"source-layer\":\"road\","
+               "\"layout\":{\"symbol-placement\":\"line\",\"text-field\":\"{name}\","
+               "\"text-size\":12,\"text-anchor\":\"center\"}}"
+               "]}",
+               &doc),
+           "along-line slot retry");
+    OGRPoint mid(5, 5);
+    LayerBatch pois;
+    pois.source_layer = "poi";
+    pois.geoms.push_back(&mid);
+    gis::style::AttrMap poi_attrs;
+    poi_attrs["name"] = "BLOCK";
+    poi_attrs["class"] = "title";
+    pois.attrs.push_back(poi_attrs);
+    OGRLineString line;
+    line.addPoint(0, 5);
+    line.addPoint(10, 5);
+    LayerBatch roads;
+    roads.source_layer = "road";
+    roads.geoms.push_back(&line);
+    gis::style::AttrMap road_attrs;
+    road_attrs["name"] = "Rd";
+    road_attrs["class"] = "title";
+    roads.attrs.push_back(road_attrs);
+    LayoutInput in;
+    in.view = square_view(400, 10);
+    in.style = &doc;
+    in.zoom = 12;
+    in.metrics = &metrics;
+    const gis::vista::MapFrame frame = layout.build(in, {pois, roads});
+    const int texts = count_kind(frame, DrawKind::kText);
+    // BLOCK=5 glyphs + Rd=2 glyphs when both survive; mid collision alone
+    // would keep only BLOCK (5). Slot retry must keep Rd as well.
+    expect(texts >= 7, "along-line slot retry");
+    bool saw_offset = false;
+    for (const auto& item : frame.items) {
+      if (item.kind == DrawKind::kText && item.codepoint == 'R') {
+        // Midpoint of 0..10 at zoom view is x=200; alternate slots leave mid.
+        if (std::fabs(item.anchor_x - 200.f) > 20.f) {
+          saw_offset = true;
+        }
+      }
+    }
+    expect(saw_offset, "along-line slot offset from mid");
+  }
+
+  // Along-line text shorter than path width is dropped (icon-less).
+  {
+    gis::style::StyleDocument doc;
+    expect(parse_style(
+               "{"
+               "\"version\":8,\"layers\":[{"
+               "\"id\":\"road-label\",\"type\":\"symbol\",\"source-layer\":\"road\","
+               "\"layout\":{\"symbol-placement\":\"line\",\"text-field\":\"{name}\","
+               "\"text-size\":40,\"text-anchor\":\"center\"}"
+               "}]}",
+               &doc),
+           "short path drops long label");
+    OGRLineString stub;
+    stub.addPoint(4.8, 5);
+    stub.addPoint(5.2, 5);
+    LayerBatch roads;
+    roads.source_layer = "road";
+    roads.geoms.push_back(&stub);
+    gis::style::AttrMap attrs;
+    attrs["name"] = "LONGLABEL";
+    attrs["class"] = "title";
+    roads.attrs.push_back(attrs);
+    LayoutInput in;
+    in.view = square_view(200, 10);
+    in.style = &doc;
+    in.zoom = 10;
+    in.metrics = &metrics;
+    const gis::vista::MapFrame frame = layout.build(in, {roads});
+    expect(count_kind(frame, DrawKind::kText) == 0, "short path drops long label");
+  }
+
+  // Icon+text union: both kinds emit when a single packed box is kept.
+  {
+    gis::style::StyleDocument doc;
+    expect(parse_style(
+               "{"
+               "\"version\":8,\"layers\":[{"
+               "\"id\":\"label\",\"type\":\"symbol\",\"source-layer\":\"label\","
+               "\"layout\":{\"text-field\":\"{name}\",\"text-size\":14,"
+               "\"text-anchor\":\"left\",\"icon-image\":\"pin\",\"icon-size\":1}"
+               "}]}",
+               &doc),
+           "icon+text packed box");
+    OGRPoint pt(5, 5);
+    LayerBatch labels;
+    labels.source_layer = "label";
+    labels.geoms.push_back(&pt);
+    gis::style::AttrMap attrs;
+    attrs["name"] = "P";
+    attrs["class"] = "title";
+    labels.attrs.push_back(attrs);
+    LayoutInput in;
+    in.view = square_view(400, 10);
+    in.style = &doc;
+    in.zoom = 10;
+    in.metrics = &metrics;
+    in.symbols.push_back(gis::vista::SymbolAsset{"pin", 24.f, 24.f});
+    const gis::vista::MapFrame frame = layout.build(in, {labels});
+    expect(count_kind(frame, DrawKind::kIcon) == 1 &&
+               count_kind(frame, DrawKind::kText) == 1,
+           "icon+text packed box");
   }
 
   // Style text-halo-width flows to DrawItem; omitted width uses carto halo_px.
@@ -508,14 +663,133 @@ int main() {
            "parallel line flattens MultiLineString parts");
   }
 
+  // Hillshade layer emits a raster underlay when host supplies tiles.
+  {
+    gis::style::StyleDocument doc;
+    expect(parse_style("{\"version\":8,\"layers\":["
+                       "{\"id\":\"shade\",\"type\":\"hillshade\",\"paint\":{}},"
+                       "{\"id\":\"land\",\"type\":\"fill\",\"source-layer\":"
+                       "\"land\",\"paint\":{\"fill-color\":\"#f5f3e9\"}}"
+                       "]}",
+                       &doc),
+           "hillshade style parses");
+    gis::vista::TileSlot hs;
+    hs.min_x = 0;
+    hs.min_y = 0;
+    hs.max_x = 20;
+    hs.max_y = 20;
+    hs.opacity = 0.7f;
+    hs.texture_key = 0x48534844u;
+    LayoutInput in;
+    in.view = square_view(200, 20);
+    in.style = &doc;
+    in.zoom = 8;
+    in.hillshade_tiles = {hs};
+    OGRPolygon land_poly;
+    OGRLinearRing* ring = new OGRLinearRing();
+    ring->addPoint(2, 2);
+    ring->addPoint(18, 2);
+    ring->addPoint(18, 18);
+    ring->addPoint(2, 18);
+    ring->addPoint(2, 2);
+    land_poly.addRingDirectly(ring);
+    LayerBatch land;
+    land.source_layer = "land";
+    land.geoms = {&land_poly};
+    const gis::vista::MapFrame frame = layout.build(in, {land});
+    expect(!frame.items.empty() && frame.items[0].kind == DrawKind::kRaster &&
+               frame.items[0].codepoint == 0x48534844u,
+           "hillshade underlay first");
+    expect(count_kind(frame, DrawKind::kFill) >= 1, "fill after hillshade");
+  }
+
+  // Fill-extrusion v1: prism walls + roof DrawItems for a zoom-matched layer.
+  {
+    gis::style::StyleDocument doc;
+    expect(parse_style("{\"version\":8,\"layers\":["
+                       "{\"id\":\"bldg\",\"type\":\"fill-extrusion\","
+                       "\"source-layer\":\"bldg\",\"paint\":{"
+                       "\"fill-extrusion-height\":2,"
+                       "\"fill-extrusion-base\":0,"
+                       "\"fill-extrusion-color\":\"#6688aa\","
+                       "\"fill-extrusion-opacity\":1}}]}",
+                       &doc),
+           "fill-extrusion style parses");
+    LayoutInput in;
+    in.view = square_view(200, 20);
+    in.style = &doc;
+    in.zoom = 14;
+    OGRPolygon bldg;
+    OGRLinearRing* ring = new OGRLinearRing();
+    ring->addPoint(4, 4);
+    ring->addPoint(8, 4);
+    ring->addPoint(8, 8);
+    ring->addPoint(4, 8);
+    ring->addPoint(4, 4);
+    bldg.addRingDirectly(ring);
+    LayerBatch batch;
+    batch.source_layer = "bldg";
+    batch.geoms = {&bldg};
+    const gis::vista::MapFrame frame = layout.build(in, {batch});
+    expect(count_kind(frame, DrawKind::kFill) >= 2,
+           "extrusion emits walls and roof");
+    bool saw_lifted = false;
+    for (const auto& item : frame.items) {
+      for (const auto& v : item.vertices) {
+        if (v.z > 1.5f) {
+          saw_lifted = true;
+        }
+      }
+    }
+    expect(saw_lifted, "extrusion roof has height z");
+  }
+
+  // Heatmap v1: Style constants → circle splat DrawItems (zoom-matched).
+  {
+    gis::style::StyleDocument doc;
+    expect(parse_style("{\"version\":8,\"layers\":["
+                       "{\"id\":\"heat\",\"type\":\"heatmap\","
+                       "\"source-layer\":\"heatmap\",\"minzoom\":5,"
+                       "\"paint\":{"
+                       "\"heatmap-radius\":10,"
+                       "\"heatmap-weight\":1,"
+                       "\"heatmap-intensity\":1,"
+                       "\"heatmap-color\":\"#ff6400\","
+                       "\"heatmap-opacity\":0.5}}]}",
+                       &doc),
+           "heatmap style parses");
+    LayoutInput in;
+    in.view = square_view(100, 10);
+    in.style = &doc;
+    in.zoom = 8;
+    OGRPoint a(3, 3);
+    OGRPoint b(7, 7);
+    LayerBatch batch;
+    batch.source_layer = "heatmap";
+    batch.geoms = {&a, &b};
+    const gis::vista::MapFrame frame = layout.build(in, {batch});
+    expect(count_kind(frame, DrawKind::kCircle) == 2,
+           "heatmap emits one splat per point");
+    expect(!frame.items.empty() && frame.items[0].rgba == 0xFFFF6400u &&
+               almost_eq(frame.items[0].opacity, 0.5f) &&
+               frame.items[0].vertices.size() > 4,
+           "heatmap splat color and opacity");
+
+    in.zoom = 3;
+    const gis::vista::MapFrame miss = layout.build(in, {batch});
+    expect(miss.items.empty(), "heatmap respects minzoom");
+  }
+
   // Embedded cartography document parses and keeps casing before fill.
   {
     gis::style::StyleDocument doc;
     const std::string json = gis::vista::default_carto_style_json();
     expect(parse_style(json, &doc), "default style JSON parses");
-    expect(doc.layers.size() == 10, "default style JSON parses");
+    expect(doc.layers.size() == 12, "default style layer count");
     int casing = -1;
     int fill = -1;
+    int hillshade = -1;
+    int heatmap = -1;
     for (int i = 0; i < static_cast<int>(doc.layers.size()); ++i) {
       if (doc.layers[static_cast<size_t>(i)].id == "road-casing") {
         casing = i;
@@ -523,25 +797,68 @@ int main() {
       if (doc.layers[static_cast<size_t>(i)].id == "road") {
         fill = i;
       }
+      if (doc.layers[static_cast<size_t>(i)].id == "hillshade") {
+        hillshade = i;
+      }
+      if (doc.layers[static_cast<size_t>(i)].id == "heatmap") {
+        heatmap = i;
+      }
     }
-    expect(casing >= 0 && fill > casing, "default style JSON parses");
-    expect(doc.layers.size() == 10 &&
-               doc.layers[0].type == gis::style::LayerType::kBackground &&
+    expect(casing >= 0 && fill > casing, "casing before road fill");
+    expect(hillshade > 0 && hillshade < casing,
+           "hillshade before roads");
+    expect(heatmap > hillshade && heatmap < casing,
+           "heatmap after hillshade before roads");
+    expect(doc.layers[static_cast<size_t>(hillshade)].type ==
+               gis::style::LayerType::kHillshade,
+           "hillshade layer type");
+    expect(doc.layers[static_cast<size_t>(heatmap)].type ==
+               gis::style::LayerType::kHeatmap,
+           "heatmap layer type");
+    // Product zoom_from_scale puts china overview near ~11; road minzoom 5
+    // matches MapLibre national band so dual-stroke casing paints.
+    expect(gis::style::layer_matches_zoom(doc.layers[static_cast<size_t>(casing)],
+                                           8.0),
+           "road-casing visible at national-equivalent zoom");
+    expect(gis::style::layer_matches_zoom(doc.layers[static_cast<size_t>(fill)],
+                                           8.0),
+           "road fill visible at national-equivalent zoom");
+    expect(gis::style::layer_matches_zoom(doc.layers[static_cast<size_t>(casing)],
+                                          12.0),
+           "road-casing matches regional zoom");
+    expect(gis::style::layer_matches_zoom(doc.layers[static_cast<size_t>(fill)],
+                                          12.0),
+           "road fill matches regional zoom");
+    {
+      const float casing_w = std::stof(
+          doc.layers[static_cast<size_t>(casing)].paint.at("line-width"));
+      const float fill_w = std::stof(
+          doc.layers[static_cast<size_t>(fill)].paint.at("line-width"));
+      expect(casing_w > fill_w, "casing wider than fill");
+    }
+    expect(doc.layers[0].type == gis::style::LayerType::kBackground &&
                doc.layers[1].type == gis::style::LayerType::kFill &&
-               doc.layers[3].type == gis::style::LayerType::kLine &&
-               doc.layers[8].id == "river-label" &&
-               doc.layers[8].layout.at("symbol-placement") == "line" &&
-               doc.layers[9].id == "road-label" &&
-               doc.layers[9].layout.at("symbol-placement") == "line",
-           "default style JSON parses");
+               doc.layers[5].type == gis::style::LayerType::kLine &&
+               doc.layers[10].id == "river-label" &&
+               doc.layers[10].layout.at("symbol-placement") == "line" &&
+               doc.layers[11].id == "road-label" &&
+               doc.layers[11].layout.at("symbol-placement") == "line",
+           "default style layer order");
     gis::style::ResolvedPaint paint;
-    gis::style::fill_resolved_paint(doc.layers[9], nullptr, {}, 10, &paint);
+    gis::style::fill_resolved_paint(doc.layers[11], nullptr, {}, 10, &paint);
     expect(paint.symbol_placement == "line" && almost_eq(paint.text_halo_width, 2.f) &&
                paint.text_halo_color == 0xffffffffu,
-           "default style JSON parses");
+           "road-label paint");
     gis::style::ResolvedPaint point_paint;
-    gis::style::fill_resolved_paint(doc.layers[7], nullptr, {}, 10, &point_paint);
-    expect(almost_eq(point_paint.text_halo_width, 3.f), "default style JSON parses");
+    gis::style::fill_resolved_paint(doc.layers[9], nullptr, {}, 10, &point_paint);
+    expect(almost_eq(point_paint.text_halo_width, 2.f),
+           "label text-halo-width");
+    gis::style::ResolvedPaint heat_paint;
+    gis::style::fill_resolved_paint(doc.layers[static_cast<size_t>(heatmap)],
+                                    nullptr, {}, 10, &heat_paint);
+    expect(heat_paint.type == gis::style::LayerType::kHeatmap &&
+               almost_eq(heat_paint.heatmap_radius, 24.f),
+           "default heatmap paint");
   }
 
   if (g_fails) {

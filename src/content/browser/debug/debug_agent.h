@@ -5,6 +5,7 @@
 #define CONTENT_BROWSER_DEBUG_DEBUG_AGENT_H_
 
 #include <atomic>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -28,6 +29,8 @@ struct DebugAgentHost {
   std::function<std::string(const std::string& path)> ui_capture_shell;
   // Prefer in-process CPython when set; else OOP spawn fallback.
   std::function<std::string(const std::string& code)> py_eval;
+  // Run Interact DSL / capability script (path UTF-8). Thin wrap only.
+  std::function<std::string(const std::string& path_utf8)> script_run;
 };
 
 // Opt-in loopback NDJSON debug agent (log / cmd / gis / sdbd / py).
@@ -52,6 +55,13 @@ class DebugAgent {
   // Process one console line (builtin :commands or py one-liner).
   std::string exec_line(const std::string& line);
 
+  // Semantic event ring for IL recording (record.enable / record.poll).
+  void set_record_enabled(bool on);
+  bool record_enabled() const { return record_enabled_.load(); }
+  void push_record_event(const std::string& kind, const std::string& fields_json);
+  // Returns JSON array body (no wrapping) of drained events; clears buffer.
+  std::string poll_record_events_json();
+
  private:
   void accept_loop();
   void serve_client(unsigned long long sock);
@@ -63,6 +73,7 @@ class DebugAgent {
   void clear_discovery_file();
   bool spawn_python_worker();
   std::string eval_python(const std::string& code);
+  DebugAgentHost copy_host() const;
 
   DebugAgentHost host_;
   std::atomic<bool> running_{false};
@@ -70,11 +81,16 @@ class DebugAgent {
   std::atomic<int> port_{0};
   unsigned long long listen_sock_ = 0;
   std::thread accept_thread_;
-  std::mutex mu_;
+  mutable std::mutex mu_;
   std::uint64_t log_sub_id_ = 0;
   // Connected python worker socket (optional).
   unsigned long long py_sock_ = 0;
   std::mutex py_mu_;
+
+  std::atomic<bool> record_enabled_{false};
+  std::mutex record_mu_;
+  std::vector<std::string> record_events_;
+  std::int64_t record_t0_ms_ = 0;
 };
 
 // Process-wide agent used by Views Console (created on first enable).
@@ -82,6 +98,10 @@ DebugAgent& debug_agent();
 
 // True when --debug-console, SG_DEBUG=1, or explicit start requested.
 bool debug_console_env_enabled();
+
+// Push a semantic event when recording is enabled (no-op otherwise).
+// |fields_json| is a JSON object fragment without kind, e.g. {"index":2}.
+void push_record_event(const std::string& kind, const std::string& fields_json);
 
 }  // namespace content
 

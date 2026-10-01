@@ -9,6 +9,9 @@
 #include <cstring>
 
 #include "app/views/shell/browser/browser.h"
+#include "app/views/shell/harness/common/maps.h"
+#include "app/views/shell/harness/common/mark.h"
+#include "app/views/shell/runtime/capability/run_script.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "content/public/map_types.h"
 #include "content/public/view_host.h"
@@ -38,7 +41,7 @@ void pump_ms(DWORD ms) {
 
 void mark(const char* step) {
   wchar_t path[MAX_PATH] = {};
-  if (!detail::exe_sidecar_path(path, MAX_PATH, L"input-self-test-mark.txt")) {
+  if (!detail::exe_capture_path(path, MAX_PATH, L"input-self-test-mark.txt")) {
     return;
   }
   static bool first = true;
@@ -81,8 +84,20 @@ bool expect_last_geom(gis::MemoryEditSession* mem, gis::FeatureGeom::Kind kind,
 }  // namespace
 
 int run_input_showcase(Browser& browser) {
+  // Prefer suite script when present (full migration path); else C++ body.
+  if (try_run_suite_script(browser, "input", detail::kInputShowcaseMarkLeaf)) {
+    detail::detach_maps(browser);
+    return 0;
+  }
+
+  // Always stop present timers + detach before return (ExitProcess heap race).
+  struct DetachOnExit {
+    Browser& browser;
+    ~DetachOnExit() { detail::detach_maps(browser); }
+  } detach_guard{browser};
+
   wchar_t mark_path[MAX_PATH] = {};
-  if (detail::exe_sidecar_path(mark_path, MAX_PATH,
+  if (detail::exe_capture_path(mark_path, MAX_PATH,
                                L"input-self-test-mark.txt")) {
     DeleteFileW(mark_path);
   }

@@ -1,52 +1,49 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #include "legacy/render/rhi3d/impl/gl/caps/device_caps.h"
 
 #include "legacy/render/rhi3d/impl/gl/host/render_device.h"
 
 namespace render {
+
 SmtGLDeviceCaps::SmtGLDeviceCaps(LP3DRENDERDEVICE p3DRenderDevice)
-    : Smt3DDeviceCaps(p3DRenderDevice) {
-  ;
-}
+    : Smt3DDeviceCaps(p3DRenderDevice) {}
+
+SmtGLDeviceCaps::~SmtGLDeviceCaps() = default;
 
 bool SmtGLDeviceCaps::IsVSyncSupported() {
-  return ((SmtGLRenderDevice*)m_p3DRenderDevice)
+  return static_cast<SmtGLRenderDevice*>(m_p3DRenderDevice)
       ->IsExtensionSupported("WGL_EXT_swap_control");
 }
 
 bool SmtGLDeviceCaps::IsAnisotropySupported() {
-  return ((SmtGLRenderDevice*)m_p3DRenderDevice)
+  return static_cast<SmtGLRenderDevice*>(m_p3DRenderDevice)
       ->IsExtensionSupported("GL_EXT_texture_filter_anisotropic");
 }
 
 bool SmtGLDeviceCaps::IsVBOSupported() {
-  return ((SmtGLRenderDevice*)m_p3DRenderDevice)
+  return static_cast<SmtGLRenderDevice*>(m_p3DRenderDevice)
       ->IsExtensionSupported("GL_ARB_vertex_buffer_object");
 }
 
-bool SmtGLDeviceCaps::IsMipMapsSupported() {
-  return false;
-  // return
-  // ((SmtGLRenderDevice*)m_p3DRenderDevice)->IsExtensionSupported("GL_SGIS_generate_mipmap");
-}
+bool SmtGLDeviceCaps::IsMipMapsSupported() { return false; }
 
 bool SmtGLDeviceCaps::IsFBOSupported() {
-  return ((SmtGLRenderDevice*)m_p3DRenderDevice)
+  return static_cast<SmtGLRenderDevice*>(m_p3DRenderDevice)
       ->IsExtensionSupported("EXT_framebuffer_object");
 }
 
 bool SmtGLDeviceCaps::IsGLSLSupported() {
-  return ((SmtGLRenderDevice*)m_p3DRenderDevice)
-             ->IsExtensionSupported("GL_ARB_shading_language_100") &&
-         ((SmtGLRenderDevice*)m_p3DRenderDevice)
-             ->IsExtensionSupported("GL_ARB_shader_objects") &&
-         ((SmtGLRenderDevice*)m_p3DRenderDevice)
-             ->IsExtensionSupported("GL_ARB_vertex_shader") &&
-         ((SmtGLRenderDevice*)m_p3DRenderDevice)
-             ->IsExtensionSupported("GL_ARB_fragment_shader");
+  auto* dev = static_cast<SmtGLRenderDevice*>(m_p3DRenderDevice);
+  return dev->IsExtensionSupported("GL_ARB_shading_language_100") &&
+         dev->IsExtensionSupported("GL_ARB_shader_objects") &&
+         dev->IsExtensionSupported("GL_ARB_vertex_shader") &&
+         dev->IsExtensionSupported("GL_ARB_fragment_shader");
 }
 
 bool SmtGLDeviceCaps::IsMultiTextureSupported() {
-  return ((SmtGLRenderDevice*)m_p3DRenderDevice)
+  return static_cast<SmtGLRenderDevice*>(m_p3DRenderDevice)
       ->IsExtensionSupported("ARB_multitexture");
 }
 
@@ -56,13 +53,10 @@ int SmtGLDeviceCaps::GetTextureSlotsCount() {
   return maxTextureUnits;
 }
 
-int SmtGLDeviceCaps::GetMaxColorAttachments() {
-  // return FBOFunctions->getMaxColorAttachments();
-  return -1;
-}
+int SmtGLDeviceCaps::GetMaxColorAttachments() { return -1; }
 
 float SmtGLDeviceCaps::GetMaxAnisotropy() {
-  float maxLevel = 0.0;
+  float maxLevel = 0.0f;
   glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxLevel);
   return maxLevel;
 }

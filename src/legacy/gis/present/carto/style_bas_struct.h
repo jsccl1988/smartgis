@@ -5,7 +5,7 @@
 #define GIS_PRESENT_CARTO_STYLE_BAS_STRUCT_H_
 
 namespace base {
-enum RenderBaseApi { RD_GDI, RD_GDIPLUS };
+enum RenderBaseApi { RD_GDI, RD_GDIPLUS, RD_SKIA };
 
 struct Viewport {
   float m_fVOX;
@@ -25,12 +25,12 @@ struct Windowport {
   Windowport() : m_fWOX(0), m_fWOY(0), m_fWHeight(0), m_fWWidth(0) {}
 };
 
-struct Smt2DRenderPra {
+struct Smt2DRenderOptions {
   bool bShowMBR;
   bool bShowPoint;
   long lPointRaduis;
 
-  Smt2DRenderPra() : bShowMBR(true), bShowPoint(true), lPointRaduis(2) { ; }
+  Smt2DRenderOptions() : bShowMBR(true), bShowPoint(true), lPointRaduis(2) { ; }
 };
 }  // namespace base
 

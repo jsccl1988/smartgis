@@ -39,9 +39,13 @@ static_assert(ORTHOGRID_SAVE_BOUDARY == plugin::kAmMsgOrthogridSaveBoundary);
 static_assert(ORTHOGRID_LOAD_BOUDARY == plugin::kAmMsgOrthogridLoadBoundary);
 
 extern "C" {
-int __declspec(dllexport) GetPluginVersion(void) { return 1; }
+int __declspec(dllexport) GetPluginVersion(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
+  return 1;
+}
 
 void __declspec(dllexport) StartPlugin(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
   g_pOrthogrid = new OrthogridPlugin();
   if (g_pOrthogrid) {
     g_pOrthogrid->Init();
@@ -49,6 +53,7 @@ void __declspec(dllexport) StartPlugin(void) {
 }
 
 void __declspec(dllexport) StopPlugin(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
   if (g_pOrthogrid) {
     g_pOrthogrid->Destroy();
   }

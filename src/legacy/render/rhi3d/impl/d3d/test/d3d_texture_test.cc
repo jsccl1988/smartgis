@@ -90,8 +90,24 @@ int main() {
   device->MatrixLoadIdentity();
   render::Vector3 eye(0, 0, 5), center(0, 0, 0), up(0, 1, 0);
   device->SetViewLookAt(eye, center, up);
-  render::SmtFrustum frustum;
+  render::Frustum frustum;
   expect(device->GetFrustum(frustum) == SMT_ERR_NONE, "GetFrustum");
+
+  // P3 deferred context: begin → bind workers → finish (empty lists OK).
+  auto* d3d = dynamic_cast<render::SmtD3DRenderDevice*>(device);
+  expect(d3d != nullptr, "dynamic_cast D3D device");
+  if (d3d) {
+    const long begin_rc = d3d->begin_deferred_draw(2);
+    if (begin_rc == SMT_ERR_NONE) {
+      expect(d3d->bind_deferred_worker(0) == SMT_ERR_NONE, "bind slot0");
+      expect(d3d->bind_deferred_worker(1) == SMT_ERR_NONE, "bind slot1");
+      expect(d3d->bind_deferred_worker(-1) == SMT_ERR_NONE, "unbind");
+      expect(d3d->finish_deferred_draw() == SMT_ERR_NONE, "finish_deferred");
+    } else {
+      // Env SMT_RHI3D_D3D_DEFERRED=0 or CreateDeferredContext unsupported.
+      expect(true, "deferred skipped");
+    }
+  }
 
   // Indexed draw of a textured unit triangle must not crash.
   render::SmtVertexBuffer* vb = device->CreateVertexBuffer(

@@ -8,7 +8,7 @@
 
 #include <Eigen/Geometry>
 
-namespace render {
+namespace base {
 
 // Unit quaternion for orientation. Stored as (x,y,z,w) with Eigen (w,x,y,z).
 class Quat {
@@ -122,6 +122,10 @@ inline Quat Vector3::operator*(const Quat& q) const {
               q.w * z + q.y * x - q.x * y, -(q.x * x + q.y * y + q.z * z));
 }
 
+}  // namespace base
+
+namespace render {
+using ::base::Quat;
 }  // namespace render
 
 #endif  // SMT_RENDER_MATH_QUAT_H_

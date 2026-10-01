@@ -7,7 +7,6 @@
 #include "ui/ui_export.h"
 #include <cstdint>
 
-
 namespace ui {
 namespace gfx {
 
@@ -23,7 +22,14 @@ struct PaintCounters {
   // BeginFrame (DWM/vblank) → present latency gate (Debug accumulates).
   std::uint64_t begin_frame_qpc = 0;
   std::uint64_t begin_frame_to_present_qpc = 0;
+  // Shell-only BeginFrame → shell present (U5); separate from map present.
+  std::uint64_t begin_frame_to_shell_present_qpc = 0;
   std::uint64_t begin_frame_count = 0;
+  // Scenario gates for shell perf waves (hover / table scroll / map overlay).
+  std::uint64_t hover_commit_qpc = 0;
+  std::uint64_t table_scroll_qpc = 0;
+  std::uint64_t overlay_copy_bytes = 0;
+  std::uint64_t overlay_commit_qpc = 0;
   std::uint64_t commit_count = 0;
   std::uint64_t activate_count = 0;
   std::uint64_t paint_pixels = 0;
@@ -47,6 +53,11 @@ UI_EXPORT void note_present_qpc(std::uint64_t ticks);
 // Records a BeginFrame tick (QPC timestamp) and optional present latency.
 UI_EXPORT void note_begin_frame_qpc(std::uint64_t qpc_ticks);
 UI_EXPORT void note_begin_frame_to_present_qpc(std::uint64_t ticks);
+UI_EXPORT void note_begin_frame_to_shell_present_qpc(std::uint64_t ticks);
+UI_EXPORT void note_hover_commit_qpc(std::uint64_t ticks);
+UI_EXPORT void note_table_scroll_qpc(std::uint64_t ticks);
+UI_EXPORT void note_overlay_copy_bytes(std::uint64_t bytes);
+UI_EXPORT void note_overlay_commit_qpc(std::uint64_t ticks);
 UI_EXPORT void note_commit();
 UI_EXPORT void note_activate();
 UI_EXPORT void note_paint_area(std::uint64_t pixels, std::uint64_t rcpaint);

@@ -8,12 +8,11 @@
 #include "legacy/plugin/runtime/bridge/cmd.h"
 #include "legacy/plugin/product/model3d/shell/model_3d_creater.h"
 #include "legacy/plugin/runtime/auxmodule/plugin_msg.h"
-#include "legacy/render/scene3d/feature/2dgeoobject.h"
-#include "legacy/render/scene3d/feature/3dgeoobject.h"
-#include "legacy/render/scene3d/primitive/sphere.h"
-#include "legacy/render/scene3d/primitive/water.h"
-#include "legacy/render/scene3d/surface/pointcloud.h"
-#include "legacy/render/scene3d/surface/terrain.h"
+#include "legacy/render/scene3d/primitive/feature/geo_object.h"
+#include "legacy/render/scene3d/primitive/mesh/sphere.h"
+#include "legacy/render/scene3d/primitive/mesh/water.h"
+#include "legacy/render/scene3d/primitive/surface/pointcloud.h"
+#include "legacy/render/scene3d/primitive/surface/terrain.h"
 #include "legacy/sys/sysmanager.h"
 #include "legacy/tool/defs.h"
 #include "legacy/tool/abi/t_iatoolmanager.h"
@@ -21,8 +20,8 @@
 #include "legacy/ui/dialogs/dialogs_api.h"
 #include "legacy/ui/catalog/mapmgr.h"
 #include "legacy/ui/catalog/scenemgr.h"
-#include "plugin/product/dem/processing/grid_loader.h"
-#include "plugin/product/dem/processing/tin_loader.h"
+#include "plugin/product/world3d/processing/grid_loader.h"
+#include "plugin/product/world3d/processing/tin_loader.h"
 
 using namespace render;
 using namespace gis;
@@ -51,9 +50,13 @@ static_assert(SMT_MSG_3DMODELCREATER_2 == plugin::kAmMsgModel3dSphere);
 static_assert(SMT_MSG_3DMODELCREATER_9 == plugin::kAmMsgModel3dLayerPolygons);
 
 extern "C" {
-int __declspec(dllexport) GetPluginVersion(void) { return 1; }
+int __declspec(dllexport) GetPluginVersion(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
+  return 1;
+}
 
 void __declspec(dllexport) StartPlugin(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
   g_p3DModelCreaterPlugin = new Smt3DModelCreaterPlugin();
 
   if (g_p3DModelCreaterPlugin) {
@@ -62,6 +65,7 @@ void __declspec(dllexport) StartPlugin(void) {
 }
 
 void __declspec(dllexport) StopPlugin(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
   if (g_p3DModelCreaterPlugin) {
     g_p3DModelCreaterPlugin->Destroy();
   }
@@ -354,7 +358,7 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
 
       SmtVectorLayer *pVLayer = (SmtVectorLayer *)pLayer;
       if (pVLayer && leftover_layer_feature_type(pVLayer) == SmtFtDot) {
-        Smt2DGeoObject *p2DGeoObj = new Smt2DGeoObject();
+        SmtGeoObject *p2DGeoObj = new SmtGeoObject();
 
         if (pVLayer->GetFeatureCount() == 1) {
           pVLayer->ResetReading();
@@ -403,7 +407,7 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
         pVLayer->ResetReading();
         while (OGRFeature *pFea = pVLayer->GetNextFeature()) {
           if (OGRGeometry *pGeom = pFea->GetGeometryRef()) {
-            Smt2DGeoObject *p2DGeoObj = new Smt2DGeoObject();
+            SmtGeoObject *p2DGeoObj = new SmtGeoObject();
 
             p2DGeoObj->SetGeometry(pGeom);
 
@@ -438,7 +442,7 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
         pVLayer->ResetReading();
         while (OGRFeature *pFea = pVLayer->GetNextFeature()) {
           if (OGRGeometry *pGeom = pFea->GetGeometryRef()) {
-            Smt2DGeoObject *p2DGeoObj = new Smt2DGeoObject();
+            SmtGeoObject *p2DGeoObj = new SmtGeoObject();
 
             p2DGeoObj->SetGeometry(pGeom);
 

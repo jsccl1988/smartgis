@@ -9,9 +9,17 @@ Windows **D3D11** implementation of leftover `Smt3DRenderDevice`, parallel to `r
 
 Living spec: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../../../../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md) §D3D leftover capability · Plan: [`docs/superpowers/plans/2026-09-29-d3d-leftover-capability.md`](../../../../../../docs/superpowers/plans/2026-09-29-d3d-leftover-capability.md).
 
-## Present strangler
+## FrameJob (leftover parallel P1)
 
-`SmtD3DRenderDevice::Init(HWND)` may call `render::bind_rhi_present(hWnd)` for process-wide **Null** recording only. **This HWND’s present is owned by D3D11 `IDXGISwapChain::Present`** — do **not** create FlyCube here.
+Stereo HWND present can run on a serial FrameJob worker (`Rhi3dFrameScheduler` under `rhi3d/impl/common/frame/`). Default **on**; set `SMT_RHI3D_FRAME_JOB=0` for sync present on the caller thread. `smt_stereo_hwnd_present` returns after submit; `capture` / `blit` wait for publish. Destroy never joins the worker. Living §: **§rhi3d leftover parallel frame**.
+
+**P2 CPU prep:** `Rhi3dPrepRunner` (`SMT_RHI3D_PREP_PARALLEL=0` → N=1; else clamp 2–4) parallelizes AABB-in-frustum before serial draw. Workers must not call GL/D3D.
+
+**P3 deferred (D3D only):** `SMT_RHI3D_D3D_DEFERRED` default **on** (`=0` serial). `CreateDeferredContext` per worker; TLS `active_context` / per-slot mesh CB; scene/octree partition visible objects → FinishCommandList → Execute on immediate. GL ignores this env.
+
+## Present
+
+`SmtD3DRenderDevice::Init(HWND)` owns D3D11 `IDXGISwapChain::Present` on that HWND. Do **not** create FlyCube on this HWND. The former `bind_rhi_present` / leftover_session strangler was removed.
 
 ## Factory (ABI unchanged)
 

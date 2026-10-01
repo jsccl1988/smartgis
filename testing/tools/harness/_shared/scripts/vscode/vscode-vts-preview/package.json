@@ -1,0 +1,50 @@
+{
+  "name": "vts-preview",
+  "displayName": "SmartGIS VTS Preview",
+  "description": "Preview SmartGIS orthogrid3d VTK StructuredGrid (*.vts) with Three.js in a webview.",
+  "version": "0.1.0",
+  "publisher": "mogu",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:smartgis.vtsPreview.open",
+    "onCustomEditor:smartgis.vtsPreview"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "smartgis.vtsPreview.open",
+        "title": "SmartGIS: Preview VTS"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "when": "resourceExtname == .vts",
+          "command": "smartgis.vtsPreview.open",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "when": "resourceExtname == .vts",
+          "command": "smartgis.vtsPreview.open",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "when": "resourceExtname == .vts",
+          "command": "smartgis.vtsPreview.open",
+          "group": "navigation"
+        }
+      ]
+    }
+  }
+}

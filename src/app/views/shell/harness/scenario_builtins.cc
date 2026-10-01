@@ -9,8 +9,10 @@
 #include "app/views/shell/harness/common/mark.h"
 #include "app/views/shell/harness/self_test/self_test.h"
 #include "app/views/shell/harness/showcase/atmosphere/atmosphere_showcase.h"
+#include "app/views/shell/harness/showcase/browse/browse_showcase.h"
 #include "app/views/shell/harness/showcase/input/input_showcase.h"
 #include "app/views/shell/harness/showcase/map2d/map2d_showcase.h"
+#include "app/views/shell/harness/showcase/plugin/plugin_showcase.h"
 #include "app/views/shell/harness/showcase/ui/ui_showcase.h"
 
 namespace app {
@@ -48,6 +50,42 @@ int run_map2d_orthogrid(Browser& browser) {
   return run_map2d_showcase(browser, Map2dShowcaseMode::kOrthogrid);
 }
 
+int run_plugin_world3d(Browser& browser) {
+  return run_plugin_showcase(browser, PluginShowcaseMode::kWorld3d);
+}
+
+int run_plugin_print(Browser& browser) {
+  return run_plugin_showcase(browser, PluginShowcaseMode::kPrint);
+}
+
+int run_plugin_orthogrid(Browser& browser) {
+  return run_plugin_showcase(browser, PluginShowcaseMode::kOrthogrid);
+}
+
+int run_plugin_orthogrid3d(Browser& browser) {
+  return run_plugin_showcase(browser, PluginShowcaseMode::kOrthogrid3d);
+}
+
+int run_plugin_traffic(Browser& browser) {
+  return run_plugin_showcase(browser, PluginShowcaseMode::kTraffic);
+}
+
+int run_plugin_flood(Browser& browser) {
+  return run_plugin_showcase(browser, PluginShowcaseMode::kFlood);
+}
+
+int run_plugin_stormsurge(Browser& browser) {
+  return run_plugin_showcase(browser, PluginShowcaseMode::kStormSurge);
+}
+
+int run_plugin_mine(Browser& browser) {
+  return run_plugin_showcase(browser, PluginShowcaseMode::kMine);
+}
+
+int run_plugin_geochem(Browser& browser) {
+  return run_plugin_showcase(browser, PluginShowcaseMode::kGeochem);
+}
+
 int run_atmosphere_land(Browser& browser) {
   return run_atmosphere_showcase(browser, AtmosphereShowcaseMode::kLand);
 }
@@ -64,14 +102,30 @@ int run_atmosphere_coast(Browser& browser) {
   return run_atmosphere_showcase(browser, AtmosphereShowcaseMode::kCoast);
 }
 
+int run_atmosphere_legacy(Browser& browser) {
+  return run_atmosphere_showcase(browser, AtmosphereShowcaseMode::kLegacy);
+}
+
 }  // namespace
 
 void ensure_builtin_scenarios() {
   static std::once_flag once;
   std::call_once(once, [] {
-    // Ids align with testing/tools/suites/*.json where a suite exists.
+    // Ids align with testing/tools/harness/<family>/<suite_id>/suite.json where a suite exists.
     register_scenario(Scenario{
         "browse",
+        ScenarioKind::kShowcase,
+        detail::kSelfTestMarkLeaf,
+        &run_browse_showcase,
+    });
+    register_scenario(Scenario{
+        "browse.3d",
+        ScenarioKind::kShowcase,
+        detail::kSelfTestMarkLeaf,
+        &run_browse_showcase,
+    });
+    register_scenario(Scenario{
+        "self_test",
         ScenarioKind::kSelfTest,
         detail::kSelfTestMarkLeaf,
         &run_views_self_test,
@@ -79,7 +133,7 @@ void ensure_builtin_scenarios() {
     register_scenario(Scenario{
         "console",
         ScenarioKind::kSelfTest,
-        nullptr,
+        detail::kSelfTestMarkLeaf,
         &run_views_console_self_test,
     });
     register_scenario(Scenario{
@@ -137,6 +191,60 @@ void ensure_builtin_scenarios() {
         &run_map2d_orthogrid,
     });
     register_scenario(Scenario{
+        "plugin.world3d",
+        ScenarioKind::kShowcase,
+        detail::kPluginShowcaseMarkLeaf,
+        &run_plugin_world3d,
+    });
+    register_scenario(Scenario{
+        "plugin.print",
+        ScenarioKind::kShowcase,
+        detail::kPluginShowcaseMarkLeaf,
+        &run_plugin_print,
+    });
+    register_scenario(Scenario{
+        "plugin.orthogrid",
+        ScenarioKind::kShowcase,
+        detail::kPluginShowcaseMarkLeaf,
+        &run_plugin_orthogrid,
+    });
+    register_scenario(Scenario{
+        "plugin.orthogrid3d",
+        ScenarioKind::kShowcase,
+        detail::kPluginShowcaseMarkLeaf,
+        &run_plugin_orthogrid3d,
+    });
+    register_scenario(Scenario{
+        "plugin.traffic",
+        ScenarioKind::kShowcase,
+        detail::kPluginShowcaseMarkLeaf,
+        &run_plugin_traffic,
+    });
+    register_scenario(Scenario{
+        "plugin.flood",
+        ScenarioKind::kShowcase,
+        detail::kPluginShowcaseMarkLeaf,
+        &run_plugin_flood,
+    });
+    register_scenario(Scenario{
+        "plugin.stormsurge",
+        ScenarioKind::kShowcase,
+        detail::kPluginShowcaseMarkLeaf,
+        &run_plugin_stormsurge,
+    });
+    register_scenario(Scenario{
+        "plugin.mine",
+        ScenarioKind::kShowcase,
+        detail::kPluginShowcaseMarkLeaf,
+        &run_plugin_mine,
+    });
+    register_scenario(Scenario{
+        "plugin.geochem",
+        ScenarioKind::kShowcase,
+        detail::kPluginShowcaseMarkLeaf,
+        &run_plugin_geochem,
+    });
+    register_scenario(Scenario{
         "atmosphere.land",
         ScenarioKind::kShowcase,
         detail::kAtmosphereShowcaseMarkLeaf,
@@ -159,6 +267,12 @@ void ensure_builtin_scenarios() {
         ScenarioKind::kShowcase,
         detail::kAtmosphereShowcaseMarkLeaf,
         &run_atmosphere_coast,
+    });
+    register_scenario(Scenario{
+        "atmosphere.legacy",
+        ScenarioKind::kShowcase,
+        detail::kAtmosphereShowcaseMarkLeaf,
+        &run_atmosphere_legacy,
     });
   });
 }

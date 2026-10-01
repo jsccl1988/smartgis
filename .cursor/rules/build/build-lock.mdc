@@ -1,0 +1,79 @@
+---
+description: Optional per-config compile locks (default OFF); fair tickets when enabled
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Build lock (multi-conversation)
+
+**Default: compile lock is OFF** (direct `build.bat`, no queue). Turn **on** only when multiple agents share `out/Debug|Release`.
+
+## Global on/off
+
+| Switch | Effect |
+| --- | --- |
+| *(default)* | **Off** |
+| `out/.build.lock.on` | **On for everyone** until deleted |
+| `SMARTGIS_BUILD_LOCK=1` / `on` / `true` / `yes` | On for this process |
+| `SMARTGIS_BUILD_LOCK=0` / `off` / `false` / `no` | Force **off** (overrides sentinel) |
+
+When **off**: no ticket queue, no mutex, no multi-target split — one direct `build.bat` (`PHASE=all`). Bare `gn`/`ninja` allowed.
+
+```bat
+REM enable globally (multi-agent)
+echo. > out\.build.lock.on
+
+REM back to default off
+del out\.build.lock.on
+
+REM one-shot enable
+set SMARTGIS_BUILD_LOCK=1
+build.bat debug SmartGisViews
+```
+
+## Scopes (only when lock is on)
+
+| Lock file | Covers |
+| --- | --- |
+| `out/.build.lock.debug` | `gn` / `ninja -C out/Debug` |
+| `out/.build.lock.release` | `gn` / `ninja -C out/Release` |
+| `out/.build.lock.shared` | `build.bat t` (third_party install); blocks both configs |
+| `out/.build.lock` | Summary of current holders (not the mutex) |
+
+`shared` conflicts with debug **and** release. Debug does **not** conflict with release.
+
+## Scheduling (lock on)
+
+- Repo-root **`build.bat`** → `build/config/win/with_build_lock.ps1`.
+- **Fair ticket queue** under `out/.build.waiters/` (FIFO per scope; dead-PID waiters pruned).
+- **Multi-target** args → one lock cycle **per target**; same ticket keeps priority.
+- Aliases (`te` / `e2e` / `m` / `a` / …) are **not** split.
+- Bare (no `debug`/`release`) → sequential debug then release.
+- **`te` / `e2e` runners run after compile locks are released**.
+- Stamp: `out/.build.last_ok`. Exit **3** = busy / wait timeout.
+
+## Env
+
+| Variable | Role |
+| --- | --- |
+| `SMARTGIS_BUILD_LOCK` | `1/on` enable; `0/off` force disable; unset → off unless `out/.build.lock.on` |
+| `SMARTGIS_BUILD_LOCK_WAIT_SEC` | Max wait seconds (default **1800**). **0** = fail immediately if busy |
+| `SMARTGIS_BUILD_OWNER` | Label when lock is on (set this) |
+| `SMARTGIS_BUILD_LOCK_HELD` / `SMARTGIS_BUILD_PHASE` | Internal — do not set by hand |
+
+## Agent rules
+
+- **Do** prefer **`build.bat debug <single_target>`**.
+- **Do** create **`out/.build.lock.on`** when several agents will compile at once; delete when done.
+- **Don’t** invent per-agent out dirs.
+- **Don’t** use Task from chat A to “resume” Agents tab B; resume in that tab with `继续`.
+
+## Parallelism model
+
+- **Lock off (default):** no serialize; avoid clobbering `out/` yourself if multi-agent.
+- **Lock on — Parallel:** edits, `--no-build` tests, post-compile `te`/`e2e`, `debug` ∥ `release`.
+- **Lock on — Serial (same scope):** gn/ninja on that config; `t` vs any config compile.

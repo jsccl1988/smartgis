@@ -89,7 +89,7 @@ int main() {
   device->MatrixLoadIdentity();
   render::Vector3 eye(0, 0, 5), center(0, 0, 0), up(0, 1, 0);
   device->SetViewLookAt(eye, center, up);
-  render::SmtFrustum frustum;
+  render::Frustum frustum;
   expect(device->GetFrustum(frustum) == SMT_ERR_NONE, "GetFrustum");
 
   // Indexed draw of a textured unit triangle must not crash.

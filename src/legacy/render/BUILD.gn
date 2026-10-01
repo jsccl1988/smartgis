@@ -3,16 +3,30 @@
 
 import("//build/smartgis.gni")
 
-# Optional leftover render engines ? one DLL (dll_stem = legacy_render).
-# Not in //src:src_all. Opt-in: ninja -C out legacy_render / legacy_render_all
+# Optional leftover render engines — host + per-backend DLLs.
+# Not in //src:src_all. Opt-in: ninja -C out legacy_render_all
+#
+#   legacy_render          — scene3d / rhi3d host / SmtRenderer loader
+#   legacy_rhi2d_gdi       — SmtGdiRenderDevice (CreateRenderDevice)
+#   legacy_rhi2d_gdiplus   — SmtGdiPlusRenderDevice (LoadLibrary by chAPI)
+#   legacy_rhi2d_skia      — SmtSkiaRenderDevice (GDI+ bootstrap sans pin)
+#   legacy_render_gl       — OpenGL SmtGLRenderDevice (Create3DRenderDevice)
+#   legacy_render_d3d      — D3D11 SmtD3DRenderDevice (CreateD3DRenderDevice)
 
-# Every TU in this DLL must see dllexport for sibling leftovers (avoids
+# Every TU in the host DLL must see dllexport for sibling leftovers (avoids
 # dllimport of locally-defined symbols when headers cross module lines).
 # Do not define RENDER_EXPORTS here — that macro belongs to //src/render
-# (render_d.dll / render_export.h). Sharing it made GpuScene inlines
-# dllexport into leftover_session.obj and LNK2005 against render_d.dll.lib.
+# (render_d.dll / render_export.h). Do not reuse RENDER_EXPORTS here.
 config("legacy_render_exports") {
   defines = [ "LEGACY_RENDER_EXPORTS" ]
+}
+
+config("legacy_render_gl_exports") {
+  defines = [ "LEGACY_RENDER_GL_EXPORTS" ]
+}
+
+config("legacy_render_d3d_exports") {
+  defines = [ "LEGACY_RENDER_D3D_EXPORTS" ]
 }
 
 smt_shared_library("legacy_render") {
@@ -20,13 +34,11 @@ smt_shared_library("legacy_render") {
   defines = [ "LEGACY_RENDER_EXPORTS" ]
   deps = [
     "//src/legacy/render/rhi2d:rhi2d_sources",
-    "//src/legacy/render/rhi2d/impl/gdi:render_gdi_sources",
+    "//src/legacy/render/rhi2d/impl/common:gdi_common_sources",
     "//src/legacy/render/rhi3d:rhi_sources",
-    "//src/legacy/render/rhi3d/impl/d3d:d3d_sources",
-    "//src/legacy/render/rhi3d/impl/gl:gl_sources",
     "//src/legacy/render/scene3d:scene3d_sources",
-    # RHI Device/CommandList (render_d.dll). GpuScene is caller-linked from
-    # //src/effect/scene:scene_sources via leftover_record, not this DLL.
+    # RHI Device/CommandList (render_d.dll) for leftover hosts that still
+    # touch modern façade headers; GpuScene is not linked into this DLL.
     "//src/render:render",
   ]
   public_deps = [
@@ -36,16 +48,63 @@ smt_shared_library("legacy_render") {
     # Public RHI headers inline SmtTexture::Load, which includes ximage.h.
     "//third_party:CxImage",
   ]
+}
+
+smt_shared_library("legacy_rhi2d_gdi") {
+  dll_stem = "legacy_rhi2d_gdi"
+  defines = [ "LEGACY_RHI2D_DEVICE_EXPORTS" ]
+  deps = [
+    ":legacy_render",
+    "//src/legacy/render/rhi2d/impl/common:rhi2d_gdi_backend_sources",
+  ]
+}
+
+smt_shared_library("legacy_rhi2d_gdiplus") {
+  dll_stem = "legacy_rhi2d_gdiplus"
+  defines = [ "LEGACY_RHI2D_DEVICE_EXPORTS" ]
+  deps = [
+    ":legacy_render",
+    "//src/legacy/render/rhi2d/impl/common:rhi2d_gdiplus_backend_sources",
+  ]
+}
+
+smt_shared_library("legacy_rhi2d_skia") {
+  dll_stem = "legacy_rhi2d_skia"
+  defines = [ "LEGACY_RHI2D_DEVICE_EXPORTS" ]
+  deps = [
+    ":legacy_render",
+    "//src/legacy/render/rhi2d/impl/common:rhi2d_skia_backend_sources",
+  ]
+}
+
+smt_shared_library("legacy_render_gl") {
+  dll_stem = "legacy_render_gl"
+  defines = [ "LEGACY_RENDER_GL_EXPORTS" ]
+  deps = [
+    ":legacy_render",
+    "//src/legacy/render/rhi3d/impl/gl:gl_sources",
+  ]
   libs = [
     "opengl32.lib",
     "glu32.lib",
+  ]
+}
+
+smt_shared_library("legacy_render_d3d") {
+  dll_stem = "legacy_render_d3d"
+  defines = [ "LEGACY_RENDER_D3D_EXPORTS" ]
+  deps = [
+    ":legacy_render",
+    "//src/legacy/render/rhi3d/impl/d3d:d3d_sources",
+  ]
+  libs = [
     "d3d11.lib",
     "dxgi.lib",
     "d3dcompiler.lib",
   ]
   # D3D leftover DrawIndexed runtime-links D3DCOMPILER_47.dll; ship it next to
-  # the exe so LoadLibrary(legacy_render) does not fail with STATUS_DLL_NOT_FOUND
-  # when System32 is not on the search path for the launcher.
+  # the exe so LoadLibrary(legacy_render_d3d) does not fail with
+  # STATUS_DLL_NOT_FOUND when System32 is not on the launcher search path.
   data_deps = [ ":d3dcompiler_runtime_dll" ]
 }
 
@@ -58,5 +117,12 @@ copy("d3dcompiler_runtime_dll") {
 }
 
 group("legacy_render_all") {
-  public_deps = [ ":legacy_render" ]
+  public_deps = [
+    ":legacy_render",
+    ":legacy_rhi2d_gdi",
+    ":legacy_rhi2d_gdiplus",
+    ":legacy_rhi2d_skia",
+    ":legacy_render_gl",
+    ":legacy_render_d3d",
+  ]
 }

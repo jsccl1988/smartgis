@@ -8,6 +8,7 @@
 
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/raster/paint_stats.h"
+#include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
 
@@ -16,9 +17,11 @@ namespace views {
 
 namespace {
 
-constexpr int kRowH = 28;
-constexpr int kCheckSize = 16;
-constexpr int kCheckPad = 6;
+// DIPs — match TreeView: fixed px rows clip the 20 DIP shell font at high DPI.
+constexpr int kRowHeightDip = 28;
+constexpr int kCheckSizeDip = 16;
+constexpr int kCheckPadDip = 6;
+constexpr int kLabelGapDip = 8;
 
 }  // namespace
 
@@ -27,7 +30,7 @@ class LayerTree::LayerRow : public View {
  public:
   LayerRow(std::string id, std::string name, bool visible)
       : id_(std::move(id)), name_(std::move(name)), visible_(visible) {
-    set_preferred_size({200, kRowH});
+    set_preferred_size({200, kRowHeightDip});
     set_focusable(true);
   }
 
@@ -53,10 +56,16 @@ class LayerTree::LayerRow : public View {
   void toggle_visible() { set_layer_visible(!visible_); }
 
   bool hit_checkbox(int x, int y) const {
+    if (!owner_) {
+      return false;
+    }
     const Rect& b = bounds();
-    const int cx = b.x + kCheckPad;
-    const int cy = b.y + (kRowH - kCheckSize) / 2;
-    return x >= cx && x < cx + kCheckSize && y >= cy && y < cy + kCheckSize;
+    const int check = owner_->check_size();
+    const int pad = owner_->check_pad();
+    const int row_h = owner_->row_height();
+    const int cx = b.x + pad;
+    const int cy = b.y + (row_h - check) / 2;
+    return x >= cx && x < cx + check && y >= cy && y < cy + check;
   }
 
   void set_owner(LayerTree* owner) { owner_ = owner; }
@@ -75,26 +84,34 @@ class LayerTree::LayerRow : public View {
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override {
-    if (!canvas) {
+    if (!canvas || !owner_) {
       return;
     }
     const Theme& t = Theme::current();
     const Rect& b = bounds();
+    const int row_h = owner_->row_height();
+    const int check = owner_->check_size();
+    const int pad = owner_->check_pad();
+    const float scale = owner_->scale_factor();
+    // Always paint a row plate so labels stay readable on dark chrome.
     if (selected_) {
       canvas->fill_rect(b.x, b.y, b.width, b.height,
                         ui::gfx::color_rgb(0, 90, 158));
     } else if (is_hovered() || is_pressed()) {
       canvas->fill_rect(b.x, b.y, b.width, b.height, t.control_hover);
+    } else {
+      canvas->fill_rect(b.x, b.y, b.width, b.height, t.control_fill);
     }
-    const int cy = b.y + (kRowH - kCheckSize) / 2;
-    canvas->fill_rect(b.x + kCheckPad, cy, kCheckSize, kCheckSize,
+    const int cy = b.y + (row_h - check) / 2;
+    canvas->fill_rect(b.x + pad, cy, check, check,
                       visible_ ? t.accent : t.control_unchecked);
     if (is_focused()) {
-      draw_focus_ring(canvas, {b.x + kCheckPad, cy, kCheckSize, kCheckSize});
+      draw_focus_ring(canvas, {b.x + pad, cy, check, check});
     }
     const std::wstring w = utf8_to_wide(name_);
-    canvas->draw_text(b.x + kCheckPad + kCheckSize + 8, b.y + 6, w.c_str(),
-                      t.text_bright);
+    const int text_x = b.x + pad + check + dip_to_px(kLabelGapDip, scale);
+    const int text_y = b.y + dip_to_px(4, scale);
+    canvas->draw_text(text_x, text_y, w.c_str(), t.text_bright);
   }
 
  private:
@@ -110,6 +127,31 @@ LayerTree::LayerTree() {
 }
 
 LayerTree::~LayerTree() = default;
+
+float LayerTree::scale_factor() const {
+  if (widget()) {
+    return widget()->device_scale_factor();
+  }
+  return 1.f;
+}
+
+int LayerTree::row_height() const {
+  return dip_to_px(kRowHeightDip, scale_factor());
+}
+
+int LayerTree::check_size() const {
+  return dip_to_px(kCheckSizeDip, scale_factor());
+}
+
+int LayerTree::check_pad() const {
+  return dip_to_px(kCheckPadDip, scale_factor());
+}
+
+void LayerTree::on_device_scale_factor_changed(float old_scale, float new_scale) {
+  View::on_device_scale_factor_changed(old_scale, new_scale);
+  layout();
+  schedule_paint();
+}
 
 void LayerTree::clear() {
   for (size_t i = 0; i < child_count(); ++i) {
@@ -335,19 +377,21 @@ void LayerTree::layout() {
   ui::gfx::note_layout();
   LayoutScope scope(this);
   const Rect& b = bounds();
+  const int row_h = row_height();
   int y = b.y;
   for (LayerRow* row : rows_) {
     if (!row) {
       continue;
     }
     // Keep rows inside the pane (layout_check / no paint overflow).
-    if (y + kRowH > b.bottom()) {
+    if (y + row_h > b.bottom()) {
       row->set_visible(false);
       continue;
     }
     row->set_visible(true);
-    row->set_bounds({b.x, y, b.width, kRowH});
-    y += kRowH;
+    row->set_preferred_size({b.width, row_h});
+    row->set_bounds({b.x, y, b.width, row_h});
+    y += row_h;
   }
 }
 

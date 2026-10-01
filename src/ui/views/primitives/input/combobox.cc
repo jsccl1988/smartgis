@@ -90,6 +90,13 @@ void Combobox::add_item(std::string item) {
   schedule_paint();
 }
 
+void Combobox::clear_items() {
+  items_.clear();
+  selected_ = -1;
+  set_open(false);
+  schedule_paint();
+}
+
 void Combobox::set_selected_index(int i) {
   if (i < 0 || i >= static_cast<int>(items_.size())) {
     selected_ = -1;

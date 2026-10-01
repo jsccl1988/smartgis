@@ -1,0 +1,55 @@
+/*
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+*/
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  width: 520px;
+  height: 360px;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  width: 500px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-grow: 1;
+}
+
+.actions {
+  justify-content: flex-end;
+}
+
+#network_path,
+#output_path,
+#weight_field {
+  height: 28px;
+  flex-grow: 1;
+}
+
+#browse_network,
+#browse_output,
+#ok,
+#cancel {
+  height: 28px;
+  width: 100px;
+}
+
+#start_x,
+#start_y,
+#end_x,
+#end_y,
+#frames {
+  height: 28px;
+  width: 140px;
+}

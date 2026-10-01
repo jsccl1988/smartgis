@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
 #include "content/public/map_types.h"
@@ -80,6 +81,11 @@ class AtmosphereSession {
     return atmosphere_frame_;
   }
 
+  // Ocean draw after opaque DEM (Scene3dGpuPresent two-phase present). Height
+  // SRV must not stay bound on slot 0 when the DEM textured pass runs.
+  effect::atmosphere::OceanPass& ocean_pass() { return ocean_pass_; }
+  const effect::atmosphere::OceanPass& ocean_pass() const { return ocean_pass_; }
+
   // M3 city path self-test: DEM + 3D Tiles + atmosphere on/off.
   bool run_m3_self_test_hooks(std::string* err);
 
@@ -103,6 +109,13 @@ class AtmosphereSession {
   bool wind_overlay_enabled_ = false;
   // QPC tick of the last advance_sim_time(); 0 = not primed.
   std::uint64_t last_sim_qpc_ = 0;
+
+  // Sea-mask FieldStore sample is static for a fixed geo extent; refill only
+  // when the orbit frame extent changes (was 32x32 samples every present).
+  Extent2 cached_sea_mask_extent_{};
+  std::vector<float> cached_sea_mask_;
+  int cached_sea_mask_n_ = 0;
+  bool sea_mask_cache_valid_ = false;
 };
 
 }  // namespace content

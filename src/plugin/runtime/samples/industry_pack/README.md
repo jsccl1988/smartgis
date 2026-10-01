@@ -19,7 +19,7 @@ Template for **kind=python** industry packs under the plugin-host
 ## Pattern
 
 1. `contribute_command` registers industry menu entries.
-2. Handlers call `host.run_processing("dem.*"| "native.*", args_json)`.
+2. Handlers call `host.run_processing("world3d.*"| "native.*", args_json)`.
 3. Builtin C++ product plugins (`kind=builtin`) stay the **reference UI** and
    performance fallback. Full deletion of builtin dialogs is out of scope;
    withdraw per plugin only when a trusted Python pack replaces that surface.

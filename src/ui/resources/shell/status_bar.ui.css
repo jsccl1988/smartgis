@@ -3,25 +3,25 @@
 .bar {
   display: flex;
   flex-direction: row;
-  gap: 4px;
-  padding: 0px;
+  gap: 12px;
+  padding: 0px 8px;
   width: 400px;
   height: 24px;
   align-items: center;
 }
 
 #scale {
-  width: 90px;
+  width: 130px;
   height: 22px;
 }
 
 #crs {
-  width: 110px;
+  width: 180px;
   height: 22px;
 }
 
 #coord {
-  width: 180px;
+  width: 220px;
   height: 22px;
 }
 

@@ -46,11 +46,11 @@ inline const char* command_id_from_am_msg(long msg) {
   }
   switch (msg) {
     case kAmMsgDemLoadTin:
-      return "dem.load_tin";
+      return "world3d.load_tin";
     case kAmMsgDemLoadGrid:
-      return "dem.load_grid";
+      return "world3d.load_grid";
     case kAmMsgDemAbout:
-      return "dem.about";
+      return "world3d.about";
     case kAmMsgProjDoPrj:
       return "proj.do_prj";
     case kAmMsgPrintPreview:

@@ -40,7 +40,7 @@ All rights reserved.
 
 ## 背景（为何需要本规格）
 
-历史 Task 7 曾要求 `bind_rhi_present`「优先 preferred GPU，失败再 GDI」。在 **GDI MDI 子窗口 HWND** 上同时挂 `SmtGdiRenderDevice` 与 DX12/Vulkan，实测会在视图拉起阶段触发 `STATUS_FATAL_APP_EXIT`（`0xC000041D`）。因此 `bind_rhi_present` 曾被改为空操作。空操作又切断了 Init → leftover session 的显式接线。SP2 把「安全 present 策略」写成活规格并恢复最小 strangler；随后把主 GDI paint 接到同一 Null 录制路径。
+历史 Task 7 曾要求 `bind_rhi_present`「优先 preferred GPU，失败再 GDI」。在 **GDI MDI 子窗口 HWND** 上同时挂 `SmtRhi2dRenderDevice` 与 DX12/Vulkan，实测会在视图拉起阶段触发 `STATUS_FATAL_APP_EXIT`（`0xC000041D`）。因此 `bind_rhi_present` 曾被改为空操作。空操作又切断了 Init → leftover session 的显式接线。SP2 把「安全 present 策略」写成活规格并恢复最小 strangler；随后把主 GDI paint 接到同一 Null 录制路径。
 
 ## Decisions（locked）
 
@@ -57,7 +57,7 @@ All rights reserved.
 ## Architecture
 
 ```
-MFC view / SmtGdiRenderDevice::Init(HWND)
+MFC view / SmtRhi2dRenderDevice::Init(HWND)
         |
         +-- GDI paint (BitBlt / InvalidateRect)     ← HWND present owner
         |

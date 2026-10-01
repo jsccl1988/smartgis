@@ -9,7 +9,7 @@
 #include <cmath>
 #include <cstring>
 
-namespace render {
+namespace base {
 
 using EigenMat4 = Eigen::Matrix<float, 4, 4, Eigen::RowMajor>;
 
@@ -30,6 +30,7 @@ class Matrix {
   ConstMap eigen() const { return ConstMap(&_11); }
 
   void identity() { eigen().setIdentity(); }
+  void set_rotation3(const Eigen::Matrix3f& r);
   void rotate_x(float a);
   void rotate_y(float a);
   void rotate_z(float a);
@@ -67,8 +68,12 @@ class Matrix {
   void set_perspective(float fovy, float aspect, float z_near, float z_far);
   void billboard(Vector4 pos, Vector4 dir,
                  Vector4 world_up = Vector4(0, 1, 0));
+  // Camera-to-world style basis (legacy look_at / billboard companion).
   void look_at(Vector4 pos, Vector4 look_at,
                Vector4 world_up = Vector4(0, 1, 0));
+  // gluLookAt-compatible RH **view** matrix for leftover SetViewLookAt.
+  void view_look_at(Vector4 eye, Vector4 target,
+                    Vector4 world_up = Vector4(0, 1, 0));
 
   void transpose_of(const Matrix& m) { eigen() = m.eigen().transpose(); }
   void inverse_of(const Matrix& m) { eigen() = m.eigen().inverse(); }
@@ -109,62 +114,7 @@ inline Vector4 Vector4::operator*(const Matrix& m) const {
   return m.transform_point(*this);
 }
 
-inline void Matrix::rotate_x(float a) {
-  const float c = std::cosf(a);
-  const float s = std::sinf(a);
-  identity();
-  _22 = c;
-  _23 = s;
-  _32 = -s;
-  _33 = c;
-}
-
-inline void Matrix::rotate_y(float a) {
-  const float c = std::cosf(a);
-  const float s = std::sinf(a);
-  identity();
-  _11 = c;
-  _13 = -s;
-  _31 = s;
-  _33 = c;
-}
-
-inline void Matrix::rotate_z(float a) {
-  const float c = std::cosf(a);
-  const float s = std::sinf(a);
-  identity();
-  _11 = c;
-  _12 = s;
-  _21 = -s;
-  _22 = c;
-}
-
-inline void Matrix::rotate_euler(const Vector4& vc) {
-  identity();
-  const float sy = std::sinf(vc.z);
-  const float cy = std::cosf(vc.z);
-  const float sp = std::sinf(vc.y);
-  const float cp = std::cosf(vc.y);
-  const float sr = std::sinf(vc.x);
-  const float cr = std::cosf(vc.x);
-  _11 = cp * cy;
-  _12 = cp * sy;
-  _13 = -sp;
-  _21 = sr * sp * cy + cr * -sy;
-  _22 = sr * sp * sy + cr * cy;
-  _23 = sr * cp;
-  _31 = cr * sp * cy + -sr * -sy;
-  _32 = cr * sp * sy + -sr * cy;
-  _33 = cr * cp;
-}
-
-inline void Matrix::rotate_axis(const Vector4& vc_axis, float a) {
-  Vector4 axis = vc_axis;
-  if (axis.length_squared() != 1.0f) {
-    axis.normalize();
-  }
-  const Eigen::AngleAxisf aa(a, axis.xyz());
-  const Eigen::Matrix3f r = aa.toRotationMatrix();
+inline void Matrix::set_rotation3(const Eigen::Matrix3f& r) {
   identity();
   _11 = r(0, 0);
   _12 = r(0, 1);
@@ -175,6 +125,36 @@ inline void Matrix::rotate_axis(const Vector4& vc_axis, float a) {
   _31 = r(2, 0);
   _32 = r(2, 1);
   _33 = r(2, 2);
+}
+
+inline void Matrix::rotate_x(float a) {
+  set_rotation3(Eigen::AngleAxisf(a, EigenVec3::UnitX()).toRotationMatrix());
+}
+
+inline void Matrix::rotate_y(float a) {
+  set_rotation3(Eigen::AngleAxisf(a, EigenVec3::UnitY()).toRotationMatrix());
+}
+
+inline void Matrix::rotate_z(float a) {
+  set_rotation3(Eigen::AngleAxisf(a, EigenVec3::UnitZ()).toRotationMatrix());
+}
+
+inline void Matrix::rotate_euler(const Vector4& vc) {
+  // Intrinsic ZYX (roll/pitch/yaw) matching leftover mathlib.
+  const Eigen::Matrix3f r =
+      (Eigen::AngleAxisf(vc.z, EigenVec3::UnitZ()) *
+       Eigen::AngleAxisf(vc.y, EigenVec3::UnitY()) *
+       Eigen::AngleAxisf(vc.x, EigenVec3::UnitX()))
+          .toRotationMatrix();
+  set_rotation3(r);
+}
+
+inline void Matrix::rotate_axis(const Vector4& vc_axis, float a) {
+  Vector4 axis = vc_axis;
+  if (axis.length_squared() != 1.0f) {
+    axis.normalize();
+  }
+  set_rotation3(Eigen::AngleAxisf(a, axis.xyz()).toRotationMatrix());
 }
 
 inline void Matrix::apply_inverse_rotation(Vector4* pvc) {
@@ -208,75 +188,103 @@ inline void Matrix::set_perspective(float fovy, float aspect, float z_near,
 }
 
 inline void Matrix::look_at(Vector4 pos, Vector4 look_at_pt, Vector4 world_up) {
-  Vector4 dir = look_at_pt - pos;
-  dir.normalize();
-  const float angle = dot(world_up, dir);
-  Vector4 up = world_up - (dir * angle);
-  up.normalize();
-  const Vector4 right = up.cross(dir);
-  _11 = right.x;
-  _21 = up.x;
-  _31 = dir.x;
-  _12 = right.y;
-  _22 = up.y;
-  _32 = dir.y;
-  _13 = right.z;
-  _23 = up.z;
-  _33 = dir.z;
+  const EigenVec3 dir = (look_at_pt.xyz() - pos.xyz()).normalized();
+  const EigenVec3 up =
+      (world_up.xyz() - dir * world_up.xyz().dot(dir)).normalized();
+  const EigenVec3 right = up.cross(dir);
+  identity();
+  _11 = right.x();
+  _21 = up.x();
+  _31 = dir.x();
+  _12 = right.y();
+  _22 = up.y();
+  _32 = dir.y();
+  _13 = right.z();
+  _23 = up.z();
+  _33 = dir.z();
   _41 = pos.x;
   _42 = pos.y;
   _43 = pos.z;
-  _14 = 0.0f;
-  _24 = 0.0f;
-  _34 = 0.0f;
-  _44 = 1.0f;
 }
 
-inline void Matrix::billboard(Vector4 pos, Vector4 dir, Vector4 world_up) {
-  const float angle = dot(world_up, dir);
-  Vector4 up = world_up - (dir * angle);
-  up.normalize();
-  const Vector4 right = up.cross(dir);
-  _11 = right.x;
-  _21 = up.x;
-  _31 = dir.x;
-  _12 = right.y;
-  _22 = up.y;
-  _32 = dir.y;
-  _13 = right.z;
-  _23 = up.z;
-  _33 = dir.z;
+inline void Matrix::view_look_at(Vector4 eye, Vector4 target,
+                                 Vector4 world_up) {
+  EigenVec3 f = target.xyz() - eye.xyz();
+  const float fl = f.norm();
+  if (fl < 1e-6f) {
+    identity();
+    return;
+  }
+  f /= fl;
+  EigenVec3 s = f.cross(world_up.xyz());
+  const float sl = s.norm();
+  if (sl < 1e-6f) {
+    identity();
+    return;
+  }
+  s /= sl;
+  const EigenVec3 u = s.cross(f);
+  identity();
+  // Row-vector view: columns are s, u, -f (matches leftover D3D SetViewLookAt).
+  _11 = s.x();
+  _21 = s.y();
+  _31 = s.z();
+  _12 = u.x();
+  _22 = u.y();
+  _32 = u.z();
+  _13 = -f.x();
+  _23 = -f.y();
+  _33 = -f.z();
+  _41 = -s.dot(eye.xyz());
+  _42 = -u.dot(eye.xyz());
+  _43 = -(-f.dot(eye.xyz()));
+}
+
+inline void Matrix::billboard(Vector4 pos, Vector4 dir_v, Vector4 world_up) {
+  const EigenVec3 dir = dir_v.xyz().normalized();
+  const EigenVec3 up =
+      (world_up.xyz() - dir * world_up.xyz().dot(dir)).normalized();
+  const EigenVec3 right = up.cross(dir);
+  identity();
+  _11 = right.x();
+  _21 = up.x();
+  _31 = dir.x();
+  _12 = right.y();
+  _22 = up.y();
+  _32 = dir.y();
+  _13 = right.z();
+  _23 = up.z();
+  _33 = dir.z();
   _41 = pos.x;
   _42 = pos.y;
   _43 = pos.z;
-  _14 = 0.0f;
-  _24 = 0.0f;
-  _34 = 0.0f;
-  _44 = 1.0f;
 }
 
+// D3DX-style row-vector × matrix (preserves leftover/GPU interop).
 inline Vector4 Matrix::transform_point(const Vector4& vc) const {
-  Vector4 out;
-  out.x = vc.x * _11 + vc.y * _21 + vc.z * _31 + _41;
-  out.y = vc.x * _12 + vc.y * _22 + vc.z * _32 + _42;
-  out.z = vc.x * _13 + vc.y * _23 + vc.z * _33 + _43;
-  out.w = vc.x * _14 + vc.y * _24 + vc.z * _34 + _44;
-  out.x /= out.w;
-  out.y /= out.w;
-  out.z /= out.w;
+  const Eigen::Matrix<float, 1, 4> row(vc.x, vc.y, vc.z, vc.w);
+  const Eigen::Matrix<float, 1, 4> out_row = row * eigen();
+  Vector4 out(out_row(0), out_row(1), out_row(2), out_row(3));
+  if (out.w != 0.0f) {
+    out.x /= out.w;
+    out.y /= out.w;
+    out.z /= out.w;
+  }
   out.w = 1.0f;
   return out;
 }
 
 inline Vector4 Matrix::transform_vector(const Vector4& vc) const {
-  Vector4 out;
-  out.x = vc.x * _11 + vc.y * _21 + vc.z * _31;
-  out.y = vc.x * _12 + vc.y * _22 + vc.z * _32;
-  out.z = vc.x * _13 + vc.y * _23 + vc.z * _33;
-  out.w = 0.0f;
-  return out;
+  const Eigen::Matrix<float, 1, 4> row(vc.x, vc.y, vc.z, 0.0f);
+  const Eigen::Matrix<float, 1, 4> out_row = row * eigen();
+  return Vector4(out_row(0), out_row(1), out_row(2), 0.0f);
 }
 
+}  // namespace base
+
+namespace render {
+using Matrix = ::base::Matrix;
+using EigenMat4 = ::base::EigenMat4;
 }  // namespace render
 
 #endif  // SMT_RENDER_MATH_MATRIX_H_

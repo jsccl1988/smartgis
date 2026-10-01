@@ -38,9 +38,9 @@ inline SmtShaderManager::SmtShaderManager(void) { DestroyAllShader(); }
 inline SmtShaderManager::~SmtShaderManager(void) { DestroyAllShader(); }
 
 inline long SmtShaderManager::AddShader(SmtShader* pShader) {
-  SmtShader* pShaderTmp = NULL;
+  SmtShader* pShaderTmp = nullptr;
   pShaderTmp = GetShader(pShader->GetShaderName());
-  if (NULL == pShaderTmp)
+  if (nullptr == pShaderTmp)
     m_mapNameToShaderPtrs.insert(
         pairNameToShaderPtr(pShader->GetShaderName(), pShader));
   else {
@@ -53,7 +53,7 @@ inline long SmtShaderManager::AddShader(SmtShader* pShader) {
 }
 
 inline SmtShader* SmtShaderManager::GetShader(const char* szName) {
-  SmtShader* pShader = NULL;
+  SmtShader* pShader = nullptr;
   mapNameToShaderPtrs::iterator mapIter;
   mapIter = m_mapNameToShaderPtrs.find(szName);
 

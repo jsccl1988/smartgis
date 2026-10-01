@@ -6,10 +6,8 @@
 #define _WIN32_WINNT 0x0A00
 #endif
 
-// Must precede httplib.h. OpenSSL linked via //third_party:openssl.
-#ifndef CPPHTTPLIB_OPENSSL_SUPPORT
-#define CPPHTTPLIB_OPENSSL_SUPPORT
-#endif
+// CPPHTTPLIB_OPENSSL_SUPPORT is set by //src/net:net for Release only
+// (Debug must not link /MD OpenSSL into /MDd — STATUS_HEAP_CORRUPTION).
 #include "httplib.h"
 
 #include "net/http/http.h"
@@ -53,7 +51,11 @@ void apply_ssl(httplib::Client* cli, bool verify) {
   if (cli == nullptr) {
     return;
   }
+#if defined(CPPHTTPLIB_OPENSSL_SUPPORT)
   cli->enable_server_certificate_verification(verify);
+#else
+  (void)verify;
+#endif
 }
 
 HttpResult from_response(const httplib::Result& res, const char* what) {

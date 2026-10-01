@@ -20,6 +20,7 @@ class UI_EXPORT Combobox : public View {
  public:
   Combobox();
   void add_item(std::string item);
+  void clear_items();
   void set_selected_index(int i);
   int selected_index() const;
   const std::string& selected_text() const;

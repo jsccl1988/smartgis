@@ -5,11 +5,13 @@
 #define LEGACY_RENDER_RHI_IMPL_D3D_DEVICE_3DRENDERDEVICE_H_
 
 #include <map>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
 #include "legacy/render/legacy_render_export.h"
 #include "legacy/render/rhi3d/impl/d3d/caps/device_caps.h"
+#include "legacy/render/rhi3d/impl/d3d/host/deferred_draw.h"
 #include "legacy/render/rhi3d/impl/d3d/paint/states_manager.h"
 #include "legacy/render/rhi3d/impl/d3d/prerequisites.h"
 #include "legacy/render/rhi3d/public/device/render_device.h"
@@ -19,7 +21,7 @@ namespace render {
 // Leftover Smt3DRenderDevice backed by D3D11 (not D3DX / D3D9).
 // Layout: host/ (Init/Present), resource/ (VB·IB·texture·FBO·font),
 // paint/ (draw/matrix/state). HWND present stays on D3D11 swapchain.
-class LEGACY_RENDER_EXPORT SmtD3DRenderDevice : public Smt3DRenderDevice {
+class LEGACY_RENDER_D3D_EXPORT SmtD3DRenderDevice : public Smt3DRenderDevice {
  public:
   SmtD3DRenderDevice();
   explicit SmtD3DRenderDevice(HINSTANCE hDLL);
@@ -68,7 +70,7 @@ class LEGACY_RENDER_EXPORT SmtD3DRenderDevice : public Smt3DRenderDevice {
   long MatrixMultiply(const Matrix& m) override;
   Matrix MatrixGet() override;
 
-  long GetFrustum(SmtFrustum& frustum) override;
+  long GetFrustum(Frustum& frustum) override;
 
   long SetViewport(Viewport3D& viewport) override;
   Viewport3D& GetViewport(void) override { return m_viewPort; }
@@ -197,6 +199,15 @@ class LEGACY_RENDER_EXPORT SmtD3DRenderDevice : public Smt3DRenderDevice {
 
   ID3D11Device* device() const { return device_; }
   ID3D11DeviceContext* context() const { return context_; }
+  // Immediate or TLS-bound deferred context (P3).
+  ID3D11DeviceContext* active_context() const;
+  ID3D11Buffer* active_mesh_cb() const;
+
+  // D3D11 deferred-context parallel record (P3). No-op / fail when env off.
+  long begin_deferred_draw(int worker_count);
+  long bind_deferred_worker(int slot);  // slot < 0 clears TLS
+  long finish_deferred_draw();
+  bool deferred_draw_active() const;
 
   // Look up GPU texture resources by leftover SmtTexture handle.
   ID3D11ShaderResourceView* texture_srv(uint handle) const;
@@ -272,6 +283,11 @@ class LEGACY_RENDER_EXPORT SmtD3DRenderDevice : public Smt3DRenderDevice {
   ID3D11DepthStencilState* mesh_dss_ = nullptr;
   ID3D11BlendState* mesh_bs_ = nullptr;
   bool mesh_pipeline_ok_ = false;
+  // Sticky mesh PSO binds across consecutive DrawPrimitives (china ~1.7k lines).
+  bool mesh_draw_state_bound_ = false;
+  float last_mesh_mvp_[16] = {};
+  bool last_mesh_use_tex_ = false;
+  bool mesh_cb_valid_ = false;
 
   // Leftover GL fixed-function light state (mirrored for D3D mesh PS).
   // Light directions are stored in eye-space at SetLight time (GL glLight
@@ -285,8 +301,8 @@ class LEGACY_RENDER_EXPORT SmtD3DRenderDevice : public Smt3DRenderDevice {
   StoredLight lights_[8] = {};
   float scene_ambient_[3] = {1.f, 1.f, 1.f};
 
-  SmtD3DGPUStateManager* state_manager_;
-  SmtD3DDeviceCaps* device_caps_;
+  std::unique_ptr<SmtD3DGPUStateManager> state_manager_;
+  std::unique_ptr<SmtD3DDeviceCaps> device_caps_;
 
   float clear_color_[4];
   float clear_depth_;
@@ -295,10 +311,10 @@ class LEGACY_RENDER_EXPORT SmtD3DRenderDevice : public Smt3DRenderDevice {
   Matrix modelview_;
   Matrix projection_;
   // Small fixed stacks on the heap — embedding 32×2 Matrix in the device
-  // object (~4KB+) corrupted the CRT heap before leftover_session init.
+  // object (~4KB+) corrupted the CRT heap during Init.
   static constexpr int kMatrixStackMax = 16;
-  Matrix* modelview_stack_ = nullptr;
-  Matrix* projection_stack_ = nullptr;
+  std::unique_ptr<Matrix[]> modelview_stack_;
+  std::unique_ptr<Matrix[]> projection_stack_;
   int modelview_sp_ = 0;
   int projection_sp_ = 0;
 
@@ -315,8 +331,20 @@ class LEGACY_RENDER_EXPORT SmtD3DRenderDevice : public Smt3DRenderDevice {
 
   std::vector<D3dFontSlot> fonts_;
   ID3D11SamplerState* linear_sampler_ = nullptr;
+
+  // P3: deferred context slots (CreateDeferredContext). Empty when unused.
+  std::vector<D3dDeferredSlot> deferred_slots_;
+  bool deferred_recording_ = false;
 };
 
 }  // namespace render
+
+#if !defined(LEGACY_RENDER_D3D_EXPORTS)
+#if defined(_DEBUG)
+#pragma comment(lib, "legacy_render_d3d_d.lib")
+#else
+#pragma comment(lib, "legacy_render_d3d.lib")
+#endif
+#endif
 
 #endif  // LEGACY_RENDER_RHI_IMPL_D3D_DEVICE_3DRENDERDEVICE_H_

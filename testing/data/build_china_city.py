@@ -28,7 +28,8 @@ Usage:
   py -3 testing/data/build_china_city.py --out out/china_city.gpkg
 
 Requires: Python 3.10+, pyshp. Network on first run (cached under
-out/china_city_src/). DEM path needs GDAL CLI under third_party/.install/bin.
+out/data/cache/china_city_src/). DEM path needs GDAL CLI under
+third_party/.install/bin.
 """
 
 from __future__ import annotations
@@ -45,7 +46,7 @@ import zipfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-CACHE = REPO / "out" / "china_city_src"
+CACHE = REPO / "out" / "data" / "cache" / "china_city_src"
 DEFAULT_OUT = Path(__file__).resolve().parent / "china_city.gpkg"
 
 # Natural Earth 10m — same suite / same datum for every theme.
@@ -72,6 +73,42 @@ NE_ADMIN_ADM0 = frozenset({"CHN", "TWN", "HKG", "MAC"})
 # Approximate China bbox for river/road clip (degrees, CRS84). Matches
 # content::kChinaLonLatExtent so leftover / Views overview framing agrees.
 CHINA_BBOX = (73.0, 18.0, 135.0, 54.0)
+
+# Tier-1 / municipality seats that Natural Earth sampling has dropped from the
+# china showcase pack (Beijing / Shanghai missing; mid-tier cities dominate).
+# nameascii keys are matched case-insensitively; zh is the product label.
+MUST_KEEP_CITIES: dict[str, tuple[str, float, float]] = {
+    "beijing": ("北京", 116.4074, 39.9042),
+    "peking": ("北京", 116.4074, 39.9042),
+    "shanghai": ("上海", 121.4737, 31.2304),
+    "guangzhou": ("广州", 113.2644, 23.1291),
+    "canton": ("广州", 113.2644, 23.1291),
+    "shenzhen": ("深圳", 114.0579, 22.5431),
+    "chengdu": ("成都", 104.0665, 30.5723),
+    "wuhan": ("武汉", 114.3055, 30.5928),
+    "hangzhou": ("杭州", 120.1551, 30.2741),
+    "chongqing": ("重庆", 106.5516, 29.5630),
+    "tianjin": ("天津", 117.2008, 39.0842),
+    "nanjing": ("南京", 118.7969, 32.0603),
+    "xian": ("西安", 108.9398, 34.3416),
+    "xi'an": ("西安", 108.9398, 34.3416),
+    "zhengzhou": ("郑州", 113.6254, 34.7466),
+}
+
+
+def _city_zh_alias(name: str, name_ascii: str) -> str | None:
+    """Map NE latin / mixed names onto stable Chinese product labels."""
+    for key in (name_ascii, name):
+        k = (key or "").strip().lower().replace(" ", "")
+        if not k:
+            continue
+        if k in MUST_KEEP_CITIES:
+            return MUST_KEEP_CITIES[k][0]
+        # Strip common suffixes.
+        for suf in ("shi", "city", "municipality"):
+            if k.endswith(suf) and k[: -len(suf)] in MUST_KEEP_CITIES:
+                return MUST_KEEP_CITIES[k[: -len(suf)]][0]
+    return None
 
 
 def _download(url: str, dest: Path, timeout: int = 180) -> None:
@@ -504,7 +541,9 @@ def build_point_text(places_shp: Path, areas: list[dict]) -> tuple[list[dict], l
     texts: list[dict] = []
     seen: set[str] = set()
 
-    candidates: list[tuple[int, str, float, float]] = []
+    # (priority, scalerank, name, x, y) — priority 0 = must-keep tier-1.
+    candidates: list[tuple[int, int, str, float, float]] = []
+    found_must: set[str] = set()
     for sr in sf.iterShapeRecords():
         rec = dict(zip(fields, sr.record))
         adm0 = _rec_str(rec, "ADM0_A3", "adm0_a3", "SOV0NAME", "sov0name").upper()
@@ -527,22 +566,41 @@ def build_point_text(places_shp: Path, areas: list[dict]) -> tuple[list[dict], l
         in_adm = adm0 in NE_ADMIN_ADM0 or "CHINA" in adm0 or "TAIWAN" in adm0
         if not in_adm:
             continue
+        name_ascii = _rec_str(rec, "NAMEASCII", "nameascii", "NAME_EN", "name_en")
         name = _rec_str(
             rec,
             "NAME_ZH",
             "name_zh",
-            "NAME_ZH",
             "NAME",
             "name",
             "NAMEASCII",
             "nameascii",
         )
+        if not name and not name_ascii:
+            continue
+        zh = _city_zh_alias(name, name_ascii)
+        if zh:
+            name = zh
+            found_must.add(zh)
+            priority = 0
+        else:
+            # Prefer province seats (low scalerank) over dense mid-tier towns.
+            priority = 1 if scalerank <= 4 else 2
         if not name:
             continue
-        candidates.append((scalerank, name, x, y))
+        candidates.append((priority, scalerank, name, x, y))
 
-    candidates.sort(key=lambda t: (t[0], t[1]))
-    for scalerank, name, x, y in candidates:
+    # Seed any must-keep cities NE omitted (historically Beijing / Shanghai).
+    for _key, (zh, lon, lat) in MUST_KEEP_CITIES.items():
+        if zh in found_must:
+            continue
+        if not _pt_in_bbox(lon, lat):
+            continue
+        candidates.append((0, 0, zh, lon, lat))
+        found_must.add(zh)
+
+    candidates.sort(key=lambda t: (t[0], t[1], t[2]))
+    for _prio, _scalerank, name, x, y in candidates:
         key = name.lower()
         if key in seen:
             continue
@@ -551,7 +609,7 @@ def build_point_text(places_shp: Path, areas: list[dict]) -> tuple[list[dict], l
         points.append({"geometry": geom, "properties": {"name": name, "kind": "city"}})
         texts.append(
             {
-                "geometry": {"type": "Point", "coordinates": [x, y + 0.05]},
+                "geometry": {"type": "Point", "coordinates": [x, y + 0.08]},
                 "properties": {
                     "anno": name,
                     "name": name,
@@ -560,7 +618,7 @@ def build_point_text(places_shp: Path, areas: list[dict]) -> tuple[list[dict], l
                 },
             }
         )
-        if len(points) >= 80:
+        if len(points) >= 64:
             break
 
     if points:
@@ -574,7 +632,7 @@ def build_point_text(places_shp: Path, areas: list[dict]) -> tuple[list[dict], l
         points.append({"geometry": geom, "properties": {"name": name, "kind": "city"}})
         texts.append(
             {
-                "geometry": {"type": "Point", "coordinates": [x, y + 0.05]},
+                "geometry": {"type": "Point", "coordinates": [x, y + 0.08]},
                 "properties": {
                     "anno": name,
                     "name": name,
@@ -654,10 +712,10 @@ def build_line_features(shp_path: Path) -> list[dict]:
             }
         )
 
-    if len(lines) > 400:
+    if len(lines) > 600:
         named = [f for f in lines if f["properties"]["name"]]
         unnamed = [f for f in lines if not f["properties"]["name"]]
-        lines = named[:350] + unnamed[:50]
+        lines = named[:500] + unnamed[:100]
     return lines
 
 

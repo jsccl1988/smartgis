@@ -13,11 +13,12 @@
 BEGIN_MESSAGE_MAP(CSmtAMOrthogridApp, CWinApp)
 END_MESSAGE_MAP()
 
-CSmtAMOrthogridApp::CSmtAMOrthogridApp() { bind_plugin_dll_resources(this); }
+CSmtAMOrthogridApp::CSmtAMOrthogridApp() = default;
 
 CSmtAMOrthogridApp theApp;
 
 BOOL CSmtAMOrthogridApp::InitInstance() {
   CWinApp::InitInstance();
+  bind_plugin_dll_resources(this);
   return TRUE;
 }

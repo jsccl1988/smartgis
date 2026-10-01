@@ -88,6 +88,17 @@ class UI_EXPORT ShellCompositor {
   void worker_main();
   void activate_pending();
   void raster_active();
+  // Replay |frame| into |dc| for |dirty|. Selects |font| on every paint target
+  // (including U4 temp DIBs — omitting that left TextOut on SYSTEM font so
+  // full-frame chrome looked tiny until a small hover dirty reused |dc|).
+  // |dc| must reference a top-down 32bpp DIB matching frame size.
+  void raster_dirty_into(HDC dc,
+                         int dib_w,
+                         int dib_h,
+                         const PaintCommit& frame,
+                         Rect dirty,
+                         bool full_frame,
+                         HFONT font);
   HWND maybe_take_wake_hwnd_locked(std::uint64_t generation);
   bool ensure_dib(Dib* dib, int width_px, int height_px);
   void release_dib(Dib* dib);

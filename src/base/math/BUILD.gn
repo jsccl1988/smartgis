@@ -10,7 +10,8 @@ declare_args() {
 }
 
 # Scene math: Eigen-backed Vector/Matrix plus bounds / frustum / SIMD.
-# C++ namespace stays render (Vector2, Matrix, Aabb, Frustum, geo::Vector).
+# C++ namespace is `base` (Vector2, Matrix, Aabb, Frustum); temporary
+# `render::` aliases remain in headers for leftover call sites.
 # These source_sets do not join base.dll (//src/base:base) or render.dll.
 # Algorithm and legacy depend on the labels directly.
 # Do not add this directory itself to include_dirs: a local math.h would

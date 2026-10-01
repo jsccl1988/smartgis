@@ -133,150 +133,24 @@ long SmtD3DRenderDevice::SetPerspective(float fovy, float aspect, float zNear,
 long SmtD3DRenderDevice::SetViewLookAt(Vector3& vPos, Vector3& vView,
                                        Vector3& vUp) {
   // gluLookAt-compatible RH view (leftover camera / StereoHwnd orbit).
-  float fx = vView.x - vPos.x;
-  float fy = vView.y - vPos.y;
-  float fz = vView.z - vPos.z;
-  float fl = std::sqrt(fx * fx + fy * fy + fz * fz);
-  if (fl < 1e-6f) {
-    return SMT_ERR_FAILURE;
-  }
-  fx /= fl;
-  fy /= fl;
-  fz /= fl;
-  // s = normalize(cross(f, up))
-  float sx = fy * vUp.z - fz * vUp.y;
-  float sy = fz * vUp.x - fx * vUp.z;
-  float sz = fx * vUp.y - fy * vUp.x;
-  float sl = std::sqrt(sx * sx + sy * sy + sz * sz);
-  if (sl < 1e-6f) {
-    return SMT_ERR_FAILURE;
-  }
-  sx /= sl;
-  sy /= sl;
-  sz /= sl;
-  // u = cross(s, f)
-  const float ux = sy * fz - sz * fy;
-  const float uy = sz * fx - sx * fz;
-  const float uz = sx * fy - sy * fx;
-
   Matrix& m = active_matrix();
-  m.identity();
-  m._11 = sx;
-  m._21 = sy;
-  m._31 = sz;
-  m._12 = ux;
-  m._22 = uy;
-  m._32 = uz;
-  m._13 = -fx;
-  m._23 = -fy;
-  m._33 = -fz;
-  m._41 = -(sx * vPos.x + sy * vPos.y + sz * vPos.z);
-  m._42 = -(ux * vPos.x + uy * vPos.y + uz * vPos.z);
-  m._43 = -(-fx * vPos.x - fy * vPos.y - fz * vPos.z);
+  m.view_look_at(Vector4(vPos.x, vPos.y, vPos.z),
+                 Vector4(vView.x, vView.y, vView.z),
+                 Vector4(vUp.x, vUp.y, vUp.z));
+  // Degenerate eye==target leaves identity; treat as failure like before.
+  const float fx = vView.x - vPos.x;
+  const float fy = vView.y - vPos.y;
+  const float fz = vView.z - vPos.z;
+  if (fx * fx + fy * fy + fz * fz < 1e-12f) {
+    return SMT_ERR_FAILURE;
+  }
   return SMT_ERR_NONE;
 }
 
-long SmtD3DRenderDevice::GetFrustum(SmtFrustum& frustum) {
-  // Match leftover GL: clip = modelview * projection (column-major multiply
-  // over OpenGL-order float[16]), then extract + normalize 6 planes.
-  const Matrix& mod = modelview_;
-  const Matrix& proj = projection_;
-  float m[16] = {mod._11, mod._12, mod._13, mod._14, mod._21, mod._22,
-                 mod._23, mod._24, mod._31, mod._32, mod._33, mod._34,
-                 mod._41, mod._42, mod._43, mod._44};
-  float p[16] = {proj._11, proj._12, proj._13, proj._14, proj._21, proj._22,
-                 proj._23, proj._24, proj._31, proj._32, proj._33, proj._34,
-                 proj._41, proj._42, proj._43, proj._44};
-  // GL stores column-major; Matrix is row-major D3DX layout. Convert by
-  // transposing into the column-major arrays the leftover extract expects.
-  float modl[16] = {m[0], m[4], m[8],  m[12], m[1], m[5], m[9],  m[13],
-                    m[2], m[6], m[10], m[14], m[3], m[7], m[11], m[15]};
-  float proj_cm[16] = {p[0], p[4], p[8],  p[12], p[1], p[5], p[9],  p[13],
-                       p[2], p[6], p[10], p[14], p[3], p[7], p[11], p[15]};
-
-  float clip[16];
-  clip[0] = modl[0] * proj_cm[0] + modl[1] * proj_cm[4] + modl[2] * proj_cm[8] +
-            modl[3] * proj_cm[12];
-  clip[1] = modl[0] * proj_cm[1] + modl[1] * proj_cm[5] + modl[2] * proj_cm[9] +
-            modl[3] * proj_cm[13];
-  clip[2] = modl[0] * proj_cm[2] + modl[1] * proj_cm[6] +
-            modl[2] * proj_cm[10] + modl[3] * proj_cm[14];
-  clip[3] = modl[0] * proj_cm[3] + modl[1] * proj_cm[7] +
-            modl[2] * proj_cm[11] + modl[3] * proj_cm[15];
-  clip[4] = modl[4] * proj_cm[0] + modl[5] * proj_cm[4] + modl[6] * proj_cm[8] +
-            modl[7] * proj_cm[12];
-  clip[5] = modl[4] * proj_cm[1] + modl[5] * proj_cm[5] + modl[6] * proj_cm[9] +
-            modl[7] * proj_cm[13];
-  clip[6] = modl[4] * proj_cm[2] + modl[5] * proj_cm[6] +
-            modl[6] * proj_cm[10] + modl[7] * proj_cm[14];
-  clip[7] = modl[4] * proj_cm[3] + modl[5] * proj_cm[7] +
-            modl[6] * proj_cm[11] + modl[7] * proj_cm[15];
-  clip[8] = modl[8] * proj_cm[0] + modl[9] * proj_cm[4] +
-            modl[10] * proj_cm[8] + modl[11] * proj_cm[12];
-  clip[9] = modl[8] * proj_cm[1] + modl[9] * proj_cm[5] +
-            modl[10] * proj_cm[9] + modl[11] * proj_cm[13];
-  clip[10] = modl[8] * proj_cm[2] + modl[9] * proj_cm[6] +
-             modl[10] * proj_cm[10] + modl[11] * proj_cm[14];
-  clip[11] = modl[8] * proj_cm[3] + modl[9] * proj_cm[7] +
-             modl[10] * proj_cm[11] + modl[11] * proj_cm[15];
-  clip[12] = modl[12] * proj_cm[0] + modl[13] * proj_cm[4] +
-             modl[14] * proj_cm[8] + modl[15] * proj_cm[12];
-  clip[13] = modl[12] * proj_cm[1] + modl[13] * proj_cm[5] +
-             modl[14] * proj_cm[9] + modl[15] * proj_cm[13];
-  clip[14] = modl[12] * proj_cm[2] + modl[13] * proj_cm[6] +
-             modl[14] * proj_cm[10] + modl[15] * proj_cm[14];
-  clip[15] = modl[12] * proj_cm[3] + modl[13] * proj_cm[7] +
-             modl[14] * proj_cm[11] + modl[15] * proj_cm[15];
-
-  float planes[6][4];
-  auto normalize = [](float plane[4]) {
-    const float len = std::sqrt(plane[0] * plane[0] + plane[1] * plane[1] +
-                                plane[2] * plane[2]);
-    if (len > 1e-8f) {
-      plane[0] /= len;
-      plane[1] /= len;
-      plane[2] /= len;
-      plane[3] /= len;
-    }
-  };
-
-  planes[FS_RIGHT][P_A] = clip[3] - clip[0];
-  planes[FS_RIGHT][P_B] = clip[7] - clip[4];
-  planes[FS_RIGHT][P_C] = clip[11] - clip[8];
-  planes[FS_RIGHT][P_D] = clip[15] - clip[12];
-  normalize(planes[FS_RIGHT]);
-
-  planes[FS_LEFT][P_A] = clip[3] + clip[0];
-  planes[FS_LEFT][P_B] = clip[7] + clip[4];
-  planes[FS_LEFT][P_C] = clip[11] + clip[8];
-  planes[FS_LEFT][P_D] = clip[15] + clip[12];
-  normalize(planes[FS_LEFT]);
-
-  planes[FS_BOTTOM][P_A] = clip[3] + clip[1];
-  planes[FS_BOTTOM][P_B] = clip[7] + clip[5];
-  planes[FS_BOTTOM][P_C] = clip[11] + clip[9];
-  planes[FS_BOTTOM][P_D] = clip[15] + clip[13];
-  normalize(planes[FS_BOTTOM]);
-
-  planes[FS_TOP][P_A] = clip[3] - clip[1];
-  planes[FS_TOP][P_B] = clip[7] - clip[5];
-  planes[FS_TOP][P_C] = clip[11] - clip[9];
-  planes[FS_TOP][P_D] = clip[15] - clip[13];
-  normalize(planes[FS_TOP]);
-
-  planes[FS_BACK][P_A] = clip[3] - clip[2];
-  planes[FS_BACK][P_B] = clip[7] - clip[6];
-  planes[FS_BACK][P_C] = clip[11] - clip[10];
-  planes[FS_BACK][P_D] = clip[15] - clip[14];
-  normalize(planes[FS_BACK]);
-
-  planes[FS_FRONT][P_A] = clip[3] + clip[2];
-  planes[FS_FRONT][P_B] = clip[7] + clip[6];
-  planes[FS_FRONT][P_C] = clip[11] + clip[10];
-  planes[FS_FRONT][P_D] = clip[15] + clip[14];
-  normalize(planes[FS_FRONT]);
-
-  frustum.SetFrustum(planes);
+long SmtD3DRenderDevice::GetFrustum(Frustum& frustum) {
+  // Draw path uses row-vector clip = pos * modelview * projection (* gl_to_d3d
+  // only at PS). Frustum cull must use the same MV*P (GL NDC z).
+  frustum = Frustum::from_view_proj(modelview_ * projection_);
   return SMT_ERR_NONE;
 }
 

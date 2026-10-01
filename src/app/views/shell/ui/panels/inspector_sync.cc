@@ -27,9 +27,8 @@
 #include "content/browser/camera/view_frame.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
 #include "app/views/shell/browser/commands/view_commands.h"
-#include "plugin/product/dem/commands.h"
 #include "plugin/product/orthogrid/commands.h"
-#include "plugin/runtime/host/registry.h"
+#include "plugin/runtime/host/registry/registry.h"
 #include "content/public/catalog_layers.h"
 #include "content/public/map_contents.h"
 #include "content/public/map_types.h"
@@ -63,6 +62,7 @@
 #include "ui/gis/style/legend_panel.h"
 #include "ui/gis/inspect/measure_panel.h"
 #include "ui/gis/analysis/processing_panel.h"
+#include "ui/gis/analysis/result_playback_panel.h"
 #include "ui/gis/inspect/selection_panel.h"
 #include "ui/gis/style/symbology_panel.h"
 #include "ui/views/kernel/layout/layout.h"
@@ -121,13 +121,64 @@ void BrowserView::sync_inspectors_from_scene() {
   sync_selection_panel_from_scene();
   sync_legend_panel_from_scene();
   sync_layer_properties_from_scene();
+  sync_result_playback_from_session();
+}
+
+void BrowserView::sync_result_playback_from_session() {
+  // Require the panel to be under this shell Widget. Skip during early
+  // wire_map_scene if the panel pointer is skewed (stale shell_ui .obj) or
+  // not yet reparented — Slider::set_value → schedule_paint on a garbage
+  // widget_ was STATUS_HEAP_CORRUPTION / AV at init_chrome.
+  if (!result_playback_panel_ ||
+      result_playback_panel_->widget() != &widget_) {
+    return;
+  }
+  auto& session = browser_->analysis_playback();
+  result_playback_panel_->set_frame_range(session.frame_count());
+  result_playback_panel_->set_frame_index(session.frame_index());
+  result_playback_panel_->set_looping(session.looping());
+  result_playback_panel_->set_playing(session.playing());
+  if (session.frame_count() > 0) {
+    result_playback_panel_->set_status_text(
+        session.product() == AnalysisProduct::kTraffic
+            ? "traffic"
+            : session.product() == AnalysisProduct::kFlood
+                  ? "flood"
+                  : session.product() == AnalysisProduct::kStormSurge
+                        ? "stormsurge"
+                        : session.product() == AnalysisProduct::kOrthogrid
+                              ? "orthogrid"
+                              : session.product() ==
+                                        AnalysisProduct::kOrthogrid3d
+                                    ? "orthogrid3d"
+                                    : "session");
+  } else {
+    result_playback_panel_->set_status_text("(no session)");
+  }
 }
 
 void BrowserView::wire_edit_feedback() {
-  if (!browser_->edit_host() || !browser_->edit_host()->events()) {
+  // Showcase / self-test set SMT_SKIP_AMBOX_CATALOG. Edit subscriptions are not
+  // required for BMP export. A skewed Browser/MapSession layout (stale
+  // shell_browser .obj under parallel ninja) makes edit_host() return
+  // 0xCD-filled garbage → STATUS_HEAP_CORRUPTION in ViewHost::events().
+  if (const char* skip = std::getenv("SMT_SKIP_AMBOX_CATALOG");
+      skip && skip[0] != '\0' && skip[0] != '0') {
     return;
   }
-  *browser_->selection_sub() = browser_->edit_host()->events()->subscribe<content::SelectionChanged>(
+  content::ViewHost* host = browser_->edit_host();
+  if (!host) {
+    return;
+  }
+  const auto addr = reinterpret_cast<uintptr_t>(host);
+  if (addr < 0x10000u || (addr & 0xffu) == 0xcdu || (addr >> 24) == 0xcdu) {
+    return;
+  }
+  content::EventBus* events = host->events();
+  if (!events) {
+    return;
+  }
+  *browser_->selection_sub() = events->subscribe<content::SelectionChanged>(
       [this](const content::SelectionChanged& ev) {
         if (ev.ids.empty()) {
           // Prefer MapScene hit-test result from draft_observer; only clear
@@ -143,7 +194,7 @@ void BrowserView::wire_edit_feedback() {
         set_status_message("Selected " + std::to_string(ev.ids.size()) +
                            " feature(s)");
       });
-  *browser_->edit_sub() = browser_->edit_host()->events()->subscribe<content::EditCommitted>(
+  *browser_->edit_sub() = events->subscribe<content::EditCommitted>(
       [this](const content::EditCommitted& ev) {
         const char* op = "modify";
         if (ev.op == content::EditCommitted::Op::kAppend) {
@@ -155,7 +206,7 @@ void BrowserView::wire_edit_feedback() {
         sync_inspectors_from_scene();
         invalidate_map_overlays();
       });
-  *browser_->extent_sub() = browser_->edit_host()->events()->subscribe<content::ExtentChanged>(
+  *browser_->extent_sub() = events->subscribe<content::ExtentChanged>(
       [this](const content::ExtentChanged& ev) {
         browser_->OnExtentChanged(ev.view_id, ev.extent);
       });

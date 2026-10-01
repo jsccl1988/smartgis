@@ -65,11 +65,34 @@ int main() {
     expect(ws.last_draft().points[0].x_px == 1 &&
                ws.last_draft().points[1].x_px == 20,
            "pan continuous horizontal delta");
-    expect(ws.dispatch_input(at(content::InputEvent::Kind::kLUp, 20, 15)),
+    expect(ws.dispatch_input(at(content::InputEvent::Kind::kMouseMove, 40, 15)),
+           "pan move keeps press origin");
+    expect(ws.last_draft().points[0].x_px == 1 &&
+               ws.last_draft().points[1].x_px == 40,
+           "pan absolute origin across moves");
+    expect(ws.dispatch_input(at(content::InputEvent::Kind::kLUp, 40, 15)),
            "pan up");
     expect(ws.last_draft().kind == tool::DraftKind::kRect, "pan draft rect");
     expect(ws.last_draft().points.size() == 2, "pan two corners");
     expect(extents >= 1, "pan ExtentChanged");
+  }
+
+  {
+    // Click without drag must not emit a pan draft (legacy redraw flash).
+    content::EventBus bus;
+    int pans = 0;
+    tool::Workspace ws(&bus, nullptr);
+    ws.set_draft_observer([&](const tool::Draft& d) {
+      if (d.kind == tool::DraftKind::kRect) {
+        ++pans;
+      }
+    });
+    expect(ws.execute("view.pan", {}), "activate pan for click");
+    expect(ws.dispatch_input(at(content::InputEvent::Kind::kLDown, 8, 9)),
+           "click down");
+    expect(ws.dispatch_input(at(content::InputEvent::Kind::kLUp, 8, 9)),
+           "click up");
+    expect(pans == 0, "click emits no pan draft");
   }
 
   {
@@ -418,9 +441,9 @@ int main() {
   }
 
   if (g_fails) {
-    std::fprintf(stderr, "gestures_test: %d fail(s)\n", g_fails);
+    std::fprintf(stderr, "draft_test: %d fail(s)\n", g_fails);
     return 1;
   }
-  std::printf("gestures_test: ok\n");
+  std::printf("draft_test: ok\n");
   return 0;
 }

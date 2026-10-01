@@ -22,6 +22,10 @@ Scene3dPresenter::Scene3dPresenter() {
   rebind_software();
 }
 
+void Scene3dPresenter::set_look_preset(Scene3dLookPreset preset) {
+  gpu_.set_look_preset(preset);
+}
+
 Scene3dPresenter::~Scene3dPresenter() {
   software_.release_engine_logo_overlay();
   atmosphere_.release_passes();
@@ -47,7 +51,10 @@ void Scene3dPresenter::bind_label_frame(const ViewFrame* frame) {
 void Scene3dPresenter::bind_map(const MapScene* scene) {
   atmosphere_.bind_scene(scene);
   gpu_.bind_map(scene);
-  gpu_.abandon(&atmosphere_);
+  // Do not call gpu_.abandon here: on first bind present_mu_ / GpuScene are
+  // freshly constructed and abandon's lock+release_passes path has AVd under
+  // Debug STL when MapSession layout was mid-rebuild. Mesh drop stays on
+  // abandon_mesh() / destructor / explicit rebind after a live Device.
   rebind_software();
 }
 
@@ -67,6 +74,29 @@ Extent2 Scene3dPresenter::world_extent() const {
 
 void Scene3dPresenter::abandon_mesh() {
   gpu_.abandon(&atmosphere_);
+}
+
+void Scene3dPresenter::set_overlay_pointcloud(const float* xyz_lon_lat_elev,
+                                              int point_count,
+                                              const uint8_t* rgba) {
+  gpu_.set_overlay_pointcloud(xyz_lon_lat_elev, point_count, rgba);
+}
+
+void Scene3dPresenter::clear_overlay_pointcloud() {
+  gpu_.clear_overlay_pointcloud();
+}
+
+void Scene3dPresenter::set_overlay_tin_mesh(const float* xyz_lon_lat_elev,
+                                            int point_count,
+                                            const unsigned* indices,
+                                            int index_count,
+                                            const uint8_t* albedo_rgba) {
+  gpu_.set_overlay_tin_mesh(xyz_lon_lat_elev, point_count, indices,
+                            index_count, albedo_rgba);
+}
+
+void Scene3dPresenter::clear_overlay_tin_mesh() {
+  gpu_.clear_overlay_tin_mesh();
 }
 
 void Scene3dPresenter::reset() {

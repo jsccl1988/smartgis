@@ -18,6 +18,9 @@ using namespace plugin;
 
 namespace ui {
 
+// Decode leftover CP936 or UTF-8 AM titles for Outlook / TreeCtrl captions.
+XAMBOX_EXPORT CString ambox_title_for_display(const char* name);
+
 // Aux-module Outlook bar — Feature Pack CMFCOutlookBar (via CBCGPOutlookBar).
 class XAMBOX_EXPORT SmtAMBoxMgrDocBar : public CBCGPOutlookBar {
  public:

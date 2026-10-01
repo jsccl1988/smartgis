@@ -23,7 +23,8 @@ class Label;
 class RenderTracePanel;
 class TabStrip;
 
-// VS-style bottom Diagnostic Tools: Output | Console | CPU | Memory.
+// VS-style bottom Diagnostic Tools: Output | Console | Trace | Memory.
+// Trace = RenderTracePanel (UI Views paint/compositor + map/GDI filters).
 // Allocate via make_diagnostic_tools_panel() for cross-module View ownership.
 class UI_EXPORT DiagnosticToolsPanel : public View {
  public:

@@ -58,17 +58,18 @@ END_MESSAGE_MAP()
 void CAboutDlg::OnBnClickedOk() { OnOK(); }
 
 CMDITabOptions::CMDITabOptions() {
+  // Flat top tabs + no per-doc icons — closer to Views TabStrip (Map/Data/3D).
   m_nMDITabsType = CMDITabOptions::MDITabsStandard;
   m_bMaximizeMDIChild = TRUE;
   m_bTabsOnTop = TRUE;
-  m_bActiveTabCloseButton = FALSE;
-  m_nTabsStyle = CBCGPTabWnd::STYLE_3D_ONENOTE;
+  m_bActiveTabCloseButton = TRUE;
+  m_nTabsStyle = CBCGPTabWnd::STYLE_FLAT;
   m_bTabsAutoColor = FALSE;
-  m_bMDITabsIcons = TRUE;
+  m_bMDITabsIcons = FALSE;
   m_bMDITabsDocMenu = FALSE;
   m_bDragMDITabs = TRUE;
   m_bMDITabsContextMenu = TRUE;
-  m_nMDITabsBorderSize = 2;
+  m_nMDITabsBorderSize = 1;
   m_bDisableMDIChildRedraw = TRUE;
   m_bFlatFrame = TRUE;
   m_bCustomTooltips = FALSE;
@@ -78,15 +79,15 @@ void CMDITabOptions::Load() {
   m_nMDITabsType = (MDITabsType)theApp.GetInt(_T("ShowMDITabs"), TRUE);
   m_bMaximizeMDIChild = theApp.GetInt(_T("MaximizeMDIChild"), TRUE);
   m_bTabsOnTop = theApp.GetInt(_T("TabsOnTop"), TRUE);
-  m_bActiveTabCloseButton = theApp.GetInt(_T("ActiveTabCloseButton"), FALSE);
+  m_bActiveTabCloseButton = theApp.GetInt(_T("ActiveTabCloseButton"), TRUE);
   m_nTabsStyle = (CBCGPTabWnd::Style)theApp.GetInt(
-      _T("TabsStyle"), CBCGPTabWnd::STYLE_3D_ONENOTE);
+      _T("TabsStyle"), CBCGPTabWnd::STYLE_FLAT);
   m_bTabsAutoColor = theApp.GetInt(_T("TabsAutoColor"), FALSE);
-  m_bMDITabsIcons = theApp.GetInt(_T("MDITabsIcons"), TRUE);
+  m_bMDITabsIcons = theApp.GetInt(_T("MDITabsIcons"), FALSE);
   m_bMDITabsDocMenu = theApp.GetInt(_T("MDITabsDocMenu"), FALSE);
   m_bDragMDITabs = theApp.GetInt(_T("DragMDITabs"), TRUE);
   m_bMDITabsContextMenu = theApp.GetInt(_T("MDITabsContextMenu"), TRUE);
-  m_nMDITabsBorderSize = theApp.GetInt(_T("MDITabsBorderSize"), TRUE);
+  m_nMDITabsBorderSize = theApp.GetInt(_T("MDITabsBorderSize"), 1);
   m_bDisableMDIChildRedraw = theApp.GetInt(_T("DisableMDIChildRedraw"), TRUE);
   m_bFlatFrame = theApp.GetInt(_T("FlatFrame"), TRUE);
   m_bCustomTooltips = theApp.GetInt(_T("CustomTooltips"), FALSE);
@@ -325,12 +326,14 @@ BOOL CSmartGisApp::InitInstance() {
   // deadlock inside CView::OnInitialUpdate when InitInstance has no outer
   // message pump (title bar shows 未响应, UI thread Wait/UserRequest, CPU
   // idle). Post after return so the pump can nest safely; SetOperMap then
-  // frames/paints the bootstrapped china_city map. Order: Edit first so
-  // Data/3D can reuse the same document via open_mdi_view.
-  LOGGING(LOG_INFO, "InitInstance: posting deferred Edit/Data/3D view open...");
+  // frames/paints the bootstrapped china_city map.
+  //
+  // Only auto-open Edit. Queuing Data + 3D right after Edit still hangs the
+  // UI thread inside CreateNewFrame / InitialUpdateFrame for the second MDI
+  // child (Edit OnInitialUpdate completes; Data never logs begin). User can
+  // open Data/3D from 窗口(&W) once Edit is responsive.
+  LOGGING(LOG_INFO, "InitInstance: posting deferred Edit view open...");
   pMainFrame->PostMessage(WM_COMMAND, ID_WND_MAPEDIT, 0);
-  pMainFrame->PostMessage(WM_COMMAND, ID_WND_MAPDATA, 0);
-  pMainFrame->PostMessage(WM_COMMAND, ID_WND_3D, 0);
 
   m_pMainWnd->ShowWindow(SW_SHOWMAXIMIZED);
   pMainFrame->ShowWindow(SW_SHOWMAXIMIZED);
@@ -406,6 +409,48 @@ BOOL CSmartGisApp::open_mdi_view(CDocTemplate *tmpl) {
   if (tmpl == NULL)
     return FALSE;
 
+  // Prefer activating an existing view of this template's class. A second
+  // CreateNewFrame for 3D (same CSmartGisDoc, another CSmart3DView) re-inits
+  // D3D + seeds thousands of OGR features and ends in heap corruption
+  // (0xC0000374) after 窗口→三维窗口 is clicked again.
+  // MFC here has no public GetViewClass(); map by the known template pointers.
+  CRuntimeClass *view_class = NULL;
+  if (tmpl == m_pEditViewDocTemplate) {
+    view_class = RUNTIME_CLASS(CSmartMapEditView);
+  } else if (tmpl == m_pDataViewDocTemplate) {
+    view_class = RUNTIME_CLASS(CSmartDataSourceView);
+  } else if (tmpl == m_p3DViewDocTemplate) {
+    view_class = RUNTIME_CLASS(CSmart3DView);
+  }
+  if (view_class != NULL) {
+    POSITION tmpl_pos = GetFirstDocTemplatePosition();
+    while (tmpl_pos != NULL) {
+      CDocTemplate *scan = GetNextDocTemplate(tmpl_pos);
+      if (scan == NULL) {
+        continue;
+      }
+      POSITION doc_pos = scan->GetFirstDocPosition();
+      while (doc_pos != NULL) {
+        CDocument *scan_doc = scan->GetNextDoc(doc_pos);
+        if (scan_doc == NULL) {
+          continue;
+        }
+        POSITION view_pos = scan_doc->GetFirstViewPosition();
+        while (view_pos != NULL) {
+          CView *view = scan_doc->GetNextView(view_pos);
+          if (view == NULL || !view->IsKindOf(view_class)) {
+            continue;
+          }
+          if (CFrameWnd *frame = view->GetParentFrame()) {
+            LOGGING(LOG_INFO, "open_mdi_view: activate existing view");
+            frame->ActivateFrame(SW_SHOW);
+            return TRUE;
+          }
+        }
+      }
+    }
+  }
+
   CDocument *doc = NULL;
   CMDIChildWnd *child = NULL;
   if (m_pMainWnd) {
@@ -418,12 +463,15 @@ BOOL CSmartGisApp::open_mdi_view(CDocTemplate *tmpl) {
   }
 
   if (doc) {
+    LOGGING(LOG_INFO, "open_mdi_view: CreateNewFrame on existing doc");
     CFrameWnd *created = tmpl->CreateNewFrame(doc, child);
     if (created) {
       tmpl->InitialUpdateFrame(created, doc);
+      LOGGING(LOG_INFO, "open_mdi_view: InitialUpdateFrame done");
       return TRUE;
     }
   }
 
+  LOGGING(LOG_INFO, "open_mdi_view: OpenDocumentFile(NULL)");
   return tmpl->OpenDocumentFile(NULL) != NULL;
 }

@@ -11,6 +11,7 @@
 
 #include "render/rhi/rhi.h"
 #include "render/programs/programs.h"
+#include "gis/vista/assets/tileset/tileset.h"
 #include "gis/vista/world/world.h"
 #include "gis/present/style/style_types.h"
 
@@ -61,6 +62,9 @@ struct GpuInstance {
   std::vector<uint8_t> terrain_rgba;
   uint32_t terrain_tex_w = 0;
   uint32_t terrain_tex_h = 0;
+  std::vector<float> point_positions;
+  std::vector<uint8_t> point_rgba;
+  std::vector<gis::PointCloudChunk> point_chunks;
   bool has_paint = false;
   gis::style::ResolvedPaint paint;
 };
@@ -96,6 +100,20 @@ class GpuScene {
   // stub leak policy). Prefer release() when the Device is still valid.
   void abandon();
 
+  // Force rebuild_meshes on the next record (e.g. after ocean height alloc
+  // recycles FlyCube texture heap that still backs DEM albedo SRVs).
+  void mark_meshes_dirty() { meshes_dirty_ = true; }
+
+  // Upload / rebuild GPU meshes now (before recording other passes). Needed
+  // when AtmosphereFrame opens sky/depth passes first — creating DEM albedo
+  // mid-list left samples black (21,0,0) despite green CPU bake.
+  bool ensure_meshes(render::rhi::Device* device, uint32_t width,
+                     uint32_t height);
+
+  // True when the next ensure_meshes / record_draws will call rebuild_meshes.
+  bool needs_mesh_upload(render::rhi::Device* device, uint32_t width,
+                         uint32_t height) const;
+
   // Marks meshes dirty. rebuild_meshes uses this envelope to compute
   // world_units_per_pixel. Not a second projection.
   void set_view_ortho(double min_x, double min_y, double max_x, double max_y);
@@ -110,8 +128,8 @@ class GpuScene {
   bool has_view_camera() const { return view_camera_set_; }
 
   // Default solid fill for untextured meshes without per-instance paint
-  // (matches leftover brush cyan). Stored here and uploaded on record with
-  // set_constants; this does not touch the command list.
+  // (matches leftover brush cyan). Draw-time ColorCB only — does not mark
+  // meshes dirty / re-upload (patches existing GpuMesh tint in place).
   void set_solid_color(float r, float g, float b, float a);
   void set_solid_color_from_colorref(long colorref);
 
@@ -138,6 +156,15 @@ class GpuScene {
   // Directional light for lit / lit-textured DEM (defaults match Light{}).
   void set_light(const render::programs::Light& light) { light_ = light; }
   const render::programs::Light& light() const { return light_; }
+
+  // Optional LRU of decoded 3D Tiles content. When set, kTileset rebuild
+  // prefers cache hits over decode_content_file (present/orbit stream path).
+  void set_tileset_content_cache(gis::TilesetContentCache* cache) {
+    tileset_content_cache_ = cache;
+  }
+  gis::TilesetContentCache* tileset_content_cache() const {
+    return tileset_content_cache_;
+  }
 
   // Attach the shared depth buffer (ocean → land → clouds). First pass clears;
   // later callers should set DepthLoadOp::kLoad via set_depth_load_op.
@@ -226,6 +253,7 @@ class GpuScene {
   render::rhi::DepthLoadOp depth_load_op_ = render::rhi::DepthLoadOp::kClear;
   bool wireframe_ = false;
   render::programs::Light light_{};
+  gis::TilesetContentCache* tileset_content_cache_ = nullptr;
 };
 
 }  // namespace scene

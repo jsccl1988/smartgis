@@ -150,9 +150,52 @@ class GIS_EXPORT Surface3d : public Tin {
   Surface3d* clone() const { return new Surface3d(*this); }
 };
 
+// Structured hexahedral volume lattice (i,j,k). Nodes are XYZ in row-major
+// order index = k * ny * nx + j * nx + i. Not an OGR type; analysis / CFD
+// interchange (VTK StructuredGrid) maps 1:1 onto this layout.
+class GIS_EXPORT HexGrid {
+ public:
+  HexGrid();
+  HexGrid(int nx, int ny, int nz);
+  HexGrid(const HexGrid& other);
+  HexGrid& operator=(const HexGrid& other);
+  ~HexGrid();
+
+  HexGrid* clone() const;
+  void clear();
+  bool is_empty() const;
+
+  void set_size(int nx, int ny, int nz);
+  void resize(int nx, int ny, int nz);
+  void get_size(int& nx, int& ny, int& nz) const;
+  int nx() const { return nx_; }
+  int ny() const { return ny_; }
+  int nz() const { return nz_; }
+  int node_count() const { return nx_ * ny_ * nz_; }
+
+  Raw3DPoint node(int i, int j, int k) const;
+  void set_node(int i, int j, int k, const Raw3DPoint& p);
+
+  // Contiguous xyz triplets; size node_count(). Empty when empty().
+  const std::vector<Raw3DPoint>& nodes() const { return nodes_; }
+  std::vector<Raw3DPoint>& nodes() { return nodes_; }
+
+  int index_of(int i, int j, int k) const;
+
+  void get_envelope(OGREnvelope3D* env) const;
+  bool equals(const HexGrid* other) const;
+
+ private:
+  int nx_ = 0;
+  int ny_ = 0;
+  int nz_ = 0;
+  std::vector<Raw3DPoint> nodes_;
+};
+
 using Smt3DSurface = Surface3d;
 using SmtTin = Tin;
 using SmtGrid = Grid;
+using SmtHexGrid = HexGrid;
 
 }  // namespace geo
 

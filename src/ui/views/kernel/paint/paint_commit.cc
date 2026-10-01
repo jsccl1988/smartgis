@@ -44,14 +44,34 @@ bool commit_view_tree(View* root,
   out->generation = g_commit_generation.fetch_add(1, std::memory_order_relaxed);
 
   // Recording stays on this (UI) thread only; thread_local recorder is not
-  // shared with the compositor worker.
-  root->append_commands_to(&out->display_list);
+  // shared with the compositor worker. Empty or full-client dirty skips
+  // culling so product paths keep a complete tree snapshot.
+  const Rect* cull = nullptr;
+  if (!dirty.is_empty()) {
+    const bool full_client = dirty.x <= 0 && dirty.y <= 0 &&
+                             dirty.right() >= width_px &&
+                             dirty.bottom() >= height_px;
+    if (!full_client) {
+      cull = &dirty;
+    }
+  }
+  root->append_commands_to(&out->display_list, cull);
 
   LARGE_INTEGER t1 = {};
   QueryPerformanceCounter(&t1);
   if (t1.QuadPart > t0.QuadPart) {
-    ui::gfx::note_commit_qpc(
-        static_cast<std::uint64_t>(t1.QuadPart - t0.QuadPart));
+    const auto ticks =
+        static_cast<std::uint64_t>(t1.QuadPart - t0.QuadPart);
+    ui::gfx::note_commit_qpc(ticks);
+    // Hover-sized dirty: track separately for U0/U1 shell hover gates.
+    if (!dirty.is_empty()) {
+      const std::int64_t area =
+          static_cast<std::int64_t>(dirty.width) *
+          static_cast<std::int64_t>(dirty.height);
+      if (area > 0 && area < 64 * 64) {
+        ui::gfx::note_hover_commit_qpc(ticks);
+      }
+    }
   }
   return true;
 }

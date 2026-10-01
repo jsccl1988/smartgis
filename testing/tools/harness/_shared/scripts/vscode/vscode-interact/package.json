@@ -1,0 +1,47 @@
+{
+  "name": "interact-lang",
+  "displayName": "Interact DSL",
+  "description": "Syntax highlighting, completions, snippets, and Go to Definition for SmartGIS *.il scripts.",
+  "version": "0.2.0",
+  "publisher": "mogu",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "activationEvents": [
+    "onLanguage:interact"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "interact",
+        "aliases": [
+          "Interact DSL",
+          "interact",
+          "il"
+        ],
+        "extensions": [
+          ".il"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "interact",
+        "scopeName": "source.interact",
+        "path": "./syntaxes/interact.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "interact",
+        "path": "./snippets/interact.json"
+      }
+    ]
+  }
+}

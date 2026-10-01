@@ -43,30 +43,48 @@ unsigned dpi_from_dc(HDC hdc) {
 
 }  // namespace
 
+unsigned dpi_from_monitor(HMONITOR mon) {
+  if (!mon) {
+    return 0;
+  }
+  HMODULE shcore = LoadLibraryW(L"shcore.dll");
+  if (!shcore) {
+    return 0;
+  }
+  auto get_mon = reinterpret_cast<GetDpiForMonitorFn>(
+      GetProcAddress(shcore, "GetDpiForMonitor"));
+  UINT dpi_x = 0;
+  UINT dpi_y = 0;
+  if (get_mon &&
+      SUCCEEDED(get_mon(mon, kMdtEffectiveDpi, &dpi_x, &dpi_y)) &&
+      dpi_x > 0) {
+    FreeLibrary(shcore);
+    return dpi_x;
+  }
+  FreeLibrary(shcore);
+  return 0;
+}
+
 unsigned dpi_for_hwnd(HWND hwnd) {
+  // Prefer the monitor's effective DPI. GetDpiForWindow can still report 96
+  // right after CreateWindow on PMV2 hosts; trusting that left chrome at 1×
+  // physical pixels (tiny glyphs on 200–250% displays).
   if (hwnd && IsWindow(hwnd)) {
+    const unsigned mon_dpi =
+        dpi_from_monitor(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST));
     if (GetDpiForWindowFn get_dpi = load_get_dpi_for_window()) {
-      const UINT dpi = get_dpi(hwnd);
-      if (dpi > 0) {
-        return dpi;
+      const UINT win_dpi = get_dpi(hwnd);
+      if (win_dpi > 0 && win_dpi != kDefaultDpi) {
+        return win_dpi;
       }
-    }
-    HMODULE shcore = LoadLibraryW(L"shcore.dll");
-    if (shcore) {
-      auto get_mon = reinterpret_cast<GetDpiForMonitorFn>(
-          GetProcAddress(shcore, "GetDpiForMonitor"));
-      if (get_mon) {
-        HMONITOR mon =
-            MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        UINT dpi_x = 0;
-        UINT dpi_y = 0;
-        if (SUCCEEDED(get_mon(mon, kMdtEffectiveDpi, &dpi_x, &dpi_y)) &&
-            dpi_x > 0) {
-          FreeLibrary(shcore);
-          return dpi_x;
-        }
+      if (mon_dpi > 0) {
+        return mon_dpi;
       }
-      FreeLibrary(shcore);
+      if (win_dpi > 0) {
+        return win_dpi;
+      }
+    } else if (mon_dpi > 0) {
+      return mon_dpi;
     }
     HDC hdc = GetDC(hwnd);
     const unsigned dpi = dpi_from_dc(hdc);
@@ -76,6 +94,12 @@ unsigned dpi_for_hwnd(HWND hwnd) {
     return dpi;
   }
 
+  POINT origin = {};
+  const unsigned mon_dpi =
+      dpi_from_monitor(MonitorFromPoint(origin, MONITOR_DEFAULTTOPRIMARY));
+  if (mon_dpi > 0) {
+    return mon_dpi;
+  }
   HDC screen = GetDC(nullptr);
   const unsigned dpi = dpi_from_dc(screen);
   if (screen) {

@@ -7,7 +7,7 @@ All rights reserved.
 
 **Status:** active  
 **Date:** 2026-09-19  
-**Updated:** 2026-09-29 — §SP1 Layout: `bridge/{abi,msg}` + hoist `group/` capabilities; §13 point-cloud; §11b.
+**Updated:** 2026-10-01 — §12c scene3d primitive deep layer + `legacy/gis/feature`; §SP4 scene3d layout tighten (`primitive/`+`seed/` + `legacy/gis/vista`); §SP2 rhi3d bridge removed; §SP1 Layout; §13 point-cloud; §11b.
 **Scope:** Living design for leftover strangler program **SP0–SP5**: order, technique, dependency direction, parallel rules, ABI, and **locked decisions per SP**. Implementation checklists stay in `docs/superpowers/plans/` (linked below). Physical package splits already done; revise **sections here** — do not open new dated SP / layout twins.  
 **Related (accepted / landed — do not reopen):**
 
@@ -149,27 +149,28 @@ Chrome 只 include `content/public`。不新增 `render` 终局 → `legacy_rend
 
 ## 10. SP2 — Present / Paint Facade + legacy render 布局
 
-**Goal:** MFC HWND present 仍归 GDI/GL `Init`；像素经 `LeftoverRecorder` → Null/`GpuScene`；`bind_rhi_present` 只记 HWND + Null，**禁止**在该 HWND 上建 FlyCube swapchain。
+**Goal:** MFC HWND present 仍归 GDI/GL/D3D `Init`（BitBlt / SwapBuffers / Present）。Views/gpu 用独立 HWND + `preferred_gpu_backend()`。
+
+**Landed (2026-10-01):** `rhi3d/public/bridge` 已物理删除（`leftover_mesh` / `LeftoverRecorder` / `leftover_session` / `smt_leftover_session` / `bind_rhi_present`）。Leftover Init 不再接 Null 录制会话。
 
 **Locked:**
 
 | Topic | Choice |
 | --- | --- |
 | Present | 双轨：MFC 独占其 HWND；Views/gpu 独立 HWND + `preferred_gpu_backend()` |
-| `bind_rhi_present` | `leftover_session().bind_present_hwnd`；禁止 FlyCube |
-| GDI RenderMap | 先画再 `leftover_record_map_frame` |
-| ABI | 保留 `bind_rhi_present` / `smt_leftover_session` |
+| Leftover → modern RHI | **无** process-wide leftover recorder；终局像素只走 `src/render` / Views |
+| ABI | `bind_rhi_present` / `smt_leftover_session` **已退役**（不再导出） |
 
-**Layout (folded, dual-run + rhi2d landed):**
+**Layout (folded, dual-run + rhi2d landed; bridge removed):**
 
 ```
 src/legacy/render/
-  rhi2d/public/device + detail + impl/gdi
-  rhi3d/public/{…,bridge/leftover_*} + impl/{gl,d3d}
+  rhi2d/public/device + detail + impl/…
+  rhi3d/public/{device,resource,shader,texture,state,camera} + impl/{gl,d3d}
   scene3d/
 ```
 
-无顶层 `bridge/` / `gdi/`；无旧路径 shim；`dll_stem=legacy_render`。Dual-run / MapLibre parity 政策细节见 archived dual-run spec；as-built：`src/legacy/render/README.md`。
+无顶层 `bridge/` / `gdi/`；无 `rhi3d/public/bridge`；无旧路径 shim；`dll_stem=legacy_render`。Dual-run / MapLibre parity 政策细节见 archived dual-run spec；as-built：`src/legacy/render/README.md`。
 
 **Path:** 可改 rhi2d/rhi3d present 缝；禁改 tool、app/ui、scene3d 业务核（SP4）。
 
@@ -314,6 +315,44 @@ Checklist: [`../plans/2026-09-29-legacy-core-subdirectory-layout.md`](../plans/2
 **Goal:** DEM/地图种子 envelope → `gis::World`；掩膜权威 `gis::land_mask`；AABB 镜像；Views 经 `gis::DemRaster`；`present_gpu` → `GpuScene::record` + 外置相机。不改 SP2 bridge present。
 
 **Success (landed waves):** mask 委托、seed DEM、AABB 镜像、Views 无 `dem_height_field_static` — 勾选见 plan；本文不重开已勾选 Success。
+
+### 12b. scene3d subdirectory tighten + `legacy/gis/vista`（2026-10-01）
+
+**Goal:** 收紧 `legacy/render/scene3d` 薄目录；无 device 的 DEM/World 适配拆到 `legacy/gis/vista`（仍不出 `legacy/`，进 **`gis.dll`**）。
+
+| Lock | Choice |
+| --- | --- |
+| Scope | `scene3d/**` + new `legacy/gis/vista/**` |
+| Technique | Scheme C — break includes, **no** old-path shim |
+| scene3d layout | `scene/` `index/` `primitive/` `seed/` `test/` |
+| `primitive/` | 原 primitive + feature + surface + stereo_* + `map_label_batch` |
+| `seed/` | `map_to_scene` + `seed_smt_scene_aabbs_into_world` 壳（可持 `LP3DRENDERDEVICE` / `SmtScene`） |
+| `legacy/gis/vista` | `dem_height_field` `dem_to_world` `coord`（`leftover_yup_to_gis` / `attach_gis_aabb`）；**禁止** `SmtScene` / device |
+| Export | vista → `GIS_EXPORT`；scene3d 种子/图元 → `LEGACY_RENDER_EXPORT` |
+| Behavior | 本波只搬家 + include/GN；不解耦 `seed_*_into_scene` device 参数 |
+| Nesting | Cap `legacy/render/scene3d/<module>/`；`legacy/gis/vista/` flat |
+
+Checklist: [`../plans/2026-10-01-scene3d-subdirectory-tighten.md`](../plans/2026-10-01-scene3d-subdirectory-tighten.md).
+
+### 12c. scene3d primitive deep layer + `legacy/gis/feature`（2026-10-01）
+
+**Goal:** 在 **`src/legacy/` 内** 加深 `scene3d/primitive` 分层；合并 2D/3D geoobject；device-free OGR→CPU mesh 抽到 `legacy/gis/feature`（`gis.dll`）。本波**不**迁出 `legacy/`。
+
+| Lock | Choice |
+| --- | --- |
+| Scope | `scene3d/**` + `legacy/gis/feature/**` |
+| Technique | Scheme C — break includes, **no** shim / 无 `Smt2D*` 别名 |
+| scene3d layout | `scene/` `index/` `host/` `primitive/{mesh,feature,surface}/` `seed/` `test/` |
+| `host/` | `stereo_hwnd_view`（HWND present C ABI） |
+| `primitive/mesh/` | cube / sphere / water / northarray |
+| `primitive/feature/` | `SmtGeoObject` + `map_label_batch` |
+| `primitive/surface/` | terrain / pointcloud / stereo_terrain |
+| `legacy/gis/feature` | `FeatureMesh` + `tess_map` / `tess_world`；**禁止** device / `SmtScene` |
+| Type | `SmtGeoObject`（`GeoObjectFrame::kMap` \| `kWorld`） |
+| Export | feature → `GIS_EXPORT`；scene3d → `LEGACY_RENDER_EXPORT` |
+| Nesting | Cap `scene3d/primitive/<sub>/`；`legacy/gis/feature/` flat |
+
+Checklist: [`../plans/2026-10-01-scene3d-primitive-deep-layer.md`](../plans/2026-10-01-scene3d-primitive-deep-layer.md).
 
 ---
 

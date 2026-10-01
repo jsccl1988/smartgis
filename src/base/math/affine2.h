@@ -4,12 +4,14 @@
 #ifndef SMT_RENDER_MATH_AFFINE2_H_
 #define SMT_RENDER_MATH_AFFINE2_H_
 
-namespace render {
+namespace base {
 
 // Logical→device map matching leftover GDI LPToDP:
 //   X = LONG(vox + (x - wox) * scale + 0.5)
 //   Y = LONG(voy + (y - woy) * scale + 0.5)
 //   Y = LONG(view_h - Y) when flip_y
+// Eigen-backed Vector/Matrix live elsewhere; this stays a 2D LP↔DP special case
+// (do not force through 4×4 Matrix).
 struct LpToDp2 {
   float wox = 0.f;
   float woy = 0.f;
@@ -35,6 +37,26 @@ inline void transform_xy(const LpToDp2& a, float x, float y, long* ox,
   }
 }
 
+// Inverse of transform_xy (matches leftover DPToLP: unflip then divide).
+inline void inverse_xy(const LpToDp2& a, long X, long Y, float* ox, float* oy) {
+  long Yu = Y;
+  if (a.flip_y) {
+    Yu = static_cast<long>(a.view_h - Y);
+  }
+  if (ox) {
+    *ox = (static_cast<float>(X) - a.vox) / a.scale + a.wox;
+  }
+  if (oy) {
+    *oy = (static_cast<float>(Yu) - a.voy) / a.scale + a.woy;
+  }
+}
+
+}  // namespace base
+
+namespace render {
+using ::base::LpToDp2;
+using ::base::transform_xy;
+using ::base::inverse_xy;
 }  // namespace render
 
 #endif  // SMT_RENDER_MATH_AFFINE2_H_

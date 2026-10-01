@@ -9,11 +9,14 @@
 #include "content/browser/present/map2d/frame/map2d_frame_cache.h"
 #include "content/browser/present/map2d/frame/map2d_tile_math.h"
 #include "content/browser/present/map2d/software/map2d_frame_gdi.h"
+#include "content/browser/present/map2d/map2d_phase_profile.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <string>
@@ -106,7 +109,7 @@ int label_importance(const Feature& f) {
 
 size_t label_cap_for_scale(double scale) {
   if (scale < 22.0) {
-    return 16;
+    return 24;
   }
   if (scale < 48.0) {
     return 40;
@@ -125,9 +128,9 @@ class LabelOccupancy {
     if (!placed_x || !placed_y || w <= 0 || h <= 0) {
       return false;
     }
-    const int dxs[5] = {0, 0, 10, 0, -10};
-    const int dys[5] = {0, -(h + 2), 0, h + 2, 0};
-    for (int i = 0; i < 5; ++i) {
+    const int dxs[8] = {0, 0, 14, 0, -14, 18, -18, 0};
+    const int dys[8] = {0, -(h + 4), 0, h + 4, 0, -(h / 2), -(h / 2), h + 2};
+    for (int i = 0; i < 8; ++i) {
       const int left = x + dxs[i];
       const int top = y + dys[i];
       MapLabelBox box{left, top, left + w, top + h};
@@ -216,12 +219,74 @@ bool write_bmp_file(const std::string& path, int width_px, int height_px,
 
 }  // namespace
 
+Map2dSoftwarePainter::~Map2dSoftwarePainter() { clear_present_cache(); }
+
+void Map2dSoftwarePainter::clear_present_cache() const {
+  if (present_cache_dc_) {
+    DeleteDC(present_cache_dc_);
+    present_cache_dc_ = nullptr;
+  }
+  if (present_cache_bmp_) {
+    DeleteObject(present_cache_bmp_);
+    present_cache_bmp_ = nullptr;
+  }
+  present_cache_w_ = 0;
+  present_cache_h_ = 0;
+  present_cache_layout_gen_ = 0;
+  present_cache_cam_ = Map2dFrameCache::CameraKey{};
+}
+
+bool Map2dSoftwarePainter::try_blit_present_cache(
+    HDC hdc, int width_px, int height_px, uint64_t layout_gen) const {
+  if (!hdc || !present_cache_dc_ || !present_cache_bmp_ ||
+      present_cache_w_ != width_px || present_cache_h_ != height_px ||
+      present_cache_layout_gen_ != layout_gen) {
+    return false;
+  }
+  return BitBlt(hdc, 0, 0, width_px, height_px, present_cache_dc_, 0, 0,
+                SRCCOPY) != FALSE;
+}
+
+void Map2dSoftwarePainter::store_present_cache(
+    HDC src, int width_px, int height_px, uint64_t layout_gen,
+    const Map2dFrameCache::CameraKey& cam) const {
+  if (!src || width_px <= 0 || height_px <= 0) {
+    return;
+  }
+  if (present_cache_w_ != width_px || present_cache_h_ != height_px ||
+      !present_cache_dc_ || !present_cache_bmp_) {
+    clear_present_cache();
+    HDC screen = GetDC(nullptr);
+    if (!screen) {
+      return;
+    }
+    present_cache_dc_ = CreateCompatibleDC(screen);
+    present_cache_bmp_ =
+        CreateCompatibleBitmap(screen, width_px, height_px);
+    ReleaseDC(nullptr, screen);
+    if (!present_cache_dc_ || !present_cache_bmp_) {
+      clear_present_cache();
+      return;
+    }
+    SelectObject(present_cache_dc_, present_cache_bmp_);
+    present_cache_w_ = width_px;
+    present_cache_h_ = height_px;
+  }
+  if (!BitBlt(present_cache_dc_, 0, 0, width_px, height_px, src, 0, 0,
+              SRCCOPY)) {
+    return;
+  }
+  present_cache_layout_gen_ = layout_gen;
+  present_cache_cam_ = cam;
+}
+
 void Map2dSoftwarePainter::bind(const MapScene* scene, const ViewFrame* frame,
                                  Map2dFrameCache* cache) {
   scene_ = scene;
   frame_ = frame;
   cache_ = cache;
   basemap_tiles_drawn_ = 0;
+  clear_present_cache();
 }
 
 void Map2dSoftwarePainter::paint_basemap_underlay(HDC hdc, int width_px,
@@ -371,37 +436,65 @@ void Map2dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
     return;
   }
 
+  Map2dFrameCache::PresentAction action =
+      Map2dFrameCache::PresentAction::kStaticReuse;
+  uint64_t layout_gen = 0;
+  Map2dFrameCache::CameraKey cam_key{};
+  bool prepared = false;
+  if (cache_) {
+    // Do not hold cache mutex across prepare/rebuild (async batches + layout).
+    prepared = cache_->prepare_for_present(static_cast<uint32_t>(width_px),
+                                           static_cast<uint32_t>(height_px),
+                                           &action);
+    if (prepared) {
+      std::lock_guard<std::recursive_mutex> lock(cache_->mutex());
+      cam_key = cache_->camera();
+      layout_gen = cache_->layout_build_count();
+      cache_->note_present_outcome(action);
+    }
+  }
+
+  const auto paint_t0 = std::chrono::steady_clock::now();
+  const bool can_reuse_pixels =
+      prepared &&
+      (action == Map2dFrameCache::PresentAction::kStaticReuse ||
+       action == Map2dFrameCache::PresentAction::kInteractiveReuse) &&
+      cam_key.same_camera(present_cache_cam_) &&
+      try_blit_present_cache(hdc, width_px, height_px, layout_gen);
+  if (can_reuse_pixels) {
+    BASE_TRACE_EVENT("cache_blit", "map2d.gdi");
+    paint_selection_overlay(hdc, width_px, height_px);
+    note_map2d_phase_software_paint(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - paint_t0)
+            .count());
+    return;
+  }
+
   {
     BASE_TRACE_EVENT("basemap", "map2d.gdi");
     paint_basemap_underlay(hdc, width_px, height_px);
   }
 
   bool painted_frame = false;
-  if (cache_) {
+  if (prepared && cache_) {
     gis::vista::MapFrame frame_copy;
     gis::vista::View view;
     {
-      // Dual-speed: reuse layout on pan (same as GPU present). ensure_full
-      // forced a rebuild every GDI paint and dominated the outer gdi span.
-      BASE_TRACE_EVENT("ensure", "map2d.gdi");
       std::lock_guard<std::recursive_mutex> lock(cache_->mutex());
-      Map2dFrameCache::PresentAction action =
-          Map2dFrameCache::PresentAction::kStaticReuse;
-      if (cache_->prepare_for_present(static_cast<uint32_t>(width_px),
-                                      static_cast<uint32_t>(height_px),
-                                      &action)) {
-        frame_copy = cache_->frame();
-        const Map2dFrameCache::CameraKey& cam = cache_->camera();
-        view = {cam.width_px, cam.height_px, cam.min_x, cam.min_y, cam.max_x,
-                cam.max_y};
-        painted_frame = true;
-        cache_->note_present_outcome(action);
-      }
+      frame_copy = cache_->frame();
+      const Map2dFrameCache::CameraKey& cam = cache_->camera();
+      view = {cam.width_px, cam.height_px, cam.min_x, cam.min_y, cam.max_x,
+              cam.max_y};
     }
-    if (painted_frame) {
-      BASE_TRACE_EVENT("frame_paint", "map2d.gdi");
-      detail::paint_map_frame_gdi(hdc, frame_copy, view, fill_background);
-    }
+    painted_frame = true;
+    BASE_TRACE_EVENT("frame_paint", "map2d.gdi");
+    detail::paint_map_frame_gdi(
+        hdc, frame_copy, view, fill_background,
+        [this](uint32_t texture_key, std::vector<uint8_t>* rgba, int* w,
+               int* h) {
+          return cache_ && cache_->load_raster(texture_key, rgba, w, h);
+        });
   }
   if (!painted_frame && fill_background) {
     HBRUSH bg = CreateSolidBrush(map_scene_map_bg_color());
@@ -410,9 +503,20 @@ void Map2dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
     DeleteObject(bg);
   }
 
-  // Also draw labels on the software path so export_bmp / showcase captures
-  // city names next to rivers (previously only HWND overlay painted labels).
-  if (painted_frame && frame_) {
+  // Prefer Layout kText (MapFrame GDI) as the single label path. A second
+  // paint_labels_projected pass used map_to_view with a lon/-lat dance that
+  // drifted city anchors (Chengdu/Guangzhou) relative to land/rivers.
+  bool frame_has_text = false;
+  if (painted_frame && cache_) {
+    std::lock_guard<std::recursive_mutex> lock(cache_->mutex());
+    for (const gis::vista::DrawItem& item : cache_->frame().items) {
+      if (item.kind == gis::vista::DrawKind::kText) {
+        frame_has_text = true;
+        break;
+      }
+    }
+  }
+  if (painted_frame && frame_ && !frame_has_text) {
     paint_labels_projected(
         hdc, width_px, height_px,
         [this](double lon, double lat, int* out_x, int* out_y) {
@@ -421,10 +525,20 @@ void Map2dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
         });
   }
 
+  if (painted_frame) {
+    store_present_cache(hdc, width_px, height_px, layout_gen, cam_key);
+  } else {
+    clear_present_cache();
+  }
+
   {
     BASE_TRACE_EVENT("selection", "map2d.gdi");
     paint_selection_overlay(hdc, width_px, height_px);
   }
+  note_map2d_phase_software_paint(
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - paint_t0)
+          .count());
 }
 
 void Map2dSoftwarePainter::paint_labels_projected(
@@ -434,10 +548,13 @@ void Map2dSoftwarePainter::paint_labels_projected(
   if (!hdc || !scene_ || !frame_ || width_px <= 0 || height_px <= 0 || !project) {
     return;
   }
-  HFONT font = CreateFontW(16, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
-                           DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-                           CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-                           DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
+  HFONT font = []() -> HFONT {
+    static HFONT cached = CreateFontW(
+        16, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+        DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
+    return cached;
+  }();
   HGDIOBJ old_font =
       SelectObject(hdc, font ? font : GetStockObject(DEFAULT_GUI_FONT));
   SetBkMode(hdc, TRANSPARENT);
@@ -562,15 +679,23 @@ void Map2dSoftwarePainter::paint_labels_projected(
   }
 
   SelectObject(hdc, old_font);
-  if (font) {
-    DeleteObject(font);
-  }
+  // |font| is process-cached; do not DeleteObject.
 }
 
 bool Map2dSoftwarePainter::export_bmp(const std::string& path, int width_px,
                                       int height_px) const {
   if (path.empty() || width_px <= 0 || height_px <= 0) {
     return false;
+  }
+  // Default: clear present cache so export always replays MapFrame (faithful
+  // carto / hillshade). Bench-only SMT_MAP2D_EXPORT_REUSE=1 keeps a matching
+  // cam+size present-cache blit (equal-profile paint_ms).
+  const bool export_reuse = []() {
+    const char* e = std::getenv("SMT_MAP2D_EXPORT_REUSE");
+    return e && e[0] == '1' && e[1] == '\0';
+  }();
+  if (!export_reuse) {
+    clear_present_cache();
   }
   HDC screen = GetDC(nullptr);
   if (!screen) {
@@ -602,7 +727,11 @@ bool Map2dSoftwarePainter::export_bmp(const std::string& path, int width_px,
   HGDIOBJ old = SelectObject(mem, dib);
   paint(mem, width_px, height_px, true);
   const int stride = ((width_px * 32 + 31) / 32) * 4;
+  const auto io_t0 = std::chrono::steady_clock::now();
   const bool ok = write_bmp_file(path, width_px, height_px, bits, stride);
+  note_map2d_phase_bmp_io(std::chrono::duration_cast<std::chrono::milliseconds>(
+                              std::chrono::steady_clock::now() - io_t0)
+                              .count());
   SelectObject(mem, old);
   DeleteObject(dib);
   DeleteDC(mem);

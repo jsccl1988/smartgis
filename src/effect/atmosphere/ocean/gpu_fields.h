@@ -72,6 +72,8 @@ class OceanGpuFields {
   render::rhi::Texture* spectrum_seed_ = nullptr;
   int height_n_ = 0;
   int spectrum_n_ = 0;
+  // Reused each upload_height to avoid n*n*4 heap churn on the present hot path.
+  std::vector<uint8_t> upload_rgba_;
 };
 
 }  // namespace detail

@@ -1,0 +1,45 @@
+{
+  "id": "plugin.mine",
+  "kind": "showcase",
+  "argv": [
+    "--plugin-showcase=mine"
+  ],
+  "env": {
+    "SMT_SKIP_MAP_CONTEXT_MENU": "1"
+  },
+  "mark_leaf": "plugin-showcase-mark.txt",
+  "required_marks": [
+    "mine-ok",
+    "prism-ok",
+    "orbit-mine",
+    "present-ok",
+    "bmp-ok",
+    "pass"
+  ],
+  "bmp": {
+    "path": "plugin-showcase-mine.bmp",
+    "score_id": "plugin_mesh",
+    "accept_nonzero_rc_if_bmp": true,
+    "min_bytes": 10000
+  },
+  "report_name": "plugin_mine_loop_report.json",
+  "probes": [
+    "marks",
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 2,
+    "timeout_sec": 120,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "borehole_sticks",
+      "tin_visible",
+      "no_black_frame"
+    ],
+    "expect_notes": "mine stratum TIN + borehole sticks readable in 3D"
+  }
+}

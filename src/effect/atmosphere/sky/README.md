@@ -14,13 +14,13 @@ clear + sky, then depth clear for ocean/terrain).
 
 ## View ray
 
-RH unproject matches CameraCB (`look_at` column-major world-to-view):
+RH unproject matches FogPass / CameraCB (`look_at` column-major world-to-view):
 
 1. `view_dir = (ndc.x / proj[0][0], ndc.y / proj[1][1], -1)`
-2. World direction from **view rows** as camera axes
-   (`right * x + up * y + (-forward) * z`) — same as industry fullscreen sky.
-   Avoids `transpose(view 3x3)` seams when the horizon/zenith gradient runs
-   across the screen.
+2. World direction = `normalize(mul(transpose((float3x3)view), view_dir))`
+   (`V^T * view_dir`). Do **not** use `view[0]*x+view[1]*y+view[2]*z`
+   (`V * view_dir`): HLSL `view[i]` is column i, so that form scrambles the
+   dome and washes the showcase BMP near-white (`blue_sky_frac_top=0`).
 
 `SkyPass::sample_sky_rgb` takes a world unit direction (no unproject); its
 tint / sun / Bruneton-lite terms mirror `kPsSky`.

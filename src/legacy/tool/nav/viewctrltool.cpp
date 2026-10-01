@@ -198,9 +198,9 @@ int SmtViewCtrlTool::MouseMove(uint nFlags, lPoint point) {
 
 int SmtViewCtrlTool::MouseWeel(uint nFlags, short zDelta, lPoint point) {
   (void)nFlags;
-  if (m_workspace) {
-    return SMT_ERR_NONE;
-  }
+  // |point| is screen coordinates (MFC OnMouseWheel). Do not early-out when
+  // m_workspace is set: OnMouseWheel only calls this after host dispatch
+  // failed, so skipping ApplyWheel swallowed wheel zoom in Edit.
   POINT pnt;
   pnt.x = point.x;
   pnt.y = point.y;

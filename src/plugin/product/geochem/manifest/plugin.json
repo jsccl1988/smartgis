@@ -1,0 +1,27 @@
+{
+  "id": "smartgis.geochem",
+  "name": "地球化学分析",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "builtin",
+  "author": "The Mogu Authors",
+  "description": "Sample-point graded colors, IDW anomaly surface, and stats panel",
+  "contributes": {
+    "commands": [
+      {"id": "geochem.analyze", "title": "地球化学分析", "menu": "tools"},
+      {"id": "geochem.stats", "title": "地球化学统计", "menu": "tools"},
+      {"id": "geochem.style_apply", "title": "应用分级符号", "menu": "tools"},
+      {"id": "geochem.about", "title": "关于", "menu": "tools"}
+    ],
+    "dialogs": [
+      {"id": "geochem.analyze", "title": "地球化学分析"},
+      {"id": "geochem.about", "title": "关于"}
+    ],
+    "processing": [
+      {"id": "geochem.analyze", "title": "Geochem IDW + grade + stats"},
+      {"id": "geochem.stats", "title": "Geochem sample stats"},
+      {"id": "geochem.style_apply", "title": "Apply graded sample style"},
+      {"id": "geochem.load", "title": "Load geochem CSV or vector"}
+    ]
+  }
+}

@@ -24,7 +24,7 @@ smt_mfc_shared_library("plugin_dem") {
     "//src",
   ]
   deps = [
-    "//src/plugin/product/dem:dem_processing",
+    "//src/plugin/product/world3d:world3d_processing",
     "//src/legacy/plugin/runtime:cmd",
     "//src/legacy/plugin:plugin",
     "//src/base:core",

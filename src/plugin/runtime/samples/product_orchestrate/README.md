@@ -7,10 +7,10 @@ All rights reserved.
 
 Python `kind=python` plugin that **orchestrates** existing L1 processing ids:
 
-- `dem.tin_from_xyz` — pick an XYZ/text file, assemble minimal JSON, `host.run_processing`
+- `world3d.tin_from_xyz` — pick an XYZ/text file, assemble minimal JSON, `host.run_processing`
 - `baogrid.create_orth_grid` — pick a grid-boundary text file, same pattern
 
-It does **not** reimplement TIN / Laplace kernels. Builtin C++ UI under `src/plugin/product/dem` and `src/plugin/product/orthogrid` remains the **reference** product surface; this sample shows the L3 path once L2 host seams (`pick_open_file`, `run_processing`, `show_message_box`) are bound.
+It does **not** reimplement TIN / Laplace kernels. Builtin C++ UI under `src/plugin/product/world3d` and `src/plugin/product/orthogrid` remains the **reference** product surface; this sample shows the L3 path once L2 host seams (`pick_open_file`, `run_processing`, `show_message_box`) are bound.
 
 ## Enable
 

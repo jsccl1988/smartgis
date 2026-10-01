@@ -7,8 +7,20 @@ win32_app("ui_designer") {
   output_name = "UiDesigner"
   sources = [
     "main.cc",
+    "cursor_agent_llm.cc",
+    "cursor_agent_llm.h",
     "designer_app.cc",
     "designer_app.h",
+    "designer_canvas.cc",
+    "designer_canvas.h",
+    "designer_dom.cc",
+    "designer_dom.h",
+    "designer_io.cc",
+    "designer_io.h",
+    "designer_markup_edit.cc",
+    "designer_markup_edit.h",
+    "designer_shell.cc",
+    "designer_shell.h",
   ]
   deps = [
     "//src/base:base",

@@ -14,7 +14,8 @@ available; otherwise subsample with gdallocationinfo -geoloc on a grid.
 
 Usage:
   py -3 testing/data/build_pointcloud_sample.py
-  py -3 testing/data/build_pointcloud_sample.py --stride 32 --max-points 8000
+  py -3 testing/data/build_pointcloud_sample.py --stride 2 --max-points 4000
+  py -3 testing/data/build_pointcloud_sample.py --bbox 104.7,34.7,105.8,35.8
 """
 
 from __future__ import annotations
@@ -176,15 +177,54 @@ def dem_to_grid_lines(
     return pts
 
 
+def parse_bbox(s: str) -> tuple[float, float, float, float]:
+    """min_lon,min_lat,max_lon,max_lat"""
+    parts = [p.strip() for p in s.split(",")]
+    if len(parts) != 4:
+        raise argparse.ArgumentTypeError("bbox needs min_lon,min_lat,max_lon,max_lat")
+    vals = tuple(float(p) for p in parts)
+    if vals[0] >= vals[2] or vals[1] >= vals[3]:
+        raise argparse.ArgumentTypeError("bbox min must be < max")
+    return vals  # type: ignore[return-value]
+
+
+def crop_dem(
+    dem: Path,
+    bin_dir: Path,
+    env: dict[str, str],
+    bbox: tuple[float, float, float, float],
+    out_tif: Path,
+) -> Path:
+    min_lon, min_lat, max_lon, max_lat = bbox
+    # gdal_translate -projwin ulx uly lrx lry
+    cmd = [
+        gdal_exe(bin_dir, "gdal_translate"),
+        "-projwin",
+        str(min_lon),
+        str(max_lat),
+        str(max_lon),
+        str(min_lat),
+        str(dem),
+        str(out_tif),
+    ]
+    print("+", " ".join(cmd), flush=True)
+    completed = _run(cmd, env)
+    if completed.returncode != 0 or not out_tif.is_file():
+        raise RuntimeError(
+            (completed.stderr or completed.stdout or "gdal_translate crop failed").strip()
+        )
+    return out_tif
+
+
 def write_pointcloud(
     pts: list[tuple[float, float, float]],
     out: Path,
     *,
     stride: int,
     max_points: int,
+    note: str,
 ) -> int:
     # Leftover Read3DPointCloud: sscanf "%f,%f,%f,%d,%d,%d" → x,z,y,r,g,b
-    # then multiplies position by 10. Use lon → x, elev → z-col, lat → y-col.
     sampled = pts[:: max(1, stride)] if stride > 1 and len(pts) > max_points else pts
     if len(sampled) > max_points:
         step = max(1, len(sampled) // max_points)
@@ -195,6 +235,8 @@ def write_pointcloud(
             "# Public china_dem subsample for Smt3DPointCloud::Read3DPointCloud\n"
         )
         f.write("# Format: x,z,y,r,g,b  (lon, elev_m, lat, RGB)\n")
+        if note:
+            f.write(f"# {note}\n")
         for lon, lat, z in sampled:
             r, g, b = hypsometric_rgb(z)
             f.write(f"{lon:.5f},{z:.2f},{lat:.5f},{r},{g},{b}\n")
@@ -207,6 +249,14 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     ap.add_argument("--stride", type=int, default=48, help="Keep every Nth DEM cell")
     ap.add_argument("--max-points", type=int, default=6000)
+    # Default: pad around world3d_tin_sample.xyz so plugin-showcase paints
+    # colored points inside kWorld3dTin / document extent (not nationwide).
+    ap.add_argument(
+        "--bbox",
+        type=parse_bbox,
+        default=(104.7, 34.7, 105.8, 35.8),
+        help="min_lon,min_lat,max_lon,max_lat (default: world3d tin pad)",
+    )
     args = ap.parse_args()
     if not args.dem.is_file():
         print(f"missing DEM: {args.dem}", file=sys.stderr)
@@ -216,25 +266,37 @@ def main() -> int:
     env = os.environ.copy()
     env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
 
-    pts: list[tuple[float, float, float]]
-    if xyz_driver_available(bin_dir, env):
-        pts = dem_to_xyz_lines(args.dem, bin_dir, env)
-        n = write_pointcloud(
-            pts, args.out, stride=args.stride, max_points=args.max_points
-        )
-    else:
-        print("XYZ writer unavailable — sampling via gdallocationinfo", flush=True)
-        # Grid already applies stride; do not thin again in write_pointcloud.
-        pts = dem_to_grid_lines(
-            args.dem,
-            bin_dir,
-            env,
-            stride=args.stride,
-            max_points=args.max_points,
-        )
-        n = write_pointcloud(pts, args.out, stride=1, max_points=args.max_points)
+    note = (
+        f"bbox={args.bbox[0]},{args.bbox[1]},{args.bbox[2]},{args.bbox[3]} "
+        "(china_dem public terrain; hypsometric RGB)"
+    )
+    with tempfile.TemporaryDirectory(prefix="pc_crop_") as tmp:
+        cropped = Path(tmp) / "china_dem_crop.tif"
+        crop_dem(args.dem, bin_dir, env, args.bbox, cropped)
+        pts: list[tuple[float, float, float]]
+        if xyz_driver_available(bin_dir, env):
+            pts = dem_to_xyz_lines(cropped, bin_dir, env)
+            n = write_pointcloud(
+                pts,
+                args.out,
+                stride=args.stride,
+                max_points=args.max_points,
+                note=note,
+            )
+        else:
+            print("XYZ writer unavailable — sampling via gdallocationinfo", flush=True)
+            pts = dem_to_grid_lines(
+                cropped,
+                bin_dir,
+                env,
+                stride=max(1, args.stride // 8),
+                max_points=args.max_points,
+            )
+            n = write_pointcloud(
+                pts, args.out, stride=1, max_points=args.max_points, note=note
+            )
 
-    if n < 100:
+    if n < 50:
         print(f"too few DEM samples: {n}", file=sys.stderr)
         return 3
     print(f"wrote {n} points → {args.out}", flush=True)

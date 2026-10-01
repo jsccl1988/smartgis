@@ -107,6 +107,11 @@ class OceanPass {
   float height_scale() const { return height_scale_; }
   float disp_scale() const { return disp_scale_; }
 
+  // Upload height/disp without drawing. Call before DEM GpuScene upload so
+  // FlyCube texture allocation cannot recycle hypsometric albedo as height.
+  // When true, the next record() skips recreate/upload of the height map.
+  bool prepare_gpu(render::rhi::Device* device);
+
   // Record into an open CommandList (same Device as GpuScene). Does not close.
   bool record(render::rhi::Device* device, render::rhi::CommandList* list, uint32_t width,
               uint32_t height, const render::rhi::CameraMatrices* camera);
@@ -124,6 +129,7 @@ class OceanPass {
   void rebuild_displacement();
   void rebuild_indices_with_mask();
   float sample_sea_mask(float u, float v) const;
+  bool mesh_topology_matches_params() const;
 
   OceanDrawParams params_;
   double time_sec_ = 0.0;
@@ -152,6 +158,17 @@ class OceanPass {
   int mask_cols_ = 0;
   int mask_rows_ = 0;
   std::vector<float> mask_cpu_;
+  // Patch XZ / UV / index topology; heights still refresh every frame.
+  bool topology_dirty_ = true;
+  float cached_patch_cx_ = 0.f;
+  float cached_patch_cz_ = 0.f;
+  float cached_patch_y_ = 0.f;
+  float cached_patch_hx_ = 0.f;
+  float cached_patch_hz_ = 0.f;
+  int cached_mask_cols_ = -1;
+  int cached_mask_rows_ = -1;
+  // Set by prepare_gpu(); cleared by record() after using the pre-uploaded map.
+  bool height_prepared_ = false;
 };
 
 }  // namespace atmosphere

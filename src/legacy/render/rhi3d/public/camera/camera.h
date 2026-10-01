@@ -4,388 +4,148 @@
 #ifndef _RD3D_CAMERA_H
 #define _RD3D_CAMERA_H
 
+#include <memory>
+
 #include "legacy/render/legacy_render_export.h"
-#include "legacy/render/rhi3d/public/device/render_device.h"
 #include "legacy/render/rhi3d/public/device/base.h"
+#include "legacy/render/rhi3d/public/device/render_device.h"
 
 namespace render {
 class Smt3DRenderDevice;
-typedef class Smt3DRenderDevice *LP3DRENDERDEVICE;
+typedef class Smt3DRenderDevice* LP3DRENDERDEVICE;
 
+// Base leftover 3D camera: owns a viewport and can push it to the device.
 class LEGACY_RENDER_EXPORT SmtCamera {
  public:
-  SmtCamera(LP3DRENDERDEVICE p3DRenderDevice, Viewport3D &viewport);
-  virtual ~SmtCamera(void);
+  SmtCamera(LP3DRENDERDEVICE device, const Viewport3D& viewport);
+  virtual ~SmtCamera();
 
- public:
-  void SetViewport(Viewport3D &viewport) { m_viewport = viewport; }
+  void set_viewport(const Viewport3D& viewport) { m_viewport = viewport; }
+  [[nodiscard]] const Viewport3D& viewport() const { return m_viewport; }
 
- public:
-  virtual long Apply(void);
+  virtual long apply();
 
  protected:
   LP3DRENDERDEVICE m_p3DRenderDevice;
   Viewport3D m_viewport;
 };
 
+// Orthographic / screen-space projection helper for leftover HUD-style views.
 class LEGACY_RENDER_EXPORT SmtOrthCamera : public SmtCamera {
  public:
-  SmtOrthCamera(LP3DRENDERDEVICE p3DRenderDevice, Viewport3D &viewport);
-  virtual ~SmtOrthCamera(void);
+  SmtOrthCamera(LP3DRENDERDEVICE device, const Viewport3D& viewport);
+  ~SmtOrthCamera() override;
 
- public:
-  inline void SetIdentity(bool value) { m_bIdentity = value; }
-  inline bool GetIdentity() { return m_bIdentity; }
-  inline void SetInverse(bool value) { m_bInverse = value; }
-  inline bool GetInverse() { return m_bInverse; }
+  void set_identity(bool value) { m_bIdentity = value; }
+  [[nodiscard]] bool identity() const { return m_bIdentity; }
+  void set_inverse(bool value) { m_bInverse = value; }
+  [[nodiscard]] bool inverse() const { return m_bInverse; }
 
- public:
-  virtual long Apply(void);
+  long apply() override;
 
  protected:
-  bool m_bIdentity;
-  bool m_bInverse;
+  bool m_bIdentity = false;
+  bool m_bInverse = false;
 };
 
+// Perspective look-at camera with walk / orbit / pitch-yaw-roll controls.
 class LEGACY_RENDER_EXPORT SmtPerspCamera : public SmtCamera {
  public:
-  SmtPerspCamera(LP3DRENDERDEVICE p3DRenderDevice, Viewport3D &viewport);
-  virtual ~SmtPerspCamera(void);
+  SmtPerspCamera(LP3DRENDERDEVICE device, const Viewport3D& viewport);
+  ~SmtPerspCamera() override;
 
- public:
-  virtual long Apply(void);
+  long apply() override;
 
- public:
-  inline void SetEye(Vector3 &eye) { m_vEye = eye; }
-  inline Vector3 &GetEye() { return m_vEye; }
+  // Qualify ::base:: on exported signatures so MSVC dllimport mangling
+  // matches legacy_render exports (render::Vector3 alias is unsafe here).
+  void set_eye(const ::base::Vector3& eye) { m_vEye = eye; }
+  [[nodiscard]] const ::base::Vector3& eye() const { return m_vEye; }
+  // Mutable accessor for leftover callers that mutate in place.
+  [[nodiscard]] ::base::Vector3& eye() { return m_vEye; }
 
-  inline void SetUp(Vector3 &up) { m_vUp = up; }
-  inline Vector3 &GetUp() { return m_vUp; }
+  void set_up(const ::base::Vector3& up) { m_vUp = up; }
+  [[nodiscard]] const ::base::Vector3& up() const { return m_vUp; }
+  [[nodiscard]] ::base::Vector3& up() { return m_vUp; }
 
-  inline void SetTarget(Vector3 &target) { m_vTarget = target; }
-  inline Vector3 &GetTarget() { return m_vTarget; }
+  void set_target(const ::base::Vector3& target) { m_vTarget = target; }
+  [[nodiscard]] const ::base::Vector3& target() const { return m_vTarget; }
+  [[nodiscard]] ::base::Vector3& target() { return m_vTarget; }
 
-  inline void SetETU(Vector3 &eye, Vector3 &target, Vector3 &up) {
-    m_vEye = eye;
-    m_vUp = up;
-    m_vTarget = target;
-  }
+  void set_etu(const ::base::Vector3& eye, const ::base::Vector3& target,
+               const ::base::Vector3& up);
 
-  inline void SetMoveStep(float fStep) { m_fMoveStep = fStep; }
-  inline float GetMoveStep(void) { return m_fMoveStep; }
+  void set_move_step(float step) { m_fMoveStep = step; }
+  [[nodiscard]] float move_step() const { return m_fMoveStep; }
 
- public:
-  void MoveEyeSmoothly(bool bForward = true);
-  void MoveEyeImmediately(float fDis);
+  void move_eye_smoothly(bool forward = true);
+  void move_eye_immediately(float distance);
 
-  void Pitch(float angle);
-  void Yaw(float angle);
-  void Roll(float angle);
+  void pitch(float angle);
+  void yaw(float angle);
+  void roll(float angle);
 
-  void MoveForward(void);
-  void MoveBack(void);
-  void MoveLeft(void);
-  void MoveRight(void);
-  void MoveUp(void);
-  void MoveDown(void);
+  void move_forward();
+  void move_back();
+  void move_left();
+  void move_right();
+  void move_up();
+  void move_down();
+
+  // Former SmtCombinedCamera surface (merged).
+  void set_camera(const Vector3& eye, const Vector3& target, const Vector3& up);
+  void raise_view_direction(float angle);
+  void turn_view_direction(float angle);
+  void shift_camera(float step);
+  void forward_camera(float step);
+  void rise_camera(float step);
+  void lean_camera(float angle);
+  void move_camera(const Vector3& delta);
+  void move_camera_to_pos(const Vector3& pos);
+  void set_sphere_camera_move(long delt_x, long delt_y);
 
  protected:
   Vector3 m_vEye;
   Vector3 m_vUp;
   Vector3 m_vTarget;
 
-  float m_fMoveStep;
-  float m_fSmoothX;
+  float m_fMoveStep = 5.f;
+  float m_fSmoothX = 0.f;
 };
 
+// First-person camera: mouse look relative to a window center.
 class LEGACY_RENDER_EXPORT SmtFPSCamera : public SmtPerspCamera {
  public:
-  SmtFPSCamera(LP3DRENDERDEVICE p3DRenderDevice, Viewport3D &viewport);
-  virtual ~SmtFPSCamera(void);
+  SmtFPSCamera(LP3DRENDERDEVICE device, const Viewport3D& viewport);
+  ~SmtFPSCamera() override;
 
- public:
-  void SetWinCenter(lPoint center) { m_winCenter = center; }
-  void SetViewByMouse(void);
+  void set_win_center(lPoint center) { m_winCenter = center; }
+  void set_view_by_mouse();
 
  private:
-  lPoint m_winCenter;
+  lPoint m_winCenter{};
 };
 
+// Orbit / trackball camera around the look-at target.
 class LEGACY_RENDER_EXPORT SmtArbvCamera : public SmtPerspCamera {
  public:
-  SmtArbvCamera(LP3DRENDERDEVICE p3DRenderDevice, Viewport3D &viewport);
-  virtual ~SmtArbvCamera(void);
+  SmtArbvCamera(LP3DRENDERDEVICE device, const Viewport3D& viewport);
+  ~SmtArbvCamera() override;
 
- public:
-  inline void SetArbitRaduis(float fRaduis) { m_fRaduis = fRaduis; }
-  inline float GetArbitRaduis(void) { return m_fRaduis; }
+  void set_arbit_radius(float radius) { m_fRaduis = radius; }
+  [[nodiscard]] float arbit_radius() const { return m_fRaduis; }
 
- public:
-  void SetArbitMove(long deltX, long deltY);
+  void set_arbit_move(long delt_x, long delt_y);
 
  private:
-  float m_fRaduis;
+  float m_fRaduis = 0.f;
 };
 
 enum class View3dCameraKind { kPersp, kArbv, kFps };
 
-inline SmtCamera::SmtCamera(LP3DRENDERDEVICE p3DRenderDevice,
-                            Viewport3D &viewport)
-    : m_p3DRenderDevice(p3DRenderDevice), m_viewport(viewport) {}
+[[nodiscard]] LEGACY_RENDER_EXPORT std::unique_ptr<SmtPerspCamera>
+make_view3d_camera(View3dCameraKind kind, LP3DRENDERDEVICE device,
+                   const Viewport3D& viewport);
 
-inline SmtCamera::~SmtCamera(void) {}
-
-inline long SmtCamera::Apply(void) {
-  return m_p3DRenderDevice->GetStateManager()->SetViewportState(m_viewport);
-}
-
-inline SmtOrthCamera::SmtOrthCamera(LP3DRENDERDEVICE p3DRenderDevice,
-                                    Viewport3D &viewport)
-    : SmtCamera(p3DRenderDevice, viewport),
-      m_bIdentity(false),
-      m_bInverse(false) {}
-
-inline SmtOrthCamera::~SmtOrthCamera(void) { m_p3DRenderDevice = NULL; }
-
-inline long SmtOrthCamera::Apply(void) {
-  SmtCamera::Apply();
-
-  m_p3DRenderDevice->MatrixModeSet(MM_PROJECTION);
-  m_p3DRenderDevice->MatrixLoadIdentity();
-  m_p3DRenderDevice->MatrixModeSet(MM_MODELVIEW);
-  m_p3DRenderDevice->MatrixLoadIdentity();
-
-  if (!m_bIdentity && m_bInverse) {
-    m_p3DRenderDevice->MatrixScale(2.0f / m_viewport.ulWidth,
-                                   -2.0f / m_viewport.ulHeight, 1.0f);
-    m_p3DRenderDevice->MatrixTranslation(-(m_viewport.ulWidth / 2.0f),
-                                         -(m_viewport.ulHeight / 2.0f), 0.0f);
-  }
-
-  if (m_bIdentity && m_bInverse) {
-    m_p3DRenderDevice->MatrixScale(2.0, -2.0, 1.0);
-    m_p3DRenderDevice->MatrixTranslation(-0.5, -0.5, 0.0);
-  }
-
-  if (!m_bIdentity && !m_bInverse) {
-    m_p3DRenderDevice->MatrixScale(2.0f / m_viewport.ulWidth,
-                                   2.0f / m_viewport.ulHeight, 1.0f);
-  }
-
-  return SMT_ERR_NONE;
-}
-
-inline SmtPerspCamera::SmtPerspCamera(LP3DRENDERDEVICE p3DRenderDevice,
-                                      Viewport3D &viewport)
-    : SmtCamera(p3DRenderDevice, viewport), m_fSmoothX(0), m_fMoveStep(5.) {
-  m_vEye = Vector3(0., 0., 0.);
-  m_vTarget = Vector3(0.0, 1.0, 0.5);
-  m_vUp = Vector3(0., 0., 1.);
-}
-
-inline SmtPerspCamera::~SmtPerspCamera(void) { m_p3DRenderDevice = NULL; }
-
-inline void SmtPerspCamera::MoveForward(void) {
-  Vector3 vDir = m_vTarget - m_vEye;
-  vDir.normalize();
-
-  m_vEye.x += vDir.x * m_fMoveStep;
-  m_vEye.z += vDir.z * m_fMoveStep;
-  m_vTarget.x += vDir.x * m_fMoveStep;
-  m_vTarget.z += vDir.z * m_fMoveStep;
-}
-
-inline void SmtPerspCamera::MoveBack(void) {
-  Vector3 vDir = m_vTarget - m_vEye;
-  vDir.normalize();
-
-  m_vEye.x -= vDir.x * m_fMoveStep;
-  m_vEye.z -= vDir.z * m_fMoveStep;
-  m_vTarget.x -= vDir.x * m_fMoveStep;
-  m_vTarget.z -= vDir.z * m_fMoveStep;
-}
-
-inline void SmtPerspCamera::MoveLeft(void) {
-  Vector3 vCross, vDir(m_vTarget - m_vEye);
-  vCross = vDir.cross(m_vUp);
-  vCross.normalize();
-
-  m_vEye.x -= vCross.x * m_fMoveStep;
-  m_vEye.z -= vCross.z * m_fMoveStep;
-
-  m_vTarget.x -= vCross.x * m_fMoveStep;
-  m_vTarget.z -= vCross.z * m_fMoveStep;
-}
-
-inline void SmtPerspCamera::MoveRight(void) {
-  Vector3 vCross, vDir(m_vTarget - m_vEye);
-  vCross = vDir.cross(m_vUp);
-  vCross.normalize();
-
-  m_vEye.x += vCross.x * m_fMoveStep;
-  m_vEye.z += vCross.z * m_fMoveStep;
-
-  m_vTarget.x += vCross.x * m_fMoveStep;
-  m_vTarget.z += vCross.z * m_fMoveStep;
-}
-
-inline void SmtPerspCamera::MoveUp(void) {
-  m_vEye.y += m_vUp.y * m_fMoveStep;
-  m_vTarget.y += m_vUp.y * m_fMoveStep;
-}
-
-inline void SmtPerspCamera::MoveDown(void) {
-  m_vEye.y -= m_vUp.y * m_fMoveStep;
-  m_vTarget.y -= m_vUp.y * m_fMoveStep;
-}
-
-inline void SmtPerspCamera::MoveEyeSmoothly(bool bForward) {
-  if (bForward)
-    m_fSmoothX += 5.;
-  else
-    m_fSmoothX -= 5.;
-
-  double angle = 0.5 * atan(0.1 * m_fSmoothX * 20) + 0.25 * PI;
-  float radius = tan(angle) + 30 * sqrt(3.0) + 0.1;
-
-  Vector3 vDir(m_vEye - m_vTarget);
-  vDir.normalize();
-  m_vEye = vDir * radius + m_vTarget;
-}
-
-inline void SmtPerspCamera::MoveEyeImmediately(float fDis) {
-  Vector3 vDir(m_vEye - m_vTarget);
-  vDir.normalize();
-  m_vEye = vDir * fDis + m_vTarget;
-}
-
-inline void SmtPerspCamera::Pitch(float angle) {
-  Vector3 vCross, vDir(m_vTarget - m_vEye);
-  vCross = vDir.cross(m_vUp);
-  vCross.normalize();
-  vDir.rotate(vCross, angle);
-  m_vTarget = m_vEye + vDir;
-}
-
-inline void SmtPerspCamera::Yaw(float angle) {
-  Vector3 vDir(m_vTarget - m_vEye);
-  vDir.rotate(m_vUp, angle);
-  m_vTarget = m_vEye + vDir;
-}
-
-inline void SmtPerspCamera::Roll(float angle) {
-  Vector3 vDir = m_vTarget - m_vEye;
-  vDir.normalize();
-  m_vUp.rotate(vDir, angle);
-}
-
-inline long SmtPerspCamera::Apply(void) {
-  if (m_viewport.ulWidth == 0 || m_viewport.ulHeight == 0) {
-    return SMT_ERR_FAILURE;
-  }
-  if (m_viewport.fZNear <= 0.f) {
-    m_viewport.fZNear = 0.1f;
-  }
-  if (m_viewport.fZFar <= m_viewport.fZNear) {
-    m_viewport.fZFar = 1000.f;
-  }
-  if (m_viewport.fFovy <= 0.f) {
-    m_viewport.fFovy = 45.f;
-  }
-  SmtCamera::Apply();
-  m_p3DRenderDevice->MatrixModeSet(MM_PROJECTION);
-  m_p3DRenderDevice->MatrixLoadIdentity();
-  m_p3DRenderDevice->SetPerspective(
-      m_viewport.fFovy,
-      ((float)m_viewport.ulWidth) / ((float)m_viewport.ulHeight),
-      m_viewport.fZNear, m_viewport.fZFar);
-  m_p3DRenderDevice->MatrixModeSet(MM_MODELVIEW);
-  m_p3DRenderDevice->MatrixLoadIdentity();
-  m_p3DRenderDevice->SetViewLookAt(m_vEye, m_vTarget, m_vUp);
-
-  return SMT_ERR_NONE;
-}
-
-inline SmtFPSCamera::SmtFPSCamera(LP3DRENDERDEVICE p3DRenderDevice,
-                                  Viewport3D &viewport)
-    : SmtPerspCamera(p3DRenderDevice, viewport) {}
-
-inline SmtFPSCamera::~SmtFPSCamera(void) {}
-
-inline void SmtFPSCamera::SetViewByMouse(void) {
-  POINT mousePos;
-
-  GetCursorPos(&mousePos);
-
-  if ((mousePos.x == m_winCenter.x) && (mousePos.y == m_winCenter.y)) return;
-
-  SetCursorPos(m_winCenter.x, m_winCenter.y);
-
-  float angleY = 0.0f;
-  float angleZ = 0.0f;
-
-  angleY = (float)((m_winCenter.x - mousePos.x)) / 1000.0f;
-  angleZ = (float)((m_winCenter.y - mousePos.y)) / 1000.0f;
-
-  if (angleY > 1.0) {
-    angleY = 1.0;
-    return;
-  }
-
-  if (angleY < -1.0) {
-    angleY = -1.0;
-    return;
-  }
-
-  Pitch(angleZ);
-  Yaw(angleY);
-}
-
-inline SmtArbvCamera::SmtArbvCamera(LP3DRENDERDEVICE p3DRenderDevice,
-                                    Viewport3D &viewport)
-    : SmtPerspCamera(p3DRenderDevice, viewport), m_fRaduis(0) {}
-
-inline SmtArbvCamera::~SmtArbvCamera(void) {}
-
-inline void SmtArbvCamera::SetArbitMove(long deltX, long deltY) {
-  Vector3 vDir(m_vEye - m_vTarget);
-
-  m_fRaduis = vDir.length();
-
-  vDir.normalize();
-  Vector3 u = m_vUp.cross(vDir);
-  u.normalize();
-
-  Vector3 v = vDir.cross(u);
-  v.normalize();
-
-  Vector3 m = u * deltX + v * deltY;
-  double len = m.length();
-  len /= 15.0;
-  if (len > 0.0) {
-    double x = len / m_fRaduis;
-    m.normalize();
-    x = -1 * x;
-    m_vEye = m_vTarget + (vDir * cos(x) + m * sin(x)) * m_fRaduis;
-    m_vUp = v;
-  }
-}
-
-inline LEGACY_RENDER_EXPORT SmtPerspCamera *make_view3d_camera(
-    View3dCameraKind kind, LP3DRENDERDEVICE device, Viewport3D &viewport) {
-  if (!device) {
-    return nullptr;
-  }
-  switch (kind) {
-    case View3dCameraKind::kArbv:
-      return new SmtArbvCamera(device, viewport);
-    case View3dCameraKind::kFps:
-      return new SmtFPSCamera(device, viewport);
-    case View3dCameraKind::kPersp:
-      return new SmtPerspCamera(device, viewport);
-  }
-  return new SmtPerspCamera(device, viewport);
-}
 }  // namespace render
 
 #if !defined(LEGACY_RENDER_EXPORTS)

@@ -15,7 +15,7 @@
 #include "gis/vista/domain/atmosphere/systems/ocean_system.h"
 #include "gis/gis_export.h"
 #include "gis/vista/domain/domain.h"
-#include "gis/vista/world/terrain/land_mask.h"
+#include "gis/vista/world/terrain/process/land_mask.h"
 
 namespace gis {
 namespace atmosphere {

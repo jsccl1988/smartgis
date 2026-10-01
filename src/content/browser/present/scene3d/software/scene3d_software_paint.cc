@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <cwchar>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -499,6 +500,8 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   }
 
   gpu_->rebuild_local_mesh();
+  gpu_->attach_overlay_tin_locked();
+  gpu_->attach_overlay_pointcloud_locked();
 
   // Light-blue ocean / base plane under the DEM AABB (leftover character).
   if (!gpu_->local_xyz().empty()) {
@@ -550,7 +553,18 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   float elev_min = 0.f;
   float elev_max = 0.f;
   bool elev_init = false;
-  for (size_t i = 1; i + 2 < gpu_->local_xyz().size(); i += 3) {
+  const size_t dem_idx_end = gpu_->dem_local_idx_count();
+  // Hypsometric range from DEM verts only so lifted water does not skew land.
+  size_t dem_vert_floats = gpu_->local_xyz().size();
+  if (dem_idx_end > 0 && dem_idx_end <= gpu_->local_idx().size()) {
+    size_t max_vi = 0;
+    for (size_t i = 0; i < dem_idx_end; ++i) {
+      max_vi =
+          (std::max)(max_vi, static_cast<size_t>(gpu_->local_idx()[i]));
+    }
+    dem_vert_floats = (std::min)(gpu_->local_xyz().size(), (max_vi + 1) * 3);
+  }
+  for (size_t i = 1; i + 2 < dem_vert_floats; i += 3) {
     const float y = gpu_->local_xyz()[i];
     if (!elev_init) {
       elev_min = elev_max = y;
@@ -562,6 +576,10 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   }
   const float elev_span = (std::max)(elev_max - elev_min, 1.0e-3f);
 
+  const bool water_tint = gpu_->overlay_tin_has_albedo();
+  const uint8_t* water_rgb =
+      water_tint ? gpu_->overlay_tin_albedo() : nullptr;
+
   size_t drawn = 0;
   for (size_t t = 0; t < total_tris && drawn < kMaxDraw; t += step, ++drawn) {
     const unsigned i0 = gpu_->local_idx()[t * 3];
@@ -571,12 +589,20 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
         (i2 + 1) * 3 > gpu_->local_xyz().size()) {
       continue;
     }
-    const float y0 = gpu_->local_xyz()[i0 * 3 + 1];
-    const float y1 = gpu_->local_xyz()[i1 * 3 + 1];
-    const float y2 = gpu_->local_xyz()[i2 * 3 + 1];
-    const float yavg = (y0 + y1 + y2) / 3.f;
-    const float t01 = (yavg - elev_min) / elev_span;
-    HBRUSH fill = CreateSolidBrush(hypsometric_rgb(t01));
+    const bool is_overlay =
+        dem_idx_end > 0 && (t * 3) >= dem_idx_end;
+    HBRUSH fill = nullptr;
+    if (is_overlay && water_rgb) {
+      fill = CreateSolidBrush(
+          RGB(water_rgb[0], water_rgb[1], water_rgb[2]));
+    } else {
+      const float y0 = gpu_->local_xyz()[i0 * 3 + 1];
+      const float y1 = gpu_->local_xyz()[i1 * 3 + 1];
+      const float y2 = gpu_->local_xyz()[i2 * 3 + 1];
+      const float yavg = (y0 + y1 + y2) / 3.f;
+      const float t01 = (yavg - elev_min) / elev_span;
+      fill = CreateSolidBrush(hypsometric_rgb(t01));
+    }
     SelectObject(hdc, fill);
     int p0[2] = {};
     int p1[2] = {};
@@ -595,6 +621,42 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   SelectObject(hdc, old_brush);
   SelectObject(hdc, old_pen);
   DeleteObject(mesh_pen);
+
+  // Leftover-style place-names: white text + thick black outline.
+  if (gpu_->look_preset() == Scene3dLookPreset::kLegacyStereo) {
+    HFONT font = CreateFontW(-16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+                             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                             CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                             DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei");
+    HGDIOBJ old_font = SelectObject(hdc, font ? font : GetStockObject(DEFAULT_GUI_FONT));
+    SetBkMode(hdc, TRANSPARENT);
+    for (const Scene3dLegacyLabel& lab : gpu_->legacy_labels()) {
+      int sx = 0;
+      int sy = 0;
+      project_lon_lat(lab.lon, lab.lat, width_px, height_px, &sx, &sy);
+      if (sx < -40 || sy < -20 || sx > width_px + 40 || sy > height_px + 20) {
+        continue;
+      }
+      wchar_t wbuf[64] = {};
+      MultiByteToWideChar(CP_UTF8, 0, lab.text.c_str(), -1, wbuf, 63);
+      const int len = static_cast<int>(wcslen(wbuf));
+      SetTextColor(hdc, RGB(0, 0, 0));
+      for (int dy = -2; dy <= 2; ++dy) {
+        for (int dx = -2; dx <= 2; ++dx) {
+          if (dx == 0 && dy == 0) {
+            continue;
+          }
+          TextOutW(hdc, sx + dx, sy + dy, wbuf, len);
+        }
+      }
+      SetTextColor(hdc, RGB(255, 255, 255));
+      TextOutW(hdc, sx, sy, wbuf, len);
+    }
+    SelectObject(hdc, old_font);
+    if (font) {
+      DeleteObject(font);
+    }
+  }
 
   if (scene_) {
     ViewFrame fitted;

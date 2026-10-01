@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <vector>
 
 #include "effect/atmosphere/common/field_texture.h"
@@ -71,7 +72,9 @@ render::rhi::GraphicsPipelineDesc ocean_graphics_desc() {
   desc.blend = render::rhi::BlendMode::kOpaque;
   desc.compile_depth_off = false;
   desc.compile_depth_write = true;
-  desc.compile_depth_test = false;
+  // Need kTestOnly so post-opaque ocean depth-tests against DEM without
+  // rewriting depth (atmosphere.full land punch-through).
+  desc.compile_depth_test = true;
   desc.camera_slot = 0;
   return desc;
 }
@@ -120,6 +123,15 @@ bool OceanPass::ensure_pipeline(render::rhi::Device* device) {
 }
 
 void OceanPass::set_params(const OceanDrawParams& params) {
+  const bool topology_change =
+      params.mesh_resolution != params_.mesh_resolution ||
+      params.patch_center_x != params_.patch_center_x ||
+      params.patch_center_z != params_.patch_center_z ||
+      params.patch_y != params_.patch_y ||
+      params.patch_half_x != params_.patch_half_x ||
+      params.patch_half_z != params_.patch_half_z ||
+      params.patch_half_extent != params_.patch_half_extent ||
+      params.sea_mask_threshold != params_.sea_mask_threshold;
   params_ = params;
   if (params_.mesh_resolution < 2) {
     params_.mesh_resolution = 2;
@@ -130,6 +142,9 @@ void OceanPass::set_params(const OceanDrawParams& params) {
   detail::normalize3(&params_.sun_x, &params_.sun_y, &params_.sun_z);
   if (params_.shininess < 1.0f) {
     params_.shininess = 1.0f;
+  }
+  if (topology_change) {
+    topology_dirty_ = true;
   }
 }
 
@@ -152,10 +167,13 @@ void OceanPass::set_sea_mask_texture(FieldTexture* mask) {
 
 void OceanPass::set_sea_mask_cpu(int cols, int rows, const float* values,
                                  std::size_t value_count) {
-  mask_cols_ = 0;
-  mask_rows_ = 0;
-  mask_cpu_.clear();
   if (!values || cols < 1 || rows < 1) {
+    if (mask_cols_ != 0 || mask_rows_ != 0 || !mask_cpu_.empty()) {
+      mask_cols_ = 0;
+      mask_rows_ = 0;
+      mask_cpu_.clear();
+      topology_dirty_ = true;
+    }
     return;
   }
   const std::size_t need =
@@ -163,16 +181,21 @@ void OceanPass::set_sea_mask_cpu(int cols, int rows, const float* values,
   if (value_count != need) {
     return;
   }
+  if (mask_cols_ == cols && mask_rows_ == rows && mask_cpu_.size() == need &&
+      std::memcmp(mask_cpu_.data(), values, need * sizeof(float)) == 0) {
+    return;
+  }
   mask_cols_ = cols;
   mask_rows_ = rows;
   mask_cpu_.assign(values, values + value_count);
+  topology_dirty_ = true;
 }
 
 float OceanPass::sample_sea_mask(float u, float v) const {
   if (!mask_cpu_.empty()) {
     return detail::sample_bilinear(mask_cpu_, mask_cols_, mask_rows_, u, v);
   }
-  // No mask â†?treat as open sea.
+  // No mask ??treat as open sea.
   return 1.0f;
 }
 
@@ -205,14 +228,36 @@ void OceanPass::rebuild_mesh_grid() {
       positions_[vi * 5 + 4] = v;
     }
   }
+  cached_mesh_res_ = mesh_n;
+  cached_patch_cx_ = params_.patch_center_x;
+  cached_patch_cz_ = params_.patch_center_z;
+  cached_patch_y_ = params_.patch_y;
+  cached_patch_hx_ = hx;
+  cached_patch_hz_ = hz;
+}
+
+bool OceanPass::mesh_topology_matches_params() const {
+  const float hx = params_.patch_half_x > 0.f ? params_.patch_half_x
+                                              : params_.patch_half_extent;
+  const float hz = params_.patch_half_z > 0.f ? params_.patch_half_z
+                                              : params_.patch_half_extent;
+  const uint32_t want_verts =
+      static_cast<uint32_t>(params_.mesh_resolution * params_.mesh_resolution);
+  // Do not key off cached_mesh_res_ - ensure_resources() also writes that for
+  // GPU buffer sizing, which would falsely skip rebuild_mesh_grid().
+  return !positions_.empty() && vertex_count_ == want_verts &&
+         cached_patch_cx_ == params_.patch_center_x &&
+         cached_patch_cz_ == params_.patch_center_z &&
+         cached_patch_y_ == params_.patch_y &&
+         cached_patch_hx_ == hx && cached_patch_hz_ == hz;
 }
 
 void OceanPass::rebuild_displacement() {
   const int mesh_n = params_.mesh_resolution;
-  rebuild_mesh_grid();
-  heights_.assign(static_cast<std::size_t>(vertex_count_), 0.0f);
-  disp_x_.assign(static_cast<std::size_t>(vertex_count_), 0.0f);
-  disp_z_.assign(static_cast<std::size_t>(vertex_count_), 0.0f);
+  if (!mesh_topology_matches_params()) {
+    rebuild_mesh_grid();
+    topology_dirty_ = true;
+  }
 
   const float hx = params_.patch_half_x > 0.f ? params_.patch_half_x
                                               : params_.patch_half_extent;
@@ -220,22 +265,20 @@ void OceanPass::rebuild_displacement() {
                                               : params_.patch_half_extent;
   const float half = (std::max)(hx, hz);
 
-  std::vector<float> heights;
-  std::vector<float> disp_x;
-  std::vector<float> disp_z;
-
   const bool use_gerstner =
       params_.use_gerstner_fallback || params_.fft_size < 16;
   if (use_gerstner) {
+    // Write straight into member buffers - avoid temp vectors + assign copy
+    // on every present (interactive Scene3d hot path).
     detail::build_gerstner_heights(mesh_n, params_.significant_wave_height,
                            params_.mean_direction_rad, params_.wind_speed,
-                           time_sec_, half, &heights, &disp_x, &disp_z);
+                           time_sec_, half, &heights_, &disp_x_, &disp_z_);
     float max_abs = 0.05f;
     float max_disp = 0.05f;
-    for (std::size_t i = 0; i < heights.size(); ++i) {
-      max_abs = std::max(max_abs, std::fabs(heights[i]));
-      max_disp = std::max(max_disp, std::fabs(disp_x[i]));
-      max_disp = std::max(max_disp, std::fabs(disp_z[i]));
+    for (std::size_t i = 0; i < heights_.size(); ++i) {
+      max_abs = std::max(max_abs, std::fabs(heights_[i]));
+      max_disp = std::max(max_disp, std::fabs(disp_x_[i]));
+      max_disp = std::max(max_disp, std::fabs(disp_z_[i]));
     }
     height_scale_ = max_abs;
     disp_scale_ = max_disp;
@@ -248,9 +291,10 @@ void OceanPass::rebuild_displacement() {
                      params_.wind_direction_rad, time_sec_, params_.use_jonswap,
                      params_.jonswap_gamma, params_.chop, &fft_h, &fft_dx,
                      &fft_dz, &height_scale_, &disp_scale_);
-    heights.assign(static_cast<std::size_t>(mesh_n * mesh_n), 0.0f);
-    disp_x.assign(heights.size(), 0.0f);
-    disp_z.assign(heights.size(), 0.0f);
+    const std::size_t verts = static_cast<std::size_t>(mesh_n * mesh_n);
+    heights_.assign(verts, 0.0f);
+    disp_x_.assign(verts, 0.0f);
+    disp_z_.assign(verts, 0.0f);
     for (int jz = 0; jz < mesh_n; ++jz) {
       for (int ix = 0; ix < mesh_n; ++ix) {
         const float u = static_cast<float>(ix) / static_cast<float>(mesh_n - 1);
@@ -273,16 +317,12 @@ void OceanPass::rebuild_displacement() {
         };
         const std::size_t vi =
             static_cast<std::size_t>(jz * mesh_n + ix);
-        heights[vi] = sample4(fft_h);
-        disp_x[vi] = sample4(fft_dx);
-        disp_z[vi] = sample4(fft_dz);
+        heights_[vi] = sample4(fft_h);
+        disp_x_[vi] = sample4(fft_dx);
+        disp_z_[vi] = sample4(fft_dz);
       }
     }
   }
-
-  heights_ = heights;
-  disp_x_ = disp_x;
-  disp_z_ = disp_z;
 
   // Keep base grid planar; VS applies height + Dx/Dz from the height map.
 }
@@ -306,8 +346,11 @@ void OceanPass::rebuild_indices_with_mask() {
       const float m10 = sample_sea_mask(u1, v0);
       const float m01 = sample_sea_mask(u0, v1);
       const float m11 = sample_sea_mask(u1, v1);
-      // Discard quad if all corners are land.
-      if (m00 < thr && m10 < thr && m01 < thr && m11 < thr) {
+      // Require a sea majority. A single wet corner used to keep coastal
+      // quads that still painted near-black ocean over mainland DEM texels.
+      const int sea_corners = (m00 >= thr ? 1 : 0) + (m10 >= thr ? 1 : 0) +
+                              (m01 >= thr ? 1 : 0) + (m11 >= thr ? 1 : 0);
+      if (sea_corners < 3) {
         continue;
       }
       const uint32_t i00 =
@@ -345,6 +388,7 @@ bool OceanPass::ensure_resources(render::rhi::Device* device) {
     gpu_->destroy_height(device_);
     device_ = device;
     cached_mesh_res_ = mesh_n;
+    topology_dirty_ = true;  // fresh GPU buffers need VB/IB upload
     const uint32_t vb_bytes = want_verts * 5u * sizeof(float);
     const uint32_t max_idx =
         static_cast<uint32_t>((mesh_n - 1) * (mesh_n - 1) * 6);
@@ -360,6 +404,38 @@ bool OceanPass::ensure_resources(render::rhi::Device* device) {
   return true;
 }
 
+bool OceanPass::prepare_gpu(render::rhi::Device* device) {
+  if (!device) {
+    return false;
+  }
+  used_gpu_fft_ = false;
+  // Prefer CPU Gerstner/FFT fields for the height map upload; GPU FFT still
+  // runs later inside record() when prefer_gpu_fft is set.
+  rebuild_displacement();
+  if (topology_dirty_ || indices_.empty() ||
+      cached_mask_cols_ != mask_cols_ || cached_mask_rows_ != mask_rows_) {
+    rebuild_indices_with_mask();
+    cached_mask_cols_ = mask_cols_;
+    cached_mask_rows_ = mask_rows_;
+    topology_dirty_ = true;
+  }
+  if (index_count_ == 0) {
+    height_prepared_ = false;
+    return true;
+  }
+  if (!ensure_resources(device)) {
+    return false;
+  }
+  if (!gpu_->upload_height(device_, device, params_.mesh_resolution, heights_,
+                           disp_x_, disp_z_, height_scale_, disp_scale_)) {
+    return false;
+  }
+  // Keep topology_dirty_ so record() still uploads VB/IB; only the height
+  // map is ready for the DEM remesh window.
+  height_prepared_ = true;
+  return true;
+}
+
 bool OceanPass::record(render::rhi::Device* device, render::rhi::CommandList* list,
                        uint32_t width, uint32_t height,
                        const render::rhi::CameraMatrices* camera) {
@@ -372,50 +448,66 @@ bool OceanPass::record(render::rhi::Device* device, render::rhi::CommandList* li
       params_.prefer_gpu_fft && !params_.use_gerstner_fallback &&
       params_.fft_size >= 16 && device->supports_compute();
 
-  if (want_gpu) {
-    rebuild_mesh_grid();
-    const float hs = std::max(0.05f, params_.significant_wave_height);
-    height_scale_ = std::max(0.05f, hs * 0.55f);
-    disp_scale_ =
-        std::max(0.05f, hs * 0.45f * std::max(params_.chop, 0.0f));
-  } else {
-    rebuild_displacement();
+  // prepare_gpu() already ran Gerstner/FFT + height upload for this frame.
+  // Do not rebuild_displacement again â€” that doubled ocean CPU on every present
+  // (~5â€“9 ms Debug) while the staged height map was already current.
+  if (!height_prepared_) {
+    if (want_gpu) {
+      if (!mesh_topology_matches_params() || topology_dirty_) {
+        rebuild_mesh_grid();
+        topology_dirty_ = true;
+      }
+      const float hs = std::max(0.05f, params_.significant_wave_height);
+      height_scale_ = std::max(0.05f, hs * 0.55f);
+      disp_scale_ =
+          std::max(0.05f, hs * 0.45f * std::max(params_.chop, 0.0f));
+    } else {
+      rebuild_displacement();
+    }
   }
 
-  rebuild_indices_with_mask();
+  if (topology_dirty_ || indices_.empty() ||
+      cached_mask_cols_ != mask_cols_ || cached_mask_rows_ != mask_rows_) {
+    rebuild_indices_with_mask();
+    cached_mask_cols_ = mask_cols_;
+    cached_mask_rows_ = mask_rows_;
+    topology_dirty_ = true;
+  }
   if (index_count_ == 0) {
+    height_prepared_ = false;
     return true;
   }
-  if (!ensure_resources(device)) {
-    return false;
-  }
-
-  if (want_gpu) {
-    if (!gpu_->record(device_, device, list, params_.fft_size, params_, time_sec_,
-                      &height_scale_, &disp_scale_)) {
-      // Compute unavailable at record time â€?fall back to CPU FFT.
-      rebuild_displacement();
-      if (!gpu_->upload_height(device_, device, params_.mesh_resolution, heights_,
-                               disp_x_, disp_z_, height_scale_, disp_scale_)) {
-        return false;
-      }
-    } else {
-      used_gpu_fft_ = true;
+  // After prepare_gpu(), mesh/height GPU objects must stay stable - realloc
+  // here would destroy height and FlyCube can recycle the live DEM albedo.
+  if (!height_prepared_) {
+    if (!ensure_resources(device)) {
+      return false;
     }
-  } else {
+    // Never run GPU FFT after DEM remesh (ensure_textures can steal DEM SRVs).
+    // CPU height upload only when prepare_gpu did not already stage the map.
+    if (want_gpu) {
+      rebuild_displacement();
+    }
     if (!gpu_->upload_height(device_, device, params_.mesh_resolution, heights_,
                              disp_x_, disp_z_, height_scale_, disp_scale_)) {
       return false;
     }
-  }
-
-  const uint32_t vb_bytes =
-      static_cast<uint32_t>(positions_.size() * sizeof(float));
-  const uint32_t ib_bytes =
-      static_cast<uint32_t>(indices_.size() * sizeof(uint32_t));
-  if (!device->upload(vertex_buffer_, positions_.data(), vb_bytes) ||
-      !device->upload(index_buffer_, indices_.data(), ib_bytes)) {
+  } else if (!vertex_buffer_ || !index_buffer_ || !gpu_->height()) {
+    height_prepared_ = false;
     return false;
+  }
+  height_prepared_ = false;
+
+  if (topology_dirty_) {
+    const uint32_t vb_bytes =
+        static_cast<uint32_t>(positions_.size() * sizeof(float));
+    const uint32_t ib_bytes =
+        static_cast<uint32_t>(indices_.size() * sizeof(uint32_t));
+    if (!device->upload(vertex_buffer_, positions_.data(), vb_bytes) ||
+        !device->upload(index_buffer_, indices_.data(), ib_bytes)) {
+      return false;
+    }
+    topology_dirty_ = false;
   }
 
   if (!ensure_pipeline(device)) {
@@ -446,8 +538,11 @@ bool OceanPass::record(render::rhi::Device* device, render::rhi::CommandList* li
 
   detail::set_fullscreen_viewport(list, width, height);
   detail::bind_camera_if(list, camera);
+  // Test-only: DEM already filled depth in the opaque pass. Writing ocean depth
+  // used to punch dark water through hypsometric land when sea-mask / z order
+  // drifted (atmosphere.full near-black China).
   detail::apply_raster(list, {pipeline_, render::rhi::BlendMode::kOpaque,
-                              render::rhi::DepthMode::kWrite});
+                              render::rhi::DepthMode::kTestOnly});
   list->set_constants(kOceanConstantSlot, &ocean,
                       static_cast<uint32_t>(sizeof(ocean)));
   list->bind_texture(gpu_->height(), 0);
@@ -459,7 +554,7 @@ bool OceanPass::record(render::rhi::Device* device, render::rhi::CommandList* li
 void OceanPass::release() {
   // Drop GPU pointers only. Scene3dRhiSession / MapViewport intentionally leak
   // the FlyCube Device facade after shutdown; destroy_buffer/texture on that
-  // facade AVs (CEF set_document â†?bind_map â†?abandon_mesh crash).
+  // facade AVs (CEF set_document ??bind_map ??abandon_mesh crash).
   vertex_buffer_ = nullptr;
   index_buffer_ = nullptr;
   pipeline_ = nullptr;
@@ -472,6 +567,7 @@ void OceanPass::release() {
   vertex_count_ = 0;
   cached_mesh_res_ = 0;
   used_gpu_fft_ = false;
+  height_prepared_ = false;
   positions_.clear();
   heights_.clear();
   disp_x_.clear();
@@ -481,6 +577,14 @@ void OceanPass::release() {
   mask_cols_ = 0;
   mask_rows_ = 0;
   mask_cpu_.clear();
+  topology_dirty_ = true;
+  cached_patch_cx_ = 0.f;
+  cached_patch_cz_ = 0.f;
+  cached_patch_y_ = 0.f;
+  cached_patch_hx_ = 0.f;
+  cached_patch_hz_ = 0.f;
+  cached_mask_cols_ = -1;
+  cached_mask_rows_ = -1;
 }
 
 }  // namespace atmosphere

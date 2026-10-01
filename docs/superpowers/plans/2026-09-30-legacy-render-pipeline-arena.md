@@ -9,7 +9,7 @@ All rights reserved.
 
 **Goal:** Instrument all of `src/legacy/render` with `base::trace`, and deepen hot paths with `base::execution::Pipeline` + `base::memory` Arena — without breaking public `Smt*` signatures.
 
-**Architecture:** Shared `detail/frame_pipeline.h` helpers; GDI feature prep becomes produce→map→sink Pipeline; rhi3d present/draw get categories; host VB/mesh scratch use Arena allocate; scene3d Update/Render/build_mesh traced. `GdiRasterScheduler` coalesce lane stays.
+**Architecture:** Shared `detail/frame_pipeline.h` helpers; GDI feature prep becomes produce→map→sink Pipeline; rhi3d present/draw get categories; host VB/mesh scratch use Arena allocate; scene3d Update/Render/build_mesh traced. `Rhi2dFrameScheduler` coalesce lane stays.
 
 **Tech Stack:** `base::trace` · `base::execution::Pipeline` · `base::allocate` / `STLAllocator` · leftover GDI/D3D/GL/scene3d
 
@@ -27,8 +27,8 @@ All rights reserved.
 | Path | Role |
 | --- | --- |
 | `src/legacy/render/detail/frame_pipeline.h` | Frame-end memory sample + `[legacy.flow]` log helper |
-| `…/gdi/paint/canvas/layer_painter.cc` | Prep → Pipeline |
-| `…/gdi/worker/render_thread.cc` | Sample memory + flow log after RenderMap |
+| `…/gdi/paint/layer/painter.cc` | Prep → Pipeline |
+| `…/gdi/worker/frame_worker.cc` | Sample memory + flow log after RenderMap |
 | `…/d3d/host/device_present.cpp` | Begin/End/Swap spans |
 | `…/d3d/…/vertex_buffer.cpp` | Host arrays via Arena |
 | `…/gl/host/device_present.cpp` | Begin/End/Swap spans |

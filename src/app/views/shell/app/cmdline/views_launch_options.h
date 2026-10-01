@@ -17,6 +17,8 @@ enum class AtmosphereShowcaseMode {
   kOcean,
   kFull,
   kCoast,
+  // Leftover stereo look on Views Scene3D (black clear + hypsometric + labels).
+  kLegacy,
 };
 
 // Automated 2D map carto demos (MapLibre-like China framing / align Style).
@@ -30,7 +32,21 @@ enum class Map2dShowcaseMode {
   kOrthogrid,
 };
 
-// Shell chrome capture for ui_shot_loop (distinct from --self-test).
+  // Product plugin sample+viz (--plugin-showcase=...|geochem|mine).
+enum class PluginShowcaseMode {
+  kNone,
+  kWorld3d,
+  kPrint,
+  kOrthogrid,
+  kOrthogrid3d,
+  kTraffic,
+  kFlood,
+  kStormSurge,
+  kMine,
+  kGeochem,
+};
+
+// Shell chrome capture for ui_shell_loop / --ui-showcase=shell (distinct from --self-test).
 enum class UiShowcaseMode {
   kNone,
   kShell,     // Map Edit tab + dark chrome BMP
@@ -46,15 +62,20 @@ struct ViewsLaunchOptions {
   bool self_test = false;
   // Shorter console-driven shell path (DebugAgent + bench JSON).
   bool self_test_console = false;
-  // Lean digitize / FeatureGeom path (testing/tools/case/input_loop.py).
+  // Lean digitize / FeatureGeom path (testing/tools/harness/shell/input/input_loop.py).
   bool input_showcase = false;
+  bool browse_showcase = false;
   bool debug_console = false;
   AtmosphereShowcaseMode atmosphere_showcase = AtmosphereShowcaseMode::kNone;
   Map2dShowcaseMode map2d_showcase = Map2dShowcaseMode::kNone;
+  PluginShowcaseMode plugin_showcase = PluginShowcaseMode::kNone;
   UiShowcaseMode ui_showcase = UiShowcaseMode::kNone;
   std::string atmosphere_fields;
   // Empty = unset (caller may fall back to env SMT_SHELL_CANVAS).
   std::string shell_canvas;
+  // Product plugin resource root. Empty → default <exe>/../plugins.
+  // Each plugin loads from <plugins_dir>/<package>/ (e.g. world3d/).
+  std::string plugins_dir;
   bool ok = true;
   int exit_code = 0;
 };
@@ -65,6 +86,7 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv);
 
 const char* atmosphere_showcase_name(AtmosphereShowcaseMode mode);
 const char* map2d_showcase_name(Map2dShowcaseMode mode);
+const char* plugin_showcase_name(PluginShowcaseMode mode);
 const char* ui_showcase_name(UiShowcaseMode mode);
 
 }  // namespace app

@@ -1,0 +1,51 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+source_set("orthogrid3d_views") {
+  sources = [
+    "commands.cc",
+    "commands.h",
+    "detail/boundary_solve.cc",
+    "detail/boundary_solve.h",
+    "detail/laplace_solver.cc",
+    "detail/laplace_solver.h",
+    "detail/orthogonality.cc",
+    "detail/orthogonality.h",
+    "detail/vtk_structured.cc",
+    "detail/vtk_structured.h",
+  ]
+  include_dirs += [
+    "//src",
+    "//src/plugin/product/orthogrid3d",
+  ]
+  deps = [
+    "//src/content:content",
+    "//src/gis/kernel/geo:geo",
+    "//src/plugin/runtime/host:host",
+    "//src/ui/views:views",
+    "//third_party:eigen",
+    "//third_party:rapidjson",
+  ]
+}
+
+test("orthogrid3d_laplace_test") {
+  output_name = "orthogrid3d_laplace_test"
+  sources = [
+    "detail/boundary_solve.cc",
+    "detail/laplace_solver.cc",
+    "detail/orthogonality.cc",
+    "detail/vtk_structured.cc",
+    "tests/laplace3d_test.cc",
+  ]
+  include_dirs += [
+    "//src",
+    "//src/plugin/product/orthogrid3d",
+  ]
+  deps = [
+    "//src/gis/kernel/geo:geo",
+    "//third_party:eigen",
+  ]
+}

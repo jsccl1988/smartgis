@@ -1,0 +1,44 @@
+{
+  "id": "plugin.geochem",
+  "kind": "showcase",
+  "argv": [
+    "--plugin-showcase=geochem"
+  ],
+  "script": "plugin.geochem.il",
+  "env": {
+    "SMT_SKIP_MAP_CONTEXT_MENU": "1"
+  },
+  "mark_leaf": "plugin-showcase-mark.txt",
+  "required_marks": [
+    "geochem-ok",
+    "stats-ok",
+    "bmp-ok",
+    "pass"
+  ],
+  "bmp": {
+    "path": "plugin-showcase-geochem.bmp",
+    "score_id": "plugin_map2d",
+    "accept_nonzero_rc_if_bmp": true,
+    "min_bytes": 10000
+  },
+  "report_name": "plugin_geochem_loop_report.json",
+  "probes": [
+    "marks",
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 2,
+    "timeout_sec": 120,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "sample_layer_visible",
+      "ramp_or_symbols",
+      "no_blank_map"
+    ],
+    "expect_notes": "geochem samples/grade viz on map2d"
+  }
+}

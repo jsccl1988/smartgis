@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SmartGisViews main chrome design template (mirrors BrowserView::build_contents). -->
+<ui name="main_app">
+  <style src="main_app.ui.css"/>
+  <vbox id="root" class="shell">
+    <menubar id="menu_bar" class="menu"/>
+    <vbox id="main_split" class="main_split">
+      <vbox id="columns" class="columns">
+        <hbox id="work" class="work">
+          <hbox id="catalog_map" class="catalog_map">
+            <catalog id="catalog" class="catalog"/>
+            <vbox id="map_tabs" class="map_tabs">
+              <hbox id="map_tab_strip" class="tab_strip">
+                <button id="tab_map" text="Map"/>
+                <button id="tab_data" text="Data"/>
+                <button id="tab_3d" text="3D"/>
+              </hbox>
+              <mapviewport id="map_edit" class="map_host"/>
+            </vbox>
+          </hbox>
+          <ambox id="ambox" class="ambox"/>
+        </hbox>
+        <vbox id="inspector" class="inspector">
+          <hbox id="inspector_tabs" class="tab_strip">
+            <button id="tab_feature" text="FeatureInfo"/>
+            <button id="tab_attr" text="AttributeTable"/>
+            <button id="tab_measure" text="Measure"/>
+            <button id="tab_selection" text="Selection"/>
+            <button id="tab_layer_props" text="LayerProps"/>
+            <button id="tab_legend" text="Legend"/>
+            <button id="tab_analysis" text="Analysis"/>
+            <button id="tab_processing" text="Processing"/>
+            <button id="tab_atmosphere" text="Atmosphere"/>
+          </hbox>
+          <featureinfo id="feature_info" class="inspector_page"/>
+        </vbox>
+      </vbox>
+      <diagnostictools id="diagnostic_tools" class="diagnostics"/>
+    </vbox>
+    <statusbar id="status_bar" class="status"/>
+  </vbox>
+</ui>

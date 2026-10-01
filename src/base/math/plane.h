@@ -7,7 +7,7 @@
 #include "base/math/constants.h"
 #include "base/math/vector.h"
 
-namespace render {
+namespace base {
 
 class Aabb;
 class Obb;
@@ -51,6 +51,10 @@ class Plane {
   bool intersects(const Obb& obb);
 };
 
+}  // namespace base
+
+namespace render {
+using ::base::Plane;
 }  // namespace render
 
 #endif  // SMT_RENDER_MATH_PLANE_H_

@@ -53,6 +53,12 @@ bool cat_is_gdi(std::string_view cat, std::string_view name) {
   return cat.starts_with("gdi") || name.starts_with("gdi");
 }
 
+bool cat_is_ui_views(std::string_view cat, std::string_view name) {
+  return cat.starts_with("ui.views") || cat.starts_with("ui.") ||
+         name.starts_with("ui.views") || name == "on_paint" ||
+         name == "record_commit" || name == "blt_present" || name == "raster";
+}
+
 }  // namespace
 
 struct RenderTracePanel::State {
@@ -67,8 +73,9 @@ RenderTracePanel::RenderTracePanel() : state_(std::make_unique<State>()) {
   box->set_between_child_spacing(4);
 
   auto title =
-      std::make_unique<Label>("Perf Gantt (startup + Map2d + Scene3d + GDI)");
-  title->set_preferred_size({420, 22});
+      std::make_unique<Label>(
+          "Perf Gantt (UI Views + Map2d + Scene3d + GDI + Startup)");
+  title->set_preferred_size({520, 22});
   title_ = title.get();
 
   auto status =
@@ -156,13 +163,22 @@ RenderTracePanel::RenderTracePanel() : state_(std::make_unique<State>()) {
     refresh_from_process_trace();
     update_status();
   });
+  auto show_ui = std::make_unique<Checkbox>("UI");
+  show_ui->set_preferred_size({60, 24});
+  show_ui->set_checked(true);
+  show_ui_ = show_ui.get();
+  show_ui_->set_change([this](bool) {
+    refresh_from_process_trace();
+    update_status();
+  });
   auto filters = std::make_unique<View>();
   filters->set_layout_manager(std::move(filt));
-  filters->set_preferred_size({480, 28});
+  filters->set_preferred_size({560, 28});
   filters->add_child(std::move(show2d));
   filters->add_child(std::move(show3d));
   filters->add_child(std::move(show_startup));
   filters->add_child(std::move(show_gdi));
+  filters->add_child(std::move(show_ui));
 
   auto rollup = std::make_unique<Label>("");
   rollup->set_preferred_size({480, 56});
@@ -285,7 +301,8 @@ std::vector<base::trace::Trace::Event> visible_events(
     const Checkbox* show_map2d,
     const Checkbox* show_scene3d,
     const Checkbox* show_startup,
-    const Checkbox* show_gdi) {
+    const Checkbox* show_gdi,
+    const Checkbox* show_ui) {
   std::vector<base::trace::Trace::Event> out;
   out.reserve(state.events.size());
   for (const auto& e : state.events) {
@@ -296,10 +313,12 @@ std::vector<base::trace::Trace::Event> visible_events(
     const bool is3d = cat_is_scene3d(e.cat, e.name);
     const bool is_startup = cat_is_startup(e.cat, e.name);
     const bool is_gdi = cat_is_gdi(e.cat, e.name);
+    const bool is_ui = cat_is_ui_views(e.cat, e.name);
     const bool want2d = !show_map2d || show_map2d->is_checked();
     const bool want3d = !show_scene3d || show_scene3d->is_checked();
     const bool want_startup = !show_startup || show_startup->is_checked();
     const bool want_gdi = !show_gdi || show_gdi->is_checked();
+    const bool want_ui = !show_ui || show_ui->is_checked();
     if (is2d && !want2d) {
       continue;
     }
@@ -312,8 +331,11 @@ std::vector<base::trace::Trace::Event> visible_events(
     if (is_gdi && !want_gdi) {
       continue;
     }
-    if (!is2d && !is3d && !is_startup && !is_gdi &&
-        !(want2d || want3d || want_startup || want_gdi)) {
+    if (is_ui && !want_ui) {
+      continue;
+    }
+    if (!is2d && !is3d && !is_startup && !is_gdi && !is_ui &&
+        !(want2d || want3d || want_startup || want_gdi || want_ui)) {
       continue;
     }
     out.push_back(e);
@@ -399,7 +421,7 @@ void RenderTracePanel::refresh_from_process_trace(bool schedule) {
   state_->origin = base::trace::process_trace_origin();
   const auto vis =
       visible_events(*state_, show_map2d_, show_scene3d_, show_startup_,
-                     show_gdi_);
+                     show_gdi_, show_ui_);
   state_->phases = base::trace::rollup_trace_phases(vis);
   if (rollup_) {
     std::string text;
@@ -461,7 +483,7 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
   }
   const auto vis =
       visible_events(*state_, show_map2d_, show_scene3d_, show_startup_,
-                     show_gdi_);
+                     show_gdi_, show_ui_);
   if (vis.empty()) {
     canvas->draw_text(b.x + 8, chrome_bottom + 4,
                       L"No duration events yet � Record or wait for refresh",

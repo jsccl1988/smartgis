@@ -14,8 +14,8 @@ namespace {
 
 // Matches paint_self text inset (8px x, 6px y each side) at 96 DPI.
 constexpr int kPadX = 16;
-constexpr int kPadY = 12;
-constexpr int kMinHeight = 28;
+constexpr int kPadY = 14;
+constexpr int kMinHeight = 32;
 
 float scale_for(const View* view) {
   if (view && view->widget()) {
@@ -114,7 +114,14 @@ void Button::paint_self(ui::gfx::Canvas* canvas) {
   const ui::gfx::Color fg =
       is_enabled() ? t.text_bright : t.text_muted;
   if (!wide_.empty()) {
-    canvas->draw_text(b.x + 8, b.y + 6, wide_.c_str(), fg);
+    const float scale = scale_for(this);
+    const int pad_x = dip_to_px(kPadX / 2, scale);  // 8dip at 96dpi
+    const Size ink = measure_text_utf8(text_, scale);
+    int text_y = b.y + (b.height - ink.height) / 2;
+    if (text_y < b.y) {
+      text_y = b.y;
+    }
+    canvas->draw_text(b.x + pad_x, text_y, wide_.c_str(), fg);
   }
   if (is_focused()) {
     draw_focus_ring(canvas, b);

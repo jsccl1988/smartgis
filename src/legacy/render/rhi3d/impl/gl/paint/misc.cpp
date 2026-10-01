@@ -5,7 +5,7 @@ using namespace base;
 
 namespace render {
 // Other functions
-long SmtGLRenderDevice::SetClearColor(const SmtColor &clr) {
+long SmtGLRenderDevice::SetClearColor(const SmtColor& clr) {
   glClearColor(clr.fRed, clr.fGreen, clr.fBlue, clr.fA);
 
   return SMT_ERR_NONE;
@@ -37,7 +37,7 @@ long SmtGLRenderDevice::Clear(DWORD flags) {
   return SMT_ERR_NONE;
 }
 
-long SmtGLRenderDevice::SetViewport(Viewport3D &viewport) {
+long SmtGLRenderDevice::SetViewport(Viewport3D& viewport) {
   m_viewPort = viewport;
 
   if (m_viewPort.ulHeight == 0 || m_viewPort.ulWidth == 0)
@@ -70,8 +70,8 @@ long SmtGLRenderDevice::SetPerspective(float fovy, float aspect, float zNear,
   return SMT_ERR_NONE;
 }
 
-long SmtGLRenderDevice::SetViewLookAt(Vector3 &vPos, Vector3 &vView,
-                                      Vector3 &vUp) {
+long SmtGLRenderDevice::SetViewLookAt(Vector3& vPos, Vector3& vView,
+                                      Vector3& vUp) {
   gluLookAt(vPos.x, vPos.y, vPos.z, vView.x, vView.y, vView.z, vUp.x, vUp.y,
             vUp.z);
   if (GL_NO_ERROR != glGetError()) return SMT_ERR_FAILURE;
@@ -80,8 +80,8 @@ long SmtGLRenderDevice::SetViewLookAt(Vector3 &vPos, Vector3 &vView,
 }
 
 // calculator 3D pos by 2D pos
-long SmtGLRenderDevice::Transform2DTo3D(Vector3 &vOrg, Vector3 &vTar,
-                                        const lPoint &point) {
+long SmtGLRenderDevice::Transform2DTo3D(Vector3& vOrg, Vector3& vTar,
+                                        const lPoint& point) {
   int nCursorX = point.x, nCursorY = point.y;
   GLfloat fWinX = 0, fWinY = 0, fWinZ = 0;
   GLdouble _x = 0., _y = 0., _z = 0.;
@@ -115,7 +115,7 @@ long SmtGLRenderDevice::Transform2DTo3D(Vector3 &vOrg, Vector3 &vTar,
 }
 
 // 3d to 2d
-long SmtGLRenderDevice::Transform3DTo2D(const Vector3 &ver3D, lPoint &point) {
+long SmtGLRenderDevice::Transform3DTo2D(const Vector3& ver3D, lPoint& point) {
   GLdouble _x = 0., _y = 0., _z = 0.;
   GLdouble modelview[16];
   GLdouble projection[16];
@@ -134,37 +134,14 @@ long SmtGLRenderDevice::Transform3DTo2D(const Vector3 &ver3D, lPoint &point) {
   return SMT_ERR_NONE;
 }
 
-void NormalizePlane(float frustum[6][4], int side) {
-  // Here we calculate the magnitude of the normal to the plane (point A B C)
-  // Remember that (A, B, C) is that same thing as the normal's (X, Y, Z).
-  // To calculate magnitude you use the equation:  magnitude = sqrt( x^2 + y^2 +
-  // z^2)
-  float magnitude = (float)sqrt(frustum[side][P_A] * frustum[side][P_A] +
-                                frustum[side][P_B] * frustum[side][P_B] +
-                                frustum[side][P_C] * frustum[side][P_C]);
-
-  // Then we divide the plane's values by it's magnitude.
-  // This makes it easier to work with.
-  frustum[side][P_A] /= magnitude;
-  frustum[side][P_B] /= magnitude;
-  frustum[side][P_C] /= magnitude;
-  frustum[side][P_D] /= magnitude;
-}
-
-// get frustum
-long SmtGLRenderDevice::GetFrustum(SmtFrustum &smtFrustum) {
-  float frustum[6][4];
-
-  float proj[16];  // This will hold our projection matrix
-  float modl[16];  // This will hold our modelview matrix
-  float clip[16];  // This will hold the clipping planes
+// get frustum — shared Eigen extract (outward planes for Aabb::cull).
+long SmtGLRenderDevice::GetFrustum(Frustum& out) {
+  float proj[16];
+  float modl[16];
+  float clip[16];
 
   glGetFloatv(GL_PROJECTION_MATRIX, proj);
   glGetFloatv(GL_MODELVIEW_MATRIX, modl);
-
-  // Now that we have our modelview and projection matrix, if we combine these 2
-  // matrices, it will give us our clipping planes.  To combine 2 matrices, we
-  // multiply them.
 
   clip[0] = modl[0] * proj[0] + modl[1] * proj[4] + modl[2] * proj[8] +
             modl[3] * proj[12];
@@ -202,68 +179,7 @@ long SmtGLRenderDevice::GetFrustum(SmtFrustum &smtFrustum) {
   clip[15] = modl[12] * proj[3] + modl[13] * proj[7] + modl[14] * proj[11] +
              modl[15] * proj[15];
 
-  // Now we actually want to get the sides of the frustum.  To do this we take
-  // the clipping planes we received above and extract the sides from them.
-
-  // This will extract the RIGHT side of the frustum
-  frustum[FS_RIGHT][P_A] = clip[3] - clip[0];
-  frustum[FS_RIGHT][P_B] = clip[7] - clip[4];
-  frustum[FS_RIGHT][P_C] = clip[11] - clip[8];
-  frustum[FS_RIGHT][P_D] = clip[15] - clip[12];
-
-  // Now that we have a normal (A,B,C) and a distance (D) to the plane,
-  // we want to normalize that normal and distance.
-
-  // Normalize the RIGHT side
-  NormalizePlane(frustum, FS_RIGHT);
-
-  // This will extract the LEFT side of the frustum
-  frustum[FS_LEFT][P_A] = clip[3] + clip[0];
-  frustum[FS_LEFT][P_B] = clip[7] + clip[4];
-  frustum[FS_LEFT][P_C] = clip[11] + clip[8];
-  frustum[FS_LEFT][P_D] = clip[15] + clip[12];
-
-  // Normalize the LEFT side
-  NormalizePlane(frustum, FS_LEFT);
-
-  // This will extract the BOTTOM side of the frustum
-  frustum[FS_BOTTOM][P_A] = clip[3] + clip[1];
-  frustum[FS_BOTTOM][P_B] = clip[7] + clip[5];
-  frustum[FS_BOTTOM][P_C] = clip[11] + clip[9];
-  frustum[FS_BOTTOM][P_D] = clip[15] + clip[13];
-
-  // Normalize the BOTTOM side
-  NormalizePlane(frustum, FS_BOTTOM);
-
-  // This will extract the TOP side of the frustum
-  frustum[FS_TOP][P_A] = clip[3] - clip[1];
-  frustum[FS_TOP][P_B] = clip[7] - clip[5];
-  frustum[FS_TOP][P_C] = clip[11] - clip[9];
-  frustum[FS_TOP][P_D] = clip[15] - clip[13];
-
-  // Normalize the TOP side
-  NormalizePlane(frustum, FS_TOP);
-
-  // This will extract the BACK side of the frustum
-  frustum[FS_BACK][P_A] = clip[3] - clip[2];
-  frustum[FS_BACK][P_B] = clip[7] - clip[6];
-  frustum[FS_BACK][P_C] = clip[11] - clip[10];
-  frustum[FS_BACK][P_D] = clip[15] - clip[14];
-
-  // Normalize the BACK side
-  NormalizePlane(frustum, FS_BACK);
-
-  // This will extract the FRONT side of the frustum
-  frustum[FS_FRONT][P_A] = clip[3] + clip[2];
-  frustum[FS_FRONT][P_B] = clip[7] + clip[6];
-  frustum[FS_FRONT][P_C] = clip[11] + clip[10];
-  frustum[FS_FRONT][P_D] = clip[15] + clip[14];
-
-  // Normalize the FRONT side
-  NormalizePlane(frustum, FS_FRONT);
-
-  smtFrustum.SetFrustum(frustum);
-
+  out = Frustum::from_column_major_clip(clip);
   return SMT_ERR_NONE;
 }
 }  // namespace render

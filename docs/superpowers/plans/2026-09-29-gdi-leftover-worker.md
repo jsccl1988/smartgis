@@ -26,7 +26,7 @@ All rights reserved.
 | Path | Role |
 | --- | --- |
 | `thread/render_thread.h` `.cpp` | Thin `SmtGdiRenderThread` façade (Phase C API) |
-| `thread/frame_scheduler.h` `.cpp` | `GdiFrameScheduler` — executor / cancel / gen / coalesce |
+| `thread/frame_scheduler.h` `.cpp` | `Rhi2dFrameScheduler` — executor / cancel / gen / coalesce |
 | `thread/map_painter.h` `.cpp` | `GdiMapPainter` — map/layer/feature/geometry |
 | `thread/style_canvas.h` `.cpp` | `GdiStyleCanvas` — style + Draw* |
 | `device/render_device.h` `.cpp` | Host stage/submit/present; calls Phase C API only |
@@ -72,7 +72,7 @@ All rights reserved.
 
 ### Task 4 (Phase C): shrink surface + thread composition
 
-- [x] **Step 1:** Add `GdiFrameScheduler` / `GdiMapPainter` / `GdiStyleCanvas` under `thread/` (`render::detail`); move bodies out of `render_thread*` / delete `render_thread_draw.cpp`.
+- [x] **Step 1:** Add `Rhi2dFrameScheduler` / `GdiMapPainter` / `GdiStyleCanvas` under `thread/` (`render::detail`); move bodies out of `render_thread*` / delete `render_thread_draw.cpp`.
 - [x] **Step 2:** Shrink `SmtGdiRenderThread` public API to Phase C snake_case; **sync** `render_device.cpp` call sites (no dual names).
 - [x] **Step 3:** Update `impl/gdi/BUILD.gn`; `build.bat debug` `legacy_render` / `gdi_map_paint_test` green.
 - [ ] **Step 4:** When Views map drops GDI leftover bind, delete `gdi/thread` and archive this plan + umbrella §.

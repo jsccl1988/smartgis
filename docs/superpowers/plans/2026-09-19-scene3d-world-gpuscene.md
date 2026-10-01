@@ -44,7 +44,7 @@ All rights reserved.
 - Modify: `src/legacy/render/scene3d/BUILD.gn`（`scene3d_sources` deps `//src/gis/scene/world:land_mask`）
 
 **Steps:**
-1. [x] `#include "gis/scene/world/terrain/land_mask.h"`；删除本文件内重复 even-odd 实现。  
+1. [x] `#include "gis/scene/world/terrain/process/land_mask.h"`；删除本文件内重复 even-odd 实现。  
 2. [x] `point_in_lonlat_ring` / `any_ring_contains` 转发 `gis::`（保留 `render::` 导出；bbox  cull 留在 leftover 壳）。  
 3. [x] `mask_outside_rings` 经 `any_ring_contains` → `gis::point_in_lonlat_ring`。  
 4. [x] `dem_stereo_test` 既有掩膜用例仍绿。
@@ -117,6 +117,8 @@ All rights reserved.
 
 ### Deferred（后续）
 
-- [ ] leftover `DemHeightField` 薄包装 `gis::DemRaster`（去重复实现）。  
-- [ ] `SmtScene` octree 查询路径进一步委托 World（当前仅 AABB 镜像）。  
+> 与业界差距钉死对齐：见 [`2026-09-30-map3d-gap-pin.md`](2026-09-30-map3d-gap-pin.md)（P0-A / P2-A）与 [`../../build/industry-gap-matrix.md`](../../build/industry-gap-matrix.md) §3.2.1。
+
+- [x] leftover `DemHeightField` 薄包装 `gis::DemRaster`（去重复实现）— **map3d-gap-pin P0-A**。  
+- [ ] `SmtScene` octree 查询路径进一步委托 World（当前仅 AABB 镜像）— **map3d-gap-pin P2-A**。  
 - [ ] SP5 编译闸门收口文档与 `test_shell` 再对齐。

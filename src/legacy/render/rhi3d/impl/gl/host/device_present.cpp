@@ -49,7 +49,7 @@ long SmtGLRenderDevice::SwapBuffers() {
 long SmtGLRenderDevice::DrawPrimitives(PrimitiveType primitiveType,
                                        SmtVertexBuffer* pVB, DWORD baseVertex,
                                        DWORD primitiveCount) {
-  if (pVB == NULL) return SMT_ERR_INVALID_PARAM;
+  if (pVB == nullptr) return SMT_ERR_INVALID_PARAM;
 
   // Convert primitive type
   GLenum PT;
@@ -76,7 +76,7 @@ long SmtGLRenderDevice::DrawIndexedPrimitives(PrimitiveType primitiveType,
                                               SmtIndexBuffer* pIB,
                                               ulong baseIndex,
                                               ulong primitiveCount) {
-  if (pVB == NULL || pIB == NULL) return SMT_ERR_INVALID_PARAM;
+  if (pVB == nullptr || pIB == nullptr) return SMT_ERR_INVALID_PARAM;
 
   // Convert primitive type
   GLenum PT;
@@ -97,9 +97,6 @@ long SmtGLRenderDevice::DrawIndexedPrimitives(PrimitiveType primitiveType,
   if (!indices) {
     return SMT_ERR_FAILURE;
   }
-  // Do not open leftover_session here. The process-wide recorder may
-  // already own a D3D/FlyCube device on another HWND; begin/record_3d
-  // mid-GL-frame has caused STATUS_FATAL_APP_EXIT (0xC000041D).
   glDrawElements(PT, count, GL_UNSIGNED_INT, indices);
 
   if (SMT_ERR_NONE != pVB->EndDrawing() || SMT_ERR_NONE != pIB->EndDrawing())
@@ -153,10 +150,10 @@ inline long SmtGLRenderDevice::GetOpenGLPrimitiveType(
 
 long SmtGLRenderDevice::DrawText(uint unID, float x, float y, float z,
                                  const SmtColor& color, const char* str, ...) {
-  if (str == NULL || unID > m_vTextPtrs.size()) return SMT_ERR_INVALID_PARAM;
+  if (str == nullptr || unID > m_vTextPtrs.size()) return SMT_ERR_INVALID_PARAM;
 
   SmtGLText* pText = m_vTextPtrs.at(unID);
-  if (NULL == pText) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == pText) return SMT_ERR_INVALID_PARAM;
 
   char text[256];
   memset(text, '\0', 256);
@@ -186,10 +183,10 @@ long SmtGLRenderDevice::DrawText(uint unID, float x, float y, float z,
 
 long SmtGLRenderDevice::DrawText(uint unID, float x, float y,
                                  const SmtColor& color, const char* str, ...) {
-  if (str == NULL || unID > m_vTextPtrs.size()) return SMT_ERR_INVALID_PARAM;
+  if (str == nullptr || unID > m_vTextPtrs.size()) return SMT_ERR_INVALID_PARAM;
 
   SmtGLText* pText = m_vTextPtrs.at(unID);
-  if (NULL == pText) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == pText) return SMT_ERR_INVALID_PARAM;
 
   char text[256];
   memset(text, '\0', 256);

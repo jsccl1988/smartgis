@@ -30,7 +30,8 @@
 # markup/ nests style|document|layout|factory|loader (+ testdata/).
 # Product .ui.xml/.ui.css live in //src/ui/resources/<area>/ (copied to
 # out/ui/<area>/; relative path preserved).
-# map/ stays flat (viewport + touch). testing/ is test-only
+# map/ nests viewport|input|chrome|device; root keeps public forward headers
+# (map_viewport.h, touch_multitouch.h). testing/ is test-only
 # (not linked into :ui_views): testing/unit and testing/pixel.
 # Goldens stay at testing/testdata/.
 # Stable labels :views and //src/ui/gfx:gfx forward to :ui_views.
@@ -93,6 +94,12 @@ source_set("views_kernel") {
     "kernel/view/view.h",
     "kernel/widget/widget.cc",
     "kernel/widget/widget.h",
+    "kernel/widget/widget_event.cc",
+    "kernel/widget/widget_event.h",
+    "kernel/widget/widget_lifecycle.cc",
+    "kernel/widget/widget_lifecycle.h",
+    "kernel/widget/widget_window.cc",
+    "kernel/widget/widget_window.h",
   ]
   defines = _views_layer_defines
   public_deps = [
@@ -176,6 +183,9 @@ source_set("views_markup") {
     "markup/style/css_parser.h",
     "markup/style/flex_style.cc",
     "markup/style/flex_style.h",
+    "text2ui/llm_backend.h",
+    "text2ui/text2ui.cc",
+    "text2ui/text2ui.h",
   ]
   defines = _views_layer_defines
   public_deps = [
@@ -209,10 +219,25 @@ source_set("views_dialogs") {
 
 source_set("views_map") {
   sources = [
-    "map/map_viewport.cc",
+    "map/chrome/embed_fill.cc",
+    "map/chrome/embed_fill.h",
+    "map/chrome/identity_hud.cc",
+    "map/chrome/identity_hud.h",
+    "map/device/device_load.cc",
+    "map/device/device_load.h",
+    "map/input/touch_multitouch.cc",
+    "map/input/touch_multitouch.h",
+    "map/input/viewport_input.cc",
+    "map/input/viewport_input.h",
     "map/map_viewport.h",
-    "map/touch_multitouch.cc",
     "map/touch_multitouch.h",
+    "map/viewport/display.cc",
+    "map/viewport/features.h",
+    "map/viewport/flycube.cc",
+    "map/viewport/map_viewport.cc",
+    "map/viewport/map_viewport.h",
+    "map/viewport/paint.cc",
+    "map/viewport/shell.cc",
   ]
   defines = _views_layer_defines
   public_deps = [
@@ -323,6 +348,8 @@ copy("markup_resources_shell") {
   sources = [
     "//src/ui/resources/shell/atmosphere_panel.ui.css",
     "//src/ui/resources/shell/atmosphere_panel.ui.xml",
+    "//src/ui/resources/shell/main_app.ui.css",
+    "//src/ui/resources/shell/main_app.ui.xml",
     "//src/ui/resources/shell/status_bar.ui.css",
     "//src/ui/resources/shell/status_bar.ui.xml",
   ]
@@ -361,6 +388,8 @@ copy("markup_resources_analysis") {
     "//src/ui/resources/analysis/geoprocessing_history_panel.ui.xml",
     "//src/ui/resources/analysis/processing_panel.ui.css",
     "//src/ui/resources/analysis/processing_panel.ui.xml",
+    "//src/ui/resources/analysis/result_playback_panel.ui.css",
+    "//src/ui/resources/analysis/result_playback_panel.ui.xml",
     "//src/ui/resources/analysis/spatial_analysis_panel.ui.css",
     "//src/ui/resources/analysis/spatial_analysis_panel.ui.xml",
   ]
@@ -433,9 +462,20 @@ benchmark("views_bench") {
 }
 
 # Console self-test for primitive / kernel behavior (no MFC).
+# Domain bodies are split under testing/unit/; main stays in views_unittests.cc.
 test("views_unittests") {
   output_name = "views_unittests"
-  sources = [ "testing/unit/views_unittests.cc" ]
+  sources = [
+    "testing/unit/collections_unittests.cc",
+    "testing/unit/controls_unittests.cc",
+    "testing/unit/gis_shell_unittests.cc",
+    "testing/unit/kernel_theme_unittests.cc",
+    "testing/unit/layout_unittests.cc",
+    "testing/unit/paint_compositor_unittests.cc",
+    "testing/unit/views_unit_helpers.cc",
+    "testing/unit/views_unittests.cc",
+    "testing/unit/widget_dialog_unittests.cc",
+  ]
   deps = [
     ":markup_resources",
     ":views",

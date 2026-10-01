@@ -1,11 +1,11 @@
 {
   "id": "smartgis.baogrid",
   "name": "边界适应正交网格",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "api_version": 2,
   "kind": "builtin",
   "author": "The Mogu Authors",
-  "description": "Boundary-adapted orthographic grid digitize, save/load, and Laplace solve.",
+  "description": "Boundary-adapted orthogrid: digitize four edges, Laplace/elliptic solve, mesh + orthogonality heat viz.",
   "contributes": {
     "commands": [
       {
@@ -14,8 +14,18 @@
         "menu": "tools.baogrid"
       },
       {
+        "id": "baogrid.input_boundary_1",
+        "title": "Input boundary 1",
+        "menu": "tools.baogrid"
+      },
+      {
         "id": "baogrid.input_boundary_2",
         "title": "Input boundary 2",
+        "menu": "tools.baogrid"
+      },
+      {
+        "id": "baogrid.input_boundary_3",
+        "title": "Input boundary 3",
         "menu": "tools.baogrid"
       },
       {
@@ -29,13 +39,28 @@
         "menu": "tools.baogrid"
       },
       {
+        "id": "baogrid.generate",
+        "title": "Generate orth grid",
+        "menu": "tools.baogrid"
+      },
+      {
         "id": "orthogrid.input_boundary_0",
         "title": "Input boundary 0",
         "menu": "tools.baogrid"
       },
       {
+        "id": "orthogrid.input_boundary_1",
+        "title": "Input boundary 1",
+        "menu": "tools.baogrid"
+      },
+      {
         "id": "orthogrid.input_boundary_2",
         "title": "Input boundary 2",
+        "menu": "tools.baogrid"
+      },
+      {
+        "id": "orthogrid.input_boundary_3",
+        "title": "Input boundary 3",
         "menu": "tools.baogrid"
       },
       {
@@ -46,6 +71,11 @@
       {
         "id": "orthogrid.load_boundary",
         "title": "Load grid boundary",
+        "menu": "tools.baogrid"
+      },
+      {
+        "id": "orthogrid.generate",
+        "title": "Generate orth grid",
         "menu": "tools.baogrid"
       }
     ],

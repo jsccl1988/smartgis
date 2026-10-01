@@ -1,0 +1,36 @@
+﻿{
+  "id": "atmosphere.legacy",
+  "kind": "showcase",
+  "argv": [
+    "--atmosphere-showcase",
+    "legacy"
+  ],
+  "env": {
+    "SMT_ATMOSPHERE_SHOWCASE_GPU": "1",
+    "SMT_ATMOSPHERE_SHOWCASE_LINGER_MS": "0"
+  },
+  "bmp": {
+    "path": "atmosphere-showcase-legacy.bmp",
+    "score_id": "legacy_scene3d_china"
+  },
+  "report_name": "atmosphere_legacy_loop_report.json",
+  "probes": [
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 6,
+    "timeout_sec": 90,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "not_solid_clear_color",
+      "dem_or_sea_signal",
+      "place_labels_if_expected",
+      "legacy_look_vs_atmosphere_full"
+    ],
+    "expect_notes": "Views leftover scene3d look; score_id=legacy_scene3d_china"
+  }
+}

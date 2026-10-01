@@ -109,13 +109,15 @@ Shared files: `widget.*`, `map_viewport.*`, `frame_sink.*`, `display.*`, root `B
 
 ## Deferred (explicit)
 
-| Item | Why |
+Absorbed by follow-on plan [`2026-09-30-ui-shell-perf-upgrade.md`](2026-09-30-ui-shell-perf-upgrade.md) (living §Shell perf upgrade waves). Do not re-open parallel Deferred here.
+
+| Item | Status |
 | --- | --- |
 | DWM BeginFrame clock | Landed: `ui::gfx::VblankClock` + MapViewport / PresentMailbox |
-| HUD-as-quad in submitted frame | `commit_shell_overlay` staged; FlyCube still uses GDI HUD after present |
-| views ↔ gpu `PresentMailbox` merge | Layering: views must not hard-dep `//src/gpu` |
-| Multi-worker raster | P3 starts with 1 worker |
-| Shell Commit driven by BeginFrame | Still UI `WM_PAINT`; vblank paces Display present only |
+| HUD-as-quad in submitted frame | → **U3** in ui-shell-perf-upgrade |
+| views ↔ gpu PresentMailbox merge | → **U3** (glue stays `src/app/views`; views must not hard-dep gpu) |
+| Multi-worker raster | → **U4** (optional) |
+| Shell Commit driven by BeginFrame | → **U5** (optional; still UI `WM_PAINT` today) |
 
 Human verify:
 

@@ -113,6 +113,27 @@ class CONTENT_EXPORT PluginHost {
                                std::string_view title)>& fn) const {
     (void)fn;
   }
+
+  // Local HTML report browser (shell installs ReportPanel bridge). Append-only.
+  using ReportOpenFn = std::function<bool(std::string_view report_dir)>;
+  using ReportPostFn = std::function<bool(std::string_view json)>;
+  using ReportCloseFn = std::function<void()>;
+  virtual void set_report_bridge(ReportOpenFn open,
+                                 ReportPostFn post,
+                                 ReportCloseFn close) {
+    (void)open;
+    (void)post;
+    (void)close;
+  }
+  virtual bool open_report(std::string_view report_dir) {
+    (void)report_dir;
+    return false;
+  }
+  virtual bool post_to_report(std::string_view json) {
+    (void)json;
+    return false;
+  }
+  virtual void close_report() {}
 };
 
 CONTENT_EXPORT PluginHost* create_plugin_host(tool::CommandCatalog* catalog,

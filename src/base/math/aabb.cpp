@@ -8,9 +8,8 @@
 #include "base/math/matrix.h"
 #include "legacy/core/macros/macros.h"
 #include <cmath>
-using namespace base;
-
-namespace render
+#include <Eigen/Geometry>
+namespace base
 {
 	Aabb::Aabb() {
 	  vcMin.set(SMT_C_INVALID_DBF_VALUE, SMT_C_INVALID_DBF_VALUE,
@@ -108,23 +107,17 @@ namespace render
 
 	bool Aabb::intersects(Aabb const& other) const
 	{
-		return vcMin.x <= other.vcMax.x && vcMax.x >= other.vcMin.x && 
-			   vcMin.y <= other.vcMax.y && vcMax.y >= other.vcMin.y &&
-			   vcMin.z <= other.vcMax.z && vcMax.z >= other.vcMin.z;
+		return eigen().intersects(other.eigen());
 	}
 
 	bool Aabb::contains(Aabb const& other) const
 	{
-		return vcMin.x <= other.vcMin.x && vcMax.x >= other.vcMax.x &&
-			   vcMin.y <= other.vcMin.y && vcMax.y >= other.vcMax.y &&
-			   vcMin.z <= other.vcMin.z && vcMax.z >= other.vcMax.z; 
+		return eigen().contains(other.eigen());
 	}
 
 	bool Aabb::contains(Vector3 const& other) const
 	{
-		return vcMin.x <= other.x && vcMax.x >= other.x &&
-			   vcMin.y <= other.y && vcMax.y >= other.y &&
-			   vcMin.z <= other.z && vcMax.z >= other.z; 
+		return eigen().contains(other.eigen());
 	}
 
 
@@ -300,13 +293,6 @@ namespace render
 	} // intersects(point)
  
 
-	// does aabb contain ray
-	bool Aabb::contains(const Ray &ray, float fL) 
-	{
-	   Vector4 vcEnd = ray.m_vcOrig + (ray.m_vcDir*fL);
-	   return ( intersects(ray.m_vcOrig) &&intersects(vcEnd) );
-
-	} // contains
  
 
 	// get the six planes, normals pointing outwards

@@ -34,6 +34,7 @@
 #include "ui/views/map/map_viewport.h"
 #include "ui/views/primitives/menu/menu_bar.h"
 #include "ui/views/kernel/view/view.h"
+#include "plugin/product/print/composer/print_composer.h"
 
 #include <algorithm>
 #include <chrono>
@@ -327,6 +328,35 @@ self_test_mark("layers-ok");
         return 73;
       }
       self_test_mark("m1-export-ok");
+      // P0-3: one-page PrintComposer (map panel + scale + legend).
+      {
+        char layout_tmp[MAX_PATH] = {};
+        if (GetTempPathA(MAX_PATH, layout_tmp) != 0) {
+          const std::string layout_bmp =
+              std::string(layout_tmp) + "smartgis_m1_layout.bmp";
+          DeleteFileA(layout_bmp.c_str());
+          plugin::PrintComposerInput pin;
+          pin.page_width_px = 640;
+          pin.page_height_px = 480;
+          pin.map_units_per_px = 100.0;
+          pin.scale_label = "1:100000";
+          pin.legend = {{"Roads", 0xffccaa44}, {"Land", 0xff88aa66}};
+          if (plugin::PrintComposer::export_page_bmp(pin, layout_bmp)) {
+            FILE* lf = nullptr;
+            if (fopen_s(&lf, layout_bmp.c_str(), "rb") == 0 && lf) {
+              char magic[2] = {};
+              const size_t ln = std::fread(magic, 1, 2, lf);
+              std::fclose(lf);
+              DeleteFileA(layout_bmp.c_str());
+              if (ln == 2 && magic[0] == 'B' && magic[1] == 'M') {
+                self_test_mark("m1-layout-ok");
+              }
+            } else {
+              DeleteFileA(layout_bmp.c_str());
+            }
+          }
+        }
+      }
       // Restore product framing so later pan/wheel self-tests see the
       // real map HWND extent (M1 used a 256Ã256 offscreen frame).
       if (ui::views::MapViewport* pane = browser.map_viewport()) {

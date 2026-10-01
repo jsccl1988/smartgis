@@ -4,7 +4,9 @@
 #include <d3dcompiler.h>
 
 #include <cstdarg>
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <unordered_map>
@@ -255,22 +257,48 @@ void release_com(T*& ptr) {
 }
 
 // Sidecar keeps SmtD3DRenderDevice ABI/size stable across partial rebuilds.
+struct SpriteGpuTex {
+  // MapLabelBatch keeps RasterCache::bgra stable — key by pointer, not pixels.
+  // Full-buffer FNV every draw was the D3D vs GL gap on Debug china (~30 labels).
+  const void* pixels = nullptr;
+  UINT w = 0;
+  UINT h = 0;
+  ID3D11Texture2D* tex = nullptr;
+  ID3D11ShaderResourceView* srv = nullptr;
+};
+
 struct SpritePipe {
   ID3D11VertexShader* vs = nullptr;
   ID3D11PixelShader* ps = nullptr;
   ID3D11InputLayout* il = nullptr;
   ID3D11Buffer* cb = nullptr;
+  ID3D11Buffer* dynamic_vb = nullptr;  // reused quad (DYNAMIC)
   ID3D11SamplerState* samp = nullptr;
   ID3D11BlendState* bs = nullptr;
   ID3D11DepthStencilState* dss = nullptr;
   ID3D11RasterizerState* rs = nullptr;
+  // Stable label rasters (MapLabelBatch) — avoid CreateTexture2D every Present.
+  std::unordered_map<const void*, SpriteGpuTex> tex_by_ptr;
+  std::vector<const void*> tex_lru;
+  static constexpr size_t kTexCacheCap = 128;
   bool ok = false;
 
+  void release_tex_cache() {
+    for (auto& kv : tex_by_ptr) {
+      release_com(kv.second.srv);
+      release_com(kv.second.tex);
+    }
+    tex_by_ptr.clear();
+    tex_lru.clear();
+  }
+
   void release() {
+    release_tex_cache();
     release_com(vs);
     release_com(ps);
     release_com(il);
     release_com(cb);
+    release_com(dynamic_vb);
     release_com(samp);
     release_com(bs);
     release_com(dss);
@@ -405,6 +433,17 @@ long ensure_sprite_pipe(SmtD3DRenderDevice* device, ID3D11Device* d3d,
     return SMT_ERR_FAILURE;
   }
 
+  D3D11_BUFFER_DESC vbd = {};
+  vbd.ByteWidth = sizeof(SpriteVertex) * 6;
+  vbd.Usage = D3D11_USAGE_DYNAMIC;
+  vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+  vbd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+  hr = d3d->CreateBuffer(&vbd, nullptr, &pipe->dynamic_vb);
+  if (FAILED(hr) || !pipe->dynamic_vb) {
+    pipe->release();
+    return SMT_ERR_FAILURE;
+  }
+
   pipe->ok = true;
   return SMT_ERR_NONE;
 }
@@ -534,7 +573,7 @@ long SmtD3DRenderDevice::ensure_mesh_pipeline() {
 long SmtD3DRenderDevice::DrawPrimitives(PrimitiveType type,
                                         SmtVertexBuffer* pVB, ulong baseVertex,
                                         ulong primitiveCount) {
-  if (!pVB || !context_ || !device_ || primitiveCount == 0) {
+  if (!pVB || !active_context() || !device_ || primitiveCount == 0) {
     return SMT_ERR_INVALID_PARAM;
   }
   const D3D11_PRIMITIVE_TOPOLOGY topo = topology_for(type);
@@ -545,7 +584,7 @@ long SmtD3DRenderDevice::DrawPrimitives(PrimitiveType type,
     return SMT_ERR_FAILURE;
   }
 
-  auto* dvb = dynamic_cast<SmtD3DVertexBuffer*>(pVB);
+  auto* dvb = static_cast<SmtD3DVertexBuffer*>(pVB);
   if (!dvb) {
     return SMT_ERR_FAILURE;
   }
@@ -572,40 +611,54 @@ long SmtD3DRenderDevice::DrawPrimitives(PrimitiveType type,
     return SMT_ERR_FAILURE;
   }
 
-  D3D11_MAPPED_SUBRESOURCE mapped = {};
-  if (FAILED(context_->Map(mesh_cb_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
-    return SMT_ERR_FAILURE;
-  }
-  auto* cb = static_cast<MeshCb*>(mapped.pData);
+  ID3D11DeviceContext* ctx = active_context();
   Matrix gl_to_d3d;
   gl_to_d3d.identity();
   gl_to_d3d._33 = 0.5f;
   gl_to_d3d._43 = 0.5f;
   const Matrix mvp = modelview_ * projection_ * gl_to_d3d;
-  copy_matrix_row_major(cb->mvp, mvp);
+  float mvp_f[16];
+  copy_matrix_row_major(mvp_f, mvp);
   const bool use_tex = bound_texture_ != nullptr;
-  ID3D11ShaderResourceView* tex_srv =
-      use_tex ? texture_srv(bound_texture_->GetHandle()) : nullptr;
-  ID3D11SamplerState* tex_samp = use_tex ? linear_sampler() : nullptr;
-  bind_mesh_ps_resources(context_, cb, use_tex, tex_srv, tex_samp);
-  context_->Unmap(mesh_cb_, 0);
+  const bool mvp_changed =
+      !mesh_cb_valid_ || last_mesh_use_tex_ != use_tex ||
+      std::memcmp(mvp_f, last_mesh_mvp_, sizeof(mvp_f)) != 0;
+  if (mvp_changed) {
+    D3D11_MAPPED_SUBRESOURCE mapped = {};
+    if (FAILED(ctx->Map(active_mesh_cb(), 0, D3D11_MAP_WRITE_DISCARD, 0,
+                        &mapped))) {
+      return SMT_ERR_FAILURE;
+    }
+    auto* cb = static_cast<MeshCb*>(mapped.pData);
+    std::memcpy(cb->mvp, mvp_f, sizeof(mvp_f));
+    ID3D11ShaderResourceView* tex_srv =
+        use_tex ? texture_srv(bound_texture_->GetHandle()) : nullptr;
+    ID3D11SamplerState* tex_samp = use_tex ? linear_sampler() : nullptr;
+    bind_mesh_ps_resources(ctx, cb, use_tex, tex_srv, tex_samp);
+    ctx->Unmap(active_mesh_cb(), 0);
+    std::memcpy(last_mesh_mvp_, mvp_f, sizeof(mvp_f));
+    last_mesh_use_tex_ = use_tex;
+    mesh_cb_valid_ = true;
+  }
 
   const UINT stride = sizeof(MeshVertex);
   const UINT offset = static_cast<UINT>(baseVertex * sizeof(MeshVertex));
-  context_->IASetInputLayout(mesh_il_);
-  context_->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
-  context_->IASetPrimitiveTopology(topo);
-  context_->VSSetShader(mesh_vs_, nullptr, 0);
-  context_->PSSetShader(mesh_ps_, nullptr, 0);
-  context_->VSSetConstantBuffers(0, 1, &mesh_cb_);
-  context_->RSSetState(mesh_rs_);
-  context_->OMSetDepthStencilState(mesh_dss_, 0);
-  const float blend_factor[4] = {0, 0, 0, 0};
-  context_->OMSetBlendState(mesh_bs_, blend_factor, 0xffffffff);
-  context_->Draw(static_cast<UINT>(want), 0);
-
-  ID3D11ShaderResourceView* null_srv = nullptr;
-  context_->PSSetShaderResources(0, 1, &null_srv);
+  // Bind mesh PSO once per burst — 1.7k china line features re-entered here.
+  if (!mesh_draw_state_bound_) {
+    ctx->IASetInputLayout(mesh_il_);
+    ctx->VSSetShader(mesh_vs_, nullptr, 0);
+    ctx->PSSetShader(mesh_ps_, nullptr, 0);
+    ID3D11Buffer* mesh_cb_bind = active_mesh_cb();
+    ctx->VSSetConstantBuffers(0, 1, &mesh_cb_bind);
+    ctx->RSSetState(mesh_rs_);
+    ctx->OMSetDepthStencilState(mesh_dss_, 0);
+    const float blend_factor[4] = {0, 0, 0, 0};
+    ctx->OMSetBlendState(mesh_bs_, blend_factor, 0xffffffff);
+    mesh_draw_state_bound_ = true;
+  }
+  ctx->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+  ctx->IASetPrimitiveTopology(topo);
+  ctx->Draw(static_cast<UINT>(want), 0);
   return SMT_ERR_NONE;
 }
 
@@ -614,7 +667,7 @@ long SmtD3DRenderDevice::DrawIndexedPrimitives(PrimitiveType type,
                                                SmtIndexBuffer* pIB,
                                                ulong /*baseIndex*/,
                                                ulong primitiveCount) {
-  if (!pVB || !pIB || !context_ || !device_) {
+  if (!pVB || !pIB || !active_context() || !device_) {
     return SMT_ERR_INVALID_PARAM;
   }
   if (type != PT_TRIANGLELIST || primitiveCount == 0) {
@@ -624,8 +677,8 @@ long SmtD3DRenderDevice::DrawIndexedPrimitives(PrimitiveType type,
     return SMT_ERR_FAILURE;
   }
 
-  auto* dvb = dynamic_cast<SmtD3DVertexBuffer*>(pVB);
-  auto* dib = dynamic_cast<SmtD3DIndexBuffer*>(pIB);
+  auto* dvb = static_cast<SmtD3DVertexBuffer*>(pVB);
+  auto* dib = static_cast<SmtD3DIndexBuffer*>(pIB);
   if (!dvb || !dib || !dib->indices()) {
     return SMT_ERR_FAILURE;
   }
@@ -662,42 +715,54 @@ long SmtD3DRenderDevice::DrawIndexedPrimitives(PrimitiveType type,
     return SMT_ERR_FAILURE;
   }
 
-  D3D11_MAPPED_SUBRESOURCE mapped = {};
-  if (FAILED(context_->Map(mesh_cb_, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
-    return SMT_ERR_FAILURE;
-  }
-  auto* cb = static_cast<MeshCb*>(mapped.pData);
-  // Row-vector: clip = pos * View * Proj * GlToD3dZ
+  ID3D11DeviceContext* ctx = active_context();
   Matrix gl_to_d3d;
   gl_to_d3d.identity();
   gl_to_d3d._33 = 0.5f;
   gl_to_d3d._43 = 0.5f;
   const Matrix mvp = modelview_ * projection_ * gl_to_d3d;
-  copy_matrix_row_major(cb->mvp, mvp);
+  float mvp_f[16];
+  copy_matrix_row_major(mvp_f, mvp);
   const bool use_tex = bound_texture_ != nullptr;
-  ID3D11ShaderResourceView* tex_srv =
-      use_tex ? texture_srv(bound_texture_->GetHandle()) : nullptr;
-  ID3D11SamplerState* tex_samp = use_tex ? linear_sampler() : nullptr;
-  bind_mesh_ps_resources(context_, cb, use_tex, tex_srv, tex_samp);
-  context_->Unmap(mesh_cb_, 0);
+  const bool mvp_changed =
+      !mesh_cb_valid_ || last_mesh_use_tex_ != use_tex ||
+      std::memcmp(mvp_f, last_mesh_mvp_, sizeof(mvp_f)) != 0;
+  if (mvp_changed) {
+    D3D11_MAPPED_SUBRESOURCE mapped = {};
+    if (FAILED(ctx->Map(active_mesh_cb(), 0, D3D11_MAP_WRITE_DISCARD, 0,
+                        &mapped))) {
+      return SMT_ERR_FAILURE;
+    }
+    auto* cb = static_cast<MeshCb*>(mapped.pData);
+    std::memcpy(cb->mvp, mvp_f, sizeof(mvp_f));
+    ID3D11ShaderResourceView* tex_srv =
+        use_tex ? texture_srv(bound_texture_->GetHandle()) : nullptr;
+    ID3D11SamplerState* tex_samp = use_tex ? linear_sampler() : nullptr;
+    bind_mesh_ps_resources(ctx, cb, use_tex, tex_srv, tex_samp);
+    ctx->Unmap(active_mesh_cb(), 0);
+    std::memcpy(last_mesh_mvp_, mvp_f, sizeof(mvp_f));
+    last_mesh_use_tex_ = use_tex;
+    mesh_cb_valid_ = true;
+  }
 
   const UINT stride = sizeof(MeshVertex);
   const UINT offset = 0;
-  context_->IASetInputLayout(mesh_il_);
-  context_->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
-  context_->IASetIndexBuffer(ib, DXGI_FORMAT_R32_UINT, 0);
-  context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-  context_->VSSetShader(mesh_vs_, nullptr, 0);
-  context_->PSSetShader(mesh_ps_, nullptr, 0);
-  context_->VSSetConstantBuffers(0, 1, &mesh_cb_);
-  context_->RSSetState(mesh_rs_);
-  context_->OMSetDepthStencilState(mesh_dss_, 0);
-  const float blend_factor[4] = {0, 0, 0, 0};
-  context_->OMSetBlendState(mesh_bs_, blend_factor, 0xffffffff);
-  context_->DrawIndexed(static_cast<UINT>(want_idx), 0, 0);
-
-  ID3D11ShaderResourceView* null_srv = nullptr;
-  context_->PSSetShaderResources(0, 1, &null_srv);
+  if (!mesh_draw_state_bound_) {
+    ctx->IASetInputLayout(mesh_il_);
+    ctx->VSSetShader(mesh_vs_, nullptr, 0);
+    ctx->PSSetShader(mesh_ps_, nullptr, 0);
+    ID3D11Buffer* mesh_cb_bind = active_mesh_cb();
+    ctx->VSSetConstantBuffers(0, 1, &mesh_cb_bind);
+    ctx->RSSetState(mesh_rs_);
+    ctx->OMSetDepthStencilState(mesh_dss_, 0);
+    const float blend_factor[4] = {0, 0, 0, 0};
+    ctx->OMSetBlendState(mesh_bs_, blend_factor, 0xffffffff);
+    mesh_draw_state_bound_ = true;
+  }
+  ctx->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+  ctx->IASetIndexBuffer(ib, DXGI_FORMAT_R32_UINT, 0);
+  ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+  ctx->DrawIndexed(static_cast<UINT>(want_idx), 0, 0);
   return SMT_ERR_NONE;
 }
 
@@ -706,10 +771,20 @@ long SmtD3DRenderDevice::DrawScreenBgra(float cx, float cy, int w, int h,
   if (!bgra || w <= 0 || h <= 0 || !device_ || !context_) {
     return SMT_ERR_INVALID_PARAM;
   }
+  if (const char* skip = std::getenv("SMT_RHI3D_SKIP_SCREEN_BGRA");
+      skip && (skip[0] == '1' || skip[0] == 'y' || skip[0] == 'Y')) {
+    return SMT_ERR_NONE;
+  }
   SpritePipe* pipe = sprite_for(this);
   if (ensure_sprite_pipe(this, device_, pipe) != SMT_ERR_NONE) {
     return SMT_ERR_FAILURE;
   }
+  if (!pipe->dynamic_vb) {
+    return SMT_ERR_FAILURE;
+  }
+  // Sprite PSO replaces mesh binds.
+  mesh_draw_state_bound_ = false;
+  mesh_cb_valid_ = false;
 
   const float vw = static_cast<float>(
       m_viewPort.ulWidth > 0 ? m_viewPort.ulWidth : backbuffer_width_);
@@ -719,26 +794,64 @@ long SmtD3DRenderDevice::DrawScreenBgra(float cx, float cy, int w, int h,
     return SMT_ERR_FAILURE;
   }
 
-  D3D11_TEXTURE2D_DESC td = {};
-  td.Width = static_cast<UINT>(w);
-  td.Height = static_cast<UINT>(h);
-  td.MipLevels = 1;
-  td.ArraySize = 1;
-  td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-  td.SampleDesc.Count = 1;
-  td.Usage = D3D11_USAGE_IMMUTABLE;
-  td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-  D3D11_SUBRESOURCE_DATA init = {};
-  init.pSysMem = bgra;
-  init.SysMemPitch = static_cast<UINT>(w * 4);
-  ID3D11Texture2D* tex = nullptr;
-  if (FAILED(device_->CreateTexture2D(&td, &init, &tex)) || !tex) {
-    return SMT_ERR_FAILURE;
-  }
+  const void* key = bgra;
   ID3D11ShaderResourceView* srv = nullptr;
-  if (FAILED(device_->CreateShaderResourceView(tex, nullptr, &srv)) || !srv) {
-    safe_release(tex);
-    return SMT_ERR_FAILURE;
+  auto hit = pipe->tex_by_ptr.find(key);
+  if (hit != pipe->tex_by_ptr.end() && hit->second.w == static_cast<UINT>(w) &&
+      hit->second.h == static_cast<UINT>(h) && hit->second.srv) {
+    srv = hit->second.srv;
+    auto& lru = pipe->tex_lru;
+    for (size_t i = 0; i + 1 < lru.size(); ++i) {
+      if (lru[i] == key) {
+        lru.erase(lru.begin() + static_cast<std::ptrdiff_t>(i));
+        lru.push_back(key);
+        break;
+      }
+    }
+  } else {
+    while (pipe->tex_by_ptr.size() >= SpritePipe::kTexCacheCap &&
+           !pipe->tex_lru.empty()) {
+      const void* old_key = pipe->tex_lru.front();
+      pipe->tex_lru.erase(pipe->tex_lru.begin());
+      auto it = pipe->tex_by_ptr.find(old_key);
+      if (it == pipe->tex_by_ptr.end()) {
+        continue;
+      }
+      release_com(it->second.srv);
+      release_com(it->second.tex);
+      pipe->tex_by_ptr.erase(it);
+    }
+    D3D11_TEXTURE2D_DESC td = {};
+    td.Width = static_cast<UINT>(w);
+    td.Height = static_cast<UINT>(h);
+    td.MipLevels = 1;
+    td.ArraySize = 1;
+    td.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    td.SampleDesc.Count = 1;
+    td.Usage = D3D11_USAGE_IMMUTABLE;
+    td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    D3D11_SUBRESOURCE_DATA init = {};
+    init.pSysMem = bgra;
+    init.SysMemPitch = static_cast<UINT>(w * 4);
+    ID3D11Texture2D* tex = nullptr;
+    if (FAILED(device_->CreateTexture2D(&td, &init, &tex)) || !tex) {
+      return SMT_ERR_FAILURE;
+    }
+    ID3D11ShaderResourceView* created = nullptr;
+    if (FAILED(device_->CreateShaderResourceView(tex, nullptr, &created)) ||
+        !created) {
+      safe_release(tex);
+      return SMT_ERR_FAILURE;
+    }
+    SpriteGpuTex entry;
+    entry.pixels = key;
+    entry.w = static_cast<UINT>(w);
+    entry.h = static_cast<UINT>(h);
+    entry.tex = tex;
+    entry.srv = created;
+    pipe->tex_by_ptr[key] = entry;
+    pipe->tex_lru.push_back(key);
+    srv = created;
   }
 
   const float hw = static_cast<float>(w) * 0.5f;
@@ -748,24 +861,16 @@ long SmtD3DRenderDevice::DrawScreenBgra(float cx, float cy, int w, int h,
       {cx + hw, cy + hh, 1.f, 1.f}, {cx - hw, cy - hh, 0.f, 0.f},
       {cx + hw, cy + hh, 1.f, 1.f}, {cx - hw, cy + hh, 0.f, 1.f},
   };
-  D3D11_BUFFER_DESC vbd = {};
-  vbd.ByteWidth = sizeof(quad);
-  vbd.Usage = D3D11_USAGE_IMMUTABLE;
-  vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-  D3D11_SUBRESOURCE_DATA vinit = {};
-  vinit.pSysMem = quad;
-  ID3D11Buffer* vb = nullptr;
-  if (FAILED(device_->CreateBuffer(&vbd, &vinit, &vb)) || !vb) {
-    safe_release(srv);
-    safe_release(tex);
-    return SMT_ERR_FAILURE;
-  }
 
   D3D11_MAPPED_SUBRESOURCE mapped = {};
+  if (FAILED(context_->Map(pipe->dynamic_vb, 0, D3D11_MAP_WRITE_DISCARD, 0,
+                           &mapped))) {
+    return SMT_ERR_FAILURE;
+  }
+  std::memcpy(mapped.pData, quad, sizeof(quad));
+  context_->Unmap(pipe->dynamic_vb, 0);
+
   if (FAILED(context_->Map(pipe->cb, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
-    safe_release(vb);
-    safe_release(srv);
-    safe_release(tex);
     return SMT_ERR_FAILURE;
   }
   auto* cb = static_cast<SpriteCb*>(mapped.pData);
@@ -778,7 +883,7 @@ long SmtD3DRenderDevice::DrawScreenBgra(float cx, float cy, int w, int h,
   const UINT stride = sizeof(SpriteVertex);
   const UINT offset = 0;
   context_->IASetInputLayout(pipe->il);
-  context_->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+  context_->IASetVertexBuffers(0, 1, &pipe->dynamic_vb, &stride, &offset);
   context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
   context_->VSSetShader(pipe->vs, nullptr, 0);
   context_->PSSetShader(pipe->ps, nullptr, 0);
@@ -793,9 +898,6 @@ long SmtD3DRenderDevice::DrawScreenBgra(float cx, float cy, int w, int h,
 
   ID3D11ShaderResourceView* null_srv = nullptr;
   context_->PSSetShaderResources(0, 1, &null_srv);
-  safe_release(vb);
-  safe_release(srv);
-  safe_release(tex);
   return SMT_ERR_NONE;
 }
 

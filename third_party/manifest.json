@@ -389,6 +389,133 @@
       "install_skip": true,
       "skip_fetch_all": true,
       "note": "Official protobuf C++ (BSD-3). Policy allows product + future IPC; this pin is opt-in (skip_fetch_all). Enable fetch + cmake install when MVT or a proto consumer lands. Thin GN //third_party/protobuf when .install headers exist."
+    },
+    {
+      "name": "curl",
+      "git_url": "https://github.com/curl/curl.git",
+      "git_ref": "curl-8_10_1",
+      "build_system": "cmake",
+      "cmake_args": [
+        "-DBUILD_SHARED_LIBS=ON",
+        "-DBUILD_CURL_EXE=OFF",
+        "-DBUILD_TESTING=OFF",
+        "-DCURL_USE_SCHANNEL=ON",
+        "-DCURL_USE_LIBPSL=OFF",
+        "-DCURL_DISABLE_LDAP=ON",
+        "-DCURL_DISABLE_MQTT=ON",
+        "-DHTTP_ONLY=OFF"
+      ],
+      "note": "libcurl 8.10.1 (curl license). Required by PDAL arbiter (cmake/curl.cmake is unconditional). Windows uses Schannel — no OpenSSL dep."
+    },
+    {
+      "name": "zlib",
+      "http_url": "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz",
+      "src_dir_name": "zlib",
+      "build_system": "cmake",
+      "cmake_args": [
+        "-DBUILD_SHARED_LIBS=ON",
+        "-DZLIB_BUILD_EXAMPLES=OFF"
+      ],
+      "note": "zlib 1.3.1 (zlib license). Required by PDAL (WITH_ZLIB). Install into third_party/.install; headers were previously missing next to a lone zlib.lib."
+    },
+    {
+      "name": "libtiff",
+      "http_url": "https://gitlab.com/libtiff/libtiff/-/archive/v4.6.0/libtiff-v4.6.0.tar.gz",
+      "src_dir_name": "libtiff",
+      "build_system": "cmake",
+      "install_requires": [
+        "zlib"
+      ],
+      "cmake_prefix_paths": [
+        "zlib"
+      ],
+      "cmake_args": [
+        "-DBUILD_SHARED_LIBS=ON",
+        "-Dtiff-tools=OFF",
+        "-Dtiff-tests=OFF",
+        "-Dtiff-contrib=OFF",
+        "-Dtiff-docs=OFF",
+        "-Djpeg=OFF",
+        "-Dold-jpeg=OFF",
+        "-Djbig=OFF",
+        "-Dlerc=OFF",
+        "-Dlibdeflate=OFF",
+        "-Dlzma=OFF",
+        "-Dzstd=OFF",
+        "-Dwebp=OFF"
+      ],
+      "note": "libtiff 4.6.0 (BSD-like). Required by libgeotiff / PDAL GeoTIFF. GitLab archive (GitHub tag tarballs 404)."
+    },
+    {
+      "name": "libgeotiff",
+      "git_url": "https://github.com/OSGeo/libgeotiff.git",
+      "git_ref": "1.7.3",
+      "build_system": "cmake",
+      "cmake_source_subdir": "libgeotiff",
+      "install_requires": [
+        "libtiff",
+        "PROJ",
+        "zlib"
+      ],
+      "cmake_prefix_paths": [
+        "libtiff",
+        "PROJ",
+        "zlib"
+      ],
+      "cmake_args": [
+        "-DBUILD_SHARED_LIBS=ON",
+        "-DWITH_UTILITIES=OFF",
+        "-DBUILD_TESTING=OFF",
+        "-DTIFF_INCLUDE_DIR=@PREFIX@/include",
+        "-DTIFF_LIBRARY=@PREFIX@/lib/tiffd.lib"
+      ],
+      "note": "OSGeo libgeotiff 1.7.3 (X/MIT). PDAL requires standalone GeoTIFF (GDAL internal libgeotiff is not installed). TIFF_INCLUDE_DIR forced — FindTIFF CONFIG often leaves TIFF_INCLUDE_DIR empty so libxtiff fails to see tiffio.h."
+    },
+    {
+      "name": "pdal",
+      "git_url": "http://localhost:3000/ccl/PDAL.git",
+      "git_url_fallbacks": [
+        "https://github.com/PDAL/PDAL.git"
+      ],
+      "git_ref": "2.8.3",
+      "build_system": "cmake",
+      "install_requires": [
+        "gdal",
+        "geos",
+        "PROJ",
+        "zlib",
+        "libtiff",
+        "libgeotiff",
+        "curl"
+      ],
+      "cmake_prefix_paths": [
+        "gdal",
+        "geos",
+        "PROJ",
+        "sqlite3",
+        "zlib",
+        "libtiff",
+        "libgeotiff",
+        "curl"
+      ],
+      "cmake_args": [
+        "-DBUILD_SHARED_LIBS=ON",
+        "-DWITH_TESTS=OFF",
+        "-DBUILD_TOOLS=OFF",
+        "-DWITH_COMPLETION=OFF",
+        "-DWITH_BACKTRACE=OFF",
+        "-DWITH_GDAL=ON",
+        "-DWITH_GEOS=ON",
+        "-DWITH_ZLIB=ON",
+        "-DWITH_LZMA=OFF",
+        "-DWITH_LIBXML2=OFF",
+        "-DWITH_OPENSSL=OFF",
+        "-DGEOTIFF_INCLUDE_DIR=@PREFIX@/include",
+        "-DGEOTIFF_LIBRARY=@PREFIX@/lib/geotiff_d_i.lib",
+        "-DCURL_INCLUDE_DIR=@PREFIX@/include",
+        "-DCURL_LIBRARY=@PREFIX@/lib/libcurl-d_imp.lib"
+      ],
+      "note": "PDAL 2.8.3 (BSD). Point-cloud processing only (world3d.pdal_*). Default load_point_cloud stays LASzip. Needs zlib+libtiff+libgeotiff+curl (arbiter always links CURL). Debug MSVC: geotiff_d_i.lib + libcurl-d_imp.lib — pass GEOTIFF_LIBRARY/CURL_LIBRARY explicitly. Install: build.bat t pdal → .install; GN smt_has_pdal when include/pdal/PipelineManager.hpp exists. Gitea ccl/PDAL is 404 — GitHub fallback."
     }
   ]
 }

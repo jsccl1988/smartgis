@@ -12,12 +12,12 @@ SmtTexture *SmtGLRenderDevice::CreateTexture(const char *szName) {
     return pTex;
   else {
     SMT_SAFE_DELETE(pTex);
-    return NULL;
+    return nullptr;
   }
 }
 
 long SmtGLRenderDevice::GenerateMipmap(SmtTexture *pTexture) {
-  if (NULL == pTexture) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == pTexture) return SMT_ERR_INVALID_PARAM;
 
   if (SMT_ERR_NONE == pTexture->Use()) {
     m_pFuncMipmap->glGenerateMipmap(GL_TEXTURE_2D);
@@ -32,7 +32,7 @@ long SmtGLRenderDevice::GenerateMipmap(SmtTexture *pTexture) {
 long SmtGLRenderDevice::DestroyTexture(const char *szName) {
   SmtTexture *pTexture = m_textureMgr.GetTexture(szName);
 
-  if (NULL == pTexture) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == pTexture) return SMT_ERR_INVALID_PARAM;
 
   GLhandleARB handle = pTexture->GetHandle();
   if (handle != 0) {
@@ -49,7 +49,7 @@ SmtTexture *SmtGLRenderDevice::GetTexture(const char *szName) {
 }
 
 long SmtGLRenderDevice::BindTexture(SmtTexture *pTexture) {
-  if (NULL == pTexture) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == pTexture) return SMT_ERR_INVALID_PARAM;
 
   GLhandleARB handle = pTexture->GetHandle();
   glBindTexture(GL_TEXTURE_2D, handle);
@@ -58,11 +58,11 @@ long SmtGLRenderDevice::BindTexture(SmtTexture *pTexture) {
 }
 
 long SmtGLRenderDevice::BuildTexture(SmtTexture *pTexture) {
-  if (NULL == pTexture) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == pTexture) return SMT_ERR_INVALID_PARAM;
 
   void *pDataBuf = pTexture->GetData();
 
-  if (NULL == pDataBuf) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == pDataBuf) return SMT_ERR_INVALID_PARAM;
 
   TextureDesc texDesc = pTexture->GetDesc();
 
@@ -125,7 +125,7 @@ long SmtGLRenderDevice::UnbindTexture() {
 }
 
 long SmtGLRenderDevice::BindRectTexture(SmtTexture *pTexture) {
-  if (NULL == pTexture) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == pTexture) return SMT_ERR_INVALID_PARAM;
 
   GLhandleARB handle = pTexture->GetHandle();
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, handle);

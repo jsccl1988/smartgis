@@ -1,0 +1,40 @@
+{
+  "id": "plugin.orthogrid3d",
+  "kind": "showcase",
+  "argv": [
+    "--plugin-showcase=orthogrid3d"
+  ],
+  "script": "plugin.orthogrid3d.il",
+  "env": {
+    "SMT_SKIP_MAP_CONTEXT_MENU": "1"
+  },
+  "mark_leaf": "plugin-showcase-mark.txt",
+  "required_marks": [
+    "orthogrid3d-ok",
+    "bmp-ok",
+    "pass"
+  ],
+  "bmp": {
+    "path": "plugin-showcase-orthogrid3d.bmp",
+    "score_id": "plugin_product"
+  },
+  "report_name": "plugin_orthogrid3d_loop_report.json",
+  "probes": [
+    "marks",
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 2,
+    "timeout_sec": 120,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "hex_or_grid_3d",
+      "no_black_frame"
+    ],
+    "expect_notes": "orthogrid3d hex/grid volume visible"
+  }
+}

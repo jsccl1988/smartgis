@@ -1,0 +1,35 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Device-free OGR → CPU FeatureMesh tessellation for leftover scene3d
+# SmtGeoObject. Compiled into //src/gis:gis. No SmtScene / LP3DRENDERDEVICE.
+
+source_set("feature_sources") {
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+    "SDB_EXPORTS",
+    "NOMINMAX",
+  ]
+  sources = [
+    "mesh.h",
+    "tess_map.cc",
+    "tess_world.cc",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/kernel/geo:geo_sources",
+    "//src/gis/kernel/tin:tin_sources",
+    "//third_party:gdal",
+  ]
+}
+
+group("feature") {
+  public_deps = [ "//src/gis:gis" ]
+}

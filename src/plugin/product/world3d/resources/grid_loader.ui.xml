@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<ui name="world3d_grid_loader">
+  <style src="grid_loader.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="heightmap_label" text="Heightmap file"/>
+    <hbox id="heightmap_row" class="row">
+      <textfield id="heightmap_path"/>
+      <button id="browse_heightmap" text="Browse..."/>
+    </hbox>
+
+    <hbox id="scale_row" class="row">
+      <vbox id="x_scale_box" class="field">
+        <label id="x_scale_label" text="X scale"/>
+        <textfield id="x_scale" text="1"/>
+      </vbox>
+      <vbox id="y_scale_box" class="field">
+        <label id="y_scale_label" text="Y scale"/>
+        <textfield id="y_scale" text="1"/>
+      </vbox>
+      <vbox id="z_scale_box" class="field">
+        <label id="z_scale_label" text="Z scale"/>
+        <textfield id="z_scale" text="0.1"/>
+      </vbox>
+    </hbox>
+
+    <hbox id="start_row" class="row">
+      <vbox id="x_start_box" class="field">
+        <label id="x_start_label" text="X start"/>
+        <textfield id="x_start" text="0"/>
+      </vbox>
+      <vbox id="y_start_box" class="field">
+        <label id="y_start_label" text="Y start"/>
+        <textfield id="y_start" text="0"/>
+      </vbox>
+      <vbox id="z_start_box" class="field">
+        <label id="z_start_label" text="Z start"/>
+        <textfield id="z_start" text="0"/>
+      </vbox>
+    </hbox>
+
+    <checkbox id="use_texture" text="Use texture"/>
+    <hbox id="texture_row" class="row">
+      <textfield id="texture_path"/>
+      <button id="browse_texture" text="Texture..."/>
+    </hbox>
+
+    <label id="color_label" text="Color type"/>
+    <combobox id="color_type">
+      <item text="none"/>
+      <item text="equal_interval"/>
+      <item text="three_band"/>
+    </combobox>
+
+    <hbox id="actions" class="row actions">
+      <button id="ok" text="OK"/>
+      <button id="cancel" text="Cancel"/>
+    </hbox>
+  </vbox>
+</ui>

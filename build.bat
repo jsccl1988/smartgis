@@ -9,6 +9,19 @@ pushd "%~dp0" || (
   exit /b 1
 )
 
+REM Per-config out\.build.lock.{debug,release,shared} for gn/ninja only (te/e2e unlocked after).
+REM Wrapper: build\config\win\with_build_lock.ps1 sets SMARTGIS_BUILD_PHASE.
+if not defined SMARTGIS_BUILD_LOCK_HELD (
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0build\config\win\with_build_lock.ps1" %*
+  set "LOCK_RC=!ERRORLEVEL!"
+  popd
+  exit /b !LOCK_RC!
+)
+if not defined SMARTGIS_BUILD_PHASE set "SMARTGIS_BUILD_PHASE=all"
+
+REM tests phase: parse args and run te/e2e only (no gn/ninja).
+if /I "!SMARTGIS_BUILD_PHASE!"=="tests" goto :parse_args_for_tests
+
 if exist "D:\Dev\depot_tools" set "PATH=%PATH%;D:\Dev\depot_tools"
 
 if not defined BUILDTOOLS_PATH (
@@ -205,7 +218,8 @@ if "!BUILD_RELEASE!"=="1" (
   )
 )
 
-REM te / e2e runners use Debug binaries only.
+REM te / e2e runners use Debug binaries only (unlocked when PHASE=compile+tests split).
+if /I "!SMARTGIS_BUILD_PHASE!"=="compile" goto :finish
 if "!BUILD_DEBUG!"=="1" (
   if /I "!NINJA_TARGET!"=="e2e" (
     echo Running out\Debug\exe_smoke.exe --require-all
@@ -238,6 +252,58 @@ if defined LAST_LOG (
 )
 popd
 exit /b !ERR!
+
+REM ---------------------------------------------------------------------------
+REM tests-only entry (SMARTGIS_BUILD_PHASE=tests): no gn/ninja
+REM ---------------------------------------------------------------------------
+:parse_args_for_tests
+set "BUILD_DEBUG=1"
+set "BUILD_RELEASE=1"
+set "TARGET_ARG=%~1"
+if /I "%~1"=="debug" (
+  set "BUILD_RELEASE=0"
+  set "TARGET_ARG=%~2"
+) else if /I "%~1"=="release" (
+  set "BUILD_DEBUG=0"
+  set "TARGET_ARG=%~2"
+)
+set "NINJA_TARGET="
+if /I "!TARGET_ARG!"=="te" (
+  set "NINJA_TARGET=test_all"
+) else if /I "!TARGET_ARG!"=="e2e" (
+  set "NINJA_TARGET=e2e"
+)
+set "ERR=0"
+set "LAST_LOG="
+if "!BUILD_DEBUG!"=="0" (
+  echo WARNING: te/e2e runners only use Debug binaries; nothing to run.
+  goto :finish
+)
+if /I "!NINJA_TARGET!"=="e2e" (
+  echo Running out\Debug\exe_smoke.exe --require-all
+  ".\out\Debug\exe_smoke.exe" --require-all
+  set "ERR=!ERRORLEVEL!"
+  goto :finish
+)
+if /I "!NINJA_TARGET!"=="test_all" (
+  set "UNIT_ERR=0"
+  for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe leftover_record_test.exe leftover_session_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe tin_xyz_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_view_host_test.exe content_feature_attrs_test.exe content_catalog_layers_test.exe content_embed_sample_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe map_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe gdi_map_paint_test.exe map_carto2d_test.exe gl_map_paint_test.exe dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe) do (
+    if exist ".\out\Debug\%%T" (
+      echo Running out\Debug\%%T
+      ".\out\Debug\%%T"
+      if !ERRORLEVEL! NEQ 0 set "UNIT_ERR=!ERRORLEVEL!"
+    )
+  )
+  if exist ".\out\Debug\exe_smoke.exe" (
+    echo Running out\Debug\exe_smoke.exe
+    ".\out\Debug\exe_smoke.exe"
+    set "ERR=!ERRORLEVEL!"
+  )
+  if !UNIT_ERR! NEQ 0 set "ERR=!UNIT_ERR!"
+  goto :finish
+)
+echo WARNING: SMARTGIS_BUILD_PHASE=tests but target is not te/e2e; nothing to run.
+goto :finish
 
 REM ---------------------------------------------------------------------------
 REM :build_config <OutDirName> <is_debug true|false>

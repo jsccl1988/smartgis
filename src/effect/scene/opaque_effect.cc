@@ -29,11 +29,12 @@ bool OpaqueEffect::record(const render::graph::RecordContext& ctx) {
   }
   scene_->set_color_load_op(ctx.color_op);
   scene_->set_enable_depth(ctx.shared_depth);
-  // Depth load follows the color load the graph already chose, so a prior
-  // clear is not wiped when this pass composites.
-  scene_->set_depth_load_op(ctx.color_op == render::rhi::ColorLoadOp::kLoad
-                                ? render::rhi::DepthLoadOp::kLoad
-                                : render::rhi::DepthLoadOp::kClear);
+  // Always clear depth for opaque. Atmosphere pre-pass (ocean) writes the sea
+  // plane into the shared DS; reloading that buffer makes low DEM samples fail
+  // the depth test and paint a black mainland silhouette while land-only
+  // showcases (no ocean) stay hypsometric-colored. Terrain then re-fills depth
+  // for cloud/fog post passes.
+  scene_->set_depth_load_op(render::rhi::DepthLoadOp::kClear);
   if (ctx.camera) {
     ctx.list->bind_camera(*ctx.camera);
   }

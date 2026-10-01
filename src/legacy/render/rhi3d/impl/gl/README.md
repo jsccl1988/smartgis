@@ -9,18 +9,22 @@ Windows **OpenGL** implementation of leftover `Smt3DRenderDevice`, parallel to `
 
 Living spec: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../../../../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md) §GL leftover capability · Plan: [`docs/superpowers/plans/2026-09-29-gl-leftover-capability.md`](../../../../../../docs/superpowers/plans/2026-09-29-gl-leftover-capability.md).
 
-## Present strangler
+## FrameJob (leftover parallel P1)
 
-`SmtGLRenderDevice::Init(HWND)` calls `render::bind_rhi_present(hWnd)` for process-wide **Null** recording only. **This HWND’s present is owned by GL `SwapBuffers`** — do **not** create FlyCube here.
+Same contract as D3D for FrameJob/prep. **No** D3D deferred on GL — P3 is D3D-only (`SMT_RHI3D_D3D_DEFERRED` ignored). Living §: **§rhi3d leftover parallel frame**.
+
+## Present
+
+`SmtGLRenderDevice::Init(HWND)` owns WGL + `SwapBuffers` on that HWND. Do **not** create FlyCube on this HWND. The former `bind_rhi_present` / leftover_session strangler was removed.
 
 ## Factory (ABI unchanged)
 
-| API string | Export | Class |
-| --- | --- | --- |
-| `"OpenGL"` | `Create3DRenderDevice` | `SmtGLRenderDevice` |
-| `"Direct3D"` | `CreateD3DRenderDevice` | `SmtD3DRenderDevice` |
+| API string | Export | Class | DLL |
+| --- | --- | --- | --- |
+| `"OpenGL"` | `Create3DRenderDevice` | `SmtGLRenderDevice` | `legacy_render_gl` |
+| `"Direct3D"` | `CreateD3DRenderDevice` | `SmtD3DRenderDevice` | `legacy_render_d3d` |
 
-Release uses shared `Release3DRenderDevice` in the same `legacy_render` DLL.
+Release uses `Release3DRenderDevice` in the same backend DLL that created the device.
 
 `GetBaseApi()` reports `RA_OPENGL`.
 
@@ -32,12 +36,12 @@ Colocated units under `src/legacy/render/rhi3d/impl/gl/` (mirrors D3D `host/` ·
 | --- | --- |
 | **`host/`** | `render_device.*` — facade; `device_present.cpp` — Begin/End/SwapBuffers/Draw*/DrawText |
 | **`resource/`** | `buffer/` VB·IB; `texture.cpp`; `frame_buffer.cpp`; `font.cpp`; `text/` glyph list |
-| **`paint/`** | `fast_draw` / effect / misc / matrix / shader / util / vba / vbo; `states_manager.*` |
-| **`caps/`** | `device_caps.*` |
-| **`ext/`** | `fbo_func` / `vbo_func` / `shader_func` / `multitexture_func` / `mipmap_func` / `vsync_func` (+ `*_imp`) |
+| **`paint/`** | `fast_draw` / effect / misc / matrix / shader / vba / vbo; `states_manager.*` (tiny util accessors are inline on `host/render_device.h`) |
+| **`caps/`** | `device_caps.h` (header-only) |
+| **`ext/`** | `*_func*.h` header-only stubs + `*_imp` loaders; `ext_interface.cpp` (DllMain / factory) |
 | **`test/`** | `map_paint_test.cc` (shown HWND + china_plp); `gl_texture_test.cc` (hidden HWND smoke) |
 
-GN: `//src/legacy/render/rhi3d/impl/gl:gl_sources` → `legacy_render`.
+GN: `//src/legacy/render/rhi3d/impl/gl:gl_sources` → `legacy_render_gl`.
 
 ## File naming (snake_case)
 
@@ -61,7 +65,7 @@ Intentionally kept: `GLRenderDevice.mak` / `.plg` (legacy VS leftover stubs, not
 
 GL was already ahead of D3D on texture/FBO/font/frustum. This slice is primarily **layout alignment**, plus a few correctness fixes found by the new smoke test.
 
-- **Host:** WGL context Init/Destroy/Release; `SwapBuffers` present; `bind_rhi_present` Null record only.
+- **Host:** WGL context Init/Destroy/Release; `SwapBuffers` present.
 - **Texture / FBO:** `CreateTexture` / `BuildTexture` / `BindTexture` / `GenerateMipmap`; FBO create/attach/bind/clear/unbind (`resource/{texture,frame_buffer}.cpp` + `ext/`). **Fixed:** `ConvertRenderBufferSlot` now accepts `COLOR_ATTACHMENT0` (was `index > 0`); attach binds the target FBO first.
 - **Font / frustum:** GDI bitmap font lists (`resource/text` + `font.cpp`); world + screen `DrawText`; `GetFrustum` from GL modelview × projection (`paint/misc.cpp`). **Fixed:** CreateFont failure path deletes the helper and releases HDC.
 - **Draw:** immediate/VBO paths, lit mesh, fastdraw, state manager.
@@ -71,7 +75,7 @@ GL was already ahead of D3D on texture/FBO/font/frustum. This slice is primarily
 ## E2E
 
 ```bat
-py -3 testing\tools\case\legacy_scene3d_shot_loop.py --rounds 1
+py -3 testing\tools\harness\legacy\legacy.scene3d.china\legacy_scene3d_china_loop.py --rounds 1
 ```
 
 Omit `--d3d` (or set `SMT_STEREO_API=OpenGL`) for GL. Product may default to D3D11 elsewhere; this loop defaults to GL.

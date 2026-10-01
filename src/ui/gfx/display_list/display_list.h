@@ -31,6 +31,7 @@ class UI_EXPORT DisplayList {
     text_.clear();
   }
   bool empty() const { return cmds_.empty(); }
+  size_t cmd_count() const { return cmds_.size(); }
 
   // Copy-on-commit helper: appends |other| so later mutations of |other| do
   // not affect this list. Remaps text indices into this list's string table.
@@ -97,6 +98,32 @@ class UI_EXPORT DisplayList {
     cmds_.push_back(cmd);
   }
 
+  // Clip stack (mirrors Canvas::save / clip_rect / restore). Required so
+  // commit_view_tree appends do not let sibling fills/text bleed across
+  // view bounds (View::paint clips; the compositor path must too).
+  void save() {
+    Cmd cmd;
+    cmd.op = Op::kSave;
+    cmds_.push_back(cmd);
+  }
+  void restore() {
+    Cmd cmd;
+    cmd.op = Op::kRestore;
+    cmds_.push_back(cmd);
+  }
+  void clip_rect(int x, int y, int w, int h) {
+    if (w <= 0 || h <= 0) {
+      return;
+    }
+    Cmd cmd;
+    cmd.op = Op::kClip;
+    cmd.x = x;
+    cmd.y = y;
+    cmd.w = w;
+    cmd.h = h;
+    cmds_.push_back(cmd);
+  }
+
   void replay(Canvas* canvas) const {
     if (!canvas) {
       return;
@@ -116,6 +143,12 @@ class UI_EXPORT DisplayList {
     DisplayList* saved = display_list_recorder();
     display_list_begin(nullptr);
     for (const Cmd& cmd : cmds_) {
+      if (cmd.op == Op::kSave || cmd.op == Op::kRestore ||
+          cmd.op == Op::kClip) {
+        // Keep clip stack balanced even when draw ops are culled.
+        replay_cmd(canvas, cmd);
+        continue;
+      }
       if (!hits(cmd, l, t, r, b)) {
         continue;
       }
@@ -125,7 +158,15 @@ class UI_EXPORT DisplayList {
   }
 
  private:
-  enum class Op : std::uint8_t { kFill, kStroke, kLine, kText };
+  enum class Op : std::uint8_t {
+    kFill,
+    kStroke,
+    kLine,
+    kText,
+    kSave,
+    kClip,
+    kRestore,
+  };
 
   struct Cmd {
     Op op = Op::kFill;
@@ -172,6 +213,15 @@ class UI_EXPORT DisplayList {
         if (cmd.text < text_.size()) {
           canvas->draw_text(cmd.x, cmd.y, text_[cmd.text].c_str(), cmd.color);
         }
+        break;
+      case Op::kSave:
+        canvas->save();
+        break;
+      case Op::kClip:
+        canvas->clip_rect(cmd.x, cmd.y, cmd.w, cmd.h);
+        break;
+      case Op::kRestore:
+        canvas->restore();
         break;
     }
   }

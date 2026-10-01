@@ -4,8 +4,12 @@
 #include "ui/views/primitives/collection/table_view.h"
 
 #include <algorithm>
+#include <cstdint>
+
+#include <windows.h>
 
 #include "ui/gfx/canvas/canvas.h"
+#include "ui/gfx/raster/paint_stats.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
@@ -39,8 +43,27 @@ int TableView::row_height() const {
   return dip_to_px(kRowHeightDip, scale_factor());
 }
 
+int TableView::column_width(int col) const {
+  const Rect& b = bounds();
+  const int cols = columns_.empty() ? 1 : static_cast<int>(columns_.size());
+  if (cols <= 0 || b.width <= 0 || col < 0 || col >= cols) {
+    return 0;
+  }
+  const int base = b.width / cols;
+  if (col + 1 == cols) {
+    return b.width - base * (cols - 1);
+  }
+  return base;
+}
+
+void TableView::invalidate_row_cache() {
+  cache_valid_ = false;
+  row_cache_.clear();
+}
+
 void TableView::on_device_scale_factor_changed(float old_scale, float new_scale) {
   View::on_device_scale_factor_changed(old_scale, new_scale);
+  invalidate_row_cache();
   schedule_paint();
 }
 
@@ -51,6 +74,7 @@ void TableView::set_columns(const std::vector<std::string>& cols) {
   for (const std::string& col : cols) {
     column_wide_.push_back(utf8_to_wide(col));
   }
+  invalidate_row_cache();
   invalidate_commands();
   schedule_paint();
 }
@@ -63,6 +87,7 @@ void TableView::add_row(const std::vector<std::string>& cells) {
     wide.push_back(utf8_to_wide(cell));
   }
   row_wide_.push_back(std::move(wide));
+  invalidate_row_cache();
   invalidate_commands();
   schedule_paint();
 }
@@ -71,6 +96,7 @@ void TableView::clear_rows() {
   rows_.clear();
   row_wide_.clear();
   selected_ = -1;
+  invalidate_row_cache();
   invalidate_commands();
   schedule_paint();
 }
@@ -93,6 +119,7 @@ void TableView::set_selected_row(int i) {
     return;
   }
   selected_ = i;
+  invalidate_row_cache();
   invalidate_commands();
   schedule_paint();
 }
@@ -111,6 +138,7 @@ bool TableView::set_cell(int row, int col, const std::string& value) {
     wide.resize(static_cast<size_t>(col) + 1);
   }
   wide[static_cast<size_t>(col)] = utf8_to_wide(value);
+  invalidate_row_cache();
   invalidate_commands();
   schedule_paint();
   return true;
@@ -221,13 +249,30 @@ void TableView::visible_row_span(int* begin, int* end) const {
   *end = last;
 }
 
-void TableView::paint_self(ui::gfx::Canvas* canvas) {
-  if (!canvas) {
-    return;
+bool TableView::row_cache_matches(int begin, int end) const {
+  if (!cache_valid_) {
+    return false;
+  }
+  const Rect& b = bounds();
+  if (cache_begin_ != begin || cache_end_ != end ||
+      cache_selected_ != selected_ || cache_origin_x_ != b.x ||
+      cache_origin_y_ != b.y || cache_width_ != b.width) {
+    return false;
   }
   const Theme& t = Theme::current();
+  return cache_control_bg_ == t.control_bg &&
+         cache_panel_header_ == t.panel_header && cache_accent_ == t.accent &&
+         cache_text_ == t.text && cache_text_bright_ == t.text_bright;
+}
+
+void TableView::rebuild_row_cache(int begin, int end) {
+  LARGE_INTEGER t0 = {};
+  QueryPerformanceCounter(&t0);
+
+  row_cache_.clear();
+  const Theme& t = Theme::current();
   const Rect& b = bounds();
-  canvas->fill_rect(b.x, b.y, b.width, b.height, t.control_bg);
+  row_cache_.fill_rect(b.x, b.y, b.width, b.height, t.control_bg);
   const int cols = columns_.empty() ? 1 : static_cast<int>(columns_.size());
   const int col_w = cols > 0 ? b.width / cols : b.width;
   Rect vis = exposed_rect();
@@ -235,21 +280,17 @@ void TableView::paint_self(ui::gfx::Canvas* canvas) {
     vis = b;
   }
   if (b.y < vis.bottom() && b.y + header_height() > vis.y) {
-    canvas->fill_rect(b.x, b.y, b.width, header_height(), t.panel_header);
+    row_cache_.fill_rect(b.x, b.y, b.width, header_height(), t.panel_header);
     for (int c = 0; c < static_cast<int>(column_wide_.size()); ++c) {
-      canvas->draw_text(b.x + c * col_w + 4, b.y + 4,
-                        column_wide_[static_cast<size_t>(c)].c_str(),
-                        t.text_bright);
+      row_cache_.draw_text(b.x + c * col_w + 4, b.y + 4,
+                           column_wide_[static_cast<size_t>(c)].c_str(),
+                           t.text_bright);
     }
   }
-  int begin = 0;
-  int end = 0;
-  visible_row_span(&begin, &end);
-  last_painted_rows_ = end - begin;
   for (int r = begin; r < end; ++r) {
     const int y = b.y + header_height() + r * row_height();
     if (r == selected_) {
-      canvas->fill_rect(b.x, y, b.width, row_height(), t.accent);
+      row_cache_.fill_rect(b.x, y, b.width, row_height(), t.accent);
     }
     if (r < 0 || r >= static_cast<int>(row_wide_.size())) {
       continue;
@@ -257,18 +298,72 @@ void TableView::paint_self(ui::gfx::Canvas* canvas) {
     const auto& cells = row_wide_[static_cast<size_t>(r)];
     const int n = static_cast<int>(cells.size());
     for (int c = 0; c < cols && c < n; ++c) {
-      canvas->draw_text(b.x + c * col_w + 4, y + 3,
-                        cells[static_cast<size_t>(c)].c_str(), t.text);
+      row_cache_.draw_text(b.x + c * col_w + 4, y + 3,
+                           cells[static_cast<size_t>(c)].c_str(), t.text);
     }
   }
-  if (is_focused()) {
-    draw_focus_ring(canvas, b);
-  }
+
+  cache_begin_ = begin;
+  cache_end_ = end;
+  cache_selected_ = selected_;
+  cache_origin_x_ = b.x;
+  cache_origin_y_ = b.y;
+  cache_width_ = b.width;
+  cache_control_bg_ = t.control_bg;
+  cache_panel_header_ = t.panel_header;
+  cache_accent_ = t.accent;
+  cache_text_ = t.text;
+  cache_text_bright_ = t.text_bright;
+  cache_valid_ = true;
+
+  LARGE_INTEGER t1 = {};
+  QueryPerformanceCounter(&t1);
+  ui::gfx::note_table_scroll_qpc(
+      static_cast<std::uint64_t>(t1.QuadPart - t0.QuadPart));
 }
 
+void TableView::emit_row_cache(ui::gfx::Canvas* canvas) {
+  // DisplayList::replay disables the thread_local recorder; while
+  // ensure_commands_recorded is active, append into the live list instead.
+  if (ui::gfx::DisplayList* rec = ui::gfx::display_list_recorder()) {
+    rec->append_from(row_cache_);
+    return;
+  }
+  if (!canvas) {
+    return;
+  }
+  Rect vis = exposed_rect();
+  if (vis.width <= 0 || vis.height <= 0) {
+    vis = bounds();
+  }
+  row_cache_.replay_clipped(canvas, vis.x, vis.y, vis.right(), vis.bottom());
+}
+
+void TableView::paint_self(ui::gfx::Canvas* canvas) {
+  if (!canvas) {
+    return;
+  }
+  int begin = 0;
+  int end = 0;
+  visible_row_span(&begin, &end);
+  last_painted_rows_ = end - begin;
+
+  if (row_cache_matches(begin, end)) {
+    last_cache_hit_ = true;
+  } else {
+    last_cache_hit_ = false;
+    rebuild_row_cache(begin, end);
+  }
+  emit_row_cache(canvas);
+
+  if (is_focused()) {
+    draw_focus_ring(canvas, bounds());
+  }
+}
 
 std::string_view TableView::paint_role() const {
   return "table_view";
 }
+
 }  // namespace views
 }  // namespace ui

@@ -173,13 +173,26 @@ CMainFrame::CMainFrame() {
   m_pMapDocCatalog = NULL;
   m_p3DObjCatalog = NULL;
 
-  m_nAppLook = theApp.GetInt(_T("ApplicationLook"), ID_VIEW_APPLOOK_2007_1);
+  // Force Views-like Silver chrome. Stale registry LunaBlue/Aqua looked like
+  // "polish had no effect" after an upgrade.
+  m_nAppLook = theApp.GetInt(_T("ApplicationLook"), ID_VIEW_APPLOOK_2007_3);
+  if (m_nAppLook == ID_VIEW_APPLOOK_2007_1 ||
+      m_nAppLook == ID_VIEW_APPLOOK_2007_4) {
+    m_nAppLook = ID_VIEW_APPLOOK_2007_3;
+  }
 }
 
 CMainFrame::~CMainFrame() {}
 
 int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   if (CMainWnd::OnCreate(lpCreateStruct) == -1) return -1;
+
+  // Registry may still hold STYLE_3D_ONENOTE / icons from old installs.
+  theApp.m_Options.m_nTabsStyle = CBCGPTabWnd::STYLE_FLAT;
+  theApp.m_Options.m_bMDITabsIcons = FALSE;
+  theApp.m_Options.m_nMDITabsBorderSize = 1;
+  theApp.m_Options.m_bActiveTabCloseButton = TRUE;
+  theApp.m_Options.m_bFlatFrame = TRUE;
 
   OnAppLook(m_nAppLook);
 
@@ -211,7 +224,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct) {
                             CBRS_FLYBY | CBRS_SIZE_DYNAMIC);
 
   if (!m_wndCatalogDocBar.Create(
-          _T("Catalog"), this, CRect(0, 0, 250, 250), TRUE, ID_DOCB_LEFT,
+          _T("Catalog"), this, CRect(0, 0, 240, 250), TRUE, ID_DOCB_LEFT,
           WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN |
               CBRS_LEFT | CBRS_FLOAT_MULTI,
           CBRS_BCGP_OUTLOOK_TABS, dwBCGStyle)) {
@@ -220,7 +233,7 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   }
 
   if (!m_wndAMBoxMgrDocBar.Create(
-          _T("功能包管理器"), this, CRect(0, 0, 250, 250), ID_DOCB_RIGTH,
+          _T("Tools"), this, CRect(0, 0, 200, 250), ID_DOCB_RIGTH,
           WS_CHILD | WS_VISIBLE | CBRS_LEFT | WS_CLIPSIBLINGS |
               WS_CLIPCHILDREN | CBRS_FLOAT_MULTI,
           dwBCGStyle)) {
@@ -261,9 +274,29 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct) {
 
   if (!InitDiagnosticToolsDockBar()) return -1;
 
+  apply_views_like_chrome_font();
+
   RecalcLayout();
 
   return 0;
+}
+
+void CMainFrame::apply_views_like_chrome_font() {
+  // Match SmartGisViews shell body (~Segoe/YaHei UI at ~12px).
+  if (ui_font_.GetSafeHandle() == NULL) {
+    ui_font_.CreateFont(
+        -12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE, _T("Microsoft YaHei UI"));
+  }
+  if (ui_font_.GetSafeHandle() == NULL) {
+    return;
+  }
+  m_wndMenuBar.SetFont(&ui_font_);
+  m_wndStatusBar.SetFont(&ui_font_);
+  m_wndCatalogDocBar.SetFont(&ui_font_);
+  m_wndAMBoxMgrDocBar.SetFont(&ui_font_);
+  m_wndDiagnosticTools.SetFont(&ui_font_);
 }
 
 void CMainFrame::OnDestroy() {
@@ -338,6 +371,7 @@ void CMainFrame::OnAppLook(UINT id) {
           CMFCVisualManagerOffice2007::Office2007_Silver);
       CMFCVisualManager::SetDefaultManager(
           RUNTIME_CLASS(CMFCVisualManagerOffice2007));
+      theApp.m_Options.m_nTabsStyle = CBCGPTabWnd::STYLE_FLAT;
       break;
 
     case ID_VIEW_APPLOOK_2007_4:
@@ -539,7 +573,8 @@ bool CMainFrame::InitAMBoxMgrDockBar(void) {
       TRUE, kIdEditConfigDock,
       WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN);
 
-  m_wndAMBoxMgrDocBar.add_wnd(pEditCfgDockBar, "编辑参数");
+  m_wndAMBoxMgrDocBar.add_wnd(pEditCfgDockBar,
+                              ui::ambox_title_for_display("编辑参数"));
 
   SysConfigDockBar* pSysCfgDockBar = new SysConfigDockBar();
   pSysCfgDockBar->Create(
@@ -547,7 +582,8 @@ bool CMainFrame::InitAMBoxMgrDockBar(void) {
       TRUE, kIdSysConfigDock,
       WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN);
 
-  m_wndAMBoxMgrDocBar.add_wnd(pSysCfgDockBar, "系统参数");
+  m_wndAMBoxMgrDocBar.add_wnd(pSysCfgDockBar,
+                              ui::ambox_title_for_display("系统参数"));
 
   return m_wndAMBoxMgrDocBar.UpdateAMBoxs();
 }

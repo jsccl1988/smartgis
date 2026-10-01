@@ -18,6 +18,7 @@ void Map2dPresenter::bind(const MapScene* scene, const ViewFrame* frame) {
 
 void Map2dPresenter::invalidate_frame_cache() {
   gpu_.invalidate_frame_cache();
+  software_.invalidate_present_cache();
 }
 
 bool Map2dPresenter::present_gpu(render::rhi::Device* device, uint32_t width_px,

@@ -1,0 +1,39 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Leftover vista adapters (DemHeightField shell, DEM→World, Y-up↔GIS coords).
+# Mirrors product gis/vista; compiled into //src/gis:gis. No SmtScene /
+# LP3DRENDERDEVICE — those stay under legacy/render/scene3d.
+
+source_set("vista_sources") {
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+    "SDB_EXPORTS",
+    "NOMINMAX",
+  ]
+  sources = [
+    "coord.cc",
+    "coord.h",
+    "dem_height_field.cc",
+    "dem_height_field.h",
+    "dem_to_world.cc",
+    "dem_to_world.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/base/math:bounds",
+    "//src/gis/vista/world:world_sources",
+    "//third_party:gdal",
+  ]
+}
+
+group("vista") {
+  public_deps = [ "//src/gis:gis" ]
+}

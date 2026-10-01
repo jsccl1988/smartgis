@@ -24,7 +24,9 @@ constexpr uint32_t kCloudConstantSlot = 1;
 constexpr float kPowderScale = 8.0f;
 constexpr float kSilverBoost = 1.5f;
 // Coarse world snap for quality <= 1 (half-res proxy; no offscreen RT).
-constexpr float kHalfResDensityCell = 64.0f;
+// Orbit-normalized China frame spans ~±2. A 64-unit snap collapsed every
+// sample to the origin and made the deck look empty at quality ≤ 1.
+constexpr float kHalfResDensityCell = 0.22f;
 
 float snap_axis(float v, float cell) {
   if (cell <= 0.0f) {
@@ -406,7 +408,9 @@ bool CloudPass::record(render::rhi::Device* device, render::rhi::CommandList* li
     cloud.base_m = 0.70f;
     cloud.top_m = 1.10f;
   }
-  cloud.extinction = extinction_ * 40.0f;
+  // Orbit slab is thin (~0.2). Keep extinction moderate: too high (×72)
+  // saturated Beer to black and painted the whole DEM under the deck.
+  cloud.extinction = extinction_ * 28.0f;
   cloud.steps = static_cast<float>(step_count_for_quality(quality));
   cloud.density_cell = density_cell_for_quality(quality);
   if (camera) {
@@ -417,6 +421,8 @@ bool CloudPass::record(render::rhi::Device* device, render::rhi::CommandList* li
   // Load-only marker: never clear; prior ocean/land color is preserved.
   detail::begin_load_pass(list, width, height);
   detail::bind_camera_if(list, camera);
+  // TestOnly: composite over sky/ocean depth, but do not paint a veil over DEM
+  // (Disabled + strong extinction previously crushed landish to black).
   detail::apply_raster(list, {pipeline_, render::rhi::BlendMode::kSrcAlpha,
                               render::rhi::DepthMode::kTestOnly});
   list->set_constants(kCloudConstantSlot, &cloud,

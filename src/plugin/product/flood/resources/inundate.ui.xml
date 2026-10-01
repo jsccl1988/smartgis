@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<ui name="flood_inundate">
+  <style src="inundate.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="dem_label" text="DEM raster"/>
+    <hbox id="dem_row" class="row">
+      <textfield id="dem_path"/>
+      <button id="browse_dem" text="Browse..."/>
+    </hbox>
+
+    <label id="output_label" text="Output flood mask GeoTIFF"/>
+    <hbox id="output_row" class="row">
+      <textfield id="output_path" text="flood_mask.tif"/>
+      <button id="browse_output" text="Browse..."/>
+    </hbox>
+
+    <hbox id="seed_row" class="row">
+      <vbox id="seed_x_box" class="field">
+        <label id="seed_x_label" text="Seed X"/>
+        <textfield id="seed_x" text="0"/>
+      </vbox>
+      <vbox id="seed_y_box" class="field">
+        <label id="seed_y_label" text="Seed Y"/>
+        <textfield id="seed_y" text="0"/>
+      </vbox>
+    </hbox>
+
+    <hbox id="water_row" class="row">
+      <vbox id="level_box" class="field">
+        <label id="level_label" text="Water level (abs Z)"/>
+        <textfield id="water_level" text="100"/>
+      </vbox>
+      <vbox id="depth_box" class="field">
+        <label id="depth_label" text="Or depth above seed"/>
+        <textfield id="water_depth"/>
+      </vbox>
+      <vbox id="frames_box" class="field">
+        <label id="frames_label" text="Anim frames"/>
+        <textfield id="frames" text="12"/>
+      </vbox>
+    </hbox>
+
+    <label id="frames_dir_label" text="Frames directory (optional)"/>
+    <hbox id="frames_dir_row" class="row">
+      <textfield id="frames_dir"/>
+      <button id="browse_frames_dir" text="Browse..."/>
+    </hbox>
+
+    <hbox id="actions" class="row actions">
+      <button id="ok" text="OK"/>
+      <button id="cancel" text="Cancel"/>
+    </hbox>
+  </vbox>
+</ui>

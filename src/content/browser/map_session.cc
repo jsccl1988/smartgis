@@ -20,6 +20,9 @@ void MapSession::init_hosts() {
   edit_host_ = std::make_unique<ViewHost>();
   data_host_ = std::make_unique<ViewHost>();
   scene_host_ = std::make_unique<ViewHost>();
+  // OOP MapContents is optional for in-process present (atmosphere / map2d
+  // showcase). A stale content↔exe ABI can abort inside StartRenderProcess;
+  // keep ViewHosts and skip the pipe so chrome can still paint.
   map_contents_.reset(MapContents::Create());
   if (map_contents_ && !map_contents_->StartRenderProcess()) {
     map_contents_.reset();

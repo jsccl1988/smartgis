@@ -7,7 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-14  
 **Status:** accepted（Phases 0–6 consolidator 已收口；**2026-09-15 amendment：** foundation 真源从仓库根迁入 `src/base/`；**2026-09-28：** §Trace / §Memory；**2026-09-28：** §Process malloc / PA-E）  
-**Updated:** 2026-09-29 — carto POD → `legacy/gis/present/carto`（`gis.dll`）；§Trace Chromium-style subdir + `namespace base::trace` cutover.
+**Updated:** 2026-10-01 — §Math Eigen（`namespace base` + Eigen ops / bounds；短命 `render::` 别名）
 **Goal:** 将遗留 `src/base/core`（`Smt*`）对照 mogu **全部**替换到 foundation 树；制图 style / `sys` / `net` 留在产品层；分期 strangler，阶段末不留旧名转发壳。  
 **Related:** [`../../build/src-layout.md`](../../build/src-layout.md)、[`../../build/mogu-mapping.md`](../../build/mogu-mapping.md)、[`../../build/abi-rename-map.md`](../../build/abi-rename-map.md)、[`2026-09-13-code-style-include-abi-cutover-design.md`](../archive/specs/2026-09-13-code-style-include-abi-cutover-design.md)、[`2026-09-13-base-archive-design.md`](../archive/specs/2026-09-13-base-archive-design.md)、[`2026-09-13-base-ipc-mojom-design.md`](../archive/specs/2026-09-13-base-ipc-mojom-design.md)、[`2026-09-14-dll-reorganization-design.md`](../archive/specs/2026-09-14-dll-reorganization-design.md)  
 **Plan (Cursor):** `base_root_hybrid_fd0c40fd.plan.md`（会话外；本仓以本 spec + `docs/build` 为准）；**§Memory:** [`../plans/2026-09-28-base-memory.md`](../plans/2026-09-28-base-memory.md)；**§PA-E:** [`../plans/2026-09-28-partition-alloc-everywhere.md`](../plans/2026-09-28-partition-alloc-everywhere.md)
@@ -261,4 +261,24 @@ Former hot specs are under `archive/specs/` (`superseded`). **Revise this file**
 | [`../archive/specs/2026-09-13-base-ipc-mojom-design.md`](../archive/specs/2026-09-13-base-ipc-mojom-design.md) | §ipc / mojom (folded) |
 | [`../archive/specs/2026-09-28-base-execution-design.md`](../archive/specs/2026-09-28-base-execution-design.md) | §execution / sync / concurrency (folded) |
 | [`../archive/specs/2026-09-28-third-party-json-xml-protobuf-design.md`](../archive/specs/2026-09-28-third-party-json-xml-protobuf-design.md) | §third-party JSON/XML/protobuf (folded) |
+
+---
+
+## §Math Eigen（2026-10-01）
+
+**Why not a new dated spec:** `src/base/math` is owned by this living base row (ban list: `src/base` foundation).
+
+| Topic | Choice |
+| --- | --- |
+| Goal | Keep Vector/Matrix/Quat POD field layout (`.x` / `_11.._44` / xyzw); Eigen-ize ops + bounds internals |
+| Namespace | Definitions in **`namespace base`**; short-lived **`namespace render { using … }`** aliases until call-site cutover completes |
+| Bounds | `Aabb` ↔ `Eigen::AlignedBox3f`; `Plane` ↔ `Hyperplane`; Frustum plane normalize via Hyperplane; leftover field names (`vcMin`, `m_vcN`, …) retained this slice |
+| Matrix ops | `AngleAxis` for rotate_*; row-vector × matrix for `transform_point` / `transform_vector` (D3DX / leftover interop) |
+| Quat / interpolate | `Eigen::Quaternionf` (+ `slerp`) |
+| Removed | `Aabb::contains(Ray)` (Ray owns intersects) |
+| Out of scope | glm; second Eigen; runtime CPUID; renaming leftover AABB fields in callers; folding math into `base.dll` |
+
+**Plan (checklist):** open work continues in-tree under `src/base/math`; no parallel dated design twin.
+
+---
 

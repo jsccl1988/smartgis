@@ -1,0 +1,55 @@
+{
+  "name": "SmartGIS UI Markup",
+  "scopeName": "text.xml.ui-markup",
+  "patterns": [
+    {
+      "begin": "<!--",
+      "end": "-->",
+      "name": "comment.block.xml"
+    },
+    {
+      "begin": "(<\\?)\\s*([\\w:-]+)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.xml" },
+        "2": { "name": "entity.name.tag.xml" }
+      },
+      "end": "(\\?>)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.end.xml" }
+      },
+      "name": "meta.tag.preprocessor.xml",
+      "patterns": [
+        { "include": "#attribute" }
+      ]
+    },
+    {
+      "begin": "(</?)\\s*([A-Za-z_][\\w:-]*)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.xml" },
+        "2": { "name": "entity.name.tag.localname.xml" }
+      },
+      "end": "(/?>)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.end.xml" }
+      },
+      "name": "meta.tag.xml",
+      "patterns": [
+        { "include": "#attribute" }
+      ]
+    }
+  ],
+  "repository": {
+    "attribute": {
+      "patterns": [
+        {
+          "match": "\\b([A-Za-z_][\\w:-]*)(=)(\"[^\"]*\"|'[^']*')",
+          "captures": {
+            "1": { "name": "entity.other.attribute-name.localname.xml" },
+            "2": { "name": "punctuation.separator.key-value.xml" },
+            "3": { "name": "string.quoted.xml" }
+          }
+        }
+      ]
+    }
+  }
+}

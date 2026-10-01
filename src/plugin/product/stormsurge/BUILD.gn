@@ -1,0 +1,53 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+copy("stormsurge_resources") {
+  sources = [
+    "resources/run.ui.css",
+    "resources/run.ui.xml",
+  ]
+  outputs = [ "$root_out_dir/../plugins/stormsurge/{{source_file_part}}" ]
+}
+
+source_set("stormsurge_views") {
+  sources = [
+    "commands.cc",
+    "commands.h",
+    "views/run_dialog.cc",
+    "views/run_dialog.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    "//src/content:content",
+    "//src/gis:gis",
+    "//src/plugin/runtime/host:host",
+    "//src/plugin/runtime/widgets:widgets",
+    "//src/ui/views:views",
+    "//third_party:gdal",
+    "//third_party:rapidjson",
+  ]
+  data_deps = [ ":stormsurge_resources" ]
+}
+
+test("stormsurge_run_test") {
+  output_name = "stormsurge_run_test"
+  sources = [ "tests/run_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":stormsurge_views",
+    "//src/content:content",
+    "//src/gis:gis",
+    "//src/plugin/runtime/host:host",
+    "//third_party:gdal",
+  ]
+  data_deps = [
+    ":stormsurge_resources",
+    "//third_party:gdal_runtime_dlls",
+  ]
+}

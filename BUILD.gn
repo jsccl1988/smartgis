@@ -82,8 +82,8 @@ group("test_all") {
   testonly = true
   deps = [
     ":test_shell",
-    "//src/legacy/render/rhi2d/impl/gdi:gdi_map_paint_test",
-    "//src/legacy/render/rhi2d/impl/gdi:map_carto2d_test",
+    "//src/legacy/render/rhi2d/impl/common:gdi_map_paint_test",
+    "//src/legacy/render/rhi2d/impl/common:map_carto2d_test",
     "//src/legacy/render/rhi3d/impl/gl:gl_map_paint_test",
     "//src/legacy/render/rhi3d/impl/d3d:d3d_texture_test",
   ]

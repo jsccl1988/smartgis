@@ -1,6 +1,8 @@
-// Copyright (c) 2010 CCL. All rights reserved.
-#ifndef _MULTITEXTURE_FUNCS_H
-#define _MULTITEXTURE_FUNCS_H
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef LEGACY_RENDER_RHI3D_IMPL_GL_EXT_MULTITEXTURE_FUNC_H_
+#define LEGACY_RENDER_RHI3D_IMPL_GL_EXT_MULTITEXTURE_FUNC_H_
 
 #include "legacy/render/rhi3d/impl/gl/prerequisites.h"
 
@@ -8,17 +10,18 @@ namespace render {
 class SmtGLRenderDevice;
 typedef class SmtGLRenderDevice *LPGLRENDERDEVICE;
 
+// Stub multitexture entry points (real procs live in SmtMultitextureFuncImpl).
 class SmtMultitextureFunc {
  public:
-  SmtMultitextureFunc();
-  virtual ~SmtMultitextureFunc();
+  SmtMultitextureFunc() = default;
+  virtual ~SmtMultitextureFunc() = default;
 
- public:
-  virtual long Initialize(LPGLRENDERDEVICE pGLRenderDevice);
+  virtual long Initialize(LPGLRENDERDEVICE /*pGLRenderDevice*/) {
+    return SMT_ERR_NONE;
+  }
 
- public:
-  virtual void glActiveTexture(GLenum texture);
+  virtual void glActiveTexture(GLenum /*texture*/) {}
 };
 }  // namespace render
 
-#endif  //_MULTITEXTURE_FUNCS_H
+#endif  // LEGACY_RENDER_RHI3D_IMPL_GL_EXT_MULTITEXTURE_FUNC_H_

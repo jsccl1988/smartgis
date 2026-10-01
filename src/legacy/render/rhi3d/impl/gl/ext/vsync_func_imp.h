@@ -1,27 +1,37 @@
-// Copyright (c) 2010 CCL. All rights reserved.
-#ifndef _VSYNC_FUNCSIMP_H
-#define _VSYNC_FUNCSIMP_H
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef LEGACY_RENDER_RHI3D_IMPL_GL_EXT_VSYNC_FUNC_IMP_H_
+#define LEGACY_RENDER_RHI3D_IMPL_GL_EXT_VSYNC_FUNC_IMP_H_
 
 #include "legacy/render/rhi3d/impl/gl/ext/vsync_func.h"
-#include "legacy/render/rhi3d/impl/gl/prerequisites.h"
+#include "legacy/render/rhi3d/impl/gl/host/render_device.h"
 
 namespace render {
+
+// Binds wglSwapIntervalEXT for vsync on/off.
 class SmtVSyncFuncImpl : public SmtVSyncFunc {
  public:
-  SmtVSyncFuncImpl();
-  virtual ~SmtVSyncFuncImpl();
+  SmtVSyncFuncImpl() = default;
+  ~SmtVSyncFuncImpl() override = default;
 
- public:
-  virtual long Initialize(LPGLRENDERDEVICE pGLRenderDevice);
+  long Initialize(LPGLRENDERDEVICE pGLRenderDevice) override {
+    _wglSwapInterval =
+        (PFNWGLSWAPINTERVALEXTPROC)pGLRenderDevice->GetProcAddress(
+            "wglSwapIntervalEXT");
+    if (nullptr == _wglSwapInterval) {
+      return SMT_ERR_FAILURE;
+    }
+    return SMT_ERR_NONE;
+  }
 
- public:
-  virtual int WaitForVSync();
-  virtual void EnableVSync();
-  virtual void DisableVSync();
+  int WaitForVSync() override { return 0; }
+  void EnableVSync() override { _wglSwapInterval(1); }
+  void DisableVSync() override { _wglSwapInterval(0); }
 
  private:
-  PFNWGLSWAPINTERVALEXTPROC _wglSwapInterval;
+  PFNWGLSWAPINTERVALEXTPROC _wglSwapInterval = nullptr;
 };
 }  // namespace render
 
-#endif  //_VSYNC_FUNCSIMP_H
+#endif  // LEGACY_RENDER_RHI3D_IMPL_GL_EXT_VSYNC_FUNC_IMP_H_

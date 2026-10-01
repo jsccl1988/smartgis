@@ -41,7 +41,12 @@ class UI_EXPORT TreeView : public View {
 
   void layout() override;
   bool on_mouse_event(const MouseEvent& event) override;
+  void on_device_scale_factor_changed(float old_scale,
+                                    float new_scale) override;
   std::string_view paint_role() const override;
+
+  // Row / chrome metrics in device pixels (DIP × widget scale).
+  int row_height() const;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;
@@ -62,6 +67,11 @@ class UI_EXPORT TreeView : public View {
   };
 
   class Rows;
+
+  float scale_factor() const;
+  int depth_indent() const;
+  int twisty_width() const;
+  int check_width() const;
 
   void rebuild_visible();
   void update_content_size();

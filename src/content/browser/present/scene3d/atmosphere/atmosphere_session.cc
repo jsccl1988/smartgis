@@ -2,6 +2,7 @@
 // All rights reserved.
 
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
+#include "content/browser/present/scene3d/frame/tileset_stream.h"
 #include "content/browser/camera/map_host_extent.h"
 #include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
 
@@ -12,8 +13,8 @@
 #include "gis/vista/domain/atmosphere/field/field_ingest.h"
 #include "gis/vista/domain/atmosphere/systems/ocean_system.h"
 #include "gis/vista/assets/tileset/tileset.h"
-#include "gis/vista/world/terrain/dem_frame.h"
-#include "gis/vista/world/terrain/dem_raster.h"
+#include "gis/vista/world/terrain/dem/dem_frame.h"
+#include "gis/vista/world/terrain/dem/dem_raster.h"
 #include "gis/vista/world/world.h"
 #include "effect/atmosphere/cloud/cloud_pass.h"
 #include "effect/atmosphere/fog/fog_pass.h"
@@ -135,6 +136,9 @@ void AtmosphereSession::release_passes() {
   cloud_pass_.release();
   sky_pass_.release();
   fog_pass_.release();
+  sea_mask_cache_valid_ = false;
+  cached_sea_mask_.clear();
+  cached_sea_mask_n_ = 0;
 }
 
 gis::atmosphere::Environment& AtmosphereSession::ensure() {
@@ -397,14 +401,80 @@ void AtmosphereSession::seed_procedural() {
   seed_procedural(true);
 }
 
+namespace {
+
+// When MapScene has no land rings, derive kSeaMask from china_dem so ocean
+// stays around the mainland instead of painting a full-screen black patch.
+bool seed_sea_mask_from_dem(gis::atmosphere::Environment& env,
+                            const gis::atmosphere::FieldGrid& grid) {
+  if (grid.empty()) {
+    return false;
+  }
+  gis::DemRaster dem;
+  const std::string path = gis::find_sample_dem_path();
+  if (path.empty() || !dem.load_gdal_raster(path.c_str())) {
+    dem.fill_synthetic_china();
+  }
+  if (dem.empty()) {
+    return false;
+  }
+  double dem_minx = 0;
+  double dem_miny = 0;
+  double dem_maxx = 0;
+  double dem_maxy = 0;
+  dem.envelope(&dem_minx, &dem_miny, &dem_maxx, &dem_maxy);
+  std::vector<float> sea(grid.cell_count(), 1.f);
+  for (int row = 0; row < grid.rows; ++row) {
+    for (int col = 0; col < grid.cols; ++col) {
+      double lon = grid.min_lon;
+      double lat = grid.min_lat;
+      if (grid.cols > 1) {
+        lon = grid.min_lon +
+              (grid.max_lon - grid.min_lon) *
+                  (static_cast<double>(col) /
+                   static_cast<double>(grid.cols - 1));
+      }
+      if (grid.rows > 1) {
+        lat = grid.min_lat +
+              (grid.max_lat - grid.min_lat) *
+                  (static_cast<double>(row) /
+                   static_cast<double>(grid.rows - 1));
+      }
+      const std::size_t idx =
+          static_cast<std::size_t>(row) *
+              static_cast<std::size_t>(grid.cols) +
+          static_cast<std::size_t>(col);
+      const bool inside = lon >= dem_minx && lon <= dem_maxx &&
+                          lat >= dem_miny && lat <= dem_maxy;
+      // Match DemRaster land rebuild: elev > 1 m ⇒ land (sea mask 0).
+      const bool land = inside && dem.sample_meters(lon, lat) > 1.f;
+      sea[idx] = land ? 0.f : 1.f;
+    }
+  }
+  gis::atmosphere::FieldLayer layer;
+  layer.channel = gis::atmosphere::FieldChannel::kSeaMask;
+  layer.kind = gis::atmosphere::FieldSourceKind::kProcedural;
+  layer.priority = 1;  // Prefer over empty-ring fail-closed layer.
+  layer.grid = grid;
+  layer.values = std::move(sea);
+  env.field_store().set_layer(layer);
+  return true;
+}
+
+}  // namespace
+
 void AtmosphereSession::seed_procedural(bool with_land_rings) {
   gis::atmosphere::Environment& env = ensure();
   std::vector<gis::LonLatRing> rings;
   if (with_land_rings && scene_) {
     scene_->export_land_rings(&rings);
   }
-  env.seed_procedural_baseline(field_grid(),
-                               rings.empty() ? nullptr : &rings);
+  const gis::atmosphere::FieldGrid grid = field_grid();
+  env.seed_procedural_baseline(grid, rings.empty() ? nullptr : &rings);
+  if (rings.empty()) {
+    (void)seed_sea_mask_from_dem(env, grid);
+  }
+  sea_mask_cache_valid_ = false;
   env.sync_systems_from_params();
 }
 
@@ -414,8 +484,12 @@ void AtmosphereSession::enable_demo() {
   if (scene_) {
     scene_->export_land_rings(&rings);
   }
-  env.enable_demo(field_grid(),
-                  rings.empty() ? nullptr : &rings);
+  const gis::atmosphere::FieldGrid grid = field_grid();
+  env.enable_demo(grid, rings.empty() ? nullptr : &rings);
+  if (rings.empty()) {
+    (void)seed_sea_mask_from_dem(env, grid);
+  }
+  sea_mask_cache_valid_ = false;
 }
 
 namespace {
@@ -529,6 +603,39 @@ bool AtmosphereSession::run_m3_self_test_hooks(std::string* err) {
     if (cache.resident_bytes() > cache.max_bytes()) {
       return m3_fail(err, "m3-tiles-ok");
     }
+
+    // Present-path stream session: camera move changes visible_uris; cache
+    // stays under budget; missing URI degrades without crash.
+    {
+      content::TilesetStreamSession stream;
+      gis::World present_world;
+      if (!stream.attach_json(&present_world, ts_json, std::strlen(ts_json),
+                              "m3_present")) {
+        return m3_fail(err, "m3-tiles-ok");
+      }
+      gis::ViewState near_view = view;
+      near_view.eye_z = 0.02;
+      stream.pump_view(&present_world, near_view, 0, 8);
+      const std::vector<std::string> uris_a = stream.last_visible_uris();
+      if (uris_a.empty()) {
+        return m3_fail(err, "m3-tiles-ok");
+      }
+      gis::ViewState far_view = view;
+      far_view.eye_z = 50.0;
+      stream.pump_view(&present_world, far_view, 1e6, 8);
+      const std::vector<std::string> uris_b = stream.last_visible_uris();
+      if (uris_b.empty()) {
+        return m3_fail(err, "m3-tiles-ok");
+      }
+      if (uris_a == uris_b && uris_a.size() > 1) {
+        // High SSE should collapse toward root; tolerate equal only for
+        // single-URI selections.
+        return m3_fail(err, "m3-tiles-ok");
+      }
+      if (stream.cache().resident_bytes() > stream.cache().max_bytes()) {
+        return m3_fail(err, "m3-tiles-ok");
+      }
+    }
   }
 
   // --- m3-atmosphere-ok: demo on (ocean/cloud/sky/fog), then all off.
@@ -614,9 +721,11 @@ bool AtmosphereSession::prepare_ocean() {
   draw.significant_wave_height =
       (std::max)((std::min)(draw.significant_wave_height * 4.5f, 0.22f), 0.10f);
   draw.use_gerstner_fallback = true;
+  draw.prefer_gpu_fft = false;
   draw.chop = (std::max)(draw.chop, 1.15f);
   draw.shininess = (std::max)(draw.shininess, 180.0f);
-  draw.mesh_resolution = 65;
+  // 33 matches OceanDrawParams default; 65² Gerstner+upload dominated present.
+  draw.mesh_resolution = 33;
   // Mid-tier GIS water: deep navy, muted shelf — never near-cyan albedo.
   draw.deep_r = 0.02f;
   draw.deep_g = 0.07f;
@@ -633,19 +742,35 @@ bool AtmosphereSession::prepare_ocean() {
   ocean_pass_.set_time_sec(atmosphere_->time_sec());
 
   constexpr int kMask = 32;
-  std::vector<float> mask(
-      static_cast<std::size_t>(kMask) * static_cast<std::size_t>(kMask), 1.f);
-  extent.cols = kMask;
-  extent.rows = kMask;
-  if (!atmosphere_->ocean_system().fill_sea_mask_grid(
-          atmosphere_->field_store(), extent, kMask, kMask,
-          atmosphere_->time_sec(), mask.data(), mask.size())) {
-    // Fail closed: no sea_mask layer means do not cover the DEM with a
-    // full-screen ocean (mask=1). Interactive 3D used to open blank cyan
-    // when seed_procedural was skipped (has_china_extent false).
-    std::fill(mask.begin(), mask.end(), 0.f);
+  const Extent2 frame_extent = gpu_->geo_frame().extent;
+  const bool extent_changed =
+      !sea_mask_cache_valid_ || cached_sea_mask_n_ != kMask ||
+      cached_sea_mask_extent_.xmin != frame_extent.xmin ||
+      cached_sea_mask_extent_.ymin != frame_extent.ymin ||
+      cached_sea_mask_extent_.xmax != frame_extent.xmax ||
+      cached_sea_mask_extent_.ymax != frame_extent.ymax;
+  if (extent_changed) {
+    // Start at 0 (land). Never pre-fill 1 — a failed/partial fill used to
+    // leave a full-screen sea mask and black out China DEM.
+    cached_sea_mask_.assign(
+        static_cast<std::size_t>(kMask) * static_cast<std::size_t>(kMask), 0.f);
+    extent.cols = kMask;
+    extent.rows = kMask;
+    if (!atmosphere_->ocean_system().fill_sea_mask_grid(
+            atmosphere_->field_store(), extent, kMask, kMask,
+            atmosphere_->time_sec(), cached_sea_mask_.data(),
+            cached_sea_mask_.size())) {
+      // Fail closed: no sea_mask layer means do not cover the DEM with a
+      // full-screen ocean (mask=1). Interactive 3D used to open blank cyan
+      // when seed_procedural was skipped (has_china_extent false).
+      std::fill(cached_sea_mask_.begin(), cached_sea_mask_.end(), 0.f);
+    }
+    cached_sea_mask_extent_ = frame_extent;
+    cached_sea_mask_n_ = kMask;
+    sea_mask_cache_valid_ = true;
+    ocean_pass_.set_sea_mask_cpu(kMask, kMask, cached_sea_mask_.data(),
+                                 cached_sea_mask_.size());
   }
-  ocean_pass_.set_sea_mask_cpu(kMask, kMask, mask.data(), mask.size());
   return true;
 }
 
@@ -667,9 +792,9 @@ bool AtmosphereSession::prepare_clouds() {
   cloud_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad,
                                              p.sun_elevation_rad);
   cloud_pass_.set_cloud_slab(sample.base_m, sample.top_m);
-  // Mid-tier broken deck: readable cover without bleaching DEM greens.
+  // Broken deck: visible but soft enough that landish greens survive.
   cloud_pass_.set_cover_modulation(
-      (std::max)(0.28f, (std::min)(sample.cover, 0.55f)));
+      (std::max)(0.38f, (std::min)(sample.cover, 0.62f)));
 
   float min_x = 0.f;
   float max_x = 0.f;
@@ -682,9 +807,9 @@ bool AtmosphereSession::prepare_clouds() {
   // several orbit-units up as a gray card).
   const float sea = gpu_->geo_frame().sea_level_y();
   float lift = gpu_->geo_frame().meters_to_orbit_y(sample.base_m);
-  lift = (std::max)(0.18f, (std::min)(lift, 0.55f));
+  lift = (std::max)(0.22f, (std::min)(lift, 0.62f));
   float thick = gpu_->geo_frame().meters_to_orbit_y(sample.top_m - sample.base_m);
-  thick = (std::max)(0.12f, (std::min)(thick, 0.30f));
+  thick = (std::max)(0.16f, (std::min)(thick, 0.36f));
   const float base_y = sea + lift;
   const float top_y = base_y + thick;
   const float deck_y = 0.5f * (base_y + top_y);
@@ -698,23 +823,25 @@ bool AtmosphereSession::prepare_sky() {
     return true;
   }
   const gis::atmosphere::AtmosphereParams& p = atmosphere_->params();
-  sky_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad,
-                                           p.sun_elevation_rad);
+  // Floor sun elevation so daytime China orbit never samples a magenta
+  // sunset mid-band (dynamic bob can dip to ~0.10 rad).
+  const float sun_el = (std::max)(p.sun_elevation_rad, 0.72f);
+  sky_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad, sun_el);
   effect::atmosphere::SkyDrawParams sky = sky_pass_.params();
   // Past max orbit distance (12) so zoom-out stays inside the sky.
   sky.dome_radius = 40.0f;
-  // Industry mid-tier analytical dome: deep Rayleigh zenith, warmer haze
-  // horizon, readable sun disk/corona (Bruneton-lite, no LUT).
-  sky.zenith_r = 0.06f;
-  sky.zenith_g = 0.20f;
-  sky.zenith_b = 0.78f;
-  sky.horizon_r = 0.62f;
-  sky.horizon_g = 0.74f;
-  sky.horizon_b = 0.88f;
-  sky.sunset_r = 0.92f;
-  sky.sunset_g = 0.48f;
-  sky.sunset_b = 0.28f;
-  sky.sun_glow_strength = 0.55f;
+  // Industry mid-tier analytical dome: deep Rayleigh zenith, cool haze
+  // horizon (avoid magenta mid-band that trips pink_frac_top).
+  sky.zenith_r = 0.04f;
+  sky.zenith_g = 0.16f;
+  sky.zenith_b = 0.86f;
+  sky.horizon_r = 0.42f;
+  sky.horizon_g = 0.64f;
+  sky.horizon_b = 0.90f;
+  sky.sunset_r = 0.48f;
+  sky.sunset_g = 0.50f;
+  sky.sunset_b = 0.55f;
+  sky.sun_glow_strength = 0.28f;
   sky_pass_.set_params(sky);
   return true;
 }
@@ -730,11 +857,11 @@ bool AtmosphereSession::prepare_fog() {
   effect::atmosphere::FogDrawParams fog;
   // Soft aerial haze on terrain only (sky depth is skipped in FogPass HLSL).
   // Cap opacity so hypsometric greens still pass showcase landish gates.
-  fog.density = (std::max)((std::min)(p.fog_density, 0.12f), 0.05f);
+  fog.density = (std::max)((std::min)(p.fog_density, 0.08f), 0.03f);
   // China orbit frame span ~3.2: keep haze visible without washing terrain.
-  fog.visibility = (std::max)(2.4f, (std::min)(p.fog_visibility, 4.5f));
+  fog.visibility = (std::max)(2.8f, (std::min)(p.fog_visibility, 5.0f));
   fog.height_falloff = p.fog_height_falloff;
-  fog.max_opacity = (std::min)((std::max)(p.fog_max_opacity, 0.14f), 0.24f);
+  fog.max_opacity = (std::min)((std::max)(p.fog_max_opacity, 0.06f), 0.12f);
   fog.base_height = gpu_->geo_frame().sea_level_y();
   // Tint haze toward the analytical sky horizon (matches sky pass).
   // Zero sun_glow for the tint sample — a fixed horizon ray can align with

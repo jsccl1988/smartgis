@@ -29,7 +29,7 @@ class SmtRenderDevice {
       : m_rBaseApi(RD_GDI),
         m_hInst(hInst),
         m_strLogName(""),
-        m_hWnd(NULL),
+        m_hWnd(nullptr),
         m_nMapMode(MM_TEXT),
         m_fblc(1.) {
     ;
@@ -58,8 +58,8 @@ class SmtRenderDevice {
   void SetMapMode(int nMode) { m_nMapMode = nMode; }
   int GetMapMode(void) const { return m_nMapMode; }
 
-  void SetRenderPra(const Smt2DRenderPra &rdPra) { m_rdPra = rdPra; }
-  Smt2DRenderPra GetRenderPra(void) const { return m_rdPra; }
+  void SetRenderOptions(const Smt2DRenderOptions &rdOptions) { m_rdOptions = rdOptions; }
+  Smt2DRenderOptions GetRenderOptions(void) const { return m_rdOptions; }
 
   inline double GetBlc(void) const { return m_fblc; }
 
@@ -101,7 +101,7 @@ class SmtRenderDevice {
 
  public:
   virtual int BeginRender(eRDBufferLayer eMRDBufLyr, bool bClear = false,
-                          const SmtStyle *pStyle = NULL,
+                          const SmtStyle *pStyle = nullptr,
                           int op = R2_COPYPEN) = 0;
   virtual int EndRender(eRDBufferLayer eMRDBufLyr) = 0;
 
@@ -187,24 +187,20 @@ class SmtRenderDevice {
 
   HWND m_hWnd;
   int m_nMapMode;
-  Smt2DRenderPra m_rdPra;
+  Smt2DRenderOptions m_rdOptions;
 
   lPoint m_curDrawingOrg;
 };
-
-// Present strangler: Init(HWND) wires the view HWND into leftover_session
-// for GpuScene / leftover_mesh recording. Does not create FlyCube on this
-// HWND (GDI/GL own present). Exported from legacy_render, not device DLLs.
-LEGACY_RENDER_EXPORT void bind_rhi_present(void *native_window);
 
 typedef SmtRenderDevice *LPRENDERDEVICE;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-int LEGACY_RENDER_EXPORT CreateRenderDevice(HINSTANCE hInst,
-                                            LPRENDERDEVICE &pMrdDevice);
-int LEGACY_RENDER_EXPORT DestroyRenderDevice(LPRENDERDEVICE &pMrdDevice);
+// Exported from legacy_rhi2d_{gdi,gdiplus,skia}.dll (not legacy_render).
+int LEGACY_RHI2D_DEVICE_EXPORT CreateRenderDevice(HINSTANCE hInst,
+                                                  LPRENDERDEVICE &pMrdDevice);
+int LEGACY_RHI2D_DEVICE_EXPORT DestroyRenderDevice(LPRENDERDEVICE &pMrdDevice);
 
 typedef HRESULT (*_CreateRenderDevice)(HINSTANCE hInst,
                                        LPRENDERDEVICE &pMrdDevice);

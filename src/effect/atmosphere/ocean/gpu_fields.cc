@@ -449,7 +449,8 @@ bool OceanGpuFields::upload_height(render::rhi::Device* owner_device, render::rh
   }
   const float h_scale = std::max(height_scale, 1.0e-3f);
   const float d_scale = std::max(disp_scale, 1.0e-3f);
-  std::vector<uint8_t> rgba(static_cast<std::size_t>(n * n * 4), 0);
+  const std::size_t nbytes = static_cast<std::size_t>(n * n * 4);
+  upload_rgba_.assign(nbytes, 0);
   for (int i = 0; i < n * n; ++i) {
     const float h = heights[static_cast<std::size_t>(i)];
     const float dx = disp_x.empty() ? 0.f : disp_x[static_cast<std::size_t>(i)];
@@ -457,16 +458,16 @@ bool OceanGpuFields::upload_height(render::rhi::Device* owner_device, render::rh
     const float enc_h = clampf(0.5f + 0.5f * (h / h_scale), 0.0f, 1.0f);
     const float enc_x = clampf(0.5f + 0.5f * (dx / d_scale), 0.0f, 1.0f);
     const float enc_z = clampf(0.5f + 0.5f * (dz / d_scale), 0.0f, 1.0f);
-    rgba[static_cast<std::size_t>(i * 4 + 0)] =
+    upload_rgba_[static_cast<std::size_t>(i * 4 + 0)] =
         static_cast<uint8_t>(enc_h * 255.0f + 0.5f);
-    rgba[static_cast<std::size_t>(i * 4 + 1)] =
+    upload_rgba_[static_cast<std::size_t>(i * 4 + 1)] =
         static_cast<uint8_t>(enc_x * 255.0f + 0.5f);
-    rgba[static_cast<std::size_t>(i * 4 + 2)] =
+    upload_rgba_[static_cast<std::size_t>(i * 4 + 2)] =
         static_cast<uint8_t>(enc_z * 255.0f + 0.5f);
-    rgba[static_cast<std::size_t>(i * 4 + 3)] = 255;
+    upload_rgba_[static_cast<std::size_t>(i * 4 + 3)] = 255;
   }
-  return device->upload_texture(height_, rgba.data(),
-                                static_cast<uint32_t>(rgba.size()));
+  return device->upload_texture(height_, upload_rgba_.data(),
+                                static_cast<uint32_t>(upload_rgba_.size()));
 }
 
 }  // namespace detail

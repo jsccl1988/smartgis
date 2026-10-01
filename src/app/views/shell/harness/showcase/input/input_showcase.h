@@ -8,9 +8,9 @@ namespace app {
 
 class Browser;
 
-// Lean digitize / FeatureGeom gate for testing/tools/case/input_loop.py.
+// Lean digitize / FeatureGeom gate for testing/tools/harness/shell/input/input_loop.py.
 // Stays on the Map Edit tab (no Data/3D switch). Writes
-// input-self-test-mark.txt next to the exe.
+// input-self-test-mark.txt under out/<config>/captures/shell/.
 int run_input_showcase(Browser& browser);
 
 }  // namespace app

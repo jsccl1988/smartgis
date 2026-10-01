@@ -51,7 +51,7 @@ long SmtGLText::CreateFont(HDC hDC, const char *chType, int nHeight, int nWidth,
                            FF_DONTCARE | DEFAULT_PITCH, chType);
   }
 
-  if (m_hFont == NULL) return SMT_FALSE;
+  if (m_hFont == nullptr) return SMT_FALSE;
 
   return SMT_OK;
 }
@@ -59,7 +59,7 @@ long SmtGLText::CreateFont(HDC hDC, const char *chType, int nHeight, int nWidth,
 HFONT SmtGLText::GetFont() { return m_hFont; }
 
 long SmtGLText::DrawText(HDC hDC, float x, float y, float z, const char *str) {
-  if (str == NULL) return SMT_ERR_INVALID_PARAM;
+  if (str == nullptr) return SMT_ERR_INVALID_PARAM;
 
   ::SelectObject(hDC, m_hFont);
 
@@ -97,7 +97,7 @@ long SmtGLText::DrawText(HDC hDC, float x, float y, float z, const char *str) {
 }
 
 HRESULT SmtGLText::DrawText(HDC hDC, float x, float y, const char *str) {
-  if (str == NULL) return SMT_ERR_INVALID_PARAM;
+  if (str == nullptr) return SMT_ERR_INVALID_PARAM;
   /*
   int length;
   length = (int)strlen(str);

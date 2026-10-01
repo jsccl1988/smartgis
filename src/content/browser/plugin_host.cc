@@ -258,6 +258,34 @@ class PluginHostImpl final : public PluginHost {
     }
   }
 
+  void set_report_bridge(ReportOpenFn open,
+                         ReportPostFn post,
+                         ReportCloseFn close) override {
+    report_open_ = std::move(open);
+    report_post_ = std::move(post);
+    report_close_ = std::move(close);
+  }
+
+  bool open_report(std::string_view report_dir) override {
+    if (!report_open_) {
+      return false;
+    }
+    return report_open_(report_dir);
+  }
+
+  bool post_to_report(std::string_view json) override {
+    if (!report_post_) {
+      return false;
+    }
+    return report_post_(json);
+  }
+
+  void close_report() override {
+    if (report_close_) {
+      report_close_();
+    }
+  }
+
  private:
   tool::CommandCatalog* catalog_ = nullptr;
   EventBus* events_ = nullptr;
@@ -265,6 +293,9 @@ class PluginHostImpl final : public PluginHost {
   plugin::ProcessingPool* pool_ = nullptr;
   ProcessingEnqueue enqueue_;
   UiWithdrawHook ui_withdraw_hook_;
+  ReportOpenFn report_open_;
+  ReportPostFn report_post_;
+  ReportCloseFn report_close_;
 
   std::map<std::string, tool::CommandHandler> handlers_;
   std::map<std::string, std::string> command_owners_;

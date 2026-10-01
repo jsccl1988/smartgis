@@ -27,6 +27,11 @@ class Texture;
 namespace effect {
 namespace map {
 
+// Wall time of the most recent Pass::record (place+upload+encode), milliseconds.
+// Used by Map2d GPU present phase clocks; zero when record was not entered.
+int64_t last_pass_record_ms();
+void reset_last_pass_record_ms();
+
 // CPU glyph coverage. Pass packs the codepoints a frame actually draws into
 // one atlas; a failed rasterize skips that label and the frame continues.
 class GlyphRasterizer {

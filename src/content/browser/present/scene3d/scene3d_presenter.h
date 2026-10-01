@@ -42,6 +42,9 @@ class Scene3dPresenter {
   Scene3dSoftwarePainter& software() { return software_; }
   const Scene3dSoftwarePainter& software() const { return software_; }
 
+  void set_look_preset(Scene3dLookPreset preset);
+  Scene3dLookPreset look_preset() const { return gpu_.look_preset(); }
+
   void bind_orbit(const OrbitFrame* orbit);
   void bind_map(const MapScene* scene);
   void bind_label_frame(const ViewFrame* frame);
@@ -52,6 +55,18 @@ class Scene3dPresenter {
   Extent2 world_extent() const;
   bool hosts_shared_scene() const;
   void abandon_mesh();
+
+  // Geographic lon/lat/elev cloud for Scene3D GPU overlay (see GpuPresent).
+  void set_overlay_pointcloud(const float* xyz_lon_lat_elev, int point_count,
+                              const uint8_t* rgba);
+  void clear_overlay_pointcloud();
+
+  // Geographic TIN mesh overlay (stratum / storm-surge water); see GpuPresent.
+  // Optional |albedo_rgba| (4 bytes) forces a solid tint (cyan water).
+  void set_overlay_tin_mesh(const float* xyz_lon_lat_elev, int point_count,
+                            const unsigned* indices, int index_count,
+                            const uint8_t* albedo_rgba = nullptr);
+  void clear_overlay_tin_mesh();
 
   render::rhi::CameraMatrices camera_matrices(float aspect) const;
   render::rhi::CameraMatrices camera_matrices_ortho(float width_px,

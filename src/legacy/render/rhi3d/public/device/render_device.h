@@ -20,7 +20,7 @@ namespace render {
 class Smt3DRenderDevice {
  public:
   Smt3DRenderDevice(void)
-      : m_hDLL(NULL),
+      : m_hDLL(nullptr),
         m_rBaseApi(RA_OPENGL),
         m_strLogName("default"),
         m_bBlending(true) {};
@@ -74,8 +74,8 @@ class Smt3DRenderDevice {
   virtual long MatrixMultiply(const Matrix &m) = 0;
   virtual Matrix MatrixGet() = 0;
 
-  // get frustum
-  virtual long GetFrustum(SmtFrustum &frustum) = 0;
+  // get frustum (base::Frustum / render::Frustum alias)
+  virtual long GetFrustum(Frustum& frustum) = 0;
 
   // view
   virtual long SetViewport(Viewport3D &viewport) = 0;
@@ -264,13 +264,12 @@ class Smt3DRenderDevice {
 typedef class Smt3DRenderDevice *LP3DRENDERDEVICE;
 
 extern "C" {
-LEGACY_RENDER_EXPORT HRESULT
-Create3DRenderDevice(HINSTANCE hDLL, Smt3DRenderDevice *&pInterface);
+// Runtime-resolved from legacy_render_gl / legacy_render_d3d (LoadLibrary).
+// Typedefs only — C exports are defined in the backend DLL ext_interface.cpp.
 typedef HRESULT (*_Create3DRenderDevice)(HINSTANCE hDLL,
                                          Smt3DRenderDevice *&pInterface);
-
-LEGACY_RENDER_EXPORT HRESULT
-Release3DRenderDevice(Smt3DRenderDevice *&pInterface);
+typedef HRESULT (*_CreateD3DRenderDevice)(HINSTANCE hDLL,
+                                          Smt3DRenderDevice *&pInterface);
 typedef HRESULT (*_Release3DRenderDevice)(Smt3DRenderDevice *&pInterface);
 }
 }  // namespace render

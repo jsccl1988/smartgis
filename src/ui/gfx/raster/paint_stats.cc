@@ -84,6 +84,46 @@ void note_begin_frame_to_present_qpc(std::uint64_t ticks) {
 #endif
 }
 
+void note_begin_frame_to_shell_present_qpc(std::uint64_t ticks) {
+#if !defined(NDEBUG)
+  g_counters.begin_frame_to_shell_present_qpc += ticks;
+#else
+  (void)ticks;
+#endif
+}
+
+void note_hover_commit_qpc(std::uint64_t ticks) {
+#if !defined(NDEBUG)
+  g_counters.hover_commit_qpc += ticks;
+#else
+  (void)ticks;
+#endif
+}
+
+void note_table_scroll_qpc(std::uint64_t ticks) {
+#if !defined(NDEBUG)
+  g_counters.table_scroll_qpc += ticks;
+#else
+  (void)ticks;
+#endif
+}
+
+void note_overlay_copy_bytes(std::uint64_t bytes) {
+#if !defined(NDEBUG)
+  g_counters.overlay_copy_bytes += bytes;
+#else
+  (void)bytes;
+#endif
+}
+
+void note_overlay_commit_qpc(std::uint64_t ticks) {
+#if !defined(NDEBUG)
+  g_counters.overlay_commit_qpc += ticks;
+#else
+  (void)ticks;
+#endif
+}
+
 void note_commit() {
 #if !defined(NDEBUG)
   ++g_counters.commit_count;

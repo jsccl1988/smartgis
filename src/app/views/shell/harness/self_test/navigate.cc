@@ -4,6 +4,7 @@
 #include "app/views/shell/harness/self_test/probe.h"
 
 #include "app/views/shell/browser/browser.h"
+#include "app/views/shell/harness/common/maps.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include <windows.h>
 #include <shellapi.h>
@@ -53,6 +54,9 @@ namespace app {
 namespace detail {
 
 int self_test_navigate(Browser& browser) {
+  // C++ navigate stage for full --self-test. Lean suite "browse" uses
+  // run_browse_showcase + browse.il instead.
+
 // Pan tool must activate without crash (Map tab).
 if (!browser.run_tool_command("view.pan")) {
   self_test_detach_maps(browser);
@@ -94,6 +98,10 @@ if (!browser.run_tool_command("view.pan")) {
     self_test_detach_maps(browser);
     return 49;
   }
+  // Stop ALL map present timers while we burst-dispatch synthetic input.
+  // Concurrent WM_TIMER present + pan/wheel has AVd under exe_smoke (exit
+  // 0xC0000005 after pan-ok) when Data/3D HWNDs keep ticking after tab walks.
+  stop_map_present_timers(browser);
   SetEnvironmentVariableA("SMT_SKIP_MAP_CONTEXT_MENU", "1");
   for (int i = 0; i < 24; ++i) {
     content::InputEvent pan_down{};
@@ -122,7 +130,10 @@ if (!browser.run_tool_command("view.pan")) {
       self_test_detach_maps(browser);
       return 49;
     }
+    // Sleep only — pumping WM_PAINT/present during the burst races input.
+    ::Sleep(20);
   }
+  ::Sleep(50);
   content::InputEvent rdown{};
   rdown.kind = content::InputEvent::Kind::kRDown;
   rdown.x_px = 50;

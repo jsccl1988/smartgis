@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #include "legacy/render/rhi3d/impl/gl/resource/buffer/vertex_buffer.h"
 
 #include "base/memory/arena.h"
@@ -52,15 +55,15 @@ SmtGLVertexBuffer::SmtGLVertexBuffer(int count, ulong format, bool isDynamic)
   m_bDynamic = isDynamic;
   m_bLocked = false;
 
-  m_pVertex = NULL;
-  m_pColor = NULL;
-  m_pNormal = NULL;
-  m_pTexCoord = NULL;
+  m_pVertex = nullptr;
+  m_pColor = nullptr;
+  m_pNormal = nullptr;
+  m_pTexCoord = nullptr;
 
-  m_pGLVertices = NULL;
-  m_pGLNormals = NULL;
-  m_pGLColors = NULL;
-  m_pGLTexCoords = NULL;
+  m_pGLVertices = nullptr;
+  m_pGLNormals = nullptr;
+  m_pGLColors = nullptr;
+  m_pGLTexCoords = nullptr;
 
   if ((m_dwFormat & VF_XYZ) || (m_dwFormat & VF_XYZRHW))
     m_pGLVertices = alloc_floats(m_dwVertexCoordNum * m_dwVertexCount);
@@ -80,10 +83,10 @@ SmtGLVertexBuffer::~SmtGLVertexBuffer() {
   free_floats(m_pGLNormals, 3 * m_dwVertexCount);
   free_floats(m_pGLColors, 4 * m_dwVertexCount);
   free_floats(m_pGLTexCoords, 2 * m_dwVertexCount);
-  m_pGLVertices = NULL;
-  m_pGLNormals = NULL;
-  m_pGLColors = NULL;
-  m_pGLTexCoords = NULL;
+  m_pGLVertices = nullptr;
+  m_pGLNormals = nullptr;
+  m_pGLColors = nullptr;
+  m_pGLTexCoords = nullptr;
 }
 
 long SmtGLVertexBuffer::Lock() {
@@ -100,10 +103,10 @@ long SmtGLVertexBuffer::Lock() {
 long SmtGLVertexBuffer::Unlock() {
   m_bLocked = false;
 
-  m_pVertex = NULL;
-  m_pColor = NULL;
-  m_pNormal = NULL;
-  m_pTexCoord = NULL;
+  m_pVertex = nullptr;
+  m_pColor = nullptr;
+  m_pNormal = nullptr;
+  m_pTexCoord = nullptr;
 
   return SMT_ERR_NONE;
 }
@@ -154,28 +157,28 @@ void SmtGLVertexBuffer::TexVertex(float u, float v) {
 long SmtGLVertexBuffer::PrepareForDrawing() {
   // Set pointers to arrays
   //--
-  if (m_pGLVertices != NULL) {
+  if (m_pGLVertices) {
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(m_dwVertexCoordNum, GL_FLOAT, 0, m_pGLVertices);
   } else {
     glDisableClientState(GL_VERTEX_ARRAY);
   }
 
-  if (m_pGLNormals != NULL) {
+  if (m_pGLNormals) {
     glEnableClientState(GL_NORMAL_ARRAY);
     glNormalPointer(GL_FLOAT, 0, m_pGLNormals);
   } else {
     glDisableClientState(GL_NORMAL_ARRAY);
   }
 
-  if (m_pGLColors != NULL) {
+  if (m_pGLColors) {
     glEnableClientState(GL_COLOR_ARRAY);
     glColorPointer(4, GL_FLOAT, 0, m_pGLColors);
   } else {
     glDisableClientState(GL_COLOR_ARRAY);
   }
 
-  if (m_pGLTexCoords != NULL) {
+  if (m_pGLTexCoords) {
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glTexCoordPointer(2, GL_FLOAT, 0, m_pGLTexCoords);
   } else {
@@ -186,13 +189,13 @@ long SmtGLVertexBuffer::PrepareForDrawing() {
 }
 
 long SmtGLVertexBuffer::EndDrawing() {
-  if (m_pGLVertices != NULL) glDisableClientState(GL_VERTEX_ARRAY);
+  if (m_pGLVertices) glDisableClientState(GL_VERTEX_ARRAY);
 
-  if (m_pGLNormals != NULL) glDisableClientState(GL_NORMAL_ARRAY);
+  if (m_pGLNormals) glDisableClientState(GL_NORMAL_ARRAY);
 
-  if (m_pGLColors != NULL) glDisableClientState(GL_COLOR_ARRAY);
+  if (m_pGLColors) glDisableClientState(GL_COLOR_ARRAY);
 
-  if (m_pGLTexCoords != NULL) glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+  if (m_pGLTexCoords) glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
   return SMT_ERR_NONE;
 }

@@ -5,35 +5,31 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
-# Layout (B, colocated, P2.4 + SP4b): scene/ index/ primitive/ feature/
-# surface/ dem/ bridge/ test/.
+# Layout: scene/ index/ host/ primitive/{mesh,feature,surface}/ seed/ test/.
+# Device-free DEM/World: //src/legacy/gis/vista; feature tess: //src/legacy/gis/feature.
 source_set("scene3d_sources") {
   sources = [
     "scene/scene.cpp",
     "index/octree.cpp",
     "index/vertex_octree.cpp",
-    "dem/dem_height_field.cc",
-    "dem/dem_height_field.h",
-    "dem/dem_to_world.cc",
-    "dem/dem_to_world.h",
-    "dem/stereo_hwnd_view.cc",
-    "dem/stereo_hwnd_view.h",
-    "dem/stereo_terrain.cc",
-    "dem/stereo_terrain.h",
-    "bridge/map_label_batch.cc",
-    "bridge/map_label_batch.h",
-    "bridge/map_to_scene.cc",
-    "bridge/map_to_scene.h",
-    "bridge/scene_to_world.cc",
-    "bridge/scene_to_world.h",
-    "primitive/cube.cpp",
-    "primitive/northarray.cpp",
-    "primitive/sphere.cpp",
-    "primitive/water.cpp",
-    "feature/2dgeoobject.cpp",
-    "feature/3dgeoobject.cpp",
-    "surface/pointcloud.cpp",
-    "surface/terrain.cpp",
+    "seed/map_to_scene.cc",
+    "seed/map_to_scene.h",
+    "seed/scene_to_world.cc",
+    "seed/scene_to_world.h",
+    "host/stereo_hwnd_view.cc",
+    "host/stereo_hwnd_view.h",
+    "primitive/mesh/cube.cpp",
+    "primitive/mesh/northarray.cpp",
+    "primitive/mesh/sphere.cpp",
+    "primitive/mesh/water.cpp",
+    "primitive/feature/geo_object.cc",
+    "primitive/feature/geo_object.h",
+    "primitive/feature/map_label_batch.cc",
+    "primitive/feature/map_label_batch.h",
+    "primitive/surface/pointcloud.cpp",
+    "primitive/surface/terrain.cpp",
+    "primitive/surface/stereo_terrain.cc",
+    "primitive/surface/stereo_terrain.h",
   ]
   configs += [
     "//build:legacy",
@@ -49,10 +45,12 @@ source_set("scene3d_sources") {
     "//src/gis/kernel/tin:tin",
     "//src/base:base",
     "//src/base:core",
-    "//src/legacy/render/rhi2d/impl/gdi:gdi_common_sources",
+    "//src/legacy/render/rhi2d/impl/common:gdi_common_sources",
     "//src/legacy/render/rhi3d:rhi_sources",
     "//src/base/math:bounds",
     "//src/legacy/gis/present/carto:carto",
+    "//src/legacy/gis/vista:vista",
+    "//src/legacy/gis/feature:feature",
     "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
     "//src/gis/vista/world:world",
     "//third_party:gdal",
@@ -66,7 +64,7 @@ source_set("scene3d_sources") {
 }
 
 group("scene3d") {
-  public_deps = [ "//src/legacy/render:legacy_render" ]
+  public_deps = [ "//src/legacy/render:legacy_render_all" ]
 }
 
 test("dem_stereo_test") {
@@ -76,6 +74,7 @@ test("dem_stereo_test") {
   configs = [ "//build:legacy" ]
   deps = [
     "//src/legacy/render:legacy_render",
+    "//src/legacy/gis/vista:vista",
     "//src/gis/vista/world:world",
     "//src/base/math:bounds",
     "//third_party:gdal",
@@ -90,6 +89,7 @@ test("pointcloud_load_test") {
   configs = [ "//build:legacy" ]
   deps = [
     "//src/legacy/render:legacy_render",
+    "//src/legacy/gis/vista:vista",
     "//testing/data:china_map_samples",
   ]
 }

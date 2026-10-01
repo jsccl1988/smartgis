@@ -393,6 +393,27 @@ Phase 1 (geo) updates algorithm rows if this spec’s layout edit is already on 
 
 Console / Panel spatial analysis must call the existing **`plugin::run_builtin_op`** public face (`native.buffer`, `clip`, overlays, …). Do **not** add a parallel Python-side GEOS (Shapely) or a second C++ operator table.
 
-**Ownership (locked):** implementation lives in **`src/gis/analysis/`** (`ops/` runner now; `geometry/` / `raster/` for future typed objects). `plugin/runtime/processing` only forwards. New core algorithms and objects do **not** land under `src/plugin/`. New operators land in `gis/analysis` first; Python wraps `plugin::` / `PluginHost::run_processing`.
+**Ownership (locked):** implementation lives in **`src/gis/analysis/`** (`ops/` runner now; `geometry/` / `network/` / `raster/{dem,filter}/` for kernels). `plugin/runtime/processing` only forwards. New core algorithms and objects do **not** land under `src/plugin/`. New operators land in `gis/analysis` first; Python wraps `plugin::` / `PluginHost::run_processing`.
 
-**Reserved (not implemented this slice):** `native.cost_path` (road / least-cost), `native.flood_fill` (simple inundation). Catalog may list them only after a real factory exists under `gis/analysis/raster` (or equivalent); until then Python plugins use `contribute_processing` stubs or raise a clear error from `analysis.run`.
+**Reserved ops now implemented:** `native.cost_path`, `native.flood_fill`, plus Eigen-backed
+`native.fit_line` / `native.fit_plane` / `native.affine_align` / `native.dem_gradient` /
+`native.raster_convolve` / `native.raster_smooth` (see §Eigen analysis below). Catalog lists them via `gis/analysis` factories.
+
+## §Eigen analysis kernels（2026-09-30）
+
+**Status:** active  
+**Updated:** 2026-09-30 — `raster/` split into `dem/` + `filter/`  
+**Scope:** `src/gis/analysis/{geometry,network,raster/{dem,filter}}` may depend on the **existing**
+`//third_party:eigen` (same stack as `src/base/math` and orthogrid SparseLU). This does
+**not** vendor a second Eigen / glm.
+
+| Area | Path | Ops / APIs | Eigen role |
+| --- | --- | --- | --- |
+| Geometry | `geometry/` | `fit_line_2d`, `fit_plane_3d`, `affine_align_2d` | Dense SVD / QR least squares |
+| Raster DEM | `raster/dem/` | `dem_gradient`, `flood_fill` | `Map` finite differences; small dense for seed map |
+| Raster filter | `raster/filter/` | `raster_convolve`, `raster_smooth` | Convolution; SparseLU Laplace |
+| Network | `network/` | `cost_path` length | Small dense Vector/Matrix |
+
+Public surface stays `gis::detail` + `native.*` via `ops_runner`. Tests: `analysis_eigen_test`.
+Do not pull orthogrid solvers into `gis.dll`; scalar raster smooth is a thin local SparseLU.
+

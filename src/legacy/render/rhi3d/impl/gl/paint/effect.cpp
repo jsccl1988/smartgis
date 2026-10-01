@@ -6,7 +6,7 @@ namespace render {  // light stuff
 long SmtGLRenderDevice::SetLight(int index, SmtLight *pLight) {
   GLenum gl_index = GL_LIGHT0 + index;
   if (gl_index < GL_LIGHT7 && gl_index > GL_LIGHT0) {
-    if (pLight == NULL)
+    if (pLight == nullptr)
       glDisable(gl_index);
     else {
       LIGHTTYPE type = pLight->GetType();
@@ -54,7 +54,7 @@ long SmtGLRenderDevice::SetAmbientLight(const SmtColor &clr) {
 
 // texture
 long SmtGLRenderDevice::SetTexture(SmtTexture *pTex) {
-  if (NULL != pTex)
+  if (nullptr != pTex)
     pTex->Use();
   else
     glDisable(GL_TEXTURE_2D);
@@ -64,7 +64,7 @@ long SmtGLRenderDevice::SetTexture(SmtTexture *pTex) {
 
 // materail
 long SmtGLRenderDevice::SetMaterial(SmtMaterial *pMat) {
-  if (NULL != pMat) {
+  if (nullptr != pMat) {
     glMaterialfv(GL_FRONT, GL_AMBIENT, pMat->GetAmbientValue().c);
     glMaterialfv(GL_FRONT, GL_SPECULAR, pMat->GetSpecularValue().c);
     glMaterialfv(GL_FRONT, GL_DIFFUSE, pMat->GetDiffuseValue().c);

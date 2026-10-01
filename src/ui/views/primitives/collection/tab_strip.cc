@@ -14,9 +14,9 @@ namespace ui {
 namespace views {
 namespace {
 
-constexpr int kTabHeightDip = 28;
+constexpr int kTabHeightDip = 32;
 constexpr int kTabPadXDip = 12;
-constexpr int kTabMinWidthDip = 48;
+constexpr int kTabMinWidthDip = 56;
 
 float view_scale(const View* view) {
   if (view && view->widget()) {

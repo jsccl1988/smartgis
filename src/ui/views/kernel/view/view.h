@@ -111,8 +111,11 @@ class UI_EXPORT View {
   virtual void layout();
   virtual void paint(ui::gfx::Canvas* canvas);
   // Records dirty DisplayLists (UI/recording thread only), then appends a
-  // copy of this subtree's commands into |out| for Commit.
-  void append_commands_to(ui::gfx::DisplayList* out);
+  // copy of this subtree's commands into |out| for Commit. When
+  // |dirty_or_null| is non-null and non-empty, skips this node and its
+  // subtree if bounds do not intersect the dirty rect.
+  void append_commands_to(ui::gfx::DisplayList* out,
+                          const Rect* dirty_or_null = nullptr);
   virtual bool on_mouse_event(const MouseEvent& event);
   virtual bool on_key_event(const KeyEvent& event);
   virtual bool on_char_event(const CharEvent& event);

@@ -11,7 +11,7 @@
 #include "gdal_priv.h"
 #include "legacy/render/rhi3d/public/camera/camera.h"
 #include "legacy/render/rhi3d/public/device/render_device.h"
-#include "legacy/render/scene3d/bridge/map_to_scene.h"
+#include "legacy/render/scene3d/seed/map_to_scene.h"
 #include "legacy/render/scene3d/scene/scene.h"
 #include "legacy/render/test/paint_test_host.h"
 #include "ogrsf_frmts.h"
@@ -196,14 +196,14 @@ int main() {
 
   render::SmtPerspCamera camera(dev, vp);
   render::frame_persp_camera_to_aabb(&camera, &vp, scene.GetAabb());
-  camera.SetViewport(vp);
+  camera.set_viewport(vp);
   scene.SetSceneCamera(&camera);
   expect(dev->SetViewport(vp) == SMT_ERR_NONE, "SetViewport after frame");
 
   dev->SetClearColor(render::SmtColor(0.f, 0.f, 0.f, 1.f));
   expect(dev->Clear(CLR_COLOR | CLR_ZBUFFER) == SMT_ERR_NONE, "Clear");
   expect(dev->BeginRender() == SMT_ERR_NONE, "BeginRender");
-  expect(camera.Apply() == SMT_ERR_NONE, "camera.Apply");
+  expect(camera.apply() == SMT_ERR_NONE, "camera.apply");
   {
     render::vSmt3DObjectPtrs objs;
     scene.Get3DObjectPtrs(objs);

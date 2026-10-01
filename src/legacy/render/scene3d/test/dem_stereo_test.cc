@@ -11,13 +11,14 @@
 
 #include "base/math/aabb.h"
 #include "gdal_priv.h"
-#include "gis/vista/world/terrain/dem_frame.h"
+#include "gis/vista/world/terrain/dem/dem_frame.h"
 #include "gis/vista/world/world.h"
-#include "legacy/render/scene3d/bridge/map_to_scene.h"
-#include "legacy/render/scene3d/bridge/scene_to_world.h"
-#include "legacy/render/scene3d/dem/dem_height_field.h"
-#include "legacy/render/scene3d/dem/dem_to_world.h"
-#include "legacy/render/scene3d/dem/stereo_terrain.h"
+#include "legacy/render/scene3d/seed/map_to_scene.h"
+#include "legacy/render/scene3d/seed/scene_to_world.h"
+#include "legacy/gis/vista/coord.h"
+#include "legacy/gis/vista/dem_height_field.h"
+#include "legacy/gis/vista/dem_to_world.h"
+#include "legacy/render/scene3d/primitive/surface/stereo_terrain.h"
 
 namespace {
 

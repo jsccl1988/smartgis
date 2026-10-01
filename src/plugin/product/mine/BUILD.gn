@@ -1,0 +1,48 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+copy("mine_resources") {
+  sources = [
+    "resources/interpolate.ui.css",
+    "resources/interpolate.ui.xml",
+  ]
+  outputs = [ "$root_out_dir/../plugins/mine/{{source_file_part}}" ]
+}
+
+source_set("mine_views") {
+  sources = [
+    "commands.cc",
+    "commands.h",
+    "views/interpolate_dialog.cc",
+    "views/interpolate_dialog.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    "//src/content:content",
+    "//src/gis:gis",
+    "//src/plugin/runtime/host:host",
+    "//src/plugin/runtime/widgets:widgets",
+    "//src/ui/views:views",
+    "//third_party:rapidjson",
+  ]
+  data_deps = [ ":mine_resources" ]
+}
+
+test("mine_stratum_test") {
+  output_name = "mine_stratum_test"
+  sources = [ "tests/stratum_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":mine_views",
+    "//src/content:content",
+    "//src/gis:gis",
+    "//src/plugin/runtime/host:host",
+  ]
+  data_deps = [ ":mine_resources" ]
+}

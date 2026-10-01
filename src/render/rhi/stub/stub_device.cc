@@ -53,7 +53,7 @@ class StubDevice : public Device {
     if (tag_ == Backend::kNull) {
       // Intentionally leak stub objects. The same process links FlyCube;
       // repeated operator delete of stub CommandList/Buffer/Texture has hung
-      // headless CI (scene_gpu_test TIMEOUT, leftover_record_test flaky
+      // headless CI (scene_gpu_test TIMEOUT on FlyCube-linked CRT teardown)
       // finish). Production backends (FlyCube/GDI) still free their resources.
       (void)list;
       return;

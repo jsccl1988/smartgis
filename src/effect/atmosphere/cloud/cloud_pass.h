@@ -70,7 +70,8 @@ class CloudPass {
 
   // quality: raymarch step budget from AtmosphereParams::quality.
   // Opens a ColorLoadOp::kLoad pass only (never clears). GPU path uses the
-  // cloud graphics pipeline with alpha blend and depth test (no write).
+  // cloud graphics pipeline with alpha blend and depth test (no write) so
+  // DEM land stays landish; deck still raymarches over sky/ocean.
   // quality <= 1 uses a half-res *proxy* (fewer steps + coarser density snap);
   // no offscreen RT until RHI grows color attachments.
   bool record(render::rhi::Device* device, render::rhi::CommandList* list, uint32_t width,

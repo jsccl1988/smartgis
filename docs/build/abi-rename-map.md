@@ -44,7 +44,9 @@ Status: **in progress** (include/snake_case cutover still open；foundation Hybr
 | `ui_views` | `ui/views` + `ui/gfx` + `ui/gis`（同 PE；`UI_EXPORT`） | SmartGisViews / plugin_host；`:gfx_headers` 给 gpu | **完成** |
 | `plugin_host` | `plugin/runtime/host` + widgets（`PLUGIN_HOST_*`） | Views 宿主；非 legacy `PLUGIN_EXPORT` | **完成** |
 | `ui_legacy` | `gui` … `stat_chart`（+ `tool_group_sources`） | `smt_build_app` | **完成** |
-| `legacy_render` | leftover engines under `legacy/render/**` | optional | **完成** |
+| `legacy_render` | leftover host (GDI / scene3d / bridge / `Smt3DRenderer` loader) | optional | **完成** |
+| `legacy_render_gl` | leftover OpenGL `SmtGLRenderDevice` | optional; LoadLibrary from 3D factory | **完成** |
+| `legacy_render_d3d` | leftover D3D11 `SmtD3DRenderDevice` | optional; LoadLibrary from 3D factory | **完成** |
 | `legacy_tool` | leftover `legacy/tool/**` | optional | **完成** |
 | `plugin_dem` … / `plugin` | 域插件 / AuxModule | Phase 2；`*.am` LoadLibrary | **保持** |
 | `app_core` | （不变） | app-gated | **保持** |
@@ -82,6 +84,8 @@ Status: **in progress** (include/snake_case cutover still open；foundation Hybr
 | `plugin_host` | `PLUGIN_HOST_EXPORTS` | `PLUGIN_HOST_EXPORT` | 勿用 legacy `PLUGIN_EXPORT` |
 | `ui_legacy` | `UI_LEGACY_EXPORTS` | `UI_LEGACY_EXPORT` | `GUI_*` / … |
 | `legacy_render` | `LEGACY_RENDER_EXPORTS` | `LEGACY_RENDER_EXPORT` | 各 leftover `*_EXPORT` |
+| `legacy_render_gl` | `LEGACY_RENDER_GL_EXPORTS` | `LEGACY_RENDER_GL_EXPORT` | OpenGL device + `Create3D*` |
+| `legacy_render_d3d` | `LEGACY_RENDER_D3D_EXPORTS` | `LEGACY_RENDER_D3D_EXPORT` | D3D11 device + `CreateD3D*` |
 | `legacy_tool` | `LEGACY_TOOL_EXPORTS` | `LEGACY_TOOL_EXPORT` | 曾用 `TOOL_*`；已让给终局 |
 
 ## 历史：2010 `Smt*` → cutover 短名

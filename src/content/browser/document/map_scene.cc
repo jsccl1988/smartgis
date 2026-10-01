@@ -218,6 +218,11 @@ bool MapScene::add_triangle_layer(const std::string& name, const double* xyz,
                                     triangle_count);
 }
 
+bool MapScene::add_point_cloud_layer(const std::string& name, const float* xyz,
+                                     int point_count, const uint8_t* rgba) {
+  return detail::add_point_cloud_layer(&store_, name, xyz, point_count, rgba);
+}
+
 const MapScene::Feature* MapScene::hit_test(double map_x, double map_y,
                                            double tol_map) {
   return detail::hit_test(&store_, map_x, map_y, tol_map);

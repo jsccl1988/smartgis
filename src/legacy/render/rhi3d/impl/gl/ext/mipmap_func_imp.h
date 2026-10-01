@@ -1,25 +1,35 @@
-// Copyright (c) 2010 CCL. All rights reserved.
-#ifndef _MIPMAP_FUNCSIMP_H
-#define _MIPMAP_FUNCSIMP_H
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef LEGACY_RENDER_RHI3D_IMPL_GL_EXT_MIPMAP_FUNC_IMP_H_
+#define LEGACY_RENDER_RHI3D_IMPL_GL_EXT_MIPMAP_FUNC_IMP_H_
 
 #include "legacy/render/rhi3d/impl/gl/ext/mipmap_func.h"
-#include "legacy/render/rhi3d/impl/gl/prerequisites.h"
+#include "legacy/render/rhi3d/impl/gl/host/render_device.h"
 
 namespace render {
+
+// Binds glGenerateMipmap via wglGetProcAddress.
 class SmtMipmapFuncImpl : public SmtMipmapFunc {
  public:
-  SmtMipmapFuncImpl();
-  virtual ~SmtMipmapFuncImpl();
+  SmtMipmapFuncImpl() = default;
+  ~SmtMipmapFuncImpl() override = default;
 
- public:
-  virtual long Initialize(LPGLRENDERDEVICE pGLRenderDevice);
+  long Initialize(LPGLRENDERDEVICE pGLRenderDevice) override {
+    _glGenerateMipmap =
+        (PFNGLGENERATEMIPMAPEXTPROC)pGLRenderDevice->GetProcAddress(
+            "glGenerateMipmap");
+    if (nullptr == _glGenerateMipmap) {
+      return SMT_ERR_FAILURE;
+    }
+    return SMT_ERR_NONE;
+  }
 
- public:
-  virtual void glGenerateMipmap(GLenum target);
+  void glGenerateMipmap(GLenum target) override { _glGenerateMipmap(target); }
 
  private:
-  PFNGLGENERATEMIPMAPEXTPROC _glGenerateMipmap;
+  PFNGLGENERATEMIPMAPEXTPROC _glGenerateMipmap = nullptr;
 };
 }  // namespace render
 
-#endif  //_VSYNC_FUNCSIMP_H
+#endif  // LEGACY_RENDER_RHI3D_IMPL_GL_EXT_MIPMAP_FUNC_IMP_H_

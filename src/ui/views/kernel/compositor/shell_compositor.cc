@@ -4,10 +4,13 @@
 #include "ui/views/kernel/compositor/shell_compositor.h"
 
 #include <algorithm>
+#include <thread>
 #include <utility>
 
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/raster/paint_stats.h"
+
+#include "base/trace/event/process_trace.h"
 
 namespace ui {
 namespace views {
@@ -132,6 +135,7 @@ HWND ShellCompositor::maybe_take_wake_hwnd_locked(std::uint64_t generation) {
 std::uint64_t ShellCompositor::present(HDC hdc,
                                        const RECT& dest,
                                        ui::gfx::Color fallback_fill) {
+  BASE_TRACE_EVENT("blt_present", "ui.views");
   if (!hdc) {
     return 0;
   }
@@ -264,6 +268,7 @@ void ShellCompositor::activate_pending() {
 }
 
 void ShellCompositor::raster_active() {
+  BASE_TRACE_EVENT("raster", "ui.views");
   PaintCommit frame;
   {
     std::lock_guard<std::mutex> lock(mu_);
@@ -276,8 +281,13 @@ void ShellCompositor::raster_active() {
   LARGE_INTEGER t0 = {};
   QueryPerformanceCounter(&t0);
 
-  HWND wake_hwnd = nullptr;
-  std::uint64_t wake_gen = 0;
+  HDC back_dc = nullptr;
+  int back_w = 0;
+  int back_h = 0;
+  Rect dirty{};
+  bool full_frame = true;
+  HFONT font = nullptr;
+  HGDIOBJ old_font = nullptr;
   {
     std::lock_guard<std::mutex> lock(mu_);
     if (stop_) {
@@ -288,10 +298,10 @@ void ShellCompositor::raster_active() {
     }
     Dib& back = buffers_[back_];
     Dib& front = buffers_[front_];
-    HFONT font = ensure_font_locked(frame.font_px);
-    HGDIOBJ old_font = font ? SelectObject(back.dc, font) : nullptr;
+    font = ensure_font_locked(frame.font_px);
+    old_font = font ? SelectObject(back.dc, font) : nullptr;
 
-    Rect dirty = frame.dirty;
+    dirty = frame.dirty;
     if (dirty.width <= 0 || dirty.height <= 0) {
       dirty = Rect{0, 0, frame.width_px, frame.height_px};
     }
@@ -309,53 +319,45 @@ void ShellCompositor::raster_active() {
     if (dirty.y + dirty.height > frame.height_px) {
       dirty.height = frame.height_px - dirty.y;
     }
-    bool full_frame = dirty.x <= 0 && dirty.y <= 0 &&
-                      dirty.width >= frame.width_px &&
-                      dirty.height >= frame.height_px;
-    // Partial dirty: seed the back buffer from the published front so pixels
-    // outside |dirty| stay correct after the swap (double-buffer ping-pong).
+    full_frame = dirty.x <= 0 && dirty.y <= 0 &&
+                 dirty.width >= frame.width_px &&
+                 dirty.height >= frame.height_px;
     bool seeded = false;
     if (!full_frame && front.dc && front.bits && front.w == frame.width_px &&
         front.h == frame.height_px) {
       BitBlt(back.dc, 0, 0, frame.width_px, frame.height_px, front.dc, 0, 0,
              SRCCOPY);
       seeded = true;
-      // GDI mutated the DIB under any retained Skia WrapPixels — drop it before
-      // constructing Canvas so chrome does not paint into a stale wrap.
       ui::gfx::Canvas::discard_retained_surface();
     }
     if (!full_frame && !seeded) {
-      // New/resized back with no matching front: painting only |dirty| would
-      // publish undefined pixels outside it (hollow chrome after present).
       dirty = Rect{0, 0, frame.width_px, frame.height_px};
       full_frame = true;
     }
+    back_dc = back.dc;
+    back_w = back.w;
+    back_h = back.h;
+  }
 
-    {
-      // Canvas (and Skia present_if_owned) must finish before publish/swap so
-      // WM_PAINT never BitBlts a front that still lacks the latest raster.
-      ui::gfx::Canvas canvas(back.dc, back.w, back.h);
-      if (dirty.width > 0 && dirty.height > 0) {
-        canvas.fill_rect(dirty.x, dirty.y, dirty.width, dirty.height,
-                         frame.clear_color);
-        if (full_frame) {
-          frame.display_list.replay(&canvas);
-        } else {
-          frame.display_list.replay_clipped(&canvas, dirty.x, dirty.y,
-                                            dirty.x + dirty.width,
-                                            dirty.y + dirty.height);
-        }
-      }
+  // Raster without mu_ so present() can BitBlt the previous front and U4
+  // helper threads are not joined while holding the compositor lock.
+  if (back_dc && dirty.width > 0 && dirty.height > 0) {
+    raster_dirty_into(back_dc, back_w, back_h, frame, dirty, full_frame, font);
+  }
+
+  HWND wake_hwnd = nullptr;
+  std::uint64_t wake_gen = 0;
+  {
+    std::lock_guard<std::mutex> lock(mu_);
+    if (font && back_dc) {
+      SelectObject(back_dc, old_font);
     }
-
-    if (font) {
-      SelectObject(back.dc, old_font);
+    if (!stop_) {
+      std::swap(front_, back_);
+      published_gen_ = frame.generation;
+      wake_hwnd = maybe_take_wake_hwnd_locked(published_gen_);
+      wake_gen = published_gen_;
     }
-
-    std::swap(front_, back_);
-    published_gen_ = frame.generation;
-    wake_hwnd = maybe_take_wake_hwnd_locked(published_gen_);
-    wake_gen = published_gen_;
   }
 
   if (wake_hwnd) {
@@ -371,6 +373,89 @@ void ShellCompositor::raster_active() {
         static_cast<std::uint64_t>(t1.QuadPart - t0.QuadPart));
   }
   cv_.notify_all();
+}
+
+void ShellCompositor::raster_dirty_into(HDC dc,
+                                        int dib_w,
+                                        int dib_h,
+                                        const PaintCommit& frame,
+                                        Rect dirty,
+                                        bool full_frame,
+                                        HFONT font) {
+  if (!dc || dirty.width <= 0 || dirty.height <= 0) {
+    return;
+  }
+  // U4: large dirty -> two horizontal strips on temp DIBs, then BitBlt.
+  constexpr int kMinParallelHeight = 256;
+  constexpr int kMinParallelArea = 1280 * 400;
+  const int area = dirty.width * dirty.height;
+  const bool parallel = dirty.height >= kMinParallelHeight &&
+                        area >= kMinParallelArea && dib_w > 0 && dib_h > 0;
+  const int face_px = frame.font_px > 0 ? frame.font_px : 12;
+  auto paint_strip = [&](HDC target, const Rect& strip, bool whole) {
+    // Temp strip DCs are fresh CreateCompatibleDC — without a selected face
+    // TextOut uses SYSTEM (~12px) while layout already reserved shell metrics.
+    // Own a per-strip HFONT so U4 helper threads never share one GDI object.
+    HFONT strip_font = nullptr;
+    ui::gfx::note_create_font();
+    strip_font =
+        CreateFontW(-face_px, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                    DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                    CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+    const HFONT use = strip_font ? strip_font : font;
+    HGDIOBJ old = use ? SelectObject(target, use) : nullptr;
+    ui::gfx::Canvas canvas(target, dib_w, dib_h);
+    canvas.fill_rect(strip.x, strip.y, strip.width, strip.height,
+                     frame.clear_color);
+    if (whole) {
+      frame.display_list.replay(&canvas);
+    } else {
+      frame.display_list.replay_clipped(&canvas, strip.x, strip.y,
+                                        strip.x + strip.width,
+                                        strip.y + strip.height);
+    }
+    if (old) {
+      SelectObject(target, old);
+    }
+    if (strip_font) {
+      DeleteObject(strip_font);
+    }
+  };
+  if (!parallel) {
+    paint_strip(dc, dirty, full_frame);
+    return;
+  }
+
+  const int mid_y = dirty.y + dirty.height / 2;
+  Rect top{dirty.x, dirty.y, dirty.width, mid_y - dirty.y};
+  Rect bottom{dirty.x, mid_y, dirty.width, dirty.bottom() - mid_y};
+
+  Dib top_dib;
+  Dib bottom_dib;
+  auto fill_temp = [&](Dib* dib, const Rect& strip) {
+    if (!dib || strip.width <= 0 || strip.height <= 0) {
+      return;
+    }
+    if (!ensure_dib(dib, frame.width_px, frame.height_px)) {
+      return;
+    }
+    paint_strip(dib->dc, strip, false);
+  };
+
+  std::thread helper([&] { fill_temp(&bottom_dib, bottom); });
+  fill_temp(&top_dib, top);
+  helper.join();
+
+  if (top_dib.dc && top.width > 0 && top.height > 0) {
+    BitBlt(dc, top.x, top.y, top.width, top.height, top_dib.dc, top.x, top.y,
+           SRCCOPY);
+  }
+  if (bottom_dib.dc && bottom.width > 0 && bottom.height > 0) {
+    BitBlt(dc, bottom.x, bottom.y, bottom.width, bottom.height, bottom_dib.dc,
+           bottom.x, bottom.y, SRCCOPY);
+  }
+  release_dib(&top_dib);
+  release_dib(&bottom_dib);
 }
 
 bool ShellCompositor::ensure_dib(Dib* dib, int width_px, int height_px) {

@@ -7,7 +7,7 @@ All rights reserved.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Align `impl/gdi/core` internal names with Chromium/cc lexicon; split dual `GdiFrameScheduler`; snake_case device members; keep `SmtRenderDevice` ABI and CreateDevice string.
+**Goal:** Align `impl/gdi/core` internal names with Chromium/cc lexicon; split dual `Rhi2dFrameScheduler`; snake_case device members; keep `SmtRenderDevice` ABI and CreateDevice string.
 
 **Architecture:** Spec §GDI core cc rename in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md). Directories `host/paint/worker/surface` stay. Thin Draw*/Render* forwards on device.
 
@@ -16,7 +16,7 @@ All rights reserved.
 ## Global Constraints
 
 - Work on **`master`** only; parallel agents use **non-overlapping paths** where possible.
-- Keep `SmtGdiRenderDevice` / `SmtGdiRenderThread` / `CreateDevice("SmtGdiRenderDevice")`.
+- Keep `SmtRhi2dRenderDevice` / `SmtGdiRenderThread` / `CreateDevice("SmtRhi2dRenderDevice")`.
 - Do **not** change `SmtRenderDevice` virtuals (including `DrawPloygon` / `StrethImage`).
 - Do **not** touch `src/legacy/render/gdi/` dual-run tree.
 - Comments English; new helpers `snake_case`.
@@ -28,10 +28,10 @@ All rights reserved.
 | --- | --- |
 | `GdiStyleCanvas` / `style_canvas.*` | `GdiPaintCanvas` / `paint_canvas.*` |
 | `GdiMapPainter` / `map_painter.*` | `GdiLayerPainter` / `layer_painter.*` |
-| host `GdiFrameScheduler` / `host_frame_scheduler.*` | `GdiUiController` / `ui_controller.*` |
-| worker `detail::GdiFrameScheduler` / `worker_frame_scheduler.*` | `detail::GdiRasterScheduler` / `raster_scheduler.*` |
+| host `Rhi2dFrameScheduler` / `host_frame_scheduler.*` | `GdiUiController` / `ui_controller.*` |
+| worker `detail::Rhi2dFrameScheduler` / `worker_frame_scheduler.*` | `detail::GdiRasterScheduler` / `raster_scheduler.*` |
 | `MapCarto2dFrame` / `map_carto2d.*` | `GdiCartoFrame` / `carto_frame.*` |
-| `render_context.h` | `paint_context.h` (type `SmtRenderContex` stays) |
+| `render_context.h` | `paint_context.h` (type `SmtRenderContext` stays) |
 | `device.style_canvas_` / `map_painter_` | `paint_canvas_` / `layer_painter_` |
 | `device.frame_scheduler_` / `scheduler()` | `ui_controller_` / `ui()` |
 | `m_smtMapRenderBuf` / `m_smtQuickRenderBuf` / `m_smtDynamicRenderBuf` / `m_smtRenderBuf` | `map_front_` / `raster_back_` / `dynamic_buf_` / `compose_buf_` |
@@ -61,12 +61,12 @@ All rights reserved.
 
 ### Task 3 (integrate): device members + docs + verify
 
-- [x] Snake member rename on `SmtGdiRenderDevice`; section comments Present/Schedule/ABI.
+- [x] Snake member rename on `SmtRhi2dRenderDevice`; section comments Present/Schedule/ABI.
 - [x] README + living § naming table; Active plan link.
 - [x] Force-rebuild GDI objs; `gdi_map_paint_test` / `gdi_compose_test` / `map_carto2d_test` from `out/Debug`.
 
 ## Done when
 
-- No dual `GdiFrameScheduler` type name.
+- No dual `Rhi2dFrameScheduler` type name.
 - Paint types use cc lexicon names.
 - ABI / CreateDevice unchanged; GDI tests green.

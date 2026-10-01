@@ -38,9 +38,9 @@ inline SmtProgramManager::SmtProgramManager(void) { DestroyAllProgram(); }
 inline SmtProgramManager::~SmtProgramManager(void) { DestroyAllProgram(); }
 
 inline long SmtProgramManager::AddProgram(SmtProgram* pProgram) {
-  SmtProgram* pProgTmp = NULL;
+  SmtProgram* pProgTmp = nullptr;
   pProgTmp = GetProgram(pProgram->GetProgramName());
-  if (NULL == pProgTmp)
+  if (nullptr == pProgTmp)
     m_mapNameToProgramPtrs.insert(
         pairNameToProgramPtr(pProgram->GetProgramName(), pProgram));
   else {
@@ -53,7 +53,7 @@ inline long SmtProgramManager::AddProgram(SmtProgram* pProgram) {
 }
 
 inline SmtProgram* SmtProgramManager::GetProgram(const char* szName) {
-  SmtProgram* pProgram = NULL;
+  SmtProgram* pProgram = nullptr;
   mapNameToProgramPtrs::iterator mapIter;
   mapIter = m_mapNameToProgramPtrs.find(szName);
 

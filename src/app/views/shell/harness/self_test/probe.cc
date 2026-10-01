@@ -4,6 +4,7 @@
 #include "app/views/shell/harness/self_test/probe.h"
 
 #include "app/views/shell/browser/browser.h"
+#include "app/views/shell/harness/common/maps.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "content/public/map_contents.h"
 #include "ui/views/map/map_viewport.h"
@@ -30,23 +31,12 @@ void pump_views_messages_impl(DWORD ms) {
 }
 
 void self_test_detach_maps(Browser& browser) {
-  if (browser.scene3d()) {
-    browser.scene3d()->abandon_mesh();
-  }
-  if (ui::views::MapViewport* m = browser.map_viewport()) {
-    m->detach();
-  }
-  if (ui::views::MapViewport* m = browser.map_data_viewport()) {
-    m->detach();
-  }
-  if (ui::views::MapViewport* m = browser.map_scene_viewport()) {
-    m->detach();
-  }
+  detach_maps(browser);
 }
 
 void self_test_mark(const char* step) {
   wchar_t path[MAX_PATH] = {};
-  if (!::app::detail::exe_sidecar_path(path, MAX_PATH, L"self-test-mark.txt")) {
+  if (!::app::detail::exe_capture_path(path, MAX_PATH, L"self-test-mark.txt")) {
     return;
   }
   static bool first = true;

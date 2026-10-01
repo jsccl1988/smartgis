@@ -5,13 +5,13 @@ All rights reserved.
 
 # `src/ui/views` — Views toolkit (endgame)
 
-**Views** (widget / layout / events / controls) for in-process C++ shell. Public namespace: `ui::views`. Includes use `"ui/views/<area>/<group>/..."` under the responsibility groups below. `map/` stays one level deep.
+**Views** (widget / layout / events / controls) for in-process C++ shell. Public namespace: `ui::views`. Includes use `"ui/views/<area>/<group>/..."` under the responsibility groups below. `map/` nests `viewport|input|chrome|device`.
 
 This directory is the **public toolkit**. Product composition is **`src/app/views`** (`out/SmartGisViews.exe`, destination entry). The app hosts a `Widget` / `Splitter` and places toolkit widgets; it does not paint catalog / ambox / chart / layer panels by hand. Leftover MFC `SmartGis.exe` stays until parity. MFC migration: [`docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md`](../../../docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md).
 
 ## Physical layout (responsibility partitions)
 
-Headers and sources live together under responsibility groups. There are **no** forwarding shims at the previous paths. Callers include the grouped path (or the umbrella `views.h`). Namespace stays `ui::views`.
+Headers and sources live together under responsibility groups. Callers include the grouped path (or the umbrella `views.h`). Namespace stays `ui::views`. Exception: `map/map_viewport.h` and `map/touch_multitouch.h` remain as **thin public forwards** to `map/viewport/` and `map/input/` so existing `#include "ui/views/map/…"` paths keep working.
 
 ### GN layer boundaries (first cut, 2026-09-28)
 
@@ -64,7 +64,12 @@ src/ui/views/
                               control_factory_default (make_default aggregation TU)
   markup/loader/              load_markup / MarkupRoot
   markup/testdata/            preview samples (test-only)
-  map/                        MapViewport, TouchMultitouch (flat)
+  map/map_viewport.h          public forward → viewport/map_viewport.h
+  map/touch_multitouch.h      public forward → input/touch_multitouch.h
+  map/viewport/               MapViewport + display/paint/shell/flycube + features
+  map/input/                  viewport_input, TouchMultitouch
+  map/chrome/                 identity HUD, embed opaque fill
+  map/device/                 legacy CreateRenderDevice load helpers
   testing/unit/               views_unittests, markup_unittests
   testing/harness/            EventGenerator, ViewsTestBase, OverlayScene
   testing/interactive/        views_interactive_tests (L1)
@@ -104,7 +109,10 @@ Module nest remains `src/ui/views` (one layer under `ui/`). The groups are direc
 - Layout: declarative hosts use **Yoga** (`YogaLayoutManager`). Imperative `BoxLayout` / `FillLayout` remain for unmigrated toolkit dialogs — do not dual-drive one host.
 - GIS complex panel tags instantiate **placeholder** Views (id/size); business data stays C++-bound.
 - `contextmenu` is a stub View (Win32 popup is a free function, not a View).
-- Preview / editor: `build.bat UiDesigner` → `out/Debug/UiDesigner.exe` (open/save/hot-reload, palette, properties, tree, insert/reorder, CSD FrameView, Dark/Light theme).
+- Preview / editor: `build.bat UiDesigner` → `out/Debug/UiDesigner.exe` (default opens `shell/main_app.ui.xml` SmartGisViews chrome template; open/save/hot-reload, palette, properties, tree, insert/reorder, **Text2UI** Generate… / Ctrl+Shift+G — template by default, `@llm` → Cursor Agent; bottom **Console+Trace** DiagnosticToolsPanel for UI paint profile — View → Toggle Console+Trace; CSD FrameView, Dark/Light theme).
+- Text2UI API: `ui/views/text2ui/` (`generate_text2ui`, template matchers, validate). Host injects `LlmBackend` (UiDesigner: Cursor Agent CLI + `CURSOR_API_KEY`).
+- Main app design template: `src/ui/resources/shell/main_app.ui.xml` (+ `.ui.css`) — mirrors `BrowserView::build_contents` with GIS placeholders.
+- UI render profile: `BASE_TRACE_EVENT(..., "ui.views")` on Widget paint/commit/present + ShellCompositor raster; RenderTrace **UI** filter; Diagnostic Tools tab **Trace**.
 
 Map pixels stay on `src/map` / `src/feature` + `src/render`. Architecture: [`docs/build/ui-views-skia.md`](../../../docs/build/ui-views-skia.md). Control split: [`docs/superpowers/specs/2026-09-13-ui-views-controls-design.md`](../../../docs/superpowers/specs/2026-09-13-ui-views-controls-design.md) (nesting superseded by the 2026-09-19 design).
 
@@ -112,4 +120,4 @@ GN: `//src/ui/views:views` via `//:ui_views` (layered `views_kernel` / `views_co
 
 ---
 
-**最后更新：** 2026-09-28
+**最后更新：** 2026-09-30

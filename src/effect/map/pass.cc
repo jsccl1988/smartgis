@@ -3,6 +3,8 @@
 
 #include "effect/map/pass.h"
 
+#include <atomic>
+#include <chrono>
 #include <memory>
 #include <vector>
 
@@ -17,6 +19,19 @@
 
 namespace effect {
 namespace map {
+namespace {
+
+std::atomic<int64_t> g_last_pass_record_ms{0};
+
+}  // namespace
+
+int64_t last_pass_record_ms() {
+  return g_last_pass_record_ms.load(std::memory_order_relaxed);
+}
+
+void reset_last_pass_record_ms() {
+  g_last_pass_record_ms.store(0, std::memory_order_relaxed);
+}
 
 struct Pass::DrawCache {
   std::vector<detail::UploadedDraw> world_draws;
@@ -93,6 +108,17 @@ bool Pass::record(
         load_icon,
     const render::rhi::CameraMatrices* camera, bool world_items,
     bool overlay_items, render::rhi::ColorLoadOp color_op) {
+  struct RecordClock {
+    std::chrono::steady_clock::time_point t0 =
+        std::chrono::steady_clock::now();
+    ~RecordClock() {
+      g_last_pass_record_ms.store(
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::steady_clock::now() - t0)
+              .count(),
+          std::memory_order_relaxed);
+    }
+  } record_clock;
   if (!device || !list || view.width_px == 0 || view.height_px == 0) {
     return false;
   }

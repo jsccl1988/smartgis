@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<ui name="stormsurge_run">
+  <style src="run.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="dem_label" text="DEM raster"/>
+    <hbox id="dem_row" class="row">
+      <textfield id="dem_path"/>
+      <button id="browse_dem" text="Browse..."/>
+    </hbox>
+
+    <label id="coast_label" text="Coast polyline (GeoJSON/SHP)"/>
+    <hbox id="coast_row" class="row">
+      <textfield id="coast_path"/>
+      <button id="browse_coast" text="Browse..."/>
+    </hbox>
+
+    <label id="tide_label" text="Tide series CSV (optional)"/>
+    <hbox id="tide_row" class="row">
+      <textfield id="tide_path"/>
+    </hbox>
+
+    <label id="output_label" text="Output inundation mask GeoTIFF"/>
+    <hbox id="output_row" class="row">
+      <textfield id="output_path" text="stormsurge_mask.tif"/>
+      <button id="browse_output" text="Browse..."/>
+    </hbox>
+
+    <hbox id="seed_row" class="row">
+      <vbox id="seed_x_box" class="field">
+        <label id="seed_x_label" text="Seed X"/>
+        <textfield id="seed_x" text="0"/>
+      </vbox>
+      <vbox id="seed_y_box" class="field">
+        <label id="seed_y_label" text="Seed Y"/>
+        <textfield id="seed_y" text="0"/>
+      </vbox>
+      <vbox id="tide_box" class="field">
+        <label id="tide_level_label" text="Tide / water level"/>
+        <textfield id="tide_level" text="36"/>
+      </vbox>
+      <vbox id="frames_box" class="field">
+        <label id="frames_label" text="Anim frames"/>
+        <textfield id="frames" text="12"/>
+      </vbox>
+    </hbox>
+
+    <label id="frames_dir_label" text="Frames directory (optional)"/>
+    <hbox id="frames_dir_row" class="row">
+      <textfield id="frames_dir"/>
+    </hbox>
+
+    <label id="depth_label" text="Depth GeoTIFF (optional, for stats)"/>
+    <hbox id="depth_row" class="row">
+      <textfield id="depth_path" text="stormsurge_depth.tif"/>
+    </hbox>
+
+    <label id="stats_label" text="Stats JSON report (optional P2)"/>
+    <hbox id="stats_row" class="row">
+      <textfield id="stats_path" text="stormsurge_stats.json"/>
+    </hbox>
+
+    <label id="impact_label" text="Impact assets GeoJSON (optional)"/>
+    <hbox id="impact_row" class="row">
+      <textfield id="impact_path"/>
+    </hbox>
+
+    <hbox id="actions" class="row actions">
+      <button id="ok" text="OK"/>
+      <button id="cancel" text="Cancel"/>
+    </hbox>
+  </vbox>
+</ui>

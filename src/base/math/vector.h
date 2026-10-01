@@ -11,7 +11,7 @@
 
 #include <cmath>
 
-namespace render {
+namespace base {
 
 class Matrix;
 class Quat;
@@ -247,6 +247,17 @@ inline Vector4 triangle_normal(const Vector4& v1, const Vector4& v2,
   return normal;
 }
 
+}  // namespace base
+
+namespace render {
+// Type aliases (not using-declarations): MSVC dllimport mangling must match
+// base::Vector* exports from legacy_render (using-decl can mangle as render::).
+using Vector2 = ::base::Vector2;
+using Vector3 = ::base::Vector3;
+using Vector4 = ::base::Vector4;
+using ::base::dot;
+using ::base::cross;
+using ::base::triangle_normal;
 }  // namespace render
 
 #endif  // SMT_RENDER_MATH_VECTOR_H_

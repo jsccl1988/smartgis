@@ -5,13 +5,17 @@ All rights reserved.
 
 # `gis/analysis/geometry`
 
-Future home for **geometry analysis objects** (typed operators, options, result
-handles) that are not the file-level `ops/` runner.
+Geometry analysis kernels (Eigen dense SVD / least squares).
+
+| Id | Role |
+| --- | --- |
+| `native.fit_line` | 2D least-squares line → GeoJSON LineString |
+| `native.fit_plane` | 3D plane `ax+by+cz+d=0` → JSON |
+| `native.affine_align` | Paired 2D affine (`source`/`target`) → JSON `m[6]` |
+
+In-memory APIs: `fit_line_2d`, `fit_plane_3d`, `affine_align_2d` in `fit.h`.
 
 ## Rules
 
-- New core geometry analysis types and algorithms land **here** (or under
-  `gis/kernel/geo` when they are low-level GEOS/OGR helpers).
-- Do **not** put core algorithms or domain objects under `src/plugin/`.
-- `plugin/runtime/processing` only forwards public `plugin::` entry points to
-  `gis::detail` (see `ops/`).
+- Core algorithms live **here** (not under `src/plugin/`).
+- `plugin/runtime/processing` only forwards `plugin::` → `gis::detail`.

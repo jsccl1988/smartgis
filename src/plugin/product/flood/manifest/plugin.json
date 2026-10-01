@@ -1,0 +1,24 @@
+{
+  "id": "smartgis.flood",
+  "name": "DEM洪水淹没",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "builtin",
+  "author": "The Mogu Authors",
+  "description": "Load DEM and run inundation flood fill with optional animation frames",
+  "contributes": {
+    "commands": [
+      {"id": "flood.inundate", "title": "洪水淹没分析", "menu": "tools"},
+      {"id": "flood.export_mask", "title": "导出淹没掩膜", "menu": "tools"},
+      {"id": "flood.about", "title": "关于", "menu": "tools"}
+    ],
+    "dialogs": [
+      {"id": "flood.inundate", "title": "洪水淹没分析"},
+      {"id": "flood.about", "title": "关于"}
+    ],
+    "processing": [
+      {"id": "flood.inundate", "title": "DEM flood inundation"},
+      {"id": "flood.export_mask", "title": "Export flood mask"}
+    ]
+  }
+}

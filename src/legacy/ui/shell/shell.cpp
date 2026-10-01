@@ -86,14 +86,18 @@ LRESULT SmtXView::WindowProc(UINT message, WPARAM wParam, LPARAM lParam) {
   if (dispatch_shell_message(m_pViewHost, m_hWnd, message, wParam, lParam)) {
     if (m_pViewHost && m_pViewHost->workspace()) {
       m_pViewHost->workspace()->aux_draw();
-      // Invalidate while rubber-band is live, and on button-up even
-      // after overlay clears so QUICK is flushed in OnDraw.
+      // Invalidate for interactive preview (pan slide / wheel stretch /
+      // rubber-band). Refresh() already InvalidateRects the map HWND; this
+      // covers cases where the draft path did not Refresh (overlay only).
       // Coalesce: only mark dirty — do not UpdateWindow. Mouse-move storms
       // otherwise serialize full OnDraw/RenderMap on the UI thread.
       const bool overlay = m_pViewHost->workspace()->live_preview() != nullptr;
       const bool stroke_end =
           (message == WM_LBUTTONUP || message == WM_RBUTTONUP);
-      if (overlay || stroke_end) {
+      const bool nav_preview =
+          (message == WM_MOUSEMOVE && (wParam & MK_LBUTTON)) ||
+          message == WM_MOUSEWHEEL || message == WM_MOUSEHWHEEL;
+      if (overlay || stroke_end || nav_preview) {
         InvalidateRect(NULL, FALSE);
       }
     }

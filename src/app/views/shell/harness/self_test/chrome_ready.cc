@@ -54,7 +54,7 @@ namespace detail {
 
 int self_test_chrome_ready(Browser& browser) {
 wchar_t mark_path[MAX_PATH] = {};
-if (exe_sidecar_path(mark_path, MAX_PATH, L"self-test-mark.txt")) {
+if (exe_capture_path(mark_path, MAX_PATH, L"self-test-mark.txt")) {
   DeleteFileW(mark_path);
 }
 self_test_mark("show");
@@ -130,18 +130,26 @@ if (data->attach_mode() ==
     ui::views::MapViewport::AttachMode::kContentMapView) {
   // Lazy OpenView paints at GPU default 64² then Resize. Kick client-sized
   // ResizeSurface again so a lost first FrameReady is not a hard fail.
-  data->sync_native_bounds();
-  if (HWND hwnd = data->native_view()) {
-    RECT rc = {};
-    GetClientRect(hwnd, &rc);
-    if (rc.right > 0 && rc.bottom > 0) {
-      SendMessageW(hwnd, WM_SIZE, SIZE_RESTORED,
-                   MAKELPARAM(rc.right, rc.bottom));
+  // Retry: after SmartGisRender --self-test the GPU process can miss the
+  // first Data-tab FrameReady under exe_smoke (exit 8).
+  bool data_frame_ready = false;
+  for (int attempt = 0; attempt < 3 && !data_frame_ready; ++attempt) {
+    data->sync_native_bounds();
+    if (HWND hwnd = data->native_view()) {
+      RECT rc = {};
+      GetClientRect(hwnd, &rc);
+      if (rc.right > 0 && rc.bottom > 0) {
+        SendMessageW(hwnd, WM_SIZE, SIZE_RESTORED,
+                     MAKELPARAM(rc.right, rc.bottom));
+      }
     }
+    data->invalidate_native();
+    pump_views_messages_impl(400);
+    // Three 30s budgets with re-invalidate ≈ same 90s wall, but recovers
+    // when the first FrameReady was lost after GPU warmup from Render smoke.
+    data_frame_ready = data->wait_ready(30000);
   }
-  data->invalidate_native();
-  pump_views_messages_impl(400);
-  if (!data->wait_ready(k_frame_ready_ms)) {
+  if (!data_frame_ready) {
     return 8;
   }
 }

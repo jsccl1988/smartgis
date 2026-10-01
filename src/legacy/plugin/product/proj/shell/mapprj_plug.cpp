@@ -16,9 +16,13 @@ SmtMapPrjPlugin *g_pMapPrj = NULL;
 static_assert(MAPPRJ_DO_PRJ == plugin::kAmMsgProjDoPrj);
 
 extern "C" {
-int __declspec(dllexport) GetPluginVersion(void) { return 1; }
+int __declspec(dllexport) GetPluginVersion(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
+  return 1;
+}
 
 void __declspec(dllexport) StartPlugin(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
   g_pMapPrj = new SmtMapPrjPlugin();
   if (g_pMapPrj) {
     g_pMapPrj->Init();
@@ -26,6 +30,7 @@ void __declspec(dllexport) StartPlugin(void) {
 }
 
 void __declspec(dllexport) StopPlugin(void) {
+  AFX_MANAGE_STATE(AfxGetStaticModuleState());
   if (g_pMapPrj) {
     g_pMapPrj->Destroy();
   }

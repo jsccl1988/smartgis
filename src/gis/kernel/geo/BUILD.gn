@@ -10,6 +10,7 @@ source_set("geo_sources") {
   sources = [
     "ops/geo_ops.cc",
     "mesh/grid.cpp",
+    "mesh/hex_grid.cpp",
     "mesh/tin.cpp",
   ]
   configs += [ "//build:legacy" ]

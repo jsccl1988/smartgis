@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<ui name="world3d_tin_loader">
+  <style src="tin_loader.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="vertex_label" text="Vertex file"/>
+    <hbox id="vertex_row" class="row">
+      <textfield id="vertex_path"/>
+      <button id="browse_vertex" text="Browse..."/>
+    </hbox>
+
+    <label id="sep_label" text="Separator"/>
+    <hbox id="sep_row" class="row">
+      <radiobutton id="radio_tab" text="Tab" group="1"/>
+      <radiobutton id="radio_space" text="Space" group="1"/>
+      <radiobutton id="radio_comma" text="Comma" group="1" selected="true"/>
+    </hbox>
+
+    <hbox id="skip_row" class="row">
+      <vbox id="head_col" class="field">
+        <label id="head_label" text="Head skip"/>
+        <textfield id="head_skip" text="1"/>
+      </vbox>
+      <vbox id="line_col" class="field">
+        <label id="line_label" text="Line skip"/>
+        <textfield id="line_skip" text="4"/>
+      </vbox>
+    </hbox>
+
+    <hbox id="col_row" class="row">
+      <vbox id="col_x_box" class="field">
+        <label id="col_x_label" text="X column"/>
+        <combobox id="col_x"/>
+      </vbox>
+      <vbox id="col_y_box" class="field">
+        <label id="col_y_label" text="Y column"/>
+        <combobox id="col_y"/>
+      </vbox>
+      <vbox id="col_z_box" class="field">
+        <label id="col_z_label" text="Z column"/>
+        <combobox id="col_z"/>
+      </vbox>
+    </hbox>
+
+    <hbox id="scale_row" class="row">
+      <vbox id="x_scale_box" class="field">
+        <label id="x_scale_label" text="X scale"/>
+        <textfield id="x_scale" text="0.05"/>
+      </vbox>
+      <vbox id="y_scale_box" class="field">
+        <label id="y_scale_label" text="Y scale"/>
+        <textfield id="y_scale" text="0.05"/>
+      </vbox>
+      <vbox id="z_scale_box" class="field">
+        <label id="z_scale_label" text="Z scale"/>
+        <textfield id="z_scale" text="0.05"/>
+      </vbox>
+    </hbox>
+
+    <checkbox id="use_texture" text="Use texture"/>
+    <hbox id="texture_row" class="row">
+      <textfield id="texture_path"/>
+      <button id="browse_texture" text="Texture..."/>
+    </hbox>
+
+    <checkbox id="gen_2d_tin" text="Generate 2D TIN layer"/>
+    <combobox id="tin_layer">
+      <item text="(none)"/>
+    </combobox>
+
+    <table id="preview" columns="Row"/>
+
+    <hbox id="actions" class="row actions">
+      <button id="ok" text="OK"/>
+      <button id="cancel" text="Cancel"/>
+    </hbox>
+  </vbox>
+</ui>

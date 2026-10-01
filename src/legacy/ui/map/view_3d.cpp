@@ -16,8 +16,8 @@
 #include "legacy/core/listener/listener_manager.h"
 #include "legacy/plugin/runtime/auxmodule/module_manager.h"
 #include "legacy/plugin/runtime/auxmodule/plugin_msg.h"
-#include "legacy/render/scene3d/bridge/map_to_scene.h"
-#include "legacy/render/scene3d/primitive/cube.h"
+#include "legacy/render/scene3d/seed/map_to_scene.h"
+#include "legacy/render/scene3d/primitive/mesh/cube.h"
 #include "legacy/sys/sysmanager.h"
 #include "legacy/tool/nav/3dviewctrltool.h"
 #include "legacy/tool/abi/t_iatoolmanager.h"
@@ -178,7 +178,7 @@ void Smt3DXView::OnSize(UINT nType, int cx, int cy) {
 
     if (m_pScene) {
       if (SmtPerspCamera *cam = m_pScene->GetSceneCamera()) {
-        cam->SetViewport(viewport);
+        cam->set_viewport(viewport);
       }
     }
 

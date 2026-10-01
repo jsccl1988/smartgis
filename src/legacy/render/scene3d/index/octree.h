@@ -11,7 +11,6 @@
 namespace render {
 
 // LP3DRENDERDEVICE comes from scene/object.h (forward decl only there).
-class SmtFrustum;
 
 class SmtScene;
 struct SceneOctreeAux;

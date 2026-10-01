@@ -4,7 +4,7 @@
 #include "render/rhi/rhi.h"
 #include "effect/scene/scene.h"
 #include "gis/vista/world/world.h"
-#include "gis/vista/world/terrain/tessellate.h"
+#include "gis/vista/world/terrain/mesh/tessellate.h"
 
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "gis/kernel/geo/mesh/geometry.h"

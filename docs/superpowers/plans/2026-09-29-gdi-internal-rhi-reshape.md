@@ -27,8 +27,8 @@ All rights reserved.
 
 | Path | Role |
 | --- | --- |
-| `impl/gdi/core/surface/*` | `GdiSurface` / `GdiSurfacePool` / `GdiOwnedSurface` / compose |
-| `impl/gdi/core/encode/*` | `GdiCommandEncoder` / `GdiCommandBuffer` |
+| `impl/gdi/core/surface/*` | `Rhi2dSurface` / `Rhi2dSurfacePool` / `Rhi2dOwnedSurface` / compose |
+| `impl/gdi/core/encode/*` | `Rhi2dCommandEncoder` / `Rhi2dCommandBuffer` |
 | `impl/gdi/core/paint/*` | Paint player (Draw* execution) |
 | `impl/gdi/core/host/*` | Device facade + UI helpers |
 | `impl/gdi/core/worker/*` | FrameJob lane |
@@ -38,16 +38,16 @@ All rights reserved.
 
 ### Task 1: Phase 1 — Resource / Surface (paths: `core/surface/` + compose tests)
 
-- [x] Rename `SmtSurfacePool` → `GdiSurfacePool` (update `gdi_surface_pool()` return type + all refs).
-- [x] Extend `GdiSurface` with `generation` + dirty rect helpers (`mark_dirty` / `clear_dirty` / `dirty` union).
-- [x] `GdiOwnedSurface::clear` / paint paths bump generation and dirty when bits change.
+- [x] Rename `SmtSurfacePool` → `Rhi2dSurfacePool` (update `gdi_surface_pool()` return type + all refs).
+- [x] Extend `Rhi2dSurface` with `generation` + dirty rect helpers (`mark_dirty` / `clear_dirty` / `dirty` union).
+- [x] `Rhi2dOwnedSurface::clear` / paint paths bump generation and dirty when bits change.
 - [x] Unit coverage in `gdi_compose_test` (or new `surface_pool_test`) for pool reuse + dirty.
 - [x] `build.bat debug gdi_compose_test` green; run the test exe.
 
 ### Task 2: Phase 2 — CommandEncoder scaffold (paths: `core/encode/` **only** + BUILD add)
 
 - [x] Add `core/encode/command_buffer.h` — typed ops enum + POD args (clear, fill_rect, blit, set_style stub).
-- [x] Add `core/encode/command_encoder.h/.cc` — `begin_pass(GdiSurface*)`, record ops, `end_pass()`, `take_buffer()`, `replay()` via simple GDI player (FillRect/BitBlt only for v1).
+- [x] Add `core/encode/command_encoder.h/.cc` — `begin_pass(Rhi2dSurface*)`, record ops, `end_pass()`, `take_buffer()`, `replay()` via simple GDI player (FillRect/BitBlt only for v1).
 - [x] Add `test/encode_test.cc` + GN `gdi_encode_test` (static like compose_test).
 - [x] Do **not** edit `surface_pool.*` or `host/render_device.*` in this task.
 - [x] `build.bat debug gdi_encode_test` green.

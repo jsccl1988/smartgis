@@ -11,13 +11,13 @@ namespace app {
 
 class Browser;
 
-// Kind of in-process harness path (aligns with suites/*.json "kind").
+// Kind of in-process harness path (aligns with suite.json "kind").
 enum class ScenarioKind {
   kSelfTest,
   kShowcase,
 };
 
-// One registered suite entry. |id| matches testing/tools/suites/<id>.json.
+// One registered suite entry. |id| matches testing/tools/harness/<family>/<id>/suite.json.
 struct Scenario {
   const char* id;
   ScenarioKind kind;

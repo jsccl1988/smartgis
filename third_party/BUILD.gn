@@ -51,6 +51,10 @@ group("gdal") {
   public_deps = [ "//third_party/gn:gdal" ]
 }
 
+group("pdal") {
+  public_deps = [ "//third_party/gn:pdal" ]
+}
+
 group("gdal_runtime_dlls") {
   public_deps = [ "//third_party/gn:gdal_runtime_dlls" ]
 }
@@ -130,6 +134,10 @@ group("tinygltf") {
 
 group("octree") {
   public_deps = [ "//third_party/gn:octree" ]
+}
+
+group("laszip") {
+  public_deps = [ "//third_party/laszip:laszip" ]
 }
 
 group("CLI11") {

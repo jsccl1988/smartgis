@@ -1,6 +1,8 @@
-// Copyright (c) 2010 CCL. All rights reserved.
-#ifndef _FBO_FUNCS_H
-#define _FBO_FUNCS_H
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef LEGACY_RENDER_RHI3D_IMPL_GL_EXT_FBO_FUNC_H_
+#define LEGACY_RENDER_RHI3D_IMPL_GL_EXT_FBO_FUNC_H_
 
 #include "legacy/render/rhi3d/impl/gl/prerequisites.h"
 
@@ -8,37 +10,42 @@ namespace render {
 class SmtGLRenderDevice;
 typedef class SmtGLRenderDevice *LPGLRENDERDEVICE;
 
+// Stub FBO entry points (real procs live in SmtFBOFuncImpl).
 class SmtFBOFunc {
  public:
-  SmtFBOFunc();
-  virtual ~SmtFBOFunc();
-  virtual long Initialize(LPGLRENDERDEVICE pGLRenderDevice);
+  SmtFBOFunc() = default;
+  virtual ~SmtFBOFunc() = default;
+  virtual long Initialize(LPGLRENDERDEVICE /*pGLRenderDevice*/) {
+    return SMT_ERR_NONE;
+  }
 
- public:
-  virtual void glGenFramebuffers(GLsizei count, GLuint *ids);
-  virtual void glDeleteFramebuffers(GLsizei count, GLuint *ids);
-  virtual void glBindFramebuffer(GLenum target, GLuint id);
-  virtual GLboolean glIsFramebuffer(GLuint id);
-  virtual void glGenRenderbuffers(GLsizei count, GLuint *ids);
-  virtual void glDeleteRenderbuffers(GLsizei count, GLuint *ids);
-  virtual void glBindRenderbuffer(GLenum target, GLuint id);
-  virtual GLboolean glIsRenderbuffer(GLuint id);
-  virtual void glRenderbufferStorage(GLenum target, GLenum internalFormat,
-                                     GLsizei width, GLsizei height);
-  virtual void glFramebufferRenderbuffer(GLenum target, GLenum attachment,
-                                         GLenum rbTarget, GLuint rbId);
-  virtual int getMaxColorAttachments();
-  virtual void glFramebufferTexture1D(GLenum target, GLenum attachment,
-                                      GLenum texTarget, GLuint texId,
-                                      int level);
-  virtual void glFramebufferTexture2D(GLenum target, GLenum attachment,
-                                      GLenum texTarget, GLuint texId,
-                                      int level);
-  virtual void glFramebufferTexture3D(GLenum target, GLenum attachment,
-                                      GLenum texTarget, GLuint texId, int level,
-                                      int zOffset);
-  virtual GLenum glCheckFramebufferStatus(GLenum target);
+  virtual void glGenFramebuffers(GLsizei /*count*/, GLuint * /*ids*/) {}
+  virtual void glDeleteFramebuffers(GLsizei /*count*/, GLuint * /*ids*/) {}
+  virtual void glBindFramebuffer(GLenum /*target*/, GLuint /*id*/) {}
+  virtual GLboolean glIsFramebuffer(GLuint /*id*/) { return GL_FALSE; }
+  virtual void glGenRenderbuffers(GLsizei /*count*/, GLuint * /*ids*/) {}
+  virtual void glDeleteRenderbuffers(GLsizei /*count*/, GLuint * /*ids*/) {}
+  virtual void glBindRenderbuffer(GLenum /*target*/, GLuint /*id*/) {}
+  virtual GLboolean glIsRenderbuffer(GLuint /*id*/) { return GL_FALSE; }
+  virtual void glRenderbufferStorage(GLenum /*target*/,
+                                     GLenum /*internalFormat*/,
+                                     GLsizei /*width*/, GLsizei /*height*/) {}
+  virtual void glFramebufferRenderbuffer(GLenum /*target*/,
+                                         GLenum /*attachment*/,
+                                         GLenum /*rbTarget*/, GLuint /*rbId*/) {
+  }
+  virtual int getMaxColorAttachments() { return 0; }
+  virtual void glFramebufferTexture1D(GLenum /*target*/, GLenum /*attachment*/,
+                                      GLenum /*texTarget*/, GLuint /*texId*/,
+                                      int /*level*/) {}
+  virtual void glFramebufferTexture2D(GLenum /*target*/, GLenum /*attachment*/,
+                                      GLenum /*texTarget*/, GLuint /*texId*/,
+                                      int /*level*/) {}
+  virtual void glFramebufferTexture3D(GLenum /*target*/, GLenum /*attachment*/,
+                                      GLenum /*texTarget*/, GLuint /*texId*/,
+                                      int /*level*/, int /*zOffset*/) {}
+  virtual GLenum glCheckFramebufferStatus(GLenum /*target*/) { return 0; }
 };
 }  // namespace render
 
-#endif  //_FBO_FUNCS_H
+#endif  // LEGACY_RENDER_RHI3D_IMPL_GL_EXT_FBO_FUNC_H_

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+//
 // Microsoft Visual C++ generated resource script.
 //
 #include "resource.h"
@@ -16,7 +19,7 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// ����(�л����񹲺͹�) resources
+// Chinese (Simplified, PRC) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
 #ifdef _WIN32
@@ -54,7 +57,7 @@ BEGIN
     "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)\r\n"
     "LANGUAGE 4, 2\r\n"
     "#pragma code_page(936)\r\n"
-    "#include ""../res/shell/shell.rc2""  // �� Microsoft Visual C++ �༭����Դ\r\n"
+    "#include ""../res/shell/shell.rc2""\r\n"
     "#endif\r\n"
     "\0"
 END
@@ -70,23 +73,23 @@ END
 
 IDR_MENU_VIEWMAP MENU 
 BEGIN
-    POPUP "��ά���"
+    POPUP "Map View"
     BEGIN
-        MENUITEM "�Ŵ�",                          ID_VIEW_ZOOMIN
-        MENUITEM "��С",                          ID_VIEW_ZOOMOUT
-        MENUITEM "�ƶ�",                          ID_VIEW_ZOOMMOVE
-        MENUITEM "��λ",                          ID_VIEW_ZOOMRESTORE
-        MENUITEM "����",                          ID_VIEW_ZOOMREFRESH
+        MENUITEM "Zoom In",                       ID_VIEW_ZOOMIN
+        MENUITEM "Zoom Out",                      ID_VIEW_ZOOMOUT
+        MENUITEM "Pan",                           ID_VIEW_ZOOMMOVE
+        MENUITEM "Reset",                         ID_VIEW_ZOOMRESTORE
+        MENUITEM "Refresh",                       ID_VIEW_ZOOMREFRESH
     END
-    POPUP "��ά���"
+    POPUP "3D View"
     BEGIN
-        MENUITEM "׷����ģʽ",                       ID_VIEW3D_TRACEBALL
-        MENUITEM "�������ģʽ",                      ID_VIEW3D_SPHERECAMERA
-        MENUITEM "��һ�ӽ�ģʽ",                      ID_VIEW3D_FP
+        MENUITEM "Trackball",                     ID_VIEW3D_TRACEBALL
+        MENUITEM "Sphere Camera",                 ID_VIEW3D_SPHERECAMERA
+        MENUITEM "First Person",                  ID_VIEW3D_FP
     END
 END
 
-#endif    // ����(�л����񹲺͹�) resources
+#endif    // Chinese (Simplified, PRC) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
@@ -104,7 +107,7 @@ END
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
 LANGUAGE 4, 2
 #pragma code_page(936)
-#include "../res/shell/shell.rc2"  // �� Microsoft Visual C++ �༭����Դ
+#include "../res/shell/shell.rc2"
 #ifndef _AFXDLL
 #include "l.CHS//afxres.rc"
 #endif
@@ -112,4 +115,3 @@ LANGUAGE 4, 2
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
-

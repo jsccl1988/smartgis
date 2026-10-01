@@ -26,6 +26,10 @@ Copyright (c) 2010 CCL. All rights reserved.
 using namespace plugin;
 
 namespace ui {
+
+// Decode leftover CP936 or UTF-8 AM titles into a CString for the process ACP.
+CString ambox_title_for_display(const char* name);
+
 class XAMBOX_EXPORT SmtXAMBox : public CTreeCtrl {
   DECLARE_DYNAMIC(SmtXAMBox)
 

@@ -23,7 +23,7 @@
 #include "content/public/map_types.h"
 #include "gis/present/style/style_types.h"
 #include "gis/present/tile/provider/tile_provider.h"
-#include "gis/vista/world/terrain/land_mask.h"
+#include "gis/vista/world/terrain/process/land_mask.h"
 #include "tool/draft/draft.h"
 
 namespace content {
@@ -146,6 +146,11 @@ class MapScene {
   bool add_triangle_layer(const std::string& name, const double* xyz,
                           int point_count, const int* triangles,
                           int triangle_count);
+
+  // Point features from interleaved XYZ (map uses X,Y). Optional RGBA writes
+  // field "color" (#RRGGBB) for style ["get","color"].
+  bool add_point_cloud_layer(const std::string& name, const float* xyz,
+                             int point_count, const uint8_t* rgba = nullptr);
 
   // Hit-test in map space. |tol_map| is the caller's tolerance. Selects at
   // most one feature. Use nested Feature (not detail::MapFeature) so MSVC

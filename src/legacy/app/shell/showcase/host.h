@@ -5,6 +5,7 @@
 #define LEGACY_APP_SHELL_SHOWCASE_HOST_H_
 
 #include <cstdio>
+#include <cstdlib>
 
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "base/core/log.h"
@@ -23,7 +24,8 @@ inline void write_showcase_mark(const char *mark_leaf, const char *log_tag,
                                 const char *step) {
   char path[MAX_PATH] = {};
   FILE *f = nullptr;
-  if (app::detail::exe_sidecar_path_a(path, MAX_PATH, mark_leaf) &&
+  // Harness reads marks under out/<config>/captures/ (not gen-root sidecar).
+  if (app::detail::exe_capture_path_a(path, MAX_PATH, mark_leaf) &&
       fopen_s(&f, path, "a") == 0 && f) {
     std::fprintf(f, "%s\n", step);
     std::fclose(f);
@@ -31,6 +33,33 @@ inline void write_showcase_mark(const char *mark_leaf, const char *log_tag,
   LOGGING(LOG_INFO, "%s: %s", log_tag, step);
   std::fprintf(stderr, "%s: %s\n", log_tag, step);
   std::fflush(stderr);
+}
+
+// Optional forensic linger before TerminateProcess (harness OS inject / record).
+// Env value <=0 or unset: no linger. Pumps a lightweight message loop.
+inline void showcase_linger_from_env(const char *env_name) {
+  if (!env_name || !env_name[0]) {
+    return;
+  }
+  const char *raw = std::getenv(env_name);
+  if (!raw || !raw[0]) {
+    return;
+  }
+  const int ms = std::atoi(raw);
+  if (ms <= 0) {
+    return;
+  }
+  std::fprintf(stderr, "showcase linger: %s=%d\n", env_name, ms);
+  std::fflush(stderr);
+  const DWORD deadline = GetTickCount() + static_cast<DWORD>(ms);
+  MSG msg = {};
+  while (static_cast<int>(deadline - GetTickCount()) > 0) {
+    while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+      TranslateMessage(&msg);
+      DispatchMessageW(&msg);
+    }
+    Sleep(10);
+  }
 }
 
 inline LRESULT CALLBACK showcase_blank_wnd_proc(HWND hwnd, UINT msg,

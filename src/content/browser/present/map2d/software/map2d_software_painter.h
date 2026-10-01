@@ -13,6 +13,8 @@
 #endif
 #include <windows.h>
 
+#include "content/browser/present/map2d/frame/map2d_frame_cache.h"
+
 namespace content {
 
 class Map2dFrameCache;
@@ -24,6 +26,7 @@ class ViewFrame;
 class Map2dSoftwarePainter {
  public:
   Map2dSoftwarePainter() = default;
+  ~Map2dSoftwarePainter();
 
   Map2dSoftwarePainter(const Map2dSoftwarePainter&) = delete;
   Map2dSoftwarePainter& operator=(const Map2dSoftwarePainter&) = delete;
@@ -43,14 +46,33 @@ class Map2dSoftwarePainter {
   bool export_bmp(const std::string& path, int width_px, int height_px) const;
   size_t basemap_tiles_drawn() const { return basemap_tiles_drawn_; }
 
+  // Drop pixel reuse cache (call with Map2dFrameCache::invalidate).
+  void invalidate_present_cache() const { clear_present_cache(); }
+
  private:
   void paint_basemap_underlay(HDC hdc, int width_px, int height_px) const;
   void paint_selection_overlay(HDC hdc, int width_px, int height_px) const;
+
+  // Blit cached map DIB when layout+camera unchanged (StaticReuse / settle
+  // debounce). Avoids full china GDI replay every InvalidateRect.
+  bool try_blit_present_cache(HDC hdc, int width_px, int height_px,
+                              uint64_t layout_gen) const;
+  void store_present_cache(HDC src, int width_px, int height_px,
+                           uint64_t layout_gen,
+                           const Map2dFrameCache::CameraKey& cam) const;
+  void clear_present_cache() const;
 
   const MapScene* scene_ = nullptr;
   const ViewFrame* frame_ = nullptr;
   Map2dFrameCache* cache_ = nullptr;
   mutable size_t basemap_tiles_drawn_ = 0;
+
+  mutable HBITMAP present_cache_bmp_ = nullptr;
+  mutable HDC present_cache_dc_ = nullptr;
+  mutable int present_cache_w_ = 0;
+  mutable int present_cache_h_ = 0;
+  mutable uint64_t present_cache_layout_gen_ = 0;
+  mutable Map2dFrameCache::CameraKey present_cache_cam_{};
 };
 
 }  // namespace content

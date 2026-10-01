@@ -1,7 +1,13 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #include "legacy/render/rhi3d/impl/gl/host/render_device.h"
+
+#include <cstring>
 
 #include "base/core/log.h"
 #include "legacy/render/rhi2d/public/device/renderdevice.h"
+#include "legacy/render/rhi3d/impl/gl/caps/device_caps.h"
 #include "legacy/render/rhi3d/impl/gl/ext/fbo_func_imp.h"
 #include "legacy/render/rhi3d/impl/gl/ext/mipmap_func_imp.h"
 #include "legacy/render/rhi3d/impl/gl/ext/multitexture_func_imp.h"
@@ -16,36 +22,79 @@
 using namespace base;
 
 namespace render {
+Smt3DDeviceCaps* SmtGLRenderDevice::GetDeviceCaps() {
+  return static_cast<Smt3DDeviceCaps*>(m_pDeviceCaps);
+}
+
 SmtGLRenderDevice::SmtGLRenderDevice()
-    : m_pDeviceCaps(NULL),
-      m_pStateManager(NULL),
-      m_pFuncShaders(NULL),
-      m_pFuncMultTex(NULL),
-      m_pFuncVSync(NULL),
-      m_pFuncMipmap(NULL),
-      m_hWnd(NULL),
-      m_hPaintDC(NULL),
-      m_hRC(NULL) {
+    : m_pStateManager(nullptr),
+      m_pDeviceCaps(nullptr),
+      m_pFuncShaders(nullptr),
+      m_pFuncMultTex(nullptr),
+      m_pFuncVSync(nullptr),
+      m_pFuncMipmap(nullptr),
+      m_pFuncVBO(nullptr),
+      m_pFuncFBO(nullptr),
+      m_hWnd(nullptr),
+      m_hPaintDC(nullptr),
+      m_hRC(nullptr) {
   m_rBaseApi = RA_OPENGL;
-  m_hDLL = NULL;
-  m_strLogName = "";
+  m_hDLL = nullptr;
+  m_strLogName.clear();
   m_pStateManager = new SmtGLGPUStateManager();
 }
 
 SmtGLRenderDevice::SmtGLRenderDevice(HINSTANCE hDLL)
-    : m_pDeviceCaps(NULL),
-      m_pStateManager(NULL),
-      m_pFuncShaders(NULL),
-      m_pFuncMultTex(NULL),
-      m_pFuncVSync(NULL),
-      m_pFuncMipmap(NULL),
-      m_hWnd(NULL),
-      m_hPaintDC(NULL),
-      m_hRC(NULL) {
+    : m_pStateManager(nullptr),
+      m_pDeviceCaps(nullptr),
+      m_pFuncShaders(nullptr),
+      m_pFuncMultTex(nullptr),
+      m_pFuncVSync(nullptr),
+      m_pFuncMipmap(nullptr),
+      m_pFuncVBO(nullptr),
+      m_pFuncFBO(nullptr),
+      m_hWnd(nullptr),
+      m_hPaintDC(nullptr),
+      m_hRC(nullptr) {
   m_rBaseApi = RA_OPENGL;
   m_hDLL = hDLL;
-  m_strLogName = "";
+  m_strLogName.clear();
   m_pStateManager = new SmtGLGPUStateManager();
+}
+
+bool SmtGLRenderDevice::IsExtensionSupported(std::string_view extension) {
+  if (extension.empty()) {
+    return false;
+  }
+  if (gl_extensions_cache_.empty()) {
+    const char* ext = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
+    if (!ext) {
+      return false;
+    }
+    gl_extensions_cache_ = ext;
+  }
+  // Space-delimited token match (avoid substring false positives).
+  const char* hay = gl_extensions_cache_.c_str();
+  const size_t needle_len = extension.size();
+  while (*hay) {
+    while (*hay == ' ') {
+      ++hay;
+    }
+    if (!*hay) {
+      break;
+    }
+    const char* end = hay;
+    while (*end && *end != ' ') {
+      ++end;
+    }
+    const size_t token_len = static_cast<size_t>(end - hay);
+    if (token_len == needle_len &&
+        std::strncmp(hay, extension.data(), needle_len) == 0) {
+      return true;
+    }
+    hay = end;
+  }
+  return false;
 }
 
 SmtGLRenderDevice::~SmtGLRenderDevice() { Release(); }
@@ -53,9 +102,6 @@ SmtGLRenderDevice::~SmtGLRenderDevice() { Release(); }
 long SmtGLRenderDevice::Init(HWND hWnd, const char *logname) {
   assert(::IsWindow(hWnd));
   m_hWnd = hWnd;
-  // Present strangler: wire HWND into leftover_session (Null recording).
-  // GL owns SwapBuffers on this HWND; do not create FlyCube here.
-  bind_rhi_present(hWnd);
 
   LOGGING(LOG_INFO, "Init OpenGL 3DRenderDevice ok!");
 
@@ -134,6 +180,7 @@ long SmtGLRenderDevice::Init(HWND hWnd, const char *logname) {
 }
 
 long SmtGLRenderDevice::Destroy() {
+  gl_extensions_cache_.clear();
   // ~SmtGLText calls glDeleteLists. That AV's if it runs after
   // wglDeleteContext, which is what window close used to do: Destroy()
   // dropped the context, then ~SmtGLRenderDevice::Release() freed fonts.
@@ -175,16 +222,16 @@ long SmtGLRenderDevice::Destroy() {
   }
   m_progamMgr.DestroyAllProgram();
 
-  if (::wglGetCurrentContext()) ::wglMakeCurrent(NULL, NULL);
+  if (::wglGetCurrentContext()) ::wglMakeCurrent(nullptr, nullptr);
 
   if (m_hPaintDC && m_hWnd) {
     ::ReleaseDC(m_hWnd, m_hPaintDC);
-    m_hPaintDC = NULL;
+    m_hPaintDC = nullptr;
   }
 
   if (m_hRC) {
     ::wglDeleteContext(m_hRC);
-    m_hRC = NULL;
+    m_hRC = nullptr;
   }
 
   SMT_SAFE_DELETE(m_pDeviceCaps);
@@ -221,11 +268,10 @@ long SmtGLRenderDevice::SetDeviceCaps(void) {
   else
     m_pFuncMultTex = new SmtMultitextureFunc();
 
-  if (NULL != m_pFuncMultTex &&
-      SMT_ERR_NONE == m_pFuncMultTex->Initialize(this))
-    ;
-  else
+  if (!m_pFuncMultTex ||
+      SMT_ERR_NONE != m_pFuncMultTex->Initialize(this)) {
     return SMT_ERR_FAILURE;
+  }
 
   /* Init GL_ARB_vertex_buffer_object */
   if (m_pDeviceCaps->IsVBOSupported())
@@ -233,10 +279,9 @@ long SmtGLRenderDevice::SetDeviceCaps(void) {
   else
     m_pFuncVBO = new SmtVBOFunc();
 
-  if (NULL != m_pFuncVBO && SMT_ERR_NONE == m_pFuncVBO->Initialize(this))
-    ;
-  else
+  if (!m_pFuncVBO || SMT_ERR_NONE != m_pFuncVBO->Initialize(this)) {
     return SMT_ERR_FAILURE;
+  }
 
   /* Init shaders */
   if (m_pDeviceCaps->IsGLSLSupported())
@@ -244,11 +289,9 @@ long SmtGLRenderDevice::SetDeviceCaps(void) {
   else
     m_pFuncShaders = new SmtShadersFunc();
 
-  if (NULL != m_pFuncShaders &&
-      SMT_ERR_NONE == m_pFuncShaders->Initialize(this))
-    ;
-  else
+  if (!m_pFuncShaders || SMT_ERR_NONE != m_pFuncShaders->Initialize(this)) {
     return SMT_ERR_FAILURE;
+  }
 
   /* Init frame buffer objects */
   if (m_pDeviceCaps->IsFBOSupported())
@@ -256,10 +299,9 @@ long SmtGLRenderDevice::SetDeviceCaps(void) {
   else
     m_pFuncFBO = new SmtFBOFunc();
 
-  if (NULL != m_pFuncFBO && SMT_ERR_NONE == m_pFuncFBO->Initialize(this))
-    ;
-  else
+  if (!m_pFuncFBO || SMT_ERR_NONE != m_pFuncFBO->Initialize(this)) {
     return SMT_ERR_FAILURE;
+  }
 
   /* Init mimmap generation */
   if (m_pDeviceCaps->IsMipMapsSupported())
@@ -267,10 +309,9 @@ long SmtGLRenderDevice::SetDeviceCaps(void) {
   else
     m_pFuncMipmap = new SmtMipmapFunc();
 
-  if (NULL != m_pFuncMipmap && SMT_ERR_NONE == m_pFuncMipmap->Initialize(this))
-    ;
-  else
+  if (!m_pFuncMipmap || SMT_ERR_NONE != m_pFuncMipmap->Initialize(this)) {
     return SMT_ERR_FAILURE;
+  }
 
   /* Init VSync extension */
   if (m_pDeviceCaps->IsVSyncSupported())
@@ -278,10 +319,9 @@ long SmtGLRenderDevice::SetDeviceCaps(void) {
   else
     m_pFuncVSync = new SmtVSyncFunc();
 
-  if (NULL != m_pFuncVSync && SMT_ERR_NONE == m_pFuncVSync->Initialize(this))
-    ;
-  else
+  if (!m_pFuncVSync || SMT_ERR_NONE != m_pFuncVSync->Initialize(this)) {
     return SMT_ERR_FAILURE;
+  }
 
   return SMT_ERR_NONE;
 }

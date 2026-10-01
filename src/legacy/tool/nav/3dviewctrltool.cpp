@@ -81,9 +81,9 @@ void Smt3DViewCtrlTool::sync_org_pose() {
   if (!m_pCamera) {
     return;
   }
-  m_vOrgEye = m_pCamera->GetEye();
-  m_vOrgTarget = m_pCamera->GetTarget();
-  m_vOrgUp = m_pCamera->GetUp();
+  m_vOrgEye = m_pCamera->eye();
+  m_vOrgTarget = m_pCamera->target();
+  m_vOrgUp = m_pCamera->up();
 }
 
 int Smt3DViewCtrlTool::AuxDraw() { return SMT_ERR_NONE; }
@@ -95,14 +95,14 @@ void Smt3DViewCtrlTool::ReplaceCamera(render::View3dCameraKind kind,
     return;
   }
   Viewport3D viewport = m_p3DRenderDevice->GetViewport();
-  m_pCamera = render::make_view3d_camera(kind, m_p3DRenderDevice, viewport);
+  m_pCamera = render::make_view3d_camera(kind, m_p3DRenderDevice, viewport).release();
   if (!m_pCamera) {
     return;
   }
-  m_pCamera->SetETU(m_vOrgEye, m_vOrgTarget, m_vOrgUp);
+  m_pCamera->set_etu(m_vOrgEye, m_vOrgTarget, m_vOrgUp);
   if (m_pScene) {
     Aabb aabb = m_pScene->GetAabb();
-    m_pCamera->SetMoveStep((aabb.vcMax - aabb.vcMin).length() / step_div);
+    m_pCamera->set_move_step((aabb.vcMax - aabb.vcMin).length() / step_div);
     m_pScene->SetSceneCamera(m_pCamera);
   }
 }
@@ -131,9 +131,9 @@ int Smt3DViewCtrlTool::notify(long nMsg, SmtListenerMsg& param) {
           m_vOrgTarget = (aabb.vcMax + aabb.vcMin) / 2.;
           m_vOrgUp = Vector3(0.f, 1.f, 0.f);
 
-          m_pCamera->SetViewport(viewport);
-          m_pCamera->SetETU(m_vOrgEye, m_vOrgTarget, m_vOrgUp);
-          m_pCamera->SetMoveStep((aabb.vcMax - aabb.vcMin).length() / 100);
+          m_pCamera->set_viewport(viewport);
+          m_pCamera->set_etu(m_vOrgEye, m_vOrgTarget, m_vOrgUp);
+          m_pCamera->set_move_step((aabb.vcMax - aabb.vcMin).length() / 100);
         }
       } break;
     }
@@ -167,7 +167,7 @@ int Smt3DViewCtrlTool::notify(long nMsg, SmtListenerMsg& param) {
 
         ReplaceCamera(render::View3dCameraKind::kFps, 100.f);
         if (m_pCamera) {
-          ((SmtFPSCamera*)m_pCamera)->SetWinCenter(point);
+          ((SmtFPSCamera*)m_pCamera)->set_win_center(point);
         }
 
         m_viewMode = V3DM_FirstPerson;
@@ -187,9 +187,9 @@ int Smt3DViewCtrlTool::notify(long nMsg, SmtListenerMsg& param) {
         m_vOrgTarget = (aabb.vcMax + aabb.vcMin) / 2.;
         m_vOrgUp = Vector3(0.f, 1.f, 0.f);
 
-        m_pCamera->SetViewport(viewport);
-        m_pCamera->SetETU(m_vOrgEye, m_vOrgTarget, m_vOrgUp);
-        m_pCamera->SetMoveStep((aabb.vcMax - aabb.vcMin).length() / 100);
+        m_pCamera->set_viewport(viewport);
+        m_pCamera->set_etu(m_vOrgEye, m_vOrgTarget, m_vOrgUp);
+        m_pCamera->set_move_step((aabb.vcMax - aabb.vcMin).length() / 100);
       }
       if (!via_ws) {
         SetActive();
@@ -203,7 +203,7 @@ int Smt3DViewCtrlTool::notify(long nMsg, SmtListenerMsg& param) {
           m_nWinWidth = vp.ulWidth;
           m_nWinHeight = vp.ulHeight;
           if (m_pCamera) {
-            m_pCamera->SetViewport(vp);
+            m_pCamera->set_viewport(vp);
           }
         }
       } break;
@@ -326,34 +326,34 @@ void Smt3DViewCtrlTool::ApplyCameraKey(uint nChar) {
   }
   switch (nChar) {
     case 'W':
-      m_pCamera->MoveForward();
+      m_pCamera->move_forward();
       break;
     case 'S':
-      m_pCamera->MoveBack();
+      m_pCamera->move_back();
       break;
     case 'A':
-      m_pCamera->MoveLeft();
+      m_pCamera->move_left();
       break;
     case 'D':
-      m_pCamera->MoveRight();
+      m_pCamera->move_right();
       break;
     case VK_UP:
-      m_pCamera->MoveUp();
+      m_pCamera->move_up();
       break;
     case VK_DOWN:
-      m_pCamera->MoveDown();
+      m_pCamera->move_down();
       break;
     case VK_LEFT:
-      m_pCamera->Roll(PI / 120);
+      m_pCamera->roll(PI / 120);
       break;
     case VK_RIGHT:
-      m_pCamera->Roll(-PI / 120);
+      m_pCamera->roll(-PI / 120);
       break;
     case VK_PRIOR:
-      m_pCamera->SetMoveStep(m_pCamera->GetMoveStep() + 10);
+      m_pCamera->set_move_step(m_pCamera->move_step() + 10);
       break;
     case VK_NEXT:
-      m_pCamera->SetMoveStep(m_pCamera->GetMoveStep() - 10);
+      m_pCamera->set_move_step(m_pCamera->move_step() - 10);
       break;
     case 'K':
       if (m_p3DRenderDevice) {
@@ -440,7 +440,7 @@ void Smt3DViewCtrlTool::apply_draft(const tool::Draft& draft) {
   if (draft.kind == tool::DraftKind::kWheel) {
     if (m_pCamera) {
       // Zoom toward look-at (no terrain ray-pick on leftover camera).
-      m_pCamera->MoveEyeSmoothly(draft.wheel < 0);
+      m_pCamera->move_eye_smoothly(draft.wheel < 0);
     }
     return;
   }
@@ -454,7 +454,7 @@ void Smt3DViewCtrlTool::apply_draft(const tool::Draft& draft) {
   lPoint cur(draft.points.back().x_px, draft.points.back().y_px);
   if (m_viewMode == V3DM_FirstPerson) {
     if (m_pCamera) {
-      ((SmtFPSCamera*)m_pCamera)->SetViewByMouse();
+      ((SmtFPSCamera*)m_pCamera)->set_view_by_mouse();
     }
     m_pntCur = cur;
     return;
@@ -479,14 +479,14 @@ void Smt3DViewCtrlTool::apply_draft(const tool::Draft& draft) {
     const int dx = cur.x - pre.x;
     const int dy = cur.y - pre.y;
     if (dx <= -4) {
-      m_pCamera->MoveRight();
+      m_pCamera->move_right();
     } else if (dx >= 4) {
-      m_pCamera->MoveLeft();
+      m_pCamera->move_left();
     }
     if (dy <= -4) {
-      m_pCamera->MoveDown();
+      m_pCamera->move_down();
     } else if (dy >= 4) {
-      m_pCamera->MoveUp();
+      m_pCamera->move_up();
     }
     m_pntPre = pre;
     m_pntCur = cur;
@@ -516,7 +516,7 @@ void Smt3DViewCtrlTool::apply_draft(const tool::Draft& draft) {
       if (m_pCamera) {
         float deltx = static_cast<float>(cur.x - pre.x);
         float delty = static_cast<float>(pre.y - cur.y);
-        ((SmtArbvCamera*)m_pCamera)->SetArbitMove(deltx, delty);
+        ((SmtArbvCamera*)m_pCamera)->set_arbit_move(deltx, delty);
       }
       m_pntPre = pre;
       m_pntCur = cur;

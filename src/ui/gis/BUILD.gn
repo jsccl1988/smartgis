@@ -33,6 +33,8 @@ source_set("gis_sources") {
     "analysis/geoprocessing_history_panel.h",
     "analysis/processing_panel.cc",
     "analysis/processing_panel.h",
+    "analysis/result_playback_panel.cc",
+    "analysis/result_playback_panel.h",
     "analysis/spatial_analysis_panel.cc",
     "analysis/spatial_analysis_panel.h",
     "catalog/catalog_view.cc",

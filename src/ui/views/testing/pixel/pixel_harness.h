@@ -24,7 +24,7 @@ struct PixelBuffer {
 };
 
 // Paints `root` into an offscreen bitmap at 96-DIP baseline (scale 1.0).
-// Selects Segoe UI 12px on the DC so text matches Theme::measure_text_utf8.
+// Selects Segoe UI at kShellBodyFontDip so text matches Theme::measure_text_utf8.
 PixelBuffer capture_view_tree(std::unique_ptr<View> root, int width, int height,
                               float device_scale_factor = 1.f);
 

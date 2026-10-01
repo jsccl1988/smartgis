@@ -1,0 +1,29 @@
+{
+  "id": "smartgis.orthogrid3d",
+  "name": "3D正交网格",
+  "version": "1.0.0",
+  "api_version": 2,
+  "kind": "builtin",
+  "author": "The Mogu Authors",
+  "description": "3D body-fitted orthogrid: 8-corner hex + Laplace, HexGrid + VTK StructuredGrid (.vts).",
+  "contributes": {
+    "commands": [
+      {
+        "id": "orthogrid3d.generate",
+        "title": "Generate 3D orth grid",
+        "menu": "tools.orthogrid3d"
+      },
+      {
+        "id": "orthogrid3d.export_vts",
+        "title": "Export hex grid VTK",
+        "menu": "tools.orthogrid3d"
+      }
+    ],
+    "processing": [
+      {
+        "id": "orthogrid3d.create_hex_grid",
+        "title": "Create 3D orth hex grid"
+      }
+    ]
+  }
+}

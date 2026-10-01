@@ -71,13 +71,15 @@ CatalogView::CatalogView() {
 
   // Keep Map/Data/3D and Layers/Sources/Maps on one horizontal band — a separate
   // Catalog title row used to push source tabs down into the map chrome.
+  // Preferred width must fit three tab labels (Layers/Sources/Maps) without
+  // clipping into the Map tab accent (visual_review: Sources obscured).
   if (title_) {
     title_->set_visible(false);
     title_->set_preferred_size({0, 0});
   }
 
   auto tabs = std::make_unique<TabStrip>();
-  tabs->set_preferred_size({240, 280});
+  tabs->set_preferred_size({288, 280});
   tabs_ = tabs.get();
 
   auto layers = std::make_unique<LayerTree>();
@@ -108,9 +110,9 @@ CatalogView::CatalogView() {
 
   auto fill = std::make_unique<FillLayout>();
   set_layout_manager(std::move(fill));
-  loaded.root->set_preferred_size({240, 320});
+  loaded.root->set_preferred_size({288, 320});
   add_child(std::move(loaded.root));
-  set_preferred_size({240, 0});
+  set_preferred_size({288, 0});
 }
 
 void CatalogView::set_title(std::string title) {

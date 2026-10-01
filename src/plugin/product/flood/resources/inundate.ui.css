@@ -1,0 +1,56 @@
+/*
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+*/
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  width: 520px;
+  height: 380px;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  width: 500px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-grow: 1;
+}
+
+.actions {
+  justify-content: flex-end;
+}
+
+#dem_path,
+#output_path,
+#frames_dir {
+  height: 28px;
+  flex-grow: 1;
+}
+
+#browse_dem,
+#browse_output,
+#browse_frames_dir,
+#ok,
+#cancel {
+  height: 28px;
+  width: 100px;
+}
+
+#seed_x,
+#seed_y,
+#water_level,
+#water_depth,
+#frames {
+  height: 28px;
+  width: 140px;
+}

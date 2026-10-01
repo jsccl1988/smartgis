@@ -84,6 +84,13 @@ Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把�
 `kScene3d`）+ `SetExtent`（有中国范围则全幅中国）。2D 为正交，3D 为透视。
 手势：滚轮对光标缩放、平移；HWND 允许时双指捏合（`WM_GESTURE` / 指针）。
 
+**启动默认与 showcase 对齐（观感，非 GDI 强制）**：`china_product_defaults`
+（`shell/browser/`）供交互 shell 与 `--map2d-showcase=china` /
+`--atmosphere-showcase=full` 共用——中国样例清掉 `china_city.style.json`（默认
+carto）、mainland 取景、`kChinaLonLatExtent` + orbit `distance=2.55`、3D 大气
+ocean/cloud/sky/**fog**（`SMT_SCENE3D_ATMO=0` / `SMT_SCENE3D_LAND_ONLY=1` 可关）。
+交互仍走 FlyCube；showcase/self-test 才强制 ContentMapView/GDI。
+
 **2D 主路径 = RHI**：Map/Data 页默认 FlyCube；`MapScene::present_gpu` 把可见矢量层交给 `gis::vista::Layout` 生成 `MapFrame`，再由 `effect::map::Pass` 录到调用方 `Device` 并 present。成功时注记在帧内（`kText`），`paint_annotation_overlay` 只描选中；失败或强制时回退全量 GDI `MapScene::paint`（含注记）。
 
 ```bat
@@ -137,8 +144,8 @@ out\SmartGisViews.exe --atmosphere-showcase=full
 | `full` | `enable_atmosphere_demo()`（海+云） |
 | `coast` | 东海附近 extent + full demo |
 
-成功：exit 0；旁路 `out\atmosphere-showcase-mark.txt` 与
-`out\atmosphere-showcase-<mode>.bmp`（GPU 要求 BMP 有可见像素信号）。
+成功：exit 0；旁路 `out\Debug\captures\atmosphere-showcase-mark.txt` 与
+`out\Debug\captures\atmosphere-showcase-<mode>.bmp`（GPU 要求 BMP 有可见像素信号）。
 失败码：50 HWND、51 非 FlyCube、52 present、53 开关/场状态不符、54 BMP 全黑/无信号。
 
 说明：showcase 启动前会 `set_scene3d_engine(kGdi)`，避免
@@ -146,7 +153,7 @@ out\SmartGisViews.exe --atmosphere-showcase=full
 GPU BMP 需至少 2 种可见色（拒绝纯 clear）。根因修复：透视投影改为 RH，与 look_at（看向 -Z）一致。
 
 2D 地图 carto showcase（MapLibre / Baidu 色板）。打开 China 样例、`export_bmp`
-写旁路 `out\map2d-showcase-china.bmp`。自动化：`SMT_MAP2D_SHOWCASE_LINGER_MS=0`
+写旁路 `out\Debug\captures\map2d-showcase-china.bmp`。自动化：`SMT_MAP2D_SHOWCASE_LINGER_MS=0`
 （当前无 linger；预留）。可选 `SMT_MAP2D_SHOWCASE_GPU=1` 额外跑 `present_gpu`。
 
 **Align 模式**（长期 Style 对齐，不链 Native）：与 china 模式相同打开
@@ -155,12 +162,12 @@ GPU BMP 需至少 2 种可见色（拒绝纯 clear）。根因修复：透视投
 
 ```bat
 out\SmartGisViews.exe --map2d-showcase=align
-python testing\tools\case\maplibre_align.py
+python testing\tools\harness\_shared\case\align\maplibre_align.py
 ```
 
 ```bat
 out\SmartGisViews.exe --map2d-showcase=china
-python testing\tools\case\map2d_shot_loop.py --no-build
+python testing\tools\harness\map2d\map2d.china\map2d_china_loop.py --no-build
 ```
 
 失败码：54 BMP 无信号、55 样例打开失败、56 导出失败、57 presenter 缺失。
@@ -173,8 +180,9 @@ py -3 testing\tools\loop_runner.py --suite browse --no-build
 py -3 testing\tools\loop_runner.py --list
 ```
 
-Harness suites：契约在 `testing/tools/suites/*.json`，case 脚本在
-`testing/tools/case/`，与 `shell/harness/scenario_registry` id 对齐。详见
+Harness suites：契约在 `testing/tools/harness/<family>/<suite_id>/suite.json`，
+专属 script/`*_loop.py` 与 JSON 同目录；跨 suite 工具在 `harness/_shared/`。与
+`shell/harness/scenario_registry` id 对齐。详见
 [`docs/build/ui-testing.md`](../../../docs/build/ui-testing.md) L1′。
 
 样例也可直接 Open：`out\views_ogr_sample.geojson`（构建后可从

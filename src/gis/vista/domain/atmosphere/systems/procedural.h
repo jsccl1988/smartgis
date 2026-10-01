@@ -8,7 +8,7 @@
 
 #include "gis/vista/domain/atmosphere/field/field_store.h"
 #include "gis/gis_export.h"
-#include "gis/vista/world/terrain/land_mask.h"
+#include "gis/vista/world/terrain/process/land_mask.h"
 
 namespace gis {
 namespace atmosphere {
@@ -42,6 +42,7 @@ struct GIS_EXPORT CloudNoise {
 };
 
 // Writes kSeaMask (1=sea) as the complement of land rings (sea = !land).
+// Empty |land_rings| fail closed to sea=0 (no ocean), not all-sea.
 struct GIS_EXPORT SeaMaskFromLand {
   void apply(FieldStore* store, const FieldGrid& grid,
              const std::vector<LonLatRing>& land_rings, int priority) const;

@@ -9,12 +9,16 @@
 #include <string>
 #include <vector>
 
+#include "ui/gfx/color/color.h"
+#include "ui/gfx/display_list/display_list.h"
 #include "ui/views/kernel/view/view.h"
 
 namespace ui {
 namespace views {
 
 // Columnar preview table with an optional selected row.
+// Visible rows are recorded into a DisplayList cache so re-paint with an
+// unchanged span does not walk cell strings again.
 class UI_EXPORT TableView : public View {
  public:
   TableView();
@@ -44,6 +48,8 @@ class UI_EXPORT TableView : public View {
 
   // Data rows emitted by the last paint_self. Header is not included.
   int last_painted_row_count() const { return last_painted_rows_; }
+  // True when the last paint_self reused row_cache_ without rebuilding.
+  bool last_cache_hit() const { return last_cache_hit_; }
   std::string_view paint_role() const override;
 
  protected:
@@ -54,6 +60,10 @@ class UI_EXPORT TableView : public View {
   int col_at_point(int x) const;
   float scale_factor() const;
   void visible_row_span(int* begin, int* end) const;
+  void invalidate_row_cache();
+  void rebuild_row_cache(int begin, int end);
+  void emit_row_cache(ui::gfx::Canvas* canvas);
+  bool row_cache_matches(int begin, int end) const;
 
   std::vector<std::string> columns_;
   std::vector<std::wstring> column_wide_;
@@ -61,8 +71,24 @@ class UI_EXPORT TableView : public View {
   std::vector<std::vector<std::wstring>> row_wide_;
   int selected_ = -1;
   int last_painted_rows_ = 0;
+  bool last_cache_hit_ = false;
   std::function<void(int)> row_click_;
   std::function<void(int, int)> cell_activate_;
+
+  // Cached paint for the current visible_row_span (+ header).
+  int cache_begin_ = 0;
+  int cache_end_ = 0;
+  int cache_selected_ = -1;
+  int cache_origin_x_ = 0;
+  int cache_origin_y_ = 0;
+  int cache_width_ = 0;
+  ui::gfx::Color cache_control_bg_ = 0;
+  ui::gfx::Color cache_panel_header_ = 0;
+  ui::gfx::Color cache_accent_ = 0;
+  ui::gfx::Color cache_text_ = 0;
+  ui::gfx::Color cache_text_bright_ = 0;
+  bool cache_valid_ = false;
+  ui::gfx::DisplayList row_cache_;
 };
 
 }  // namespace views

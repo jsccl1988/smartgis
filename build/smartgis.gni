@@ -41,11 +41,27 @@ _smt_has_protobuf_h = exec_script("//build/file_exists.py",
                                     "third_party/.install/include/google/protobuf/message.h",
                                   ],
                                   "trim string")
+_smt_has_pdal_h = exec_script("//build/file_exists.py",
+                              [
+                                "third_party/.install/include/pdal/PipelineManager.hpp",
+                              ],
+                              "trim string")
+# Linking Release pdalcpp.lib into Debug gis_d.dll pulls MSVCP140 alongside
+# MSVCP140D → STATUS_HEAP_CORRUPTION (0xC0000374) on interactive launch.
+_smt_pdal_dbg_lib = exec_script("//build/file_exists.py",
+                                [ "third_party/.install/lib/pdalcppd.lib" ],
+                                "trim string")
+_smt_pdal_rel_lib = exec_script("//build/file_exists.py",
+                                [ "third_party/.install/lib/pdalcpp.lib" ],
+                                "trim string")
 smt_has_assimp = _smt_has_assimp_h == "1"
 smt_has_tinygltf = _smt_has_tinygltf_h == "1"
 smt_has_rapidjson = _smt_has_rapidjson_h == "1"
 smt_has_pugixml = _smt_has_pugixml_h == "1"
 smt_has_protobuf = _smt_has_protobuf_h == "1"
+smt_has_pdal = _smt_has_pdal_h == "1" &&
+               ((is_debug && _smt_pdal_dbg_lib == "1") ||
+                (!is_debug && _smt_pdal_rel_lib == "1"))
 
 declare_args() {
   # Link real Skia paint TU into //src/ui/gfx (default off — GDI remains
@@ -108,7 +124,8 @@ template("smt_mfc_shared_library") {
       precompiled_source = "stdafx.cpp"
     }
     if (defined(invoker.am_plugin) && invoker.am_plugin) {
-      output_extension = ".am"
+      # GN prepends the leading dot — use "am", not ".am" (else "..am").
+      output_extension = "am"
       output_dir = "$root_out_dir/plugin"
     }
   }
