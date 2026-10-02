@@ -210,6 +210,10 @@ int SmtRhi2dRenderDevice::ScheduleDelayedRedraw(const SmtMap *pMap) {
   return present_.schedule_delayed_redraw(pMap);
 }
 
+int SmtRhi2dRenderDevice::ScheduleUrgentRedraw(const SmtMap *pMap) {
+  return present_.schedule_urgent_redraw(pMap);
+}
+
 int SmtRhi2dRenderDevice::stage_map_job(const SmtMap *pMap, int x, int y, int w,
                                       int h, int op, bool urgent) {
   return present_.stage_map_job(pMap, x, y, w, h, op, urgent);

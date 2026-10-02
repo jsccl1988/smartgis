@@ -79,7 +79,9 @@ CatalogView::CatalogView() {
   }
 
   auto tabs = std::make_unique<TabStrip>();
-  tabs->set_preferred_size({288, 280});
+  // Preferred width seeds the catalog_map splitter; Yoga children stretch to
+  // the host so a temporarily narrow pane does not overflow (layout-fail).
+  tabs->set_preferred_size({0, 0});
   tabs_ = tabs.get();
 
   auto layers = std::make_unique<LayerTree>();
@@ -104,13 +106,14 @@ CatalogView::CatalogView() {
   tabs_->add_tab("Maps", std::move(maps));
 
   if (tabs_host) {
+    tabs_host->set_preferred_size({0, 0});
     tabs_host->set_layout_manager(std::make_unique<FillLayout>());
     tabs_host->add_child(std::move(tabs));
   }
 
   auto fill = std::make_unique<FillLayout>();
   set_layout_manager(std::move(fill));
-  loaded.root->set_preferred_size({288, 320});
+  loaded.root->set_preferred_size({0, 0});
   add_child(std::move(loaded.root));
   set_preferred_size({288, 0});
 }
@@ -267,10 +270,17 @@ void CatalogView::paint_self(ui::gfx::Canvas* canvas) {
   const Theme& t = Theme::current();
   const Rect& b = bounds();
   canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
+  // Title is hidden so Layers/Sources/Maps share a band with Map|Data|3D.
+  // Do not paint a fallback 36px accent strip — that drew a full-pane blue
+  // bar over the tab headers (and across an oversized catalog primary).
+  if (!title_ || !title_->is_visible()) {
+    return;
+  }
   const int header_h =
-      title_ ? (title_->bounds().height > 0 ? title_->bounds().height : 36)
-             : 36;
-  canvas->fill_rect(b.x, b.y, b.width, header_h, t.accent);
+      title_->bounds().height > 0 ? title_->bounds().height : 36;
+  if (header_h > 0) {
+    canvas->fill_rect(b.x, b.y, b.width, header_h, t.accent);
+  }
 }
 
 }  // namespace views

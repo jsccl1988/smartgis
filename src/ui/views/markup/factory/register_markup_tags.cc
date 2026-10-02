@@ -8,6 +8,7 @@
 #include <string_view>
 #include <utility>
 
+#include "ui/views/kernel/layout/splitter.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/markup/factory/control_factory.h"
 #include "ui/views/markup/factory/placeholder_view.h"
@@ -27,6 +28,13 @@ void register_markup_layout_tags(ControlFactory* factory) {
   factory->register_tag("hbox", plain);
   factory->register_tag("panel", plain);
   factory->register_tag("div", plain);
+  factory->register_tag("splitter", [](std::string_view, const MarkupAttrs& a) {
+    const std::string o = a.get("orientation", "horizontal");
+    const Splitter::Orientation ori =
+        (o == "vertical" || o == "v") ? Splitter::Orientation::kVertical
+                                      : Splitter::Orientation::kHorizontal;
+    return std::make_unique<Splitter>(ori);
+  });
   factory->register_tag("contextmenu",
                         [](std::string_view, const MarkupAttrs& a) {
                           return std::make_unique<PlaceholderView>(

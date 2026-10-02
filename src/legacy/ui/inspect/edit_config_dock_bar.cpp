@@ -1,3 +1,5 @@
+﻿// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 
 #include "stdafx.h"
 #include "legacy/ui/inspect/edit_config_dock_bar.h"
@@ -30,30 +32,30 @@ const int nBorderSize = 1;
 /////////////////////////////////////////////////////////////////////////////
 // EditConfigDockBar
 
-BEGIN_MESSAGE_MAP(EditConfigDockBar, CBCGPDockingControlBar)
-//{{AFX_MSG_MAP(EditConfigDockBar)
+BEGIN_MESSAGE_MAP(EditConfigDockBar, CWnd)
 ON_WM_CREATE()
 ON_WM_SIZE()
 ON_WM_PAINT()
-//}}AFX_MSG_MAP
+ON_WM_ERASEBKGND()
 ON_WM_CONTEXTMENU()
 ON_REGISTERED_MESSAGE(BCGM_PROPERTY_CHANGED, OnPropertyChanged)
 END_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-// EditConfigDockBar construction/destruction
+EditConfigDockBar::EditConfigDockBar() = default;
 
-EditConfigDockBar::EditConfigDockBar() {
-  // TODO: add one-time construction code here
+EditConfigDockBar::~EditConfigDockBar() = default;
+
+BOOL EditConfigDockBar::Create(CWnd* parent, UINT id) {
+  return CWnd::CreateEx(
+      0, AfxRegisterWndClass(0), _T(""),
+      WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+      CRect(0, 0, 0, 0), parent, id);
 }
 
-EditConfigDockBar::~EditConfigDockBar() {}
-
-/////////////////////////////////////////////////////////////////////////////
-// EditConfigDockBar message handlers
-
 int EditConfigDockBar::OnCreate(LPCREATESTRUCT lpCreateStruct) {
-  if (CBCGPDockingControlBar::OnCreate(lpCreateStruct) == -1) return -1;
+  if (CWnd::OnCreate(lpCreateStruct) == -1) {
+    return -1;
+  }
 
   if (!legacy_ui::create_vs_prop_list(m_wndPropList, this, 1)) {
     TRACE0("Failed to create Properies Grid \n");
@@ -68,8 +70,20 @@ int EditConfigDockBar::OnCreate(LPCREATESTRUCT lpCreateStruct) {
 }
 
 void EditConfigDockBar::OnSize(UINT nType, int cx, int cy) {
-  CBCGPDockingControlBar::OnSize(nType, cx, cy);
-  legacy_ui::size_prop_list_inset(m_wndPropList, cx, cy, nBorderSize);
+  CWnd::OnSize(nType, cx, cy);
+  if (cx > 0 && cy > 0 && ::IsWindow(m_wndPropList.GetSafeHwnd())) {
+    legacy_ui::size_prop_list_inset(m_wndPropList, cx, cy, nBorderSize);
+  }
+}
+
+BOOL EditConfigDockBar::OnEraseBkgnd(CDC* pDC) {
+  if (pDC == nullptr) {
+    return TRUE;
+  }
+  CRect rc;
+  GetClientRect(&rc);
+  pDC->FillSolidRect(&rc, ::GetSysColor(COLOR_WINDOW));
+  return TRUE;
 }
 
 void EditConfigDockBar::OnContextMenu(CWnd * /*pWnd*/, CPoint /*point*/) {

@@ -38,7 +38,8 @@ class UI_EXPORT LayerTree : public View {
   void add_layer(std::string id, std::string name, bool visible);
 
   // Replace all rows from |layers|. Selects the first entry with active=true
-  // (else the first row). Does not fire visible_changed.
+  // (else the first row). Host sync: does not fire visible_changed or
+  // selection_changed (avoids CatalogCall + inspector rebuild mid-populate).
   void set_layers(const std::vector<LayerDesc>& layers);
 
   // Select |id| as the active layer (fires selection_changed when it changes).

@@ -4,6 +4,7 @@
 #ifndef SMT_LEGACY_RENDER_SCENE3D_MAP_LABEL_BATCH_H_
 #define SMT_LEGACY_RENDER_SCENE3D_MAP_LABEL_BATCH_H_
 
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -33,6 +34,8 @@ class LEGACY_RENDER_EXPORT MapLabelBatch : public Smt3DObject {
   long Render(LP3DRENDERDEVICE p3DRenderDevice) override;
   long Destroy() override;
 
+  bool prefers_immediate_context() const override { return true; }
+
   void add_label(const MapLabel& label);
   void clear_labels();
   int label_count() const { return static_cast<int>(labels_.size()); }
@@ -41,8 +44,7 @@ class LEGACY_RENDER_EXPORT MapLabelBatch : public Smt3DObject {
   bool ensure_font(LP3DRENDERDEVICE device);
 
   // Per unique text|priority raster (+ optional GL tex id).
-  // Vector (not unordered_map): hash-bucket vectors of debug iterators hit
-  // MSVC xmemory aligned-delete asserts under this Debug DLL CRT mix.
+  // deque: bgra.data() stays stable so D3D DrawScreenBgra pointer-cache hits.
   struct RasterCache {
     std::string key;
     std::vector<unsigned char> bgra;
@@ -56,7 +58,11 @@ class LEGACY_RENDER_EXPORT MapLabelBatch : public Smt3DObject {
   void clear_raster_cache();
 
   std::vector<MapLabel> labels_;
-  std::vector<RasterCache> raster_cache_;
+  std::deque<RasterCache> raster_cache_;
+  // Anti-flicker: hold last screen pixels + declutter winners across Presents.
+  std::vector<int> last_sx_;
+  std::vector<int> last_sy_;
+  std::vector<int> sticky_keep_;
   uint font_id_ = 0;
   bool font_ready_ = false;
 };

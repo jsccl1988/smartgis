@@ -7,7 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted (user skipped remaining section gates; implement from this spec + the sibling plan)  
-**Updated:** 2026-09-30 �� ��world3d True Earth��������3D��; ��geochem ����ѧ����; ��stormsurge 3D disaster����ά�籩����; ��mine / stratum����ɽ��ά�ز㣩; ��analysis session ResultPlayback UI + orthogrid multi-frame + pull_orbit_extent fix; import/save/playback; ��orthogrid coastal sample + interpolate heat ramp; ��orthogrid Eigen GridField Array + LDLT/LU; ��orthogrid3d HexGrid + VTK; ��traffic+flood analysis products; ��product sample + visualization; `runtime/host` role subdirs; leftover `legacy/plugin` role layout; ��product�CPython / ��gis analysis ownership
+**Updated:** 2026-10-02 — world3d True Earth P0b (global DEM / satellite cloud / atmosphere); 2026-09-30 base �� ��world3d True Earth��������3D��; ��geochem ����ѧ����; ��stormsurge 3D disaster����ά�籩����; ��mine / stratum����ɽ��ά�ز㣩; ��analysis session ResultPlayback UI + orthogrid multi-frame + pull_orbit_extent fix; import/save/playback; ��orthogrid coastal sample + interpolate heat ramp; ��orthogrid Eigen GridField Array + LDLT/LU; ��orthogrid3d HexGrid + VTK; ��traffic+flood analysis products; ��product sample + visualization; `runtime/host` role subdirs; leftover `legacy/plugin` role layout; ��product�CPython / ��gis analysis ownership
 **Scope:** one implementation plan, one cycle. Land a QGIS-shaped extension platform: host + contribution points, in-process Python, QGIS-style store, Views rewrite of leftover plugin dialogs, and processing isolation for algorithm workers only. Do not implement product C++ in this document.
 
 ## Goal
@@ -1058,41 +1058,46 @@ Load industry **LAS / LAZ** (and legacy sample `.txt`) into a shared point buffe
 
 ---
 
-## ��world3d True Earth��������3D����2026-09-30��
+## §world3d True Earth（完整真3D）（2026-09-30）
 
 **Status:** active  
-**Updated:** 2026-09-30  
-**Approach:** **A** �� extend `smartgis.world3d` (do **not** open a parallel `earth3d` / `globe` package).  
+**Updated:** 2026-10-02  
+**Approach:** **A** — extend `smartgis.world3d` (do **not** open a parallel `earth3d` / `globe` package).  
 **Plan:** [`../plans/2026-09-30-world3d-true-earth.md`](../plans/2026-09-30-world3d-true-earth.md)  
 **Render stack:** [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md) (Scene3d / atmosphere / tileset stream)
 
 ### Goal
 
-Deliver a **Google-Earth-class product face** for true-3D browsing on the existing Views + Scene3d stack: planetary-scale **China** DEM terrain, atmosphere (sky / ocean / cloud / fog), orbit navigation + **fly-to**, optional city **3D Tiles** attach, and existing pointcloud / TIN / grid hooks �� packaged under `src/plugin/product/world3d` with `out/plugins/world3d/` resources and `--plugin-showcase=world3d` capture.
+Deliver a **Google-Earth-class product face** for true-3D browsing on the existing Views + Scene3d stack: globe / DEM terrain (China sample today; optional global GeoTIFF), atmosphere (sky / ocean / cloud / fog), satellite cloud cover (field ingest or procedural), orbit navigation + **fly-to**, optional city **3D Tiles** attach, and existing pointcloud / TIN / grid hooks — packaged under `src/plugin/product/world3d` with `out/plugins/world3d/` resources and `--plugin-showcase=world3d` capture.
 
 ### Locked
 
 | # | Choice |
 | --- | --- |
-| 1 | Product id stays **`smartgis.world3d`**; no second builtin for ��earth��. |
-| 2 | Browser installs `World3dSceneWriter::{open_earth,fly_to,attach_tileset}` next to existing scene writers. Unset �� `no_scene_device`. |
-| 3 | `open_earth` = Scene3D tab + `apply_china_scene3d_product_defaults` (DEM abandon + procedural atmosphere + China orbit). |
-| 4 | `fly_to` = local lon/lat extent box + orbit distance (MVP; not spherical geodesic fly animation). |
-| 5 | City tiles via `Scene3dGpuPresent::attach_tileset_json` + fixture `testing/data/m3_city_tileset.json` (or path arg). |
-| 6 | Showcase path enables atmosphere (not land-only off) for Earth-class BMP. |
+| 1 | Product id stays **`smartgis.world3d`**; no second builtin for “earth”. |
+| 2 | Browser installs `World3dSceneWriter::{open_earth,fly_to,attach_tileset,load_global_dem,set_satellite_cloud,set_atmosphere}` next to existing scene writers. Unset → `no_scene_device`. |
+| 3 | `open_earth` = Scene3D tab + `apply_china_scene3d_product_defaults` (DEM + procedural atmosphere + China orbit). |
+| 4 | `load_global_dem` = optional GeoTIFF via `gis::set_sample_dem_path_override`; empty path resolves `out/data/global_dem.tif` / `out/plugins/world3d/data/` then **China stand-in** with structured JSON hint. |
+| 5 | `set_satellite_cloud` = `AtmosphereSession::load_fields(path:cloud_cover)` when GeoTIFF present; else procedural cloud deck (`mode":"procedural"`). |
+| 6 | `fly_to` = local lon/lat extent box + orbit distance (MVP; not spherical geodesic fly animation). |
+| 7 | City tiles via `Scene3dGpuPresent::attach_tileset_json` + fixture `testing/data/m3_city_tileset.json` (or path arg). |
+| 8 | Showcase path enables atmosphere (not land-only off) for Earth-class BMP. |
 
 ### Phased delivery
 
 | Phase | Deliverable |
 | --- | --- |
-| P0 | Writer + commands + Browser + Earth showcase BMP �� **this plan** |
-| P1 | Interact suite `plugin.world3d.earth` (open_earth �� fly_to �� marks) |
-| P2 | Spherical / global DEM clipmap (gap pin; not Cesium Native) |
+| P0 | Writer + commands + Browser + Earth showcase BMP — **landed** |
+| P0b | Global DEM override + satellite cloud field / procedural + atmosphere toggles — **2026-10-02** |
+| P1 | Interact suite `plugin.world3d.earth` (open_earth → fly_to → marks) |
+| P2 | Spherical / clipmap globe mesh (gap pin; not Cesium Native) |
 
 ### Remaining vs Google Earth (honest)
 
 - No full WGS84 **sphere** globe mesh / starfield / street-level Photorealistic 3D.
 - No Google / Cesium Ion worldwide imagery streaming.
+- Global DEM without a GeoTIFF stands in with China `china_dem.tif`.
+- Satellite cloud without GeoTIFF uses procedural atmosphere clouds.
 - City tiles: fixture + stream session; not production city coverage.
 - Fly-to is extent reframe, not cinematic camera path.
 
@@ -1103,6 +1108,7 @@ Deliver a **Google-Earth-class product face** for true-3D browsing on the existi
 - Web GIS / mapd.
 
 ---
+
 
 ## ��traffic + flood analysis products��2026-09-30��
 

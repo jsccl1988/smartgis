@@ -1,4 +1,5 @@
-// Copyright (c) 2010 CCL. All rights reserved.
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 #ifndef _MD3D_WATER_H
 #define _MD3D_WATER_H
 
@@ -51,7 +52,6 @@ class LEGACY_RENDER_EXPORT SmtWater : public Smt3DObject {
 
  protected:
   void Compute(float dt = .1);
-  void AdjustGrid(void);
 
   void UpdateVertex(void);
   void UpdateNormal(void);

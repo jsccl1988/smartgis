@@ -90,6 +90,10 @@ class SmtRenderDevice {
     (void)pMap;
     return Refresh();
   }
+  // Skip debounce on the next FrameJob submit (browse gesture end / wheel settle).
+  virtual int ScheduleUrgentRedraw(const SmtMap *pMap) {
+    return ScheduleDelayedRedraw(pMap);
+  }
 
   virtual int Timer() = 0;
 

@@ -61,6 +61,21 @@ LEGACY_RENDER_EXPORT int seed_geojson_into_scene(LP3DRENDERDEVICE device,
 LEGACY_RENDER_EXPORT int seed_sample_map_into_scene(LP3DRENDERDEVICE device,
                                                     SmtScene* scene);
 
+// Per-object leftover showcase seed for --scene3d-showcase <mode>.
+// Modes: china (default) | terrain | cube | sphere | water | pointcloud |
+// northarray. Mesh modes clear the DEM framing cache so orbit frames the
+// object AABB. Returns objects added (northarray returns 1 with a synthetic
+// AABB; compass HUD is created in SmtScene::Setup).
+LEGACY_RENDER_EXPORT int seed_showcase_mode_into_scene(LP3DRENDERDEVICE device,
+                                                       SmtScene* scene,
+                                                       const char* mode);
+
+// SMT_SCENE3D_SHOWCASE_MODE env, or "china" when unset / empty.
+LEGACY_RENDER_EXPORT const char* showcase_mode_from_env();
+
+// Drop DEM framing cache (mesh showcase must not prefer leftover china AABB).
+LEGACY_RENDER_EXPORT void clear_leftover_dem_frame();
+
 // Non-owning pointer to the World last filled by seed_* stereo underlay
 // (kTerrain + optional mesh). Valid for the process lifetime of this DLL.
 LEGACY_RENDER_EXPORT gis::World* map_seeded_world();

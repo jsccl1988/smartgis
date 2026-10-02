@@ -1,0 +1,44 @@
+{
+  "id": "atmosphere.globe",
+  "kind": "showcase",
+  "argv": [
+    "--atmosphere-showcase",
+    "globe"
+  ],
+  "env": {
+    "SMT_ATMOSPHERE_SHOWCASE_GPU": "1",
+    "SMT_ATMOSPHERE_SHOWCASE_LINGER_MS": "0",
+    "SMT_HARNESS_RECORD": "1",
+    "SMT_HARNESS_RECORD_MODE": "bmp"
+  },
+  "window_title": "Atmosphere Showcase",
+  "bmp": {
+    "path": "atmosphere-showcase-globe.bmp",
+    "score_id": "atmosphere_globe",
+    "accept_nonzero_rc_if_bmp": true,
+    "soft": true,
+    "min_bytes": 10000
+  },
+  "report_name": "atmosphere_globe_loop_report.json",
+  "probes": [
+    "bmp"
+  ],
+  "loop": {
+    "rounds": 4,
+    "timeout_sec": 150,
+    "build_target": "src/app/views:views",
+    "exe": "SmartGisViews.exe"
+  },
+  "visual_review": {
+    "enabled": true,
+    "checklist": [
+      "globe_silhouette",
+      "global_terrain_or_continents",
+      "cloud_shell",
+      "space_starfield",
+      "no_flat_clear",
+      "flythrough_space_to_horizon_skim"
+    ],
+    "expect_notes": "Product-splash flythrough: deep-space starfield → high altitude → global DEM + terrain albedo (China skim); keyframes under captures/record/atmosphere_globe_fly/"
+  }
+}

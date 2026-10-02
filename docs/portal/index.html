@@ -1,0 +1,720 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SmartGIS Docs Portal</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a222c;
+    --panel2: #222c38;
+    --border: #2e3a48;
+    --text: #e7eef6;
+    --muted: #93a4b8;
+    --accent: #3d9cf0;
+    --accent2: #5ec4a8;
+    --warn: #e0a54b;
+    --code: #c8d6e5;
+    --html: #5ec4a8;
+    --md: #3d9cf0;
+    --side-w: 300px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font: 14px/1.5 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    display: grid;
+    grid-template-rows: auto 1fr;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono {
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 0.92em;
+    color: var(--code);
+  }
+  header.bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(160deg, var(--panel) 0%, #15202b 100%);
+  }
+  header.bar h1 {
+    margin: 0;
+    font-size: 1.05rem;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .counts {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .counts b { color: var(--text); font-weight: 600; }
+  .search {
+    flex: 1;
+    min-width: 160px;
+    max-width: 360px;
+    margin-left: auto;
+  }
+  .search input {
+    width: 100%;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel2);
+    color: var(--text);
+    outline: none;
+  }
+  .search input:focus { border-color: var(--accent); }
+  .filters { display: flex; gap: 6px; }
+  .chip {
+    border: 1px solid var(--border);
+    background: var(--panel2);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  .chip.on { color: var(--text); border-color: var(--accent); }
+  .chip.html.on { border-color: var(--html); color: var(--html); }
+  .chip.md.on { border-color: var(--md); color: var(--md); }
+  main.layout {
+    display: grid;
+    grid-template-columns: var(--side-w) 1fr;
+    min-height: 0;
+  }
+  aside.tree {
+    border-right: 1px solid var(--border);
+    background: var(--panel);
+    overflow: auto;
+    padding: 8px 0 24px;
+  }
+  .tree-node { user-select: none; }
+  .tree-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 4px calc(8px + var(--depth, 0) * 12px);
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .tree-row:hover { background: #243040; color: var(--text); }
+  .tree-row.active {
+    background: #1e3348;
+    color: var(--text);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  .tree-row .twisty {
+    width: 14px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+  .badge {
+    font-size: 0.68rem;
+    border-radius: 4px;
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .badge.md { color: var(--md); border-color: #2a4f73; }
+  .badge.html { color: var(--html); border-color: #2a5a4c; }
+  .fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  section.preview {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-width: 0;
+    min-height: 0;
+    background:
+      radial-gradient(900px 400px at 0% 0%, #1a2a3d 0%, transparent 55%),
+      var(--bg);
+  }
+  .preview-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(26, 34, 44, 0.85);
+  }
+  .preview-meta .path { color: var(--muted); word-break: break-all; }
+  .preview-meta .actions { margin-left: auto; display: flex; gap: 8px; }
+  .btn {
+    border: 1px solid var(--border);
+    background: var(--panel2);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 0.82rem;
+    cursor: pointer;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .stage {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .empty {
+    padding: 48px 28px;
+    color: var(--muted);
+    max-width: 52ch;
+  }
+  .empty h2 { margin: 0 0 8px; color: var(--text); font-size: 1.2rem; }
+  iframe.page {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #fff;
+  }
+  article.md {
+    position: absolute;
+    inset: 0;
+    overflow: auto;
+    padding: 22px 28px 64px;
+    max-width: 920px;
+  }
+  article.md h1, article.md h2, article.md h3, article.md h4 {
+    margin: 1.2em 0 0.45em;
+    line-height: 1.25;
+  }
+  article.md h1 { font-size: 1.55rem; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+  article.md h2 { font-size: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25em; }
+  article.md h3 { font-size: 1.08rem; }
+  article.md p, article.md ul, article.md ol, article.md blockquote, article.md table {
+    margin: 0.65em 0;
+  }
+  article.md ul, article.md ol { padding-left: 1.4em; }
+  article.md blockquote {
+    border-left: 3px solid var(--accent);
+    margin-left: 0;
+    padding: 0.2em 0.9em;
+    color: var(--muted);
+    background: rgba(61, 156, 240, 0.06);
+  }
+  article.md pre {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    overflow: auto;
+  }
+  article.md code {
+    background: rgba(200, 214, 229, 0.08);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+  article.md pre code {
+    background: none;
+    padding: 0;
+  }
+  article.md table {
+    border-collapse: collapse;
+    width: 100%;
+    display: block;
+    overflow: auto;
+  }
+  article.md th, article.md td {
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    text-align: left;
+  }
+  article.md th { background: var(--panel); }
+  article.md hr {
+    border: 0;
+    border-top: 1px solid var(--border);
+    margin: 1.4em 0;
+  }
+  article.md img { max-width: 100%; }
+  .err {
+    padding: 24px;
+    color: var(--warn);
+  }
+  @media (max-width: 860px) {
+    main.layout { grid-template-columns: 1fr; }
+    aside.tree { max-height: 36vh; border-right: 0; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1>SmartGIS Docs Portal</h1>
+  <div class="counts" id="counts">扫描中…</div>
+  <div class="filters">
+    <button class="chip on" data-filter="all" type="button">全部</button>
+    <button class="chip md on" data-filter="md" type="button">MD</button>
+    <button class="chip html on" data-filter="html" type="button">HTML</button>
+  </div>
+  <div class="search">
+    <input id="q" type="search" placeholder="过滤路径 / 文件名…" autocomplete="off">
+  </div>
+</header>
+<main class="layout">
+  <aside class="tree" id="tree" aria-label="docs tree"></aside>
+  <section class="preview">
+    <div class="preview-meta" id="meta" hidden>
+      <span class="badge" id="kindBadge">md</span>
+      <span class="path mono" id="pathLabel"></span>
+      <div class="actions">
+        <button class="btn" id="btnReload" type="button">刷新</button>
+        <a class="btn" id="btnOpen" href="#" target="_blank" rel="noopener">新标签打开</a>
+      </div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="empty" id="welcome">
+        <h2>docs 预览插件</h2>
+        <p>左侧自动列出 <span class="mono">docs/</span> 下的 Markdown 与 HTML（含设计原理图）。点击即可在右侧预览；HTML 以整页嵌入，MD 做轻量渲染。</p>
+        <p>启动：<span class="mono">docs\portal\open.bat</span> 或 <span class="mono">python docs/portal/serve.py</span></p>
+      </div>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  "use strict";
+
+  const state = {
+    catalog: null,
+    filter: { md: true, html: true },
+    query: "",
+    openDirs: new Set(["build", "superpowers", "superpowers/diagrams", "superpowers/specs", "superpowers/plans"]),
+    current: null,
+  };
+
+  const el = {
+    tree: document.getElementById("tree"),
+    counts: document.getElementById("counts"),
+    stage: document.getElementById("stage"),
+    welcome: document.getElementById("welcome"),
+    meta: document.getElementById("meta"),
+    kindBadge: document.getElementById("kindBadge"),
+    pathLabel: document.getElementById("pathLabel"),
+    btnOpen: document.getElementById("btnOpen"),
+    btnReload: document.getElementById("btnReload"),
+    q: document.getElementById("q"),
+  };
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function inlineMd(text) {
+    let s = esc(text);
+    s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/(^|[^\*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+    s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function (_, label, href) {
+      const h = href.trim();
+      const safe = /^(https?:|mailto:|#|\/|\.\/|\.\.\/|[A-Za-z0-9_./%-]+$)/i.test(h)
+        ? h
+        : "#";
+      return '<a href="' + esc(safe) + '">' + label + "</a>";
+    });
+    return s;
+  }
+
+  function renderMarkdown(src) {
+    const lines = src.replace(/\r\n/g, "\n").split("\n");
+    const out = [];
+    let i = 0;
+    let inCode = false;
+    let codeLang = "";
+    let codeBuf = [];
+    let listType = null;
+
+    function closeList() {
+      if (listType) {
+        out.push(listType === "ol" ? "</ol>" : "</ul>");
+        listType = null;
+      }
+    }
+
+    function flushPara(buf) {
+      if (!buf.length) return;
+      out.push("<p>" + inlineMd(buf.join(" ")) + "</p>");
+      buf.length = 0;
+    }
+
+    const para = [];
+    while (i < lines.length) {
+      const line = lines[i];
+
+      if (inCode) {
+        if (/^```/.test(line)) {
+          out.push(
+            "<pre><code" +
+              (codeLang ? ' class="lang-' + esc(codeLang) + '"' : "") +
+              ">" +
+              esc(codeBuf.join("\n")) +
+              "</code></pre>"
+          );
+          inCode = false;
+          codeBuf = [];
+          codeLang = "";
+        } else {
+          codeBuf.push(line);
+        }
+        i++;
+        continue;
+      }
+
+      const fence = line.match(/^```(\w*)\s*$/);
+      if (fence) {
+        closeList();
+        flushPara(para);
+        inCode = true;
+        codeLang = fence[1] || "";
+        i++;
+        continue;
+      }
+
+      if (/^\s*\|.+\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|?\s*[-:| ]+\|\s*$/.test(lines[i + 1])) {
+        closeList();
+        flushPara(para);
+        const rows = [];
+        while (i < lines.length && /^\s*\|/.test(lines[i])) {
+          const cells = lines[i]
+            .replace(/^\s*\|/, "")
+            .replace(/\|\s*$/, "")
+            .split("|")
+            .map((c) => c.trim());
+          if (!/^[-:| ]+$/.test(cells.join(""))) rows.push(cells);
+          i++;
+        }
+        if (rows.length) {
+          out.push("<table>");
+          out.push("<thead><tr>" + rows[0].map((c) => "<th>" + inlineMd(c) + "</th>").join("") + "</tr></thead>");
+          if (rows.length > 1) {
+            out.push("<tbody>");
+            for (let r = 1; r < rows.length; r++) {
+              out.push("<tr>" + rows[r].map((c) => "<td>" + inlineMd(c) + "</td>").join("") + "</tr>");
+            }
+            out.push("</tbody>");
+          }
+          out.push("</table>");
+        }
+        continue;
+      }
+
+      if (/^\s*---+\s*$/.test(line) || /^\s*\*\*\*+\s*$/.test(line)) {
+        closeList();
+        flushPara(para);
+        out.push("<hr>");
+        i++;
+        continue;
+      }
+
+      const heading = line.match(/^(#{1,4})\s+(.*)$/);
+      if (heading) {
+        closeList();
+        flushPara(para);
+        const lvl = heading[1].length;
+        out.push("<h" + lvl + ">" + inlineMd(heading[2]) + "</h" + lvl + ">");
+        i++;
+        continue;
+      }
+
+      const bq = line.match(/^>\s?(.*)$/);
+      if (bq) {
+        closeList();
+        flushPara(para);
+        const buf = [bq[1]];
+        i++;
+        while (i < lines.length) {
+          const m = lines[i].match(/^>\s?(.*)$/);
+          if (!m) break;
+          buf.push(m[1]);
+          i++;
+        }
+        out.push("<blockquote><p>" + inlineMd(buf.join(" ")) + "</p></blockquote>");
+        continue;
+      }
+
+      const ul = line.match(/^\s*[-*+]\s+(.*)$/);
+      if (ul) {
+        flushPara(para);
+        if (listType !== "ul") {
+          closeList();
+          out.push("<ul>");
+          listType = "ul";
+        }
+        out.push("<li>" + inlineMd(ul[1]) + "</li>");
+        i++;
+        continue;
+      }
+
+      const ol = line.match(/^\s*\d+\.\s+(.*)$/);
+      if (ol) {
+        flushPara(para);
+        if (listType !== "ol") {
+          closeList();
+          out.push("<ol>");
+          listType = "ol";
+        }
+        out.push("<li>" + inlineMd(ol[1]) + "</li>");
+        i++;
+        continue;
+      }
+
+      if (!line.trim()) {
+        closeList();
+        flushPara(para);
+        i++;
+        continue;
+      }
+
+      closeList();
+      para.push(line.trim());
+      i++;
+    }
+    closeList();
+    flushPara(para);
+    if (inCode) {
+      out.push("<pre><code>" + esc(codeBuf.join("\n")) + "</code></pre>");
+    }
+    return out.join("\n");
+  }
+
+  function fileUrl(path, kind) {
+    if (kind === "html") return "/" + path.split("/").map(encodeURIComponent).join("/");
+    return "/api/raw?path=" + encodeURIComponent(path);
+  }
+
+  function matchesFilter(node) {
+    if (node.type === "dir") return true;
+    if (node.kind === "md" && !state.filter.md) return false;
+    if (node.kind === "html" && !state.filter.html) return false;
+    if (!state.query) return true;
+    const q = state.query.toLowerCase();
+    return node.path.toLowerCase().includes(q) || node.name.toLowerCase().includes(q);
+  }
+
+  function filterTree(nodes) {
+    const out = [];
+    for (const n of nodes) {
+      if (n.type === "dir") {
+        const kids = filterTree(n.children || []);
+        if (kids.length || (state.query && n.path.toLowerCase().includes(state.query.toLowerCase()))) {
+          out.push(Object.assign({}, n, { children: kids }));
+        }
+      } else if (matchesFilter(n)) {
+        out.push(n);
+      }
+    }
+    return out;
+  }
+
+  function renderTree(nodes, depth) {
+    const frag = document.createDocumentFragment();
+    for (const n of nodes) {
+      if (n.type === "dir") {
+        const open = state.openDirs.has(n.path) || !!state.query;
+        const row = document.createElement("div");
+        row.className = "tree-row";
+        row.style.setProperty("--depth", depth);
+        row.innerHTML =
+          '<span class="twisty">' +
+          (open ? "▾" : "▸") +
+          '</span><span class="fname">' +
+          esc(n.name) +
+          "</span>";
+        row.addEventListener("click", function () {
+          if (state.openDirs.has(n.path)) state.openDirs.delete(n.path);
+          else state.openDirs.add(n.path);
+          paintTree();
+        });
+        const wrap = document.createElement("div");
+        wrap.className = "tree-node";
+        wrap.appendChild(row);
+        if (open) wrap.appendChild(renderTree(n.children || [], depth + 1));
+        frag.appendChild(wrap);
+      } else {
+        const row = document.createElement("div");
+        row.className = "tree-row" + (state.current && state.current.path === n.path ? " active" : "");
+        row.style.setProperty("--depth", depth);
+        row.title = n.path;
+        row.innerHTML =
+          '<span class="twisty"></span><span class="badge ' +
+          n.kind +
+          '">' +
+          n.kind +
+          '</span><span class="fname">' +
+          esc(n.name) +
+          "</span>";
+        row.addEventListener("click", function () {
+          openDoc(n);
+        });
+        frag.appendChild(row);
+      }
+    }
+    return frag;
+  }
+
+  function paintTree() {
+    if (!state.catalog) return;
+    const tree = filterTree(state.catalog.tree || []);
+    el.tree.replaceChildren(renderTree(tree, 0));
+  }
+
+  function clearStage() {
+    el.stage.replaceChildren();
+  }
+
+  function showError(msg) {
+    clearStage();
+    const d = document.createElement("div");
+    d.className = "err";
+    d.textContent = msg;
+    el.stage.appendChild(d);
+  }
+
+  async function openDoc(node) {
+    state.current = node;
+    paintTree();
+    el.meta.hidden = false;
+    el.kindBadge.textContent = node.kind;
+    el.kindBadge.className = "badge " + node.kind;
+    el.pathLabel.textContent = "docs/" + node.path;
+    const href = fileUrl(node.path, node.kind);
+    el.btnOpen.href = href;
+    el.btnOpen.target = "_blank";
+
+    clearStage();
+    if (node.kind === "html") {
+      const frame = document.createElement("iframe");
+      frame.className = "page";
+      frame.title = node.path;
+      frame.src = href;
+      el.stage.appendChild(frame);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/raw?path=" + encodeURIComponent(node.path), {
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const text = await res.text();
+      const article = document.createElement("article");
+      article.className = "md";
+      article.innerHTML = renderMarkdown(text);
+      article.addEventListener("click", function (ev) {
+        const a = ev.target.closest("a");
+        if (!a) return;
+        const hrefAttr = a.getAttribute("href") || "";
+        if (!hrefAttr || hrefAttr.startsWith("#") || /^(https?:|mailto:)/i.test(hrefAttr)) return;
+        // Resolve relative markdown / html links inside docs/.
+        ev.preventDefault();
+        const baseDir = node.path.includes("/")
+          ? node.path.slice(0, node.path.lastIndexOf("/") + 1)
+          : "";
+        const joined = (hrefAttr.startsWith("/")
+          ? hrefAttr.slice(1)
+          : baseDir + hrefAttr
+        ).replace(/\\/g, "/");
+        const parts = [];
+        for (const p of joined.split("/")) {
+          if (!p || p === ".") continue;
+          if (p === "..") {
+            if (parts.length) parts.pop();
+          } else {
+            parts.push(p);
+          }
+        }
+        const target = parts.join("/");
+        const hit = (state.catalog.files || []).find((f) => f.path === target);
+        if (hit) openDoc(hit);
+        else window.open("/" + parts.map(encodeURIComponent).join("/"), "_blank");
+      });
+      el.stage.appendChild(article);
+    } catch (e) {
+      showError("无法加载 " + node.path + "：" + e.message);
+    }
+  }
+
+  async function loadCatalog() {
+    const res = await fetch("/api/catalog", { cache: "no-store" });
+    if (!res.ok) throw new Error("catalog HTTP " + res.status);
+    state.catalog = await res.json();
+    const c = state.catalog.counts || {};
+    el.counts.innerHTML =
+      "共 <b>" +
+      (c.all || 0) +
+      "</b> · MD <b>" +
+      (c.md || 0) +
+      "</b> · HTML <b>" +
+      (c.html || 0) +
+      "</b>";
+    paintTree();
+
+    const params = new URLSearchParams(location.search);
+    const want = params.get("path");
+    if (want) {
+      const hit = (state.catalog.files || []).find((f) => f.path === want);
+      if (hit) openDoc(hit);
+    }
+  }
+
+  document.querySelectorAll(".chip").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const f = btn.getAttribute("data-filter");
+      if (f === "all") {
+        state.filter.md = true;
+        state.filter.html = true;
+      } else if (f === "md") {
+        state.filter.md = !state.filter.md;
+        if (!state.filter.md && !state.filter.html) state.filter.html = true;
+      } else if (f === "html") {
+        state.filter.html = !state.filter.html;
+        if (!state.filter.md && !state.filter.html) state.filter.md = true;
+      }
+      document.querySelectorAll(".chip").forEach(function (b) {
+        const k = b.getAttribute("data-filter");
+        if (k === "all") b.classList.toggle("on", state.filter.md && state.filter.html);
+        if (k === "md") b.classList.toggle("on", state.filter.md);
+        if (k === "html") b.classList.toggle("on", state.filter.html);
+      });
+      paintTree();
+    });
+  });
+
+  el.q.addEventListener("input", function () {
+    state.query = el.q.value.trim();
+    paintTree();
+  });
+
+  el.btnReload.addEventListener("click", async function () {
+    await loadCatalog();
+    if (state.current) openDoc(state.current);
+  });
+
+  loadCatalog().catch(function (e) {
+    el.counts.textContent = "目录加载失败";
+    showError(
+      "无法连接 /api/catalog。请用 python docs/portal/serve.py 或 docs\\\\portal\\\\open.bat 启动（不要直接双击打开 index.html）。\n" +
+        e.message
+    );
+  });
+})();
+</script>
+</body>
+</html>

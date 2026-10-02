@@ -234,10 +234,10 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct) {
 
   if (!m_wndAMBoxMgrDocBar.Create(
           _T("Tools"), this, CRect(0, 0, 200, 250), ID_DOCB_RIGTH,
-          WS_CHILD | WS_VISIBLE | CBRS_LEFT | WS_CLIPSIBLINGS |
+          WS_CHILD | WS_VISIBLE | CBRS_RIGHT | WS_CLIPSIBLINGS |
               WS_CLIPCHILDREN | CBRS_FLOAT_MULTI,
           dwBCGStyle)) {
-    TRACE0("Failed to create Workspace bar\n");
+    TRACE0("Failed to create Tools bar\n");
     return FALSE;
   }
 
@@ -284,8 +284,10 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct) {
 void CMainFrame::apply_views_like_chrome_font() {
   // Match SmartGisViews shell body (~Segoe/YaHei UI at ~12px).
   if (ui_font_.GetSafeHandle() == NULL) {
+    // GB2312_CHARSET so MBCS CJK captions (AM tabs / Catalog) paint under YaHei
+    // instead of falling back to '?' glyphs with DEFAULT_CHARSET.
     ui_font_.CreateFont(
-        -12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+        -12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, GB2312_CHARSET,
         OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
         DEFAULT_PITCH | FF_DONTCARE, _T("Microsoft YaHei UI"));
   }
@@ -563,27 +565,29 @@ bool CMainFrame::InitCatalogDockBar(void) {
 }
 
 bool CMainFrame::InitAMBoxMgrDockBar(void) {
-  // Feature Pack requires a unique control-bar ID per CDockablePane.
+  // Plain CWnd pages (not CBCGPDockingControlBar) — nesting docking bars
+  // inside Outlook crashes Feature Pack on close.
   constexpr UINT kIdEditConfigDock = 2101;
   constexpr UINT kIdSysConfigDock = 2102;
 
-  EditConfigDockBar* pEditCfgDockBar = new EditConfigDockBar();
-  pEditCfgDockBar->Create(
-      _T("设置"), m_wndAMBoxMgrDocBar.get_oner_wnd(), CRect(0, 0, 300, 300),
-      TRUE, kIdEditConfigDock,
-      WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN);
+  CBCGPOutlookWnd* outlook = m_wndAMBoxMgrDocBar.get_oner_wnd();
+  if (!outlook) {
+    return false;
+  }
 
-  m_wndAMBoxMgrDocBar.add_wnd(pEditCfgDockBar,
-                              ui::ambox_title_for_display("编辑参数"));
+  EditConfigDockBar* pEditCfgDockBar = new EditConfigDockBar();
+  if (!pEditCfgDockBar->Create(outlook, kIdEditConfigDock)) {
+    delete pEditCfgDockBar;
+    return false;
+  }
+  m_wndAMBoxMgrDocBar.add_wnd(pEditCfgDockBar, _T("Edit"));
 
   SysConfigDockBar* pSysCfgDockBar = new SysConfigDockBar();
-  pSysCfgDockBar->Create(
-      _T("设置"), m_wndAMBoxMgrDocBar.get_oner_wnd(), CRect(0, 0, 300, 300),
-      TRUE, kIdSysConfigDock,
-      WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN);
-
-  m_wndAMBoxMgrDocBar.add_wnd(pSysCfgDockBar,
-                              ui::ambox_title_for_display("系统参数"));
+  if (!pSysCfgDockBar->Create(outlook, kIdSysConfigDock)) {
+    delete pSysCfgDockBar;
+    return false;
+  }
+  m_wndAMBoxMgrDocBar.add_wnd(pSysCfgDockBar, _T("System"));
 
   return m_wndAMBoxMgrDocBar.UpdateAMBoxs();
 }

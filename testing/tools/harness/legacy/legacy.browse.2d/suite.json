@@ -3,7 +3,7 @@
   "kind": "showcase",
   "argv": [],
   "driver": "os",
-  "os_inject_default": "postmessage",
+  "os_inject_default": "sendinput",
   "script": "legacy.browse.2d.il",
   "window_title": "SmartGis",
   "env": {},
@@ -18,13 +18,22 @@
     "before": "legacy/_zoom_before.bmp",
     "after": "legacy/_zoom_after.bmp",
     "min_pixel_diff_frac": 0.001,
-    "settle_ms": 900,
+    "settle_ms": 1200,
     "thresh": 8
+  },
+  "motion_gate": {
+    "min_unique_frac": 0.12,
+    "min_unique_frames": 6
+  },
+  "click_gate": {
+    "enabled": true
   },
   "report_name": "legacy_browse_2d_loop_report.json",
   "probes": [
     "bmp",
-    "zoom"
+    "zoom",
+    "motion",
+    "click"
   ],
   "loop": {
     "rounds": 4,
@@ -41,6 +50,6 @@
       "edit_chrome_visible",
       "click_dblclick_map_client_ok"
     ],
-    "expect_notes": "Edit shell + map client; zoom_gate BMPs must differ; click/dblclick in .il; soft china score informational"
+    "expect_notes": "Edit shell + map client; sendinput pan/wheel; zoom_gate + motion_gate + click_gate; soft china score informational"
   }
 }

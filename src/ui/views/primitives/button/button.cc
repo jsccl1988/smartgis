@@ -111,6 +111,10 @@ void Button::paint_self(ui::gfx::Canvas* canvas) {
     fill = t.control_hover;
   }
   canvas->fill_rect(b.x, b.y, b.width, b.height, fill);
+  // 1px edge so flat dark buttons read as controls, not empty slabs.
+  if (is_enabled()) {
+    canvas->stroke_rect(b.x, b.y, b.width, b.height, t.panel_header, 1);
+  }
   const ui::gfx::Color fg =
       is_enabled() ? t.text_bright : t.text_muted;
   if (!wide_.empty()) {

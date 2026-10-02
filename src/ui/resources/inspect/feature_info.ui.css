@@ -1,13 +1,17 @@
-/* FeatureInfo */
+/* FeatureInfo — omit width/height:100% (parsed as 100px). */
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 4px;
-  width: 280px;
-  height: 180px;
+  gap: 6px;
+  padding: 8px;
 }
 
-#id { width: 240px; height: 24px; }
-#table { width: 260px; height: 140px; flex-grow: 1; }
+#id {
+  height: 24px;
+}
+
+#table {
+  height: 120px;
+  flex-grow: 1;
+}

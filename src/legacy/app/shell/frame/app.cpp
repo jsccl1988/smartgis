@@ -210,10 +210,10 @@ BOOL CSmartGisApp::InitInstance() {
     return FALSE;
   }
 
-  // --scene3d-showcase[=china]: leftover GL stereo DEM + BMP, then exit
-  // before BCG MDI (mirrors Views atmosphere-showcase capture loop).
+  // --scene3d-showcase[=mode]: leftover GL/D3D stereo + BMP (china|terrain|
+  // cube|sphere|water|pointcloud|northarray), then exit before BCG MDI.
   if (scene3d_showcase) {
-    const int rc = legacy_app::run_scene3d_showcase_china(*this);
+    const int rc = legacy_app::run_scene3d_showcase(*this);
     ::TerminateProcess(::GetCurrentProcess(), static_cast<UINT>(rc));
     return FALSE;
   }
@@ -467,6 +467,13 @@ BOOL CSmartGisApp::open_mdi_view(CDocTemplate *tmpl) {
     CFrameWnd *created = tmpl->CreateNewFrame(doc, child);
     if (created) {
       tmpl->InitialUpdateFrame(created, doc);
+      // Maximize 3D after first present settles — doing it inside
+      // InitialUpdateFrame nesting crashed Feature Pack under OpenGL.
+      if (tmpl == m_p3DViewDocTemplate) {
+        if (CMDIChildWnd *mdi = DYNAMIC_DOWNCAST(CMDIChildWnd, created)) {
+          mdi->PostMessage(WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+        }
+      }
       LOGGING(LOG_INFO, "open_mdi_view: InitialUpdateFrame done");
       return TRUE;
     }

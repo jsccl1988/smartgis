@@ -39,6 +39,6 @@
       "no_sibling_overlap",
       "dark_theme_consistent"
     ],
-    "expect_notes": "Shell chrome only; score_id=ui_shell_dark; map pixels not asserted"
+    "expect_notes": "Shell chrome only; score_id=ui_shell_dark; chrome_readable requires light_text_frac>=0.008; map pixels not asserted"
   }
 }

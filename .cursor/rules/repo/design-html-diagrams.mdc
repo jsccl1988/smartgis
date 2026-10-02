@@ -1,0 +1,64 @@
+---
+description: Technical design docs must ship core layering + principle diagrams (HTML, light style, optional animation)
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# Design docs: HTML layering + principle diagrams
+
+**This rule is always on.** Applies whenever the agent writes or substantially revises a **technical design** (living `docs/superpowers/specs/` `§`, new/edited plan that locks architecture, or `docs/build/` architecture explainer).
+
+## Must deliver (same change)
+
+1. **Core layering** — which trees/namespaces own which lane (e.g. UI / CPU prep / GPU submit).
+2. **Principle diagram** — data/control flow for the locked architecture (stages, barriers, thread ownership).
+3. **HTML artifact** — self-contained `.html` (inline CSS; optional CSS/JS animation for staged pipelines). Prefer Chinese UI labels; keep code paths / API names in English.
+
+Markdown may keep a short ASCII sketch, but the **HTML is normative for visuals**. Link it from the `§` / plan metadata (`Diagram:` line).
+
+## Placement
+
+| Doc kind | HTML path |
+| --- | --- |
+| Living `§` / open plan | `docs/superpowers/diagrams/<topic>.html` (one topic → one file; revise in place) |
+| As-built / product explainer | `docs/build/<topic>.html` |
+
+Do **not** invent a parallel diagram tree under `src/`. Do **not** rely on Mermaid-only or external image hosts as the sole visual.
+
+## Visual style (locked): light technical
+
+Use a **light architecture / docs** palette — print-friendly, high contrast, calm. Do **not** copy the dark shell style of `docs/build/views-window-process.html` for new design diagrams.
+
+| Token | Guidance |
+| --- | --- |
+| Page bg | Near-white / cool gray (`#f4f6f8`–`#fafbfc`) |
+| Panels | White cards, 1px cool gray border (`#d8dee6`) |
+| Text | Near-black (`#1a2330`); muted secondary (`#5a6a7e`) |
+| Accent | Single calm blue for links / active stage (`#2563a8`) |
+| Lane colors | Soft tinted fills + darker label text (UI / schedule / CPU / GPU) — not neon on black |
+| Code | Slightly darker than body on light gray chip |
+
+Avoid: dark mode default, purple glow, heavy multi-shadow, marketing gradient hero.
+
+## HTML bar
+
+- Copyright header + `<!DOCTYPE html>`; **light technical** CSS per table above.
+- Show **layers** (stack or swimlanes) and **principle flow** (arrows / numbered stages).
+- Pipelines with time/order (FrameJob, prep×N, present): add a **simple animation** that clarifies “who waits / who never joins”.
+- No network CDN (inline CSS/JS only).
+
+## Don’t
+
+- Don’t ship architecture-only Markdown with no linked HTML diagram.
+- Don’t default new design diagrams to dark theme.
+- Don’t duplicate a second dated design file just to hold the HTML — colocate under `diagrams/` or `docs/build/`.
+- Don’t skip the diagram when “only appending a §” if that `§` locks a new architecture or parallel model.
+
+## Related
+
+- Lifecycle: `.cursor/rules/repo/superpowers-docs.mdc`
+- Light example: `docs/superpowers/diagrams/src-render-vista-parallel-accelerate.html`

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="diagnostic_tools_panel">
+  <style src="diagnostic_tools_panel.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title" text="Diagnostic Tools"/>
+    <label id="status" text="Idle"/>
+    <hbox id="toolbar" class="toolbar">
+      <button id="record" text="Record"/>
+      <button id="stop" text="Stop"/>
+      <button id="clear" text="Clear"/>
+      <button id="export" text="Export"/>
+      <button id="refresh" text="Refresh"/>
+      <checkbox id="arm" text="Armed"/>
+      <checkbox id="track_allocs" text="Track allocs"/>
+      <checkbox id="echo_commands" text="Echo→Output" checked="true"/>
+    </hbox>
+    <panel id="tabs_host" class="tabs_host"/>
+  </vbox>
+</ui>

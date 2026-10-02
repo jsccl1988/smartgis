@@ -46,7 +46,9 @@ All rights reserved.
 
 - [x] Symbology / LayerProperties / FeatureInfo / AttributeTable
 - [x] CatalogView (chrome + tabs host) / SpatialAnalysis / Processing / History / Atmosphere
-- [x] Ambox / DiagnosticTools / ChartView intentionally stay C++ (dynamic / paint-only)
+- [x] DebugConsole / RenderTrace / DiagnosticTools chrome + `tabs_host` (Memory page paint stays C++)
+- [x] Ambox scroll shell + ChartView title chrome + Memory page chrome → markup; dynamic buttons / series plot / sparkline stay C++
+- [x] LayerTree stays custom paint (no outer chrome; Catalog hosts it)
 
 ---
 

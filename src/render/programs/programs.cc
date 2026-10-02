@@ -235,9 +235,9 @@ float4 main(PSIn input) : SV_TARGET
         N = -N;
     float3 L = normalize(-float3(dir_x, dir_y, dir_z));
     float ndotl_raw = dot(N, L);
-    // Sun self-shadow: slopes facing away drop to ambient.
-    float sun_shadow = smoothstep(-0.08, 0.45, ndotl_raw);
-    float ao = saturate(0.42 + 0.58 * N.y);
+    // Soft self-shadow: wide smoothstep kills DEM facet sparkle.
+    float sun_shadow = smoothstep(-0.20, 0.55, ndotl_raw);
+    float ao = saturate(0.58 + 0.42 * N.y);
 
     float3 V = normalize(input.eye - input.world);
     float3 H = normalize(L + V);
@@ -245,17 +245,17 @@ float4 main(PSIn input) : SV_TARGET
     float ndoth = saturate(dot(N, H));
     float ndotl = saturate(ndotl_raw);
     // Flats (vegetation) stay rough; steeper rock tightens the lobe.
-    float rough = saturate(0.72 - 0.35 * (1.0 - N.y));
+    float rough = saturate(0.78 - 0.28 * (1.0 - N.y));
     float a2 = rough * rough;
     a2 = a2 * a2;
     float d = ndoth * ndoth * (a2 - 1.0) + 1.0;
     float D = a2 / max(3.14159 * d * d, 1e-4);
     float fres = pow(1.0 - ndotv, 5.0);
-    float spec = D * (0.04 + 0.96 * fres) * sun_shadow;
+    float spec = D * (0.03 + 0.70 * fres) * sun_shadow;
 
     float3 light_rgb = float3(color_r, color_g, color_b) * intensity;
     float3 diffuse = albedo * (ambient * ao + light_rgb * ndotl * sun_shadow);
-    float3 lit = diffuse + light_rgb * spec * 0.08;
+    float3 lit = diffuse + light_rgb * spec * 0.045;
     return float4(saturate(lit), tex.a * tint.a);
 }
 )";

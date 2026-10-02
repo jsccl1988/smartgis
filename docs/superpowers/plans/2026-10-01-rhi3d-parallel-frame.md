@@ -5,7 +5,8 @@ All rights reserved.
 
 # rhi3d leftover parallel frame Implementation Plan
 
-> **For agentic workers:** implement task-by-task; checkbox tracking. Spec § in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) (§rhi3d leftover parallel frame).
+> **For agentic workers:** implement task-by-task; checkbox tracking. Spec § in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) (§rhi3d leftover parallel frame).  
+> **Diagram:** [`../diagrams/legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html)
 
 **Goal:** Leftover GL/D3D HWND path: Phase 1 off-HWND FrameJob; Phase 2 in-frame CPU prep parallel; Phase 3 D3D11 deferred-context multi-thread record (GL stays P2). Homogeneous GL+D3D for P1+P2.
 
@@ -29,7 +30,7 @@ All rights reserved.
 | `rhi3d/impl/common/frame/*` | P1 scheduler + P2 prep runner |
 | `rhi3d/impl/d3d/host/deferred_draw.*` | P3 deferred pool + TLS |
 | `rhi3d/impl/d3d/ext/ext_interface.*` | Cross-DLL deferred C exports |
-| `scene3d/detail/d3d_deferred_objects.h` | Partition visible objs |
+| `scene3d/scene/d3d_deferred_objects.h` | Partition visible objs |
 | `scene3d/index/octree.cpp` · `scene/scene.cpp` | P2 cull + P3 deferred Render |
 | `rhi3d/impl/{gl,d3d}/README.md` | Env notes |
 

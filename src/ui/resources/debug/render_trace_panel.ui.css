@@ -1,0 +1,54 @@
+/* RenderTracePanel — chrome above paint-self gantt lanes */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  width: 500px;
+  height: 260px;
+}
+
+#title {
+  width: 520px;
+  height: 22px;
+}
+
+#status {
+  width: 480px;
+  height: 20px;
+}
+
+.toolbar {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  width: 480px;
+  height: 32px;
+}
+
+#record { width: 72px; height: 28px; }
+#stop { width: 64px; height: 28px; }
+#clear { width: 64px; height: 28px; }
+#export { width: 72px; height: 28px; }
+#refresh { width: 72px; height: 28px; }
+#arm { width: 80px; height: 24px; }
+
+.filters {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  width: 560px;
+  height: 28px;
+}
+
+#show_map2d { width: 90px; height: 24px; }
+#show_scene3d { width: 100px; height: 24px; }
+#show_startup { width: 90px; height: 24px; }
+#show_gdi { width: 70px; height: 24px; }
+#show_ui { width: 60px; height: 24px; }
+
+#rollup {
+  width: 480px;
+  height: 56px;
+}

@@ -21,6 +21,7 @@
 #include <windowsx.h>
 
 #include "base/core/log.h"
+#include "base/trace/event/process_trace.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/raster/paint_stats.h"
@@ -64,6 +65,19 @@ HWND present_z_insert_after(HWND embed) {
   return HWND_TOP;
 }
 
+// Display mailbox must not block in SetWindowPos/ShowWindow (UI input queue).
+// Close path joins Display while UI is busy → sync SetWindowPos deadlocks.
+constexpr UINT kAsyncPresentPos = SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS;
+
+void async_show_present_hwnd(HWND hwnd, bool show) {
+  if (!hwnd || !IsWindow(hwnd)) {
+    return;
+  }
+  const UINT flags = kAsyncPresentPos | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                     (show ? SWP_SHOWWINDOW : SWP_HIDEWINDOW);
+  SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, flags);
+}
+
 }  // namespace
 
 HWND MapViewport::input_hwnd() const {
@@ -86,6 +100,9 @@ void MapViewport::reveal_flycube_present_if_ready() {
   if (!flycube_present_want_visible_.load(std::memory_order_acquire)) {
     return;
   }
+  if (display_stop_) {
+    return;
+  }
   if (!flycube_present_hwnd_ || !IsWindow(flycube_present_hwnd_)) {
     return;
   }
@@ -97,7 +114,7 @@ void MapViewport::reveal_flycube_present_if_ready() {
   // Init already device->present()'d a navy clear. Showing earlier leaves a
   // WS_EX_NOREDIRECTIONBITMAP desktop hole (startup / tab-switch hollow).
   if (init != DisplayInit::kOk) {
-    ShowWindow(flycube_present_hwnd_, SW_HIDE);
+    async_show_present_hwnd(flycube_present_hwnd_, false);
     return;
   }
   // Init may have used a pre-layout client (multi-k px). Re-sync to the embed
@@ -117,10 +134,9 @@ void MapViewport::reveal_flycube_present_if_ready() {
     h = static_cast<uint32_t>(laid_out.height);
   }
   sync_flycube_present_hwnd(w, h);
-  ShowWindow(flycube_present_hwnd_, SW_SHOWNOACTIVATE);
   SetWindowPos(flycube_present_hwnd_, present_z_insert_after(native_view()), 0,
                0, 0, 0,
-               SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+               kAsyncPresentPos | SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
 }
 
 void MapViewport::set_flycube_present_visible(bool show) {
@@ -129,7 +145,7 @@ void MapViewport::set_flycube_present_visible(bool show) {
     return;
   }
   if (!show) {
-    ShowWindow(flycube_present_hwnd_, SW_HIDE);
+    async_show_present_hwnd(flycube_present_hwnd_, false);
     return;
   }
   // Match embed client; sibling Map-Edit present must not stay above Scene3d.
@@ -157,11 +173,26 @@ void MapViewport::sync_flycube_present_hwnd(uint32_t width_px,
   }
   POINT tl = {0, 0};
   ClientToScreen(embed, &tl);
-  const int w = width_px > 0 ? static_cast<int>(width_px) : 1;
-  const int h = height_px > 0 ? static_cast<int>(height_px) : 1;
+  // Present HWND must stay map-embed-sized. TabStrip (Map/Data/3D) lives on
+  // the shell above the embed; an oversized popup covers those headers and
+  // steals OS SendInput clicks meant for chrome.
+  RECT erc = {};
+  GetClientRect(embed, &erc);
+  int w = erc.right > 0 ? erc.right : (width_px > 0 ? static_cast<int>(width_px) : 1);
+  int h = erc.bottom > 0 ? erc.bottom
+                         : (height_px > 0 ? static_cast<int>(height_px) : 1);
+  if (width_px > 0 && static_cast<int>(width_px) < w) {
+    w = static_cast<int>(width_px);
+  }
+  if (height_px > 0 && static_cast<int>(height_px) < h) {
+    h = static_cast<int>(height_px);
+  }
+  w = (std::max)(1, w);
+  h = (std::max)(1, h);
   // Never SWP_SHOWWINDOW here — that reopened the NOREDIRECTION hole before
   // Init Present. Visibility is owned by reveal_flycube_present_if_ready.
-  UINT flags = SWP_NOACTIVATE;
+  // SWP_ASYNCWINDOWPOS: Display mailbox must not block on the UI thread.
+  UINT flags = kAsyncPresentPos;
   if (!flycube_present_want_visible_.load(std::memory_order_acquire) ||
       !IsWindowVisible(flycube_present_hwnd_)) {
     flags |= SWP_NOZORDER;
@@ -314,17 +345,28 @@ bool MapViewport::try_flycube_device() {
     display_init_ = DisplayInit::kPending;
   }
   enqueue_display_task(DisplayTask{DisplayOp::kInit, hwnd, w, h});
-  // Wait for DX12 Init. Debug D3D12 layers + first adapter enumeration often
-  // exceed a short UI budget; falling through to ContentMapView/GDI leaves
-  // ui.scene as views-scene3d.gdi Fps0 and browse.3d without a real present.
+  // Default: do not block the UI thread on DX12 Init (debug D3D12 layers +
+  // adapter enum often ~0.4–0.8s+). Keep FlyCube attach and finish Init on
+  // the Display thread; reveal when ready. Falling through to ContentMapView
+  // would dual-SoT flash. Opt-in sync wait (harness / agents):
+  //   SMT_SYNC_FLYCUBE_INIT=1  — MapEdit/Data 800ms, Scene3d 2500ms budget.
   {
+    BASE_TRACE_EVENT("FlyCube.Init", "startup");
     std::unique_lock<std::mutex> lock(display_mu_);
-    const int wait_ms = (role_ == Role::kScene3d) ? 2500 : 800;
-    const bool signaled = display_cv_.wait_for(
-        lock, std::chrono::milliseconds(wait_ms), [this]() {
-          return display_init_ == DisplayInit::kOk ||
-                 display_init_ == DisplayInit::kFail;
-        });
+    const bool sync_init = []() {
+      const char* env = std::getenv("SMT_SYNC_FLYCUBE_INIT");
+      return env && env[0] == '1' && env[1] == '\0';
+    }();
+    const int wait_ms =
+        sync_init ? ((role_ == Role::kScene3d) ? 2500 : 800) : 0;
+    const bool signaled =
+        wait_ms <= 0
+            ? false
+            : display_cv_.wait_for(lock, std::chrono::milliseconds(wait_ms),
+                                   [this]() {
+                                     return display_init_ == DisplayInit::kOk ||
+                                            display_init_ == DisplayInit::kFail;
+                                   });
     if (signaled && display_init_ == DisplayInit::kOk) {
       LOGGING(LOG_INFO, "rhi.flycube Init ok hwnd=%p %ux%u", hwnd, w, h);
       // reveal_flycube_present_if_ready lock_guards display_mu_ — must not
@@ -333,13 +375,19 @@ bool MapViewport::try_flycube_device() {
       reveal_flycube_present_if_ready();
       return true;
     }
-    // Still pending after the UI budget: keep FlyCube attach and finish
-    // Init on the Display thread. Falling through to ContentMapView would
-    // dual-SoT flash; Init Fail still tears down below.
-    if (!signaled && display_init_ == DisplayInit::kPending) {
+    // Pending (default async, or sync budget exceeded): keep FlyCube attach.
+    // Init Fail still tears down below.
+    if (display_init_ == DisplayInit::kPending) {
       LOGGING(LOG_INFO,
-              "rhi.flycube Init still pending hwnd=%p %ux%u — async attach",
-              hwnd, w, h);
+              "rhi.flycube Init async hwnd=%p %ux%u sync=%d — Display thread",
+              hwnd, w, h, sync_init ? 1 : 0);
+      lock.unlock();
+      reveal_flycube_present_if_ready();
+      return true;
+    }
+    if (display_init_ == DisplayInit::kOk) {
+      LOGGING(LOG_INFO, "rhi.flycube Init ok (raced) hwnd=%p %ux%u", hwnd, w,
+              h);
       lock.unlock();
       reveal_flycube_present_if_ready();
       return true;

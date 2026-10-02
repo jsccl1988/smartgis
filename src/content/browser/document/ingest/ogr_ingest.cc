@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <string>
@@ -211,6 +212,15 @@ bool path_looks_like_china_city(const std::string& path) {
 void clip_china_city_lines_to_land_polygons(LayerStore* store) {
   if (!store) {
     return;
+  }
+  // Full land-clip is O(lines×rings) and can freeze the UI thread for tens of
+  // seconds (deferred China seed). Harness / deferred path sets
+  // SMT_SKIP_CHINA_LAND_CLIP=1; sync showcase keeps the clip for ocean cleanup.
+  if (const char* skip = std::getenv("SMT_SKIP_CHINA_LAND_CLIP")) {
+    if (skip[0] == '1' && skip[1] == '\0') {
+      // Intentional: deferred / harness path must not freeze the UI thread.
+      return;
+    }
   }
   std::vector<gis::LonLatRing> rings;
   for (const MapLayer& layer : store->layers()) {

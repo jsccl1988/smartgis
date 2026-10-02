@@ -5,6 +5,8 @@
 
 #include "effect/atmosphere/cloud/cloud_pass.h"
 #include "effect/atmosphere/fog/fog_pass.h"
+#include "effect/atmosphere/globe/globe_pass.h"
+#include "effect/atmosphere/globe/sat_cloud_pass.h"
 #include "effect/atmosphere/ocean/ocean_pass.h"
 #include "effect/atmosphere/sky/sky_pass.h"
 #include "render/rhi/rhi.h"
@@ -23,6 +25,20 @@ bool AtmosphereFrame::uses_shared_depth() const {
   return true;
 }
 
+void AtmosphereFrame::set_clear_rgb(float r, float g, float b) {
+  clear_r_ = r;
+  clear_g_ = g;
+  clear_b_ = b;
+  clear_rgb_set_ = true;
+}
+
+void AtmosphereFrame::clear_clear_rgb() {
+  clear_rgb_set_ = false;
+  clear_r_ = 0.f;
+  clear_g_ = 0.f;
+  clear_b_ = 0.f;
+}
+
 bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
                                         render::rhi::CommandList* list, uint32_t width,
                                         uint32_t height,
@@ -34,7 +50,11 @@ bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
   if (sky_enabled_ && !sky_pass_) {
     return false;
   }
-  if (ocean_enabled_ && !ocean_pass_) {
+  if (globe_enabled_ && !globe_pass_) {
+    return false;
+  }
+  // Flat ocean is skipped when globe owns the land/ocean surface.
+  if (ocean_enabled_ && !globe_enabled_ && !ocean_pass_) {
     return false;
   }
 
@@ -50,11 +70,19 @@ bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
     clear_r = zr;
     clear_g = zg;
     clear_b = zb;
-  } else if (!sky_enabled_ && !ocean_enabled_) {
-    // Match GpuScene default background when no sky dome.
-    clear_r = 0.f;
-    clear_g = 0.2f;
-    clear_b = 0.4f;
+  } else if (!sky_enabled_) {
+    // Scene3dGpuPresent defers ocean to post-DEM, so pre often has ocean_off
+    // even when Environment ocean is on. Navy (0,0.2,0.4) filled legacy BMPs
+    // (near_black_frac=0). Default black matches leftover stereo clear.
+    if (clear_rgb_set_) {
+      clear_r = clear_r_;
+      clear_g = clear_g_;
+      clear_b = clear_b_;
+    } else {
+      clear_r = 0.f;
+      clear_g = 0.f;
+      clear_b = 0.f;
+    }
   }
 
   bool ok = true;
@@ -77,10 +105,8 @@ bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
     list->end_render_pass();
   }
 
-  // Ocean (and a depth clear for later opaque) share depth with terrain.
-  // Always open this pass — opaque DEM on large FlyCube HWNDs requires
-  // depth_write; color-only depth_off leaves a blank clear. Ocean draw itself
-  // stays off here when Scene3dGpuPresent records ocean after DEM.
+  // Globe DEM (or flat ocean) + a depth clear for later opaque. Always open
+  // this pass — opaque DEM on large FlyCube HWNDs requires depth_write.
   {
     render::rhi::RenderPassDesc depth_pass;
     depth_pass.width = width;
@@ -97,7 +123,13 @@ bool AtmosphereFrame::record_pre_opaque(render::rhi::Device* device,
     depth_pass.depth_load_op = render::rhi::DepthLoadOp::kClear;
     depth_pass.depth_clear = 1.f;
     list->begin_render_pass(depth_pass);
-    if (ocean_enabled_) {
+    if (globe_enabled_) {
+      if (!globe_pass_) {
+        list->end_render_pass();
+        return false;
+      }
+      ok = globe_pass_->record(device, list, width, height, camera) && ok;
+    } else if (ocean_enabled_) {
       if (!ocean_pass_) {
         list->end_render_pass();
         return false;
@@ -119,7 +151,18 @@ bool AtmosphereFrame::record_post_opaque(render::rhi::Device* device,
     return false;
   }
 
-  if (cloud_enabled_) {
+  // Globe path: satellite cloud shell over the DEM sphere.
+  if (sat_cloud_enabled_) {
+    if (!sat_cloud_pass_) {
+      return false;
+    }
+    if (!sat_cloud_pass_->record(device, list, width, height, camera)) {
+      return false;
+    }
+  }
+
+  // Flat path volumetric clouds (skipped when globe sat-cloud owns weather).
+  if (cloud_enabled_ && !globe_enabled_) {
     if (!cloud_pass_) {
       return false;
     }

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="ambox_view">
+  <style src="ambox_view.ui.css"/>
+  <scroll id="scroll" class="scroll">
+    <panel id="content" class="content"/>
+  </scroll>
+</ui>

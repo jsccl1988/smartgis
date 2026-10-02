@@ -84,7 +84,7 @@ long SmtD3DRenderDevice::SetTexture(SmtTexture* pTex) {
 }
 
 long SmtD3DRenderDevice::SetMaterial(SmtMaterial* /*pMat*/) {
-  // StereoTerrain uses COLOR_MATERIAL (vertex color); material slots unused.
+  // DEM SmtTerrain uses COLOR_MATERIAL (vertex color); material slots unused.
   return SMT_ERR_NONE;
 }
 

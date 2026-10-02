@@ -15,33 +15,34 @@
 #include "base/memory/sample_trace.h"
 #include "base/trace/event/process_trace.h"
 #include "ui/gfx/canvas/canvas.h"
-#include "ui/views/dialogs/file_picker.h"
 #include "ui/gis/debug/debug_console_panel.h"
 #include "ui/gis/debug/render_trace_panel.h"
+#include "ui/views/dialogs/file_picker.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/layout/splitter.h"
 #include "ui/views/kernel/shell/theme.h"
+#include "ui/views/kernel/widget/widget.h"
+#include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/button/checkbox.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 #include "ui/views/primitives/text/label.h"
-#include "ui/views/kernel/widget/widget.h"
 
 namespace ui {
 namespace views {
 namespace {
 
-class MemoryPageView : public View {
+// Memory counter sparkline; page chrome (stats + host) is markup.
+class MemoryChartView : public View {
  public:
-  void set_stats_label(Label* label) { stats_ = label; }
-
   void refresh(bool schedule = true) {
     events_.clear();
     base::trace::for_each_process_trace_event(
         [](void* ctx, int tid, base::trace::Trace::time_point begin,
            base::trace::Trace::time_point end, const char* name, const char* cat,
            base::trace::Trace::Event::Kind kind, int64_t counter_value) {
-          auto* events = static_cast<std::vector<base::trace::Trace::Event>*>(ctx);
+          auto* events =
+              static_cast<std::vector<base::trace::Trace::Event>*>(ctx);
           base::trace::Trace::Event ev;
           ev.tid = tid;
           ev.begin = begin;
@@ -105,7 +106,7 @@ class MemoryPageView : public View {
         static_cast<double>((std::max)(max_ts - min_ts, int64_t{1}));
     const int left = b.x + 8;
     const int right = b.right() - 8;
-    const int top = b.y + 28;
+    const int top = b.y + 8;
     const int bottom = b.bottom() - 8;
     const int width = (std::max)(1, right - left);
     const int height = (std::max)(1, bottom - top);
@@ -142,89 +143,99 @@ class MemoryPageView : public View {
   }
 
  private:
-  Label* stats_ = nullptr;
   std::vector<base::trace::Trace::Event> events_;
   base::trace::Trace::time_point origin_{};
+};
+
+// Memory tab page: markup stats row + chart host; chart paint stays C++.
+class MemoryPageView : public View {
+ public:
+  MemoryPageView() {
+    MarkupRoot loaded = load_markup("debug/memory_page.ui.xml");
+    if (!loaded.ok()) {
+      set_preferred_size({0, 140});
+      return;
+    }
+    stats_ = loaded.ids.find_as<Label>("stats");
+    View* chart_host = loaded.ids.find("chart_host");
+
+    auto chart = std::make_unique<MemoryChartView>();
+    chart_ = chart.get();
+    if (chart_host) {
+      chart_host->set_layout_manager(std::make_unique<FillLayout>());
+      chart_host->add_child(std::move(chart));
+    }
+
+    auto fill = std::make_unique<FillLayout>();
+    set_layout_manager(std::move(fill));
+    loaded.root->set_preferred_size({0, 140});
+    add_child(std::move(loaded.root));
+    set_preferred_size({0, 140});
+  }
+
+  Label* stats_label() { return stats_; }
+
+  void refresh(bool schedule = true) {
+    if (chart_) {
+      chart_->refresh(schedule);
+    }
+  }
+
+ private:
+  Label* stats_ = nullptr;
+  MemoryChartView* chart_ = nullptr;
 };
 
 }  // namespace
 
 DiagnosticToolsPanel::DiagnosticToolsPanel() {
-  auto box = std::make_unique<BoxLayout>(BoxLayout::Orientation::kVertical);
-  box->set_inside_border(6, 4, 6, 4);
-  box->set_between_child_spacing(4);
+  MarkupRoot loaded = load_markup("debug/diagnostic_tools_panel.ui.xml");
+  if (!loaded.ok()) {
+    set_preferred_size({0, 0});
+    return;
+  }
+  title_ = loaded.ids.find_as<Label>("title");
+  status_ = loaded.ids.find_as<Label>("status");
+  record_ = loaded.ids.find_as<Button>("record");
+  stop_ = loaded.ids.find_as<Button>("stop");
+  clear_ = loaded.ids.find_as<Button>("clear");
+  export_ = loaded.ids.find_as<Button>("export");
+  refresh_ = loaded.ids.find_as<Button>("refresh");
+  arm_ = loaded.ids.find_as<Checkbox>("arm");
+  track_allocs_ = loaded.ids.find_as<Checkbox>("track_allocs");
+  echo_commands_ = loaded.ids.find_as<Checkbox>("echo_commands");
+  View* tabs_host = loaded.ids.find("tabs_host");
 
-  auto title = std::make_unique<Label>("Diagnostic Tools");
-  title->set_preferred_size({360, 20});
-  title_ = title.get();
-
-  auto status = std::make_unique<Label>("Idle");
-  status->set_preferred_size({480, 18});
-  status_ = status.get();
-
-  auto row = std::make_unique<BoxLayout>(BoxLayout::Orientation::kHorizontal);
-  row->set_between_child_spacing(4);
-
-  auto record = std::make_unique<Button>("Record");
-  record->set_preferred_size({72, 26});
-  record_ = record.get();
-  record_->set_click([this] { on_record(); });
-
-  auto stop = std::make_unique<Button>("Stop");
-  stop->set_preferred_size({64, 26});
-  stop_ = stop.get();
-  stop_->set_click([this] { on_stop(); });
-
-  auto clear = std::make_unique<Button>("Clear");
-  clear->set_preferred_size({64, 26});
-  clear_ = clear.get();
-  clear_->set_click([this] { on_clear(); });
-
-  auto exp = std::make_unique<Button>("Export");
-  exp->set_preferred_size({72, 26});
-  export_ = exp.get();
-  export_->set_click([this] { on_export(); });
-
-  auto refresh = std::make_unique<Button>("Refresh");
-  refresh->set_preferred_size({72, 26});
-  refresh_ = refresh.get();
-  refresh_->set_click([this] { on_refresh(); });
-
-  auto arm = std::make_unique<Checkbox>("Armed");
-  arm->set_preferred_size({80, 24});
-  arm_ = arm.get();
-  arm_->set_change([this](bool on) {
-    base::trace::set_tracing_enabled(on);
-    update_status();
-  });
-
-  auto track = std::make_unique<Checkbox>("Track allocs");
-  track->set_preferred_size({110, 24});
-  track_allocs_ = track.get();
-  track_allocs_->set_change([](bool on) {
-    if (on) {
-      base::AllocationTracker::enable();
-    } else {
-      base::AllocationTracker::disable();
-    }
-  });
-
-  auto echo = std::make_unique<Checkbox>("Echo→Output");
-  echo->set_preferred_size({110, 24});
-  echo->set_checked(true);
-  echo_commands_ = echo.get();
-
-  auto toolbar = std::make_unique<View>();
-  toolbar->set_layout_manager(std::move(row));
-  toolbar->set_preferred_size({640, 30});
-  toolbar->add_child(std::move(record));
-  toolbar->add_child(std::move(stop));
-  toolbar->add_child(std::move(clear));
-  toolbar->add_child(std::move(exp));
-  toolbar->add_child(std::move(refresh));
-  toolbar->add_child(std::move(arm));
-  toolbar->add_child(std::move(track));
-  toolbar->add_child(std::move(echo));
+  if (record_) {
+    record_->set_click([this] { on_record(); });
+  }
+  if (stop_) {
+    stop_->set_click([this] { on_stop(); });
+  }
+  if (clear_) {
+    clear_->set_click([this] { on_clear(); });
+  }
+  if (export_) {
+    export_->set_click([this] { on_export(); });
+  }
+  if (refresh_) {
+    refresh_->set_click([this] { on_refresh(); });
+  }
+  if (arm_) {
+    arm_->set_change([this](bool on) {
+      base::trace::set_tracing_enabled(on);
+      update_status();
+    });
+  }
+  if (track_allocs_) {
+    track_allocs_->set_change([](bool on) {
+      if (on) {
+        base::AllocationTracker::enable();
+      } else {
+        base::AllocationTracker::disable();
+      }
+    });
+  }
 
   auto output = std::make_unique<DebugConsolePanel>();
   output->set_pane_mode(DebugConsolePanel::PaneMode::kOutput);
@@ -245,23 +256,9 @@ DiagnosticToolsPanel::DiagnosticToolsPanel() {
   cpu->set_embedded(true);
   cpu_ = cpu.get();
 
-  auto mem_stats = std::make_unique<Label>("Memory: —");
-  mem_stats->set_preferred_size({480, 40});
-  memory_stats_ = mem_stats.get();
-
   auto memory = std::make_unique<MemoryPageView>();
-  memory->set_stats_label(memory_stats_);
-  memory->set_preferred_size({0, 120});
+  memory_stats_ = memory->stats_label();
   memory_page_ = memory.get();
-
-  auto mem_host = std::make_unique<View>();
-  auto mem_box =
-      std::make_unique<BoxLayout>(BoxLayout::Orientation::kVertical);
-  mem_box->set_between_child_spacing(4);
-  mem_box->set_flex_for_view(memory.get(), 1);
-  mem_host->set_layout_manager(std::move(mem_box));
-  mem_host->add_child(std::move(mem_stats));
-  mem_host->add_child(std::move(memory));
 
   auto tabs = std::make_unique<TabStrip>();
   tabs->set_preferred_size({0, 140});
@@ -269,21 +266,25 @@ DiagnosticToolsPanel::DiagnosticToolsPanel() {
   tabs_->add_tab("Output", std::move(output));
   tabs_->add_tab("Console", std::move(console));
   tabs_->add_tab("Trace", std::move(cpu));
-  tabs_->add_tab("Memory", std::move(mem_host));
+  tabs_->add_tab("Memory", std::move(memory));
 
-  box->set_flex_for_view(tabs.get(), 1);
-  set_layout_manager(std::move(box));
-  add_child(std::move(title));
-  add_child(std::move(status));
-  add_child(std::move(toolbar));
-  add_child(std::move(tabs));
+  if (tabs_host) {
+    tabs_host->set_preferred_size({0, 140});
+    tabs_host->set_layout_manager(std::make_unique<FillLayout>());
+    tabs_host->add_child(std::move(tabs));
+  }
+
+  auto fill = std::make_unique<FillLayout>();
+  set_layout_manager(std::move(fill));
+  loaded.root->set_preferred_size({0, 240});
+  add_child(std::move(loaded.root));
   set_preferred_size({0, 0});
 
   // Always-on diagnostics: reflect process state (do not re-enable / clear).
-  if (base::trace::tracing_enabled()) {
+  if (arm_ && base::trace::tracing_enabled()) {
     arm_->set_checked(true);
   }
-  if (base::AllocationTracker::is_enabled()) {
+  if (track_allocs_ && base::AllocationTracker::is_enabled()) {
     track_allocs_->set_checked(true);
   }
   last_auto_refresh_ = std::chrono::steady_clock::now();
@@ -348,7 +349,7 @@ void DiagnosticToolsPanel::set_visible_tools(bool on) {
     return;
   }
   visible_ = on;
-  set_preferred_size(on ? Size{0, 220} : Size{0, 0});
+  set_preferred_size(on ? Size{0, 240} : Size{0, 0});
   // Hide chrome while collapsed so children cannot paint into a remnant strip.
   // Output keeps LogSink subscription even while collapsed so RHI / present
   // LOGGING still accumulates and snapshot_tail is not the only recovery path.
@@ -377,6 +378,17 @@ void DiagnosticToolsPanel::set_visible_tools(bool on) {
     layout();
   }
   schedule_paint();
+}
+
+void DiagnosticToolsPanel::set_active_tab(int index) {
+  if (!tabs_ || index < 0 || index >= tabs_->tab_count()) {
+    return;
+  }
+  tabs_->set_active(index);
+}
+
+int DiagnosticToolsPanel::active_tab() const {
+  return tabs_ ? tabs_->active() : -1;
 }
 
 void DiagnosticToolsPanel::set_console_submit(

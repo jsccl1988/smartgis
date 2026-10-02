@@ -159,24 +159,84 @@ bool blit_rgba_quad(HDC hdc, const std::vector<POINT>& pts,
     return false;
   }
 
-  auto* dest = static_cast<uint8_t*>(dest_bits);
-  for (int dy = 0; dy < dst_h; ++dy) {
-    const int sy = (dy * th) / dst_h;
-    for (int dx = 0; dx < dst_w; ++dx) {
-      const int sx = (dx * tw) / dst_w;
+  // Bilinear sample softens DEM-bake block edges when stretched to view
+  // (nearest-neighbor made coast / relief look like a hard cast shadow).
+  auto sample_rgba = [&](float u, float v, float* out_r, float* out_g,
+                         float* out_b, float* out_a) {
+    const float x = u * static_cast<float>(tw) - 0.5f;
+    const float y = v * static_cast<float>(th) - 0.5f;
+    const int x0 = static_cast<int>(std::floor(x));
+    const int y0 = static_cast<int>(std::floor(y));
+    const int x1 = x0 + 1;
+    const int y1 = y0 + 1;
+    const float fx = x - static_cast<float>(x0);
+    const float fy = y - static_cast<float>(y0);
+    auto fetch = [&](int ix, int iy, float* r, float* g, float* b, float* a) {
+      ix = (std::max)(0, (std::min)(tw - 1, ix));
+      iy = (std::max)(0, (std::min)(th - 1, iy));
       const size_t so =
-          (static_cast<size_t>(sy) * static_cast<size_t>(tw) +
-           static_cast<size_t>(sx)) *
+          (static_cast<size_t>(iy) * static_cast<size_t>(tw) +
+           static_cast<size_t>(ix)) *
           4u;
-      const unsigned a = rgba[so + 3];
-      if (a == 0) {
+      *r = static_cast<float>(rgba[so + 0]);
+      *g = static_cast<float>(rgba[so + 1]);
+      *b = static_cast<float>(rgba[so + 2]);
+      *a = static_cast<float>(rgba[so + 3]);
+    };
+    float r00, g00, b00, a00, r10, g10, b10, a10, r01, g01, b01, a01, r11, g11,
+        b11, a11;
+    fetch(x0, y0, &r00, &g00, &b00, &a00);
+    fetch(x1, y0, &r10, &g10, &b10, &a10);
+    fetch(x0, y1, &r01, &g01, &b01, &a01);
+    fetch(x1, y1, &r11, &g11, &b11, &a11);
+    const float w00 = (1.f - fx) * (1.f - fy);
+    const float w10 = fx * (1.f - fy);
+    const float w01 = (1.f - fx) * fy;
+    const float w11 = fx * fy;
+    *out_a = w00 * a00 + w10 * a10 + w01 * a01 + w11 * a11;
+    if (*out_a < 0.5f) {
+      *out_r = *out_g = *out_b = 0.f;
+      return;
+    }
+    // Premultiplied-ish: ignore transparent texels so ocean alpha=0 does not
+    // pull shade toward black at the coastline.
+    const float wa00 = w00 * a00;
+    const float wa10 = w10 * a10;
+    const float wa01 = w01 * a01;
+    const float wa11 = w11 * a11;
+    const float wsum = wa00 + wa10 + wa01 + wa11;
+    if (wsum < 0.5f) {
+      *out_r = *out_g = *out_b = 0.f;
+      *out_a = 0.f;
+      return;
+    }
+    *out_r = (wa00 * r00 + wa10 * r10 + wa01 * r01 + wa11 * r11) / wsum;
+    *out_g = (wa00 * g00 + wa10 * g10 + wa01 * g01 + wa11 * g11) / wsum;
+    *out_b = (wa00 * b00 + wa10 * b10 + wa01 * b01 + wa11 * b11) / wsum;
+  };
+
+  auto* dest = static_cast<uint8_t*>(dest_bits);
+  const float inv_dst_w = dst_w > 1 ? 1.f / static_cast<float>(dst_w) : 1.f;
+  const float inv_dst_h = dst_h > 1 ? 1.f / static_cast<float>(dst_h) : 1.f;
+  for (int dy = 0; dy < dst_h; ++dy) {
+    const float v = (static_cast<float>(dy) + 0.5f) * inv_dst_h;
+    for (int dx = 0; dx < dst_w; ++dx) {
+      const float u = (static_cast<float>(dx) + 0.5f) * inv_dst_w;
+      float sr = 0.f;
+      float sg = 0.f;
+      float sb = 0.f;
+      float sa = 0.f;
+      sample_rgba(u, v, &sr, &sg, &sb, &sa);
+      if (sa < 0.5f) {
         continue;
       }
-      const float sr = static_cast<float>(rgba[so + 0]) / 255.f;
-      const float sg = static_cast<float>(rgba[so + 1]) / 255.f;
-      const float sb = static_cast<float>(rgba[so + 2]) / 255.f;
+      sr /= 255.f;
+      sg /= 255.f;
+      sb /= 255.f;
       const float shade = 0.299f * sr + 0.587f * sg + 0.114f * sb;
-      const float m = 1.f - k + k * shade;
+      // Edge alpha feathers multiply strength so coastlines do not stair-step.
+      const float edge = (std::min)(1.f, sa / 255.f);
+      const float m = 1.f - k * edge + k * edge * shade;
       const size_t o =
           (static_cast<size_t>(dy) * static_cast<size_t>(dst_w) +
            static_cast<size_t>(dx)) *

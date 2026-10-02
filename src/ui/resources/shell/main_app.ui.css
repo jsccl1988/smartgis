@@ -1,130 +1,86 @@
-/* SmartGisViews main chrome — sized for UiDesigner canvas (~640x480). */
+/* SmartGisViews main chrome — §Shell chrome layout (2026-10-02).
+   Designer may open at ~640x480; product fills the FrameView client.
+   Do not pin shell/menu/split widths to 640px — that starved the catalog
+   splitter (kMinPanePx) and Yoga-overflowed CatalogView children. */
 
 .shell {
   display: flex;
   flex-direction: column;
-  width: 620px;
-  height: 480px;
-  gap: 2px;
+  gap: 0px;
+  min-width: 640px;
+  min-height: 480px;
 }
 
 .menu {
-  width: 620px;
   height: 28px;
+  flex-grow: 0;
+  width: 100%;
 }
 
 .main_split {
-  display: flex;
-  flex-direction: column;
   flex-grow: 1;
-  width: 620px;
-  gap: 2px;
-}
-
-.columns {
-  display: flex;
-  flex-direction: column;
-  flex-grow: 1;
-  width: 620px;
-  gap: 2px;
+  width: 100%;
+  min-height: 200px;
 }
 
 .work {
-  display: flex;
-  flex-direction: row;
   flex-grow: 1;
-  width: 620px;
-  height: 220px;
-  gap: 4px;
+  width: 100%;
+  min-height: 200px;
+}
+
+.map_column {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-width: 200px;
+  min-height: 200px;
+  gap: 0px;
+}
+
+.tool_bar {
+  width: 100%;
+  height: 40px;
+  flex-grow: 0;
 }
 
 .catalog_map {
-  display: flex;
-  flex-direction: row;
   flex-grow: 1;
-  height: 220px;
-  gap: 4px;
+  min-height: 160px;
+  width: 100%;
 }
 
 .catalog {
-  width: 140px;
-  height: 220px;
+  width: 288px;
+  min-height: 160px;
+  flex-grow: 0;
 }
 
 .map_tabs {
-  display: flex;
-  flex-direction: column;
   flex-grow: 1;
-  height: 220px;
-  gap: 4px;
-}
-
-.tab_strip {
-  display: flex;
-  flex-direction: row;
-  height: 28px;
-  gap: 4px;
-  padding: 2px;
-}
-
-#map_tab_strip {
-  height: 28px;
-  flex-grow: 0;
-}
-
-#map_edit {
-  flex-grow: 1;
-  min-height: 140px;
-}
-
-/* Explicit tab chip sizes — Yoga measure+row otherwise stacks Map/Data/3D. */
-#tab_map,
-#tab_data,
-#tab_3d,
-#tab_feature,
-#tab_attr,
-#tab_measure,
-#tab_selection,
-#tab_layer_props,
-#tab_legend,
-#tab_analysis,
-#tab_processing,
-#tab_atmosphere {
-  width: 72px;
-  height: 24px;
-}
-
-.map_host {
-  flex-grow: 1;
-  min-height: 120px;
-}
-
-.ambox {
-  width: 100px;
-  height: 220px;
+  min-width: 200px;
+  min-height: 160px;
 }
 
 .inspector {
-  display: flex;
-  flex-direction: column;
-  width: 620px;
-  height: 120px;
-  gap: 2px;
-}
-
-.inspector_page {
-  flex-grow: 1;
-  height: 80px;
-}
-
-/* Collapsed strip in designer preview — full tools live in product shell. */
-.diagnostics {
-  width: 620px;
-  height: 0px;
+  width: 320px;
+  min-height: 200px;
   flex-grow: 0;
 }
 
+/* Product default console strip; intentionally collapsed panels still use
+   preferred {0,0} via DiagnosticToolsPanel::set_visible_tools(false). */
+.diagnostics {
+  width: 100%;
+  height: 160px;
+  min-height: 120px;
+  flex-grow: 0;
+}
+
+/* Tall enough for 20 DIP shell body face after CSS px→layout (see StatusBar). */
 .status {
-  width: 620px;
-  height: 24px;
+  width: 100%;
+  height: 32px;
+  min-height: 28px;
+  flex-grow: 0;
 }

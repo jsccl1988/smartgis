@@ -4,6 +4,8 @@
 #ifndef SMT_LEGACY_RENDER_RHI2D_CARTO_DRAW_H_
 #define SMT_LEGACY_RENDER_RHI2D_CARTO_DRAW_H_
 
+#include <cstddef>
+
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "gis/model/feature/feature.h"
 #include "legacy/gis/present/carto/style.h"
@@ -121,6 +123,11 @@ class Rhi2dCartoDraw {
                  long code_type);
   int stretch_image(const char* image_buf, int image_buf_size,
                     const fRect& frect, long code_type);
+
+  // Out-of-line in carto_draw.cc so collaborator TUs can detect partial-rebuild
+  // ODR when style_/xform_ size changes (stale objs read xform floats as
+  // rd_options_ → AV in draw_device_polyline).
+  static std::size_t rd_options_offset();
 
  private:
   friend class GdiDeviceDraw;

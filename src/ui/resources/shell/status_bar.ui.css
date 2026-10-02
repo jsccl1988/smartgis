@@ -6,26 +6,26 @@
   gap: 12px;
   padding: 0px 8px;
   width: 400px;
-  height: 24px;
+  height: 32px;
   align-items: center;
 }
 
 #scale {
   width: 130px;
-  height: 22px;
+  height: 28px;
 }
 
 #crs {
   width: 180px;
-  height: 22px;
+  height: 28px;
 }
 
 #coord {
   width: 220px;
-  height: 22px;
+  height: 28px;
 }
 
 #status {
-  height: 22px;
+  height: 28px;
   flex-grow: 1;
 }

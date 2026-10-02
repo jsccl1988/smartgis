@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -88,6 +89,12 @@ class UI_EXPORT MapViewport : public View {
   bool last_gpu_present_ok() const {
     return last_gpu_present_ok_.load(std::memory_order_acquire);
   }
+  // BeginFrame mailbox tokens — wait for presented >= request after invalidate.
+  uint32_t frame_request() const;
+  uint32_t frame_presented() const;
+  // DXGI Resize/initialize cleared the swapchain — next present must redraw.
+  void mark_gpu_surface_dirty();
+  bool consume_gpu_surface_dirty();
   // Last ContentMapView SharedSurface blit into the paint DC (UI thread).
   // When true, overlay must not full-GDI the map (SoT already has vectors).
   bool last_content_present_ok() const {
@@ -235,11 +242,18 @@ class UI_EXPORT MapViewport : public View {
   // FlyCube: invalidate only while a frame was requested and not yet presented.
   std::atomic<uint32_t> frame_request_{1};
   std::atomic<uint32_t> frame_presented_{0};
-  OverlayPaint overlay_paint_;
-  GpuPresentFn gpu_present_;
-  GpuSubmitFn gpu_submit_;
+  // Publish via std::atomic_store; readers std::atomic_load. Hot path only
+  // bumps a shared_ptr refcount — never copies std::function under a mutex.
+  // (Unsynchronized std::function assign + call AVs in _Tidy.)
+  void refresh_has_gpu_cb();
+  std::shared_ptr<OverlayPaint> overlay_paint_;
+  std::shared_ptr<GpuPresentFn> gpu_present_;
+  std::shared_ptr<GpuSubmitFn> gpu_submit_;
+  std::atomic<bool> has_gpu_cb_{false};
   std::atomic<bool> last_gpu_present_ok_{false};
   std::atomic<bool> last_content_present_ok_{false};
+  // Set on Display Resize/Init after swapchain recreate; consumed by present.
+  std::atomic<bool> gpu_surface_dirty_{false};
   bool frame_ready_ = false;
   HDC back_dc_ = nullptr;
   HBITMAP back_dib_ = nullptr;

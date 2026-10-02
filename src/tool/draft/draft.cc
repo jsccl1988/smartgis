@@ -170,7 +170,7 @@ class StrokeInteraction final : public Interaction {
     emit(DraftKind::kPoint);
   }
 
-  void emit(DraftKind kind) {
+  void emit(DraftKind kind, bool gesture_end = true) {
     if (!cb_) {
       return;
     }
@@ -178,6 +178,9 @@ class StrokeInteraction final : public Interaction {
     d.kind = kind;
     d.points = pts_;
     d.flags = default_flags_;
+    if (gesture_end) {
+      d.flags |= draft_flags::kGestureEnd;
+    }
     cb_(d);
     pts_.clear();
     overlay_ = {};
@@ -252,7 +255,7 @@ class ViewPanInteraction final : public Interaction {
     }
     if (multitouch_) {
       if (e.kind == Kind::kLUp && captured_) {
-        emit_delta(e.x_px, e.y_px, /*touch=*/true);
+        emit_delta(e.x_px, e.y_px, /*touch=*/true, /*gesture_end=*/true);
         reset();
         return true;
       }
@@ -265,11 +268,11 @@ class ViewPanInteraction final : public Interaction {
       return true;
     }
     if (e.kind == Kind::kMouseMove && captured_) {
-      emit_delta(e.x_px, e.y_px, /*touch=*/false);
+      emit_delta(e.x_px, e.y_px, /*touch=*/false, /*gesture_end=*/false);
       return true;
     }
     if (e.kind == Kind::kLUp && captured_) {
-      emit_delta(e.x_px, e.y_px, /*touch=*/false);
+      emit_delta(e.x_px, e.y_px, /*touch=*/false, /*gesture_end=*/true);
       reset();
       return true;
     }
@@ -298,18 +301,18 @@ class ViewPanInteraction final : public Interaction {
       return true;
     }
     if (e.kind == Kind::kMouseMove && captured_) {
-      emit_delta(e.x_px, e.y_px, /*touch=*/true);
+      emit_delta(e.x_px, e.y_px, /*touch=*/true, /*gesture_end=*/false);
       return true;
     }
     if (e.kind == Kind::kLUp && captured_) {
-      emit_delta(e.x_px, e.y_px, /*touch=*/true);
+      emit_delta(e.x_px, e.y_px, /*touch=*/true, /*gesture_end=*/true);
       reset();
       return true;
     }
     return false;
   }
 
-  void emit_delta(int32_t x, int32_t y, bool touch) {
+  void emit_delta(int32_t x, int32_t y, bool touch, bool gesture_end) {
     if (pts_.empty()) {
       pts_.push_back({x, y});
     }
@@ -327,10 +330,10 @@ class ViewPanInteraction final : public Interaction {
       // Click / no-op up: do not emit a zero pan (avoids china redraw flash).
       return;
     }
-    emit_keep(touch);
+    emit_keep(touch, gesture_end);
   }
 
-  void emit_keep(bool touch) {
+  void emit_keep(bool touch, bool gesture_end) {
     if (!cb_ || pts_.size() < 2) {
       return;
     }
@@ -340,6 +343,9 @@ class ViewPanInteraction final : public Interaction {
     d.flags = default_flags_;
     if (touch) {
       d.flags |= draft_flags::kTouchPan;
+    }
+    if (gesture_end) {
+      d.flags |= draft_flags::kGestureEnd;
     }
     cb_(d);
   }

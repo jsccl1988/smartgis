@@ -1,0 +1,41 @@
+/* DiagnosticToolsPanel — chrome + tabs_host for Output/Console/Trace/Memory.
+ * Do not use width/height: 100% — css_parser parse_px accepts strtof("100%")
+ * as 100px and collapses toolbars. Omit size so Yoga/FillLayout stretch. */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 8px;
+}
+
+#title {
+  width: 240px;
+  height: 18px;
+}
+
+#status {
+  width: 360px;
+  height: 16px;
+}
+
+.toolbar {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  height: 28px;
+}
+
+#record { width: 64px; height: 24px; }
+#stop { width: 56px; height: 24px; }
+#clear { width: 56px; height: 24px; }
+#export { width: 64px; height: 24px; }
+#refresh { width: 64px; height: 24px; }
+#arm { width: 72px; height: 22px; }
+#track_allocs { width: 96px; height: 22px; }
+#echo_commands { width: 96px; height: 22px; }
+
+.tabs_host {
+  height: 140px;
+  flex-grow: 1;
+}

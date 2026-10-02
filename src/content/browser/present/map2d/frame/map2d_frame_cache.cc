@@ -81,13 +81,14 @@ HillshadeBakeCache& hillshade_bake_cache() {
 
 int hillshade_max_edge_for_zoom(double zoom) {
   // Overview / china framing: downsample DEM before shade (Task 3 LOD).
+  // Slightly higher edges cut blocky umbra when bilinear-stretched to 1280.
   if (zoom < 4.5) {
-    return 128;
-  }
-  if (zoom < 7.0) {
     return 192;
   }
-  return 256;
+  if (zoom < 7.0) {
+    return 288;
+  }
+  return 384;
 }
 
 bool hillshade_cache_lookup(const std::string& dem_path,
@@ -296,12 +297,22 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
   in.metrics = &windows_rasterizer;
   in.tiles = {};
 
-  // Soft-gate: SMT_MAP2D_NO_HILLSHADE=1 skips bake. Bake into locals first and
-  // install into members only after Layout::build succeeds so a failed /
-  // aborted rebuild cannot leave a half-swapped hillshade_rgba_.
+  // Soft-gate: SMT_MAP2D_NO_HILLSHADE=1 skips bake.
+  // Product cold start (defer_china_seed) still finds china_dem.tif on disk
+  // via find_sample_dem_path even with a demo-only document — that paid
+  // ~0.4s HillshadeBake inside WaitFirstMapPresent. Skip until the scene
+  // has China extent (real PLP/city seed). Force with SMT_MAP2D_FORCE_HILLSHADE=1
+  // (harness / agents that need shade before china open).
+  // Bake into locals first and install into members only after Layout::build
+  // succeeds so a failed / aborted rebuild cannot leave a half-swapped
+  // hillshade_rgba_.
   const char* no_hs = std::getenv("SMT_MAP2D_NO_HILLSHADE");
+  const char* force_hs = std::getenv("SMT_MAP2D_FORCE_HILLSHADE");
+  const bool force_hillshade =
+      force_hs && force_hs[0] == '1' && force_hs[1] == '\0';
   const bool skip_hillshade =
-      no_hs && no_hs[0] == '1' && no_hs[1] == '\0';
+      (no_hs && no_hs[0] == '1' && no_hs[1] == '\0') ||
+      (!force_hillshade && scene_ && !scene_->has_china_extent());
   std::vector<uint8_t> baked_rgba;
   int baked_w = 0;
   int baked_h = 0;
@@ -351,6 +362,7 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
             dem_path, params, &baked_rgba, &baked_w, &baked_h, &dem_minx,
             &dem_miny, &dem_maxx, &dem_maxy);
         if (!have_bake) {
+          BASE_TRACE_EVENT("HillshadeBake", "startup");
           gis::DemRaster dem;
           if (!dem.load_gdal_raster(dem_path.c_str()) || dem.empty()) {
             std::fprintf(stderr,
@@ -387,7 +399,7 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
           slot.max_y = dem_maxy;
           // Soft multiply: enough for hillshade_gray_frac>0.02 while cream
           // (incl. darkened) still passes land_cream after scorer widen.
-          slot.opacity = 0.72f;
+          slot.opacity = 0.62f;
           slot.texture_key = kHillshadeTextureKey;
           in.hillshade_tiles.push_back(slot);
           std::fprintf(stderr,

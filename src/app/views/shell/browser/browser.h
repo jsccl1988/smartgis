@@ -79,11 +79,21 @@ class Browser : public content::MapContentsObserver {
   bool init();
   // Product plugin resource root (--plugins-dir). Empty → <exe>/../plugins.
   void set_plugins_dir(std::string path);
+  // When true, SeedDocument skips China/DEM OGR open; Browser::show schedules
+  // an idle open so first-show chrome stays interactive. Harness paths keep
+  // false (sync) so BMP / self-test timing stays deterministic.
+  // Out-of-line: parallel ninja + Browser layout churn must not skew callers.
+  void set_defer_china_seed(bool defer);
+  bool defer_china_seed() const;
+  // Opt-in OOP GPU at Session.init_hosts (also SMT_ENABLE_OOP_RENDER=1).
+  void set_enable_oop_render(bool enable);
+  bool enable_oop_render() const;
   void show();
   int run_loop();
 
   // Tear down map HWND / FlyCube before Widget DestroyWindow.
   void prepare_close();
+  bool is_close_prepared() const { return prepare_close_done_; }
 
   BrowserUiDelegate* ui() { return ui_.get(); }
   const BrowserUiDelegate* ui() const { return ui_.get(); }
@@ -161,13 +171,18 @@ class Browser : public content::MapContentsObserver {
   bool extent_watch_open() const { return extent_watch_open_; }
   void set_extent_watch_open(bool v) { extent_watch_open_ = v; }
   content::Extent2* extent_watch() { return &extent_watch_; }
-  content::EventBus::Connection* selection_sub() { return &selection_sub_; }
-  content::EventBus::Connection* edit_sub() { return &edit_sub_; }
-  content::EventBus::Connection* extent_sub() { return &extent_sub_; }
+  content::EventBus::Connection* selection_sub();
+  content::EventBus::Connection* edit_sub();
+  content::EventBus::Connection* extent_sub();
 
   bool run_tool_command(std::string_view command_id);
   void refit_active_view();
   void refresh_inspectors();
+  // Non-inline: forwards to ui_->sync_catalog_from_scene(). Showcase / harness
+  // TUs must not call the inline ui() accessor after OGR replace — a skewed
+  // Browser layout (stale .obj under parallel ninja) loads freefill into the
+  // BrowserUiDelegate* and AVs on the vtable (bug #10 catalog residual).
+  void sync_catalog_from_scene();
   bool apply_atmosphere_fields(std::string_view spec);
   bool run_m2_self_test_hooks(std::string* err);
   void select_map_tab(int index);
@@ -217,6 +232,12 @@ class Browser : public content::MapContentsObserver {
   bool syncing_extent_ = false;
   bool prepare_close_done_ = false;
   bool flash_lit_ = true;
+
+  // Append-only flags: keep ahead of ui_ only. Inserting before Connection
+  // members skews stale shell_ui .obj (parallel ninja) so selection_sub()
+  // lands on CD-fill → AV in EventBus::Connection::disconnect.
+  bool defer_china_seed_ = false;
+  bool enable_oop_render_ = false;
 
   // Declared last so chrome tears down before session members.
   std::unique_ptr<BrowserUiDelegate> ui_;

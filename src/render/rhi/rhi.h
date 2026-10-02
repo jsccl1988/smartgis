@@ -118,9 +118,10 @@ enum class BindingKind : uint32_t {
 // Vertex fetch layouts the product shaders use. FlyCube maps these to input
 // elements; the header does not name a backend input-layout type.
 enum class VertexLayout : uint32_t {
-  kPosition,        // float3
-  kPositionUv,      // float3 + float2
-  kPositionNormal,  // float3 + float3
+  kPosition,           // float3
+  kPositionUv,         // float3 + float2
+  kPositionNormal,     // float3 + float3
+  kPositionNormalUv,   // float3 + float3 + float2
 };
 
 struct ShaderSource {

@@ -64,6 +64,18 @@ class Map2dGpuPresent {
                uint64_t shell_generation = 0);
 
   bool last_present_ok() const { return last_present_ok_; }
+  // True when the last present() call recorded Pass / graph::present (not a
+  // StaticReuse swapchain keep). show_chrome must wait on a drew frame so a
+  // skip after clear cannot satisfy the first-map pump.
+  bool last_present_drew() const { return last_present_drew_; }
+  // After DXGI Resize/initialize the swapchain is clear — clear the skip latch
+  // so the next present re-submits Pass (StaticReuse must not keep hollow).
+  void note_surface_reset() {
+    last_present_ok_ = false;
+    last_present_drew_ = false;
+    last_shell_generation_ = 0;
+    last_had_shell_ = false;
+  }
   uint64_t layout_build_count() const;
   bool last_present_reused_layout() const;
 
@@ -79,6 +91,7 @@ class Map2dGpuPresent {
   std::unique_ptr<effect::map::Pass> map2d_pass_;
   detail::ShellOverlayEffect shell_overlay_;
   bool last_present_ok_ = false;
+  bool last_present_drew_ = false;
   // Last shell generation successfully presented (StaticReuse skip).
   uint64_t last_shell_generation_ = 0;
   bool last_had_shell_ = false;

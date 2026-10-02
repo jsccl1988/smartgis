@@ -14,7 +14,7 @@ If **`out/agent_wake_queue.md`** exists:
 
 1. Prefer **Agents Window conversation tabs** listed by `composer_id` — open that tab and send `继续`. Do **not** spawn Task subagents from another chat to “resume” those tabs (Task ≠ tab; resume across composers is unsupported / unsafe).
 2. Only claim a `pending` row from **inside** the matching `composer_id` tab (edit status to `claimed:<short-id>`).
-3. Compile via **`build.bat`**. Lock is **off by default**; multi-agent: `out/.build.lock.on`. See **`.cursor/rules/build/build-lock.mdc`**.
+3. Compile via **`build.bat`**. Lock is **off by default**; agents must **not** enable `out/.build.lock.on`. See **`.cursor/rules/build/build-lock.mdc`**.
 4. Ignore rows marked **done**. Do not revive **Aborted misaligned Tasks**.
 
 If the queue is missing or all actionable rows are done, ignore this rule.

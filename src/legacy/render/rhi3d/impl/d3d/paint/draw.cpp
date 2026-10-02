@@ -50,17 +50,15 @@ VSOut VSMain(VSIn i) {
 Texture2D g_tex : register(t0);
 SamplerState g_samp : register(s0);
 float4 PSMain(VSOut i) : SV_TARGET {
-  // Match leftover GL setup_device_lights + COLOR_MATERIAL:
-  // scene ambient=1, two white directional lights from GL_POSITION (1,1,1,0)
-  // (baked under identity modelview â?keep normals in object/world space).
+  // Match leftover GL COLOR_MATERIAL with a soft key light.
   float3 n = normalize(i.nrm);
-  float3 L = normalize(float3(1.0f, 1.0f, 1.0f));
+  float3 L = normalize(float3(0.35f, 0.85f, 0.40f));
   float ndl = saturate(dot(n, L));
   float3 base = i.col.rgb;
   if (g_use_tex > 0.5f) {
     base *= g_tex.Sample(g_samp, i.uv).rgb;
   }
-  float3 rgb = base * (1.0f + 2.0f * ndl);
+  float3 rgb = base * (0.42f + 0.48f * ndl) + float3(0.10f, 0.11f, 0.12f);
   return float4(saturate(rgb), 1.0f);
 }
 )";
@@ -792,6 +790,19 @@ long SmtD3DRenderDevice::DrawScreenBgra(float cx, float cy, int w, int h,
       m_viewPort.ulHeight > 0 ? m_viewPort.ulHeight : backbuffer_height_);
   if (vw <= 1.f || vh <= 1.f) {
     return SMT_ERR_FAILURE;
+  }
+
+  // After P3 ExecuteCommandList the immediate RS viewport can be cleared —
+  // rebind so screen-space labels land in the swapchain.
+  {
+    D3D11_VIEWPORT vp = {};
+    vp.TopLeftX = static_cast<float>(m_viewPort.ulX);
+    vp.TopLeftY = static_cast<float>(m_viewPort.ulY);
+    vp.Width = vw;
+    vp.Height = vh;
+    vp.MinDepth = 0.f;
+    vp.MaxDepth = 1.f;
+    context_->RSSetViewports(1, &vp);
   }
 
   const void* key = bgra;

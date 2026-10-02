@@ -3,6 +3,7 @@
 
 #include "legacy/render/rhi2d/impl/gdi/backend/gdi_backend.h"
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -11,6 +12,54 @@
 
 namespace render {
 namespace detail {
+namespace {
+
+// Resolve stroke args for GDI+ AA. Prefer backend set_pen cache; otherwise read
+// the HDC's current pen (ExtCreatePen / CreatePen from carto style).
+bool resolve_stroke_pen(HDC hdc, bool pen_args_valid, COLORREF cached_color,
+                        int cached_width, int cached_style, COLORREF* color,
+                        int* width, int* style) {
+  if (pen_args_valid) {
+    *color = cached_color;
+    *width = cached_width < 1 ? 1 : cached_width;
+    *style = cached_style;
+    return true;
+  }
+  if (!hdc) {
+    return false;
+  }
+  HGDIOBJ obj = ::GetCurrentObject(hdc, OBJ_PEN);
+  if (!obj || obj == ::GetStockObject(NULL_PEN)) {
+    return false;
+  }
+  const int need = ::GetObject(obj, 0, nullptr);
+  if (need >= static_cast<int>(offsetof(EXTLOGPEN, elpStyleEntry))) {
+    std::vector<BYTE> buf(static_cast<size_t>(need));
+    if (::GetObject(obj, need, buf.data()) > 0) {
+      const auto* elp = reinterpret_cast<const EXTLOGPEN*>(buf.data());
+      *color = elp->elpColor;
+      *width = static_cast<int>(elp->elpWidth);
+      if (*width < 1) {
+        *width = 1;
+      }
+      *style = static_cast<int>(elp->elpPenStyle & PS_STYLE_MASK);
+      return true;
+    }
+  }
+  LOGPEN lp = {};
+  if (::GetObject(obj, sizeof(lp), &lp) == sizeof(lp)) {
+    *color = lp.lopnColor;
+    *width = lp.lopnWidth.x;
+    if (*width < 1) {
+      *width = 1;
+    }
+    *style = lp.lopnStyle & PS_STYLE_MASK;
+    return true;
+  }
+  return false;
+}
+
+}  // namespace
 
 GdiBackend::GdiBackend(HDC hdc) : hdc_(hdc) {}
 
@@ -175,6 +224,17 @@ void GdiBackend::polyline(const POINT* pts, int count) {
   if (!hdc_ || !pts || count < 2) {
     return;
   }
+  // Prefer GDI+ AA strokes so leftover GDI port matches GDI+/Skia line quality.
+  COLORREF color = 0;
+  int width = 1;
+  int style = PS_SOLID;
+  if (resolve_stroke_pen(hdc_, pen_args_valid_, pen_color_, pen_width_,
+                         pen_style_, &color, &width, &style)) {
+    GdiplusGraphics gfx(hdc_);
+    if (gfx.ok() && gfx.draw_polyline(pts, count, color, width, style)) {
+      return;
+    }
+  }
   ::Polyline(hdc_, pts, count);
 }
 
@@ -224,6 +284,38 @@ void GdiBackend::poly_polyline(const POINT* pts, const int* poly_counts,
                               int n_polys) {
   if (!hdc_ || !pts || !poly_counts || n_polys < 1) {
     return;
+  }
+  COLORREF color = 0;
+  int width = 1;
+  int style = PS_SOLID;
+  if (resolve_stroke_pen(hdc_, pen_args_valid_, pen_color_, pen_width_,
+                         pen_style_, &color, &width, &style)) {
+    GdiplusGraphics gfx(hdc_);
+    if (gfx.ok()) {
+      int offset = 0;
+      bool drew_any = false;
+      bool all_ok = true;
+      for (int i = 0; i < n_polys; ++i) {
+        const int n = poly_counts[i];
+        if (n < 2) {
+          all_ok = false;
+          break;
+        }
+        if (!gfx.draw_polyline(pts + offset, n, color, width, style)) {
+          all_ok = false;
+          break;
+        }
+        drew_any = true;
+        offset += n;
+      }
+      if (all_ok) {
+        return;
+      }
+      // Partial AA already on the DC — do not double-draw via Win32.
+      if (drew_any) {
+        return;
+      }
+    }
   }
   // Win32 PolyPolyline wants DWORD counts.
   thread_local std::vector<DWORD> counts;

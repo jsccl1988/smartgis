@@ -18,16 +18,19 @@ using namespace plugin;
 
 namespace ui {
 
-// Decode leftover CP936 or UTF-8 AM titles for Outlook / TreeCtrl captions.
+// Decode leftover CP936 or UTF-8 AM titles for TreeCtrl captions.
 XAMBOX_EXPORT CString ambox_title_for_display(const char* name);
 
+// ASCII-only Outlook page caption (Outlook faces paint CJK as '?').
+XAMBOX_EXPORT CString ambox_outlook_caption(const char* name);
+
 // Aux-module Outlook bar — Feature Pack CMFCOutlookBar (via CBCGPOutlookBar).
+// Do NOT nest CBCGPDockingControlBar pages in a Tab host (Feature Pack crash).
 class XAMBOX_EXPORT SmtAMBoxMgrDocBar : public CBCGPOutlookBar {
  public:
   SmtAMBoxMgrDocBar();
   ~SmtAMBoxMgrDocBar() override;
 
-  // Normalizes CP936 titles when process ACP is UTF-8, then adds an Outlook page.
   bool add_wnd(CWnd* pWnd, CString strTitle);
 
   CBCGPOutlookWnd* get_oner_wnd() {

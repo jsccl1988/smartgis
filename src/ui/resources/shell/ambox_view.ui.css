@@ -1,0 +1,11 @@
+/* AmboxView — scroll shell; group buttons stay C++ dynamic */
+
+.scroll {
+  width: 180px;
+  height: 240px;
+}
+
+.content {
+  width: 180px;
+  height: 240px;
+}

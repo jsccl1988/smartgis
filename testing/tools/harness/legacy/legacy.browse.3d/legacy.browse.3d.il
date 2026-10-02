@@ -1,12 +1,18 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
-// Legacy scene3d showcase HWND: orbit / path / wheel during linger.
-// Prefer modest orbit + zoom-in so china DEM stays framed (near_black gate).
+// Bare SmartGis.exe (no argv): Edit shell → 窗口/三维窗口 (ID_WND_3D=32915),
+// then OS inject orbit / path / wheel on the 3D client.
 
 script "legacy.browse.3d" {
   seq @os {
     window(activate);
-    pump(ms=400);
+    // DelayInit china_city + Edit MDI first paint.
+    pump(ms=4000);
+
+    // Open leftover 3D MDI (no --scene3d-showcase). Maximize settles after
+    // open_mdi_view; extra pump lets GL seed + first present finish.
+    wm_command(id=32915);
+    pump(ms=4500);
 
     pan_burst(count=4, x=220, y=210, dx=14, dy=8, pump_ms=110);
     pump(ms=180);
@@ -18,7 +24,6 @@ script "legacy.browse.3d" {
     path([260, 230], [220, 215], [180, 205]);
     pump(ms=220);
 
-    // Zoom in (positive delta) before any zoom-out so terrain stays framed.
     wheel_burst(count=3, x=230, y=220, delta=120, pump_ms=120);
     pump(ms=140);
     wheel_burst(count=1, x=230, y=220, delta=-120, pump_ms=120);

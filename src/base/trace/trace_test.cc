@@ -1,6 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
+#include "base/trace/diag/startup_profile.h"
 #include "base/trace/event/process_trace.h"
 #include "base/trace/event/trace.h"
 #include "base/trace/export/chrome_trace.h"
@@ -9,6 +10,8 @@
 
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
+#include <fstream>
 #include <string>
 #include <thread>
 
@@ -100,6 +103,35 @@ int main() {
     assert(lines[0].text.find("L:roads=") != std::string::npos);
     assert(lines[0].text.find("geom:line=") != std::string::npos);
     assert(lines[0].text.find("compose=") != std::string::npos);
+  }
+
+  {
+    base::trace::set_tracing_enabled(true);
+    base::trace::process_trace().clear();
+    {
+      BASE_TRACE_EVENT("wWinMain", "startup");
+      {
+        BASE_TRACE_EVENT("Browser.init", "startup");
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+      }
+    }
+    assert(base::trace::process_trace().size() >= 2u);
+    const char* dump_path = "startup_profile_test.txt";
+    _putenv_s("SMT_STARTUP_PROFILE", "1");
+    _putenv_s("SMT_STARTUP_PROFILE_DUMP", dump_path);
+    assert(base::trace::startup_profile_wanted());
+    base::trace::dump_startup_profile(dump_path);
+    std::ifstream in(dump_path, std::ios::binary);
+    assert(in.good());
+    std::string body((std::istreambuf_iterator<char>(in)),
+                     std::istreambuf_iterator<char>());
+    assert(body.find("wWinMain") != std::string::npos);
+    assert(body.find("Browser.init") != std::string::npos);
+    assert(body.find("offset_ms") != std::string::npos);
+    std::remove(dump_path);
+    std::remove("startup_profile_test.json");
+    base::trace::set_tracing_enabled(false);
+    base::trace::process_trace().clear();
   }
 
   std::printf("trace_test OK\n");

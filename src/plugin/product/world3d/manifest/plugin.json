@@ -4,7 +4,7 @@
 
   "name": "三维世界 / 真三维地球",
 
-  "version": "1.1.0",
+  "version": "1.2.0",
 
   "api_version": 2,
 
@@ -12,13 +12,19 @@
 
   "author": "The Mogu Authors",
 
-  "description": "True-3D Earth browse (China DEM + atmosphere + fly-to + city tiles) plus DEM loaders and former model3d commands",
+  "description": "True-3D Earth browse (globe DEM + atmosphere + satellite cloud + fly-to + city tiles) plus DEM loaders and former model3d commands",
 
   "contributes": {
 
     "commands": [
 
       {"id": "world3d.open_earth", "title": "打开真三维地球", "menu": "tools"},
+
+      {"id": "world3d.load_global_dem", "title": "加载全球DEM", "menu": "tools"},
+
+      {"id": "world3d.set_satellite_cloud", "title": "卫星云图", "menu": "tools"},
+
+      {"id": "world3d.set_atmosphere", "title": "大气层开关", "menu": "tools"},
 
       {"id": "world3d.fly_to", "title": "飞行到", "menu": "tools"},
 
@@ -66,6 +72,12 @@
 
       {"id": "world3d.open_earth", "title": "打开真三维地球"},
 
+      {"id": "world3d.load_global_dem", "title": "加载全球DEM"},
+
+      {"id": "world3d.set_satellite_cloud", "title": "卫星云图"},
+
+      {"id": "world3d.set_atmosphere", "title": "大气层开关"},
+
       {"id": "world3d.fly_to", "title": "飞行到"},
 
       {"id": "world3d.attach_city_tileset", "title": "挂载城市瓦片"},
@@ -103,4 +115,3 @@
   }
 
 }
-

@@ -3,11 +3,11 @@
 
 #include "legacy/render/rhi2d/impl/gdiplus/aa/gdiplus.h"
 
-// GdiplusImaging.h needs MIDL_INTERFACE / IStream before <gdiplus.h>.
 #include <objidl.h>
 #include <gdiplus.h>
 
 #include <mutex>
+#include <vector>
 
 #pragma comment(lib, "gdiplus.lib")
 
@@ -111,6 +111,44 @@ bool GdiplusGraphics::draw_string(int x, int y, const wchar_t* text, int px_h,
   g->DrawString(text, -1, &font, origin, &fmt, &ink_brush);
   g->SetTransform(&saved);
   return true;
+}
+
+bool GdiplusGraphics::draw_polyline(const POINT* pts, int count,
+                                    COLORREF color, int width, int style) {
+  auto* g = static_cast<Gdiplus::Graphics*>(gfx_);
+  if (!g || !pts || count < 2) {
+    return false;
+  }
+  if (width < 1) {
+    width = 1;
+  }
+  Gdiplus::Pen pen(color_from_colorref(color),
+                   static_cast<Gdiplus::REAL>(width));
+  switch (style & PS_STYLE_MASK) {
+    case PS_DASH:
+      pen.SetDashStyle(Gdiplus::DashStyleDash);
+      break;
+    case PS_DOT:
+      pen.SetDashStyle(Gdiplus::DashStyleDot);
+      break;
+    case PS_DASHDOT:
+      pen.SetDashStyle(Gdiplus::DashStyleDashDot);
+      break;
+    case PS_DASHDOTDOT:
+      pen.SetDashStyle(Gdiplus::DashStyleDashDotDot);
+      break;
+    default:
+      pen.SetDashStyle(Gdiplus::DashStyleSolid);
+      break;
+  }
+  pen.SetLineJoin(Gdiplus::LineJoinRound);
+  pen.SetLineCap(Gdiplus::LineCapRound, Gdiplus::LineCapRound,
+                 Gdiplus::DashCapRound);
+  std::vector<Gdiplus::Point> gp(static_cast<size_t>(count));
+  for (int i = 0; i < count; ++i) {
+    gp[static_cast<size_t>(i)] = Gdiplus::Point(pts[i].x, pts[i].y);
+  }
+  return g->DrawLines(&pen, gp.data(), count) == Gdiplus::Ok;
 }
 
 }  // namespace render

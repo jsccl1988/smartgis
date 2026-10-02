@@ -205,7 +205,13 @@ int Rhi2dBufferImage::save2_image_buf(char*& szImageBuf, long& lImageBufSize,
 }
 
 int Rhi2dBufferImage::free_image_buf(char*& szImageBuf) {
-  SMT_SAFE_DELETE_A(szImageBuf);
+  // Encode() allocates with malloc; must free via CxImage::FreeMemory (not
+  // delete[]), or the CRT heap cookie / later paints AV (0xC0000409).
+  if (szImageBuf) {
+    CxImage tmp;
+    tmp.FreeMemory(szImageBuf);
+    szImageBuf = nullptr;
+  }
   return SMT_ERR_NONE;
 }
 

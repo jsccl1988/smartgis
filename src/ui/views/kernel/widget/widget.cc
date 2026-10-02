@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <functional>
+#include <optional>
 
 #include "ui/gfx/raster/paint_stats.h"
 #include "ui/views/kernel/compositor/shell_compositor.h"
@@ -216,6 +217,13 @@ void Widget::maybe_notify_shell_published(std::uint64_t published_gen) {
 
 void Widget::on_paint() {
   BASE_TRACE_EVENT("on_paint", "ui.views");
+  // One-shot startup span for the first shell WM_PAINT (full path duration).
+  static bool s_first_shell_paint = true;
+  std::optional<::base::trace::ScopedTraceEvent> first_paint;
+  if (s_first_shell_paint) {
+    s_first_shell_paint = false;
+    first_paint.emplace("FirstShellPaint", "startup");
+  }
   LARGE_INTEGER t0 = {};
   QueryPerformanceCounter(&t0);
 

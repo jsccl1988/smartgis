@@ -18,7 +18,8 @@ void apply_wheel_zoom(render::LPRENDERDEVICE device, SmtMap* map,
                       double scale_delt, int z_delta, base::lPoint point);
 
 void apply_pan_by_points(render::LPRENDERDEVICE device, SmtMap* map,
-                         base::lPoint origin, base::lPoint end);
+                         base::lPoint origin, base::lPoint end,
+                         bool gesture_end = false);
 
 void apply_zoom_in_by_points(render::LPRENDERDEVICE device, SmtMap* map,
                              double scale_delt, base::lPoint origin,

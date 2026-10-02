@@ -213,9 +213,11 @@ bool map_scene_line_visible_at_scale(MapLineRole role, double length,
   // Mercator; product equirectangular china overview sits near scale 8–16
   // (zoom_from_scale ≈ 11). Show major arterials at national frame so dual
   // stroke casing is scoreable; keep a length floor so ramps stay culled.
-  // 0.35° ≈ 39 km — china_city trunk pieces are often shorter than 1.2°.
+  // Stem-aggregated length (batches) joins short trunk pieces; floor is the
+  // bare-piece fallback (0.12° ≈ 13 km) so continuous gold roads read as
+  // networks rather than sparse fragments.
   if (role == MapLineRole::kRoad && scale < 22.0) {
-    return major_class && length >= 0.35;
+    return major_class && length >= 0.12;
   }
   if (major_class) {
     // Classed arterials still need a minimum run so ramps do not fill

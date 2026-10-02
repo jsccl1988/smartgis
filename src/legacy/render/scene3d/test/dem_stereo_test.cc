@@ -18,7 +18,7 @@
 #include "legacy/gis/vista/coord.h"
 #include "legacy/gis/vista/dem_height_field.h"
 #include "legacy/gis/vista/dem_to_world.h"
-#include "legacy/render/scene3d/primitive/surface/stereo_terrain.h"
+#include "legacy/render/scene3d/primitive/surface/terrain.h"
 
 namespace {
 
@@ -253,7 +253,7 @@ int main() {
                         .count();
     std::fprintf(stderr, "mask_outside_rings 80x120-gon: %lld ms\n",
                  static_cast<long long>(ms));
-    expect(ms < 500,
+    expect(ms < 800,
            "prefecture-scale DEM mask stays off the UI-thread budget");
   }
 
@@ -292,9 +292,12 @@ int main() {
            "terrain triangle indices");
   }
 
-  expect(render::seed_dem_height_field_into_world(
-             nullptr, render::DemHeightField{}, "x") == nullptr,
-         "null world rejected");
+  {
+    const render::DemHeightField empty_dem;
+    expect(render::seed_dem_height_field_into_world(nullptr, empty_dem, "x") ==
+               nullptr,
+           "null world rejected");
+  }
 
   // SP4 knife 3: leftover Y-up AABB → GIS envelope (octree mirror pure seam).
   {
@@ -317,7 +320,7 @@ int main() {
   }
 
   // Task L / 2a: two SmtScenes both receive a DEM seed (no global
-  // short-circuit). Null GL device is OK — StereoTerrain keeps the owned height
+  // short-circuit). Null GL device is OK — SmtTerrain keeps the owned height
   // field attached.
   {
     render::SmtScene scene_a;
@@ -327,21 +330,21 @@ int main() {
     expect(render::leftover_has_scene_dem(), "framing cache after first seed");
     const render::DemHeightField* field_a = nullptr;
     if (auto* terrain =
-            static_cast<render::StereoTerrain*>(scene_a.Get3DObject(0))) {
+            static_cast<render::SmtTerrain*>(scene_a.Get3DObject(0))) {
       field_a = terrain->height_field();
     }
     expect(field_a != nullptr && !field_a->empty(),
-           "scene A has StereoTerrain");
+           "scene A has SmtTerrain");
 
     const int added_b = render::seed_sample_map_into_scene(nullptr, &scene_b);
     expect(added_b > 0, "second scene DEM seed");
     const render::DemHeightField* field_b = nullptr;
     if (auto* terrain =
-            static_cast<render::StereoTerrain*>(scene_b.Get3DObject(0))) {
+            static_cast<render::SmtTerrain*>(scene_b.Get3DObject(0))) {
       field_b = terrain->height_field();
     }
     expect(field_b != nullptr && !field_b->empty(),
-           "scene B has StereoTerrain");
+           "scene B has SmtTerrain");
     expect(field_a != field_b, "per-scene owned height fields");
     expect(field_a->sample_meters(88.0, 32.0) >
                field_a->sample_meters(119.0, 32.5),

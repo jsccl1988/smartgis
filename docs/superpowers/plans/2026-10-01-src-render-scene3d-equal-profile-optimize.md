@@ -13,12 +13,13 @@ All rights reserved.
 
 **Tech Stack:** C++23, content scene3d present, effect/scene, harness `--atmosphere-showcase=legacy`.
 
-## Baseline (2026-10-01, Debug)
+## Baseline (2026-10-01 → 2026-10-02, Debug)
 
 | Path | Metric | ms | Notes |
 | --- | --- | ---: | --- |
 | leftover scene3d | warm present | ~10 | HWND present |
-| src_render legacy | `ms_per_present` | ~160–444 | every-frame `rebuild_meshes` + DEM cache miss |
+| src_render legacy (before) | `ms_per_present` | ~160–444 | every-frame `rebuild_meshes` + DEM cache miss |
+| src_render legacy (after) | `ms_per_present` | **~14.2** | rebuild_count=0; ocean_prep=0 warm; record≈8 |
 
 Artifact: `out/Debug/captures/atmosphere/atmosphere-showcase-perf.json`.
 
@@ -38,17 +39,19 @@ Artifact: `out/Debug/captures/atmosphere/atmosphere-showcase-perf.json`.
 ### Task 3: Warm acceptance
 
 - [x] Timed frames `rebuild_count=0` (Null RHI bench 2026-10-01 23:45 — phase mesh/sync/rebuild=0)
-- [ ] `SMT_ATMOSPHERE_SHOWCASE_GPU=1` + `LINGER_MS=0` + `PRESENT_COUNT=30` warm `ms_per_present` ≈ leftover ~10 ms
-- [x] Visual: legacy PASS (landish / black-clear) on Null path; re-check with GPU
+- [x] `SMT_ATMOSPHERE_SHOWCASE_GPU=1` + `LINGER_MS=0` + `PRESENT_COUNT=30` warm `ms_per_present` ≈ leftover order (**14.2 ms**, was 160–444; leftover ~10)
+- [x] Visual: legacy PASS (landish / black-clear) on GPU path
 - [x] Timed loop: skip `pump_messages` when `present_pump_ms==0` (was dispatching main map2d GDI paint ~160 ms/frame)
+- [x] Hot path: stop double Gerstner (`OceanPass::record` after `prepare_gpu`); warm skip `prepare_gpu` once `dem_gpu_synced_after_ocean_`
 
-**Bench notes (2026-10-01):**
+**Bench notes (2026-10-01 / 2026-10-02):**
 
 | Run | gpu | ms/p | rebuild_count | Notes |
 | --- | ---: | ---: | ---: | --- |
 | prior baseline | 1 | ~444 | every frame | mark_dirty + DEM cache miss |
 | Null after remesh fix | 0 | 159.8 | **0** | wall dominated by `pump_messages(0)`→map2d paint |
-| after pump skip | ? | TBD | expect 0 | needs quiet `out/Debug` (no parallel SmartGisViews) |
+| after pump skip (GPU) | 1 | 27.5 | **0** | ocean_prep=9 record=6 swap=1; PASS BMP |
+| after ocean single-bake | 1 | **14.2** | **0** | ocean_prep=0 warm; record=8 swap=1; PASS |
 
 ```bat
 set SMT_ATMOSPHERE_SHOWCASE_PRESENT_COUNT=30
@@ -62,3 +65,4 @@ type out\Debug\captures\atmosphere\atmosphere-showcase-perf.json
 
 - Matching leftover by deleting ocean / hypsometric DEM
 - Full atmosphere.full warm diet (sky path) in the same slice (reuse one-shot flags; separate follow-up if needed)
+- Sub-10 ms Debug warm while Gerstner+upload still run every animated ocean frame (follow-up: cheaper wave step / lower mesh_n)

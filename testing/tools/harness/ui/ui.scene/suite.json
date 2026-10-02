@@ -12,7 +12,7 @@
   },
   "bmp": {
     "path": "ui-showcase-scene.bmp",
-    "score_id": "ui_shell_dark"
+    "score_id": "views_shell_chrome"
   },
   "report_name": "ui_scene_loop_report.json",
   "probes": [
@@ -32,6 +32,6 @@
       "no_sibling_overlap",
       "dark_theme_consistent"
     ],
-    "expect_notes": "3D page shell chrome; do not golden GPU scene pixels"
+    "expect_notes": "Exercises 3D tab then captures shell chrome (views_shell_chrome); PrintWindow falls back to Map tab after scene marks — do not golden GPU scene pixels"
   }
 }

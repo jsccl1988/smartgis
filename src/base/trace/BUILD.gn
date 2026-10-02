@@ -12,6 +12,7 @@ source_set("trace") {
   sources = [
     "detail/json_append.h",
     "diag/diagnostic_bootstrap.h",
+    "diag/startup_profile.h",
     "event/process_trace.h",
     "event/trace.h",
     "export/chrome_trace.h",
@@ -28,6 +29,7 @@ source_set("trace") {
 source_set("process_trace_sources") {
   sources = [
     "diag/diagnostic_bootstrap.cc",
+    "diag/startup_profile.cc",
     "event/process_trace.cc",
     "event/trace.cc",
   ]

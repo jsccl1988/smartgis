@@ -14,8 +14,10 @@
 #include "content/public/view_host.h"
 #include "gis/present/style/style_document.h"
 #include "gis/vista/world/pointcloud/ingest/load.h"
+#include "gis/vista/world/terrain/dem/dem_raster.h"
 #include "plugin/product/world3d/commands.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -242,6 +244,184 @@ void wire_world3d_analysis_writers(Browser* browser) {
     }
     return cam->gpu().attach_tileset_json(json.c_str(), json.size(),
                                           "world3d_city");
+  };
+  scene_writer.load_global_dem =
+      [browser](const std::string& dem_path, std::string* result_json) {
+        auto write_result = [&](const std::string& json) {
+          if (result_json) {
+            *result_json = json;
+          }
+        };
+        content::Scene3dPresenter* cam = browser->scene3d();
+        content::OrbitFrame* orbit = browser->orbit_frame();
+        if (!cam || !orbit) {
+          write_result(
+              "{\"error\":\"no_scene_device\",\"op\":\"world3d.load_global_dem\"}");
+          return false;
+        }
+
+        std::string path = dem_path;
+        const char* source = "explicit";
+        if (path.empty()) {
+          static const char* kRels[] = {
+              "../data/global_dem.tif",
+              "../data/global_dem.tiff",
+              "../plugins/world3d/data/global_dem.tif",
+              "data/global_dem.tif",
+          };
+          char base[MAX_PATH] = {};
+          if (detail::exe_dir_with_slash_a(base, MAX_PATH)) {
+            for (const char* rel : kRels) {
+              char full[MAX_PATH] = {};
+              if (strcpy_s(full, base) != 0 || strcat_s(full, rel) != 0) {
+                continue;
+              }
+              if (GetFileAttributesA(full) == INVALID_FILE_ATTRIBUTES) {
+                continue;
+              }
+              path = full;
+              source = "global_default";
+              break;
+            }
+          }
+        }
+
+        if (path.empty()) {
+          // Honest stand-in: China sample DEM + product atmosphere defaults.
+          gis::set_sample_dem_path_override(nullptr);
+          browser->select_map_tab(2);
+          apply_china_scene3d_product_defaults(*browser);
+          cam->abandon_mesh();
+          write_result(
+              "{\"ok\":true,\"op\":\"world3d.load_global_dem\","
+              "\"source\":\"china_standin\","
+              "\"hint\":\"place GeoTIFF at out/data/global_dem.tif or "
+              "out/plugins/world3d/data/global_dem.tif\"}");
+          return true;
+        }
+
+        gis::DemRaster dem;
+        if (!dem.load_gdal_raster(path.c_str()) || dem.empty()) {
+          write_result(
+              "{\"error\":\"missing_or_invalid_dem\",\"op\":\"world3d.load_global_dem\","
+              "\"path\":\"" +
+              path + "\"}");
+          return false;
+        }
+
+        gis::set_sample_dem_path_override(path.c_str());
+        browser->select_map_tab(2);
+        apply_china_scene3d_atmosphere(*browser);
+
+        double minx = 0, miny = 0, maxx = 0, maxy = 0;
+        dem.envelope(&minx, &miny, &maxx, &maxy);
+        content::Extent2 box;
+        box.xmin = minx;
+        box.ymin = miny;
+        box.xmax = maxx;
+        box.ymax = maxy;
+        if (!content::extent_nonempty(box)) {
+          box = content::kChinaLonLatExtent;
+        }
+        orbit->reset();
+        orbit->apply_world_extent(box);
+        const double span =
+            (std::max)(box.xmax - box.xmin, box.ymax - box.ymin);
+        // Wider geographic DEM needs a farther orbit to keep mesh readable.
+        orbit->set_distance(span > 80.0 ? 4.2f : 2.55f);
+        browser->push_shared_extent();
+        cam->abandon_mesh();
+
+        write_result(std::string("{\"ok\":true,\"op\":\"world3d.load_global_dem\","
+                                 "\"source\":\"") +
+                     source + "\",\"path\":\"" + path + "\"}");
+        return true;
+      };
+  scene_writer.set_satellite_cloud =
+      [browser](const std::string& imagery_path, bool enabled,
+                std::string* result_json) {
+        auto write_result = [&](const std::string& json) {
+          if (result_json) {
+            *result_json = json;
+          }
+        };
+        content::Scene3dPresenter* cam = browser->scene3d();
+        if (!cam) {
+          write_result(
+              "{\"error\":\"no_scene_device\",\"op\":\"world3d.set_satellite_cloud\"}");
+          return false;
+        }
+        cam->set_look_preset(content::Scene3dLookPreset::kAtmosphere);
+        if (!enabled) {
+          cam->atmosphere_session().set_cloud_enabled(false);
+          write_result(
+              "{\"ok\":true,\"op\":\"world3d.set_satellite_cloud\","
+              "\"mode\":\"off\"}");
+          return true;
+        }
+
+        std::string path = imagery_path;
+        if (path.empty()) {
+          static const char* kRels[] = {
+              "../data/satellite_cloud.tif",
+              "../plugins/world3d/data/satellite_cloud.tif",
+              "data/satellite_cloud.tif",
+          };
+          char base[MAX_PATH] = {};
+          if (detail::exe_dir_with_slash_a(base, MAX_PATH)) {
+            for (const char* rel : kRels) {
+              char full[MAX_PATH] = {};
+              if (strcpy_s(full, base) != 0 || strcat_s(full, rel) != 0) {
+                continue;
+              }
+              if (GetFileAttributesA(full) == INVALID_FILE_ATTRIBUTES) {
+                continue;
+              }
+              path = full;
+              break;
+            }
+          }
+        }
+
+        if (path.empty()) {
+          // No GeoTIFF yet: keep procedural cloud deck (Google-Earth-class MVP).
+          cam->atmosphere_session().seed_procedural(/*with_land_rings=*/true);
+          cam->atmosphere_session().set_cloud_enabled(true);
+          write_result(
+              "{\"ok\":true,\"op\":\"world3d.set_satellite_cloud\","
+              "\"mode\":\"procedural\","
+              "\"hint\":\"place single-band GeoTIFF at "
+              "out/data/satellite_cloud.tif (channel cloud_cover)\"}");
+          return true;
+        }
+
+        const std::string spec = path + ":cloud_cover";
+        if (!cam->atmosphere_session().load_fields(spec)) {
+          write_result(
+              "{\"error\":\"field_load_failed\",\"op\":\"world3d.set_satellite_cloud\","
+              "\"path\":\"" +
+              path + "\"}");
+          return false;
+        }
+        cam->atmosphere_session().set_cloud_enabled(true);
+        write_result(
+            "{\"ok\":true,\"op\":\"world3d.set_satellite_cloud\","
+            "\"mode\":\"field\",\"path\":\"" +
+            path + "\"}");
+        return true;
+      };
+  scene_writer.set_atmosphere = [browser](bool sky, bool ocean, bool cloud,
+                                          bool fog) {
+    content::Scene3dPresenter* cam = browser->scene3d();
+    if (!cam) {
+      return false;
+    }
+    cam->set_look_preset(content::Scene3dLookPreset::kAtmosphere);
+    cam->atmosphere_session().set_sky_enabled(sky);
+    cam->atmosphere_session().set_ocean_enabled(ocean);
+    cam->atmosphere_session().set_cloud_enabled(cloud);
+    cam->atmosphere_session().set_fog_enabled(fog);
+    return true;
   };
   plugin::set_world3d_scene_writer(std::move(scene_writer));
 

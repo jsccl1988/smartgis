@@ -95,9 +95,7 @@ float FogPass::fog_factor(const FogDrawParams& p, float distance,
 }
 
 void FogPass::destroy_pipeline() {
-  if (pipeline_ && pipeline_device_) {
-    pipeline_device_->destroy_pipeline(pipeline_);
-  }
+  // Abandon only — see SkyPass::destroy_pipeline (dangling Device* AV).
   pipeline_ = nullptr;
   pipeline_device_ = nullptr;
 }
@@ -112,7 +110,11 @@ bool FogPass::ensure_pipeline(render::rhi::Device* device) {
   destroy_pipeline();
   pipeline_device_ = device;
   pipeline_ = device->create_graphics_pipeline(fog_graphics_desc());
-  return pipeline_ != nullptr;
+  if (!pipeline_) {
+    pipeline_device_ = nullptr;
+    return false;
+  }
+  return true;
 }
 
 bool FogPass::ensure_fullscreen_mesh(render::rhi::Device* device) {

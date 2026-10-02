@@ -16,3 +16,4 @@ All rights reserved.
 - [x] Merge `Smt2DGeoObject`/`Smt3DGeoObject` → `SmtGeoObject` (Scheme C)
 - [x] Update includes + GN + module README + umbrella §12c
 - [x] `build.bat debug dem_stereo_test` (+ `pointcloud_load_test` if touched) green
+- [x] Top-level tighten (2026-10-02): fold `host/` + `detail/` → `scene/`; merge `StereoTerrain` → `SmtTerrain`

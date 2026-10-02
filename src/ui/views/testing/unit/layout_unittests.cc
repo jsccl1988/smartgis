@@ -146,6 +146,51 @@ void test_splitter_host_resize_grows_flex_pane() {
   expect(left->bounds().width == 240, "catalog stays fixed on grow");
   expect(right->bounds().width == 1100 - 6 - 240, "map tabs grow");
 
+  // Late preferred on primary: both-flex seed must recover Catalog width.
+  Splitter late_catalog(Splitter::Orientation::kHorizontal);
+  late_catalog.set_bounds({0, 0, 900, 400});
+  auto late_a = std::make_unique<View>();
+  auto late_b = std::make_unique<View>();
+  View* late_left = late_a.get();
+  View* late_right = late_b.get();
+  late_a->set_preferred_size({0, 0});
+  late_b->set_preferred_size({0, 0});
+  late_catalog.add_child(std::move(late_a));
+  late_catalog.add_child(std::move(late_b));
+  late_catalog.layout();
+  expect(late_right->bounds().width == 0, "both-flex map starts at 0");
+  late_left->set_preferred_size({288, 0});
+  late_catalog.layout();
+  expect(late_left->bounds().width == 288, "reseed locks catalog preferred");
+  expect(late_right->bounds().width == 900 - 6 - 288, "map recovers leftover");
+
+  // Markup shell: catalog_host preferred_size=288 but FillLayout+child reports
+  // get_preferred_size=0 (Yoga width:100%). Must still leave Map|Data|3D room.
+  Splitter markup_catalog_map(Splitter::Orientation::kHorizontal);
+  markup_catalog_map.set_bounds({0, 0, 1200, 400});
+  auto cat_host = std::make_unique<View>();
+  auto map_host = std::make_unique<View>();
+  View* cat_pane = cat_host.get();
+  View* map_pane = map_host.get();
+  cat_host->set_preferred_size({288, 0});
+  cat_host->set_layout_manager(std::make_unique<FillLayout>());
+  auto cat_inner = std::make_unique<View>();
+  cat_inner->set_preferred_size({0, 0});
+  cat_host->add_child(std::move(cat_inner));
+  map_host->set_preferred_size({0, 0});
+  map_host->set_layout_manager(std::make_unique<FillLayout>());
+  auto map_inner = std::make_unique<View>();
+  map_inner->set_preferred_size({0, 0});
+  map_host->add_child(std::move(map_inner));
+  markup_catalog_map.add_child(std::move(cat_host));
+  markup_catalog_map.add_child(std::move(map_host));
+  markup_catalog_map.layout();
+  expect(cat_pane->bounds().width == 288,
+         "markup catalog hint wins over layout preferred 0");
+  // Splitter::kBarPx is 8 (legacy tests still say 6 in places).
+  expect(map_pane->bounds().width == 1200 - 8 - 288,
+         "map tabs keep leftover beside markup catalog");
+
   // Collapsed DiagnosticToolsPanel: preferred {0,0} secondary must not keep a
   // kMinPanePx remnant that paints into the status bar.
   Splitter tools_host(Splitter::Orientation::kVertical);

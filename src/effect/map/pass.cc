@@ -8,14 +8,14 @@
 #include <memory>
 #include <vector>
 
+#include "base/memory/arena.h"
+#include "base/trace/event/process_trace.h"
 #include "effect/map/detail/atlas.h"
 #include "effect/map/detail/encode.h"
 #include "effect/map/detail/place.h"
 #include "effect/map/detail/upload.h"
 #include "render/programs/programs.h"
 #include "render/rhi/rhi.h"
-#include "base/memory/arena.h"
-#include "base/trace/event/process_trace.h"
 
 namespace effect {
 namespace map {
@@ -155,6 +155,17 @@ bool Pass::record(
       return false;
     }
     detail::encode_draws(list, view, frame, draw_cache_->world_draws, camera,
+                         color_op, /*close_list=*/true, solid_pipeline_,
+                         textured_pipeline_);
+    return true;
+  }
+  // Shell-churn / opaque-only refresh: first full record only fills
+  // full_draws. Reuse it instead of re-placing ~2k china items (~8s Debug).
+  if (world_items && !overlay_items && !draw_cache_->full_draws.empty()) {
+    if (!ensure_pipelines()) {
+      return false;
+    }
+    detail::encode_draws(list, view, frame, draw_cache_->full_draws, camera,
                          color_op, /*close_list=*/true, solid_pipeline_,
                          textured_pipeline_);
     return true;

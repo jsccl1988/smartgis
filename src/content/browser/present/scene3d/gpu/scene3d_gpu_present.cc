@@ -27,6 +27,39 @@
 #include "base/trace/event/process_trace.h"
 
 namespace content {
+namespace {
+
+// MSVC Debug freefill / freed markers. unique_ptr bool is true for 0xCD? so
+// `if (tileset_stream_)` alone is not enough after a layout-skewed GpuPresent.
+bool ptr_addr_poison(uintptr_t addr) {
+  if (addr < 0x10000u) {
+    return true;
+  }
+  const auto lo24 = addr & 0xffffff00ull;
+  return lo24 == 0xcdcdcd00ull || lo24 == 0xdddddd00ull ||
+         lo24 == 0xcccccc00ull || lo24 == 0xfeeefeeeull ||
+         lo24 == 0xababab00ull;
+}
+
+}  // namespace
+
+TilesetStreamSession* Scene3dGpuPresent::live_tileset_stream_locked() {
+  TilesetStreamSession* stream = tileset_stream_.get();
+  if (!stream) {
+    return nullptr;
+  }
+  if (ptr_addr_poison(reinterpret_cast<uintptr_t>(stream))) {
+    // Drop the freefill pointer without operator delete (not a real object).
+    (void)tileset_stream_.release();
+    return nullptr;
+  }
+  return stream;
+}
+
+const TilesetStreamSession* Scene3dGpuPresent::live_tileset_stream_locked()
+    const {
+  return const_cast<Scene3dGpuPresent*>(this)->live_tileset_stream_locked();
+}
 
 void Scene3dGpuPresent::bind_orbit(const OrbitFrame* orbit) {
   orbit_ = orbit;
@@ -56,27 +89,50 @@ void Scene3dGpuPresent::set_look_preset(Scene3dLookPreset preset) {
 bool Scene3dGpuPresent::ensure_legacy_overlays() {
   legacy_overlays_attempted_ = true;
   if (legacy_labels_.empty()) {
-    // Major China place-names (leftover stereo label batch character). Lon/lat
-    // approximate; elevation is sampled at paint/present via geo frame.
-    static const Scene3dLegacyLabel kCities[] = {
-        {"乌鲝木齝", 87.62, 43.83}, {"拉蝨", 91.11, 29.97},
-        {"西宝", 101.78, 36.62},   {"兰州", 103.83, 36.06},
-        {"银川", 106.27, 38.47},   {"呼和浩特", 111.75, 40.84},
-        {"哈尔滨", 126.53, 45.80}, {"长春", 125.32, 43.88},
-        {"沈阳", 123.43, 41.80},   {"�-京", 116.40, 39.90},
-        {"天津", 117.20, 39.08},   {"石家庄", 114.51, 38.04},
-        {"太原", 112.55, 37.87},   {"济�-", 117.00, 36.65},
-        {"郑州", 113.62, 34.75},   {"西安", 108.94, 34.34},
-        {"�-京", 118.78, 32.06},   {"上海", 121.47, 31.23},
-        {"杭州", 120.15, 30.28},   {"坈肥", 117.28, 31.86},
-        {"禝州", 119.30, 26.08},   {"�-昌", 115.86, 28.68},
-        {"武汉", 114.31, 30.57},   {"长沙", 112.98, 28.19},
-        {"广州", 113.26, 23.13},   {"�-宝", 108.37, 22.82},
-        {"海坣", 110.35, 20.02},   {"戝都", 104.06, 30.67},
-        {"針庆", 106.55, 29.56},   {"贵阳", 106.63, 26.65},
-        {"昆明", 102.71, 25.04},   {"坰�-", 121.56, 25.04},
+    // Major China place-names (leftover stereo label batch character).
+    // UTF-8 as \x escapes into const char* (no u8 / char8_t); paint uses CP_UTF8.
+    static const struct {
+      const char* text;
+      double lon;
+      double lat;
+    } kCities[] = {
+        {"\xe4\xb9\x8c\xe9\xb2\x81\xe6\x9c\xa8\xe9\xbd\x90", 87.62, 43.83},
+        {"\xe6\x8b\x89\xe8\x90\xa8", 91.11, 29.97},
+        {"\xe8\xa5\xbf\xe5\xae\x81", 101.78, 36.62},
+        {"\xe5\x85\xb0\xe5\xb7\x9e", 103.83, 36.06},
+        {"\xe9\x93\xb6\xe5\xb7\x9d", 106.27, 38.47},
+        {"\xe5\x91\xbc\xe5\x92\x8c\xe6\xb5\xa9\xe7\x89\xb9", 111.75, 40.84},
+        {"\xe5\x93\x88\xe5\xb0\x94\xe6\xbb\xa8", 126.53, 45.80},
+        {"\xe9\x95\xbf\xe6\x98\xa5", 125.32, 43.88},
+        {"\xe6\xb2\x88\xe9\x98\xb3", 123.43, 41.80},
+        {"\xe5\x8c\x97\xe4\xba\xac", 116.40, 39.90},
+        {"\xe5\xa4\xa9\xe6\xb4\xa5", 117.20, 39.08},
+        {"\xe7\x9f\xb3\xe5\xae\xb6\xe5\xba\x84", 114.51, 38.04},
+        {"\xe5\xa4\xaa\xe5\x8e\x9f", 112.55, 37.87},
+        {"\xe6\xb5\x8e\xe5\x8d\x97", 117.00, 36.65},
+        {"\xe9\x83\x91\xe5\xb7\x9e", 113.62, 34.75},
+        {"\xe8\xa5\xbf\xe5\xae\x89", 108.94, 34.34},
+        {"\xe5\x8d\x97\xe4\xba\xac", 118.78, 32.06},
+        {"\xe4\xb8\x8a\xe6\xb5\xb7", 121.47, 31.23},
+        {"\xe6\x9d\xad\xe5\xb7\x9e", 120.15, 30.28},
+        {"\xe5\x90\x88\xe8\x82\xa5", 117.28, 31.86},
+        {"\xe7\xa6\x8f\xe5\xb7\x9e", 119.30, 26.08},
+        {"\xe5\x8d\x97\xe6\x98\x8c", 115.86, 28.68},
+        {"\xe6\xad\xa6\xe6\xb1\x89", 114.31, 30.57},
+        {"\xe9\x95\xbf\xe6\xb2\x99", 112.98, 28.19},
+        {"\xe5\xb9\xbf\xe5\xb7\x9e", 113.26, 23.13},
+        {"\xe5\x8d\x97\xe5\xae\x81", 108.37, 22.82},
+        {"\xe6\xb5\xb7\xe5\x8f\xa3", 110.35, 20.02},
+        {"\xe6\x88\x90\xe9\x83\xbd", 104.06, 30.67},
+        {"\xe9\x87\x8d\xe5\xba\x86", 106.55, 29.56},
+        {"\xe8\xb4\xb5\xe9\x98\xb3", 106.63, 26.65},
+        {"\xe6\x98\x86\xe6\x98\x8e", 102.71, 25.04},
+        {"\xe5\x8f\xb0\xe5\x8c\x97", 121.56, 25.04},
     };
-    legacy_labels_.assign(std::begin(kCities), std::end(kCities));
+    legacy_labels_.reserve(sizeof(kCities) / sizeof(kCities[0]));
+    for (const auto& c : kCities) {
+      legacy_labels_.push_back(Scene3dLegacyLabel{c.text, c.lon, c.lat});
+    }
   }
 
   // Coast / admin lines: document vectors (china_city) when already loaded.
@@ -153,33 +209,41 @@ void Scene3dGpuPresent::clear_overlay_tin_mesh() {
 bool Scene3dGpuPresent::attach_tileset_json(const char* json, size_t len,
                                             const char* name) {
   std::lock_guard<std::mutex> lock(present_mu_);
-  if (!tileset_stream_) {
+  TilesetStreamSession* stream = live_tileset_stream_locked();
+  if (!stream) {
     tileset_stream_ = std::make_unique<TilesetStreamSession>();
+    stream = tileset_stream_.get();
   }
-  return tileset_stream_->attach_json(&terrain_world_, json, len, name);
+  return stream->attach_json(&terrain_world_, json, len, name);
 }
 
 void Scene3dGpuPresent::set_tileset_content_root(const std::string& root) {
   std::lock_guard<std::mutex> lock(present_mu_);
-  if (!tileset_stream_) {
+  TilesetStreamSession* stream = live_tileset_stream_locked();
+  if (!stream) {
     tileset_stream_ = std::make_unique<TilesetStreamSession>();
+    stream = tileset_stream_.get();
   }
-  tileset_stream_->set_content_root(root);
+  stream->set_content_root(root);
 }
 
 void Scene3dGpuPresent::clear_tileset() {
   std::lock_guard<std::mutex> lock(present_mu_);
-  if (tileset_stream_) {
-    tileset_stream_->clear(&terrain_world_);
+  TilesetStreamSession* stream = live_tileset_stream_locked();
+  if (!stream) {
+    return;
   }
+  stream->clear(&terrain_world_);
 }
 
 TilesetStreamSession* Scene3dGpuPresent::tileset_stream() {
-  return tileset_stream_.get();
+  std::lock_guard<std::mutex> lock(present_mu_);
+  return live_tileset_stream_locked();
 }
 
 const TilesetStreamSession* Scene3dGpuPresent::tileset_stream() const {
-  return tileset_stream_.get();
+  std::lock_guard<std::mutex> lock(present_mu_);
+  return live_tileset_stream_locked();
 }
 
 void Scene3dGpuPresent::attach_overlay_pointcloud_locked(bool force) {
@@ -475,7 +539,7 @@ void Scene3dGpuPresent::remember_view_size(int width_px, int height_px) const {
 Extent2 Scene3dGpuPresent::world_extent() const {
   // DEM drape is the China raster. A 2D extent in pixels, or a world box,
   // normalizes that raster into a sticker on a huge ocean (flash-correct,
-  // then 错佝). Only a lon/lat box inside China may reframe the orbit.
+  // then ??). Only a lon/lat box inside China may reframe the orbit.
   if (orbit_) {
     const Extent2 e = orbit_->world_extent();
     if (extent_looks_like_china(e)) {
@@ -518,23 +582,35 @@ void Scene3dGpuPresent::abandon(AtmosphereSession* atmosphere) {
 bool Scene3dGpuPresent::rebuild_local_mesh() {
   // Caller must hold present_mu_ (present / paint).
   BASE_TRACE_EVENT("mesh", "scene3d.mesh");
-  // Trim overlay fold so DEM cache keys on DEM-only buffers. Clearing the
-  // whole vector forced rebuild_terrain_mesh cache miss every frame (~100ms+).
-  if (dem_local_xyz_count_ > 0 && local_xyz_.size() > dem_local_xyz_count_) {
-    local_xyz_.resize(dem_local_xyz_count_);
+  // Build into fresh locals then swap ? same pattern as GpuScene::sync_from.
+  // In-place push_back on member local_idx_ AVd in Debug STL _Orphan_all under
+  // world3d showcase (cdb: rebuild_terrain_mesh ? vector::_Change_array).
+  std::vector<float> xyz;
+  std::vector<unsigned> idx;
+  if (dem_local_xyz_count_ > 0 && dem_local_xyz_count_ <= local_xyz_.size()) {
+    xyz.assign(local_xyz_.begin(),
+               local_xyz_.begin() +
+                   static_cast<std::ptrdiff_t>(dem_local_xyz_count_));
   }
-  if (dem_local_idx_count_ > 0 && local_idx_.size() > dem_local_idx_count_) {
-    local_idx_.resize(dem_local_idx_count_);
+  if (dem_local_idx_count_ > 0 && dem_local_idx_count_ <= local_idx_.size()) {
+    idx.assign(local_idx_.begin(),
+               local_idx_.begin() +
+                   static_cast<std::ptrdiff_t>(dem_local_idx_count_));
   }
 
-  const size_t xyz_before = local_xyz_.size();
-  const size_t idx_before = local_idx_.size();
+  const size_t xyz_before = xyz.size();
+  const size_t idx_before = idx.size();
   const int lod_before = terrain_lod_edge_;
+  OrbitGeoFrame geo = geo_frame_;
+  int lod = terrain_lod_edge_;
   rebuild_terrain_mesh(&terrain_world_, scene_, world_extent(), distance(),
-                       &local_xyz_, &local_idx_, &geo_frame_,
-                       &terrain_lod_edge_);
-  dem_local_xyz_count_ = local_xyz_.size();
-  dem_local_idx_count_ = local_idx_.size();
+                       &xyz, &idx, &geo, &lod);
+  geo_frame_ = geo;
+  terrain_lod_edge_ = lod;
+  dem_local_xyz_count_ = xyz.size();
+  dem_local_idx_count_ = idx.size();
+  local_xyz_.swap(xyz);
+  local_idx_.swap(idx);
   return local_xyz_.size() != xyz_before || local_idx_.size() != idx_before ||
          terrain_lod_edge_ != lod_before;
 }
@@ -552,18 +628,29 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   }
   std::lock_guard<std::mutex> lock(present_mu_);
   remember_view_size(static_cast<int>(width_px), static_cast<int>(height_px));
-  base::ElapsedTimer mesh_timer;
-  const bool dem_rebuilt = rebuild_local_mesh();
-  note_scene3d_phase_mesh(static_cast<int64_t>(
-      mesh_timer.elapsed_milliseconds() + 0.5));
-  attach_overlay_tin_locked(dem_rebuilt || overlay_tin_dirty_);
-  attach_overlay_pointcloud_locked(dem_rebuilt || overlay_pointcloud_dirty_);
-  // 3D Tiles product stream (P0-B): select -> LRU ensure when a tileset is attached.
-  if (tileset_stream_ && tileset_stream_->active()) {
-    tileset_stream_->pump(&terrain_world_, orbit_, 0, 16);
-    gpu_scene_.set_tileset_content_cache(&tileset_stream_->cache());
+  // Globe path draws DEM on the UV sphere in AtmosphereFrame -- skip flat
+  // terrain rebuild/sync. Rebuilding china_dem into GpuScene then swapping
+  // Debug STL instances AVd under Null showcase (cdb: GpuScene::sync_from).
+  const bool globe_on = atmosphere.globe_enabled();
+  bool dem_rebuilt = false;
+  if (!globe_on) {
+    base::ElapsedTimer mesh_timer;
+    dem_rebuilt = rebuild_local_mesh();
+    note_scene3d_phase_mesh(static_cast<int64_t>(
+        mesh_timer.elapsed_milliseconds() + 0.5));
+    attach_overlay_tin_locked(dem_rebuilt || overlay_tin_dirty_);
+    attach_overlay_pointcloud_locked(dem_rebuilt || overlay_pointcloud_dirty_);
+    // 3D Tiles product stream (P0-B): select -> LRU ensure when a tileset is attached.
+    if (TilesetStreamSession* stream = live_tileset_stream_locked()) {
+      if (stream->active()) {
+        stream->pump(&terrain_world_, orbit_, 0, 16);
+        gpu_scene_.set_tileset_content_cache(&stream->cache());
+      }
+    }
+  } else {
+    note_scene3d_phase_mesh(0);
   }
-  if (terrain_world_.node_count() == 0) {
+  if (terrain_world_.node_count() == 0 && !globe_on) {
     LOGGING(LOG_ERROR,
             "scene3d.present fail: empty terrain mesh (no DEM / extent). "
             "size=%ux%u orbit_dist=%.3f",
@@ -578,9 +665,29 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     dem_gpu_synced_after_sky_ = false;
   }
   base::ElapsedTimer sync_timer;
-  gpu_scene_.sync_from(terrain_world_);
-  note_scene3d_phase_sync(static_cast<int64_t>(
-      sync_timer.elapsed_milliseconds() + 0.5));
+  if (globe_on) {
+    // Drop any leftover flat DEM from a prior non-globe present.
+    if (gpu_scene_.instance_count() > 0) {
+      gpu_scene_.abandon();
+    }
+    note_scene3d_phase_sync(0);
+  } else {
+    gpu_scene_.sync_from(terrain_world_);
+    // Belt-and-suspenders: warm present must never draw with empty GPU instances
+    // while terrain_world_ still holds DEM nodes (rebuild_meshes instances=0 ?
+    // execute fail after present-warm).
+    if (gpu_scene_.instance_count() == 0 && terrain_world_.node_count() > 0) {
+      LOGGING(LOG_WARNING,
+              "scene3d.present: forced GpuScene resync "
+              "(instances=0 nodes=%zu world_gen=%llu synced_gen=%llu)",
+              terrain_world_.node_count(),
+              static_cast<unsigned long long>(terrain_world_.generation()),
+              static_cast<unsigned long long>(gpu_scene_.synced_generation()));
+      gpu_scene_.sync_from(terrain_world_);
+    }
+    note_scene3d_phase_sync(static_cast<int64_t>(
+        sync_timer.elapsed_milliseconds() + 0.5));
+  }
   // White tint: draped hypsometric / china_rs keep authored RGB (olive
   // multiply made land read as flat mud under FlyCube textured PS).
   gpu_scene_.set_solid_color(1.f, 1.f, 1.f, 1.f);
@@ -642,8 +749,10 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     bg.background_color = 0xFF000000u;
     bg.background_opacity = 1.f;
     gpu_scene_.set_background_paint(bg);
+    atmosphere.frame().set_clear_rgb(0.f, 0.f, 0.f);
   } else {
     gpu_scene_.clear_background_paint();
+    atmosphere.frame().clear_clear_rgb();
   }
   // Drive DEM Lambert from atmosphere sun (azimuth / elevation scrub with time).
   {
@@ -660,14 +769,19 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       light.dir_z = std::sin(az) * cos_el;
       if (look_preset_ == Scene3dLookPreset::kLegacyStereo) {
         // Leftover stereo: harder key light on vertical DEM faces.
-        light.ambient = 0.28f;
-        light.intensity = 1.85f;
+        light.ambient = 0.34f;
+        light.intensity = 1.55f;
+        light.color_r = 1.f;
+        light.color_g = 0.96f;
+        light.color_b = 0.90f;
       } else {
-        // Soft fill floor so hypsometric greens stay landish-gate visible
-        // under sky (lit textured * low ambient previously read as near-black
-        // (21,0,0) mainland silhouettes on atmosphere.full BMPs).
-        light.ambient = 0.72f;
-        light.intensity = 1.15f;
+        // Balanced fill: soft enough for landish greens under sky, firm
+        // enough that DEM relief still reads (0.72 washed facets flat).
+        light.ambient = 0.52f;
+        light.intensity = 1.28f;
+        light.color_r = 1.f;
+        light.color_g = 0.97f;
+        light.color_b = 0.92f;
       }
     }
     gpu_scene_.set_light(light);
@@ -698,7 +812,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
               terrain_world_.node_count(), tex_nodes, width_px, height_px,
               yaw(), pitch(), distance());
       // One-shot albedo fingerprint: atmosphere.full black mainland was
-      // (21,0,0) while CPU bake stayed green � distinguish upload vs shade.
+      // (21,0,0) while CPU bake stayed green � distinguish upload vs shade.
       for (size_t i = 0; i < terrain_world_.node_count(); ++i) {
         const gis::Node* n = terrain_world_.node_at(i);
         if (!n || n->terrain_rgba.empty() || n->terrain_tex_w == 0) {
@@ -763,9 +877,13 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   note_present_frame();
 
   const gis::atmosphere::Environment* env = atmosphere.environment();
-  const bool ocean_on = env && env->ocean_enabled();
-  const bool cloud_on = env && env->cloud_enabled();
+  const bool ocean_on = !globe_on && env && env->ocean_enabled();
+  const bool cloud_on = !globe_on && env && env->cloud_enabled();
+  const bool sat_cloud_on = globe_on && atmosphere.sat_cloud_enabled();
   const bool sky_on = [&]() {
+    if (globe_on) {
+      return true;
+    }
     if (!env || !env->sky_enabled()) {
       return false;
     }
@@ -779,17 +897,19 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   const bool fog_on = env && env->fog_enabled();
   // Record order (ocean SRV0 must not precede textured DEM):
   //   sky (+ depth clear) -> opaque DEM -> ocean -> cloud/fog
-  // Ocean stays off in AtmosphereFrame pre; drawn after opaque below.
+  // Globe path: sky -> globe DEM -> sat clouds (+ fog); skip flat DEM/ocean.
   atmosphere.frame().set_ocean_enabled(false);
   atmosphere.frame().set_cloud_enabled(false);
   atmosphere.frame().set_sky_enabled(sky_on);
   atmosphere.frame().set_fog_enabled(false);
+  atmosphere.frame().set_globe_enabled(globe_on);
+  atmosphere.frame().set_sat_cloud_enabled(false);
   if (!atmosphere.prepare_for_present()) {
     LOGGING(LOG_ERROR, "scene3d.present fail: atmosphere.prepare_for_present");
     return false;
   }
   // Optional isolate: SMT_ATMOSPHERE_SKIP_OCEAN=1 keeps sky/DEM without ocean
-  // (debug atmosphere.full near-black China). Skip prepare_gpu too � height
+  // (debug atmosphere.full near-black China). Skip prepare_gpu too � height
   // texture alloc still recycles FlyCube SRVs and blacks DEM albedo.
   const bool skip_ocean = []() {
     if (const char* e = std::getenv("SMT_ATMOSPHERE_SKIP_OCEAN")) {
@@ -803,7 +923,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   base::ElapsedTimer ocean_prep_timer;
   // Cold path only: allocate ocean height before DEM remesh so FlyCube does
   // not recycle hypsometric albedo as the height map. Warm frames (already
-  // synced after ocean) skip prepare_gpu � OceanPass::record does one
+  // synced after ocean) skip prepare_gpu � OceanPass::record does one
   // Gerstner/upload instead of prepare_gpu + record double work.
   const bool need_ocean_height_before_dem =
       ocean_on && !skip_ocean && !dem_gpu_synced_after_ocean_;
@@ -828,17 +948,22 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   if (sky_on && !dem_gpu_synced_after_sky_) {
     gpu_scene_.mark_meshes_dirty();
   }
-  // FlyCube + AtmosphereFrame: lit textured DEM often samples near-black
-  // (21,0,0) even with high ambient. Prefer solid fill tinted by the DEM
-  // albedo mean so landish gates stay green; bake a mild height ramp into
-  // the mean so the mainland is not a single flat olive slab.
+  // FlyCube + AtmosphereFrame: lit textured DEM can sample near-black
+  // (21,0,0) when ocean/sky SRVs recycle the albedo heap. Prefer textured
+  // hypsometric when the CPU bake looks healthy; only force solid fill when
+  // the mean is near-black (flat olive slab was the no-arg 3D "blob").
   gpu_scene_.set_solid_color(1.f, 1.f, 1.f, 1.f);
-  if (sky_on) {
+  // Sky-on and legacy-stereo both need a healthy DEM albedo on FlyCube.
+  // Without ocean/sky height alloc, recycled SRVs can leave near-black China
+  // (signal=0 BMPs). Prefer textured hypsometric; solid-fill only when mean
+  // luma collapses.
+  if (sky_on || look_preset_ == Scene3dLookPreset::kLegacyStereo) {
     float ar = 0.28f;
     float ag = 0.52f;
     float ab = 0.22f;
     float amin = 1.f;
     float amax = 0.f;
+    size_t count = 0;
     for (size_t i = 0; i < terrain_world_.node_count(); ++i) {
       const gis::Node* n = terrain_world_.node_at(i);
       if (!n || n->terrain_rgba.size() < 4) {
@@ -847,7 +972,6 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       uint64_t sr = 0;
       uint64_t sg = 0;
       uint64_t sb = 0;
-      size_t count = 0;
       for (size_t p = 0; p + 3 < n->terrain_rgba.size(); p += 4) {
         const float lum = (n->terrain_rgba[p + 0] * 0.3f +
                            n->terrain_rgba[p + 1] * 0.59f +
@@ -864,21 +988,26 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
         ar = static_cast<float>(sr / count) / 255.f;
         ag = static_cast<float>(sg / count) / 255.f;
         ab = static_cast<float>(sb / count) / 255.f;
-        // Lift chroma toward hypsometric greens/browns when albedo span is flat.
-        if (amax - amin < 0.08f) {
-          ar = 0.34f;
-          ag = 0.58f;
-          ab = 0.24f;
-        } else {
-          ar = (std::min)(1.f, ar * 1.15f);
-          ag = (std::min)(1.f, ag * 1.20f);
-          ab = (std::min)(1.f, ab * 1.05f);
-        }
       }
       break;
     }
-    gpu_scene_.set_solid_color(ar, ag, ab, 1.f);
-    _putenv_s("SMT_SCENE3D_SOLID_TERRAIN", "1");
+    const float mean_luma = 0.30f * ar + 0.59f * ag + 0.11f * ab;
+    // Near-black mean ? textured path failed; solid landish fallback.
+    if (count == 0 || mean_luma < 0.12f) {
+      if (amax - amin < 0.08f) {
+        ar = 0.34f;
+        ag = 0.58f;
+        ab = 0.24f;
+      } else {
+        ar = (std::min)(1.f, (std::max)(ar, 0.28f) * 1.15f);
+        ag = (std::min)(1.f, (std::max)(ag, 0.45f) * 1.20f);
+        ab = (std::min)(1.f, (std::max)(ab, 0.18f) * 1.05f);
+      }
+      gpu_scene_.set_solid_color(ar, ag, ab, 1.f);
+      _putenv_s("SMT_SCENE3D_SOLID_TERRAIN", "1");
+    } else {
+      _putenv_s("SMT_SCENE3D_SOLID_TERRAIN", "0");
+    }
   } else {
     _putenv_s("SMT_SCENE3D_SOLID_TERRAIN", "0");
   }
@@ -925,16 +1054,21 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   }
   base::ElapsedTimer rebuild_timer;
   const bool need_rebuild =
-      gpu_scene_.needs_mesh_upload(device, width_px, height_px);
-  if (!gpu_scene_.ensure_meshes(device, width_px, height_px)) {
-    device->destroy_command_list(list);
-    LOGGING(LOG_ERROR, "scene3d.present fail: ensure_meshes");
-    return false;
+      !globe_on && gpu_scene_.needs_mesh_upload(device, width_px, height_px);
+  if (!globe_on) {
+    if (!gpu_scene_.ensure_meshes(device, width_px, height_px)) {
+      device->destroy_command_list(list);
+      LOGGING(LOG_ERROR, "scene3d.present fail: ensure_meshes");
+      return false;
+    }
   }
   note_scene3d_phase_rebuild(
       static_cast<int64_t>(rebuild_timer.elapsed_milliseconds() + 0.5),
       need_rebuild ? 1 : 0);
-  ok = opaque.record(ctx) && ok;
+  // Globe path draws DEM on the sphere in AtmosphereFrame pre; skip flat DEM.
+  if (!globe_on) {
+    ok = opaque.record(ctx) && ok;
+  }
 
   if (ocean_on && !skip_ocean) {
     render::rhi::RenderPassDesc ocean_pass;
@@ -952,7 +1086,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
          ok;
     list->end_render_pass();
   }
-  if (cloud_on || fog_on) {
+  if (cloud_on || fog_on || sat_cloud_on) {
     const bool skip_post = []() {
       if (const char* e = std::getenv("SMT_ATMOSPHERE_SKIP_POST")) {
         return e[0] == '1' && e[1] == '\0';
@@ -962,13 +1096,23 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     if (!skip_post) {
     atmosphere.frame().set_cloud_enabled(cloud_on);
     atmosphere.frame().set_fog_enabled(fog_on);
+    atmosphere.frame().set_sat_cloud_enabled(sat_cloud_on);
     ok = atmosphere.frame().record_post_opaque(device, list, width_px, height_px,
                                                view_camera, cloud_quality) &&
          ok;
     }
   }
   list->close();
-  if (!ok || !device->execute(list)) {
+  // Distinguish record failure from GPU execute failure in the soft-fail log.
+  if (!ok) {
+    device->destroy_command_list(list);
+    LOGGING(LOG_ERROR,
+            "scene3d.present fail: record size=%ux%u nodes=%zu backend=%s",
+            width_px, height_px, terrain_world_.node_count(),
+            render_engine_name);
+    return false;
+  }
+  if (!device->execute(list)) {
     device->destroy_command_list(list);
     LOGGING(LOG_ERROR,
             "scene3d.present fail: execute size=%ux%u nodes=%zu backend=%s",
@@ -983,13 +1127,11 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   device->present();
   note_scene3d_phase_present(static_cast<int64_t>(
       present_timer.elapsed_milliseconds() + 0.5));
-  if (ok) {
-    if (ocean_on && !skip_ocean) {
-      dem_gpu_synced_after_ocean_ = true;
-    }
-    if (sky_on) {
-      dem_gpu_synced_after_sky_ = true;
-    }
+  if (ocean_on && !skip_ocean) {
+    dem_gpu_synced_after_ocean_ = true;
+  }
+  if (sky_on) {
+    dem_gpu_synced_after_sky_ = true;
   }
   return true;
 }

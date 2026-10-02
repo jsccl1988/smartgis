@@ -72,8 +72,13 @@ If unsure → **revise the living umbrella**. Prefer wrong-umbrella `§` + later
 | `docs/superpowers/plans/` | Open checklists hung off living rows |
 | `docs/superpowers/archive/` | `landed` / `superseded` / fold-B children |
 
+## Diagrams (always)
+
+When a living `§` or plan **locks architecture / parallel model / layer ownership**, ship a companion HTML under `docs/superpowers/diagrams/` in the **same change** (core layering + principle flow; optional animation). See **`.cursor/rules/repo/design-html-diagrams.mdc`**.
+
 ## Related
 
 - Index: `docs/README.md`
 - UI endgame: `docs/build/ui-views-skia.md`
 - Mapping: `docs/build/mogu-mapping.md`
+- Design HTML diagrams: `.cursor/rules/repo/design-html-diagrams.mdc`

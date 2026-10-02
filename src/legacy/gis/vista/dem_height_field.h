@@ -63,7 +63,7 @@ GIS_EXPORT bool any_ring_contains(double px, double py,
                                   const std::vector<LonLatRing>& rings);
 
 // Thin leftover shell over gis::DemRaster (authority for load / sample /
-// mask / mesh). Public ABI names stay DemHeightField for StereoTerrain /
+// mask / mesh). Public ABI names stay DemHeightField for SmtTerrain /
 // map_to_scene; no parallel height grid.
 class GIS_EXPORT DemHeightField {
  public:

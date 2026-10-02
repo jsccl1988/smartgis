@@ -75,6 +75,7 @@ class Scene3dPresenter {
   void paint(HDC hdc, int width_px, int height_px,
              bool fill_background = true) const;
   void paint_hud(HDC hdc, int width_px, int height_px) const;
+  void paint_legacy_place_labels(HDC hdc, int width_px, int height_px) const;
 
   bool present_gpu(render::rhi::Device* device, uint32_t width_px,
                    uint32_t height_px,

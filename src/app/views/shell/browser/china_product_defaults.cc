@@ -3,6 +3,7 @@
 
 #include "app/views/shell/browser/china_product_defaults.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <string>
 
@@ -165,20 +166,28 @@ ChinaScene3dAtmoFlags apply_china_scene3d_legacy_look(Browser& browser) {
   if (!cam) {
     return flags;
   }
+  std::fprintf(stderr, "china-legacy-look: preset\n");
   cam->set_look_preset(content::Scene3dLookPreset::kLegacyStereo);
-  cam->abandon_mesh();
+  // Do not abandon_mesh here: concurrent FlyCube present + gpu_scene_.abandon
+  // remaps heap (0xC0000005 / ExitProcess -1 under showcase). Seed/flags alone
+  // rebuild DEM on the next present — same as apply_china_scene3d_atmosphere.
+  std::fprintf(stderr, "china-legacy-look: seed_procedural\n");
   cam->atmosphere_session().seed_procedural(/*with_land_rings=*/true);
+  std::fprintf(stderr, "china-legacy-look: flags\n");
   cam->atmosphere_session().set_ocean_enabled(flags.ocean);
   cam->atmosphere_session().set_cloud_enabled(flags.cloud);
   cam->atmosphere_session().set_sky_enabled(flags.sky);
   cam->atmosphere_session().set_fog_enabled(flags.fog);
+  std::fprintf(stderr, "china-legacy-look: orbit\n");
   apply_china_scene3d_orbit(browser);
-  (void)cam->gpu().ensure_legacy_overlays();
-  if (content::MapScene* doc = browser.document()) {
-    if (doc->feature_count() > 0) {
-      // Document already has china_city (or equivalent) vectors for coast gate.
-      // ensure_legacy_overlays only sees coast when scene_ is bound with feats.
-    }
+  // ensure_legacy_overlays (ASCII city labels) has AVd under showcase GPU
+  // present HWND + parallel DLL churn. Still paint DEM; labels composite in
+  // atmosphere-showcase BMP path when overlays are available.
+  if (!env_flag_is_one("SMT_ATMOSPHERE_SHOWCASE_GPU")) {
+    std::fprintf(stderr, "china-legacy-look: overlays\n");
+    (void)cam->gpu().ensure_legacy_overlays();
+  } else {
+    std::fprintf(stderr, "china-legacy-look: overlays-skipped\n");
   }
   return flags;
 }

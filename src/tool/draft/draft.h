@@ -46,6 +46,9 @@ constexpr uint32_t kSelectCircleCode = 1;
 constexpr uint32_t kTouchPan = 0x01000000u;
 // High bit: rubber-band zoom rect (view.zoom_in / nav). Not used by view.pan.
 constexpr uint32_t kZoomRect = 0x02000000u;
+// High bit: pointer/gesture end (mouse/touch up). Leftover browse settle uses
+// this to urgent-redraw + sync present after pan drag.
+constexpr uint32_t kGestureEnd = 0x04000000u;
 
 inline constexpr uint32_t pack(uint32_t family, uint32_t code) {
   return (family << kFamilyShift) | (code & kCodeMask);
@@ -65,6 +68,9 @@ inline constexpr bool is_touch_pan(uint32_t flags) {
 }
 inline constexpr bool is_zoom_rect(uint32_t flags) {
   return (flags & kZoomRect) != 0;
+}
+inline constexpr bool is_gesture_end(uint32_t flags) {
+  return (flags & kGestureEnd) != 0;
 }
 }  // namespace draft_flags
 

@@ -5,6 +5,8 @@ All rights reserved.
 
 # `src/app/views` — Scheme 3 shell
 
+**Diagram:** [`docs/superpowers/diagrams/ui-views-shell-architecture.html`](../../../docs/superpowers/diagrams/ui-views-shell-architecture.html)（shell / compositor 泳道 + 流水线）
+
 Product shell for **Views + Skia**。`SmartGisViews.exe` 是宿主：`Widget` +
 layout + 公开 `ui::views` 控件 + 命令接线。不手绘 catalog / feature / status。
 
@@ -19,20 +21,22 @@ ui::views::Widget
                      Layer：创建、底图、移除、缩放到图层
     Splitter vertical (flex)
       Splitter horizontal
-        Splitter horizontal
-          CatalogView (~240)
-          TabStrip (flex): Map | Data | 3D
-            各页 MapViewport（非活动 HWND 隐藏）
-        AmboxView (~200)
-      TabStrip inspector: FeatureInfo | AttributeTable | …
-      DebugConsolePanel（底栏 Diagnostic Tools，默认折叠；View → Toggle Diagnostic Tools）
-        tabs: Output | Console | CPU | Memory
+        BoxLayout vertical
+          AmboxView (horizontal tool bar: Select | Edit | Tools)
+          Splitter horizontal
+            CatalogView (~288; Layers|Sources|Maps tabs at bottom)
+            TabStrip (flex; tabs at bottom): Map | Data | 3D
+              各页 MapViewport（非活动 HWND 隐藏）
+        TabStrip right dock (~280): AMBox | FeatureInfo | AttributeTable | …
+      DiagnosticToolsPanel（底栏，默认开启；active=Console）
+        tabs: Output | Console | Trace | Memory
     StatusBar
 ```
 
-Debug Console / LogSink / Agent / Python worker：见
-[`docs/superpowers/specs/2026-09-28-debug-console-design.md`](../../docs/superpowers/specs/2026-09-28-debug-console-design.md)。
-启用：`--debug-console` / `SG_DEBUG=1` / 菜单 Toggle。
+Debug Console / LogSink / Agent / Python worker：见 living shell
+**§Diagnostic Tools** / archived
+[`docs/superpowers/archive/specs/2026-09-28-debug-console-design.md`](../../docs/superpowers/archive/specs/2026-09-28-debug-console-design.md)。
+产品壳默认打开底栏 Console；菜单 View → Toggle Diagnostic Tools 可折叠。
 三个地图页各自一个 `MapViewport` + `content::ViewHost`（2D 编辑 / 2D 浏览 /
 3D）。`MapContents` 会话共享；`OpenView` 分别为 `kMapEdit` / `kMapData` /
 `kScene3d`。3D 若无法挂接则保持 native 占位，鼠标不崩。
@@ -44,7 +48,12 @@ gestures / ViewHosts / `MapContents*`）；能力实现在
 `src/content/browser/{document,camera,present,input}`；GDI paint 在
 `content/browser/present/*/paint/`。`shell/ui` → `shell/browser` →
 `//src/content:map_session`；**禁止** `present` → `shell`。`shell/`：`app/`、
-`browser/`、`ui/`、`harness/{showcase,self_test}/`。`main.cc` 仅 `wWinMain` 胶水。
+`browser/`、`ui/`、`harness/{showcase,self_test}/`。`shell/ui`：`BrowserView`
+持有 Widget 树，并把 map/panel 接线组合进 `ShellLayoutChrome`（`main_app.ui.xml`）/
+`MapPagesChrome` /
+`ProcessingChrome` / `InspectChrome` / `InspectorSyncChrome` /
+`DebugConsoleChrome` / `AtmosphereChrome`（见 living shell
+**§shell/ui chrome composers**）。`main.cc` 仅 `wWinMain` 胶水。
 Present README：
 [`../../content/browser/present/README.md`](../../content/browser/present/README.md)。
 

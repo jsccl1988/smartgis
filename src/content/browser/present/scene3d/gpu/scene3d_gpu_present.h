@@ -103,6 +103,10 @@ class Scene3dGpuPresent {
   TilesetStreamSession* tileset_stream();
   const TilesetStreamSession* tileset_stream() const;
 
+  // Caller must hold present_mu_. Returns nullptr for unset / MSVC freefill.
+  TilesetStreamSession* live_tileset_stream_locked();
+  const TilesetStreamSession* live_tileset_stream_locked() const;
+
   const OrbitFrame* orbit() const { return orbit_; }
   const MapScene* scene() const { return scene_; }
 

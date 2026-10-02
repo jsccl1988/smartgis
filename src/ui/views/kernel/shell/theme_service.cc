@@ -39,13 +39,14 @@ Theme make_dark_theme() {
   t.panel_bg = ui::gfx::color_rgb(37, 37, 38);
   t.panel_header = ui::gfx::color_rgb(45, 45, 48);
   t.accent = ui::gfx::color_rgb(0, 122, 204);
-  t.text = ui::gfx::color_rgb(200, 200, 200);
+  // Near-white body ink so AA glyph edges stay above score light_text (~170).
+  t.text = ui::gfx::color_rgb(235, 235, 235);
   t.text_bright = ui::gfx::color_rgb(255, 255, 255);
-  t.text_muted = ui::gfx::color_rgb(140, 140, 140);
+  t.text_muted = ui::gfx::color_rgb(175, 175, 175);
   t.control_bg = ui::gfx::color_rgb(30, 30, 30);
-  t.control_fill = ui::gfx::color_rgb(60, 60, 60);
-  t.control_hover = ui::gfx::color_rgb(80, 80, 80);
-  t.control_press = ui::gfx::color_rgb(50, 50, 50);
+  t.control_fill = ui::gfx::color_rgb(55, 55, 58);
+  t.control_hover = ui::gfx::color_rgb(78, 78, 82);
+  t.control_press = ui::gfx::color_rgb(48, 48, 52);
   t.control_disabled = ui::gfx::color_rgb(45, 45, 45);
   t.control_unchecked = ui::gfx::color_rgb(50, 50, 50);
   t.map_placeholder = ui::gfx::color_rgb(27, 58, 75);

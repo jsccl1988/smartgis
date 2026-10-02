@@ -3,6 +3,8 @@
 
 #include "legacy/gis/feature/mesh.h"
 
+#include <vector>
+
 #include "base/math/math.h"
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "legacy/core/types/types.h"
@@ -10,6 +12,12 @@
 
 namespace render {
 namespace {
+
+struct CachedPoint {
+  float x = 0.f;
+  float y = 0.f;
+  float z = 0.f;
+};
 
 void emit_world_xyz(FeatureMesh* mesh, double x, double y, double z) {
   FeatureVertex v;
@@ -77,31 +85,40 @@ bool tess_3d_surface(const geo::Surface3d& surf, FeatureMesh* out) {
   out->has_colors = false;
 
   const int npts = surf.get_point_count();
+  const int ntri = surf.get_triangle_count();
+  if (ntri < 1) {
+    return false;
+  }
+
+  // Single OGR fetch pass — normals accumulate from the cache.
+  std::vector<CachedPoint> pts(static_cast<size_t>(npts));
   out->vertices.resize(static_cast<size_t>(npts));
   for (int i = 0; i < npts; ++i) {
-    OGRPoint point = surf.get_point(i);
+    const OGRPoint point = surf.get_point(i);
+    CachedPoint& c = pts[static_cast<size_t>(i)];
+    c.x = static_cast<float>(point.getX());
+    c.y = static_cast<float>(point.getY());
+    c.z = static_cast<float>(point.getZ());
     FeatureVertex& v = out->vertices[static_cast<size_t>(i)];
-    v.x = static_cast<float>(point.getX());
-    v.y = static_cast<float>(point.getZ());
-    v.z = static_cast<float>(point.getY());
+    v.x = c.x;
+    v.y = c.z;
+    v.z = c.y;
     v.has_normal = true;
   }
 
-  const int ntri = surf.get_triangle_count();
   out->indices.reserve(static_cast<size_t>(ntri) * 3);
   std::vector<Vector4> normals(static_cast<size_t>(npts));
   for (int i = 0; i < ntri; ++i) {
-    base::SmtTriangle tri = surf.get_triangle(i);
+    const base::SmtTriangle tri = surf.get_triangle(i);
     out->indices.push_back(static_cast<std::uint32_t>(tri.a));
     out->indices.push_back(static_cast<std::uint32_t>(tri.b));
     out->indices.push_back(static_cast<std::uint32_t>(tri.c));
-    OGRPoint p1 = surf.get_point(tri.a);
-    OGRPoint p2 = surf.get_point(tri.b);
-    OGRPoint p3 = surf.get_point(tri.c);
-    Vector4 V1(p1.getX(), p1.getY(), p1.getZ());
-    Vector4 V2(p2.getX(), p2.getY(), p2.getZ());
-    Vector4 V3(p3.getX(), p3.getY(), p3.getZ());
-    Vector4 nor = triangle_normal(V1, V2, V3);
+    const CachedPoint& a = pts[static_cast<size_t>(tri.a)];
+    const CachedPoint& b = pts[static_cast<size_t>(tri.b)];
+    const CachedPoint& c = pts[static_cast<size_t>(tri.c)];
+    const Vector4 nor =
+        triangle_normal(Vector4(a.x, a.y, a.z), Vector4(b.x, b.y, b.z),
+                        Vector4(c.x, c.y, c.z));
     normals[static_cast<size_t>(tri.a)] += nor;
     normals[static_cast<size_t>(tri.b)] += nor;
     normals[static_cast<size_t>(tri.c)] += nor;

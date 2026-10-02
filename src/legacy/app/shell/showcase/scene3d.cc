@@ -28,9 +28,76 @@ namespace {
 
 constexpr int kW = 640;
 constexpr int kH = 480;
-constexpr const char *kBmpLeaf = "legacy-scene3d-showcase-china.bmp";
-constexpr const char *kMarkLeaf = "legacy-scene3d-showcase-mark.txt";
-constexpr const char *kLogTag = "legacy-scene3d-showcase";
+constexpr const char* kMarkLeaf = "legacy-scene3d-showcase-mark.txt";
+constexpr const char* kLogTag = "legacy-scene3d-showcase";
+
+bool mode_eq(const char* a, const char* b) {
+  return a && b && _stricmp(a, b) == 0;
+}
+
+bool is_mesh_showcase_mode(const char* mode) {
+  return mode_eq(mode, "cube") || mode_eq(mode, "sphere") ||
+         mode_eq(mode, "water") || mode_eq(mode, "pointcloud") ||
+         mode_eq(mode, "northarray");
+}
+
+bool is_known_showcase_mode(const char* mode) {
+  return mode_eq(mode, "china") || mode_eq(mode, "terrain") ||
+         is_mesh_showcase_mode(mode);
+}
+
+// Parse `--scene3d-showcase[=mode]` / `--scene3d-showcase mode` from cmdline.
+std::string parse_showcase_mode_from_cmdline() {
+  const wchar_t* cmdline = ::GetCommandLineW();
+  if (!cmdline) {
+    return "china";
+  }
+  const wchar_t* p = wcsstr(cmdline, L"--scene3d-showcase");
+  if (!p) {
+    return "china";
+  }
+  p += wcslen(L"--scene3d-showcase");
+  if (*p == L'=') {
+    ++p;
+  }
+  while (*p == L' ' || *p == L'\t') {
+    ++p;
+  }
+  if (*p == L'\0' || *p == L'-') {
+    if (const char *env = std::getenv("SMT_SCENE3D_SHOWCASE_MODE")) {
+      if (env[0] && is_known_showcase_mode(env)) {
+        return env;
+      }
+    }
+    return "china";
+  }
+  char token[64] = {};
+  size_t n = 0;
+  while (*p && *p != L' ' && *p != L'\t' && n + 1 < sizeof(token)) {
+    const wchar_t wc = *p++;
+    if (wc < 128) {
+      token[n++] = static_cast<char>(wc);
+    }
+  }
+  token[n] = '\0';
+  if (!token[0] || !is_known_showcase_mode(token)) {
+    if (token[0]) {
+      std::fprintf(stderr,
+                   "legacy-scene3d-showcase: unknown mode=%s; using china\n",
+                   token);
+      std::fflush(stderr);
+    }
+    return "china";
+  }
+  return token;
+}
+
+void apply_showcase_mode_env(const char* mode) {
+  if (!mode || !mode[0]) {
+    mode = "china";
+  }
+  _putenv_s("SMT_SCENE3D_SHOWCASE_MODE", mode);
+}
 
 bool stereo_backend_is_d3d() {
   // Default D3D11; OpenGL is opt-in via SMT_STEREO_API=OpenGL / SHOWCASE_D3D=0.
@@ -436,7 +503,7 @@ bool write_bgr24_bmp(const char *path, const unsigned char *bgr_bottom_up,
   return true;
 }
 
-bool bmp_has_visible_signal(const char *path) {
+bool bmp_has_visible_signal(const char *path, bool require_landish) {
   FILE *in = nullptr;
   if (fopen_s(&in, path, "rb") != 0 || !in) {
     return false;
@@ -465,6 +532,7 @@ bool bmp_has_visible_signal(const char *path) {
   std::fclose(in);
   int non_flat = 0;
   int landish = 0;
+  int near_black = 0;
   int unique = 0;
   unsigned char seen[64][3] = {};
   const int step = (std::max)(1, (w * h) / 8000);
@@ -478,6 +546,9 @@ bool bmp_has_visible_signal(const char *path) {
     const unsigned g = p[1];
     const unsigned r = p[2];
     ++sampled;
+    if (r < 25 && g < 25 && b < 25) {
+      ++near_black;
+    }
     if (!(r < 12 && g < 12 && b < 12) && !(r > 245 && g > 245 && b > 245)) {
       ++non_flat;
     }
@@ -503,31 +574,43 @@ bool bmp_has_visible_signal(const char *path) {
       ++unique;
     }
   }
-  // Reject HUD-only black frames (FPS/compass): need DEM/land wash.
   const float land_f =
       sampled > 0 ? static_cast<float>(landish) / static_cast<float>(sampled)
                   : 0.f;
-  return non_flat > 40 && unique >= 2 && land_f > 0.04f;
+  const float black_f =
+      sampled > 0 ? static_cast<float>(near_black) / static_cast<float>(sampled)
+                  : 1.f;
+  if (require_landish) {
+    // Reject HUD-only black frames (FPS/compass): need DEM/land wash.
+    return non_flat > 40 && unique >= 2 && land_f > 0.04f;
+  }
+  // Mesh / northarray: non-black signal + color diversity (no landish).
+  return non_flat > 40 && unique >= 2 && black_f < 0.92f;
 }
 
 } // namespace
 
-int run_scene3d_showcase_china(app::SmtApp &app) {
+int run_scene3d_showcase(app::SmtApp &app) {
+  const std::string mode = parse_showcase_mode_from_cmdline();
+  apply_showcase_mode_env(mode.c_str());
+
   char mark_path[MAX_PATH] = {};
   if (app::detail::exe_capture_path_a(mark_path, MAX_PATH, kMarkLeaf)) {
     DeleteFileA(mark_path);
   }
   const bool use_d3d = stereo_backend_is_d3d();
   const char *backend = stereo_backend_id();
-  showcase_mark(use_d3d ? "china-d3d" : "china-gl");
-  std::fprintf(stderr, "legacy-scene3d-showcase: engine=%s\n",
-               stereo_engine_title_a());
+  char start_mark[64] = {};
+  sprintf_s(start_mark, "%s-%s", mode.c_str(), use_d3d ? "d3d" : "gl");
+  showcase_mark(start_mark);
+  std::fprintf(stderr, "legacy-scene3d-showcase: mode=%s engine=%s\n",
+               mode.c_str(), stereo_engine_title_a());
   std::fflush(stderr);
 
   // Bootstrap sample paths / singletons; stereo seed also opens china itself.
   if (!app.DelayInit()) {
     showcase_mark("delay-init-fail");
-    // Continue 鈥?seed_sample_map_into_scene resolves ../data independently.
+    // Continue — seed_* resolves ../data independently.
   } else {
     showcase_mark("delay-init");
   }
@@ -577,11 +660,25 @@ int run_scene3d_showcase_china(app::SmtApp &app) {
     return 51;
   }
 
-  // Closer + slightly steeper so china DEM fills the frame (near_black gate
-  // <0.85). Visual review: reduce solid black void around the mesh.
   const float yaw = gis::kDemDefaultOrbitYaw;
   float pitch = 0.62f;
   float distance = 2.15f;
+  if (is_mesh_showcase_mode(mode.c_str())) {
+    // Origin-centered meshes: slightly wider orbit so the silhouette fills.
+    pitch = 0.55f;
+    distance = 2.8f;
+    if (mode_eq(mode.c_str(), "pointcloud")) {
+      // Dense points still read sparse in BMP; dolly in a bit.
+      pitch = 0.5f;
+      distance = 2.2f;
+    } else if (mode_eq(mode.c_str(), "northarray")) {
+      pitch = 0.45f;
+      distance = 3.0f;
+    }
+  } else if (mode_eq(mode.c_str(), "terrain")) {
+    pitch = 0.62f;
+    distance = 2.15f;
+  }
   int present_count = 5;
   if (const char *pc = std::getenv("SMT_SCENE3D_SHOWCASE_PRESENT_COUNT")) {
     const int v = std::atoi(pc);
@@ -620,25 +717,28 @@ int run_scene3d_showcase_china(app::SmtApp &app) {
                                       "legacy-scene3d-showcase-perf.json")) {
     if (FILE *pf = nullptr; fopen_s(&pf, perf_leaf, "wb") == 0 && pf) {
       std::fprintf(pf,
-                   "{\"backend\":\"%s\",\"present_count\":%d,"
+                   "{\"mode\":\"%s\",\"backend\":\"%s\",\"present_count\":%d,"
                    "\"present_ms\":%.3f,\"ms_per_present\":%.3f}\n",
-                   backend, present_count, present_ms,
+                   mode.c_str(), backend, present_count, present_ms,
                    present_count > 0 ? present_ms / present_count : 0.0);
       std::fclose(pf);
     }
   }
   showcase_mark("present-ok");
 
+  char bmp_leaf[96] = {};
+  sprintf_s(bmp_leaf, "legacy-scene3d-showcase-%s.bmp", mode.c_str());
   char bmp_a[MAX_PATH] = {};
-  if (!app::detail::exe_capture_path_a(bmp_a, MAX_PATH, kBmpLeaf)) {
+  if (!app::detail::exe_capture_path_a(bmp_a, MAX_PATH, bmp_leaf)) {
     showcase_mark("sidecar-fail");
     destroy(view);
     DestroyWindow(hwnd);
     return 56;
   }
   char bmp_backend[MAX_PATH] = {};
-  char backend_leaf[64] = {};
-  sprintf_s(backend_leaf, "legacy-scene3d-showcase-china-%s.bmp", backend);
+  char backend_leaf[96] = {};
+  sprintf_s(backend_leaf, "legacy-scene3d-showcase-%s-%s.bmp", mode.c_str(),
+            backend);
   const bool have_backend_path =
       app::detail::exe_capture_path_a(bmp_backend, MAX_PATH, backend_leaf);
   DeleteFileA(bmp_a);
@@ -669,10 +769,11 @@ int run_scene3d_showcase_china(app::SmtApp &app) {
   }
   showcase_mark("bmp-ok");
 
-  if (!bmp_has_visible_signal(bmp_a)) {
+  const bool need_land =
+      mode_eq(mode.c_str(), "china") || mode_eq(mode.c_str(), "terrain");
+  if (!bmp_has_visible_signal(bmp_a, need_land)) {
     showcase_mark("bmp-blank");
-    // Skip destroy 鈥?D3D teardown under debug CRT can HEAP-break after present;
-    // same TerminateProcess policy as the PASS path / --map2d-showcase.
+    // Skip destroy — D3D teardown under debug CRT can HEAP-break after present.
     ::TerminateProcess(::GetCurrentProcess(), 54);
     return 54;
   }
@@ -683,12 +784,10 @@ int run_scene3d_showcase_china(app::SmtApp &app) {
   if (have_backend_path) {
     std::fprintf(stderr, "legacy-scene3d-showcase: wrote %s\n", bmp_backend);
   }
-  std::fprintf(stderr, "legacy-scene3d-showcase: PASS mode=china backend=%s\n",
-               backend);
+  std::fprintf(stderr, "legacy-scene3d-showcase: PASS mode=%s backend=%s\n",
+               mode.c_str(), backend);
   std::fflush(stderr);
 
-  // Keep a fresh SwapBuffers on the HWND for linger OS-inject / screen
-  // BitBlt recording (PrintWindow of GL/D3D surfaces is often all-black).
   if (present(view, yaw, pitch, distance)) {
     showcase_mark("hwnd-present-ok");
   } else {
@@ -697,13 +796,14 @@ int run_scene3d_showcase_china(app::SmtApp &app) {
 
   attach_scene3d_linger_nav(hwnd, view, present, yaw, pitch, distance);
   showcase_mark("nav-ok");
-  // Avoid MFC/BCG DLL_PROCESS_DETACH deadlock (same as --map2d-showcase).
   showcase_linger_from_env("SMT_SCENE3D_SHOWCASE_LINGER_MS");
-  // Do not destroy(view) here: GL ICD teardown before TerminateProcess still
-  // leaves the next harness round flaky (bmp_missing / exit 0xFFFFFFFF ~2s).
-  // Harness settle after kill (see testing/tools/loop/kill.py) covers relaunch.
   ::TerminateProcess(::GetCurrentProcess(), 0);
   return 0;
+}
+
+int run_scene3d_showcase_china(app::SmtApp &app) {
+  _putenv_s("SMT_SCENE3D_SHOWCASE_MODE", "china");
+  return run_scene3d_showcase(app);
 }
 
 } // namespace legacy_app

@@ -1,0 +1,18 @@
+/* DebugConsolePanel — output + optional input.
+ * Omit width/height:100% (parsed as 100px). Let the tab page FillLayout size us. */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+}
+
+#output {
+  height: 80px;
+  flex-grow: 1;
+}
+
+#input {
+  height: 24px;
+}

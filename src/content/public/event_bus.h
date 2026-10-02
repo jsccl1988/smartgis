@@ -109,10 +109,22 @@ class EventBus {
     ~Connection() { disconnect(); }
 
     void disconnect() {
+      // Default-constructed / moved-from: nothing to unsubscribe.
+      if (id_ == 0) {
+        hub_.reset();
+        return;
+      }
+      // Uninitialized Connection (debug 0xCD fill / ABI-skewed Browser member)
+      // must not call weak_ptr::lock — that AVs on the poison control block.
+      const auto id_bytes = reinterpret_cast<const unsigned char*>(&id_);
+      if (id_bytes[0] == 0xcd && id_bytes[1] == 0xcd && id_bytes[2] == 0xcd &&
+          id_bytes[3] == 0xcd) {
+        hub_.reset();
+        id_ = 0;
+        return;
+      }
       if (auto hub = hub_.lock()) {
-        if (id_ != 0) {
-          hub->unsubscribe(id_);
-        }
+        hub->unsubscribe(id_);
       }
       hub_.reset();
       id_ = 0;

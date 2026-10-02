@@ -5,10 +5,14 @@
 
 #include <algorithm>
 #include <cmath>
-#include <map>
+#include <cstdio>
+#include <fstream>
+#include <locale>
+#include <unordered_map>
 #include <vector>
 
 #include "legacy/render/rhi3d/public/device/base.h"
+#include "legacy/render/rhi3d/public/state/states_manager.h"
 
 namespace render {
 namespace {
@@ -28,31 +32,28 @@ ulong cell_key(int ix, int iy, int iz) {
 
 }  // namespace
 
-Smt3DPointCloud::Smt3DPointCloud(void)
-    : m_bReadOK(false),
-      m_bShowBounds(true),
-      m_pVertexBuffer(NULL),
-      m_nLastDrawnPoints(0) {}
+Smt3DPointCloud::Smt3DPointCloud() = default;
 
 Smt3DPointCloud::~Smt3DPointCloud() { Destroy(); }
 
-long Smt3DPointCloud::Init(::base::Vector3& vPos, SmtMaterial& matMaterial) {
-  return Smt3DObject::Init(vPos, matMaterial);
+long Smt3DPointCloud::Init(::base::Vector3& vPos, SmtMaterial& matMaterial,
+                           const char* szTexName) {
+  return Smt3DObject::Init(vPos, matMaterial, szTexName);
 }
 
 void Smt3DPointCloud::pack_vertices_for_chunks(SmtVertex3DList* packed) {
-  if (!packed || m_vtxList.nCount < 1 || !m_vtxList.pVertexs) {
+  if (!packed || vtx_list_.nCount < 1 || !vtx_list_.pVertexs) {
     return;
   }
 
-  if (m_vtxList.nCount < kChunkPointThreshold) {
-    *packed = m_vtxList;
+  if (vtx_list_.nCount < kChunkPointThreshold) {
+    *packed = vtx_list_;
     return;
   }
 
   Aabb bounds;
-  for (int i = 0; i < m_vtxList.nCount; ++i) {
-    bounds.merge(m_vtxList.pVertexs[i].ver);
+  for (int i = 0; i < vtx_list_.nCount; ++i) {
+    bounds.merge(vtx_list_.pVertexs[i].ver);
   }
   const double ex =
       (std::max)(1.0e-6, static_cast<double>(bounds.vcMax.x - bounds.vcMin.x));
@@ -62,12 +63,14 @@ void Smt3DPointCloud::pack_vertices_for_chunks(SmtVertex3DList* packed) {
       (std::max)(1.0e-6, static_cast<double>(bounds.vcMax.z - bounds.vcMin.z));
 
   int cells = static_cast<int>(
-      std::cbrt(static_cast<double>(m_vtxList.nCount) / kTargetChunkPoints));
+      std::cbrt(static_cast<double>(vtx_list_.nCount) / kTargetChunkPoints));
   cells = (std::max)(1, (std::min)(cells, 64));
 
-  std::map<ulong, std::vector<int>> buckets;
-  for (int i = 0; i < m_vtxList.nCount; ++i) {
-    const Vector3& v = m_vtxList.pVertexs[i].ver;
+  // unordered_map: O(n) expected vs tree map log factor on large clouds.
+  std::unordered_map<ulong, std::vector<int>> buckets;
+  buckets.reserve(static_cast<size_t>(cells * cells * cells / 2 + 1));
+  for (int i = 0; i < vtx_list_.nCount; ++i) {
+    const Vector3& v = vtx_list_.pVertexs[i].ver;
     int ix = static_cast<int>((v.x - bounds.vcMin.x) / ex * cells);
     int iy = static_cast<int>((v.y - bounds.vcMin.y) / ey * cells);
     int iz = static_cast<int>((v.z - bounds.vcMin.z) / ez * cells);
@@ -77,18 +80,26 @@ void Smt3DPointCloud::pack_vertices_for_chunks(SmtVertex3DList* packed) {
     buckets[cell_key(ix, iy, iz)].push_back(i);
   }
 
-  vSmtVertex3Ds ordered;
-  ordered.reserve(static_cast<size_t>(m_vtxList.nCount));
+  // Stable cell order so chunk rebuild walks contiguous ranges.
+  std::vector<ulong> keys;
+  keys.reserve(buckets.size());
   for (const auto& entry : buckets) {
-    for (int idx : entry.second) {
-      ordered.push_back(m_vtxList.pVertexs[idx]);
+    keys.push_back(entry.first);
+  }
+  std::sort(keys.begin(), keys.end());
+
+  vSmtVertex3Ds ordered;
+  ordered.reserve(static_cast<size_t>(vtx_list_.nCount));
+  for (ulong key : keys) {
+    for (int idx : buckets[key]) {
+      ordered.push_back(vtx_list_.pVertexs[idx]);
     }
   }
   *packed = ordered;
 }
 
 void Smt3DPointCloud::build_chunks(const SmtVertex3DList& packed) {
-  m_chunks.clear();
+  chunks_.clear();
   if (packed.nCount < 1 || !packed.pVertexs) {
     return;
   }
@@ -100,8 +111,8 @@ void Smt3DPointCloud::build_chunks(const SmtVertex3DList& packed) {
     for (int i = 0; i < packed.nCount; ++i) {
       chunk.aabb.merge(packed.pVertexs[i].ver);
     }
-    chunk.aabb.vcCenter = (chunk.aabb.vcMax + chunk.aabb.vcMin) / 2.;
-    m_chunks.push_back(chunk);
+    chunk.aabb.vcCenter = (chunk.aabb.vcMax + chunk.aabb.vcMin) * 0.5f;
+    chunks_.push_back(chunk);
     return;
   }
 
@@ -119,7 +130,6 @@ void Smt3DPointCloud::build_chunks(const SmtVertex3DList& packed) {
       std::cbrt(static_cast<double>(packed.nCount) / kTargetChunkPoints));
   cells = (std::max)(1, (std::min)(cells, 64));
 
-  // Packed order is already contiguous by cell_key; rebuild ranges by walking.
   auto cell_of = [&](const Vector3& v) -> ulong {
     int ix = static_cast<int>((v.x - bounds.vcMin.x) / ex * cells);
     int iy = static_cast<int>((v.y - bounds.vcMin.y) / ey * cells);
@@ -140,8 +150,8 @@ void Smt3DPointCloud::build_chunks(const SmtVertex3DList& packed) {
   for (int i = 1; i < packed.nCount; ++i) {
     const ulong key = cell_of(packed.pVertexs[i].ver);
     if (key != prev_key) {
-      cur.aabb.vcCenter = (cur.aabb.vcMax + cur.aabb.vcMin) / 2.;
-      m_chunks.push_back(cur);
+      cur.aabb.vcCenter = (cur.aabb.vcMax + cur.aabb.vcMin) * 0.5f;
+      chunks_.push_back(cur);
       cur = PointCloudChunk{};
       cur.start = static_cast<ulong>(i);
       cur.count = 0;
@@ -150,11 +160,11 @@ void Smt3DPointCloud::build_chunks(const SmtVertex3DList& packed) {
     cur.aabb.merge(packed.pVertexs[i].ver);
     ++cur.count;
   }
-  cur.aabb.vcCenter = (cur.aabb.vcMax + cur.aabb.vcMin) / 2.;
-  m_chunks.push_back(cur);
+  cur.aabb.vcCenter = (cur.aabb.vcMax + cur.aabb.vcMin) * 0.5f;
+  chunks_.push_back(cur);
 }
 
-long Smt3DPointCloud::build_gpu_buffer(LP3DRENDERDEVICE p3DRenderDevice) {
+long Smt3DPointCloud::build_gpu_buffer(LP3DRENDERDEVICE device) {
   SmtVertex3DList packed;
   pack_vertices_for_chunks(&packed);
   if (packed.nCount < 1 || !packed.pVertexs) {
@@ -162,149 +172,143 @@ long Smt3DPointCloud::build_gpu_buffer(LP3DRENDERDEVICE p3DRenderDevice) {
   }
 
   // Keep CPU list in draw order so unibn indices match VB order.
-  m_vtxList = packed;
+  vtx_list_ = packed;
 
-  SMT_SAFE_DELETE(m_pVertexBuffer);
-  m_pVertexBuffer = p3DRenderDevice->CreateVertexBuffer(
-      m_vtxList.nCount, VF_XYZ | VF_DIFFUSE, false);
-  if (!m_pVertexBuffer) {
+  const int n = vtx_list_.nCount;
+  std::vector<float> xyz(static_cast<size_t>(n) * 3);
+  std::vector<float> rgba(static_cast<size_t>(n) * 4);
+  for (int i = 0; i < n; ++i) {
+    const SmtVertex3D& v = vtx_list_.pVertexs[i];
+    const size_t o3 = static_cast<size_t>(i) * 3;
+    const size_t o4 = static_cast<size_t>(i) * 4;
+    xyz[o3] = v.ver.x;
+    xyz[o3 + 1] = v.ver.y;
+    xyz[o3 + 2] = v.ver.z;
+    rgba[o4] = v.clr.fRed;
+    rgba[o4 + 1] = v.clr.fGreen;
+    rgba[o4 + 2] = v.clr.fBlue;
+    rgba[o4 + 3] = v.clr.fA;
+  }
+
+  if (!upload_points(device, xyz.data(), static_cast<size_t>(n),
+                     rgba.data())) {
     return SMT_ERR_FAILURE;
   }
-
-  m_pVertexBuffer->Lock();
-  for (int i = 0; i < m_vtxList.nCount; ++i) {
-    Vector3& vPos = m_vtxList.pVertexs[i].ver;
-    SmtColor& clr = m_vtxList.pVertexs[i].clr;
-    m_pVertexBuffer->Vertex(vPos.x, vPos.y, vPos.z);
-    m_pVertexBuffer->Diffuse(clr.fRed, clr.fGreen, clr.fBlue, clr.fA);
-  }
-  m_pVertexBuffer->Unlock();
-
-  build_chunks(m_vtxList);
+  build_chunks(vtx_list_);
   return SMT_ERR_NONE;
 }
 
-long Smt3DPointCloud::Create(LP3DRENDERDEVICE p3DRenderDevice) {
-  if (NULL == p3DRenderDevice) {
+long Smt3DPointCloud::Create(LP3DRENDERDEVICE device) {
+  if (!device) {
     return SMT_ERR_INVALID_PARAM;
   }
-
-  if (!m_bReadOK || m_vtxList.nCount < 1 || m_vtxList.pVertexs == NULL) {
+  if (!read_ok_ || vtx_list_.nCount < 1 || !vtx_list_.pVertexs) {
     return SMT_ERR_FAILURE;
   }
 
-  const long gpu_err = build_gpu_buffer(p3DRenderDevice);
+  const long gpu_err = build_gpu_buffer(device);
   if (gpu_err != SMT_ERR_NONE) {
     return gpu_err;
   }
-
-  m_aAbb = Aabb();
-  for (int i = 0; i < m_vtxList.nCount; ++i) {
-    m_aAbb.merge(m_vtxList.pVertexs[i].ver);
-  }
-  m_aAbb.vcCenter = (m_aAbb.vcMax + m_aAbb.vcMin) / 2.;
-
-  return m_point_index.build(m_vtxList);
+  return point_index_.build(vtx_list_);
 }
 
-long Smt3DPointCloud::Update(LP3DRENDERDEVICE /*p3DRenderDevice*/,
-                             float /*fElapsed*/) {
+long Smt3DPointCloud::Update(LP3DRENDERDEVICE /*device*/, float /*elapsed*/) {
   return SMT_ERR_NONE;
 }
 
-long Smt3DPointCloud::Render(LP3DRENDERDEVICE p3DRenderDevice) {
-  if (NULL == p3DRenderDevice) {
+long Smt3DPointCloud::Render(LP3DRENDERDEVICE device) {
+  if (!device) {
     return SMT_ERR_INVALID_PARAM;
   }
-  if (!m_pVertexBuffer || m_chunks.empty()) {
+  if (!vb_ || chunks_.empty()) {
     return SMT_ERR_NONE;
   }
 
-  p3DRenderDevice->SetMaterial(&m_matMaterial);
-  p3DRenderDevice->MatrixPush();
-  p3DRenderDevice->MatrixMultiply(m_mtxModel);
+  device->SetMaterial(&m_matMaterial);
+  device->MatrixPush();
+  device->MatrixMultiply(m_mtxModel);
 
   Frustum frustum;
-  p3DRenderDevice->GetFrustum(frustum);
+  device->GetFrustum(frustum);
 
-  if (m_bShowBounds) {
-    SmtGPUStateManager* stateManager = p3DRenderDevice->GetStateManager();
-    stateManager->SetLight(false);
-    stateManager->Set2DTextures(false);
-    const float width = static_cast<float>(
-        (std::max)(m_aAbb.vcMax.x - m_aAbb.vcMin.x,
-                   (std::max)(m_aAbb.vcMax.y - m_aAbb.vcMin.y,
-                              m_aAbb.vcMax.z - m_aAbb.vcMin.z)));
-    p3DRenderDevice->DrawCube3D(m_aAbb.vcCenter, width,
-                                SmtColor(0., 1., 0., 1.));
-    stateManager->SetLight(true);
-    stateManager->Set2DTextures(true);
+  if (show_bounds_) {
+    if (SmtGPUStateManager* states = device->GetStateManager()) {
+      states->SetLight(false);
+      states->Set2DTextures(false);
+      const float width = static_cast<float>(
+          (std::max)(m_aAbb.vcMax.x - m_aAbb.vcMin.x,
+                     (std::max)(m_aAbb.vcMax.y - m_aAbb.vcMin.y,
+                                m_aAbb.vcMax.z - m_aAbb.vcMin.z)));
+      device->DrawCube3D(m_aAbb.vcCenter, width, SmtColor(0.f, 1.f, 0.f, 1.f));
+      states->SetLight(true);
+      states->Set2DTextures(true);
+    }
   }
 
-  m_nLastDrawnPoints = 0;
-  for (const PointCloudChunk& chunk : m_chunks) {
+  last_drawn_points_ = 0;
+  for (const PointCloudChunk& chunk : chunks_) {
     if (!frustum.intersects(chunk.aabb)) {
       continue;
     }
-    p3DRenderDevice->DrawPrimitives(PT_POINTLIST, m_pVertexBuffer, chunk.start,
-                                    chunk.count);
-    m_nLastDrawnPoints += static_cast<int>(chunk.count);
+    device->DrawPrimitives(PT_POINTLIST, vb_, chunk.start, chunk.count);
+    last_drawn_points_ += static_cast<int>(chunk.count);
   }
 
-  char szBuf[TEMP_BUFFER_SIZE];
-  snprintf(szBuf, TEMP_BUFFER_SIZE, "points drawn:%d/%d chunks:%zu",
-           m_nLastDrawnPoints, m_vtxList.nCount, m_chunks.size());
-  p3DRenderDevice->DrawText(0, 10, 100, SmtColor(0., 1., 1.), szBuf);
+  char buf[TEMP_BUFFER_SIZE];
+  std::snprintf(buf, TEMP_BUFFER_SIZE, "points drawn:%d/%d chunks:%zu",
+                last_drawn_points_, vtx_list_.nCount, chunks_.size());
+  device->DrawText(0, 10, 100, SmtColor(0.f, 1.f, 1.f), buf);
 
-  p3DRenderDevice->MatrixPop();
+  device->MatrixPop();
   return SMT_ERR_NONE;
 }
 
 long Smt3DPointCloud::Destroy() {
-  SMT_SAFE_DELETE(m_pVertexBuffer);
-  m_chunks.clear();
-  m_point_index.DestroyTree();
-  m_nLastDrawnPoints = 0;
+  release_gpu_buffers();
+  chunks_.clear();
+  point_index_.DestroyTree();
+  last_drawn_points_ = 0;
   return SMT_ERR_NONE;
 }
 
-bool Smt3DPointCloud::Read3DPointCloud(const char* szFilePath) {
-  ifstream infile;
+bool Smt3DPointCloud::Read3DPointCloud(const char* path) {
+  if (!path || !path[0]) {
+    return false;
+  }
 
-  locale loc = locale::global(locale(".936"));
-  infile.open(szFilePath, ios::in);
-  locale::global(std::locale(loc));
+  std::ifstream infile;
+  const std::locale loc = std::locale::global(std::locale(".936"));
+  infile.open(path, std::ios::in);
+  std::locale::global(loc);
 
   if (!infile.is_open()) {
     return false;
   }
 
-  char szBuf[255];
-  vSmtVertex3Ds vVtxs;
-
-  while (!infile.eof()) {
-    infile.getline(szBuf, 255, '\n');
-    SmtVertex3D pcVer;
+  char line[255];
+  vSmtVertex3Ds vtxs;
+  while (infile.getline(line, sizeof(line))) {
+    SmtVertex3D pc;
     Vector3 ver;
-    int r, g, b;
-    if (sscanf(szBuf, "%f,%f,%f,%d,%d,%d", &ver.x, &ver.z, &ver.y, &r, &g,
-               &b) != 6) {
+    int r = 0;
+    int g = 0;
+    int b = 0;
+    if (std::sscanf(line, "%f,%f,%f,%d,%d,%d", &ver.x, &ver.z, &ver.y, &r, &g,
+                    &b) != 6) {
       continue;
     }
-
-    pcVer.ver = ver * 10;
-    pcVer.clr.fRed = r / 255.;
-    pcVer.clr.fGreen = g / 255.;
-    pcVer.clr.fBlue = b / 255.;
-
-    vVtxs.push_back(pcVer);
+    pc.ver = ver * 10.f;
+    pc.clr.fRed = r / 255.f;
+    pc.clr.fGreen = g / 255.f;
+    pc.clr.fBlue = b / 255.f;
+    pc.clr.fA = 1.f;
+    vtxs.push_back(pc);
   }
 
-  infile.close();
-
-  m_vtxList = vVtxs;
-  m_bReadOK = true;
-  return true;
+  vtx_list_ = vtxs;
+  read_ok_ = vtx_list_.nCount > 0;
+  return read_ok_;
 }
 
 }  // namespace render

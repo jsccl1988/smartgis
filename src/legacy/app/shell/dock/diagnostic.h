@@ -21,6 +21,7 @@ class DiagnosticToolsDockBar : public CBCGPDockingControlBar {
 
   afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
   afx_msg void OnSize(UINT nType, int cx, int cy);
+  afx_msg BOOL OnEraseBkgnd(CDC* pDC);
   afx_msg void OnBnConsole();
   afx_msg void OnBnTrace();
 
@@ -29,6 +30,7 @@ class DiagnosticToolsDockBar : public CBCGPDockingControlBar {
  private:
   void layout_children(int cx, int cy);
   void show_page(int page);
+  void fill_opaque_client(CDC* pDC);
 
   CButton btn_console_;
   CButton btn_trace_;

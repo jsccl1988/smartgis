@@ -66,8 +66,15 @@ class OrbitFrame {
   // view size stay as they are.
   void reset();
 
-  // Dolly distance in world units (clamped to the wheel range).
+  // Dolly distance in world units (clamped to the wheel / dolly range).
   void set_distance(float distance);
+
+  // Override dolly clamp (default [1.2, 12]). Globe skim uses a lower floor
+  // so the camera can hug DEM relief without piercing peaks.
+  void set_dolly_limits(float min_distance, float max_distance);
+
+  // Orbit yaw in radians (around +Y).
+  void set_yaw(float yaw);
 
   // Orbit pitch in radians (clamped to tool::kOrbitPitchMin/Max).
   void set_pitch(float pitch);
@@ -77,6 +84,8 @@ class OrbitFrame {
   float yaw_ = kScene3dDefaultYaw;
   float pitch_ = 0.4f;
   float distance_ = 3.2f;
+  float dolly_min_ = 1.2f;
+  float dolly_max_ = 12.f;
   int last_x_ = 0;
   int last_y_ = 0;
   int last_w_ = 0;

@@ -3,6 +3,8 @@
 
 #include "legacy/render/rhi2d/impl/common/paint/carto/draw/carto_draw.h"
 
+#include <cstddef>
+
 #include "legacy/render/rhi2d/impl/common/paint/carto/encode/encoder_tls.h"
 
 using namespace base;
@@ -10,6 +12,10 @@ using namespace geo;
 
 namespace render {
 namespace detail {
+
+std::size_t Rhi2dCartoDraw::rd_options_offset() {
+  return offsetof(Rhi2dCartoDraw, rd_options_);
+}
 
 void Rhi2dCartoDraw::set_encoder(Rhi2dCommandEncoder* encoder) {
   // New encode pass must not inherit DC-style cache — otherwise recording

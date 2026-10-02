@@ -1,0 +1,260 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>legacy/render — 渲染技术架构</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --r2: #2563a8; --r3: #b06a1a; --sc: #2f7d62; --host: #6b5ea8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 16px 20px 12px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta, .rel { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .rel a { margin-right: 10px; }
+  .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 12px 14px 14px; margin-bottom: 12px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .lane-label { font-weight: 700; font-size: 12px; }
+  .arrow { fill: none; stroke: #8a96a8; stroke-width: 2; }
+  .pulse { stroke-dasharray: 6 4; animation: dash 0.8s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -20; } }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  button { appearance: none; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 11px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .legend { color: var(--muted); font-size: 0.82rem; }
+  details.appendix { margin-top: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); padding: 8px 12px; }
+  details.appendix summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; font-weight: 600; }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+  .map th { background: #e8edf3; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>legacy/render — 渲染技术架构</h1>
+    <p>Leftover 双轨：rhi2d 栅格 · rhi3d FrameJob · scene3d — 产品轨语义参考</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§rhi2d tile-raster</a>
+      · <a href="../specs/2026-09-13-render-rhi-scene-design.md">§rhi3d parallel frame</a>
+      · <a href="../../../src/legacy/render/README.md">src/legacy/render</a>
+    </div>
+    <div class="rel">相关图：
+      <a href="./src-render-vista-parallel-accelerate.html">产品并行终态</a>
+      <a href="./ui-views-shell-architecture.html">UI Views shell</a>
+      <a href="./gis-vista-architecture.html">GIS vista</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 三大 tops + rhi2d 分层（全宽）</h2>
+    <svg class="diagram" viewBox="0 0 1040 340" role="img" aria-label="legacy tops 与 rhi2d 分层">
+      <defs>
+        <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <!-- three tops -->
+      <rect x="20" y="10" width="320" height="70" rx="8" fill="#e8f1fa" stroke="#2563a8" stroke-width="1.5"/>
+      <text class="box-title" x="180" y="36" text-anchor="middle">rhi2d</text>
+      <text class="box-sub" x="180" y="56" text-anchor="middle">SmtRenderDevice · serial|tile|layer</text>
+
+      <rect x="360" y="10" width="320" height="70" rx="8" fill="#f8efe4" stroke="#b06a1a" stroke-width="1.5"/>
+      <text class="box-title" x="520" y="36" text-anchor="middle">rhi3d</text>
+      <text class="box-sub" x="520" y="56" text-anchor="middle">GL / D3D11 · FrameJob · Prep×N</text>
+
+      <rect x="700" y="10" width="320" height="70" rx="8" fill="#e6f5ef" stroke="#2f7d62" stroke-width="1.5"/>
+      <text class="box-title" x="860" y="36" text-anchor="middle">scene3d</text>
+      <text class="box-sub" x="860" y="56" text-anchor="middle">Stereo HWND · terrain / DEM</text>
+
+      <!-- rhi2d stack -->
+      <text x="20" y="110" class="lane-label" fill="#6b5ea8">rhi2d 分层</text>
+
+      <rect x="20" y="120" width="1000" height="48" rx="6" fill="#efeaf8" stroke="#d8dee6"/>
+      <text class="lane-label" x="36" y="148" fill="#6b5ea8">Host</text>
+      <rect x="140" y="128" width="280" height="32" rx="5" fill="#fff" stroke="#6b5ea8"/>
+      <text class="box-title" x="280" y="148" text-anchor="middle">PresentController · HWND</text>
+      <rect x="440" y="128" width="280" height="32" rx="5" fill="#fff" stroke="#6b5ea8"/>
+      <text class="box-title" x="580" y="148" text-anchor="middle">commit → wake · 永不 join</text>
+
+      <rect x="20" y="176" width="1000" height="48" rx="6" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text class="lane-label" x="36" y="204" fill="#2563a8">cc</text>
+      <rect x="140" y="184" width="280" height="32" rx="5" fill="#fff" stroke="#2563a8"/>
+      <text class="box-title" x="280" y="204" text-anchor="middle">Rhi2dScheduler · Impl×1</text>
+      <rect x="440" y="184" width="280" height="32" rx="5" fill="#fff" stroke="#2563a8"/>
+      <text class="box-title" x="580" y="204" text-anchor="middle">gen / damage / activate</text>
+
+      <rect x="20" y="232" width="1000" height="48" rx="6" fill="#e6f5ef" stroke="#d8dee6"/>
+      <text class="lane-label" x="36" y="260" fill="#2f7d62">Paint</text>
+      <rect x="140" y="240" width="280" height="32" rx="5" fill="#fff" stroke="#2f7d62"/>
+      <text class="box-title" x="280" y="260" text-anchor="middle">encode → Raster×N</text>
+      <rect x="440" y="240" width="320" height="32" rx="5" fill="#fff" stroke="#2f7d62"/>
+      <text class="box-title" x="600" y="260" text-anchor="middle">私有 HDC · TileGraphRunner</text>
+
+      <rect x="20" y="288" width="1000" height="44" rx="6" fill="#f8efe4" stroke="#d8dee6"/>
+      <text class="lane-label" x="36" y="314" fill="#b06a1a">Surf</text>
+      <rect x="140" y="296" width="280" height="28" rx="5" fill="#fff" stroke="#b06a1a"/>
+      <text class="box-title" x="280" y="314" text-anchor="middle">compose · BitBlt</text>
+      <rect x="440" y="296" width="320" height="28" rx="5" fill="#fff" stroke="#b06a1a"/>
+      <text class="box-title" x="600" y="314" text-anchor="middle">tile blit / ocean color-key</text>
+
+      <path class="arrow" d="M100 168 L100 176" marker-end="url(#ah)"/>
+      <path class="arrow" d="M100 224 L100 232" marker-end="url(#ah)"/>
+      <path class="arrow" d="M100 280 L100 288" marker-end="url(#ah)"/>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>2. rhi2d 并行流水线</h2>
+    <svg class="diagram" id="flow2d" viewBox="0 0 1040 140" role="img">
+      <defs>
+        <marker id="ah2" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/></marker>
+        <marker id="ah2on" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#2563a8"/></marker>
+      </defs>
+      <path id="e0" class="arrow" d="M190 65 L220 65" marker-end="url(#ah2)"/>
+      <path id="e1" class="arrow" d="M390 65 L420 65" marker-end="url(#ah2)"/>
+      <path id="e2" class="arrow" d="M590 65 L620 65" marker-end="url(#ah2)"/>
+      <path id="e3" class="arrow" d="M790 65 L820 65" marker-end="url(#ah2)"/>
+      <g class="node" data-i="0"><rect x="40" y="25" width="150" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="68" cy="48" r="11" fill="#2563a8"/><text x="68" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">1</text><text class="box-title" x="115" y="52" text-anchor="middle">commit</text><text class="box-sub" x="115" y="74" text-anchor="middle">Main: damage/gen</text><text class="box-sub" x="115" y="90" text-anchor="middle">wake · 立即返回</text></g>
+      <g class="node" data-i="1"><rect x="220" y="25" width="170" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="248" cy="48" r="11" fill="#2563a8"/><text x="248" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">2</text><text class="box-title" x="305" y="52" text-anchor="middle">activate</text><text class="box-sub" x="305" y="74" text-anchor="middle">Impl 串行 encode</text><text class="box-sub" x="305" y="90" text-anchor="middle">tile 一次 / layer 每层</text></g>
+      <g class="node" data-i="2"><rect x="420" y="25" width="170" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="448" cy="48" r="11" fill="#2563a8"/><text x="448" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">3</text><text class="box-title" x="505" y="52" text-anchor="middle">Raster×N</text><text class="box-sub" x="505" y="74" text-anchor="middle">pull tile/layer</text><text class="box-sub" x="505" y="90" text-anchor="middle">私有 HDC execute</text></g>
+      <g class="node" data-i="3"><rect x="620" y="25" width="170" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="648" cy="48" r="11" fill="#2563a8"/><text x="648" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">4</text><text class="box-title" x="705" y="52" text-anchor="middle">compose</text><text class="box-sub" x="705" y="74" text-anchor="middle">barrier → blit</text><text class="box-sub" x="705" y="90" text-anchor="middle">ocean color-key</text></g>
+      <g class="node" data-i="4"><rect x="820" y="25" width="170" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="848" cy="48" r="11" fill="#2563a8"/><text x="848" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">5</text><text class="box-title" x="905" y="52" text-anchor="middle">publish</text><text class="box-sub" x="905" y="74" text-anchor="middle">gen 仍当前</text><text class="box-sub" x="905" y="90" text-anchor="middle">否则丢弃</text></g>
+    </svg>
+    <div class="controls">
+      <button type="button" class="primary" data-play="flow2d">播放 rhi2d</button>
+      <button type="button" data-pause="flow2d">暂停</button>
+      <button type="button" data-reset="flow2d">复位</button>
+      <span class="legend" id="status2d">就绪</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>3. rhi3d 并行帧流水线</h2>
+    <svg class="diagram" id="flow3d" viewBox="0 0 1040 140" role="img">
+      <defs>
+        <marker id="ah3" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/></marker>
+        <marker id="ah3on" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#b06a1a"/></marker>
+      </defs>
+      <path id="f0" class="arrow" d="M240 65 L280 65" marker-end="url(#ah3)"/>
+      <path id="f1" class="arrow" d="M480 65 L520 65" marker-end="url(#ah3)"/>
+      <path id="f2" class="arrow" d="M720 65 L760 65" marker-end="url(#ah3)"/>
+      <g class="node amber" data-i="0"><rect x="60" y="25" width="180" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="90" cy="48" r="11" fill="#b06a1a"/><text x="90" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">P1</text><text class="box-title" x="150" y="52" text-anchor="middle">FrameJob</text><text class="box-sub" x="150" y="74" text-anchor="middle">stage → Render×1</text><text class="box-sub" x="150" y="90" text-anchor="middle">HWND 不 join</text></g>
+      <g class="node amber" data-i="1"><rect x="280" y="25" width="200" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="310" cy="48" r="11" fill="#b06a1a"/><text x="310" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">P2</text><text class="box-title" x="380" y="52" text-anchor="middle">Prep×N</text><text class="box-sub" x="380" y="74" text-anchor="middle">frustum AABB</text><text class="box-sub" x="380" y="90" text-anchor="middle">禁 GL/D3D Draw</text></g>
+      <g class="node amber" data-i="2"><rect x="520" y="25" width="200" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="550" cy="48" r="11" fill="#b06a1a"/><text x="550" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">P3</text><text class="box-title" x="620" y="52" text-anchor="middle">D3D deferred</text><text class="box-sub" x="620" y="74" text-anchor="middle">Finish → Execute</text><text class="box-sub" x="620" y="90" text-anchor="middle">GL 串行 Draw</text></g>
+      <g class="node amber" data-i="3"><rect x="760" y="25" width="200" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="790" cy="48" r="11" fill="#b06a1a"/><text x="790" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">✓</text><text class="box-title" x="860" y="52" text-anchor="middle">publish</text><text class="box-sub" x="860" y="74" text-anchor="middle">mark_published</text><text class="box-sub" x="860" y="90" text-anchor="middle">有界 wait_idle</text></g>
+    </svg>
+    <div class="controls">
+      <button type="button" class="primary" data-play="flow3d">播放 rhi3d</button>
+      <button type="button" data-pause="flow3d">暂停</button>
+      <button type="button" data-reset="flow3d">复位</button>
+      <span class="legend" id="status3d">就绪</span>
+    </div>
+  </section>
+
+  <details class="appendix">
+    <summary>附录：模式 / Env / 产品对照</summary>
+    <table class="map">
+      <thead><tr><th>SMT_RHI2D_PARALLEL</th><th>Execute</th><th>Compose</th></tr></thead>
+      <tbody>
+        <tr><td><code>tile</code></td><td>execute_tile + AABB</td><td>blit dirty centers</td></tr>
+        <tr><td><code>layer</code></td><td>每层 full buffer</td><td>ocean color-key</td></tr>
+        <tr><td><code>serial</code></td><td>整帧 execute</td><td>—</td></tr>
+      </tbody>
+    </table>
+    <table class="map">
+      <thead><tr><th>Legacy</th><th>产品（vista + render）</th></tr></thead>
+      <tbody>
+        <tr><td>FrameJob Impl</td><td>content + Display mailbox</td></tr>
+        <tr><td>HDC×N</td><td>vista tess；GPU = effect/map</td></tr>
+        <tr><td>PrepRunner</td><td>GpuScene parallel_for</td></tr>
+        <tr><td>D3D11 deferred</td><td>默认单 CL</td></tr>
+      </tbody>
+    </table>
+  </details>
+</div>
+<script>
+(function () {
+  function makePlayer(svgId, statusId, accent, arrowIds, onMarker, offMarker) {
+    var nodes = Array.from(document.querySelectorAll("#" + svgId + " .node"));
+    var arrows = arrowIds.map(function (id) { return document.getElementById(id); });
+    var status = document.getElementById(statusId);
+    var timer = null, i = -1;
+    function paint() {
+      nodes.forEach(function (g, idx) {
+        var on = idx <= i && i >= 0;
+        var rect = g.querySelector("rect");
+        rect.setAttribute("fill", on ? "#fff" : "#f0f3f7");
+        rect.setAttribute("stroke", on ? accent : "#d8dee6");
+        rect.setAttribute("stroke-width", on ? "2.5" : "2");
+      });
+      arrows.forEach(function (a, idx) {
+        if (!a) return;
+        var on = idx < i;
+        a.setAttribute("stroke", on ? accent : "#8a96a8");
+        a.setAttribute("stroke-width", on ? "2.5" : "2");
+        a.setAttribute("marker-end", on ? "url(#" + onMarker + ")" : "url(#" + offMarker + ")");
+        a.classList.toggle("pulse", on && idx === i - 1);
+      });
+      if (i < 0) status.textContent = "就绪";
+      else if (i >= nodes.length - 1) status.textContent = "完成 — HWND 仍不 join";
+      else status.textContent = "步骤 " + (i + 1) + " / " + nodes.length;
+    }
+    function step() {
+      i += 1;
+      if (i >= nodes.length) { clearInterval(timer); timer = null; paint(); return; }
+      paint();
+    }
+    return {
+      play: function () {
+        if (timer) return;
+        if (i >= nodes.length - 1) i = -1;
+        step();
+        timer = setInterval(step, 850);
+      },
+      pause: function () {
+        if (timer) { clearInterval(timer); timer = null; status.textContent = "已暂停 @ " + Math.max(i + 1, 0); }
+      },
+      reset: function () {
+        if (timer) clearInterval(timer);
+        timer = null; i = -1; paint();
+      }
+    };
+  }
+  var players = {
+    flow2d: makePlayer("flow2d", "status2d", "#2563a8", ["e0","e1","e2","e3"], "ah2on", "ah2"),
+    flow3d: makePlayer("flow3d", "status3d", "#b06a1a", ["f0","f1","f2"], "ah3on", "ah3")
+  };
+  document.querySelectorAll("[data-play]").forEach(function (btn) {
+    btn.addEventListener("click", function () { players[btn.getAttribute("data-play")].play(); });
+  });
+  document.querySelectorAll("[data-pause]").forEach(function (btn) {
+    btn.addEventListener("click", function () { players[btn.getAttribute("data-pause")].pause(); });
+  });
+  document.querySelectorAll("[data-reset]").forEach(function (btn) {
+    btn.addEventListener("click", function () { players[btn.getAttribute("data-reset")].reset(); });
+  });
+  players.flow2d.reset();
+  players.flow3d.reset();
+})();
+</script>
+</body>
+</html>

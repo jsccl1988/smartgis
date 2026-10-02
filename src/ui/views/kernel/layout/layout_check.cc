@@ -204,8 +204,16 @@ int collect_shell_layout_anomalies(const View* root,
       note("map-hwnd-covers-tabs@" + format_rect(header) + "x" +
            format_rect(map_b));
     }
-    // View bounds should sit strictly below the header (page body).
-    if (map_b.y < header.y + header.height) {
+    // Page body must not sit under the clickable header band. Map/Data/3D and
+    // Catalog strips use HeaderPlacement::kBottom (tabs under the body).
+    const bool header_bottom =
+        tabs->header_placement() == TabStrip::HeaderPlacement::kBottom;
+    if (header_bottom) {
+      if (map_b.bottom() > header.y) {
+        note("map-page-under-header@" + format_rect(header) + ">" +
+             format_rect(map_b));
+      }
+    } else if (map_b.y < header.y + header.height) {
       note("map-page-under-header@" + format_rect(header) + ">" +
            format_rect(map_b));
     }

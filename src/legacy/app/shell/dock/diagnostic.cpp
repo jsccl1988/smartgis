@@ -24,6 +24,7 @@ constexpr int kBtnW = 100;
 BEGIN_MESSAGE_MAP(DiagnosticToolsDockBar, CBCGPDockingControlBar)
 ON_WM_CREATE()
 ON_WM_SIZE()
+ON_WM_ERASEBKGND()
 ON_BN_CLICKED(kIdBtnConsole, &DiagnosticToolsDockBar::OnBnConsole)
 ON_BN_CLICKED(kIdBtnTrace, &DiagnosticToolsDockBar::OnBnTrace)
 END_MESSAGE_MAP()
@@ -32,10 +33,29 @@ DiagnosticToolsDockBar::DiagnosticToolsDockBar() = default;
 
 DiagnosticToolsDockBar::~DiagnosticToolsDockBar() = default;
 
+void DiagnosticToolsDockBar::fill_opaque_client(CDC* pDC) {
+  if (pDC == nullptr) {
+    return;
+  }
+  CRect rc;
+  GetClientRect(&rc);
+  // Solid fill — Office2007 glass / PrintWindow otherwise shows the map
+  // through the Diagnostic strip (visual-review bug #3).
+  pDC->FillSolidRect(&rc, ::GetSysColor(COLOR_BTNFACE));
+}
+
+BOOL DiagnosticToolsDockBar::OnEraseBkgnd(CDC* pDC) {
+  fill_opaque_client(pDC);
+  return TRUE;
+}
+
 int DiagnosticToolsDockBar::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   if (CBCGPDockingControlBar::OnCreate(lpCreateStruct) == -1) {
     return -1;
   }
+
+  // Drop layered / glass styles that let the MDI map bleed through.
+  ModifyStyleEx(WS_EX_TRANSPARENT | WS_EX_LAYERED, 0);
 
   CRect r(0, 0, 0, 0);
   if (!btn_console_.Create(_T("Console"), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,

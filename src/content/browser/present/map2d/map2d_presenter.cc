@@ -33,6 +33,14 @@ bool Map2dPresenter::last_gpu_present_ok() const {
   return gpu_.last_present_ok();
 }
 
+bool Map2dPresenter::last_gpu_present_drew() const {
+  return gpu_.last_present_drew();
+}
+
+void Map2dPresenter::note_surface_reset() {
+  gpu_.note_surface_reset();
+}
+
 uint64_t Map2dPresenter::layout_build_count() const {
   return cache_.layout_build_count();
 }

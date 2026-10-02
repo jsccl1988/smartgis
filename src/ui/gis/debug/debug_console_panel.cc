@@ -3,12 +3,15 @@
 
 #include "ui/gis/debug/debug_console_panel.h"
 
+#include <memory>
 #include <sstream>
+#include <utility>
 
 #include "base/log/log_sink.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/shell/theme.h"
+#include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/text/label.h"
 #include "ui/views/primitives/text/textfield.h"
 
@@ -16,29 +19,33 @@ namespace ui {
 namespace views {
 
 DebugConsolePanel::DebugConsolePanel() {
+  MarkupRoot loaded = load_markup("debug/debug_console_panel.ui.xml");
+  if (!loaded.ok()) {
+    set_preferred_size({0, 0});
+    return;
+  }
+  output_ = loaded.ids.find_as<Label>("output");
+  input_ = loaded.ids.find_as<Textfield>("input");
+  if (input_) {
+    input_->set_submit([this] { on_submit(); });
+  }
+
+  auto fill = std::make_unique<FillLayout>();
+  set_layout_manager(std::move(fill));
+  loaded.root->set_preferred_size({0, 160});
+  add_child(std::move(loaded.root));
   set_preferred_size({0, 0});
-  auto box = std::make_unique<BoxLayout>(BoxLayout::Orientation::kVertical);
-  box->set_inside_border(4, 4, 4, 4);
-  box->set_between_child_spacing(4);
-
-  auto output = std::make_unique<Label>("");
-  output->set_preferred_size({0, 120});
-  output_ = output.get();
-  box->set_flex_for_view(output.get(), 1);
-
-  auto input = std::make_unique<Textfield>();
-  input->set_preferred_size({0, 24});
-  input_ = input.get();
-  input_->set_submit([this] { on_submit(); });
-
-  set_layout_manager(std::move(box));
-  add_child(std::move(output));
-  add_child(std::move(input));
   apply_pane_mode();
 }
 
 DebugConsolePanel::~DebugConsolePanel() {
   drop_log_subscription();
+  if (input_) {
+    input_->set_submit({});
+  }
+  remove_all_children();
+  output_ = nullptr;
+  input_ = nullptr;
 }
 
 void DebugConsolePanel::set_pane_mode(PaneMode mode) {

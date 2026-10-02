@@ -9,14 +9,16 @@
 #include <vector>
 
 #include "content/public/plugin_host.h"
-#include "ui/gfx/canvas/canvas.h"
 #include "tool/command/command.h"
-#include "ui/views/primitives/button/button.h"
+#include "ui/gfx/canvas/canvas.h"
+#include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/shell/dpi.h"
-#include "ui/views/primitives/text/label.h"
-#include "ui/views/primitives/collection/scroll_view.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
+#include "ui/views/markup/loader/markup_loader.h"
+#include "ui/views/primitives/button/button.h"
+#include "ui/views/primitives/collection/scroll_view.h"
+#include "ui/views/primitives/text/label.h"
 
 namespace ui {
 namespace views {
@@ -97,9 +99,9 @@ std::vector<AmboxView::Group> groups_from_catalogs(
   }
 
   ensure_item(&select.items, "select", "Select");
-  ensure_item(&edit.items, "edit.append.point", "Append point");
-  ensure_item(&edit.items, "edit.append.linestring", "Append line");
-  ensure_item(&edit.items, "edit.append.polygon", "Append polygon");
+  ensure_item(&edit.items, "edit.append.point", "Point");
+  ensure_item(&edit.items, "edit.append.linestring", "Line");
+  ensure_item(&edit.items, "edit.append.polygon", "Polygon");
   ensure_item(&edit.items, "edit.undo", "Undo");
   ensure_item(&edit.items, "edit.cancel", "Cancel");
 
@@ -114,6 +116,48 @@ std::vector<AmboxView::Group> groups_from_catalogs(
 
 }  // namespace
 
+// Text tool chip with optional accent selected plate (no icon set required).
+class AmboxView::ToolButton : public Button {
+ public:
+  ToolButton(std::string label, std::string id, AmboxView* owner)
+      : Button(std::move(label)), id_(std::move(id)), owner_(owner) {}
+
+  const std::string& command_id() const { return id_; }
+
+ protected:
+  void paint_self(ui::gfx::Canvas* canvas) override {
+    if (!canvas) {
+      return;
+    }
+    const bool on = owner_ && !id_.empty() && owner_->active_command() == id_;
+    if (!on) {
+      Button::paint_self(canvas);
+      return;
+    }
+    const Theme& t = Theme::current();
+    const Rect& b = bounds();
+    canvas->fill_rect(b.x, b.y, b.width, b.height, t.accent);
+    canvas->stroke_rect(b.x, b.y, b.width, b.height,
+                        ui::gfx::color_rgb(70, 160, 230), 1);
+    if (!text().empty()) {
+      const float scale =
+          widget() ? widget()->device_scale_factor() : 1.f;
+      const int pad_x = dip_to_px(8, scale);
+      const Size ink = measure_text_utf8(text(), scale);
+      int text_y = b.y + (b.height - ink.height) / 2;
+      if (text_y < b.y) {
+        text_y = b.y;
+      }
+      canvas->draw_text(b.x + pad_x, text_y, utf8_to_wide(text()).c_str(),
+                        ui::gfx::color_rgb(255, 255, 255));
+    }
+  }
+
+ private:
+  std::string id_;
+  AmboxView* owner_ = nullptr;
+};
+
 class AmboxView::GroupBlock : public View {
  public:
   explicit GroupBlock(const AmboxView::Group& group, AmboxView* owner) {
@@ -124,7 +168,8 @@ class AmboxView::GroupBlock : public View {
 
     buttons_.reserve(group.items.size());
     for (const auto& item : group.items) {
-      auto button = std::make_unique<Button>(item.label);
+      auto button =
+          std::make_unique<ToolButton>(item.label, item.id, owner);
       button->set_preferred_size({160, 28});
       const std::string id = item.id;
       button->set_click([owner, id]() {
@@ -150,17 +195,34 @@ class AmboxView::GroupBlock : public View {
 };
 
 AmboxView::AmboxView() {
+  MarkupRoot loaded = load_markup("shell/ambox_view.ui.xml");
+  if (!loaded.ok()) {
+    set_preferred_size({180, 240});
+    return;
+  }
+  scroll_ = loaded.ids.find_as<ScrollView>("scroll");
+  content_ = loaded.ids.find("content");
+
+  auto fill = std::make_unique<FillLayout>();
+  set_layout_manager(std::move(fill));
+  loaded.root->set_preferred_size({180, 240});
+  add_child(std::move(loaded.root));
   set_preferred_size({180, 240});
-  auto scroll = std::make_unique<ScrollView>();
-  auto content = std::make_unique<View>();
-  content_ = content.get();
-  scroll->add_child(std::move(content));
-  scroll_ = scroll.get();
-  add_child(std::move(scroll));
   populate_from_plugin_host(nullptr);
 }
 
 AmboxView::~AmboxView() = default;
+
+void AmboxView::set_orientation(Orientation orientation) {
+  if (orientation_ == orientation) {
+    return;
+  }
+  orientation_ = orientation;
+  set_preferred_size(orientation_ == Orientation::kHorizontal ? Size{0, 40}
+                                                              : Size{180, 240});
+  rebuild();
+  schedule_paint();
+}
 
 void AmboxView::set_groups(std::vector<Group> groups) {
   groups_ = std::move(groups);
@@ -243,17 +305,29 @@ void AmboxView::rebuild() {
   layout();
 }
 
+void AmboxView::set_active_command(std::string id) {
+  if (active_id_ == id) {
+    return;
+  }
+  active_id_ = std::move(id);
+  schedule_paint();
+}
+
 void AmboxView::fire_command(const std::string& id) {
+  set_active_command(id);
   if (handler_) {
     handler_(id);
   }
 }
 
 int AmboxView::measure_content_height(float scale) const {
+  if (orientation_ == Orientation::kHorizontal) {
+    return dip_to_px(36, scale);
+  }
   const int pad = dip_to_px(8, scale);
   const int header_h = dip_to_px(28, scale);
   const int btn_h = dip_to_px(28, scale);
-  const int gap = dip_to_px(2, scale);
+  const int gap = dip_to_px(6, scale);
   int h = pad;
   for (const auto& block : blocks_) {
     if (!block) {
@@ -265,18 +339,31 @@ int AmboxView::measure_content_height(float scale) const {
   return h;
 }
 
-void AmboxView::layout() {
+int AmboxView::measure_content_width(float scale) const {
+  const int pad = dip_to_px(8, scale);
+  const int gap = dip_to_px(8, scale);
+  const int group_gap = dip_to_px(14, scale);
+  const int btn_w = dip_to_px(80, scale);
+  int w = pad;
+  for (const auto& block : blocks_) {
+    if (!block) {
+      continue;
+    }
+    // Horizontal mode omits group header width (see layout_horizontal).
+    w += (btn_w + gap) * static_cast<int>(block->button_count());
+    w += group_gap;
+  }
+  return w + pad;
+}
+
+void AmboxView::layout_vertical(float scale) {
   const Rect& b = bounds();
-  const float scale =
-      widget() ? widget()->device_scale_factor() : 1.f;
   const int pad = dip_to_px(8, scale);
   const int header_h = dip_to_px(28, scale);
   const int btn_h = dip_to_px(28, scale);
-  const int gap = dip_to_px(2, scale);
+  // Keep a visible gap between stacked tool buttons (visual review P2).
+  const int gap = dip_to_px(6, scale);
 
-  if (scroll_) {
-    scroll_->set_bounds(b);
-  }
   if (content_) {
     content_->set_preferred_size({b.width, measure_content_height(scale)});
   }
@@ -311,6 +398,65 @@ void AmboxView::layout() {
       row_y += btn_h + gap;
     }
     y += h + pad;
+  }
+}
+
+void AmboxView::layout_horizontal(float scale) {
+  const Rect& b = bounds();
+  const int pad = dip_to_px(8, scale);
+  // Wider chip gap so text tools read as separate controls, not one slab.
+  const int gap = dip_to_px(8, scale);
+  const int group_gap = dip_to_px(14, scale);
+  const int btn_w = dip_to_px(80, scale);
+  const int btn_h = dip_to_px(28, scale);
+  const int row_h = dip_to_px(36, scale);
+
+  if (content_) {
+    content_->set_preferred_size(
+        {measure_content_width(scale), measure_content_height(scale)});
+  }
+  if (scroll_) {
+    scroll_->layout();
+  }
+
+  const Rect area = content_ ? content_->bounds() : b;
+  const int y = area.y + (area.height > row_h ? (area.height - row_h) / 2 : 0);
+  int x = area.x + pad;
+  for (auto& block : blocks_) {
+    if (!block) {
+      continue;
+    }
+    // Horizontal tool bar: hide group captions ("Select"/"Edit") — button
+    // labels already carry the action name (avoids Select+Select clutter).
+    if (View* header = block->header()) {
+      header->set_visible(false);
+    }
+    const int block_w =
+        (btn_w + gap) * static_cast<int>(block->button_count());
+    block->set_visible(true);
+    block->set_bounds({x, y, block_w, row_h});
+    int bx = x;
+    for (size_t i = 0; i < block->button_count(); ++i) {
+      if (View* button = block->button_at(i)) {
+        button->set_visible(true);
+        button->set_preferred_size({80, 28});
+        button->set_bounds({bx, y + (row_h - btn_h) / 2, btn_w, btn_h});
+      }
+      bx += btn_w + gap;
+    }
+    x += block_w + group_gap;
+  }
+}
+
+void AmboxView::layout() {
+  // Size the markup scroll shell first, then place dynamic group blocks.
+  View::layout();
+
+  const float scale = widget() ? widget()->device_scale_factor() : 1.f;
+  if (orientation_ == Orientation::kHorizontal) {
+    layout_horizontal(scale);
+  } else {
+    layout_vertical(scale);
   }
 }
 

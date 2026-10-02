@@ -219,8 +219,10 @@ void MapViewport::paint_map_content(HDC target, const RECT& client_rc) {
     const wchar_t* text = status_ ? status_ : L"Map viewport";
     TextOutW(target, 16, 40, text, lstrlenW(text));
   }
-  if (overlay_paint_) {
-    overlay_paint_(target, client_rc);
+  if (auto paint =
+          std::atomic_load_explicit(&overlay_paint_, std::memory_order_acquire);
+      paint && *paint) {
+    (*paint)(target, client_rc);
   }
 }
 
@@ -381,7 +383,7 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
         (self->role_ == Role::kScene3d || self->role_ == Role::kMapEdit ||
          self->role_ == Role::kMapData);
     if (flycube_gpu_role && self->mode_ == AttachMode::kFlyCube &&
-        (self->gpu_present_ || self->gpu_submit_)) {
+        self->has_gpu_cb_.load(std::memory_order_acquire)) {
       // Async attach returns FlyCube before Display Init sets rhi_device_.
       // Falling through to paint_map_content GDI-rasterizes china_city under
       // Widget::show → UpdateWindow and can stall Browser::show for seconds.
@@ -444,14 +446,19 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
       }
       self->last_gpu_present_ok_.store(false, std::memory_order_release);
     }
+    std::shared_ptr<OverlayPaint> scene_overlay;
+    if (self && self->role_ == Role::kScene3d && width_px > 0 && height_px > 0) {
+      scene_overlay = std::atomic_load_explicit(&self->overlay_paint_,
+                                                std::memory_order_acquire);
+    }
     // Scene3d + ContentMapView (self-test / hang-safe attach): blit GPU DIB
     // first, then shell overlay (stereo / HUD). Overlay must not treat the
     // DIB as leftover stereo. Skip GDI overlay_paint when a shell BGRA overlay
     // is already staged for DrawRequest.shell (U3 HUD-as-quad), unless
     // SMT_FORCE_GDI_SHELL_OVERLAY=1.
     if (self && self->role_ == Role::kScene3d &&
-        self->mode_ == AttachMode::kContentMapView &&
-        self->overlay_paint_ && width_px > 0 && height_px > 0) {
+        self->mode_ == AttachMode::kContentMapView && scene_overlay &&
+        *scene_overlay) {
       // Opaque underlay first — present_latest_frame failure must not leave a
       // hole (prefer_flycube_2d=0 ContentMapView fallback).
       fill_map_embed_opaque(hdc, rc, /*scene3d=*/true);
@@ -468,16 +475,16 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
         have_shell_quad = !self->shell_bgra_.empty() && self->shell_width_px_ > 0;
       }
       if (force_gdi_shell || !have_shell_quad) {
-        self->overlay_paint_(hdc, rc);
+        (*scene_overlay)(hdc, rc);
       }
       EndPaint(hwnd, &ps);
       return 0;
     }
     // Scene3d SoT: leftover GL SwapBuffers (or GDI) on this HWND. A backbuffer
     // BitBlt does not contain the GL front buffer and would cover it.
-    if (self && self->role_ == Role::kScene3d && self->overlay_paint_ &&
-        width_px > 0 && height_px > 0) {
-      self->overlay_paint_(hdc, rc);
+    if (self && self->role_ == Role::kScene3d && scene_overlay &&
+        *scene_overlay) {
+      (*scene_overlay)(hdc, rc);
       EndPaint(hwnd, &ps);
       return 0;
     }
@@ -548,6 +555,29 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
   }
   if (self && (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN ||
                msg == WM_MBUTTONDOWN)) {
+    // Stuck capture (lost mouse-up under DXGI focus races) routes later
+    // button-downs outside the present rect back to this HWND — including
+    // Map/Data/3D TabStrip clicks on the shell. Retarget those to the real
+    // hit window; in-rect downs keep SetCapture so map pan still works.
+    POINT screen = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+    ClientToScreen(hwnd, &screen);
+    RECT wr = {};
+    GetWindowRect(hwnd, &wr);
+    if (!PtInRect(&wr, screen)) {
+      if (GetCapture() == hwnd) {
+        ReleaseCapture();
+      }
+      HWND hit = WindowFromPoint(screen);
+      if (hit && hit != hwnd && IsWindow(hit)) {
+        POINT client = screen;
+        ScreenToClient(hit, &client);
+        if (HWND root = GetAncestor(hit, GA_ROOT)) {
+          SetForegroundWindow(root);
+        }
+        PostMessageW(hit, msg, wparam, MAKELPARAM(client.x, client.y));
+        return 0;
+      }
+    }
     SetFocus(hwnd);
     // Capture so pan/drag keeps receiving WM_MOUSEMOVE after leaving the
     // client (FlyCube present is a top-level popup; without capture, moves

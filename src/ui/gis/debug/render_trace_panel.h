@@ -50,6 +50,8 @@ class UI_EXPORT RenderTracePanel : public View {
   Label* title_ = nullptr;
   Label* status_ = nullptr;
   Label* rollup_ = nullptr;
+  View* toolbar_ = nullptr;
+  View* filters_ = nullptr;
   Button* record_ = nullptr;
   Button* stop_ = nullptr;
   Button* clear_ = nullptr;

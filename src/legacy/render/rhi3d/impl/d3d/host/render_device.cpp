@@ -51,6 +51,7 @@ SmtD3DRenderDevice::SmtD3DRenderDevice()
   clear_color_[3] = 1.f;
   modelview_.identity();
   projection_.identity();
+  projection_.identity();
 }
 
 SmtD3DRenderDevice::SmtD3DRenderDevice(HINSTANCE hDLL)
@@ -89,6 +90,7 @@ SmtD3DRenderDevice::SmtD3DRenderDevice(HINSTANCE hDLL)
   clear_color_[2] = 0.f;
   clear_color_[3] = 1.f;
   modelview_.identity();
+  projection_.identity();
   projection_.identity();
 }
 

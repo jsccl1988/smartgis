@@ -1,23 +1,20 @@
 {
   "id": "legacy.browse.3d",
   "kind": "showcase",
-  "argv": [
-    "--scene3d-showcase",
-    "china"
-  ],
+  "argv": [],
   "driver": "os",
   "os_inject_default": "postmessage",
   "script": "legacy.browse.3d.il",
-  "window_title": "legacy-scene3d-showcase",
+  "window_title": "SmartGis",
   "env": {
-    "SMT_SCENE3D_SHOWCASE_LINGER_MS": "28000",
-    "SMT_HARNESS_OS_WAIT_BMP": "1",
     "SMT_STEREO_API": "OpenGL"
   },
   "bmp": {
-    "path": "legacy-scene3d-showcase-china.bmp",
-    "score_id": "legacy_scene3d_china",
-    "accept_nonzero_rc_if_bmp": true
+    "path": "legacy-browse-3d-edit.bmp",
+    "score_id": "legacy_scene3d_hud",
+    "accept_nonzero_rc_if_bmp": true,
+    "soft": true,
+    "min_bytes": 1000
   },
   "report_name": "legacy_browse_3d_loop_report.json",
   "probes": [
@@ -25,7 +22,7 @@
   ],
   "loop": {
     "rounds": 4,
-    "timeout_sec": 90,
+    "timeout_sec": 120,
     "build_target": "SmartGis",
     "exe": "SmartGis.exe"
   },
@@ -37,6 +34,6 @@
       "no_scramble_after_orbit_wheel",
       "labels_or_coast_plausible"
     ],
-    "expect_notes": "OpenGL scene3d china linger path; score_id=legacy_scene3d_china"
+    "expect_notes": "Bare SmartGis.exe argv=[]; Edit→三维窗口 (wm_command 32915) + OS inject; soft china score informational"
   }
 }

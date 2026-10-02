@@ -183,26 +183,30 @@ int run_world3d_scene3d(Browser& browser) {
     return 50;
   }
 
-  // China DEM framing. Prefer orbit-only + atmo off for the HWND BMP: the
-  // product-default atmosphere.full face (ocean/sky/cloud/fog) scores green=0
-  // on FlyCube at 640x480 — same as --atmosphere-showcase=full. Land greens
-  // today come from Null-RHI atmosphere.land; world3d stays on GPU.
-  cam->abandon_mesh();
-  apply_china_scene3d_orbit(browser);
-  cam->set_look_preset(content::Scene3dLookPreset::kAtmosphere);
-  cam->atmosphere_session().set_ocean_enabled(false);
-  cam->atmosphere_session().set_cloud_enabled(false);
-  cam->atmosphere_session().set_fog_enabled(false);
-  cam->atmosphere_session().set_sky_enabled(false);
+  // True Earth product face: China DEM orbit + sky/ocean/cloud/fog (plan Task 3).
+  // Do not force land-only off — suite visual_review expects atmosphere_or_sky_hint.
+  // Do NOT abandon_mesh here: under FlyCube + showcase GPU HWND that remaps heap
+  // and AVs inside rebuild_terrain_mesh vector::_Orphan_all (cdb world3d-present).
+  apply_china_scene3d_product_defaults(browser);
+  // Re-assert product atmosphere/cloud after defaults (env may have LAND_ONLY in
+  // shared agent shells). Flat DEM path — not globe — so terrain stays visible.
+  cam->atmosphere_session().set_ocean_enabled(true);
+  cam->atmosphere_session().set_cloud_enabled(true);
+  cam->atmosphere_session().set_sky_enabled(true);
+  cam->atmosphere_session().set_fog_enabled(true);
+  cam->atmosphere_session().set_globe_enabled(false);
+  cam->atmosphere_session().set_sat_cloud_enabled(false);
   plugin_showcase_mark("earth-atmo");
-  browser.push_shared_extent();
   plugin_showcase_mark("orbit-china");
 
   // Best-effort city 3D Tiles fixture (M3). Require a real GLB — attaching the
   // JSON alone falls back to a geographic AABB that draws as a neon-green spike
-  // in orbit space when content is missing.
+  // in orbit space when content is missing. clear_tileset is poison-safe now;
+  // still skip when no live stream (never attached).
   {
-    cam->gpu().clear_tileset();
+    if (cam->gpu().tileset_stream()) {
+      cam->gpu().clear_tileset();
+    }
     char tiles_path[MAX_PATH * 3] = {};
     const wchar_t* tile_rels[] = {L"..\\data\\m3_city_tileset.json",
                                   L"data\\m3_city_tileset.json"};
@@ -268,7 +272,7 @@ int run_world3d_scene3d(Browser& browser) {
     if (!cam->present_gpu(device, kPluginShowcasePresentW, kPluginShowcasePresentH)) {
       std::fprintf(stderr, "plugin-showcase: present_gpu failed frame %d\n", i);
       cam->clear_overlay_pointcloud();
-      cam->abandon_mesh();
+      // Skip abandon_mesh — remaps heap under FlyCube (peer present AV).
       device->shutdown();
       if (owned_present_hwnd) {
         DestroyWindow(owned_present_hwnd);
@@ -304,17 +308,15 @@ int run_world3d_scene3d(Browser& browser) {
         BmpFileCheckOpts check;
         check.require_color_diversity = true;
         bool signal = bmp_file_has_visible_signal(bmp_path, &bw, &bh, check);
-        // DXGI flip PrintWindow often yields a black DEM silhouette on navy.
-        // One lit retry with sky on recovers green land for visual_review.
+        // DXGI flip PrintWindow can yield a dark first frame; re-present with
+        // product atmosphere still on (do not toggle sky off after retry).
         if (!signal) {
-          cam->atmosphere_session().set_sky_enabled(true);
           (void)cam->present_gpu(device, kPluginShowcasePresentW,
                                  kPluginShowcasePresentH);
-          pump_messages(100);
+          pump_messages(120);
           if (capture_hwnd_bmp(present_hwnd, bmp_path, opts)) {
             signal = bmp_file_has_visible_signal(bmp_path, &bw, &bh, check);
           }
-          cam->atmosphere_session().set_sky_enabled(false);
         }
         std::fwprintf(stderr,
                       L"plugin-showcase: wrote %ls (%dx%d signal=%d)\n",
@@ -332,7 +334,8 @@ int run_world3d_scene3d(Browser& browser) {
   }
 
   cam->clear_overlay_pointcloud();
-  cam->abandon_mesh();
+  // Skip abandon_mesh on teardown — FlyCube + DX12 present remaps heap
+  // (rebuild_terrain_mesh _Orphan_all / ExitProcess -1). Leak Device* below.
   device->shutdown();
   // Intentionally leak Device* — FlyCube operator delete after a live DX12
   // session has corrupted heaps (same as atmosphere-showcase / MapViewport).

@@ -33,6 +33,6 @@
       "labels_or_coast_plausible",
       "opengl_present_ok"
     ],
-    "expect_notes": "Legacy OpenGL scene3d china; score_id=legacy_scene3d_china"
+    "expect_notes": "Legacy OpenGL scene3d china; score_id=legacy_scene3d_china (rejects navy sparse strip; GL dial pink digits ok <0.02)"
   }
 }

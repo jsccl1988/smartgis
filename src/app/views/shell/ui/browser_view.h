@@ -5,6 +5,7 @@
 #define APP_VIEWS_SHELL_UI_BROWSER_VIEW_H_
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
 
@@ -37,6 +38,7 @@ class ProcessingPanel;
 class ResultPlaybackPanel;
 class SelectionPanel;
 class SpatialAnalysisPanel;
+class Splitter;
 class StatusBar;
 class TabStrip;
 class View;
@@ -49,14 +51,31 @@ class MapHwndGestures;
 
 namespace app {
 
+class AtmosphereChrome;
 class Browser;
+class DebugConsoleChrome;
+class InspectChrome;
+class InspectorSyncChrome;
+class MapPagesChrome;
+class ProcessingChrome;
 class ReportPanel;
+class ShellLayoutChrome;
 using content::MapHwndGestures;
 
 // Views chrome for SmartGisViews: MenuBar, splitters, TabStrip, map panes.
 // Session / present ownership lives on Browser; this type holds Browser* and
 // implements BrowserUiDelegate for status/tab UI push.
+// Panel/page wire logic is composed into *Chrome helpers (friend) so this
+// type stays layout + thin forwards — see living shell §shell/ui chrome composers.
 class BrowserView : public BrowserUiDelegate {
+  friend class AtmosphereChrome;
+  friend class DebugConsoleChrome;
+  friend class InspectChrome;
+  friend class InspectorSyncChrome;
+  friend class MapPagesChrome;
+  friend class ProcessingChrome;
+  friend class ShellLayoutChrome;
+
  public:
   explicit BrowserView(Browser* browser);
   ~BrowserView() override;
@@ -130,6 +149,10 @@ class BrowserView : public BrowserUiDelegate {
   void wire_processing_panel();
   void wire_result_playback_panel();
   void wire_report_panel();
+  // Attach PluginHost→ReportPanel callbacks after PluginShell is live.
+  // Never call from a path that may see a skewed plugins() (0xCD) without
+  // poison/SEH guards — see attach_report_plugin_bridge().
+  void attach_report_plugin_bridge();
   void sync_result_playback_timer();
   void wire_measure_panel();
   void wire_selection_panel();
@@ -141,6 +164,8 @@ class BrowserView : public BrowserUiDelegate {
   void bind_gis_python_bridge();
   void toggle_debug_console();
   void show_inspector_tab_index(int index);
+  // Create inspector page content on first select (Measure/Report/…).
+  void ensure_inspector_tab(int index);
   void commit_widget_shell_to_maps();
   void commit_widget_shell_to_maps(const ui::views::Rect& dirty);
   void attach_hwnd_gestures();
@@ -192,6 +217,8 @@ class BrowserView : public BrowserUiDelegate {
   int spatial_analysis_tab_ = -1;
   int processing_tab_ = -1;
   int feature_info_tab_ = -1;
+  int playback_tab_ = -1;
+  int atmosphere_tab_ = -1;
   ui::views::TabStrip* inspector_tabs_ = nullptr;
   // Keep map_* contiguous and stable near the historical offset: inserting
   // playback/report fields above them skews stale map_pages.obj (parallel
@@ -222,6 +249,27 @@ class BrowserView : public BrowserUiDelegate {
   // Shell HWND subclass for wheel→map forward (append-only; do not insert
   // above map_* — parallel ninja stale .obj layout AV).
   bool shell_wheel_subclassed_ = false;
+  // When true, populate_ambox walks PluginShell catalogs (on_plugins only).
+  bool ambox_include_plugins_ = false;
+
+  // Append-only: Catalog|Map splitter (reseed after show). Do not insert above
+  // map_* — parallel ninja stale .obj layout AV.
+  ui::views::Splitter* catalog_map_ = nullptr;
+
+  // Append-only chrome composers (do not insert above map_*).
+  std::unique_ptr<MapPagesChrome> map_pages_;
+  std::unique_ptr<ProcessingChrome> processing_;
+  std::unique_ptr<InspectChrome> inspect_;
+  std::unique_ptr<InspectorSyncChrome> inspector_sync_;
+  std::unique_ptr<DebugConsoleChrome> debug_console_;
+  std::unique_ptr<AtmosphereChrome> atmosphere_;
+
+  // Right-dock AMBox tab (vertical). Map tool bar is ambox_ (horizontal).
+  // Append-only — do not insert above map_*.
+  ui::views::AmboxView* side_ambox_ = nullptr;
+
+  // Append-only: markup shell layout builder (do not insert above map_*).
+  std::unique_ptr<ShellLayoutChrome> shell_layout_;
 };
 
 }  // namespace app

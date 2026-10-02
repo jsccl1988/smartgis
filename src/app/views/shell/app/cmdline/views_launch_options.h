@@ -19,6 +19,8 @@ enum class AtmosphereShowcaseMode {
   kCoast,
   // Leftover stereo look on Views Scene3D (black clear + hypsometric + labels).
   kLegacy,
+  // Google-Earth-like: DEM globe + sat cloud shell + sky atmosphere.
+  kGlobe,
 };
 
 // Automated 2D map carto demos (MapLibre-like China framing / align Style).
@@ -76,6 +78,9 @@ struct ViewsLaunchOptions {
   // Product plugin resource root. Empty → default <exe>/../plugins.
   // Each plugin loads from <plugins_dir>/<package>/ (e.g. world3d/).
   std::string plugins_dir;
+  // Opt-in OOP GPU child at Session.init_hosts (--enable-oop-render or
+  // SMT_ENABLE_OOP_RENDER=1). Default is deferred until MapViewport needs it.
+  bool enable_oop_render = false;
   bool ok = true;
   int exit_code = 0;
 };

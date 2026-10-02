@@ -59,6 +59,9 @@ copy("am_terrain_samples") {
 
 # Rebuild offline pack (network + pyshp + GDAL):
 #   py -3 testing/data/build_china_city.py --with-dem
+# Globe splash DEM + terrain albedo (optional; not copied — generated):
+#   py -3 testing/data/build_globe_terrain.py
+#   py -3 testing/data/build_globe_terrain.py --download-blue-marble
 # PIN: testing/data/china_city.PIN.txt
 group("china_city_data") {
   data_deps = [

@@ -302,6 +302,14 @@ def exec_os(
                         "inject": inject,
                     }
                 )
+            elif name == "wm_command":
+                emit(
+                    {
+                        "op": "wm_command",
+                        "id": int(_arg_get(node, 0, "id", 0) or 0),
+                        "inject": inject,
+                    }
+                )
             elif name == "path":
                 pts = _points(node)
                 emit(

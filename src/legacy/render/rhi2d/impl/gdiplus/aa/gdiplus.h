@@ -15,8 +15,7 @@ void gdiplus_shutdown();
 bool gdiplus_available();
 
 // Short-lived Graphics wrapper bound to an HDC. Null when GDI+ is unavailable.
-// Map roads use GdiBackend (GDI pens); this wrapper remains for AA text +
-// scene3d label rasterization.
+// Used for AA text, AA polylines (GdiBackend), and scene3d label rasterization.
 class GdiplusGraphics {
  public:
   explicit GdiplusGraphics(HDC hdc);
@@ -30,6 +29,11 @@ class GdiplusGraphics {
 
   bool draw_string(int x, int y, const wchar_t* text, int px_h, COLORREF ink,
                    COLORREF halo, int halo_px, float angle_deg);
+
+  // Anti-aliased stroke (GdiBackend polyline / road pens). Style maps PS_*
+  // dash patterns; width < 1 becomes 1.
+  bool draw_polyline(const POINT* pts, int count, COLORREF color, int width,
+                     int style = PS_SOLID);
 
  private:
   void* gfx_ = nullptr;  // Gdiplus::Graphics*

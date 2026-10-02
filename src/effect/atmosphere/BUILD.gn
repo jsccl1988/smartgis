@@ -24,6 +24,12 @@ source_set("atmosphere_sources") {
     "frame/atmosphere_effects.h",
     "frame/atmosphere_frame.cc",
     "frame/atmosphere_frame.h",
+    "globe/constants.h",
+    "globe/globe_pass.cc",
+    "globe/globe_pass.h",
+    "globe/hlsl.h",
+    "globe/sat_cloud_pass.cc",
+    "globe/sat_cloud_pass.h",
     "ocean/constants.h",
     "ocean/cpu_waves.cc",
     "ocean/cpu_waves.h",
@@ -110,6 +116,8 @@ test("atmosphere_frame_test") {
     "fog/fog_pass.cc",
     "frame/atmosphere_frame.cc",
     "frame/atmosphere_frame_test.cc",
+    "globe/globe_pass.cc",
+    "globe/sat_cloud_pass.cc",
     "ocean/cpu_waves.cc",
     "ocean/gpu_fields.cc",
     "ocean/ocean_pass.cc",
@@ -120,6 +128,21 @@ test("atmosphere_frame_test") {
   deps = [
     "//src/base:base",
     "//src/render:programs_sources",
+    "//src/render:rhi_sources",
+  ]
+}
+
+test("globe_pass_test") {
+  output_name = "globe_pass_test"
+  sources = [
+    "globe/globe_pass.cc",
+    "globe/globe_pass_test.cc",
+    "globe/sat_cloud_pass.cc",
+  ]
+  include_dirs += [ "//src" ]
+  defines = [ "RENDER_EXPORTS" ]
+  deps = [
+    "//src/base:base",
     "//src/render:rhi_sources",
   ]
 }

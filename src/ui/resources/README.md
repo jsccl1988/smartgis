@@ -14,11 +14,11 @@ views dialogs).
 | `toolkit/` | `input_text`, `select_one` |
 | `dialogs/` | AddBasemap, AttStruct, CreateDatasource/Layer/Map |
 | `catalog/` | CatalogView (tabs host) |
-| `shell/` | StatusBar, AtmospherePanel |
+| `shell/` | StatusBar, AtmospherePanel, AmboxView (scroll shell), ChartView (title), **main_app** (SmartGisViews chrome skeleton — product via `ShellLayoutChrome`) |
 | `inspect/` | Measure, Selection, FeatureInfo, AttributeTable |
 | `style/` | Legend, Symbology, LayerProperties |
-| `analysis/` | SpatialAnalysis, Processing, GeoprocessingHistory |
-| `debug/` | reserved (Diagnostic/Ambox stay C++-dynamic) |
+| `analysis/` | SpatialAnalysis, Processing, GeoprocessingHistory, ResultPlayback |
+| `debug/` | DebugConsole, RenderTrace, DiagnosticTools (chrome + tabs_host), Memory page |
 
 GN `:markup_resources` copies each area to shared **`out/ui/<area>/`**
 (sibling of Debug/Release, same pattern as `out/data/`). Runtime:

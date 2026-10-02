@@ -518,6 +518,8 @@ void fill_host(Browser& browser,
       m = AtmosphereShowcaseMode::kFull;
     } else if (mode == "coast") {
       m = AtmosphereShowcaseMode::kCoast;
+    } else if (mode == "globe" || mode == "earth") {
+      m = AtmosphereShowcaseMode::kGlobe;
     } else {
       return false;
     }

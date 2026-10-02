@@ -274,6 +274,21 @@ void MapViewport::sync_identity_chrome() {
   _snwprintf_s(title, _TRUNCATE, L"%s · %s  Fps%.3f", role_name, engine, fps);
   SetWindowTextW(hwnd, title);
 
+  // Yellow identity HUD is opt-in (clutters the product map). Window title
+  // always carries role/engine/fps for harness + forensics.
+  const bool show_hud = [] {
+    const char* v = std::getenv("SMT_MAP_IDENTITY_HUD");
+    return v && v[0] == '1' && v[1] == '\0';
+  }();
+  if (!show_hud) {
+    if (identity_badge_ && IsWindow(identity_badge_)) {
+      DestroyWindow(identity_badge_);
+    }
+    identity_badge_ = nullptr;
+    identity_badge_parent_ = nullptr;
+    return;
+  }
+
   // Match leftover SmartGis.exe: black top bar + yellow "id | Engine  Fps".
   wchar_t hud[220] = {};
   _snwprintf_s(hud, _TRUNCATE, L"%s | %s  Fps%.3f", engine_id, engine, fps);

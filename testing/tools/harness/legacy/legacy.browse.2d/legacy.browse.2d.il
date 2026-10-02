@@ -1,19 +1,23 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 // Legacy SmartGis Edit: OS inject pan / path / wheel / corner drag on map_client.
+// suite.json os_inject_default=sendinput (postmessage misses pan capture / wheel).
 // wheel_burst is unidirectional (every tick uses the given delta).
-// Zoom-out runs after a short pan warmup so china carto has painted (zoom_gate).
+// Zoom-out runs after a longer carto settle so china land is painted (zoom_gate).
 
 script "legacy.browse.2d" {
   seq @os {
     window(activate);
-    // DelayInit china_city + Edit MDI first paint.
-    pump(ms=4000);
+    // DelayInit china_city + Edit MDI first paint (frame_oper_map).
+    pump(ms=5000);
 
     // Warmup pan: forces map_client paint before zoom_gate sidecars.
-    pan_burst(map_client, count=4, x=280, y=220, dx=18, dy=10, pump_ms=55);
+    pan_burst(map_client, count=6, x=280, y=220, dx=18, dy=10, pump_ms=70);
+    pump(ms=600);
+    // Second warmup nudges carto off any ocean-only first frame.
+    pan_burst(map_client, count=4, x=320, y=240, dx=-22, dy=-12, pump_ms=70);
     // Settle china carto before zoom sidecars (avoid ocean-only before BMP).
-    pump(ms=900);
+    pump(ms=1800);
 
     // Click / select smoke (map_client client coords).
     click(map_client, 400, 300);

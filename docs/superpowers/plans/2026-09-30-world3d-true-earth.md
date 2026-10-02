@@ -7,9 +7,9 @@ All rights reserved.
 
 > **For agentic workers:** Stay on **master**. Do **not** create a parallel `earth3d` package. Spec: [`../specs/2026-09-13-plugin-host-design.md`](../specs/2026-09-13-plugin-host-design.md) §world3d True Earth. Render stack: [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md).
 
-**Goal:** Ship a Google-Earth-class **MVP product face** on `smartgis.world3d`: China-scale DEM terrain + atmosphere (sky/ocean/cloud/fog) + orbit fly-to + optional city 3D Tiles attach + existing pointcloud hook, demoed via plugin showcase BMP.
+**Goal:** Ship a Google-Earth-class **MVP product face** on `smartgis.world3d`: DEM terrain (China sample + optional global GeoTIFF) + atmosphere (sky/ocean/cloud/fog) + satellite cloud cover (field or procedural) + orbit fly-to + optional city 3D Tiles attach + existing pointcloud hook, demoed via plugin showcase BMP.
 
-**Architecture:** Approach **A** — extend `product/world3d` + `World3dSceneWriter` seams; Browser installs `open_earth` / `fly_to` / `attach_tileset`; compose existing `apply_china_scene3d_product_defaults`, `Scene3dGpuPresent::attach_tileset_json`, orbit extent framing. No Cesium Native; no new UI toolkit.
+**Architecture:** Approach **A** — extend `product/world3d` + `World3dSceneWriter` seams; Browser installs `open_earth` / `load_global_dem` / `set_satellite_cloud` / `set_atmosphere` / `fly_to` / `attach_tileset`; compose existing `apply_china_scene3d_product_defaults`, `AtmosphereSession::load_fields`, `gis::set_sample_dem_path_override`, `Scene3dGpuPresent::attach_tileset_json`, orbit extent framing. No Cesium Native; no new UI toolkit.
 
 **Tech Stack:** C++23, Views shell, Scene3dPresenter, AtmosphereSession, TilesetStreamSession, GN/`build.bat debug`.
 
@@ -24,7 +24,8 @@ All rights reserved.
 
 1. Product package stays **`world3d`** (not `earth` / `globe`).
 2. MVP = China framing + atmosphere ON + fly_to + optional m3 tileset fixture + showcase capture (not global Ion / spherical WGS84 globe mesh).
-3. Planetary “globe ball” is a documented gap; orbit-normalized China DEM is the shippable true-3D browse today.
+3. Planetary “globe ball” is a documented gap; orbit-normalized China DEM is the shippable true-3D browse today; optional global GeoTIFF upgrades via `load_global_dem`.
+4. Satellite cloud without GeoTIFF uses procedural atmosphere clouds (honest stand-in).
 
 ---
 
@@ -82,6 +83,25 @@ All rights reserved.
 
 - [x] Step 1: Living § + this plan linked
 - [x] Step 2: Honest gap list vs Google Earth in § Non-goals / Remaining
+
+---
+
+### Task 5 — P0b global DEM + satellite cloud + atmosphere toggles (2026-10-02)
+
+**Files:**
+- Modify: `src/plugin/product/world3d/commands.h` / `scene_commands.cc` / `manifest/plugin.json` / `README.md` / `BUILD.gn`
+- Modify: `src/app/views/shell/browser/plugin/analysis_writer_world3d.cc`
+- Modify: `src/gis/vista/world/terrain/dem/dem_raster.{h,cc}` (`set_sample_dem_path_override`)
+- Modify: `src/content/browser/present/scene3d/frame/terrain_mesh.cc`
+- Modify: living § under plugin-host + render-rhi-scene
+
+- [x] Step 1: `World3dSceneWriter::{load_global_dem,set_satellite_cloud,set_atmosphere}` + command/processing ids
+- [x] Step 2: Browser writers; China / procedural stand-ins with JSON hints when data missing
+- [x] Step 3: DEM path override honored by Scene3d terrain rebuild
+- [x] Step 4: Unit test coverage in `world3d_scene_writer_test`
+- [x] Step 5: Live GPU BMP with optional `out/data/global_dem.tif` / `global_terrain.png` / `satellite_cloud.tif` (data via `testing/data/build_globe_terrain.py`)
+
+**Done when:** processing ids green with/without writer; missing data returns structured stand-in JSON.
 
 ---
 

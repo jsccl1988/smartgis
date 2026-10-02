@@ -1,10 +1,21 @@
 {
   "version": 1,
   "hooks": {
+    "sessionStart": [
+      {
+        "command": "py -3 .cursor/hooks/build_lock_session.py",
+        "failClosed": false
+      }
+    ],
     "beforeShellExecution": [
       {
         "command": "py -3 .cursor/hooks/build_lock_gate.py",
-        "matcher": "ninja|gn(\\.exe)?\\s|build\\.bat",
+        "failClosed": false
+      }
+    ],
+    "afterShellExecution": [
+      {
+        "command": "py -3 .cursor/hooks/build_lock_scrub.py",
         "failClosed": false
       }
     ]

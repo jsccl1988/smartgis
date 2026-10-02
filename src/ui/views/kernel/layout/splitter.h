@@ -10,7 +10,7 @@
 namespace ui {
 namespace views {
 
-// Two-pane host with a 6px draggable bar. Horizontal is left|right; vertical
+// Two-pane host with a draggable bar. Horizontal is left|right; vertical
 // is top|bottom. children[0] is primary, children[1] is secondary.
 // On host resize (before any user drag): a pane with preferred size 0 absorbs
 // growth; a pane with positive preferred size stays fixed. After a drag, the
@@ -29,6 +29,7 @@ class UI_EXPORT Splitter : public View {
 
   void layout() override;
   bool on_mouse_event(const MouseEvent& event) override;
+  void on_device_scale_factor_changed(float old_scale, float new_scale) override;
   std::string_view paint_role() const override;
 
  protected:
@@ -41,7 +42,7 @@ class UI_EXPORT Splitter : public View {
     kProportional,
   };
 
-  static constexpr int kBarPx = 6;
+  static constexpr int kBarPx = 8;
   static constexpr int kMinPanePx = 40;
 
   bool is_horizontal() const {

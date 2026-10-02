@@ -323,6 +323,8 @@ void Scene3dSoftwarePainter::paint_hud(HDC hdc, int width_px, int height_px) con
     return;
   }
   gpu_->remember_view_size(width_px, height_px);
+  // Place-names before compass/chrome so leftover stereo labels sit on DEM.
+  paint_legacy_place_labels(hdc, width_px, height_px);
   paint_wind_arrows(hdc, width_px, height_px);
 
   // Compass rose: needle points to geographic north on screen (default orbit
@@ -412,29 +414,78 @@ void Scene3dSoftwarePainter::paint_hud(HDC hdc, int width_px, int height_px) con
   }
 }
 
+void Scene3dSoftwarePainter::paint_legacy_place_labels(HDC hdc, int width_px,
+                                                       int height_px) const {
+  if (!hdc || !gpu_ || width_px <= 0 || height_px <= 0) {
+    return;
+  }
+  if (gpu_->look_preset() != Scene3dLookPreset::kLegacyStereo ||
+      gpu_->legacy_labels().empty()) {
+    return;
+  }
+  HFONT font = CreateFontW(-16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+                           DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                           CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                           DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei");
+  HGDIOBJ old_font =
+      SelectObject(hdc, font ? font : GetStockObject(DEFAULT_GUI_FONT));
+  SetBkMode(hdc, TRANSPARENT);
+  for (const Scene3dLegacyLabel& lab : gpu_->legacy_labels()) {
+    int sx = 0;
+    int sy = 0;
+    project_lon_lat(lab.lon, lab.lat, width_px, height_px, &sx, &sy);
+    if (sx < -40 || sy < -20 || sx > width_px + 40 || sy > height_px + 20) {
+      continue;
+    }
+    wchar_t wbuf[64] = {};
+    MultiByteToWideChar(CP_UTF8, 0, lab.text.c_str(), -1, wbuf, 63);
+    const int len = static_cast<int>(wcslen(wbuf));
+    SetTextColor(hdc, RGB(0, 0, 0));
+    for (int dy = -2; dy <= 2; ++dy) {
+      for (int dx = -2; dx <= 2; ++dx) {
+        if (dx == 0 && dy == 0) {
+          continue;
+        }
+        TextOutW(hdc, sx + dx, sy + dy, wbuf, len);
+      }
+    }
+    SetTextColor(hdc, RGB(255, 255, 255));
+    TextOutW(hdc, sx, sy, wbuf, len);
+  }
+  SelectObject(hdc, old_font);
+  if (font) {
+    DeleteObject(font);
+  }
+}
+
 namespace {
 
-// Leftover SmartGis.exe hypsometric character: low greenâyellow, high pink/white.
+// Leftover SmartGis.exe hypsometric character: low green→yellow, high pink/white.
 COLORREF hypsometric_rgb(float t01) {
   t01 = std::clamp(t01, 0.f, 1.f);
   int r = 0;
   int g = 0;
   int b = 0;
-  if (t01 < 0.35f) {
-    const float u = t01 / 0.35f;
-    r = static_cast<int>(70 + 140 * u);
-    g = static_cast<int>(140 + 70 * u);
-    b = static_cast<int>(55 + 20 * (1.f - u));
-  } else if (t01 < 0.65f) {
-    const float u = (t01 - 0.35f) / 0.30f;
-    r = static_cast<int>(210 + 25 * u);
-    g = static_cast<int>(210 - 40 * u);
-    b = static_cast<int>(75 + 40 * u);
+  if (t01 < 0.28f) {
+    const float u = t01 / 0.28f;
+    r = static_cast<int>(58 + 42 * u);
+    g = static_cast<int>(118 + 36 * u);
+    b = static_cast<int>(72 + 18 * (1.f - u));
+  } else if (t01 < 0.52f) {
+    const float u = (t01 - 0.28f) / 0.24f;
+    r = static_cast<int>(100 + 48 * u);
+    g = static_cast<int>(154 - 18 * u);
+    b = static_cast<int>(68 + 12 * u);
+  } else if (t01 < 0.78f) {
+    const float u = (t01 - 0.52f) / 0.26f;
+    r = static_cast<int>(148 + 36 * u);
+    g = static_cast<int>(136 - 8 * u);
+    b = static_cast<int>(80 + 20 * u);
   } else {
-    const float u = (t01 - 0.65f) / 0.35f;
-    r = static_cast<int>(235 + 20 * u);
-    g = static_cast<int>(170 + 70 * u);
-    b = static_cast<int>(115 + 120 * u);
+    const float u = (t01 - 0.78f) / 0.22f;
+    r = static_cast<int>(164 + 28 * u);
+    g = static_cast<int>(148 + 22 * u);
+    b = static_cast<int>(118 + 28 * u);
   }
   return RGB(r, g, b);
 }
@@ -623,40 +674,7 @@ void Scene3dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
   DeleteObject(mesh_pen);
 
   // Leftover-style place-names: white text + thick black outline.
-  if (gpu_->look_preset() == Scene3dLookPreset::kLegacyStereo) {
-    HFONT font = CreateFontW(-16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-                             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-                             CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-                             DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei");
-    HGDIOBJ old_font = SelectObject(hdc, font ? font : GetStockObject(DEFAULT_GUI_FONT));
-    SetBkMode(hdc, TRANSPARENT);
-    for (const Scene3dLegacyLabel& lab : gpu_->legacy_labels()) {
-      int sx = 0;
-      int sy = 0;
-      project_lon_lat(lab.lon, lab.lat, width_px, height_px, &sx, &sy);
-      if (sx < -40 || sy < -20 || sx > width_px + 40 || sy > height_px + 20) {
-        continue;
-      }
-      wchar_t wbuf[64] = {};
-      MultiByteToWideChar(CP_UTF8, 0, lab.text.c_str(), -1, wbuf, 63);
-      const int len = static_cast<int>(wcslen(wbuf));
-      SetTextColor(hdc, RGB(0, 0, 0));
-      for (int dy = -2; dy <= 2; ++dy) {
-        for (int dx = -2; dx <= 2; ++dx) {
-          if (dx == 0 && dy == 0) {
-            continue;
-          }
-          TextOutW(hdc, sx + dx, sy + dy, wbuf, len);
-        }
-      }
-      SetTextColor(hdc, RGB(255, 255, 255));
-      TextOutW(hdc, sx, sy, wbuf, len);
-    }
-    SelectObject(hdc, old_font);
-    if (font) {
-      DeleteObject(font);
-    }
-  }
+  paint_legacy_place_labels(hdc, width_px, height_px);
 
   if (scene_) {
     ViewFrame fitted;

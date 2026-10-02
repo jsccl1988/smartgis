@@ -19,7 +19,10 @@ namespace detail {
 
 bool try_open_china_sample(Browser& browser,
                                    bool write_stub_if_missing) {
-  if (browser.document() && browser.document()->layer_count() > 0 &&
+  // Demo seed_default stubs also have feature_count>=3 — only treat an
+  // already-opened OGR pack (china_city / stub GeoJSON) as success so harness
+  // paths can replace the teal demo layer with real carto.
+  if (browser.document() && browser.document()->last_open_was_ogr() &&
       browser.document()->feature_count() >= 3) {
     return true;
   }

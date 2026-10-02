@@ -163,4 +163,9 @@ void Scene3dPresenter::paint_hud(HDC hdc, int width_px, int height_px) const {
   software_.paint_hud(hdc, width_px, height_px);
 }
 
+void Scene3dPresenter::paint_legacy_place_labels(HDC hdc, int width_px,
+                                                 int height_px) const {
+  software_.paint_legacy_place_labels(hdc, width_px, height_px);
+}
+
 }  // namespace content

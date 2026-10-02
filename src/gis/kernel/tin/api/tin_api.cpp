@@ -7,28 +7,30 @@
 
 using namespace base;
 using namespace geo;
-using namespace render;
 
 namespace {
 
-long fill_tin_from_span(Tin* tin, const Vector3* points, int count) {
+// Match tin.h: MSVC exports base::Vector3 (render:: is a using-alias).
+long fill_tin_from_span(Tin* tin, const base::Vector3* points, int count) {
   return tin::fill_tin<tin::default_backend>(tin, points, count);
 }
 
 }  // namespace
 
 long create_delaunay_tin_div(Tin* pTin,
-                             const Vector3* pVector3Ds,
+                             const base::Vector3* pVector3Ds,
                              int nCount) {
   return fill_tin_from_span(pTin, pVector3Ds, nCount);
 }
 
-long create_delaunay_tin_div(Tin* pTin, Vector3* pVector3Ds, int nCount) {
-  return create_delaunay_tin_div(pTin, static_cast<const Vector3*>(pVector3Ds),
-                                 nCount);
+long create_delaunay_tin_div(Tin* pTin, base::Vector3* pVector3Ds,
+                             int nCount) {
+  return create_delaunay_tin_div(
+      pTin, static_cast<const base::Vector3*>(pVector3Ds), nCount);
 }
 
-long create_delaunay_tin_div(Tin* pTin, const vector<Vector3>& vVector3Ds) {
+long create_delaunay_tin_div(Tin* pTin,
+                             const std::vector<base::Vector3>& vVector3Ds) {
   if (vVector3Ds.empty()) {
     return SMT_ERR_INVALID_PARAM;
   }
@@ -37,21 +39,23 @@ long create_delaunay_tin_div(Tin* pTin, const vector<Vector3>& vVector3Ds) {
 }
 
 long create_delaunay_tin_inc(Tin* pTin,
-                             const Vector3* pVector3Ds,
+                             const base::Vector3* pVector3Ds,
                              int nCount) {
   return create_delaunay_tin_div(pTin, pVector3Ds, nCount);
 }
 
-long create_delaunay_tin_inc(Tin* pTin, Vector3* pVector3Ds, int nCount) {
-  return create_delaunay_tin_div(pTin, static_cast<const Vector3*>(pVector3Ds),
-                                 nCount);
+long create_delaunay_tin_inc(Tin* pTin, base::Vector3* pVector3Ds,
+                             int nCount) {
+  return create_delaunay_tin_div(
+      pTin, static_cast<const base::Vector3*>(pVector3Ds), nCount);
 }
 
-long create_delaunay_tin_inc(Tin* pTin, const vector<Vector3>& vVector3Ds) {
+long create_delaunay_tin_inc(Tin* pTin,
+                             const std::vector<base::Vector3>& vVector3Ds) {
   return create_delaunay_tin_div(pTin, vVector3Ds);
 }
 
-long divide_polygon_into_tri_mesh(vector<SmtTriangle>& trilist,
+long divide_polygon_into_tri_mesh(std::vector<SmtTriangle>& trilist,
                                   dbfPoint* pPoints,
                                   int nPoint) {
   if (pPoints == nullptr || nPoint < 3) {
@@ -77,7 +81,7 @@ long divide_polygon_into_tri_mesh(vector<SmtTriangle>& trilist,
     pts = decimated.data();
   }
 
-  std::vector<Vector3> vertices(static_cast<std::size_t>(use_n));
+  std::vector<render::Vector3> vertices(static_cast<std::size_t>(use_n));
   for (int i = 0; i < use_n; ++i) {
     vertices[static_cast<std::size_t>(i)].x = static_cast<float>(pts[i].x);
     vertices[static_cast<std::size_t>(i)].y = static_cast<float>(pts[i].y);
@@ -119,9 +123,9 @@ long divide_polygon_into_tri_mesh(vector<SmtTriangle>& trilist,
         tri.b >= use_n || tri.c >= use_n) {
       continue;
     }
-    const Vector3& a = vertices[static_cast<std::size_t>(tri.a)];
-    const Vector3& b = vertices[static_cast<std::size_t>(tri.b)];
-    const Vector3& c = vertices[static_cast<std::size_t>(tri.c)];
+    const render::Vector3& a = vertices[static_cast<std::size_t>(tri.a)];
+    const render::Vector3& b = vertices[static_cast<std::size_t>(tri.b)];
+    const render::Vector3& c = vertices[static_cast<std::size_t>(tri.c)];
     const double cx =
         (static_cast<double>(a.x) + b.x + c.x) / 3.0;
     const double cy =

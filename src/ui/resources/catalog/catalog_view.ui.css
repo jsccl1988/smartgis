@@ -1,12 +1,15 @@
 /* CatalogView — TabStrip + trees filled in C++.
-   Title is hidden so Layers/Sources/Maps aligns with Map/Data/3D. */
+   Title is hidden so Layers/Sources/Maps aligns with Map/Data/3D.
+   Prefer flex stretch over fixed 288x320 so a narrow splitter pane does not
+   trigger child-outside-parent (layout_check / ui-showcase layout-fail). */
 
 .panel {
   display: flex;
   flex-direction: column;
   gap: 0px;
-  width: 240px;
-  height: 320px;
+  width: 100%;
+  height: 100%;
+  flex-grow: 1;
 }
 
 #title {
@@ -16,7 +19,9 @@
 }
 
 .tabs_host {
-  width: 240px;
-  height: 320px;
+  width: 100%;
+  height: 100%;
   flex-grow: 1;
+  min-width: 0px;
+  min-height: 0px;
 }

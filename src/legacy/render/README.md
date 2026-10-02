@@ -5,6 +5,8 @@ All rights reserved.
 
 # `src/legacy/render` (leftover dual-run)
 
+**Diagram:** [`docs/superpowers/diagrams/legacy-render-architecture.html`](../../../docs/superpowers/diagrams/legacy-render-architecture.html)（rhi2d/rhi3d 泳道 + 并行流水线）
+
 Optional leftover engines ship as three DLLs (`//src/legacy/render:legacy_render_all`):
 
 | Stem | Role |

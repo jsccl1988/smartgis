@@ -9,6 +9,17 @@ All rights reserved.
 
 工程上的对齐——短文件名、`docs/build/`、入口只有 `build.bat`——仍然有效。mogu 源树本机未检出也没关系。不搬 Bazel。
 
+## 本地预览（Portal）
+
+一键浏览本目录下全部 Markdown + HTML（侧栏目录、MD 渲染、设计原理图整页嵌入）：
+
+```bat
+docs\portal\open.bat
+REM 或: py -3 docs\portal\serve.py
+```
+
+说明见 [`portal/README.md`](portal/README.md)。
+
 ## 索引
 
 ### 产品 / 构建（as-built）
@@ -64,4 +75,4 @@ All rights reserved.
 
 ---
 
-**最后更新：** 2026-09-28
+**最后更新：** 2026-10-02

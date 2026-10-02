@@ -4,6 +4,7 @@
 #include "ui/views/kernel/layout/splitter.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/shell/theme.h"
@@ -64,6 +65,28 @@ void Splitter::reseed() {
   schedule_paint();
 }
 
+void Splitter::on_device_scale_factor_changed(float old_scale, float new_scale) {
+  View::on_device_scale_factor_changed(old_scale, new_scale);
+  if (old_scale <= 0.f || new_scale <= 0.f || old_scale == new_scale) {
+    return;
+  }
+  // Preferred sizes scale with DPI; a one-shot seed taken at scale 1.0 would
+  // otherwise leave Catalog at 240/288 CSS-px while Map|Data|3D tabs paint at
+  // 1.5x — OS clicks aimed at DIP×scale miss the packed 3D cell.
+  if (!user_adjusted_) {
+    split_seeded_ = false;
+    mark_needs_layout();
+    return;
+  }
+  const float ratio = new_scale / old_scale;
+  primary_extent_ =
+      static_cast<int>(std::lround(primary_extent_ * ratio));
+  fixed_secondary_px_ =
+      static_cast<int>(std::lround(fixed_secondary_px_ * ratio));
+  saved_primary_ = static_cast<int>(std::lround(saved_primary_ * ratio));
+  last_main_ = static_cast<int>(std::lround(last_main_ * ratio));
+}
+
 int Splitter::main_extent() const {
   const Rect& b = bounds();
   return is_horizontal() ? axis_traits<Axis::kHorizontal>::main(b)
@@ -77,7 +100,7 @@ Rect Splitter::bar_rect() const {
 }
 
 void Splitter::seed_split_if_needed() {
-  if (split_seeded_ || child_count() < 2) {
+  if (child_count() < 2) {
     return;
   }
   // layout() can run before the host has a real size; do not lock a 0 split.
@@ -86,43 +109,63 @@ void Splitter::seed_split_if_needed() {
   }
   View* a = child_at(0);
   View* b = child_at(1);
-  // Prefer the stored preferred_size hint when it is explicitly 0 on the
-  // secondary axis so a collapsed DiagnosticToolsPanel (preferred {0,0} but
-  // BoxLayout get_preferred_size still ~200) does not steal map/3D height.
+  // Seed from preferred_size() hints only. Markup hosts wrap Catalog / Map
+  // tabs in FillLayout+Yoga whose get_preferred_size() is often 0 (width:100%
+  // of undefined) — using that for the both-zero test seeded primary=full and
+  // collapsed Map|Data|3D (hollow grey slab in ui.shell BMPs).
   const Size sa_hint = a->preferred_size();
   const Size sb_hint = b->preferred_size();
-  const Size sa_layout = a->get_preferred_size();
-  const Size sb_layout = b->get_preferred_size();
   const int pa_hint = is_horizontal() ? axis_traits<Axis::kHorizontal>::main(sa_hint)
                                       : axis_traits<Axis::kVertical>::main(sa_hint);
   const int pb_hint = is_horizontal() ? axis_traits<Axis::kHorizontal>::main(sb_hint)
                                       : axis_traits<Axis::kVertical>::main(sb_hint);
-  const Size sa = (pa_hint <= 0) ? sa_hint : sa_layout;
-  const Size sb = (pb_hint <= 0) ? sb_hint : sb_layout;
-  const int pa = is_horizontal() ? axis_traits<Axis::kHorizontal>::main(sa)
-                                 : axis_traits<Axis::kVertical>::main(sa);
-  const int pb = is_horizontal() ? axis_traits<Axis::kHorizontal>::main(sb)
-                                 : axis_traits<Axis::kVertical>::main(sb);
+
+  // One-shot seed can lock both-flex (primary=full) before Catalog preferred
+  // width is visible, leaving a hollow grey slab beside a squeezed map. When
+  // the user has not dragged, refresh from current hints.
+  // Also recover when the first layout clamped PrimaryFixed to kMinPanePx
+  // while the host was still tiny — otherwise catalog stays 40px forever
+  // (child-outside-parent + clipped Layers/Sources labels).
+  if (split_seeded_ && !user_adjusted_ && !collapsed_) {
+    if (resize_policy_ == ResizePolicy::kSecondaryFixed &&
+        fixed_secondary_px_ <= 0 && pa_hint > 0 && pb_hint <= 0) {
+      split_seeded_ = false;
+    } else if (resize_policy_ == ResizePolicy::kPrimaryFixed && pa_hint > 0) {
+      const int inner = std::max(0, main_extent() - kBarPx);
+      const int want = std::min(pa_hint, std::max(0, inner - kMinPanePx));
+      if (want > 0 && primary_extent_ != want) {
+        primary_extent_ = want;
+        last_main_ = main_extent();
+        return;
+      }
+      return;
+    } else {
+      return;
+    }
+  } else if (split_seeded_) {
+    return;
+  }
+
   const int inner = std::max(0, main_extent() - kBarPx);
   fixed_secondary_px_ = 0;
-  if (pa <= 0 && pb <= 0) {
+  if (pa_hint <= 0 && pb_hint <= 0) {
     // Both flex / hidden: primary keeps the work area; secondary stays at 0
     // until preferred size or a user drag grows it (Diagnostic Tools starts
-    // at preferred 0 鈥?must not seed a 50/50 split that starves the map).
+    // at preferred 0 — must not seed a 50/50 split that starves the map).
     primary_extent_ = inner;
     fixed_secondary_px_ = 0;
     resize_policy_ = ResizePolicy::kSecondaryFixed;
-  } else if (pa <= 0) {
+  } else if (pa_hint <= 0) {
     // BrowserView pattern: flexible map/work pane + fixed ambox/inspector.
-    primary_extent_ = inner - pb;
-    fixed_secondary_px_ = pb;
+    primary_extent_ = inner - pb_hint;
+    fixed_secondary_px_ = pb_hint;
     resize_policy_ = ResizePolicy::kSecondaryFixed;
-  } else if (pb <= 0) {
+  } else if (pb_hint <= 0) {
     // Catalog (fixed preferred) + map tabs (flex).
-    primary_extent_ = pa;
+    primary_extent_ = pa_hint;
     resize_policy_ = ResizePolicy::kPrimaryFixed;
   } else {
-    primary_extent_ = inner * pa / (pa + pb);
+    primary_extent_ = inner * pa_hint / (pa_hint + pb_hint);
     resize_policy_ = ResizePolicy::kProportional;
   }
   split_seeded_ = true;
@@ -266,13 +309,24 @@ void Splitter::paint_self(ui::gfx::Canvas* canvas) {
   const Rect& b = bounds();
   canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
   const Rect bar = bar_rect();
-  ui::gfx::Color fill = t.control_fill;
+  // Idle bar uses hover tone so map|inspector seams stay visible on dark panels.
+  ui::gfx::Color fill = t.control_hover;
   if (dragging_ || is_pressed()) {
-    fill = t.control_press;
+    fill = t.accent;
   } else if (is_hovered()) {
-    fill = t.control_hover;
+    fill = ui::gfx::color_rgb(0, 100, 170);
   }
   canvas->fill_rect(bar.x, bar.y, bar.width, bar.height, fill);
+  // Center grip: 3px accent rail (was 1px hairline — nearly invisible).
+  if (is_horizontal()) {
+    const int grip = std::min(3, std::max(1, bar.width));
+    canvas->fill_rect(bar.x + (bar.width - grip) / 2, bar.y + 2, grip,
+                      std::max(0, bar.height - 4), t.text_muted);
+  } else {
+    const int grip = std::min(3, std::max(1, bar.height));
+    canvas->fill_rect(bar.x + 2, bar.y + (bar.height - grip) / 2,
+                      std::max(0, bar.width - 4), grip, t.text_muted);
+  }
 }
 
 

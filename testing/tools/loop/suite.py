@@ -100,6 +100,23 @@ class ZoomGate:
 
 
 @dataclass(frozen=True)
+class MotionGate:
+    """Recorded HWND frames must change enough during pan/path (follow-hand)."""
+
+    min_unique_frac: float = 0.25
+    min_unique_frames: int = 12
+
+
+@dataclass(frozen=True)
+class ClickGate:
+    """Require click/dblclick inject + non-black after-click shell BMP."""
+
+    enabled: bool = True
+    after: str = "legacy/_click_after.bmp"
+    max_near_black: float = 0.55
+
+
+@dataclass(frozen=True)
 class Suite:
     """One outer-loop contract shared with C++ ScenarioRegistry ids."""
 
@@ -112,6 +129,8 @@ class Suite:
     bmp: BmpProbe | None = None
     visual_review: VisualReview | None = None
     zoom_gate: ZoomGate | None = None
+    motion_gate: MotionGate | None = None
+    click_gate: ClickGate | None = None
     # Forgive ExitProcess heap corruption when required marks already landed.
     accept_nonzero_rc_if_marks: bool = False
     rounds: int = 6
@@ -328,6 +347,23 @@ def load_suite(suite_id: str) -> Suite:
             thresh=int(zg_raw.get("thresh", 12)),
         )
 
+    motion_gate: MotionGate | None = None
+    mg_raw = raw.get("motion_gate")
+    if isinstance(mg_raw, dict):
+        motion_gate = MotionGate(
+            min_unique_frac=float(mg_raw.get("min_unique_frac", 0.25)),
+            min_unique_frames=int(mg_raw.get("min_unique_frames", 12)),
+        )
+
+    click_gate: ClickGate | None = None
+    cg_raw = raw.get("click_gate")
+    if isinstance(cg_raw, dict) and bool(cg_raw.get("enabled", True)):
+        click_gate = ClickGate(
+            enabled=True,
+            after=str(cg_raw.get("after") or "legacy/_click_after.bmp"),
+            max_near_black=float(cg_raw.get("max_near_black", 0.55)),
+        )
+
     if probes_raw is None:
         types: list[str] = []
         if raw.get("required_marks"):
@@ -353,6 +389,8 @@ def load_suite(suite_id: str) -> Suite:
         bmp=bmp,
         visual_review=visual_review,
         zoom_gate=zoom_gate,
+        motion_gate=motion_gate,
+        click_gate=click_gate,
         accept_nonzero_rc_if_marks=bool(
             raw.get("accept_nonzero_rc_if_marks", False)
         ),

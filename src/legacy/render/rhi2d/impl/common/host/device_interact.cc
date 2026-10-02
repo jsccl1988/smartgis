@@ -179,10 +179,28 @@ int SmtRhi2dRenderDevice::PreviewZoomMove(fPoint dbfPointOffset) {
 
 int SmtRhi2dRenderDevice::ZoomToRect(const SmtMap *pSmtMap, fRect rect,
                                    bool bRealTime) {
-  // Never Sleep-poll or sync-encode on the UI thread �?settle via worker
+  // Never Sleep-poll or sync-encode on the UI thread — settle via worker
   // (urgent or debounced). Do not cancel() here: sticky cancel aborted the
-  // first Edit china FrameJob �?blank white map. stage_map_job cancels when
+  // first Edit china FrameJob — blank white map. stage_map_job cancels when
   // it replaces an in-flight job.
+
+  // Focus for StretchBlt preview must use the *old* windowport (rubber-band
+  // device pixels). Mutating m_Windowport first made LP→DP map to the new
+  // extent and reset_preview_viewports_identity left mouse-up showing the
+  // previous full map until the FrameJob finished.
+  float org_x = m_Viewport.m_fVOX + m_Viewport.m_fVWidth * 0.5f;
+  float org_y = m_Viewport.m_fVOY + m_Viewport.m_fVHeight * 0.5f;
+  {
+    LONG x0 = 0;
+    LONG y0 = 0;
+    LONG x1 = 0;
+    LONG y1 = 0;
+    if (LPToDP(rect.lb.x, rect.lb.y, x0, y0) == SMT_ERR_NONE &&
+        LPToDP(rect.rt.x, rect.rt.y, x1, y1) == SMT_ERR_NONE) {
+      org_x = 0.5f * static_cast<float>(x0 + x1);
+      org_y = 0.5f * static_cast<float>(y0 + y1);
+    }
+  }
 
   m_Windowport.m_fWOX = rect.lb.x;
   m_Windowport.m_fWOY = rect.lb.y;
@@ -208,13 +226,16 @@ int SmtRhi2dRenderDevice::ZoomToRect(const SmtMap *pSmtMap, fRect rect,
     m_Windowport.m_fWWidth = rect.width() * xblc / yblc;
   }
 
-  // Keep last-good front as a 1:1 preview while the worker lands the new
-  // windowport. Do not reset painted_fblc here — that baseline still matches
-  // the published bitmap until Timer present refreshes it.
+  // MapLibre-like: stretch the last published front around the rubber-band
+  // focus while the worker lands the new windowport. Do not reset
+  // painted_fblc — that baseline still matches the published bitmap until
+  // Timer present refreshes it.
   {
     std::lock_guard<std::mutex> front_lock(shared_front_mu_);
-    detail::reset_preview_viewports_identity(&vir_viewport1_, &vir_viewport2_,
-                                             m_Viewport);
+    detail::rebuild_preview_viewports(
+        &vir_viewport1_, &vir_viewport2_, m_Viewport, has_painted_preview_,
+        static_cast<float>(painted_fblc_), static_cast<float>(m_fblc), org_x,
+        org_y);
   }
   m_curDrawingOrg.x = 0;
   m_curDrawingOrg.y = 0;
@@ -247,6 +268,14 @@ int SmtRhi2dRenderDevice::ZoomToRect(const SmtMap *pSmtMap, fRect rect,
       Refresh();
       return SMT_ERR_NONE;
     }
+    return ReRenderMapRealTime(pSmtMap, static_cast<int>(m_Viewport.m_fVOX),
+                               static_cast<int>(m_Viewport.m_fVOY),
+                               static_cast<int>(m_Viewport.m_fVWidth),
+                               static_cast<int>(m_Viewport.m_fVHeight));
+  }
+  // Tool rubber-band / restore after a painted baseline: urgent settle so
+  // mouse-up does not wait the ~200 ms debounce with a stale identity blit.
+  if (has_painted_preview_) {
     return ReRenderMapRealTime(pSmtMap, static_cast<int>(m_Viewport.m_fVOX),
                                static_cast<int>(m_Viewport.m_fVOY),
                                static_cast<int>(m_Viewport.m_fVWidth),

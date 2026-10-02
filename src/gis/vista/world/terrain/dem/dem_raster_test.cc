@@ -59,6 +59,20 @@ int main() {
   }
 
   // Synthetic / non-china_dem may remask; china_dem path skips remask.
+  // Default discovery must prefer china_dem over global_dem when both exist
+  // (else China showcase remasks with 48 prefecture rings → plains holes).
+  {
+    const std::string default_dem = gis::find_sample_dem_path();
+    if (!default_dem.empty()) {
+      expect(default_dem.find("china_dem") != std::string::npos,
+             "find_sample_dem_path prefers china_dem over global_dem");
+    }
+    const std::string global_dem = gis::find_sample_global_dem_path();
+    if (!global_dem.empty() &&
+        global_dem.find("global_dem") != std::string::npos) {
+      expect(true, "find_sample_global_dem_path resolves global when present");
+    }
+  }
   {
     gis::LonLatRing tiny;
     tiny.x = {118.5, 121.5, 121.5, 118.5};

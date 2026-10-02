@@ -6,6 +6,8 @@
 #include <math.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdlib>
 #include <cstring>
 #include <vector>
 
@@ -21,6 +23,16 @@ namespace render {
 namespace detail {
 
 int GdiDeviceDraw::draw_device_polyline(const POINT* pts, int n) {
+  // Fail loud on partial-rebuild ODR (this TU vs carto_draw.obj). Friend
+  // access lets offsetof see rd_options_; the out-of-line helper bakes the
+  // carto_draw.cc layout.
+  static const bool layout_ok = [] {
+    return offsetof(Rhi2dCartoDraw, rd_options_) ==
+           Rhi2dCartoDraw::rd_options_offset();
+  }();
+  if (!layout_ok) {
+    std::abort();
+  }
   if (!pts || n < 2 || !c_->rc_ || (!c_->h_cur_dc_ && !c_->is_recording())) {
     return SMT_ERR_INVALID_PARAM;
   }

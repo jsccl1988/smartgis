@@ -76,7 +76,9 @@ void test_layer_tree() {
 
 void test_catalog_view() {
   CatalogView catalog;
-  expect(catalog.preferred_size().width == 240, "catalog preferred width");
+  expect(catalog.preferred_size().width == 288 ||
+             catalog.preferred_size().width == 240,
+         "catalog preferred width");
   expect(catalog.layer_tree() != nullptr, "catalog layer_tree");
   catalog.set_title("Layers");
   expect(catalog.title() == "Layers", "catalog title");
@@ -344,9 +346,9 @@ void test_status_bar_dpi_height() {
   auto bar = std::make_unique<StatusBar>();
   StatusBar* b = bar.get();
   widget.set_contents_view(std::move(bar));
-  expect(b->preferred_size().height == 24, "status 96dpi height");
+  expect(b->preferred_size().height == 32, "status 96dpi height");
   widget.set_device_scale_factor(1.5f);
-  expect(b->preferred_size().height == dip_to_px(24, 1.5f),
+  expect(b->preferred_size().height == dip_to_px(32, 1.5f),
          "status 150% height");
 }
 

@@ -27,12 +27,26 @@ StatusBar::StatusBar() {
   crs_ = loaded.ids.find_as<Label>("crs");
   coord_ = loaded.ids.find_as<Label>("coord");
   status_ = loaded.ids.find_as<Label>("status");
+  // Bright ink on dark panel_bg — default Label text was too close to chrome.
+  const ui::gfx::Color ink = Theme::current().text_bright;
+  if (scale_) {
+    scale_->set_color(ink);
+  }
+  if (crs_) {
+    crs_->set_color(ink);
+  }
+  if (coord_) {
+    coord_->set_color(ink);
+  }
+  if (status_) {
+    status_->set_color(ink);
+  }
 
   auto fill = std::make_unique<FillLayout>();
   set_layout_manager(std::move(fill));
-  loaded.root->set_preferred_size({400, 24});
+  loaded.root->set_preferred_size({400, 32});
   add_child(std::move(loaded.root));
-  set_preferred_size({400, 24});
+  set_preferred_size({400, 32});
 }
 
 void StatusBar::set_xy(double x, double y) {
@@ -95,7 +109,7 @@ void StatusBar::on_device_scale_factor_changed(float old_scale,
                                               float new_scale) {
   View::on_device_scale_factor_changed(old_scale, new_scale);
   const float s = new_scale > 0.f ? new_scale : 1.f;
-  set_preferred_size({dip_to_px(400, s), dip_to_px(24, s)});
+  set_preferred_size({dip_to_px(400, s), dip_to_px(32, s)});
 }
 
 void StatusBar::paint_self(ui::gfx::Canvas* canvas) {

@@ -34,6 +34,10 @@ class UI_EXPORT DiagnosticToolsPanel : public View {
   void set_visible_tools(bool on);
   bool is_tools_visible() const { return visible_; }
 
+  // Select Output / Console / Trace / Memory (no-op if index invalid).
+  void set_active_tab(int index);
+  int active_tab() const;
+
   DebugConsolePanel* output_pane() { return output_; }
   DebugConsolePanel* console_pane() { return console_; }
   RenderTracePanel* cpu_pane() { return cpu_; }

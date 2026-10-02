@@ -120,15 +120,32 @@ bool shade_dem_rgba(const DemRaster& dem, const HillshadeParams& params,
       float shade =
           sin_alt * std::cos(slope) +
           cos_alt * std::sin(slope) * std::cos(az - aspect);
-      // Soft accent: face light slightly cooler when grazing.
       shade = clampf(shade, 0.f, 1.f);
-      // Mild contrast so soft multiply still reads relief without crushing
-      // cream land out of the map2d_china land_cream gate.
-      shade = clampf((shade - 0.5f) * 1.35f + 0.5f, 0.15f, 1.f);
+      // Mild contrast: soft multiply still reads relief without crushing
+      // cream land out of the map2d_china land_cream gate, or looking like
+      // a hard drop-shadow rim along the coast.
+      shade = clampf((shade - 0.5f) * 1.18f + 0.5f, 0.22f, 1.f);
       const float t = shade;
       const float r = sr + (hr - sr) * t;
       const float g = sg + (hg - sg) * t;
       const float b = sb + (hb - sb) * t;
+      // Feather alpha when any neighbor is ocean so coastline softens under
+      // bilinear upscale (avoids jagged cast-shadow silhouette).
+      int land_n = 1;
+      int neigh = 1;
+      auto count_land = [&](float elev) {
+        ++neigh;
+        if (elev > 1.f) {
+          ++land_n;
+        }
+      };
+      count_land(zw);
+      count_land(ze);
+      count_land(zs);
+      count_land(zn);
+      const float edge_a = clampf(static_cast<float>(land_n) /
+                                     static_cast<float>((std::max)(1, neigh)),
+                                 0.35f, 1.f);
       const size_t i =
           (static_cast<size_t>(row) * static_cast<size_t>(w) +
            static_cast<size_t>(col)) *
@@ -136,7 +153,8 @@ bool shade_dem_rgba(const DemRaster& dem, const HillshadeParams& params,
       (*rgba)[i + 0] = static_cast<uint8_t>(clampf(r, 0.f, 1.f) * 255.f + 0.5f);
       (*rgba)[i + 1] = static_cast<uint8_t>(clampf(g, 0.f, 1.f) * 255.f + 0.5f);
       (*rgba)[i + 2] = static_cast<uint8_t>(clampf(b, 0.f, 1.f) * 255.f + 0.5f);
-      (*rgba)[i + 3] = 255;  // full alpha; tile.opacity handles softness
+      (*rgba)[i + 3] =
+          static_cast<uint8_t>(clampf(edge_a, 0.f, 1.f) * 255.f + 0.5f);
     }
   }
 

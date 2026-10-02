@@ -166,20 +166,25 @@ bool DemHeightField::build_mesh(int max_edge, std::vector<float>* xyz,
     const float lat = (*xyz)[i + 2];
     const double lon = static_cast<double>(-wx);
     const float meters = sample_meters(lon, static_cast<double>(lat));
+    float nx = 0.f;
+    float ny = 1.f;
+    float nz = 0.f;
+    if (rgb || nrm) {
+      sample_normal(lon, static_cast<double>(lat), &nx, &ny, &nz);
+    }
     if (rgb) {
       float r = 0;
       float g = 0;
       float b = 0;
-      gis::hypsometric_rgb(meters, &r, &g, &b);
+      // Tip-from-up ≈ slope: feeds rock/snow without a second DEM pass.
+      const float slope01 =
+          (std::max)(0.f, (std::min)(1.f, 1.f - (std::max)(0.f, ny)));
+      gis::terrain_material_rgb(meters, slope01, &r, &g, &b);
       rgb->push_back(r);
       rgb->push_back(g);
       rgb->push_back(b);
     }
     if (nrm) {
-      float nx = 0;
-      float ny = 1;
-      float nz = 0;
-      sample_normal(lon, static_cast<double>(lat), &nx, &ny, &nz);
       nrm->push_back(nx);
       nrm->push_back(ny);
       nrm->push_back(nz);

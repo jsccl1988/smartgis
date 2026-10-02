@@ -10,30 +10,31 @@ All rights reserved.
 
 # Build lock (multi-conversation)
 
-**Default: compile lock is OFF** (direct `build.bat`, no queue). Turn **on** only when multiple agents share `out/Debug|Release`.
+**Default: compile lock is OFF** (direct `build.bat`, no queue).
+
+**Agents must keep it OFF.** Do **not** create `out/.build.lock.on`, do **not** set `SMARTGIS_BUILD_LOCK=1`, and do **not** hand-hold `out/.build.lock.debug|release|shared`. Partition work by non-overlapping paths instead. Enforced by `.cursor/hooks/build_lock_gate.py` (`beforeShellExecution`).
 
 ## Global on/off
 
 | Switch | Effect |
 | --- | --- |
 | *(default)* | **Off** |
-| `out/.build.lock.on` | **On for everyone** until deleted |
-| `SMARTGIS_BUILD_LOCK=1` / `on` / `true` / `yes` | On for this process |
+| `out/.build.lock.on` | **On for everyone** until deleted — **agents: forbidden** |
+| `SMARTGIS_BUILD_LOCK=1` / `on` / `true` / `yes` | On for this process — **agents: forbidden** |
 | `SMARTGIS_BUILD_LOCK=0` / `off` / `false` / `no` | Force **off** (overrides sentinel) |
 
 When **off**: no ticket queue, no mutex, no multi-target split — one direct `build.bat` (`PHASE=all`). Bare `gn`/`ninja` allowed.
 
 ```bat
-REM enable globally (multi-agent)
-echo. > out\.build.lock.on
+REM agents: do NOT enable. Human-only emergency (then delete when done):
+REM   echo. > out\.build.lock.on
+REM   set SMARTGIS_BUILD_LOCK=1
 
 REM back to default off
 del out\.build.lock.on
-
-REM one-shot enable
-set SMARTGIS_BUILD_LOCK=1
-build.bat debug SmartGisViews
+set SMARTGIS_BUILD_LOCK=0
 ```
+
 
 ## Scopes (only when lock is on)
 
@@ -67,10 +68,12 @@ build.bat debug SmartGisViews
 
 ## Agent rules
 
-- **Do** prefer **`build.bat debug <single_target>`**.
-- **Do** create **`out/.build.lock.on`** when several agents will compile at once; delete when done.
+- **Do** prefer **`build.bat debug <single_target>`** with lock **off**.
+- **Don’t** create **`out/.build.lock.on`**, set **`SMARTGIS_BUILD_LOCK=1`**, or manually write **`out/.build.lock.*`** mutex files.
+- **Do** delete a stray **`out/.build.lock.on`** if you find one (hook allows delete).
 - **Don’t** invent per-agent out dirs.
 - **Don’t** use Task from chat A to “resume” Agents tab B; resume in that tab with `继续`.
+
 
 ## Parallelism model
 

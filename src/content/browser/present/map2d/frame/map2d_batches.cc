@@ -180,13 +180,14 @@ constexpr bool kExtentLonlat = true;
 constexpr size_t kPipelineMinLayers = 4;
 constexpr size_t kParallelForMinLayers = 2;
 
-// Feature* → stem-aggregated length (degrees) for water lines.
-using WaterStemLens = std::unordered_map<const MapScene::Feature*, double>;
+// Feature* → stem-aggregated length (degrees) for water and road lines.
+// Water and road stems are built separately so name/endpoint unions do not
+// cross roles (e.g. a road touching a river endpoint).
+using LineStemLens = std::unordered_map<const MapScene::Feature*, double>;
 
 bool should_keep_feature(const MapScene::Feature& f, const std::string& source,
                          double scale, bool extent_lonlat,
-                         const WaterStemLens* water_stems,
-                         bool use_carto_slots) {
+                         const LineStemLens* line_stems, bool use_carto_slots) {
   if (scale <= 0.0) {
     return true;
   }
@@ -212,9 +213,10 @@ bool should_keep_feature(const MapScene::Feature& f, const std::string& source,
     const MapLineRole role = map_scene_line_role(kind, cls);
     double len_deg =
         map_scene_length_as_degrees(polyline_length(f), extent_lonlat);
-    if (role == MapLineRole::kWater && water_stems) {
-      const auto it = water_stems->find(&f);
-      if (it != water_stems->end() && it->second > len_deg) {
+    if ((role == MapLineRole::kWater || role == MapLineRole::kRoad) &&
+        line_stems) {
+      const auto it = line_stems->find(&f);
+      if (it != line_stems->end() && it->second > len_deg) {
         len_deg = it->second;
       }
     }
@@ -224,16 +226,62 @@ bool should_keep_feature(const MapScene::Feature& f, const std::string& source,
   return true;
 }
 
-WaterStemLens build_water_stem_lengths(
-    const std::vector<MapScene::Layer>& layers,
-    const std::vector<size_t>& visible, bool use_carto_slots) {
-  WaterStemLens out;
-  struct Entry {
-    const MapScene::Feature* feature = nullptr;
-    std::string name_storage;
-    MapStemSpan span;
+// True when this line should join into the water or road stem union-find.
+bool is_stem_line(const std::string& source, const MapScene::Feature& f,
+                  MapLineRole want) {
+  if (want == MapLineRole::kWater && source == "river") {
+    return true;
+  }
+  if (want == MapLineRole::kRoad && source == "road") {
+    return true;
+  }
+  const char* kind = feature_field(f, "kind");
+  const char* cls = feature_field(f, "class");
+  if (!cls) {
+    cls = feature_field(f, "fclass");
+  }
+  return map_scene_line_role(kind, cls) == want;
+}
+
+void fill_stem_lens_from_entries(
+    std::vector<std::pair<const MapScene::Feature*, std::string>>* named,
+    std::vector<MapStemSpan>* spans, LineStemLens* out) {
+  if (!named || !spans || !out || named->empty()) {
+    return;
+  }
+  for (size_t i = 0; i < named->size(); ++i) {
+    (*spans)[i].name = (*named)[i].second.c_str();
+  }
+  std::vector<double> stem_lens(spans->size(), 0.0);
+  map_scene_fill_stem_lengths(spans->data(), spans->size(), 0.05,
+                              stem_lens.data());
+  for (size_t i = 0; i < named->size(); ++i) {
+    out->emplace((*named)[i].first, stem_lens[i]);
+  }
+}
+
+LineStemLens build_line_stem_lengths(const std::vector<MapScene::Layer>& layers,
+                                     const std::vector<size_t>& visible,
+                                     bool use_carto_slots) {
+  struct StemBucket {
+    std::vector<std::pair<const MapScene::Feature*, std::string>> named;
+    std::vector<MapStemSpan> spans;
   };
-  std::vector<Entry> entries;
+  StemBucket water;
+  StemBucket road;
+
+  auto push_entry = [](StemBucket* bucket, const MapScene::Feature& f) {
+    MapStemSpan span;
+    span.length =
+        map_scene_length_as_degrees(polyline_length(f), kExtentLonlat);
+    span.x0 = f.points.front().x;
+    span.y0 = f.points.front().y;
+    span.x1 = f.points.back().x;
+    span.y1 = f.points.back().y;
+    bucket->named.emplace_back(&f, feature_display_name(f));
+    bucket->spans.push_back(span);
+  };
+
   for (size_t vi : visible) {
     const MapScene::Layer& layer = layers[vi];
     if (!layer.visible) {
@@ -248,48 +296,22 @@ WaterStemLens build_water_stem_lengths(
       const std::string source =
           !use_carto_slots ? layer_slot
                            : (layer_is_slot ? layer_slot : carto_source_layer(f));
-      if (source != "river") {
-        const char* kind = feature_field(f, "kind");
-        const char* cls = feature_field(f, "class");
-        if (!cls) {
-          cls = feature_field(f, "fclass");
-        }
-        if (map_scene_line_role(kind, cls) != MapLineRole::kWater) {
-          continue;
-        }
+      if (is_stem_line(source, f, MapLineRole::kWater)) {
+        push_entry(&water, f);
+      } else if (is_stem_line(source, f, MapLineRole::kRoad)) {
+        push_entry(&road, f);
       }
-      Entry e;
-      e.feature = &f;
-      e.name_storage = feature_display_name(f);
-      e.span.name = e.name_storage.c_str();
-      e.span.length =
-          map_scene_length_as_degrees(polyline_length(f), kExtentLonlat);
-      e.span.x0 = f.points.front().x;
-      e.span.y0 = f.points.front().y;
-      e.span.x1 = f.points.back().x;
-      e.span.y1 = f.points.back().y;
-      entries.push_back(std::move(e));
     }
   }
-  if (entries.empty()) {
-    return out;
-  }
-  std::vector<MapStemSpan> spans;
-  spans.reserve(entries.size());
-  for (Entry& e : entries) {
-    e.span.name = e.name_storage.c_str();
-    spans.push_back(e.span);
-  }
-  std::vector<double> stem_lens(spans.size(), 0.0);
-  map_scene_fill_stem_lengths(spans.data(), spans.size(), 0.05, stem_lens.data());
-  for (size_t i = 0; i < entries.size(); ++i) {
-    out.emplace(entries[i].feature, stem_lens[i]);
-  }
+
+  LineStemLens out;
+  fill_stem_lens_from_entries(&water.named, &water.spans, &out);
+  fill_stem_lens_from_entries(&road.named, &road.spans, &out);
   return out;
 }
 
 void append_layer_features(const MapScene::Layer& layer, bool use_carto_slots,
-                           double scale, const WaterStemLens* water_stems,
+                           double scale, const LineStemLens* line_stems,
                            Map2dBatches* out) {
   if (!out || !layer.visible) {
     return;
@@ -303,7 +325,7 @@ void append_layer_features(const MapScene::Layer& layer, bool use_carto_slots,
     const std::string source =
         !use_carto_slots ? layer_slot
                          : (layer_is_slot ? layer_slot : carto_source_layer(f));
-    if (!should_keep_feature(f, source, scale, kExtentLonlat, water_stems,
+    if (!should_keep_feature(f, source, scale, kExtentLonlat, line_stems,
                              use_carto_slots)) {
       continue;
     }
@@ -384,13 +406,13 @@ Map2dBatches merge_parts(std::vector<Map2dBatches>* parts) {
 Map2dBatches batches_via_parallel_for(
     const std::vector<MapScene::Layer>& layers,
     const std::vector<size_t>& visible, bool use_carto_slots, double scale,
-    const WaterStemLens* water_stems) {
+    const LineStemLens* line_stems) {
   std::vector<Map2dBatches> parts(visible.size());
   base::execution::GlobalNThreadPoolExecutor executor;
   base::execution::parallel_for(
       executor, size_t{0}, visible.size(), [&](size_t vi) {
         append_layer_features(layers[visible[vi]], use_carto_slots, scale,
-                              water_stems, &parts[vi]);
+                              line_stems, &parts[vi]);
       });
   return merge_parts(&parts);
 }
@@ -399,7 +421,7 @@ Map2dBatches batches_via_parallel_for(
 Map2dBatches batches_via_pipeline(const std::vector<MapScene::Layer>& layers,
                                   const std::vector<size_t>& visible,
                                   bool use_carto_slots, double scale,
-                                  const WaterStemLens* water_stems) {
+                                  const LineStemLens* line_stems) {
   struct LayerCtx {
     size_t index = 0;
     Map2dBatches part;
@@ -427,7 +449,7 @@ Map2dBatches batches_via_pipeline(const std::vector<MapScene::Layer>& layers,
       {workers,
        [&](LayerCtx& ctx) -> Status {
          append_layer_features(layers[visible[ctx.index]], use_carto_slots,
-                               scale, water_stems, &ctx.part);
+                               scale, line_stems, &ctx.part);
          return Status::SUCCESS;
        }},
       {1,
@@ -457,19 +479,19 @@ Map2dBatches visible_layer_batches(const std::vector<MapScene::Layer>& layers,
   if (visible.empty()) {
     return {};
   }
-  const WaterStemLens water_stems =
-      build_water_stem_lengths(layers, visible, use_carto_slots);
+  const LineStemLens line_stems =
+      build_line_stem_lengths(layers, visible, use_carto_slots);
   if (visible.size() >= kPipelineMinLayers) {
     return batches_via_pipeline(layers, visible, use_carto_slots, scale,
-                                &water_stems);
+                                &line_stems);
   }
   if (visible.size() >= kParallelForMinLayers) {
     return batches_via_parallel_for(layers, visible, use_carto_slots, scale,
-                                    &water_stems);
+                                    &line_stems);
   }
   Map2dBatches out;
   out.batches.reserve(1);
-  append_layer_features(layers[visible[0]], use_carto_slots, scale, &water_stems,
+  append_layer_features(layers[visible[0]], use_carto_slots, scale, &line_stems,
                         &out);
   return out;
 }

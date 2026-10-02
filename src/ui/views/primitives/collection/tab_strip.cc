@@ -37,7 +37,21 @@ int TabStrip::tab_height() const {
 
 Rect TabStrip::header_bounds() const {
   const Rect& b = bounds();
-  return {b.x, b.y, b.width, tab_height()};
+  const int th = tab_height();
+  if (header_placement_ == HeaderPlacement::kBottom) {
+    const int y = b.height > th ? b.y + b.height - th : b.y;
+    return {b.x, y, b.width, th};
+  }
+  return {b.x, b.y, b.width, th};
+}
+
+void TabStrip::set_header_placement(HeaderPlacement placement) {
+  if (header_placement_ == placement) {
+    return;
+  }
+  header_placement_ = placement;
+  apply_page_visibility();
+  schedule_paint();
 }
 
 void TabStrip::on_device_scale_factor_changed(float old_scale, float new_scale) {
@@ -55,6 +69,22 @@ int TabStrip::add_tab(std::string title, std::unique_ptr<View> page) {
   }
   apply_page_visibility();
   return static_cast<int>(pages_.size()) - 1;
+}
+
+bool TabStrip::replace_page(int i, std::unique_ptr<View> page) {
+  if (i < 0 || i >= static_cast<int>(pages_.size()) || !page) {
+    return false;
+  }
+  View* old = pages_[static_cast<size_t>(i)];
+  View* raw = page.get();
+  add_child(std::move(page));
+  pages_[static_cast<size_t>(i)] = raw;
+  if (old) {
+    remove_child(old);
+  }
+  apply_page_visibility();
+  schedule_paint();
+  return true;
 }
 
 void TabStrip::set_active(int i) {
@@ -111,9 +141,11 @@ void TabStrip::apply_page_visibility() {
   const Rect& b = bounds();
   const int th = tab_height();
   constexpr int kHeaderGapPx = 2;
-  const int body_top = b.y + th + kHeaderGapPx;
   const int body_h =
       b.height > (th + kHeaderGapPx) ? b.height - th - kHeaderGapPx : 0;
+  const int body_top = (header_placement_ == HeaderPlacement::kBottom)
+                           ? b.y
+                           : b.y + th + kHeaderGapPx;
   const Rect page_bounds = {b.x, body_top, b.width, body_h};
   for (int i = 0; i < static_cast<int>(pages_.size()); ++i) {
     View* page = pages_[static_cast<size_t>(i)];
@@ -131,12 +163,12 @@ void TabStrip::layout() {
 }
 
 int TabStrip::tab_at(int x, int y) const {
-  const Rect& b = bounds();
-  if (pages_.empty() || y < b.y || y >= b.y + tab_height() || x < b.x ||
-      x >= b.right()) {
+  const Rect header = header_bounds();
+  if (pages_.empty() || y < header.y || y >= header.y + header.height ||
+      x < header.x || x >= header.x + header.width) {
     return -1;
   }
-  int cursor = b.x;
+  int cursor = header.x;
   for (int i = 0; i < static_cast<int>(pages_.size()); ++i) {
     const int w = tab_width_at(i);
     if (x >= cursor && x < cursor + w) {
@@ -151,7 +183,10 @@ bool TabStrip::on_mouse_event(const MouseEvent& e) {
   if (!is_enabled()) {
     return false;
   }
-  if (e.type == MouseEvent::Type::kUp && e.button == 1) {
+  // Activate on press (not only release): OS SendInput / DXGI present focus
+  // races often drop the matching mouse-up, leaving Map selected while the
+  // user intended 3D (plain-launch browse review).
+  if (e.type == MouseEvent::Type::kDown && e.button == 1) {
     const int i = tab_at(e.x, e.y);
     if (i >= 0) {
       const int previous = active_;
@@ -162,7 +197,7 @@ bool TabStrip::on_mouse_event(const MouseEvent& e) {
       return true;
     }
   }
-  if (e.type == MouseEvent::Type::kDown && e.button == 1 &&
+  if (e.type == MouseEvent::Type::kUp && e.button == 1 &&
       tab_at(e.x, e.y) >= 0) {
     return true;
   }
@@ -174,10 +209,17 @@ void TabStrip::paint_self(ui::gfx::Canvas* canvas) {
     return;
   }
   const Theme& t = Theme::current();
-  const Rect& b = bounds();
+  const Rect header = header_bounds();
   const float scale = view_scale(this);
-  const int th = tab_height();
-  canvas->fill_rect(b.x, b.y, b.width, th, t.panel_header);
+  const int th = header.height;
+  canvas->fill_rect(header.x, header.y, header.width, th, t.panel_header);
+  // Hairline toward the page body so top/bottom header placements share one
+  // chrome language (filled active cell + accent edge).
+  if (header_placement_ == HeaderPlacement::kBottom) {
+    canvas->fill_rect(header.x, header.y, header.width, 1, t.accent);
+  } else {
+    canvas->fill_rect(header.x, header.y + th - 1, header.width, 1, t.accent);
+  }
   if (pages_.empty()) {
     return;
   }
@@ -189,16 +231,21 @@ void TabStrip::paint_self(ui::gfx::Canvas* canvas) {
     const int w = tab_width_at(i);
     const bool on = (i == active_);
     if (on) {
-      canvas->fill_rect(x, b.y, w, th, t.accent);
+      canvas->fill_rect(x, header.y, w, th, t.accent);
+    } else {
+      // Quiet plate so inactive titles do not dissolve into panel_header.
+      canvas->fill_rect(x, header.y, w, th, t.control_fill);
     }
     canvas->save();
-    canvas->clip_rect(x, b.y, w, th);
+    canvas->clip_rect(x, header.y, w, th);
     const std::string& title_u8 = titles_[static_cast<size_t>(i)];
     const Size text = measure_text_utf8(title_u8, scale);
-    const int text_x = x + dip_to_px(kTabPadXDip, scale);
-    const int text_y = b.y + std::max(0, (th - text.height) / 2);
+    const int pad_x = dip_to_px(kTabPadXDip, scale);
+    // Center the glyph box in the accent cell (avoids bottom-heavy labels).
+    const int text_x = x + std::max(pad_x, (w - text.width) / 2);
+    const int text_y = header.y + std::max(0, (th - text.height) / 2);
     canvas->draw_text(text_x, text_y, utf8_to_wide(title_u8).c_str(),
-                      on ? accent_label : t.text);
+                      on ? accent_label : t.text_bright);
     canvas->restore();
   }
 }

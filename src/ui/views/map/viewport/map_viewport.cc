@@ -298,9 +298,27 @@ void MapViewport::detach() {
     local_device_ = nullptr;
   }
   local_module_ = nullptr;
+  // Stop the mailbox before (or while) waiting on kDestroy so close cannot
+  // sit forever if Display was between frames. shutdown_rhi still runs on
+  // thread exit when destroy is skipped.
+  {
+    std::lock_guard<std::mutex> lock(display_mu_);
+    if (display_started_) {
+      display_stop_ = true;
+    }
+  }
+  display_cv_.notify_all();
   // Drain Display mailbox and destroy Device before HWND teardown.
   release_rhi_device();
   stop_display_thread();
+  // Drop callbacks only after the mailbox thread has joined.
+  std::atomic_store_explicit(&overlay_paint_, std::shared_ptr<OverlayPaint>{},
+                             std::memory_order_release);
+  std::atomic_store_explicit(&gpu_present_, std::shared_ptr<GpuPresentFn>{},
+                             std::memory_order_release);
+  std::atomic_store_explicit(&gpu_submit_, std::shared_ptr<GpuSubmitFn>{},
+                             std::memory_order_release);
+  has_gpu_cb_.store(false, std::memory_order_release);
   destroy_flycube_present_hwnd();
   view_id_ = 0;
   mode_ = AttachMode::kNone;
@@ -308,18 +326,44 @@ void MapViewport::detach() {
   last_content_present_ok_.store(false, std::memory_order_release);
 }
 
+void MapViewport::refresh_has_gpu_cb() {
+  const bool has =
+      std::atomic_load_explicit(&gpu_present_, std::memory_order_acquire) !=
+          nullptr ||
+      std::atomic_load_explicit(&gpu_submit_, std::memory_order_acquire) !=
+          nullptr;
+  has_gpu_cb_.store(has, std::memory_order_release);
+}
+
 void MapViewport::set_overlay_paint(OverlayPaint fn) {
-  overlay_paint_ = std::move(fn);
+  std::shared_ptr<OverlayPaint> next;
+  if (fn) {
+    next = std::make_shared<OverlayPaint>(std::move(fn));
+  }
+  std::atomic_store_explicit(&overlay_paint_, std::move(next),
+                             std::memory_order_release);
 }
 
 void MapViewport::set_gpu_present(GpuPresentFn fn) {
   // Callback runs on the Display mailbox thread (P4), not on WM_PAINT.
-  gpu_present_ = std::move(fn);
+  std::shared_ptr<GpuPresentFn> next;
+  if (fn) {
+    next = std::make_shared<GpuPresentFn>(std::move(fn));
+  }
+  std::atomic_store_explicit(&gpu_present_, std::move(next),
+                             std::memory_order_release);
+  refresh_has_gpu_cb();
   request_frame();
 }
 
 void MapViewport::set_gpu_submit(GpuSubmitFn fn) {
-  gpu_submit_ = std::move(fn);
+  std::shared_ptr<GpuSubmitFn> next;
+  if (fn) {
+    next = std::make_shared<GpuSubmitFn>(std::move(fn));
+  }
+  std::atomic_store_explicit(&gpu_submit_, std::move(next),
+                             std::memory_order_release);
+  refresh_has_gpu_cb();
   request_frame();
 }
 
@@ -334,6 +378,22 @@ void MapViewport::request_frame() {
   if (HWND hwnd = native_view()) {
     InvalidateRect(hwnd, nullptr, FALSE);
   }
+}
+
+uint32_t MapViewport::frame_request() const {
+  return frame_request_.load(std::memory_order_acquire);
+}
+
+uint32_t MapViewport::frame_presented() const {
+  return frame_presented_.load(std::memory_order_acquire);
+}
+
+void MapViewport::mark_gpu_surface_dirty() {
+  gpu_surface_dirty_.store(true, std::memory_order_release);
+}
+
+bool MapViewport::consume_gpu_surface_dirty() {
+  return gpu_surface_dirty_.exchange(false, std::memory_order_acq_rel);
 }
 
 void MapViewport::invalidate_native() {
@@ -388,11 +448,17 @@ bool MapViewport::try_content_map_view() {
       return false;
     }
     owns_session_ = true;
+  }
+  // Shared Browser MapSession may own MapContents without StartRenderProcess
+  // (deferred OOP). Start now — first true need for the pipe.
+  if (!session_->IsOopRender()) {
     if (!session_->StartRenderProcess()) {
-      session_->Shutdown();
-      delete session_;
-      session_ = nullptr;
-      owns_session_ = false;
+      if (owns_session_) {
+        session_->Shutdown();
+        delete session_;
+        session_ = nullptr;
+        owns_session_ = false;
+      }
       return false;
     }
   }

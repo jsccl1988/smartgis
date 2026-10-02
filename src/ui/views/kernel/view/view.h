@@ -46,6 +46,8 @@ class UI_EXPORT View {
   View& operator=(const View&) = delete;
 
   void add_child(std::unique_ptr<View> child);
+  // Detach and return ownership of |child|. No-op / nullptr if not a child.
+  std::unique_ptr<View> remove_child(View* child);
   void remove_all_children();
   View* child_at(size_t i) const;
   size_t child_count() const { return children_.size(); }

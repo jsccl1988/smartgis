@@ -93,6 +93,7 @@ void Map2dGpuPresent::invalidate_frame_cache() {
     shell_overlay_.abandon_gpu();
     shell_overlay_.clear();
     last_present_ok_ = false;
+    last_present_drew_ = false;
     last_shell_generation_ = 0;
     last_had_shell_ = false;
     return;
@@ -101,6 +102,7 @@ void Map2dGpuPresent::invalidate_frame_cache() {
   shell_overlay_.abandon_gpu();
   shell_overlay_.clear();
   last_present_ok_ = false;
+  last_present_drew_ = false;
   last_shell_generation_ = 0;
   last_had_shell_ = false;
 }
@@ -164,6 +166,7 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   if (!device || !scene_ || !frame_ || !cache_ || width_px == 0 ||
       height_px == 0) {
     last_present_ok_ = false;
+    last_present_drew_ = false;
     LOGGING(LOG_ERROR,
             "map2d.present fail: bad args device=%p scene=%p frame=%p "
             "cache=%p size=%ux%u",
@@ -176,6 +179,10 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     Map2dFrameCache::PresentAction action =
         Map2dFrameCache::PresentAction::kRebuildFull;
     if (!cache_->prepare_for_present(width_px, height_px, &action)) {
+      // Drop the StaticReuse latch — a failed prepare after Resize clear must
+      // not leave last_present_ok_ true for a later hollow skip.
+      last_present_ok_ = false;
+      last_present_drew_ = false;
       LOGGING(LOG_ERROR,
               "map2d.present fail: prepare_for_present size=%ux%u "
               "(extent/layout)",
@@ -206,6 +213,7 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       cache_->note_present_outcome(
           Map2dFrameCache::PresentAction::kStaticReuse);
       last_present_ok_ = true;
+      last_present_drew_ = false;
       g_skip.fetch_add(1, std::memory_order_relaxed);
       note_map2d_phase_gpu(0, 0);
       return true;
@@ -238,6 +246,7 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     note_map2d_phase_gpu(upload_ms, present_ms);
     cache_->note_present_outcome(action);
     last_present_ok_ = ok;
+    last_present_drew_ = ok;
     g_full.fetch_add(1, std::memory_order_relaxed);
     if (ok) {
       last_had_shell_ = shell_present;
@@ -259,6 +268,7 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     shell_overlay_.clear();
     cache_->invalidate();
     last_present_ok_ = false;
+    last_present_drew_ = false;
     last_shell_generation_ = 0;
     last_had_shell_ = false;
     return false;

@@ -18,6 +18,7 @@ SmtXAMBox::~SmtXAMBox() { m_pAModule = NULL; }
 
 BEGIN_MESSAGE_MAP(SmtXAMBox, CTreeCtrl)
 ON_WM_CREATE()
+ON_WM_DESTROY()
 ON_WM_LBUTTONDOWN()
 ON_WM_LBUTTONUP()
 ON_WM_RBUTTONDOWN()
@@ -34,12 +35,18 @@ BOOL SmtXAMBox::Create(DWORD dwStyle, const RECT& rect, CWnd* pParentWnd,
 int SmtXAMBox::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   if (CTreeCtrl::OnCreate(lpCreateStruct) == -1) return -1;
 
-  // TODO:  �ڴ�������ר�õĴ�������
   if (!InitCreate()) {
     return -1;
   }
 
   return 0;
+}
+
+void SmtXAMBox::OnDestroy() {
+  // Drop plugin pointer before HWND teardown / FreeLibrary on close.
+  m_pAModule = NULL;
+  EndDestory();
+  CTreeCtrl::OnDestroy();
 }
 
 bool SmtXAMBox::InitCreate(void) {
@@ -60,14 +67,19 @@ bool SmtXAMBox::InitCreate(void) {
 
   SetImageList(&m_imgList, TVSIL_NORMAL);
 
+  if (!m_pAModule) {
+    return false;
+  }
   m_vFuncItems = m_pAModule->get_func_items(FIM_AUXMODULEBOX);
 
   return (CreateContexMenu() && UpdateAMBoxTree());
 }
 
 bool SmtXAMBox::EndDestory(void) {
-  ::DestroyMenu(m_hContexMenu);
-
+  if (m_hContexMenu) {
+    ::DestroyMenu(m_hContexMenu);
+    m_hContexMenu = NULL;
+  }
   return true;
 }
 
@@ -113,8 +125,11 @@ void SmtXAMBox::OnLButtonDown(UINT nFlags, CPoint point) {
 }
 
 void SmtXAMBox::OnLButtonUp(UINT nFlags, CPoint point) {
-  // TODO: �ڴ�������Ϣ������������/�����Ĭ��ֵ
   AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+  if (!m_pAModule) {
+    return;
+  }
 
   static SmtListenerMsg param;
   param.hSrcWnd = m_hWnd;
@@ -130,7 +145,8 @@ void SmtXAMBox::OnLButtonUp(UINT nFlags, CPoint point) {
 
   vSmtFuncItems::iterator iter = m_vFuncItems.begin();
   while (iter != m_vFuncItems.end()) {
-    if (strcmp((*iter).szName, strFuncItem) == 0) {
+    // Tree labels are decoded for display; match against the same form.
+    if (strFuncItem == ambox_title_for_display((*iter).szName)) {
       m_pAModule->notify((*iter).lMsg, param);
       return;
     }

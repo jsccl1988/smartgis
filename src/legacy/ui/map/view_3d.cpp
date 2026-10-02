@@ -417,7 +417,9 @@ bool Smt3DXView::CreateRender(void) {
   if (SMT_OK != m_p3DRenderDevice->Init(m_hWnd, str3DRenderDevice.c_str()))
     return false;
 
-  // Document / view title shows the live engine for GL vs D3D discrimination.
+  // Frame / view title shows the live engine for GL vs D3D discrimination.
+  // Never doc->SetTitle here: Edit shares the document and MDI would rename
+  // both tabs to Scene3D:1 / Scene3D:2 (visual-review bug #2).
   {
     CString title;
     if (str3DRenderDevice == "Direct3D") {
@@ -425,10 +427,10 @@ bool Smt3DXView::CreateRender(void) {
     } else {
       title = _T("三维 · Legacy Scene3D (OpenGL)");
     }
-    if (CDocument *doc = GetDocument()) {
-      doc->SetTitle(title);
-    }
     SetWindowText(title);
+    if (CFrameWnd *frame = GetParentFrame()) {
+      frame->SetWindowText(title);
+    }
   }
 
   SMT_SAFE_DELETE(m_pScene);

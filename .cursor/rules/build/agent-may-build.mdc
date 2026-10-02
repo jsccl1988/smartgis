@@ -26,7 +26,7 @@ From the **smartgis** repo root:
 
 Prefer `build.bat` over bare `gn` / `ninja` unless fixing the entry itself. Gen roots are **`out/Debug`** and **`out/Release`** (see `.cursor/rules/build/build-output.mdc`). For a faster agent loop, prefer **`build.bat debug …`**.
 
-**Multi-conversation lock:** **default OFF**. Enable with `out/.build.lock.on` or `SMARTGIS_BUILD_LOCK=1` (per-config locks + fair queue). Prefer `build.bat debug <single_target>`. See **`.cursor/rules/build/build-lock.mdc`**.
+**Multi-conversation lock:** **default OFF**. Agents **must not** enable it (`out/.build.lock.on` / `SMARTGIS_BUILD_LOCK=1` blocked by `.cursor/hooks/build_lock_gate.py`). Prefer `build.bat debug <single_target>` and non-overlapping paths. See **`.cursor/rules/build/build-lock.mdc`**.
 
 ## Allowed
 

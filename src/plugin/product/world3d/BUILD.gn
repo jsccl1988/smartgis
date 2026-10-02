@@ -16,6 +16,12 @@ copy("world3d_resources") {
   outputs = [ "$root_out_dir/../plugins/world3d/{{source_file_part}}" ]
 }
 
+# Data stub docs → out/plugins/world3d/data/ (GeoTIFFs are user-supplied).
+copy("world3d_data_stub") {
+  sources = [ "resources/data/README.md" ]
+  outputs = [ "$root_out_dir/../plugins/world3d/data/{{source_file_part}}" ]
+}
+
 # MFC-free XYZ→TIN and heightmap→grid kernels for world3d_views (and legacy DLL).
 source_set("world3d_processing") {
   sources = [
@@ -66,7 +72,10 @@ source_set("world3d_views") {
     "//third_party:gdal",
     "//third_party:rapidjson",
   ]
-  data_deps = [ ":world3d_resources" ]
+  data_deps = [
+    ":world3d_data_stub",
+    ":world3d_resources",
+  ]
 }
 
 test("world3d_loader_test") {

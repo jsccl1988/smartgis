@@ -106,6 +106,10 @@ int run_atmosphere_legacy(Browser& browser) {
   return run_atmosphere_showcase(browser, AtmosphereShowcaseMode::kLegacy);
 }
 
+int run_atmosphere_globe(Browser& browser) {
+  return run_atmosphere_showcase(browser, AtmosphereShowcaseMode::kGlobe);
+}
+
 }  // namespace
 
 void ensure_builtin_scenarios() {
@@ -273,6 +277,12 @@ void ensure_builtin_scenarios() {
         ScenarioKind::kShowcase,
         detail::kAtmosphereShowcaseMarkLeaf,
         &run_atmosphere_legacy,
+    });
+    register_scenario(Scenario{
+        "atmosphere.globe",
+        ScenarioKind::kShowcase,
+        detail::kAtmosphereShowcaseMarkLeaf,
+        &run_atmosphere_globe,
     });
   });
 }

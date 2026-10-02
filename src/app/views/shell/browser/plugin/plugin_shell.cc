@@ -10,6 +10,7 @@
 
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "base/core/log.h"
+#include "base/trace/event/process_trace.h"
 #include "content/public/plugin_host.h"
 #include "plugin/product/world3d/commands.h"
 #include "plugin/product/flood/commands.h"
@@ -121,20 +122,30 @@ void PluginShell::init_python() {
 }
 
 bool PluginShell::init(content::EventBus* events) {
-  catalog_ = std::make_unique<tool::CommandCatalog>();
-  host_.reset(content::create_plugin_host(catalog_.get(), events, nullptr));
-  if (!host_) {
-    return false;
+  BASE_TRACE_EVENT("PluginShell.init.body", "startup");
+  {
+    BASE_TRACE_EVENT("PluginHost.create", "startup");
+    catalog_ = std::make_unique<tool::CommandCatalog>();
+    host_.reset(content::create_plugin_host(catalog_.get(), events, nullptr));
+    if (!host_) {
+      return false;
+    }
   }
   // Keep PainterRegistry out of content/: wire withdraw here only.
   host_->set_ui_withdraw_hook([](std::string_view id) {
     ui::views::PainterRegistry::get().withdraw_plugin(id);
   });
-  registry_ = std::make_unique<plugin::Registry>();
-  pool_ = std::make_unique<plugin::ProcessingPool>(
-      plugin::ProcessingMode::kThread);
-  plugin::attach_host_processing(host_.get(), pool_.get());
-  install_builtin_resource_roots();
+  {
+    BASE_TRACE_EVENT("PluginRegistry.setup", "startup");
+    registry_ = std::make_unique<plugin::Registry>();
+    pool_ = std::make_unique<plugin::ProcessingPool>(
+        plugin::ProcessingMode::kThread);
+    plugin::attach_host_processing(host_.get(), pool_.get());
+  }
+  {
+    BASE_TRACE_EVENT("PluginResourceRoots", "startup");
+    install_builtin_resource_roots();
+  }
   // Defer CPython and LoadLibrary builtins until ensure_builtins / ensure_python
   // so Browser::init → first paint is not blocked by plugin DLL enable.
   return true;

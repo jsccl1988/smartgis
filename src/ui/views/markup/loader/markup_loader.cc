@@ -5,8 +5,10 @@
 
 #include <cctype>
 #include <cstdio>
+#include <mutex>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #ifndef NOMINMAX
@@ -15,6 +17,7 @@
 #include <windows.h>
 
 #include "pugixml.hpp"
+#include "base/trace/event/process_trace.h"
 #include "ui/views/kernel/view/view.h"
 #include "ui/views/markup/factory/placeholder_view.h"
 #include "ui/views/markup/layout/yoga_layout_manager.h"
@@ -282,6 +285,19 @@ std::unique_ptr<View> build_node(const pugi::xml_node& node,
     element_children.push_back(child);
   }
 
+  // Splitter owns pane layout (drag bar). Nest children without Yoga so the
+  // Splitter::layout override is not shadowed by a LayoutManager.
+  if (to_lower(node.name()) == "splitter") {
+    for (const pugi::xml_node& child_xml : element_children) {
+      auto child_view = build_node(child_xml, css, factory, ids, error);
+      if (!child_view) {
+        return nullptr;
+      }
+      view->add_child(std::move(child_view));
+    }
+    return view;
+  }
+
   if (!element_children.empty() || is_flex_container_tag(node.name())) {
     auto yoga = std::make_unique<YogaLayoutManager>();
     yoga->set_host_style(style);
@@ -368,16 +384,33 @@ bool load_markup_bytes(std::string_view xml_utf8,
 
 MarkupRoot load_markup(std::string_view path_or_name,
                        const MarkupOptions& options) {
+  BASE_TRACE_EVENT("LoadMarkup", "startup");
   MarkupRoot out;
   const std::string path = resolve_markup_path_impl(path_or_name);
   if (path.empty()) {
     out.error = std::string("markup: not found: ") + std::string(path_or_name);
     return out;
   }
-  const std::string xml = read_file(path);
+  // Process-wide path→XML cache: same catalog/panel markup is often loaded
+  // once per panel construction; skip redundant disk reads.
+  static std::mutex cache_mu;
+  static std::unordered_map<std::string, std::string> xml_cache;
+  std::string xml;
+  {
+    std::lock_guard<std::mutex> lock(cache_mu);
+    auto it = xml_cache.find(path);
+    if (it != xml_cache.end()) {
+      xml = it->second;
+    }
+  }
   if (xml.empty()) {
-    out.error = "markup: empty file: " + path;
-    return out;
+    xml = read_file(path);
+    if (xml.empty()) {
+      out.error = "markup: empty file: " + path;
+      return out;
+    }
+    std::lock_guard<std::mutex> lock(cache_mu);
+    xml_cache.emplace(path, xml);
   }
   const std::string base = dirname_of(path);
   if (!load_markup_bytes(xml, base, options, &out)) {

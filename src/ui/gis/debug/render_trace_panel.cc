@@ -22,6 +22,7 @@
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
+#include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/primitives/button/checkbox.h"
 #include "ui/views/primitives/text/label.h"
@@ -68,131 +69,76 @@ struct RenderTracePanel::State {
 };
 
 RenderTracePanel::RenderTracePanel() : state_(std::make_unique<State>()) {
-  auto box = std::make_unique<BoxLayout>(BoxLayout::Orientation::kVertical);
-  box->set_inside_border(8, 6, 8, 6);
-  box->set_between_child_spacing(4);
+  MarkupRoot loaded = load_markup("debug/render_trace_panel.ui.xml");
+  if (!loaded.ok()) {
+    set_preferred_size({500, 260});
+    return;
+  }
+  title_ = loaded.ids.find_as<Label>("title");
+  status_ = loaded.ids.find_as<Label>("status");
+  rollup_ = loaded.ids.find_as<Label>("rollup");
+  toolbar_ = loaded.ids.find("toolbar");
+  filters_ = loaded.ids.find("filters");
+  record_ = loaded.ids.find_as<Button>("record");
+  stop_ = loaded.ids.find_as<Button>("stop");
+  clear_ = loaded.ids.find_as<Button>("clear");
+  export_ = loaded.ids.find_as<Button>("export");
+  refresh_ = loaded.ids.find_as<Button>("refresh");
+  arm_ = loaded.ids.find_as<Checkbox>("arm");
+  show_map2d_ = loaded.ids.find_as<Checkbox>("show_map2d");
+  show_scene3d_ = loaded.ids.find_as<Checkbox>("show_scene3d");
+  show_startup_ = loaded.ids.find_as<Checkbox>("show_startup");
+  show_gdi_ = loaded.ids.find_as<Checkbox>("show_gdi");
+  show_ui_ = loaded.ids.find_as<Checkbox>("show_ui");
 
-  auto title =
-      std::make_unique<Label>(
-          "Perf Gantt (UI Views + Map2d + Scene3d + GDI + Startup)");
-  title->set_preferred_size({520, 22});
-  title_ = title.get();
-
-  auto status =
-      std::make_unique<Label>("Always-on �?open Diagnostic Tools to watch");
-  status->set_preferred_size({480, 20});
-  status_ = status.get();
-
-  auto row = std::make_unique<BoxLayout>(BoxLayout::Orientation::kHorizontal);
-  row->set_between_child_spacing(4);
-
-  auto record = std::make_unique<Button>("Record");
-  record->set_preferred_size({72, 28});
-  record_ = record.get();
-  record_->set_click([this]() { on_record(); });
-
-  auto stop = std::make_unique<Button>("Stop");
-  stop->set_preferred_size({64, 28});
-  stop_ = stop.get();
-  stop_->set_click([this]() { on_stop(); });
-
-  auto clear = std::make_unique<Button>("Clear");
-  clear->set_preferred_size({64, 28});
-  clear_ = clear.get();
-  clear_->set_click([this]() { on_clear(); });
-
-  auto exp = std::make_unique<Button>("Export");
-  exp->set_preferred_size({72, 28});
-  export_ = exp.get();
-  export_->set_click([this]() { on_export(); });
-
-  auto refresh = std::make_unique<Button>("Refresh");
-  refresh->set_preferred_size({72, 28});
-  refresh_ = refresh.get();
-  refresh_->set_click([this]() { on_refresh(); });
-
-  auto arm = std::make_unique<Checkbox>("Armed");
-  arm->set_preferred_size({80, 24});
-  arm_ = arm.get();
-  arm_->set_change([this](bool on) {
-    base::trace::set_tracing_enabled(on);
-    update_status();
-  });
-
-  auto toolbar = std::make_unique<View>();
-  toolbar->set_layout_manager(std::move(row));
-  toolbar->set_preferred_size({480, 32});
-  toolbar->add_child(std::move(record));
-  toolbar->add_child(std::move(stop));
-  toolbar->add_child(std::move(clear));
-  toolbar->add_child(std::move(exp));
-  toolbar->add_child(std::move(refresh));
-  toolbar->add_child(std::move(arm));
-
-  auto filt = std::make_unique<BoxLayout>(BoxLayout::Orientation::kHorizontal);
-  filt->set_between_child_spacing(8);
-  auto show2d = std::make_unique<Checkbox>("Map2d");
-  show2d->set_preferred_size({90, 24});
-  show2d->set_checked(true);
-  show_map2d_ = show2d.get();
-  show_map2d_->set_change([this](bool) {
+  if (record_) {
+    record_->set_click([this]() { on_record(); });
+  }
+  if (stop_) {
+    stop_->set_click([this]() { on_stop(); });
+  }
+  if (clear_) {
+    clear_->set_click([this]() { on_clear(); });
+  }
+  if (export_) {
+    export_->set_click([this]() { on_export(); });
+  }
+  if (refresh_) {
+    refresh_->set_click([this]() { on_refresh(); });
+  }
+  if (arm_) {
+    arm_->set_change([this](bool on) {
+      base::trace::set_tracing_enabled(on);
+      update_status();
+    });
+  }
+  auto filter_refresh = [this](bool) {
     refresh_from_process_trace();
     update_status();
-  });
-  auto show3d = std::make_unique<Checkbox>("Scene3d");
-  show3d->set_preferred_size({100, 24});
-  show3d->set_checked(true);
-  show_scene3d_ = show3d.get();
-  show_scene3d_->set_change([this](bool) {
-    refresh_from_process_trace();
-    update_status();
-  });
-  auto show_startup = std::make_unique<Checkbox>("Startup");
-  show_startup->set_preferred_size({90, 24});
-  show_startup->set_checked(true);
-  show_startup_ = show_startup.get();
-  show_startup_->set_change([this](bool) {
-    refresh_from_process_trace();
-    update_status();
-  });
-  auto show_gdi = std::make_unique<Checkbox>("GDI");
-  show_gdi->set_preferred_size({70, 24});
-  show_gdi->set_checked(true);
-  show_gdi_ = show_gdi.get();
-  show_gdi_->set_change([this](bool) {
-    refresh_from_process_trace();
-    update_status();
-  });
-  auto show_ui = std::make_unique<Checkbox>("UI");
-  show_ui->set_preferred_size({60, 24});
-  show_ui->set_checked(true);
-  show_ui_ = show_ui.get();
-  show_ui_->set_change([this](bool) {
-    refresh_from_process_trace();
-    update_status();
-  });
-  auto filters = std::make_unique<View>();
-  filters->set_layout_manager(std::move(filt));
-  filters->set_preferred_size({560, 28});
-  filters->add_child(std::move(show2d));
-  filters->add_child(std::move(show3d));
-  filters->add_child(std::move(show_startup));
-  filters->add_child(std::move(show_gdi));
-  filters->add_child(std::move(show_ui));
+  };
+  if (show_map2d_) {
+    show_map2d_->set_change(filter_refresh);
+  }
+  if (show_scene3d_) {
+    show_scene3d_->set_change(filter_refresh);
+  }
+  if (show_startup_) {
+    show_startup_->set_change(filter_refresh);
+  }
+  if (show_gdi_) {
+    show_gdi_->set_change(filter_refresh);
+  }
+  if (show_ui_) {
+    show_ui_->set_change(filter_refresh);
+  }
 
-  auto rollup = std::make_unique<Label>("");
-  rollup->set_preferred_size({480, 56});
-  rollup_ = rollup.get();
-
-  set_layout_manager(std::move(box));
-  add_child(std::move(title));
-  add_child(std::move(status));
-  add_child(std::move(toolbar));
-  add_child(std::move(filters));
-  add_child(std::move(rollup));
+  auto fill = std::make_unique<FillLayout>();
+  set_layout_manager(std::move(fill));
+  loaded.root->set_preferred_size({500, 260});
+  add_child(std::move(loaded.root));
   set_preferred_size({500, 260});
 
-  if (base::trace::tracing_enabled()) {
+  if (arm_ && base::trace::tracing_enabled()) {
     arm_->set_checked(true);
   }
   update_status();
@@ -229,10 +175,15 @@ RenderTracePanel::~RenderTracePanel() {
   if (show_gdi_) {
     show_gdi_->set_change({});
   }
+  if (show_ui_) {
+    show_ui_->set_change({});
+  }
   remove_all_children();
   title_ = nullptr;
   status_ = nullptr;
   rollup_ = nullptr;
+  toolbar_ = nullptr;
+  filters_ = nullptr;
   record_ = nullptr;
   stop_ = nullptr;
   clear_ = nullptr;
@@ -243,6 +194,7 @@ RenderTracePanel::~RenderTracePanel() {
   show_scene3d_ = nullptr;
   show_startup_ = nullptr;
   show_gdi_ = nullptr;
+  show_ui_ = nullptr;
   state_.reset();
 }
 
@@ -271,19 +223,13 @@ void RenderTracePanel::set_embedded(bool embedded) {
     rollup_->set_preferred_size(rollup);
     rollup_->set_visible(!embedded);
   }
-  // Toolbar / filters are anonymous Views �?walk children by preferred size.
-  for (size_t i = 0; i < child_count(); ++i) {
-    View* c = child_at(i);
-    if (!c || c == title_ || c == status_ || c == rollup_) {
-      continue;
-    }
-    if (c->preferred_size().height == 32 || c->preferred_size().height == 30) {
-      c->set_preferred_size(toolbar);
-      c->set_visible(!embedded);
-    } else if (c->preferred_size().height == 28) {
-      c->set_preferred_size(filters);
-      c->set_visible(!embedded);
-    }
+  if (toolbar_) {
+    toolbar_->set_preferred_size(toolbar);
+    toolbar_->set_visible(!embedded);
+  }
+  if (filters_) {
+    filters_->set_preferred_size(filters);
+    filters_->set_visible(!embedded);
   }
   set_preferred_size(embedded ? Size{0, 120} : Size{500, 260});
   layout();
@@ -432,7 +378,7 @@ void RenderTracePanel::refresh_from_process_trace(bool schedule) {
                           p.avg_us, p.p99_us);
     }
     if (state_->phases.size() > n) {
-      text += std::format("�?+{} phases\n", state_->phases.size() - n);
+      text += std::format("...+{} phases\n", state_->phases.size() - n);
     }
     rollup_->set_text(text);
   }
@@ -486,7 +432,7 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
                      show_gdi_, show_ui_);
   if (vis.empty()) {
     canvas->draw_text(b.x + 8, chrome_bottom + 4,
-                      L"No duration events yet � Record or wait for refresh",
+                      L"No duration events yet — Record or wait for refresh",
                       t.text_muted);
     return;
   }

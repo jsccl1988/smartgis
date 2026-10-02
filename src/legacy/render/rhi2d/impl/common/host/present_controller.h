@@ -24,6 +24,7 @@ class Rhi2dPresentController {
   bool submit_staged_job();
   void invalidate_map_present();
   int schedule_delayed_redraw(const gis::SmtMap* pMap);
+  int schedule_urgent_redraw(const gis::SmtMap* pMap);
   int on_timer();
 
   // Arm present-on-gen (e.g. Refresh while the worker is still busy).
@@ -32,6 +33,8 @@ class Rhi2dPresentController {
   void reset();
 
  private:
+  void finish_interactive_settle();
+
   SmtRhi2dRenderDevice* device_;
 
   LONGLONG last_redraw_cmd_stamp_ = 0;

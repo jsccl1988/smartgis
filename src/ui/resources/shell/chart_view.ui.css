@@ -1,0 +1,20 @@
+/* ChartView — title chrome; series plot stays C++ paint */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+  width: 320px;
+  height: 220px;
+}
+
+#title {
+  width: 320px;
+  height: 28px;
+}
+
+.plot {
+  width: 320px;
+  height: 192px;
+  flex-grow: 1;
+}

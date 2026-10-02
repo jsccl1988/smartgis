@@ -93,13 +93,32 @@ class GIS_EXPORT DemRaster {
   std::vector<uint8_t> land_;
 };
 
+// Default product DEM: china_dem (cutlined national outline). Does not prefer
+// global_dem — that would remask China showcase with prefecture rings and punch
+// plains holes. Use find_sample_global_dem_path / set_sample_dem_path_override
+// for full-sphere / custom AOI.
 GIS_EXPORT std::string find_sample_dem_path();
+// Prefer global_dem.tif (world3d / atmosphere globe); falls back to
+// find_sample_dem_path (china stand-in) when global is missing.
+GIS_EXPORT std::string find_sample_global_dem_path();
+// Optional product override for Scene3d terrain (global DEM / custom AOI).
+// Empty clears the override so find_sample_dem_path falls back to china_dem.
+GIS_EXPORT void set_sample_dem_path_override(const char* path);
+GIS_EXPORT std::string sample_dem_path_override();
 // Optional China remote-sensing / orthophoto beside the exe or under
-// testing/data (china_rs.tif / china_imagery.tif). Empty when missing.
+// out/data (china_rs.tif / china_imagery.tif). Empty when missing.
 GIS_EXPORT std::string find_sample_imagery_path();
+// Prefer global_terrain / blue_marble equirect; falls back to
+// find_sample_imagery_path when global albedo is missing.
+GIS_EXPORT std::string find_sample_global_imagery_path();
 
-// Leftover SmartGis.exe hypsometric character (meters → RGB).
+// Elevation → RGB (atlas ramp). Lowlands stay green-dominant for landish BMP
+// gates; highs stay ochre/taupe (not blown white).
 GIS_EXPORT void hypsometric_rgb(float meters, float* r, float* g, float* b);
+
+// Lit PBR / stereo vertex albedo: hypsometric + rock on steep + snow on flats.
+GIS_EXPORT void terrain_material_rgb(float meters, float slope01, float* r,
+                                     float* g, float* b);
 
 // Load GDAL RGB(A) raster to tightly packed RGBA8. Logs to stderr on failure.
 GIS_EXPORT bool load_imagery_rgba(const char* path, std::vector<uint8_t>* rgba,

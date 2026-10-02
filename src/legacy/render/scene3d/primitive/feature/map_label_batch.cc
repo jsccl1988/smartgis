@@ -31,8 +31,8 @@
 namespace render {
 namespace {
 
-constexpr int kLabelPx = 20;
-constexpr int kHaloPx = 3;
+constexpr int kLabelPx = 15;
+constexpr int kHaloPx = 2;
 
 int utf8_units(const std::string& text) {
   int n = 0;
@@ -45,7 +45,8 @@ int utf8_units(const std::string& text) {
 }
 
 COLORREF ink_for_priority(int priority) {
-  return priority <= 1 ? RGB(255, 244, 196) : RGB(250, 250, 245);
+  // Soft warm paper ink — less chalk-white on dark DEM.
+  return priority <= 1 ? RGB(248, 242, 228) : RGB(236, 240, 244);
 }
 
 // Rasterize one label with GDI+ AA + halo into premultiplied-friendly BGRA.
@@ -68,7 +69,8 @@ bool rasterize_label_bgra(const std::wstring& wide, int px_h, int halo_px,
   Gdiplus::Font* font = nullptr;
   for (const wchar_t* face : faces) {
     auto* trial = new Gdiplus::Font(face, static_cast<Gdiplus::REAL>(px_h),
-                                    Gdiplus::FontStyleBold, Gdiplus::UnitPixel);
+                                    Gdiplus::FontStyleRegular,
+                                    Gdiplus::UnitPixel);
     if (trial->GetLastStatus() == Gdiplus::Ok) {
       font = trial;
       break;
@@ -127,8 +129,10 @@ bool rasterize_label_bgra(const std::wstring& wide, int px_h, int halo_px,
 
   Gdiplus::SolidBrush ink_brush(
       Gdiplus::Color(255, GetRValue(ink), GetGValue(ink), GetBValue(ink)));
+  // Soft halo (not solid CAD boxes); keep alpha high enough that edges do not
+  // shimmer against lit DEM under the 3D view refresh timer.
   Gdiplus::SolidBrush halo_brush(
-      Gdiplus::Color(230, GetRValue(halo), GetGValue(halo), GetBValue(halo)));
+      Gdiplus::Color(210, GetRValue(halo), GetGValue(halo), GetBValue(halo)));
   const Gdiplus::PointF center(static_cast<Gdiplus::REAL>(w) * 0.5f,
                                static_cast<Gdiplus::REAL>(h) * 0.5f);
 
@@ -194,7 +198,7 @@ bool draw_aa_label(float x, float y, const std::string& utf8, int priority) {
   int tw = 0;
   int th = 0;
   if (!rasterize_label_bgra(wide, kLabelPx, kHaloPx, ink_for_priority(priority),
-                            RGB(20, 22, 28), &bgra, &tw, &th)) {
+                            RGB(14, 16, 22), &bgra, &tw, &th)) {
     return false;
   }
 
@@ -220,6 +224,87 @@ bool draw_aa_label(float x, float y, const std::string& utf8, int priority) {
   draw_label_quad(x, y, tw, th, tex);
   glDeleteTextures(1, &tex);
   return true;
+}
+
+// Prefer previous-frame winners so 1px MVP jitter cannot swap city names.
+void declutter_sticky(const MapLabelBox* boxes, int count, int max_keep,
+                      int view_w, int view_h, const std::vector<int>& sticky,
+                      std::vector<int>* keep) {
+  if (!keep) {
+    return;
+  }
+  keep->clear();
+  if (!boxes || count <= 0 || max_keep <= 0) {
+    return;
+  }
+  auto overlaps_kept = [&](int idx) -> bool {
+    for (int kept : *keep) {
+      const MapLabelBox& a = boxes[idx];
+      const MapLabelBox& b = boxes[kept];
+      if (a.left < b.right && a.right > b.left && a.top < b.bottom &&
+          a.bottom > b.top) {
+        return true;
+      }
+    }
+    return false;
+  };
+  auto in_view = [&](const MapLabelBox& b) -> bool {
+    if (view_w <= 0 || view_h <= 0) {
+      return true;
+    }
+    return b.right > 4 && b.left < view_w - 4 && b.bottom > 4 &&
+           b.top < view_h - 4;
+  };
+  auto try_keep = [&](int idx) {
+    if (idx < 0 || idx >= count || !in_view(boxes[idx]) ||
+        overlaps_kept(idx)) {
+      return;
+    }
+    keep->push_back(idx);
+  };
+
+  std::vector<int> sticky_order = sticky;
+  std::stable_sort(sticky_order.begin(), sticky_order.end(), [&](int a, int b) {
+    if (a < 0 || a >= count || b < 0 || b >= count) {
+      return a < b;
+    }
+    if (boxes[a].priority != boxes[b].priority) {
+      return boxes[a].priority < boxes[b].priority;
+    }
+    return a < b;
+  });
+  for (int idx : sticky_order) {
+    if (static_cast<int>(keep->size()) >= max_keep) {
+      break;
+    }
+    try_keep(idx);
+  }
+
+  std::vector<int> order(static_cast<size_t>(count));
+  for (int i = 0; i < count; ++i) {
+    order[static_cast<size_t>(i)] = i;
+  }
+  std::stable_sort(order.begin(), order.end(), [&](int a, int b) {
+    if (boxes[a].priority != boxes[b].priority) {
+      return boxes[a].priority < boxes[b].priority;
+    }
+    return a < b;
+  });
+  for (int idx : order) {
+    if (static_cast<int>(keep->size()) >= max_keep) {
+      break;
+    }
+    bool already = false;
+    for (int kept : *keep) {
+      if (kept == idx) {
+        already = true;
+        break;
+      }
+    }
+    if (!already) {
+      try_keep(idx);
+    }
+  }
 }
 
 void draw_bitmap_fallback(LP3DRENDERDEVICE device, uint font_id, float x,
@@ -266,6 +351,14 @@ long MapLabelBatch::Create(LP3DRENDERDEVICE p3DRenderDevice) {
   if (!p3DRenderDevice) {
     return SMT_ERR_INVALID_PARAM;
   }
+  // Geographic labels span the DEM; keep a wide AABB so frustum cull keeps us.
+  m_aAbb.vcMin.set(-200.f, -50.f, -200.f);
+  m_aAbb.vcMax.set(200.f, 50.f, 200.f);
+  m_aAbb.vcCenter = (m_aAbb.vcMin + m_aAbb.vcMax) * 0.5f;
+  // D3D labels use GDI+ → DrawScreenBgra; GL CreateFont is optional.
+  if (p3DRenderDevice->GetBaseApi() != RA_OPENGL) {
+    return SMT_ERR_NONE;
+  }
   return ensure_font(p3DRenderDevice) ? SMT_ERR_NONE : SMT_ERR_FAILURE;
 }
 
@@ -311,10 +404,30 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
   const int cell = kLabelPx + 2;
   const int box_h = kLabelPx + kHaloPx * 2 + 8;
   for (const MapLabel& lab : labels_) {
-    lPoint pt;
-    p3DRenderDevice->Transform3DTo2D(Vector3(lab.x, lab.y, lab.z), pt);
-    const int x = static_cast<int>(pt.x);
-    const int y = vh - static_cast<int>(pt.y);
+    lPoint pt = {};
+    if (p3DRenderDevice->Transform3DTo2D(Vector3(lab.x, lab.y, lab.z), pt) !=
+        SMT_ERR_NONE) {
+      sx.push_back(-10000);
+      sy.push_back(-10000);
+      MapLabelBox box;
+      box.left = -10000;
+      box.top = -10000;
+      box.right = -9999;
+      box.bottom = -9999;
+      box.priority = lab.priority;
+      boxes.push_back(box);
+      continue;
+    }
+    int x = static_cast<int>(pt.x + (pt.x >= 0 ? 0.5f : -0.5f));
+    int y = vh - static_cast<int>(pt.y + (pt.y >= 0 ? 0.5f : -0.5f));
+    // Hold last pixel when MVP noise is ≤1px — stops declutter thrash under
+    // the view refresh timer even when the camera is idle.
+    const size_t li = sx.size();
+    if (li < last_sx_.size() && li < last_sy_.size() &&
+        std::abs(x - last_sx_[li]) <= 1 && std::abs(y - last_sy_[li]) <= 1) {
+      x = last_sx_[li];
+      y = last_sy_[li];
+    }
     sx.push_back(x);
     sy.push_back(y);
     const int w = utf8_units(lab.text) * cell + kHaloPx * 2 + 16;
@@ -327,11 +440,13 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
     boxes.push_back(box);
   }
   std::vector<int> keep;
-  // Country view: point-only CJK labels; allow a denser city set than the old
-  // 12-cap (which looked sparse once Latin hydro noise was dropped).
-  const int budget = vw < 700 ? 22 : 32;
-  declutter_map_labels(boxes.data(), static_cast<int>(boxes.size()), budget, vw,
-                       vh, &keep);
+  // Country view: denser city set; D3D labels now draw on immediate context.
+  const int budget = vw < 700 ? 28 : 40;
+  declutter_sticky(boxes.data(), static_cast<int>(boxes.size()), budget, vw, vh,
+                   sticky_keep_, &keep);
+  sticky_keep_ = keep;
+  last_sx_ = sx;
+  last_sy_ = sy;
 
   // D3D leftover: GDI+ raster -> DrawScreenBgra (no GL context).
   if (p3DRenderDevice->GetBaseApi() == RA_D3D09) {
@@ -351,7 +466,7 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
         entry.key = cache_key;
         if (!rasterize_label_bgra(wide, kLabelPx, kHaloPx,
                                   ink_for_priority(lab.priority),
-                                  RGB(20, 22, 28), &entry.bgra, &entry.w,
+                                  RGB(14, 16, 22), &entry.bgra, &entry.w,
                                   &entry.h)) {
           continue;
         }
@@ -406,7 +521,7 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
         entry.key = cache_key;
         if (!rasterize_label_bgra(wide, kLabelPx, kHaloPx,
                                   ink_for_priority(lab.priority),
-                                  RGB(20, 22, 28), &entry.bgra, &entry.w,
+                                  RGB(14, 16, 22), &entry.bgra, &entry.w,
                                   &entry.h)) {
           continue;
         }
@@ -479,6 +594,9 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
 long MapLabelBatch::Destroy() {
   clear_raster_cache();
   labels_.clear();
+  last_sx_.clear();
+  last_sy_.clear();
+  sticky_keep_.clear();
   font_ready_ = false;
   font_id_ = 0;
   return SMT_ERR_NONE;
@@ -507,6 +625,9 @@ void MapLabelBatch::add_label(const MapLabel& label) {
 
 void MapLabelBatch::clear_labels() {
   labels_.clear();
+  last_sx_.clear();
+  last_sy_.clear();
+  sticky_keep_.clear();
   clear_raster_cache();
 }
 

@@ -1,0 +1,20 @@
+/* DiagnosticTools Memory tab — stats row + paint host */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 620px;
+  height: 140px;
+}
+
+#stats {
+  width: 480px;
+  height: 40px;
+}
+
+.chart_host {
+  width: 620px;
+  height: 120px;
+  flex-grow: 1;
+}

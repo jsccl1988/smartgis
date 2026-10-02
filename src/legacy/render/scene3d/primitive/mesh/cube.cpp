@@ -3,9 +3,9 @@
 #include <math.h>
 
 namespace render {
-SmtCube::SmtCube(LP3DRENDERDEVICE pRenderDevice, ::base::Vector3 m_vCenter,
+SmtCube::SmtCube(LP3DRENDERDEVICE /*pRenderDevice*/, ::base::Vector3 vCenter,
                  float dbfWidth) {
-  m_vCenter = m_vCenter;
+  m_vCenter = vCenter;
   m_fWidth = dbfWidth;
 }
 

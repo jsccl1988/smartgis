@@ -34,6 +34,9 @@ class Scene3dSoftwarePainter {
   void paint(HDC hdc, int width_px, int height_px,
              bool fill_background = true) const;
   void paint_hud(HDC hdc, int width_px, int height_px) const;
+  // Leftover-style place-names (white + black outline). Safe on any HDC;
+  // DXGI flip surfaces need this drawn onto a capture BMP or layered child.
+  void paint_legacy_place_labels(HDC hdc, int width_px, int height_px) const;
 
   static void paint_engine_logo(HDC hdc, int width_px, int height_px,
                                 const char* engine_name);

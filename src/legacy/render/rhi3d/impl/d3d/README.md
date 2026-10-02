@@ -72,7 +72,7 @@ Public headers under `rhi3d/public/` follow the same snake_case map (`3drenderde
 
 - D3D11 device + DXGI swapchain; offscreen **`color_tex_`** RT (Clear/Draw), blit to swapchain on Present.
 - Init/Destroy/Release, Begin/End/Swap/Clear, CPU matrix stack (heap-backed), system-memory VB/IB, state-manager cache, caps defaults.
-- **StereoTerrain DrawIndexedPrimitives** — XYZ+Normal+Diffuse lit mesh (HLSL compile-at-init, not full GLSL program port).
+- **DEM SmtTerrain DrawIndexedPrimitives** — XYZ+Normal+Diffuse lit mesh (HLSL compile-at-init, not full GLSL program port).
 - Staging **`CaptureBgr24`** (pre-Present snapshot).
 - Line strips + **DrawScreenBgra** (MapLabelBatch / draped rivers).
 
@@ -108,4 +108,4 @@ Product default is **D3D11**. `--d3d` sets `SMT_STEREO_API=Direct3D` / `SMT_SCEN
 .\build.bat debug d3d_texture_test
 ```
 
-**Lighting (StereoTerrain):** mesh PS mirrors leftover GL `setup_device_lights` + `COLOR_MATERIAL`: ambient 1.0 and two white directionals from `(1,1,1)` (identity-MV bake), normals in object space — see `paint/draw.cpp`.
+**Lighting (DEM SmtTerrain):** mesh PS mirrors leftover GL `setup_device_lights` + `COLOR_MATERIAL`: ambient 1.0 and two white directionals from `(1,1,1)` (identity-MV bake), normals in object space — see `paint/draw.cpp`.

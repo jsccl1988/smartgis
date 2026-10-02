@@ -55,6 +55,9 @@ class Map2dPresenter {
                    const ui::gfx::ShellRaster* shell = nullptr,
                    uint64_t shell_generation = 0);
   bool last_gpu_present_ok() const;
+  // Last present_gpu recorded Pass (false on StaticReuse skip).
+  bool last_gpu_present_drew() const;
+  void note_surface_reset();
   uint64_t layout_build_count() const;
   bool last_present_reused_layout() const;
 

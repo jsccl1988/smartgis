@@ -160,10 +160,25 @@ long SmtD3DRenderDevice::Transform2DTo3D(Vector3& /*vOrg*/, Vector3& /*vTar*/,
 }
 
 long SmtD3DRenderDevice::Transform3DTo2D(const Vector3& ver3D, lPoint& point) {
-  // Match gluProject: bottom-up window Y; MapLabelBatch flips to top-down.
+  // Match gluProject: clip → NDC → bottom-up window Y; MapLabelBatch flips.
+  // Manual clip multiply — Matrix::transform_point divides by w and forces w=1.
+  // Re-apply camera view before label projection when P3 deferred may have
+  // raced modelview_ (scene Render calls camera->apply() each frame first).
   const Matrix mvp = modelview_ * projection_;
-  const Vector4 ndc =
-      mvp.transform_point(Vector4(ver3D.x, ver3D.y, ver3D.z, 1.f));
+  const float x = ver3D.x;
+  const float y = ver3D.y;
+  const float z = ver3D.z;
+  const float clip_x =
+      x * mvp._11 + y * mvp._21 + z * mvp._31 + mvp._41;
+  const float clip_y =
+      x * mvp._12 + y * mvp._22 + z * mvp._32 + mvp._42;
+  const float clip_w =
+      x * mvp._14 + y * mvp._24 + z * mvp._34 + mvp._44;
+  if (std::fabs(clip_w) < 1e-8f || clip_w < 0.f) {
+    return SMT_ERR_FAILURE;
+  }
+  const float ndc_x = clip_x / clip_w;
+  const float ndc_y = clip_y / clip_w;
   const float vw = static_cast<float>(
       m_viewPort.ulWidth > 0 ? m_viewPort.ulWidth : backbuffer_width_);
   const float vh = static_cast<float>(
@@ -171,8 +186,8 @@ long SmtD3DRenderDevice::Transform3DTo2D(const Vector3& ver3D, lPoint& point) {
   if (vw <= 0.f || vh <= 0.f) {
     return SMT_ERR_FAILURE;
   }
-  point.x = static_cast<long>(m_viewPort.ulX + (ndc.x + 1.f) * 0.5f * vw);
-  point.y = static_cast<long>(m_viewPort.ulY + (ndc.y + 1.f) * 0.5f * vh);
+  point.x = static_cast<long>(m_viewPort.ulX + (ndc_x + 1.f) * 0.5f * vw);
+  point.y = static_cast<long>(m_viewPort.ulY + (ndc_y + 1.f) * 0.5f * vh);
   return SMT_ERR_NONE;
 }
 

@@ -33,6 +33,18 @@ void invalidate_pan_baseline() {
   pan_baseline().device = nullptr;
 }
 
+// Urgent async re-tessellate + sync HWND present (wheel / browse end).
+void settle_browse_present(render::LPRENDERDEVICE device, SmtMap* map) {
+  if (!device) {
+    return;
+  }
+  if (map) {
+    (void)device->ScheduleUrgentRedraw(map);
+  }
+  (void)device->RenderMap();
+  (void)device->Refresh();
+}
+
 }  // namespace
 
 void apply_wheel_zoom(render::LPRENDERDEVICE device, SmtMap* map, double scale_delt,
@@ -57,20 +69,18 @@ void apply_wheel_zoom(render::LPRENDERDEVICE device, SmtMap* map, double scale_d
   } else {
     fScale = static_cast<float>(1 - delt);
   }
+  // MapLibre-like: stretch the last published front immediately; coalesce the
+  // worker re-tessellate. Urgent settle every wheel notch fights the preview
+  // and feels hitchy on china.
   device->PreviewZoomScale(point, fScale);
-  // Sync compose+present so wheel stretch is on the HWND before harness
-  // capture (InvalidateRect-only Refresh can defer past settle).
-  (void)device->RenderMap();
-  // Second present path: some GDI+ hosts discard the first BitBlt when a
-  // FrameJob publish races; Refresh invalidate+compose makes SendMessage
-  // wheel visible without waiting for SendInput retry.
   (void)device->Refresh();
   device->ScheduleDelayedRedraw(map);
   invalidate_pan_baseline();
 }
 
 void apply_pan_by_points(render::LPRENDERDEVICE device, SmtMap* map,
-                         base::lPoint origin, base::lPoint end) {
+                         base::lPoint origin, base::lPoint end,
+                         bool gesture_end) {
   if (!device) {
     return;
   }
@@ -100,6 +110,12 @@ void apply_pan_by_points(render::LPRENDERDEVICE device, SmtMap* map,
   // Slide the last published front with the pointer while the worker catches up.
   device->SetCurDrawingOrg(lPoint(end.x - origin.x, end.y - origin.y));
   device->Refresh();
+  if (gesture_end) {
+    device->SetCurDrawingOrg(lPoint(0, 0));
+    settle_browse_present(device, map);
+    invalidate_pan_baseline();
+    return;
+  }
   device->ScheduleDelayedRedraw(map);
 }
 
@@ -122,7 +138,7 @@ void apply_zoom_in_by_points(render::LPRENDERDEVICE device, SmtMap* map,
   } else {
     device->ZoomScale(map, end, static_cast<float>(1 - scale_delt));
   }
-  device->Refresh();
+  settle_browse_present(device, map);
   invalidate_pan_baseline();
 }
 
@@ -132,7 +148,7 @@ void apply_zoom_out_at_point(render::LPRENDERDEVICE device, SmtMap* map,
     return;
   }
   device->ZoomScale(map, point, static_cast<float>(1 + scale_delt));
-  device->Refresh();
+  settle_browse_present(device, map);
   invalidate_pan_baseline();
 }
 
@@ -174,8 +190,8 @@ void apply_zoom_restore(render::LPRENDERDEVICE device, SmtMap* map) {
   frt.lb.x -= fWidthDiv;
   frt.lb.y -= fHeightDiv;
 
-  // Proxy re-render only — avoid Refresh() race with worker GDI buffers.
   device->ZoomToRect(map, frt, false);
+  settle_browse_present(device, map);
   invalidate_pan_baseline();
 }
 
@@ -217,6 +233,7 @@ void apply_view_draft(render::LPRENDERDEVICE device, SmtMap* map, double scale_d
     origin_inout->y = draft.points[0].y_px;
   }
   *captured_inout = TRUE;
+  const bool gesture_end = draft_flags::is_gesture_end(draft.flags);
   switch (view_mode) {
     case VM_ZoomIn:
       apply_zoom_in_by_points(device, map, scale_delt, *origin_inout, end);
@@ -226,11 +243,11 @@ void apply_view_draft(render::LPRENDERDEVICE device, SmtMap* map, double scale_d
       apply_zoom_out_at_point(device, map, scale_delt, end);
       break;
     case VM_ZoomMove:
-      apply_pan_by_points(device, map, *origin_inout, end);
+      apply_pan_by_points(device, map, *origin_inout, end, gesture_end);
       *captured_inout = FALSE;
       break;
     default:
-      apply_pan_by_points(device, map, *origin_inout, end);
+      apply_pan_by_points(device, map, *origin_inout, end, gesture_end);
       *captured_inout = FALSE;
       break;
   }

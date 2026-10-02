@@ -164,6 +164,98 @@ bool handle_attach_city_tileset(const tool::CommandArgs& args) {
   return g_scene_writer.attach_tileset(path);
 }
 
+bool scene_json_get_bool(const rapidjson::Value& obj, const char* key,
+                         bool* out) {
+  if (!out || !key || !obj.IsObject()) {
+    return false;
+  }
+  const auto it = obj.FindMember(key);
+  if (it == obj.MemberEnd() || !it->value.IsBool()) {
+    return false;
+  }
+  *out = it->value.GetBool();
+  return true;
+}
+
+bool handle_load_global_dem(const tool::CommandArgs& args) {
+  if (!g_scene_writer.load_global_dem) {
+    return fail_no_scene("world3d.load_global_dem");
+  }
+  rapidjson::Document doc;
+  if (!parse_scene_args(args.payload, &doc)) {
+    set_operation_result(
+        "{\"error\":\"bad_args\",\"command\":\"world3d.load_global_dem\"}");
+    return false;
+  }
+  std::string path;
+  (void)scene_json_get_string(doc, "path", &path);
+  std::string result;
+  if (!g_scene_writer.load_global_dem(path, &result)) {
+    if (result.empty()) {
+      set_operation_result(
+          "{\"error\":\"load_failed\",\"command\":\"world3d.load_global_dem\"}");
+    } else {
+      set_operation_result(result);
+    }
+    return false;
+  }
+  if (!result.empty()) {
+    set_operation_result(result);
+  }
+  return true;
+}
+
+bool handle_set_satellite_cloud(const tool::CommandArgs& args) {
+  if (!g_scene_writer.set_satellite_cloud) {
+    return fail_no_scene("world3d.set_satellite_cloud");
+  }
+  rapidjson::Document doc;
+  if (!parse_scene_args(args.payload, &doc)) {
+    set_operation_result(
+        "{\"error\":\"bad_args\",\"command\":\"world3d.set_satellite_cloud\"}");
+    return false;
+  }
+  std::string path;
+  (void)scene_json_get_string(doc, "path", &path);
+  bool enabled = true;
+  (void)scene_json_get_bool(doc, "enabled", &enabled);
+  std::string result;
+  if (!g_scene_writer.set_satellite_cloud(path, enabled, &result)) {
+    if (result.empty()) {
+      set_operation_result(
+          "{\"error\":\"cloud_failed\",\"command\":\"world3d.set_satellite_cloud\"}");
+    } else {
+      set_operation_result(result);
+    }
+    return false;
+  }
+  if (!result.empty()) {
+    set_operation_result(result);
+  }
+  return true;
+}
+
+bool handle_set_atmosphere(const tool::CommandArgs& args) {
+  if (!g_scene_writer.set_atmosphere) {
+    return fail_no_scene("world3d.set_atmosphere");
+  }
+  rapidjson::Document doc;
+  if (!parse_scene_args(args.payload, &doc)) {
+    set_operation_result(
+        "{\"error\":\"bad_args\",\"command\":\"world3d.set_atmosphere\"}");
+    return false;
+  }
+  bool sky = true;
+  bool ocean = true;
+  bool cloud = true;
+  bool fog = true;
+  (void)scene_json_get_bool(doc, "sky", &sky);
+  (void)scene_json_get_bool(doc, "ocean", &ocean);
+  (void)scene_json_get_bool(doc, "cloud", &cloud);
+  (void)scene_json_get_bool(doc, "fog", &fog);
+  return g_scene_writer.set_atmosphere(sky, ocean, cloud, fog);
+}
+
 bool handle_add_terrain_grid(const tool::CommandArgs&) {
   if (!g_scene_writer.add_terrain_grid) {
     return fail_no_scene("model3d.add_terrain_grid");
@@ -516,6 +608,97 @@ bool process_attach_city_tileset(content::PluginHost*,
   return true;
 }
 
+bool process_load_global_dem(content::PluginHost*, std::string_view args_json) {
+  if (!g_scene_writer.load_global_dem) {
+    return fail_no_scene_processing("world3d.load_global_dem");
+  }
+  rapidjson::Document args;
+  if (!parse_scene_args(args_json, &args)) {
+    set_operation_result(
+        "{\"error\":\"bad_args\",\"op\":\"world3d.load_global_dem\"}");
+    return false;
+  }
+  std::string path;
+  (void)scene_json_get_string(args, "path", &path);
+  std::string result;
+  if (!g_scene_writer.load_global_dem(path, &result)) {
+    if (result.empty()) {
+      set_operation_result(
+          "{\"error\":\"load_failed\",\"op\":\"world3d.load_global_dem\"}");
+    } else {
+      set_operation_result(result);
+    }
+    return false;
+  }
+  if (result.empty()) {
+    set_operation_result("{\"ok\":true,\"op\":\"world3d.load_global_dem\"}");
+  } else {
+    set_operation_result(result);
+  }
+  return true;
+}
+
+bool process_set_satellite_cloud(content::PluginHost*,
+                                 std::string_view args_json) {
+  if (!g_scene_writer.set_satellite_cloud) {
+    return fail_no_scene_processing("world3d.set_satellite_cloud");
+  }
+  rapidjson::Document args;
+  if (!parse_scene_args(args_json, &args)) {
+    set_operation_result(
+        "{\"error\":\"bad_args\",\"op\":\"world3d.set_satellite_cloud\"}");
+    return false;
+  }
+  std::string path;
+  (void)scene_json_get_string(args, "path", &path);
+  bool enabled = true;
+  (void)scene_json_get_bool(args, "enabled", &enabled);
+  std::string result;
+  if (!g_scene_writer.set_satellite_cloud(path, enabled, &result)) {
+    if (result.empty()) {
+      set_operation_result(
+          "{\"error\":\"cloud_failed\",\"op\":\"world3d.set_satellite_cloud\"}");
+    } else {
+      set_operation_result(result);
+    }
+    return false;
+  }
+  if (result.empty()) {
+    set_operation_result(
+        "{\"ok\":true,\"op\":\"world3d.set_satellite_cloud\"}");
+  } else {
+    set_operation_result(result);
+  }
+  return true;
+}
+
+bool process_set_atmosphere(content::PluginHost*, std::string_view args_json) {
+  if (!g_scene_writer.set_atmosphere) {
+    return fail_no_scene_processing("world3d.set_atmosphere");
+  }
+  rapidjson::Document args;
+  if (!parse_scene_args(args_json, &args)) {
+    set_operation_result(
+        "{\"error\":\"bad_args\",\"op\":\"world3d.set_atmosphere\"}");
+    return false;
+  }
+  bool sky = true;
+  bool ocean = true;
+  bool cloud = true;
+  bool fog = true;
+  (void)scene_json_get_bool(args, "sky", &sky);
+  (void)scene_json_get_bool(args, "ocean", &ocean);
+  (void)scene_json_get_bool(args, "cloud", &cloud);
+  (void)scene_json_get_bool(args, "fog", &fog);
+  if (!g_scene_writer.set_atmosphere(sky, ocean, cloud, fog)) {
+    set_operation_result(
+        "{\"error\":\"atmo_failed\",\"op\":\"world3d.set_atmosphere\"}");
+    return false;
+  }
+  set_operation_result("{\"ok\":true,\"op\":\"world3d.set_atmosphere\"}");
+  return true;
+}
+
 bool contribute_scene_cmd(content::PluginHost* host,
                           std::string_view command_id,
                           std::string_view title,
@@ -578,6 +761,15 @@ bool register_world3d_scene_ops(content::PluginHost* host) {
   ok = contribute_scene_cmd(host, "world3d.attach_city_tileset", "挂载城市瓦片",
                             handle_attach_city_tileset) &&
        ok;
+  ok = contribute_scene_cmd(host, "world3d.load_global_dem", "加载全球DEM",
+                            handle_load_global_dem) &&
+       ok;
+  ok = contribute_scene_cmd(host, "world3d.set_satellite_cloud", "卫星云图",
+                            handle_set_satellite_cloud) &&
+       ok;
+  ok = contribute_scene_cmd(host, "world3d.set_atmosphere", "大气层开关",
+                            handle_set_atmosphere) &&
+       ok;
 
   ok = host->contribute_processing(
            kPluginId, {"model3d.add_pointcloud", "Add point cloud"},
@@ -635,6 +827,18 @@ bool register_world3d_scene_ops(content::PluginHost* host) {
   ok = host->contribute_processing(
            kPluginId, {"world3d.attach_city_tileset", "挂载城市瓦片"},
            process_attach_city_tileset) &&
+       ok;
+  ok = host->contribute_processing(
+           kPluginId, {"world3d.load_global_dem", "加载全球DEM"},
+           process_load_global_dem) &&
+       ok;
+  ok = host->contribute_processing(
+           kPluginId, {"world3d.set_satellite_cloud", "卫星云图"},
+           process_set_satellite_cloud) &&
+       ok;
+  ok = host->contribute_processing(
+           kPluginId, {"world3d.set_atmosphere", "大气层开关"},
+           process_set_atmosphere) &&
        ok;
 
   return ok;

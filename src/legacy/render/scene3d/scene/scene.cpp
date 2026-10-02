@@ -17,7 +17,7 @@
 #include "legacy/core/types/types.h"
 #include "legacy/render/detail/frame_pipeline.h"
 #include "legacy/render/rhi3d/impl/common/frame/prep_runner.h"
-#include "legacy/render/scene3d/detail/d3d_deferred_objects.h"
+#include "legacy/render/scene3d/scene/d3d_deferred_objects.h"
 #include "legacy/render/scene3d/seed/scene_to_world.h"
 
 namespace render {
@@ -190,8 +190,18 @@ long SmtScene::Render(void) {
         QueryPerformanceFrequency(&qpf);
         QueryPerformanceCounter(&t_draw0);
       }
-      if (!detail::render_objects_d3d_deferred(m_p3DRenderDevice, visible)) {
+      std::vector<Smt3DObject*> immediate_after;
+      if (!detail::render_objects_d3d_deferred(m_p3DRenderDevice, visible,
+                                               &immediate_after)) {
         for (Smt3DObject* obj : visible) {
+          obj->Render(m_p3DRenderDevice);
+        }
+      } else if (!immediate_after.empty()) {
+        // Restore camera matrices before screen-space labels (P3 may race MV).
+        if (m_pCamera) {
+          m_pCamera->apply();
+        }
+        for (Smt3DObject* obj : immediate_after) {
           obj->Render(m_p3DRenderDevice);
         }
       }

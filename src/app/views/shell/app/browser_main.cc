@@ -22,6 +22,7 @@
 #include "app/views/shell/harness/self_test/self_test.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "base/core/log.h"
+#include "base/trace/diag/startup_profile.h"
 #include "base/trace/event/process_trace.h"
 #include "content/browser/debug/debug_agent.h"
 #include "content/browser/present/scene3d/policy/scene3d_rhi_session.h"
@@ -42,6 +43,8 @@ const char* atmosphere_suite_id(AtmosphereShowcaseMode mode) {
       return "atmosphere.coast";
     case AtmosphereShowcaseMode::kLegacy:
       return "atmosphere.legacy";
+    case AtmosphereShowcaseMode::kGlobe:
+      return "atmosphere.globe";
     case AtmosphereShowcaseMode::kNone:
       break;
   }
@@ -261,16 +264,59 @@ int run_browser_main(const content::ContentMainParams&,
     }
   }
   const bool debug_console = options.debug_console;
-  auto browser = std::make_unique<Browser>();
+  std::unique_ptr<Browser> browser;
+  {
+    BASE_TRACE_EVENT("Browser.ctor", "startup");
+    browser = std::make_unique<Browser>();
+  }
   browser->set_plugins_dir(s_plugins_dir);
+  {
+    // OOP: CLI --enable-oop-render or SMT_ENABLE_OOP_RENDER=1.
+    bool enable_oop = options.enable_oop_render;
+    if (const char* env = std::getenv("SMT_ENABLE_OOP_RENDER")) {
+      if (env[0] == '1' && env[1] == '\0') {
+        enable_oop = true;
+      }
+    }
+    if (const char* env = std::getenv("SMT_DISABLE_OOP_RENDER")) {
+      if (env[0] == '1' && env[1] == '\0') {
+        enable_oop = false;
+      }
+    }
+    browser->set_enable_oop_render(enable_oop);
+
+    // China seed: sync for harness / self-test / showcase; defer for product.
+    // SMT_SYNC_CHINA_SEED=1 forces sync; SMT_DEFER_CHINA_SEED=1 forces defer.
+    const bool harness =
+        self_test || self_test_console || input_showcase || browse_showcase ||
+        showcase != AtmosphereShowcaseMode::kNone ||
+        map2d_showcase != Map2dShowcaseMode::kNone ||
+        plugin_showcase != PluginShowcaseMode::kNone ||
+        ui_showcase != UiShowcaseMode::kNone;
+    bool defer_china = !harness;
+    if (const char* env = std::getenv("SMT_SYNC_CHINA_SEED")) {
+      if (env[0] == '1' && env[1] == '\0') {
+        defer_china = false;
+      }
+    }
+    if (const char* env = std::getenv("SMT_DEFER_CHINA_SEED")) {
+      if (env[0] == '1' && env[1] == '\0') {
+        defer_china = true;
+      }
+    }
+    browser->set_defer_china_seed(defer_china);
+  }
   {
     BASE_TRACE_EVENT("Browser.init", "startup");
     LOGGING(LOG_INFO, "startup: Browser::init");
     if (!browser->init()) {
       LOGGING(LOG_ERROR, "startup: Browser::init failed");
+      base::trace::maybe_dump_startup_profile();
       return 1;
     }
   }
+  // Mid-startup snapshot (partial file) when show/wait may hang.
+  base::trace::dump_startup_profile_partial("post-init");
   if (debug_console || self_test_console ||
       content::debug_console_env_enabled()) {
     BASE_TRACE_EVENT("DebugAgent.start", "startup");
@@ -292,6 +338,9 @@ int run_browser_main(const content::ContentMainParams&,
     browser->show();
   }
   LOGGING(LOG_INFO, "startup: first show complete");
+  // Dump once here so interactive sessions see the table without waiting for
+  // process exit (wWinMain also calls maybe_dump — second call is a no-op).
+  base::trace::maybe_dump_startup_profile();
   // Agent / shot hooks: open Data or 3D without flaky synthetic clicks.
   if (const char* tab = std::getenv("SMT_VIEWS_START_MAP_TAB")) {
     int idx = 0;

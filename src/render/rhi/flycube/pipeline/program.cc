@@ -57,6 +57,11 @@ std::vector<InputLayoutDesc> input_layout(VertexLayout layout) {
     case VertexLayout::kPositionNormal:
       return {{0, "POSITION", gli::FORMAT_RGB32_SFLOAT_PACK32, 24, 0},
               {0, "NORMAL", gli::FORMAT_RGB32_SFLOAT_PACK32, 24, 12}};
+    case VertexLayout::kPositionNormalUv:
+      // float3 pos + float3 nrm + float2 uv (32-byte stride).
+      return {{0, "POSITION", gli::FORMAT_RGB32_SFLOAT_PACK32, 32, 0},
+              {0, "NORMAL", gli::FORMAT_RGB32_SFLOAT_PACK32, 32, 12},
+              {0, "TEXCOORD", gli::FORMAT_RG32_SFLOAT_PACK32, 32, 24}};
     case VertexLayout::kPosition:
     default:
       return {{0, "POSITION", gli::FORMAT_RGB32_SFLOAT_PACK32, 12, 0}};

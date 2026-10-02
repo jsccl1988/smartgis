@@ -20,6 +20,7 @@
 #include "content/browser/document/query/extent_query.h"
 #include "content/browser/document/query/inspector.h"
 #include "content/public/feature_attrs.h"
+#include "base/trace/event/process_trace.h"
 #include "gis/present/style/style_document.h"
 
 namespace content {
@@ -96,15 +97,18 @@ bool MapScene::try_bootstrap_china_plp() {
   return false;
 }
 
-void MapScene::seed_default() {
-  if (try_bootstrap_china_plp()) {
-    // Match --map2d-showcase=china: clear any accompanying china_city.style.json
-    // so Map2dFrameCache uses default MapLibre carto + carto_source_layer remap
-    // (area→land, lines→river/admin/road). Binding the file style keys
-    // source-layer area/line/point and disables remap — cream wash + blue
-    // scribble / black point squares that diverge from the shot gates.
-    clear_style_document();
-    return;
+void MapScene::seed_default(bool allow_china_bootstrap) {
+  if (allow_china_bootstrap) {
+    BASE_TRACE_EVENT("SeedDocument.ChinaBootstrap", "startup");
+    if (try_bootstrap_china_plp()) {
+      // Match --map2d-showcase=china: clear any accompanying china_city.style.json
+      // so Map2dFrameCache uses default MapLibre carto + carto_source_layer remap
+      // (area→land, lines→river/admin/road). Binding the file style keys
+      // source-layer area/line/point and disables remap — cream wash + blue
+      // scribble / black point squares that diverge from the shot gates.
+      clear_style_document();
+      return;
+    }
   }
   clear();
   Layer layer;

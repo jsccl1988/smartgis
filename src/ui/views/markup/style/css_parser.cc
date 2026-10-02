@@ -50,8 +50,14 @@ bool parse_px(std::string_view raw, float* out) {
   raw = trim(raw);
   const std::string lower = to_lower(raw);
   std::string_view num = lower;
+  // Reject percentages / other units — strtof("100%") would otherwise yield 100.
+  if (!num.empty() && num.back() == '%') {
+    return false;
+  }
   if (num.size() >= 2 && num.substr(num.size() - 2) == "px") {
     num = num.substr(0, num.size() - 2);
+  } else if (!num.empty() && std::isalpha(static_cast<unsigned char>(num.back()))) {
+    return false;
   }
   return parse_float(num, out);
 }

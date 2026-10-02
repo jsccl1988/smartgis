@@ -5,6 +5,8 @@ All rights reserved.
 
 # `src/ui/views` — Views toolkit (endgame)
 
+**Diagram:** [`docs/superpowers/diagrams/ui-views-shell-architecture.html`](../../../docs/superpowers/diagrams/ui-views-shell-architecture.html)（toolkit / gfx / compositor 角色）
+
 **Views** (widget / layout / events / controls) for in-process C++ shell. Public namespace: `ui::views`. Includes use `"ui/views/<area>/<group>/..."` under the responsibility groups below. `map/` nests `viewport|input|chrome|device`.
 
 This directory is the **public toolkit**. Product composition is **`src/app/views`** (`out/SmartGisViews.exe`, destination entry). The app hosts a `Widget` / `Splitter` and places toolkit widgets; it does not paint catalog / ambox / chart / layer panels by hand. Leftover MFC `SmartGis.exe` stays until parity. MFC migration: [`docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md`](../../../docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md).
@@ -111,7 +113,7 @@ Module nest remains `src/ui/views` (one layer under `ui/`). The groups are direc
 - `contextmenu` is a stub View (Win32 popup is a free function, not a View).
 - Preview / editor: `build.bat UiDesigner` → `out/Debug/UiDesigner.exe` (default opens `shell/main_app.ui.xml` SmartGisViews chrome template; open/save/hot-reload, palette, properties, tree, insert/reorder, **Text2UI** Generate… / Ctrl+Shift+G — template by default, `@llm` → Cursor Agent; bottom **Console+Trace** DiagnosticToolsPanel for UI paint profile — View → Toggle Console+Trace; CSD FrameView, Dark/Light theme).
 - Text2UI API: `ui/views/text2ui/` (`generate_text2ui`, template matchers, validate). Host injects `LlmBackend` (UiDesigner: Cursor Agent CLI + `CURSOR_API_KEY`).
-- Main app design template: `src/ui/resources/shell/main_app.ui.xml` (+ `.ui.css`) — mirrors `BrowserView::build_contents` with GIS placeholders.
+- Main app chrome: `src/ui/resources/shell/main_app.ui.xml` (+ `.ui.css`) — product `ShellLayoutChrome` loads it and mounts Catalog / Map / Ambox / inspector / Diagnostic / Status into `*_host` panels; UiDesigner opens the same file as the default canvas.
 - UI render profile: `BASE_TRACE_EVENT(..., "ui.views")` on Widget paint/commit/present + ShellCompositor raster; RenderTrace **UI** filter; Diagnostic Tools tab **Trace**.
 
 Map pixels stay on `src/map` / `src/feature` + `src/render`. Architecture: [`docs/build/ui-views-skia.md`](../../../docs/build/ui-views-skia.md). Control split: [`docs/superpowers/specs/2026-09-13-ui-views-controls-design.md`](../../../docs/superpowers/specs/2026-09-13-ui-views-controls-design.md) (nesting superseded by the 2026-09-19 design).

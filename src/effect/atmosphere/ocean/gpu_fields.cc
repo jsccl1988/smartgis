@@ -116,29 +116,8 @@ OceanGpuFields::~OceanGpuFields() {
 }
 
 void OceanGpuFields::destroy_pipelines() {
-  if (pipeline_device_) {
-    if (spectrum_) {
-      pipeline_device_->destroy_pipeline(spectrum_);
-    }
-    if (bit_reverse_) {
-      pipeline_device_->destroy_pipeline(bit_reverse_);
-    }
-    if (butterfly_) {
-      pipeline_device_->destroy_pipeline(butterfly_);
-    }
-    if (displace_) {
-      pipeline_device_->destroy_pipeline(displace_);
-    }
-    if (encode_) {
-      pipeline_device_->destroy_pipeline(encode_);
-    }
-    if (gaussian_h_) {
-      pipeline_device_->destroy_pipeline(gaussian_h_);
-    }
-    if (gaussian_v_) {
-      pipeline_device_->destroy_pipeline(gaussian_v_);
-    }
-  }
+  // Abandon only — never virtual-call through a possibly recycled Device*
+  // (same FlyCube shutdown policy as SkyPass / OceanPass::release).
   spectrum_ = nullptr;
   bit_reverse_ = nullptr;
   butterfly_ = nullptr;
@@ -450,7 +429,9 @@ bool OceanGpuFields::upload_height(render::rhi::Device* owner_device, render::rh
   const float h_scale = std::max(height_scale, 1.0e-3f);
   const float d_scale = std::max(disp_scale, 1.0e-3f);
   const std::size_t nbytes = static_cast<std::size_t>(n * n * 4);
-  upload_rgba_.assign(nbytes, 0);
+  // Function-local reuse: avoid n*n*4 heap churn without changing class layout.
+  static thread_local std::vector<uint8_t> upload_rgba;
+  upload_rgba.assign(nbytes, 0);
   for (int i = 0; i < n * n; ++i) {
     const float h = heights[static_cast<std::size_t>(i)];
     const float dx = disp_x.empty() ? 0.f : disp_x[static_cast<std::size_t>(i)];
@@ -458,16 +439,16 @@ bool OceanGpuFields::upload_height(render::rhi::Device* owner_device, render::rh
     const float enc_h = clampf(0.5f + 0.5f * (h / h_scale), 0.0f, 1.0f);
     const float enc_x = clampf(0.5f + 0.5f * (dx / d_scale), 0.0f, 1.0f);
     const float enc_z = clampf(0.5f + 0.5f * (dz / d_scale), 0.0f, 1.0f);
-    upload_rgba_[static_cast<std::size_t>(i * 4 + 0)] =
+    upload_rgba[static_cast<std::size_t>(i * 4 + 0)] =
         static_cast<uint8_t>(enc_h * 255.0f + 0.5f);
-    upload_rgba_[static_cast<std::size_t>(i * 4 + 1)] =
+    upload_rgba[static_cast<std::size_t>(i * 4 + 1)] =
         static_cast<uint8_t>(enc_x * 255.0f + 0.5f);
-    upload_rgba_[static_cast<std::size_t>(i * 4 + 2)] =
+    upload_rgba[static_cast<std::size_t>(i * 4 + 2)] =
         static_cast<uint8_t>(enc_z * 255.0f + 0.5f);
-    upload_rgba_[static_cast<std::size_t>(i * 4 + 3)] = 255;
+    upload_rgba[static_cast<std::size_t>(i * 4 + 3)] = 255;
   }
-  return device->upload_texture(height_, upload_rgba_.data(),
-                                static_cast<uint32_t>(upload_rgba_.size()));
+  return device->upload_texture(height_, upload_rgba.data(),
+                                static_cast<uint32_t>(upload_rgba.size()));
 }
 
 }  // namespace detail

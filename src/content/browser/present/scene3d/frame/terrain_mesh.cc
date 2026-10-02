@@ -62,10 +62,15 @@ void rebuild_terrain_mesh(gis::World* world,
   if (!world || !xyz || !idx || !geo || !lod_edge) {
     return;
   }
-  // DEM is the China raster. Non-China extents shrink it into a cyan sticker
-  // on a huge ocean — always frame with a lon/lat box inside China.
-  const Extent2 frame =
-      extent_looks_like_china(extent) ? extent : kChinaLonLatExtent;
+  // Default product DEM is the China raster: non-China extents would shrink
+  // it into a cyan sticker, so fall back to the China lon/lat box. When a
+  // product override (global DEM / custom AOI) is set, honor the orbit extent.
+  Extent2 frame = extent;
+  if (gis::sample_dem_path_override().empty()) {
+    frame = extent_looks_like_china(extent) ? extent : kChinaLonLatExtent;
+  } else if (!extent_nonempty(frame)) {
+    frame = kChinaLonLatExtent;
+  }
   const int next_lod = gis::DemRaster::lod_max_edge(orbit_distance);
   const int grid_key = orbit_distance < 2.4f ? 2 : 1;
   const int cache_key = next_lod * 10 + grid_key;

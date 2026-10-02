@@ -1,11 +1,17 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #include "legacy/render/scene3d/primitive/mesh/water.h"
+
+#include <algorithm>
+#include <cmath>
 
 #include "base/math/math.h"
 
 using namespace render;
-using namespace render;
 
 namespace render {
+
 SmtWater::SmtWater() : m_fXScale(1), m_fYScale(1), m_fZScale(1) {}
 
 SmtWater::~SmtWater() { Destroy(); }
@@ -17,18 +23,21 @@ long SmtWater::Init(::base::Vector3& vPos, SmtMaterial& matMaterial,
   m_fTexOffset = 0;
 
   int x, y, index = 0;
-  /* place the vertices in a grid */
+  /* place the vertices in a grid — cool cyan water albedo */
   for (y = 0; y < CST_INT_GRID_HEIGHT; y++)
     for (x = 0; x < CST_INT_GRID_WIDTH; x++) {
       index = y * CST_INT_GRID_WIDTH + x;
       wvertex[index].x = (x - CST_INT_GRID_WIDTH / 2) * m_fXScale;
       wvertex[index].y = (y - CST_INT_GRID_HEIGHT / 2) * m_fZScale;
       wvertex[index].z = 0;
-      wvertex[index].r = 0.7;
-      wvertex[index].g = 0.8;
-      wvertex[index].b = 0.7;
-      wvertex[index].u = y;
-      wvertex[index].v = x;
+      // Vary hue slightly so lit waves read as water, not flat gray.
+      const float u = static_cast<float>(x) / static_cast<float>(CST_INT_GRID_WIDTH);
+      const float v = static_cast<float>(y) / static_cast<float>(CST_INT_GRID_HEIGHT);
+      wvertex[index].r = 0.12f + 0.08f * u;
+      wvertex[index].g = 0.42f + 0.18f * v;
+      wvertex[index].b = 0.62f + 0.20f * (1.f - u);
+      wvertex[index].u = static_cast<float>(y);
+      wvertex[index].v = static_cast<float>(x);
     }
 
   for (y = 0; y < CST_INT_GRID_HEIGHT; y++) {
@@ -41,7 +50,6 @@ long SmtWater::Init(::base::Vector3& vPos, SmtMaterial& matMaterial,
 
   UpdateVertex();
   UpdateNormal();
-
   UpdateTexcoord();
 
   return SMT_ERR_NONE;
@@ -62,20 +70,22 @@ long SmtWater::Create(LP3DRENDERDEVICE p3DRenderDevice) {
   m_aAbb.vcMin += -(CST_INT_GRID_HEIGHT / 2.) * m_fZScale;
   m_aAbb.vcCenter += (m_aAbb.vcMax + m_aAbb.vcMin) / 2.;
 
-  return SMT_ERR_NONE;
-  int x, y, index = 0;
+  // Seed a radial ripple so the first present is not a flat gray plane.
+  // (Previously this block sat after an early return and never ran.)
+  int x, y;
   double dx, dy, d;
-
   for (y = 0; y < CST_INT_GRID_HEIGHT; y++) {
     for (x = 0; x < CST_INT_GRID_WIDTH; x++) {
-      dx = (double)(x - CST_INT_GRID_WIDTH / 2);
-      dy = (double)(y - CST_INT_GRID_HEIGHT / 2);
-      d = sqrt(dx * dx + dy * dy);
-      if (d < 0.1 * (double)(CST_INT_GRID_WIDTH / 2)) {
-        d = d * 10.0;
-        p[x][y] = -cos(d * (PI / (double)(CST_INT_GRID_WIDTH * 4))) * 100.0;
+      dx = static_cast<double>(x - CST_INT_GRID_WIDTH / 2);
+      dy = static_cast<double>(y - CST_INT_GRID_HEIGHT / 2);
+      d = std::sqrt(dx * dx + dy * dy);
+      const double radius = 0.35 * static_cast<double>(CST_INT_GRID_WIDTH / 2);
+      if (d < radius) {
+        const double t = d * (PI / static_cast<double>(CST_INT_GRID_WIDTH * 2));
+        p[x][y] = -std::cos(t) * 55.0;
       } else {
-        p[x][y] = 0.0;
+        // Mild traveling ripples across the rest of the grid.
+        p[x][y] = 8.0 * std::sin(dx * 0.35) * std::cos(dy * 0.28);
       }
       vx[x][y] = 0.0;
       vy[x][y] = 0.0;
@@ -91,14 +101,14 @@ long SmtWater::Create(LP3DRENDERDEVICE p3DRenderDevice) {
 }
 
 long SmtWater::Update(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed) {
-  // Compute(fElapsed);
-
-  // UpdateVertex();
-  // UpdateNormal();
+  (void)p3DRenderDevice;
+  // Clamp huge first-frame dt so the pressure sim stays stable.
+  const float dt = (std::max)(0.001f, (std::min)(fElapsed, 0.05f));
+  Compute(dt);
+  UpdateVertex();
+  UpdateNormal();
   UpdateTexcoord();
-
   UpdateVB();
-
   return SMT_ERR_NONE;
 }
 
@@ -216,10 +226,8 @@ void SmtWater::UpdateVertex(void) {
 }
 
 void SmtWater::UpdateNormal() {
-  // new mem
   Vector3* pNormals = new Vector3[CST_INT_GRID_SIZE];
 
-  // calculator normal
   for (int iY = 0; iY < CST_INT_GRID_HEIGHT - 1; iY++) {
     for (int iX = 0; iX < CST_INT_GRID_WIDTH - 1; iX++) {
       int P1, P2, P3, P4;
@@ -228,10 +236,10 @@ void SmtWater::UpdateNormal() {
       P3 = P1 + 1;
       P4 = P2 + 1;
 
-      Vector4 V1(wvertex[P1].x, wvertex[P1].y, wvertex[P1].z),
-          V2(wvertex[P2].x, wvertex[P2].y, wvertex[P2].z),
-          V3(wvertex[P3].x, wvertex[P3].y, wvertex[P3].z),
-          V4(wvertex[P4].x, wvertex[P4].y, wvertex[P4].z);
+      Vector4 V1(wvertex[P1].x, wvertex[P1].y, wvertex[P1].z);
+      Vector4 V2(wvertex[P2].x, wvertex[P2].y, wvertex[P2].z);
+      Vector4 V3(wvertex[P3].x, wvertex[P3].y, wvertex[P3].z);
+      Vector4 V4(wvertex[P4].x, wvertex[P4].y, wvertex[P4].z);
 
       Vector4 nor1 = triangle_normal(V1, V3, V2);
       Vector4 nor2 = triangle_normal(V3, V4, V2);
@@ -245,7 +253,6 @@ void SmtWater::UpdateNormal() {
     }
   }
 
-  // normalize
   for (long i = 0; i < CST_INT_GRID_SIZE; i++) {
     pNormals[i].normalize();
     wvertex[i].nx = pNormals[i].x;
@@ -272,7 +279,7 @@ void SmtWater::UpdateTexcoord(void) {
 }
 
 void SmtWater::UpdateVB(void) {
-  if (SMT_ERR_NONE != m_pVertexBuffer->Lock()) return;
+  if (!m_pVertexBuffer || SMT_ERR_NONE != m_pVertexBuffer->Lock()) return;
 
   int p;
   for (int iY = 0; iY < CST_INT_GRID_HEIGHT - 1; iY++) {
@@ -280,13 +287,14 @@ void SmtWater::UpdateVB(void) {
       p = iY * CST_INT_GRID_WIDTH + iX;
       m_pVertexBuffer->Vertex(wvertex[p].x, wvertex[p].z, wvertex[p].y);
       m_pVertexBuffer->Normal(wvertex[p].nx, wvertex[p].nz, wvertex[p].ny);
-      m_pVertexBuffer->Diffuse(wvertex[p].r, wvertex[p].g, wvertex[p].b, 0.3);
+      // Higher alpha so the cyan water reads over the dark clear color.
+      m_pVertexBuffer->Diffuse(wvertex[p].r, wvertex[p].g, wvertex[p].b, 0.85f);
       m_pVertexBuffer->TexVertex(wvertex[p].u, wvertex[p].v);
 
       p = (iY + 1) * CST_INT_GRID_WIDTH + iX;
       m_pVertexBuffer->Vertex(wvertex[p].x, wvertex[p].z, wvertex[p].y);
       m_pVertexBuffer->Normal(wvertex[p].nx, wvertex[p].nz, wvertex[p].ny);
-      m_pVertexBuffer->Diffuse(wvertex[p].r, wvertex[p].g, wvertex[p].b, 0.3);
+      m_pVertexBuffer->Diffuse(wvertex[p].r, wvertex[p].g, wvertex[p].b, 0.85f);
       m_pVertexBuffer->TexVertex(wvertex[p].u, wvertex[p].v);
     }
   }

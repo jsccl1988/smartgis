@@ -7,7 +7,7 @@ All rights reserved.
 
 **Status:** active  
 **Date:** 2026-09-19  
-**Updated:** 2026-10-01 — §12c scene3d primitive deep layer + `legacy/gis/feature`; §SP4 scene3d layout tighten (`primitive/`+`seed/` + `legacy/gis/vista`); §SP2 rhi3d bridge removed; §SP1 Layout; §13 point-cloud; §11b.
+**Updated:** 2026-10-02 — §12d surface base + modern C++ / hot-path; §12c top-level tighten; §12c primitive deep layer + `legacy/gis/feature`; §SP4 scene3d layout tighten; §SP2 rhi3d bridge removed; §SP1 Layout; §13 point-cloud; §11b.
 **Scope:** Living design for leftover strangler program **SP0–SP5**: order, technique, dependency direction, parallel rules, ABI, and **locked decisions per SP**. Implementation checklists stay in `docs/superpowers/plans/` (linked below). Physical package splits already done; revise **sections here** — do not open new dated SP / layout twins.  
 **Related (accepted / landed — do not reopen):**
 
@@ -342,17 +342,34 @@ Checklist: [`../plans/2026-10-01-scene3d-subdirectory-tighten.md`](../plans/2026
 | --- | --- |
 | Scope | `scene3d/**` + `legacy/gis/feature/**` |
 | Technique | Scheme C — break includes, **no** shim / 无 `Smt2D*` 别名 |
-| scene3d layout | `scene/` `index/` `host/` `primitive/{mesh,feature,surface}/` `seed/` `test/` |
-| `host/` | `stereo_hwnd_view`（HWND present C ABI） |
+| scene3d layout | `scene/` `index/` `primitive/{mesh,feature,surface}/` `seed/` `test/` |
+| `scene/` | `SmtScene` / object / `stereo_hwnd_view`（HWND present C ABI）/ deferred D3D helper |
 | `primitive/mesh/` | cube / sphere / water / northarray |
 | `primitive/feature/` | `SmtGeoObject` + `map_label_batch` |
-| `primitive/surface/` | terrain / pointcloud / stereo_terrain |
+| `primitive/surface/` | `SmtSurfaceObject` · `SmtTerrain` (surface+DEM) · pointcloud |
 | `legacy/gis/feature` | `FeatureMesh` + `tess_map` / `tess_world`；**禁止** device / `SmtScene` |
-| Type | `SmtGeoObject`（`GeoObjectFrame::kMap` \| `kWorld`） |
+| Type | `SmtGeoObject`（`GeoObjectFrame::kMap` \| `kWorld`）；`SmtTerrain` 兼 surface / DEM |
 | Export | feature → `GIS_EXPORT`；scene3d → `LEGACY_RENDER_EXPORT` |
-| Nesting | Cap `scene3d/primitive/<sub>/`；`legacy/gis/feature/` flat |
+| Nesting | Cap `scene3d/<module>/`；仅 `primitive/<sub>/` 允第二层；`legacy/gis/feature/` flat |
 
 Checklist: [`../plans/2026-10-01-scene3d-primitive-deep-layer.md`](../plans/2026-10-01-scene3d-primitive-deep-layer.md).
+
+**Updated 2026-10-02:** 顶层收紧 — 取消独立 `host/` / `detail/`，并入 `scene/`；`StereoTerrain` 并入 `SmtTerrain`。
+
+### 12d. scene3d surface base + modern C++ / hot-path（2026-10-02）
+
+**Goal:** `primitive/surface` 抽出 `SmtSurfaceObject`（VB/IB + AABB Select）；`SmtTerrain` / `Smt3DPointCloud` 现代 C++23 + 绘制热点去冗余。
+
+| Lock | Choice |
+| --- | --- |
+| Scope | `scene3d/primitive/surface/**` only |
+| Technique | Scheme C — no shim |
+| Base | `SmtSurfaceObject` owns `vb_` / `ib_` / `index_count_` / `center_` + ray `Select` |
+| Terrain | `std::array` color ramp；surface 属性单遍填充；去掉 per-frame POINTLIST |
+| Point cloud | `unordered_map` 分桶 + 稳定 key 排序；snake_case 成员；保留 `Read3DPointCloud` ABI |
+| Nesting | Flat under `primitive/surface/`（`surface_base.*` 与 terrain/pointcloud 并列） |
+
+Checklist: [`../plans/2026-10-02-scene3d-surface-base-modern-cpp.md`](../plans/2026-10-02-scene3d-surface-base-modern-cpp.md).
 
 ---
 

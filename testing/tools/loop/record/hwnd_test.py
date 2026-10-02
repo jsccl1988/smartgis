@@ -20,7 +20,9 @@ from loop.record.hwnd import (  # noqa: E402
     _virtual_screen,
     find_window_by_title_substr,
     hwnd_pid,
+    ocean_clear_frac,
     record_mode_pref,
+    top_band_chrome_bleed_frac,
 )
 
 
@@ -45,6 +47,25 @@ class RecordHwndHelpersTest(unittest.TestCase):
         self.assertGreater(_near_black_frac(black, 10, 10), 0.95)
         white = bytes([255, 255, 255] * 100)
         self.assertLess(_near_black_frac(white, 10, 10), 0.05)
+
+    def test_top_band_chrome_bleed_and_ocean(self) -> None:
+        w, h = 40, 40
+        # Bottom dark, top band Views TabStrip accent RGB(0,122,204).
+        pixels = []
+        for y in range(h):
+            for _x in range(w):
+                if y < 8:
+                    pixels.extend((204, 122, 0))  # BGR accent
+                else:
+                    pixels.extend((40, 40, 40))
+        bgr = bytes(pixels)
+        self.assertGreater(top_band_chrome_bleed_frac(bgr, w, h), 0.05)
+        teal = bytes([223, 211, 170] * (w * h))  # BGR ocean clear
+        self.assertGreater(ocean_clear_frac(teal, w, h), 0.9)
+        self.assertLess(top_band_chrome_bleed_frac(teal, w, h), 0.01)
+        # Sky-ish blue must not count as TabStrip accent.
+        sky = bytes([220, 160, 40] * (w * h))  # BGR
+        self.assertLess(top_band_chrome_bleed_frac(sky, w, h), 0.01)
 
     def test_record_mode_pref(self) -> None:
         self.assertEqual(record_mode_pref({}), "auto")

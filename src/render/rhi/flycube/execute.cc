@@ -75,7 +75,17 @@ void FlycubeDevice::replay_dispatches(::CommandList* fc_list,
 }
 
 bool FlycubeDevice::execute_recorded(FlycubeCommandList* recorded) {
+    if (!recorded || !swapchain_ || !command_queue_ || !fence_ || !fc_device_) {
+      return false;
+    }
     const uint32_t frame_index = swapchain_->NextImage(fence_, ++fence_value_);
+    if (frame_index >= back_buffer_views_.size() ||
+        frame_index >= kFrameCount) {
+      LOGGING(LOG_ERROR,
+              "rhi.flycube execute: bad frame_index=%u views=%zu size=%ux%u",
+              frame_index, back_buffer_views_.size(), width_, height_);
+      return false;
+    }
     command_queue_->Wait(fence_, fence_value_);
     std::shared_ptr<Resource> back_buffer =
         swapchain_->GetBackBuffer(frame_index);
@@ -89,7 +99,11 @@ bool FlycubeDevice::execute_recorded(FlycubeCommandList* recorded) {
           fc_device_->CreateCommandList(::CommandListType::kGraphics);
     }
     auto fc_list = graphics_lists_[frame_index];
-    if (!fc_list || !back_buffer) {
+    if (!fc_list || !back_buffer || !back_buffer_views_[frame_index]) {
+      LOGGING(LOG_ERROR,
+              "rhi.flycube execute: missing backbuffer/RTV frame=%u "
+              "size=%ux%u",
+              frame_index, width_, height_);
       return false;
     }
     const bool want_draw = recorded->has_draws();

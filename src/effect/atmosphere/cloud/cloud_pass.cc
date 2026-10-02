@@ -140,9 +140,7 @@ CloudPass::~CloudPass() {
 }
 
 void CloudPass::destroy_pipeline() {
-  if (pipeline_ && pipeline_device_) {
-    pipeline_device_->destroy_pipeline(pipeline_);
-  }
+  // Abandon only — see SkyPass::destroy_pipeline (dangling Device* AV).
   pipeline_ = nullptr;
   pipeline_device_ = nullptr;
 }
@@ -157,7 +155,11 @@ bool CloudPass::ensure_pipeline(render::rhi::Device* device) {
   destroy_pipeline();
   pipeline_device_ = device;
   pipeline_ = device->create_graphics_pipeline(cloud_graphics_desc());
-  return pipeline_ != nullptr;
+  if (!pipeline_) {
+    pipeline_device_ = nullptr;
+    return false;
+  }
+  return true;
 }
 
 void CloudPass::set_sun_direction(float x, float y, float z) {

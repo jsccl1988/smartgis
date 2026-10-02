@@ -7,7 +7,8 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted  
-**Updated:** 2026-09-29 — leftover `DataSourceMgr` → `legacy/gis/datasource`（原 `legacy/datasource`）。Prior: 2026-09-28 §GIS coverage + performance benchmarks (CLI + Console). merge B: compressed child specs into this living umbrella (see §Folded topics). Do not open new dated twins.
+**Updated:** 2026-10-02 — GIS vista HTML 原理图（datasource→Layout→MapFrame→present；gis↛rhi 硬墙）。Prior 2026-09-29 — leftover `DataSourceMgr` → `legacy/gis/datasource`。Prior: 2026-09-28 §GIS coverage + performance benchmarks. merge B: compressed child specs into this living umbrella (see §Folded topics). Do not open new dated twins.  
+**Diagram:** [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)（浅色 SVG：GIS 泳道 + LayerBatch→present 流水线；边界 `gis` ↛ `render/rhi`）
 **Scope:** 图层的打开 / 创建 / 列举 / 编辑 / 查询 / 关闭一律走 GDAL Dataset / Layer（矢量）或 GDAL raster（栅格）。本文件管 `sdb` 数据源与图层，不管桌面 chrome。新树编排入口见文末 **§ DataSession / Provider facade**。
 
 **Sibling (folded — see §Folded topics; revise this file):**

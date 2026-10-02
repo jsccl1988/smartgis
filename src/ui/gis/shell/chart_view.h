@@ -18,7 +18,7 @@
 namespace ui {
 namespace views {
 
-// Bar + polyline series chart painted through the Skia fill/text stub.
+// Bar + polyline series chart: title chrome via markup, plot via Skia paint.
 // Replaces leftover SmtChart / CDlg2DXChartView (SmtStaDiagram).
 class UI_EXPORT ChartView : public View {
  public:
@@ -47,6 +47,8 @@ class UI_EXPORT ChartView : public View {
  private:
   std::string title_;
   std::vector<SeriesPoint> series_;
+  class Label* title_label_ = nullptr;
+  View* plot_ = nullptr;
 };
 
 }  // namespace views

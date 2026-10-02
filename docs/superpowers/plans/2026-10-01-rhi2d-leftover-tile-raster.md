@@ -5,7 +5,8 @@ All rights reserved.
 
 # rhi2d leftover tile-raster Implementation Plan
 
-> **For agentic workers:** implement task-by-task; checkbox tracking. Spec § in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) (§rhi2d leftover tile-raster).
+> **For agentic workers:** implement task-by-task; checkbox tracking. Spec § in [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) (§rhi2d leftover tile-raster).  
+> **Diagram:** [`../diagrams/legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html)
 
 **Goal:** Expose Chromium-like **viewport tile** and **per-GIS-layer** parallel execute on leftover rhi2d so wall-clock can be compared (`SMT_RHI2D_PARALLEL`), without changing `SmtRenderDevice` ABI or merging into `src/gpu`.
 

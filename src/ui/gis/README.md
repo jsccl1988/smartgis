@@ -33,8 +33,13 @@ src/ui/gis/
 
 Toolkit-only dialogs (`Dialog`, `MessageBox`, `FilePicker`, `InputText`, `SelectOne`) stay in `src/ui/views/dialogs/` (`resources/toolkit/`). Map hang stays in `src/ui/views/map/`.
 
-Wave1–3 panels load markup from `resources/{shell,inspect,style,analysis,catalog}/`.
-Ambox / DiagnosticTools / ChartView stay imperative (dynamic / paint-only).
+Wave1–3 panels load markup from
+`resources/{shell,inspect,style,analysis,catalog,debug}/`.
+Debug chrome (DebugConsole / RenderTrace / DiagnosticTools shell + `tabs_host`)
+and Memory tab page chrome are markup-driven; tab pages still mount C++ children
+(Output/Console/Trace + Memory chart paint). Ambox scroll shell and ChartView
+title chrome are markup; dynamic tool buttons and series plot stay C++.
+LayerTree stays custom paint (CatalogView already hosts it).
 
 ## Layering
 

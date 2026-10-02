@@ -16,6 +16,7 @@
 #include "base/ipc/handle/handle.h"
 #include "base/ipc/invitation/invitation.h"
 #include "base/ipc/receiver/receiver.h"
+#include "base/trace/event/process_trace.h"
 #include "content/common/ipc.h"
 #include "content/app/process_type.h"
 
@@ -448,9 +449,12 @@ bool MapContentsImpl::StartRenderProcess() {
   running_ = true;
   recv_thread_ = std::thread(&MapContentsImpl::recv_loop, this);
 
-  const DWORD start = GetTickCount();
-  while (hello_ok_ == 0 && GetTickCount() - start < 15000) {
-    Sleep(20);
+  {
+    BASE_TRACE_EVENT("HelloWait", "startup");
+    const DWORD start = GetTickCount();
+    while (hello_ok_ == 0 && GetTickCount() - start < 15000) {
+      Sleep(20);
+    }
   }
   if (hello_ok_ == 0) {
     Shutdown();

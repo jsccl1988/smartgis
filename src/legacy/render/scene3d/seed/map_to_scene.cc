@@ -12,8 +12,12 @@
 #include "legacy/render/scene3d/primitive/feature/map_label_batch.h"
 #include "legacy/render/scene3d/seed/scene_to_world.h"
 #include "legacy/gis/vista/dem_to_world.h"
-#include "legacy/render/scene3d/primitive/surface/stereo_terrain.h"
+#include "legacy/render/scene3d/primitive/surface/terrain.h"
+#include "legacy/render/scene3d/primitive/surface/pointcloud.h"
 #include "legacy/render/scene3d/primitive/feature/geo_object.h"
+#include "legacy/render/scene3d/primitive/mesh/cube.h"
+#include "legacy/render/scene3d/primitive/mesh/sphere.h"
+#include "legacy/render/scene3d/primitive/mesh/water.h"
 #include "ogrsf_frmts.h"
 
 #ifndef NOMINMAX
@@ -23,9 +27,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -48,7 +54,7 @@ struct DemFrameCache {
 };
 
 DemFrameCache g_last_dem_frame;
-// Non-owning: points at the DemHeightField adopted by the last StereoTerrain
+// Non-owning: points at the DemHeightField adopted by the last SmtTerrain
 // (scene-owned). Used for drape/labels during the same seed_* call.
 DemHeightField* g_active_dem = nullptr;
 MapLabelBatch* g_pending_labels = nullptr;
@@ -313,7 +319,7 @@ bool seed_stereo_underlay(LP3DRENDERDEVICE device, SmtScene* scene,
     return false;
   }
   g_pending_labels = nullptr;
-  // Heap field per seed; StereoTerrain adopts it so lifetime outlives Create.
+  // Heap field per seed; SmtTerrain adopts it so lifetime outlives Create.
   auto* dem = new DemHeightField();
   const std::string dem_path = find_sample_dem_path();
   const bool loaded_real =
@@ -335,12 +341,14 @@ bool seed_stereo_underlay(LP3DRENDERDEVICE device, SmtScene* scene,
   }
   Vector3 pos(0.f, 0.f, 0.f);
   SmtMaterial mat;
-  mat.SetAmbientValue(SmtColor(0.32f, 0.36f, 0.34f, 1.f));
-  mat.SetDiffuseValue(SmtColor(0.78f, 0.80f, 0.70f, 1.f));
-  mat.SetEmissiveValue(SmtColor(0.08f, 0.09f, 0.07f, 1.f));
-  mat.SetSpecularValue(SmtColor(0.05f, 0.05f, 0.05f, 1.f));
-  mat.SetShininessValue(4.f);
-  auto* terrain = new StereoTerrain();
+  // Vertex RGB carries the atlas; material only scales lit response.
+  // Keep diffuse below 1.0 — D3D * snow albedo otherwise blows west peaks.
+  mat.SetAmbientValue(SmtColor(0.40f, 0.42f, 0.44f, 1.f));
+  mat.SetDiffuseValue(SmtColor(0.82f, 0.82f, 0.80f, 1.f));
+  mat.SetEmissiveValue(SmtColor(0.03f, 0.035f, 0.03f, 1.f));
+  mat.SetSpecularValue(SmtColor(0.06f, 0.06f, 0.05f, 1.f));
+  mat.SetShininessValue(10.f);
+  auto* terrain = new SmtTerrain();
   terrain->adopt_height_field(dem);
   const std::string rs = find_sample_imagery_path();
   if (terrain->Init(pos, mat, rs.empty() ? "" : rs.c_str()) != SMT_ERR_NONE ||
@@ -624,7 +632,7 @@ int seed_geojson_into_scene(LP3DRENDERDEVICE device, SmtScene* scene,
 }
 
 int seed_sample_map_into_scene(LP3DRENDERDEVICE device, SmtScene* scene) {
-  // Null device allowed: DEM underlay still attaches owned StereoTerrain.
+  // Null device allowed: DEM underlay still attaches owned SmtTerrain.
   if (!scene) {
     return 0;
   }
@@ -675,6 +683,202 @@ int seed_sample_map_into_scene(LP3DRENDERDEVICE device, SmtScene* scene) {
     return leftover_has_scene_dem() ? 1 : 0;
   }
   return 0;
+}
+
+void clear_leftover_dem_frame() {
+  g_last_dem_frame = DemFrameCache{};
+  g_active_dem = nullptr;
+  g_pending_labels = nullptr;
+}
+
+const char* showcase_mode_from_env() {
+  if (const char* mode = std::getenv("SMT_SCENE3D_SHOWCASE_MODE")) {
+    if (mode[0]) {
+      return mode;
+    }
+  }
+  return "china";
+}
+
+namespace {
+
+bool mode_is(const char* mode, const char* want) {
+  return mode && want && _stricmp(mode, want) == 0;
+}
+
+int seed_terrain_only(LP3DRENDERDEVICE device, SmtScene* scene) {
+  if (!seed_stereo_underlay(device, scene, nullptr, nullptr)) {
+    return 0;
+  }
+  return leftover_has_scene_dem() ? 1 : 0;
+}
+
+int seed_cube_object(LP3DRENDERDEVICE device, SmtScene* scene) {
+  clear_leftover_dem_frame();
+  Vector3 center(0.f, 0.f, 0.f);
+  auto* cube = new SmtCube(device, center, 24.f);
+  SmtMaterial mat;
+  if (cube->Init(center, mat) != SMT_ERR_NONE ||
+      cube->Create(device) != SMT_ERR_NONE) {
+    delete cube;
+    return 0;
+  }
+  cube->SetVisible(true);
+  scene->Add3DObject(cube);
+  return 1;
+}
+
+int seed_sphere_object(LP3DRENDERDEVICE device, SmtScene* scene) {
+  clear_leftover_dem_frame();
+  Vector3 pos(0.f, 0.f, 0.f);
+  auto* sphere = new SmtSphere(12.f, 24);
+  SmtMaterial mat;
+  mat.SetAmbientValue(SmtColor(0.15f, 0.25f, 0.45f, 1.f));
+  mat.SetDiffuseValue(SmtColor(0.35f, 0.55f, 0.95f, 1.f));
+  mat.SetSpecularValue(SmtColor(0.8f, 0.8f, 0.9f, 1.f));
+  mat.SetEmissiveValue(SmtColor(0.05f, 0.08f, 0.12f, 1.f));
+  mat.SetShininessValue(28.f);
+  if (sphere->Init(pos, mat) != SMT_ERR_NONE ||
+      sphere->Create(device) != SMT_ERR_NONE) {
+    delete sphere;
+    return 0;
+  }
+  sphere->SetVisible(true);
+  scene->Add3DObject(sphere);
+  return 1;
+}
+
+int seed_water_object(LP3DRENDERDEVICE device, SmtScene* scene) {
+  clear_leftover_dem_frame();
+  Vector3 pos(0.f, 0.f, 0.f);
+  auto* water = new SmtWater();
+  // Wider / taller waves so the silhouette reads as water under default orbit.
+  water->SetXScale(0.55f);
+  water->SetYScale(0.85f);
+  water->SetZScale(0.55f);
+  SmtMaterial mat;
+  mat.SetAmbientValue(SmtColor(0.08f, 0.22f, 0.32f, 1.f));
+  mat.SetDiffuseValue(SmtColor(0.18f, 0.55f, 0.78f, 1.f));
+  mat.SetSpecularValue(SmtColor(0.75f, 0.85f, 0.95f, 1.f));
+  mat.SetEmissiveValue(SmtColor(0.03f, 0.08f, 0.12f, 1.f));
+  mat.SetShininessValue(64.f);
+  if (water->Init(pos, mat) != SMT_ERR_NONE ||
+      water->Create(device) != SMT_ERR_NONE) {
+    delete water;
+    return 0;
+  }
+  // Advance the ripple sim a few ticks so the first BMP is not the seed frame.
+  if (device) {
+    for (int i = 0; i < 8; ++i) {
+      water->Update(device, 0.016f);
+    }
+  }
+  water->SetVisible(true);
+  scene->Add3DObject(water);
+  return 1;
+}
+
+bool write_synthetic_pointcloud_csv(const char* path) {
+  if (!path || !path[0]) {
+    return false;
+  }
+  std::ofstream out(path, std::ios::out | std::ios::trunc);
+  if (!out) {
+    return false;
+  }
+  // Read3DPointCloud: x,z,y,r,g,b then *10 — denser grid so BMP non_black
+  // clears the mesh gate (~0.12) under default orbit.
+  int n = 0;
+  for (int iz = -12; iz <= 12; ++iz) {
+    for (int ix = -12; ix <= 12; ++ix) {
+      const float x = static_cast<float>(ix) * 0.28f;
+      const float z = static_cast<float>(iz) * 0.28f;
+      const float y = 0.25f * std::sin(x * 1.3f) * std::cos(z * 1.2f);
+      const int r = 50 + (ix + 12) * 7;
+      const int g = 110 + (iz + 12) * 5;
+      const int b = 60 + ((ix + iz + 24) % 11) * 12;
+      out << x << ',' << z << ',' << y << ',' << r << ',' << g << ',' << b
+          << '\n';
+      ++n;
+    }
+  }
+  return n >= 100;
+}
+
+int seed_pointcloud_object(LP3DRENDERDEVICE device, SmtScene* scene) {
+  clear_leftover_dem_frame();
+  char tmp[MAX_PATH] = {};
+  const DWORD n = GetTempPathA(MAX_PATH, tmp);
+  if (n == 0 || n >= MAX_PATH) {
+    return 0;
+  }
+  char csv[MAX_PATH] = {};
+  sprintf_s(csv, "%ssmt_scene3d_showcase_pc.csv", tmp);
+  if (!write_synthetic_pointcloud_csv(csv)) {
+    return 0;
+  }
+  Vector3 pos(0.f, 0.f, 0.f);
+  SmtMaterial mat;
+  mat.SetDiffuseValue(SmtColor(0.8f, 0.85f, 0.7f, 1.f));
+  auto* cloud = new Smt3DPointCloud();
+  if (!cloud->Read3DPointCloud(csv) || cloud->Init(pos, mat) != SMT_ERR_NONE ||
+      cloud->Create(device) != SMT_ERR_NONE) {
+    delete cloud;
+    DeleteFileA(csv);
+    return 0;
+  }
+  cloud->set_show_bounds(false);
+  cloud->SetVisible(true);
+  scene->Add3DObject(cloud);
+  DeleteFileA(csv);
+  return 1;
+}
+
+int seed_northarray_framing(SmtScene* scene) {
+  // Compass HUD is created in SmtScene::Setup; give orbit a local AABB.
+  clear_leftover_dem_frame();
+  Aabb aabb;
+  aabb.vcMin.set(-20.f, -8.f, -20.f);
+  aabb.vcMax.set(20.f, 8.f, 20.f);
+  aabb.vcCenter = (aabb.vcMax + aabb.vcMin) * 0.5f;
+  scene->SetAabb(aabb);
+  return 1;
+}
+
+}  // namespace
+
+int seed_showcase_mode_into_scene(LP3DRENDERDEVICE device, SmtScene* scene,
+                                  const char* mode) {
+  if (!scene) {
+    return 0;
+  }
+  const char* m = (mode && mode[0]) ? mode : "china";
+  if (mode_is(m, "china")) {
+    return seed_sample_map_into_scene(device, scene);
+  }
+  if (mode_is(m, "terrain")) {
+    return seed_terrain_only(device, scene);
+  }
+  if (!device) {
+    return 0;
+  }
+  if (mode_is(m, "cube")) {
+    return seed_cube_object(device, scene);
+  }
+  if (mode_is(m, "sphere")) {
+    return seed_sphere_object(device, scene);
+  }
+  if (mode_is(m, "water")) {
+    return seed_water_object(device, scene);
+  }
+  if (mode_is(m, "pointcloud")) {
+    return seed_pointcloud_object(device, scene);
+  }
+  if (mode_is(m, "northarray")) {
+    return seed_northarray_framing(scene);
+  }
+  std::fprintf(stderr, "seed_showcase_mode: unknown mode=%s (use china)\n", m);
+  return seed_sample_map_into_scene(device, scene);
 }
 
 gis::World* map_seeded_world() { return &g_map_world; }

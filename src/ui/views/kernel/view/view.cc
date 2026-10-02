@@ -60,6 +60,24 @@ void View::add_child(std::unique_ptr<View> child) {
   mark_needs_layout();
 }
 
+std::unique_ptr<View> View::remove_child(View* child) {
+  if (!child) {
+    return nullptr;
+  }
+  for (auto it = children_.begin(); it != children_.end(); ++it) {
+    if (it->get() != child) {
+      continue;
+    }
+    std::unique_ptr<View> out = std::move(*it);
+    children_.erase(it);
+    out->parent_ = nullptr;
+    out->set_widget(nullptr);
+    mark_needs_layout();
+    return out;
+  }
+  return nullptr;
+}
+
 void View::remove_all_children() {
   children_.clear();
 }

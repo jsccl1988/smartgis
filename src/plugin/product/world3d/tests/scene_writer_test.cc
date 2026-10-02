@@ -40,6 +40,16 @@ int main() {
   expect(plugin::operation_result().find("no_scene_device") != std::string::npos,
          "open_earth structured no_scene_device");
 
+  expect(!host->run_processing("world3d.load_global_dem", "{}"),
+         "load_global_dem refuses without scene writer");
+  expect(plugin::operation_result().find("no_scene_device") != std::string::npos,
+         "load_global_dem structured no_scene_device");
+
+  expect(!host->run_processing("world3d.set_satellite_cloud", "{}"),
+         "set_satellite_cloud refuses without scene writer");
+  expect(plugin::operation_result().find("no_scene_device") != std::string::npos,
+         "set_satellite_cloud structured no_scene_device");
+
   expect(!host->run_processing("model3d.add_pointcloud", "{}"),
          "add_pointcloud bad_args without path");
   expect(plugin::operation_result().find("bad_args") != std::string::npos,
@@ -110,6 +120,29 @@ int main() {
     last_path = path;
     return true;
   };
+  writer.load_global_dem = [&](const std::string& path, std::string* result) {
+    ++call_count;
+    last_path = path;
+    if (result) {
+      *result =
+          "{\"ok\":true,\"op\":\"world3d.load_global_dem\",\"source\":\"stub\"}";
+    }
+    return true;
+  };
+  writer.set_satellite_cloud = [&](const std::string& path, bool enabled,
+                                   std::string* result) {
+    ++call_count;
+    last_path = path;
+    if (result) {
+      *result = enabled ? "{\"ok\":true,\"mode\":\"procedural\"}"
+                        : "{\"ok\":true,\"mode\":\"off\"}";
+    }
+    return true;
+  };
+  writer.set_atmosphere = [&](bool sky, bool ocean, bool cloud, bool fog) {
+    ++call_count;
+    return sky || ocean || cloud || fog || true;
+  };
   plugin::set_world3d_scene_writer(std::move(writer));
 
   expect(host->run_processing("model3d.add_sphere", "{}"),
@@ -130,7 +163,16 @@ int main() {
          "fly_to with writer");
   expect(host->run_processing("world3d.attach_city_tileset", "{}"),
          "attach_city_tileset empty path");
-  expect(call_count >= 7, "writer callbacks invoked");
+  expect(host->run_processing("world3d.load_global_dem", "{}"),
+         "load_global_dem with writer");
+  expect(host->run_processing("world3d.set_satellite_cloud",
+                              "{\"enabled\":true}"),
+         "set_satellite_cloud procedural");
+  expect(host->run_processing(
+             "world3d.set_atmosphere",
+             "{\"sky\":true,\"ocean\":true,\"cloud\":true,\"fog\":true}"),
+         "set_atmosphere with writer");
+  expect(call_count >= 10, "writer callbacks invoked");
 
   expect(!host->run_processing("world3d.fly_to", "{}"),
          "fly_to refuses without lon/lat");
@@ -144,6 +186,12 @@ int main() {
          "open_earth refuses after writer cleared");
   expect(plugin::operation_result().find("no_scene_device") != std::string::npos,
          "open_earth structured no_scene_device");
+  expect(!host->run_processing("world3d.load_global_dem", "{}"),
+         "load_global_dem refuses after writer cleared");
+  expect(!host->run_processing("world3d.set_satellite_cloud", "{}"),
+         "set_satellite_cloud refuses after writer cleared");
+  expect(!host->run_processing("world3d.set_atmosphere", "{}"),
+         "set_atmosphere refuses after writer cleared");
 
   delete host;
 

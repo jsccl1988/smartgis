@@ -105,9 +105,9 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
 - 由 `exe_smoke` 拉起；窗口标题 `SmartGIS Views`。
 - 浏览回归 loop：`py -3 testing/tools/loop_runner.py --suite browse`（可 `--no-build`）。
 - **Map browse forensic（L1′ 扩展，2026-09-30）：** 卡死 / 花屏黑屏 / 跟手差 / 崩溃 取证。
-  - Suites：`browse`（Views 2D）、`browse.3d`（Views 3D tab orbit/wheel）、`legacy.browse.2d`（裸 `SmartGis.exe` Edit + OS inject → map_client HWND + `capture_hwnd_bmp_ex` → `legacy-browse-2d-edit.bmp`；`bmp.soft` 时 china score 仅 informational；**zoom_gate**：首段单向 `wheel_burst` 前后写 `legacy/_zoom_before.bmp` / `_zoom_after.bmp`，loop 报告硬闸 `pixel_diff_frac >= min_pixel_diff_frac`）、`legacy.browse.3d`（OS inject + scene3d showcase linger / `SMT_HARNESS_OS_WAIT_BMP`）。
+  - Suites：`browse`（Views 2D）、`browse.3d`（Views 3D tab orbit/wheel）、`legacy.browse.2d`（裸 `SmartGis.exe` Edit + **`os_inject_default=sendinput`** → map_client HWND + `capture_hwnd_bmp_ex` → `legacy-browse-2d-edit.bmp`；`bmp.soft` 时 china score 仅 informational；**zoom_gate** / **motion_gate**（录像唯一帧）/ **click_gate**（click+dblclick + `_click_after.bmp`））、`legacy.browse.3d`（OS inject + scene3d showcase linger / `SMT_HARNESS_OS_WAIT_BMP`）。
   - 录像：`SMT_HARNESS_RECORD=1`（可选 `SMT_HARNESS_RECORD_FPS`、`SMT_HARNESS_RECORD_MODE=auto|bmp|ffmpeg`）；`testing/tools/loop/record/hwnd.py`。
-    - **双屏：** BMP burst 用虚拟桌面坐标 `BitBlt` + `PrintWindow`（取更少黑帧）；`ffmpeg` 优先 `gdigrab title=`；`desktop+offset` **仅** HWND 完全在主屏时启用，副屏 HWND 自动跳过以免录偏。报告含 `virtual_screen` / `rect.on_primary` / `ffmpeg_skip`。
+    - **双屏：** BMP burst：主屏 HWND 优先 `BitBlt`（跟手）；副屏/遮挡用 `PrintWindow`。`ffmpeg` 优先 `gdigrab title=`；缺 ffmpeg 时 BMP frames 可后编 `mp4_path`（有则写）。报告含 `virtual_screen` / `rect.on_primary` / `ffmpeg_skip` / `mp4_path`。
     - 缺 ffmpeg **不硬失败**；关窗时的全黑尾帧会被丢弃。
   - 产物：`out/<config>/captures/record/<suite>_<stamp>.mp4` 或 `…/record/*_frames/`；分析回放帧在 `captures/analysis/<topic>/`；报告 / marks / showcase BMP 在 `captures/<scenario>/`（与 harness family 对齐：`atmosphere/` `map2d/` `plugin/` `ui/` `legacy/` `shell/`）。报告 JSON 含 `record_path` / `steps[]` / `t_ms`。
   - 症状对照：timeout/`rc=124`→卡死；BMP score / 录像→花屏黑屏；`steps` 时间线 vs 画面→跟手；非零 exit / dump→崩溃（`windbg-crash-diagnose`）。
@@ -129,6 +129,7 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
   - Wave2 显式 checklist：`legacy.browse.*`、`ui.{shell,catalog,data,scene,interact,interact.os}`、`atmosphere.legacy`、`legacy.map2d/scene3d.*`、`map2d.orthogrid`（外加 Wave1 plugin/atmosphere.full/map2d.china）。Wave2 实跑优先：`legacy.browse.2d`、`map2d.china`。
   - Skill：`.cursor/skills/harness-visual-review/SKILL.md`。**不**进默认 `te`。
   - Living：[`../superpowers/specs/2026-09-27-views-desktop-shell-design.md`](../superpowers/specs/2026-09-27-views-desktop-shell-design.md) §Visual review closed-loop。
+  - **Plain argv=[] 2D/3D browse：** `py -3 testing/tools/loop/plain_browse_capture.py`。壳 PrintWindow 用 `views_shell_chrome`（青蓝 map hole 允许）；DXGI 金样优先 FlyCube Present BitBlt + `views_present_dxgi`（拒 TabStrip accent bleed / 壳 ocean clear；可裁顶栏 underline）。Flip/NOREDIRECTION 下 BitBlt 常读不到 swapchain 时，以产品日志为金样（2D：`frame_items=`；3D：`scene3d.present dem` + `lazy attach tab=2`）。3D 用 env `SMT_VIEWS_START_MAP_TAB=scene3d`（仍无 argv），不靠 OS 点 TabStrip。
 - Console 短路径：`py -3 testing/tools/loop_runner.py --suite console`（`--self-test-console`；`console.il`；marks：`console-ok` / `console-bench-ok`）。
   - 产品合同：`SmartGisViews.exe --input-showcase` → `out/Debug/input-self-test-mark.txt`
   - 闸门 marks：`input-point-ok` / `input-line-ok` / `input-poly-ok` / `input-ok`（β `FeatureMutation.geom`）

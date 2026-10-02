@@ -14,11 +14,17 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 #include <string>
 #include <vector>
 
 namespace gis {
 namespace {
+
+std::string& dem_path_override_store() {
+  static std::string path;
+  return path;
+}
 
 float clampf(float v, float lo, float hi) {
   return (std::max)(lo, (std::min)(hi, v));
@@ -87,29 +93,35 @@ void hypsometric_rgb(float meters, float* r, float* g, float* b) {
     return;
   }
   if (meters <= 1.f) {
-    *r = 0.18f;
-    *g = 0.36f;
-    *b = 0.52f;
+    // Deep coastal water (not cyan wash).
+    *r = 0.10f;
+    *g = 0.18f;
+    *b = 0.28f;
     return;
   }
+  // Four-stop atlas: sage plains → olive hills → ochre highland → cool rock.
+  // Keep g-dominant lowlands for Scene3d landish BMP gates.
   const float t01 = (std::max)(0.f, (std::min)(1.f, meters / 5500.f));
-  if (t01 < 0.35f) {
-    const float u = t01 / 0.35f;
-    // Strong green lowlands so Scene3d BMP landish gate (g>r, g>b) passes.
-    *r = (28.f + 70.f * u) / 255.f;
-    *g = (140.f + 70.f * u) / 255.f;
-    *b = (28.f + 20.f * (1.f - u)) / 255.f;
-  } else if (t01 < 0.65f) {
-    const float u = (t01 - 0.35f) / 0.30f;
-    *r = (160.f + 50.f * u) / 255.f;
-    *g = (180.f - 30.f * u) / 255.f;
-    *b = (55.f + 35.f * u) / 255.f;
+  if (t01 < 0.28f) {
+    const float u = t01 / 0.28f;
+    *r = (58.f + 42.f * u) / 255.f;
+    *g = (118.f + 36.f * u) / 255.f;
+    *b = (72.f + 18.f * (1.f - u)) / 255.f;
+  } else if (t01 < 0.52f) {
+    const float u = (t01 - 0.28f) / 0.24f;
+    *r = (100.f + 48.f * u) / 255.f;
+    *g = (154.f - 18.f * u) / 255.f;
+    *b = (68.f + 12.f * u) / 255.f;
+  } else if (t01 < 0.78f) {
+    const float u = (t01 - 0.52f) / 0.26f;
+    *r = (148.f + 36.f * u) / 255.f;
+    *g = (136.f - 8.f * u) / 255.f;
+    *b = (80.f + 20.f * u) / 255.f;
   } else {
-    const float u = (t01 - 0.65f) / 0.35f;
-    // Tan rock, not blown white. Snow is applied later from slope.
-    *r = (168.f + 40.f * u) / 255.f;
-    *g = (140.f + 28.f * u) / 255.f;
-    *b = (96.f + 24.f * u) / 255.f;
+    const float u = (t01 - 0.78f) / 0.22f;
+    *r = (164.f + 28.f * u) / 255.f;
+    *g = (148.f + 22.f * u) / 255.f;
+    *b = (118.f + 28.f * u) / 255.f;
   }
 }
 
@@ -119,16 +131,18 @@ void terrain_material_rgb(float meters, float slope01, float* r, float* g,
                           float* b) {
   hypsometric_rgb(meters, r, g, b);
   const float rock = clampf(slope01, 0.f, 1.f);
-  const float w = 0.62f * rock;
-  *r = *r * (1.f - w) + 0.40f * w;
-  *g = *g * (1.f - w) + 0.36f * w;
-  *b = *b * (1.f - w) + 0.30f * w;
-  if (meters > 4200.f && rock < 0.5f) {
+  // Cool slate rock — less muddy brown on faceted DEM triangles.
+  const float w = 0.55f * rock;
+  *r = *r * (1.f - w) + 0.42f * w;
+  *g = *g * (1.f - w) + 0.40f * w;
+  *b = *b * (1.f - w) + 0.38f * w;
+  if (meters > 4200.f && rock < 0.45f) {
     const float u =
         clampf((meters - 4200.f) / 2200.f, 0.f, 1.f) * (1.f - rock);
-    *r = *r * (1.f - u) + 0.76f * u;
-    *g = *g * (1.f - u) + 0.78f * u;
-    *b = *b * (1.f - u) + 0.80f * u;
+    // Soft cool snow — keep below ~0.58 so D3D lit response stays ochre/rock.
+    *r = *r * (1.f - u) + 0.55f * u;
+    *g = *g * (1.f - u) + 0.58f * u;
+    *b = *b * (1.f - u) + 0.62f * u;
   }
 }
 
@@ -610,48 +624,56 @@ bool DemRaster::bake_hypsometric_rgba(int max_edge, std::vector<uint8_t>* rgba,
       (*rgba)[i + 3] = 255;
     }
   }
-  // Dilate land albedo one texel into coastal ocean. Land-only mesh UVs can
+  // Dilate land albedo two texels into coastal ocean. Land-only mesh UVs can
   // still sample the ocean side of the coast; navy bleed painted China black
-  // under FlyCube (atmosphere.full landish gate).
+  // under FlyCube (atmosphere.full landish gate) and left shoreline seams on
+  // D3D china showcase.
   if (!land_.empty() && w > 2 && h > 2) {
-    std::vector<uint8_t> dilated = *rgba;
     auto land_at = [&](int c, int r) -> bool {
       const int src_col = (std::min)(cols_ - 1, c * step_x);
       const int src_row = (std::min)(rows_ - 1, r * step_y);
       return land_[static_cast<size_t>(index_at(src_col, src_row))] != 0;
     };
-    for (int row = 0; row < h; ++row) {
-      for (int col = 0; col < w; ++col) {
-        if (land_at(col, row)) {
-          continue;
-        }
-        const int nbs[4][2] = {{col - 1, row},
-                               {col + 1, row},
-                               {col, row - 1},
-                               {col, row + 1}};
-        for (const auto& nb : nbs) {
-          const int nc = nb[0];
-          const int nr = nb[1];
-          if (nc < 0 || nr < 0 || nc >= w || nr >= h || !land_at(nc, nr)) {
+    for (int pass = 0; pass < 3; ++pass) {
+      std::vector<uint8_t> dilated = *rgba;
+      for (int row = 0; row < h; ++row) {
+        for (int col = 0; col < w; ++col) {
+          if (land_at(col, row)) {
             continue;
           }
-          const size_t src =
-              (static_cast<size_t>(nr) * static_cast<size_t>(w) +
-               static_cast<size_t>(nc)) *
-              4u;
-          const size_t dst =
-              (static_cast<size_t>(row) * static_cast<size_t>(w) +
-               static_cast<size_t>(col)) *
-              4u;
-          dilated[dst + 0] = (*rgba)[src + 0];
-          dilated[dst + 1] = (*rgba)[src + 1];
-          dilated[dst + 2] = (*rgba)[src + 2];
-          dilated[dst + 3] = 255;
-          break;
+          const int nbs[4][2] = {{col - 1, row},
+                                 {col + 1, row},
+                                 {col, row - 1},
+                                 {col, row + 1}};
+          for (const auto& nb : nbs) {
+            const int nc = nb[0];
+            const int nr = nb[1];
+            if (nc < 0 || nr < 0 || nc >= w || nr >= h) {
+              continue;
+            }
+            const size_t src =
+                (static_cast<size_t>(nr) * static_cast<size_t>(w) +
+                 static_cast<size_t>(nc)) *
+                4u;
+            // Copy from any non-navy neighbor (land or already dilated).
+            if ((*rgba)[src + 0] < 40 && (*rgba)[src + 1] < 55 &&
+                (*rgba)[src + 2] < 80 && !land_at(nc, nr)) {
+              continue;
+            }
+            const size_t dst =
+                (static_cast<size_t>(row) * static_cast<size_t>(w) +
+                 static_cast<size_t>(col)) *
+                4u;
+            dilated[dst + 0] = (*rgba)[src + 0];
+            dilated[dst + 1] = (*rgba)[src + 1];
+            dilated[dst + 2] = (*rgba)[src + 2];
+            dilated[dst + 3] = 255;
+            break;
+          }
         }
       }
+      *rgba = std::move(dilated);
     }
-    *rgba = std::move(dilated);
   }
   if (out_w) {
     *out_w = w;
@@ -662,7 +684,21 @@ bool DemRaster::bake_hypsometric_rgba(int max_edge, std::vector<uint8_t>* rgba,
   return true;
 }
 
-std::string find_sample_dem_path() {
+void set_sample_dem_path_override(const char* path) {
+  if (!path || !path[0]) {
+    dem_path_override_store().clear();
+    return;
+  }
+  dem_path_override_store().assign(path);
+}
+
+std::string sample_dem_path_override() {
+  return dem_path_override_store();
+}
+
+namespace {
+
+std::string module_dir_for_samples() {
   char module[MAX_PATH] = {};
   const DWORD n = GetModuleFileNameA(nullptr, module, MAX_PATH);
   std::string dir;
@@ -673,7 +709,37 @@ std::string find_sample_dem_path() {
       dir.resize(slash + 1);
     }
   }
-  const char* rel[] = {
+  return dir;
+}
+
+std::string first_existing_rel(const std::string& dir, const char* const* rel,
+                               size_t count) {
+  for (size_t i = 0; i < count; ++i) {
+    const std::string cand = join_dir(dir, rel[i]);
+    const DWORD attr = GetFileAttributesA(cand.c_str());
+    if (attr != INVALID_FILE_ATTRIBUTES &&
+        (attr & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+      return cand;
+    }
+  }
+  return {};
+}
+
+}  // namespace
+
+std::string find_sample_dem_path() {
+  if (!dem_path_override_store().empty()) {
+    const DWORD attr =
+        GetFileAttributesA(dem_path_override_store().c_str());
+    if (attr != INVALID_FILE_ATTRIBUTES &&
+        (attr & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+      return dem_path_override_store();
+    }
+  }
+  // china_dem first: already cutlined. Preferring global_dem here makes
+  // leftover China seed remask with trim_dem_mask_rings(48) and punches
+  // Henan/plains holes between prefecture blobs.
+  static const char* kChinaDemRel[] = {
       "..\\data\\china_dem.tif",
       "..\\data\\china_dem.tiff",
       "data\\china_dem.tif",
@@ -685,29 +751,40 @@ std::string find_sample_dem_path() {
       "..\\testing\\data\\china_dem.tif",
       "..\\..\\testing\\data\\china_dem.tif",
   };
-  for (const char* r : rel) {
-    const std::string cand = join_dir(dir, r);
-    const DWORD attr = GetFileAttributesA(cand.c_str());
+  return first_existing_rel(module_dir_for_samples(), kChinaDemRel,
+                            std::size(kChinaDemRel));
+}
+
+std::string find_sample_global_dem_path() {
+  if (!dem_path_override_store().empty()) {
+    const DWORD attr =
+        GetFileAttributesA(dem_path_override_store().c_str());
     if (attr != INVALID_FILE_ATTRIBUTES &&
         (attr & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-      return cand;
+      return dem_path_override_store();
     }
   }
-  return {};
+  static const char* kGlobalDemRel[] = {
+      "..\\data\\global_dem.tif",
+      "..\\data\\global_dem.tiff",
+      "..\\plugins\\world3d\\data\\global_dem.tif",
+      "data\\global_dem.tif",
+      "data\\global_dem.tiff",
+  };
+  const std::string global =
+      first_existing_rel(module_dir_for_samples(), kGlobalDemRel,
+                         std::size(kGlobalDemRel));
+  if (!global.empty()) {
+    return global;
+  }
+  return find_sample_dem_path();
 }
 
 std::string find_sample_imagery_path() {
-  char module[MAX_PATH] = {};
-  const DWORD n = GetModuleFileNameA(nullptr, module, MAX_PATH);
-  std::string dir;
-  if (n > 0 && n < MAX_PATH) {
-    dir.assign(module, module + n);
-    const size_t slash = dir.find_last_of("\\/");
-    if (slash != std::string::npos) {
-      dir.resize(slash + 1);
-    }
-  }
-  const char* rel[] = {
+  // China orthophoto first — do not steal China drape UV with global equirect.
+  static const char* kChinaImageryRel[] = {
+      "..\\data\\china_rs.tif",
+      "..\\data\\china_imagery.tif",
       "china_rs.tif",
       "china_imagery.tif",
       "china_rs.tiff",
@@ -718,15 +795,31 @@ std::string find_sample_imagery_path() {
       "..\\testing\\data\\china_rs.tif",
       "..\\..\\testing\\data\\china_rs.tif",
   };
-  for (const char* r : rel) {
-    const std::string cand = join_dir(dir, r);
-    const DWORD attr = GetFileAttributesA(cand.c_str());
-    if (attr != INVALID_FILE_ATTRIBUTES &&
-        (attr & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-      return cand;
-    }
+  return first_existing_rel(module_dir_for_samples(), kChinaImageryRel,
+                            std::size(kChinaImageryRel));
+}
+
+std::string find_sample_global_imagery_path() {
+  // Product GDAL is GTiff-only — prefer .tif over PNG/JPEG.
+  static const char* kGlobalImageryRel[] = {
+      "..\\data\\global_terrain.tif",
+      "..\\data\\global_imagery.tif",
+      "..\\plugins\\world3d\\data\\global_terrain.tif",
+      "..\\data\\global_terrain.png",
+      "..\\data\\blue_marble.png",
+      "..\\plugins\\world3d\\data\\global_terrain.png",
+      "..\\data\\global_terrain.jpg",
+      "..\\data\\global_terrain.jpeg",
+      "..\\data\\blue_marble.jpg",
+      "..\\plugins\\world3d\\data\\global_terrain.jpg",
+  };
+  const std::string global =
+      first_existing_rel(module_dir_for_samples(), kGlobalImageryRel,
+                         std::size(kGlobalImageryRel));
+  if (!global.empty()) {
+    return global;
   }
-  return {};
+  return find_sample_imagery_path();
 }
 
 bool load_imagery_rgba(const char* path, std::vector<uint8_t>* rgba, int* out_w,
@@ -748,8 +841,9 @@ bool load_imagery_rgba(const char* path, std::vector<uint8_t>* rgba, int* out_w,
     std::fprintf(stderr, "Scene3d imagery: bad size/bands for %s\n", path);
     return false;
   }
-  // Cap drape resolution so FlyCube upload stays modest.
-  constexpr int kMaxEdge = 512;
+  // Cap drape / globe equirect so FlyCube upload stays modest (allows
+  // 1024x512 global_terrain.png without multi-hundred-MB china_rs).
+  constexpr int kMaxEdge = 1024;
   int out_cols = n_x;
   int out_rows = n_y;
   if (out_cols > kMaxEdge || out_rows > kMaxEdge) {

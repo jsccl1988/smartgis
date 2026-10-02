@@ -38,10 +38,12 @@ std::string default_carto_style_json() {
          "\"type\":\"hillshade\","
          "\"paint\":{"
          "\"hillshade-illumination-direction\":335,"
-         "\"hillshade-exaggeration\":2.4,"
-         "\"hillshade-shadow-color\":\"#0e0e0c\","
-         "\"hillshade-highlight-color\":\"#ffffff\","
-         "\"hillshade-accent-color\":\"#000000\""
+         "\"hillshade-exaggeration\":2.0,"
+         // Warm umber shadow (not near-black) so multiply reads as soft
+         // relief rather than a hard grey cast rim on cream land.
+         "\"hillshade-shadow-color\":\"#2a2418\","
+         "\"hillshade-highlight-color\":\"#fff8f0\","
+         "\"hillshade-accent-color\":\"#1a1810\""
          "}"
          "},"
          "{"

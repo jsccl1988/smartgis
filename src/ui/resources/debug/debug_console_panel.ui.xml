@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="debug_console_panel">
+  <style src="debug_console_panel.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="output" text=""/>
+    <textfield id="input"/>
+  </vbox>
+</ui>

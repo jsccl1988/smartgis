@@ -33,8 +33,8 @@ long load_ascii_xyz_tin(const char* file_name,
     return SMT_ERR_INVALID_FILE;
 
   char sz_buf[2000];
-  render::Vector3 ver;
-  std::vector<render::Vector3> verts;
+  base::Vector3 ver;
+  std::vector<base::Vector3> verts;
 
   int n_head_skip = 0;
   while (!fin.eof() && n_head_skip < file_fmt.nHeadSkip) {

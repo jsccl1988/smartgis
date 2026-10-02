@@ -37,12 +37,10 @@ GpuScene::~GpuScene() {
 }
 
 void GpuScene::destroy_pipelines() {
-  if (pipeline_device_) {
-    pipeline_device_->destroy_pipeline(solid_pipeline_);
-    pipeline_device_->destroy_pipeline(textured_pipeline_);
-    pipeline_device_->destroy_pipeline(lit_pipeline_);
-    pipeline_device_->destroy_pipeline(lit_textured_pipeline_);
-  }
+  // Abandon only — never virtual-call through pipeline_device_. FlyCube may
+  // already be shut down, and a recycled/corrupt Device* AVs on the vtable
+  // load (atmosphere-showcase full: ensure_pipelines → destroy_pipelines).
+  // Matches abandon(); Device map entries are reclaimed on Device teardown.
   solid_pipeline_ = nullptr;
   textured_pipeline_ = nullptr;
   lit_pipeline_ = nullptr;
@@ -58,7 +56,8 @@ bool GpuScene::ensure_pipelines(render::rhi::Device* device) {
       lit_pipeline_ && lit_textured_pipeline_) {
     return true;
   }
-  if (pipeline_device_ != nullptr && pipeline_device_ != device) {
+  if (pipeline_device_ != device) {
+    // Stale or garbage device pointer — drop handles without virtual destroy.
     destroy_pipelines();
   }
   pipeline_device_ = device;
@@ -78,8 +77,12 @@ bool GpuScene::ensure_pipelines(render::rhi::Device* device) {
     lit_textured_pipeline_ = device->create_graphics_pipeline(
         render::programs::lit_textured_pipeline_desc());
   }
-  return solid_pipeline_ && textured_pipeline_ && lit_pipeline_ &&
-         lit_textured_pipeline_;
+  if (!(solid_pipeline_ && textured_pipeline_ && lit_pipeline_ &&
+        lit_textured_pipeline_)) {
+    destroy_pipelines();
+    return false;
+  }
+  return true;
 }
 
 void GpuScene::release() {
@@ -94,6 +97,10 @@ void GpuScene::abandon() {
   lit_textured_pipeline_ = nullptr;
   pipeline_device_ = nullptr;
   meshes_.clear();
+  // Drop CPU instances too — leaving Debug-iterator proxies across a Device
+  // swap made the next sync_from push_back AV in _Orphan_range (world3d
+  // present after abandon_mesh + new FlyCube HWND).
+  instances_.clear();
   upload_device_ = nullptr;
   upload_width_ = 0;
   upload_height_ = 0;
@@ -226,12 +233,18 @@ const GpuInstance* GpuScene::instance_at(size_t index) const {
 }
 
 void GpuScene::sync_from(const gis::World& world) {
-  if (world.generation() == synced_generation_) {
+  // Empty GPU instances with live World nodes means a prior abandon/clear left
+  // synced_generation_ matching world without a follow-up copy (or a stale
+  // DLL skipped the post-abandon resync). Force a rebuild in that case.
+  if (world.generation() == synced_generation_ &&
+      !(instances_.empty() && world.node_count() > 0)) {
     return;
   }
-  instances_.clear();
+  // Build into a fresh vector then swap — avoids Debug STL orphan-proxy AV when
+  // instances_ was cleared/reused after abandon across Device boundaries.
+  std::vector<GpuInstance> next;
   const size_t n = world.node_count();
-  instances_.reserve(n);
+  next.reserve(n);
   for (size_t i = 0; i < n; ++i) {
     const gis::Node* node = world.node_at(i);
     if (!node) {
@@ -265,8 +278,9 @@ void GpuScene::sync_from(const gis::World& world) {
     inst.point_rgba = node->point_rgba;
     inst.point_chunks = node->point_chunks;
     inst.has_paint = false;
-    instances_.push_back(inst);
+    next.push_back(std::move(inst));
   }
+  instances_.swap(next);
   synced_generation_ = world.generation();
   meshes_dirty_ = true;
 }

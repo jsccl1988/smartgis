@@ -5,19 +5,22 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Compiled into //src/legacy/render:legacy_render (dll_stem = legacy_render).
-# Layout: scene/ index/ host/ primitive/{mesh,feature,surface}/ seed/ test/.
+# Layout: scene/ index/ primitive/{mesh,feature,surface}/ seed/ test/.
 # Device-free DEM/World: //src/legacy/gis/vista; feature tess: //src/legacy/gis/feature.
 source_set("scene3d_sources") {
   sources = [
     "scene/scene.cpp",
+    "scene/object.cc",
+    "scene/object.h",
+    "scene/stereo_hwnd_view.cc",
+    "scene/stereo_hwnd_view.h",
+    "scene/d3d_deferred_objects.h",
     "index/octree.cpp",
     "index/vertex_octree.cpp",
     "seed/map_to_scene.cc",
     "seed/map_to_scene.h",
     "seed/scene_to_world.cc",
     "seed/scene_to_world.h",
-    "host/stereo_hwnd_view.cc",
-    "host/stereo_hwnd_view.h",
     "primitive/mesh/cube.cpp",
     "primitive/mesh/northarray.cpp",
     "primitive/mesh/sphere.cpp",
@@ -26,10 +29,12 @@ source_set("scene3d_sources") {
     "primitive/feature/geo_object.h",
     "primitive/feature/map_label_batch.cc",
     "primitive/feature/map_label_batch.h",
+    "primitive/surface/surface_base.cc",
+    "primitive/surface/surface_base.h",
     "primitive/surface/pointcloud.cpp",
+    "primitive/surface/pointcloud.h",
     "primitive/surface/terrain.cpp",
-    "primitive/surface/stereo_terrain.cc",
-    "primitive/surface/stereo_terrain.h",
+    "primitive/surface/terrain.h",
   ]
   configs += [
     "//build:legacy",

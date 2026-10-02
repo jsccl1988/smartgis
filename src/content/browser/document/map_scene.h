@@ -49,7 +49,9 @@ class MapScene {
   // Prefer china_city (gpkg/geojson) beside the exe (or testing/data), then
   // schematic china_plp. Multi-layer packs expose area / line / point / text.
   // Falls back to a Demo layer so Catalog/map are never empty.
-  void seed_default();
+  // When |allow_china_bootstrap| is false, skip OGR China open (demo layer only)
+  // so first-show stays interactive; caller may open China later on idle.
+  void seed_default(bool allow_china_bootstrap = true);
 
   // Open path via OGR (GPKG / Shapefile / GeoJSON /  - . On success replaces
   // document layers with real OGR layer names + geometries (one Catalog

@@ -1,7 +1,9 @@
-// Copyright (c) 2010 CCL. All rights reserved.
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 #ifndef LEGACY_RENDER_SCENE3D_SCENE_OBJECT_H
 #define LEGACY_RENDER_SCENE3D_SCENE_OBJECT_H
 
+#include "legacy/render/legacy_render_export.h"
 #include "legacy/render/rhi3d/public/device/base.h"
 
 namespace render {
@@ -68,7 +70,9 @@ class Smt3DMovable {
 };
 
 // Leftover scene object: renderable + movable with a world matrix.
-class Smt3DObject : public Smt3DRenderable, public Smt3DMovable {
+// Exported so out-of-line prefers_immediate_context is visible to ui_legacy.
+class LEGACY_RENDER_EXPORT Smt3DObject : public Smt3DRenderable,
+                                         public Smt3DMovable {
  public:
   virtual long Init(::base::Vector3& vPos, SmtMaterial& matMaterial,
                     const char* szTexName = "") {
@@ -83,6 +87,12 @@ class Smt3DObject : public Smt3DRenderable, public Smt3DMovable {
   virtual long Create(LP3DRENDERDEVICE p3DRenderDevice) = 0;
   virtual long Render(LP3DRENDERDEVICE p3DRenderDevice) = 0;
   virtual long Destroy() = 0;
+
+  // Screen-space draws (labels/sprites) must stay on the immediate D3D
+  // context — deferred workers can drop or scramble CreateTexture/Draw.
+  // Inline default: out-of-line in object.cc was not exported to ui_legacy
+  // (LNK2001). MapLabelBatch overrides to true.
+  virtual bool prefers_immediate_context() const { return false; }
 
   inline Matrix& GetWorldTransMatrix() { return m_mtxWorld; }
   inline void SetWorldTransMatrix(Matrix& vTransform) {

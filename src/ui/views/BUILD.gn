@@ -346,8 +346,12 @@ copy("markup_resources_dialogs") {
 
 copy("markup_resources_shell") {
   sources = [
+    "//src/ui/resources/shell/ambox_view.ui.css",
+    "//src/ui/resources/shell/ambox_view.ui.xml",
     "//src/ui/resources/shell/atmosphere_panel.ui.css",
     "//src/ui/resources/shell/atmosphere_panel.ui.xml",
+    "//src/ui/resources/shell/chart_view.ui.css",
+    "//src/ui/resources/shell/chart_view.ui.xml",
     "//src/ui/resources/shell/main_app.ui.css",
     "//src/ui/resources/shell/main_app.ui.xml",
     "//src/ui/resources/shell/status_bar.ui.css",
@@ -404,6 +408,20 @@ copy("markup_resources_catalog") {
   outputs = [ "$root_out_dir/../ui/catalog/{{source_file_part}}" ]
 }
 
+copy("markup_resources_debug") {
+  sources = [
+    "//src/ui/resources/debug/debug_console_panel.ui.css",
+    "//src/ui/resources/debug/debug_console_panel.ui.xml",
+    "//src/ui/resources/debug/diagnostic_tools_panel.ui.css",
+    "//src/ui/resources/debug/diagnostic_tools_panel.ui.xml",
+    "//src/ui/resources/debug/memory_page.ui.css",
+    "//src/ui/resources/debug/memory_page.ui.xml",
+    "//src/ui/resources/debug/render_trace_panel.ui.css",
+    "//src/ui/resources/debug/render_trace_panel.ui.xml",
+  ]
+  outputs = [ "$root_out_dir/../ui/debug/{{source_file_part}}" ]
+}
+
 copy("markup_resources_testdata") {
   sources = [
     "markup/testdata/preview_sample.ui.css",
@@ -416,6 +434,7 @@ group("markup_resources") {
   deps = [
     ":markup_resources_analysis",
     ":markup_resources_catalog",
+    ":markup_resources_debug",
     ":markup_resources_dialogs",
     ":markup_resources_inspect",
     ":markup_resources_shell",

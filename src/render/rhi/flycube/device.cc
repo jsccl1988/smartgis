@@ -62,6 +62,14 @@ bool FlycubeDevice::recreate_swapchain(const DeviceDesc& desc) {
       back_buffer_views_[i] =
           fc_device_->CreateView(swapchain_->GetBackBuffer(i), view_desc);
       if (!back_buffer_views_[i]) {
+        // Partial RTVs + live swapchain makes execute_recorded AV on the
+        // null view. Tear down fully so the next present soft-fails cleanly.
+        LOGGING(LOG_ERROR,
+                "rhi.flycube recreate_swapchain CreateView fail i=%u "
+                "hwnd=%p %ux%u",
+                i, hwnd_, width_, height_);
+        back_buffer_views_.clear();
+        swapchain_.reset();
         return false;
       }
     }
@@ -153,6 +161,8 @@ bool FlycubeDevice::initialize(const DeviceDesc& desc) {
             fc_device_->CreateView(swapchain_->GetBackBuffer(i), view_desc);
         if (!back_buffer_views_[i]) {
           LOGGING(LOG_ERROR, "rhi.flycube CreateView(backbuffer %u) fail", i);
+          back_buffer_views_.clear();
+          swapchain_.reset();
           return false;
         }
       }

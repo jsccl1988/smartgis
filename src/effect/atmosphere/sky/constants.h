@@ -16,7 +16,8 @@ struct SkyConstants {
   float sun_x;
   float sun_y;
   float sun_z;
-  float soft_pad;
+  // 0 = daytime Rayleigh; 1 = procedural starfield (maps SkyDrawParams::space_blend).
+  float space_blend;
   float zenith_r;
   float zenith_g;
   float zenith_b;

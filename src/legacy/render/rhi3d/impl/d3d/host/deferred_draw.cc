@@ -150,9 +150,25 @@ long SmtD3DRenderDevice::finish_deferred_draw() {
     safe_release(s.list);
   }
 
-  // Restore immediate OM after ExecuteCommandList (may clear state).
+  // Restore immediate OM + viewport after ExecuteCommandList (clears state).
+  // Without RSSetViewports, subsequent DrawScreenBgra (MapLabelBatch) can clip
+  // to a degenerate default viewport and leave only a stray coastal label.
   if (rtv_) {
     context_->OMSetRenderTargets(1, &rtv_, dsv_);
+  }
+  {
+    D3D11_VIEWPORT vp = {};
+    vp.TopLeftX = static_cast<float>(m_viewPort.ulX);
+    vp.TopLeftY = static_cast<float>(m_viewPort.ulY);
+    vp.Width = static_cast<float>(
+        m_viewPort.ulWidth > 0 ? m_viewPort.ulWidth : backbuffer_width_);
+    vp.Height = static_cast<float>(
+        m_viewPort.ulHeight > 0 ? m_viewPort.ulHeight : backbuffer_height_);
+    vp.MinDepth = 0.f;
+    vp.MaxDepth = 1.f;
+    if (vp.Width > 0.f && vp.Height > 0.f) {
+      context_->RSSetViewports(1, &vp);
+    }
   }
   deferred_recording_ = false;
   return SMT_ERR_NONE;

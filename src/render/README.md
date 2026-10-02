@@ -35,6 +35,16 @@ GN：`//src/render:render_all` 进日常 `src_all`。leftover DLL 另编 `//src/
 - 海洋 GPU FFT：FlyCube `supports_compute()` 时 compute；否则 CPU。设计：[`docs/superpowers/specs/2026-09-27-views-2d-map-rhi-design.md`](../../docs/superpowers/specs/2026-09-27-views-2d-map-rhi-design.md)。
 - **MapLibre 式 2D 帧**：`effect::map::Pass::record` 清 `background_rgba`（`0xAARRGGBB` × opacity，与 `ResolvedPaint` 相同），按 `items` 顺序画到与 `GpuScene::set_view_ortho` 相同的经纬度 ortho。`pixel_space` 的 icon/text 先绕 `anchor_x/anchor_y` 转 `angle_rad`，再从视图像素（y 向下）换进该 ortho。文字经 `GlyphRasterizer` 打进一张图集再画四边形；`halo_width_px > 0` 时先画一圈更大的 `halo_rgba` 实色四边形。栅格/图标由调用方 `load_raster` / `load_icon` 提供 RGBA8，失败则跳过该项。Windows 字形是 `WindowsGlyphRasterizer`（GDI+，无窗口）。Null `create_device(kNull)` 可录空帧和填充三角形。测试 `//src/effect/map:map_effect_test`。
 
+## Parallel / GPU (planned)
+
+Product-track parallel + GPU accelerate（L0 UI never joins · vista `parallel_for` · Display 单 CL）locked in living **§src_render + vista parallel accelerate**:
+
+- Spec: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md)（Types / Call graph / Grains / Env / API sketches）
+- Diagram: [`docs/superpowers/diagrams/src-render-vista-parallel-accelerate.html`](../../docs/superpowers/diagrams/src-render-vista-parallel-accelerate.html)
+- Plan: [`docs/superpowers/plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../../docs/superpowers/plans/2026-10-02-src-render-vista-parallel-accelerate.md)
+
+Product env（planned / wiring in progress）: `SMT_VISTA_LAYOUT_PARALLEL=0` → layout tess N=1；`SMT_GPUSCENE_PREP_PARALLEL=0` → frustum prep N=1。Leftover `SMT_RHI2D_*` / `SMT_RHI3D_*` must **not** drive this path. Warm Map2d presents still skip re-record via `Map2dFrameCache` StaticReuse.
+
 ## Optional FlyCube GPU smoke
 
 CI / default builds stay on Null. To exercise real DX12 present + lit solid (`kLitSolid` / `set_light_params`; skip-not-red if no adapter):

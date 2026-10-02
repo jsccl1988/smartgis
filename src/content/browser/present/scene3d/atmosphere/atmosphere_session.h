@@ -15,6 +15,8 @@
 #include "effect/atmosphere/cloud/cloud_pass.h"
 #include "effect/atmosphere/fog/fog_pass.h"
 #include "effect/atmosphere/frame/atmosphere_frame.h"
+#include "effect/atmosphere/globe/globe_pass.h"
+#include "effect/atmosphere/globe/sat_cloud_pass.h"
 #include "effect/atmosphere/ocean/ocean_pass.h"
 #include "effect/atmosphere/sky/sky_pass.h"
 #include "gis/vista/domain/atmosphere/systems/environment.h"
@@ -51,6 +53,12 @@ class AtmosphereSession {
   void set_wind_overlay_enabled(bool on);
   bool wind_overlay_enabled() const { return wind_overlay_enabled_; }
 
+  // Google-Earth-like stack: DEM globe + satellite cloud shell (+ sky/fog).
+  void set_globe_enabled(bool on);
+  void set_sat_cloud_enabled(bool on);
+  bool globe_enabled() const { return globe_enabled_; }
+  bool sat_cloud_enabled() const { return sat_cloud_enabled_; }
+
   void set_time_sec(double t);
   double time_sec() const;
 
@@ -86,6 +94,13 @@ class AtmosphereSession {
   effect::atmosphere::OceanPass& ocean_pass() { return ocean_pass_; }
   const effect::atmosphere::OceanPass& ocean_pass() const { return ocean_pass_; }
 
+  effect::atmosphere::GlobePass& globe_pass() { return globe_pass_; }
+  const effect::atmosphere::GlobePass& globe_pass() const { return globe_pass_; }
+  effect::atmosphere::SatCloudPass& sat_cloud_pass() { return sat_cloud_pass_; }
+  const effect::atmosphere::SatCloudPass& sat_cloud_pass() const {
+    return sat_cloud_pass_;
+  }
+
   // M3 city path self-test: DEM + 3D Tiles + atmosphere on/off.
   bool run_m3_self_test_hooks(std::string* err);
 
@@ -96,19 +111,30 @@ class AtmosphereSession {
   bool prepare_clouds();
   bool prepare_sky();
   bool prepare_fog();
+  bool prepare_globe();
+  bool prepare_sat_clouds();
 
   const MapScene* scene_ = nullptr;
   Scene3dGpuPresent* gpu_ = nullptr;
+
+  // Flags first — pass POD sizes shift often; keep enable bits at stable
+  // offsets so inlined getters in other TUs cannot read a stale layout.
+  bool wind_overlay_enabled_ = false;
+  bool globe_enabled_ = false;
+  bool sat_cloud_enabled_ = false;
+  bool globe_surface_loaded_ = false;
+  bool sat_cloud_cover_loaded_ = false;
+  // QPC tick of the last advance_sim_time(); 0 = not primed.
+  std::uint64_t last_sim_qpc_ = 0;
 
   std::unique_ptr<gis::atmosphere::Environment> atmosphere_;
   effect::atmosphere::OceanPass ocean_pass_;
   effect::atmosphere::CloudPass cloud_pass_;
   effect::atmosphere::SkyPass sky_pass_;
   effect::atmosphere::FogPass fog_pass_;
+  effect::atmosphere::GlobePass globe_pass_;
+  effect::atmosphere::SatCloudPass sat_cloud_pass_;
   effect::atmosphere::AtmosphereFrame atmosphere_frame_;
-  bool wind_overlay_enabled_ = false;
-  // QPC tick of the last advance_sim_time(); 0 = not primed.
-  std::uint64_t last_sim_qpc_ = 0;
 
   // Sea-mask FieldStore sample is static for a fixed geo extent; refill only
   // when the orbit frame extent changes (was 32x32 samples every present).

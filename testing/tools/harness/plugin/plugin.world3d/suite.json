@@ -36,8 +36,9 @@
     "checklist": [
       "terrain_visible",
       "pointcloud_or_mesh",
+      "atmosphere_or_sky_hint",
       "no_black_frame"
     ],
-    "expect_notes": "world3d scene has land/mesh signal, not empty clear"
+    "expect_notes": "world3d Earth face: land/mesh + atmosphere product defaults; satellite cloud may be procedural until GeoTIFF is present"
   }
 }

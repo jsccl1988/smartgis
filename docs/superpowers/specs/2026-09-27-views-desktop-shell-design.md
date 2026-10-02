@@ -7,7 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-27  
 **Status:** active  
-**Updated:** 2026-10-01 — §Visual review Wave2 (browse/ui/legacy checklist + real review-prep). Prior same day — `ui/views/map` nest; §Visual review closed-loop; §Chromium Browser `plugin/analysis_writers`; §IL interaction recorder. Prior 2026-09-30 — §Shell chrome DPI/font; §Harness capability runtime; §VS Code UI Markup; §Map browse forensic; §Shell perf; §UI visual forensics; §Harness suite loop. Do not open new dated twins.
+**Updated:** 2026-10-02 — UI Views shell HTML 原理图（泳道 + compositor 流水线）；§shell/ui chrome composers (`ShellLayoutChrome` + `main_app.ui.xml` product path). Prior same-day §Shell chrome layout; §Declarative markup; §Startup profile; 2026-10-01 — §Visual review; `ui/views/map` nest; §Chromium Browser plugin writers; §IL interaction recorder. Prior 2026-09-30 — §Shell perf / compositor; §UI visual forensics; §Harness suite loop. Do not open new dated twins.
 **Related:**
 
 | Topic | Doc | Relation |
@@ -94,12 +94,16 @@ src/app/views/
       plugin/
         plugin_shell.h / .cc
     ui/                           # Widget tree only
-      browser_view.h / .cc
+      browser_view.h / .cc        # layout + thin forwards; owns *Chrome composers
       pages/
-        map_pages.cc
+        map_pages_chrome.h / .cc  # MapPagesChrome (tabs/viewports/gestures)
       panels/
-        shell_panels.cc
-        inspector_sync.cc
+        processing_chrome.h / .cc
+        inspect_chrome.h / .cc
+        inspector_sync_chrome.h / .cc
+        debug_console_chrome.h / .cc
+        atmosphere_chrome.h / .cc
+        report_panel.h / .cc      # ReportPanel View (not a BrowserView method TU)
     harness/
       showcase/
         atmosphere/
@@ -282,9 +286,9 @@ src/app/views/
       nav/                        # draft / extent navigation helpers on Browser
       plugin/                  # PluginShell + analysis_writers (product commit/wire)
     ui/                           # BrowserView only (≈ chrome/browser/ui)
-      browser_view.*              # Widget tree; holds Browser*
-      pages/                      # map tab / viewport chrome wiring
-      panels/                     # inspector / ambox / catalog chrome sync
+      browser_view.*              # Widget tree + thin forwards; holds Browser*
+      pages/                      # MapPagesChrome
+      panels/                     # *Chrome composers + ReportPanel
     harness/
       showcase/
       self_test/
@@ -334,7 +338,7 @@ Shell may include only present **facades** + `session/` + `host/` headers it nee
 | `shell/{app,browser,ui}` dirs | Present | None for paths |
 | Session ownership | Fields live on `Browser` | Done for members |
 | Controller logic | Nav / tool / catalog / file / extent on `Browser` (`commands/`, `nav/`); product analysis writers in `plugin/analysis_writers` | Residual: some pages/panels TUs still carry wide UI includes; analysis_writers still large (further product splits optional) |
-| Fat `browser_view.cc` | Chrome + menus/ambox/status; controller moved | Trim pages/panels include noise when touching those TUs |
+| Fat `browser_view.cc` | Chrome + menus/ambox/status; controller moved; panel/page wire in `*Chrome` composers | Optional: `ShellLayoutChrome` for `build_contents`; `detail/ptr_guard.h` |
 | Deps | `BrowserUiDelegate` + `create_browser_ui`; `browser.cc` does not include `browser_view.h` | Done for S5 |
 | `commands/*.cc` | Include `browser.h` only (no concrete `BrowserView`) | Done |
 
@@ -673,8 +677,9 @@ VS-style bottom **Diagnostic Tools** dock (replaces standalone Debug Console + I
 | UI | `ui::views::DiagnosticToolsPanel` bottom dock |
 | Tabs | Output \| Console \| **Trace** (was CPU) \| Memory |
 | UI paint profile | `BASE_TRACE_EVENT(..., "ui.views")` on Widget `on_paint` / layout / record_commit / present + ShellCompositor `raster` / `blt_present`; RenderTrace filter checkbox **UI** |
-| UiDesigner | View → Toggle Console+Trace; dock open by default for self-iteration |
-| Tabs | `Output` \| `Console` \| `CPU` \| `Memory` |
+| UiDesigner | View → Toggle Console+Trace (default collapsed; toggle opens dock) |
+| Product shell | Diagnostic Tools **open by default**; active tab **Console** (Trace adjacent) |
+| Tabs | `Output` \| `Console` \| `Trace` \| `Memory` |
 | Shared bar | Record / Stop / Clear / Export / Armed / Track allocs / Echo→Output |
 | Output | LogSink only (`DebugConsolePanel` kOutput); startup `LOGGING` appears here |
 | Console | Input + echo; Agent cmd/py/sdbd (`DebugConsolePanel` kConsole) |
@@ -807,7 +812,7 @@ OpenCppCoverage is **optional** and must **not** block default `build.bat te`. S
 
 Product dialog and GIS panel assets live in **`src/ui/resources/<area>/`** (nested by responsibility, aligned with `ui/gis/{dialogs,catalog,inspect,shell,style,analysis,debug}` plus `toolkit/` for generic views dialogs). GN `:markup_resources` copies each area to shared **`out/ui/<area>/`** (`$root_out_dir/../ui`, sibling of Debug/Release — same pattern as `out/data/`) plus flat `markup/testdata/` samples into `out/ui/`. Call sites use relative names: `load_markup("dialogs/create_map.ui.xml")`, `load_markup("inspect/measure_panel.ui.xml")`. Resolver searches `<exe>/../ui/<rel>`, `<exe>/ui/<rel>`, and `src/ui/resources/<rel>`.
 
-**Panel markup contract:** C++ panel constructs via `load_markup` + id bind + `FillLayout` (same as product dialogs). Dynamic rows/trees stay on `set_*` APIs. Nested C++ children (TabStrip pages, History) mount into `panel` hosts (`tabs_host` / `history_host`). Landed: StatusBar, Measure, Selection, Legend, Symbology, LayerProperties, FeatureInfo, AttributeTable, Catalog, SpatialAnalysis, Processing, History, Atmosphere. Intentionally C++: Ambox (dynamic toolbox), DiagnosticTools (composed docks), ChartView (paint-only).
+**Panel markup contract:** C++ panel constructs via `load_markup` + id bind + `FillLayout` (same as product dialogs). Dynamic rows/trees stay on `set_*` APIs. Nested C++ children (TabStrip pages, History) mount into `panel` hosts (`tabs_host` / `history_host` / `chart_host` / `plot`). Landed: StatusBar, Measure, Selection, Legend, Symbology, LayerProperties, FeatureInfo, AttributeTable, Catalog, SpatialAnalysis, Processing, History, Atmosphere, ResultPlayback, DebugConsole, RenderTrace, DiagnosticTools (chrome + `tabs_host`), Memory page chrome (`debug/memory_page`), Ambox scroll shell (`shell/ambox_view`), ChartView title chrome (`shell/chart_view`). Intentionally C++: Ambox dynamic group buttons, ChartView series plot paint, Memory sparkline paint, LayerTree custom rows (hosted by Catalog markup).
 
 **Plan:** [`../plans/2026-09-28-gis-resources-markup.md`](../plans/2026-09-28-gis-resources-markup.md).
 
@@ -1234,11 +1239,79 @@ Natural-language → Views declarative markup (`.ui.xml` fragment) inside UiDesi
 
 ---
 
+## §Startup profile（2026-10-02）
+
+**Status:** active  
+**Updated:** 2026-10-02 — P2 cold-start cuts (WaitFirstMapPresent / HillshadeBake / FlyCube.Init).  
+**As-built:** `src/base/trace/diag/startup_profile.h` + `BASE_TRACE_EVENT(..., "startup")` on the SmartGisViews launch path.
+
+### Goal
+
+Locate **SmartGisViews.exe** cold-start wall time from `wWinMain` through first interactive show (shell visible; map present is async by default), without a parallel timer stack.
+
+### Facility
+
+| Piece | Role |
+| --- | --- |
+| `BASE_TRACE_EVENT(name, "startup")` | Existing process_trace RAII spans (always-on diagnostics already enable recording) |
+| `maybe_dump_startup_profile()` | Once after `Browser::show`: final table to `startup_profile.txt` (or `SMT_STARTUP_PROFILE_DUMP`) |
+| `dump_startup_profile_partial(tag)` | Mid snapshots → `startup_profile.partial-<tag>.txt` (does **not** overwrite final / claim the once-slot) |
+| `wall_ms` | Prefer `wWinMain`/`BrowserMain` dur; else **first→last** span coverage (file dump matches stderr) |
+| `SMT_STARTUP_PROFILE=1` | Force-enable tracing + dump (also in Release) |
+| `SMT_STARTUP_PROFILE_DUMP=<path>` | Write text table + sibling chrome JSON |
+| Debug builds | Dump table to stderr/LOGGING after first show by default |
+
+Phases covered (non-exhaustive): `wWinMain`, `ParseLaunchOptions`, `ContentMain` / `BrowserMain`, `Browser.ctor` / `init` / `show`, `Session.init_hosts` (`MapContents.Create`; optional `StartRenderProcess` / `HelloWait`), `PluginShell.*`, `InitChrome` subphases (`Widget.init`, `BuildContents`, `SeedDocument` / `try_open_china` / `SeedDocument.ChinaBootstrap`, `BindPresenters`, `AttachViewports`, `MapEdit.FlyCubeAttach` / `FlyCube.Init`, `WireChrome`), `ShowChrome` / `WaitFirstMapPresent`, `HillshadeBake`, `LoadMarkup` when hit.
+
+### Startup optimize（P0 / P1，2026-10-02）
+
+| ID | Change |
+| --- | --- |
+| **P0-3** | Final dump after first show; mid dumps are `*.partial-*`; `wall_ms` first→last fallback; named spans above |
+| **P0-1** | `MapSession::init_hosts` only `Create`s MapContents; OOP via `ensure_oop_render_process()` / first ContentMapView. Opt-in at init: `--enable-oop-render` or `SMT_ENABLE_OOP_RENDER=1`. Hard off: `SMT_DISABLE_OOP_RENDER=1` |
+| **P0-2** | Inspector first-show = FeatureInfo + AttributeTable; Measure/Report/Atmosphere/… on first tab select. `load_markup` path→XML process cache |
+| **P1-1** | Data/3D FlyCube attach already deferred to `switch_map_tab` (as-built) |
+| **P1-2** | Product path may `set_defer_china_seed(true)` (idle open after show). Harness/self-test stay sync; `SMT_SYNC_CHINA_SEED=1` / `SMT_DEFER_CHINA_SEED=1` override |
+| **P1-3** | Report WebView2 created in `wire_report_panel` only when Report tab is materialized |
+| **P2-1** | `WaitFirstMapPresent` opt-in only (`SMT_SYNC_FIRST_MAP_PRESENT=1`). Product show returns after shell paint + map invalidate — does not block on full carto/GPU token |
+| **P2-2** | `HillshadeBake` skipped until `MapScene::has_china_extent()` (demo/defer seed no longer pays ~0.4s GDAL shade). Force: `SMT_MAP2D_FORCE_HILLSHADE=1`; hard off: `SMT_MAP2D_NO_HILLSHADE=1` |
+| **P2-3** | `FlyCube.Init` async by default (UI wait 0). Opt-in sync: `SMT_SYNC_FLYCUBE_INIT=1` (MapEdit/Data 800ms, Scene3d 2500ms) |
+
+Product cold-start measure (no `--ui-showcase=shell`):
+
+| Phase | Pre-P2 (≈) | Post-P2 target |
+| --- | --- | --- |
+| wall (`first→last`) | ~6–7s | ~1–2s (init+show; map/DEM fill-in after) |
+| `WaitFirstMapPresent` | ~2.3–2.7s | absent unless sync env |
+| `FlyCube.Init` | ~0.4–0.8s UI block | ~0 (async Display thread) |
+| `HillshadeBake` | ~0.4s in wait pump | absent until China extent |
+| `AttachViewports` | ~0.5–1.0s | tens of ms (enqueue Init) |
+
+### How to read
+
+```bat
+set SMT_DISABLE_OOP_RENDER=1
+set SMT_STARTUP_PROFILE=1
+set SMT_STARTUP_PROFILE_DUMP=out\Debug\log\startup_profile.txt
+REM product path — do NOT pass --ui-showcase=shell
+out\Debug\SmartGisViews.exe
+```
+
+stderr lines: `[startup-profile] …`. Full chrome buffer still via `SMT_TRACE_DUMP` if needed.
+
+### Non-goals
+
+- Do not replace frame-level map2d/scene3d phase clocks (equal-profile plans).
+- Do not LoadLibrary-scan plugins at startup solely for profiling (builtins stay deferred).
+
+---
+
 ## §Shell perf upgrade waves（2026-09-30）
 
 **Status:** active  
 **Plan:** [`../plans/2026-09-30-ui-shell-perf-upgrade.md`](../plans/2026-09-30-ui-shell-perf-upgrade.md)  
-**Predecessor:** [`../plans/2026-09-28-ui-compositor-thread.md`](../plans/2026-09-28-ui-compositor-thread.md) (P0–P5 roles landed; Deferred absorbed as U3–U5)
+**Predecessor:** [`../plans/2026-09-28-ui-compositor-thread.md`](../plans/2026-09-28-ui-compositor-thread.md) (P0–P5 roles landed; Deferred absorbed as U3–U5)  
+**Diagram:** [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)（浅色 SVG：shell/toolkit/gfx/MapViewport/GPU 泳道 + Commit→compositor→raster→GPU 流水线动画）
 
 Close the highest-ROI gap vs Chromium-class shell feel **without** vendoring `cc`/viz. Scenario map (as-built):
 
@@ -1529,6 +1602,75 @@ run / --review-prep
 - [x] One local `--review-prep` smoke on `plugin.stormsurge` or `map2d.china`
 - [x] Wave2: seed `visual_review` on browse forensic / ui / legacy / orthogrid bmp suites
 - [x] Wave2: `--review-prep --force-run` on `legacy.browse.2d` + `map2d.china` → Agent bug tables → human confirm → fix / tighten gates
+
+---
+
+## §Shell chrome layout（2026-10-02）
+
+**Status:** active  
+**Updated:** 2026-10-02  
+**Owns:** product `BrowserView::build_contents` chrome geometry (not a new dated twin).
+
+| Region | Choice |
+| --- | --- |
+| Map / Catalog tab headers | `TabStrip::HeaderPlacement::kBottom` (Map\|Data\|3D + Layers\|Sources\|Maps) |
+| Select / Edit / Tools | Horizontal `AmboxView` tool bar above Catalog\|Map column (`ambox_`) |
+| Right dock | Multi-tab: **AMBox** (vertical `side_ambox_`) \| FeatureInfo \| AttributeTable \| Measure…Atmosphere |
+| Bottom dock | Diagnostic Tools only (no FeatureInfo strip); **open by default**, Console active |
+| Former bottom inspector | Moved into the right multi-tab (`inspector_tabs_`) |
+
+Checklist:
+
+1. [x] Map + Catalog tab headers bottom.
+2. [x] Horizontal Ambox tool bar above map column.
+3. [x] Right multi-tab (AMBox + FeatureInfo + GIS panels).
+4. [x] Diagnostic Tools open + Console tab default.
+
+---
+
+## §shell/ui chrome composers（2026-10-02）
+
+**Status:** active  
+**Updated:** 2026-10-02  
+**Owns:** deep split of `src/app/views/shell/ui` after S1–S5 file-only multi-TU landed.
+
+### Before → after
+
+| Before (S4 as-built) | After (this §) |
+| --- | --- |
+| `browser_view.*` + `pages/map_pages.cc` + `panels/*.cc` as **multi-TU `BrowserView::` methods** | Same public `BrowserView` / `BrowserUiDelegate` surface |
+| Fat wire logic still on `BrowserView` private API | **Composer types** own wire/sync bodies; `BrowserView` keeps fields + thin forwards |
+| Flat `panels/` TU names (`processing_panels`, `map_inspect_panels`, `debug_console_wire`, …) | Colocated `*_chrome.{h,cc}` per responsibility |
+
+### Target composition (locked)
+
+```
+BrowserView                    # Widget tree + inspector placeholders + menus/status
+  ├─ ShellLayoutChrome         # load_markup(main_app) + mount hosts (or imperative fallback)
+  ├─ MapPagesChrome            # Map|Data|3D attach, overlays, gestures, tool seams
+  ├─ ProcessingChrome          # Processing / playback / report / spatial / Python bridge
+  ├─ InspectChrome             # Measure / selection / legend / layer props
+  ├─ InspectorSyncChrome       # FeatureInfo / AttributeTable / edit feedback sync
+  ├─ DebugConsoleChrome        # Diagnostic Tools + DebugAgent bind
+  ├─ AtmosphereChrome          # Atmosphere inspector wire
+  └─ ReportPanel*              # existing View host for plugin ReportBrowser
+```
+
+Rules:
+
+- Public namespace stays `app` (composers are `app::*Chrome`; no third semantic layer).
+- Composers are **friends** of `BrowserView` and hold `BrowserView* host_` — field layout on `BrowserView` stays append-only (parallel-ninja `map_*` offset AV hazard unchanged).
+- `BrowserView` private `wire_*` / sync / map helpers remain as **thin forwards** so call sites (`ensure_inspector_tab`, timers, `BrowserUiDelegate`) stay stable.
+- Colocate `.h` with `.cc`; update `//src/app/views:shell_ui` sources in the same change. **No** forwarding headers at old `map_pages.cc` paths.
+- Do **not** reopen a dated layout twin (ban list → this living file).
+
+### Checklist
+
+1. [x] Extract `MapPagesChrome` / `ProcessingChrome` / `InspectChrome` / `InspectorSyncChrome` / `DebugConsoleChrome` / `AtmosphereChrome`.
+2. [x] `BrowserView` owns `unique_ptr` composers (append-only members); ctor wires them.
+3. [x] GN `:shell_ui` sources + includes updated; old multi-TU `.cc` removed.
+4. [ ] Optional: hoist duplicated `ptr_addr_poison` / `ptr_mem_readable` into `shell/ui/detail/ptr_guard.h`.
+5. [x] Peel `build_contents` into `ShellLayoutChrome`: `load_markup("shell/main_app.ui.xml")` + host mount (Catalog / Map tabs / Ambox tool bar / right inspector / Diagnostic / Status); imperative fallback if markup missing. `splitter` markup tag + Yoga skip for splitter children.
 
 ---
 

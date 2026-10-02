@@ -28,8 +28,8 @@ long SmtNorthArray::Create(LP3DRENDERDEVICE p3DRenderDevice) {
     return SMT_ERR_INVALID_PARAM;
   }
 
-  p3DRenderDevice->CreateFont("Arial", 16, 0, FW_BOLD, TRUE, FALSE, FALSE, 10,
-                              m_nFontClock);
+  p3DRenderDevice->CreateFont("Segoe UI", 13, 0, FW_SEMIBOLD, TRUE, FALSE, FALSE,
+                              10, m_nFontClock);
 
   float R = m_fWinH * 7 / 16;
   m_pVBClockPan =
@@ -41,7 +41,8 @@ long SmtNorthArray::Create(LP3DRENDERDEVICE p3DRenderDevice) {
       x = R * cos(DEG2RAD(i)) + m_fWinH * 17 / 32;
       y = R * sin(DEG2RAD(i)) + m_fWinH * 17 / 32;
       m_pVBClockPan->Vertex(x, y, 0);
-      m_pVBClockPan->Diffuse(0.0, 0.0, 1.0, 0.9);
+      // Slate ring — pure blue (0,0,1) clashed with DEM greens.
+      m_pVBClockPan->Diffuse(0.42f, 0.58f, 0.72f, 0.85f);
     }
 
     m_pVBClockPan->Unlock();
@@ -56,22 +57,22 @@ long SmtNorthArray::Create(LP3DRENDERDEVICE p3DRenderDevice) {
     x = L2 * cos(DEG2RAD(120));
     y = L2 * sin(DEG2RAD(120));
     m_pVBClockArray->Vertex(x, y, 0);
-    m_pVBClockArray->Diffuse(0.0, .0, .0, 1);
+    m_pVBClockArray->Diffuse(0.55f, 0.12f, 0.12f, 1.f);
 
     x = L1 * cos(DEG2RAD(270));
     y = L1 * sin(DEG2RAD(270));
     m_pVBClockArray->Vertex(x, y, 0);
-    m_pVBClockArray->Diffuse(0.0, .0, .0, 0);
+    m_pVBClockArray->Diffuse(0.92f, 0.28f, 0.24f, 1.f);
 
     x = 0.;
     y = 0.;
     m_pVBClockArray->Vertex(x, y, 0);
-    m_pVBClockArray->Diffuse(0.0, .0, .0, 1);
+    m_pVBClockArray->Diffuse(0.92f, 0.28f, 0.24f, 1.f);
 
     x = L2 * cos(DEG2RAD(60));
     y = L2 * sin(DEG2RAD(60));
     m_pVBClockArray->Vertex(x, y, 0);
-    m_pVBClockArray->Diffuse(0.0, .0, .0, 1);
+    m_pVBClockArray->Diffuse(0.55f, 0.12f, 0.12f, 1.f);
 
     m_pVBClockArray->Unlock();
   }
@@ -99,12 +100,19 @@ long SmtNorthArray::Update(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed) {
 }
 
 long SmtNorthArray::Render(LP3DRENDERDEVICE p3DRenderDevice) {
-  DWORD dwLightOn = 0;
   Viewport3D viewport = p3DRenderDevice->GetViewport();
   Viewport3D viewportOrg = viewport;
 
-  viewport.ulHeight = m_fWinH;
-  viewport.ulWidth = m_fWinH;
+  const ulong dial = static_cast<ulong>(m_fWinH);
+  const ulong full_h = viewportOrg.ulHeight;
+  viewport.ulHeight = dial;
+  viewport.ulWidth = dial;
+  // Compass dial sits bottom-left. GL glViewport Y is bottom-up (ulY=0 keeps
+  // it there). D3D RSSetViewports Y is top-down, so shift ulY or the rose
+  // lands top-left and the banner clips N / the upper arc.
+  if (p3DRenderDevice->GetBaseApi() != RA_OPENGL && full_h > dial) {
+    viewport.ulY = viewportOrg.ulY + (full_h - dial);
+  }
 
   p3DRenderDevice->SetViewport(viewport);
 
@@ -143,30 +151,31 @@ long SmtNorthArray::Render(LP3DRENDERDEVICE p3DRenderDevice) {
 void SmtNorthArray::DrawClock(LP3DRENDERDEVICE p3DRenderDevice) {
   // Compass rose only — drop the old clock-face hour digits (1/2/4/…) that
   // read as pink noise on showcase captures.
+  const SmtColor card(0.72f, 0.82f, 0.92f, 1.f);
   float R = m_fWinH * 3 / 8, x, y;
   x = R * cos(DEG2RAD(0)) + m_fWinH / 2;
   y = R * sin(DEG2RAD(0)) + m_fWinH / 2;
-  p3DRenderDevice->DrawText(m_nFontClock, x, y, SmtColor(0.55, 0.85, 1.0), "E");
+  p3DRenderDevice->DrawText(m_nFontClock, x, y, card, "E");
 
   x = R * cos(DEG2RAD(270)) + m_fWinH / 2;
   y = R * sin(DEG2RAD(270)) + m_fWinH / 2;
-  p3DRenderDevice->DrawText(m_nFontClock, x, y, SmtColor(0.55, 0.85, 1.0), "N");
+  p3DRenderDevice->DrawText(m_nFontClock, x, y, card, "N");
 
   x = R * cos(DEG2RAD(180)) + m_fWinH / 2;
   y = R * sin(DEG2RAD(180)) + m_fWinH / 2;
-  p3DRenderDevice->DrawText(m_nFontClock, x, y, SmtColor(0.55, 0.85, 1.0), "W");
+  p3DRenderDevice->DrawText(m_nFontClock, x, y, card, "W");
 
   x = R * cos(DEG2RAD(90)) + m_fWinH / 2;
   y = R * sin(DEG2RAD(90)) + m_fWinH / 2;
-  p3DRenderDevice->DrawText(m_nFontClock, x, y, SmtColor(0.55, 0.85, 1.0), "S");
+  p3DRenderDevice->DrawText(m_nFontClock, x, y, card, "S");
 
   p3DRenderDevice->DrawPrimitives(PT_LINESTRIP, m_pVBClockPan, 0, 360);
 }
 
 void SmtNorthArray::DrawArray(LP3DRENDERDEVICE p3DRenderDevice) {
-  // Heading readout: cool white, not neon green competing with DEM wash.
+  // Heading readout: cool muted white.
   p3DRenderDevice->DrawText(m_nFontClock, 0, m_fWinH * 3 / 32,
-                            SmtColor(0.92, 0.95, 1.0), "%.0f",
+                            SmtColor(0.78f, 0.84f, 0.92f, 1.f), "%.0f",
                             360 - m_fNorthPtAngle);
   p3DRenderDevice->MatrixPush();
   p3DRenderDevice->MatrixTranslation(m_fWinH * 17 / 32, m_fWinH * 17 / 32, 0.f);

@@ -1,0 +1,257 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI Views shell — 架构与 compositor 流水线</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #6b5ea8; --tk: #2563a8; --gfx: #2f7d62; --map: #b06a1a; --gpu: #8b3a3a;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 16px 20px 12px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta, .rel { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .rel a { margin-right: 10px; }
+  .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 12px 14px 14px; margin-bottom: 12px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .lane-label { font-weight: 700; font-size: 11px; }
+  .arrow { fill: none; stroke: #8a96a8; stroke-width: 2; }
+  .pulse { stroke-dasharray: 6 4; animation: dash 0.8s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -20; } }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  button { appearance: none; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 11px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .legend { color: var(--muted); font-size: 0.82rem; }
+  details.appendix { margin-top: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); padding: 8px 12px; }
+  details.appendix summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; font-weight: 600; }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+  .map th { background: #e8edf3; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>UI Views shell — 分层与 compositor 流水线</h1>
+    <p>Chromium 角色：UI Commit → compositor → raster → GPU present（无 Blink/cc）</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Shell perf / compositor</a>
+      · Plan：<a href="../plans/2026-09-28-ui-compositor-thread.md">ui-compositor-thread</a>
+    </div>
+    <div class="rel">相关图：
+      <a href="./src-render-vista-parallel-accelerate.html">产品并行终态</a>
+      <a href="./gis-vista-architecture.html">GIS vista</a>
+      <a href="./legacy-render-architecture.html">legacy/render</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 核心分层（全宽泳道）</h2>
+    <svg class="diagram" viewBox="0 0 1040 360" role="img" aria-label="UI Views 分层泳道">
+      <defs>
+        <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect x="0" y="0" width="1040" height="64" rx="8" fill="#efeaf8" stroke="#d8dee6"/>
+      <rect x="0" y="72" width="1040" height="64" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <rect x="0" y="144" width="1040" height="64" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <rect x="0" y="216" width="1040" height="64" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <rect x="0" y="288" width="1040" height="64" rx="8" fill="#f7e8e8" stroke="#d8dee6"/>
+
+      <text class="lane-label" x="12" y="24" fill="#6b5ea8">L0 Shell</text>
+      <text class="lane-label" x="12" y="40" fill="#6b5ea8">app/views</text>
+      <rect x="120" y="12" width="200" height="40" rx="6" fill="#fff" stroke="#6b5ea8" stroke-width="1.5"/>
+      <text class="box-title" x="220" y="30" text-anchor="middle">Browser / BrowserView</text>
+      <text class="box-sub" x="220" y="46" text-anchor="middle">shell chrome · menus</text>
+      <rect x="340" y="12" width="200" height="40" rx="6" fill="#fff" stroke="#6b5ea8" stroke-width="1.5"/>
+      <text class="box-title" x="440" y="30" text-anchor="middle">ShellLayoutChrome</text>
+      <text class="box-sub" x="440" y="46" text-anchor="middle">main_app.ui.xml</text>
+      <rect x="560" y="12" width="200" height="40" rx="6" fill="#fff" stroke="#6b5ea8" stroke-width="1.5"/>
+      <text class="box-title" x="660" y="30" text-anchor="middle">Widget HWND</text>
+      <text class="box-sub" x="660" y="46" text-anchor="middle">UI 线程独占</text>
+
+      <text class="lane-label" x="12" y="96" fill="#2563a8">L1 Toolkit</text>
+      <text class="lane-label" x="12" y="112" fill="#2563a8">ui/views</text>
+      <rect x="120" y="84" width="180" height="40" rx="6" fill="#fff" stroke="#2563a8" stroke-width="1.5"/>
+      <text class="box-title" x="210" y="102" text-anchor="middle">View / controls</text>
+      <text class="box-sub" x="210" y="118" text-anchor="middle">layout · events</text>
+      <rect x="320" y="84" width="200" height="40" rx="6" fill="#fff" stroke="#2563a8" stroke-width="1.5"/>
+      <text class="box-title" x="420" y="102" text-anchor="middle">ShellCompositor</text>
+      <text class="box-sub" x="420" y="118" text-anchor="middle">pending / active</text>
+      <rect x="540" y="84" width="180" height="40" rx="6" fill="#fff" stroke="#2563a8" stroke-width="1.5"/>
+      <text class="box-title" x="630" y="102" text-anchor="middle">PaintCommit</text>
+      <text class="box-sub" x="630" y="118" text-anchor="middle">不可变快照</text>
+
+      <text class="lane-label" x="12" y="168" fill="#2f7d62">L2 gfx</text>
+      <text class="lane-label" x="12" y="184" fill="#2f7d62">ui/gfx</text>
+      <rect x="120" y="156" width="200" height="40" rx="6" fill="#fff" stroke="#2f7d62" stroke-width="1.5"/>
+      <text class="box-title" x="220" y="174" text-anchor="middle">DisplayList</text>
+      <text class="box-sub" x="220" y="190" text-anchor="middle">shell ops · kBgra</text>
+      <rect x="340" y="156" width="200" height="40" rx="6" fill="#fff" stroke="#2f7d62" stroke-width="1.5"/>
+      <text class="box-title" x="440" y="174" text-anchor="middle">PaintCounters</text>
+      <text class="box-sub" x="440" y="190" text-anchor="middle">commit / raster / present</text>
+
+      <text class="lane-label" x="12" y="240" fill="#b06a1a">L3 Map</text>
+      <text class="lane-label" x="12" y="256" fill="#b06a1a">viewport</text>
+      <rect x="120" y="228" width="200" height="40" rx="6" fill="#fff" stroke="#b06a1a" stroke-width="1.5"/>
+      <text class="box-title" x="220" y="246" text-anchor="middle">MapViewport</text>
+      <text class="box-sub" x="220" y="262" text-anchor="middle">hosted HWND</text>
+      <rect x="340" y="228" width="240" height="40" rx="6" fill="#fff" stroke="#b06a1a" stroke-width="1.5"/>
+      <text class="box-title" x="460" y="246" text-anchor="middle">content present</text>
+      <text class="box-sub" x="460" y="262" text-anchor="middle">Map2d / Scene3d</text>
+      <rect x="600" y="228" width="200" height="40" rx="6" fill="#fff" stroke="#b06a1a" stroke-width="1.5"/>
+      <text class="box-title" x="700" y="246" text-anchor="middle">地图像素旁路</text>
+      <text class="box-sub" x="700" y="262" text-anchor="middle">≠ Views DisplayList</text>
+
+      <text class="lane-label" x="12" y="312" fill="#8b3a3a">L4 GPU</text>
+      <text class="lane-label" x="12" y="328" fill="#8b3a3a">Display</text>
+      <rect x="120" y="300" width="220" height="40" rx="6" fill="#fff" stroke="#8b3a3a" stroke-width="1.5"/>
+      <text class="box-title" x="230" y="318" text-anchor="middle">Display mailbox</text>
+      <text class="box-sub" x="230" y="334" text-anchor="middle">map quads + shell overlay</text>
+      <rect x="360" y="300" width="220" height="40" rx="6" fill="#fff" stroke="#8b3a3a" stroke-width="1.5"/>
+      <text class="box-title" x="470" y="318" text-anchor="middle">rhi::Device 独占</text>
+      <text class="box-sub" x="470" y="334" text-anchor="middle">gpu::draw_and_swap</text>
+
+      <path class="arrow" d="M220 52 L220 72" marker-end="url(#ah)"/>
+      <path class="arrow" d="M220 136 L220 144" marker-end="url(#ah)"/>
+      <path class="arrow" d="M220 208 L220 216" marker-end="url(#ah)"/>
+      <path class="arrow" d="M220 280 L220 288" marker-end="url(#ah)"/>
+
+      <rect x="820" y="84" width="200" height="196" rx="8" fill="#fff" stroke="#d8dee6" stroke-dasharray="4 3"/>
+      <text class="box-title" x="920" y="112" text-anchor="middle">线程角色</text>
+      <text class="box-sub" x="920" y="138" text-anchor="middle">UI · HWND / Commit</text>
+      <text class="box-sub" x="920" y="160" text-anchor="middle">Compositor · frame</text>
+      <text class="box-sub" x="920" y="182" text-anchor="middle">Raster · dirty rect</text>
+      <text class="box-sub" x="920" y="204" text-anchor="middle">GPU · Device</text>
+      <text class="box-sub" x="920" y="234" text-anchor="middle">无 HWND on</text>
+      <text class="box-sub" x="920" y="252" text-anchor="middle">compositor/raster/GPU</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>2. Compositor 流水线（节点 + 箭头）</h2>
+    <svg class="diagram" id="pipeSvg" viewBox="0 0 1040 150" role="img">
+      <defs>
+        <marker id="ahp" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/></marker>
+        <marker id="ahpon" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#2563a8"/></marker>
+      </defs>
+      <path id="a0" class="arrow" d="M230 70 L270 70" marker-end="url(#ahp)"/>
+      <path id="a1" class="arrow" d="M470 70 L510 70" marker-end="url(#ahp)"/>
+      <path id="a2" class="arrow" d="M710 70 L750 70" marker-end="url(#ahp)"/>
+      <g class="node" data-i="0">
+        <rect x="40" y="25" width="190" height="90" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/>
+        <circle cx="70" cy="50" r="12" fill="#2563a8"/><text x="70" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">1</text>
+        <text class="box-title" x="135" y="54" text-anchor="middle">UI Commit</text>
+        <text class="box-sub" x="135" y="78" text-anchor="middle">record → PaintCommit</text>
+        <text class="box-sub" x="135" y="96" text-anchor="middle">不可变 DisplayList</text>
+      </g>
+      <g class="node" data-i="1">
+        <rect x="270" y="25" width="200" height="90" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/>
+        <circle cx="300" cy="50" r="12" fill="#2563a8"/><text x="300" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">2</text>
+        <text class="box-title" x="370" y="54" text-anchor="middle">Compositor</text>
+        <text class="box-sub" x="370" y="78" text-anchor="middle">pending → active</text>
+        <text class="box-sub" x="370" y="96" text-anchor="middle">CompositorFrame</text>
+      </g>
+      <g class="node" data-i="2">
+        <rect x="510" y="25" width="200" height="90" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/>
+        <circle cx="540" cy="50" r="12" fill="#2563a8"/><text x="540" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">3</text>
+        <text class="box-title" x="610" y="54" text-anchor="middle">Raster</text>
+        <text class="box-sub" x="610" y="78" text-anchor="middle">dirty-rect replay</text>
+        <text class="box-sub" x="610" y="96" text-anchor="middle">shell kBgra 资源</text>
+      </g>
+      <g class="node" data-i="3">
+        <rect x="750" y="25" width="220" height="90" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/>
+        <circle cx="780" cy="50" r="12" fill="#2563a8"/><text x="780" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">4</text>
+        <text class="box-title" x="860" y="54" text-anchor="middle">GPU present</text>
+        <text class="box-sub" x="860" y="78" text-anchor="middle">Submit · draw_and_swap</text>
+        <text class="box-sub" x="860" y="96" text-anchor="middle">map + overlay compose</text>
+      </g>
+    </svg>
+    <div class="controls">
+      <button type="button" class="primary" id="btnPlay">播放流水线</button>
+      <button type="button" id="btnPause">暂停</button>
+      <button type="button" id="btnReset">复位</button>
+      <span class="legend" id="status">就绪</span>
+    </div>
+  </section>
+
+  <details class="appendix">
+    <summary>附录：角色 / 非目标</summary>
+    <table class="map">
+      <thead><tr><th>角色</th><th>可</th><th>不可</th></tr></thead>
+      <tbody>
+        <tr><td>UI</td><td>HWND · Commit · Submit</td><td>join raster/GPU · 触 Device</td></tr>
+        <tr><td>Compositor</td><td>pending/active · frame</td><td>HWND</td></tr>
+        <tr><td>Raster</td><td>DisplayList → 资源</td><td>HWND · Device</td></tr>
+        <tr><td>GPU</td><td>sole Device · present</td><td>写 active tree</td></tr>
+      </tbody>
+    </table>
+    <p class="legend" style="margin:8px 0 0">不 vendor Blink/cc · 地图像素不经 Views DisplayList · 无 shell Ganesh（perf waves）</p>
+  </details>
+</div>
+<script>
+(function () {
+  var nodes = Array.from(document.querySelectorAll("#pipeSvg .node"));
+  var arrows = ["a0","a1","a2"].map(function (id) { return document.getElementById(id); });
+  var status = document.getElementById("status");
+  var timer = null, i = -1;
+  function paint() {
+    nodes.forEach(function (g, idx) {
+      var on = idx <= i && i >= 0;
+      var rect = g.querySelector("rect");
+      rect.setAttribute("fill", on ? "#fff" : "#f0f3f7");
+      rect.setAttribute("stroke", on ? "#2563a8" : "#d8dee6");
+      rect.setAttribute("stroke-width", on ? "2.5" : "2");
+    });
+    arrows.forEach(function (a, idx) {
+      var on = idx < i;
+      a.setAttribute("stroke", on ? "#2563a8" : "#8a96a8");
+      a.setAttribute("stroke-width", on ? "2.5" : "2");
+      a.setAttribute("marker-end", on ? "url(#ahpon)" : "url(#ahp)");
+      a.classList.toggle("pulse", on && idx === i - 1);
+    });
+    if (i < 0) status.textContent = "就绪 — 点击播放";
+    else if (i >= nodes.length - 1) status.textContent = "完成 — UI 不 join GPU";
+    else status.textContent = "阶段 " + (i + 1) + " / " + nodes.length;
+  }
+  function step() {
+    i += 1;
+    if (i >= nodes.length) { clearInterval(timer); timer = null; paint(); return; }
+    paint();
+  }
+  document.getElementById("btnPlay").onclick = function () {
+    if (timer) return;
+    if (i >= nodes.length - 1) i = -1;
+    step(); timer = setInterval(step, 850);
+  };
+  document.getElementById("btnPause").onclick = function () {
+    if (timer) { clearInterval(timer); timer = null; status.textContent = "已暂停 @ " + Math.max(i + 1, 0); }
+  };
+  document.getElementById("btnReset").onclick = function () {
+    if (timer) clearInterval(timer);
+    timer = null; i = -1; paint();
+  };
+  paint();
+})();
+</script>
+</body>
+</html>

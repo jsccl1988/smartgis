@@ -32,6 +32,7 @@ enum {
 BEGIN_MESSAGE_MAP(DebugConsolePane, CWnd)
 ON_WM_CREATE()
 ON_WM_SIZE()
+ON_WM_ERASEBKGND()
 ON_WM_TIMER()
 ON_WM_DESTROY()
 ON_BN_CLICKED(kIdClear, &DebugConsolePane::OnBnClear)
@@ -51,10 +52,22 @@ BOOL DebugConsolePane::Create(CWnd* parent, UINT id) {
       parent, id);
 }
 
+BOOL DebugConsolePane::OnEraseBkgnd(CDC* pDC) {
+  if (pDC == nullptr) {
+    return TRUE;
+  }
+  CRect rc;
+  GetClientRect(&rc);
+  pDC->FillSolidRect(&rc, ::GetSysColor(COLOR_WINDOW));
+  return TRUE;
+}
+
 int DebugConsolePane::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   if (CWnd::OnCreate(lpCreateStruct) == -1) {
     return -1;
   }
+
+  ModifyStyleEx(WS_EX_TRANSPARENT | WS_EX_LAYERED, 0);
 
   CRect r(0, 0, 0, 0);
   if (!btn_clear_.Create(_T("Clear"), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, r,

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #ifndef _SYSCONFIGDOCKBAR_H
 #define _SYSCONFIGDOCKBAR_H
 #if defined(GUI_EXPORTS)
@@ -12,7 +15,9 @@
 
 #include "legacy/core/macros/macros.h"
 
-class AFX_EXT_CLASS SysConfigDockBar : public CBCGPDockingControlBar {
+// Plain CWnd page for AMBox Outlook. Must NOT derive from
+// CBCGPDockingControlBar — nested docking bars inside Outlook crash on close.
+class AFX_EXT_CLASS SysConfigDockBar : public CWnd {
  public:
   enum {
     PRO_FLASH_CLR1,
@@ -31,12 +36,15 @@ class AFX_EXT_CLASS SysConfigDockBar : public CBCGPDockingControlBar {
   };
 
   SysConfigDockBar();
-  virtual ~SysConfigDockBar();
+  ~SysConfigDockBar() override;
+
+  BOOL Create(CWnd* parent, UINT id);
 
  public:
   afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
   afx_msg void OnSize(UINT nType, int cx, int cy);
   afx_msg void OnPaint();
+  afx_msg BOOL OnEraseBkgnd(CDC* pDC);
 
   afx_msg void OnContextMenu(CWnd* /*pWnd*/, CPoint /*point*/);
   afx_msg LRESULT OnPropertyChanged(WPARAM, LPARAM);

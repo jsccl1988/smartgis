@@ -12,7 +12,7 @@ All rights reserved.
 
 Agent **可以**启动编译、链接，以及为验证构建而运行测试/产品二进制。优先用仓库根目录 `build.bat`；产物在 `out/Debug` / `out/Release`。迭代修复时优先 `build.bat debug …`。
 
-多对话共用同一套 out：优先 `build.bat`。**编译锁默认关**；多 agent 并行编译时建 `out/.build.lock.on` 或设 `SMARTGIS_BUILD_LOCK=1`。见 **`.cursor/rules/build/build-lock.mdc`**。
+多对话共用同一套 out：优先 `build.bat`。**编译锁默认关**；agent **禁止**建 `out/.build.lock.on` / 设 `SMARTGIS_BUILD_LOCK=1`（hook 拦截），靠路径分区并行。见 **`.cursor/rules/build/build-lock.mdc`**。
 
 ## 允许
 

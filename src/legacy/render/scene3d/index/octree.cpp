@@ -12,7 +12,7 @@
 #include "legacy/render/rhi3d/impl/common/frame/prep_runner.h"
 #include "legacy/render/rhi3d/public/device/base.h"
 #include "legacy/render/rhi3d/public/device/render_device.h"
-#include "legacy/render/scene3d/detail/d3d_deferred_objects.h"
+#include "legacy/render/scene3d/scene/d3d_deferred_objects.h"
 
 namespace render {
 namespace {

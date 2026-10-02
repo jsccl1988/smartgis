@@ -19,13 +19,23 @@ namespace views {
 // show that page; only the active page is laid out and painted.
 class UI_EXPORT TabStrip : public View {
  public:
+  // Where the clickable title band sits relative to the page body.
+  enum class HeaderPlacement {
+    kTop,
+    kBottom,
+  };
+
   TabStrip();
   int add_tab(std::string title, std::unique_ptr<View> page);
+  // Replace the page View at |i| (keeps title). Returns false if index invalid.
+  bool replace_page(int i, std::unique_ptr<View> page);
   void set_active(int i);
   int active() const;
   View* page_at(int i) const;
   int tab_count() const;
   void set_change(std::function<void(int)> fn);
+  void set_header_placement(HeaderPlacement placement);
+  HeaderPlacement header_placement() const { return header_placement_; }
   bool on_mouse_event(const MouseEvent& e) override;
   void on_device_scale_factor_changed(float old_scale,
                                      float new_scale) override;
@@ -50,6 +60,7 @@ class UI_EXPORT TabStrip : public View {
   std::vector<std::string> titles_;
   std::vector<View*> pages_;
   int active_ = -1;
+  HeaderPlacement header_placement_ = HeaderPlacement::kTop;
   std::function<void(int)> change_;
 };
 

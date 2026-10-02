@@ -69,6 +69,7 @@ class SmtRhi2dRenderDevice : public SmtRenderDevice {
   int PreviewZoomScale(lPoint orgPoint, float fscale) override;
   int PreviewZoomMove(fPoint dbfPointOffset) override;
   int ScheduleDelayedRedraw(const SmtMap *pMap) override;
+  int ScheduleUrgentRedraw(const SmtMap *pMap) override;
 
   int Timer();
 

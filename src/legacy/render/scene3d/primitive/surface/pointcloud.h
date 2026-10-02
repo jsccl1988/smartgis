@@ -1,68 +1,64 @@
-// Copyright (c) 2010 CCL. All rights reserved.
-#ifndef _MD3D_POINTCLOUD_H
-#define _MD3D_POINTCLOUD_H
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef SMT_LEGACY_RENDER_SCENE3D_PRIMITIVE_SURFACE_POINTCLOUD_H_
+#define SMT_LEGACY_RENDER_SCENE3D_PRIMITIVE_SURFACE_POINTCLOUD_H_
 
 #include <vector>
 
-#include "legacy/core/macros/macros.h"
 #include "legacy/render/legacy_render_export.h"
-#include "legacy/render/rhi3d/public/device/render_device.h"
-#include "legacy/render/rhi3d/public/resource/video_buffer.h"
 #include "legacy/render/scene3d/index/vertex_octree.h"
-#include "legacy/render/scene3d/scene/object.h"
-
-using namespace render;
+#include "legacy/render/scene3d/primitive/surface/surface_base.h"
 
 namespace render {
 
-// One contiguous VB range for frustum-culled point drawing (P2).
+// One contiguous VB range for frustum-culled point drawing.
 struct PointCloudChunk {
   Aabb aabb;
-  ulong start;
-  ulong count;
+  ulong start = 0;
+  ulong count = 0;
 };
 
 // Leftover point cloud: owns VB (+ optional spatial chunks); unibn index is
 // query-only via SmtVertexOctTree.
-class LEGACY_RENDER_EXPORT Smt3DPointCloud : public Smt3DObject {
+class LEGACY_RENDER_EXPORT Smt3DPointCloud : public SmtSurfaceObject {
  public:
   Smt3DPointCloud();
-  virtual ~Smt3DPointCloud();
+  ~Smt3DPointCloud() override;
 
- public:
-  long Init(::base::Vector3& vPos, SmtMaterial& matMaterial);
-  long Update(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed);
-  long Create(LP3DRENDERDEVICE p3DRenderDevice);
-  long Render(LP3DRENDERDEVICE p3DRenderDevice);
-  long Destroy();
+  long Init(::base::Vector3& vPos, SmtMaterial& matMaterial,
+            const char* szTexName = "") override;
+  long Update(LP3DRENDERDEVICE device, float elapsed) override;
+  long Create(LP3DRENDERDEVICE device) override;
+  long Render(LP3DRENDERDEVICE device) override;
+  long Destroy() override;
 
- public:
-  inline bool GetShowOctNodeBox(void) { return m_bShowBounds; }
-  inline void SetShowOctNodeBox(bool bShow = true) { m_bShowBounds = bShow; }
-  inline bool show_bounds() const { return m_bShowBounds; }
-  inline void set_show_bounds(bool show) { m_bShowBounds = show; }
+  bool show_bounds() const { return show_bounds_; }
+  void set_show_bounds(bool show) { show_bounds_ = show; }
+  // Legacy aliases.
+  bool GetShowOctNodeBox() { return show_bounds_; }
+  void SetShowOctNodeBox(bool show = true) { show_bounds_ = show; }
 
- public:
-  bool Read3DPointCloud(const char* szFilePath);
+  bool Read3DPointCloud(const char* path);
+  bool read_point_cloud(const char* path) { return Read3DPointCloud(path); }
 
-  inline SmtVertexOctTree& GetVertexOctTree(void) { return m_point_index; }
-  inline SmtVertexOctTree& point_index() { return m_point_index; }
-  inline const SmtVertexOctTree& point_index() const { return m_point_index; }
+  SmtVertexOctTree& point_index() { return point_index_; }
+  const SmtVertexOctTree& point_index() const { return point_index_; }
+  SmtVertexOctTree& GetVertexOctTree() { return point_index_; }
+
+  int last_drawn_points() const { return last_drawn_points_; }
 
  private:
-  long build_gpu_buffer(LP3DRENDERDEVICE p3DRenderDevice);
+  long build_gpu_buffer(LP3DRENDERDEVICE device);
   void build_chunks(const SmtVertex3DList& packed);
   void pack_vertices_for_chunks(SmtVertex3DList* packed);
 
- private:
-  SmtVertexOctTree m_point_index;
-  SmtVertexBuffer* m_pVertexBuffer;
-  std::vector<PointCloudChunk> m_chunks;
-
-  SmtVertex3DList m_vtxList;
-  bool m_bShowBounds;
-  bool m_bReadOK;
-  int m_nLastDrawnPoints;
+  SmtVertexOctTree point_index_;
+  std::vector<PointCloudChunk> chunks_;
+  SmtVertex3DList vtx_list_;
+  bool show_bounds_ = true;
+  bool read_ok_ = false;
+  int last_drawn_points_ = 0;
 };
 
 }  // namespace render
@@ -75,4 +71,4 @@ class LEGACY_RENDER_EXPORT Smt3DPointCloud : public Smt3DObject {
 #endif
 #endif
 
-#endif  //_MD3D_POINTCLOUD_H
+#endif  // SMT_LEGACY_RENDER_SCENE3D_PRIMITIVE_SURFACE_POINTCLOUD_H_

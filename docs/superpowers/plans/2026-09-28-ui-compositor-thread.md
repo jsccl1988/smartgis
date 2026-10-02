@@ -13,7 +13,8 @@ All rights reserved.
 
 **Tech Stack:** C++23, GN, `ui::views` / `ui::gfx` / `gpu::detail`, existing FlyCube RHI. No Qt. No `--type=gpu` this phase.
 
-**Spec:** [`../specs/2026-09-13-ui-views-controls-design.md`](../specs/2026-09-27-views-desktop-shell-design.md) § UI compositor thread (Chromium roles) — dated twin archived at [`../archive/specs/2026-09-28-ui-compositor-thread-design.md`](../archive/specs/2026-09-28-ui-compositor-thread-design.md)
+**Spec:** [`../specs/2026-09-27-views-desktop-shell-design.md`](../specs/2026-09-27-views-desktop-shell-design.md) §Shell perf upgrade waves（compositor roles；P0–P5 predecessor）— dated twin archived at [`../archive/specs/2026-09-28-ui-compositor-thread-design.md`](../archive/specs/2026-09-28-ui-compositor-thread-design.md)  
+**Diagram:** [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)
 
 ## Global Constraints
 

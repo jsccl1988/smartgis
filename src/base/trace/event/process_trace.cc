@@ -51,6 +51,13 @@ void maybe_init_tracing_from_env() {
       set_tracing_enabled(true);
     }
   }
+  // SMT_STARTUP_PROFILE=1 also arms recording so cat=startup spans land even
+  // when always-on diagnostics are skipped (e.g. utility/gpu helpers).
+  if (const char* env = std::getenv("SMT_STARTUP_PROFILE")) {
+    if (env[0] == '1' && env[1] == '\0') {
+      set_tracing_enabled(true);
+    }
+  }
 }
 
 void maybe_dump_tracing_to_env() {

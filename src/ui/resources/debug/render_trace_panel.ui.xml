@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="render_trace_panel">
+  <style src="render_trace_panel.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title"
+           text="Perf Gantt (UI Views + Map2d + Scene3d + GDI + Startup)"/>
+    <label id="status" text="Always-on — open Diagnostic Tools to watch"/>
+    <hbox id="toolbar" class="toolbar">
+      <button id="record" text="Record"/>
+      <button id="stop" text="Stop"/>
+      <button id="clear" text="Clear"/>
+      <button id="export" text="Export"/>
+      <button id="refresh" text="Refresh"/>
+      <checkbox id="arm" text="Armed"/>
+    </hbox>
+    <hbox id="filters" class="filters">
+      <checkbox id="show_map2d" text="Map2d" checked="true"/>
+      <checkbox id="show_scene3d" text="Scene3d" checked="true"/>
+      <checkbox id="show_startup" text="Startup" checked="true"/>
+      <checkbox id="show_gdi" text="GDI" checked="true"/>
+      <checkbox id="show_ui" text="UI" checked="true"/>
+    </hbox>
+    <label id="rollup" text=""/>
+  </vbox>
+</ui>

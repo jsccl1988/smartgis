@@ -7,7 +7,6 @@
 #include "legacy/ui/shell/ambox/ambox.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cstring>
 #include <string>
 #include <utility>
@@ -15,49 +14,102 @@
 
 namespace ui {
 
-// AM / dock titles may be leftover CP936 or modern UTF-8. Build a CString that
-// matches the process string mode (MBCS ACP or UNICODE) so Outlook tabs do not
-// paint as '?'.
+namespace {
+
+bool try_decode_wide(UINT code_page, DWORD flags, const char* s,
+                     std::wstring* wide) {
+  const int wlen = ::MultiByteToWideChar(code_page, flags, s, -1, nullptr, 0);
+  if (wlen <= 0) {
+    return false;
+  }
+  wide->assign(static_cast<size_t>(wlen), L'\0');
+  if (::MultiByteToWideChar(code_page, flags, s, -1, &(*wide)[0], wlen) <= 0) {
+    return false;
+  }
+  if (!wide->empty() && wide->back() == L'\0') {
+    wide->pop_back();
+  }
+  return true;
+}
+
+// Product AM plugins compile with /execution-charset:utf-8. Prefer strict
+// UTF-8; fall back to CP936 for leftover MBCS stems. Never leave callers with
+// ACP reinterpretation of UTF-8 bytes (classic mojibake).
+bool decode_name_wide(const char* name, std::wstring* out) {
+  if (!name || !name[0] || !out) {
+    return false;
+  }
+  if (try_decode_wide(CP_UTF8, MB_ERR_INVALID_CHARS, name, out)) {
+    return true;
+  }
+  if (try_decode_wide(936, 0, name, out)) {
+    return true;
+  }
+  // Last resort: lenient UTF-8 (truncated mid-sequence still shows a prefix).
+  return try_decode_wide(CP_UTF8, 0, name, out);
+}
+
+void apply_cjk_ui_font(CWnd* wnd) {
+  if (!wnd || !::IsWindow(wnd->GetSafeHwnd())) {
+    return;
+  }
+  LOGFONTW lf = {};
+  if (!::SystemParametersInfoW(SPI_GETICONTITLELOGFONT, sizeof(lf), &lf, 0)) {
+    return;
+  }
+  lf.lfCharSet = GB2312_CHARSET;
+  wcscpy_s(lf.lfFaceName, L"Microsoft YaHei UI");
+  HFONT hf = ::CreateFontIndirectW(&lf);
+  if (!hf) {
+    wcscpy_s(lf.lfFaceName, L"SimSun");
+    hf = ::CreateFontIndirectW(&lf);
+  }
+  if (hf) {
+    ::SendMessageW(wnd->GetSafeHwnd(), WM_SETFONT,
+                   reinterpret_cast<WPARAM>(hf), TRUE);
+  }
+}
+
+bool wide_contains_ci(const std::wstring& hay, const wchar_t* needle) {
+  if (!needle || !needle[0] || hay.empty()) {
+    return false;
+  }
+  std::wstring h = hay;
+  std::wstring n = needle;
+  for (auto& c : h) {
+    c = static_cast<wchar_t>(::towlower(c));
+  }
+  for (auto& c : n) {
+    c = static_cast<wchar_t>(::towlower(c));
+  }
+  return h.find(n) != std::wstring::npos;
+}
+
+}  // namespace
+
+// AM / dock titles may be leftover CP936 or modern UTF-8.
 CString ambox_title_for_display(const char* name) {
   if (!name || !name[0]) {
     return CString();
   }
-
-  auto try_decode = [](UINT code_page, const char* s,
-                       std::wstring* out) -> bool {
-    const DWORD flags =
-        (code_page == CP_UTF8) ? MB_ERR_INVALID_CHARS : 0u;
-    const int wlen =
-        ::MultiByteToWideChar(code_page, flags, s, -1, nullptr, 0);
-    if (wlen <= 0) {
-      return false;
-    }
-    out->assign(static_cast<size_t>(wlen), L'\0');
-    return ::MultiByteToWideChar(code_page, flags, s, -1, &(*out)[0], wlen) >
-           0;
-  };
-
   std::wstring wide;
-  // Plugin TUs often keep /execution-charset:utf-8; leftover exe uses .936.
-  // Strict UTF-8 first (MB_ERR_INVALID_CHARS), then CP936.
-  if (!try_decode(CP_UTF8, name, &wide) && !try_decode(936, name, &wide)) {
+  if (!decode_name_wide(name, &wide)) {
+#ifdef _UNICODE
+    // Avoid CString(const char*) ACP reinterpret of UTF-8 bytes.
+    return CString(L"?");
+#else
     return CString(name);
+#endif
   }
-  // Drop the trailing L'\0' counted by MultiByteToWideChar(-1).
-  if (!wide.empty() && wide.back() == L'\0') {
-    wide.pop_back();
-  }
-
 #ifdef _UNICODE
   return CString(wide.c_str());
 #else
-  // MBCS SmartGis: keep CJK when process ACP is not 936 (en-US hosts).
   const UINT acp = ::GetACP();
   const UINT out_cp = (acp == 936) ? acp : 936u;
   const int n = ::WideCharToMultiByte(out_cp, 0, wide.c_str(), -1, nullptr, 0,
                                       nullptr, nullptr);
   if (n <= 0) {
-    return CString(name);
+    return CString("?");
   }
   std::string narrow(static_cast<size_t>(n), '\0');
   ::WideCharToMultiByte(out_cp, 0, wide.c_str(), -1, &narrow[0], n, nullptr,
@@ -69,17 +121,63 @@ CString ambox_title_for_display(const char* name) {
 #endif
 }
 
+// Outlook tab faces paint CJK as '?' even under UNICODE + YaHei. Always ASCII.
+CString ambox_outlook_caption(const char* name) {
+  std::wstring wide;
+  decode_name_wide(name, &wide);
+
+  if (wide_contains_ci(wide, L"dem") ||
+      (name && std::strstr(name, "DEM"))) {
+    return _T("DEM");
+  }
+  if (wide_contains_ci(wide, L"\u6253\u5370") ||  // 打印
+      wide_contains_ci(wide, L"print")) {
+    return _T("Print");
+  }
+  if (wide_contains_ci(wide, L"\u6295\u5f71") ||  // 投影
+      wide_contains_ci(wide, L"proj")) {
+    return _T("Projection");
+  }
+  if (wide_contains_ci(wide, L"\u6a21\u578b") ||  // 模型
+      wide_contains_ci(wide, L"\u4e09\u7ef4\u521b\u5efa") ||  // 三维创建
+      wide_contains_ci(wide, L"model")) {
+    return _T("Model3D");
+  }
+  if (wide_contains_ci(wide, L"\u683c\u7f51") ||  // 格网
+      wide_contains_ci(wide, L"grid") || wide_contains_ci(wide, L"ortho")) {
+    return _T("OrthoGrid");
+  }
+
+  // Keep ASCII letters/digits from the decoded name.
+  CString ascii;
+  for (wchar_t wc : wide) {
+    if ((wc >= L'A' && wc <= L'Z') || (wc >= L'a' && wc <= L'z') ||
+        (wc >= L'0' && wc <= L'9') || wc == L' ' || wc == L'-' || wc == L'_') {
+      ascii += static_cast<TCHAR>(wc);
+    }
+  }
+  ascii.Trim();
+  if (ascii.IsEmpty()) {
+    ascii = _T("AM");
+  }
+  return ascii;
+}
+
 BEGIN_MESSAGE_MAP(SmtAMBoxMgrDocBar, CBCGPOutlookBar)
 END_MESSAGE_MAP()
 
 SmtAMBoxMgrDocBar::SmtAMBoxMgrDocBar() = default;
 
 SmtAMBoxMgrDocBar::~SmtAMBoxMgrDocBar() {
+  // Outlook may already tear down child HWNDs; only DestroyWindow live ones.
   for (CWnd* wnd : m_vWndPtrs) {
-    if (wnd) {
-      wnd->DestroyWindow();
-      SMT_SAFE_DELETE(wnd);
+    if (!wnd) {
+      continue;
     }
+    if (::IsWindow(wnd->GetSafeHwnd())) {
+      wnd->DestroyWindow();
+    }
+    SMT_SAFE_DELETE(wnd);
   }
   m_vWndPtrs.clear();
 }
@@ -90,7 +188,6 @@ bool SmtAMBoxMgrDocBar::UpdateAMBoxs(void) {
     return true;
   }
 
-  // Sort by name so Outlook pages group alphabetically (IA wave 3).
   std::vector<std::pair<std::string, SmtAuxModule*>> modules;
   const int count = pAModuleMgr->get_a_module_count();
   modules.reserve(static_cast<size_t>(count));
@@ -126,37 +223,12 @@ bool SmtAMBoxMgrDocBar::CreateAMBox(SmtAuxModule* pAModule, int nID) {
   }
 
   pXAMBox->ModifyStyleEx(0, WS_EX_CLIENTEDGE);
+  apply_cjk_ui_font(pXAMBox);
   pXAMBox->UpdateAMBoxTree();
 
-  // Tree keeps full CJK via ambox_title_for_display. Outlook tab faces in
-  // MBCS BCGP often paint CJK as '?' even with a YaHei font — use an ASCII
-  // stem for the page caption only.
-  CString full = ambox_title_for_display(pAModule->get_name());
-  CString ascii;
-  for (int i = 0; i < full.GetLength(); ++i) {
-    const unsigned char ch = static_cast<unsigned char>(full[i]);
-    if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
-        (ch >= '0' && ch <= '9') || ch == ' ' || ch == '-' || ch == '_') {
-      ascii += static_cast<TCHAR>(ch);
-    }
-  }
-  ascii.Trim();
-  if (ascii.IsEmpty()) {
-    // Pure-CJK module names (地图打印 / 地图投影 / …).
-    const char* raw = pAModule->get_name();
-    if (raw && std::strstr(raw, "打印")) {
-      ascii = _T("Print");
-    } else if (raw && std::strstr(raw, "投影")) {
-      ascii = _T("Projection");
-    } else if (raw && (std::strstr(raw, "模型") || std::strstr(raw, "Model"))) {
-      ascii = _T("Model3D");
-    } else if (raw && (std::strstr(raw, "格网") || std::strstr(raw, "Grid"))) {
-      ascii = _T("OrthoGrid");
-    } else {
-      ascii = _T("AM");
-    }
-  }
-  CString tab = ascii;
+  // Outlook faces (Feature Pack) still paint raw AuxModule MBCS as '?'.
+  // Use ASCII face captions; keep tree body CJK via UpdateAMBoxTree.
+  CString tab = ambox_outlook_caption(pAModule->get_name());
   if (!tab.IsEmpty()) {
     const TCHAR first = tab[0];
     if ((first >= _T('A') && first <= _T('Z')) ||
@@ -167,6 +239,7 @@ bool SmtAMBoxMgrDocBar::CreateAMBox(SmtAuxModule* pAModule, int nID) {
       tab = grouped;
     }
   }
+  pXAMBox->SetWindowText(tab);
   add_wnd(pXAMBox, tab);
   return true;
 }
@@ -176,7 +249,31 @@ bool SmtAMBoxMgrDocBar::add_wnd(CWnd* pWnd, CString strTitle) {
     return false;
   }
 
-  // |strTitle| is already display-encoded by CreateAMBox.
+  // Outlook faces: ASCII only (raw AuxModule CJK paints as '?').
+  CString ascii;
+  for (int i = 0; i < strTitle.GetLength(); ++i) {
+#ifdef _UNICODE
+    const wchar_t wc = strTitle[i];
+    if ((wc >= L'A' && wc <= L'Z') || (wc >= L'a' && wc <= L'z') ||
+        (wc >= L'0' && wc <= L'9') || wc == L' ' || wc == L'-' || wc == L'_' ||
+        wc == L'[' || wc == L']') {
+      ascii += wc;
+    }
+#else
+    const unsigned char ch = static_cast<unsigned char>(strTitle[i]);
+    if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+        (ch >= '0' && ch <= '9') || ch == ' ' || ch == '-' || ch == '_' ||
+        ch == '[' || ch == ']') {
+      ascii += static_cast<TCHAR>(ch);
+    }
+#endif
+  }
+  ascii.Trim();
+  if (ascii.IsEmpty()) {
+    ascii = _T("AM");
+  }
+  strTitle = ascii;
+
   m_vWndPtrs.push_back(pWnd);
 
   CBCGPOutlookWnd* pContainer =
@@ -189,26 +286,15 @@ bool SmtAMBoxMgrDocBar::add_wnd(CWnd* pWnd, CString strTitle) {
   pContainer->AddControl(
       pWnd, strTitle, 0, TRUE,
       CBRS_BCGP_FLOAT | CBRS_BCGP_AUTOHIDE | CBRS_BCGP_RESIZE);
-  // Prefer a CJK-capable UI font for Outlook page tabs (DEFAULT_GUI_FONT can
-  // be a Western face under some ACP setups → CJK captions paint as '?').
+  pWnd->SetWindowText(strTitle);
   {
-    LOGFONTW lf = {};
-    if (::SystemParametersInfoW(SPI_GETICONTITLELOGFONT, sizeof(lf), &lf, 0)) {
-      lf.lfCharSet = GB2312_CHARSET;
-      wcscpy_s(lf.lfFaceName, L"Microsoft YaHei UI");
-      HFONT hf = ::CreateFontIndirectW(&lf);
-      if (!hf) {
-        wcscpy_s(lf.lfFaceName, L"SimSun");
-        hf = ::CreateFontIndirectW(&lf);
-      }
-      if (hf) {
-        ::SendMessageW(pContainer->GetSafeHwnd(), WM_SETFONT,
-                       reinterpret_cast<WPARAM>(hf), TRUE);
-        // Outlook owns the HFONT for the bar lifetime (leak one face per page
-        // is acceptable vs '?' captions); do not DeleteObject here.
-      }
+    const int idx = pContainer->GetTabsNum() - 1;
+    if (idx >= 0) {
+      pContainer->SetTabLabel(idx, strTitle);
     }
   }
+  apply_cjk_ui_font(pContainer);
+  apply_cjk_ui_font(pWnd);
   pWnd->ShowWindow(SW_SHOW);
   return true;
 }

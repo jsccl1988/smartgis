@@ -41,6 +41,8 @@ AtmosphereSession::AtmosphereSession() {
   atmosphere_frame_.set_cloud_pass(&cloud_pass_);
   atmosphere_frame_.set_sky_pass(&sky_pass_);
   atmosphere_frame_.set_fog_pass(&fog_pass_);
+  atmosphere_frame_.set_globe_pass(&globe_pass_);
+  atmosphere_frame_.set_sat_cloud_pass(&sat_cloud_pass_);
 }
 
 AtmosphereSession::~AtmosphereSession() {
@@ -68,6 +70,13 @@ bool AtmosphereSession::prepare_for_present() {
   // extent when atmosphere needs it before DEM sync.
   ensure_geo_frame();
   advance_sim_time();
+  if (!prepare_globe() || !prepare_sat_clouds()) {
+    return false;
+  }
+  // Globe stack owns land/ocean/weather on the sphere — skip flat ocean/cloud.
+  if (globe_enabled_) {
+    return prepare_sky() && prepare_fog();
+  }
   return prepare_ocean() && prepare_clouds() && prepare_sky() && prepare_fog();
 }
 
@@ -78,7 +87,7 @@ void AtmosphereSession::advance_sim_time() {
   // Ocean FFT / cloud cover scrub need a moving clock; sky/fog are static
   // without it and look "frozen" in interactive present.
   if (!atmosphere_->ocean_enabled() && !atmosphere_->cloud_enabled() &&
-      !atmosphere_->sky_enabled()) {
+      !atmosphere_->sky_enabled() && !sat_cloud_enabled_ && !globe_enabled_) {
     return;
   }
   LARGE_INTEGER qpc = {};
@@ -110,8 +119,10 @@ void AtmosphereSession::advance_sim_time() {
   constexpr double kTwoPi = 6.283185307179586;
   p.sun_azimuth_rad =
       static_cast<float>(std::fmod(0.55 + t * 0.0523598775598, kTwoPi));
+  // Floor elevation so DEM Lambert / ocean specular never dip into the
+  // magenta sunset band (prepare_sky also floors; keep light in sync).
   p.sun_elevation_rad =
-      static_cast<float>(0.38 + 0.28 * std::sin(t * 0.041));
+      static_cast<float>(0.58 + 0.14 * std::sin(t * 0.041));
 }
 
 bool AtmosphereSession::needs_continuous_present() const {
@@ -136,6 +147,10 @@ void AtmosphereSession::release_passes() {
   cloud_pass_.release();
   sky_pass_.release();
   fog_pass_.release();
+  globe_pass_.release();
+  sat_cloud_pass_.release();
+  globe_surface_loaded_ = false;
+  sat_cloud_cover_loaded_ = false;
   sea_mask_cache_valid_ = false;
   cached_sea_mask_.clear();
   cached_sea_mask_n_ = 0;
@@ -162,6 +177,22 @@ void AtmosphereSession::set_sky_enabled(bool on) {
 
 void AtmosphereSession::set_fog_enabled(bool on) {
   ensure().set_fog_enabled(on);
+}
+
+void AtmosphereSession::set_globe_enabled(bool on) {
+  globe_enabled_ = on;
+  atmosphere_frame_.set_globe_enabled(on);
+  if (on) {
+    // Globe owns land/ocean geometry; flat ocean/cloud would fight the sphere.
+    ensure().set_ocean_enabled(false);
+    ensure().set_cloud_enabled(false);
+    ensure().set_sky_enabled(true);
+  }
+}
+
+void AtmosphereSession::set_sat_cloud_enabled(bool on) {
+  sat_cloud_enabled_ = on;
+  atmosphere_frame_.set_sat_cloud_enabled(on);
 }
 
 void AtmosphereSession::set_wind_overlay_enabled(bool on) {
@@ -718,23 +749,45 @@ bool AtmosphereSession::prepare_ocean() {
   // China orbit span ≈ 3.2: keep a readable lip without swallowing DEM peaks.
   // Prefer Gerstner for interactive full-China (GPU FFT can look flat when the
   // height-map energy is tiny after 1/N² at this scale).
-  draw.significant_wave_height =
-      (std::max)((std::min)(draw.significant_wave_height * 4.5f, 0.22f), 0.10f);
-  draw.use_gerstner_fallback = true;
-  draw.prefer_gpu_fft = false;
-  draw.chop = (std::max)(draw.chop, 1.15f);
-  draw.shininess = (std::max)(draw.shininess, 180.0f);
-  // 33 matches OceanDrawParams default; 65² Gerstner+upload dominated present.
-  draw.mesh_resolution = 33;
-  // Mid-tier GIS water: deep navy, muted shelf — never near-cyan albedo.
-  draw.deep_r = 0.02f;
-  draw.deep_g = 0.07f;
-  draw.deep_b = 0.18f;
-  draw.shallow_r = 0.06f;
-  draw.shallow_g = 0.22f;
-  draw.shallow_b = 0.32f;
-  draw.fresnel_bias = 0.03f;
-  draw.fresnel_power = 6.0f;
+  const bool legacy_stereo =
+      gpu_->look_preset() == Scene3dLookPreset::kLegacyStereo;
+  if (legacy_stereo) {
+    // Leftover stereo: calm light-blue shelf on black clear. Hs≥0.10 used to
+    // submerge coastal/mid DEM (only a mountain strip survived ocean depth).
+    draw.significant_wave_height =
+        (std::min)((std::max)(draw.significant_wave_height, 0.01f), 0.035f);
+    draw.use_gerstner_fallback = true;
+    draw.prefer_gpu_fft = false;
+    draw.chop = (std::min)((std::max)(draw.chop, 0.35f), 0.55f);
+    draw.shininess = (std::max)(draw.shininess, 120.0f);
+    draw.mesh_resolution = 33;
+    draw.deep_r = 0.01f;
+    draw.deep_g = 0.02f;
+    draw.deep_b = 0.04f;
+    draw.shallow_r = 0.22f;
+    draw.shallow_g = 0.48f;
+    draw.shallow_b = 0.62f;
+    draw.fresnel_bias = 0.04f;
+    draw.fresnel_power = 5.0f;
+  } else {
+    draw.significant_wave_height =
+        (std::max)((std::min)(draw.significant_wave_height * 4.5f, 0.22f), 0.10f);
+    draw.use_gerstner_fallback = true;
+    draw.prefer_gpu_fft = false;
+    draw.chop = (std::max)(draw.chop, 1.15f);
+    draw.shininess = (std::max)(draw.shininess, 180.0f);
+    // 33 matches OceanDrawParams default; 65² Gerstner+upload dominated present.
+    draw.mesh_resolution = 33;
+    // Mid-tier GIS water: deep navy, muted shelf — never near-cyan albedo.
+    draw.deep_r = 0.02f;
+    draw.deep_g = 0.07f;
+    draw.deep_b = 0.18f;
+    draw.shallow_r = 0.06f;
+    draw.shallow_g = 0.22f;
+    draw.shallow_b = 0.32f;
+    draw.fresnel_bias = 0.03f;
+    draw.fresnel_power = 6.0f;
+  }
   ocean_pass_.set_params(draw);
   const gis::atmosphere::AtmosphereParams& p = atmosphere_->params();
   ocean_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad,
@@ -830,18 +883,36 @@ bool AtmosphereSession::prepare_sky() {
   effect::atmosphere::SkyDrawParams sky = sky_pass_.params();
   // Past max orbit distance (12) so zoom-out stays inside the sky.
   sky.dome_radius = 40.0f;
-  // Industry mid-tier analytical dome: deep Rayleigh zenith, cool haze
-  // horizon (avoid magenta mid-band that trips pink_frac_top).
-  sky.zenith_r = 0.04f;
-  sky.zenith_g = 0.16f;
-  sky.zenith_b = 0.86f;
-  sky.horizon_r = 0.42f;
-  sky.horizon_g = 0.64f;
-  sky.horizon_b = 0.90f;
-  sky.sunset_r = 0.48f;
-  sky.sunset_g = 0.50f;
-  sky.sunset_b = 0.55f;
-  sky.sun_glow_strength = 0.28f;
+  if (globe_enabled_) {
+    // Product splash / Google-Earth path: deep-space starfield, not Rayleigh.
+    // Negative dome_radius selects space_blend in SkyPass (no POD growth).
+    sky.dome_radius = -40.0f;
+    sky.zenith_r = 0.008f;
+    sky.zenith_g = 0.010f;
+    sky.zenith_b = 0.028f;
+    sky.horizon_r = 0.012f;
+    sky.horizon_g = 0.014f;
+    sky.horizon_b = 0.040f;
+    sky.sunset_r = sky.horizon_r;
+    sky.sunset_g = sky.horizon_g;
+    sky.sunset_b = sky.horizon_b;
+    sky.sun_glow_strength = 0.55f;
+  } else {
+    // Industry mid-tier analytical dome: deep Rayleigh zenith, cool haze
+    // horizon. Collapse sunset into horizon so screen-space ground never
+    // samples a magenta sunset leg (interactive no-arg 3D lower half).
+    sky.dome_radius = 40.0f;
+    sky.zenith_r = 0.04f;
+    sky.zenith_g = 0.16f;
+    sky.zenith_b = 0.86f;
+    sky.horizon_r = 0.42f;
+    sky.horizon_g = 0.64f;
+    sky.horizon_b = 0.90f;
+    sky.sunset_r = sky.horizon_r;
+    sky.sunset_g = sky.horizon_g;
+    sky.sunset_b = sky.horizon_b;
+    sky.sun_glow_strength = 0.18f;
+  }
   sky_pass_.set_params(sky);
   return true;
 }
@@ -881,5 +952,220 @@ bool AtmosphereSession::prepare_fog() {
   return true;
 }
 
+namespace {
+
+std::string find_sample_sat_cloud_path() {
+  char module[MAX_PATH] = {};
+  const DWORD n = GetModuleFileNameA(nullptr, module, MAX_PATH);
+  std::string dir;
+  if (n > 0 && n < MAX_PATH) {
+    dir.assign(module, module + n);
+    const size_t slash = dir.find_last_of("\\/");
+    if (slash != std::string::npos) {
+      dir.resize(slash + 1);
+    }
+  }
+  const char* rel[] = {
+      "..\\data\\sat_cloud.tif",
+      "..\\data\\sat_cloud.png",
+      "..\\data\\global_cloud.tif",
+      "..\\data\\satellite_cloud.tif",
+      "data\\sat_cloud.tif",
+      "testing\\data\\sat_cloud.tif",
+  };
+  for (const char* r : rel) {
+    std::string cand = dir;
+    cand += r;
+    const DWORD attr = GetFileAttributesA(cand.c_str());
+    if (attr != INVALID_FILE_ATTRIBUTES &&
+        (attr & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+      return cand;
+    }
+  }
+  return {};
+}
+
+}  // namespace
+
+bool AtmosphereSession::prepare_globe() {
+  atmosphere_frame_.set_globe_enabled(globe_enabled_);
+  if (!globe_enabled_) {
+    return true;
+  }
+  if (globe_surface_loaded_ && globe_pass_.has_surface()) {
+    if (atmosphere_) {
+      const float az = atmosphere_->params().sun_azimuth_rad;
+      const float el = atmosphere_->params().sun_elevation_rad;
+      const float cos_el = std::cos(el);
+      globe_pass_.set_sun_direction(std::cos(az) * cos_el, std::sin(el),
+                                    std::sin(az) * cos_el);
+    }
+    return true;
+  }
+
+  std::string path;
+  std::string imagery_path;
+  double minx = 73.0;
+  double miny = 18.0;
+  double maxx = 135.0;
+  double maxy = 54.0;
+  // Keep DemRaster in a tight scope so GDAL/CPU buffers are freed before any
+  // later sat-cloud / sky work (cdb: AV in STL iterator after dem log).
+  {
+    gis::DemRaster dem;
+    // Globe prefers global_dem; china_dem remains the default product path
+    // (find_sample_dem_path) so China showcase is not remasked into holes.
+    path = gis::find_sample_global_dem_path();
+    bool loaded = false;
+    if (!path.empty()) {
+      loaded = dem.load_gdal_raster(path.c_str());
+    }
+    if (!loaded) {
+      dem.fill_synthetic_china();
+      path.clear();
+    }
+    dem.fit_vertical_exaggeration();
+
+    dem.envelope(&minx, &miny, &maxx, &maxy);
+    if (maxx <= minx || maxy <= miny) {
+      minx = 73.0;
+      miny = 18.0;
+      maxx = 135.0;
+      maxy = 54.0;
+    }
+
+    // Prefer full-sphere sampling when DEM spans the world (global_dem.tif).
+    // Regional china_dem keeps a soft-edged window on the ocean sphere.
+    const bool dem_looks_global =
+        (minx <= -170.0 && maxx >= 170.0 && miny <= -80.0 && maxy >= 80.0);
+    if (dem_looks_global) {
+      minx = -180.0;
+      miny = -90.0;
+      maxx = 180.0;
+      maxy = 90.0;
+    }
+
+    // Dense height grid so near-earth skim shows DEM undulation / hillshade.
+    const int kCols = dem_looks_global ? 384 : 192;
+    const int kRows = dem_looks_global ? 192 : 96;
+    std::vector<float> heights(static_cast<size_t>(kCols * kRows), 0.f);
+    for (int r = 0; r < kRows; ++r) {
+      const double lat =
+          maxy - (static_cast<double>(r) + 0.5) / kRows * (maxy - miny);
+      for (int c = 0; c < kCols; ++c) {
+        const double lon =
+            minx + (static_cast<double>(c) + 0.5) / kCols * (maxx - minx);
+        heights[static_cast<size_t>(r * kCols + c)] =
+            dem.sample_meters(lon, lat);
+      }
+    }
+
+    std::vector<uint8_t> rgba;
+    int tw = 0;
+    int th = 0;
+    // Terrain / satellite equirect only when DEM is global — otherwise a
+    // full-earth PNG would be UV-mapped into the China window incorrectly.
+    // Regional china_rs stays available via discovery after global_* paths.
+    imagery_path = dem_looks_global ? gis::find_sample_global_imagery_path()
+                                    : gis::find_sample_imagery_path();
+    bool have_imagery = false;
+    if (!imagery_path.empty()) {
+      const bool img_is_global =
+          imagery_path.find("global_terrain") != std::string::npos ||
+          imagery_path.find("global_imagery") != std::string::npos ||
+          imagery_path.find("blue_marble") != std::string::npos;
+      if (img_is_global && !dem_looks_global) {
+        imagery_path.clear();
+      }
+    }
+    if (!imagery_path.empty()) {
+      have_imagery =
+          gis::load_imagery_rgba(imagery_path.c_str(), &rgba, &tw, &th) &&
+          tw > 0 && th > 0;
+      if (!have_imagery) {
+        rgba.clear();
+        tw = 0;
+        th = 0;
+        imagery_path.clear();
+      }
+    }
+    if (!have_imagery) {
+      (void)dem.bake_hypsometric_rgba(dem_looks_global ? 256 : 96, &rgba, &tw,
+                                      &th);
+    }
+
+    globe_pass_.set_dem_surface(minx, miny, maxx, maxy, kCols, kRows,
+                                heights.data(), heights.size(),
+                                rgba.empty() ? nullptr : rgba.data(), tw, th);
+    if (dem_looks_global) {
+      effect::atmosphere::GlobeDrawParams gp = globe_pass_.params();
+      gp.height_scale = 9.5e-6f;
+      // Near-earth flythrough: fine UV sphere for DEM slope Lambert.
+      gp.lon_slices = 320;
+      gp.lat_slices = 160;
+      globe_pass_.set_params(gp);
+      effect::atmosphere::SatCloudDrawParams sc = sat_cloud_pass_.params();
+      // Sit above exaggerated DEM peaks; keep thin so hillshade/relief reads.
+      sc.shell_radius = 1.12f;
+      sc.lon_slices = 128;
+      sc.lat_slices = 64;
+      sc.opacity = 0.38f;
+      sc.soft_edge = 0.22f;
+      sat_cloud_pass_.set_params(sc);
+    }
+  }
+  if (atmosphere_) {
+    const float az = atmosphere_->params().sun_azimuth_rad;
+    const float el = atmosphere_->params().sun_elevation_rad;
+    const float cos_el = std::cos(el);
+    globe_pass_.set_sun_direction(std::cos(az) * cos_el, std::sin(el),
+                                  std::sin(az) * cos_el);
+  }
+  globe_surface_loaded_ = globe_pass_.has_surface();
+  if (globe_surface_loaded_) {
+    std::fprintf(stderr,
+                 "atmosphere.globe: dem=%s global=%d envelope=[%.1f,%.1f]-"
+                 "[%.1f,%.1f] albedo=%s\n",
+                 path.empty() ? "(synthetic)" : path.c_str(),
+                 globe_pass_.dem_is_global() ? 1 : 0, minx, miny, maxx, maxy,
+                 imagery_path.empty() ? "(hypsometric)" : imagery_path.c_str());
+    std::fflush(stderr);
+  }
+  return globe_surface_loaded_;
+}
+
+bool AtmosphereSession::prepare_sat_clouds() {
+  atmosphere_frame_.set_sat_cloud_enabled(sat_cloud_enabled_);
+  if (!sat_cloud_enabled_) {
+    return true;
+  }
+  sat_cloud_pass_.set_time_sec(time_sec());
+  if (sat_cloud_cover_loaded_ && sat_cloud_pass_.has_cover()) {
+    return true;
+  }
+  std::fprintf(stderr, "atmosphere.sat_cloud: prepare begin\n");
+  std::fflush(stderr);
+  const std::string path = find_sample_sat_cloud_path();
+  if (!path.empty()) {
+    std::vector<uint8_t> rgba;
+    int w = 0;
+    int h = 0;
+    if (gis::load_imagery_rgba(path.c_str(), &rgba, &w, &h) && w > 0 && h > 0) {
+      sat_cloud_pass_.set_cover_rgba(rgba.data(), w, h);
+      sat_cloud_cover_loaded_ = sat_cloud_pass_.has_cover();
+      std::fprintf(stderr, "atmosphere.sat_cloud: loaded %s %dx%d\n",
+                   path.c_str(), w, h);
+      std::fflush(stderr);
+      return sat_cloud_cover_loaded_;
+    }
+  }
+  sat_cloud_pass_.seed_procedural_cover(256, 128, 7);
+  sat_cloud_cover_loaded_ = sat_cloud_pass_.has_cover();
+  std::fprintf(stderr,
+               "atmosphere.sat_cloud: procedural stub (drop sat_cloud.tif "
+               "under out/data)\n");
+  std::fflush(stderr);
+  return sat_cloud_cover_loaded_;
+}
 
 }  // namespace content

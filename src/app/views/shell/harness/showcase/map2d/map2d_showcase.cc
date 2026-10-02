@@ -7,9 +7,13 @@
 
 #include "app/views/shell/browser/browser.h"
 #include "app/views/shell/browser/china_product_defaults.h"
+#include "app/views/shell/harness/common/bmp.h"
 #include "app/views/shell/harness/common/maps.h"
 #include "app/views/shell/harness/common/mark.h"
 #include "app/views/shell/harness/self_test/self_test.h"
+#include "app/views/shell/harness/showcase/map2d/gpu_host.h"
+#include "app/views/shell/harness/showcase/map2d/orthogrid_mesh.h"
+#include "app/views/shell/harness/showcase/map2d/sample.h"
 #include "app/views/shell/runtime/capability/run_script.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "content/browser/camera/map_host_extent.h"
@@ -18,221 +22,33 @@
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/browser/present/map2d/map2d_phase_profile.h"
 #include "content/browser/present/map2d/gpu/map2d_gpu_present.h"
-#include "plugin/product/orthogrid/commands.h"
-#include "plugin/product/orthogrid/detail/boundary_solve.h"
 #include "render/rhi/rhi.h"
-#include "tool/draft/draft.h"
 #include "ui/views/map/map_viewport.h"
 
-#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
-#include <iterator>
 #include <string>
-#include <vector>
 
 namespace {
 
 using app::Map2dShowcaseMode;
 using app::map2d_showcase_name;
-
-constexpr int kMap2dShowcaseDefaultW = 640;
-constexpr int kMap2dShowcaseDefaultH = 480;
-
-// Optional SMT_MAP2D_SHOWCASE_W / SMT_MAP2D_SHOWCASE_H (matrix uses 1280x720).
-void showcase_pixel_size(int* out_w, int* out_h) {
-  int w = kMap2dShowcaseDefaultW;
-  int h = kMap2dShowcaseDefaultH;
-  if (const char* ew = std::getenv("SMT_MAP2D_SHOWCASE_W");
-      ew && ew[0] != '\0') {
-    const int n = std::atoi(ew);
-    if (n >= 320 && n <= 3840) {
-      w = n;
-    }
-  }
-  if (const char* eh = std::getenv("SMT_MAP2D_SHOWCASE_H");
-      eh && eh[0] != '\0') {
-    const int n = std::atoi(eh);
-    if (n >= 240 && n <= 2160) {
-      h = n;
-    }
-  }
-  if (out_w) {
-    *out_w = w;
-  }
-  if (out_h) {
-    *out_h = h;
-  }
-}
+using app::detail::acquire_map2d_showcase_gpu_device;
+using app::detail::bmp_file_has_visible_signal_a;
+using app::detail::detach_maps;
+using app::detail::kMap2dShowcaseDefaultH;
+using app::detail::kMap2dShowcaseDefaultW;
+using app::detail::load_map2d_orthogrid_mesh;
+using app::detail::map2d_showcase_mark;
+using app::detail::map2d_showcase_pixel_size;
+using app::detail::map2d_want_gpu_present;
+using app::detail::try_load_align_style;
+using app::detail::try_open_china_sample;
 
 void showcase_mark(const char* step) {
-  wchar_t path[MAX_PATH] = {};
-  if (!app::detail::exe_capture_path(path, MAX_PATH,
-                                     L"map2d-showcase-mark.txt")) {
-    return;
-  }
-  FILE* f = nullptr;
-  if (_wfopen_s(&f, path, L"a") == 0 && f) {
-    std::fprintf(f, "%s\n", step);
-    std::fflush(f);
-    std::fclose(f);
-  }
-}
-
-void detach_maps(app::Browser& browser) {
-  app::detail::detach_maps(browser);
-}
-
-bool try_open_china_sample(app::Browser& browser) {
-  if (browser.document() && browser.document()->layer_count() > 0 &&
-      browser.document()->feature_count() >= 3) {
-    return true;
-  }
-  wchar_t sample_w[MAX_PATH] = {};
-  if (!app::detail::exe_dir_with_slash(sample_w, MAX_PATH)) {
-    return false;
-  }
-  char sample_a[MAX_PATH] = {};
-  const wchar_t* candidates[] = {L"..\\data\\china_city.gpkg",
-                                 L"..\\data\\china_city.geojson",
-                                 L"..\\data\\china_plp.geojson",
-                                 L"data\\china_city.gpkg",
-                                 L"data\\china_city.geojson",
-                                 L"data\\china_plp.geojson",
-                                 L"china_city.gpkg",
-                                 L"china_city.geojson",
-                                 L"china_plp.geojson"};
-  for (const wchar_t* name : candidates) {
-    wchar_t china_w[MAX_PATH] = {};
-    if (wcscpy_s(china_w, sample_w) != 0 || wcscat_s(china_w, name) != 0) {
-      continue;
-    }
-    if (GetFileAttributesW(china_w) == INVALID_FILE_ATTRIBUTES) {
-      continue;
-    }
-    WideCharToMultiByte(CP_UTF8, 0, china_w, -1, sample_a, MAX_PATH, nullptr,
-                        nullptr);
-    if (browser.document()->open_path(sample_a) &&
-        browser.document()->last_open_was_ogr() &&
-        browser.document()->feature_count() >= 3) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool try_path_candidates(const wchar_t* const* rels, size_t count,
-                         char* out_utf8, size_t out_cap) {
-  wchar_t base[MAX_PATH] = {};
-  if (!app::detail::exe_dir_with_slash(base, MAX_PATH)) {
-    return false;
-  }
-  for (size_t i = 0; i < count; ++i) {
-    wchar_t full[MAX_PATH] = {};
-    if (wcscpy_s(full, base) != 0 || wcscat_s(full, rels[i]) != 0) {
-      continue;
-    }
-    if (GetFileAttributesW(full) == INVALID_FILE_ATTRIBUTES) {
-      continue;
-    }
-    if (WideCharToMultiByte(CP_UTF8, 0, full, -1, out_utf8,
-                            static_cast<int>(out_cap), nullptr, nullptr) <= 0) {
-      continue;
-    }
-    return true;
-  }
-  return false;
-}
-
-bool try_load_align_style(app::Browser& browser) {
-  if (!browser.document()) {
-    return false;
-  }
-  char path_a[MAX_PATH * 3] = {};
-  const wchar_t* candidates[] = {
-      L"maplibre\\example\\style_align.json",
-      L"..\\maplibre\\example\\style_align.json",
-      L"..\\..\\third_party\\maplibre\\example\\style_align.json",
-      L"third_party\\maplibre\\example\\style_align.json",
-  };
-  if (!try_path_candidates(candidates, std::size(candidates), path_a,
-                           sizeof(path_a))) {
-    return false;
-  }
-  if (!browser.document()->load_style_path(path_a)) {
-    return false;
-  }
-  showcase_mark("style-align");
-  return true;
-}
-
-bool bmp_has_visible_signal(const char* path, int* out_w, int* out_h) {
-  if (!path) {
-    return false;
-  }
-  FILE* in = nullptr;
-  if (fopen_s(&in, path, "rb") != 0 || !in) {
-    return false;
-  }
-  BITMAPFILEHEADER fh{};
-  BITMAPINFOHEADER bi{};
-  if (std::fread(&fh, sizeof(fh), 1, in) != 1 ||
-      std::fread(&bi, sizeof(bi), 1, in) != 1 || fh.bfType != 0x4D42) {
-    std::fclose(in);
-    return false;
-  }
-  const int w = bi.biWidth;
-  const int h = bi.biHeight < 0 ? -bi.biHeight : bi.biHeight;
-  if (out_w) {
-    *out_w = w;
-  }
-  if (out_h) {
-    *out_h = h;
-  }
-  if (w < 320 || h < 240 ||
-      (bi.biBitCount != 24 && bi.biBitCount != 32)) {
-    std::fclose(in);
-    return false;
-  }
-  const int bpp = bi.biBitCount / 8;
-  const int stride = ((w * bi.biBitCount + 31) / 32) * 4;
-  std::vector<unsigned char> pixels(static_cast<size_t>(stride) *
-                                    static_cast<size_t>(h));
-  if (std::fseek(in, static_cast<long>(fh.bfOffBits), SEEK_SET) != 0 ||
-      std::fread(pixels.data(), 1, pixels.size(), in) != pixels.size()) {
-    std::fclose(in);
-    return false;
-  }
-  std::fclose(in);
-
-  int lit = 0;
-  int samples = 0;
-  const int step_x = (std::max)(1, w / 32);
-  const int step_y = (std::max)(1, h / 24);
-  for (int y = 0; y < h; y += step_y) {
-    const unsigned char* row =
-        pixels.data() + static_cast<size_t>(y) * stride;
-    for (int x = 0; x < w; x += step_x) {
-      const unsigned char b = row[x * bpp + 0];
-      const unsigned char g = row[x * bpp + 1];
-      const unsigned char r = row[x * bpp + 2];
-      ++samples;
-      if (static_cast<int>(r) + g + b > 24) {
-        ++lit;
-      }
-    }
-  }
-  return samples > 0 && lit * 20 >= samples;
-}
-
-bool want_gpu_present() {
-  if (const char* env = std::getenv("SMT_MAP2D_SHOWCASE_GPU")) {
-    return env[0] == '1' && env[1] == '\0';
-  }
-  return false;
+  map2d_showcase_mark(step);
 }
 
 void log_map2d_phase_sample(const char* tag) {
@@ -257,197 +73,11 @@ bool want_export_reuse() {
   return false;
 }
 
-// Create one Device for cold+warm samples (showcase size). Prefer a dedicated
-// init at export pixels so HWND client size does not force swapchain churn.
-render::rhi::Device* acquire_showcase_gpu_device(app::Browser& browser,
-                                                 int showcase_w, int showcase_h,
-                                                 bool* out_owned) {
-  *out_owned = false;
-  // Reuse MapViewport FlyCube device only when already warm at matching size.
-  if (ui::views::MapViewport* pane = browser.map_viewport()) {
-    if (pane->attach_mode() == ui::views::MapViewport::AttachMode::kFlyCube &&
-        pane->rhi_device()) {
-      auto* device = static_cast<render::rhi::Device*>(pane->rhi_device());
-      // Prefer dedicated device when viewport size ≠ showcase export size.
-      RECT rc = {};
-      if (pane->native_view() && IsWindow(pane->native_view())) {
-        GetClientRect(pane->native_view(), &rc);
-      }
-      const int cw = rc.right > 0 ? rc.right : 0;
-      const int ch = rc.bottom > 0 ? rc.bottom : 0;
-      if (cw == showcase_w && ch == showcase_h) {
-        return device;
-      }
-    }
-  }
-  render::rhi::Device* device =
-      render::rhi::create_device(render::rhi::preferred_gpu_backend());
-  if (!device) {
-    return nullptr;
-  }
-  render::rhi::DeviceDesc desc;
-  desc.width = showcase_w;
-  desc.height = showcase_h;
-  if (ui::views::MapViewport* pane = browser.map_viewport()) {
-    if (pane->native_view() && IsWindow(pane->native_view())) {
-      desc.native_window = pane->native_view();
-    }
-  }
-  if (!device->initialize(desc)) {
-    device->shutdown();
-    // Intentionally leak Device* — FlyCube teardown policy.
-    return nullptr;
-  }
-  *out_owned = true;
-  return device;
-}
-
-// Coastal bay gridbnd (nx=ny=33) ? Laplace + Thompson ? heat mesh in MapScene.
-bool load_orthogrid_mesh(app::Browser& browser) {
-  if (!browser.document()) {
-    return false;
-  }
-  char bnd_path[MAX_PATH] = {};
-  {
-    wchar_t base[MAX_PATH] = {};
-    if (!app::detail::exe_dir_with_slash(base, MAX_PATH)) {
-      return false;
-    }
-    const wchar_t* rels[] = {L"..\\data\\plugin\\orthogrid_sample.gridbnd",
-                             L"data\\plugin\\orthogrid_sample.gridbnd"};
-    bool found = false;
-    for (const wchar_t* rel : rels) {
-      wchar_t full[MAX_PATH] = {};
-      if (wcscpy_s(full, base) != 0 || wcscat_s(full, rel) != 0) {
-        continue;
-      }
-      if (GetFileAttributesW(full) == INVALID_FILE_ATTRIBUTES) {
-        continue;
-      }
-      if (WideCharToMultiByte(CP_UTF8, 0, full, -1, bnd_path,
-                              static_cast<int>(sizeof(bnd_path)), nullptr,
-                              nullptr) <= 0) {
-        continue;
-      }
-      found = true;
-      break;
-    }
-    if (!found) {
-      std::fprintf(stderr, "map2d-showcase: missing orthogrid_sample.gridbnd\n");
-      return false;
-    }
-  }
-  // Thompson steps help orthogonality on the irregular coastal Dirichlet.
-  constexpr int kEllipticIters = 4;
-  const plugin::detail::BoundarySolve solved =
-      plugin::detail::solve_grid_boundary_file(bnd_path, kEllipticIters);
-  if (!solved.ok || solved.nx < 3 || solved.ny < 3 ||
-      solved.xs.size() != static_cast<size_t>(solved.nx * solved.ny)) {
-    return false;
-  }
-
-  plugin::OrthogridMeshCommit commit;
-  commit.nx = solved.nx;
-  commit.ny = solved.ny;
-  commit.xs = solved.xs.data();
-  commit.ys = solved.ys.data();
-  if (!solved.cell_orth.empty()) {
-    commit.cell_orth = solved.cell_orth.data();
-  }
-  if (!solved.raster_orth.empty() && solved.raster_w > 0 &&
-      solved.raster_h > 0) {
-    commit.raster_w = solved.raster_w;
-    commit.raster_h = solved.raster_h;
-    commit.raster_min_x = solved.raster_min_x;
-    commit.raster_min_y = solved.raster_min_y;
-    commit.raster_max_x = solved.raster_max_x;
-    commit.raster_max_y = solved.raster_max_y;
-    commit.raster_orth = solved.raster_orth.data();
-  }
-  if (plugin::publish_orthogrid_mesh(commit)) {
-    return browser.document()->feature_count() >= 2;
-  }
-
-  // Fallback when mesh writer is unset (unit harness without Browser::init).
-  browser.document()->clear();
-  browser.document()->clear_style_document();
-  if (!browser.document()->create_layer("orthogrid_extent", "Polygon")) {
-    return false;
-  }
-  {
-    tool::Draft extent;
-    extent.kind = tool::DraftKind::kPolygon;
-    extent.points = {{0, 0}, {1000, 0}, {1000, 1000}, {0, 1000}};
-    browser.document()->append_from_draft(
-        extent, "draw.polygon",
-        [](int vx, int vy, double* map_x, double* map_y) {
-          *map_x = static_cast<double>(vx) / 1000.0;
-          *map_y = -static_cast<double>(vy) / 1000.0;
-        });
-  }
-  if (!browser.document()->create_layer("orthogrid", "LineString")) {
-    return false;
-  }
-
-  auto append_polyline = [&](const std::vector<std::pair<double, double>>& xy) {
-    if (xy.size() < 2) {
-      return false;
-    }
-    tool::Draft draft;
-    draft.kind = tool::DraftKind::kLineString;
-    draft.points.reserve(xy.size());
-    for (size_t i = 0; i < xy.size(); ++i) {
-      draft.points.push_back({static_cast<int32_t>(i), 0});
-    }
-    const content::FeatureId id = browser.document()->append_from_draft(
-        draft, "draw.linestring",
-        [&xy](int view_x, int, double* map_x, double* map_y) {
-          const size_t i = static_cast<size_t>(view_x);
-          if (i >= xy.size() || !map_x || !map_y) {
-            return;
-          }
-          *map_x = xy[i].first;
-          *map_y = -xy[i].second;
-        });
-    if (id.len != 0) {
-      browser.document()->update_feature_field(
-          content::MapScene::feature_token(id), "type", "highway");
-    }
-    return id.len != 0;
-  };
-
-  const int nx = solved.nx;
-  const int ny = solved.ny;
-  for (int j = 0; j < ny; ++j) {
-    std::vector<std::pair<double, double>> row;
-    row.reserve(static_cast<size_t>(nx));
-    for (int i = 0; i < nx; ++i) {
-      const size_t at = static_cast<size_t>(j * nx + i);
-      row.emplace_back(solved.xs[at], solved.ys[at]);
-    }
-    if (!append_polyline(row)) {
-      return false;
-    }
-  }
-  for (int i = 0; i < nx; ++i) {
-    std::vector<std::pair<double, double>> col;
-    col.reserve(static_cast<size_t>(ny));
-    for (int j = 0; j < ny; ++j) {
-      const size_t at = static_cast<size_t>(j * nx + i);
-      col.emplace_back(solved.xs[at], solved.ys[at]);
-    }
-    if (!append_polyline(col)) {
-      return false;
-    }
-  }
-  return browser.document()->feature_count() >= 2;
-}
-
 int run_map2d_showcase_impl(app::Browser& browser, Map2dShowcaseMode mode) {
   const char* name = map2d_showcase_name(mode);
   int showcase_w = kMap2dShowcaseDefaultW;
   int showcase_h = kMap2dShowcaseDefaultH;
-  showcase_pixel_size(&showcase_w, &showcase_h);
+  map2d_showcase_pixel_size(&showcase_w, &showcase_h);
   std::fprintf(stderr, "map2d-showcase mode=%s size=%dx%d\n", name, showcase_w,
                showcase_h);
   showcase_mark(name);
@@ -464,7 +94,7 @@ int run_map2d_showcase_impl(app::Browser& browser, Map2dShowcaseMode mode) {
   showcase_mark("pumped");
 
   if (mode == Map2dShowcaseMode::kOrthogrid) {
-    if (!load_orthogrid_mesh(browser)) {
+    if (!load_map2d_orthogrid_mesh(browser)) {
       std::fprintf(stderr, "map2d-showcase: orthogrid mesh failed\n");
       detach_maps(browser);
       return 55;
@@ -595,55 +225,9 @@ int run_map2d_showcase_impl(app::Browser& browser, Map2dShowcaseMode mode) {
   }
   showcase_mark("layout-warm");
 
-  // Optional FlyCube present smoke (HWND path = src/render RHI 2D). Capture
-  // still uses software export so carto colors are channel-correct for gates.
-  // Reuse one Device across cold + warm samples; report both separately.
-  long long present_gpu_cold_ms = -1;
-  long long present_gpu_warm_ms = -1;
-  if (want_gpu_present()) {
-    showcase_mark("gpu-try");
-    bool owned_device = false;
-    render::rhi::Device* device =
-        acquire_showcase_gpu_device(browser, showcase_w, showcase_h,
-                                   &owned_device);
-    if (device) {
-      content::reset_map2d_phase_sample();
-      const auto t_cold = std::chrono::steady_clock::now();
-      const bool ok_cold =
-          map2d->present_gpu(device, showcase_w, showcase_h);
-      present_gpu_cold_ms =
-          std::chrono::duration_cast<std::chrono::milliseconds>(
-              std::chrono::steady_clock::now() - t_cold)
-              .count();
-      std::fprintf(stderr,
-                   "map2d-showcase: present_gpu=%d present_gpu_ms=%lld "
-                   "present_gpu_cold_ms=%lld\n",
-                   ok_cold ? 1 : 0, present_gpu_cold_ms, present_gpu_cold_ms);
-      log_map2d_phase_sample("phase_cold_present");
-      showcase_mark(ok_cold ? "gpu-present-ok" : "gpu-present-fail");
-
-      content::reset_map2d_phase_sample();
-      const auto t_warm = std::chrono::steady_clock::now();
-      const bool ok_warm =
-          map2d->present_gpu(device, showcase_w, showcase_h);
-      present_gpu_warm_ms =
-          std::chrono::duration_cast<std::chrono::milliseconds>(
-              std::chrono::steady_clock::now() - t_warm)
-              .count();
-      std::fprintf(stderr,
-                   "map2d-showcase: present_gpu_warm=%d present_gpu_warm_ms=%lld\n",
-                   ok_warm ? 1 : 0, present_gpu_warm_ms);
-      log_map2d_phase_sample("phase_warm_present");
-      showcase_mark(ok_warm ? "gpu-warm-ok" : "gpu-warm-fail");
-
-      if (owned_device) {
-        device->shutdown();
-        // Intentionally leak Device* — same FlyCube teardown policy as
-        // atmosphere showcase / MapViewport.
-      }
-    }
-  }
-
+  // Software BMP first — carto gates / review-prep must not depend on optional
+  // FlyCube smoke. Prior order (GPU then export) left bmp_missing when
+  // present_gpu AVd on a second DXGI chain (ContentMapView HWND).
   {
     // Bench: SMT_MAP2D_EXPORT_REUSE=1 warms present-cache off-clock, then the
     // timed export reports paint_ms (blit) vs export_ms (paint + bmp_io).
@@ -680,7 +264,7 @@ int run_map2d_showcase_impl(app::Browser& browser, Map2dShowcaseMode mode) {
 
   int bw = 0;
   int bh = 0;
-  if (!bmp_has_visible_signal(bmp_a, &bw, &bh)) {
+  if (!bmp_file_has_visible_signal_a(bmp_a, &bw, &bh)) {
     std::fprintf(stderr, "map2d-showcase: BMP lacks visible signal (%dx%d)\n",
                  bw, bh);
     showcase_mark("bmp-black");
@@ -704,6 +288,58 @@ int run_map2d_showcase_impl(app::Browser& browser, Map2dShowcaseMode mode) {
       if (CopyFileW(bmp_w, keep_w, FALSE)) {
         showcase_mark("bmp-keep");
       }
+    }
+  }
+
+  // Optional FlyCube present smoke after BMP (src/render RHI 2D). Capture
+  // already landed above; accept_nonzero_rc_if_bmp covers a late GPU fail.
+  // Reuse one Device across cold + warm samples; report both separately.
+  long long present_gpu_cold_ms = -1;
+  long long present_gpu_warm_ms = -1;
+  if (map2d_want_gpu_present()) {
+    showcase_mark("gpu-try");
+    bool owned_device = false;
+    render::rhi::Device* device =
+        acquire_map2d_showcase_gpu_device(browser, showcase_w, showcase_h,
+                                   &owned_device);
+    if (device) {
+      content::reset_map2d_phase_sample();
+      const auto t_cold = std::chrono::steady_clock::now();
+      const bool ok_cold =
+          map2d->present_gpu(device, showcase_w, showcase_h);
+      present_gpu_cold_ms =
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::steady_clock::now() - t_cold)
+              .count();
+      std::fprintf(stderr,
+                   "map2d-showcase: present_gpu=%d present_gpu_ms=%lld "
+                   "present_gpu_cold_ms=%lld\n",
+                   ok_cold ? 1 : 0, present_gpu_cold_ms, present_gpu_cold_ms);
+      log_map2d_phase_sample("phase_cold_present");
+      showcase_mark(ok_cold ? "gpu-present-ok" : "gpu-present-fail");
+
+      content::reset_map2d_phase_sample();
+      const auto t_warm = std::chrono::steady_clock::now();
+      const bool ok_warm =
+          map2d->present_gpu(device, showcase_w, showcase_h);
+      present_gpu_warm_ms =
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::steady_clock::now() - t_warm)
+              .count();
+      std::fprintf(stderr,
+                   "map2d-showcase: present_gpu_warm=%d present_gpu_warm_ms=%lld\n",
+                   ok_warm ? 1 : 0, present_gpu_warm_ms);
+      log_map2d_phase_sample("phase_warm_present");
+      showcase_mark(ok_warm ? "gpu-warm-ok" : "gpu-warm-fail");
+
+      if (owned_device) {
+        device->shutdown();
+        // Intentionally leak Device* — same FlyCube teardown policy as
+        // atmosphere showcase / MapViewport.
+      }
+    } else {
+      showcase_mark("gpu-skip");
+      std::fprintf(stderr, "map2d-showcase: present_gpu skipped (no device)\n");
     }
   }
 

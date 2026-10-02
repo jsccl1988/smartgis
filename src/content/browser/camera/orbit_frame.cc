@@ -51,7 +51,7 @@ void OrbitFrame::apply_wheel_at(int view_x, int view_y, int32_t wheel,
   yaw_ += nx * 0.12f * pull;
   pitch_ += ny * 0.08f * pull;
   pitch_ = std::clamp(pitch_, tool::kOrbitPitchMin, tool::kOrbitPitchMax);
-  distance_ = tool::dolly_distance(distance_, wheel, 1.2f, 12.f);
+  distance_ = tool::dolly_distance(distance_, wheel, dolly_min_, dolly_max_);
 }
 
 void OrbitFrame::apply_pan(int dx_px, int dy_px) {
@@ -67,7 +67,7 @@ void OrbitFrame::apply_pan(int dx_px, int dy_px) {
     if (wheel == 0) {
       wheel = sign;
     }
-    distance_ = tool::dolly_distance(distance_, wheel, 1.2f, 12.f);
+    distance_ = tool::dolly_distance(distance_, wheel, dolly_min_, dolly_max_);
   }
 }
 
@@ -89,11 +89,11 @@ bool OrbitFrame::apply_nav_key(uint32_t key) {
   switch (k) {
     case 'W':
     case VK_UP:
-      distance_ = tool::dolly_distance(distance_, 120, 1.2f, 12.f);
+      distance_ = tool::dolly_distance(distance_, 120, dolly_min_, dolly_max_);
       return true;
     case 'S':
     case VK_DOWN:
-      distance_ = tool::dolly_distance(distance_, -120, 1.2f, 12.f);
+      distance_ = tool::dolly_distance(distance_, -120, dolly_min_, dolly_max_);
       return true;
     case 'A':
     case VK_LEFT:
@@ -119,7 +119,8 @@ void OrbitFrame::apply_draft(const tool::Draft& draft) {
       apply_wheel_at(draft.points.front().x_px, draft.points.front().y_px,
                      draft.wheel, last_w_, last_h_);
     } else {
-      distance_ = tool::dolly_distance(distance_, draft.wheel, 1.2f, 12.f);
+      distance_ = tool::dolly_distance(distance_, draft.wheel, dolly_min_,
+                                        dolly_max_);
     }
     return;
   }
@@ -216,8 +217,18 @@ void OrbitFrame::reset() {
   has_last_ = false;
 }
 
+void OrbitFrame::set_dolly_limits(float min_distance, float max_distance) {
+  dolly_min_ = (std::max)(0.5f, min_distance);
+  dolly_max_ = (std::max)(dolly_min_ + 0.05f, max_distance);
+  distance_ = (std::max)(dolly_min_, (std::min)(distance_, dolly_max_));
+}
+
 void OrbitFrame::set_distance(float distance) {
-  distance_ = (std::max)(1.2f, (std::min)(distance, 12.f));
+  distance_ = (std::max)(dolly_min_, (std::min)(distance, dolly_max_));
+}
+
+void OrbitFrame::set_yaw(float yaw) {
+  yaw_ = yaw;
 }
 
 void OrbitFrame::set_pitch(float pitch) {

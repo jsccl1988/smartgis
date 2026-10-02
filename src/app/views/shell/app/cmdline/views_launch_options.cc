@@ -39,6 +39,9 @@ AtmosphereShowcaseMode showcase_from_string(const std::string& value) {
   if (value == "legacy" || value == "stereo") {
     return AtmosphereShowcaseMode::kLegacy;
   }
+  if (value == "globe" || value == "earth") {
+    return AtmosphereShowcaseMode::kGlobe;
+  }
   return AtmosphereShowcaseMode::kNone;
 }
 
@@ -119,6 +122,8 @@ const char* atmosphere_showcase_name(AtmosphereShowcaseMode mode) {
       return "coast";
     case AtmosphereShowcaseMode::kLegacy:
       return "legacy";
+    case AtmosphereShowcaseMode::kGlobe:
+      return "globe";
     case AtmosphereShowcaseMode::kNone:
     default:
       return "none";
@@ -205,7 +210,7 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
   app.add_flag("--debug-console", out.debug_console,
                "Start Debug Agent + allow Debug Console");
   app.add_option("--atmosphere-showcase", showcase,
-                 "Atmosphere demo: land|ocean|full|coast|legacy");
+                 "Atmosphere demo: land|ocean|full|coast|legacy|globe");
   app.add_option("--map2d-showcase", map2d_showcase,
                  "2D map demo: china|align|orthogrid");
   app.add_option("--plugin-showcase", plugin_showcase,
@@ -218,6 +223,9 @@ ViewsLaunchOptions parse_views_launch_options(int argc, wchar_t** argv) {
                  "Shell canvas backend: gdi|skia");
   app.add_option("--plugins-dir", out.plugins_dir,
                  "Product plugin resource root (default: <exe>/../plugins)");
+  app.add_flag("--enable-oop-render", out.enable_oop_render,
+               "Start OOP GPU MapContents at Session.init_hosts "
+               "(default: defer until first ContentMapView attach)");
 
   try {
     if (argv && argc > 0) {

@@ -45,6 +45,20 @@ struct World3dSceneWriter {
       fly_to;
   // Attach 3D Tiles tileset JSON (city fixture or user path).
   std::function<bool(const std::string& tileset_json_path)> attach_tileset;
+  // Global / custom DEM GeoTIFF. Empty path → resolve default locations
+  // (out/data/global_dem.tif, plugins/world3d/data/, else china stand-in).
+  // Returns false only on hard failure; missing global file may still succeed
+  // with china_dem as documented stand-in (result JSON carries source).
+  std::function<bool(const std::string& dem_path, std::string* result_json)>
+      load_global_dem;
+  // Satellite cloud cover field. Empty path → procedural atmosphere clouds.
+  // Non-empty → AtmosphereSession::load_fields("|path|:cloud_cover").
+  std::function<bool(const std::string& imagery_path, bool enabled,
+                     std::string* result_json)>
+      set_satellite_cloud;
+  // Explicit atmosphere pass toggles (sky / ocean / cloud / fog).
+  std::function<bool(bool sky, bool ocean, bool cloud, bool fog)>
+      set_atmosphere;
 };
 
 void set_world3d_scene_writer(World3dSceneWriter writer);

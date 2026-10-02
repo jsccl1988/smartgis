@@ -39,10 +39,12 @@ struct SkyDrawParams {
   float sunset_g = 0.48f;
   float sunset_b = 0.30f;
   float sun_glow_strength = 0.50f;
+  // Negative dome_radius selects deep-space starfield (globe splash) without
+  // growing this POD (AtmosphereSession layout must stay ABI-stable).
 };
 
 // Far-sky / horizon tint driven by sun direction. Records a fullscreen NDC
-// sky with a dedicated HLSL pipeline (CameraCB + SkyCB view-ray sample).
+// sky with a dedicated HLSL pipeline (screen-space SkyCB; no CameraCB).
 class SkyPass {
  public:
   SkyPass();

@@ -65,8 +65,16 @@ void FeatureInfo::rebuild_table() {
   table_->clear_rows();
   table_->set_columns({"Name", "Value"});
   if (fields_.empty()) {
-    table_->add_row({"(no fields)", ""});
+    // Keep the empty cue in the first column so equal-width Name|Value paint
+    // does not shove the message into the far-right Value cell.
+    if (id_label_) {
+      id_label_->set_text("No feature selected");
+    }
+    table_->add_row({"Select a map feature", ""});
   } else {
+    if (id_label_ && feature_id_.empty()) {
+      id_label_->set_text("Feature");
+    }
     for (const auto& field : fields_) {
       table_->add_row({field.name, field.value});
     }

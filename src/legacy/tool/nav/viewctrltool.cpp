@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #include "legacy/tool/nav/viewctrltool.h"
 
 #include "legacy/sys/sysmanager.h"
@@ -170,29 +173,17 @@ int SmtViewCtrlTool::SetCursor(void) {
 }
 
 int SmtViewCtrlTool::LButtonDown(uint nFlags, lPoint point) {
-  if (m_workspace) {
-    (void)nFlags;
-    (void)point;
-    return SMT_ERR_NONE;
-  }
+  // Do not early-out when m_workspace is bound: WindowProc already skipped
+  // CView when Workspace consumed the message. Reaching here means view.pan
+  // was not on the stack (or declined) — leftover ZoomMove must still pan.
   return SmtBaseTool::LButtonDown(nFlags, point);
 }
 
 int SmtViewCtrlTool::LButtonUp(uint nFlags, lPoint point) {
-  if (m_workspace) {
-    (void)nFlags;
-    (void)point;
-    return SMT_ERR_NONE;
-  }
   return SmtBaseTool::LButtonUp(nFlags, point);
 }
 
 int SmtViewCtrlTool::MouseMove(uint nFlags, lPoint point) {
-  if (m_workspace) {
-    (void)nFlags;
-    (void)point;
-    return SMT_ERR_NONE;
-  }
   return SmtBaseTool::MouseMove(nFlags, point);
 }
 
@@ -220,7 +211,8 @@ void SmtViewCtrlTool::ZoomMove(short mouse_status, base::lPoint point) {
     return;
   }
   m_bCaptured = FALSE;
-  apply_pan_by_points(m_pRenderDevice, m_pOperMap, m_pntOrigin, point);
+  apply_pan_by_points(m_pRenderDevice, m_pOperMap, m_pntOrigin, point,
+                      /*gesture_end=*/true);
 }
 
 void SmtViewCtrlTool::ZoomIn(short mouse_status, base::lPoint point) {

@@ -21,13 +21,9 @@ namespace {
 constexpr uint32_t kSkyConstantSlot = 1;
 
 render::rhi::GraphicsPipelineDesc sky_graphics_desc() {
-  // Fullscreen NDC sky: CameraCB on PS for view-ray unproject, SkyCB for tint.
+  // Fullscreen NDC sky: SkyCB tint only (screen-space; no CameraCB — unused
+  // buffers are stripped by DXC and break FlyCube GetBindKey).
   static constexpr render::rhi::BindingSlot kBindings[] = {
-      {.slot = 0,
-       .kind = render::rhi::BindingKind::kConstantBuffer,
-       .stage = render::rhi::ShaderStage::kPixel,
-       .size_bytes = 128,
-       .hlsl_name = "CameraCB"},
       {.slot = kSkyConstantSlot,
        .kind = render::rhi::BindingKind::kConstantBuffer,
        .stage = render::rhi::ShaderStage::kPixel,
@@ -45,7 +41,7 @@ render::rhi::GraphicsPipelineDesc sky_graphics_desc() {
   desc.compile_depth_off = true;
   desc.compile_depth_write = false;
   desc.compile_depth_test = false;
-  desc.camera_slot = 0;
+  desc.camera_slot = -1;
   return desc;
 }
 
@@ -81,77 +77,62 @@ void SkyPass::set_sun_from_azimuth_elevation(float azimuth_rad,
 void SkyPass::sample_sky_rgb(const SkyDrawParams& p, float dir_x, float dir_y,
                              float dir_z, float* out_r, float* out_g,
                              float* out_b) {
-  float dx = dir_x;
-  float dy = dir_y;
-  float dz = dir_z;
-  detail::normalize3(&dx, &dy, &dz);
-
+  (void)dir_x;
+  (void)dir_z;
+  // Match kPsSky: negative dome_radius → deep-space clear (globe splash).
+  if (p.dome_radius < 0.f) {
+    const float elev_v = detail::clampf(dir_y, 0.0f, 1.0f);
+    const float r = detail::lerp(0.012f, 0.008f, elev_v);
+    const float g = detail::lerp(0.014f, 0.010f, elev_v);
+    const float b = detail::lerp(0.040f, 0.028f, elev_v);
+    if (out_r) {
+      *out_r = r;
+    }
+    if (out_g) {
+      *out_g = g;
+    }
+    if (out_b) {
+      *out_b = b;
+    }
+    return;
+  }
+  // Match kPsSky: screen-space Rayleigh only (dir_y stands in for elev_screen).
+  // View-ray / Mie / sunset paths used to invent magenta mid-bands.
+  const float elev_v = detail::clampf(dir_y, 0.0f, 1.0f);
+  float zr = p.zenith_r;
+  float zg = p.zenith_g;
+  float zb = p.zenith_b;
+  zg = (std::min)(zg, zb * 0.55f);
+  zr = (std::min)(zr, zb * 0.35f);
+  float hr = p.horizon_r;
+  float hg = p.horizon_g;
+  float hb = p.horizon_b;
+  hr = (std::min)(hr, hb * 0.55f);
+  hg = (std::min)(hg, detail::lerp(hg, hb, 0.30f));
+  // Mild low-sun warm on the horizon sample only (CPU clear / tests) — keep
+  // green so pink_frac gates never see G≈0 magenta.
   float sun_x = p.sun_x;
   float sun_y = p.sun_y;
   float sun_z = p.sun_z;
   detail::normalize3(&sun_x, &sun_y, &sun_z);
-
   const float elev = detail::clampf(sun_y, -1.0f, 1.0f);
-  const float day = detail::clampf(elev * 1.35f + 0.55f, 0.0f, 1.0f);
-  float sunset_r = detail::lerp(p.sunset_r, p.horizon_r, 0.55f);
-  float sunset_g = detail::lerp(p.sunset_g, p.horizon_g, 0.55f);
-  float sunset_b = detail::lerp(p.sunset_b, p.horizon_b, 0.55f);
-  sunset_r = (std::min)(sunset_r, sunset_b * 0.85f);
-  const float hr = detail::lerp(sunset_r, p.horizon_r, day);
-  const float hg = detail::lerp(sunset_g, p.horizon_g, day);
-  const float hb = detail::lerp(sunset_b, p.horizon_b, day);
-
-  // Matches kPsSky: elevation blend + haze + Bruneton-lite + sun disk/corona.
-  const float elev_v = detail::clampf(dy, 0.0f, 1.0f);
-  const float blend = std::pow(detail::clampf(elev_v * 1.45f, 0.0f, 1.0f), 0.38f);
-  float r = detail::lerp(hr, p.zenith_r, blend);
-  float g = detail::lerp(hg, p.zenith_g, blend);
-  float b = detail::lerp(hb, p.zenith_b, blend);
-  const float haze = 1.0f - elev_v;
-  const float haze2 = haze * haze * 0.02f;
-  r = detail::clampf(r + hr * haze2, 0.0f, 1.0f);
-  g = detail::clampf(g + hg * haze2, 0.0f, 1.0f);
-  b = detail::clampf(b + hb * haze2, 0.0f, 1.0f);
-
-  // Bruneton-lite analytical multi-scatter tint (no LUT tables).
+  if (elev < 0.25f) {
+    const float warm = detail::clampf(1.0f - elev * 4.0f, 0.0f, 0.35f);
+    hr = detail::clampf(hr + warm * 0.12f, 0.0f, 1.0f);
+    hg = detail::clampf(hg + warm * 0.04f, 0.0f, 1.0f);
+  }
+  const float blend =
+      std::pow(detail::clampf(elev_v * 1.25f, 0.0f, 1.0f), 0.50f);
+  float r = detail::lerp(hr, zr, blend);
+  float g = detail::lerp(hg, zg, blend);
+  float b = detail::lerp(hb, zb, blend);
   const float rayleigh = std::pow(elev_v, 0.55f);
   r *= detail::lerp(1.0f, 0.72f, rayleigh);
   g *= detail::lerp(1.0f, 0.88f, rayleigh);
   b *= detail::lerp(1.0f, 1.22f, rayleigh);
-  float dir_hx = dx;
-  float dir_hz = dz;
-  float sun_hx = sun_x;
-  float sun_hz = sun_z;
-  float dir_hy = 1.0e-3f;
-  float sun_hy = 1.0e-3f;
-  detail::normalize3(&dir_hx, &dir_hy, &dir_hz);
-  detail::normalize3(&sun_hx, &sun_hy, &sun_hz);
-  const float azi =
-      detail::clampf(dir_hx * sun_hx + dir_hy * sun_hy + dir_hz * sun_hz, 0.0f,
-                     1.0f);
-  const float mie_warm =
-      std::pow(azi, 2.0f) * haze *
-      detail::clampf(1.0f - std::fabs(elev) * 0.55f, 0.0f, 1.0f) * 0.35f;
-  r = detail::clampf(r + 0.03f * mie_warm, 0.0f, 1.0f);
-  g = detail::clampf(g + 0.02f * mie_warm, 0.0f, 1.0f);
-  b = detail::clampf(b + 0.015f * mie_warm, 0.0f, 1.0f);
-  const float twilight = detail::clampf(1.0f - std::fabs(elev) * 3.5f, 0.0f, 1.0f);
-  const float ozone =
-      twilight * detail::clampf(1.0f - elev_v * 1.35f, 0.0f, 1.0f) *
-      (0.15f + 0.35f * azi) * 0.25f;
-  r = detail::clampf(r + 0.015f * ozone, 0.0f, 1.0f);
-  g = detail::clampf(g + 0.01f * ozone, 0.0f, 1.0f);
-  b = detail::clampf(b + 0.04f * ozone, 0.0f, 1.0f);
-
-  const float sun_dot =
-      detail::clampf(dx * sun_x + dy * sun_y + dz * sun_z, 0.0f, 1.0f);
-  const float disk =
-      std::pow(sun_dot, 256.0f) * p.sun_glow_strength * 1.55f;
-  const float corona =
-      std::pow(sun_dot, 12.0f) * p.sun_glow_strength * 0.42f;
-  r = detail::clampf(r + disk * 1.0f + corona * 1.0f, 0.0f, 1.0f);
-  g = detail::clampf(g + disk * 0.96f + corona * 0.78f, 0.0f, 1.0f);
-  b = detail::clampf(b + disk * 0.88f + corona * 0.48f, 0.0f, 1.0f);
+  r = detail::clampf(r, 0.0f, 1.0f);
+  g = detail::clampf(g, 0.0f, 1.0f);
+  b = detail::clampf(b, 0.0f, 1.0f);
 
   if (out_r) {
     *out_r = r;
@@ -190,9 +171,9 @@ void SkyPass::average_sky_rgb(const SkyDrawParams& p, float* out_r,
 }
 
 void SkyPass::destroy_pipeline() {
-  if (pipeline_ && pipeline_device_) {
-    pipeline_device_->destroy_pipeline(pipeline_);
-  }
+  // Match release(): FlyCube Device may already be shut down / recycled.
+  // A dangling or freefill pipeline_device_ AVs on the vtable load
+  // (atmosphere-showcase full @ present-warm → SkyPass::destroy_pipeline).
   pipeline_ = nullptr;
   pipeline_device_ = nullptr;
 }
@@ -204,10 +185,16 @@ bool SkyPass::ensure_pipeline(render::rhi::Device* device) {
   if (pipeline_ && pipeline_device_ == device) {
     return true;
   }
+  // Abandon stale handles — never virtual-call destroy on a mismatched or
+  // corrupted pipeline_device_ (same policy as release()).
   destroy_pipeline();
   pipeline_device_ = device;
   pipeline_ = device->create_graphics_pipeline(sky_graphics_desc());
-  return pipeline_ != nullptr;
+  if (!pipeline_) {
+    pipeline_device_ = nullptr;
+    return false;
+  }
+  return true;
 }
 
 bool SkyPass::ensure_dome_mesh(render::rhi::Device* device) {
@@ -249,6 +236,7 @@ bool SkyPass::record(render::rhi::Device* device, render::rhi::CommandList* list
   sky.sun_x = params_.sun_x;
   sky.sun_y = params_.sun_y;
   sky.sun_z = params_.sun_z;
+  sky.space_blend = (params_.dome_radius < 0.f) ? 1.0f : 0.0f;
   sky.zenith_r = params_.zenith_r;
   sky.zenith_g = params_.zenith_g;
   sky.zenith_b = params_.zenith_b;
@@ -264,7 +252,8 @@ bool SkyPass::record(render::rhi::Device* device, render::rhi::CommandList* list
   }
 
   detail::set_fullscreen_viewport(list, width, height);
-  detail::bind_camera_if(list, camera);
+  // Screen-space sky ignores the orbit camera (camera_slot = -1).
+  (void)camera;
   detail::apply_raster(
       list, {pipeline_, render::rhi::BlendMode::kOpaque,
              render::rhi::DepthMode::kDisabled});

@@ -8,10 +8,12 @@
   "env": {
     "SMT_SCENE3D_SHOWCASE_LINGER_MS": "0",
     "SMT_SCENE3D_SHOWCASE_D3D": "1",
-    "SMT_STEREO_API": "Direct3D"
+    "SMT_STEREO_API": "Direct3D",
+    "SMT_RHI3D_FRAME_JOB": "0",
+    "SMT_RHI3D_D3D_DEFERRED": "0"
   },
   "bmp": {
-    "path": "legacy-scene3d-showcase-china.bmp",
+    "path": "legacy-scene3d-showcase-china-d3d.bmp",
     "score_id": "legacy_scene3d_china",
     "accept_nonzero_rc_if_bmp": true
   },
@@ -33,6 +35,6 @@
       "labels_or_coast_plausible",
       "d3d_present_ok"
     ],
-    "expect_notes": "Legacy Direct3D scene3d china; score_id=legacy_scene3d_china"
+    "expect_notes": "Legacy Direct3D scene3d china; distinct BMP china-d3d.bmp (no GL overwrite); score_id=legacy_scene3d_china"
   }
 }

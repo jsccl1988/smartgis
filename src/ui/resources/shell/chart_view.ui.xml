@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="chart_view">
+  <style src="chart_view.ui.css"/>
+  <vbox id="root" class="panel">
+    <label id="title" text="Chart"/>
+    <panel id="plot" class="plot"/>
+  </vbox>
+</ui>

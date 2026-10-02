@@ -58,10 +58,21 @@ int main() {
   float sr = 0.f;
   float sg = 0.f;
   float sb = 0.f;
-  SkyPass::sample_sky_rgb(sunset, 0.f, 0.05f, 1.f, &sr, &sg, &sb);
+  // Same elev_v as the high-sun horizon sample so warm is isolated from blend.
+  SkyPass::sample_sky_rgb(sunset, 0.f, 0.f, 1.f, &sr, &sg, &sb);
   expect(sr > hr, "low sun warms horizon");
-  // Twilight ozone-ish: horizon picks up a purple bias (b rises vs high-sun).
+  // Cool ground clamp keeps blue; warm must not invent G≈0 magenta.
   expect(sb > hb * 0.85f, "twilight horizon keeps blue/purple bias");
+  expect(sg > 0.20f, "warmed horizon keeps green (no magenta)");
+
+  SkyDrawParams space = p;
+  space.dome_radius = -40.0f;
+  float spr = 0.f;
+  float spg = 0.f;
+  float spb = 0.f;
+  SkyPass::sample_sky_rgb(space, 0.f, 1.f, 0.f, &spr, &spg, &spb);
+  expect((spr + spg + spb) < 0.12f, "space zenith is deep/dark");
+  expect(spb >= spr && spb >= spg, "space tint stays cool blue");
 
   std::unique_ptr<render::rhi::Device> device(create_device(Backend::kNull));
   expect(device != nullptr, "null device");

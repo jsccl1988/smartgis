@@ -274,7 +274,7 @@ class LEGACY_RENDER_D3D_EXPORT SmtD3DRenderDevice : public Smt3DRenderDevice {
   // CPU-read staging copy of color_tex_ (filled in SwapBuffers).
   ID3D11Texture2D* capture_tex_ = nullptr;
 
-  // Minimal lit mesh pipeline for StereoTerrain (VF_XYZ|VF_NORMAL|VF_DIFFUSE).
+  // Minimal lit mesh pipeline for DEM SmtTerrain (VF_XYZ|VF_NORMAL|VF_DIFFUSE).
   ID3D11VertexShader* mesh_vs_ = nullptr;
   ID3D11PixelShader* mesh_ps_ = nullptr;
   ID3D11InputLayout* mesh_il_ = nullptr;

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="memory_page">
+  <style src="memory_page.ui.css"/>
+  <vbox id="root" class="page">
+    <label id="stats" text="Memory: —"/>
+    <panel id="chart_host" class="chart_host"/>
+  </vbox>
+</ui>

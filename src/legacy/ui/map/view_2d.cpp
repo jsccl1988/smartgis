@@ -5,6 +5,7 @@
 #include "legacy/ui/map/view_2d.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <vector>
@@ -150,9 +151,14 @@ void Smt2DXView::OnDraw(CDC *pDC) {
   // encodes onto raster_back_, which is also the host/worker map back buffer,
   // and nested OpenDocumentFile paints raced the encoder → heap corruption
   // in GdiCommandBuffer::~GdiCommandBuffer (0xC000041D).
+  float paint_ms = 0.f;
   if (m_pRenderDevice) {
     HDC paint_dc = pDC ? pDC->GetSafeHdc() : nullptr;
+    const auto t0 = std::chrono::steady_clock::now();
     m_pRenderDevice->RenderMapToDC(paint_dc);
+    paint_ms = std::chrono::duration<float, std::milli>(
+                   std::chrono::steady_clock::now() - t0)
+                   .count();
   }
 
   if (m_pFlashTool) m_pFlashTool->AuxDraw();
@@ -163,14 +169,13 @@ void Smt2DXView::OnDraw(CDC *pDC) {
                       view_host()->workspace()->live_preview());
   }
 
-  // HUD: engine name + Fps on the client — matches Views MapViewport wording.
+  // HUD: engine name + RenderMapToDC cost (not idle-gap FPS — sparse OnPaint
+  // made FrameTimer report Fps~0.6 on a static china map).
   {
-    static ::base::FrameTimer fps_timer;
-    fps_timer.update();
     char label[160];
     std::snprintf(label, sizeof(label),
-                  "legacy-map2d-gdi | Legacy Map2D (GDI+)  Fps%.3f",
-                  fps_timer.get_fps());
+                  "legacy-map2d-gdi | Legacy Map2D (GDI+)  paint %.1f ms",
+                  paint_ms);
     HDC hdc = pDC ? pDC->GetSafeHdc() : ::GetDC(m_hWnd);
     const bool release = !pDC;
     if (hdc) {

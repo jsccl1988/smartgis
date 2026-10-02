@@ -52,7 +52,8 @@ As-built: this README + [`docs/build/src-layout.md`](../../docs/build/src-layout
 - ??? `SmtApp::DelayInit` / `InitSmtMap` ???? `out/data/china_city.gpkg`?`area`/`line`/`point`/`text` ???????????? `china_city.geojson` / `china_plp.geojson`??? `name`/`adcode` ???????? YaHei + UTF-8 `TextOutW`?
 - `--self-test`????? ?1 ??? ?3?? `china-plp-ok`?Edit ?????? BCG ???? `CSmartMapEditView::OnCreate` ??? `TerminateProcess(0)`?
 - `--map2d-showcase china`：绕过 MDI，GDI headless 中国样例 → `legacy-map2d-showcase-china.bmp` + perf/trace；loop：`legacy.map2d.china`。可选 `SMT_MAP2D_SHOWCASE_LINGER_MS`（ms）供 forensic OS inject / 录像（`legacy.browse.2d`）。
-- `--scene3d-showcase china`：leftover GL/D3D stereo DEM + BMP；loop：`legacy.scene3d.china`。可选 `SMT_SCENE3D_SHOWCASE_LINGER_MS`（`legacy.browse.3d`）。
+- `--scene3d-showcase <mode>`：leftover GL/D3D stereo + BMP；modes=`china` (default) | `terrain` | `cube` | `sphere` | `water` | `pointcloud` | `northarray`。loop：`legacy.scene3d.<mode>`（china 另有 `.d3d` / `legacy.browse.3d`）。可选 `SMT_SCENE3D_SHOWCASE_LINGER_MS`。
+
 - **Browse forensic：** `legacy.browse.2d` / `legacy.browse.3d` — OS pan/wheel inject + 可选 `SMT_HARNESS_RECORD=1`；见 `docs/build/ui-testing.md` L1′ map browse forensic。
 - **启动**：`InitInstance` 先显示主框再 `DelayInit` 加载 `china_city`，然后只 **`PostMessage(ID_WND_MAPEDIT)`** 打开 Edit（Data/3D 从窗口菜单手动开——连发三个 MDI 子窗会在第二个 `CreateNewFrame` 挂死）。`--self-test` 仍在 MDI 前退出。
 - **????**?????????? RC ???**??(&W)** ????? `append_mdi_window_menu`????? / ???? / ??????

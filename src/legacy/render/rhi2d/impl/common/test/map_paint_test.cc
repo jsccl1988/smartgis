@@ -1,6 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -14,6 +15,8 @@
 #include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
 #include "gis/model/envelope.h"
 #include "gis/model/map/map.h"
+#include "gis/vista/world/terrain/dem/dem_raster.h"
+#include "gis/vista/world/terrain/process/dem_hillshade.h"
 #include "legacy/render/rhi2d/public/device/renderdevice.h"
 #include "legacy/render/test/paint_test_host.h"
 #include "ogrsf_frmts.h"
@@ -41,6 +44,183 @@ std::string find_china_plp() {
 HWND create_paint_test_hwnd(int width, int height) {
   return legacy_render::detail::create_paint_test_popup(
       L"SmartGisGdiMapPaintTest", L"gdi-map-paint-test", width, height);
+}
+
+// Mainland China framing used by matrix ZoomToRect / Views china BMP.
+constexpr double kChinaFrameMinX = 80.0;
+constexpr double kChinaFrameMinY = 16.0;
+constexpr double kChinaFrameMaxX = 128.0;
+constexpr double kChinaFrameMaxY = 52.0;
+// Soft multiply strength matching Map2dFrameCache hillshade TileSlot.
+constexpr float kHillshadeOpacity = 0.72f;
+
+bool is_ocean_clear_rgb(unsigned r, unsigned g, unsigned b) {
+  return std::abs(static_cast<int>(r) - 170) <= 8 &&
+         std::abs(static_cast<int>(g) - 211) <= 8 &&
+         std::abs(static_cast<int>(b) - 223) <= 8;
+}
+
+// Top-down BGRA32 → BMP (negative biHeight). Keeps soft-multiply composite.
+bool write_bgra32_bmp(const char* path, int width, int height,
+                      const std::uint32_t* bits) {
+  if (!path || !bits || width <= 0 || height <= 0) {
+    return false;
+  }
+  const DWORD row_bytes = static_cast<DWORD>(width) * 4u;
+  const DWORD pixel_bytes = row_bytes * static_cast<DWORD>(height);
+  BITMAPFILEHEADER bfh = {};
+  bfh.bfType = 0x4D42;  // 'BM'
+  bfh.bfOffBits =
+      static_cast<DWORD>(sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+  bfh.bfSize = bfh.bfOffBits + pixel_bytes;
+  BITMAPINFOHEADER bih = {};
+  bih.biSize = sizeof(BITMAPINFOHEADER);
+  bih.biWidth = width;
+  bih.biHeight = -height;  // top-down
+  bih.biPlanes = 1;
+  bih.biBitCount = 32;
+  bih.biCompression = BI_RGB;
+  bih.biSizeImage = pixel_bytes;
+  FILE* f = nullptr;
+  if (fopen_s(&f, path, "wb") != 0 || !f) {
+    return false;
+  }
+  const bool ok =
+      fwrite(&bfh, sizeof(bfh), 1, f) == 1 &&
+      fwrite(&bih, sizeof(bih), 1, f) == 1 &&
+      fwrite(bits, 1, static_cast<size_t>(pixel_bytes), f) ==
+          static_cast<size_t>(pixel_bytes);
+  fclose(f);
+  return ok;
+}
+
+struct MatrixHillshade {
+  bool ok = false;
+  std::vector<std::uint8_t> rgba;
+  int w = 0;
+  int h = 0;
+  double minx = 0;
+  double miny = 0;
+  double maxx = 0;
+  double maxy = 0;
+};
+
+// Process-local bake: matrix cells are short-lived processes; cache still
+// avoids a second GDAL open if both MAP and QUICK validate.
+const MatrixHillshade& matrix_hillshade_bake() {
+  static MatrixHillshade bake;
+  static bool attempted = false;
+  if (attempted) {
+    return bake;
+  }
+  attempted = true;
+
+  std::string dem_path;
+  if (const char* env = std::getenv("SMT_CHINA_DEM");
+      env != nullptr && env[0] != '\0') {
+    dem_path = env;
+  } else {
+    dem_path = gis::find_sample_dem_path();
+  }
+  if (dem_path.empty()) {
+    std::fprintf(stderr,
+                 "matrix_bmp: hillshade skip - china_dem.tif not found "
+                 "(expected ../data/china_dem.tif)\n");
+    return bake;
+  }
+
+  gis::DemRaster dem;
+  if (!dem.load_gdal_raster(dem_path.c_str()) || dem.empty()) {
+    std::fprintf(stderr, "matrix_bmp: hillshade skip - DEM load failed (%s)\n",
+                 dem_path.c_str());
+    return bake;
+  }
+
+  gis::HillshadeParams params;
+  params.max_edge = 256;
+  params.exaggeration = 0.5f;
+  if (!gis::shade_dem_rgba(dem, params, &bake.rgba, &bake.w, &bake.h) ||
+      bake.w < 2 || bake.h < 2 || bake.rgba.empty()) {
+    std::fprintf(stderr, "matrix_bmp: hillshade skip - shade_dem_rgba failed\n");
+    bake.rgba.clear();
+    bake.w = 0;
+    bake.h = 0;
+    return bake;
+  }
+  dem.envelope(&bake.minx, &bake.miny, &bake.maxx, &bake.maxy);
+  bake.ok = true;
+  std::fprintf(stderr,
+               "matrix_bmp: hillshade baked %dx%d from %s opacity=%.2f\n",
+               bake.w, bake.h, dem_path.c_str(), kHillshadeOpacity);
+  return bake;
+}
+
+// Soft-multiply DEM hillshade onto non-ocean BGRA pixels (Views blit math).
+void soft_multiply_hillshade_bgra(std::vector<std::uint32_t>* bits, int bmp_w,
+                                  int bmp_h, const MatrixHillshade& hs) {
+  if (!bits || !hs.ok || bmp_w <= 0 || bmp_h <= 0) {
+    return;
+  }
+  const double dem_dx = hs.maxx - hs.minx;
+  const double dem_dy = hs.maxy - hs.miny;
+  if (dem_dx <= 0.0 || dem_dy <= 0.0) {
+    return;
+  }
+  const float k = kHillshadeOpacity;
+  const int sw = hs.w;
+  const int sh = hs.h;
+  for (int y = 0; y < bmp_h; ++y) {
+    const double lat =
+        kChinaFrameMaxY -
+        (kChinaFrameMaxY - kChinaFrameMinY) *
+            (static_cast<double>(y) /
+             static_cast<double>((std::max)(1, bmp_h - 1)));
+    for (int x = 0; x < bmp_w; ++x) {
+      const size_t pi =
+          static_cast<size_t>(y) * static_cast<size_t>(bmp_w) +
+          static_cast<size_t>(x);
+      const std::uint32_t px = (*bits)[pi];
+      const unsigned b = px & 0xffu;
+      const unsigned g = (px >> 8) & 0xffu;
+      const unsigned r = (px >> 16) & 0xffu;
+      if (is_ocean_clear_rgb(r, g, b)) {
+        continue;
+      }
+      const double lon =
+          kChinaFrameMinX +
+          (kChinaFrameMaxX - kChinaFrameMinX) *
+              (static_cast<double>(x) /
+               static_cast<double>((std::max)(1, bmp_w - 1)));
+      if (lon < hs.minx || lon > hs.maxx || lat < hs.miny || lat > hs.maxy) {
+        continue;
+      }
+      const double u = (lon - hs.minx) / dem_dx;
+      const double v = (hs.maxy - lat) / dem_dy;
+      int sx = static_cast<int>(u * static_cast<double>(sw - 1) + 0.5);
+      int sy = static_cast<int>(v * static_cast<double>(sh - 1) + 0.5);
+      sx = (std::max)(0, (std::min)(sw - 1, sx));
+      sy = (std::max)(0, (std::min)(sh - 1, sy));
+      const size_t so =
+          (static_cast<size_t>(sy) * static_cast<size_t>(sw) +
+           static_cast<size_t>(sx)) *
+          4u;
+      if (hs.rgba[so + 3] == 0) {
+        continue;
+      }
+      const float sr = static_cast<float>(hs.rgba[so + 0]) / 255.f;
+      const float sg = static_cast<float>(hs.rgba[so + 1]) / 255.f;
+      const float sb = static_cast<float>(hs.rgba[so + 2]) / 255.f;
+      const float shade = 0.299f * sr + 0.587f * sg + 0.114f * sb;
+      const float m = 1.f - k + k * shade;
+      const unsigned nb = static_cast<unsigned>(
+          (std::min)(255.f, static_cast<float>(b) * m + 0.5f));
+      const unsigned ng = static_cast<unsigned>(
+          (std::min)(255.f, static_cast<float>(g) * m + 0.5f));
+      const unsigned nr = static_cast<unsigned>(
+          (std::min)(255.f, static_cast<float>(r) * m + 0.5f));
+      (*bits)[pi] = (px & 0xff000000u) | (nr << 16) | (ng << 8) | nb;
+    }
+  }
 }
 
 // Prefer MAP (published front) then QUICK. Skip near-solid ocean clears.
@@ -93,9 +273,7 @@ bool save_matrix_bmp(render::LPRENDERDEVICE dev, const char* path) {
       const unsigned g = (bits[static_cast<size_t>(i)] >> 8) & 0xff;
       const unsigned r = (bits[static_cast<size_t>(i)] >> 16) & 0xff;
       ++samples;
-      if (std::abs(static_cast<int>(r) - 170) <= 8 &&
-          std::abs(static_cast<int>(g) - 211) <= 8 &&
-          std::abs(static_cast<int>(b) - 223) <= 8) {
+      if (is_ocean_clear_rgb(r, g, b)) {
         ++oceanish;
       }
     }
@@ -107,9 +285,25 @@ bool save_matrix_bmp(render::LPRENDERDEVICE dev, const char* path) {
                    static_cast<int>(layer), ocean_frac);
       continue;
     }
+
+    // Soft-multiply DEM hillshade onto land, then write composite BMP.
+    const MatrixHillshade& hs = matrix_hillshade_bake();
+    if (hs.ok) {
+      soft_multiply_hillshade_bgra(&bits, bm.bmWidth, bm.bmHeight, hs);
+      if (write_bgra32_bmp(path, bm.bmWidth, bm.bmHeight, bits.data())) {
+        std::fprintf(stderr,
+                     "matrix_bmp=%s layer=%d ocean_frac=%.2f hillshade=1\n",
+                     path, static_cast<int>(layer), ocean_frac);
+        return true;
+      }
+      std::fprintf(stderr,
+                   "matrix_bmp: composite write failed, falling back to "
+                   "SaveImage\n");
+    }
+
     if (dev->SaveImage(path, layer) == SMT_ERR_NONE) {
-      std::fprintf(stderr, "matrix_bmp=%s layer=%d ocean_frac=%.2f\n", path,
-                   static_cast<int>(layer), ocean_frac);
+      std::fprintf(stderr, "matrix_bmp=%s layer=%d ocean_frac=%.2f hillshade=0\n",
+                   path, static_cast<int>(layer), ocean_frac);
       return true;
     }
   }

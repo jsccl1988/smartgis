@@ -14,13 +14,40 @@ using namespace geo;
 
 namespace render {
 namespace {
-const float kDelaySec = 0.20f;
+// Interactive pan/wheel coalesce window. 200 ms felt sticky; ~60 ms keeps
+// stretch preview dominant while still merging mouse-move storms.
+const float kDelaySec = 0.06f;
 }  // namespace
+
+void Rhi2dPresentController::finish_interactive_settle() {
+  if (!device_->m_hWnd || !::IsWindow(device_->m_hWnd)) {
+    return;
+  }
+  device_->SetCurDrawingOrg(lPoint(0, 0));
+  device_->note_painted_preview_baseline();
+  {
+    std::lock_guard<std::mutex> front_lock(device_->shared_front_mutex());
+    detail::reset_preview_viewports_identity(&device_->vir_viewport1_,
+                                             &device_->vir_viewport2_,
+                                             device_->m_Viewport);
+  }
+  // Sync compose+BitBlt; InvalidateRect-only Refresh can defer past browse end.
+  (void)device_->RenderMap();
+  (void)device_->Refresh();
+}
 
 Rhi2dPresentController::Rhi2dPresentController(SmtRhi2dRenderDevice* device)
     : device_(device) {}
 
-void Rhi2dPresentController::arm_present() { present_pending_ = true; }
+void Rhi2dPresentController::arm_present() {
+  present_pending_ = true;
+  if (device_->layer_tree_host_) {
+    // Snapshot so Timer waits for a newer publish, or composites on idle when
+    // Refresh armed present while the worker was still busy on this gen.
+    present_baseline_gen_ =
+        device_->layer_tree_host_->published_generation();
+  }
+}
 
 void Rhi2dPresentController::reset() {
   present_pending_ = false;
@@ -40,6 +67,18 @@ int Rhi2dPresentController::schedule_delayed_redraw(const SmtMap* pMap) {
                        static_cast<int>(device_->m_Viewport.m_fVHeight),
                        R2_COPYPEN,
                        /*urgent=*/false);
+}
+
+int Rhi2dPresentController::schedule_urgent_redraw(const SmtMap* pMap) {
+  if (!pMap || !device_->layer_tree_host_) {
+    return SMT_ERR_INVALID_PARAM;
+  }
+  return stage_map_job(pMap, static_cast<int>(device_->m_Viewport.m_fVOX),
+                       static_cast<int>(device_->m_Viewport.m_fVOY),
+                       static_cast<int>(device_->m_Viewport.m_fVWidth),
+                       static_cast<int>(device_->m_Viewport.m_fVHeight),
+                       R2_COPYPEN,
+                       /*urgent=*/true);
 }
 
 int Rhi2dPresentController::stage_map_job(const SmtMap* pMap, int x, int y, int w,
@@ -113,45 +152,27 @@ int Rhi2dPresentController::on_timer() {
     const bool due = urgent_submit_ || dbfElapse > kDelaySec;
     if (due) {
       if (!submit_staged_job()) {
-        // Worker still busy â€?keep redraw_pending_; pending context coalesces.
-        // Urgent stays set so the next idle tick submits without re-debounce.
+        // Worker still busy; keep redraw_pending_. Urgent stays set so the
+        // next idle tick submits without re-debounce.
       }
     }
   }
 
   // Present only when the worker published a newer front generation.
-  // Do not advance baseline until the worker is idle and Refresh runs â€?
-  // otherwise try_present consumes the gen while Refresh early-outs on
-  // is_busy(), then the idle branch clears pending and the HWND never
-  // composites until a later mouse-driven Refresh.
   if (present_pending_ && device_->layer_tree_host_) {
     const uint64_t published = device_->layer_tree_host_->published_generation();
     if (published != present_baseline_gen_) {
       if (!device_->layer_tree_host_->is_busy()) {
         present_baseline_gen_ = published;
         present_pending_ = false;
-        if (device_->m_hWnd && ::IsWindow(device_->m_hWnd)) {
-          // New front already matches the settled windowport â€?drop the
-          // interactive pan pixel offset or the map stays shifted.
-          device_->SetCurDrawingOrg(lPoint(0, 0));
-          // Preview zoom baseline = this settled windowport/fblc.
-          device_->note_painted_preview_baseline();
-          {
-            std::lock_guard<std::mutex> front_lock(
-                device_->shared_front_mutex());
-            detail::reset_preview_viewports_identity(
-                &device_->vir_viewport1_, &device_->vir_viewport2_,
-                device_->m_Viewport);
-          }
-          // Refresh composes + InvalidateRect â†?OnDraw paint-DC blit.
-          device_->Refresh();
-        }
+        finish_interactive_settle();
       }
-      // else: published but worker not fully idle yet â€?retry next tick.
     } else if (!device_->layer_tree_host_->is_busy() && !redraw_pending_ &&
                !device_->layer_tree_host_->has_pending()) {
-      // Submitted job finished without publish (cancel / superseded).
+      // Refresh armed present while busy on this gen, or job finished without
+      // a newer publish — still composite so browse end is not stuck.
       present_pending_ = false;
+      finish_interactive_settle();
     }
   }
 

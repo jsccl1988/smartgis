@@ -3,6 +3,7 @@
 
 #include "ui/gis/catalog/layer_tree.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <utility>
 
@@ -18,10 +19,10 @@ namespace views {
 namespace {
 
 // DIPs — match TreeView: fixed px rows clip the 20 DIP shell font at high DPI.
-constexpr int kRowHeightDip = 28;
-constexpr int kCheckSizeDip = 16;
-constexpr int kCheckPadDip = 6;
-constexpr int kLabelGapDip = 8;
+constexpr int kRowHeightDip = 32;
+constexpr int kCheckSizeDip = 18;
+constexpr int kCheckPadDip = 8;
+constexpr int kLabelGapDip = 10;
 
 }  // namespace
 
@@ -94,9 +95,12 @@ class LayerTree::LayerRow : public View {
     const int pad = owner_->check_pad();
     const float scale = owner_->scale_factor();
     // Always paint a row plate so labels stay readable on dark chrome.
+    // Selected: quiet hover fill + thin accent rail (not full-width saturated
+    // blue that steals hierarchy from active TabStrip cells).
     if (selected_) {
-      canvas->fill_rect(b.x, b.y, b.width, b.height,
-                        ui::gfx::color_rgb(0, 90, 158));
+      canvas->fill_rect(b.x, b.y, b.width, b.height, t.control_hover);
+      const int rail = std::max(2, dip_to_px(3, scale));
+      canvas->fill_rect(b.x, b.y, rail, b.height, t.accent);
     } else if (is_hovered() || is_pressed()) {
       canvas->fill_rect(b.x, b.y, b.width, b.height, t.control_hover);
     } else {
@@ -110,7 +114,8 @@ class LayerTree::LayerRow : public View {
     }
     const std::wstring w = utf8_to_wide(name_);
     const int text_x = b.x + pad + check + dip_to_px(kLabelGapDip, scale);
-    const int text_y = b.y + dip_to_px(4, scale);
+    const Size ink = measure_text_utf8(name_, scale);
+    const int text_y = b.y + std::max(0, (row_h - ink.height) / 2);
     canvas->draw_text(text_x, text_y, w.c_str(), t.text_bright);
   }
 
@@ -224,8 +229,18 @@ void LayerTree::set_layers(const std::vector<LayerDesc>& layers) {
   if (active_id.empty() && !rows_.empty() && rows_.front()) {
     active_id = rows_.front()->id();
   }
+  // Silent select: clear() already wiped selected_id_, so select_id() would
+  // always fire selection_changed_. After OGR replace that cascades into
+  // CatalogCall + fill_attribute_rows over every MapLayer feature (AV / hang
+  // under showcase SMT_SKIP_AMBOX_CATALOG). Host callers sync inspectors
+  // explicitly when they need it (on_open / deferred China seed).
   if (!active_id.empty()) {
-    select_id(active_id);
+    selected_id_ = active_id;
+    for (LayerRow* row : rows_) {
+      if (row) {
+        row->set_selected(row->id() == selected_id_);
+      }
+    }
   }
 }
 

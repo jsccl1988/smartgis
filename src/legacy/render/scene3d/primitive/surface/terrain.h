@@ -1,79 +1,74 @@
-// Copyright (c) 2010 CCL. All rights reserved.
-#ifndef _MD3D_TERRAIN_H
-#define _MD3D_TERRAIN_H
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef SMT_LEGACY_RENDER_SCENE3D_PRIMITIVE_SURFACE_TERRAIN_H_
+#define SMT_LEGACY_RENDER_SCENE3D_PRIMITIVE_SURFACE_TERRAIN_H_
+
+#include <array>
+#include <memory>
 
 #include "gis/kernel/geo/mesh/geometry.h"
+#include "legacy/gis/vista/dem_height_field.h"
 #include "legacy/render/legacy_render_export.h"
-#include "legacy/render/rhi3d/public/device/render_device.h"
-#include "legacy/render/rhi3d/public/device/renderer.h"
-#include "legacy/render/rhi3d/public/resource/video_buffer.h"
-#include "legacy/render/scene3d/scene/object.h"
-
-using namespace render;
-using namespace geo;
+#include "legacy/render/scene3d/primitive/surface/surface_base.h"
 
 namespace render {
-class LEGACY_RENDER_EXPORT SmtTerrain : public Smt3DObject {
+
+// Leftover terrain drawable: geo::Smt3DSurface (plugin TIN/grid) or
+// DemHeightField coarse DEM mesh (hypsometric color + normals).
+class LEGACY_RENDER_EXPORT SmtTerrain : public SmtSurfaceObject {
  public:
-  SmtTerrain(void);
-  virtual ~SmtTerrain(void);
+  SmtTerrain();
+  ~SmtTerrain() override;
 
- public:
-  long Init(::base::Vector3&vPos, SmtMaterial &matMaterial,
-            const char *szTexName = "");
-  long Update(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed);
-  long Create(LP3DRENDERDEVICE p3DRenderDevice);
-  long Render(LP3DRENDERDEVICE p3DRenderDevice);
-  bool Select(LP3DRENDERDEVICE p3DRenderDevice, const lPoint &point);
-  long Destroy();
+  long Init(::base::Vector3& vPos, SmtMaterial& matMaterial,
+            const char* szTexName = "") override;
+  long Update(LP3DRENDERDEVICE device, float elapsed) override;
+  long Create(LP3DRENDERDEVICE device) override;
+  long Render(LP3DRENDERDEVICE device) override;
+  long Destroy() override;
 
- public:
-  inline Vector3 GetCenter() { return m_vCenter; }
+  // Legacy plugin ABI (PascalCase kept for LoadLibrary-era callers).
+  Vector3 GetCenter() { return center_; }
+  void SetClrType(int type) { color_type_ = type; }
+  void SetXScale(float scale) { x_scale_ = scale; }
+  void SetYScale(float scale) { y_scale_ = scale; }
+  void SetZScale(float scale) { z_scale_ = scale; }
+  int GetClrType() const { return color_type_; }
+  float GetXScale() const { return x_scale_; }
+  float GetYScale() const { return y_scale_; }
+  float GetZScale() const { return z_scale_; }
 
-  inline void SetClrType(int type) { m_nClrType = type; }
-  inline void SetXScale(float fScale) { m_fXScale = fScale; }
-  inline void SetYScale(float fScale) { m_fYScale = fScale; }
-  inline void SetZScale(float fScale) { m_fZScale = fScale; }
+  geo::Smt3DSurface* GetTerrainSurf() { return surface_; }
+  long SetTerrainSurf(geo::Smt3DSurface* surf);
+  long SetTerrainSurfDirectly(geo::Smt3DSurface* surf);
 
-  inline int GetClrType(void) { return m_nClrType; }
-  inline float GetXScale(void) { return m_fXScale; }
-  inline float GetYScale(void) { return m_fYScale; }
-  inline float GetZScale(void) { return m_fZScale; }
+  void set_height_field(const DemHeightField* field);
+  void adopt_height_field(DemHeightField* field);
+  // Non-inline: dem_stereo_test / plugins must not bake field_ offsetof across
+  // the legacy_render DLL boundary (SmtSurfaceObject base shifts layout).
+  const DemHeightField* height_field() const;
 
- public:
-  virtual Smt3DSurface *GetTerrainSurf(void) { return m_p3DSurf; }
-  virtual long SetTerrainSurf(Smt3DSurface *pSurf);
-  virtual long SetTerrainSurfDirectly(Smt3DSurface *pSurf);
+ private:
+  void sample_color(float height, SmtColor* out) const;
+  long create_from_surface(LP3DRENDERDEVICE device);
+  long create_from_height_field(LP3DRENDERDEVICE device);
+  long render_height_field(LP3DRENDERDEVICE device);
+  void render_surface(LP3DRENDERDEVICE device);
 
- protected:
-  virtual void CreateNormal(void);
-  virtual void CreateTextureCoord(void);
-  virtual void CreateColor(void);
+  int color_type_ = 0;
+  std::array<SmtColor, 3> color_ramp_{};
+  float z_scale_ = 1.f;
+  float x_scale_ = 1.f;
+  float y_scale_ = 1.f;
+  float min_z_ = 0.f;
+  float max_z_ = 0.f;
 
-  inline void GetColor(float h, SmtColor &clr);
-
- protected:
-  void RenderTerrain(LP3DRENDERDEVICE p3DRenderDevice);
-
- protected:
-  int m_nClrType;
-  int m_nColorLevels;
-  SmtColor *m_pClr;
-
-  float m_fZScale;
-  float m_fXScale;
-  float m_fYScale;
-
-  float m_fMinZ;
-  float m_fMaxZ;
-  Vector3 m_vCenter;
-
-  Smt3DSurface *m_p3DSurf;
-
- protected:
-  SmtVertexBuffer *m_pVertexBuffer;
-  SmtIndexBuffer *m_pIndexBuffer;
+  geo::Smt3DSurface* surface_ = nullptr;
+  std::unique_ptr<DemHeightField> owned_field_;
+  const DemHeightField* field_ = nullptr;
 };
+
 }  // namespace render
 
 #if !defined(LEGACY_RENDER_EXPORTS)
@@ -84,4 +79,4 @@ class LEGACY_RENDER_EXPORT SmtTerrain : public Smt3DObject {
 #endif
 #endif
 
-#endif  //_MD3D_TERRAIN_H
+#endif  // SMT_LEGACY_RENDER_SCENE3D_PRIMITIVE_SURFACE_TERRAIN_H_
