@@ -65,10 +65,15 @@ smt_shared_library("gis") {
     "//third_party:gdal",
   ]
   lib_dirs += [ "//third_party/.install/lib" ]
+  # Prefer install static zlib by path. Bare "zlib.lib" resolves to
+  # out/<config>/zlib.lib (CxImage import lib) before LIBPATH and has no
+  # inflate* — Release then LNK2001 on mvt.obj. Debug uses zlibstaticd.lib
+  # which does not collide with that import name.
   if (is_debug) {
     libs += [ "zlibstaticd.lib" ]
   } else {
-    libs += [ "zlib.lib" ]
+    libs +=
+        [ rebase_path("//third_party/.install/lib/zlib.lib", root_build_dir) ]
   }
 }
 
