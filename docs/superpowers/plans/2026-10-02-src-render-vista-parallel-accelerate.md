@@ -6,9 +6,10 @@ All rights reserved.
 # src_render + vista parallel accelerate (终态) — Implementation Plan
 
 > Hung off living [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) **§src_render + vista parallel accelerate**.  
-> **Diagram (normative visual):** [`../diagrams/src-render-vista-parallel-accelerate.html`](../diagrams/src-render-vista-parallel-accelerate.html) — SVG swimlanes + **named stages** (`stage_frame` → `build_layout_parallel` → `prep_cull_parallel` → `record_and_present`).  
+> **Diagram (normative visual):** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html) — **A×B 深度整合**；Topology A 见 §2–§3（`stage_frame` → `build_layout_parallel` → `prep_cull_parallel` → `record_and_present`）。  
 > **CPU boundary:** [`gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html).  
-> **Related:** [`legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) · [`ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)
+> **Related:** [`legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) · [`ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)  
+> **GPU-process checklist (do not duplicate here):** [`2026-09-27-gpu-rhi-accelerate.md`](2026-09-27-gpu-rhi-accelerate.md) — **Task 8: Bridge to in-process L0–L3**.
 
 **Goal:** Product-track parallel end state for `src/gis/vista` (CPU) + `src/render` / `content` (GPU), reusing leftover rhi2d/rhi3d **semantics** — not GDI HDC or D3D11 deferred. Living § now locks **code-level** Types / Call graph / Grains / GPU / Env / API sketches.
 
@@ -57,7 +58,7 @@ Env (product): `SMT_VISTA_LAYOUT_PARALLEL`, `SMT_GPUSCENE_PREP_PARALLEL` (`=0` �
 | `effect/atmosphere/ocean/gpu_fields.cc` | Compute FFT | Device-thread only |
 | `render/graph/frame_graph.*` | 1 CL contract | `render::graph::present` |
 | `base/execution/parallel/for.h` | Pool grain | `parallel_for` · latch |
-| `docs/superpowers/diagrams/src-render-vista-parallel-accelerate.html` | Normative SVG | Named stages |
+| `docs/superpowers/diagrams/render-accelerate-topology.html` | Normative SVG（A×B） | Named stages + GPU process |
 | `src/render/README.md` | Env pointer | Parallel / GPU (planned) |
 
 ## Tasks
@@ -121,3 +122,4 @@ Env (product): `SMT_VISTA_LAYOUT_PARALLEL`, `SMT_GPUSCENE_PREP_PARALLEL` (`=0` �
 - Product-track reuse of §rhi2d tile-raster / §rhi3d parallel-frame **semantics**
 - Complements §src_render Map2d/Scene3d equal-profile (budgets vs architecture)
 - Views §compositor thread owns L0/L3 thread roles
+- **§GPU-process accelerate** (Topology B): when shell runs `--type=gpu`, L3 remaps from Display `graph::present` to **submit IR / DrawRequest → GPU process** (`GpuDeviceHub` + `FrameComposer`). Open bridge checkboxes live only in [`2026-09-27-gpu-rhi-accelerate.md`](2026-09-27-gpu-rhi-accelerate.md) **Task 8**.

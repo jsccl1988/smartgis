@@ -3,6 +3,7 @@
 
 #include "content/browser/document/edit/feature_edit.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -39,6 +40,24 @@ double dist2(double ax, double ay, double bx, double by) {
   const double dx = ax - bx;
   const double dy = ay - by;
   return dx * dx + dy * dy;
+}
+
+double feature_pick_dist2(const MapFeature& feature, double map_x,
+                          double map_y) {
+  if (feature.points.empty()) {
+    return 1e300;
+  }
+  if (feature.kind == GeomKind::kPoint || feature.kind == GeomKind::kText) {
+    return dist2(map_x, map_y, feature.points[0].x, feature.points[0].y);
+  }
+  double best = 1e300;
+  for (const Vertex& p : feature.points) {
+    const double d = dist2(map_x, map_y, p.x, p.y);
+    if (d < best) {
+      best = d;
+    }
+  }
+  return best;
 }
 
 }  // namespace
@@ -238,16 +257,24 @@ bool add_point_cloud_layer(LayerStore* store, const std::string& name,
   return true;
 }
 
-const MapFeature* hit_test(LayerStore* store, double map_x, double map_y,
-                           double tol_map) {
+std::vector<const MapFeature*> hit_test_all(LayerStore* store, double map_x,
+                                           double map_y, double tol_map) {
+  std::vector<const MapFeature*> out;
   if (!store) {
-    return nullptr;
+    return out;
   }
   store->clear_selection();
+  if (tol_map < 0.0) {
+    return out;
+  }
   const double tol2 = tol_map * tol_map;
-  MapFeature* best = nullptr;
-  double best_d = tol2;
+  struct Candidate {
+    MapFeature* feature = nullptr;
+    double dist2 = 0;
+  };
+  std::vector<Candidate> candidates;
   auto& layers = store->layers();
+  // Top-most layers / features first so equal-distance ties prefer draw order.
   for (auto it = layers.rbegin(); it != layers.rend(); ++it) {
     if (!it->visible) {
       continue;
@@ -256,29 +283,33 @@ const MapFeature* hit_test(LayerStore* store, double map_x, double map_y,
       if (fit->points.empty()) {
         continue;
       }
-      if (fit->kind == GeomKind::kPoint || fit->kind == GeomKind::kText) {
-        const double d =
-            dist2(map_x, map_y, fit->points[0].x, fit->points[0].y);
-        if (d <= best_d) {
-          best_d = d;
-          best = &(*fit);
-        }
-      } else {
-        for (const Vertex& p : fit->points) {
-          const double d = dist2(map_x, map_y, p.x, p.y);
-          if (d <= best_d) {
-            best_d = d;
-            best = &(*fit);
-          }
-        }
+      const double d = feature_pick_dist2(*fit, map_x, map_y);
+      if (d <= tol2) {
+        candidates.push_back({&(*fit), d});
       }
     }
   }
-  if (best) {
+  std::stable_sort(candidates.begin(), candidates.end(),
+                   [](const Candidate& a, const Candidate& b) {
+                     return a.dist2 < b.dist2;
+                   });
+  out.reserve(candidates.size());
+  for (const Candidate& cand : candidates) {
+    out.push_back(cand.feature);
+  }
+  if (!candidates.empty()) {
+    MapFeature* best = candidates.front().feature;
     best->selected = true;
     store->set_selected_id(best->id);
   }
-  return best;
+  return out;
+}
+
+const MapFeature* hit_test(LayerStore* store, double map_x, double map_y,
+                           double tol_map) {
+  const std::vector<const MapFeature*> hits =
+      hit_test_all(store, map_x, map_y, tol_map);
+  return hits.empty() ? nullptr : hits.front();
 }
 
 SnapHit snap_to_features(const LayerStore& store, double map_x, double map_y,

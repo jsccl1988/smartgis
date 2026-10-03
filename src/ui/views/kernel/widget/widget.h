@@ -31,9 +31,11 @@ class UI_EXPORT Widget {
   // (WS_POPUP + thickframe) and collapses NC into the client so FrameView
   // can paint the caption (CSD). Do not combine kCustom with WS_CAPTION —
   // DWM would still draw a second OS title bar.
+  // kPopup is a borderless owned dropdown / tip (no caption inflate).
   enum class FrameKind {
     kSystem,
     kCustom,
+    kPopup,
   };
 
   struct InitParams {
@@ -42,7 +44,7 @@ class UI_EXPORT Widget {
     // like a normal desktop shell on Per-Monitor DPI hosts.
     // Owned popups (|owner| set) always treat this as *client* size; Widget
     // expands to outer shell via dialog_host / AdjustWindowRectEx unless
-    // |frame_kind| is kCustom (outer == client).
+    // |frame_kind| is kCustom / kPopup (outer == client).
     int width = 1280;
     int height = 800;
     HWND owner = nullptr;
@@ -50,6 +52,12 @@ class UI_EXPORT Widget {
     // Set false only when the caller already computed physical pixels.
     bool size_in_dips = true;
     FrameKind frame_kind = FrameKind::kSystem;
+    // When true, CreateWindow uses |screen_x|/|screen_y| (physical screen px).
+    bool has_screen_origin = false;
+    int screen_x = 0;
+    int screen_y = 0;
+    // Combobox / menu-style: close when the popup loses activation.
+    bool dismiss_on_deactivate = false;
   };
 
   Widget();
@@ -154,6 +162,7 @@ class UI_EXPORT Widget {
   bool destroying_ = false;
   bool will_close_fired_ = false;
   bool modal_ = false;
+  bool dismiss_on_deactivate_ = false;
   // Heap-allocated so Widget stays small on the stack (RTC / teardown safety).
   std::unique_ptr<WillClose> will_close_;
   std::unique_ptr<OnShellPublished> on_shell_published_;

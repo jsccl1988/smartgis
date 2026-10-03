@@ -39,7 +39,7 @@
 #include <afxcmn.h>
 #endif  // _AFX_NO_AFXCMN_SUPPORT
 
-#include "legacy/ui/widgets/bcg_cmfc.h"  // MFC Feature Pack stand-in for BCGControlBar Pro
+#include "legacy/ui/widgets/feature_pack/feature_pack.h"  // MFC Feature Pack stand-in for BCGControlBar Pro
 
 #if defined _M_IX86
 #pragma comment( \

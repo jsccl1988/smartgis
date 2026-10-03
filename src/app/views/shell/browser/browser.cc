@@ -10,7 +10,7 @@
 #include "app/views/shell/browser/browser_ui_delegate.h"
 #include "app/views/shell/browser/plugin/analysis_writers.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
-#include "app/views/shell/harness/common/sample.h"
+#include "app/views/shell/harness/common/io/sample.h"
 #include "base/core/log.h"
 #include "base/trace/event/process_trace.h"
 #include "content/browser/camera/map_host_extent.h"
@@ -110,23 +110,23 @@ bool Browser::init() {
 
   wire_plugin_analysis_writers(this);
 
-  BASE_TRACE_EVENT("InitChrome", "startup");
-  LOGGING(LOG_INFO, "startup: init_chrome");
-  const bool ok = ui_->init_chrome();
+  BASE_TRACE_EVENT("InitShell", "startup");
+  LOGGING(LOG_INFO, "startup: init_shell");
+  const bool ok = ui_->init_shell();
   if (!ok) {
-    LOGGING(LOG_ERROR, "startup: init_chrome failed");
+    LOGGING(LOG_ERROR, "startup: init_shell failed");
   }
   return ok;
 }
 
 void Browser::show() {
   if (ui_) {
-    // show_chrome shows the shell and schedules the first map invalidate.
+    // show_shell shows the shell and schedules the first map invalidate.
     // Full first-map present wait is opt-in (SMT_SYNC_FIRST_MAP_PRESENT=1).
-    ui_->show_chrome();
+    ui_->show_shell();
   }
   // Fit after chrome is visible (final client size). Extent-only nudge;
-  // init_chrome already framed from SeedDocument (demo or sync China).
+  // init_shell already framed from SeedDocument (demo or sync China).
   // Showcase / harness (SMT_SKIP_AMBOX_CATALOG): demo-only seed AVs inside
   // fit_map_extent (cdb world3d-early2 Browser::show). Scene3D framing is
   // applied later by apply_china_scene3d_product_defaults.
@@ -258,7 +258,7 @@ void Browser::show() {
 }
 
 int Browser::run_loop() {
-  return ui_ ? ui_->run_chrome_loop() : 1;
+  return ui_ ? ui_->run_shell_loop() : 1;
 }
 
 void Browser::prepare_close() {
@@ -280,7 +280,7 @@ void Browser::prepare_close() {
   // abandon, and release_rhi_device waits forever for a destroy ack the Display
   // thread cannot process (close hang).
   if (ui_) {
-    ui_->prepare_chrome_close();
+    ui_->prepare_shell_close();
   }
   session_.prepare_close();
 }
@@ -364,6 +364,26 @@ void Browser::OnExtentChanged(uint32_t /*view_id*/, const content::Extent2& e) {
   // cursor zoom (self-test exit 47). Orbit tracks only a China lon/lat box;
   // pixel or world extents shrink the DEM into a sticker on the ocean.
   if (!extent_looks_like_china(e)) {
+    return;
+  }
+  // MapContents recv / renderer_recv threads deliver this off the UI thread.
+  // OrbitFrame + StatusBar/Label must not run there (heap corruption /
+  // 0xC0000374). Always PostMessage — never apply on the caller thread
+  // (including the old "no HWND yet" fallback, which still raced Label).
+  HWND shell = hwnd();
+  if (!shell || !IsWindow(shell)) {
+    return;
+  }
+  auto* heap = new content::Extent2(e);
+  constexpr UINT kExtentChangedUi = WM_APP + 0x5253;  // 'RS'
+  if (!PostMessageW(shell, kExtentChangedUi, 0,
+                    reinterpret_cast<LPARAM>(heap))) {
+    delete heap;
+  }
+}
+
+void Browser::apply_extent_changed_on_ui(const content::Extent2& e) {
+  if (syncing_extent_ || !extent_nonempty(e) || !extent_looks_like_china(e)) {
     return;
   }
   syncing_extent_ = true;

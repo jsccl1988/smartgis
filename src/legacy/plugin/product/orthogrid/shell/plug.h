@@ -3,7 +3,7 @@
 
 #include "legacy/plugin/runtime/auxmodule/module.h"
 #include "legacy/plugin/product/orthogrid/kernel/grid.h"
-#include "legacy/ui/map/view_2d_edit.h"
+#include "legacy/ui/map/viewport/view_2d_edit.h"
 #include "ogr_geometry.h"
 
 using namespace plugin;

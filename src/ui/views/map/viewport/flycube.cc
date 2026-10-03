@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 The Mogu Authors.
+// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 // FlyCube present HWND ownership + try_flycube / try_local attach backends.
@@ -28,9 +28,9 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
-#include "ui/views/map/chrome/identity_hud.h"
+#include "ui/views/map/frame/identity_hud.h"
 #include "ui/views/map/device/device_load.h"
-#include "ui/views/map/chrome/embed_fill.h"
+#include "ui/views/map/frame/embed_fill.h"
 #include "ui/views/map/viewport/features.h"
 #include "ui/views/map/input/viewport_input.h"
 
@@ -253,7 +253,7 @@ HWND MapViewport::ensure_flycube_present_hwnd(uint32_t width_px,
   // Browser::init (pre-show); inactive tabs call set_flycube_present_visible(false).
   flycube_present_want_visible_.store(true, std::memory_order_release);
   ShowWindow(flycube_present_hwnd_, SW_HIDE);
-  sync_identity_chrome();
+  sync_identity_frame();
   LOGGING(LOG_INFO, "rhi.flycube present HWND=%p owner=%p %ux%u want_visible=1",
           flycube_present_hwnd_, nullptr, width_px, height_px);
   return flycube_present_hwnd_;

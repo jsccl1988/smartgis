@@ -47,7 +47,9 @@ class LayerStore {
   std::vector<content::LayerDesc> layer_descs() const;
   size_t feature_count() const;
 
-  bool create_layer(const std::string& name);
+  // |kind| defaults to kVector (digitize / OGR-style vector layer).
+  bool create_layer(const std::string& name,
+                    content::LayerKind kind = content::LayerKind::kVector);
   bool remove_layer(const std::string& id);
   bool set_layer_visible(const std::string& id, bool visible);
   bool select_layer(const std::string& id);

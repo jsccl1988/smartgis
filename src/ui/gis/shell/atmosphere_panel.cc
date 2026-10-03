@@ -3,6 +3,7 @@
 
 #include "ui/gis/shell/atmosphere_panel.h"
 
+#include <algorithm>
 #include <format>
 #include <memory>
 #include <utility>
@@ -11,6 +12,7 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/shell/theme.h"
+#include "ui/views/kernel/widget/widget.h"
 #include "ui/views/primitives/button/checkbox.h"
 #include "ui/views/primitives/text/label.h"
 #include "ui/views/primitives/input/slider.h"
@@ -33,6 +35,14 @@ AtmospherePanel::AtmospherePanel() {
   sky_ = loaded.ids.find_as<Checkbox>("sky");
   fog_ = loaded.ids.find_as<Checkbox>("fog");
   wind_ = loaded.ids.find_as<Checkbox>("wind");
+
+  const Theme& theme = Theme::current();
+  if (title_) {
+    title_->set_color(theme.text_bright);
+  }
+  if (time_label_) {
+    time_label_->set_color(theme.text_muted);
+  }
 
   if (scrub_) {
     scrub_->set_range(0.0, 3600.0);
@@ -234,6 +244,18 @@ void AtmospherePanel::paint_self(ui::gfx::Canvas* canvas) {
   const Theme& t = Theme::current();
   const Rect& b = bounds();
   canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
+
+  const float scale = widget() ? widget()->device_scale_factor() : 1.f;
+  const int hair = std::max(1, dip_to_px(1, scale));
+  // Title band + under-hairline: section header like Pro dock panes.
+  // Title bounds are Yoga absolute (same space as this panel).
+  if (title_ && title_->is_visible()) {
+    const Rect& h = title_->bounds();
+    canvas->fill_rect(h.x, h.y, std::max(h.width, b.right() - h.x), h.height,
+                      t.panel_header);
+    canvas->fill_rect(h.x, h.y + h.height, std::max(h.width, b.right() - h.x),
+                      hair, t.control_fill);
+  }
 }
 
 }  // namespace views

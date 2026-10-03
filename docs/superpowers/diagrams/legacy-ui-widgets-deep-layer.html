@@ -1,0 +1,164 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>legacy/ui/widgets 深度分层</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --border: #d8dee6;
+    --text: #1a2330;
+    --muted: #5a6a7e;
+    --accent: #2563a8;
+    --fp: #e8f0fa;
+    --prop: #eef6ee;
+    --dll: #f7f0e8;
+    --call: #f3eef8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.45;
+  }
+  h1 { font-size: 1.35rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 0.92rem; margin-bottom: 20px; }
+  .stack { display: grid; gap: 12px; max-width: 920px; }
+  .lane {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .lane h2 {
+    margin: 0 0 8px; font-size: 0.95rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tag {
+    font-size: 0.72rem; font-weight: 600; padding: 2px 8px;
+    border-radius: 4px; color: #123;
+  }
+  .tag.fp { background: var(--fp); }
+  .tag.p { background: var(--prop); }
+  .tag.d { background: var(--dll); }
+  .tag.c { background: var(--call); }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    margin-top: 10px; font-size: 0.88rem;
+  }
+  .chip {
+    background: #eef2f6; border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 8px; font-family: Consolas, monospace;
+    font-size: 0.8rem;
+  }
+  .arrow { color: var(--accent); font-weight: 700; }
+  code { font-family: Consolas, monospace; font-size: 0.85rem; }
+  .principle {
+    margin-top: 18px; max-width: 920px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .principle ol { margin: 8px 0 0 1.2rem; color: var(--muted); }
+  .principle li { margin: 4px 0; }
+  .stages {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;
+    align-items: center;
+  }
+  .stage {
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 10px; background: #fff; min-width: 140px;
+  }
+  .stage.active { border-color: var(--accent); }
+  .stage .n { font-size: 0.72rem; color: var(--accent); font-weight: 700; }
+  .stage .t { font-size: 0.85rem; margin-top: 2px; }
+  @keyframes dash { to { stroke-dashoffset: -20; } }
+  .pulse { animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
+    50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
+  }
+</style>
+</head>
+<body>
+  <h1>legacy/ui/widgets 深度分层（§11d）</h1>
+  <p class="sub">leftover Feature Pack glue；物理仍在 <code>src/legacy/ui/widgets</code>。Scheme C，无 shim。不迁终局 Views。</p>
+
+  <div class="stack">
+    <div class="lane pulse">
+      <h2><span class="tag fp">feature_pack</span> CBCGP → CMFC 桥</h2>
+      <div class="flow">
+        <span class="chip">feature_pack.h</span>
+        <span class="arrow">→</span>
+        <span>typedef / CBRS_* / BCGM_* / DPI no-op</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag p">prop</span> 属性表组合</h2>
+      <div class="flow">
+        <span class="chip">prop_list.h</span>
+        <span class="chip">prop_value.h</span>
+        <span class="arrow">←</span>
+        <span>inspect docks：create / size / OleVariant coerce</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag d">dll</span> 唯一 AFX 附着</h2>
+      <div class="flow">
+        <span class="chip">dll_main.cpp</span>
+        <span class="chip">afx_ext_support.h</span>
+        <span class="arrow">→</span>
+        <span>ui_legacy  sole DllMain（禁第二份）</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag c">call sites</span> 组合消费者</h2>
+      <div class="flow">
+        <span class="chip">app/shell</span>
+        <span class="chip">inspect/</span>
+        <span class="chip">dialogs/</span>
+        <span class="chip">ambox/</span>
+        <span class="arrow">include</span>
+        <span>feature_pack 或 prop；不碰 dll/</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="principle">
+    <strong>原则流</strong>
+    <div class="stages" id="stages">
+      <div class="stage" data-i="0"><div class="n">1</div><div class="t">PCH / stdafx 拉 feature_pack</div></div>
+      <div class="arrow">→</div>
+      <div class="stage" data-i="1"><div class="n">2</div><div class="t">inspect 组合 prop_list</div></div>
+      <div class="arrow">→</div>
+      <div class="stage" data-i="2"><div class="n">3</div><div class="t">dll_main 仅进程附着</div></div>
+      <div class="arrow">→</div>
+      <div class="stage" data-i="3"><div class="n">4</div><div class="t">Views 终局不依赖本树</div></div>
+    </div>
+    <ol>
+      <li><code>feature_pack</code> 只做桥；不持控件实例。</li>
+      <li><code>prop</code> 是无状态 inline 组合；避免 dock/grid 时代命名。</li>
+      <li><code>dll</code> 与 helper 头分离，防止二次 <code>DllMain</code> / module-state 符号。</li>
+      <li>ABI：<code>dll_stem=ui_legacy</code>；历史 <code>CBCGP*</code> 名经 typedef 保留。</li>
+    </ol>
+  </div>
+
+<script>
+(function () {
+  var stages = document.querySelectorAll('#stages .stage');
+  var i = 0;
+  function tick() {
+    stages.forEach(function (el, idx) {
+      el.classList.toggle('active', idx === i);
+    });
+    i = (i + 1) % stages.length;
+  }
+  tick();
+  setInterval(tick, 1400);
+})();
+</script>
+</body>
+</html>

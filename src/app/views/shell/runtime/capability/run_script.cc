@@ -3,7 +3,7 @@
 
 #include "app/views/shell/runtime/capability/run_script.h"
 
-#include "app/views/shell/harness/common/mark.h"
+#include "app/views/shell/harness/common/mark/mark.h"
 #include "app/views/shell/runtime/interact/apply.h"
 #include "app/views/shell/runtime/capability/fill_host.h"
 #include "app/views/shell/util/exe_sidecar_path.h"

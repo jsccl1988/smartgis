@@ -53,8 +53,12 @@ constexpr uint32_t kGestureEnd = 0x04000000u;
 inline constexpr uint32_t pack(uint32_t family, uint32_t code) {
   return (family << kFamilyShift) | (code & kCodeMask);
 }
+// High bits (touch pan / zoom rect / gesture end) share the uint32 with
+// (family<<16)|code — strip them before reading the family field.
 inline constexpr uint32_t family_of(uint32_t flags) {
-  return flags >> kFamilyShift;
+  constexpr uint32_t kHigh =
+      kTouchPan | kZoomRect | kGestureEnd;
+  return (flags & ~kHigh) >> kFamilyShift;
 }
 inline constexpr uint32_t code_of(uint32_t flags) {
   return flags & kCodeMask;

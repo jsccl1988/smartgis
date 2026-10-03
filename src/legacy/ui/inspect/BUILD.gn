@@ -3,7 +3,39 @@
 
 import("//build/smartgis.gni")
 
-# Config / edit dock chrome (ex-panels) via //src/legacy/ui/dialogs:dialogs_sources.
+# Config / edit inspect docks → ui_legacy.
+# Layers: host/ (shared prop-list CWnd chrome), sys/ (system prefs),
+# edit/ (default edit styles). PCH at capability root.
+source_set("inspect_sources") {
+  configs += [
+    "//build:legacy",
+    "//build:mfc",
+  ]
+  defines = [
+    "_USRDLL",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
+    "GUI_EXPORTS",
+  ]
+  precompiled_header = "stdafx.h"
+  precompiled_source = "stdafx.cpp"
+  include_dirs += [ "." ]
+  sources = [
+    "edit/edit_config_dock.cpp",
+    "sys/sys_config_dock.cpp",
+    "stdafx.cpp",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/model/map:gis",
+    "//src/legacy/sys:sys",
+    "//third_party:gdal",
+  ]
+}
+
 group("inspect") {
   public_deps = [ "//src/legacy/ui:ui_legacy" ]
 }

@@ -5,6 +5,8 @@ All rights reserved.
 
 # `src/gpu`
 
+**Diagram:** [`docs/superpowers/diagrams/render-accelerate-topology.html`](../../docs/superpowers/diagrams/render-accelerate-topology.html)（A×B 整合） · Living §GPU-process in [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md)
+
 `--type=gpu` payload. Shell talks only to `content/public`; this tree owns paint
 **and final compose**. MapLibre Native is **not** in this tree (pin removed;
 reconsider later). Browser / renderer / shell must **not** blend map layers into
@@ -256,9 +258,10 @@ sequenceDiagram
 `view.backend.rhi` only selects `ContentSource::kDirect`, not FlyCube.
 `//src/gpu:gpu_backend` deps `//src/render:rhi` (+ graph/scene) for RHI compose.
 
-- Spec: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md) §GPU-process accelerate
+- Spec: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md) §GPU-process accelerate（Topology B；与 in-process L0–L3 双拓扑）
+- Diagram: [`docs/superpowers/diagrams/render-accelerate-topology.html`](../../docs/superpowers/diagrams/render-accelerate-topology.html)（A×B 整合 · §4–§6）
 - Archive: [`docs/superpowers/archive/specs/2026-09-27-gpu-rhi-accelerate-design.md`](../../docs/superpowers/archive/specs/2026-09-27-gpu-rhi-accelerate-design.md)
-- Plan: [`docs/superpowers/plans/2026-09-27-gpu-rhi-accelerate.md`](../../docs/superpowers/plans/2026-09-27-gpu-rhi-accelerate.md)
+- Plan (sole checklist): [`docs/superpowers/plans/2026-09-27-gpu-rhi-accelerate.md`](../../docs/superpowers/plans/2026-09-27-gpu-rhi-accelerate.md)
 
 ## Tile frames
 

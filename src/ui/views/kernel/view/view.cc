@@ -3,6 +3,8 @@
 
 #include "ui/views/kernel/view/view.h"
 
+#include <string_view>
+
 #include <cmath>
 
 #include "ui/gfx/canvas/canvas.h"
@@ -448,6 +450,10 @@ bool View::on_char_event(const CharEvent& event) {
 void View::on_focus() {}
 
 void View::on_blur() {}
+
+bool View::on_ime_composition(std::wstring_view /*text*/, bool /*is_result*/) {
+  return false;
+}
 
 void View::on_device_scale_factor_changed(float old_scale, float new_scale) {
   if (old_scale <= 0.f || new_scale <= 0.f || old_scale == new_scale) {

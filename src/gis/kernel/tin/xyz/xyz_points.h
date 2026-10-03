@@ -15,13 +15,15 @@ namespace tin {
 
 // ASCII XYZ → Vector3. Columns are 0-based. Blank lines are skipped.
 // Missing columns on a data line return SMT_ERR_INVALID_PARAM.
+// Use base::Vector3 (not render:: alias): MSVC dllimport mangles aliases as
+// the underlying type inconsistently across TUs (same rationale as tin.h).
 GIS_EXPORT long read_xyz_points(const char* path,
                                     int skip_header_lines,
                                     char separator,
                                     int x_col,
                                     int y_col,
                                     int z_col,
-                                    std::vector<render::Vector3>* out);
+                                    std::vector<base::Vector3>* out);
 
 }  // namespace tin
 

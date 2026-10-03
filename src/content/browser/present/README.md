@@ -36,7 +36,7 @@ present/
 | `gpu/` | GPU present + cache / mesh | Facade or direct for hosts that only present |
 | `software/` | Software (GDI) paint | Facade or direct for HUD / export |
 | `atmosphere/` | Atmosphere session prep | `atmosphere_session()` (not Presenter forwards) |
-| `policy/` | FlyCube / Stereo / GDI runtime SoT | Shell when choosing present path |
+| `policy/` | FlyCube / Stereo / GDI runtime SoT (`SMT_SCENE3D_ENGINE`) | Shell when choosing present path |
 | `stereo/` | Legacy stereo LoadLibrary | MapSession / Browser |
 | `host/` | Surface / preview cache | Shell gesture preview |
 

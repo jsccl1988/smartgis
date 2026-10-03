@@ -7,7 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-27  
 **Status:** active  
-**Updated:** 2026-10-02 — UI Views shell HTML 原理图（泳道 + compositor 流水线）；§shell/ui chrome composers (`ShellLayoutChrome` + `main_app.ui.xml` product path). Prior same-day §Shell chrome layout; §Declarative markup; §Startup profile; 2026-10-01 — §Visual review; `ui/views/map` nest; §Chromium Browser plugin writers; §IL interaction recorder. Prior 2026-09-30 — §Shell perf / compositor; §UI visual forensics; §Harness suite loop. Do not open new dated twins.
+**Updated:** 2026-10-02 — GIS product modals colocated under `ui/gis/catalog|inspect` (drop flat `dialogs/`; `AttStruct` → `AttributeSchema`). Prior same-day §Horizon product brand; `*Chrome` → `*Composer` / `init_shell` / `ui/views/map/frame` batch rename. Prior same-day §Debug Console D1–D7; UI Views shell HTML; §shell/ui composers; §Shell chrome layout; §Declarative markup; §Startup profile; 2026-10-01 — §Visual review; `ui/views/map` nest; §Chromium Browser plugin writers; §IL interaction recorder. Prior 2026-09-30 — §Shell perf / compositor; §UI visual forensics; §Harness suite loop. Do not open new dated twins.
 **Related:**
 
 | Topic | Doc | Relation |
@@ -19,6 +19,7 @@ All rights reserved.
 | SP3 host extract | [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP3 | HWND-free content |
 | Archived capability twin | [`../archive/specs/2026-09-28-app-views-capability-split-design.md`](../archive/specs/2026-09-28-app-views-capability-split-design.md) | superseded |
 | As-built | [`../../../src/app/views/README.md`](../../../src/app/views/README.md) | update when landing |
+| Product brand | **§Horizon product brand** (this file) | SmartGIS Horizon; tree stays `shell/` |
 | Stack layering | **§Chromium-style app/views layering** (this file) | Chromium map + deps + gaps |
 
 ---
@@ -62,6 +63,27 @@ All rights reserved.
 | 11 | Empty active layer, empty selection, or exhausted extent stack: the command runs, the status bar explains, the extent does not change. |
 | 12 | Git: work on `master`. No feature branch. |
 | 13 | Tests in §6. Do not add new `--self-test` scenes. Existing self-test assertions stay; only include paths change. |
+| 14 | Product brand for the destination Views shell is **Horizon** (SmartGIS Horizon). Engineering tree stays `src/app/views/shell/` — do **not** introduce `src/chrome/`. See §Horizon product brand. |
+
+---
+
+## §Horizon product brand（2026-10-02）
+
+**Locked:** the next-generation / modern desktop GIS product line name is **Horizon**.
+
+| Layer | Name | Notes |
+| --- | --- | --- |
+| Product brand | **SmartGIS Horizon** | External / docs / release talk track for the Views + Skia destination shell |
+| Binary (today) | `SmartGisViews.exe` | Keep until an explicit rename PR; brand ≠ PE stem |
+| Engineering tree | `src/app/views/shell/` | Maps Chromium’s `chrome/browser` role; directory stays `shell` |
+| Toolkit | `src/ui/views` + `src/ui/gis` | Unchanged |
+| Common noun “chrome” | UI frame around the map | Code uses `*Composer` / `init_shell` / `ui/views/map/frame`; common noun “shell chrome” may remain in prose |
+
+**Non-goals**
+
+- Do not rename `shell/` → `horizon/` or `chrome/` in this lock.
+- `*Chrome` composer types and files were renamed to `*Composer` (2026-10-02 batch).
+- Do not reintroduce `src/chrome/` or a WebView2 / `src/web` stack.
 
 ---
 
@@ -94,15 +116,16 @@ src/app/views/
       plugin/
         plugin_shell.h / .cc
     ui/                           # Widget tree only
-      browser_view.h / .cc        # layout + thin forwards; owns *Chrome composers
+      browser_view.h / .cc        # layout + thin forwards; owns *Composer helpers
+      shell_layout_composer.h / .cc  # ShellLayoutComposer (markup + imperative layout)
       pages/
-        map_pages_chrome.h / .cc  # MapPagesChrome (tabs/viewports/gestures)
+        map_pages_composer.h / .cc  # MapPagesComposer (tabs/viewports/gestures)
       panels/
-        processing_chrome.h / .cc
-        inspect_chrome.h / .cc
-        inspector_sync_chrome.h / .cc
-        debug_console_chrome.h / .cc
-        atmosphere_chrome.h / .cc
+        processing_composer.h / .cc
+        inspect_composer.h / .cc
+        inspector_sync_composer.h / .cc
+        debug_console_composer.h / .cc
+        atmosphere_composer.h / .cc
         report_panel.h / .cc      # ReportPanel View (not a BrowserView method TU)
     harness/
       showcase/
@@ -115,7 +138,7 @@ src/app/views/
         probe.h / .cc
         run_self_test.cc
         console_self_test.cc
-        chrome_ready.cc
+        shell_ready.cc
         edit_m0.cc
         layers_m1.cc
         navigate.cc
@@ -287,8 +310,8 @@ src/app/views/
       plugin/                  # PluginShell + analysis_writers (product commit/wire)
     ui/                           # BrowserView only (≈ chrome/browser/ui)
       browser_view.*              # Widget tree + thin forwards; holds Browser*
-      pages/                      # MapPagesChrome
-      panels/                     # *Chrome composers + ReportPanel
+      pages/                      # MapPagesComposer
+      panels/                     # *Composer helpers + ReportPanel
     harness/
       showcase/
       self_test/
@@ -338,7 +361,7 @@ Shell may include only present **facades** + `session/` + `host/` headers it nee
 | `shell/{app,browser,ui}` dirs | Present | None for paths |
 | Session ownership | Fields live on `Browser` | Done for members |
 | Controller logic | Nav / tool / catalog / file / extent on `Browser` (`commands/`, `nav/`); product analysis writers in `plugin/analysis_writers` | Residual: some pages/panels TUs still carry wide UI includes; analysis_writers still large (further product splits optional) |
-| Fat `browser_view.cc` | Chrome + menus/ambox/status; controller moved; panel/page wire in `*Chrome` composers | Optional: `ShellLayoutChrome` for `build_contents`; `detail/ptr_guard.h` |
+| Fat `browser_view.cc` | Shell + menus/ambox/status; controller moved; panel/page wire in `*Composer` helpers | Optional: `ShellLayoutComposer` for `build_contents`; `detail/ptr_guard.h` |
 | Deps | `BrowserUiDelegate` + `create_browser_ui`; `browser.cc` does not include `browser_view.h` | Done for S5 |
 | `commands/*.cc` | Include `browser.h` only (no concrete `BrowserView`) | Done |
 
@@ -702,11 +725,13 @@ Bootstrap API: `src/base/trace/diag/diagnostic_bootstrap.{h,cc}`. `base::trace::
 
 ## §Debug Console（2026-09-28）
 
-**Status:** accepted (UI slice folded into Diagnostic Tools Output/Console)  
+**Status:** active  
+**Updated:** 2026-10-02 — D1–D7 landing (host layers/overlay, rpc.methods/schema, diag.pack, console UX, policy gate, record/:script, Ask stub)  
 **Owning spec:** [`2026-09-28-debug-console-design.md`](../archive/specs/2026-09-28-debug-console-design.md)  
-**Plan:** [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md)
+**Plan:** [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md)  
+**Diagram:** [`../diagrams/debug-console-agent.html`](../diagrams/debug-console-agent.html)
 
-Bottom-dock **Debug Console** capabilities now live under Diagnostic Tools tabs. Shell responsibilities:
+Bottom-dock **Debug Console** capabilities live under Diagnostic Tools tabs. Shell responsibilities:
 
 | Item | Choice |
 | --- | --- |
@@ -714,6 +739,21 @@ Bottom-dock **Debug Console** capabilities now live under Diagnostic Tools tabs.
 | Menu | View → Toggle Diagnostic Tools (starts `DebugAgent` if needed) |
 | Layering | Panel → Agent / `LogSink` only; no direct `SdbdClient` from views |
 | Trace | CPU/Memory tabs share `base::trace::process_trace` (not merged with LogSink) |
+| Transport | Loopback-only NDJSON JSON-RPC (`127.0.0.1`) |
+
+### D1–D7 landing (2026-10-02)
+
+| ID | Item | Lock |
+| --- | --- | --- |
+| D1 | Host `layer_names` from `MapScene::layer_descs`; `ui.overlay_stats` = HUD FPS + GPU/content present + map2d present flags | done |
+| D2 | `rpc.methods` / `:help json` + `tools/debug/agent_methods.json` | done |
+| D3 | `diag.pack` / `:diag` [capture] — log + extent + layers + tree + overlay (+ optional capture) | done |
+| D4 | Console history (Up/Down), Tab `:cmd` complete, level/text filter, taller dock (~360dip) | done |
+| D5 | Policy gate: `:py` / bare eval / `sdbd.query` / `ui.click` / capture — `:confirm` or `SG_DEBUG_ALLOW=1` (debug builds auto); audit via LogSink | done |
+| D6 | `record.*` console + Python helpers; `script.run` / `:script` thin Host wrap (harness IL) | done |
+| D7 | Panel **Ask** → `:ask` local keyword→tools stub; **remote LLM backend not wired** | partial (UI + local stub) |
+
+Architecture remains **thin UI + thick `content::DebugAgent`**. No Qt / second widget kit. LLM/tools use Agent RPC + policy gate only.
 
 Full protocol, LogSink, Python worker, and sdbd bridge live in the owning spec.
 
@@ -810,7 +850,7 @@ OpenCppCoverage is **optional** and must **not** block default `build.bat te`. S
 | `loader/` | `load_markup` / `MarkupRoot` |
 | `testdata/` | test-only `.ui.xml` / `.ui.css` samples |
 
-Product dialog and GIS panel assets live in **`src/ui/resources/<area>/`** (nested by responsibility, aligned with `ui/gis/{dialogs,catalog,inspect,shell,style,analysis,debug}` plus `toolkit/` for generic views dialogs). GN `:markup_resources` copies each area to shared **`out/ui/<area>/`** (`$root_out_dir/../ui`, sibling of Debug/Release — same pattern as `out/data/`) plus flat `markup/testdata/` samples into `out/ui/`. Call sites use relative names: `load_markup("dialogs/create_map.ui.xml")`, `load_markup("inspect/measure_panel.ui.xml")`. Resolver searches `<exe>/../ui/<rel>`, `<exe>/ui/<rel>`, and `src/ui/resources/<rel>`.
+Product dialog and GIS panel assets live in **`src/ui/resources/<area>/`** (nested by responsibility, aligned with `ui/gis/{catalog,inspect,shell,style,analysis,debug}` plus `toolkit/` for generic views dialogs). GN `:markup_resources` copies each area to shared **`out/ui/<area>/`** (`$root_out_dir/../ui`, sibling of Debug/Release — same pattern as `out/data/`) plus flat `markup/testdata/` samples into `out/ui/`. Call sites use relative names: `load_markup("catalog/create_map.ui.xml")`, `load_markup("inspect/attribute_schema.ui.xml")`, `load_markup("inspect/measure_panel.ui.xml")`. Resolver searches `<exe>/../ui/<rel>`, `<exe>/ui/<rel>`, and `src/ui/resources/<rel>`.
 
 **Panel markup contract:** C++ panel constructs via `load_markup` + id bind + `FillLayout` (same as product dialogs). Dynamic rows/trees stay on `set_*` APIs. Nested C++ children (TabStrip pages, History) mount into `panel` hosts (`tabs_host` / `history_host` / `chart_host` / `plot`). Landed: StatusBar, Measure, Selection, Legend, Symbology, LayerProperties, FeatureInfo, AttributeTable, Catalog, SpatialAnalysis, Processing, History, Atmosphere, ResultPlayback, DebugConsole, RenderTrace, DiagnosticTools (chrome + `tabs_host`), Memory page chrome (`debug/memory_page`), Ambox scroll shell (`shell/ambox_view`), ChartView title chrome (`shell/chart_view`). Intentionally C++: Ambox dynamic group buttons, ChartView series plot paint, Memory sparkline paint, LayerTree custom rows (hosted by Catalog markup).
 
@@ -897,12 +937,12 @@ Archive twin: [`../archive/specs/2026-09-28-views-declarative-markup-design.md`]
 | --- | --- | --- |
 | Paint | `src/ui/gfx/` | `ui_views.dll` (`:gfx`) |
 | Toolkit | `src/ui/views/` (kernel, primitives, markup, Dialog shell, map hang) | `ui_views.dll` |
-| GIS chrome | `src/ui/gis/` (panels + AddBasemap/AttStruct/Create*) | same `ui_views.dll` (`//src/ui/gis:gis` → `:ui_views`) |
+| GIS chrome | `src/ui/gis/` (panels + catalog/inspect product modals) | same `ui_views.dll` (`//src/ui/gis:gis` → `:ui_views`) |
 | Product host | `src/app/views/` | `SmartGisViews.exe` |
 
 **Keep in `views/dialogs/`:** `Dialog`, `MessageBox`, `FilePicker`, `InputTextDialog`, `SelectOneDialog` (generic toolkit; no GIS types).
 
-**Moved to `ui/gis/`:** former `views/gis/**` panels; product dialogs `AddBasemap` / `AttStruct` / `CreateDatasource` / `CreateLayer` / `CreateMap`.
+**Moved to `ui/gis/`:** former `views/gis/**` panels; product modals colocated by domain — `catalog/` (`AddBasemap`, `CreateDatasource`, `CreateLayer`, `CreateMap`) and `inspect/` (`AttributeSchema`).
 
 **Namespace:** stay `ui::views` for moved types (directory + `"ui/gis/…"` includes first). **One** export for all of `//src/ui`: `UI_EXPORT` / `UI_EXPORTS` (`ui/ui_export.h`). Mass `ui::gis` rename is a later optional pass.
 
@@ -1261,7 +1301,7 @@ Locate **SmartGisViews.exe** cold-start wall time from `wWinMain` through first 
 | `SMT_STARTUP_PROFILE_DUMP=<path>` | Write text table + sibling chrome JSON |
 | Debug builds | Dump table to stderr/LOGGING after first show by default |
 
-Phases covered (non-exhaustive): `wWinMain`, `ParseLaunchOptions`, `ContentMain` / `BrowserMain`, `Browser.ctor` / `init` / `show`, `Session.init_hosts` (`MapContents.Create`; optional `StartRenderProcess` / `HelloWait`), `PluginShell.*`, `InitChrome` subphases (`Widget.init`, `BuildContents`, `SeedDocument` / `try_open_china` / `SeedDocument.ChinaBootstrap`, `BindPresenters`, `AttachViewports`, `MapEdit.FlyCubeAttach` / `FlyCube.Init`, `WireChrome`), `ShowChrome` / `WaitFirstMapPresent`, `HillshadeBake`, `LoadMarkup` when hit.
+Phases covered (non-exhaustive): `wWinMain`, `ParseLaunchOptions`, `ContentMain` / `BrowserMain`, `Browser.ctor` / `init` / `show`, `Session.init_hosts` (`MapContents.Create`; optional `StartRenderProcess` / `HelloWait`), `PluginShell.*`, `InitShell` subphases (`Widget.init`, `BuildContents`, `SeedDocument` / `try_open_china` / `SeedDocument.ChinaBootstrap`, `BindPresenters`, `AttachViewports`, `MapEdit.FlyCubeAttach` / `FlyCube.Init`, `WireShell`), `ShowShell` / `WaitFirstMapPresent`, `HillshadeBake`, `LoadMarkup` when hit.
 
 ### Startup optimize（P0 / P1，2026-10-02）
 
@@ -1628,7 +1668,7 @@ Checklist:
 
 ---
 
-## §shell/ui chrome composers（2026-10-02）
+## §shell/ui composers（2026-10-02）
 
 **Status:** active  
 **Updated:** 2026-10-02  
@@ -1640,25 +1680,25 @@ Checklist:
 | --- | --- |
 | `browser_view.*` + `pages/map_pages.cc` + `panels/*.cc` as **multi-TU `BrowserView::` methods** | Same public `BrowserView` / `BrowserUiDelegate` surface |
 | Fat wire logic still on `BrowserView` private API | **Composer types** own wire/sync bodies; `BrowserView` keeps fields + thin forwards |
-| Flat `panels/` TU names (`processing_panels`, `map_inspect_panels`, `debug_console_wire`, …) | Colocated `*_chrome.{h,cc}` per responsibility |
+| Flat `panels/` TU names (`processing_panels`, `map_inspect_panels`, `debug_console_wire`, …) | Colocated `*_composer.{h,cc}` per responsibility |
 
 ### Target composition (locked)
 
 ```
 BrowserView                    # Widget tree + inspector placeholders + menus/status
-  ├─ ShellLayoutChrome         # load_markup(main_app) + mount hosts (or imperative fallback)
-  ├─ MapPagesChrome            # Map|Data|3D attach, overlays, gestures, tool seams
-  ├─ ProcessingChrome          # Processing / playback / report / spatial / Python bridge
-  ├─ InspectChrome             # Measure / selection / legend / layer props
-  ├─ InspectorSyncChrome       # FeatureInfo / AttributeTable / edit feedback sync
-  ├─ DebugConsoleChrome        # Diagnostic Tools + DebugAgent bind
-  ├─ AtmosphereChrome          # Atmosphere inspector wire
+  ├─ ShellLayoutComposer         # load_markup(main_app) + mount hosts (or imperative fallback)
+  ├─ MapPagesComposer            # Map|Data|3D attach, overlays, gestures, tool seams
+  ├─ ProcessingComposer          # Processing / playback / report / spatial / Python bridge
+  ├─ InspectComposer             # Measure / selection / legend / layer props
+  ├─ InspectorSyncComposer       # FeatureInfo / AttributeTable / edit feedback sync
+  ├─ DebugConsoleComposer        # Diagnostic Tools + DebugAgent bind
+  ├─ AtmosphereComposer          # Atmosphere inspector wire
   └─ ReportPanel*              # existing View host for plugin ReportBrowser
 ```
 
 Rules:
 
-- Public namespace stays `app` (composers are `app::*Chrome`; no third semantic layer).
+- Public namespace stays `app` (composers are `app::*Composer`; no third semantic layer).
 - Composers are **friends** of `BrowserView` and hold `BrowserView* host_` — field layout on `BrowserView` stays append-only (parallel-ninja `map_*` offset AV hazard unchanged).
 - `BrowserView` private `wire_*` / sync / map helpers remain as **thin forwards** so call sites (`ensure_inspector_tab`, timers, `BrowserUiDelegate`) stay stable.
 - Colocate `.h` with `.cc`; update `//src/app/views:shell_ui` sources in the same change. **No** forwarding headers at old `map_pages.cc` paths.
@@ -1666,17 +1706,17 @@ Rules:
 
 ### Checklist
 
-1. [x] Extract `MapPagesChrome` / `ProcessingChrome` / `InspectChrome` / `InspectorSyncChrome` / `DebugConsoleChrome` / `AtmosphereChrome`.
+1. [x] Extract `MapPagesComposer` / `ProcessingComposer` / `InspectComposer` / `InspectorSyncComposer` / `DebugConsoleComposer` / `AtmosphereComposer`.
 2. [x] `BrowserView` owns `unique_ptr` composers (append-only members); ctor wires them.
 3. [x] GN `:shell_ui` sources + includes updated; old multi-TU `.cc` removed.
 4. [ ] Optional: hoist duplicated `ptr_addr_poison` / `ptr_mem_readable` into `shell/ui/detail/ptr_guard.h`.
-5. [x] Peel `build_contents` into `ShellLayoutChrome`: `load_markup("shell/main_app.ui.xml")` + host mount (Catalog / Map tabs / Ambox tool bar / right inspector / Diagnostic / Status); imperative fallback if markup missing. `splitter` markup tag + Yoga skip for splitter children.
+5. [x] Peel `build_contents` into `ShellLayoutComposer`: `load_markup("shell/main_app.ui.xml")` + host mount (Catalog / Map tabs / Ambox tool bar / right inspector / Diagnostic / Status); imperative fallback if markup missing. `splitter` markup tag + Yoga skip for splitter children.
 
 ---
 
 ## §ui/views/map subdirectory nest（2026-10-01）
 
-As-built: `src/ui/views/map/` nests by responsibility — `viewport/` (`MapViewport` + display/paint/shell/flycube + features), `input/` (`viewport_input`, `TouchMultitouch`), `chrome/` (identity HUD, embed fill), `device/` (legacy CreateRenderDevice helpers). **Public include paths stay** `"ui/views/map/map_viewport.h"` and `"ui/views/map/touch_multitouch.h"` via thin root forwards. Namespace remains `ui::views`. Module README: [`../../../src/ui/views/README.md`](../../../src/ui/views/README.md).
+As-built: `src/ui/views/map/` nests by responsibility — `viewport/` (`MapViewport` + display/paint/shell/flycube + features), `input/` (`viewport_input`, `TouchMultitouch`), `frame/` (identity HUD, embed fill), `device/` (legacy CreateRenderDevice helpers). **Public include paths stay** `"ui/views/map/map_viewport.h"` and `"ui/views/map/touch_multitouch.h"` via thin root forwards. Namespace remains `ui::views`. Module README: [`../../../src/ui/views/README.md`](../../../src/ui/views/README.md).
 
 ## Folded topics (2026-09-28 merge B)
 

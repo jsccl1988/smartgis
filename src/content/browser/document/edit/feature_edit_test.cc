@@ -22,7 +22,8 @@ void expect(bool ok, const char* msg) {
 
 int main() {
   content::detail::LayerStore store;
-  expect(store.create_layer("snap_line"), "create layer");
+  expect(store.create_layer("snap_line", content::LayerKind::kVector),
+         "create layer");
   content::detail::MapLayer* layer = store.find_layer(store.active_layer_id());
   expect(layer != nullptr, "active layer");
   if (!layer) {

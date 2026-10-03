@@ -11,11 +11,11 @@
 #include "legacy/tool/defs.h"
 #include "legacy/tool/abi/t_msg.h"
 #include "legacy/ui/dialogs/dialogs_api.h"
-#include "legacy/ui/catalog/mapmgr.h"
+#include "legacy/ui/catalog/map/mapmgr.h"
 using namespace gis;
 using namespace sys;
 
-const string CST_STR_MAPPRINT_AM_NAME = "地图打印";
+const string CST_STR_MAPPRINT_AM_NAME = "Print";
 SmtMapPrintPlugin *g_pAMMapPrint = NULL;
 
 #define AM_MSG_CMD_MAPPRINT_BEGIN (SMT_MSG_USER_BEGIN + 200)

@@ -48,10 +48,10 @@ class BrowserUiDelegate {
  public:
   virtual ~BrowserUiDelegate() = default;
 
-  virtual bool init_chrome() = 0;
-  virtual void show_chrome() = 0;
-  virtual int run_chrome_loop() = 0;
-  virtual void prepare_chrome_close() = 0;
+  virtual bool init_shell() = 0;
+  virtual void show_shell() = 0;
+  virtual int run_shell_loop() = 0;
+  virtual void prepare_shell_close() = 0;
 
   virtual HWND hwnd() const = 0;
   virtual ui::views::View* contents_view() const = 0;
@@ -61,6 +61,8 @@ class BrowserUiDelegate {
   virtual ui::views::FeatureInfo* feature_info() const = 0;
   virtual ui::views::AttributeTable* attribute_table() const = 0;
   virtual ui::views::ProcessingPanel* processing_panel() const = 0;
+  // Lazily create the Processing inspector page (operators list) if needed.
+  virtual void ensure_processing_panel() = 0;
   virtual ui::views::AtmospherePanel* atmosphere_panel() const = 0;
   virtual ui::views::TabStrip* inspector_tabs() const = 0;
   virtual ui::views::MapViewport* map_viewport() const = 0;

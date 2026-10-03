@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="create_map">
+  <style src="create_map.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="title_hint" class="hint" text="Name the new map document."/>
+    <label id="name_label" text="Map name"/>
+    <textfield id="name"/>
+    <label id="status" class="status" text=""/>
+  </vbox>
+</ui>

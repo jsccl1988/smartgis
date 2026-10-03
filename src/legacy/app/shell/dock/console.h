@@ -11,8 +11,6 @@
 #include <string>
 #include <vector>
 
-#include "legacy/core/macros/macros.h"
-
 // Plain CWnd Console pane (Views DebugConsolePanel parity). Must NOT derive
 // from CBCGPDockingControlBar — nested docking bars inside AMBox crash.
 class DebugConsolePane : public CWnd {

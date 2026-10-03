@@ -7,8 +7,8 @@
 #include "legacy/tool/abi/t_iatoolmanager.h"
 #include "legacy/tool/abi/t_msg.h"
 #include "legacy/ui/dialogs/dialogs_api.h"
-#include "legacy/ui/catalog/catalog_map_doc.h"
-#include "legacy/ui/catalog/mapmgr.h"
+#include "legacy/ui/catalog/map/catalog_map_doc.h"
+#include "legacy/ui/catalog/map/mapmgr.h"
 #include "legacy/ui/catalog/resource.h"
 #include "legacy/plugin/runtime/auxmodule/plugin_msg.h"
 #include "legacy/gis/datasource/datasource_mgr.h"
@@ -22,8 +22,8 @@ using namespace gis;
 using namespace sys;
 using namespace ui;
 
-#include "legacy/ui/catalog/dlg_create_layer.h"
-#include "legacy/ui/catalog/dlg_sel_layer.h"
+#include "legacy/ui/catalog/map/dlg_create_layer.h"
+#include "legacy/ui/catalog/map/dlg_sel_layer.h"
 
 long LayerMgrAppend(void) {
   long lRtn = SMT_ERR_FAILURE;

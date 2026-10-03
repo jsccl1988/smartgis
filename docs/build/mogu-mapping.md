@@ -19,7 +19,7 @@ All rights reserved.
 | `out/` + `out/build.log` | **`out/Debug` + `out/Release`**（各有 `build.log`）；默认 `build.bat` 编两套 | 已建 |
 | Bazel | **不搬** | 跳过 |
 | — | `vs2008/` / `branches/` | **已删除**；入口只有 GN |
-| — | `build.bat app` / `//:smartgis` | `out/SmartGis.exe`（MFC Feature Pack `CMFC*` via `bcg_cmfc.h`；不在 GN `group("all")`） |
+| — | `build.bat app` / `//:smartgis` | `out/SmartGis.exe`（MFC Feature Pack `CMFC*` via `widgets/feature_pack/feature_pack.h`；不在 GN `group("all")`） |
 | Chromium `ui/views` + Skia | `src/ui/views` + `src/ui/gfx`，组 `//:ui_views` | **终局桌面 UI**（本机 mogu Views 树未检出；对齐 Chromium 名 + 本仓 `src/ui` / `src/render`）。对照 [`ui-views-skia.md`](ui-views-skia.md) |
 | Qt / WinUI / WebView2 / Feature Pack-as-endgame | — | **不采用**（Feature Pack 只是当前能编通的遗留壳，不是终局） |
 | mogu `base::mutex` | — | **不搬**；新树 `std::mutex` |

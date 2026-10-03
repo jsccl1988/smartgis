@@ -14,11 +14,14 @@
 #include "ui/views/primitives/text/label.h"
 #include "ui/gis/catalog/layer_tree.h"
 #include "ui/views/kernel/layout/layout.h"
+#include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/primitives/collection/tree_view.h"
 #include "ui/views/kernel/widget/widget.h"
 #include "ui/views/markup/loader/markup_loader.h"
+
+#include <algorithm>
 
 namespace ui {
 namespace views {
@@ -168,12 +171,37 @@ void CatalogView::populate_demo_layers() {
   if (!layer_tree_) {
     return;
   }
-  LayerTree::LayerDesc demo;
-  demo.id = "layer.demo";
-  demo.name = "Demo layer";
-  demo.visible = true;
-  demo.active = true;
-  layer_tree_->set_layers({demo});
+  // Two-level demo: group with vector/raster children + a root leaf. Proves
+  // expand chevron, type glyphs, and indent without a live MapScene tree.
+  LayerTree::LayerDesc streets;
+  streets.id = "layer.demo.streets";
+  streets.name = "Streets";
+  streets.visible = true;
+  streets.kind = LayerKind::kVector;
+
+  LayerTree::LayerDesc imagery;
+  imagery.id = "layer.demo.imagery";
+  imagery.name = "Imagery";
+  imagery.visible = true;
+  imagery.kind = LayerKind::kRaster;
+
+  LayerTree::LayerDesc basemap;
+  basemap.id = "layer.demo.basemap";
+  basemap.name = "Basemap";
+  basemap.visible = true;
+  basemap.active = true;
+  basemap.kind = LayerKind::kGroup;
+  basemap.expanded = true;
+  basemap.children.push_back(std::move(streets));
+  basemap.children.push_back(std::move(imagery));
+
+  LayerTree::LayerDesc notes;
+  notes.id = "layer.demo.notes";
+  notes.name = "Annotations";
+  notes.visible = true;
+  notes.kind = LayerKind::kVector;
+
+  layer_tree_->set_layers({std::move(basemap), std::move(notes)});
   using_demo_layers_ = true;
 }
 
@@ -270,16 +298,17 @@ void CatalogView::paint_self(ui::gfx::Canvas* canvas) {
   const Theme& t = Theme::current();
   const Rect& b = bounds();
   canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
-  // Title is hidden so Layers/Sources/Maps share a band with Map|Data|3D.
-  // Do not paint a fallback 36px accent strip — that drew a full-pane blue
-  // bar over the tab headers (and across an oversized catalog primary).
+  const float scale = widget() ? widget()->device_scale_factor() : 1.f;
+  const int hair = std::max(1, dip_to_px(1, scale));
+  // Right seam against the map column (Pro/QGIS catalog dock edge).
+  canvas->fill_rect(b.right() - hair, b.y, hair, b.height, t.panel_header);
   if (!title_ || !title_->is_visible()) {
     return;
   }
   const int header_h =
-      title_->bounds().height > 0 ? title_->bounds().height : 36;
+      title_->bounds().height > 0 ? title_->bounds().height : dip_to_px(28, scale);
   if (header_h > 0) {
-    canvas->fill_rect(b.x, b.y, b.width, header_h, t.accent);
+    canvas->fill_rect(b.x, b.y, b.width, header_h, t.panel_header);
   }
 }
 

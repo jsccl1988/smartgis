@@ -20,7 +20,7 @@
 #include "gdal_priv.h"
 #include "gis/model/envelope.h"
 #include "gis/model/map/map.h"
-#include "legacy/app/core/smtapp.h"
+#include "legacy/app/core/bootstrap.h"
 #include "legacy/app/shell/showcase/host.h"
 #include "legacy/core/types/types.h"
 #include "legacy/render/rhi2d/public/device/renderdevice.h"

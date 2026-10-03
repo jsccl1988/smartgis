@@ -1,0 +1,49 @@
+/* AttributeSchema dialog — Flex subset for Yoga; industry dialog spacing. */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  width: 440px;
+  height: 340px;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  height: 32px;
+  justify-content: flex-end;
+}
+
+.hint,
+.status {
+  height: 20px;
+  width: 416px;
+  color: #afafaf;
+}
+
+#fields {
+  width: 416px;
+  height: 160px;
+  flex-grow: 1;
+}
+
+#name_label,
+#type_label {
+  height: 20px;
+  width: 416px;
+}
+
+#name,
+#type {
+  height: 30px;
+  width: 416px;
+}
+
+#add,
+#remove {
+  width: 96px;
+  height: 30px;
+}

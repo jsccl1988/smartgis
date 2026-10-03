@@ -191,7 +191,7 @@ README tree + `docs/build/src-layout.md` / `abi-rename-map.md` note retired `gdi
 
 - [x] **Step 2: `git mv` headers into matching subdirs** (`device/` `thread/` `buffer/` `gdiaux/` `carto/` / `caps/` `ext/` `text/` / `camera/` `gpu/` `material/` / `scene/` `dem/` `map_bridge/`). Keep `gdiaux/` (not `aux/`). **47 headers moved.**
 
-- [x] **Step 3: Rewrite includes + GN `sources` paths** that listed top-root headers; preserve `Smt_*` / DLL export ABI names. Callers touched only for include paths: `legacy/tool/group/*3d*`, `legacy/ui/shell/view_3d.*`, `legacy/ui/catalog/scenemgr.h`.
+- [x] **Step 3: Rewrite includes + GN `sources` paths** that listed top-root headers; preserve `Smt_*` / DLL export ABI names. Callers touched only for include paths: `legacy/tool/group/*3d*`, `legacy/ui/shell/view_3d.*`, `legacy/ui/catalog/scene/scenemgr.h`.
 
 - [x] **Step 4: Update design/plan/README** — document B′ colocated as chosen layout.
 

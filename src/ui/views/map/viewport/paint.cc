@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 The Mogu Authors.
+// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 // Software backbuffer, ContentMapView blit, present timer, child WndProc.
@@ -27,9 +27,9 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
-#include "ui/views/map/chrome/identity_hud.h"
+#include "ui/views/map/frame/identity_hud.h"
 #include "ui/views/map/device/device_load.h"
-#include "ui/views/map/chrome/embed_fill.h"
+#include "ui/views/map/frame/embed_fill.h"
 #include "ui/views/map/viewport/features.h"
 #include "ui/views/map/input/viewport_input.h"
 
@@ -234,6 +234,11 @@ void MapViewport::start_present_timer() {
   SetTimer(hwnd, kPresentTimerId, 16, nullptr);
 }
 
+void MapViewport::resume_present_timer() {
+  start_present_timer();
+  request_frame();
+}
+
 void MapViewport::stop_present_timer() {
   HWND hwnd = native_view();
   if (!hwnd) {
@@ -330,7 +335,7 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
       if (self->last_hud_sync_tick_ == 0 ||
           now - self->last_hud_sync_tick_ >= 250u) {
         self->last_hud_sync_tick_ = now;
-        self->sync_identity_chrome();
+        self->sync_identity_frame();
       }
     }
     if (self && self->mode_ == AttachMode::kContentMapView) {

@@ -4,8 +4,8 @@
 #include "app/views/shell/harness/self_test/self_test.h"
 
 #include "app/views/shell/browser/browser.h"
-#include "app/views/shell/harness/common/maps.h"
-#include "app/views/shell/harness/common/mark.h"
+#include "app/views/shell/harness/common/io/maps.h"
+#include "app/views/shell/harness/common/mark/mark.h"
 #include "app/views/shell/runtime/capability/run_script.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 

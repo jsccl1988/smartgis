@@ -40,7 +40,7 @@ GN：`//src/render:render_all` 进日常 `src_all`。leftover DLL 另编 `//src/
 Product-track parallel + GPU accelerate（L0 UI never joins · vista `parallel_for` · Display 单 CL）locked in living **§src_render + vista parallel accelerate**:
 
 - Spec: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md)（Types / Call graph / Grains / Env / API sketches）
-- Diagram: [`docs/superpowers/diagrams/src-render-vista-parallel-accelerate.html`](../../docs/superpowers/diagrams/src-render-vista-parallel-accelerate.html)
+- Diagram: [`docs/superpowers/diagrams/render-accelerate-topology.html`](../../docs/superpowers/diagrams/render-accelerate-topology.html)（A×B 整合 · Topology A §2–§3）
 - Plan: [`docs/superpowers/plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../../docs/superpowers/plans/2026-10-02-src-render-vista-parallel-accelerate.md)
 
 Product env（planned / wiring in progress）: `SMT_VISTA_LAYOUT_PARALLEL=0` → layout tess N=1；`SMT_GPUSCENE_PREP_PARALLEL=0` → frustum prep N=1。Leftover `SMT_RHI2D_*` / `SMT_RHI3D_*` must **not** drive this path. Warm Map2d presents still skip re-record via `Map2dFrameCache` StaticReuse.

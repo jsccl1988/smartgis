@@ -24,6 +24,11 @@ bool dispatch_record_method(const std::string& method,
                             const RecordHandlers& handlers,
                             std::string* response);
 
+// Handles :record on|off|poll|clear.
+bool exec_record_command(const std::string& line,
+                         const RecordHandlers& handlers,
+                         std::string* output);
+
 }  // namespace detail
 }  // namespace content
 

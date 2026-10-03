@@ -11,6 +11,7 @@
 #include <memory>
 #include <string>
 
+#include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/view/view.h"
 
 namespace ui {
@@ -51,6 +52,8 @@ class UI_EXPORT DiagnosticToolsPanel : public View {
   void paint_self(ui::gfx::Canvas* canvas) override;
 
  private:
+  void apply_frame_metrics(float scale);
+  void reseed_host_splitter();
   void on_record();
   void on_stop();
   void on_clear();
@@ -62,6 +65,10 @@ class UI_EXPORT DiagnosticToolsPanel : public View {
   void maybe_auto_refresh();
 
   bool visible_ = false;
+  View* panel_root_ = nullptr;
+  View* toolbar_ = nullptr;
+  View* tabs_host_ = nullptr;
+  BoxLayout* panel_box_ = nullptr;
   Label* title_ = nullptr;
   Label* status_ = nullptr;
   Label* memory_stats_ = nullptr;

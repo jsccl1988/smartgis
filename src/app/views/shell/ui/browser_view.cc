@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
@@ -26,7 +27,7 @@
 #include "app/views/shell/browser/commands/app_commands.h"
 #include "app/views/shell/browser/commands/view_commands.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
-#include "app/views/shell/harness/common/sample.h"
+#include "app/views/shell/harness/common/io/sample.h"
 #include "content/public/map_contents.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
@@ -35,14 +36,14 @@
 #include "tool/draft/draft.h"
 #include "tool/nav/camera_nav.h"
 #include "tool/workspace/workspace.h"
-#include "app/views/shell/ui/pages/map_pages_chrome.h"
-#include "app/views/shell/ui/panels/atmosphere_chrome.h"
-#include "app/views/shell/ui/panels/debug_console_chrome.h"
-#include "app/views/shell/ui/panels/inspect_chrome.h"
-#include "app/views/shell/ui/panels/inspector_sync_chrome.h"
-#include "app/views/shell/ui/panels/processing_chrome.h"
+#include "app/views/shell/ui/pages/map_pages_composer.h"
+#include "app/views/shell/ui/panels/atmosphere_composer.h"
+#include "app/views/shell/ui/panels/debug_console_composer.h"
+#include "app/views/shell/ui/panels/inspect_composer.h"
+#include "app/views/shell/ui/panels/inspector_sync_composer.h"
+#include "app/views/shell/ui/panels/processing_composer.h"
 #include "app/views/shell/ui/panels/report_panel.h"
-#include "app/views/shell/ui/shell_layout_chrome.h"
+#include "app/views/shell/ui/shell_layout_composer.h"
 #include "base/trace/diag/startup_profile.h"
 #include "base/trace/event/process_trace.h"
 #include "ui/gis/catalog/catalog_view.h"
@@ -98,7 +99,7 @@ namespace {
 
 // Copy bookmark labels with a hard cap. A corrupted MapSession layout can
 // make bookmarks().size() look huge; vector::reserve then throws length_error
-// and CRT abort() 闁?seen at BrowserView::rebuild_menus during init_chrome.
+// and CRT abort() 闁?seen at BrowserView::rebuild_menus during init_shell.
 void collect_bookmark_labels(Browser* browser,
                              std::vector<std::string>* labels) {
   if (!browser || !labels) {
@@ -173,19 +174,19 @@ std::unique_ptr<BrowserUiDelegate> create_browser_ui(Browser* browser) {
 
 BrowserView::BrowserView(Browser* browser)
     : browser_(browser),
-      map_pages_(std::make_unique<MapPagesChrome>(this)),
-      processing_(std::make_unique<ProcessingChrome>(this)),
-      inspect_(std::make_unique<InspectChrome>(this)),
-      inspector_sync_(std::make_unique<InspectorSyncChrome>(this)),
-      debug_console_(std::make_unique<DebugConsoleChrome>(this)),
-      atmosphere_(std::make_unique<AtmosphereChrome>(this)),
-      shell_layout_(std::make_unique<ShellLayoutChrome>(this)) {}
+      map_pages_(std::make_unique<MapPagesComposer>(this)),
+      processing_(std::make_unique<ProcessingComposer>(this)),
+      inspect_(std::make_unique<InspectComposer>(this)),
+      inspector_sync_(std::make_unique<InspectorSyncComposer>(this)),
+      debug_console_(std::make_unique<DebugConsoleComposer>(this)),
+      atmosphere_(std::make_unique<AtmosphereComposer>(this)),
+      shell_layout_(std::make_unique<ShellLayoutComposer>(this)) {}
 
 BrowserView::~BrowserView() {
-  prepare_chrome_close();
+  prepare_shell_close();
 }
 
-void BrowserView::prepare_chrome_close() {
+void BrowserView::prepare_shell_close() {
   remove_shell_wheel_forward();
   if (map_edit_) {
     map_edit_->detach();
@@ -231,12 +232,23 @@ LRESULT CALLBACK BrowserView::shell_wheel_subclass_proc(HWND hwnd, UINT msg,
   // Posted by deferred China seed when SMT_VIEWS_START_MAP_TAB is set — must
   // not nest select_map_tab inside the seed timer / switch_map_tab wait.
   constexpr UINT kReselectTab = WM_APP + 0x5354;  // 'ST'
+  constexpr UINT kExtentChangedUi = WM_APP + 0x5253;  // 'RS'
   if (self && id == kShellWheelSubclassId && msg == kReselectTab) {
     const int idx = static_cast<int>(wparam);
     if (idx >= 0 && idx <= 2) {
       self->select_map_tab(idx);
       LOGGING(LOG_INFO, "startup: posted reselect map tab=%d after China seed",
               idx);
+    }
+    return 0;
+  }
+  if (self && id == kShellWheelSubclassId && msg == kExtentChangedUi) {
+    auto* extent = reinterpret_cast<content::Extent2*>(lparam);
+    if (extent) {
+      if (self->browser_) {
+        self->browser_->apply_extent_changed_on_ui(*extent);
+      }
+      delete extent;
     }
     return 0;
   }
@@ -265,8 +277,8 @@ LRESULT CALLBACK BrowserView::shell_wheel_subclass_proc(HWND hwnd, UINT msg,
   return DefSubclassProc(hwnd, msg, wparam, lparam);
 }
 
-bool BrowserView::init_chrome() {
-  BASE_TRACE_EVENT("InitChrome.body", "startup");
+bool BrowserView::init_shell() {
+  BASE_TRACE_EVENT("InitShell.body", "startup");
   {
     BASE_TRACE_EVENT("Widget.init", "startup");
     ui::views::Widget::InitParams params;
@@ -369,29 +381,34 @@ bool BrowserView::init_chrome() {
     browser_->map_session()->SetObserver(browser_);
   }
   {
-    BASE_TRACE_EVENT("WireChrome", "startup");
+    BASE_TRACE_EVENT("WireShell", "startup");
     attach_hwnd_gestures();
     wire_catalog();
     wire_edit_feedback();
     // Re-fit after HWND sizes settle (layout may change client rect post-attach).
-    // Same showcase skip as BindPresenters — demo-only seed AVs in fit_map_extent.
-    if (const char* skip = std::getenv("SMT_SKIP_AMBOX_CATALOG");
-        !(skip && skip[0] != '\0' && skip[0] != '0')) {
+    // Same showcase skip as BindPresenters — demo-only seed AVs in fit_map_extent
+    // / push_shared_extent (ui_ offset freefill under parallel ninja + SKIP_AMBOX).
+    // ui.shell china seed later calls fit_map_extent (which pushes extent).
+    const bool skip_fit_push = []() {
+      const char* skip = std::getenv("SMT_SKIP_AMBOX_CATALOG");
+      return skip && skip[0] != '\0' && skip[0] != '0';
+    }();
+    if (!skip_fit_push) {
       browser_->fit_map_extent();
+      browser_->push_shared_extent();
+      sync_inspectors_from_scene();
     }
-    browser_->push_shared_extent();
     // China 3D atmosphere (same defaults as --atmosphere-showcase=full) is
     // seeded on first switch to the 3D tab — see apply_china_scene3d_* in
-    // switch_map_tab — so init_chrome does not pay DEM/atmosphere cost before
+    // switch_map_tab — so init_shell does not pay DEM/atmosphere cost before
     // the Map pane is interactive.
-    sync_inspectors_from_scene();
     sync_status();
   }
   return true;
 }
 
-void BrowserView::show_chrome() {
-  BASE_TRACE_EVENT("ShowChrome", "startup");
+void BrowserView::show_shell() {
+  BASE_TRACE_EVENT("ShowShell", "startup");
   {
     BASE_TRACE_EVENT("ShowWindow", "startup");
     widget_.show();
@@ -413,6 +430,23 @@ void BrowserView::show_chrome() {
             catalog_->bounds().width,
             map_tabs_ ? map_tabs_->bounds().x : -1);
   }
+  // Re-seed main_split after the HWND client is final so Diagnostic Tools
+  // preferred (DIP→px) is not locked against a create-time tiny inner height.
+  if (diagnostic_tools_) {
+    for (ui::views::View* p = diagnostic_tools_->parent(); p;
+         p = p->parent()) {
+      if (auto* split = dynamic_cast<ui::views::Splitter*>(p)) {
+        split->reseed();
+        widget_.layout_contents();
+        LOGGING(LOG_INFO,
+                "layout: main_split reseed diagnostic_h=%d work_h=%d",
+                diagnostic_tools_->bounds().height,
+                split->child_count() > 0 ? split->child_at(0)->bounds().height
+                                         : -1);
+        break;
+      }
+    }
+  }
   widget_.schedule_paint();
   if (HWND shell = widget_.hwnd()) {
     if (IsWindow(shell)) {
@@ -432,7 +466,7 @@ void BrowserView::show_chrome() {
     // Do NOT fit_map_extent / invalidate_frame_cache here: Display may hold
     // the map2d cache mutex on the first china present (~8s Debug). Fit's
     // overlay invalidate can also re-enter while this pump waits. Browser::show
-    // fits after show_chrome returns.
+    // fits after show_shell returns.
     pane->invalidate_native();
     if (HWND map = pane->native_view()) {
       if (IsWindow(map)) {
@@ -507,7 +541,7 @@ void BrowserView::show_chrome() {
   }
 }
 
-int BrowserView::run_chrome_loop() {
+int BrowserView::run_shell_loop() {
   return widget_.run_loop();
 }
 
@@ -574,26 +608,52 @@ void BrowserView::sync_catalog_from_scene() {
   if (!catalog_ || !browser_ || !browser_->document()) {
     return;
   }
-  std::vector<ui::views::LayerTree::LayerDesc> layers;
-  for (const content::LayerDesc& d : browser_->document()->layer_descs()) {
-    ui::views::LayerTree::LayerDesc row;
-    row.id = d.id;
-    // china_city PLPT stems are short (area/line/point/text); show product
-    // labels so the Layers panel stays legible on dark chrome.
-    if (d.name == "area") {
-      row.name = "Land";
-    } else if (d.name == "line") {
-      row.name = "Lines";
-    } else if (d.name == "point") {
-      row.name = "Points";
-    } else if (d.name == "text") {
-      row.name = "Labels";
-    } else {
-      row.name = d.name;
+  auto to_views_kind = [](content::LayerKind k) {
+    switch (k) {
+      case content::LayerKind::kGroup:
+        return ui::views::LayerKind::kGroup;
+      case content::LayerKind::kVector:
+        return ui::views::LayerKind::kVector;
+      case content::LayerKind::kRaster:
+        return ui::views::LayerKind::kRaster;
+      case content::LayerKind::kUnknown:
+      default:
+        return ui::views::LayerKind::kUnknown;
     }
-    row.visible = d.visible;
-    row.active = d.active;
-    layers.push_back(std::move(row));
+  };
+  std::function<ui::views::LayerTree::LayerDesc(const content::LayerDesc&)>
+      convert = [&](const content::LayerDesc& d) {
+        ui::views::LayerTree::LayerDesc row;
+        row.id = d.id;
+        // china_city PLPT stems are short (area/line/point/text); show product
+        // labels so the Layers panel stays legible on dark chrome.
+        if (d.name == "area") {
+          row.name = "Land";
+        } else if (d.name == "line") {
+          row.name = "Lines";
+        } else if (d.name == "point") {
+          row.name = "Points";
+        } else if (d.name == "text") {
+          row.name = "Labels";
+        } else {
+          row.name = d.name;
+        }
+        row.visible = d.visible;
+        row.active = d.active;
+        row.kind = to_views_kind(d.kind);
+        row.expanded = d.expanded;
+        row.children.reserve(d.children.size());
+        for (const content::LayerDesc& child : d.children) {
+          row.children.push_back(convert(child));
+        }
+        return row;
+      };
+  std::vector<ui::views::LayerTree::LayerDesc> layers;
+  const std::vector<content::LayerDesc> descs =
+      browser_->document()->layer_descs();
+  layers.reserve(descs.size());
+  for (const content::LayerDesc& d : descs) {
+    layers.push_back(convert(d));
   }
   catalog_->populate_layers(layers);
 }
@@ -836,6 +896,10 @@ void BrowserView::on_processing() {
   } else {
     set_status_message("Spatial analysis toolbox");
   }
+}
+
+void BrowserView::ensure_processing_panel() {
+  ensure_inspector_tab(processing_tab_);
 }
 
 void BrowserView::show_inspector_tab_index(int index) {

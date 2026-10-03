@@ -1,18 +1,24 @@
-/* DebugConsolePanel — output + optional input.
- * Omit width/height:100% (parsed as 100px). Let the tab page FillLayout size us. */
+/* DebugConsolePanel — toolbar + scrollable log + optional input.
+ * Heights applied in C++ (apply_chrome_metrics). Omit width/height:100%. */
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0px;
   padding: 4px;
 }
 
-#output {
-  height: 80px;
+.toolbar {
+  display: flex;
+  flex-direction: row;
+  gap: 0px;
+}
+
+.log_host {
   flex-grow: 1;
+  min-height: 0px;
 }
 
 #input {
-  height: 24px;
+  height: 26px;
 }

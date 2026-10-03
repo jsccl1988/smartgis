@@ -54,6 +54,7 @@ _views_layer_libs = [
   "comdlg32.lib",
   "dwrite.lib",
   "gdi32.lib",
+  "imm32.lib",
   "ole32.lib",
   "shell32.lib",
   "user32.lib",
@@ -219,10 +220,10 @@ source_set("views_dialogs") {
 
 source_set("views_map") {
   sources = [
-    "map/chrome/embed_fill.cc",
-    "map/chrome/embed_fill.h",
-    "map/chrome/identity_hud.cc",
-    "map/chrome/identity_hud.h",
+    "map/frame/embed_fill.cc",
+    "map/frame/embed_fill.h",
+    "map/frame/identity_hud.cc",
+    "map/frame/identity_hud.h",
     "map/device/device_load.cc",
     "map/device/device_load.h",
     "map/input/touch_multitouch.cc",
@@ -304,6 +305,7 @@ smt_shared_library("ui_views") {
     "comdlg32.lib",
     "dwrite.lib",
     "gdi32.lib",
+    "imm32.lib",
     "user32.lib",
   ]
 }
@@ -315,7 +317,7 @@ group("views") {
 
 # Markup assets under //src/ui/resources/<area>/; preserve relative path in
 # shared out/ui/<area>/ (sibling of Debug/Release, same pattern as out/data/)
-# so both configs share one pack. load_markup("dialogs/create_map.ui.xml")
+# so both configs share one pack. load_markup("catalog/create_map.ui.xml")
 # resolves via <exe>/../ui/<rel>. Test samples stay flat under out/ui/.
 # $root_out_dir is out/Debug or out/Release; ../ui is out/ui.
 copy("markup_resources_toolkit") {
@@ -326,22 +328,6 @@ copy("markup_resources_toolkit") {
     "//src/ui/resources/toolkit/select_one.ui.xml",
   ]
   outputs = [ "$root_out_dir/../ui/toolkit/{{source_file_part}}" ]
-}
-
-copy("markup_resources_dialogs") {
-  sources = [
-    "//src/ui/resources/dialogs/add_basemap.ui.css",
-    "//src/ui/resources/dialogs/add_basemap.ui.xml",
-    "//src/ui/resources/dialogs/att_struct.ui.css",
-    "//src/ui/resources/dialogs/att_struct.ui.xml",
-    "//src/ui/resources/dialogs/create_datasource.ui.css",
-    "//src/ui/resources/dialogs/create_datasource.ui.xml",
-    "//src/ui/resources/dialogs/create_layer.ui.css",
-    "//src/ui/resources/dialogs/create_layer.ui.xml",
-    "//src/ui/resources/dialogs/create_map.ui.css",
-    "//src/ui/resources/dialogs/create_map.ui.xml",
-  ]
-  outputs = [ "$root_out_dir/../ui/dialogs/{{source_file_part}}" ]
 }
 
 copy("markup_resources_shell") {
@@ -362,6 +348,8 @@ copy("markup_resources_shell") {
 
 copy("markup_resources_inspect") {
   sources = [
+    "//src/ui/resources/inspect/attribute_schema.ui.css",
+    "//src/ui/resources/inspect/attribute_schema.ui.xml",
     "//src/ui/resources/inspect/attribute_table.ui.css",
     "//src/ui/resources/inspect/attribute_table.ui.xml",
     "//src/ui/resources/inspect/feature_info.ui.css",
@@ -402,8 +390,16 @@ copy("markup_resources_analysis") {
 
 copy("markup_resources_catalog") {
   sources = [
+    "//src/ui/resources/catalog/add_basemap.ui.css",
+    "//src/ui/resources/catalog/add_basemap.ui.xml",
     "//src/ui/resources/catalog/catalog_view.ui.css",
     "//src/ui/resources/catalog/catalog_view.ui.xml",
+    "//src/ui/resources/catalog/create_datasource.ui.css",
+    "//src/ui/resources/catalog/create_datasource.ui.xml",
+    "//src/ui/resources/catalog/create_layer.ui.css",
+    "//src/ui/resources/catalog/create_layer.ui.xml",
+    "//src/ui/resources/catalog/create_map.ui.css",
+    "//src/ui/resources/catalog/create_map.ui.xml",
   ]
   outputs = [ "$root_out_dir/../ui/catalog/{{source_file_part}}" ]
 }
@@ -435,7 +431,6 @@ group("markup_resources") {
     ":markup_resources_analysis",
     ":markup_resources_catalog",
     ":markup_resources_debug",
-    ":markup_resources_dialogs",
     ":markup_resources_inspect",
     ":markup_resources_shell",
     ":markup_resources_style",

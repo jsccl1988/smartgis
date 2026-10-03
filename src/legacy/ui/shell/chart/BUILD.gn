@@ -3,8 +3,8 @@
 
 import("//build/smartgis.gni")
 
-# Stat chart dialogs → ui_legacy.
-source_set("stat_chart_sources") {
+# Leftover stat chart dialogs → ui_legacy.
+source_set("chart_sources") {
   configs += [
     "//build:legacy",
     "//build:mfc",
@@ -20,11 +20,15 @@ source_set("stat_chart_sources") {
   precompiled_source = "stdafx.cpp"
   include_dirs += [ "." ]
   sources = [
-    "chart_view_dlg.cpp",
-    "diagram.rc",
+    "view_dlg.cpp",
+    "view_dlg.h",
+    "chart.rc",
     "chart_api.cpp",
+    "chart_api.h",
     "chart.cpp",
-    "diagramdata.cpp",
+    "chart.h",
+    "diagram_data.cpp",
+    "diagram_data.h",
     "stdafx.cpp",
   ]
   deps = [
@@ -37,6 +41,11 @@ source_set("stat_chart_sources") {
     "//third_party:CxImage",
     "//third_party:gdal",
   ]
+}
+
+# Historical alias.
+group("stat_chart_sources") {
+  public_deps = [ ":chart_sources" ]
 }
 
 group("stat_chart") {

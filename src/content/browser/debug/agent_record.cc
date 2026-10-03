@@ -51,5 +51,44 @@ bool dispatch_record_method(const std::string& method,
   return false;
 }
 
+bool exec_record_command(const std::string& line,
+                         const RecordHandlers& handlers,
+                         std::string* output) {
+  if (!output || line.rfind(":record", 0) != 0) {
+    return false;
+  }
+  std::string rest = line.size() > 7 ? line.substr(7) : std::string();
+  while (!rest.empty() && (rest.front() == ' ' || rest.front() == '\t')) {
+    rest.erase(rest.begin());
+  }
+  if (rest == "on" || rest == "enable") {
+    if (handlers.set_enabled) {
+      handlers.set_enabled(true);
+    }
+    *output = "record on";
+    return true;
+  }
+  if (rest == "off" || rest == "disable") {
+    if (handlers.set_enabled) {
+      handlers.set_enabled(false);
+    }
+    *output = "record off";
+    return true;
+  }
+  if (rest == "poll") {
+    *output = handlers.poll_json ? handlers.poll_json() : "[]";
+    return true;
+  }
+  if (rest == "clear") {
+    if (handlers.clear) {
+      handlers.clear();
+    }
+    *output = "record cleared";
+    return true;
+  }
+  *output = "usage: :record on|off|poll|clear";
+  return true;
+}
+
 }  // namespace detail
 }  // namespace content

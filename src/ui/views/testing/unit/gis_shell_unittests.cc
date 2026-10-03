@@ -52,9 +52,10 @@ void test_layer_tree() {
   tree.set_visible(true);
   tree.layout();
 
-  expect(tree.on_mouse_event(mouse_up(50, 12)), "select roads");
+  // Row height 30 DIP; checkbox sits after pad + expand slot (~22..38 at 1x).
+  expect(tree.on_mouse_event(mouse_up(50, 15)), "select roads");
   expect(tree.selected_id() == "roads", "selected_id");
-  expect(tree.on_mouse_event(mouse_up(10, 12)), "toggle roads checkbox");
+  expect(tree.on_mouse_event(mouse_up(30, 15)), "toggle roads checkbox");
   expect(!tree.is_layer_visible("roads"), "roads toggled off");
   expect(vis_n == 1, "visible_changed");
   expect(last_id == "roads", "visible_changed id");
@@ -88,8 +89,10 @@ void test_catalog_view() {
 
   catalog.populate_demo_layers();
   expect(catalog.using_demo_layers(), "demo layers flag");
-  expect(catalog.layer_tree()->layer_count() == 1, "demo layer count");
-  expect(catalog.layer_tree()->selected_id() == "layer.demo", "demo active");
+  // Basemap group (expanded: streets + imagery) + Annotations leaf → 4 rows.
+  expect(catalog.layer_tree()->layer_count() == 4, "demo layer count");
+  expect(catalog.layer_tree()->selected_id() == "layer.demo.basemap",
+         "demo active");
 
   catalog.populate_layers(
       {{"roads", "Roads", true, true}, {"rivers", "Rivers", false, false}});
@@ -101,18 +104,41 @@ void test_catalog_view() {
 
   catalog.populate_layers({});
   expect(catalog.using_demo_layers(), "empty populate restores demo");
-  expect(catalog.layer_tree()->layer_count() == 1, "demo restored count");
+  expect(catalog.layer_tree()->layer_count() == 4, "demo restored count");
 }
 
 void test_feature_info_and_status_bar() {
   FeatureInfo info;
   info.set_feature_id("42");
   expect(info.feature_id() == "42", "feature id");
-  info.set_fields({{"name", "road"}, {"len", "12"}});
+  info.set_layer_name("roads");
+  info.set_geometry_type("line");
+  expect(info.layer_name() == "roads", "feature layer");
+  expect(info.geometry_type() == "Line", "feature geom title-case");
+  info.set_fields({{"name", "road"}, {"len", ""}});
   expect(info.field_count() == 2, "feature fields");
+  expect(info.hit_count() == 0, "single-feature path has no hits list");
+
+  FeatureInfo::Hit a;
+  a.feature_id = "1";
+  a.layer_name = "points";
+  a.geometry_type = "point";
+  a.fields = {{"name", "A"}};
+  FeatureInfo::Hit b = a;
+  b.feature_id = "2";
+  b.fields = {{"name", "B"}};
+  info.set_hits({a, b}, 0);
+  expect(info.hit_count() == 2, "multi-hit count");
+  expect(info.active_hit_index() == 0, "multi-hit active");
+  expect(info.feature_id() == "1", "multi-hit id");
+  expect(info.show_next_hit(), "multi-hit next");
+  expect(info.active_hit_index() == 1, "multi-hit advanced");
+  expect(info.feature_id() == "2", "multi-hit id after next");
+
   info.clear();
   expect(info.feature_id().empty(), "feature cleared id");
   expect(info.field_count() == 0, "feature cleared fields");
+  expect(info.hit_count() == 0, "feature cleared hits");
 
   StatusBar bar;
   bar.set_scale_text("1:1000");

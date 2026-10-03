@@ -46,7 +46,7 @@ int main() {
     out << "7.0 8.0 9.0\n";
   }
 
-  std::vector<render::Vector3> pts;
+  std::vector<base::Vector3> pts;
   expect(tin::read_xyz_points(path.c_str(), 0, ' ', 0, 1, 2, &pts) ==
              SMT_ERR_NONE,
          "read_xyz_points three lines");

@@ -3,8 +3,6 @@
 
 #include "ui/views/primitives/text/label.h"
 
-#include <cstring>
-
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
@@ -46,13 +44,15 @@ void Label::rebuild_text_cache() {
 }
 
 void Label::set_text(std::string text) {
-  // Abandon prior std::string bytes (no destructor). Concurrent rebuild skew /
-  // heap smash can flip SSO vs heap tags; operator= then _Deallocate →
-  // FAST_FAIL_INVALID_ARG (AtmospherePanel wire during init_chrome).
-  alignas(std::string) unsigned char abandoned[sizeof(std::string)];
-  std::memcpy(abandoned, &text_, sizeof(text_));
-  ::new (static_cast<void*>(&text_)) std::string(std::move(text));
-  (void)abandoned;
+  // Normal assign — never memcpy/placement-new over a live std::string.
+  // The prior "abandon without destructor" pattern leaked heap buffers and
+  // left MSVC debug _Container_proxy chains dangling; the next markup
+  // load (DebugConsolePanel during DiagnosticToolsPanel ctor) then hit
+  // STATUS_HEAP_CORRUPTION (0xC0000374) inside MarkupAttrs::get.
+  if (text == text_) {
+    return;
+  }
+  text_ = std::move(text);
   rebuild_text_cache();
   schedule_paint();
 }

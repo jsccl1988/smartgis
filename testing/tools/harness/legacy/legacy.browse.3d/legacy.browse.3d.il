@@ -10,9 +10,10 @@ script "legacy.browse.3d" {
     pump(ms=4000);
 
     // Open leftover 3D MDI (no --scene3d-showcase). Maximize settles after
-    // open_mdi_view; extra pump lets GL seed + first present finish.
+    // open_mdi_view; longer pump lets GL seed + first present finish before
+    // inject (short settle raced black PrintWindow capture).
     wm_command(id=32915);
-    pump(ms=4500);
+    pump(ms=6500);
 
     pan_burst(count=4, x=220, y=210, dx=14, dy=8, pump_ms=110);
     pump(ms=180);

@@ -4,6 +4,8 @@
 #ifndef _RD_RENDERDEVICE_H
 #define _RD_RENDERDEVICE_H
 
+#include <cstdint>
+
 #include "gis/kernel/geo/mesh/geometry.h"
 #include "gis/model/feature/feature.h"
 #include "gis/model/map/map.h"
@@ -54,6 +56,25 @@ class SmtRenderDevice {
 
   void SetCurDrawingOrg(const lPoint &ptPos) { m_curDrawingOrg = ptPos; }
   lPoint GetCurDrawingOrg(void) const { return m_curDrawingOrg; }
+  // After PreviewZoomMove commits pan into the windowport, keep pixel-slide
+  // org until a *newer* published front clears it (avoids release jump when a
+  // stale pre-commit FrameJob settles first).
+  void set_clear_drawing_org_on_publish(bool clear, uint64_t min_published_gen = 0) {
+    m_clear_drawing_org_on_publish = clear;
+    m_clear_drawing_org_min_gen = min_published_gen;
+  }
+  bool peek_clear_drawing_org_on_publish() const {
+    return m_clear_drawing_org_on_publish;
+  }
+  uint64_t clear_drawing_org_min_gen() const {
+    return m_clear_drawing_org_min_gen;
+  }
+  void clear_drawing_org_publish_request() {
+    m_clear_drawing_org_on_publish = false;
+    m_clear_drawing_org_min_gen = 0;
+  }
+  // Last map front generation that landed in the shared buffer (0 if unknown).
+  virtual uint64_t map_published_generation() const { return 0; }
 
   void SetMapMode(int nMode) { m_nMapMode = nMode; }
   int GetMapMode(void) const { return m_nMapMode; }
@@ -194,6 +215,11 @@ class SmtRenderDevice {
   Smt2DRenderOptions m_rdOptions;
 
   lPoint m_curDrawingOrg;
+  // After PreviewZoomMove commits pan into the windowport, keep the pixel-slide
+  // org until a newer published front clears it (present_controller). Avoids
+  // flashing the pre-pan front when a stale FrameJob settles first.
+  bool m_clear_drawing_org_on_publish = false;
+  uint64_t m_clear_drawing_org_min_gen = 0;
 };
 
 typedef SmtRenderDevice *LPRENDERDEVICE;

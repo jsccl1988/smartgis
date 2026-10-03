@@ -104,6 +104,7 @@ bool Widget::init(const InitParams& params) {
   }
 
   frame_kind_ = params.frame_kind;
+  dismiss_on_deactivate_ = params.dismiss_on_deactivate;
   const WidgetWindowCreate create = compute_widget_window_create(params);
   hwnd_ = create_widget_hwnd(create, params, this);
   if (!hwnd_) {

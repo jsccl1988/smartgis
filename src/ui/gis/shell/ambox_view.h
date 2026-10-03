@@ -27,12 +27,20 @@ namespace views {
 // Replaces leftover SmtAMBoxMgrDocBar / SmtXAMBox (CBCGPOutlookBar). Does
 // not wrap CView or any MFC bar. Vertical = classic dock; horizontal = map
 // tool bar (groups packed left-to-right above the viewport).
+// Chips paint vector glyphs + text (Pro/QGIS tool density; no image assets).
 class UI_EXPORT AmboxView : public View {
  public:
   // How group blocks and buttons are packed.
   enum class Orientation {
     kVertical,
     kHorizontal,
+  };
+
+  // Chip chrome density. Horizontal defaults to icon+label; icon-only is
+  // available for narrow hosts.
+  enum class ChipStyle {
+    kIconText,
+    kIconOnly,
   };
 
   struct Item {
@@ -52,6 +60,9 @@ class UI_EXPORT AmboxView : public View {
 
   void set_orientation(Orientation orientation);
   Orientation orientation() const { return orientation_; }
+
+  void set_chip_style(ChipStyle style);
+  ChipStyle chip_style() const { return chip_style_; }
 
   void set_groups(std::vector<Group> groups);
   const std::vector<Group>& groups() const { return groups_; }
@@ -79,6 +90,9 @@ class UI_EXPORT AmboxView : public View {
   const std::string& active_command() const { return active_id_; }
 
   void layout() override;
+  bool on_key_event(const KeyEvent& event) override;
+  void on_device_scale_factor_changed(float old_scale,
+                                     float new_scale) override;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;
@@ -86,6 +100,7 @@ class UI_EXPORT AmboxView : public View {
  private:
   class GroupBlock;
   class ToolButton;
+  friend class ToolButton;
 
   void rebuild();
   void fire_command(const std::string& id);
@@ -93,8 +108,19 @@ class UI_EXPORT AmboxView : public View {
   int measure_content_width(float scale) const;
   void layout_vertical(float scale);
   void layout_horizontal(float scale);
+  float scale_factor() const;
+  int icon_slot(float scale) const;
+  int chip_gap(float scale) const;
+  int group_gap(float scale) const;
+  int pad(float scale) const;
+  ChipStyle effective_chip_style() const;
+
+  // Arrow-key focus among tool chips (Pro/QGIS toolbox keyboard).
+  bool move_tool_focus(ToolButton* from, std::uint32_t vk);
+  void collect_tool_buttons(std::vector<ToolButton*>* out) const;
 
   Orientation orientation_ = Orientation::kVertical;
+  ChipStyle chip_style_ = ChipStyle::kIconText;
   std::vector<Group> groups_;
   CommandHandler handler_;
   std::string active_id_;

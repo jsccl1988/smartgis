@@ -39,7 +39,7 @@ void test_tab_strip_switch_page() {
   tabs.add_tab("Two", std::move(p1));
   expect(tabs.active() == 0, "first tab active");
   expect(tabs.tab_count() == 2, "tab count");
-  expect(tabs.on_mouse_event(mouse_up(tabs.tab_x_at(1) + 4, 10)),
+  expect(tabs.on_mouse_event(mouse_down(tabs.tab_x_at(1) + 4, 10)),
          "click second tab");
   expect(tabs.active() == 1, "second tab active");
   expect(changed == 1, "tab change");
@@ -214,10 +214,10 @@ void test_tab_strip_packed_not_equal_width() {
   tabs.layout();
   const int map_w = tabs.tab_width_at(0);
   expect(map_w > 0 && map_w < 200, "Map tab content-sized (not strip/3)");
-  expect(tabs.on_mouse_event(mouse_up(tabs.tab_x_at(2) + 2, 10)),
+  expect(tabs.on_mouse_event(mouse_down(tabs.tab_x_at(2) + 2, 10)),
          "3D hit near its packed cell");
   expect(tabs.active() == 2, "3D became active");
-  expect(!tabs.on_mouse_event(mouse_up(900, 10)),
+  expect(!tabs.on_mouse_event(mouse_down(900, 10)),
          "empty header band not a tab");
 }
 

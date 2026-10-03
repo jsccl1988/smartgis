@@ -21,7 +21,7 @@ struct CapabilityHost {
   // Append a sidecar mark token (suite-specific leaf chosen by filler).
   std::function<void(const std::string& token)> mark;
 
-  // Chrome / catalog navigation.
+  // Shell / catalog navigation.
   std::function<void(int index)> select_map_tab;
   std::function<void(int index)> catalog_tab;
   std::function<void(int index)> inspector_tab;

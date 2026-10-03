@@ -6,7 +6,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <string>
 
+#include <imm.h>
 #include <windowsx.h>
 
 #include "ui/views/kernel/compositor/shell_compositor.h"
@@ -52,21 +54,58 @@ WidgetWindowCreate compute_widget_window_create(
     const Widget::InitParams& params) {
   WidgetWindowCreate out;
   const bool custom = params.frame_kind == Widget::FrameKind::kCustom;
+  const bool popup = params.frame_kind == Widget::FrameKind::kPopup;
   // Custom frame must not include WS_CAPTION: DWM would still paint the OS
   // title bar even when WM_NCCALCSIZE collapses NC, causing a double caption
   // (white system bar + FrameView). Match owned dialogs: WS_POPUP + thickframe.
   // Top-level adds min/max boxes; WS_EX_APPWINDOW keeps a taskbar button.
-  out.style =
-      custom
-          ? (WS_POPUP | WS_THICKFRAME | WS_SYSMENU | WS_CLIPCHILDREN |
-             (params.owner ? 0u : (WS_MINIMIZEBOX | WS_MAXIMIZEBOX)))
-          : (params.owner ? kOwnedDialogStyle
-                          : (WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN));
-  out.ex_style = (custom && !params.owner) ? WS_EX_APPWINDOW : 0u;
+  // kPopup is a thin-border dropdown owned by another HWND (no caption).
+  if (popup) {
+    out.style = WS_POPUP | WS_CLIPCHILDREN;
+    out.ex_style = WS_EX_TOOLWINDOW | WS_EX_TOPMOST;
+  } else {
+    out.style =
+        custom
+            ? (WS_POPUP | WS_THICKFRAME | WS_SYSMENU | WS_CLIPCHILDREN |
+               (params.owner ? 0u : (WS_MINIMIZEBOX | WS_MAXIMIZEBOX)))
+            : (params.owner ? kOwnedDialogStyle
+                            : (WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN));
+    out.ex_style = (custom && !params.owner) ? WS_EX_APPWINDOW : 0u;
+  }
   out.x = CW_USEDEFAULT;
   out.y = CW_USEDEFAULT;
   out.width = params.width;
   out.height = params.height;
+
+  if (popup) {
+    float scale = scale_factor_from_dpi(
+        dpi_for_hwnd(params.owner ? params.owner : nullptr));
+    int client_w =
+        params.size_in_dips ? dip_to_px(params.width, scale) : params.width;
+    int client_h =
+        params.size_in_dips ? dip_to_px(params.height, scale) : params.height;
+    if (client_w < 40) {
+      client_w = 40;
+    }
+    if (client_h < 20) {
+      client_h = 20;
+    }
+    // Borderless popup: CreateWindow size == client (WM_NCCALCSIZE collapses).
+    out.width = client_w;
+    out.height = client_h;
+    if (params.has_screen_origin) {
+      out.x = params.screen_x;
+      out.y = params.screen_y;
+    } else if (params.owner && IsWindow(params.owner)) {
+      RECT owner_rc = {};
+      GetWindowRect(params.owner, &owner_rc);
+      out.x = owner_rc.left;
+      out.y = owner_rc.bottom;
+    }
+    clamp_rect_to_work_area(&out.x, &out.y, out.width, out.height,
+                            params.owner);
+    return out;
+  }
 
   if (params.owner) {
     if (custom) {
@@ -258,10 +297,13 @@ LRESULT Widget::handle_message(HWND hwnd, UINT msg, WPARAM wparam,
                                LPARAM lparam) {
   switch (msg) {
     case WM_NCCALCSIZE:
-      if (frame_kind_ == FrameKind::kCustom) {
+      if (frame_kind_ == FrameKind::kCustom ||
+          frame_kind_ == FrameKind::kPopup) {
         // Client area fills the entire window; FrameView paints the caption.
         // Handle both wParam TRUE and FALSE — falling through to DefWindowProc
         // would re-apply WS_CAPTION insets and show a second OS title bar.
+        // kPopup also collapses NC so WS_BORDER is drawn by DWM as a thin edge
+        // while client size matches InitParams.
         return 0;
       }
       break;
@@ -368,6 +410,65 @@ LRESULT Widget::handle_message(HWND hwnd, UINT msg, WPARAM wparam,
       send_char(e);
       return 0;
     }
+    case WM_IME_COMPOSITION: {
+      if (!focused_) {
+        break;
+      }
+      HIMC imc = ImmGetContext(hwnd);
+      if (!imc) {
+        break;
+      }
+      bool handled = false;
+      if (lparam & GCS_RESULTSTR) {
+        const LONG bytes =
+            ImmGetCompositionStringW(imc, GCS_RESULTSTR, nullptr, 0);
+        if (bytes > 0) {
+          std::wstring result(static_cast<size_t>(bytes / sizeof(wchar_t)),
+                              L'\0');
+          ImmGetCompositionStringW(imc, GCS_RESULTSTR, result.data(),
+                                   static_cast<DWORD>(bytes));
+          handled = focused_->on_ime_composition(result, true);
+        } else {
+          handled = focused_->on_ime_composition(L"", true);
+        }
+      } else if (lparam & GCS_COMPSTR) {
+        const LONG bytes =
+            ImmGetCompositionStringW(imc, GCS_COMPSTR, nullptr, 0);
+        if (bytes > 0) {
+          std::wstring comp(static_cast<size_t>(bytes / sizeof(wchar_t)),
+                            L'\0');
+          ImmGetCompositionStringW(imc, GCS_COMPSTR, comp.data(),
+                                   static_cast<DWORD>(bytes));
+          handled = focused_->on_ime_composition(comp, false);
+        } else {
+          handled = focused_->on_ime_composition(L"", false);
+        }
+      }
+      ImmReleaseContext(hwnd, imc);
+      if (handled) {
+        return 0;
+      }
+      break;
+    }
+    case WM_IME_ENDCOMPOSITION:
+      if (focused_) {
+        focused_->on_ime_composition(L"", false);
+      }
+      break;
+    case WM_TIMER:
+      // Caret blink: Textfield arms this id while focused.
+      if (wparam == 0x43415245u /* 'CARE' */ && focused_) {
+        focused_->schedule_paint();
+        return 0;
+      }
+      break;
+    case WM_ACTIVATE:
+      if (dismiss_on_deactivate_ &&
+          LOWORD(wparam) == WA_INACTIVE) {
+        request_close();
+        return 0;
+      }
+      break;
     case WM_CLOSE:
       fire_will_close();
       if (modal_) {
@@ -378,8 +479,9 @@ LRESULT Widget::handle_message(HWND hwnd, UINT msg, WPARAM wparam,
     case WM_DESTROY:
       // User close (Alt+F4 / X) ends run_loop. ~Widget DestroyWindow must
       // not PostQuitMessage: that poisons a console test thread.
-      // Modal dialogs must also skip it so the owner message loop stays alive.
-      if (!destroying_ && !modal_) {
+      // Modal dialogs and kPopup dropdowns must also skip it so the owner
+      // message loop stays alive.
+      if (!destroying_ && !modal_ && frame_kind_ != FrameKind::kPopup) {
         PostQuitMessage(0);
       }
       return 0;

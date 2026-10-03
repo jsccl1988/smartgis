@@ -1,0 +1,161 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>legacy/ui/inspect 深度分层</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --border: #d8dee6;
+    --text: #1a2330;
+    --muted: #5a6a7e;
+    --accent: #2563a8;
+    --host: #e8f0fa;
+    --sys: #eef6ee;
+    --edit: #f7f0e8;
+    --call: #f3eef8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.45;
+  }
+  h1 { font-size: 1.35rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 0.92rem; margin-bottom: 20px; }
+  .stack { display: grid; gap: 12px; max-width: 920px; }
+  .lane {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .lane h2 {
+    margin: 0 0 8px; font-size: 0.95rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tag {
+    font-size: 0.72rem; font-weight: 600; padding: 2px 8px;
+    border-radius: 4px; color: #123;
+  }
+  .tag.h { background: var(--host); }
+  .tag.s { background: var(--sys); }
+  .tag.e { background: var(--edit); }
+  .tag.c { background: var(--call); }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    margin-top: 10px; font-size: 0.88rem;
+  }
+  .chip {
+    background: #eef2f6; border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 8px; font-family: Consolas, monospace;
+    font-size: 0.8rem;
+  }
+  .arrow { color: var(--accent); font-weight: 700; }
+  code { font-family: Consolas, monospace; font-size: 0.85rem; }
+  .principle {
+    margin-top: 18px; max-width: 920px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .principle ol { margin: 8px 0 0 1.2rem; color: var(--muted); }
+  .principle li { margin: 4px 0; }
+  .stages {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;
+    align-items: center;
+  }
+  .stage {
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 10px; background: #fff; min-width: 140px;
+  }
+  .stage.active { border-color: var(--accent); }
+  .stage .n { font-size: 0.72rem; color: var(--accent); font-weight: 700; }
+  .stage .t { font-size: 0.85rem; margin-top: 2px; }
+  .pulse { animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
+    50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
+  }
+</style>
+</head>
+<body>
+  <h1>legacy/ui/inspect 深度分层（§11h）</h1>
+  <p class="sub">语义对齐 <code>ui/gis/inspect</code>；物理仍在 <code>src/legacy/ui/inspect</code>。Scheme C，无 shim。不迁终局 Views。</p>
+
+  <div class="stack">
+    <div class="lane pulse">
+      <h2><span class="tag h">host</span> 共享 prop-list CWnd 壳</h2>
+      <div class="flow">
+        <span class="chip">prop_host.h</span>
+        <span class="arrow">→</span>
+        <span>create / size / paint / erase / option helpers</span>
+        <span class="arrow">+</span>
+        <span class="chip">widgets/prop</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag s">sys</span> 系统偏好页</h2>
+      <div class="flow">
+        <span class="chip">SysConfigDockBar</span>
+        <span class="chip">flash_styles.h</span>
+        <span class="arrow">←</span>
+        <span>SmtSysPra / flash color → style pens·brushes</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag e">edit</span> 默认编辑样式页</h2>
+      <div class="flow">
+        <span class="chip">EditConfigDockBar</span>
+        <span class="arrow">←</span>
+        <span>anno / symbol / line / region via SmtStyleManager</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag c">call sites</span> 组合消费者</h2>
+      <div class="flow">
+        <span class="chip">app/shell/frame</span>
+        <span class="arrow">new + Create</span>
+        <span>AMBox Outlook pages（Edit / System）</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="principle">
+    <strong>原则流</strong>
+    <div class="stages" id="stages">
+      <div class="stage" data-i="0"><div class="n">1</div><div class="t">host 建 CWnd + prop list</div></div>
+      <div class="arrow">→</div>
+      <div class="stage" data-i="1"><div class="n">2</div><div class="t">sys / edit 填充属性行</div></div>
+      <div class="arrow">→</div>
+      <div class="stage" data-i="2"><div class="n">3</div><div class="t">OnPropertyChanged 写回 mgr</div></div>
+      <div class="arrow">→</div>
+      <div class="stage" data-i="3"><div class="n">4</div><div class="t">Views 终局不依赖本树</div></div>
+    </div>
+    <ol>
+      <li>HWND / MFC 消息只留在 <code>sys/</code> · <code>edit/</code> 页类。</li>
+      <li>重复 CWnd chrome 进 <code>host/prop_host</code>；数值 coerce 复用 <code>widgets/prop</code>。</li>
+      <li>flash 六风格赋值进 <code>sys/flash_styles</code>，去掉 CLR1/CLR2 复制粘贴。</li>
+      <li>ABI：类名 <code>SysConfigDockBar</code> / <code>EditConfigDockBar</code> 冻结；文件 stem 规范化。</li>
+    </ol>
+  </div>
+
+<script>
+(function () {
+  var stages = document.querySelectorAll('#stages .stage');
+  var i = 0;
+  function tick() {
+    stages.forEach(function (el, idx) {
+      el.classList.toggle('active', idx === i);
+    });
+    i = (i + 1) % stages.length;
+  }
+  tick();
+  setInterval(tick, 1400);
+})();
+</script>
+</body>
+</html>

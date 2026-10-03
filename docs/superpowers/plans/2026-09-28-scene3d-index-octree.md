@@ -266,7 +266,7 @@ Short English class comment on `SmtSceneOctTree` / `SmtVertexOctTree`: leftover 
 
 **Files (known callers; re-scan with path-scoped search):**
 - `scene3d/{dem,bridge,primitive,feature,surface,test}/**`
-- `legacy/ui/viewport/view_3d.h`, `legacy/ui/catalog/scenemgr.h`
+- `legacy/ui/viewport/view_3d.h`, `legacy/ui/catalog/scene/scenemgr.h`
 - `legacy/tool/base/base3dtool.h`, `legacy/tool/nav/3dviewctrltool.{h,cpp}`
 - `legacy/render/rhi3d/impl/gl/test/map_paint_test.cc`
 - Any remaining `bl3d_` or flat `scene3d/bl3d_*` includes

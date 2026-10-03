@@ -3,6 +3,7 @@
 
 #include "ui/gis/inspect/attribute_table.h"
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 
@@ -273,6 +274,26 @@ bool AttributeTable::on_key_event(const KeyEvent& event) {
     }
     if (event.vk == VK_BACK) {
       return delete_edit_last_char();
+    }
+  }
+  if (!editing_ && table_ && event.type == KeyEvent::Type::kDown &&
+      (event.vk == VK_UP || event.vk == VK_DOWN)) {
+    const int n = static_cast<int>(table_->row_count());
+    if (n > 0) {
+      const int cur = table_->selected_row();
+      int next = cur;
+      if (event.vk == VK_UP) {
+        next = cur <= 0 ? 0 : cur - 1;
+      } else {
+        next = cur < 0 ? 0 : std::min(cur + 1, n - 1);
+      }
+      if (next != cur) {
+        table_->set_selected_row(next);
+        if (selected_) {
+          selected_(next);
+        }
+      }
+      return true;
     }
   }
   return View::on_key_event(event);

@@ -81,24 +81,24 @@ Expected: TUs under `src/legacy/app/` use `"legacy/app/<module>/…"`. Product e
 **Files:**
 - Create dirs: `src/legacy/app/core/`
 - Move: `smtapp.h`, `smtapp.cpp` → `core/`
-- Modify: every `#include "legacy/app/smtapp.h"` → `"legacy/app/core/smtapp.h"`
+- Modify: every `#include "legacy/app/smtapp.h"` → `"legacy/app/core/bootstrap.h"`
 - Modify: `src/legacy/app/BUILD.gn` (`app_core` sources path)
 
 **Interfaces:**
 - Consumes: existing `app::SmtApp` API
-- Produces: include path `legacy/app/core/smtapp.h` only
+- Produces: include path `legacy/app/core/bootstrap.h` only
 
 - [x] **Step 1: `git mv` sources** (skip if `core/smtapp.*` already present)
 
 ```bat
-git mv src/legacy/app/smtapp.h src/legacy/app/core/smtapp.h
+git mv src/legacy/app/smtapp.h src/legacy/app/core/bootstrap.h
 git mv src/legacy/app/smtapp.cpp src/legacy/app/core/smtapp.cpp
 ```
 
 - [x] **Step 2: Rewrite includes**
 
 ```cpp
-#include "legacy/app/core/smtapp.h"
+#include "legacy/app/core/bootstrap.h"
 ```
 
 - [x] **Step 3: Point `app_core` sources at `core/smtapp.cpp`**
@@ -218,21 +218,21 @@ Expected: test PASS; legacy_app still links.
 
 ```bat
 mkdir src\legacy\app\shell src\legacy\app\doc src\legacy\app\view 2>nul
-git mv src/legacy/app/smart_gis.h src/legacy/app/shell/frame/app.h
+git mv src/legacy/app/smart_gis.h src/legacy/app/shell/frame/win_app.h
 git mv src/legacy/app/smart_gis.cpp src/legacy/app/shell/frame/app.cpp
-git mv src/legacy/app/main_frame.h src/legacy/app/shell/frame/main.h
+git mv src/legacy/app/main_frame.h src/legacy/app/shell/frame/main_frame.h
 git mv src/legacy/app/main_frame.cpp src/legacy/app/shell/frame/main.cpp
-git mv src/legacy/app/child_frame.h src/legacy/app/shell/frame/child.h
+git mv src/legacy/app/child_frame.h src/legacy/app/shell/frame/child_frame.h
 git mv src/legacy/app/child_frame.cpp src/legacy/app/shell/frame/child.cpp
-git mv src/legacy/app/smart_gis_doc.h src/legacy/app/doc/smart_gis_doc.h
+git mv src/legacy/app/smart_gis_doc.h src/legacy/app/doc/document.h
 git mv src/legacy/app/smart_gis_doc.cpp src/legacy/app/doc/smart_gis_doc.cpp
 git mv src/legacy/app/smart_gis_view.h src/legacy/app/view/map/map.h
 git mv src/legacy/app/smart_gis_view.cpp src/legacy/app/view/map/map.cpp
-git mv src/legacy/app/smart_map_edit_view.h src/legacy/app/view/edit/edit.h
+git mv src/legacy/app/smart_map_edit_view.h src/legacy/app/view/edit_view.h
 git mv src/legacy/app/smart_map_edit_view.cpp src/legacy/app/view/edit/edit.cpp
-git mv src/legacy/app/smart_data_source_view.h src/legacy/app/view/datasource/datasource.h
+git mv src/legacy/app/smart_data_source_view.h src/legacy/app/view/data_view.h
 git mv src/legacy/app/smart_data_source_view.cpp src/legacy/app/view/datasource/datasource.cpp
-git mv src/legacy/app/smart_3d_view.h src/legacy/app/view/scene3d/scene3d_view.h
+git mv src/legacy/app/smart_3d_view.h src/legacy/app/view/scene3d_view.h
 git mv src/legacy/app/smart_3d_view.cpp src/legacy/app/view/scene3d/scene3d_view.cpp
 ```
 
@@ -241,10 +241,10 @@ git mv src/legacy/app/smart_3d_view.cpp src/legacy/app/view/scene3d/scene3d_view
 No shim at old paths. Example:
 
 ```cpp
-#include "legacy/app/shell/frame/main.h"
-#include "legacy/app/doc/smart_gis_doc.h"
-#include "legacy/app/view/edit/edit.h"
-#include "legacy/app/core/smtapp.h"
+#include "legacy/app/shell/frame/main_frame.h"
+#include "legacy/app/doc/document.h"
+#include "legacy/app/view/edit_view.h"
+#include "legacy/app/core/bootstrap.h"
 #include "legacy/app/stdafx.h"
 ```
 
@@ -411,15 +411,15 @@ Expected: PASS. (Views `--self-test` optional human follow-up; agent must not ru
 
 | Old | New |
 | --- | --- |
-| `legacy/app/smtapp.h` | `legacy/app/core/smtapp.h` |
-| `legacy/app/smart_gis.h` | `legacy/app/shell/frame/app.h` |
-| `legacy/app/main_frame.h` | `legacy/app/shell/frame/main.h` |
-| `legacy/app/child_frame.h` | `legacy/app/shell/frame/child.h` |
-| `legacy/app/smart_gis_doc.h` | `legacy/app/doc/smart_gis_doc.h` |
+| `legacy/app/smtapp.h` | `legacy/app/core/bootstrap.h` |
+| `legacy/app/smart_gis.h` | `legacy/app/shell/frame/win_app.h` |
+| `legacy/app/main_frame.h` | `legacy/app/shell/frame/main_frame.h` |
+| `legacy/app/child_frame.h` | `legacy/app/shell/frame/child_frame.h` |
+| `legacy/app/smart_gis_doc.h` | `legacy/app/doc/document.h` |
 | `legacy/app/smart_gis_view.h` | `legacy/app/view/map/map.h` |
-| `legacy/app/smart_map_edit_view.h` | `legacy/app/view/edit/edit.h` |
-| `legacy/app/smart_data_source_view.h` | `legacy/app/view/datasource/datasource.h` |
-| `legacy/app/smart_3d_view.h` | `legacy/app/view/scene3d/scene3d_view.h` |
+| `legacy/app/smart_map_edit_view.h` | `legacy/app/view/edit_view.h` |
+| `legacy/app/smart_data_source_view.h` | `legacy/app/view/data_view.h` |
+| `legacy/app/smart_3d_view.h` | `legacy/app/view/scene3d_view.h` |
 | `legacy/app/stdafx.h` | unchanged |
 | `legacy/app/resource.h` | unchanged |
 

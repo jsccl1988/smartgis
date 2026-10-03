@@ -4,30 +4,17 @@
 #include "app/views/shell/harness/self_test/probe.h"
 
 #include "app/views/shell/browser/browser.h"
-#include "app/views/shell/harness/common/maps.h"
-#include "app/views/shell/util/exe_sidecar_path.h"
+#include "app/views/shell/harness/common/io/maps.h"
+#include "app/views/shell/harness/common/mark/mark.h"
+#include "app/views/shell/harness/common/pump/pump.h"
 #include "content/public/map_contents.h"
 #include "ui/views/map/map_viewport.h"
-
-#include <cstdio>
 
 namespace app {
 namespace detail {
 
 void pump_views_messages_impl(DWORD ms) {
-  const DWORD end = GetTickCount() + ms;
-  MSG msg;
-  while (GetTickCount() < end) {
-    while (GetTickCount() < end &&
-           PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
-      if (msg.message == WM_QUIT) {
-        return;
-      }
-      TranslateMessage(&msg);
-      DispatchMessageW(&msg);
-    }
-    Sleep(10);
-  }
+  pump_messages(ms);
 }
 
 void self_test_detach_maps(Browser& browser) {
@@ -35,18 +22,7 @@ void self_test_detach_maps(Browser& browser) {
 }
 
 void self_test_mark(const char* step) {
-  wchar_t path[MAX_PATH] = {};
-  if (!::app::detail::exe_capture_path(path, MAX_PATH, L"self-test-mark.txt")) {
-    return;
-  }
-  static bool first = true;
-  FILE* f = nullptr;
-  if (_wfopen_s(&f, path, first ? L"w" : L"a") == 0 && f) {
-    first = false;
-    std::fprintf(f, "%s\n", step);
-    std::fflush(f);
-    std::fclose(f);
-  }
+  write_mark(kSelfTestMarkLeaf, step, /*truncate=*/true);
 }
 
 bool viewport_has_presented_frame(ui::views::MapViewport* pane) {

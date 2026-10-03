@@ -5,6 +5,7 @@
 #define UI_VIEWS_DIALOGS_DIALOG_H_
 
 #include "ui/ui_export.h"
+#include <functional>
 #include <memory>
 
 #ifndef NOMINMAX
@@ -28,8 +29,13 @@ class UI_EXPORT Dialog {
     bool accepted = false;
   };
 
+  // When set, OK / Enter only dismisses if the checker returns true.
+  // Used for required-field and other form validation.
+  using AcceptChecker = std::function<bool()>;
+
   static Result run_modal(HWND owner, const wchar_t* title, int w, int h,
-                          std::unique_ptr<View> contents);
+                          std::unique_ptr<View> contents,
+                          AcceptChecker can_accept = {});
 
   // When true, run_modal builds the shell (exercises ctors) then returns
   // without a HWND message pump. Headless / unit tests only.

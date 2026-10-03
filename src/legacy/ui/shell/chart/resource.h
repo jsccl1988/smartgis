@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by sta_diagram.rc
+// Used by chart.rc
 //
 #define IDC_XVIEW_CONTAINER 4000
 #define IDC_BTN_SAVE 4001

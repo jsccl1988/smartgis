@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<ui name="add_basemap">
+  <style src="add_basemap.ui.css" />
+  <vbox id="root" class="form">
+    <label id="title_hint" class="hint" text="Add an online tile basemap. Host builds the layer after OK." />
+    <label id="name_label" text="Layer name" />
+    <textfield id="name" text="Basemap" />
+    <label id="kind_label" text="Service kind" />
+    <combobox id="kind">
+      <item text="xyz" />
+      <item text="wmts" />
+    </combobox>
+    <label id="url_label" text="URL template" />
+    <textfield id="url" />
+    <label id="url_hint" class="hint" text="XYZ: https://…/{z}/{x}/{y}.png   ·   WMTS: GetCapabilities or tile URL" />
+    <label id="status" class="status" text="" />
+  </vbox>
+</ui>

@@ -154,10 +154,13 @@ class MapScene {
   bool add_point_cloud_layer(const std::string& name, const float* xyz,
                              int point_count, const uint8_t* rgba = nullptr);
 
-  // Hit-test in map space. |tol_map| is the caller's tolerance. Selects at
-  // most one feature. Use nested Feature (not detail::MapFeature) so MSVC
+  // Hit-test in map space. |tol_map| is the caller's tolerance. Selects the
+  // nearest feature. Use nested Feature (not detail::MapFeature) so MSVC
   // mangling matches call sites that name MapScene::Feature.
   const Feature* hit_test(double map_x, double map_y, double tol_map);
+  // All features within |tol_map|, nearest-first. Selects the nearest.
+  std::vector<const Feature*> hit_test_all(double map_x, double map_y,
+                                           double tol_map);
   bool select_feature(const content::FeatureId& id);
   void clear_selection();
   const Feature* selected_feature() const;

@@ -34,7 +34,7 @@ bool vertices_cover_square(const geo::Tin& tin) {
 }  // namespace
 
 int main() {
-  render::Vector3 square[4] = {
+  base::Vector3 square[4] = {
       {0.f, 0.f, 0.f},
       {1.f, 0.f, 0.f},
       {1.f, 1.f, 0.f},

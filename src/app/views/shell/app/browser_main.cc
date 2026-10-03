@@ -17,7 +17,7 @@
 #include <string>
 
 #include "app/views/shell/browser/browser.h"
-#include "app/views/shell/harness/common/mark.h"
+#include "app/views/shell/harness/common/mark/mark.h"
 #include "app/views/shell/harness/scenario_registry.h"
 #include "app/views/shell/harness/self_test/self_test.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
@@ -165,11 +165,13 @@ int run_browser_main(const content::ContentMainParams&,
   const Map2dShowcaseMode map2d_showcase = options.map2d_showcase;
   const PluginShowcaseMode plugin_showcase = options.plugin_showcase;
   const UiShowcaseMode ui_showcase = options.ui_showcase;
-  // Default Scene3d prefers FlyCube RHI. Switch via View -> Engine or
-  // content::set_scene3d_engine (not env vars). --self-test / console /
-  // atmosphere-showcase / map2d-showcase / most ui-showcase select GDI before
-  // Browser::init so multi-viewport FlyCube attach does not hang; atmosphere
-  // may acquire FlyCube on its own HWND.
+  // Default Scene3d prefers FlyCube RHI. Switch via View -> Engine,
+  // content::set_scene3d_engine, or harness SMT_SCENE3D_ENGINE (stereo_gl /
+  // stereo_d3d / flycube / gdi). --self-test / console / atmosphere-showcase /
+  // map2d-showcase / most ui-showcase select GDI before Browser::init so
+  // multi-viewport FlyCube attach does not hang; atmosphere may acquire
+  // FlyCube on its own HWND. Explicit SMT_SCENE3D_ENGINE wins over those
+  // defaults (equal-profile GL/D3D matrix).
   //
   // --browse-showcase and --ui-showcase=scene keep FlyCube: forensic 3D orbit
   // and the product Scene3D face must not fall back to views-scene3d.gdi
@@ -191,32 +193,58 @@ int run_browser_main(const content::ContentMainParams&,
   const bool ui_force_gdi =
       ui_showcase != UiShowcaseMode::kNone &&
       ui_showcase != UiShowcaseMode::kScene;
-  if (self_test || self_test_console || input_showcase || ui_force_gdi ||
-      showcase != AtmosphereShowcaseMode::kNone ||
-      map2d_showcase != Map2dShowcaseMode::kNone ||
-      plugin_showcase != PluginShowcaseMode::kNone) {
-    content::set_scene3d_engine(content::Scene3dEngine::kGdi);
-    if (!map2d_fps_bench) {
-      _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_2D", "1");
+  // --browse-showcase serves both browse (2D) and browse.3d. 2D needs the
+  // same ContentMapView + GDI overlay path as map2d.china so software
+  // export_bmp can paint china_city without racing FlyCube present (AV /
+  // cream AABB). 3D keeps FlyCube for orbit BitBlt.
+  const bool browse_3d_suite = []() {
+    if (const char* suite = std::getenv("SMT_HARNESS_SUITE")) {
+      if (std::strcmp(suite, "browse.3d") == 0) {
+        return true;
+      }
     }
-  } else if (browse_showcase || ui_showcase == UiShowcaseMode::kScene) {
-    content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
+    if (const char* script = std::getenv("SMT_UI_INTERACT_SCRIPT")) {
+      if (std::strstr(script, "browse.3d")) {
+        return true;
+      }
+    }
+    return false;
+  }();
+  const bool engine_from_env = content::apply_scene3d_engine_from_env();
+  if (!engine_from_env) {
+    if (self_test || self_test_console || input_showcase || ui_force_gdi ||
+        showcase != AtmosphereShowcaseMode::kNone ||
+        map2d_showcase != Map2dShowcaseMode::kNone ||
+        plugin_showcase != PluginShowcaseMode::kNone ||
+        (browse_showcase && !browse_3d_suite)) {
+      content::set_scene3d_engine(content::Scene3dEngine::kGdi);
+      if (!map2d_fps_bench) {
+        _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_2D", "1");
+      }
+    } else if (browse_showcase || ui_showcase == UiShowcaseMode::kScene) {
+      content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
+      _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_2D", "0");
+      _putenv_s("SMT_PREFER_FLYCUBE_2D", "1");
+      _putenv_s("SMT_FORCE_GDI_MAP_OVERLAY", "0");
+    }
+  } else if (content::prefer_scene3d_stereo_gl() ||
+             content::prefer_scene3d_flycube()) {
+    // Stereo/FlyCube bench: do not force ContentMapView-only 2D overlay.
     _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_2D", "0");
-    _putenv_s("SMT_PREFER_FLYCUBE_2D", "1");
-    _putenv_s("SMT_FORCE_GDI_MAP_OVERLAY", "0");
   }
-  // map2d-showcase / plugin-showcase: ContentMapView SharedSurface can
-  // "present" an empty ocean DIB and then skip GDI overlay - HWND stays blank
-  // ocean while export_bmp (software) still draws land. Force full
+  // map2d-showcase / plugin-showcase / browse(2D): ContentMapView SharedSurface
+  // can "present" an empty ocean DIB and then skip GDI overlay - HWND stays
+  // blank ocean while export_bmp (software) still draws land. Force full
   // Map2dPresenter::paint on overlay. Skip when FPS-benching FlyCube.
   if (!map2d_fps_bench &&
       (map2d_showcase != Map2dShowcaseMode::kNone ||
-       plugin_showcase != PluginShowcaseMode::kNone)) {
+       plugin_showcase != PluginShowcaseMode::kNone ||
+       (browse_showcase && !browse_3d_suite))) {
     _putenv_s("SMT_FORCE_GDI_MAP_OVERLAY", "1");
   }
   // Showcase does not need Ambox command lists; skip catalog for_each when
   // parallel tool/plugin DLL rebuilds leave maps unreadable (0xC0000005 in
-  // CommandCatalog::for_each during Browser::init / init_chrome). Include
+  // CommandCatalog::for_each during Browser::init / init_shell). Include
   // ui-showcase — otherwise --ui-showcase=shell AVs in populate_ambox while
   // other showcases already skip. browse/input: same catalog map risk.
   if (showcase != AtmosphereShowcaseMode::kNone ||

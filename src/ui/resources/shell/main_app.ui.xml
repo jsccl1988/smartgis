@@ -3,7 +3,7 @@
 Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
-<!-- SmartGisViews main chrome (mirrors BrowserView via ShellLayoutChrome).
+<!-- SmartGisViews main shell (mirrors BrowserView via ShellLayoutComposer).
      Product mounts real Catalog / Map / Ambox / inspector / Status into *host
      panels; UiDesigner preview shows the region skeleton. -->
 <ui name="main_app">

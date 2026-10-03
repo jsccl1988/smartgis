@@ -220,15 +220,17 @@ def _run_os_process(
             if bmp_path is not None and not wait_bmp:
                 # Prefer full Edit chrome for visual review. Avoid BitBlt on
                 # map_client (can heap-corrupt Python); retry shell after settle.
-                time.sleep(0.4)
+                # legacy.browse.3d: GL present needs longer settle after maximize.
+                settle = 1.2 if suite.id == "legacy.browse.3d" else 0.4
+                time.sleep(settle)
                 bring_hwnd_to_front(int(hwnd))
-                time.sleep(0.2)
+                time.sleep(0.35)
                 cap_hwnd = int(hwnd)
                 cap = capture_hwnd_resilient(
                     cap_hwnd,
                     Path(bmp_path),
-                    settle_sec=0.15,
-                    retry_sleep_sec=0.5,
+                    settle_sec=0.35,
+                    retry_sleep_sec=0.75,
                 )
                 frac = float(cap.get("near_black") or 1.0)
                 ok = Path(bmp_path).is_file() and Path(bmp_path).stat().st_size > 1000

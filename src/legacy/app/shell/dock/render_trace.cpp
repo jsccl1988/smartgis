@@ -8,6 +8,7 @@
 
 #include "base/trace/event/process_trace.h"
 #include "base/trace/log/frame_log.h"
+#include "legacy/app/shell/dock/pane_host.h"
 
 namespace {
 
@@ -16,7 +17,6 @@ constexpr UINT kRenderTraceTimerMs = 400;
 constexpr int kBtnW = 64;
 constexpr int kBtnH = 24;
 constexpr int kPad = 4;
-constexpr int kMaxLogLines = 500;
 
 enum {
   kIdRecord = 5101,
@@ -44,10 +44,7 @@ RenderTracePane::RenderTracePane() = default;
 RenderTracePane::~RenderTracePane() = default;
 
 BOOL RenderTracePane::Create(CWnd* parent, UINT id) {
-  return CWnd::CreateEx(
-      0, AfxRegisterWndClass(0), _T(""),
-      WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, CRect(0, 0, 0, 0),
-      parent, id);
+  return legacy_app::detail::create_dock_pane_child(this, parent, id);
 }
 
 int RenderTracePane::OnCreate(LPCREATESTRUCT lpCreateStruct) {
@@ -106,14 +103,7 @@ void RenderTracePane::OnSize(UINT nType, int cx, int cy) {
 }
 
 void RenderTracePane::append_line(const CString& line) {
-  if (!::IsWindow(log_list_.m_hWnd)) {
-    return;
-  }
-  const int idx = log_list_.AddString(line);
-  while (log_list_.GetCount() > kMaxLogLines) {
-    log_list_.DeleteString(0);
-  }
-  log_list_.SetCurSel(idx);
+  legacy_app::detail::append_list_line(log_list_, line);
 }
 
 void RenderTracePane::append_new_frame_lines() {

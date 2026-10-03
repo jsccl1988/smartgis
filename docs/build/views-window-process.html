@@ -564,7 +564,7 @@ content::content_main(params, ViewsContentHost)
 
   <h3>3.3 地图 HWND 挂接</h3>
   <p>
-    <code>BrowserView::init_chrome</code> → <code>attach_viewports()</code>：
+    <code>BrowserView::init_shell</code> → <code>attach_viewports()</code>：
     三个 <code>MapViewport</code> 分别对 Edit / Data / Scene3d 角色挂 child HWND，
     再绑 <code>ViewHost</code>、手势、<code>MapContents</code> observer。
     Shell 栅格通过 <code>Widget::set_on_shell_published</code> 提交到地图 overlay
@@ -583,8 +583,8 @@ content::content_main(params, ViewsContentHost)
     <li>DPI awareness；可选强制 ContentMapView（self-test / showcase）。</li>
     <li><code>Browser::init</code>：
       <code>session_.init_hosts()</code> → <code>PluginShell</code> →
-      <code>create_browser_ui</code> → <code>ui_->init_chrome()</code>。</li>
-    <li><code>BrowserView::init_chrome</code>：
+      <code>create_browser_ui</code> → <code>ui_->init_shell()</code>。</li>
+    <li><code>BrowserView::init_shell</code>：
       <code>Widget::init</code>（CSD 1280×800 DIP）→
       <code>set_will_close</code> → <code>build_contents</code> →
       绑 Map2d/Scene3d → <code>attach_viewports</code> / gestures / catalog。</li>
@@ -613,7 +613,7 @@ content::content_main(params, ViewsContentHost)
     <li>用户关窗 → <code>WM_CLOSE</code> → <code>Widget::fire_will_close</code>。</li>
     <li>回调 <code>Browser::prepare_close</code>（幂等）：
       <code>session_.prepare_close()</code> →
-      <code>ui_->prepare_chrome_close()</code> →
+      <code>ui_->prepare_shell_close()</code> →
       三个 <code>MapViewport::detach()</code>。</li>
     <li><code>DestroyWindow</code>；消息泵退出；<code>run_browser_main</code> 返回。</li>
     <li><code>~Browser</code>：再次 <code>prepare_close</code> → 清 observer →
@@ -626,7 +626,7 @@ content::content_main(params, ViewsContentHost)
 <pre class="flow">WM_CLOSE
   → Widget::will_close_  →  Browser::prepare_close
        ├── MapSession::prepare_close
-       └── BrowserView::prepare_chrome_close
+       └── BrowserView::prepare_shell_close
              └── MapViewport::detach × 3
   → DestroyWindow(hwnd)
   → run_loop 返回

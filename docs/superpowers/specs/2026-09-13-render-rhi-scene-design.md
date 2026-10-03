@@ -7,9 +7,10 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** accepted  
-**Updated:** 2026-10-02 — §src_render + vista parallel accelerate（代码级详设） · §Atmosphere Google-Earth globe stack · §rhi3d leftover parallel frame · §rhi2d leftover tile-raster · §src_render Map2d/Scene3d equal-profile · …  
-**Related:** model/compute · atmosphere · map2d folded into this file (§Folded topics); legacy present SP2 in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；Views shell [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md)；as-built [`../../../src/render/README.md`](../../../src/render/README.md)、[`../../../src/gpu/README.md`](../../../src/gpu/README.md)；RHI subdir landed [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)。  
-**Plans:** RHI scene [`../plans/2026-09-13-render-rhi-scene.md`](../plans/2026-09-13-render-rhi-scene.md) · frame graph [`../plans/2026-09-27-render-frame-graph.md`](../plans/2026-09-27-render-frame-graph.md) · gpu accelerate [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) · P0 [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md) · suite/bench [`../plans/2026-09-28-render-rhi-suite-bench.md`](../plans/2026-09-28-render-rhi-suite-bench.md) · **Map2d hillshade + line casing** [`../plans/2026-09-30-map2d-hillshade-line-casing.md`](../plans/2026-09-30-map2d-hillshade-line-casing.md) · **world3d pointcloud LAS** [`../plans/2026-09-30-world3d-pointcloud-las.md`](../plans/2026-09-30-world3d-pointcloud-las.md) · **D3D leftover capability** [`../plans/2026-09-29-d3d-leftover-capability.md`](../plans/2026-09-29-d3d-leftover-capability.md) · **GL leftover capability** [`../plans/2026-09-29-gl-leftover-capability.md`](../plans/2026-09-29-gl-leftover-capability.md) · GDI leftover worker [`../plans/2026-09-29-gdi-leftover-worker.md`](../plans/2026-09-29-gdi-leftover-worker.md) · GDI carto math [`../plans/2026-09-29-gdi-carto-base-math.md`](../plans/2026-09-29-gdi-carto-base-math.md) · GDI layout/compose [`../plans/2026-09-29-gdi-layout-device-compose.md`](../plans/2026-09-29-gdi-layout-device-compose.md) · GDI profile [`../plans/2026-09-29-gdi-leftover-profile.md`](../plans/2026-09-29-gdi-leftover-profile.md) · **GDI internal RHI** [`../plans/2026-09-29-gdi-internal-rhi-reshape.md`](../plans/2026-09-29-gdi-internal-rhi-reshape.md) · **Legacy Pipeline+Arena** [`../plans/2026-09-30-legacy-render-pipeline-arena.md`](../plans/2026-09-30-legacy-render-pipeline-arena.md) · **rhi2d Chromium-cc** [`../plans/2026-10-01-rhi2d-chromium-cc-compose.md`](../plans/2026-10-01-rhi2d-chromium-cc-compose.md) · **rhi2d leftover tile-raster** [`../plans/2026-10-01-rhi2d-leftover-tile-raster.md`](../plans/2026-10-01-rhi2d-leftover-tile-raster.md) · **rhi3d leftover parallel frame** [`../plans/2026-10-01-rhi3d-parallel-frame.md`](../plans/2026-10-01-rhi3d-parallel-frame.md) · **rhi3d Eigen frustum** [`../plans/2026-10-01-rhi3d-eigen-base-math.md`](../plans/2026-10-01-rhi3d-eigen-base-math.md) · **src_render + vista parallel accelerate** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md)。  
+**Updated:** 2026-10-02 — §GPU-process × §vista parallel **统一规范图** [`render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（A×B 深度整合） · §Atmosphere Google-Earth globe stack · …  
+**Related:** model/compute · atmosphere · map2d folded into this file (§Folded topics); legacy present SP2 in [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；Views shell [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md)；as-built [`../../../src/render/README.md`](../../../src/render/README.md)、[`../../../src/gpu/README.md`](../../../src/gpu/README.md)；multiprocess [`../../build/ui-shell-multiprocess.md`](../../build/ui-shell-multiprocess.md)；RHI subdir landed [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)。  
+**Diagrams:** **A×B 规范图** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（旧 `src-render-vista-parallel-accelerate` / `gpu-process-accelerate` → redirect） · Views shell [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)  
+**Plans:** RHI scene [`../plans/2026-09-13-render-rhi-scene.md`](../plans/2026-09-13-render-rhi-scene.md) · frame graph [`../plans/2026-09-27-render-frame-graph.md`](../plans/2026-09-27-render-frame-graph.md) · **gpu accelerate（§GPU-process 唯一 checklist）** [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) · **vista parallel** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md) · P0 [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md) · suite/bench [`../plans/2026-09-28-render-rhi-suite-bench.md`](../plans/2026-09-28-render-rhi-suite-bench.md) · **Map2d hillshade + line casing** [`../plans/2026-09-30-map2d-hillshade-line-casing.md`](../plans/2026-09-30-map2d-hillshade-line-casing.md) · **world3d pointcloud LAS** [`../plans/2026-09-30-world3d-pointcloud-las.md`](../plans/2026-09-30-world3d-pointcloud-las.md) · **D3D leftover capability** [`../plans/2026-09-29-d3d-leftover-capability.md`](../plans/2026-09-29-d3d-leftover-capability.md) · **GL leftover capability** [`../plans/2026-09-29-gl-leftover-capability.md`](../plans/2026-09-29-gl-leftover-capability.md) · GDI leftover worker [`../plans/2026-09-29-gdi-leftover-worker.md`](../plans/2026-09-29-gdi-leftover-worker.md) · GDI carto math [`../plans/2026-09-29-gdi-carto-base-math.md`](../plans/2026-09-29-gdi-carto-base-math.md) · GDI layout/compose [`../plans/2026-09-29-gdi-layout-device-compose.md`](../plans/2026-09-29-gdi-layout-device-compose.md) · GDI profile [`../plans/2026-09-29-gdi-leftover-profile.md`](../plans/2026-09-29-gdi-leftover-profile.md) · **GDI internal RHI** [`../plans/2026-09-29-gdi-internal-rhi-reshape.md`](../plans/2026-09-29-gdi-internal-rhi-reshape.md) · **Legacy Pipeline+Arena** [`../plans/2026-09-30-legacy-render-pipeline-arena.md`](../plans/2026-09-30-legacy-render-pipeline-arena.md) · **rhi2d Chromium-cc** [`../plans/2026-10-01-rhi2d-chromium-cc-compose.md`](../plans/2026-10-01-rhi2d-chromium-cc-compose.md) · **rhi2d leftover tile-raster** [`../plans/2026-10-01-rhi2d-leftover-tile-raster.md`](../plans/2026-10-01-rhi2d-leftover-tile-raster.md) · **rhi3d leftover parallel frame** [`../plans/2026-10-01-rhi3d-parallel-frame.md`](../plans/2026-10-01-rhi3d-parallel-frame.md) · **rhi3d Eigen frustum** [`../plans/2026-10-01-rhi3d-eigen-base-math.md`](../plans/2026-10-01-rhi3d-eigen-base-math.md)。  
 **Scope:** Living RHI + dual scene + in-process frame graph + GPU-process compose. FlyCube DX12/Vulkan. Logical world in `gis`/`sdb`; GPU cache in `render/scene`. Do **not** open new dated RHI/layout twins — revise sections below.
 
 ## Goal
@@ -457,9 +458,85 @@ Plan checkbox: [`../plans/2026-09-30-map3d-gap-pin.md`](../plans/2026-09-30-map3
 
 ---
 
-## §GPU-process accelerate（merged 2026-09-28）
+## §GPU-process accelerate（merged 2026-09-28 · topology fold 2026-10-02）
 
-Compose/present for `--type=gpu` (`src/gpu`) only. Shell / browser / Views never final-compose. Multi-adapter first-class: `GpuDeviceHub` + `AdapterId`. IR stays `CompositorFrame` / `DrawQuad`. Layout of `src/gpu` is **landed** as-built in `src/gpu/README.md`. In-process `render::graph::present` (Views) is a **different** path from this section. Plan checklist: [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md). Archive: [`../archive/specs/2026-09-27-gpu-rhi-accelerate-design.md`](../archive/specs/2026-09-27-gpu-rhi-accelerate-design.md).
+**Status:** active  
+**Updated:** 2026-10-02 — fold Chromium-like **GPU process** compose with **§src_render + vista parallel**；**统一规范图** A×B  
+**Plan (sole checklist):** [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) — includes **Task 8: Bridge to in-process L0–L3**  
+**In-process peer:** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md)（L0–L3；不重复 GPU-process checkbox）  
+**Diagram (normative):** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（§4–§6 Topology B + Bridge）  
+**Related diagrams:** [`ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · [`gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)  
+**Code:** `src/gpu/**` · `src/gpu/device/gpu_device_hub.*` · `src/gpu/compositor/{frame,composer,underlay}/**` · `src/gpu/display/**` · `src/gpu/frame_sink.h` · `src/content/common/host_protocol.h`  
+**As-built:** [`../../../src/gpu/README.md`](../../../src/gpu/README.md) · multiprocess [`../../build/ui-shell-multiprocess.md`](../../build/ui-shell-multiprocess.md)  
+**Archive (superseded body):** [`../archive/specs/2026-09-27-gpu-rhi-accelerate-design.md`](../archive/specs/2026-09-27-gpu-rhi-accelerate-design.md)
+
+### Normative (multiprocess on)
+
+1. **Compose/present only in the GPU process** (`--type=gpu` / `src/gpu`). Browser / renderer / chrome / Views **never** blend final pixels.
+2. **IR stays `CompositorFrame` / `DrawQuad` / `RenderPass`** (`src/gpu/compositor/frame/frame.h`). No second quad model.
+3. **Topology:** **one** GPU process × **N** adapter device slots (`GpuDeviceHub` + `AdapterId`). Not N gpu processes. **No** single-frame multi-GPU split / cross-adapter mosaic.
+4. Shell / Views consume **NT shared handles / DIB** only (`SharedHandle` + `FrameReady`).
+
+### Two topologies (how they compose)
+
+| Topology | When | Who owns final Device / present | CPU parallel (L2) | Final blend |
+| --- | --- | --- | --- | --- |
+| **A. In-process Views** | Single-process Views / Display mailbox (today’s Map2d/Scene3d product path) | **L3 Display** sole `rhi::Device` + `render::graph::present` (1 CL) | `gis::vista` / `prep_cull_parallel` in browser process | In-process `graph::present` — **not** `src/gpu` `FrameComposer` |
+| **B. Chromium-like GPU process** | Multiprocess shell (`--type=gpu` child) | **GPU process** `GpuDeviceHub` → per-adapter `FrameComposer` → `OutputSurface` | Same L0–L2 **semantics**; record may stay in gpu near-term or move to content → IR IPC | **Only** `FrameComposer::draw_frame` inside `--type=gpu` |
+
+**Composition rule (locked):**
+
+- L0–L2 （UI never joins · content schedule · vista / GpuScene prep）are **topology-agnostic**.
+- **L3 splits by mode:**
+  - **A:** `record_and_present` ≡ `render::graph::present` on Display’s Device.
+  - **B:** map underlay / graph / effect output becomes **submit to GPU process** pinned by `AdapterId` (`draw_and_swap` / later serialized `CompositorFrame`); UI still never joins; chrome still never blends.
+- Do **not** run both A and B final-present on the **same HWND** (no leftover FlyCube HWND + gpu shared surface dual-present).
+
+```
+Topology A (in-process Views):
+  L0 stage → L1 schedule → L2 parallel_for → L3 Display Device → graph::present
+
+Topology B (--type=gpu):
+  L0/L1 submit IR / DrawRequest → [GPU process] raster→CompositorFrame
+       → GpuDeviceHub(AdapterId) → FrameComposer → OutputSurface
+       → SharedHandle → Browser present-only
+  optional: underlay record_gpu_scene_underlay / record_underlay_effects (same AdapterId)
+```
+
+### Relation to §src_render + vista parallel (L0–L3)
+
+| Layer | Topology A (Views) | Topology B (GPU process) |
+| --- | --- | --- |
+| L0 UI | Views Commit / Display mailbox; never join | Same; **present SharedHandle only** |
+| L1 Schedule | `Map2dFrameCache` / Scene3d presenters | content / renderer submit DrawRequest (or future CF IR); gen/cancel still apply |
+| L2 CPU | `Layout::build` / `prep_cull_parallel` | Same CPU work owner; **must not** touch gpu `FrameComposer` |
+| L3 GPU | Display `rhi::Device` + `graph::present` | **Remap:** hub `ensure_rhi_device(AdapterId)` + `make_frame_composer` + `OutputSurface`; underlay via `compositor/underlay/underlay_bridge.*` |
+
+Warm StaticReuse / equal-profile budgets stay owned by §vista / equal-profile §§; this § owns **process boundary + hub + IR**.
+
+### Code-level anchors (as-built)
+
+| Symbol / file | Role |
+| --- | --- |
+| `gpu::draw_and_swap` (`frame_sink.h` / `display/display.cc`) | Sole public paint entry |
+| `gpu::detail::CompositorFrame` / `DrawQuad` / `RenderPass` | IR |
+| `gpu::detail::GpuDeviceHub` | 1 process × N slots; bind/rebind; sticky software; texture cache; underlay Effects |
+| `gpu::detail::FrameComposer` + `select_compose_backend` / `make_frame_composer` | `kRhi` default · `kSoftware` escape |
+| `gpu::detail::RhiComposer` / `SoftwareComposer` | Per-adapter compose/present |
+| `gpu::detail::OutputSurface` | DXGI shared / DIB @ `AdapterId` |
+| `record_underlay_effects` / `record_gpu_scene_underlay` / `record_hub_underlay` | Frame Graph / `effect::scene::GpuScene` underlay — **no** `OutputSurface` in graph |
+| `AttachSurfaceBody` / `ResizeSurfaceBody` LUID fields | Monitor affinity without `HMONITOR` on wire |
+
+### Bridge milestones (name real symbols)
+
+| Milestone | Meaning | Status (as-built) |
+| --- | --- | --- |
+| Software compose fallback | `SoftwareComposer` + `upload_bgra` per sticky adapter | landed |
+| RHI blit / compose → DXGI shared | `RhiComposer` · `import_shared_nt_handle` · `execute_to_imported` / `copy_bgra_to_imported_shared` | landed (FlyCube when `SMT_HAS_FLYCUBE`) |
+| GPU compose quads | `kSolid` / `kBgra` / `replaces` on RHI path | landed |
+| Texture cache | `GpuDeviceHub` per-slot cache + `DrawQuad::texture_cache_key` | landed |
+| Frame Graph / GpuScene underlay | `underlay_bridge` record; BGRA readback / effect::map color-target copy **open** | partial |
+| L3 → submit remap (Views multiproc) | Single-process A today; B path when shell spawns `--type=gpu` — **Task 8** | open |
 
 ### A+C locked decisions (2026-09-28)
 
@@ -471,6 +548,26 @@ Compose/present for `--type=gpu` (`src/gpu`) only. Shell / browser / Views never
 | Shell role | Shell consumes NT shared handles / DIB only — **never** blends the final frame. |
 | Monitor affinity | `AttachSurfaceBody` / `ResizeSurfaceBody` carry `monitor_luid_low` / `monitor_luid_high` (DXGI adapter LUID of the output’s monitor). Optional `adapter_hint` (`0xffffffff` = unset). `gpu_main` binds / rebinds the `OutputSurface` via `GpuDeviceHub` (`prefer_adapter_for_monitor` / `rebind_surface_to_monitor` by LUID). **`HMONITOR` is not sent over IPC** (shell-local only when resolving LUID). |
 
+### Env & wire flags（accurate）
+
+| Flag / env | Meaning |
+| --- | --- |
+| `SMT_GPU_COMPOSE` | unset/empty/unknown → **`kRhi`**; `software` → `kSoftware` (escape). Parsed in `select_compose_backend` (`compositor/composer/composer.cc`). |
+| `view.backend.rhi` | Wire → `ContentSource::kDirect` only — **not** FlyCube / not `ComposeBackend`. |
+| `view.backend.maplibre` / `SMT_MAP_BACKEND=…maplibre` | Tile StyleDocument path — **not** MapLibre Native. |
+| `SMT_MAP_BACKEND` / `SMT_XYZ_URL` | Content source / XYZ hand-test (see `src/gpu/README.md`). |
+| `--type=gpu` / `--in-process-gpu` | Process model (`ui-shell-multiprocess.md`); in-process-gpu debug/CI only. |
+| Vista parallel envs | `SMT_VISTA_LAYOUT_PARALLEL` / `SMT_GPUSCENE_PREP_PARALLEL` — **§vista**; do not overload as compose backend. |
+
+### Non-goals（硬）
+
+- No Skia Ganesh map path for compose
+- No leftover HWND FlyCube + gpu shared surface on the **same HWND**
+- No wholesale Chromium Mojo viz / Blink `cc` clone
+- No chrome / `app/` / `content/` `#include` of `render/rhi` or `gpu/compositor/`
+- No second compositor IR beside `CompositorFrame`
+- No N gpu processes per adapter by default
+
 ### Legacy GDI buffer → compositor IR（2026-09-29）
 
 **Updated:** 2026-10-01 — surface/ thinned to dib/ + composer/ (no blend/frame twin dirs; no Rhi2dComposer class).
@@ -479,24 +576,32 @@ src/legacy/render/rhi2d/impl/common/surface/ is map2d **compose + present**, not
 
 | Locked | Choice |
 | --- | --- |
-| Public ABI | Rhi2dSurface + Rhi2dOwnedSurface + pool helpers; no SmtRenderBuf; POINT scratch uses ase::tls_allocate / 	ls_deallocate (no SmtBufPool) |
+| Public ABI | Rhi2dSurface + Rhi2dOwnedSurface + pool helpers; no SmtRenderBuf; POINT scratch uses `base::tls_allocate` / `tls_deallocate` (no SmtBufPool) |
 | Layout | surface/dib/ (DIB + pool + owned lifecycle) · surface/composer/ (soft blit · HWND present · buf→buf · IR submit) |
 | Phase 1 | In-process: DIBSection BGRA + gpu::detail::blend_render_pass via narrow //src/gpu:compositor_cpu_blend (no full gpu_backend) |
 | HWND present | detail::present_to_hwnd → GDI BitBlt / TransparentBlt / StretchBlt |
-| buf→buf compose | detail::blit_owned_to / lit_surfaces → color-key→alpha then src-over; **stretch via nearest-neighbor** then blend |
+| buf→buf compose | detail::blit_owned_to / blit_surfaces → color-key→alpha then src-over; **stretch via nearest-neighbor** then blend |
 | Blit mode | Rhi2dBlitMode::{kOpaque,kColorKey} (replaces eSwapType / GdiBlitMode) |
-| Surface pool | 
-hi2d_surface_pool() reuses DIB by size; draw TUs allocate POINT scratch from TLS arena |
+| Surface pool | rhi2d_surface_pool() reuses DIB by size; draw TUs allocate POINT scratch from TLS arena |
 | Phase 2 | make_compositor_frame + submit_surface; C ABI SmtRhi2dSetBgraSubmit; GPU process binds → OutputSurface. Shell still must not final-compose. |
 | Phase 3 | GPU leftover_gdi_bgra_upload builds CompositorFrame → make_frame_composer (RHI/software) → draw_frame; NN-scale when sizes differ. Test: gdi_compose_test. |
 
 ### Phases
 
-| Phase | Scope |
-| --- | --- |
-| **P0** | Default compose = RHI; `SMT_GPU_COMPOSE=software` escape; sticky per-adapter software fallback; docs/tests match. |
-| **P1** | LUID fields on Attach/Resize IPC; shell fills LUID; `gpu_main` rebinds via hub (not primary-only forever). |
-| **P2** | TDR / device-lost → sticky software + generation bump wired from recovery path; as-built docs / dual-adapter notes. |
+| Phase | Scope | Status |
+| --- | --- | --- |
+| **P0** | Default compose = RHI; `SMT_GPU_COMPOSE=software` escape; sticky per-adapter software fallback; docs/tests match. | mostly landed |
+| **P1** | LUID fields on Attach/Resize IPC; shell fills LUID; `gpu_main` rebinds via hub (not primary-only forever). | code landed; LUID pin tests open |
+| **P2** | TDR / device-lost → sticky software + generation bump wired from recovery path; dual-adapter notes. | API landed; OS TDR wire open |
+| **Bridge** | Topology A↔B remap + underlay BGRA / effect::map copy — Task 8 on plan | open |
+
+### Acceptance
+
+- [x] Living § locks two topologies + IR + hub × N + non-goals
+- [x] Normative HTML diagram（A×B 整合 [`render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)）
+- [ ] Task 8 bridge checkboxes green (Views multiproc L3 submit)
+- [ ] Human multiprocess smoke: chrome present-only; kill GPU child recovers
+- [ ] Dual-adapter sticky fallback matches as-built README
 
 ---
 
@@ -2007,9 +2112,9 @@ Composite `china` showcase covers terrain + GeoObject + MapLabelBatch + northarr
 ## §src_render + vista parallel accelerate（终态 · 2026-10-02）
 
 **Status:** active  
-**Updated:** 2026-10-02 — **代码级详设**（Types / Call graph / Grains / GPU path / Env / API sketches）；SVG 图与 as-built 函数名对齐  
-**Plan:** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md)  
-**Diagram:** [`../diagrams/src-render-vista-parallel-accelerate.html`](../diagrams/src-render-vista-parallel-accelerate.html)（浅色 SVG：L0–L3 + **命名阶段** `stage_frame` → `build_layout_parallel` → `prep_cull_parallel` → `record_and_present`）  
+**Updated:** 2026-10-02 — **代码级详设** + 与 §GPU-process **统一规范图**（A×B）  
+**Plan:** [`../plans/2026-10-02-src-render-vista-parallel-accelerate.md`](../plans/2026-10-02-src-render-vista-parallel-accelerate.md)（L0–L3）；GPU-process checklist → [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md) Task 8  
+**Diagram (normative):** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（§2–§3 L0–L3 + 命名阶段 `stage_frame` → `build_layout_parallel` → `prep_cull_parallel` → `record_and_present`）  
 **CPU boundary diagram:** [`gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)（MapFrame POD 穿墙 → content/effect/graph）  
 **Related diagrams:** [`ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · [`legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html)  
 **Code:** `src/gis/vista/**` · `src/content/browser/present/{map2d,scene3d}/**` · `src/effect/{map,scene,atmosphere}/**` · `src/render/{rhi,graph,scene}/**` · `src/base/execution/**`  
@@ -2263,11 +2368,11 @@ bool record_and_present(render::rhi::Device* device,
 - **§rhi2d tile-raster** / **§rhi3d parallel frame**：leftover 语义参考 only。
 - **§src_render Map2d / Scene3d equal-profile**：ms + StaticReuse；本 § 供并行机器。
 - **Views §compositor thread**：L0/L3 线程角色。
-- **§GPU-process accelerate**：进程外 compose 另册；in-process = 本 §。
+- **§GPU-process accelerate**：双拓扑 — **本 § = Topology A**（in-process L3 Display + `graph::present`）；**§GPU = Topology B**（`--type=gpu` hub + `FrameComposer`）。L0–L2 语义共享；L3 按模式 remap。**统一规范图** [`render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)；Checklist 见 §GPU / Task 8。
 
 ### Acceptance
 
-- [x] Living § + plan + SVG 图（L0–L3 + 命名流水线）
+- [x] Living § + plan + **统一规范图** [`render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（L0–L3 + 命名流水线 + Topology B）
 - [x] 代码级 Types / Call graph / Grains / GPU / Env / API sketches 落档
 - [ ] Product env 在代码中接线 + `src/render/README.md` 已链（README 指针已加；**接线仍 open**）
 - [ ] Map2d china：`LAYOUT_PARALLEL=0` 对照墙钟下降；warm StaticReuse 预算仍成立

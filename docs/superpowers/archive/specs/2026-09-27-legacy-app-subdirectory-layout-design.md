@@ -151,15 +151,15 @@ src/legacy/app/
 
 | Old | New |
 | --- | --- |
-| `legacy/app/smtapp.h` | `legacy/app/core/smtapp.h` |
-| `legacy/app/smart_gis.h` | `legacy/app/shell/frame/app.h` |
-| `legacy/app/main_frame.h` | `legacy/app/shell/frame/main.h` |
-| `legacy/app/child_frame.h` | `legacy/app/shell/frame/child.h` |
-| `legacy/app/smart_gis_doc.h` | `legacy/app/doc/smart_gis_doc.h` |
+| `legacy/app/smtapp.h` | `legacy/app/core/bootstrap.h` |
+| `legacy/app/smart_gis.h` | `legacy/app/shell/frame/win_app.h` |
+| `legacy/app/main_frame.h` | `legacy/app/shell/frame/main_frame.h` |
+| `legacy/app/child_frame.h` | `legacy/app/shell/frame/child_frame.h` |
+| `legacy/app/smart_gis_doc.h` | `legacy/app/doc/document.h` |
 | `legacy/app/smart_gis_view.h` | `legacy/app/view/map/map.h` |
-| `legacy/app/smart_map_edit_view.h` | `legacy/app/view/edit/edit.h` |
-| `legacy/app/smart_data_source_view.h` | `legacy/app/view/datasource/datasource.h` |
-| `legacy/app/smart_3d_view.h` | `legacy/app/view/scene3d/scene3d_view.h` |
+| `legacy/app/smart_map_edit_view.h` | `legacy/app/view/edit_view.h` |
+| `legacy/app/smart_data_source_view.h` | `legacy/app/view/data_view.h` |
+| `legacy/app/smart_3d_view.h` | `legacy/app/view/scene3d_view.h` |
 | `legacy/app/stdafx.h` | **unchanged** (root) |
 | `legacy/app/resource.h` | **unchanged** (root) |
 

@@ -1,8 +1,8 @@
 #pragma once
 #include "afxwin.h"
 #include "legacy/plugin/product/dem/shell/resource.h"
-#include "legacy/ui/widgets/bcg_cmfc.h"
-#include "legacy/ui/map/view_3d.h"
+#include "legacy/ui/widgets/feature_pack/feature_pack.h"
+#include "legacy/ui/map/viewport/view_3d.h"
 
 using namespace ui;
 

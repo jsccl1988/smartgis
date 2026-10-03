@@ -449,17 +449,15 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
       lanes.push_back(key);
     }
   }
-  const int lane_bottom = b.bottom() - 6;
+  const int axis_h = 16;
+  const int lane_bottom = b.bottom() - 6 - axis_h;
   const int lane_top = chrome_bottom;
   if (lane_bottom <= lane_top + 8 || lanes.empty()) {
     return;
   }
   const int lane_h =
-      (std::max)(14, (lane_bottom - lane_top) /
+      (std::max)(16, (lane_bottom - lane_top) /
                          (std::max)(1, static_cast<int>(lanes.size())));
-
-  canvas->fill_rect(b.x + 4, lane_top, b.width - 8, lane_bottom - lane_top,
-                    t.panel_bg);
 
   int64_t min_ts = 0;
   int64_t max_ts = 1;
@@ -483,15 +481,39 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
   const double span =
       static_cast<double>((std::max)(max_ts - min_ts, int64_t{1}));
 
-  const int left = b.x + 88;
+  const int label_w = 96;
+  const int left = b.x + label_w;
   const int right = b.right() - 8;
   const int width = (std::max)(1, right - left);
+  const int plot_h = lane_bottom - lane_top;
+
+  canvas->save();
+  canvas->clip_rect(b.x + 4, lane_top, b.width - 8, plot_h + axis_h);
+  canvas->fill_rect(b.x + 4, lane_top, b.width - 8, plot_h, t.control_bg);
+  canvas->stroke_rect(left, lane_top, width, plot_h, t.panel_header, 1);
+
+  // Vertical time grid (Chrome Trace style).
+  for (int tick = 0; tick <= 4; ++tick) {
+    const int x = left + (width * tick) / 4;
+    canvas->draw_line(x, lane_top, x, lane_bottom, t.panel_header, 1);
+    const double ms =
+        (span * static_cast<double>(tick) / 4.0) / 1000.0;
+    const std::wstring label = utf8_to_wide(std::format("{:.1f}ms", ms));
+    canvas->draw_text(x + 2, lane_bottom + 2, label.c_str(), t.text_muted);
+  }
 
   for (std::size_t i = 0; i < lanes.size(); ++i) {
     const int y = lane_top + static_cast<int>(i) * lane_h;
-    canvas->draw_text(b.x + 6, y + 2, utf8_to_wide(lanes[i]).c_str(),
-                      t.text_muted);
-    canvas->fill_rect(left, y + lane_h - 1, width, 1, t.text_muted);
+    if ((i % 2) == 1) {
+      canvas->fill_rect(left, y, width, lane_h, t.panel_bg);
+    }
+    canvas->save();
+    canvas->clip_rect(b.x + 4, y, label_w - 6, lane_h);
+    canvas->draw_text(b.x + 6, y + std::max(0, (lane_h - 14) / 2),
+                      utf8_to_wide(lanes[i]).c_str(), t.text_muted);
+    canvas->restore();
+    canvas->draw_line(left, y + lane_h - 1, right, y + lane_h - 1,
+                      t.panel_header, 1);
   }
 
   for (const auto& e : vis) {
@@ -503,6 +525,7 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
             .count();
     const std::size_t li = lane_of[lane_key(e)];
     const int y = lane_top + static_cast<int>(li) * lane_h + 2;
+    const int bar_h = std::max(4, lane_h - 4);
     const int x0 =
         left + static_cast<int>((static_cast<double>(ts - min_ts) / span) *
                                 width);
@@ -510,8 +533,19 @@ void RenderTracePanel::paint_self(ui::gfx::Canvas* canvas) {
         2, static_cast<int>((static_cast<double>((std::max)(dur, int64_t{1})) /
                              span) *
                             width));
-    canvas->fill_rect(x0, y, w, lane_h - 4, lane_color(li));
+    const ui::gfx::Color c = lane_color(li);
+    canvas->fill_rect(x0, y, w, bar_h, c);
+    canvas->stroke_rect(x0, y, w, bar_h, t.panel_header, 1);
+    // Name when the bar is wide enough to read (DevTools / Perfetto habit).
+    if (w > 48) {
+      canvas->save();
+      canvas->clip_rect(x0 + 2, y, w - 4, bar_h);
+      canvas->draw_text(x0 + 3, y + std::max(0, (bar_h - 12) / 2),
+                        utf8_to_wide(e.name).c_str(), t.text_bright);
+      canvas->restore();
+    }
   }
+  canvas->restore();
 }
 
 }  // namespace views

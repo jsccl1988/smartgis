@@ -16,7 +16,8 @@ DAP config under `vscode/launch.json`.
 | `smartgis/client.py` | NDJSON `AgentClient` (events, reconnect) |
 | `smartgis/discovery.py` | `%TEMP%/smartgis-debug.json` → connect |
 | `smartgis/agent_ui.py` | `ui.*` RPC helpers |
-| `smartgis/__init__.py` | Helpers (`log_tail`, `cmd_exec`, `sdbd_query`, `ui_*`, …) |
+| `smartgis/__init__.py` | Helpers (`log_tail`, `cmd_exec`, `diag_pack`, `record_*`, `rpc_methods`, `ui_*`, …) |
+| `agent_methods.json` | Machine-readable Agent method catalog (also `rpc.methods` / `:help json`) |
 | `smartgis/*.pyi` | Pyright / LSP stubs (incl. edit-time `ui/` / `gis/` façades) |
 | `vscode/launch.json` | Sample attach to debugpy on port **5678** |
 | `tests/` | pytest + shared `mock_agent` |

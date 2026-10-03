@@ -39,8 +39,14 @@ bool add_point_cloud_layer(LayerStore* store, const std::string& name,
                            const float* xyz, int point_count,
                            const uint8_t* rgba = nullptr);
 
+// Nearest feature within |tol_map|; selects it. nullptr when nothing hits.
 const MapFeature* hit_test(LayerStore* store, double map_x, double map_y,
                            double tol_map);
+
+// All features within |tol_map|, nearest-first. Selects the nearest (same as
+// hit_test). Empty when nothing is inside the pick tolerance.
+std::vector<const MapFeature*> hit_test_all(LayerStore* store, double map_x,
+                                           double map_y, double tol_map);
 
 // Snap result in map CRS. kind distinguishes vertex vs edge projection.
 struct SnapHit {

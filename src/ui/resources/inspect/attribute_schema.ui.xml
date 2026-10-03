@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="attribute_schema">
+  <style src="attribute_schema.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="title_hint" class="hint" text="Define attribute fields for the layer schema."/>
+    <table id="fields" columns="Name,Type"/>
+    <label id="name_label" text="Field name"/>
+    <textfield id="name"/>
+    <label id="type_label" text="Field type"/>
+    <combobox id="type">
+      <item text="Integer"/>
+      <item text="Double"/>
+      <item text="String"/>
+      <item text="Date"/>
+    </combobox>
+    <hbox id="buttons" class="row">
+      <button id="add" text="Add"/>
+      <button id="remove" text="Remove"/>
+    </hbox>
+    <label id="status" class="status" text=""/>
+  </vbox>
+</ui>

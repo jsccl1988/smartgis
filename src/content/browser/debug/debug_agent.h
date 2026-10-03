@@ -13,6 +13,8 @@
 #include <thread>
 #include <vector>
 
+#include "content/browser/debug/agent_policy.h"
+
 namespace content {
 
 // Narrow host hooks so DebugAgent does not depend on Browser widgets.
@@ -62,6 +64,10 @@ class DebugAgent {
   // Returns JSON array body (no wrapping) of drained events; clears buffer.
   std::string poll_record_events_json();
 
+  // Session confirm for dangerous ops (see agent_policy).
+  void confirm_dangerous_ops();
+  bool dangerous_ops_allowed() const;
+
  private:
   void accept_loop();
   void serve_client(unsigned long long sock);
@@ -91,6 +97,9 @@ class DebugAgent {
   std::mutex record_mu_;
   std::vector<std::string> record_events_;
   std::int64_t record_t0_ms_ = 0;
+
+  mutable std::mutex policy_mu_;
+  detail::AgentPolicy policy_;
 };
 
 // Process-wide agent used by Views Console (created on first enable).

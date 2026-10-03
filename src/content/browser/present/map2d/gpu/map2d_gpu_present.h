@@ -65,7 +65,7 @@ class Map2dGpuPresent {
 
   bool last_present_ok() const { return last_present_ok_; }
   // True when the last present() call recorded Pass / graph::present (not a
-  // StaticReuse swapchain keep). show_chrome must wait on a drew frame so a
+  // StaticReuse swapchain keep). show_shell must wait on a drew frame so a
   // skip after clear cannot satisfy the first-map pump.
   bool last_present_drew() const { return last_present_drew_; }
   // After DXGI Resize/initialize the swapchain is clear — clear the skip latch

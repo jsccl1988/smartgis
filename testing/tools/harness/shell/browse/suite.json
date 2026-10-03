@@ -6,8 +6,7 @@
   ],
   "script": "browse.il",
   "env": {
-    "SMT_SKIP_MAP_CONTEXT_MENU": "1",
-    "SMT_MAP2D_NO_HILLSHADE": "1"
+    "SMT_SKIP_MAP_CONTEXT_MENU": "1"
   },
   "mark_leaf": "self-test-mark.txt",
   "required_marks": [

@@ -24,7 +24,7 @@ enum class AnalysisProduct : std::uint8_t {
   kOrthogrid3d,
 };
 
-// Chrome-owned result buffer for CommitLayer + ResultPlayback + frame export.
+// Shell-owned result buffer for CommitLayer + ResultPlayback + frame export.
 // Composes product stores; plugins do not own this type — Browser writers fill
 // it after processing.
 class AnalysisPlayback {

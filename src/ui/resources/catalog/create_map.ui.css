@@ -1,0 +1,27 @@
+/* CreateMap dialog — Flex subset for Yoga; industry dialog spacing. */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  width: 360px;
+  height: 120px;
+}
+
+.hint,
+.status {
+  height: 20px;
+  width: 336px;
+  color: #afafaf;
+}
+
+#name_label {
+  height: 20px;
+  width: 336px;
+}
+
+#name {
+  height: 30px;
+  width: 336px;
+}

@@ -1,58 +1,57 @@
-// stdafx.h : ��׼ϵͳ�����ļ��İ����ļ���
-// ���Ǿ���ʹ�õ��������ĵ�
-// �ض�����Ŀ�İ����ļ�
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+// PCH for widgets_sources (sole DllMain TU + RC companion).
 
 #pragma once
 
 #ifndef VC_EXTRALEAN
-#define VC_EXTRALEAN  // �� Windows ͷ���ų�����ʹ�õ�����
+#define VC_EXTRALEAN
 #endif
 
-// ������뽫λ������ָ��ƽ̨֮ǰ��ƽ̨��ΪĿ�꣬���޸����ж��塣
-// �йز�ͬƽ̨��Ӧֵ��������Ϣ����ο� MSDN��
-#ifndef WINVER         // ����ʹ���ض��� Windows XP ����߰汾�Ĺ��ܡ�
-#define WINVER 0x0501  // ����ֵ����Ϊ��Ӧ��ֵ���������� Windows �������汾��
+#ifndef WINVER
+#define WINVER 0x0501
 #endif
 
-#ifndef _WIN32_WINNT         // ����ʹ���ض��� Windows XP ����߰汾�Ĺ��ܡ�
-#define _WIN32_WINNT 0x0501  // ����ֵ����Ϊ��Ӧ��ֵ���������� Windows �������汾��
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0501
 #endif
 
-#ifndef _WIN32_WINDOWS         // ����ʹ���ض��� Windows 98 ����߰汾�Ĺ��ܡ�
-#define _WIN32_WINDOWS 0x0410  // ����ֵ����Ϊ�ʵ���ֵ����ָ���� Windows Me ����߰汾��ΪĿ�ꡣ
+#ifndef _WIN32_WINDOWS
+#define _WIN32_WINDOWS 0x0410
 #endif
 
-#ifndef _WIN32_IE         // ����ʹ���ض��� IE 6.0 ����߰汾�Ĺ��ܡ�
-#define _WIN32_IE 0x0600  // ����ֵ����Ϊ��Ӧ��ֵ���������� IE �������汾��
+#ifndef _WIN32_IE
+#define _WIN32_IE 0x0600
 #endif
 
-#define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS  // ĳЩ CString ���캯��������ʽ��
+#define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS
 
-#include <afxext.h>  // MFC ��չ
-#include <afxwin.h>  // MFC ��������ͱ�׼���
+#include <afxext.h>
+#include <afxwin.h>
 
 #ifndef _AFX_NO_OLE_SUPPORT
-#include <afxdisp.h>   // MFC �Զ�����
-#include <afxodlgs.h>  // MFC OLE �Ի�����
-#include <afxole.h>    // MFC OLE ��
-#endif                 // _AFX_NO_OLE_SUPPORT
+#include <afxdisp.h>
+#include <afxodlgs.h>
+#include <afxole.h>
+#endif
 
 #ifndef _AFX_NO_DB_SUPPORT
-#include <afxdb.h>  // MFC ODBC ���ݿ���
-#endif              // _AFX_NO_DB_SUPPORT
+#include <afxdb.h>
+#endif
 
 #ifndef _AFX_NO_DAO_SUPPORT
-#include <afxdao.h>  // MFC DAO ���ݿ���
-#endif               // _AFX_NO_DAO_SUPPORT
+#include <afxdao.h>
+#endif
 
 #ifndef _AFX_NO_OLE_SUPPORT
-#include <afxdtctl.h>  // MFC �� Internet Explorer 4 �����ؼ���֧��
+#include <afxdtctl.h>
 #endif
 #ifndef _AFX_NO_AFXCMN_SUPPORT
-#include <afxcmn.h>  // MFC �� Windows �����ؼ���֧��
-#endif               // _AFX_NO_AFXCMN_SUPPORT
+#include <afxcmn.h>
+#endif
 
-#include "legacy/ui/widgets/bcg_cmfc.h"  // MFC Feature Pack stand-in for BCGControlBar Pro
+#include "legacy/ui/widgets/feature_pack/feature_pack.h"
 
 #if defined _M_IX86
 #pragma comment( \

@@ -52,6 +52,7 @@ class UI_EXPORT SelectionPanel : public View {
   void rebuild_table();
   void fire(const std::string& id);
   void refresh_count_label();
+  void sync_commands_enabled();
 
   Label* title_ = nullptr;
   Label* count_label_ = nullptr;

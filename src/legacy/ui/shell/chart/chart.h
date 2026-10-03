@@ -23,7 +23,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 #include "legacy/gis/present/carto/style.h"
 #include "legacy/core/types/types.h"
 #include "legacy/core/macros/macros.h"
-#include "legacy/ui/shell/chart/diagramdata.h"
+#include "legacy/ui/shell/chart/diagram_data.h"
 
 using namespace base;
 using namespace base;

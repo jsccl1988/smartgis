@@ -49,6 +49,15 @@ int TableView::column_width(int col) const {
   if (cols <= 0 || b.width <= 0 || col < 0 || col >= cols) {
     return 0;
   }
+  // Identify-style Field|Value: keep the name column narrower so long values
+  // get the leftover width (ArcGIS / QGIS attribute pane convention).
+  if (cols == 2) {
+    const int first = (b.width * 38) / 100;
+    if (col == 0) {
+      return first;
+    }
+    return b.width - first;
+  }
   const int base = b.width / cols;
   if (col + 1 == cols) {
     return b.width - base * (cols - 1);
@@ -96,6 +105,7 @@ void TableView::clear_rows() {
   rows_.clear();
   row_wide_.clear();
   selected_ = -1;
+  hovered_ = -1;
   invalidate_row_cache();
   invalidate_commands();
   schedule_paint();
@@ -165,19 +175,28 @@ int TableView::col_at_point(int x) const {
   if (cols <= 0 || b.width <= 0) {
     return -1;
   }
-  const int col_w = b.width / cols;
-  if (col_w <= 0) {
-    return 0;
+  int x_cursor = b.x;
+  for (int c = 0; c < cols; ++c) {
+    const int w = column_width(c);
+    if (x >= x_cursor && x < x_cursor + w) {
+      return c;
+    }
+    x_cursor += w;
   }
-  const int c = (x - b.x) / col_w;
-  if (c < 0 || c >= cols) {
-    return -1;
-  }
-  return c;
+  return cols - 1;
 }
 
 bool TableView::on_mouse_event(const MouseEvent& e) {
   if (!is_enabled()) {
+    return false;
+  }
+  if (e.type == MouseEvent::Type::kMove) {
+    const int row = row_at_point(e.y);
+    if (row != hovered_) {
+      hovered_ = row;
+      invalidate_row_cache();
+      schedule_paint();
+    }
     return false;
   }
   if (e.type == MouseEvent::Type::kDblClick && e.button == 1) {
@@ -255,14 +274,18 @@ bool TableView::row_cache_matches(int begin, int end) const {
   }
   const Rect& b = bounds();
   if (cache_begin_ != begin || cache_end_ != end ||
-      cache_selected_ != selected_ || cache_origin_x_ != b.x ||
-      cache_origin_y_ != b.y || cache_width_ != b.width) {
+      cache_selected_ != selected_ || cache_hovered_ != hovered_ ||
+      cache_origin_x_ != b.x || cache_origin_y_ != b.y ||
+      cache_width_ != b.width) {
     return false;
   }
   const Theme& t = Theme::current();
   return cache_control_bg_ == t.control_bg &&
          cache_panel_header_ == t.panel_header && cache_accent_ == t.accent &&
-         cache_text_ == t.text && cache_text_bright_ == t.text_bright;
+         cache_text_ == t.text && cache_text_bright_ == t.text_bright &&
+         cache_text_muted_ == t.text_muted && cache_row_alt_ == t.row_alt &&
+         cache_control_border_ == t.control_border &&
+         cache_control_hover_ == t.control_hover;
 }
 
 void TableView::rebuild_row_cache(int begin, int end) {
@@ -274,38 +297,70 @@ void TableView::rebuild_row_cache(int begin, int end) {
   const Rect& b = bounds();
   row_cache_.fill_rect(b.x, b.y, b.width, b.height, t.control_bg);
   const int cols = columns_.empty() ? 1 : static_cast<int>(columns_.size());
-  const int col_w = cols > 0 ? b.width / cols : b.width;
+  const int pad = std::max(4, dip_to_px(4, scale_factor()));
+  const int rail = std::max(2, dip_to_px(3, scale_factor()));
   Rect vis = exposed_rect();
   if (vis.width <= 0 || vis.height <= 0) {
     vis = b;
   }
   if (b.y < vis.bottom() && b.y + header_height() > vis.y) {
     row_cache_.fill_rect(b.x, b.y, b.width, header_height(), t.panel_header);
+    int x = b.x;
     for (int c = 0; c < static_cast<int>(column_wide_.size()); ++c) {
-      row_cache_.draw_text(b.x + c * col_w + 4, b.y + 4,
+      const int w = column_width(c);
+      row_cache_.save();
+      row_cache_.clip_rect(x + pad, b.y, std::max(1, w - pad * 2),
+                           header_height());
+      row_cache_.draw_text(x + pad, b.y + 4,
                            column_wide_[static_cast<size_t>(c)].c_str(),
                            t.text_bright);
+      row_cache_.restore();
+      x += w;
     }
+    // Hairline under header separates chrome from data rows.
+    row_cache_.fill_rect(b.x, b.y + header_height() - 1, b.width, 1,
+                         t.control_border);
   }
   for (int r = begin; r < end; ++r) {
     const int y = b.y + header_height() + r * row_height();
-    if (r == selected_) {
-      row_cache_.fill_rect(b.x, y, b.width, row_height(), t.accent);
+    const bool sel = (r == selected_);
+    const bool hover = (!sel && r == hovered_);
+    if (sel) {
+      // Soft selection plate + accent rail (catalog LayerTree convention).
+      row_cache_.fill_rect(b.x, y, b.width, row_height(), t.control_hover);
+      row_cache_.fill_rect(b.x, y, rail, row_height(), t.accent);
+    } else if (hover) {
+      row_cache_.fill_rect(b.x, y, b.width, row_height(), t.control_hover);
+    } else if ((r % 2) != 0) {
+      row_cache_.fill_rect(b.x, y, b.width, row_height(), t.row_alt);
     }
     if (r < 0 || r >= static_cast<int>(row_wide_.size())) {
       continue;
     }
     const auto& cells = row_wide_[static_cast<size_t>(r)];
     const int n = static_cast<int>(cells.size());
+    int x = b.x;
     for (int c = 0; c < cols && c < n; ++c) {
-      row_cache_.draw_text(b.x + c * col_w + 4, y + 3,
-                           cells[static_cast<size_t>(c)].c_str(), t.text);
+      const int w = column_width(c);
+      const std::wstring& cell = cells[static_cast<size_t>(c)];
+      // Empty / placeholder values read as muted secondary ink.
+      const bool muted =
+          cell.empty() || cell == L"\x2014" || cell == L"—";
+      const ui::gfx::Color ink =
+          muted ? t.text_muted : (sel ? t.text_bright : t.text);
+      row_cache_.save();
+      row_cache_.clip_rect(x + pad, y, std::max(1, w - pad * 2), row_height());
+      row_cache_.draw_text(x + pad, y + 3, cell.c_str(), ink);
+      row_cache_.restore();
+      x += w;
     }
   }
+  row_cache_.stroke_rect(b.x, b.y, b.width, b.height, t.control_border, 1);
 
   cache_begin_ = begin;
   cache_end_ = end;
   cache_selected_ = selected_;
+  cache_hovered_ = hovered_;
   cache_origin_x_ = b.x;
   cache_origin_y_ = b.y;
   cache_width_ = b.width;
@@ -314,6 +369,10 @@ void TableView::rebuild_row_cache(int begin, int end) {
   cache_accent_ = t.accent;
   cache_text_ = t.text;
   cache_text_bright_ = t.text_bright;
+  cache_text_muted_ = t.text_muted;
+  cache_row_alt_ = t.row_alt;
+  cache_control_border_ = t.control_border;
+  cache_control_hover_ = t.control_hover;
   cache_valid_ = true;
 
   LARGE_INTEGER t1 = {};

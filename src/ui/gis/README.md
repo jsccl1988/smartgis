@@ -21,17 +21,18 @@ src/ui/gis/
   BUILD.gn
   README.md
   gis.h / gis.cc          umbrella
-  catalog/                CatalogView, LayerTree
+  form_helpers.h          shared modal field validation helpers
+  catalog/                CatalogView, LayerTree + Create*/AddBasemap modals
   inspect/                AttributeTable, FeatureInfo, Measure, Selection
+                          + AttributeSchema modal
   shell/                  AmboxView, AtmospherePanel, ChartView, StatusBar
   style/                  Legend, Symbology, LayerProperties
   analysis/               Processing, SpatialAnalysis, GeoprocessingHistory
   debug/                  DebugConsole, DiagnosticTools, RenderTrace
-  dialogs/                AddBasemap, AttStruct, CreateDatasource/Layer/Map
                           (load_markup + src/ui/resources/<area>/*.ui.xml)
 ```
 
-Toolkit-only dialogs (`Dialog`, `MessageBox`, `FilePicker`, `InputText`, `SelectOne`) stay in `src/ui/views/dialogs/` (`resources/toolkit/`). Map hang stays in `src/ui/views/map/`.
+Toolkit-only dialogs (`Dialog`, `MessageBox`, `FilePicker`, `InputText`, `SelectOne`) stay in `src/ui/views/dialogs/` (`resources/toolkit/`). Map hang stays in `src/ui/views/map/`. Product GIS modals live with their domain area (`catalog/`, `inspect/`), not a flat `dialogs/` bucket.
 
 Wave1–3 panels load markup from
 `resources/{shell,inspect,style,analysis,catalog,debug}/`.

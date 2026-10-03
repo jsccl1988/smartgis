@@ -1,0 +1,29 @@
+/* CreateLayer dialog — Flex subset for Yoga; industry dialog spacing. */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  width: 360px;
+  height: 190px;
+}
+
+.hint,
+.status {
+  height: 20px;
+  width: 336px;
+  color: #afafaf;
+}
+
+#name_label,
+#type_label {
+  height: 20px;
+  width: 336px;
+}
+
+#name,
+#type {
+  height: 30px;
+  width: 336px;
+}

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 The Mogu Authors.
+// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 // Shell overlay staging + on-client identity HUD chrome for MapViewport.
@@ -27,9 +27,9 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
-#include "ui/views/map/chrome/identity_hud.h"
+#include "ui/views/map/frame/identity_hud.h"
 #include "ui/views/map/device/device_load.h"
-#include "ui/views/map/chrome/embed_fill.h"
+#include "ui/views/map/frame/embed_fill.h"
 #include "ui/views/map/viewport/features.h"
 #include "ui/views/map/input/viewport_input.h"
 
@@ -136,7 +136,7 @@ void MapViewport::commit_shell_overlay(const uint8_t* bgra, uint32_t width_px,
           static_cast<std::uint64_t>(t1.QuadPart - t0.QuadPart));
     }
     // Map-region shell changed: wake BeginFrame so HUD lands in the next GPU
-    // present. Chrome-only dirty must be filtered by the caller (BrowserView).
+    // present. Shell-only dirty must be filtered by the caller (BrowserView).
     request_frame();
   }
 }
@@ -191,7 +191,7 @@ void MapViewport::note_hud_frame() {
   }
 }
 
-void MapViewport::sync_identity_chrome() {
+void MapViewport::sync_identity_frame() {
   HWND hwnd = native_view();
   if (!hwnd) {
     return;

@@ -26,6 +26,7 @@
 #include "tool/interaction/interaction.h"
 #include "tool/workspace/workspace.h"
 #include "ui/gis/catalog/catalog_view.h"
+#include "ui/gis/catalog/layer_tree.h"
 #include "ui/gis/inspect/feature_info.h"
 #include "ui/gis/shell/status_bar.h"
 #include "ui/views/kernel/shell/dpi.h"
@@ -44,6 +45,7 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <memory>
 #include <string>
 #include <system_error>
@@ -171,14 +173,37 @@ self_test_mark("layers-ok");
       return 39;
     }
     browser.catalog_view()->populate_layers([&] {
+      auto to_views_kind = [](content::LayerKind k) {
+        switch (k) {
+          case content::LayerKind::kGroup:
+            return ui::views::LayerKind::kGroup;
+          case content::LayerKind::kVector:
+            return ui::views::LayerKind::kVector;
+          case content::LayerKind::kRaster:
+            return ui::views::LayerKind::kRaster;
+          case content::LayerKind::kUnknown:
+          default:
+            return ui::views::LayerKind::kUnknown;
+        }
+      };
+      std::function<ui::views::LayerTree::LayerDesc(const content::LayerDesc&)>
+          convert = [&](const content::LayerDesc& d) {
+            ui::views::LayerTree::LayerDesc row;
+            row.id = d.id;
+            row.name = d.name;
+            row.visible = d.visible;
+            row.active = d.active;
+            row.kind = to_views_kind(d.kind);
+            row.expanded = d.expanded;
+            row.children.reserve(d.children.size());
+            for (const content::LayerDesc& child : d.children) {
+              row.children.push_back(convert(child));
+            }
+            return row;
+          };
       std::vector<ui::views::LayerTree::LayerDesc> layers;
       for (const auto& d : browser.document()->layer_descs()) {
-        ui::views::LayerTree::LayerDesc row;
-        row.id = d.id;
-        row.name = d.name;
-        row.visible = d.visible;
-        row.active = d.active;
-        layers.push_back(std::move(row));
+        layers.push_back(convert(d));
       }
       return layers;
     }());
@@ -189,9 +214,18 @@ self_test_mark("layers-ok");
     {
       if (city_pack) {
         bool found_text_layer = false;
+        std::function<void(const content::LayerDesc&)> walk =
+            [&](const content::LayerDesc& d) {
+              if (d.name == "text") {
+                found_text_layer = true;
+              }
+              for (const content::LayerDesc& child : d.children) {
+                walk(child);
+              }
+            };
         for (const auto& d : browser.document()->layer_descs()) {
-          if (d.name == "text") {
-            found_text_layer = true;
+          walk(d);
+          if (found_text_layer) {
             break;
           }
         }

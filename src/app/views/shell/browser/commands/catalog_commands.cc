@@ -40,17 +40,17 @@
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
 #include "tool/workspace/workspace.h"
-#include "ui/gis/dialogs/add_basemap_dialog.h"
+#include "ui/gis/catalog/add_basemap_dialog.h"
 #include "ui/gis/shell/ambox_view.h"
 #include "plugin/runtime/processing/builtin_ops.h"
 #include "plugin/runtime/processing/ops_runner.h"
 #include "ui/gis/shell/atmosphere_panel.h"
-#include "ui/gis/dialogs/att_struct_dialog.h"
+#include "ui/gis/inspect/attribute_schema_dialog.h"
 #include "ui/gis/inspect/attribute_table.h"
 #include "ui/gis/catalog/catalog_view.h"
-#include "ui/gis/dialogs/create_datasource_dialog.h"
-#include "ui/gis/dialogs/create_layer_dialog.h"
-#include "ui/gis/dialogs/create_map_dialog.h"
+#include "ui/gis/catalog/create_datasource_dialog.h"
+#include "ui/gis/catalog/create_layer_dialog.h"
+#include "ui/gis/catalog/create_map_dialog.h"
 #include "ui/gis/inspect/feature_info.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/dialogs/input_text_dialog.h"
@@ -206,9 +206,9 @@ void Browser::on_catalog_command(const std::string& command_id) {
     return;
   }
   if (command_id == "catalog.layer.attstruct") {
-    std::vector<ui::views::AttField> fields;
-    if (ui::views::AttStructDialog::run(hwnd, &fields)) {
-      status("Attribute structure (" +
+    std::vector<ui::views::AttributeField> fields;
+    if (ui::views::AttributeSchemaDialog::run(hwnd, &fields)) {
+      status("Attribute schema (" +
              std::to_string(fields.size()) + " fields)");
     }
     return;

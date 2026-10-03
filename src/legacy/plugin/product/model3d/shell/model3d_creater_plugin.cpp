@@ -18,8 +18,8 @@
 #include "legacy/tool/abi/t_iatoolmanager.h"
 #include "legacy/tool/abi/t_msg.h"
 #include "legacy/ui/dialogs/dialogs_api.h"
-#include "legacy/ui/catalog/mapmgr.h"
-#include "legacy/ui/catalog/scenemgr.h"
+#include "legacy/ui/catalog/map/mapmgr.h"
+#include "legacy/ui/catalog/scene/scenemgr.h"
 #include "plugin/product/world3d/processing/grid_loader.h"
 #include "plugin/product/world3d/processing/tin_loader.h"
 
@@ -29,7 +29,7 @@ using namespace sys;
 using namespace plugin;
 using namespace ui;
 
-const string CST_STR_3DMODELCREATER_PLUGIN_NAME = "三维创建";
+const string CST_STR_3DMODELCREATER_PLUGIN_NAME = "Model3D";
 Smt3DModelCreaterPlugin *g_p3DModelCreaterPlugin = NULL;
 
 #define AM_MSG_CMD_3DMODELCREATER_BEGIN (SMT_MSG_USER_BEGIN)

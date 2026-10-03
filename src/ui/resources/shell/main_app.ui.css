@@ -38,10 +38,14 @@
   gap: 0px;
 }
 
+/* Prefer min-height + Yoga measure(preferred_size) over height:40px.
+   Fixed CSS px stayed physical under high DPI while Catalog used DIP glyphs,
+   so layer rows painted through the tool strip (ui.shell overlap). */
 .tool_bar {
   width: 100%;
-  height: 40px;
+  min-height: 40px;
   flex-grow: 0;
+  flex-shrink: 0;
 }
 
 .catalog_map {
@@ -69,11 +73,13 @@
 }
 
 /* Product default console strip; intentionally collapsed panels still use
-   preferred {0,0} via DiagnosticToolsPanel::set_visible_tools(false). */
+   preferred {0,0} via DiagnosticToolsPanel::set_visible_tools(false).
+   height is a layout hint; ShellLayoutChrome / apply_chrome_metrics pin the
+   live preferred size in DIP→px after mount. */
 .diagnostics {
   width: 100%;
-  height: 160px;
-  min-height: 120px;
+  height: 240px;
+  min-height: 160px;
   flex-grow: 0;
 }
 

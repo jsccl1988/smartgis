@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -488,6 +489,9 @@ bool seed_sea_mask_from_dem(gis::atmosphere::Environment& env,
   layer.priority = 1;  // Prefer over empty-ring fail-closed layer.
   layer.grid = grid;
   layer.values = std::move(sea);
+  // Timeless procedural mask — default time_sec=0 would invent a timed range
+  // and clamp AtmosphereSession::set_time_sec (scene3d time scrub).
+  layer.time_sec = std::numeric_limits<double>::quiet_NaN();
   env.field_store().set_layer(layer);
   return true;
 }

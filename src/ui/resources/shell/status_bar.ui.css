@@ -1,10 +1,10 @@
-/* StatusBar — horizontal strip */
+/* StatusBar — horizontal strip; field gaps leave room for painted separators */
 
 .bar {
   display: flex;
   flex-direction: row;
-  gap: 12px;
-  padding: 0px 8px;
+  gap: 16px;
+  padding: 0px 10px;
   width: 400px;
   height: 32px;
   align-items: center;

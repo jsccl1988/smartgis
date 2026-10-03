@@ -6,6 +6,8 @@
 
 #include <algorithm>
 
+#include "legacy/app/shell/dock/pane_host.h"
+
 namespace {
 
 enum {
@@ -34,14 +36,10 @@ DiagnosticToolsDockBar::DiagnosticToolsDockBar() = default;
 DiagnosticToolsDockBar::~DiagnosticToolsDockBar() = default;
 
 void DiagnosticToolsDockBar::fill_opaque_client(CDC* pDC) {
-  if (pDC == nullptr) {
-    return;
-  }
-  CRect rc;
-  GetClientRect(&rc);
   // Solid fill — Office2007 glass / PrintWindow otherwise shows the map
   // through the Diagnostic strip (visual-review bug #3).
-  pDC->FillSolidRect(&rc, ::GetSysColor(COLOR_BTNFACE));
+  legacy_app::detail::erase_dock_pane_bkgnd(this, pDC,
+                                            ::GetSysColor(COLOR_BTNFACE));
 }
 
 BOOL DiagnosticToolsDockBar::OnEraseBkgnd(CDC* pDC) {

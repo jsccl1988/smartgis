@@ -7,7 +7,7 @@ All rights reserved.
 
 **Status:** active  
 **Date:** 2026-09-19  
-**Updated:** 2026-10-02 — §12d surface base + modern C++ / hot-path; §12c top-level tighten; §12c primitive deep layer + `legacy/gis/feature`; §SP4 scene3d layout tighten; §SP2 rhi3d bridge removed; §SP1 Layout; §13 point-cloud; §11b.
+**Updated:** 2026-10-02 — §11h `legacy/ui/inspect` `{host,sys,edit}`; §11g `legacy/app` deep layer; §11f `legacy/ui/shell`; §11d widgets; §11e map; §11c Feature Pack B1; §12d surface base; §12c scene3d; §SP4/SP2/SP1; §13; §11b.
 **Scope:** Living design for leftover strangler program **SP0–SP5**: order, technique, dependency direction, parallel rules, ABI, and **locked decisions per SP**. Implementation checklists stay in `docs/superpowers/plans/` (linked below). Physical package splits already done; revise **sections here** — do not open new dated SP / layout twins.  
 **Related (accepted / landed — do not reopen):**
 
@@ -28,7 +28,7 @@ All rights reserved.
 | SP1 | [`../plans/2026-09-19-legacy-tool-workspace-strangler.md`](../plans/2026-09-19-legacy-tool-workspace-strangler.md) |
 | SP1b | [`../plans/2026-09-19-tool-behavior-migration.md`](../plans/2026-09-19-tool-behavior-migration.md) |
 | SP2 | [`../plans/2026-09-19-legacy-render-present-facade.md`](../plans/2026-09-19-legacy-render-present-facade.md) · dual-run [`../archive/plans/2026-09-27-legacy-render-subdirectory-dual-run.md`](../archive/plans/2026-09-27-legacy-render-subdirectory-dual-run.md) |
-| SP3 | [`../plans/2026-09-19-legacy-host-behavior-extract.md`](../plans/2026-09-19-legacy-host-behavior-extract.md) · app layout [`../archive/plans/2026-09-27-legacy-app-subdirectory-layout.md`](../archive/plans/2026-09-27-legacy-app-subdirectory-layout.md) · UI layout [`../plans/2026-09-29-legacy-ui-subdirectory-layout.md`](../plans/2026-09-29-legacy-ui-subdirectory-layout.md) · **Feature Pack** [`../plans/2026-09-29-legacy-mfc-ex-feature-pack.md`](../plans/2026-09-29-legacy-mfc-ex-feature-pack.md) |
+| SP3 | [`../plans/2026-09-19-legacy-host-behavior-extract.md`](../plans/2026-09-19-legacy-host-behavior-extract.md) · app layout [`../archive/plans/2026-09-27-legacy-app-subdirectory-layout.md`](../archive/plans/2026-09-27-legacy-app-subdirectory-layout.md) · **app deep** [`../plans/2026-10-02-legacy-app-deep-layer.md`](../plans/2026-10-02-legacy-app-deep-layer.md) · UI layout [`../plans/2026-09-29-legacy-ui-subdirectory-layout.md`](../plans/2026-09-29-legacy-ui-subdirectory-layout.md) · **Feature Pack** [`../plans/2026-09-29-legacy-mfc-ex-feature-pack.md`](../plans/2026-09-29-legacy-mfc-ex-feature-pack.md) · **widgets** [`../plans/2026-10-02-legacy-ui-widgets-deep-layer.md`](../plans/2026-10-02-legacy-ui-widgets-deep-layer.md) · **map** [`../plans/2026-10-02-legacy-ui-map-deep-layer.md`](../plans/2026-10-02-legacy-ui-map-deep-layer.md) · **shell** [`../plans/2026-10-02-legacy-ui-shell-deep-layer.md`](../plans/2026-10-02-legacy-ui-shell-deep-layer.md) |
 | SP4 | [`../plans/2026-09-19-scene3d-world-gpuscene.md`](../plans/2026-09-19-scene3d-world-gpuscene.md) · SP4b [`../plans/2026-09-28-scene3d-index-octree.md`](../plans/2026-09-28-scene3d-index-octree.md) |
 | SP5 | [`../plans/2026-09-19-shell-compile-gate.md`](../plans/2026-09-19-shell-compile-gate.md) |
 
@@ -184,7 +184,7 @@ src/legacy/render/
 
 **Path:** `content/**`、`app/views/**`、`legacy/app|ui` 抽调用点；禁改 SP1/SP2/SP4 默认树。
 
-**`legacy/ui` common（2026-09-29）：** `legacy/ui/widgets/` 持 Feature Pack glue / prop-list；sole AFX `DllMain` = `widgets/widgets_core.cpp`。`SmtAMBoxMgrDocBar`（`ambox/ambox_dock_bar`）基类：历史为 `StackedWndDockBar`，**§11c 改为直接 `CMFCOutlookBar`**。`ui_legacy` 链 `/FORCE:MULTIPLE`（多 PCH AFX 符号）。不迁终局 Views。
+**`legacy/ui` common（2026-09-29；§11d 2026-10-02）：** `legacy/ui/widgets/{feature_pack,prop,dll}/` 持 Feature Pack glue / prop-list / sole AFX attach；`DllMain` = `widgets/dll/dll_main.cpp`。`SmtAMBoxMgrDocBar`（`shell/ambox/outlook_bar`）基类：历史为 `StackedWndDockBar`，**§11c 改为直接 `CMFCOutlookBar`**。`ui_legacy` 链 `/FORCE:MULTIPLE`（多 PCH AFX 符号）。不迁终局 Views。
 
 **`legacy/ui` subdirectory layout（2026-09-29，Approach C′ — capability + top-level `res/`）：**
 
@@ -215,12 +215,12 @@ res/{shell,catalog,dialogs,ambox,widgets,chart}/
 | Lock | Choice |
 | --- | --- |
 | Product path | leftover `legacy_app` / `SmartGis.exe` only |
-| Toolkit | Feature Pack via `widgets/bcg_cmfc.h` — **not** BCG Pro, not Qt |
+| Toolkit | Feature Pack via `widgets/feature_pack/feature_pack.h` — **not** BCG Pro, not Qt |
 | Endgame | Views + Skia; Feature Pack remains leftover bridge |
 | Depth | Delete capability dirs `grid/` and `dock/` after call sites move; flatten to Feature Pack types |
 | UX tier | controls → Visual Manager / dock flatten → IA (filter / group / search) |
 | Post-waves layout | Wave 4 **B1**: reshape to mirror `src/ui/gis` + `ui/views/map` vocabulary. **Must stay under `src/legacy/ui`** — never hoist into `src/ui` or `src/app/views` |
-| ABI | Freeze `dll_stem=ui_legacy`; sole AFX `DllMain` = `widgets/widgets_core.cpp` |
+| ABI | Freeze `dll_stem=ui_legacy`; sole AFX `DllMain` = `widgets/dll/dll_main.cpp` |
 | HWND-free | Out of this program |
 
 **Control map:**
@@ -250,8 +250,8 @@ legacy/ui/
   map/              # ≈ ui/views/map (ex-viewport/)
   inspect/          # ≈ ui/gis/inspect (ex-panels/)
   catalog/          # ≈ ui/gis/catalog
-  dialogs/          # ≈ ui/gis/dialogs + toolkit modals
-  widgets/          # FP glue + sole DllMain (bcg_cmfc); leftover-only
+  dialogs/          # ≈ ui/views/dialogs toolkit + ui/gis/{catalog,inspect} modals
+  widgets/          # FP glue + sole DllMain — deepen in §11d
   res/
     shell/{,ambox/,chart}/
     catalog/ dialogs/ widgets/
@@ -266,6 +266,201 @@ No empty `analysis/` / `style/` / `debug/`. Name mapping is **semantic**, not a 
 **Path ownership:** `legacy/ui/**` + `legacy/app/shell` + `legacy/plugin/product/dem/views` as needed. Do not edit `src/ui/views` / `src/app/views`.
 
 **Checklist:** [`../plans/2026-09-29-legacy-mfc-ex-feature-pack.md`](../plans/2026-09-29-legacy-mfc-ex-feature-pack.md).
+
+### 11d. `legacy/ui/widgets` deep layer（2026-10-02）
+
+**Goal:** Deepen leftover Feature Pack glue under `legacy/ui/widgets` by **responsibility dirs + composition**; drop historical BCG/mfc_ex stem names; keep sole AFX attach isolated. Stay under `legacy/ui`. **No** Views migration; **no** CBCGP* call-site rewrite blast.
+
+| Lock | Choice |
+| --- | --- |
+| Scope | `legacy/ui/widgets/**` (+ include/GN call sites) |
+| Technique | Scheme C — break includes, **no** old-path shim |
+| Layout | `feature_pack/` · `prop/` · `dll/`；PCH/RC at capability root |
+| Naming | `feature_pack.h` (was `bcg_cmfc.h`); `prop_list.h` / `prop_value.h` (was `prop_list_dock.h`); `dll_main.cpp` + `afx_ext_support.h` (was `widgets_core` / `mfc_ext_support`) |
+| ABI | Freeze `dll_stem=ui_legacy`; sole AFX `DllMain` = `widgets/dll/dll_main.cpp`; keep `CBCGP*` typedefs for leftover call sites |
+| Behavior | Out of this wave — no HWND-free / no Feature Pack→Views |
+| Diagram | [`../diagrams/legacy-ui-widgets-deep-layer.html`](../diagrams/legacy-ui-widgets-deep-layer.html) |
+
+Target:
+
+```
+legacy/ui/widgets/
+  feature_pack/   # CBCGP* → CMFC* bridge + DPI stub
+  prop/           # property-grid create/size + OleVariant coerce
+  dll/            # sole DllMain + AFX ext anchors
+  stdafx.*  widgets.rc  resource.h  BUILD.gn
+```
+
+**Non-goals:** Rename every `CBCGP*` use to `CMFC*`; elevate Feature Pack; move to `src/ui`.
+
+**Success:** Tree matches target; no `bcg_cmfc` / `widgets_core` / `prop_list_dock` stems; inspect docks use `legacy_ui::prop_as_*`; `widgets_sources` green; as-built README.
+
+**Checklist:** [`../plans/2026-10-02-legacy-ui-widgets-deep-layer.md`](../plans/2026-10-02-legacy-ui-widgets-deep-layer.md).
+
+### 11e. `legacy/ui/map` deep layer（2026-10-02）
+
+**Goal:** Deepen leftover map `CView` hosts under `legacy/ui/map` by **role dirs + composition helpers**; share HUD / aux / framing / AM-menu / workspace-bind. Stay under `legacy/ui`. **No** HWND-free extract; **no** Views migration.
+
+| Lock | Choice |
+| --- | --- |
+| Scope | `legacy/ui/map/**` only (+ include/GN call sites) |
+| Technique | Scheme C — break includes, **no** old-path shim |
+| Layout | `viewport/` · `chrome/` · `framing/` · `menu/` · `tools/` |
+| Class ABI | Keep `Smt2DXView` / `Smt3DXView` / `Smt2DEditXView` + `XVIEW_EXPORT` / DYNCREATE |
+| Diagram | [`../diagrams/legacy-ui-map-deep-layer.html`](../diagrams/legacy-ui-map-deep-layer.html) |
+
+**Checklist:** [`../plans/2026-10-02-legacy-ui-map-deep-layer.md`](../plans/2026-10-02-legacy-ui-map-deep-layer.md).
+
+### 11f. `legacy/ui/shell` deep layer（2026-10-02）
+
+**Goal:** Deepen leftover shell chrome under `legacy/ui/shell` by **role stems + ambox/chart composition**; map HWND hosts leave `shell_sources` for `map:map_sources`. Stay under `legacy/ui`. **No** HWND-free extract; **no** Views migration.
+
+| Lock | Choice |
+| --- | --- |
+| Scope | `legacy/ui/shell/**` (+ include/GN; `map/BUILD.gn` owns view hosts) |
+| Technique | Scheme C — break includes, **no** old-path shim |
+| Layout | root `xview` + `input_dispatch`；`ambox/{title,tree,outlook_bar}`；`chart/{diagram_data,view_dlg,…}` |
+| Naming | `shell.*`→`xview.*`；`view_shell.*`→`input_dispatch.*`；`ambox.*`→`tree.*`；`ambox_dock_bar.*`→`outlook_bar.*`；`diagramdata`→`diagram_data`；`chart_view_dlg`→`view_dlg`；`diagram.rc`→`chart.rc` |
+| Class ABI | Keep `SmtXView` / `SmtXAMBox` / `SmtAMBoxMgrDocBar` / `SmtChart` / `CDlg2DXChartView` + export macros |
+| Composition | Caption helpers → `ambox/title`；sorted AM list once in `outlook_bar`；map views **not** in `shell_sources` |
+| Behavior | Out of this wave — no HWND-free / no Views |
+| Diagram | [`../diagrams/legacy-ui-shell-deep-layer.html`](../diagrams/legacy-ui-shell-deep-layer.html) |
+
+Target:
+
+```
+legacy/ui/shell/
+  xview.*              # SmtXView CView chrome base
+  input_dispatch.*     # Win32 → ViewHost (gesture / pointer / wheel)
+  ambox/
+    title.*            # CP936/UTF-8 caption helpers
+    tree.*             # SmtXAMBox
+    outlook_bar.*      # SmtAMBoxMgrDocBar (Feature Pack Outlook)
+  chart/
+    chart.*  chart_api.*  diagram_data.*  view_dlg.*  chart.rc
+```
+
+**Non-goals:** Move to `src/ui` / `app/views`; rename exported types; rewrite Feature Pack Outlook.
+
+**Success:** Tree matches target; no `shell.h` / `view_shell` / `ambox_dock_bar` / `diagramdata` / `chart_view_dlg` stems; `map_sources` owns map views; `ui_legacy` green; as-built README.
+
+**Checklist:** [`../plans/2026-10-02-legacy-ui-shell-deep-layer.md`](../plans/2026-10-02-legacy-ui-shell-deep-layer.md).
+
+### 11g. `legacy/app` deep layer（2026-10-02）
+
+**Goal:** Deepen leftover MFC shell under `legacy/app` by **role-named stems + composition helpers**; delete dead stub view; share MDI-menu / status-coord / self-test bind across Edit/Data/3D; extract Catalog tab pane + MDI tab options + sample-map bootstrap. Stay under `legacy/app`. **No** HWND-free extract to `content`; **no** Views migration.
+
+| Lock | Choice |
+| --- | --- |
+| Scope | `legacy/app/**` only (+ include/GN / as-built call sites) |
+| Technique | Scheme C — break includes, **no** old-path shim |
+| Layout | `core/` · `shell/{frame,catalog,dock,showcase}` · `doc/` · `view/` (+ `view/bind/`) |
+| Class ABI | Keep `SmtApp` / `CSmartGisApp` / `CMainFrame` / `CChildFrame` / `CSmartGisDoc` / `CSmart*View` + `APP_CORE_EXPORT` / DYNCREATE |
+| Nesting | Cap `legacy/app/<capability>/`; `view/` flat role stems; helpers under `view/bind/` |
+| Naming | Role stems: `bootstrap` · `win_app` · `main_frame` · `child_frame` · `document` · `edit_view` · `data_view` · `scene3d_view` |
+| Behavior | Out of this wave — no new present facade / no content extract |
+| Diagram | [`../diagrams/legacy-app-deep-layer.html`](../diagrams/legacy-app-deep-layer.html) |
+
+Target:
+
+```
+legacy/app/
+  core/
+    bootstrap.*          # SmtApp (was smtapp)
+    sample_map.*         # china / sample GeoJSON open helpers
+  shell/
+    frame/
+      win_app.*          # CSmartGisApp (was app)
+      main_frame.*       # CMainFrame (was main)
+      child_frame.*      # CChildFrame (was child)
+      mdi_tabs.*         # CMDITabOptions
+    catalog/
+      tab_pane.*         # CatalogTabDockPane (ex-main)
+    dock/                # console · render_trace · diagnostic · pane_host
+    showcase/            # host · map2d · scene3d
+  doc/
+    document.*           # CSmartGisDoc (was smart_gis_doc)
+  view/
+    bind/                # mdi_menu · status_coord · self_test_mark
+    edit_view.*          # CSmartMapEditView
+    data_view.*          # CSmartDataSourceView
+    scene3d_view.*       # CSmart3DView (stem keeps clash-free vs showcase/scene3d)
+  # DELETE dead stub view/map (CSmartGisView — unused by doc templates)
+```
+
+**Non-goals:** Move to `src/app/views`; rename exported MFC class names; Ribbon rewrite; Feature Pack elevating.
+
+**Success:** Tree matches target; no `view/map`; shared `view/bind/*` used by Edit/Data/3D; `legacy_app` green; as-built `legacy/app/README.md`.
+
+**Checklist:** [`../plans/2026-10-02-legacy-app-deep-layer.md`](../plans/2026-10-02-legacy-app-deep-layer.md).
+
+### 11h. `legacy/ui/inspect` deep layer（2026-10-02）
+
+**Goal:** Deepen leftover AMBox config docks under `legacy/ui/inspect` by **responsibility dirs + composition helpers**; drop flat `*_dock_bar` stems; share prop-list CWnd chrome. Stay under `legacy/ui`. **No** Views migration; **no** HWND-free extract.
+
+| Lock | Choice |
+| --- | --- |
+| Scope | `legacy/ui/inspect/**` (+ include/GN call sites; peel from `dialogs_sources`) |
+| Technique | Scheme C — break includes, **no** old-path shim |
+| Layout | `host/` · `sys/` · `edit/`；PCH at capability root |
+| Naming | `config_dock_bar`→`sys/sys_config_dock`；`edit_config_dock_bar`→`edit/edit_config_dock`；shared chrome →`host/prop_host`；flash apply →`sys/flash_styles` |
+| Class ABI | Keep `SysConfigDockBar` / `EditConfigDockBar` + `AFX_EXT_CLASS` / `GUI_EXPORTS` |
+| Nesting | Cap `legacy/ui/inspect/<role>/`；flat under each role |
+| Behavior | Out of this wave — no Feature Pack→Views; no property-grid rewrite |
+| Diagram | [`../diagrams/legacy-ui-inspect-deep-layer.html`](../diagrams/legacy-ui-inspect-deep-layer.html) |
+
+Target:
+
+```
+legacy/ui/inspect/
+  host/     # shared prop-list CWnd chrome (create / size / paint / options)
+  sys/      # SysConfigDockBar + flash_styles helper
+  edit/     # EditConfigDockBar (default edit styles)
+  stdafx.*  BUILD.gn
+```
+
+**Non-goals:** Rename exported dock class names; move to `src/ui/gis/inspect`; elevate Feature Pack.
+
+**Success:** Tree matches target; no flat `*_dock_bar` stems; docks compose `host/prop_host` + `widgets/prop`; own `inspect_sources`; `ui_legacy` green; as-built README.
+
+**Checklist:** [`../plans/2026-10-02-legacy-ui-inspect-deep-layer.md`](../plans/2026-10-02-legacy-ui-inspect-deep-layer.md).
+
+### 11i. `legacy/ui/dialogs` deep layer（2026-10-02）
+
+**Goal:** Deepen leftover MFC modals under `legacy/ui/dialogs` by **role dirs + composition helpers**; align stems with endgame `ui/views/dialogs` + `ui/gis/{catalog,inspect}` product modals. Stay under `legacy/ui`. **No** HWND-free extract; **no** Views migration. Inspect docks remain in `inspect_sources` (§11h).
+
+| Lock | Choice |
+| --- | --- |
+| Scope | `legacy/ui/dialogs/**` (+ include/GN call sites) |
+| Technique | Scheme C — break includes, **no** old-path shim |
+| Layout | `toolkit/` · `gis/` · `detail/`；PCH/RC/`dialogs_api` at capability root |
+| Naming | `*_dialog` stems (was `dlg_*`); helpers `ogr_field_type` / `feature_info_grid` |
+| Class ABI | Keep `CDlg*` / `Smt*Dlg` / `GUI_EXPORT` |
+| Behavior | Out of this wave — no new present facade / no Views rewrite |
+| Diagram | [`../diagrams/legacy-ui-dialogs-deep-layer.html`](../diagrams/legacy-ui-dialogs-deep-layer.html) |
+
+Target:
+
+```
+legacy/ui/dialogs/
+  dialogs_api.*          # Smt*Dlg export facade
+  toolkit/               # ≈ ui/views/dialogs
+    input_text_dialog.*
+    select_one_dialog.*
+  gis/                   # ≈ ui/gis/catalog + ui/gis/inspect modals
+    feature_info_dialog.*
+    att_struct_dialog.*  # leftover stem; endgame AttributeSchemaDialog
+  detail/                # composition helpers
+    ogr_field_type.h
+    feature_info_grid.*
+  stdafx.*  dialogs.rc  resource.h  BUILD.gn
+```
+
+**Non-goals:** Move to `src/ui`; rename exported `Smt*Dlg` / `CDlg*` types; implement retired `SmtEditParamSettingDlg` body; reshape `inspect/` (§11h).
+
+**Success:** Tree matches target; no flat `dlg_*` stems; `ui_legacy` green; as-built README.
+
+**Checklist:** [`../plans/2026-10-02-legacy-ui-dialogs-deep-layer.md`](../plans/2026-10-02-legacy-ui-dialogs-deep-layer.md).
 
 ---
 

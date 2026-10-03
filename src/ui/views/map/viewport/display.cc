@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 The Mogu Authors.
+// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 // Display mailbox thread: BeginFrame pacing, RHI init/resize/destroy, present.
@@ -27,9 +27,9 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
-#include "ui/views/map/chrome/identity_hud.h"
+#include "ui/views/map/frame/identity_hud.h"
 #include "ui/views/map/device/device_load.h"
-#include "ui/views/map/chrome/embed_fill.h"
+#include "ui/views/map/frame/embed_fill.h"
 #include "ui/views/map/viewport/features.h"
 #include "ui/views/map/input/viewport_input.h"
 

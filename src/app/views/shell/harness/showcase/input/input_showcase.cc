@@ -9,8 +9,9 @@
 #include <cstring>
 
 #include "app/views/shell/browser/browser.h"
-#include "app/views/shell/harness/common/maps.h"
-#include "app/views/shell/harness/common/mark.h"
+#include "app/views/shell/harness/common/io/maps.h"
+#include "app/views/shell/harness/common/mark/mark.h"
+#include "app/views/shell/harness/common/pump/pump.h"
 #include "app/views/shell/runtime/capability/run_script.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "content/public/map_types.h"
@@ -23,35 +24,8 @@
 namespace app {
 namespace {
 
-void pump_ms(DWORD ms) {
-  const DWORD end = GetTickCount() + ms;
-  MSG msg;
-  while (GetTickCount() < end) {
-    while (GetTickCount() < end &&
-           PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
-      if (msg.message == WM_QUIT) {
-        return;
-      }
-      TranslateMessage(&msg);
-      DispatchMessageW(&msg);
-    }
-    Sleep(10);
-  }
-}
-
 void mark(const char* step) {
-  wchar_t path[MAX_PATH] = {};
-  if (!detail::exe_capture_path(path, MAX_PATH, L"input-self-test-mark.txt")) {
-    return;
-  }
-  static bool first = true;
-  FILE* f = nullptr;
-  if (_wfopen_s(&f, path, first ? L"w" : L"a") == 0 && f) {
-    first = false;
-    std::fprintf(f, "%s\n", step);
-    std::fflush(f);
-    std::fclose(f);
-  }
+  detail::write_mark(detail::kInputShowcaseMarkLeaf, step, /*truncate=*/true);
 }
 
 content::InputEvent make_ldown(int x, int y) {
@@ -102,14 +76,14 @@ int run_input_showcase(Browser& browser) {
     DeleteFileW(mark_path);
   }
   mark("show");
-  pump_ms(300);
+  detail::pump_messages(300);
   if (!browser.hwnd() || !IsWindow(browser.hwnd())) {
     return 2;
   }
   mark("hwnd-ok");
 
   browser.select_map_tab(0);
-  pump_ms(400);
+  detail::pump_messages(400);
   // Digitize / FeatureGeom only needs ViewHost + Workspace ?do not hard-fail
   // on ContentMapView first-frame latency (full --self-test covers that).
   if (ui::views::MapViewport* map = browser.map_viewport()) {

@@ -1,15 +1,15 @@
-/* AtmospherePanel */
+/* AtmospherePanel — title / time / toggles with readable section density */
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 8px 10px;
   width: 260px;
   height: 210px;
 }
 
-#title { width: 200px; height: 22px; }
-#time { width: 200px; height: 20px; }
+#title { width: 240px; height: 24px; }
+#time { width: 240px; height: 20px; }
 #scrub { width: 240px; height: 24px; }
-#ocean, #cloud, #sky, #fog, #wind { width: 200px; height: 22px; }
+#ocean, #cloud, #sky, #fog, #wind { width: 240px; height: 22px; }

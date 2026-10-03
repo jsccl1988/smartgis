@@ -1,17 +1,17 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #include "stdafx.h"
 #include "legacy/ui/dialogs/dialogs_api.h"
 
-#include "legacy/ui/dialogs/dlg_2d_feature_info.h"
-#include "legacy/ui/dialogs/dlg_att_struct_set.h"
-#include "legacy/ui/dialogs/dlg_input_text.h"
-#include "legacy/ui/dialogs/dlg_select_one.h"
+#include "legacy/ui/dialogs/gis/att_struct_dialog.h"
+#include "legacy/ui/dialogs/gis/feature_info_dialog.h"
+#include "legacy/ui/dialogs/toolkit/input_text_dialog.h"
+#include "legacy/ui/dialogs/toolkit/select_one_dialog.h"
 
-//////////////////////////////////////////////////////////////////////////
-// mfc
-CWnd *SmtGetActiveWnd(void) { return CWnd::FromHandle(::GetActiveWindow()); }
+CWnd* SmtGetActiveWnd(void) { return CWnd::FromHandle(::GetActiveWindow()); }
 
-//////////////////////////////////////////////////////////////////////////
-long SmtInputTextDlg(string &strText) {
+long SmtInputTextDlg(string& strText) {
   AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
   CDlgInputText dlg;
@@ -22,36 +22,34 @@ long SmtInputTextDlg(string &strText) {
 }
 
 long SmtEditParamSettingDlg(void) {
-  AFX_MANAGE_STATE(AfxGetStaticModuleState());
-
-  /*CDlgEditParamSetting dlg;
-  if (dlg.DoModal() == IDOK)
-  {
-    ;
-  }*/
+  // Preferences live on inspect docks (SysConfig / EditConfig). No modal.
   return SMT_ERR_NONE;
 }
 
-long SmtSelectOneDlg(uint &unID, vector<uint> &vIDs) {
-  if (vIDs.size() < 2) return SMT_ERR_INVALID_PARAM;
+long SmtSelectOneDlg(uint& unID, vector<uint>& vIDs) {
+  if (vIDs.size() < 2) {
+    return SMT_ERR_INVALID_PARAM;
+  }
 
   AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
   CDlgSelectOne dlg(SmtGetActiveWnd());
-  dlg.SetIDList(vIDs);
+  dlg.set_id_list(vIDs);
   if (dlg.DoModal() == IDOK) {
-    unID = dlg.GetSelectedID();
+    unID = dlg.selected_id();
   }
   return SMT_ERR_NONE;
 }
 
-long SmtShow2DFeatureInfoDlg(SmtFeature *pSmtFea) {
-  if (NULL == pSmtFea) return SMT_ERR_INVALID_PARAM;
+long SmtShow2DFeatureInfoDlg(SmtFeature* pSmtFea) {
+  if (NULL == pSmtFea) {
+    return SMT_ERR_INVALID_PARAM;
+  }
 
   AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
   CDlg2DFeatureInfo dlg(SmtGetActiveWnd());
-  dlg.SetFeature(pSmtFea);
+  dlg.set_feature(pSmtFea);
   if (dlg.DoModal() == IDOK) {
     ;
   }
@@ -59,15 +57,17 @@ long SmtShow2DFeatureInfoDlg(SmtFeature *pSmtFea) {
   return SMT_ERR_NONE;
 }
 
-long GUI_EXPORT SmtAttStructEditDlg(OGRLayer *layer, int nFixField) {
-  if (NULL == layer) return SMT_ERR_INVALID_PARAM;
+long GUI_EXPORT SmtAttStructEditDlg(OGRLayer* layer, int nFixField) {
+  if (NULL == layer) {
+    return SMT_ERR_INVALID_PARAM;
+  }
 
   AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
   CDlgAttStructSet dlg(SmtGetActiveWnd());
-  dlg.SetOgrLayer(layer, nFixField);
+  dlg.set_ogr_layer(layer, nFixField);
   if (dlg.DoModal() == IDOK) {
-    dlg.ApplyToOgrLayer();
+    dlg.apply_to_ogr_layer();
   }
 
   return SMT_ERR_NONE;

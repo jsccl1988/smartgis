@@ -12,26 +12,20 @@ All rights reserved.
 
 
 
-> **Design living:** [../specs/2026-09-13-render-rhi-scene-design.md](../specs/2026-09-13-render-rhi-scene-design.md) §GPU-process accelerate. This file is the checklist only.
-
+> **Design living:** [../specs/2026-09-13-render-rhi-scene-design.md](../specs/2026-09-13-render-rhi-scene-design.md) **§GPU-process accelerate**. This file is the **sole checklist** for Topology B (GPU process) + **Task 8 bridge** to in-process L0–L3.
+> **Diagram (normative):** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（A×B 深度整合 · §4–§6 Topology B + Bridge）
+> **In-process peer (Topology A, no duplicate GPU checkboxes):** [`2026-10-02-src-render-vista-parallel-accelerate.md`](2026-10-02-src-render-vista-parallel-accelerate.md)
+> **Archive (superseded):** [`../archive/specs/2026-09-27-gpu-rhi-accelerate-design.md`](../archive/specs/2026-09-27-gpu-rhi-accelerate-design.md)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Goal:** Keep `CompositorFrame` as IR in `--type=gpu`, introduce `GpuDeviceHub` + `AdapterId` (1 process × N devices), pluggable per-device `FrameComposer` (`kSoftware` | `kRhi`), and accelerate present/compose via `render::rhi` **only inside the GPU process**. Chrome / browser / renderer never perform final compose. Bridge in-process Views L3 (`graph::present`) to GPU-process submit when multiprocess is on.
 
-
-**Goal:** Keep `CompositorFrame` as IR in `--type=gpu`, introduce `GpuDeviceHub` + `AdapterId` (1 process × N devices), pluggable per-device `FrameComposer` (`kSoftware` | `kRhi`), and accelerate present/compose via `render::rhi` **only inside the GPU process**. Chrome / browser / renderer never perform final compose.
-
-
-
-**Architecture:** Raster (or later IPC) still produces `DrawQuad`s. `GpuDeviceHub` pins each `OutputSurface` to an `AdapterId`. `display` selects a `FrameComposer` for that adapter. Software path preserves today's CPU blend + `upload_bgra` as a **per-device** fallback inside gpu. RHI path grows from shared-surface blit → GPU compose → optional Frame Graph / `GpuScene` underlay on the same adapter. Namespaces: `gpu` / `gpu::detail`, `render::rhi`, `render::graph` (two public levels).
-
-
+**Architecture:** Raster (or later IPC) still produces `DrawQuad`s. `GpuDeviceHub` pins each `OutputSurface` to an `AdapterId`. `display` selects a `FrameComposer` for that adapter. Software path preserves today's CPU blend + `upload_bgra` as a **per-device** fallback inside gpu. RHI path grows from shared-surface blit → GPU compose → optional Frame Graph / `GpuScene` underlay on the same adapter. L0–L2 parallel semantics shared with §vista; L3 remaps under Topology B. Namespaces: `gpu` / `gpu::detail`, `render::rhi`, `render::graph` (two public levels).
 
 **Tech Stack:** C++23, GN/`build.bat`, DXGI adapters + shared `OutputSurface`, FlyCube behind `render::rhi`, Null RHI for tests.
 
-
-
-**Spec:** [`../specs/2026-09-27-gpu-rhi-accelerate-design.md`](../specs/2026-09-27-gpu-rhi-accelerate-design.md)
+**Living §:** [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) §GPU-process accelerate
 
 
 
@@ -445,7 +439,7 @@ Expected: default suite green; with `SMT_GPU_COMPOSE=rhi`, RhiComposer path runs
 
 
 
-- [ ] **Step 4:** Cross-link from layout / frame-graph / multiprocess docs Related lines if missing.
+- [x] **Step 4:** Cross-link from layout / frame-graph / multiprocess docs Related lines if missing（`ui-shell-multiprocess.md` + living diagrams 2026-10-02）.
 
 
 
@@ -484,6 +478,10 @@ Expected: default suite green; with `SMT_GPU_COMPOSE=rhi`, RhiComposer path runs
 | Phased M0–M5 acceptance | Tasks 1–7 |
 
 | Risks TDR / shared texture / per-adapter fallback | Task 3 spike, Task 7 |
+
+| Topology A↔B bridge (L0–L3 remap) | Task 8 |
+
+| Dual-topology docs / diagrams | Task 8 + living § |
 
 
 
@@ -536,4 +534,28 @@ Plan complete when saved. Implementation continues on `master` under the multi-G
 - [ ] Wire device-lost / TDR recovery to `notify_device_lost` → sticky software + surface generation bump for that adapter (`src/gpu/device/gpu_device_hub.*`, display / present path).
 - [ ] Dual-adapter sticky-fallback hand notes + as-built refresh (`src/gpu/README.md`, `docs/build/ui-shell-multiprocess.md` if behavior changes).
 - [ ] Confirm shell still never final-compose; no single-frame multi-GPU split.
+
+---
+
+## Task 8: Bridge to in-process L0–L3（Topology A ↔ B）
+
+> Living fold: §GPU-process × §src_render + vista parallel (2026-10-02).
+> In-process peer plan: [`2026-10-02-src-render-vista-parallel-accelerate.md`](2026-10-02-src-render-vista-parallel-accelerate.md).
+> Diagram: [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)（§6 Bridge）.
+
+**Goal:** When multiprocess is on, map underlay / graph output **submits to the GPU process** (`AdapterId` pin); UI never joins; chrome never blends. Keep a single `CompositorFrame` IR. Do not invent a second present on the same HWND.
+
+**Files (anchors):**
+
+- `src/gpu/frame_sink.h` · `src/gpu/display/display.cc` (`draw_and_swap`)
+- `src/gpu/compositor/underlay/underlay_bridge.*` (`record_underlay_effects` / `record_gpu_scene_underlay`)
+- `src/gpu/device/gpu_device_hub.*` · `src/content` presenters / Views Display mailbox
+- Living § tables in `2026-09-13-render-rhi-scene-design.md`
+
+- [x] Documented mode switch: Topology A (Display `graph::present`) vs B (`--type=gpu` `FrameComposer`) — living § + **统一规范图** [`render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html)
+- [ ] Views multiproc: Map2d/Scene3d cold path submits DrawRequest / underlay to gpu process (not local final blend)
+- [ ] Underlay: finish BGRA readback / blit into shared surface before overlay quads (`underlay_bridge` + `RhiComposer`)
+- [ ] effect::map color-target → compositor on same `AdapterId` (Task 6 Step 3)
+- [x] Assert: no Skia Ganesh map; no dual HWND FlyCube + shared-surface present; `view.backend.rhi` still = `ContentSource::kDirect`（locked in living § Non-goals / Env）
+- [ ] Human smoke: browser present-only SharedHandle; kill `--type=gpu` → recover; dual-adapter sticky software
 

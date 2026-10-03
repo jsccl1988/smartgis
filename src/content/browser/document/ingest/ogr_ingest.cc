@@ -739,6 +739,7 @@ bool ingest_ogr_path(LayerStore* store, const std::string& path) {
     layer.id = path + "#" + (lname && lname[0] ? lname : std::to_string(li));
     layer.name = (lname && lname[0]) ? lname : path_stem(path);
     layer.visible = true;
+    layer.kind = content::LayerKind::kVector;
 
     // mogu-style: serial GetNextFeature → parallel decode → ordered sink.
     // max_features caps OGR rows read; sink still caps MapFeature parts.
@@ -805,18 +806,22 @@ void split_layers_by_kind_field(LayerStore* store) {
   regions.id = "china.area";
   regions.name = "area";
   regions.visible = true;
+  regions.kind = content::LayerKind::kVector;
   MapLayer lines;
   lines.id = "china.line";
   lines.name = "line";
   lines.visible = true;
+  lines.kind = content::LayerKind::kVector;
   MapLayer points;
   points.id = "china.point";
   points.name = "point";
   points.visible = true;
+  points.kind = content::LayerKind::kVector;
   MapLayer texts;
   texts.id = "china.text";
   texts.name = "text";
   texts.visible = true;
+  texts.kind = content::LayerKind::kVector;
 
   for (MapLayer& layer : store->layers()) {
     for (MapFeature& f : layer.features) {

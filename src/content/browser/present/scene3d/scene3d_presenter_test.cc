@@ -35,7 +35,7 @@ void expect(bool ok, const char* msg) {
 }  // namespace
 
 int main() {
-  // Default FlyCube; switch via set_scene3d_engine (not env vars).
+  // Default FlyCube; switch via set_scene3d_engine or SMT_SCENE3D_ENGINE.
   {
     content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
     expect(content::prefer_scene3d_flycube(), "default prefer FlyCube RHI");
@@ -57,6 +57,27 @@ int main() {
     expect(content::prefer_scene3d_flycube(), "restore FlyCube");
     expect(content::scene3d_engine() == content::Scene3dEngine::kFlyCube,
            "engine getter matches FlyCube");
+  }
+
+  // Harness env: SMT_SCENE3D_ENGINE selects leftover GL vs D3D under kStereoGl.
+  {
+    _putenv_s("SMT_SCENE3D_ENGINE", "stereo_gl");
+    expect(content::apply_scene3d_engine_from_env(), "env stereo_gl applies");
+    expect(content::prefer_scene3d_stereo_gl(), "env stereo_gl engine");
+    expect(content::prefer_scene3d_stereo_opengl(), "env stereo_gl → OpenGL");
+    expect(!content::prefer_scene3d_stereo_d3d(), "env stereo_gl not D3D");
+
+    _putenv_s("SMT_SCENE3D_ENGINE", "stereo_d3d");
+    expect(content::apply_scene3d_engine_from_env(), "env stereo_d3d applies");
+    expect(content::prefer_scene3d_stereo_gl(), "env stereo_d3d still stereo");
+    expect(content::prefer_scene3d_stereo_d3d(), "env stereo_d3d → D3D");
+    expect(!content::prefer_scene3d_stereo_opengl(), "env stereo_d3d not GL");
+
+    _putenv_s("SMT_SCENE3D_ENGINE", "flycube");
+    expect(content::apply_scene3d_engine_from_env(), "env flycube applies");
+    expect(content::prefer_scene3d_flycube(), "env flycube");
+    _putenv_s("SMT_SCENE3D_ENGINE", "");
+    content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
   }
 
   content::OrbitFrame orbit;

@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "content/public/catalog_layers.h"
 #include "content/public/feature_attrs.h"
 #include "content/public/map_types.h"
 
@@ -33,10 +34,13 @@ struct MapFeature {
 };
 
 // Catalog-facing layer: id/name/visibility + features.
+// |kind| is set at create/ingest when known; layer_descs may still infer
+// kVector from non-empty |features| when kind stays kUnknown.
 struct MapLayer {
   std::string id;
   std::string name;
   bool visible = true;
+  content::LayerKind kind = content::LayerKind::kUnknown;
   std::vector<MapFeature> features;
 };
 

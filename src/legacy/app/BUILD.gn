@@ -3,13 +3,17 @@
 
 import("//build/smartgis.gni")
 
-# Leftover MFC app core DLL (dll_stem stays app_core). Source: core/smtapp.cpp.
-# Layout: core/ (SmtApp) + shell/ (CWinApp/frames) + doc/ + view/ (thin CView) +
-# res/ + root PCH/RC. GN labels :app :app_core :legacy_app_all stay frozen.
+# Leftover MFC app core DLL (dll_stem stays app_core). Source: core/bootstrap.cpp.
+# Layout: core/ (SmtApp + sample_map) + shell/ (frame/catalog/dock/showcase) +
+# doc/ + view/ (+ bind/) + res/ + root PCH/RC. GN labels :app :app_core
+# :legacy_app_all stay frozen.
 smt_shared_library("app_core") {
   dll_stem = "app_core"
   defines = [ "APP_CORE_EXPORTS" ]
-  sources = [ "core/smtapp.cpp" ]
+  sources = [
+    "core/bootstrap.cpp",
+    "core/sample_map.cpp",
+  ]
   deps = [
     "//src/base:base",
     "//src/base:core",
@@ -30,21 +34,25 @@ smt_mfc_executable("app") {
   # Match #include "legacy/app/stdafx.h" under -I../src (MSVC /Yc name must match).
   precompiled_header = "legacy/app/stdafx.h"
   sources = [
-    "shell/frame/child.cpp",
-    "shell/frame/main.cpp",
+    "shell/frame/child_frame.cpp",
+    "shell/frame/main_frame.cpp",
+    "shell/frame/mdi_tabs.cpp",
+    "shell/frame/win_app.cpp",
     "shell/showcase/map2d.cc",
     "shell/showcase/scene3d.cc",
+    "shell/catalog/tab_pane.cpp",
     "shell/dock/console.cpp",
     "shell/dock/diagnostic.cpp",
     "shell/dock/render_trace.cpp",
-    "shell/frame/app.cpp",
     "smart_gis.rc",
     "stdafx.cpp",
-    "doc/smart_gis_doc.cpp",
-    "view/scene3d/scene3d_view.cpp",
-    "view/datasource/datasource.cpp",
-    "view/map/map.cpp",
-    "view/edit/edit.cpp",
+    "doc/document.cpp",
+    "view/bind/mdi_menu.cpp",
+    "view/bind/self_test_mark.cpp",
+    "view/bind/status_coord.cpp",
+    "view/scene3d_view.cpp",
+    "view/data_view.cpp",
+    "view/edit_view.cpp",
   ]
   deps = [
     ":app_core",

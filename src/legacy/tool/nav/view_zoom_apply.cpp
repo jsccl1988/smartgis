@@ -89,10 +89,11 @@ void apply_pan_by_points(render::LPRENDERDEVICE device, SmtMap* map,
   if (origin.x == end.x && origin.y == end.y) {
     return;
   }
-  // Absolute pan from drag start: each MouseMove used to PreviewZoomMove the
-  // full origin→end delta on an already-mutated windowport (runaway pan) and
-  // zeroed curDrawingOrg so Refresh showed a stale unshifted front until the
-  // worker finished (click / settle to see the map move).
+  // Capture wp0 at drag start. During the stroke only pixel-slide the last
+  // published front (SetCurDrawingOrg) — do not mutate the live windowport or
+  // ScheduleDelayedRedraw. Mid-drag worker publish used to call
+  // finish_interactive_settle (org=0 + new front at live wp), then the next
+  // move restored wp0 and reapplied the full origin→end org → visual jump.
   PanBaseline& baseline = pan_baseline();
   if (baseline.device != device || baseline.origin.x != origin.x ||
       baseline.origin.y != origin.y) {
@@ -101,22 +102,26 @@ void apply_pan_by_points(render::LPRENDERDEVICE device, SmtMap* map,
     baseline.origin = origin;
   }
 
+  device->SetCurDrawingOrg(lPoint(end.x - origin.x, end.y - origin.y));
+  device->Refresh();
+  if (!gesture_end) {
+    return;
+  }
+
   device->SetWindowport(baseline.wp0);
   float x1 = 0.f, y1 = 0.f, x2 = 0.f, y2 = 0.f;
   device->DPToLP(origin.x, origin.y, x1, y1);
   device->DPToLP(end.x, end.y, x2, y2);
   device->PreviewZoomMove(fPoint(x2 - x1, y2 - y1));
-
-  // Slide the last published front with the pointer while the worker catches up.
-  device->SetCurDrawingOrg(lPoint(end.x - origin.x, end.y - origin.y));
-  device->Refresh();
-  if (gesture_end) {
-    device->SetCurDrawingOrg(lPoint(0, 0));
-    settle_browse_present(device, map);
-    invalidate_pan_baseline();
-    return;
+  // Keep the pixel-slide org until a FrameJob newer than this commit publishes.
+  // Clearing on a stale pre-commit settle snapped back then jumped again.
+  device->set_clear_drawing_org_on_publish(
+      true, device->map_published_generation());
+  if (map) {
+    (void)device->ScheduleUrgentRedraw(map);
   }
-  device->ScheduleDelayedRedraw(map);
+  (void)device->Refresh();
+  invalidate_pan_baseline();
 }
 
 void apply_zoom_in_by_points(render::LPRENDERDEVICE device, SmtMap* map,
@@ -244,11 +249,16 @@ void apply_view_draft(render::LPRENDERDEVICE device, SmtMap* map, double scale_d
       break;
     case VM_ZoomMove:
       apply_pan_by_points(device, map, *origin_inout, end, gesture_end);
-      *captured_inout = FALSE;
+      // Keep capture for the whole stroke; clearing every move broke origin.
+      if (gesture_end) {
+        *captured_inout = FALSE;
+      }
       break;
     default:
       apply_pan_by_points(device, map, *origin_inout, end, gesture_end);
-      *captured_inout = FALSE;
+      if (gesture_end) {
+        *captured_inout = FALSE;
+      }
       break;
   }
 }

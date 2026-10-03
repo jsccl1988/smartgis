@@ -23,8 +23,29 @@ void Rhi2dPresentController::finish_interactive_settle() {
   if (!device_->m_hWnd || !::IsWindow(device_->m_hWnd)) {
     return;
   }
-  device_->SetCurDrawingOrg(lPoint(0, 0));
+  // Mid-stroke pan publish: windowport not yet committed — keep drawing-org so
+  // BitBlt still follows the pointer.
+  // Gesture-end: only clear org once a FrameJob *newer than the commit* lands.
+  // A stale in-flight job at wp0 that settles first used to clear org (snap
+  // back) then the urgent pan job settled again (second jump).
+  const lPoint org = device_->GetCurDrawingOrg();
+  const bool pan_slide = (org.x != 0 || org.y != 0);
+  bool clear_org = !pan_slide;
+  if (device_->peek_clear_drawing_org_on_publish()) {
+    const uint64_t published = device_->map_published_generation();
+    if (published > device_->clear_drawing_org_min_gen()) {
+      clear_org = true;
+      device_->clear_drawing_org_publish_request();
+    } else {
+      clear_org = false;
+    }
+  }
+  if (clear_org) {
+    device_->SetCurDrawingOrg(lPoint(0, 0));
+  }
   device_->note_painted_preview_baseline();
+  // Always drop StretchBlt leftovers. A published front already matches the
+  // live windowport; composing stretch + org shears cartography (map shatter).
   {
     std::lock_guard<std::mutex> front_lock(device_->shared_front_mutex());
     detail::reset_preview_viewports_identity(&device_->vir_viewport1_,

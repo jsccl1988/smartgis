@@ -14,14 +14,14 @@
 #include "legacy/tool/abi/t_iatoolmanager.h"
 #include "legacy/tool/abi/t_msg.h"
 #include "legacy/ui/dialogs/dialogs_api.h"
-#include "legacy/ui/catalog/mapmgr.h"
-#include "legacy/ui/map/view_2d_edit.h"
+#include "legacy/ui/catalog/map/mapmgr.h"
+#include "legacy/ui/map/viewport/view_2d_edit.h"
 using namespace gis;
 using namespace sys;
 using namespace base;
 using namespace ui;
 
-const string CST_STR_ORTHOGRID_PLUG_NAME = "正交格网";
+const string CST_STR_ORTHOGRID_PLUG_NAME = "OrthoGrid";
 OrthogridPlugin *g_pOrthogrid = NULL;
 
 #define AM_MSG_CMD_ORTHOGRID_BEGIN (SMT_MSG_USER_BEGIN + 50)

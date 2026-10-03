@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="create_datasource">
+  <style src="create_datasource.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="title_hint" class="hint" text="Create a new datasource entry in the catalog."/>
+    <label id="name_label" text="Datasource name"/>
+    <textfield id="name"/>
+    <label id="type_label" text="Storage type"/>
+    <combobox id="type">
+      <item text="MEM"/>
+      <item text="file"/>
+      <item text="GPKG"/>
+    </combobox>
+    <label id="type_hint" class="hint" text="MEM = in-memory · file = path-backed · GPKG = GeoPackage"/>
+    <label id="status" class="status" text=""/>
+  </vbox>
+</ui>

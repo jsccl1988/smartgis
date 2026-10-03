@@ -25,7 +25,7 @@ void self_test_mark(const char* step);
 bool viewport_has_presented_frame(ui::views::MapViewport* pane);
 
 // Stage returns: 0 = continue, non-zero = process exit code.
-int self_test_chrome_ready(Browser& browser);
+int self_test_shell_ready(Browser& browser);
 int self_test_edit_m0(Browser& browser);
 int self_test_layers_m1(Browser& browser);
 int self_test_navigate(Browser& browser);

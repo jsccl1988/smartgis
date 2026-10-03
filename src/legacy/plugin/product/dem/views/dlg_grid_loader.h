@@ -1,6 +1,6 @@
 #pragma once
 #include "legacy/plugin/product/dem/shell/resource.h"
-#include "legacy/ui/map/view_3d.h"
+#include "legacy/ui/map/viewport/view_3d.h"
 using namespace ui;
 
 class CDlgGridLoader : public CDialog {

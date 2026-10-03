@@ -80,14 +80,20 @@ _virtual_screen = virtual_screen
 
 
 def rect_fully_on_primary(left: int, top: int, right: int, bottom: int) -> bool:
-    """True when the HWND lies entirely inside the primary monitor (0,0)-(pw,ph)."""
+    """True when the HWND lies on the primary monitor (0,0)-(pw,ph).
+
+    Maximized top-level frames often report left/top ≈ -8 (Aero borders). Treat
+    a small slop as still on-primary so capture prefers BitBlt; PrintWindow-first
+    on GL/D3D shells frequently yields a solid-black buffer (legacy.browse.3d).
+    """
     pw = int(user32.GetSystemMetrics(SM_CXSCREEN))
     ph = int(user32.GetSystemMetrics(SM_CYSCREEN))
+    slop = 16
     return (
-        left >= 0
-        and top >= 0
-        and right <= pw
-        and bottom <= ph
+        left >= -slop
+        and top >= -slop
+        and right <= pw + slop
+        and bottom <= ph + slop
         and right > left
         and bottom > top
     )

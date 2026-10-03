@@ -113,7 +113,7 @@ flowchart LR
   MapW -.->|v1.5| Sde
 ```
 
-GPU paint internals (record quads → blend once → present): [`../../src/gpu/README.md`](../../src/gpu/README.md).
+GPU paint internals (record quads → blend once → present): [`../../src/gpu/README.md`](../../src/gpu/README.md). **Diagram:** [`../superpowers/diagrams/render-accelerate-topology.html`](../superpowers/diagrams/render-accelerate-topology.html)（A×B 整合 · Topology B §4–§6）.
 
 父进程用 Job Object 管子进程：Browser 退出则杀子进程；**renderer 崩溃** → `RendererDied` → 重启 `--type=renderer`（GPU 可仍在）；**GPU 崩溃 / TDR** → 仅重启 `--type=gpu`，browser 丢弃旧 handle 并等待新 `FrameReady`。
 

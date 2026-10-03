@@ -26,12 +26,16 @@
 
 #include "base/core/log.h"
 #include "base/log/log_sink.h"
+#include "content/browser/debug/agent_ask.h"
+#include "content/browser/debug/agent_diag.h"
 #include "content/browser/debug/agent_harness.h"
 #include "content/browser/debug/agent_json.h"
 #include "content/browser/debug/agent_log.h"
 #include "content/browser/debug/agent_map_cmd.h"
+#include "content/browser/debug/agent_policy.h"
 #include "content/browser/debug/agent_py.h"
 #include "content/browser/debug/agent_record.h"
+#include "content/browser/debug/agent_schema.h"
 #include "content/browser/debug/agent_sdbd.h"
 #include "content/browser/debug/agent_ui.h"
 
@@ -329,6 +333,27 @@ std::string DebugAgent::dispatch_method(const std::string& method,
   if (method == "ping") {
     return ok_result(id, "{\"pong\":true}");
   }
+  if (method == "rpc.methods") {
+    return ok_result(id, detail::agent_methods_schema_json());
+  }
+  if (method == "rpc.confirm") {
+    confirm_dangerous_ops();
+    return ok_result(id, "{\"confirmed\":true}");
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(policy_mu_);
+    if (!policy_.allow_rpc(method, params_json)) {
+      detail::AgentPolicy::audit("deny", method);
+      return err_result(
+          id,
+          "needs_confirm: call rpc.confirm, pass confirm:true, or set "
+          "SG_DEBUG_ALLOW=1");
+    }
+  }
+  if (detail::AgentPolicy::is_dangerous_method(method)) {
+    detail::AgentPolicy::audit("rpc", method);
+  }
 
   std::string response;
   if (detail::dispatch_log_method(method, params_json, id, &response)) {
@@ -361,6 +386,10 @@ std::string DebugAgent::dispatch_method(const std::string& method,
     if (detail::dispatch_ui_method(method, params_json, id, host, &response)) {
       return response;
     }
+    if (detail::dispatch_diag_method(method, params_json, id, host,
+                                     &response)) {
+      return response;
+    }
   }
   {
     detail::RecordHandlers handlers;
@@ -378,6 +407,16 @@ std::string DebugAgent::dispatch_method(const std::string& method,
   return err_result(id, "unknown method: " + method);
 }
 
+void DebugAgent::confirm_dangerous_ops() {
+  std::lock_guard<std::mutex> lock(policy_mu_);
+  policy_.confirm_session();
+}
+
+bool DebugAgent::dangerous_ops_allowed() const {
+  std::lock_guard<std::mutex> lock(policy_mu_);
+  return policy_.is_dangerous_allowed();
+}
+
 std::string DebugAgent::exec_line(const std::string& line_in) {
   std::string line = line_in;
   while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) {
@@ -387,11 +426,24 @@ std::string DebugAgent::exec_line(const std::string& line_in) {
     return "";
   }
   if (line == ":help") {
-    return "commands: :help :clear :log.level <L> :refresh :extent :layers "
-           ":ui find <name>|click <x> <y>|type <text>|tree|overlay|capture [path] "
-           ":script <path> "
-           ":gis test|bench :rhi test|bench "
-           ":sdbd capabilities|sql <text> :py <code> :run <path>";
+    return detail::agent_help_text();
+  }
+  if (line == ":help json") {
+    return detail::agent_methods_schema_json();
+  }
+  if (line == ":confirm") {
+    confirm_dangerous_ops();
+    return "dangerous ops confirmed for this session";
+  }
+
+  if (detail::AgentPolicy::is_dangerous_console_line(line) &&
+      !dangerous_ops_allowed()) {
+    detail::AgentPolicy::audit("deny", line);
+    return "blocked: type :confirm once (or set SG_DEBUG_ALLOW=1; debug "
+           "builds auto-allow)";
+  }
+  if (detail::AgentPolicy::is_dangerous_console_line(line)) {
+    detail::AgentPolicy::audit("console", line);
   }
 
   std::string output;
@@ -400,6 +452,9 @@ std::string DebugAgent::exec_line(const std::string& line_in) {
   }
   {
     const DebugAgentHost host = copy_host();
+    if (detail::exec_ask_command(line, host, this, &output)) {
+      return output;
+    }
     if (detail::exec_map_command(line, host, &output)) {
       return output;
     }
@@ -407,6 +462,21 @@ std::string DebugAgent::exec_line(const std::string& line_in) {
       return output;
     }
     if (detail::exec_script_command(line, host, &output)) {
+      return output;
+    }
+    if (detail::exec_diag_command(line, host, &output)) {
+      return output;
+    }
+  }
+  {
+    detail::RecordHandlers handlers;
+    handlers.set_enabled = [this](bool on) { set_record_enabled(on); };
+    handlers.poll_json = [this]() { return poll_record_events_json(); };
+    handlers.clear = [this]() {
+      std::lock_guard<std::mutex> lock(record_mu_);
+      record_events_.clear();
+    };
+    if (detail::exec_record_command(line, handlers, &output)) {
       return output;
     }
   }

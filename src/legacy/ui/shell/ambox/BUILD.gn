@@ -3,7 +3,7 @@
 
 import("//build/smartgis.gni")
 
-# Aux-module / AM box dock panels.
+# Aux-module Outlook bar + per-module tree → ui_legacy.
 source_set("ambox_sources") {
   configs += [
     "//build:legacy",
@@ -21,8 +21,12 @@ source_set("ambox_sources") {
   include_dirs += [ "." ]
   sources = [
     "ambox.rc",
-    "ambox_dock_bar.cpp",
-    "ambox.cpp",
+    "outlook_bar.cpp",
+    "outlook_bar.h",
+    "title.cpp",
+    "title.h",
+    "tree.cpp",
+    "tree.h",
     "stdafx.cpp",
   ]
   deps = [

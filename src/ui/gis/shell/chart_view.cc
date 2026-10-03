@@ -11,7 +11,9 @@
 
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/layout/layout.h"
+#include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
+#include "ui/views/kernel/widget/widget.h"
 #include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/text/label.h"
 
@@ -32,8 +34,9 @@ void draw_segment(ui::gfx::Canvas* canvas,
                   int y0,
                   int x1,
                   int y1,
-                  ui::gfx::Color color) {
-  canvas->draw_line(x0, y0, x1, y1, color, 2);
+                  ui::gfx::Color color,
+                  int stroke) {
+  canvas->draw_line(x0, y0, x1, y1, color, stroke);
 }
 
 // Series plot surface; title chrome lives in markup.
@@ -50,34 +53,62 @@ class ChartPlotView : public View {
     }
     const Theme& t = Theme::current();
     const Rect& b = bounds();
-    canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
+    const float scale =
+        widget() ? widget()->device_scale_factor() : 1.f;
+    const int hair = std::max(1, dip_to_px(1, scale));
+    const int pad_l = dip_to_px(40, scale);
+    const int pad_r = dip_to_px(12, scale);
+    const int pad_t = dip_to_px(14, scale);
+    const int pad_b = dip_to_px(28, scale);
+    const int axis = std::max(1, dip_to_px(1, scale));
+    const int line_w = std::max(1, dip_to_px(2, scale));
 
-    const int left = b.x + 36;
-    const int right = b.right() - 12;
-    const int top = b.y + 12;
-    const int bottom = b.bottom() - 28;
+    canvas->fill_rect(b.x, b.y, b.width, b.height, t.control_bg);
+    canvas->stroke_rect(b.x, b.y, b.width, b.height, t.panel_header, hair);
+
+    const int left = b.x + pad_l;
+    const int right = b.right() - pad_r;
+    const int top = b.y + pad_t;
+    const int bottom = b.bottom() - pad_b;
     if (right <= left || bottom <= top) {
       return;
     }
 
-    canvas->draw_line(left, top, left, bottom, t.text_muted, 2);
-    canvas->draw_line(left, bottom, right, bottom, t.text_muted, 2);
+    canvas->save();
+    canvas->clip_rect(b.x + hair, b.y + hair,
+                      std::max(0, b.width - 2 * hair),
+                      std::max(0, b.height - 2 * hair));
+
+    const int guide_count = 4;
+    for (int g = 1; g < guide_count; ++g) {
+      const int gy = top + (bottom - top) * g / guide_count;
+      canvas->draw_line(left, gy, right, gy, t.panel_header, hair);
+    }
+
+    canvas->draw_line(left, top, left, bottom, t.text_muted, axis);
+    canvas->draw_line(left, bottom, right, bottom, t.text_muted, axis);
 
     const auto& series = owner_->series();
     const double vmax = series_max(series);
-    canvas->draw_text(b.x + 4, top,
+    canvas->draw_text(b.x + dip_to_px(4, scale), top,
                       std::to_wstring(static_cast<int>(vmax)).c_str(),
                       t.text_muted);
-    canvas->draw_text(b.x + 4, bottom - 16, L"0", t.text_muted);
+    canvas->draw_text(b.x + dip_to_px(4, scale),
+                      bottom - dip_to_px(16, scale), L"0", t.text_muted);
 
     if (series.empty()) {
+      const wchar_t* empty = L"No series";
+      const int cx = left + (right - left) / 2 - dip_to_px(36, scale);
+      const int cy = top + (bottom - top) / 2 - dip_to_px(8, scale);
+      canvas->draw_text(cx, cy, empty, t.text_muted);
+      canvas->restore();
       return;
     }
 
     const int n = static_cast<int>(series.size());
-    const int slot = (right - left) / n;
-    const int bar_w = std::max(4, slot * 2 / 3);
-    const int plot_h = bottom - top - 4;
+    const int slot = std::max(1, (right - left) / n);
+    const int bar_w = std::max(dip_to_px(4, scale), slot * 2 / 3);
+    const int plot_h = bottom - top - dip_to_px(4, scale);
     int prev_x = 0;
     int prev_y = 0;
     bool have_prev = false;
@@ -87,12 +118,13 @@ class ChartPlotView : public View {
       const int bar_h =
           static_cast<int>(std::lround(plot_h * (v / vmax)));
       const int x = left + i * slot + (slot - bar_w) / 2;
-      const int y = bottom - 2 - bar_h;
+      const int y = bottom - hair - bar_h;
       canvas->fill_rect(x, y, bar_w, bar_h, t.accent);
+      canvas->fill_rect(x, y, bar_w, hair, t.text_bright);
       const int mid_x = x + bar_w / 2;
       const int mid_y = y;
       if (have_prev) {
-        draw_segment(canvas, prev_x, prev_y, mid_x, mid_y, t.text_bright);
+        draw_segment(canvas, prev_x, prev_y, mid_x, mid_y, t.text, line_w);
       }
       prev_x = mid_x;
       prev_y = mid_y;
@@ -100,8 +132,9 @@ class ChartPlotView : public View {
 
       const std::wstring label =
           utf8_to_wide(series[static_cast<size_t>(i)].label);
-      canvas->draw_text(x, bottom + 2, label.c_str(), t.text);
+      canvas->draw_text(x, bottom + hair, label.c_str(), t.text_muted);
     }
+    canvas->restore();
   }
 
  private:
@@ -128,6 +161,7 @@ ChartView::ChartView() : title_("Chart") {
 
   if (title_label_) {
     title_label_->set_text(title_);
+    title_label_->set_color(Theme::current().text_bright);
   }
 
   auto fill = std::make_unique<FillLayout>();
@@ -174,6 +208,11 @@ void ChartView::paint_self(ui::gfx::Canvas* canvas) {
   const Theme& t = Theme::current();
   const Rect& b = bounds();
   canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
+  if (title_label_ && title_label_->is_visible()) {
+    const Rect& h = title_label_->bounds();
+    canvas->fill_rect(h.x, h.y, std::max(h.width, b.right() - h.x), h.height,
+                      t.panel_header);
+  }
 }
 
 }  // namespace views

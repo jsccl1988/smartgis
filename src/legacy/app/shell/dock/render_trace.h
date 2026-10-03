@@ -8,8 +8,6 @@
 
 #include <chrono>
 
-#include "legacy/core/macros/macros.h"
-
 // Plain CWnd RenderTrace pane (Views RenderTracePanel parity). Not a docking
 // bar — hosted inside DiagnosticToolsDockBar tabs.
 class RenderTracePane : public CWnd {

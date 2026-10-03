@@ -6,7 +6,8 @@ All rights reserved.
 # GPU process RHI accelerate abstraction
 
 
-> **Status: superseded** (2026-09-28 merge). Merged into `2026-09-13-render-rhi-scene-design.md` §GPU-process accelerate. Do not revise here except mechanical link fixes.
+> **Status: superseded** (2026-09-28 merge). Merged into `2026-09-13-render-rhi-scene-design.md` §GPU-process accelerate. Do not revise here except mechanical link fixes.  
+> **Diagram (living):** [`../../diagrams/gpu-process-accelerate.html`](../../diagrams/gpu-process-accelerate.html) · Plan checklist [`../../plans/2026-09-27-gpu-rhi-accelerate.md`](../../plans/2026-09-27-gpu-rhi-accelerate.md)
 
 **Status:** active  
 **Date:** 2026-09-27  

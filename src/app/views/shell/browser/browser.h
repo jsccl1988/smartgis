@@ -66,7 +66,7 @@ using content::extent_looks_like_china;
 
 class PluginShell;
 
-// Chrome controller: owns PluginShell + BrowserUiDelegate. Map document /
+// Shell controller: owns PluginShell + BrowserUiDelegate. Map document /
 // camera / present / gestures live on content::MapSession (WebContents-ish).
 class Browser : public content::MapContentsObserver {
  public:
@@ -202,6 +202,8 @@ class Browser : public content::MapContentsObserver {
   void fit_map_extent();
   void handle_draft(const tool::Draft& draft);
   void refresh_scale();
+  // Apply China orbit extent + status/overlays on the UI thread only.
+  void apply_extent_changed_on_ui(const content::Extent2& e);
   void adopt_or_commit_extent();
   void on_extent_watch(bool begin);
   void frame_navigation_extent();

@@ -20,6 +20,7 @@ struct Theme {
   ui::gfx::Color panel_bg = ui::gfx::color_rgb(37, 37, 38);
   ui::gfx::Color panel_header = ui::gfx::color_rgb(45, 45, 48);
   ui::gfx::Color accent = ui::gfx::color_rgb(0, 122, 204);
+  ui::gfx::Color danger = ui::gfx::color_rgb(196, 43, 28);
   ui::gfx::Color text = ui::gfx::color_rgb(235, 235, 235);
   ui::gfx::Color text_bright = ui::gfx::color_rgb(255, 255, 255);
   ui::gfx::Color text_muted = ui::gfx::color_rgb(175, 175, 175);
@@ -29,6 +30,9 @@ struct Theme {
   ui::gfx::Color control_press = ui::gfx::color_rgb(48, 48, 52);
   ui::gfx::Color control_disabled = ui::gfx::color_rgb(45, 45, 45);
   ui::gfx::Color control_unchecked = ui::gfx::color_rgb(50, 50, 50);
+  // Idle edge for inputs / tables; focus uses accent, invalid uses danger.
+  ui::gfx::Color control_border = ui::gfx::color_rgb(70, 70, 74);
+  ui::gfx::Color row_alt = ui::gfx::color_rgb(34, 34, 36);
   ui::gfx::Color map_placeholder = ui::gfx::color_rgb(27, 58, 75);
   ui::gfx::Color caption_bg = ui::gfx::color_rgb(37, 37, 38);
   ui::gfx::Color caption_button_hover = ui::gfx::color_rgb(60, 60, 60);

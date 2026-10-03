@@ -1,0 +1,31 @@
+/* AddBasemap dialog — Flex subset for Yoga; industry dialog spacing. */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  width: 420px;
+  height: 260px;
+}
+
+.hint,
+.status {
+  height: 20px;
+  width: 396px;
+  color: #afafaf;
+}
+
+#name_label,
+#kind_label,
+#url_label {
+  height: 20px;
+  width: 396px;
+}
+
+#name,
+#kind,
+#url {
+  height: 30px;
+  width: 396px;
+}

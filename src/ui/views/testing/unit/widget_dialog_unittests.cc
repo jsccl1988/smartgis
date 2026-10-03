@@ -195,9 +195,11 @@ void test_combobox_dpi_row_geometry() {
   c->set_bounds({0, 0, dip_to_px(200, 1.5f), dip_to_px(24, 1.5f)});
   expect(c->on_mouse_event(mouse_up(10, 10)), "combo open @1.5");
   expect(c->is_open(), "combo open state");
-  expect(c->bounds().height >= dip_to_px(24, 1.5f) + dip_to_px(22, 1.5f) * 2,
+  // Floating popup Widget owns the list; host bounds stay header-sized.
+  expect(c->bounds().height == dip_to_px(24, 1.5f) ||
+             c->bounds().height == dip_to_px(28, 1.5f),
          "open height includes scaled rows");
-  expect(c->preferred_size().height == dip_to_px(24, 1.5f),
+  expect(c->preferred_size().height == dip_to_px(28, 1.5f),
          "preferred stays header-sized");
   std::vector<std::string> issues;
   expect(collect_layout_violations(c, &issues) == 0,

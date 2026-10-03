@@ -48,11 +48,15 @@ struct NameMap {
 };
 
 constexpr NameMap kNames[] = {
-    // Match leftover AuxModule set_name() display strings (UTF-8 source).
+    // Match leftover AuxModule set_name() display strings (UTF-8 or ASCII).
     {"DEM创建", "smartgis.world3d"},      {"DEM生成", "smartgis.world3d"},
-    {"地图投影", "smartgis.proj"},    {"地图打印", "smartgis.print"},
+    {"DEM", "smartgis.world3d"},
+    {"地图投影", "smartgis.proj"},    {"Projection", "smartgis.proj"},
+    {"地图打印", "smartgis.print"},   {"Print", "smartgis.print"},
     {"三维创建", "smartgis.world3d"}, {"三维对象", "smartgis.world3d"},
+    {"Model3D", "smartgis.world3d"},
     {"正交格网", "smartgis.baogrid"}, {"边界适应正交网格", "smartgis.baogrid"},
+    {"OrthoGrid", "smartgis.baogrid"},
 };
 
 bool iequals(std::string_view a, std::string_view b) {

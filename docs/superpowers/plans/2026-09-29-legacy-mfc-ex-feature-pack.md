@@ -11,14 +11,14 @@ All rights reserved.
 
 **Architecture:** Approach C′ tree today. Waves 1–3 remove `grid/`/`dock/` and polish Feature Pack UX. **Wave 4 (after 1–3):** reshape `legacy/ui/**` capability dirs to mirror endgame shell vocabulary (`app/views/shell` roles: shell / viewport / panels / catalog / dialogs / widgets) while **remaining under `src/legacy/ui`** — never hoist into `src/ui` or `src/app/views`. Design lock: umbrella **§11c**.
 
-**Tech Stack:** MFC Feature Pack (`afxcontrolbars.h`, `widgets/bcg_cmfc.h`), GN `ui_legacy` / `legacy_app`.
+**Tech Stack:** MFC Feature Pack (`afxcontrolbars.h`, `widgets/feature_pack/feature_pack.h`), GN `ui_legacy` / `legacy_app`. Deepen widgets in §11d.
 
 ## Global Constraints
 
 - Product path: leftover `SmartGis.exe` / `legacy_app` only — **no** `SmartGisViews` / `ui::views` edits.
 - Toolkit: MSVC Feature Pack only — no BCG Pro vendor, no Qt, no second control tree.
 - Feature Pack is a leftover bridge — **not** the product endgame (Views + Skia).
-- Freeze `dll_stem=ui_legacy`; keep sole AFX attach in `widgets/widgets_core.cpp`.
+- Freeze `dll_stem=ui_legacy`; keep sole AFX attach in `widgets/dll/dll_main.cpp`.
 - HWND-free / drop `SmtFeature*` from chrome: **out of scope** (separate SP3).
 - Work on `master`; revise this plan + §11c in place — no new dated design twin.
 - Includes use `"legacy/ui/<capability>/…"` (scheme C, no shim).

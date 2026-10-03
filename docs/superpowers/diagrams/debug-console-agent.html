@@ -1,0 +1,104 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Debug Console / DebugAgent — 分层与工具闸门</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #e8eef8; --agent: #e8f3ee; --host: #f7efe6; --policy: #f6e8e8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.2rem; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  .lanes { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+  .lane { border: 1px solid var(--border); border-radius: 8px; padding: 10px; min-height: 140px; }
+  .lane h3 { margin: 0 0 6px; font-size: 0.85rem; }
+  .lane ul { margin: 0; padding-left: 1.1em; color: var(--muted); font-size: 0.82rem; }
+  .ui { background: var(--ui); }
+  .agent { background: var(--agent); }
+  .host { background: var(--host); }
+  .policy { background: var(--policy); }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+  .step { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: #fff; font-size: 0.82rem; }
+  .step strong { color: var(--accent); }
+  .arrow { color: var(--muted); }
+  .pulse { animation: fade 1.6s ease-in-out infinite; }
+  @keyframes fade { 50% { opacity: 0.55; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>Debug Console / DebugAgent 分层</h1>
+    <p>薄 UI（Diagnostic Tools / Console / Ask）+ 厚 <code>content::DebugAgent</code>；LLM/工具走 loopback JSON-RPC，不嵌入第二套 UI。</p>
+    <p class="meta">Living: views-desktop-shell §Debug Console · Diagram revise-in-place</p>
+  </div>
+
+  <div class="panel">
+    <h2>核心分层</h2>
+    <div class="lanes">
+      <div class="lane ui">
+        <h3>UI · Views</h3>
+        <ul>
+          <li><code>DebugConsolePanel</code></li>
+          <li>history / Tab / filter / Ask</li>
+          <li>不直连 SdbdClient</li>
+        </ul>
+      </div>
+      <div class="lane agent">
+        <h3>Agent · content</h3>
+        <ul>
+          <li><code>DebugAgent</code> NDJSON</li>
+          <li><code>rpc.methods</code> / <code>diag.pack</code></li>
+          <li><code>record.*</code> / <code>script.run</code></li>
+        </ul>
+      </div>
+      <div class="lane host">
+        <h3>Host hooks</h3>
+        <ul>
+          <li>layers / extent / overlay</li>
+          <li>ui.* / capture / py_eval</li>
+          <li><code>DebugConsoleChrome</code></li>
+        </ul>
+      </div>
+      <div class="lane policy">
+        <h3>Policy gate</h3>
+        <ul>
+          <li>:py / sdbd.query / click / capture</li>
+          <li><code>:confirm</code> / <code>SG_DEBUG_ALLOW</code></li>
+          <li>audit → LogSink</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>原理流（Ask / tools）</h2>
+    <div class="flow">
+      <div class="step pulse"><strong>1</strong> Ask / :cmd / RPC</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>2</strong> Policy gate</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>3</strong> Host / tools</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>4</strong> Console / NDJSON</div>
+    </div>
+    <p class="meta" style="margin-top:10px">Ask 仅本地关键词→已有工具；远程 LLM 后端为 stub。Schema：<code>rpc.methods</code> / <code>tools/debug/agent_methods.json</code>。</p>
+  </div>
+</div>
+</body>
+</html>

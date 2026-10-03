@@ -17,9 +17,18 @@ namespace views {
 // Activate (Space / Return when focused).
 class UI_EXPORT Button : public View {
  public:
+  // Visual hierarchy for dialog / form actions (ArcGIS / Fluent-like).
+  enum class Style {
+    kDefault,      // Neutral chrome button
+    kPrimary,      // Accent fill — OK / affirmative
+    kDestructive,  // Danger fill — delete / remove
+  };
+
   explicit Button(std::string text);
   void set_text(std::string text);
   const std::string& text() const;
+  void set_style(Style style);
+  Style style() const { return style_; }
   void set_click(std::function<void()> fn);
   bool on_mouse_event(const MouseEvent& e) override;
   bool on_key_event(const KeyEvent& e) override;
@@ -36,6 +45,7 @@ class UI_EXPORT Button : public View {
 
   std::string text_;
   std::wstring wide_;
+  Style style_ = Style::kDefault;
   std::function<void()> click_;
 };
 

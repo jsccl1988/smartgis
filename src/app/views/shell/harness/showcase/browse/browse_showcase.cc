@@ -8,14 +8,24 @@
 #include <string>
 
 #include "app/views/shell/browser/browser.h"
-#include "app/views/shell/harness/common/bmp.h"
-#include "app/views/shell/harness/common/maps.h"
-#include "app/views/shell/harness/common/mark.h"
-#include "app/views/shell/harness/common/pump.h"
+#include "app/views/shell/browser/china_product_defaults.h"
+#include "app/views/shell/harness/common/capture/bmp.h"
+#include "app/views/shell/harness/common/io/maps.h"
+#include "app/views/shell/harness/common/io/sample.h"
+#include "app/views/shell/harness/common/mark/mark.h"
+#include "app/views/shell/harness/common/pump/pump.h"
 #include "app/views/shell/harness/self_test/probe.h"
 #include "app/views/shell/runtime/capability/run_script.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
+#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/orbit_frame.h"
+#include "content/browser/camera/view_frame.h"
+#include "content/browser/document/map_scene.h"
+#include "content/browser/present/map2d/map2d_presenter.h"
+#include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "ui/views/map/map_viewport.h"
+
+#include <cstdio>
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -45,23 +55,165 @@ bool is_browse_3d_suite(const char* suite_id) {
   return suite_id && std::strcmp(suite_id, "browse.3d") == 0;
 }
 
-// Prefer FlyCube present HWND (input_hwnd): shell PrintWindow cannot sample
-// WS_EX_NOREDIRECTIONBITMAP DXGI flip contents (hollow navy / sheared chrome).
-void capture_browse_shell_bmp(Browser& browser, bool is_3d) {
-  if (is_3d) {
-    browser.select_map_tab(2);
-  } else {
-    browser.select_map_tab(0);
+void browse_viewport_size(ui::views::MapViewport* pane, int* vw, int* vh) {
+  *vw = 800;
+  *vh = 600;
+  if (!pane) {
+    return;
   }
-  ui::views::MapViewport* pane =
-      is_3d ? browser.map_scene_viewport() : browser.map_viewport();
-  // browse.il stops present timers before stress; wake a frame for capture.
-  if (pane) {
-    pane->set_flycube_present_visible(true);
-    pane->invalidate_native();
+  if (HWND hwnd = pane->native_view()) {
+    RECT rc = {};
+    GetClientRect(hwnd, &rc);
+    if (rc.right > 32) {
+      *vw = rc.right;
+    }
+    if (rc.bottom > 32) {
+      *vh = rc.bottom;
+    }
   }
-  detail::pump_messages(400);
+}
 
+// SMT_SKIP_AMBOX_CATALOG (set for browse-showcase) forces demo-only SeedDocument
+// and skips Browser::show deferred China. Without an explicit china_city open,
+// MapFrame paints a cream AABB + ocean clear (unique≈2, no roads/rivers).
+// Same opener as map2d.china / ui china_seed; do this BEFORE browse.il stress
+// so capture never reopens OGR after KillTimer (hang / rc=124).
+bool ensure_browse_china_map(Browser& browser) {
+  if (!browser.document()) {
+    detail::self_test_mark("china-seed-nodoc");
+    return false;
+  }
+  // Skip O(n×m) land-clip on the UI thread (product deferred-seed path).
+  _putenv_s("SMT_SKIP_CHINA_LAND_CLIP", "1");
+  // Hillshade bake during first china layout has hung / AVd export under
+  // browse FlyCube; map2d.china scores land without requiring shade.
+  _putenv_s("SMT_MAP2D_NO_HILLSHADE", "1");
+
+  bool ok = browser.document()->has_china_extent() &&
+            browser.document()->feature_count() >= 200;
+  if (!ok) {
+    browser.document()->seed_default(/*allow_china_bootstrap=*/true);
+    ok = browser.document()->has_china_extent() &&
+         browser.document()->feature_count() >= 200;
+  }
+  if (!ok) {
+    ok = detail::try_open_china_sample(browser,
+                                       /*write_stub_if_missing=*/false);
+    ok = ok && browser.document()->has_china_extent() &&
+         browser.document()->feature_count() >= 3;
+  }
+  _putenv_s("SMT_SKIP_CHINA_LAND_CLIP", "");
+
+  if (!ok) {
+    detail::self_test_mark("china-seed-miss");
+    std::fprintf(stderr,
+                 "browse-showcase: china sample open failed (features=%zu)\n",
+                 browser.document() ? browser.document()->feature_count()
+                                    : 0u);
+    return false;
+  }
+  ensure_china_maplibre_carto(browser);
+  // init/show skipped fit under SMT_SKIP_AMBOX_CATALOG.
+  browser.fit_map_extent();
+  detail::self_test_mark("china-seed-ok");
+  std::fprintf(stderr, "browse-showcase: china seeded features=%zu\n",
+               browser.document()->feature_count());
+  return true;
+}
+
+// Software carto export — HWND/FlyCube BitBlt after browse.il stop_map_timers
+// lands a two-tone chrome+admin_gray hollow that soft map2d_china misreads as
+// land+water. Frame ViewFrame to export pixels (map2d framing.cc): client-sized
+// framing + smaller export samples a cream AABB without roads.
+bool capture_browse_2d_export(Browser& browser, int vw, int vh) {
+  content::Map2dPresenter* map2d = browser.map2d();
+  if (!map2d) {
+    return false;
+  }
+  detail::self_test_mark("bmp-export-begin");
+  // Frame at export size only — do NOT call apply_china_map2d_product_defaults
+  // / push_shared_extent after browse.il stop_map_timers + china_city stress:
+  // that path ExitProcess(-1) between bmp-export-begin and bmp-framed.
+  // Carto clear + china open already happened in ensure_browse_china_map.
+  content::MapScene* doc = browser.document();
+  if (content::ViewFrame* frame = browser.view_frame()) {
+    if (doc && doc->has_china_extent()) {
+      frame->apply_world_extent(content::kChinaMap2dFrameExtent, vw, vh);
+    } else if (doc) {
+      frame->fit_extent(*doc, vw, vh);
+    }
+  }
+  detail::self_test_mark("bmp-framed");
+  char bmp_a[MAX_PATH] = {};
+  if (!detail::exe_capture_path_a(bmp_a, MAX_PATH, "browse-showcase-2d.bmp")) {
+    return false;
+  }
+  wchar_t bmp_w[MAX_PATH] = {};
+  if (!detail::exe_capture_path(bmp_w, MAX_PATH, L"browse-showcase-2d.bmp")) {
+    return false;
+  }
+  DeleteFileW(bmp_w);
+  // Do not invalidate_frame_cache here: after browse.il stop_map_timers +
+  // china_city stress, gpu_.invalidate_frame_cache ExitProcess(-1) between
+  // bmp-framed and bmp-export-paint. export_bmp clears the software present
+  // cache and rebuilds MapFrame from the ViewFrame camera key.
+  detail::self_test_mark("bmp-export-paint");
+  bool painted = false;
+  try {
+    painted = map2d->export_bmp(bmp_a, vw, vh);
+  } catch (const std::exception& ex) {
+    std::fprintf(stderr, "browse-showcase: export_bmp exception: %s\n",
+                 ex.what());
+    return false;
+  } catch (...) {
+    std::fprintf(stderr, "browse-showcase: export_bmp unknown exception\n");
+    return false;
+  }
+  if (!painted) {
+    std::fprintf(stderr, "browse-showcase: map2d export_bmp failed\n");
+    return false;
+  }
+  detail::self_test_mark("bmp-export-wrote");
+  int bw = 0;
+  int bh = 0;
+  detail::BmpFileCheckOpts check;
+  check.allow_32bpp = true;
+  check.require_color_diversity = true;
+  if (!detail::bmp_file_has_visible_signal_a(bmp_a, &bw, &bh, check)) {
+    std::fprintf(stderr,
+                 "browse-showcase: export BMP lacks signal (%dx%d)\n", bw, bh);
+    return false;
+  }
+  std::fprintf(stderr, "browse-showcase: export_bmp ok (%dx%d features=%zu)\n",
+               bw, bh, doc ? doc->feature_count() : 0u);
+  detail::self_test_mark("bmp-ok");
+  return true;
+}
+
+// Kick FlyCube presents until last_gpu_present_ok or budget expires. A second
+// select_map_tab(2) after browse.3d.il remounts DXGI on navy clear; linger
+// must wait for DEM/atmosphere present_gpu before BitBlt.
+void linger_flycube_presents(ui::views::MapViewport* pane, DWORD budget_ms) {
+  if (!pane) {
+    return;
+  }
+  const DWORD t0 = GetTickCount();
+  int kicks = 0;
+  while (GetTickCount() - t0 < budget_ms) {
+    pane->set_flycube_present_visible(true);
+    pane->resume_present_timer();
+    pane->invalidate_native();
+    detail::pump_messages(80);
+    ++kicks;
+    if (pane->last_gpu_present_ok() && kicks >= 6) {
+      return;
+    }
+  }
+}
+
+bool capture_browse_hwnd_bmp(Browser& browser,
+                             ui::views::MapViewport* pane,
+                             bool is_3d) {
   HWND hwnd = nullptr;
   if (pane) {
     hwnd = pane->input_hwnd();
@@ -70,23 +222,92 @@ void capture_browse_shell_bmp(Browser& browser, bool is_3d) {
     hwnd = browser.hwnd();
   }
   if (!hwnd || !IsWindow(hwnd)) {
-    return;
+    return false;
   }
   wchar_t path[MAX_PATH] = {};
   const wchar_t* leaf =
       is_3d ? L"browse-showcase-3d.bmp" : L"browse-showcase-2d.bmp";
   if (!detail::exe_capture_path(path, MAX_PATH, leaf)) {
-    return;
+    return false;
   }
   detail::CaptureOpts opts;
-  opts.max_attempts = 6;
-  opts.pump_base_ms = 80;
-  opts.pump_step_ms = 50;
-  opts.require_chrome_diversity = false;
+  opts.max_attempts = is_3d ? 12 : 6;
+  opts.pump_base_ms = 100;
+  opts.pump_step_ms = 60;
+  opts.require_shell_diversity = false;
   opts.visible = detail::VisiblePolicy::kGridLitFraction;
-  if (detail::capture_hwnd_bmp(hwnd, path, opts)) {
-    detail::self_test_mark(is_3d ? "bmp3d-ok" : "bmp-ok");
+  if (!detail::capture_hwnd_bmp(hwnd, path, opts)) {
+    return false;
   }
+  if (is_3d) {
+    int bw = 0;
+    int bh = 0;
+    detail::BmpFileCheckOpts check;
+    check.require_color_diversity = true;
+    if (!detail::bmp_file_has_visible_signal(path, &bw, &bh, check)) {
+      return false;
+    }
+  }
+  detail::self_test_mark(is_3d ? "bmp3d-ok" : "bmp-ok");
+  return true;
+}
+
+// Prefer FlyCube present HWND (input_hwnd): shell PrintWindow cannot sample
+// WS_EX_NOREDIRECTIONBITMAP DXGI flip contents (hollow navy / sheared chrome).
+// 2D prefers Map2dPresenter::export_bmp (same SoT as map2d.china).
+void capture_browse_shell_bmp(Browser& browser, bool is_3d) {
+  ui::views::MapViewport* pane =
+      is_3d ? browser.map_scene_viewport() : browser.map_viewport();
+
+  int vw = 800;
+  int vh = 600;
+  browse_viewport_size(pane, &vw, &vh);
+
+  if (is_3d) {
+    // browse.il may have stopped timers; 3D HWND capture needs live presents.
+    detail::resume_map_present_timers(browser);
+    // browse.3d.il already selected tab 2. Re-select remounts FlyCube to navy
+    // clear and races MapHwndGestures attach (intermittent -1). Only reframe.
+    // Prefer orbit + seed without abandon_mesh (atmosphere full): product
+    // defaults alone used to paint a black mainland silhouette under FlyCube
+    // when land rings came from the demo seed. China is already open.
+    content::Scene3dPresenter* cam = browser.scene3d();
+    content::OrbitFrame* orbit = browser.orbit_frame();
+    if (cam && orbit) {
+      apply_china_scene3d_orbit(browser);
+      // Pull back like atmosphere-showcase=full so ocean shelf does not fill
+      // the frame as a translucent cutting plane after orbit stress.
+      orbit->set_distance(3.6f);
+      orbit->set_pitch(0.36f);
+      cam->set_look_preset(content::Scene3dLookPreset::kAtmosphere);
+      cam->atmosphere_session().seed_procedural(/*with_land_rings=*/true);
+      cam->atmosphere_session().set_globe_enabled(false);
+      cam->atmosphere_session().set_sat_cloud_enabled(false);
+      cam->atmosphere_session().set_ocean_enabled(true);
+      cam->atmosphere_session().set_cloud_enabled(true);
+      cam->atmosphere_session().set_sky_enabled(true);
+      cam->atmosphere_session().set_fog_enabled(true);
+    } else {
+      apply_china_scene3d_product_defaults(browser);
+    }
+    if (pane) {
+      pane->set_flycube_present_visible(true);
+      pane->invalidate_native();
+    }
+    linger_flycube_presents(pane, 2500);
+    (void)capture_browse_hwnd_bmp(browser, pane, true);
+    return;
+  }
+
+  // Prefer software export while present may still be live. Stopping timers
+  // after china_city stress has hung the UI thread waiting on Display (rc=124
+  // / suite timeout). Map2d showcase also exports without KillTimer first.
+  constexpr int kExportW = 640;
+  constexpr int kExportH = 480;
+  if (capture_browse_2d_export(browser, kExportW, kExportH)) {
+    return;
+  }
+  detail::self_test_mark("bmp-export-fail");
 }
 
 }  // namespace
@@ -102,22 +323,40 @@ int run_browse_showcase(Browser& browser) {
   detail::self_test_mark("hwnd-ok");
 
   const char* suite_id = resolve_browse_suite_id();
+  const bool suite_3d = is_browse_3d_suite(suite_id);
+  bool browse_2d_bmp_ok = false;
   // browse.3d.il selects Map tab 2 itself; forcing tab 0 first races FlyCube
   // attach / abandon under dual-pane and has exited -1 with empty marks.
-  if (!is_browse_3d_suite(suite_id)) {
+  if (!suite_3d) {
     browser.select_map_tab(0);
     detail::pump_messages(400);
+    // Open china AFTER the 2D tab is active. Seeding before select_map_tab(0)
+    // ExitProcess(-1) under FlyCube (marks stopped at china-seed-ok).
+    (void)ensure_browse_china_map(browser);
+    detail::pump_messages(200);
+    // Pause FlyCube present before software export — concurrent GPU present +
+    // MapFrame rebuild under china_city ExitProcess(-1) mid export_bmp.
+    detail::stop_map_present_timers(browser);
+    constexpr int kExportW = 640;
+    constexpr int kExportH = 480;
+    browse_2d_bmp_ok = capture_browse_2d_export(browser, kExportW, kExportH);
   } else {
     detail::self_test_mark("suite-browse3d");
+    detail::pump_messages(200);
+    // 3D needs china land rings for atmosphere sea-mask (demo rings → dark
+    // floating mesh + translucent ocean plane over DEM).
+    (void)ensure_browse_china_map(browser);
     detail::pump_messages(200);
   }
 
   if (try_run_suite_script(browser, suite_id, detail::kSelfTestMarkLeaf,
                            /*clear_marks=*/false)) {
-    // Capture while present threads still paint — stop_map_present_timers first
-    // yields a hollow navy FlyCube frame (ui_shell_dark accent=0).
     detail::pump_messages(150);
-    capture_browse_shell_bmp(browser, is_browse_3d_suite(suite_id));
+    if (suite_3d) {
+      // Capture while present threads still paint — stop_map_present_timers
+      // first yields a hollow navy FlyCube frame (ui_shell_dark accent=0).
+      capture_browse_shell_bmp(browser, true);
+    }
     detail::stop_map_present_timers(browser);
     detail::pump_messages(50);
     return 0;
@@ -126,7 +365,7 @@ int run_browse_showcase(Browser& browser) {
   // Script failed mid-way (incomplete marks). Keep maps attached for the C++
   // navigate fallback so pan/browse/wheel marks can still land; detach after.
   // browse.3d has no 2D navigate fallback that produces browse3d-* marks.
-  if (is_browse_3d_suite(suite_id)) {
+  if (suite_3d) {
     detail::self_test_mark("dsl-fail");
     detail::pump_messages(100);
     capture_browse_shell_bmp(browser, true);
@@ -136,7 +375,13 @@ int run_browse_showcase(Browser& browser) {
   detail::self_test_mark("dsl-fallback");
   const int rc = detail::self_test_navigate(browser);
   detail::pump_messages(100);
-  capture_browse_shell_bmp(browser, false);
+  // 2D BMP already written pre-stress when china seeded; avoid post-stress
+  // export AV. Re-try only if pre-stress export missed.
+  if (!browse_2d_bmp_ok) {
+    constexpr int kExportW = 640;
+    constexpr int kExportH = 480;
+    (void)capture_browse_2d_export(browser, kExportW, kExportH);
+  }
   detail::stop_map_present_timers(browser);
   return rc;
 }

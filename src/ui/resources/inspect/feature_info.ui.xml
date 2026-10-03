@@ -2,7 +2,13 @@
 <ui name="feature_info">
   <style src="feature_info.ui.css"/>
   <vbox id="root" class="panel">
-    <label id="id" text="Feature"/>
-    <table id="table" columns="Name,Value"/>
+    <label id="layer" text="No feature identified"/>
+    <label id="meta" text="Click a map feature to inspect attributes"/>
+    <hbox id="nav_row" class="nav">
+      <button id="prev" text="&lt;"/>
+      <label id="nav" text=""/>
+      <button id="next" text="&gt;"/>
+    </hbox>
+    <table id="table" columns="Field,Value"/>
   </vbox>
 </ui>

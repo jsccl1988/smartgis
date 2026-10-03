@@ -52,6 +52,14 @@ void Button::set_text(std::string text) {
   schedule_paint();
 }
 
+void Button::set_style(Style style) {
+  if (style_ == style) {
+    return;
+  }
+  style_ = style;
+  schedule_paint();
+}
+
 void Button::on_device_scale_factor_changed(float /*old_scale*/,
                                           float /*new_scale*/) {
   rebuild_text_cache();
@@ -103,20 +111,43 @@ void Button::paint_self(ui::gfx::Canvas* canvas) {
   const Theme& t = Theme::current();
   const Rect& b = bounds();
   ui::gfx::Color fill = t.control_fill;
+  ui::gfx::Color edge = t.control_border;
+  ui::gfx::Color fg = t.text_bright;
+
+  if (style_ == Style::kPrimary) {
+    fill = t.accent;
+    edge = t.accent;
+    fg = t.text_bright;
+  } else if (style_ == Style::kDestructive) {
+    fill = t.danger;
+    edge = t.danger;
+    fg = t.text_bright;
+  }
+
   if (!is_enabled()) {
     fill = t.control_disabled;
+    edge = t.control_border;
+    fg = t.text_muted;
   } else if (is_pressed()) {
-    fill = t.control_press;
+    if (style_ == Style::kPrimary) {
+      fill = ui::gfx::color_rgb(0, 98, 168);
+    } else if (style_ == Style::kDestructive) {
+      fill = ui::gfx::color_rgb(160, 32, 20);
+    } else {
+      fill = t.control_press;
+    }
   } else if (is_hovered()) {
-    fill = t.control_hover;
+    if (style_ == Style::kPrimary) {
+      fill = ui::gfx::color_rgb(28, 140, 214);
+    } else if (style_ == Style::kDestructive) {
+      fill = ui::gfx::color_rgb(214, 60, 42);
+    } else {
+      fill = t.control_hover;
+    }
   }
+
   canvas->fill_rect(b.x, b.y, b.width, b.height, fill);
-  // 1px edge so flat dark buttons read as controls, not empty slabs.
-  if (is_enabled()) {
-    canvas->stroke_rect(b.x, b.y, b.width, b.height, t.panel_header, 1);
-  }
-  const ui::gfx::Color fg =
-      is_enabled() ? t.text_bright : t.text_muted;
+  canvas->stroke_rect(b.x, b.y, b.width, b.height, edge, 1);
   if (!wide_.empty()) {
     const float scale = scale_for(this);
     const int pad_x = dip_to_px(kPadX / 2, scale);  // 8dip at 96dpi
@@ -131,7 +162,6 @@ void Button::paint_self(ui::gfx::Canvas* canvas) {
     draw_focus_ring(canvas, b);
   }
 }
-
 
 std::string_view Button::paint_role() const {
   return "button";

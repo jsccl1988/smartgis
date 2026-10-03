@@ -1,0 +1,145 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>legacy/ui/shell 深度分层</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --card: #ffffff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --xv: #e8f0fa; --in: #eef6ee; --am: #f7f0e8; --ch: #f3eef8; --mp: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.45;
+  }
+  h1 { font-size: 1.35rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 0.92rem; margin-bottom: 20px; }
+  .stack { display: grid; gap: 12px; max-width: 960px; }
+  .lane {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .lane h2 {
+    margin: 0 0 8px; font-size: 0.95rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tag {
+    font-size: 0.72rem; font-weight: 600; padding: 2px 8px;
+    border-radius: 4px; color: #123;
+  }
+  .tag.xv { background: var(--xv); }
+  .tag.in { background: var(--in); }
+  .tag.am { background: var(--am); }
+  .tag.ch { background: var(--ch); }
+  .tag.mp { background: var(--mp); }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    margin-top: 10px; font-size: 0.88rem;
+  }
+  .chip {
+    background: #eef2f6; border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 8px; font-family: Consolas, monospace;
+    font-size: 0.8rem;
+  }
+  .arrow { color: var(--accent); font-weight: 700; }
+  code { font-family: Consolas, monospace; font-size: 0.85rem; }
+  .principle {
+    margin-top: 18px; max-width: 960px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .principle ol { margin: 8px 0 0 1.2rem; color: var(--muted); }
+  .stages {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;
+    align-items: center;
+  }
+  .stage {
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 10px; background: #fff; min-width: 150px;
+  }
+  .stage.active { border-color: var(--accent); }
+  .stage .n { font-size: 0.72rem; color: var(--accent); font-weight: 700; }
+  .stage .t { font-size: 0.85rem; margin-top: 2px; }
+  .pulse { animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
+    50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
+  }
+</style>
+</head>
+<body>
+  <h1>legacy/ui/shell 深度分层（§11f）</h1>
+  <p class="sub">leftover MFC shell chrome；物理仍在 <code>src/legacy/ui/shell</code>。Scheme C，无 shim。Map 宿主归 <code>map_sources</code>。</p>
+
+  <div class="stack">
+    <div class="lane pulse">
+      <h2><span class="tag xv">xview</span> CView 铬层基类</h2>
+      <div class="flow">
+        <span class="chip">xview.h / .cpp</span>
+        <span class="arrow">→</span>
+        <span><code>SmtXView</code>：生命周期 / 菜单 / ViewHost 路由</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag in">input_dispatch</span> 输入分发</h2>
+      <div class="flow">
+        <span class="chip">input_dispatch.h / .cc</span>
+        <span class="arrow">→</span>
+        <span>Win32 pointer / gesture / wheel → <code>ViewHost::dispatch_input</code></span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag am">ambox</span> 辅模块栏组合</h2>
+      <div class="flow">
+        <span class="chip">title</span>
+        <span class="arrow">+</span>
+        <span class="chip">tree</span>
+        <span class="arrow">+</span>
+        <span class="chip">outlook_bar</span>
+        <span class="arrow">→</span>
+        <span>标题解码 / <code>SmtXAMBox</code> / Feature Pack Outlook</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag ch">chart</span> 统计图</h2>
+      <div class="flow">
+        <span class="chip">diagram_data</span>
+        <span class="chip">chart</span>
+        <span class="chip">view_dlg</span>
+        <span class="chip">chart_api</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag mp">map_sources</span> 边界</h2>
+      <div class="flow">
+        <span class="chip">legacy/ui/map</span>
+        <span class="arrow">owns</span>
+        <span><code>view_2d</code> / <code>view_3d</code>（不再编进 <code>shell_sources</code>）</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="principle">
+    <strong>原则流</strong>
+    <div class="stages">
+      <div class="stage active"><div class="n">1</div><div class="t">按职责拆 stem / 子目录</div></div>
+      <div class="stage"><div class="n">2</div><div class="t">标题 / 模块列表组合复用</div></div>
+      <div class="stage"><div class="n">3</div><div class="t">破 include · 无 shim</div></div>
+      <div class="stage"><div class="n">4</div><div class="t">map 宿主迁出 shell_sources</div></div>
+    </div>
+    <ol>
+      <li>公开类型名与导出宏保持（ABI 冻结）。</li>
+      <li>终局 Views / <code>app/views</code> 不依赖本树。</li>
+      <li>Feature Pack Outlook 仍是 leftover 桥，非终局控件库。</li>
+    </ol>
+  </div>
+</body>
+</html>

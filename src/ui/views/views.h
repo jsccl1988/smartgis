@@ -40,7 +40,7 @@
 #include "ui/views/primitives/text/textfield.h"
 #include "ui/views/primitives/collection/tree_view.h"
 
-// Dialogs (toolkit shell only — GIS product dialogs are under ui/gis/dialogs/)
+// Dialogs (toolkit shell only — GIS product modals live under ui/gis/catalog|inspect/)
 #include "ui/views/dialogs/dialog.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/dialogs/input_text_dialog.h"

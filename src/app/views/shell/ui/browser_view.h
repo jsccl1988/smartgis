@@ -51,30 +51,30 @@ class MapHwndGestures;
 
 namespace app {
 
-class AtmosphereChrome;
+class AtmosphereComposer;
 class Browser;
-class DebugConsoleChrome;
-class InspectChrome;
-class InspectorSyncChrome;
-class MapPagesChrome;
-class ProcessingChrome;
+class DebugConsoleComposer;
+class InspectComposer;
+class InspectorSyncComposer;
+class MapPagesComposer;
+class ProcessingComposer;
 class ReportPanel;
-class ShellLayoutChrome;
+class ShellLayoutComposer;
 using content::MapHwndGestures;
 
 // Views chrome for SmartGisViews: MenuBar, splitters, TabStrip, map panes.
 // Session / present ownership lives on Browser; this type holds Browser* and
 // implements BrowserUiDelegate for status/tab UI push.
-// Panel/page wire logic is composed into *Chrome helpers (friend) so this
-// type stays layout + thin forwards — see living shell §shell/ui chrome composers.
+// Panel/page wire logic is composed into *Composer helpers (friend) so this
+// type stays layout + thin forwards — see living shell §shell/ui composers.
 class BrowserView : public BrowserUiDelegate {
-  friend class AtmosphereChrome;
-  friend class DebugConsoleChrome;
-  friend class InspectChrome;
-  friend class InspectorSyncChrome;
-  friend class MapPagesChrome;
-  friend class ProcessingChrome;
-  friend class ShellLayoutChrome;
+  friend class AtmosphereComposer;
+  friend class DebugConsoleComposer;
+  friend class InspectComposer;
+  friend class InspectorSyncComposer;
+  friend class MapPagesComposer;
+  friend class ProcessingComposer;
+  friend class ShellLayoutComposer;
 
  public:
   explicit BrowserView(Browser* browser);
@@ -86,10 +86,10 @@ class BrowserView : public BrowserUiDelegate {
   Browser* browser() const { return browser_; }
 
   // BrowserUiDelegate
-  bool init_chrome() override;
-  void show_chrome() override;
-  int run_chrome_loop() override;
-  void prepare_chrome_close() override;
+  bool init_shell() override;
+  void show_shell() override;
+  int run_shell_loop() override;
+  void prepare_shell_close() override;
 
   HWND hwnd() const override;
   ui::views::View* contents_view() const override;
@@ -105,6 +105,7 @@ class BrowserView : public BrowserUiDelegate {
   ui::views::ProcessingPanel* processing_panel() const override {
     return processing_panel_;
   }
+  void ensure_processing_panel() override;
   ui::views::AtmospherePanel* atmosphere_panel() const override {
     return atmosphere_panel_;
   }
@@ -257,19 +258,19 @@ class BrowserView : public BrowserUiDelegate {
   ui::views::Splitter* catalog_map_ = nullptr;
 
   // Append-only chrome composers (do not insert above map_*).
-  std::unique_ptr<MapPagesChrome> map_pages_;
-  std::unique_ptr<ProcessingChrome> processing_;
-  std::unique_ptr<InspectChrome> inspect_;
-  std::unique_ptr<InspectorSyncChrome> inspector_sync_;
-  std::unique_ptr<DebugConsoleChrome> debug_console_;
-  std::unique_ptr<AtmosphereChrome> atmosphere_;
+  std::unique_ptr<MapPagesComposer> map_pages_;
+  std::unique_ptr<ProcessingComposer> processing_;
+  std::unique_ptr<InspectComposer> inspect_;
+  std::unique_ptr<InspectorSyncComposer> inspector_sync_;
+  std::unique_ptr<DebugConsoleComposer> debug_console_;
+  std::unique_ptr<AtmosphereComposer> atmosphere_;
 
   // Right-dock AMBox tab (vertical). Map tool bar is ambox_ (horizontal).
   // Append-only — do not insert above map_*.
   ui::views::AmboxView* side_ambox_ = nullptr;
 
   // Append-only: markup shell layout builder (do not insert above map_*).
-  std::unique_ptr<ShellLayoutChrome> shell_layout_;
+  std::unique_ptr<ShellLayoutComposer> shell_layout_;
 };
 
 }  // namespace app

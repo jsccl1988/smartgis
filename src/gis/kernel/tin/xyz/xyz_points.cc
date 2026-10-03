@@ -68,7 +68,7 @@ long read_xyz_points(const char* path,
                      int x_col,
                      int y_col,
                      int z_col,
-                     std::vector<render::Vector3>* out) {
+                     std::vector<base::Vector3>* out) {
   if (path == nullptr || path[0] == '\0' || out == nullptr ||
       skip_header_lines < 0 || x_col < 0 || y_col < 0 || z_col < 0) {
     return SMT_ERR_INVALID_PARAM;
@@ -104,7 +104,7 @@ long read_xyz_points(const char* path,
     if (static_cast<int>(fields.size()) < required) {
       return SMT_ERR_INVALID_PARAM;
     }
-    render::Vector3 pt;
+    base::Vector3 pt;
     if (!parse_coord(fields[static_cast<std::size_t>(x_col)], &pt.x) ||
         !parse_coord(fields[static_cast<std::size_t>(y_col)], &pt.y) ||
         !parse_coord(fields[static_cast<std::size_t>(z_col)], &pt.z)) {

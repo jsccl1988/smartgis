@@ -79,9 +79,9 @@ BEGIN
             VALUE "CompanyName", "TODO: <��˾��>"
             VALUE "FileDescription", "TODO: <�ļ�˵��>"
 			VALUE "FileVersion",     "1.0.0.1"
-			VALUE "InternalName",    "SmtGuiCore.dll"
+			VALUE "InternalName",    "ui_legacy.dll"
             VALUE "LegalCopyright", "TODO: (C) <��˾��>����������Ȩ����"
-			VALUE "OriginalFilename","SmtGuiCore.dll"
+			VALUE "OriginalFilename","ui_legacy.dll"
             VALUE "ProductName", "TODO: <��Ʒ��>"
 			VALUE "ProductVersion",  "1.0.0.1"
 		END

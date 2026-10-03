@@ -143,6 +143,9 @@ def score_map2d_china(path: Path) -> dict:
     # Hillshade / admin wash can steal cream land into gray; treat admin as
     # land-like for framing gates so eastern china + DEM still passes.
     land_like_f = land_f + admin_f
+    # Shell HWND hollow after browse stress: chrome teal (#aad3df) + flat
+    # admin gray fill with zero roads — water_blue/land_like soft-pass falsely.
+    chrome_hollow = (ocean_f + admin_f) > 0.95 and (gold_f + casing_f) < 0.0005
     ok = (
         red_f < 0.08
         and salmon_f < 0.05
@@ -156,6 +159,7 @@ def score_map2d_china(path: Path) -> dict:
         and (gold_f + casing_f) > 0.0012
         and casing_f > 0.00025
         and hs_ok
+        and not chrome_hollow
     )
     return {
         "bmp": str(path),
@@ -190,6 +194,7 @@ def score_map2d_china(path: Path) -> dict:
             "road_gold+casing>0.0012": (gold_f + casing_f) > 0.0012,
             "road_casing_frac>0.00025": casing_f > 0.00025,
             "hillshade_soft_ok": hs_ok,
+            "not_chrome_admin_hollow": not chrome_hollow,
         },
     }
 

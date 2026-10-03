@@ -44,12 +44,23 @@ SelectionPanel::SelectionPanel() {
   if (export_) {
     export_->set_click([this]() { fire("selection.export_selected"); });
   }
+  if (table_) {
+    table_->set_row_click([this](int row) {
+      if (row < 0 || row >= static_cast<int>(layers_.size())) {
+        return;
+      }
+      fire(std::string("selection.layer:") + layers_[static_cast<size_t>(row)].layer_id);
+    });
+  }
 
   auto fill = std::make_unique<FillLayout>();
   set_layout_manager(std::move(fill));
   loaded.root->set_preferred_size({280, 200});
   add_child(std::move(loaded.root));
   set_preferred_size({280, 200});
+  refresh_count_label();
+  rebuild_table();
+  sync_commands_enabled();
 }
 
 SelectionPanel::~SelectionPanel() {
@@ -65,6 +76,9 @@ SelectionPanel::~SelectionPanel() {
   if (export_) {
     export_->set_click({});
   }
+  if (table_) {
+    table_->set_row_click({});
+  }
   remove_all_children();
   title_ = nullptr;
   count_label_ = nullptr;
@@ -78,11 +92,13 @@ SelectionPanel::~SelectionPanel() {
 void SelectionPanel::set_count(int total) {
   count_ = total < 0 ? 0 : total;
   refresh_count_label();
+  sync_commands_enabled();
 }
 
 void SelectionPanel::set_layers(std::vector<LayerSummary> layers) {
   layers_ = std::move(layers);
   rebuild_table();
+  sync_commands_enabled();
 }
 
 void SelectionPanel::set_command(Command fn) {
@@ -94,6 +110,11 @@ void SelectionPanel::rebuild_table() {
     return;
   }
   table_->clear_rows();
+  table_->set_columns({"Layer", "Count"});
+  if (layers_.empty()) {
+    table_->add_row({"No selection", "\xE2\x80\x94"});
+    return;
+  }
   for (const auto& layer : layers_) {
     table_->add_row({layer.label.empty() ? layer.layer_id : layer.label,
                      std::to_string(layer.count)});
@@ -107,8 +128,33 @@ void SelectionPanel::fire(const std::string& id) {
 }
 
 void SelectionPanel::refresh_count_label() {
-  if (count_label_) {
-    count_label_->set_text(std::string("Selected: ") + std::to_string(count_));
+  if (!count_label_) {
+    return;
+  }
+  const Theme& t = Theme::current();
+  if (count_ <= 0) {
+    count_label_->set_text("No features selected");
+    count_label_->set_color(t.text_muted);
+  } else {
+    count_label_->set_text(std::string("Selected: ") + std::to_string(count_) +
+                           (count_ == 1 ? " feature" : " features"));
+    count_label_->set_color(t.text);
+  }
+}
+
+void SelectionPanel::sync_commands_enabled() {
+  const bool has = count_ > 0;
+  if (clear_) {
+    clear_->set_enabled(has);
+  }
+  if (invert_) {
+    invert_->set_enabled(has);
+  }
+  if (zoom_) {
+    zoom_->set_enabled(has);
+  }
+  if (export_) {
+    export_->set_enabled(has);
   }
 }
 

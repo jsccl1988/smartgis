@@ -6,11 +6,83 @@
 
 #include <cmath>
 
+#include "base/math/affine2.h"
 #include "legacy/gis/present/carto/style_bas_struct.h"
 #include "legacy/render/rhi2d/impl/common/paint/carto/frame/preview_xform.h"
 
 namespace render {
 namespace detail {
+
+inline constexpr float kPortEpsilon = 1e-5f;
+
+inline bool dim_near_zero(float v) { return std::fabs(v) < kPortEpsilon; }
+
+inline bool is_valid_zoom_scale(float fscale) {
+  return (fscale > 0.f) && std::isfinite(fscale);
+}
+
+// LPToDP identity fallback: leftover ABI treats all-zero ports as unmapped.
+inline bool ports_are_all_zero(const base::Viewport& vp,
+                               const base::Windowport& wp) {
+  return dim_near_zero(wp.m_fWWidth) && dim_near_zero(wp.m_fWHeight) &&
+         dim_near_zero(vp.m_fVWidth) && dim_near_zero(vp.m_fVHeight);
+}
+
+inline bool ports_have_area(const base::Viewport& vp,
+                            const base::Windowport& wp) {
+  return !dim_near_zero(vp.m_fVWidth) && !dim_near_zero(vp.m_fVHeight) &&
+         !dim_near_zero(wp.m_fWWidth) && !dim_near_zero(wp.m_fWHeight);
+}
+
+inline LpToDp2 make_lp_to_dp(const base::Viewport& vp,
+                             const base::Windowport& wp, float fblc) {
+  LpToDp2 a;
+  a.wox = wp.m_fWOX;
+  a.woy = wp.m_fWOY;
+  a.vox = vp.m_fVOX;
+  a.voy = vp.m_fVOY;
+  a.scale = fblc;
+  a.view_h = vp.m_fVHeight;
+  a.flip_y = true;
+  return a;
+}
+
+inline void viewport_device_center(const base::Viewport& vp, float* x,
+                                   float* y) {
+  if (x) {
+    *x = vp.m_fVOX + vp.m_fVWidth * 0.5f;
+  }
+  if (y) {
+    *y = vp.m_fVOY + vp.m_fVHeight * 0.5f;
+  }
+}
+
+// Contain-fit |rect| into |vp|: write origin/size, then grow the short axis
+// so world aspect matches the device viewport. Mutates |wp| even on failure
+// (matches leftover ZoomToRect ABI).
+inline bool fit_windowport_contain(base::Windowport* wp, float* fblc,
+                                   const base::Viewport& vp, float lb_x,
+                                   float lb_y, float width, float height) {
+  if (!wp || !fblc) {
+    return false;
+  }
+  wp->m_fWOX = lb_x;
+  wp->m_fWOY = lb_y;
+  wp->m_fWWidth = width;
+  wp->m_fWHeight = height;
+  if (!ports_have_area(vp, *wp)) {
+    return false;
+  }
+  const float xblc = vp.m_fVWidth / wp->m_fWWidth;
+  const float yblc = vp.m_fVHeight / wp->m_fWHeight;
+  *fblc = (xblc > yblc) ? yblc : xblc;
+  if (xblc < yblc) {
+    wp->m_fWHeight = height * yblc / xblc;
+  } else {
+    wp->m_fWWidth = width * xblc / yblc;
+  }
+  return true;
+}
 
 // Scale world windowport and fblc for interactive zoom (origin adjusted by
 // caller after a second DP→LP sample at the same device pixel).

@@ -30,6 +30,10 @@ def overlay_stats() -> dict[str, Any]:
     return require_client().call("ui.overlay_stats")
 
 
+def capture_shell(path: str = "") -> dict[str, Any]:
+    return require_client().call("ui.capture_shell", {"path": path})
+
+
 def text_of(result: dict[str, Any]) -> Optional[str]:
     """Extract the ``text`` field commonly returned by ui.* methods."""
     value = result.get("text")

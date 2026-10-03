@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 The Mogu Authors.
+// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 #include "ui/views/map/viewport/map_viewport.h"
@@ -24,9 +24,9 @@
 #include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
-#include "ui/views/map/chrome/identity_hud.h"
+#include "ui/views/map/frame/identity_hud.h"
 #include "ui/views/map/device/device_load.h"
-#include "ui/views/map/chrome/embed_fill.h"
+#include "ui/views/map/frame/embed_fill.h"
 #include "ui/views/map/viewport/features.h"
 #include "ui/views/map/input/viewport_input.h"
 
@@ -163,7 +163,7 @@ bool MapViewport::attach() {
       status_ = L"3D FlyCube RHI present (DX12)";
       start_present_timer();
       LOGGING(LOG_INFO, "rhi.attach role=%s mode=FlyCube/DX12 ok", role_name);
-      sync_identity_chrome();
+      sync_identity_frame();
       return true;
     }
     LOGGING(LOG_WARNING, "rhi.attach role=%s FlyCube failed; trying fallbacks",
@@ -176,7 +176,7 @@ bool MapViewport::attach() {
                                          : L"2D map FlyCube RHI (DX12)";
       start_present_timer();
       LOGGING(LOG_INFO, "rhi.attach role=%s mode=FlyCube/DX12 ok", role_name);
-      sync_identity_chrome();
+      sync_identity_frame();
       return true;
     }
     LOGGING(LOG_WARNING, "rhi.attach role=%s FlyCube failed; trying fallbacks",
@@ -192,7 +192,7 @@ bool MapViewport::attach() {
     paint_child_placeholder();
     LOGGING(LOG_WARNING, "rhi.attach role=%s mode=ContentMapView (fallback)",
             role_name);
-    sync_identity_chrome();
+    sync_identity_frame();
     return true;
   }
   // Map Edit fallbacks: OOP / FlyCube / LoadLibrary. Scene3d: FlyCube again.
@@ -202,7 +202,7 @@ bool MapViewport::attach() {
       status_ = L"OOP SmartGisRender.exe";
       paint_child_placeholder();
       LOGGING(LOG_WARNING, "rhi.attach role=%s mode=OOP", role_name);
-      sync_identity_chrome();
+      sync_identity_frame();
       return true;
     }
     if (try_flycube_device()) {
@@ -211,14 +211,14 @@ bool MapViewport::attach() {
       start_present_timer();
       LOGGING(LOG_INFO, "rhi.attach role=%s mode=FlyCube/DX12 ok (retry)",
               role_name);
-      sync_identity_chrome();
+      sync_identity_frame();
       return true;
     }
     if (try_local_device()) {
       mode_ = AttachMode::kLocalDevice;
       status_ = L"CreateRenderDevice (LoadLibrary)";
       LOGGING(LOG_WARNING, "rhi.attach role=%s mode=LocalDevice", role_name);
-      sync_identity_chrome();
+      sync_identity_frame();
       return true;
     }
   } else if (role_ == Role::kMapData) {
@@ -228,7 +228,7 @@ bool MapViewport::attach() {
       start_present_timer();
       LOGGING(LOG_INFO, "rhi.attach role=%s mode=FlyCube/DX12 ok (retry)",
               role_name);
-      sync_identity_chrome();
+      sync_identity_frame();
       return true;
     }
   } else if (role_ == Role::kScene3d) {
@@ -238,7 +238,7 @@ bool MapViewport::attach() {
       start_present_timer();
       LOGGING(LOG_INFO, "rhi.attach role=%s mode=FlyCube/DX12 ok (retry)",
               role_name);
-      sync_identity_chrome();
+      sync_identity_frame();
       return true;
     }
   }
@@ -254,7 +254,7 @@ bool MapViewport::attach() {
   LOGGING(LOG_ERROR, "rhi.attach role=%s mode=Placeholder (all backends failed)",
           role_name);
   // HWND is live; callers treat placeholder as a successful UI hang.
-  sync_identity_chrome();
+  sync_identity_frame();
   return native_view() != nullptr;
 }
 

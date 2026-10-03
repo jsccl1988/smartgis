@@ -3,6 +3,7 @@
 
 #include "ui/views/dialogs/dialog.h"
 
+#include "ui/gfx/canvas/canvas.h"
 #include "ui/views/primitives/button/button.h"
 #include "ui/views/kernel/frame/frame_view.h"
 #include "ui/views/kernel/shell/dpi.h"
@@ -21,25 +22,28 @@ bool g_dialog_modals_suppressed_for_test = false;
 // Wraps caller contents with OK / Cancel so forms do not each rebuild shell.
 class DialogShell : public View {
  public:
-  explicit DialogShell(std::unique_ptr<View> body) {
+  DialogShell(std::unique_ptr<View> body, Dialog::AcceptChecker can_accept)
+      : can_accept_(std::move(can_accept)) {
     const float scale = 1.f;
     auto root = std::make_unique<BoxLayout>(BoxLayout::Orientation::kVertical);
-    root->set_inside_border(dip_to_px(8, scale));
-    root->set_between_child_spacing(dip_to_px(8, scale));
+    root->set_inside_border(dip_to_px(12, scale));
+    root->set_between_child_spacing(dip_to_px(0, scale));
 
     auto buttons = std::make_unique<View>();
-    buttons->set_preferred_size({0, dip_to_px(40, scale)});
+    buttons->set_preferred_size({0, dip_to_px(44, scale)});
     auto row = std::make_unique<BoxLayout>(BoxLayout::Orientation::kHorizontal);
     row->set_between_child_spacing(dip_to_px(8, scale));
+    row->set_inside_border(dip_to_px(4, scale));
 
     // Flex spacer pushes OK/Cancel to the trailing edge (common dialog shell).
     auto spacer = std::make_unique<View>();
     View* spacer_ptr = spacer.get();
     auto ok = std::make_unique<Button>("OK");
-    ok->set_preferred_size({dip_to_px(88, scale), dip_to_px(28, scale)});
-    ok->set_click([] { Dialog::close(true); });
+    ok->set_style(Button::Style::kPrimary);
+    ok->set_preferred_size({dip_to_px(96, scale), dip_to_px(30, scale)});
+    ok->set_click([this] { try_accept(); });
     auto cancel = std::make_unique<Button>("Cancel");
-    cancel->set_preferred_size({dip_to_px(88, scale), dip_to_px(28, scale)});
+    cancel->set_preferred_size({dip_to_px(96, scale), dip_to_px(30, scale)});
     cancel->set_click([] { Dialog::close(false); });
 
     View* body_ptr = body.get();
@@ -53,7 +57,7 @@ class DialogShell : public View {
     set_layout_manager(std::move(root));
     add_child(std::move(body));
     add_child(std::move(buttons));
-    set_focusable(true);
+    set_focusable(false);
   }
 
   bool on_key_event(const KeyEvent& event) override {
@@ -63,12 +67,38 @@ class DialogShell : public View {
         return true;
       }
       if (event.vk == VK_RETURN) {
-        Dialog::close(true);
+        try_accept();
         return true;
       }
     }
     return View::on_key_event(event);
   }
+
+ protected:
+  void paint_self(ui::gfx::Canvas* canvas) override {
+    if (!canvas) {
+      return;
+    }
+    const Theme& t = Theme::current();
+    const Rect& b = bounds();
+    // Hairline above the button row (Fluent / ArcGIS dialog chrome).
+    if (child_count() >= 2) {
+      if (View* footer = child_at(1)) {
+        const int y = footer->bounds().y;
+        canvas->fill_rect(b.x + 4, y, b.width - 8, 1, t.control_border);
+      }
+    }
+  }
+
+ private:
+  void try_accept() {
+    if (can_accept_ && !can_accept_()) {
+      return;
+    }
+    Dialog::close(true);
+  }
+
+  Dialog::AcceptChecker can_accept_;
 };
 
 }  // namespace
@@ -78,7 +108,8 @@ void Dialog::set_dialog_modals_suppressed_for_test(bool suppressed) {
 }
 
 Dialog::Result Dialog::run_modal(HWND owner, const wchar_t* title, int w, int h,
-                                 std::unique_ptr<View> contents) {
+                                 std::unique_ptr<View> contents,
+                                 AcceptChecker can_accept) {
   Result result;
   if (g_dialog_modals_suppressed_for_test) {
     // Still construct the shell so dialog body ctors run; skip the pump.
@@ -86,7 +117,8 @@ Dialog::Result Dialog::run_modal(HWND owner, const wchar_t* title, int w, int h,
     (void)title;
     (void)w;
     (void)h;
-    auto shell = std::make_unique<DialogShell>(std::move(contents));
+    auto shell =
+        std::make_unique<DialogShell>(std::move(contents), std::move(can_accept));
     (void)shell;
     return result;
   }
@@ -102,7 +134,8 @@ Dialog::Result Dialog::run_modal(HWND owner, const wchar_t* title, int w, int h,
   if (!widget.init(params)) {
     return result;
   }
-  auto shell = std::make_unique<DialogShell>(std::move(contents));
+  auto shell =
+      std::make_unique<DialogShell>(std::move(contents), std::move(can_accept));
   DialogShell* shell_ptr = shell.get();
   auto frame = std::make_unique<FrameView>();
   frame->set_can_maximize(false);
@@ -113,7 +146,10 @@ Dialog::Result Dialog::run_modal(HWND owner, const wchar_t* title, int w, int h,
   }
   frame->set_client(std::move(shell));
   widget.set_contents_view(std::move(frame));
-  shell_ptr->request_focus();
+  // Prefer the first focusable control in the form (Tab order), not the shell.
+  if (!widget.advance_focus(false)) {
+    shell_ptr->request_focus();
+  }
 
   Dialog dialog;
   dialog.widget_ = &widget;

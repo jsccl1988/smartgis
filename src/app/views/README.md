@@ -3,9 +3,11 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# `src/app/views` — Scheme 3 shell
+# `src/app/views` — Scheme 3 shell (SmartGIS Horizon)
 
 **Diagram:** [`docs/superpowers/diagrams/ui-views-shell-architecture.html`](../../../docs/superpowers/diagrams/ui-views-shell-architecture.html)（shell / compositor 泳道 + 流水线）
+
+**Brand:** **SmartGIS Horizon**（次世代桌面 GIS）。工程目录仍是 `shell/`，不是 Chromium 的 `chrome/`。Living lock: [`docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md`](../../../docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md) §Horizon product brand.
 
 Product shell for **Views + Skia**。`SmartGisViews.exe` 是宿主：`Widget` +
 layout + 公开 `ui::views` 控件 + 命令接线。不手绘 catalog / feature / status。
@@ -49,11 +51,11 @@ gestures / ViewHosts / `MapContents*`）；能力实现在
 `content/browser/present/*/paint/`。`shell/ui` → `shell/browser` →
 `//src/content:map_session`；**禁止** `present` → `shell`。`shell/`：`app/`、
 `browser/`、`ui/`、`harness/{showcase,self_test}/`。`shell/ui`：`BrowserView`
-持有 Widget 树，并把 map/panel 接线组合进 `ShellLayoutChrome`（`main_app.ui.xml`）/
-`MapPagesChrome` /
-`ProcessingChrome` / `InspectChrome` / `InspectorSyncChrome` /
-`DebugConsoleChrome` / `AtmosphereChrome`（见 living shell
-**§shell/ui chrome composers**）。`main.cc` 仅 `wWinMain` 胶水。
+持有 Widget 树，并把 map/panel 接线组合进 `ShellLayoutComposer`（`main_app.ui.xml`）/
+`MapPagesComposer` /
+`ProcessingComposer` / `InspectComposer` / `InspectorSyncComposer` /
+`DebugConsoleComposer` / `AtmosphereComposer`（见 living shell
+**§shell/ui composers**）。`main.cc` 仅 `wWinMain` 胶水。
 Present README：
 [`../../content/browser/present/README.md`](../../content/browser/present/README.md)。
 

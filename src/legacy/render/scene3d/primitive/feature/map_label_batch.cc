@@ -355,11 +355,10 @@ long MapLabelBatch::Create(LP3DRENDERDEVICE p3DRenderDevice) {
   m_aAbb.vcMin.set(-200.f, -50.f, -200.f);
   m_aAbb.vcMax.set(200.f, 50.f, 200.f);
   m_aAbb.vcCenter = (m_aAbb.vcMin + m_aAbb.vcMax) * 0.5f;
-  // D3D labels use GDI+ → DrawScreenBgra; GL CreateFont is optional.
-  if (p3DRenderDevice->GetBaseApi() != RA_OPENGL) {
-    return SMT_ERR_NONE;
-  }
-  return ensure_font(p3DRenderDevice) ? SMT_ERR_NONE : SMT_ERR_FAILURE;
+  // Labels draw via GDI+ textures (D3D DrawScreenBgra / GL quads). Do not
+  // require GL CreateFont here — that path can heap-corrupt across the
+  // legacy_render ↔ legacy_render_gl boundary; Render falls back / skips.
+  return SMT_ERR_NONE;
 }
 
 long MapLabelBatch::Update(LP3DRENDERDEVICE, float) { return SMT_ERR_NONE; }
@@ -478,7 +477,9 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
     return SMT_ERR_NONE;
   }
 
-  if (!ensure_font(p3DRenderDevice)) {
+  // Prefer GDI+ AA quads; CreateFont bitmap path is last resort only.
+  const bool use_aa = gdiplus_available();
+  if (!use_aa && !ensure_font(p3DRenderDevice)) {
     return SMT_ERR_FAILURE;
   }
 
@@ -503,7 +504,6 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glEnable(GL_TEXTURE_2D);
 
-  const bool use_aa = gdiplus_available();
   for (int idx : keep) {
     const MapLabel& lab = labels_[static_cast<size_t>(idx)];
     const float x = static_cast<float>(sx[static_cast<size_t>(idx)]);

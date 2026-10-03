@@ -3,7 +3,7 @@
 
 import("//build/smartgis.gni")
 
-# Layer / map / scene catalogs → ui_legacy.
+# Catalog trees (tree/ds/map/scene) + dialogs → ui_legacy.
 source_set("catalog_sources") {
   configs += [
     "//build:legacy",
@@ -20,21 +20,21 @@ source_set("catalog_sources") {
   precompiled_source = "stdafx.cpp"
   include_dirs += [ "." ]
   sources = [
-    "dlg_create_ds.cpp",
-    "dlg_create_layer.cpp",
-    "dlg_create_map.cpp",
-    "dlg_sel_fcls.cpp",
-    "dlg_sel_ds.cpp",
-    "dlg_sel_layer.cpp",
     "catalog.rc",
-    "catalog_3d_obj.cpp",
     "catalog_api.cpp",
-    "catalog_ds.cpp",
-    "catalog_map_doc.cpp",
-    "mapmgr.cpp",
-    "scenemgr.cpp",
-    "catalog_tree.cpp",
+    "ds/catalog_ds.cpp",
+    "ds/dlg_create_ds.cpp",
+    "ds/dlg_sel_ds.cpp",
+    "map/catalog_map_doc.cpp",
+    "map/dlg_create_layer.cpp",
+    "map/dlg_create_map.cpp",
+    "map/dlg_sel_fcls.cpp",
+    "map/dlg_sel_layer.cpp",
+    "map/mapmgr.cpp",
+    "scene/catalog_3d_obj.cpp",
+    "scene/scenemgr.cpp",
     "stdafx.cpp",
+    "tree/catalog_tree.cpp",
   ]
   deps = [
     "//src/base:base",

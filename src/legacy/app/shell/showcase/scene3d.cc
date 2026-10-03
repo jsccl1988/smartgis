@@ -14,7 +14,7 @@
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "base/core/log.h"
 #include "gis/vista/world/terrain/dem/dem_frame.h"
-#include "legacy/app/core/smtapp.h"
+#include "legacy/app/core/bootstrap.h"
 #include "legacy/app/shell/showcase/host.h"
 
 #ifndef NOMINMAX

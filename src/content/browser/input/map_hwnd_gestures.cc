@@ -3,6 +3,11 @@
 
 #include "content/browser/input/map_hwnd_gestures.h"
 
+#include <cstdint>
+#include <cstring>
+#include <memory>
+#include <type_traits>
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -52,18 +57,29 @@ void MapHwndGestures::configure_hwnd(HWND hwnd, PinchFn on_pinch,
 }
 
 void MapHwndGestures::clear_callbacks() {
-  if (!has_callbacks_) {
-    return;
-  }
   has_callbacks_ = false;
-  // Assign empty instead of swap-to-temp: under MSVC a corrupted/freed
-  // std::function still AVs, but this avoids double-tidy of the temporary when
-  // only some slots were ever assigned (configure_hwnd vs configure_gestures).
-  on_pinch_ = nullptr;
-  on_pan_ = nullptr;
-  on_right_click_ = nullptr;
-  on_extent_watch_ = nullptr;
-  on_resized_ = nullptr;
+  // Assign empty when the slot looks live. Debug CRT poison in the first
+  // pointer word (0xCDCDCDCDCDCDCDCD) means layout skew / UAF — _Tidy AVs
+  // (browse.3d select_map_tab → attach → detach). Reconstruct in place.
+  auto reset_fn = [](auto& fn) {
+    using Fn = std::remove_reference_t<decltype(fn)>;
+    uintptr_t word0 = 0;
+    static_assert(sizeof(Fn) >= sizeof(uintptr_t), "std::function too small");
+    std::memcpy(&word0, &fn, sizeof(word0));
+    const bool poison = word0 == static_cast<uintptr_t>(0xCDCDCDCDCDCDCDCDULL) ||
+                        word0 == static_cast<uintptr_t>(0xDDDDDDDDDDDDDDDDULL);
+    if (poison) {
+      std::memset(static_cast<void*>(&fn), 0, sizeof(Fn));
+      std::construct_at(&fn);
+    } else {
+      fn = nullptr;
+    }
+  };
+  reset_fn(on_pinch_);
+  reset_fn(on_pan_);
+  reset_fn(on_right_click_);
+  reset_fn(on_extent_watch_);
+  reset_fn(on_resized_);
 }
 
 void MapHwndGestures::set_right_click(RightClickFn fn) {
@@ -101,7 +117,11 @@ void MapHwndGestures::end_extent_sample() {
 }
 
 void MapHwndGestures::attach(HWND hwnd, PinchFn on_pinch, PanFn on_pan) {
-  detach();
+  // Skip detach when never wired — avoids tidy on unconstructed poison when
+  // MapSession layout skew leaves has_callbacks_ non-zero garbage.
+  if (hwnd_ || subclassed_ || has_callbacks_) {
+    detach();
+  }
   if (!hwnd || !IsWindow(hwnd) || !on_pinch) {
     return;
   }
@@ -114,7 +134,9 @@ void MapHwndGestures::attach(HWND hwnd, PinchFn on_pinch, PanFn on_pan) {
 }
 
 void MapHwndGestures::bind(HWND hwnd, PinchFn on_pinch, PanFn on_pan) {
-  detach();
+  if (hwnd_ || subclassed_ || has_callbacks_) {
+    detach();
+  }
   if (!hwnd || !IsWindow(hwnd) || !on_pinch) {
     return;
   }

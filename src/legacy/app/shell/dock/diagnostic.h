@@ -8,7 +8,6 @@
 
 #include "legacy/app/shell/dock/console.h"
 #include "legacy/app/shell/dock/render_trace.h"
-#include "legacy/core/macros/macros.h"
 
 // Bottom Diagnostic Tools strip (Views DiagnosticToolsPanel parity):
 // Console | RenderTrace pages as plain CWnd children. Uses lightweight

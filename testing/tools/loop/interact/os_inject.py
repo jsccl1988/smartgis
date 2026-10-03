@@ -297,12 +297,19 @@ def run_script(
                 _maybe_zoom_wrap(step)
                 if op == "wm_command":
                     # MDI switch (e.g. ID_WND_3D) — retarget inject to the new view.
-                    time.sleep(0.8)
+                    # 3D CreateDevice + maximize needs more than a short sleep or
+                    # inject/capture still hits the Edit map client / black GL.
+                    cmd_id = int(step.get("id") or 0)
+                    time.sleep(2.5 if cmd_id == 32915 else 0.8)
                     try:
-                        from ..record.hwnd import find_map_client_hwnd
+                        from ..record.hwnd import (
+                            bring_hwnd_to_front,
+                            find_map_client_hwnd,
+                        )
 
+                        bring_hwnd_to_front(int(shell_hwnd))
                         new_hwnd, how = find_map_client_hwnd(
-                            shell_hwnd, timeout_sec=10.0
+                            shell_hwnd, timeout_sec=12.0
                         )
                         if new_hwnd and user32.IsWindow(int(new_hwnd)):
                             hwnd = int(new_hwnd)

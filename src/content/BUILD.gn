@@ -167,7 +167,10 @@ test("content_catalog_layers_test") {
   output_name = "content_catalog_layers_test"
   sources = [ "browser/catalog_layers_test.cc" ]
   include_dirs += [ "//src" ]
-  deps = [ ":content" ]
+  deps = [
+    ":content",
+    ":map_scene",
+  ]
 }
 
 # HWND-free sample / china map path policy (SP3 map bootstrap).
@@ -189,6 +192,10 @@ source_set("capability") {
 
 source_set("debug_agent") {
   sources = [
+    "browser/debug/agent_ask.cc",
+    "browser/debug/agent_ask.h",
+    "browser/debug/agent_diag.cc",
+    "browser/debug/agent_diag.h",
     "browser/debug/agent_harness.cc",
     "browser/debug/agent_harness.h",
     "browser/debug/agent_json.cc",
@@ -197,10 +204,14 @@ source_set("debug_agent") {
     "browser/debug/agent_log.h",
     "browser/debug/agent_map_cmd.cc",
     "browser/debug/agent_map_cmd.h",
+    "browser/debug/agent_policy.cc",
+    "browser/debug/agent_policy.h",
     "browser/debug/agent_py.cc",
     "browser/debug/agent_py.h",
     "browser/debug/agent_record.cc",
     "browser/debug/agent_record.h",
+    "browser/debug/agent_schema.cc",
+    "browser/debug/agent_schema.h",
     "browser/debug/agent_sdbd.cc",
     "browser/debug/agent_sdbd.h",
     "browser/debug/agent_ui.cc",

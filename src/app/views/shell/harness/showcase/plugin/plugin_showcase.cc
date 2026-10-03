@@ -7,12 +7,13 @@
 #include <cstdlib>
 
 #include "app/views/shell/browser/browser.h"
-#include "app/views/shell/harness/common/maps.h"
-#include "app/views/shell/harness/common/mark.h"
-#include "app/views/shell/harness/showcase/plugin/mine.h"
-#include "app/views/shell/harness/showcase/plugin/orthogrid.h"
-#include "app/views/shell/harness/showcase/plugin/stormsurge.h"
-#include "app/views/shell/harness/showcase/plugin/world3d.h"
+#include "app/views/shell/harness/common/io/maps.h"
+#include "app/views/shell/harness/common/mark/mark.h"
+#include "app/views/shell/harness/showcase/plugin/product/mine.h"
+#include "app/views/shell/harness/showcase/plugin/product/orthogrid.h"
+#include "app/views/shell/harness/showcase/plugin/product/orthogrid3d.h"
+#include "app/views/shell/harness/showcase/plugin/product/stormsurge.h"
+#include "app/views/shell/harness/showcase/plugin/product/world3d.h"
 #include "app/views/shell/runtime/capability/run_script.h"
 
 namespace app {

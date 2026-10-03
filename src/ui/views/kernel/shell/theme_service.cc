@@ -39,6 +39,7 @@ Theme make_dark_theme() {
   t.panel_bg = ui::gfx::color_rgb(37, 37, 38);
   t.panel_header = ui::gfx::color_rgb(45, 45, 48);
   t.accent = ui::gfx::color_rgb(0, 122, 204);
+  t.danger = ui::gfx::color_rgb(196, 43, 28);
   // Near-white body ink so AA glyph edges stay above score light_text (~170).
   t.text = ui::gfx::color_rgb(235, 235, 235);
   t.text_bright = ui::gfx::color_rgb(255, 255, 255);
@@ -49,6 +50,8 @@ Theme make_dark_theme() {
   t.control_press = ui::gfx::color_rgb(48, 48, 52);
   t.control_disabled = ui::gfx::color_rgb(45, 45, 45);
   t.control_unchecked = ui::gfx::color_rgb(50, 50, 50);
+  t.control_border = ui::gfx::color_rgb(70, 70, 74);
+  t.row_alt = ui::gfx::color_rgb(34, 34, 36);
   t.map_placeholder = ui::gfx::color_rgb(27, 58, 75);
   t.caption_bg = ui::gfx::color_rgb(37, 37, 38);
   t.caption_button_hover = ui::gfx::color_rgb(60, 60, 60);
@@ -62,6 +65,7 @@ Theme make_light_theme() {
   t.panel_bg = ui::gfx::color_rgb(255, 255, 255);
   t.panel_header = ui::gfx::color_rgb(232, 232, 232);
   t.accent = ui::gfx::color_rgb(0, 120, 212);
+  t.danger = ui::gfx::color_rgb(196, 43, 28);
   t.text = ui::gfx::color_rgb(50, 50, 50);
   t.text_bright = ui::gfx::color_rgb(16, 16, 16);
   t.text_muted = ui::gfx::color_rgb(110, 110, 110);
@@ -71,6 +75,8 @@ Theme make_light_theme() {
   t.control_press = ui::gfx::color_rgb(195, 195, 195);
   t.control_disabled = ui::gfx::color_rgb(235, 235, 235);
   t.control_unchecked = ui::gfx::color_rgb(220, 220, 220);
+  t.control_border = ui::gfx::color_rgb(180, 180, 180);
+  t.row_alt = ui::gfx::color_rgb(248, 248, 248);
   t.map_placeholder = ui::gfx::color_rgb(200, 220, 230);
   t.caption_bg = ui::gfx::color_rgb(243, 243, 243);
   t.caption_button_hover = ui::gfx::color_rgb(220, 220, 220);

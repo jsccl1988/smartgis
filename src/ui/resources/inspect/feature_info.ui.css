@@ -1,17 +1,47 @@
-/* FeatureInfo — omit width/height:100% (parsed as 100px). */
+/* FeatureInfo — identify results chrome (ArcGIS / QGIS style).
+   Prefer min-height / flex-grow over fixed CSS px so a short TabStrip body
+   does not Yoga-overflow labels/table outside the panel (ui.shell layout-fail). */
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   padding: 8px;
 }
 
-#id {
-  height: 24px;
+#layer {
+  min-height: 22px;
+  flex-grow: 0;
+  flex-shrink: 0;
+}
+
+#meta {
+  min-height: 18px;
+  flex-grow: 0;
+  flex-shrink: 0;
+}
+
+.nav {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  min-height: 26px;
+  flex-grow: 0;
+  flex-shrink: 0;
+}
+
+#prev,
+#next {
+  width: 28px;
+  min-height: 24px;
+}
+
+#nav {
+  width: 72px;
+  min-height: 22px;
 }
 
 #table {
-  height: 120px;
   flex-grow: 1;
+  min-height: 48px;
 }

@@ -128,7 +128,14 @@ void Splitter::seed_split_if_needed() {
   // (child-outside-parent + clipped Layers/Sources labels).
   if (split_seeded_ && !user_adjusted_ && !collapsed_) {
     if (resize_policy_ == ResizePolicy::kSecondaryFixed &&
-        fixed_secondary_px_ <= 0 && pa_hint > 0 && pb_hint <= 0) {
+        fixed_secondary_px_ <= 0 && pb_hint > 0) {
+      // Diagnostic Tools preferred arrived after a zero-secondary seed (collapsed
+      // strip). Must reseed — the old pb_hint<=0 guard never fired once the
+      // panel opened, leaving work at kMinPanePx while Console stayed crushed
+      // or the inverse after a bad first layout.
+      split_seeded_ = false;
+    } else if (resize_policy_ == ResizePolicy::kSecondaryFixed &&
+               fixed_secondary_px_ <= 0 && pa_hint > 0 && pb_hint <= 0) {
       split_seeded_ = false;
     } else if (resize_policy_ == ResizePolicy::kPrimaryFixed && pa_hint > 0) {
       const int inner = std::max(0, main_extent() - kBarPx);
@@ -156,9 +163,15 @@ void Splitter::seed_split_if_needed() {
     fixed_secondary_px_ = 0;
     resize_policy_ = ResizePolicy::kSecondaryFixed;
   } else if (pa_hint <= 0) {
-    // BrowserView pattern: flexible map/work pane + fixed ambox/inspector.
-    primary_extent_ = inner - pb_hint;
-    fixed_secondary_px_ = pb_hint;
+    // BrowserView pattern: flexible map/work pane + fixed ambox/inspector /
+    // Diagnostic Tools. Cap secondary so work keeps ≥1/3 of the host — a raw
+    // pb_hint can exceed a create-time tiny inner and clamp primary to
+    // kMinPanePx (40px), leaving Console tall but Map/FeatureInfo crushed
+    // (ui.shell map hwnd client ~1664x105).
+    const int min_primary = std::max(kMinPanePx, inner / 3);
+    const int max_secondary = std::max(kMinPanePx, inner - min_primary);
+    fixed_secondary_px_ = std::min(pb_hint, max_secondary);
+    primary_extent_ = inner - fixed_secondary_px_;
     resize_policy_ = ResizePolicy::kSecondaryFixed;
   } else if (pb_hint <= 0) {
     // Catalog (fixed preferred) + map tabs (flex).

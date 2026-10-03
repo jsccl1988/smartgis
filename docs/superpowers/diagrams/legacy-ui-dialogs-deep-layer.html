@@ -1,0 +1,136 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>legacy/ui/dialogs 深度分层</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --border: #d8dee6;
+    --text: #1a2330;
+    --muted: #5a6a7e;
+    --accent: #2563a8;
+    --api: #e8f0fa;
+    --toolkit: #eef6ee;
+    --gis: #f7f0e8;
+    --detail: #f3eef8;
+    --inspect: #eef4f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.45;
+  }
+  h1 { font-size: 1.35rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 0.92rem; margin-bottom: 20px; }
+  .stack { display: grid; gap: 12px; max-width: 920px; }
+  .lane {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .lane h2 {
+    margin: 0 0 8px; font-size: 0.95rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tag {
+    font-size: 0.72rem; font-weight: 600; padding: 2px 8px;
+    border-radius: 4px; color: #123;
+  }
+  .tag.a { background: var(--api); }
+  .tag.t { background: var(--toolkit); }
+  .tag.g { background: var(--gis); }
+  .tag.d { background: var(--detail); }
+  .tag.i { background: var(--inspect); }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    margin-top: 10px; font-size: 0.88rem;
+  }
+  .chip {
+    background: #eef2f6; border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 8px; font-family: Consolas, monospace;
+    font-size: 0.8rem;
+  }
+  .arrow { color: var(--accent); font-weight: 700; }
+  code { font-family: Consolas, monospace; font-size: 0.85rem; }
+  .principle {
+    margin-top: 18px; max-width: 920px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .principle ol { margin: 8px 0 0 1.2rem; color: var(--muted); }
+  .principle li { margin: 4px 0; }
+  .pulse { animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
+    50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
+  }
+</style>
+</head>
+<body>
+  <h1>legacy/ui/dialogs 深度分层（§11i）</h1>
+  <p class="sub">语义对齐 <code>ui/views/dialogs</code> + <code>ui/gis/{catalog,inspect}</code> 产品模态；物理仍在 <code>src/legacy/ui/dialogs</code>。Scheme C，无 shim。</p>
+
+  <div class="stack">
+    <div class="lane pulse">
+      <h2><span class="tag a">api</span> 导出门面</h2>
+      <div class="flow">
+        <span class="chip">dialogs_api</span>
+        <span class="arrow">→</span>
+        <span>Smt*Dlg / SmtGetActiveWnd；调用方只含此头</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag t">toolkit</span> 通用模态（≈ views/dialogs）</h2>
+      <div class="flow">
+        <span class="chip">input_text_dialog</span>
+        <span class="chip">select_one_dialog</span>
+        <span class="arrow">←</span>
+        <span>无 GIS 类型；CDlg* + IDD</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag g">gis</span> 产品模态（≈ gis/dialogs）</h2>
+      <div class="flow">
+        <span class="chip">feature_info_dialog</span>
+        <span class="chip">att_struct_dialog → AttributeSchema</span>
+        <span class="arrow">←</span>
+        <span>SmtFeature / OGRLayer</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag d">detail</span> 组合辅助</h2>
+      <div class="flow">
+        <span class="chip">ogr_field_type</span>
+        <span class="chip">feature_info_grid</span>
+        <span class="arrow">←</span>
+        <span>标签映射 / 属性网格填充；对话框只装配</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag i">inspect</span>（邻能力，已剥离）</h2>
+      <div class="flow">
+        <span class="chip">config_dock_bar</span>
+        <span class="chip">edit_config_dock_bar</span>
+        <span class="arrow">→</span>
+        <span><code>inspect_sources</code>，不再编进 dialogs</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="principle">
+    <strong>原则流</strong>
+    <ol>
+      <li>调用方 → <code>dialogs_api</code> → toolkit / gis 对话框；不直含 <code>CDlg*</code> 头。</li>
+      <li>OGR 字段标签与 Feature Pack 网格填充下沉 <code>detail/</code>，对话框只做 DoModal 装配。</li>
+      <li>inspect 码头属 <code>inspect/</code>，与模态对话框能力分离。</li>
+      <li>终局 Views 不依赖本树；本波不出 <code>legacy/</code>；冻结 <code>Smt*Dlg</code> / <code>CDlg*</code> 名。</li>
+    </ol>
+  </div>
+</body>
+</html>

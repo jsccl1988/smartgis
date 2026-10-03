@@ -8,7 +8,7 @@
 #include "legacy/core/listener/listener_manager.h"
 #include "legacy/plugin/product/dem/shell/resource.h"
 #include "legacy/render/scene3d/scene/scene.h"
-#include "legacy/ui/map/view_3d.h"
+#include "legacy/ui/map/viewport/view_3d.h"
 
 // Shared helpers for CDlgGridLoader / CDlgTinLoader (identical 3D bind + tex
 // UI).

@@ -191,13 +191,25 @@ int SmtRhi2dRenderDevice::RenderMapToDC(HDC hdc) {
     std::lock_guard<std::mutex> front_lock(shared_front_mu_);
     detail::clamp_preview_dest(&vir_viewport2_, m_Viewport);
 
-    // Pan-only: 1:1 preview + no DYNAMIC ù?BitBlt into compose (HWND present
-    // owner) without Stretch/clear. Do not present map_front_ directly ù?it
+    // Pan-only: 1:1 preview + no DYNAMIC ó BitBlt into compose (HWND present
+    // owner) without Stretch/clear. Do not present map_front_ directly ó it
     // is not the HWND surface and left the client ocean-blank.
-    const bool identity_pan = !dynamic_overlay_live_ &&
-                              viewport_equal(vir_viewport1_, m_Viewport) &&
-                              viewport_equal(vir_viewport2_, m_Viewport);
+    //
+    // Never compose StretchBlt leftovers with a non-zero drawing org: the two
+    // transforms shear rivers/boundaries (map shatter). Prefer org slide on
+    // an identity front while pan is live.
+    const bool pan_slide =
+        (m_curDrawingOrg.x != 0 || m_curDrawingOrg.y != 0);
+    const bool identity_preview =
+        viewport_equal(vir_viewport1_, m_Viewport) &&
+        viewport_equal(vir_viewport2_, m_Viewport);
+    const bool identity_pan =
+        !dynamic_overlay_live_ && (identity_preview || pan_slide);
     if (identity_pan) {
+      if (pan_slide && !identity_preview) {
+        vir_viewport1_ = m_Viewport;
+        vir_viewport2_ = m_Viewport;
+      }
       detail::blit_owned_to(
           map_front_, compose_buf_, static_cast<int>(m_Viewport.m_fVOX),
           static_cast<int>(m_Viewport.m_fVOY),

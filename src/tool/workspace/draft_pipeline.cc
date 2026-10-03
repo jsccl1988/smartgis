@@ -101,8 +101,11 @@ void DraftPipeline::on_draft(const Draft& draft, Interaction* current,
                              content::EventBus* events,
                              gis::EditSession* edits) {
   Draft stamped = draft;
-  if (stamped.flags == 0 && pending_flags_ != 0) {
-    stamped.flags = pending_flags_;
+  // StrokeInteraction always ORs kGestureEnd on pointer-up, so flags != 0 even
+  // when family/code are unset. Stamp pending when the packed family is empty.
+  if (draft_flags::family_of(stamped.flags) == draft_flags::kFamilyNone &&
+      pending_flags_ != 0) {
+    stamped.flags |= pending_flags_;
   }
   last_draft_ = stamped;
 

@@ -6,7 +6,7 @@
 #include "legacy/plugin/runtime/bridge/cmd.h"
 #include "legacy/plugin/product/proj/views/dlg_map_prj.h"
 #include "legacy/plugin/product/proj/shell/map_project.h"
-const string CST_STR_MAPPRJ_AM_NAME = "地图投影";
+const string CST_STR_MAPPRJ_AM_NAME = "Projection";
 SmtMapPrjPlugin *g_pMapPrj = NULL;
 
 #define AM_MSG_CMD_MAPPRJ_BEGIN (SMT_MSG_USER_BEGIN + 150)

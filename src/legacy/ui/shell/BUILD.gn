@@ -3,7 +3,8 @@
 
 import("//build/smartgis.gni")
 
-# MFC shell glue + map/3D viewport views → ui_legacy.
+# MFC CView chrome + input dispatch → ui_legacy.
+# Map HWND hosts compile via //src/legacy/ui/map:map_sources.
 source_set("shell_sources") {
   configs += [
     "//build:legacy",
@@ -21,33 +22,23 @@ source_set("shell_sources") {
   sources = [
     "shell.rc",
     "stdafx.cpp",
-    "view_shell.cc",
-    "view_shell.h",
-    "shell.cpp",
-    "../map/view_2d_edit.cpp",
-    "../map/view_2d.cpp",
-    "../map/view_3d.cpp",
+    "input_dispatch.cc",
+    "input_dispatch.h",
+    "xview.cpp",
+    "xview.h",
   ]
   include_dirs += [
     ".",
-    "../map",
     "//src",
   ]
   deps = [
     "//src/content:view_host",
-    "//src/gis/model/edit:map_edit",
     "//src/base:base",
     "//src/base:core",
-    "//src/gis/kernel/geo:geo",
-    "//src/gis/model/map:gis",
-    "//src/legacy/render/rhi3d:rhi",
-    "//src/legacy/render/scene3d:scene3d",
-    "//src/legacy/sys:sys",
     "//src/plugin:plugin",
     "//src/plugin:cmd",
     "//src/legacy/tool:tool",
     "//src/tool:dispatch",
-    "//src/legacy/gis/datasource:sde_mgr",
   ]
 }
 

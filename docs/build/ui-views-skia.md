@@ -7,6 +7,8 @@ All rights reserved.
 
 User choice (2026-09-13): high-ceiling desktop chrome is **in-process C++**, Chromium-style **Views** (widget / layout / events) plus **Skia** (paint), hosting the existing map viewport (`src/render` + `src/sdb`).
 
+**Product brand:** **SmartGIS Horizon** — next-generation / modern desktop GIS (Views + Skia destination shell). Engineering path stays `src/app/views/shell/`; do **not** introduce `src/chrome/`. Living lock: [`../superpowers/specs/2026-09-27-views-desktop-shell-design.md`](../superpowers/specs/2026-09-27-views-desktop-shell-design.md) §Horizon product brand.
+
 This is the durable destination. **This pass ports leftover MFC chrome** into `ui::views`. `SmartGis.exe` stays leftover until parity; then stop compiling MFC UI. Do **not** wrap `CView`.
 
 ## Decision
@@ -51,7 +53,7 @@ src/app/views/                product chrome (SmartGisViews.exe only)
 
 src/ui/gis/                      product GIS chrome (same ui_views.dll / UI_EXPORT)
   catalog/ inspect/ shell/ style/ analysis/ debug/
-  dialogs/                     AddBasemap AttStruct CreateDatasource/Layer/Map
+  catalog/ also hosts Create*/AddBasemap modals; inspect/ hosts AttributeSchema
   include: "ui/gis/<area>/...." — namespace still ui::views for now
 
 src/ui/views/                    toolkit (opt-in //:ui_views → ui_views.dll)

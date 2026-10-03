@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui name="create_layer">
+  <style src="create_layer.ui.css"/>
+  <vbox id="root" class="form">
+    <label id="title_hint" class="hint" text="Create a vector layer with the chosen geometry type."/>
+    <label id="name_label" text="Layer name"/>
+    <textfield id="name"/>
+    <label id="type_label" text="Geometry type"/>
+    <combobox id="type">
+      <item text="Point"/>
+      <item text="Line"/>
+      <item text="Polygon"/>
+    </combobox>
+    <label id="status" class="status" text=""/>
+  </vbox>
+</ui>

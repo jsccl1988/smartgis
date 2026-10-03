@@ -113,12 +113,14 @@ int main() {
   ShowWindow(hwnd, SW_SHOWNOACTIVATE);
   UpdateWindow(hwnd);
 
+  // OpenGL device lives in legacy_render_gl[_d].dll (not the 2D umbrella
+  // legacy_render[_d].dll). Match rhi3d DeviceDllSpec / renderer.cpp.
 #ifdef _DEBUG
-  HMODULE dll = LoadLibraryA("legacy_render_d.dll");
+  HMODULE dll = LoadLibraryA("legacy_render_gl_d.dll");
 #else
-  HMODULE dll = LoadLibraryA("legacy_render.dll");
+  HMODULE dll = LoadLibraryA("legacy_render_gl.dll");
 #endif
-  expect(dll != nullptr, "LoadLibrary legacy_render");
+  expect(dll != nullptr, "LoadLibrary legacy_render_gl");
   auto create = dll ? reinterpret_cast<render::_Create3DRenderDevice>(
                           GetProcAddress(dll, "Create3DRenderDevice"))
                     : nullptr;
@@ -148,79 +150,87 @@ int main() {
   render::apply_view3d_viewport(&vp, 400, 300);
   expect(dev->SetViewport(vp) == SMT_ERR_NONE, "SetViewport 400x300");
 
-  render::SmtScene scene;
-  scene.Set3DRenderDevice(dev);
-  expect(scene.Setup() == SMT_ERR_NONE, "SmtScene::Setup");
-
-  int n_region = 0;
-  int n_line = 0;
-  int n_dot = 0;
-  int n_anno = 0;
-  for (int li = 0; li < ds->GetLayerCount(); ++li) {
-    OGRLayer* lyr = ds->GetLayer(li);
-    if (!lyr) {
-      continue;
-    }
-    lyr->ResetReading();
-    while (OGRFeature* feat = lyr->GetNextFeature()) {
-      OGRGeometry* geom = feat->GetGeometryRef();
-      const OGRwkbGeometryType gt =
-          geom ? wkbFlatten(geom->getGeometryType()) : wkbUnknown;
-      const int ai = feat->GetFieldIndex("anno");
-      const char* anno = ai >= 0 ? feat->GetFieldAsString(ai) : nullptr;
-      if (gt == wkbPolygon || gt == wkbMultiPolygon) {
-        ++n_region;
-      } else if (gt == wkbLineString || gt == wkbMultiLineString) {
-        ++n_line;
-      } else if (gt == wkbPoint && anno && anno[0]) {
-        ++n_anno;
-      } else if (gt == wkbPoint) {
-        ++n_dot;
-      }
-      OGRFeature::DestroyFeature(feat);
-    }
-  }
-  const bool city_pack = path.find("china_city") != std::string::npos;
-  // NE 10m china_city area layer is ~48 MultiPolygons (was 370 prefectures).
-  expect(n_region >= (city_pack ? 40 : 8), "several region polygons");
-  expect(n_line >= 1, "line features");
-  expect(n_dot >= (city_pack ? 50 : 5), "city points");
-  expect(n_anno >= (city_pack ? 50 : 5), "annotation text features");
-  std::fprintf(stderr, "kinds region=%d line=%d dot=%d anno=%d\n", n_region,
-               n_line, n_dot, n_anno);
-
-  const int seeded = render::seed_geojson_into_scene(dev, &scene, path.c_str());
-  expect(seeded >= (city_pack ? 40 : 20), "seed China sample into 3D scene");
-  std::fprintf(stderr, "step: seeded=%d\n", seeded);
-  std::fflush(stderr);
-
-  render::SmtPerspCamera camera(dev, vp);
-  render::frame_persp_camera_to_aabb(&camera, &vp, scene.GetAabb());
-  camera.set_viewport(vp);
-  scene.SetSceneCamera(&camera);
-  expect(dev->SetViewport(vp) == SMT_ERR_NONE, "SetViewport after frame");
-
-  dev->SetClearColor(render::SmtColor(0.f, 0.f, 0.f, 1.f));
-  expect(dev->Clear(CLR_COLOR | CLR_ZBUFFER) == SMT_ERR_NONE, "Clear");
-  expect(dev->BeginRender() == SMT_ERR_NONE, "BeginRender");
-  expect(camera.apply() == SMT_ERR_NONE, "camera.apply");
+  // Scene/camera must die *before* Release3DRenderDevice — otherwise
+  // ~SmtTerrain::release_gpu_buffers AVs on a freed GL device.
   {
-    render::vSmt3DObjectPtrs objs;
-    scene.Get3DObjectPtrs(objs);
-    expect(!objs.empty(), "scene has seeded 3D objects");
-    for (render::Smt3DObject* obj : objs) {
-      if (obj && obj->IsVisible()) {
-        obj->Render(dev);
+    render::SmtScene scene;
+    scene.Set3DRenderDevice(dev);
+    expect(scene.Setup() == SMT_ERR_NONE, "SmtScene::Setup");
+
+    int n_region = 0;
+    int n_line = 0;
+    int n_dot = 0;
+    int n_anno = 0;
+    for (int li = 0; li < ds->GetLayerCount(); ++li) {
+      OGRLayer* lyr = ds->GetLayer(li);
+      if (!lyr) {
+        continue;
+      }
+      lyr->ResetReading();
+      while (OGRFeature* feat = lyr->GetNextFeature()) {
+        OGRGeometry* geom = feat->GetGeometryRef();
+        const OGRwkbGeometryType gt =
+            geom ? wkbFlatten(geom->getGeometryType()) : wkbUnknown;
+        const int ai = feat->GetFieldIndex("anno");
+        const char* anno = ai >= 0 ? feat->GetFieldAsString(ai) : nullptr;
+        if (gt == wkbPolygon || gt == wkbMultiPolygon) {
+          ++n_region;
+        } else if (gt == wkbLineString || gt == wkbMultiLineString) {
+          ++n_line;
+        } else if (gt == wkbPoint && anno && anno[0]) {
+          ++n_anno;
+        } else if (gt == wkbPoint) {
+          ++n_dot;
+        }
+        OGRFeature::DestroyFeature(feat);
       }
     }
-  }
-  expect(dev->EndRender() == SMT_ERR_NONE, "EndRender");
-  expect(dev->SwapBuffers() == SMT_ERR_NONE, "SwapBuffers");
+    const bool city_pack = path.find("china_city") != std::string::npos;
+    // NE 10m china_city area layer is ~48 MultiPolygons (was 370 prefectures).
+    expect(n_region >= (city_pack ? 40 : 8), "several region polygons");
+    expect(n_line >= 1, "line features");
+    expect(n_dot >= (city_pack ? 50 : 5), "city points");
+    expect(n_anno >= (city_pack ? 50 : 5), "annotation text features");
+    std::fprintf(stderr, "kinds region=%d line=%d dot=%d anno=%d\n", n_region,
+                 n_line, n_dot, n_anno);
 
-  const int painted = count_non_black_hwnd(hwnd, 400, 300);
-  expect(painted > 20, "3D paint produced non-black pixels");
-  std::fprintf(stderr, "3d non-black samples: %d\n", painted);
-  std::fflush(stderr);
+    const int seeded =
+        render::seed_geojson_into_scene(dev, &scene, path.c_str());
+    // china_city: polygons/points skipped for mesh; lines are opt-in
+    // (SMT_SCENE3D_SEED_LINES). Terrain DEM underlay still counts as one seed.
+    // Kind counts above already validated the pack contents.
+    expect(seeded >= 1, "seed China DEM underlay into 3D scene");
+    std::fprintf(stderr, "step: seeded=%d\n", seeded);
+    std::fflush(stderr);
+
+    render::SmtPerspCamera camera(dev, vp);
+    render::frame_persp_camera_to_aabb(&camera, &vp, scene.GetAabb());
+    camera.set_viewport(vp);
+    scene.SetSceneCamera(&camera);
+    expect(dev->SetViewport(vp) == SMT_ERR_NONE, "SetViewport after frame");
+
+    dev->SetClearColor(render::SmtColor(0.f, 0.f, 0.f, 1.f));
+    expect(dev->Clear(CLR_COLOR | CLR_ZBUFFER) == SMT_ERR_NONE, "Clear");
+    expect(dev->BeginRender() == SMT_ERR_NONE, "BeginRender");
+    expect(camera.apply() == SMT_ERR_NONE, "camera.apply");
+    {
+      render::vSmt3DObjectPtrs objs;
+      scene.Get3DObjectPtrs(objs);
+      expect(!objs.empty(), "scene has seeded 3D objects");
+      for (render::Smt3DObject* obj : objs) {
+        if (obj && obj->IsVisible()) {
+          obj->Render(dev);
+        }
+      }
+    }
+    expect(dev->EndRender() == SMT_ERR_NONE, "EndRender");
+    expect(dev->SwapBuffers() == SMT_ERR_NONE, "SwapBuffers");
+
+    const int painted = count_non_black_hwnd(hwnd, 400, 300);
+    expect(painted > 20, "3D paint produced non-black pixels");
+    std::fprintf(stderr, "3d non-black samples: %d\n", painted);
+    std::fflush(stderr);
+  }
 
   if (destroy) {
     destroy(dev);

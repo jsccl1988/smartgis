@@ -233,8 +233,9 @@ void TabStrip::paint_self(ui::gfx::Canvas* canvas) {
     if (on) {
       canvas->fill_rect(x, header.y, w, th, t.accent);
     } else {
-      // Quiet plate so inactive titles do not dissolve into panel_header.
-      canvas->fill_rect(x, header.y, w, th, t.control_fill);
+      // Brighter plate than panel_header so inactive titles stay readable
+      // (visual_review: inactive bottom tabs blend into chrome).
+      canvas->fill_rect(x, header.y, w, th, t.control_hover);
     }
     canvas->save();
     canvas->clip_rect(x, header.y, w, th);

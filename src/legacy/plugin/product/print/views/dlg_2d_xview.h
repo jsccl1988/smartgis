@@ -1,6 +1,6 @@
 #pragma once
 
-#include "legacy/ui/map/view_2d.h"
+#include "legacy/ui/map/viewport/view_2d.h"
 using namespace ui;
 
 class CDlg2DXView : public CDialog {

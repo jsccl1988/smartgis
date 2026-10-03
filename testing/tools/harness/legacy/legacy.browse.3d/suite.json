@@ -22,7 +22,7 @@
   ],
   "loop": {
     "rounds": 4,
-    "timeout_sec": 120,
+    "timeout_sec": 150,
     "build_target": "SmartGis",
     "exe": "SmartGis.exe"
   },

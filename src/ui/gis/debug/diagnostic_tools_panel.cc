@@ -261,7 +261,7 @@ DiagnosticToolsPanel::DiagnosticToolsPanel() {
   memory_page_ = memory.get();
 
   auto tabs = std::make_unique<TabStrip>();
-  tabs->set_preferred_size({0, 140});
+  tabs->set_preferred_size({0, 240});
   tabs_ = tabs.get();
   tabs_->add_tab("Output", std::move(output));
   tabs_->add_tab("Console", std::move(console));
@@ -269,14 +269,14 @@ DiagnosticToolsPanel::DiagnosticToolsPanel() {
   tabs_->add_tab("Memory", std::move(memory));
 
   if (tabs_host) {
-    tabs_host->set_preferred_size({0, 140});
+    tabs_host->set_preferred_size({0, 240});
     tabs_host->set_layout_manager(std::make_unique<FillLayout>());
     tabs_host->add_child(std::move(tabs));
   }
 
   auto fill = std::make_unique<FillLayout>();
   set_layout_manager(std::move(fill));
-  loaded.root->set_preferred_size({0, 240});
+  loaded.root->set_preferred_size({0, 360});
   add_child(std::move(loaded.root));
   set_preferred_size({0, 0});
 
@@ -349,7 +349,7 @@ void DiagnosticToolsPanel::set_visible_tools(bool on) {
     return;
   }
   visible_ = on;
-  set_preferred_size(on ? Size{0, 240} : Size{0, 0});
+  set_preferred_size(on ? Size{0, 360} : Size{0, 0});
   // Hide chrome while collapsed so children cannot paint into a remnant strip.
   // Output keeps LogSink subscription even while collapsed so RHI / present
   // LOGGING still accumulates and snapshot_tail is not the only recovery path.

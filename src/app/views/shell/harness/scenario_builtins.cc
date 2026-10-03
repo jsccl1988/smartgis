@@ -6,7 +6,7 @@
 #include <mutex>
 
 #include "app/views/shell/app/cmdline/views_launch_options.h"
-#include "app/views/shell/harness/common/mark.h"
+#include "app/views/shell/harness/common/mark/mark.h"
 #include "app/views/shell/harness/self_test/self_test.h"
 #include "app/views/shell/harness/showcase/atmosphere/atmosphere_showcase.h"
 #include "app/views/shell/harness/showcase/browse/browse_showcase.h"

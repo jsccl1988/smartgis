@@ -1,8 +1,9 @@
-//{{NO_DEPENDENCIES}}
-// Microsoft Visual C++ generated include file.
-// Used by SmtGuiCore.RC
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 
-// Next default values for new objects
+//{{NO_DEPENDENCIES}}
+// Used by widgets.rc (ui_legacy widgets capability).
+
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 

@@ -17,6 +17,16 @@
 
 namespace ui {
 namespace views {
+namespace {
+
+std::string display_value(const std::string& value) {
+  if (value.empty() || value == "null" || value == "NULL") {
+    return "\xE2\x80\x94";
+  }
+  return value;
+}
+
+}  // namespace
 
 MeasurePanel::MeasurePanel() {
   MarkupRoot loaded = load_markup("inspect/measure_panel.ui.xml");
@@ -30,6 +40,13 @@ MeasurePanel::MeasurePanel() {
   area_ = loaded.ids.find_as<RadioButton>("area");
   azimuth_ = loaded.ids.find_as<RadioButton>("azimuth");
   table_ = loaded.ids.find_as<TableView>("table");
+
+  if (title_) {
+    title_->set_color(Theme::current().text_bright);
+  }
+  if (unit_label_) {
+    unit_label_->set_color(Theme::current().text_muted);
+  }
 
   if (length_) {
     length_->set_change([this]() { on_mode_radio(Mode::kLength); });
@@ -47,6 +64,7 @@ MeasurePanel::MeasurePanel() {
   add_child(std::move(loaded.root));
   set_preferred_size({280, 220});
   sync_radios();
+  rebuild_table();
 }
 
 MeasurePanel::~MeasurePanel() {
@@ -77,6 +95,7 @@ void MeasurePanel::set_unit_text(std::string unit) {
   unit_text_ = std::move(unit);
   if (unit_label_) {
     unit_label_->set_text(std::string("Unit: ") + unit_text_);
+    unit_label_->set_color(Theme::current().text_muted);
   }
 }
 
@@ -106,8 +125,13 @@ void MeasurePanel::rebuild_table() {
     return;
   }
   table_->clear_rows();
+  table_->set_columns({"Label", "Value"});
+  if (results_.empty()) {
+    table_->add_row({"Result", "Draw on the map to measure"});
+    return;
+  }
   for (const auto& row : results_) {
-    table_->add_row({row.label, row.value});
+    table_->add_row({row.label, display_value(row.value)});
   }
 }
 

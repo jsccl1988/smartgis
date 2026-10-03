@@ -3,7 +3,8 @@
 
 import("//build/smartgis.gni")
 
-# Generic MFC dialogs + config dock panels + dialogs_api → ui_legacy.
+# Leftover MFC modals + dialogs_api → ui_legacy (§11i).
+# toolkit/ ≈ ui/views/dialogs; gis/ ≈ ui/gis/{catalog,inspect} modals; detail/ helpers.
 source_set("dialogs_sources") {
   configs += [
     "//build:legacy",
@@ -18,18 +19,14 @@ source_set("dialogs_sources") {
   ]
   precompiled_header = "stdafx.h"
   precompiled_source = "stdafx.cpp"
-  include_dirs += [
-    ".",
-    "../inspect",
-  ]
+  include_dirs += [ "." ]
   sources = [
     "dialogs_api.cpp",
-    "dlg_2d_feature_info.cpp",
-    "dlg_att_struct_set.cpp",
-    "dlg_input_text.cpp",
-    "dlg_select_one.cpp",
-    "../inspect/config_dock_bar.cpp",
-    "../inspect/edit_config_dock_bar.cpp",
+    "detail/feature_info_grid.cpp",
+    "gis/att_struct_dialog.cpp",
+    "gis/feature_info_dialog.cpp",
+    "toolkit/input_text_dialog.cpp",
+    "toolkit/select_one_dialog.cpp",
     "dialogs.rc",
     "stdafx.cpp",
   ]

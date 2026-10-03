@@ -4,7 +4,7 @@
 #include "gis/model/feature/feature_api.h"
 #include "legacy/gis/datasource/datasource_mgr.h"
 #include "legacy/plugin/product/print/shell/map_print.h"
-#include "legacy/ui/catalog/mapmgr.h"
+#include "legacy/ui/catalog/map/mapmgr.h"
 
 using namespace gis;
 using namespace gis;

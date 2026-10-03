@@ -149,6 +149,9 @@ class UI_EXPORT View {
   void sync_native_tree();
 
  protected:
+  // create_native_view / paint_self must keep historical vtable offsets —
+  // Widget::realize_native indexes create_native_view by compile-time slot,
+  // and consumer EXEs may emit their own FrameView/Splitter vtables.
   virtual HWND create_native_view(HWND parent);
   virtual void paint_self(ui::gfx::Canvas* canvas);
   // Re-records paint_self into commands_ when dirty. Uses the thread_local
@@ -157,6 +160,14 @@ class UI_EXPORT View {
   // Records paint_self when inputs changed, then replays into |canvas|.
   void paint_commands(ui::gfx::Canvas* canvas);
 
+ public:
+  // Win32 IME composition / result (GCS_COMPSTR / GCS_RESULTSTR).
+  // Append-only after create_native_view/paint_self — never insert above
+  // those slots (cross-DLL vtable mismatch → HWND passed as Canvas*).
+  // |is_result| true commits the string; false updates the live composition.
+  virtual bool on_ime_composition(std::wstring_view text, bool is_result);
+
+ protected:
   // Clears needs_layout and suppresses ancestor marks for this pass.
   class LayoutScope {
    public:

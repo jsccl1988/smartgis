@@ -88,6 +88,14 @@ class SmtRhi2dRenderDevice : public SmtRenderDevice {
   // Shared by RefreshDirectly / Zoom* after viewport/windowport updates.
   int rerender_map(const SmtMap* map, bool realtime);
 
+  // Stretch last published front around |org| (device px); clears pan-slide.
+  void apply_stretch_preview(float org_x, float org_y);
+  // Rubber-band focus in *current* windowport (call before fit).
+  bool rubber_band_device_focus(const fRect& rect, float* org_x,
+                                float* org_y) const;
+  // First Edit / china bootstrap: cancel worker, sync paint, then Refresh.
+  int paint_map_bootstrap_sync(const SmtMap* map);
+
   // MAP/DYNAMIC/QUICK BeginRender body: encoder begin + optional clear + DC.
   // Returns false when |fail_if_busy| and the worker owns the shared front.
   bool begin_surface_encode_pass(Rhi2dOwnedSurface& buf, COLORREF clear_color,
@@ -241,6 +249,7 @@ class SmtRhi2dRenderDevice : public SmtRenderDevice {
 
   // Snapshot current windowport as the painted baseline (Timer present / settle).
   void note_painted_preview_baseline();
+  uint64_t map_published_generation() const override;
 };
 }  // namespace render
 

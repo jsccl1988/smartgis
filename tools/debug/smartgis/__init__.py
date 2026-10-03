@@ -32,6 +32,7 @@ __all__ = [
     "cmd_exec",
     "connect_from_discovery",
     "current_client",
+    "diag_pack",
     "discovery_path",
     "load_discovery",
     "log_set_level",
@@ -39,10 +40,17 @@ __all__ = [
     "log_tail",
     "ping",
     "reconnect_from_discovery",
+    "record_clear",
+    "record_enable",
+    "record_poll",
+    "rpc_confirm",
+    "rpc_methods",
+    "script_run",
     "sdbd_capabilities",
     "sdbd_collections",
     "sdbd_query",
     "unbind_client",
+    "ui_capture_shell",
     "ui_click",
     "ui_dump_tree",
     "ui_find",
@@ -106,6 +114,40 @@ def ui_dump_tree() -> dict[str, Any]:
 
 def ui_overlay_stats() -> dict[str, Any]:
     return agent_ui.overlay_stats()
+
+
+def ui_capture_shell(path: str = "") -> dict[str, Any]:
+    return agent_ui.capture_shell(path)
+
+
+def script_run(path: str) -> dict[str, Any]:
+    return require_client().call("script.run", {"path": path})
+
+
+def record_enable(on: bool = True) -> dict[str, Any]:
+    return require_client().call("record.enable", {"on": on})
+
+
+def record_poll() -> dict[str, Any]:
+    return require_client().call("record.poll")
+
+
+def record_clear() -> dict[str, Any]:
+    return require_client().call("record.clear")
+
+
+def diag_pack(*, capture: bool = False, log_n: int = 100) -> dict[str, Any]:
+    return require_client().call(
+        "diag.pack", {"capture": capture, "log_n": log_n}
+    )
+
+
+def rpc_methods() -> dict[str, Any]:
+    return require_client().call("rpc.methods")
+
+
+def rpc_confirm() -> dict[str, Any]:
+    return require_client().call("rpc.confirm")
 
 
 def reconnect_from_discovery(

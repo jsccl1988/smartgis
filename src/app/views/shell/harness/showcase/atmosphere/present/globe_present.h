@@ -1,0 +1,45 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef APP_VIEWS_SHELL_HARNESS_SHOWCASE_ATMOSPHERE_PRESENT_GLOBE_PRESENT_H_
+#define APP_VIEWS_SHELL_HARNESS_SHOWCASE_ATMOSPHERE_PRESENT_GLOBE_PRESENT_H_
+
+#include "app/views/shell/app/cmdline/views_launch_options.h"
+
+#include <windows.h>
+
+namespace content {
+class OrbitFrame;
+class Scene3dPresenter;
+}  // namespace content
+
+namespace render::rhi {
+class Device;
+}  // namespace render::rhi
+
+namespace app {
+namespace detail {
+
+// Result of the cinematic globe fly-in present pass.
+struct AtmosphereGlobeFlyResult {
+  int presents_added = 0;
+  bool early_bmp_ok = false;
+  int dumped_frames = 0;
+};
+
+// Space → high-altitude fly, BMP at high beat, optional SMT_HARNESS_RECORD
+// keyframe dump under captures/record/atmosphere_globe_fly/.
+AtmosphereGlobeFlyResult run_atmosphere_globe_fly_presents(
+    AtmosphereShowcaseMode mode,
+    const char* mode_name,
+    content::Scene3dPresenter* cam,
+    content::OrbitFrame* orbit,
+    render::rhi::Device* device,
+    HWND owned_present_hwnd,
+    float china_yaw,
+    float china_pitch);
+
+}  // namespace detail
+}  // namespace app
+
+#endif  // APP_VIEWS_SHELL_HARNESS_SHOWCASE_ATMOSPHERE_PRESENT_GLOBE_PRESENT_H_

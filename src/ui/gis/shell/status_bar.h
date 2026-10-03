@@ -15,6 +15,7 @@ namespace views {
 class Label;
 
 // Bottom strip: scale, CRS, XY, and a flexible status message.
+// The bar is focusable; Left/Right cycles the highlighted field (read-only).
 class UI_EXPORT StatusBar : public View {
  public:
   StatusBar();
@@ -34,17 +35,24 @@ class UI_EXPORT StatusBar : public View {
   const std::string& status() const;
   const std::string& message() const { return status(); }
 
+  bool on_key_event(const KeyEvent& event) override;
   void on_device_scale_factor_changed(float old_scale,
                                      float new_scale) override;
 
  protected:
   void paint_self(ui::gfx::Canvas* canvas) override;
+  void on_focus() override;
+  void on_blur() override;
 
  private:
+  Label* field_at(int index) const;
+  static constexpr int kFieldCount = 4;
+
   Label* scale_ = nullptr;
   Label* crs_ = nullptr;
   Label* coord_ = nullptr;
   Label* status_ = nullptr;
+  int highlight_index_ = 0;
 };
 
 }  // namespace views

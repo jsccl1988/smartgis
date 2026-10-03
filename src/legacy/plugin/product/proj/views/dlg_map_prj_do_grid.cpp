@@ -21,7 +21,7 @@
 #include "legacy/sys/sysmanager.h"
 #include "legacy/tool/defs.h"
 #include "legacy/tool/abi/t_msg.h"
-#include "legacy/ui/catalog/mapmgr.h"
+#include "legacy/ui/catalog/map/mapmgr.h"
 using namespace base;
 using namespace gis;
 using namespace geo;

@@ -1,0 +1,616 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Render accelerate — Topology A×B 深度整合</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #6b5ea8; --sched: #2563a8; --cpu: #2f7d62; --gpu: #b06a1a;
+    --browser: #6b5ea8; --content: #2563a8; --adapt: #2f7d62;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 16px 20px 12px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta, .rel { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .rel a { margin-right: 10px; }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .toc a {
+    border: 1px solid var(--border); background: var(--panel2); color: var(--text);
+    border-radius: 8px; padding: 5px 10px; font-size: 0.82rem;
+  }
+  .toc a:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+  .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 12px 14px 14px; margin-bottom: 12px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .panel h3 { margin: 12px 0 8px; font-size: 0.88rem; font-weight: 650; color: var(--muted); }
+  .diagram { width: 100%; height: auto; display: block; }
+  .lane-label { font-weight: 700; font-size: 12px; }
+  .box-title { font-weight: 650; font-size: 11.5px; fill: var(--text); }
+  .box-sub { font-size: 10px; fill: var(--muted); }
+  .arrow { fill: none; stroke: #8a96a8; stroke-width: 2; marker-end: url(#arrowHead); }
+  .node { transition: fill 0.2s, stroke 0.2s; }
+  .pulse { stroke-dasharray: 6 4; animation: dash 0.8s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -20; } }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  button { appearance: none; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 11px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .legend { color: var(--muted); font-size: 0.82rem; }
+  .note { margin: 8px 0 0; font-size: 0.85rem; color: var(--muted); }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+  .pill {
+    display: inline-block; font-size: 0.75rem; font-weight: 650;
+    border-radius: 4px; padding: 1px 6px; margin-right: 4px;
+  }
+  .pill-a { background: #e8f1fa; color: #2563a8; }
+  .pill-b { background: #f8efe4; color: #b06a1a; }
+  .pill-shared { background: #e6f5ef; color: #2f7d62; }
+  details.appendix { margin-top: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); padding: 8px 12px; }
+  details.appendix summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; font-weight: 600; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 720px) { .split { grid-template-columns: 1fr; } }
+  .card {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--panel2);
+  }
+  .card h3 { margin: 0 0 6px; font-size: 0.88rem; color: var(--text); }
+  .card p { margin: 0; font-size: 0.82rem; color: var(--muted); }
+  .card code { font-size: 0.8em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Render accelerate — Topology A × B 深度整合</h1>
+    <p>
+      <span class="pill pill-shared">共享 L0–L2</span>
+      <span class="pill pill-a">A · in-process</span>
+      <span class="pill pill-b">B · --type=gpu</span>
+      一份 IR 族 · 同一 <code>render::rhi</code> Facade · L3 按模式 remap
+    </p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§GPU-process × §vista parallel</a>
+      · Plans：
+      <a href="../plans/2026-10-02-src-render-vista-parallel-accelerate.md">vista L0–L3</a>
+      ·
+      <a href="../plans/2026-09-27-gpu-rhi-accelerate.md">gpu-rhi Task 8 bridge</a>
+      · As-built：
+      <a href="../../../src/render/README.md">src/render</a>
+      ·
+      <a href="../../../src/gpu/README.md">src/gpu</a>
+    </div>
+    <div class="rel">相关图：
+      <a href="./gis-vista-architecture.html">GIS vista（CPU MapFrame）</a>
+      <a href="./ui-views-shell-architecture.html">UI Views shell</a>
+      <a href="./legacy-render-architecture.html">legacy/render</a>
+    </div>
+    <nav class="toc" aria-label="章节">
+      <a href="#s0">0 合成规则</a>
+      <a href="#s1">1 双拓扑总览</a>
+      <a href="#s2">2 L0–L3 统一泳道</a>
+      <a href="#s3">3 A 命名阶段</a>
+      <a href="#s4">4 B 进程泳道</a>
+      <a href="#s5">5 B 帧流水线</a>
+      <a href="#s6">6 Bridge / L3 remap</a>
+      <a href="#s7">7 Env · 锚点</a>
+    </nav>
+  </header>
+
+  <section class="panel" id="s0">
+    <h2>0. 合成规则（locked）</h2>
+    <div class="split">
+      <div class="card">
+        <h3><span class="pill pill-shared">共享</span> L0–L2</h3>
+        <p>UI 永不 <code>join</code> · content schedule / gen·cancel · vista / GpuScene <code>parallel_for</code> — <strong>拓扑无关</strong>。</p>
+      </div>
+      <div class="card">
+        <h3><span class="pill pill-a">A</span> / <span class="pill pill-b">B</span> L3 分裂</h3>
+        <p><strong>A：</strong> Display sole Device + <code>graph::present</code>（1 CL）。<br>
+           <strong>B：</strong> Hub×AdapterId → <code>FrameComposer</code> → SharedHandle；chrome 只 blit。</p>
+      </div>
+    </div>
+    <p class="note">禁止同一 HWND 上 A+B 双 present（禁 leftover FlyCube HWND + gpu shared surface）。compose/present 在 B 模式<strong>只</strong>发生在 <code>--type=gpu</code>。</p>
+  </section>
+
+  <section class="panel" id="s1">
+    <h2>1. 双拓扑总览</h2>
+    <svg class="diagram" viewBox="0 0 1040 220" role="img" aria-label="Topology A vs B 总览">
+      <defs>
+        <marker id="arrowHead" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <!-- A -->
+      <rect x="0" y="8" width="510" height="200" rx="10" fill="#e8f1fa" stroke="#9bb8d9"/>
+      <text class="lane-label" x="16" y="32" fill="#2563a8">A · In-process Views（今日产品路径）</text>
+      <rect x="20" y="48" width="100" height="44" rx="6" fill="#fff" stroke="#c5b8e0"/>
+      <text class="box-title" x="70" y="68" text-anchor="middle">L0 stage</text>
+      <text class="box-sub" x="70" y="84" text-anchor="middle">禁 join</text>
+      <rect x="140" y="48" width="100" height="44" rx="6" fill="#fff" stroke="#9bb8d9"/>
+      <text class="box-title" x="190" y="68" text-anchor="middle">L1 sched</text>
+      <text class="box-sub" x="190" y="84" text-anchor="middle">cache/gen</text>
+      <rect x="260" y="48" width="110" height="44" rx="6" fill="#fff" stroke="#8fc4ae"/>
+      <text class="box-title" x="315" y="68" text-anchor="middle">L2 CPU×N</text>
+      <text class="box-sub" x="315" y="84" text-anchor="middle">vista/prep</text>
+      <rect x="390" y="48" width="100" height="44" rx="6" fill="#fff" stroke="#d4a574"/>
+      <text class="box-title" x="440" y="68" text-anchor="middle">L3 present</text>
+      <text class="box-sub" x="440" y="84" text-anchor="middle">graph::present</text>
+      <path class="arrow" d="M120 70 H138"/>
+      <path class="arrow" d="M240 70 H258"/>
+      <path class="arrow" d="M370 70 H388"/>
+      <text class="box-sub" x="255" y="120" text-anchor="middle">sole Display Device · 1 CommandList</text>
+      <text class="box-sub" x="255" y="140" text-anchor="middle">warm StaticReuse 可跳过 L2–L3</text>
+      <text class="box-sub" x="255" y="168" text-anchor="middle">命名：stage_frame → build_layout → prep_cull → record_and_present</text>
+      <text class="box-sub" x="255" y="188" text-anchor="middle">不经 src/gpu FrameComposer</text>
+
+      <!-- B -->
+      <rect x="530" y="8" width="510" height="200" rx="10" fill="#f8efe4" stroke="#d4a574"/>
+      <text class="lane-label" x="546" y="32" fill="#b06a1a">B · Chromium-like GPU process</text>
+      <rect x="550" y="48" width="100" height="44" rx="6" fill="#fff" stroke="#c5b8e0"/>
+      <text class="box-title" x="600" y="68" text-anchor="middle">L0/L1</text>
+      <text class="box-sub" x="600" y="84" text-anchor="middle">submit IR</text>
+      <rect x="670" y="48" width="120" height="44" rx="6" fill="#fff" stroke="#d4a574"/>
+      <text class="box-title" x="730" y="68" text-anchor="middle">GPU process</text>
+      <text class="box-sub" x="730" y="84" text-anchor="middle">Hub×N + Composer</text>
+      <rect x="810" y="48" width="100" height="44" rx="6" fill="#fff" stroke="#d4a574"/>
+      <text class="box-title" x="860" y="68" text-anchor="middle">Output</text>
+      <text class="box-sub" x="860" y="84" text-anchor="middle">SharedHandle</text>
+      <rect x="930" y="48" width="90" height="44" rx="6" fill="#fff" stroke="#c5b8e0"/>
+      <text class="box-title" x="975" y="68" text-anchor="middle">shell</text>
+      <text class="box-sub" x="975" y="84" text-anchor="middle">blit only</text>
+      <path class="arrow" d="M650 70 H668"/>
+      <path class="arrow" d="M790 70 H808"/>
+      <path class="arrow" d="M910 70 H928"/>
+      <text class="box-sub" x="785" y="120" text-anchor="middle">1 gpu process × N AdapterId · 无跨适配器马赛克</text>
+      <text class="box-sub" x="785" y="140" text-anchor="middle">IR = CompositorFrame / DrawQuad / RenderPass</text>
+      <text class="box-sub" x="785" y="168" text-anchor="middle">可选 underlay：GpuScene / graph Effects（同 AdapterId）</text>
+      <text class="box-sub" x="785" y="188" text-anchor="middle">Browser / chrome 永不 final blend</text>
+    </svg>
+    <table class="map">
+      <thead>
+        <tr><th>拓扑</th><th>何时</th><th>最终 Device / present</th><th>L2 CPU</th><th>最终 blend</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="pill pill-a">A</span></td>
+          <td>单进程 Views / Display mailbox</td>
+          <td>Display <code>rhi::Device</code> + <code>graph::present</code></td>
+          <td>vista / prep_cull（browser 进程）</td>
+          <td>in-process · 非 FrameComposer</td>
+        </tr>
+        <tr>
+          <td><span class="pill pill-b">B</span></td>
+          <td>multiprocess shell（<code>--type=gpu</code>）</td>
+          <td><code>GpuDeviceHub</code> → Composer → OutputSurface</td>
+          <td>同语义；禁碰 FrameComposer</td>
+          <td>仅 GPU process 内 <code>draw_frame</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel" id="s2">
+    <h2>2. L0–L3 统一泳道（符号锚点 · A/B remap）</h2>
+    <svg class="diagram" viewBox="0 0 1040 360" role="img" aria-label="L0–L3 统一泳道">
+      <rect x="0" y="0" width="1040" height="78" rx="8" fill="#efeaf8" stroke="#d8dee6"/>
+      <rect x="0" y="86" width="1040" height="78" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <rect x="0" y="172" width="1040" height="78" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <rect x="0" y="258" width="1040" height="92" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+
+      <text class="lane-label" x="14" y="28" fill="#6b5ea8">L0 UI</text>
+      <text class="lane-label" x="14" y="114" fill="#2563a8">L1 Schedule</text>
+      <text class="lane-label" x="14" y="200" fill="#2f7d62">L2 CPU</text>
+      <text class="lane-label" x="14" y="286" fill="#b06a1a">L3 GPU</text>
+
+      <rect x="120" y="14" width="200" height="50" rx="6" fill="#fff" stroke="#6b5ea8" stroke-width="1.5"/>
+      <text class="box-title" x="220" y="34" text-anchor="middle">Views HWND / Commit</text>
+      <text class="box-sub" x="220" y="50" text-anchor="middle">stage_frame · 禁 join</text>
+
+      <rect x="340" y="14" width="200" height="50" rx="6" fill="#fff" stroke="#6b5ea8" stroke-width="1.5"/>
+      <text class="box-title" x="440" y="34" text-anchor="middle">DisplayList mailbox</text>
+      <text class="box-sub" x="440" y="50" text-anchor="middle">A: Submit · B: SharedHandle</text>
+
+      <rect x="120" y="100" width="220" height="50" rx="6" fill="#fff" stroke="#2563a8" stroke-width="1.5"/>
+      <text class="box-title" x="230" y="120" text-anchor="middle">Map2dFrameCache</text>
+      <text class="box-sub" x="230" y="136" text-anchor="middle">prepare_for_present · gen</text>
+
+      <rect x="360" y="100" width="200" height="50" rx="6" fill="#fff" stroke="#2563a8" stroke-width="1.5"/>
+      <text class="box-title" x="460" y="120" text-anchor="middle">StaticReuse / cancel</text>
+      <text class="box-sub" x="460" y="136" text-anchor="middle">过期不 publish</text>
+
+      <rect x="580" y="100" width="200" height="50" rx="6" fill="#fff" stroke="#2563a8" stroke-width="1.5"/>
+      <text class="box-title" x="680" y="120" text-anchor="middle">B: DrawRequest / CF IR</text>
+      <text class="box-sub" x="680" y="136" text-anchor="middle">submit → gpu process</text>
+
+      <rect x="120" y="186" width="220" height="50" rx="6" fill="#fff" stroke="#2f7d62" stroke-width="1.5"/>
+      <text class="box-title" x="230" y="206" text-anchor="middle">build_layout_parallel</text>
+      <text class="box-sub" x="230" y="222" text-anchor="middle">Layout::build · emit_* ×N</text>
+
+      <rect x="360" y="186" width="200" height="50" rx="6" fill="#fff" stroke="#2f7d62" stroke-width="1.5"/>
+      <text class="box-title" x="460" y="206" text-anchor="middle">prep_cull_parallel</text>
+      <text class="box-sub" x="460" y="222" text-anchor="middle">AABB · 无 RHI</text>
+
+      <rect x="580" y="186" width="220" height="50" rx="6" fill="#fff" stroke="#2f7d62" stroke-width="1.5"/>
+      <text class="box-title" x="690" y="206" text-anchor="middle">唯一池</text>
+      <text class="box-sub" x="690" y="222" text-anchor="middle">base::execution · gis↛rhi</text>
+
+      <!-- L3 split -->
+      <rect x="120" y="272" width="280" height="64" rx="6" fill="#fff" stroke="#2563a8" stroke-width="1.5"/>
+      <text class="box-title" x="260" y="296" text-anchor="middle">A · record_and_present</text>
+      <text class="box-sub" x="260" y="314" text-anchor="middle">graph::present · Pass / GpuScene · 1 CL</text>
+
+      <rect x="430" y="272" width="320" height="64" rx="6" fill="#fff" stroke="#b06a1a" stroke-width="1.5"/>
+      <text class="box-title" x="590" y="296" text-anchor="middle">B · Hub + FrameComposer</text>
+      <text class="box-sub" x="590" y="314" text-anchor="middle">ensure_rhi_device(AdapterId) → OutputSurface</text>
+
+      <text class="box-sub" x="820" y="300">同一 IR 族</text>
+      <text class="box-sub" x="820" y="318">L3 按模式 remap</text>
+
+      <path class="arrow" d="M230 64 L230 100"/>
+      <path class="arrow" d="M230 150 L230 186"/>
+      <path class="arrow" d="M230 236 L230 272"/>
+      <path class="arrow" d="M460 236 L460 272"/>
+    </svg>
+    <table class="map">
+      <thead>
+        <tr><th>层</th><th>A · in-process Views</th><th>B · --type=gpu</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>L0 UI</td><td>stage / Commit；禁 join</td><td>同左；只 present SharedHandle</td></tr>
+        <tr><td>L1 Schedule</td><td>Map2d / Scene3d cache</td><td>submit DrawRequest / 未来 CF IR</td></tr>
+        <tr><td>L2 CPU</td><td>vista parallel_for / prep_cull</td><td>同语义；禁碰 FrameComposer</td></tr>
+        <tr><td>L3 GPU</td><td>Display Device + <code>graph::present</code></td><td>Hub + FrameComposer → OutputSurface</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel" id="s3">
+    <h2>3. Topology A — 命名阶段流水线（可动画）</h2>
+    <svg class="diagram" id="pipeA" viewBox="0 0 1040 200" role="img" aria-label="A 四阶段代码级流水线">
+      <defs>
+        <marker id="ahA" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+        <marker id="ahAOn" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#2563a8"/>
+        </marker>
+      </defs>
+      <path id="aa0" class="arrow" d="M245 80 L285 80" marker-end="url(#ahA)"/>
+      <path id="aa1" class="arrow" d="M505 80 L545 80" marker-end="url(#ahA)"/>
+      <path id="aa2" class="arrow" d="M765 80 L805 80" marker-end="url(#ahA)"/>
+      <path id="bypass" d="M160 155 C160 175, 880 175, 880 155" fill="none" stroke="#b06a1a" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.85"/>
+      <text x="520" y="192" text-anchor="middle" fill="#b06a1a" font-size="10" font-weight="600">warm StaticReuse：跳过 2–3，直接有界返回</text>
+
+      <g class="node" data-i="0">
+        <rect x="40" y="28" width="205" height="100" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/>
+        <circle cx="68" cy="50" r="12" fill="#2563a8"/><text x="68" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">1</text>
+        <text class="box-title" x="145" y="52" text-anchor="middle">stage_frame</text>
+        <text class="box-sub" x="145" y="74" text-anchor="middle">FrameRequest + gen</text>
+        <text class="box-sub" x="145" y="90" text-anchor="middle">Map2dFrameCache</text>
+        <text class="box-sub" x="145" y="106" text-anchor="middle">UI 立即返回</text>
+      </g>
+      <g class="node" data-i="1">
+        <rect x="285" y="28" width="220" height="100" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/>
+        <circle cx="313" cy="50" r="12" fill="#2f7d62"/><text x="313" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">2</text>
+        <text class="box-title" x="400" y="52" text-anchor="middle">build_layout_parallel</text>
+        <text class="box-sub" x="400" y="74" text-anchor="middle">batches + Layout::build</text>
+        <text class="box-sub" x="400" y="90" text-anchor="middle">emit_fills/lines ×N</text>
+        <text class="box-sub" x="400" y="106" text-anchor="middle">→ MapFrame POD</text>
+      </g>
+      <g class="node" data-i="2">
+        <rect x="545" y="28" width="220" height="100" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/>
+        <circle cx="573" cy="50" r="12" fill="#2f7d62"/><text x="573" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">3</text>
+        <text class="box-title" x="660" y="52" text-anchor="middle">prep_cull_parallel</text>
+        <text class="box-sub" x="660" y="74" text-anchor="middle">GpuScene AABB ×N</text>
+        <text class="box-sub" x="660" y="90" text-anchor="middle">CPU only · visible[]</text>
+        <text class="box-sub" x="660" y="106" text-anchor="middle">Map2d 可跳过</text>
+      </g>
+      <g class="node" data-i="3">
+        <rect x="805" y="28" width="210" height="100" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/>
+        <circle cx="833" cy="50" r="12" fill="#b06a1a"/><text x="833" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">4</text>
+        <text class="box-title" x="915" y="52" text-anchor="middle">record_and_present</text>
+        <text class="box-sub" x="915" y="74" text-anchor="middle">Pass / record_draws</text>
+        <text class="box-sub" x="915" y="90" text-anchor="middle">graph::present 1 CL</text>
+        <text class="box-sub" x="915" y="106" text-anchor="middle">gen 校验 publish</text>
+      </g>
+    </svg>
+    <div class="controls">
+      <button type="button" class="primary" id="btnPlayA">播放 A 流水线</button>
+      <button type="button" id="btnPauseA">暂停</button>
+      <button type="button" id="btnResetA">复位</button>
+      <span class="legend" id="statusA">就绪 — Topology A cold 路径</span>
+    </div>
+    <p class="note">CPU MapFrame 穿墙 → content/effect/graph：详见 <a href="./gis-vista-architecture.html">gis-vista-architecture.html</a>。<code>gis ↛ render/rhi</code>。</p>
+  </section>
+
+  <section class="panel" id="s4">
+    <h2>4. Topology B — 进程泳道（Browser · content · GPU · adapters）</h2>
+    <svg class="diagram" viewBox="0 0 1040 420" role="img" aria-label="GPU process 泳道">
+      <rect x="0" y="0" width="1040" height="72" rx="8" fill="#efeaf8" stroke="#d8dee6"/>
+      <rect x="0" y="80" width="1040" height="72" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <rect x="0" y="160" width="1040" height="168" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <rect x="0" y="336" width="1040" height="72" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+
+      <text class="lane-label" x="14" y="26" fill="#6b5ea8">Browser / chrome</text>
+      <text class="lane-label" x="14" y="106" fill="#2563a8">content / renderer</text>
+      <text class="lane-label" x="14" y="186" fill="#b06a1a">GPU process (--type=gpu)</text>
+      <text class="lane-label" x="14" y="362" fill="#2f7d62">Adapters (1 process × N)</text>
+
+      <rect x="160" y="16" width="200" height="44" rx="6" fill="#fff" stroke="#c5b8e0" stroke-width="1.5"/>
+      <text class="box-title" x="170" y="34">Views / HWND chrome</text>
+      <text class="box-sub" x="170" y="50">禁 join · 禁 final blend</text>
+
+      <rect x="760" y="16" width="240" height="44" rx="6" fill="#fff" stroke="#c5b8e0" stroke-width="1.5"/>
+      <text class="box-title" x="770" y="34">Present SharedHandle / DIB</text>
+      <text class="box-sub" x="770" y="50">FrameReady only</text>
+
+      <rect x="160" y="96" width="260" height="44" rx="6" fill="#fff" stroke="#9bb8d9" stroke-width="1.5"/>
+      <text class="box-title" x="170" y="114">Submit DrawRequest / CF IR</text>
+      <text class="box-sub" x="170" y="130">L1 schedule · gen/cancel</text>
+
+      <rect x="460" y="96" width="220" height="44" rx="6" fill="#f7f9fc" stroke="#d8dee6" stroke-width="1.5"/>
+      <text class="box-title" x="470" y="114">L2 CPU (optional here)</text>
+      <text class="box-sub" x="470" y="130">vista / prep · 禁 FrameComposer</text>
+
+      <rect x="160" y="200" width="180" height="48" rx="6" fill="#fff" stroke="#d4a574" stroke-width="1.5"/>
+      <text class="box-title" x="170" y="220">frame_sink</text>
+      <text class="box-sub" x="170" y="236">draw_and_swap</text>
+
+      <rect x="370" y="200" width="200" height="48" rx="6" fill="#fff" stroke="#d4a574" stroke-width="1.5"/>
+      <text class="box-title" x="380" y="220">CompositorFrame IR</text>
+      <text class="box-sub" x="380" y="236">DrawQuad · RenderPass</text>
+
+      <rect x="600" y="200" width="200" height="48" rx="6" fill="#fff" stroke="#d4a574" stroke-width="1.5"/>
+      <text class="box-title" x="610" y="220">FrameComposer</text>
+      <text class="box-sub" x="610" y="236">kRhi · software escape</text>
+
+      <rect x="160" y="268" width="220" height="44" rx="6" fill="#fff" stroke="#d4a574" stroke-width="1.5"/>
+      <text class="box-title" x="170" y="286">GpuDeviceHub</text>
+      <text class="box-sub" x="170" y="302">bind · ensure_rhi_device</text>
+
+      <rect x="410" y="268" width="240" height="44" rx="6" fill="#fff" stroke="#d4a574" stroke-width="1.5"/>
+      <text class="box-title" x="420" y="286">underlay_bridge (opt)</text>
+      <text class="box-sub" x="420" y="302">GpuScene / graph Effects</text>
+
+      <rect x="680" y="268" width="200" height="44" rx="6" fill="#fff" stroke="#d4a574" stroke-width="1.5"/>
+      <text class="box-title" x="690" y="286">OutputSurface</text>
+      <text class="box-sub" x="690" y="302">DXGI shared / DIB</text>
+
+      <rect x="160" y="352" width="160" height="40" rx="6" fill="#fff" stroke="#8fc4ae" stroke-width="1.5"/>
+      <text class="box-title" x="170" y="376">AdapterId=0</text>
+      <rect x="340" y="352" width="160" height="40" rx="6" fill="#fff" stroke="#8fc4ae" stroke-width="1.5"/>
+      <text class="box-title" x="350" y="376">AdapterId=1</text>
+      <rect x="520" y="352" width="160" height="40" rx="6" fill="#fff" stroke="#8fc4ae" stroke-width="1.5"/>
+      <text class="box-title" x="530" y="376">AdapterId=N</text>
+      <text class="box-sub" x="700" y="376">sticky software per slot</text>
+
+      <path class="arrow" d="M360 38 H750"/>
+      <path class="arrow" d="M290 140 V190"/>
+      <path class="arrow" d="M340 224 H365"/>
+      <path class="arrow" d="M570 224 H595"/>
+      <path class="arrow" d="M700 248 V265"/>
+      <path class="arrow" d="M780 268 V72"/>
+    </svg>
+    <p class="note">规范：compose/present <strong>只</strong>在 GPU process；Browser 只 present SharedHandle。multiprocess as-built 见 <a href="../../build/ui-shell-multiprocess.md">ui-shell-multiprocess.md</a>。</p>
+  </section>
+
+  <section class="panel" id="s5">
+    <h2>5. Topology B — IR → compose → present（可动画）</h2>
+    <svg class="diagram" viewBox="0 0 1040 160" role="img" aria-label="B 帧流水线">
+      <defs>
+        <marker id="ahB" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+        <marker id="ahBOn" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#2563a8"/>
+        </marker>
+      </defs>
+      <rect class="node" id="bs0" x="20" y="40" width="160" height="56" rx="8" fill="#efeaf8" stroke="#c5b8e0" stroke-width="1.5"/>
+      <text class="box-title" x="36" y="64">1 submit</text>
+      <text class="box-sub" x="36" y="82">DrawRequest / IR</text>
+
+      <rect class="node" id="bs1" x="220" y="40" width="160" height="56" rx="8" fill="#e8f1fa" stroke="#9bb8d9" stroke-width="1.5"/>
+      <text class="box-title" x="236" y="64">2 record</text>
+      <text class="box-sub" x="236" y="82">raster → quads</text>
+
+      <rect class="node" id="bs2" x="420" y="40" width="180" height="56" rx="8" fill="#f8efe4" stroke="#d4a574" stroke-width="1.5"/>
+      <text class="box-title" x="436" y="64">3 compose</text>
+      <text class="box-sub" x="436" y="82">FrameComposer@AdapterId</text>
+
+      <rect class="node" id="bs3" x="640" y="40" width="160" height="56" rx="8" fill="#f8efe4" stroke="#d4a574" stroke-width="1.5"/>
+      <text class="box-title" x="656" y="64">4 present</text>
+      <text class="box-sub" x="656" y="82">OutputSurface once</text>
+
+      <rect class="node" id="bs4" x="840" y="40" width="180" height="56" rx="8" fill="#efeaf8" stroke="#c5b8e0" stroke-width="1.5"/>
+      <text class="box-title" x="856" y="64">5 shell blit</text>
+      <text class="box-sub" x="856" y="82">SharedHandle only</text>
+
+      <path id="bf01" class="arrow" d="M180 68 H215" marker-end="url(#ahB)"/>
+      <path id="bf12" class="arrow" d="M380 68 H415" marker-end="url(#ahB)"/>
+      <path id="bf23" class="arrow" d="M600 68 H635" marker-end="url(#ahB)"/>
+      <path id="bf34" class="arrow" d="M800 68 H835" marker-end="url(#ahB)"/>
+
+      <text class="box-sub" x="20" y="130">optional underlay：record_gpu_scene_underlay → blit before overlay quads（同 AdapterId）</text>
+    </svg>
+    <div class="controls">
+      <button class="primary" id="btnPlayB" type="button">播放 B 阶段</button>
+      <button id="btnPauseB" type="button">暂停</button>
+      <button id="btnResetB" type="button">重置</button>
+      <span class="legend" id="statusB">就绪 — Topology B IR→compose→present</span>
+    </div>
+  </section>
+
+  <section class="panel" id="s6">
+    <h2>6. Bridge — L3 remap（Task 8）</h2>
+    <svg class="diagram" viewBox="0 0 1040 160" role="img" aria-label="A↔B L3 bridge">
+      <rect x="0" y="20" width="400" height="120" rx="10" fill="#e8f1fa" stroke="#9bb8d9"/>
+      <text class="box-title" x="200" y="52" text-anchor="middle">A · Display Device</text>
+      <text class="box-sub" x="200" y="74" text-anchor="middle">effect::map Pass / GpuScene</text>
+      <text class="box-sub" x="200" y="94" text-anchor="middle">render::graph::present</text>
+      <text class="box-sub" x="200" y="114" text-anchor="middle">1 CL · in-process</text>
+
+      <path d="M420 80 L520 80" fill="none" stroke="#2563a8" stroke-width="2.5" marker-end="url(#arrowHead)"/>
+      <text x="470" y="68" text-anchor="middle" fill="#2563a8" font-size="10" font-weight="700">remap</text>
+      <text x="470" y="100" text-anchor="middle" fill="#5a6a7e" font-size="9">underlay / IR</text>
+
+      <rect x="540" y="20" width="500" height="120" rx="10" fill="#f8efe4" stroke="#d4a574"/>
+      <text class="box-title" x="790" y="52" text-anchor="middle">B · GpuDeviceHub(AdapterId)</text>
+      <text class="box-sub" x="790" y="74" text-anchor="middle">make_frame_composer · draw_and_swap</text>
+      <text class="box-sub" x="790" y="94" text-anchor="middle">underlay_bridge · OutputSurface</text>
+      <text class="box-sub" x="790" y="114" text-anchor="middle">SharedHandle → Browser present-only</text>
+    </svg>
+    <table class="map">
+      <thead><tr><th>里程碑</th><th>含义</th><th>状态</th></tr></thead>
+      <tbody>
+        <tr><td>Software compose</td><td><code>SoftwareComposer</code> + <code>upload_bgra</code> per sticky adapter</td><td>landed</td></tr>
+        <tr><td>RHI blit / DXGI shared</td><td><code>RhiComposer</code> · import NT handle</td><td>landed</td></tr>
+        <tr><td>GPU compose quads</td><td><code>kSolid</code> / <code>kBgra</code> / <code>replaces</code></td><td>landed</td></tr>
+        <tr><td>Underlay BGRA / effect::map copy</td><td>Frame Graph underlay bridge</td><td>partial</td></tr>
+        <tr><td>Views multiproc L3 submit</td><td>A→B remap when shell spawns <code>--type=gpu</code></td><td>open · Task 8</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Checklist 唯一入口：<a href="../plans/2026-09-27-gpu-rhi-accelerate.md">2026-09-27-gpu-rhi-accelerate.md</a> Task 8。Vista L0–L3 不重复 GPU checkbox。</p>
+  </section>
+
+  <section class="panel" id="s7">
+    <h2>7. Env · As-built 锚点</h2>
+    <h3>Env（勿混用语义）</h3>
+    <table class="map">
+      <thead><tr><th>Flag / env</th><th>作用域</th><th>含义</th></tr></thead>
+      <tbody>
+        <tr><td><code>SMT_VISTA_LAYOUT_PARALLEL</code></td><td><span class="pill pill-a">A</span> L2</td><td><code>=0</code> → tess N=1</td></tr>
+        <tr><td><code>SMT_GPUSCENE_PREP_PARALLEL</code></td><td><span class="pill pill-a">A</span> L2</td><td><code>=0</code> → frustum prep N=1</td></tr>
+        <tr><td><code>SMT_SCENE3D_FRUSTUM_CULL</code></td><td><span class="pill pill-a">A</span></td><td><code>=1</code> 启用 AABB（并行 prep 前提）</td></tr>
+        <tr><td><code>SMT_GPU_COMPOSE</code></td><td><span class="pill pill-b">B</span></td><td>默认 <code>kRhi</code>；<code>software</code> 逃生</td></tr>
+        <tr><td><code>view.backend.rhi</code></td><td>wire</td><td><code>ContentSource::kDirect</code> — 非 FlyCube / 非 ComposeBackend</td></tr>
+        <tr><td><code>--type=gpu</code> / <code>--in-process-gpu</code></td><td>进程模型</td><td>B 拓扑；in-process-gpu 仅 debug/CI</td></tr>
+        <tr><td><code>SMT_RHI2D_*</code> / <code>SMT_RHI3D_*</code></td><td>leftover</td><td><strong>禁止</strong>产品路径 getenv</td></tr>
+      </tbody>
+    </table>
+
+    <details class="appendix" open>
+      <summary>As-built 符号锚点（A + B）</summary>
+      <table class="map">
+        <thead><tr><th>阶段 / 角色</th><th>符号</th><th>路径</th></tr></thead>
+        <tbody>
+          <tr><td>stage / StaticReuse</td><td><code>prepare_for_present</code></td><td>map2d_frame_cache.cc</td></tr>
+          <tr><td>build_layout</td><td><code>rebuild_layout</code> → <code>Layout::build</code></td><td>cache + layout.cc</td></tr>
+          <tr><td>tess ×N</td><td><code>emit_fills</code> / <code>emit_lines</code></td><td>gis/vista/…/layout/</td></tr>
+          <tr><td>batches ×N</td><td><code>batches_via_parallel_for</code></td><td>map2d_batches.cc</td></tr>
+          <tr><td>A present</td><td><code>graph::present</code></td><td>frame_graph.cc</td></tr>
+          <tr><td>3D draw</td><td><code>GpuScene::record_draws</code></td><td>scene_draw.cc</td></tr>
+          <tr><td>B paint entry</td><td><code>gpu::draw_and_swap</code></td><td>frame_sink / display</td></tr>
+          <tr><td>B hub</td><td><code>GpuDeviceHub</code></td><td>gpu/device/gpu_device_hub.*</td></tr>
+          <tr><td>B compose</td><td><code>FrameComposer</code> / <code>make_frame_composer</code></td><td>gpu/compositor/composer/</td></tr>
+          <tr><td>B underlay</td><td><code>record_gpu_scene_underlay</code></td><td>compositor/underlay/</td></tr>
+          <tr><td>池</td><td><code>base::execution::parallel_for</code></td><td>base/execution/parallel/for.h</td></tr>
+        </tbody>
+      </table>
+    </details>
+
+    <h3>Non-goals（硬 · 双拓扑共用）</h3>
+    <ul class="note" style="margin:8px 0 0; padding-left:1.2em">
+      <li>无 Skia Ganesh map compose；无第二套 CompositorFrame IR</li>
+      <li>无 chrome / <code>app/</code> / <code>content/</code> 直接 <code>#include</code> <code>render/rhi</code> 或 <code>gpu/compositor/</code></li>
+      <li>无 N gpu processes；无单帧跨适配器马赛克</li>
+      <li>无 D3D11 deferred TLS / 每线程 GDI HDC 进产品默认</li>
+      <li><code>gis ↛ render/rhi</code>；MapFrame 仅 POD 穿越</li>
+    </ul>
+  </section>
+</div>
+<script>
+(function () {
+  function makePlayer(opts) {
+    var nodes = opts.nodes;
+    var flows = opts.flows;
+    var status = document.getElementById(opts.statusId);
+    var labels = opts.labels;
+    var i = -1, timer = null;
+    function paint() {
+      nodes.forEach(function (el, idx) {
+        if (!el) return;
+        var on = opts.mode === "pipeline" ? (idx <= i && i >= 0) : (idx === i);
+        if (opts.mode === "pipeline") {
+          var rect = el.querySelector("rect");
+          if (!rect) return;
+          rect.setAttribute("fill", on ? "#ffffff" : "#f0f3f7");
+          rect.setAttribute("stroke", on ? "#2563a8" : "#d8dee6");
+          rect.setAttribute("stroke-width", on ? "2.5" : "2");
+        } else {
+          if (!el.getAttribute("data-stroke")) el.setAttribute("data-stroke", el.getAttribute("stroke"));
+          el.setAttribute("stroke-width", on ? "2.5" : "1.5");
+          el.setAttribute("stroke", on ? "#2563a8" : el.getAttribute("data-stroke"));
+        }
+      });
+      flows.forEach(function (a, idx) {
+        if (!a) return;
+        var on = opts.mode === "pipeline" ? (idx < i) : (i > idx);
+        a.setAttribute("stroke", on ? "#2563a8" : "#8a96a8");
+        a.setAttribute("stroke-width", on ? "2.5" : "2");
+        a.setAttribute("marker-end", on ? "url(#" + opts.markerOn + ")" : "url(#" + opts.markerOff + ")");
+        a.classList.toggle("pulse", on && idx === i - 1);
+      });
+      if (i < 0) status.textContent = opts.ready;
+      else if (i >= nodes.length - 1) status.textContent = opts.done;
+      else status.textContent = "阶段 " + (i + 1) + " / " + nodes.length +
+        (labels && labels[i] ? " — " + labels[i] : "");
+    }
+    function step() {
+      i += 1;
+      if (i >= nodes.length) { clearInterval(timer); timer = null; paint(); return; }
+      paint();
+    }
+    document.getElementById(opts.playId).onclick = function () {
+      if (timer) return;
+      if (i >= nodes.length - 1) i = -1;
+      step();
+      timer = setInterval(step, 900);
+    };
+    document.getElementById(opts.pauseId).onclick = function () {
+      if (timer) { clearInterval(timer); timer = null; status.textContent = "已暂停 @ " + Math.max(i + 1, 0); }
+    };
+    document.getElementById(opts.resetId).onclick = function () {
+      if (timer) clearInterval(timer);
+      timer = null; i = -1; paint();
+    };
+    paint();
+  }
+
+  makePlayer({
+    mode: "pipeline",
+    nodes: Array.from(document.querySelectorAll("#pipeA .node")),
+    flows: ["aa0", "aa1", "aa2"].map(function (id) { return document.getElementById(id); }),
+    statusId: "statusA", playId: "btnPlayA", pauseId: "btnPauseA", resetId: "btnResetA",
+    markerOn: "ahAOn", markerOff: "ahA",
+    ready: "就绪 — Topology A cold 路径",
+    done: "完成 — warm 可走下方 bypass"
+  });
+
+  makePlayer({
+    mode: "stage",
+    nodes: ["bs0", "bs1", "bs2", "bs3", "bs4"].map(function (id) { return document.getElementById(id); }),
+    flows: ["bf01", "bf12", "bf23", "bf34"].map(function (id) { return document.getElementById(id); }),
+    statusId: "statusB", playId: "btnPlayB", pauseId: "btnPauseB", resetId: "btnResetB",
+    markerOn: "ahBOn", markerOff: "ahB",
+    labels: ["submit", "record", "compose", "present", "shell blit"],
+    ready: "就绪 — Topology B IR→compose→present",
+    done: "完成 — shell 仅 SharedHandle present"
+  });
+})();
+</script>
+</body>
+</html>

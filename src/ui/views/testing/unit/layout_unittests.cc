@@ -56,9 +56,10 @@ void test_splitter_layout() {
   split.add_child(std::move(a));
   split.add_child(std::move(b));
   split.layout();
+  constexpr int kBar = 8;  // Splitter::kBarPx
   expect(left->bounds().x == 0, "split left x");
-  expect(right->bounds().x == left->bounds().right() + 6, "split bar 6px");
-  expect(left->bounds().width + 6 + right->bounds().width == 400,
+  expect(right->bounds().x == left->bounds().right() + kBar, "split bar 6px");
+  expect(left->bounds().width + kBar + right->bounds().width == 400,
          "split panes fill");
   expect(left->bounds().width >= 40, "split min left");
   expect(right->bounds().width >= 40, "split min right");
@@ -67,7 +68,8 @@ void test_splitter_layout() {
   split.set_collapsed(true);
   expect(split.is_collapsed(), "split collapsed");
   expect(right->bounds().width == 0, "split second pane 0");
-  expect(left->bounds().width + 6 == 400, "split primary fills when collapsed");
+  expect(left->bounds().width + kBar == 400,
+         "split primary fills when collapsed");
 
   Splitter vert(Splitter::Orientation::kVertical);
   vert.set_bounds({10, 20, 200, 300});
@@ -81,8 +83,8 @@ void test_splitter_layout() {
   vert.add_child(std::move(bot));
   vert.layout();
   expect(top->bounds().y == 20, "vsplit top y");
-  expect(bottom->bounds().y == top->bounds().bottom() + 6, "vsplit bar");
-  expect(top->bounds().height + 6 + bottom->bounds().height == 300,
+  expect(bottom->bounds().y == top->bounds().bottom() + kBar, "vsplit bar");
+  expect(top->bounds().height + kBar + bottom->bounds().height == 300,
          "vsplit panes fill");
 }
 
@@ -99,13 +101,14 @@ void test_splitter_host_resize_grows_flex_pane() {
   work.add_child(std::move(map_side));
   work.add_child(std::move(ambox));
   work.layout();
+  constexpr int kBar = 8;  // Splitter::kBarPx
   expect(secondary->bounds().width == 200, "ambox keeps preferred");
-  expect(primary->bounds().width == 800 - 6 - 200, "map takes leftover");
+  expect(primary->bounds().width == 800 - kBar - 200, "map takes leftover");
 
   work.set_bounds({0, 0, 1200, 400});
   work.layout();
   expect(secondary->bounds().width == 200, "ambox stays fixed on grow");
-  expect(primary->bounds().width == 1200 - 6 - 200,
+  expect(primary->bounds().width == 1200 - kBar - 200,
          "map grows with host width");
 
   // BrowserView columns: flexible work | fixed inspector preferred height.
@@ -121,12 +124,13 @@ void test_splitter_host_resize_grows_flex_pane() {
   columns.add_child(std::move(inspector));
   columns.layout();
   expect(bottom->bounds().height == 160, "inspector keeps preferred");
-  expect(top->bounds().height == 600 - 6 - 160, "work takes leftover");
+  expect(top->bounds().height == 600 - kBar - 160, "work takes leftover");
 
   columns.set_bounds({0, 0, 800, 900});
   columns.layout();
   expect(bottom->bounds().height == 160, "inspector stays fixed on grow");
-  expect(top->bounds().height == 900 - 6 - 160, "work grows with host height");
+  expect(top->bounds().height == 900 - kBar - 160,
+         "work grows with host height");
 
   // Catalog (fixed) | map (flex): secondary must absorb growth.
   Splitter catalog_map(Splitter::Orientation::kHorizontal);
@@ -144,7 +148,7 @@ void test_splitter_host_resize_grows_flex_pane() {
   catalog_map.set_bounds({0, 0, 1100, 400});
   catalog_map.layout();
   expect(left->bounds().width == 240, "catalog stays fixed on grow");
-  expect(right->bounds().width == 1100 - 6 - 240, "map tabs grow");
+  expect(right->bounds().width == 1100 - kBar - 240, "map tabs grow");
 
   // Late preferred on primary: both-flex seed must recover Catalog width.
   Splitter late_catalog(Splitter::Orientation::kHorizontal);
@@ -162,7 +166,8 @@ void test_splitter_host_resize_grows_flex_pane() {
   late_left->set_preferred_size({288, 0});
   late_catalog.layout();
   expect(late_left->bounds().width == 288, "reseed locks catalog preferred");
-  expect(late_right->bounds().width == 900 - 6 - 288, "map recovers leftover");
+  expect(late_right->bounds().width == 900 - kBar - 288,
+         "map recovers leftover");
 
   // Markup shell: catalog_host preferred_size=288 but FillLayout+child reports
   // get_preferred_size=0 (Yoga width:100%). Must still leave Map|Data|3D room.
@@ -205,7 +210,7 @@ void test_splitter_host_resize_grows_flex_pane() {
   tools_host.add_child(std::move(tools_secondary));
   tools_host.layout();
   expect(tools_pane->bounds().height == 0, "collapsed tools height 0");
-  expect(tools_work->bounds().height == 600 - 6, "work fills when tools 0");
+  expect(tools_work->bounds().height == 600 - 8, "work fills when tools 0");
 }
 
 void test_splitter_drag_keeps_capture() {

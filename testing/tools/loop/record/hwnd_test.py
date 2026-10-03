@@ -38,6 +38,8 @@ class RecordHwndHelpersTest(unittest.TestCase):
         v = _virtual_screen()
         pw, ph = v["primary_w"], v["primary_h"]
         self.assertTrue(_rect_fully_on_primary(10, 10, min(400, pw), min(300, ph)))
+        # Maximized Aero border inset stays on-primary (BitBlt path).
+        self.assertTrue(_rect_fully_on_primary(-8, -8, pw + 8, ph + 8))
         # Off primary (typical secondary monitor origin on this machine).
         self.assertFalse(_rect_fully_on_primary(pw + 100, 0, pw + 500, 400))
         self.assertFalse(_rect_fully_on_primary(-100, 0, 100, 100))

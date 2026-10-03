@@ -4,6 +4,7 @@
 #include "app/views/shell/harness/self_test/self_test.h"
 
 #include "app/views/shell/browser/browser.h"
+#include "app/views/shell/harness/common/pump/pump.h"
 #include "app/views/shell/harness/self_test/probe.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "base/trace/event/process_trace.h"
@@ -23,7 +24,7 @@ int run_views_self_test(Browser& browser) {
     DeleteFileW(mark_path);
   }
 
-  using detail::self_test_chrome_ready;
+  using detail::self_test_shell_ready;
   using detail::self_test_edit_m0;
   using detail::self_test_layers_m1;
   using detail::self_test_layout_bounds;
@@ -31,7 +32,7 @@ int run_views_self_test(Browser& browser) {
   using detail::self_test_navigate;
   using detail::self_test_present;
 
-  if (int rc = self_test_chrome_ready(browser)) {
+  if (int rc = self_test_shell_ready(browser)) {
     return rc;
   }
   if (int rc = self_test_edit_m0(browser)) {
@@ -52,6 +53,6 @@ int run_views_self_test(Browser& browser) {
   return self_test_milestones(browser);
 }
 
-void pump_views_messages(DWORD ms) { detail::pump_views_messages_impl(ms); }
+void pump_views_messages(DWORD ms) { detail::pump_messages(ms); }
 
 }  // namespace app

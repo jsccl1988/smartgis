@@ -105,6 +105,13 @@ def score_plugin_scene3d(path: Path) -> dict:
     )
     ocean_f = ocean / n
     cream_f = cream / n
+    # FlyCube init clear RGB(18,32,48) — solid navy = no DEM present yet.
+    navy = sum(
+        1
+        for r, g, b in pixels
+        if abs(r - 18) < 10 and abs(g - 32) < 12 and abs(b - 48) < 14
+    )
+    navy_f = navy / n
     # Rough diversity: unique RGB buckets on a stride sample.
     sample = pixels[:: max(1, n // 4000)]
     uniq = {(r >> 3, g >> 3, b >> 3) for r, g, b in sample}
@@ -112,13 +119,21 @@ def score_plugin_scene3d(path: Path) -> dict:
     wash_f = max(ocean_f, cream_f)
     base["ocean_clear_frac"] = round(ocean_f, 4)
     base["cream_wash_frac"] = round(cream_f, 4)
+    base["navy_clear_frac"] = round(navy_f, 4)
     base["color_buckets"] = divers
     gates = dict(base.get("gates") or {})
     gates["ocean_clear_frac<0.90"] = ocean_f < 0.90
     gates["flat_wash_frac<0.97"] = wash_f < 0.97
     gates["color_buckets>=4"] = divers >= 4
+    gates["navy_clear_frac<0.85"] = navy_f < 0.85
     base["gates"] = gates
-    base["ok"] = bool(base.get("ok")) and ocean_f < 0.90 and wash_f < 0.97 and divers >= 4
+    base["ok"] = (
+        bool(base.get("ok"))
+        and ocean_f < 0.90
+        and wash_f < 0.97
+        and divers >= 4
+        and navy_f < 0.85
+    )
     return base
 
 
@@ -136,6 +151,16 @@ def score_plugin_stormsurge(path: Path) -> dict:
         if (g > r + 8 and g > b + 5 and g > 70)
         or (r > 90 and g > 80 and b < 130 and r + g > b * 2)
         or (r > 140 and g > 140 and abs(r - g) < 40 and r + g > b * 1.5)
+        # Dark teal DEM bed (FlyCube overlay) — not bright free-surface cyan.
+        or (
+            g > 45
+            and b > 45
+            and g > r + 15
+            and b > r + 15
+            and abs(g - b) < 45
+            and (r + g + b) < 280
+            and (r + g + b) > 90
+        )
     )
     # Bright cyan/teal free-surface (albedo ~46,170,220), not dark void navy.
     water_on_land = sum(

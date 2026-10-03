@@ -75,6 +75,8 @@ int main() {
   // exercise that path under rhi_test with SMT_RUN_FLYCUBE_GPU=1.
   setvbuf(stdout, nullptr, _IONBF, 0);
   setvbuf(stderr, nullptr, _IONBF, 0);
+  // Product default is unlit DEM/paint terrain; P0 lit assertions opt in.
+  _putenv_s("SMT_SCENE3D_LIT_TERRAIN", "1");
 
   gis::World world;
   world.add_node(gis::NodeKind::kVectorLayer, "roads", 0, 0, 0, 1, 1, 0);

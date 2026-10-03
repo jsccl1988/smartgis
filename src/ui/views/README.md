@@ -70,7 +70,7 @@ src/ui/views/
   map/touch_multitouch.h      public forward → input/touch_multitouch.h
   map/viewport/               MapViewport + display/paint/shell/flycube + features
   map/input/                  viewport_input, TouchMultitouch
-  map/chrome/                 identity HUD, embed opaque fill
+  map/frame/                 identity HUD, embed opaque fill
   map/device/                 legacy CreateRenderDevice load helpers
   testing/unit/               views_unittests, markup_unittests
   testing/harness/            EventGenerator, ViewsTestBase, OverlayScene
@@ -102,18 +102,18 @@ Module nest remains `src/ui/views` (one layer under `ui/`). The groups are direc
 | Markup factory | `ControlFactory`, `PlaceholderView`, `register_markup_tags` | `ui/views/markup/factory/` |
 | Markup loader | `load_markup`, `MarkupRoot` | `ui/views/markup/loader/` |
 | Dialogs | `Dialog`, `pick_open_file` / `pick_save_file`, `show_message_box`, InputText, SelectOne | `ui/views/dialogs/` |
-| GIS panels + product dialogs | Catalog/inspect/shell/style/analysis/debug; AddBasemap/AttStruct/Create* | `ui/gis/{…}/` |
+| GIS panels + product dialogs | Catalog (+ Create*/AddBasemap), Inspect (+ AttributeSchema), shell/style/analysis/debug | `ui/gis/{…}/` |
 | Map hang | `MapViewport`, `TouchMultitouch` | `ui/views/map/` |
 
 ### Markup notes
 
-- Resources: product `.ui.xml` + `.ui.css` under `src/ui/resources/<area>/` (toolkit + dialogs + GIS panels); test samples under `markup/testdata/`. GN `:markup_resources` copies areas to shared `out/ui/<area>/` (`$root_out_dir/../ui`, Debug+Release); dialogs/panels load via `load_markup("area/name.ui.xml")`.
+- Resources: product `.ui.xml` + `.ui.css` under `src/ui/resources/<area>/` (toolkit + GIS areas); test samples under `markup/testdata/`. GN `:markup_resources` copies areas to shared `out/ui/<area>/` (`$root_out_dir/../ui`, Debug+Release); panels/modals load via `load_markup("area/name.ui.xml")`.
 - Layout: declarative hosts use **Yoga** (`YogaLayoutManager`). Imperative `BoxLayout` / `FillLayout` remain for unmigrated toolkit dialogs — do not dual-drive one host.
 - GIS complex panel tags instantiate **placeholder** Views (id/size); business data stays C++-bound.
 - `contextmenu` is a stub View (Win32 popup is a free function, not a View).
 - Preview / editor: `build.bat UiDesigner` → `out/Debug/UiDesigner.exe` (default opens `shell/main_app.ui.xml` SmartGisViews chrome template; open/save/hot-reload, palette, properties, tree, insert/reorder, **Text2UI** Generate… / Ctrl+Shift+G — template by default, `@llm` → Cursor Agent; bottom **Console+Trace** DiagnosticToolsPanel for UI paint profile — View → Toggle Console+Trace; CSD FrameView, Dark/Light theme).
 - Text2UI API: `ui/views/text2ui/` (`generate_text2ui`, template matchers, validate). Host injects `LlmBackend` (UiDesigner: Cursor Agent CLI + `CURSOR_API_KEY`).
-- Main app chrome: `src/ui/resources/shell/main_app.ui.xml` (+ `.ui.css`) — product `ShellLayoutChrome` loads it and mounts Catalog / Map / Ambox / inspector / Diagnostic / Status into `*_host` panels; UiDesigner opens the same file as the default canvas.
+- Main app chrome: `src/ui/resources/shell/main_app.ui.xml` (+ `.ui.css`) — product `ShellLayoutComposer` loads it and mounts Catalog / Map / Ambox / inspector / Diagnostic / Status into `*_host` panels; UiDesigner opens the same file as the default canvas.
 - UI render profile: `BASE_TRACE_EVENT(..., "ui.views")` on Widget paint/commit/present + ShellCompositor raster; RenderTrace **UI** filter; Diagnostic Tools tab **Trace**.
 
 Map pixels stay on `src/map` / `src/feature` + `src/render`. Architecture: [`docs/build/ui-views-skia.md`](../../../docs/build/ui-views-skia.md). Control split: [`docs/superpowers/specs/2026-09-13-ui-views-controls-design.md`](../../../docs/superpowers/specs/2026-09-13-ui-views-controls-design.md) (nesting superseded by the 2026-09-19 design).

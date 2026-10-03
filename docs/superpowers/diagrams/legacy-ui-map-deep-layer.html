@@ -1,0 +1,130 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>legacy/ui/map 深度分层</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --border: #d8dee6;
+    --text: #1a2330;
+    --muted: #5a6a7e;
+    --accent: #2563a8;
+    --viewport: #e8f0fa;
+    --chrome: #eef6ee;
+    --framing: #f7f0e8;
+    --menu: #f3eef8;
+    --tools: #eef4f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.45;
+  }
+  h1 { font-size: 1.35rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 0.92rem; margin-bottom: 20px; }
+  .stack {
+    display: grid; gap: 12px; max-width: 920px;
+  }
+  .lane {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .lane h2 {
+    margin: 0 0 8px; font-size: 0.95rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tag {
+    font-size: 0.72rem; font-weight: 600; padding: 2px 8px;
+    border-radius: 4px; color: #123;
+  }
+  .tag.v { background: var(--viewport); }
+  .tag.c { background: var(--chrome); }
+  .tag.f { background: var(--framing); }
+  .tag.m { background: var(--menu); }
+  .tag.t { background: var(--tools); }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    margin-top: 10px; font-size: 0.88rem;
+  }
+  .chip {
+    background: #eef2f6; border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 8px; font-family: Consolas, monospace;
+    font-size: 0.8rem;
+  }
+  .arrow { color: var(--accent); font-weight: 700; }
+  code { font-family: Consolas, monospace; font-size: 0.85rem; }
+  .principle {
+    margin-top: 18px; max-width: 920px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .principle ol { margin: 8px 0 0 1.2rem; color: var(--muted); }
+  .principle li { margin: 4px 0; }
+  .pulse { animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
+    50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
+  }
+</style>
+</head>
+<body>
+  <h1>legacy/ui/map 深度分层（§11e）</h1>
+  <p class="sub">语义对齐 <code>ui/views/map</code>；物理仍在 <code>src/legacy/ui/map</code>。Scheme C，无 shim。</p>
+
+  <div class="stack">
+    <div class="lane pulse">
+      <h2><span class="tag v">viewport</span> MFC CView 宿主</h2>
+      <div class="flow">
+        <span class="chip">Smt2DXView</span>
+        <span class="chip">Smt2DEditXView</span>
+        <span class="chip">Smt3DXView</span>
+        <span class="arrow">→</span>
+        <span>组合根：消息 / DYNCREATE / 持有 device·tools</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag c">chrome</span> 叠加绘制</h2>
+      <div class="flow">
+        <span class="chip">identity_hud</span>
+        <span class="chip">aux_overlay</span>
+        <span class="arrow">←</span>
+        <span>OnDraw 调用；2D/3D 共用 HUD</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag f">framing</span> 2D 包络取景</h2>
+      <div class="flow">
+        <span class="chip">oper_map_frame</span>
+        <span class="arrow">←</span>
+        <span>SetOperMap / OnSize / Timer(71)</span>
+      </div>
+    </div>
+    <div class="lane">
+      <h2><span class="tag m">menu</span> · <span class="tag t">tools</span></h2>
+      <div class="flow">
+        <span class="chip">am_menu</span>
+        <span class="chip">bind_workspace</span>
+        <span class="arrow">←</span>
+        <span>CreateMain/ContexMenu · CreateTools</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="principle">
+    <strong>原则流</strong>
+    <ol>
+      <li>HWND / MFC 消息只留在 <code>viewport/</code>。</li>
+      <li>纯绘制与策略进 <code>chrome/</code> · <code>framing/</code> · <code>menu/</code> · <code>tools/</code>。</li>
+      <li>Edit 视图只覆写有差异的缝（Append / MapEditSession），删除纯转发 message map。</li>
+      <li>终局 <code>src/ui/views/map</code> 不依赖本树；本波不出 <code>legacy/</code>。</li>
+    </ol>
+  </div>
+</body>
+</html>

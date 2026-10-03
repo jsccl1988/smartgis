@@ -4,7 +4,7 @@
 #include "app/views/shell/harness/self_test/probe.h"
 
 #include "app/views/shell/browser/browser.h"
-#include "app/views/shell/harness/common/maps.h"
+#include "app/views/shell/harness/common/io/maps.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include <windows.h>
 #include <shellapi.h>

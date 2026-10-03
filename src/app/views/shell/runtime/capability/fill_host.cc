@@ -17,10 +17,10 @@
 #include "app/views/shell/browser/browser_ui_delegate.h"
 #include "app/views/shell/browser/china_product_defaults.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
-#include "app/views/shell/harness/common/maps.h"
-#include "app/views/shell/harness/common/mark.h"
-#include "app/views/shell/harness/common/pump.h"
-#include "app/views/shell/harness/common/sample.h"
+#include "app/views/shell/harness/common/io/maps.h"
+#include "app/views/shell/harness/common/mark/mark.h"
+#include "app/views/shell/harness/common/pump/pump.h"
+#include "app/views/shell/harness/common/io/sample.h"
 #include "app/views/shell/harness/self_test/self_test.h"
 #include "app/views/shell/harness/showcase/atmosphere/atmosphere_showcase.h"
 #include "app/views/shell/harness/showcase/map2d/map2d_showcase.h"
@@ -675,7 +675,7 @@ void fill_host(Browser& browser,
         UpdateWindow(pane->native_view());
       }
       pane->invalidate_native();
-      pane->sync_identity_chrome();
+      pane->sync_identity_frame();
     }
     detail::pump_messages(200);
     return map2d->export_bmp(bmp_a, kExportW, kExportH);

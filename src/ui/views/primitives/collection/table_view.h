@@ -70,6 +70,7 @@ class UI_EXPORT TableView : public View {
   std::vector<std::vector<std::string>> rows_;
   std::vector<std::vector<std::wstring>> row_wide_;
   int selected_ = -1;
+  int hovered_ = -1;
   int last_painted_rows_ = 0;
   bool last_cache_hit_ = false;
   std::function<void(int)> row_click_;
@@ -79,6 +80,7 @@ class UI_EXPORT TableView : public View {
   int cache_begin_ = 0;
   int cache_end_ = 0;
   int cache_selected_ = -1;
+  int cache_hovered_ = -1;
   int cache_origin_x_ = 0;
   int cache_origin_y_ = 0;
   int cache_width_ = 0;
@@ -87,6 +89,10 @@ class UI_EXPORT TableView : public View {
   ui::gfx::Color cache_accent_ = 0;
   ui::gfx::Color cache_text_ = 0;
   ui::gfx::Color cache_text_bright_ = 0;
+  ui::gfx::Color cache_text_muted_ = 0;
+  ui::gfx::Color cache_row_alt_ = 0;
+  ui::gfx::Color cache_control_border_ = 0;
+  ui::gfx::Color cache_control_hover_ = 0;
   bool cache_valid_ = false;
   ui::gfx::DisplayList row_cache_;
 };

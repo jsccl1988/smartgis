@@ -38,7 +38,11 @@ bool Browser::run_m2_self_test_hooks(std::string* err) {
     }
     return false;
   };
-  ui::views::ProcessingPanel* panel = ui_ ? ui_->processing_panel() : nullptr;
+  ui::views::ProcessingPanel* panel = nullptr;
+  if (ui_) {
+    ui_->ensure_processing_panel();
+    panel = ui_->processing_panel();
+  }
   if (!panel || panel->operator_count() < 10) {
     return fail("m2: processing panel lists < 10 operators");
   }

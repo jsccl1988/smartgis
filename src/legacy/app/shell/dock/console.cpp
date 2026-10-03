@@ -9,6 +9,7 @@
 
 #include "base/log/log_sink.h"
 #include "content/browser/debug/debug_agent.h"
+#include "legacy/app/shell/dock/pane_host.h"
 
 namespace {
 
@@ -18,7 +19,6 @@ constexpr int kBtnW = 64;
 constexpr int kBtnH = 24;
 constexpr int kInputH = 22;
 constexpr int kPad = 4;
-constexpr int kMaxLogLines = 500;
 
 enum {
   kIdClear = 5201,
@@ -46,20 +46,12 @@ DebugConsolePane::~DebugConsolePane() {
 }
 
 BOOL DebugConsolePane::Create(CWnd* parent, UINT id) {
-  return CWnd::CreateEx(
-      0, AfxRegisterWndClass(0), _T(""),
-      WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, CRect(0, 0, 0, 0),
-      parent, id);
+  return legacy_app::detail::create_dock_pane_child(this, parent, id);
 }
 
 BOOL DebugConsolePane::OnEraseBkgnd(CDC* pDC) {
-  if (pDC == nullptr) {
-    return TRUE;
-  }
-  CRect rc;
-  GetClientRect(&rc);
-  pDC->FillSolidRect(&rc, ::GetSysColor(COLOR_WINDOW));
-  return TRUE;
+  return legacy_app::detail::erase_dock_pane_bkgnd(
+      this, pDC, ::GetSysColor(COLOR_WINDOW));
 }
 
 int DebugConsolePane::OnCreate(LPCREATESTRUCT lpCreateStruct) {
@@ -118,14 +110,7 @@ void DebugConsolePane::OnSize(UINT nType, int cx, int cy) {
 }
 
 void DebugConsolePane::append_line(const CString& line) {
-  if (!::IsWindow(log_list_.m_hWnd)) {
-    return;
-  }
-  const int idx = log_list_.AddString(line);
-  while (log_list_.GetCount() > kMaxLogLines) {
-    log_list_.DeleteString(0);
-  }
-  log_list_.SetCurSel(idx);
+  legacy_app::detail::append_list_line(log_list_, line);
 }
 
 void DebugConsolePane::drain_pending() {

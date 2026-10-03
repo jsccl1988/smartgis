@@ -3,7 +3,52 @@
 
 import("//build/smartgis.gni")
 
-# Map HWND hosts (ex-viewport) compile via //src/legacy/ui/shell:shell_sources.
+# Map HWND hosts + chrome/framing/menu/tools helpers → ui_legacy.
+source_set("map_sources") {
+  configs += [
+    "//build:legacy",
+    "//build:mfc",
+  ]
+  defines = [
+    "_USRDLL",
+    "_AFXDLL",
+    "_AFX_NO_DAO_SUPPORT",
+    "_AFXEXT",
+    "XVIEW_EXPORTS",
+  ]
+  precompiled_header = "stdafx.h"
+  precompiled_source = "stdafx.cpp"
+  include_dirs += [ "." ]
+  sources = [
+    "stdafx.cpp",
+    "chrome/aux_overlay.cc",
+    "chrome/identity_hud.cc",
+    "framing/oper_map_frame.cc",
+    "menu/am_menu.cc",
+    "tools/bind_workspace.cc",
+    "viewport/view_2d.cpp",
+    "viewport/view_2d_edit.cpp",
+    "viewport/view_3d.cpp",
+  ]
+  deps = [
+    "//src/content:view_host",
+    "//src/gis/model/edit:map_edit",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/gis/kernel/geo:geo",
+    "//src/gis/model/map:gis",
+    "//src/legacy/render/rhi2d:rhi2d",
+    "//src/legacy/render/rhi3d:rhi",
+    "//src/legacy/render/scene3d:scene3d",
+    "//src/legacy/sys:sys",
+    "//src/plugin:plugin",
+    "//src/plugin:cmd",
+    "//src/legacy/tool:tool",
+    "//src/tool:dispatch",
+    "//src/legacy/gis/datasource:sde_mgr",
+  ]
+}
+
 group("map") {
   public_deps = [ "//src/legacy/ui:ui_legacy" ]
 }

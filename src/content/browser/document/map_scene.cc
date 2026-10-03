@@ -3,6 +3,7 @@
 
 #include "content/browser/document/map_scene.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -115,6 +116,7 @@ void MapScene::seed_default(bool allow_china_bootstrap) {
   layer.id = "layer.demo";
   layer.name = "Demo layer";
   layer.visible = true;
+  layer.kind = LayerKind::kVector;
   store_.add_sample_features(&layer, "demo");
   store_.layers().push_back(std::move(layer));
   store_.set_active_layer_id("layer.demo");
@@ -148,6 +150,7 @@ bool MapScene::open_path(const std::string& path) {
   if (existing) {
     existing->name = stem;
     existing->visible = true;
+    existing->kind = LayerKind::kVector;
     existing->features.clear();
     store_.add_sample_features(existing, stem);
     store_.set_active_layer_id(path);
@@ -157,6 +160,7 @@ bool MapScene::open_path(const std::string& path) {
   layer.id = path;
   layer.name = stem;
   layer.visible = true;
+  layer.kind = LayerKind::kVector;
   store_.add_sample_features(&layer, stem);
   store_.set_active_layer_id(layer.id);
   store_.layers().push_back(std::move(layer));
@@ -168,7 +172,44 @@ bool MapScene::write_path(const std::string& path) const {
 }
 
 std::vector<MapScene::LayerDesc> MapScene::layer_descs() const {
-  return store_.layer_descs();
+  std::vector<LayerDesc> out = store_.layer_descs();
+  // Tile basemap lives on StyleBind, not MapLayer. When the catalog command
+  // path created a kRaster layer, skip; otherwise expose a synthetic leaf so
+  // TOC can show kind without inventing extra business overlays.
+  if (!has_basemap_provider()) {
+    return out;
+  }
+  const bool has_raster_leaf = [&out] {
+    std::function<bool(const LayerDesc&)> walk = [&](const LayerDesc& d) {
+      if (d.kind == LayerKind::kRaster) {
+        return true;
+      }
+      for (const LayerDesc& child : d.children) {
+        if (walk(child)) {
+          return true;
+        }
+      }
+      return false;
+    };
+    for (const LayerDesc& d : out) {
+      if (walk(d)) {
+        return true;
+      }
+    }
+    return false;
+  }();
+  if (has_raster_leaf) {
+    return out;
+  }
+  LayerDesc basemap;
+  basemap.id = "basemap.tiles";
+  basemap.name = "Basemap";
+  basemap.visible = true;
+  basemap.active = false;
+  basemap.kind = LayerKind::kRaster;
+  basemap.expanded = true;
+  out.insert(out.begin(), std::move(basemap));
+  return out;
 }
 
 size_t MapScene::feature_count() const {
@@ -176,8 +217,13 @@ size_t MapScene::feature_count() const {
 }
 
 bool MapScene::create_layer(const std::string& name,
-                            const std::string& /*geometry_type*/) {
-  return store_.create_layer(name);
+                            const std::string& geometry_type) {
+  content::LayerKind kind = content::LayerKind::kVector;
+  if (geometry_type == "xyz" || geometry_type == "wmts" ||
+      geometry_type == "raster") {
+    kind = content::LayerKind::kRaster;
+  }
+  return store_.create_layer(name, kind);
 }
 
 bool MapScene::remove_layer(const std::string& id) {
@@ -230,6 +276,12 @@ bool MapScene::add_point_cloud_layer(const std::string& name, const float* xyz,
 const MapScene::Feature* MapScene::hit_test(double map_x, double map_y,
                                            double tol_map) {
   return detail::hit_test(&store_, map_x, map_y, tol_map);
+}
+
+std::vector<const MapScene::Feature*> MapScene::hit_test_all(double map_x,
+                                                            double map_y,
+                                                            double tol_map) {
+  return detail::hit_test_all(&store_, map_x, map_y, tol_map);
 }
 
 bool MapScene::select_feature(const content::FeatureId& id) {

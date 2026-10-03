@@ -41,17 +41,17 @@
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
 #include "tool/workspace/workspace.h"
-#include "ui/gis/dialogs/add_basemap_dialog.h"
+#include "ui/gis/catalog/add_basemap_dialog.h"
 #include "ui/gis/shell/ambox_view.h"
 #include "plugin/runtime/processing/builtin_ops.h"
 #include "plugin/runtime/processing/ops_runner.h"
 #include "ui/gis/shell/atmosphere_panel.h"
-#include "ui/gis/dialogs/att_struct_dialog.h"
+#include "ui/gis/inspect/attribute_schema_dialog.h"
 #include "ui/gis/inspect/attribute_table.h"
 #include "ui/gis/catalog/catalog_view.h"
-#include "ui/gis/dialogs/create_datasource_dialog.h"
-#include "ui/gis/dialogs/create_layer_dialog.h"
-#include "ui/gis/dialogs/create_map_dialog.h"
+#include "ui/gis/catalog/create_datasource_dialog.h"
+#include "ui/gis/catalog/create_layer_dialog.h"
+#include "ui/gis/catalog/create_map_dialog.h"
 #include "ui/gis/inspect/feature_info.h"
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/dialogs/input_text_dialog.h"
@@ -125,7 +125,7 @@ void Browser::zoom_at_and_commit(int view_x, int view_y, double factor) {
 void Browser::fit_map_extent() {
   // Prefer Widget client size over MapViewport::native_view(): View is
   // UI_EXPORT so the inline accessor is dllimport; a skewed MapViewport*
-  // AVs inside ui_views during early init_chrome (before attach_viewports).
+  // AVs inside ui_views during early init_shell (before attach_viewports).
   int w = 800;
   int h = 600;
   if (ui_) {
@@ -166,11 +166,39 @@ void Browser::fit_map_extent() {
   }
 }
 
+namespace {
+
+// MapSession / ViewHost / Workspace can be poisoned across partial multi-agent
+// out/Debug rebuilds; stack().current() must not AV the self-test path.
+// SEH helpers stay free of C++ object unwinding (MSVC C2712).
+tool::Workspace* seh_view_host_workspace(content::ViewHost* host) {
+  if (!host) {
+    return nullptr;
+  }
+  __try {
+    return host->workspace();
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return nullptr;
+  }
+}
+
+tool::Interaction* seh_workspace_current(tool::Workspace* ws) {
+  if (!ws) {
+    return nullptr;
+  }
+  __try {
+    return ws->stack().current();
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return nullptr;
+  }
+}
+
+}  // namespace
+
 void Browser::handle_draft(const tool::Draft& draft) {
   content::ViewHost* host = ui_->active_view_host();
   tool::Interaction* cur =
-      host && host->workspace() ? host->workspace()->stack().current()
-                                : nullptr;
+      seh_workspace_current(seh_view_host_workspace(host));
   const char* tool_id = cur ? cur->id() : "";
   const bool scene3d_tab = ui_->scene3d_tab_active();
 
@@ -227,6 +255,24 @@ void Browser::handle_draft(const tool::Draft& draft) {
             break;
           }
         }
+        ui_->feature_info()->set_layer_name(source_layer);
+        const char* geom = "Point";
+        switch (hit->kind) {
+          case MapScene::GeomKind::kLine:
+            geom = "Line";
+            break;
+          case MapScene::GeomKind::kPolygon:
+            geom = "Polygon";
+            break;
+          case MapScene::GeomKind::kText:
+            geom = "Text";
+            break;
+          case MapScene::GeomKind::kPoint:
+          default:
+            geom = "Point";
+            break;
+        }
+        ui_->feature_info()->set_geometry_type(geom);
         session_.document().fill_feature_info_fields(*hit, &pairs, source_layer,
                                            session_.view_frame().scale());
         std::vector<ui::views::FeatureInfo::Field> fields;
@@ -293,7 +339,7 @@ void Browser::handle_draft(const tool::Draft& draft) {
   }
 
   // Rubber-band ZoomToRect: view.zoom_in L/R drag (view.pan leaves RMB to the
-  // shell context menu �?MapLibre-like browse).
+  // shell context menu â?MapLibre-like browse).
   const bool zoom_rect_draft =
       draft.kind == tool::DraftKind::kRect && draft.points.size() >= 2 &&
       (tool::draft_flags::is_zoom_rect(draft.flags) ||
@@ -344,7 +390,7 @@ void Browser::handle_draft(const tool::Draft& draft) {
         push_shared_extent();
         adopt_or_commit_extent();
         refresh_scale();
-        // Full redraw via Invalidate only �?avoid blit-timer + GPU present
+        // Full redraw via Invalidate only â?avoid blit-timer + GPU present
         // racing after a rubber-band ZoomToRect (FlyCube shared_ptr UAF).
         ui_->invalidate_map_overlays();
         return;
@@ -411,7 +457,7 @@ void Browser::refresh_scale() {
 void Browser::adopt_or_commit_extent() {
   // Guard: draft_nav.cc is a separate Browser TU. A stale .obj vs browser.obj
   // under parallel ninja reads ui_ at the wrong offset (NULL / 0xCD) and AVs
-  // here during init_chrome fit_map_extent � rebuild shell_browser together.
+  // here during init_shell fit_map_extent  rebuild shell_browser together.
   if (!ui_) {
     return;
   }
@@ -471,9 +517,10 @@ void Browser::identify_at(int view_x, int view_y) {
   double map_y = 0;
   session_.view_frame().view_to_map(view_x, view_y, &map_x, &map_y);
   const double scale = session_.view_frame().scale() > 1e-9 ? session_.view_frame().scale() : 1.0;
-  const MapScene::Feature* hit =
-      session_.document().hit_test(map_x, map_y, 12.0 / scale);
-  if (!hit) {
+  const double tol_map = 12.0 / scale;
+  const std::vector<const MapScene::Feature*> candidates =
+      session_.document().hit_test_all(map_x, map_y, tol_map);
+  if (candidates.empty()) {
     if (had) {
       session_.document().select_feature(saved);
     }
@@ -481,14 +528,69 @@ void Browser::identify_at(int view_x, int view_y) {
     ui_->set_status_message(session_.navigation().status());
     return;
   }
-  const content::FeatureId id = hit->id;
-  session_.document().select_feature(id);
+  // hit_test_all already selected the nearest feature.
+  const content::FeatureId id = candidates.front()->id;
   ui_->sync_inspectors_from_scene();
+  if (ui::views::FeatureInfo* info = ui_->feature_info()) {
+    const double map_scale = session_.view_frame().scale();
+    std::vector<ui::views::FeatureInfo::Hit> hits;
+    hits.reserve(candidates.size());
+    for (const MapScene::Feature* feature : candidates) {
+      if (!feature) {
+        continue;
+      }
+      ui::views::FeatureInfo::Hit hit;
+      hit.feature_id = MapScene::feature_token(feature->id);
+      for (const MapScene::Layer& layer : session_.document().layers()) {
+        for (const MapScene::Feature& candidate : layer.features) {
+          if (std::memcmp(candidate.id.bytes, feature->id.bytes,
+                          sizeof(feature->id.bytes)) == 0 &&
+              candidate.id.len == feature->id.len) {
+            hit.layer_name = layer.name;
+            break;
+          }
+        }
+        if (!hit.layer_name.empty()) {
+          break;
+        }
+      }
+      switch (feature->kind) {
+        case MapScene::GeomKind::kLine:
+          hit.geometry_type = "Line";
+          break;
+        case MapScene::GeomKind::kPolygon:
+          hit.geometry_type = "Polygon";
+          break;
+        case MapScene::GeomKind::kText:
+          hit.geometry_type = "Text";
+          break;
+        case MapScene::GeomKind::kPoint:
+        default:
+          hit.geometry_type = "Point";
+          break;
+      }
+      std::vector<std::pair<std::string, std::string>> pairs;
+      session_.document().fill_feature_info_fields(*feature, &pairs,
+                                                   hit.layer_name, map_scale);
+      hit.fields.reserve(pairs.size());
+      for (auto& pair : pairs) {
+        hit.fields.push_back(
+            {std::move(pair.first), std::move(pair.second)});
+      }
+      hits.push_back(std::move(hit));
+    }
+    info->set_hits(std::move(hits), 0);
+  }
   if (ui_->inspector_tabs()) {
     ui_->inspector_tabs()->set_active(0);
   }
   ui_->invalidate_map_overlays();
-  ui_->set_status_message("Selected " + MapScene::feature_token(id));
+  if (candidates.size() > 1) {
+    ui_->set_status_message("Identified " + std::to_string(candidates.size()) +
+                            " features (" + MapScene::feature_token(id) + ")");
+  } else {
+    ui_->set_status_message("Selected " + MapScene::feature_token(id));
+  }
 }
 
 void Browser::on_view_command(std::string_view command_id,
@@ -668,8 +770,8 @@ void Browser::push_shared_extent() {
   int h = 600;
   ui_->active_view_size(&w, &h);
   content::Extent2 e;
-  // On the 3D tab, never pull the Map-Edit 2D crop into the orbit camera �?  // a coastal / half-ocean 2D view made DEM present as a black void with a
-  // sliver of terrain on the far edge (坌击�?3D 无画�?.
+  // On the 3D tab, never pull the Map-Edit 2D crop into the orbit camera â?  // a coastal / half-ocean 2D view made DEM present as a black void with a
+  // sliver of terrain on the far edge (åå»å?3D æ ç»é?.
   if (ui_->scene3d_tab_active()) {
     e = session_.orbit_frame().world_extent();
     if (!extent_looks_like_china(e)) {

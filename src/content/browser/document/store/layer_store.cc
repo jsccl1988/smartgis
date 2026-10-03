@@ -8,6 +8,38 @@
 
 namespace content {
 namespace detail {
+namespace {
+
+// True for china_city PLPT stems produced by split_layers_by_kind_field.
+bool is_china_plpt_id(const std::string& id) {
+  return id == "china.area" || id == "china.line" || id == "china.point" ||
+         id == "china.text";
+}
+
+content::LayerKind resolve_layer_kind(const MapLayer& layer) {
+  if (layer.kind != content::LayerKind::kUnknown) {
+    return layer.kind;
+  }
+  // MapLayer only stores vector MapFeature geometry today.
+  if (!layer.features.empty()) {
+    return content::LayerKind::kVector;
+  }
+  return content::LayerKind::kUnknown;
+}
+
+content::LayerDesc make_leaf_desc(const MapLayer& layer,
+                                  const std::string& active_id) {
+  content::LayerDesc d;
+  d.id = layer.id;
+  d.name = layer.name;
+  d.visible = layer.visible;
+  d.active = (layer.id == active_id);
+  d.kind = resolve_layer_kind(layer);
+  d.expanded = true;
+  return d;
+}
+
+}  // namespace
 
 void LayerStore::clear() {
   layers_.clear();
@@ -88,13 +120,46 @@ std::vector<content::LayerDesc> LayerStore::layer_descs() const {
   if (n > kMaxLayers) {
     return out;
   }
-  out.reserve(n);
+
+  std::vector<content::LayerDesc> china;
+  std::vector<content::LayerDesc> other;
+  china.reserve(4);
+  other.reserve(n);
+  bool china_any_visible = false;
   for (const MapLayer& layer : layers_) {
-    content::LayerDesc d;
-    d.id = layer.id;
-    d.name = layer.name;
-    d.visible = layer.visible;
-    d.active = (layer.id == active_layer_id_);
+    content::LayerDesc d = make_leaf_desc(layer, active_layer_id_);
+    if (is_china_plpt_id(layer.id)) {
+      china_any_visible = china_any_visible || d.visible;
+      china.push_back(std::move(d));
+    } else {
+      other.push_back(std::move(d));
+    }
+  }
+
+  // Nest china_city PLPT under one group when the store has that split set.
+  // Fewer than two leaves stay flat (no invented singleton group).
+  if (china.size() >= 2) {
+    content::LayerDesc group;
+    group.id = "group.china";
+    group.name = "China";
+    group.visible = china_any_visible;
+    group.active = false;
+    group.kind = content::LayerKind::kGroup;
+    group.expanded = true;
+    group.children = std::move(china);
+    out.reserve(1 + other.size());
+    out.push_back(std::move(group));
+    for (content::LayerDesc& d : other) {
+      out.push_back(std::move(d));
+    }
+    return out;
+  }
+
+  out.reserve(china.size() + other.size());
+  for (content::LayerDesc& d : china) {
+    out.push_back(std::move(d));
+  }
+  for (content::LayerDesc& d : other) {
     out.push_back(std::move(d));
   }
   return out;
@@ -108,7 +173,8 @@ size_t LayerStore::feature_count() const {
   return n;
 }
 
-bool LayerStore::create_layer(const std::string& name) {
+bool LayerStore::create_layer(const std::string& name,
+                              content::LayerKind kind) {
   if (name.empty()) {
     return false;
   }
@@ -121,6 +187,7 @@ bool LayerStore::create_layer(const std::string& name) {
   layer.id = id;
   layer.name = name;
   layer.visible = true;
+  layer.kind = kind;
   active_layer_id_ = id;
   layers_.push_back(std::move(layer));
   return true;
@@ -184,6 +251,9 @@ bool LayerStore::move_layer(const std::string& id, int delta) {
 void LayerStore::add_sample_features(MapLayer* layer, const std::string& tag) {
   if (!layer) {
     return;
+  }
+  if (layer->kind == content::LayerKind::kUnknown) {
+    layer->kind = content::LayerKind::kVector;
   }
   MapFeature road;
   road.id = next_feature_id();

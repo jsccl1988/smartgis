@@ -12,10 +12,9 @@ views dialogs).
 | Area | Assets |
 | --- | --- |
 | `toolkit/` | `input_text`, `select_one` |
-| `dialogs/` | AddBasemap, AttStruct, CreateDatasource/Layer/Map |
-| `catalog/` | CatalogView (tabs host) |
-| `shell/` | StatusBar, AtmospherePanel, AmboxView (scroll shell), ChartView (title), **main_app** (SmartGisViews chrome skeleton — product via `ShellLayoutChrome`) |
-| `inspect/` | Measure, Selection, FeatureInfo, AttributeTable |
+| `catalog/` | CatalogView (tabs host); CreateMap/Layer/Datasource, AddBasemap modals |
+| `shell/` | StatusBar, AtmospherePanel, AmboxView (scroll shell), ChartView (title), **main_app** (SmartGisViews chrome skeleton — product via `ShellLayoutComposer`) |
+| `inspect/` | Measure, Selection, FeatureInfo, AttributeTable; AttributeSchema modal |
 | `style/` | Legend, Symbology, LayerProperties |
 | `analysis/` | SpatialAnalysis, Processing, GeoprocessingHistory, ResultPlayback |
 | `debug/` | DebugConsole, RenderTrace, DiagnosticTools (chrome + tabs_host), Memory page |
@@ -24,7 +23,8 @@ GN `:markup_resources` copies each area to shared **`out/ui/<area>/`**
 (sibling of Debug/Release, same pattern as `out/data/`). Runtime:
 
 ```text
-load_markup("dialogs/create_map.ui.xml")
+load_markup("catalog/create_map.ui.xml")
+load_markup("inspect/attribute_schema.ui.xml")
 load_markup("inspect/measure_panel.ui.xml")
 ```
 

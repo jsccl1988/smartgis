@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<ui name="create_map">
-  <style src="create_map.ui.css"/>
-  <vbox id="root" class="form">
-    <label id="name_label" text="Map name"/>
-    <textfield id="name"/>
-  </vbox>
-</ui>

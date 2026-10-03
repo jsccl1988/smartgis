@@ -9,8 +9,8 @@
 #include "legacy/render/scene3d/primitive/surface/terrain.h"
 #include "legacy/sys/sysmanager.h"
 #include "legacy/tool/defs.h"
-#include "legacy/ui/catalog/mapmgr.h"
-#include "legacy/ui/catalog/scenemgr.h"
+#include "legacy/ui/catalog/map/mapmgr.h"
+#include "legacy/ui/catalog/scene/scenemgr.h"
 #include "plugin/product/world3d/processing/tin_loader.h"
 using namespace gis;
 using namespace plugin;

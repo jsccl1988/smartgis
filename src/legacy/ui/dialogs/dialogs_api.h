@@ -1,18 +1,9 @@
-/*
-File:    smt_gui_api.h
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 
-Desc:    GUI API
+#ifndef LEGACY_UI_DIALOGS_DIALOGS_API_H_
+#define LEGACY_UI_DIALOGS_DIALOGS_API_H_
 
-Version: Version 1.0
-
-Writter:  璋㈣揪鏂?
-
-Date:    2010.11.17
-
-Copyright (c) 2010 CCL. All rights reserved.
-*/
-#ifndef _SMT_GUI_API_H
-#define _SMT_GUI_API_H
 #if defined(GUI_EXPORTS)
 #define GUI_EXPORT __declspec(dllexport)
 #else
@@ -28,14 +19,13 @@ using namespace base;
 using namespace gis;
 
 #ifdef _AFXEXT  // support MFC
-//////////////////////////////////////////////////////////////////////////
-// mfc
 CWnd GUI_EXPORT* SmtGetActiveWnd(void);
 #endif  // _AFXEXT
 
-//////////////////////////////////////////////////////////////////////////
+// Export facade for leftover MFC modals (callers include this header only).
 long GUI_EXPORT SmtInputTextDlg(string& strText);
 
+// Retired: edit-param modal removed; inspect docks own preferences. ABI stub.
 long GUI_EXPORT SmtEditParamSettingDlg(void);
 
 long GUI_EXPORT SmtSelectOneDlg(uint& unID, vector<uint>& vIDs);
@@ -53,4 +43,4 @@ long GUI_EXPORT SmtAttStructEditDlg(OGRLayer* layer, int nFixField = 0);
 #endif
 #endif
 
-#endif  // _SMT_GUI_API_H
+#endif  // LEGACY_UI_DIALOGS_DIALOGS_API_H_

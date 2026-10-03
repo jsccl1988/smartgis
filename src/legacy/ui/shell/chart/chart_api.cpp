@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "legacy/ui/shell/chart/chart_api.h"
 
-#include "legacy/ui/shell/chart/chart_view_dlg.h"
+#include "legacy/ui/shell/chart/view_dlg.h"
 
 long SmtPlot(const vPoints &points, const char *szTitle,
              const char *szPanelTitle, const char *szXTitle,

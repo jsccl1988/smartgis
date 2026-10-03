@@ -2,7 +2,19 @@
 <ui name="debug_console_panel">
   <style src="debug_console_panel.ui.css"/>
   <vbox id="root" class="panel">
-    <label id="output" text=""/>
+    <hbox id="toolbar" class="toolbar">
+      <button id="clear" text="Clear"/>
+      <button id="copy" text="Copy"/>
+      <button id="ask" text="Ask"/>
+      <checkbox id="auto_scroll" text="Auto-scroll" checked="true"/>
+      <checkbox id="show_error" text="E" checked="true"/>
+      <checkbox id="show_warn" text="W" checked="true"/>
+      <checkbox id="show_info" text="I" checked="true"/>
+      <checkbox id="show_debug" text="D" checked="true"/>
+      <textfield id="filter"/>
+      <label id="count" text="0/0"/>
+    </hbox>
+    <panel id="log_host" class="log_host"/>
     <textfield id="input"/>
   </vbox>
 </ui>

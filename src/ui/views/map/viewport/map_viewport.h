@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 The Mogu Authors.
+// Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
 #ifndef UI_VIEWS_MAP_VIEWPORT_H_
@@ -132,7 +132,7 @@ class UI_EXPORT MapViewport : public View {
                             uint32_t hole_clear_argb = 0,
                             uint32_t hole_clear_argb_alt = 0);
   // HWND title + on-client identity HUD (engine name + FPS, legacy-style).
-  void sync_identity_chrome();
+  void sync_identity_frame();
   // Sample present cadence into hud_fps_ (Display or UI thread).
   void note_hud_frame();
   // Smoothed present FPS; idle gaps (>250ms) report 0 instead of 1/dt.
@@ -155,6 +155,9 @@ class UI_EXPORT MapViewport : public View {
   // Show/hide the owned DXGI present popup with the embed pane (tab switch).
   // Inactive Map-Edit present must not cover Scene3d.
   void set_flycube_present_visible(bool show);
+  // Restart the 16ms present WM_TIMER after harness stop_map_present_timers
+  // so browse / showcase BMP capture is not stuck on a single ocean clear.
+  void resume_present_timer();
 
   // Write the current backbuffer. False when no pixels have been presented.
   bool export_bmp(const std::string& path) const;

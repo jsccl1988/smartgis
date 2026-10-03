@@ -12,7 +12,7 @@
 #include "legacy/tool/defs.h"
 #include "legacy/tool/abi/t_iatoolmanager.h"
 #include "legacy/tool/abi/t_msg.h"
-const string CST_STR_DEMCREATER_AM_NAME = "DEM创建";
+const string CST_STR_DEMCREATER_AM_NAME = "DEM";
 SmtDemCreaterPlugin *g_pDemCreater = NULL;
 
 #define AM_MSG_CMD_DEMCREATER_BEGIN (SMT_MSG_USER_BEGIN + 100)

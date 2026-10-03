@@ -3,6 +3,7 @@
 
 #include "content/browser/document/query/inspector.h"
 
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <utility>
@@ -30,6 +31,11 @@ bool source_layer_for_feature(const LayerStore& store,
     }
   }
   return false;
+}
+
+bool style_debug_enabled() {
+  const char* flag = std::getenv("SMT_FEATURE_INFO_STYLE_DEBUG");
+  return flag && flag[0] != '\0' && flag[0] != '0';
 }
 
 void append_resolved_paint_rows(
@@ -69,22 +75,10 @@ void append_resolved_paint_rows(
   }
 }
 
-}  // namespace
-
-void fill_feature_info_fields(
-    const LayerStore& store, const StyleBind& style, const MapFeature& f,
-    std::vector<std::pair<std::string, std::string>>* out,
-    const std::string& source_layer, double map_scale) {
-  if (!out) {
-    return;
-  }
-  out->clear();
-
-  std::string layer_name = source_layer;
-  if (layer_name.empty()) {
-    source_layer_for_feature(store, f.id, &layer_name);
-  }
-
+void append_style_debug_rows(const LayerStore& store, const StyleBind& style,
+                             const MapFeature& f, const std::string& layer_name,
+                             double map_scale,
+                             std::vector<std::pair<std::string, std::string>>* out) {
   const gis::style::StyleDocument* doc = style.style_document();
   bool using_embedded_carto = false;
   if (!doc) {
@@ -129,18 +123,6 @@ void fill_feature_info_fields(
     out->push_back({"style match", "(no rule for this source-layer / filter)"});
   }
 
-  out->push_back({"--- Feature attributes ---", ""});
-  for (const content::NamedField& field : f.fields) {
-    out->push_back({field.name, field.value});
-  }
-  out->push_back({"geom", f.kind == GeomKind::kLine
-                              ? "line"
-                              : (f.kind == GeomKind::kPolygon
-                                     ? "polygon"
-                                     : (f.kind == GeomKind::kText ? "text"
-                                                                  : "point"))});
-  out->push_back({"vertices", std::to_string(f.points.size())});
-
   out->push_back({"--- GDI / legacy render params (debug) ---", ""});
   out->push_back(
       {"note",
@@ -171,6 +153,40 @@ void fill_feature_info_fields(
     out->push_back(
         {"gdi brushes",
          "(Baidu defaults in map2d_gdi_paint when Style JSON unset)"});
+  }
+}
+
+}  // namespace
+
+void fill_feature_info_fields(
+    const LayerStore& store, const StyleBind& style, const MapFeature& f,
+    std::vector<std::pair<std::string, std::string>>* out,
+    const std::string& source_layer, double map_scale) {
+  if (!out) {
+    return;
+  }
+  out->clear();
+
+  std::string layer_name = source_layer;
+  if (layer_name.empty()) {
+    source_layer_for_feature(store, f.id, &layer_name);
+  }
+
+  // Product Identify: data attributes + light geometry summary only.
+  for (const content::NamedField& field : f.fields) {
+    out->push_back({field.name, field.value});
+  }
+  out->push_back({"geom", f.kind == GeomKind::kLine
+                              ? "line"
+                              : (f.kind == GeomKind::kPolygon
+                                     ? "polygon"
+                                     : (f.kind == GeomKind::kText ? "text"
+                                                                  : "point"))});
+  out->push_back({"vertices", std::to_string(f.points.size())});
+
+  // Style / GDI dumps stay available for harness when explicitly requested.
+  if (style_debug_enabled()) {
+    append_style_debug_rows(store, style, f, layer_name, map_scale, out);
   }
 }
 

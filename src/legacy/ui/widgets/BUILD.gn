@@ -3,9 +3,9 @@
 
 import("//build/smartgis.gni")
 
-# Feature Pack glue + sole AFX DllMain -> ui_legacy.
-# dock/ and grid/ shims removed (Waves 1-2); Catalog/AMBox use Feature Pack
-# types directly from app/shell and ambox/.
+# Feature Pack glue + sole AFX DllMain → ui_legacy.
+# Layers: feature_pack/ (CBCGP→CMFC bridge), prop/ (property-grid helpers),
+# dll/ (sole DllMain + AFX ext anchors). PCH/RC stay at capability root.
 source_set("widgets_sources") {
   configs += [
     "//build:legacy",
@@ -22,7 +22,7 @@ source_set("widgets_sources") {
   precompiled_source = "stdafx.cpp"
   include_dirs += [ "." ]
   sources = [
-    "widgets_core.cpp",
+    "dll/dll_main.cpp",
     "widgets.rc",
     "stdafx.cpp",
   ]
