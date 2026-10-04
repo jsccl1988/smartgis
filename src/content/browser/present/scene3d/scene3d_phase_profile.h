@@ -9,7 +9,7 @@
 namespace content {
 
 // Last equal-profile phase sample for Scene3D GPU present.
-// mesh = DEM/local rebuild; sync = World→GpuScene; rebuild = GpuScene::rebuild_meshes;
+// mesh = DEM/local rebuild; sync = World→WorldPass; rebuild = WorldPass::rebuild_meshes;
 // record = graph/opaque/ocean/sky; present = Device::present; ocean_prep = height upload.
 // upload/pso split rebuild/pipeline compile for cold attribution.
 struct Scene3dPhaseSample {

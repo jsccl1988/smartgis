@@ -12,7 +12,7 @@ namespace vista {
 namespace detail {
 
 void apply_background(const gis::style::StyleLayer& layer, double zoom,
-                      MapFrame* frame) {
+                      MapIR* frame) {
   gis::style::ResolvedPaint paint;
   gis::style::fill_resolved_paint(layer, nullptr, {}, zoom, &paint);
   frame->background_rgba = paint.background_color;
@@ -20,7 +20,7 @@ void apply_background(const gis::style::StyleLayer& layer, double zoom,
 }
 
 void emit_raster(const gis::style::StyleLayer& layer, const LayoutInput& in,
-                 MapFrame* frame) {
+                 MapIR* frame) {
   gis::style::ResolvedPaint paint;
   gis::style::fill_resolved_paint(layer, nullptr, {}, in.zoom, &paint);
   for (const TileSlot& tile : in.tiles) {
@@ -44,7 +44,7 @@ void emit_raster(const gis::style::StyleLayer& layer, const LayoutInput& in,
 }
 
 void emit_hillshade(const gis::style::StyleLayer& layer, const LayoutInput& in,
-                    MapFrame* frame) {
+                    MapIR* frame) {
   if (in.hillshade_tiles.empty()) {
     std::fprintf(stderr, "map2d: emit_hillshade skip - no tiles\n");
     return;

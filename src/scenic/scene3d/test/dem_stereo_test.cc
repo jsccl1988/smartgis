@@ -268,7 +268,7 @@ int main() {
            "prefecture-scale DEM mask stays off the UI-thread budget");
   }
 
-  // SP4: DEM envelope + CPU mesh → vista::World kTerrain (GpuScene upload covered
+  // SP4: DEM envelope + CPU mesh → vista::World kTerrain (WorldPass upload covered
   // in scene_gpu_test; avoid World vector ABI across scenic_impl+gis+render).
   {
     render::DemHeightField dem;

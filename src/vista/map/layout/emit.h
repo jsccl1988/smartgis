@@ -31,7 +31,7 @@ inline bool layout_gen_stale(const LayoutInput& in) {
 void emit_visible_layers(const LayoutInput& in,
                          const std::vector<LayerBatch>& layers,
                          const std::vector<const gis::style::StyleLayer*>& visible,
-                         LabelGrid* grid, MapFrame* frame);
+                         LabelGrid* grid, MapIR* frame);
 
 }  // namespace detail
 }  // namespace vista

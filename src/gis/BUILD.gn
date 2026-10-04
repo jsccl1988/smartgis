@@ -6,8 +6,8 @@
 #   {feature,map,edit} + envelope.h  (no gis/model/, no one-file layer/crs)
 #   datasource/{session,provider,pipeline,ogr,sdbd,gdal}
 
-#   carto/{style,tile}    — StyleDocument, symbols, tiles; inputs to MapFrame.
-#   CPU MapFrame / World / vista GPU live in //src/vista:vista (vista.dll).
+#   carto/{style,tile}    — StyleDocument, symbols, tiles; inputs to MapIR.
+#   CPU MapIR / World / vista GPU live in //src/vista:vista (vista.dll).
 #   geo/{mesh,ops,proj,tin,grid} / stat  (no kernel/ parent; no sibling proj/tin)
 #   analysis/{ops,geometry,raster} — processing kernels; plugin:: only forwards
 # //src/gis:algorithm and :geom forward to :gis.

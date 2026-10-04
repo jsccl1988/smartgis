@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <string>
 
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 
 namespace vista {
 namespace detail {

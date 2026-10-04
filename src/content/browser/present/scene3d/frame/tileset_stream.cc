@@ -104,7 +104,7 @@ bool TilesetStreamSession::resolve_content(const char* uri, vista::ModelAsset* o
       return false;
     }
     // Keep stream green for fixture URIs without on-disk glb: empty asset with
-    // a fixed cost (AABB fallback in GpuScene).
+    // a fixed cost (AABB fallback in WorldPass).
     out->name = uri;
     out->meshes.clear();
     *byte_cost = 256;

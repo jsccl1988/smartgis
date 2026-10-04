@@ -164,8 +164,8 @@ bool ShellLayoutComposer::build_from_markup() {
   host_->attribute_table_ = attribute_table.get();
 
   auto side = std::make_unique<ui::views::TabStrip>();
-  // 400 DIP: Feature idle copy + Field/Value headers stay unclipped.
-  constexpr int kInspectorWDip = 400;
+  // Idle Feature copy fits ~280 DIP; 400 squeezed the map for empty identify.
+  constexpr int kInspectorWDip = 280;
   side->set_preferred_size({kInspectorWDip, 0});
   auto ambox_page = std::make_unique<ui::views::AmboxView>();
   ambox_page->set_preferred_size({kInspectorWDip, 0});
@@ -211,17 +211,17 @@ bool ShellLayoutComposer::build_from_markup() {
 
   auto diagnostic_tools = ui::views::make_diagnostic_tools_panel();
   host_->diagnostic_tools_ = diagnostic_tools.get();
-  // Product shell shows Diagnostic Tools; default Trace so gantt/content is
-  // visible (Console starts empty until commands are typed).
+  // Product shell shows Diagnostic Tools. Default Output — Trace gantt
+  // previously consumed the map work area on interact/scene/data captures.
   host_->diagnostic_tools_->set_visible_tools(true);
-  host_->diagnostic_tools_->set_active_tab(2);  // Trace
+  host_->diagnostic_tools_->set_active_tab(0);
   // Prefer panel DIP→px metrics; do not pin a smaller host that clips the
   // Output/Console/Trace/Memory body under the toolbar.
   {
     const int kDiagH =
         host_->diagnostic_tools_->preferred_size().height > 0
             ? host_->diagnostic_tools_->preferred_size().height
-            : 280;
+            : 200;
     host_->diagnostic_tools_->set_preferred_size({0, kDiagH});
     diagnostic_host->set_preferred_size({0, kDiagH});
   }
@@ -268,7 +268,7 @@ bool ShellLayoutComposer::build_from_markup() {
     const int kDiagH =
         host_->diagnostic_tools_->preferred_size().height > 0
             ? host_->diagnostic_tools_->preferred_size().height
-            : ui::views::dip_to_px(280, scale);
+            : ui::views::dip_to_px(200, scale);
     diagnostic_host->set_preferred_size({0, kDiagH});
     host_->diagnostic_tools_->set_preferred_size({0, kDiagH});
     main_split->reseed();
@@ -346,7 +346,7 @@ void ShellLayoutComposer::build_imperative() {
   auto attribute_table = std::make_unique<ui::views::AttributeTable>();
   host_->attribute_table_ = attribute_table.get();
 
-  constexpr int kInspectorWDip = 400;
+  constexpr int kInspectorWDip = 280;
   auto side = std::make_unique<ui::views::TabStrip>();
   side->set_preferred_size({kInspectorWDip, 0});
   auto ambox_page = std::make_unique<ui::views::AmboxView>();
@@ -388,7 +388,7 @@ void ShellLayoutComposer::build_imperative() {
   auto diagnostic_tools = ui::views::make_diagnostic_tools_panel();
   host_->diagnostic_tools_ = diagnostic_tools.get();
   host_->diagnostic_tools_->set_visible_tools(true);
-  host_->diagnostic_tools_->set_active_tab(2);  // Trace
+  host_->diagnostic_tools_->set_active_tab(0);
   host_->wire_debug_console();
 
   auto main_split = std::make_unique<ui::views::Splitter>(

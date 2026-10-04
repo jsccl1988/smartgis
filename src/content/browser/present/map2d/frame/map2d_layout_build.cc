@@ -27,8 +27,8 @@
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
 #include "gis/style/document/style_document.h"
-#include "vista/map/frame.h"
-#include "vista/frame/pass.h"
+#include "vista/map/ir.h"
+#include "vista/map_gpu/pass.h"
 #include "vista/map/hillshade_bake.h"
 #include "vista/terrain/dem/dem_raster.h"
 
@@ -129,7 +129,7 @@ bool build_map2d_layout(const Map2dLayoutParams& in, Map2dLayoutOutput* out) {
     BASE_TRACE_EVENT("batches", "map2d.layout");
     batches = visible_layer_batches(in.scene->layers(), use_carto, map_scale);
   }
-  vista::MapFrame built;
+  vista::MapIR built;
   if (reuse_world) {
     built.background_rgba = in.prev_published->background_rgba;
     built.background_opacity = in.prev_published->background_opacity;
@@ -146,7 +146,7 @@ bool build_map2d_layout(const Map2dLayoutParams& in, Map2dLayoutOutput* out) {
     if (base::MemoryResource* tls = base::tls_memory_resource()) {
       tls->clear(base::Arena::kInitialSize);
     }
-    vista::MapFrame overlays = layout.build(layout_in, batches.batches);
+    vista::MapIR overlays = layout.build(layout_in, batches.batches);
     if (in.live_layout_gen &&
         in.live_layout_gen->load(std::memory_order_acquire) != in.layout_gen) {
       return true;

@@ -18,7 +18,7 @@
 #include "gis/style/document/style_document.h"
 #include "gis/style/eval/style_rules.h"
 #include "vista/map/carto_filter.h"
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 #include "vista/terrain/process/land_mask.h"
 #include "tool/draft/draft.h"
 
@@ -157,7 +157,7 @@ int main() {
   const uint32_t label = layer_paint_color(carto, "label", "text-color");
   expect(land == 0xFFF5F3E9u, "Baidu cream land");
   expect(river == 0xFF4A8AB8u, "river blue");
-  expect(admin == 0xFFC4BEB0u, "admin stroke");
+  expect(admin == 0xFF2C2418u, "admin stroke");
   expect(label == 0xFF141820u, "label ink");
   expect(bg == 0xFFAAD3DFu, "ocean bg");
 

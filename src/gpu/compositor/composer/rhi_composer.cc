@@ -363,7 +363,7 @@ bool RhiComposer::draw_frame(OutputSurface* surface,
                                           frame.width_px, frame.height_px);
   }
 
-  // M4: optional Frame Graph / GpuScene underlay on the same device first.
+  // M4: optional Frame Graph / WorldPass underlay on the same device first.
   (void)record_hub_underlay(adapter_, device, nullptr, frame.width_px,
                             frame.height_px);
 

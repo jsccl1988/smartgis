@@ -33,7 +33,7 @@ void seed_world3d_earth_atmosphere(Browser& browser,
 // Best-effort M3 city tileset when city_root.glb is present.
 void try_attach_world3d_city_tiles(content::Scene3dPresenter* cam);
 
-// Lift XYZ and push RGB (authored or warm fallback) as overlay pointcloud.
+// Lift XYZ and push RGB (authored or hypsometric-from-Z fallback).
 void apply_world3d_pointcloud_overlay(content::Scene3dPresenter* cam,
                                      const vista::PointCloud& cloud);
 

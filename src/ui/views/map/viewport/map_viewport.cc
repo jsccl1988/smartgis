@@ -464,16 +464,22 @@ bool MapViewport::try_content_map_view() {
     owns_session_ = true;
   }
   // Shared Browser MapSession may own MapContents without StartRenderProcess
-  // (deferred OOP). Start now — first true need for the pipe.
+  // (deferred until ensure_oop_render_process / SMT_ENABLE_OOP_RENDER).
+  // SMT_DISABLE_OOP_RENDER skips the GPU child (HelloWait ~15s on cold start).
+  // force-content-mapview-2d only selects ContentMapView / software DIB attach;
+  // WaitFrameReady still needs kFrameReady from the GPU pipe, so do not treat
+  // that switch as in-process-only.
   if (!session_->IsOopRender()) {
-    if (!session_->StartRenderProcess()) {
-      if (owns_session_) {
-        session_->Shutdown();
-        delete session_;
-        session_ = nullptr;
-        owns_session_ = false;
+    if (!base::switch_is_one("disable-oop-render")) {
+      if (!session_->StartRenderProcess()) {
+        if (owns_session_) {
+          session_->Shutdown();
+          delete session_;
+          session_ = nullptr;
+          owns_session_ = false;
+        }
+        return false;
       }
-      return false;
     }
   }
   content::ViewKind kind = content::ViewKind::kMapEdit;

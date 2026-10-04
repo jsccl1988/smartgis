@@ -21,14 +21,14 @@ present/
   map2d/
     map2d_presenter.*   # Thin facade: bind + forward to gpu/software
     frame/              # CPU compositor inputs: carto, LayerBatch, tile math
-    gpu/                # Pass lifetime, MapFrame cache, present_gpu
+    gpu/                # Pass lifetime, MapIR cache, present_gpu
     software/           # GDI fallback (Map2dSoftwarePainter + paint TUs)
   scene3d/
     scene3d_presenter.* # Thin facade: bind + present/paint + accessors only
     session/            # Engine SoT (prefer_*) + Scene3dStereoSession
     frame/              # OrbitGeoFrame + rebuild_terrain_mesh
     atmosphere/         # Environment load + prepare_* + M3 hooks
-    gpu/                # GpuScene / present_gpu / shell overlay
+    gpu/                # WorldPass / present_gpu / shell overlay
     software/           # GDI HUD, wind, wireframe, engine-logo
 ```
 

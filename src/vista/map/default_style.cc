@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 
 namespace vista {
 
@@ -77,8 +77,8 @@ std::string default_carto_style_json() {
          "\"type\":\"line\","
          "\"source-layer\":\"admin\","
          "\"paint\":{"
-         "\"line-color\":\"#c4beb0\","
-         "\"line-width\":1,"
+         "\"line-color\":\"#2c2418\","
+         "\"line-width\":1.8,"
          "\"line-opacity\":1"
          "},"
          "\"layout\":{\"line-cap\":\"round\",\"line-join\":\"round\"}"
@@ -216,8 +216,8 @@ std::string print_carto_style_json() {
          "\"type\":\"line\","
          "\"source-layer\":\"admin\","
          "\"paint\":{"
-         "\"line-color\":\"#c4beb0\","
-         "\"line-width\":1,"
+         "\"line-color\":\"#2c2418\","
+         "\"line-width\":1.8,"
          "\"line-opacity\":1"
          "},"
          "\"layout\":{\"line-cap\":\"round\",\"line-join\":\"round\"}"

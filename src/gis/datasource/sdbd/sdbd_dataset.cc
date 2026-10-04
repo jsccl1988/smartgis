@@ -10,6 +10,7 @@
 #include "gis/datasource/ogr/ogr_connect.h"
 #include "gis/datasource/ogr/ogr_feature_codec.h"
 #include "gis/datasource/sdbd/sdbd_layer.h"
+#include "gis/datasource/sdbd/sdbd_remote_dataset.h"
 
 namespace gis {
 namespace datasource {
@@ -360,6 +361,9 @@ GDALDataset* open_named_sdbd(const char* gdal_name) {
 }
 
 GDALDataset* open_sdbd_dataset(const ConnectionSpec& spec) {
+  if (spec.provider_id == gis::PROVIDER_SDBD) {
+    return open_provider_sdbd_dataset(spec);
+  }
   register_gdal_driver();
   const std::string target = make_sdbd_open_target(spec);
   if (target.empty()) {

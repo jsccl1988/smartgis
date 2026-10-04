@@ -102,7 +102,7 @@ carto）、mainland 取景、`kChinaLonLatExtent` + orbit `distance=2.55`、3D �
 ocean/cloud/sky/**fog**（`SMT_SCENE3D_ATMO=0` / `SMT_SCENE3D_LAND_ONLY=1` 可关）。
 交互仍走 FlyCube；showcase/self-test 才强制 ContentMapView/GDI。
 
-**2D 主路径 = RHI**：Map/Data 页默认 FlyCube；`MapScene::present_gpu` 把可见矢量层交给 `gis::vista::Layout` 生成 `MapFrame`，再由 `vista::Pass` 录到调用方 `Device` 并 present。成功时注记在帧内（`kText`），`paint_annotation_overlay` 只描选中；失败或强制时回退全量 GDI `MapScene::paint`（含注记）。
+**2D 主路径 = RHI**：Map/Data 页默认 FlyCube；`MapScene::present_gpu` 把可见矢量层交给 `gis::vista::Layout` 生成 `MapIR`，再由 `vista::MapPass` 录到调用方 `Device` 并 present。成功时注记在帧内（`kText`），`paint_annotation_overlay` 只描选中；失败或强制时回退全量 GDI `MapScene::paint`（含注记）。
 
 ```bat
 rem 强制 2D 走 ContentMapView / 跳过 FlyCube：

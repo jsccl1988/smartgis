@@ -39,7 +39,7 @@ struct LineJob {
 
 void emit_lines(const std::vector<const gis::style::StyleLayer*>& line_layers,
                 const LayoutInput& in, const std::vector<LayerBatch>& layers,
-                double wupp, MapFrame* frame, const LayoutTile* clip_tile) {
+                double wupp, MapIR* frame, const LayoutTile* clip_tile) {
   if (line_layers.empty()) {
     return;
   }
@@ -143,7 +143,7 @@ void emit_lines(const std::vector<const gis::style::StyleLayer*>& line_layers,
 
 void emit_line(const gis::style::StyleLayer& layer, const LayoutInput& in,
                const std::vector<LayerBatch>& layers, double wupp,
-               MapFrame* frame, const LayoutTile* clip_tile) {
+               MapIR* frame, const LayoutTile* clip_tile) {
   std::vector<const gis::style::StyleLayer*> one{&layer};
   emit_lines(one, in, layers, wupp, frame, clip_tile);
 }

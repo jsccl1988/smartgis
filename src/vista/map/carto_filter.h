@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Batch policy for MapFrame layout: line role, stem length, place-name
+// Batch policy for MapIR layout: line role, stem length, place-name
 // rank, and scale visibility. Callers pass POD features, not MapScene.
 
 #ifndef GIS_VISTA_FRAME_DETAIL_CARTO_FILTER_H_

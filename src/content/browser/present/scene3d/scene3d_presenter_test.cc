@@ -174,7 +174,7 @@ int main() {
   cam.bind_map(&scene);
   expect(content::extent_nonempty(orbit.world_extent()), "bound map has extent");
 
-  // Seeded MapScene (China PLP) must still present DEM via World �?GpuScene.
+  // Seeded MapScene (China PLP) must still present DEM via World and WorldPass.
   {
     content::MapScene seeded;
     seeded.seed_default();

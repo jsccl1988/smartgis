@@ -74,6 +74,12 @@ struct PSIn
 float4 main(PSIn input) : SV_TARGET
 {
     float4 tex = albedo_tex.Sample(linear_sampler, input.uv);
+    // Recycled R32 height / missing SRV samples as saturated red. Treat as
+    // ocean so the globe never reads as a solid sun-disk.
+    if (tex.r > 0.62 && tex.g < 0.28 && tex.b < 0.28)
+    {
+        tex = float4(0.05, 0.14, 0.32, 0.0);
+    }
     // Alpha < 0.5 marks ocean cells in the equirect bake — tint deep blue.
     // Soft alpha from edge fade blends land into the ocean tint.
     float3 ocean = float3(ocean_r, ocean_g, ocean_b);

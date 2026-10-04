@@ -368,7 +368,7 @@ bool BrowserView::init_shell() {
     } else {
       // Match --ui-showcase=shell: open china_city before first paint. Skip
       // O(n×m) land-clip on this sync path so bare launch stays interactive;
-      // hillshade still bakes on the first settled MapFrame after show.
+      // hillshade still bakes on the first settled MapIR after show.
       base::set_switch("skip-china-land-clip", "1");
       {
         BASE_TRACE_EVENT("SeedDocument.Default", "startup");

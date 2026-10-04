@@ -220,7 +220,7 @@ void emit_kept_symbol(const SymbolCand& cand, const GlyphMetrics* metrics,
 
 void emit_symbols(const gis::style::StyleLayer& layer, const LayoutInput& in,
                   const std::vector<LayerBatch>& layers, float fblc,
-                  LabelGrid* grid, MapFrame* frame) {
+                  LabelGrid* grid, MapIR* frame) {
   if (!screen_ready(in.view)) {
     return;
   }

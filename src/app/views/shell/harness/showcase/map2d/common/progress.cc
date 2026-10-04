@@ -18,20 +18,24 @@ void map2d_showcase_mark(const char* step) {
 void map2d_showcase_pixel_size(int* out_w, int* out_h) {
   int w = kMap2dShowcaseDefaultW;
   int h = kMap2dShowcaseDefaultH;
-  if (const char* ew = base::switch_cstr("map2d-showcase-w");
-      ew && ew[0] != '\0') {
-    const int n = std::atoi(ew);
-    if (n >= 320 && n <= 3840) {
-      w = n;
+  auto apply_dim = [](int* dest, int lo, int hi, const char* sw,
+                      const char* env_key) {
+    if (const char* ew = base::switch_cstr(sw); ew && ew[0] != '\0') {
+      const int n = std::atoi(ew);
+      if (n >= lo && n <= hi) {
+        *dest = n;
+        return;
+      }
     }
-  }
-  if (const char* eh = base::switch_cstr("map2d-showcase-h");
-      eh && eh[0] != '\0') {
-    const int n = std::atoi(eh);
-    if (n >= 240 && n <= 2160) {
-      h = n;
+    if (const char* ev = std::getenv(env_key); ev && ev[0] != '\0') {
+      const int n = std::atoi(ev);
+      if (n >= lo && n <= hi) {
+        *dest = n;
+      }
     }
-  }
+  };
+  apply_dim(&w, 320, 3840, "map2d-showcase-w", "SMT_MAP2D_SHOWCASE_W");
+  apply_dim(&h, 240, 2160, "map2d-showcase-h", "SMT_MAP2D_SHOWCASE_H");
   if (out_w) {
     *out_w = w;
   }

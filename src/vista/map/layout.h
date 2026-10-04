@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Pure CPU layout: style order in, MapFrame out. No RHI, HWND, or
+// Pure CPU layout: style order in, MapIR out. No RHI, HWND, or
 // CameraMatrices. View::mode is a host hint; Layout does not branch on it.
 
 #ifndef VISTA_MAP_LAYOUT_H_
@@ -74,7 +74,7 @@ struct LayoutInput {
 
 class Layout {
  public:
-  VISTA_EXPORT MapFrame build(const LayoutInput& in,
+  VISTA_EXPORT MapIR build(const LayoutInput& in,
                             const std::vector<LayerBatch>& layers) const;
 };
 

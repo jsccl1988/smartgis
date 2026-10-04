@@ -18,8 +18,8 @@
 #include "content/browser/present/scene3d/frame/tileset_stream.h"
 #include "content/browser/present/scene3d/scene3d_phase_profile.h"
 #include "vista/atmosphere/frame/atmosphere_effects.h"
-#include "vista/scene/opaque_effect.h"
-#include "vista/scene/scene.h"
+#include "vista/world_gpu/opaque_effect.h"
+#include "vista/world_gpu/pass.h"
 #include "vista/atmosphere/session/environment.h"
 #include "render/graph/frame_graph.h"
 #include "render/programs/programs.h"
@@ -566,14 +566,14 @@ void Scene3dGpuPresent::abandon(AtmosphereSession* atmosphere) {
   dem_gpu_synced_after_sky_ = false;
   // FlyCube / MapViewport may have shut down (or leaked) the Device already.
   // release() would destroy_pipeline/buffer on a dangling Device* - AV on
-  // self-test teardown. Match GpuScene::~GpuScene and drop handles only.
+  // self-test teardown. Match WorldPass::~WorldPass and drop handles only.
   gpu_scene_.abandon();
 }
 
 bool Scene3dGpuPresent::rebuild_local_mesh() {
   // Caller must hold present_mu_ (present / paint).
   BASE_TRACE_EVENT("mesh", "scene3d.mesh");
-  // Build into fresh locals then swap ? same pattern as GpuScene::sync_from.
+  // Build into fresh locals then swap ? same pattern as WorldPass::sync_from.
   // In-place push_back on member local_idx_ AVd in Debug STL _Orphan_all under
   // world3d showcase (cdb: rebuild_terrain_mesh ? vector::_Change_array).
   std::vector<float> xyz;
@@ -620,8 +620,8 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   std::lock_guard<std::mutex> lock(present_mu_);
   remember_view_size(static_cast<int>(width_px), static_cast<int>(height_px));
   // Globe path draws DEM on the UV sphere in AtmosphereFrame -- skip flat
-  // terrain rebuild/sync. Rebuilding china_dem into GpuScene then swapping
-  // Debug STL instances AVd under Null showcase (cdb: GpuScene::sync_from).
+  // terrain rebuild/sync. Rebuilding china_dem into WorldPass then swapping
+  // Debug STL instances AVd under Null showcase (cdb: WorldPass::sync_from).
   const bool globe_on = atmosphere.globe_enabled();
   bool dem_rebuilt = false;
   if (!globe_on) {
@@ -670,7 +670,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     // execute fail after present-warm).
     if (gpu_scene_.instance_count() == 0 && terrain_world_.node_count() > 0) {
       LOGGING(LOG_WARNING,
-              "scene3d.present: forced GpuScene resync "
+              "scene3d.present: forced WorldPass resync "
               "(instances=0 nodes=%zu world_gen=%llu synced_gen=%llu)",
               terrain_world_.node_count(),
               static_cast<unsigned long long>(terrain_world_.generation()),
@@ -695,7 +695,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       }
     }
     for (size_t i = 0; i < gpu_scene_.instance_count(); ++i) {
-      const vista::GpuInstance* inst = gpu_scene_.instance_at(i);
+      const vista::Instance* inst = gpu_scene_.instance_at(i);
       if (!inst || inst->kind != vista::NodeKind::kTerrain) {
         continue;
       }
@@ -900,7 +900,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   if (need_ocean_height_before_dem) {
     gpu_scene_.sync_from(terrain_world_);
   }
-  // Cold remesh is deferred until GpuScene::record_draws, which runs after
+  // Cold remesh is deferred until WorldPass::record_draws, which runs after
   // pre-opaque depth allocation inside graph::present. Warm frames (already
   // synced after ocean/sky) do not mark dirty, so rebuild_count stays 0.
   // Globe draws DEM on the sphere and must not dirty the flat mesh.

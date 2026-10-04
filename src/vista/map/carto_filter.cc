@@ -3,7 +3,7 @@
 
 #include "vista/map/carto_filter.h"
 
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 
 #include <algorithm>
 #include <cmath>
@@ -83,7 +83,7 @@ size_t accept_label_count(const LabelScreenBox* boxes, size_t count) {
 
 int label_min_importance(double scale) {
   // fit_extent(China) lands near scale 8–16. Allow prefecture / capital
-  // stems (importance 2) so MapFrame labels match city names; keep counties
+  // stems (importance 2) so MapIR labels match city names; keep counties
   // (1) for closer zooms.
   if (scale < 22.0) {
     return 2;
@@ -770,7 +770,25 @@ void append_probe_geometry(const FeatureProbe& p, double scale,
   for (const BatchField& field : f.fields) {
     attrs.emplace(field.name, field.value);
   }
-  batch->attrs.push_back(std::move(attrs));
+  batch->attrs.push_back(attrs);
+  // china_city stores admin_1 as land polygons only; river/road extracts
+  // have no boundary lines. Stroke the same rings as source-layer admin.
+  if (p.source == "land" && f.kind == BatchGeomKind::kPolygon && n >= 3) {
+    LayerBatch* admin = batch_for(out, "admin");
+    auto line = std::make_unique<OGRLineString>();
+    for (int i = 0; i < n; i += safe_step) {
+      line->addPoint(f.points[static_cast<size_t>(i)].x,
+                     f.points[static_cast<size_t>(i)].y);
+    }
+    if (n > 0 && (n - 1) % safe_step != 0) {
+      line->addPoint(f.points.back().x, f.points.back().y);
+    }
+    if (line->getNumPoints() >= 2) {
+      admin->geoms.push_back(line.get());
+      out->owned.push_back(std::move(line));
+      admin->attrs.push_back(std::move(attrs));
+    }
+  }
 }
 
 void collect_layer_probes(const BatchLayer& layer, bool use_carto_slots,

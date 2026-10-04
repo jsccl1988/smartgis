@@ -16,9 +16,9 @@
 #include <vector>
 
 #include "base/core/log.h"
-#include "vista/frame/map_effect.h"
-#include "vista/frame/pass.h"
-#include "vista/map/frame.h"
+#include "vista/map_gpu/map_effect.h"
+#include "vista/map_gpu/pass.h"
+#include "vista/map/ir.h"
 #include "render/graph/frame_graph.h"
 #include "render/rhi/rhi.h"
 #include "base/trace/event/process_trace.h"
@@ -126,7 +126,7 @@ bool Map2dGpuPresent::present_frame(render::rhi::Device* device,
     return false;
   }
   if (!map2d_pass_) {
-    map2d_pass_ = std::make_unique<vista::FramePass>();
+    map2d_pass_ = std::make_unique<vista::MapPass>();
   }
 
   vista::WindowsGlyphRasterizer windows_rasterizer;
@@ -232,17 +232,17 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
         action == Map2dFrameCache::PresentAction::kRebuildFull ||
         !last_present_ok_;
     if (!map2d_pass_) {
-      map2d_pass_ = std::make_unique<vista::FramePass>();
+      map2d_pass_ = std::make_unique<vista::MapPass>();
     }
     if (full_replace) {
       map2d_pass_->invalidate_uploaded();
-      map2d_pass_->set_upload_policy(vista::FramePass::UploadPolicy::kReplace);
+      map2d_pass_->set_upload_policy(vista::MapPass::UploadPolicy::kReplace);
     } else if (action == Map2dFrameCache::PresentAction::kSettleRebuild) {
       map2d_pass_->set_upload_policy(
-          vista::FramePass::UploadPolicy::kIncremental);
+          vista::MapPass::UploadPolicy::kIncremental);
     } else {
       map2d_pass_->set_upload_policy(
-          vista::FramePass::UploadPolicy::kReuseIfCached);
+          vista::MapPass::UploadPolicy::kReuseIfCached);
     }
 
     vista::reset_last_pass_record_ms();

@@ -197,6 +197,7 @@ test("scenic_gdi_map_paint_test") {
     "//src/scenic:scenic_impl",
     "//src/gis/datasource/ogr:ogr_codec_client",
     "//src/gis/map:gis",
+    "//src/vista:vista",
     "//testing/data:china_map_samples",
     "//third_party:gdal",
   ]

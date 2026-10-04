@@ -10,7 +10,7 @@
 #include <vector>
 
 namespace vista {
-class GpuScene;
+class WorldPass;
 }
 
 namespace render {
@@ -26,7 +26,7 @@ class Effect;
 namespace gpu {
 namespace detail {
 
-// Records Frame Graph / GpuScene underlay on the same AdapterId Device.
+// Records Frame Graph / WorldPass underlay on the same AdapterId Device.
 // Intentionally does NOT take OutputSurface — graph stays unaware of display.
 //
 // Pixel capture into |out_bgra| is best-effort. When false, the caller should
@@ -37,10 +37,10 @@ bool record_underlay_effects(render::rhi::Device* device,
                              const render::rhi::CameraMatrices* camera,
                              uint32_t width_px, uint32_t height_px);
 
-// Wraps GpuScene as an OpaqueEffect and records it. |out_bgra| stays empty
+// Wraps WorldPass as an OpaqueEffect and records it. |out_bgra| stays empty
 // until RHI readback exists; returns true when recording succeeded.
 bool record_gpu_scene_underlay(render::rhi::Device* device,
-                               vista::GpuScene* scene,
+                               vista::WorldPass* scene,
                                const render::rhi::CameraMatrices* camera,
                                uint32_t width_px, uint32_t height_px,
                                std::vector<uint8_t>* out_bgra);

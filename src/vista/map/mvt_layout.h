@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "gis/tile/provider/mvt.h"
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 #include "vista/vista_export.h"
 
 class OGRGeometry;
@@ -25,11 +25,11 @@ VISTA_EXPORT bool mvt_to_layer_batches(
     double max_y, std::vector<std::unique_ptr<OGRGeometry>>* holder,
     std::vector<LayerBatch>* batches);
 
-// Decode + layout into a MapFrame. |style_json| may be null/empty to use a
+// Decode + layout into a MapIR. |style_json| may be null/empty to use a
 // minimal line/fill/circle style matching decoded layer names.
 VISTA_EXPORT bool decode_mvt_to_map_frame(
     const uint8_t* data, size_t len, const View& view, double zoom,
-    const char* style_json, MapFrame* out_frame,
+    const char* style_json, MapIR* out_frame,
     gis::tile::MvtDecodeStatus* out_status);
 
 }  // namespace vista

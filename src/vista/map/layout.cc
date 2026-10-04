@@ -18,7 +18,7 @@
 
 namespace vista {
 
-MapFrame Layout::build(const LayoutInput& in,
+MapIR Layout::build(const LayoutInput& in,
                        const std::vector<LayerBatch>& layers) const {
   // Reset TLS hybrid scratch for this build so label/token temps reuse
   // arena blocks instead of churning the process heap across frames.
@@ -28,7 +28,7 @@ MapFrame Layout::build(const LayoutInput& in,
   if (base::trace::tracing_enabled()) {
     vista::reset_tess_trace_stats();
   }
-  MapFrame frame;
+  MapIR frame;
   if (!in.style) {
     return frame;
   }

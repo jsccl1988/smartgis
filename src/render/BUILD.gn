@@ -5,7 +5,7 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Endgame render layer → one DLL (dll_stem = render):
-#   rhi + programs + graph traversal. GPU scene is //src/vista/scene (caller-linked).
+#   rhi + programs + graph traversal. GPU world pass is //src/vista/world_gpu (caller-linked).
 # Shell raster lives in //src/ui/gfx, not this DLL.
 # Scenic copy engines are //src/scenic (opt-in), not this DLL.
 # Scene math is //src/base/math:{math,bounds} and is not linked into this DLL.
@@ -62,7 +62,10 @@ test("rhi_test") {
   output_name = "rhi_test"
   sources = [ "rhi/rhi_test.cc" ]
   include_dirs += [ "//src" ]
-  deps = [ ":rhi" ]
+  deps = [
+    ":rhi",
+    "//src/base:base",
+  ]
 }
 smt_shared_library("render") {
   dll_stem = "render"

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// CPU map IR: MapFrame meshes in the view CRS. No RHI, HWND, or
+// CPU map IR: MapIR meshes in the view CRS. No RHI, HWND, or
 // CameraMatrices. Colors are 0xAARRGGBB, matching ResolvedPaint.
 
 #ifndef VISTA_MAP_DRAW_H_
@@ -54,7 +54,7 @@ struct DrawItem {
 };
 
 // One CPU frame. Background is a clear, not a mesh.
-struct MapFrame {
+struct MapIR {
   uint32_t background_rgba = 0xfff5f0e6;
   float background_opacity = 1.f;
   std::vector<DrawItem> items;

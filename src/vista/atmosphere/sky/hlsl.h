@@ -112,8 +112,8 @@ float3 sample_space(float2 ndc)
     float2 f3 = frac(uv * 48.0 + 7.3) - 0.5;
     float h3 = hash21(g3 + 91.7);
     float star3 = step(0.96, h3) *
-                  saturate(1.0 - length(f3) * 1.4);
-    rgb += star3 * 0.7 * float3(1.0, 0.92, 0.78);
+                  saturate(1.0 - length(f3) * 3.2);
+    rgb += star3 * 0.55 * float3(1.0, 0.92, 0.78);
 
     // Soft sun disk as a bright star when the sun is in-frame.
     float3 sun_dir = normalize(float3(sun_x, sun_y, sun_z));

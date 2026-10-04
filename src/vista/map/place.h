@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// CPU placement: MapFrame items become ortho-space meshes. No RHI.
+// CPU placement: MapIR items become ortho-space meshes. No RHI.
 
 #ifndef VISTA_MAP_DETAIL_PLACE_H_
 #define VISTA_MAP_DETAIL_PLACE_H_
@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 
 namespace vista {
 namespace detail {
@@ -37,7 +37,7 @@ struct GlyphId {
 // glyph_group with its glyph quad so a missing atlas entry drops both.
 //
 // World-space solids may borrow DrawItem vertex/index vectors during
-// place_frame. Call seal_borrowed_meshes before the MapFrame can move,
+// place_frame. Call seal_borrowed_meshes before the MapIR can move,
 // and before GPU upload — FlyCube reads CPU spans only during upload().
 struct PlacedMesh {
   MeshSource source = MeshSource::kSolid;
@@ -69,7 +69,7 @@ struct PlacedMesh {
 };
 
 // Copy borrowed DrawItem spans into owned vertices/indices and drop the
-// pointers. Idempotent. Safe to call while the MapFrame is still alive.
+// pointers. Idempotent. Safe to call while the MapIR is still alive.
 void seal_borrowed_meshes(std::vector<PlacedMesh>* meshes);
 
 // World fill/line/circle emit a one-pixel radial feather solid under the core
@@ -79,8 +79,8 @@ void seal_borrowed_meshes(std::vector<PlacedMesh>* meshes);
 // opacity for coverage baking and draws with tint alpha 1.
 // |world_items| keeps fill/line/circle/raster. |overlay_items| keeps icon/text.
 // Both default on. Skip by kind instead of copying DrawItem into a subset —
-// borrow pointers must address the caller's MapFrame, not a temporary copy.
-std::vector<PlacedMesh> place_frame(const vista::MapFrame& frame,
+// borrow pointers must address the caller's MapIR, not a temporary copy.
+std::vector<PlacedMesh> place_frame(const vista::MapIR& frame,
                                     const vista::View& view,
                                     bool world_items = true,
                                     bool overlay_items = true);

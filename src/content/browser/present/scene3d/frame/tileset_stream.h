@@ -17,7 +17,7 @@ namespace content {
 
 // Present/orbit seam for 3D Tiles: attach a tileset into World, each pump
 // runs select_tiles_limited → apply → ensure_tileset_content (LRU cap).
-// GpuScene reads decoded assets via the shared TilesetContentCache.
+// WorldPass reads decoded assets via the shared TilesetContentCache.
 class TilesetStreamSession {
  public:
   TilesetStreamSession();

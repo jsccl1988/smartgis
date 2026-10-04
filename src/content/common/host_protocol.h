@@ -209,7 +209,7 @@ struct ToolBody {
   }
 };
 
-// kSetRenderBackend: 0 = Track B RHI / GpuScene, 1 = Track A MapLibre.
+// kSetRenderBackend: 0 = Track B RHI / WorldPass, 1 = Track A MapLibre.
 struct RenderBackendWire {
   uint32_t kind = 0;
 

@@ -31,12 +31,12 @@ All rights reserved.
 
 | File | Role |
 | --- | --- |
-| `src/vista/frame/default_style.cc` | Road casing/fill `minzoom` + cream-safe colors for overview |
+| `src/vista/map/default_style.cc` | Road casing/fill `minzoom` + cream-safe colors for overview |
 | `third_party/maplibre/example/style_align.json` | Add `road-casing` before `road` for dual-still align |
 | `src/gis/style/style_types.h` / `paint_resolve.*` | Hillshade paint constants on `ResolvedPaint` (or small fields) |
 | `src/vista/world/terrain/` (new small helper next to dem) | `shade_dem_rgba(...)` — own Horn/finite-diff shade |
-| `src/vista/frame/layout.cc` / `frame.h` | Emit hillshade raster `DrawItem` under vectors; keep Style layer order for lines |
-| `src/vista/frame/map2d_test.cc` | Unit: casing order + hillshade item when DEM bound |
+| `src/vista/map/layout.cc` / `layout.h` | Emit hillshade raster `DrawItem` under vectors; keep Style layer order for lines |
+| `src/vista/map/map2d_test.cc` | Unit: casing order + hillshade item when DEM bound |
 | `src/gis/style/style_test.cc` | Resolve hillshade paint keys |
 | `testing/tools/harness/map2d/map2d.china/map2d_china_loop.py` (or suite json) | Pixel gate: road casing contrast; optional hillshade variance |
 | `docs/superpowers/industry-gap-matrix.md` | One-line M1 richness note when landed |
@@ -46,9 +46,9 @@ All rights reserved.
 ### Task 1: Line casing overview readability
 
 **Files:**
-- Modify: `src/vista/frame/default_style.cc` (`road-casing` / `road` minzoom + colors)
+- Modify: `src/vista/map/default_style.cc` (`road-casing` / `road` minzoom + colors)
 - Modify: `third_party/maplibre/example/style_align.json` (insert casing layer)
-- Test: `src/vista/frame/map2d_test.cc` (layer order / zoom match)
+- Test: `src/vista/map/map2d_test.cc` (layer order / zoom match)
 - Gate: `testing/tools/harness/map2d/map2d.china/map2d_china_loop.py` or existing china suite
 
 **Interfaces:**
@@ -104,10 +104,10 @@ Algorithm: finite-difference slope/aspect (Horn or equivalent) + Lambertian-ish 
 ### Task 4: MapFrame layout emits hillshade underlay
 
 **Files:**
-- Modify: `src/vista/frame/frame.h` (optional DEM bind / hillshade cache key)
-- Modify: `src/vista/frame/layout.cc`
+- Modify: `src/vista/map/layout.h` (optional DEM bind / hillshade cache key)
+- Modify: `src/vista/map/layout.cc`
 - Modify: present path that builds MapFrame (showcase / MapViewport) to bind DEM when available
-- Test: `src/vista/frame/map2d_test.cc`
+- Test: `src/vista/map/map2d_test.cc`
 
 **Interfaces:**
 - Consumes: Style hillshade layer + bound `DemRaster` + view extent

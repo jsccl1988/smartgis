@@ -18,6 +18,7 @@
 #include "gis/map/map.h"
 #include "vista/terrain/dem/dem_raster.h"
 #include "vista/terrain/process/dem_hillshade.h"
+#include "scenic/render/err.h"
 #include "scenic/render/rhi2d/public/device/render_device.h"
 #include "scenic/test/paint_test_host.h"
 #include "ogrsf_frmts.h"
@@ -29,6 +30,8 @@
 #include "base/process/switches.h"
 
 namespace {
+
+using scenic::detail::kErrNone;
 
 int g_fails = 0;
 
@@ -436,7 +439,8 @@ OGRLayer* add_donut_with_holes(GDALDataset* ds) {
 
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
+  base::init_switches_from_argv(argc, argv);
   GDALAllRegister();
   const std::string path = find_china_plp();
   expect(!path.empty(), "china_plp.geojson next to exe or testing/data");
@@ -468,7 +472,7 @@ int main() {
     }
     lyr->ResetReading();
     while (OGRFeature* feat = lyr->GetNextFeature()) {
-      const gis::FeatureType ft = leftover_feature_type_of(feat);
+      const gis::FeatureType ft = gis::leftover_feature_type_of(feat);
       if (ft == gis::FtSurface) {
         ++n_region;
       } else if (ft == gis::FtCurve) {

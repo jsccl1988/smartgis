@@ -17,7 +17,7 @@ namespace vista {
 namespace detail {
 namespace {
 
-void tag_new_items(MapFrame* frame, size_t begin, uint64_t key) {
+void tag_new_items(MapIR* frame, size_t begin, uint64_t key) {
   if (!frame || key == 0) {
     return;
   }
@@ -28,7 +28,7 @@ void tag_new_items(MapFrame* frame, size_t begin, uint64_t key) {
   }
 }
 
-bool splice_retained(const LayoutInput& in, uint64_t key, MapFrame* frame) {
+bool splice_retained(const LayoutInput& in, uint64_t key, MapIR* frame) {
   if (!in.retained_slices || key == 0) {
     return false;
   }
@@ -42,7 +42,7 @@ bool splice_retained(const LayoutInput& in, uint64_t key, MapFrame* frame) {
 
 template <class EmitFn>
 void emit_tiled_layer(const gis::style::StyleLayer& layer, const LayoutInput& in,
-                      MapFrame* frame, EmitFn&& emit_dirty) {
+                      MapIR* frame, EmitFn&& emit_dirty) {
   const std::vector<LayoutTile> tiles = enumerate_layout_tiles(in.view);
   if (tiles.empty()) {
     emit_dirty(nullptr);
@@ -67,7 +67,7 @@ void emit_tiled_layer(const gis::style::StyleLayer& layer, const LayoutInput& in
 void emit_visible_layers(const LayoutInput& in,
                          const std::vector<LayerBatch>& layers,
                          const std::vector<const gis::style::StyleLayer*>& visible,
-                         LabelGrid* grid, MapFrame* frame) {
+                         LabelGrid* grid, MapIR* frame) {
   if (!frame || layout_gen_stale(in)) {
     return;
   }

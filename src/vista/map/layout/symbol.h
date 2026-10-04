@@ -9,14 +9,14 @@
 #include <vector>
 
 #include "vista/map/collision.h"
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 
 namespace vista {
 namespace detail {
 
 void emit_symbols(const gis::style::StyleLayer& layer, const LayoutInput& in,
                   const std::vector<LayerBatch>& layers, float fblc,
-                  LabelGrid* grid, MapFrame* frame);
+                  LabelGrid* grid, MapIR* frame);
 
 }  // namespace detail
 }  // namespace vista

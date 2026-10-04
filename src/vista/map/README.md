@@ -5,7 +5,7 @@ All rights reserved.
 
 # `src/vista/map`
 
-CPU cartography: `Layout::build` → `MapFrame` / `DrawItem`. No RHI, HWND, or
+CPU cartography: `Layout::build` → `MapIR` / `DrawItem`. No RHI, HWND, or
 `CameraMatrices`. Ortho and perspective share this Layout; `View::mode` is a
 host hint. Compiled into `vista.dll` (`//src/vista/map:map_sources`).
 `assert_no_deps` `//src/render:render`.
@@ -18,12 +18,12 @@ Diagram: [`vista-map-frame-scenic-peer.html`](../../../docs/superpowers/diagrams
 
 | Path | Owns |
 | --- | --- |
-| `view.h` / `draw.h` / `batch.h` / `layout.h` | Public types. Hosts keep `#include "vista/map/frame.h"` (umbrella). |
+| `view.h` / `draw.h` / `batch.h` / `layout.h` | Public types. Hosts keep `#include "vista/map/ir.h"` (umbrella). |
 | `layout.cc` | Orchestrator: TLS arena → `collect_visible` → `pack_geoms` → `emit_visible_layers` → `coalesce_draw_items`. |
 | `multiply.h` | Hillshade luma coverage (CPU; GPU upload and GDI both call it). |
 | `hillshade_bake.*` / `mvt_layout.*` / `default_style.cc` | Bake orchestration, MVT→batches, carto JSON. |
 | `carto_filter.*` | Scale / role / stem policy. `build_layer_batches` lives here. |
-| `collision.*` / `place.*` | LabelGrid; MapFrame → ortho meshes (no RHI). |
+| `collision.*` / `place.*` | LabelGrid; MapIR → ortho meshes (no RHI). |
 | `layout/collect.*` / `emit.*` / `coalesce.*` | Visible layers, painter dispatch, DrawItem merge. |
 | `layout/pack.*` | Envelope / sub-pixel / overview hole prep before tess. |
 | `layout/{fill,line,point,symbol,raster}.*` | Per-geom emit. Tile clip + `layout_gen` abort inside tess jobs. |

@@ -12,14 +12,14 @@
 #include <vector>
 
 #include "base/memory/arena.h"
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 
 namespace content {
 
 class MapScene;
 class ViewFrame;
 
-// Shared MapFrame cache for GPU present and GDI paint (dual-speed §Perf).
+// Shared MapIR cache for GPU present and GDI paint (dual-speed §Perf).
 class Map2dFrameCache {
  public:
   Map2dFrameCache() = default;
@@ -86,7 +86,7 @@ class Map2dFrameCache {
   void note_present_outcome(PresentAction action);
 
   bool has_frame() const;
-  const vista::MapFrame& frame() const { return cached_frame_; }
+  const vista::MapIR& frame() const { return cached_frame_; }
   const CameraKey& camera() const { return cached_cam_; }
   uint64_t layout_build_count() const { return layout_build_count_; }
   bool last_present_reused_layout() const {
@@ -110,16 +110,16 @@ class Map2dFrameCache {
   bool rebuild_layout(const CameraKey& cam, const ContentFingerprint& fp,
                       bool reuse_slices);
   void clear_hillshade_bake();
-  void absorb_layer_slices(const vista::MapFrame& frame);
+  void absorb_layer_slices(const vista::MapIR& frame);
 
-  // Mutex first: keeps offsetof stable across MapFrame / vector ABI skew
+  // Mutex first: keeps offsetof stable across MapIR / vector ABI skew
   // between incremental objs (resource_deadlock_would_occur on bind).
   mutable std::recursive_mutex mu_;
 
   const MapScene* scene_ = nullptr;
   const ViewFrame* frame_ = nullptr;
 
-  vista::MapFrame cached_frame_;
+  vista::MapIR cached_frame_;
   // Owned DrawItem copies keyed by cache_key. Not pointers into cached_frame_.
   std::unordered_map<uint64_t, std::vector<vista::DrawItem>> layer_slices_;
   ContentFingerprint cached_fp_;

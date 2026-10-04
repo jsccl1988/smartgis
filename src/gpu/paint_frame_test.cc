@@ -5,6 +5,7 @@
 #include "gpu/compositor/composer/composer.h"
 #include "gpu/device/gpu_device_hub.h"
 #include "gpu/display/output_surface.h"
+#include "base/process/switches.h"
 
 #include <cstdio>
 #include <cstring>
@@ -28,7 +29,7 @@ void expect(bool ok, const char* msg) {
 }
 
 void clear_backend_env() {
-  SetEnvironmentVariableA("map-backend", nullptr);
+  base::clear_switch("map-backend");
 }
 
 gpu::TileFetchResult solid_tile(uint8_t b, uint8_t g, uint8_t r, uint8_t a) {
@@ -51,7 +52,7 @@ int main() {
                      "direct") == 0,
          "preview name");
 
-  SetEnvironmentVariableA("map-backend", "a");
+  base::set_switch("map-backend", "a");
   expect(gpu::select_content_source() == gpu::ContentSource::kTile,
          "SMT_MAP_BACKEND=a selects basemap");
   expect(std::strcmp(gpu::content_source_name(gpu::ContentSource::kTile),
@@ -66,7 +67,7 @@ int main() {
   gpu::set_content_source(gpu::ContentSource::kDirect);
   expect(gpu::select_content_source() == gpu::ContentSource::kDirect,
          "runtime override preview");
-  SetEnvironmentVariableA("map-backend", "a");
+  base::set_switch("map-backend", "a");
   gpu::set_content_source(gpu::ContentSource::kDirect);
   expect(gpu::select_content_source() == gpu::ContentSource::kDirect,
          "override beats SMT_MAP_BACKEND");

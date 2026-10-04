@@ -6,7 +6,7 @@
 #ifndef GIS_VISTA_DETAIL_LAYOUT_VIEW_METRICS_H_
 #define GIS_VISTA_DETAIL_LAYOUT_VIEW_METRICS_H_
 
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 
 namespace vista {
 namespace detail {

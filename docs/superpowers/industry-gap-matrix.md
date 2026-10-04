@@ -208,7 +208,7 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 
 ## 8. Map2D 钉死清单（2026-09-30）
 
-核对依据：CBM `smartgis` + `src/gis/style/**`、`src/gis/tile/**`、`src/vista/frame/**`、`src/content/browser/present/map2d/**`、`src/plugin/product/print/**`、`src/content/browser/document/edit/**`、render-rhi §Map2d richness、[`2026-09-30-map2d-hillshade-line-casing.md`](plans/2026-09-30-map2d-hillshade-line-casing.md)。
+核对依据：CBM `smartgis` + `src/gis/style/**`、`src/gis/tile/**`、`src/vista/map/**`、`src/content/browser/present/map2d/**`、`src/plugin/product/print/**`、`src/content/browser/document/edit/**`、render-rhi §Map2d richness、[`2026-09-30-map2d-hillshade-line-casing.md`](plans/2026-09-30-map2d-hillshade-line-casing.md)。
 
 刻意不追：Qt、Cesium Native、产品 Web GIS/mapd、第二套 GEOS、完整 MapLibre Native 链接。
 

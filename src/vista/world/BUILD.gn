@@ -4,9 +4,10 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-# Logical node graph plus the adapters that write DEM / point buckets into it.
+# Node graph plus CPU instance sync, tessellation, cull, and the spatial index.
 # Codecs live in //src/vista/assets. DEM math lives in //src/vista/terrain.
-# CPU tessellation lives in //src/vista/mesh.
+# Generic geometry tessellation lives in //src/vista/mesh.
+# Device upload is //src/vista/world_gpu. This target assert_no_deps render.
 
 source_set("world_sources") {
   sources = [
@@ -16,8 +17,28 @@ source_set("world_sources") {
     "dem_seed.h",
     "pointcloud/chunk.cc",
     "pointcloud/chunk.h",
+    "cull/frustum_aabb.cc",
+    "cull/frustum_aabb.h",
+    "cull/mesh_cull.h",
+    "cull/prep_cull.cc",
+    "cull/prep_cull.h",
+    "envelope.cc",
+    "envelope.h",
+    "index/aabb_octree.cc",
+    "index/aabb_octree.h",
+    "instance.h",
+    "kind_tess.cc",
+    "kind_tess.h",
+    "paint.cc",
+    "paint.h",
+    "pipelines.cc",
+    "pipelines.h",
     "pointcloud/lod.cc",
     "pointcloud/lod.h",
+    "sync.cc",
+    "sync.h",
+    "tessellate.cc",
+    "tessellate.h",
     "world.cc",
     "world.h",
   ]
@@ -33,12 +54,14 @@ source_set("world_sources") {
   ]
   public_deps = [
     "//src/vista/assets:assets_sources",
+    "//src/vista/mesh:mesh_sources",
     "//src/vista/terrain:terrain_sources",
     "//src/base/math:math",
     "//third_party:gdal",
     "//third_party:octree",
   ]
   deps = [
+    "//src/base/execution:execution",
     "//src/gis:gis",
     "//src/base:base",
     "//src/base:core",

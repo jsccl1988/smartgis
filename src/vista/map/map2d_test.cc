@@ -12,7 +12,7 @@
 #include "vista/map/carto_filter.h"
 #include "vista/map/collision.h"
 #include "vista/map/layout/slice_key.h"
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 #include "gis/style/paint_resolve.h"
 #include "gis/style/document/style_document.h"
 #include "gis/style/eval/style_rules.h"
@@ -53,7 +53,7 @@ bool parse_style(const std::string& json, gis::style::StyleDocument* doc) {
   return gis::style::parse_style_document(json, doc);
 }
 
-int count_kind(const vista::MapFrame& frame, vista::DrawKind kind) {
+int count_kind(const vista::MapIR& frame, vista::DrawKind kind) {
   int n = 0;
   for (const auto& item : frame.items) {
     if (item.kind == kind) {
@@ -77,7 +77,7 @@ int main() {
 
   // Empty input still carries the default background and no meshes.
   {
-    const vista::MapFrame frame = layout.build({}, {});
+    const vista::MapIR frame = layout.build({}, {});
     expect(frame.items.empty(), "empty frame keeps background");
     expect(frame.background_rgba == 0xfff5f0e6u, "empty frame keeps background");
   }
@@ -117,7 +117,7 @@ int main() {
     in.view = square_view(100, 10);
     in.style = &doc;
     in.zoom = 8;
-    const vista::MapFrame frame = layout.build(in, {land, roads});
+    const vista::MapIR frame = layout.build(in, {land, roads});
     expect(frame.background_rgba == 0xff112233u, "painter background is not a mesh");
     expect(almost_eq(frame.background_opacity, 0.8f), "painter background is not a mesh");
     expect(frame.items.size() == 2, "painter order fill before line");
@@ -159,7 +159,7 @@ int main() {
     in.style = &doc;
     in.zoom = 10;
     in.metrics = &metrics;
-    const vista::MapFrame frame = layout.build(in, {labels});
+    const vista::MapIR frame = layout.build(in, {labels});
     const int texts = count_kind(frame, DrawKind::kText);
     expect(texts >= 7, "overlapping labels keep higher priority");
     expect(!frame.items.empty() && frame.items[0].kind == DrawKind::kText &&
@@ -194,7 +194,7 @@ int main() {
     in.style = &doc;
     in.zoom = 10;
     in.metrics = &metrics;
-    const vista::MapFrame frame = layout.build(in, {roads});
+    const vista::MapIR frame = layout.build(in, {roads});
     expect(count_kind(frame, DrawKind::kText) == 4, "along-line angle");
     bool angled = false;
     for (const auto& item : frame.items) {
@@ -233,7 +233,7 @@ int main() {
     in.style = &doc;
     in.zoom = 10;
     in.metrics = &metrics;
-    const vista::MapFrame frame = layout.build(in, {roads});
+    const vista::MapIR frame = layout.build(in, {roads});
     bool flat = false;
     for (const auto& item : frame.items) {
       if (item.kind == DrawKind::kText && almost_eq(item.angle_rad, 0.f)) {
@@ -317,7 +317,7 @@ int main() {
     in.style = &doc;
     in.zoom = 12;
     in.metrics = &metrics;
-    const vista::MapFrame frame = layout.build(in, {pois, roads});
+    const vista::MapIR frame = layout.build(in, {pois, roads});
     const int texts = count_kind(frame, DrawKind::kText);
     // BLOCK=5 glyphs + Rd=2 glyphs when both survive; mid collision alone
     // would keep only BLOCK (5). Slot retry must keep Rd as well.
@@ -361,7 +361,7 @@ int main() {
     in.style = &doc;
     in.zoom = 10;
     in.metrics = &metrics;
-    const vista::MapFrame frame = layout.build(in, {roads});
+    const vista::MapIR frame = layout.build(in, {roads});
     expect(count_kind(frame, DrawKind::kText) == 0, "short path drops long label");
   }
 
@@ -391,7 +391,7 @@ int main() {
     in.zoom = 10;
     in.metrics = &metrics;
     in.symbols.push_back(vista::SymbolAsset{"pin", 24.f, 24.f});
-    const vista::MapFrame frame = layout.build(in, {labels});
+    const vista::MapIR frame = layout.build(in, {labels});
     expect(count_kind(frame, DrawKind::kIcon) == 1 &&
                count_kind(frame, DrawKind::kText) == 1,
            "icon+text packed box");
@@ -423,7 +423,7 @@ int main() {
     in.style = &styled;
     in.zoom = 10;
     in.metrics = &metrics;
-    const vista::MapFrame styled_frame = layout.build(in, {labels});
+    const vista::MapIR styled_frame = layout.build(in, {labels});
     expect(!styled_frame.items.empty() &&
                styled_frame.items[0].halo_width_px == 3.f &&
                styled_frame.items[0].halo_rgba == 0xffffffffu,
@@ -440,7 +440,7 @@ int main() {
                &carto),
            "carto halo when width omitted");
     in.style = &carto;
-    const vista::MapFrame carto_frame = layout.build(in, {labels});
+    const vista::MapIR carto_frame = layout.build(in, {labels});
     expect(!carto_frame.items.empty() &&
                carto_frame.items[0].halo_width_px ==
                    static_cast<float>(vista::detail::halo_px(0)) &&
@@ -477,7 +477,7 @@ int main() {
     in.style = &doc;
     in.zoom = 10;
     in.metrics = &metrics;
-    const vista::MapFrame frame = layout.build(in, {labels});
+    const vista::MapIR frame = layout.build(in, {labels});
     expect(count_kind(frame, DrawKind::kText) >= 5,
            "overlap drop with halo padding");
   }
@@ -502,7 +502,7 @@ int main() {
     in.view = square_view(100, 10);
     in.style = &doc;
     in.zoom = 12;
-    const vista::MapFrame frame = layout.build(in, {pois});
+    const vista::MapIR frame = layout.build(in, {pois});
     expect(frame.items.size() == 1 && frame.items[0].kind == DrawKind::kCircle &&
                frame.items[0].vertices.size() > 4 && !frame.items[0].pixel_space,
            "circle has more than 4 vertices");
@@ -530,7 +530,7 @@ int main() {
     in.view = square_view(100, 100);
     in.style = &doc;
     in.zoom = 8;
-    const vista::MapFrame frame = layout.build(in, {roads});
+    const vista::MapIR frame = layout.build(in, {roads});
     expect(frame.items.size() == 1 && frame.items[0].kind == DrawKind::kLine,
            "line width passed through");
     float max_dy = 0.f;
@@ -565,7 +565,7 @@ int main() {
     in.style = &doc;
     in.zoom = 3;
     in.tiles.push_back(tile);
-    const vista::MapFrame frame = layout.build(in, {});
+    const vista::MapIR frame = layout.build(in, {});
     expect(frame.items.size() == 1 && frame.items[0].kind == DrawKind::kRaster &&
                frame.items[0].vertices.size() == 4 &&
                frame.items[0].indices.size() == 6 &&
@@ -609,13 +609,13 @@ int main() {
     in.style = &doc;
     in.zoom = 10;
     in.metrics = &metrics;
-    const vista::MapFrame text_only = layout.build(in, {labels});
+    const vista::MapIR text_only = layout.build(in, {labels});
     expect(count_kind(text_only, DrawKind::kIcon) == 0 &&
                count_kind(text_only, DrawKind::kText) == 2,
            "missing icon still places text");
     in.metrics = nullptr;
     in.symbols.push_back(vista::SymbolAsset{"pin", 16.f, 16.f});
-    const vista::MapFrame icon_only = layout.build(in, {labels});
+    const vista::MapIR icon_only = layout.build(in, {labels});
     expect(count_kind(icon_only, DrawKind::kText) == 0 &&
                count_kind(icon_only, DrawKind::kIcon) == 1 &&
                icon_only.items[0].symbol_id == "pin",
@@ -662,7 +662,7 @@ int main() {
     in.view = square_view(200, 20);
     in.style = &doc;
     in.zoom = 8;
-    const vista::MapFrame frame = layout.build(in, {land, roads});
+    const vista::MapIR frame = layout.build(in, {land, roads});
     expect(count_kind(frame, DrawKind::kFill) == 1,
            "parallel fill coalesces same-style polygons");
     expect(count_kind(frame, DrawKind::kLine) == 1,
@@ -702,12 +702,49 @@ int main() {
     LayerBatch land;
     land.source_layer = "land";
     land.geoms = {&land_poly};
-    const vista::MapFrame frame = layout.build(in, {land});
+    const vista::MapIR frame = layout.build(in, {land});
     expect(!frame.items.empty() && frame.items[0].kind == DrawKind::kRaster &&
                frame.items[0].codepoint == 0x48534844u &&
                frame.items[0].blend == vista::DrawBlend::kMultiply,
            "hillshade underlay first");
     expect(count_kind(frame, DrawKind::kFill) >= 1, "fill after hillshade");
+  }
+
+  // Land that sits outside the DEM slot is clipped (no cream fringe).
+  {
+    gis::style::StyleDocument doc;
+    expect(parse_style("{\"version\":8,\"layers\":["
+                       "{\"id\":\"shade\",\"type\":\"hillshade\",\"paint\":{}},"
+                       "{\"id\":\"land\",\"type\":\"fill\",\"source-layer\":"
+                       "\"land\",\"paint\":{\"fill-color\":\"#f5f3e9\"}}"
+                       "]}",
+                       &doc),
+           "hillshade land-clip style");
+    vista::TileSlot hs;
+    hs.min_x = 0;
+    hs.min_y = 0;
+    hs.max_x = 5;
+    hs.max_y = 5;
+    hs.texture_key = 1;
+    LayoutInput in;
+    in.view = square_view(200, 20);
+    in.style = &doc;
+    in.zoom = 8;
+    in.hillshade_tiles = {hs};
+    OGRPolygon far;
+    OGRLinearRing* ring = new OGRLinearRing();
+    ring->addPoint(10, 10);
+    ring->addPoint(18, 10);
+    ring->addPoint(18, 18);
+    ring->addPoint(10, 18);
+    ring->addPoint(10, 10);
+    far.addRingDirectly(ring);
+    LayerBatch land;
+    land.source_layer = "land";
+    land.geoms = {&far};
+    const vista::MapIR frame = layout.build(in, {land});
+    expect(count_kind(frame, DrawKind::kFill) == 0,
+           "land outside DEM slot dropped");
   }
 
   // Fill-extrusion v1: prism walls + roof DrawItems for a zoom-matched layer.
@@ -737,7 +774,7 @@ int main() {
     LayerBatch batch;
     batch.source_layer = "bldg";
     batch.geoms = {&bldg};
-    const vista::MapFrame frame = layout.build(in, {batch});
+    const vista::MapIR frame = layout.build(in, {batch});
     expect(count_kind(frame, DrawKind::kFill) >= 2,
            "extrusion emits walls and roof");
     bool saw_lifted = false;
@@ -774,7 +811,7 @@ int main() {
     LayerBatch batch;
     batch.source_layer = "heatmap";
     batch.geoms = {&a, &b};
-    const vista::MapFrame frame = layout.build(in, {batch});
+    const vista::MapIR frame = layout.build(in, {batch});
     expect(count_kind(frame, DrawKind::kCircle) == 1,
            "heatmap coalesces same-style splats");
     expect(!frame.items.empty() && frame.items[0].rgba == 0xFFFF6400u &&
@@ -783,7 +820,7 @@ int main() {
            "heatmap splat color and opacity");
 
     in.zoom = 3;
-    const vista::MapFrame miss = layout.build(in, {batch});
+    const vista::MapIR miss = layout.build(in, {batch});
     expect(miss.items.empty(), "heatmap respects minzoom");
   }
 
@@ -915,7 +952,7 @@ int main() {
     in.view.max_y = 10;
     in.style = &doc;
     in.zoom = 8;
-    const vista::MapFrame first = layout.build(in, {land});
+    const vista::MapIR first = layout.build(in, {land});
     expect(!first.items.empty() && first.items[0].cache_key != 0,
            "tagged cache_key on valid view");
     struct MapSlices : vista::SliceCache {
@@ -937,14 +974,14 @@ int main() {
     const double tile_w = vista::detail::layout_tile_world_size(in.view);
     in.view.min_x += tile_w;
     in.view.max_x += tile_w;
-    const vista::MapFrame hit = layout.build(in, {land});
+    const vista::MapIR hit = layout.build(in, {land});
     expect(!hit.items.empty() &&
                hit.items[0].cache_key == first.items[0].cache_key,
            "pan one tile column keeps unmoved cache_key");
 
     in.view.min_x += tile_w * 4.0;
     in.view.max_x += tile_w * 4.0;
-    const vista::MapFrame miss = layout.build(in, {land});
+    const vista::MapIR miss = layout.build(in, {land});
     expect(miss.items.empty() ||
                miss.items[0].cache_key != first.items[0].cache_key,
            "pan off the geom tile misses retained key");
@@ -975,7 +1012,7 @@ int main() {
     in.view = square_view(100, 10);
     in.style = &doc;
     in.zoom = 8;
-    const vista::MapFrame packed = layout.build(in, {land});
+    const vista::MapIR packed = layout.build(in, {land});
     expect(count_kind(packed, DrawKind::kFill) == 0, "pack drops off-view fill");
   }
 
@@ -1005,7 +1042,7 @@ int main() {
     in.view = square_view(200, 20);
     in.style = &doc;
     in.zoom = 8;
-    const vista::MapFrame frame = layout.build(in, {land});
+    const vista::MapIR frame = layout.build(in, {land});
     expect(count_kind(frame, DrawKind::kFill) == 1 &&
                !frame.items.empty() && frame.items[0].indices.size() >= 6,
            "coalesce reduces adjacent same-fill items");
@@ -1037,10 +1074,10 @@ int main() {
     std::atomic<uint64_t> live{2};
     in.layout_gen = 1;
     in.live_layout_gen = &live;
-    const vista::MapFrame aborted = layout.build(in, {land});
+    const vista::MapIR aborted = layout.build(in, {land});
     expect(aborted.items.empty(), "stale layout_gen skips emit");
     in.layout_gen = 0;
-    const vista::MapFrame never = layout.build(in, {land});
+    const vista::MapIR never = layout.build(in, {land});
     expect(!never.items.empty(), "layout_gen 0 never aborts");
   }
 

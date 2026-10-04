@@ -93,8 +93,9 @@ int run_world3d_scene3d(Browser& browser) {
 
   seed_world3d_earth_atmosphere(browser, cam);
   plugin_showcase_mark("seed-ok");
-  // Shaded DEM + wireframe overlay for inspect topology (capture SoT).
-  cam->gpu().set_wireframe_enabled(true);
+  // Filled hypsometric DEM is the inspect SoT; wireframe hid land and read as
+  // a solid red ball when overlay albedo recycled.
+  cam->gpu().set_wireframe_enabled(false);
   try_attach_world3d_city_tiles(cam);
   plugin_showcase_mark("tiles-ok");
 

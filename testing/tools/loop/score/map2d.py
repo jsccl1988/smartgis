@@ -74,13 +74,17 @@ def score_map2d_china(path: Path) -> dict:
         for r, g, b in pixels
         if abs(r - 170) < 12 and abs(g - 211) < 12 and abs(b - 223) < 12
     )
+    # Admin face #2c2418 (charcoal umber); keep off hillshade mid-grays.
     admin_gray = sum(
         1
         for r, g, b in pixels
-        if abs(r - 196) < 25
-        and abs(g - 190) < 25
-        and abs(b - 176) < 25
+        if abs(r - 44) < 18
+        and abs(g - 36) < 18
+        and abs(b - 24) < 18
         and r > b
+        and (r - b) >= 8
+        and r < 70
+        and g < 58
     )
     soft_river = sum(
         1
@@ -144,7 +148,7 @@ def score_map2d_china(path: Path) -> dict:
     # active DEM relief as land-like so eastern china + crisp shade still pass.
     land_like_f = land_f + admin_f + (hs_gray_f if hs_active else 0.0)
     # Bare cream north of DEM (Mongolia slab) after hillshade is active.
-    cream_ok = (not hs_active) or (land_f < 0.09)
+    cream_ok = (not hs_active) or (land_f < 0.045)
     # Shell HWND hollow after browse stress: chrome teal (#aad3df) + flat
     # admin gray fill with zero roads — water_blue/land_like soft-pass falsely.
     chrome_hollow = (ocean_f + admin_f) > 0.95 and (gold_f + casing_f) < 0.0005
@@ -185,6 +189,39 @@ def score_map2d_china(path: Path) -> dict:
                 hole_hits += 1
     land_hole_f = hole_hits / max(1, hole_samples)
 
+    def _is_hs_gray(r: int, g: int, b: int) -> bool:
+        return (
+            40 < r < 210
+            and 40 < g < 210
+            and 40 < b < 200
+            and abs(r - g) < 28
+            and abs(g - b) < 35
+            and abs(r - b) < 40
+            and not (abs(r - 245) < 28 and abs(g - 243) < 28 and abs(b - 233) < 28)
+            and not (b > r + 15 and b > 140 and g > 120)
+        )
+
+    cream_island_hits = 0
+    cream_island_samples = 0
+    for y in range(ray, h - ray, hole_step):
+        for x in range(ray, w - ray, hole_step):
+            cream_island_samples += 1
+            r, g, b = pixels[y * w + x]
+            if not _is_land(r, g, b):
+                continue
+            shaded = 0
+            for dx, dy in ((0, -ray), (0, ray), (-ray, 0), (ray, 0)):
+                rr, gg, bb = pixels[(y + dy) * w + (x + dx)]
+                if _is_hs_gray(rr, gg, bb):
+                    shaded += 1
+            if shaded >= 3:
+                cream_island_hits += 1
+    cream_island_f = cream_island_hits / max(1, cream_island_samples)
+    cream_island_ok = (not hs_active) or (cream_island_f < 0.004)
+
+    size_ok = w >= 1280 and h >= 720
+    admin_ok = admin_f > 0.00045
+
     ok = (
         red_f < 0.08
         and salmon_f < 0.05
@@ -201,6 +238,9 @@ def score_map2d_china(path: Path) -> dict:
         and cream_ok
         and not chrome_hollow
         and land_hole_f < 0.006
+        and cream_island_ok
+        and size_ok
+        and admin_ok
     )
     return {
         "bmp": str(path),
@@ -222,6 +262,7 @@ def score_map2d_china(path: Path) -> dict:
         "hillshade_luma_std": round(luma_std, 2),
         "hillshade_active": hs_active,
         "land_interior_hole_frac": round(land_hole_f, 4),
+        "cream_island_frac": round(cream_island_f, 4),
         "ok": ok,
         "gates": {
             "redish_frac<0.08": red_f < 0.08,
@@ -236,9 +277,12 @@ def score_map2d_china(path: Path) -> dict:
             "road_gold+casing>0.0012": (gold_f + casing_f) > 0.0012,
             "road_casing_frac>0.00025": casing_f > 0.00025,
             "hillshade_soft_ok": hs_ok,
-            "land_cream_frac<0.09_when_hs": cream_ok,
+            "land_cream_frac<0.045_when_hs": cream_ok,
             "not_chrome_admin_hollow": not chrome_hollow,
             "land_interior_hole_frac<0.006": land_hole_f < 0.006,
+            "cream_island_frac<0.004_when_hs": cream_island_ok,
+            "min_1280x720": size_ok,
+            "admin_gray_frac>0.00045": admin_ok,
         },
     }
 

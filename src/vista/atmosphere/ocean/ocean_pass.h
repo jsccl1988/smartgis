@@ -108,12 +108,12 @@ class VISTA_EXPORT OceanPass {
   float height_scale() const { return height_scale_; }
   float disp_scale() const { return disp_scale_; }
 
-  // Upload height/disp without drawing. Call before DEM GpuScene upload so
+  // Upload height/disp without drawing. Call before DEM WorldPass upload so
   // FlyCube texture allocation cannot recycle hypsometric albedo as height.
   // When true, the next record() skips recreate/upload of the height map.
   bool prepare_gpu(render::rhi::Device* device);
 
-  // Record into an open CommandList (same Device as GpuScene). Does not close.
+  // Record into an open CommandList (same Device as WorldPass). Does not close.
   bool record(render::rhi::Device* device, render::rhi::CommandList* list, uint32_t width,
               uint32_t height, const render::rhi::CameraMatrices* camera);
 

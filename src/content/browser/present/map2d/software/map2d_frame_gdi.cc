@@ -452,62 +452,27 @@ bool blit_rgba_quad(HDC hdc, const std::vector<POINT>& pts,
     return false;
   }
 
-  // Bilinear RGB for relief continuity; alpha uses a hard land threshold so
-  // coastline multiply does not bleed a soft cast-shadow rim into the ocean.
+  // Nearest sample: hillshade is low-frequency relief. Bilinear 4-tap at
+  // dest resolution dominated software paint (~400ms at 640, worse at 1280).
   auto sample_rgba = [&](float u, float v, float* out_r, float* out_g,
                          float* out_b, float* out_a) {
-    const float x = u * static_cast<float>(tw) - 0.5f;
-    const float y = v * static_cast<float>(th) - 0.5f;
-    const int x0 = static_cast<int>(std::floor(x));
-    const int y0 = static_cast<int>(std::floor(y));
-    const int x1 = x0 + 1;
-    const int y1 = y0 + 1;
-    const float fx = x - static_cast<float>(x0);
-    const float fy = y - static_cast<float>(y0);
-    auto fetch = [&](int ix, int iy, float* r, float* g, float* b, float* a) {
-      ix = (std::max)(0, (std::min)(tw - 1, ix));
-      iy = (std::max)(0, (std::min)(th - 1, iy));
-      const size_t so =
-          (static_cast<size_t>(iy) * static_cast<size_t>(tw) +
-           static_cast<size_t>(ix)) *
-          4u;
-      *r = static_cast<float>(rgba[so + 0]);
-      *g = static_cast<float>(rgba[so + 1]);
-      *b = static_cast<float>(rgba[so + 2]);
-      *a = static_cast<float>(rgba[so + 3]);
-    };
-    float r00, g00, b00, a00, r10, g10, b10, a10, r01, g01, b01, a01, r11, g11,
-        b11, a11;
-    fetch(x0, y0, &r00, &g00, &b00, &a00);
-    fetch(x1, y0, &r10, &g10, &b10, &a10);
-    fetch(x0, y1, &r01, &g01, &b01, &a01);
-    fetch(x1, y1, &r11, &g11, &b11, &a11);
-    const float w00 = (1.f - fx) * (1.f - fy);
-    const float w10 = fx * (1.f - fy);
-    const float w01 = (1.f - fx) * fy;
-    const float w11 = fx * fy;
-    const float a_lin = w00 * a00 + w10 * a10 + w01 * a01 + w11 * a11;
-    // Drop soft fringe texels; keep opaque land samples only.
-    if (a_lin < 160.f) {
+    int ix = static_cast<int>(u * static_cast<float>(tw));
+    int iy = static_cast<int>(v * static_cast<float>(th));
+    ix = (std::max)(0, (std::min)(tw - 1, ix));
+    iy = (std::max)(0, (std::min)(th - 1, iy));
+    const size_t so =
+        (static_cast<size_t>(iy) * static_cast<size_t>(tw) +
+         static_cast<size_t>(ix)) *
+        4u;
+    const float a = static_cast<float>(rgba[so + 3]);
+    if (a < 160.f) {
       *out_r = *out_g = *out_b = 0.f;
       *out_a = 0.f;
       return;
     }
-    // Premultiplied-ish: ignore transparent texels so ocean alpha=0 does not
-    // pull shade toward black at the coastline.
-    const float wa00 = w00 * a00;
-    const float wa10 = w10 * a10;
-    const float wa01 = w01 * a01;
-    const float wa11 = w11 * a11;
-    const float wsum = wa00 + wa10 + wa01 + wa11;
-    if (wsum < 160.f) {
-      *out_r = *out_g = *out_b = 0.f;
-      *out_a = 0.f;
-      return;
-    }
-    *out_r = (wa00 * r00 + wa10 * r10 + wa01 * r01 + wa11 * r11) / wsum;
-    *out_g = (wa00 * g00 + wa10 * g10 + wa01 * g01 + wa11 * g11) / wsum;
-    *out_b = (wa00 * b00 + wa10 * b10 + wa01 * b01 + wa11 * b11) / wsum;
+    *out_r = static_cast<float>(rgba[so + 0]);
+    *out_g = static_cast<float>(rgba[so + 1]);
+    *out_b = static_cast<float>(rgba[so + 2]);
     *out_a = 255.f;
   };
 
@@ -556,7 +521,9 @@ bool blit_rgba_quad(HDC hdc, const std::vector<POINT>& pts,
           const bool land_cream =
               (r > 200u && g > 190u && b > 170u && !oceanish);
           if (land_cream) {
-            constexpr float kAmbient = 0.88f;
+            // Match mid hillshade luma (~0.55–0.65 of cream) so DEM nodata
+            // / Korea-fringe land does not read as a missing-tile slab.
+            constexpr float kAmbient = 0.58f;
             dest[o + 0] =
                 static_cast<uint8_t>(static_cast<float>(b) * kAmbient + 0.5f);
             dest[o + 1] =
@@ -700,7 +667,7 @@ void paint_text_glyph(HDC hdc, DcStyle* style, HFONT default_font,
 }  // namespace
 
 void paint_map_frame_gdi(
-    HDC hdc, const vista::MapFrame& frame, const vista::View& view,
+    HDC hdc, const vista::MapIR& frame, const vista::View& view,
     bool fill_background,
     const std::function<bool(uint32_t texture_key, std::vector<uint8_t>* rgba,
                              int* w, int* h)>& load_raster) {
@@ -778,7 +745,7 @@ void paint_map_frame_gdi(
     return b;
   };
 
-  // MapFrame text is already in view/bitmap pixels (Layout advances). Do not
+  // MapIR text is already in view/bitmap pixels (Layout advances). Do not
   // DPI-scale CreateFont here — MulDiv(px, LOGPIXELSY, 96) on a HiDPI DC
   // draws glyphs larger than the metrics pen and stacks CJK within a label.
   auto font_height = [](int px) { return -std::max(1, px); };

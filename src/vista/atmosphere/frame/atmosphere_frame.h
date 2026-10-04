@@ -67,7 +67,7 @@ class VISTA_EXPORT AtmosphereFrame {
 
   // True if pre-opaque pass will clear color (ocean and/or sky).
   bool clears_color() const;
-  // True when opaque GpuScene should share depth with atmosphere passes.
+  // True when opaque WorldPass should share depth with atmosphere passes.
   bool uses_shared_depth() const;
 
   // Sky and a depth clear, plus globe DEM when the globe path is on.

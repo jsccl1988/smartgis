@@ -49,7 +49,7 @@ void heatmap_sample_xy(const OGRGeometry* geom,
 
 void emit_circles(const gis::style::StyleLayer& layer, const LayoutInput& in,
                   const std::vector<LayerBatch>& layers, double wupp,
-                  MapFrame* frame, const LayoutTile* clip_tile) {
+                  MapIR* frame, const LayoutTile* clip_tile) {
   if (wupp <= 0) {
     return;
   }
@@ -97,7 +97,7 @@ void emit_circles(const gis::style::StyleLayer& layer, const LayoutInput& in,
 // stand-in). No GPU density texture / weight property expressions yet.
 void emit_heatmap(const gis::style::StyleLayer& layer, const LayoutInput& in,
                   const std::vector<LayerBatch>& layers, double wupp,
-                  MapFrame* frame, const LayoutTile* clip_tile) {
+                  MapIR* frame, const LayoutTile* clip_tile) {
   if (wupp <= 0 || !frame) {
     return;
   }

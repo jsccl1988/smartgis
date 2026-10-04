@@ -21,7 +21,7 @@
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
 #include "content/browser/present/scene3d/frame/tileset_stream.h"
 #include "content/public/map_types.h"
-#include "vista/scene/scene.h"
+#include "vista/world_gpu/pass.h"
 #include "vista/world/world.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/raster/shell_raster.h"
@@ -44,7 +44,7 @@ struct Scene3dLegacyLabel {
   double lat = 0;
 };
 
-// GPU present path for 3D: DEM mesh / GpuScene / shell overlay / present mutex.
+// GPU present path for 3D: DEM mesh / WorldPass / shell overlay / present mutex.
 class Scene3dGpuPresent {
  public:
   Scene3dGpuPresent() = default;
@@ -89,7 +89,7 @@ class Scene3dGpuPresent {
   // Geographic TIN (lon/lat/elev + triangle indices). Attached as a separate
   // kTerrain node after each DEM rebuild (stratum / storm-surge free surface).
   // Optional |albedo_rgba| (4 bytes) drapes a solid tint so water stays cyan
-  // instead of the untextured land-green default in GpuScene.
+  // instead of the untextured land-green default in WorldPass.
   void set_overlay_tin_mesh(const float* xyz_lon_lat_elev, int point_count,
                             const unsigned* indices, int index_count,
                             const uint8_t* albedo_rgba = nullptr);
@@ -168,7 +168,7 @@ class Scene3dGpuPresent {
   const MapScene* scene_ = nullptr;
   const OrbitFrame* orbit_ = nullptr;
 
-  // STL / sync first — GpuScene and World are large blobs; keep mutex and
+  // STL / sync first — WorldPass and World are large blobs; keep mutex and
   // vectors ahead so a size-skew overwrite into those blobs cannot clobber
   // lock state or container proxies (Debug AV on clear / unlock).
   std::vector<float> local_xyz_;
@@ -183,7 +183,7 @@ class Scene3dGpuPresent {
   bool wireframe_enabled_ = false;
 
   vista::World terrain_world_;
-  vista::GpuScene gpu_scene_;
+  vista::WorldPass gpu_scene_;
   detail::ShellOverlayEffect shell_overlay_;
   OrbitGeoFrame geo_frame_;
   std::unique_ptr<TilesetStreamSession> tileset_stream_;

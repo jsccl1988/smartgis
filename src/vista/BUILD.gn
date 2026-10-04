@@ -1,8 +1,8 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Product vista layer — CPU MapFrame / World / atmosphere session + GPU
-# FramePass / GpuScene / atmosphere passes. One DLL (dll_stem = vista).
+# Product vista layer — CPU MapIR / World / atmosphere session + GPU
+# MapPass / WorldPass / atmosphere passes. One DLL (dll_stem = vista).
 # May depend on gis.dll. gis.dll must not depend on this target.
 # Layout lock: docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md
 # §Vista subdirectory tighten. README: src/vista/README.md.
@@ -17,10 +17,10 @@ smt_shared_library("vista") {
     "//src/vista/atmosphere:atmosphere_sources",
     "//src/vista/domain:domain_sources",
     "//src/vista/atmosphere:session_sources",
-    "//src/vista/frame:frame_sources",
     "//src/vista/map:map_sources",
+    "//src/vista/map_gpu:map_gpu_sources",
     "//src/vista/mesh:mesh_sources",
-    "//src/vista/scene:scene_sources",
+    "//src/vista/world_gpu:world_gpu_sources",
     "//src/vista/terrain:terrain_sources",
     "//src/vista/world:world_sources",
   ]
@@ -51,11 +51,11 @@ group("vista_test_all") {
     "//src/vista/atmosphere:field_store_test",
     "//src/vista/atmosphere:ocean_system_test",
     "//src/vista/atmosphere:procedural_test",
-    "//src/vista/frame:map_effect_test",
+    "//src/vista/map_gpu:map_effect_test",
     "//src/vista/map:frame_test",
     "//src/vista/mesh:tessellate_style_test",
-    "//src/vista/scene:scene_gpu_test",
-    "//src/vista/scene:unified_draw_test",
+    "//src/vista/world_gpu:scene_gpu_test",
+    "//src/vista/world_gpu:unified_draw_test",
     "//src/vista/terrain:dem_raster_test",
     "//src/vista/terrain:land_mask_test",
     "//src/vista/world:pointcloud_test",

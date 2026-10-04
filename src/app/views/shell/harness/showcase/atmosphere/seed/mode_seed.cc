@@ -63,7 +63,7 @@ int seed_atmosphere_mode(Browser& browser,
       orbit->set_pitch(0.36f);
       cam->atmosphere_session().seed_procedural(/*with_land_rings=*/true);
       // Flat DEM + ocean/sky path — never the unit globe (that path skips
-      // GpuScene mesh upload and was observed firing atmosphere.globe logs
+      // WorldPass mesh upload and was observed firing atmosphere.globe logs
       // during --atmosphere-showcase=full when flags leaked on).
       cam->atmosphere_session().set_globe_enabled(false);
       cam->atmosphere_session().set_sat_cloud_enabled(false);

@@ -7,8 +7,8 @@
 namespace app {
 namespace detail {
 
-inline constexpr int kMap2dShowcaseDefaultW = 640;
-inline constexpr int kMap2dShowcaseDefaultH = 480;
+inline constexpr int kMap2dShowcaseDefaultW = 1280;
+inline constexpr int kMap2dShowcaseDefaultH = 720;
 
 // Appends a progress step to map2d-showcase-mark.txt (captures/).
 void map2d_showcase_mark(const char* step);

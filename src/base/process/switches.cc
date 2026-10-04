@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
+#include <cwchar>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -113,6 +114,61 @@ void set_locked(std::string key, std::string value) {
   sync_leftover_env(ins->first, ins->second);
 }
 
+bool raw_env_key_is_product(std::string_view raw) {
+  if (raw.size() >= 4) {
+    const unsigned char a = static_cast<unsigned char>(raw[0]);
+    const unsigned char b = static_cast<unsigned char>(raw[1]);
+    const unsigned char c = static_cast<unsigned char>(raw[2]);
+    const unsigned char d = static_cast<unsigned char>(raw[3]);
+    if ((a == 'S' || a == 's') && (b == 'M' || b == 'm') &&
+        (c == 'T' || c == 't') && d == '_') {
+      return true;
+    }
+  }
+  if (raw.size() >= 3) {
+    const unsigned char a = static_cast<unsigned char>(raw[0]);
+    const unsigned char b = static_cast<unsigned char>(raw[1]);
+    const unsigned char c = static_cast<unsigned char>(raw[2]);
+    if ((a == 'S' || a == 's') && (b == 'G' || b == 'g') && c == '_') {
+      return true;
+    }
+  }
+  return false;
+}
+
+void ingest_environment_locked() {
+  LPWCH block = GetEnvironmentStringsW();
+  if (!block) {
+    return;
+  }
+  for (LPWCH p = block; *p != L'\0';) {
+    const wchar_t* eq = p;
+    while (*eq != L'\0' && *eq != L'=') {
+      ++eq;
+    }
+    if (*eq != L'=' || eq == p) {
+      p += std::wcslen(p) + 1;
+      continue;
+    }
+    const std::wstring key_w(p, static_cast<size_t>(eq - p));
+    const std::string raw_key = wide_to_utf8(key_w.c_str());
+    if (!raw_env_key_is_product(raw_key)) {
+      p += std::wcslen(p) + 1;
+      continue;
+    }
+    const std::string val = wide_to_utf8(eq + 1);
+    const std::string key = normalize_key(raw_key);
+    if (!key.empty() && !val.empty()) {
+      // Env fills defaults; argv overwrites via set_locked after this pass.
+      if (g_values.find(key) == g_values.end()) {
+        g_values.emplace(key, val);
+      }
+    }
+    p += std::wcslen(p) + 1;
+  }
+  FreeEnvironmentStringsW(block);
+}
+
 void ingest_token(std::string_view token, std::string_view next, bool* used_next) {
   if (used_next) {
     *used_next = false;
@@ -148,6 +204,7 @@ void ingest_token(std::string_view token, std::string_view next, bool* used_next
 
 void init_switches_from_argv(int argc, const wchar_t* const* argv) {
   std::lock_guard<std::mutex> lock(g_mu);
+  ingest_environment_locked();
   if (!argv) {
     return;
   }
@@ -165,6 +222,7 @@ void init_switches_from_argv(int argc, const wchar_t* const* argv) {
 
 void init_switches_from_argv(int argc, const char* const* argv) {
   std::lock_guard<std::mutex> lock(g_mu);
+  ingest_environment_locked();
   if (!argv) {
     return;
   }

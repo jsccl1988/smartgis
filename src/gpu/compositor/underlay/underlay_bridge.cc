@@ -6,8 +6,8 @@
 #include "gpu/device/gpu_device_hub.h"
 #include "render/graph/frame_graph.h"
 #include "render/rhi/rhi.h"
-#include "vista/scene/opaque_effect.h"
-#include "vista/scene/scene.h"
+#include "vista/world_gpu/opaque_effect.h"
+#include "vista/world_gpu/pass.h"
 
 namespace gpu {
 namespace detail {
@@ -46,7 +46,7 @@ bool record_underlay_effects(
 }
 
 bool record_gpu_scene_underlay(render::rhi::Device* device,
-                               vista::GpuScene* scene,
+                               vista::WorldPass* scene,
                                const render::rhi::CameraMatrices* camera,
                                uint32_t width_px, uint32_t height_px,
                                std::vector<uint8_t>* out_bgra) {

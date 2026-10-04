@@ -44,7 +44,9 @@ VIEWS = OUT / "SmartGIS.exe"
 MATRIX = OUT / "captures" / "map2d" / "matrix"
 PORTS = ("gdi", "gdiplus", "skia")
 PARALLELS = ("serial", "tile", "layer")
-MS_RE = re.compile(r"SMT_RHI2D_PARALLEL=(\w+)\s+execute_ms=(\d+)")
+MS_RE = re.compile(
+    r"(?:SMT_RHI2D_PARALLEL=|rhi2d_parallel=)(\w+)\s+execute_ms=(\d+)"
+)
 EXPORT_MS_RE = re.compile(r"map2d-showcase:\s+export_ms=(\d+)")
 GPU_MS_RE = re.compile(r"map2d-showcase:\s+present_gpu=\d+\s+present_gpu_ms=(\d+)")
 GPU_COLD_RE = re.compile(r"map2d-showcase:\s+.*present_gpu_cold_ms=(\d+)")
@@ -153,7 +155,13 @@ def run_scenic_port(port: str, parallel: str) -> dict:
 
     t0 = time.perf_counter()
     proc = subprocess.run(
-        [str(EXE)],
+        [
+            str(EXE),
+            f"--rhi2d-port={port}",
+            f"--rhi2d-parallel={parallel}",
+            "--rhi2d-parallel-log=1",
+            f"--rhi2d-matrix-bmp={bmp_path}",
+        ],
         cwd=str(OUT),
         env=env,
         capture_output=True,
@@ -219,8 +227,18 @@ def run_vista() -> dict:
 
     t0 = time.perf_counter()
     started = time.time()
+    vista_cmd = [
+        str(VIEWS),
+        "--map2d-showcase=china",
+        "--map2d-showcase-w=1280",
+        "--map2d-showcase-h=720",
+        "--map2d-showcase-gpu=1",
+        f"--vista-layout-parallel={layout_parallel}",
+    ]
+    if env.get("SMT_MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
+        vista_cmd.append("--map2d-no-hillshade=1")
     proc = subprocess.run(
-        [str(VIEWS), "--map2d-showcase=china"],
+        vista_cmd,
         cwd=str(OUT),
         env=env,
         capture_output=True,
@@ -417,8 +435,18 @@ def run_scenic() -> dict:
     try:
         t0 = time.perf_counter()
         started = time.time()
+        scenic_cmd = [
+            str(views_exe),
+            "--map2d-showcase=china",
+            "--map2d-showcase-w=1280",
+            "--map2d-showcase-h=720",
+            "--map2d-showcase-gpu=1",
+            "--map2d-engine=scenic",
+        ]
+        if env.get("SMT_MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
+            scenic_cmd.append("--map2d-no-hillshade=1")
         proc = subprocess.run(
-            [str(views_exe), "--map2d-showcase=china"],
+            scenic_cmd,
             cwd=str(OUT),
             env=env,
             capture_output=True,

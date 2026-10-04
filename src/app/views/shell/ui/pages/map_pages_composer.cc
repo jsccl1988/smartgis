@@ -851,6 +851,10 @@ void MapPagesComposer::switch_map_tab(int i) {
   if (ui::views::MapViewport* pane = host_->active_map()) {
     pane->sync_native_bounds();
     pane->invalidate_native();
+    if (i == 2) {
+      pane->set_flycube_present_visible(true);
+      pane->resume_present_timer();
+    }
   }
   // Tab switch may have revealed a deferred FlyCube present 锟?rebind gestures
   // onto input_hwnd() (Data / 3D lazy attach path).

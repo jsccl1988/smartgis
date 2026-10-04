@@ -17,7 +17,8 @@ inline constexpr size_t kParallelTessMinGeoms = 2;
 // Prefer auto grain (span / (workers*4)); fixed grain=1 oversubscribed Debug.
 inline constexpr size_t kParallelTessGrain = 0;
 
-// SMT_VISTA_LAYOUT_PARALLEL=0 keeps serial tess (wall clock must not regress).
+// SMT_VISTA_LAYOUT_PARALLEL drives Layout emit. =0 keeps serial tess
+// (wall clock must not regress). The env string stays.
 inline bool vista_layout_parallel_enabled() {
   const char* v = std::getenv("SMT_VISTA_LAYOUT_PARALLEL");
   if (v == nullptr || v[0] == '\0') {

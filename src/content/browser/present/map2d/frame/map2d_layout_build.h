@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "content/browser/present/map2d/frame/map2d_frame_cache.h"
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 
 namespace base {
 struct Arena;
@@ -29,7 +29,7 @@ struct Map2dLayoutParams {
   const ViewFrame* frame = nullptr;
   Map2dFrameCache::CameraKey cam;
   Map2dFrameCache::PresentAction action = Map2dFrameCache::PresentAction::kRebuildFull;
-  std::shared_ptr<const vista::MapFrame> prev_published;
+  std::shared_ptr<const vista::MapIR> prev_published;
   bool hillshade_ready = false;
   vista::TileSlot hillshade_slot{};
   base::Arena* scratch = nullptr;
@@ -38,7 +38,7 @@ struct Map2dLayoutParams {
 };
 
 struct Map2dLayoutOutput {
-  vista::MapFrame frame;
+  vista::MapIR frame;
   std::shared_ptr<const std::vector<uint8_t>> baked_rgba;
   int baked_w = 0;
   int baked_h = 0;

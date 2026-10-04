@@ -85,7 +85,7 @@ void browse_viewport_size(ui::views::MapViewport* pane, int* vw, int* vh) {
 
 // SMT_SKIP_AMBOX_CATALOG (set for browse-showcase) forces demo-only SeedDocument
 // and skips Browser::show deferred China. Without an explicit china_city open,
-// MapFrame paints a cream AABB + ocean clear (unique≈2, no roads/rivers).
+// MapIR paints a cream AABB + ocean clear (unique≈2, no roads/rivers).
 // Same opener as map2d.china / ui china_seed; do this BEFORE browse.il stress
 // so capture never reopens OGR after KillTimer (hang / rc=124).
 bool ensure_browse_china_map(Browser& browser, const wchar_t* mark_leaf) {
@@ -167,7 +167,7 @@ bool capture_browse_2d_export(Browser& browser, int vw, int vh,
   // Do not invalidate_frame_cache here: after browse.il stop_map_timers +
   // china_city stress, gpu_.invalidate_frame_cache ExitProcess(-1) between
   // bmp-framed and bmp-export-paint. export_bmp clears the software present
-  // cache and rebuilds MapFrame from the ViewFrame camera key.
+  // cache and rebuilds MapIR from the ViewFrame camera key.
   browse_mark(mark_leaf, "bmp-export-paint");
   bool painted = false;
   try {
@@ -434,7 +434,7 @@ int run_browse_showcase(Browser& browser) {
     (void)ensure_browse_china_map(browser, mark_leaf);
     detail::pump_messages(200);
     // Pause FlyCube present before software export — concurrent GPU present +
-    // MapFrame rebuild under china_city ExitProcess(-1) mid export_bmp.
+    // MapIR rebuild under china_city ExitProcess(-1) mid export_bmp.
     detail::stop_map_present_timers(browser);
     constexpr int kExportW = 640;
     constexpr int kExportH = 480;
@@ -462,7 +462,7 @@ int run_browse_showcase(Browser& browser) {
       capture_browse_shell_bmp(browser, true);
     }
     // After browse.il: do NOT pump the UI queue. DispatchMessage can re-enter
-    // china MapFrame / ContentMapView paint and hang past harness timeout
+    // china MapIR / ContentMapView paint and hang past harness timeout
     // (rc=124) even though pan-ok/browse-ok/dsl-done already landed.
     browse_mark(mark_leaf, "browse-exit");
     detail::stop_map_present_timers(browser);

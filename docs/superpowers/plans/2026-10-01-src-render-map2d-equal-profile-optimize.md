@@ -90,7 +90,7 @@ Artifacts: `out/Debug/captures/map2d/matrix/parallel_port_matrix_with_vista.csv`
 | | |
 | --- | --- |
 | **Problem** | Full `rebuild_layout` on content/zoom dirty; duplicate feature walks; overview cost |
-| **Code surfaces** | `Map2dFrameCache::prepare_for_present` / `rebuild_layout` (`map2d_frame_cache.cc`); `vista/frame` Layout emitters |
+| **Code surfaces** | `Map2dFrameCache::prepare_for_present` / `rebuild_layout` (`map2d_frame_cache.cc`); `vista/map/layout` Layout emitters |
 | **Levers** | Stronger fingerprint; skip redundant walks; overview LOD (fblc / zoom); settle debounce already present |
 | **Expected gain** | Cold `layout_ms` ≤ **60**; StaticReuse stays ~0 |
 | **Acceptance** | Phase clocks + no visual regression on settle/pan |
@@ -133,7 +133,7 @@ Artifacts: `out/Debug/captures/map2d/matrix/parallel_port_matrix_with_vista.csv`
 | **Checkbox map** | Task 4 optional parallel + Task 6; cross **§vista parallel** V1 |
 
 - [ ] P3a: Wire/verify `SMT_VISTA_LAYOUT_PARALLEL` on china layout (no UI join)
-  - **TODO (P3 harness, 2026-10-03):** matrix already sets `SMT_VISTA_LAYOUT_PARALLEL=1` (opt-out `=0`) on the vista cell and records `smt_vista_layout_parallel` in CSV/JSON. Product `getenv` / `vista_layout_parallel_enabled()` in `vista/frame/detail/layout/*` is **not** owned here — leave to parallel-plan V1 / whoever owns `gis/vista` emitters (do not conflict with P1 layout edits). Until wired, tess still runs `parallel_for` by job count only.
+  - **TODO (P3 harness, 2026-10-03):** matrix already sets `SMT_VISTA_LAYOUT_PARALLEL=1` (opt-out `=0`) on the vista cell and records `smt_vista_layout_parallel` in CSV/JSON. Product `getenv` / `vista_layout_parallel_enabled()` in `vista/map/layout/*` is **not** owned here — leave to parallel-plan V1 / whoever owns `gis/vista` emitters (do not conflict with P1 layout edits). Until wired, tess still runs `parallel_for` by job count only.
 - [x] P3b: Matrix prints leftover vs vista phase table; keep equal-latitude note (`run_parallel_port_matrix.py` tables A+B + `EQUAL_LATITUDE_NOTE`)
 - [x] P3c: Label false-gap in CSV/`note` / `parallel_port_matrix_NOTE.txt` and skill tables (IR vs MapFrame)
 - [x] P3d: Visual: `vista-china` still shows labels (+ hillshade when DEM on) — verify on next matrix run after P0–P2 land

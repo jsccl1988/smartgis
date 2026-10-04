@@ -7,7 +7,7 @@ All rights reserved.
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vista GpuScene — unibn octree 场景/mesh 与视锥过滤</title>
+<title>Vista WorldPass — unibn octree 场景/mesh 与视锥过滤</title>
 <style>
   :root {
     --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
@@ -67,11 +67,11 @@ All rights reserved.
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>Vista GpuScene — 开源 octree 场景与 mesh 索引</h1>
+    <h1>Vista WorldPass — 开源 octree 场景与 mesh 索引</h1>
     <p>逻辑 <code>World</code> 与 GPU <code>GpuMesh</code> 各持一份 unibn 点 octree（AABB 中心）。录制前用视锥包围球做候选，再用平面精确过滤场景外物体。</p>
     <div class="meta">
       Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista scene unibn octree</a>
-      · 代码：<code>src/vista/scene/index/</code>
+      · 代码：<code>src/vista/world/index/</code>
       · 上游：<a href="https://github.com/jbehley/octree">jbehley/octree</a>（<code>unibn::Octree</code>）
     </div>
   </header>
@@ -82,7 +82,7 @@ All rights reserved.
       <div class="lane">
         <h3>逻辑 — instance_index_</h3>
         <ul>
-          <li><code>sync</code> 复制 World → <code>GpuInstance</code></li>
+          <li><code>sync</code> 复制 World → <code>Instance</code></li>
           <li><code>kind_tess</code> / <code>tessellate</code> 出 CPU 网格</li>
           <li><code>AabbOctree</code> 索引 AABB 中心</li>
           <li><code>scene_cpu_sources</code> 不依赖 <code>render</code></li>
@@ -158,7 +158,7 @@ All rights reserved.
       </thead>
       <tbody>
         <tr>
-          <td>产品 <code>vista/scene/index</code> 适配器；leftover <code>SmtSceneOctTree</code> 不进本 DLL</td>
+          <td>产品 <code>vista/world/index</code> 适配器；leftover <code>SmtSceneOctTree</code> 不进本 DLL</td>
           <td>不把 <code>Octree.hpp</code> 放进公开头；不做 GPU BVH / occupancy</td>
         </tr>
         <tr>

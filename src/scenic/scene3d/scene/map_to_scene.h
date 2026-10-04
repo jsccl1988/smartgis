@@ -47,7 +47,7 @@ SCENIC_IMPL_EXPORT void frame_persp_camera_to_aabb(PerspCamera* camera,
 // objects. Polygons/lines drape on DemHeightField; place-names go to labels.
 // Returns the number of objects added. Safe when style is missing on features.
 // SP4: stereo DEM also seeds map_seeded_world() via
-// seed_dem_height_field_into_world (envelope + CPU mesh for GpuScene).
+// seed_dem_height_field_into_world (envelope + CPU mesh for WorldPass).
 SCENIC_IMPL_EXPORT int seed_ogr_layer_into_scene(LP3DRENDERDEVICE device,
                                                    Scene* scene,
                                                    OGRLayer* layer);

@@ -80,7 +80,7 @@ void append_wall_quad(DrawItem* item, float x0, float y0, float x1, float y1,
 
 void emit_extrusion_walls(const OGRGeometry* geom, float z_base, float z_top,
                           float ox, float oy, uint32_t rgba, float opacity,
-                          MapFrame* frame) {
+                          MapIR* frame) {
   if (!geom || !frame) {
     return;
   }
@@ -140,7 +140,7 @@ struct FillJob {
 void emit_fill_extrusion(const gis::style::StyleLayer& layer,
                          const LayoutInput& in,
                          const std::vector<LayerBatch>& layers, double wupp,
-                         MapFrame* frame, const LayoutTile* clip_tile) {
+                         MapIR* frame, const LayoutTile* clip_tile) {
   if (!frame) {
     return;
   }
@@ -200,7 +200,7 @@ void emit_fill_extrusion(const gis::style::StyleLayer& layer,
 // parallel_for; results are appended in layer order (painter z).
 void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
                 const LayoutInput& in, const std::vector<LayerBatch>& layers,
-                double wupp, MapFrame* frame, const LayoutTile* clip_tile) {
+                double wupp, MapIR* frame, const LayoutTile* clip_tile) {
   if (fill_layers.empty()) {
     return;
   }
@@ -243,6 +243,28 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
         const OGRGeometry* geom = nullptr;
         if (!prepare_tile_clip(raw, clip_tile, &clip_store, &geom) || !geom) {
           continue;
+        }
+        // Hillshade slot is the DEM footprint. Land polygons that extend
+        // past it (Korea / Mongolia cream slab) stay unshaded — clip land
+        // to the bake AABB so ocean background shows instead of a hole.
+        if (layer.source_layer == "land" && !in.hillshade_tiles.empty()) {
+          LayoutTile hs;
+          hs.min_x = in.hillshade_tiles[0].min_x;
+          hs.min_y = in.hillshade_tiles[0].min_y;
+          hs.max_x = in.hillshade_tiles[0].max_x;
+          hs.max_y = in.hillshade_tiles[0].max_y;
+          for (const TileSlot& slot : in.hillshade_tiles) {
+            hs.min_x = (std::min)(hs.min_x, slot.min_x);
+            hs.min_y = (std::min)(hs.min_y, slot.min_y);
+            hs.max_x = (std::max)(hs.max_x, slot.max_x);
+            hs.max_y = (std::max)(hs.max_y, slot.max_y);
+          }
+          const OGRGeometry* clipped = nullptr;
+          if (!prepare_tile_clip(geom, &hs, &clip_store, &clipped) ||
+              !clipped) {
+            continue;
+          }
+          geom = clipped;
         }
         const gis::style::AttrMap& attrs = attrs_at(batch, i);
         if (!gis::style::eval_filter(layer.filter, attrs)) {
@@ -314,7 +336,7 @@ void emit_fills(const std::vector<const gis::style::StyleLayer*>& fill_layers,
 
 void emit_fill(const gis::style::StyleLayer& layer, const LayoutInput& in,
                const std::vector<LayerBatch>& layers, double wupp,
-               MapFrame* frame, const LayoutTile* clip_tile) {
+               MapIR* frame, const LayoutTile* clip_tile) {
   std::vector<const gis::style::StyleLayer*> one{&layer};
   emit_fills(one, in, layers, wupp, frame, clip_tile);
 }

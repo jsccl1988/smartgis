@@ -20,6 +20,7 @@
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "base/process/switches.h"
+#include "vista/terrain/dem/dem_raster.h"
 
 namespace app {
 namespace detail {
@@ -144,9 +145,15 @@ void apply_world3d_pointcloud_overlay(content::Scene3dPresenter* cam,
   } else {
     rgba_fallback.resize(cloud.point_count() * 4);
     for (size_t i = 0; i < cloud.point_count(); ++i) {
-      rgba_fallback[i * 4] = 220;
-      rgba_fallback[i * 4 + 1] = 90;
-      rgba_fallback[i * 4 + 2] = 40;
+      const float z_m = (i * 3 + 2 < cloud.xyz.size()) ? cloud.xyz[i * 3 + 2]
+                                                       : 200.f;
+      float rf = 0.f;
+      float gf = 0.f;
+      float bf = 0.f;
+      vista::hypsometric_rgb(z_m, &rf, &gf, &bf);
+      rgba_fallback[i * 4] = static_cast<uint8_t>(rf * 255.f + 0.5f);
+      rgba_fallback[i * 4 + 1] = static_cast<uint8_t>(gf * 255.f + 0.5f);
+      rgba_fallback[i * 4 + 2] = static_cast<uint8_t>(bf * 255.f + 0.5f);
       rgba_fallback[i * 4 + 3] = 255;
     }
     rgba = rgba_fallback.data();

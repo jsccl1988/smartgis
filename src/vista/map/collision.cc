@@ -458,8 +458,11 @@ bool boxes_overlap(const LabelBox& a, const LabelBox& b) {
 }
 
 bool LabelGrid::box_in_view(const LabelBox& box) const {
-  return box.right > 4 && box.left < view_w_ - 4 && box.bottom > 4 &&
-         box.top < view_h_ - 4;
+  // Fully inside the framebuffer. Overlap-with-margin let edge cities
+  // (齐齐哈尔, clipped "田") emit glyphs that the HWND then crops.
+  constexpr int kPad = 2;
+  return box.left >= kPad && box.top >= kPad &&
+         box.right <= view_w_ - kPad && box.bottom <= view_h_ - kPad;
 }
 
 int64_t LabelGrid::cell_key(int cell_x, int cell_y) {

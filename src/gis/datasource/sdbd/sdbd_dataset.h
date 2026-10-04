@@ -79,7 +79,8 @@ class GIS_EXPORT SdbdDataset final : public GDALDataset {
   std::vector<std::unique_ptr<SdbdLayer>> wrappers_;
 };
 
-// GDALOpenEx / Create via "SDBD". Empty target (ACCESS, WS, …) returns null.
+// GDALOpenEx / Create via "SDBD". PROVIDER_SDBD remotes go through
+// open_provider_sdbd_dataset. Empty local target (ACCESS, WS, …) returns null.
 GIS_EXPORT GDALDataset* open_sdbd_dataset(const ConnectionSpec& spec);
 
 // Open or create one already-formatted "SDBD:…" name. Shared by the catalog

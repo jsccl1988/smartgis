@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "vista/vista_export.h"
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 
 namespace gis {
 namespace style {

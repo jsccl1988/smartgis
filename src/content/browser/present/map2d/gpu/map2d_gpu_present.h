@@ -13,7 +13,7 @@
 #include "ui/gfx/raster/shell_raster.h"
 
 namespace vista {
-class FramePass;
+class MapPass;
 }
 
 namespace render {
@@ -41,7 +41,7 @@ CONTENT_EXPORT Map2dGpuPresentProfile map2d_gpu_present_profile();
 CONTENT_EXPORT void reset_map2d_gpu_present_profile();
 
 // GPU present path for 2D maps: Pass lifetime + shell overlay.
-// MapFrame dual-speed cache lives on Map2dFrameCache (shared with GDI).
+// MapIR dual-speed cache lives on Map2dFrameCache (shared with GDI).
 class Map2dGpuPresent {
  public:
   Map2dGpuPresent();
@@ -86,7 +86,7 @@ class Map2dGpuPresent {
   const MapScene* scene_ = nullptr;
   const ViewFrame* frame_ = nullptr;
   Map2dFrameCache* cache_ = nullptr;
-  std::unique_ptr<vista::FramePass> map2d_pass_;
+  std::unique_ptr<vista::MapPass> map2d_pass_;
   detail::ShellOverlayEffect shell_overlay_;
   bool last_present_ok_ = false;
   bool last_present_drew_ = false;

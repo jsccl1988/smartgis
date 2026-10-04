@@ -23,10 +23,10 @@
 #include "base/memory/arena.h"
 #include "base/trace/event/process_trace.h"
 #include "base/process/switches.h"
-#include "vista/frame/pass.h"
+#include "vista/map_gpu/pass.h"
 #include "gis/style/document/style_document.h"
 #include "gis/style/eval/style_rules.h"
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 #include "vista/map/hillshade_bake.h"
 #include "vista/terrain/dem/dem_raster.h"
 
@@ -83,7 +83,7 @@ void Map2dFrameCache::bind(const MapScene* scene, const ViewFrame* frame) {
   has_frame_cache_ = false;
   last_present_was_interactive_ = false;
   last_present_reused_layout_ = false;
-  cached_frame_ = vista::MapFrame{};
+  cached_frame_ = vista::MapIR{};
   layer_slices_.clear();
   cached_fp_ = ContentFingerprint{};
   cached_cam_ = CameraKey{};
@@ -96,7 +96,7 @@ void Map2dFrameCache::invalidate() {
   has_frame_cache_ = false;
   last_present_was_interactive_ = false;
   last_present_reused_layout_ = false;
-  cached_frame_ = vista::MapFrame{};
+  cached_frame_ = vista::MapIR{};
   layer_slices_.clear();
   cached_fp_ = ContentFingerprint{};
   cached_cam_ = CameraKey{};
@@ -197,7 +197,7 @@ Map2dFrameCache::CameraKey Map2dFrameCache::make_camera_key(
   return key;
 }
 
-void Map2dFrameCache::absorb_layer_slices(const vista::MapFrame& frame) {
+void Map2dFrameCache::absorb_layer_slices(const vista::MapIR& frame) {
   layer_slices_.clear();
   for (const vista::DrawItem& item : frame.items) {
     if (item.cache_key == 0) {
@@ -300,12 +300,16 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
   // Bake into locals first and install into members only after Layout::build
   // succeeds so a failed / aborted rebuild cannot leave a half-swapped
   // hillshade_rgba_.
-  const char* no_hs = base::switch_cstr("map2d-no-hillshade");
-  const char* force_hs = base::switch_cstr("map2d-force-hillshade");
+  auto env_flag_one = [](const char* key) {
+    const char* e = std::getenv(key);
+    return e && e[0] == '1' && e[1] == '\0';
+  };
   const bool force_hillshade =
-      force_hs && force_hs[0] == '1' && force_hs[1] == '\0';
+      base::switch_is_one("map2d-force-hillshade") ||
+      env_flag_one("SMT_MAP2D_FORCE_HILLSHADE");
   const bool skip_hillshade =
-      (no_hs && no_hs[0] == '1' && no_hs[1] == '\0') ||
+      base::switch_is_one("map2d-no-hillshade") ||
+      env_flag_one("SMT_MAP2D_NO_HILLSHADE") ||
       (!force_hillshade && scene_ && !scene_->has_china_extent());
   std::vector<uint8_t> baked_rgba;
   int baked_w = 0;
@@ -367,7 +371,7 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
     }
     in.layout_gen = build_gen;
     in.live_layout_gen = &live_layout_gen_;
-    vista::MapFrame built = layout.build(in, layer_batches.batches);
+    vista::MapIR built = layout.build(in, layer_batches.batches);
     if (live_layout_gen_.load(std::memory_order_acquire) != build_gen) {
       const int64_t wall_ms =
           std::chrono::duration_cast<std::chrono::milliseconds>(

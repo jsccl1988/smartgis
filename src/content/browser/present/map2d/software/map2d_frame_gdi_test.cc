@@ -7,7 +7,7 @@
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_phase_profile.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 
 #include <chrono>
 #include <cstdio>
@@ -36,7 +36,7 @@ void expect(bool ok, const char* msg) {
 int main() {
   // Synthetic same-brush / same-pen batch smoke.
   {
-    vista::MapFrame frame;
+    vista::MapIR frame;
     frame.background_rgba = 0xfff5f0e6u;
     const uint32_t fill_rgba = 0xffc4d6a0u;
     const uint32_t line_rgba = 0xff3a5f8cu;
@@ -139,7 +139,7 @@ int main() {
   // Overlapping same-color tris must stay filled (WINDING). ALTERNATE would
   // punch an even-odd hole at the overlap — the china coastal fringe bug.
   {
-    vista::MapFrame frame;
+    vista::MapIR frame;
     frame.background_rgba = 0xffaad3dfu;
     const uint32_t fill_rgba = 0xfff5f3e9u;
     vista::DrawItem a;

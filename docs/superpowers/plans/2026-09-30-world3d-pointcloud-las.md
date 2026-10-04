@@ -46,7 +46,7 @@ All rights reserved.
 **Files:**
 - Modify: `world.h` / `world.cc` (point payload on `kPointCloud`)
 - Modify: `tessellate.{h,cc}` (`tessellate_point_cloud`)
-- Modify: `vista/scene/scene.{h,cc}` (sync + rebuild + `record_kind` for pointcloud)
+- Modify: `vista/world_gpu/pass.{h,cc}` (sync + rebuild + `record_kind` for pointcloud)
 
 - [x] Step 1: `set_pointcloud_points` on World node
 - [x] Step 2: Tessellate points → tiny triangles

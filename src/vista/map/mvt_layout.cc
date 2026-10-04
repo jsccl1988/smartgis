@@ -130,7 +130,7 @@ bool mvt_to_layer_batches(const gis::tile::MvtTile& tile, double min_x,
 
 bool decode_mvt_to_map_frame(const uint8_t* data, size_t len, const View& view,
                              double zoom, const char* style_json,
-                             MapFrame* out_frame,
+                             MapIR* out_frame,
                              gis::tile::MvtDecodeStatus* out_status) {
   if (!out_frame) {
     return false;

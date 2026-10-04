@@ -25,7 +25,7 @@
 #include "gis/style/document/style_document.h"
 #include "plugin/product/print/composer/print_composer.h"
 #include "ui/views/map/map_viewport.h"
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 
 namespace app {
 namespace detail {

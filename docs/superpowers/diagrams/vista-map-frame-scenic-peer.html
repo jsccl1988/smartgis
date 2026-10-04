@@ -7,7 +7,7 @@ All rights reserved.
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vista map/frame — 对照 Scenic paint/map 升级</title>
+<title>Vista map/map_gpu — 对照 Scenic paint/map 升级</title>
 <style>
   :root {
     --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
@@ -65,16 +65,16 @@ All rights reserved.
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>Vista map / frame — 对照 Scenic paint/map</h1>
+    <h1>Vista map / map_gpu — 对照 Scenic paint/map</h1>
     <p>
-      产品 2D：<code>vista/map</code> 产出 <code>MapFrame</code>，<code>vista/frame</code> 在设备线程上 <code>FramePass::record</code>。
+      产品 2D：<code>vista/map</code> 产出 <code>MapIR</code>，<code>vista/map_gpu</code> 在设备线程上 <code>MapPass::record</code>。
       Scenic 只借帧拍、脏区、prep→encode→submit 语义；不搬 HDC、<code>MapPainter</code> 焊死遍历、引擎内上屏。
     </p>
     <p class="meta">
       As-built M1–M4 + N0–N3：<code>collect_visible</code> → <code>pack_geoms</code> → emit（layer × 世界瓦片 splice）→ CPU coalesce；
       <code>kLayoutAabbTilePx=256</code> + 16px world skirt；
       <code>layout_gen</code> 在 style 层、tile 与 tess job 边界 abort。
-      合成仍是 <code>FramePass</code> 一条 CommandList。
+      合成仍是 <code>MapPass</code> 一条 CommandList。
     </p>
     <div class="meta">
       Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista map/frame scenic-peer</a>
@@ -86,7 +86,7 @@ All rights reserved.
   </header>
 
   <section class="panel">
-    <h2>1. 责任层（content / map CPU / frame GPU / Scenic 对照轨）</h2>
+    <h2>1. 责任层（content / map CPU / map_gpu GPU / Scenic 对照轨）</h2>
     <svg class="diagram" viewBox="0 0 1040 280" role="img" aria-label="四层所有权">
       <rect x="16" y="12" width="240" height="256" rx="8" fill="var(--ui)" stroke="#6b5ea8"/>
       <text class="lane" x="32" y="38" fill="var(--ui-ink)">content · L1 帧拍</text>
@@ -110,8 +110,8 @@ All rights reserved.
       <text class="box-sub" x="288" y="238">place 无 RHI</text>
 
       <rect x="568" y="12" width="240" height="256" rx="8" fill="var(--gpu)" stroke="#b06a1a"/>
-      <text class="lane" x="584" y="38" fill="var(--gpu-ink)">vista/frame · GPU</text>
-      <text class="box-title" x="584" y="64">FramePass::record</text>
+      <text class="lane" x="584" y="38" fill="var(--gpu-ink)">vista/map_gpu · GPU</text>
+      <text class="box-title" x="584" y="64">MapPass::record</text>
       <text class="box-sub" x="584" y="84">对标 map_submit</text>
       <text class="box-title" x="584" y="114">upload / encode</text>
       <text class="box-sub" x="584" y="134">1 CommandList</text>
@@ -126,7 +126,7 @@ All rights reserved.
       <text class="box-sub" x="840" y="114">CommandBuffer IR</text>
       <text class="box-sub" x="840" y="148">只核对画面</text>
       <text class="box-sub" x="840" y="168">不编进 vista.dll</text>
-      <text class="box-sub" x="840" y="200">禁止焊进 FramePass</text>
+      <text class="box-sub" x="840" y="200">禁止焊进 MapPass</text>
     </svg>
   </section>
 
@@ -187,11 +187,11 @@ All rights reserved.
       <tr>
         <td><code>MapScheduler</code> × <code>TileGraphRunner</code>（禁止 fold）</td>
         <td><code>stage_frame</code> × <code>Layout::build</code> 内 <code>parallel_for</code></td>
-        <td>保持组合。不把 tess 池并进 FramePass</td>
+        <td>保持组合。不把 tess 池并进 MapPass</td>
       </tr>
       <tr>
         <td><code>Rhi2dPainter</code> 编排 + 直接画</td>
-        <td><code>Layout</code> 只出 IR；<code>FramePass</code> 只录制</td>
+        <td><code>Layout</code> 只出 IR；<code>MapPass</code> 只录制</td>
         <td>保持拆开。编排内部可再拆 collect / emit</td>
       </tr>
       <tr>
@@ -268,7 +268,7 @@ All rights reserved.
       <text class="box-sub" x="904" y="68" text-anchor="middle">tess 批读 layout_gen</text>
       <text class="box-sub" x="904" y="86" text-anchor="middle">过期帧不 publish</text>
     </svg>
-    <p class="meta">N0–N3 已落地。合成仍是 <code>FramePass</code> 一条 CommandList。宿主 mailbox 路径若未传 <code>retained_slices</code> 则冷 tess（同步 settle 已 splice）。</p>
+    <p class="meta">N0–N3 已落地。合成仍是 <code>MapPass</code> 一条 CommandList。宿主 mailbox 路径若未传 <code>retained_slices</code> 则冷 tess（同步 settle 已 splice）。</p>
   </section>
 </div>
 <script>
@@ -296,7 +296,7 @@ All rights reserved.
       "2 LayerBatch collect（gis 停在 POD）",
       "3 emit×N / retained slice skip tess",
       "4 LabelGrid resolve 串行",
-      "5 FramePass keyed upload（设备线程）",
+      "5 MapPass keyed upload（设备线程）",
       "6 encode 1 CL → graph::present"
     ];
     status.textContent = labels[i + 1] || "就绪";

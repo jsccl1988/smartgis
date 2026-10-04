@@ -4,7 +4,7 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-# CPU Layout → MapFrame. place has no RHI and compiles here.
+# CPU Layout → MapIR. place has no RHI and compiles here.
 # Ortho is the current camera; perspective uses the same Layout.
 # Compiled into //src/vista:vista. Not a second scene.
 source_set("map_sources") {
@@ -17,7 +17,7 @@ source_set("map_sources") {
     "color.h",
     "default_style.cc",
     "draw.h",
-    "frame.h",
+    "ir.h",
     "hillshade_bake.cc",
     "hillshade_bake.h",
     "layout.cc",

@@ -8,6 +8,7 @@ All rights reserved.
 > Hung off living [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) **§src_render + vista parallel accelerate**.  
 > **Directory tighten (landed, not this plan):** living **§Vista subdirectory tighten**.  
 > **Upgrade U0–U4 (landed):** living **§Vista logical/physical lanes**. Follow-on **M1–M4:** living **§Vista map/frame scenic-peer** · [`../diagrams/vista-map-frame-scenic-peer.html`](../diagrams/vista-map-frame-scenic-peer.html). 借 Scenic 脏区 / 帧拍 / prep 语义；不搬 HDC、D3D11 deferred、焊死的 `MapPainter`。  
+> **IR/GPU 目录（权威）：** living **§Vista IR/GPU lanes**。逻辑/物理词汇退役。目标磁盘是 `vista/map`（`MapIR`）+ `vista/map_gpu`（`MapPass`），`vista/world`（`World` + `Instance`）+ `vista/world_gpu`（`WorldPass`）。下文文件表和任务勾选仍用勾选当时的 `vista/frame` / `vista/scene` 名字，不改写。  
 > **Diagram (normative visual):** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html) — **A×B 深度整合**；Topology A 见 §2–§3（`stage_frame` → `build_layout_parallel` → `prep_cull_parallel` → `record_and_present`）。  
 > **CPU boundary:** [`gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html).  
 > **Related:** [`legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) · [`ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)  

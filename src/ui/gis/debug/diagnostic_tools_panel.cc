@@ -33,9 +33,10 @@ namespace ui {
 namespace views {
 namespace {
 
-// Compact bottom dock: chrome rows + Trace/Console body. Scaled on attach.
-constexpr int kDiagPreferredDip = 280;
-constexpr int kTabsHostMinDip = 160;
+// Compact bottom dock: chrome rows + Output body. Keep below ~1/4 of a
+// 720p work area so the map viewport stays the primary surface.
+constexpr int kDiagPreferredDip = 200;
+constexpr int kTabsHostMinDip = 110;
 constexpr int kToolbarHeightDip = 26;
 constexpr int kTitleHeightDip = 22;
 constexpr int kStatusHeightDip = 20;

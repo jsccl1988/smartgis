@@ -109,7 +109,7 @@ int main() {
     vp.max_x = wr.MaxX;
     vp.max_y = wr.MaxY;
     vp.z = 2;
-    auto* layer = new gis::tile::ProviderTileLayer(provider);
+    auto layer = std::make_unique<gis::tile::ProviderTileLayer>(provider);
     expect(layer->refresh_visible(vp), "refresh_visible");
     expect(layer->GetTileCount() >= 1, "tile count");
     const gis::tile::TileImage* t = layer->GetTile(0);
@@ -132,8 +132,6 @@ int main() {
     expect(xyz.tile() != nullptr, "make_xyz_map_layer leftover");
     gis::MapLayer bad = gis::tile::make_xyz_map_layer("http://bad/{z}");
     expect(bad.tile() == nullptr, "make_xyz_map_layer rejects bad tmpl");
-
-    SMT_SAFE_DELETE(layer);
   }
 
   // Disk cache: miss → HTTP once; clear memory; hit disk → no second HTTP.
@@ -282,7 +280,7 @@ int main() {
            "mvt reject_vector_source");
     expect(gis::tile::non_goal_message() != nullptr, "mvt non_goal msg");
 
-    // Local fixture: raw PBF → features → MapFrame.
+    // Local fixture: raw PBF → features → MapIR.
     {
       namespace fs = std::filesystem;
       fs::path fixture = fs::path("testing") / "data" / "mvt" / "roads_fixture.mvt";
@@ -331,14 +329,14 @@ int main() {
         view.min_y = 0;
         view.max_x = 10;
         view.max_y = 10;
-        vista::MapFrame frame;
+        vista::MapIR frame;
         gis::tile::MvtDecodeStatus st = gis::tile::MvtDecodeStatus::kBadInput;
         expect(vista::decode_mvt_to_map_frame(bytes.data(), bytes.size(),
                                                   view, 8.0, nullptr, &frame,
                                                   &st),
                "decode_mvt_to_map_frame");
         expect(st == gis::tile::MvtDecodeStatus::kOk, "frame status ok");
-        expect(!frame.items.empty(), "MapFrame has draw items");
+        expect(!frame.items.empty(), "MapIR has draw items");
 
         // gzip wrapper of the same tile.
         fs::path gz = fixture;

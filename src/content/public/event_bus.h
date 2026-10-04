@@ -30,7 +30,7 @@ struct ExtentChanged {
 };
 
 // Shell / Workspace asked the GPU process to switch map paint.
-// kind: 0 = Track B RHI / GpuScene, 1 = Track A MapLibre.
+// kind: 0 = Track B RHI / WorldPass, 1 = Track A MapLibre.
 struct RenderBackendChanged {
   uint32_t view_id = 0;
   uint32_t kind = 0;

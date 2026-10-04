@@ -50,9 +50,9 @@ int run_map2d_present(Browser& browser,
   map2d_showcase_mark("overlay-paint");
 
   // Warm layout+hillshade AFTER HWND pump: a live paint at client size would
-  // otherwise rebuild MapFrame at ~2k and clobber the showcase 1280x720 cache.
-  // Scenic GDI SoT does not use MapFrame — skip ensure_full (china layout can
-  // AV / hang on the leftover MapFrame path while scenic is hosted).
+  // otherwise rebuild MapIR at ~2k and clobber the showcase 1280x720 cache.
+  // Scenic GDI SoT does not use MapIR — skip ensure_full (china layout can
+  // AV / hang on the leftover MapIR path while scenic is hosted).
   if (!map2d->hosts_scenic_present()) {
     if (!map2d->frame_cache().ensure_full(static_cast<uint32_t>(showcase_w),
                                           static_cast<uint32_t>(showcase_h))) {

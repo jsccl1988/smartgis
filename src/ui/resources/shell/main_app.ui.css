@@ -71,8 +71,8 @@
 }
 
 .inspector {
-  /* Prefer C++ preferred_size (400 DIP); fixed 320px clipped Feature idle copy. */
-  min-width: 300px;
+  /* Prefer C++ preferred_size (280 DIP idle Feature). */
+  min-width: 240px;
   min-height: 200px;
   flex-grow: 0;
 }
@@ -81,7 +81,7 @@
    CSS height fought Splitter seed and HiDPI measure. */
 .diagnostics {
   width: 100%;
-  min-height: 180px;
+  min-height: 140px;
   flex-grow: 0;
 }
 

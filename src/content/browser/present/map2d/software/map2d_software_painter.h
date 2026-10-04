@@ -20,8 +20,8 @@ class Map2dFrameCache;
 class MapScene;
 class ViewFrame;
 
-// GDI software paint path for 2D maps. The map body is MapFrame + View
-// through paint_map_frame_gdi. Labels are MapFrame kText glyphs.
+// GDI software paint path for 2D maps. The map body is MapIR + View
+// through paint_map_frame_gdi. Labels are MapIR kText glyphs.
 class Map2dSoftwarePainter {
  public:
   Map2dSoftwarePainter() = default;

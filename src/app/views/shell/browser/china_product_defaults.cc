@@ -144,6 +144,9 @@ ChinaScene3dAtmoFlags apply_china_scene3d_atmosphere(Browser& browser) {
   cam->atmosphere_session().set_cloud_enabled(flags.cloud);
   cam->atmosphere_session().set_sky_enabled(flags.sky);
   cam->atmosphere_session().set_fog_enabled(flags.fog);
+  // Interactive 3D tab is East-China DEM, not the UV globe splash (that path
+  // painted a solid red sphere when albedo SRV recycled).
+  cam->atmosphere_session().set_globe_enabled(false);
   return flags;
 }
 
@@ -154,7 +157,9 @@ void apply_china_scene3d_orbit(Browser& browser) {
   }
   orbit->reset();
   orbit->apply_world_extent(content::kChinaLonLatExtent);
-  orbit->set_distance(2.55f);
+  // Fill the viewport with East-China DEM (2.55 left a postage-stamp island).
+  orbit->set_distance(1.45f);
+  orbit->set_pitch(0.52f);
   browser.push_shared_extent();
 }
 

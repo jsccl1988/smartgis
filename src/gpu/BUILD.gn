@@ -103,7 +103,10 @@ test("render_backend_test") {
   output_name = "render_backend_test"
   sources = [ "paint_frame_test.cc" ]
   include_dirs += [ "//src" ]
-  deps = [ ":gpu_backend" ]
+  deps = [
+    ":gpu_backend",
+    "//src/base:base",
+  ]
   data_deps = [ "//src/render:render" ]
 }
 

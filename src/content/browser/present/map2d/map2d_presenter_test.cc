@@ -8,7 +8,7 @@
 #include "content/browser/present/map2d/map2d_phase_profile.h"
 #include "content/browser/present/map2d/software/map2d_frame_gdi.h"
 #include "gis/tile/provider/tile_provider.h"
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 #include "net/http/http.h"
 #include "render/rhi/rhi.h"
 
@@ -41,7 +41,7 @@ void expect(bool ok, const char* msg) {
 int run_map2d_presenter_tests() {
   // P2 software GDI batch smoke: many same-brush fills + same-pen strokes.
   {
-    vista::MapFrame frame;
+    vista::MapIR frame;
     frame.background_rgba = 0xfff5f0e6u;
     const uint32_t fill_rgba = 0xffc4d6a0u;
     const uint32_t line_rgba = 0xff3a5f8cu;
@@ -332,7 +332,7 @@ int run_map2d_presenter_tests() {
     expect(presenter.layout_build_count() == 1,
            "pan within zoom bucket skips layout");
     expect(presenter.last_present_reused_layout(),
-           "pan reuses cached MapFrame");
+           "pan reuses cached MapIR");
 
     // Same camera again after quiet settle debounce (~200ms) �?settle rebuild
     // for GPU labels.

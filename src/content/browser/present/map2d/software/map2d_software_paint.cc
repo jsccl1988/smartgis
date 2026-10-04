@@ -325,7 +325,7 @@ void Map2dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
 
   bool painted_frame = false;
   if (prepared && cache_) {
-    vista::MapFrame frame_copy;
+    vista::MapIR frame_copy;
     vista::View view;
     {
       std::lock_guard<std::recursive_mutex> lock(cache_->mutex());
@@ -373,7 +373,7 @@ bool Map2dSoftwarePainter::export_bmp(const std::string& path, int width_px,
   if (path.empty() || width_px <= 0 || height_px <= 0) {
     return false;
   }
-  // Default: clear present cache so export always replays MapFrame (faithful
+  // Default: clear present cache so export always replays MapIR (faithful
   // carto / hillshade). Bench-only SMT_MAP2D_EXPORT_REUSE=1 keeps a matching
   // cam+size present-cache blit (equal-profile paint_ms).
   const bool export_reuse = []() {

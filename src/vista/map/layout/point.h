@@ -8,7 +8,7 @@
 
 #include <vector>
 
-#include "vista/map/frame.h"
+#include "vista/map/ir.h"
 #include "vista/map/layout/slice_key.h"
 
 namespace vista {
@@ -16,10 +16,10 @@ namespace detail {
 
 void emit_circles(const gis::style::StyleLayer& layer, const LayoutInput& in,
                   const std::vector<LayerBatch>& layers, double wupp,
-                  MapFrame* frame, const LayoutTile* clip_tile = nullptr);
+                  MapIR* frame, const LayoutTile* clip_tile = nullptr);
 void emit_heatmap(const gis::style::StyleLayer& layer, const LayoutInput& in,
                   const std::vector<LayerBatch>& layers, double wupp,
-                  MapFrame* frame, const LayoutTile* clip_tile = nullptr);
+                  MapIR* frame, const LayoutTile* clip_tile = nullptr);
 
 }  // namespace detail
 }  // namespace vista

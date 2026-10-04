@@ -27,7 +27,7 @@ bool indices_fit(const std::vector<uint32_t>& indices, size_t vertex_count) {
 }
 
 // Viewport pixels are y-down. The lon/lat ortho is y-up, matching
-// GpuScene::set_view_ortho → make_ortho_camera(min_x, max_x, min_y, max_y).
+// WorldPass::set_view_ortho → make_ortho_camera(min_x, max_x, min_y, max_y).
 void map_pixel_to_ortho(const vista::View& view, float* x, float* y) {
   const float width = static_cast<float>(view.width_px);
   const float height = static_cast<float>(view.height_px);
@@ -238,7 +238,7 @@ void seal_borrowed_meshes(std::vector<PlacedMesh>* meshes) {
   }
 }
 
-std::vector<PlacedMesh> place_frame(const vista::MapFrame& frame,
+std::vector<PlacedMesh> place_frame(const vista::MapIR& frame,
                                     const vista::View& view,
                                     bool world_items, bool overlay_items) {
   std::vector<PlacedMesh> out;

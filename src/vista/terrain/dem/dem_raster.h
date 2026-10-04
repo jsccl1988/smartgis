@@ -14,7 +14,7 @@
 
 namespace vista {
 
-// Regular-grid elevation in map CRS for World / GpuScene seeding.
+// Regular-grid elevation in map CRS for World / WorldPass seeding.
 // Mesh XYZ is leftover Y-up (X=-lon, elev, lat) so RH lookAt looking north
 // places east on screen-right; World AABB keeps geographic lon/lat + elev in Z.
 class VISTA_EXPORT DemRaster {
