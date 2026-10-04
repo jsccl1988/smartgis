@@ -10,7 +10,7 @@
 
 #include <windows.h>
 
-#include "scenic/detail/viewport.h"
+#include "scenic/render/rhi2d/public/device/viewport.h"
 #include "scenic/render/rhi2d/impl/common/cc/layer_tree_impl.h"
 #include "scenic/render/rhi2d/impl/common/cc/scheduler.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/frame/context.h"

@@ -1,6 +1,6 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
-// Bare SmartGis.exe (no argv): Edit shell → 窗口/三维窗口 (ID_WND_3D=32915),
+// Bare SmartGIS-Legacy.exe (no argv): Edit shell → 窗口/三维窗口 (ID_WND_3D=32915),
 // then OS inject orbit / path / wheel on the 3D client.
 
 script "legacy.browse.3d" {

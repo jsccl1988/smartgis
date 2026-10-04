@@ -1,0 +1,183 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vista GpuScene — unibn octree 场景/mesh 与视锥过滤</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --cpu: #2f7d62; --gpu: #b06a1a; --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta, .note { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .lanes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  @media (max-width: 800px) { .lanes { grid-template-columns: 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    background: var(--panel2);
+  }
+  .lane h3 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; }
+  .lane ul { margin: 0; padding-left: 1.05em; font-size: 0.78rem; color: var(--muted); }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+  .pulse { stroke-dasharray: 7 5; animation: dash 0.9s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  button {
+    appearance: none; border: 1px solid var(--border); background: var(--panel);
+    color: var(--text); border-radius: 8px; padding: 6px 11px; cursor: pointer; font: inherit;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .legend { color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Vista GpuScene — 开源 octree 场景与 mesh 索引</h1>
+    <p>逻辑 <code>World</code> 与 GPU <code>GpuMesh</code> 各持一份 unibn 点 octree（AABB 中心）。录制前用视锥包围球做候选，再用平面精确过滤场景外物体。</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista scene unibn octree</a>
+      · 代码：<code>src/vista/scene/index/</code>
+      · 上游：<a href="https://github.com/jbehley/octree">jbehley/octree</a>（<code>unibn::Octree</code>）
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 核心分层</h2>
+    <div class="lanes">
+      <div class="lane">
+        <h3>逻辑 — instance_index_</h3>
+        <ul>
+          <li><code>sync</code> 复制 World → <code>GpuInstance</code></li>
+          <li><code>kind_tess</code> / <code>tessellate</code> 出 CPU 网格</li>
+          <li><code>AabbOctree</code> 索引 AABB 中心</li>
+          <li><code>scene_cpu_sources</code> 不依赖 <code>render</code></li>
+        </ul>
+      </div>
+      <div class="lane">
+        <h3>物理 mesh — mesh_index_</h3>
+        <ul>
+          <li><code>gpu_mesh.h</code> 持有 VB/IB</li>
+          <li><code>rebuild</code> 调 <code>upload_mesh</code></li>
+          <li>点云 chunk 独立 AABB</li>
+          <li><code>frustum_camera</code> 把 <code>CameraMatrices</code> 写成 POD</li>
+        </ul>
+      </div>
+      <div class="lane">
+        <h3>录制 — 场景外过滤</h3>
+        <ul>
+          <li><code>prep_cull</code> 只写 <code>MeshCullItem</code> / <code>visible[]</code></li>
+          <li>视锥世界 AABB + 半径候选</li>
+          <li><code>record_kind</code> 串行读标位</li>
+          <li>工人禁止 Device / CommandList</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流</h2>
+    <svg class="diagram" id="octflow" viewBox="0 0 1040 210" role="img" aria-label="octree cull flow">
+      <rect x="12" y="20" width="150" height="70" rx="8" fill="#e8f1fa" stroke="#2563a8"/>
+      <text class="box-title" x="87" y="48" text-anchor="middle">sync_from</text>
+      <text class="box-sub" x="87" y="68" text-anchor="middle">World 节点 AABB</text>
+      <path class="pulse" d="M162 55 L198 55" fill="none" stroke="#2563a8" stroke-width="2"/>
+      <rect x="198" y="20" width="160" height="70" rx="8" fill="#e7f3ee" stroke="#2f7d62"/>
+      <text class="box-title" x="278" y="48" text-anchor="middle">instance octree</text>
+      <text class="box-sub" x="278" y="68" text-anchor="middle">unibn 中心点</text>
+      <rect x="12" y="118" width="150" height="70" rx="8" fill="#f8efe4" stroke="#b06a1a"/>
+      <text class="box-title" x="87" y="146" text-anchor="middle">rebuild_meshes</text>
+      <text class="box-sub" x="87" y="166" text-anchor="middle">上传 VB/IB</text>
+      <path class="pulse" d="M162 153 L198 153" fill="none" stroke="#b06a1a" stroke-width="2"/>
+      <rect x="198" y="118" width="160" height="70" rx="8" fill="#e7f3ee" stroke="#2f7d62"/>
+      <text class="box-title" x="278" y="146" text-anchor="middle">mesh octree</text>
+      <text class="box-sub" x="278" y="166" text-anchor="middle">GpuMesh AABB</text>
+      <path class="pulse" d="M358 55 L400 55 L400 105 L440 105" fill="none" stroke="#2563a8" stroke-width="2"/>
+      <path class="pulse" d="M358 153 L400 153 L400 125 L440 125" fill="none" stroke="#b06a1a" stroke-width="2"/>
+      <rect x="440" y="70" width="170" height="90" rx="8" fill="#e8f1fa" stroke="#2563a8"/>
+      <text class="box-title" x="525" y="98" text-anchor="middle">prep_cull_meshes</text>
+      <text class="box-sub" x="525" y="118" text-anchor="middle">半径候选</text>
+      <text class="box-sub" x="525" y="136" text-anchor="middle">平面精确测试</text>
+      <path class="pulse" d="M610 115 L650 115" fill="none" stroke="#2563a8" stroke-width="2"/>
+      <rect x="650" y="70" width="150" height="90" rx="8" fill="#f8efe4" stroke="#b06a1a"/>
+      <text class="box-title" x="725" y="98" text-anchor="middle">visible[]</text>
+      <text class="box-sub" x="725" y="118" text-anchor="middle">场景外 = 0</text>
+      <text class="box-sub" x="725" y="136" text-anchor="middle">无 Device</text>
+      <path class="pulse" d="M800 115 L840 115" fill="none" stroke="#b06a1a" stroke-width="2"/>
+      <rect x="840" y="70" width="180" height="90" rx="8" fill="#f8efe4" stroke="#b06a1a"/>
+      <text class="box-title" x="930" y="98" text-anchor="middle">record_kind</text>
+      <text class="box-sub" x="930" y="118" text-anchor="middle">串行 1 CL</text>
+      <text class="box-sub" x="930" y="136" text-anchor="middle">只画可见 mesh</text>
+    </svg>
+    <div class="controls">
+      <button type="button" class="primary" id="play">播放</button>
+      <span class="legend">绿 = CPU 索引 / 剔除；琥珀 = GPU 上传与录制。工人不碰 CommandList。</span>
+    </div>
+    <p class="note" style="margin-top:8px;">半径查询是保守的（视锥 AABB 半对角 + 最大 mesh 半对角）。漏检由精确平面测试兜底过滤假阳性；视锥 AABB 求逆失败时回退线性扫描。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. 边界</h2>
+    <table class="map">
+      <thead>
+        <tr><th>做</th><th>不做</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>产品 <code>vista/scene/index</code> 适配器；leftover <code>SmtSceneOctTree</code> 不进本 DLL</td>
+          <td>不把 <code>Octree.hpp</code> 放进公开头；不做 GPU BVH / occupancy</td>
+        </tr>
+        <tr>
+          <td>默认视锥仍关（DEM AABB 历史问题）；opt-in 与 prep 并行诚实门不变</td>
+          <td>不替换 <code>World::query_aabb</code> 的线性实现（仍可后接）</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+(function () {
+  var paths = document.querySelectorAll("#octflow .pulse");
+  var on = true;
+  document.getElementById("play").addEventListener("click", function () {
+    on = !on;
+    paths.forEach(function (p) { p.style.animationPlayState = on ? "running" : "paused"; });
+  });
+})();
+</script>
+</body>
+</html>

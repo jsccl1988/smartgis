@@ -7,8 +7,8 @@
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_phase_profile.h"
 #include "content/browser/present/map2d/software/map2d_frame_gdi.h"
-#include "gis/carto/tile/tile_provider.h"
-#include "vista/frame/frame.h"
+#include "gis/tile/provider/tile_provider.h"
+#include "vista/map/frame.h"
 #include "net/http/http.h"
 #include "render/rhi/rhi.h"
 
@@ -23,6 +23,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include "base/process/switches.h"
 
 namespace {
 
@@ -135,8 +136,8 @@ int run_map2d_presenter_tests() {
       }
       const std::string bmp = std::string(tmp) + "map2d_p2_china_export.bmp";
       DeleteFileA(bmp.c_str());
-      _putenv_s("SMT_MAP2D_NO_HILLSHADE", "1");
-      _putenv_s("SMT_MAP2D_EXPORT_REUSE", "0");
+      base::set_switch("map2d-no-hillshade", "1");
+      base::set_switch("map2d-export-reuse", "0");
       content::reset_map2d_phase_sample();
       const bool ok = presenter.export_bmp(bmp, 1280, 720);
       const content::Map2dPhaseSample ph = content::map2d_last_phase_sample();
@@ -348,15 +349,15 @@ int run_map2d_presenter_tests() {
   }
 
   {
-    _putenv_s("SMT_MAP2D_ENGINE", "");
+    base::set_switch("map2d-engine", "");
     content::Map2dPresenter off;
     expect(!off.hosts_scenic_present(), "default map2d not scenic");
-    _putenv_s("SMT_MAP2D_ENGINE", "scenic");
+    base::set_switch("map2d-engine", "scenic");
     content::Map2dPresenter on;
     expect(content::prefer_map2d_scenic(), "env scenic map2d");
     expect(on.hosts_scenic_present(),
            "map2d env scenic hosts scenic.dll");
-    _putenv_s("SMT_MAP2D_ENGINE", "");
+    base::set_switch("map2d-engine", "");
   }
 
   if (g_fails) {

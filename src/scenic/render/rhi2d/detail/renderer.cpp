@@ -3,60 +3,18 @@
 
 #include "scenic/render/rhi2d/public/device/renderer.h"
 
-#include <cstring>
-
-#include "base/core/log.h"
+#include "scenic/render/backend_dll.h"
 
 namespace scenic {
 namespace detail {
 namespace {
 
-struct DeviceDllSpec {
-  const char* api;
-  const char* dll_stem;
-  const char* create_export;
-};
-
-constexpr DeviceDllSpec k_specs[] = {
+constexpr BackendDllSpec k_specs[] = {
     {"GdiRenderDevice", "scenic_rhi2d_gdi", "CreateRenderDevice"},
     {"GdiSimpleRenderDevice", "scenic_rhi2d_gdi", "CreateRenderDevice"},
     {"GdiPlusRenderDevice", "scenic_rhi2d_gdiplus", "CreateRenderDevice"},
     {"SkiaRenderDevice", "scenic_rhi2d_skia", "CreateRenderDevice"},
 };
-
-const DeviceDllSpec* find_spec(const char* api) {
-  if (!api) {
-    return nullptr;
-  }
-  for (const DeviceDllSpec& s : k_specs) {
-    if (std::strcmp(api, s.api) == 0) {
-      return &s;
-    }
-  }
-  return nullptr;
-}
-
-HMODULE load_backend_dll(const char* stem) {
-  char name[64];
-#ifdef _DEBUG
-  _snprintf(name, sizeof(name), "%s_d.dll", stem);
-#else
-  _snprintf(name, sizeof(name), "%s.dll", stem);
-#endif
-  HMODULE dll = ::LoadLibraryA(name);
-  if (!dll) {
-    LOGGING(LOG_ERROR, "Loading %s failed (GetLastError=%lu).", name,
-            static_cast<unsigned long>(::GetLastError()));
-  }
-  return dll;
-}
-
-void unload_backend_dll(HMODULE* dll) {
-  if (dll && *dll) {
-    ::FreeLibrary(*dll);
-    *dll = nullptr;
-  }
-}
 
 }  // namespace
 
@@ -66,18 +24,17 @@ Renderer2d::Renderer2d(HINSTANCE hInst)
 Renderer2d::~Renderer2d(void) { Release(); }
 
 int Renderer2d::CreateDevice(const char* chAPI) {
-  const DeviceDllSpec* spec = find_spec(chAPI);
+  const BackendDllSpec* spec = find_backend_spec(k_specs, chAPI);
   if (!spec) {
     LOGGING(LOG_ERROR, "API '%s' not yet supported.", chAPI ? chAPI : "");
-    return SMT_FALSE;
+    return S_FALSE;
   }
 
-  // Replace any prior backend before loading a new one.
   Release();
 
   m_hDLL = load_backend_dll(spec->dll_stem);
   if (!m_hDLL) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   using CreateFn = HRESULT (*)(HINSTANCE, LPRENDERDEVICE&);
@@ -87,7 +44,7 @@ int Renderer2d::CreateDevice(const char* chAPI) {
     LOGGING(LOG_ERROR, "%s export missing from backend DLL.",
             spec->create_export);
     unload_backend_dll(&m_hDLL);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   HRESULT hr = create_fn(m_hDLL, m_pDevice);
@@ -96,10 +53,10 @@ int Renderer2d::CreateDevice(const char* chAPI) {
             spec->create_export, static_cast<unsigned long>(hr));
     m_pDevice = nullptr;
     unload_backend_dll(&m_hDLL);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 void Renderer2d::Release(void) {
@@ -114,8 +71,6 @@ void Renderer2d::Release(void) {
                 static_cast<unsigned long>(hr));
       }
     }
-    // DestroyRenderDevice nulls its arg; clear local alias to prevent
-    // double-free if Release runs again from the destructor.
     m_pDevice = nullptr;
     unload_backend_dll(&m_hDLL);
     return;

@@ -18,6 +18,7 @@
 #include <windowsx.h>
 
 #include "base/core/log.h"
+#include "base/process/switches.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/raster/paint_stats.h"
@@ -138,22 +139,22 @@ bool MapViewport::attach() {
     // Scenic MemFrame present must never create a FlyCube HWND — residual
     // display_run_present SEH 0xC0000005 was observed when scenic still
     // attached DX12 present on the shell map panes.
-    if (const char* map_eng = std::getenv("SMT_MAP2D_ENGINE")) {
+    if (const char* map_eng = base::switch_cstr("map2d-engine")) {
       if (map_eng[0] && _stricmp(map_eng, "scenic") == 0) {
         return false;
       }
     }
-    if (const char* scene_eng = std::getenv("SMT_SCENE3D_ENGINE")) {
+    if (const char* scene_eng = base::switch_cstr("scene3d-engine")) {
       if (scene_eng[0] && _stricmp(scene_eng, "scenic") == 0) {
         return false;
       }
     }
-    if (const char* env = std::getenv("SMT_FORCE_CONTENT_MAPVIEW_2D")) {
+    if (const char* env = base::switch_cstr("force-content-mapview-2d")) {
       if (env[0] == '1' && env[1] == '\0') {
         return false;
       }
     }
-    if (const char* prefer = std::getenv("SMT_PREFER_FLYCUBE_2D")) {
+    if (const char* prefer = base::switch_cstr("prefer-flycube-2d")) {
       if (prefer[0] == '0' && prefer[1] == '\0') {
         return false;
       }

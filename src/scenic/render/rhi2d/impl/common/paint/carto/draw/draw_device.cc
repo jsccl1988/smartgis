@@ -11,7 +11,7 @@
 #include <cstring>
 #include <vector>
 
-#include "scenic/detail/style_api.h"
+#include "scenic/render/rhi2d/impl/common/paint/carto/style/style_api.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/frame/carto_frame.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/encode/encoder_tls.h"
 #include "scenic/render/rhi2d/impl/common/paint/backend/paint_backend.h"
@@ -33,7 +33,7 @@ int GdiDeviceDraw::draw_device_polyline(const POINT* pts, int n) {
     std::abort();
   }
   if (!pts || n < 2 || !c_->rc_ || (!c_->h_cur_dc_ && !c_->is_recording())) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   const bool recording = c_->is_recording();
@@ -107,14 +107,14 @@ int GdiDeviceDraw::draw_device_polyline(const POINT* pts, int n) {
     }
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiDeviceDraw::draw_device_polylines(const POINT* pts,
                                           const int* poly_counts, int n_polys) {
   if (!pts || !poly_counts || n_polys < 1 || !c_->rc_ ||
       (!c_->h_cur_dc_ && !c_->is_recording())) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   // River line labels still need the per-polyline path.
   if (c_->is_river_ && c_->sz_anno_[0]) {
@@ -126,7 +126,7 @@ int GdiDeviceDraw::draw_device_polylines(const POINT* pts,
       }
       offset += static_cast<size_t>((std::max)(0, n));
     }
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   // Roads: one casing PolyPolyline + one fill PolyPolyline.
   if (c_->road_class_ > 0) {
@@ -138,16 +138,16 @@ int GdiDeviceDraw::draw_device_polylines(const POINT* pts,
       if (fill_w <= 1) {
         active_encoder()->set_pen(fill_c, 1);
         if (!active_encoder()->poly_polyline(pts, poly_counts, n_polys)) {
-          return SMT_ERR_FAILURE;
+          return kErrFailure;
         }
       } else {
         active_encoder()->set_pen(case_c, case_w);
         if (!active_encoder()->poly_polyline(pts, poly_counts, n_polys)) {
-          return SMT_ERR_FAILURE;
+          return kErrFailure;
         }
         active_encoder()->set_pen(fill_c, fill_w);
         if (!active_encoder()->poly_polyline(pts, poly_counts, n_polys)) {
-          return SMT_ERR_FAILURE;
+          return kErrFailure;
         }
       }
     } else {
@@ -157,28 +157,28 @@ int GdiDeviceDraw::draw_device_polylines(const POINT* pts,
           ->road_poly_polyline(pts, poly_counts, n_polys, case_c, case_w,
                                fill_c, fill_w);
     }
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   if (c_->is_recording()) {
     if (!active_encoder()->poly_polyline(pts, poly_counts, n_polys)) {
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
   } else {
     detail::ScopedPaintBackend(c_->h_cur_dc_)->poly_polyline(pts, poly_counts, n_polys);
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiDeviceDraw::draw_device_polygon(const POINT* pts,
                                         const int* ring_counts, int n_rings) {
   if (!pts || !ring_counts || n_rings < 1 ||
       (!c_->h_cur_dc_ && !c_->is_recording())) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   if (c_->is_recording()) {
     active_encoder()->poly_polygon(pts, ring_counts, n_rings);
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   if (c_->rd_options_ && c_->rd_options_->bShowPoint) {
@@ -197,15 +197,15 @@ int GdiDeviceDraw::draw_device_polygon(const POINT* pts,
 
   ::PolyPolygon(c_->h_cur_dc_, const_cast<POINT*>(pts),
                 const_cast<int*>(ring_counts), n_rings);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiDeviceDraw::draw_device_point(int x, int y) {
   if (!c_->rc_ || !c_->carto2d_ || (!c_->h_cur_dc_ && !c_->is_recording())) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   if (!c_->carto2d_->try_keep_point(x, y)) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   const int radius = carto2d_point_radius(c_->rc_->fblc);
   if (c_->is_recording()) {
@@ -213,13 +213,13 @@ int GdiDeviceDraw::draw_device_point(int x, int y) {
   } else {
     detail::ScopedPaintBackend(c_->h_cur_dc_)->draw_point_disc( x, y, radius);
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiDeviceDraw::draw_device_anno(int x, int y, const char* text) {
   if (!c_->rc_ || !c_->carto2d_ || !text || !text[0] ||
       (!c_->h_cur_dc_ && !c_->is_recording())) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   // Match draw_anno offset using carto px height (style fHeight*fblc ~= same).
   const int px_h = carto2d_label_px(c_->label_priority_, c_->rc_->fblc);
@@ -229,7 +229,7 @@ int GdiDeviceDraw::draw_device_anno(int x, int y, const char* text) {
   const MapCartoBox box = carto2d_label_box(
       static_cast<int>(dx), static_cast<int>(dy), text, px_h, c_->label_priority_);
   if (!c_->carto2d_->try_keep_label(box)) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   const int text_n = static_cast<int>(std::strlen(text));
   if (c_->is_recording()) {
@@ -239,7 +239,7 @@ int GdiDeviceDraw::draw_device_anno(int x, int y, const char* text) {
     detail::ScopedPaintBackend(c_->h_cur_dc_)->draw_anno_text( dx, dy, text, px_h,
                    carto2d_halo_px(c_->label_priority_), c_->anno_angle_);
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 

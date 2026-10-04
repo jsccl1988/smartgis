@@ -10,8 +10,6 @@
 #define _CRT_DECLARE_NONSTDC_NAMES 0
 #endif
 
-#include "legacy/core/macros/macros.h"
-
 #include <map>
 #include <span>
 #include <string>
@@ -19,6 +17,10 @@
 #include <vector>
 
 namespace stat {
+
+inline constexpr long kOk = 0;
+inline constexpr long kInvalidParam = 1;
+inline constexpr long kEvalFail = 2;
 
 // Named GIS attribute / statistic columns used as expression operands.
 class GIS_EXPORT ValueSet {

@@ -43,9 +43,7 @@ namespace datasource {
 // Routes open() to local vs remote SDBD adapters.
 enum class ProviderKind { kLocalSdbd, kRemoteSdbd };
 
-// Product connection description (OGR/session-shaped). Leftover
-// DataSourceInfo conversion lives in
-// legacy/gis/datasource/connection_spec_info.h.
+// Product connection description (OGR/session-shaped).
 struct GIS_EXPORT ConnectionSpec {
   ProviderKind kind = ProviderKind::kLocalSdbd;
   std::string name;

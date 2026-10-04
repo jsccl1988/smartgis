@@ -3,58 +3,16 @@
 
 #include "scenic/render/rhi3d/public/device/renderer.h"
 
-#include <cstring>
-
-#include "base/core/log.h"
+#include "scenic/render/backend_dll.h"
 
 namespace scenic {
 namespace detail {
 namespace {
 
-struct DeviceDllSpec {
-  const char* api;
-  const char* dll_stem;
-  const char* create_export;
-};
-
-constexpr DeviceDllSpec k_specs[] = {
+constexpr BackendDllSpec k_specs[] = {
     {"OpenGL", "scenic_render_gl", "Create3DRenderDevice"},
     {"Direct3D", "scenic_render_d3d", "CreateD3DRenderDevice"},
 };
-
-const DeviceDllSpec* find_spec(const char* api) {
-  if (!api) {
-    return nullptr;
-  }
-  for (const DeviceDllSpec& s : k_specs) {
-    if (std::strcmp(api, s.api) == 0) {
-      return &s;
-    }
-  }
-  return nullptr;
-}
-
-HMODULE load_backend_dll(const char* stem) {
-  char name[64];
-#ifdef _DEBUG
-  _snprintf(name, sizeof(name), "%s_d.dll", stem);
-#else
-  _snprintf(name, sizeof(name), "%s.dll", stem);
-#endif
-  HMODULE dll = ::LoadLibraryA(name);
-  if (!dll) {
-    LOGGING(LOG_ERROR, "Loading %s failed (GetLastError=%lu).", name,
-            static_cast<unsigned long>(::GetLastError()));
-  }
-  return dll;
-}
-
-void unload_backend_dll(HMODULE* dll) {
-  if (dll && *dll) {
-    ::FreeLibrary(*dll);
-    *dll = nullptr;
-  }
-}
 
 }  // namespace
 
@@ -64,18 +22,17 @@ Renderer3d::Renderer3d(HINSTANCE hInst)
 Renderer3d::~Renderer3d(void) { Release(); }
 
 long Renderer3d::CreateDevice(const char* chAPI) {
-  const DeviceDllSpec* spec = find_spec(chAPI);
+  const BackendDllSpec* spec = find_backend_spec(k_specs, chAPI);
   if (!spec) {
     LOGGING(LOG_ERROR, "API '%s' not yet supported.", chAPI ? chAPI : "");
-    return SMT_FALSE;
+    return S_FALSE;
   }
 
-  // Replace any prior backend before loading a new one.
   Release();
 
   m_hDLL = load_backend_dll(spec->dll_stem);
   if (!m_hDLL) {
-    return SMT_FALSE;
+    return S_FALSE;
   }
 
   using CreateFn = HRESULT (*)(HINSTANCE, RenderDevice3d*&);
@@ -85,7 +42,7 @@ long Renderer3d::CreateDevice(const char* chAPI) {
     LOGGING(LOG_ERROR, "%s export missing from backend DLL.",
             spec->create_export);
     unload_backend_dll(&m_hDLL);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   HRESULT hr = create_fn(m_hDLL, m_pDevice);
@@ -94,10 +51,10 @@ long Renderer3d::CreateDevice(const char* chAPI) {
             spec->create_export, static_cast<unsigned long>(hr));
     m_pDevice = nullptr;
     unload_backend_dll(&m_hDLL);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 void Renderer3d::Release(void) {

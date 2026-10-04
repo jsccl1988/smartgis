@@ -5,9 +5,6 @@
 # Role subdirs: registry / manifest / store / signature / processing /
 # resources / ui / tests. Export macro stays at host root.
 # Product *_views stay source_sets (Phase-2 per-stem DLLs later).
-# Leftover *.am LoadLibrary stays via //src/legacy/plugin/runtime:bridge.
-# Shell / *.am plugs take //src/legacy/plugin/runtime:cmd (header-only AM_MSG).
-# Do not use PLUGIN_EXPORT — that is legacy AuxModule (dll_stem = plugin).
 
 import("//build/smartgis.gni")
 import("//testing/test.gni")
@@ -44,7 +41,6 @@ source_set("host_sources") {
   public_configs = [ ":plugin_host_config" ]
   defines = [ "PLUGIN_HOST_EXPORTS" ]
   deps = [
-    "//src/legacy/plugin/runtime:bridge",
     "//src/base:foundation",
     "//src/base:core",
     "//src/content:content",
@@ -79,10 +75,6 @@ test("plugin_host_test") {
   include_dirs += [ "//src" ]
   deps = [
     ":host",
-    # am_id_from_* / command_id_from_gt_msg live in bridge+adapter objs inside
-    # plugin_host.dll but are not PLUGIN_HOST_EXPORT. Link the source_sets so
-    # the test exe resolves them (import lib has no undecorated copies).
-    "//src/legacy/plugin/runtime:bridge",
     "//src/plugin/product/world3d:world3d_views",
     "//src/plugin/product/print:print_views",
     "//third_party:cpp_httplib",

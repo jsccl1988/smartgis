@@ -179,7 +179,7 @@ src/legacy/render/
 
 ## 11. SP3 — Host 行为 + `legacy/app` 布局
 
-**Goal:** HWND-free 宿主单元进 `content`（Attribute / Catalog 已落地）；续作 bootstrap / draft-commit / 薄 MFC view。`legacy/app` scheme C：`bootstrap` / flat `shell/` / `views/{document,helper,…}`；破 include；`dll_stem=app_core` / `SmartGis.exe` / opt-in `legacy_app` 冻结。（2026-10-03：顶层收紧 + 命名修正。）
+**Goal:** HWND-free 宿主单元进 `content`（Attribute / Catalog 已落地）；续作 bootstrap / draft-commit / 薄 MFC view。`legacy/app` scheme C：`bootstrap` / flat `shell/` / `views/{document,helper,…}`；破 include；`dll_stem=app_core` / `SmartGIS-Legacy.exe` / opt-in `legacy_app` 冻结。（2026-10-03：顶层收紧 + 命名修正。）
 
 **Locked:** Facade strangler；控件只传 string/token；chrome 不持 `SmtFeature*`；不另立第二套 SP3。
 
@@ -209,13 +209,13 @@ res/{shell,catalog,dialogs,ambox,widgets,chart}/
 
 ### 11c. leftover `grid/` + `dock/` → MFC Feature Pack（2026-09-29）
 
-**Goal:** Stop maintaining in-tree Chris Maunder `CGridCtrl` (`legacy/ui/grid/`) and `StackedWndDockBar` / `TabbedWndDockBar` (`legacy/ui/dock/`) on leftover `SmartGis.exe`. Use MSVC **MFC Feature Pack** only; three UX waves. **Views / `SmartGisViews` out of scope.**
+**Goal:** Stop maintaining in-tree Chris Maunder `CGridCtrl` (`legacy/ui/grid/`) and `StackedWndDockBar` / `TabbedWndDockBar` (`legacy/ui/dock/`) on leftover `SmartGIS-Legacy.exe`. Use MSVC **MFC Feature Pack** only; three UX waves. **Views / `SmartGisViews` out of scope.**
 
 **Locked:**
 
 | Lock | Choice |
 | --- | --- |
-| Product path | leftover `legacy_app` / `SmartGis.exe` only |
+| Product path | leftover `legacy_app` / `SmartGIS-Legacy.exe` only |
 | Toolkit | Feature Pack via `widgets/feature_pack/feature_pack.h` — **not** BCG Pro, not Qt |
 | Endgame | Views + Skia; Feature Pack remains leftover bridge |
 | Depth | Delete capability dirs `grid/` and `dock/` after call sites move; flatten to Feature Pack types |

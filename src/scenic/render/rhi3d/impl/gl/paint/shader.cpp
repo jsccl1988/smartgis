@@ -1,37 +1,35 @@
-#include "base/core/log.h"
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #include "scenic/render/rhi3d/impl/gl/host/render_device.h"
+
+#include <memory>
+
+#include "base/core/log.h"
 #include "scenic/render/rhi3d/public/shader/program_manager.h"
 #include "scenic/render/rhi3d/public/shader/shader_manager.h"
-
-using namespace base;
 
 namespace scenic {
 namespace detail {
 // vertex shader
 Shader *GlRenderDevice::CreateVertexShader(const char *szName) {
   GLhandleARB newHandle = m_pFuncShaders->glCreateShader(GL_VERTEX_SHADER_ARB);
-  Shader *pNewShader = new Shader(this, newHandle, szName);
-
-  if (SMT_ERR_NONE == m_shaderMgr.AddShader(pNewShader))
-    return pNewShader;
-  else {
-    SMT_SAFE_DELETE(pNewShader);
-    return nullptr;
+  auto shader = std::make_unique<Shader>(this, newHandle, szName);
+  if (kErrNone == m_shaderMgr.AddShader(shader.get())) {
+    return shader.release();
   }
+  return nullptr;
 }
 
 // pixel shader
 Shader *GlRenderDevice::CreatePixelShader(const char *szName) {
   GLhandleARB newHandle =
       m_pFuncShaders->glCreateShader(GL_FRAGMENT_SHADER_ARB);
-  Shader *pNewShader = new Shader(this, newHandle, szName);
-
-  if (SMT_ERR_NONE == m_shaderMgr.AddShader(pNewShader))
-    return pNewShader;
-  else {
-    SMT_SAFE_DELETE(pNewShader);
-    return nullptr;
+  auto shader = std::make_unique<Shader>(this, newHandle, szName);
+  if (kErrNone == m_shaderMgr.AddShader(shader.get())) {
+    return shader.release();
   }
+  return nullptr;
 }
 
 Shader *GlRenderDevice::GetShader(const char *szName) {
@@ -41,14 +39,11 @@ Shader *GlRenderDevice::GetShader(const char *szName) {
 // program
 Program *GlRenderDevice::CreateProgram(const char *szName) {
   GLhandleARB newHandle = m_pFuncShaders->glCreateProgram();
-  Program *pNewProgram = new Program(this, newHandle, szName);
-
-  if (SMT_ERR_NONE == m_progamMgr.AddProgram(pNewProgram))
-    return pNewProgram;
-  else {
-    SMT_SAFE_DELETE(pNewProgram);
-    return nullptr;
+  auto program = std::make_unique<Program>(this, newHandle, szName);
+  if (kErrNone == m_progamMgr.AddProgram(program.get())) {
+    return program.release();
   }
+  return nullptr;
 }
 
 Program *GlRenderDevice::GetProgram(const char *szName) {
@@ -59,14 +54,14 @@ long GlRenderDevice::LoadShaderSource(Shader *shader, char *source) {
   GLhandleARB handle = shader->GetHandle();
   m_pFuncShaders->glShaderSource(handle, 1, (const GLchar **)&source, nullptr);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::CompileShader(Shader *shader) {
   GLhandleARB handle = shader->GetHandle();
   m_pFuncShaders->glCompileShader(handle);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::IsShaderCompiled(Shader *shader) {
@@ -76,10 +71,10 @@ long GlRenderDevice::IsShaderCompiled(Shader *shader) {
   m_pFuncShaders->glGetObjectParameteriv(handle, GL_OBJECT_COMPILE_STATUS_ARB,
                                          &compileStatus);
   if (compileStatus == 0) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 char *GlRenderDevice::GetShaderLog(Shader *shader) {
@@ -104,7 +99,7 @@ char *GlRenderDevice::GetShaderLog(Shader *shader) {
 
 long GlRenderDevice::DestroyShader(const char *szName) {
   Shader *shader = m_shaderMgr.GetShader(szName);
-  if (nullptr == shader) return SMT_ERR_FAILURE;
+  if (nullptr == shader) return kErrFailure;
 
   GLhandleARB handle = shader->GetHandle();
   if (handle != 0) {
@@ -113,61 +108,61 @@ long GlRenderDevice::DestroyShader(const char *szName) {
 
   m_shaderMgr.DestroyShader(shader->GetShaderName());
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::BindProgram(Program *program) {
-  if (nullptr == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return kErrFailure;
 
   m_pFuncShaders->glUseProgram(program->GetHandle());
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::UnbindProgram() {
   m_pFuncShaders->glUseProgram(0);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetProgramVertexShader(Program *program,
                                                Shader *shader) {
-  if (nullptr == program || nullptr == shader) return SMT_ERR_FAILURE;
+  if (nullptr == program || nullptr == shader) return kErrFailure;
 
   m_pFuncShaders->glAttachShader(program->GetHandle(), shader->GetHandle());
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetProgramPixelShader(Program *program,
                                               Shader *shader) {
-  if (nullptr == program || nullptr == shader) return SMT_ERR_FAILURE;
+  if (nullptr == program || nullptr == shader) return kErrFailure;
 
   m_pFuncShaders->glAttachShader(program->GetHandle(), shader->GetHandle());
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::LinkProgram(Program *program) {
-  if (nullptr == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return kErrFailure;
 
   m_pFuncShaders->glLinkProgram(program->GetHandle());
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::IsProgramLinked(Program *program) {
-  if (nullptr == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return kErrFailure;
 
   int linkStatus = 0;
 
   m_pFuncShaders->glGetObjectParameteriv(
       program->GetHandle(), GL_OBJECT_LINK_STATUS_ARB, &linkStatus);
   if (linkStatus == 0) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 char *GlRenderDevice::GetProgramLinkLog(Program *program) {
@@ -192,7 +187,7 @@ char *GlRenderDevice::GetProgramLinkLog(Program *program) {
 long GlRenderDevice::DestroyProgram(const char *szName) {
   Program *program = m_progamMgr.GetProgram(szName);
 
-  if (nullptr == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return kErrFailure;
 
   GLhandleARB handle = program->GetHandle();
 
@@ -202,104 +197,104 @@ long GlRenderDevice::DestroyProgram(const char *szName) {
 
   m_progamMgr.DestroyProgram(program->GetProgramName());
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetProgramVector(Program *program, string &param,
                                          const Vector4 &value) {
-  if (nullptr == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return kErrFailure;
 
   GLhandleARB handle = program->GetHandle();
 
   int loc = m_pFuncShaders->glGetUniformLocation(handle, param.c_str());
-  if (loc < 0) return SMT_ERR_FAILURE;
+  if (loc < 0) return kErrFailure;
 
   m_pFuncShaders->glUniform4fv(loc, 1, (const GLfloat *)&value);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetProgramVector(Program *program, string &param,
                                          const Vector3 &value) {
-  if (nullptr == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return kErrFailure;
 
   GLhandleARB handle = program->GetHandle();
 
   int loc = m_pFuncShaders->glGetUniformLocation(handle, param.c_str());
-  if (loc < 0) return SMT_ERR_FAILURE;
+  if (loc < 0) return kErrFailure;
 
   m_pFuncShaders->glUniform3fv(loc, 1, (const GLfloat *)&value);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetProgramVector(Program *program, string &param,
                                          const Vector2 &value) {
-  if (nullptr == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return kErrFailure;
 
   GLhandleARB handle = program->GetHandle();
 
   int loc = m_pFuncShaders->glGetUniformLocation(handle, param.c_str());
-  if (loc < 0) return SMT_ERR_FAILURE;
+  if (loc < 0) return kErrFailure;
 
   m_pFuncShaders->glUniform2fv(loc, 1, (const GLfloat *)&value);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetProgramFloat(Program *program, string &param,
                                         float value) {
-  if (nullptr == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return kErrFailure;
 
   GLhandleARB handle = program->GetHandle();
 
   int loc = m_pFuncShaders->glGetUniformLocation(handle, param.c_str());
-  if (loc < 0) return SMT_ERR_FAILURE;
+  if (loc < 0) return kErrFailure;
 
   m_pFuncShaders->glUniform1fv(loc, 1, (const GLfloat *)&value);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetProgramInt(Program *program, string &param,
                                       int value) {
-  if (nullptr == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return kErrFailure;
 
   GLhandleARB handle = program->GetHandle();
 
   int loc = m_pFuncShaders->glGetUniformLocation(handle, param.c_str());
-  if (loc < 0) return SMT_ERR_FAILURE;
+  if (loc < 0) return kErrFailure;
 
   m_pFuncShaders->glUniform1i(loc, value);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::GetProgramFloat(Program *program, string &param,
                                         float *value) {
-  if (nullptr == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return kErrFailure;
 
   GLhandleARB handle = program->GetHandle();
 
   int loc = m_pFuncShaders->glGetUniformLocation(handle, param.c_str());
-  if (loc < 0) return SMT_ERR_FAILURE;
+  if (loc < 0) return kErrFailure;
 
   m_pFuncShaders->glGetUniformfv(handle, loc, value);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetProgramTexture(Program *program, string &param,
                                           int texture) {
-  if (nullptr == program) return SMT_ERR_FAILURE;
+  if (nullptr == program) return kErrFailure;
 
   GLhandleARB handle = program->GetHandle();
 
   int loc = m_pFuncShaders->glGetUniformLocation(handle, param.c_str());
-  if (loc < 0) return SMT_ERR_FAILURE;
+  if (loc < 0) return kErrFailure;
 
   m_pFuncShaders->glUniform1i(loc, texture);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 }  // namespace detail
 }  // namespace scenic

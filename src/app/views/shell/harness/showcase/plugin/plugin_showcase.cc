@@ -16,6 +16,7 @@
 #include "app/views/shell/harness/showcase/plugin/product/stormsurge.h"
 #include "app/views/shell/harness/showcase/plugin/product/world3d.h"
 #include "app/views/shell/runtime/capability/run_script.h"
+#include "base/process/switches.h"
 
 namespace app {
 
@@ -53,7 +54,7 @@ int run_plugin_showcase(Browser& browser, PluginShowcaseMode mode) {
       mode == PluginShowcaseMode::kOrthogrid ||
       mode == PluginShowcaseMode::kOrthogrid3d ||
       mode == PluginShowcaseMode::kPrint) {
-    _putenv_s("SMT_FORCE_GDI_MAP_OVERLAY", "1");
+    base::set_switch("force-gdi-map-overlay", "1");
     return plugin_showcase_body(browser, mode);
   }
 
@@ -84,7 +85,7 @@ int run_plugin_showcase(Browser& browser, PluginShowcaseMode mode) {
     case PluginShowcaseMode::kNone:
       break;
   }
-  _putenv_s("SMT_FORCE_GDI_MAP_OVERLAY", "1");
+  base::set_switch("force-gdi-map-overlay", "1");
   if (suite &&
       try_run_suite_script(browser, suite, detail::kPluginShowcaseMarkLeaf,
                            /*clear_marks=*/true)) {

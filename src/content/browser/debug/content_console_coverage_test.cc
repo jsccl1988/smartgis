@@ -22,6 +22,7 @@
 
 #include "base/core/log.h"
 #include "base/log/log_sink.h"
+#include "base/process/switches.h"
 #include "tool/draft/draft.h"
 
 #pragma comment(lib, "ws2_32.lib")
@@ -410,13 +411,13 @@ void expect_socket(content::DebugAgent* agent) {
 }
 
 void expect_env_flag() {
-  const char* prev = std::getenv("SG_DEBUG");
+  const char* prev = base::switch_cstr("debug");
   const std::string saved = prev ? prev : "";
-  _putenv_s("SG_DEBUG", "1");
+  base::set_switch("debug", "1");
   expect(content::debug_console_env_enabled(), "SG_DEBUG=1");
-  _putenv_s("SG_DEBUG", "0");
+  base::set_switch("debug", "0");
   expect(!content::debug_console_env_enabled(), "SG_DEBUG=0");
-  _putenv_s("SG_DEBUG", saved.c_str());
+  base::set_switch("debug", saved.c_str());
 }
 
 }  // namespace

@@ -308,7 +308,7 @@ long present_to_hwnd(Rhi2dOwnedSurface& src, int dest_org_x, int dest_org_y,
                      int src_w, int src_h, Rhi2dBlitMode mode, int op,
                      COLORREF clr) {
   if (src.bitmap() == nullptr) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   HDC hdc = GetDC(src.wnd());
   HDC src_dc = src.prepare_dc(false);
@@ -327,14 +327,14 @@ long present_to_hwnd(Rhi2dOwnedSurface& src, int dest_org_x, int dest_org_y,
   }
   src.end_dc();
   ::ReleaseDC(src.wnd(), hdc);
-  return ok ? SMT_ERR_NONE : SMT_ERR_FAILURE;
+  return ok ? kErrNone : kErrFailure;
 }
 
 long blit_owned_to(Rhi2dOwnedSurface& src, Rhi2dOwnedSurface& target,
                    int dest_org_x, int dest_org_y, int dest_w, int dest_h,
                    int src_org_x, int src_org_y, int op) {
   if (src.bitmap() == nullptr) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   // Opaque 1:1 copy: GDI BitBlt. Soft compose here only burned CPU and
@@ -346,11 +346,11 @@ long blit_owned_to(Rhi2dOwnedSurface& src, Rhi2dOwnedSurface& target,
   src.end_dc();
   target.end_dc();
   if (!ok) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   target.surface().bump_generation();
   target.surface().mark_dirty(dest_org_x, dest_org_y, dest_w, dest_h);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long blit_owned_to(Rhi2dOwnedSurface& src, Rhi2dOwnedSurface& target,
@@ -358,7 +358,7 @@ long blit_owned_to(Rhi2dOwnedSurface& src, Rhi2dOwnedSurface& target,
                    int src_org_x, int src_org_y, int src_w, int src_h,
                    Rhi2dBlitMode mode, int op, COLORREF clr) {
   if (src.bitmap() == nullptr) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   const bool need_scale = (src_w != dest_w) || (src_h != dest_h);
@@ -370,7 +370,7 @@ long blit_owned_to(Rhi2dOwnedSurface& src, Rhi2dOwnedSurface& target,
       blit_surfaces(src.surface(), target.surface(), dest_org_x, dest_org_y,
                     dest_w, dest_h, src_org_x, src_org_y, src_w, src_h,
                     /*color_key=*/true, clr)) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   HDC target_dc = target.prepare_dc(false);
@@ -389,11 +389,11 @@ long blit_owned_to(Rhi2dOwnedSurface& src, Rhi2dOwnedSurface& target,
   src.end_dc();
   target.end_dc();
   if (!ok) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   target.surface().bump_generation();
   target.surface().mark_dirty(dest_org_x, dest_org_y, dest_w, dest_h);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 }  // namespace detail

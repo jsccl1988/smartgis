@@ -6,10 +6,10 @@
 #include <span>
 #include <vector>
 
-#include "base/math/simd.h"
+#include "base/math/simd/simd.h"
 #include "gis/geo/ops/indexed_tin.h"
-#include "scenic/detail/geom.h"
-#include "scenic/detail/style_api.h"
+#include "base/math/math.h"
+#include "scenic/render/rhi2d/impl/common/paint/carto/style/style_api.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/draw/device_geom.h"
 #include "ogrsf_frmts.h"
 
@@ -40,12 +40,12 @@ int GdiMeshDraw::draw_tin(const OGRTriangulatedSurface* tin) {
     c_->draw_tin_nodes(tin);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiMeshDraw::draw_tin_lines(const OGRTriangulatedSurface* tin) {
   if (!tin) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   POINT lPt1, lPt2, lPt3;
   OGRPoint oPt1, oPt2, oPt3;
@@ -91,12 +91,12 @@ int GdiMeshDraw::draw_tin_lines(const OGRTriangulatedSurface* tin) {
     }
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiMeshDraw::draw_tin_nodes(const OGRTriangulatedSurface* tin) {
   if (!tin) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   POINT lPt;
   OGRPoint oPt1, oPt2, oPt3;
@@ -128,7 +128,7 @@ int GdiMeshDraw::draw_tin_nodes(const OGRTriangulatedSurface* tin) {
     draw_pt(oPt3);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiMeshDraw::draw_grid(const plugin::detail::OrthoLattice* grid) {
@@ -139,12 +139,12 @@ int GdiMeshDraw::draw_grid(const plugin::detail::OrthoLattice* grid) {
     c_->draw_grid_nodes(grid);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiMeshDraw::draw_grid_lines(const plugin::detail::OrthoLattice* grid) {
   if (!grid || grid->is_empty()) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   const int nM = grid->ny;
   const int nN = grid->nx;
@@ -189,12 +189,12 @@ int GdiMeshDraw::draw_grid_lines(const plugin::detail::OrthoLattice* grid) {
     }
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiMeshDraw::draw_grid_nodes(const plugin::detail::OrthoLattice* grid) {
   if (!grid || grid->is_empty()) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   const int nM = grid->ny;
   const int nN = grid->nx;
@@ -223,7 +223,7 @@ int GdiMeshDraw::draw_grid_nodes(const plugin::detail::OrthoLattice* grid) {
     Ellipse(c_->h_cur_dc_, lPt.x - r, lPt.y - r, lPt.x + r, lPt.y + r);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 }  // namespace detail

@@ -18,6 +18,7 @@
 
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
+#include "base/process/switches.h"
 
 namespace plugin {
 namespace {
@@ -73,7 +74,7 @@ ShortestPathDialog::ShortestPathDialog(content::PluginHost* host)
   add_child(std::move(loaded.root));
 
   // Sample import defaults (Import pillar of AnalysisPlayback).
-  const char* sample_dir = std::getenv("SMT_PLUGIN_SAMPLE_DIR");
+  const char* sample_dir = base::switch_cstr("plugin-sample-dir");
   const std::string base =
       sample_dir && *sample_dir ? std::string(sample_dir) : "../data/plugin";
   if (network_path_ && network_path_->text().empty()) {

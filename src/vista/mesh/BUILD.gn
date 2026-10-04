@@ -1,0 +1,58 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# CPU tessellation of GIS geometry into xyz + indices. No RHI, no World.
+# Compiled into //src/vista:vista (dll_stem = vista).
+
+source_set("mesh_sources") {
+  sources = [
+    "fill_tess.cc",
+    "fill_tess.h",
+    "line_tess.cc",
+    "line_tess.h",
+    "mesh_append.cc",
+    "mesh_append.h",
+    "mesh_scratch.cc",
+    "mesh_scratch.h",
+    "mesh_types.h",
+    "tess_trace.cc",
+    "tess_trace.h",
+    "tessellate.cc",
+    "tessellate.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "VISTA_EXPORTS",
+  ]
+  assert_no_deps = [
+    "//src/render:render",
+    "//src/vista/world:world_sources",
+  ]
+  public_deps = [
+    "//src/gis:gis",
+    "//third_party:gdal",
+  ]
+  deps = [ "//src/base:base" ]
+}
+
+group("mesh") {
+  public_deps = [ "//src/vista:vista" ]
+}
+
+test("tessellate_style_test") {
+  output_name = "tessellate_style_test"
+  sources = [ "tessellate_style_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":mesh",
+    "//src/base:base",
+    "//third_party:gdal",
+  ]
+}

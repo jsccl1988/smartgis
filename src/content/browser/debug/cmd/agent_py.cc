@@ -18,12 +18,13 @@
 #include <windows.h>
 
 #include "content/browser/debug/wire/agent_json.h"
+#include "base/process/switches.h"
 
 namespace content {
 namespace detail {
 
 std::string run_python_code_oop(const std::string& code) {
-  const char* py = std::getenv("SG_PYTHON");
+  const char* py = base::switch_cstr("python");
   std::string exe = (py && py[0]) ? py : "python";
   const auto tmp = std::filesystem::temp_directory_path() /
                    ("sg_debug_py_" + std::to_string(GetCurrentProcessId()) +

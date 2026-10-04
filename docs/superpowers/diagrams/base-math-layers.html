@@ -1,0 +1,185 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>base/math — 场景数学分层</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --scalar: #5a6a7e; --linear: #2563a8; --traits: #6b5ea8;
+    --geom: #2f7d62; --xform: #b06a1a; --simd: #3d6f8a;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .lanes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  @media (max-width: 960px) { .lanes { grid-template-columns: 1fr 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    background: var(--panel2); min-height: 168px;
+  }
+  .lane h3 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; }
+  .lane ul { margin: 0; padding-left: 1.05em; font-size: 0.78rem; color: var(--muted); }
+  .lane.scalar { border-top: 3px solid var(--scalar); }
+  .lane.linear { border-top: 3px solid var(--linear); }
+  .lane.traits { border-top: 3px solid var(--traits); }
+  .lane.geom { border-top: 3px solid var(--geom); }
+  .lane.xform { border-top: 3px solid var(--xform); }
+  .lane.simd { border-top: 3px solid var(--simd); }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .stage {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 8px 10px; font-size: 0.8rem; min-width: 100px; max-width: 150px;
+    transition: box-shadow 0.25s ease, background 0.25s ease;
+  }
+  .stage strong { display: block; color: var(--accent); font-size: 0.7rem; }
+  .arrow { color: var(--muted); font-weight: 700; }
+  .stage.active {
+    box-shadow: inset 0 0 0 1px var(--accent);
+    background: #eef5fc;
+  }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+  .map th, .map td {
+    border: 1px solid var(--border); padding: 6px 8px; text-align: left;
+  }
+  .map th { background: #e8edf3; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>base/math — 场景数学分层</h1>
+    <p>POD 场布局不变（<code>.x</code> / <code>_11.._44</code>）；运算走 Eigen Map。公开命名空间两层止于 <code>base</code>；物理子目录不引入第三语义命名空间。不进 <code>base.dll</code>。</p>
+    <p class="meta">Living：<code>2026-09-14-base-root-hybrid-design.md</code> §Math 分层 · GN <code>//src/base/math:math</code></p>
+  </header>
+
+  <section class="panel">
+    <h2>1. 核心分层（谁拥有什么）</h2>
+    <div class="lanes">
+      <div class="lane scalar">
+        <h3 style="color:var(--scalar)">scalar</h3>
+        <ul>
+          <li><code>kPi</code> / <code>kEpsilon</code></li>
+          <li><code>deg_to_rad</code></li>
+          <li>无 Eigen</li>
+        </ul>
+      </div>
+      <div class="lane linear">
+        <h3 style="color:var(--linear)">linear</h3>
+        <ul>
+          <li><code>Vector2/3/4</code></li>
+          <li><code>Matrix</code> / <code>Quat</code></li>
+          <li><code>Point2</code> / <code>LpToDp2</code></li>
+        </ul>
+      </div>
+      <div class="lane traits">
+        <h3 style="color:var(--traits)">traits</h3>
+        <ul>
+          <li><code>vector_traits&lt;V&gt;</code></li>
+          <li><code>vector_like</code></li>
+          <li>GIS 再导出 <code>geo::</code></li>
+        </ul>
+      </div>
+      <div class="lane geom">
+        <h3 style="color:var(--geom)">geom</h3>
+        <ul>
+          <li><code>Aabb</code> / <code>Obb</code></li>
+          <li><code>Plane</code> / <code>Ray</code></li>
+          <li><code>Frustum</code> / cull enum</li>
+        </ul>
+      </div>
+      <div class="lane xform">
+        <h3 style="color:var(--xform)">xform</h3>
+        <ul>
+          <li><code>TransformStack</code></li>
+          <li><code>lerp</code> / <code>slerp</code></li>
+          <li>TRS → Matrix</li>
+        </ul>
+      </div>
+      <div class="lane simd">
+        <h3 style="color:var(--simd)">simd</h3>
+        <ul>
+          <li>batch normalize</li>
+          <li>LP→DP xy batch</li>
+          <li>默认标量；AVX2 可选</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流（依赖方向）</h2>
+    <div class="flow" id="flow">
+      <div class="stage" data-i="0"><strong>1 scalar</strong>常量 / 角单位</div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="1"><strong>2 linear</strong>Eigen Map POD</div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="2"><strong>3 traits</strong>compile-time dim</div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="3"><strong>4 geom</strong>相交 / 视锥</div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="4"><strong>5 xform</strong>栈 / 插值</div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="5"><strong>6 simd</strong>批量入口</div>
+    </div>
+    <p class="meta" style="margin-top:10px">下层禁止 include 上层。OGC 几何仍在 <code>gis/geo</code>；本树只做场景向量与包围体。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. Include / GN</h2>
+    <table class="map">
+      <thead>
+        <tr><th>入口</th><th>用途</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>base/math/math.h</code></td><td>产品聚合头（首选）</td></tr>
+        <tr><td><code>base/math/linear/vector.h</code> 等</td><td>新 TU 分层 include</td></tr>
+        <tr><td>根 <code>vector.h</code> 等</td><td>leftover 切断期别名，禁止新代码</td></tr>
+        <tr><td><code>:linear</code> / <code>:bounds</code> / <code>:math</code></td><td>头 / geom cpp / facade+simd</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+(function () {
+  var stages = document.querySelectorAll('#flow .stage');
+  var i = 0;
+  function tick() {
+    stages.forEach(function (el) { el.classList.remove('active'); });
+    stages[i % stages.length].classList.add('active');
+    i += 1;
+  }
+  tick();
+  setInterval(tick, 900);
+})();
+</script>
+</body>
+</html>

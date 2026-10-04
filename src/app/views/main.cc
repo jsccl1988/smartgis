@@ -15,6 +15,7 @@
 #include "app/views/shell/app/views_content_host.h"
 #include "app/views/shell/app/cmdline/views_launch_options.h"
 #include "base/core/log.h"
+#include "base/process/switches.h"
 #include "base/trace/diag/diagnostic_bootstrap.h"
 #include "base/trace/diag/startup_profile.h"
 #include "base/trace/event/process_trace.h"
@@ -54,14 +55,15 @@ void disable_ime_for_harness() {
 }  // namespace
 
 int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
+  int argc = 0;
+  wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+  base::init_switches_from_argv(argc, argv);
   base::trace::maybe_init_tracing_from_env();
   base::trace::maybe_init_startup_profile_from_env();
   base::trace::start_always_on_diagnostics();
   BASE_TRACE_EVENT("wWinMain", "startup");
   LOGGING(LOG_INFO, "startup: wWinMain begin");
 
-  int argc = 0;
-  wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
   app::ViewsLaunchOptions options;
   {
     BASE_TRACE_EVENT("ParseLaunchOptions", "startup");

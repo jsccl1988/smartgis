@@ -19,7 +19,7 @@
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "ui/views/map/viewport/map_viewport.h"
-#include "vista/world/pointcloud/ingest/load.h"
+#include "vista/assets/pointcloud/load.h"
 
 namespace app {
 namespace detail {
@@ -55,7 +55,7 @@ int run_world3d_scene3d(Browser& browser) {
   plugin_showcase_mark("tab3d");
 
   PluginDeviceSessionOpts opts;
-  opts.gpu_env = "SMT_PLUGIN_WORLD3D_GPU";
+  opts.gpu_env = "plugin-world3d-gpu";
   opts.require_scene_hwnd = true;
   // Do not detach the shell FlyCube display thread here: teardown races the
   // async present SEH path and aborts before owned HWND / pointcloud marks.

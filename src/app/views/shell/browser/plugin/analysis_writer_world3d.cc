@@ -12,9 +12,9 @@
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/public/view_host.h"
-#include "gis/carto/style/style_document.h"
-#include "vista/world/pointcloud/ingest/load.h"
-#include "vista/world/terrain/dem/dem_raster.h"
+#include "gis/style/document/style_document.h"
+#include "vista/assets/pointcloud/load.h"
+#include "vista/terrain/dem/dem_raster.h"
 #include "plugin/product/world3d/commands.h"
 
 #include <algorithm>

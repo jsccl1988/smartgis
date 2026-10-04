@@ -16,7 +16,7 @@ class VboFuncImpl : public VboFunc {
   VboFuncImpl() = default;
   ~VboFuncImpl() override = default;
 
-  long Initialize(LPGLRENDERDEVICE pGLRenderDevice) override {
+  long Initialize(GlRenderDevice* pGLRenderDevice) override {
     _glGenBuffers =
         (PFNGLGENBUFFERSPROC)pGLRenderDevice->GetProcAddress("glGenBuffersARB");
     _glDeleteBuffers = (PFNGLDELETEBUFFERSPROC)pGLRenderDevice->GetProcAddress(
@@ -36,9 +36,9 @@ class VboFuncImpl : public VboFunc {
     if (nullptr == _glGenBuffers || nullptr == _glDeleteBuffers ||
         nullptr == _glBindBuffer || nullptr == _glBufferData || nullptr == _glMapBuffer ||
         nullptr == _glUnmapBuffer || nullptr == _glGetBufferParameteriv) {
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   void glGenBuffers(GLsizei count, GLuint *handle) override {

@@ -8,9 +8,9 @@
 
 #include "plugin/product/world3d/grid/orthogrid/lattice/ortho_lattice.h"
 #include "gis/feature/feature.h"
-#include "scenic/detail/style.h"
-#include "scenic/detail/viewport.h"
-#include "scenic/detail/err.h"
+#include "scenic/render/rhi2d/impl/common/paint/carto/style/style_pod.h"
+#include "scenic/render/rhi2d/public/device/viewport.h"
+#include "scenic/render/err.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/encode/command_encoder.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/frame/carto_frame.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/draw/draw_device.h"

@@ -9,7 +9,7 @@ All rights reserved.
 
 **Goal:** Ship L1 `views_interactive_tests`, perf `views_bench`, C++ harness under `src/ui/views/testing/harness/`, DebugAgent `ui.*` RPC, Python smoke, optional OpenCppCoverage script, and as-built updates — per [`../specs/2026-09-27-views-desktop-shell-design.md`](../specs/2026-09-27-views-desktop-shell-design.md) §UI interactive harness + overlay bench.
 
-**Architecture:** In-process `EventGenerator` + `ViewsTestBase` + `OverlayScene` drive synthetic input and shell-only overlay assertions (Wave1 compositor / `PainterRegistry` / `PaintCommit`; Wave2 `MapViewport` / `AuxOverlay` semantic only). Live `SmartGisViews.exe` runs reuse the same semantics through loopback DebugAgent `ui.*` methods orchestrated by `tools/debug/scripts/ui_smoke.py`.
+**Architecture:** In-process `EventGenerator` + `ViewsTestBase` + `OverlayScene` drive synthetic input and shell-only overlay assertions (Wave1 compositor / `PainterRegistry` / `PaintCommit`; Wave2 `MapViewport` / `AuxOverlay` semantic only). Live `SmartGIS.exe` runs reuse the same semantics through loopback DebugAgent `ui.*` methods orchestrated by `tools/debug/scripts/ui_smoke.py`.
 
 **Tech Stack:** C++23, GN/Ninja (`out/Debug`, `out/Release`), Views + Skia, existing `DebugAgent` NDJSON TCP, system Python 3, optional OpenCppCoverage on Windows.
 
@@ -135,7 +135,7 @@ All rights reserved.
 
 **Files:**
 - Create: `tools/debug/scripts/ui_smoke.py`
-- Test: manual — `SmartGisViews.exe --debug-console` + `python tools/debug/scripts/ui_smoke.py`
+- Test: manual — `SmartGIS.exe --debug-console` + `python tools/debug/scripts/ui_smoke.py`
 
 - [x] **Step 1:** Read `%TEMP%/smartgis-debug.json`, connect, `ping` + `ui.dump_tree` + `ui.overlay_stats`.
 - [ ] **Step 2:** Optional `--scenario shell_tab` Wave1 sequence.
@@ -154,7 +154,7 @@ All rights reserved.
 - Consumes: built `out/Release/views_interactive_tests.exe`, `out/Release/views_unittests.exe`
 - Produces: Cobertura/XML under `out/coverage/views/`
 
-- [ ] **Step 1:** Script runs OpenCppCoverage with explicit module filter `ui_views.dll`, `SmartGisViews.exe` as needed.
+- [ ] **Step 1:** Script runs OpenCppCoverage with explicit module filter `ui_views.dll`, `SmartGIS.exe` as needed.
 - [ ] **Step 2:** Document that default `build.bat te` does **not** invoke this script.
 - [ ] **Step 3:** Dry-run script path check (skip if OpenCppCoverage not installed — exit 0 with message).
 

@@ -9,13 +9,14 @@
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "content/public/map_contents.h"
 #include "base/trace/event/process_trace.h"
+#include "base/process/switches.h"
 
 #include <cstdlib>
 
 namespace content {
 
 Scene3dPresenter::Scene3dPresenter() {
-  if (const char* env = std::getenv("SMT_SCENE3D_WIREFRAME")) {
+  if (const char* env = base::switch_cstr("scene3d-wireframe")) {
     if (env[0] == '1' && env[1] == '\0') {
       gpu_.set_wireframe_enabled(true);
     }

@@ -45,5 +45,42 @@ std::string trace_name(OGRLayer* layer) {
   return (n && n[0]) ? std::string(n) : std::string("ogr");
 }
 
+void add_geom_draw_us(int type, bool is_anno, int64_t us) {
+  if (!g_active_geom || us <= 0) {
+    return;
+  }
+  if (is_anno) {
+    g_active_geom->anno += us;
+    return;
+  }
+  switch (wkbFlatten(static_cast<OGRwkbGeometryType>(type))) {
+    case wkbPoint:
+      g_active_geom->point += us;
+      break;
+    case wkbLineString:
+      g_active_geom->line += us;
+      break;
+    case wkbPolygon:
+    case wkbTriangle:
+      g_active_geom->polygon += us;
+      break;
+    case wkbMultiPoint:
+      g_active_geom->multipoint += us;
+      break;
+    case wkbMultiLineString:
+      g_active_geom->multiline += us;
+      break;
+    case wkbMultiPolygon:
+    case wkbTIN:
+      g_active_geom->multipolygon += us;
+      break;
+    case wkbLinearRing:
+      g_active_geom->ring += us;
+      break;
+    default:
+      break;
+  }
+}
+
 }  // namespace detail
 }  // namespace scenic

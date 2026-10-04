@@ -4,13 +4,20 @@
 #include "gis/analysis/geochem/idw.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <string>
 #include <vector>
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include "base/execution/executor/pool/global_executor.h"
+#include "base/execution/parallel/for.h"
 #include "cpl_conv.h"
 #include "gdal_priv.h"
+#include "gis/analysis/geochem/idw_profile.h"
 #include "gis/analysis/geochem/stats.h"
 
 #include <rapidjson/document.h>
@@ -176,10 +183,10 @@ GeochemIdwResult run_geochem_idw(const GeochemSampleSet& set,
       min_y = max_y = s.y;
       first = false;
     } else {
-      min_x = std::min(min_x, s.x);
-      max_x = std::max(max_x, s.x);
-      min_y = std::min(min_y, s.y);
-      max_y = std::max(max_y, s.y);
+      min_x = (std::min)(min_x, s.x);
+      max_x = (std::max)(max_x, s.x);
+      min_y = (std::min)(min_y, s.y);
+      max_y = (std::max)(max_y, s.y);
     }
   }
   if (pts.size() < 3) {
@@ -187,8 +194,8 @@ GeochemIdwResult run_geochem_idw(const GeochemSampleSet& set,
     return out;
   }
 
-  const double dx = std::max(1e-9, max_x - min_x);
-  const double dy = std::max(1e-9, max_y - min_y);
+  const double dx = (std::max)(1e-9, max_x - min_x);
+  const double dy = (std::max)(1e-9, max_y - min_y);
   const double pad_x = 0.05 * dx;
   const double pad_y = 0.05 * dy;
   min_x -= pad_x;
@@ -200,9 +207,9 @@ GeochemIdwResult run_geochem_idw(const GeochemSampleSet& set,
   int width = cell_count;
   int height = cell_count;
   if (aspect >= 1.0) {
-    height = std::max(8, static_cast<int>(std::lround(cell_count / aspect)));
+    height = (std::max)(8, static_cast<int>(std::lround(cell_count / aspect)));
   } else {
-    width = std::max(8, static_cast<int>(std::lround(cell_count * aspect)));
+    width = (std::max)(8, static_cast<int>(std::lround(cell_count * aspect)));
   }
 
   const double px = (max_x - min_x) / static_cast<double>(width);
@@ -218,7 +225,10 @@ GeochemIdwResult run_geochem_idw(const GeochemSampleSet& set,
   out.height = height;
   out.values.assign(static_cast<size_t>(width * height), -9999.0f);
 
-  for (int row = 0; row < height; ++row) {
+  constexpr int kParallelIdwMinRows = 8;
+  constexpr long long kParallelIdwMinPixels = 4096;
+  float* values = out.values.data();
+  const auto fill_row = [&](int row) {
     for (int col = 0; col < width; ++col) {
       const double cx = min_x + (static_cast<double>(col) + 0.5) * px;
       const double cy = max_y - (static_cast<double>(row) + 0.5) * py;
@@ -230,7 +240,7 @@ GeochemIdwResult run_geochem_idw(const GeochemSampleSet& set,
         const double ddy = cy - p.y;
         const double dist2 = ddx * ddx + ddy * ddy;
         if (dist2 < 1e-18) {
-          out.values[static_cast<size_t>(row * width + col)] =
+          values[static_cast<size_t>(row * width + col)] =
               static_cast<float>(p.v);
           exact = true;
           break;
@@ -240,11 +250,41 @@ GeochemIdwResult run_geochem_idw(const GeochemSampleSet& set,
         vsum += w * p.v;
       }
       if (!exact && wsum > 0.0) {
-        out.values[static_cast<size_t>(row * width + col)] =
+        values[static_cast<size_t>(row * width + col)] =
             static_cast<float>(vsum / wsum);
       }
     }
+  };
+
+  const bool use_parallel =
+      static_cast<long long>(width) * static_cast<long long>(height) >=
+          kParallelIdwMinPixels &&
+      height >= kParallelIdwMinRows;
+  GeochemIdwProfile prof;
+  prof.width = width;
+  prof.height = height;
+  prof.n_pts = static_cast<int>(pts.size());
+  prof.work = static_cast<long long>(width) * static_cast<long long>(height) *
+              static_cast<long long>(pts.size());
+  prof.backend = use_parallel ? "parallel" : "serial";
+  const auto t0 = std::chrono::steady_clock::now();
+  if (use_parallel) {
+    base::execution::GlobalNThreadPoolExecutor executor;
+    const auto t1 = std::chrono::steady_clock::now();
+    base::execution::parallel_for(executor, 0, height, fill_row);
+    const auto t2 = std::chrono::steady_clock::now();
+    prof.dispatch_ms = geochem_idw_elapsed_ms(t0, t1);
+    prof.compute_ms = geochem_idw_elapsed_ms(t1, t2);
+  } else {
+    const auto t1 = std::chrono::steady_clock::now();
+    for (int row = 0; row < height; ++row) {
+      fill_row(row);
+    }
+    const auto t2 = std::chrono::steady_clock::now();
+    prof.dispatch_ms = geochem_idw_elapsed_ms(t0, t1);
+    prof.compute_ms = geochem_idw_elapsed_ms(t1, t2);
   }
+  emit_geochem_idw_profile(prof);
 
   if (!std::isfinite(threshold)) {
     const GeochemElementStats st =

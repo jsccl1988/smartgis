@@ -5,7 +5,7 @@
 #include <map>
 
 #include "base/core/log.h"
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/shader/shader.h"
 
 using namespace base;
@@ -17,7 +17,7 @@ typedef vector<Shader*> vShaderPtrs;
 typedef map<string, Shader*> mapNameToShaderPtrs;
 typedef pair<string, Shader*> pairNameToShaderPtr;
 
-class LEGACY_RENDER_EXPORT ShaderManager {
+class SCENIC_IMPL_EXPORT ShaderManager {
  public:
   ShaderManager(void);
   virtual ~ShaderManager(void);
@@ -47,10 +47,10 @@ inline long ShaderManager::AddShader(Shader* pShader) {
   else {
     LOGGING(LOG_INFO, "AddShader () already exist");
 
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline Shader* ShaderManager::GetShader(const char* szName) {
@@ -69,7 +69,7 @@ inline void ShaderManager::DestroyShader(const char* szName) {
   mapNameToShaderPtrs::iterator iter = m_mapNameToShaderPtrs.find(szName);
 
   if (iter != m_mapNameToShaderPtrs.end()) {
-    SMT_SAFE_DELETE(iter->second);
+    SAFE_DELETE(iter->second);
     m_mapNameToShaderPtrs.erase(iter);
   }
 }
@@ -78,7 +78,7 @@ inline void ShaderManager::DestroyAllShader(void) {
   mapNameToShaderPtrs::iterator i = m_mapNameToShaderPtrs.begin();
 
   while (i != m_mapNameToShaderPtrs.end()) {
-    SMT_SAFE_DELETE(i->second);
+    SAFE_DELETE(i->second);
     i++;
   }
 
@@ -99,7 +99,7 @@ inline void ShaderManager::GetAllShaderName(
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else

@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "gpu/compositor/frame/frame.h"
-#include "scenic/detail/err.h"
+#include "scenic/render/err.h"
 #include "scenic/render/rhi2d/impl/common/surface/composer/submit.h"
 #include "scenic/render/rhi2d/impl/common/surface/dib/dib.h"
 #include "scenic/render/rhi2d/impl/common/surface/dib/owned.h"

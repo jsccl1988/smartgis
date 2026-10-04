@@ -1,12 +1,12 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-"""Private SmartGisViews runtime copy for multi-agent harness races.
+"""Private SmartGIS runtime copy for multi-agent harness races.
 
 Linker/PE races (0xC0000135 STATUS_DLL_NOT_FOUND, WinError 32) happen when
-agents rebuild ``SmartGisViews.exe`` / sibling DLLs while another process
+agents rebuild ``SmartGIS.exe`` / sibling DLLs while another process
 loads the live path. Review / scenic matrix rows prefer a same-dir alias
-``out/<config>/SmartGisViews_<tag>.exe`` so ``exe_capture_path`` still writes
+``out/<config>/SmartGIS_<tag>.exe`` so ``exe_capture_path`` still writes
 under ``out/<config>/captures/`` (not ``out/scratch/.../captures``). A scratch
 copy is kept as fallback when the gen-root alias cannot be written.
 """
@@ -108,14 +108,14 @@ def prepare_private_views_exe(
     out_dir: Path,
     *,
     tag: str = "scenic_review",
-    exe_name: str = "SmartGisViews.exe",
+    exe_name: str = "SmartGIS.exe",
     timeout_sec: float = 90.0,
     copy_dlls: bool = True,
 ) -> Path | None:
     """Copy ``exe_name`` to a private path that avoids locking the live PE.
 
-    Prefer ``out_dir/SmartGisViews_<tag>.exe`` (same directory → captures stay
-    under the gen root). Fall back to ``out/scratch/<tag>/SmartGisViews.exe``.
+    Prefer ``out_dir/SmartGIS_<tag>.exe`` (same directory → captures stay
+    under the gen root). Fall back to ``out/scratch/<tag>/SmartGIS.exe``.
     """
     src = out_dir / exe_name
     if not wait_readable(src, timeout_sec=timeout_sec):
@@ -125,7 +125,7 @@ def prepare_private_views_exe(
     scratch.mkdir(parents=True, exist_ok=True)
     scratch_exe = scratch / exe_name
     # Same-dir alias keeps exe_capture_path under out/<config>/captures/.
-    alias = out_dir / f"SmartGisViews_{tag}.exe"
+    alias = out_dir / f"SmartGIS_{tag}.exe"
 
     for attempt in range(8):
         alias_ok = False

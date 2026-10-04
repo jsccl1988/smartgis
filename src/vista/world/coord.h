@@ -4,7 +4,7 @@
 #ifndef SMT_LEGACY_GIS_VISTA_COORD_H_
 #define SMT_LEGACY_GIS_VISTA_COORD_H_
 
-#include "base/math/aabb.h"
+#include "base/math/geom/aabb.h"
 #include "vista/vista_export.h"
 #include "vista/world/world.h"
 

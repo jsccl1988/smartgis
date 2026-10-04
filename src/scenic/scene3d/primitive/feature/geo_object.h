@@ -4,58 +4,51 @@
 #ifndef SCENIC_SCENE3D_PRIMITIVE_FEATURE_GEO_OBJECT_H_
 #define SCENIC_SCENE3D_PRIMITIVE_FEATURE_GEO_OBJECT_H_
 
-#include "scenic/detail/feature_mesh.h"
-#include "scenic/detail/style.h"
-#include "scenic/scenic_impl_export.h"
+#include <memory>
+
+#include "scenic/scene3d/primitive/feature/feature_mesh.h"
+#include "scenic/scene3d/primitive/mesh/mesh_gpu.h"
+#include "scenic/render/rhi2d/impl/common/paint/carto/style/style_pod.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/render_device.h"
-#include "scenic/render/rhi3d/public/resource/video_buffer.h"
 #include "scenic/scene3d/scene/object.h"
 
 namespace scenic {
 namespace detail {
 
-// mesh.h types live in namespace render; scenic TUs are scenic::detail.
-using render::FeatureHeightSampleFn;
-using render::FeatureMesh;
-using render::FeaturePrim;
-using render::FeatureRgb;
-using render::FeatureVertex;
-
-// Frame for leftover feature tessellation (see legacy/gis/feature).
+// Frame for leftover feature tessellation.
 enum class GeoObjectFrame : unsigned char {
   kMap = 0,    // lon/lat + optional DEM drape + Style colors
-  kWorld = 1,  // true 3D OGR coords �?VB (X,Z,Y)
+  kWorld = 1,  // true 3D OGR coords → VB (X,Z,Y)
 };
 
 // Merged leftover 2D/3D geo drawable: tess in gis.dll, VB upload here.
-class LEGACY_RENDER_EXPORT GeoObject : public Object3d {
+class SCENIC_IMPL_EXPORT GeoObject : public Object3d {
  public:
   GeoObject();
   ~GeoObject() override;
 
-  long Init(::base::Vector3& vPos, Material& matMaterial,
-            const char* szTexName = "") override;
-  long Create(LP3DRENDERDEVICE p3DRenderDevice) override;
-  long Update(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed) override;
-  long Render(LP3DRENDERDEVICE p3DRenderDevice) override;
+  long Init(::base::Vector3& pos, Material& material,
+            const char* tex_name = "") override;
+  long Create(LP3DRENDERDEVICE device) override;
+  long Update(LP3DRENDERDEVICE device, float elapsed) override;
+  long Render(LP3DRENDERDEVICE device) override;
   long Destroy() override;
+  bool Select(LP3DRENDERDEVICE device, const lPoint& point) override;
 
-  bool Select(LP3DRENDERDEVICE p3DRenderDevice, const lPoint& point);
-
-  OGRGeometry* GetGeometryRef() { return geom_; }
-  void SetGeometryDirectly(OGRGeometry* pGeom);
-  void SetGeometry(OGRGeometry* pGeom);
-  void SetStyle(const Style* pStyle);
+  OGRGeometry* geometry() { return geom_; }
+  void set_geometry_directly(OGRGeometry* geom);
+  void set_geometry(OGRGeometry* geom);
+  void set_style(const Style* style);
 
   void set_frame(GeoObjectFrame frame) { frame_ = frame; }
   GeoObjectFrame frame() const { return frame_; }
 
-  void SetHeightSampleFn(FeatureHeightSampleFn fn, void* user);
+  void set_height_sample(FeatureHeightSampleFn fn, void* user);
 
-  // Upload a pre-tessellated mesh (used to batch many map lines into one draw).
-  long CreateFromMesh(LP3DRENDERDEVICE device, FeatureMesh mesh);
+  long create_from_mesh(LP3DRENDERDEVICE device, FeatureMesh mesh);
 
-  GeoObject* Clone();
+  GeoObject* clone();
 
  private:
   bool upload_mesh(LP3DRENDERDEVICE device, const FeatureMesh& mesh);
@@ -64,10 +57,10 @@ class LEGACY_RENDER_EXPORT GeoObject : public Object3d {
   void update_aabb_world();
   void update_aabb_from_mesh(const FeatureMesh& mesh);
 
-  VertexBuffer* vb_ = nullptr;
-  IndexBuffer* ib_ = nullptr;
+  GpuVertexBuffer vb_;
+  GpuIndexBuffer ib_;
   OGRGeometry* geom_ = nullptr;
-  Style* style_ = nullptr;
+  std::unique_ptr<Style> style_;
   FeatureHeightSampleFn height_fn_ = nullptr;
   void* height_user_ = nullptr;
   GeoObjectFrame frame_ = GeoObjectFrame::kMap;
@@ -77,13 +70,5 @@ class LEGACY_RENDER_EXPORT GeoObject : public Object3d {
 
 }  // namespace detail
 }  // namespace scenic
-
-#if !defined(LEGACY_RENDER_EXPORTS)
-#if defined(_DEBUG)
-#pragma comment(lib, "scenic_impl_d.lib")
-#else
-#pragma comment(lib, "scenic_impl.lib")
-#endif
-#endif
 
 #endif  // SCENIC_SCENE3D_PRIMITIVE_FEATURE_GEO_OBJECT_H_

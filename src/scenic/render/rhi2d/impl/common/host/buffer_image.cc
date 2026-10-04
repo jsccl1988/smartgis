@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "scenic/detail/image.h"
+#include "scenic/render/rhi2d/impl/common/host/image.h"
 #include "scenic/render/rhi2d/impl/common/host/render_device.h"
 #include "scenic/render/rhi2d/impl/common/surface/dib/owned.h"
 #include "ximage.h"
@@ -21,7 +21,7 @@ long draw_image_on_surface(Rhi2dOwnedSurface& surface, const char* image_buf,
                            int image_buf_size, long code_type, long x, long y,
                            long cx, long cy) {
   if (image_buf == nullptr || image_buf_size == 0) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   CxImage tmp_image;
   tmp_image.Decode(reinterpret_cast<BYTE*>(const_cast<char*>(image_buf)),
@@ -29,14 +29,14 @@ long draw_image_on_surface(Rhi2dOwnedSurface& surface, const char* image_buf,
   HDC hdc = surface.prepare_dc();
   tmp_image.Draw(hdc, x, y, cx, cy);
   surface.end_dc();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long stretch_image_on_surface(Rhi2dOwnedSurface& surface, const char* image_buf,
                               int image_buf_size, long code_type, long xoffset,
                               long yoffset, long xsize, long ysize, DWORD rop) {
   if (image_buf == nullptr || image_buf_size == 0) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   CxImage tmp_image;
   tmp_image.Decode(reinterpret_cast<BYTE*>(const_cast<char*>(image_buf)),
@@ -44,19 +44,19 @@ long stretch_image_on_surface(Rhi2dOwnedSurface& surface, const char* image_buf,
   HDC hdc = surface.prepare_dc();
   tmp_image.Stretch(hdc, xoffset, yoffset, xsize, ysize, rop);
   surface.end_dc();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long save_bitmap_to_file(HBITMAP bitmap, const char* file_path,
                          bool bg_transparent) {
   if (bitmap == nullptr || file_path == nullptr ||
       std::strlen(file_path) == 0) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   CxImage image;
   if (!image.CreateFromHBITMAP(bitmap)) {
     std::fprintf(stderr, "save_bitmap_to_file: CreateFromHBITMAP failed\n");
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   if (bg_transparent) {
     const COLORREF bg_clr = RGB(255, 255, 255);
@@ -69,23 +69,23 @@ long save_bitmap_to_file(HBITMAP bitmap, const char* file_path,
     image.SetTransColor(trans_clr);
   }
   if (image.Save(file_path, get_image_type_by_file_ext(file_path))) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   std::fprintf(stderr, "save_bitmap_to_file: CxImage::Save failed path=%s\n",
                file_path);
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long save_bitmap_to_buf(HBITMAP bitmap, char*& image_buf, long& image_buf_size,
                         long code_type, bool bg_transparent) {
   if (bitmap == nullptr || image_buf != nullptr) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   uint8_t* encoded = nullptr;
   int32_t size = 0;
   CxImage image;
   if (!image.CreateFromHBITMAP(bitmap)) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   if (bg_transparent) {
     const COLORREF bg_clr = RGB(255, 255, 255);
@@ -100,9 +100,9 @@ long save_bitmap_to_buf(HBITMAP bitmap, char*& image_buf, long& image_buf_size,
   if (image.Encode(encoded, size, static_cast<uint32_t>(code_type))) {
     image_buf = reinterpret_cast<char*>(encoded);
     image_buf_size = size;
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 }  // namespace
@@ -124,7 +124,7 @@ int Rhi2dBufferImage::draw_image(const char* szImageBuf, int nImageBufSize,
       surface = &device_->raster_back_;
       break;
     default:
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
   }
   lRect lrt;
   device_->LRectToDRect(frect, lrt);
@@ -147,7 +147,7 @@ int Rhi2dBufferImage::stretch_image(const char* szImageBuf, int nImageBufSize,
       surface = &device_->raster_back_;
       break;
     default:
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
   }
   lRect lrt;
   device_->LRectToDRect(frect, lrt);
@@ -170,14 +170,14 @@ int Rhi2dBufferImage::save_image(const char* szFilePath,
       surface = &device_->raster_back_;
       break;
     default:
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
   }
   if (surface->bitmap() == nullptr) {
     std::fprintf(stderr,
                  "Rhi2dBufferImage::save_image null bitmap layer=%d w=%d h=%d\n",
                  static_cast<int>(eMRDBufLyr), surface->width(),
                  surface->height());
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   // CreateFromHBITMAP fails while the DIB is selected into paint_dc_.
   (void)surface->end_dc();
@@ -199,7 +199,7 @@ int Rhi2dBufferImage::save2_image_buf(char*& szImageBuf, long& lImageBufSize,
       surface = &device_->raster_back_;
       break;
     default:
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
   }
   return save_bitmap_to_buf(surface->bitmap(), szImageBuf, lImageBufSize,
                             lCodeType, bBgTransparent);
@@ -213,7 +213,7 @@ int Rhi2dBufferImage::free_image_buf(char*& szImageBuf) {
     tmp.FreeMemory(szImageBuf);
     szImageBuf = nullptr;
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 }  // namespace detail

@@ -1,0 +1,223 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scenic rhi2d — RenderDevice2d 公共接口拆分</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --host: #6b5ea8; --frame: #2563a8; --cpu: #2f7d62; --gpu: #b06a1a;
+    --code: #243447; --code-bg: #eef2f6; --forbid: #8b3a3a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 16px 20px 12px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta, .rel { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .rel a { margin-right: 10px; }
+  .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 12px 14px 14px; margin-bottom: 12px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .lane-label { font-weight: 700; font-size: 12px; }
+  .arrow { fill: none; stroke: #8a96a8; stroke-width: 2; }
+  .pulse { stroke-dasharray: 7 5; animation: dash 0.9s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  .stage-on { stroke-width: 2.5 !important; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  button { appearance: none; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 11px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .legend { color: var(--muted); font-size: 0.82rem; }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Scenic rhi2d — 直拆接口（与 rhi3d 同形）</h1>
+    <p>
+      <code>RenderDevice2d</code> 只暴露 <code>host()</code> / <code>interact()</code> / <code>present()</code> / <code>frame()</code>。
+      部件是 <code>render_device.h</code> 里的纯虚接口；backend 用嵌套类型实现。没有 <code>Map2dSession</code> 袋子。
+      <code>Draw*</code> / encoder / DIB / tile / <code>eRDBufferLayer</code> 不出 public。
+    </p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§RHI2D public composition split</a>
+      · 3D 同形：<a href="./rhi3d-public-api-lanes.html">rhi3d-public-api-lanes</a>
+      · 帧拍升级：<a href="./rhi2d-paint-map-strategy.html">rhi2d-paint-map-strategy</a>
+      · 头：<code>public/device/{render_device,renderer}.h</code>
+    </div>
+    <div class="rel">
+      <a href="./legacy-render-architecture.html">Scenic 分层</a>
+      <a href="./map2d-present-frame.html">Map2d present</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 责任层 — public vs impl</h2>
+    <svg class="diagram" viewBox="0 0 1040 320" role="img" aria-label="RenderDevice2d 组合四个 Device2d 部件">
+      <rect x="16" y="12" width="1008" height="72" rx="8" fill="#efeaf8" stroke="#6b5ea8"/>
+      <text class="lane-label" x="32" y="40" fill="#6b5ea8">public</text>
+      <text class="box-title" x="120" y="40">RenderDevice2d</text>
+      <text class="box-sub" x="280" y="40">host() · interact() · present() · frame()（与 RenderDevice3d 同形）</text>
+      <text class="box-sub" x="32" y="62">Renderer2d::GetDevice() 返回该指针。LoadLibrary 工厂仍是 ABI；产品调用走四部件。</text>
+
+      <rect x="16" y="100" width="240" height="70" rx="8" fill="#efeaf8" stroke="#6b5ea8"/>
+      <text class="box-title" x="136" y="128" text-anchor="middle">Device2dHost</text>
+      <text class="box-sub" x="136" y="148" text-anchor="middle">init · resize · viewport</text>
+      <rect x="272" y="100" width="240" height="70" rx="8" fill="#f8efe4" stroke="#b06a1a"/>
+      <text class="box-title" x="392" y="128" text-anchor="middle">Device2dInteract</text>
+      <text class="box-sub" x="392" y="148" text-anchor="middle">preview · lp_to_dp</text>
+      <rect x="528" y="100" width="240" height="70" rx="8" fill="#f5e8ee" stroke="#8a4a62"/>
+      <text class="box-title" x="648" y="128" text-anchor="middle">Device2dPresent</text>
+      <text class="box-sub" x="648" y="148" text-anchor="middle">refresh · blit_to_dc</text>
+      <rect x="784" y="100" width="240" height="70" rx="8" fill="#e8f1fa" stroke="#2563a8"/>
+      <text class="box-title" x="904" y="128" text-anchor="middle">Device2dFrame</text>
+      <text class="box-sub" x="904" y="148" text-anchor="middle">schedule_redraw</text>
+
+      <rect x="16" y="188" width="1008" height="112" rx="8" fill="#e8f1fa" stroke="#2563a8"/>
+      <text class="lane-label" x="32" y="216" fill="#2563a8">impl</text>
+      <text class="box-sub" x="140" y="216">MapRenderDevice::{Host,Interact,Present,Frame} 嵌套类型，绑 this</text>
+      <text class="box-sub" x="32" y="242">拥有 PresentController · LayerTreeHost · CartoDraw · OwnedSurface</text>
+      <text class="box-sub" x="32" y="264">不出 public：BeginRender / Draw* / encoder / DIB / tile / eRDBufferLayer</text>
+      <text class="box-sub" x="32" y="286">present_controller() 是 debounce 实现，不是 Device2dPresent</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原则流（谁等 / 谁永不 join）</h2>
+    <svg class="diagram" viewBox="0 0 1040 160" role="img" aria-label="Interact 预览、Frame 提交、Present blit">
+      <defs>
+        <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect id="s0" x="40" y="28" width="220" height="56" rx="8" fill="#fff" stroke="#b06a1a"/>
+      <text class="box-title" x="150" y="52" text-anchor="middle">1 interact()</text>
+      <text class="box-sub" x="150" y="70" text-anchor="middle">preview — HWND 不 join</text>
+      <path id="e01" class="arrow" d="M260 56 L328 56" marker-end="url(#ah)"/>
+      <rect id="s1" x="330" y="28" width="220" height="56" rx="8" fill="#fff" stroke="#2563a8"/>
+      <text class="box-title" x="440" y="52" text-anchor="middle">2 frame()</text>
+      <text class="box-sub" x="440" y="70" text-anchor="middle">schedule_redraw</text>
+      <path id="e12" class="arrow" d="M550 56 L618 56" marker-end="url(#ah)"/>
+      <rect id="s2" x="620" y="28" width="220" height="56" rx="8" fill="#fff" stroke="#8a4a62"/>
+      <text class="box-title" x="730" y="52" text-anchor="middle">3 present()</text>
+      <text class="box-sub" x="730" y="70" text-anchor="middle">publish 后 blit_to_dc</text>
+      <text class="box-sub" x="40" y="120">虚线禁止：preview 同步 tessellate；Present 当画笔；Frame 期间 host-encode MAP。</text>
+    </svg>
+    <div class="controls">
+      <button class="primary" type="button" data-play="flow">播放阶段</button>
+      <button type="button" data-pause="flow">暂停</button>
+      <button type="button" data-reset="flow">重置</button>
+      <span class="legend" id="status">就绪</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>3. 与 rhi3d 对照</h2>
+    <table class="map">
+      <thead>
+        <tr><th>rhi3d</th><th>rhi2d</th><th>角色</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>render_device.h</code> · <code>DeviceHost</code></td><td><code>Device2dHost</code>（避免 <code>scenic::detail</code> 撞名）</td><td>HWND / 生命周期</td></tr>
+        <tr><td><code>DeviceTransform</code> · <code>xform()</code></td><td><code>Device2dInteract</code> · <code>interact()</code></td><td>视口变换 / 手势</td></tr>
+        <tr><td><code>DeviceFrame</code> · <code>swap_buffers</code></td><td><code>Device2dPresent</code> · <code>present()</code></td><td>呈现已发布帧</td></tr>
+        <tr><td>（无 tessellate 部件）</td><td><code>Device2dFrame</code> · <code>frame()</code></td><td>全图 FrameJob</td></tr>
+        <tr><td><code>GlRenderDevice::Host</code> 嵌套</td><td><code>MapRenderDevice::Host</code> 嵌套</td><td>backend 实现同一接口</td></tr>
+        <tr><td>无 Session 袋</td><td>无 <code>Map2dSession</code></td><td>调用方持 device 再点部件</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>4. 制图 draw 输入 — 不认识插件对象</h2>
+    <svg class="diagram" viewBox="0 0 1040 220" role="img" aria-label="插件格网在 carto draw 之上转成 LatticeView2d">
+      <rect x="16" y="12" width="240" height="88" rx="8" fill="#f3e8e8" stroke="#8b3a3a"/>
+      <text class="box-title" x="136" y="42" text-anchor="middle">plugin</text>
+      <text class="box-sub" x="136" y="64" text-anchor="middle">OrthoLattice 所有权</text>
+      <text class="box-sub" x="136" y="82" text-anchor="middle">world3d orthogrid</text>
+
+      <path class="arrow" d="M264 56 L328 56" marker-end="url(#ah)"/>
+      <text class="box-sub" x="296" y="44" text-anchor="middle">bind</text>
+
+      <rect x="336" y="12" width="280" height="88" rx="8" fill="#e8f0e9" stroke="#2f7d62"/>
+      <text class="box-title" x="476" y="42" text-anchor="middle">LatticeView2d</text>
+      <text class="box-sub" x="476" y="64" text-anchor="middle">nx · ny · sample_xy</text>
+      <text class="box-sub" x="476" y="82" text-anchor="middle">非拥有；col/row 与 NodeField2d 一致</text>
+
+      <path class="arrow" d="M624 56 L688 56" marker-end="url(#ah)"/>
+
+      <rect x="696" y="12" width="328" height="88" rx="8" fill="#e7eef6" stroke="#2563a8"/>
+      <text class="box-title" x="860" y="42" text-anchor="middle">carto/draw</text>
+      <text class="box-sub" x="860" y="64" text-anchor="middle">CartoDraw · GdiMeshDraw</text>
+      <text class="box-sub" x="860" y="82" text-anchor="middle">OGR / TIN / LatticeView2d 仅此</text>
+
+      <rect x="16" y="120" width="1008" height="80" rx="8" fill="#fff" stroke="#d8dee6"/>
+      <text class="box-title" x="32" y="148">禁止</text>
+      <text class="box-sub" x="32" y="170"><code>paint/carto/draw</code> 与 <code>MapRenderDevice::DrawGrid</code> 不得 <code>#include "plugin/…"</code>；GN 不得 dep <code>world3d_orthogrid_lattice</code>。</text>
+      <text class="box-sub" x="32" y="188">TIN 仍走 <code>OGRTriangulatedSurface</code>。转换发生在 plugin / content / present，不在 draw 内分支插件类型。</text>
+    </svg>
+  </section>
+</div>
+<script>
+(function () {
+  var ids = ["s0", "s1", "s2"];
+  var edges = ["e01", "e12"];
+  var i = -1, timer = null;
+  var status = document.getElementById("status");
+  function paint() {
+    ids.forEach(function (id, n) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (n === i) el.classList.add("stage-on");
+      else el.classList.remove("stage-on");
+    });
+    edges.forEach(function (id, n) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (n === i - 1) el.classList.add("pulse");
+      else el.classList.remove("pulse");
+    });
+    var labels = ["就绪", "1 interact 预览（不 join）", "2 frame 提交 worker", "3 present blit"];
+    status.textContent = labels[i + 1] || "就绪";
+  }
+  function step() { i = (i + 1) % 3; paint(); }
+  var player = {
+    play: function () {
+      if (timer) return;
+      if (i >= 2) i = -1;
+      step();
+      timer = setInterval(step, 900);
+    },
+    pause: function () { if (timer) { clearInterval(timer); timer = null; } },
+    reset: function () { if (timer) { clearInterval(timer); timer = null; } i = -1; paint(); }
+  };
+  document.querySelectorAll("[data-play]").forEach(function (btn) {
+    btn.addEventListener("click", function () { player.play(); });
+  });
+  document.querySelectorAll("[data-pause]").forEach(function (btn) {
+    btn.addEventListener("click", function () { player.pause(); });
+  });
+  document.querySelectorAll("[data-reset]").forEach(function (btn) {
+    btn.addEventListener("click", function () { player.reset(); });
+  });
+  player.reset();
+})();
+</script>
+</body>
+</html>

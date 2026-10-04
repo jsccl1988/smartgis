@@ -67,7 +67,7 @@ All rights reserved.
 ```bat
 .\build.bat debug trace_test
 .\build.bat debug SmartGis
-.\build.bat debug SmartGisViews
+.\build.bat debug views
 ```
 
 - [x] Build: `trace_test` / `legacy_app` / `SmartGisViews` green.

@@ -9,31 +9,31 @@ Texture *GlRenderDevice::CreateTexture(const char *szName) {
   glGenTextures(1, &unHandle);
 
   Texture *pTex = new Texture(this, unHandle, szName);
-  if (SMT_ERR_NONE == m_textureMgr.AddTexture(pTex))
+  if (kErrNone == m_textureMgr.AddTexture(pTex))
     return pTex;
   else {
-    SMT_SAFE_DELETE(pTex);
+    SAFE_DELETE(pTex);
     return nullptr;
   }
 }
 
 long GlRenderDevice::GenerateMipmap(Texture *pTexture) {
-  if (nullptr == pTexture) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == pTexture) return kErrInvalidParam;
 
-  if (SMT_ERR_NONE == pTexture->Use()) {
+  if (kErrNone == pTexture->Use()) {
     m_pFuncMipmap->glGenerateMipmap(GL_TEXTURE_2D);
     pTexture->Unuse();
 
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long GlRenderDevice::DestroyTexture(const char *szName) {
   Texture *pTexture = m_textureMgr.GetTexture(szName);
 
-  if (nullptr == pTexture) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == pTexture) return kErrInvalidParam;
 
   GLhandleARB handle = pTexture->GetHandle();
   if (handle != 0) {
@@ -42,7 +42,7 @@ long GlRenderDevice::DestroyTexture(const char *szName) {
 
   m_textureMgr.DestroyTexture(pTexture->GetTextureName());
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 Texture *GlRenderDevice::GetTexture(const char *szName) {
@@ -50,20 +50,20 @@ Texture *GlRenderDevice::GetTexture(const char *szName) {
 }
 
 long GlRenderDevice::BindTexture(Texture *pTexture) {
-  if (nullptr == pTexture) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == pTexture) return kErrInvalidParam;
 
   GLhandleARB handle = pTexture->GetHandle();
   glBindTexture(GL_TEXTURE_2D, handle);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::BuildTexture(Texture *pTexture) {
-  if (nullptr == pTexture) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == pTexture) return kErrInvalidParam;
 
   void *pDataBuf = pTexture->GetData();
 
-  if (nullptr == pDataBuf) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == pDataBuf) return kErrInvalidParam;
 
   TextureDesc texDesc = pTexture->GetDesc();
 
@@ -116,28 +116,28 @@ long GlRenderDevice::BuildTexture(Texture *pTexture) {
   pTexture->SetEnvMode(texEvn);
   pTexture->SetSampler(texSampler);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::UnbindTexture() {
   glBindTexture(GL_TEXTURE_2D, 0);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::BindRectTexture(Texture *pTexture) {
-  if (nullptr == pTexture) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == pTexture) return kErrInvalidParam;
 
   GLhandleARB handle = pTexture->GetHandle();
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, handle);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::UnbindRectTexture() {
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 }  // namespace detail
 }  // namespace scenic

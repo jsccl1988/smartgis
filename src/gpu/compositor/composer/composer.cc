@@ -3,6 +3,7 @@
 
 #include "gpu/compositor/composer/composer.h"
 
+#include "base/process/switches.h"
 #include "gpu/compositor/composer/rhi_composer.h"
 #include "gpu/compositor/composer/software_composer.h"
 #include "gpu/device/gpu_device_hub.h"
@@ -25,13 +26,12 @@ ComposeBackend g_override = ComposeBackend::kSoftware;
 bool g_logged_rhi_fallback = false;
 
 ComposeBackend env_compose_backend() {
-  char buf[32] = {};
-  const DWORD n =
-      GetEnvironmentVariableA("SMT_GPU_COMPOSE", buf, sizeof(buf));
-  // Unset or truncated value → RHI default.
-  if (n == 0 || n >= sizeof(buf)) {
+  const char* env = base::switch_cstr("gpu-compose");
+  if (!env || !env[0]) {
     return ComposeBackend::kRhi;
   }
+  char buf[32] = {};
+  std::strncpy(buf, env, sizeof(buf) - 1);
   for (char* p = buf; *p; ++p) {
     if (*p >= 'A' && *p <= 'Z') {
       *p = static_cast<char>(*p - 'A' + 'a');

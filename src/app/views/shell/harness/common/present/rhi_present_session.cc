@@ -11,6 +11,8 @@
 #include "render/rhi/rhi.h"
 #include "ui/views/map/map_viewport.h"
 
+#include "base/process/switches.h"
+
 #include <cstdlib>
 
 namespace app {
@@ -52,7 +54,7 @@ void warm_swapchain_once(render::rhi::Device* device, uint32_t width,
 bool resolve_rhi_want_gpu(const RhiPresentSessionOpts& opts) {
   if (opts.gpu_policy == GpuEnvPolicy::kDefaultOffRequireOne) {
     if (opts.gpu_env) {
-      if (const char* env = std::getenv(opts.gpu_env)) {
+      if (const char* env = base::switch_cstr(opts.gpu_env)) {
         return env[0] == '1' && env[1] == '\0';
       }
     }
@@ -60,12 +62,12 @@ bool resolve_rhi_want_gpu(const RhiPresentSessionOpts& opts) {
   }
   // kDefaultOnUnlessZero
   if (opts.gpu_env) {
-    if (const char* env = std::getenv(opts.gpu_env)) {
+    if (const char* env = base::switch_cstr(opts.gpu_env)) {
       return !(env[0] == '0' && env[1] == '\0');
     }
   }
   if (opts.gpu_env_fallback) {
-    if (const char* env = std::getenv(opts.gpu_env_fallback)) {
+    if (const char* env = base::switch_cstr(opts.gpu_env_fallback)) {
       return !(env[0] == '0' && env[1] == '\0');
     }
   }

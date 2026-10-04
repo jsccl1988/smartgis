@@ -161,19 +161,9 @@ if not "!TARGET_ARG!"=="" (
   ) else if /I "!TARGET_ARG!"=="b" (
     set "NINJA_TARGET=benchmark_all"
   ) else if /I "!TARGET_ARG!"=="app" (
-    REM Product entry is Views after Phase 2 gate. MFC: build.bat legacy_app
+    REM Product entry is Views.
     set "NINJA_TARGET=views"
     set "BUILD_VIEWS=true"
-  ) else if /I "!TARGET_ARG!"=="legacy_app" (
-    set "NINJA_TARGET=legacy_app_all"
-    set "BUILD_APP=true"
-  ) else if /I "!TARGET_ARG!"=="ui_legacy" (
-    set "NINJA_TARGET=ui_legacy"
-    set "BUILD_APP=true"
-  ) else if /I "!TARGET_ARG!"=="smartgis" (
-    REM Deprecated alias for leftover MFC SmartGis.exe (opt-in).
-    set "NINJA_TARGET=legacy_app_all"
-    set "BUILD_APP=true"
   ) else if /I "!TARGET_ARG!"=="views" (
     set "NINJA_TARGET=views"
     set "BUILD_VIEWS=true"
@@ -182,7 +172,6 @@ if not "!TARGET_ARG!"=="" (
     set "BUILD_RENDER=true"
   ) else if /I "!TARGET_ARG!"=="e2e" (
     set "NINJA_TARGET=e2e"
-    set "BUILD_APP=true"
     set "BUILD_VIEWS=true"
     set "BUILD_RENDER=true"
   ) else (

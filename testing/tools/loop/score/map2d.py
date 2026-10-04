@@ -143,6 +143,8 @@ def score_map2d_china(path: Path) -> dict:
     # Hillshade / admin wash can steal cream land into gray; treat admin and
     # active DEM relief as land-like so eastern china + crisp shade still pass.
     land_like_f = land_f + admin_f + (hs_gray_f if hs_active else 0.0)
+    # Bare cream north of DEM (Mongolia slab) after hillshade is active.
+    cream_ok = (not hs_active) or (land_f < 0.09)
     # Shell HWND hollow after browse stress: chrome teal (#aad3df) + flat
     # admin gray fill with zero roads — water_blue/land_like soft-pass falsely.
     chrome_hollow = (ocean_f + admin_f) > 0.95 and (gold_f + casing_f) < 0.0005
@@ -196,6 +198,7 @@ def score_map2d_china(path: Path) -> dict:
         and (gold_f + casing_f) > 0.0012
         and casing_f > 0.00025
         and hs_ok
+        and cream_ok
         and not chrome_hollow
         and land_hole_f < 0.006
     )
@@ -233,6 +236,7 @@ def score_map2d_china(path: Path) -> dict:
             "road_gold+casing>0.0012": (gold_f + casing_f) > 0.0012,
             "road_casing_frac>0.00025": casing_f > 0.00025,
             "hillshade_soft_ok": hs_ok,
+            "land_cream_frac<0.09_when_hs": cream_ok,
             "not_chrome_admin_hollow": not chrome_hollow,
             "land_interior_hole_frac<0.006": land_hole_f < 0.006,
         },

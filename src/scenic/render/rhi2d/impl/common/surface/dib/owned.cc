@@ -41,18 +41,16 @@ Rhi2dOwnedSurface& Rhi2dOwnedSurface::assign_size_from(
 
 long Rhi2dOwnedSurface::set_wnd(HWND hwnd) {
   if (!owned_) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
-#ifdef SMT_THREAD_SAFE
   std::lock_guard<std::mutex> guard(lock_);
-#endif
   hwnd_ = hwnd;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long Rhi2dOwnedSurface::set_size(int cx, int cy) {
   if (!owned_ || cx < 1 || cy < 1) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   end_dc();
@@ -63,19 +61,15 @@ long Rhi2dOwnedSurface::set_size(int cx, int cy) {
     return clear(0, 0, cx, cy);
   }
 
-#ifdef SMT_THREAD_SAFE
   lock_.lock();
-#endif
   release_owned();
   surface_ = rhi2d_surface_pool().acquire(hwnd_, cx, cy);
   owned_ = true;
   const bool ok = surface_.bitmap != nullptr && surface_.bits != nullptr;
-#ifdef SMT_THREAD_SAFE
   lock_.unlock();
-#endif
   // clear() may take the same lock; do not call while held.
   if (!ok) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   return clear(0, 0, surface_.width, surface_.height);
 }
@@ -84,23 +78,19 @@ long Rhi2dOwnedSurface::share_from(const Rhi2dOwnedSurface& src) {
   end_dc();
   release_owned();
 
-#ifdef SMT_THREAD_SAFE
   std::lock_guard<std::mutex> guard(lock_);
-#endif
   hwnd_ = src.wnd();
   surface_ = src.surface();
   owned_ = false;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long Rhi2dOwnedSurface::clear(int x, int y, int w, int h, COLORREF clr) {
   if (w < 1 || h < 1) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
-#ifdef SMT_THREAD_SAFE
   std::lock_guard<std::mutex> guard(lock_);
-#endif
   if (surface_.bits && x >= 0 && y >= 0 && x + w <= surface_.width &&
       y + h <= surface_.height) {
     const uint8_t b = GetBValue(clr);
@@ -125,7 +115,7 @@ long Rhi2dOwnedSurface::clear(int x, int y, int w, int h, COLORREF clr) {
     }
     surface_.bump_generation();
     surface_.mark_dirty(x, y, w, h);
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   // Fallback GDI fill when bits are unavailable (shared foreign bitmap).
@@ -150,7 +140,7 @@ long Rhi2dOwnedSurface::clear(int x, int y, int w, int h, COLORREF clr) {
   ::ReleaseDC(hwnd_, hdc);
   surface_.bump_generation();
   surface_.mark_dirty(x, y, w, h);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 HDC Rhi2dOwnedSurface::prepare_dc(bool clip) {
@@ -180,7 +170,7 @@ long Rhi2dOwnedSurface::end_dc() {
     paint_dc_ = nullptr;
     old_bitmap_ = nullptr;
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 }  // namespace detail

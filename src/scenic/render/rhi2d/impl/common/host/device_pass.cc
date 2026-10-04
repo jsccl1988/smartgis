@@ -5,9 +5,9 @@
 #include <mutex>
 
 #include "base/core/log.h"
-#include "base/math/affine2.h"
+#include "base/math/linear/affine2.h"
 #include "base/trace/event/process_trace.h"
-#include "scenic/detail/err.h"
+#include "scenic/render/err.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/frame/preview_xform.h"
 #include "scenic/render/rhi2d/impl/common/paint/backend/paint_backend.h"
 #include "scenic/render/rhi2d/impl/common/cc/layer_tree_host.h"
@@ -110,7 +110,7 @@ int Rhi2dRenderDevice::BeginRender(eRDBufferLayer eMRDBufLyr, bool bClear,
       // Default clear matches Rhi2dOwnedSurface::clear ocean key.
       if (!begin_surface_encode_pass(map_front_, RGB(170, 211, 223), bClear,
                                      /*fail_if_busy=*/true)) {
-        return SMT_ERR_FAILURE;
+        return kErrFailure;
       }
     } break;
     case MRD_BL_DYNAMIC: {
@@ -118,7 +118,7 @@ int Rhi2dRenderDevice::BeginRender(eRDBufferLayer eMRDBufLyr, bool bClear,
       // paint an opaque overlay and wipe the map composite.
       if (!begin_surface_encode_pass(dynamic_buf_, RGB(255, 255, 255), bClear,
                                      /*fail_if_busy=*/false)) {
-        return SMT_ERR_FAILURE;
+        return kErrFailure;
       }
     } break;
     case MRD_BL_QUICK: {
@@ -126,7 +126,7 @@ int Rhi2dRenderDevice::BeginRender(eRDBufferLayer eMRDBufLyr, bool bClear,
       // paint target; refuse when the FrameJob owns it.
       if (!begin_surface_encode_pass(raster_back_, RGB(255, 255, 255), bClear,
                                      /*fail_if_busy=*/true)) {
-        return SMT_ERR_FAILURE;
+        return kErrFailure;
       }
     } break;
     case MRD_BL_DIRECT: {
@@ -143,7 +143,7 @@ int Rhi2dRenderDevice::BeginRender(eRDBufferLayer eMRDBufLyr, bool bClear,
 
   if (carto_draw_->lock_style()) PrepareForDrawing(pStyle, op);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::EndRender(eRDBufferLayer eMRDBufLyr) {
@@ -168,7 +168,7 @@ int Rhi2dRenderDevice::EndRender(eRDBufferLayer eMRDBufLyr) {
   carto_draw_->set_dc(nullptr);
   carto_draw_->lock_style() = false;
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::PrepareForDrawing(const Style *pStyle,
@@ -255,7 +255,7 @@ int Rhi2dRenderDevice::RenderMapToDC(HDC hdc) {
                              static_cast<int>(m_Viewport.m_fVOX),
                              static_cast<int>(m_Viewport.m_fVOY), SRCCOPY);
     compose_buf_.end_dc();
-    return ok ? SMT_ERR_NONE : SMT_ERR_FAILURE;
+    return ok ? kErrNone : kErrFailure;
   }
 
   return detail::present_to_hwnd(compose_buf_, m_curDrawingOrg.x,
@@ -266,33 +266,33 @@ int Rhi2dRenderDevice::RenderMapToDC(HDC hdc) {
 
 int Rhi2dRenderDevice::ReRenderMapByProxy(const Map *pMap, int x, int y,
                                            int w, int h, int op) {
-  if (w == 0 || h == 0) return SMT_ERR_INVALID_PARAM;
-  if (!layer_tree_host_) return SMT_ERR_FAILURE;
+  if (w == 0 || h == 0) return kErrInvalidParam;
+  if (!layer_tree_host_) return kErrFailure;
 
   // MapLibre settle: keep last-good front (no white clear flash). Stage a
   // debounced job; Timer submits after ~200 ms idle. Present preview now.
   const int staged = stage_map_job(pMap, x, y, w, h, op, /*urgent=*/false);
-  if (staged != SMT_ERR_NONE) {
+  if (staged != kErrNone) {
     return staged;
   }
   Refresh();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::ReRenderMapRealTime(const Map *pMap, int x, int y,
                                             int w, int h, int op) {
-  if (w == 0 || h == 0) return SMT_ERR_INVALID_PARAM;
-  if (!layer_tree_host_) return SMT_ERR_FAILURE;
+  if (w == 0 || h == 0) return kErrInvalidParam;
+  if (!layer_tree_host_) return kErrFailure;
 
   // Interactive: urgent FrameJob, never Sleep-poll or sync-encode on the UI
   // thread. stage_map_job cancels in-flight when busy; Timer retries submit.
   const int staged = stage_map_job(pMap, x, y, w, h, op, /*urgent=*/true);
-  if (staged != SMT_ERR_NONE) {
+  if (staged != kErrNone) {
     return staged;
   }
   (void)submit_staged_job();
   Refresh();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 }  // namespace detail

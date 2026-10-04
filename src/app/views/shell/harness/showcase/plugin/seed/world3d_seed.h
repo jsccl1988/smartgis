@@ -6,7 +6,7 @@
 
 #include <cstddef>
 
-#include "vista/world/pointcloud/point_cloud.h"
+#include "vista/assets/pointcloud/point_cloud.h"
 
 namespace content {
 class Scene3dPresenter;

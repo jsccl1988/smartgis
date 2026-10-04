@@ -6,6 +6,7 @@
 #include "app/views/shell/harness/common/mark/mark.h"
 
 #include <cstdlib>
+#include "base/process/switches.h"
 
 namespace app {
 namespace detail {
@@ -17,14 +18,14 @@ void map2d_showcase_mark(const char* step) {
 void map2d_showcase_pixel_size(int* out_w, int* out_h) {
   int w = kMap2dShowcaseDefaultW;
   int h = kMap2dShowcaseDefaultH;
-  if (const char* ew = std::getenv("SMT_MAP2D_SHOWCASE_W");
+  if (const char* ew = base::switch_cstr("map2d-showcase-w");
       ew && ew[0] != '\0') {
     const int n = std::atoi(ew);
     if (n >= 320 && n <= 3840) {
       w = n;
     }
   }
-  if (const char* eh = std::getenv("SMT_MAP2D_SHOWCASE_H");
+  if (const char* eh = base::switch_cstr("map2d-showcase-h");
       eh && eh[0] != '\0') {
     const int n = std::atoi(eh);
     if (n >= 240 && n <= 2160) {

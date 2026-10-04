@@ -31,8 +31,7 @@ const Case kCases[] = {
     // Full --self-test (browse stress + M0–M4) on Debug ContentMapView often
     // needs minutes (lazy Data/3D OpenView + large DIB paints). 120s still
     // TerminateProcess'd mid-test → exit 0xFFFFFFFF under load.
-    {L"SmartGisViews.exe", L"SmartGIS Views", 300000, false, false},
-    {L"SmartGis.exe", L"SmartGis", 60000, true, false},
+    {L"SmartGIS.exe", L"SmartGIS Views", 300000, false, false},
 };
 
 std::wstring module_dir() {

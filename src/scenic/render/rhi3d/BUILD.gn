@@ -28,7 +28,7 @@ source_set("rhi_sources") {
   defines = [ "_USRDLL" ]
   public_deps = [
     "//src/base/math:math",
-    # texture.h Load() includes ximage.h when SMT_3DRENDERDEVICE_COMPLETE.
+    # texture.h Load() includes ximage.h when SCENIC_3DRENDERDEVICE_COMPLETE.
     "//third_party:CxImage",
     "impl/common:common_frame_sources",
   ]

@@ -4,9 +4,10 @@
 #include "scenic/render/rhi3d/impl/gl/host/render_device.h"
 
 #include <cstring>
+#include <memory>
 
 #include "base/core/log.h"
-#include "scenic/render/rhi2d/public/device/renderdevice.h"
+#include "scenic/render/rhi2d/public/device/render_device.h"
 #include "scenic/render/rhi3d/impl/gl/caps/device_caps.h"
 #include "scenic/render/rhi3d/impl/gl/ext/fbo_func_imp.h"
 #include "scenic/render/rhi3d/impl/gl/ext/mipmap_func_imp.h"
@@ -24,43 +25,23 @@ using namespace base;
 namespace scenic {
 namespace detail {
 DeviceCaps3d* GlRenderDevice::GetDeviceCaps() {
-  return static_cast<DeviceCaps3d*>(m_pDeviceCaps);
+  return static_cast<DeviceCaps3d*>(m_pDeviceCaps.get());
 }
 
 GlRenderDevice::GlRenderDevice()
-    : m_pStateManager(nullptr),
-      m_pDeviceCaps(nullptr),
-      m_pFuncShaders(nullptr),
-      m_pFuncMultTex(nullptr),
-      m_pFuncVSync(nullptr),
-      m_pFuncMipmap(nullptr),
-      m_pFuncVBO(nullptr),
-      m_pFuncFBO(nullptr),
-      m_hWnd(nullptr),
-      m_hPaintDC(nullptr),
-      m_hRC(nullptr) {
+    : m_hWnd(nullptr), m_hPaintDC(nullptr), m_hRC(nullptr) {
   m_rBaseApi = RA_OPENGL;
   m_hDLL = nullptr;
   m_strLogName.clear();
-  m_pStateManager = new GlGpuStateManager();
+  m_pStateManager = std::make_unique<GlGpuStateManager>();
 }
 
 GlRenderDevice::GlRenderDevice(HINSTANCE hDLL)
-    : m_pStateManager(nullptr),
-      m_pDeviceCaps(nullptr),
-      m_pFuncShaders(nullptr),
-      m_pFuncMultTex(nullptr),
-      m_pFuncVSync(nullptr),
-      m_pFuncMipmap(nullptr),
-      m_pFuncVBO(nullptr),
-      m_pFuncFBO(nullptr),
-      m_hWnd(nullptr),
-      m_hPaintDC(nullptr),
-      m_hRC(nullptr) {
+    : m_hWnd(nullptr), m_hPaintDC(nullptr), m_hRC(nullptr) {
   m_rBaseApi = RA_OPENGL;
   m_hDLL = hDLL;
   m_strLogName.clear();
-  m_pStateManager = new GlGpuStateManager();
+  m_pStateManager = std::make_unique<GlGpuStateManager>();
 }
 
 bool GlRenderDevice::IsExtensionSupported(std::string_view extension) {
@@ -123,21 +104,21 @@ long GlRenderDevice::Init(HWND hWnd, const char *logname) {
   // Choose pixel format
   int nPixelFormat = ChoosePixelFormat(hDC, &pfd);
   if (nPixelFormat == 0) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   } else {
     // Set pixel format
     BOOL bResult = SetPixelFormat(hDC, nPixelFormat, &pfd);
     if (!bResult) {
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     } else {
       // Create a rendering context.
       m_hRC = wglCreateContext(hDC);
       if (!m_hRC) {
-        return SMT_ERR_FAILURE;
+        return kErrFailure;
       } else {
         // Set it as the current context
         if (!wglMakeCurrent(hDC, m_hRC)) {
-          return SMT_ERR_FAILURE;
+          return kErrFailure;
         }
       }
     }
@@ -147,7 +128,7 @@ long GlRenderDevice::Init(HWND hWnd, const char *logname) {
   // later gl*/wglUseFont* on a stale DC (hang or STATUS_FATAL_APP_EXIT).
   m_hPaintDC = hDC;
 
-  if (SMT_ERR_NONE != SetDeviceCaps()) return SMT_ERR_FAILURE;
+  if (kErrNone != SetDeviceCaps()) return kErrFailure;
 
   // Set a default viewport
   glEnable(GL_SCISSOR_TEST);
@@ -177,7 +158,7 @@ long GlRenderDevice::Init(HWND hWnd, const char *logname) {
   SetDepthClearValue(1.0f);
   SetStencilClearValue(0);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::Destroy() {
@@ -187,8 +168,8 @@ long GlRenderDevice::Destroy() {
   // dropped the context, then ~GlRenderDevice::Release() freed fonts.
   const int nFont = static_cast<int>(m_vTextPtrs.size());
   for (int i = 0; i < nFont; i++) {
-    GlText *pFont = m_vTextPtrs.at(i);
-    SMT_SAFE_DELETE(pFont);
+    // ~GlText issues glDeleteLists; run while the context is still current.
+    m_vTextPtrs[i].reset();
   }
   m_vTextPtrs.clear();
 
@@ -235,113 +216,110 @@ long GlRenderDevice::Destroy() {
     m_hRC = nullptr;
   }
 
-  SMT_SAFE_DELETE(m_pDeviceCaps);
+  m_pDeviceCaps.reset();
+  m_pFuncShaders.reset();
+  m_pFuncMultTex.reset();
+  m_pFuncVSync.reset();
+  m_pFuncMipmap.reset();
+  m_pFuncVBO.reset();
+  m_pFuncFBO.reset();
 
-  SMT_SAFE_DELETE(m_pFuncShaders);
-  SMT_SAFE_DELETE(m_pFuncMultTex);
-  SMT_SAFE_DELETE(m_pFuncVSync);
-  SMT_SAFE_DELETE(m_pFuncMipmap);
-  SMT_SAFE_DELETE(m_pFuncVBO);
-  SMT_SAFE_DELETE(m_pFuncFBO);
-
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::Release() {
-  SMT_SAFE_DELETE(m_pStateManager);
-
-  int nFont = m_vTextPtrs.size();
-  for (int i = 0; i < nFont; i++) {
-    GlText *pFont = m_vTextPtrs.at(i);
-    SMT_SAFE_DELETE(pFont);
-  }
+  m_pStateManager.reset();
   m_vTextPtrs.clear();
-
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetDeviceCaps(void) {
-  m_pDeviceCaps = new GlDeviceCaps(this);
+  m_pDeviceCaps = std::make_unique<GlDeviceCaps>(this);
 
   /* Init ARB_multitexture */
-  if (m_pDeviceCaps->IsMultiTextureSupported())
-    m_pFuncMultTex = new MultitextureFuncImpl();
-  else
-    m_pFuncMultTex = new MultitextureFunc();
+  if (m_pDeviceCaps->IsMultiTextureSupported()) {
+    m_pFuncMultTex = std::make_unique<MultitextureFuncImpl>();
+  } else {
+    m_pFuncMultTex = std::make_unique<MultitextureFunc>();
+  }
 
-  if (!m_pFuncMultTex ||
-      SMT_ERR_NONE != m_pFuncMultTex->Initialize(this)) {
-    return SMT_ERR_FAILURE;
+  if (!m_pFuncMultTex || kErrNone != m_pFuncMultTex->Initialize(this)) {
+    return kErrFailure;
   }
 
   /* Init GL_ARB_vertex_buffer_object */
-  if (m_pDeviceCaps->IsVBOSupported())
-    m_pFuncVBO = new VboFuncImpl();
-  else
-    m_pFuncVBO = new VboFunc();
+  if (m_pDeviceCaps->IsVBOSupported()) {
+    m_pFuncVBO = std::make_unique<VboFuncImpl>();
+  } else {
+    m_pFuncVBO = std::make_unique<VboFunc>();
+  }
 
-  if (!m_pFuncVBO || SMT_ERR_NONE != m_pFuncVBO->Initialize(this)) {
-    return SMT_ERR_FAILURE;
+  if (!m_pFuncVBO || kErrNone != m_pFuncVBO->Initialize(this)) {
+    return kErrFailure;
   }
 
   /* Init shaders */
-  if (m_pDeviceCaps->IsGLSLSupported())
-    m_pFuncShaders = new ShadersFuncImpl();
-  else
-    m_pFuncShaders = new ShadersFunc();
+  if (m_pDeviceCaps->IsGLSLSupported()) {
+    m_pFuncShaders = std::make_unique<ShadersFuncImpl>();
+  } else {
+    m_pFuncShaders = std::make_unique<ShadersFunc>();
+  }
 
-  if (!m_pFuncShaders || SMT_ERR_NONE != m_pFuncShaders->Initialize(this)) {
-    return SMT_ERR_FAILURE;
+  if (!m_pFuncShaders || kErrNone != m_pFuncShaders->Initialize(this)) {
+    return kErrFailure;
   }
 
   /* Init frame buffer objects */
-  if (m_pDeviceCaps->IsFBOSupported())
-    m_pFuncFBO = new FboFuncImpl();
-  else
-    m_pFuncFBO = new FboFunc();
+  if (m_pDeviceCaps->IsFBOSupported()) {
+    m_pFuncFBO = std::make_unique<FboFuncImpl>();
+  } else {
+    m_pFuncFBO = std::make_unique<FboFunc>();
+  }
 
-  if (!m_pFuncFBO || SMT_ERR_NONE != m_pFuncFBO->Initialize(this)) {
-    return SMT_ERR_FAILURE;
+  if (!m_pFuncFBO || kErrNone != m_pFuncFBO->Initialize(this)) {
+    return kErrFailure;
   }
 
   /* Init mimmap generation */
-  if (m_pDeviceCaps->IsMipMapsSupported())
-    m_pFuncMipmap = new MipmapFuncImpl();
-  else
-    m_pFuncMipmap = new MipmapFunc();
+  if (m_pDeviceCaps->IsMipMapsSupported()) {
+    m_pFuncMipmap = std::make_unique<MipmapFuncImpl>();
+  } else {
+    m_pFuncMipmap = std::make_unique<MipmapFunc>();
+  }
 
-  if (!m_pFuncMipmap || SMT_ERR_NONE != m_pFuncMipmap->Initialize(this)) {
-    return SMT_ERR_FAILURE;
+  if (!m_pFuncMipmap || kErrNone != m_pFuncMipmap->Initialize(this)) {
+    return kErrFailure;
   }
 
   /* Init VSync extension */
-  if (m_pDeviceCaps->IsVSyncSupported())
-    m_pFuncVSync = new VSyncFuncImpl();
-  else
-    m_pFuncVSync = new VSyncFunc();
-
-  if (!m_pFuncVSync || SMT_ERR_NONE != m_pFuncVSync->Initialize(this)) {
-    return SMT_ERR_FAILURE;
+  if (m_pDeviceCaps->IsVSyncSupported()) {
+    m_pFuncVSync = std::make_unique<VSyncFuncImpl>();
+  } else {
+    m_pFuncVSync = std::make_unique<VSyncFunc>();
   }
 
-  return SMT_ERR_NONE;
+  if (!m_pFuncVSync || kErrNone != m_pFuncVSync->Initialize(this)) {
+    return kErrFailure;
+  }
+
+  return kErrNone;
 }
 
 GLenum GlRenderDevice::ConvertType(Type type) {
   switch (type) {
-    case SMT_SHORT:
+    case kShort:
       return GL_SHORT;
-    case SMT_INT:
+    case kInt:
       return GL_INT;
-    case SMT_FLOAT:
+    case kFloat:
       return GL_FLOAT;
-    case SMT_DOUBLE:
+    case kDouble:
       return GL_DOUBLE;
-    case SMT_UNSIGNED_INT:
+    case kUnsignedInt:
       return GL_UNSIGNED_INT;
-    case SMT_UNSIGNED_BYTE:
+    case kUnsignedByte:
       return GL_UNSIGNED_BYTE;
-    case SMT_UNSIGNED_SHORT:
+    case kUnsignedShort:
       return GL_UNSIGNED_SHORT;
   }
   return -1;

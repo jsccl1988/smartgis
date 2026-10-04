@@ -4,8 +4,8 @@
 #include "scenic/render/rhi2d/impl/common/cc/layer_tree_host.h"
 
 #include "base/trace/event/process_trace.h"
-#include "scenic/detail/err.h"
-#include "scenic/render/detail/frame_pipeline.h"
+#include "scenic/render/err.h"
+#include "scenic/render/frame.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/draw/carto_draw.h"
 #include "scenic/render/rhi2d/impl/common/paint/map/map_painter.h"
 
@@ -37,22 +37,22 @@ void Rhi2dLayerTreeHost::bind_painter() {
 
 int Rhi2dLayerTreeHost::init(HWND hwnd, const char* logname) {
   if (hwnd == nullptr || logname == nullptr) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   hwnd_ = hwnd;
   back_buf_.set_wnd(hwnd_);
   (void)logname;
   scheduler_.start();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dLayerTreeHost::resize(int orgx, int orgy, int cx, int cy,
                                Rhi2dOwnedSurface& front) {
   if (cx < 0 || cy < 0) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   if (scheduler_.is_busy()) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   RenderContext& rc = context();
@@ -60,7 +60,7 @@ int Rhi2dLayerTreeHost::resize(int orgx, int orgy, int cx, int cy,
       is_equal(rc.viewport.m_fVOY, orgy, dEPSILON) &&
       is_equal(rc.viewport.m_fVHeight, cy, dEPSILON) &&
       is_equal(rc.viewport.m_fVWidth, cx, dEPSILON)) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   rc.viewport.m_fVOX = orgx;
@@ -77,13 +77,13 @@ int Rhi2dLayerTreeHost::resize(int orgx, int orgy, int cx, int cy,
     rc.fblc = (xblc > yblc) ? yblc : xblc;
   }
 
-  if (SMT_ERR_NONE ==
+  if (kErrNone ==
           back_buf_.set_size(static_cast<int>(rc.viewport.m_fVWidth),
                              static_cast<int>(rc.viewport.m_fVHeight)) &&
-      SMT_ERR_NONE == shared_buf_.share_from(front)) {
-    return SMT_ERR_NONE;
+      kErrNone == shared_buf_.share_from(front)) {
+    return kErrNone;
   }
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 void Rhi2dLayerTreeHost::commit(const RenderContext& rc) {
@@ -106,7 +106,7 @@ int Rhi2dLayerTreeHost::stage_frame(const RenderContext& ctx,
   rd_options_ = options;
   painter_->set_render_options(&rd_options_);
   commit(ctx);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 void Rhi2dLayerTreeHost::schedule() {
@@ -135,7 +135,7 @@ int Rhi2dLayerTreeHost::paint_map_sync(const RenderContext& ctx,
   (void)wait_idle(2000);
   if (is_busy()) {
     scheduler_.end_sync_paint();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   rd_options_ = options;
   scheduler_.set_context(ctx);
@@ -216,18 +216,18 @@ void Rhi2dLayerTreeHost::on_worker_tick() {
 
 void Rhi2dLayerTreeHost::paint_once() {
   BASE_TRACE_EVENT("RenderMap", "gdi.frame");
-  log_legacy_flow("gdi.RenderMap begin");
+  log_frame_flow("gdi.RenderMap begin");
   const uint64_t gen = scheduler_.job_generation();
   if (!tree_.is_current(gen) || scheduler_.should_abort(gen)) {
-    log_legacy_flow("gdi.RenderMap retire");
+    log_frame_flow("gdi.RenderMap retire");
     return;
   }
   bind_painter();
   painter_->set_render_options(&rd_options_);
   const RenderContext& rc = context();
   painter_->render_map(rc.pMap, rc.orgx, rc.orgy, rc.width, rc.height, rc.op);
-  finish_legacy_frame_memory_sample();
-  log_legacy_flow("gdi.RenderMap end");
+  finish_frame_memory_sample();
+  log_frame_flow("gdi.RenderMap end");
 }
 
 }  // namespace detail

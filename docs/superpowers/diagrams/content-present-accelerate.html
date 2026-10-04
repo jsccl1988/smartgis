@@ -1,0 +1,163 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>content present accelerate — cache / GPU compose / execution</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+    --ui: #e8f1fa; --sched: #efe8f6; --cpu: #e6f5ef; --gpu: #f8efe4;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 14px 16px 16px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta, .note { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .meta a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .lane-label { font-weight: 700; font-size: 12px; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  table.own { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .own th, .own td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .own th { background: #e8edf3; color: var(--muted); font-weight: 650; }
+  .note { margin-top: 10px; font-size: 0.82rem; }
+  .stage { opacity: 0.38; }
+  .stage.on { opacity: 1; }
+  @keyframes beat {
+    0%, 12% { opacity: 0.38; }
+    8%, 20% { opacity: 1; }
+    28%, 100% { opacity: 0.38; }
+  }
+  .flow .s1 { animation: beat 8s 0s infinite; }
+  .flow .s2 { animation: beat 8s 1.2s infinite; }
+  .flow .s3 { animation: beat 8s 2.4s infinite; }
+  .flow .s4 { animation: beat 8s 3.6s infinite; }
+  .flow .s5 { animation: beat 8s 4.8s infinite; }
+  .flow .s0 { animation: beat 8s 6.2s infinite; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>content present accelerate</h1>
+    <p>三车道：<strong>C cache</strong> · <strong>G GPU 合成</strong> · <strong>E base::execution</strong>。不复制 leftover IR。Warm StaticReuse 继续跳过 <code>graph::present</code>；加速的是 cold / settle / pan。</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§content present accelerate</a>
+      · 分层：<a href="./map2d-present-frame.html">map2d-present-frame</a>
+      · L0–L3：<a href="./render-accelerate-topology.html">render-accelerate-topology</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 三车道所有权</h2>
+    <svg class="diagram" viewBox="0 0 1040 360" role="img" aria-label="cache GPU execution 三车道">
+      <rect x="0" y="0" width="1040" height="112" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="22" fill="#2563a8">C Cache — Map2dFrameCache / Pass DrawCache / HDC / hillshade</text>
+      <text class="box-sub" x="16" y="44">C0 fingerprint + PresentAction（整帧）· C1 已删（china export AV，不复活）· published shared_ptr 槽</text>
+      <text class="box-sub" x="16" y="64">C2 GPU UploadedDraw（pan 不 invalidate）· C3 软件 BitBlt · C4 vista bake + prefetch（RGBA shared_ptr）</text>
+      <text class="box-sub" x="16" y="84">std::mutex 只护 mailbox / 槽交换；指纹相机锁外；不跨 graph::present</text>
+
+      <rect x="0" y="124" width="1040" height="112" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="146" fill="#8a5a12">G GPU compose — Topology A 默认 1 CL</text>
+      <text class="box-sub" x="16" y="168">G0 pan：DrawCache encode_draws + 新 ortho camera · StaticReuse：跳过 present</text>
+      <text class="box-sub" x="16" y="188">G1 按 item identity 增量 upload · CPU pack∥ → Display 一次 upload</text>
+      <text class="box-sub" x="16" y="208">G2 晕渲/瓦片 textured quad · Topology B FrameComposer 仅 --type=gpu</text>
+
+      <rect x="0" y="248" width="1040" height="100" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="270" fill="#1d6b4f">E Execution — 唯一池 base::execution</text>
+      <text class="box-sub" x="16" y="292">L0 stage_frame 投递 tess（禁 join）· 无 published 时 Display 可一次性 cv wait · hs ∥ tess 与上一帧重叠</text>
+      <text class="box-sub" x="16" y="312">禁止同 tick async+get · 禁止 std::thread detach · LabelGrid 串行</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流（动画：谁等工作、谁永不 join）</h2>
+    <svg class="diagram flow" viewBox="0 0 1040 420" role="img" aria-label="stage_frame 到 present 的阶段">
+      <defs>
+        <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect x="8" y="12" width="200" height="72" rx="8" fill="#e8f1fa" stroke="#2563a8" class="s1"/>
+      <text class="box-title" x="108" y="40" text-anchor="middle">1 L0 UI</text>
+      <text class="box-sub" x="108" y="60" text-anchor="middle">stage FrameRequest · 永不 join</text>
+
+      <rect x="248" y="12" width="220" height="72" rx="8" fill="#efe8f6" stroke="#6b4f8a" class="s2"/>
+      <text class="box-title" x="358" y="40" text-anchor="middle">2 L1 C0 判定</text>
+      <text class="box-sub" x="358" y="60" text-anchor="middle">Static / Interactive / Rebuild</text>
+
+      <rect x="508" y="12" width="240" height="72" rx="8" fill="#e6f5ef" stroke="#1d6b4f" class="s3"/>
+      <text class="box-title" x="628" y="40" text-anchor="middle">3 E Pipeline（worker）</text>
+      <text class="box-sub" x="628" y="60" text-anchor="middle">C4 hs ∥ tess · 不 get</text>
+
+      <rect x="788" y="12" width="240" height="72" rx="8" fill="#f8efe4" stroke="#8a5a12" class="s4"/>
+      <text class="box-title" x="908" y="40" text-anchor="middle">4 L3 Display</text>
+      <text class="box-sub" x="908" y="60" text-anchor="middle">G0/G1 · graph::present 1 CL</text>
+
+      <path d="M208 48 H248" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <path d="M468 48 H508" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <path d="M748 48 H788" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+
+      <rect x="8" y="120" width="320" height="88" rx="8" fill="#fff" stroke="#2563a8" class="s0"/>
+      <text class="box-title" x="168" y="148" text-anchor="middle">Warm StaticReuse</text>
+      <text class="box-sub" x="168" y="168" text-anchor="middle">跳过 L2 与 L3 · gpu_present_ms = 0</text>
+      <text class="box-sub" x="168" y="186" text-anchor="middle">保留上一帧 swapchain</text>
+
+      <rect x="360" y="120" width="320" height="88" rx="8" fill="#fff" stroke="#8a5a12" class="s5"/>
+      <text class="box-title" x="520" y="148" text-anchor="middle">Interactive pan</text>
+      <text class="box-sub" x="520" y="168" text-anchor="middle">不 rebuild_layout · 不 invalidate_uploaded</text>
+      <text class="box-sub" x="520" y="186" text-anchor="middle">新 camera + DrawCache encode</text>
+
+      <rect x="712" y="120" width="316" height="88" rx="8" fill="#fff" stroke="#1d6b4f" class="s3"/>
+      <text class="box-title" x="870" y="148" text-anchor="middle">Cold / Settle</text>
+      <text class="box-sub" x="870" y="168" text-anchor="middle">settle 复用 published 世界项 · 上一帧仍可 present</text>
+      <text class="box-sub" x="870" y="186" text-anchor="middle">gen 匹配才 mark_published</text>
+
+      <path d="M358 48 V100 H168 V120" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <path d="M358 48 V100 H520 V120" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <path d="M628 84 V100 H870 V120" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+
+      <rect x="8" y="236" width="1024" height="164" rx="8" fill="#fafbfc" stroke="#d8dee6"/>
+      <text class="lane-label" x="24" y="260" fill="#5a6a7e">时间轴（同一 Display 节拍禁止 async+get）</text>
+      <rect x="24" y="280" width="200" height="36" rx="6" fill="#e8f1fa" stroke="#d8dee6" class="s1"/>
+      <text class="box-sub" x="124" y="302" text-anchor="middle">t0 stage</text>
+      <rect x="240" y="280" width="360" height="36" rx="6" fill="#e6f5ef" stroke="#d8dee6" class="s3"/>
+      <text class="box-sub" x="420" y="302" text-anchor="middle">worker tess（重叠）</text>
+      <rect x="620" y="280" width="390" height="36" rx="6" fill="#f8efe4" stroke="#d8dee6" class="s4"/>
+      <text class="box-sub" x="815" y="302" text-anchor="middle">t0 仍 present 上一 published 帧</text>
+      <rect x="240" y="332" width="360" height="36" rx="6" fill="#e6f5ef" stroke="#1d6b4f" class="s5"/>
+      <text class="box-sub" x="420" y="354" text-anchor="middle">t1 publish if gen current</text>
+      <rect x="620" y="332" width="390" height="36" rx="6" fill="#f8efe4" stroke="#8a5a12" class="s0"/>
+      <text class="box-sub" x="815" y="354" text-anchor="middle">t1 G1 record_and_present</text>
+    </svg>
+    <p class="note">UI 泳道永不 <code>join</code> layout future。Display 只在没有可用 published 图像时才等 worker。Fill/line 已有的 <code>parallel_for</code> 留在 <code>Layout::build</code> 内；不要再套一层 batches 并行。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. 层与符号</h2>
+    <table class="own">
+      <thead><tr><th>车道</th><th>符号</th><th>禁令</th></tr></thead>
+      <tbody>
+        <tr><td>C</td><td><code>Map2dFrameCache</code> 门面 · <code>map2d_mailbox</code> · <code>map2d_layout_build</code> · <code>PresentSnapshot</code>（MapFrame + hillshade <code>shared_ptr</code>）· <code>stage_frame</code></td><td>leftover CommandBuffer；复活 C1 <code>layer_slices_</code>；公开 <code>mutex()</code> / <code>frame()</code> 引用</td></tr>
+        <tr><td>G</td><td><code>Pass::UploadPolicy</code> · identity hash · <code>encode_draws</code> · <code>graph::present</code> 1 CL</td><td>worker 碰 Device；进程内 A+B 双合成；overlay 独立 Device buffer</td></tr>
+        <tr><td>E</td><td><code>vista_layout_parallel_enabled</code> · <code>GlobalNThreadPoolExecutor</code> · <code>prep_cull_meshes</code></td><td><code>std::thread</code> detach；同 tick <code>get</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>

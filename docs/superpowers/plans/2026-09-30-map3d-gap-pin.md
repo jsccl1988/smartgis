@@ -55,7 +55,7 @@ build.bat debug tileset_test
 build.bat debug dem_raster_test
 build.bat debug pointcloud_test
 build.bat debug scene_test
-REM optional: SmartGisViews.exe --self-test  (m3-dem-ok / m3-tiles-ok / m3-atmosphere-ok)
+REM optional: SmartGIS.exe --self-test  (m3-dem-ok / m3-tiles-ok / m3-atmosphere-ok)
 ```
 
 ## Non-goals (locked)

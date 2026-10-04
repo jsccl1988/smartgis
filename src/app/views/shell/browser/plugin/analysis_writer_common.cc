@@ -5,7 +5,7 @@
 
 #include "app/views/shell/browser/browser_ui_delegate.h"
 #include "content/browser/document/map_scene.h"
-#include "gis/carto/style/style_document.h"
+#include "gis/style/document/style_document.h"
 #include "tool/draft/draft.h"
 
 #include <cstdint>

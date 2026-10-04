@@ -11,16 +11,19 @@
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "ui/views/map/map_viewport.h"
 
+#include "vista/map/hillshade_bake.h"
+
 #include <cstdio>
 #include <cstdlib>
 #include <windows.h>
+#include "base/process/switches.h"
 
 namespace app {
 namespace detail {
 
 void run_optional_map2d_fps_bench(Browser& browser,
                                   content::Map2dPresenter* map2d) {
-  const char* bench_env = std::getenv("SMT_MAP2D_FPS_BENCH_MS");
+  const char* bench_env = base::switch_cstr("map2d-fps-bench-ms");
   if (!bench_env) {
     return;
   }
@@ -67,11 +70,14 @@ void run_optional_map2d_fps_bench(Browser& browser,
       present_n > 0 ? (100.f * static_cast<float>(prof.skip) /
                        static_cast<float>(present_n))
                     : 0.f;
+  const vista::HillshadeBakeSample bake = vista::hillshade_last_bake_sample();
   std::fprintf(stderr,
                "map2d-showcase: fps_bench ms=%d samples=%d mean=%.2f "
                "peak=%.2f layout_builds_delta=%llu total=%llu "
                "gpu_skip=%llu gpu_full=%llu skip_pct=%.1f "
-               "act_r/i/s/st=%llu/%llu/%llu/%llu\n",
+               "act_r/i/s/st=%llu/%llu/%llu/%llu "
+               "bake_mem/disk/load/shade/store_ms=%lld/%lld/%lld/%lld/%lld "
+               "bake_hit_mem/disk=%d/%d bake_cuda=%d bake_wh=%dx%d\n",
                bench_ms, samples, mean, peak,
                static_cast<unsigned long long>(builds_delta),
                static_cast<unsigned long long>(map2d->layout_build_count()),
@@ -80,7 +86,13 @@ void run_optional_map2d_fps_bench(Browser& browser,
                static_cast<unsigned long long>(prof.action_rebuild),
                static_cast<unsigned long long>(prof.action_interactive),
                static_cast<unsigned long long>(prof.action_settle),
-               static_cast<unsigned long long>(prof.action_static));
+               static_cast<unsigned long long>(prof.action_static),
+               static_cast<long long>(bake.mem_ms),
+               static_cast<long long>(bake.disk_ms),
+               static_cast<long long>(bake.load_ms),
+               static_cast<long long>(bake.shade_ms),
+               static_cast<long long>(bake.store_ms), bake.mem_hit,
+               bake.disk_hit, bake.used_cuda, bake.width, bake.height);
   wchar_t bench_w[MAX_PATH] = {};
   if (exe_capture_path(bench_w, MAX_PATH, L"map2d-fps-bench.txt")) {
     FILE* bf = nullptr;
@@ -91,7 +103,12 @@ void run_optional_map2d_fps_bench(Browser& browser,
                    "layout_builds_delta=%llu\n"
                    "gpu_skip=%llu\ngpu_full=%llu\nskip_pct=%.1f\n"
                    "action_rebuild=%llu\naction_interactive=%llu\n"
-                   "action_settle=%llu\naction_static=%llu\n",
+                   "action_settle=%llu\naction_static=%llu\n"
+                   "bake_mem_ms=%lld\nbake_disk_ms=%lld\n"
+                   "bake_load_ms=%lld\nbake_shade_ms=%lld\n"
+                   "bake_store_ms=%lld\nbake_mem_hit=%d\n"
+                   "bake_disk_hit=%d\nbake_used_cuda=%d\n"
+                   "bake_w=%d\nbake_h=%d\nbake_max_edge=%d\n",
                    mean, peak, samples, bench_ms,
                    static_cast<unsigned long long>(map2d->layout_build_count()),
                    static_cast<unsigned long long>(builds_delta),
@@ -100,7 +117,14 @@ void run_optional_map2d_fps_bench(Browser& browser,
                    static_cast<unsigned long long>(prof.action_rebuild),
                    static_cast<unsigned long long>(prof.action_interactive),
                    static_cast<unsigned long long>(prof.action_settle),
-                   static_cast<unsigned long long>(prof.action_static));
+                   static_cast<unsigned long long>(prof.action_static),
+                   static_cast<long long>(bake.mem_ms),
+                   static_cast<long long>(bake.disk_ms),
+                   static_cast<long long>(bake.load_ms),
+                   static_cast<long long>(bake.shade_ms),
+                   static_cast<long long>(bake.store_ms), bake.mem_hit,
+                   bake.disk_hit, bake.used_cuda, bake.width, bake.height,
+                   bake.max_edge);
       std::fclose(bf);
     }
   }

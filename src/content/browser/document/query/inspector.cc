@@ -10,8 +10,9 @@
 #include <vector>
 
 #include "content/public/feature_attrs.h"
-#include "gis/carto/style/style_document.h"
-#include "gis/carto/style/style_rules.h"
+#include "gis/style/document/style_document.h"
+#include "gis/style/eval/style_rules.h"
+#include "base/process/switches.h"
 
 namespace content {
 namespace detail {
@@ -34,7 +35,7 @@ bool source_layer_for_feature(const LayerStore& store,
 }
 
 bool style_debug_enabled() {
-  const char* flag = std::getenv("SMT_FEATURE_INFO_STYLE_DEBUG");
+  const char* flag = base::switch_cstr("feature-info-style-debug");
   return flag && flag[0] != '\0' && flag[0] != '0';
 }
 

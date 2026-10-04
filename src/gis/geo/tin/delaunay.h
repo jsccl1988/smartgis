@@ -5,7 +5,7 @@
 #define GIS_GEO_TIN_DELAUNAY_H_
 
 #include "gis/gis_export.h"
-#include "base/math/vector.h"
+#include "base/math/linear/vector.h"
 #include "gis/geo/ops/indexed_tin.h"
 
 #include "ogr_geometry.h"

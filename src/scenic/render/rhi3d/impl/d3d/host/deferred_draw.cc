@@ -6,6 +6,7 @@
 #include <cstdlib>
 
 #include "base/trace/event/process_trace.h"
+#include "base/process/switches.h"
 #include "scenic/render/rhi3d/impl/d3d/host/render_device.h"
 
 namespace scenic {
@@ -18,7 +19,7 @@ thread_local int g_tls_deferred_slot = -1;
 }  // namespace
 
 bool d3d_deferred_env_enabled() {
-  const char* e = std::getenv("SMT_RHI3D_D3D_DEFERRED");
+  const char* e = base::switch_cstr("rhi3d-d3d-deferred");
   if (!e || !e[0]) {
     return true;
   }
@@ -51,10 +52,10 @@ bool D3dRenderDevice::deferred_draw_active() const {
 long D3dRenderDevice::begin_deferred_draw(int worker_count) {
   BASE_TRACE_EVENT("begin_deferred", "rhi3d.d3d.deferred");
   if (!d3d_deferred_env_enabled() || !device_ || !context_ || !rtv_) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
-  if (ensure_mesh_pipeline() != SMT_ERR_NONE || !mesh_cb_) {
-    return SMT_ERR_FAILURE;
+  if (ensure_mesh_pipeline() != kErrNone || !mesh_cb_) {
+    return kErrFailure;
   }
   if (worker_count < 1) {
     worker_count = 1;
@@ -69,7 +70,7 @@ long D3dRenderDevice::begin_deferred_draw(int worker_count) {
     ID3D11DeviceContext* def = nullptr;
     const HRESULT hr = device_->CreateDeferredContext(0, &def);
     if (FAILED(hr) || !def) {
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
     slot.ctx = def;
     if (mesh_cb_) {
@@ -82,7 +83,7 @@ long D3dRenderDevice::begin_deferred_draw(int worker_count) {
     }
     if (!slot.mesh_cb) {
       safe_release(slot.ctx);
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
     deferred_slots_.push_back(slot);
   }
@@ -93,18 +94,18 @@ long D3dRenderDevice::begin_deferred_draw(int worker_count) {
   deferred_recording_ = true;
   g_tls_deferred_device = nullptr;
   g_tls_deferred_slot = -1;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::bind_deferred_worker(int slot) {
   if (slot < 0) {
     g_tls_deferred_device = nullptr;
     g_tls_deferred_slot = -1;
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   if (!deferred_recording_ || slot >= static_cast<int>(deferred_slots_.size()) ||
       !deferred_slots_[static_cast<size_t>(slot)].ctx) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   g_tls_deferred_device = this;
   g_tls_deferred_slot = slot;
@@ -118,7 +119,7 @@ long D3dRenderDevice::bind_deferred_worker(int slot) {
   vp.MinDepth = 0.f;
   vp.MaxDepth = 1.f;
   ctx->RSSetViewports(1, &vp);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::finish_deferred_draw() {
@@ -127,7 +128,7 @@ long D3dRenderDevice::finish_deferred_draw() {
   g_tls_deferred_slot = -1;
   if (!deferred_recording_ || !context_) {
     deferred_recording_ = false;
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   for (D3dDeferredSlot& s : deferred_slots_) {
@@ -138,7 +139,7 @@ long D3dRenderDevice::finish_deferred_draw() {
     ID3D11CommandList* list = nullptr;
     if (FAILED(s.ctx->FinishCommandList(FALSE, &list)) || !list) {
       deferred_recording_ = false;
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
     s.list = list;
   }
@@ -172,7 +173,7 @@ long D3dRenderDevice::finish_deferred_draw() {
     }
   }
   deferred_recording_ = false;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 }  // namespace detail

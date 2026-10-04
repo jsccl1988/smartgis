@@ -6,6 +6,7 @@
 
 #include <cstdlib>
 #include <string>
+#include "base/process/switches.h"
 
 namespace gis {
 namespace datasource {
@@ -24,7 +25,7 @@ struct SdbdCallResult {
 inline constexpr char kDefaultSdbdBase[] = "http://127.0.0.1:8021";
 
 inline std::string sdbd_default_base_url() {
-  if (const char* env = std::getenv("SG_SDBD_BASE")) {
+  if (const char* env = base::switch_cstr("sdbd-base")) {
     if (env[0] != '\0') {
       return std::string(env);
     }

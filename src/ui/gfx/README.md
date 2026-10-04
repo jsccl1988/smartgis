@@ -50,7 +50,7 @@ REM 在 out\args.gn 增加 smt_has_skia = true 后：
 gn gen out --root=./
 ninja -C out views_unittests SmartGisViews
 out\views_unittests.exe --self-test
-out\SmartGisViews.exe --shell-canvas=skia
+out\SmartGIS.exe --shell-canvas=skia
 REM 或: set SMT_SHELL_CANVAS=skia
 ```
 

@@ -2,12 +2,11 @@
 // All rights reserved.
 
 #include "content/public/event_bus.h"
-#include "legacy/plugin/runtime/bridge/cmd.h"
 #include "gis/edit/command_session.h"
 #include "gis/edit/memory_session.h"
 #include "tool/command/command.h"
 #include "tool/interaction/interaction.h"
-#include "legacy/tool/msg/msg.h"
+#include "tool/msg/msg.h"
 #include "tool/workspace/workspace.h"
 
 #include <cstdio>
@@ -434,46 +433,6 @@ int main() {
     expect(ws.stack().current() &&
                std::strcmp(ws.stack().current()->id(), "draw.point") == 0,
            "try_execute activated draw.point");
-  }
-
-  {
-    expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgDemLoadTin),
-                       "world3d.load_trimesh") == 0,
-           "plugin world3d trimesh");
-    expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgDemLoadGrid),
-                       "world3d.load_heightmap") == 0,
-           "plugin world3d heightmap");
-    expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgDemAbout),
-                       "world3d.about") == 0,
-           "plugin world3d about");
-    expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgProjDoPrj),
-                       "proj.do_prj") == 0,
-           "plugin proj");
-    expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgPrintPreview),
-                       "print.preview") == 0,
-           "plugin print");
-    expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgModel3dSphere),
-                       "model3d.add_sphere") == 0,
-           "plugin model3d");
-    expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgModel3dWater),
-                       "model3d.add_water") == 0,
-           "plugin model3d water");
-    expect(std::strcmp(plugin::command_id_from_am_msg(
-                           plugin::kAmMsgModel3dCreateTin),
-                       "model3d.create_trimesh") == 0,
-           "plugin model3d trimesh");
-    expect(std::strcmp(plugin::command_id_from_am_msg(
-                           plugin::kAmMsgOrthogridInputBoundary0),
-                       "baogrid.input_boundary_0") == 0,
-           "plugin baogrid");
-    expect(std::strcmp(plugin::command_id_from_am_msg(
-                           plugin::kAmMsgOrthogridLoadBoundary),
-                       "baogrid.load_boundary") == 0,
-           "plugin baogrid load");
-    expect(std::strcmp(plugin::command_id_from_am_msg(tool::kGtMsgAppendLineString),
-                       "edit.append.linestring") == 0,
-           "plugin gt append line");
-    expect(plugin::command_id_from_am_msg(-1) == nullptr, "plugin unknown am");
   }
 
   {

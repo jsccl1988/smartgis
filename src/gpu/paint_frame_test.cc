@@ -28,7 +28,7 @@ void expect(bool ok, const char* msg) {
 }
 
 void clear_backend_env() {
-  SetEnvironmentVariableA("SMT_MAP_BACKEND", nullptr);
+  SetEnvironmentVariableA("map-backend", nullptr);
 }
 
 gpu::TileFetchResult solid_tile(uint8_t b, uint8_t g, uint8_t r, uint8_t a) {
@@ -51,7 +51,7 @@ int main() {
                      "direct") == 0,
          "preview name");
 
-  SetEnvironmentVariableA("SMT_MAP_BACKEND", "a");
+  SetEnvironmentVariableA("map-backend", "a");
   expect(gpu::select_content_source() == gpu::ContentSource::kTile,
          "SMT_MAP_BACKEND=a selects basemap");
   expect(std::strcmp(gpu::content_source_name(gpu::ContentSource::kTile),
@@ -66,7 +66,7 @@ int main() {
   gpu::set_content_source(gpu::ContentSource::kDirect);
   expect(gpu::select_content_source() == gpu::ContentSource::kDirect,
          "runtime override preview");
-  SetEnvironmentVariableA("SMT_MAP_BACKEND", "a");
+  SetEnvironmentVariableA("map-backend", "a");
   gpu::set_content_source(gpu::ContentSource::kDirect);
   expect(gpu::select_content_source() == gpu::ContentSource::kDirect,
          "override beats SMT_MAP_BACKEND");
@@ -448,7 +448,7 @@ int main() {
 
   // M0: FrameComposer + GpuDeviceHub (RHI default, primary adapter).
   {
-    SetEnvironmentVariableA("SMT_GPU_COMPOSE", nullptr);
+    SetEnvironmentVariableA("gpu-compose", nullptr);
     gpu::detail::clear_compose_backend_override();
     expect(gpu::detail::select_compose_backend() ==
                gpu::detail::ComposeBackend::kRhi,

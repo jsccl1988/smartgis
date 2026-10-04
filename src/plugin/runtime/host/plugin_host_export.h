@@ -5,8 +5,7 @@
 #define PLUGIN_RUNTIME_HOST_PLUGIN_HOST_EXPORT_H_
 
 // GN defines PLUGIN_HOST_EXPORTS when building the plugin host DLL
-// (dll_stem = plugin_host). Do not reuse PLUGIN_EXPORT / PLUGIN_EXPORTS —
-// those belong to //src/legacy/plugin:plugin (AuxModule runtime).
+// (dll_stem = plugin_host).
 
 #if defined(PLUGIN_HOST_EXPORTS)
 #define PLUGIN_HOST_EXPORT __declspec(dllexport)

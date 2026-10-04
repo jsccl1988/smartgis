@@ -19,7 +19,7 @@
 #include "vista/atmosphere/globe/sat_cloud_pass.h"
 #include "vista/atmosphere/ocean/ocean_pass.h"
 #include "vista/atmosphere/sky/sky_pass.h"
-#include "vista/domain/atmosphere/environment.h"
+#include "vista/atmosphere/session/environment.h"
 
 namespace content {
 

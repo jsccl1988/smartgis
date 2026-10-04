@@ -24,6 +24,7 @@
 #include <system_error>
 #include <vector>
 #include <windows.h>
+#include "base/process/switches.h"
 
 namespace app {
 namespace detail {
@@ -83,7 +84,7 @@ int run_ui_layout_gate(Browser& browser, UiShowcaseMode mode) {
 
   const int total_fails = layout_fails + overlap_fails + shell_fails;
   const bool force_dump = [] {
-    const char* v = std::getenv("SMT_UI_FORENSICS");
+    const char* v = base::switch_cstr("ui-forensics");
     return v && v[0] && !(v[0] == '0' && v[1] == '\0');
   }();
   if (total_fails > 0 || force_dump) {
@@ -111,7 +112,7 @@ int run_ui_layout_gate(Browser& browser, UiShowcaseMode mode) {
       if (man) {
         man << "{\n"
             << "  \"run_id\": \"" << run_id << "\",\n"
-            << "  \"exe\": \"SmartGisViews.exe\",\n"
+            << "  \"exe\": \"SmartGIS.exe\",\n"
             << "  \"scenario\": \"--ui-showcase=" << ui_showcase_name(mode)
             << "\",\n"
             << "  \"issue_count\": " << all.size() << "\n"

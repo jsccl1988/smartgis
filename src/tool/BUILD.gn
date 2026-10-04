@@ -5,9 +5,8 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Session-scoped Command / Input / Workspace → one DLL (dll_stem = tool).
-# Not leftover IATool (//src/legacy/tool:legacy_tool, LEGACY_TOOL_EXPORTS).
-# GT_MSG adapter: //src/legacy/tool/msg:adapter (not part of :tool).
-# Layout: src/tool/{command,interaction,draft,nav,workspace}/
+# GT_MSG adapter: //src/tool:gt_msg (source_set, not part of :tool).
+# Layout: src/tool/{command,interaction,draft,nav,workspace,msg}/
 #
 # In-DLL source_sets use TOOL_EXPORTS (legacy uses LEGACY_TOOL_EXPORTS).
 # Stable groups (:dispatch, :command, …) forward to :tool for existing deps.
@@ -117,14 +116,26 @@ group("dispatch") {
   public_deps = [ ":tool" ]
 }
 
+# GT_MSG_* → Workspace command ids. Linked into content / plugin_host callers.
+source_set("gt_msg") {
+  sources = [
+    "msg/msg.cc",
+    "msg/msg.h",
+  ]
+  public_configs = [ ":tool_config" ]
+  deps = [
+    ":command",
+    ":workspace",
+  ]
+}
+
 test("tool_dispatch_test") {
   output_name = "tool_dispatch_test"
   sources = [ "workspace/dispatch_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
     ":dispatch",
-    "//src/legacy/tool/msg:adapter",
-    "//src/plugin:cmd",
+    ":gt_msg",
   ]
 }
 

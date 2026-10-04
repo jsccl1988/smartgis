@@ -19,6 +19,7 @@
 #include "content/browser/camera/map_host_extent.h"
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
+#include "base/process/switches.h"
 
 namespace app {
 namespace detail {
@@ -35,7 +36,7 @@ bool resolve_world3d_pointcloud_sample(char* out_utf8, size_t out_cap) {
 }
 
 bool world3d_perf_bare_enabled() {
-  const char* e = std::getenv("SMT_PLUGIN_WORLD3D_PERF_BARE");
+  const char* e = base::switch_cstr("plugin-world3d-perf-bare");
   return e && e[0] == '1' && e[1] == '\0';
 }
 

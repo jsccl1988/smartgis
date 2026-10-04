@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "scenic/detail/viewport.h"
+#include "scenic/render/rhi2d/public/device/viewport.h"
 
 namespace scenic {
 namespace detail {

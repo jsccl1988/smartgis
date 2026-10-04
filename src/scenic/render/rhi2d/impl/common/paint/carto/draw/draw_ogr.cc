@@ -10,11 +10,11 @@
 #include <span>
 #include <vector>
 
-#include "base/math/simd.h"
-#include "base/math/vector.h"
+#include "base/math/simd/simd.h"
+#include "base/math/linear/vector.h"
 #include "gis/feature/feature.h"
-#include "scenic/detail/feature_kind.h"
-#include "scenic/detail/style_api.h"
+#include "scenic/render/rhi2d/impl/common/paint/carto/draw/feature_kind.h"
+#include "scenic/render/rhi2d/impl/common/paint/carto/style/style_api.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/frame/carto_frame.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/draw/device_geom.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/draw/points.h"
@@ -36,7 +36,7 @@ int GdiOgrDraw::draw_multi_line_string(
     c_->draw_line_string(static_cast<const OGRLineString*>(
         multi_linestring->getGeometryRef(i)));
   }
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 int GdiOgrDraw::draw_multi_point(const Style* style,
@@ -46,7 +46,7 @@ int GdiOgrDraw::draw_multi_point(const Style* style,
     c_->draw_point(style,
                    static_cast<const OGRPoint*>(multi_point->getGeometryRef(i)));
   }
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 int GdiOgrDraw::draw_multi_polygon(const OGRMultiPolygon* multi_polygon) {
@@ -55,12 +55,12 @@ int GdiOgrDraw::draw_multi_polygon(const OGRMultiPolygon* multi_polygon) {
     c_->draw_polygon(
         static_cast<const OGRPolygon*>(multi_polygon->getGeometryRef(i)));
   }
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 int GdiOgrDraw::draw_point(const Style* style, const OGRPoint* point) {
   if (!point) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   if (!style) {
     long lX = 0;
@@ -84,13 +84,13 @@ int GdiOgrDraw::draw_point(const Style* style, const OGRPoint* point) {
     return c_->draw_device_point(static_cast<int>(lX), static_cast<int>(lY));
   }
 
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 int GdiOgrDraw::draw_anno(const char* anno, float angle, float c_height,
                               float c_width, float c_space,
                               const OGRPoint* point) {
-  if (anno == nullptr || !point) return SMT_ERR_INVALID_PARAM;
+  if (anno == nullptr || !point) return kErrInvalidParam;
 
   (void)c_width;
   (void)c_space;
@@ -107,7 +107,7 @@ int GdiOgrDraw::draw_anno(const char* anno, float angle, float c_height,
   const MapCartoBox box = carto2d_label_box(
       static_cast<int>(x), static_cast<int>(y), anno, px_h, c_->label_priority_);
   if (!c_->carto2d_->try_keep_label(box)) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   const int text_n = static_cast<int>(std::strlen(anno));
   if (c_->is_recording()) {
@@ -125,17 +125,17 @@ int GdiOgrDraw::draw_anno(const char* anno, float angle, float c_height,
     detail::ScopedPaintBackend(c_->h_cur_dc_)->draw_cross( lX, lY, r);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiOgrDraw::draw_symbol(HICON icon, long height, long width,
                                 const OGRPoint* point) {
   if (!point || (!c_->h_cur_dc_ && !c_->is_recording())) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   // Icon draw needs an HDC; skip while record-only (rare on map vector path).
   if (c_->is_recording() && !c_->h_cur_dc_) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   height *= c_->rc_->fblc;
   width *= c_->rc_->fblc;
@@ -151,15 +151,15 @@ int GdiOgrDraw::draw_symbol(HICON icon, long height, long width,
     detail::ScopedPaintBackend(c_->h_cur_dc_)->draw_cross( lX, lY, r);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiOgrDraw::draw_line_spline(const OGRLineString* spline) {
   const int n_points = spline->getNumPoints();
-  if (n_points < 2) return SMT_ERR_INVALID_PARAM;
+  if (n_points < 2) return kErrInvalidParam;
 
   ScopedGdiPoints pts(n_points);
-  if (!pts) return SMT_ERR_FAILURE;
+  if (!pts) return kErrFailure;
 
   thread_local std::vector<float> xy;
   xy.resize(static_cast<size_t>(n_points) * 2u);
@@ -184,16 +184,16 @@ int GdiOgrDraw::draw_line_spline(const OGRLineString* spline) {
     }
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiOgrDraw::draw_line_string(const OGRLineString* linestring) {
   if (!linestring || !c_->rc_ || (!c_->h_cur_dc_ && !c_->is_recording())) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   const int n_points = linestring->getNumPoints();
   if (n_points < 2) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   thread_local std::vector<float> xy;
@@ -205,7 +205,7 @@ int GdiOgrDraw::draw_line_string(const OGRLineString* linestring) {
   const int n_out =
       pack_curve_xy_strided(linestring, step, &xy, /*keep_last=*/true);
   if (n_out < 2) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   projected.resize(static_cast<size_t>(n_out));
@@ -219,33 +219,33 @@ int GdiOgrDraw::draw_line_string(const OGRLineString* linestring) {
   const int kept = thin_device_polyline(projected.data(), n_out, &thinned,
                                         overview_thin_chebyshev(xform.scale));
   if (kept < 2) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   return c_->draw_device_polyline(thinned.data(), kept);
 }
 
 int GdiOgrDraw::draw_linear_ring(const OGRLinearRing* linear_ring) {
   if (!linear_ring || !c_->rc_) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   const int n_points = linear_ring->getNumPoints();
   if (n_points < 2) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   if (!c_->h_cur_dc_ && !c_->is_recording()) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   thread_local std::vector<float> xy;
   ScopedGdiPoints pts(n_points);
   if (!pts) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   const int n_out =
       pack_curve_xy_strided(linear_ring, /*step=*/1, &xy, /*keep_last=*/true);
   if (n_out < 2) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   const LpToDp2 xform = make_lp_to_dp(*c_->rc_);
   transform_xy_batch(
@@ -267,20 +267,20 @@ int GdiOgrDraw::draw_linear_ring(const OGRLinearRing* linear_ring) {
     detail::ScopedPaintBackend(c_->h_cur_dc_)->polyline(pts.data, n_out);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiOgrDraw::draw_polygon(const OGRPolygon* polygon) {
   if (!polygon || !c_->rc_ || (!c_->h_cur_dc_ && !c_->is_recording())) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   const OGRLinearRing* exterior = polygon->getExteriorRing();
   if (!exterior) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   const int n_exterior_pts = exterior->getNumPoints();
   if (n_exterior_pts < 2) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   const int n_interior_rings = polygon->getNumInteriorRings();
@@ -293,7 +293,7 @@ int GdiOgrDraw::draw_polygon(const OGRPolygon* polygon) {
     n_all_pts += interior->getNumPoints();
   }
   if (n_all_pts < 2) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   // Reuse scratch across features on this worker thread (avoid new/delete).
@@ -328,7 +328,7 @@ int GdiOgrDraw::draw_polygon(const OGRPolygon* polygon) {
   }
   const int ring_n = static_cast<int>(ring_starts.size());
   if (ring_n < 1 || n_count < 2) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   projected.resize(static_cast<size_t>(n_count));
@@ -354,14 +354,14 @@ int GdiOgrDraw::draw_polygon(const OGRPolygon* polygon) {
     if (kept < 3) {
       thinned.resize(base);
       if (r == 0) {
-        return SMT_ERR_NONE;
+        return kErrNone;
       }
       continue;
     }
     ring_counts.push_back(kept);
   }
   if (ring_counts.empty()) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   return c_->draw_device_polygon(thinned.data(), ring_counts.data(),
                              static_cast<int>(ring_counts.size()));

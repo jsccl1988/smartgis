@@ -17,6 +17,7 @@
 
 #include "base/ipc/handle/handle.h"
 #include "base/ipc/invitation/invitation.h"
+#include "base/process/switches.h"
 #include "content/common/ipc.h"
 #include "gpu/compositor/composer/composer.h"
 #include "gpu/compositor/frame/frame.h"
@@ -259,8 +260,7 @@ bool announce_and_paint(cd::Pipe* pipe, uint32_t view_id, SurfaceSlot* slot) {
       "{\"version\":8,\"name\":\"gpu-map\",\"layers\":["
       "{\"id\":\"bg\",\"type\":\"background\","
       "\"paint\":{\"background-color\":\"#4080C0\"}}]}";
-  char xyz[512] = {};
-  if (GetEnvironmentVariableA("SMT_XYZ_URL", xyz, sizeof(xyz)) > 0) {
+  if (const char* xyz = base::switch_cstr("xyz-url"); xyz && xyz[0]) {
     req.tile_url_template = xyz;
   }
   const bool has_template =
@@ -516,6 +516,7 @@ int run_server(int argc, wchar_t** argv, const Args& args) {
 }  // namespace
 
 int GpuMain(int argc, wchar_t** argv) {
+  base::init_switches_from_argv(argc, argv);
   const Args args = parse_args(argc, argv);
   if (args.self_test) {
     return run_self_test(argv && argv[0] ? argv[0] : L"");

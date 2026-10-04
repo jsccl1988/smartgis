@@ -9,7 +9,7 @@
 #include <cstdlib>
 #include <vector>
 
-#include "base/math/affine2.h"
+#include "base/math/linear/affine2.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/frame/context.h"
 
 namespace scenic {

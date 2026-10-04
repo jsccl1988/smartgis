@@ -32,11 +32,11 @@
 #include "content/public/map_types.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "vista/domain/atmosphere/field_channel.h"
+#include "vista/atmosphere/session/field_channel.h"
 #include "render/rhi/rhi.h"
 #include "gis/edit/session.h"
-#include "gis/carto/tile/tile_map_layer.h"
-#include "gis/carto/tile/tile_provider.h"
+#include "gis/tile/layer/tile_map_layer.h"
+#include "gis/tile/provider/tile_provider.h"
 #include "tool/nav/camera_nav.h"
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
@@ -65,6 +65,7 @@
 #include "ui/gis/shell/status_bar.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 #include "ui/views/kernel/view/view.h"
+#include "base/process/switches.h"
 
 namespace app {
 
@@ -140,7 +141,7 @@ void Browser::fit_map_extent() {
     }
   }
   const bool skip_china_defaults = []() {
-    const char* skip = std::getenv("SMT_SKIP_CHINA_MAP2D_DEFAULTS");
+    const char* skip = base::switch_cstr("skip-china-map2d-defaults");
     return skip && skip[0] != '\0' && skip[0] != '0';
   }();
   if (session_.document().has_china_extent() && !skip_china_defaults) {

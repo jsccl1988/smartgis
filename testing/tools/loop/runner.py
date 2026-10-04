@@ -25,6 +25,7 @@ from .score.bmp import score_bmp
 from .score.marks import read_mark_text
 from .suite import ROOT, Suite
 
+
 def _maybe_emit_visual_review(
     suite: Suite,
     *,
@@ -96,7 +97,7 @@ def _kill(suite: Suite) -> None:
         except Exception as exc:  # noqa: BLE001
             print(f"warn: kill_showcase failed ({exc}); falling back", flush=True)
     # Always clear the suite image — kill_showcase only matches marker argv;
-    # bare SmartGis.exe leftovers race OS-inject HWND bind / DelayInit.
+    # bare SmartGIS-Legacy.exe leftovers race OS-inject HWND bind / DelayInit.
     process_mod.kill_exe(suite.exe_name)
 
 
@@ -133,6 +134,8 @@ def _prepare_env(suite: Suite) -> dict[str, str]:
         "SMT_MAP2D_SHOWCASE_GPU",
         "SMT_MAP2D_EXPORT_REUSE",
         "SMT_MAP2D_FPS_BENCH_MS",
+        "SMT_MAP2D_ENGINE",
+        "SMT_MAP2D_NO_HILLSHADE",
     ):
         env.pop(key, None)
     # Suite.env wins (re-apply after scrub).
@@ -165,10 +168,14 @@ def _run_inproc_process(
     suite: Suite, *, exe: Path, out: Path, env: dict[str, str], timeout: int
 ) -> int:
     cmd = [str(exe), *suite.argv]
+    run_env = env
+    if process_mod.is_views_exe(suite.exe_name):
+        run_env, extra = process_mod.peel_product_switches(env)
+        cmd.extend(extra)
     return process_mod.run_process(
         cmd,
         cwd=out,
-        env=env,
+        env=run_env,
         timeout_sec=timeout,
         kill_image=suite.exe_name,
     )

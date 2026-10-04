@@ -6,7 +6,7 @@
 #define GEOS_USE_ONLY_R_API
 #include "geos_c.h"
 
-#include "base/math/constants.h"
+#include "base/math/scalar/constants.h"
 
 #include <cmath>
 #include <cstdint>

@@ -3,7 +3,7 @@
 
 #include "gpu/raster/direct/mesh.h"
 
-#include "vista/world/terrain/dem/dem_raster.h"
+#include "vista/terrain/dem/dem_raster.h"
 
 #include <algorithm>
 #include <string>

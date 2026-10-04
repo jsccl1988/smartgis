@@ -5,7 +5,7 @@ All rights reserved.
 
 # GUI / Views 测试方案
 
-本仓桌面壳终局是 **Views + Skia**（[`ui-views-skia.md`](ui-views-skia.md)）。GUI 测试投资跟 `SmartGisViews.exe` / `ui::views` 走；leftover MFC（`SmartGis.exe`）只保进程冒烟。
+本仓桌面壳终局是 **Views + Skia**（[`ui-views-skia.md`](ui-views-skia.md)）。GUI 测试投资跟 `SmartGIS.exe` / `ui::views` 走；leftover MFC（`SmartGIS-Legacy.exe`）只保进程冒烟。
 
 业界对照：单测 → 进程内交互（Chromium [Kombucha](https://chromium.googlesource.com/chromium/src/+/main/chrome/test/interaction/README.md)）→ 壳像素（本仓 L2 为本地 PNG + WIC，非 Skia Gold）→ 黑盒 UIA → 产品冒烟。本仓已落在 **L0 + L1′ + L2 + L4**。
 
@@ -17,19 +17,19 @@ All rights reserved.
 | **L1** | 进程内交互序列 | **已有**（Wave1；[`ui-testing` P2](#分期) + living §UI interactive harness） | `out\views_interactive_tests.exe`（GN `//src/ui/views:views_interactive_tests`；harness `src/ui/views/testing/harness/`） |
 | **L1b** | 壳/合成 perf 微基准 | **已有**（非默认 `te`） | `out\views_bench.exe`（GN `//src/ui/views:views_bench`） |
 | **L1c** | UI 视觉取证（Scheme 1 A+C） | **已有**（**非**默认 `te` 门禁） | 失败/`SMT_UI_FORENSICS=1` → `out\ui_forensics\`；`tools\debug\scripts\ui_visual_forensics.py` |
-| **L1′** | 产品壳语义路径 | **已有** | `SmartGisViews.exe --self-test`；`SmartGisWinui.exe --self-test`；`SmartGisCef.exe --self-test`（有 CEF pin 时） |
+| **L1′** | 产品壳语义路径 | **已有** | `SmartGIS.exe --self-test`；`SmartGisWinui.exe --self-test`；`SmartGisCef.exe --self-test`（有 CEF pin 时） |
 | **L2** | 壳像素回归 | **已有**；地图帧不进默认基线 | `out\views_pixel_tests.exe` |
 | **L3** | 黑盒 UIA / FlaUI | **低优先**（自绘 Views 缺 Provider） | 暂缓 |
 | **L4** | 产品 exe 冒烟 | **已有** | `build.bat e2e` → `exe_smoke` |
 | **Console L0** | Agent / 命令矩阵 | **规划中**（living §Console coverage） | `content_console_coverage_test` → `build.bat te` |
 | **Console L1** | Console / 数据+视口 soft 时序 | **规划中**（非默认 `te`） | `content_console_bench` → `build.bat b` → `console_bench.json` |
-| **Console L2** | 壳 Console 驱动冒烟 | **规划中** | `SmartGisViews.exe --self-test-console`（+ 可选 OpenCppCoverage） |
+| **Console L2** | 壳 Console 驱动冒烟 | **规划中** | `SmartGIS.exe --self-test-console`（+ 可选 OpenCppCoverage） |
 
 GN / 跑法总入口：[`testing/README.md`](../../testing/README.md)。
 
 ## 原则
 
-1. **Views 为主、MFC 为辅** — 新用例只加在 `ui::views` / `app/views`；`SmartGis.exe` 仅 `exe_smoke`。
+1. **Views 为主、MFC 为辅** — 新用例只加在 `ui::views` / `app/views`；`SmartGIS-Legacy.exe` 仅 `exe_smoke`。
 2. **白盒优先于 UIA** — 合成 `MouseEvent` / `KeyEvent`、直接查 View 树与命令状态；不靠屏幕坐标点图。
 3. **地图断言走语义** — `MapViewport::wait_ready`、`ViewHost`、`EditSession`、图层/状态栏文案；不断言地图像素。
 4. **像素（若做）只测壳** — MenuBar / Tab / StatusBar / 对话框；固定 DIP、关动画；不测 GPU 地图帧。
@@ -98,14 +98,14 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --list-runs
 py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run_id>
 ```
 
-### L1′ — `SmartGisViews.exe --self-test`
+### L1′ — `SmartGIS.exe --self-test`
 
 - 实现：`src/app/views/main.cc`（`BrowserMain`）。
 - 真 HWND：泵消息 → 检查壳 → Map / Data / 3D 切换 → `wait_ready`（`kContentMapView` 时）→ 断言 `HostView::Latest` 出帧（marks：`map-frame-ok` / `scene-frame-ok`）→ 3D trackball 输入 → 编辑点 / 选择 / 清选（`input-point-ok`：`FeatureMutation.geom` 为 point）→ M0 折线 + FeatureGeom（`input-line-ok` / `m0-line-ok`）→ 多边形 digitize（`input-poly-ok` / `input-ok`）→ OGR China PLP 进层（`china-plp-ok`）→ `view.pan`（`pan-ok`）→ 浏览压力（`browse-ok`：多次 LMB pan + wheel，RMB 不被 pan 吞掉；`SMT_SKIP_MAP_CONTEXT_MENU=1` 跳过模态菜单）→ 光标处滚轮（`wheel-cursor-ok`）→ 轨道相机矩阵 → `layout_check` → 地图 HWND 与 View bounds 对齐。
 - 由 `exe_smoke` 拉起；窗口标题 `SmartGIS Views`。
 - 浏览回归 loop：`py -3 testing/tools/loop_runner.py --suite browse`（可 `--no-build`）。
 - **Map browse forensic（L1′ 扩展，2026-09-30）：** 卡死 / 花屏黑屏 / 跟手差 / 崩溃 取证。
-  - Suites：`browse`（Views 2D）、`browse.3d`（Views 3D tab orbit/wheel）、`legacy.browse.2d`（裸 `SmartGis.exe` Edit + **`os_inject_default=sendinput`** → map_client HWND + `capture_hwnd_bmp_ex` → `legacy-browse-2d-edit.bmp`；`bmp.soft` 时 china score 仅 informational；**zoom_gate** / **motion_gate**（录像唯一帧）/ **click_gate**（click+dblclick + `_click_after.bmp`））、`legacy.browse.3d`（OS inject + scene3d showcase linger / `SMT_HARNESS_OS_WAIT_BMP`）。
+  - Suites：`browse`（Views 2D）、`browse.3d`（Views 3D tab orbit/wheel）、`legacy.browse.2d`（裸 `SmartGIS-Legacy.exe` Edit + **`os_inject_default=sendinput`** → map_client HWND + `capture_hwnd_bmp_ex` → `legacy-browse-2d-edit.bmp`；`bmp.soft` 时 china score 仅 informational；**zoom_gate** / **motion_gate**（录像唯一帧）/ **click_gate**（click+dblclick + `_click_after.bmp`））、`legacy.browse.3d`（OS inject + scene3d showcase linger / `SMT_HARNESS_OS_WAIT_BMP`）。
   - 录像：`SMT_HARNESS_RECORD=1`（可选 `SMT_HARNESS_RECORD_FPS`、`SMT_HARNESS_RECORD_MODE=auto|bmp|ffmpeg`）；`testing/tools/loop/record/hwnd.py`。
     - **双屏：** BMP burst：主屏 HWND 优先 `BitBlt`（跟手）；副屏/遮挡用 `PrintWindow`。`ffmpeg` 优先 `gdigrab title=`；缺 ffmpeg 时 BMP frames 可后编 `mp4_path`（有则写）。报告含 `virtual_screen` / `rect.on_primary` / `ffmpeg_skip` / `mp4_path`。
     - 缺 ffmpeg **不硬失败**；关窗时的全黑尾帧会被丢弃。
@@ -131,7 +131,7 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
   - Living：[`specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) §Visual review closed-loop。
   - **Plain argv=[] 2D/3D browse：** `py -3 testing/tools/loop/plain_browse_capture.py`。壳 PrintWindow 用 `views_shell_chrome`（青蓝 map hole 允许）；DXGI 金样优先 FlyCube Present BitBlt + `views_present_dxgi`（拒 TabStrip accent bleed / 壳 ocean clear；可裁顶栏 underline）。Flip/NOREDIRECTION 下 BitBlt 常读不到 swapchain 时，以产品日志为金样（2D：`frame_items=`；3D：`scene3d.present dem` + `lazy attach tab=2`）。3D 用 env `SMT_VIEWS_START_MAP_TAB=scene3d`（仍无 argv），不靠 OS 点 TabStrip。
 - Console 短路径：`py -3 testing/tools/loop_runner.py --suite console`（`--self-test-console`；`console.il`；marks：`console-ok` / `console-bench-ok`）。
-  - 产品合同：`SmartGisViews.exe --input-showcase` → `out/Debug/input-self-test-mark.txt`
+  - 产品合同：`SmartGIS.exe --input-showcase` → `out/Debug/input-self-test-mark.txt`
   - 闸门 marks：`input-point-ok` / `input-line-ok` / `input-poly-ok` / `input-ok`（β `FeatureMutation.geom`）
   - 仅 Map Edit 页（不切 Data/3D），避免完整 `--self-test` 的多页切换开销。
 - 完整 `--self-test` 也会写同名 `input-*` marks（在编辑点 / M0 折线 / 多边形段）。
@@ -173,7 +173,7 @@ py -3 tools\debug\scripts\ui_visual_forensics.py --analyze out\ui_forensics\<run
 
 `--self-test` marks（节选）：`m0-*`；`m1-*`；`m2-panel-ok` / `m2-buffer-ok` / `m2-clip-ok`；`m3-dem-ok` / `m3-tiles-ok` / `m3-atmosphere-ok`；`m4-conflict-ok` / `m4-embed-ok`。
 
-### L1′ — Atmosphere 3D showcase（`SmartGisViews.exe --atmosphere-showcase=`）
+### L1′ — Atmosphere 3D showcase（`SmartGIS.exe --atmosphere-showcase=`）
 
 独立于完整 `--self-test`：切到 3D 页，按模式配置大气，连续 `present_gpu` 三帧后退出。
 默认 **Null RHI**（确定性 exit 0）。`SMT_ATMOSPHERE_SHOWCASE_GPU=1` 时在**独立**
@@ -203,18 +203,18 @@ GPU **永远显示直到关掉展示窗**（忽略残留正数 `LINGER_MS`）。
 
 ```bat
 set SMT_ATMOSPHERE_SHOWCASE_GPU=1
-out\SmartGisViews.exe --atmosphere-showcase=land
-out\SmartGisViews.exe --atmosphere-showcase=ocean
-out\SmartGisViews.exe --atmosphere-showcase=full
-out\SmartGisViews.exe --atmosphere-showcase=coast
-out\SmartGisViews.exe --atmosphere-showcase=legacy
+out\SmartGIS.exe --atmosphere-showcase=land
+out\SmartGIS.exe --atmosphere-showcase=ocean
+out\SmartGIS.exe --atmosphere-showcase=full
+out\SmartGIS.exe --atmosphere-showcase=coast
+out\SmartGIS.exe --atmosphere-showcase=legacy
 py -3 testing\tools\loop_runner.py --suite atmosphere.full --no-build
 py -3 testing\tools\loop_runner.py --suite atmosphere.legacy --no-build
 ```
 
 视觉门禁 suite：`atmosphere.full`（`score_id=atmosphere_full`）；`atmosphere.legacy`（Views Scene3D leftover 观感，`score_id=legacy_scene3d_china`）。
 
-### L1′ — Legacy scene3d showcase（`SmartGis.exe --scene3d-showcase=`）
+### L1′ — Legacy scene3d showcase（`SmartGIS-Legacy.exe --scene3d-showcase=`）
 
 对照 Views atmosphere / legacy map2d shot loop：无 MDI，`smt_stereo_hwnd_*`
 present 三帧后写出旁路 BMP。自动化：`SMT_SCENE3D_SHOWCASE_LINGER_MS=0`。
@@ -233,7 +233,7 @@ present 三帧后写出旁路 BMP。自动化：`SMT_SCENE3D_SHOWCASE_LINGER_MS=
 
 ```bat
 set SMT_SCENE3D_SHOWCASE_LINGER_MS=0
-out\Debug\SmartGis.exe --scene3d-showcase china
+out\Debug\SmartGIS-Legacy.exe --scene3d-showcase china
 py -3 testing\tools\loop_runner.py --suite legacy.scene3d.china --no-build
 rem leftover D3D11 stereo:
 py -3 testing\tools\loop_runner.py --suite legacy.scene3d.china.d3d --no-build
@@ -242,7 +242,7 @@ py -3 testing\tools\loop_runner.py --suite legacy.scene3d.china.d3d --no-build
 门禁按 leftover GL hypsometric DEM（黑 clear + 陆地绿/棕）：非粉、非贴纸青、
 有 landish、不全黑。报告：`out/Debug/captures/legacy/legacy_scene3d_china_loop_report.json`。
 
-### L1′ — UI shell showcase（`SmartGisViews.exe --ui-showcase=shell`）
+### L1′ — UI shell showcase（`SmartGIS.exe --ui-showcase=shell`）
 
 独立壳层截图路径（对照 atmosphere / map2d shot loop）：`Browser::show` → layout_check →
 强制子窗 `RedrawWindow` → 写出 `ui-showcase-shell.bmp`。自动化：
@@ -257,7 +257,7 @@ py -3 testing\tools\loop_runner.py --suite legacy.scene3d.china.d3d --no-build
 
 ```bat
 set SMT_UI_SHOWCASE_LINGER_MS=0
-out\Debug\SmartGisViews.exe --ui-showcase=shell
+out\Debug\SmartGIS.exe --ui-showcase=shell
 py -3 testing\tools\loop_runner.py --suite ui.shell --no-build
 ```
 
@@ -316,7 +316,7 @@ Living 设计：[`2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-vi
 | --- | --- | --- | --- |
 | **L0** | `content_console_coverage_test` | `build.bat te`（`//:test_all`） | Headless Agent / 命令矩阵 |
 | **L1** | `content_console_bench` | `build.bat b`（`//:benchmark_all`） | `console_bench.json`（数据 + 视口 soft 时序；非默认 `te`） |
-| **L2** | `SmartGisViews.exe --self-test-console` | 壳 e2e / 自测 | Console 驱动产品路径；JSON 视实现 |
+| **L2** | `SmartGIS.exe --self-test-console` | 壳 e2e / 自测 | Console 驱动产品路径；JSON 视实现 |
 
 **OpenCppCoverage（可选，不阻塞 `te`）：**
 
@@ -334,7 +334,7 @@ Views 工具箱可选覆盖率（同样不阻塞 `te`）：`testing\scripts\open
 ```bat
 build.bat te
 build.bat b
-out\Debug\SmartGisViews.exe --self-test-console
+out\Debug\SmartGIS.exe --self-test-console
 ```
 
 ### L4 — `exe_smoke`
@@ -345,10 +345,10 @@ out\Debug\SmartGisViews.exe --self-test-console
 | Binary | `--self-test` 证明 |
 | --- | --- |
 | `SmartGisRender.exe` | OOP GPU + `FrameReady` + 共享表面 |
-| `SmartGisViews.exe` | Views 窗 + 地图挂接 / 语义路径 |
+| `SmartGIS.exe` | Views 窗 + 地图挂接 / 语义路径 |
 | `SmartGisWinui.exe` | WinUI IDE 壳 + Map/Data/3D 出帧（marks：`map-frame-ok` / `scene-frame-ok`） |
 | `SmartGisCef.exe` | CEF chrome + 分区 HWND 地图；缺二进制 SKIP |
-| `SmartGis.exe` | MFC 主框出现（模态卡住时 harness 关窗） |
+| `SmartGIS-Legacy.exe` | MFC 主框出现（模态卡住时 harness 关窗） |
 
 ```bat
 build.bat e2e

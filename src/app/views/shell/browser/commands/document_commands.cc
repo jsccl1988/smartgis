@@ -21,6 +21,7 @@
 #include "ui/gis/inspect/feature_info.h"
 #include "ui/gis/shell/status_bar.h"
 #include "ui/views/map/map_viewport.h"
+#include "base/process/switches.h"
 
 namespace app {
 namespace detail {
@@ -83,13 +84,13 @@ bool Browser::run_tool_command(std::string_view command_id) {
       engine = Scene3dEngine::kStereoGl;
       // Default leftover stereo is D3D11; OpenGL is opt-in.
       bool d3d = true;
-      if (const char* api = std::getenv("SMT_STEREO_API")) {
+      if (const char* api = base::switch_cstr("stereo-api")) {
         if (_stricmp(api, "OpenGL") == 0) {
           d3d = false;
         } else if (_stricmp(api, "Direct3D") == 0) {
           d3d = true;
         }
-      } else if (const char* flag = std::getenv("SMT_SCENE3D_SHOWCASE_D3D")) {
+      } else if (const char* flag = base::switch_cstr("scene3d-showcase-d3d")) {
         if (flag[0] == '0' || flag[0] == 'n' || flag[0] == 'N') {
           d3d = false;
         } else if (flag[0] == '1' || flag[0] == 'y' || flag[0] == 'Y') {

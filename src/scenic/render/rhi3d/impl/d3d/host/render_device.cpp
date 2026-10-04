@@ -4,7 +4,6 @@
 #include "scenic/render/rhi3d/impl/d3d/host/render_device.h"
 
 #include "base/core/log.h"
-#include "scenic/render/rhi2d/public/device/renderdevice.h"
 
 using namespace base;
 
@@ -117,7 +116,7 @@ void D3dRenderDevice::release_targets() {
 }
 
 long D3dRenderDevice::create_swapchain_and_targets() {
-  if (!device_ || !hwnd_) return SMT_ERR_FAILURE;
+  if (!device_ || !hwnd_) return kErrFailure;
 
   RECT rc = {};
   ::GetClientRect(hwnd_, &rc);
@@ -129,18 +128,18 @@ long D3dRenderDevice::create_swapchain_and_targets() {
   IDXGIDevice* dxgi_device = nullptr;
   HRESULT hr = device_->QueryInterface(__uuidof(IDXGIDevice),
                                        reinterpret_cast<void**>(&dxgi_device));
-  if (FAILED(hr) || !dxgi_device) return SMT_ERR_FAILURE;
+  if (FAILED(hr) || !dxgi_device) return kErrFailure;
 
   IDXGIAdapter* adapter = nullptr;
   hr = dxgi_device->GetAdapter(&adapter);
   safe_release(dxgi_device);
-  if (FAILED(hr) || !adapter) return SMT_ERR_FAILURE;
+  if (FAILED(hr) || !adapter) return kErrFailure;
 
   IDXGIFactory* factory = nullptr;
   hr = adapter->GetParent(__uuidof(IDXGIFactory),
                           reinterpret_cast<void**>(&factory));
   safe_release(adapter);
-  if (FAILED(hr) || !factory) return SMT_ERR_FAILURE;
+  if (FAILED(hr) || !factory) return kErrFailure;
 
   DXGI_SWAP_CHAIN_DESC sd = {};
   sd.BufferCount = 2;
@@ -159,7 +158,7 @@ long D3dRenderDevice::create_swapchain_and_targets() {
   hr = factory->CreateSwapChain(device_, &sd, &swapchain_);
   factory->MakeWindowAssociation(hwnd_, DXGI_MWA_NO_ALT_ENTER);
   safe_release(factory);
-  if (FAILED(hr) || !swapchain_) return SMT_ERR_FAILURE;
+  if (FAILED(hr) || !swapchain_) return kErrFailure;
 
   backbuffer_width_ = width;
   backbuffer_height_ = height;
@@ -169,7 +168,7 @@ long D3dRenderDevice::create_swapchain_and_targets() {
 
 long D3dRenderDevice::resize_targets(UINT width, UINT height,
                                         bool resize_buffers) {
-  if (!device_ || !context_ || !swapchain_) return SMT_ERR_FAILURE;
+  if (!device_ || !context_ || !swapchain_) return kErrFailure;
   if (width == 0) width = 1;
   if (height == 0) height = 1;
 
@@ -178,7 +177,7 @@ long D3dRenderDevice::resize_targets(UINT width, UINT height,
   if (resize_buffers) {
     HRESULT hr =
         swapchain_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
-    if (FAILED(hr)) return SMT_ERR_FAILURE;
+    if (FAILED(hr)) return kErrFailure;
   }
 
   D3D11_TEXTURE2D_DESC color_desc = {};
@@ -191,10 +190,10 @@ long D3dRenderDevice::resize_targets(UINT width, UINT height,
   color_desc.Usage = D3D11_USAGE_DEFAULT;
   color_desc.BindFlags = D3D11_BIND_RENDER_TARGET;
   HRESULT hr = device_->CreateTexture2D(&color_desc, nullptr, &color_tex_);
-  if (FAILED(hr) || !color_tex_) return SMT_ERR_FAILURE;
+  if (FAILED(hr) || !color_tex_) return kErrFailure;
 
   hr = device_->CreateRenderTargetView(color_tex_, nullptr, &rtv_);
-  if (FAILED(hr) || !rtv_) return SMT_ERR_FAILURE;
+  if (FAILED(hr) || !rtv_) return kErrFailure;
 
   D3D11_TEXTURE2D_DESC depth_desc = {};
   depth_desc.Width = width;
@@ -207,10 +206,10 @@ long D3dRenderDevice::resize_targets(UINT width, UINT height,
   depth_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 
   hr = device_->CreateTexture2D(&depth_desc, nullptr, &depth_tex_);
-  if (FAILED(hr) || !depth_tex_) return SMT_ERR_FAILURE;
+  if (FAILED(hr) || !depth_tex_) return kErrFailure;
 
   hr = device_->CreateDepthStencilView(depth_tex_, nullptr, &dsv_);
-  if (FAILED(hr) || !dsv_) return SMT_ERR_FAILURE;
+  if (FAILED(hr) || !dsv_) return kErrFailure;
 
   context_->OMSetRenderTargets(1, &rtv_, dsv_);
 
@@ -223,11 +222,11 @@ long D3dRenderDevice::resize_targets(UINT width, UINT height,
 
   backbuffer_width_ = width;
   backbuffer_height_ = height;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::Init(HWND hWnd, const char* logname) {
-  if (!::IsWindow(hWnd)) return SMT_ERR_FAILURE;
+  if (!::IsWindow(hWnd)) return kErrFailure;
   hwnd_ = hWnd;
 
   m_strLogName = logname ? logname : "";
@@ -255,12 +254,12 @@ long D3dRenderDevice::Init(HWND hWnd, const char* logname) {
   if (FAILED(hr) || !device_ || !context_) {
     LOGGING(LOG_ERROR, "D3D11CreateDevice failed (hr=0x%08lx)",
             static_cast<unsigned long>(hr));
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
-  if (SMT_ERR_NONE != create_swapchain_and_targets()) {
+  if (kErrNone != create_swapchain_and_targets()) {
     Destroy();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   device_caps_ = std::make_unique<D3dDeviceCaps>(this);
@@ -279,9 +278,15 @@ long D3dRenderDevice::Init(HWND hWnd, const char* logname) {
   SetDepthClearValue(1.0f);
   SetStencilClearValue(0);
 
+  if (ensure_mesh_pipeline() != kErrNone) {
+    LOGGING(LOG_ERROR, "D3D11 mesh pipeline compile failed");
+    Destroy();
+    return kErrFailure;
+  }
+
   LOGGING(LOG_INFO, "Init D3D11 D3dRenderDevice ok (FL=0x%x)",
           static_cast<unsigned>(got));
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 uint D3dRenderDevice::alloc_texture_handle() {
@@ -367,7 +372,7 @@ long D3dRenderDevice::Destroy() {
   safe_release(context_);
   safe_release(device_);
   hwnd_ = nullptr;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::Release() {
@@ -376,7 +381,7 @@ long D3dRenderDevice::Release() {
   state_manager_.reset();
   modelview_stack_.reset();
   projection_stack_.reset();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 GpuStateManager* D3dRenderDevice::GetStateManager() {

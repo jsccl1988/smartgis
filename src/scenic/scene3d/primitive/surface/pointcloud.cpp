@@ -8,9 +8,11 @@
 #include <cstdio>
 #include <fstream>
 #include <locale>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "scenic/render/err.h"
 #include "scenic/render/rhi3d/public/device/base.h"
 #include "scenic/render/rhi3d/public/state/states_manager.h"
 
@@ -18,13 +20,10 @@ namespace scenic {
 namespace detail {
 namespace {
 
-// Above this count, vertices are reordered into spatial chunks for frustum
-// culling. Smaller clouds keep a single full-VB draw.
 constexpr int kChunkPointThreshold = 200000;
 constexpr int kTargetChunkPoints = 16384;
 
 ulong cell_key(int ix, int iy, int iz) {
-  // 10 bits per axis is enough for leftover grid sizes.
   const ulong x = static_cast<ulong>(ix) & 0x3FFul;
   const ulong y = static_cast<ulong>(iy) & 0x3FFul;
   const ulong z = static_cast<ulong>(iz) & 0x3FFul;
@@ -37,24 +36,23 @@ PointCloud3d::PointCloud3d() = default;
 
 PointCloud3d::~PointCloud3d() { Destroy(); }
 
-long PointCloud3d::Init(::base::Vector3& vPos, Material& matMaterial,
-                           const char* szTexName) {
-  return Object3d::Init(vPos, matMaterial, szTexName);
+long PointCloud3d::Init(::base::Vector3& pos, Material& material,
+                        const char* tex_name) {
+  return Object3d::Init(pos, material, tex_name);
 }
 
-void PointCloud3d::pack_vertices_for_chunks(Vertex3dList* packed) {
-  if (!packed || vtx_list_.nCount < 1 || !vtx_list_.pVertexs) {
+void PointCloud3d::pack_vertices_for_chunks(std::vector<Vertex3d>* packed) {
+  if (!packed || vertices_.empty()) {
     return;
   }
-
-  if (vtx_list_.nCount < kChunkPointThreshold) {
-    *packed = vtx_list_;
+  if (static_cast<int>(vertices_.size()) < kChunkPointThreshold) {
+    *packed = vertices_;
     return;
   }
 
   Aabb bounds;
-  for (int i = 0; i < vtx_list_.nCount; ++i) {
-    bounds.merge(vtx_list_.pVertexs[i].ver);
+  for (const Vertex3d& v : vertices_) {
+    bounds.merge(v.ver);
   }
   const double ex =
       (std::max)(1.0e-6, static_cast<double>(bounds.vcMax.x - bounds.vcMin.x));
@@ -64,14 +62,13 @@ void PointCloud3d::pack_vertices_for_chunks(Vertex3dList* packed) {
       (std::max)(1.0e-6, static_cast<double>(bounds.vcMax.z - bounds.vcMin.z));
 
   int cells = static_cast<int>(
-      std::cbrt(static_cast<double>(vtx_list_.nCount) / kTargetChunkPoints));
+      std::cbrt(static_cast<double>(vertices_.size()) / kTargetChunkPoints));
   cells = (std::max)(1, (std::min)(cells, 64));
 
-  // unordered_map: O(n) expected vs tree map log factor on large clouds.
   std::unordered_map<ulong, std::vector<int>> buckets;
   buckets.reserve(static_cast<size_t>(cells * cells * cells / 2 + 1));
-  for (int i = 0; i < vtx_list_.nCount; ++i) {
-    const Vector3& v = vtx_list_.pVertexs[i].ver;
+  for (int i = 0; i < static_cast<int>(vertices_.size()); ++i) {
+    const Vector3& v = vertices_[static_cast<size_t>(i)].ver;
     int ix = static_cast<int>((v.x - bounds.vcMin.x) / ex * cells);
     int iy = static_cast<int>((v.y - bounds.vcMin.y) / ey * cells);
     int iz = static_cast<int>((v.z - bounds.vcMin.z) / ez * cells);
@@ -81,7 +78,6 @@ void PointCloud3d::pack_vertices_for_chunks(Vertex3dList* packed) {
     buckets[cell_key(ix, iy, iz)].push_back(i);
   }
 
-  // Stable cell order so chunk rebuild walks contiguous ranges.
   std::vector<ulong> keys;
   keys.reserve(buckets.size());
   for (const auto& entry : buckets) {
@@ -89,28 +85,27 @@ void PointCloud3d::pack_vertices_for_chunks(Vertex3dList* packed) {
   }
   std::sort(keys.begin(), keys.end());
 
-  vSmtVertex3Ds ordered;
-  ordered.reserve(static_cast<size_t>(vtx_list_.nCount));
+  packed->clear();
+  packed->reserve(vertices_.size());
   for (ulong key : keys) {
     for (int idx : buckets[key]) {
-      ordered.push_back(vtx_list_.pVertexs[idx]);
+      packed->push_back(vertices_[static_cast<size_t>(idx)]);
     }
   }
-  *packed = ordered;
 }
 
-void PointCloud3d::build_chunks(const Vertex3dList& packed) {
+void PointCloud3d::build_chunks(const std::vector<Vertex3d>& packed) {
   chunks_.clear();
-  if (packed.nCount < 1 || !packed.pVertexs) {
+  if (packed.empty()) {
     return;
   }
 
-  if (packed.nCount < kChunkPointThreshold) {
+  if (static_cast<int>(packed.size()) < kChunkPointThreshold) {
     PointCloudChunk chunk;
     chunk.start = 0;
-    chunk.count = static_cast<ulong>(packed.nCount);
-    for (int i = 0; i < packed.nCount; ++i) {
-      chunk.aabb.merge(packed.pVertexs[i].ver);
+    chunk.count = static_cast<ulong>(packed.size());
+    for (const Vertex3d& v : packed) {
+      chunk.aabb.merge(v.ver);
     }
     chunk.aabb.vcCenter = (chunk.aabb.vcMax + chunk.aabb.vcMin) * 0.5f;
     chunks_.push_back(chunk);
@@ -118,8 +113,8 @@ void PointCloud3d::build_chunks(const Vertex3dList& packed) {
   }
 
   Aabb bounds;
-  for (int i = 0; i < packed.nCount; ++i) {
-    bounds.merge(packed.pVertexs[i].ver);
+  for (const Vertex3d& v : packed) {
+    bounds.merge(v.ver);
   }
   const double ex =
       (std::max)(1.0e-6, static_cast<double>(bounds.vcMax.x - bounds.vcMin.x));
@@ -128,7 +123,7 @@ void PointCloud3d::build_chunks(const Vertex3dList& packed) {
   const double ez =
       (std::max)(1.0e-6, static_cast<double>(bounds.vcMax.z - bounds.vcMin.z));
   int cells = static_cast<int>(
-      std::cbrt(static_cast<double>(packed.nCount) / kTargetChunkPoints));
+      std::cbrt(static_cast<double>(packed.size()) / kTargetChunkPoints));
   cells = (std::max)(1, (std::min)(cells, 64));
 
   auto cell_of = [&](const Vector3& v) -> ulong {
@@ -143,13 +138,12 @@ void PointCloud3d::build_chunks(const Vertex3dList& packed) {
 
   PointCloudChunk cur;
   cur.start = 0;
-  cur.count = 0;
-  ulong prev_key = cell_of(packed.pVertexs[0].ver);
-  cur.aabb.merge(packed.pVertexs[0].ver);
+  ulong prev_key = cell_of(packed[0].ver);
+  cur.aabb.merge(packed[0].ver);
   cur.count = 1;
 
-  for (int i = 1; i < packed.nCount; ++i) {
-    const ulong key = cell_of(packed.pVertexs[i].ver);
+  for (int i = 1; i < static_cast<int>(packed.size()); ++i) {
+    const ulong key = cell_of(packed[static_cast<size_t>(i)].ver);
     if (key != prev_key) {
       cur.aabb.vcCenter = (cur.aabb.vcMax + cur.aabb.vcMin) * 0.5f;
       chunks_.push_back(cur);
@@ -158,7 +152,7 @@ void PointCloud3d::build_chunks(const Vertex3dList& packed) {
       cur.count = 0;
       prev_key = key;
     }
-    cur.aabb.merge(packed.pVertexs[i].ver);
+    cur.aabb.merge(packed[static_cast<size_t>(i)].ver);
     ++cur.count;
   }
   cur.aabb.vcCenter = (cur.aabb.vcMax + cur.aabb.vcMin) * 0.5f;
@@ -166,20 +160,18 @@ void PointCloud3d::build_chunks(const Vertex3dList& packed) {
 }
 
 long PointCloud3d::build_gpu_buffer(LP3DRENDERDEVICE device) {
-  Vertex3dList packed;
+  std::vector<Vertex3d> packed;
   pack_vertices_for_chunks(&packed);
-  if (packed.nCount < 1 || !packed.pVertexs) {
-    return SMT_ERR_FAILURE;
+  if (packed.empty()) {
+    return kErrFailure;
   }
+  vertices_ = packed;
 
-  // Keep CPU list in draw order so unibn indices match VB order.
-  vtx_list_ = packed;
-
-  const int n = vtx_list_.nCount;
+  const int n = static_cast<int>(vertices_.size());
   std::vector<float> xyz(static_cast<size_t>(n) * 3);
   std::vector<float> rgba(static_cast<size_t>(n) * 4);
   for (int i = 0; i < n; ++i) {
-    const Vertex3d& v = vtx_list_.pVertexs[i];
+    const Vertex3d& v = vertices_[static_cast<size_t>(i)];
     const size_t o3 = static_cast<size_t>(i) * 3;
     const size_t o4 = static_cast<size_t>(i) * 4;
     xyz[o3] = v.ver.x;
@@ -191,39 +183,33 @@ long PointCloud3d::build_gpu_buffer(LP3DRENDERDEVICE device) {
     rgba[o4 + 3] = v.clr.fA;
   }
 
-  if (!upload_points(device, xyz.data(), static_cast<size_t>(n),
-                     rgba.data())) {
-    return SMT_ERR_FAILURE;
+  if (!upload_points(device, xyz, rgba)) {
+    return kErrFailure;
   }
-  build_chunks(vtx_list_);
-  return SMT_ERR_NONE;
+  build_chunks(vertices_);
+  return kErrNone;
 }
 
 long PointCloud3d::Create(LP3DRENDERDEVICE device) {
   if (!device) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
-  if (!read_ok_ || vtx_list_.nCount < 1 || !vtx_list_.pVertexs) {
-    return SMT_ERR_FAILURE;
+  if (!read_ok_ || vertices_.empty()) {
+    return kErrFailure;
   }
-
-  const long gpu_err = build_gpu_buffer(device);
-  if (gpu_err != SMT_ERR_NONE) {
-    return gpu_err;
-  }
-  return point_index_.build(vtx_list_);
+  return build_gpu_buffer(device);
 }
 
 long PointCloud3d::Update(LP3DRENDERDEVICE /*device*/, float /*elapsed*/) {
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long PointCloud3d::Render(LP3DRENDERDEVICE device) {
   if (!device) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   if (!vb_ || chunks_.empty()) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   device->SetMaterial(&m_matMaterial);
@@ -252,43 +238,41 @@ long PointCloud3d::Render(LP3DRENDERDEVICE device) {
     if (!frustum.intersects(chunk.aabb)) {
       continue;
     }
-    device->DrawPrimitives(PT_POINTLIST, vb_, chunk.start, chunk.count);
+    device->DrawPrimitives(PT_POINTLIST, vb_.get(), chunk.start, chunk.count);
     last_drawn_points_ += static_cast<int>(chunk.count);
   }
 
   char buf[TEMP_BUFFER_SIZE];
-  std::snprintf(buf, TEMP_BUFFER_SIZE, "points drawn:%d/%d chunks:%zu",
-                last_drawn_points_, vtx_list_.nCount, chunks_.size());
+  std::snprintf(buf, TEMP_BUFFER_SIZE, "points drawn:%d/%zu chunks:%zu",
+                last_drawn_points_, vertices_.size(), chunks_.size());
   device->DrawText(0, 10, 100, Color(0.f, 1.f, 1.f), buf);
 
   device->MatrixPop();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long PointCloud3d::Destroy() {
   release_gpu_buffers();
   chunks_.clear();
-  point_index_.DestroyTree();
   last_drawn_points_ = 0;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
-bool PointCloud3d::Read3DPointCloud(const char* path) {
-  if (!path || !path[0]) {
+bool PointCloud3d::read_point_cloud(std::string_view path) {
+  if (path.empty()) {
     return false;
   }
 
   std::ifstream infile;
   const std::locale loc = std::locale::global(std::locale(".936"));
-  infile.open(path, std::ios::in);
+  infile.open(std::string(path), std::ios::in);
   std::locale::global(loc);
-
   if (!infile.is_open()) {
     return false;
   }
 
   char line[255];
-  vSmtVertex3Ds vtxs;
+  std::vector<Vertex3d> loaded;
   while (infile.getline(line, sizeof(line))) {
     Vertex3d pc;
     Vector3 ver;
@@ -304,11 +288,11 @@ bool PointCloud3d::Read3DPointCloud(const char* path) {
     pc.clr.fGreen = g / 255.f;
     pc.clr.fBlue = b / 255.f;
     pc.clr.fA = 1.f;
-    vtxs.push_back(pc);
+    loaded.push_back(pc);
   }
 
-  vtx_list_ = vtxs;
-  read_ok_ = vtx_list_.nCount > 0;
+  vertices_ = std::move(loaded);
+  read_ok_ = !vertices_.empty();
   return read_ok_;
 }
 

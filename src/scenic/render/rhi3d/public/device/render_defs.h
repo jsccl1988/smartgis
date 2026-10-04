@@ -2,8 +2,10 @@
 #ifndef _RD3D_3DRENDERDEFS_H
 #define _RD3D_3DRENDERDEFS_H
 
-#include "scenic/detail/geom.h"
-#include "scenic/detail/err.h"
+#include "base/math/math.h"
+#include "scenic/render/err.h"
+
+// rhi3d public headers still name Vector2/Matrix unqualified.
 using namespace base;
 
 namespace scenic {
@@ -12,13 +14,13 @@ namespace detail {
 enum RenderBase3DApi { RA_OPENGL, RA_D3D09 };
 
 enum Type {
-  SMT_SHORT = 0,
-  SMT_INT,
-  SMT_FLOAT,
-  SMT_DOUBLE,
-  SMT_UNSIGNED_INT,
-  SMT_UNSIGNED_BYTE,
-  SMT_UNSIGNED_SHORT
+  kShort = 0,
+  kInt,
+  kFloat,
+  kDouble,
+  kUnsignedInt,
+  kUnsignedByte,
+  kUnsignedShort
 };
 
 enum MatrixMode { MM_PROJECTION, MM_MODELVIEW };

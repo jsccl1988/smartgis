@@ -22,6 +22,7 @@
 
 #include "base/core/log.h"
 #include "base/trace/event/process_trace.h"
+#include "base/process/switches.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/raster/paint_stats.h"
@@ -267,7 +268,7 @@ LRESULT CALLBACK MapViewport::present_wnd_proc(HWND hwnd, UINT msg,
 
 bool MapViewport::try_flycube_device() {
   // Opt-out: MFC / leftover GDI still required for some hosts.
-  if (const char* prefer = std::getenv("SMT_PREFER_GDI_DEVICE")) {
+  if (const char* prefer = base::switch_cstr("prefer-gdi-device")) {
     if (prefer[0] == '1' && prefer[1] == '\0') {
       LOGGING(LOG_INFO, "rhi.flycube skipped: SMT_PREFER_GDI_DEVICE=1");
       return false;
@@ -354,7 +355,7 @@ bool MapViewport::try_flycube_device() {
     BASE_TRACE_EVENT("FlyCube.Init", "startup");
     std::unique_lock<std::mutex> lock(display_mu_);
     const bool sync_init = []() {
-      const char* env = std::getenv("SMT_SYNC_FLYCUBE_INIT");
+      const char* env = base::switch_cstr("sync-flycube-init");
       return env && env[0] == '1' && env[1] == '\0';
     }();
     const int wait_ms =
@@ -422,7 +423,7 @@ bool MapViewport::try_local_device() {
       nullptr,
   };
   const wchar_t* const* names = names_gdi;
-  if (const char* port = std::getenv("SMT_RHI2D_PORT")) {
+  if (const char* port = base::switch_cstr("rhi2d-port")) {
     if (_stricmp(port, "gdiplus") == 0 || _stricmp(port, "gdi+") == 0) {
       names = names_gdiplus;
     } else if (_stricmp(port, "skia") == 0) {

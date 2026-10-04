@@ -7,10 +7,10 @@ namespace stat {
 
 long ValueSet::bind(std::string name, std::span<const double> values) {
   if (name.empty()) {
-    return SMT_ERR_INVALID_PARAM;
+    return kInvalidParam;
   }
   values_[std::move(name)].assign(values.begin(), values.end());
-  return SMT_ERR_NONE;
+  return kOk;
 }
 
 bool ValueSet::has(std::string_view name) const {

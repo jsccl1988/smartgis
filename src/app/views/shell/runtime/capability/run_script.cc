@@ -18,6 +18,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include "base/process/switches.h"
 
 namespace app {
 namespace {
@@ -85,7 +86,7 @@ bool resolve_suite_script(const char* suite_id, std::wstring* out) {
   if (!out || !suite_id || !suite_id[0]) {
     return false;
   }
-  if (const char* env = std::getenv("SMT_UI_INTERACT_SCRIPT")) {
+  if (const char* env = base::switch_cstr("ui-interact-script")) {
     *out = widen_utf8(env);
     if (file_exists(*out)) {
       return true;

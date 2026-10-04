@@ -11,35 +11,35 @@ namespace detail {
 long D3dRenderDevice::SetBlending(bool bBlending) {
   m_bBlending = bBlending;
   if (state_manager_) state_manager_->SetBlending(bBlending);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::SetBackfaceCulling(RenderStateValue /*rsv*/) {
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::SetStencilBufferMode(RenderStateValue /*rsv*/,
                                               ulong /*ul*/) {
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::SetDepthBufferMode(RenderStateValue /*rsv*/) {
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::SetShadeMode(RenderStateValue /*rsv*/, float,
                                       const Color& /*clr*/) {
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::SetLight(int index, Light* pLight) {
   if (index < 0 || index >= 8) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   StoredLight& slot = lights_[index];
   if (!pLight) {
     slot.enabled = false;
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   slot.enabled = true;
   // Match GL: glLight(GL_POSITION) multiplies by the *current* modelview and
@@ -67,14 +67,14 @@ long D3dRenderDevice::SetLight(int index, Light* pLight) {
   slot.ambient[0] = amb.fRed;
   slot.ambient[1] = amb.fGreen;
   slot.ambient[2] = amb.fBlue;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::SetAmbientLight(const Color& clr) {
   scene_ambient_[0] = clr.fRed;
   scene_ambient_[1] = clr.fGreen;
   scene_ambient_[2] = clr.fBlue;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::SetTexture(Texture* pTex) {
@@ -86,13 +86,13 @@ long D3dRenderDevice::SetTexture(Texture* pTex) {
 
 long D3dRenderDevice::SetMaterial(Material* /*pMat*/) {
   // DEM Terrain uses COLOR_MATERIAL (vertex color); material slots unused.
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::SetFog(FogMode /*mode*/, const Color& /*color*/,
                                 float /*density*/, float /*start*/,
                                 float /*end*/) {
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 VertexBuffer* D3dRenderDevice::CreateVertexBuffer(int nCount,
@@ -110,51 +110,51 @@ VideoBuffer* D3dRenderDevice::CreateVideoBuffer(ArrayType /*type*/) {
 }
 
 long D3dRenderDevice::DestroyBuffer(VideoBuffer* /*buffer*/) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::DestroyIndexBuffer(VideoBuffer* /*buffer*/) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::SetVertexArray(int, Type, int, void*) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::SetTextureCoordsArray(int, Type, int, void*) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::SetNormalArray(Type, int, void*) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::SetIndexArray(Type, int, void*) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::EnableArray(ArrayType, bool) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
-long D3dRenderDevice::BindBuffer(VideoBuffer*) { return SMT_ERR_FAILURE; }
+long D3dRenderDevice::BindBuffer(VideoBuffer*) { return kErrFailure; }
 
 long D3dRenderDevice::BindIndexBuffer(VideoBuffer*) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
-long D3dRenderDevice::UnbindBuffer() { return SMT_ERR_FAILURE; }
+long D3dRenderDevice::UnbindBuffer() { return kErrFailure; }
 
-long D3dRenderDevice::UnbindIndexBuffer() { return SMT_ERR_FAILURE; }
+long D3dRenderDevice::UnbindIndexBuffer() { return kErrFailure; }
 
 long D3dRenderDevice::UpdateBuffer(VideoBuffer*, void*, uint,
                                       VideoBufferStoreMethod) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::UpdateIndexBuffer(VideoBuffer*, void*, uint,
                                            VideoBufferStoreMethod) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 void* D3dRenderDevice::MapBuffer(VideoBuffer*, AccessMode) {
@@ -162,7 +162,7 @@ void* D3dRenderDevice::MapBuffer(VideoBuffer*, AccessMode) {
 }
 
 long D3dRenderDevice::UnmapBuffer(VideoBuffer*) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 void* D3dRenderDevice::MapIndexBuffer(VideoBuffer*, AccessMode) {
@@ -170,7 +170,7 @@ void* D3dRenderDevice::MapIndexBuffer(VideoBuffer*, AccessMode) {
 }
 
 long D3dRenderDevice::UnmapIndexBuffer(VideoBuffer*) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 Shader* D3dRenderDevice::CreateVertexShader(const char*) {
@@ -181,77 +181,77 @@ Shader* D3dRenderDevice::CreatePixelShader(const char*) {
   return nullptr;
 }
 
-long D3dRenderDevice::DestroyShader(const char*) { return SMT_ERR_FAILURE; }
+long D3dRenderDevice::DestroyShader(const char*) { return kErrFailure; }
 
 Shader* D3dRenderDevice::GetShader(const char*) { return nullptr; }
 
 Program* D3dRenderDevice::CreateProgram(const char*) { return nullptr; }
 
-long D3dRenderDevice::DestroyProgram(const char*) { return SMT_ERR_FAILURE; }
+long D3dRenderDevice::DestroyProgram(const char*) { return kErrFailure; }
 
 Program* D3dRenderDevice::GetProgram(const char*) { return nullptr; }
 
 long D3dRenderDevice::LoadShaderSource(Shader*, char*) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
-long D3dRenderDevice::CompileShader(Shader*) { return SMT_ERR_FAILURE; }
+long D3dRenderDevice::CompileShader(Shader*) { return kErrFailure; }
 
 long D3dRenderDevice::IsShaderCompiled(Shader*) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 char* D3dRenderDevice::GetShaderLog(Shader*) { return nullptr; }
 
-long D3dRenderDevice::BindProgram(Program*) { return SMT_ERR_FAILURE; }
+long D3dRenderDevice::BindProgram(Program*) { return kErrFailure; }
 
-long D3dRenderDevice::UnbindProgram() { return SMT_ERR_FAILURE; }
+long D3dRenderDevice::UnbindProgram() { return kErrFailure; }
 
 long D3dRenderDevice::SetProgramVertexShader(Program*, Shader*) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::SetProgramPixelShader(Program*, Shader*) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
-long D3dRenderDevice::LinkProgram(Program*) { return SMT_ERR_FAILURE; }
+long D3dRenderDevice::LinkProgram(Program*) { return kErrFailure; }
 
 long D3dRenderDevice::IsProgramLinked(Program*) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 char* D3dRenderDevice::GetProgramLinkLog(Program*) { return nullptr; }
 
 long D3dRenderDevice::SetProgramVector(Program*, string&,
                                           const Vector4&) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::SetProgramVector(Program*, string&,
                                           const Vector3&) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::SetProgramVector(Program*, string&,
                                           const Vector2&) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::SetProgramFloat(Program*, string&, float) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::SetProgramInt(Program*, string&, int) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::GetProgramFloat(Program*, string&, float*) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::SetProgramTexture(Program*, string&, int) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 }  // namespace detail

@@ -1,0 +1,206 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scenic rhi3d — RenderDevice3d 公共 API 分组</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --host: #6b5ea8; --frame: #2563a8; --cpu: #2f7d62; --gpu: #b06a1a;
+    --code: #243447; --code-bg: #eef2f6; --bad: #9b2c2c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 16px 20px 12px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 12px 14px 14px; margin-bottom: 12px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .lane-label { font-weight: 700; font-size: 12px; }
+  .pulse { stroke-dasharray: 7 5; animation: dash 0.9s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  button { appearance: none; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 11px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .legend { color: var(--muted); font-size: 0.82rem; }
+  .note { margin: 8px 0 0; font-size: 0.85rem; color: var(--muted); }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+  .xor { color: var(--bad); font-weight: 650; }
+  .stage-on { stroke: var(--accent); stroke-width: 2.4; }
+  .fill-dim { opacity: 0.38; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Scenic rhi3d — 公共 API 分组（避免混用）</h1>
+    <p>
+      <code>RenderDevice3d</code> 组合 <code>DeviceHost</code> / <code>DeviceFrame</code> / <code>DeviceMesh</code> 等（<code>render_device.h</code>）。
+      GL/D3D 嵌套类型实现同一接口。几何源与着色各选一条，禁止同 pass 混用。
+    </p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§rhi3d public API composition</a>
+      · 头：<code>src/scenic/render/rhi3d/public/device/render_device.h</code>
+      · 2D 同形：<a href="./rhi2d-device-api.html">rhi2d-device-api</a>（<code>Device2d*</code> + <code>host()/interact()/present()/frame()</code>）
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>分层（谁拥有哪条车道）</h2>
+    <svg class="diagram" viewBox="0 0 1040 420" role="img" aria-label="五层：宿主、帧、变换、互斥几何、互斥着色">
+      <rect x="8" y="8" width="1024" height="52" rx="8" fill="#efeaf8" stroke="#c5bdd8"/>
+      <text class="lane-label" x="22" y="28" fill="#6b5ea8">宿主 DeviceHost</text>
+      <text class="box-sub" x="22" y="46">init / destroy / release · device_caps · state_manager · base_api</text>
+
+      <rect x="8" y="72" width="1024" height="52" rx="8" fill="#e8f1fa" stroke="#b7cce0"/>
+      <text class="lane-label" x="22" y="92" fill="#2563a8">帧 DeviceFrame + DeviceTextureTarget（FBO）</text>
+      <text class="box-sub" x="22" y="110">begin_render → [bind_frame_buffer] → … → unbind_frame_buffer → end_render → swap_buffers</text>
+
+      <rect x="8" y="136" width="1024" height="52" rx="8" fill="#e6f5ef" stroke="#b4d4c8"/>
+      <text class="lane-label" x="22" y="156" fill="#2f7d62">变换 DeviceTransform</text>
+      <text class="box-sub" x="22" y="174">matrix_* · viewport · set_perspective / set_ortho / set_view_look_at · frustum · 2D↔3D</text>
+
+      <rect x="8" y="200" width="1024" height="100" rx="8" fill="#f8efe4" stroke="#e0c9a8"/>
+      <text class="lane-label" x="22" y="220" fill="#b06a1a">几何源 — 三选一（XOR）</text>
+      <rect x="22" y="232" width="310" height="52" rx="6" fill="#fff" stroke="#d8dee6"/>
+      <text class="box-title" x="36" y="254">DeviceMesh（默认）</text>
+      <text class="box-sub" x="36" y="270">VertexBuffer + draw_*_primitives</text>
+      <text x="344" y="264" class="xor" font-size="13">XOR</text>
+      <rect x="378" y="232" width="310" height="52" rx="6" fill="#fff" stroke="#d8dee6"/>
+      <text class="box-title" x="392" y="254">DeviceClientArray</text>
+      <text class="box-sub" x="392" y="270">set_*_array / gl*Pointer</text>
+      <text x="700" y="264" class="xor" font-size="13">XOR</text>
+      <rect x="734" y="232" width="280" height="52" rx="6" fill="#fff" stroke="#d8dee6"/>
+      <text class="box-title" x="748" y="254">DeviceVideoBuffer</text>
+      <text class="box-sub" x="748" y="270">VBO bind / map / update</text>
+
+      <rect x="8" y="312" width="1024" height="96" rx="8" fill="#f7eaea" stroke="#e0b8b8"/>
+      <text class="lane-label" x="22" y="332" fill="#9b2c2c">着色 — 二选一（XOR）</text>
+      <rect x="22" y="344" width="470" height="50" rx="6" fill="#fff" stroke="#d8dee6"/>
+      <text class="box-title" x="36" y="366">DeviceFixedShading（DEM 默认）</text>
+      <text class="box-sub" x="36" y="382">set_light / fog / material / set_texture / RS</text>
+      <text x="508" y="376" class="xor" font-size="13">XOR</text>
+      <rect x="548" y="344" width="466" height="50" rx="6" fill="#fff" stroke="#d8dee6"/>
+      <text class="box-title" x="562" y="366">DeviceProgram</text>
+      <text class="box-sub" x="562" y="382">create/bind Program · uniforms · set_program_texture</text>
+    </svg>
+    <p class="note"><code>DeviceOverlay</code>（<code>draw_cube_3d</code> / font）可叠在默认 Mesh+Fixed 上，不能代替 <code>DeviceMesh</code>。</p>
+  </section>
+
+  <section class="panel">
+    <h2>原则流（一帧内谁先谁后）</h2>
+    <svg id="flow" class="diagram" viewBox="0 0 1040 220" role="img" aria-label="分阶段：begin → 选源 → 选着色 → present">
+      <defs>
+        <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect id="s1" class="node" x="16" y="48" width="170" height="72" rx="8" fill="#efeaf8" stroke="#c5bdd8"/>
+      <text class="box-title" x="32" y="78">1 开帧</text>
+      <text class="box-sub" x="32" y="96">begin_render</text>
+      <path class="arrow" d="M186,84 L230,84" stroke="#8a96a8" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+      <rect id="s2" class="node" x="232" y="48" width="190" height="72" rx="8" fill="#e6f5ef" stroke="#b4d4c8"/>
+      <text class="box-title" x="248" y="78">2 相机</text>
+      <text class="box-sub" x="248" y="96">xform()</text>
+      <path class="arrow" d="M422,84 L466,84" stroke="#8a96a8" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+      <rect id="s3" class="node" x="468" y="28" width="220" height="112" rx="8" fill="#f8efe4" stroke="#e0c9a8"/>
+      <text class="box-title" x="484" y="58">3 选一条几何源</text>
+      <text class="box-sub" x="484" y="78">mesh()（推荐）</text>
+      <text class="box-sub" x="484" y="96">不要再 BindBuffer</text>
+      <text class="box-sub" x="484" y="114">不要再 SetVertexArray</text>
+      <path class="arrow" d="M688,84 L732,84" stroke="#8a96a8" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+      <rect id="s4" class="node" x="734" y="28" width="140" height="112" rx="8" fill="#f7eaea" stroke="#e0b8b8"/>
+      <text class="box-title" x="750" y="58">4 选着色</text>
+      <text class="box-sub" x="750" y="78">Fixed 或</text>
+      <text class="box-sub" x="750" y="96">Program</text>
+      <path class="arrow" d="M874,84 L918,84" stroke="#8a96a8" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+      <rect id="s5" class="node" x="920" y="48" width="104" height="72" rx="8" fill="#e8f1fa" stroke="#b7cce0"/>
+      <text class="box-title" x="932" y="78">5 呈帧</text>
+      <text class="box-sub" x="932" y="96">swap</text>
+
+      <path id="flowPulse" class="pulse" d="M16,84 L1024,84" stroke="#2563a8" stroke-width="2" fill="none" opacity="0.35"/>
+    </svg>
+    <div class="controls">
+      <button type="button" class="primary" id="play">播放阶段</button>
+      <span class="legend" id="stageLabel">阶段：整条 pass</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>禁止混用（同 Begin/End）</h2>
+    <table class="map">
+      <thead>
+        <tr><th>错误组合</th><th>会发生什么</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>DrawPrimitives(VertexBuffer*)</code> + <code>SetVertexArray</code></td><td>GL 客户端指针覆盖 Mesh 绑定；D3D mesh pipeline 忽略 VBA</td></tr>
+        <tr><td><code>BindBuffer</code> + <code>SetVertexArray</code></td><td>VBO 绑定与 client pointer 争用同一 ARRAY_BUFFER 槽</td></tr>
+        <tr><td><code>BindProgram</code> + <code>SetLight</code> / <code>SetFog</code></td><td>固定管线灯雾与 shader 互斥；D3D 侧 Program 多为 stub</td></tr>
+        <tr><td><code>SetTexture</code> + <code>SetProgramTexture</code></td><td>两套纹理槽；只应走当前着色车道</td></tr>
+        <tr><td>FBO bound + <code>SwapBuffers</code></td><td>呈到离屏而非 HWND 交换链</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+(function () {
+  var ids = ["s1", "s2", "s3", "s4", "s5"];
+  var labels = ["1 开帧 begin_render", "2 transform_lane", "3 只选 Mesh 或 VBA 或 VBO", "4 Fixed XOR Program", "5 unbind FBO → swap"];
+  var i = -1;
+  var timer = null;
+  function paint(n) {
+    ids.forEach(function (id, idx) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (n < 0) {
+        el.classList.remove("stage-on", "fill-dim");
+      } else if (idx === n) {
+        el.classList.add("stage-on");
+        el.classList.remove("fill-dim");
+      } else {
+        el.classList.remove("stage-on");
+        el.classList.add("fill-dim");
+      }
+    });
+    document.getElementById("stageLabel").textContent = n < 0 ? "阶段：整条 pass" : ("阶段：" + labels[n]);
+  }
+  document.getElementById("play").addEventListener("click", function () {
+    if (timer) { clearInterval(timer); timer = null; }
+    i = 0;
+    paint(0);
+    timer = setInterval(function () {
+      i += 1;
+      if (i >= ids.length) {
+        clearInterval(timer);
+        timer = null;
+        paint(-1);
+        return;
+      }
+      paint(i);
+    }, 900);
+  });
+})();
+</script>
+</body>
+</html>

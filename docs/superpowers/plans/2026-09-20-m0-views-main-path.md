@@ -16,7 +16,7 @@ All rights reserved.
 
 
 
-**Goal:** 仅用 `SmartGisViews.exe` 闭环 **打开 GPKG → 平移缩放 → FeatureInfo → 追加折线并写回文件**；`build.bat e2e`（含 Views `--self-test`）绿。日常产品入口保持 `build.bat app` / `views`，不依赖 MFC。
+**Goal:** 仅用 `SmartGIS.exe` 闭环 **打开 GPKG → 平移缩放 → FeatureInfo → 追加折线并写回文件**；`build.bat e2e`（含 Views `--self-test`）绿。日常产品入口保持 `build.bat app` / `views`，不依赖 MFC。
 
 
 
@@ -374,7 +374,7 @@ build.bat views
 
 
 
-Expected: `out\SmartGisViews.exe` 链接成功。
+Expected: `out\SmartGIS.exe` 链接成功。
 
 
 
@@ -636,7 +636,7 @@ Expected: `out\SmartGisViews.exe` 链接成功。
 
 build.bat views
 
-out\SmartGisViews.exe --self-test
+out\SmartGIS.exe --self-test
 
 ```
 
@@ -678,7 +678,7 @@ build.bat views
 
 out\map_scene_test.exe
 
-out\SmartGisViews.exe --self-test
+out\SmartGIS.exe --self-test
 
 build.bat e2e
 
@@ -686,7 +686,7 @@ build.bat e2e
 
 
 
-Expected: 全部绿；`exe_smoke` 中 `SmartGisViews.exe` PASS。
+Expected: 全部绿；`exe_smoke` 中 `SmartGIS.exe` PASS。
 
 
 
@@ -746,7 +746,7 @@ Expected: 全部绿；`exe_smoke` 中 `SmartGisViews.exe` PASS。
 
 1. [x] `map_scene_test` 含 write 往返且 PASS。  
 
-2. [x] `SmartGisViews.exe --self-test` exit 0，含 `m0-line-ok` / `m0-featureinfo-ok` / `m0-save-ok`。  
+2. [x] `SmartGIS.exe --self-test` exit 0，含 `m0-line-ok` / `m0-featureinfo-ok` / `m0-save-ok`。  
 
 3. [x] `build.bat e2e` 绿。  
 

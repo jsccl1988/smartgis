@@ -4,72 +4,60 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-# CPU MapFrame. Ortho is the current camera; perspective uses the same
-# Layout. Compiled into //src/vista:vista. Not a second scene.
+# Physical GPU recorder (FramePass). Upload/encode stay here. place is CPU
+# (//src/vista/map:map_sources). Compiled into vista.dll.
 source_set("frame_sources") {
   sources = [
-    "default_style.cc",
-    "detail/carto_filter.cc",
-    "detail/carto_filter.h",
-    "detail/collision.cc",
-    "detail/collision.h",
-    "detail/layout/attrs.cc",
-    "detail/layout/attrs.h",
-    "detail/layout/fill.cc",
-    "detail/layout/fill.h",
-    "detail/layout/geom_mesh.cc",
-    "detail/layout/geom_mesh.h",
-    "detail/layout/line.cc",
-    "detail/layout/line.h",
-    "detail/layout/multiply.cc",
-    "detail/layout/multiply.h",
-    "detail/layout/point.cc",
-    "detail/layout/point.h",
-    "detail/layout/raster.cc",
-    "detail/layout/raster.h",
-    "detail/layout/symbol.cc",
-    "detail/layout/symbol.h",
-    "detail/layout/view_metrics.cc",
-    "detail/layout/view_metrics.h",
-    "frame.h",
-    "hillshade_bake.cc",
-    "hillshade_bake.h",
-    "layout.cc",
-    "mvt_layout.cc",
-    "mvt_layout.h",
+    "detail/atlas.cc",
+    "detail/atlas.h",
+    "detail/encode.cc",
+    "detail/encode.h",
+    "detail/upload.cc",
+    "detail/upload.h",
+    "glyph_windows.cc",
+    "map_effect.cc",
+    "map_effect.h",
+    "pass.cc",
+    "pass.h",
   ]
   include_dirs += [ "//src" ]
-  configs += [ "//build:legacy" ]
-  public_configs = [ "//build:legacy" ]
-  defines = [
-    "_USRDLL",
-    "VISTA_EXPORTS",
-  ]
-  assert_no_deps = [
-    "//src/render:render",
-    "//src/legacy/render:*",
-    "//src/legacy/ui:*",
-    "//src/legacy/app:*",
-  ]
+  defines = [ "VISTA_EXPORTS" ]
   deps = [
+    "//src/base:base",
     "//src/base:foundation",
     "//src/gis:gis",
-    "//src/vista/world:world_sources",
+    "//src/render:render",
+    "//src/vista/map:map_sources",
   ]
+  libs = [ "gdiplus.lib" ]
 }
 
-group("frame") {
-  public_deps = [ "//src/vista:vista" ]
-}
-
-test("frame_test") {
-  output_name = "frame_test"
-  sources = [ "map2d_test.cc" ]
+# In-process Null RHI smoke. Compiles the pass here (RENDER_EXPORTS) so the
+# test does not load render.dll. The stub rasterizer needs no window; GDI+
+# is linked because the WindowsGlyphRasterizer vtable lives in this binary.
+test("map_effect_test") {
+  output_name = "map2d_pass_test"
+  sources = [
+    "detail/atlas.cc",
+    "detail/encode.cc",
+    "detail/upload.cc",
+    "../map/place.cc",
+    "../map/multiply.cc",
+    "glyph_windows.cc",
+    "pass.cc",
+    "pass_test.cc",
+  ]
   include_dirs += [ "//src" ]
-  configs = [ "//build:legacy" ]
+  defines = [
+    "RENDER_EXPORTS",
+    "VISTA_EXPORTS",
+  ]
+  libs = [ "gdiplus.lib" ]
   deps = [
-    ":frame",
     "//src/base:base",
-    "//third_party:gdal",
+    "//src/base:foundation",
+    "//src/gis:gis",
+    "//src/render:programs_sources",
+    "//src/render:rhi_sources",
   ]
 }

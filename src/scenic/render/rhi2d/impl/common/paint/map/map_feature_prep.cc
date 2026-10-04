@@ -5,15 +5,16 @@
 
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <span>
 #include <vector>
 
-#include "base/math/simd.h"
+#include "base/math/simd/simd.h"
 #include "gis/datasource/ogr/ogr_feature_codec.h"
 #include "gis/geo/ops/geometry_traits.h"
-#include "scenic/detail/feature_kind.h"
-#include "scenic/detail/style_api.h"
-#include "scenic/detail/style_ogr.h"
+#include "scenic/render/rhi2d/impl/common/paint/carto/draw/feature_kind.h"
+#include "scenic/render/rhi2d/impl/common/paint/carto/style/style_api.h"
+#include "scenic/render/rhi2d/impl/common/paint/carto/style/style_ogr.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/frame/carto_frame.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/draw/ogr_xy.h"
 
@@ -170,9 +171,10 @@ void fill_prep_style(OGRFeature* feature, const PrepFieldCache& cache,
     return;
   }
   if (cache.style >= 0) {
-    if (Style* owned = gis::datasource::copy_ogr_style_from_ogr(feature)) {
+    std::unique_ptr<Style> owned(
+        gis::datasource::copy_ogr_style_from_ogr(feature));
+    if (owned) {
       *dst = *owned;
-      delete owned;
       return;
     }
   }

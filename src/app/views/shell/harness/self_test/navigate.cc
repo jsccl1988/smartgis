@@ -18,8 +18,8 @@
 #include "content/public/view_host.h"
 #include "content/renderer/renderer_main.h"
 #include "gis/edit/memory_session.h"
-#include "gis/carto/style/style_document.h"
-#include "gis/carto/tile/tile_provider.h"
+#include "gis/style/document/style_document.h"
+#include "gis/tile/provider/tile_provider.h"
 #include "gpu/gpu.h"
 #include "net/http/http.h"
 #include "render/rhi/rhi.h"
@@ -102,7 +102,7 @@ if (!browser.run_tool_command("view.pan")) {
   // Concurrent WM_TIMER present + pan/wheel has AVd under exe_smoke (exit
   // 0xC0000005 after pan-ok) when Data/3D HWNDs keep ticking after tab walks.
   stop_map_present_timers(browser);
-  SetEnvironmentVariableA("SMT_SKIP_MAP_CONTEXT_MENU", "1");
+  SetEnvironmentVariableA("skip-map-context-menu", "1");
   for (int i = 0; i < 24; ++i) {
     content::InputEvent pan_down{};
     pan_down.kind = content::InputEvent::Kind::kLDown;
@@ -116,7 +116,7 @@ if (!browser.run_tool_command("view.pan")) {
     pan_up.kind = content::InputEvent::Kind::kLUp;
     if (!host->dispatch_input(pan_down) ||
         !host->dispatch_input(pan_move) || !host->dispatch_input(pan_up)) {
-      SetEnvironmentVariableA("SMT_SKIP_MAP_CONTEXT_MENU", nullptr);
+      SetEnvironmentVariableA("skip-map-context-menu", nullptr);
       self_test_detach_maps(browser);
       return 49;
     }
@@ -126,7 +126,7 @@ if (!browser.run_tool_command("view.pan")) {
     wheel.y_px = pan_move.y_px;
     wheel.wheel = (i & 1) ? 120 : -120;
     if (!host->dispatch_input(wheel)) {
-      SetEnvironmentVariableA("SMT_SKIP_MAP_CONTEXT_MENU", nullptr);
+      SetEnvironmentVariableA("skip-map-context-menu", nullptr);
       self_test_detach_maps(browser);
       return 49;
     }
@@ -141,11 +141,11 @@ if (!browser.run_tool_command("view.pan")) {
   content::InputEvent rup = rdown;
   rup.kind = content::InputEvent::Kind::kRUp;
   if (host->dispatch_input(rdown) || host->dispatch_input(rup)) {
-    SetEnvironmentVariableA("SMT_SKIP_MAP_CONTEXT_MENU", nullptr);
+    SetEnvironmentVariableA("skip-map-context-menu", nullptr);
     self_test_detach_maps(browser);
     return 50;
   }
-  SetEnvironmentVariableA("SMT_SKIP_MAP_CONTEXT_MENU", nullptr);
+  SetEnvironmentVariableA("skip-map-context-menu", nullptr);
   self_test_mark("browse-ok");
 }
 // Wheel-to-cursor must change overlay scale (not view-center zoom).

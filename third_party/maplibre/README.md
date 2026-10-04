@@ -27,8 +27,8 @@ is `asset://china_city.geojson` (resolved via `mbgl-render -a` asset root).
 ## Product still (no Native link)
 
 ```bat
-build.bat debug //src/app/views:SmartGisViews
-out\Debug\SmartGisViews.exe --map2d-showcase=align
+build.bat debug //src/app/views:views
+out\Debug\SmartGIS.exe --map2d-showcase=align
 ```
 
 Opens `china_city.gpkg` (same candidates as china showcase), loads

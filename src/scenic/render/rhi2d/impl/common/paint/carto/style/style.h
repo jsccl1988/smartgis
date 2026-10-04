@@ -4,9 +4,9 @@
 #ifndef SCENIC_GDI_CANVAS_STYLE_H_
 #define SCENIC_GDI_CANVAS_STYLE_H_
 
-#include "scenic/detail/style.h"
-#include "scenic/detail/viewport.h"
-#include "scenic/detail/err.h"
+#include "scenic/render/rhi2d/impl/common/paint/carto/style/style_pod.h"
+#include "scenic/render/rhi2d/public/device/viewport.h"
+#include "scenic/render/err.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/frame/context.h"
 
 namespace scenic {

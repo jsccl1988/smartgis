@@ -9,7 +9,7 @@ All rights reserved.
 
 **Views** (widget / layout / events / controls) for in-process C++ shell. Public namespace: `ui::views`. Includes use `"ui/views/<area>/<group>/..."` under the responsibility groups below. `map/` nests `viewport|input|chrome|device`.
 
-This directory is the **public toolkit**. Product composition is **`src/app/views`** (`out/SmartGisViews.exe`, destination entry). The app hosts a `Widget` / `Splitter` and places toolkit widgets; it does not paint catalog / ambox / chart / layer panels by hand. Leftover MFC `SmartGis.exe` stays until parity. MFC migration: [`docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md`](../../../docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md).
+This directory is the **public toolkit**. Product composition is **`src/app/views`** (`out/SmartGIS.exe`, destination entry). The app hosts a `Widget` / `Splitter` and places toolkit widgets; it does not paint catalog / ambox / chart / layer panels by hand. Leftover MFC `SmartGis.exe` stays until parity. MFC migration: [`docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md`](../../../docs/superpowers/specs/2026-09-13-ui-views-mfc-migration-design.md).
 
 ## Physical layout (responsibility partitions)
 

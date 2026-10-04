@@ -8,46 +8,41 @@
 #include <memory>
 
 #include "gis/geo/ops/indexed_tin.h"
-#include "vista/world/terrain/dem/dem_height_field.h"
-#include "scenic/scenic_impl_export.h"
+#include "vista/terrain/dem/dem_height_field.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/scene3d/primitive/surface/surface_base.h"
 
 namespace scenic {
 namespace detail {
 
-// Leftover terrain drawable: OGR TIN or DemHeightField coarse DEM mesh.
-// DemHeightField coarse DEM mesh (hypsometric color + normals).
-class LEGACY_RENDER_EXPORT Terrain : public SurfaceObject {
+// Terrain drawable: OGR TIN or DemHeightField coarse DEM mesh.
+class SCENIC_IMPL_EXPORT Terrain : public SurfaceObject {
  public:
   Terrain();
   ~Terrain() override;
 
-  long Init(::base::Vector3& vPos, Material& matMaterial,
-            const char* szTexName = "") override;
+  long Init(::base::Vector3& pos, Material& material,
+            const char* tex_name = "") override;
   long Update(LP3DRENDERDEVICE device, float elapsed) override;
   long Create(LP3DRENDERDEVICE device) override;
   long Render(LP3DRENDERDEVICE device) override;
   long Destroy() override;
 
-  // Legacy plugin ABI (PascalCase kept for LoadLibrary-era callers).
-  Vector3 GetCenter() { return center_; }
-  void SetClrType(int type) { color_type_ = type; }
-  void SetXScale(float scale) { x_scale_ = scale; }
-  void SetYScale(float scale) { y_scale_ = scale; }
-  void SetZScale(float scale) { z_scale_ = scale; }
-  int GetClrType() const { return color_type_; }
-  float GetXScale() const { return x_scale_; }
-  float GetYScale() const { return y_scale_; }
-  float GetZScale() const { return z_scale_; }
+  void set_color_type(int type) { color_type_ = type; }
+  void set_x_scale(float scale) { x_scale_ = scale; }
+  void set_y_scale(float scale) { y_scale_ = scale; }
+  void set_z_scale(float scale) { z_scale_ = scale; }
+  int color_type() const { return color_type_; }
+  float x_scale() const { return x_scale_; }
+  float y_scale() const { return y_scale_; }
+  float z_scale() const { return z_scale_; }
 
-  OGRTriangulatedSurface* GetTerrainSurf() { return surface_; }
-  long SetTerrainSurf(OGRTriangulatedSurface* surf);
-  long SetTerrainSurfDirectly(OGRTriangulatedSurface* surf);
+  OGRTriangulatedSurface* terrain_surface() { return surface_; }
+  long set_terrain_surface(OGRTriangulatedSurface* surf);
+  long set_terrain_surface_directly(OGRTriangulatedSurface* surf);
 
   void set_height_field(const render::DemHeightField* field);
   void adopt_height_field(render::DemHeightField* field);
-  // Non-inline: dem_stereo_test / plugins must not bake field_ offsetof across
-  // the scenic_impl DLL boundary (SurfaceObject base shifts layout).
   const render::DemHeightField* height_field() const;
 
  private:
@@ -72,13 +67,5 @@ class LEGACY_RENDER_EXPORT Terrain : public SurfaceObject {
 
 }  // namespace detail
 }  // namespace scenic
-
-#if !defined(LEGACY_RENDER_EXPORTS)
-#if defined(_DEBUG)
-#pragma comment(lib, "scenic_impl_d.lib")
-#else
-#pragma comment(lib, "scenic_impl.lib")
-#endif
-#endif
 
 #endif  // SCENIC_SCENE3D_PRIMITIVE_SURFACE_TERRAIN_H_

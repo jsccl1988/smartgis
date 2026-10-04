@@ -3,7 +3,7 @@
 
 #include "content/browser/present/scene3d/scene3d_phase_profile.h"
 
-#include "vista/world/terrain/dem/dem_bake_cache.h"
+#include "vista/terrain/dem/dem_bake_cache.h"
 
 #include <atomic>
 #include <mutex>

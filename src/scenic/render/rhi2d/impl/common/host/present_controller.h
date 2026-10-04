@@ -6,7 +6,7 @@
 #include <cstdint>
 
 #include "gis/map/map.h"
-#include "scenic/detail/err.h"
+#include "scenic/render/err.h"
 
 namespace scenic {
 namespace detail {

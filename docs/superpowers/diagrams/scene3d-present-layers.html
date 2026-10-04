@@ -1,0 +1,129 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scene3d present — 分层</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 14px 16px 16px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .meta a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .lane-label { font-weight: 700; font-size: 12px; }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  table.own { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .own th, .own td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .own th { background: #e8edf3; color: var(--muted); font-weight: 650; }
+  .note { margin: 10px 0 0; color: var(--muted); font-size: 0.82rem; }
+  .flow .s { opacity: 0.38; }
+  .flow .s1 { animation: beat 7s 0s infinite; }
+  .flow .s2 { animation: beat 7s 1.2s infinite; }
+  .flow .s3 { animation: beat 7s 2.4s infinite; }
+  .flow .s4 { animation: beat 7s 3.6s infinite; }
+  @keyframes beat {
+    0%, 10% { opacity: 0.38; }
+    8%, 22% { opacity: 1; }
+    30%, 100% { opacity: 0.38; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Scene3d present — 分层</h1>
+    <p>Facade 只做绑定与分发。<code>frame/</code> 拥有地理帧与 overlay。<code>gpu/</code> 只合成 1 CL。<code>software/</code> 是 GDI 出口。Scenic Engine 是并列车道，不是 GpuPresent 的成员。</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Content present/scene3d slim</a>
+      · Map2d 对照：<a href="./map2d-present-frame.html">map2d-present-frame</a>
+      · 加速：<a href="./content-present-accelerate.html">content-present-accelerate</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 五层所有权</h2>
+    <svg class="diagram" viewBox="0 0 1040 560" role="img" aria-label="scene3d present 五层">
+      <rect x="0" y="0" width="1040" height="96" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="22" fill="#2563a8">content facade</text>
+      <text class="box-sub" x="16" y="42">Scene3dPresenter：bind orbit/map · present_gpu / paint 分发</text>
+      <text class="box-sub" x="16" y="62">ScenicScene3dHost（scenic.dll Engine）· 有 overlay TIN albedo 时走 FlyCube/GDI</text>
+      <text class="box-sub" x="16" y="82">session：Scene3dEngine SoT · StereoSession 只服务 HWND scenic_impl</text>
+
+      <rect x="0" y="110" width="1040" height="118" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="132" fill="#1d6b4f">frame/</text>
+      <text class="box-sub" x="16" y="152">OrbitGeoFrame：lon/lat/elev → orbit 单位（content::Extent2，不进 gis）</text>
+      <text class="box-sub" x="16" y="172">rebuild_terrain_mesh → World + local xyz/idx · TilesetStreamSession LRU pump</text>
+      <text class="box-sub" x="16" y="192">Scene3dOverlays：地理点云 / TIN attach · look_preset + China labels</text>
+      <text class="box-sub" x="16" y="212">AtmosphereSession：pass POD prep（ocean/sky/globe），不持有 CommandList</text>
+
+      <rect x="0" y="242" width="1040" height="100" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="264" fill="#8a5a12">gpu / vista</text>
+      <text class="box-sub" x="16" y="284">GpuScene::sync_from(World) · look/light · overlay instance paint</text>
+      <text class="box-sub" x="16" y="304">graph::present 1 CL：sky/depth → opaque DEM → ocean → post</text>
+      <text class="box-sub" x="16" y="324">Warm：跳过 mark_meshes_dirty / 二次 sync_from。Globe：跳过平坦 DEM</text>
+
+      <rect x="0" y="356" width="1040" height="82" rx="8" fill="#f7e8e8" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="378" fill="#8b3a3a">software GDI</text>
+      <text class="box-sub" x="16" y="398">消费同一 local_xyz/idx + overlays。HUD / 地名 / engine-logo HWND</text>
+      <text class="box-sub" x="16" y="418">不拥有 DEM LOD 或 atmosphere 开关</text>
+
+      <rect x="0" y="452" width="1040" height="90" rx="8" fill="#efe8f6" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="474" fill="#6b4a9a">不进入本树</text>
+      <text class="box-sub" x="16" y="494">vista::World / GpuScene / atmosphere passes — 产品几何与 GPU 缓存</text>
+      <text class="box-sub" x="16" y="514">src/legacy 冻结。Scenic rhi3d 副本在 src/scenic/scene3d，不经由 present 反向依赖 leftover</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>2. 一帧原则流</h2>
+    <svg class="diagram flow" viewBox="0 0 1040 120" role="img" aria-label="present 阶段">
+      <rect class="s s1" x="8" y="20" width="240" height="80" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text x="28" y="52" class="lane-label" fill="#2563a8">1 bind + lane</text>
+      <text x="28" y="74" class="box-sub">scenic / FlyCube / GDI</text>
+      <rect class="s s2" x="268" y="20" width="240" height="80" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <text x="288" y="52" class="lane-label" fill="#1d6b4f">2 frame</text>
+      <text x="288" y="74" class="box-sub">mesh · overlay · tileset</text>
+      <rect class="s s3" x="528" y="20" width="240" height="80" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <text x="548" y="52" class="lane-label" fill="#1d6b4f">3 atmosphere prep</text>
+      <text x="548" y="74" class="box-sub">ocean height before DEM</text>
+      <rect class="s s4" x="788" y="20" width="244" height="80" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <text x="808" y="52" class="lane-label" fill="#8a5a12">4 graph::present</text>
+      <text x="808" y="74" class="box-sub">1 CL · GDI 并行出口</text>
+    </svg>
+    <p class="note">GPU 车道永不 Join 软件 GDI。Scenic 车道在 overlay TIN 有 albedo 时让路，避免丢掉 stormsurge / hex / mine 体。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. 目录对照</h2>
+    <table class="own">
+      <thead><tr><th>路径</th><th>拥有</th><th>不拥有</th></tr></thead>
+      <tbody>
+        <tr><td><code>scene3d_presenter.*</code></td><td>绑定与分发</td><td>mesh / Engine / LoadLibrary</td></tr>
+        <tr><td><code>scenic_engine_host.*</code></td><td><code>scenic::Engine</code></td><td>FlyCube Device</td></tr>
+        <tr><td><code>session/</code></td><td>engine enum + stereo HWND</td><td>DEM tess</td></tr>
+        <tr><td><code>frame/</code></td><td>geo、mesh、overlay、tileset、look</td><td>CommandList</td></tr>
+        <tr><td><code>gpu/</code></td><td>World 合成 + present 锁</td><td>城市地名表、Scenic sync</td></tr>
+        <tr><td><code>software/</code></td><td>HDC 栅格 / HUD</td><td>atmosphere 开关</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>

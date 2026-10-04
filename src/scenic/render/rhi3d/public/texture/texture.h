@@ -2,7 +2,7 @@
 #ifndef _RD3D_TEXTURE_H
 #define _RD3D_TEXTURE_H
 
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/render_defs.h"
 
 namespace scenic {
@@ -122,7 +122,7 @@ struct TextureEnvMode {
 class RenderDevice3d;
 typedef class RenderDevice3d *LP3DRENDERDEVICE;
 
-class LEGACY_RENDER_EXPORT Texture {
+class SCENIC_IMPL_EXPORT Texture {
  public:
   Texture(LP3DRENDERDEVICE p3DRenderDevice, uint handle, string strName);
   virtual ~Texture();
@@ -233,7 +233,7 @@ inline void Texture::SetPixel3uc(unsigned char r, unsigned char g,
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else
@@ -246,13 +246,13 @@ inline void Texture::SetPixel3uc(unsigned char r, unsigned char g,
 // Bodies call RenderDevice3d. This header is included before that type is
 // complete, so the bodies are emitted only from the re-include at the bottom
 // of render_device.h.
-#if defined(SMT_3DRENDERDEVICE_COMPLETE) && !defined(_RD3D_TEXTURE_METHODS)
+#if defined(SCENIC_3DRENDERDEVICE_COMPLETE) && !defined(_RD3D_TEXTURE_METHODS)
 #define _RD3D_TEXTURE_METHODS
 
 #include <cstdio>
 
 #include "base/core/log.h"
-#include "scenic/detail/image.h"
+#include "scenic/render/rhi2d/impl/common/host/image.h"
 #include "ximage.h"
 
 namespace scenic {
@@ -277,21 +277,21 @@ inline Texture::~Texture() { ; }
 inline long Texture::Use(void) {
   GpuStateManager *stateManager = m_p3DRenderDevice->GetStateManager();
 
-  if (SMT_ERR_NONE == m_p3DRenderDevice->BindTexture(this) &&
-      SMT_ERR_NONE == stateManager->SetSampler(m_texSampler) &&
-      SMT_ERR_NONE == stateManager->SetTextureEnvironment(m_texEnv)) {
-    return SMT_ERR_NONE;
+  if (kErrNone == m_p3DRenderDevice->BindTexture(this) &&
+      kErrNone == stateManager->SetSampler(m_texSampler) &&
+      kErrNone == stateManager->SetTextureEnvironment(m_texEnv)) {
+    return kErrNone;
   }
 
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 inline long Texture::Unuse() {
-  if (SMT_ERR_NONE == m_p3DRenderDevice->UnbindTexture()) {
-    return SMT_ERR_NONE;
+  if (kErrNone == m_p3DRenderDevice->UnbindTexture()) {
+    return kErrNone;
   }
 
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 inline TextureSampler Texture::GetSampler() const { return m_texSampler; }
@@ -370,19 +370,19 @@ inline long Texture::Create(ulong ulWidth, ulong ulHeight,
 
   m_pCurrentPixel = (unsigned char *)nullptr;
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline long Texture::SetData(void *pData, ulong ulSize) {
-  if (!IsLocked()) return SMT_ERR_FAILURE;
+  if (!IsLocked()) return kErrFailure;
 
   if (m_pBuffer == nullptr || pData == nullptr || ulSize < 1 ||
       ulSize != m_ulPixelStride * m_texDesc.width * m_texDesc.height)
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
 
   memcpy(m_pBuffer, pData, ulSize);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline void *Texture::GetData() { return m_pBuffer; }
@@ -391,7 +391,7 @@ inline long Texture::Lock() {
   m_pCurrentPixel = (unsigned char *)m_pBuffer;
   m_bLocked = true;
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline long Texture::Unlock() {
@@ -402,11 +402,11 @@ inline long Texture::Unlock() {
     m_p3DRenderDevice->BuildTexture(this);
     //...
 
-    SMT_SAFE_DELETE_A(m_pBuffer);
+    SAFE_DELETE_A(m_pBuffer);
     m_pCurrentPixel = (unsigned char *)m_pBuffer;
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline long Texture::Load(string fileName, bool bDynamic, bool bUseMips) {
@@ -414,7 +414,7 @@ inline long Texture::Load(string fileName, bool bDynamic, bool bUseMips) {
   TextureFormat texFmt;
   // CxImage's TCHAR filename ctor is wchar_t when CxImage is built UNICODE.
   FILE *fp = fopen(fileName.c_str(), "rb");
-  if (fp == nullptr) return SMT_ERR_FAILURE;
+  if (fp == nullptr) return kErrFailure;
   CxImage img(fp, nImageTyle);
   fclose(fp);
 
@@ -424,21 +424,21 @@ inline long Texture::Load(string fileName, bool bDynamic, bool bUseMips) {
     else
       texFmt = RGBA8;
 
-    if (SMT_ERR_NONE == Create(img.GetWidth(), img.GetHeight(), texFmt,
+    if (kErrNone == Create(img.GetWidth(), img.GetHeight(), texFmt,
                                bDynamic, bUseMips) &&
-        SMT_ERR_NONE == Lock() &&
-        SMT_ERR_NONE == SetData(img.GetDIB(), img.GetHeight() * img.GetWidth() *
+        kErrNone == Lock() &&
+        kErrNone == SetData(img.GetDIB(), img.GetHeight() * img.GetWidth() *
                                                   (img.GetBpp() / 8)) &&
-        SMT_ERR_NONE == Unlock()) {
-      return SMT_ERR_NONE;
+        kErrNone == Unlock()) {
+      return kErrNone;
     } else {
       LOGGING(LOG_INFO, "AddTexture() %s fail", fileName.c_str());
 
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
   }
 
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 }  // namespace detail

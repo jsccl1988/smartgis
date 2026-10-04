@@ -3,12 +3,21 @@
 
 #include "gis/analysis/raster/dem/dem_gradient.h"
 
+#include "gis/analysis/raster/dem/dem_gradient_profile.h"
+
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <string>
 #include <vector>
 
 #include <Eigen/Core>
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include "base/execution/executor/pool/global_executor.h"
+#include "base/execution/parallel/for.h"
 
 #include "cpl_conv.h"
 #include "gdal_priv.h"
@@ -20,6 +29,20 @@ namespace detail {
 namespace {
 
 constexpr double kPi = 3.14159265358979323846;
+
+bool should_parallel_gradient(int width, int height) {
+  const int mode = dem_gradient_dispatch_override();
+  if (mode == kGradientDispatchSerial) {
+    return false;
+  }
+  if (mode == kGradientDispatchParallel) {
+    return true;
+  }
+  const size_t pixels =
+      static_cast<size_t>(width) * static_cast<size_t>(height);
+  return height >= kParallelGradientMinRows &&
+         pixels >= static_cast<size_t>(kParallelGradientMinPixels);
+}
 
 bool parse_args(std::string_view json, rapidjson::Document* out) {
   if (!out || json.empty()) {
@@ -92,11 +115,20 @@ DemGradientResult compute_dem_gradient(const std::vector<float>& elev,
   out.slope_deg.assign(elev.size(), 0.f);
   out.aspect_deg.assign(elev.size(), 0.f);
 
+  using Clock = std::chrono::steady_clock;
+  const auto t_dispatch0 = Clock::now();
+
   using Map = Eigen::Map<const Eigen::Matrix<float, Eigen::Dynamic,
                                              Eigen::Dynamic, Eigen::RowMajor>>;
   const Map grid(elev.data(), height, width);
+  float* slope = out.slope_deg.data();
+  float* aspect = out.aspect_deg.data();
 
-  for (int r = 0; r < height; ++r) {
+  const bool use_parallel = should_parallel_gradient(width, height);
+  const char* backend = use_parallel ? "parallel" : "serial";
+  const auto t_dispatch1 = Clock::now();
+
+  auto fill_row = [&](int r) {
     for (int c = 0; c < width; ++c) {
       const int c0 = (std::max)(0, c - 1);
       const int c1 = (std::min)(width - 1, c + 1);
@@ -116,10 +148,35 @@ DemGradientResult compute_dem_gradient(const std::vector<float>& elev,
       const size_t i =
           static_cast<size_t>(r) * static_cast<size_t>(width) +
           static_cast<size_t>(c);
-      out.slope_deg[i] = static_cast<float>(slope_rad * 180.0 / kPi);
-      out.aspect_deg[i] = static_cast<float>(aspect_rad * 180.0 / kPi);
+      slope[i] = static_cast<float>(slope_rad * 180.0 / kPi);
+      aspect[i] = static_cast<float>(aspect_rad * 180.0 / kPi);
+    }
+  };
+
+  const auto t_compute0 = Clock::now();
+  if (use_parallel) {
+    base::execution::GlobalNThreadPoolExecutor executor;
+    base::execution::parallel_for(executor, 0, height, fill_row);
+  } else {
+    for (int r = 0; r < height; ++r) {
+      fill_row(r);
     }
   }
+  const auto t_compute1 = Clock::now();
+
+  DemGradientProfile snap;
+  snap.width = width;
+  snap.height = height;
+  snap.pixels = width * height;
+  snap.threads = use_parallel ? kDemGradientPoolThreads : 1;
+  snap.dispatch_ms =
+      std::chrono::duration<double, std::milli>(t_dispatch1 - t_dispatch0)
+          .count();
+  snap.compute_ms =
+      std::chrono::duration<double, std::milli>(t_compute1 - t_compute0).count();
+  snap.backend = backend;
+  record_dem_gradient_profile(snap);
+
   out.ok = true;
   return out;
 }

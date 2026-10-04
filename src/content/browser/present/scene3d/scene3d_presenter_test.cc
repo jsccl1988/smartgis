@@ -7,7 +7,7 @@
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/browser/present/scene3d/software/scene3d_software_painter.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
-#include "vista/world/terrain/dem/dem_frame.h"
+#include "vista/terrain/dem/dem_frame.h"
 #include "render/rhi/rhi.h"
 #include "tool/nav/camera_nav.h"
 #include "tool/draft/draft.h"
@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <memory>
 #include <vector>
+#include "base/process/switches.h"
 
 namespace {
 
@@ -72,26 +73,26 @@ int main() {
 
   // Harness env: SMT_SCENE3D_ENGINE selects leftover GL vs D3D under kStereoGl.
   {
-    _putenv_s("SMT_SCENE3D_ENGINE", "stereo_gl");
+    base::set_switch("scene3d-engine", "stereo_gl");
     expect(content::apply_scene3d_engine_from_env(), "env stereo_gl applies");
     expect(content::prefer_scene3d_stereo_gl(), "env stereo_gl engine");
     expect(content::prefer_scene3d_stereo_opengl(), "env stereo_gl �?OpenGL");
     expect(!content::prefer_scene3d_stereo_d3d(), "env stereo_gl not D3D");
 
-    _putenv_s("SMT_SCENE3D_ENGINE", "stereo_d3d");
+    base::set_switch("scene3d-engine", "stereo_d3d");
     expect(content::apply_scene3d_engine_from_env(), "env stereo_d3d applies");
     expect(content::prefer_scene3d_stereo_gl(), "env stereo_d3d still stereo");
     expect(content::prefer_scene3d_stereo_d3d(), "env stereo_d3d �?D3D");
     expect(!content::prefer_scene3d_stereo_opengl(), "env stereo_d3d not GL");
 
-    _putenv_s("SMT_SCENE3D_ENGINE", "scenic");
+    base::set_switch("scene3d-engine", "scenic");
     expect(content::apply_scene3d_engine_from_env(), "env scenic applies");
     expect(content::prefer_scene3d_scenic(), "env scenic");
 
-    _putenv_s("SMT_SCENE3D_ENGINE", "flycube");
+    base::set_switch("scene3d-engine", "flycube");
     expect(content::apply_scene3d_engine_from_env(), "env flycube applies");
     expect(content::prefer_scene3d_flycube(), "env flycube");
-    _putenv_s("SMT_SCENE3D_ENGINE", "");
+    base::set_switch("scene3d-engine", "");
     content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
   }
 

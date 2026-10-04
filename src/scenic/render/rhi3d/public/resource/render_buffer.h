@@ -2,7 +2,7 @@
 #ifndef _RD3D_RENDERBUFFER_H
 #define _RD3D_RENDERBUFFER_H
 
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/base.h"
 #include "scenic/render/rhi3d/public/texture/texture.h"
 
@@ -11,7 +11,7 @@ namespace detail {
 class RenderDevice3d;
 typedef class RenderDevice3d *LP3DRENDERDEVICE;
 
-class LEGACY_RENDER_EXPORT RenderBuffer {
+class SCENIC_IMPL_EXPORT RenderBuffer {
  public:
   RenderBuffer(LP3DRENDERDEVICE p3DRenderDevice, uint handle,
                   TextureFormat format, uint width, uint height)
@@ -43,7 +43,7 @@ class LEGACY_RENDER_EXPORT RenderBuffer {
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else

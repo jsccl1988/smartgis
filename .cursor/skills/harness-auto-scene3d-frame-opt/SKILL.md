@@ -41,7 +41,7 @@ When this skill is invoked, attached (`@harness-auto-scene3d-frame-opt` / `/harn
 
 | Axis | Value |
 | --- | --- |
-| Entry | `SmartGisViews.exe --atmosphere-showcase=legacy` |
+| Entry | `SmartGIS.exe --atmosphere-showcase=legacy` |
 | Viewport | 640×480 (`kAtmosphereShowcaseW/H`) |
 | GPU | `SMT_ATMOSPHERE_SHOWCASE_GPU=1` |
 | Timed frames | `SMT_ATMOSPHERE_SHOWCASE_PRESENT_COUNT=30` |
@@ -61,14 +61,14 @@ From repo root:
 set SMT_ATMOSPHERE_SHOWCASE_PRESENT_COUNT=30
 set SMT_ATMOSPHERE_SHOWCASE_GPU=1
 set SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=0
-.\out\Debug\SmartGisViews.exe --atmosphere-showcase=legacy
+.\out\Debug\SmartGIS.exe --atmosphere-showcase=legacy
 type .\out\Debug\captures\atmosphere\atmosphere-showcase-perf.json
 ```
 
 Optional product world3d path (not the locked equal-profile; use after legacy is green):
 
 ```bat
-.\out\Debug\SmartGisViews.exe --plugin-showcase=world3d
+.\out\Debug\SmartGIS.exe --plugin-showcase=world3d
 ```
 
 M4 full-materials matrix (product atmo on; **separate** from bare world3d peer ranking):
@@ -99,7 +99,7 @@ Copy and track:
 
 ```
 Scene3d frame-opt progress:
-- [ ] 1. Build SmartGisViews
+- [ ] 1. Build SmartGIS
 - [ ] 2. Baseline: legacy 640×480 GPU · PRESENT_COUNT=30 · LINGER=0
 - [ ] 3. Parse atmosphere-showcase-perf.json → pick hottest phase
 - [ ] 4. CBM → root-cause in scene3d present / effect/scene / GpuScene / render

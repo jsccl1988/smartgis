@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include "base/process/switches.h"
 
 namespace app {
 namespace detail {
@@ -34,7 +35,7 @@ void log_map2d_phase_sample(const char* tag) {
 }
 
 bool want_export_reuse() {
-  if (const char* env = std::getenv("SMT_MAP2D_EXPORT_REUSE")) {
+  if (const char* env = base::switch_cstr("map2d-export-reuse")) {
     return env[0] == '1' && env[1] == '\0';
   }
   return false;

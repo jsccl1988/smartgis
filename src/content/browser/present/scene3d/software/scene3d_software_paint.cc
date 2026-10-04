@@ -9,8 +9,8 @@
 
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/document/map_scene.h"
-#include "vista/domain/atmosphere/atmosphere_params.h"
-#include "vista/domain/atmosphere/field_channel.h"
+#include "vista/atmosphere/session/atmosphere_params.h"
+#include "vista/atmosphere/session/field_channel.h"
 #include "render/rhi/rhi.h"
 #include "base/trace/event/process_trace.h"
 

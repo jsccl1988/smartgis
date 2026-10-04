@@ -12,7 +12,7 @@
 #include "vista/vista_export.h"
 #include "vista/assets/model/model.h"
 #include "vista/assets/tileset/tileset.h"
-#include "vista/world/pointcloud/process/chunk.h"
+#include "vista/world/pointcloud/chunk.h"
 
 // Logical GIS world. Spatial query lives here; GPU instances live in render.
 

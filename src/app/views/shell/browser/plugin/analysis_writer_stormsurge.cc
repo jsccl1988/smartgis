@@ -10,7 +10,7 @@
 #include "app/views/shell/runtime/analysis/playback.h"
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "gis/carto/style/style_document.h"
+#include "gis/style/document/style_document.h"
 #include "plugin/product/stormsurge/commands.h"
 
 #include <cstdint>

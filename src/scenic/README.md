@@ -9,16 +9,15 @@ Previous-generation map/scene engine. Peer of `src/vista`. **Not** a FlyCube `re
 
 | Layer | Role |
 | --- | --- |
-| Public façade | `namespace scenic` only — `Engine` / `SessionDesc` / `DrawItem` / `ViewXform` / `OrbitXform` / factories. DLL **`scenic.dll`**. Hosts name these types; no rhi2d/rhi3d/scene3d/gis types |
-| `scenic::detail` | Engine stubs (`Map2dEngine` / `Scene3dEngine` / Null) + `render/detail/frame_pipeline.h` (copy backends only; hosts must not include) |
-| `render/` | Device backends: `detail/` + `rhi2d/` + `rhi3d/` (directory does **not** create `scenic::render`). 2D map paint + carto live under `render/rhi2d/impl/common/paint/{map,carto}/` |
-| `scene3d/` | 3D scene graph / primitives (peer of `vista/scene`; leftover layout `scene/` `index/` `primitive/` `seed/` + `detail/`) |
+| Public façade | Root umbrellas `engine.h` + `scenic_export.h` — `namespace scenic` only (`Engine` / `SessionDesc` / `DrawItem` / `ViewXform` / `OrbitXform` / factories). DLL **`scenic.dll`**. Hosts name these types; no rhi2d/rhi3d/scene3d/gis types |
+| `engine/` | Product stubs (`Map2dEngine` / `Scene3dEngine` / Null) + `mem_frame.h`. No `scenic/detail/` dump dir |
+| `render/` | Copy shared: `err.h` / `frame.h` / `scenic_impl_export.h` + `backend_dll.h` + `rhi2d/` + `rhi3d/`. Point/Rect/vectors come from `base/math`. No `render/detail/` dump. 2D map paint + carto live under `render/rhi2d/impl/common/paint/{map,carto}/` |
+| `scene3d/` | 3D scene graph / primitives (peer of `vista/scene`; leftover layout `scene/` + `primitive/`) |
 | Host | Exploratory. Default presenters **do not** link `scenic.dll`. Direction: scenic may use product `gis::`; scenic ↛ content/app/leftover |
-| `detail/` | Shared POD for copy engines: `err` / `geom` / `viewport` / `style*` / `feature_kind` / `feature_mesh` / `image` — **no** `#include "legacy/…"` |
 
 **Compile isolation:** `scenic.dll` is **not** in `src_all` / `//:all` / e2e / te. Explicit `build.bat debug scenic` builds the façade; product GIS (`//src/gis`) is allowed, leftover/content/app are not. `//src:src_all` `assert_no_deps` includes `//src/scenic:*`.
 
-**Smt strip (copy trees):** scenic-owned types use unprefixed names (`Style`, `RenderOptions2d`, `Object3d`, …). DEM/coord live in `//src/vista`; OGR tess lives in `scene3d/detail/`. Transitional `SMT_ERR_*` macros remain in `detail/err.h`.
+**Smt strip (copy trees):** scenic-owned types use unprefixed names (`Style`, `RenderOptions2d`, `Object3d`, …). Device status is `scenic::detail::Err` (`kErrNone`, …) in `render/err.h`. DEM/coord live in `//src/vista`; OGR tess lives in `scene3d/primitive/feature/`.
 
 Living lock: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md) **§Scenic**.
 
@@ -28,7 +27,7 @@ Living lock: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](..
 | --- | --- |
 | `render/rhi2d/.../paint/{map,carto}/` | `map/` (Vista peer is product GPU Pass; Scenic map paint stays under rhi2d) |
 | `scene3d/` | `scene/` |
-| `render/{rhi2d,rhi3d,detail}` | (FlyCube lives in `src/render`; vista GPU consumes it) |
+| `render/{rhi2d,rhi3d}` | (FlyCube lives in `src/render`; vista GPU consumes it) |
 | façade `Engine` | `Pass` / `GpuScene` public types |
 
 ## GN

@@ -1,0 +1,196 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gis/tile — 协议 / 缓存 / 提供者 / 图层</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --proto: #2563a8; --cache: #2f7d62; --prov: #b06a1a; --lyr: #6b5ea8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 16px 20px 12px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 12px 14px 14px; margin-bottom: 12px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .lane-label { font-weight: 700; font-size: 11px; }
+  .arrow { fill: none; stroke: #8a96a8; stroke-width: 2; }
+  .pulse { stroke-dasharray: 6 4; animation: dash 0.8s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -20; } }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  button { appearance: none; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 11px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .legend { color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>gis/tile — 协议 / 缓存 / 提供者 / 图层</h1>
+    <p>瓦片数据面四层：数学与协议类型 → 缓存 → HTTP 提供者（含 MVT / Style source）→ <code>MapLayer</code> 挂载。命名空间仍是 <code>gis::tile</code>；子目录不是第三公共命名空间。</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-gdal-layer-management-design.md">§ gis/tile 子目录</a>
+      · 模块 <a href="../../../src/gis/tile/README.md"><code>tile/README.md</code></a>
+      · 总览 <a href="./gis-vista-architecture.html">gis-vista-architecture</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 核心分层（谁拥有什么）</h2>
+    <svg class="diagram" viewBox="0 0 1040 280" role="img" aria-label="tile 四层">
+      <defs>
+        <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect x="0" y="0" width="1040" height="280" rx="10" fill="#fafbfc" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="22" fill="#2563a8">src/gis/tile（gis.dll · ↛ leftover · ↛ scenic）</text>
+
+      <rect x="16" y="40" width="240" height="100" rx="7" fill="#e8f1fa" stroke="#2563a8"/>
+      <text class="box-title" x="136" y="72" text-anchor="middle">protocol/</text>
+      <text class="box-sub" x="136" y="94" text-anchor="middle">xyz_math · TileImage</text>
+      <text class="box-sub" x="136" y="112" text-anchor="middle">WMTS normalize / caps</text>
+
+      <rect x="272" y="40" width="240" height="100" rx="7" fill="#e6f5ef" stroke="#2f7d62"/>
+      <text class="box-title" x="392" y="72" text-anchor="middle">cache/</text>
+      <text class="box-sub" x="392" y="94" text-anchor="middle">TileCache LRU</text>
+      <text class="box-sub" x="392" y="112" text-anchor="middle">TileDiskCache</text>
+
+      <rect x="528" y="40" width="240" height="100" rx="7" fill="#f8efe4" stroke="#b06a1a"/>
+      <text class="box-title" x="648" y="72" text-anchor="middle">provider/</text>
+      <text class="box-sub" x="648" y="94" text-anchor="middle">TileProvider · Registry</text>
+      <text class="box-sub" x="648" y="112" text-anchor="middle">style_source · MVT</text>
+
+      <rect x="784" y="40" width="240" height="100" rx="7" fill="#efeaf8" stroke="#6b5ea8"/>
+      <text class="box-title" x="904" y="72" text-anchor="middle">layer/</text>
+      <text class="box-sub" x="904" y="94" text-anchor="middle">ProviderTileLayer</text>
+      <text class="box-sub" x="904" y="112" text-anchor="middle">make_*_map_layer</text>
+
+      <path class="arrow" d="M256 90 L272 90" marker-end="url(#ah)"/>
+      <path class="arrow" d="M512 90 L528 90" marker-end="url(#ah)"/>
+      <path class="arrow" d="M768 90 L784 90" marker-end="url(#ah)"/>
+
+      <rect x="16" y="164" width="496" height="92" rx="7" fill="#fff" stroke="#d8dee6"/>
+      <text class="box-title" x="264" y="192" text-anchor="middle">gis/style（并列，非 tile）</text>
+      <text class="box-sub" x="264" y="214" text-anchor="middle">StyleDocument / paint — MapLibre JSON</text>
+      <text class="box-sub" x="264" y="232" text-anchor="middle">tile 只绑定 sources.tiles URL</text>
+
+      <rect x="528" y="164" width="496" height="92" rx="7" fill="#fff" stroke="#d8dee6"/>
+      <text class="box-title" x="776" y="192" text-anchor="middle">gis/map · MapLayer</text>
+      <text class="box-sub" x="776" y="214" text-anchor="middle">kind=tile 持有 ProviderTileLayer*</text>
+      <text class="box-sub" x="776" y="232" text-anchor="middle">上屏在 content present / vista，不在本目录</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流水线（打开 → 抓取 → 挂图层）</h2>
+    <svg class="diagram" id="pipeSvg" viewBox="0 0 1040 150" role="img">
+      <defs>
+        <marker id="ahp" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/></marker>
+        <marker id="ahpon" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#2563a8"/></marker>
+      </defs>
+      <path id="a0" class="arrow" d="M230 70 L270 70" marker-end="url(#ahp)"/>
+      <path id="a1" class="arrow" d="M470 70 L510 70" marker-end="url(#ahp)"/>
+      <path id="a2" class="arrow" d="M710 70 L750 70" marker-end="url(#ahp)"/>
+      <g class="node" data-i="0">
+        <rect x="40" y="25" width="190" height="90" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/>
+        <circle cx="70" cy="50" r="12" fill="#2563a8"/><text x="70" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">1</text>
+        <text class="box-title" x="135" y="54" text-anchor="middle">protocol</text>
+        <text class="box-sub" x="135" y="78" text-anchor="middle">{z}/{x}/{y} · WMTS</text>
+        <text class="box-sub" x="135" y="96" text-anchor="middle">tiles_for_viewport</text>
+      </g>
+      <g class="node" data-i="1">
+        <rect x="270" y="25" width="200" height="90" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/>
+        <circle cx="300" cy="50" r="12" fill="#2563a8"/><text x="300" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">2</text>
+        <text class="box-title" x="370" y="54" text-anchor="middle">provider + cache</text>
+        <text class="box-sub" x="370" y="78" text-anchor="middle">LRU → disk → HTTP</text>
+        <text class="box-sub" x="370" y="96" text-anchor="middle">net::HttpClient</text>
+      </g>
+      <g class="node" data-i="2">
+        <rect x="510" y="25" width="200" height="90" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/>
+        <circle cx="540" cy="50" r="12" fill="#2563a8"/><text x="540" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">3</text>
+        <text class="box-title" x="610" y="54" text-anchor="middle">layer</text>
+        <text class="box-sub" x="610" y="78" text-anchor="middle">refresh_visible</text>
+        <text class="box-sub" x="610" y="96" text-anchor="middle">MapLayer::from_tile</text>
+      </g>
+      <g class="node" data-i="3">
+        <rect x="750" y="25" width="220" height="90" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/>
+        <circle cx="780" cy="50" r="12" fill="#2563a8"/><text x="780" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">4</text>
+        <text class="box-title" x="860" y="54" text-anchor="middle">下游</text>
+        <text class="box-sub" x="860" y="78" text-anchor="middle">vista tess / MapFrame</text>
+        <text class="box-sub" x="860" y="96" text-anchor="middle">content present</text>
+      </g>
+    </svg>
+    <div class="controls">
+      <button type="button" class="primary" id="btnPlay">播放流水线</button>
+      <button type="button" id="btnPause">暂停</button>
+      <button type="button" id="btnReset">复位</button>
+      <span class="legend" id="status">就绪</span>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  var nodes = Array.from(document.querySelectorAll("#pipeSvg .node"));
+  var arrows = ["a0","a1","a2"].map(function (id) { return document.getElementById(id); });
+  var status = document.getElementById("status");
+  var timer = null, i = -1;
+  function paint() {
+    nodes.forEach(function (g, idx) {
+      var on = idx <= i && i >= 0;
+      var rect = g.querySelector("rect");
+      rect.setAttribute("fill", on ? "#fff" : "#f0f3f7");
+      rect.setAttribute("stroke", on ? "#2563a8" : "#d8dee6");
+      rect.setAttribute("stroke-width", on ? "2.5" : "2");
+    });
+    arrows.forEach(function (a, idx) {
+      var on = idx < i;
+      a.setAttribute("stroke", on ? "#2563a8" : "#8a96a8");
+      a.setAttribute("stroke-width", on ? "2.5" : "2");
+      a.setAttribute("marker-end", on ? "url(#ahpon)" : "url(#ahp)");
+      a.classList.toggle("pulse", on && idx === i - 1);
+    });
+    if (i < 0) status.textContent = "就绪 — 点击播放";
+    else if (i >= nodes.length - 1) status.textContent = "完成 — MapLayer 可交 vista / present";
+    else status.textContent = "阶段 " + (i + 1) + " / " + nodes.length;
+  }
+  function step() {
+    i += 1;
+    if (i >= nodes.length) { clearInterval(timer); timer = null; paint(); return; }
+    paint();
+  }
+  document.getElementById("btnPlay").onclick = function () {
+    if (timer) return;
+    if (i >= nodes.length - 1) i = -1;
+    step(); timer = setInterval(step, 850);
+  };
+  document.getElementById("btnPause").onclick = function () {
+    if (timer) { clearInterval(timer); timer = null; status.textContent = "已暂停 @ " + Math.max(i + 1, 0); }
+  };
+  document.getElementById("btnReset").onclick = function () {
+    if (timer) clearInterval(timer);
+    timer = null; i = -1; paint();
+  };
+  paint();
+})();
+</script>
+</body>
+</html>

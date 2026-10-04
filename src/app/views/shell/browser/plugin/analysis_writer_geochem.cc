@@ -7,7 +7,7 @@
 #include "app/views/shell/browser/browser_ui_delegate.h"
 #include "app/views/shell/browser/plugin/analysis_writer_common.h"
 #include "content/browser/document/map_scene.h"
-#include "gis/carto/style/style_document.h"
+#include "gis/style/document/style_document.h"
 #include "plugin/product/geochem/commands.h"
 #include "tool/draft/draft.h"
 

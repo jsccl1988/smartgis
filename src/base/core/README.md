@@ -17,4 +17,4 @@ mogu 对齐的编译期 / 日志面（公开符号在 `namespace base`，无 `ba
 
 Include：`#include "base/core/log.h"`。
 
-遗留 `SmtLog` / `SmtLogManager` 已删除。Smt leftovers（`listener` / `command` / `msg*` / `api` / structs / `core.h`）已迁至 [`src/legacy/core/`](../../legacy/core/)。
+遗留 `SmtLog` / `SmtLogManager` 已删除。Smt leftovers（`listener` / `command` / `msg*` / `api` / structs / `core.h`）已迁至 [`src/base/smt/`](../../base/smt/)。

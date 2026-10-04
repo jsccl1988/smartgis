@@ -4,17 +4,14 @@
 #ifndef GIS_GEO_OPS_VECTOR_TRAITS_H_
 #define GIS_GEO_OPS_VECTOR_TRAITS_H_
 
-#include "base/math/math.h"
+#include "base/math/traits/vector_traits.h"
 
 namespace geo {
 
-// Compile-time dimension for scene vectors (Vector2 / Vector3 / Vector4).
-// The type already exposes `dimension` and `coordinate_type`.
+// Scene-vector traits live in `base`. GIS re-exports the same template so
+// algorithm TUs keep writing `geo::vector_traits<V>`.
 template <typename V>
-struct vector_traits {
-  using coordinate_type = typename V::coordinate_type;
-  static constexpr int dimension = V::dimension;
-};
+using vector_traits = ::base::vector_traits<V>;
 
 }  // namespace geo
 

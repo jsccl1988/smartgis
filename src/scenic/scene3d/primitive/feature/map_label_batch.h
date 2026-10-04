@@ -1,14 +1,14 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef SCENIC_SCENE3D_MAP_LABEL_BATCH_H_
+#ifndef SCENIC_SCENE3D_PRIMITIVE_FEATURE_MAP_LABEL_BATCH_H_
 #define SCENIC_SCENE3D_MAP_LABEL_BATCH_H_
 
 #include <deque>
 #include <string>
 #include <vector>
 
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/scene3d/scene/object.h"
 
 namespace scenic {
@@ -23,7 +23,7 @@ struct MapLabel {
 };
 
 // Screen-space 3D labels: GDI+ AA textures + halo, with collision declutter.
-class LEGACY_RENDER_EXPORT MapLabelBatch : public Object3d {
+class SCENIC_IMPL_EXPORT MapLabelBatch : public Object3d {
  public:
   MapLabelBatch();
   ~MapLabelBatch() override;
@@ -71,4 +71,4 @@ class LEGACY_RENDER_EXPORT MapLabelBatch : public Object3d {
 }  // namespace detail
 }  // namespace scenic
 
-#endif  // SCENIC_SCENE3D_MAP_LABEL_BATCH_H_
+#endif  // SCENIC_SCENE3D_PRIMITIVE_FEATURE_MAP_LABEL_BATCH_H_

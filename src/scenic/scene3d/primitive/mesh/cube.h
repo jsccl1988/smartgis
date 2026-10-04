@@ -1,44 +1,35 @@
-// Copyright (c) 2010 CCL. All rights reserved.
-#ifndef _MD3D_CUBE_H
-#define _MD3D_CUBE_H
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 
-#include "scenic/scenic_impl_export.h"
+#ifndef SCENIC_SCENE3D_PRIMITIVE_MESH_CUBE_H_
+#define SCENIC_SCENE3D_PRIMITIVE_MESH_CUBE_H_
+
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/render_device.h"
-#include "scenic/render/rhi3d/public/device/renderer.h"
-#include "scenic/render/rhi3d/public/resource/video_buffer.h"
 #include "scenic/scene3d/scene/object.h"
-
-using namespace scenic::detail;
 
 namespace scenic {
 namespace detail {
-class LEGACY_RENDER_EXPORT Cube : public Object3d {
- public:
-  Cube(LP3DRENDERDEVICE pRenderDevice, ::base::Vector3 vCenter, float width);
-  virtual ~Cube();
 
+// Axis-aligned cube drawn via device DrawCube3D (no GPU vertex upload).
+class SCENIC_IMPL_EXPORT Cube : public Object3d {
  public:
-  long Init(::base::Vector3& vPos, Material& matMaterial,
-            const char* szTexName = "");
-  long Create(LP3DRENDERDEVICE p3DRenderDevice);
-  long Render(LP3DRENDERDEVICE p3DRenderDevice);
-  long Update(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed);
-  long Destroy();
+  Cube(::base::Vector3 center, float width);
+  ~Cube() override;
+
+  long Init(::base::Vector3& pos, Material& material,
+            const char* tex_name = "") override;
+  long Create(LP3DRENDERDEVICE device) override;
+  long Render(LP3DRENDERDEVICE device) override;
+  long Update(LP3DRENDERDEVICE device, float elapsed) override;
+  long Destroy() override;
 
  private:
-  VertexBuffer* m_pVertexBuffer;
-  Vector3 m_vCenter;
-  float m_fWidth;
+  Vector3 center_;
+  float width_ = 1.f;
 };
+
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
-#if defined(_DEBUG)
-#pragma comment(lib, "scenic_impl_d.lib")
-#else
-#pragma comment(lib, "scenic_impl.lib")
-#endif
-#endif
-
-#endif  //_MD3D_CUBE_H
+#endif  // SCENIC_SCENE3D_PRIMITIVE_MESH_CUBE_H_

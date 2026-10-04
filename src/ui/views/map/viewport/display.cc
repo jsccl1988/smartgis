@@ -21,6 +21,7 @@
 #include <windowsx.h>
 
 #include "base/core/log.h"
+#include "base/process/switches.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/raster/paint_stats.h"
@@ -136,12 +137,12 @@ void MapViewport::display_run_present(uint32_t width_px, uint32_t height_px,
     return;
   }
   // Scenic MemFrame path must never invoke FlyCube DXGI present (SEH).
-  if (const char* map_eng = std::getenv("SMT_MAP2D_ENGINE")) {
+  if (const char* map_eng = base::switch_cstr("map2d-engine")) {
     if (map_eng[0] && _stricmp(map_eng, "scenic") == 0) {
       return;
     }
   }
-  if (const char* scene_eng = std::getenv("SMT_SCENE3D_ENGINE")) {
+  if (const char* scene_eng = base::switch_cstr("scene3d-engine")) {
     if (scene_eng[0] && _stricmp(scene_eng, "scenic") == 0) {
       return;
     }
@@ -212,7 +213,7 @@ void MapViewport::display_run_begin_frame() {
   ui::gfx::note_begin_frame_qpc(last_begin_frame_qpc_);
 
   if (role_ != Role::kScene3d) {
-    if (const char* env = std::getenv("SMT_FORCE_GDI_MAP_OVERLAY")) {
+    if (const char* env = base::switch_cstr("force-gdi-map-overlay")) {
       if (env[0] == '1' && env[1] == '\0') {
         return;
       }
@@ -301,7 +302,7 @@ void MapViewport::display_thread_main() {
       // Do NOT call IDXGIOutput::WaitForVBlank here. It cannot be woken by
       // display_cv_, so a close-time kDestroy / display_stop_ posted while
       // WaitForVBlank blocks leaves release_rhi_device waiting forever
-      // (SmartGisViews.exe hang on WM_CLOSE). The wait_for(~16ms) above is
+      // (SmartGIS.exe hang on WM_CLOSE). The wait_for(~16ms) above is
       // the interruptible pace; skip DXGI phase-align on the mailbox thread.
       (void)hwnd;
       {

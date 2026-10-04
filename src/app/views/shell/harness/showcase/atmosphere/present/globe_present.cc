@@ -19,13 +19,14 @@
 #include <cstdlib>
 #include <cstring>
 #include <windows.h>
+#include "base/process/switches.h"
 
 namespace app {
 namespace detail {
 namespace {
 
 bool harness_record_enabled() {
-  const char* r = std::getenv("SMT_HARNESS_RECORD");
+  const char* r = base::switch_cstr("harness-record");
   if (!r || !*r) {
     return false;
   }

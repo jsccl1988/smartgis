@@ -26,6 +26,6 @@
     "rounds": 2,
     "timeout_sec": 120,
     "build_target": "src/app/views:views",
-    "exe": "SmartGisViews.exe"
+    "exe": "SmartGIS.exe"
   }
 }

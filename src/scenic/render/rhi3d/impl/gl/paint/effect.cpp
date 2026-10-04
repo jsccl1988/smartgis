@@ -44,13 +44,13 @@ long GlRenderDevice::SetLight(int index, Light *pLight) {
     }
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetAmbientLight(const Color &clr) {
   glLightModelfv(GL_LIGHT_MODEL_AMBIENT, clr.c);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 // texture
@@ -60,7 +60,7 @@ long GlRenderDevice::SetTexture(Texture *pTex) {
   else
     glDisable(GL_TEXTURE_2D);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 // materail
@@ -77,7 +77,7 @@ long GlRenderDevice::SetMaterial(Material *pMat) {
   } else
     glDisable(GL_COLOR_MATERIAL);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 // set fog
@@ -97,7 +97,7 @@ long GlRenderDevice::SetFog(FogMode mode, const Color &col, float density,
     default:
       // Give up on it
       glDisable(GL_FOG);
-      return SMT_ERR_NONE;
+      return kErrNone;
   }
 
   glEnable(GL_FOG);
@@ -108,12 +108,12 @@ long GlRenderDevice::SetFog(FogMode mode, const Color &col, float density,
   glFogf(GL_FOG_END, end);
   glHint(GL_FOG_HINT, GL_NICEST);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 // aactivate additive blending
 long GlRenderDevice::SetBlending(bool bBlending) {
-  if (m_bBlending == bBlending) return SMT_ERR_NONE;
+  if (m_bBlending == bBlending) return kErrNone;
 
   m_bBlending = bBlending;
 
@@ -127,7 +127,7 @@ long GlRenderDevice::SetBlending(bool bBlending) {
     glDisable(GL_ALPHA_TEST);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 // activate backface culling
@@ -143,7 +143,7 @@ long GlRenderDevice::SetBackfaceCulling(RenderStateValue rsv) {
   } else
     glDisable(GL_CULL_FACE);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 // activate stencil buffer
@@ -216,7 +216,7 @@ long GlRenderDevice::SetStencilBufferMode(RenderStateValue rsv, DWORD dw) {
   glStencilFunc(m_unStencilCmp, m_nStencilRef, m_unStencilMask);
   glStencilOp(m_unOpStencilFail, m_unOpStencilZFail, m_unOpStencilZPass);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 // activate depth buffer
@@ -234,7 +234,7 @@ long GlRenderDevice::SetDepthBufferMode(RenderStateValue rsv) {
   else if (rsv == RSV_DEPTH_NONE) {
     glEnable(GL_DEPTH_TEST);
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 // activate wireframe mode
@@ -256,7 +256,7 @@ long GlRenderDevice::SetShadeMode(RenderStateValue rsv, float f,
     }
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 }  // namespace detail
 }  // namespace scenic

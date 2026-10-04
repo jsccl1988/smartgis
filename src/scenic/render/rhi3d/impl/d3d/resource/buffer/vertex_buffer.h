@@ -30,6 +30,8 @@ inline void free_vb_floats(float* p, size_t count) {
 
 }  // namespace detail
 
+namespace detail {
+
 // System-memory vertex buffer for leftover D3D11 path (GPU upload deferred).
 class D3dVertexBuffer : public VertexBuffer {
  protected:
@@ -67,31 +69,31 @@ class D3dVertexBuffer : public VertexBuffer {
     stride_ = size;
 
     if ((format_ & VF_XYZ) || (format_ & VF_XYZRHW))
-      positions_ = detail::alloc_vb_floats(coord_num_ * vertex_count_);
+      positions_ = alloc_vb_floats(coord_num_ * vertex_count_);
     if (format_ & VF_NORMAL)
-      normals_ = detail::alloc_vb_floats(3 * vertex_count_);
+      normals_ = alloc_vb_floats(3 * vertex_count_);
     if (format_ & VF_DIFFUSE)
-      colors_ = detail::alloc_vb_floats(4 * vertex_count_);
+      colors_ = alloc_vb_floats(4 * vertex_count_);
     if (format_ & VF_TEXCOORD)
-      texcoords_ = detail::alloc_vb_floats(2 * vertex_count_);
+      texcoords_ = alloc_vb_floats(2 * vertex_count_);
   }
   ~D3dVertexBuffer() override {
     if (gpu_vb_) {
       gpu_vb_->Release();
       gpu_vb_ = nullptr;
     }
-    detail::free_vb_floats(positions_, coord_num_ * vertex_count_);
-    detail::free_vb_floats(normals_, 3 * vertex_count_);
-    detail::free_vb_floats(colors_, 4 * vertex_count_);
-    detail::free_vb_floats(texcoords_, 2 * vertex_count_);
+    free_vb_floats(positions_, coord_num_ * vertex_count_);
+    free_vb_floats(normals_, 3 * vertex_count_);
+    free_vb_floats(colors_, 4 * vertex_count_);
+    free_vb_floats(texcoords_, 2 * vertex_count_);
     positions_ = nullptr;
     normals_ = nullptr;
     colors_ = nullptr;
     texcoords_ = nullptr;
   }
 
-  long PrepareForDrawing() override { return SMT_ERR_NONE; }
-  long EndDrawing() override { return SMT_ERR_NONE; }
+  long PrepareForDrawing() override { return kErrNone; }
+  long EndDrawing() override { return kErrNone; }
 
   long Lock() override {
     locked_ = true;
@@ -99,7 +101,7 @@ class D3dVertexBuffer : public VertexBuffer {
     cur_color_ = colors_;
     cur_normal_ = normals_;
     cur_texcoord_ = texcoords_;
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   long Unlock() override {
     locked_ = false;
@@ -108,7 +110,7 @@ class D3dVertexBuffer : public VertexBuffer {
     cur_normal_ = nullptr;
     cur_texcoord_ = nullptr;
     gpu_dirty_ = true;
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   bool IsLocked() const override { return locked_; }
 

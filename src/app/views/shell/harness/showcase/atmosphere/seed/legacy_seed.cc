@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <windows.h>
+#include "base/process/switches.h"
 
 namespace app {
 namespace detail {
@@ -27,7 +28,7 @@ int seed_atmosphere_legacy_mode(Browser& browser,
   // AVs (ExitProcess -1 after legacy-open-path). DEM still comes from
   // seed_procedural land rings; BMP label composite runs after present.
   const bool skip_china_open = []() {
-    const char* g = std::getenv("SMT_ATMOSPHERE_SHOWCASE_GPU");
+    const char* g = base::switch_cstr("atmosphere-showcase-gpu");
     return g && g[0] == '1' && g[1] == '\0';
   }();
   if (!skip_china_open) {

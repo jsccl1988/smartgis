@@ -8,9 +8,9 @@
 #include <cstdio>
 #include <mutex>
 
-#include "gis/carto/style/style_document.h"
-#include "gis/carto/style/style_rules.h"
-#include "vista/frame/frame.h"
+#include "gis/style/document/style_document.h"
+#include "gis/style/eval/style_rules.h"
+#include "vista/map/frame.h"
 
 namespace content {
 namespace detail {

@@ -4,7 +4,7 @@
 #ifndef SCENIC_GDI_DRAW_OGR_H_
 #define SCENIC_GDI_DRAW_OGR_H_
 
-#include "scenic/detail/style.h"
+#include "scenic/render/rhi2d/impl/common/paint/carto/style/style_pod.h"
 
 class OGRLineString;
 class OGRLinearRing;

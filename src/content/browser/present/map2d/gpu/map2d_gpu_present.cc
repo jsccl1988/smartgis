@@ -16,12 +16,13 @@
 #include <vector>
 
 #include "base/core/log.h"
-#include "vista/map/map_effect.h"
-#include "vista/map/pass.h"
-#include "vista/frame/frame.h"
+#include "vista/frame/map_effect.h"
+#include "vista/frame/pass.h"
+#include "vista/map/frame.h"
 #include "render/graph/frame_graph.h"
 #include "render/rhi/rhi.h"
 #include "base/trace/event/process_trace.h"
+#include "base/process/switches.h"
 
 namespace content {
 namespace {
@@ -125,7 +126,7 @@ bool Map2dGpuPresent::present_frame(render::rhi::Device* device,
     return false;
   }
   if (!map2d_pass_) {
-    map2d_pass_ = std::make_unique<vista::Pass>();
+    map2d_pass_ = std::make_unique<vista::FramePass>();
   }
 
   vista::WindowsGlyphRasterizer windows_rasterizer;
@@ -198,7 +199,7 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     // FPS bench: ignore shell churn; also skip InteractiveReuse (camera still)
     // so settle debounce does not force a full present every frame.
     const bool fps_bench = []() {
-      const char* e = std::getenv("SMT_MAP2D_FPS_BENCH_MS");
+      const char* e = base::switch_cstr("map2d-fps-bench-ms");
       return e && e[0] != '\0' && std::atoi(e) > 0;
     }();
     const bool shell_stable =
@@ -219,16 +220,29 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       return true;
     }
 
-    // Only full/settle rebuilds re-upload geometry; interactive + forced
-    // static (shell change) reuse uploaded Pass data. First present after
-    // invalidate / ensure_full (last_present_ok_ false) still needs a full
-    // record even when PresentAction is StaticReuse.
+    // Full rebuild drops GPU buffers (every cache_key misses). Settle keeps
+    // hit slices and uploads only misses on the device thread. Interactive
+    // reuses the encoded draws. First present after a failed record still
+    // replaces, even when the action is StaticReuse.
     const bool record_all =
         action == Map2dFrameCache::PresentAction::kRebuildFull ||
         action == Map2dFrameCache::PresentAction::kSettleRebuild ||
         !last_present_ok_;
-    if (record_all && map2d_pass_) {
+    const bool full_replace =
+        action == Map2dFrameCache::PresentAction::kRebuildFull ||
+        !last_present_ok_;
+    if (!map2d_pass_) {
+      map2d_pass_ = std::make_unique<vista::FramePass>();
+    }
+    if (full_replace) {
       map2d_pass_->invalidate_uploaded();
+      map2d_pass_->set_upload_policy(vista::FramePass::UploadPolicy::kReplace);
+    } else if (action == Map2dFrameCache::PresentAction::kSettleRebuild) {
+      map2d_pass_->set_upload_policy(
+          vista::FramePass::UploadPolicy::kIncremental);
+    } else {
+      map2d_pass_->set_upload_policy(
+          vista::FramePass::UploadPolicy::kReuseIfCached);
     }
 
     vista::reset_last_pass_record_ms();

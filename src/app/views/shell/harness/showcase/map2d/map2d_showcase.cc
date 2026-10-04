@@ -15,6 +15,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include "base/process/switches.h"
 
 namespace {
 
@@ -85,7 +86,7 @@ int run_map2d_showcase(Browser& browser, Map2dShowcaseMode mode) {
   // surfaced EXIT=-1 after Browser::show with no marks/BMP (ANTLR resolve or
   // CapabilityHost fill). Body writes map2d-showcase-mark.txt + BMP directly.
   // Optional IL remains for interactive / SMT_UI_INTERACT_SCRIPT overrides.
-  if (const char* force_il = std::getenv("SMT_MAP2D_SHOWCASE_IL");
+  if (const char* force_il = base::switch_cstr("map2d-showcase-il");
       force_il && force_il[0] == '1' && force_il[1] == '\0') {
     const char* suite = nullptr;
     switch (mode) {

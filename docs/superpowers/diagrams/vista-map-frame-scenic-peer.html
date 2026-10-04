@@ -1,0 +1,328 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vista map/frame — 对照 Scenic paint/map 升级</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #efeaf8; --ui-ink: #5b4f8a;
+    --cpu: #e8f0ea; --cpu-ink: #2f7d62;
+    --gpu: #f6eee4; --gpu-ink: #b06a1a;
+    --sc: #e7eef6; --sc-ink: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
+  }
+  .hero h1 { margin: 0 0 4px; font-size: 1.22rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .meta a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .lane { font-weight: 700; font-size: 12px; }
+  .arrow { fill: none; stroke: #8a96a8; stroke-width: 2; marker-end: url(#arr); }
+  .pulse { stroke-dasharray: 8 6; animation: dash 1s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -28; } }
+  .stage-on { stroke-width: 2.8 !important; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  button {
+    appearance: none; border: 1px solid var(--border); background: var(--panel);
+    color: var(--text); border-radius: 8px; padding: 6px 11px; cursor: pointer; font: inherit;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .legend { color: var(--muted); font-size: 0.82rem; }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .map th { background: #e8edf3; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Vista map / frame — 对照 Scenic paint/map</h1>
+    <p>
+      产品 2D：<code>vista/map</code> 产出 <code>MapFrame</code>，<code>vista/frame</code> 在设备线程上 <code>FramePass::record</code>。
+      Scenic 只借帧拍、脏区、prep→encode→submit 语义；不搬 HDC、<code>MapPainter</code> 焊死遍历、引擎内上屏。
+    </p>
+    <p class="meta">
+      As-built M1–M4 + N0–N3：<code>collect_visible</code> → <code>pack_geoms</code> → emit（layer × 世界瓦片 splice）→ CPU coalesce；
+      <code>kLayoutAabbTilePx=256</code> + 16px world skirt；
+      <code>layout_gen</code> 在 style 层、tile 与 tess job 边界 abort。
+      合成仍是 <code>FramePass</code> 一条 CommandList。
+    </p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista map/frame scenic-peer</a>
+      · <a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista map/frame scenic damage</a>
+      · <a href="./rhi2d-paint-map-strategy.html">Scenic 帧拍 + paint/map</a>
+      · <a href="./vista-subdirectory-layers.html">Vista 逻辑/物理</a>
+      · <a href="./map2d-present-frame.html">Map2d 双出口</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 责任层（content / map CPU / frame GPU / Scenic 对照轨）</h2>
+    <svg class="diagram" viewBox="0 0 1040 280" role="img" aria-label="四层所有权">
+      <rect x="16" y="12" width="240" height="256" rx="8" fill="var(--ui)" stroke="#6b5ea8"/>
+      <text class="lane" x="32" y="38" fill="var(--ui-ink)">content · L1 帧拍</text>
+      <text class="box-title" x="32" y="64">Map2dFrameCache</text>
+      <text class="box-sub" x="32" y="84">stage_frame · gen / cancel</text>
+      <text class="box-title" x="32" y="114">SliceCache 宿主</text>
+      <text class="box-sub" x="32" y="134">layer_slices_ · reuse</text>
+      <text class="box-sub" x="32" y="168">对标 MapScheduler</text>
+      <text class="box-sub" x="32" y="188">不 walk gis::Map 制图</text>
+      <text class="box-sub" x="32" y="208">HWND 永不 join Emit</text>
+
+      <rect x="272" y="12" width="280" height="256" rx="8" fill="var(--cpu)" stroke="#2f7d62"/>
+      <text class="lane" x="288" y="38" fill="var(--cpu-ink)">vista/map · CPU</text>
+      <text class="box-title" x="288" y="64">Layout::build</text>
+      <text class="box-sub" x="288" y="84">view / draw / batch / layout 头</text>
+      <text class="box-title" x="288" y="114">collect → emit_* → coalesce</text>
+      <text class="box-sub" x="288" y="134">geom_walk · mesh_emit · tess_grain</text>
+      <text class="box-title" x="288" y="164">LabelGrid 串行</text>
+      <text class="box-sub" x="288" y="184">carto_filter ⊥ batch_build</text>
+      <text class="box-sub" x="288" y="218">assert_no_deps render</text>
+      <text class="box-sub" x="288" y="238">place 无 RHI</text>
+
+      <rect x="568" y="12" width="240" height="256" rx="8" fill="var(--gpu)" stroke="#b06a1a"/>
+      <text class="lane" x="584" y="38" fill="var(--gpu-ink)">vista/frame · GPU</text>
+      <text class="box-title" x="584" y="64">FramePass::record</text>
+      <text class="box-sub" x="584" y="84">对标 map_submit</text>
+      <text class="box-title" x="584" y="114">upload / encode</text>
+      <text class="box-sub" x="584" y="134">1 CommandList</text>
+      <text class="box-title" x="584" y="164">DrawCache · keyed slices</text>
+      <text class="box-sub" x="584" y="184">对标脏块合成</text>
+      <text class="box-sub" x="584" y="218">不进 parallel_for</text>
+
+      <rect x="824" y="12" width="200" height="256" rx="8" fill="var(--sc)" stroke="#2563a8"/>
+      <text class="lane" x="840" y="38" fill="var(--sc-ink)">Scenic 对照</text>
+      <text class="box-title" x="840" y="64">cc + paint/map</text>
+      <text class="box-sub" x="840" y="84">Raster×N 私有 HDC</text>
+      <text class="box-sub" x="840" y="114">CommandBuffer IR</text>
+      <text class="box-sub" x="840" y="148">只核对画面</text>
+      <text class="box-sub" x="840" y="168">不编进 vista.dll</text>
+      <text class="box-sub" x="840" y="200">禁止焊进 FramePass</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流 — 借语义、换实现（谁等 / 谁永不 join）</h2>
+    <svg class="diagram" viewBox="0 0 1040 250" role="img" aria-label="一帧产品路径">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect id="s0" x="16" y="20" width="150" height="78" rx="8" fill="var(--ui)" stroke="#6b5ea8"/>
+      <text class="box-title" x="91" y="48" text-anchor="middle">1 stage</text>
+      <text class="box-sub" x="91" y="68" text-anchor="middle">content mailbox</text>
+      <path id="e01" class="arrow" d="M166 59 H194"/>
+
+      <rect id="s1" x="194" y="20" width="160" height="78" rx="8" fill="var(--cpu)" stroke="#2f7d62"/>
+      <text class="box-title" x="274" y="48" text-anchor="middle">2 collect</text>
+      <text class="box-sub" x="274" y="68" text-anchor="middle">pack_geoms + style</text>
+      <path id="e12" class="arrow" d="M354 59 H382"/>
+
+      <rect id="s2" x="382" y="20" width="160" height="78" rx="8" fill="var(--cpu)" stroke="#2f7d62"/>
+      <text class="box-title" x="462" y="48" text-anchor="middle">3 emit×N</text>
+      <text class="box-sub" x="462" y="68" text-anchor="middle">slice hit skip tess</text>
+      <path id="e23" class="arrow" d="M542 59 H570"/>
+
+      <rect id="s3" x="570" y="20" width="150" height="78" rx="8" fill="var(--cpu)" stroke="#2f7d62"/>
+      <text class="box-title" x="645" y="48" text-anchor="middle">4 resolve</text>
+      <text class="box-sub" x="645" y="68" text-anchor="middle">LabelGrid 串行</text>
+      <path id="e34" class="arrow" d="M720 59 H748"/>
+
+      <rect id="s4" x="748" y="20" width="140" height="78" rx="8" fill="var(--gpu)" stroke="#b06a1a"/>
+      <text class="box-title" x="818" y="48" text-anchor="middle">5 upload</text>
+      <text class="box-sub" x="818" y="68" text-anchor="middle">keyed miss only</text>
+      <path id="e45" class="arrow" d="M888 59 H916"/>
+
+      <rect id="s5" x="916" y="20" width="108" height="78" rx="8" fill="var(--gpu)" stroke="#b06a1a"/>
+      <text class="box-title" x="970" y="48" text-anchor="middle">6 record</text>
+      <text class="box-sub" x="970" y="68" text-anchor="middle">1 CL</text>
+
+      <rect x="16" y="118" width="1008" height="88" rx="8" fill="#fff" stroke="#d8dee6"/>
+      <text class="box-title" x="32" y="146">线程约定</text>
+      <text class="box-sub" x="32" y="168">UI 在 stage_frame 后返回。Emit 工人只写自己的槽，不碰 Device。</text>
+      <text class="box-sub" x="32" y="188">Upload / encode 在 Display 设备线程。Scenic Raster×N HDC 永不进入本路径。</text>
+    </svg>
+    <div class="controls">
+      <button class="primary" type="button" data-play="flow">播放阶段</button>
+      <button type="button" data-pause="flow">暂停</button>
+      <button type="button" data-reset="flow">重置</button>
+      <span class="legend" id="status">就绪</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>3. 符号对照（借什么 / 不借什么）</h2>
+    <table class="map">
+      <tr><th>Scenic</th><th>Vista as-built</th><th>下一刀</th></tr>
+      <tr>
+        <td><code>MapScheduler</code> × <code>TileGraphRunner</code>（禁止 fold）</td>
+        <td><code>stage_frame</code> × <code>Layout::build</code> 内 <code>parallel_for</code></td>
+        <td>保持组合。不把 tess 池并进 FramePass</td>
+      </tr>
+      <tr>
+        <td><code>Rhi2dPainter</code> 编排 + 直接画</td>
+        <td><code>Layout</code> 只出 IR；<code>FramePass</code> 只录制</td>
+        <td>保持拆开。编排内部可再拆 collect / emit</td>
+      </tr>
+      <tr>
+        <td><code>map_feature_prep</code> LP→DP <code>PreparedFeature</code></td>
+        <td>emit 前 <code>pack_geoms</code> 写 view-CRS <code>Vertex</code></td>
+        <td>N2 as-built：包络 / 亚像素 / 内环，仍无 GDI POINT</td>
+      </tr>
+      <tr>
+        <td><code>map_draw_batch</code> 同笔合并</td>
+        <td><code>upload_draws</code> tint coalesce + mega buffer</td>
+        <td>M3 as-built：CPU Resolve 后再并同类 <code>DrawItem</code></td>
+      </tr>
+      <tr>
+        <td><code>RasterTile</code> 脏矩形</td>
+        <td>layer × 世界瓦片 <code>cache_key</code> + 16px skirt；未脏列 splice</td>
+        <td>N1 as-built。仍 GPU 合成，无 HDC</td>
+      </tr>
+      <tr>
+        <td><code>execute_map_pass</code> serial|tile|layer + HDC</td>
+        <td><code>UploadPolicy</code> + <code>upload_keyed_slices</code></td>
+        <td>不增加 layer-HDC。多 CL 仍是 V5</td>
+      </tr>
+      <tr>
+        <td><code>FrameAbortFn</code> / publish-on-gen</td>
+        <td>content 拒绝过期 publish；emit 在层 / tile / tess job 停</td>
+        <td>N3 as-built：tess job 批内读 <code>live_layout_gen</code></td>
+      </tr>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>4. 升级阶段 M0–M4</h2>
+    <svg class="diagram" viewBox="0 0 1040 110" role="img" aria-label="M0 到 M4">
+      <rect x="12" y="12" width="184" height="86" rx="8" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="104" y="40" text-anchor="middle">M0 纠偏</text>
+      <text class="box-sub" x="104" y="62" text-anchor="middle">U1–U4 as-built</text>
+      <text class="box-sub" x="104" y="80" text-anchor="middle">文档对齐磁盘</text>
+      <rect x="212" y="12" width="190" height="86" rx="8" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="307" y="40" text-anchor="middle">M1 策略拆层</text>
+      <text class="box-sub" x="307" y="62" text-anchor="middle">collect / emit（无 pack）</text>
+      <text class="box-sub" x="307" y="80" text-anchor="middle">Layout 仍是编排</text>
+      <rect x="418" y="12" width="190" height="86" rx="8" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="513" y="40" text-anchor="middle">M2 空间脏区</text>
+      <text class="box-sub" x="513" y="62" text-anchor="middle">AABB tile × slice</text>
+      <text class="box-sub" x="513" y="80" text-anchor="middle">256px envelope 键</text>
+      <rect x="624" y="12" width="190" height="86" rx="8" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="719" y="40" text-anchor="middle">M3 批合并</text>
+      <text class="box-sub" x="719" y="62" text-anchor="middle">DrawItem coalesce</text>
+      <text class="box-sub" x="719" y="80" text-anchor="middle">画家顺序不变</text>
+      <rect x="830" y="12" width="198" height="86" rx="8" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="929" y="40" text-anchor="middle">M4 abort 波</text>
+      <text class="box-sub" x="929" y="62" text-anchor="middle">layout_gen 中途停</text>
+      <text class="box-sub" x="929" y="80" text-anchor="middle">不并进 Scheduler</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>5. N0–N3（Scenic damage / prep，不搬 HDC）</h2>
+    <svg class="diagram" viewBox="0 0 1040 120" role="img" aria-label="N0 到 N3">
+      <rect x="12" y="16" width="240" height="90" rx="8" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="132" y="46" text-anchor="middle">N0 职责拆回</text>
+      <text class="box-sub" x="132" y="68" text-anchor="middle">geom_walk · mesh_emit · tess_grain</text>
+      <text class="box-sub" x="132" y="86" text-anchor="middle">删掉 geom_mesh</text>
+      <rect x="268" y="16" width="240" height="90" rx="8" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="388" y="46" text-anchor="middle">N1 脏瓦片</text>
+      <text class="box-sub" x="388" y="68" text-anchor="middle">layer × 命中 tile</text>
+      <text class="box-sub" x="388" y="86" text-anchor="middle">未脏列 splice</text>
+      <rect x="524" y="16" width="240" height="90" rx="8" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="644" y="46" text-anchor="middle">N2 pack_geoms</text>
+      <text class="box-sub" x="644" y="68" text-anchor="middle">包络 / 亚像素 / 内环</text>
+      <text class="box-sub" x="644" y="86" text-anchor="middle">仍是 view-CRS Vertex</text>
+      <rect x="780" y="16" width="248" height="90" rx="8" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="904" y="46" text-anchor="middle">N3 job abort</text>
+      <text class="box-sub" x="904" y="68" text-anchor="middle">tess 批读 layout_gen</text>
+      <text class="box-sub" x="904" y="86" text-anchor="middle">过期帧不 publish</text>
+    </svg>
+    <p class="meta">N0–N3 已落地。合成仍是 <code>FramePass</code> 一条 CommandList。宿主 mailbox 路径若未传 <code>retained_slices</code> 则冷 tess（同步 settle 已 splice）。</p>
+  </section>
+</div>
+<script>
+(function () {
+  var ids = ["s0", "s1", "s2", "s3", "s4", "s5"];
+  var edges = ["e01", "e12", "e23", "e34", "e45"];
+  var i = -1, timer = null;
+  var status = document.getElementById("status");
+  function paint() {
+    ids.forEach(function (id, n) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (n === i) el.classList.add("stage-on");
+      else el.classList.remove("stage-on");
+    });
+    edges.forEach(function (id, n) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (n === i - 1) el.classList.add("pulse");
+      else el.classList.remove("pulse");
+    });
+    var labels = [
+      "就绪",
+      "1 content stage_frame（UI 不 join）",
+      "2 LayerBatch collect（gis 停在 POD）",
+      "3 emit×N / retained slice skip tess",
+      "4 LabelGrid resolve 串行",
+      "5 FramePass keyed upload（设备线程）",
+      "6 encode 1 CL → graph::present"
+    ];
+    status.textContent = labels[i + 1] || "就绪";
+  }
+  function step() { i = (i + 1) % 6; paint(); }
+  var player = {
+    play: function () {
+      if (timer) return;
+      if (i >= 5) i = -1;
+      step();
+      timer = setInterval(step, 900);
+    },
+    pause: function () { if (timer) { clearInterval(timer); timer = null; } },
+    reset: function () { if (timer) { clearInterval(timer); timer = null; } i = -1; paint(); }
+  };
+  document.querySelectorAll("[data-play]").forEach(function (btn) {
+    btn.addEventListener("click", function () { player.play(); });
+  });
+  document.querySelectorAll("[data-pause]").forEach(function (btn) {
+    btn.addEventListener("click", function () { player.pause(); });
+  });
+  document.querySelectorAll("[data-reset]").forEach(function (btn) {
+    btn.addEventListener("click", function () { player.reset(); });
+  });
+  player.reset();
+})();
+</script>
+</body>
+</html>

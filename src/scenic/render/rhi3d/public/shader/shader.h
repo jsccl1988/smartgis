@@ -2,7 +2,7 @@
 #ifndef _RD3D_SHADER_H
 #define _RD3D_SHADER_H
 
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/render_defs.h"
 
 namespace scenic {
@@ -19,7 +19,7 @@ enum ShaderCompilationFlag {
 class RenderDevice3d;
 typedef class RenderDevice3d *LP3DRENDERDEVICE;
 
-class LEGACY_RENDER_EXPORT Shader {
+class SCENIC_IMPL_EXPORT Shader {
  public:
   Shader(LP3DRENDERDEVICE p3DRenderDevice, uint handle, string strName);
   virtual ~Shader();
@@ -43,7 +43,7 @@ class LEGACY_RENDER_EXPORT Shader {
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else
@@ -56,7 +56,7 @@ class LEGACY_RENDER_EXPORT Shader {
 // Bodies call RenderDevice3d. This header is included before that type is
 // complete, so the bodies are emitted only from the re-include at the bottom
 // of render_device.h.
-#if defined(SMT_3DRENDERDEVICE_COMPLETE) && !defined(_RD3D_SHADER_METHODS)
+#if defined(SCENIC_3DRENDERDEVICE_COMPLETE) && !defined(_RD3D_SHADER_METHODS)
 #define _RD3D_SHADER_METHODS
 
 #include <cstdio>
@@ -81,7 +81,7 @@ inline long Shader::Load(std::string fileName, bool needToCompile,
 
   FILE *sFile = fopen(fileName.c_str(), "rb");
   if (nullptr == sFile) {
-    return SMT_ERR_INVALID_FILE;
+    return kErrInvalidFile;
   }
 
   char buf[1024];
@@ -95,34 +95,34 @@ inline long Shader::Load(std::string fileName, bool needToCompile,
 
   data.push_back(0);  // To get nullptr-terminated string from vector
 
-  if (SMT_ERR_NONE !=
+  if (kErrNone !=
       m_p3DRenderDevice->LoadShaderSource(this, (char *)&data[0]))
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
 
   if (needToCompile) {
     return Compile(flags);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline long Shader::Compile(ShaderCompilationFlag flags) {
-  if (SMT_ERR_NONE != m_p3DRenderDevice->CompileShader(this))
-    return SMT_ERR_FAILURE;
+  if (kErrNone != m_p3DRenderDevice->CompileShader(this))
+    return kErrFailure;
 
   /* Check if there is a need to check compilation */
   if (flags & SCF_CHECK_ERRORS) {
     long result = IsCompiled();
 
     /* Check if there is a need to place errors in log file */
-    if (result != SMT_ERR_NONE && (flags & SCF_LOG_ERRORS)) {
+    if (result != kErrNone && (flags & SCF_LOG_ERRORS)) {
       GetCompileLog();
     }
 
     return result;
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline long Shader::IsCompiled() {

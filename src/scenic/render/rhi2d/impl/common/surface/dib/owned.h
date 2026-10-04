@@ -55,9 +55,7 @@ class Rhi2dOwnedSurface {
   HDC paint_dc_ = nullptr;
   HBITMAP old_bitmap_ = nullptr;
 
-#ifdef SMT_THREAD_SAFE
   std::mutex lock_;
-#endif
 };
 
 }  // namespace detail

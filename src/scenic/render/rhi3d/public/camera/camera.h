@@ -6,7 +6,7 @@
 
 #include <memory>
 
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/base.h"
 #include "scenic/render/rhi3d/public/device/render_device.h"
 
@@ -16,7 +16,7 @@ class RenderDevice3d;
 typedef class RenderDevice3d* LP3DRENDERDEVICE;
 
 // Base leftover 3D camera: owns a viewport and can push it to the device.
-class LEGACY_RENDER_EXPORT Camera {
+class SCENIC_IMPL_EXPORT Camera {
  public:
   Camera(LP3DRENDERDEVICE device, const Viewport3D& viewport);
   virtual ~Camera();
@@ -32,7 +32,7 @@ class LEGACY_RENDER_EXPORT Camera {
 };
 
 // Orthographic / screen-space projection helper for leftover HUD-style views.
-class LEGACY_RENDER_EXPORT OrthCamera : public Camera {
+class SCENIC_IMPL_EXPORT OrthCamera : public Camera {
  public:
   OrthCamera(LP3DRENDERDEVICE device, const Viewport3D& viewport);
   ~OrthCamera() override;
@@ -50,7 +50,7 @@ class LEGACY_RENDER_EXPORT OrthCamera : public Camera {
 };
 
 // Perspective look-at camera with walk / orbit / pitch-yaw-roll controls.
-class LEGACY_RENDER_EXPORT PerspCamera : public Camera {
+class SCENIC_IMPL_EXPORT PerspCamera : public Camera {
  public:
   PerspCamera(LP3DRENDERDEVICE device, const Viewport3D& viewport);
   ~PerspCamera() override;
@@ -114,7 +114,7 @@ class LEGACY_RENDER_EXPORT PerspCamera : public Camera {
 };
 
 // First-person camera: mouse look relative to a window center.
-class LEGACY_RENDER_EXPORT FpsCamera : public PerspCamera {
+class SCENIC_IMPL_EXPORT FpsCamera : public PerspCamera {
  public:
   FpsCamera(LP3DRENDERDEVICE device, const Viewport3D& viewport);
   ~FpsCamera() override;
@@ -127,7 +127,7 @@ class LEGACY_RENDER_EXPORT FpsCamera : public PerspCamera {
 };
 
 // Orbit / trackball camera around the look-at target.
-class LEGACY_RENDER_EXPORT ArbvCamera : public PerspCamera {
+class SCENIC_IMPL_EXPORT ArbvCamera : public PerspCamera {
  public:
   ArbvCamera(LP3DRENDERDEVICE device, const Viewport3D& viewport);
   ~ArbvCamera() override;
@@ -143,14 +143,14 @@ class LEGACY_RENDER_EXPORT ArbvCamera : public PerspCamera {
 
 enum class View3dCameraKind { kPersp, kArbv, kFps };
 
-[[nodiscard]] LEGACY_RENDER_EXPORT std::unique_ptr<PerspCamera>
+[[nodiscard]] SCENIC_IMPL_EXPORT std::unique_ptr<PerspCamera>
 make_view3d_camera(View3dCameraKind kind, LP3DRENDERDEVICE device,
                    const Viewport3D& viewport);
 
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else

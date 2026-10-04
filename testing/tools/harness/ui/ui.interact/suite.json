@@ -7,24 +7,32 @@
   ],
   "driver": "inproc",
   "script": "ui.interact.il",
+  "window_title": "SmartGIS Views",
   "env": {
     "SMT_UI_SHOWCASE_LINGER_MS": "0",
     "SMT_UI_FORENSICS": "1",
-    "SMT_UI_THEME": "dark"
+    "SMT_UI_THEME": "dark",
+    "SMT_HARNESS_RECORD": "1",
+    "SMT_HARNESS_RECORD_MODE": "bmp"
   },
   "bmp": {
     "path": "ui-showcase-interact.bmp",
     "score_id": "ui_shell_dark"
   },
+  "motion_gate": {
+    "min_unique_frac": 0.012,
+    "min_unique_frames": 4
+  },
   "report_name": "ui_interact_loop_report.json",
   "probes": [
-    "bmp"
+    "bmp",
+    "motion"
   ],
   "loop": {
     "rounds": 4,
     "timeout_sec": 160,
     "build_target": "src/app/views:views",
-    "exe": "SmartGisViews.exe"
+    "exe": "SmartGIS.exe"
   },
   "visual_review": {
     "enabled": true,

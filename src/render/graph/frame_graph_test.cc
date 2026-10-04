@@ -7,8 +7,8 @@
 #include <cstdlib>
 #include <memory>
 
-#include "vista/map/map_effect.h"
-#include "vista/map/pass.h"
+#include "vista/frame/map_effect.h"
+#include "vista/frame/pass.h"
 #include "render/rhi/rhi.h"
 
 namespace {
@@ -112,7 +112,7 @@ int main() {
   expect(overlay.color_op() == render::rhi::ColorLoadOp::kLoad,
          "overlay-effect sees load");
 
-  vista::Pass pass;
+  vista::FramePass pass;
   const vista::View view = view_64();
   vista::MapFrame frame;
   frame.background_rgba = 0xff1b3a4c;

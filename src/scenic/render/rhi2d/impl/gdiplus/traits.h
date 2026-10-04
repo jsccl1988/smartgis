@@ -4,7 +4,7 @@
 #ifndef SCENIC_RHI2D_IMPL_GDIPLUS_TRAITS_H_
 #define SCENIC_RHI2D_IMPL_GDIPLUS_TRAITS_H_
 
-#include "scenic/detail/viewport.h"
+#include "scenic/render/rhi2d/public/device/viewport.h"
 #include "scenic/render/rhi2d/impl/gdiplus/backend/gdiplus_backend.h"
 
 namespace scenic {

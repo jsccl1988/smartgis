@@ -9,7 +9,6 @@
 namespace scenic {
 namespace detail {
 class GlRenderDevice;
-typedef class GlRenderDevice *LPGLRENDERDEVICE;
 
 // Stub multitexture entry points (real procs live in MultitextureFuncImpl).
 class MultitextureFunc {
@@ -17,8 +16,8 @@ class MultitextureFunc {
   MultitextureFunc() = default;
   virtual ~MultitextureFunc() = default;
 
-  virtual long Initialize(LPGLRENDERDEVICE /*pGLRenderDevice*/) {
-    return SMT_ERR_NONE;
+  virtual long Initialize(GlRenderDevice* /*pGLRenderDevice*/) {
+    return kErrNone;
   }
 
   virtual void glActiveTexture(GLenum /*texture*/) {}

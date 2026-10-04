@@ -13,6 +13,7 @@
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
+#include "base/process/switches.h"
 
 namespace ui {
 namespace views {
@@ -161,7 +162,7 @@ PixelCompareResult compare_pixel_buffers(const PixelBuffer& actual,
 }
 
 std::filesystem::path pixel_testdata_directory() {
-  if (const wchar_t* env = _wgetenv(L"SMARTGIS_ROOT")) {
+  if (const char* env = base::switch_cstr("smartgis-root")) {
     std::filesystem::path root(env);
     if (std::filesystem::is_directory(root)) {
       return root / "src" / "ui" / "views" / "testing" / "testdata";

@@ -5,11 +5,11 @@
 
 #include "gpu/compositor/composer/software_composer.h"
 #include "gpu/raster/tile/mosaic.h"
-#include "gis/carto/style/paint_resolve.h"
-#include "gis/carto/style/style_document.h"
-#include "gis/carto/tile/source_registry.h"
-#include "gis/carto/tile/style_source.h"
-#include "gis/carto/tile/tile_provider.h"
+#include "gis/style/paint_resolve.h"
+#include "gis/style/document/style_document.h"
+#include "gis/tile/provider/source_registry.h"
+#include "gis/tile/provider/style_source.h"
+#include "gis/tile/provider/tile_provider.h"
 #include "net/http/http.h"
 
 #include <algorithm>

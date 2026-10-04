@@ -5,19 +5,8 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Foundation headers (log/macros/export/debug/build_config) live here and are
-# aggregated by //src/base:foundation. Leftover Smt sources moved to
-# //src/legacy/core:core_sources (still linked into base.dll).
+# aggregated by //src/base:foundation.
 
 group("core") {
   public_deps = [ "//src/base:base" ]
-}
-
-# HMENU UINT_PTR + MBCS AppendMenuA captions used by leftover 2D/3D views.
-test("menu_test") {
-  output_name = "menu_test"
-  sources = [ "menu_test.cc" ]
-  include_dirs += [ "//src" ]
-  configs = [ "//build:legacy" ]
-  deps = [ "//src/base:core" ]
-  libs = [ "user32.lib" ]
 }

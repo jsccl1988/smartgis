@@ -7,6 +7,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "base/process/switches.h"
+
 #if defined(_WIN32)
 #include <windows.h>  // _stricmp, _putenv_s
 #else
@@ -32,7 +34,7 @@ bool env_eq_ci(const char* a, const char* b) {
 
 // Mirror leftover stereo_hwnd_view / legacy showcase: default D3D11.
 bool stereo_api_is_d3d_from_env() {
-  if (const char* api = std::getenv("SMT_STEREO_API")) {
+  if (const char* api = base::switch_cstr("stereo-api")) {
     if (env_eq_ci(api, "OpenGL")) {
       return false;
     }
@@ -40,7 +42,7 @@ bool stereo_api_is_d3d_from_env() {
       return true;
     }
   }
-  if (const char* flag = std::getenv("SMT_SCENE3D_SHOWCASE_D3D")) {
+  if (const char* flag = base::switch_cstr("scene3d-showcase-d3d")) {
     if (flag[0] == '0' || flag[0] == 'n' || flag[0] == 'N') {
       return false;
     }
@@ -53,8 +55,8 @@ bool stereo_api_is_d3d_from_env() {
 
 void set_stereo_api_env(bool want_d3d) {
 #if defined(_WIN32)
-  _putenv_s("SMT_STEREO_API", want_d3d ? "Direct3D" : "OpenGL");
-  _putenv_s("SMT_SCENE3D_SHOWCASE_D3D", want_d3d ? "1" : "0");
+  base::set_switch("stereo-api", want_d3d ? "Direct3D" : "OpenGL");
+  base::set_switch("scene3d-showcase-d3d", want_d3d ? "1" : "0");
 #else
   (void)want_d3d;
 #endif
@@ -73,7 +75,7 @@ Scene3dEngine scene3d_engine() {
 }
 
 bool apply_scene3d_engine_from_env() {
-  const char* raw = std::getenv("SMT_SCENE3D_ENGINE");
+  const char* raw = base::switch_cstr("scene3d-engine");
   if (!raw || !raw[0]) {
     return false;
   }

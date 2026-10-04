@@ -1,6 +1,5 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-// Thin alias. Real type lives in matrix4.h so this directory name does not
-// collide with Eigen's Matrix.h on case-insensitive filesystems.
-#include "base/math/matrix4.h"
+// Leftover / cutover include. Prefer `base/math/linear/matrix.h` or `math.h`.
+#include "base/math/linear/matrix.h"

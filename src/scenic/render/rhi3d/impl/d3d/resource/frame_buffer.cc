@@ -17,7 +17,7 @@ FrameBuffer* D3dRenderDevice::CreateFrameBuffer() {
 
 long D3dRenderDevice::DestroyFrameBuffer(FrameBuffer* frameBuffer) {
   if (!frameBuffer) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   const uint handle = frameBuffer->GetHandle();
   if (bound_fbo_handle_ == handle) {
@@ -25,17 +25,17 @@ long D3dRenderDevice::DestroyFrameBuffer(FrameBuffer* frameBuffer) {
   }
   gpu_fbos_.erase(handle);
   delete frameBuffer;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::BindFrameBuffer(FrameBuffer* frameBuffer) {
   if (!frameBuffer || !context_) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   const uint handle = frameBuffer->GetHandle();
   auto it = gpu_fbos_.find(handle);
   if (it == gpu_fbos_.end()) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   ID3D11RenderTargetView* rtv = nullptr;
   ID3D11DepthStencilView* dsv = nullptr;
@@ -61,11 +61,11 @@ long D3dRenderDevice::BindFrameBuffer(FrameBuffer* frameBuffer) {
     }
   }
   if (!rtv) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   context_->OMSetRenderTargets(1, &rtv, dsv);
   bound_fbo_handle_ = handle;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::UnbindFrameBuffer() {
@@ -73,7 +73,7 @@ long D3dRenderDevice::UnbindFrameBuffer() {
   if (context_ && rtv_) {
     context_->OMSetRenderTargets(1, &rtv_, dsv_);
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 RenderBuffer* D3dRenderDevice::CreateRenderBuffer(TextureFormat format,
@@ -123,7 +123,7 @@ RenderBuffer* D3dRenderDevice::CreateRenderBuffer(TextureFormat format,
 
 long D3dRenderDevice::DestroyRenderBuffer(RenderBuffer* renderBuffer) {
   if (!renderBuffer) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   auto it = gpu_renderbuffers_.find(renderBuffer);
   if (it != gpu_renderbuffers_.end()) {
@@ -131,35 +131,35 @@ long D3dRenderDevice::DestroyRenderBuffer(RenderBuffer* renderBuffer) {
     gpu_renderbuffers_.erase(it);
   }
   delete renderBuffer;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::AttachRenderBuffer(FrameBuffer* frameBuffer,
                                             RenderBuffer* renderBuffer,
                                             RenderBufferSlot slot) {
   if (!frameBuffer || !renderBuffer) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   auto it = gpu_fbos_.find(frameBuffer->GetHandle());
   if (it == gpu_fbos_.end()) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   if (slot == DEPTH_ATTACHMENT || slot == STENCIL_ATTACHMENT) {
     it->second.depth_rb = renderBuffer;
     it->second.depth_tex_handle = 0;
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::AttachTexture(FrameBuffer* frameBuffer,
                                        Texture* texture2D,
                                        RenderBufferSlot slot) {
   if (!frameBuffer || !texture2D) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   auto it = gpu_fbos_.find(frameBuffer->GetHandle());
   if (it == gpu_fbos_.end()) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   const uint th = texture2D->GetHandle();
   if (slot == DEPTH_ATTACHMENT || slot == STENCIL_ATTACHMENT) {
@@ -168,7 +168,7 @@ long D3dRenderDevice::AttachTexture(FrameBuffer* frameBuffer,
   } else {
     it->second.color_tex_handle = th;
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 FrameBufferStatus D3dRenderDevice::CheckFrameBufferStatus() {

@@ -14,12 +14,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <windows.h>
+#include "base/process/switches.h"
 
 namespace app {
 namespace detail {
 
 void apply_ui_harness_theme() {
-  const char* want = std::getenv("SMT_UI_THEME");
+  const char* want = base::switch_cstr("ui-theme");
   const char* id = "dark";
   if (want && want[0]) {
     if (std::strcmp(want, "light") == 0) {
@@ -73,8 +74,8 @@ void force_ui_shell_repaint(Browser& browser) {
 
 int ui_showcase_linger_ms() {
   LingerEnvOpts opts;
-  opts.timed_ms_env = "SMT_UI_SHOWCASE_TIMED_MS";
-  opts.linger_ms_env = "SMT_UI_SHOWCASE_LINGER_MS";
+  opts.timed_ms_env = "ui-showcase-timed-ms";
+  opts.linger_ms_env = "ui-showcase-linger-ms";
   opts.linger_ms_zero_only = false;
   opts.default_until_close = false;
   return parse_linger_env(opts).ms;

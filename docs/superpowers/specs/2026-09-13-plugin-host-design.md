@@ -290,7 +290,7 @@ Unmapped `*.am` gets id `legacy.<stem_lower>` and `kind=legacy_am`, `api_version
 - Missing exports stay leftover behavior (do not start; record `PluginState::kInvalidExports`).
 - Do not treat leftover `GetPluginVersion()==1` as a new-API plugin.
 
-Leftover MFC `CDialog` sources remain in the six `smt_mfc_shared_library` targets so `dll_stem` and `SmartGis.exe` keep compiling. Views chrome never instantiates `CDlg*`. New public types are the Views classes below.
+Leftover MFC `CDialog` sources remain in the six `smt_mfc_shared_library` targets so `dll_stem` and `SmartGIS-Legacy.exe` keep compiling. Views chrome never instantiates `CDlg*`. New public types are the Views classes below.
 
 ### `content::PluginHost`
 
@@ -1041,7 +1041,7 @@ Load industry **LAS / LAZ** (and legacy sample `.txt`) into a shared point buffe
 | --- | --- |
 | 1 | Formats P0: uncompressed **LAS** 1.2/1.4 (ASPRS) + leftover RGB txt. **LAZ** via vendored **LASzip** `LASunzipper` (`third_party/.src/LASzip` + `//third_party:laszip`). |
 | 2 | Reader stack: light **LASzip** first (default `load_point_cloud`); **PDAL** only via P3 processing (`smt_has_pdal` when `third_party/.install` has PDAL). |
-| 3 | Module under `src/vista/world/pointcloud/`; plugin does not embed parse. |
+| 3 | Codec under `src/vista/assets/pointcloud/`; node buckets under `src/vista/world/pointcloud/`. Plugin does not embed parse. |
 | 4 | Viz path: `World3dSceneWriter` �� shared loader �� `World` / `GpuScene` (not leftover `Smt3DPointCloud` as default). Map2d may also show point features. |
 | 5 | Scale: document P0�CP2 (full load �� chunk/thin �� octree/LOD); implement from P0. |
 | 6 | Prefer sample fixtures under `testing/data/` (tiny `.las` + existing `pointcloud_public_sample.txt`). |

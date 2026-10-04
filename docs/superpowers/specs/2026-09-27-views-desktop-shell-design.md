@@ -15,7 +15,7 @@ All rights reserved.
 | Topic | Doc | Relation |
 | --- | --- | --- |
 | Views toolkit / compositor / GIS panels / markup | §Folded topics (this file) + archive twins | toolkit `src/ui/views`; GIS chrome `src/ui/gis` |
-| MFC → Views shell | §Folded topics (this file) | `SmartGisViews.exe` entry |
+| MFC → Views shell | §Folded topics (this file) | `SmartGIS.exe` entry |
 | Toolkit subdirectory | §Folded topics (this file) | `MenuBar` under `ui/views/primitives/menu/` |
 | 2D frame + RHI present | [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md) | CPU frame + Views GPU present |
 | SP3 host extract | [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP3 | HWND-free content |
@@ -76,7 +76,7 @@ All rights reserved.
 | Layer | Name | Notes |
 | --- | --- | --- |
 | Product brand | **SmartGIS Horizon** | External / docs / release talk track for the Views + Skia destination shell |
-| Binary (today) | `SmartGisViews.exe` | Keep until an explicit rename PR; brand ≠ PE stem |
+| Binary (today) | `SmartGIS.exe` | Official product PE (2026-10-04; was `SmartGIS.exe`). Leftover MFC is `SmartGIS-Legacy.exe` |
 | Engineering tree | `src/app/views/shell/` | Maps Chromium’s `chrome/browser` role; directory stays `shell` |
 | Toolkit | `src/ui/views` + `src/ui/gis` | Unchanged |
 | Common noun “chrome” | UI frame around the map | Code uses `*Composer` / `init_shell` / `ui/views/map/frame`; common noun “shell chrome” may remain in prose |
@@ -261,7 +261,7 @@ Commands stay enabled. The status string is the failure signal.
 | `view_commands_test` | Navigation table order matches §4.2 and contains no `view.backend.*` |
 | Views AM Box unit test | A catalog containing `view.zoom_in`, `view.pan`, and `view.full` produces no `view.*` items and no Pan or Identify placeholder. Select remains |
 | `MenuBar` unit test | `add_menu` stores a child list; activating the top item is observable (callback or item count). Existing `add_item` tests stay green |
-| `map_scene_test`, `scene3d_presenter_test`, `SmartGisViews --self-test` | Include path updates only. Assertions unchanged |
+| `map_scene_test`, `scene3d_presenter_test`, `SmartGIS.exe --self-test` | Include path updates only. Assertions unchanged |
 
 ---
 
@@ -935,7 +935,7 @@ Coverage and timing for the Debug Console / `DebugAgent` command surface — **n
 | --- | --- | --- | --- |
 | **L0** | `content_console_coverage_test` | `build.bat te` (`//:test_all`) | Headless Agent / command matrix |
 | **L1** | `content_console_bench` | `build.bat b` (`//:benchmark_all`) | Writes `console_bench.json` (timings; soft thresholds) |
-| **L2** | `SmartGisViews.exe --self-test-console` | shell e2e / self-test | Console-driven app smoke; optional OpenCppCoverage via `testing/scripts/open_cpp_coverage_console.ps1` |
+| **L2** | `SmartGIS.exe --self-test-console` | shell e2e / self-test | Console-driven app smoke; optional OpenCppCoverage via `testing/scripts/open_cpp_coverage_console.ps1` |
 
 OpenCppCoverage is **optional** and must **not** block default `build.bat te`. Sources filter for the console script: `src/content/browser/debug` + `src/base/log`; HTML / cobertura under `out/Debug/coverage/console/`.
 
@@ -1048,7 +1048,7 @@ Archive twin: [`../archive/specs/2026-09-28-views-declarative-markup-design.md`]
 | Paint | `src/ui/gfx/` | `ui_views.dll` (`:gfx`) |
 | Toolkit | `src/ui/views/` (kernel, primitives, markup, Dialog shell, map hang) | `ui_views.dll` |
 | GIS chrome | `src/ui/gis/` (panels + catalog/inspect product modals) | same `ui_views.dll` (`//src/ui/gis:gis` → `:ui_views`) |
-| Product host | `src/app/views/` | `SmartGisViews.exe` |
+| Product host | `src/app/views/` | `SmartGIS.exe` |
 
 **Keep in `views/dialogs/`:** `Dialog`, `MessageBox`, `FilePicker`, `InputTextDialog`, `SelectOneDialog` (generic toolkit; no GIS types).
 
@@ -1072,7 +1072,7 @@ As-built: [`docs/superpowers/ui-views-skia.md`](../ui-views-skia.md), [`src/ui/g
 **Plan:** [`../plans/2026-09-28-ui-interactive-overlay-bench.md`](../plans/2026-09-28-ui-interactive-overlay-bench.md)  
 **As-built alignment:** [`../ui-testing.md`](../ui-testing.md) **P2 / L1** (process-in interactive sequences + overlay bench; not a replacement for L1′ `--self-test` or L2 pixel).
 
-Chromium-style **dual layer** for Views UI validation: in-process C++ harness (synthetic events + overlay scenes) plus optional **DebugAgent** `ui.*` RPC for console / Python orchestration when a live `SmartGisViews.exe` is running.
+Chromium-style **dual layer** for Views UI validation: in-process C++ harness (synthetic events + overlay scenes) plus optional **DebugAgent** `ui.*` RPC for console / Python orchestration when a live `SmartGIS.exe` is running.
 
 ### Architecture (brief)
 
@@ -1085,7 +1085,7 @@ Chromium-style **dual layer** for Views UI validation: in-process C++ harness (s
                     └─────────────────────────────────────────┘
                                         │
                     ┌───────────────────┴───────────────────────┐
-  Live product      │  SmartGisViews.exe + DebugAgent (opt-in)  │
+  Live product      │  SmartGIS.exe + DebugAgent (opt-in)  │
   orchestration     │  ui.click / ui.wait / ui.overlay.* (NDJSON) │
                     │       ↑                                     │
                     │  tools/debug/scripts/ui_smoke.py            │
@@ -1123,7 +1123,7 @@ Chromium-style **dual layer** for Views UI validation: in-process C++ harness (s
 - Do not introduce Qt, Squish, or WinAppDriver as the primary interactive driver.
 - Do not add map render pixels to overlay bench or default L2 PNG baselines.
 - Do not require OpenCppCoverage for local `build.bat te` or default CI `test_all`.
-- Do not replace `SmartGisViews.exe --self-test` (L1′); harness complements it with finer-grained, headless-friendly sequences.
+- Do not replace `SmartGIS.exe --self-test` (L1′); harness complements it with finer-grained, headless-friendly sequences.
 - Do not expose `ui.*` Agent RPC on non-loopback interfaces.
 
 ### Wave1 checklist (shell overlay)
@@ -1397,7 +1397,7 @@ Natural-language → Views declarative markup (`.ui.xml` fragment) inside UiDesi
 
 ### Goal
 
-Locate **SmartGisViews.exe** cold-start wall time from `wWinMain` through first interactive show (shell visible; map present is async by default), without a parallel timer stack.
+Locate **SmartGIS.exe** cold-start wall time from `wWinMain` through first interactive show (shell visible; map present is async by default), without a parallel timer stack.
 
 ### Facility
 
@@ -1445,7 +1445,7 @@ set SMT_DISABLE_OOP_RENDER=1
 set SMT_STARTUP_PROFILE=1
 set SMT_STARTUP_PROFILE_DUMP=out\Debug\log\startup_profile.txt
 REM product path — do NOT pass --ui-showcase=shell
-out\Debug\SmartGisViews.exe
+out\Debug\SmartGIS.exe
 ```
 
 stderr lines: `[startup-profile] …`. Full chrome buffer still via `SMT_TRACE_DUMP` if needed.
@@ -1503,11 +1503,11 @@ Close the highest-ROI gap vs Chromium-class shell feel **without** vendoring `cc
 **Status:** active  
 **Plan:** [`../plans/2026-09-30-map-browse-forensic-harness.md`](../plans/2026-09-30-map-browse-forensic-harness.md)  
 **Extends:** §Harness suite loop, §Harness capability runtime, §UI interact script, §UI visual forensics  
-**Also covers:** leftover MFC `SmartGis.exe` 2D Edit browse + leftover GL/D3D scene3d showcase (freeze path; harness-only)
+**Also covers:** leftover MFC `SmartGIS-Legacy.exe` 2D Edit browse + leftover GL/D3D scene3d showcase (freeze path; harness-only)
 
 ### Goal
 
-Reproduce and **analyze** map-browse failures on **both** product shells (Views `SmartGisViews.exe` + leftover `SmartGis.exe`), covering **2D map** and **3D scene**, with:
+Reproduce and **analyze** map-browse failures on **both** product shells (Views `SmartGIS.exe` + leftover `SmartGIS-Legacy.exe`), covering **2D map** and **3D scene**, with:
 
 1. **Scripts** — deterministic Interact DSL / OS inject sequences (pan, wheel, browse stress, 3D orbit).
 2. **Recording** — window capture (ffmpeg gdigrab preferred; BMP frame-burst fallback) under `out/<config>/captures/`.
@@ -1760,23 +1760,26 @@ run / --review-prep
 ## §Shell chrome layout（2026-10-02）
 
 **Status:** active  
-**Updated:** 2026-10-02  
+**Updated:** 2026-10-04 — chrome density (toolbar 32 DIP, inspector 280 DIP, diag one chrome row ~120 DIP).  
 **Owns:** product `BrowserView::build_contents` chrome geometry (not a new dated twin).
 
 | Region | Choice |
 | --- | --- |
-| Map / Catalog tab headers | `TabStrip::HeaderPlacement::kBottom` (Map\|Data\|3D + Layers\|Sources\|Maps) |
-| Select / Edit / Tools | Horizontal `AmboxView` tool bar above Catalog\|Map column (`ambox_`) |
-| Right dock | Multi-tab: **AMBox** (vertical `side_ambox_`) \| FeatureInfo \| AttributeTable \| Measure…Atmosphere |
-| Bottom dock | Diagnostic Tools only (no FeatureInfo strip); **open by default**, Console active |
-| Former bottom inspector | Moved into the right multi-tab (`inspector_tabs_`) |
+| Map / Catalog tab headers | `TabStrip::HeaderPlacement::kTop` (ArcGIS Pro Contents + Map\|Data\|3D). Bottom placement overcrowded the tab band. |
+| Catalog title | **Contents** (Pro) above Layers\|Sources\|Maps; TOC rows paint a legend swatch |
+| Select / Edit / Map | Horizontal `AmboxView` tool bar **32 DIP**, chips fill the strip (Map nav then Select/Edit). Do not pad a 48 DIP host around 28 DIP chips. |
+| Menus | QGIS-style File / Edit / View / Layer / Settings / Plugins / Processing / Help |
+| Right dock | Multi-tab + **overflow chevron**; idle Feature width **280 DIP** (400 DIP starved the map) |
+| Bottom dock | Diagnostic Tools **open by default**, **one chrome row** + tabs (~120 DIP), **Console** (no inner Clear/Copy/Ask row); StatusBar stays readable |
+| Layout gate | `catalog-map-tab-y-skew` allows one Contents title band (≤40 DIP); Map/Data/3D stay on the canvas band. `ui_shell_dark`: `dark_chrome_frac<0.58` and `lower_map_frac>=0.28`. |
 
 Checklist:
 
-1. [x] Map + Catalog tab headers bottom.
-2. [x] Horizontal Ambox tool bar above map column.
-3. [x] Right multi-tab (AMBox + FeatureInfo + GIS panels).
-4. [x] Diagnostic Tools open + Console tab default.
+1. [x] Map + Catalog tab headers **top** (Pro).
+2. [x] Horizontal Ambox tool bar above map column (Map nav + digitize).
+3. [x] Right multi-tab (AMBox + FeatureInfo + GIS panels) with overflow.
+4. [x] Diagnostic Tools open + Console tab default + compact height.
+5. [x] 2026-10-04 visual_review: toolbar flush 32 DIP; diag one chrome row; idle inspector 280 DIP; score density gates.
 
 ---
 

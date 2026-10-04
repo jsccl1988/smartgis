@@ -1,21 +1,27 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-"""Run leftover rhi2d parallel x port matrix + Vista map2d china.
+"""Run Scenic rhi2d parallel x port matrix + Vista map2d china.
 
-Leftover: gdi_map_paint_test LoadLibrary ports x SMT_RHI2D_PARALLEL.
-Vista (codename): SmartGisViews --map2d-showcase=china — Map2dPresenter +
+Scenic GDI / GDI+ / Skia: scenic_gdi_map_paint_test LoadLibrary
+scenic_rhi2d_{gdi,gdiplus,skia} x SMT_RHI2D_PARALLEL. Same Scenic engine.
+src/legacy/ is frozen and is not a matrix axis.
+
+Vista (codename): SmartGIS.exe --map2d-showcase=china — Map2dPresenter +
 gis/vista Layout + effect/map + optional FlyCube present_gpu, same 1280x720
 china frame. Engine id in CSV/JSON: ``vista``.
 
+Map2dEngine cell: SMT_MAP2D_ENGINE=scenic — content-hosted scenic::Engine
+GDI of the same china MapScene (not a GDI+/Skia port peer).
+
 Equal-latitude perf (default): SMT_MAP2D_NO_HILLSHADE=1 so Vista does not pay
-DEM shade — same carto axis as leftover IR (no hillshade). Compare leftover
+DEM shade — same carto axis as Scenic rhi2d IR (no hillshade). Compare Scenic
 execute_ms (IR replay) vs Vista paint_ms / present_gpu_* phases, not as
 identical work units.
 
-FALSE-GAP (normative): leftover execute_ms = IR replay only; it is NOT
+FALSE-GAP (normative): scenic rhi2d execute_ms = IR replay only; it is NOT
 comparable to Vista paint_ms / export_ms / present_gpu_*. Never claim
-execute_ms == export_ms. Readers who treat leftover IR as "Vista is Nx
+execute_ms == export_ms. Readers who treat Scenic IR as "Vista is Nx
 slower" are reading a false gap.
 """
 
@@ -33,8 +39,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
 OUT = ROOT / "out" / "Debug"
-EXE = OUT / "gdi_map_paint_test.exe"
-VIEWS = OUT / "SmartGisViews.exe"
+EXE = OUT / "scenic_gdi_map_paint_test.exe"
+VIEWS = OUT / "SmartGIS.exe"
 MATRIX = OUT / "captures" / "map2d" / "matrix"
 PORTS = ("gdi", "gdiplus", "skia")
 PARALLELS = ("serial", "tile", "layer")
@@ -65,18 +71,19 @@ PHASE_FIELDS = (
 
 # Normative labels — keep CSV/JSON/stdout in sync (P3 false-gap).
 FALSE_GAP_NOTE = (
-    "FALSE-GAP: leftover execute_ms = IR replay only; "
+    "FALSE-GAP: scenic rhi2d execute_ms = IR replay only; "
     "NOT comparable to Vista paint_ms/export_ms/present_gpu_*; "
     "never claim execute_ms == export_ms"
 )
 EQUAL_LATITUDE_NOTE = (
     "equal-latitude: SMT_MAP2D_NO_HILLSHADE=1 (Vista skips DEM shade; "
-    "same carto axis as leftover IR which has no hillshade)"
+    "same carto axis as scenic rhi2d IR which has no hillshade)"
 )
 MATRIX_NOTE = f"{FALSE_GAP_NOTE}; {EQUAL_LATITUDE_NOTE}"
-LEFTOVER_ROW_NOTE = (
+SCENIC_PORT_ROW_NOTE = (
     f"{FALSE_GAP_NOTE}; {EQUAL_LATITUDE_NOTE}; "
-    "compare leftover cells on execute_ms_max only"
+    "compare scenic rhi2d cells on execute_ms_max only; "
+    "GDI/GDI+/Skia share the Scenic engine (scenic_rhi2d_*)"
 )
 VISTA_ROW_NOTE = (
     f"{FALSE_GAP_NOTE}; {EQUAL_LATITUDE_NOTE}; "
@@ -131,11 +138,12 @@ def _resolve_layout_parallel(env: dict[str, str]) -> str:
     return "1"
 
 
-def run_leftover(port: str, parallel: str) -> dict:
+def run_scenic_port(port: str, parallel: str) -> dict:
+    """One Scenic rhi2d cell: SMT_RHI2D_PORT x SMT_RHI2D_PARALLEL."""
     MATRIX.mkdir(parents=True, exist_ok=True)
     tag = f"{parallel}_{port}"
-    log_path = MATRIX / f"leftover_{tag}.log"
-    bmp_path = MATRIX / f"leftover-{tag}.bmp"
+    log_path = MATRIX / f"scenic_{tag}.log"
+    bmp_path = MATRIX / f"scenic-{tag}.bmp"
     env = os.environ.copy()
     env["SMT_RHI2D_PORT"] = port
     env["SMT_RHI2D_PARALLEL"] = parallel
@@ -159,7 +167,7 @@ def run_leftover(port: str, parallel: str) -> dict:
     log_path.write_text(log_text, encoding="utf-8")
     execute_ms = [int(m.group(2)) for m in MS_RE.finditer(log_text)]
     row = {
-        "engine": "leftover",
+        "engine": "scenic",
         "port": port,
         "parallel": parallel,
         "rc": proc.returncode,
@@ -176,7 +184,7 @@ def run_leftover(port: str, parallel: str) -> dict:
         "bmp": str(bmp_path.relative_to(OUT)) if bmp_path.exists() else None,
         "bmp_bytes": bmp_path.stat().st_size if bmp_path.exists() else 0,
         "pass": proc.returncode == 0 and bmp_path.exists(),
-        "note": LEFTOVER_ROW_NOTE,
+        "note": SCENIC_PORT_ROW_NOTE,
         "matrix_note": MATRIX_NOTE,
     }
     row.update(_empty_phases())
@@ -194,12 +202,12 @@ def run_vista() -> dict:
     env["SMT_MAP2D_SHOWCASE_LINGER_MS"] = "0"
     # Exercise src/render FlyCube present when adapter is available.
     env["SMT_MAP2D_SHOWCASE_GPU"] = "1"
-    # Equal-latitude vs leftover: no DEM hillshade (leftover IR has none).
+    # Equal-latitude vs Scenic rhi2d IR: no DEM hillshade (IR has none).
     # Override with SMT_MAP2D_NO_HILLSHADE=0 to measure shade-on product path.
     if env.get("SMT_MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
         env["SMT_MAP2D_NO_HILLSHADE"] = "1"
     # Full software paint (not present-cache blit) so paint_ms is same-axis
-    # as leftover vector work. Set SMT_MAP2D_EXPORT_REUSE=1 to force blit bench.
+    # as Scenic vector work. Set SMT_MAP2D_EXPORT_REUSE=1 to force blit bench.
     if "SMT_MAP2D_EXPORT_REUSE" not in os.environ:
         env.pop("SMT_MAP2D_EXPORT_REUSE", None)
     # P3: request vista layout tess parallel (opt-out SMT_VISTA_LAYOUT_PARALLEL=0).
@@ -249,7 +257,7 @@ def run_vista() -> dict:
 
     # CSV phases: export owns software/bmp; cold present owns gpu_*.
     # layout/hillshade are warmed off-clock (ensure_full) so timed samples
-    # correctly show 0 — leftover execute_ms remains IR-only.
+    # correctly show 0 — Scenic rhi2d execute_ms remains IR-only.
     phase_row = _empty_phases()
     if export_ph:
         phase_row["layout_ms"] = export_ph.get("layout_ms")
@@ -338,7 +346,7 @@ def run_vista() -> dict:
         "wall_ms": wall_ms,
         "execute_ms_list": [],
         # Keep columns populated for CSV width, but label makes clear these
-        # are NOT leftover IR execute_ms — they mirror export_ms for layout.
+        # are NOT Scenic rhi2d IR execute_ms — they mirror export_ms for layout.
         "execute_ms_last": export_ms,
         "execute_ms_sum": export_ms,
         "execute_ms_max": export_ms,
@@ -368,8 +376,8 @@ def run_vista() -> dict:
 
 SCENIC_ROW_NOTE = (
     f"{FALSE_GAP_NOTE}; {EQUAL_LATITUDE_NOTE}; "
-    "Scenic = content-hosted scenic::Engine GDI of the same china MapScene "
-    "(not leftover IR, not Vista MapFrame)"
+    "Scenic Map2dEngine = content-hosted scenic::Engine GDI of the same "
+    "china MapScene (not a GDI+/Skia port peer, not Vista MapFrame)"
 )
 
 
@@ -480,7 +488,7 @@ def run_scenic() -> dict:
         and "map2d-showcase: PASS" in log_text
     )
     row = {
-        "engine": "scenic",
+        "engine": "scenic_engine",
         "port": "content+gdi",
         "parallel": "serial",
         "rc": proc.returncode,
@@ -515,10 +523,16 @@ def _fmt_ms(v) -> str:
 
 
 def print_comparison_tables(rows: list[dict]) -> None:
-    """Print leftover grid + Vista phase table + false-gap banner (P3b/P3c)."""
-    leftover = [r for r in rows if r.get("engine") == "leftover"]
+    """Print Scenic rhi2d grid + Vista phase table + Map2dEngine + false-gap."""
+    scenic_ports = [
+        r
+        for r in rows
+        if r.get("engine") == "scenic" and r.get("port") in PORTS
+    ]
     vista = next((r for r in rows if r.get("engine") == "vista"), None)
-    scenic = next((r for r in rows if r.get("engine") == "scenic"), None)
+    scenic_engine = next(
+        (r for r in rows if r.get("engine") == "scenic_engine"), None
+    )
 
     print()
     print("=" * 72)
@@ -528,12 +542,15 @@ def print_comparison_tables(rows: list[dict]) -> None:
     print("=" * 72)
 
     print()
-    print("### A) Leftover -- parallel x port (execute_ms_max = IR replay only)")
+    print(
+        "### A) Scenic rhi2d -- parallel x port "
+        "(execute_ms_max = IR replay; GDI/GDI+/Skia = same Scenic engine)"
+    )
     print(
         f"{'parallel':<10} {'gdi':>10} {'gdiplus':>10} {'skia':>10}  "
         f"(wall_ms / pass)"
     )
-    by = {(r.get("parallel"), r.get("port")): r for r in leftover}
+    by = {(r.get("parallel"), r.get("port")): r for r in scenic_ports}
     for parallel in PARALLELS:
         cells = []
         walls = []
@@ -552,14 +569,14 @@ def print_comparison_tables(rows: list[dict]) -> None:
             f"({walls[0]}, {walls[1]}, {walls[2]})"
         )
     print(
-        "note: leftover execute_ms = IR only -- do NOT subtract from Vista "
+        "note: scenic rhi2d execute_ms = IR only -- do NOT subtract from Vista "
         "paint/present to claim a product gap"
     )
 
     print()
-    print("### B) Vista phases (fair compare surface vs leftover IR)")
+    print("### B) Vista phases (fair compare surface vs Scenic IR)")
     if not vista:
-        print("(no vista row -- SmartGisViews.exe missing or skipped)")
+        print("(no vista row -- SmartGIS.exe missing or skipped)")
     else:
         metrics = [
             ("wall_ms", "process wall (software+GPU matrix cell)"),
@@ -582,14 +599,17 @@ def print_comparison_tables(rows: list[dict]) -> None:
             print(f"{key:<28} {_fmt_ms(vista.get(key)):>12}  {notes}")
         print()
         print(
-            "leftover vs vista: use table A for IR parallel x port; use table B "
+            "scenic vs vista: use table A for IR parallel x port; use table B "
             "for product phases -- columns are different work units (FALSE-GAP)"
         )
 
     print()
-    print("### C) Scenic (content-hosted scenic::Engine, same china MapScene)")
-    if not scenic:
-        print("(no scenic row -- SmartGisViews.exe missing or skipped)")
+    print(
+        "### C) Scenic Map2dEngine (SMT_MAP2D_ENGINE=scenic; "
+        "not a GDI+/Skia port peer)"
+    )
+    if not scenic_engine:
+        print("(no scenic_engine row -- SmartGIS.exe missing or skipped)")
         return
     print(f"{'metric':<28} {'ms/value':>12}  notes")
     print("-" * 72)
@@ -601,7 +621,7 @@ def print_comparison_tables(rows: list[dict]) -> None:
         ("pass", "BMP + showcase PASS"),
         ("bmp", "captures/map2d/matrix/scenic-china.bmp"),
     ]:
-        print(f"{key:<28} {_fmt_ms(scenic.get(key)):>12}  {notes}")
+        print(f"{key:<28} {_fmt_ms(scenic_engine.get(key)):>12}  {notes}")
     print(SCENIC_ROW_NOTE)
 
 
@@ -614,10 +634,14 @@ def write_outputs(rows: list[dict]) -> None:
         "rows": rows,
     }
     summary.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    # Keep leftover-only names for existing consumers (array unchanged).
-    leftover_rows = [r for r in rows if r.get("engine") == "leftover"]
-    (MATRIX / "leftover_parallel_port_matrix.json").write_text(
-        json.dumps(leftover_rows, indent=2), encoding="utf-8"
+    # Scenic rhi2d port grid (GDI / GDI+ / Skia) for consumers.
+    scenic_port_rows = [
+        r
+        for r in rows
+        if r.get("engine") == "scenic" and r.get("port") in PORTS
+    ]
+    (MATRIX / "scenic_parallel_port_matrix.json").write_text(
+        json.dumps(scenic_port_rows, indent=2), encoding="utf-8"
     )
 
     note_path = MATRIX / "parallel_port_matrix_NOTE.txt"
@@ -651,8 +675,8 @@ def write_outputs(rows: list[dict]) -> None:
         for r in rows:
             w.writerow({k: r.get(k) for k in fields})
 
-    leftover_csv = MATRIX / "leftover_parallel_port_matrix.csv"
-    with leftover_csv.open("w", newline="", encoding="utf-8") as f:
+    scenic_csv = MATRIX / "scenic_parallel_port_matrix.csv"
+    with scenic_csv.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(
             f,
             fieldnames=[
@@ -670,12 +694,12 @@ def write_outputs(rows: list[dict]) -> None:
             ],
         )
         w.writeheader()
-        for r in leftover_rows:
+        for r in scenic_port_rows:
             w.writerow({k: r.get(k) for k in w.fieldnames})
 
     print(f"wrote {summary}")
     print(f"wrote {csv_path}")
-    print(f"wrote {leftover_csv}")
+    print(f"wrote {scenic_csv}")
     print(f"wrote {note_path}")
     print(f"matrix_note: {MATRIX_NOTE}")
     print_comparison_tables(rows)
@@ -684,25 +708,30 @@ def write_outputs(rows: list[dict]) -> None:
 def main() -> int:
     # Prefer Debug; fall back to Release if Debug host missing.
     global OUT, EXE, VIEWS, MATRIX
-    if not EXE.exists() and (ROOT / "out" / "Release" / "gdi_map_paint_test.exe").exists():
+    if not EXE.exists() and (
+        ROOT / "out" / "Release" / "scenic_gdi_map_paint_test.exe"
+    ).exists():
         OUT = ROOT / "out" / "Release"
-        EXE = OUT / "gdi_map_paint_test.exe"
-        VIEWS = OUT / "SmartGisViews.exe"
+        EXE = OUT / "scenic_gdi_map_paint_test.exe"
+        VIEWS = OUT / "SmartGIS.exe"
         MATRIX = OUT / "captures" / "map2d" / "matrix"
         print(f"using Release out: {OUT}", flush=True)
 
     if not EXE.exists():
-        print(f"missing {EXE}; build gdi_map_paint_test first", file=sys.stderr)
+        print(
+            f"missing {EXE}; build scenic_gdi_map_paint_test first",
+            file=sys.stderr,
+        )
         return 2
     rows: list[dict] = []
     for parallel in PARALLELS:
         for port in PORTS:
-            print(f"=== leftover {parallel} x {port} ===", flush=True)
+            print(f"=== scenic rhi2d {parallel} x {port} ===", flush=True)
             try:
-                row = run_leftover(port, parallel)
+                row = run_scenic_port(port, parallel)
             except subprocess.TimeoutExpired:
                 row = {
-                    "engine": "leftover",
+                    "engine": "scenic",
                     "port": port,
                     "parallel": parallel,
                     "rc": -1,
@@ -720,7 +749,7 @@ def main() -> int:
                     "bmp_bytes": 0,
                     "pass": False,
                     "error": "timeout",
-                    "note": LEFTOVER_ROW_NOTE,
+                    "note": SCENIC_PORT_ROW_NOTE,
                     "matrix_note": MATRIX_NOTE,
                 }
                 row.update(_empty_phases())
@@ -728,7 +757,7 @@ def main() -> int:
             print(
                 f"  rc={row['rc']} wall={row['wall_ms']} "
                 f"exec_max={row['execute_ms_max']} bmp={row['bmp']} "
-                f"[IR-only; not Vista paint/present]",
+                f"[Scenic IR-only; not Vista paint/present]",
                 flush=True,
             )
 
@@ -793,7 +822,7 @@ def main() -> int:
             srow = run_scenic()
         except subprocess.TimeoutExpired:
             srow = {
-                "engine": "scenic",
+                "engine": "scenic_engine",
                 "port": "content+gdi",
                 "parallel": "serial",
                 "rc": -1,

@@ -8,9 +8,4 @@ import("//testing/test.gni")
 test("exe_smoke") {
   output_name = "exe_smoke"
   sources = [ "exe_smoke.cc" ]
-  # Stale leftover SmartGis.exe imports old Smt_Geo virtuals from SmtGeoCoreD
-  # (STATUS_ENTRYPOINT_NOT_FOUND). Rebuild the MFC PE with the current ABI.
-  if (smt_build_app) {
-    data_deps = [ "//src/legacy/app:app" ]
-  }
 }

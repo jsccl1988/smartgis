@@ -1,59 +1,48 @@
-// Copyright (c) 2010 CCL. All rights reserved.
-#ifndef _MD3D_SPHERE_H
-#define _MD3D_SPHERE_H
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 
-#include "scenic/scenic_impl_export.h"
+#ifndef SCENIC_SCENE3D_PRIMITIVE_MESH_SPHERE_H_
+#define SCENIC_SCENE3D_PRIMITIVE_MESH_SPHERE_H_
+
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/render_device.h"
-#include "scenic/render/rhi3d/public/device/renderer.h"
-#include "scenic/render/rhi3d/public/resource/video_buffer.h"
+#include "scenic/scene3d/primitive/mesh/mesh_gpu.h"
 #include "scenic/scene3d/scene/object.h"
-
-using namespace scenic::detail;
 
 namespace scenic {
 namespace detail {
-class LEGACY_RENDER_EXPORT Sphere : public Object3d {
+
+// UV-sphere as triangle strips in one leftover vertex buffer.
+class SCENIC_IMPL_EXPORT Sphere : public Object3d {
  public:
-  Sphere(float radius, DWORD slices);
-  virtual ~Sphere();
+  Sphere(float radius, unsigned slices);
+  ~Sphere() override;
 
- public:
-  long Init(::base::Vector3& vPos, Material& matMaterial,
-            const char* szTexName = "");
-  long Create(LP3DRENDERDEVICE p3DRenderDevice);
-  long Update(LP3DRENDERDEVICE p3DRenderDevice, float fElapsed);
-  long Render(LP3DRENDERDEVICE p3DRenderDevice);
-  long Destroy();
+  long Init(::base::Vector3& pos, Material& material,
+            const char* tex_name = "") override;
+  long Create(LP3DRENDERDEVICE device) override;
+  long Update(LP3DRENDERDEVICE device, float elapsed) override;
+  long Render(LP3DRENDERDEVICE device) override;
+  long Destroy() override;
+  bool Select(LP3DRENDERDEVICE device, const lPoint& point) override;
 
-  inline void SetXScale(float fScale) { m_fXScale = fScale; }
-  inline void SetYScale(float fScale) { m_fYScale = fScale; }
-  inline void SetZScale(float fScale) { m_fZScale = fScale; }
-
-  inline float GetXScale(void) { return m_fXScale; }
-  inline float GetYScale(void) { return m_fYScale; }
-  inline float GetZScale(void) { return m_fZScale; }
-
- public:
-  bool Select(LP3DRENDERDEVICE p3DRenderDevice, const lPoint& point);
+  void set_x_scale(float scale) { x_scale_ = scale; }
+  void set_y_scale(float scale) { y_scale_ = scale; }
+  void set_z_scale(float scale) { z_scale_ = scale; }
+  float x_scale() const { return x_scale_; }
+  float y_scale() const { return y_scale_; }
+  float z_scale() const { return z_scale_; }
 
  private:
-  VertexBuffer* m_pVertexBuffer;
-  float m_fRadius;
-  DWORD m_dwSlices;
-
-  float m_fZScale;
-  float m_fXScale;
-  float m_fYScale;
+  GpuVertexBuffer vb_;
+  float radius_ = 1.f;
+  unsigned slices_ = 8;
+  float z_scale_ = 1.f;
+  float x_scale_ = 1.f;
+  float y_scale_ = 1.f;
 };
+
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
-#if defined(_DEBUG)
-#pragma comment(lib, "scenic_impl_d.lib")
-#else
-#pragma comment(lib, "scenic_impl.lib")
-#endif
-#endif
-
-#endif  //_MD3D_SPHERE_H
+#endif  // SCENIC_SCENE3D_PRIMITIVE_MESH_SPHERE_H_

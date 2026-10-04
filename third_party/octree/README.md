@@ -16,7 +16,7 @@ MIT header-only octree for 3D radius / nearest-neighbor search.
 | Source tree | `third_party/.src/octree` (gitignored; `tools/fetch.py` / clone) |
 | GN | `//third_party:octree` → `//third_party/octree:octree` |
 
-Used only by `src/legacy/render/scene3d/index` adapters (`SmtSceneOctTree` / `SmtVertexOctTree`). Not a scene engine.
+Used by `src/vista/scene/index` (`vista::AabbOctree` on GpuScene instance/mesh AABBs) and leftover `SmtSceneOctTree` / `SmtVertexOctTree` adapters if present. Not a scene engine.
 
 ```cpp
 #include "Octree.hpp"
@@ -34,4 +34,4 @@ git -C third_party\.src\octree checkout 8e3927d48d5ce61f94aab6090d77b4434f87dc89
 
 ---
 
-**最后更新：** 2026-09-28
+**最后更新：** 2026-10-05

@@ -13,6 +13,7 @@
 
 #include "ui/views/kernel/layout/layout_check.h"
 #include "ui/views/testing/pixel/pixel_harness.h"
+#include "base/process/switches.h"
 
 namespace ui {
 namespace views {
@@ -47,7 +48,7 @@ void append_views_json(const View* v, int parent_id, int* next_id,
 }  // namespace
 
 bool ui_forensics_env_forced() {
-  const char* v = std::getenv("SMT_UI_FORENSICS");
+  const char* v = base::switch_cstr("ui-forensics");
   if (!v || !*v) {
     return false;
   }
@@ -55,7 +56,7 @@ bool ui_forensics_env_forced() {
 }
 
 std::filesystem::path ui_forensics_root_dir() {
-  if (const char* env = std::getenv("SMT_UI_FORENSICS_DIR")) {
+  if (const char* env = base::switch_cstr("ui-forensics-dir")) {
     if (env[0]) {
       return std::filesystem::path(env);
     }

@@ -9,12 +9,14 @@
 #include <string>
 #include <unordered_set>
 
-#include "base/math/constants.h"
-#include "base/math/vector.h"
-#include "scenic/render/detail/math_alias.h"
+#include "base/math/math.h"
 
 namespace scenic {
 namespace detail {
+
+using ::base::Vector2;
+using ::base::deg_to_rad;
+using ::base::rad_to_deg;
 
 namespace {
 

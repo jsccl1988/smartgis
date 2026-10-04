@@ -21,6 +21,7 @@
 
 #include "base/core/log.h"
 #include "base/trace/event/process_trace.h"
+#include "base/process/switches.h"
 
 namespace base {
 namespace trace {
@@ -34,7 +35,7 @@ struct StartupSpan {
 };
 
 bool env_flag_on(const char* name) {
-  const char* env = std::getenv(name);
+  const char* env = base::switch_cstr(name);
   return env && env[0] == '1' && env[1] == '\0';
 }
 
@@ -186,7 +187,7 @@ void write_chrome_json(const char* out_path) {
 
 // Build partial dump path from canonical dump path + tag.
 std::string make_partial_path(const char* tag) {
-  const char* env = std::getenv("SMT_STARTUP_PROFILE_DUMP");
+  const char* env = base::switch_cstr("startup-profile-dump");
   std::string base;
   if (env && env[0]) {
     base = env;
@@ -249,7 +250,7 @@ void dump_startup_profile_impl(const char* path, bool claim_final) {
 }  // namespace
 
 void maybe_init_startup_profile_from_env() {
-  if (env_flag_on("SMT_STARTUP_PROFILE")) {
+  if (env_flag_on("startup-profile")) {
     if (!tracing_enabled()) {
       set_tracing_enabled(true);
     }
@@ -257,10 +258,10 @@ void maybe_init_startup_profile_from_env() {
 }
 
 bool startup_profile_wanted() {
-  if (env_flag_on("SMT_STARTUP_PROFILE")) {
+  if (env_flag_on("startup-profile")) {
     return true;
   }
-  if (const char* dump = std::getenv("SMT_STARTUP_PROFILE_DUMP")) {
+  if (const char* dump = base::switch_cstr("startup-profile-dump")) {
     if (dump[0]) {
       return true;
     }
@@ -298,7 +299,7 @@ void maybe_dump_startup_profile() {
                                              std::memory_order_relaxed)) {
     return;
   }
-  const char* path = std::getenv("SMT_STARTUP_PROFILE_DUMP");
+  const char* path = base::switch_cstr("startup-profile-dump");
   dump_startup_profile_impl(path && path[0] ? path : nullptr,
                             /*claim_final=*/true);
 }

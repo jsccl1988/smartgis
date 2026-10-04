@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "base/core/log.h"
+#include "base/process/switches.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -39,14 +40,14 @@
 #include "content/public/map_types.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "vista/domain/atmosphere/field_channel.h"
-#include "vista/domain/atmosphere/environment.h"
-#include "vista/world/terrain/process/land_mask.h"
+#include "vista/atmosphere/session/field_channel.h"
+#include "vista/atmosphere/session/environment.h"
+#include "vista/terrain/process/land_mask.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/raster/shell_raster.h"
 #include "gis/edit/session.h"
-#include "gis/carto/tile/tile_map_layer.h"
-#include "gis/carto/tile/tile_provider.h"
+#include "gis/tile/layer/tile_map_layer.h"
+#include "gis/tile/provider/tile_provider.h"
 #include "tool/nav/camera_nav.h"
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
@@ -269,7 +270,7 @@ void MapPagesComposer::wire_map_scene() {
       // full GDI when FlyCube 2D actually presented this viewport; ContentMapView
       // SharedSurface often lands as ocean-only without vector fills.
       const bool force_gdi = []() {
-        if (const char* env = std::getenv("SMT_FORCE_GDI_MAP_OVERLAY")) {
+        if (const char* env = base::switch_cstr("force-gdi-map-overlay")) {
           return env[0] == '1' && env[1] == '\0';
         }
         return false;
@@ -633,10 +634,10 @@ void MapPagesComposer::attach_hwnd_gestures() {
   // ContentMapView / GDI overlay still needs attach so pan/pinch/right-click
   // hit input_hwnd() (do not skip on SMT_FORCE_CONTENT_MAPVIEW_2D).
   auto env_is_one = [](const char* name) {
-    const char* v = std::getenv(name);
+    const char* v = base::switch_cstr(name);
     return v && v[0] == '1' && v[1] == '\0';
   };
-  if (env_is_one("SMT_SKIP_AMBOX_CATALOG")) {
+  if (env_is_one("skip-ambox-catalog")) {
     return;
   }
   auto on_pinch = [this](int x, int y, double scale) {

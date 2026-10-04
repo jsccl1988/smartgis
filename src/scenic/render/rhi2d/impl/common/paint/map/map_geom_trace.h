@@ -30,6 +30,19 @@ extern thread_local GeomUsAccum* g_active_geom;
 
 void flush_geom_us(const GeomUsAccum& a);
 
+struct GeomTraceScope {
+  GeomUsAccum accum;
+  GeomTraceScope() { g_active_geom = &accum; }
+  ~GeomTraceScope() {
+    g_active_geom = nullptr;
+    flush_geom_us(accum);
+  }
+  GeomTraceScope(const GeomTraceScope&) = delete;
+  GeomTraceScope& operator=(const GeomTraceScope&) = delete;
+};
+
+void add_geom_draw_us(int type, bool is_anno, int64_t us);
+
 std::string trace_name(OGRLayer* layer);
 
 }  // namespace detail

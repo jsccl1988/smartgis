@@ -13,7 +13,7 @@
 #include "ui/gfx/raster/shell_raster.h"
 
 namespace vista {
-class Pass;
+class FramePass;
 }
 
 namespace render {
@@ -86,7 +86,7 @@ class Map2dGpuPresent {
   const MapScene* scene_ = nullptr;
   const ViewFrame* frame_ = nullptr;
   Map2dFrameCache* cache_ = nullptr;
-  std::unique_ptr<vista::Pass> map2d_pass_;
+  std::unique_ptr<vista::FramePass> map2d_pass_;
   detail::ShellOverlayEffect shell_overlay_;
   bool last_present_ok_ = false;
   bool last_present_drew_ = false;

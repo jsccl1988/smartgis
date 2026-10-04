@@ -19,7 +19,7 @@ All rights reserved.
 
 **对 Map2d / `src/render` 端到端渲染的每一帧做性能 profile，并 loop 驱动优化直至 equal-profile 预算。**
 
-Sibling of `harness-auto-map2d-opt` (backend×parallel **matrix**). This skill owns the **per-frame** profile + fix loop on the product path, not the leftover×port grid.
+Sibling of `harness-auto-map2d-opt` (Scenic rhi2d GDI/GDI+/Skia × parallel **matrix**). This skill owns the **per-frame** profile + fix loop on the product path, not the port grid.
 
 Closed loop: build → locked-profile bench → parse hot phase → CBM → root-cause fix → rebuild → re-bench → until done bar / hard stop.
 
@@ -30,7 +30,7 @@ When this skill is invoked, attached (`@harness-auto-map2d-frame-opt` / `/harnes
 ## Hard rules
 
 1. **Equal profile (locked):** China mainland `[80,16]–[128,52]`, viewport **1280×720**, same sample / style richness (hillshade when DEM present). Do **not** strip carto to fake ms.
-2. **Fair metrics:** leftover `execute_ms` ≠ `export_ms` / `present_gpu_*`. Optimize against **phase columns** + warm StaticReuse, never claim IR ≡ product paint.
+2. **Fair metrics:** Scenic rhi2d `execute_ms` ≠ `export_ms` / `present_gpu_*`. Optimize against **phase columns** + warm StaticReuse, never claim IR ≡ product paint.
 3. Prefer **`build.bat debug //src/app/views:views`**. Compile lock stays **OFF**. Stay on **`master`**.
 4. CBM first (`user-codebase-memory-mcp`, project `smartgis`) before repo-wide Grep.
 5. Prefer `*.inspect.png` for visual gate (`Read`).
@@ -40,7 +40,7 @@ When this skill is invoked, attached (`@harness-auto-map2d-frame-opt` / `/harnes
 
 | Axis | Value |
 | --- | --- |
-| Entry | `SmartGisViews.exe --map2d-showcase=china` |
+| Entry | `SmartGIS.exe --map2d-showcase=china` |
 | Viewport | `SMT_MAP2D_SHOWCASE_W/H=1280/720` |
 | GPU | `SMT_MAP2D_SHOWCASE_GPU=1` |
 | Warm FPS window | `SMT_MAP2D_FPS_BENCH_MS=3000` (optional) |
@@ -61,7 +61,7 @@ set SMT_MAP2D_SHOWCASE_W=1280
 set SMT_MAP2D_SHOWCASE_H=720
 set SMT_MAP2D_SHOWCASE_GPU=1
 set SMT_MAP2D_FPS_BENCH_MS=3000
-.\out\Debug\SmartGisViews.exe --map2d-showcase=china
+.\out\Debug\SmartGIS.exe --map2d-showcase=china
 ```
 
 Optional fair cold/warm export (bench-only reuse):
@@ -92,7 +92,7 @@ Copy and track:
 
 ```
 Map2d frame-opt progress:
-- [ ] 1. Build SmartGisViews
+- [ ] 1. Build SmartGIS
 - [ ] 2. Baseline: china 1280×720 GPU + FPS bench
 - [ ] 3. Parse phases + fps-bench.txt → pick hottest phase
 - [ ] 4. CBM → root-cause in present / effect/map / render/{rhi,graph}
@@ -107,7 +107,7 @@ Map2d frame-opt progress:
 .\build.bat debug //src/app/views:views
 ```
 
-Missing `out\Debug\SmartGisViews.exe` → rebuild; do not skip.
+Missing `out\Debug\SmartGIS.exe` → rebuild; do not skip.
 
 ### Step 2 — Baseline bench
 
@@ -145,7 +145,7 @@ From stderr / files, fill:
 | `gpu_present_ms` / low `skip_pct` | `Map2dGpuPresent`, StaticReuse / dual-speed settle |
 | Frame graph / RHI | `src/render/{graph,rhi}/**` |
 
-Non-goals: delete hillshade/MapFrame; MapLibre Native port; make leftover the product default.
+Non-goals: delete hillshade/MapFrame; MapLibre Native port; touch `src/legacy/` (frozen).
 
 ### Step 5 — Loop
 
@@ -184,4 +184,5 @@ Debug china 1280×720:
 - Visual review: `.cursor/skills/harness-visual-review/SKILL.md`
 - FPS bench: `src/app/views/shell/harness/showcase/map2d/present/fps_bench.*`
 - Phase clocks: `src/content/browser/present/map2d/map2d_phase_profile.*`
+- Bake profile (CPU vs Thrust): `testing/tools/harness/map2d/run_hillshade_bake_bench.py`
 - Detail: [reference.md](reference.md)

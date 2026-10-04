@@ -4,7 +4,7 @@
 #ifndef SCENIC_GDI_DRAW_PRIMITIVES_H_
 #define SCENIC_GDI_DRAW_PRIMITIVES_H_
 
-#include "scenic/detail/geom.h"
+#include "base/math/math.h"
 
 using namespace base;
 

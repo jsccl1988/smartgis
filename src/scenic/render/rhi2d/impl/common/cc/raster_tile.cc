@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <thread>
+#include "base/process/switches.h"
 
 namespace scenic {
 namespace detail {
@@ -36,7 +37,7 @@ bool rects_intersect(const RECT& a, const RECT& b) {
 }  // namespace
 
 int rhi2d_tile_pixel_size() {
-  const char* v = std::getenv("SMT_RHI2D_TILE_SIZE");
+  const char* v = base::switch_cstr("rhi2d-tile-size");
   if (v == nullptr || v[0] == '\0') {
     return 256;
   }
@@ -51,7 +52,7 @@ int rhi2d_tile_pixel_size() {
 }
 
 int rhi2d_tile_outset_px() {
-  const char* v = std::getenv("SMT_RHI2D_TILE_OUTSET");
+  const char* v = base::switch_cstr("rhi2d-tile-outset");
   if (v == nullptr || v[0] == '\0') {
     return 16;
   }
@@ -66,7 +67,7 @@ int rhi2d_tile_outset_px() {
 }
 
 Rhi2dParallelMode rhi2d_parallel_mode() {
-  const char* p = std::getenv("SMT_RHI2D_PARALLEL");
+  const char* p = base::switch_cstr("rhi2d-parallel");
   if (p != nullptr && p[0] != '\0') {
     if (_stricmp(p, "serial") == 0 || _stricmp(p, "off") == 0 ||
         _stricmp(p, "0") == 0 || _stricmp(p, "false") == 0 ||
@@ -82,7 +83,7 @@ Rhi2dParallelMode rhi2d_parallel_mode() {
     }
   }
   // Legacy fallback when PARALLEL is unset.
-  if (env_is_off(std::getenv("SMT_RHI2D_TILE_RASTER"))) {
+  if (env_is_off(base::switch_cstr("rhi2d-tile-raster"))) {
     return Rhi2dParallelMode::kSerial;
   }
   // Debug Edit/china: default tile execute has been AV'ing after prep on
@@ -129,7 +130,7 @@ int rhi2d_parallel_worker_count(size_t job_count) {
 int rhi2d_adaptive_tile_pixel_size(int viewport_w, int viewport_h) {
   int tile = rhi2d_tile_pixel_size();
   // Explicit SMT_RHI2D_TILE_SIZE keeps the env value for A/B harnesses.
-  if (const char* forced = std::getenv("SMT_RHI2D_TILE_SIZE");
+  if (const char* forced = base::switch_cstr("rhi2d-tile-size");
       forced != nullptr && forced[0] != '\0') {
     return tile;
   }

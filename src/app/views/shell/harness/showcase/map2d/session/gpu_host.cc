@@ -9,12 +9,13 @@
 #include "ui/views/map/map_viewport.h"
 
 #include <cstdlib>
+#include "base/process/switches.h"
 
 namespace app {
 namespace detail {
 
 bool map2d_want_gpu_present() {
-  if (const char* env = std::getenv("SMT_MAP2D_SHOWCASE_GPU")) {
+  if (const char* env = base::switch_cstr("map2d-showcase-gpu")) {
     return env[0] == '1' && env[1] == '\0';
   }
   return false;

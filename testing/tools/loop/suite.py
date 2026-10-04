@@ -136,7 +136,7 @@ class Suite:
     rounds: int = 6
     timeout_sec: int = 180
     build_target: str = "src/app/views:views"
-    exe_name: str = "SmartGisViews.exe"
+    exe_name: str = "SmartGIS.exe"
     report_name: str | None = None
     probes: tuple[str, ...] = ()
     kill_showcase: bool = True
@@ -397,7 +397,7 @@ def load_suite(suite_id: str) -> Suite:
         rounds=int(loop.get("rounds", 6)),
         timeout_sec=int(loop.get("timeout_sec", 180)),
         build_target=str(loop.get("build_target", "src/app/views:views")),
-        exe_name=str(loop.get("exe", "SmartGisViews.exe")),
+        exe_name=str(loop.get("exe", "SmartGIS.exe")),
         report_name=raw.get("report_name"),
         probes=probe_types,
         kill_showcase=bool(raw.get("kill_showcase", True)),

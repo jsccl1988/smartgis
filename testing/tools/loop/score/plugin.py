@@ -285,6 +285,27 @@ def score_plugin_scene3d(path: Path) -> dict:
     gates["color_buckets>=4"] = divers >= 4
     gates["navy_clear_frac<0.85"] = navy_f < 0.85
     gates["neon_green_frac<0.35"] = neon_f < 0.35
+    # Leftover GDI hypsometric/wireframe stripes: high adjacent-G contrast
+    # (plugin.world3d inspect was cyan/green banding at landish_frac≈0.77).
+    stripe = 0
+    stripe_n = 0
+    x_step = max(1, w // 160)
+    y_step = max(1, h // 120)
+    for y in range(0, h, y_step):
+        row = y * w
+        for x in range(x_step, w, x_step):
+            g0 = pixels[row + x - x_step][1]
+            g1 = pixels[row + x][1]
+            stripe_n += 1
+            if abs(int(g1) - int(g0)) > 48:
+                stripe += 1
+    stripe_f = stripe / max(1, stripe_n)
+    base["g_stripe_frac"] = round(stripe_f, 4)
+    gates["g_stripe_frac<0.28"] = stripe_f < 0.28
+    landish_f = float(base.get("landish_frac") or 0.0)
+    # Filled leftover GDI DEM occupies nearly the whole viewport (landish≈0.99).
+    # A GPU globe keeps ocean / atmosphere so landish stays well below this.
+    gates["landish_frac<0.85"] = landish_f < 0.85
     base["gates"] = gates
     base["ok"] = all(bool(v) for v in gates.values())
     return base

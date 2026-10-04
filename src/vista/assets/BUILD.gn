@@ -11,10 +11,26 @@ source_set("assets_sources") {
     "model/model.h",
     "model/model_assimp.cc",
     "model/model_internal.h",
+    "pointcloud/las_io.cc",
+    "pointcloud/las_io.h",
+    "pointcloud/laz_io.cc",
+    "pointcloud/laz_io.h",
+    "pointcloud/load.cc",
+    "pointcloud/load.h",
+    "pointcloud/pdal_io.h",
+    "pointcloud/point_cloud.cc",
+    "pointcloud/point_cloud.h",
+    "pointcloud/text_io.cc",
+    "pointcloud/text_io.h",
     "tileset/tileset.cc",
     "tileset/tileset.h",
     "tileset/tileset_decode.cc",
   ]
+  if (smt_has_pdal) {
+    sources += [ "pointcloud/pdal_io.cc" ]
+  } else {
+    sources += [ "pointcloud/pdal_io_stub.cc" ]
+  }
   include_dirs += [ "//src" ]
   configs += [ "//build:legacy" ]
   defines = [
@@ -23,11 +39,12 @@ source_set("assets_sources") {
   ]
   assert_no_deps = [
     "//src/render:render",
-    "//src/legacy/render:*",
-    "//src/legacy/ui:*",
-    "//src/legacy/app:*",
+    "//src/vista/world:world_sources",
   ]
-  deps = [ "//src/base:foundation" ]
+  deps = [
+    "//src/base:foundation",
+    "//third_party:laszip",
+  ]
   if (smt_has_assimp) {
     defines += [ "SMT_HAS_ASSIMP" ]
     deps += [ "//third_party:assimp" ]
@@ -35,6 +52,9 @@ source_set("assets_sources") {
   if (smt_has_tinygltf) {
     defines += [ "SMT_HAS_TINYGLTF" ]
     deps += [ "//third_party:tinygltf" ]
+  }
+  if (smt_has_pdal) {
+    deps += [ "//third_party:pdal" ]
   }
 }
 
@@ -52,6 +72,17 @@ test("model_test") {
   sources = [ "model/model_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [ ":assets" ]
+}
+
+test("pdal_io_test") {
+  output_name = "pdal_io_test"
+  sources = [ "pointcloud/pdal_io_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":assets",
+    "//third_party:gdal",
+  ]
 }
 
 test("tileset_test") {

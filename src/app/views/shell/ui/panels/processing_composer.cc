@@ -30,8 +30,8 @@
 #include "content/public/catalog_layers.h"
 #include "content/public/map_contents.h"
 #include "content/public/plugin_host.h"
-#include "gis/carto/style/style_document.h"
-#include "gis/carto/style/style_types.h"
+#include "gis/style/document/style_document.h"
+#include "gis/style/style_types.h"
 #include "plugin/runtime/browser/fake_report_browser.h"
 #include "plugin/runtime/browser/webview2_report_browser.h"
 #include "plugin/runtime/processing/builtin_ops.h"
@@ -42,6 +42,7 @@
 #include "ui/gis/analysis/spatial_analysis_panel.h"
 #include "ui/views/map/map_viewport.h"
 #include "ui/views/primitives/collection/tab_strip.h"
+#include "base/process/switches.h"
 
 namespace app {
 
@@ -135,7 +136,7 @@ void ProcessingComposer::wire_report_panel() {
     return;
   }
   std::unique_ptr<plugin::ReportBrowser> backend;
-  if (const char* be = std::getenv("SMT_REPORT_BROWSER");
+  if (const char* be = base::switch_cstr("report-browser");
       be && (std::strcmp(be, "fake") == 0 || std::strcmp(be, "0") == 0)) {
     backend = std::make_unique<plugin::FakeReportBrowser>();
   } else {

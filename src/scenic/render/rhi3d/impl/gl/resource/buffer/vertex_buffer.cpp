@@ -98,7 +98,7 @@ long GlVertexBuffer::Lock() {
   m_pNormal = m_pGLNormals;
   m_pTexCoord = m_pGLTexCoords;
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlVertexBuffer::Unlock() {
@@ -109,7 +109,7 @@ long GlVertexBuffer::Unlock() {
   m_pNormal = nullptr;
   m_pTexCoord = nullptr;
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 void *GlVertexBuffer::GetVertexData() { return m_pGLVertices; }
@@ -186,7 +186,7 @@ long GlVertexBuffer::PrepareForDrawing() {
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlVertexBuffer::EndDrawing() {
@@ -198,7 +198,7 @@ long GlVertexBuffer::EndDrawing() {
 
   if (m_pGLTexCoords) glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 }  // namespace detail
 }  // namespace scenic

@@ -16,14 +16,14 @@ class VSyncFuncImpl : public VSyncFunc {
   VSyncFuncImpl() = default;
   ~VSyncFuncImpl() override = default;
 
-  long Initialize(LPGLRENDERDEVICE pGLRenderDevice) override {
+  long Initialize(GlRenderDevice* pGLRenderDevice) override {
     _wglSwapInterval =
         (PFNWGLSWAPINTERVALEXTPROC)pGLRenderDevice->GetProcAddress(
             "wglSwapIntervalEXT");
     if (nullptr == _wglSwapInterval) {
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   int WaitForVSync() override { return 0; }

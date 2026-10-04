@@ -44,7 +44,7 @@ All rights reserved.
 - [x] **Step 1:** Define stable `run_id` generation and directory layout (document in manifest schema).
 - [x] **Step 2:** Hook L0 `views_unittests` failure path (minimal: one representative gate).
 - [ ] **Step 3:** Hook L1 `views_interactive_tests` failure path.
-- [x] **Step 4:** Hook L1′ `SmartGisViews.exe --self-test` failure path.
+- [x] **Step 4:** Hook L1′ `SmartGIS.exe --self-test` failure path.
 - [ ] **Step 5:** Hook L2 `views_pixel_tests` failure path (shell PNG only; no map frame).
 - [x] **Step 6:** Implement `SMT_UI_FORENSICS=1` pass-through dump even on success (dev only).
 

@@ -8,12 +8,13 @@
 #include <thread>
 
 #include "base/trace/event/process_trace.h"
+#include "base/process/switches.h"
 
 namespace scenic {
 namespace detail {
 
 int rhi3d_prep_worker_count() {
-  const char* e = std::getenv("SMT_RHI3D_PREP_PARALLEL");
+  const char* e = base::switch_cstr("rhi3d-prep-parallel");
   if (e && e[0] &&
       (e[0] == '0' || e[0] == 'n' || e[0] == 'N' || e[0] == 'f' ||
        e[0] == 'F')) {

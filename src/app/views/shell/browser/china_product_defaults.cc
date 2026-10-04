@@ -12,20 +12,21 @@
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "gis/carto/style/style_document.h"
-#include "gis/carto/style/style_types.h"
+#include "gis/style/document/style_document.h"
+#include "gis/style/style_types.h"
+#include "base/process/switches.h"
 
 namespace app {
 
 namespace {
 
 bool env_flag_is_one(const char* name) {
-  const char* v = std::getenv(name);
+  const char* v = base::switch_cstr(name);
   return v && v[0] == '1' && v[1] == '\0';
 }
 
 bool env_flag_is_zero(const char* name) {
-  const char* v = std::getenv(name);
+  const char* v = base::switch_cstr(name);
   return v && v[0] == '0' && v[1] == '\0';
 }
 
@@ -36,8 +37,8 @@ ChinaScene3dAtmoFlags resolve_china_scene3d_atmo_flags() {
   flags.cloud = true;
   flags.sky = true;
   flags.fog = true;
-  if (env_flag_is_zero("SMT_SCENE3D_ATMO") ||
-      env_flag_is_one("SMT_SCENE3D_LAND_ONLY")) {
+  if (env_flag_is_zero("scene3d-atmo") ||
+      env_flag_is_one("scene3d-land-only")) {
     flags.ocean = false;
     flags.cloud = false;
     flags.sky = false;
@@ -191,7 +192,7 @@ ChinaScene3dAtmoFlags apply_china_scene3d_legacy_look(Browser& browser) {
   // ensure_legacy_overlays (ASCII city labels) has AVd under showcase GPU
   // present HWND + parallel DLL churn. Still paint DEM; labels composite in
   // atmosphere-showcase BMP path when overlays are available.
-  if (!env_flag_is_one("SMT_ATMOSPHERE_SHOWCASE_GPU")) {
+  if (!env_flag_is_one("atmosphere-showcase-gpu")) {
     std::fprintf(stderr, "china-legacy-look: overlays\n");
     (void)cam->gpu().ensure_legacy_overlays();
   } else {

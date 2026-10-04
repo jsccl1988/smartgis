@@ -67,8 +67,8 @@ All rights reserved.
 
 - [x] Step 1: Showcase uses atmosphere product defaults (not land-only off) + DEM orbit + pointcloud overlay
 - [x] Step 2: Best-effort attach `m3_city_tileset.json`; mark `earth-atmo` / `earth-tiles` / `bmp-ok`
-- [x] Step 3: Document run: `SmartGisViews.exe --plugin-showcase=world3d`
-- [ ] Step 4: Live GPU BMP green — **blocked 2026-09-30**: `SmartGisViews.exe --plugin-showcase=*` currently exits `0xC0000409` (GS) during `Browser::init` before marks (also repro on `--plugin-showcase=mine`; not specific to Earth path). Unit `world3d_scene_writer_test` green.
+- [x] Step 3: Document run: `SmartGIS.exe --plugin-showcase=world3d`
+- [ ] Step 4: Live GPU BMP green — **blocked 2026-09-30**: `SmartGIS.exe --plugin-showcase=*` currently exits `0xC0000409` (GS) during `Browser::init` before marks (also repro on `--plugin-showcase=mine`; not specific to Earth path). Unit `world3d_scene_writer_test` green.
 
 **Done when:** GPU path writes `plugin-showcase-world3d.bmp` with visible signal + atmosphere marks.
 
@@ -110,8 +110,8 @@ All rights reserved.
 ```bat
 set SMARTGIS_BUILD_OWNER=world3d-true-earth
 build.bat debug src/plugin/product/world3d:world3d_scene_writer_test
-build.bat debug SmartGisViews
-REM out\Debug\SmartGisViews.exe --plugin-showcase=world3d
+build.bat debug views
+REM out\Debug\SmartGIS.exe --plugin-showcase=world3d
 ```
 
 ## Non-goals (locked)

@@ -23,6 +23,7 @@
 #include <benchmark/benchmark.h>
 
 #include "tool/draft/draft.h"
+#include "base/process/switches.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -236,7 +237,7 @@ int main(int argc, char** argv) {
 
   // Prefer --benchmark_out=… / --benchmark_format=json; SG_CONSOLE_BENCH_JSON
   // still injects --benchmark_out when the flag is absent.
-  if (const char* env = std::getenv("SG_CONSOLE_BENCH_JSON")) {
+  if (const char* env = base::switch_cstr("console-bench-json")) {
     if (env[0]) {
       bool has_out = false;
       for (int i = 1; i < argc; ++i) {

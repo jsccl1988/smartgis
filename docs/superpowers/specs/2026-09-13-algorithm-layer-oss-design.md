@@ -7,8 +7,8 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-13  
-**Updated:** 2026-10-04 — fold `gis/geo/mesh` into `gis/geo/ops`（`copy_envelope` / `k_ok` 在 `ops/geometry_traits.h`；`geo_mesh_test` 在 `ops/mesh_test.cc`）。Prior same day — P5：`geo::HexGrid` 从 `gis.dll` 删除；3D 结构化格网是 `OGRMultiPoint` XYZ + nx/ny/nz，由 `plugin/product/world3d/hexgrid` 拥有（`HexLattice` 非导出）。`geo::Grid` 保留（2D Feature sidecar）。`mesh_codec` 不再特化 HexGrid。不恢复 `SmtHexGrid`；不把 lattice 放回 `gis/geo` 几何头。`gis/geo/grid` 承接结构化椭圆光滑（`geo::solve_laplace` 2D 五点 / 3D 七点；`geo::solve_elliptic` 2D Thompson P=Q=0）与正交性热力（`geo::compute_orthogonality` 2D 结点+单元 |90−θ|、3D 单元 skew；`geo::sample_orthogonality_raster` 轴对齐双线性采样）。插件不再保留 `GridField` / `VolumeField` / 稀疏装配副本。不并入 `tin/`。TFI / 聚类 P,Q / Thomas–Middlecoff / 3D Thompson 未实现。`gis/geo/tin` 仅为 `geo::delaunay`（`geos_c` 2D）；无 `tin::` 命名空间、无 traits 后端、无 3D stub、无 XYZ、无 Div/Inc。P4：OGC TIN 身份锁定为 `OGRTriangulatedSurface` + `OGRTriangle`（`wkbTIN`）；`geo::Tin` / `geo::Surface3d` 弃用门面（索引 staging 不是 OGR 类型）；`geo::Grid` 保留。`gis/geo/proj` 仅保留 `geo::CoordinateTransform` 薄封装（`<proj.h>` 隔离在 `.cc`）；删除 `Projection` / `proj_backend_traits` / `proj_runtime` / `gaussprj`。  
-**Tree:** 源码在 `src/gis/{model,datasource,carto/{style,tile},geo/{ops,proj,tin,grid},stat,analysis}`，链入 `gis.dll`（`//src/gis:gis`；`//src/gis:algorithm` / `//src/gis/geo:geo` 仅转发）。CPU MapFrame / tessellate 在 **`src/vista`**（`vista.dll`），见 RHI **§Vista subdirectory tighten**。顶层 `src/algorithm/**` 为 **pre-move** 叙述，勿重建。  
+**Updated:** 2026-10-05 — vista terrain bake calls `horn_lambert_shade_grid` / `fill_ring_mask` in `gis/analysis`（RGBA、`DemRaster`、Thrust 留在 vista）。Prior same day — scene `vector_traits` canonical in `base/math/traits`（`geo::` 再导出）。Prior: 2026-10-04 — fold `gis/geo/mesh` into `gis/geo/ops`（`copy_envelope` / `k_ok` 在 `ops/geometry_traits.h`；`geo_mesh_test` 在 `ops/mesh_test.cc`）。Prior same day — P5：`geo::HexGrid` 从 `gis.dll` 删除；3D 结构化格网是 `OGRMultiPoint` XYZ + nx/ny/nz，由 `plugin/product/world3d/hexgrid` 拥有（`HexLattice` 非导出）。`geo::Grid` 保留（2D Feature sidecar）。`mesh_codec` 不再特化 HexGrid。不恢复 `SmtHexGrid`；不把 lattice 放回 `gis/geo` 几何头。`gis/geo/grid` 承接结构化椭圆光滑（`geo::solve_laplace` 2D 五点 / 3D 七点；`geo::solve_elliptic` 2D Thompson P=Q=0）与正交性热力（`geo::compute_orthogonality` 2D 结点+单元 |90−θ|、3D 单元 skew；`geo::sample_orthogonality_raster` 轴对齐双线性采样）。插件不再保留 `GridField` / `VolumeField` / 稀疏装配副本。不并入 `tin/`。TFI / 聚类 P,Q / Thomas–Middlecoff / 3D Thompson 未实现。`gis/geo/tin` 仅为 `geo::delaunay`（`geos_c` 2D）；无 `tin::` 命名空间、无 traits 后端、无 3D stub、无 XYZ、无 Div/Inc。P4：OGC TIN 身份锁定为 `OGRTriangulatedSurface` + `OGRTriangle`（`wkbTIN`）；`geo::Tin` / `geo::Surface3d` 弃用门面（索引 staging 不是 OGR 类型）；`geo::Grid` 保留。`gis/geo/proj` 仅保留 `geo::CoordinateTransform` 薄封装（`<proj.h>` 隔离在 `.cc`）；删除 `Projection` / `proj_backend_traits` / `proj_runtime` / `gaussprj`。  
+**Tree:** 源码在 `src/gis/{model,datasource,style,tile,geo/{ops,proj,tin,grid},stat,analysis}`，链入 `gis.dll`（`//src/gis:gis`；`//src/gis:algorithm` / `//src/gis/geo:geo` 仅转发）。CPU MapFrame / tessellate 在 **`src/vista`**（`vista.dll`），见 RHI **§Vista subdirectory tighten**。顶层 `src/algorithm/**` 为 **pre-move** 叙述，勿重建。  
 **Related:** 模型/渲染/计算伞状 → [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)；图层/Feature/WKB → [`2026-09-13-gdal-layer-management-design.md`](2026-09-13-gdal-layer-management-design.md)；Python 双运行时 → plugin-host。As-built：[`src/gis/geo/README.md`](../../../src/gis/geo/README.md)、[`src/gis/geo/proj/README.md`](../../../src/gis/geo/proj/README.md)、[`src/gis/geo/tin/README.md`](../../../src/gis/geo/tin/README.md)、[`src/gis/geo/grid/README.md`](../../../src/gis/geo/grid/README.md)、[`docs/superpowers/src-layout.md`](../src-layout.md)。  
 **Diagram（主）：** [`../diagrams/gis-geo-layers.html`](../diagrams/gis-geo-layers.html) — Types / Traits / Ops / Codec / Present 分层与原理流  
 **Diagram（补）：** [`../diagrams/gis-algorithm-geometry-split.html`](../diagrams/gis-algorithm-geometry-split.html) — 几何体 ↔ 算法依赖箭头与 P0–P5  
@@ -44,8 +44,8 @@ All rights reserved.
 | **OGC** | GDAL/OGR | `OGRGeometry` / Point / LineString / Polygon / Multi* / GeometryCollection / `OGRTriangulatedSurface`；实例 dim 2\|3 | 产品内第二套虚几何树；`using SmtGeometry = OGRGeometry` |
 | Mesh（计算缓冲） | `geo::`（`grid/grid.h` + `grid.cpp`） | `Grid`（XY `OGRMultiPoint` + rows/cols） | 几何实例所有权；`HexGrid` / lattice 回 `geometry.h`；类内 `buffer`/Delaunay/投影；平行顶点/面表；把 TIN 身份做成产品类型 |
 | 3D structured hex | `plugin/product/world3d/hexgrid`（`HexLattice` 非导出） | `OGRMultiPoint` XYZ + nx/ny/nz metadata；VTK `.vts` 写出 | `geo::HexGrid` in `gis.dll`；`mesh_codec` HexGrid 特化；`SmtHexGrid` |
-| **Vector math** | `base/math`（ns `render`） | `Vector2`/`3`/`4`；compile-time `dimension` | OGC 几何身份 |
-| **Traits 描述面** | `geo::`（`ops/geometry_traits.h`、`vector_traits.h`） | 偏特化 + `geometry_like` / `ogr_geometry_like`；`fill_envelope` | 算法状态；平行 `struct mesh_traits` |
+| **Vector math** | `base/math`（ns `base`） | `Vector2`/`3`/`4`；`base::vector_traits` compile-time `dimension` | OGC 几何身份 |
+| **Traits 描述面** | `geo::`（`ops/geometry_traits.h`）；场景向量 traits 再导出 `geo::vector_traits` | 偏特化 + `geometry_like` / `ogr_geometry_like`；`fill_envelope` | 算法状态；平行 `struct mesh_traits` |
 | **薄 codec** | `geo::`（`ops/indexed_tin.h`） | `add_patch` / `fill_indexed_tin` / `fill_tin_from_ogr(OGRTriangulatedSurface*)`（**无** HexGrid 特化） | 重写 WKB/WKT；Feature 持久化；`HexGrid` 特化 |
 | **Feature / WKB** | datasource（`ogr_feature_codec`） | Feature↔`geo::Grid` + OGR WKB/WKT；TIN 长期应写在 `OGRFeature` 几何上 | `Feature::tin_` sidecar（P4 leftover） |
 | **Present** | `vista` / `content` / `effect` | `tessellate_*`；frame layout（`OGRGeometry*` → DrawItem） | 反向依赖 kernel←UI/RHI |
@@ -97,7 +97,8 @@ ops/geometry_traits.h  →  OGR / gis::Envelope / base 类型
 | Area | Path | 代表 ops | Eigen |
 | --- | --- | --- | --- |
 | Geometry | `geometry/` | `fit_line_2d` / `fit_plane_3d` / `affine_align_2d` | Dense SVD/QR |
-| Raster DEM | `raster/dem/` | `dem_gradient` / `flood_fill` | `Map` 差分 |
+| Raster DEM | `raster/dem/` | `dem_gradient` / `flood_fill` / `horn_lambert_shade` | `Map` 差分；Horn 朗伯因子 |
+| Raster mask | `raster/mask/` | `point_in_ring` / `fill_ring_mask` | 偶奇环；无 Eigen |
 | Raster filter | `raster/filter/` | `raster_convolve` / `raster_smooth` | 卷积；SparseLU |
 | Network | `network/` | `cost_path` | 小稠密矩阵 |
 | Structured grid | `gis/geo/grid/` | `solve_laplace` / `solve_elliptic` / `compute_orthogonality` | Sparse LDLT / SparseLU |
@@ -109,6 +110,17 @@ ops/geometry_traits.h  →  OGR / gis::Envelope / base 类型
 orthogrid / orthogrid3d 插件只保留边界数字化、VTK / MapScene 写出，并 **调用** `geo::solve_*` / `geo::compute_orthogonality`（结点视图为 `NodeField2d`/`NodeField3d`，无插件 `GridField`/`VolumeField`）。StyleDocument 的 heat 字符串格式化留在 shell writer。**本切片不实现** TFI、聚类控制函数 P/Q、Thomas–Middlecoff、3D Thompson。
 
 测试：`geo_grid_laplace_test`（单位正方形双线性恢复、过小格网拒绝、矩形上 elliptic≈Laplace、单位盒子 3D Laplace、矩形正交性≈0、轴对齐 raster、单位盒子 3D cell skew）。插件 `orthogrid_laplace_test` / `orthogrid3d_laplace_test` 只覆盖 gridbnd / hex 产品流。
+
+### 3.4 Vista 地形烘焙调用的栅格核
+
+**一句话：** `vista/terrain` 的山体阴影和陆地掩膜只保留呈现；数值核在 `gis/analysis`，`gis` 不依赖 `vista`。
+
+| 核 | 路径 | Vista 仍拥有 |
+| --- | --- | --- |
+| Horn Lambert 因子 | `gis/analysis/raster/dem/hillshade.h`（`horn_lambert_shade` / `horn_lambert_shade_grid`） | `shade_dem_rgba` 的 RGBA、对比度、海洋 alpha、`DemRaster`、`SMT_BAKE_*` |
+| 偶奇环掩膜 | `gis/analysis/raster/mask/ring_mask.h`（`point_in_ring` / `fill_ring_mask`） | `LonLatRing`、bbox 预处理、烘焙时钟 |
+
+`dem_gradient` 的坡度/坡向（度、GeoTIFF）与 Horn 着色因子不是同一公式，不合并。CUDA Thrust（`vista/terrain/process/nv/thrust_gis.cu`）是这两条核的设备副本，公式与 CPU 核对齐，不进 `gis.dll`。无新的 `native.*` / `OpsRunner` 入口。测试：`analysis_terrain_kernel_test`。
 
 ---
 

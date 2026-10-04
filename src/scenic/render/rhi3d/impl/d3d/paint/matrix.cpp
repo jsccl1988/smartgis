@@ -10,55 +10,55 @@ namespace detail {
 
 long D3dRenderDevice::MatrixModeSet(MatrixMode mode) {
   m_matrixMode = mode;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 MatrixMode D3dRenderDevice::MatrixModeGet() const { return m_matrixMode; }
 
 long D3dRenderDevice::MatrixLoadIdentity() {
   active_matrix().identity();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::MatrixLoad(const Matrix& m) {
   active_matrix() = m;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::MatrixPush() {
   if (!modelview_stack_ || !projection_stack_) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   if (m_matrixMode == MM_PROJECTION) {
     if (projection_sp_ < 0 || projection_sp_ >= kMatrixStackMax) {
-      return SMT_ERR_NONE;  // soft ignore — do not AV
+      return kErrNone;  // soft ignore — do not AV
     }
     projection_stack_[projection_sp_++] = projection_;
   } else {
     if (modelview_sp_ < 0 || modelview_sp_ >= kMatrixStackMax) {
-      return SMT_ERR_NONE;
+      return kErrNone;
     }
     modelview_stack_[modelview_sp_++] = modelview_;
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::MatrixPop() {
   if (!modelview_stack_ || !projection_stack_) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   if (m_matrixMode == MM_PROJECTION) {
     if (projection_sp_ <= 0 || projection_sp_ > kMatrixStackMax) {
-      return SMT_ERR_NONE;
+      return kErrNone;
     }
     projection_ = projection_stack_[--projection_sp_];
   } else {
     if (modelview_sp_ <= 0 || modelview_sp_ > kMatrixStackMax) {
-      return SMT_ERR_NONE;
+      return kErrNone;
     }
     modelview_ = modelview_stack_[--modelview_sp_];
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::MatrixScale(float x, float y, float z) {
@@ -66,7 +66,7 @@ long D3dRenderDevice::MatrixScale(float x, float y, float z) {
   s.identity();
   s.scale(x, y, z);
   active_matrix() *= s;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::MatrixTranslation(float x, float y, float z) {
@@ -74,7 +74,7 @@ long D3dRenderDevice::MatrixTranslation(float x, float y, float z) {
   t.identity();
   t.translate(x, y, z);
   active_matrix() *= t;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::MatrixRotation(float angle, float x, float y,
@@ -85,12 +85,12 @@ long D3dRenderDevice::MatrixRotation(float angle, float x, float y,
   const float rad = angle * (3.14159265358979323846f / 180.f);
   r.rotate(rad, x, y, z);
   active_matrix() *= r;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::MatrixMultiply(const Matrix& m) {
   active_matrix() *= m;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 Matrix D3dRenderDevice::MatrixGet() { return active_matrix(); }
@@ -102,14 +102,14 @@ long D3dRenderDevice::SetOrtho(float left, float right, float bottom,
   const float rl = right - left;
   const float tb = top - bottom;
   const float fn = zFar - zNear;
-  if (rl == 0.f || tb == 0.f || fn == 0.f) return SMT_ERR_FAILURE;
+  if (rl == 0.f || tb == 0.f || fn == 0.f) return kErrFailure;
   m._11 = 2.f / rl;
   m._22 = 2.f / tb;
   m._33 = -2.f / fn;
   m._41 = -(right + left) / rl;
   m._42 = -(top + bottom) / tb;
   m._43 = -(zFar + zNear) / fn;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::SetPerspective(float fovy, float aspect, float zNear,
@@ -119,7 +119,7 @@ long D3dRenderDevice::SetPerspective(float fovy, float aspect, float zNear,
   Matrix& m = active_matrix();
   m.identity();
   if (aspect == 0.f || zNear <= 0.f || zFar <= zNear) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   const float f = 1.f / std::tan(fovy * (3.14159265358979323846f / 360.f));
   m._11 = f / aspect;
@@ -128,7 +128,7 @@ long D3dRenderDevice::SetPerspective(float fovy, float aspect, float zNear,
   m._34 = -1.f;
   m._43 = (2.f * zFar * zNear) / (zNear - zFar);
   m._44 = 0.f;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::SetViewLookAt(Vector3& vPos, Vector3& vView,
@@ -143,21 +143,21 @@ long D3dRenderDevice::SetViewLookAt(Vector3& vPos, Vector3& vView,
   const float fy = vView.y - vPos.y;
   const float fz = vView.z - vPos.z;
   if (fx * fx + fy * fy + fz * fz < 1e-12f) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::GetFrustum(Frustum& frustum) {
   // Draw path uses row-vector clip = pos * modelview * projection (* gl_to_d3d
   // only at PS). Frustum cull must use the same MV*P (GL NDC z).
   frustum = Frustum::from_view_proj(modelview_ * projection_);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::Transform2DTo3D(Vector3& /*vOrg*/, Vector3& /*vTar*/,
                                          const lPoint& /*point*/) {
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long D3dRenderDevice::Transform3DTo2D(const Vector3& ver3D, lPoint& point) {
@@ -176,7 +176,7 @@ long D3dRenderDevice::Transform3DTo2D(const Vector3& ver3D, lPoint& point) {
   const float clip_w =
       x * mvp._14 + y * mvp._24 + z * mvp._34 + mvp._44;
   if (std::fabs(clip_w) < 1e-8f || clip_w < 0.f) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   const float ndc_x = clip_x / clip_w;
   const float ndc_y = clip_y / clip_w;
@@ -185,11 +185,11 @@ long D3dRenderDevice::Transform3DTo2D(const Vector3& ver3D, lPoint& point) {
   const float vh = static_cast<float>(
       m_viewPort.ulHeight > 0 ? m_viewPort.ulHeight : backbuffer_height_);
   if (vw <= 0.f || vh <= 0.f) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   point.x = static_cast<long>(m_viewPort.ulX + (ndc_x + 1.f) * 0.5f * vw);
   point.y = static_cast<long>(m_viewPort.ulY + (ndc_y + 1.f) * 0.5f * vh);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 }  // namespace detail

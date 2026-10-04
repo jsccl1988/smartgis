@@ -66,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--exe",
         default=None,
-        help="With --record-il: exe to launch (default out/<config>/SmartGisViews.exe)",
+        help="With --record-il: exe to launch (default out/<config>/SmartGIS.exe)",
     )
     parser.add_argument(
         "--il-out",

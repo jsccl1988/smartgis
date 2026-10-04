@@ -15,6 +15,7 @@
 #include "scenic/render/rhi3d/impl/d3d/host/render_device.h"
 #include "scenic/render/rhi3d/impl/d3d/resource/buffer/index_buffer.h"
 #include "scenic/render/rhi3d/impl/d3d/resource/buffer/vertex_buffer.h"
+#include "base/process/switches.h"
 
 #pragma comment(lib, "d3dcompiler.lib")
 
@@ -98,6 +99,10 @@ struct MeshCb {
   float pad[3];
 };
 
+// D3D11 CBs must be 16-byte multiples; 256 avoids Intel Map faults on small DYNAMIC CBs.
+constexpr UINT kMeshCbByteWidth = 256;
+static_assert(sizeof(MeshCb) <= kMeshCbByteWidth);
+
 struct MeshVertex {
   float px, py, pz;
   float nx, ny, nz;
@@ -132,6 +137,37 @@ void copy_matrix_row_major(float* dst, const Matrix& m) {
   dst[13] = m._42;
   dst[14] = m._43;
   dst[15] = m._44;
+}
+
+void set_identity_matrix(Matrix* m) {
+  std::memset(&m->_11, 0, 16 * sizeof(float));
+  m->_11 = m->_22 = m->_33 = m->_44 = 1.f;
+}
+
+void mul_row_major4(const Matrix& a, const Matrix& b, Matrix* out) {
+  float t[16];
+  const float* A = &a._11;
+  const float* B = &b._11;
+  for (int r = 0; r < 4; ++r) {
+    for (int c = 0; c < 4; ++c) {
+      t[r * 4 + c] = A[r * 4 + 0] * B[c + 0] + A[r * 4 + 1] * B[c + 4] +
+                     A[r * 4 + 2] * B[c + 8] + A[r * 4 + 3] * B[c + 12];
+    }
+  }
+  std::memcpy(&out->_11, t, sizeof(t));
+}
+
+void mesh_mvp_row_major(const Matrix& modelview, const Matrix& projection,
+                        float* mvp_f) {
+  Matrix tmp;
+  Matrix mvp;
+  Matrix gl_to_d3d;
+  mul_row_major4(modelview, projection, &tmp);
+  set_identity_matrix(&gl_to_d3d);
+  gl_to_d3d._33 = 0.5f;
+  gl_to_d3d._43 = 0.5f;
+  mul_row_major4(tmp, gl_to_d3d, &mvp);
+  copy_matrix_row_major(mvp_f, mvp);
 }
 
 bool fill_mesh_verts(D3dVertexBuffer* dvb, std::vector<MeshVertex>* out) {
@@ -317,10 +353,10 @@ SpritePipe* sprite_for(D3dRenderDevice* device) {
 long ensure_sprite_pipe(D3dRenderDevice* device, ID3D11Device* d3d,
                         SpritePipe* pipe) {
   if (!device || !d3d || !pipe) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   if (pipe->ok) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   ID3DBlob* vs_blob = nullptr;
@@ -331,7 +367,7 @@ long ensure_sprite_pipe(D3dRenderDevice* device, ID3D11Device* d3d,
                  nullptr, nullptr, "VSMain", "vs_4_0", 0, 0, &vs_blob, &err);
   if (FAILED(hr) || !vs_blob) {
     release_com(err);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   release_com(err);
   hr = D3DCompile(kSpriteHlsl, std::strlen(kSpriteHlsl), "leftover_sprite",
@@ -339,7 +375,7 @@ long ensure_sprite_pipe(D3dRenderDevice* device, ID3D11Device* d3d,
   if (FAILED(hr) || !ps_blob) {
     release_com(vs_blob);
     release_com(err);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   release_com(err);
 
@@ -348,7 +384,7 @@ long ensure_sprite_pipe(D3dRenderDevice* device, ID3D11Device* d3d,
   if (FAILED(hr)) {
     release_com(vs_blob);
     release_com(ps_blob);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   hr = d3d->CreatePixelShader(ps_blob->GetBufferPointer(),
                               ps_blob->GetBufferSize(), nullptr, &pipe->ps);
@@ -356,7 +392,7 @@ long ensure_sprite_pipe(D3dRenderDevice* device, ID3D11Device* d3d,
     release_com(vs_blob);
     release_com(ps_blob);
     pipe->release();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   const D3D11_INPUT_ELEMENT_DESC layout[] = {
@@ -371,7 +407,7 @@ long ensure_sprite_pipe(D3dRenderDevice* device, ID3D11Device* d3d,
   release_com(ps_blob);
   if (FAILED(hr)) {
     pipe->release();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   D3D11_BUFFER_DESC cbd = {};
@@ -382,7 +418,7 @@ long ensure_sprite_pipe(D3dRenderDevice* device, ID3D11Device* d3d,
   hr = d3d->CreateBuffer(&cbd, nullptr, &pipe->cb);
   if (FAILED(hr)) {
     pipe->release();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   D3D11_SAMPLER_DESC sd = {};
@@ -394,7 +430,7 @@ long ensure_sprite_pipe(D3dRenderDevice* device, ID3D11Device* d3d,
   hr = d3d->CreateSamplerState(&sd, &pipe->samp);
   if (FAILED(hr)) {
     pipe->release();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   D3D11_BLEND_DESC bd = {};
@@ -409,7 +445,7 @@ long ensure_sprite_pipe(D3dRenderDevice* device, ID3D11Device* d3d,
   hr = d3d->CreateBlendState(&bd, &pipe->bs);
   if (FAILED(hr)) {
     pipe->release();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   D3D11_DEPTH_STENCIL_DESC dd = {};
@@ -419,7 +455,7 @@ long ensure_sprite_pipe(D3dRenderDevice* device, ID3D11Device* d3d,
   hr = d3d->CreateDepthStencilState(&dd, &pipe->dss);
   if (FAILED(hr)) {
     pipe->release();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   D3D11_RASTERIZER_DESC rd = {};
@@ -429,7 +465,7 @@ long ensure_sprite_pipe(D3dRenderDevice* device, ID3D11Device* d3d,
   hr = d3d->CreateRasterizerState(&rd, &pipe->rs);
   if (FAILED(hr)) {
     pipe->release();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   D3D11_BUFFER_DESC vbd = {};
@@ -440,11 +476,11 @@ long ensure_sprite_pipe(D3dRenderDevice* device, ID3D11Device* d3d,
   hr = d3d->CreateBuffer(&vbd, nullptr, &pipe->dynamic_vb);
   if (FAILED(hr) || !pipe->dynamic_vb) {
     pipe->release();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   pipe->ok = true;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 }  // namespace
@@ -464,10 +500,10 @@ void release_sprite_sidecar(D3dRenderDevice* device) {
 
 long D3dRenderDevice::ensure_mesh_pipeline() {
   if (mesh_pipeline_ok_) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   if (!device_) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   ID3DBlob* vs_blob = nullptr;
@@ -478,7 +514,7 @@ long D3dRenderDevice::ensure_mesh_pipeline() {
                  nullptr, "VSMain", "vs_4_0", 0, 0, &vs_blob, &err);
   if (FAILED(hr) || !vs_blob) {
     safe_release(err);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   safe_release(err);
   hr = D3DCompile(kMeshHlsl, std::strlen(kMeshHlsl), "leftover_mesh", nullptr,
@@ -486,7 +522,7 @@ long D3dRenderDevice::ensure_mesh_pipeline() {
   if (FAILED(hr) || !ps_blob) {
     safe_release(vs_blob);
     safe_release(err);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   safe_release(err);
 
@@ -496,7 +532,7 @@ long D3dRenderDevice::ensure_mesh_pipeline() {
   if (FAILED(hr)) {
     safe_release(vs_blob);
     safe_release(ps_blob);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   hr = device_->CreatePixelShader(ps_blob->GetBufferPointer(),
                                   ps_blob->GetBufferSize(), nullptr, &mesh_ps_);
@@ -504,7 +540,7 @@ long D3dRenderDevice::ensure_mesh_pipeline() {
     safe_release(vs_blob);
     safe_release(ps_blob);
     release_mesh_pipeline();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   const D3D11_INPUT_ELEMENT_DESC layout[] = {
@@ -523,18 +559,18 @@ long D3dRenderDevice::ensure_mesh_pipeline() {
   safe_release(ps_blob);
   if (FAILED(hr)) {
     release_mesh_pipeline();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   D3D11_BUFFER_DESC cbd = {};
-  cbd.ByteWidth = sizeof(MeshCb);
+  cbd.ByteWidth = kMeshCbByteWidth;
   cbd.Usage = D3D11_USAGE_DYNAMIC;
   cbd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
   cbd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
   hr = device_->CreateBuffer(&cbd, nullptr, &mesh_cb_);
   if (FAILED(hr)) {
     release_mesh_pipeline();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   D3D11_RASTERIZER_DESC rd = {};
@@ -544,7 +580,7 @@ long D3dRenderDevice::ensure_mesh_pipeline() {
   hr = device_->CreateRasterizerState(&rd, &mesh_rs_);
   if (FAILED(hr)) {
     release_mesh_pipeline();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   D3D11_DEPTH_STENCIL_DESC dd = {};
@@ -554,7 +590,7 @@ long D3dRenderDevice::ensure_mesh_pipeline() {
   hr = device_->CreateDepthStencilState(&dd, &mesh_dss_);
   if (FAILED(hr)) {
     release_mesh_pipeline();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   D3D11_BLEND_DESC bd = {};
@@ -562,82 +598,90 @@ long D3dRenderDevice::ensure_mesh_pipeline() {
   hr = device_->CreateBlendState(&bd, &mesh_bs_);
   if (FAILED(hr)) {
     release_mesh_pipeline();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   mesh_pipeline_ok_ = true;
-  return SMT_ERR_NONE;
+  return kErrNone;
+}
+
+long D3dRenderDevice::sync_mesh_constants(ID3D11DeviceContext* ctx,
+                                          bool use_tex) {
+  ID3D11Buffer* mesh_cb = active_mesh_cb();
+  if (!ctx || !mesh_cb) {
+    return kErrFailure;
+  }
+  float mvp_f[16];
+  mesh_mvp_row_major(modelview_, projection_, mvp_f);
+  const bool mvp_changed =
+      !mesh_cb_valid_ || last_mesh_use_tex_ != use_tex ||
+      std::memcmp(mvp_f, last_mesh_mvp_, sizeof(mvp_f)) != 0;
+  if (!mvp_changed) {
+    return kErrNone;
+  }
+  D3D11_MAPPED_SUBRESOURCE mapped = {};
+  if (FAILED(ctx->Map(mesh_cb, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)) ||
+      !mapped.pData) {
+    return kErrFailure;
+  }
+  auto* cb = static_cast<MeshCb*>(mapped.pData);
+  std::memcpy(cb->mvp, mvp_f, sizeof(mvp_f));
+  ID3D11ShaderResourceView* tex_srv =
+      use_tex ? texture_srv(bound_texture_->GetHandle()) : nullptr;
+  ID3D11SamplerState* tex_samp = use_tex ? linear_sampler() : nullptr;
+  bind_mesh_ps_resources(ctx, cb, use_tex, tex_srv, tex_samp);
+  ctx->Unmap(mesh_cb, 0);
+  std::memcpy(last_mesh_mvp_, mvp_f, sizeof(mvp_f));
+  last_mesh_use_tex_ = use_tex;
+  mesh_cb_valid_ = true;
+  return kErrNone;
 }
 
 long D3dRenderDevice::DrawPrimitives(PrimitiveType type,
                                         VertexBuffer* pVB, ulong baseVertex,
                                         ulong primitiveCount) {
   if (!pVB || !active_context() || !device_ || primitiveCount == 0) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   const D3D11_PRIMITIVE_TOPOLOGY topo = topology_for(type);
   if (topo == D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
-  if (ensure_mesh_pipeline() != SMT_ERR_NONE) {
-    return SMT_ERR_FAILURE;
+  if (ensure_mesh_pipeline() != kErrNone) {
+    return kErrFailure;
   }
 
   auto* dvb = static_cast<D3dVertexBuffer*>(pVB);
   if (!dvb) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   const ulong want = draw_vertex_count(type, primitiveCount);
   std::vector<MeshVertex> verts;
   ID3D11Buffer* vb = dvb->ensure_gpu_vb(device_, nullptr, 0);
   if (!vb) {
     if (!fill_mesh_verts(dvb, &verts)) {
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
     if (baseVertex >= verts.size() ||
         baseVertex + want > static_cast<ulong>(verts.size())) {
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
     vb = dvb->ensure_gpu_vb(
         device_, verts.data(),
         static_cast<UINT>(verts.size() * sizeof(MeshVertex)));
   }
   if (!vb) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   // When cached, still validate base+count against CPU vertex_count.
   if (baseVertex + want > dvb->GetVertexCount()) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   ID3D11DeviceContext* ctx = active_context();
-  Matrix gl_to_d3d;
-  gl_to_d3d.identity();
-  gl_to_d3d._33 = 0.5f;
-  gl_to_d3d._43 = 0.5f;
-  const Matrix mvp = modelview_ * projection_ * gl_to_d3d;
-  float mvp_f[16];
-  copy_matrix_row_major(mvp_f, mvp);
   const bool use_tex = bound_texture_ != nullptr;
-  const bool mvp_changed =
-      !mesh_cb_valid_ || last_mesh_use_tex_ != use_tex ||
-      std::memcmp(mvp_f, last_mesh_mvp_, sizeof(mvp_f)) != 0;
-  if (mvp_changed) {
-    D3D11_MAPPED_SUBRESOURCE mapped = {};
-    if (FAILED(ctx->Map(active_mesh_cb(), 0, D3D11_MAP_WRITE_DISCARD, 0,
-                        &mapped))) {
-      return SMT_ERR_FAILURE;
-    }
-    auto* cb = static_cast<MeshCb*>(mapped.pData);
-    std::memcpy(cb->mvp, mvp_f, sizeof(mvp_f));
-    ID3D11ShaderResourceView* tex_srv =
-        use_tex ? texture_srv(bound_texture_->GetHandle()) : nullptr;
-    ID3D11SamplerState* tex_samp = use_tex ? linear_sampler() : nullptr;
-    bind_mesh_ps_resources(ctx, cb, use_tex, tex_srv, tex_samp);
-    ctx->Unmap(active_mesh_cb(), 0);
-    std::memcpy(last_mesh_mvp_, mvp_f, sizeof(mvp_f));
-    last_mesh_use_tex_ = use_tex;
-    mesh_cb_valid_ = true;
+  if (sync_mesh_constants(ctx, use_tex) != kErrNone) {
+    return kErrFailure;
   }
 
   const UINT stride = sizeof(MeshVertex);
@@ -658,7 +702,7 @@ long D3dRenderDevice::DrawPrimitives(PrimitiveType type,
   ctx->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
   ctx->IASetPrimitiveTopology(topo);
   ctx->Draw(static_cast<UINT>(want), 0);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::DrawIndexedPrimitives(PrimitiveType type,
@@ -667,25 +711,25 @@ long D3dRenderDevice::DrawIndexedPrimitives(PrimitiveType type,
                                                ulong /*baseIndex*/,
                                                ulong primitiveCount) {
   if (!pVB || !pIB || !active_context() || !device_) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   if (type != PT_TRIANGLELIST || primitiveCount == 0) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
-  if (ensure_mesh_pipeline() != SMT_ERR_NONE) {
-    return SMT_ERR_FAILURE;
+  if (ensure_mesh_pipeline() != kErrNone) {
+    return kErrFailure;
   }
 
   auto* dvb = static_cast<D3dVertexBuffer*>(pVB);
   auto* dib = static_cast<D3dIndexBuffer*>(pIB);
   if (!dvb || !dib || !dib->indices()) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   const ulong nidx = dib->GetIndexCount();
   const ulong want_idx = primitiveCount * 3;
   if (nidx < want_idx) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   // Cache GPU VB/IB across frames. Terrain meshes Unlock once at Create —
@@ -694,14 +738,14 @@ long D3dRenderDevice::DrawIndexedPrimitives(PrimitiveType type,
   ID3D11Buffer* vb = dvb->ensure_gpu_vb(device_, nullptr, 0);
   if (!vb) {
     if (!fill_mesh_verts(dvb, &verts)) {
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
     vb = dvb->ensure_gpu_vb(
         device_, verts.data(),
         static_cast<UINT>(verts.size() * sizeof(MeshVertex)));
   }
   if (!vb) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   ID3D11Buffer* ib =
@@ -711,37 +755,13 @@ long D3dRenderDevice::DrawIndexedPrimitives(PrimitiveType type,
                             static_cast<UINT>(want_idx * sizeof(uint)));
   }
   if (!ib) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   ID3D11DeviceContext* ctx = active_context();
-  Matrix gl_to_d3d;
-  gl_to_d3d.identity();
-  gl_to_d3d._33 = 0.5f;
-  gl_to_d3d._43 = 0.5f;
-  const Matrix mvp = modelview_ * projection_ * gl_to_d3d;
-  float mvp_f[16];
-  copy_matrix_row_major(mvp_f, mvp);
   const bool use_tex = bound_texture_ != nullptr;
-  const bool mvp_changed =
-      !mesh_cb_valid_ || last_mesh_use_tex_ != use_tex ||
-      std::memcmp(mvp_f, last_mesh_mvp_, sizeof(mvp_f)) != 0;
-  if (mvp_changed) {
-    D3D11_MAPPED_SUBRESOURCE mapped = {};
-    if (FAILED(ctx->Map(active_mesh_cb(), 0, D3D11_MAP_WRITE_DISCARD, 0,
-                        &mapped))) {
-      return SMT_ERR_FAILURE;
-    }
-    auto* cb = static_cast<MeshCb*>(mapped.pData);
-    std::memcpy(cb->mvp, mvp_f, sizeof(mvp_f));
-    ID3D11ShaderResourceView* tex_srv =
-        use_tex ? texture_srv(bound_texture_->GetHandle()) : nullptr;
-    ID3D11SamplerState* tex_samp = use_tex ? linear_sampler() : nullptr;
-    bind_mesh_ps_resources(ctx, cb, use_tex, tex_srv, tex_samp);
-    ctx->Unmap(active_mesh_cb(), 0);
-    std::memcpy(last_mesh_mvp_, mvp_f, sizeof(mvp_f));
-    last_mesh_use_tex_ = use_tex;
-    mesh_cb_valid_ = true;
+  if (sync_mesh_constants(ctx, use_tex) != kErrNone) {
+    return kErrFailure;
   }
 
   const UINT stride = sizeof(MeshVertex);
@@ -762,24 +782,24 @@ long D3dRenderDevice::DrawIndexedPrimitives(PrimitiveType type,
   ctx->IASetIndexBuffer(ib, DXGI_FORMAT_R32_UINT, 0);
   ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
   ctx->DrawIndexed(static_cast<UINT>(want_idx), 0, 0);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::DrawScreenBgra(float cx, float cy, int w, int h,
                                         const unsigned char* bgra) {
   if (!bgra || w <= 0 || h <= 0 || !device_ || !context_) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
-  if (const char* skip = std::getenv("SMT_RHI3D_SKIP_SCREEN_BGRA");
+  if (const char* skip = base::switch_cstr("rhi3d-skip-screen-bgra");
       skip && (skip[0] == '1' || skip[0] == 'y' || skip[0] == 'Y')) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   SpritePipe* pipe = sprite_for(this);
-  if (ensure_sprite_pipe(this, device_, pipe) != SMT_ERR_NONE) {
-    return SMT_ERR_FAILURE;
+  if (ensure_sprite_pipe(this, device_, pipe) != kErrNone) {
+    return kErrFailure;
   }
   if (!pipe->dynamic_vb) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   // Sprite PSO replaces mesh binds.
   mesh_draw_state_bound_ = false;
@@ -790,7 +810,7 @@ long D3dRenderDevice::DrawScreenBgra(float cx, float cy, int w, int h,
   const float vh = static_cast<float>(
       m_viewPort.ulHeight > 0 ? m_viewPort.ulHeight : backbuffer_height_);
   if (vw <= 1.f || vh <= 1.f) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   // After P3 ExecuteCommandList the immediate RS viewport can be cleared —
@@ -847,13 +867,13 @@ long D3dRenderDevice::DrawScreenBgra(float cx, float cy, int w, int h,
     init.SysMemPitch = static_cast<UINT>(w * 4);
     ID3D11Texture2D* tex = nullptr;
     if (FAILED(device_->CreateTexture2D(&td, &init, &tex)) || !tex) {
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
     ID3D11ShaderResourceView* created = nullptr;
     if (FAILED(device_->CreateShaderResourceView(tex, nullptr, &created)) ||
         !created) {
       safe_release(tex);
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
     SpriteGpuTex entry;
     entry.pixels = key;
@@ -877,13 +897,13 @@ long D3dRenderDevice::DrawScreenBgra(float cx, float cy, int w, int h,
   D3D11_MAPPED_SUBRESOURCE mapped = {};
   if (FAILED(context_->Map(pipe->dynamic_vb, 0, D3D11_MAP_WRITE_DISCARD, 0,
                            &mapped))) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   std::memcpy(mapped.pData, quad, sizeof(quad));
   context_->Unmap(pipe->dynamic_vb, 0);
 
   if (FAILED(context_->Map(pipe->cb, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   auto* cb = static_cast<SpriteCb*>(mapped.pData);
   cb->inv_vp[0] = 1.f / vw;
@@ -910,13 +930,13 @@ long D3dRenderDevice::DrawScreenBgra(float cx, float cy, int w, int h,
 
   ID3D11ShaderResourceView* null_srv = nullptr;
   context_->PSSetShaderResources(0, 1, &null_srv);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::DrawText(uint unID, float xpos, float ypos, float zpos,
                                   const Color& color, const char* str, ...) {
   if (!str || unID >= fonts_.size()) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   char text[256] = {};
@@ -927,7 +947,7 @@ long D3dRenderDevice::DrawText(uint unID, float xpos, float ypos, float zpos,
 
   lPoint screen = {};
   const long xform = Transform3DTo2D(Vector3(xpos, ypos, zpos), screen);
-  if (xform != SMT_ERR_NONE) {
+  if (xform != kErrNone) {
     return xform;
   }
   return draw_text_gdi(unID, static_cast<float>(screen.x),
@@ -937,7 +957,7 @@ long D3dRenderDevice::DrawText(uint unID, float xpos, float ypos, float zpos,
 long D3dRenderDevice::DrawText(uint nID, float xscreen, float yscreen,
                                   const Color& color, const char* str, ...) {
   if (!str || nID >= fonts_.size()) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   char text[256] = {};
@@ -950,15 +970,15 @@ long D3dRenderDevice::DrawText(uint nID, float xscreen, float yscreen,
 }
 
 long D3dRenderDevice::DrawCube3D(Vector3 /*vCenter*/, float /*fWidth*/,
-                                    Color /*smtClr*/) {
-  return SMT_ERR_FAILURE;
+                                    Color /*color*/) {
+  return kErrFailure;
 }
 
 long D3dRenderDevice::CaptureBgr24(unsigned char* out_bgr24, int width_px,
                                       int height_px) {
   if (!out_bgr24 || !device_ || !context_ || !color_tex_ || width_px <= 0 ||
       height_px <= 0) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   // Lazy staging from the offscreen color target (not the DXGI backbuffer).
   // color_tex_ remains valid after DXGI_SWAP_EFFECT_DISCARD Present.
@@ -974,14 +994,14 @@ long D3dRenderDevice::CaptureBgr24(unsigned char* out_bgr24, int width_px,
     desc.MiscFlags = 0;
     if (FAILED(device_->CreateTexture2D(&desc, nullptr, &capture_tex_))) {
       capture_tex_ = nullptr;
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
   }
   context_->CopyResource(capture_tex_, color_tex_);
 
   D3D11_MAPPED_SUBRESOURCE mapped = {};
   if (FAILED(context_->Map(capture_tex_, 0, D3D11_MAP_READ, 0, &mapped))) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   const int copy_w = (width_px < static_cast<int>(desc.Width))
                          ? width_px
@@ -1003,7 +1023,7 @@ long D3dRenderDevice::CaptureBgr24(unsigned char* out_bgr24, int width_px,
     }
   }
   context_->Unmap(capture_tex_, 0);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 }  // namespace detail

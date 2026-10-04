@@ -17,8 +17,8 @@
 #include "content/public/view_host.h"
 #include "content/renderer/renderer_main.h"
 #include "gis/edit/memory_session.h"
-#include "gis/carto/style/style_document.h"
-#include "gis/carto/tile/tile_provider.h"
+#include "gis/style/document/style_document.h"
+#include "gis/tile/provider/tile_provider.h"
 #include "gpu/gpu.h"
 #include "net/http/http.h"
 #include "render/rhi/rhi.h"
@@ -30,6 +30,7 @@
 #include "ui/gis/shell/status_bar.h"
 #include "ui/views/kernel/shell/dpi.h"
 #include "base/trace/event/process_trace.h"
+#include "base/process/switches.h"
 #include "ui/views/kernel/layout/layout_check.h"
 #include "ui/views/map/map_viewport.h"
 #include "ui/views/primitives/menu/menu_bar.h"
@@ -65,7 +66,7 @@ ui::views::collect_sibling_overlaps(browser.contents_view(),
                                     &overlap_issues);
 self_test_mark("layout-checked");
 const bool force_dump = [] {
-  const char* v = std::getenv("SMT_UI_FORENSICS");
+  const char* v = base::switch_cstr("ui-forensics");
   return v && v[0] && !(v[0] == '0' && v[1] == '\0');
 }();
 if (layout_fails > 0 || force_dump) {
@@ -88,7 +89,7 @@ if (layout_fails > 0 || force_dump) {
     if (man) {
       man << "{\n"
           << "  \"run_id\": \"" << run_id << "\",\n"
-          << "  \"exe\": \"SmartGisViews.exe\",\n"
+          << "  \"exe\": \"SmartGIS.exe\",\n"
           << "  \"scenario\": \"--self-test\",\n"
           << "  \"issue_count\": " << all.size() << ",\n"
           << "  \"marks\": [\"layout-checked\"]\n"

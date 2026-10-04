@@ -11,7 +11,7 @@
 #include "gdal_priv.h"
 #include "scenic/render/rhi3d/public/camera/camera.h"
 #include "scenic/render/rhi3d/public/device/render_device.h"
-#include "scenic/scene3d/seed/map_to_scene.h"
+#include "scenic/scene3d/scene/map_to_scene.h"
 #include "scenic/scene3d/scene/scene.h"
 #include "scenic/test/paint_test_host.h"
 #include "ogrsf_frmts.h"
@@ -142,20 +142,20 @@ int main() {
     return 1;
   }
 
-  expect(dev->Init(hwnd, "gl-map-paint-test") == SMT_ERR_NONE, "Init");
+  expect(dev->Init(hwnd, "gl-map-paint-test") == kErrNone, "Init");
   std::fprintf(stderr, "step: init-ok\n");
   std::fflush(stderr);
 
   scenic::detail::Viewport3D vp = dev->GetViewport();
   scenic::detail::apply_view3d_viewport(&vp, 400, 300);
-  expect(dev->SetViewport(vp) == SMT_ERR_NONE, "SetViewport 400x300");
+  expect(dev->SetViewport(vp) == kErrNone, "SetViewport 400x300");
 
   // Scene/camera must die *before* Release3DRenderDevice — otherwise
   // ~Terrain::release_gpu_buffers AVs on a freed GL device.
   {
     scenic::detail::Scene scene;
     scene.Set3DRenderDevice(dev);
-    expect(scene.Setup() == SMT_ERR_NONE, "Scene::Setup");
+    expect(scene.Setup() == kErrNone, "Scene::Setup");
 
     int n_region = 0;
     int n_line = 0;
@@ -208,12 +208,12 @@ int main() {
     scenic::detail::frame_persp_camera_to_aabb(&camera, &vp, scene.GetAabb());
     camera.set_viewport(vp);
     scene.SetSceneCamera(&camera);
-    expect(dev->SetViewport(vp) == SMT_ERR_NONE, "SetViewport after frame");
+    expect(dev->SetViewport(vp) == kErrNone, "SetViewport after frame");
 
     dev->SetClearColor(scenic::detail::Color(0.f, 0.f, 0.f, 1.f));
-    expect(dev->Clear(CLR_COLOR | CLR_ZBUFFER) == SMT_ERR_NONE, "Clear");
-    expect(dev->BeginRender() == SMT_ERR_NONE, "BeginRender");
-    expect(camera.apply() == SMT_ERR_NONE, "camera.apply");
+    expect(dev->Clear(CLR_COLOR | CLR_ZBUFFER) == kErrNone, "Clear");
+    expect(dev->BeginRender() == kErrNone, "BeginRender");
+    expect(camera.apply() == kErrNone, "camera.apply");
     {
       scenic::detail::Object3dPtrs objs;
       scene.Get3DObjectPtrs(objs);
@@ -224,8 +224,8 @@ int main() {
         }
       }
     }
-    expect(dev->EndRender() == SMT_ERR_NONE, "EndRender");
-    expect(dev->SwapBuffers() == SMT_ERR_NONE, "SwapBuffers");
+    expect(dev->EndRender() == kErrNone, "EndRender");
+    expect(dev->SwapBuffers() == kErrNone, "SwapBuffers");
 
     const int painted = count_non_black_hwnd(hwnd, 400, 300);
     expect(painted > 20, "3D paint produced non-black pixels");

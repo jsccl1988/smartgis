@@ -27,6 +27,7 @@
 #include "base/core/log.h"
 #include "base/trace/diag/startup_profile.h"
 #include "base/trace/event/process_trace.h"
+#include "base/process/switches.h"
 #include "content/browser/debug/debug_agent.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
@@ -187,7 +188,7 @@ int run_browser_main(const content::ContentMainParams&,
   // FPS bench measures live map present (target mean_fps>=30). Keep FlyCube /
   // GPU map path: do not force ContentMapView or full GDI overlay.
   const bool map2d_fps_bench = []() {
-    const char* e = std::getenv("SMT_MAP2D_FPS_BENCH_MS");
+    const char* e = base::switch_cstr("map2d-fps-bench-ms");
     return e && e[0] != '\0' && std::atoi(e) > 0;
   }();
   // Debug CRT leak-check abort() looks like a spontaneous exit after a green
@@ -202,12 +203,12 @@ int run_browser_main(const content::ContentMainParams&,
   // export_bmp can paint china_city without racing FlyCube present (AV /
   // cream AABB). 3D keeps FlyCube for orbit BitBlt.
   const bool browse_3d_suite = []() {
-    if (const char* suite = std::getenv("SMT_HARNESS_SUITE")) {
+    if (const char* suite = base::switch_cstr("harness-suite")) {
       if (std::strcmp(suite, "browse.3d") == 0) {
         return true;
       }
     }
-    if (const char* script = std::getenv("SMT_UI_INTERACT_SCRIPT")) {
+    if (const char* script = base::switch_cstr("ui-interact-script")) {
       if (std::strstr(script, "browse.3d")) {
         return true;
       }
@@ -239,8 +240,8 @@ int run_browser_main(const content::ContentMainParams&,
       // the async FlyCube display thread cannot abort the process (STL mutex
       // unlock / present SEH) before the plugin body runs.
       content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
-      _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_2D", "1");
-      _putenv_s("SMT_FORCE_GDI_MAP_OVERLAY", "1");
+      base::set_switch("force-content-mapview-2d", "1");
+      base::set_switch("force-gdi-map-overlay", "1");
     } else if (self_test || self_test_console || input_showcase ||
                ui_force_gdi || showcase != AtmosphereShowcaseMode::kNone ||
                map2d_showcase != Map2dShowcaseMode::kNone ||
@@ -249,39 +250,39 @@ int run_browser_main(const content::ContentMainParams&,
                (bare_product && !map2d_fps_bench)) {
       content::set_scene3d_engine(content::Scene3dEngine::kGdi);
       if (!map2d_fps_bench) {
-        _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_2D", "1");
+        base::set_switch("force-content-mapview-2d", "1");
       }
     } else if (browse_showcase || ui_showcase == UiShowcaseMode::kScene) {
       content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
-      _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_2D", "0");
-      _putenv_s("SMT_PREFER_FLYCUBE_2D", "1");
-      _putenv_s("SMT_FORCE_GDI_MAP_OVERLAY", "0");
+      base::set_switch("force-content-mapview-2d", "0");
+      base::set_switch("prefer-flycube-2d", "1");
+      base::set_switch("force-gdi-map-overlay", "0");
     }
   } else if (content::prefer_scene3d_stereo_gl() ||
              content::prefer_scene3d_flycube()) {
     // Stereo/FlyCube bench: do not force ContentMapView-only 2D overlay.
-    _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_2D", "0");
+    base::set_switch("force-content-mapview-2d", "0");
   }
   // Scenic software present: never attach FlyCube HWND on shell map panes
   // (display_run_present SEH). ContentMapView + MemFrame/export is the path.
   if (content::prefer_map2d_scenic() || content::prefer_scene3d_scenic()) {
-    _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_2D", "1");
-    _putenv_s("SMT_PREFER_FLYCUBE_2D", "0");
+    base::set_switch("force-content-mapview-2d", "1");
+    base::set_switch("prefer-flycube-2d", "0");
   }
   // Force full Map2dPresenter::paint on the shell overlay so the HWND never
   // stays ocean-only while FlyCube DXGI is still hidden / clearing. Covers
-  // map2d/plugin/browse(2D) showcases and bare SmartGisViews.exe (same china
+  // map2d/plugin/browse(2D) showcases and bare SmartGIS.exe (same china
   // face as --ui-showcase=shell). Skip when FPS-benching FlyCube or when the
   // operator explicitly sets SMT_FORCE_GDI_MAP_OVERLAY=0.
   if (!map2d_fps_bench) {
-    const char* force_gdi = std::getenv("SMT_FORCE_GDI_MAP_OVERLAY");
+    const char* force_gdi = base::switch_cstr("force-gdi-map-overlay");
     const bool force_off =
         force_gdi && force_gdi[0] == '0' && force_gdi[1] == '\0';
     if (!force_off &&
         (map2d_showcase != Map2dShowcaseMode::kNone ||
          plugin_showcase != PluginShowcaseMode::kNone ||
          (browse_showcase && !browse_3d_suite) || bare_product)) {
-      _putenv_s("SMT_FORCE_GDI_MAP_OVERLAY", "1");
+      base::set_switch("force-gdi-map-overlay", "1");
     }
   }
   // Showcase does not need Ambox command lists; skip catalog for_each when
@@ -294,7 +295,7 @@ int run_browser_main(const content::ContentMainParams&,
       plugin_showcase != PluginShowcaseMode::kNone ||
       ui_showcase != UiShowcaseMode::kNone || browse_showcase ||
       input_showcase) {
-    _putenv_s("SMT_SKIP_AMBOX_CATALOG", "1");
+    base::set_switch("skip-ambox-catalog", "1");
   }
   {
     wchar_t diag[MAX_PATH] = {};
@@ -343,30 +344,30 @@ int run_browser_main(const content::ContentMainParams&,
   {
     // OOP: CLI --enable-oop-render or SMT_ENABLE_OOP_RENDER=1.
     bool enable_oop = options.enable_oop_render;
-    if (const char* env = std::getenv("SMT_ENABLE_OOP_RENDER")) {
+    if (const char* env = base::switch_cstr("enable-oop-render")) {
       if (env[0] == '1' && env[1] == '\0') {
         enable_oop = true;
       }
     }
-    if (const char* env = std::getenv("SMT_DISABLE_OOP_RENDER")) {
+    if (const char* env = base::switch_cstr("disable-oop-render")) {
       if (env[0] == '1' && env[1] == '\0') {
         enable_oop = false;
       }
     }
     browser->set_enable_oop_render(enable_oop);
 
-    // China seed: sync by default so bare SmartGisViews.exe matches the
+    // China seed: sync by default so bare SmartGIS.exe matches the
     // --ui-showcase=shell carto face (china_city Land/Lines/Points/Labels).
     // SMT_DEFER_CHINA_SEED=1 restores the post-show timer path; SMT_SYNC_CHINA_SEED=1
     // forces sync. Showcase / harness that set SMT_SKIP_AMBOX_CATALOG still skip
     // OGR here and re-seed in their own china_seed helpers.
     bool defer_china = false;
-    if (const char* env = std::getenv("SMT_DEFER_CHINA_SEED")) {
+    if (const char* env = base::switch_cstr("defer-china-seed")) {
       if (env[0] == '1' && env[1] == '\0') {
         defer_china = true;
       }
     }
-    if (const char* env = std::getenv("SMT_SYNC_CHINA_SEED")) {
+    if (const char* env = base::switch_cstr("sync-china-seed")) {
       if (env[0] == '1' && env[1] == '\0') {
         defer_china = false;
       }
@@ -421,7 +422,7 @@ int run_browser_main(const content::ContentMainParams&,
   // process exit (wWinMain also calls maybe_dump — second call is a no-op).
   base::trace::maybe_dump_startup_profile();
   // Agent / shot hooks: open Data or 3D without flaky synthetic clicks.
-  if (const char* tab = std::getenv("SMT_VIEWS_START_MAP_TAB")) {
+  if (const char* tab = base::switch_cstr("views-start-map-tab")) {
     int idx = 0;
     if (std::strcmp(tab, "scene3d") == 0 || std::strcmp(tab, "2") == 0) {
       idx = 2;
@@ -468,7 +469,7 @@ int run_browser_main(const content::ContentMainParams&,
     // Prefer SMT_HARNESS_SUITE so browse.3d resolves its own ScenarioRegistry
     // entry (same run_browse_showcase body; IL/suite id from env).
     const char* browse_id = "browse";
-    if (const char* env = std::getenv("SMT_HARNESS_SUITE")) {
+    if (const char* env = base::switch_cstr("harness-suite")) {
       if (env[0] && std::strcmp(env, "browse.3d") == 0) {
         browse_id = "browse.3d";
       }

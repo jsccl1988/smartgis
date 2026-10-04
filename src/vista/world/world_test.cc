@@ -11,7 +11,7 @@
 #include "gis/map/layer_kind.h"
 #include "vista/assets/model/model.h"
 #include "vista/assets/tileset/tileset.h"
-#include "vista/world/terrain/mesh/tessellate.h"
+#include "vista/mesh/tessellate.h"
 
 namespace {
 

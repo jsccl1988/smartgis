@@ -20,8 +20,9 @@
 #include <utility>
 #include <vector>
 
-#include "gis/carto/tile/xyz_math.h"
+#include "gis/tile/protocol/xyz_math.h"
 #include "base/trace/event/process_trace.h"
+#include "base/process/switches.h"
 
 namespace content {
 namespace {
@@ -376,7 +377,7 @@ bool Map2dSoftwarePainter::export_bmp(const std::string& path, int width_px,
   // carto / hillshade). Bench-only SMT_MAP2D_EXPORT_REUSE=1 keeps a matching
   // cam+size present-cache blit (equal-profile paint_ms).
   const bool export_reuse = []() {
-    const char* e = std::getenv("SMT_MAP2D_EXPORT_REUSE");
+    const char* e = base::switch_cstr("map2d-export-reuse");
     return e && e[0] == '1' && e[1] == '\0';
   }();
   if (!export_reuse) {

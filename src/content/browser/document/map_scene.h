@@ -21,9 +21,9 @@
 #include "content/public/catalog_layers.h"
 #include "content/public/feature_attrs.h"
 #include "content/public/map_types.h"
-#include "gis/carto/style/style_types.h"
-#include "gis/carto/tile/tile_provider.h"
-#include "vista/world/terrain/process/land_mask.h"
+#include "gis/style/style_types.h"
+#include "gis/tile/provider/tile_provider.h"
+#include "vista/terrain/process/land_mask.h"
 #include "tool/draft/draft.h"
 
 namespace content {

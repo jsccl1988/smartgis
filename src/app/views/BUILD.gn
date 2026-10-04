@@ -2,7 +2,7 @@
 # All rights reserved.
 
 # Product host for Views + Skia. Loaded when smt_build_views=true.
-# Output: out/SmartGisViews.exe. Capability dirs live under //src/content
+# Output: out/SmartGIS.exe. Capability dirs live under //src/content
 # (document/camera/present/input) and //src/render:present_paint 脙垄脗聙脗聰 see
 # docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md 脙聜脗搂Content sink.
 
@@ -62,7 +62,7 @@ source_set("shell_browser") {
     "//src/content:view_host",
     "//src/gis:gis",
     "//src/gis/edit:edit",
-    "//src/gis/carto/tile:tile",
+    "//src/gis/tile:tile",
     "//src/plugin:host",
     "//src/plugin/product/world3d:world3d_views",
     "//src/plugin/product/traffic:traffic_views",
@@ -122,7 +122,7 @@ source_set("shell_ui") {
     "//src/content:content",
     "//src/content:view_host",
     "//src/gis/edit:edit",
-    "//src/gis/carto/tile:tile",
+    "//src/gis/tile:tile",
     "//src/plugin:host",
     "//src/plugin/product/world3d:world3d_views",
     "//src/plugin/product/traffic:traffic_views",
@@ -280,19 +280,11 @@ source_set("harness_plugin") {
 
 # SP5: product shell must not link leftover DLLs / MFC shell.
 win32_app("views") {
-  output_name = "SmartGisViews"
+  output_name = "SmartGIS"
   # Browser / MapSession / Scene3dPresenter construction needs >1 MiB stack;
   # default reserve lets member ctors smash ViewsLaunchOptions (startup AV).
   ldflags = [ "/STACK:16777216" ]
-  assert_no_deps = [
-    "//src/legacy/app:*",
-    "//src/legacy/render:legacy_render_all",
-    "//src/legacy/render:scene3d",
-    "//src/legacy/render/scene3d:dem_height_field_static",
-    "//src/legacy/tool:*",
-    "//src/legacy/ui:*",
-    "//src/ui:ui_legacy",
-  ]
+  assert_no_deps = []
   sources = [
     "main.cc",
     "shell/app/browser_main.cc",
@@ -381,7 +373,7 @@ win32_app("views") {
     "//src/content:view_host",
     "//src/gis:gis",
     "//src/gis/edit:edit",
-    "//src/gis/carto/tile:tile",
+    "//src/gis/tile:tile",
     "//src/vista:vista",
     "//src/gpu:gpu_lib",
     "//src/net:net",
@@ -424,6 +416,7 @@ win32_app("views") {
 }
 
 group("SmartGisViews") {
+  # GN alias; PE name is SmartGIS.exe (`output_name` on :views).
   deps = [ ":views" ]
 }
 

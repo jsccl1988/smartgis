@@ -20,7 +20,7 @@ bool resolve_plugin_want_gpu(const char* primary_gpu_env) {
   RhiPresentSessionOpts opts;
   opts.gpu_env = primary_gpu_env;
   opts.gpu_policy = GpuEnvPolicy::kDefaultOnUnlessZero;
-  opts.gpu_env_fallback = "SMT_PLUGIN_WORLD3D_GPU";
+  opts.gpu_env_fallback = "plugin-world3d-gpu";
   return resolve_rhi_want_gpu(opts);
 }
 
@@ -35,7 +35,7 @@ int prepare_plugin_device_session(Browser& browser,
   RhiPresentSessionOpts core_opts;
   core_opts.gpu_env = opts.gpu_env;
   core_opts.gpu_policy = GpuEnvPolicy::kDefaultOnUnlessZero;
-  core_opts.gpu_env_fallback = "SMT_PLUGIN_WORLD3D_GPU";
+  core_opts.gpu_env_fallback = "plugin-world3d-gpu";
   core_opts.require_scene_hwnd = opts.require_scene_hwnd;
   core_opts.detach_flycube = opts.detach_flycube;
   core_opts.detach_pump_ms = 100;

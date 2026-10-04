@@ -9,11 +9,8 @@ declare_args() {
   smt_render_math_simd = false
 }
 
-# Scene math: Eigen-backed Vector/Matrix plus bounds / frustum / SIMD.
-# C++ namespace is `base` (Vector2, Matrix, Aabb, Frustum); temporary
-# `render::` aliases remain in headers for leftover call sites.
-# These source_sets do not join base.dll (//src/base:base) or render.dll.
-# Algorithm and legacy depend on the labels directly.
+# Scene math layers (namespace `base`). Temporary `render::` aliases remain
+# in headers for leftover call sites. Source sets do not join base.dll.
 # Do not add this directory itself to include_dirs: a local math.h would
 # shadow the system <math.h> and break Eigen / <cmath> on MSVC.
 # Do not depend on rhi, programs, graph, effect, or gis.
@@ -30,41 +27,64 @@ config("math_simd_avx2") {
   }
 }
 
-# Header-only Eigen adapters + optional SIMD TU.
-# Do not public_dep //src/base:base: that label forwards to the platform DLL
-# and would pull unrelated rebuilds into every math consumer.
-source_set("math") {
+# scalar + linear + traits + xform + simd entry. Header-only Eigen adapters.
+source_set("linear") {
   public_configs = [ ":math_headers" ]
   public_deps = [ "//third_party:eigen" ]
-  sources = [ "simd.cc" ]
-  if (smt_render_math_simd) {
-    configs += [ ":math_simd_avx2" ]
-  }
+  sources = [
+    "detail/eigen.h",
+    "linear/affine2.h",
+    "linear/matrix.h",
+    "linear/matrix4.h",
+    "linear/point.h",
+    "linear/quat.h",
+    "linear/vector.h",
+    "scalar/constants.h",
+    "traits/vector_traits.h",
+    "xform/interpolate.h",
+    "xform/transform.h",
+    "xform/transform_stack.h",
+  ]
 }
 
 # Oriented / axis-aligned boxes, planes, rays, frustum.
-# Bounds TUs include base/core headers (macros / is_equal); //build:legacy
-# already adds //src. Link against base happens at the final DLL/exe.
 source_set("bounds") {
-  configs += [ "//build:legacy" ]
   sources = [
-    "aabb.cpp",
-    "obb.cpp",
-    "plane.cpp",
-    "ray.cpp",
-    "frustum.cpp",
+    "geom/aabb.cpp",
+    "geom/aabb.h",
+    "geom/cull.h",
+    "geom/frustum.cpp",
+    "geom/frustum.h",
+    "geom/obb.cpp",
+    "geom/obb.h",
+    "geom/plane.cpp",
+    "geom/plane.h",
+    "geom/ray.cpp",
+    "geom/ray.h",
   ]
-  public_deps = [ ":math" ]
+  public_deps = [ ":linear" ]
+}
+
+# Public facade: linear + bounds + optional SIMD TU.
+source_set("math") {
+  public_configs = [ ":math_headers" ]
+  public_deps = [
+    ":bounds",
+    ":linear",
+  ]
+  sources = [
+    "math.h",
+    "simd/simd.cc",
+    "simd/simd.h",
+  ]
+  if (smt_render_math_simd) {
+    configs += [ ":math_simd_avx2" ]
+  }
 }
 
 test("math_test") {
   output_name = "math_test"
   sources = [ "math_test.cc" ]
   include_dirs += [ "//src" ]
-  deps = [
-    ":bounds",
-    ":math",
-    # Aabb::is_init calls is_equal from base/core.
-    "//src/base:base",
-  ]
+  deps = [ ":math" ]
 }

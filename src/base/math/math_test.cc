@@ -103,6 +103,12 @@ int main() {
   using base::Matrix;
   using base::dot;
 
+  static_assert(base::vector_traits<base::Vector2>::dimension == 2);
+  static_assert(base::vector_traits<base::Vector3>::dimension == 3);
+  static_assert(base::vector_traits<base::Vector4>::dimension == 4);
+  static_assert(base::vector_traits<base::Point2<float>>::dimension == 2);
+  static_assert(base::vector_like<base::Vector3>);
+
   Vector3 a(1, 0, 0);
   Vector3 b(0, 1, 0);
   assert(std::fabs(dot(a, b)) < 1e-6f);

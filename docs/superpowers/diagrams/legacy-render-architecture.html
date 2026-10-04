@@ -7,7 +7,7 @@ All rights reserved.
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Scenic — scenic.dll + content 宿主</title>
+<title>Scenic — 上一代：CPU 并行光栅与 GPU 设备</title>
 <style>
   :root {
     --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
@@ -39,7 +39,8 @@ All rights reserved.
   button { appearance: none; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 11px; cursor: pointer; font: inherit; }
   button:hover { border-color: var(--accent); color: var(--accent); }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .legend { color: var(--muted); font-size: 0.82rem; }
+  .legend, .note { color: var(--muted); font-size: 0.82rem; }
+  .note { margin: 0 0 8px; }
   details.appendix { margin-top: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); padding: 8px 12px; }
   details.appendix summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; font-weight: 600; }
   table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
@@ -50,18 +51,20 @@ All rights reserved.
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>Scenic — 上一代引擎（content 宿主）</h1>
-    <p>产品 DLL <code>scenic.dll</code>（<code>namespace scenic</code>），宿主 <code>src/content</code>。工作副本磁盘 <code>src/scenic/{render/rhi2d,render/rhi3d,map,scene3d}</code>；<code>src/legacy/render</code> <strong>冻结</strong>。当前代是 Vista（<code>src/vista</code>），禁止并进 <code>vista.dll</code>。</p>
+    <h1>Scenic — 上一代：逻辑与物理焊在一起</h1>
+    <p>产品 DLL <code>scenic.dll</code>（<code>namespace scenic</code>），宿主 <code>src/content</code>。2D 加速是 CPU 上的 Raster×N（私有 HDC），3D 加速是 rhi3d 设备上的 GL Draw / D3D11 deferred。当前代 Vista 把逻辑对象和 GPU 录制拆开，并改用 FlyCube 一条 CommandList。</p>
     <div class="meta">
       Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Scenic</a>
       · <a href="../specs/2026-09-13-render-rhi-scene-design.md">§rhi2d tile-raster</a>
       · <a href="../specs/2026-09-13-render-rhi-scene-design.md">§rhi3d parallel frame</a>
       · <a href="../../../src/scenic/README.md">src/scenic</a>
+      · <a href="../../../src/scenic/render/rhi3d/impl/common/README.md">rhi3d impl/common</a>
     </div>
     <div class="rel">相关图：
+      <a href="./vista-subdirectory-layers.html">当前代 Vista（逻辑 / 物理 · CPU · GPU）</a>
       <a href="./render-accelerate-topology.html">Render accelerate（A×B）</a>
-      <a href="./ui-views-shell-architecture.html">UI Views shell</a>
-      <a href="./gis-vista-architecture.html">GIS vista</a>
+      <a href="./rhi2d-paint-map-strategy.html">rhi2d paint/map</a>
+      <a href="./rhi3d-public-api-lanes.html">rhi3d 部件</a>
     </div>
   </header>
 
@@ -70,18 +73,18 @@ All rights reserved.
     <svg class="diagram" viewBox="0 0 1040 168" role="img" aria-label="scenic.dll 与主库解耦分层">
       <rect x="20" y="12" width="240" height="64" rx="8" fill="#efeaf8" stroke="#6b5ea8" stroke-width="1.5"/>
       <text class="box-title" x="140" y="38" text-anchor="middle">Views → content</text>
-      <text class="box-sub" x="140" y="58" text-anchor="middle">只命名 scenic::Engine · DTO 适配
+      <text class="box-sub" x="140" y="58" text-anchor="middle">只命名 scenic::Engine · DTO 适配</text>
       <path class="arrow" d="M270 44 L318 44" marker-end="url(#ah)"/>
       <rect x="320" y="12" width="360" height="64" rx="8" fill="#e8f1fa" stroke="#2563a8" stroke-width="1.5"/>
       <text class="box-title" x="500" y="38" text-anchor="middle">scenic.dll  façade</text>
-      <text class="box-sub" x="500" y="58" text-anchor="middle">POD DrawItem · detail stubs · ↛ gis</text>
+      <text class="box-sub" x="500" y="58" text-anchor="middle">POD DrawItem · engine stubs · ↛ leftover</text>
       <rect x="700" y="12" width="320" height="64" rx="8" fill="#f4f6f8" stroke="#d8dee6"/>
       <text class="box-title" x="860" y="38" text-anchor="middle">主库 gis / content / leftover</text>
       <text class="box-sub" x="860" y="58" text-anchor="middle">不在 scenic 的 GN deps</text>
       <rect x="20" y="96" width="1000" height="56" rx="8" fill="#e6f5ef" stroke="#2f7d62"/>
       <text class="lane-label" x="36" y="128" fill="#2f7d62">copy opt-in</text>
-      <text class="box-title" x="280" y="122">scenic_copy_all · render/ + map/ + scene3d/</text>
-      <text class="box-sub" x="280" y="140">非第二套公开 API；可 dep gis — 不进 src_all / scenic.dll</text>
+      <text class="box-title" x="280" y="122">scenic_copy_all · render/{rhi2d,rhi3d} + scene3d/</text>
+      <text class="box-sub" x="280" y="140">err/geom/math/frame 在 scenic 根；backend_dll 在 render/ · 可 dep gis · 不进 src_all</text>
     </svg>
   </section>
 
@@ -100,15 +103,15 @@ All rights reserved.
 
       <rect x="280" y="10" width="240" height="70" rx="8" fill="#f8efe4" stroke="#b06a1a" stroke-width="1.5"/>
       <text class="box-title" x="400" y="36" text-anchor="middle">render/rhi3d</text>
-      <text class="box-sub" x="400" y="56" text-anchor="middle">GL / D3D11 · FrameJob</text>
+      <text class="box-sub" x="400" y="56" text-anchor="middle">GL / D3D11 · impl/common=FrameJob</text>
 
       <rect x="540" y="10" width="240" height="70" rx="8" fill="#efeaf8" stroke="#6b5ea8" stroke-width="1.5"/>
-      <text class="box-title" x="660" y="36" text-anchor="middle">map/</text>
-      <text class="box-sub" x="660" y="56" text-anchor="middle">↔ vista/map · carto detail</text>
+      <text class="box-title" x="660" y="36" text-anchor="middle">rhi2d paint/</text>
+      <text class="box-sub" x="660" y="56" text-anchor="middle">gis::style · LP/DP Viewport</text>
 
       <rect x="800" y="10" width="220" height="70" rx="8" fill="#e6f5ef" stroke="#2f7d62" stroke-width="1.5"/>
       <text class="box-title" x="910" y="36" text-anchor="middle">scene3d/</text>
-      <text class="box-sub" x="910" y="56" text-anchor="middle">↔ vista/scene · stereo</text>
+      <text class="box-sub" x="910" y="56" text-anchor="middle">↔ vista/scene · 禁止下沉 common</text>
 
       <!-- rhi2d stack -->
       <text x="20" y="110" class="lane-label" fill="#6b5ea8">rhi2d 分层</text>
@@ -125,7 +128,7 @@ All rights reserved.
       <rect x="140" y="184" width="280" height="32" rx="5" fill="#fff" stroke="#2563a8"/>
       <text class="box-title" x="280" y="204" text-anchor="middle">Rhi2dScheduler · Impl×1</text>
       <rect x="440" y="184" width="280" height="32" rx="5" fill="#fff" stroke="#2563a8"/>
-      <text class="box-title" x="580" y="204" text-anchor="middle">gen / damage / activate</text>
+      <text class="box-title" x="580" y="204" text-anchor="middle">与 Raster 组合 · 不合并类型</text>
 
       <rect x="20" y="232" width="1000" height="48" rx="6" fill="#e6f5ef" stroke="#d8dee6"/>
       <text class="lane-label" x="36" y="260" fill="#2f7d62">Paint</text>
@@ -148,7 +151,32 @@ All rights reserved.
   </section>
 
   <section class="panel">
-    <h2>2. rhi2d 并行流水线</h2>
+    <h2>1b. 3D 对等轨：scene3d 不下沉 rhi3d/impl/common</h2>
+    <p class="note" style="margin-top:0">2D 制图挂在 <code>rhi2d/impl/common/paint</code>，因为 Scenic 没有独立 map 场景图。3D <strong>有</strong>对象图，对等 <code>vista/scene</code>。把 <code>scene3d/</code> 搬进 <code>rhi3d/impl/common</code> 会让设备层 <code>#include</code> <code>Object3d</code> / <code>Scene</code>。</p>
+    <svg class="diagram" viewBox="0 0 1040 168" role="img" aria-label="scene3d 与 rhi3d/impl/common 分层">
+      <rect x="20" y="12" width="320" height="68" rx="8" fill="#e6f5ef" stroke="#2f7d62" stroke-width="1.5"/>
+      <text class="box-title" x="180" y="38" text-anchor="middle">src/scenic/scene3d</text>
+      <text class="box-sub" x="180" y="58" text-anchor="middle">Scene · Object3d · octree · seed · tess</text>
+      <rect x="360" y="24" width="88" height="44" rx="8" fill="#fff" stroke="#2f7d62"/>
+      <text class="box-title" x="404" y="51" text-anchor="middle">↔ 对等</text>
+      <rect x="468" y="12" width="250" height="68" rx="8" fill="#e5f3ec" stroke="#2f7d62" stroke-width="1.5"/>
+      <text class="box-title" x="593" y="38" text-anchor="middle">src/vista/scene</text>
+      <text class="box-sub" x="593" y="58" text-anchor="middle">GpuScene · upload / cull</text>
+      <rect x="740" y="12" width="280" height="68" rx="8" fill="#f8efe4" stroke="#b06a1a" stroke-width="1.5"/>
+      <text class="box-title" x="880" y="38" text-anchor="middle">rhi3d/impl/common</text>
+      <text class="box-sub" x="880" y="58" text-anchor="middle">仅 FrameScheduler + PrepRunner</text>
+      <rect x="20" y="96" width="490" height="56" rx="8" fill="#fff" stroke="#d8dee6"/>
+      <text class="box-sub" x="36" y="120">留在 scene3d：stereo_hwnd_view（持有 Scene+seed）</text>
+      <text class="box-sub" x="36" y="138">d3d_deferred_objects.h（按 Object3d 分区）</text>
+      <rect x="530" y="96" width="490" height="56" rx="8" fill="#fff" stroke="#d8dee6"/>
+      <text class="box-sub" x="546" y="120">留在 rhi3d/impl/d3d/host：deferred_draw 上下文池</text>
+      <text class="box-sub" x="546" y="138">Scene 持有 RenderDevice3d*，设备不拥有场景图</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>2. rhi2d — CPU 光栅并行（私有 HDC）</h2>
+    <p class="note" style="margin-top:0">Raster×N 在工人私有 HDC 上执行，汇合后 BitBlt。GPU 上传、Compute 与 CommandList 在 Vista 的 FlyCube 路径上。</p>
     <svg class="diagram" id="flow2d" viewBox="0 0 1040 140" role="img">
       <defs>
         <marker id="ah2" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/></marker>
@@ -160,7 +188,7 @@ All rights reserved.
       <path id="e3" class="arrow" d="M790 65 L820 65" marker-end="url(#ah2)"/>
       <g class="node" data-i="0"><rect x="40" y="25" width="150" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="68" cy="48" r="11" fill="#2563a8"/><text x="68" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">1</text><text class="box-title" x="115" y="52" text-anchor="middle">commit</text><text class="box-sub" x="115" y="74" text-anchor="middle">Main: damage/gen</text><text class="box-sub" x="115" y="90" text-anchor="middle">wake · 立即返回</text></g>
       <g class="node" data-i="1"><rect x="220" y="25" width="170" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="248" cy="48" r="11" fill="#2563a8"/><text x="248" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">2</text><text class="box-title" x="305" y="52" text-anchor="middle">activate</text><text class="box-sub" x="305" y="74" text-anchor="middle">Impl 串行 encode</text><text class="box-sub" x="305" y="90" text-anchor="middle">tile 一次 / layer 每层</text></g>
-      <g class="node" data-i="2"><rect x="420" y="25" width="170" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="448" cy="48" r="11" fill="#2563a8"/><text x="448" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">3</text><text class="box-title" x="505" y="52" text-anchor="middle">Raster×N</text><text class="box-sub" x="505" y="74" text-anchor="middle">pull tile/layer</text><text class="box-sub" x="505" y="90" text-anchor="middle">私有 HDC execute</text></g>
+      <g class="node" data-i="2"><rect x="420" y="25" width="170" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="448" cy="48" r="11" fill="#2563a8"/><text x="448" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">3</text><text class="box-title" x="505" y="52" text-anchor="middle">Raster×N</text><text class="box-sub" x="505" y="74" text-anchor="middle">一池 pull tile/layer</text><text class="box-sub" x="505" y="90" text-anchor="middle">私有 HDC execute</text></g>
       <g class="node" data-i="3"><rect x="620" y="25" width="170" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="648" cy="48" r="11" fill="#2563a8"/><text x="648" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">4</text><text class="box-title" x="705" y="52" text-anchor="middle">compose</text><text class="box-sub" x="705" y="74" text-anchor="middle">barrier → blit</text><text class="box-sub" x="705" y="90" text-anchor="middle">ocean color-key</text></g>
       <g class="node" data-i="4"><rect x="820" y="25" width="170" height="80" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/><circle cx="848" cy="48" r="11" fill="#2563a8"/><text x="848" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">5</text><text class="box-title" x="905" y="52" text-anchor="middle">publish</text><text class="box-sub" x="905" y="74" text-anchor="middle">gen 仍当前</text><text class="box-sub" x="905" y="90" text-anchor="middle">否则丢弃</text></g>
     </svg>
@@ -173,7 +201,8 @@ All rights reserved.
   </section>
 
   <section class="panel">
-    <h2>3. rhi3d 并行帧流水线</h2>
+    <h2>3. rhi3d — CPU Prep×N，GPU 在设备上画</h2>
+    <p class="note" style="margin-top:0">Prep×N 只做视锥 AABB，工人不做 GL/D3D Draw。GPU 加速发生在下一步：GL 串行 Draw，或 D3D11 deferred 的 Finish → Execute。HWND 不 join FrameJob。</p>
     <svg class="diagram" id="flow3d" viewBox="0 0 1040 140" role="img">
       <defs>
         <marker id="ah3" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/></marker>
@@ -195,6 +224,48 @@ All rights reserved.
     </div>
   </section>
 
+  <section class="panel">
+    <h2>4. 与 Vista：同一帧的两边</h2>
+    <svg class="diagram" viewBox="0 0 1040 250" role="img" aria-label="Scenic 与 Vista 的 CPU 并行和 GPU">
+      <rect x="0" y="0" width="1040" height="250" rx="10" fill="#fafbfc" stroke="#d8dee6"/>
+      <text class="lane-label" x="20" y="28" fill="#2563a8">Scenic — 逻辑和录制在同一个类型里</text>
+      <rect x="20" y="40" width="490" height="78" rx="7" fill="#e6f5ef" stroke="#2f7d62"/>
+      <text class="box-title" x="32" y="64">2D MapPainter</text>
+      <text class="box-sub" x="32" y="84">直接走 gis::Map。CPU Raster×N（私有 HDC）→ BitBlt</text>
+      <text class="box-sub" x="32" y="102">frame 在这里是 cc 帧拍，不是 GPU 录制</text>
+      <rect x="530" y="40" width="490" height="78" rx="7" fill="#f8efe4" stroke="#b06a1a"/>
+      <text class="box-title" x="542" y="64">3D Scene::Render</text>
+      <text class="box-sub" x="542" y="84">Object3d 列表与 LP3DRENDERDEVICE 在同一个 Scene</text>
+      <text class="box-sub" x="542" y="102">CPU Prep×N → GPU：GL Draw 或 D3D11 deferred</text>
+
+      <text class="lane-label" x="20" y="146" fill="#2f7d62">Vista — 逻辑 CPU 并行，物理 GPU 设备线程</text>
+      <rect x="20" y="158" width="490" height="72" rx="7" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="32" y="182">逻辑 map / world</text>
+      <text class="box-sub" x="32" y="202">Emit ×N 写 IR。工人无 Device。Resolve 串行汇合</text>
+      <rect x="530" y="158" width="490" height="72" rx="7" fill="#f8eedf" stroke="#b06a1a"/>
+      <text class="box-title" x="542" y="182">物理 frame / scene + FlyCube</text>
+      <text class="box-sub" x="542" y="202">Upload → FFT Compute → 一条 CommandList → content present</text>
+    </svg>
+    <p class="note">当前代全图：<a href="./vista-subdirectory-layers.html">Vista — 逻辑对象 / 物理录制</a>。Scenic 的 rhi2d/rhi3d 设备留在本引擎内；Vista 的设备是 <code>src/render</code> 的 FlyCube。取舍全文在规格 <a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista logical/physical lanes</a>。</p>
+    <table class="map">
+      <thead>
+        <tr><th></th><th>Scenic（本图）</th><th>Vista</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>优点</td>
+          <td>脏矩形按瓦片或图层光栅，合成只搬脏块。LP→DP 紧挨 HDC。多后端可做同等对比。帧拍已经跑过</td>
+          <td>2D 与 3D 共用 FlyCube。制图一次，软件出口和 GPU 出口共用 <code>MapFrame</code>。CPU 工人不碰 Device</td>
+        </tr>
+        <tr>
+          <td>缺点</td>
+          <td>逻辑和录制焊在 <code>MapPainter</code> / <code>Scene::Render</code>。2D 与 3D 两套设备。工人持有 HDC。上屏在引擎内部</td>
+          <td>冷帧先 IR 再上传。热帧靠缓存复用，没有脏瓦片 BitBlt。GPU 仍是一条 CommandList</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
   <details class="appendix">
     <summary>附录：模式 / Env / 产品对照</summary>
     <table class="map">
@@ -208,10 +279,11 @@ All rights reserved.
     <table class="map">
       <thead><tr><th>Legacy</th><th>产品（vista + render）</th></tr></thead>
       <tbody>
-        <tr><td>FrameJob Impl</td><td>content + Display mailbox</td></tr>
-        <tr><td>HDC×N</td><td>vista tess；GPU = effect/map</td></tr>
-        <tr><td>PrepRunner</td><td>GpuScene parallel_for</td></tr>
-        <tr><td>D3D11 deferred</td><td>默认单 CL</td></tr>
+        <tr><td>FrameJob / <code>Device2dFrame</code>（帧拍）</td><td>content <code>stage_frame</code>。UI 不 join</td></tr>
+        <tr><td>Raster×N 私有 HDC（CPU）</td><td>逻辑 Emit ×N（<code>Layout</code> / 细分）。无 HDC</td></tr>
+        <tr><td>Prep×N，禁 Draw（CPU）</td><td><code>prep_cull</code>。工人不碰 Device</td></tr>
+        <tr><td>GL Draw / D3D11 deferred（GPU）</td><td>FlyCube Upload + FFT Compute + 一条 CommandList</td></tr>
+        <tr><td><code>MapPainter</code> / <code>Scene::Render</code> 焊在一起</td><td>逻辑 <code>map</code>+<code>world</code>，物理 <code>frame</code>+<code>scene</code></td></tr>
       </tbody>
     </table>
   </details>

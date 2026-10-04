@@ -17,7 +17,7 @@ group("all") {
 }
 
 # `ninja -C out/Debug` with no args would otherwise build every ninja output
-# (leftover + scenic copy + tests). Default is the product library graph only.
+# (scenic copy + tests). Default is the product library graph only.
 group("default") {
   deps = [ ":all" ]
 }
@@ -42,7 +42,6 @@ group("benchmark_all") {
 }
 
 # SP5: endgame / shell tests only — no leftover paint / scene3d / MFC exe.
-# Verifies the default product graph without compiling legacy_*_all.
 group("test_shell") {
   testonly = true
   deps = [
@@ -69,7 +68,6 @@ group("test_shell") {
     "//src/render:rhi_test",
     "//src/render/testing:rhi_suite_test",
     "//src/gpu:render_backend_test",
-    "//src/base/core:menu_test",
     "//src/base/ipc:ipc_test",
     "//src/base/trace:trace_test",
     # Plugin pathway (Registry / PluginHost / processing ops / M4 embed sample).
@@ -82,28 +80,16 @@ group("test_shell") {
   ]
 }
 
-# Full test graph: shell + optional leftover paint / MFC (still opt-in for app).
+# Full test graph: shell only. Dual-run leftover paint / MFC exe deleted.
 group("test_all") {
   testonly = true
-  deps = [
-    ":test_shell",
-    "//src/legacy/render/rhi2d/impl/common:gdi_map_paint_test",
-    "//src/legacy/render/rhi2d/impl/common:map_carto2d_test",
-    "//src/legacy/render/rhi3d/impl/gl:gl_map_paint_test",
-    "//src/legacy/render/rhi3d/impl/d3d:d3d_texture_test",
-  ]
-  if (smt_build_app) {
-    deps += [ "//src/legacy/app:app" ]
-  }
+  deps = [ ":test_shell" ]
 }
 
 # Chrome / GPU exes + exe_smoke. build.bat e2e sets remaining smt_build_* flags.
 group("e2e") {
   testonly = true
   deps = [ ":test_all" ]
-  if (smt_build_app) {
-    deps += [ ":smartgis" ]
-  }
   if (smt_build_views) {
     deps += [ ":ui_views" ]
   }
@@ -148,49 +134,13 @@ group("core_all") {
   public_deps = [ "//src:src_all" ]
 }
 
-# Leftover MFC SmartGis.exe — opt-in only (build.bat legacy_app / smartgis).
-# Daily product entry is //:views (build.bat app|views). Not in group("all").
-group("smartgis") {
-  deps = []
-  if (smt_build_app) {
-    deps += [ "//src/legacy/app:legacy_app_all" ]
-  }
-}
-
-group("legacy_app_all") {
-  deps = []
-  if (smt_build_app) {
-    deps += [ "//src/legacy/app:legacy_app_all" ]
-  }
-}
-
-# SP5 opt-in aggregator for leftover engines + MFC chrome.
-# Not a dep of //:all / //src:src_all / //:views. See docs/superpowers/src-layout.md.
-group("legacy_all") {
-  deps = [
-    "//src/legacy/render:legacy_render_all",
-    "//src/legacy/tool:legacy_tool_all",
-    ":ui_legacy",
-  ]
-  if (smt_build_app) {
-    deps += [ "//src/legacy/app:legacy_app_all" ]
-  }
-}
-
-# Product chrome alias → Views (not MFC).
+# Product chrome alias → Views.
 group("app") {
   deps = [ ":views" ]
 }
 
-# MFC UI DLL (dll_stem = ui_legacy). Explicit ninja target; NOT in src_all.
-# Opt-in: build.bat ui_legacy or legacy_app (sets smt_build_app).
-group("ui_legacy") {
-  deps = [ "//src/ui:ui_legacy" ]
-}
-
 # Views toolkit + Skia canvas. Not a dep of group("all") / src_all.
 # The chrome exe is loaded only when smt_build_views=true (build.bat views|app).
-# SP5: must not pull legacy_*_all / ui_legacy (see //src/app/views:views assert_no_deps).
 group("ui_views") {
   deps = [
     "//src/ui/gfx:gfx",
@@ -216,13 +166,5 @@ group("render") {
   deps = []
   if (smt_build_render) {
     deps += [ "//src/gpu:gpu" ]
-  }
-}
-
-# Leftover SmtGroupToolCore (needs MFC gui). Not in src_all / ninja all.
-group("tool_group") {
-  deps = []
-  if (smt_build_app) {
-    deps += [ "//src/legacy/tool:tool_group" ]
   }
 }

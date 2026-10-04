@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <cstdint>
 
-#include "scenic/detail/err.h"
+#include "scenic/render/err.h"
 
 namespace scenic {
 namespace detail {

@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "base/trace/event/process_trace.h"
-#include "vista/frame/detail/layout/multiply.h"
+#include "vista/map/multiply.h"
 
 #pragma comment(lib, "Msimg32.lib")
 

@@ -140,7 +140,7 @@ All rights reserved.
           <li><strong>TIN</strong>：<code>geo::delaunay</code>（GEOS）</li>
           <li><strong>Grid</strong>：<code>geo::solve_laplace</code> / <code>solve_elliptic</code> / <code>compute_orthogonality</code></li>
           <li><strong>PROJ</strong>：<code>geo::CoordinateTransform</code></li>
-          <li><strong>Analysis</strong>：<code>native.*</code> / OpsRunner / Eigen（<code>Matrix2D</code> 在 leftover orthogrid）</li>
+          <li><strong>Analysis</strong>：<code>native.*</code> / OpsRunner / Eigen；地形烘焙核 <code>horn_lambert_shade</code> / <code>fill_ring_mask</code></li>
           <li>依赖 concept，不拥有结点表</li>
           <li>路径：<code>gis/geo/ops/</code> · <code>gis/geo/{tin,grid,proj}</code> · <code>analysis/**</code></li>
         </ul>
@@ -156,6 +156,20 @@ All rights reserved.
       <div class="chip"><strong>Ops + backends</strong><code>geo_ops</code> · tin · grid · proj</div>
       <div class="chip bridge"><strong>转发</strong><code>//src/gis:algorithm</code> → <code>gis.dll</code></div>
     </div>
+  </section>
+
+  <section class="panel">
+    <h2>2b. 地形烘焙缝（vista 调用 analysis）</h2>
+    <div class="flow" id="bake">
+      <div class="stage" data-i="0"><strong>1 栅格</strong><code>vista::DemRaster</code> / <code>LonLatRing</code></div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="1"><strong>2 核</strong><code>horn_lambert_shade_grid</code><br><code>fill_ring_mask</code></div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="2"><strong>3 呈现</strong>RGBA 对比度、海洋 alpha、烘焙缓存</div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="3"><strong>4 设备</strong>Thrust 副本留在 <code>vista/terrain/process/nv</code></div>
+    </div>
+    <p class="note" style="margin-top:10px">动画：数值核在 <code>gis.dll</code>；着色、掩膜类型和 CUDA 不进 analysis。<code>dem_gradient</code> 仍是坡度/坡向产品，不并入 Horn 因子。</p>
   </section>
 
   <section class="panel">
@@ -209,6 +223,15 @@ All rights reserved.
   }
   tick();
   setInterval(tick, 1100);
+  var bake = document.querySelectorAll("#bake .stage");
+  var j = 0;
+  function tickBake() {
+    bake.forEach(function (el) { el.classList.remove("active"); });
+    if (bake[j]) bake[j].classList.add("active");
+    j = (j + 1) % bake.length;
+  }
+  tickBake();
+  setInterval(tickBake, 1100);
 })();
 </script>
 </body>

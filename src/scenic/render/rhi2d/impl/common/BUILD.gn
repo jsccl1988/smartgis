@@ -52,14 +52,21 @@ _rhi2d_device_tree_sources = [
   "paint/carto/encode/command_encoder.cc",
   "paint/carto/encode/command_encoder.h",
   "paint/map/map_feature_prep.cc",
-  "paint/map/map_feature_prep.h",
-  "paint/map/map_geom_trace.cc",
-  "paint/map/map_geom_trace.h",
-  "paint/map/map_painter.cc",
-  "paint/map/map_painter.h",
-  "paint/map/map_draw_batch.cc",
-  "paint/map/map_draw_batch.h",
-  "paint/map/map_prep_pipeline.h",
+    "paint/map/map_feature_prep.h",
+    "paint/map/map_feature_draw.cc",
+    "paint/map/map_feature_draw.h",
+    "paint/map/map_geom_trace.cc",
+    "paint/map/map_geom_trace.h",
+    "paint/map/map_layer_draw.cc",
+    "paint/map/map_layer_draw.h",
+    "paint/map/map_painter.cc",
+    "paint/map/map_painter.h",
+    "paint/map/map_draw_batch.cc",
+    "paint/map/map_draw_batch.h",
+    "paint/map/map_prep_pipeline.h",
+    "paint/map/map_submit.cc",
+    "paint/map/map_submit.h",
+    "paint/map/map_view.h",
   "paint/carto/draw/points.h",
   "paint/carto/draw/carto_draw.cc",
   "paint/carto/draw/carto_draw.h",
@@ -99,13 +106,13 @@ template("rhi2d_device_port_sources") {
     configs += [ "//build:legacy" ]
     defines = [
       "_USRDLL",
-      "LEGACY_RHI2D_DEVICE_EXPORTS",
+      "SCENIC_RHI2D_DEVICE_EXPORTS",
     ]
     include_dirs += [ "//src" ]
     deps = [
       ":rhi2d_common_sources",
-      # Headers from scenic/detail; Style/err symbols come from scenic_impl
-      # (do not also link :scenic_detail — LNK2005 vs scenic_impl_d.dll.lib).
+      # Style/err symbols come from scenic_impl
+      # (do not also compile style_pod into the port DLL — LNK2005).
       "//src/scenic:scenic_impl",
       "//src/gis/geo:geo",
       "//src/plugin/product/world3d:world3d_orthogrid_lattice",
@@ -215,7 +222,7 @@ test("scenic_gdi_compose_test") {
   ]
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
-  defines = [ "SMT_GDI_COMPOSE_STATIC" ]
+    defines = [ "SCENIC_GDI_COMPOSE_STATIC" ]
   deps = [
     "//src/base:base",
     "//src/base:core",
@@ -279,7 +286,7 @@ test("scenic_tile_raster_test") {
   ]
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
-  defines = [ "SMT_GDI_ENCODE_STATIC" ]
+  defines = [ "SCENIC_GDI_ENCODE_STATIC" ]
   deps = [
     "//src/base:base",
     "//src/base:core",
@@ -307,7 +314,7 @@ test("scenic_gdi_encode_test") {
   ]
   include_dirs += [ "//src" ]
   configs = [ "//build:legacy" ]
-  defines = [ "SMT_GDI_ENCODE_STATIC" ]
+  defines = [ "SCENIC_GDI_ENCODE_STATIC" ]
   deps = [
     "//src/base:base",
     "//src/base:core",

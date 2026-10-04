@@ -21,6 +21,7 @@
 #include <windowsx.h>
 
 #include "base/core/log.h"
+#include "base/process/switches.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/raster/paint_stats.h"
@@ -165,7 +166,7 @@ void MapViewport::note_hud_frame() {
     hud_fps_.store(fps, std::memory_order_relaxed);
   }
   // Optional rolling sample for FPS self-evolve loops (env path).
-  if (const char* path = std::getenv("SMT_MAP_FPS_LOG")) {
+  if (const char* path = base::switch_cstr("map-fps-log")) {
     if (path[0]) {
       static auto last_write = std::chrono::steady_clock::time_point{};
       static float sum = 0.f;
@@ -215,13 +216,13 @@ void MapViewport::sync_identity_frame() {
     } else if (content::prefer_scene3d_stereo_gl()) {
       // Default leftover stereo is D3D11; OpenGL is opt-in.
       bool d3d = true;
-      if (const char* api = std::getenv("SMT_STEREO_API")) {
+      if (const char* api = base::switch_cstr("stereo-api")) {
         if (_stricmp(api, "OpenGL") == 0) {
           d3d = false;
         } else if (_stricmp(api, "Direct3D") == 0) {
           d3d = true;
         }
-      } else if (const char* flag = std::getenv("SMT_SCENE3D_SHOWCASE_D3D")) {
+      } else if (const char* flag = base::switch_cstr("scene3d-showcase-d3d")) {
         if (flag[0] == '0' || flag[0] == 'n' || flag[0] == 'N') {
           d3d = false;
         } else if (flag[0] == '1' || flag[0] == 'y' || flag[0] == 'Y') {
@@ -277,7 +278,7 @@ void MapViewport::sync_identity_frame() {
   // Yellow identity HUD is opt-in (clutters the product map). Window title
   // always carries role/engine/fps for harness + forensics.
   const bool show_hud = [] {
-    const char* v = std::getenv("SMT_MAP_IDENTITY_HUD");
+    const char* v = base::switch_cstr("map-identity-hud");
     return v && v[0] == '1' && v[1] == '\0';
   }();
   if (!show_hud) {

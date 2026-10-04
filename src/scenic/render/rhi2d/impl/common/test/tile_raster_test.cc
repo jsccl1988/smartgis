@@ -12,6 +12,7 @@
 #include "scenic/render/rhi2d/impl/common/cc/tile_graph_runner.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/encode/command_encoder.h"
 #include "scenic/render/rhi2d/impl/common/surface/dib/owned.h"
+#include "base/process/switches.h"
 
 namespace {
 
@@ -25,8 +26,8 @@ void expect(bool cond, const char* msg) {
 }
 
 void test_enumerate_full_and_damage() {
-  _putenv_s("SMT_RHI2D_TILE_SIZE", "256");
-  _putenv_s("SMT_RHI2D_TILE_OUTSET", "16");
+  base::set_switch("rhi2d-tile-size", "256");
+  base::set_switch("rhi2d-tile-outset", "16");
 
   auto all = scenic::detail::enumerate_viewport_tiles(
       500, 400, RECT{0, 0, 0, 0}, /*full_damage=*/true, /*gen=*/1);
@@ -61,7 +62,7 @@ void test_execute_tile_stitch() {
   constexpr int kW = 64;
   constexpr int kH = 64;
   scenic::detail::Rhi2dOwnedSurface full;
-  expect(full.set_size(kW, kH) == SMT_ERR_NONE, "full surface");
+  expect(full.set_size(kW, kH) == kErrNone, "full surface");
 
   scenic::detail::Rhi2dCommandEncoder enc;
   enc.begin_pass(&full.surface());
@@ -87,7 +88,7 @@ void test_execute_tile_stitch() {
   }
 
   scenic::detail::Rhi2dOwnedSurface composed;
-  expect(composed.set_size(kW, kH) == SMT_ERR_NONE, "composed surface");
+  expect(composed.set_size(kW, kH) == kErrNone, "composed surface");
   composed.clear(0, 0, kW, kH, RGB(0, 0, 0));
 
   scenic::detail::Rhi2dTileGraphRunner runner;
@@ -98,7 +99,7 @@ void test_execute_tile_stitch() {
     const auto& tile = tiles[i];
     const int tw = tile.paint.right - tile.paint.left;
     const int th = tile.paint.bottom - tile.paint.top;
-    expect(s->set_size(tw, th) == SMT_ERR_NONE, "tile set_size");
+    expect(s->set_size(tw, th) == kErrNone, "tile set_size");
     expect(scenic::detail::execute_tile(buf, s->surface(), tile.paint.left,
                                         tile.paint.top),
            "execute_tile");
@@ -152,22 +153,22 @@ void test_graph_runner_cancel() {
 }
 
 void test_tile_raster_env_fallback() {
-  _putenv_s("SMT_RHI2D_PARALLEL", "");
-  _putenv_s("SMT_RHI2D_TILE_RASTER", "0");
+  base::set_switch("rhi2d-parallel", "");
+  base::set_switch("rhi2d-tile-raster", "0");
   expect(scenic::detail::rhi2d_parallel_mode() ==
              scenic::detail::Rhi2dParallelMode::kSerial,
          "legacy TILE_RASTER=0 => serial");
   expect(!scenic::detail::rhi2d_tile_raster_enabled(), "env 0 disables tile");
   expect(scenic::detail::rhi2d_tile_raster_worker_count(16) == 1,
          "disabled => 1 worker");
-  _putenv_s("SMT_RHI2D_TILE_RASTER", "1");
+  base::set_switch("rhi2d-tile-raster", "1");
 #if defined(_DEBUG)
   // Debug defaults PARALLEL unset → serial (browse stability); TILE_RASTER=1
   // alone does not override that floor — set SMT_RHI2D_PARALLEL=tile to opt in.
   expect(scenic::detail::rhi2d_parallel_mode() ==
              scenic::detail::Rhi2dParallelMode::kSerial,
          "Debug: TILE_RASTER=1 without PARALLEL => serial");
-  _putenv_s("SMT_RHI2D_PARALLEL", "tile");
+  base::set_switch("rhi2d-parallel", "tile");
 #endif
   expect(scenic::detail::rhi2d_parallel_mode() ==
              scenic::detail::Rhi2dParallelMode::kTile,
@@ -175,18 +176,18 @@ void test_tile_raster_env_fallback() {
   expect(scenic::detail::rhi2d_tile_raster_enabled(), "env enables tile");
   expect(scenic::detail::rhi2d_parallel_worker_count(16) >= 2,
          "enabled multi-job => >=2 workers");
-  _putenv_s("SMT_RHI2D_PARALLEL", "layer");
+  base::set_switch("rhi2d-parallel", "layer");
   expect(scenic::detail::rhi2d_parallel_mode() ==
              scenic::detail::Rhi2dParallelMode::kLayer,
          "PARALLEL=layer");
   expect(scenic::detail::rhi2d_layer_raster_enabled(), "layer enabled");
   expect(!scenic::detail::rhi2d_tile_raster_enabled(), "layer not tile");
-  _putenv_s("SMT_RHI2D_PARALLEL", "serial");
+  base::set_switch("rhi2d-parallel", "serial");
   expect(scenic::detail::rhi2d_parallel_mode() ==
              scenic::detail::Rhi2dParallelMode::kSerial,
          "PARALLEL=serial");
-  _putenv_s("SMT_RHI2D_PARALLEL", "");
-  _putenv_s("SMT_RHI2D_TILE_RASTER", "");
+  base::set_switch("rhi2d-parallel", "");
+  base::set_switch("rhi2d-tile-raster", "");
 }
 
 void test_layer_execute_colorkey_compose() {
@@ -194,7 +195,7 @@ void test_layer_execute_colorkey_compose() {
   constexpr int kH = 32;
   constexpr COLORREF kOcean = RGB(170, 211, 223);
   scenic::detail::Rhi2dOwnedSurface back;
-  expect(back.set_size(kW, kH) == SMT_ERR_NONE, "back surface");
+  expect(back.set_size(kW, kH) == kErrNone, "back surface");
   back.clear(0, 0, kW, kH, kOcean);
 
   scenic::detail::Rhi2dCommandEncoder enc0;
@@ -218,7 +219,7 @@ void test_layer_execute_colorkey_compose() {
   runner.ensure_workers(2);
   runner.run_tiles(layers.size(), [&](size_t i) {
     auto s = std::make_unique<scenic::detail::Rhi2dOwnedSurface>();
-    expect(s->set_size(kW, kH) == SMT_ERR_NONE, "layer set_size");
+    expect(s->set_size(kW, kH) == kErrNone, "layer set_size");
     // Ocean pad (set_size clear) + paint; compose keys on ocean.
     expect(scenic::detail::execute(layers[i], s->surface()), "layer execute");
     surfs[i] = std::move(s);

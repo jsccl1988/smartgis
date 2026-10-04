@@ -1,17 +1,18 @@
-// Copyright (c) 2010 CCL. All rights reserved.
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #ifndef SCENIC_SCENE3D_SCENE_SCENE_H
 #define SCENIC_SCENE3D_SCENE_SCENE_H
 
 #include <mutex>
 
 #include "base/time/frame_timer.h"
-#include "scenic/detail/err.h"
-#include "scenic/detail/geom.h"
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/err.h"
+#include "base/math/math.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/camera/camera.h"
 #include "scenic/render/rhi3d/public/device/render_device.h"
 #include "scenic/render/rhi3d/public/device/base.h"
-#include "scenic/scene3d/index/octree.h"
 #include "scenic/scene3d/primitive/mesh/northarray.h"
 #include "scenic/scene3d/scene/object.h"
 
@@ -22,7 +23,11 @@ using namespace scenic::detail;
 
 namespace scenic {
 namespace detail {
-class LEGACY_RENDER_EXPORT Scene {
+
+class SceneOctree;
+
+// Leftover 3D scene graph: object list, optional flat octree, camera, HUD.
+class SCENIC_IMPL_EXPORT Scene {
  public:
   Scene(void);
   virtual ~Scene(void);
@@ -79,7 +84,7 @@ class LEGACY_RENDER_EXPORT Scene {
  private:
   LP3DRENDERDEVICE m_p3DRenderDevice;
 
-  SceneOctTree *m_pSceneTree;
+  SceneOctree *m_pSceneTree;
   bool m_bOctTreeCreated;
   bool m_bShowNodeBox;
   Object3dPtrs m_v3DObjectPtrs;
@@ -100,7 +105,7 @@ class LEGACY_RENDER_EXPORT Scene {
 };
 }  // namespace detail
 }  // namespace scenic
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else

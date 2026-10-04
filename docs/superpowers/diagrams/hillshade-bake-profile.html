@@ -1,0 +1,151 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEM / hillshade bake profile</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 14px 16px 16px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .meta a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .lane-label { font-weight: 700; font-size: 12px; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  table.own { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .own th, .own td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .own th { background: #e8edf3; color: var(--muted); font-weight: 650; }
+  .note { margin: 10px 0 0; color: var(--muted); font-size: 0.82rem; }
+  .stage { opacity: 0.38; }
+  .stage.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>DEM / hillshade bake profile</h1>
+    <p>冷路径烘焙与逐帧 <code>hillshade_ms</code> 分开记账。跨度走 <code>base::trace::process_trace</code>（<code>cat=bake</code>），不是 <code>startup_profile</code>。</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§DEM / hillshade bake profile</a>
+      · 计划：<a href="../plans/2026-09-30-map2d-hillshade-line-casing.md">map2d hillshade + line casing</a>
+      · 帧时钟：<a href="./map2d-present-frame.html">map2d-present-frame</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 分层所有权</h2>
+    <svg class="diagram" viewBox="0 0 1040 430" role="img" aria-label="bake profile 四层：trace、vista bake、kernel、harness">
+      <rect x="0" y="0" width="1040" height="92" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="22" fill="#2563a8">base / trace</text>
+      <text class="box-sub" x="16" y="42">process_trace · ScopedTraceEvent · cat=bake（HillshadeBake / shade_cpu / shade_cuda / load_dem / disk_store / fill_lonlat_mask）</text>
+      <text class="box-sub" x="16" y="62">SMT_TRACE=1 或 SMT_BAKE_PROFILE=1 开录；SMT_TRACE_DUMP 写 Chrome JSON。startup_profile 只收 cat=startup</text>
+
+      <rect x="0" y="106" width="1040" height="100" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="128" fill="#1d6b4f">vista map · C4 orchestration</text>
+      <text class="box-sub" x="16" y="148">bake_hillshade_slot：mem cache → disk cache → DemRaster::load_gdal_raster → shade_dem_rgba → disk/mem store</text>
+      <text class="box-sub" x="16" y="166">HillshadeBakeSample 末次相位；Map2dPhaseSample.hillshade_ms 仍是 layout 整段墙钟（不拆子相）</text>
+      <text class="box-sub" x="16" y="184">content map2d_layout_build 只包一层 HillshadeBake；子相在 vista</text>
+
+      <rect x="0" y="220" width="1040" height="100" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="242" fill="#8a5a12">vista world · terrain process</text>
+      <text class="box-sub" x="16" y="262">shade_dem_rgba：downsample（step_x/y）熔进 Horn；CPU parallel_for 或 try_shade_dem_thrust</text>
+      <text class="box-sub" x="16" y="280">fill_lonlat_mask：even-odd PIP；CPU parallel_for 或 try_fill_lonlat_mask_thrust</text>
+      <text class="box-sub" x="16" y="298">SMT_BAKE_BACKEND=cpu|cuda|auto · CUDA 可选；无 Toolkit 走 stub（false → CPU）</text>
+
+      <rect x="0" y="334" width="1040" height="86" rx="8" fill="#f7e8e8" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="356" fill="#8b3a3a">harness / tests</text>
+      <text class="box-sub" x="16" y="376">dem_raster_test + land_mask_test + run_hillshade_bake_bench.py</text>
+      <text class="box-sub" x="16" y="394">产物：out/&lt;config&gt;/captures/analysis/hillshade_bake/ · 非 gen-root 脚本 · 非新产品 exe</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>2. 冷 bake 流水（谁等待）</h2>
+    <svg class="diagram" viewBox="0 0 1040 220" role="img" aria-label="mem disk load shade store 流水动画">
+      <rect x="16" y="36" width="150" height="72" rx="8" fill="#e8f1fa" stroke="#d8dee6" class="stage" id="s0"/>
+      <text class="box-title" x="32" y="66">1 mem</text>
+      <text class="box-sub" x="32" y="86">cache_lookup</text>
+      <rect x="186" y="36" width="150" height="72" rx="8" fill="#e6f5ef" stroke="#d8dee6" class="stage" id="s1"/>
+      <text class="box-title" x="202" y="66">2 disk</text>
+      <text class="box-sub" x="202" y="86">disk_lookup</text>
+      <rect x="356" y="36" width="150" height="72" rx="8" fill="#f8efe4" stroke="#d8dee6" class="stage" id="s2"/>
+      <text class="box-title" x="372" y="66">3 load DEM</text>
+      <text class="box-sub" x="372" y="86">load_gdal_raster</text>
+      <rect x="526" y="36" width="190" height="72" rx="8" fill="#eef2f6" stroke="#d8dee6" class="stage" id="s3"/>
+      <text class="box-title" x="542" y="66">4 shade</text>
+      <text class="box-sub" x="542" y="86">CPU ∥ vs Thrust</text>
+      <rect x="736" y="36" width="150" height="72" rx="8" fill="#f7e8e8" stroke="#d8dee6" class="stage" id="s4"/>
+      <text class="box-title" x="752" y="66">5 store</text>
+      <text class="box-sub" x="752" y="86">disk + mem</text>
+      <path d="M166 72 L186 72" stroke="#5a6a7e" stroke-width="1.5" marker-end="url(#arr)"/>
+      <path d="M336 72 L356 72" stroke="#5a6a7e" stroke-width="1.5"/>
+      <path d="M506 72 L526 72" stroke="#5a6a7e" stroke-width="1.5"/>
+      <path d="M716 72 L736 72" stroke="#5a6a7e" stroke-width="1.5"/>
+      <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#5a6a7e"/></marker></defs>
+      <text class="box-sub" x="16" y="140" id="cap">命中 mem / disk 则跳过 load+shade。equal-profile 核对比：SMT_BAKE_DISK=0 且 reset cache。</text>
+      <text class="box-sub" x="16" y="168">PIP（land_mask）是并行车道，不插入 hillshade slot；同一 JSON 表第二组行。</text>
+      <text class="box-sub" x="16" y="196">UI 线程不 join CUDA；Thrust 失败则 auto 回落 CPU。backend=cuda 时失败记 skip，不把 CPU 冒充 GPU。</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>3. 时钟对照</h2>
+    <table class="own">
+      <thead>
+        <tr><th>时钟</th><th>所有者</th><th>含义</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>Map2dPhaseSample.hillshade_ms</code></td><td>content present</td><td>layout 内 <code>bake_hillshade_slot</code> 墙钟；暖路径应变 0（C4 hit）</td></tr>
+        <tr><td><code>HillshadeBakeSample</code></td><td><code>bake_hillshade_slot</code></td><td>mem / disk / load / shade / store + <code>used_cuda</code></td></tr>
+        <tr><td><code>LandMaskBakeSample</code></td><td><code>fill_lonlat_mask</code></td><td>PIP fill_ms + used_cuda</td></tr>
+        <tr><td><code>DemPhaseSample</code></td><td>dem_bake_cache</td><td>3D seed load/tess/hypso；不与 2D hillshade 混列</td></tr>
+        <tr><td><code>cat=startup</code></td><td>startup_profile</td><td>冷启动到首图；bake 禁止记入此 cat</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Equal-profile：同一 <code>china_dem</code>、<code>max_edge=768</code>、默认光照（335° / 32° / exaggeration 0.5）。CPU = <code>parallel_for</code>；CUDA = Thrust（<code>smt_has_cuda</code> 编译，运行期 <code>cuda_ready</code>）。</p>
+  </section>
+</div>
+<script>
+(function () {
+  const ids = ["s0", "s1", "s2", "s3", "s4"];
+  const caps = [
+    "1 mem：进程内 HillshadeBakeCache",
+    "2 disk：DEM 旁 .hs_{max_edge}_{az}.bin",
+    "3 load：GDAL china_dem（未命中才走）",
+    "4 shade：Horn；downsample 熔进 step_x/y",
+    "5 store：写 disk + mem；随后 layout 只持 RGBA 句柄"
+  ];
+  let i = 0;
+  function tick() {
+    ids.forEach((id, n) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle("on", n === i);
+    });
+    const cap = document.getElementById("cap");
+    if (cap) cap.textContent = caps[i];
+    i = (i + 1) % ids.length;
+  }
+  tick();
+  setInterval(tick, 1100);
+})();
+</script>
+</body>
+</html>

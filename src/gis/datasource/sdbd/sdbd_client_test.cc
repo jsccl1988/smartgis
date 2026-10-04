@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include "base/process/switches.h"
 
 namespace {
 
@@ -52,29 +53,29 @@ int main() {
   using gis::datasource::sdbd_rpc_method_tile_window;
 
   // Default base (env may override; pin when unset).
-  const char* prev = std::getenv("SG_SDBD_BASE");
-  _putenv_s("SG_SDBD_BASE", "");
+  const char* prev = base::switch_cstr("sdbd-base");
+  base::set_switch("sdbd-base", "");
   expect_eq(sdbd_default_base_url(), "http://127.0.0.1:8021",
             "default base when SG_SDBD_BASE empty");
-  _putenv_s("SG_SDBD_BASE", "http://10.0.0.2:9000");
+  base::set_switch("sdbd-base", "http://10.0.0.2:9000");
   expect_eq(sdbd_default_base_url(), "http://10.0.0.2:9000",
             "SG_SDBD_BASE override");
   if (prev && prev[0]) {
-    _putenv_s("SG_SDBD_BASE", prev);
+    base::set_switch("sdbd-base", prev);
   } else {
-    _putenv_s("SG_SDBD_BASE", "");
+    base::set_switch("sdbd-base", "");
   }
 
-  const char* prev_rpc = std::getenv("SG_SDBD_RPC");
-  _putenv_s("SG_SDBD_RPC", "");
+  const char* prev_rpc = base::switch_cstr("sdbd-rpc");
+  base::set_switch("sdbd-rpc", "");
   expect_eq(sdbd_default_rpc_endpoint(), "127.0.0.1:9032",
             "default RPC endpoint");
-  _putenv_s("SG_SDBD_RPC", "10.0.0.3:9032");
+  base::set_switch("sdbd-rpc", "10.0.0.3:9032");
   expect_eq(sdbd_default_rpc_endpoint(), "10.0.0.3:9032", "SG_SDBD_RPC override");
   if (prev_rpc && prev_rpc[0]) {
-    _putenv_s("SG_SDBD_RPC", prev_rpc);
+    base::set_switch("sdbd-rpc", prev_rpc);
   } else {
-    _putenv_s("SG_SDBD_RPC", "");
+    base::set_switch("sdbd-rpc", "");
   }
 
   // Connection parse: HTTP vs FnRPC.

@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <windows.h>
+#include "base/process/switches.h"
 
 namespace app {
 namespace detail {
@@ -80,7 +81,7 @@ int run_atmosphere_present(Browser& browser,
   // Default 3 warmup frames; raise via SMT_ATMOSPHERE_SHOWCASE_PRESENT_COUNT
   // for equal-profile benches vs leftover scene3d (same 640x480 HWND).
   int present_count = 3;
-  if (const char* pc = std::getenv("SMT_ATMOSPHERE_SHOWCASE_PRESENT_COUNT")) {
+  if (const char* pc = base::switch_cstr("atmosphere-showcase-present-count")) {
     const int v = std::atoi(pc);
     if (v > 0 && v <= 600) {
       present_count = v;

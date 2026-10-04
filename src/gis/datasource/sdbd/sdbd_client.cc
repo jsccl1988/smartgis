@@ -14,6 +14,7 @@
 #endif
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
+#include "base/process/switches.h"
 
 namespace gis {
 namespace datasource {
@@ -142,7 +143,7 @@ const char* sdbd_rpc_method_import_url() { return "sdbd.import_url"; }
 const char* sdbd_rpc_method_ingest() { return "sdbd.ingest"; }
 
 std::string sdbd_default_rpc_endpoint() {
-  if (const char* env = std::getenv("SG_SDBD_RPC")) {
+  if (const char* env = base::switch_cstr("sdbd-rpc")) {
     if (env[0] != '\0') {
       return std::string(env);
     }

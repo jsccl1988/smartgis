@@ -10,10 +10,10 @@ Progressive disclosure. Read when parsing logs, picking a hot phase, or wiring S
 ## Frame model
 
 ```
-SmartGisViews --map2d-showcase=china
+SmartGIS.exe --map2d-showcase=china
         │
         ├─ seed / layout (Map2dFrameCache)
-        │     layout_ms · hillshade_ms
+        │     layout_ms · hillshade_ms (lump; sub-phases = HillshadeBakeSample / cat=bake)
         │
         ├─ software export_bmp (optional)
         │     software_paint_ms · bmp_io_ms · paint_ms
@@ -57,7 +57,9 @@ Warm past dual-speed settle (~200–350 ms pump) before timed samples — alread
 | `SMT_MAP2D_SHOWCASE_GPU` | `1` = FlyCube present |
 | `SMT_MAP2D_FPS_BENCH_MS` | >0 enables FPS sample loop |
 | `SMT_MAP2D_EXPORT_REUSE` | `1` = bench-only warm paint/blit |
-| `SMT_TRACE` | Chrome-trace / RenderTrace spans |
+| `SMT_TRACE` / `SMT_BAKE_PROFILE` | Chrome-trace / RenderTrace; bake spans use **`cat=bake`** (not `startup`) |
+| `SMT_BAKE_BACKEND` | `auto` \| `cpu` \| `cuda` — equal-profile bake bench |
+| `SMT_BAKE_BENCH` | `1` = `dem_raster_test` / `land_mask_test` write `captures/analysis/hillshade_bake/` |
 | `SMT_MAP_FPS_LOG` | Extra map FPS logging when wired |
 
 ## Fix heuristics
@@ -66,7 +68,7 @@ Warm past dual-speed settle (~200–350 ms pump) before timed samples — alread
 | --- | --- |
 | Warm present still hundreds of ms | Invalidating frame cache every present; device recreate; Pass upload not kept |
 | `layout_builds_delta` >> 0 during FPS bench | Overlay / identity sync churn; shell paint forcing rebuild |
-| High `hillshade_ms` every frame | Shade RGBA / DEM overview not cached by path+LOD |
+| High `hillshade_ms` every frame | Shade RGBA / DEM overview not cached by path+LOD — split with `HillshadeBakeSample` (`cat=bake`) |
 | High `gpu_upload_ms` on warm | StaticReuse not taken; graph rebuild every frame |
 | Low FPS but warm present_ms tiny | Main-thread pump / shell paint outside present (compare wall vs phase) |
 

@@ -24,7 +24,7 @@
     "rounds": 6,
     "timeout_sec": 90,
     "build_target": "SmartGis",
-    "exe": "SmartGis.exe"
+    "exe": "SmartGIS-Legacy.exe"
   },
   "visual_review": {
     "enabled": true,

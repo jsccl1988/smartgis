@@ -8,7 +8,7 @@
 #include <new>
 #include <windows.h>
 
-#include "scenic/detail/viewport.h"
+#include "scenic/render/rhi2d/public/device/viewport.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/encode/command_buffer.h"
 
 namespace scenic {

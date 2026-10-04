@@ -46,6 +46,7 @@
 #include "app/views/shell/ui/shell_layout_composer.h"
 #include "base/trace/diag/startup_profile.h"
 #include "base/trace/event/process_trace.h"
+#include "base/process/switches.h"
 #include "ui/gis/catalog/catalog_view.h"
 #include "ui/gis/catalog/layer_tree.h"
 #include "ui/gis/inspect/attribute_table.h"
@@ -349,7 +350,7 @@ bool BrowserView::init_shell() {
     // product defer_china_seed() leaves the doc empty until Browser::show.
     // Real-data policy: never invent demo features on either path.
     const bool skip_china_seed = []() {
-      const char* skip = std::getenv("SMT_SKIP_AMBOX_CATALOG");
+      const char* skip = base::switch_cstr("skip-ambox-catalog");
       return skip && skip[0] != '\0' && skip[0] != '0';
     }();
     const bool defer_china = browser_->defer_china_seed();
@@ -368,7 +369,7 @@ bool BrowserView::init_shell() {
       // Match --ui-showcase=shell: open china_city before first paint. Skip
       // O(n×m) land-clip on this sync path so bare launch stays interactive;
       // hillshade still bakes on the first settled MapFrame after show.
-      _putenv_s("SMT_SKIP_CHINA_LAND_CLIP", "1");
+      base::set_switch("skip-china-land-clip", "1");
       {
         BASE_TRACE_EVENT("SeedDocument.Default", "startup");
         if (!seh_seed_default(browser_->document(), /*allow_china=*/true)) {
@@ -386,7 +387,7 @@ bool BrowserView::init_shell() {
                        "startup: china sample missing (out/data/china_city.*)\n");
         }
       }
-      _putenv_s("SMT_SKIP_CHINA_LAND_CLIP", "");
+      base::set_switch("skip-china-land-clip", "");
       std::fprintf(stderr, "startup: SeedDocument china=%d layers=%zu feats=%zu\n",
                    browser_->document() &&
                            browser_->document()->has_china_extent()
@@ -413,7 +414,7 @@ bool BrowserView::init_shell() {
     // skewed ui_ hwnd during early init (cdb world3d-early). Scene3D framing
     // is applied later by apply_china_scene3d_product_defaults.
     const bool skip_fit = []() {
-      const char* skip = std::getenv("SMT_SKIP_AMBOX_CATALOG");
+      const char* skip = base::switch_cstr("skip-ambox-catalog");
       return skip && skip[0] != '\0' && skip[0] != '0';
     }();
     if (!skip_fit) {
@@ -447,7 +448,7 @@ bool BrowserView::init_shell() {
     // / push_shared_extent (ui_ offset freefill under parallel ninja + SKIP_AMBOX).
     // ui.shell china seed later calls fit_map_extent (which pushes extent).
     const bool skip_fit_push = []() {
-      const char* skip = std::getenv("SMT_SKIP_AMBOX_CATALOG");
+      const char* skip = base::switch_cstr("skip-ambox-catalog");
       return skip && skip[0] != '\0' && skip[0] != '0';
     }();
     if (!skip_fit_push) {
@@ -565,11 +566,11 @@ void BrowserView::show_shell() {
     // Showcase skips Map Edit present attach (SMT_SKIP_AMBOX_CATALOG) — never
     // spin waiting for a frame that will never arrive.
     const bool skip_wait = []() {
-      const char* skip = std::getenv("SMT_SKIP_AMBOX_CATALOG");
+      const char* skip = base::switch_cstr("skip-ambox-catalog");
       if (skip && skip[0] != '\0' && skip[0] != '0') {
         return true;
       }
-      const char* sync = std::getenv("SMT_SYNC_FIRST_MAP_PRESENT");
+      const char* sync = base::switch_cstr("sync-first-map-present");
       const bool want_sync = sync && sync[0] == '1' && sync[1] == '\0';
       return !want_sync;
     }() || pane->attach_mode() == ui::views::MapViewport::AttachMode::kNone;
@@ -783,7 +784,7 @@ void BrowserView::show_pending_map_context_menu() {
     return;
   }
   // Headless / self-test: skip modal popup (would hang the pump).
-  if (GetEnvironmentVariableA("SMT_SKIP_MAP_CONTEXT_MENU", nullptr, 0) > 0) {
+  if (base::switch_cstr("skip-map-context-menu")) {
     return;
   }
   std::vector<std::string> labels;
@@ -892,13 +893,13 @@ void BrowserView::populate_ambox() {
   // Soft-skip catalog walk when parallel rebuilds leave CommandCatalog maps
   // unreadable (AV in tool::CommandCatalog::for_each). FPS bench and map2d /
   // plugin showcases set these env gates from BrowserMain.
-  if (const char* bench = std::getenv("SMT_MAP2D_FPS_BENCH_MS")) {
+  if (const char* bench = base::switch_cstr("map2d-fps-bench-ms")) {
     if (bench[0] != '\0' && std::atoi(bench) > 0) {
       return;
     }
   }
   // Match wire_report_panel / wire_edit_feedback: any non-empty non-"0" skip.
-  if (const char* skip = std::getenv("SMT_SKIP_AMBOX_CATALOG");
+  if (const char* skip = base::switch_cstr("skip-ambox-catalog");
       skip && skip[0] != '\0' && skip[0] != '0') {
     return;
   }

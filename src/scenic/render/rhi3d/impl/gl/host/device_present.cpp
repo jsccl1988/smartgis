@@ -1,6 +1,6 @@
 #include "base/core/log.h"
 #include "base/trace/event/process_trace.h"
-#include "scenic/render/detail/frame_pipeline.h"
+#include "scenic/render/frame.h"
 #include "scenic/render/rhi3d/impl/gl/resource/buffer/index_buffer.h"
 #include "scenic/render/rhi3d/impl/gl/resource/buffer/vertex_buffer.h"
 #include "scenic/render/rhi3d/impl/gl/host/render_device.h"
@@ -14,23 +14,23 @@ namespace detail {
 long GlRenderDevice::BeginRender() {
   BASE_TRACE_EVENT("BeginRender", "rhi3d.gl");
   if (!m_hWnd || !m_hRC) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   if (!m_hPaintDC) {
     m_hPaintDC = ::GetDC(m_hWnd);
   }
   if (!m_hPaintDC) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   // Keep the DC for the whole frame. ReleaseDC while the RC is current
   // leaves later glDraw*/SwapBuffers on a stale HDC.
-  return wglMakeCurrent(m_hPaintDC, m_hRC) ? SMT_ERR_NONE : SMT_ERR_FAILURE;
+  return wglMakeCurrent(m_hPaintDC, m_hRC) ? kErrNone : kErrFailure;
 }
 
 long GlRenderDevice::EndRender() {
   BASE_TRACE_EVENT("EndRender", "rhi3d.gl");
   ::glFlush();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SwapBuffers() {
@@ -42,34 +42,34 @@ long GlRenderDevice::SwapBuffers() {
       ::ReleaseDC(m_hWnd, hDC);
     }
   }
-  detail::finish_legacy_frame_memory_sample();
-  detail::log_legacy_flow("rhi3d.gl SwapBuffers");
-  return SMT_ERR_NONE;
+  detail::finish_frame_memory_sample();
+  detail::log_frame_flow("rhi3d.gl SwapBuffers");
+  return kErrNone;
 }
 
 long GlRenderDevice::DrawPrimitives(PrimitiveType primitiveType,
                                        VertexBuffer* pVB, DWORD baseVertex,
                                        DWORD primitiveCount) {
-  if (pVB == nullptr) return SMT_ERR_INVALID_PARAM;
+  if (pVB == nullptr) return kErrInvalidParam;
 
   // Convert primitive type
   GLenum PT;
   ulong count;
-  if (SMT_ERR_NONE !=
+  if (kErrNone !=
       GetOpenGLPrimitiveType(primitiveType, primitiveCount, &PT, &count))
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
 
   // Say that the VB will be the source for our draw primitive calls
   //--
-  if (SMT_ERR_NONE != pVB->PrepareForDrawing()) return SMT_ERR_FAILURE;
+  if (kErrNone != pVB->PrepareForDrawing()) return kErrFailure;
 
   // Draw primitives
   //--
   glDrawArrays(PT, baseVertex, count);
 
-  if (SMT_ERR_NONE != pVB->EndDrawing()) return SMT_ERR_FAILURE;
+  if (kErrNone != pVB->EndDrawing()) return kErrFailure;
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::DrawIndexedPrimitives(PrimitiveType primitiveType,
@@ -77,33 +77,33 @@ long GlRenderDevice::DrawIndexedPrimitives(PrimitiveType primitiveType,
                                               IndexBuffer* pIB,
                                               ulong baseIndex,
                                               ulong primitiveCount) {
-  if (pVB == nullptr || pIB == nullptr) return SMT_ERR_INVALID_PARAM;
+  if (pVB == nullptr || pIB == nullptr) return kErrInvalidParam;
 
   // Convert primitive type
   GLenum PT;
   ulong count;
-  if (SMT_ERR_NONE !=
+  if (kErrNone !=
       GetOpenGLPrimitiveType(primitiveType, primitiveCount, &PT, &count))
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
 
   // Say that the VB will be the source for our draw primitive calls
   //--
-  if (SMT_ERR_NONE != pVB->PrepareForDrawing() ||
-      SMT_ERR_NONE != pIB->PrepareForDrawing())
-    return SMT_ERR_FAILURE;
+  if (kErrNone != pVB->PrepareForDrawing() ||
+      kErrNone != pIB->PrepareForDrawing())
+    return kErrFailure;
 
   // Draw primitives
   //--
   const void* indices = pIB->GetIndexData();
   if (!indices) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   glDrawElements(PT, count, GL_UNSIGNED_INT, indices);
 
-  if (SMT_ERR_NONE != pVB->EndDrawing() || SMT_ERR_NONE != pIB->EndDrawing())
-    return SMT_ERR_FAILURE;
+  if (kErrNone != pVB->EndDrawing() || kErrNone != pIB->EndDrawing())
+    return kErrFailure;
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline long GlRenderDevice::GetOpenGLPrimitiveType(
@@ -113,48 +113,48 @@ inline long GlRenderDevice::GetOpenGLPrimitiveType(
     case PT_POINTLIST:
       *GLPrimitiveType = GL_POINTS;
       *nGLPrimitiveCount = nInitialPrimitiveCount;
-      return SMT_ERR_NONE;
+      return kErrNone;
 
     case PT_LINELIST:
       *GLPrimitiveType = GL_LINES;
       *nGLPrimitiveCount = 2 * nInitialPrimitiveCount;
-      return SMT_ERR_NONE;
+      return kErrNone;
 
     case PT_LINESTRIP:
       *GLPrimitiveType = GL_LINE_STRIP;
       *nGLPrimitiveCount = nInitialPrimitiveCount;
-      return SMT_ERR_NONE;
+      return kErrNone;
 
     case PT_TRIANGLELIST:
       *GLPrimitiveType = GL_TRIANGLES;
       *nGLPrimitiveCount = 3 * nInitialPrimitiveCount;
-      return SMT_ERR_NONE;
+      return kErrNone;
 
     case PT_TRIANGLESTRIP:
       *GLPrimitiveType = GL_TRIANGLE_STRIP;
       *nGLPrimitiveCount = nInitialPrimitiveCount + 2;
-      return SMT_ERR_NONE;
+      return kErrNone;
 
     case PT_TRIANGLEFAN:
       *GLPrimitiveType = GL_TRIANGLE_FAN;
       *nGLPrimitiveCount = nInitialPrimitiveCount + 2;
-      return SMT_ERR_NONE;
+      return kErrNone;
 
     default:
       *GLPrimitiveType = GL_POINTS;
       *nGLPrimitiveCount = nInitialPrimitiveCount;
-      return SMT_ERR_NONE;
+      return kErrNone;
   }
 
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long GlRenderDevice::DrawText(uint unID, float x, float y, float z,
                                  const Color& color, const char* str, ...) {
-  if (str == nullptr || unID > m_vTextPtrs.size()) return SMT_ERR_INVALID_PARAM;
+  if (str == nullptr || unID >= m_vTextPtrs.size()) return kErrInvalidParam;
 
-  GlText* pText = m_vTextPtrs.at(unID);
-  if (nullptr == pText) return SMT_ERR_INVALID_PARAM;
+  GlText* pText = m_vTextPtrs.at(unID).get();
+  if (nullptr == pText) return kErrInvalidParam;
 
   char text[256];
   memset(text, '\0', 256);
@@ -179,15 +179,15 @@ long GlRenderDevice::DrawText(uint unID, float x, float y, float z,
 
   glEnable(GL_TEXTURE_2D);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::DrawText(uint unID, float x, float y,
                                  const Color& color, const char* str, ...) {
-  if (str == nullptr || unID > m_vTextPtrs.size()) return SMT_ERR_INVALID_PARAM;
+  if (str == nullptr || unID >= m_vTextPtrs.size()) return kErrInvalidParam;
 
-  GlText* pText = m_vTextPtrs.at(unID);
-  if (nullptr == pText) return SMT_ERR_INVALID_PARAM;
+  GlText* pText = m_vTextPtrs.at(unID).get();
+  if (nullptr == pText) return kErrInvalidParam;
 
   char text[256];
   memset(text, '\0', 256);
@@ -252,7 +252,7 @@ long GlRenderDevice::DrawText(uint unID, float x, float y,
     glDisable(GL_TEXTURE_2D);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 }  // namespace detail
 }  // namespace scenic

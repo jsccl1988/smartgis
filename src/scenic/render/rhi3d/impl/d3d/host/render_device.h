@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/impl/d3d/caps/device_caps.h"
 #include "scenic/render/rhi3d/impl/d3d/host/deferred_draw.h"
 #include "scenic/render/rhi3d/impl/d3d/paint/states_manager.h"
@@ -22,7 +22,7 @@ namespace detail {
 // Leftover RenderDevice3d backed by D3D11 (not D3DX / D3D9).
 // Layout: host/ (Init/Present), resource/ (VB·IB·texture·FBO·font),
 // paint/ (draw/matrix/state). HWND present stays on D3D11 swapchain.
-class LEGACY_RENDER_D3D_EXPORT D3dRenderDevice : public RenderDevice3d {
+class SCENIC_RENDER_D3D_EXPORT D3dRenderDevice : public RenderDevice3d {
  public:
   D3dRenderDevice();
   explicit D3dRenderDevice(HINSTANCE hDLL);
@@ -193,7 +193,7 @@ class LEGACY_RENDER_D3D_EXPORT D3dRenderDevice : public RenderDevice3d {
                   bool bItalic, bool bUnderline, bool bStrike, ulong dwSize,
                   uint& unID) override;
 
-  long DrawCube3D(Vector3 vCenter, float fWidth, Color smtClr) override;
+  long DrawCube3D(Vector3 vCenter, float fWidth, Color color) override;
 
   // Read presented backbuffer as tightly packed BGR24 (bottom-up, BMP order).
   long CaptureBgr24(unsigned char* out_bgr24, int width_px, int height_px);
@@ -252,6 +252,8 @@ class LEGACY_RENDER_D3D_EXPORT D3dRenderDevice : public RenderDevice3d {
   void release_mesh_pipeline();
   void release_gpu_resources();
   long ensure_mesh_pipeline();
+  // Upload MVP without Eigen product (debug Eigen transpose spills smash COM Map).
+  long sync_mesh_constants(ID3D11DeviceContext* ctx, bool use_tex);
   Matrix& active_matrix();
   const Matrix& active_matrix() const;
   uint alloc_texture_handle();
@@ -341,7 +343,7 @@ class LEGACY_RENDER_D3D_EXPORT D3dRenderDevice : public RenderDevice3d {
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_D3D_EXPORTS)
+#if !defined(SCENIC_RENDER_D3D_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_render_d3d_d.lib")
 #else

@@ -5,11 +5,21 @@
 #include <cstring>
 
 #include "base/math/math.h"
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/render_defs.h"
 
 namespace scenic {
 namespace detail {
+
+// Leftover rhi3d headers used these names without `base::`. Keep aliases here
+// so device/material/light stay compatible after math moved into `::base`.
+using ::base::Aabb;
+using ::base::lPoint;
+using ::base::Matrix;
+using ::base::Vector2;
+using ::base::Vector3;
+using ::base::Vector4;
+
 struct Viewport3D {
   ulong ulX;  // position of upper
   ulong ulY;  // ... left corner
@@ -37,7 +47,7 @@ struct Viewport3D {
   }
 };
 
-struct LEGACY_RENDER_EXPORT Color {
+struct SCENIC_IMPL_EXPORT Color {
   union {
     struct {
       float fRed, fGreen, fBlue, fA;
@@ -55,7 +65,7 @@ enum LIGHTTYPE {
   LGT_SPOT          // spot light source
 };
 
-class LEGACY_RENDER_EXPORT Light {
+class SCENIC_IMPL_EXPORT Light {
  public:
   Light(void);
 
@@ -123,7 +133,7 @@ class LEGACY_RENDER_EXPORT Light {
   float m_fAttenuationQuadric;   // change of intensity over distance
 };
 
-class LEGACY_RENDER_EXPORT Material {
+class SCENIC_IMPL_EXPORT Material {
  public:
   Material(void);
 
@@ -247,7 +257,7 @@ inline float Material::GetShininessValue(void) { return m_fShininess; }
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else

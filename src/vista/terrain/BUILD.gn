@@ -1,0 +1,119 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# DEM domain (raster, hillshade, land mask). No World type in these headers.
+# Seed-into-World lives in //src/vista/world:world_sources (dem_seed).
+
+_thrust_gis_obj = "$root_out_dir/obj/vista_thrust_gis.cu.obj"
+if (smt_has_cuda) {
+  action("thrust_gis_cu") {
+    script = "//build/nvcc_obj.py"
+    sources = [ "process/nv/thrust_gis.cu" ]
+    inputs = [
+      "process/nv/thrust_gis.h",
+      "//build/nvcc_obj.py",
+    ]
+    outputs = [ _thrust_gis_obj ]
+    args = [
+      "--nvcc",
+      smt_cuda_home + "/bin/nvcc.exe",
+      "--src",
+      rebase_path("process/nv/thrust_gis.cu", root_build_dir),
+      "--out",
+      rebase_path(_thrust_gis_obj, root_build_dir),
+      "--include",
+      rebase_path("//src", root_build_dir),
+    ]
+    if (is_debug) {
+      args += [ "--debug" ]
+    }
+  }
+} else {
+  not_needed([ "_thrust_gis_obj" ])
+}
+
+source_set("land_mask") {
+  sources = [
+    "process/land_mask.cc",
+    "process/land_mask.h",
+    "process/nv/thrust_gis.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/base:base",
+    "//src/gis:gis",
+  ]
+  if (smt_has_cuda) {
+    deps += [ ":thrust_gis_cu" ]
+    lib_dirs += [ smt_cuda_home + "/lib/x64" ]
+    libs = [ "cudart.lib" ]
+    ldflags = [ rebase_path(_thrust_gis_obj, root_build_dir) ]
+  } else {
+    sources += [ "process/nv/thrust_gis_stub.cc" ]
+  }
+}
+
+# Compiled into //src/vista:vista (dll_stem = vista).
+source_set("terrain_sources") {
+  sources = [
+    "dem/dem_bake_cache.cc",
+    "dem/dem_bake_cache.h",
+    "dem/dem_frame.h",
+    "dem/dem_height_field.cc",
+    "dem/dem_height_field.h",
+    "dem/dem_raster.cc",
+    "dem/dem_raster.h",
+    "process/bake_backend.h",
+    "process/dem_hillshade.cc",
+    "process/dem_hillshade.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "VISTA_EXPORTS",
+  ]
+  assert_no_deps = [
+    "//src/render:render",
+    "//src/vista/world:world_sources",
+  ]
+  public_deps = [
+    ":land_mask",
+    "//third_party:gdal",
+  ]
+  deps = [
+    "//src/base:base",
+    "//src/base/execution:execution",
+    "//src/gis:gis",
+  ]
+}
+
+group("terrain") {
+  public_deps = [ "//src/vista:vista" ]
+}
+
+test("land_mask_test") {
+  output_name = "land_mask_test"
+  sources = [ "process/land_mask_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":land_mask",
+    "//src/base:base",
+    "//src/base/execution:execution",
+  ]
+}
+
+test("dem_raster_test") {
+  output_name = "dem_raster_test"
+  sources = [ "dem/dem_raster_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":terrain",
+    "//third_party:gdal",
+  ]
+}

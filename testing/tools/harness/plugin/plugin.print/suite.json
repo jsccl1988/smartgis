@@ -28,7 +28,7 @@
     "rounds": 4,
     "timeout_sec": 120,
     "build_target": "src/app/views:views",
-    "exe": "SmartGisViews.exe"
+    "exe": "SmartGIS.exe"
   },
   "visual_review": {
     "enabled": true,

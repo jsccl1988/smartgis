@@ -11,7 +11,7 @@
 #include "plugin/product/world3d/grid/orthogrid/lattice/ortho_lattice.h"
 #include "gis/feature/feature.h"
 #include "gis/map/map.h"
-#include "scenic/detail/err.h"
+#include "scenic/render/err.h"
 #include "scenic/render/rhi2d/impl/common/host/buffer_image.h"
 #include "scenic/render/rhi2d/impl/common/host/present_controller.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/draw/carto_draw.h"
@@ -19,7 +19,7 @@
 #include "scenic/render/rhi2d/impl/common/paint/carto/encode/command_encoder.h"
 #include "scenic/render/rhi2d/impl/common/paint/map/map_painter.h"
 #include "scenic/render/rhi2d/impl/common/surface/dib/owned.h"
-#include "scenic/render/rhi2d/public/device/renderdevice.h"
+#include "scenic/render/rhi2d/public/device/render_device.h"
 
 using namespace base;
 using namespace gis;
@@ -251,7 +251,7 @@ class Rhi2dRenderDevice : public RenderDevice2d {
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else

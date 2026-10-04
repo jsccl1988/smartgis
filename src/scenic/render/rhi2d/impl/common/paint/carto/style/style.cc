@@ -5,7 +5,7 @@
 
 #include <algorithm>
 
-#include "scenic/detail/style_api.h"
+#include "scenic/render/rhi2d/impl/common/paint/carto/style/style_api.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/frame/carto_frame.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/encode/encoder_tls.h"
 #include "scenic/render/rhi2d/impl/gdi/res/resource.h"
@@ -62,7 +62,7 @@ int Rhi2dCartoDrawStyle::prepare_for_drawing(HDC dc, bool recording,
                                         bool is_river, int road_class,
                                         const Style* style, int draw_mode) {
   if (!dc && !recording) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   if (dc) {
     ::SetROP2(dc, draw_mode);
@@ -72,7 +72,7 @@ int Rhi2dCartoDrawStyle::prepare_for_drawing(HDC dc, bool recording,
 
   if (!cur_use_style_) {
     style_cache_valid_ = false;
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   const ulong format = style->get_style_type();
@@ -124,7 +124,7 @@ int Rhi2dCartoDrawStyle::prepare_for_drawing(HDC dc, bool recording,
       }
       style_on_dc_ = true;
     }
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   release_from_dc(dc);
@@ -212,7 +212,7 @@ int Rhi2dCartoDrawStyle::prepare_for_drawing(HDC dc, bool recording,
   style_cache_valid_ = !(format & (ST_SymbolDesc | ST_AnnoDesc));
   style_on_dc_ = !recording;
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dCartoDrawStyle::end_drawing(HDC dc) {
@@ -221,7 +221,7 @@ int Rhi2dCartoDrawStyle::end_drawing(HDC dc) {
   if (!style_cache_valid_) {
     release_from_dc(dc);
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 void Rhi2dCartoDrawStyle::flush(HDC dc) {

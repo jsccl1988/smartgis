@@ -5,7 +5,7 @@
 
 #include <algorithm>
 
-#include "vista/world/terrain/dem/dem_frame.h"
+#include "vista/terrain/dem/dem_frame.h"
 
 namespace render {
 

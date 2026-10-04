@@ -1,7 +1,9 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #include "base/core/log.h"
 #include "scenic/render/rhi3d/impl/gl/host/render_device.h"
 
-using namespace base;
 namespace scenic {
 namespace detail {
 // Tranformation functions
@@ -13,51 +15,51 @@ long GlRenderDevice::MatrixModeSet(MatrixMode mode) {
   else
     glMatrixMode(GL_MODELVIEW);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 MatrixMode GlRenderDevice::MatrixModeGet() const { return m_matrixMode; }
 
 long GlRenderDevice::MatrixLoadIdentity() {
   glLoadIdentity();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::MatrixLoad(const Matrix& mtx) {
   glLoadMatrixf((float*)(&mtx));
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::MatrixPush() {
   glPushMatrix();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::MatrixPop() {
   glPopMatrix();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::MatrixScale(float x, float y, float z) {
   glScalef(x, y, z);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::MatrixTranslation(float x, float y, float z) {
   glTranslatef(x, y, z);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::MatrixRotation(float angle, float x, float y, float z) {
   glRotatef(angle, x, y, z);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::MatrixMultiply(const Matrix& mtx) {
   glMultMatrixf((float*)(&mtx));
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 Matrix GlRenderDevice::MatrixGet() {

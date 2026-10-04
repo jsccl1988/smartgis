@@ -16,7 +16,7 @@ class FboFuncImpl : public FboFunc {
   FboFuncImpl() = default;
   ~FboFuncImpl() override = default;
 
-  long Initialize(LPGLRENDERDEVICE pGLRenderDevice) override {
+  long Initialize(GlRenderDevice* pGLRenderDevice) override {
     _glGenFramebuffers =
         (PFNGLGENFRAMEBUFFERSEXTPROC)pGLRenderDevice->GetProcAddress(
             "glGenFramebuffersEXT");
@@ -66,9 +66,9 @@ class FboFuncImpl : public FboFunc {
         nullptr == _glBindRenderbuffer || nullptr == _glIsRenderbuffer ||
         nullptr == _glRenderbufferStorage || nullptr == _glFramebufferRenderbuffer ||
         nullptr == _glCheckFramebufferStatus) {
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   void glGenFramebuffers(GLsizei count, GLuint *ids) override {

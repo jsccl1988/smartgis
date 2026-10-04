@@ -10,7 +10,7 @@ Progressive disclosure. Read when parsing perf JSON, diagnosing remesh churn, or
 ## Frame model
 
 ```
-SmartGisViews --atmosphere-showcase=legacy
+SmartGIS.exe --atmosphere-showcase=legacy
         │
         ├─ warm-up present (outside timed window)
         │

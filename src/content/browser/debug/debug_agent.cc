@@ -26,6 +26,7 @@
 
 #include "base/core/log.h"
 #include "base/log/log_sink.h"
+#include "base/process/switches.h"
 #include "content/browser/debug/cmd/agent_ask.h"
 #include "content/browser/debug/cmd/agent_diag.h"
 #include "content/browser/debug/cmd/agent_harness.h"
@@ -99,7 +100,7 @@ bool DebugAgent::start() {
   ensure_wsa();
 
   int want_port = 0;
-  if (const char* env = std::getenv("SG_DEBUG_PORT")) {
+  if (const char* env = base::switch_cstr("debug-port")) {
     want_port = std::atoi(env);
   }
 
@@ -510,7 +511,7 @@ DebugAgent& debug_agent() {
 }
 
 bool debug_console_env_enabled() {
-  if (const char* env = std::getenv("SG_DEBUG")) {
+  if (const char* env = base::switch_cstr("debug")) {
     if (env[0] == '1' && env[1] == '\0') {
       return true;
     }

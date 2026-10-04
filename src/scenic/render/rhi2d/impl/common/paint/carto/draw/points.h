@@ -7,7 +7,7 @@
 #include <cstddef>
 
 #include "base/memory/arena.h"
-#include "scenic/detail/err.h"
+#include "scenic/render/err.h"
 
 namespace scenic {
 namespace detail {

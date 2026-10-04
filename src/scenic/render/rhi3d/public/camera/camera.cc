@@ -62,7 +62,7 @@ Camera::~Camera() = default;
 
 long Camera::apply() {
   if (!m_p3DRenderDevice) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   return m_p3DRenderDevice->GetStateManager()->SetViewportState(m_viewport);
 }
@@ -76,7 +76,7 @@ OrthCamera::~OrthCamera() = default;
 long OrthCamera::apply() {
   Camera::apply();
   if (!m_p3DRenderDevice) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   m_p3DRenderDevice->MatrixModeSet(MM_PROJECTION);
@@ -101,7 +101,7 @@ long OrthCamera::apply() {
                                    2.0f / m_viewport.ulHeight, 1.0f);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 PerspCamera::PerspCamera(LP3DRENDERDEVICE device,
@@ -203,10 +203,10 @@ void PerspCamera::roll(float angle) {
 
 long PerspCamera::apply() {
   if (!m_p3DRenderDevice) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   if (m_viewport.ulWidth == 0 || m_viewport.ulHeight == 0) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   if (m_viewport.fZNear <= 0.f) {
     m_viewport.fZNear = 0.1f;
@@ -228,7 +228,7 @@ long PerspCamera::apply() {
   m_p3DRenderDevice->MatrixModeSet(MM_MODELVIEW);
   m_p3DRenderDevice->MatrixLoadIdentity();
   m_p3DRenderDevice->SetViewLookAt(m_vEye, m_vTarget, m_vUp);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 void PerspCamera::set_camera(const Vector3& eye, const Vector3& target,

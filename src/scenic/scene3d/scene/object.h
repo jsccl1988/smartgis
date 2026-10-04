@@ -3,7 +3,7 @@
 #ifndef SCENIC_SCENE3D_SCENE_OBJECT_H
 #define SCENIC_SCENE3D_SCENE_OBJECT_H
 
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/base.h"
 
 namespace scenic {
@@ -72,7 +72,7 @@ class Movable3d {
 
 // Leftover scene object: renderable + movable with a world matrix.
 // Exported so out-of-line prefers_immediate_context is visible to ui_legacy.
-class LEGACY_RENDER_EXPORT Object3d : public Renderable3d,
+class SCENIC_IMPL_EXPORT Object3d : public Renderable3d,
                                          public Movable3d {
  public:
   virtual long Init(::base::Vector3& vPos, Material& matMaterial,
@@ -83,7 +83,7 @@ class LEGACY_RENDER_EXPORT Object3d : public Renderable3d,
     m_mtxModel.identity();
     m_mtxWorld.identity();
 
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   virtual long Create(LP3DRENDERDEVICE p3DRenderDevice) = 0;
   virtual long Render(LP3DRENDERDEVICE p3DRenderDevice) = 0;

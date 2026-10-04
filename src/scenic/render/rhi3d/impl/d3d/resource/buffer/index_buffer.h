@@ -27,6 +27,8 @@ inline void free_ib_uints(uint* p, ulong count) {
 
 }  // namespace detail
 
+namespace detail {
+
 // System-memory index buffer for leftover D3D11 path (GPU upload deferred).
 class D3dIndexBuffer : public IndexBuffer {
  protected:
@@ -40,29 +42,29 @@ class D3dIndexBuffer : public IndexBuffer {
         index_count_(static_cast<ulong>(count)),
         stride_(sizeof(uint)),
         cur_index_(nullptr),
-        indices_(detail::alloc_ib_uints(static_cast<ulong>(count))) {}
+        indices_(alloc_ib_uints(static_cast<ulong>(count))) {}
   ~D3dIndexBuffer() override {
     if (gpu_ib_) {
       gpu_ib_->Release();
       gpu_ib_ = nullptr;
     }
-    detail::free_ib_uints(indices_, index_count_);
+    free_ib_uints(indices_, index_count_);
     indices_ = nullptr;
   }
 
-  long PrepareForDrawing() override { return SMT_ERR_NONE; }
-  long EndDrawing() override { return SMT_ERR_NONE; }
+  long PrepareForDrawing() override { return kErrNone; }
+  long EndDrawing() override { return kErrNone; }
 
   long Lock() override {
     locked_ = true;
     cur_index_ = indices_;
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   long Unlock() override {
     locked_ = false;
     cur_index_ = nullptr;
     gpu_dirty_ = true;
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   bool IsLocked() const override { return locked_; }
 

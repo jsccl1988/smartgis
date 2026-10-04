@@ -118,12 +118,12 @@ AlphaTestState GlGpuStateManager::GetAlphaTestState() {
 }
 
 long GlGpuStateManager::SetAlphaTestState(AlphaTestState &state) {
-  if (SMT_ERR_NONE == SetAlphaTest(state.bEnabled) &&
-      SMT_ERR_NONE == SetAlphaTestFunc(state.cmpFunc, state.fRefValue)) {
-    return SMT_ERR_NONE;
+  if (kErrNone == SetAlphaTest(state.bEnabled) &&
+      kErrNone == SetAlphaTestFunc(state.cmpFunc, state.fRefValue)) {
+    return kErrNone;
   }
 
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long GlGpuStateManager::SetAlphaTest(bool enabled) {
@@ -133,13 +133,13 @@ long GlGpuStateManager::SetAlphaTest(bool enabled) {
     glDisable(GL_ALPHA_TEST);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetAlphaTestFunc(Comparison func, float ref) {
   glAlphaFunc(ConvertToGLEnum(COMPARISON_TABLE, func), ref);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 DepthTestState GlGpuStateManager::GetDepthTestState() {
@@ -158,12 +158,12 @@ DepthTestState GlGpuStateManager::GetDepthTestState() {
 }
 
 long GlGpuStateManager::SetDepthTestState(DepthTestState &state) {
-  if (SMT_ERR_NONE == SetDepthTest(state.bEnabled) &&
-      SMT_ERR_NONE == SetDepthTestFunc(state.cmpFunc)) {
-    return SMT_ERR_NONE;
+  if (kErrNone == SetDepthTest(state.bEnabled) &&
+      kErrNone == SetDepthTestFunc(state.cmpFunc)) {
+    return kErrNone;
   }
 
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 long GlGpuStateManager::SetDepthTest(bool enabled) {
@@ -173,13 +173,13 @@ long GlGpuStateManager::SetDepthTest(bool enabled) {
     glDisable(GL_DEPTH_TEST);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetDepthTestFunc(Comparison func) {
   glDepthFunc(ConvertToGLEnum(COMPARISON_TABLE, func));
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 BlendState GlGpuStateManager::GetBlendState() {
@@ -198,7 +198,7 @@ BlendState GlGpuStateManager::GetBlendState() {
 }
 
 long GlGpuStateManager::SetBlendState(BlendState &state) {
-  if (SMT_ERR_NONE != SetBlending(state.bEnabled)) return SMT_ERR_FAILURE;
+  if (kErrNone != SetBlending(state.bEnabled)) return kErrFailure;
 
   if (state.bEnabled) {
     GLenum sFactor = ConvertToGLEnum(BLEND_FACTOR_TABLE, state.srcFactor);
@@ -206,7 +206,7 @@ long GlGpuStateManager::SetBlendState(BlendState &state) {
     glBlendFunc(sFactor, dFactor);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetBlending(bool enabled) {
@@ -215,7 +215,7 @@ long GlGpuStateManager::SetBlending(bool enabled) {
   } else {
     glDisable(GL_BLEND);
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 Viewport3D GlGpuStateManager::GetViewportState() {
@@ -229,7 +229,7 @@ Viewport3D GlGpuStateManager::GetViewportState() {
 long GlGpuStateManager::SetViewportState(Viewport3D &state) {
   glViewport(state.ulX, state.ulY, state.ulWidth, state.ulHeight);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 Color GlGpuStateManager::GetColorState() {
@@ -244,7 +244,7 @@ long GlGpuStateManager::SetColorState(Color &colorState) {
   glColor4f(colorState.fRed, colorState.fGreen, colorState.fBlue,
             colorState.fA);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::Set2DTextures(bool enabled) {
@@ -254,7 +254,7 @@ long GlGpuStateManager::Set2DTextures(bool enabled) {
     glDisable(GL_TEXTURE_2D);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::Set2DRectTextures(bool enabled) {
@@ -264,7 +264,7 @@ long GlGpuStateManager::Set2DRectTextures(bool enabled) {
     glDisable(GL_TEXTURE_RECTANGLE_ARB);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetSampler(TextureSampler &sampler) {
@@ -288,7 +288,7 @@ long GlGpuStateManager::SetSampler(TextureSampler &sampler) {
       GL_TEXTURE_2D, GL_TEXTURE_WRAP_R,
       ConvertToGLEnum(TEXTURE_COORD_WRAP_MODE_TABLE, sampler.rTexture));
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetRectSampler(TextureSampler &sampler) {
@@ -312,14 +312,14 @@ long GlGpuStateManager::SetRectSampler(TextureSampler &sampler) {
       GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_R,
       ConvertToGLEnum(TEXTURE_COORD_WRAP_MODE_TABLE, sampler.rTexture));
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetTextureEnvironment(TextureEnvMode &envMode) {
   glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE,
             ConvertToGLEnum(TEXTURE_ENVIRONMENT_TABLE, envMode.envMode));
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 Matrix GlGpuStateManager::GetWorldViewMatrix() {
@@ -342,14 +342,14 @@ long GlGpuStateManager::SetWorldViewMatrix(Matrix &matrix) {
   glMatrixMode(GL_MODELVIEW);
   glLoadMatrixf((float *)(&matrix));
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetProjectionMatrix(Matrix &matrix) {
   glMatrixMode(GL_PROJECTION);
   glLoadMatrixf((float *)(&matrix));
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::GetClearColorValue(float &red, float &green,
@@ -361,35 +361,35 @@ long GlGpuStateManager::GetClearColorValue(float &red, float &green,
   blue = clr[2];
   alpha = clr[3];
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetClearColorValue(float red, float green,
                                               float blue, float alpha) {
   glClearColor(red, green, blue, alpha);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::GetClearDepthValue(float &depth) {
   glGetFloatv(GL_DEPTH, &depth);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetClearDepthValue(float depth) {
   glClearDepth(depth);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::GetStencilClearValue(ulong &s) {
   int nS = 0;
   glGetIntegerv(GL_STENCIL, &nS);
   s = nS;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetStencilClearValue(ulong s) {
   glClearStencil(s);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetPolygonMode(FaceMode face, PolygonMode mode) {
@@ -397,27 +397,27 @@ long GlGpuStateManager::SetPolygonMode(FaceMode face, PolygonMode mode) {
   GLenum GLMode = ConvertToGLEnum(POLYGON_MODE_TABLE, mode);
 
   glPolygonMode(GLFace, GLMode);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::GetLineWidth(float &size) {
   glGetFloatv(GL_LINE_WIDTH, &size);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetLineWidth(float size) {
   glLineWidth(size);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::GetPointSize(float &size) {
   glGetFloatv(GL_POINT_SIZE, &size);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetPointSize(float size) {
   glPointSize(size);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetMaterail(bool enabled) {
@@ -426,7 +426,7 @@ long GlGpuStateManager::SetMaterail(bool enabled) {
   } else
     glDisable(GL_COLOR_MATERIAL);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::SetLight(bool enabled) {
@@ -435,7 +435,7 @@ long GlGpuStateManager::SetLight(bool enabled) {
   } else
     glDisable(GL_LIGHTING);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::EnableDepthOffset(PolygonMode mode, bool enabled) {
@@ -460,13 +460,13 @@ long GlGpuStateManager::EnableDepthOffset(PolygonMode mode, bool enabled) {
     glDisable(tmp);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlGpuStateManager::DepthOffsetParams(float rFactor, float dFactor) {
   glPolygonOffset(rFactor, dFactor);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 }  // namespace detail
 }  // namespace scenic

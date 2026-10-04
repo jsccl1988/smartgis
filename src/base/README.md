@@ -15,7 +15,7 @@ mogu-aligned **foundation** + product **base** DLL in one tree.
 
 Nesting is `src/base/<module>`. Foundation includes stay under `base/…`
 (`#include "base/core/log.h"`). Leftover Smt core headers live under
-`legacy/core/…` (`#include "legacy/core/util/path.h"`).
+`base/smt/…` (`#include "base/smt/util/path.h"`).
 
 GN labels `//src/base:core`, `//src/base:base`, `//src/base:platform`,
 `//src/legacy/core:core`, `//src/legacy/sys:sys` are groups that forward to the
@@ -31,9 +31,9 @@ base DLL (`:base`), except foundation which is `:foundation`.
 | **trace** | `trace/` | `//src/base/trace:trace` → foundation | `base::trace::` — `event/trace.h`, `process_trace`, `SpanRecorder`, `export_chrome_trace`；详见 [`trace/README.md`](trace/README.md)；`SMT_TRACE=1` |
 | **archive** | `archive/` | `//src/base/archive:archive` | BinarySink / Serializer（A1；平台 DLL `public_deps`） |
 | **ipc** | `ipc/{codec,handle,channel,endpoint,data_pipe,invitation,portal,receiver}` | `//src/base/ipc:ipc` | Named pipe + pickle + invitation / DataPipe / Node+Portal / PendingRemote（mojom 形状，无 IDL；static；非 DLL）。头与实现同目录，例如 `#include "base/ipc/channel/channel.h"` |
-| **math** | `math/` | `//src/base/math:math`, `:bounds` | Scene Vector/Matrix/Aabb (namespace `render`). Source sets only; **not** in `base.dll` |
-| **legacy core** | `../legacy/core/` | `core_sources` → `:base` | `macros/` `types/` `util/` `listener/` `command/` `msg/` `diag/` |
-| **sys** | `../legacy/sys/` | `sys_sources` → `:base` | legacy `SmtSysManager` only（`MemShare` / `SmtWinService` removed — unused） |
+| **math** | `math/{scalar,linear,traits,geom,xform,simd}` | `//src/base/math:math`（`:linear` + `:bounds`） | Scene Vector/Matrix/Aabb (namespace `base`). Source sets only; **not** in `base.dll`. See [`math/README.md`](math/README.md) |
+| **legacy core** | `../base/smt/` | `core_sources` → `:base` | `macros/` `types/` `util/` `listener/` `command/` `msg/` `diag/` |
+| **sys** | `../base/sys/` | `sys_sources` → `:base` | legacy `SmtSysManager` only（`MemShare` / `SmtWinService` removed — unused） |
 | **net** | `../net/` | `//src/net:net` | HTTP / RPC DLL (asio + cpp-httplib); not in `base.dll` |
 
 Layer group: `//src/base:base_all` → `:foundation` + `:base`.
@@ -49,4 +49,4 @@ Export macros: GN defines `BASE_EXPORTS` when building the base DLL.
 
 ---
 
-**最后更新：** 2026-09-29
+**最后更新：** 2026-10-05

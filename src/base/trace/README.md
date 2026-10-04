@@ -28,7 +28,7 @@ before FlyCube attach and after `Browser::init`.
 ```bat
 .\build.bat trace_test
 set SMT_STARTUP_PROFILE=1
-out\Debug\SmartGisViews.exe --ui-showcase=shell
+out\Debug\SmartGIS.exe --ui-showcase=shell
 type out\Debug\log\startup_profile.txt
 ```
 

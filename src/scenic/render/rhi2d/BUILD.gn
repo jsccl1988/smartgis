@@ -7,7 +7,17 @@ import("//build/smartgis.gni")
 # Compiled into //src/scenic:scenic_impl.
 # Layout mirrors rhi/: header-only public/device + impl/gdi; DLL bodies in detail/.
 source_set("rhi2d_sources") {
-  sources = [ "detail/renderer.cpp" ]
+  sources = [
+    "detail/renderer.cpp",
+    "impl/common/paint/carto/style/style_pod.cc",
+    "impl/common/paint/carto/style/style_pod.h",
+    "impl/common/paint/carto/style/style_api.cc",
+    "impl/common/paint/carto/style/style_api.h",
+    "impl/common/paint/carto/style/style_ogr.cc",
+    "impl/common/paint/carto/style/style_ogr.h",
+    "impl/common/paint/carto/draw/feature_kind.h",
+    "impl/common/host/image.h",
+  ]
   include_dirs += [ "//src" ]
   configs += [
     "//build:legacy",
@@ -18,7 +28,10 @@ source_set("rhi2d_sources") {
     "//src/gis/geo:geo",
     "//src/base:base",
     "//src/base:core",
-    "//src/gis/map:gis",
+    "//src/gis:gis",
+    "//src/gis/datasource/ogr:ogr_codec_client",
+    "//third_party:CxImage",
+    "//third_party:gdal",
   ]
 }
 

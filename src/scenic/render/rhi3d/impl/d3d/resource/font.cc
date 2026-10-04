@@ -67,7 +67,7 @@ long D3dRenderDevice::CreateFont(const char* szChType, int nHeight,
                                     uint& unID) {
   HDC hdc = hwnd_ ? ::GetDC(hwnd_) : ::CreateCompatibleDC(nullptr);
   if (!hdc) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   int height = nHeight;
@@ -89,7 +89,7 @@ long D3dRenderDevice::CreateFont(const char* szChType, int nHeight,
     ::DeleteDC(hdc);
   }
   if (!font) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   D3dFontSlot slot;
@@ -97,18 +97,18 @@ long D3dRenderDevice::CreateFont(const char* szChType, int nHeight,
   slot.height_px = (height > 0) ? height : 16;
   fonts_.push_back(slot);
   unID = static_cast<uint>(fonts_.size() - 1);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::draw_text_gdi(uint font_id, float xscreen,
                                        float yscreen, const Color& color,
                                        const char* text) {
   if (!text || font_id >= fonts_.size() || !fonts_[font_id].font) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   const int len = static_cast<int>(std::strlen(text));
   if (len <= 0) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   const int cr = static_cast<int>(color.fRed * 255.f);
@@ -137,7 +137,7 @@ long D3dRenderDevice::draw_text_gdi(uint font_id, float xscreen,
   HDC mem = ::CreateCompatibleDC(screen);
   if (!mem) {
     if (screen) ::ReleaseDC(nullptr, screen);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   HFONT old = static_cast<HFONT>(::SelectObject(mem, fonts_[font_id].font));
   SIZE sz = {};
@@ -146,7 +146,7 @@ long D3dRenderDevice::draw_text_gdi(uint font_id, float xscreen,
     ::SelectObject(mem, old);
     ::DeleteDC(mem);
     if (screen) ::ReleaseDC(nullptr, screen);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   BITMAPINFO bmi = {};
@@ -163,7 +163,7 @@ long D3dRenderDevice::draw_text_gdi(uint font_id, float xscreen,
     ::SelectObject(mem, old);
     ::DeleteDC(mem);
     if (screen) ::ReleaseDC(nullptr, screen);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   HBITMAP old_bmp = static_cast<HBITMAP>(::SelectObject(mem, dib));
   ::SetBkMode(mem, TRANSPARENT);
@@ -196,7 +196,7 @@ long D3dRenderDevice::draw_text_gdi(uint font_id, float xscreen,
 
   TextRaster* stored = cache.insert(std::move(key), std::move(raster));
   if (!stored) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   return DrawScreenBgra(xscreen + stored->w * 0.5f, yscreen + stored->h * 0.5f,
                         stored->w, stored->h, stored->bgra.data());

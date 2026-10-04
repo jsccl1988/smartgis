@@ -18,6 +18,7 @@
 
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
+#include "base/process/switches.h"
 
 namespace plugin {
 namespace {
@@ -72,7 +73,7 @@ InundateDialog::InundateDialog(content::PluginHost* host) : host_(host) {
   loaded.root->set_preferred_size({kW, kH});
   add_child(std::move(loaded.root));
 
-  const char* sample_dir = std::getenv("SMT_PLUGIN_SAMPLE_DIR");
+  const char* sample_dir = base::switch_cstr("plugin-sample-dir");
   const std::string base =
       sample_dir && *sample_dir ? std::string(sample_dir) : "../data/plugin";
   if (dem_path_ && dem_path_->text().empty()) {

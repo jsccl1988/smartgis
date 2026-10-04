@@ -8,6 +8,7 @@
 #include <cstring>
 
 #include "ui/gfx/canvas/canvas_backend.h"
+#include "base/process/switches.h"
 
 namespace ui {
 namespace gfx {
@@ -65,7 +66,7 @@ ShellCanvasBackend apply_shell_canvas_preference(const char* cli_value) {
   ShellCanvasBackend requested = ShellCanvasBackend::kGdi;
   if (cli_value && *cli_value) {
     requested = parse_token(cli_value);
-  } else if (const char* env = std::getenv("SMT_SHELL_CANVAS")) {
+  } else if (const char* env = base::switch_cstr("shell-canvas")) {
     requested = parse_token(env);
   }
   set_shell_canvas_backend(requested);

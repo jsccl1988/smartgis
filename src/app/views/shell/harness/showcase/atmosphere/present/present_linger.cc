@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <windows.h>
+#include "base/process/switches.h"
 
 namespace app {
 namespace detail {
@@ -61,7 +62,7 @@ AtmospherePresentLingerResult run_atmosphere_present_linger(
   // hid present cost). Interactive until-close still paces for readability.
   // SMT_ATMOSPHERE_SHOWCASE_PUMP_MS overrides (e.g. 16 ≈ 60Hz interactive).
   int pump_ms = linger.until_close ? 16 : 0;
-  if (const char* pump_env = std::getenv("SMT_ATMOSPHERE_SHOWCASE_PUMP_MS");
+  if (const char* pump_env = base::switch_cstr("atmosphere-showcase-pump-ms");
       pump_env && *pump_env) {
     pump_ms = std::atoi(pump_env);
     if (pump_ms < 0) {

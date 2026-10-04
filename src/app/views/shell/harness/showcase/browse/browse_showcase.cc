@@ -32,6 +32,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include "base/process/switches.h"
 
 namespace app {
 namespace {
@@ -39,12 +40,12 @@ namespace {
 // Suite id for Interact IL: SMT_HARNESS_SUITE, else browse.3d when the
 // SMT_UI_INTERACT_SCRIPT leaf names it, else "browse".
 const char* resolve_browse_suite_id() {
-  if (const char* env = std::getenv("SMT_HARNESS_SUITE")) {
+  if (const char* env = base::switch_cstr("harness-suite")) {
     if (env[0]) {
       return env;
     }
   }
-  if (const char* script = std::getenv("SMT_UI_INTERACT_SCRIPT")) {
+  if (const char* script = base::switch_cstr("ui-interact-script")) {
     if (std::strstr(script, "browse.3d")) {
       return "browse.3d";
     }
@@ -93,10 +94,10 @@ bool ensure_browse_china_map(Browser& browser, const wchar_t* mark_leaf) {
     return false;
   }
   // Skip O(n×m) land-clip on the UI thread (product deferred-seed path).
-  _putenv_s("SMT_SKIP_CHINA_LAND_CLIP", "1");
+  base::set_switch("skip-china-land-clip", "1");
   // Hillshade bake during first china layout has hung / AVd export under
   // browse FlyCube; map2d.china scores land without requiring shade.
-  _putenv_s("SMT_MAP2D_NO_HILLSHADE", "1");
+  base::set_switch("map2d-no-hillshade", "1");
 
   bool ok = browser.document()->has_china_extent() &&
             browser.document()->feature_count() >= 200;
@@ -111,7 +112,7 @@ bool ensure_browse_china_map(Browser& browser, const wchar_t* mark_leaf) {
     ok = ok && browser.document()->has_china_extent() &&
          browser.document()->feature_count() >= 3;
   }
-  _putenv_s("SMT_SKIP_CHINA_LAND_CLIP", "");
+  base::set_switch("skip-china-land-clip", "");
 
   if (!ok) {
     browse_mark(mark_leaf, "china-seed-miss");

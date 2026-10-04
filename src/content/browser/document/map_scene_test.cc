@@ -13,12 +13,13 @@
 #include <vector>
 
 #include "base/trace/event/process_trace.h"
-#include "gis/carto/style/paint_resolve.h"
-#include "gis/carto/style/style_document.h"
-#include "gis/carto/style/style_rules.h"
-#include "vista/frame/detail/carto_filter.h"
-#include "vista/frame/frame.h"
-#include "vista/world/terrain/process/land_mask.h"
+#include "base/process/switches.h"
+#include "gis/style/paint_resolve.h"
+#include "gis/style/document/style_document.h"
+#include "gis/style/eval/style_rules.h"
+#include "vista/map/carto_filter.h"
+#include "vista/map/frame.h"
+#include "vista/terrain/process/land_mask.h"
 #include "tool/draft/draft.h"
 
 #ifndef NOMINMAX
@@ -317,7 +318,7 @@ int main() {
 
     // Phase 2b: inspector lists ResolvedPaint before legacy GDI hints.
     // Style dumps are opt-in (SMT_FEATURE_INFO_STYLE_DEBUG) for Identify UX.
-    _putenv_s("SMT_FEATURE_INFO_STYLE_DEBUG", "1");
+    base::set_switch("feature-info-style-debug", "1");
     content::MapScene inspector_scene;
     inspector_scene.set_style_document(doc);
     char tmp_path[MAX_PATH] = {};

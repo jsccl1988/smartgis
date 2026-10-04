@@ -20,7 +20,7 @@ All rights reserved.
 | Axis | Lock |
 | --- | --- |
 | Primary metric | **warm** `ms_per_present` — **n=5**, **discard_cold=1** |
-| Perf rows | `flycube`, `prep_par_off`, `prep_par_on`, `gl_leftover`, `d3d_leftover` |
+| Perf rows | `flycube`, `prep_par_off`, `prep_par_on`, `gl_scenic`, `d3d_scenic` |
 | Smoke | `null` only (full materials; never a performance peer) |
 | Warm status | Already peer ~**5–6.5 ms** — protect |
 | Cold P0 | FlyCube ~**1.8–2 s** vs leftover ~**90 ms** |
@@ -104,7 +104,7 @@ Artifact: `out/Debug/captures/atmosphere/atmosphere-showcase-perf.json`.
 set SMT_ATMOSPHERE_SHOWCASE_PRESENT_COUNT=30
 set SMT_ATMOSPHERE_SHOWCASE_GPU=1
 set SMT_ATMOSPHERE_SHOWCASE_LINGER_MS=0
-out\Debug\SmartGisViews.exe --atmosphere-showcase=legacy
+out\Debug\SmartGIS.exe --atmosphere-showcase=legacy
 type out\Debug\captures\atmosphere\atmosphere-showcase-perf.json
 ```
 

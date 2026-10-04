@@ -10,7 +10,7 @@ All rights reserved.
 
 # Build output directory
 
-- GN/Ninja **gen roots** are **`out/Debug`** (`is_debug=true`) and **`out/Release`** (`is_debug=false`). Binaries live under those dirs (`out/Debug/build.ninja`, `out/Release/SmartGisViews.exe`, …).
+- GN/Ninja **gen roots** are **`out/Debug`** (`is_debug=true`) and **`out/Release`** (`is_debug=false`). Binaries live under those dirs (`out/Debug/build.ninja`, `out/Release/SmartGIS.exe`, …).
 - **Do not** use bare **`out/`** as a gen root. **Do not** use **`out/Default`**.
 - Default **`build.bat`** builds **both** configs. Prefer a single config when iterating: `build.bat debug …` / `build.bat release …`.
 - Shared (not a gen root) — keep `out/` top-level to this set:

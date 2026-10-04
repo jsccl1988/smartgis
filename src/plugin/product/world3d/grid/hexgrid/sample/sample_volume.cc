@@ -3,7 +3,7 @@
 
 #include "plugin/product/world3d/grid/hexgrid/sample/sample_volume.h"
 
-#include "base/math/vector.h"
+#include "base/math/linear/vector.h"
 #include "gis/geo/tin/delaunay.h"
 
 #include <algorithm>

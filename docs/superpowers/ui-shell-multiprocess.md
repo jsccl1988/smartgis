@@ -9,7 +9,7 @@ All rights reserved.
 
 当前产品事实（以树为准，不是 2010 路径）：
 
-- 工程入口只有 GN/`build.bat`，产物只在仓库根 `out/`。`//src:src_all` 是 31 个非 MFC DLL。`//:smartgis`（`build.bat app`）才出 `out/SmartGis.exe`。
+- 工程入口只有 GN/`build.bat`，产物只在仓库根 `out/`。`//src:src_all` 是 31 个非 MFC DLL。日常产品壳是 `build.bat app` / `views` → `out/SmartGIS.exe`。leftover MFC 是 `//:smartgis` / `build.bat legacy_app` → `out/SmartGIS-Legacy.exe`。
 - 产品在 `src/`：`app/`、`app/app_core`、`ui/{gui,mfc_ex,xview,xcatalog,xambox}`、`render/{gdi,gdi_simple,gl,render3d}`（D3D9 树已删；leftover 亦见 `legacy/render/`）、`gis/`、`sdb/datasource/{mgr,gdal,mem}`（`smf` / `ws` 已移除）、`map/`、`plugin/` + AM 子模块、`tool/`（终局 dispatch）+ `legacy/tool/`（leftover IATool：`bridge/{abi,msg}` + capability 顶层）。
 - 遗留 ABI 保留：`Smt_*` 命名空间、`Export_Smt*`、磁盘 DLL stem（`SmtGisCore`、`SmtRender`、`SmtGLRenderDevice`、`SmtXViewCore` …）。新公共命名空间最多两层。
 - 今日桌面是 **MFC + BCGControlBar Pro**（`CBCGPMDIFrameWnd`、dock catalog、AM toolbox）。机器上可以没有 BCG；**不要盗版 BCG**。MFC Feature Pack（`CMFC*`）只允许作为可选 bootstrap exe，**不是本文的上限**。
@@ -23,7 +23,7 @@ All rights reserved.
 
 ## 0. Shared substrate（真正的上限）
 
-**Status (2026-09-14):** Substrate in tree (`src/content`, `src/gpu`, repo-root `base/ipc`). Destination: one PE `out/SmartGis.exe` relaunched via `content::ContentMain` and `--type=browser|renderer|gpu|utility` (no `SmartGisRender.exe` on the product path). Browser starts **renderer and standalone GPU** children always. **Chromium Mojo pin abandoned.** Product transport is Win32 named pipe + BinarySink payloads（`base/archive`，`base::`；C++ structs with `archive()`）；RPC/包络侧 `net::Pickle` 仍在 `src/net/pack/pickle.h`。Children still get `--pipe=` until a later invitation task; no Mojo invitation. Sections 1–3 below are unchanged design essays.
+**Status (2026-09-14):** Substrate in tree (`src/content`, `src/gpu`, repo-root `base/ipc`). Destination: one PE `out/SmartGIS.exe` relaunched via `content::ContentMain` and `--type=browser|renderer|gpu|utility` (no `SmartGisRender.exe` on the product path). Browser starts **renderer and standalone GPU** children always. **Chromium Mojo pin abandoned.** Product transport is Win32 named pipe + BinarySink payloads（`base/archive`，`base::`；C++ structs with `archive()`）；RPC/包络侧 `net::Pickle` 仍在 `src/net/pack/pickle.h`。Children still get `--pipe=` until a later invitation task; no Mojo invitation. Sections 1–3 below are unchanged design essays.
 
 三种 chrome 的上限不在控件库，而在：**chrome 可拔插 + 地图渲染可崩溃可重启 + 现有 31 个 DLL 在 v1 不必改 ABI**。
 
@@ -50,14 +50,14 @@ All rights reserved.
 
 ### 0.2 进程模型（默认）
 
-**单二进制：** 产品只有 **`out/SmartGis.exe`**（或启动它的 chrome 变体 exe）。`wWinMain` → `content::ContentMain` 按 `--type=` 分派；子进程 **重新启动同一 PE**，不是第二套映像名。`GetModuleFileNameW` + `CreateProcess` 复制浏览器命令行，追加 `--type=renderer` 或 `--type=gpu` 与 `--mojo-platform-channel-handle=`。`--in-process-gpu` 默认 **关**（仅 debug / CI）。
+**单二进制：** 产品只有 **`out/SmartGIS.exe`**（或启动它的 chrome 变体 exe；leftover MFC 是 `SmartGIS-Legacy.exe`）。`wWinMain` → `content::ContentMain` 按 `--type=` 分派；子进程 **重新启动同一 PE**，不是第二套映像名。`GetModuleFileNameW` + `CreateProcess` 复制浏览器命令行，追加 `--type=renderer` 或 `--type=gpu` 与 `--mojo-platform-channel-handle=`。`--in-process-gpu` 默认 **关**（仅 debug / CI）。
 
 | 进程 | 启动方式 | 职责 | 允许加载的现有 DLL（v1） | 禁止 |
 | --- | --- | --- | --- | --- |
-| **Browser / UI** | `SmartGis.exe`（省略 `--type` 或 `--type=browser`；方案切换时可用 `SmartGisWinui.exe` / `SmartGisViews.exe` 并行装） | 窗口、ribbon/tree/property/dialog、**仅 present** 共享表面、把输入经 host 转给 renderer | 仅 chrome + `content` 客户端 + 方案专用 UI。**不** Load `SmtGisCore` / `SmtSDEGdalDevice` | GDAL 连接串 / 数据集、`SmtRenderDevice::Init`、GL/D3D11 设备 |
-| **Renderer** | **同一 PE** `SmartGis.exe --type=renderer` | `SmtMap` / `SmtIATool`、pick/hit-test、工具与 catalog 逻辑（CPU）；`Submit2d` / `Submit3d` 到 GPU | `SmtCore`、`SmtSysCore`、`SmtBaseLib`、`SmtGeoCore`、`SmtGisCore`、`SmtGisPrj`、`SmtToolCore`、`SmtGroupToolCore`、`SmtAuxModule` + 各 `SmtAM*`（UI-less 部分） | MFC `CView`、BCG dock、WebView2、WinUI 控件、**任何** GL/D3D11 设备 |
-| **GPU**（**必需**独立子进程） | **同一 PE** `SmartGis.exe --type=gpu` | **全部 2D 与 3D 绘制**：`kMapEdit` / `kMapData`（`SmtRender` + GL/GDI）与 `kScene3d`（`legacy/render/rhi3d` + `scene3d`）；共享 DXGI 句柄 + `FrameReady` | `SmtRender`、`SmtGLRenderDevice`、`SmtGdiRenderDevice`、`SmtGdiSimpleRenderDevice`、`Smt3DRenderer`、`scene3d`（含原 model/terrain/pointcloud） | 可见 chrome HWND、WebView2、WinUI、`SmtIATool` 输入路由 |
-| **Utility / IO**（可选，v1.5） | **同一 PE** `SmartGis.exe --type=utility` | `sde/gdal`、`net`、目录枚举 | `SmtSDEDeviceMgr`、`SmtSDEGdalDevice`、`SmtSDEMemDevice`、`SmtNetCore`、`SmtMapService`（服务端读） | HWND、GPU 设备、chrome |
+| **Browser / UI** | `SmartGIS.exe`（省略 `--type` 或 `--type=browser`；方案切换时可用 `SmartGisWinui.exe`；leftover MFC 为 `SmartGIS-Legacy.exe`） | 窗口、ribbon/tree/property/dialog、**仅 present** 共享表面、把输入经 host 转给 renderer | 仅 chrome + `content` 客户端 + 方案专用 UI。**不** Load `SmtGisCore` / `SmtSDEGdalDevice` | GDAL 连接串 / 数据集、`SmtRenderDevice::Init`、GL/D3D11 设备 |
+| **Renderer** | **同一 PE** `SmartGIS.exe --type=renderer` | `SmtMap` / `SmtIATool`、pick/hit-test、工具与 catalog 逻辑（CPU）；`Submit2d` / `Submit3d` 到 GPU | `SmtCore`、`SmtSysCore`、`SmtBaseLib`、`SmtGeoCore`、`SmtGisCore`、`SmtGisPrj`、`SmtToolCore`、`SmtGroupToolCore`、`SmtAuxModule` + 各 `SmtAM*`（UI-less 部分） | MFC `CView`、BCG dock、WebView2、WinUI 控件、**任何** GL/D3D11 设备 |
+| **GPU**（**必需**独立子进程） | **同一 PE** `SmartGIS.exe --type=gpu` | **全部 2D 与 3D 绘制**：`kMapEdit` / `kMapData`（`SmtRender` + GL/GDI）与 `kScene3d`（`legacy/render/rhi3d` + `scene3d`）；共享 DXGI 句柄 + `FrameReady` | `SmtRender`、`SmtGLRenderDevice`、`SmtGdiRenderDevice`、`SmtGdiSimpleRenderDevice`、`Smt3DRenderer`、`scene3d`（含原 model/terrain/pointcloud） | 可见 chrome HWND、WebView2、WinUI、`SmtIATool` 输入路由 |
+| **Utility / IO**（可选，v1.5） | **同一 PE** `SmartGIS.exe --type=utility` | `sde/gdal`、`net`、目录枚举 | `SmtSDEDeviceMgr`、`SmtSDEGdalDevice`、`SmtSDEMemDevice`、`SmtNetCore`、`SmtMapService`（服务端读） | HWND、GPU 设备、chrome |
 
 **没有 `SmartGisRender.exe` 作为产品 GPU 映像。** 今日 `//src/gpu:gpu` / `build.bat render` 的独立 console exe 是过渡；终局是 `--type=gpu` 入口链进同一 `executable("smartgis")`。
 
@@ -72,7 +72,7 @@ All rights reserved.
 
 ```mermaid
 flowchart LR
-  subgraph Browser["SmartGis.exe — browser"]
+  subgraph Browser["SmartGIS.exe — browser"]
     Chrome["Scheme 1/2/3 chrome"]
     HostClient["content::MapContents client"]
     Presenter["surface presenter only"]
@@ -86,13 +86,13 @@ flowchart LR
     Tex["DXGI shared texture / NT handle"]
   end
 
-  subgraph Renderer["SmartGis.exe --type=renderer"]
+  subgraph Renderer["SmartGIS.exe --type=renderer"]
     MapW["SmtMap + SmtIATool"]
     Submit["Submit2d / Submit3d"]
     MapW --> Submit
   end
 
-  subgraph GpuProc["SmartGis.exe --type=gpu"]
+  subgraph GpuProc["SmartGIS.exe --type=gpu"]
     FS["frame_sink draw_and_swap"]
     Raster["raster direct|tile → quads"]
     Comp["compositor SoftwareRenderer"]
@@ -101,7 +101,7 @@ flowchart LR
     Surf --> Tex
   end
 
-  subgraph IO["SmartGis.exe --type=utility (optional)"]
+  subgraph IO["SmartGIS.exe --type=utility (optional)"]
     Sde["sde/mgr + gdal + mem"]
   end
 
@@ -128,7 +128,7 @@ GPU paint internals (record quads → blend once → present): [`../../src/gpu/R
 | `//src/sde/host:io_host` | `src/sde/host` | `SmartGisIo.exe`（v1.5） | 否 |
 | `//src/app/winui:app_winui` | `src/app/winui` | 方案 2 exe | 否 |
 | `//src/app/views:views` | `src/app/views` | 方案 3 exe | 否 |
-| `//src/legacy/app:app` | `src/app` | leftover `SmartGis.exe`（MFC Feature Pack） | 否；不是终局 chrome |
+| `//src/legacy/app:app` | `src/app` | leftover `SmartGIS-Legacy.exe`（MFC Feature Pack） | 否；不是终局 chrome |
 
 新公共命名空间（已落地）：**`content`**（chrome 调用 `MapSession` / `MapView`）、**`gpu`**（`SmartGisRender.exe` + `Smt*` 适配器）。更深的编解码放 `content::detail` / `gpu::detail`。
 
@@ -136,7 +136,7 @@ GPU paint internals (record quads → blend once → present): [`../../src/gpu/R
 
 **传输（默认 → Mojo；逃生舱 → named pipe）**
 
-- **默认（v1 目标）：** Chromium Mojo message pipe + platform invitation。Browser 建两条 channel（`"renderer"`、`"gpu"`），`CreateProcess` **同一 `SmartGis.exe`** 两次（`--type=renderer`、`--type=gpu`），继承 `--mojo-platform-channel-handle=`。控制面在 `content.mojom`（`MapWidget` / `MapWidgetHost`）与 `gpu.mojom`（`Gpu` / `GpuHost`）。`AttachSurface` / `ResizeSurface` / `FrameReady` / `ResetGpu` 在 **GPU pipe**，不在 `MapWidget`。
+- **默认（v1 目标）：** Chromium Mojo message pipe + platform invitation。Browser 建两条 channel（`"renderer"`、`"gpu"`），`CreateProcess` **同一 `SmartGIS.exe`** 两次（`--type=renderer`、`--type=gpu`），继承 `--mojo-platform-channel-handle=`。控制面在 `content.mojom`（`MapWidget` / `MapWidgetHost`）与 `gpu.mojom`（`Gpu` / `GpuHost`）。`AttachSurface` / `ResizeSurface` / `FrameReady` / `ResetGpu` 在 **GPU pipe**，不在 `MapWidget`。
 - **逃生舱（Chromium pin 缺失时）：** 冻结今日 `CreateNamedPipeW` 字节流 `\\.\pipe\smartgis-host-<ui-pid>` + `HostMsg` / `FrameHeader`。**不得**与 Mojo invitation 同时跑。新字段只加在 `.mojom`。
 - 启动：Browser 通过 `RendererProcessHost::Launch` / `GpuProcessHost::Launch` 拉起子进程；**不要**传 `--pipe=` 或 sibling `SmartGisRender.exe` 路径。
 - 高频输入：经 `MapWidget.DispatchPointer`（fire-and-forget）；不要每鼠标移动一次 JSON。
@@ -359,7 +359,7 @@ v1 适配器路径：
 6. `SmtAuxModule`：无 UI 的逻辑在 render 加载；要弹 MFC 对话框的 AM（`plugin/print`）v1 走两条路之一——**(A)** 对话框改 chrome（Views/WinUI），结果经 `PluginCall` 回来；**(B)** 临时仍由 render 弹跨进程 Win32 对话框（体验差，只许白名单）。
 7. 无窗口瓦片发布栈已删除；图层 I/O 走 `sdb` / GDAL。
 
-**明确不在 v1 做的：** 把 `SmtXView` 改成非 MFC。它继续服务旧 `SmartGis.exe`。新 chrome 不链接 `//src/legacy/ui/shell:xview`。
+**明确不在 v1 做的：** 把 `SmtXView` 改成非 MFC。它继续服务旧 `SmartGIS-Legacy.exe`。新 chrome 不链接 `//src/legacy/ui/shell:xview`。
 
 **未来 GPU（仍在 render 进程）**
 
@@ -512,10 +512,10 @@ UI 进程 = WinUI 3 / WinAppSDK。`IMapSession` / pipe / `SmartGisRender.exe` �
 | --- | --- | --- |
 | 工具箱 | `src/ui/views/` (`ui::views`) | `//src/ui/views:views` |
 | 画布 | `src/ui/gfx/`（无 Skia 树；fill/text） | `//src/ui/gfx:gfx` |
-| 产品壳 | `src/app/views/`（upstream Views shell） | `out/SmartGisViews.exe`（`build.bat views` / `smt_build_views`） |
+| 产品壳 | `src/app/views/`（upstream Views shell） | `out/SmartGIS.exe`（`build.bat views` / `smt_build_views`） |
 | 地图挂接 | `MapViewport` 子 HWND：`content::MapView`（若 `src/content/public` 存在）→ `CreateProcess SmartGisRender.exe`（与兄弟壳同一 ABI）→ `LoadLibrary` + `SmtRenderDevice::Init` → 占位 |
 
-`src/app/` 只保留 MFC `SmartGis.exe`。不要再开 `src/app/views/`。默认 `build.bat` 仍是 31 个 DLL。兄弟原型（WebView2 / WinUI）允许并存，但不是终局。
+`src/app/` 只保留 MFC `SmartGIS-Legacy.exe`。不要再开 `src/app/views/`。默认 `build.bat` 仍是 31 个 DLL。兄弟原型（WebView2 / WinUI）允许并存，但不是终局。
 
 **上限一句话：** **进程内 C++ / 与 mogu GN 对齐** 最高；widget/a11y/IME 要按年计；不嵌入 Blink 就没有方案 1 的招人红利。
 

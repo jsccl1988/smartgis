@@ -18,50 +18,50 @@ long GlRenderDevice::BindBuffer(VideoBuffer *buffer) {
   GLhandleARB handle = buffer->GetHandle();
   m_pFuncVBO->glBindBuffer(GL_ARRAY_BUFFER, handle);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::BindIndexBuffer(VideoBuffer *buffer) {
   GLhandleARB handle = buffer->GetHandle();
   m_pFuncVBO->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, handle);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::UnbindBuffer() {
   m_pFuncVBO->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::UnbindIndexBuffer() {
   m_pFuncVBO->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::UpdateBuffer(VideoBuffer *buffer, void *data,
                                      uint size, VideoBufferStoreMethod method) {
-  if (nullptr == buffer) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == buffer) return kErrInvalidParam;
 
   BindBuffer(buffer);
   GLenum GLMethod = ConvertVideoBufferStoreMethod(method);
   m_pFuncVBO->glBufferData(GL_ARRAY_BUFFER, size, data, GLMethod);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::UpdateIndexBuffer(VideoBuffer *buffer, void *data,
                                           uint size,
                                           VideoBufferStoreMethod method) {
-  if (nullptr == buffer || nullptr == data) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == buffer || nullptr == data) return kErrInvalidParam;
 
   BindIndexBuffer(buffer);
 
   GLenum GLMethod = ConvertVideoBufferStoreMethod(method);
   m_pFuncVBO->glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, data, GLMethod);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 void *GlRenderDevice::MapBuffer(VideoBuffer *buffer, AccessMode access) {
@@ -76,11 +76,11 @@ void *GlRenderDevice::MapBuffer(VideoBuffer *buffer, AccessMode access) {
 }
 
 long GlRenderDevice::UnmapBuffer(VideoBuffer *buffer) {
-  if (nullptr == buffer) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == buffer) return kErrInvalidParam;
 
   GLboolean result = m_pFuncVBO->glUnmapBuffer(GL_ARRAY_BUFFER);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 void *GlRenderDevice::MapIndexBuffer(VideoBuffer *buffer,
@@ -96,25 +96,25 @@ void *GlRenderDevice::MapIndexBuffer(VideoBuffer *buffer,
 }
 
 long GlRenderDevice::UnmapIndexBuffer(VideoBuffer *buffer) {
-  if (nullptr == buffer) return SMT_ERR_INVALID_PARAM;
+  if (nullptr == buffer) return kErrInvalidParam;
 
   GLboolean result = m_pFuncVBO->glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::DestroyBuffer(VideoBuffer *buffer) {
   GLhandleARB handle = buffer->GetHandle();
   m_pFuncVBO->glDeleteBuffers(1, &handle);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::DestroyIndexBuffer(VideoBuffer *buffer) {
   GLhandleARB handle = buffer->GetHandle();
   m_pFuncVBO->glDeleteBuffers(1, &handle);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 }  // namespace detail
 }  // namespace scenic

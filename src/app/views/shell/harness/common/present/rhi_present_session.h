@@ -53,7 +53,7 @@ struct RhiPresentSessionOpts {
   const char* gpu_env = nullptr;
   GpuEnvPolicy gpu_policy = GpuEnvPolicy::kDefaultOnUnlessZero;
   // Used when |gpu_policy| is kDefaultOnUnlessZero and primary env unset.
-  const char* gpu_env_fallback = "SMT_PLUGIN_WORLD3D_GPU";
+  const char* gpu_env_fallback = "plugin-world3d-gpu";
 
   bool require_scene_hwnd = true;
   // When require_scene_hwnd and viewport lacks HWND, try realize_native once.

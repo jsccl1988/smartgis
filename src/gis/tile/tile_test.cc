@@ -1,0 +1,387 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "vista/mesh/tessellate.h"
+#include "gis/tile/provider/mvt.h"
+#include "vista/map/mvt_layout.h"
+#include "gis/tile/layer/provider_tile_layer.h"
+#include "gis/tile/provider/source_registry.h"
+#include "gis/tile/provider/style_source.h"
+#include "gis/tile/layer/tile_map_layer.h"
+#include "gis/tile/provider/tile_provider.h"
+#include "gis/tile/protocol/wmts.h"
+#include "gis/tile/protocol/xyz_math.h"
+#include "gis/envelope.h"
+#include "gis/map/map_layer.h"
+
+#include <cstdint>
+
+namespace {
+
+int g_fails = 0;
+
+void expect(bool ok, const char* msg) {
+  if (!ok) {
+    std::fprintf(stderr, "FAIL: %s\n", msg);
+    ++g_fails;
+  }
+}
+
+}  // namespace
+
+int main() {
+  using gis::tile::format_xyz_url;
+  using gis::tile::tile_world_rect;
+  using gis::tile::TileCoord;
+  using gis::tile::TileImage;
+  using gis::tile::TileProvider;
+  using gis::tile::tiles_for_viewport;
+  using gis::tile::Viewport;
+
+  {
+    const std::string url =
+        format_xyz_url("http://tile.example/{z}/{x}/{y}.png", 3, 1, 2);
+    expect(url == "http://tile.example/3/1/2.png", "format_xyz_url z/x/y");
+    const std::string sub =
+        format_xyz_url("http://{s}.tile.example/{z}/{x}/{y}.png", 0, 0, 0);
+    expect(sub == "http://a.tile.example/0/0/0.png",
+           "format_xyz_url subdomain");
+  }
+
+  {
+    const gis::Envelope r0 = tile_world_rect(0, 0, 0);
+    expect(r0.MinX < 0 && r0.MaxX > 0 && r0.MinY < 0 && r0.MaxY > 0,
+           "z0 world rect spans origin");
+    Viewport vp;
+    vp.min_x = -20037508.0;
+    vp.min_y = -20037508.0;
+    vp.max_x = 20037508.0;
+    vp.max_y = 20037508.0;
+    vp.z = 1;
+    const auto coords = tiles_for_viewport(vp);
+    expect(coords.size() == 4, "z1 world = 4 tiles");
+  }
+
+  {
+    auto provider = std::make_shared<TileProvider>();
+    expect(!provider->open_xyz("http://example/{z}/{x}"), "reject missing {y}");
+    expect(provider->open_xyz("http://127.0.0.1/{z}/{x}/{y}.png"),
+           "open_xyz http");
+    expect(provider->open_xyz("https://tiles.example/{z}/{x}/{y}.png"),
+           "open_xyz https template");
+
+    const char k_png_stub[] = "PNG-STUB-BYTES";
+    int http_calls = 0;
+    provider->set_fetch_fn([&](const std::string& url) {
+      ++http_calls;
+      net::HttpResult res;
+      expect(url.find("/2/1/1.png") != std::string::npos ||
+                 url.find("/2/") != std::string::npos,
+             "mock saw xyz url");
+      res.ok = true;
+      res.status = 200;
+      res.body.assign(k_png_stub, sizeof(k_png_stub) - 1);
+      return res;
+    });
+
+    TileCoord c{2, 1, 1};
+    TileImage one = provider->fetch_tile(c);
+    expect(one.bytes == k_png_stub, "mock fetch bytes");
+    expect(one.world_rect.MaxX > one.world_rect.MinX, "tile rect area");
+    expect(http_calls == 1, "first fetch hits HTTP");
+    expect(provider->cache_size() == 1, "cache stores successful tile");
+
+    TileImage two = provider->fetch_tile(c);
+    expect(two.bytes == k_png_stub, "LRU hit returns bytes");
+    expect(http_calls == 1, "second same-key fetch skips HTTP");
+
+    Viewport vp;
+    const gis::Envelope wr = tile_world_rect(2, 1, 1);
+    vp.min_x = wr.MinX;
+    vp.min_y = wr.MinY;
+    vp.max_x = wr.MaxX;
+    vp.max_y = wr.MaxY;
+    vp.z = 2;
+    auto* layer = new gis::tile::ProviderTileLayer(provider);
+    expect(layer->refresh_visible(vp), "refresh_visible");
+    expect(layer->GetTileCount() >= 1, "tile count");
+    const gis::tile::TileImage* t = layer->GetTile(0);
+    expect(t && !t->bytes.empty(), "smt tile has image");
+
+    gis::MapLayer map_layer = gis::tile::make_map_layer(provider);
+    expect(map_layer.tile() != nullptr && map_layer.tile()->refresh_visible(vp),
+           "map_layer refresh_visible");
+    vista::TessMesh mesh;
+    expect(vista::tessellate_tile_layer(&map_layer, mesh), "tessellate");
+    expect(mesh.has_image, "tessellate has_image");
+
+    expect(map_layer.layer_type() == gis::LYR_TITLE, "MapLayer kind=tile");
+    expect(map_layer.tile() != nullptr, "leftover ProviderTileLayer");
+    expect(map_layer.ogr() == nullptr, "tile MapLayer has no OGR");
+
+    gis::MapLayer xyz =
+        gis::tile::make_xyz_map_layer("http://tiles.local/{z}/{x}/{y}.png");
+    expect(xyz.layer_type() == gis::LYR_TITLE, "make_xyz_map_layer kind=tile");
+    expect(xyz.tile() != nullptr, "make_xyz_map_layer leftover");
+    gis::MapLayer bad = gis::tile::make_xyz_map_layer("http://bad/{z}");
+    expect(bad.tile() == nullptr, "make_xyz_map_layer rejects bad tmpl");
+
+    SMT_SAFE_DELETE(layer);
+  }
+
+  // Disk cache: miss → HTTP once; clear memory; hit disk → no second HTTP.
+  {
+    auto provider = std::make_shared<TileProvider>();
+    expect(provider->open_xyz("http://disk.local/{z}/{x}/{y}.png"),
+           "disk open_xyz");
+    const auto dir =
+        (std::filesystem::temp_directory_path() / "smartgis_tile_disk_test")
+            .string();
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+    provider->set_disk_cache_dir(dir);
+    provider->set_disk_cache_capacity(32);
+    provider->set_cache_capacity(8);
+
+    int http_calls = 0;
+    provider->set_fetch_fn([&](const std::string&) {
+      ++http_calls;
+      net::HttpResult res;
+      res.ok = true;
+      res.status = 200;
+      res.body = "DISK-PNG";
+      return res;
+    });
+
+    TileCoord c{1, 0, 0};
+    expect(provider->fetch_tile(c).bytes == "DISK-PNG", "disk first fetch");
+    expect(http_calls == 1, "disk first hits HTTP");
+    provider->clear_cache();
+    expect(provider->cache_size() == 0, "memory cleared");
+    expect(provider->fetch_tile(c).bytes == "DISK-PNG", "disk second fetch");
+    expect(http_calls == 1, "disk hit skips HTTP");
+    provider->clear_disk_cache();
+    std::filesystem::remove_all(dir, ec);
+  }
+
+  // WMTS Capabilities fixture (no network).
+  {
+    const char* k_caps =
+        "<?xml version=\"1.0\"?>"
+        "<Capabilities>"
+        "<Contents><Layer>"
+        "<Identifier>osm</Identifier>"
+        "<ResourceURL format=\"image/png\" resourceType=\"tile\" "
+        "template=\"https://wmts.example/{TileMatrix}/{TileCol}/{TileRow}."
+        "png\"/>"
+        "</Layer></Contents>"
+        "</Capabilities>";
+    std::string tmpl;
+    std::string err;
+    expect(gis::tile::parse_wmts_capabilities(k_caps, &tmpl, &err),
+           "parse wmts caps");
+    expect(tmpl.find("{z}") != std::string::npos &&
+               tmpl.find("{x}") != std::string::npos &&
+               tmpl.find("{y}") != std::string::npos,
+           "wmts placeholders normalized");
+    expect(tmpl.find("wmts.example") != std::string::npos, "wmts host kept");
+
+    gis::MapLayer layer =
+        gis::tile::make_wmts_map_layer_from_capabilities(k_caps);
+    expect(layer.tile() != nullptr, "make_wmts from caps");
+
+    std::string norm;
+    expect(gis::tile::normalize_wmts_url_template(
+               "http://h/{TileMatrix}/{TileCol}/{TileRow}.png", &norm),
+           "normalize wmts tmpl");
+    expect(norm == "http://h/{z}/{x}/{y}.png", "wmts → xyz");
+  }
+
+  // Style sources binding: raster parse + registry; vector → explicit reject.
+  {
+    using gis::tile::SourceRegistry;
+    using gis::tile::StyleSourceDesc;
+    using gis::tile::StyleSourceStatus;
+    using gis::tile::StyleSourceType;
+
+    const char* k_raster =
+        "{\"type\":\"raster\","
+        "\"tiles\":[\"http://a.tile/{z}/{x}/{y}.png\"],"
+        "\"tileSize\":256}";
+    StyleSourceDesc one;
+    expect(gis::tile::parse_style_source("basemap", k_raster, &one) ==
+               StyleSourceStatus::kOk,
+           "parse raster source");
+    expect(one.id == "basemap", "raster source id");
+    expect(one.type == StyleSourceType::kRaster, "raster type");
+    expect(one.tile_size == 256, "tileSize 256");
+    expect(one.primary_url_template() == "http://a.tile/{z}/{x}/{y}.png",
+           "primary url template");
+    expect(gis::tile::is_raster_bindable(one), "raster bindable");
+
+    TileProvider opened;
+    expect(gis::tile::open_provider_from_source(one, &opened),
+           "open_provider_from_source");
+    expect(opened.is_open(), "provider open after source");
+    gis::MapLayer from_src = gis::tile::make_xyz_map_layer_from_source(one);
+    expect(from_src.tile() != nullptr, "make_xyz_map_layer_from_source");
+
+    const char* k_style =
+        "{\"version\":8,\"name\":\"t\","
+        "\"sources\":{"
+        "\"osm\":{\"type\":\"raster\","
+        "\"tiles\":[\"http://osm/{z}/{x}/{y}.png\"],\"tileSize\":256},"
+        "\"roads\":{\"type\":\"vector\","
+        "\"tiles\":[\"http://v/{z}/{x}/{y}.pbf\"]}"
+        "},"
+        "\"layers\":[]}";
+    std::vector<StyleSourceDesc> many;
+    expect(gis::tile::parse_style_sources(k_style, &many) ==
+               StyleSourceStatus::kVectorUnsupported,
+           "mixed sources reports vector unsupported");
+    expect(many.size() == 1 && many[0].id == "osm",
+           "raster still collected from mixed style");
+
+    const char* k_vector =
+        "{\"type\":\"vector\",\"tiles\":[\"http://v/{z}/{x}/{y}.pbf\"]}";
+    StyleSourceDesc vec;
+    expect(gis::tile::parse_style_source("roads", k_vector, &vec) ==
+               StyleSourceStatus::kVectorUnsupported,
+           "vector source explicit reject");
+    expect(vec.type == StyleSourceType::kVector, "vector type recorded");
+    expect(!gis::tile::is_raster_bindable(vec), "vector not bindable");
+
+    SourceRegistry reg;
+    expect(reg.bind_from_json("osm", k_raster) == StyleSourceStatus::kOk,
+           "registry bind raster");
+    expect(reg.contains("osm") && reg.get("osm") && reg.get("osm")->is_open(),
+           "registry has open provider");
+    expect(reg.bind_from_json("roads", k_vector) ==
+               StyleSourceStatus::kVectorUnsupported,
+           "registry rejects vector");
+    expect(!reg.contains("roads"), "vector not inserted");
+    expect(reg.size() == 1, "registry size after vector reject");
+    expect(reg.bind_raster(one) == StyleSourceStatus::kOk, "bind_raster");
+    expect(reg.remove("basemap"), "remove basemap");
+    reg.clear();
+    expect(reg.size() == 0, "registry clear");
+
+    expect(!gis::tile::decode_tile(nullptr, 0, nullptr),
+           "mvt empty input fails");
+    expect(gis::tile::decode_status() == gis::tile::MvtDecodeStatus::kBadInput,
+           "mvt decode_status without bytes");
+    expect(gis::tile::reject_vector_source() ==
+               StyleSourceStatus::kVectorUnsupported,
+           "mvt reject_vector_source");
+    expect(gis::tile::non_goal_message() != nullptr, "mvt non_goal msg");
+
+    // Local fixture: raw PBF → features → MapFrame.
+    {
+      namespace fs = std::filesystem;
+      fs::path fixture = fs::path("testing") / "data" / "mvt" / "roads_fixture.mvt";
+      if (!fs::exists(fixture)) {
+        // tile_test.exe runs from out/Debug — walk up to repo root.
+        fixture = fs::path("..") / ".." / "testing" / "data" / "mvt" /
+                  "roads_fixture.mvt";
+      }
+      if (!fs::exists(fixture)) {
+        fixture = fs::path("..") / ".." / ".." / "testing" / "data" / "mvt" /
+                  "roads_fixture.mvt";
+      }
+      expect(fs::exists(fixture), "mvt fixture present");
+      if (fs::exists(fixture)) {
+        std::FILE* f = nullptr;
+        expect(fopen_s(&f, fixture.string().c_str(), "rb") == 0 && f,
+               "open mvt fixture");
+        std::vector<uint8_t> bytes;
+        if (f) {
+          std::fseek(f, 0, SEEK_END);
+          const long sz = std::ftell(f);
+          std::fseek(f, 0, SEEK_SET);
+          bytes.resize(sz > 0 ? static_cast<size_t>(sz) : 0);
+          if (!bytes.empty()) {
+            expect(std::fread(bytes.data(), 1, bytes.size(), f) == bytes.size(),
+                   "read mvt fixture");
+          }
+          std::fclose(f);
+        }
+        std::vector<std::string> summaries;
+        expect(gis::tile::decode_tile(bytes.data(), bytes.size(), &summaries),
+               "decode_tile fixture");
+        expect(!summaries.empty(), "fixture yields features");
+        expect(summaries.size() >= 2, "fixture road+poi");
+
+        gis::tile::MvtTile tile;
+        expect(gis::tile::decode_mvt(bytes.data(), bytes.size(), &tile) ==
+                   gis::tile::MvtDecodeStatus::kOk,
+               "decode_mvt ok");
+        expect(tile.layers.size() >= 2, "two layers");
+
+        vista::View view;
+        view.width_px = 128;
+        view.height_px = 128;
+        view.min_x = 0;
+        view.min_y = 0;
+        view.max_x = 10;
+        view.max_y = 10;
+        vista::MapFrame frame;
+        gis::tile::MvtDecodeStatus st = gis::tile::MvtDecodeStatus::kBadInput;
+        expect(vista::decode_mvt_to_map_frame(bytes.data(), bytes.size(),
+                                                  view, 8.0, nullptr, &frame,
+                                                  &st),
+               "decode_mvt_to_map_frame");
+        expect(st == gis::tile::MvtDecodeStatus::kOk, "frame status ok");
+        expect(!frame.items.empty(), "MapFrame has draw items");
+
+        // gzip wrapper of the same tile.
+        fs::path gz = fixture;
+        gz += ".gz";
+        if (!fs::exists(gz)) {
+          gz = fixture.parent_path() / "roads_fixture.mvt.gz";
+        }
+        if (fs::exists(gz)) {
+          std::FILE* gz_f = nullptr;
+          expect(fopen_s(&gz_f, gz.string().c_str(), "rb") == 0 && gz_f,
+                 "open gzip mvt");
+          std::vector<uint8_t> gz_bytes;
+          if (gz_f) {
+            std::fseek(gz_f, 0, SEEK_END);
+            const long gsz = std::ftell(gz_f);
+            std::fseek(gz_f, 0, SEEK_SET);
+            gz_bytes.resize(gsz > 0 ? static_cast<size_t>(gsz) : 0);
+            if (!gz_bytes.empty()) {
+              expect(std::fread(gz_bytes.data(), 1, gz_bytes.size(), gz_f) ==
+                         gz_bytes.size(),
+                     "read gzip mvt");
+            }
+            std::fclose(gz_f);
+          }
+          gis::tile::MvtTile gz_tile;
+          expect(gis::tile::decode_mvt(gz_bytes.data(), gz_bytes.size(),
+                                       &gz_tile) ==
+                     gis::tile::MvtDecodeStatus::kOk,
+                 "gzip decode_mvt ok");
+          expect(gz_tile.layers.size() == tile.layers.size(),
+                 "gzip layer count matches");
+        }
+      }
+    }
+  }
+
+  // Live CDN HTTPS: SKIP without network.
+  std::fprintf(stderr, "SKIP: live HTTPS XYZ CDN (mock + scheme covered)\n");
+
+  if (g_fails) {
+    std::fprintf(stderr, "%d checks failed\n", g_fails);
+    return 1;
+  }
+  std::fprintf(stderr, "tile_test ok\n");
+  return 0;
+}

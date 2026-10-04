@@ -1,7 +1,7 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-"""Plain-launch visual capture: SmartGisViews.exe argv=[] 2D + 3D.
+"""Plain-launch visual capture: SmartGIS.exe argv=[] 2D + 3D.
 
 Fixes closed-loop review bugs:
   #1 Wheel without click — OS click at fixed client coords flipped Map|Data|3D.
@@ -53,18 +53,18 @@ def _repo() -> Path:
 def _kill() -> None:
     for _ in range(6):
         subprocess.run(
-            ["taskkill", "/IM", "SmartGisViews.exe", "/F"],
+            ["taskkill", "/IM", "SmartGIS.exe", "/F"],
             capture_output=True,
             check=False,
         )
         time.sleep(0.6)
         check = subprocess.run(
-            ["tasklist", "/FI", "IMAGENAME eq SmartGisViews.exe"],
+            ["tasklist", "/FI", "IMAGENAME eq SmartGIS.exe"],
             capture_output=True,
             text=True,
             check=False,
         )
-        if "SmartGisViews.exe" not in (check.stdout or ""):
+        if "SmartGIS.exe" not in (check.stdout or ""):
             return
     time.sleep(1.0)
 
@@ -506,7 +506,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     repo = _repo()
-    exe = repo / "out" / args.out / "SmartGisViews.exe"
+    exe = repo / "out" / args.out / "SmartGIS.exe"
     cap = repo / "out" / args.out / "captures" / "shell"
     log_dir = repo / "out" / args.out / "log"
     if not exe.is_file():

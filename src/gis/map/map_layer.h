@@ -11,7 +11,7 @@
 #include "gis/feature/feature.h"
 #include "gis/gis_export.h"
 #include "gis/map/layer_kind.h"
-#include "gis/carto/style/style_types.h"
+#include "gis/style/style_types.h"
 #include "ogr_core.h"
 
 class GDALDataset;

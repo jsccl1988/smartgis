@@ -113,15 +113,15 @@ TYPE_MAP: list[tuple[str, str]] = [
 INCLUDE_SWAPS: list[tuple[str, str]] = [
     (
         '#include "legacy/core/macros/macros.h"',
-        '#include "scenic/detail/err.h"',
+        '#include "scenic/render/err.h"',
     ),
     (
         '#include "legacy/core/types/types.h"',
-        '#include "scenic/detail/geom.h"',
+        '#include "base/math/math.h"',
     ),
     (
         '#include "legacy/gis/present/carto/style_bas_struct.h"',
-        '#include "scenic/detail/viewport.h"',
+        '#include "scenic/render/rhi2d/public/device/viewport.h"',
     ),
 ]
 

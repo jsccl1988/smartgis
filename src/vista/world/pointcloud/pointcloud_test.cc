@@ -9,10 +9,10 @@
 #include <string>
 #include <vector>
 
-#include "vista/world/pointcloud/process/chunk.h"
-#include "vista/world/pointcloud/ingest/load.h"
-#include "vista/world/pointcloud/process/lod.h"
-#include "vista/world/terrain/mesh/tessellate.h"
+#include "vista/world/pointcloud/chunk.h"
+#include "vista/assets/pointcloud/load.h"
+#include "vista/world/pointcloud/lod.h"
+#include "vista/mesh/tessellate.h"
 #include "vista/world/world.h"
 
 #include "laszip.hpp"

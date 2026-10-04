@@ -24,7 +24,7 @@ All rights reserved.
 
 
 
-**Tech Stack:** C++23、`gis::style`、`gis::tile`、GDI、`SmartGisViews.exe --self-test`、GN/`build.bat`.
+**Tech Stack:** C++23、`gis::style`、`gis::tile`、GDI、`SmartGIS.exe --self-test`、GN/`build.bat`.
 
 
 

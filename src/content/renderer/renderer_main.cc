@@ -17,6 +17,7 @@
 #include "base/ipc/channel/channel.h"
 #include "base/ipc/codec/codec.h"
 #include "base/ipc/invitation/invitation.h"
+#include "base/process/switches.h"
 #include "content/public/event_bus.h"
 #include "content/common/host_protocol.h"
 #include "gis/edit/session.h"
@@ -217,6 +218,7 @@ bool run_renderer_loop(base::ipc::Channel* ch, HANDLE parent) {
 }  // namespace
 
 int RendererMain(const ContentMainParams& params) {
+  base::init_switches_from_argv(params.argc, params.argv);
   // This TU must stay free of d3d11.h / GL. Paint lives in gpu::GpuMain.
   if (argv_has_flag(params.argc, params.argv, L"--self-test")) {
     std::fprintf(stdout, "--type=renderer --self-test: no GPU device\n");

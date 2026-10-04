@@ -9,15 +9,14 @@
 namespace scenic {
 namespace detail {
 class GlRenderDevice;
-typedef class GlRenderDevice *LPGLRENDERDEVICE;
 
 // Stub VBO entry points (real procs live in VboFuncImpl).
 class VboFunc {
  public:
   VboFunc() = default;
   virtual ~VboFunc() = default;
-  virtual long Initialize(LPGLRENDERDEVICE /*pGLRenderDevice*/) {
-    return SMT_ERR_NONE;
+  virtual long Initialize(GlRenderDevice* /*pGLRenderDevice*/) {
+    return kErrNone;
   }
 
   virtual void glGenBuffers(GLsizei /*count*/, GLuint * /*handle*/) {}

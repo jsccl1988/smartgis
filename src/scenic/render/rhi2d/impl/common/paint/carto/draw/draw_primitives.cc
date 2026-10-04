@@ -9,8 +9,8 @@
 #include <span>
 #include <vector>
 
-#include "base/math/simd.h"
-#include "scenic/detail/geom.h"
+#include "base/math/simd/simd.h"
+#include "base/math/math.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/draw/device_geom.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/draw/points.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/encode/encoder_tls.h"
@@ -25,7 +25,7 @@ namespace detail {
 int GdiPrimitivesDraw::draw_ellipse(float left, float top, float right,
                                  float bottom, bool b_dp) {
   if (!c_->h_cur_dc_ && !c_->is_recording()) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   lRect lrect;
 
@@ -46,12 +46,12 @@ int GdiPrimitivesDraw::draw_ellipse(float left, float top, float right,
     Ellipse(c_->h_cur_dc_, lrect.lb.x, lrect.lb.y, lrect.rt.x, lrect.rt.y);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiPrimitivesDraw::draw_rect(const fRect& rect, bool b_dp) {
   if (!c_->h_cur_dc_ && !c_->is_recording()) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   lRect tmpRectDP = rect.cast_to<long>();
 
@@ -77,18 +77,18 @@ int GdiPrimitivesDraw::draw_rect(const fRect& rect, bool b_dp) {
     LineTo(c_->h_cur_dc_, tmpRectDP.lb.x, tmpRectDP.lb.y);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiPrimitivesDraw::draw_line(fPoint* points, int count, bool b_dp) {
   int n_points = count;
-  if (n_points < 2) return SMT_ERR_INVALID_PARAM;
+  if (n_points < 2) return kErrInvalidParam;
   if (!c_->h_cur_dc_ && !c_->is_recording()) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   ScopedGdiPoints pts(n_points);
-  if (!pts) return SMT_ERR_FAILURE;
+  if (!pts) return kErrFailure;
 
   if (!b_dp) {
     thread_local std::vector<float> xy;
@@ -124,13 +124,13 @@ int GdiPrimitivesDraw::draw_line(fPoint* points, int count, bool b_dp) {
     PolylineTo(c_->h_cur_dc_, pts.data, n_points);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiPrimitivesDraw::draw_line(const fPoint& pt_a, const fPoint& pt_b,
                               bool b_dp) {
   if (!c_->h_cur_dc_ && !c_->is_recording()) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   lPoint pt1(pt_a.x, pt_a.y), pt2(pt_b.x, pt_b.y);
 
@@ -147,13 +147,13 @@ int GdiPrimitivesDraw::draw_line(const fPoint& pt_a, const fPoint& pt_b,
     LineTo(c_->h_cur_dc_, pt2.x, pt2.y);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiPrimitivesDraw::draw_text(const char* anno, float angle, float c_height,
                               float c_width, float c_space, const fPoint& point,
                               bool b_dp) {
-  if (anno == nullptr) return SMT_ERR_INVALID_PARAM;
+  if (anno == nullptr) return kErrInvalidParam;
 
   c_height *= c_->rc_->fblc;
   c_width *= c_->rc_->fblc;
@@ -215,7 +215,7 @@ int GdiPrimitivesDraw::draw_text(const char* anno, float angle, float c_height,
     detail::ScopedPaintBackend(c_->h_cur_dc_)->draw_cross( lX, lY, r);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiPrimitivesDraw::draw_image(const char* image_buf, int image_buf_size,
@@ -227,7 +227,7 @@ int GdiPrimitivesDraw::draw_image(const char* image_buf, int image_buf_size,
   tmpImage.Decode((BYTE*)image_buf, image_buf_size, code_type);
   tmpImage.Draw(c_->h_cur_dc_, lrt.lb.x, lrt.rt.y, lrt.width(), lrt.height());
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int GdiPrimitivesDraw::stretch_image(const char* image_buf, int image_buf_size,
@@ -239,7 +239,7 @@ int GdiPrimitivesDraw::stretch_image(const char* image_buf, int image_buf_size,
   tmpImage.Decode((BYTE*)image_buf, image_buf_size, code_type);
   tmpImage.Stretch(c_->h_cur_dc_, lrt.lb.x, lrt.rt.y, lrt.width(), lrt.height());
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 

@@ -39,7 +39,7 @@ if (smt_python_prefix != "") {
 }
 
 # Official Windows CPython ships /MD only (no python312_d). Linking
-# python312.dll into a /MDd SmartGisViews process mixes MSVCP140 with
+# python312.dll into a /MDd SmartGIS process mixes MSVCP140 with
 # MSVCP140D and trips STATUS_HEAP_CORRUPTION (0xC0000374) on ordinary
 # interactive launch. Keep Python for Release; Debug uses the stub until a
 # matching debug CPython is available.

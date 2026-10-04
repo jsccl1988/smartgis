@@ -8,7 +8,7 @@
 #include <cstring>
 #include <vector>
 
-#include "scenic/detail/err.h"
+#include "scenic/render/err.h"
 
 namespace scenic {
 namespace detail {

@@ -5,7 +5,7 @@
 #include <map>
 
 #include "base/core/log.h"
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/shader/program.h"
 
 using namespace base;
@@ -17,7 +17,7 @@ typedef vector<Program*> vProgramPtrs;
 typedef map<string, Program*> mapNameToProgramPtrs;
 typedef pair<string, Program*> pairNameToProgramPtr;
 
-class LEGACY_RENDER_EXPORT ProgramManager {
+class SCENIC_IMPL_EXPORT ProgramManager {
  public:
   ProgramManager(void);
   virtual ~ProgramManager(void);
@@ -47,10 +47,10 @@ inline long ProgramManager::AddProgram(Program* pProgram) {
   else {
     LOGGING(LOG_INFO, "AddProgram () already exist");
 
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline Program* ProgramManager::GetProgram(const char* szName) {
@@ -69,7 +69,7 @@ inline void ProgramManager::DestroyProgram(const char* szName) {
   mapNameToProgramPtrs::iterator iter = m_mapNameToProgramPtrs.find(szName);
 
   if (iter != m_mapNameToProgramPtrs.end()) {
-    SMT_SAFE_DELETE(iter->second);
+    SAFE_DELETE(iter->second);
     m_mapNameToProgramPtrs.erase(iter);
   }
 }
@@ -78,7 +78,7 @@ inline void ProgramManager::DestroyAllProgram(void) {
   mapNameToProgramPtrs::iterator i = m_mapNameToProgramPtrs.begin();
 
   while (i != m_mapNameToProgramPtrs.end()) {
-    SMT_SAFE_DELETE(i->second);
+    SAFE_DELETE(i->second);
     i++;
   }
 
@@ -99,7 +99,7 @@ inline void ProgramManager::GetAllProgramName(
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else

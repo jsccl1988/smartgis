@@ -9,19 +9,19 @@ namespace detail {
 long GlRenderDevice::SetClearColor(const Color& clr) {
   glClearColor(clr.fRed, clr.fGreen, clr.fBlue, clr.fA);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetDepthClearValue(float z) {
   glClearDepth(z);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetStencilClearValue(ulong s) {
   glClearStencil(s);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::Clear(DWORD flags) {
@@ -35,49 +35,49 @@ long GlRenderDevice::Clear(DWORD flags) {
 
   glClear(glFlags);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetViewport(Viewport3D& viewport) {
   m_viewPort = viewport;
 
   if (m_viewPort.ulHeight == 0 || m_viewPort.ulWidth == 0)
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
 
   glViewport(viewport.ulX, viewport.ulY, viewport.ulWidth, viewport.ulHeight);
-  if (GL_NO_ERROR != glGetError()) return SMT_ERR_FAILURE;
+  if (GL_NO_ERROR != glGetError()) return kErrFailure;
 
   glScissor(viewport.ulX, viewport.ulY, viewport.ulWidth, viewport.ulHeight);
-  if (GL_NO_ERROR != glGetError()) return SMT_ERR_FAILURE;
+  if (GL_NO_ERROR != glGetError()) return kErrFailure;
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetOrtho(float left, float right, float bottom,
                                  float top, float zNear, float zFar) {
   ::glOrtho(left, right, bottom, top, zNear, zFar);
 
-  if (GL_NO_ERROR != glGetError()) return SMT_ERR_FAILURE;
+  if (GL_NO_ERROR != glGetError()) return kErrFailure;
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetPerspective(float fovy, float aspect, float zNear,
                                        float zFar) {
   ::gluPerspective(fovy, aspect, zNear, zFar);
 
-  if (GL_NO_ERROR != glGetError()) return SMT_ERR_FAILURE;
+  if (GL_NO_ERROR != glGetError()) return kErrFailure;
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetViewLookAt(Vector3& vPos, Vector3& vView,
                                       Vector3& vUp) {
   gluLookAt(vPos.x, vPos.y, vPos.z, vView.x, vView.y, vView.z, vUp.x, vUp.y,
             vUp.z);
-  if (GL_NO_ERROR != glGetError()) return SMT_ERR_FAILURE;
+  if (GL_NO_ERROR != glGetError()) return kErrFailure;
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 // calculator 3D pos by 2D pos
@@ -112,7 +112,7 @@ long GlRenderDevice::Transform2DTo3D(Vector3& vOrg, Vector3& vTar,
     vTar.set(_x, _y, _z);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 // 3d to 2d
@@ -132,7 +132,7 @@ long GlRenderDevice::Transform3DTo2D(const Vector3& ver3D, lPoint& point) {
   point.x = _x;
   point.y = _y;
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 // get frustum — shared Eigen extract (outward planes for Aabb::cull).
@@ -181,7 +181,7 @@ long GlRenderDevice::GetFrustum(Frustum& out) {
              modl[15] * proj[15];
 
   out = Frustum::from_column_major_clip(clip);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 }  // namespace detail
 }  // namespace scenic

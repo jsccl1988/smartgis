@@ -3,10 +3,12 @@
 
 """Run plugin.world3d equal-profile backend/parallel matrix.
 
-Same China DEM Scene3D on FlyCube rows (SmartGisViews --plugin-showcase=world3d)
-with SMT_PLUGIN_WORLD3D_PERF_BARE=1 (sky/ocean/cloud/fog + pointcloud overlay
+Same China DEM Scene3D on SmartGIS.exe --plugin-showcase=world3d with
+SMT_PLUGIN_WORLD3D_PERF_BARE=1 (sky/ocean/cloud/fog + pointcloud overlay
 off; pump_ms=0). Primary metric is warm ms_per_present (discard first cold
-frame; n=5). Leftover GL + D3D11 use the same present_count/discard.
+frame; n=5). Scenic rhi3d GL + D3D11 use the same Views entry + present
+count/discard (SMT_SCENE3D_ENGINE=stereo_gl|stereo_d3d). Leftover/legacy
+hosts are frozen — do not launch SmartGIS-Legacy.exe.
 
 Artifacts: out/Debug/captures/analysis/world3d_opt/matrix/
 """
@@ -24,11 +26,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
 OUT = ROOT / "out" / "Debug"
-VIEWS = OUT / "SmartGisViews.exe"
-LEGACY = OUT / "SmartGis.exe"
+VIEWS = OUT / "SmartGIS.exe"
 MATRIX = OUT / "captures" / "analysis" / "world3d_opt" / "matrix"
 PLUGIN_CAP = OUT / "captures" / "plugin"
-LEGACY_CAP = OUT / "captures" / "legacy"
 BMP_LEAF = "plugin-showcase-world3d.bmp"
 MARK_LEAF = "plugin-showcase-mark.txt"
 
@@ -40,18 +40,17 @@ _FLYCUBE_PERF_ENV: dict[str, str | None] = {
     "SMT_SCENE3D_ENGINE": None,
 }
 
-_LEFTOVER_PERF_ENV: dict[str, str | None] = {
-    "SMT_SCENE3D_ENGINE": None,
-    "SMT_SCENE3D_SHOWCASE_LINGER_MS": "0",
-    "SMT_SCENE3D_SHOWCASE_PRESENT_COUNT": "5",
-    "SMT_SCENE3D_SHOWCASE_DISCARD_COLD": "1",
+_SCENIC_GPU_PERF_ENV: dict[str, str | None] = {
+    **_FLYCUBE_PERF_ENV,
+    "SMT_GPUSCENE_PREP_PARALLEL": None,
     "SMT_RHI3D_FRAME_JOB": "0",
     "SMT_RHI3D_PREP_PARALLEL": "0",
 }
 
 # row_id, backend_label, parallel_label, kind, role, env overlays
-# kind: views_world3d | legacy_stereo
+# kind: views_world3d
 # role: perf (performance table) | smoke (run + gate only; not a perf peer)
+# leftover/legacy hosts are frozen — GL/D3D peers are scenic rhi3d on Views.
 ROWS: list[tuple[str, str, str, str, str, dict[str, str | None]]] = [
     # Views world3d: leave SMT_SCENE3D_ENGINE unset so plugin-showcase keeps
     # the GDI shell default; FlyCube is acquired on the showcase HWND only.
@@ -111,25 +110,27 @@ ROWS: list[tuple[str, str, str, str, str, dict[str, str | None]]] = [
         },
     ),
     (
-        "gl_leftover",
-        "Leftover/GL",
-        "leftover_serial",
-        "legacy_stereo",
+        "gl_scenic",
+        "Scenic/GL",
+        "scenic_serial",
+        "views_world3d",
         "perf",
         {
-            **_LEFTOVER_PERF_ENV,
+            **_SCENIC_GPU_PERF_ENV,
+            "SMT_SCENE3D_ENGINE": "stereo_gl",
             "SMT_STEREO_API": "OpenGL",
             "SMT_SCENE3D_SHOWCASE_D3D": "0",
         },
     ),
     (
-        "d3d_leftover",
-        "Leftover/D3D11",
-        "leftover_serial",
-        "legacy_stereo",
+        "d3d_scenic",
+        "Scenic/D3D11",
+        "scenic_serial",
+        "views_world3d",
         "perf",
         {
-            **_LEFTOVER_PERF_ENV,
+            **_SCENIC_GPU_PERF_ENV,
+            "SMT_SCENE3D_ENGINE": "stereo_d3d",
             "SMT_STEREO_API": "Direct3D",
             "SMT_SCENE3D_SHOWCASE_D3D": "1",
             "SMT_RHI3D_D3D_DEFERRED": "0",
@@ -168,10 +169,10 @@ def _apply_env(base: dict[str, str], overlay: dict[str, str | None]) -> dict[str
 
 
 def _kill_showcase_procs() -> None:
-    """Drop leftover PE locks / DXGI adapters between matrix rows."""
+    """Drop PE locks / DXGI adapters between matrix rows."""
     if os.name != "nt":
         return
-    for name in ("SmartGisViews.exe", "SmartGis.exe"):
+    for name in ("SmartGIS.exe", "SmartGIS-Legacy.exe"):
         subprocess.run(
             ["taskkill", "/IM", name, "/T"],
             capture_output=True,
@@ -179,7 +180,7 @@ def _kill_showcase_procs() -> None:
             check=False,
         )
     time.sleep(2.0)
-    for name in ("SmartGisViews.exe", "SmartGis.exe"):
+    for name in ("SmartGIS.exe", "SmartGIS-Legacy.exe"):
         subprocess.run(
             ["taskkill", "/IM", name, "/F", "/T"],
             capture_output=True,
@@ -242,7 +243,7 @@ def _load_perf_json(src: Path | None, dest_dir: Path) -> dict:
         return out
     dest_dir.mkdir(parents=True, exist_ok=True)
     dst = dest_dir / src.name
-    shutil.copy2(src, dst)
+    _copy2_retry(src, dst)
     out["perf_json"] = str(dst.relative_to(OUT)).replace("\\", "/")
     try:
         data = json.loads(dst.read_text(encoding="utf-8"))
@@ -304,6 +305,56 @@ def _try_inspect_png(bmp: Path) -> str | None:
     return None
 
 
+def _copy2_retry(src: Path, dst: Path) -> None:
+    """Copy on Windows even when Explorer/AV briefly locks the dest."""
+    if dst.exists() and src.resolve() == dst.resolve():
+        return
+    last: BaseException | None = None
+    for i in range(8):
+        try:
+            shutil.copy2(src, dst)
+            return
+        except (PermissionError, OSError) as ex:
+            last = ex
+            winerr = getattr(ex, "winerror", None)
+            if winerr not in (5, 32, None) and not isinstance(ex, PermissionError):
+                break
+            time.sleep(0.25 * (i + 1))
+    data = src.read_bytes()
+    dst.write_bytes(data)
+    try:
+        shutil.copystat(src, dst)
+    except OSError:
+        pass
+    if last is not None and not dst.is_file():
+        raise last
+
+
+def _under_matrix(path: Path) -> bool:
+    try:
+        path.resolve().relative_to(MATRIX.resolve())
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def _live_capture_hits(leaf: str, *, min_mtime: float | None) -> list[Path]:
+    """Plugin-cap first; never harvest prior matrix copies as live artifacts."""
+    hits: list[Path] = []
+    preferred = PLUGIN_CAP / leaf
+    if preferred.is_file():
+        hits.append(preferred)
+    for p in (OUT / "captures").rglob(leaf):
+        if _under_matrix(p):
+            continue
+        if p not in hits:
+            hits.append(p)
+    if min_mtime is None:
+        return hits
+    fresh = [p for p in hits if p.stat().st_mtime >= min_mtime - 1.0]
+    return fresh
+
+
 def _copy_into_row(row_id: str, src_bmp: Path | None, src_mark: Path | None,
                    *, min_mtime: float | None = None) -> dict:
     dest_dir = MATRIX / row_id
@@ -315,13 +366,16 @@ def _copy_into_row(row_id: str, src_bmp: Path | None, src_mark: Path | None,
             src_bmp = None
     if src_bmp and src_bmp.is_file() and src_bmp.stat().st_size > 0:
         dst = dest_dir / src_bmp.name
-        shutil.copy2(src_bmp, dst)
+        _copy2_retry(src_bmp, dst)
         out["bmp"] = str(dst.relative_to(OUT)).replace("\\", "/")
         out["bmp_bytes"] = dst.stat().st_size
         out["inspect_png"] = _try_inspect_png(dst)
     if src_mark and src_mark.is_file():
+        if min_mtime is not None and src_mark.stat().st_mtime < min_mtime - 1.0:
+            src_mark = None
+    if src_mark and src_mark.is_file():
         dst_m = dest_dir / src_mark.name
-        shutil.copy2(src_mark, dst_m)
+        _copy2_retry(src_mark, dst_m)
         out["marks"] = _read_marks(dst_m)
     return out
 
@@ -442,18 +496,10 @@ def run_views_world3d(row_id: str, backend: str, parallel: str,
     log_text = (proc.stdout or "") + "\n" + (proc.stderr or "")
     log_path.write_text(log_text, encoding="utf-8")
 
-    bmp = _find_bmp(
-        [PLUGIN_CAP / BMP_LEAF]
-        + list((OUT / "captures").rglob(BMP_LEAF))
-    )
-    mark = PLUGIN_CAP / MARK_LEAF
-    if not mark.is_file():
-        for p in (OUT / "captures").rglob(MARK_LEAF):
-            mark = p
-            break
-    cap = _copy_into_row(
-        row_id, bmp, mark if mark.is_file() else None, min_mtime=t0_wall
-    )
+    bmp = _find_bmp(_live_capture_hits(BMP_LEAF, min_mtime=t0_wall))
+    mark_hits = _live_capture_hits(MARK_LEAF, min_mtime=t0_wall)
+    mark = mark_hits[0] if mark_hits else None
+    cap = _copy_into_row(row_id, bmp, mark, min_mtime=t0_wall)
     marks = cap["marks"]
     marks_set = set(marks)
     # Bare perf rows mark pointcloud-skip instead of pointcloud-ok.
@@ -467,13 +513,12 @@ def run_views_world3d(row_id: str, backend: str, parallel: str,
     )
     bmp_ok = bool(cap["bmp"]) and int(cap["bmp_bytes"] or 0) > 10000
     row_pass = marks_ok and (bmp_ok or row_id == "null")
-    perf = _load_perf_json(
+    perf =     _load_perf_json(
         _fresh_file(
-            [
-                PLUGIN_CAP / "plugin-showcase-world3d-perf.json",
-                OUT / "plugin-showcase-world3d-perf.json",
-            ]
-            + list((OUT / "captures").rglob("plugin-showcase-world3d-perf.json")),
+            _live_capture_hits(
+                "plugin-showcase-world3d-perf.json", min_mtime=t0_wall
+            )
+            or [PLUGIN_CAP / "plugin-showcase-world3d-perf.json"],
             t0_wall,
         ),
         MATRIX / row_id,
@@ -498,164 +543,6 @@ def run_views_world3d(row_id: str, backend: str, parallel: str,
         "bmp_bytes": cap["bmp_bytes"],
         "inspect_png": cap["inspect_png"],
         "marks": marks,
-        "pass": row_pass,
-        "log": str(log_path.relative_to(OUT)).replace("\\", "/"),
-        "note": note,
-    }
-    row.update(perf)
-    return row
-
-
-def run_legacy_stereo(row_id: str, backend: str, parallel: str,
-                      overlay: dict[str, str | None]) -> dict:
-    if not LEGACY.is_file():
-        return {
-            "row_id": row_id,
-            "engine": "legacy.scene3d",
-            "backend": backend,
-            "parallel": parallel,
-            "rc": None,
-            "wall_ms": None,
-            "ms_per_present": None,
-            "present_ms": None,
-            "present_count": None,
-            "bmp": None,
-            "bmp_bytes": 0,
-            "inspect_png": None,
-            "marks": [],
-            "pass": False,
-            "log": None,
-            "note": f"missing {LEGACY.name}; build SmartGis",
-        }
-
-    MATRIX.mkdir(parents=True, exist_ok=True)
-    log_path = MATRIX / f"{row_id}.log"
-    _kill_showcase_procs()
-    if not LEGACY.is_file():
-        return {
-            "row_id": row_id,
-            "engine": "legacy.scene3d",
-            "backend": backend,
-            "parallel": parallel,
-            "rc": None,
-            "wall_ms": None,
-            "ms_per_present": None,
-            "present_ms": None,
-            "present_count": None,
-            "bmp": None,
-            "bmp_bytes": 0,
-            "inspect_png": None,
-            "marks": [],
-            "pass": False,
-            "log": None,
-            "note": f"missing {LEGACY.name} after kill",
-        }
-    env = _apply_env(os.environ.copy(), overlay)
-
-    t0 = time.perf_counter()
-    t0_wall = time.time()
-    try:
-        proc = subprocess.run(
-            [str(LEGACY), "--scene3d-showcase", "china"],
-            cwd=str(OUT),
-            env=env,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=180,
-        )
-    except FileNotFoundError:
-        return {
-            "row_id": row_id,
-            "engine": "legacy.scene3d",
-            "backend": backend,
-            "parallel": parallel,
-            "rc": None,
-            "wall_ms": None,
-            "ms_per_present": None,
-            "present_ms": None,
-            "present_count": None,
-            "bmp": None,
-            "bmp_bytes": 0,
-            "inspect_png": None,
-            "marks": [],
-            "pass": False,
-            "log": None,
-            "note": f"CreateProcess missing {LEGACY.name}",
-        }
-    wall_ms = int((time.perf_counter() - t0) * 1000)
-    log_text = (proc.stdout or "") + "\n" + (proc.stderr or "")
-    log_path.write_text(log_text, encoding="utf-8")
-
-    is_d3d = row_id == "d3d_leftover"
-    # Prefer backend-specific leaf so GL/D3D do not overwrite each other.
-    leaf_pref = (
-        "legacy-scene3d-showcase-china-d3d.bmp"
-        if is_d3d
-        else "legacy-scene3d-showcase-china-gl.bmp"
-    )
-    leaf_alt = "legacy-scene3d-showcase-china.bmp"
-    candidates = [
-        LEGACY_CAP / leaf_pref,
-        OUT / leaf_pref,
-        LEGACY_CAP / leaf_alt,
-        OUT / leaf_alt,
-    ]
-    for p in (OUT / "captures").rglob("legacy-scene3d-showcase-china*.bmp"):
-        candidates.append(p)
-    bmp = _find_bmp(candidates)
-
-    mark_leaf = "legacy-scene3d-showcase-mark.txt"
-    mark = LEGACY_CAP / mark_leaf
-    if not mark.is_file():
-        for p in (OUT / "captures").rglob(mark_leaf):
-            mark = p
-            break
-        if not mark.is_file() and (OUT / mark_leaf).is_file():
-            mark = OUT / mark_leaf
-
-    cap = _copy_into_row(
-        row_id, bmp, mark if mark.is_file() else None, min_mtime=t0_wall
-    )
-    bmp_ok = bool(cap["bmp"]) and int(cap["bmp_bytes"] or 0) > 10000
-    # Match suite accept_nonzero_rc_if_bmp — leftover often AVs on teardown
-    # after a valid HWND capture (heap / GL destroy).
-    row_pass = bmp_ok
-    backend_tag = "d3d" if is_d3d else "gl"
-    perf_leaf_pref = f"legacy-scene3d-showcase-china-{backend_tag}-perf.json"
-    perf = _load_perf_json(
-        _fresh_file(
-            [
-                LEGACY_CAP / perf_leaf_pref,
-                LEGACY_CAP / "legacy-scene3d-showcase-perf.json",
-                OUT / perf_leaf_pref,
-                OUT / "legacy-scene3d-showcase-perf.json",
-            ]
-            + list((OUT / "captures").rglob("legacy-scene3d-showcase*-perf.json")),
-            t0_wall,
-        ),
-        MATRIX / row_id,
-    )
-    note = (
-        "leftover stereo china DEM via SMT_STEREO_API; "
-        "prefer ms_per_present (present loop) — wall_ms is process wall only"
-    )
-    if bmp_ok and proc.returncode not in (0, None):
-        note += f"; rc={proc.returncode} (bmp accepted)"
-    if perf.get("ms_per_present") is None:
-        note += "; missing perf json (rebuild SmartGis if stale PE)"
-    row = {
-        "row_id": row_id,
-        "engine": "legacy.scene3d",
-        "backend": backend,
-        "parallel": parallel,
-        "rc": proc.returncode,
-        "wall_ms": wall_ms,
-        "bmp": cap["bmp"],
-        "bmp_bytes": cap["bmp_bytes"],
-        "inspect_png": cap["inspect_png"],
-        "marks": cap["marks"],
         "pass": row_pass,
         "log": str(log_path.relative_to(OUT)).replace("\\", "/"),
         "note": note,
@@ -693,23 +580,16 @@ def main(argv: list[str] | None = None) -> int:
     for row_id, backend, parallel, kind, role, overlay in ROWS:
         if want is not None and row_id not in want:
             continue
-        print(
-            f"world3d-matrix: run {row_id} backend={backend} "
+        print(f"world3d-matrix: run {row_id} backend={backend} "
             f"kind={kind} role={role}",
             flush=True,
         )
-        if kind == "legacy_stereo":
-            row = run_legacy_stereo(row_id, backend, parallel, overlay)
-        else:
+        row = run_views_world3d(row_id, backend, parallel, overlay)
+        # First Views row can flake on DXGI/device race after kill;
+        # one retry keeps the matrix usable for fair warm compare.
+        if role in ("perf", "scenic") and not row.get("pass"):
+            print(f"  retry {row_id} after flake", flush=True)
             row = run_views_world3d(row_id, backend, parallel, overlay)
-            # First Views row can flake on DXGI/device race after kill;
-            # one retry keeps the matrix usable for fair warm compare.
-            if role == "perf" and not row.get("pass"):
-                print(f"  retry {row_id} after flake", flush=True)
-                row = run_views_world3d(row_id, backend, parallel, overlay)
-            if role == "scenic" and not row.get("pass"):
-                print(f"  retry {row_id} after flake", flush=True)
-                row = run_views_world3d(row_id, backend, parallel, overlay)
         row["role"] = role
         if role == "smoke":
             note = row.get("note") or ""
@@ -719,7 +599,7 @@ def main(argv: list[str] | None = None) -> int:
             note = row.get("note") or ""
             tag = (
                 "content-hosted scenic::Engine GDI (same china document; "
-                "not a GPU peer vs FlyCube/leftover)"
+                "not a GPU peer vs FlyCube/Scenic GL/Scenic D3D11)"
             )
             row["note"] = f"{note}; {tag}" if note else tag
         rows.append(row)
@@ -764,12 +644,12 @@ def main(argv: list[str] | None = None) -> int:
         "",
         "同等渲染物料及效果 · 并行策略×图像驱动（GL D3D FlyCube等）",
         "",
-        "Env: `SMT_SCENE3D_ENGINE` + `SMT_STEREO_API` (leftover GL/D3D).",
+        "Env: `SMT_SCENE3D_ENGINE` + `SMT_STEREO_API` (scenic rhi3d GL/D3D).",
         "GDI omitted (not a 3D GPU peer). Null is smoke-only.",
         "",
         "**Primary metric: warm `ms_per_present`** (discard first cold frame).",
         "`ms/p_all` includes cold upload; `wall_ms` is process wall — do not rank by them.",
-        "FlyCube bare = DEM-only 640x480 ×5; leftover china stereo same count/discard.",
+        "FlyCube bare = DEM-only 640x480 ×5; Scenic GL/D3D china stereo same count/discard.",
         "Cold attribution (FlyCube): `dem_load` / `tess` / `hypso` / `upload` / `pso` "
         "from `cold_phase` in `plugin-showcase-world3d-perf.json`.",
         "",
@@ -788,7 +668,7 @@ def main(argv: list[str] | None = None) -> int:
         "",
         "## Performance (warm ms_per_present)",
         "",
-        "Perf peers only (FlyCube prep axes + Leftover/GL + Leftover/D3D11).",
+        "Perf peers only (FlyCube prep axes + Scenic/GL + Scenic/D3D11).",
         "",
         "| Row | Backend | Parallel | warm ms/p | cold | all | n | discard | "
         "mesh | record | swap | wall_ms* | pass |",
@@ -812,7 +692,7 @@ def main(argv: list[str] | None = None) -> int:
         "",
         "## Cold attribution (first present)",
         "",
-        "FlyCube rows expose seed/GPU cold phases; leftover may leave these empty.",
+        "FlyCube rows expose seed/GPU cold phases; Scenic GL/D3D may leave these empty.",
         "",
         "| Row | cold ms/p | dem_load | tess | hypso | upload | pso | "
         "record* | mesh |",

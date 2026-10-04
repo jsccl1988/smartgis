@@ -10,3 +10,7 @@
 /third_party/gdal_sdk/
 /third_party/flycube_prebuilt/
 /third_party/windows_app_sdk/
+# Generated COM headers (~2MB); tree-sitter parse timeout / OOM on full reindex.
+/third_party/webview2/
+# Vendored Three.js min bundle; LSP resolve dominates parallel_resolve wall time.
+/testing/tools/harness/_shared/scripts/vscode/vscode-vts-preview/media/

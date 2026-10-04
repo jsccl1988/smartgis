@@ -24,7 +24,7 @@
     "rounds": 4,
     "timeout_sec": 150,
     "build_target": "SmartGis",
-    "exe": "SmartGis.exe"
+    "exe": "SmartGIS-Legacy.exe"
   },
   "visual_review": {
     "enabled": true,
@@ -34,6 +34,6 @@
       "no_scramble_after_orbit_wheel",
       "labels_or_coast_plausible"
     ],
-    "expect_notes": "Bare SmartGis.exe argv=[]; Edit→三维窗口 (wm_command 32915) + OS inject; soft china score informational"
+    "expect_notes": "Bare SmartGIS-Legacy.exe argv=[]; Edit→三维窗口 (wm_command 32915) + OS inject; soft china score informational"
   }
 }

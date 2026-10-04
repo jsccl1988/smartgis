@@ -17,42 +17,42 @@ int Rhi2dRenderDevice::LPToDP(float x, float y, LONG &X, LONG &Y) const {
   if (detail::ports_are_all_zero(m_Viewport, m_Windowport)) {
     X = x;
     Y = y;
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   const LpToDp2 a = detail::make_lp_to_dp(m_Viewport, m_Windowport, m_fblc);
   transform_xy(a, x, y, &X, &Y);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::DPToLP(LONG X, LONG Y, float &x, float &y) const {
   if (detail::ports_are_all_zero(m_Viewport, m_Windowport)) {
     x = X;
     y = Y;
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   const LpToDp2 a = detail::make_lp_to_dp(m_Viewport, m_Windowport, m_fblc);
   inverse_xy(a, X, Y, &x, &y);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::LRectToDRect(const fRect &frect, lRect &lrect) const {
   LPToDP(frect.lb.x, frect.lb.y, lrect.lb.x, lrect.lb.y);
   LPToDP(frect.rt.x, frect.rt.y, lrect.rt.x, lrect.rt.y);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::DRectToLRect(const lRect &lrect, fRect &frect) const {
   DPToLP(lrect.lb.x, lrect.lb.y, frect.lb.x, frect.lb.y);
   DPToLP(lrect.rt.x, lrect.rt.y, frect.rt.x, frect.rt.y);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::Refresh() {
   // Teardown / closed HWND -- never touch shared front.
   if (!m_hWnd || !::IsWindow(m_hWnd) || m_leak_on_close_) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   // Never block or race the map worker from the UI thread. Preview pan/zoom
   // already updated the viewport; present once the pending frame finishes.
@@ -64,14 +64,14 @@ int Rhi2dRenderDevice::Refresh() {
   // again in RenderMapToDC doubled Debug color-key cost (~0.8 FPS pan).
   // Direct GetDC BitBlt is discarded by DWM; InvalidateRect is required.
   invalidate_map_present();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::Refresh(const Map *pMap, fRect frect) {
   lRect lrect;
   LRectToDRect(frect, lrect);
   RefreshDirectly(pMap, lrect);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::RefreshDirectly(const Map *pSmtMap, lRect rect,
@@ -90,8 +90,8 @@ int Rhi2dRenderDevice::ZoomMove(const Map *pSmtMap, fPoint dbfPointOffset,
 
 int Rhi2dRenderDevice::ZoomScale(const Map *pSmtMap, lPoint orgPoint,
                                     float fscale, bool bRealTime) {
-  if (PreviewZoomScale(orgPoint, fscale) != SMT_ERR_NONE) {
-    return SMT_ERR_INVALID_PARAM;
+  if (PreviewZoomScale(orgPoint, fscale) != kErrNone) {
+    return kErrInvalidParam;
   }
   return rerender_map(pSmtMap, bRealTime);
 }
@@ -143,8 +143,8 @@ bool Rhi2dRenderDevice::rubber_band_device_focus(const fRect &rect,
   LONG y0 = 0;
   LONG x1 = 0;
   LONG y1 = 0;
-  if (LPToDP(rect.lb.x, rect.lb.y, x0, y0) != SMT_ERR_NONE ||
-      LPToDP(rect.rt.x, rect.rt.y, x1, y1) != SMT_ERR_NONE) {
+  if (LPToDP(rect.lb.x, rect.lb.y, x0, y0) != kErrNone ||
+      LPToDP(rect.rt.x, rect.rt.y, x1, y1) != kErrNone) {
     return false;
   }
   *org_x = 0.5f * static_cast<float>(x0 + x1);
@@ -154,7 +154,7 @@ bool Rhi2dRenderDevice::rubber_band_device_focus(const fRect &rect,
 
 int Rhi2dRenderDevice::paint_map_bootstrap_sync(const Map *map) {
   if (!layer_tree_host_) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   if (layer_tree_host_->is_busy() || layer_tree_host_->has_pending()) {
     layer_tree_host_->cancel();
@@ -168,32 +168,32 @@ int Rhi2dRenderDevice::paint_map_bootstrap_sync(const Map *map) {
         static_cast<int>(m_Viewport.m_fVWidth),
         static_cast<int>(m_Viewport.m_fVHeight), R2_COPYPEN);
     if (layer_tree_host_->paint_map_sync(sync_rc, m_rdOptions) !=
-        SMT_ERR_NONE) {
-      return SMT_ERR_FAILURE;
+        kErrNone) {
+      return kErrFailure;
     }
   }
   note_painted_preview_baseline();
   Refresh();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::PreviewZoomScale(lPoint orgPoint, float fscale) {
   // MapLibre interactive zoom: update world windowport, then rebuild
   // vir_viewport2 from the last published baseline (never accumulate).
   if (!detail::is_valid_zoom_scale(fscale)) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   float x1, y1, x2, y2;
   DPToLP(orgPoint.x, orgPoint.y, x1, y1);
   if (!detail::scale_windowport_zoom(&m_Windowport, &m_fblc, fscale)) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   DPToLP(orgPoint.x, orgPoint.y, x2, y2);
   detail::nudge_windowport_origin(&m_Windowport, x2 - x1, y2 - y1);
   apply_stretch_preview(static_cast<float>(orgPoint.x),
                         static_cast<float>(orgPoint.y));
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::PreviewZoomMove(fPoint dbfPointOffset) {
@@ -201,7 +201,7 @@ int Rhi2dRenderDevice::PreviewZoomMove(fPoint dbfPointOffset) {
   // Do not touch vir_viewport1 (worker publish / Stretch source).
   detail::nudge_windowport_origin(&m_Windowport, dbfPointOffset.x,
                                   dbfPointOffset.y);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::ZoomToRect(const Map *pSmtMap, fRect rect,
@@ -223,7 +223,7 @@ int Rhi2dRenderDevice::ZoomToRect(const Map *pSmtMap, fRect rect,
   if (!detail::fit_windowport_contain(&m_Windowport, &m_fblc, m_Viewport,
                                       rect.lb.x, rect.lb.y, rect.width(),
                                       rect.height())) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   // MapLibre-like: stretch the last published front around the rubber-band
@@ -245,7 +245,7 @@ int Rhi2dRenderDevice::ZoomToRect(const Map *pSmtMap, fRect rect,
 
 int Rhi2dRenderDevice::rerender_map(const Map *map, bool realtime) {
   if (!map) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   if (!realtime) {
     return ReRenderMapByProxy(map, m_Viewport.m_fVOX, m_Viewport.m_fVOY,

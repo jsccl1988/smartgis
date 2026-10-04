@@ -12,6 +12,8 @@ source_set("analysis_sources") {
     "geochem/grade.h",
     "geochem/idw.cc",
     "geochem/idw.h",
+    # idw_profile.cc is empty (helpers are header-inline in idw_profile.h).
+    "geochem/idw_profile.h",
     "geochem/samples.cc",
     "geochem/samples.h",
     "geochem/stats.cc",
@@ -30,14 +32,23 @@ source_set("analysis_sources") {
     "ops/ops_runner.h",
     "raster/dem/dem_gradient.cc",
     "raster/dem/dem_gradient.h",
+    "raster/dem/dem_gradient_profile.cc",
+    "raster/dem/dem_gradient_profile.h",
     "raster/dem/flood_fill.cc",
     "raster/dem/flood_fill.h",
+    "raster/dem/hillshade.cc",
+    "raster/dem/hillshade.h",
+    "raster/mask/ring_mask.cc",
+    "raster/mask/ring_mask.h",
     "raster/dem/storm_surge.cc",
     "raster/dem/storm_surge.h",
     "raster/dem/storm_surge_stats.cc",
     "raster/dem/storm_surge_stats.h",
     "raster/filter/raster_convolve.cc",
     "raster/filter/raster_convolve.h",
+    # raster_convolve_profile.cc is a GN placeholder; GIS_EXPORT lives in
+    # raster_convolve.cc.
+    "raster/filter/raster_convolve_profile.h",
     "raster/filter/raster_smooth.cc",
     "raster/filter/raster_smooth.h",
   ]
@@ -45,6 +56,7 @@ source_set("analysis_sources") {
   defines = [
     "_USRDLL",
     "GIS_EXPORTS",
+    "NOMINMAX",
   ]
   public_deps = [
     "//third_party:gdal",
@@ -52,6 +64,7 @@ source_set("analysis_sources") {
   ]
   deps = [
     "//src/base:base",
+    "//src/base/execution:execution",
     "//src/base/math:math",
     "//third_party:eigen",
   ]
@@ -103,4 +116,44 @@ test("analysis_geochem_test") {
     "//third_party:gdal",
     "//third_party:rapidjson",
   ]
+}
+
+test("analysis_terrain_kernel_test") {
+  output_name = "analysis_terrain_kernel_test"
+  sources = [ "raster/dem/terrain_kernel_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/gis:gis" ]
+}
+
+test("analysis_dem_gradient_profile_test") {
+  output_name = "analysis_dem_gradient_profile_test"
+  sources = [ "raster/dem/dem_gradient_profile_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/gis:gis" ]
+}
+
+# CPU kernel benches (custom main; not google/benchmark).
+test("analysis_dem_gradient_bench") {
+  output_name = "analysis_dem_gradient_bench"
+  sources = [ "raster/dem/dem_gradient_bench.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/gis:gis" ]
+}
+
+# File is raster_convolve_bench.cc; exe is analysis_convolve_bench (not
+# raster_convolve_bench).
+test("analysis_convolve_bench") {
+  output_name = "analysis_convolve_bench"
+  sources = [ "raster/filter/raster_convolve_bench.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/gis:gis" ]
+}
+
+# File is idw_bench.cc; exe is analysis_idw_bench (not
+# analysis_geochem_idw_bench).
+test("analysis_idw_bench") {
+  output_name = "analysis_idw_bench"
+  sources = [ "geochem/idw_bench.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/gis:gis" ]
 }

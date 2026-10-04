@@ -280,7 +280,7 @@ Living §: [`../specs/2026-09-27-views-desktop-shell-design.md`](../specs/2026-0
 
 - [x] **L0 — `content_console_coverage_test`:** headless Agent / command matrix; register in `//:test_all`; green under `build.bat te`
 - [x] **L1 — `content_console_bench`:** register in `//:benchmark_all`; `build.bat b` writes `console_bench.json` (data + viewport soft timings)
-- [x] **L2 — `SmartGisViews.exe --self-test-console`:** shell e2e / self-test path; Console-driven app smoke + JSON where applicable
+- [x] **L2 — `SmartGIS.exe --self-test-console`:** shell e2e / self-test path; Console-driven app smoke + JSON where applicable
 - [x] **Optional coverage:** `testing/scripts/open_cpp_coverage_console.ps1` — OpenCppCoverage on PATH → HTML/cobertura under `out/Debug/coverage/console/` (sources: `src/content/browser/debug`, `src/base/log`); missing tool → exit 0 skip (do not fail CI)
 - [x] **Docs:** keep `ui-testing.md` + `testing/README.md` in sync with L0/L1/L2 entry points
 

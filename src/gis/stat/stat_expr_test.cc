@@ -42,9 +42,9 @@ int main() {
     stat::ValueSet vs;
     const double a[] = {8.0, 16.0};
     const double b[] = {1.0, 2.0};
-    expect(vs.bind("A", a) == SMT_ERR_NONE, "bind A");
-    expect(vs.bind("B", b) == SMT_ERR_NONE, "bind B");
-    expect(stat::evaluate("[C]=([A]/8+[B])*9", vs) == SMT_ERR_NONE,
+    expect(vs.bind("A", a) == stat::kOk, "bind A");
+    expect(vs.bind("B", b) == stat::kOk, "bind B");
+    expect(stat::evaluate("[C]=([A]/8+[B])*9", vs) == stat::kOk,
            "assign arithmetic");
     expect(vs.has("C"), "C created");
     auto c = vs.get("C");
@@ -55,8 +55,8 @@ int main() {
   {
     stat::ValueSet vs;
     const double a[] = {100.0, 1000.0};
-    expect(vs.bind("A", a) == SMT_ERR_NONE, "bind A log");
-    expect(stat::evaluate("[B]=[A]{log}10", vs) == SMT_ERR_NONE, "{log}");
+    expect(vs.bind("A", a) == stat::kOk, "bind A log");
+    expect(stat::evaluate("[B]=[A]{log}10", vs) == stat::kOk, "{log}");
     auto b = vs.get("B");
     expect(b.size() == 2 && almost_eq(b[0], 2.0) && almost_eq(b[1], 3.0),
            "[A]{log}10");
@@ -65,8 +65,8 @@ int main() {
   {
     stat::ValueSet vs;
     const double a[] = {2.718281828459045};
-    expect(vs.bind("A", a) == SMT_ERR_NONE, "bind A ln");
-    expect(stat::evaluate("[B]=[A]{ln}", vs) == SMT_ERR_NONE, "{ln}");
+    expect(vs.bind("A", a) == stat::kOk, "bind A ln");
+    expect(stat::evaluate("[B]=[A]{ln}", vs) == stat::kOk, "{ln}");
     auto b = vs.get("B");
     expect(b.size() == 1 && almost_eq(b[0], 1.0), "[A]{ln}");
   }
@@ -74,8 +74,8 @@ int main() {
   {
     stat::ValueSet vs;
     const double a[] = {1.0, 4.0};
-    expect(vs.bind("A", a) == SMT_ERR_NONE, "bind A plus");
-    expect(stat::evaluate("[B]=[A]+2", vs) == SMT_ERR_NONE, "broadcast add");
+    expect(vs.bind("A", a) == stat::kOk, "bind A plus");
+    expect(stat::evaluate("[B]=[A]+2", vs) == stat::kOk, "broadcast add");
     auto b = vs.get("B");
     expect(b.size() == 2 && almost_eq(b[0], 3.0) && almost_eq(b[1], 6.0), "[A]+2");
   }
@@ -83,34 +83,34 @@ int main() {
   {
     stat::ValueSet vs;
     const double a[] = {0.0};
-    expect(vs.bind("A", a) == SMT_ERR_NONE, "bind A sin");
-    expect(stat::evaluate("[B]=sin([A])", vs) == SMT_ERR_NONE, "sin()");
+    expect(vs.bind("A", a) == stat::kOk, "bind A sin");
+    expect(stat::evaluate("[B]=sin([A])", vs) == stat::kOk, "sin()");
     expect(almost_eq(vs.get("B")[0], 0.0), "sin(0)");
   }
 
   {
     stat::ValueSet vs;
     const double a[] = {3.0, 1.0};
-    expect(vs.bind("A", a) == SMT_ERR_NONE, "bind A pow");
-    expect(stat::evaluate("[B]=[A]^2", vs) == SMT_ERR_NONE, "pow");
+    expect(vs.bind("A", a) == stat::kOk, "bind A pow");
+    expect(stat::evaluate("[B]=[A]^2", vs) == stat::kOk, "pow");
     auto b = vs.get("B");
     expect(b.size() == 2 && almost_eq(b[0], 9.0) && almost_eq(b[1], 1.0), "[A]^2");
   }
 
   {
     stat::ValueSet vs;
-    expect(stat::evaluate("[C]=[A]+1", vs) == SMT_ERR_FUNC_INNER,
+    expect(stat::evaluate("[C]=[A]+1", vs) == stat::kEvalFail,
            "missing field");
-    expect(stat::evaluate("[[[", vs) == SMT_ERR_INVALID_PARAM, "bad syntax");
+    expect(stat::evaluate("[[[", vs) == stat::kInvalidParam, "bad syntax");
   }
 
   {
-    expect(stat::register_function("double_each", double_each) == SMT_ERR_NONE,
+    expect(stat::register_function("double_each", double_each) == stat::kOk,
            "register");
     stat::ValueSet vs;
     const double a[] = {1.5, 2.5};
-    expect(vs.bind("A", a) == SMT_ERR_NONE, "bind A fn");
-    expect(stat::evaluate("[B]=double_each([A])", vs) == SMT_ERR_NONE,
+    expect(vs.bind("A", a) == stat::kOk, "bind A fn");
+    expect(stat::evaluate("[B]=double_each([A])", vs) == stat::kOk,
            "call registered");
     auto b = vs.get("B");
     expect(b.size() == 2 && almost_eq(b[0], 3.0) && almost_eq(b[1], 5.0),

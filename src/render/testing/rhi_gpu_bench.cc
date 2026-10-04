@@ -13,11 +13,12 @@
 #include <memory>
 
 #include <benchmark/benchmark.h>
+#include "base/process/switches.h"
 
 namespace {
 
 bool env_wants_gpu() {
-  const char* v = std::getenv("SMT_RUN_FLYCUBE_GPU");
+  const char* v = base::switch_cstr("run-flycube-gpu");
   return v && v[0] == '1' && v[1] == '\0';
 }
 

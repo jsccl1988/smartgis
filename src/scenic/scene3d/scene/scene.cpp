@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #include "scenic/scene3d/scene/scene.h"
 
 #include <algorithm>
@@ -14,11 +17,13 @@
 #include "base/core/log.h"
 #include "base/threading/thread.h"
 #include "base/trace/event/process_trace.h"
-#include "scenic/detail/geom.h"
-#include "scenic/render/detail/frame_pipeline.h"
+#include "base/process/switches.h"
+#include "base/math/math.h"
+#include "scenic/render/frame.h"
 #include "scenic/render/rhi3d/impl/common/frame/prep_runner.h"
-#include "scenic/scene3d/detail/d3d_deferred_objects.h"
-#include "scenic/scene3d/seed/scene_to_world.h"
+#include "scenic/scene3d/scene/d3d_deferred_objects.h"
+#include "scenic/scene3d/scene/octree.h"
+#include "scenic/scene3d/scene/scene_to_world.h"
 
 namespace scenic {
 namespace detail {
@@ -50,13 +55,13 @@ Scene::Scene(void)
 Scene::~Scene(void) {
   Object3dPtrs::iterator iter = m_v3DObjectPtrs.begin();
   while (iter != m_v3DObjectPtrs.end()) {
-    SMT_SAFE_DELETE(*iter);
+    SAFE_DELETE(*iter);
     ++iter;
   }
 
-  SMT_SAFE_DELETE(m_pNorthArray);
-  SMT_SAFE_DELETE(m_pSceneTree);
-  SMT_SAFE_DELETE(m_pTimer);
+  SAFE_DELETE(m_pNorthArray);
+  SAFE_DELETE(m_pSceneTree);
+  SAFE_DELETE(m_pTimer);
 
   m_pCamera = NULL;
   m_p3DRenderDevice = NULL;
@@ -64,22 +69,22 @@ Scene::~Scene(void) {
 
 inline void Scene::SetSceneCamera(PerspCamera *pCamera) {
   m_pCamera = pCamera;
-  if (m_pNorthArray) m_pNorthArray->SetPerspCamera(m_pCamera);
+  if (m_pNorthArray) m_pNorthArray->set_camera(m_pCamera);
 }
 
 long Scene::Setup() {
-  m_pSceneTree = new SceneOctTree();
+  m_pSceneTree = new SceneOctree();
   m_pTimer = new ::base::FrameTimer();
-  m_pNorthArray = new NorthArray(90, 120, NULL);
+  m_pNorthArray = new NorthArray(90, 120, nullptr);
   Vector3 north_origin(0, 0, 0);
   Material north_mat;
-  if (m_pNorthArray->Init(north_origin, north_mat) == SMT_ERR_NONE) {
+  if (m_pNorthArray->Init(north_origin, north_mat) == kErrNone) {
     m_pNorthArray->Create(m_p3DRenderDevice);
   }
 
   m_pTimer->set_clock(0, 0);
 
-  m_pSceneTree->SetShowNodeBox(m_bShowNodeBox);
+  m_pSceneTree->set_show_node_box(m_bShowNodeBox);
 
   m_p3DRenderDevice->CreateFont("Calibri", 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
                                 16, m_nRenderInfoFont);
@@ -90,7 +95,7 @@ long Scene::Setup() {
 
   LOGGING(LOG_INFO, "Scene::Setup() is ok!");
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long Scene::Update() {
@@ -104,7 +109,7 @@ long Scene::Update() {
             m_pCamera->eye().z);
 
     if (m_bOctTreeCreated) {
-      m_pSceneTree->SetShowNodeBox(m_bShowNodeBox);
+      m_pSceneTree->set_show_node_box(m_bShowNodeBox);
 
       m_pSceneTree->Update(m_p3DRenderDevice, m_pTimer->get_elapsed());
 
@@ -122,12 +127,12 @@ long Scene::Update() {
       m_pNorthArray->Update(m_p3DRenderDevice, m_pTimer->get_elapsed());
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long Scene::Render(void) {
   BASE_TRACE_EVENT("Render", "scene3d");
-  detail::log_legacy_flow("scene3d.Render");
+  detail::log_frame_flow("scene3d.Render");
   if (NULL != m_pSceneTree && NULL != m_p3DRenderDevice && m_pTimer != NULL) {
     if (m_pCamera) m_pCamera->apply();
 
@@ -137,7 +142,7 @@ long Scene::Render(void) {
 
       if (m_pSceneTree->IsVisible()) {
         m_pSceneTree->Render(m_p3DRenderDevice);
-        m_pSceneTree->GetDebugString(szBuf, TEMP_BUFFER_SIZE);
+        m_pSceneTree->debug_string(szBuf, TEMP_BUFFER_SIZE);
         sprintf(m_szRenderInfoBuf, "Fps%.3f\t%s", m_pTimer->get_fps(), szBuf);
       } else
         sprintf(m_szRenderInfoBuf, "Fps%.3f\t", m_pTimer->get_fps());
@@ -154,7 +159,7 @@ long Scene::Render(void) {
       // SMT_RHI3D_SKIP_FRUSTUM=1: draw all visible objects (debug / D3D frustum
       // extract regressions).
       const bool skip_frustum = []() {
-        const char* e = std::getenv("SMT_RHI3D_SKIP_FRUSTUM");
+        const char* e = base::switch_cstr("rhi3d-skip-frustum");
         return e && e[0] && e[0] != '0' && e[0] != 'n' && e[0] != 'N';
       }();
       {
@@ -184,7 +189,7 @@ long Scene::Render(void) {
       LARGE_INTEGER t_draw0 = {};
       LARGE_INTEGER t_draw1 = {};
       const bool time_draw = []() {
-        const char* e = std::getenv("SMT_RHI3D_TIME_PRESENT");
+        const char* e = base::switch_cstr("rhi3d-time-present");
         return e && e[0] == '1';
       }();
       if (time_draw) {
@@ -227,7 +232,7 @@ long Scene::Render(void) {
 
     // Debug HUD (D3D GDI→sprite is costly; skip unless explicitly enabled).
     const bool draw_debug_hud = []() {
-      const char* e = std::getenv("SMT_RHI3D_DEBUG_HUD");
+      const char* e = base::switch_cstr("rhi3d-debug-hud");
       if (!e || !e[0]) {
         return false;
       }
@@ -249,7 +254,7 @@ long Scene::Render(void) {
     }
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 long Scene::Transform2DTo3D(::base::Vector3 &vOrg, ::base::Vector3 &vTar,
                                const lPoint &point) {
@@ -258,7 +263,7 @@ long Scene::Transform2DTo3D(::base::Vector3 &vOrg, ::base::Vector3 &vTar,
   if (NULL != m_p3DRenderDevice)
     m_p3DRenderDevice->Transform2DTo3D(vOrg, vTar, point);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long Scene::Transform3DTo2D(const Vector3 &ver3D, lPoint &point) {
@@ -267,12 +272,12 @@ long Scene::Transform3DTo2D(const Vector3 &ver3D, lPoint &point) {
   if (NULL != m_p3DRenderDevice)
     m_p3DRenderDevice->Transform3DTo2D(ver3D, point);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 void Scene::CreateOctTreeSceneMgr(void) {
-  m_pSceneTree->CreateOctTree(m_v3DObjectPtrs);
-  m_aAbb = m_pSceneTree->m_aabbScene;
+  m_pSceneTree->rebuild(m_v3DObjectPtrs);
+  m_aAbb = m_pSceneTree->aabb();
   m_bOctTreeCreated = true;
   // SP4: one switch — mirror object AABBs into World when a mirror is set
   // (map_to_scene / tests). Does not delete leftover octree.
@@ -294,7 +299,7 @@ void Scene::Remove3DObject(int index) {
   Object3dPtrs ::iterator iter = m_v3DObjectPtrs.begin();
   while (iter != m_v3DObjectPtrs.end()) {
     if (index == 0) {
-      SMT_SAFE_DELETE(*iter);
+      SAFE_DELETE(*iter);
       m_v3DObjectPtrs.erase(iter);
       CreateOctTreeSceneMgr();
       break;
@@ -310,7 +315,7 @@ void Scene::Remove3DObject(Object3d *p3DObject) {
   iter = find(m_v3DObjectPtrs.begin(), m_v3DObjectPtrs.end(), p3DObject);
 
   if (iter != m_v3DObjectPtrs.end()) {
-    SMT_SAFE_DELETE(*iter);
+    SAFE_DELETE(*iter);
     m_v3DObjectPtrs.erase(iter);
     CreateOctTreeSceneMgr();
   }
@@ -354,7 +359,7 @@ long Scene::Select3DObject(Object3dPtrs &vSelected3DObjects,
 
   if (m_bOctTreeCreated) {
     if (NULL != m_pSceneTree && NULL != m_p3DRenderDevice)
-      m_pSceneTree->Select3DObject(vSelected3DObjects, m_p3DRenderDevice,
+      m_pSceneTree->select_objects(vSelected3DObjects, m_p3DRenderDevice,
                                    point);
   } else {
     Object3dPtrs ::iterator iter = m_v3DObjectPtrs.begin();
@@ -369,13 +374,13 @@ long Scene::Select3DObject(Object3dPtrs &vSelected3DObjects,
     }
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long Scene::TransModel3DObjects(::base::Matrix &matTransform) {
   if (m_bOctTreeCreated) {
     if (NULL != m_pSceneTree)
-      m_pSceneTree->ObjectModelMatrixMultiply(matTransform);
+      m_pSceneTree->multiply_object_model_matrices(matTransform);
   } else {
     Object3dPtrs ::iterator iter = m_v3DObjectPtrs.begin();
     while (iter != m_v3DObjectPtrs.end()) {
@@ -386,13 +391,13 @@ long Scene::TransModel3DObjects(::base::Matrix &matTransform) {
     }
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long Scene::TransWorld3DObjects(::base::Matrix &matTransform) {
   if (m_bOctTreeCreated) {
     if (NULL != m_pSceneTree)
-      m_pSceneTree->ObjectWordlMatrixMultiply(matTransform);
+      m_pSceneTree->multiply_object_world_matrices(matTransform);
   } else {
     Object3dPtrs ::iterator iter = m_v3DObjectPtrs.begin();
     while (iter != m_v3DObjectPtrs.end()) {
@@ -403,7 +408,7 @@ long Scene::TransWorld3DObjects(::base::Matrix &matTransform) {
     }
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 }  // namespace detail
 }  // namespace scenic

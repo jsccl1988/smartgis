@@ -9,15 +9,14 @@
 namespace scenic {
 namespace detail {
 class GlRenderDevice;
-typedef class GlRenderDevice *LPGLRENDERDEVICE;
 
 // Stub WGL swap-interval entry points (real procs live in VSyncFuncImpl).
 class VSyncFunc {
  public:
   VSyncFunc() = default;
   virtual ~VSyncFunc() = default;
-  virtual long Initialize(LPGLRENDERDEVICE /*pGLRenderDevice*/) {
-    return SMT_ERR_NONE;
+  virtual long Initialize(GlRenderDevice* /*pGLRenderDevice*/) {
+    return kErrNone;
   }
 
   virtual int WaitForVSync() { return 0; }

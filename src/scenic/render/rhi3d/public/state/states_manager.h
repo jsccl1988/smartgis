@@ -5,7 +5,7 @@
 
 #include <stack>
 
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/render_defs.h"
 #include "scenic/render/rhi3d/public/state/states.h"
 #include "scenic/render/rhi3d/public/texture/texture.h"
@@ -39,7 +39,7 @@ enum PipelineState {
 /**
 Manages all pipeline states.
 */
-class LEGACY_RENDER_EXPORT GpuStateManager {
+class SCENIC_IMPL_EXPORT GpuStateManager {
  public:
   GpuState *GetState();
   virtual void PushStates(uint flags);
@@ -205,8 +205,8 @@ inline long GpuStateManager::SetColor(float red, float green, float blue,
 }
 
 inline MatrixState GpuStateManager::GetMatrixState() {
-  scenic::detail::Matrix worldview = GetWorldViewMatrix();
-  scenic::detail::Matrix projection = GetProjectionMatrix();
+  ::base::Matrix worldview = GetWorldViewMatrix();
+  ::base::Matrix projection = GetProjectionMatrix();
   return MatrixState(worldview, projection);
 }
 
@@ -214,12 +214,12 @@ inline long GpuStateManager::SetMatrixState(MatrixState &state) {
   SetWorldViewMatrix(state.worldview);
   SetProjectionMatrix(state.projection);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else

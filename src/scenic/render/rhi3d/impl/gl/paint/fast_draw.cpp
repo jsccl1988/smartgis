@@ -1,12 +1,12 @@
-#include "scenic/render/rhi3d/impl/gl/host/render_device.h"
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 
-using namespace base;
+#include "scenic/render/rhi3d/impl/gl/host/render_device.h"
 
 namespace scenic {
 namespace detail {
 // print implement
-long GlRenderDevice::DrawCube3D(Vector3 vCenter, float fWidth,
-                                   Color smtClr) {
+long GlRenderDevice::DrawCube3D(Vector3 vCenter, float fWidth, Color color) {
   float width = fWidth / 2.;
   Vector3 vTopLeftFront(vCenter.x - width, vCenter.y + width,
                         vCenter.z + width);
@@ -27,7 +27,7 @@ long GlRenderDevice::DrawCube3D(Vector3 vCenter, float fWidth,
 
   const GLboolean lighting = glIsEnabled(GL_LIGHTING);
   glDisable(GL_LIGHTING);
-  glColor4f(smtClr.fRed, smtClr.fGreen, smtClr.fBlue, smtClr.fA);
+  glColor4f(color.fRed, color.fGreen, color.fBlue, color.fA);
   glBegin(GL_LINES);
   ////////// TOP LINES //////////
   // Store the top front line of the box
@@ -85,7 +85,7 @@ long GlRenderDevice::DrawCube3D(Vector3 vCenter, float fWidth,
     glEnable(GL_LIGHTING);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 }  // namespace detail
 }  // namespace scenic

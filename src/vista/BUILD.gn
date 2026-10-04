@@ -2,7 +2,7 @@
 # All rights reserved.
 
 # Product vista layer — CPU MapFrame / World / atmosphere session + GPU
-# map / GpuScene / atmosphere passes. One DLL (dll_stem = vista).
+# FramePass / GpuScene / atmosphere passes. One DLL (dll_stem = vista).
 # May depend on gis.dll. gis.dll must not depend on this target.
 # Layout lock: docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md
 # §Vista subdirectory tighten. README: src/vista/README.md.
@@ -16,10 +16,12 @@ smt_shared_library("vista") {
     "//src/vista/assets:assets_sources",
     "//src/vista/atmosphere:atmosphere_sources",
     "//src/vista/domain:domain_sources",
-    "//src/vista/domain/atmosphere:atmosphere_sources",
+    "//src/vista/atmosphere:session_sources",
     "//src/vista/frame:frame_sources",
     "//src/vista/map:map_sources",
+    "//src/vista/mesh:mesh_sources",
     "//src/vista/scene:scene_sources",
+    "//src/vista/terrain:terrain_sources",
     "//src/vista/world:world_sources",
   ]
   public_deps = [
@@ -35,6 +37,7 @@ group("vista_test_all") {
   testonly = true
   deps = [
     "//src/vista/assets:model_test",
+    "//src/vista/assets:pdal_io_test",
     "//src/vista/assets:tileset_test",
     "//src/vista/atmosphere:atmosphere_frame_test",
     "//src/vista/atmosphere:cloud_pass_test",
@@ -42,21 +45,20 @@ group("vista_test_all") {
     "//src/vista/atmosphere:globe_pass_test",
     "//src/vista/atmosphere:ocean_pass_test",
     "//src/vista/atmosphere:sky_pass_test",
-    "//src/vista/domain/atmosphere:cloud_system_test",
-    "//src/vista/domain/atmosphere:environment_test",
-    "//src/vista/domain/atmosphere:field_ingest_test",
-    "//src/vista/domain/atmosphere:field_store_test",
-    "//src/vista/domain/atmosphere:ocean_system_test",
-    "//src/vista/domain/atmosphere:procedural_test",
-    "//src/vista/frame:frame_test",
-    "//src/vista/map:map_effect_test",
+    "//src/vista/atmosphere:cloud_system_test",
+    "//src/vista/atmosphere:environment_test",
+    "//src/vista/atmosphere:field_ingest_test",
+    "//src/vista/atmosphere:field_store_test",
+    "//src/vista/atmosphere:ocean_system_test",
+    "//src/vista/atmosphere:procedural_test",
+    "//src/vista/frame:map_effect_test",
+    "//src/vista/map:frame_test",
+    "//src/vista/mesh:tessellate_style_test",
     "//src/vista/scene:scene_gpu_test",
     "//src/vista/scene:unified_draw_test",
-    "//src/vista/world:dem_raster_test",
-    "//src/vista/world:land_mask_test",
-    "//src/vista/world:pdal_io_test",
+    "//src/vista/terrain:dem_raster_test",
+    "//src/vista/terrain:land_mask_test",
     "//src/vista/world:pointcloud_test",
-    "//src/vista/world:tessellate_style_test",
     "//src/vista/world:world_test",
   ]
 }

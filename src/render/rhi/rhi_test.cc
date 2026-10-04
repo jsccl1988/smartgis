@@ -14,6 +14,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include "base/process/switches.h"
 #endif
 
 namespace {
@@ -357,7 +358,7 @@ void main() {}
 #else
   // Identity-only by default. HWND init/execute/present can hang headless;
   // set SMT_RUN_FLYCUBE_GPU=1 to exercise the real path.
-  const char* run_gpu = std::getenv("SMT_RUN_FLYCUBE_GPU");
+  const char* run_gpu = base::switch_cstr("run-flycube-gpu");
   const bool want_gpu = run_gpu && run_gpu[0] == '1' && run_gpu[1] == '\0';
 
   std::unique_ptr<render::rhi::Device> dx12(create_device(Backend::kDx12));

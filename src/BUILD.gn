@@ -2,43 +2,25 @@
 # All rights reserved.
 
 # Product import-link DLL graph (see docs/superpowers/specs/2026-09-14-dll-reorganization-design.md).
-# Stems: base, gis, render, net, content, tool (+ optional leftover / ui_legacy).
+# Stems: base, gis, render, net, content, tool.
 # ui_views / plugin_host are pulled by //src/app/views (SmartGisViews), not here.
-# Do not add MFC/D3D/exe. Exe: //src/legacy/app:app (legacy) or //src/app/views.
-#
-# SP5 shell compile gate: default product library graph must not pull leftover
-# engines / MFC shell. Opt-in: //:legacy_all, build.bat legacy_app|ui_legacy,
-# ninja legacy_render|legacy_tool. See docs/superpowers/src-layout.md § Shell compile gate.
+# Dual-run leftover_render / leftover_tool / MFC leftover_app / ui_legacy deleted.
 # Scenic (scenic.dll) is exploratory: opt-in `build.bat debug scenic`.
 # Default //:all / src_all must not pull //src/scenic:*.
 
 group("src_all") {
-  # Forbid leftover DLL aggregators and MFC shell in the default library graph.
-  # //src/legacy/{xml,sys} are absorbed into base.dll and are intentionally
-  # allowed (groups forward to //src/base:base; not listed in assert_no_deps).
   assert_no_deps = [
-    "//src/legacy/app:*",
-    "//src/legacy/render:legacy_render",
-    "//src/legacy/render:legacy_render_all",
     "//src/scenic:*",
-    "//src/legacy/tool:*",
-    "//src/legacy/ui:ui",
-    "//src/legacy/ui:ui_legacy",
-    "//src/legacy/ui:legacy_ui_all",
-    "//src/ui:ui_legacy",
   ]
   deps = [
     # Product DLLs (import-link)
     "//src/base:base",
     "//src/base:core",  # group → :base
-    "//src/legacy/sys:sys",  # group → :base
     "//src/net:net",
     "//src/gis:gis",
     "//src/vista:vista",
     "//src/render:render_all",
     "//src/content:content",
     "//src/tool:tool",
-    # Leftover AuxModule runtime (LoadLibrary *.am); not plugin_host.dll
-    "//src/plugin:plugin",
   ]
 }

@@ -7,7 +7,7 @@ All rights reserved.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** On leftover `SmartGis.exe` only, delete in-tree `legacy/ui/grid` + `legacy/ui/dock` shims; use MSVC Feature Pack; deliver three UX waves (controls → shell look → Catalog/AMBox/FeatureInfo IA).
+**Goal:** On leftover `SmartGIS-Legacy.exe` only, delete in-tree `legacy/ui/grid` + `legacy/ui/dock` shims; use MSVC Feature Pack; deliver three UX waves (controls → shell look → Catalog/AMBox/FeatureInfo IA).
 
 **Architecture:** Approach C′ tree today. Waves 1–3 remove `grid/`/`dock/` and polish Feature Pack UX. **Wave 4 (after 1–3):** reshape `legacy/ui/**` capability dirs to mirror endgame shell vocabulary (`app/views/shell` roles: shell / viewport / panels / catalog / dialogs / widgets) while **remaining under `src/legacy/ui`** — never hoist into `src/ui` or `src/app/views`. Design lock: umbrella **§11c**.
 
@@ -15,7 +15,7 @@ All rights reserved.
 
 ## Global Constraints
 
-- Product path: leftover `SmartGis.exe` / `legacy_app` only — **no** `SmartGisViews` / `ui::views` edits.
+- Product path: leftover `SmartGIS-Legacy.exe` / `legacy_app` only — **no** `SmartGisViews` / `ui::views` edits.
 - Toolkit: MSVC Feature Pack only — no BCG Pro vendor, no Qt, no second control tree.
 - Feature Pack is a leftover bridge — **not** the product endgame (Views + Skia).
 - Freeze `dll_stem=ui_legacy`; keep sole AFX attach in `widgets/dll/dll_main.cpp`.

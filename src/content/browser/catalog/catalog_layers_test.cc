@@ -4,7 +4,7 @@
 #include "content/browser/document/store/layer_store.h"
 #include "content/browser/document/map_scene.h"
 #include "content/public/catalog_layers.h"
-#include "gis/carto/tile/tile_provider.h"
+#include "gis/tile/provider/tile_provider.h"
 
 #include <cstdio>
 #include <memory>

@@ -8,20 +8,21 @@
 #include <rapidjson/document.h>
 
 #include "base/core/log.h"
+#include "base/process/switches.h"
 
 namespace content {
 namespace detail {
 namespace {
 
 bool env_flag_on(const char* name) {
-  const char* v = std::getenv(name);
+  const char* v = base::switch_cstr(name);
   return v && v[0] == '1' && v[1] == '\0';
 }
 
 }  // namespace
 
 AgentPolicy::AgentPolicy() {
-  env_allow_ = env_flag_on("SG_DEBUG_ALLOW");
+  env_allow_ = env_flag_on("debug-allow");
 #if !defined(NDEBUG)
   debug_build_allow_ = true;
 #else

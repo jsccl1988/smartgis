@@ -7,7 +7,7 @@
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_phase_profile.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
-#include "vista/frame/frame.h"
+#include "vista/map/frame.h"
 
 #include <chrono>
 #include <cstdio>
@@ -18,6 +18,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include "base/process/switches.h"
 
 namespace {
 
@@ -221,8 +222,8 @@ int main() {
       expect(GetTempPathA(MAX_PATH, tmp) > 0, "temp path");
       const std::string bmp = std::string(tmp) + "map2d_p2_china_export.bmp";
       DeleteFileA(bmp.c_str());
-      _putenv_s("SMT_MAP2D_NO_HILLSHADE", "1");
-      _putenv_s("SMT_MAP2D_EXPORT_REUSE", "0");
+      base::set_switch("map2d-no-hillshade", "1");
+      base::set_switch("map2d-export-reuse", "0");
       content::reset_map2d_phase_sample();
       const bool ok = presenter.export_bmp(bmp, 1280, 720);
       const content::Map2dPhaseSample ph = content::map2d_last_phase_sample();

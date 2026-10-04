@@ -5,10 +5,9 @@
 
 #include "gis/datasource/ogr/ogr_connect.h"
 #include "gis/datasource/sdbd/sdbd_client.h"
+#include "gis/datasource/sdbd/sdbd_dataset.h"
 #include "gis/datasource/sdbd/sdbd_json.h"
 #include "gis/datasource/session/connection_spec.h"
-#include "legacy/gis/datasource/datasource_mgr.h"
-#include "legacy/gis/layer/layer.h"
 
 #include "gdal_priv.h"
 #include "net/rpc/rpc.h"
@@ -22,6 +21,7 @@
 
 #ifdef _WIN32
 #include <stdio.h>  // _popen / _pclose
+#include "base/process/switches.h"
 #endif
 
 namespace {
@@ -36,7 +36,7 @@ void expect(bool ok, const char* msg) {
 }
 
 std::string mogu_root() {
-  if (const char* env = std::getenv("SG_MOGU_ROOT")) {
+  if (const char* env = base::switch_cstr("mogu-root")) {
     if (env[0] != '\0') {
       return env;
     }
@@ -89,7 +89,7 @@ std::string resolve_http_base_for_live() {
                    "sdbd_live_test: note — localhost :8021 unreachable; "
                    "using WSL IP %s\n",
                    via_ip.c_str());
-      _putenv_s("SG_SDBD_BASE", via_ip.c_str());
+      base::set_switch("sdbd-base", via_ip.c_str());
       return via_ip;
     }
   }
@@ -199,9 +199,7 @@ int ensure_rpc_alive() {
 }  // namespace
 
 int main() {
-  using gis::DataSourceMgr;
   using gis::PROVIDER_SDBD;
-  using gis::DataSourceInfo;
   using gis::datasource::SdbdClient;
   using gis::datasource::SdbdTransport;
   using gis::datasource::is_db_provider_supported;
@@ -265,13 +263,12 @@ int main() {
     }
   }
 
-  // DataSourceMgr + PROVIDER_SDBD (HTTP base / SG_SDBD_BASE).
-  DataSourceInfo info{};
-  info.unType = gis::DS_DB_ADO;
-  info.unProvider = PROVIDER_SDBD;
-  std::strncpy(info.szName, "sdbd_live_http", sizeof(info.szName) - 1);
-  GDALDataset* ds = DataSourceMgr::get_singleton_ptr()->open_dataset(info);
-  expect(ds != nullptr, "DataSourceMgr PROVIDER_SDBD open_dataset non-null");
+  ConnectionSpec info;
+  info.ds_type = gis::DS_DB_ADO;
+  info.provider_id = PROVIDER_SDBD;
+  info.name = "sdbd_live_http";
+  GDALDataset* ds = gis::datasource::open_sdbd_dataset(info);
+  expect(ds != nullptr, "open_sdbd_dataset PROVIDER_SDBD non-null");
   if (ds) {
     std::printf("sdbd_live_test: HTTP mgr open layers=%d\n", ds->GetLayerCount());
     GDALClose(ds);
@@ -279,7 +276,6 @@ int main() {
 
   // FnRPC hard check — unbound methods (error_code==2) fail the test (no SKIP).
   if (ensure_rpc_alive() != 0) {
-    DataSourceMgr::destroy_instance();
     if (g_fails) {
       std::fprintf(stderr, "sdbd_live_test: %d FAIL (plus FnRPC)\n", g_fails);
     }
@@ -287,25 +283,20 @@ int main() {
   }
 
   // Also open via sdbd-rpc:// when RPC methods work.
-  DataSourceInfo rpc_info{};
-  rpc_info.unType = gis::DS_DB_ADO;
-  rpc_info.unProvider = PROVIDER_SDBD;
-  std::strncpy(rpc_info.szName, "sdbd_live_rpc", sizeof(rpc_info.szName) - 1);
-  const std::string rpc_url =
+  ConnectionSpec rpc_info;
+  rpc_info.ds_type = gis::DS_DB_ADO;
+  rpc_info.provider_id = PROVIDER_SDBD;
+  rpc_info.name = "sdbd_live_rpc";
+  rpc_info.url =
       std::string("sdbd-rpc://") + rpc_conn().rpc_host + ":" +
       std::to_string(rpc_conn().rpc_port);
-  std::strncpy(rpc_info.szUrl, rpc_url.c_str(), sizeof(rpc_info.szUrl) - 1);
-  GDALDataset* rpc_ds =
-      DataSourceMgr::get_singleton_ptr()->open_dataset(rpc_info);
-  expect(rpc_ds != nullptr,
-         "DataSourceMgr PROVIDER_SDBD via sdbd-rpc:// open non-null");
+  GDALDataset* rpc_ds = gis::datasource::open_sdbd_dataset(rpc_info);
+  expect(rpc_ds != nullptr, "open_sdbd_dataset sdbd-rpc:// non-null");
   if (rpc_ds) {
     std::printf("sdbd_live_test: RPC mgr open layers=%d\n",
                 rpc_ds->GetLayerCount());
     GDALClose(rpc_ds);
   }
-
-  DataSourceMgr::destroy_instance();
 
   if (g_fails) {
     std::fprintf(stderr, "sdbd_live_test: %d FAIL\n", g_fails);

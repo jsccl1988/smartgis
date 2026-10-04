@@ -7,7 +7,7 @@ import("//testing/test.gni")
 # Endgame render layer → one DLL (dll_stem = render):
 #   rhi + programs + graph traversal. GPU scene is //src/vista/scene (caller-linked).
 # Shell raster lives in //src/ui/gfx, not this DLL.
-# Does NOT include //src/legacy/render/** (optional leftover DLL).
+# Scenic copy engines are //src/scenic (opt-in), not this DLL.
 # Scene math is //src/base/math:{math,bounds} and is not linked into this DLL.
 
 config("rhi_flycube") {
@@ -80,7 +80,7 @@ smt_shared_library("render") {
   }
 }
 
-# Endgame aggregator. Leftover engines stay under //src/legacy/render.
+# Endgame aggregator. Scenic copy engines are opt-in //src/scenic.
 # Views shell raster is //src/ui/gfx:gfx (not this DLL).
 group("render_all") {
   public_deps = [ ":render" ]

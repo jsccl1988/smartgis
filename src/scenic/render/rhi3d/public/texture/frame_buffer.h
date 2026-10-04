@@ -2,7 +2,7 @@
 #ifndef _RD3D_FRAMEBUFFER_H
 #define _RD3D_FRAMEBUFFER_H
 
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/render_defs.h"
 #include "scenic/render/rhi3d/public/resource/render_buffer.h"
 
@@ -33,7 +33,7 @@ enum FrameBufferStatus {
 class RenderDevice3d;
 typedef class RenderDevice3d *LP3DRENDERDEVICE;
 
-class LEGACY_RENDER_EXPORT FrameBuffer {
+class SCENIC_IMPL_EXPORT FrameBuffer {
  public:
   FrameBuffer(LP3DRENDERDEVICE p3DRenderDevice, uint handle);
   virtual ~FrameBuffer();
@@ -55,7 +55,7 @@ class LEGACY_RENDER_EXPORT FrameBuffer {
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else
@@ -68,7 +68,7 @@ class LEGACY_RENDER_EXPORT FrameBuffer {
 // Bodies call RenderDevice3d. This header is included before that type is
 // complete, so the bodies are emitted only from the re-include at the bottom
 // of render_device.h.
-#if defined(SMT_3DRENDERDEVICE_COMPLETE) && !defined(_RD3D_FRAMEBUFFER_METHODS)
+#if defined(SCENIC_3DRENDERDEVICE_COMPLETE) && !defined(_RD3D_FRAMEBUFFER_METHODS)
 #define _RD3D_FRAMEBUFFER_METHODS
 
 namespace scenic {

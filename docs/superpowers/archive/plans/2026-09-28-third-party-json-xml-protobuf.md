@@ -68,7 +68,7 @@ All rights reserved.
 
 | `build/smartgis.gni` | `smt_has_*` probes |
 
-| `src/gis/carto/style/**` | Drop `json_mini`; RapidJSON |
+| `src/gis/style/**` | Drop `json_mini`; RapidJSON |
 
 | `src/gis/datasource/provider/impl/sdbd/codec/**` | Drop homemade Json; RapidJSON |
 
@@ -106,7 +106,7 @@ All rights reserved.
 
 
 
-**Files:** `src/gis/carto/style/**`, `src/gis/carto/tile/provider/style_source.cc`, delete `detail/json_mini.*`
+**Files:** `src/gis/style/**`, `src/gis/tile/provider/style_source.cc`, delete `detail/json_mini.*`
 
 
 

@@ -21,6 +21,7 @@
 #include <windowsx.h>
 
 #include "base/core/log.h"
+#include "base/process/switches.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/canvas/canvas.h"
 #include "ui/gfx/raster/paint_stats.h"
@@ -191,7 +192,7 @@ void MapViewport::paint_map_content(HDC target, const RECT& client_rc) {
     last_content_present_ok_.store(false, std::memory_order_release);
   }
   const bool force_gdi = []() {
-    if (const char* env = std::getenv("SMT_FORCE_GDI_MAP_OVERLAY")) {
+    if (const char* env = base::switch_cstr("force-gdi-map-overlay")) {
       return env[0] == '1' && env[1] == '\0';
     }
     return false;
@@ -423,7 +424,7 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
         return 0;
       }
       const bool force_gdi_overlay = []() {
-        if (const char* env = std::getenv("SMT_FORCE_GDI_MAP_OVERLAY")) {
+        if (const char* env = base::switch_cstr("force-gdi-map-overlay")) {
           return env[0] == '1' && env[1] == '\0';
         }
         return false;
@@ -491,7 +492,7 @@ LRESULT CALLBACK MapViewport::child_wnd_proc(HWND hwnd, UINT msg,
       fill_map_embed_opaque(hdc, rc, /*scene3d=*/true);
       self->present_latest_frame(hdc, rc);
       const bool force_gdi_shell = []() {
-        if (const char* env = std::getenv("SMT_FORCE_GDI_SHELL_OVERLAY")) {
+        if (const char* env = base::switch_cstr("force-gdi-shell-overlay")) {
           return env[0] == '1' && env[1] == '\0';
         }
         return false;

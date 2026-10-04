@@ -3,6 +3,7 @@
 
 #include "gpu/display/display.h"
 
+#include "base/process/switches.h"
 #include "gpu/compositor/composer/composer.h"
 #include "gpu/device/gpu_device_hub.h"
 #include "gpu/raster/direct/direct.h"
@@ -20,9 +21,8 @@ namespace gpu {
 namespace {
 
 bool env_selects_tile() {
-  char buf[32] = {};
-  const DWORD n = GetEnvironmentVariableA("SMT_MAP_BACKEND", buf, sizeof(buf));
-  if (n == 0 || n >= sizeof(buf)) {
+  const char* buf = base::switch_cstr("map-backend");
+  if (!buf || !buf[0]) {
     return false;
   }
   return std::strcmp(buf, "a") == 0 || std::strcmp(buf, "A") == 0 ||

@@ -4,7 +4,7 @@
 #include "scenic/scene3d/primitive/feature/map_label_batch.h"
 
 #include "gis/datasource/ogr/ogr_text_encoding.h"
-#include "vista/world/terrain/dem/dem_height_field.h"
+#include "vista/terrain/dem/dem_height_field.h"
 #include "scenic/render/rhi2d/impl/gdiplus/aa/gdiplus.h"
 #include "scenic/render/rhi3d/impl/d3d/ext/ext_interface.h"
 #include "scenic/render/rhi3d/public/device/render_device.h"
@@ -23,10 +23,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
-
-#pragma comment(lib, "gdiplus.lib")
-#pragma comment(lib, "opengl32.lib")
-#pragma comment(lib, "glu32.lib")
+#include "base/process/switches.h"
 
 namespace scenic {
 namespace detail {
@@ -359,7 +356,7 @@ long MapLabelBatch::Init(::base::Vector3& vPos, Material& matMaterial,
 
 long MapLabelBatch::Create(LP3DRENDERDEVICE p3DRenderDevice) {
   if (!p3DRenderDevice) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   // Geographic labels span the DEM; keep a wide AABB so frustum cull keeps us.
   m_aAbb.vcMin.set(-200.f, -50.f, -200.f);
@@ -368,10 +365,10 @@ long MapLabelBatch::Create(LP3DRENDERDEVICE p3DRenderDevice) {
   // Labels draw via GDI+ textures (D3D DrawScreenBgra / GL quads). Do not
   // require GL CreateFont here — that path can heap-corrupt across the
   // scenic_impl ↔ scenic_render_gl boundary; Render falls back / skips.
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
-long MapLabelBatch::Update(LP3DRENDERDEVICE, float) { return SMT_ERR_NONE; }
+long MapLabelBatch::Update(LP3DRENDERDEVICE, float) { return kErrNone; }
 
 bool MapLabelBatch::ensure_font(LP3DRENDERDEVICE device) {
   if (font_ready_ || !device) {
@@ -383,7 +380,7 @@ bool MapLabelBatch::ensure_font(LP3DRENDERDEVICE device) {
     uint id = 0;
     // Fallback bitmap path; primary draw uses GDI+ textures when available.
     if (device->CreateFont(face, 0, 0, FW_SEMIBOLD, false, false, false, 18,
-                           id) == SMT_ERR_NONE) {
+                           id) == kErrNone) {
       font_id_ = id;
       font_ready_ = true;
       return true;
@@ -394,11 +391,11 @@ bool MapLabelBatch::ensure_font(LP3DRENDERDEVICE device) {
 
 long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
   if (!p3DRenderDevice || labels_.empty()) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
-  if (const char* skip = std::getenv("SMT_RHI3D_SKIP_LABELS");
+  if (const char* skip = base::switch_cstr("rhi3d-skip-labels");
       skip && (skip[0] == '1' || skip[0] == 'y' || skip[0] == 'Y')) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   const Viewport3D& vp = p3DRenderDevice->GetViewport();
   const int vw = static_cast<int>(vp.ulWidth);
@@ -415,7 +412,7 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
   for (const MapLabel& lab : labels_) {
     lPoint pt = {};
     if (p3DRenderDevice->Transform3DTo2D(Vector3(lab.x, lab.y, lab.z), pt) !=
-        SMT_ERR_NONE) {
+        kErrNone) {
       sx.push_back(-10000);
       sy.push_back(-10000);
       MapLabelBox box;
@@ -481,16 +478,16 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
         }
         cached = insert_raster(std::move(entry));
       }
-      detail::call_smt_d3d_draw_screen_bgra(p3DRenderDevice, x, y, cached->w,
+      detail::call_d3d_draw_screen_bgra(p3DRenderDevice, x, y, cached->w,
                                            cached->h, cached->bgra.data());
     }
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   // Prefer GDI+ AA quads; CreateFont bitmap path is last resort only.
   const bool use_aa = gdiplus_available();
   if (!use_aa && !ensure_font(p3DRenderDevice)) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   GLint viewport[4] = {};
@@ -598,7 +595,7 @@ long MapLabelBatch::Render(LP3DRENDERDEVICE p3DRenderDevice) {
     glDisable(GL_TEXTURE_2D);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long MapLabelBatch::Destroy() {
@@ -609,7 +606,7 @@ long MapLabelBatch::Destroy() {
   sticky_keep_.clear();
   font_ready_ = false;
   font_id_ = 0;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 void MapLabelBatch::clear_raster_cache() {

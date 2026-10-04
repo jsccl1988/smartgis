@@ -2,7 +2,7 @@
 #ifndef _RD3D_PROGRAM_H
 #define _RD3D_PROGRAM_H
 
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/render_defs.h"
 #include "scenic/render/rhi3d/public/device/base.h"
 #include "scenic/render/rhi3d/public/shader/shader.h"
@@ -12,7 +12,7 @@ namespace detail {
 class RenderDevice3d;
 typedef class RenderDevice3d *LP3DRENDERDEVICE;
 
-class LEGACY_RENDER_EXPORT Program {
+class SCENIC_IMPL_EXPORT Program {
  public:
   Program(LP3DRENDERDEVICE p3DRenderDevice, uint handle, string strName);
   virtual ~Program();
@@ -48,7 +48,7 @@ class LEGACY_RENDER_EXPORT Program {
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else
@@ -61,7 +61,7 @@ class LEGACY_RENDER_EXPORT Program {
 // Bodies call RenderDevice3d. This header is included before that type is
 // complete, so the bodies are emitted only from the re-include at the bottom
 // of render_device.h.
-#if defined(SMT_3DRENDERDEVICE_COMPLETE) && !defined(_RD3D_PROGRAM_METHODS)
+#if defined(SCENIC_3DRENDERDEVICE_COMPLETE) && !defined(_RD3D_PROGRAM_METHODS)
 #define _RD3D_PROGRAM_METHODS
 
 namespace scenic {
@@ -90,22 +90,22 @@ inline long Program::SetPixelShader(Shader *shader) {
 }
 
 inline long Program::Link(ShaderCompilationFlag flags) {
-  if (SMT_ERR_NONE != m_p3DRenderDevice->LinkProgram(this))
-    return SMT_ERR_FAILURE;
+  if (kErrNone != m_p3DRenderDevice->LinkProgram(this))
+    return kErrFailure;
 
   /* Check if there is a need to check compilation */
   if (flags & SCF_CHECK_ERRORS) {
     long result = IsLinked();
 
     /* Check if there is a need to place errors in log file */
-    if (SMT_ERR_NONE != result && (flags & SCF_LOG_ERRORS)) {
+    if (kErrNone != result && (flags & SCF_LOG_ERRORS)) {
       ;
     }
 
     return result;
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline long Program::IsLinked() {

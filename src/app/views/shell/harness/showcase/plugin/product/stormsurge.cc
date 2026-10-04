@@ -40,7 +40,7 @@ int run_stormsurge_scene3d(Browser& browser) {
   plugin_showcase_mark("tab3d");
 
   PluginDeviceSessionOpts opts;
-  opts.gpu_env = "SMT_PLUGIN_STORMSURGE_GPU";
+  opts.gpu_env = "plugin-stormsurge-gpu";
   opts.require_scene_hwnd = false;
   opts.detach_flycube = false;
   opts.allow_null_without_hwnd = true;

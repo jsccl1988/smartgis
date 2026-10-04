@@ -39,3 +39,39 @@ def merge_env(extra: dict[str, str]) -> dict[str, str]:
     env = os.environ.copy()
     env.update(extra)
     return env
+
+
+def switch_flag(name: str, value: str) -> str:
+    key = str(name)
+    if key.startswith("SMT_"):
+        key = key[4:]
+    elif key.startswith("SG_"):
+        key = key[3:]
+    key = key.replace("_", "-").lower()
+    return f"--{key}={value}"
+
+
+def is_product_switch_key(key: str) -> bool:
+    k = str(key)
+    if k.startswith("SMT_") or k.startswith("SG_"):
+        return True
+    if k in {"SMARTGIS_ROOT", "CURSOR_API_KEY"}:
+        return True
+    if k.islower() and "-" in k:
+        return True
+    return False
+
+
+def peel_product_switches(env: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+    kept: dict[str, str] = {}
+    flags: list[str] = []
+    for k, v in env.items():
+        if is_product_switch_key(k):
+            flags.append(switch_flag(k, str(v)))
+        else:
+            kept[k] = v
+    return kept, flags
+
+
+def is_views_exe(exe_name: str) -> bool:
+    return str(exe_name).lower().startswith("smartgisviews")

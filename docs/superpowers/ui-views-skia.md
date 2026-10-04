@@ -9,7 +9,7 @@ User choice (2026-09-13): high-ceiling desktop chrome is **in-process C++**, Chr
 
 **Product brand:** **SmartGIS Horizon** — next-generation / modern desktop GIS (Views + Skia destination shell). Engineering path stays `src/app/views/shell/`; do **not** introduce `src/chrome/`. Living lock: [`specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) §Horizon product brand.
 
-This is the durable destination. **This pass ports leftover MFC chrome** into `ui::views`. `SmartGis.exe` stays leftover until parity; then stop compiling MFC UI. Do **not** wrap `CView`.
+This is the durable destination. **This pass ports leftover MFC chrome** into `ui::views`. `SmartGIS-Legacy.exe` stays leftover until parity; then stop compiling MFC UI. Do **not** wrap `CView`.
 
 ## Decision
 
@@ -17,9 +17,9 @@ This is the durable destination. **This pass ports leftover MFC chrome** into `u
 | --- | --- | --- | --- |
 | Shell toolkit (endgame) | Chromium-style Views | `src/ui/views/` | `ui::views` |
 | Shell paint | Skia canvas (backend only) | `src/ui/gfx/` | `ui::gfx` |
-| Product chrome exe | `src/app/` hosts | `src/app/views/` → `out/SmartGisViews.exe` | `app` |
+| Product chrome exe | `src/app/` hosts | `src/app/views/` → `out/SmartGIS.exe` | `app` |
 | Map viewport | Hosted HWND (mgis `content::MapView` hang) | child HWND → `gis` + `render/{gdi,gl}` or OOP `SmartGisRender.exe` | legacy `Smt_*` / `content::` when present |
-| Leftover MFC exe | `SmartGis.exe` until parity | `src/legacy/app/` | — |
+| Leftover MFC exe | `SmartGIS-Legacy.exe` until parity | `src/legacy/app/` | — |
 | Legacy chrome | MFC Feature Pack / `src/legacy/ui` (retire after parity) | `src/legacy/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` | `Smt_*` |
 
 **Nesting cap** stays `src/<layer>/<module>`. `src/app/views` is OK; do **not** add ad-hoc nests at the module root (e.g. `src/ui/views/widget/` outside `kernel/`). Under `src/ui/views`, responsibility partitions (`kernel` / `primitives` / `dialogs` / `map` / `markup` / `testing`) are public include roots; product GIS chrome lives in sibling module `src/ui/gis/` (`catalog` / `inspect` / `shell` / `style` / `analysis` / `debug` / `dialogs`). Chromium-aligned subgroups under them are allowed. They are not a third semantic UI namespace. Paint stays `src/ui/gfx` (`ui::gfx`) with the same style of public responsibility dirs (`geometry/` · `color/` · `canvas/` · `display_list/` · `raster/` · `image/` · `font/` · `animation/`); includes are `"ui/gfx/<area>/...."`. Skia is the optional canvas backend (`canvas/canvas_skia.cc`, `smt_has_skia`), not a widget kit and not a third semantic namespace. See [`specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) and [`specs/2026-09-13-render-rhi-scene-design.md`](specs/2026-09-13-render-rhi-scene-design.md) § 职责子目录.
@@ -33,7 +33,7 @@ Local **mgis** (`c:\Dev\src\gis\mgis`) is WTL + `gui/` + `content::MapView` (`Cr
 | Path | Status |
 | --- | --- |
 | **Qt** (Widgets / Quick / QML) | Banned. `.cursor/rules/repo/no-qt.mdc`. |
-| **MFC Feature Pack** (`CMFC*`) | Bridge only for leftover `SmartGis.exe`. **Not** the destination toolkit. |
+| **MFC Feature Pack** (`CMFC*`) | Bridge only for leftover `SmartGIS-Legacy.exe`. **Not** the destination toolkit. |
 | **WinUI 3 + WinAppSDK** | Sibling prototype only; not the endgame. |
 | **C# WinUI 3 host** (`SmartGisCs.exe`) | Sibling embedder; not the endgame. |
 | **WebView2 shell + native map** | Sibling prototype only; not the endgame. |
@@ -42,12 +42,12 @@ Local **mgis** (`c:\Dev\src\gis\mgis`) is WTL + `gui/` + `content::MapView` (`Cr
 | Split a separate browser-shell tree vs leftover `src/app/` | Rejected. Hosts live in `src/app/{views,winui,cef,cs}`. |
 
 
-`build.bat app` / `build.bat views` build the destination chrome (`SmartGisViews.exe`). Leftover MFC：`build.bat legacy_app`（`smt_build_app`）。
+`build.bat app` / `build.bat views` build the destination chrome (`SmartGIS.exe`). Leftover MFC：`build.bat legacy_app`（`smt_build_app`）。
 
 ## Layering (paths + responsibilities)
 
 ```
-src/app/views/                product chrome (SmartGisViews.exe only)
+src/app/views/                product chrome (SmartGIS.exe only)
   compose Widget + Splitter + tabs + public GIS widgets + MapViewport
   (does not paint catalog / ambox / chart / layer panels by hand)
 
@@ -72,7 +72,7 @@ src/ui/resources/                product .ui.xml / .ui.css by area (GN → share
 
 src/app/{views,winui}/          endgame / prototype hosts only
 
-src/legacy/app/                  leftover MFC SmartGis.exe + app_core
+src/legacy/app/                  leftover MFC SmartGIS-Legacy.exe + app_core
 
 src/legacy/ui/{gui,mfc_ex,xview, LEGACY chrome + map CView (until parity)
         xcatalog,xambox,chart}
@@ -87,7 +87,7 @@ src/legacy/render/{gdi,gl,…}     leftover map/3D devices (optional DLL)
 src/sdb/{map,feature,layer}      EXISTING map / layers / doc
 ```
 
-GN: `//src/ui/views:views` + `//src/ui/gis:gis` + `//src/ui/gfx:gfx` via `//:ui_views`. `//src/app/views:views` (`out/SmartGisViews.exe`) loads only when `smt_build_views=true`. **Not** in `//src:src_all`, **not** a dep of GN `group("all")`.
+GN: `//src/ui/views:views` + `//src/ui/gis:gis` + `//src/ui/gfx:gfx` via `//:ui_views`. `//src/app/views:views` (`out/SmartGIS.exe`) loads only when `smt_build_views=true`. **Not** in `//src:src_all`, **not** a dep of GN `group("all")`.
 
 ## How the map viewport hangs
 
@@ -104,7 +104,7 @@ CMainFrame
 **Scheme 3 (this chrome):**
 
 ```
-src/app/views  (SmartGisViews.exe — only product entry)
+src/app/views  (SmartGIS.exe — only product entry)
   ui::views::Widget                 native HWND (Win32)
     Splitter  (resizable; not true dock, not MDI)
       ├── AmboxView / CatalogView   public toolkit widgets
@@ -128,8 +128,8 @@ Same hang as mgis `content::MapView::CreateParams { HWND parent_hwnd }`: the she
 - BeginFrame: `ui::gfx::VblankClock` (`IDXGIOutput::WaitForVBlank`) paces `MapViewport` Display thread and `gpu::PresentMailbox`; Sleep(16) fallback. Shell Commit still follows `WM_PAINT` (not yet BeginFrame-driven).
 - Primitives: `Label`, `Button`, `Textfield`, `Checkbox`, `RadioButton`, `Combobox`, `TabStrip`, `TableView`, plus Win32 `FilePicker` / `MessageBox`.
 - GIS widgets (public, `src/ui/gis/`): `CatalogView`, `LayerTree`, `AttributeTable`, `FeatureInfo`, `StatusBar`, `AmboxView`, `ChartView` — see [`docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) §ui/gis layering move.
-- Exe: `build.bat views` → `out/SmartGisViews.exe` (destination entry). Console check: `views_unittests` and `SmartGisViews.exe --self-test`.
-- Default `build.bat` remains the 31 DLLs. All chrome schemes in [`ui-shell-multiprocess.md`](ui-shell-multiprocess.md) stay supported. Leftover `SmartGis.exe` compiles until parity.
+- Exe: `build.bat views` → `out/SmartGIS.exe` (destination entry). Console check: `views_unittests` and `SmartGIS.exe --self-test`.
+- Default `build.bat` remains the 31 DLLs. All chrome schemes in [`ui-shell-multiprocess.md`](ui-shell-multiprocess.md) stay supported. Leftover `SmartGIS-Legacy.exe` compiles until parity.
 - GUI 测试分层与门禁：[`ui-testing.md`](ui-testing.md)。
 
 ## Out of scope

@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "content/browser/document/map_scene.h"
-#include "vista/frame/frame.h"
+#include "vista/map/frame.h"
 
 namespace content {
 namespace detail {

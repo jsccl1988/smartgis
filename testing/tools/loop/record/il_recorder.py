@@ -43,7 +43,7 @@ def _default_captures(config: str) -> Path:
 def _resolve_exe(exe: str | None, config: str) -> Path | None:
     if not exe:
         repo = Path(__file__).resolve().parents[4]
-        cand = repo / "out" / config / "SmartGisViews.exe"
+        cand = repo / "out" / config / "SmartGIS.exe"
         return cand if cand.is_file() else None
     p = Path(exe)
     if p.is_file():
@@ -269,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--exe",
         default=None,
-        help="Exe to launch (default: out/<config>/SmartGisViews.exe)",
+        help="Exe to launch (default: out/<config>/SmartGIS.exe)",
     )
     p.add_argument(
         "--attach",

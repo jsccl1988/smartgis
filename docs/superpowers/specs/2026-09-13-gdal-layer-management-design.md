@@ -7,8 +7,8 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-13  
-**Updated:** 2026-10-04 — Tighten `src/gis` dirs: drop `layer/` `crs/`; datasource backends `ogr/` `sdbd/` `gdal/` as siblings of `provider/` (no `impl/`); flatten `carto/tile/{cache,protocol,provider}` and `stat/{detail,eval,value}`; leftover `SmtStyle` OGR blob I/O in `legacy/gis/present/carto/smt_style_ogr.*`. Prior same day — Flatten `gis/model/*` → `gis/{feature,map,edit,envelope.h}`；`edit/` 按职责拆 mutation / undo_log / command / memory / map session；leftover catalog `CatalogSource` / `FeatureAdapter`。Prior same day — Task 5: 产品 `gis::Map`；PascalCase Feature → leftover `FeatureAdapter`；`CatalogSource`/`*Info`/`leftover_layer_feature_type` → `legacy/gis/layer/layer.h`。`copy_envelope` 在 `gis/geo/ops/geometry_traits.h`。Prior same day — **§ gis/model product surface vs leftover + OGR Map/Layer/Feature**。Prior same day — CPU MapFrame / World 在 **`src/vista`**（`vista.dll`）。Prior 2026-10-03 — product Style/tile under `gis/carto/{style,tile}`。  
-**Diagram:** [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)（浅色 SVG：GIS 泳道 + LayerBatch→present 流水线；边界 `gis` ↛ `render/rhi`）· vista 子目录收紧图 [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)（RHI umbrella §，非本文件新 spec）· **model 终局** [`../diagrams/gis-model-ogr-layers.html`](../diagrams/gis-model-ogr-layers.html)（产品 `Map`/`Layer`/`Feature` ↔ OGR；leftover ABI 迁出）  
+**Updated:** 2026-10-04 — Nest `gis/style/{document,eval,symbol}`（根上留 leftover-stable `paint_resolve.h`；无转发头）。Prior same day — Hoist `gis/carto/{style,tile}` → `gis/style` + `gis/tile`（删空 `carto/`；不拆进 datasource/map；无转发头）。Prior same day — Nest `gis/tile/{protocol,cache,provider,layer}`（撤销同日 flatten；无转发头）。Prior same day — Tighten `src/gis` dirs: drop `layer/` `crs/`; datasource backends `ogr/` `sdbd/` `gdal/` as siblings of `provider/` (no `impl/`); flatten `stat/{detail,eval,value}`; leftover `SmtStyle` OGR blob I/O in `legacy/gis/present/carto/smt_style_ogr.*`. Prior same day — Flatten `gis/model/*` → `gis/{feature,map,edit,envelope.h}`；`edit/` 按职责拆 mutation / undo_log / command / memory / map session；leftover catalog `CatalogSource` / `FeatureAdapter`。Prior same day — Task 5: 产品 `gis::Map`；PascalCase Feature → leftover `FeatureAdapter`；`CatalogSource`/`*Info`/`leftover_layer_feature_type` → `legacy/gis/layer/layer.h`。`copy_envelope` 在 `gis/geo/ops/geometry_traits.h`。Prior same day — **§ gis/model product surface vs leftover + OGR Map/Layer/Feature**。Prior same day — CPU MapFrame / World 在 **`src/vista`**（`vista.dll`）。Prior 2026-10-03 — product Style/tile under `gis/{style,tile}`。  
+**Diagram:** [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)（浅色 SVG：GIS 泳道 + LayerBatch→present 流水线；边界 `gis` ↛ `render/rhi`）· 瓦片子目录 [`../diagrams/gis-carto-tile.html`](../diagrams/gis-carto-tile.html) · vista 子目录收紧图 [`../diagrams/vista-subdirectory-layers.html`](../diagrams/vista-subdirectory-layers.html)（RHI umbrella §，非本文件新 spec）· **model 终局** [`../diagrams/gis-model-ogr-layers.html`](../diagrams/gis-model-ogr-layers.html)（产品 `Map`/`Layer`/`Feature` ↔ OGR；leftover ABI 迁出）  
 **Plans:** Session+Provider [`../plans/2026-09-28-datasource-session-provider.md`](../plans/2026-09-28-datasource-session-provider.md)（含 **Task 5** leftover-ABI 迁出核对）· OGR DB [`../plans/2026-09-13-ogr-db-datasource.md`](../plans/2026-09-13-ogr-db-datasource.md) · sdbd [`../plans/2026-09-19-sdbd-wsl-client.md`](../plans/2026-09-19-sdbd-wsl-client.md)
 **Scope:** 图层的打开 / 创建 / 列举 / 编辑 / 查询 / 关闭一律走 GDAL Dataset / Layer（矢量）或 GDAL raster（栅格）。本文件管 `sdb` 数据源与图层，不管桌面 chrome。新树编排入口见文末 **§ DataSession / Provider facade**。
 
@@ -594,7 +594,8 @@ Coverage：`src/gis/model` 8 个 parse_partial（`feature.h` / `map.h` / `map_la
 product gis/{feature,map,edit}  Feature, MapLayer, Map, Envelope, edit sessions
 product gis/datasource  DataSession, DatasetHandle, ConnectionSpec, OGR codec, SDBD driver
 product gis/geo         OGRGeometry traits / ops / Grid sidecar codec
-product gis/carto       StyleDocument, TileProvider
+product gis/style       StyleDocument, ResolvedPaint
+product gis/tile        TileProvider, protocol/cache/provider/layer
 leftover src/legacy/    SmtLayer* 虚树, DataSourceMgr, Smt*Info, PascalCase Feature 门面,
                         leftover_append_feature, leftover SmtStyle OGR blob, catalog/MFC 适配
                         leftover 可 #include gis/{feature,map,edit} + gis/datasource
@@ -625,6 +626,76 @@ leftover src/legacy/    SmtLayer* 虚树, DataSourceMgr, Smt*Info, PascalCase Fe
 - **`feature_api.h` 已是产品→leftover include** — 现有反向边，迁出时必须删，不能复制第二条。
 - **parse_partial** 于 `feature.h`/`map.h`：caller 图会漏；搬迁前对目标符号做 scoped search_code。
 - **Grid / Anno / ChildImage：** 不是纯 OGR 要素类；sidecar 必须文档化，避免 leftover 再发明 `SmtMemVecLayer`。
+
+---
+
+## § gis/tile 子目录（protocol / cache / provider / layer）（2026-10-04）
+
+**Status:** accepted  
+**Diagram:** [`../diagrams/gis-carto-tile.html`](../diagrams/gis-carto-tile.html)  
+**Considered living:** 本文（GDAL / tile / SDB umbrella）。不是新子系统；Gate 不满足，不新开 dated spec。
+
+### Intent
+
+`src/gis/tile` 只保留**瓦片协议、提供者、缓存、以及消费它们的 MapLayer 挂载**。磁盘布局按职责分子目录；公共命名空间仍是 **`gis::tile`**（禁止 `gis::tile::protocol` 第三层）。**不留转发头**：旧扁平 include 全部改为新路径。
+
+| 子目录 | 拥有 | 不拥有 |
+| --- | --- | --- |
+| `protocol/` | `TileCoord` / `Viewport` / `TileImage`、XYZ 数学、WMTS 模板与 Capabilities | HTTP、LRU、MapLayer |
+| `cache/` | `TileCache`、`TileDiskCache` | URL 格式化、fetch |
+| `provider/` | `TileProvider`、`SourceRegistry`、Style `sources` 绑定、MVT decode | `MapLayer` 工厂 |
+| `layer/` | `ProviderTileLayer`、`make_*_map_layer` | XYZ 公式、WMTS XML |
+
+Style JSON 文档仍在并列的 `gis/style`（`gis::style`；见 **§ gis/style 子目录**）。`make_xyz_map_layer_from_source` 挂在 `layer/`，避免 provider → MapLayer 反向依赖。已删除 `mvt_stub.h`（真 decode 在 `provider/mvt.*`）。
+
+非目标：不把 XYZ/WMTS 塞进 `OGRLayer`；不进 scenic / leftover；泛型 envelope 仍 `gis/envelope.h`。不把 tile 拆进 `datasource/` 或 `map/`。
+
+---
+
+## § gis/style 子目录（document / eval / symbol）（2026-10-04）
+
+**Status:** accepted  
+**Diagram:** [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)（既有 GIS 泳道；本 § 不锁新架构，不新开 HTML）  
+**Considered living:** 本文（GDAL / tile / SDB / style umbrella）。不是新子系统；Gate 不满足，不新开 dated spec。
+
+### Intent
+
+`src/gis/style` 按职责分子目录，顶层子目录个数对齐并列 `gis/tile/{protocol,cache,provider,layer}`（**3** 个，少于 tile 的 4）。公共命名空间仍是 **`gis::style`**（禁止 `gis::style::document` 第三层）。**不留转发头**。
+
+| 位置 | 拥有 | 不拥有 |
+| --- | --- | --- |
+| `document/` | `parse_style_document` / `serialize_style_document` | 规则求值、符号库 |
+| `eval/` | `eval_expression`、`eval_filter`、`select_layers`、`resolve` | JSON 文档 I/O、符号资产 |
+| `symbol/` | `SymbolLibrary` | paint 填充、Style JSON |
+| 模块根 `style_types.*` | 共享 POD（`StyleDocument` / `ResolvedPaint` / …） | — |
+| 模块根 `paint_resolve.*` | `parse_color` / `fill_resolved_paint` | — |
+
+**Leftover pin：** `src/legacy/gis/present/carto/smt_style_from_paint.h` 包含 `"gis/style/paint_resolve.h"`。`src/legacy/` 冻结，本 § **不改 leftover**，因此 `paint_resolve.h` 留在模块根（不是转发头）。产品调用方已改 `document/` / `eval/` / `symbol/` include。
+
+非目标：不新增 `gis::style::*` 第三命名空间；不把 style 拆进 `map/` 或 `datasource/`；不改 leftover ABI。
+
+---
+
+## § gis/{style,tile} 上移（撤 `gis/carto/` 分组）（2026-10-04）
+
+**Status:** accepted  
+**Diagram:** [`../diagrams/gis-carto-tile.html`](../diagrams/gis-carto-tile.html) · [`../diagrams/gis-vista-architecture.html`](../diagrams/gis-vista-architecture.html)  
+**Considered living:** 本文（GDAL / tile / SDB / style umbrella）。不是新子系统；Gate 不满足，不新开 dated spec。
+
+### Intent
+
+磁盘路径与两层命名空间对齐：`src/gis/style` ↔ `gis::style`，`src/gis/tile` ↔ `gis::tile`，与 `map/`、`datasource/` 同级。`src-layout` nesting cap 是 `src/<layer>/<module>`；`carto/` 只是无命名空间的分组目录，且当时仅含 style+tile。
+
+**锁：**
+
+- **上移** style 与 tile（成对；tile 是 style 的诚实同级）。
+- **禁止**把 tile 拆进 `datasource/` + `map/`。
+- **禁止**留下 `gis/carto/` 空壳或转发头。
+- leftover 制图 POD 仍在 `legacy/gis/present/carto`（与产品 Style JSON 故意撞名）。
+
+### Non-goals
+
+不改 `gis::style` / `gis::tile` 公共符号；不新增 `gis::carto`；不改 leftover ABI。
 
 ---
 

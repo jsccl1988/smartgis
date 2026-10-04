@@ -36,23 +36,23 @@ int main() {
   }
 
   scenic::detail::GlRenderDevice* device = new scenic::detail::GlRenderDevice();
-  expect(device->Init(hwnd, "gl_texture_test") == SMT_ERR_NONE, "Init");
+  expect(device->Init(hwnd, "gl_texture_test") == kErrNone, "Init");
 
   // Texture upload + bind.
   scenic::detail::Texture* tex = device->CreateTexture("unit");
   expect(tex != nullptr, "CreateTexture");
   if (tex) {
-    expect(tex->Create(4, 4, scenic::detail::RGBA8, false, false) == SMT_ERR_NONE,
+    expect(tex->Create(4, 4, scenic::detail::RGBA8, false, false) == kErrNone,
            "Texture::Create");
-    expect(tex->Lock() == SMT_ERR_NONE, "Lock");
+    expect(tex->Lock() == kErrNone, "Lock");
     for (int i = 0; i < 16; ++i) {
       tex->SetPixel4uc(255, 255, 0, 0);
     }
     // Unlock uploads via BuildTexture and frees CPU staging (legacy
     // Texture).
-    expect(tex->Unlock() == SMT_ERR_NONE, "Unlock builds GPU texture");
-    expect(device->BindTexture(tex) == SMT_ERR_NONE, "BindTexture");
-    expect(device->UnbindTexture() == SMT_ERR_NONE, "UnbindTexture");
+    expect(tex->Unlock() == kErrNone, "Unlock builds GPU texture");
+    expect(device->BindTexture(tex) == kErrNone, "BindTexture");
+    expect(device->UnbindTexture() == kErrNone, "UnbindTexture");
   }
 
   // FBO: attach color texture, bind, clear, unbind.
@@ -60,26 +60,26 @@ int main() {
   expect(fbo != nullptr, "CreateFrameBuffer");
   if (fbo && tex) {
     expect(device->AttachTexture(fbo, tex, scenic::detail::COLOR_ATTACHMENT0) ==
-               SMT_ERR_NONE,
+               kErrNone,
            "AttachTexture");
-    expect(device->BindFrameBuffer(fbo) == SMT_ERR_NONE, "BindFrameBuffer");
+    expect(device->BindFrameBuffer(fbo) == kErrNone, "BindFrameBuffer");
     expect(device->CheckFrameBufferStatus() == scenic::detail::FRAMEBUFFER_COMPLETE,
            "FBO complete");
-    expect(device->BeginRender() == SMT_ERR_NONE, "BeginRender FBO");
+    expect(device->BeginRender() == kErrNone, "BeginRender FBO");
     device->SetClearColor(scenic::detail::Color(0.f, 1.f, 0.f, 1.f));
-    expect(device->Clear(CLR_COLOR) == SMT_ERR_NONE, "Clear FBO");
-    expect(device->UnbindFrameBuffer() == SMT_ERR_NONE, "UnbindFrameBuffer");
-    expect(device->DestroyFrameBuffer(fbo) == SMT_ERR_NONE,
+    expect(device->Clear(CLR_COLOR) == kErrNone, "Clear FBO");
+    expect(device->UnbindFrameBuffer() == kErrNone, "UnbindFrameBuffer");
+    expect(device->DestroyFrameBuffer(fbo) == kErrNone,
            "DestroyFrameBuffer");
   }
 
   // Font + frustum.
   uint font_id = 0;
   expect(device->CreateFont("Arial", 16, 0, FW_NORMAL, false, false, false, 12,
-                            font_id) == SMT_ERR_NONE,
+                            font_id) == kErrNone,
          "CreateFont");
   expect(device->DrawText(font_id, 10.f, 10.f, scenic::detail::Color(1, 1, 1, 1),
-                          "Hi") == SMT_ERR_NONE,
+                          "Hi") == kErrNone,
          "DrawText screen");
 
   device->MatrixModeSet(scenic::detail::MM_PROJECTION);
@@ -90,7 +90,7 @@ int main() {
   scenic::detail::Vector3 eye(0, 0, 5), center(0, 0, 0), up(0, 1, 0);
   device->SetViewLookAt(eye, center, up);
   scenic::detail::Frustum frustum;
-  expect(device->GetFrustum(frustum) == SMT_ERR_NONE, "GetFrustum");
+  expect(device->GetFrustum(frustum) == kErrNone, "GetFrustum");
 
   // Indexed draw of a textured unit triangle must not crash.
   scenic::detail::VertexBuffer* vb = device->CreateVertexBuffer(
@@ -121,9 +121,9 @@ int main() {
     if (tex) {
       device->BindTexture(tex);
     }
-    expect(device->BeginRender() == SMT_ERR_NONE, "BeginRender draw");
+    expect(device->BeginRender() == kErrNone, "BeginRender draw");
     expect(device->DrawIndexedPrimitives(scenic::detail::PT_TRIANGLELIST, vb, ib, 0,
-                                         1) == SMT_ERR_NONE,
+                                         1) == kErrNone,
            "DrawIndexed textured");
     device->EndRender();
     device->SwapBuffers();

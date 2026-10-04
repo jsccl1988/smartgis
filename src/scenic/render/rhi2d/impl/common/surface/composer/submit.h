@@ -8,7 +8,7 @@
 #include <functional>
 
 #include "gpu/compositor/frame/frame.h"
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 
 namespace scenic {
 namespace detail {
@@ -44,13 +44,13 @@ typedef bool (*Rhi2dBgraSubmitFn)(const uint8_t* bgra, uint32_t width_px,
                                    uint32_t height_px, uint32_t stride_bytes,
                                    void* user);
 
-#if defined(SMT_GDI_COMPOSE_STATIC)
+#if defined(SCENIC_GDI_COMPOSE_STATIC)
 void Rhi2dSetBgraSubmit(Rhi2dBgraSubmitFn fn, void* user);
 void Rhi2dClearBgraSubmit(void);
 #else
-LEGACY_RENDER_EXPORT void Rhi2dSetBgraSubmit(Rhi2dBgraSubmitFn fn,
+SCENIC_IMPL_EXPORT void Rhi2dSetBgraSubmit(Rhi2dBgraSubmitFn fn,
                                                void* user);
-LEGACY_RENDER_EXPORT void Rhi2dClearBgraSubmit(void);
+SCENIC_IMPL_EXPORT void Rhi2dClearBgraSubmit(void);
 #endif
 
 }  // extern "C"

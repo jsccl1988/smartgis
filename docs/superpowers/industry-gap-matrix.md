@@ -54,7 +54,7 @@ All rights reserved.
 | **M3** | DEM + 3D Tiles 流式 + 大气（`m3-*-ok`；已绿） | ≈ Cesium / Pro 3D 观感下限 |
 | **M4** | 乐观冲突 + `content::` 嵌入（`m4-*-ok`；已绿） | ≈ Pro / Enterprise 入门 |
 
-M0–M4 验收口令均挂在 `SmartGisViews.exe --self-test`；计划：`docs/superpowers/plans/2026-09-20-m0-*.md`、`2026-09-20-m1-*.md`、`2026-09-27-m{2,3,4}-*.md`。
+M0–M4 验收口令均挂在 `SmartGIS.exe --self-test`；计划：`docs/superpowers/plans/2026-09-20-m0-*.md`、`2026-09-20-m1-*.md`、`2026-09-27-m{2,3,4}-*.md`。
 
 ---
 
@@ -94,7 +94,7 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 | --- | --- | --- | --- |
 | 单一主 UI | Views 与 MFC 双轨；`legacy_app` opt-in | 完成 MFC→Views parity 门禁；日常只编 `build.bat app` | M0 |
 | 工具迁到 Workspace | dispatch 已有；行为仍在 leftover | 执行 tool-behavior-migration + strangler，禁新功能进 `legacy/tool` | M0 |
-| Style 端到端 | **已抬升：** `ResolvedPaint` + casing/hillshade/heatmap/extrusion v1 + mini expr（`src/gis/carto/style`）；仍缺算术族/SDF/GPU 密度 | 按 §8 P1-2 / P1-5 / P2 推进；勿重复做已落地的 P0 richness | M1+ |
+| Style 端到端 | **已抬升：** `ResolvedPaint` + casing/hillshade/heatmap/extrusion v1 + mini expr（`src/gis/style`）；仍缺算术族/SDF/GPU 密度 | 按 §8 P1-2 / P1-5 / P2 推进；勿重复做已落地的 P0 richness | M1+ |
 | 瓦片 / MVT | XYZ/WMTS + cache；**MVT 本地 decode 已落地**（`mvt.cc`）；Style vector URL bind 仍拒 | §8 P0-1 已关；P1-1 生产路径默认磁盘缓存 | M1+ |
 | 注记 / china | `m1-labels-ok`；`collision.cc` along-line slots；**china loop P0-2 已绿** | §8 P1-3（字体/沿线产品化） | M1+ |
 | Processing 入口 | algorithm 有核；工具箱口令见 M2（已绿骨架） | 深度算子与可发现性继续挂 plugin-host Processing | M2 |
@@ -188,7 +188,7 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 
 | 里程碑 | 可演示 / 可测口令 |
 | --- | --- |
-| **M0** | 仅 `SmartGisViews.exe`：打开 GPKG → 平移缩放 → FeatureInfo → 追加一条线并保存；`build.bat e2e` 绿。执行计划：[`plans/2026-09-20-m0-views-main-path.md`](plans/2026-09-20-m0-views-main-path.md)（2026-09-20：`m0-line-ok` / `m0-featureinfo-ok` / `m0-save-ok` + e2e 绿） |
+| **M0** | 仅 `SmartGIS.exe`：打开 GPKG → 平移缩放 → FeatureInfo → 追加一条线并保存；`build.bat e2e` 绿。执行计划：[`plans/2026-09-20-m0-views-main-path.md`](plans/2026-09-20-m0-views-main-path.md)（2026-09-20：`m0-line-ok` / `m0-featureinfo-ok` / `m0-save-ok` + e2e 绿） |
 | **M1** | Style JSON 驱动矢量着色 + XYZ 底图 + china_city 注记可读；导出一页 BMP（`m1-labels-ok` / `m1-style-ok` / `m1-basemap-ok` / `m1-export-ok`；exit 70–73）。执行计划：[`plans/2026-09-20-m1-carto-style-tile-export.md`](plans/2026-09-20-m1-carto-style-tile-export.md)（2026-09-20：`--self-test` + `build.bat e2e` 绿） |
 | **M2** | Views「处理」面板 ≥10 算子；buffer/clip 写回。计划：[`plans/2026-09-27-m2-processing-toolbox.md`](archive/plans/2026-09-27-m2-processing-toolbox.md)（`m2-panel-ok` / `m2-buffer-ok` / `m2-clip-ok`；exit 80–82；2026-09-27：`--self-test` + `build.bat e2e` / `te` 绿） |
 | **M3** | DEM + 3D Tiles 流式 + 大气开关。计划：[`plans/2026-09-27-m3-city-3d-stream.md`](archive/plans/2026-09-27-m3-city-3d-stream.md)（`m3-dem-ok` / `m3-tiles-ok` / `m3-atmosphere-ok`；exit 90–92；2026-09-27：`--self-test` + `build.bat e2e` / `te` 绿） |
@@ -208,7 +208,7 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 
 ## 8. Map2D 钉死清单（2026-09-30）
 
-核对依据：CBM `smartgis` + `src/gis/carto/style/**`、`src/gis/carto/tile/**`、`src/vista/frame/**`、`src/content/browser/present/map2d/**`、`src/plugin/product/print/**`、`src/content/browser/document/edit/**`、render-rhi §Map2d richness、[`2026-09-30-map2d-hillshade-line-casing.md`](plans/2026-09-30-map2d-hillshade-line-casing.md)。
+核对依据：CBM `smartgis` + `src/gis/style/**`、`src/gis/tile/**`、`src/vista/frame/**`、`src/content/browser/present/map2d/**`、`src/plugin/product/print/**`、`src/content/browser/document/edit/**`、render-rhi §Map2d richness、[`2026-09-30-map2d-hillshade-line-casing.md`](plans/2026-09-30-map2d-hillshade-line-casing.md)。
 
 刻意不追：Qt、Cesium Native、产品 Web GIS/mapd、第二套 GEOS、完整 MapLibre Native 链接。
 
@@ -218,12 +218,12 @@ Map2D 可勾选细项见 **§8**。本表保留壳/工具/Processing 等非纯 M
 
 | ID | 优先级 | 缺口 | 现状证据（路径 / 口令） | 建议动作 | 验收判据 | 挂靠 |
 | --- | --- | --- | --- | --- | --- | --- |
-| P0-1 | **P0** | MVT / 矢量瓦片不可读 | **已关闭：** `src/gis/carto/tile/mvt.{h,cc}` protobuf 线解码 + gzip；`decode_mvt_to_map_frame`；fixture `testing/data/mvt/roads_fixture.mvt(.gz)`；`tile_test` PASS。Style vector URL bind 仍 `kVectorUnsupported` | — | 本地 `.mvt` → MapFrame ≥1 矢量 draw item；unit 绿 | gap-pin P0-1 |
+| P0-1 | **P0** | MVT / 矢量瓦片不可读 | **已关闭：** `src/gis/tile/provider/mvt.{h,cc}` protobuf 线解码 + gzip；`decode_mvt_to_map_frame`；fixture `testing/data/mvt/roads_fixture.mvt(.gz)`；`tile_test` PASS。Style vector URL bind 仍 `kVectorUnsupported` | — | 本地 `.mvt` → MapFrame ≥1 矢量 draw item；unit 绿 | gap-pin P0-1 |
 | P0-2 | **P0** | China 产品环未钉死 | **已关闭：** `testing/data` → GN `//testing/data:china_map_samples` 同步 `out/data/china_city.*` + `china_dem.tif`（PIN 对齐）；`py -3 testing/tools/loop_runner.py --suite map2d.china --no-build` exit 0；BMP `road_casing_frac`/`road_gold+casing` + `hillshade_soft_ok` | — | `map2d.china` loop exit 0；BMP casing / soft hillshade | gap-pin P0-2 |
 | P0-3 | **P0** | 无页布局出图 | **已关闭：** `PrintComposer`（地图+比例尺+图例）→ BMP；`PrintPreviewDialog` Save 走页布局；`print_composer_test` PASS；self-test `m1-layout-ok` | — | mark + 一页可读 | gap-pin P0-3 |
 | P0-4 | **P0** | 新栈无顶点/边捕捉 | **已关闭：** `feature_edit` `snap_to_features` / `snap_point`（vertex 优先 + edge 投影）；`move_selected_vertex` 吸附他要素；`feature_edit_test` | — | 命中误差 ≤ 容差 | gap-pin P0-4 |
 | P1-1 | **P1** | 栅格瓦片缓存未成产品默认 | `TileCache` / `TileDiskCache` 有实现；主路径未必默认开 | Views 打开 XYZ/WMTS 默认挂磁盘缓存 | 二次打开同 extent 无全量重拉（日志/计数可证 hit） | gdal-layer tile；gap-pin P1-1 |
-| P1-2 | **P1** | Style 表达式缺算术族 | `src/gis/carto/style/README.md` / `expression.*`：有 interpolate/match；无 `+`/`*` 等 | 扩 mini eval；`style_test` 覆盖 data-driven width/color | `style_test` PASS；china Style 可用 zoom×attr 驱动线宽 | render-rhi §Mini expression；gap-pin P1-2 |
+| P1-2 | **P1** | Style 表达式缺算术族 | `src/gis/style/README.md` / `eval/expression.*`：有 interpolate/match；无 `+`/`*` 等 | 扩 mini eval；`style_test` 覆盖 data-driven width/color | `style_test` PASS；china Style 可用 zoom×attr 驱动线宽 | render-rhi §Mini expression；gap-pin P1-2 |
 | P1-3 | **P1** | 注记产品化（字体/沿线） | `collision.cc` slots landed；`m1-labels-ok`；CJK 路径仍脆 | 稳定 CJK 字体；showcase/self-test 断言沿线注记可见 | china showcase BMP 或 self-test 注记计数 ≥ N | china-city + render-rhi §Symbol collision；gap-pin P1-3 |
 | P1-4 | **P1** | 基础拓扑校验缺失 | EditSession 有；无叠盖/缝隙规则 | 叠盖/缝隙（或等价）挂会话；失败可查 | 自造叠盖 fixture → 校验失败 mark / FeatureInfo | tool + M4 编辑下限；gap-pin P1-4 |
 | P1-5 | **P1** | Heatmap/extrusion 仍 CPU 观感 | layout CPU splat / prism（render-rhi §） | 可选 GPU 密度或 lit extrusion（禁 mln） | 对比 BMP：密度/立体可读性高于 CPU splat；unit 绿 | render-rhi §Map2d richness；gap-pin P1-5 |

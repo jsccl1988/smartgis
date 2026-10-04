@@ -74,7 +74,7 @@ Satellite cloud with a path calls
 
 ```bat
 build.bat debug SmartGisViews
-out\Debug\SmartGisViews.exe --plugin-showcase=world3d
+out\Debug\SmartGIS.exe --plugin-showcase=world3d
 REM capture: out\Debug\captures\plugin\plugin-showcase-world3d.bmp
 
 REM interactive Earth + optional global DEM / cloud (processing JSON):

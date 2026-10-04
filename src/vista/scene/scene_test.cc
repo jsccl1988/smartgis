@@ -1,8 +1,10 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "vista/scene/detail/prep_cull.h"
-#include "vista/scene/frustum_aabb.h"
+#include "vista/scene/cull/frustum_camera.h"
+#include "vista/scene/cull/prep_cull.h"
+#include "vista/scene/cull/frustum_aabb.h"
+#include "vista/scene/cull/mesh_cull.h"
 #include "vista/scene/opaque_effect.h"
 #include "vista/scene/scene.h"
 #include "render/graph/frame_graph.h"
@@ -23,6 +25,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "base/process/switches.h"
 
 namespace {
 
@@ -78,7 +81,7 @@ int main() {
   setvbuf(stdout, nullptr, _IONBF, 0);
   setvbuf(stderr, nullptr, _IONBF, 0);
   // Product default is unlit DEM/paint terrain; P0 lit assertions opt in.
-  _putenv_s("SMT_SCENE3D_LIT_TERRAIN", "1");
+  base::set_switch("scene3d-lit-terrain", "1");
 
   vista::World world;
   world.add_node(vista::NodeKind::kVectorLayer, "roads", 0, 0, 0, 1, 1, 0);
@@ -730,12 +733,12 @@ int main() {
 
     // Product default keeps frustum cull off (Scene3d DEM AABB mismatch).
     // This block opts in so GpuScene draw counts exercise the cull path.
-    const char* prev_cull = std::getenv("SMT_SCENE3D_FRUSTUM_CULL");
+    const char* prev_cull = base::switch_cstr("scene3d-frustum-cull");
     const std::string saved_cull = prev_cull ? prev_cull : "";
-    const char* prev_no_cull = std::getenv("SMT_SCENE3D_NO_CULL");
+    const char* prev_no_cull = base::switch_cstr("scene3d-no-cull");
     const std::string saved_no_cull = prev_no_cull ? prev_no_cull : "";
-    _putenv_s("SMT_SCENE3D_FRUSTUM_CULL", "1");
-    _putenv_s("SMT_SCENE3D_NO_CULL", "");
+    base::set_switch("scene3d-frustum-cull", "1");
+    base::set_switch("scene3d-no-cull", "");
 
     vista::World cull_world;
     constexpr int kHalf = 32;
@@ -807,9 +810,9 @@ int main() {
 
     // Prep parallel + cull: same draw counts as serial cull (workers only
     // write visible[]; record stays serial).
-    const char* prev_prep = std::getenv("SMT_GPUSCENE_PREP_PARALLEL");
+    const char* prev_prep = base::switch_cstr("gpuscene-prep-parallel");
     const std::string saved_prep = prev_prep ? prev_prep : "";
-    _putenv_s("SMT_GPUSCENE_PREP_PARALLEL", "1");
+    base::set_switch("gpuscene-prep-parallel", "1");
     expect(vista::detail::prep_parallel_effective_workers(true) ==
                vista::detail::prep_parallel_requested_workers(),
            "prep_par + cull → effective == requested");
@@ -820,38 +823,38 @@ int main() {
         static_cast<render::rhi::StubCommandList*>(prep_list);
     expect(prep_stub->draw_indexed_calls == wide_stub->draw_indexed_calls,
            "prep_par cull matches serial cull draws");
-    _putenv_s("SMT_GPUSCENE_PREP_PARALLEL", saved_prep.c_str());
+    base::set_switch("gpuscene-prep-parallel", saved_prep.c_str());
 
     cull_gpu.clear_view_camera();
 
-    _putenv_s("SMT_SCENE3D_FRUSTUM_CULL", saved_cull.c_str());
-    _putenv_s("SMT_SCENE3D_NO_CULL", saved_no_cull.c_str());
+    base::set_switch("scene3d-frustum-cull", saved_cull.c_str());
+    base::set_switch("scene3d-no-cull", saved_no_cull.c_str());
   }
 
   // Honesty: SMT_GPUSCENE_PREP_PARALLEL alone never enables workers.
   {
-    const char* prev_cull = std::getenv("SMT_SCENE3D_FRUSTUM_CULL");
+    const char* prev_cull = base::switch_cstr("scene3d-frustum-cull");
     const std::string saved_cull = prev_cull ? prev_cull : "";
-    const char* prev_prep = std::getenv("SMT_GPUSCENE_PREP_PARALLEL");
+    const char* prev_prep = base::switch_cstr("gpuscene-prep-parallel");
     const std::string saved_prep = prev_prep ? prev_prep : "";
-    _putenv_s("SMT_SCENE3D_FRUSTUM_CULL", "");
-    _putenv_s("SMT_GPUSCENE_PREP_PARALLEL", "");
+    base::set_switch("scene3d-frustum-cull", "");
+    base::set_switch("gpuscene-prep-parallel", "");
     expect(vista::detail::prep_parallel_requested_workers() == 1,
            "default prep_par off → N=1");
     expect(vista::detail::prep_parallel_effective_workers(false) == 1,
            "cull off → effective N=1");
-    _putenv_s("SMT_GPUSCENE_PREP_PARALLEL", "1");
+    base::set_switch("gpuscene-prep-parallel", "1");
     expect(vista::detail::prep_parallel_requested_workers() >= 1,
            "prep_par=1 requests >= 1");
     expect(vista::detail::prep_parallel_effective_workers(false) == 1,
            "prep_par=1 without cull → still N=1");
-    std::vector<vista::GpuScene::GpuMesh> empty_meshes(4);
+    std::vector<vista::MeshCullItem> empty_meshes(4);
     std::vector<uint8_t> visible;
     vista::detail::prep_cull_meshes(empty_meshes, nullptr, &visible);
     expect(visible.size() == 4 && visible[0] == 1 && visible[3] == 1,
            "prep without cull leaves all visible");
-    _putenv_s("SMT_SCENE3D_FRUSTUM_CULL", saved_cull.c_str());
-    _putenv_s("SMT_GPUSCENE_PREP_PARALLEL", saved_prep.c_str());
+    base::set_switch("scene3d-frustum-cull", saved_cull.c_str());
+    base::set_switch("gpuscene-prep-parallel", saved_prep.c_str());
   }
 
   {

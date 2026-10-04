@@ -6,8 +6,8 @@
 #include <algorithm>
 #include <cstring>
 
-#include "vista/world/pointcloud/process/chunk.h"
-#include "vista/world/pointcloud/process/lod.h"
+#include "vista/world/pointcloud/chunk.h"
+#include "vista/world/pointcloud/lod.h"
 
 #include "gis/geo/ops/geometry_traits.h"
 #include "ogrsf_frmts.h"

@@ -20,11 +20,12 @@
 #include "vista/atmosphere/frame/atmosphere_effects.h"
 #include "vista/scene/opaque_effect.h"
 #include "vista/scene/scene.h"
-#include "vista/domain/atmosphere/environment.h"
+#include "vista/atmosphere/session/environment.h"
 #include "render/graph/frame_graph.h"
 #include "render/programs/programs.h"
 #include "render/rhi/rhi.h"
 #include "base/trace/event/process_trace.h"
+#include "base/process/switches.h"
 
 namespace content {
 namespace {
@@ -782,7 +783,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   {
     static bool logged_once = false;
     const bool force_log = []() {
-      if (const char* e = std::getenv("SMT_SCENE3D_PRESENT_LOG")) {
+      if (const char* e = base::switch_cstr("scene3d-present-log")) {
         return e[0] == '1' && e[1] == '\0';
       }
       return false;
@@ -847,7 +848,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     if (!env || !env->sky_enabled()) {
       return false;
     }
-    if (const char* e = std::getenv("SMT_ATMOSPHERE_SKIP_SKY")) {
+    if (const char* e = base::switch_cstr("atmosphere-skip-sky")) {
       if (e[0] == '1' && e[1] == '\0') {
         return false;
       }
@@ -872,7 +873,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   // (debug atmosphere.full near-black China). Skip prepare_gpu too  height
   // texture alloc still recycles FlyCube SRVs and blacks DEM albedo.
   const bool skip_ocean = []() {
-    if (const char* e = std::getenv("SMT_ATMOSPHERE_SKIP_OCEAN")) {
+    if (const char* e = base::switch_cstr("atmosphere-skip-ocean")) {
       return e[0] == '1' && e[1] == '\0';
     }
     return false;
@@ -945,7 +946,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   note_scene3d_phase_rebuild(0, need_rebuild ? 1 : 0);
 
   const bool skip_post = []() {
-    if (const char* e = std::getenv("SMT_ATMOSPHERE_SKIP_POST")) {
+    if (const char* e = base::switch_cstr("atmosphere-skip-post")) {
       return e[0] == '1' && e[1] == '\0';
     }
     return false;

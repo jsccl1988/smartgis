@@ -32,7 +32,7 @@
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
 #include "gis/edit/memory_session.h"
-#include "gis/carto/style/style_document.h"
+#include "gis/style/document/style_document.h"
 #include "render/rhi/rhi.h"
 #include "tool/interaction/interaction.h"
 #include "tool/workspace/workspace.h"
@@ -424,7 +424,7 @@ void fill_host(Browser& browser,
     // WM_PAINT so HWND BitBlt / motion_gate see pan. Avoid PeekMessage of the
     // full UI queue (re-entrant AV); drive paints via UpdateWindow on the map
     // HWND only after each synthetic stroke.
-    SetEnvironmentVariableA("SMT_SKIP_MAP_CONTEXT_MENU", "1");
+    SetEnvironmentVariableA("skip-map-context-menu", "1");
     // Drop any leftover StretchBlt pan preview from OS-inject drag so FORCE_GDI
     // Map2d paint is the HWND SoT for motion_gate.
     if (b->blit()) {
@@ -466,7 +466,7 @@ void fill_host(Browser& browser,
       pan_up.kind = content::InputEvent::Kind::kLUp;
       if (!host->dispatch_input(pan_down) || !host->dispatch_input(pan_move) ||
           !host->dispatch_input(pan_up)) {
-        SetEnvironmentVariableA("SMT_SKIP_MAP_CONTEXT_MENU", nullptr);
+        SetEnvironmentVariableA("skip-map-context-menu", nullptr);
         detail::write_mark(leaf, "browse-stress-pan-fail", false);
         return false;
       }
@@ -476,7 +476,7 @@ void fill_host(Browser& browser,
       wheel.y_px = pan_move.y_px;
       wheel.wheel = (i & 1) ? 120 : -120;
       if (!host->dispatch_input(wheel)) {
-        SetEnvironmentVariableA("SMT_SKIP_MAP_CONTEXT_MENU", nullptr);
+        SetEnvironmentVariableA("skip-map-context-menu", nullptr);
         detail::write_mark(leaf, "browse-stress-wheel-fail", false);
         return false;
       }
@@ -493,11 +493,11 @@ void fill_host(Browser& browser,
     rup.kind = content::InputEvent::Kind::kRUp;
     // view.pan must not swallow RMB (shell owns the context menu).
     if (host->dispatch_input(rdown) || host->dispatch_input(rup)) {
-      SetEnvironmentVariableA("SMT_SKIP_MAP_CONTEXT_MENU", nullptr);
+      SetEnvironmentVariableA("skip-map-context-menu", nullptr);
       detail::write_mark(leaf, "browse-stress-rmb-swallowed", false);
       return false;
     }
-    SetEnvironmentVariableA("SMT_SKIP_MAP_CONTEXT_MENU", nullptr);
+    SetEnvironmentVariableA("skip-map-context-menu", nullptr);
     detail::write_mark(leaf, "browse-stress-end", false);
     return true;
   };

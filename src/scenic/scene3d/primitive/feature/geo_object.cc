@@ -13,15 +13,12 @@
 
 #include "gis/geo/ops/geometry_traits.h"
 #include "gis/envelope.h"
-#include "scenic/detail/geom.h"
+#include "base/math/math.h"
 #include "scenic/render/rhi3d/public/state/states_manager.h"
 #include "ogr_geometry.h"
 
 namespace scenic {
 namespace detail {
-
-using render::tess_map_geometry;
-using render::tess_world_geometry;
 
 namespace {
 
@@ -46,7 +43,7 @@ GeoObject::GeoObject() = default;
 
 GeoObject::~GeoObject() { Destroy(); }
 
-void GeoObject::SetHeightSampleFn(FeatureHeightSampleFn fn, void* user) {
+void GeoObject::set_height_sample(FeatureHeightSampleFn fn, void* user) {
   height_fn_ = fn;
   height_user_ = user;
 }
@@ -67,11 +64,11 @@ bool GeoObject::upload_mesh(LP3DRENDERDEVICE device,
   if (!device || mesh.vertices.empty()) {
     return false;
   }
-  SMT_SAFE_DELETE(vb_);
-  SMT_SAFE_DELETE(ib_);
+  vb_.reset();
+  ib_.reset();
 
-  vb_ = device->CreateVertexBuffer(static_cast<int>(mesh.vertices.size()),
-                                   vertex_format(mesh), false);
+  vb_.reset(device->CreateVertexBuffer(static_cast<int>(mesh.vertices.size()),
+                                       vertex_format(mesh), false));
   if (!vb_) {
     return false;
   }
@@ -88,9 +85,9 @@ bool GeoObject::upload_mesh(LP3DRENDERDEVICE device,
   vb_->Unlock();
 
   if (mesh.indexed && !mesh.indices.empty()) {
-    ib_ = device->CreateIndexBuffer(static_cast<int>(mesh.indices.size()));
+    ib_.reset(device->CreateIndexBuffer(static_cast<int>(mesh.indices.size())));
     if (!ib_) {
-      SMT_SAFE_DELETE(vb_);
+      vb_.reset();
       return false;
     }
     ib_->Lock();
@@ -155,20 +152,20 @@ void GeoObject::update_aabb_from_mesh(const FeatureMesh& mesh) {
   m_aAbb.vcCenter = (m_aAbb.vcMax + m_aAbb.vcMin) / 2.f;
 }
 
-long GeoObject::CreateFromMesh(LP3DRENDERDEVICE device, FeatureMesh mesh) {
+long GeoObject::create_from_mesh(LP3DRENDERDEVICE device, FeatureMesh mesh) {
   if (!device || mesh.vertices.empty()) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   if (!upload_mesh(device, mesh)) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   update_aabb_from_mesh(mesh);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GeoObject::Create(LP3DRENDERDEVICE p3DRenderDevice) {
   if (!p3DRenderDevice || !geom_) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   FeatureMesh mesh;
@@ -176,7 +173,7 @@ long GeoObject::Create(LP3DRENDERDEVICE p3DRenderDevice) {
   if (frame_ == GeoObjectFrame::kMap) {
     if (!style_) {
       Style fallback;
-      SetStyle(&fallback);
+      set_style(&fallback);
     }
     const FeatureRgb stroke = rgb_from_colorref(style_->get_pen_desc().lPenColor);
     const FeatureRgb fill =
@@ -194,19 +191,19 @@ long GeoObject::Create(LP3DRENDERDEVICE p3DRenderDevice) {
   }
 
   if (!ok || !upload_mesh(p3DRenderDevice, mesh)) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GeoObject::Update(LP3DRENDERDEVICE /*p3DRenderDevice*/,
                           float /*fElapsed*/) {
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GeoObject::Render(LP3DRENDERDEVICE p3DRenderDevice) {
   if (!p3DRenderDevice || !vb_) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   if (frame_ == GeoObjectFrame::kMap) {
@@ -233,28 +230,28 @@ long GeoObject::Render(LP3DRENDERDEVICE p3DRenderDevice) {
   if (indexed_ && ib_) {
     const ulong nidx = ib_->GetIndexCount();
     if (nidx >= 3) {
-      p3DRenderDevice->DrawIndexedPrimitives(PT_TRIANGLELIST, vb_, ib_, 0,
-                                             nidx / 3);
+      p3DRenderDevice->DrawIndexedPrimitives(PT_TRIANGLELIST, vb_.get(),
+                                             ib_.get(), 0, nidx / 3);
     }
   } else {
     switch (prim_) {
       case FeaturePrim::kPoints:
-        p3DRenderDevice->DrawPrimitives(PT_POINTLIST, vb_, 0,
+        p3DRenderDevice->DrawPrimitives(PT_POINTLIST, vb_.get(), 0,
                                         vb_->GetVertexCount());
         break;
       case FeaturePrim::kLineStrip:
-        p3DRenderDevice->DrawPrimitives(PT_LINESTRIP, vb_, 0,
+        p3DRenderDevice->DrawPrimitives(PT_LINESTRIP, vb_.get(), 0,
                                         vb_->GetVertexCount());
         break;
       case FeaturePrim::kLineList: {
         const ulong nvert = vb_->GetVertexCount();
         if (nvert >= 2) {
-          p3DRenderDevice->DrawPrimitives(PT_LINELIST, vb_, 0, nvert / 2);
+          p3DRenderDevice->DrawPrimitives(PT_LINELIST, vb_.get(), 0, nvert / 2);
         }
         break;
       }
       case FeaturePrim::kTriangles:
-        p3DRenderDevice->DrawPrimitives(PT_TRIANGLELIST, vb_, 0,
+        p3DRenderDevice->DrawPrimitives(PT_TRIANGLELIST, vb_.get(), 0,
                                         vb_->GetVertexCount() / 3);
         break;
     }
@@ -262,7 +259,7 @@ long GeoObject::Render(LP3DRENDERDEVICE p3DRenderDevice) {
 
   p3DRenderDevice->MatrixPop();
   p3DRenderDevice->MatrixPop();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 bool GeoObject::Select(LP3DRENDERDEVICE p3DRenderDevice,
@@ -299,43 +296,39 @@ bool GeoObject::Select(LP3DRENDERDEVICE p3DRenderDevice,
 }
 
 long GeoObject::Destroy() {
-  SMT_SAFE_DELETE(vb_);
-  SMT_SAFE_DELETE(ib_);
+  vb_.reset();
+  ib_.reset();
   release_ogr_geometry(geom_);
-  SMT_SAFE_DELETE(style_);
-  return SMT_ERR_NONE;
+  style_.reset();
+  return kErrNone;
 }
 
-void GeoObject::SetGeometryDirectly(OGRGeometry* pGeom) {
+void GeoObject::set_geometry_directly(OGRGeometry* geom) {
   release_ogr_geometry(geom_);
-  geom_ = pGeom;
+  geom_ = geom;
 }
 
-void GeoObject::SetGeometry(OGRGeometry* pGeom) {
+void GeoObject::set_geometry(OGRGeometry* geom) {
   release_ogr_geometry(geom_);
-  geom_ = pGeom ? pGeom->clone() : nullptr;
+  geom_ = geom ? geom->clone() : nullptr;
 }
 
-void GeoObject::SetStyle(const Style* pStyle) {
-  if (!pStyle) {
+void GeoObject::set_style(const Style* style) {
+  if (!style) {
     return;
   }
-  SMT_SAFE_DELETE(style_);
-  style_ = pStyle->clone(pStyle->get_style_name());
+  style_.reset(style->clone(style->get_style_name()));
 }
 
-GeoObject* GeoObject::Clone() {
-  GeoObject* pObj = new GeoObject();
-  if (!pObj) {
-    return nullptr;
-  }
-  pObj->set_frame(frame_);
-  pObj->SetGeometry(geom_);
-  pObj->SetHeightSampleFn(height_fn_, height_user_);
+GeoObject* GeoObject::clone() {
+  auto* obj = new GeoObject();
+  obj->set_frame(frame_);
+  obj->set_geometry(geom_);
+  obj->set_height_sample(height_fn_, height_user_);
   if (style_) {
-    pObj->SetStyle(style_);
+    obj->set_style(style_.get());
   }
-  return pObj;
+  return obj;
 }
 
 }  // namespace detail

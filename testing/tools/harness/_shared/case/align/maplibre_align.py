@@ -12,7 +12,7 @@ main app (//testing/data:china_map_samples). Product never links mbgl.
     python testing/tools/harness/_shared/case/align/maplibre_align.py --skip-native
 
 Outputs under out/Debug/maplibre/align/:
-  product.bmp   �?SmartGisViews --map2d-showcase=align (china_city + style_align)
+  product.bmp   �?SmartGIS.exe --map2d-showcase=align (china_city + style_align)
   native.png    �?maplibre_headless_example (when built)
   report.json   �?paths + sizes
 """
@@ -44,7 +44,7 @@ DATA = ROOT / "out" / "data"
 ALIGN_DIR = OUT / "maplibre" / "align"
 EXAMPLE_DIR = OUT / "maplibre" / "example"
 EXAMPLE_SRC = ROOT / "third_party" / "maplibre" / "example"
-EXE = OUT / "SmartGisViews.exe"
+EXE = OUT / "SmartGIS.exe"
 NATIVE = OUT / "maplibre" / "maplibre_headless_example.exe"
 STYLE_NAME = "style_align.json"
 PRODUCT_BMP = "map2d-showcase-align.bmp"

@@ -13,6 +13,7 @@
 #include "app/views/shell/harness/common/io/sample.h"
 #include "base/core/log.h"
 #include "base/trace/event/process_trace.h"
+#include "base/process/switches.h"
 #include "content/browser/camera/map_host_extent.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/public/map_contents.h"
@@ -153,7 +154,7 @@ void Browser::show() {
   // fit_map_extent (cdb world3d-early2 Browser::show). Scene3D framing is
   // applied later by apply_china_scene3d_product_defaults.
   const bool skip_fit = []() {
-    const char* skip = std::getenv("SMT_SKIP_AMBOX_CATALOG");
+    const char* skip = base::switch_cstr("skip-ambox-catalog");
     return skip && skip[0] != '\0' && skip[0] != '0';
   }();
   if (!skip_fit) {
@@ -183,7 +184,7 @@ void Browser::show() {
   // SMT_SKIP_AMBOX_CATALOG also skips this timer: china city land-clip on the
   // UI thread can run tens of seconds and makes WM_CLOSE look hung.
   const bool skip_deferred_china = []() {
-    const char* skip = std::getenv("SMT_SKIP_AMBOX_CATALOG");
+    const char* skip = base::switch_cstr("skip-ambox-catalog");
     return skip && skip[0] != '\0' && skip[0] != '0';
   }();
   if (defer_china_seed_ && !skip_deferred_china && document() &&
@@ -210,13 +211,13 @@ void Browser::show() {
         // sync / showcase seeds keep the full clip for ocean cleanup.
         // Use CRT _putenv_s — MSVC getenv() does not see SetEnvironmentVariableA.
 #if defined(_MSC_VER)
-        _putenv_s("SMT_SKIP_CHINA_LAND_CLIP", "1");
+        base::set_switch("skip-china-land-clip", "1");
 #else
-        setenv("SMT_SKIP_CHINA_LAND_CLIP", "1", 1);
+        setenv("skip-china-land-clip", "1", 1);
 #endif
         LOGGING(LOG_INFO, "startup: SMT_SKIP_CHINA_LAND_CLIP=%s",
-                std::getenv("SMT_SKIP_CHINA_LAND_CLIP")
-                    ? std::getenv("SMT_SKIP_CHINA_LAND_CLIP")
+                base::switch_cstr("skip-china-land-clip")
+                    ? base::switch_cstr("skip-china-land-clip")
                     : "(null)");
         // Pause Present before LayerStore replace — concurrent FlyCube present
         // + GDAL open/replace_layers hung the UI thread (seed begin, no done)
@@ -290,7 +291,7 @@ void Browser::show() {
           // Do not call select_map_tab here — SMT_VIEWS_START_MAP_TAB may
           // already be inside switch_map_tab's PeekMessage wait; nested select
           // deadlocks the China-seed timer. Post a one-shot re-select after.
-          if (const char* tab = std::getenv("SMT_VIEWS_START_MAP_TAB")) {
+          if (const char* tab = base::switch_cstr("views-start-map-tab")) {
             int idx = -1;
             if (std::strcmp(tab, "scene3d") == 0 ||
                 std::strcmp(tab, "2") == 0) {
@@ -314,9 +315,9 @@ void Browser::show() {
           LOGGING(LOG_ERROR, "startup: deferred China seed unknown exception");
         }
 #if defined(_MSC_VER)
-        _putenv_s("SMT_SKIP_CHINA_LAND_CLIP", "");
+        base::set_switch("skip-china-land-clip", "");
 #else
-        unsetenv("SMT_SKIP_CHINA_LAND_CLIP");
+        unsetenv("skip-china-land-clip");
 #endif
         LOGGING(LOG_INFO, "startup: deferred China seed done china=%d",
                 self->document() && self->document()->has_china_extent() ? 1

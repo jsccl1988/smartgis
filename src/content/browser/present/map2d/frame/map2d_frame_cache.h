@@ -4,13 +4,15 @@
 #ifndef CONTENT_BROWSER_PRESENT_MAP2D_FRAME_MAP2D_FRAME_CACHE_H_
 #define CONTENT_BROWSER_PRESENT_MAP2D_FRAME_MAP2D_FRAME_CACHE_H_
 
+#include <atomic>
 #include <cstdint>
 #include <chrono>
 #include <mutex>
+#include <unordered_map>
 #include <vector>
 
 #include "base/memory/arena.h"
-#include "vista/frame/frame.h"
+#include "vista/map/frame.h"
 
 namespace content {
 
@@ -103,8 +105,12 @@ class Map2dFrameCache {
  private:
   ContentFingerprint make_fingerprint() const;
   CameraKey make_camera_key(uint32_t width_px, uint32_t height_px) const;
-  bool rebuild_layout(const CameraKey& cam, const ContentFingerprint& fp);
+  // reuse_slices keeps DrawItem groups whose cache_key hit (settle).
+  // A full rebuild passes false so every slice misses and pixels stay put.
+  bool rebuild_layout(const CameraKey& cam, const ContentFingerprint& fp,
+                      bool reuse_slices);
   void clear_hillshade_bake();
+  void absorb_layer_slices(const vista::MapFrame& frame);
 
   // Mutex first: keeps offsetof stable across MapFrame / vector ABI skew
   // between incremental objs (resource_deadlock_would_occur on bind).
@@ -114,18 +120,23 @@ class Map2dFrameCache {
   const ViewFrame* frame_ = nullptr;
 
   vista::MapFrame cached_frame_;
+  // Owned DrawItem copies keyed by cache_key. Not pointers into cached_frame_.
+  std::unordered_map<uint64_t, std::vector<vista::DrawItem>> layer_slices_;
   ContentFingerprint cached_fp_;
   CameraKey cached_cam_;
   bool has_frame_cache_ = false;
   bool last_present_was_interactive_ = false;
   bool last_present_reused_layout_ = false;
   uint64_t layout_build_count_ = 0;
+  // Bumped on bind/invalidate/rebuild so in-flight Layout::build can see a
+  // newer gen than layout_gen and the host can skip publish.
+  std::atomic<uint64_t> live_layout_gen_{0};
   // Last interactive present time (steady_clock). Settle waits ~200ms quiet.
   std::chrono::steady_clock::time_point last_interactive_tp_{};
   bool pending_interactive_clock_refresh_ = false;
 
-  // Hillshade RGBA is a heap vector installed only after Layout::build.
-  // rebuild_layout must clear prior frame/hillshade before Arena/TLS reset.
+  // Hillshade RGBA is a heap vector installed only after Layout::build
+  // when live gen still matches. Stale gen keeps the published bake.
   static constexpr uint32_t kHillshadeTextureKey = 0x48534844u;  // 'HSHD'
   bool hillshade_ready_ = false;
   int hillshade_w_ = 0;

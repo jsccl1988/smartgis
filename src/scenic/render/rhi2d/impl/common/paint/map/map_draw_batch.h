@@ -20,7 +20,9 @@ using FeatureFallbackFn = std::function<void(OGRFeature*, int)>;
 // GeomOnly reserved for a future parallel HDC draw path.
 enum class DrawBatchMode : uint8_t { All, GeomOnly };
 
-// Draw a prepared feature batch through carto_draw (line/road coalesce).
+// Playback of CPU-prepped features through carto_draw. Coalesces plain
+// lines/roads into PolyPolyline and consecutive same-fill polygons under
+// one style session. Play emits draw_device_* only (no LP→DP).
 void draw_prepared_batch(Rhi2dCartoDraw* carto_draw, int op,
                          std::vector<OGRFeature*>* feats,
                          std::vector<PreparedFeature>* prepared,

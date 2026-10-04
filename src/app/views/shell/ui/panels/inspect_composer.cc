@@ -22,8 +22,8 @@
 #include <windows.h>
 
 #include "content/public/map_contents.h"
-#include "gis/carto/style/style_document.h"
-#include "gis/carto/style/style_types.h"
+#include "gis/style/document/style_document.h"
+#include "gis/style/style_types.h"
 #include "tool/draft/draft.h"
 #include "ui/gis/inspect/measure_panel.h"
 #include "ui/gis/inspect/selection_panel.h"

@@ -4,9 +4,7 @@
 #include "content/public/event_bus.h"
 #include "content/public/plugin_host.h"
 #include "plugin/product/world3d/commands.h"
-#include "legacy/plugin/runtime/bridge/am.h"
-#include "legacy/plugin/runtime/bridge/cmd.h"
-#include "legacy/tool/msg/msg.h"
+#include "tool/msg/msg.h"
 #include "plugin/runtime/host/ui/manager_view.h"
 #include "plugin/runtime/host/manifest/manifest.h"
 #include "plugin/product/print/commands.h"
@@ -107,31 +105,6 @@ int main() {
     expect(reg.trust_unsigned("user.unsigned"), "trust");
     expect(reg.set_enabled("user.unsigned", true, nullptr),
            "enable after trust");
-  }
-  {
-    expect(std::string(plugin::am_id_from_stem("plugin_dem")) ==
-               "smartgis.world3d",
-           "dem stem");
-    expect(std::string(plugin::am_id_from_stem("plugin_orthogrid")) ==
-               "smartgis.world3d",
-           "orthogrid stem");
-    expect(std::string(plugin::am_id_from_stem("plugin_orthogrid")) ==
-               "smartgis.world3d",
-           "leftover baogrid stem");
-    expect(std::string(plugin::am_id_from_stem("FooBar")) == "legacy.foobar",
-           "unknown stem");
-    expect(std::string(plugin::am_id_from_display_name("DEM创建")) ==
-               "smartgis.world3d",
-           "am display DEM创建");
-    expect(std::string(plugin::am_id_from_display_name("DEM生成")) ==
-               "smartgis.world3d",
-           "dem display");
-    expect(std::string(plugin::am_id_from_display_name("地图打印")) ==
-               "smartgis.print",
-           "print display");
-    expect(std::string(plugin::am_id_from_display_name("地图投影")) ==
-               "smartgis.proj",
-           "proj display");
   }
   {
     content::EventBus bus;
@@ -512,36 +485,6 @@ int main() {
     expect(!host->execute("baogrid.load_boundary", {}),
            "baogrid load cancelled");
     delete host;
-  }
-  {
-    expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgDemLoadTin),
-                       "world3d.load_trimesh") == 0,
-           "world3d trimesh am");
-    expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgPrintPreview),
-                       "print.preview") == 0,
-           "print am");
-    expect(std::strcmp(plugin::command_id_from_am_msg(
-                           plugin::kAmMsgOrthogridInputBoundary0),
-                       "baogrid.input_boundary_0") == 0,
-           "baogrid am");
-    expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgModel3dSphere),
-                       "model3d.add_sphere") == 0,
-           "model3d am");
-    expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgProjDoPrj),
-                       "proj.do_prj") == 0,
-           "proj am");
-    expect(std::strcmp(plugin::command_id_from_am_msg(tool::kGtMsgViewRefresh),
-                       "view.refresh") == 0,
-           "plugin gt refresh");
-    expect(std::strcmp(plugin::command_id_from_am_msg(tool::kGtMsgAppendLineString),
-                       "edit.append.linestring") == 0,
-           "plugin gt append line");
-    const long keyed =
-        tool::kGtMsgViewRefresh | (static_cast<long>(1) << 16);
-    expect(std::strcmp(plugin::command_id_from_am_msg(keyed), "view.refresh") ==
-               0,
-           "plugin keyed refresh");
-    expect(plugin::command_id_from_am_msg(-1) == nullptr, "unknown am");
   }
   {
     content::PluginHost* host =

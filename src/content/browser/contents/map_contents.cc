@@ -16,6 +16,7 @@
 #include "base/ipc/handle/handle.h"
 #include "base/ipc/invitation/invitation.h"
 #include "base/ipc/receiver/receiver.h"
+#include "base/process/switches.h"
 #include "base/trace/event/process_trace.h"
 #include "content/common/ipc.h"
 #include "content/app/process_type.h"
@@ -417,15 +418,22 @@ bool MapContentsImpl::StartRenderProcess() {
   if (!pipe_.create_server(pipe_path)) {
     return false;
   }
-  wchar_t cmd[1024];
-  swprintf_s(cmd,
-             L"\"%s\" --type=%s --parent-pid=%u --pipe=%s --session=%s",
-             exe.c_str(), ProcessTypeSwitchValue(ProcessType::kGpu), pid,
-             pipe_name_for_pid(pid).c_str(), session.c_str());
+  std::wstring cmd = L"\"" + exe + L"\" --type=";
+  cmd += ProcessTypeSwitchValue(ProcessType::kGpu);
+  wchar_t pid_buf[32];
+  swprintf_s(pid_buf, L"%u", pid);
+  cmd += L" --parent-pid=";
+  cmd += pid_buf;
+  cmd += L" --pipe=";
+  cmd += pipe_name_for_pid(pid);
+  cmd += L" --session=";
+  cmd += session;
+  base::append_switches_to_command_line(&cmd);
   STARTUPINFOW si = {};
   si.cb = sizeof(si);
   PROCESS_INFORMATION pi = {};
-  std::vector<wchar_t> cmd_buf(cmd, cmd + wcslen(cmd) + 1);
+  std::vector<wchar_t> cmd_buf(cmd.begin(), cmd.end());
+  cmd_buf.push_back(L'\0');
   if (!CreateProcessW(exe.c_str(), cmd_buf.data(), nullptr, nullptr, FALSE,
                       CREATE_NO_WINDOW, nullptr, module_dir().c_str(), &si,
                       &pi)) {

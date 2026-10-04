@@ -9,15 +9,15 @@
 #include <string>
 #include <vector>
 
-#include "base/math/aabb.h"
+#include "base/math/geom/aabb.h"
 #include "gdal_priv.h"
-#include "vista/world/terrain/dem/dem_frame.h"
+#include "vista/terrain/dem/dem_frame.h"
 #include "vista/world/world.h"
-#include "scenic/scene3d/seed/map_to_scene.h"
-#include "scenic/scene3d/seed/scene_to_world.h"
+#include "scenic/scene3d/scene/map_to_scene.h"
+#include "scenic/scene3d/scene/scene_to_world.h"
 #include "vista/world/coord.h"
-#include "vista/world/terrain/dem/dem_height_field.h"
-#include "vista/world/terrain/dem/dem_to_world.h"
+#include "vista/terrain/dem/dem_height_field.h"
+#include "vista/world/dem_seed.h"
 #include "scenic/scene3d/primitive/surface/terrain.h"
 
 namespace {

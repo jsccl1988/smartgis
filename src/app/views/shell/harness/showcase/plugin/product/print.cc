@@ -22,10 +22,10 @@
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
-#include "gis/carto/style/style_document.h"
+#include "gis/style/document/style_document.h"
 #include "plugin/product/print/composer/print_composer.h"
 #include "ui/views/map/map_viewport.h"
-#include "vista/frame/frame.h"
+#include "vista/map/frame.h"
 
 namespace app {
 namespace detail {

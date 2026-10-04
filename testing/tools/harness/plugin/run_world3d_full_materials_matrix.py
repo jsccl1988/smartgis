@@ -3,7 +3,7 @@
 
 """Run world3d full-materials (non-bare) FlyCube matrix — separate from bare peers.
 
-Product path: SmartGisViews --plugin-showcase=world3d with
+Product path: SmartGIS.exe --plugin-showcase=world3d with
 SMT_PLUGIN_WORLD3D_PERF_BARE unset (sky/ocean/cloud/fog + pointcloud on).
 role=full_materials — NEVER mix into bare warm peer ranking
 (out/.../matrix/ MATRIX.md Performance section).
@@ -35,7 +35,7 @@ FULL_MATRIX = (
     OUT / "captures" / "analysis" / "world3d_opt" / "matrix" / "full_materials"
 )
 
-# FlyCube product materials only. Leftover GL/D3D stay on the bare matrix
+# FlyCube product materials only. Scenic GL/D3D stay on the bare matrix
 # (china stereo seed ≠ product full atmo). null stays smoke-only on bare.
 _FLYCUBE_FULL_ENV: dict[str, str | None] = {
     "SMT_PLUGIN_WORLD3D_GPU": "1",

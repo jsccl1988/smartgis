@@ -12,35 +12,30 @@
 #include "gis/geo/ops/indexed_tin.h"
 #include "gdal_priv.h"
 #include "ogrsf_frmts.h"
-#include "legacy/gis/present/carto/style.h"
 #include "gis/datasource/gdal/gdal_driver.h"
+#include "gis/datasource/session/connection_spec.h"
+#include "gis/datasource/session/data_session.h"
 #include "gis/datasource/ogr/ogr_connect.h"
 #include "gis/datasource/ogr/ogr_feature_codec.h"
-#include "legacy/gis/present/carto/smt_style_ogr.h"
 #include "gis/datasource/ogr/ogr_raster_layer.h"
 #include "gis/datasource/sdbd/sdbd_dataset.h"
 #include "gis/datasource/sdbd/sdbd_driver.h"
 #include "gis/datasource/sdbd/sdbd_layer.h"
-#include "legacy/gis/datasource/connection_spec_info.h"
-#include "legacy/gis/datasource/datasource_mgr.h"
-#include "legacy/gis/layer/raster_wrap.h"
 #include "gis/envelope.h"
 #include "gis/feature/feature.h"
 #include "gis/map/layer_kind.h"
+#include "base/process/switches.h"
 
 using namespace geo;
 using gis::Envelope;
 using gis::DS_DB_ADO;
-using gis::DS_MEM;
 using gis::PROVIDER_ACCESS;
 using gis::PROVIDER_GPKG;
 using gis::PROVIDER_POSTGRES;
 using gis::PROVIDER_SPATIALITE;
 using gis::PROVIDER_SQLSERVER;
-using gis::DataSourceInfo;
-using gis::datasource::connection_spec_from_info;
+using gis::datasource::ConnectionSpec;
 using gis::VectorSchema;
-using gis::RasterLayer;
 
 namespace {
 
@@ -148,23 +143,23 @@ int main() {
   expect(gis::datasource::gdal_driver_name(PROVIDER_ACCESS) == nullptr,
          "ACCESS has no driver");
 
-  DataSourceInfo gpkg;
-  gpkg.unProvider = PROVIDER_GPKG;
-  std::strcpy(gpkg.db.szService, "C:\\tmp\\ds");
-  std::strcpy(gpkg.db.szDBName, "sample1.gpkg");
+  ConnectionSpec gpkg;
+  gpkg.provider_id = PROVIDER_GPKG;
+  gpkg.service = "C:\\tmp\\ds";
+  gpkg.db_name = "sample1.gpkg";
   std::string gpkg_path =
-      gis::datasource::make_gdal_open_target(connection_spec_from_info(gpkg));
+      gis::datasource::make_gdal_open_target(gpkg);
   expect(gpkg_path.find("sample1.gpkg") != std::string::npos, "GPKG path");
   expect(gpkg_path.find("PG:") == std::string::npos, "GPKG is not PG:");
 
-  DataSourceInfo pg;
-  pg.unProvider = PROVIDER_POSTGRES;
-  std::strcpy(pg.db.szService, "127.0.0.1:5432");
-  std::strcpy(pg.db.szDBName, "gis");
-  std::strcpy(pg.szUID, "u");
-  std::strcpy(pg.szPWD, "secret");
+  ConnectionSpec pg;
+  pg.provider_id = PROVIDER_POSTGRES;
+  pg.service = "127.0.0.1:5432";
+  pg.db_name = "gis";
+  pg.uid = "u";
+  pg.pwd = "secret";
   std::string pg_target =
-      gis::datasource::make_gdal_open_target(connection_spec_from_info(pg));
+      gis::datasource::make_gdal_open_target(pg);
   expect(pg_target.find("PG:") == 0, "PG prefix");
   expect(pg_target.find("host=127.0.0.1") != std::string::npos, "PG host");
   expect(pg_target.find("port=5432") != std::string::npos, "PG port");
@@ -172,9 +167,9 @@ int main() {
   expect(pg_target.find("user=u") != std::string::npos, "PG user");
   expect(pg_target.find("password=secret") != std::string::npos, "PG password");
 
-  DataSourceInfo access;
-  access.unProvider = PROVIDER_ACCESS;
-  expect(gis::datasource::make_gdal_open_target(connection_spec_from_info(access))
+  ConnectionSpec access;
+  access.provider_id = PROVIDER_ACCESS;
+  expect(gis::datasource::make_gdal_open_target(access)
              .empty(),
          "ACCESS target empty");
 
@@ -204,36 +199,6 @@ int main() {
         ogr.SetField("anno", "hi");
         ogr.SetField("color", 9);
         ogr.SetField("angle", 45.0);
-        SmtStyle sty;
-        sty.set_style_name("codec_style");
-        SmtPenDesc pen = sty.get_pen_desc();
-        pen.lPenColor = 0x00aabb;
-        sty.set_pen_desc(pen);
-        gis::datasource::copy_smt_style_to_ogr(&sty, &ogr);
-        int style_n = 0;
-        const int style_i = ogr.GetFieldIndex("style");
-        expect(style_i >= 0 &&
-                   ogr.GetFieldAsBinary(style_i, &style_n) != nullptr &&
-                   style_n == static_cast<int>(sizeof(SmtStyle)),
-               "style OFTBinary written");
-        OGRGeometry* back_g =
-            gis::datasource::decode_ogr_geometry(&ogr, VectorSchema::kAnno);
-        const OGRPoint* pt = dynamic_cast<const OGRPoint*>(back_g);
-        expect(pt && pt->getX() == 1.5 && pt->getY() == 2.5, "anno xy");
-        expect(ogr.GetFieldIndex("anno") >= 0, "anno field present");
-        expect(gis::datasource::infer_vector_schema(&ogr) == VectorSchema::kAnno,
-               "nonempty anno is FtAnno");
-        ogr.SetField("anno", "");
-        expect(
-            gis::datasource::infer_vector_schema(&ogr) == VectorSchema::kNone,
-            "empty anno stays FtDot");
-        ogr.SetField("anno", "hi");
-        SmtStyle* back_sty = gis::datasource::copy_ogr_style_from_ogr(&ogr);
-        expect(back_sty &&
-                   std::strcmp(back_sty->get_style_name(), "codec_style") == 0,
-               "style blob decode");
-        delete back_g;
-        delete back_sty;
       }
 
       OGRLayer* multi_lyr =
@@ -302,22 +267,22 @@ int main() {
 
   char tmp[MAX_PATH];
   GetTempPathA(MAX_PATH, tmp);
-  DataSourceInfo info;
-  info.unType = DS_DB_ADO;
-  info.unProvider = PROVIDER_GPKG;
-  std::strcpy(info.szName, "t");
-  std::strcpy(info.db.szService, tmp);
-  std::strcpy(info.db.szDBName, "sde_gdal_roundtrip.gpkg");
+  ConnectionSpec info;
+  info.ds_type = DS_DB_ADO;
+  info.provider_id = PROVIDER_GPKG;
+  info.name = "t";
+  info.service = tmp;
+  info.db_name = "sde_gdal_roundtrip.gpkg";
   std::string path = gis::datasource::make_gdal_open_target(
-      connection_spec_from_info(info));
+      info);
   const std::string sdbd_target = gis::datasource::make_sdbd_open_target(
-      connection_spec_from_info(info));
+      info);
   expect(sdbd_target.rfind("SDBD:GPKG:", 0) == 0, "SDBD:GPKG target");
   DeleteFileA(path.c_str());
 
   GDALDriver* gpkg_drv = GetGDALDriverManager()->GetDriverByName("GPKG");
   const bool can_file = gpkg_drv != nullptr;
-  GDALDataset* gdal_ds = gis::datasource::open_sdbd_dataset(connection_spec_from_info(info));
+  GDALDataset* gdal_ds = gis::datasource::open_sdbd_dataset(info);
   if (!can_file) {
     expect(gdal_ds == nullptr, "GPKG Open fails without GPKG driver");
     std::fprintf(
@@ -350,7 +315,7 @@ int main() {
              "encode point");
       expect(lyr->CreateFeature(&feat) == OGRERR_NONE, "append point");
       GDALClose(gdal_ds);
-      gdal_ds = gis::datasource::open_sdbd_dataset(connection_spec_from_info(info));
+      gdal_ds = gis::datasource::open_sdbd_dataset(info);
       sdbd_ds = gis::datasource::as_sdbd_dataset(gdal_ds);
       OGRLayer* lyr2 = sdbd_ds ? sdbd_ds->GetLayerByName("dots") : nullptr;
       expect(lyr2 != nullptr, "reopen dots");
@@ -382,7 +347,7 @@ int main() {
       expect(lines->CreateFeature(&feat) == OGRERR_NONE, "append line");
       delete line;
       GDALClose(gdal_ds);
-      gdal_ds = gis::datasource::open_sdbd_dataset(connection_spec_from_info(info));
+      gdal_ds = gis::datasource::open_sdbd_dataset(info);
       sdbd_ds = gis::datasource::as_sdbd_dataset(gdal_ds);
       OGRLayer* back = sdbd_ds ? sdbd_ds->GetLayerByName("lines") : nullptr;
       expect(back != nullptr, "reopen lines");
@@ -419,7 +384,7 @@ int main() {
       expect(polys->CreateFeature(&feat) == OGRERR_NONE, "append poly");
       delete poly;
       GDALClose(gdal_ds);
-      gdal_ds = gis::datasource::open_sdbd_dataset(connection_spec_from_info(info));
+      gdal_ds = gis::datasource::open_sdbd_dataset(info);
       sdbd_ds = gis::datasource::as_sdbd_dataset(gdal_ds);
       OGRLayer* back = sdbd_ds ? sdbd_ds->GetLayerByName("polys") : nullptr;
       expect(back != nullptr, "reopen polys");
@@ -449,7 +414,7 @@ int main() {
       feat.SetField("angle", 12.0);
       expect(annos->CreateFeature(&feat) == OGRERR_NONE, "append anno");
       GDALClose(gdal_ds);
-      gdal_ds = gis::datasource::open_sdbd_dataset(connection_spec_from_info(info));
+      gdal_ds = gis::datasource::open_sdbd_dataset(info);
       sdbd_ds = gis::datasource::as_sdbd_dataset(gdal_ds);
       OGRLayer* back = sdbd_ds ? sdbd_ds->GetLayerByName("annos") : nullptr;
       expect(back != nullptr, "reopen annos");
@@ -486,7 +451,7 @@ int main() {
              "encode tin");
       expect(tins->CreateFeature(&feat) == OGRERR_NONE, "append tin");
       GDALClose(gdal_ds);
-      gdal_ds = gis::datasource::open_sdbd_dataset(connection_spec_from_info(info));
+      gdal_ds = gis::datasource::open_sdbd_dataset(info);
       sdbd_ds = gis::datasource::as_sdbd_dataset(gdal_ds);
       OGRLayer* back = sdbd_ds ? sdbd_ds->GetLayerByName("tins") : nullptr;
       expect(back != nullptr, "reopen tins");
@@ -519,7 +484,7 @@ int main() {
       feat.SetField("grid_col", 2);
       expect(grids->CreateFeature(&feat) == OGRERR_NONE, "append grid");
       GDALClose(gdal_ds);
-      gdal_ds = gis::datasource::open_sdbd_dataset(connection_spec_from_info(info));
+      gdal_ds = gis::datasource::open_sdbd_dataset(info);
       sdbd_ds = gis::datasource::as_sdbd_dataset(gdal_ds);
       OGRLayer* back = sdbd_ds ? sdbd_ds->GetLayerByName("grids") : nullptr;
       expect(back != nullptr, "reopen grids");
@@ -539,13 +504,13 @@ int main() {
       const char payload[] = "ras-bytes";
       const long cr = ras->CreaterRaster(
           payload, static_cast<long>(sizeof(payload)), rect, 7);
-      expect(cr == SMT_ERR_NONE, "raster CreaterRaster");
+      expect(cr == gis::datasource::k_raster_ok, "raster CreaterRaster");
       char* got = nullptr;
       long got_size = 0;
       long got_code = -1;
       gis::Envelope got_rect;
       expect(ras->GetRasterNoClone(got, got_size, got_rect, got_code) ==
-                 SMT_ERR_NONE,
+                 gis::datasource::k_raster_ok,
              "GetRasterNoClone");
       expect(got && got_size == static_cast<long>(sizeof(payload)) &&
                  std::memcmp(got, payload, sizeof(payload)) == 0,
@@ -556,7 +521,7 @@ int main() {
       expect(ras->dataset() != nullptr &&
                  ras->dataset()->GetRasterCount() > 0,
              "raster hangs GDALDataset bands");
-      SMT_SAFE_DELETE(ras);
+      delete ras;
     }
 
     if (gdal_ds) {
@@ -565,12 +530,12 @@ int main() {
     }
   }
 
-  DataSourceInfo ainfo;
-  ainfo.unProvider = PROVIDER_ACCESS;
-  expect(gis::datasource::make_sdbd_open_target(connection_spec_from_info(ainfo))
+  ConnectionSpec ainfo;
+  ainfo.provider_id = PROVIDER_ACCESS;
+  expect(gis::datasource::make_sdbd_open_target(ainfo)
              .empty(),
          "ACCESS has no SDBD target");
-  expect(gis::datasource::open_sdbd_dataset(connection_spec_from_info(ainfo)) ==
+  expect(gis::datasource::open_sdbd_dataset(ainfo) ==
              nullptr,
          "ACCESS Open false");
 
@@ -586,63 +551,24 @@ int main() {
     } else {
       auto* ras = new gis::datasource::OgrRasterLayer(nullptr);
       expect(ras->Create(), "standalone MEM raster Create");
-      expect(ras->CreaterRaster(nullptr, 0, rrect, 0) == SMT_ERR_NONE,
+      expect(ras->CreaterRaster(nullptr, 0, rrect, 0) == gis::datasource::k_raster_ok,
              "empty CreaterRaster ok");
-      SMT_SAFE_DELETE(ras);
+      delete ras;
     }
   }
 
-  gis::DataSourceMgr* mgr = gis::DataSourceMgr::get_singleton_ptr();
-  expect(mgr != nullptr, "datasource mgr");
-  if (mgr) {
-    GDALDataset* tmp = mgr->create_tmp_data_source(DS_MEM);
-    expect(tmp != nullptr && gis::datasource::as_sdbd_dataset(tmp) != nullptr,
-           "CreateTmpDataSource MEM is SdbdDataset");
-    mgr->destroy_tmp_data_source(tmp);
-    GDALDataset* file_ds = mgr->open_dataset(info);
-    if (can_file) {
-      expect(file_ds != nullptr, "mgr GPKG Open");
-    } else {
-      expect(file_ds == nullptr, "mgr GPKG Open fails without driver");
-    }
-    mgr->close_dataset(file_ds);
-    gis::ScratchLayer scratch = gis::DataSourceMgr::create_mem_vec_layer();
-    expect(scratch.dataset != nullptr && scratch.layer != nullptr,
-           "CreateMemVecLayer Memory");
-    if (scratch.layer) {
-      OGRFeature feat(scratch.layer->GetLayerDefn());
+  {
+    gis::datasource::register_gdal_driver();
+    gis::datasource::DataSession session;
+    gis::MapLayer scratch = session.create_mem_vector_layer("scratch");
+    expect(scratch.ogr() != nullptr, "CreateMemVecLayer Memory");
+    if (scratch.ogr()) {
+      OGRFeature feat(scratch.ogr()->GetLayerDefn());
       OGRPoint pt(1.0, 2.0);
       feat.SetGeometry(&pt);
-      expect(scratch.layer->CreateFeature(&feat) == OGRERR_NONE,
+      expect(scratch.ogr()->CreateFeature(&feat) == OGRERR_NONE,
              "scratch CreateFeature");
-      expect(scratch.layer->GetFeatureCount() >= 1, "scratch count");
-    }
-    gis::DataSourceMgr::destroy_mem_vec_layer(scratch);
-    gis::RasterLayer* mem_ras = gis::DataSourceMgr::create_mem_ras_layer();
-    expect(mem_ras != nullptr, "CreateMemRasLayer");
-    if (mem_ras) {
-      // Factory returns LeftoverOgrRasterLayer owning an OgrRasterLayer.
-      expect(dynamic_cast<gis::LeftoverOgrRasterLayer*>(mem_ras) != nullptr,
-             "CreateMemRasLayer is LeftoverOgrRasterLayer");
-      expect(mem_ras->IsOpen() && mem_ras->GetDataset() != nullptr,
-             "CreateMemRasLayer open with GDALDataset");
-      const char bytes[] = {1, 2, 3, 4};
-      fRect rr;
-      rr.lb.x = 0;
-      rr.lb.y = 0;
-      rr.rt.x = 2;
-      rr.rt.y = 2;
-      expect(mem_ras->CreaterRaster(bytes, 4, rr, 3) == SMT_ERR_NONE,
-             "mgr ras CreaterRaster");
-      char* out = nullptr;
-      long out_n = 0;
-      long out_code = 0;
-      fRect out_r;
-      expect(mem_ras->GetRasterNoClone(out, out_n, out_r, out_code) ==
-                     SMT_ERR_NONE &&
-                 out_n == 4 && out && out[0] == 1 && out_code == 3,
-             "mgr ras GetRasterNoClone");
-      gis::DataSourceMgr::destroy_mem_ras_layer(mem_ras);
+      expect(scratch.ogr()->GetFeatureCount() >= 1, "scratch count");
     }
 
     // Open(file) must backfill /vsimem so GetRasterNoClone works for GDI.
@@ -674,51 +600,52 @@ int main() {
           long blob_code = -1;
           gis::Envelope blob_r;
           expect(file_ras->GetRasterNoClone(blob, blob_n, blob_r, blob_code) ==
-                         SMT_ERR_NONE &&
+                         gis::datasource::k_raster_ok &&
                      blob && blob_n > 0,
                  "Open file GetRasterNoClone has bytes");
-          SMT_SAFE_DELETE(file_ras);
+          delete file_ras;
         }
         fs::remove_all(dir, ec);
       }
     }
   }
 
-  const char* pg_dsn = std::getenv("SMT_PG_DSN");
+  const char* pg_dsn = base::switch_cstr("pg-dsn");
   if (pg_dsn && pg_dsn[0]) {
-    DataSourceInfo pgi;
-    pgi.unType = DS_DB_ADO;
-    pgi.unProvider = PROVIDER_POSTGRES;
-    std::strcpy(pgi.szName, "pg");
+    ConnectionSpec pgi;
+    pgi.ds_type = DS_DB_ADO;
+    pgi.provider_id = PROVIDER_POSTGRES;
+    pgi.name = "pg";
     std::string dsn = pg_dsn;
     if (dsn.rfind("PG:", 0) == 0) {
       dsn = dsn.substr(3);
     }
-    auto take = [&](const char* key, char* dest, size_t dest_len) {
+    auto take = [&](const char* key) {
       const std::string token = std::string(key) + "=";
       const auto pos = dsn.find(token);
       if (pos == std::string::npos) {
-        return;
+        return std::string();
       }
       auto end = dsn.find(' ', pos);
       if (end == std::string::npos) {
         end = dsn.size();
       }
-      const std::string val =
-          dsn.substr(pos + token.size(), end - pos - token.size());
-      std::strncpy(dest, val.c_str(), dest_len - 1);
+      return dsn.substr(pos + token.size(), end - pos - token.size());
     };
-    char host[128] = "127.0.0.1";
-    char port[16] = "5432";
-    take("host", host, sizeof(host));
-    take("port", port, sizeof(port));
-    take("dbname", pgi.db.szDBName, sizeof(pgi.db.szDBName));
-    take("user", pgi.szUID, sizeof(pgi.szUID));
-    take("password", pgi.szPWD, sizeof(pgi.szPWD));
-    std::snprintf(pgi.db.szService, sizeof(pgi.db.szService), "%s:%s", host,
-                  port);
+    std::string host = take("host");
+    if (host.empty()) {
+      host = "127.0.0.1";
+    }
+    std::string port = take("port");
+    if (port.empty()) {
+      port = "5432";
+    }
+    pgi.db_name = take("dbname");
+    pgi.uid = take("user");
+    pgi.pwd = take("password");
+    pgi.service = host + ":" + port;
     GDALDataset* pgds = gis::datasource::open_sdbd_dataset(
-        connection_spec_from_info(pgi));
+        pgi);
     expect(pgds != nullptr, "SMT_PG_DSN Open");
     if (pgds) {
       expect(gis::datasource::as_sdbd_dataset(pgds) != nullptr,

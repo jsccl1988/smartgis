@@ -6,8 +6,8 @@
 
 #include <cmath>
 
-#include "base/math/affine2.h"
-#include "scenic/detail/viewport.h"
+#include "base/math/linear/affine2.h"
+#include "scenic/render/rhi2d/public/device/viewport.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/frame/preview_xform.h"
 
 namespace scenic {

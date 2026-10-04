@@ -5,8 +5,10 @@
 
 #include <algorithm>
 
-#include "vista/scene/detail/paint.h"
-#include "vista/scene/detail/upload.h"
+#include "vista/scene/pipelines.h"
+#include "vista/scene/sync.h"
+#include "vista/scene/paint.h"
+#include "vista/scene/upload.h"
 #include "render/programs/programs.h"
 
 namespace vista {
@@ -63,14 +65,7 @@ bool GpuScene::ensure_pipelines(render::rhi::Device* device) {
   // Bare DEM (hypsometric) only needs solid + textured. Lit PSOs are cold-
   // expensive under FlyCube/DX12 — create them lazily when a lit kind is live.
   const bool want_lit = detail::want_lit_terrain();
-  bool need_model_lit = false;
-  for (const GpuInstance& inst : instances_) {
-    if (inst.kind == vista::NodeKind::kModel ||
-        inst.kind == vista::NodeKind::kTileset) {
-      need_model_lit = true;
-      break;
-    }
-  }
+  const bool need_model_lit = detail::want_model_lit(instances_);
   const bool need_lit = want_lit || need_model_lit;
   if (pipeline_device_ == device && solid_pipeline_ && textured_pipeline_ &&
       (!need_lit || (lit_pipeline_ && (!want_lit || lit_textured_pipeline_)))) {
@@ -366,47 +361,7 @@ void GpuScene::sync_from(const vista::World& world) {
   }
   // Build into a fresh vector then swap — avoids Debug STL orphan-proxy AV when
   // instances_ was cleared/reused after abandon across Device boundaries.
-  std::vector<GpuInstance> next;
-  const size_t n = world.node_count();
-  next.reserve(n);
-  for (size_t i = 0; i < n; ++i) {
-    const vista::Node* node = world.node_at(i);
-    if (!node) {
-      continue;
-    }
-    GpuInstance inst;
-    inst.node_id = node->id;
-    inst.kind = node->kind;
-    inst.min_x = node->min_x;
-    inst.min_y = node->min_y;
-    inst.min_z = node->min_z;
-    inst.max_x = node->max_x;
-    inst.max_y = node->max_y;
-    inst.max_z = node->max_z;
-    inst.layer = node->map_layer;
-    inst.ogr_layer = node->ogr_layer;
-    inst.geom_3d = node->geom_3d;
-    inst.geoms = node->geoms;
-    inst.tin = node->tin;
-    inst.grid = node->grid;
-    inst.grid_nx = node->grid_nx;
-    inst.grid_ny = node->grid_ny;
-    inst.model = node->model;
-    inst.tileset = node->tileset;
-    inst.visible_uris = node->visible_uris;
-    inst.terrain_positions = node->terrain_positions;
-    inst.terrain_indices = node->terrain_indices;
-    inst.terrain_uvs = node->terrain_uvs;
-    inst.terrain_rgba = node->terrain_rgba;
-    inst.terrain_tex_w = node->terrain_tex_w;
-    inst.terrain_tex_h = node->terrain_tex_h;
-    inst.point_positions = node->point_positions;
-    inst.point_rgba = node->point_rgba;
-    inst.point_chunks = node->point_chunks;
-    inst.has_paint = false;
-    next.push_back(std::move(inst));
-  }
-  instances_.swap(next);
+  detail::copy_world_instances(world, &instances_);
   synced_generation_ = world.generation();
   meshes_dirty_ = true;
 }

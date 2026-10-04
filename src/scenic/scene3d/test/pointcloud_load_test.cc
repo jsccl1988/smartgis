@@ -10,7 +10,7 @@
 #include <fstream>
 #include <string>
 
-#include "vista/world/terrain/dem/dem_height_field.h"
+#include "vista/terrain/dem/dem_height_field.h"
 #include "scenic/scene3d/primitive/surface/pointcloud.h"
 
 namespace {
@@ -116,12 +116,12 @@ int main() {
 
   scenic::detail::PointCloud3d cloud;
   const std::string cloud_path = tmp.string();
-  expect(cloud.Read3DPointCloud(cloud_path.c_str()),
-         "Read3DPointCloud public DEM subsample");
+  expect(cloud.read_point_cloud(cloud_path),
+         "read_point_cloud public DEM subsample");
 
   // Second parse must also succeed (format stable / non-empty).
   scenic::detail::PointCloud3d cloud2;
-  expect(cloud2.Read3DPointCloud(cloud_path.c_str()), "re-read public sample");
+  expect(cloud2.read_point_cloud(cloud_path), "re-read public sample");
 
   std::error_code ec;
   std::filesystem::remove(tmp, ec);

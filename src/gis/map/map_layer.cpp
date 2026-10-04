@@ -3,7 +3,7 @@
 
 #include "gis/map/map_layer.h"
 
-#include "gis/carto/tile/provider_tile_layer.h"
+#include "gis/tile/layer/provider_tile_layer.h"
 #include "gis/datasource/ogr/ogr_raster_layer.h"
 #include "ogrsf_frmts.h"
 

@@ -9,6 +9,7 @@
 #include "content/browser/present/map2d/frame/map2d_tile_math.h"
 #include "content/browser/present/map2d/map2d_phase_profile.h"
 
+#include <atomic>
 #include <cmath>
 #include <chrono>
 #include <cstdint>
@@ -21,15 +22,32 @@
 
 #include "base/memory/arena.h"
 #include "base/trace/event/process_trace.h"
-#include "vista/map/pass.h"
-#include "gis/carto/style/style_document.h"
-#include "gis/carto/style/style_rules.h"
-#include "vista/frame/frame.h"
-#include "vista/frame/hillshade_bake.h"
-#include "vista/world/terrain/dem/dem_raster.h"
+#include "base/process/switches.h"
+#include "vista/frame/pass.h"
+#include "gis/style/document/style_document.h"
+#include "gis/style/eval/style_rules.h"
+#include "vista/map/frame.h"
+#include "vista/map/hillshade_bake.h"
+#include "vista/terrain/dem/dem_raster.h"
 
 namespace content {
 namespace {
+
+// Non-owning view of layer_slices_ for one Layout::build. The map outlives it.
+class MapSliceLookup final : public vista::SliceCache {
+ public:
+  explicit MapSliceLookup(
+      const std::unordered_map<uint64_t, std::vector<vista::DrawItem>>& slices)
+      : slices_(slices) {}
+
+  const std::vector<vista::DrawItem>* find(uint64_t cache_key) const override {
+    const auto found = slices_.find(cache_key);
+    return found == slices_.end() ? nullptr : &found->second;
+  }
+
+ private:
+  const std::unordered_map<uint64_t, std::vector<vista::DrawItem>>& slices_;
+};
 
 const gis::style::StyleLayer* find_hillshade_layer(
     const gis::style::StyleDocument* style, double zoom) {
@@ -59,12 +77,14 @@ void Map2dFrameCache::clear_hillshade_bake() {
 
 void Map2dFrameCache::bind(const MapScene* scene, const ViewFrame* frame) {
   std::lock_guard<std::recursive_mutex> lock(mu_);
+  live_layout_gen_.fetch_add(1, std::memory_order_acq_rel);
   scene_ = scene;
   frame_ = frame;
   has_frame_cache_ = false;
   last_present_was_interactive_ = false;
   last_present_reused_layout_ = false;
   cached_frame_ = vista::MapFrame{};
+  layer_slices_.clear();
   cached_fp_ = ContentFingerprint{};
   cached_cam_ = CameraKey{};
   clear_hillshade_bake();
@@ -72,10 +92,12 @@ void Map2dFrameCache::bind(const MapScene* scene, const ViewFrame* frame) {
 
 void Map2dFrameCache::invalidate() {
   std::lock_guard<std::recursive_mutex> lock(mu_);
+  live_layout_gen_.fetch_add(1, std::memory_order_acq_rel);
   has_frame_cache_ = false;
   last_present_was_interactive_ = false;
   last_present_reused_layout_ = false;
   cached_frame_ = vista::MapFrame{};
+  layer_slices_.clear();
   cached_fp_ = ContentFingerprint{};
   cached_cam_ = CameraKey{};
   clear_hillshade_bake();
@@ -175,8 +197,19 @@ Map2dFrameCache::CameraKey Map2dFrameCache::make_camera_key(
   return key;
 }
 
+void Map2dFrameCache::absorb_layer_slices(const vista::MapFrame& frame) {
+  layer_slices_.clear();
+  for (const vista::DrawItem& item : frame.items) {
+    if (item.cache_key == 0) {
+      continue;
+    }
+    layer_slices_[item.cache_key].push_back(item);
+  }
+}
+
 bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
-                                     const ContentFingerprint& fp) {
+                                     const ContentFingerprint& fp,
+                                     bool reuse_slices) {
   BASE_TRACE_EVENT("layout", "map2d.layout");
   if (!scene_ || !frame_ || cam.width_px == 0 || cam.height_px == 0) {
     return false;
@@ -185,18 +218,11 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
   const auto layout_wall_t0 = std::chrono::steady_clock::now();
   int64_t hillshade_ms = 0;
 
-  // Drop prior frame + hillshade BEFORE resetting scratch arenas. Clearing
-  // monotonic / TLS pools first left STL proxies (esp. hillshade_rgba_)
-  // dangling → Debug ~vector / memcpy AV inside Widget::show paint.
-  cached_frame_ = vista::MapFrame{};
-  clear_hillshade_bake();
-  has_frame_cache_ = false;
-
-  // Monotonic scratch for this rebuild (temps / pmr consumers share TLS too).
-  layout_scratch_.memory_resource->clear(1 << 20);
-  if (base::MemoryResource* tls = base::tls_memory_resource()) {
-    tls->clear(base::Arena::kInitialSize);
-  }
+  // Keep cached_frame_ published until this gen is still current after build.
+  // Do not reset TLS/scratch here — Layout::build owns TLS reset, and wiping
+  // arenas while published_ still aliases them AVs on the next paint.
+  const uint64_t build_gen =
+      live_layout_gen_.fetch_add(1, std::memory_order_acq_rel) + 1;
 
   const gis::style::StyleDocument* style = scene_->style_document();
   // china_city.style.json keys source-layer area/line/point (+ circle on
@@ -274,8 +300,8 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
   // Bake into locals first and install into members only after Layout::build
   // succeeds so a failed / aborted rebuild cannot leave a half-swapped
   // hillshade_rgba_.
-  const char* no_hs = std::getenv("SMT_MAP2D_NO_HILLSHADE");
-  const char* force_hs = std::getenv("SMT_MAP2D_FORCE_HILLSHADE");
+  const char* no_hs = base::switch_cstr("map2d-no-hillshade");
+  const char* force_hs = base::switch_cstr("map2d-force-hillshade");
   const bool force_hillshade =
       force_hs && force_hs[0] == '1' && force_hs[1] == '\0';
   const bool skip_hillshade =
@@ -335,10 +361,25 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
   }
   {
     BASE_TRACE_EVENT("build", "map2d.layout");
-    if (base::MemoryResource* tls = base::tls_memory_resource()) {
-      tls->clear(base::Arena::kInitialSize);
+    MapSliceLookup retained(layer_slices_);
+    if (reuse_slices && !layer_slices_.empty()) {
+      in.retained_slices = &retained;
     }
-    cached_frame_ = layout.build(in, layer_batches.batches);
+    in.layout_gen = build_gen;
+    in.live_layout_gen = &live_layout_gen_;
+    vista::MapFrame built = layout.build(in, layer_batches.batches);
+    if (live_layout_gen_.load(std::memory_order_acquire) != build_gen) {
+      const int64_t wall_ms =
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::steady_clock::now() - layout_wall_t0)
+              .count();
+      const int64_t layout_ms =
+          wall_ms > hillshade_ms ? (wall_ms - hillshade_ms) : wall_ms;
+      note_map2d_phase_layout(layout_ms, hillshade_ms);
+      return has_frame_cache_;
+    }
+    cached_frame_ = std::move(built);
+    absorb_layer_slices(cached_frame_);
   }
   if (!baked_rgba.empty() && baked_w > 0 && baked_h > 0) {
     hillshade_rgba_ = std::move(baked_rgba);
@@ -381,7 +422,7 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
 
   if (content_dirty) {
     *action = PresentAction::kRebuildFull;
-    if (!rebuild_layout(cam, fp)) {
+    if (!rebuild_layout(cam, fp, /*reuse_slices=*/false)) {
       return false;
     }
     last_present_reused_layout_ = false;
@@ -410,7 +451,7 @@ bool Map2dFrameCache::prepare_for_present(uint32_t width_px, uint32_t height_px,
       return true;
     }
     *action = PresentAction::kSettleRebuild;
-    if (!rebuild_layout(cam, fp)) {
+    if (!rebuild_layout(cam, fp, /*reuse_slices=*/true)) {
       return false;
     }
     last_present_reused_layout_ = false;
@@ -451,7 +492,7 @@ bool Map2dFrameCache::ensure_full(uint32_t width_px, uint32_t height_px) {
   }
   last_present_reused_layout_ = false;
   last_present_was_interactive_ = false;
-  return rebuild_layout(cam, fp);
+  return rebuild_layout(cam, fp, /*reuse_slices=*/false);
 }
 
 }  // namespace content

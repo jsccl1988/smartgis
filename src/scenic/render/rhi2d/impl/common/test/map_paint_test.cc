@@ -13,12 +13,12 @@
 #include "gdal.h"
 #include "gdal_priv.h"
 #include "gis/datasource/ogr/ogr_feature_codec.h"
-#include "scenic/detail/feature_kind.h"
+#include "scenic/render/rhi2d/impl/common/paint/carto/draw/feature_kind.h"
 #include "gis/envelope.h"
 #include "gis/map/map.h"
-#include "vista/world/terrain/dem/dem_raster.h"
-#include "vista/world/terrain/process/dem_hillshade.h"
-#include "scenic/render/rhi2d/public/device/renderdevice.h"
+#include "vista/terrain/dem/dem_raster.h"
+#include "vista/terrain/process/dem_hillshade.h"
+#include "scenic/render/rhi2d/public/device/render_device.h"
 #include "scenic/test/paint_test_host.h"
 #include "ogrsf_frmts.h"
 
@@ -26,6 +26,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include "base/process/switches.h"
 
 namespace {
 
@@ -117,7 +118,7 @@ const MatrixHillshade& matrix_hillshade_bake() {
   attempted = true;
 
   std::string dem_path;
-  if (const char* env = std::getenv("SMT_CHINA_DEM");
+  if (const char* env = base::switch_cstr("china-dem");
       env != nullptr && env[0] != '\0') {
     dem_path = env;
   } else {
@@ -236,7 +237,7 @@ bool save_matrix_bmp(scenic::detail::LPRENDERDEVICE dev, const char* path) {
     if (sprintf_s(tmp, "%s.__try_%d.bmp", path, static_cast<int>(layer)) <= 0) {
       continue;
     }
-    if (dev->SaveImage(tmp, layer) != SMT_ERR_NONE) {
+    if (dev->SaveImage(tmp, layer) != kErrNone) {
       DeleteFileA(tmp);
       continue;
     }
@@ -302,14 +303,14 @@ bool save_matrix_bmp(scenic::detail::LPRENDERDEVICE dev, const char* path) {
                    "SaveImage\n");
     }
 
-    if (dev->SaveImage(path, layer) == SMT_ERR_NONE) {
+    if (dev->SaveImage(path, layer) == kErrNone) {
       std::fprintf(stderr, "matrix_bmp=%s layer=%d ocean_frac=%.2f hillshade=0\n",
                    path, static_cast<int>(layer), ocean_frac);
       return true;
     }
   }
   // Last resort: MAP even if ocean-heavy (keeps a file for the matrix).
-  if (dev->SaveImage(path, scenic::detail::MRD_BL_MAP) == SMT_ERR_NONE) {
+  if (dev->SaveImage(path, scenic::detail::MRD_BL_MAP) == kErrNone) {
     std::fprintf(stderr, "matrix_bmp=%s layer=MAP fallback\n", path);
     return true;
   }
@@ -375,7 +376,7 @@ int count_map_buf_non_white(scenic::detail::LPRENDERDEVICE dev) {
                   static_cast<int>(layer)) <= 0) {
       continue;
     }
-    if (dev->SaveImage(path, layer) != SMT_ERR_NONE) {
+    if (dev->SaveImage(path, layer) != kErrNone) {
       std::fprintf(stderr, "SaveImage failed layer=%d path=%s\n",
                    static_cast<int>(layer), path);
       continue;
@@ -496,7 +497,7 @@ int main() {
   GDALDriver* mem = GetGDALDriverManager()->GetDriverByName("Memory");
   GDALDataset* donut_ds = nullptr;
   const bool matrix_run = []() {
-    const char* p = std::getenv("SMT_RHI2D_MATRIX_BMP");
+    const char* p = base::switch_cstr("rhi2d-matrix-bmp");
     return p != nullptr && p[0] != '\0';
   }();
   // Matrix captures want a clean China frame — skip the synthetic donut layer.
@@ -528,7 +529,7 @@ int main() {
   ShowWindow(hwnd, SW_SHOWNOACTIVATE);
   UpdateWindow(hwnd);
 
-  const char* port = std::getenv("SMT_RHI2D_PORT");
+  const char* port = base::switch_cstr("rhi2d-port");
   if (port == nullptr || port[0] == '\0') {
     port = "gdi";
   }
@@ -551,8 +552,8 @@ int main() {
   }
 #endif
   std::fprintf(stderr, "port=%s dll=%s parallel=%s\n", port, dll_name,
-               std::getenv("SMT_RHI2D_PARALLEL")
-                   ? std::getenv("SMT_RHI2D_PARALLEL")
+               base::switch_cstr("rhi2d-parallel")
+                   ? base::switch_cstr("rhi2d-parallel")
                    : "(default tile)");
   HMODULE dll = LoadLibraryA(dll_name);
   expect(dll != nullptr, "LoadLibrary legacy_rhi2d port");
@@ -583,10 +584,10 @@ int main() {
     return 1;
   }
 
-  expect(dev->Init(hwnd, "gdi-map-paint-test") == SMT_ERR_NONE, "Init");
+  expect(dev->Init(hwnd, "gdi-map-paint-test") == kErrNone, "Init");
   std::fprintf(stderr, "step: init-ok\n");
   std::fflush(stderr);
-  expect(dev->Resize(0, 0, kW, kH) == SMT_ERR_NONE, "Resize");
+  expect(dev->Resize(0, 0, kW, kH) == kErrNone, "Resize");
   std::fprintf(stderr, "step: resize-ok %dx%d\n", kW, kH);
   std::fflush(stderr);
   RenderOptions2d options = {};
@@ -615,7 +616,7 @@ int main() {
   std::fprintf(stderr, "step: zoom-begin extent=(%.2f,%.2f)-(%.2f,%.2f)\n",
                frt.lb.x, frt.lb.y, frt.rt.x, frt.rt.y);
   std::fflush(stderr);
-  expect(dev->ZoomToRect(&map, frt, true) == SMT_ERR_NONE,
+  expect(dev->ZoomToRect(&map, frt, true) == kErrNone,
          "ZoomToRect realtime");
   std::fprintf(stderr, "step: zoom-ok\n");
   std::fflush(stderr);
@@ -627,7 +628,7 @@ int main() {
   lrt.lb.y = kH;
   std::fprintf(stderr, "step: refresh-begin\n");
   std::fflush(stderr);
-  expect(dev->RefreshDirectly(&map, lrt, true) == SMT_ERR_NONE,
+  expect(dev->RefreshDirectly(&map, lrt, true) == kErrNone,
          "RefreshDirectly realtime");
   std::fprintf(stderr, "step: refresh-ok\n");
   std::fflush(stderr);
@@ -639,7 +640,7 @@ int main() {
   const int painted = count_map_buf_non_white(dev);
   std::fprintf(stderr, "realtime non-white samples: %d\n", painted);
 
-  if (const char* out_bmp = std::getenv("SMT_RHI2D_MATRIX_BMP");
+  if (const char* out_bmp = base::switch_cstr("rhi2d-matrix-bmp");
       out_bmp && out_bmp[0] != '\0') {
     expect(save_matrix_bmp(dev, out_bmp), "matrix SaveImage QUICK|MAP");
   }
@@ -653,11 +654,11 @@ int main() {
     cursor.y = kH / 2;
     for (int i = 0; i < 12; ++i) {
       const float fscale = (i % 2 == 0) ? 0.9f : 1.1f;
-      expect(dev->PreviewZoomScale(cursor, fscale) == SMT_ERR_NONE,
+      expect(dev->PreviewZoomScale(cursor, fscale) == kErrNone,
              "PreviewZoomScale");
-      expect(dev->Refresh() == SMT_ERR_NONE, "Refresh after preview zoom");
+      expect(dev->Refresh() == kErrNone, "Refresh after preview zoom");
     }
-    expect(dev->ScheduleDelayedRedraw(&map) == SMT_ERR_NONE,
+    expect(dev->ScheduleDelayedRedraw(&map) == kErrNone,
            "ScheduleDelayedRedraw after preview");
     for (int i = 0; i < 300; ++i) {
       (void)dev->Timer();

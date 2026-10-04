@@ -22,6 +22,7 @@ The repository is organized by **top-level directories** (`src/`, `core/`, `buil
 - **Don’t** import idioms from a **different** top-level tree when the current tree already has an established pattern (e.g. don’t rewrite `src/` MFC peers to Google style just because `core/` looks different—unless a repo rule requires alignment).
 - **Don’t** mix unrelated formatting or structural styles **within the same subtree** in a single change set; new code should look like it was written by the same team as the surrounding files.
 - **Don’t** rewrite `branches/` sources to Google style in drive-by edits.
+- **Don’t** rewrite or restyle **`src/legacy/`** — frozen unless this turn’s user message explicitly unlocks it (**`.cursor/rules/repo/legacy-freeze.mdc`**).
 
 ## Relation to other rules
 

@@ -10,7 +10,6 @@
 #define _CRT_DECLARE_NONSTDC_NAMES 0
 #endif
 
-#include "legacy/core/macros/macros.h"
 #include "gis/stat/value_set.h"
 
 #include <span>

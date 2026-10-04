@@ -82,7 +82,7 @@ struct Vertex3dList {
   }
 
   void Release(void) {
-    SMT_SAFE_DELETE_A(pVertexs);
+    SAFE_DELETE_A(pVertexs);
     nCount = 0;
   }
 

@@ -50,18 +50,28 @@ group("core") {
   public_deps = [ ":base" ]
 }
 
+# Process-wide CLI switches (compiled into base.dll).
+source_set("process_switches_sources") {
+  sources = [
+    "process/switches.cc",
+    "process/switches.h",
+  ]
+  defines = [ "BASE_EXPORTS" ]
+  public_configs = [ ":foundation_config" ]
+}
+
 # //src/base/math:{math,bounds} stay separate source_sets, outside this DLL.
 smt_shared_library("base") {
   dll_stem = "base"
   defines = [ "BASE_EXPORTS" ]
   deps = [
     ":foundation",
+    ":process_switches_sources",
     "//src/base/log:log_sources",
     "//src/base/trace:process_trace_sources",
-    "//src/legacy/core:core_sources",
-    "//src/legacy/sys:sys_sources",
   ]
   public_deps = [
+    ":process_switches_sources",
     "//src/base/archive:archive",
     "//src/base/log:log",
     "//src/base/trace:trace",

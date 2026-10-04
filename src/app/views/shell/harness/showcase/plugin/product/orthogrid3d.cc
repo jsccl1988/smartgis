@@ -57,7 +57,7 @@ int run_orthogrid3d(Browser& browser) {
   pump_messages(200);
 
   PluginDeviceSessionOpts opts;
-  opts.gpu_env = "SMT_PLUGIN_ORTHOGRID3D_GPU";
+  opts.gpu_env = "plugin-orthogrid3d-gpu";
   opts.require_scene_hwnd = true;
   opts.detach_flycube = true;
 

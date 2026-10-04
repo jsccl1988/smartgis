@@ -18,6 +18,7 @@
 #include "app/views/shell/harness/showcase/ui/interact/interact_json.h"
 #include "app/views/shell/runtime/capability/run_script.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
+#include "base/process/switches.h"
 
 namespace app {
 namespace {
@@ -27,12 +28,12 @@ void script_mark(const char* token) {
 }
 
 bool env_is_os_driver() {
-  const char* d = std::getenv("SMT_UI_INTERACT_DRIVER");
+  const char* d = base::switch_cstr("ui-interact-driver");
   return d && std::strcmp(d, "os") == 0;
 }
 
 int env_os_wait_ms() {
-  if (const char* v = std::getenv("SMT_UI_INTERACT_OS_WAIT_MS")) {
+  if (const char* v = base::switch_cstr("ui-interact-os-wait-ms")) {
     const int n = std::atoi(v);
     if (n > 0) {
       return n;
@@ -59,7 +60,7 @@ bool resolve_script_path(std::wstring* out) {
   if (!out) {
     return false;
   }
-  if (const char* env = std::getenv("SMT_UI_INTERACT_SCRIPT")) {
+  if (const char* env = base::switch_cstr("ui-interact-script")) {
     *out = widen_utf8(env);
     if (!out->empty() &&
         GetFileAttributesW(out->c_str()) != INVALID_FILE_ATTRIBUTES) {

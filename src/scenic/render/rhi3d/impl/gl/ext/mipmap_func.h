@@ -9,15 +9,14 @@
 namespace scenic {
 namespace detail {
 class GlRenderDevice;
-typedef class GlRenderDevice *LPGLRENDERDEVICE;
 
 // Stub GL mipmap extension entry points (real procs live in MipmapFuncImpl).
 class MipmapFunc {
  public:
   MipmapFunc() = default;
   virtual ~MipmapFunc() = default;
-  virtual long Initialize(LPGLRENDERDEVICE /*pGLRenderDevice*/) {
-    return SMT_ERR_NONE;
+  virtual long Initialize(GlRenderDevice* /*pGLRenderDevice*/) {
+    return kErrNone;
   }
 
   virtual void glGenerateMipmap(GLenum /*target*/) {}

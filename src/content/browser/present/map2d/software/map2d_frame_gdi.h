@@ -13,7 +13,7 @@
 #include <functional>
 #include <vector>
 
-#include "vista/frame/frame.h"
+#include "vista/map/frame.h"
 
 namespace content {
 namespace detail {

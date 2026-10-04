@@ -28,6 +28,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "base/process/switches.h"
 
 namespace app {
 namespace {
@@ -207,7 +208,7 @@ bool write_console_bench_json(double layers_list_ms, double extent_ms,
                               double refresh_ms, double pan_frame_p50_ms,
                               bool dem_ok, bool tiles_ok) {
   char path_a[MAX_PATH] = {};
-  const char* env = std::getenv("SG_CONSOLE_BENCH_JSON");
+  const char* env = base::switch_cstr("console-bench-json");
   if (env && env[0]) {
     if (strcpy_s(path_a, env) != 0) {
       return false;

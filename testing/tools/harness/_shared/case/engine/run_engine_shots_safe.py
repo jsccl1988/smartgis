@@ -79,14 +79,14 @@ def log(msg: str) -> None:
 
 
 def kill_apps() -> None:
-    for name in ("SmartGis.exe", "SmartGisViews.exe"):
+    for name in ("SmartGIS.exe", "SmartGIS-Legacy.exe", "SmartGisViews.exe", "SmartGis.exe"):
         subprocess.call(
             ["taskkill", "/F", "/IM", name],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
     # Views/FlyCube teardown can leave the GPU/GDI stack hot; a short pause
-    # before leftover SmartGis.exe avoids intermittent 0xC0000374 heap fails.
+    # before leftover SmartGIS-Legacy.exe avoids intermittent 0xC0000374 heap fails.
     time.sleep(2.5)
 
 

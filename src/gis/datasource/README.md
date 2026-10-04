@@ -21,6 +21,6 @@ pipeline  (consumes OGRLayer*; independent of session)
 | `gdal/` | `register_gdal_driver()` |
 | `pipeline/` | Produce/decode/sink feature load |
 
-**Out of tree:** leftover catalog singleton at `src/legacy/gis/datasource/` (`DataSourceMgr`). New code must not depend on it.
+**Out of tree:** leftover catalog singleton at `src/gis/datasource/mgr/` (`DataSourceMgr`). New code must not depend on it.
 
 **Do not** add a new top-level dir without updating this table and `docs/superpowers/src-layout.md`.

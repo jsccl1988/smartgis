@@ -23,6 +23,7 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#include "base/process/switches.h"
 
 namespace app {
 namespace detail {
@@ -96,11 +97,11 @@ void ensure_ui_showcase_china_map(Browser& browser, UiShowcaseMode mode) {
   // ContentMapView SharedSurface can present an empty ocean DIB while software
   // still draws land — force full Map2dPresenter paint on the overlay HWND so
   // PrintWindow / review-prep sees carto (same as map2d/plugin showcase).
-  _putenv_s("SMT_FORCE_GDI_MAP_OVERLAY", "1");
+  base::set_switch("force-gdi-map-overlay", "1");
   // Keep skip flags for the whole showcase path (clearing before pump let
   // land-clip / hillshade hang after china-catalog-ok).
-  _putenv_s("SMT_SKIP_CHINA_LAND_CLIP", "1");
-  _putenv_s("SMT_MAP2D_NO_HILLSHADE", "1");
+  base::set_switch("skip-china-land-clip", "1");
+  base::set_switch("map2d-no-hillshade", "1");
   // Pause present timers before LayerStore replace (no FlyCube hide — that
   // path AVd under parallel out/ churn when viewport native was mid-teardown).
   stop_ui_map_present(browser);
@@ -123,7 +124,7 @@ void ensure_ui_showcase_china_map(Browser& browser, UiShowcaseMode mode) {
 
   // Skip product-defaults fit (AV under carto churn). Frame via POD China
   // extent so the Map HWND is not a hollow dark ocean for PrintWindow.
-  _putenv_s("SMT_SKIP_CHINA_MAP2D_DEFAULTS", "1");
+  base::set_switch("skip-china-map2d-defaults", "1");
   ensure_china_maplibre_carto(browser);
   int view_w = 1280;
   int view_h = 720;

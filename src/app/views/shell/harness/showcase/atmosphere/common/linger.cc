@@ -14,8 +14,8 @@ AtmosphereShowcaseLinger atmosphere_showcase_linger(bool want_gpu) {
     return out;
   }
   LingerEnvOpts opts;
-  opts.timed_ms_env = "SMT_ATMOSPHERE_SHOWCASE_TIMED_MS";
-  opts.linger_ms_env = "SMT_ATMOSPHERE_SHOWCASE_LINGER_MS";
+  opts.timed_ms_env = "atmosphere-showcase-timed-ms";
+  opts.linger_ms_env = "atmosphere-showcase-linger-ms";
   opts.linger_ms_zero_only = true;
   opts.default_until_close = true;
   const LingerPolicy parsed = parse_linger_env(opts);

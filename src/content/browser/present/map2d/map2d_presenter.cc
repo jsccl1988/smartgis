@@ -4,6 +4,7 @@
 #include "content/browser/present/map2d/map2d_presenter.h"
 
 #include "base/trace/event/process_trace.h"
+#include "base/process/switches.h"
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/present/host/scenic_scene_bind.h"
 
@@ -13,7 +14,7 @@
 namespace content {
 
 bool prefer_map2d_scenic() {
-  const char* raw = std::getenv("SMT_MAP2D_ENGINE");
+  const char* raw = base::switch_cstr("map2d-engine");
   return raw && raw[0] && _stricmp(raw, "scenic") == 0;
 }
 

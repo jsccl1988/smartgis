@@ -79,7 +79,7 @@ void Rhi2dPresentController::reset() {
 
 int Rhi2dPresentController::schedule_delayed_redraw(const Map* pMap) {
   if (!pMap || !device_->layer_tree_host_) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   // Interactive: coalesce + debounce; Timer is the only submitter.
   return stage_map_job(pMap, static_cast<int>(device_->m_Viewport.m_fVOX),
@@ -92,7 +92,7 @@ int Rhi2dPresentController::schedule_delayed_redraw(const Map* pMap) {
 
 int Rhi2dPresentController::schedule_urgent_redraw(const Map* pMap) {
   if (!pMap || !device_->layer_tree_host_) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   return stage_map_job(pMap, static_cast<int>(device_->m_Viewport.m_fVOX),
                        static_cast<int>(device_->m_Viewport.m_fVOY),
@@ -105,7 +105,7 @@ int Rhi2dPresentController::schedule_urgent_redraw(const Map* pMap) {
 int Rhi2dPresentController::stage_map_job(const Map* pMap, int x, int y, int w,
                                         int h, int op, bool urgent) {
   if (!pMap || !device_->layer_tree_host_ || w == 0 || h == 0) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   staged_map_ = pMap;
@@ -115,9 +115,9 @@ int Rhi2dPresentController::stage_map_job(const Map* pMap, int x, int y, int w,
   staged_h_ = h;
   staged_op_ = op;
 
-  RenderContext smtRC(device_->m_Viewport, device_->m_Windowport,
-                      device_->m_fblc, pMap, x, y, w, h, op);
-  device_->layer_tree_host_->stage_frame(smtRC, device_->m_rdOptions);
+  RenderContext rc(device_->m_Viewport, device_->m_Windowport,
+                   device_->m_fblc, pMap, x, y, w, h, op);
+  device_->layer_tree_host_->stage_frame(rc, device_->m_rdOptions);
 
   if (!redraw_pending_) {
     redraw_pending_ = true;
@@ -127,7 +127,7 @@ int Rhi2dPresentController::stage_map_job(const Map* pMap, int x, int y, int w,
   if (urgent) {
     urgent_submit_ = true;
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 bool Rhi2dPresentController::submit_staged_job() {
@@ -140,11 +140,11 @@ bool Rhi2dPresentController::submit_staged_job() {
 
   // Rebuild context from the live device viewport so the latest pan/zoom
   // after debounce wins over a stale stage_frame snapshot.
-  RenderContext smtRC(device_->m_Viewport, device_->m_Windowport, device_->m_fblc,
-                      staged_map_, staged_x_, staged_y_, staged_w_, staged_h_,
-                      staged_op_);
+  RenderContext rc(device_->m_Viewport, device_->m_Windowport, device_->m_fblc,
+                   staged_map_, staged_x_, staged_y_, staged_w_, staged_h_,
+                   staged_op_);
   present_baseline_gen_ = device_->layer_tree_host_->published_generation();
-  if (!device_->layer_tree_host_->submit_frame(smtRC, device_->m_rdOptions)) {
+  if (!device_->layer_tree_host_->submit_frame(rc, device_->m_rdOptions)) {
     return false;
   }
   present_pending_ = true;
@@ -197,7 +197,7 @@ int Rhi2dPresentController::on_timer() {
     }
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 }  // namespace detail

@@ -9,7 +9,7 @@ All rights reserved.
 
 **Brand:** **SmartGIS Horizon**（次世代桌面 GIS）。工程目录仍是 `shell/`，不是 Chromium 的 `chrome/`。Living lock: [`docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md`](../../../docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md) §Horizon product brand.
 
-Product shell for **Views + Skia**。`SmartGisViews.exe` 是宿主：`Widget` +
+Product shell for **Views + Skia**。`SmartGIS.exe` 是宿主：`Widget` +
 layout + 公开 `ui::views` 控件 + 命令接线。不手绘 catalog / feature / status。
 
 单窗口 IDE 布局（非 MDI）：
@@ -68,7 +68,7 @@ Present README：
 build.bat views
 ```
 
-产出 `out/SmartGisViews.exe`（`smt_build_views=true`）。不在
+产出 `out/SmartGIS.exe`（`smt_build_views=true`）。不在
 `group("all")` 里。`--self-test` 泵消息、检查 widget HWND，切换 Map/Data/3D
 页，在 `kContentMapView` 时 `wait_ready`，并对 3D 页跑 `view3d.trackball`
 输入（无 GPU 时占位 HWND 亦可）。分层与退出码：
@@ -110,7 +110,7 @@ set SMT_FORCE_CONTENT_MAPVIEW_2D=1
 rem 或: set SMT_PREFER_FLYCUBE_2D=0
 rem 强制 GDI 全量 overlay（仍可挂 FlyCube HWND，但不走 present_gpu）：
 set SMT_FORCE_GDI_MAP_OVERLAY=1
-out\SmartGisViews.exe
+out\SmartGIS.exe
 ```
 
 3D 页：`view3d.trackball` 更新 `OrbitFrame` / `Scene3dPresenter`。默认
@@ -131,7 +131,7 @@ Stereo/GL / GDI**，或 `content::set_scene3d_engine(...)`。命令 id：
 
 ```bat
 set SMT_SCENE3D_WIREFRAME=1
-out\SmartGisViews.exe
+out\SmartGIS.exe
 ```
 
 `--self-test` 会 `set_scene3d_engine(kGdi)`（挂起规避），并断言 OGR 进层与相机矩阵；若挂上
@@ -145,7 +145,7 @@ GPU **永远显示直到关掉展示窗**（忽略残留的正数 `LINGER_MS`）
 ```bat
 set SMT_ATMOSPHERE_SHOWCASE_GPU=1
 rem automation only: set SMT_ATMOSPHERE_SHOWCASE_TIMED_MS=1500
-out\SmartGisViews.exe --atmosphere-showcase=full
+out\SmartGIS.exe --atmosphere-showcase=full
 ```
 
 | 模式 | 行为 |
@@ -172,12 +172,12 @@ GPU BMP 需至少 2 种可见色（拒绝纯 clear）。根因修复：透视投
 视野出 `map2d-showcase-align.bmp`。对照脚本：
 
 ```bat
-out\SmartGisViews.exe --map2d-showcase=align
+out\SmartGIS.exe --map2d-showcase=align
 python testing\tools\harness\_shared\case\align\maplibre_align.py
 ```
 
 ```bat
-out\SmartGisViews.exe --map2d-showcase=china
+out\SmartGIS.exe --map2d-showcase=china
 python testing\tools\harness\map2d\map2d.china\map2d_china_loop.py --no-build
 ```
 
@@ -185,8 +185,8 @@ python testing\tools\harness\map2d\map2d.china\map2d_china_loop.py --no-build
 
 ```bat
 build.bat views
-out\SmartGisViews.exe
-out\SmartGisViews.exe --self-test
+out\SmartGIS.exe
+out\SmartGIS.exe --self-test
 py -3 testing\tools\loop_runner.py --suite browse --no-build
 py -3 testing\tools\loop_runner.py --list
 ```
@@ -199,7 +199,7 @@ Harness suites：契约在 `testing/tools/harness/<family>/<suite_id>/suite.json
 样例也可直接 Open：`out\views_ogr_sample.geojson`（构建后可从
 `testing/data/` 复制）或仓库内 `testing/data/views_ogr_sample.geojson`。
 
-产出 `out/SmartGisViews.exe`（`smt_build_views=true`）。不在
+产出 `out/SmartGIS.exe`（`smt_build_views=true`）。不在
 `group("all")` 里。分层与退出码：
 [`docs/superpowers/ui-testing.md`](../../../docs/superpowers/ui-testing.md)。
 
@@ -212,4 +212,4 @@ Harness suites：契约在 `testing/tools/harness/<family>/<suite_id>/suite.json
 （`maplibre` 为 tile 的历史别名，非 MapLibre Native；热切换，不重启 GPU
 子进程）。CEF HTML 同命令 id（`ActivateTool` / `tool.command` topic）。
 
-**最后更新：** 2026-10-03
+**最后更新：** 2026-10-05

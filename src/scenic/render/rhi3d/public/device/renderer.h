@@ -3,7 +3,7 @@
 #ifndef _RD3D_RENDERER_H
 #define _RD3D_RENDERER_H
 
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/render_device.h"
 
 namespace scenic {
@@ -11,7 +11,7 @@ namespace detail {
 // Loads per-API leftover 3D backend DLLs (scenic_render_gl / scenic_render_d3d)
 // and resolves Create*/Release3DRenderDevice via GetProcAddress.
 // Failure paths log via LOGGING(LOG_ERROR); they do not show MessageBox.
-class LEGACY_RENDER_EXPORT Renderer3d {
+class SCENIC_IMPL_EXPORT Renderer3d {
  public:
   explicit Renderer3d(HINSTANCE hInst);
   ~Renderer3d();
@@ -27,11 +27,10 @@ class LEGACY_RENDER_EXPORT Renderer3d {
   HMODULE m_hDLL = nullptr;
 };
 
-typedef Renderer3d* LPSMT3DRENDERER;
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else

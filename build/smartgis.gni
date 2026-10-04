@@ -63,6 +63,10 @@ smt_has_pdal = _smt_has_pdal_h == "1" &&
                ((is_debug && _smt_pdal_dbg_lib == "1") ||
                 (!is_debug && _smt_pdal_rel_lib == "1"))
 
+# Optional CUDA Toolkit (Thrust). RAPIDS cuSpatial is Linux/conda and is not
+# vendored. Empty when nvcc + cuda_runtime.h / Thrust headers are missing.
+_detected_cuda_root = exec_script("//build/cuda_root.py", [], "trim string")
+
 declare_args() {
   # Link real Skia paint TU into //src/ui/gfx (default off — GDI remains
   # the supported shell canvas). Enable with gn args smt_has_skia=true.
@@ -71,7 +75,16 @@ declare_args() {
   # Build MapLibre Native examples (mbgl-render + mbgl-glfw) via CMake.
   # Default off — not a product pin. See //third_party/maplibre:maplibre_examples.
   smt_enable_maplibre_example = false
+
+  # CUDA Toolkit root override. Empty = auto-detect (cuda_root.py).
+  smt_cuda_root = ""
 }
+
+smt_cuda_home = smt_cuda_root
+if (smt_cuda_home == "") {
+  smt_cuda_home = _detected_cuda_root
+}
+smt_has_cuda = smt_cuda_home != ""
 
 template("smt_shared_library") {
   shared_library(target_name) {

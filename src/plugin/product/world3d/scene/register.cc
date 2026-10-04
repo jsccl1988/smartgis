@@ -11,7 +11,7 @@
 #include "content/public/plugin_host.h"
 #include "plugin/product/world3d/commands.h"
 #include "plugin/product/world3d/detail/contribute.h"
-#include "vista/world/pointcloud/ingest/pdal_io.h"
+#include "vista/assets/pointcloud/pdal_io.h"
 #include "plugin/runtime/host/processing/operation_result.h"
 #include "tool/command/command.h"
 #include "ui/views/dialogs/file_picker.h"

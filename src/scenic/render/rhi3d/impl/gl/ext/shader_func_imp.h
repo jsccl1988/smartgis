@@ -16,7 +16,7 @@ class ShadersFuncImpl : public ShadersFunc {
   ShadersFuncImpl() = default;
   ~ShadersFuncImpl() override = default;
 
-  long Initialize(LPGLRENDERDEVICE pGLRenderDevice) override {
+  long Initialize(GlRenderDevice* pGLRenderDevice) override {
     _glCreateShader = (PFNGLCREATESHADERPROC)pGLRenderDevice->GetProcAddress(
         "glCreateShaderObjectARB");
     _glCreateProgram = (PFNGLCREATEPROGRAMPROC)pGLRenderDevice->GetProcAddress(
@@ -70,9 +70,9 @@ class ShadersFuncImpl : public ShadersFunc {
         nullptr == _glUniform1fv || nullptr == _glUniform2fv || nullptr == _glUniform3fv ||
         nullptr == _glUniform4fv || nullptr == _glUniform1i ||
         nullptr == _glGetUniformfv || nullptr == _glGetUniformiv) {
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   GLuint glCreateShader(GLenum type) override { return _glCreateShader(type); }

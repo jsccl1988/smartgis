@@ -4,7 +4,7 @@
 #include "render/rhi/rhi.h"
 #include "vista/scene/scene.h"
 #include "vista/world/world.h"
-#include "vista/world/terrain/mesh/tessellate.h"
+#include "vista/mesh/tessellate.h"
 
 #include "gis/geo/ops/indexed_tin.h"
 #include "gis/map/layer_kind.h"
@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <memory>
 #include <vector>
+#include "base/process/switches.h"
 
 namespace {
 
@@ -210,7 +211,7 @@ int main() {
 #ifdef SMT_HAS_FLYCUBE
   // Identity-only by default. FlyCube init/execute can hang headless;
   // set SMT_RUN_FLYCUBE_GPU=1 to exercise the real path (same as rhi_test).
-  const char* run_gpu = std::getenv("SMT_RUN_FLYCUBE_GPU");
+  const char* run_gpu = base::switch_cstr("run-flycube-gpu");
   const bool want_gpu = run_gpu && run_gpu[0] == '1' && run_gpu[1] == '\0';
   if (!want_gpu) {
     std::fprintf(stdout,

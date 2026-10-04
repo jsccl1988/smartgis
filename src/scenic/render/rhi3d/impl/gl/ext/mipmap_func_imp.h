@@ -16,14 +16,14 @@ class MipmapFuncImpl : public MipmapFunc {
   MipmapFuncImpl() = default;
   ~MipmapFuncImpl() override = default;
 
-  long Initialize(LPGLRENDERDEVICE pGLRenderDevice) override {
+  long Initialize(GlRenderDevice* pGLRenderDevice) override {
     _glGenerateMipmap =
         (PFNGLGENERATEMIPMAPEXTPROC)pGLRenderDevice->GetProcAddress(
             "glGenerateMipmap");
     if (nullptr == _glGenerateMipmap) {
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   void glGenerateMipmap(GLenum target) override { _glGenerateMipmap(target); }

@@ -25,6 +25,7 @@ def _run_os_process(
     bmp_path: Path | None = None,
     captures_root: Path | None = None,
 ) -> tuple[int, dict, dict | None]:
+    from . import process as process_mod
     from .interact.os_inject import run_script
     from .record.hwnd import (
         bring_hwnd_to_front,
@@ -44,8 +45,12 @@ def _run_os_process(
         )
 
     cmd = [str(exe), *suite.argv]
+    run_env = env
+    if process_mod.is_views_exe(suite.exe_name):
+        run_env, extra = process_mod.peel_product_switches(env)
+        cmd.extend(extra)
     print("RUN(os):", " ".join(cmd), flush=True)
-    proc = subprocess.Popen(cmd, cwd=str(out), env=env)
+    proc = subprocess.Popen(cmd, cwd=str(out), env=run_env)
     inject_report: dict = {"ok": False, "error": "inject_not_run"}
     record_report: dict | None = None
     try:

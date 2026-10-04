@@ -36,24 +36,24 @@ int main() {
   }
 
   scenic::detail::D3dRenderDevice* device = new scenic::detail::D3dRenderDevice();
-  expect(device->Init(hwnd, "d3d_texture_test") == SMT_ERR_NONE, "Init");
+  expect(device->Init(hwnd, "d3d_texture_test") == kErrNone, "Init");
 
   // Texture upload + bind.
   scenic::detail::Texture* tex = device->CreateTexture("unit");
   expect(tex != nullptr, "CreateTexture");
   if (tex) {
-    expect(tex->Create(4, 4, scenic::detail::RGBA8, false, false) == SMT_ERR_NONE,
+    expect(tex->Create(4, 4, scenic::detail::RGBA8, false, false) == kErrNone,
            "Texture::Create");
-    expect(tex->Lock() == SMT_ERR_NONE, "Lock");
+    expect(tex->Lock() == kErrNone, "Lock");
     for (int i = 0; i < 16; ++i) {
       tex->SetPixel4uc(255, 255, 0, 0);
     }
     // Unlock uploads via BuildTexture and frees CPU staging (legacy
     // Texture).
-    expect(tex->Unlock() == SMT_ERR_NONE, "Unlock builds GPU texture");
-    expect(device->BindTexture(tex) == SMT_ERR_NONE, "BindTexture");
+    expect(tex->Unlock() == kErrNone, "Unlock builds GPU texture");
+    expect(device->BindTexture(tex) == kErrNone, "BindTexture");
     expect(device->texture_srv(tex->GetHandle()) != nullptr, "SRV");
-    expect(device->UnbindTexture() == SMT_ERR_NONE, "UnbindTexture");
+    expect(device->UnbindTexture() == kErrNone, "UnbindTexture");
   }
 
   // FBO: attach color texture, bind, clear, unbind back to swapchain RT.
@@ -61,26 +61,26 @@ int main() {
   expect(fbo != nullptr, "CreateFrameBuffer");
   if (fbo && tex) {
     expect(device->AttachTexture(fbo, tex, scenic::detail::COLOR_ATTACHMENT0) ==
-               SMT_ERR_NONE,
+               kErrNone,
            "AttachTexture");
-    expect(device->BindFrameBuffer(fbo) == SMT_ERR_NONE, "BindFrameBuffer");
+    expect(device->BindFrameBuffer(fbo) == kErrNone, "BindFrameBuffer");
     expect(device->CheckFrameBufferStatus() == scenic::detail::FRAMEBUFFER_COMPLETE,
            "FBO complete");
-    expect(device->BeginRender() == SMT_ERR_NONE, "BeginRender FBO");
+    expect(device->BeginRender() == kErrNone, "BeginRender FBO");
     device->SetClearColor(scenic::detail::Color(0.f, 1.f, 0.f, 1.f));
-    expect(device->Clear(CLR_COLOR) == SMT_ERR_NONE, "Clear FBO");
-    expect(device->UnbindFrameBuffer() == SMT_ERR_NONE, "UnbindFrameBuffer");
-    expect(device->DestroyFrameBuffer(fbo) == SMT_ERR_NONE,
+    expect(device->Clear(CLR_COLOR) == kErrNone, "Clear FBO");
+    expect(device->UnbindFrameBuffer() == kErrNone, "UnbindFrameBuffer");
+    expect(device->DestroyFrameBuffer(fbo) == kErrNone,
            "DestroyFrameBuffer");
   }
 
   // Font + frustum.
   uint font_id = 0;
   expect(device->CreateFont("Arial", 16, 0, FW_NORMAL, false, false, false, 12,
-                            font_id) == SMT_ERR_NONE,
+                            font_id) == kErrNone,
          "CreateFont");
   expect(device->DrawText(font_id, 10.f, 10.f, scenic::detail::Color(1, 1, 1, 1),
-                          "Hi") == SMT_ERR_NONE,
+                          "Hi") == kErrNone,
          "DrawText screen");
 
   device->MatrixModeSet(scenic::detail::MM_PROJECTION);
@@ -91,18 +91,18 @@ int main() {
   scenic::detail::Vector3 eye(0, 0, 5), center(0, 0, 0), up(0, 1, 0);
   device->SetViewLookAt(eye, center, up);
   scenic::detail::Frustum frustum;
-  expect(device->GetFrustum(frustum) == SMT_ERR_NONE, "GetFrustum");
+  expect(device->GetFrustum(frustum) == kErrNone, "GetFrustum");
 
   // P3 deferred context: begin → bind workers → finish (empty lists OK).
   auto* d3d = dynamic_cast<scenic::detail::D3dRenderDevice*>(device);
   expect(d3d != nullptr, "dynamic_cast D3D device");
   if (d3d) {
     const long begin_rc = d3d->begin_deferred_draw(2);
-    if (begin_rc == SMT_ERR_NONE) {
-      expect(d3d->bind_deferred_worker(0) == SMT_ERR_NONE, "bind slot0");
-      expect(d3d->bind_deferred_worker(1) == SMT_ERR_NONE, "bind slot1");
-      expect(d3d->bind_deferred_worker(-1) == SMT_ERR_NONE, "unbind");
-      expect(d3d->finish_deferred_draw() == SMT_ERR_NONE, "finish_deferred");
+    if (begin_rc == kErrNone) {
+      expect(d3d->bind_deferred_worker(0) == kErrNone, "bind slot0");
+      expect(d3d->bind_deferred_worker(1) == kErrNone, "bind slot1");
+      expect(d3d->bind_deferred_worker(-1) == kErrNone, "unbind");
+      expect(d3d->finish_deferred_draw() == kErrNone, "finish_deferred");
     } else {
       // Env SMT_RHI3D_D3D_DEFERRED=0 or CreateDeferredContext unsupported.
       expect(true, "deferred skipped");
@@ -138,9 +138,9 @@ int main() {
     if (tex) {
       device->BindTexture(tex);
     }
-    expect(device->BeginRender() == SMT_ERR_NONE, "BeginRender draw");
+    expect(device->BeginRender() == kErrNone, "BeginRender draw");
     expect(device->DrawIndexedPrimitives(scenic::detail::PT_TRIANGLELIST, vb, ib, 0,
-                                         1) == SMT_ERR_NONE,
+                                         1) == kErrNone,
            "DrawIndexed textured");
     device->EndRender();
     device->SwapBuffers();

@@ -6,7 +6,7 @@
 #include <mutex>
 
 #include "base/core/log.h"
-#include "scenic/detail/err.h"
+#include "scenic/render/err.h"
 #include "scenic/render/rhi2d/impl/common/paint/backend/paint_backend.h"
 #include "scenic/render/rhi2d/impl/gdiplus/aa/gdiplus.h"
 #include "scenic/render/rhi2d/impl/common/cc/layer_tree_host.h"
@@ -21,25 +21,25 @@ int CreateRenderDevice(HINSTANCE hInst, LPRENDERDEVICE &pMrdDevice) {
   if (!pMrdDevice) {
     pMrdDevice = new Rhi2dRenderDevice(hInst);
 
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 int DestroyRenderDevice(LPRENDERDEVICE &pMrdDevice) {
-  if (!pMrdDevice) return SMT_ERR_FAILURE;
+  if (!pMrdDevice) return kErrFailure;
 
   // Release may detach a still-running worker that holds Viewport& into this
   // device. Deleting then UAFs on close �?leak until process exit instead.
   auto *gdi = static_cast<Rhi2dRenderDevice *>(pMrdDevice);
   if (gdi->release_may_leak()) {
     pMrdDevice = nullptr;
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
-  SMT_SAFE_DELETE(pMrdDevice);
+  SAFE_DELETE(pMrdDevice);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 Rhi2dRenderDevice::Rhi2dRenderDevice(HINSTANCE hInst)
@@ -79,7 +79,7 @@ bool Rhi2dRenderDevice::release_may_leak() {
 }
 
 int Rhi2dRenderDevice::Init(HWND hWnd, const char *logname) {
-  if (hWnd == nullptr || logname == nullptr) return SMT_ERR_INVALID_PARAM;
+  if (hWnd == nullptr || logname == nullptr) return kErrInvalidParam;
 
   m_hWnd = hWnd;
   (void)gdiplus_ensure_started();
@@ -98,13 +98,13 @@ int Rhi2dRenderDevice::Init(HWND hWnd, const char *logname) {
   // Stay suspended until ReRenderMapByProxy/refresh. submit_frame here races
   // CreateNewFrame's nested pump and hangs --self-test after OnCreate.
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::Destroy(void) {
   LOGGING(LOG_INFO, "Destroy Gdi RenderDevice2d ok!");
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::Release(void) {
@@ -136,21 +136,21 @@ int Rhi2dRenderDevice::Release(void) {
       m_leak_on_close_ = true;
     }
   } else {
-    SMT_SAFE_DELETE(layer_tree_host_);
+    SAFE_DELETE(layer_tree_host_);
   }
   // Invalidate HWND so late Refresh/Timer present cannot GetDC.
   m_hWnd = nullptr;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::Resize(int orgx, int orgy, int cx, int cy) {
-  if (cx < 0 || cy < 0) return SMT_ERR_FAILURE;
+  if (cx < 0 || cy < 0) return kErrFailure;
 
   if (is_equal(m_Viewport.m_fVOX, orgx, dEPSILON) &&
       is_equal(m_Viewport.m_fVOY, orgy, dEPSILON) &&
       is_equal(m_Viewport.m_fVHeight, cy, dEPSILON) &&
       is_equal(m_Viewport.m_fVWidth, cx, dEPSILON)) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   // LTH shared_buf_ is share_from(map_front_). Reallocating the host
@@ -162,7 +162,7 @@ int Rhi2dRenderDevice::Resize(int orgx, int orgy, int cx, int cy) {
       ::Sleep(1);
     }
     if (layer_tree_host_->is_busy()) {
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
   }
 
@@ -187,29 +187,29 @@ int Rhi2dRenderDevice::Resize(int orgx, int orgy, int cx, int cy) {
   // Do not HWND-present cleared buffers here �?that flashed empty frames and
   // raced OnEraseBkgnd. Timer / ZoomToRect Refresh owns the first present.
   dynamic_overlay_live_ = false;
-  if (SMT_ERR_NONE ==
+  if (kErrNone ==
           compose_buf_.set_size(m_Viewport.m_fVWidth, m_Viewport.m_fVHeight) &&
-      SMT_ERR_NONE ==
+      kErrNone ==
           dynamic_buf_.set_size(m_Viewport.m_fVWidth, m_Viewport.m_fVHeight) &&
-      SMT_ERR_NONE ==
+      kErrNone ==
           map_front_.set_size(m_Viewport.m_fVWidth, m_Viewport.m_fVHeight) &&
-      SMT_ERR_NONE ==
+      kErrNone ==
           raster_back_.set_size(m_Viewport.m_fVWidth, m_Viewport.m_fVHeight) &&
-      SMT_ERR_NONE == layer_tree_host_->resize(orgx, orgy, cx, cy, map_front_)) {
-    return SMT_ERR_NONE;
+      kErrNone == layer_tree_host_->resize(orgx, orgy, cx, cy, map_front_)) {
+    return kErrNone;
   }
 
-  return SMT_ERR_FAILURE;
+  return kErrFailure;
 }
 
 int Rhi2dRenderDevice::Lock() {
   lock_.lock();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::Unlock() {
   lock_.unlock();
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dRenderDevice::ScheduleDelayedRedraw(const Map *pMap) {

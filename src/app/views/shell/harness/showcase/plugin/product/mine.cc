@@ -46,7 +46,7 @@ int run_mine_scene3d(Browser& browser) {
   pump_messages(200);
 
   PluginDeviceSessionOpts opts;
-  opts.gpu_env = "SMT_PLUGIN_MINE_GPU";
+  opts.gpu_env = "plugin-mine-gpu";
   opts.require_scene_hwnd = true;
   opts.detach_flycube = true;
 

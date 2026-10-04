@@ -1,0 +1,28 @@
+---
+description: HARD RULE — src/legacy is deleted; do not recreate leftover under src/
+globs: src/legacy/**
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# `src/legacy` is gone
+
+**This rule is always on.** **`src/legacy/`** was leftover and has been **removed**. Agents must **not** recreate it, relocate leftover ABI into product trees, or reintroduce `Smt_*` leftover sources under `src/`.
+
+## Default
+
+- Implement in product APIs (`src/gis`, `src/plugin`, `src/scenic`, `src/base`, …).
+- Remaining leftover ABI, if any, lives in **`branches/`** only.
+
+## Don’t
+
+- **Don’t** create `src/legacy/` or leftover extract dirs (`src/base/smt`, `src/base/sys`, `gis/datasource/mgr`, leftover `*.am` AuxModule).
+- **Don’t** `#include "legacy/…"` from product TUs.
+
+## Relation
+
+**`.cursor/rules/repo/legacy-unidirectional.mdc`** (product↛leftover). **`branches/`** is the leftover ABI remainder.

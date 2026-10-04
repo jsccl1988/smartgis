@@ -4,29 +4,29 @@
 #include "scenic/render/rhi3d/impl/d3d/host/render_device.h"
 
 #include "base/trace/event/process_trace.h"
-#include "scenic/render/detail/frame_pipeline.h"
+#include "scenic/render/frame.h"
 
 namespace scenic {
 namespace detail {
 
 long D3dRenderDevice::BeginRender() {
   BASE_TRACE_EVENT("BeginRender", "rhi3d.d3d");
-  if (!device_ || !context_ || !rtv_) return SMT_ERR_FAILURE;
+  if (!device_ || !context_ || !rtv_) return kErrFailure;
   context_->OMSetRenderTargets(1, &rtv_, dsv_);
   mesh_draw_state_bound_ = false;
   mesh_cb_valid_ = false;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::EndRender() {
   BASE_TRACE_EVENT("EndRender", "rhi3d.d3d");
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::SwapBuffers() {
   BASE_TRACE_EVENT("SwapBuffers", "rhi3d.d3d");
   if (!swapchain_ || !device_ || !context_ || !color_tex_)
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
 
   // Blit offscreen color into the swapchain backbuffer for on-screen present.
   // Do NOT staging-copy every frame — that Flush+CopyResource starved drag FPS.
@@ -40,9 +40,9 @@ long D3dRenderDevice::SwapBuffers() {
   }
 
   const HRESULT hr = swapchain_->Present(0, 0);
-  detail::finish_legacy_frame_memory_sample();
-  detail::log_legacy_flow("rhi3d.d3d SwapBuffers");
-  return SUCCEEDED(hr) ? SMT_ERR_NONE : SMT_ERR_FAILURE;
+  detail::finish_frame_memory_sample();
+  detail::log_frame_flow("rhi3d.d3d SwapBuffers");
+  return SUCCEEDED(hr) ? kErrNone : kErrFailure;
 }
 
 long D3dRenderDevice::SetClearColor(const Color& clr) {
@@ -53,23 +53,23 @@ long D3dRenderDevice::SetClearColor(const Color& clr) {
   if (state_manager_) {
     state_manager_->SetClearColorValue(clr.fRed, clr.fGreen, clr.fBlue, clr.fA);
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::SetDepthClearValue(float z) {
   clear_depth_ = z;
   if (state_manager_) state_manager_->SetClearDepthValue(z);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::SetStencilClearValue(ulong s) {
   clear_stencil_ = static_cast<UINT>(s);
   if (state_manager_) state_manager_->SetStencilClearValue(s);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::Clear(ulong flags) {
-  if (!context_) return SMT_ERR_FAILURE;
+  if (!context_) return kErrFailure;
 
   if ((flags & CLR_COLOR) && rtv_) {
     context_->ClearRenderTargetView(rtv_, clear_color_);
@@ -81,13 +81,13 @@ long D3dRenderDevice::Clear(ulong flags) {
     context_->ClearDepthStencilView(dsv_, clear_flags, clear_depth_,
                                     static_cast<UINT8>(clear_stencil_));
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::SetViewport(Viewport3D& viewport) {
   m_viewPort = viewport;
   if (m_viewPort.ulHeight == 0 || m_viewPort.ulWidth == 0)
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
 
   const UINT w = static_cast<UINT>(viewport.ulWidth);
   const UINT h = static_cast<UINT>(viewport.ulHeight);
@@ -105,8 +105,8 @@ long D3dRenderDevice::SetViewport(Viewport3D& viewport) {
         static_cast<UINT>((rc.bottom > rc.top) ? (rc.bottom - rc.top) : 0);
     if (cw > 0 && ch > 0 && w == cw && h == ch &&
         (w != backbuffer_width_ || h != backbuffer_height_)) {
-      if (SMT_ERR_NONE != resize_targets(w, h, /*resize_buffers=*/true))
-        return SMT_ERR_FAILURE;
+      if (kErrNone != resize_targets(w, h, /*resize_buffers=*/true))
+        return kErrFailure;
     }
   }
 
@@ -121,7 +121,7 @@ long D3dRenderDevice::SetViewport(Viewport3D& viewport) {
     context_->RSSetViewports(1, &vp);
   }
   if (state_manager_) state_manager_->SetViewportState(viewport);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 }  // namespace detail

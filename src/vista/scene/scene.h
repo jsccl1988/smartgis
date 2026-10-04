@@ -1,28 +1,21 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef EFFECT_SCENE_SCENE_H_
-#define EFFECT_SCENE_SCENE_H_
+#ifndef VISTA_SCENE_SCENE_H_
+#define VISTA_SCENE_SCENE_H_
 
 #include <cstddef>
 #include <cstdint>
-#include <string>
 #include <vector>
 
-#include "render/rhi/rhi.h"
+#include "gis/style/style_types.h"
 #include "render/programs/programs.h"
+#include "render/rhi/rhi.h"
 #include "vista/assets/tileset/tileset.h"
-#include "vista/world/world.h"
-#include "gis/carto/style/style_types.h"
-
-class OGRGeometry;
-class OGRLayer;
-class OGRTriangulatedSurface;
-class OGRMultiPoint;
-
-// GPU-resident instance list synced from vista::World.
-
+#include "vista/scene/gpu_instance.h"
+#include "vista/scene/gpu_mesh.h"
 #include "vista/vista_export.h"
+#include "vista/world/world.h"
 
 namespace vista {
 
@@ -33,45 +26,11 @@ VISTA_EXPORT void rgba_from_resolved_paint(
     const gis::style::ResolvedPaint& paint, float* r, float* g, float* b,
     float* a);
 
-// One World node mirrored for GPU upload (layer / 3D geom pointers stay
-// non-owning). Optional ResolvedPaint is applied after sync_from.
-struct GpuInstance {
-  uint64_t node_id;
-  vista::NodeKind kind;
-  double min_x;
-  double min_y;
-  double min_z;
-  double max_x;
-  double max_y;
-  double max_z;
-  const gis::MapLayer* layer = nullptr;
-  OGRLayer* ogr_layer = nullptr;
-  const OGRGeometry* geom_3d = nullptr;
-  std::vector<const OGRGeometry*> geoms;
-  const OGRTriangulatedSurface* tin = nullptr;
-  const OGRMultiPoint* grid = nullptr;
-  int grid_nx = 0;
-  int grid_ny = 0;
-  const vista::ModelAsset* model = nullptr;
-  const vista::Tileset* tileset = nullptr;
-  std::vector<std::string> visible_uris;
-  // Copied from vista::Node on sync_from (terrain mesh upload seam).
-  std::vector<float> terrain_positions;
-  std::vector<uint32_t> terrain_indices;
-  std::vector<float> terrain_uvs;
-  std::vector<uint8_t> terrain_rgba;
-  uint32_t terrain_tex_w = 0;
-  uint32_t terrain_tex_h = 0;
-  std::vector<float> point_positions;
-  std::vector<uint8_t> point_rgba;
-  std::vector<vista::PointCloudChunk> point_chunks;
-  bool has_paint = false;
-  gis::style::ResolvedPaint paint;
-};
-
 // Uploads tessellated OGRGeometry (2D and 3D instance Z) onto one list.
 class VISTA_EXPORT GpuScene {
  public:
+  using GpuMesh = vista::GpuMesh;
+
   GpuScene();
   ~GpuScene();
   GpuScene(const GpuScene&) = delete;
@@ -183,32 +142,6 @@ class VISTA_EXPORT GpuScene {
   bool enable_depth() const { return enable_depth_; }
   void set_depth_load_op(render::rhi::DepthLoadOp op) { depth_load_op_ = op; }
 
-  // GPU-uploaded triangle mesh for one World node (tessellated GIS geom).
-  // Lit 3D kinds (terrain/model/tileset) use stride = 6 floats
-  // (POSITION+NORMAL); 2D solid stays 3, textured 5.
-  struct GpuMesh {
-    vista::NodeKind kind;
-    render::rhi::Buffer* vertex;
-    render::rhi::Buffer* index;
-    render::rhi::Texture* texture;
-    uint32_t index_count;
-    uint32_t stride;
-    float solid_r;
-    float solid_g;
-    float solid_b;
-    float solid_a;
-    // Style scalars applied at tessellate time (line ribbon / circle diamond).
-    float line_width;
-    float circle_radius;
-    // World-space AABB from the source GpuInstance (CPU frustum cull).
-    float aabb_min_x;
-    float aabb_min_y;
-    float aabb_min_z;
-    float aabb_max_x;
-    float aabb_max_y;
-    float aabb_max_z;
-  };
-
   // Uploaded mesh inspection (null-device tests / debug).
   size_t mesh_count() const { return meshes_.size(); }
   const GpuMesh* mesh_at(size_t index) const;
@@ -274,4 +207,4 @@ class VISTA_EXPORT GpuScene {
 
 }  // namespace vista
 
-#endif  // EFFECT_SCENE_SCENE_H_
+#endif  // VISTA_SCENE_SCENE_H_

@@ -224,11 +224,10 @@ def score_ui_shell_dark(path: Path) -> dict:
     # Console strip is dark chrome, not pure near-black; collapse looks empty.
     no_panel_collapse = bottom_black_f < 0.55
 
-    # Diagnostic Tools *body* (below Trace/Console tabs): reject toolbar-only
-    # strips. Sample the lower portion of the dock so tab labels cannot
-    # false-green an empty gantt/list void (visual_review #1).
-    diag_y0 = (h * 80) // 100
-    diag_y1 = (h * 93) // 100
+    # Diagnostic Tools body: compact Console dock sits just above StatusBar
+    # (visual_review #1). Sample ~88–96% so the band is not still map canvas.
+    diag_y0 = (h * 88) // 100
+    diag_y1 = (h * 96) // 100
     diag_x0 = w // 8
     diag_x1 = (w * 7) // 8
     diag_band = [
@@ -290,12 +289,113 @@ def score_ui_shell_dark(path: Path) -> dict:
     # PrintWindow map holes (center_signal≈0.0016) while chrome looked fine.
     work_area_ok = center_signal_f > 0.02
 
-    top_menu = top_rows[: max(1, (h // 25) * w)]
-    top_menu_n = max(1, len(top_menu))
-    top_menu_light = sum(
-        1 for r, g, b in top_menu if r > 180 and g > 180 and b > 180
-    )
+    top_menu_h = max(1, h // 25)
+    top_menu_w = max(1, (w * 42) // 100)
+    top_menu_n = max(1, top_menu_h * top_menu_w)
+    top_menu_light = 0
+    for y in range(top_menu_h):
+        row = pixels[y * w : (y + 1) * w]
+        for r, g, b in row[:top_menu_w]:
+            if r > 180 and g > 180 and b > 180:
+                top_menu_light += 1
     top_menu_light_f = top_menu_light / top_menu_n
+
+    status_rows = pixels[(h * 96) // 100 * w :]
+    status_n = max(1, len(status_rows))
+    status_light = sum(
+        1
+        for r, g, b in status_rows
+        if r > 160 and g > 160 and b > 160 and abs(r - g) < 40 and abs(g - b) < 40
+    )
+    status_text_f = status_light / status_n
+    status_readable = status_text_f >= 0.008
+
+    # Right inspector header: Tools/Feature plus overflow chevron (visual_review #2).
+    insp_y0 = max(1, h // 12)
+    insp_y1 = max(insp_y0 + 1, h // 5)
+    insp_x0 = (w * 72) // 100
+    insp_band = [
+        pixels[y * w + x]
+        for y in range(insp_y0, insp_y1, 2)
+        for x in range(insp_x0, w, 3)
+    ]
+    insp_n = max(1, len(insp_band))
+    insp_light = sum(
+        1
+        for r, g, b in insp_band
+        if r > 160 and g > 160 and b > 160 and abs(r - g) < 40 and abs(g - b) < 40
+    )
+    insp_text_f = insp_light / insp_n
+    inspector_tabs_ok = insp_text_f >= 0.01
+
+    # Idle Feature dock must not eat the map (visual_review #2). Right 22%
+    # should still contain map/cream in the work band, not only chrome.
+    mid_y0 = h // 4
+    mid_y1 = (h * 55) // 100
+    right_x0 = (w * 78) // 100
+    right_band = [
+        pixels[y * w + x]
+        for y in range(mid_y0, mid_y1, 4)
+        for x in range(right_x0, w, 3)
+    ]
+    right_n = max(1, len(right_band))
+    right_chrome = sum(
+        1
+        for r, g, b in right_band
+        if 18 <= r <= 95
+        and 18 <= g <= 95
+        and 18 <= b <= 95
+        and abs(r - g) < 14
+        and abs(g - b) < 14
+    )
+    inspector_not_huge = (right_chrome / right_n) < 0.92
+
+    # Ambox Map cluster (Pan/Zoom/Full/Identify/Measure) under the menu.
+    ambox_y0 = max(1, h // 18)
+    ambox_y1 = max(ambox_y0 + 1, h // 10)
+    ambox_x0 = w // 12
+    ambox_x1 = (w * 62) // 100
+    ambox_band = [
+        pixels[y * w + x]
+        for y in range(ambox_y0, ambox_y1, 2)
+        for x in range(ambox_x0, ambox_x1, 3)
+    ]
+    ambox_n = max(1, len(ambox_band))
+    ambox_light = sum(
+        1
+        for r, g, b in ambox_band
+        if r > 160 and g > 160 and b > 160 and abs(r - g) < 40 and abs(g - b) < 40
+    )
+    ambox_text_f = ambox_light / ambox_n
+    map_nav_toolbar_ok = ambox_text_f >= 0.012
+
+    # Map hero just above the compact Diagnostic dock (visual_review #2).
+    # A tall stacked bottom chrome paints this band as dark panel.
+    hero_y0 = (h * 62) // 100
+    hero_y1 = (h * 78) // 100
+    hero_x0 = w // 6
+    hero_x1 = (w * 78) // 100
+    hero_band = [
+        pixels[y * w + x]
+        for y in range(hero_y0, max(hero_y0 + 1, hero_y1), 3)
+        for x in range(hero_x0, hero_x1, 3)
+    ]
+    hero_n = max(1, len(hero_band))
+    hero_map = sum(
+        1
+        for r, g, b in hero_band
+        if not (
+            20 <= r <= 90
+            and 20 <= g <= 90
+            and 20 <= b <= 90
+            and abs(r - g) < 12
+            and abs(g - b) < 12
+        )
+        and not (r < 12 and g < 12 and b < 12)
+    )
+    hero_map_f = hero_map / hero_n
+    lower_map_ok = hero_map_f >= 0.28
+    chrome_density_ok = dark_f < 0.58
 
     ok = (
         black_f < 0.25
@@ -316,6 +416,13 @@ def score_ui_shell_dark(path: Path) -> dict:
         and no_panel_collapse
         and work_area_ok
         and diag_content_ok
+        and top_menu_light_f >= 0.006
+        and status_readable
+        and inspector_tabs_ok
+        and inspector_not_huge
+        and map_nav_toolbar_ok
+        and lower_map_ok
+        and chrome_density_ok
     )
     return {
         "bmp": str(path),
@@ -336,7 +443,12 @@ def score_ui_shell_dark(path: Path) -> dict:
         "bottom_near_black_frac": round(bottom_black_f, 4),
         "center_signal_frac": round(center_signal_f, 4),
         "top_menu_light_frac": round(top_menu_light_f, 4),
+        "status_bar_text_frac": round(status_text_f, 4),
+        "inspector_tab_text_frac": round(insp_text_f, 4),
+        "inspector_right_chrome_frac": round(right_chrome / right_n, 4),
+        "map_nav_toolbar_text_frac": round(ambox_text_f, 4),
         "diag_content_signal_frac": round(diag_signal_f, 4),
+        "lower_map_frac": round(hero_map_f, 4),
         "ok": ok,
         "gates": {
             "near_black_frac<0.25": black_f < 0.25,
@@ -355,7 +467,14 @@ def score_ui_shell_dark(path: Path) -> dict:
             "left_catalog_toc_text>=0.002": toc_text_f >= 0.002,
             "no_panel_collapse": no_panel_collapse,
             "work_area_not_hollow": work_area_ok,
-            "diag_content_signal>=0.004": diag_content_ok,
+            "diag_content_signal>=0.003": diag_content_ok,
+            "top_menu_light_frac>=0.006": top_menu_light_f >= 0.006,
+            "status_bar_text_frac>=0.008": status_readable,
+            "inspector_tab_text>=0.01": inspector_tabs_ok,
+            "inspector_not_huge": inspector_not_huge,
+            "map_nav_toolbar_text>=0.012": map_nav_toolbar_ok,
+            "lower_map_frac>=0.28": lower_map_ok,
+            "dark_chrome_frac<0.58": chrome_density_ok,
         },
     }
 

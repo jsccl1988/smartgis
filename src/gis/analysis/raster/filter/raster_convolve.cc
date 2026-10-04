@@ -3,12 +3,23 @@
 
 #include "gis/analysis/raster/filter/raster_convolve.h"
 
+#include "gis/analysis/raster/filter/raster_convolve_profile.h"
+
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <mutex>
 #include <string>
 #include <vector>
 
 #include <Eigen/Core>
+
+#include "base/execution/executor/pool/global_executor.h"
+#include "base/execution/parallel/for.h"
 
 #include "cpl_conv.h"
 #include "gdal_priv.h"
@@ -18,6 +29,39 @@
 namespace gis {
 namespace detail {
 namespace {
+
+std::atomic<int> g_dispatch_override{kConvolveDispatchAuto};
+RasterConvolveProfile g_last_profile;
+std::mutex g_last_profile_mu;
+
+void record_convolve_profile(const RasterConvolveProfile& snap) {
+  {
+    std::lock_guard<std::mutex> lock(g_last_profile_mu);
+    g_last_profile = snap;
+  }
+  if (!analysis_profile_enabled()) {
+    return;
+  }
+  std::fprintf(stderr,
+               "raster_convolve kernel_size=%d (%dx%d) pixels=%d "
+               "dispatch_ms=%.4f compute_ms=%.4f backend=%s\n",
+               snap.kernel_size, snap.kernel_w, snap.kernel_h, snap.pixels,
+               snap.dispatch_ms, snap.compute_ms, snap.backend);
+}
+
+bool should_parallel_convolve(int width, int height) {
+  const int mode = convolve_dispatch_override();
+  if (mode == kConvolveDispatchSerial) {
+    return false;
+  }
+  if (mode == kConvolveDispatchParallel) {
+    return true;
+  }
+  const size_t pixels =
+      static_cast<size_t>(width) * static_cast<size_t>(height);
+  return height >= kParallelConvolveMinRows &&
+         pixels >= static_cast<size_t>(kParallelConvolveMinPixels);
+}
 
 bool parse_args(std::string_view json, rapidjson::Document* out) {
   if (!out || json.empty()) {
@@ -72,6 +116,29 @@ bool write_float_geotiff(const std::string& path,
 
 }  // namespace
 
+bool analysis_profile_enabled() {
+  const char* e = std::getenv("SMT_ANALYSIS_PROFILE");
+  if (!e || !e[0]) {
+    return false;
+  }
+  return std::strcmp(e, "1") == 0 || std::strcmp(e, "true") == 0 ||
+         std::strcmp(e, "TRUE") == 0 || std::strcmp(e, "on") == 0 ||
+         std::strcmp(e, "ON") == 0;
+}
+
+void set_convolve_dispatch_override(int mode) {
+  g_dispatch_override.store(mode, std::memory_order_relaxed);
+}
+
+int convolve_dispatch_override() {
+  return g_dispatch_override.load(std::memory_order_relaxed);
+}
+
+RasterConvolveProfile last_convolve_profile() {
+  std::lock_guard<std::mutex> lock(g_last_profile_mu);
+  return g_last_profile;
+}
+
 RasterConvolveResult convolve_raster(const std::vector<float>& input,
                                      int width,
                                      int height,
@@ -86,6 +153,9 @@ RasterConvolveResult convolve_raster(const std::vector<float>& input,
     out.error = "bad_args";
     return out;
   }
+  using Clock = std::chrono::steady_clock;
+  const auto t_dispatch0 = Clock::now();
+
   using MapF = Eigen::Map<
       const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>;
   using MapK = Eigen::Map<
@@ -100,7 +170,11 @@ RasterConvolveResult convolve_raster(const std::vector<float>& input,
   Eigen::Map<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>
       dst(out.values.data(), height, width);
 
-  for (int r = 0; r < height; ++r) {
+  const bool use_parallel = should_parallel_convolve(width, height);
+  const char* backend = use_parallel ? "parallel" : "serial";
+  const auto t_dispatch1 = Clock::now();
+
+  auto convolve_row = [&](int r) {
     for (int c = 0; c < width; ++c) {
       double acc = 0.0;
       for (int ky = 0; ky < kernel_h; ++ky) {
@@ -112,7 +186,33 @@ RasterConvolveResult convolve_raster(const std::vector<float>& input,
       }
       dst(r, c) = static_cast<float>(acc);
     }
+  };
+
+  const auto t_compute0 = Clock::now();
+  // Parallelize by output row; each row writes a disjoint dst slice.
+  if (use_parallel) {
+    base::execution::GlobalNThreadPoolExecutor executor;
+    base::execution::parallel_for(executor, 0, height, convolve_row);
+  } else {
+    for (int r = 0; r < height; ++r) {
+      convolve_row(r);
+    }
   }
+  const auto t_compute1 = Clock::now();
+
+  RasterConvolveProfile snap;
+  snap.kernel_w = kernel_w;
+  snap.kernel_h = kernel_h;
+  snap.kernel_size = kernel_w * kernel_h;
+  snap.pixels = width * height;
+  snap.dispatch_ms =
+      std::chrono::duration<double, std::milli>(t_dispatch1 - t_dispatch0)
+          .count();
+  snap.compute_ms =
+      std::chrono::duration<double, std::milli>(t_compute1 - t_compute0).count();
+  snap.backend = backend;
+  record_convolve_profile(snap);
+
   out.ok = true;
   return out;
 }

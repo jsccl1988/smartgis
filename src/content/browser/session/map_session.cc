@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "base/process/switches.h"
 #include "base/trace/event/process_trace.h"
 #include "content/public/map_contents.h"
 #include "content/public/map_contents_observer.h"
@@ -15,17 +16,17 @@ namespace content {
 namespace {
 
 bool env_flag_on(const char* name) {
-  const char* env = std::getenv(name);
+  const char* env = base::switch_cstr(name);
   return env && env[0] == '1' && env[1] == '\0';
 }
 
 // Explicit opt-in to start OOP GPU at init_hosts (legacy / debug).
 // Default is delay until ensure_oop_render_process().
 bool want_oop_at_init() {
-  if (env_flag_on("SMT_DISABLE_OOP_RENDER")) {
+  if (env_flag_on("disable-oop-render")) {
     return false;
   }
-  return env_flag_on("SMT_ENABLE_OOP_RENDER");
+  return env_flag_on("enable-oop-render");
 }
 
 }  // namespace
@@ -66,7 +67,7 @@ bool MapSession::ensure_oop_render_process() {
   if (map_contents_->IsOopRender()) {
     return true;
   }
-  if (env_flag_on("SMT_DISABLE_OOP_RENDER")) {
+  if (env_flag_on("disable-oop-render")) {
     return false;
   }
   bool ok = false;

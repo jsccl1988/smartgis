@@ -4,35 +4,73 @@
 import("//build/smartgis.gni")
 import("//testing/test.gni")
 
-# GPU scene. Compiled into vista.dll. Effect vtable stays in frame_graph.h.
+# CPU: World mirror, tessellate, frustum POD, unibn index, prep_cull.
+# Workers never include render/rhi. Compiled into vista.dll.
+# Facade TUs sit at scene/ root (like map/). cull/ and index/ stay specialized.
+source_set("scene_cpu_sources") {
+  sources = [
+    "cull/frustum_aabb.cc",
+    "cull/frustum_aabb.h",
+    "cull/mesh_cull.h",
+    "cull/prep_cull.cc",
+    "cull/prep_cull.h",
+    "envelope.cc",
+    "envelope.h",
+    "gpu_instance.h",
+    "index/aabb_octree.cc",
+    "index/aabb_octree.h",
+    "kind_tess.cc",
+    "kind_tess.h",
+    "paint.cc",
+    "paint.h",
+    "pipelines.cc",
+    "pipelines.h",
+    "sync.cc",
+    "sync.h",
+    "tessellate.cc",
+    "tessellate.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  assert_no_deps = [ "//src/render:render" ]
+  public_deps = [
+    "//src/base:base",
+    "//src/base/execution:execution",
+    "//src/gis:gis",
+    "//src/vista/mesh:mesh_sources",
+    "//src/vista/world:world_sources",
+    "//third_party:gdal",
+    "//third_party:octree",
+  ]
+}
+
+# GPU: GpuMesh upload / pipelines / record. Facade GpuScene.
 source_set("scene_sources") {
   sources = [
-    "detail/draw_pass.cc",
-    "detail/draw_pass.h",
-    "detail/paint.cc",
-    "detail/paint.h",
-    "detail/prep_cull.cc",
-    "detail/prep_cull.h",
-    "detail/tessellate.cc",
-    "detail/tessellate.h",
-    "detail/upload.cc",
-    "detail/upload.h",
-    "frustum_aabb.cc",
-    "frustum_aabb.h",
+    "cull/frustum_camera.cc",
+    "cull/frustum_camera.h",
+    "draw_pass.cc",
+    "draw_pass.h",
+    "gpu_mesh.h",
     "opaque_effect.cc",
     "opaque_effect.h",
     "rebuild.cc",
     "scene.cc",
     "scene.h",
     "scene_draw.cc",
+    "tint.cc",
+    "tint.h",
+    "upload.cc",
+    "upload.h",
   ]
   include_dirs += [ "//src" ]
   configs += [ "//build:legacy" ]
   public_configs = [ "//build:legacy" ]
   defines = [ "VISTA_EXPORTS" ]
   public_deps = [
-    "//src/base/execution:execution",
-    "//src/gis:gis",
+    ":scene_cpu_sources",
     "//src/render:render",
     "//src/vista/world:world_sources",
     "//third_party:gdal",

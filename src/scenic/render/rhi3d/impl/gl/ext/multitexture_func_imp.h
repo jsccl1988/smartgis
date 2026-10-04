@@ -16,13 +16,13 @@ class MultitextureFuncImpl : public MultitextureFunc {
   MultitextureFuncImpl() = default;
   ~MultitextureFuncImpl() override = default;
 
-  long Initialize(LPGLRENDERDEVICE pGLRenderDevice) override {
+  long Initialize(GlRenderDevice* pGLRenderDevice) override {
     _glActiveTexture = (PFNGLACTIVETEXTUREPROC)pGLRenderDevice->GetProcAddress(
         "glActiveTextureARB");
     if (nullptr == _glActiveTexture) {
-      return SMT_ERR_FAILURE;
+      return kErrFailure;
     }
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   void glActiveTexture(GLenum texture) override { _glActiveTexture(texture); }

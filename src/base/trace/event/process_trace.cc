@@ -5,6 +5,7 @@
 // RenderTracePanel (ui_views), and SMT_TRACE_DUMP (exe) share one buffer.
 
 #include "base/trace/event/process_trace.h"
+#include "base/process/switches.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -46,14 +47,17 @@ void process_trace_add(std::string_view name,
 }
 
 void maybe_init_tracing_from_env() {
-  if (const char* env = std::getenv("SMT_TRACE")) {
-    if (env[0] == '1' && env[1] == '\0') {
-      set_tracing_enabled(true);
-    }
+  auto env_one = [](const char* name) {
+    const char* e = std::getenv(name);
+    return e && e[0] == '1' && e[1] == '\0';
+  };
+  if (base::switch_is_one("trace") || env_one("SMT_TRACE") ||
+      base::switch_is_one("bake-profile") || env_one("SMT_BAKE_PROFILE")) {
+    set_tracing_enabled(true);
   }
   // SMT_STARTUP_PROFILE=1 also arms recording so cat=startup spans land even
   // when always-on diagnostics are skipped (e.g. utility/gpu helpers).
-  if (const char* env = std::getenv("SMT_STARTUP_PROFILE")) {
+  if (const char* env = base::switch_cstr("startup-profile")) {
     if (env[0] == '1' && env[1] == '\0') {
       set_tracing_enabled(true);
     }
@@ -61,7 +65,10 @@ void maybe_init_tracing_from_env() {
 }
 
 void maybe_dump_tracing_to_env() {
-  const char* path = std::getenv("SMT_TRACE_DUMP");
+  const char* path = base::switch_cstr("trace-dump");
+  if (!path || !path[0]) {
+    path = std::getenv("SMT_TRACE_DUMP");
+  }
   if (!path || !path[0]) {
     return;
   }

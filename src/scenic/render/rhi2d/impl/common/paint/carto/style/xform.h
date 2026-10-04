@@ -4,9 +4,9 @@
 #ifndef SCENIC_GDI_CANVAS_XFORM_H_
 #define SCENIC_GDI_CANVAS_XFORM_H_
 
-#include "base/math/affine2.h"
-#include "scenic/detail/err.h"
-#include "scenic/detail/geom.h"
+#include "base/math/linear/affine2.h"
+#include "scenic/render/err.h"
+#include "base/math/math.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/frame/context.h"
 
 using namespace base;

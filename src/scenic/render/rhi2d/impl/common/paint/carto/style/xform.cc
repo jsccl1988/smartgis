@@ -3,7 +3,7 @@
 
 #include "scenic/render/rhi2d/impl/common/paint/carto/style/xform.h"
 
-#include "base/math/affine2.h"
+#include "base/math/linear/affine2.h"
 #include "scenic/render/rhi2d/impl/common/paint/carto/draw/device_geom.h"
 
 namespace scenic {
@@ -55,36 +55,36 @@ int Rhi2dCartoDrawXform::lp_to_dp(float x, float y, long& X, long& Y) const {
   if (!rc_ || is_degenerate_ports(*rc_)) {
     X = static_cast<long>(x);
     Y = static_cast<long>(y);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   transform_xy(lp_to_dp2(), x, y, &X, &Y);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dCartoDrawXform::dp_to_lp(LONG X, LONG Y, float& x, float& y) const {
   if (!rc_ || is_degenerate_ports(*rc_)) {
     x = static_cast<float>(X);
     y = static_cast<float>(Y);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   inverse_xy(lp_to_dp2(), X, Y, &x, &y);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dCartoDrawXform::lrect_to_drect(const fRect& frect, lRect& lrect) const {
   lp_to_dp(frect.lb.x, frect.lb.y, lrect.lb.x, lrect.lb.y);
   lp_to_dp(frect.rt.x, frect.rt.y, lrect.rt.x, lrect.rt.y);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 int Rhi2dCartoDrawXform::drect_to_lrect(const lRect& lrect, fRect& frect) const {
   dp_to_lp(lrect.lb.x, lrect.lb.y, frect.lb.x, frect.lb.y);
   dp_to_lp(lrect.rt.x, lrect.rt.y, frect.rt.x, frect.rt.y);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 }  // namespace detail

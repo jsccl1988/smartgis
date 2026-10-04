@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include "base/process/switches.h"
 
 namespace ui {
 namespace views {
@@ -28,14 +29,14 @@ void clamp_scene3d_swapchain_size(uint32_t* w, uint32_t* h) {
   }
   // Showcase-sized present: interactive multi-k clients clear navy with
   // DrawIndexed ok; 640x480 top-level matches the land-PASS atmosphere shot.
-  if (const char* force = std::getenv("SMT_SCENE3D_FORCE_640")) {
+  if (const char* force = base::switch_cstr("scene3d-force-640")) {
     if (force[0] == '1' && force[1] == '\0') {
       *w = 640;
       *h = 480;
       return;
     }
   }
-  const char* spec = std::getenv("SMT_SCENE3D_SWAPCHAIN_MAX");
+  const char* spec = base::switch_cstr("scene3d-swapchain-max");
   if (!spec || !spec[0]) {
     return;
   }

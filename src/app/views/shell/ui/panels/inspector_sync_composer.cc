@@ -34,11 +34,11 @@
 #include "content/public/map_types.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "vista/domain/atmosphere/field_channel.h"
+#include "vista/atmosphere/session/field_channel.h"
 #include "render/rhi/rhi.h"
 #include "gis/edit/session.h"
-#include "gis/carto/tile/tile_map_layer.h"
-#include "gis/carto/tile/tile_provider.h"
+#include "gis/tile/layer/tile_map_layer.h"
+#include "gis/tile/provider/tile_provider.h"
 #include "tool/nav/camera_nav.h"
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
@@ -73,6 +73,7 @@
 #include "ui/gis/shell/status_bar.h"
 #include "ui/views/primitives/collection/tab_strip.h"
 #include "ui/views/kernel/view/view.h"
+#include "base/process/switches.h"
 
 namespace app {
 
@@ -201,7 +202,7 @@ void InspectorSyncComposer::wire_edit_feedback() {
   // required for BMP export. A skewed Browser/MapSession layout (stale
   // shell_browser .obj under parallel ninja) makes edit_host() return
   // 0xCD-filled garbage 鈫?STATUS_HEAP_CORRUPTION in ViewHost::events().
-  if (const char* skip = std::getenv("SMT_SKIP_AMBOX_CATALOG");
+  if (const char* skip = base::switch_cstr("skip-ambox-catalog");
       skip && skip[0] != '\0' && skip[0] != '0') {
     return;
   }

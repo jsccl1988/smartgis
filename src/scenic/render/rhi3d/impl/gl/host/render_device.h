@@ -4,10 +4,11 @@
 #ifndef _GL_3DRENDERDEVICE_H
 #define _GL_3DRENDERDEVICE_H
 
+#include <memory>
 #include <string>
 #include <string_view>
 
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/impl/gl/paint/states_manager.h"
 #include "scenic/render/rhi3d/impl/gl/ext/fbo_func.h"
 #include "scenic/render/rhi3d/impl/gl/ext/mipmap_func.h"
@@ -24,7 +25,7 @@ namespace detail {
 class GlText;
 class GlDeviceCaps;
 
-class LEGACY_RENDER_GL_EXPORT GlRenderDevice : public RenderDevice3d {
+class SCENIC_RENDER_GL_EXPORT GlRenderDevice : public RenderDevice3d {
  public:
   GlRenderDevice(void);
   GlRenderDevice(HINSTANCE hDLL);
@@ -47,7 +48,7 @@ class LEGACY_RENDER_GL_EXPORT GlRenderDevice : public RenderDevice3d {
     return wglGetProcAddress(zname.c_str());
   }
 
-  virtual GpuStateManager *GetStateManager() { return m_pStateManager; }
+  virtual GpuStateManager *GetStateManager() { return m_pStateManager.get(); }
   // Defined after GlDeviceCaps is complete (see device_caps.h include cycle).
   virtual DeviceCaps3d *GetDeviceCaps();
 
@@ -250,7 +251,7 @@ class LEGACY_RENDER_GL_EXPORT GlRenderDevice : public RenderDevice3d {
 
  public:
   // fast draw
-  virtual long DrawCube3D(Vector3 vCenter, float fWidth, Color smtClr);
+  virtual long DrawCube3D(Vector3 vCenter, float fWidth, Color color);
 
  protected:
   long SetDeviceCaps(void);
@@ -269,22 +270,22 @@ class LEGACY_RENDER_GL_EXPORT GlRenderDevice : public RenderDevice3d {
  protected:
   vector<GLhandleARB> m_vGLHandles;
 
-  GlGpuStateManager *m_pStateManager;
-  GlDeviceCaps *m_pDeviceCaps;
+  std::unique_ptr<GlGpuStateManager> m_pStateManager;
+  std::unique_ptr<GlDeviceCaps> m_pDeviceCaps;
 
   // ext func
-  ShadersFunc *m_pFuncShaders;
-  MultitextureFunc *m_pFuncMultTex;
-  VSyncFunc *m_pFuncVSync;
-  MipmapFunc *m_pFuncMipmap;
-  VboFunc *m_pFuncVBO;
-  FboFunc *m_pFuncFBO;
+  std::unique_ptr<ShadersFunc> m_pFuncShaders;
+  std::unique_ptr<MultitextureFunc> m_pFuncMultTex;
+  std::unique_ptr<VSyncFunc> m_pFuncVSync;
+  std::unique_ptr<MipmapFunc> m_pFuncMipmap;
+  std::unique_ptr<VboFunc> m_pFuncVBO;
+  std::unique_ptr<FboFunc> m_pFuncFBO;
 
  protected:
   HWND m_hWnd;
   HDC m_hPaintDC;
   HGLRC m_hRC;
-  vector<GlText *> m_vTextPtrs;
+  std::vector<std::unique_ptr<GlText>> m_vTextPtrs;
 
  private:
   int m_nStencilRef = 0;
@@ -299,7 +300,7 @@ class LEGACY_RENDER_GL_EXPORT GlRenderDevice : public RenderDevice3d {
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_GL_EXPORTS)
+#if !defined(SCENIC_RENDER_GL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_render_gl_d.lib")
 #else

@@ -26,26 +26,26 @@ long GlRenderDevice::SetVertexArray(int components, Type type, int stride,
                                        void* data) {
   glVertexPointer(components, ConvertType(type), stride, data);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetTextureCoordsArray(int components, Type type,
                                               int stride, void* data) {
   glTexCoordPointer(components, ConvertType(type), stride, data);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetNormalArray(Type type, int stride, void* data) {
   glNormalPointer(ConvertType(type), stride, data);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::SetIndexArray(Type type, int stride, void* data) {
   glIndexPointer(ConvertType(type), stride, data);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::EnableArray(ArrayType type, bool enabled) {
@@ -55,7 +55,7 @@ long GlRenderDevice::EnableArray(ArrayType type, bool enabled) {
     glDisableClientState(ConvertArrayType(type));
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 }  // namespace detail
 }  // namespace scenic

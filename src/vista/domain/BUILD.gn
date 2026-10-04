@@ -5,15 +5,12 @@ import("//build/smartgis.gni")
 
 # Header-only domain seam. GN sources must sit under this BUILD file, so the
 # header cannot be listed from vista/world. //src/vista:vista depends on this
-# target. Implemented session packs live under domain/atmosphere/.
+# target. The atmosphere session lives in //src/vista/atmosphere:session_sources.
 
 source_set("domain_sources") {
   sources = [ "domain.h" ]
   include_dirs += [ "//src" ]
   assert_no_deps = [
     "//src/render:render",
-    "//src/legacy/render:*",
-    "//src/legacy/ui:*",
-    "//src/legacy/app:*",
   ]
 }

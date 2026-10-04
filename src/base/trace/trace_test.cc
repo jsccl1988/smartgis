@@ -7,6 +7,7 @@
 #include "base/trace/export/chrome_trace.h"
 #include "base/trace/log/frame_log.h"
 #include "base/trace/recorder/span_recorder.h"
+#include "base/process/switches.h"
 
 #include <cassert>
 #include <cstdio>
@@ -117,8 +118,8 @@ int main() {
     }
     assert(base::trace::process_trace().size() >= 2u);
     const char* dump_path = "startup_profile_test.txt";
-    _putenv_s("SMT_STARTUP_PROFILE", "1");
-    _putenv_s("SMT_STARTUP_PROFILE_DUMP", dump_path);
+    base::set_switch("startup-profile", "1");
+    base::set_switch("startup-profile-dump", dump_path);
     assert(base::trace::startup_profile_wanted());
     base::trace::dump_startup_profile(dump_path);
     std::ifstream in(dump_path, std::ios::binary);

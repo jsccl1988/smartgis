@@ -5,7 +5,7 @@
 #include <map>
 
 #include "base/core/log.h"
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/texture/texture.h"
 
 using namespace base;
@@ -17,7 +17,7 @@ typedef vector<Texture*> vTexturePtrs;
 typedef map<string, Texture*> mapNameToTexturePtrs;
 typedef pair<string, Texture*> pairNameToTexturePtr;
 
-class LEGACY_RENDER_EXPORT TextureManager {
+class SCENIC_IMPL_EXPORT TextureManager {
  public:
   TextureManager(void);
   virtual ~TextureManager(void);
@@ -43,7 +43,7 @@ inline TextureManager::TextureManager(void) { DestroyAllTexture(); }
 inline TextureManager::~TextureManager(void) { DestroyAllTexture(); }
 
 inline long TextureManager::AddTexture(Texture* pTexture) {
-  if (nullptr == pTexture) return SMT_ERR_FAILURE;
+  if (nullptr == pTexture) return kErrFailure;
   Texture* pTexTmp = nullptr;
   pTexTmp = GetTexture(pTexture->GetTextureName());
   if (nullptr == pTexTmp)
@@ -51,10 +51,10 @@ inline long TextureManager::AddTexture(Texture* pTexture) {
         pairNameToTexturePtr(pTexture->GetTextureName(), pTexture));
   else {
     LOGGING(LOG_INFO, "AddTexture () already exist");
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline Texture* TextureManager::GetTexture(const char* szName) {
@@ -73,24 +73,24 @@ inline long TextureManager::DestroyTexture(const char* szName) {
   mapNameToTexturePtrs::iterator iter = m_mapNameToTexturePtrs.find(szName);
 
   if (iter != m_mapNameToTexturePtrs.end()) {
-    SMT_SAFE_DELETE(iter->second);
+    SAFE_DELETE(iter->second);
     m_mapNameToTexturePtrs.erase(iter);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline long TextureManager::DestroyAllTexture(void) {
   mapNameToTexturePtrs::iterator i = m_mapNameToTexturePtrs.begin();
 
   while (i != m_mapNameToTexturePtrs.end()) {
-    SMT_SAFE_DELETE(i->second);
+    SAFE_DELETE(i->second);
     i++;
   }
 
   m_mapNameToTexturePtrs.clear();
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline void TextureManager::GetAllTextureName(
@@ -107,7 +107,7 @@ inline void TextureManager::GetAllTextureName(
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else

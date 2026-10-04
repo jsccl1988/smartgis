@@ -6,13 +6,15 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "base/process/switches.h"
+
 namespace app {
 namespace detail {
 
 LingerPolicy parse_linger_env(const LingerEnvOpts& opts) {
   LingerPolicy out;
   if (opts.timed_ms_env) {
-    if (const char* timed = std::getenv(opts.timed_ms_env)) {
+    if (const char* timed = base::switch_cstr(opts.timed_ms_env)) {
       if (timed[0]) {
         const int v = std::atoi(timed);
         if (v > 0) {
@@ -23,7 +25,7 @@ LingerPolicy parse_linger_env(const LingerEnvOpts& opts) {
     }
   }
   if (opts.linger_ms_env) {
-    if (const char* env = std::getenv(opts.linger_ms_env)) {
+    if (const char* env = base::switch_cstr(opts.linger_ms_env)) {
       if (opts.linger_ms_zero_only) {
         if (std::strcmp(env, "0") == 0) {
           return out;

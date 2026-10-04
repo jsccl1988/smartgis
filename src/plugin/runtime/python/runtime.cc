@@ -22,6 +22,7 @@
 #undef _DEBUG
 #endif
 #include <Python.h>
+#include "base/process/switches.h"
 #ifdef SMT_PYTHON_RESTORE_DEBUG
 #define _DEBUG
 #undef SMT_PYTHON_RESTORE_DEBUG
@@ -57,7 +58,7 @@ std::wstring utf8_to_wide(const std::string& in) {
 }
 
 std::string python_home() {
-  const char* env = std::getenv("SMT_PYTHON_ROOT");
+  const char* env = base::switch_cstr("python-root");
   if (env && env[0]) {
     return env;
   }

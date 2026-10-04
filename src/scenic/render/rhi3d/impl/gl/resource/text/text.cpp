@@ -52,15 +52,15 @@ long GlText::CreateFont(HDC hDC, const char *chType, int nHeight, int nWidth,
                            FF_DONTCARE | DEFAULT_PITCH, chType);
   }
 
-  if (m_hFont == nullptr) return SMT_FALSE;
+  if (m_hFont == nullptr) return S_FALSE;
 
-  return SMT_OK;
+  return S_OK;
 }
 
 HFONT GlText::GetFont() { return m_hFont; }
 
 long GlText::DrawText(HDC hDC, float x, float y, float z, const char *str) {
-  if (str == nullptr) return SMT_ERR_INVALID_PARAM;
+  if (str == nullptr) return kErrInvalidParam;
 
   ::SelectObject(hDC, m_hFont);
 
@@ -94,11 +94,11 @@ long GlText::DrawText(HDC hDC, float x, float y, float z, const char *str) {
     }
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 HRESULT GlText::DrawText(HDC hDC, float x, float y, const char *str) {
-  if (str == nullptr) return SMT_ERR_INVALID_PARAM;
+  if (str == nullptr) return kErrInvalidParam;
   /*
   int length;
   length = (int)strlen(str);
@@ -142,7 +142,7 @@ HRESULT GlText::DrawText(HDC hDC, float x, float y, const char *str) {
     }
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 }  // namespace detail
 }  // namespace scenic

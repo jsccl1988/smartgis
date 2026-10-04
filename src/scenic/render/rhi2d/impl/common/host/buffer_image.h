@@ -3,8 +3,8 @@
 #ifndef LEGACY_RENDER_GDI_BUFFER_IMAGE_H_
 #define LEGACY_RENDER_GDI_BUFFER_IMAGE_H_
 
-#include "scenic/detail/err.h"
-#include "scenic/render/rhi2d/public/device/renderdevice.h"
+#include "scenic/render/err.h"
+#include "scenic/render/rhi2d/public/device/render_device.h"
 
 namespace scenic {
 namespace detail {

@@ -84,7 +84,7 @@ source_set("view_host_sources") {
   include_dirs += [ "//src" ]
   deps = [
     "//src/gis/edit:edit",
-    "//src/legacy/tool/msg:adapter",
+    "//src/tool:gt_msg",
     "//src/tool:tool",
   ]
 }
@@ -316,7 +316,7 @@ source_set("map_scene") {
     "//src/base:foundation",
     "//src/gis:gis",
     "//src/vista:vista",
-    "//src/vista/world:land_mask",
+    "//src/vista/terrain:land_mask",
     "//src/tool:dispatch",
     "//third_party:gdal",
   ]

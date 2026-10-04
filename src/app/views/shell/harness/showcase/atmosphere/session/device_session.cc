@@ -31,7 +31,7 @@ int prepare_atmosphere_device_session(Browser& browser,
   *out = AtmosphereDeviceSession{};
 
   RhiPresentSessionOpts opts;
-  opts.gpu_env = "SMT_ATMOSPHERE_SHOWCASE_GPU";
+  opts.gpu_env = "atmosphere-showcase-gpu";
   opts.gpu_policy = GpuEnvPolicy::kDefaultOffRequireOne;
   opts.gpu_env_fallback = nullptr;
   opts.require_scene_hwnd = false;

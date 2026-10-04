@@ -41,13 +41,13 @@ GlIndexBuffer::~GlIndexBuffer() {
 long GlIndexBuffer::Lock() {
   m_bLocked = true;
   m_pIndex = m_pGLIndex;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlIndexBuffer::Unlock() {
   m_bLocked = false;
   m_pIndex = nullptr;
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 void* GlIndexBuffer::GetIndexData() {
@@ -66,14 +66,14 @@ long GlIndexBuffer::PrepareForDrawing() {
   } else {
     glDisableClientState(GL_INDEX_ARRAY);
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlIndexBuffer::EndDrawing() {
   if (m_pGLIndex) {
     glDisableClientState(GL_INDEX_ARRAY);
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 }  // namespace detail
 }  // namespace scenic

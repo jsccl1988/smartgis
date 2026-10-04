@@ -9,15 +9,14 @@
 namespace scenic {
 namespace detail {
 class GlRenderDevice;
-typedef class GlRenderDevice *LPGLRENDERDEVICE;
 
 // Stub GLSL/ARB shader entry points (real procs live in ShadersFuncImpl).
 class ShadersFunc {
  public:
   ShadersFunc() = default;
   virtual ~ShadersFunc() = default;
-  virtual long Initialize(LPGLRENDERDEVICE /*pGLRenderDevice*/) {
-    return SMT_ERR_NONE;
+  virtual long Initialize(GlRenderDevice* /*pGLRenderDevice*/) {
+    return kErrNone;
   }
 
   virtual GLuint glCreateShader(GLenum /*type*/) { return 0; }

@@ -3,8 +3,6 @@
 
 #include "plugin/runtime/host/registry/registry.h"
 
-#include "legacy/plugin/runtime/bridge/am.h"
-
 #include "content/public/plugin_host.h"
 
 #include <algorithm>
@@ -135,13 +133,9 @@ bool Registry::start_plugin(PluginRecord* rec, content::PluginHost* host) {
       rec->state = PluginState::kEnabled;
       return true;
     case PluginKind::kLegacyAm:
-      if (!am_start(rec->manifest.id)) {
-        rec->state = PluginState::kError;
-        last_error_ = "legacy start failed";
-        return false;
-      }
-      rec->state = PluginState::kEnabled;
-      return true;
+      rec->state = PluginState::kError;
+      last_error_ = "legacy am is not supported";
+      return false;
     case PluginKind::kPython:
       if (python_start_) {
         if (!python_start_(*rec, host)) {
@@ -171,8 +165,6 @@ void Registry::stop_plugin(PluginRecord* rec, content::PluginHost* host) {
   auto hit = hooks_.find(rec->manifest.id);
   if (hit != hooks_.end() && hit->second.stop) {
     hit->second.stop();
-  } else if (rec->manifest.kind == PluginKind::kLegacyAm) {
-    am_stop(rec->manifest.id);
   } else if (rec->manifest.kind == PluginKind::kPython && python_stop_) {
     python_stop_(*rec);
   }
@@ -236,9 +228,6 @@ bool Registry::unload(std::string_view id, content::PluginHost* host) {
   }
   if (rec->state == PluginState::kEnabled) {
     set_enabled(id, false, host);
-  }
-  if (rec->manifest.kind == PluginKind::kLegacyAm) {
-    am_unload(id);
   }
   records_.erase(std::string(id));
   return true;

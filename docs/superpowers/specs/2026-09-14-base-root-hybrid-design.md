@@ -7,7 +7,7 @@ All rights reserved.
 
 **Status:** accepted  
 **Date:** 2026-09-14  
-**Updated:** 2026-10-03 — memory / codecs / trace checklists archived; PA-E + execution still open. Prior: Phases 0–6 consolidator 已收口；2015 amendment 真源 `src/base/`；§Trace / §Memory / §Process malloc；2026-10-01 §Math Eigen.
+**Updated:** 2026-10-05 — §Math 分层（scalar/linear/traits/geom/xform/simd）。Prior: 2026-10-03 memory / codecs / trace archived; PA-E + execution still open; 2026-10-01 §Math Eigen.
 **Goal:** 将遗留 `src/base/core`（`Smt*`）对照 mogu **全部**替换到 foundation 树；制图 style / `sys` / `net` 留在产品层；分期 strangler，阶段末不留旧名转发壳。  
 **Related:** [`../src-layout.md`](../src-layout.md)、[`../mogu-mapping.md`](../mogu-mapping.md)、[`../abi-rename-map.md`](../abi-rename-map.md)、[`2026-09-13-code-style-include-abi-cutover-design.md`](../archive/specs/2026-09-13-code-style-include-abi-cutover-design.md)、[`2026-09-13-base-archive-design.md`](../archive/specs/2026-09-13-base-archive-design.md)、[`2026-09-13-base-ipc-mojom-design.md`](../archive/specs/2026-09-13-base-ipc-mojom-design.md)、[`2026-09-14-dll-reorganization-design.md`](../archive/specs/2026-09-14-dll-reorganization-design.md)  
 **Plan (Cursor):** `base_root_hybrid_fd0c40fd.plan.md`（会话外；本仓以本 spec + `docs/superpowers` 为准）；**§Memory:** [`../archive/plans/2026-09-28-base-memory.md`](../archive/plans/2026-09-28-base-memory.md)；**§PA-E:** [`../plans/2026-09-28-partition-alloc-everywhere.md`](../plans/2026-09-28-partition-alloc-everywhere.md)；**§Execution:** [`../plans/2026-09-28-base-execution.md`](../plans/2026-09-28-base-execution.md)
@@ -279,6 +279,28 @@ Former hot specs are under `archive/specs/` (`superseded`). **Revise this file**
 | Out of scope | glm; second Eigen; runtime CPUID; renaming leftover AABB fields in callers; folding math into `base.dll` |
 
 **Plan (checklist):** open work continues in-tree under `src/base/math`; no parallel dated design twin.
+
+---
+
+## §Math 分层（2026-10-05）
+
+**Why not a new dated spec:** `src/base/math` is owned by this living base row.
+
+**Diagram:** [`../diagrams/base-math-layers.html`](../diagrams/base-math-layers.html)
+
+| Layer | Path | Owns |
+| --- | --- | --- |
+| scalar | `src/base/math/scalar/` | constants / deg↔rad |
+| linear | `src/base/math/linear/` | Vector / Matrix / Quat / Point2 / LpToDp2 |
+| traits | `src/base/math/traits/` | `base::vector_traits` / `vector_like`（`geo::vector_traits` 再导出） |
+| geom | `src/base/math/geom/` | Aabb / Obb / Plane / Ray / Frustum / cull enums |
+| xform | `src/base/math/xform/` | TransformStack / lerp / slerp |
+| simd | `src/base/math/simd/` | batch float32 |
+| detail | `src/base/math/detail/` | Eigen Map aliases |
+
+GN: `:linear` (headers) · `:bounds` (geom cpp) · `:math` (facade + simd, `public_deps` bounds). Namespace stays **`base`** (no `base::math`). Preferred include `base/math/math.h`. Root `vector.h` etc. are leftover cutover aliases only.
+
+Out of scope: glm; folding into `base.dll`; renaming leftover AABB fields; editing `src/legacy/` TUs.
 
 ---
 

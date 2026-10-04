@@ -5,7 +5,9 @@
     "--plugin-showcase=world3d"
   ],
   "env": {
-    "SMT_SKIP_MAP_CONTEXT_MENU": "1"
+    "SMT_SKIP_MAP_CONTEXT_MENU": "1",
+    "SMT_SCENE3D_ENGINE": "flycube",
+    "SMT_SCENE3D_WIREFRAME": "0"
   },
   "mark_leaf": "plugin-showcase-mark.txt",
   "required_marks": [
@@ -29,7 +31,7 @@
     "rounds": 4,
     "timeout_sec": 180,
     "build_target": "src/app/views:views",
-    "exe": "SmartGisViews.exe"
+    "exe": "SmartGIS.exe"
   },
   "visual_review": {
     "enabled": true,

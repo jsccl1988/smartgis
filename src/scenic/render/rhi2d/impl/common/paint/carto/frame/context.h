@@ -5,8 +5,8 @@
 #define SCENIC_GDI_CONTEXT_H_
 
 #include "gis/map/map.h"
-#include "scenic/detail/viewport.h"
-#include "scenic/detail/err.h"
+#include "scenic/render/rhi2d/public/device/viewport.h"
+#include "scenic/render/err.h"
 
 using namespace base;
 

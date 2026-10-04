@@ -1,10 +1,12 @@
 // Copyright (c) 2010 CCL. All rights reserved.
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
 #ifndef _RD3D_3DRENDERDEVICE_H
 #define _RD3D_3DRENDERDEVICE_H
 
 #include <vector>
 
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/device_caps.h"
 #include "scenic/render/rhi3d/public/device/base.h"
 #include "scenic/render/rhi3d/public/resource/index_buffer.h"
@@ -20,6 +22,10 @@ namespace scenic {
 namespace detail {
 class RenderDevice3d {
  public:
+  // Public virtual ABI for scenic_render_gl / scenic_render_d3d plugins.
+  // Override names stay PascalCase (Init/Release/DrawPrimitives/…).
+  // LoadLibrary exports remain Create3DRenderDevice / CreateD3DRenderDevice /
+  // Release3DRenderDevice.
   RenderDevice3d(void)
       : m_hDLL(nullptr),
         m_rBaseApi(RA_OPENGL),
@@ -244,7 +250,7 @@ class RenderDevice3d {
 
  public:
   // fast draw
-  virtual long DrawCube3D(Vector3 vCenter, float fWidth, Color smtClr) = 0;
+  virtual long DrawCube3D(Vector3 vCenter, float fWidth, Color color) = 0;
 
  protected:
   HINSTANCE m_hDLL;
@@ -262,6 +268,7 @@ class RenderDevice3d {
   bool m_bBlending;
 };
 
+// Leftover pointer alias kept for Object3d / Texture / Camera signatures.
 typedef class RenderDevice3d *LP3DRENDERDEVICE;
 
 extern "C" {
@@ -279,7 +286,7 @@ typedef HRESULT (*_Release3DRenderDevice)(RenderDevice3d *&pInterface);
 // Resource headers are included above, before this class exists, so their
 // out-of-line bodies cannot call into RenderDevice3d yet. Re-include them
 // now that the type is complete; each header emits those inline bodies once.
-#define SMT_3DRENDERDEVICE_COMPLETE 1
+#define SCENIC_3DRENDERDEVICE_COMPLETE 1
 #include "scenic/render/rhi3d/public/resource/video_buffer.h"
 #include "scenic/render/rhi3d/public/shader/program.h"
 #include "scenic/render/rhi3d/public/shader/shader.h"

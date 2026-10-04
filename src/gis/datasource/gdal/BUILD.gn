@@ -38,17 +38,13 @@ group("sde_gdal") {
 test("sde_gdal_test") {
   output_name = "sde_gdal_test"
   sources = [ "sde_gdal_test.cc" ]
-  include_dirs += [
-    "//src",
-    "//src/legacy/gis/datasource",
-  ]
+  include_dirs += [ "//src" ]
   deps = [
     ":sde_gdal",
     "//src/gis/datasource/ogr:ogr_codec_client",
     "//src/gis/geo:geo",
     "//src/base:base",
     "//src/base:core",
-    "//src/legacy/gis/datasource:sde_mgr",
     "//src/gis/map:gis",
     "//third_party:gdal",
   ]

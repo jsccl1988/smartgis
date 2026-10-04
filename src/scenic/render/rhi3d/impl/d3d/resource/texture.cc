@@ -29,7 +29,7 @@ Texture* D3dRenderDevice::CreateTexture(const char* szName) {
   const uint handle = alloc_texture_handle();
   gpu_textures_[handle] = D3dGpuTexture{};
   Texture* pTex = new Texture(this, handle, szName);
-  if (SMT_ERR_NONE == m_textureMgr.AddTexture(pTex)) {
+  if (kErrNone == m_textureMgr.AddTexture(pTex)) {
     return pTex;
   }
   gpu_textures_.erase(handle);
@@ -40,7 +40,7 @@ Texture* D3dRenderDevice::CreateTexture(const char* szName) {
 long D3dRenderDevice::DestroyTexture(const char* szName) {
   Texture* pTexture = m_textureMgr.GetTexture(szName);
   if (!pTexture) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   const uint handle = pTexture->GetHandle();
   if (bound_texture_ == pTexture) {
@@ -52,7 +52,7 @@ long D3dRenderDevice::DestroyTexture(const char* szName) {
     gpu_textures_.erase(it);
   }
   m_textureMgr.DestroyTexture(pTexture->GetTextureName());
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 Texture* D3dRenderDevice::GetTexture(const char* szName) {
@@ -61,12 +61,12 @@ Texture* D3dRenderDevice::GetTexture(const char* szName) {
 
 long D3dRenderDevice::GenerateMipmap(Texture* /*pTexture*/) {
   // v1: single-level textures only; succeed as no-op so callers proceed.
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::BindTexture(Texture* pTexture) {
   if (!pTexture) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   bound_texture_ = pTexture;
   if (context_) {
@@ -77,27 +77,27 @@ long D3dRenderDevice::BindTexture(Texture* pTexture) {
       context_->PSSetSamplers(0, 1, &samp);
     }
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::BuildTexture(Texture* pTexture) {
   if (!pTexture || !device_) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   void* pDataBuf = pTexture->GetData();
   if (!pDataBuf) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   const TextureDesc texDesc = pTexture->GetDesc();
   const DXGI_FORMAT dxgi = dxgi_from_texture_format(texDesc.format);
   if (dxgi == DXGI_FORMAT_UNKNOWN || texDesc.width <= 0 ||
       texDesc.height <= 0) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   const int comps = pTexture->GetComponents(texDesc.format);
   if (comps != 3 && comps != 4) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   const UINT w = static_cast<UINT>(texDesc.width);
@@ -118,7 +118,7 @@ long D3dRenderDevice::BuildTexture(Texture* pTexture) {
 
   auto it = gpu_textures_.find(pTexture->GetHandle());
   if (it == gpu_textures_.end()) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   release_gpu_texture(it->second);
 
@@ -138,12 +138,12 @@ long D3dRenderDevice::BuildTexture(Texture* pTexture) {
 
   if (FAILED(device_->CreateTexture2D(&desc, &init, &it->second.tex)) ||
       !it->second.tex) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   if (FAILED(device_->CreateShaderResourceView(it->second.tex, nullptr,
                                                &it->second.srv))) {
     release_gpu_texture(it->second);
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   it->second.format = dxgi;
   it->second.width = w;
@@ -156,7 +156,7 @@ long D3dRenderDevice::BuildTexture(Texture* pTexture) {
   env.envMode = MODULATE;
   pTexture->SetSampler(sampler);
   pTexture->SetEnvMode(env);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::BindRectTexture(Texture* pTexture) {
@@ -169,7 +169,7 @@ long D3dRenderDevice::UnbindTexture() {
     ID3D11ShaderResourceView* null_srv = nullptr;
     context_->PSSetShaderResources(0, 1, &null_srv);
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long D3dRenderDevice::UnbindRectTexture(void) { return UnbindTexture(); }

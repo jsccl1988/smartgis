@@ -70,8 +70,8 @@ class EvalVisitor : public smtstat::StatExprBaseVisitor {
   std::any visitAssignment(smtstat::StatExprParser::AssignmentContext* ctx) override {
     auto rhs = take(visit(ctx->expr()));
     const std::string name = detail::field_name(ctx->FIELD()->getText());
-    if (values_->bind(name, rhs) != SMT_ERR_NONE) {
-      throw EvalError(SMT_ERR_FUNC_INNER);
+    if (values_->bind(name, rhs) != kOk) {
+      throw EvalError(kEvalFail);
     }
     return rhs;
   }
@@ -105,7 +105,7 @@ class EvalVisitor : public smtstat::StatExprBaseVisitor {
       fn = sub_d;
     }
     if (fn == nullptr || !detail::combine(left, right, fn)) {
-      throw EvalError(SMT_ERR_FUNC_INNER);
+      throw EvalError(kEvalFail);
     }
     return left;
   }
@@ -148,7 +148,7 @@ class EvalVisitor : public smtstat::StatExprBaseVisitor {
       const std::string name = detail::field_name(ctx->FIELD()->getText());
       auto span = values_->get(name);
       if (span.empty() && !values_->has(name)) {
-        throw EvalError(SMT_ERR_FUNC_INNER);
+        throw EvalError(kEvalFail);
       }
       return std::vector<double>(span.begin(), span.end());
     }
@@ -161,7 +161,7 @@ class EvalVisitor : public smtstat::StatExprBaseVisitor {
  private:
   static std::vector<double> take(std::any value) {
     if (!value.has_value()) {
-      throw EvalError(SMT_ERR_FUNC_INNER);
+      throw EvalError(kEvalFail);
     }
     return std::any_cast<std::vector<double>>(std::move(value));
   }
@@ -179,11 +179,11 @@ class EvalVisitor : public smtstat::StatExprBaseVisitor {
         return;
       }
       if (!detail::combine(v, *arg, logb_d)) {
-        throw EvalError(SMT_ERR_FUNC_INNER);
+        throw EvalError(kEvalFail);
       }
       return;
     }
-    throw EvalError(SMT_ERR_FUNC_INNER);
+    throw EvalError(kEvalFail);
   }
 
   std::vector<double> call_fn(const std::string& raw,
@@ -193,7 +193,7 @@ class EvalVisitor : public smtstat::StatExprBaseVisitor {
         name == "acos" || name == "atan" || name == "ln" || name == "log10" ||
         name == "abs" || name == "sqrt") {
       if (args.size() != 1) {
-        throw EvalError(SMT_ERR_INVALID_PARAM);
+        throw EvalError(kInvalidParam);
       }
       auto v = args[0];
       if (name == "sin") {
@@ -228,26 +228,26 @@ class EvalVisitor : public smtstat::StatExprBaseVisitor {
       if (args.size() == 2) {
         auto v = args[0];
         if (!detail::combine(v, args[1], logb_d)) {
-          throw EvalError(SMT_ERR_FUNC_INNER);
+          throw EvalError(kEvalFail);
         }
         return v;
       }
-      throw EvalError(SMT_ERR_INVALID_PARAM);
+      throw EvalError(kInvalidParam);
     }
     if (name == "pow") {
       if (args.size() != 2) {
-        throw EvalError(SMT_ERR_INVALID_PARAM);
+        throw EvalError(kInvalidParam);
       }
       auto v = args[0];
       if (!detail::combine(v, args[1], pow_d)) {
-        throw EvalError(SMT_ERR_FUNC_INNER);
+        throw EvalError(kEvalFail);
       }
       return v;
     }
     if (name == "max" || name == "min") {
       if (args.size() == 1) {
         if (args[0].empty()) {
-          throw EvalError(SMT_ERR_INVALID_PARAM);
+          throw EvalError(kInvalidParam);
         }
         const double s = name == "max" ? detail::reduce_max(args[0])
                                        : detail::reduce_min(args[0]);
@@ -256,15 +256,15 @@ class EvalVisitor : public smtstat::StatExprBaseVisitor {
       if (args.size() == 2) {
         auto v = args[0];
         if (!detail::combine(v, args[1], name == "max" ? max_d : min_d)) {
-          throw EvalError(SMT_ERR_FUNC_INNER);
+          throw EvalError(kEvalFail);
         }
         return v;
       }
-      throw EvalError(SMT_ERR_INVALID_PARAM);
+      throw EvalError(kInvalidParam);
     }
     if (name == "sum" || name == "avg") {
       if (args.size() != 1 || args[0].empty()) {
-        throw EvalError(SMT_ERR_INVALID_PARAM);
+        throw EvalError(kInvalidParam);
       }
       const double s = name == "sum" ? detail::reduce_sum(args[0])
                                      : detail::reduce_avg(args[0]);
@@ -273,7 +273,7 @@ class EvalVisitor : public smtstat::StatExprBaseVisitor {
     if (name == "stdsum" || name == "stdmax" || name == "stdmin" ||
         name == "stddev" || name == "stdmaxmin") {
       if (args.size() != 1 || args[0].empty()) {
-        throw EvalError(SMT_ERR_INVALID_PARAM);
+        throw EvalError(kInvalidParam);
       }
       auto v = args[0];
       if (name == "stdsum") {
@@ -299,7 +299,7 @@ class EvalVisitor : public smtstat::StatExprBaseVisitor {
       }
     }
     if (extra == nullptr || args.size() != 1) {
-      throw EvalError(SMT_ERR_FUNC_INNER);
+      throw EvalError(kEvalFail);
     }
     auto v = args[0];
     extra(v);
@@ -313,7 +313,7 @@ class EvalVisitor : public smtstat::StatExprBaseVisitor {
 
 long evaluate(std::string_view expression, ValueSet& values) {
   if (expression.empty()) {
-    return SMT_ERR_INVALID_PARAM;
+    return kInvalidParam;
   }
   try {
     antlr4::ANTLRInputStream input(expression);
@@ -327,27 +327,27 @@ long evaluate(std::string_view expression, ValueSet& values) {
     parser.addErrorListener(&errors);
     auto* tree = parser.program();
     if (errors.failed || parser.getNumberOfSyntaxErrors() > 0 || tree == nullptr) {
-      return SMT_ERR_INVALID_PARAM;
+      return kInvalidParam;
     }
     EvalVisitor visitor(&values);
     visitor.visit(tree);
-    return SMT_ERR_NONE;
+    return kOk;
   } catch (const EvalError& e) {
     return e.code;
   } catch (...) {
-    return SMT_ERR_FUNC_INNER;
+    return kEvalFail;
   }
 }
 
 long register_function(std::string_view name, UnaryFn fn) {
   if (name.empty() || fn == nullptr) {
-    return SMT_ERR_INVALID_PARAM;
+    return kInvalidParam;
   }
   std::string key(name);
   key = lower(std::move(key));
   std::lock_guard<std::mutex> lock(g_fn_mu);
   g_extra_fns[std::move(key)] = fn;
-  return SMT_ERR_NONE;
+  return kOk;
 }
 
 }  // namespace stat

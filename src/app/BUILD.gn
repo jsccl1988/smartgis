@@ -1,5 +1,4 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-# Product host: views/ → SmartGisViews.exe (//src/app/views:views).
-# MFC SmartGis.exe lives in //src/legacy/app:app.
+# Product host: views/ → SmartGIS.exe (//src/app/views:views).

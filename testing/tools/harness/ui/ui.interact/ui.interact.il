@@ -53,5 +53,7 @@ script "ui.interact" {
   mark("interact-combo-ok") @inproc;
   mark("interact-script-ok") @inproc;
   select_map_tab(0) @inproc;
-  pump(300);
+  tool("view.pan") @inproc;
+  pan_burst(map_client, count=8, x=240, y=280, dx=48, dy=28, pump_ms=40);
+  pump(280);
 }

@@ -8,14 +8,18 @@
 #include <vector>
 
 #include "base/math/math.h"
+#include "base/process/switches.h"
 #include "gis/geo/ops/geometry_traits.h"
-#include "scenic/detail/err.h"
+#include "ogr_geometry.h"
+#include "scenic/render/err.h"
 #include "scenic/render/rhi3d/public/state/states_manager.h"
 #include "scenic/render/rhi3d/public/texture/texture_manager.h"
 
 namespace scenic {
 namespace detail {
 
+using ::base::Vector4;
+using ::base::triangle_normal;
 using render::DemHeightField;
 
 namespace {
@@ -30,7 +34,7 @@ struct CachedPoint {
 };
 
 bool env_skip_terrain() {
-  const char* skip = std::getenv("SMT_RHI3D_SKIP_TERRAIN");
+  const char* skip = base::switch_cstr("rhi3d-skip-terrain");
   return skip && (skip[0] == '1' || skip[0] == 'y' || skip[0] == 'Y');
 }
 
@@ -41,6 +45,13 @@ Color make_rgb(float r, float g, float b) {
   c.fBlue = b;
   c.fA = 1.f;
   return c;
+}
+
+void destroy_tin(OGRTriangulatedSurface*& surf) {
+  if (surf) {
+    OGRGeometryFactory::destroyGeometry(surf);
+    surf = nullptr;
+  }
 }
 
 }  // namespace
@@ -59,38 +70,38 @@ long Terrain::Init(::base::Vector3& vPos, Material& matMaterial,
   color_ramp_[0] = make_rgb(1.f, 0.f, 0.f);
   color_ramp_[1] = make_rgb(0.f, 1.f, 0.f);
   color_ramp_[2] = make_rgb(0.f, 0.f, 1.f);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 void Terrain::set_height_field(const DemHeightField* field) {
   owned_field_.reset();
   field_ = field;
-  SMT_SAFE_DELETE(surface_);
+  destroy_tin(surface_);
 }
 
 void Terrain::adopt_height_field(DemHeightField* field) {
   owned_field_.reset(field);
   field_ = owned_field_.get();
-  SMT_SAFE_DELETE(surface_);
+  destroy_tin(surface_);
 }
 
 const DemHeightField* Terrain::height_field() const { return field_; }
 
-long Terrain::SetTerrainSurf(OGRTriangulatedSurface* surf) {
+long Terrain::set_terrain_surface(OGRTriangulatedSurface* surf) {
   if (!surf) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
-  return SetTerrainSurfDirectly(
+  return set_terrain_surface_directly(
       static_cast<OGRTriangulatedSurface*>(surf->clone()));
 }
 
-long Terrain::SetTerrainSurfDirectly(OGRTriangulatedSurface* surf) {
+long Terrain::set_terrain_surface_directly(OGRTriangulatedSurface* surf) {
   Destroy();
   owned_field_.reset();
   field_ = nullptr;
   surface_ = surf;
   if (!surface_) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   OGREnvelope3D env;
@@ -104,7 +115,7 @@ long Terrain::SetTerrainSurfDirectly(OGRTriangulatedSurface* surf) {
   center_ = m_aAbb.vcCenter;
   min_z_ = static_cast<float>(env.MinZ);
   max_z_ = static_cast<float>(env.MaxZ);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long Terrain::Create(LP3DRENDERDEVICE device) {
@@ -117,11 +128,11 @@ long Terrain::Create(LP3DRENDERDEVICE device) {
 long Terrain::create_from_height_field(LP3DRENDERDEVICE device) {
   release_gpu_buffers();
   if (!field_ || field_->empty()) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   // Null device: keep owned height field (tests / deferred GL upload).
   if (!device) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
 
   std::vector<float> xyz;
@@ -130,24 +141,23 @@ long Terrain::create_from_height_field(LP3DRENDERDEVICE device) {
   std::vector<float> nrm;
   if (!field_->build_mesh(kDemMeshStride, &xyz, &indices, &rgb, &nrm) ||
       xyz.empty() || indices.empty()) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
-  if (!upload_lit_mesh(device, xyz.data(), xyz.size() / 3, nrm.data(),
-                       rgb.data(), indices.data(), indices.size())) {
-    return SMT_ERR_FAILURE;
+  if (!upload_lit_mesh(device, xyz, nrm, rgb, indices)) {
+    return kErrFailure;
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long Terrain::create_from_surface(LP3DRENDERDEVICE device) {
   if (!device || !surface_) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
 
   const int ntris = surface_->getNumGeometries();
   if (ntris < 1) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   const int npoints = ntris * 3;
@@ -192,7 +202,7 @@ long Terrain::create_from_surface(LP3DRENDERDEVICE device) {
   normals.resize(static_cast<size_t>(live));
   const int n_vb = live;
   if (n_vb < 3) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   OGREnvelope3D env;
@@ -205,15 +215,15 @@ long Terrain::create_from_surface(LP3DRENDERDEVICE device) {
       (std::max)(1.e-6f, static_cast<float>(env.MaxY - env.MinY));
 
   release_gpu_buffers();
-  vb_ = device->CreateVertexBuffer(
-      n_vb, VF_XYZ | VF_TEXCOORD | VF_NORMAL | VF_DIFFUSE, false);
+  vb_.reset(device->CreateVertexBuffer(
+      n_vb, VF_XYZ | VF_TEXCOORD | VF_NORMAL | VF_DIFFUSE, false));
   if (!vb_) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
-  ib_ = device->CreateIndexBuffer(static_cast<int>(indices.size()));
+  ib_.reset(device->CreateIndexBuffer(static_cast<int>(indices.size())));
   if (!ib_) {
     release_gpu_buffers();
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
 
   vb_->Lock();
@@ -243,30 +253,30 @@ long Terrain::create_from_surface(LP3DRENDERDEVICE device) {
   }
   ib_->Unlock();
   index_count_ = static_cast<ulong>(indices.size());
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long Terrain::Update(LP3DRENDERDEVICE /*device*/, float /*elapsed*/) {
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long Terrain::Render(LP3DRENDERDEVICE device) {
   if (!device) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   if (field_ && has_indexed_mesh()) {
     return render_height_field(device);
   }
   render_surface(device);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long Terrain::render_height_field(LP3DRENDERDEVICE device) {
   if (!has_indexed_mesh()) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   if (env_skip_terrain()) {
-    return SMT_ERR_NONE;
+    return kErrNone;
   }
   device->SetBackfaceCulling(RSV_CULL_NONE);
   device->SetShadeMode(RSV_SHADE_SOLID, 0, Color(1.f, 1.f, 1.f, 1.f));
@@ -283,7 +293,7 @@ long Terrain::render_height_field(LP3DRENDERDEVICE device) {
     states->EnableDepthOffset(PM_FILL, false);
     states->DepthOffsetParams(0.f, 0.f);
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 void Terrain::render_surface(LP3DRENDERDEVICE device) {
@@ -302,9 +312,9 @@ void Terrain::render_surface(LP3DRENDERDEVICE device) {
 
 long Terrain::Destroy() {
   release_gpu_buffers();
-  SMT_SAFE_DELETE(surface_);
+  destroy_tin(surface_);
   // Retain owned_field_ / field_ so Create can rebuild DEM after Destroy.
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 void Terrain::sample_color(float height, Color* out) const {

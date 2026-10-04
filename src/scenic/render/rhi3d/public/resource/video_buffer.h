@@ -2,7 +2,7 @@
 #ifndef _RD3D_VIDEOBUFFER_H
 #define _RD3D_VIDEOBUFFER_H
 
-#include "scenic/scenic_impl_export.h"
+#include "scenic/render/scenic_impl_export.h"
 #include "scenic/render/rhi3d/public/device/render_defs.h"
 
 namespace scenic {
@@ -30,7 +30,7 @@ enum ArrayType {
 class RenderDevice3d;
 typedef class RenderDevice3d *LP3DRENDERDEVICE;
 
-class LEGACY_RENDER_EXPORT VideoBuffer {
+class SCENIC_IMPL_EXPORT VideoBuffer {
  public:
   VideoBuffer(LP3DRENDERDEVICE p3DRenderDevice, uint handle, ArrayType type);
   virtual ~VideoBuffer();
@@ -58,7 +58,7 @@ class LEGACY_RENDER_EXPORT VideoBuffer {
 }  // namespace detail
 }  // namespace scenic
 
-#if !defined(LEGACY_RENDER_EXPORTS)
+#if !defined(SCENIC_IMPL_EXPORTS)
 #if defined(_DEBUG)
 #pragma comment(lib, "scenic_impl_d.lib")
 #else
@@ -71,7 +71,7 @@ class LEGACY_RENDER_EXPORT VideoBuffer {
 // Bodies call RenderDevice3d. This header is included before that type is
 // complete, so the bodies are emitted only from the re-include at the bottom
 // of render_device.h.
-#if defined(SMT_3DRENDERDEVICE_COMPLETE) && !defined(_RD3D_VIDEOBUFFER_METHODS)
+#if defined(SCENIC_3DRENDERDEVICE_COMPLETE) && !defined(_RD3D_VIDEOBUFFER_METHODS)
 #define _RD3D_VIDEOBUFFER_METHODS
 
 namespace scenic {
@@ -90,7 +90,7 @@ inline long VideoBuffer::Use() {
     m_p3DRenderDevice->BindBuffer(this);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline long VideoBuffer::Unuse() {
@@ -100,7 +100,7 @@ inline long VideoBuffer::Unuse() {
     m_p3DRenderDevice->UnbindBuffer();
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline void *VideoBuffer::Map(AccessMode access) {
@@ -117,7 +117,7 @@ inline long VideoBuffer::Unmap() {
   } else {
     m_p3DRenderDevice->UnmapBuffer(this);
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 inline long VideoBuffer::Update(void *data, unsigned int size,
@@ -127,7 +127,7 @@ inline long VideoBuffer::Update(void *data, unsigned int size,
   } else {
     m_p3DRenderDevice->UpdateBuffer(this, data, size, method);
   }
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 }  // namespace detail

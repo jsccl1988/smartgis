@@ -15,6 +15,7 @@
 
 #include <cstdlib>
 #include <windows.h>
+#include "base/process/switches.h"
 
 namespace app {
 namespace {
@@ -31,11 +32,11 @@ int run_ui_showcase(Browser& browser, UiShowcaseMode mode) {
   }
   // Yellow identity HUD is opt-in; clear a stale process env so catalog/shell
   // BMPs are not polluted (visual_review bug 6).
-  _putenv_s("SMT_MAP_IDENTITY_HUD", "0");
+  base::set_switch("map-identity-hud", "0");
   // Scene DXGI present (WS_EX_NOREDIRECTIONBITMAP) makes PrintWindow of the
   // frame return a flat fill — prefer GDI placeholder for chrome BMPs.
   if (mode == UiShowcaseMode::kScene) {
-    _putenv_s("SMT_PREFER_GDI_DEVICE", "1");
+    base::set_switch("prefer-gdi-device", "1");
   }
 
   // Always stop present timers + detach before return (ExitProcess heap race).

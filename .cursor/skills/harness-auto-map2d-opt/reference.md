@@ -12,42 +12,50 @@ Progressive disclosure for the skill. Read when parsing logs, diagnosing a red c
 ```
 同等渲染物料 (china 1280x720, same extent/sample/style)
         │
-        ├─ leftover rhi2d (gdi_map_paint_test)
+        ├─ Scenic rhi2d (scenic_gdi_map_paint_test)
         │     parallel ∈ {serial, tile, layer}
-        │           × port ∈ {gdi, gdiplus, skia}   ← 图像驱动
+        │           × port ∈ {gdi, gdiplus, skia}   ← 图像驱动（同一 Scenic 引擎）
+        │     DLL: scenic_rhi2d_{gdi,gdiplus,skia}[_d].dll
         │     metric: execute_ms (IR replay)
         │
-        └─ vista (SmartGisViews --map2d-showcase=china)
-              software export_bmp + FlyCube present_gpu
-              metrics: export_ms, paint_ms, present_gpu_{cold,warm}_ms, phase_*
+        ├─ vista (SmartGIS.exe --map2d-showcase=china)
+        │     software export_bmp + FlyCube present_gpu
+        │     metrics: export_ms, paint_ms, present_gpu_{cold,warm}_ms, phase_*
+        │
+        └─ Scenic Map2dEngine (SMT_MAP2D_ENGINE=scenic)
+              content-hosted scenic::Engine GDI of the same china MapScene
+              not a GDI+/Skia port peer
 ```
+
+`src/legacy/` is frozen. This matrix’s equal-compare axis is Scenic rhi2d + Vista only.
 
 ## Fairness (normative) — FALSE-GAP
 
 | Claim | OK? |
 | --- | --- |
-| Compare leftover cells across parallel × port on `execute_ms_max` | Yes |
+| Compare Scenic rhi2d cells across parallel × port on `execute_ms_max` | Yes |
 | Compare Vista phases across runs (before/after opt) | Yes |
-| Equal-latitude: matrix `SMT_MAP2D_NO_HILLSHADE=1` (no DEM) vs leftover IR | Yes |
-| Treat leftover `execute_ms` as equal work to `export_ms` / paint / present | **No** (FALSE-GAP) |
+| Equal-latitude: matrix `SMT_MAP2D_NO_HILLSHADE=1` (no DEM) vs Scenic IR | Yes |
+| Treat Scenic `execute_ms` as equal work to `export_ms` / paint / present | **No** (FALSE-GAP) |
 | Claim “Vista is N× slower” from IR vs export | **No** |
-| Delete product hillshade permanently to match leftover IR budgets | **No** |
+| Rank GDI+ / Skia against a frozen `src/legacy` port | **No** |
+| Delete product hillshade permanently to match IR budgets | **No** |
 
 Sample `matrix_note` / `parallel_port_matrix_NOTE.txt` string:
 
 ```
-FALSE-GAP: leftover execute_ms = IR replay only; NOT comparable to Vista paint_ms/export_ms/present_gpu_*; never claim execute_ms == export_ms; equal-latitude: SMT_MAP2D_NO_HILLSHADE=1 (Vista skips DEM shade; same carto axis as leftover IR which has no hillshade)
+FALSE-GAP: scenic rhi2d execute_ms = IR replay only; NOT comparable to Vista paint_ms/export_ms/present_gpu_*; never claim execute_ms == export_ms; equal-latitude: SMT_MAP2D_NO_HILLSHADE=1 (Vista skips DEM shade; same carto axis as scenic rhi2d IR which has no hillshade)
 ```
 
-Leftover path paints from an IR command buffer (no DEM hillshade / MapFrame layout in `execute_ms`). Matrix equal-latitude turns off Vista DEM shade via env; Vista still pays MapFrame layout + software paint + optional GPU upload/present. Runner prints leftover grid (table A) + Vista phase table (table B) on every run.
+Scenic rhi2d paints from an IR command buffer (no DEM hillshade / MapFrame layout in `execute_ms`). Matrix equal-latitude turns off Vista DEM shade via env; Vista still pays MapFrame layout + software paint + optional GPU upload/present. Runner prints Scenic port grid (table A) + Vista phase table (table B) + Map2dEngine (table C) on every run.
 
 ## Optimize order P0–P3
 
 | Phase | Do first | Do not |
 | --- | --- | --- |
-| **P0** | Cold `upload_draws` merge | Chase leftover IR |
+| **P0** | Cold `upload_draws` merge | Chase Scenic IR as Vista paint |
 | **P1** | Layout / frame-cache incremental | Strip MapFrame |
-| **P2** | Software GDI batch | Permanent NO_HILLSHADE product default |
+| **P2** | Software GDI batch (Scenic GDI + map2d software) | Permanent NO_HILLSHADE product default |
 | **P3** | `SMT_VISTA_LAYOUT_PARALLEL` + false-gap labels in harness | Treat FALSE-GAP as a bug |
 
 Harness sets `SMT_VISTA_LAYOUT_PARALLEL=1` on the vista cell (`=0` opt-out). Product emitters must `getenv` that flag (parallel plan V1 / equal-profile P3a) — until then tess still keys off job count only.
@@ -72,32 +80,34 @@ Parsed from showcase logs by `run_parallel_port_matrix.py`:
 
 ```
 out/Debug/captures/map2d/matrix/
-  leftover-serial_gdi.bmp (+ .inspect.png)
-  leftover-serial_gdiplus.bmp
-  leftover-serial_skia.bmp
-  leftover-tile_gdi.bmp
+  scenic-serial_gdi.bmp (+ .inspect.png)
+  scenic-serial_gdiplus.bmp
+  scenic-serial_skia.bmp
+  scenic-tile_gdi.bmp
   …
-  leftover-layer_skia.bmp
-  leftover_{parallel}_{port}.log
+  scenic-layer_skia.bmp
+  scenic_{parallel}_{port}.log
   vista-china.bmp (+ .inspect.png)
   vista_china.log
+  scenic-china.bmp (+ .inspect.png)   # Map2dEngine cell
+  scenic_china.log
   parallel_port_matrix_with_vista.csv
   parallel_port_matrix_with_vista.json   # {matrix_note, false_gap_note, equal_latitude_note, rows:[]}
   parallel_port_matrix_NOTE.txt          # FALSE-GAP + equal-latitude one-liner
-  leftover_parallel_port_matrix.csv
-  leftover_parallel_port_matrix.json
+  scenic_parallel_port_matrix.csv
+  scenic_parallel_port_matrix.json
 ```
 
-Showcase may also write `out/Debug/captures/map2d/map2d-showcase-china.bmp`; the runner copies a large enough candidate into `vista-china.bmp`.
+Showcase may also write `out/Debug/captures/map2d/map2d-showcase-china.bmp`; the runner copies a large enough candidate into `vista-china.bmp` / `scenic-china.bmp`.
 
 ## Example reply skeleton
 
 ```markdown
 ## Map2d equal-profile 矩阵
 
-配置：Debug · china · 1280×720 · 同等物料
+配置：Debug · china · 1280×720 · 同等物料 · Scenic 引擎 GDI/GDI+/Skia
 
-### Leftover 并行×端口（execute_ms_max）
+### Scenic rhi2d 并行×端口（execute_ms_max）
 
 | parallel | gdi | gdiplus | skia |
 | --- | ---: | ---: | ---: |
@@ -120,16 +130,16 @@ Showcase may also write `out/Debug/captures/map2d/map2d-showcase-china.bmp`; the
 ### 截图
 
 - `out/Debug/captures/map2d/matrix/vista-china.inspect.png`
-- `out/Debug/captures/map2d/matrix/leftover-serial_gdi.inspect.png`
+- `out/Debug/captures/map2d/matrix/scenic-serial_gdi.inspect.png`
 
-说明（FALSE-GAP）：leftover execute_ms 为 IR-only，不可与 Vista paint/export/present 直接等同；equal-latitude `SMT_MAP2D_NO_HILLSHADE=1`。
+说明（FALSE-GAP）：Scenic rhi2d execute_ms 为 IR-only，不可与 Vista paint/export/present 直接等同；equal-latitude `SMT_MAP2D_NO_HILLSHADE=1`。
 ```
 
 ## Diagnose red cell
 
-1. Open matching `leftover_*.log` or `vista_china.log`.
+1. Open matching `scenic_*.log` or `vista_china.log` / `scenic_china.log`.
 2. Confirm BMP exists and `bmp_bytes` > ~10KB.
-3. Leftover: check `SMT_RHI2D_PORT` DLL under `out/Debug` (LoadLibrary).
+3. Scenic ports: check `SMT_RHI2D_PORT` DLL under `out/Debug` (`scenic_rhi2d_gdi_d.dll` / `_gdiplus_d` / `_skia_d` in Debug).
 4. vista: check GPU adapter / `SMT_MAP2D_SHOWCASE_GPU`; cold crash → plan Task 2 (device reuse, no timed invalidate).
 5. Rebuild only the failing PE; re-run full matrix for a consistent table.
 
@@ -141,10 +151,11 @@ Showcase may also write `out/Debug/captures/map2d/map2d-showcase-china.bmp`; the
 | `present_gpu_cold_ms` / `gpu_upload_ms` | effect/map upload, device session | Task 2 / 5 |
 | `layout_ms` | Map2dFrameCache rebuild | Task 4 |
 | `hillshade_ms` | DEM shade cache / overview | Task 3 |
+| Scenic `execute_ms` (table A) | `src/scenic/render/rhi2d` port backend / parallel execute | compare ports only |
 
 ## Related suites (not the matrix)
 
 - `testing/tools/harness/map2d/map2d.china/` — loop_runner showcase + score
 - `testing/tools/harness/map2d/map2d.orthogrid/` — orthogrid variant
 
-Matrix is the A/B surface for **并行策略×图像驱动**; suite china is the product score / visual-review path.
+Matrix is the A/B surface for **Scenic 并行策略×图像驱动**; suite china is the product score / visual-review path.

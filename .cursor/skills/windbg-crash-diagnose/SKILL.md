@@ -58,7 +58,7 @@ crash / .dmp / AV / failing PE
    `pwsh -NoProfile -File .cursor/skills/windbg-crash-diagnose/scripts/analyze_dump.ps1 -DumpPath <path.dmp>`  
    (defaults: `-PdbDir out` `-OutDir out/crash`)
 3. **No dump:** catch under cdb, e.g.  
-   `pwsh -NoProfile -File .cursor/skills/windbg-crash-diagnose/scripts/run_and_catch.ps1 -ExePath out\SmartGisViews.exe -ExeArgs '--self-test'`  
+   `pwsh -NoProfile -File .cursor/skills/windbg-crash-diagnose/scripts/run_and_catch.ps1 -ExePath out\SmartGIS.exe -ExeArgs '--self-test'`  
    Timeout / cannot reproduce → **hard stop**.
 4. **Parse** `out/crash/*-analyze.log`: exception code, faulting module, `!analyze` conclusion, stack frames with source file:line when present.
 5. **CBM** → open only the cited frames; form a hypothesis; fix root cause.
@@ -104,7 +104,7 @@ Claim fixed **only** after a fresh analyze (or clean run) plus verification comm
 ```powershell
 pwsh -NoProfile -File .cursor/skills/windbg-crash-diagnose/scripts/find_cdb.ps1
 pwsh -NoProfile -File .cursor/skills/windbg-crash-diagnose/scripts/analyze_dump.ps1 -DumpPath out\crash\foo.dmp
-pwsh -NoProfile -File .cursor/skills/windbg-crash-diagnose/scripts/run_and_catch.ps1 -ExePath out\SmartGisViews.exe -ExeArgs '--self-test'
+pwsh -NoProfile -File .cursor/skills/windbg-crash-diagnose/scripts/run_and_catch.ps1 -ExePath out\SmartGIS.exe -ExeArgs '--self-test'
 .\build.bat e2e
 .\build.bat te
 ```

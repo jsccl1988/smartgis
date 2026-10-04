@@ -22,7 +22,7 @@
 #include "content/browser/document/query/inspector.h"
 #include "content/public/feature_attrs.h"
 #include "base/trace/event/process_trace.h"
-#include "gis/carto/style/style_document.h"
+#include "gis/style/document/style_document.h"
 
 namespace content {
 

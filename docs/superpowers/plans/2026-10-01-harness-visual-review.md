@@ -118,7 +118,7 @@ All rights reserved.
 ### Task 6: real `--review-prep` + bug tables
 
 - [x] `py -3 testing/tools/loop_runner.py --suite legacy.browse.2d --review-prep --force-run --no-build` (build `SmartGis` only if exe missing).
-- [x] Same for `map2d.china` (`SmartGisViews.exe`) — Wave2 used force-run; exit 0 + bmp_ok after score land_like gates.
+- [x] Same for `map2d.china` (`SmartGIS.exe`) — Wave2 used force-run; exit 0 + bmp_ok after score land_like gates.
 - [x] Agent `Read` each `*.inspect.png` → numbered bug table (severity; product vs gate gap).
 - [x] **Human confirm** (user: 修复所有) → fix.
 - [x] On confirmed visual miss: tighten `score_id` / `zoom_gate` in same change when practical; update review JSON status.

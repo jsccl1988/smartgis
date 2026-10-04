@@ -8,7 +8,7 @@
 #include "app/views/shell/browser/plugin/analysis_writer_common.h"
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "gis/carto/style/style_document.h"
+#include "gis/style/document/style_document.h"
 #include "plugin/product/world3d/commands.h"
 #include "plugin/product/world3d/grid/hexgrid/lattice/hex_lattice.h"
 #include "tool/draft/draft.h"

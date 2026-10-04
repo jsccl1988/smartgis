@@ -25,12 +25,19 @@ from .window import (
 )
 
 
+def _env_get(src: dict[str, str], *keys: str, default: str = "") -> str:
+    for k in keys:
+        if k in src and str(src[k]).strip() != "":
+            return str(src[k])
+    return default
+
+
 def record_mode_pref(env: dict[str, str] | None = None) -> str:
     """auto | bmp | ffmpeg — dual-mon default stays auto (title grab → bmp)."""
     import os
 
     src = env if env is not None else os.environ
-    v = str(src.get("SMT_HARNESS_RECORD_MODE", "auto")).strip().lower()
+    v = _env_get(src, "harness-record-mode", "SMT_HARNESS_RECORD_MODE", default="auto").strip().lower()
     if v in ("bmp", "bmp_burst", "burst"):
         return "bmp"
     if v in ("ffmpeg", "mp4", "video"):
@@ -42,7 +49,7 @@ def record_enabled(env: dict[str, str] | None = None) -> bool:
     import os
 
     src = env if env is not None else os.environ
-    v = str(src.get("SMT_HARNESS_RECORD", "")).strip().lower()
+    v = _env_get(src, "harness-record", "SMT_HARNESS_RECORD").strip().lower()
     return v in ("1", "true", "yes", "on")
 
 

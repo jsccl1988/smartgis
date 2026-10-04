@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "gis/carto/tile/xyz_math.h"
+#include "gis/tile/protocol/xyz_math.h"
 
 namespace content {
 namespace detail {

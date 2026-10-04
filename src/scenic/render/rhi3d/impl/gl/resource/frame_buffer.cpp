@@ -18,7 +18,7 @@ long GlRenderDevice::DestroyFrameBuffer(FrameBuffer *frameBuffer) {
     m_pFuncFBO->glDeleteFramebuffers(1, &handle);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::BindFrameBuffer(FrameBuffer *frameBuffer) {
@@ -27,12 +27,12 @@ long GlRenderDevice::BindFrameBuffer(FrameBuffer *frameBuffer) {
     m_pFuncFBO->glBindFramebuffer(GL_FRAMEBUFFER_EXT, handle);
   }
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::UnbindFrameBuffer() {
   m_pFuncFBO->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 RenderBuffer *GlRenderDevice::CreateRenderBuffer(TextureFormat format,
@@ -55,46 +55,46 @@ RenderBuffer *GlRenderDevice::CreateRenderBuffer(TextureFormat format,
 long GlRenderDevice::DestroyRenderBuffer(RenderBuffer *renderBuffer) {
   GLhandleARB handle = renderBuffer->GetHandle();
   m_pFuncFBO->glDeleteRenderbuffers(1, &handle);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::AttachRenderBuffer(FrameBuffer *frameBuffer,
                                            RenderBuffer *renderBuffer,
                                            RenderBufferSlot slot) {
   if (!frameBuffer || !renderBuffer) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   GLhandleARB frmHandle = frameBuffer->GetHandle();
   GLhandleARB rdhandle = renderBuffer->GetHandle();
 
   GLenum rbSlot = ConvertRenderBufferSlot(slot);
   if (rbSlot == static_cast<GLenum>(-1)) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   // Attach targets the bound draw FBO; bind the explicit handle first.
   m_pFuncFBO->glBindFramebuffer(GL_FRAMEBUFFER_EXT, frmHandle);
   m_pFuncFBO->glFramebufferRenderbuffer(GL_FRAMEBUFFER_EXT, rbSlot,
                                         GL_RENDERBUFFER_EXT, rdhandle);
 
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 long GlRenderDevice::AttachTexture(FrameBuffer *frameBuffer,
                                       Texture *texture2D,
                                       RenderBufferSlot slot) {
   if (!frameBuffer || !texture2D) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   GLenum rbSlot = ConvertRenderBufferSlot(slot);
   if (rbSlot == static_cast<GLenum>(-1)) {
-    return SMT_ERR_INVALID_PARAM;
+    return kErrInvalidParam;
   }
   GLhandleARB id = texture2D->GetHandle();
   GLhandleARB frmHandle = frameBuffer->GetHandle();
   m_pFuncFBO->glBindFramebuffer(GL_FRAMEBUFFER_EXT, frmHandle);
   m_pFuncFBO->glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, rbSlot, GL_TEXTURE_2D,
                                      id, 0);
-  return SMT_ERR_NONE;
+  return kErrNone;
 }
 
 FrameBufferStatus GlRenderDevice::CheckFrameBufferStatus() {

@@ -5,8 +5,8 @@
 // then asks GpuScene to emit meshes. The frame graph does not include
 // scene.h. Effect's vtable stays in frame_graph.cc inside render.dll.
 
-#ifndef EFFECT_SCENE_OPAQUE_EFFECT_H_
-#define EFFECT_SCENE_OPAQUE_EFFECT_H_
+#ifndef VISTA_SCENE_OPAQUE_EFFECT_H_
+#define VISTA_SCENE_OPAQUE_EFFECT_H_
 
 #include "render/graph/frame_graph.h"
 
@@ -33,4 +33,4 @@ class VISTA_EXPORT OpaqueEffect final : public render::graph::Effect {
 
 }  // namespace vista
 
-#endif  // EFFECT_SCENE_OPAQUE_EFFECT_H_
+#endif  // VISTA_SCENE_OPAQUE_EFFECT_H_

@@ -24,7 +24,7 @@ _SHOWCASE_MARKERS = (
     "--type=utility",
 )
 
-_IMAGES = ("SmartGis.exe", "SmartGisViews.exe")
+_IMAGES = ("SmartGIS.exe", "SmartGIS-Legacy.exe", "SmartGisViews.exe", "SmartGis.exe")
 
 
 def kill_showcase_apps(*, settle_sec: float = 1.5) -> int:
@@ -35,7 +35,7 @@ def kill_showcase_apps(*, settle_sec: float = 1.5) -> int:
     """
     ps = r"""
 $markers = @('--map2d-showcase','--atmosphere-showcase','--scene3d-showcase','--ui-showcase','--self-test','--input-showcase','--plugin-showcase','--browse-showcase','--type=gpu','--type=renderer','--type=utility')
-$names = @('SmartGis.exe','SmartGisViews.exe')
+$names = @('SmartGIS.exe','SmartGIS-Legacy.exe','SmartGisViews.exe','SmartGis.exe')
 $n = 0
 Get-CimInstance Win32_Process |
   Where-Object { $names -contains $_.Name -and $_.CommandLine } |

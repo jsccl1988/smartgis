@@ -7,6 +7,17 @@ import("//testing/test.gni")
 # Atmosphere GPU passes. Compiled into vista.dll.
 # Headers sit with their .cc under ocean/ cloud/ sky/ fog/ common/ frame/.
 # Shared raster/mesh/math is detail/.
+# cpu_waves is atmosphere_cpu_sources. Session fields are session_sources.
+# This GPU set must not depend on session_sources (that set pulls land_mask).
+source_set("atmosphere_cpu_sources") {
+  sources = [
+    "ocean/cpu_waves.cc",
+    "ocean/cpu_waves.h",
+  ]
+  include_dirs += [ "//src" ]
+  assert_no_deps = [ "//src/render:render" ]
+}
+
 source_set("atmosphere_sources") {
   sources = [
     "cloud/cloud_pass.cc",
@@ -30,8 +41,6 @@ source_set("atmosphere_sources") {
     "globe/sat_cloud_pass.cc",
     "globe/sat_cloud_pass.h",
     "ocean/constants.h",
-    "ocean/cpu_waves.cc",
-    "ocean/cpu_waves.h",
     "ocean/gpu_fields.cc",
     "ocean/gpu_fields.h",
     "ocean/hlsl.h",
@@ -44,7 +53,10 @@ source_set("atmosphere_sources") {
   ]
   include_dirs += [ "//src" ]
   defines = [ "VISTA_EXPORTS" ]
-  deps = [ "//src/render:render" ]
+  deps = [
+    ":atmosphere_cpu_sources",
+    "//src/render:render",
+  ]
 }
 
 # In-process Null RHI smoke (RENDER_EXPORTS) to avoid LNK1168 on render.dll.
@@ -70,7 +82,6 @@ test("ocean_pass_test") {
   output_name = "ocean_pass_test"
   sources = [
     "common/field_texture.cc",
-    "ocean/cpu_waves.cc",
     "ocean/gpu_fields.cc",
     "ocean/ocean_pass.cc",
     "ocean/ocean_pass_test.cc",
@@ -81,6 +92,7 @@ test("ocean_pass_test") {
     "VISTA_EXPORTS",
   ]
   deps = [
+    ":atmosphere_cpu_sources",
     "//src/base:base",
     "//src/render:rhi_sources",
   ]
@@ -130,7 +142,6 @@ test("atmosphere_frame_test") {
     "frame/atmosphere_frame_test.cc",
     "globe/globe_pass.cc",
     "globe/sat_cloud_pass.cc",
-    "ocean/cpu_waves.cc",
     "ocean/gpu_fields.cc",
     "ocean/ocean_pass.cc",
     "sky/sky_pass.cc",
@@ -141,6 +152,7 @@ test("atmosphere_frame_test") {
     "VISTA_EXPORTS",
   ]
   deps = [
+    ":atmosphere_cpu_sources",
     "//src/base:base",
     "//src/render:programs_sources",
     "//src/render:rhi_sources",
@@ -162,5 +174,140 @@ test("globe_pass_test") {
   deps = [
     "//src/base:base",
     "//src/render:rhi_sources",
+  ]
+}
+
+# CPU atmosphere session (FieldStore / ingest / systems). Not a dep of
+# atmosphere_sources: hosts project float* / AtmosphereParams themselves.
+source_set("session_sources") {
+  sources = [
+    "session/atmosphere_params.h",
+    "session/cloud_system.cc",
+    "session/cloud_system.h",
+    "session/environment.cc",
+    "session/environment.h",
+    "session/field_channel.h",
+    "session/field_ingest.cc",
+    "session/field_ingest.h",
+    "session/field_store.cc",
+    "session/field_store.h",
+    "session/ocean_system.cc",
+    "session/ocean_system.h",
+    "session/procedural.cc",
+    "session/procedural.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "VISTA_EXPORTS",
+  ]
+  assert_no_deps = [
+    "//src/render:render",
+  ]
+  public_deps = [
+    "//src/vista/domain:domain_sources",
+    "//src/vista/terrain:land_mask",
+    "//src/base:foundation",
+    "//third_party:gdal",
+  ]
+  deps = [
+    "//src/base:base",
+  ]
+}
+
+# In-process VISTA_EXPORTS copies: LNK1168 on vista_d.dll is residual P4 debt.
+test("field_store_test") {
+  output_name = "field_store_test"
+  sources = [
+    "session/field_store.cc",
+    "session/field_store_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [ "//src/base:base" ]
+}
+
+test("procedural_test") {
+  output_name = "procedural_test"
+  sources = [
+    "session/field_store.cc",
+    "session/procedural.cc",
+    "session/procedural_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [
+    "//src/base:base",
+    "//src/vista/terrain:land_mask",
+  ]
+}
+
+test("field_ingest_test") {
+  output_name = "field_ingest_test"
+  sources = [
+    "session/field_ingest.cc",
+    "session/field_store.cc",
+    "session/field_ingest_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:foundation",
+    "//third_party:gdal",
+  ]
+}
+
+test("cloud_system_test") {
+  output_name = "cloud_system_test"
+  sources = [
+    "session/cloud_system.cc",
+    "session/cloud_system_test.cc",
+    "session/field_store.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [ "//src/base:base" ]
+}
+
+test("ocean_system_test") {
+  output_name = "ocean_system_test"
+  sources = [
+    "session/field_store.cc",
+    "session/ocean_system.cc",
+    "session/ocean_system_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [ "//src/base:base" ]
+}
+
+# Environment seed + enable_demo (in-process VISTA_EXPORTS).
+test("environment_test") {
+  output_name = "environment_test"
+  sources = [
+    "session/cloud_system.cc",
+    "session/environment.cc",
+    "session/environment_test.cc",
+    "session/field_ingest.cc",
+    "session/field_store.cc",
+    "session/ocean_system.cc",
+    "session/procedural.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  deps = [
+    "//src/base:base",
+    "//src/vista/domain:domain_sources",
+    "//src/vista/terrain:land_mask",
+    "//third_party:gdal",
   ]
 }

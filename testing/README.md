@@ -59,16 +59,16 @@ Then add `"//<module>:<name>"` to root `//:test_all` (`BUILD.gn`).
 | Binary | What `--self-test` proves |
 | --- | --- |
 | `SmartGisRender.exe` | OOP GPU child + `FrameReady` + shared surface |
-| `SmartGisViews.exe` | Views window + map attach (frame if render exe present) |
+| `SmartGIS.exe` | Views window + map attach (frame if render exe present) |
 | `SmartGisWinui.exe` | WinUI window HWND |
-| `SmartGis.exe` | MFC main frame created (harness closes if a modal keeps the pump busy) |
+| `SmartGIS-Legacy.exe` | MFC main frame created (harness closes if a modal keeps the pump busy) |
 
 ```bat
 build.bat e2e
 build.bat te
 ```
 
-`e2e` sets the remaining `smt_build_*` flags, builds the chrome / GPU exes + `exe_smoke`, then runs `out\exe_smoke.exe --require-all` with cwd `out/`. `te` sets `smt_build_app` so leftover `SmartGis.exe` is rebuilt against the current GeoCore/GisCore ABI; other missing chrome exes are still skipped.
+`e2e` sets the remaining `smt_build_*` flags, builds the chrome / GPU exes + `exe_smoke`, then runs `out\exe_smoke.exe --require-all` with cwd `out/`. `te` sets `smt_build_app` so leftover `SmartGIS-Legacy.exe` is rebuilt against the current GeoCore/GisCore ABI; other missing chrome exes are still skipped.
 
 ## Run
 

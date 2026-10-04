@@ -9,10 +9,10 @@ namespace detail {
 
 int Rhi2dRenderDevice::RenderMap(const Map* pMap, int op) {
   if (!layer_tree_host_) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   if (layer_tree_host_->is_busy()) {
-    return SMT_ERR_FAILURE;
+    return kErrFailure;
   }
   const RenderContext ctx(
       m_Viewport, m_Windowport, static_cast<float>(m_fblc), pMap,
