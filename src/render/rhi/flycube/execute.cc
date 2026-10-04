@@ -184,6 +184,10 @@ bool FlycubeDevice::execute_recorded(FlycubeCommandList* recorded) {
         } else {
           pass.depth.load_op = RenderPassLoadOp::kLoad;
         }
+        // D32_FLOAT has no stencil plane — PRESERVE/LOAD on stencil trips
+        // RENDER_PASS_LOCAL_DEPTH_STENCIL_ERROR under the DX12 debug layer.
+        pass.stencil.load_op = RenderPassLoadOp::kDontCare;
+        pass.stencil.store_op = RenderPassStoreOp::kDontCare;
       }
 
       fc_list->BeginRenderPass(pass);
@@ -280,6 +284,8 @@ bool FlycubeDevice::execute_to_imported(FlycubeCommandList* recorded) {
         } else {
           pass.depth.load_op = RenderPassLoadOp::kLoad;
         }
+        pass.stencil.load_op = RenderPassLoadOp::kDontCare;
+        pass.stencil.store_op = RenderPassStoreOp::kDontCare;
       }
 
       fc_list->BeginRenderPass(pass);

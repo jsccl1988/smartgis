@@ -11,18 +11,18 @@ script "browse" {
     drag(map_client, 40, 40, 70, 55);
     mark("pan-ok");
 
-    // Kill present timers before pan/wheel bursts (AV race under concurrent
-    // WM_TIMER present + synthetic input). Do not pump the full UI queue
-    // here — re-entrant paint during stress is the failure mode.
-    stop_map_timers();
+    // Keep present timers alive through stress so HWND BitBlt / motion_gate
+    // sees carto change (ContentMapView + FORCE_GDI). AV race with WM_TIMER
+    // was on FlyCube; product browse face is GDI overlay now.
     mark("browse-pre-stress");
-    browse_stress(count=24);
+    // 32 large pans × ~45ms paint settle → enough unique HWND frames for
+    // motion_gate (min_unique_frames=8) under client_bitblt record.
+    browse_stress(count=32);
     mark("browse-ok");
 
     expect_wheel_cursor(40, 40);
     mark("wheel-cursor-ok");
 
-    // Do not stop_map_timers here — C++ showcase captures shell BMP while
-    // present is still live, then stops timers before TerminateProcess.
+    // C++ showcase stops timers after dsl-done (no post-IL pump).
   }
 }

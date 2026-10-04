@@ -11,7 +11,7 @@ Skia 是 Views 壳的 **canvas / paint** 后端，不是 GIS GPU，也不是 wid
 
 合成不在本目录。`Canvas` / `DisplayList` 只记录并栅格化壳层。`Widget::shell_raster()` 交出 BGRA8，`gpu::DrawRequest::shell`（`ui::gfx::ShellRaster`）在 `draw_and_swap` 里作为一张 `DrawQuad` 叠到地图 pass 上。本模块不 `#include` `gpu/compositor/`。
 
-最小公开 API 与阶段边界：[`docs/superpowers/specs/2026-09-14-render-skia-canvas-design.md`](../../../docs/superpowers/specs/2026-09-14-render-skia-canvas-design.md)。实现计划：[`docs/superpowers/plans/2026-09-14-render-skia-canvas.md`](../../../docs/superpowers/plans/2026-09-14-render-skia-canvas.md)。架构 as-built：[`docs/build/ui-views-skia.md`](../../../docs/build/ui-views-skia.md)。
+最小公开 API 与阶段边界：[`docs/superpowers/specs/2026-09-14-render-skia-canvas-design.md`](../../../docs/superpowers/specs/2026-09-14-render-skia-canvas-design.md)。实现计划：[`docs/superpowers/plans/2026-09-14-render-skia-canvas.md`](../../../docs/superpowers/plans/2026-09-14-render-skia-canvas.md)。架构 as-built：[`docs/superpowers/ui-views-skia.md`](../../../docs/superpowers/ui-views-skia.md)。
 
 ## 目录（职责分区）
 

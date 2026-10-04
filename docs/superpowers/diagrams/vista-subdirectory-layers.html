@@ -1,0 +1,231 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vista.dll — 深度抽象分层与子目录</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --gis: #2563a8; --cpu: #2f7d62; --gpu: #b06a1a; --rhi: #6b5ea8;
+    --pres: #8b3a3a; --left: #5a6a7e;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .rel { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .rel a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .lanes {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  }
+  @media (max-width: 960px) { .lanes { grid-template-columns: 1fr 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    background: var(--panel2); min-height: 196px;
+  }
+  .lane h3 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; }
+  .lane ul { margin: 0; padding-left: 1.05em; font-size: 0.78rem; color: var(--muted); }
+  .lane.gis { border-top: 3px solid var(--gis); }
+  .lane.cpu { border-top: 3px solid var(--cpu); }
+  .lane.gpu { border-top: 3px solid var(--gpu); }
+  .lane.rhi { border-top: 3px solid var(--rhi); }
+  .diagram { width: 100%; height: auto; display: block; }
+  .lane-label { font-weight: 700; font-size: 11px; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .note { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+  .map th { background: #e8edf3; color: var(--muted); }
+  .pulse { stroke-dasharray: 7 5; animation: dash 0.9s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>vista.dll — 深度抽象分层与子目录</h1>
+    <p>视口景象层：CPU 布局 / World 与 GPU pass 同 PE，gis ↛ vista ↛ leftover。上一代对照轨 <strong>Scenic</strong>（<code>src/scenic</code> / <code>scenic.dll</code>，宿主 content；leftover render 冻结）。Include 一律 <code>vista/&lt;module&gt;/…</code>。</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Vista subdirectory tighten</a>
+      · <a href="../specs/2026-09-13-render-rhi-scene-design.md">§Scenic</a>
+      · As-built：<a href="../src-layout.md">src-layout</a>
+      · 模块：<a href="../../../src/vista/README.md">src/vista/README.md</a>
+    </div>
+    <div class="rel">相关图：
+      <a href="./gis-vista-architecture.html">GIS MapFrame</a>
+      <a href="./map2d-present-frame.html">Map2d present</a>
+      <a href="./render-accelerate-topology.html">A×B 并行</a>
+      <a href="./legacy-render-architecture.html">Scenic leftover render</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 核心分层（谁拥有什么）</h2>
+    <div class="lanes">
+      <div class="lane gis">
+        <h3>gis.dll</h3>
+        <ul>
+          <li>拥有：model / carto / geo / analysis</li>
+          <li>不拥有：MapFrame、World、RHI pass</li>
+          <li>硬墙：↛ <code>vista.dll</code>、↛ <code>render/rhi</code></li>
+        </ul>
+      </div>
+      <div class="lane cpu">
+        <h3>vista CPU（同 DLL）</h3>
+        <ul>
+          <li><code>frame/</code> — Layout → MapFrame</li>
+          <li><code>world/</code> — 逻辑节点 / DEM / tess / 点云</li>
+          <li><code>assets/</code> — ModelAsset / Tileset</li>
+          <li><code>domain/</code> — DomainSession + CPU atmosphere</li>
+          <li>不拥有：CommandList、HWND、Views</li>
+        </ul>
+      </div>
+      <div class="lane gpu">
+        <h3>vista GPU（同 DLL）</h3>
+        <ul>
+          <li><code>map/</code> — <code>vista::Pass</code> 消费 DrawItem</li>
+          <li><code>scene/</code> — GpuScene sync_from World</li>
+          <li><code>atmosphere/</code> — AtmosphereFrame + passes</li>
+          <li>不拥有：StyleDocument、OGR 打开、chrome</li>
+        </ul>
+      </div>
+      <div class="lane rhi">
+        <h3>render / content / leftover</h3>
+        <ul>
+          <li><code>render</code>：rhi + graph 编排；↛ map/scene 头</li>
+          <li><code>content</code> present：双出口消费 MapFrame / GpuScene</li>
+          <li><code>legacy/gis/vista</code>：DEM 适配，编进 vista.dll（不是 Scenic）</li>
+          <li><strong>Scenic</strong>：<code>src/scenic</code> / <code>scenic.dll</code>；leftover <code>src/legacy/render</code> 冻结；不进 vista.dll</li>
+          <li>产品 TU 禁止 <code>#include "legacy/…"</code></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流（LayerBatch → present；World → GpuScene）</h2>
+    <svg class="diagram" viewBox="0 0 1040 420" role="img" aria-label="vista 原理流">
+      <defs>
+        <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect x="0" y="0" width="1040" height="420" rx="10" fill="#fafbfc" stroke="#d8dee6"/>
+
+      <text class="lane-label" x="16" y="22" fill="#2563a8">gis.dll — 输入</text>
+      <rect x="16" y="32" width="240" height="70" rx="7" fill="#e8f1fa" stroke="#2563a8"/>
+      <text class="box-title" x="28" y="54">StyleDocument / TileProvider</text>
+      <text class="box-sub" x="28" y="74">OGR 要素 · gis::style</text>
+
+      <rect x="16" y="114" width="240" height="70" rx="7" fill="#e8f1fa" stroke="#2563a8"/>
+      <text class="box-title" x="28" y="136">content MapScene → POD</text>
+      <text class="box-sub" x="28" y="156">LayerBatch 边界拷贝</text>
+
+      <text class="lane-label" x="280" y="22" fill="#2f7d62">vista CPU</text>
+      <rect x="280" y="32" width="250" height="70" rx="7" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="292" y="54">vista::Layout::build</text>
+      <text class="box-sub" x="292" y="74">frame/ · 无 RHI</text>
+
+      <rect x="280" y="114" width="250" height="70" rx="7" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="292" y="136">MapFrame + DrawItem</text>
+      <text class="box-sub" x="292" y="156">制图一次，双出口</text>
+
+      <rect x="280" y="196" width="250" height="70" rx="7" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="292" y="218">vista::World / DomainSession</text>
+      <text class="box-sub" x="292" y="238">world/ · domain/ · assets/</text>
+
+      <text class="lane-label" x="556" y="22" fill="#b06a1a">vista GPU</text>
+      <rect x="556" y="32" width="230" height="70" rx="7" fill="#f8eedf" stroke="#b06a1a"/>
+      <text class="box-title" x="568" y="54">vista::Pass</text>
+      <text class="box-sub" x="568" y="74">map/ 消费 DrawItem</text>
+
+      <rect x="556" y="114" width="230" height="70" rx="7" fill="#f8eedf" stroke="#b06a1a"/>
+      <text class="box-title" x="568" y="136">GpuScene::sync_from</text>
+      <text class="box-sub" x="568" y="156">scene/ · prep 不碰 Device</text>
+
+      <rect x="556" y="196" width="230" height="70" rx="7" fill="#f8eedf" stroke="#b06a1a"/>
+      <text class="box-title" x="568" y="218">AtmosphereFrame</text>
+      <text class="box-sub" x="568" y="238">sky→opaque→ocean→cloud</text>
+
+      <text class="lane-label" x="810" y="22" fill="#8b3a3a">content / render</text>
+      <rect x="810" y="32" width="214" height="70" rx="7" fill="#f6e8e8" stroke="#8b3a3a"/>
+      <text class="box-title" x="822" y="54">Map2dGpuPresent / GDI</text>
+      <text class="box-sub" x="822" y="74">present 不改制图</text>
+
+      <rect x="810" y="114" width="214" height="70" rx="7" fill="#eee8f6" stroke="#6b5ea8"/>
+      <text class="box-title" x="822" y="136">render::graph::present</text>
+      <text class="box-sub" x="822" y="156">1 CL · 不含 map 头</text>
+
+      <rect x="810" y="196" width="214" height="70" rx="7" fill="#f0f3f7" stroke="#5a6a7e"/>
+      <text class="box-title" x="822" y="218">legacy/gis/vista</text>
+      <text class="box-sub" x="822" y="238">适配 → vista.dll</text>
+
+      <path class="pulse" d="M256 67 H280" stroke="#8a96a8" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+      <path class="pulse" d="M530 67 H556" stroke="#8a96a8" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+      <path class="pulse" d="M786 67 H810" stroke="#8a96a8" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+      <path d="M256 149 H280" stroke="#8a96a8" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+      <path d="M530 149 H556" stroke="#8a96a8" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+      <path d="M786 149 H810" stroke="#8a96a8" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+      <path d="M405 184 V196" stroke="#8a96a8" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+      <path d="M530 231 H556" stroke="#8a96a8" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+      <text class="box-sub" x="16" y="300">依赖方向（锁死）</text>
+      <rect x="16" y="312" width="1008" height="88" rx="7" fill="#fff" stroke="#d8dee6"/>
+      <text class="box-title" x="28" y="340">leftover → product OK</text>
+      <text class="box-sub" x="28" y="362">gis ↛ vista · CPU source_set ↛ rhi · graph ↛ vista/map|scene|atmosphere 头 · 产品 ↛ leftover</text>
+      <text class="box-sub" x="28" y="382">禁止：Qt · 第二套 Geometry · 在 gis.dll 里编 MapFrame · 旧路径转发头 gis/vista 或 effect/</text>
+    </svg>
+    <p class="note">虚线箭头为 Map2d 主路径（Layout → Pass → present）。World → GpuScene 与 AtmosphereFrame 是 Scene3d 并行出口，不回流 gis.dll。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. 目标子目录（一目录一职责）</h2>
+    <table class="map">
+      <thead>
+        <tr><th>路径</th><th>职责</th><th>公开命名空间</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>src/vista/frame/</code></td><td>CPU MapFrame / Layout / hillshade bake 编排</td><td><code>vista</code> + <code>detail</code></td></tr>
+        <tr><td><code>src/vista/world/</code></td><td>逻辑 World、DEM、tessellate；点云缓冲在 <code>pointcloud/</code>（ingest 无 <code>io/</code>）</td><td><code>vista</code></td></tr>
+        <tr><td><code>src/vista/assets/</code></td><td>Assimp 模型 / 3D Tiles CPU</td><td><code>vista</code></td></tr>
+        <tr><td><code>src/vista/domain/</code></td><td>DomainSession；CPU atmosphere 场平铺（无 <code>field/</code> / <code>systems/</code>）</td><td><code>vista</code> / <code>vista::atmosphere</code></td></tr>
+        <tr><td><code>src/vista/map/</code></td><td>2D GPU Pass（消费 DrawItem）</td><td><code>vista</code></td></tr>
+        <tr><td><code>src/vista/scene/</code></td><td>GpuScene 上传 / cull / record</td><td><code>vista</code></td></tr>
+        <tr><td><code>src/vista/atmosphere/</code></td><td>GPU AtmosphereFrame + ocean/cloud/sky/fog/globe</td><td><code>vista</code></td></tr>
+        <tr><td><code>src/legacy/gis/vista/</code></td><td>leftover DEM 适配（编进本 DLL；不是 Scenic）</td><td>既有 leftover</td></tr>
+        <tr><td><code>src/scenic/</code></td><td><strong>Scenic</strong> 产品门面 + 工作副本（rhi2d/rhi3d/scene3d；<code>scenic.dll</code>；不进 vista.dll）</td><td><code>scenic</code></td></tr>
+        <tr><td><code>src/legacy/render/</code></td><td>冻结 dual-run leftover（直至切开完成）</td><td><code>render</code> / <code>Smt_*</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>

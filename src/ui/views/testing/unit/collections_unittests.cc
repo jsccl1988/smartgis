@@ -80,7 +80,8 @@ void test_table_and_attribute_selection() {
   expect(attrs.selected_row() == 0, "attribute row 0");
   expect(attr_row == 0, "attribute selected callback");
   attrs.clear();
-  expect(attrs.row_count() == 0, "attribute clear");
+  // clear() restores the idle empty-state placeholder row.
+  expect(attrs.row_count() == 1, "attribute clear empty-state");
   expect(attrs.selected_row() == -1, "attribute selection cleared");
 }
 

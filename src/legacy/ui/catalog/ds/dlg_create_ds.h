@@ -1,7 +1,7 @@
 #pragma once
 #include "legacy/ui/catalog/resource.h"
 #include "afxwin.h"
-#include "gis/model/layer/layer.h"
+#include "legacy/gis/layer/layer.h"
 
 using namespace gis;
 // CDlgCreateDS �Ի���
@@ -65,5 +65,5 @@ class CDlgCreateDS : public CDialog {
   CString m_strUserid;
   CString m_strUserpwd;
 
-  SmtDataSourceInfo m_dsInfo;
+  DataSourceInfo m_dsInfo;
 };

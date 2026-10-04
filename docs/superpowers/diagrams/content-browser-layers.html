@@ -1,0 +1,206 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>content/browser — 责任层与子目录</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --pub: #2563a8; --dll: #2f7d62; --sess: #b06a1a; --paint: #8b3a3a;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .rel { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .rel a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .lanes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  @media (max-width: 960px) { .lanes { grid-template-columns: 1fr 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    background: var(--panel2); min-height: 180px;
+  }
+  .lane h3 { margin: 0 0 6px; font-size: 0.8rem; font-weight: 700; }
+  .lane ul { margin: 0; padding-left: 1.05em; font-size: 0.78rem; color: var(--muted); }
+  .lane.pub { border-top: 3px solid var(--pub); }
+  .lane.dll { border-top: 3px solid var(--dll); }
+  .lane.sess { border-top: 3px solid var(--sess); }
+  .lane.paint { border-top: 3px solid var(--paint); }
+  .diagram { width: 100%; height: auto; display: block; }
+  .lane-label { font-weight: 700; font-size: 11px; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  .note { margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+  .map th, .map td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+  .map th { background: #e8edf3; color: var(--muted); }
+  .pulse { stroke-dasharray: 7 5; animation: dash 0.9s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>content/browser — 责任层与子目录</h1>
+    <p>Chromium-style content 层：嵌入方只含 <code>public/</code>。C10 已按职责拆目录；
+      <strong>C11 收紧</strong>薄同级（并入 <code>contents/</code> + <code>session/</code>，拍平 <code>document/</code>）。
+      <code>content.dll</code> 不含重 present/GDI；Views 另链 <code>:map_session</code>。</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Content sink</a>
+      · 收紧：<a href="../specs/2026-09-27-views-desktop-shell-design.md">§Content browser subdirectory tighten</a>
+      · As-built：<a href="../src-layout.md">src-layout</a>
+      · 模块：<a href="../../../src/content/browser/README.md">browser/README.md</a>
+    </div>
+    <div class="rel">相关图：
+      <a href="./ui-views-shell-architecture.html">Views shell</a>
+      <a href="./map2d-present-frame.html">Map2d present</a>
+      <a href="./debug-console-agent.html">DebugAgent</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 核心分层（谁拥有什么）</h2>
+    <div class="lanes">
+      <div class="lane pub">
+        <h3>public/（锁定嵌入面）</h3>
+        <ul>
+          <li>9 个头：MapContents / observer / types / EventBus / ViewHost / PluginHost / catalog / attrs / bootstrap</li>
+          <li>不拥有：present、GDI、MapSession</li>
+          <li>物理路径不随 browser 子目录移动</li>
+        </ul>
+      </div>
+      <div class="lane dll">
+        <h3>content.dll TUs</h3>
+        <ul>
+          <li>C11：全部进 <code>contents/</code>（MapContents + bootstrap/catalog/attrs/plugin 实现）</li>
+          <li>C10 过渡目录 <code>bootstrap/</code> <code>catalog/</code> <code>attrs/</code> <code>plugin/</code> 删除</li>
+          <li>例外：<code>present/scene3d/session/scene3d_rhi_session</code>（CONTENT_EXPORT）</li>
+        </ul>
+      </div>
+      <div class="lane sess">
+        <h3>:map_session（Views/exe）</h3>
+        <ul>
+          <li><code>session/</code> 拥有 document/camera/present + 手势 + MapContents*</li>
+          <li><code>document/</code> MapScene（C11：helpers 平铺，无 store/ingest/… 子目录）</li>
+          <li><code>camera/</code> 2D 视口 + 3D 轨道</li>
+          <li>C11：<code>input/</code> 并入 <code>session/</code></li>
+        </ul>
+      </div>
+      <div class="lane paint">
+        <h3>present / debug（不进 DLL）</h3>
+        <ul>
+          <li><code>present/map2d|scene3d/{frame,gpu,software}</code></li>
+          <li>GDI 只在 <code>*/software/</code>；render ↛ content</li>
+          <li><code>capability/</code> IL Host；<code>debug/</code> DebugAgent</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流（chrome → MapSession → present；OOP 管道旁路）</h2>
+    <svg class="diagram" viewBox="0 0 1040 360" role="img" aria-label="content browser 原理流">
+      <defs>
+        <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect x="0" y="0" width="1040" height="360" rx="10" fill="#fafbfc" stroke="#d8dee6"/>
+
+      <text class="lane-label" x="16" y="22" fill="#2563a8">app/views chrome</text>
+      <rect x="16" y="32" width="220" height="78" rx="7" fill="#e8f1fa" stroke="#2563a8"/>
+      <text class="box-title" x="28" y="54">Browser / BrowserView</text>
+      <text class="box-sub" x="28" y="74">#include session/map_session.h</text>
+
+      <text class="lane-label" x="268" y="22" fill="#b06a1a">:map_session</text>
+      <rect x="268" y="32" width="250" height="78" rx="7" fill="#f8eedf" stroke="#b06a1a"/>
+      <text class="box-title" x="280" y="54">session/MapSession</text>
+      <text class="box-sub" x="280" y="74">owns document + camera + present</text>
+
+      <rect x="268" y="128" width="120" height="70" rx="7" fill="#f8eedf" stroke="#b06a1a"/>
+      <text class="box-title" x="278" y="150">document/</text>
+      <text class="box-sub" x="278" y="170">MapScene</text>
+
+      <rect x="398" y="128" width="120" height="70" rx="7" fill="#f8eedf" stroke="#b06a1a"/>
+      <text class="box-title" x="408" y="150">camera/</text>
+      <text class="box-sub" x="408" y="170">View / Orbit</text>
+
+      <text class="lane-label" x="548" y="22" fill="#8b3a3a">present（源集）</text>
+      <rect x="548" y="32" width="230" height="78" rx="7" fill="#f6e8e8" stroke="#8b3a3a"/>
+      <text class="box-title" x="560" y="54">map2d / scene3d</text>
+      <text class="box-sub" x="560" y="74">gpu() / software() 双出口</text>
+
+      <rect x="548" y="128" width="230" height="70" rx="7" fill="#f6e8e8" stroke="#8b3a3a"/>
+      <text class="box-title" x="560" y="150">HWND present</text>
+      <text class="box-sub" x="560" y="170">不进 content.dll</text>
+
+      <text class="lane-label" x="806" y="22" fill="#2f7d62">content.dll</text>
+      <rect x="806" y="32" width="214" height="78" rx="7" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="818" y="54">contents/（C11 合并）</text>
+      <text class="box-sub" x="818" y="74">管道 + public 实现</text>
+
+      <rect x="806" y="128" width="214" height="70" rx="7" fill="#e5f3ec" stroke="#2f7d62"/>
+      <text class="box-title" x="818" y="150">--type=gpu 子进程</text>
+      <text class="box-sub" x="818" y="170">public/ 面不变</text>
+
+      <line class="pulse" x1="236" y1="71" x2="268" y2="71" stroke="#8a96a8" stroke-width="1.6" marker-end="url(#ah)"/>
+      <line class="pulse" x1="518" y1="71" x2="548" y2="71" stroke="#8a96a8" stroke-width="1.6" marker-end="url(#ah)"/>
+      <line class="pulse" x1="518" y1="71" x2="806" y2="71" stroke="#8a96a8" stroke-width="1.6" marker-end="url(#ah)"/>
+      <line x1="328" y1="110" x2="328" y2="128" stroke="#8a96a8" stroke-width="1.4" marker-end="url(#ah)"/>
+      <line x1="458" y1="110" x2="458" y2="128" stroke="#8a96a8" stroke-width="1.4" marker-end="url(#ah)"/>
+      <line x1="663" y1="110" x2="663" y2="128" stroke="#8a96a8" stroke-width="1.4" marker-end="url(#ah)"/>
+      <line x1="913" y1="110" x2="913" y2="128" stroke="#8a96a8" stroke-width="1.4" marker-end="url(#ah)"/>
+
+      <text class="box-sub" x="16" y="250">硬墙：present ↛ shell；render ↛ content；产品 ↛ leftover。C11：public 实现只在 contents/，手势在 session/。</text>
+      <text class="box-sub" x="16" y="272">动画：chrome 等 MapSession 组合；GPU 子进程永不并入 :map_present。</text>
+      <text class="box-sub" x="16" y="294">C5：MapSession 不折进 MapContentsImpl。C6：重 GDI/GPU 留在 present。C3：present 嵌套不拍平。</text>
+      <text class="box-sub" x="16" y="328">include：content/browser/session/map_session.h · content/public/map_contents.h</text>
+    </svg>
+    <p class="note">无转发头。旧路径 <code>content/browser/map_session.h</code> 等已删除。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. 子目录 → GN</h2>
+    <table class="map">
+      <thead>
+        <tr><th>目录</th><th>GN</th><th>进 content.dll？</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>contents/</code>（C11 含 bootstrap/catalog/attrs/plugin 文件）</td><td><code>:content</code></td><td>是</td></tr>
+        <tr><td><code>session/</code>（含 map_hwnd_gestures）</td><td><code>:map_session</code> ± <code>:map_hwnd_gestures</code></td><td>否</td></tr>
+        <tr><td><code>document/</code>（平铺）· <code>camera/</code></td><td><code>:map_scene</code> / <code>:map_camera</code></td><td>否</td></tr>
+        <tr><td><code>present/**</code>（除 rhi_session SoT）</td><td><code>:map_present</code> / <code>:scene3d_present</code></td><td>否</td></tr>
+        <tr><td><code>capability/ debug/</code></td><td><code>:capability</code> / <code>:debug_agent</code></td><td>否</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>

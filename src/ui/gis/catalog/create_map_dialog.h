@@ -12,7 +12,7 @@
 namespace ui {
 namespace views {
 
-// Modal create-map form: name only. No SmtMap*.
+// Modal create-map form: name only. No Map*.
 class UI_EXPORT CreateMapDialog {
  public:
   static bool run(HWND owner, std::string* name);

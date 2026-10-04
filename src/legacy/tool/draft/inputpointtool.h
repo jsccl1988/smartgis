@@ -16,7 +16,7 @@ class SmtInputPointTool : public SmtBaseTool {
   SmtInputPointTool();
   virtual ~SmtInputPointTool();
 
-  int Init(LPRENDERDEVICE pMrdRenderDevice, SmtMap *pOperSmtMap, HWND hWnd,
+  int Init(LPRENDERDEVICE pMrdRenderDevice, Map *pOperSmtMap, HWND hWnd,
            pfnToolCallBack pfnCallBack = NULL, void *pToFollow = NULL);
   int AuxDraw();
 

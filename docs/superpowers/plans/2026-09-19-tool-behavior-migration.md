@@ -24,7 +24,7 @@ All rights reserved.
 - 新函数 `snake_case`；注释英文；版权 2026。
 - Input* / view3d 行为搬迁 **本 plan Task 1–5 不覆盖**；Task 6 补齐 View3D + Input* 边界；Task 7 清尾 Input* 死路径（保留 factory ABI）。
 
-**Spec:** [`../specs/2026-09-19-tool-behavior-migration-design.md`](../specs/2026-09-19-tool-behavior-migration-design.md)
+**Spec:** [`../specs/2026-09-19-tool-behavior-migration-design.md`](../archive/specs/2026-09-19-tool-behavior-migration-design.md)
 
 ---
 
@@ -180,7 +180,7 @@ Expected: `content_view_host_test: ok`
 ### Task 5: Docs 收尾勾选 + 验证
 
 **Files:**
-- Modify: 本 plan 勾选；spec §14 实现项；必要时 `docs/build/src-layout.md` 一句
+- Modify: 本 plan 勾选；spec §14 实现项；必要时 `docs/superpowers/src-layout.md` 一句
 
 - [x] **Step 1: 跑齐闸门目标**
 

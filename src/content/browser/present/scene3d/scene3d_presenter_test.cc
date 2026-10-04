@@ -6,8 +6,8 @@
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/browser/present/scene3d/software/scene3d_software_painter.h"
-#include "content/browser/present/scene3d/policy/scene3d_rhi_session.h"
-#include "gis/vista/world/terrain/dem/dem_frame.h"
+#include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
+#include "vista/world/terrain/dem/dem_frame.h"
 #include "render/rhi/rhi.h"
 #include "tool/nav/camera_nav.h"
 #include "tool/draft/draft.h"
@@ -53,6 +53,17 @@ int main() {
     expect(!content::prefer_scene3d_flycube(), "GDI disables FlyCube");
     expect(content::force_content_mapview_3d(), "GDI forces content path");
 
+    content::set_scene3d_engine(content::Scene3dEngine::kScenic);
+    expect(content::prefer_scene3d_scenic(), "Scenic selected");
+    expect(!content::prefer_scene3d_flycube(), "Scenic disables FlyCube");
+    expect(!content::force_content_mapview_3d(),
+           "Scenic does not force leftover HWND");
+    {
+      content::Scene3dPresenter cam;
+      expect(cam.hosts_scenic_present(),
+             "Scenic env/API hosts scenic.dll");
+    }
+
     content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
     expect(content::prefer_scene3d_flycube(), "restore FlyCube");
     expect(content::scene3d_engine() == content::Scene3dEngine::kFlyCube,
@@ -64,14 +75,18 @@ int main() {
     _putenv_s("SMT_SCENE3D_ENGINE", "stereo_gl");
     expect(content::apply_scene3d_engine_from_env(), "env stereo_gl applies");
     expect(content::prefer_scene3d_stereo_gl(), "env stereo_gl engine");
-    expect(content::prefer_scene3d_stereo_opengl(), "env stereo_gl → OpenGL");
+    expect(content::prefer_scene3d_stereo_opengl(), "env stereo_gl �?OpenGL");
     expect(!content::prefer_scene3d_stereo_d3d(), "env stereo_gl not D3D");
 
     _putenv_s("SMT_SCENE3D_ENGINE", "stereo_d3d");
     expect(content::apply_scene3d_engine_from_env(), "env stereo_d3d applies");
     expect(content::prefer_scene3d_stereo_gl(), "env stereo_d3d still stereo");
-    expect(content::prefer_scene3d_stereo_d3d(), "env stereo_d3d → D3D");
+    expect(content::prefer_scene3d_stereo_d3d(), "env stereo_d3d �?D3D");
     expect(!content::prefer_scene3d_stereo_opengl(), "env stereo_d3d not GL");
+
+    _putenv_s("SMT_SCENE3D_ENGINE", "scenic");
+    expect(content::apply_scene3d_engine_from_env(), "env scenic applies");
+    expect(content::prefer_scene3d_scenic(), "env scenic");
 
     _putenv_s("SMT_SCENE3D_ENGINE", "flycube");
     expect(content::apply_scene3d_engine_from_env(), "env flycube applies");
@@ -84,9 +99,9 @@ int main() {
   content::Scene3dPresenter cam;
   cam.bind_orbit(&orbit);
   expect(!cam.hosts_shared_scene(), "fresh presenter has no MapContents");
-  expect(std::fabs(content::kScene3dDefaultYaw - gis::kDemDefaultOrbitYaw) < 1e-6f,
+  expect(std::fabs(content::kScene3dDefaultYaw - vista::kDemDefaultOrbitYaw) < 1e-6f,
          "host yaw aliases gis shared constant");
-  expect(std::fabs(orbit.yaw() - gis::kDemDefaultOrbitYaw) < 1e-4f,
+  expect(std::fabs(orbit.yaw() - vista::kDemDefaultOrbitYaw) < 1e-4f,
          "default yaw south-of-target");
   // make_orbit_camera: ez = dist * cos(pitch) * cos(yaw). South-of-target
   // requires ez < 0 so geographic +Z (north) sits toward the screen top.
@@ -95,8 +110,8 @@ int main() {
                      std::cos(orbit.yaw());
     expect(ez < 0.f, "default eye south of origin (north-up)");
   }
-  // RH lookAt looking +Z 鈫?camera right = -X; mesh X=-lon puts east on right.
-  expect(gis::dem_lon_to_x(121.0) < gis::dem_lon_to_x(88.0),
+  // RH lookAt looking +Z �?camera right = -X; mesh X=-lon puts east on right.
+  expect(vista::dem_lon_to_x(121.0) < vista::dem_lon_to_x(88.0),
          "east X < west X (screen-right looking north)");
   expect(orbit.camera_matrices(1.333f).kind ==
              render::rhi::CameraKind::kPerspective,
@@ -143,7 +158,7 @@ int main() {
   {
     tool::Draft d;
     d.kind = tool::DraftKind::kRect;
-    d.flags = 0x0002;  // MK_RBUTTON 鈫?orbit
+    d.flags = 0x0002;  // MK_RBUTTON �?orbit
     d.points.push_back({0, 0});
     d.points.push_back({0, -5000});
     orbit.apply_draft(d);
@@ -158,7 +173,7 @@ int main() {
   cam.bind_map(&scene);
   expect(content::extent_nonempty(orbit.world_extent()), "bound map has extent");
 
-  // Seeded MapScene (China PLP) must still present DEM via World 鈫?GpuScene.
+  // Seeded MapScene (China PLP) must still present DEM via World �?GpuScene.
   {
     content::MapScene seeded;
     seeded.seed_default();
@@ -238,7 +253,7 @@ int main() {
   expect(!cam.hosts_shared_scene(), "no MapContents until bind_contents");
 
   // Atmosphere defaults off until enable_atmosphere_demo / setters.
-  gis::atmosphere::Environment& env = cam.atmosphere_session().ensure();
+  vista::atmosphere::Environment& env = cam.atmosphere_session().ensure();
   expect(!env.ocean_enabled() && !env.cloud_enabled(), "ensure keeps off");
   cam.atmosphere_session().enable_demo();
   expect(env.ocean_enabled() && env.cloud_enabled(), "demo enables ocean/cloud");
@@ -287,13 +302,13 @@ int main() {
     ocean_only.atmosphere_session().seed_procedural();
     ocean_only.atmosphere_session().set_ocean_enabled(true);
     ocean_only.atmosphere_session().set_cloud_enabled(false);
-    const gis::atmosphere::Environment* oenv = ocean_only.atmosphere_session().environment();
+    const vista::atmosphere::Environment* oenv = ocean_only.atmosphere_session().environment();
     expect(oenv && oenv->ocean_enabled() && !oenv->cloud_enabled(),
            "ocean-only flags");
     expect(oenv->field_store().layer_count() > 0, "ocean-only seeded");
   }
 
-  // Null RHI present: ocean 鈫?land 鈫?clouds must not crash.
+  // Null RHI present: ocean �?land �?clouds must not crash.
   {
     std::unique_ptr<render::rhi::Device> device(
         render::rhi::create_device(render::rhi::Backend::kNull));

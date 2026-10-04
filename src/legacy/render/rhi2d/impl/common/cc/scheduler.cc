@@ -123,12 +123,13 @@ bool Rhi2dScheduler::shutdown() {
     exited_.store(true, std::memory_order_release);
     return false;
   }
-  // Never join the pool from the HWND thread while a FrameJob may still be
-  // inside GDI against that HWND — same deadlock as joining std::thread.
-  // Wait briefly; if still live, release the executor (leak until process
-  // exit).
-  (void)wait_idle(200);
-  for (int i = 0; i < 200 && !exited_.load(std::memory_order_acquire); ++i) {
+  // Do not join while paint_fn_ still holds GDI on the HWND thread's DC.
+  // Poll until the FrameJob actually leaves paint_loop, then reset() (join
+  // idle pool). A 200 ms cap leaked the executor; process-exit then unmapped
+  // port-DLL code under GDI+/Skia/tile workers (matrix rc=0xC0000005 after
+  // BMP). China IR replay in Debug can run for seconds — wait that long.
+  (void)wait_idle(30000);
+  for (int i = 0; i < 5000 && !exited_.load(std::memory_order_acquire); ++i) {
     ::Sleep(1);
   }
   if (!exited_.load(std::memory_order_acquire) ||
@@ -215,6 +216,8 @@ void Rhi2dScheduler::paint_loop() {
     busy_.store(false, std::memory_order_release);
     break;
   }
+  scheduled_.store(false, std::memory_order_release);
+  busy_.store(false, std::memory_order_release);
   exited_.store(true, std::memory_order_release);
 }
 

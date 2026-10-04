@@ -3,7 +3,7 @@
 
 #include "content/public/event_bus.h"
 #include "content/public/map_types.h"
-#include "gis/model/edit/session/memory_edit_session.h"
+#include "gis/edit/memory_session.h"
 #include "tool/draft/draft.h"
 #include "tool/workspace/workspace.h"
 

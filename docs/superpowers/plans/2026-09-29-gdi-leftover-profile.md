@@ -32,7 +32,7 @@ All rights reserved.
 | `…/gdi/thread/{frame_scheduler,map_painter,render_thread}.*` | Frame/layer/geom spans |
 | `…/gdi/buffer/compose.cc` | `compose` span |
 | `src/legacy/app/shell/dock/render_trace.*` | MFC thin panel |
-| `src/legacy/app/shell/frame/main.*` + `resource.h` | Dock wire |
+| `src/legacy/app/shell/frame/main_frame.*` + `resource.h` | Dock wire |
 | `src/ui/gis/debug/render_trace_panel.*` | GDI filter checkbox |
 
 ---

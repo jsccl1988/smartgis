@@ -10,19 +10,19 @@ All rights reserved.
 
 **Date:** 2026-09-27  
 **Status:** active  
-**Implementation note (2026-09-27):** Tree / includes / GN / as-built docs are on master working tree. Full `draft_test` + `tool_dispatch_test` **link** still blocked by parallel WIP deleting `src/gis/datasource/gdal/*` while `//src/gis/model/edit:edit` → `//src/gis:gis` still pulls those sources. All tool TUs **compile**; `camera_nav_test` runs PASS. Re-run the two blocked tests and archive when gdal graph is green.  
+**Implementation note (2026-09-27):** Tree / includes / GN / as-built docs are on master working tree. Full `draft_test` + `tool_dispatch_test` **link** still blocked by parallel WIP deleting `src/gis/datasource/gdal/*` while `//src/gis/edit:edit` → `//src/gis:gis` still pulls those sources. All tool TUs **compile**; `camera_nav_test` runs PASS. Re-run the two blocked tests and archive when gdal graph is green.  
 **Follow-up (2026-09-27):** `adapter/` (`msg`) relocated from `src/tool/adapter/` to **`src/legacy/tool/adapter/`** (`//src/legacy/tool/adapter:adapter`, include `legacy/tool/adapter/msg.h`). Removed from `//src/tool:dispatch`. Public C++ API stays **`namespace tool`**. Own BUILD.gn package so `src_all` / Views `assert_no_deps = ["//src/legacy/tool:*"]` still allow the adapter source_set (parent-package pattern only). File stem is `msg` (no `legacy_` prefix — path already marks leftover).  
 **Scope:** Physical + GN layout of the endgame `src/tool` dispatch tree only. One implementation plan after this spec is approved.  
 **Related:**
 
 | Topic | Doc | Relation |
 | --- | --- | --- |
-| Session dispatch API | [`2026-09-13-tool-event-dispatch-design.md`](2026-09-13-tool-event-dispatch-design.md) | **accepted** — API/contracts stay; path table in Components is superseded by this layout |
+| Session dispatch API | [`2026-09-13-tool-event-dispatch-design.md`](../../specs/2026-09-13-tool-event-dispatch-design.md) | **accepted** — API/contracts stay; path table in Components is superseded by this layout |
 | SP1b behavior migration | [`2026-09-19-tool-behavior-migration-design.md`](2026-09-19-tool-behavior-migration-design.md) | **active** — behavior ownership unchanged; file paths update when this lands |
 | SP1 Workspace strangler | [`2026-09-19-legacy-tool-workspace-strangler-design.md`](2026-09-19-legacy-tool-workspace-strangler-design.md) | **active** — adapters stay; include paths for `legacy_msg` / `Workspace` change |
-| Leftover physical split | [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](../archive/specs/2026-09-13-tool-legacy-split-design.md) | **landed** — “终局扁平保留 `tool/*.h`” is **partially superseded** by this spec |
-| Product as-built | [`../../build/src-layout.md`](../../build/src-layout.md), [`../../../src/tool/README.md`](../../../src/tool/README.md) | Update in the same change that lands the move |
-| Peer precedent | Plugin L1 [`2026-09-14-plugin-subdir-layout-design.md`](2026-09-14-plugin-subdir-layout-design.md); RHI plan [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md) | Same idea: stable aggregate GN, break includes, no shim headers |
+| Leftover physical split | [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](2026-09-13-tool-legacy-split-design.md) | **landed** — “终局扁平保留 `tool/*.h`” is **partially superseded** by this spec |
+| Product as-built | [`../../src-layout.md`](../../src-layout.md), [`../../../src/tool/README.md`](../../README.md) | Update in the same change that lands the move |
+| Peer precedent | Plugin L1 [`2026-09-14-plugin-subdir-layout-design.md`](2026-09-14-plugin-subdir-layout-design.md); RHI plan [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../plans/2026-09-27-rhi-subdirectory-split.md) | Same idea: stable aggregate GN, break includes, no shim headers |
 
 ---
 
@@ -39,7 +39,7 @@ Split the flat `src/tool/` dump into clear modules under the nesting cap `src/to
 
 ### 1.2 Non-goals
 
-- **Do not** change leftover `dll_stem` or `SmtIATool` ABI in *this* change. Leftover package nesting: [`../archive/specs/2026-09-27-legacy-tool-subdirectory-layout-design.md`](../archive/specs/2026-09-27-legacy-tool-subdirectory-layout-design.md) (`iatool/` + `adapter/` + flat `group/`).
+- **Do not** change leftover `dll_stem` or `SmtIATool` ABI in *this* change. Leftover package nesting: [`../archive/specs/2026-09-27-legacy-tool-subdirectory-layout-design.md`](2026-09-27-legacy-tool-subdirectory-layout-design.md) (`iatool/` + `adapter/` + flat `group/`).
 - **Do not** change Command / Interaction / Draft / Workspace **runtime semantics** (ids, Draft flags, EventBus/EditSession policy) in this change — layout + include/GN only.
 - **Do not** keep transitional umbrella headers under `src/tool/*.h`.
 - **Do not** put `content::EventBus` under `src/tool`.
@@ -140,7 +140,7 @@ Must be rewritten in the landing change (non-exhaustive inventory from explorati
 //src/tool:draft         source_set   deps: :interaction
 //src/tool:nav           source_set   (leaf)
 //src/tool:workspace     source_set   deps: :command :interaction :draft :nav
-                         + //src/gis/model/edit:edit
+                         + //src/gis/edit:edit
 //src/tool:dispatch      group        public_deps → command/interaction/draft/nav/workspace
 //src/legacy/tool/adapter:adapter
                          source_set   deps: //src/tool:command + :workspace
@@ -192,8 +192,8 @@ Behavior migration (SP1b) and leftover group thinning are **orthogonal**; if bot
 2. Target tree matches §3; **zero** public `src/tool/*.h` umbrellas.
 3. All product includes use `tool/<module>/…` per §3.1; no leftover `#include "tool/gestures.h"`.
 4. `//src/tool:dispatch` still aggregates; still in `src_all`; no new tool DLL.
-5. Leftover package layout: [`../archive/specs/2026-09-27-legacy-tool-subdirectory-layout-design.md`](../archive/specs/2026-09-27-legacy-tool-subdirectory-layout-design.md) (except `adapter/` already parked here).
-6. `src/tool/README.md` and Tool row in `docs/build/src-layout.md` describe the new layout.
+5. Leftover package layout: [`../archive/specs/2026-09-27-legacy-tool-subdirectory-layout-design.md`](2026-09-27-legacy-tool-subdirectory-layout-design.md) (except `adapter/` already parked here).
+6. `src/tool/README.md` and Tool row in `docs/superpowers/src-layout.md` describe the new layout.
 7. Tool unit tests green.
 
 ---

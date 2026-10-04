@@ -3,8 +3,8 @@
 
 # Product host for Views + Skia. Loaded when smt_build_views=true.
 # Output: out/SmartGisViews.exe. Capability dirs live under //src/content
-# (document/camera/present/input) and //src/render:present_paint Ã¢ÂÂ see
-# docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md ÃÂ§Content sink.
+# (document/camera/present/input) and //src/render:present_paint 脙垄脗聙脗聰 see
+# docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md 脙聜脗搂Content sink.
 
 import("//build/config/win/application.gni")
 import("//build/python.gni")
@@ -61,8 +61,8 @@ source_set("shell_browser") {
     "//src/content:content",
     "//src/content:view_host",
     "//src/gis:gis",
-    "//src/gis/model/edit:edit",
-    "//src/gis/present/tile:tile",
+    "//src/gis/edit:edit",
+    "//src/gis/carto/tile:tile",
     "//src/plugin:host",
     "//src/plugin/product/world3d:world3d_views",
     "//src/plugin/product/traffic:traffic_views",
@@ -70,8 +70,6 @@ source_set("shell_browser") {
     "//src/plugin/product/stormsurge:stormsurge_views",
     "//src/plugin/product/mine:mine_views",
     "//src/plugin/product/geochem:geochem_views",
-    "//src/plugin/product/orthogrid:orthogrid_views",
-    "//src/plugin/product/orthogrid3d:orthogrid3d_views",
     "//src/plugin/product/print:print_views",
     "//src/plugin/runtime/processing:processing_views",
     "//src/plugin/runtime/python:python",
@@ -83,7 +81,7 @@ source_set("shell_browser") {
     "//third_party:gdal",
     "//third_party:rapidjson",
   ]
-  # analysis_writer_orthogrid.cc pulls orthogrid orthogonality → Eigen; keep the
+  # analysis_writer_orthogrid.cc pulls orthogrid orthogonality 鈫?Eigen; keep the
   # include on this target even when group public_configs fail to forward.
   include_dirs += [
     "//src",
@@ -123,8 +121,8 @@ source_set("shell_ui") {
     "//src/content:map_session",
     "//src/content:content",
     "//src/content:view_host",
-    "//src/gis/model/edit:edit",
-    "//src/gis/present/tile:tile",
+    "//src/gis/edit:edit",
+    "//src/gis/carto/tile:tile",
     "//src/plugin:host",
     "//src/plugin/product/world3d:world3d_views",
     "//src/plugin/product/traffic:traffic_views",
@@ -132,8 +130,6 @@ source_set("shell_ui") {
     "//src/plugin/product/stormsurge:stormsurge_views",
     "//src/plugin/product/mine:mine_views",
     "//src/plugin/product/geochem:geochem_views",
-    "//src/plugin/product/orthogrid:orthogrid_views",
-    "//src/plugin/product/orthogrid3d:orthogrid3d_views",
     "//src/plugin/product/print:print_views",
     "//src/plugin/runtime/processing:processing_views",
     "//src/plugin/runtime/python:python",
@@ -185,7 +181,7 @@ source_set("harness_atmosphere") {
   deps = [
     ":shell_browser",
     "//src/content:content",
-    "//src/effect/atmosphere:atmosphere_sources",
+    "//src/vista:vista",
     "//src/gis:gis",
     "//src/render:rhi",
     "//src/ui/views:views",
@@ -222,7 +218,7 @@ source_set("harness_map2d") {
     ":shell_browser",
     "//src/content:content",
     "//src/gis:gis",
-    "//src/plugin/product/orthogrid:orthogrid_views",
+    "//src/plugin/product/world3d:world3d_views",
     "//src/render:rhi",
     "//src/tool:tool",
     "//src/ui/views:views",
@@ -251,6 +247,8 @@ source_set("harness_plugin") {
     "shell/harness/showcase/plugin/product/orthogrid.h",
     "shell/harness/showcase/plugin/product/orthogrid3d.cc",
     "shell/harness/showcase/plugin/product/orthogrid3d.h",
+    "shell/harness/showcase/plugin/product/print.cc",
+    "shell/harness/showcase/plugin/product/print.h",
     "shell/harness/showcase/plugin/product/stormsurge.cc",
     "shell/harness/showcase/plugin/product/stormsurge.h",
     "shell/harness/showcase/plugin/product/world3d.cc",
@@ -272,6 +270,7 @@ source_set("harness_plugin") {
     ":shell_browser",
     "//src/content:content",
     "//src/gis:gis",
+    "//src/plugin/product/print:print_composer",
     "//src/render:rhi",
     "//src/ui/views:views",
   ]
@@ -381,9 +380,9 @@ win32_app("views") {
     "//src/content:map_session",
     "//src/content:view_host",
     "//src/gis:gis",
-    "//src/gis/model/edit:edit",
-    "//src/gis/present/tile:tile",
-    "//src/gis/vista/world:land_mask",
+    "//src/gis/edit:edit",
+    "//src/gis/carto/tile:tile",
+    "//src/vista:vista",
     "//src/gpu:gpu_lib",
     "//src/net:net",
     "//src/plugin:host",
@@ -393,8 +392,6 @@ win32_app("views") {
     "//src/plugin/product/stormsurge:stormsurge_views",
     "//src/plugin/product/mine:mine_views",
     "//src/plugin/product/geochem:geochem_views",
-    "//src/plugin/product/orthogrid:orthogrid_views",
-    "//src/plugin/product/orthogrid3d:orthogrid3d_views",
     "//src/plugin/product/print:print_views",
     "//src/plugin/runtime/processing:processing_views",
     "//src/render:rhi",

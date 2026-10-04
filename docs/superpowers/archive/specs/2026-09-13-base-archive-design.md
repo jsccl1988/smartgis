@@ -11,7 +11,7 @@ All rights reserved.
 **Date:** 2026-09-13  
 **Status:** superseded (2026-09-28 merge B)
 **Scope:** A1 **仅**上提二进制 archive（`BinarySink` / `Serializer` / `InArchiver` / `OutArchiver` 及同类 helpers）。**不含** Json / Text / Yaml sink；**不含** protobuf / 第二套 IDL。  
-**Related:** [`2026-09-13-net-asio-httplib-design.md`](2026-09-13-net-asio-httplib-design.md)、[`2026-09-13-base-ipc-mojom-design.md`](2026-09-13-base-ipc-mojom-design.md)。实现计划见 [`../plans/2026-09-13-base-archive.md`](../plans/2026-09-13-base-archive.md)。
+**Related:** [`2026-09-13-net-asio-httplib-design.md`](../../specs/2026-09-13-net-asio-httplib-design.md)、[`2026-09-13-base-ipc-mojom-design.md`](2026-09-13-base-ipc-mojom-design.md)。实现计划见 [`../plans/2026-09-13-base-archive.md`](../plans/2026-09-13-base-archive.md)。
 
 ## Goal
 

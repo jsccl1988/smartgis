@@ -2,8 +2,8 @@
 <ui name="feature_info">
   <style src="feature_info.ui.css"/>
   <vbox id="root" class="panel">
-    <label id="layer" text="No feature identified"/>
-    <label id="meta" text="Click a map feature to inspect attributes"/>
+    <label id="layer" text="No feature selected"/>
+    <label id="meta" text="Click the map to identify"/>
     <hbox id="nav_row" class="nav">
       <button id="prev" text="&lt;"/>
       <label id="nav" text=""/>

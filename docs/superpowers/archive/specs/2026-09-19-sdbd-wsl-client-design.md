@@ -12,7 +12,7 @@ All rights reserved.
 **Date:** 2026-09-19  
 **Updated:** 2026-09-28  
 **Scope:** 一套实现计划。Windows SmartGIS 经 **HTTP `:8021` + FnRPC `:9032` 双通道**对接 WSL 侧 mogu `sdbd`，经 `gis::DataSourceMgr` 打开，并纳入硬依赖活体 e2e。进程内 **`SdbdHandler` / `/sdbd/api/v1/*` 已删除**；产品远程面 + **`SDBD:` GDAL 装饰驱动**（Memory/GPKG 等）保留。  
-**Related:** [`2026-09-13-ogr-db-datasource-design.md`](./2026-09-13-ogr-db-datasource-design.md)（GDAL PostGIS/GPKG，非 HTTP）、[`2026-09-13-net-asio-httplib-design.md`](./2026-09-13-net-asio-httplib-design.md)（`net::HttpClient` + `net::RpcClient`）、归档 [`../archive/specs/2026-09-13-mapd-client-design.md`](../archive/specs/2026-09-13-mapd-client-design.md)（曾 defer `SdbdClient`）。
+**Related:** [`2026-09-13-ogr-db-datasource-design.md`](./2026-09-13-ogr-db-datasource-design.md)（GDAL PostGIS/GPKG，非 HTTP）、[`2026-09-13-net-asio-httplib-design.md`](../../specs/2026-09-13-net-asio-httplib-design.md)（`net::HttpClient` + `net::RpcClient`）、归档 [`../archive/specs/2026-09-13-mapd-client-design.md`](2026-09-13-mapd-client-design.md)（曾 defer `SdbdClient`）。
 
 ## 已锁定决策
 
@@ -126,7 +126,7 @@ GDALDriver "SDBD" (sdbd/driver/)
 
 | Path | Responsibility |
 | --- | --- |
-| `src/gis/model/layer/layer.h` | `PROVIDER_SDBD` |
+| `src/gis/layer/layer.h` | `PROVIDER_SDBD` |
 | `src/gis/datasource/provider/impl/sdbd/client/sdbd_client.h/.cc` | mogu HTTP + FnRPC 客户端 |
 | `src/gis/datasource/provider/impl/sdbd/codec/sdbd_json.h/.cc` | 瘦 JSON codec |
 | `src/gis/datasource/provider/impl/sdbd/driver/sdbd_driver.h/.cc` | GDAL `"SDBD"` 驱动注册（原 `sdbd_gdal_driver`） |
@@ -138,7 +138,7 @@ GDALDriver "SDBD" (sdbd/driver/)
 | `src/gis/datasource/provider/impl/ogr/codec/ogr_connect.h/.cc` | traits / open 元数据 |
 | `src/gis/datasource/mgr/datasource_mgr.h/.cc` | 类型 `DataSourceMgr`；`PROVIDER_SDBD` 分支 |
 | `src/gis/datasource/provider/impl/gdal/BUILD.gn` + mgr `BUILD.gn` + test | deps `//src/net`；live 测试 |
-| `docs/build/src-layout.md` | as-built 指针 |
+| `docs/superpowers/src-layout.md` | as-built 指针 |
 | 本 spec + 对应 plan | 决策与勾选任务 |
 
 ## Testing

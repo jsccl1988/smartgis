@@ -45,9 +45,9 @@ UI_EXPORT std::wstring utf8_to_wide(const std::string& u8);
 UI_EXPORT std::string wide_to_utf8(const wchar_t* w);
 
 // Shell chrome body face (DIP). Commit + measure + GDI raster share this.
-// 20 DIP keeps catalog/menu glyphs readable on 200–250% hosts once row
-// heights also scale (fixed-px rows used to clip a larger face).
-inline constexpr int kShellBodyFontDip = 20;
+// 13 DIP is desktop-normal at 96 DPI; HiDPI scales via dip_to_px (was 20,
+// which overcrowded Diagnostic Tools / inspector after row heights scaled).
+inline constexpr int kShellBodyFontDip = 13;
 
 // Ink size at |device_scale| (1 = 96 DPI). The returned pixels are already
 // device pixels for kShellBodyFontDip Segoe UI — do not multiply by scale again.

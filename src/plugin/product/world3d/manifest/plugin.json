@@ -4,7 +4,7 @@
 
   "name": "三维世界 / 真三维地球",
 
-  "version": "1.2.0",
+  "version": "1.3.0",
 
   "api_version": 2,
 
@@ -12,7 +12,7 @@
 
   "author": "The Mogu Authors",
 
-  "description": "True-3D Earth browse (globe DEM + atmosphere + satellite cloud + fly-to + city tiles) plus DEM loaders and former model3d commands",
+  "description": "True-3D Earth browse plus DEM loaders, former model3d commands, 2D boundary-adapted orthogrid, and 3D hex lattice (one register_world3d façade)",
 
   "contributes": {
 
@@ -30,9 +30,9 @@
 
       {"id": "world3d.attach_city_tileset", "title": "挂载城市瓦片", "menu": "tools"},
 
-      {"id": "world3d.load_tin", "title": "离散点生成DEM", "menu": "tools"},
+      {"id": "world3d.load_trimesh", "title": "离散点生成DEM", "menu": "tools"},
 
-      {"id": "world3d.load_grid", "title": "高度图生成DEM", "menu": "tools"},
+      {"id": "world3d.load_heightmap", "title": "高度图生成DEM", "menu": "tools"},
 
       {"id": "world3d.about", "title": "关于", "menu": "tools"},
 
@@ -44,25 +44,42 @@
 
       {"id": "model3d.add_water", "title": "Add water surface", "menu": "tools"},
 
-      {"id": "model3d.add_terrain_grid", "title": "Add terrain GRID", "menu": "tools"},
+      {"id": "model3d.add_terrain_heightmap", "title": "Add terrain heightmap", "menu": "tools"},
 
-      {"id": "model3d.add_terrain_tin", "title": "Add terrain TIN", "menu": "tools"},
+      {"id": "model3d.add_terrain_trimesh", "title": "Add terrain trimesh", "menu": "tools"},
 
-      {"id": "model3d.create_tin", "title": "Create TIN", "menu": "tools"},
+      {"id": "model3d.create_trimesh", "title": "Create trimesh", "menu": "tools"},
 
       {"id": "model3d.layer_points_to_3d", "title": "2D points to 3D", "menu": "tools"},
 
       {"id": "model3d.layer_lines_to_3d", "title": "2D lines to 3D", "menu": "tools"},
 
-      {"id": "model3d.layer_polygons_to_3d", "title": "2D polygons to 3D", "menu": "tools"}
+      {"id": "model3d.layer_polygons_to_3d", "title": "2D polygons to 3D", "menu": "tools"},
+
+      {"id": "baogrid.input_boundary_0", "title": "Input boundary 0", "menu": "tools.baogrid"},
+      {"id": "baogrid.input_boundary_1", "title": "Input boundary 1", "menu": "tools.baogrid"},
+      {"id": "baogrid.input_boundary_2", "title": "Input boundary 2", "menu": "tools.baogrid"},
+      {"id": "baogrid.input_boundary_3", "title": "Input boundary 3", "menu": "tools.baogrid"},
+      {"id": "baogrid.save_boundary", "title": "Save grid boundary", "menu": "tools.baogrid"},
+      {"id": "baogrid.load_boundary", "title": "Load grid boundary", "menu": "tools.baogrid"},
+      {"id": "baogrid.generate", "title": "Generate orth grid", "menu": "tools.baogrid"},
+      {"id": "orthogrid.input_boundary_0", "title": "Input boundary 0", "menu": "tools.baogrid"},
+      {"id": "orthogrid.input_boundary_1", "title": "Input boundary 1", "menu": "tools.baogrid"},
+      {"id": "orthogrid.input_boundary_2", "title": "Input boundary 2", "menu": "tools.baogrid"},
+      {"id": "orthogrid.input_boundary_3", "title": "Input boundary 3", "menu": "tools.baogrid"},
+      {"id": "orthogrid.save_boundary", "title": "Save grid boundary", "menu": "tools.baogrid"},
+      {"id": "orthogrid.load_boundary", "title": "Load grid boundary", "menu": "tools.baogrid"},
+      {"id": "orthogrid.generate", "title": "Generate orth grid", "menu": "tools.baogrid"},
+      {"id": "orthogrid3d.generate", "title": "Generate 3D orth grid", "menu": "tools.orthogrid3d"},
+      {"id": "orthogrid3d.export_vts", "title": "Export hex grid VTK", "menu": "tools.orthogrid3d"}
 
     ],
 
     "dialogs": [
 
-      {"id": "world3d.tin_loader", "title": "离散点生成DEM"},
+      {"id": "world3d.trimesh_loader", "title": "离散点生成DEM"},
 
-      {"id": "world3d.grid_loader", "title": "高度图生成DEM"},
+      {"id": "world3d.heightmap_loader", "title": "高度图生成DEM"},
 
       {"id": "world3d.about", "title": "关于"}
 
@@ -82,9 +99,9 @@
 
       {"id": "world3d.attach_city_tileset", "title": "挂载城市瓦片"},
 
-      {"id": "world3d.tin_from_xyz", "title": "TIN from XYZ"},
+      {"id": "world3d.trimesh_from_xyz", "title": "Trimesh from XYZ"},
 
-      {"id": "world3d.grid_from_heightmap", "title": "Heightmap to DEM grid"},
+      {"id": "world3d.heightmap_from_raster", "title": "Heightmap from raster"},
 
       {"id": "model3d.add_pointcloud", "title": "Add point cloud"},
 
@@ -98,17 +115,21 @@
 
       {"id": "model3d.add_water", "title": "Add water surface"},
 
-      {"id": "model3d.add_terrain_grid", "title": "Add terrain GRID"},
+      {"id": "model3d.add_terrain_heightmap", "title": "Add terrain heightmap"},
 
-      {"id": "model3d.add_terrain_tin", "title": "Add terrain TIN"},
+      {"id": "model3d.add_terrain_trimesh", "title": "Add terrain trimesh"},
 
-      {"id": "model3d.create_tin", "title": "Create TIN"},
+      {"id": "model3d.create_trimesh", "title": "Create trimesh"},
 
       {"id": "model3d.layer_points_to_3d", "title": "2D points to 3D"},
 
       {"id": "model3d.layer_lines_to_3d", "title": "2D lines to 3D"},
 
-      {"id": "model3d.layer_polygons_to_3d", "title": "2D polygons to 3D"}
+      {"id": "model3d.layer_polygons_to_3d", "title": "2D polygons to 3D"},
+
+      {"id": "baogrid.create_orth_grid", "title": "Create orth grid"},
+      {"id": "orthogrid.create_orth_grid", "title": "Create orth grid"},
+      {"id": "orthogrid3d.create_hex_grid", "title": "Create 3D orth hex grid"}
 
     ]
 

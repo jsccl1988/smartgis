@@ -35,9 +35,9 @@ All rights reserved.
 | `…/gl/…/vertex_buffer.cpp` | Host arrays via Arena |
 | `…/scene3d/scene/scene.cpp` | Update/Render spans |
 | `…/scene3d/dem/dem_height_field.cc` | build_mesh span + Arena scratch |
-| `src/legacy/app/shell/dock/console.*` | MFC Console dock (log_sink + debug_agent) |
+| `src/legacy/app/shell/dock/debug_console.*` | MFC Console dock (log_sink + debug_agent) |
 | `src/legacy/app/shell/dock/render_trace.*` | MFC RenderTrace dock |
-| `src/legacy/app/shell/frame/main.cpp` | Wire Console + RenderTrace into AMBox |
+| `src/legacy/app/shell/frame/main_frame.cpp` | Wire Console + RenderTrace into AMBox |
 
 ---
 

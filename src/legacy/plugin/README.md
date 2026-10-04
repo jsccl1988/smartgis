@@ -40,6 +40,6 @@ Includes use scheme C (`legacy/plugin/runtime/auxmodule/…`, `legacy/plugin/run
 
 - Plan: [`docs/superpowers/plans/2026-09-29-legacy-plugin-subdirectory-layout.md`](../../../docs/superpowers/plans/2026-09-29-legacy-plugin-subdirectory-layout.md)
 - Living: [`docs/superpowers/specs/2026-09-13-plugin-host-design.md`](../../../docs/superpowers/specs/2026-09-13-plugin-host-design.md)
-- As-built: [`docs/build/src-layout.md`](../../../docs/build/src-layout.md)
+- As-built: [`docs/superpowers/src-layout.md`](../../../docs/superpowers/src-layout.md)
 
 Preserve `Smt_*` / DEF ABI.

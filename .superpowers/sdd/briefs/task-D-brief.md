@@ -19,7 +19,7 @@ Tasks A/B/C complete: headers/sources under `kernel/` `primitives/` `dialogs/` `
 3. Rewrite `BUILD.gn` sources to new paths; test targets point at `testing/`
 4. Rewrite `views.h` include list to new paths
 5. Repo-wide replace old `#include "ui/views/<stem>.h"` → mapped paths (src + docs examples). Mapping table is in the plan.
-6. Update README + `docs/build/ui-views-skia.md` nesting + controls design note + `ui-testing.md` / `src-layout.md` examples
+6. Update README + `docs/superpowers/ui-views-skia.md` nesting + controls design note + `ui-testing.md` / `src-layout.md` examples
 7. Delete any leftover root shims if present
 8. Verify: root only `views.h` among business headers; no flat `ui/views/<stem>.h` includes except via umbrella
 9. If environment allows: `build.bat views` and run views_unittests / views_pixel_tests

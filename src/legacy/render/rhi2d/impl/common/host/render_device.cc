@@ -13,7 +13,6 @@
 
 using namespace gis;
 using namespace base;
-using namespace geo;
 
 namespace render {
 
@@ -123,6 +122,12 @@ int SmtRhi2dRenderDevice::Release(void) {
 
   carto_draw_->flush_style();
 
+  // Join tile/layer resident threads on this thread (not DllMain). Skip when
+  // a leaked FrameJob may still be inside run_tiles.
+  if (!worker_still_running) {
+    detail::rhi2d_shutdown_static_raster_runners();
+  }
+
   // Detached worker still owns `this` briefly; deleting here UAFs on close.
   if (worker_detached) {
     layer_tree_host_ = nullptr;
@@ -206,15 +211,15 @@ int SmtRhi2dRenderDevice::Unlock() {
   return SMT_ERR_NONE;
 }
 
-int SmtRhi2dRenderDevice::ScheduleDelayedRedraw(const SmtMap *pMap) {
+int SmtRhi2dRenderDevice::ScheduleDelayedRedraw(const Map *pMap) {
   return present_.schedule_delayed_redraw(pMap);
 }
 
-int SmtRhi2dRenderDevice::ScheduleUrgentRedraw(const SmtMap *pMap) {
+int SmtRhi2dRenderDevice::ScheduleUrgentRedraw(const Map *pMap) {
   return present_.schedule_urgent_redraw(pMap);
 }
 
-int SmtRhi2dRenderDevice::stage_map_job(const SmtMap *pMap, int x, int y, int w,
+int SmtRhi2dRenderDevice::stage_map_job(const Map *pMap, int x, int y, int w,
                                       int h, int op, bool urgent) {
   return present_.stage_map_job(pMap, x, y, w, h, op, urgent);
 }

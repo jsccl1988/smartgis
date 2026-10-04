@@ -20,12 +20,23 @@
       }
     },
     {
-      "id": "line-default",
+      "id": "line-water",
       "type": "line",
       "source-layer": "line",
+      "filter": ["any", ["in", "kind", "river", "lake"], ["in", "line_kind", "river", "lake"]],
       "paint": {
         "line-color": "#1565c0",
         "line-width": 2
+      }
+    },
+    {
+      "id": "line-road",
+      "type": "line",
+      "source-layer": "line",
+      "filter": ["any", ["==", "kind", "road"], ["==", "line_kind", "road"]],
+      "paint": {
+        "line-color": "#8d6e63",
+        "line-width": 1.25
       }
     },
     {
@@ -36,16 +47,7 @@
         "circle-color": "#e65100",
         "circle-radius": 3
       }
-    },
-    {
-      "id": "text-symbol",
-      "type": "symbol",
-      "source-layer": "text",
-      "layout": {
-        "text-field": "{name}",
-        "text-size": 14
-      },
-      "paint": {}
     }
   ]
 }
+

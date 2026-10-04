@@ -4,7 +4,7 @@
 #include "content/public/view_host.h"
 
 #include "content/public/event_bus.h"
-#include "gis/model/edit/session/memory_edit_session.h"
+#include "gis/edit/memory_session.h"
 #include "legacy/tool/msg/msg.h"
 #include "tool/workspace/workspace.h"
 

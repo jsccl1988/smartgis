@@ -7,7 +7,7 @@
 #include "legacy/plugin/product/proj/views/dlg_map_prj.h"
 #include "legacy/plugin/product/proj/shell/map_project.h"
 const string CST_STR_MAPPRJ_AM_NAME = "Projection";
-SmtMapPrjPlugin *g_pMapPrj = NULL;
+MapPrjPlugin *g_pMapPrj = NULL;
 
 #define AM_MSG_CMD_MAPPRJ_BEGIN (SMT_MSG_USER_BEGIN + 150)
 #define MAPPRJ_DO_PRJ (AM_MSG_CMD_MAPPRJ_BEGIN + 1)
@@ -23,7 +23,7 @@ int __declspec(dllexport) GetPluginVersion(void) {
 
 void __declspec(dllexport) StartPlugin(void) {
   AFX_MANAGE_STATE(AfxGetStaticModuleState());
-  g_pMapPrj = new SmtMapPrjPlugin();
+  g_pMapPrj = new MapPrjPlugin();
   if (g_pMapPrj) {
     g_pMapPrj->Init();
   }
@@ -38,13 +38,13 @@ void __declspec(dllexport) StopPlugin(void) {
 }
 }
 
-SmtMapPrjPlugin::SmtMapPrjPlugin(void) {
+MapPrjPlugin::MapPrjPlugin(void) {
   set_name(CST_STR_MAPPRJ_AM_NAME.c_str());
 }
 
-SmtMapPrjPlugin::~SmtMapPrjPlugin(void) {}
+MapPrjPlugin::~MapPrjPlugin(void) {}
 
-int SmtMapPrjPlugin::Init(void) {
+int MapPrjPlugin::Init(void) {
   SmtAuxModule::Init();
 
   append_func_items("投影参数", MAPPRJ_DO_PRJ, FIM_2DMFMENU | FIM_AUXMODULEBOX);
@@ -53,9 +53,9 @@ int SmtMapPrjPlugin::Init(void) {
   return SMT_ERR_NONE;
 }
 
-int SmtMapPrjPlugin::Destroy(void) { return SmtAuxModule::Destroy(); }
+int MapPrjPlugin::Destroy(void) { return SmtAuxModule::Destroy(); }
 
-int SmtMapPrjPlugin::notify(long lMsg, SmtListenerMsg &param) {
+int MapPrjPlugin::notify(long lMsg, SmtListenerMsg &param) {
   (void)param;
   const char *id = plugin::command_id_from_am_msg(lMsg);
   long cmd = lMsg;

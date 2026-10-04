@@ -5,8 +5,10 @@ All rights reserved.
 
 # Net stack: standalone ASIO + cpp-httplib (FnRPC slot)
 
+**Status:** accepted (source of truth; UDP / MapServer facts corrected 2026-09-14)  
 **Date:** 2026-09-13  
-**Status:** approved (source of truth; UDP / MapServer facts corrected 2026-09-14)  
+**Updated:** 2026-10-03 — Status normalized to `accepted`; no dedicated HTML (stack is asio + cpp-httplib; as-built in `src/net`).  
+**Plans:** [`../plans/2026-09-13-net-asio-httplib.md`](../plans/2026-09-13-net-asio-httplib.md)  
 **Scope:** replace homemade `SmtNetCore` (Winsock 1.1 + WebAppLib) with OSS. HTTP this pass; FnRPC later on the same ASIO IO. This document does not implement C++.
 
 ## Goal
@@ -24,7 +26,7 @@ Stop owning a socket/HTTP/CGI kit. `src/net` stays the product facade (`dll_stem
 - Do not change `dll_stem` (`SmtNetCore`). Do not change `content/public`.
 - Do not put `asio.hpp` or `httplib.h` on `src_all` public include paths.
 - Qt is banned.
-- **Do not restore** `net::UdpSocket` / `src/net/udp`, `SmtMapServer`, homemade WMS-over-UDP, or the deleted `src/web` / `plugin/map_service` stack. Those paths are gone; as-built is HTTP + RPC only (see `docs/README.md`, `docs/build/ui-shell-multiprocess.md`).
+- **Do not restore** `net::UdpSocket` / `src/net/udp`, `SmtMapServer`, homemade WMS-over-UDP, or the deleted `src/web` / `plugin/map_service` stack. Those paths are gone; as-built is HTTP + RPC only (see `docs/README.md`, `docs/superpowers/ui-shell-multiprocess.md`).
 
 ## Architecture
 

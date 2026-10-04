@@ -25,10 +25,14 @@ std::wstring utf8_to_wide(const std::string& u8) {
   }
   ui::gfx::note_utf8_conversion();
   const int n = MultiByteToWideChar(CP_UTF8, 0, u8.c_str(), -1, nullptr, 0);
-  std::wstring w(n > 0 ? static_cast<size_t>(n - 1) : 0, L'\0');
-  if (n > 1) {
-    MultiByteToWideChar(CP_UTF8, 0, u8.c_str(), -1, w.data(), n);
+  if (n <= 0) {
+    return L"";
   }
+  // n includes the trailing NUL; the string size must too so the convert
+  // cannot write past SSO/heap (Debug CRT 0xC0000374 on the next alloc).
+  std::wstring w(static_cast<size_t>(n), L'\0');
+  MultiByteToWideChar(CP_UTF8, 0, u8.c_str(), -1, w.data(), n);
+  w.resize(static_cast<size_t>(n - 1));
   return w;
 }
 
@@ -38,10 +42,12 @@ std::string wide_to_utf8(const wchar_t* w) {
   }
   const int n =
       WideCharToMultiByte(CP_UTF8, 0, w, -1, nullptr, 0, nullptr, nullptr);
-  std::string s(n > 0 ? static_cast<size_t>(n - 1) : 0, '\0');
-  if (n > 1) {
-    WideCharToMultiByte(CP_UTF8, 0, w, -1, s.data(), n, nullptr, nullptr);
+  if (n <= 0) {
+    return {};
   }
+  std::string s(static_cast<size_t>(n), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, w, -1, s.data(), n, nullptr, nullptr);
+  s.resize(static_cast<size_t>(n - 1));
   return s;
 }
 

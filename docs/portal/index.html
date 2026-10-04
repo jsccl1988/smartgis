@@ -10,18 +10,19 @@ All rights reserved.
 <title>SmartGIS Docs Portal</title>
 <style>
   :root {
-    --bg: #0f1419;
-    --panel: #1a222c;
-    --panel2: #222c38;
-    --border: #2e3a48;
-    --text: #e7eef6;
-    --muted: #93a4b8;
-    --accent: #3d9cf0;
-    --accent2: #5ec4a8;
-    --warn: #e0a54b;
-    --code: #c8d6e5;
-    --html: #5ec4a8;
-    --md: #3d9cf0;
+    --bg: #f4f6f8;
+    --panel: #fff;
+    --panel2: #f0f3f7;
+    --border: #d8dee6;
+    --text: #1a2330;
+    --muted: #5a6a7e;
+    --accent: #2563a8;
+    --accent2: #2f7d62;
+    --warn: #b06a1a;
+    --code: #243447;
+    --code-bg: #eef2f6;
+    --html: #2f7d62;
+    --md: #2563a8;
     --side-w: 300px;
   }
   * { box-sizing: border-box; }
@@ -40,6 +41,9 @@ All rights reserved.
     font-family: Consolas, "Cascadia Mono", monospace;
     font-size: 0.92em;
     color: var(--code);
+    background: var(--code-bg);
+    padding: 0.05em 0.3em;
+    border-radius: 3px;
   }
   header.bar {
     display: flex;
@@ -48,7 +52,7 @@ All rights reserved.
     flex-wrap: wrap;
     padding: 10px 14px;
     border-bottom: 1px solid var(--border);
-    background: linear-gradient(160deg, var(--panel) 0%, #15202b 100%);
+    background: var(--panel);
   }
   header.bar h1 {
     margin: 0;
@@ -87,7 +91,7 @@ All rights reserved.
     cursor: pointer;
     font-size: 0.8rem;
   }
-  .chip.on { color: var(--text); border-color: var(--accent); }
+  .chip.on { color: var(--text); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
   .chip.html.on { border-color: var(--html); color: var(--html); }
   .chip.md.on { border-color: var(--md); color: var(--md); }
   main.layout {
@@ -110,9 +114,9 @@ All rights reserved.
     cursor: pointer;
     color: var(--muted);
   }
-  .tree-row:hover { background: #243040; color: var(--text); }
+  .tree-row:hover { background: #e8edf3; color: var(--text); }
   .tree-row.active {
-    background: #1e3348;
+    background: #eef5fc;
     color: var(--text);
     box-shadow: inset 2px 0 0 var(--accent);
   }
@@ -130,17 +134,15 @@ All rights reserved.
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
-  .badge.md { color: var(--md); border-color: #2a4f73; }
-  .badge.html { color: var(--html); border-color: #2a5a4c; }
+  .badge.md { color: var(--md); border-color: #b7cde3; background: #e8f1fa; }
+  .badge.html { color: var(--html); border-color: #b7d9cc; background: #e6f5ef; }
   .fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   section.preview {
     display: grid;
     grid-template-rows: auto 1fr;
     min-width: 0;
     min-height: 0;
-    background:
-      radial-gradient(900px 400px at 0% 0%, #1a2a3d 0%, transparent 55%),
-      var(--bg);
+    background: var(--bg);
   }
   .preview-meta {
     display: flex;
@@ -149,7 +151,7 @@ All rights reserved.
     flex-wrap: wrap;
     padding: 10px 16px;
     border-bottom: 1px solid var(--border);
-    background: rgba(26, 34, 44, 0.85);
+    background: var(--panel);
   }
   .preview-meta .path { color: var(--muted); word-break: break-all; }
   .preview-meta .actions { margin-left: auto; display: flex; gap: 8px; }
@@ -162,7 +164,7 @@ All rights reserved.
     font-size: 0.82rem;
     cursor: pointer;
   }
-  .btn:hover { border-color: var(--accent); }
+  .btn:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
   .stage {
     position: relative;
     min-height: 0;
@@ -205,17 +207,17 @@ All rights reserved.
     margin-left: 0;
     padding: 0.2em 0.9em;
     color: var(--muted);
-    background: rgba(61, 156, 240, 0.06);
+    background: #eef5fc;
   }
   article.md pre {
-    background: var(--panel);
+    background: var(--code-bg);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 12px 14px;
     overflow: auto;
   }
   article.md code {
-    background: rgba(200, 214, 229, 0.08);
+    background: var(--code-bg);
     padding: 0.1em 0.35em;
     border-radius: 4px;
   }
@@ -234,7 +236,7 @@ All rights reserved.
     padding: 6px 10px;
     text-align: left;
   }
-  article.md th { background: var(--panel); }
+  article.md th { background: #e8edf3; color: var(--muted); }
   article.md hr {
     border: 0;
     border-top: 1px solid var(--border);

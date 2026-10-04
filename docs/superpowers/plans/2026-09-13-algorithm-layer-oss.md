@@ -155,37 +155,14 @@ Set `src/BUILD.gn` “31 DLLs” to the post-merge count. If root `README.md` st
 
 ---
 
-### Task 2a: PROJ 9 adapter (proj agent)
+### Task 2a: PROJ 9 adapter (proj agent) — **landed**
 
-**Files:**
-- Delete: `src/algorithm/proj/gaussprj.cpp`, `gaussprj.h`, `lambertprj.cpp`, `lambertprj.h`
-- Modify: `src/algorithm/proj/projection_api.h`, `projection_api.cpp`, `projection.h`, `projection.cpp`, `prjx.h`, `BUILD.gn`
-- Create: `src/algorithm/proj/proj_backend.h`, `proj_backend.cc`, `proj_transform_test.cc`
+Do **not** recreate `Projection` / `SmtProjection` / `proj_runtime` / `proj_backend_traits` / `gaussprj`, or a `src/gis/kernel/proj` / `geo/proj/api|backend` tree.
 
-**Interfaces:**
-- Consumes: `//src/algorithm/geo:geo` (or the math/geo groups), PROJ 9 `proj.h` from gdal_sdk
-- Produces:
-  - `SmtLoadProjectionStringEPSG(SmtProjection*, const char* epsg)` using PROJ 9
-  - `SmtProjectPoint` via `proj_trans`
-  - `Projection::PrjLB2XY` / `PrjXY2LB` via the same adapter
-  - `GetPrjX()` returns `nullptr`
-  - `proj::transform_xy(src_crs, dst_crs, x, y) -> long` (`SMT_ERR_*`)
+**Today:** `src/gis/geo/proj/coordinate_transform.h` + `.cc` (`geo::CoordinateTransform`, `geo::transform_xy`; `#include <proj.h>` only in the `.cc`). Tests: `proj_test` / `proj_benchmark`. GN: `//src/gis/geo:proj_sources` → `gis.dll`.
 
-- [ ] **Step 1: Write the failing transform test**
-
-`proj_transform_test.cc`: load EPSG 4326 and 3857; transform `(116.3883, 39.9289)`; require both outputs within 1.0 of `(12958573.0, 4853957.0)`. Second case: empty CRS string fails.
-
-- [ ] **Step 2: Run the test to verify it fails**
-
-Expected: FAIL (PROJ.4 ifdef / missing adapter / Gauss still in the graph).
-
-- [ ] **Step 3: Implement the PROJ 9 adapter; delete Gauss/Lambert**
-
-No `proj_api.h`. No `USE_PROJ4`. `SmtProjection` holds `PJ*`. `sdb/crs` stays identity-only (do not edit `crs.h` except a comment that still claims PROJ.4).
-
-- [ ] **Step 4: Run `proj_transform_test`**
-
-Expected: PASS. `gaussprj.cpp` / `lambertprj.cpp` are not in `BUILD.gn`.
+- [x] Thin PROJ 9 wrapper + `proj_test` (EPSG 4326→3857; empty CRS invalid)
+- [x] Delete Gauss/Lambert and leftover kernel/api/backend sources
 
 ---
 

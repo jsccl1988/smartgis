@@ -1,0 +1,233 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# Layer lock (product Scenic vs copy backends vs main GIS stack):
+#   1) //src/scenic:scenic  — façade DLL (namespace scenic). TUs at scenic
+#      root + scenic::detail engine stubs. May dep product //src/gis.
+#      No content/app/leftover. Product C++23 defaults — not //build:legacy.
+#      Not in src_all.
+#   2) scenic::detail        — Map2d/Scene3d/Null engines, frame_pipeline
+#      (copy backends may include the latter; product DLL does not).
+#   3) scenic_copy_all       — render/{rhi2d,rhi3d} + scene3d copy.
+#      Opt-in. May dep gis/vista/gdal. Not in src_all. Not a second public API.
+# Living: docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md §Scenic.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+config("scenic_impl_exports") {
+  defines = [ "LEGACY_RENDER_EXPORTS" ]
+}
+
+config("scenic_render_gl_exports") {
+  defines = [ "LEGACY_RENDER_GL_EXPORTS" ]
+}
+
+config("scenic_render_d3d_exports") {
+  defines = [ "LEGACY_RENDER_D3D_EXPORTS" ]
+}
+
+# Product façade may use //src/gis; must not pull leftover / content / app /
+# copy engines. vista/render stay optional (façade stubs today).
+_scenic_product_assert_no_deps = [
+  "//src/content:*",
+  "//src/content/*",
+  "//src/app:*",
+  "//src/app/*",
+  "//src/tool:*",
+  "//src/tool/*",
+  "//src/plugin:*",
+  "//src/plugin/*",
+  "//src/vista:*",
+  "//src/vista/*",
+  "//src/render:*",
+  "//src/render/*",
+  "//src/legacy:*",
+  "//src/legacy/*",
+  "//src/ui:ui_legacy",
+  ":scenic_impl",
+  ":scenic_copy_all",
+  ":scenic_rhi2d_gdi",
+  ":scenic_rhi2d_gdiplus",
+  ":scenic_rhi2d_skia",
+  ":scenic_render_gl",
+  ":scenic_render_d3d",
+  "//src/scenic/render:*",
+  "//src/scenic/render/*",
+  "//src/scenic/scene3d:*",
+  "//src/scenic/scene3d/*",
+]
+
+# Product DLL: façade TUs compile here so SCENIC_EXPORTS → dllexport.
+# Do not split them into a source_set (parent defines do not apply; vtable
+# / default virtuals become dllimport and the DLL fails to link).
+# Default C++23 configs — not smt_shared_library / //build:legacy.
+shared_library("scenic") {
+  if (is_debug) {
+    output_name = "scenic_d"
+  } else {
+    output_name = "scenic"
+  }
+  defines = [
+    "SCENIC_EXPORTS",
+    "_USRDLL",
+  ]
+  sources = [
+    "render/detail/mem_frame.h",
+    "engine.h",
+    "map2d_engine.cc",
+    "null_engine.cc",
+    "scene3d_engine.cc",
+    "scenic_export.h",
+  ]
+  include_dirs += [ "//src" ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+  assert_no_deps = _scenic_product_assert_no_deps
+}
+
+test("scenic_engine_test") {
+  output_name = "scenic_engine_test"
+  sources = [ "engine_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":scenic" ]
+  assert_no_deps = _scenic_product_assert_no_deps
+}
+
+group("scenic_test_all") {
+  testonly = true
+  deps = [ ":scenic_engine_test" ]
+}
+
+# Scenic-owned POD / helpers shared by rhi2d + scene3d copy trees (no leftover).
+source_set("scenic_detail") {
+  sources = [
+    "detail/err.h",
+    "detail/geom.h",
+    "detail/viewport.h",
+    "detail/image.h",
+    "detail/feature_kind.h",
+    "detail/feature_mesh.h",
+    "detail/style.h",
+    "detail/style.cc",
+    "detail/style_api.h",
+    "detail/style_api.cc",
+    "detail/style_ogr.h",
+    "detail/style_ogr.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ ":scenic_impl_exports" ]
+  deps = [
+    "//src/base:base",
+    "//src/gis:gis",
+    "//src/gis/datasource/ogr:ogr_codec_client",
+    "//third_party:CxImage",
+    "//third_party:gdal",
+  ]
+}
+
+# Transitional copy of leftover/render (may dep leftover GIS / gis.dll). Opt-in.
+smt_shared_library("scenic_impl") {
+  dll_stem = "scenic_impl"
+  defines = [ "LEGACY_RENDER_EXPORTS" ]
+  # Ban leftover render/UI/app/tool + content. Do not ban leftover/gis or
+  # //src/legacy/* wholesale: product //src/gis and //src/base still carry
+  # strangler edges into leftover until those seams finish moving.
+  assert_no_deps = [
+    "//src/content:*",
+    "//src/content/*",
+    "//src/app:*",
+    "//src/app/*",
+    "//src/legacy/render:*",
+    "//src/legacy/render/*",
+    "//src/legacy/ui:*",
+    "//src/legacy/ui/*",
+    "//src/legacy/app:*",
+    "//src/legacy/app/*",
+    "//src/legacy/tool:*",
+    "//src/legacy/tool/*",
+    "//src/ui:ui_legacy",
+    ":scenic",
+  ]
+  deps = [
+    ":scenic_detail",
+    "//src/scenic/render/rhi2d:rhi2d_sources",
+    "//src/scenic/render/rhi2d/impl/common:gdi_common_sources",
+    "//src/scenic/render/rhi3d:rhi_sources",
+    "//src/scenic/scene3d:scene3d_sources",
+    "//src/render:render",
+  ]
+  public_deps = [
+    "//src/base:base",
+    "//src/base/math:math",
+    "//third_party:gdal",
+    "//third_party:CxImage",
+  ]
+}
+
+smt_shared_library("scenic_rhi2d_gdi") {
+  dll_stem = "scenic_rhi2d_gdi"
+  defines = [ "LEGACY_RHI2D_DEVICE_EXPORTS" ]
+  deps = [
+    ":scenic_impl",
+    "//src/scenic/render/rhi2d/impl/common:rhi2d_gdi_backend_sources",
+  ]
+}
+
+smt_shared_library("scenic_rhi2d_gdiplus") {
+  dll_stem = "scenic_rhi2d_gdiplus"
+  defines = [ "LEGACY_RHI2D_DEVICE_EXPORTS" ]
+  deps = [
+    ":scenic_impl",
+    "//src/scenic/render/rhi2d/impl/common:rhi2d_gdiplus_backend_sources",
+  ]
+}
+
+smt_shared_library("scenic_rhi2d_skia") {
+  dll_stem = "scenic_rhi2d_skia"
+  defines = [ "LEGACY_RHI2D_DEVICE_EXPORTS" ]
+  deps = [
+    ":scenic_impl",
+    "//src/scenic/render/rhi2d/impl/common:rhi2d_skia_backend_sources",
+  ]
+}
+
+smt_shared_library("scenic_render_gl") {
+  dll_stem = "scenic_render_gl"
+  defines = [ "LEGACY_RENDER_GL_EXPORTS" ]
+  deps = [
+    ":scenic_impl",
+    "//src/scenic/render/rhi3d/impl/gl:gl_sources",
+  ]
+  libs = [
+    "opengl32.lib",
+    "glu32.lib",
+  ]
+}
+
+smt_shared_library("scenic_render_d3d") {
+  dll_stem = "scenic_render_d3d"
+  defines = [ "LEGACY_RENDER_D3D_EXPORTS" ]
+  deps = [
+    ":scenic_impl",
+    "//src/scenic/render/rhi3d/impl/d3d:d3d_sources",
+  ]
+  libs = [
+    "d3d11.lib",
+    "dxgi.lib",
+    "d3dcompiler.lib",
+  ]
+}
+
+group("scenic_copy_all") {
+  public_deps = [
+    ":scenic_impl",
+    ":scenic_rhi2d_gdi",
+    ":scenic_rhi2d_gdiplus",
+    ":scenic_rhi2d_skia",
+    ":scenic_render_gl",
+    ":scenic_render_d3d",
+  ]
+}

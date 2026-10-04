@@ -17,8 +17,8 @@ GN helpers for unit tests and google/benchmark targets.
 ```gn
 import("//testing/benchmark.gni")
 
-benchmark("geo_benchmark") {
-  sources = [ "ops/geo_benchmark.cc" ]
+benchmark("buffer_benchmark") {
+  sources = [ "ops/buffer_benchmark.cc" ]
   deps = [ ":geo" ]
 }
 ```
@@ -49,7 +49,7 @@ Then add `"//<module>:<name>"` to root `//:test_all` (`BUILD.gn`).
 ## GUI / Views testing
 
 分层方案（工具箱单测、`--self-test`、L2 壳像素、`exe` 冒烟）见
-[`docs/build/ui-testing.md`](../docs/build/ui-testing.md)。L2 基线位于
+[`docs/superpowers/ui-testing.md`](../docs/superpowers/ui-testing.md)。L2 基线位于
 [`src/ui/views/testdata/`](../src/ui/views/testdata/)。
 
 ## End-to-end (product exes)

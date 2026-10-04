@@ -10,8 +10,8 @@
   "contributes": {
     "commands": [
       {
-        "id": "industry.tin_then_buffer",
-        "title": "Industry: TIN then buffer",
+        "id": "industry.trimesh_then_buffer",
+        "title": "Industry: trimesh then buffer",
         "menu": "tools"
       },
       {

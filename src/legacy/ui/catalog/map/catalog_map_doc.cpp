@@ -1,4 +1,4 @@
-// SmtMapDocXCatalog.cpp : ʵ���ļ�
+// MapDocXCatalog.cpp : ʵ���ļ�
 //
 
 #include "stdafx.h"
@@ -14,9 +14,10 @@
 #include "legacy/ui/catalog/resource.h"
 #include "legacy/plugin/runtime/auxmodule/plugin_msg.h"
 #include "legacy/gis/datasource/datasource_mgr.h"
-#include "gis/model/feature/feature_api.h"
-#include "gis/model/layer/layer.h"
-#include "gis/model/map/map.h"
+#include "legacy/gis/feature/leftover_copy_layer.h"
+#include "legacy/gis/layer/layer.h"
+#include "legacy/gis/layer/map_bind.h"
+#include "gis/map/map.h"
 #include "legacy/sys/sysmanager.h"
 
 using namespace gis;
@@ -26,46 +27,46 @@ using namespace sys;
 #include "legacy/ui/catalog/map/dlg_create_layer.h"
 #include "legacy/ui/catalog/map/dlg_create_map.h"
 #include "legacy/ui/catalog/map/dlg_sel_layer.h"
-// SmtMapDocXCatalog
+// MapDocXCatalog
 
 namespace ui {
-IMPLEMENT_DYNAMIC(SmtMapDocXCatalog, SmtXCatalog)
+IMPLEMENT_DYNAMIC(MapDocXCatalog, SmtXCatalog)
 
-SmtMapDocXCatalog::SmtMapDocXCatalog() { m_hContexMenu = NULL; }
+MapDocXCatalog::MapDocXCatalog() { m_hContexMenu = NULL; }
 
-SmtMapDocXCatalog::~SmtMapDocXCatalog() {}
+MapDocXCatalog::~MapDocXCatalog() {}
 
-BEGIN_MESSAGE_MAP(SmtMapDocXCatalog, CTreeCtrl)
+BEGIN_MESSAGE_MAP(MapDocXCatalog, CTreeCtrl)
 ON_WM_RBUTTONDOWN()
 ON_WM_LBUTTONDOWN()
 ON_WM_CREATE()
 
-ON_COMMAND(ID_LAYER_MGR_APPEND, &SmtMapDocXCatalog::OnLayerMgrAppend)
-ON_COMMAND(ID_LAYER_MGR_REMOVE, &SmtMapDocXCatalog::OnLayerMgrRemove)
-ON_COMMAND(ID_LAYER_MGR_ACTIVE, &SmtMapDocXCatalog::OnLayerMgrActive)
-ON_COMMAND(ID_LAYER_MGR_PROPERTY, &SmtMapDocXCatalog::OnLayerMgrProperty)
-ON_COMMAND(ID_LAYER_MGR_CALCMBR, &SmtMapDocXCatalog::OnLayerMgrReCalcMBR)
-ON_COMMAND(ID_LAYER_MGR_ATTSTRUCT, &SmtMapDocXCatalog::OnLayerMgrAttstruct)
+ON_COMMAND(ID_LAYER_MGR_APPEND, &MapDocXCatalog::OnLayerMgrAppend)
+ON_COMMAND(ID_LAYER_MGR_REMOVE, &MapDocXCatalog::OnLayerMgrRemove)
+ON_COMMAND(ID_LAYER_MGR_ACTIVE, &MapDocXCatalog::OnLayerMgrActive)
+ON_COMMAND(ID_LAYER_MGR_PROPERTY, &MapDocXCatalog::OnLayerMgrProperty)
+ON_COMMAND(ID_LAYER_MGR_CALCMBR, &MapDocXCatalog::OnLayerMgrReCalcMBR)
+ON_COMMAND(ID_LAYER_MGR_ATTSTRUCT, &MapDocXCatalog::OnLayerMgrAttstruct)
 
-ON_COMMAND(ID_MAP_MGR_NEW, &SmtMapDocXCatalog::OnMapMgrNew)
-ON_COMMAND(ID_MAP_MGR_OPEN, &SmtMapDocXCatalog::OnMapMgrOpen)
-ON_COMMAND(ID_MAP_MGR_CLOSE, &SmtMapDocXCatalog::OnMapMgrClose)
-ON_COMMAND(ID_MAP_MGR_SAVE, &SmtMapDocXCatalog::OnMapMgrSave)
-ON_COMMAND(ID_MAP_MGR_SAVEAS, &SmtMapDocXCatalog::OnMapMgrSaveas)
+ON_COMMAND(ID_MAP_MGR_NEW, &MapDocXCatalog::OnMapMgrNew)
+ON_COMMAND(ID_MAP_MGR_OPEN, &MapDocXCatalog::OnMapMgrOpen)
+ON_COMMAND(ID_MAP_MGR_CLOSE, &MapDocXCatalog::OnMapMgrClose)
+ON_COMMAND(ID_MAP_MGR_SAVE, &MapDocXCatalog::OnMapMgrSave)
+ON_COMMAND(ID_MAP_MGR_SAVEAS, &MapDocXCatalog::OnMapMgrSaveas)
 
 END_MESSAGE_MAP()
 
-// SmtMapDocXCatalog ��Ϣ��������
-bool SmtMapDocXCatalog::InitCreate(void) { return SmtXCatalog::InitCreate(); }
+// MapDocXCatalog ��Ϣ��������
+bool MapDocXCatalog::InitCreate(void) { return SmtXCatalog::InitCreate(); }
 
-bool SmtMapDocXCatalog::EndDestory(void) { return SmtXCatalog::EndDestory(); }
+bool MapDocXCatalog::EndDestory(void) { return SmtXCatalog::EndDestory(); }
 
-bool SmtMapDocXCatalog::CreateContexMenu() {
+bool MapDocXCatalog::CreateContexMenu() {
   m_hContexMenu = ::CreatePopupMenu();
   return SmtXCatalog::CreateContexMenu();
 }
 
-int SmtMapDocXCatalog::OnCreate(LPCREATESTRUCT lpCreateStruct) {
+int MapDocXCatalog::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   if (SmtXCatalog::OnCreate(lpCreateStruct) == -1) return -1;
 
   // TODO:  �ڴ�������ר�õĴ�������
@@ -80,7 +81,7 @@ int SmtMapDocXCatalog::OnCreate(LPCREATESTRUCT lpCreateStruct) {
   return 0;
 }
 
-void SmtMapDocXCatalog::OnRButtonDown(UINT nFlags, CPoint point) {
+void MapDocXCatalog::OnRButtonDown(UINT nFlags, CPoint point) {
   // TODO: restored after encoding merge
   AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
@@ -114,7 +115,7 @@ void SmtMapDocXCatalog::OnRButtonDown(UINT nFlags, CPoint point) {
   SmtXCatalog::OnRButtonDown(nFlags, point);
 }
 
-void SmtMapDocXCatalog::OnLButtonDown(UINT nFlags, CPoint point) {
+void MapDocXCatalog::OnLButtonDown(UINT nFlags, CPoint point) {
   // TODO: �ڴ�������Ϣ������������/�����Ĭ���?
   AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
@@ -125,7 +126,7 @@ void SmtMapDocXCatalog::OnLButtonDown(UINT nFlags, CPoint point) {
   } else
     return;
 
-  SmtMap *pSmtMap = SmtMapMgr::get_singleton_ptr()->GetSmtMapPtr();
+  Map *pSmtMap = SmtMapMgr::get_singleton_ptr()->GetSmtMapPtr();
   if (NULL != pSmtMap) {
     if ((nFlags & TVHT_ONITEMSTATEICON) && (hItem != m_hRoot) &&
         (hItem != m_hMap)) {
@@ -136,7 +137,8 @@ void SmtMapDocXCatalog::OnLButtonDown(UINT nFlags, CPoint point) {
         nState = (nState == 3) ? 1 : 3;
         SetItemState(hItem, INDEXTOSTATEIMAGEMASK(nState), TVIS_STATEIMAGEMASK);
         bool bIsVisible = (nState == 3);
-        SmtLayer *pLayer = pSmtMap->GetLayer(GetItemText(hItem));
+        Layer *pLayer =
+            leftover_layer_named(pSmtMap, CStringA(GetItemText(hItem)));
         if (pLayer) {
           pLayer->SetVisible(bIsVisible);
           SmtListenerMsg param;
@@ -155,7 +157,7 @@ void SmtMapDocXCatalog::OnLButtonDown(UINT nFlags, CPoint point) {
 }
 
 //////////////////////////////////////////////////////////////////////////
-bool SmtMapDocXCatalog::UpdateMapTree() {
+bool MapDocXCatalog::UpdateMapTree() {
   DeleteAllItems();
   SetRedraw(FALSE);
   SetTextColor(RGB(0, 0, 255));
@@ -163,13 +165,13 @@ bool SmtMapDocXCatalog::UpdateMapTree() {
   m_hRoot = InsertItem("Map catalog");
   SetItemState(m_hRoot, INDEXTOSTATEIMAGEMASK(0), TVIS_STATEIMAGEMASK);
 
-  SmtMap *pSmtMap = SmtMapMgr::get_singleton_ptr()->GetSmtMapPtr();
+  Map *pSmtMap = SmtMapMgr::get_singleton_ptr()->GetSmtMapPtr();
   if (NULL == pSmtMap) return false;
 
   m_hMap = InsertItem(pSmtMap->GetMapName(), m_hRoot);
   SetItemState(m_hMap, INDEXTOSTATEIMAGEMASK(2), TVIS_STATEIMAGEMASK);
 
-  // Walk by index: OGR layers have no leftover SmtLayer* (GetLayer() is
+  // Walk by index: OGR layers have no leftover Layer* (GetLayer() is
   // null). Use GetLayerName / IsLayerVisible so AppendLayer(OGR) is safe.
   const int n = pSmtMap->GetLayerCount();
   for (int i = 0; i < n; ++i) {
@@ -190,7 +192,7 @@ bool SmtMapDocXCatalog::UpdateMapTree() {
 }
 
 //////////////////////////////////////////////////////////////////////////
-void SmtMapDocXCatalog::OnLayerMgrAppend() {
+void MapDocXCatalog::OnLayerMgrAppend() {
   // TODO: restored after encoding merge
   AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
@@ -203,20 +205,20 @@ void SmtMapDocXCatalog::OnLayerMgrAppend() {
     CDlgSelLayer dlg(this);
     if (dlg.DoModal() == IDOK) {
       CString strDSName = dlg.GetSelDSName();
-      SmtDataSource pDS = pDSMgr->get_data_source((LPCTSTR)strDSName);
+      CatalogSource pDS = pDSMgr->get_data_source((LPCTSTR)strDSName);
 
       if (pDS && pDS.Open() && pDS.GetLayerCount() > 0) {
         CString strLayerName = dlg.GetSelLayerName();
-        SmtLayer *pLayer = pMapMgr->GetLayer(strLayerName);
+        Layer *pLayer = pMapMgr->GetLayer(strLayerName);
         OGRLayer *pOgr =
             pMapMgr->GetSmtMapPtr()
                 ? pMapMgr->GetSmtMapPtr()->GetOgrLayer(strLayerName)
                 : NULL;
         if (pLayer == NULL && pOgr == NULL) {
-          SmtLayerInfo lyrInfo;
+          LayerInfo lyrInfo;
           pDS.GetLayerInfo(lyrInfo, strLayerName);
 
-          if (lyrInfo.unFeatureType == SmtLayer_Ras) {
+          if (lyrInfo.unFeatureType == LayerRas) {
             pLayer = pDS.OpenRasterLayer(strLayerName);
             if (pLayer && pMapMgr->AppendLayer(pLayer)) {
               SmtListenerMsg param;
@@ -249,7 +251,7 @@ void SmtMapDocXCatalog::OnLayerMgrAppend() {
   ReleaseCapture();
 }
 
-void SmtMapDocXCatalog::OnLayerMgrRemove() {
+void MapDocXCatalog::OnLayerMgrRemove() {
   // TODO: restored after encoding merge
   SmtMapMgr *pMapMgr = SmtMapMgr::get_singleton_ptr();
   if (pMapMgr) {
@@ -264,7 +266,7 @@ void SmtMapDocXCatalog::OnLayerMgrRemove() {
   }
 }
 
-void SmtMapDocXCatalog::OnLayerMgrActive() {
+void MapDocXCatalog::OnLayerMgrActive() {
   // TODO: restored after encoding merge
   SmtMapMgr *pMapMgr = SmtMapMgr::get_singleton_ptr();
   if (pMapMgr) {
@@ -272,14 +274,14 @@ void SmtMapDocXCatalog::OnLayerMgrActive() {
   }
 }
 
-void SmtMapDocXCatalog::OnLayerMgrAttstruct() {
+void MapDocXCatalog::OnLayerMgrAttstruct() {
   AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
   ::SetCapture(AfxGetMainWnd()->m_hWnd);
 
   SmtMapMgr *pMapMgr = SmtMapMgr::get_singleton_ptr();
   if (pMapMgr) {
-    SmtMap *pMap = pMapMgr->GetSmtMapPtr();
+    Map *pMap = pMapMgr->GetSmtMapPtr();
     OGRLayer *pOgr = pMap ? pMap->GetOgrLayer(GetMapSelLayerName()) : NULL;
     if (pOgr) {
       SmtAttStructEditDlg(pOgr, 1);
@@ -294,22 +296,22 @@ void SmtMapDocXCatalog::OnLayerMgrAttstruct() {
   ReleaseCapture();
 }
 
-void SmtMapDocXCatalog::OnLayerMgrReCalcMBR() {
+void MapDocXCatalog::OnLayerMgrReCalcMBR() {
   // TODO: restored after encoding merge
   SmtMapMgr *pMapMgr = SmtMapMgr::get_singleton_ptr();
   if (pMapMgr) {
-    SmtLayer *pLayer = pMapMgr->GetLayer(GetMapSelLayerName());
+    Layer *pLayer = pMapMgr->GetLayer(GetMapSelLayerName());
     if (pLayer) {
       pLayer->CalEnvelope();
     }
   }
 }
 
-void SmtMapDocXCatalog::OnLayerMgrProperty() {
+void MapDocXCatalog::OnLayerMgrProperty() {
   // TODO: restored after encoding merge
   SmtMapMgr *pMapMgr = SmtMapMgr::get_singleton_ptr();
   if (pMapMgr) {
-    SmtLayer *pLayer = pMapMgr->GetLayer(GetMapSelLayerName());
+    Layer *pLayer = pMapMgr->GetLayer(GetMapSelLayerName());
     OGRLayer *pOgr =
         pMapMgr->GetSmtMapPtr()
             ? pMapMgr->GetSmtMapPtr()->GetOgrLayer(GetMapSelLayerName())
@@ -330,7 +332,7 @@ void SmtMapDocXCatalog::OnLayerMgrProperty() {
 }
 
 //////////////////////////////////////////////////////////////////////////
-void SmtMapDocXCatalog::OnMapMgrNew() {
+void MapDocXCatalog::OnMapMgrNew() {
   AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
   ::SetCapture(AfxGetMainWnd()->m_hWnd);
@@ -348,7 +350,7 @@ void SmtMapDocXCatalog::OnMapMgrNew() {
   ReleaseCapture();
 }
 
-void SmtMapDocXCatalog::OnMapMgrOpen() {
+void MapDocXCatalog::OnMapMgrOpen() {
   // TODO: restored after encoding merge
   SmtMapMgr *pMapMgr = SmtMapMgr::get_singleton_ptr();
   if (pMapMgr) {
@@ -366,7 +368,7 @@ void SmtMapDocXCatalog::OnMapMgrOpen() {
   }
 }
 
-void SmtMapDocXCatalog::OnMapMgrClose() {
+void MapDocXCatalog::OnMapMgrClose() {
   // TODO: restored after encoding merge
   SmtMapMgr *pMapMgr = SmtMapMgr::get_singleton_ptr();
   if (pMapMgr) {
@@ -375,7 +377,7 @@ void SmtMapDocXCatalog::OnMapMgrClose() {
   }
 }
 
-void SmtMapDocXCatalog::OnMapMgrSave() {
+void MapDocXCatalog::OnMapMgrSave() {
   // TODO: restored after encoding merge
   SmtMapMgr *pMapMgr = SmtMapMgr::get_singleton_ptr();
   if (pMapMgr) {
@@ -383,7 +385,7 @@ void SmtMapDocXCatalog::OnMapMgrSave() {
   }
 }
 
-void SmtMapDocXCatalog::OnMapMgrSaveas() {
+void MapDocXCatalog::OnMapMgrSaveas() {
   // TODO: restored after encoding merge
   SmtMapMgr *pMapMgr = SmtMapMgr::get_singleton_ptr();
   if (pMapMgr) {

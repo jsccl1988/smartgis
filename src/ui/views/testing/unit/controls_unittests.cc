@@ -79,7 +79,8 @@ void test_label_button_preferred_from_measure() {
          "label long preferred wider");
   expect(short_label.preferred_size().width < 160,
          "label tighter than old fixed 160");
-  expect(short_label.preferred_size().height >= 24, "label min height");
+  // Label::kMinHeight is 22 DIP; Button::kMinHeight is 24 DIP.
+  expect(short_label.preferred_size().height >= 22, "label min height");
 
   short_label.set_text("Hello preferred width");
   expect(short_label.preferred_size().width ==
@@ -88,13 +89,13 @@ void test_label_button_preferred_from_measure() {
 
   Label empty("");
   expect(empty.preferred_size().width == 8, "label empty pad-only width");
-  expect(empty.preferred_size().height >= 24, "label empty min height");
+  expect(empty.preferred_size().height >= 22, "label empty min height");
 
   Button go("Go");
   expect(go.preferred_size().width == measure_text_utf8("Go").width + 16,
          "button width = ink + pad");
   expect(go.preferred_size().width < 96, "button tighter than old fixed 96");
-  expect(go.preferred_size().height >= 28, "button min height");
+  expect(go.preferred_size().height >= 24, "button min height");
 
   go.set_text("Much longer button caption");
   expect(go.preferred_size().width >

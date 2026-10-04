@@ -38,8 +38,8 @@ class BASE_EXPORT SmtSysManager {
     m_styleConfig = config;
   }
 
-  inline SmtMapDocInfo get_sys_map_doc_info(void) const { return m_mapDocInfo; }
-  inline void set_sys_map_doc_info(SmtMapDocInfo& mapDocInfo) {
+  inline MapDocInfo get_sys_map_doc_info(void) const { return m_mapDocInfo; }
+  inline void set_sys_map_doc_info(MapDocInfo& mapDocInfo) {
     m_mapDocInfo = mapDocInfo;
   }
 
@@ -51,7 +51,7 @@ class BASE_EXPORT SmtSysManager {
 
  private:
   SmtStyleConfig m_styleConfig;
-  SmtMapDocInfo m_mapDocInfo;
+  MapDocInfo m_mapDocInfo;
   SmtPrjInfo m_prjInfo;
 
   SmtSysPra m_sysPra;

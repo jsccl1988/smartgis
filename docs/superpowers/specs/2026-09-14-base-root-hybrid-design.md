@@ -5,12 +5,12 @@ All rights reserved.
 
 # `src/base` Hybrid 全量替换（原「仓库根 `base/`」）
 
+**Status:** accepted  
 **Date:** 2026-09-14  
-**Status:** accepted（Phases 0–6 consolidator 已收口；**2026-09-15 amendment：** foundation 真源从仓库根迁入 `src/base/`；**2026-09-28：** §Trace / §Memory；**2026-09-28：** §Process malloc / PA-E）  
-**Updated:** 2026-10-01 — §Math Eigen（`namespace base` + Eigen ops / bounds；短命 `render::` 别名）
+**Updated:** 2026-10-03 — memory / codecs / trace checklists archived; PA-E + execution still open. Prior: Phases 0–6 consolidator 已收口；2015 amendment 真源 `src/base/`；§Trace / §Memory / §Process malloc；2026-10-01 §Math Eigen.
 **Goal:** 将遗留 `src/base/core`（`Smt*`）对照 mogu **全部**替换到 foundation 树；制图 style / `sys` / `net` 留在产品层；分期 strangler，阶段末不留旧名转发壳。  
-**Related:** [`../../build/src-layout.md`](../../build/src-layout.md)、[`../../build/mogu-mapping.md`](../../build/mogu-mapping.md)、[`../../build/abi-rename-map.md`](../../build/abi-rename-map.md)、[`2026-09-13-code-style-include-abi-cutover-design.md`](../archive/specs/2026-09-13-code-style-include-abi-cutover-design.md)、[`2026-09-13-base-archive-design.md`](../archive/specs/2026-09-13-base-archive-design.md)、[`2026-09-13-base-ipc-mojom-design.md`](../archive/specs/2026-09-13-base-ipc-mojom-design.md)、[`2026-09-14-dll-reorganization-design.md`](../archive/specs/2026-09-14-dll-reorganization-design.md)  
-**Plan (Cursor):** `base_root_hybrid_fd0c40fd.plan.md`（会话外；本仓以本 spec + `docs/build` 为准）；**§Memory:** [`../plans/2026-09-28-base-memory.md`](../plans/2026-09-28-base-memory.md)；**§PA-E:** [`../plans/2026-09-28-partition-alloc-everywhere.md`](../plans/2026-09-28-partition-alloc-everywhere.md)
+**Related:** [`../src-layout.md`](../src-layout.md)、[`../mogu-mapping.md`](../mogu-mapping.md)、[`../abi-rename-map.md`](../abi-rename-map.md)、[`2026-09-13-code-style-include-abi-cutover-design.md`](../archive/specs/2026-09-13-code-style-include-abi-cutover-design.md)、[`2026-09-13-base-archive-design.md`](../archive/specs/2026-09-13-base-archive-design.md)、[`2026-09-13-base-ipc-mojom-design.md`](../archive/specs/2026-09-13-base-ipc-mojom-design.md)、[`2026-09-14-dll-reorganization-design.md`](../archive/specs/2026-09-14-dll-reorganization-design.md)  
+**Plan (Cursor):** `base_root_hybrid_fd0c40fd.plan.md`（会话外；本仓以本 spec + `docs/superpowers` 为准）；**§Memory:** [`../archive/plans/2026-09-28-base-memory.md`](../archive/plans/2026-09-28-base-memory.md)；**§PA-E:** [`../plans/2026-09-28-partition-alloc-everywhere.md`](../plans/2026-09-28-partition-alloc-everywhere.md)；**§Execution:** [`../plans/2026-09-28-base-execution.md`](../plans/2026-09-28-base-execution.md)
 
 ## Amendment (2026-09-15)
 
@@ -37,7 +37,7 @@ All rights reserved.
 | 手法 | **Hybrid**：薄面 port mogu header；厚/平台面按 mogu API 形状本仓 rewrite（Windows：`LoadLibrary`；无裸拷 `unistd`/`dlfcn`） |
 | 落点 | 终局 foundation = **`src/base/`**；仓库根**无**物理 `base/`、`core/`；兼容别名 `//:base` / `//:core` |
 | 边界 A — 进 foundation | `core`（headers）、`threading`、`files`、`memory`、`util`、`archive`、`ipc`、`synchronization` / `concurrency` / `execution`（见 [`2026-09-28-base-execution-design.md`](../archive/specs/2026-09-28-base-execution-design.md)）；按需 `string` / `time` / `traits` / `container` / `tuple` 子集 |
-| 边界 A — 留产品层 | 制图 pen/brush/`SmtStyle` → **`src/legacy/gis/present/carto`**（链入 **`gis.dll`**）；`gis::Envelope` → **`src/gis/model/envelope.h`**（header-only）；`sys`、`net` 不动 |
+| 边界 A — 留产品层 | 制图 pen/brush/`SmtStyle` → **`src/legacy/gis/present/carto`**（链入 **`gis.dll`**）；`gis::Envelope` → **`src/gis/envelope.h`**（header-only）；`sys`、`net` 不动 |
 | 硬排除 | 不搬 mogu `base::mutex`（新树 `std::mutex`）；不整棵搬 archive Json/Text/Yaml sink；不 vendor Chromium；不引入 Qt |
 | ABI | 破 `Smt*`；**阶段末不留**旧名转发壳；日常改动在 `master` |
 | 推进 | **分期 strangler**（每期绿再进下一期） |
@@ -126,7 +126,7 @@ src/
 
 **Status:** active  
 **Updated:** 2026-09-29 — Chromium-style subdirectory layout + `namespace base::trace`  
-**Plan:** [`../plans/2026-09-28-render-trace-profiler.md`](../plans/2026-09-28-render-trace-profiler.md) (landed); layout cutover [`../plans/2026-09-29-base-trace-subdir.md`](../plans/2026-09-29-base-trace-subdir.md)
+**Plan:** [`../plans/2026-09-28-render-trace-profiler.md`](../archive/plans/2026-09-28-render-trace-profiler.md) (landed); layout cutover [`../plans/2026-09-29-base-trace-subdir.md`](../archive/plans/2026-09-29-base-trace-subdir.md)
 
 mogu-aligned `src/base/trace/` in foundation (header-mostly). Public symbols live in **`namespace base::trace`** (internals in `base::trace::detail`). **No root forwarding headers.**
 
@@ -146,7 +146,7 @@ GN: `//src/base/trace:trace` public_dep of `:foundation`. Test: `trace_test`.
 ## §Memory（2026-09-28）
 
 **Status:** active  
-**Plan:** [`../plans/2026-09-28-base-memory.md`](../plans/2026-09-28-base-memory.md) (Batch1–2 landed); Batch3a [`../plans/2026-09-28-gis-memory-load.md`](../plans/2026-09-28-gis-memory-load.md)
+**Plan:** [`../plans/2026-09-28-base-memory.md`](../archive/plans/2026-09-28-base-memory.md) (Batch1–2 landed); Batch3a [`../plans/2026-09-28-gis-memory-load.md`](../plans/2026-09-28-gis-memory-load.md)
 
 mogu-aligned `src/base/memory/` as `//src/base/memory:memory` (public_dep of `:foundation`):
 
@@ -164,7 +164,7 @@ mogu-aligned `src/base/memory/` as `//src/base/memory:memory` (public_dep of `:f
 
 **Adoption batches**
 
-1. Present / frame — `Layout::build` + `Map2dFrameCache` + `effect::map::Pass` clear TLS / monotonic scratch per build/record. **Landed.**
+1. Present / frame — `Layout::build` + `Map2dFrameCache` + `vista::Pass` clear TLS / monotonic scratch per build/record. **Landed.**
 2. GIS model — tileset JSON parse (`ObjectPool` keys + monotonic Arena); OGR decode TLS scratch. **Landed.**
 3. GIS OGR load (Batch3a) — `load_ogr_layer_pipeline` ordered window (bound in-flight `Out`) + decode TLS clear cadence + **Ctx freelist** via `Pipeline::set_context_hooks`. Plan: [`../plans/2026-09-28-gis-memory-load.md`](../plans/2026-09-28-gis-memory-load.md).
 3b. Vista tessellate scratch (Batch3c) — TLS clear on public `tessellate_*` entry; thread_local `ObjectPool` for PolyPt/Vec2/dash scratch vectors (parallel_for safe).
@@ -222,7 +222,7 @@ All must hold before product PA-E may default on:
 | **1** | Pin Chromium `partition_alloc` (+ Windows shim); mirror GN args `use_allocator_shim` / `use_partition_alloc_as_malloc`; dependency graph | Spec + graph; flags still default **off** |
 | **2** | Prove PA-E on a **single executable** test target (no product DLL graph) | Verified static path |
 | **3** | Product multi-DLL: shared `allocator_shim` + default `shared_library` / `executable` deps | Only then allow product default on |
-| **4** | As-built in `docs/build/`; remove or neutralize `USE_TCMALLOC` / dead gperftools config | Closeout |
+| **4** | As-built in `docs/superpowers/`; remove or neutralize `USE_TCMALLOC` / dead gperftools config | Closeout |
 
 ### Explicit non-goals (until Phase 3+)
 
@@ -240,11 +240,11 @@ All must hold before product PA-E may default on:
 
 ## §Carto split（2026-09-28）
 
-**Why not a new dated spec:** layout / include break owned by as-built `docs/build/src-layout.md` + this living base row (ban list: subdirectory moves).
+**Why not a new dated spec:** layout / include break owned by as-built `docs/superpowers/src-layout.md` + this living base row (ban list: subdirectory moves).
 
 | Piece | Path | DLL / linkage |
 | --- | --- | --- |
-| `gis::Envelope` | `src/gis/model/envelope.h`（header-only） | no export from `base.dll`；产品 `gis` / leftover 共用 |
+| `gis::Envelope` | `src/gis/envelope.h`（header-only） | no export from `base.dll`；产品 `gis` / leftover 共用 |
 | `SmtStyle` / StyleManager / `style_api` | `src/legacy/gis/present/carto/` | `carto_sources` → **`gis.dll`**（`to_smt_style` 同 DLL） |
 
 `src/legacy/carto` and `src/base/carto` removed. Do not confuse with GDI `legacy/render/.../gdi` carto paint (`MapCarto2d`).

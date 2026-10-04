@@ -107,7 +107,16 @@ void View::set_bounds(const Rect& bounds) {
     mark_needs_layout();
     // Eager layout when a direct child owns an HWND so native bounds track
     // before the next WM_PAINT (mouse can hit the stale HWND first).
-    if (!in_layout_) {
+    // Also reflow when growing out of a zero-area box: LayerTree / tab pages
+    // hide children on the collapsed pass and would stay blank until a later
+    // full widget layout (empty Catalog TOC under ui-showcase).
+    // Skip while this view or any ancestor is already laying out — otherwise
+    // LayerTree::layout → row set_bounds → View::layout notes once per row.
+    bool ancestor_in_layout = in_layout_;
+    for (View* p = parent_; p && !ancestor_in_layout; p = p->parent_) {
+      ancestor_in_layout = p->in_layout_;
+    }
+    if (!ancestor_in_layout) {
       bool hwnd_child = native_hwnd_ != nullptr;
       if (!hwnd_child) {
         for (const auto& child : children_) {
@@ -117,7 +126,10 @@ void View::set_bounds(const Rect& bounds) {
           }
         }
       }
-      if (hwnd_child) {
+      const bool grew_from_empty =
+          (old.width <= 0 || old.height <= 0) && bounds_.width > 0 &&
+          bounds_.height > 0;
+      if (hwnd_child || grew_from_empty) {
         layout();
       }
     }

@@ -5,9 +5,10 @@
 #include <cstring>
 #include <string>
 
-#include "gis/datasource/provider/impl/gdal/gdal_driver.h"
+#include "gis/datasource/gdal/gdal_driver.h"
 #include "gis/datasource/session/connection_spec.h"
 #include "gis/datasource/session/data_session.h"
+#include "legacy/gis/datasource/connection_spec_info.h"
 
 namespace {
 
@@ -23,6 +24,9 @@ void expect(bool ok, const char* msg) {
 void test_connection_spec_round_trip() {
   using gis::datasource::ConnectionSpec;
   using gis::datasource::ProviderKind;
+  using gis::datasource::connection_spec_from_info;
+  using gis::datasource::connection_spec_to_info;
+  using gis::datasource::provider_kind_from_info;
 
   ConnectionSpec spec;
   spec.kind = ProviderKind::kLocalSdbd;
@@ -35,22 +39,22 @@ void test_connection_spec_round_trip() {
   spec.ds_type = gis::DS_FILE_SMF;
   spec.provider_id = gis::PROVIDER_GPKG;
 
-  gis::SmtDataSourceInfo info = spec.to_info();
+  gis::DataSourceInfo info = connection_spec_to_info(spec);
   expect(std::strcmp(info.szName, "demo_ds") == 0, "to_info name");
   expect(std::strcmp(info.szUrl, "sdbd-rpc://127.0.0.1:9032") == 0,
          "to_info url");
   expect(info.unType == gis::DS_FILE_SMF, "to_info ds_type");
   expect(info.unProvider == gis::PROVIDER_GPKG, "to_info provider_id");
 
-  ConnectionSpec back = ConnectionSpec::from_info(info);
+  ConnectionSpec back = connection_spec_from_info(info);
   expect(back.name == "demo_ds", "from_info name");
   expect(back.url == "sdbd-rpc://127.0.0.1:9032", "from_info url");
   expect(back.kind == ProviderKind::kLocalSdbd, "from_info kind local");
   expect(back.provider_id == gis::PROVIDER_GPKG, "from_info provider_id");
 
-  gis::SmtDataSourceInfo remote;
+  gis::DataSourceInfo remote;
   remote.unProvider = gis::PROVIDER_SDBD;
-  expect(ConnectionSpec::kind_from_info(remote) == ProviderKind::kRemoteSdbd,
+  expect(provider_kind_from_info(remote) == ProviderKind::kRemoteSdbd,
          "kind_from_info remote");
 }
 

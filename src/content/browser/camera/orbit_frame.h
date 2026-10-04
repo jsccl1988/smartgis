@@ -7,14 +7,14 @@
 #include <cstdint>
 
 #include "content/browser/camera/map_host_extent.h"
-#include "gis/vista/world/terrain/dem/dem_frame.h"
+#include "vista/world/terrain/dem/dem_frame.h"
 #include "render/rhi/rhi.h"
 #include "tool/draft/draft.h"
 
 namespace content {
 
-// Alias of gis::kDemDefaultOrbitYaw (south-of-target, north toward screen top).
-inline constexpr float kScene3dDefaultYaw = gis::kDemDefaultOrbitYaw;
+// Alias of vista::kDemDefaultOrbitYaw (south-of-target, north toward screen top).
+inline constexpr float kScene3dDefaultYaw = vista::kDemDefaultOrbitYaw;
 
 // Vertical FOV for the orbit camera. The DEM is normalized to a 3.2 span
 // (XZ diagonal ~4.5) and the default distance is 3.2. 45° only covers ~2.65

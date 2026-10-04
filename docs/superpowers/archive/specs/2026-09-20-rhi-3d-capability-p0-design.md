@@ -11,9 +11,9 @@ All rights reserved.
 **Status:** active  
 **Date:** 2026-09-20  
 **Scope:** 在已有 `render::rhi` Facade + `render::scene::GpuScene` 上补齐产品级 3D 观感与可回归性；**不**引入 Shiva / two / bgfx、不透传完整 FlyCube、不做完整 PBR。  
-**Origin:** Shiva / FlyCube 差距分析对话结论（P0：样式/材质、默认光照、GpuScene 规模与真机 GPU greener；不追 Shiva/two/全开 FlyCube）。对照 living RHI [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)、样式 [`2026-09-14-sdb-style-document-design.md`](2026-09-14-sdb-style-document-design.md)、双场景 [`2026-09-19-scene3d-world-gpuscene-design.md`](2026-09-19-scene3d-world-gpuscene-design.md)。  
-**Plan:** [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../plans/2026-09-20-rhi-3d-capability-p0.md)  
-**Sibling (do not collide):** 大气升级 [`../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md`](../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md) 独占 ocean/cloud pass / FieldStore。`PipelineId::{kOcean,kCloud}` 这一锁由 [`2026-09-27-rhi-generic-pipeline-design.md`](2026-09-27-rhi-generic-pipeline-design.md) 取代：效果不再作为 `rhi.h` 枚举进入命令列表。光照与样式能力仍属本规格。
+**Origin:** Shiva / FlyCube 差距分析对话结论（P0：样式/材质、默认光照、GpuScene 规模与真机 GPU greener；不追 Shiva/two/全开 FlyCube）。对照 living RHI [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md)、样式 [`2026-09-14-sdb-style-document-design.md`](2026-09-14-sdb-style-document-design.md)、双场景 [`2026-09-19-scene3d-world-gpuscene-design.md`](2026-09-19-scene3d-world-gpuscene-design.md)。  
+**Plan:** [`../plans/2026-09-20-rhi-3d-capability-p0.md`](../../plans/2026-09-20-rhi-3d-capability-p0.md)  
+**Sibling (do not collide):** 大气升级 [`../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md`](../../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md) 独占 ocean/cloud pass / FieldStore。`PipelineId::{kOcean,kCloud}` 这一锁由 [`2026-09-27-rhi-generic-pipeline-design.md`](2026-09-27-rhi-generic-pipeline-design.md) 取代：效果不再作为 `rhi.h` 枚举进入命令列表。光照与样式能力仍属本规格。
 
 ## Goal
 

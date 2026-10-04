@@ -45,6 +45,7 @@ struct UI_EXPORT FlexStyle {
   std::optional<Align> align_items;
   std::optional<float> flex;
   std::optional<float> flex_grow;
+  std::optional<float> flex_shrink;
   std::optional<float> gap;
   std::optional<float> padding;
   std::optional<float> padding_left;

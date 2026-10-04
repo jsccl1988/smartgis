@@ -36,7 +36,7 @@ When this skill is invoked, attached (`@auto-bug-fix` / `/auto-bug-fix`), or fol
 4. Product sources are **`src/`**. Hosts: Views (`SmartGisViews.exe`) is the destination; leftover MFC (`SmartGis.exe`) is process smoke only. Do not treat WinUI / CEF as the endgame shell.
 5. **CBM first** (`user-codebase-memory-mcp`, project `smartgis`, `root_path` `C:/Dev/src/gis/smartgis`). Grep/Glob only if CBM is down, the user named an exact path, or the search is already scoped (`path` required).
 6. **Stay on `master`.** No new branches unless the user explicitly asks.
-7. Layers: `docs/build/ui-testing.md`. Mapping: `docs/build/mogu-mapping.md`.
+7. Layers: `docs/superpowers/ui-testing.md`. Mapping: `docs/superpowers/mogu-mapping.md`.
 
 ```bat
 .\build.bat e2e
@@ -50,7 +50,7 @@ When this skill is invoked, attached (`@auto-bug-fix` / `/auto-bug-fix`), or fol
 3. Parse **`out/Debug/build.log`** (and `out/Release/build.log` if built) *and* the test runner / `exe_smoke` transcript:
    - ninja: `FAILED:` / `ninja: build stopped` / `error:` / linker failure
    - `exe_smoke`: `FAIL  <exe>` (exit / timeout / CreateProcess / `--require-all` missing PE). `SKIP` is not green under `--require-all`.
-   - unit tests: non-zero exit, `FAILED`, assertion text, `--self-test` codes (`docs/build/ui-testing.md`)
+   - unit tests: non-zero exit, `FAILED`, assertion text, `--self-test` codes (`docs/superpowers/ui-testing.md`)
 4. **Reproduce** the failing exe or `--self-test` in isolation when the log is ambiguous.
 5. **Hypothesis** (systematic-debugging). Fix **root cause** in source or `BUILD.gn`.
    - Not `#if 0`, not deleting / `#ifdef`-hiding tests, not `-Wno-*` unless asked.

@@ -7,9 +7,11 @@
 
 #include "legacy/gis/present/carto/style_api.h"
 #include "legacy/gis/present/carto/stylemanager.h"
-#include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
-#include "gis/model/feature/feature.h"
-#include "gis/model/map/map.h"
+#include "gis/datasource/ogr/ogr_feature_codec.h"
+#include "legacy/gis/present/carto/smt_style_ogr.h"
+#include "legacy/gis/feature/leftover_feature.h"
+#include "gis/feature/feature.h"
+#include "gis/map/map.h"
 #include "legacy/core/macros/macros.h"
 #include "legacy/sys/sysmanager.h"
 #include "legacy/tool/msg/msg.h"
@@ -31,7 +33,7 @@ const string CST_STR_APPENDFEATURE_TOOL_NAME = "添加要素";
 
 namespace {
 
-OGRFeature* make_ogr_feature(SmtMap* map, OGRGeometry* geom, SmtFeatureType ft,
+OGRFeature* make_ogr_feature(Map* map, OGRGeometry* geom, FeatureType ft,
                              const char* style_name) {
   if (!map || !geom) {
     return nullptr;
@@ -44,7 +46,7 @@ OGRFeature* make_ogr_feature(SmtMap* map, OGRGeometry* geom, SmtFeatureType ft,
   if (!ogr) {
     return nullptr;
   }
-  if (!gis::datasource::encode_smt_geometry(geom, ogr, ft)) {
+  if (!leftover_encode_geometry(geom, ogr, ft)) {
     OGRFeature::DestroyFeature(ogr);
     return nullptr;
   }
@@ -122,7 +124,7 @@ SmtAppendFeatureTool::~SmtAppendFeatureTool() {
 }
 
 int SmtAppendFeatureTool::Init(LPRENDERDEVICE pMrdRenderDevice,
-                               SmtMap* pOperSmtMap, HWND hWnd,
+                               Map* pOperSmtMap, HWND hWnd,
                                pfnToolCallBack pfnCallBack, void* pToFollow) {
   if (SMT_ERR_NONE != SmtBaseTool::Init(pMrdRenderDevice, pOperSmtMap, hWnd,
                                         pfnCallBack, pToFollow)) {
@@ -181,7 +183,7 @@ int SmtAppendFeatureTool::AuxDraw() { return SmtBaseTool::AuxDraw(); }
 
 int SmtAppendFeatureTool::Timer() { return SmtBaseTool::Timer(); }
 
-void SmtAppendFeatureTool::SetOperMap(SmtMap* pOperSmtMap) {
+void SmtAppendFeatureTool::SetOperMap(Map* pOperSmtMap) {
   SmtBaseTool::SetOperMap(pOperSmtMap);
 
   m_edits = std::make_unique<gis::MapEditSession>(pOperSmtMap);
@@ -575,7 +577,7 @@ void SmtAppendFeatureTool::AppendChildImageFeature() {
     SmtStyleConfig styleSonfig = pSysMgr->get_sys_style_config();
 
     OGRFeature* ogr =
-        make_ogr_feature(m_pOperMap, m_pGeom, SmtFeatureType::SmtFtChildImage,
+        make_ogr_feature(m_pOperMap, m_pGeom, FeatureType::FtChildImage,
                          styleSonfig.szPointStyle);
 
     if (commit_append(m_edits.get(), ogr)) {
@@ -584,7 +586,7 @@ void SmtAppendFeatureTool::AppendChildImageFeature() {
       OGRPoint* pPoint = (OGRPoint*)m_pGeom;
       float fMargin = 5. / m_pRenderDevice->GetBlc();
 
-      geo::copy_envelope(*m_pGeom, &envelope);
+      geo::fill_envelope(*m_pGeom, &envelope);
       envelope.merge(pPoint->getX() - fMargin, pPoint->getY() - fMargin);
       envelope.merge(pPoint->getX() + fMargin, pPoint->getY() + fMargin);
       envelope_to_rect(frt, envelope);
@@ -601,7 +603,7 @@ void SmtAppendFeatureTool::AppendTextFeature(const char* szAnno, float fangle) {
     SmtStyleConfig styleSonfig = pSysMgr->get_sys_style_config();
 
     OGRFeature* ogr =
-        make_ogr_feature(m_pOperMap, m_pGeom, SmtFeatureType::SmtFtAnno,
+        make_ogr_feature(m_pOperMap, m_pGeom, FeatureType::FtAnno,
                          styleSonfig.szPointStyle);
     set_field_string(ogr, "anno", szAnno);
     set_field_int(ogr, "color", int(RGB(0, 0, 0)));
@@ -613,7 +615,7 @@ void SmtAppendFeatureTool::AppendTextFeature(const char* szAnno, float fangle) {
       OGRPoint* pPoint = (OGRPoint*)m_pGeom;
       float fMargin = 5. / m_pRenderDevice->GetBlc();
 
-      geo::copy_envelope(*m_pGeom, &envelope);
+      geo::fill_envelope(*m_pGeom, &envelope);
       envelope.merge(pPoint->getX() - fMargin, pPoint->getY() - fMargin);
       envelope.merge(pPoint->getX() + fMargin, pPoint->getY() + fMargin);
       envelope_to_rect(frt, envelope);
@@ -630,7 +632,7 @@ void SmtAppendFeatureTool::AppendDotFeature() {
     SmtStyleConfig styleSonfig = pSysMgr->get_sys_style_config();
 
     OGRFeature* ogr =
-        make_ogr_feature(m_pOperMap, m_pGeom, SmtFeatureType::SmtFtDot,
+        make_ogr_feature(m_pOperMap, m_pGeom, FeatureType::FtDot,
                          styleSonfig.szPointStyle);
 
     if (commit_append(m_edits.get(), ogr)) {
@@ -639,7 +641,7 @@ void SmtAppendFeatureTool::AppendDotFeature() {
       OGRPoint* pPoint = (OGRPoint*)m_pGeom;
       float fMargin = 5. / m_pRenderDevice->GetBlc();
 
-      geo::copy_envelope(*m_pGeom, &envelope);
+      geo::fill_envelope(*m_pGeom, &envelope);
       envelope.merge(pPoint->getX() - fMargin, pPoint->getY() - fMargin);
       envelope.merge(pPoint->getX() + fMargin, pPoint->getY() + fMargin);
       envelope_to_rect(frt, envelope);
@@ -655,7 +657,7 @@ void SmtAppendFeatureTool::AppendLineFeature(void) {
     SmtSysManager* pSysMgr = SmtSysManager::get_singleton_ptr();
     SmtStyleConfig styleSonfig = pSysMgr->get_sys_style_config();
 
-    OGRFeature* ogr = make_ogr_feature(m_pOperMap, m_pGeom, SmtFtCurve,
+    OGRFeature* ogr = make_ogr_feature(m_pOperMap, m_pGeom, FtCurve,
                                        styleSonfig.szLineStyle);
     if (auto* curve = dynamic_cast<OGRCurve*>(m_pGeom)) {
       set_field_double(ogr, "length", curve->get_Length());
@@ -666,7 +668,7 @@ void SmtAppendFeatureTool::AppendLineFeature(void) {
       Envelope envelope;
       float fMargin = 5. / m_pRenderDevice->GetBlc();
 
-      geo::copy_envelope(*m_pGeom, &envelope);
+      geo::fill_envelope(*m_pGeom, &envelope);
       envelope.merge(envelope.MinX - fMargin, envelope.MinY - fMargin);
       envelope.merge(envelope.MaxX + fMargin, envelope.MaxY + fMargin);
       envelope_to_rect(frt, envelope);
@@ -682,7 +684,7 @@ void SmtAppendFeatureTool::AppendRegionFeature() {
     SmtSysManager* pSysMgr = SmtSysManager::get_singleton_ptr();
     SmtStyleConfig styleSonfig = pSysMgr->get_sys_style_config();
 
-    OGRFeature* ogr = make_ogr_feature(m_pOperMap, m_pGeom, SmtFtSurface,
+    OGRFeature* ogr = make_ogr_feature(m_pOperMap, m_pGeom, FtSurface,
                                        styleSonfig.szRegionStyle);
     if (auto* surf = dynamic_cast<OGRSurface*>(m_pGeom)) {
       set_field_double(ogr, "area", surf->get_Area());
@@ -693,7 +695,7 @@ void SmtAppendFeatureTool::AppendRegionFeature() {
       Envelope envelope;
       float fMargin = 5. / m_pRenderDevice->GetBlc();
 
-      geo::copy_envelope(*m_pGeom, &envelope);
+      geo::fill_envelope(*m_pGeom, &envelope);
       envelope.merge(envelope.MinX - fMargin, envelope.MinY - fMargin);
       envelope.merge(envelope.MaxX + fMargin, envelope.MaxY + fMargin);
       envelope_to_rect(frt, envelope);

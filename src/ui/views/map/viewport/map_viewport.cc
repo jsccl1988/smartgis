@@ -135,6 +135,19 @@ bool MapViewport::attach() {
   const bool prefer_flycube_3d = true;
 #endif
   const bool prefer_flycube_2d = []() {
+    // Scenic MemFrame present must never create a FlyCube HWND — residual
+    // display_run_present SEH 0xC0000005 was observed when scenic still
+    // attached DX12 present on the shell map panes.
+    if (const char* map_eng = std::getenv("SMT_MAP2D_ENGINE")) {
+      if (map_eng[0] && _stricmp(map_eng, "scenic") == 0) {
+        return false;
+      }
+    }
+    if (const char* scene_eng = std::getenv("SMT_SCENE3D_ENGINE")) {
+      if (scene_eng[0] && _stricmp(scene_eng, "scenic") == 0) {
+        return false;
+      }
+    }
     if (const char* env = std::getenv("SMT_FORCE_CONTENT_MAPVIEW_2D")) {
       if (env[0] == '1' && env[1] == '\0') {
         return false;

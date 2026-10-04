@@ -16,7 +16,7 @@
   ],
   "bmp": {
     "path": "plugin-showcase-orthogrid3d.bmp",
-    "score_id": "plugin_product"
+    "score_id": "plugin_mesh"
   },
   "report_name": "plugin_orthogrid3d_loop_report.json",
   "probes": [

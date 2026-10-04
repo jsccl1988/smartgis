@@ -15,10 +15,10 @@ source_set("rhi2d_sources") {
   ]
   defines = [ "_USRDLL" ]
   deps = [
-    "//src/gis/kernel/geo:geo",
+    "//src/gis/geo:geo",
     "//src/base:base",
     "//src/base:core",
-    "//src/gis/model/map:gis",
+    "//src/gis/map:gis",
   ]
 }
 

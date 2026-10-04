@@ -1,4 +1,4 @@
-{
+﻿{
   "id": "plugin.world3d",
   "kind": "showcase",
   "argv": [
@@ -42,3 +42,19 @@
     "expect_notes": "world3d Earth face: land/mesh + atmosphere product defaults; satellite cloud may be procedural until GeoTIFF is present"
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

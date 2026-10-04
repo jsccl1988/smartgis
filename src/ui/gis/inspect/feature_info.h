@@ -20,7 +20,7 @@ class Label;
 class TableView;
 
 // Read-only identify inspector (ArcGIS / QGIS Identify Results style).
-// Hosts pass opaque string identity + name/value pairs; never SmtFeature*.
+// Hosts pass opaque string identity + name/value pairs; never FeatureAdapter*.
 // Supports multi-hit navigation when the host supplies a Hit list.
 class UI_EXPORT FeatureInfo : public View {
  public:

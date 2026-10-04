@@ -11,8 +11,8 @@
 
 #include "base/core/log.h"
 #include "content/public/view_host.h"
-#include "gis/model/feature/feature.h"
-#include "gis/model/map/map.h"
+#include "gis/feature/feature.h"
+#include "gis/map/map.h"
 #include "legacy/core/listener/listener_manager.h"
 #include "legacy/core/macros/macros.h"
 #include "legacy/core/util/menu.h"
@@ -45,7 +45,7 @@ IMPLEMENT_DYNCREATE(Smt2DXView, SmtXView)
 
 #define SMT_MSG_FRAME_OPER_MAP (WM_APP + 0x2D01)
 
-static void Notify2DXViewOperMap(void* p2DXView, SmtMap* pMap) {
+static void Notify2DXViewOperMap(void* p2DXView, Map* pMap) {
   if (p2DXView != NULL) {
     static_cast<Smt2DXView*>(p2DXView)->SetOperMap(pMap);
   }
@@ -67,7 +67,7 @@ Smt2DXView::~Smt2DXView() {}
 
 LPRENDERDEVICE Smt2DXView::GetRenderDevice(void) { return m_pRenderDevice; }
 
-SmtMap* Smt2DXView::GetOperMap(void) { return m_pSmtOperMap; }
+Map* Smt2DXView::GetOperMap(void) { return m_pSmtOperMap; }
 
 BEGIN_MESSAGE_MAP(Smt2DXView, SmtXView)
 ON_WM_CREATE()
@@ -480,7 +480,7 @@ LRESULT Smt2DXView::OnFrameOperMap(WPARAM, LPARAM) {
   return 0;
 }
 
-void Smt2DXView::SetOperMap(SmtMap* pSmtMap) {
+void Smt2DXView::SetOperMap(Map* pSmtMap) {
   m_pSmtOperMap = pSmtMap;
   m_oper_map_frame.framed = false;
 

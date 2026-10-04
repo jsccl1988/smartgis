@@ -48,7 +48,7 @@ Debug Console / LogSink / Agent / Python worker：见 living shell
 `content::MapSession`（≈ WebContents：拥有 `MapScene` / camera / present /
 gestures / ViewHosts / `MapContents*`）；能力实现在
 `src/content/browser/{document,camera,present,input}`；GDI paint 在
-`content/browser/present/*/paint/`。`shell/ui` → `shell/browser` →
+`content/browser/present/*/software/`。`shell/ui` → `shell/browser` →
 `//src/content:map_session`；**禁止** `present` → `shell`。`shell/`：`app/`、
 `browser/`、`ui/`、`harness/{showcase,self_test}/`。`shell/ui`：`BrowserView`
 持有 Widget 树，并把 map/panel 接线组合进 `ShellLayoutComposer`（`main_app.ui.xml`）/
@@ -72,7 +72,7 @@ build.bat views
 `group("all")` 里。`--self-test` 泵消息、检查 widget HWND，切换 Map/Data/3D
 页，在 `kContentMapView` 时 `wait_ready`，并对 3D 页跑 `view3d.trackball`
 输入（无 GPU 时占位 HWND 亦可）。分层与退出码：
-[`docs/build/ui-testing.md`](../../../docs/build/ui-testing.md)。
+[`docs/superpowers/ui-testing.md`](../../../docs/superpowers/ui-testing.md)。
 
 Open：`MapScene::open_path` 走 **OGR**（GPKG / Shapefile / GeoJSON 等）把真实
 图层名与几何灌进 Catalog / 2D overlay；打不开时才回退样例要素。启动时
@@ -102,7 +102,7 @@ carto）、mainland 取景、`kChinaLonLatExtent` + orbit `distance=2.55`、3D �
 ocean/cloud/sky/**fog**（`SMT_SCENE3D_ATMO=0` / `SMT_SCENE3D_LAND_ONLY=1` 可关）。
 交互仍走 FlyCube；showcase/self-test 才强制 ContentMapView/GDI。
 
-**2D 主路径 = RHI**：Map/Data 页默认 FlyCube；`MapScene::present_gpu` 把可见矢量层交给 `gis::vista::Layout` 生成 `MapFrame`，再由 `effect::map::Pass` 录到调用方 `Device` 并 present。成功时注记在帧内（`kText`），`paint_annotation_overlay` 只描选中；失败或强制时回退全量 GDI `MapScene::paint`（含注记）。
+**2D 主路径 = RHI**：Map/Data 页默认 FlyCube；`MapScene::present_gpu` 把可见矢量层交给 `gis::vista::Layout` 生成 `MapFrame`，再由 `vista::Pass` 录到调用方 `Device` 并 present。成功时注记在帧内（`kText`），`paint_annotation_overlay` 只描选中；失败或强制时回退全量 GDI `MapScene::paint`（含注记）。
 
 ```bat
 rem 强制 2D 走 ContentMapView / 跳过 FlyCube：
@@ -194,14 +194,14 @@ py -3 testing\tools\loop_runner.py --list
 Harness suites：契约在 `testing/tools/harness/<family>/<suite_id>/suite.json`，
 专属 script/`*_loop.py` 与 JSON 同目录；跨 suite 工具在 `harness/_shared/`。与
 `shell/harness/scenario_registry` id 对齐。详见
-[`docs/build/ui-testing.md`](../../../docs/build/ui-testing.md) L1′。
+[`docs/superpowers/ui-testing.md`](../../../docs/superpowers/ui-testing.md) L1′。
 
 样例也可直接 Open：`out\views_ogr_sample.geojson`（构建后可从
 `testing/data/` 复制）或仓库内 `testing/data/views_ogr_sample.geojson`。
 
 产出 `out/SmartGisViews.exe`（`smt_build_views=true`）。不在
 `group("all")` 里。分层与退出码：
-[`docs/build/ui-testing.md`](../../../docs/build/ui-testing.md)。
+[`docs/superpowers/ui-testing.md`](../../../docs/superpowers/ui-testing.md)。
 
 ---
 
@@ -212,4 +212,4 @@ Harness suites：契约在 `testing/tools/harness/<family>/<suite_id>/suite.json
 （`maplibre` 为 tile 的历史别名，非 MapLibre Native；热切换，不重启 GPU
 子进程）。CEF HTML 同命令 id（`ActivateTool` / `tool.command` topic）。
 
-**最后更新：** 2026-09-29
+**最后更新：** 2026-10-03

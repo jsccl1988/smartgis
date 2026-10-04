@@ -62,14 +62,14 @@ void Orthogrid::SetSize(int nX, int nY) {
   cell.MaskerClr = RGB(255, 177, 0);
   for (int i = 0; i < m_nX - 1; i++) {
     for (int j = 0; j < m_nY - 1; j++) {
-      m_pCells->SetElement(cell, j, i);
+      m_pCells->set_element(cell, j, i);
     }
   }
 
   float orth = 0.;
   for (int i = 0; i < m_nX; i++) {
     for (int j = 0; j < m_nY; j++) {
-      m_pOrthogonality->SetElement(orth, j, i);
+      m_pOrthogonality->set_element(orth, j, i);
     }
   }
 }
@@ -104,9 +104,9 @@ void Orthogrid::InitalCell(bool sel) {
   GridCell cell;
   for (int i = 0; i < m_nX - 1; i++) {
     for (int j = 0; j < m_nY - 1; j++) {
-      cell = m_pCells->GetElement(j, i);
+      cell = m_pCells->get_element(j, i);
       cell.IsSelected = sel;
-      m_pCells->SetElement(cell, j, i);
+      m_pCells->set_element(cell, j, i);
     }
   }
 }

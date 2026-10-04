@@ -6,7 +6,7 @@
 
 // Product GIS chrome on //src/ui/views (panels + GIS dialogs).
 // Includes are "ui/gis/<area>/…". Namespace stays ui::views for now.
-// See docs/build/ui-views-skia.md and
+// See docs/superpowers/ui-views-skia.md and
 // docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md.
 
 #include "ui/ui_export.h"

@@ -5,11 +5,11 @@
 
 #include "gpu/compositor/composer/software_composer.h"
 #include "gpu/raster/tile/mosaic.h"
-#include "gis/present/style/paint_resolve.h"
-#include "gis/present/style/style_document.h"
-#include "gis/present/tile/provider/source_registry.h"
-#include "gis/present/tile/provider/style_source.h"
-#include "gis/present/tile/provider/tile_provider.h"
+#include "gis/carto/style/paint_resolve.h"
+#include "gis/carto/style/style_document.h"
+#include "gis/carto/tile/source_registry.h"
+#include "gis/carto/tile/style_source.h"
+#include "gis/carto/tile/tile_provider.h"
 #include "net/http/http.h"
 
 #include <algorithm>
@@ -298,7 +298,7 @@ bool raster_tile_quads(OutputSurface* surface, const DrawRequest& req,
       const float opacity =
           clamp01(paint_float(layer.paint, "raster-opacity", 1.f));
 
-      // Style `layer.source` → SourceRegistry id. Missing id → skip layer.
+      // Style `layer.source` 鈫?SourceRegistry id. Missing id 鈫?skip layer.
       if (!layer.source.empty()) {
         auto provider = source_registry.get(layer.source);
         if (!provider) {

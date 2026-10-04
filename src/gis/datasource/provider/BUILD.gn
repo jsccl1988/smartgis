@@ -23,7 +23,7 @@ source_set("provider_sources") {
   include_dirs += [ "//src" ]
   deps = [
     "//src/gis/datasource/session:session_core",
-    "//src/gis/datasource/provider/impl/sdbd:sdbd_sources",
+    "//src/gis/datasource/sdbd:sdbd_sources",
     "//src/base:base",
     "//third_party:gdal",
   ]

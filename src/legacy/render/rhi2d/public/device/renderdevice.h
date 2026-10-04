@@ -6,9 +6,10 @@
 
 #include <cstdint>
 
-#include "gis/kernel/geo/mesh/geometry.h"
-#include "gis/model/feature/feature.h"
-#include "gis/model/map/map.h"
+#include "plugin/product/world3d/grid/orthogrid/lattice/ortho_lattice.h"
+#include "gis/feature/feature.h"
+#include "legacy/gis/layer/layer.h"
+#include "gis/map/map.h"
 #include "legacy/gis/present/carto/style.h"
 #include "legacy/gis/present/carto/style_bas_struct.h"
 #include "legacy/core/macros/macros.h"
@@ -20,7 +21,6 @@ class OGRLayer;
 using namespace base;
 using namespace gis;
 using namespace base;
-using namespace geo;
 
 namespace render {
 enum eRDBufferLayer { MRD_BL_MAP, MRD_BL_DYNAMIC, MRD_BL_QUICK, MRD_BL_DIRECT };
@@ -89,15 +89,15 @@ class SmtRenderDevice {
   virtual int Unlock() = 0;
 
   virtual int Refresh(void) = 0;
-  virtual int Refresh(const SmtMap *pMap, fRect rect) = 0;
-  virtual int RefreshDirectly(const SmtMap *pMap, lRect rect,
+  virtual int Refresh(const Map *pMap, fRect rect) = 0;
+  virtual int RefreshDirectly(const Map *pMap, lRect rect,
                               bool bRealTime = false) = 0;
 
-  virtual int ZoomMove(const SmtMap *pMap, fPoint dbfPointOffset,
+  virtual int ZoomMove(const Map *pMap, fPoint dbfPointOffset,
                        bool bRealTime = false) = 0;
-  virtual int ZoomScale(const SmtMap *pMap, lPoint orgPoint, float fscale,
+  virtual int ZoomScale(const Map *pMap, lPoint orgPoint, float fscale,
                         bool bRealTime = false) = 0;
-  virtual int ZoomToRect(const SmtMap *pMap, fRect rect,
+  virtual int ZoomToRect(const Map *pMap, fRect rect,
                          bool bRealTime = false) = 0;
 
   // StretchBlt last map buffer; full tessellate is scheduled separately.
@@ -107,12 +107,12 @@ class SmtRenderDevice {
   virtual int PreviewZoomMove(fPoint dbfPointOffset) {
     return ZoomMove(nullptr, dbfPointOffset);
   }
-  virtual int ScheduleDelayedRedraw(const SmtMap *pMap) {
+  virtual int ScheduleDelayedRedraw(const Map *pMap) {
     (void)pMap;
     return Refresh();
   }
   // Skip debounce on the next FrameJob submit (browse gesture end / wheel settle).
-  virtual int ScheduleUrgentRedraw(const SmtMap *pMap) {
+  virtual int ScheduleUrgentRedraw(const Map *pMap) {
     return ScheduleDelayedRedraw(pMap);
   }
 
@@ -132,12 +132,12 @@ class SmtRenderDevice {
 
  public:
   virtual int RenderMap(void) = 0;
-  virtual int RenderMap(const SmtMap *pMap, int op = R2_COPYPEN) = 0;
-  virtual int RenderLayer(const SmtLayer *pLayer, int op = R2_COPYPEN) = 0;
+  virtual int RenderMap(const Map *pMap, int op = R2_COPYPEN) = 0;
+  virtual int RenderLayer(const Layer *pLayer, int op = R2_COPYPEN) = 0;
   virtual int RenderLayer(OGRLayer *pLayer, int op = R2_COPYPEN) = 0;
-  virtual int RenderLayer(const SmtRasterLayer *pLayer,
+  virtual int RenderLayer(const RasterLayer *pLayer,
                           int op = R2_COPYPEN) = 0;
-  virtual int RenderLayer(const SmtTileLayer *pLayer, int op = R2_COPYPEN) = 0;
+  virtual int RenderLayer(const TileLayer *pLayer, int op = R2_COPYPEN) = 0;
   virtual int RenderFeature(OGRFeature *pFeature, int op = R2_COPYPEN) = 0;
   virtual int RenderGeometry(const OGRGeometry *pGeom, const SmtStyle *pStyle,
                              int op = R2_COPYPEN) = 0;
@@ -160,8 +160,8 @@ class SmtRenderDevice {
   virtual int DrawLinearRing(const OGRLinearRing *pLinearRing) = 0;
   virtual int DrawPloygon(const OGRPolygon *pPloygon) = 0;
 
-  virtual int DrawTin(const SmtTin *pTin) = 0;
-  virtual int DrawGrid(const SmtGrid *pGrid) = 0;
+  virtual int DrawTin(const OGRTriangulatedSurface *pTin) = 0;
+  virtual int DrawGrid(const plugin::detail::OrthoLattice* pGrid) = 0;
   virtual int DrawArc(const OGRLineString *pArc) = 0;
   virtual int DrawFan(const OGRPolygon *pFan) = 0;
 

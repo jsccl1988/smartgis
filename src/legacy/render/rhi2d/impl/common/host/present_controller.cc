@@ -10,7 +10,6 @@
 
 using namespace gis;
 using namespace base;
-using namespace geo;
 
 namespace render {
 namespace {
@@ -23,7 +22,7 @@ void Rhi2dPresentController::finish_interactive_settle() {
   if (!device_->m_hWnd || !::IsWindow(device_->m_hWnd)) {
     return;
   }
-  // Mid-stroke pan publish: windowport not yet committed — keep drawing-org so
+  // Mid-stroke pan publish: windowport not yet committed ï¿½ keep drawing-org so
   // BitBlt still follows the pointer.
   // Gesture-end: only clear org once a FrameJob *newer than the commit* lands.
   // A stale in-flight job at wp0 that settles first used to clear org (snap
@@ -77,7 +76,7 @@ void Rhi2dPresentController::reset() {
   staged_map_ = nullptr;
 }
 
-int Rhi2dPresentController::schedule_delayed_redraw(const SmtMap* pMap) {
+int Rhi2dPresentController::schedule_delayed_redraw(const Map* pMap) {
   if (!pMap || !device_->layer_tree_host_) {
     return SMT_ERR_INVALID_PARAM;
   }
@@ -90,7 +89,7 @@ int Rhi2dPresentController::schedule_delayed_redraw(const SmtMap* pMap) {
                        /*urgent=*/false);
 }
 
-int Rhi2dPresentController::schedule_urgent_redraw(const SmtMap* pMap) {
+int Rhi2dPresentController::schedule_urgent_redraw(const Map* pMap) {
   if (!pMap || !device_->layer_tree_host_) {
     return SMT_ERR_INVALID_PARAM;
   }
@@ -102,7 +101,7 @@ int Rhi2dPresentController::schedule_urgent_redraw(const SmtMap* pMap) {
                        /*urgent=*/true);
 }
 
-int Rhi2dPresentController::stage_map_job(const SmtMap* pMap, int x, int y, int w,
+int Rhi2dPresentController::stage_map_job(const Map* pMap, int x, int y, int w,
                                         int h, int op, bool urgent) {
   if (!pMap || !device_->layer_tree_host_ || w == 0 || h == 0) {
     return SMT_ERR_INVALID_PARAM;
@@ -191,7 +190,7 @@ int Rhi2dPresentController::on_timer() {
     } else if (!device_->layer_tree_host_->is_busy() && !redraw_pending_ &&
                !device_->layer_tree_host_->has_pending()) {
       // Refresh armed present while busy on this gen, or job finished without
-      // a newer publish — still composite so browse end is not stuck.
+      // a newer publish ï¿½ still composite so browse end is not stuck.
       present_pending_ = false;
       finish_interactive_settle();
     }

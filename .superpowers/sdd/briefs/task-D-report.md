@@ -45,9 +45,9 @@ Acceptance: no `#include "ui/views/<flat_stem>.h"` under `src` except via umbrel
 | File | Change |
 | --- | --- |
 | `src/ui/views/README.md` | Six-partition layout; include prefixes |
-| `docs/build/ui-views-skia.md` | Nesting cap allows responsibility partitions |
-| `docs/build/ui-testing.md` | Paths under `testing/`; `kernel/layout_check.h` |
-| `docs/build/src-layout.md` | Example `"ui/views/kernel/view.h"` |
+| `docs/superpowers/ui-views-skia.md` | Nesting cap allows responsibility partitions |
+| `docs/superpowers/ui-testing.md` | Paths under `testing/`; `kernel/layout_check.h` |
+| `docs/superpowers/src-layout.md` | Example `"ui/views/kernel/view.h"` |
 | `docs/superpowers/specs/2026-09-13-ui-views-controls-design.md` | Status note: nesting superseded by 2026-09-19 design |
 | `docs/superpowers/plans/2026-09-19-ui-views-subdir-responsibility.md` | Restored after encoding mishap (see concerns) |
 

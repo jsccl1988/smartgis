@@ -18,7 +18,7 @@ class ScrollView;
 class TableView;
 
 // Public GIS attribute grid. Hosts a TableView inside a ScrollView; callers
-// pass string cells and opaque feature tokens, never SmtFeature* or sdb field
+// pass string cells and opaque feature tokens, never FeatureAdapter* or sdb field
 // objects. Cell commits go through on_cell_commit(token, field, value).
 class UI_EXPORT AttributeTable : public View {
  public:

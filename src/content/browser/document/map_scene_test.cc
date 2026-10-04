@@ -2,9 +2,9 @@
 // All rights reserved.
 
 #include "content/browser/document/map_scene.h"
-#include "content/browser/present/map2d/frame/map2d_carto.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -13,9 +13,12 @@
 #include <vector>
 
 #include "base/trace/event/process_trace.h"
-#include "gis/present/style/style_document.h"
-#include "gis/present/style/style_rules.h"
-#include "gis/vista/world/terrain/process/land_mask.h"
+#include "gis/carto/style/paint_resolve.h"
+#include "gis/carto/style/style_document.h"
+#include "gis/carto/style/style_rules.h"
+#include "vista/frame/detail/carto_filter.h"
+#include "vista/frame/frame.h"
+#include "vista/world/terrain/process/land_mask.h"
 #include "tool/draft/draft.h"
 
 #ifndef NOMINMAX
@@ -32,6 +35,25 @@ void expect(bool ok, const char* msg) {
     std::fprintf(stderr, "FAIL: %s\n", msg);
     ++g_fails;
   }
+}
+
+uint32_t layer_paint_color(const gis::style::StyleDocument& doc,
+                           const char* layer_id, const char* key) {
+  for (const gis::style::StyleLayer& layer : doc.layers) {
+    if (layer.id != layer_id) {
+      continue;
+    }
+    const auto it = layer.paint.find(key);
+    if (it == layer.paint.end()) {
+      return 0;
+    }
+    uint32_t argb = 0;
+    if (!gis::style::parse_color(it->second, &argb)) {
+      return 0;
+    }
+    return argb;
+  }
+  return 0;
 }
 
 size_t find_rel(const std::vector<std::string>& rels, const char* needle) {
@@ -121,18 +143,22 @@ int main() {
   expect(city_json < plp, "china_city.geojson before china_plp");
   expect(city_gpkg < city_json, "gpkg before geojson twin");
 
-  // Unified Baidu land wash — fills collapse across adcodes.
-  const COLORREF a = content::map_scene_area_fill_color("110000", 1);
-  const COLORREF b = content::map_scene_area_fill_color("320100", 2);
-  const COLORREF c = content::map_scene_area_fill_color("510100", 3);
-  expect(a == b && b == c, "area fill is unified land wash");
-  expect(a == RGB(245, 243, 233), "Baidu cream land");
-
-  expect(content::map_scene_river_color() == RGB(100, 160, 208), "river blue");
-  expect(content::map_scene_admin_stroke_color() == RGB(196, 190, 176),
-         "admin stroke");
-  expect(content::map_scene_point_fill_color() == RGB(90, 110, 130), "point soft");
-  expect(content::map_scene_map_bg_color() == RGB(170, 211, 223), "ocean bg");
+  // Palette lives only in the default style document.
+  gis::style::StyleDocument carto;
+  expect(gis::style::parse_style_document(vista::default_carto_style_json(),
+                                          &carto),
+         "default carto style parses");
+  const uint32_t land = layer_paint_color(carto, "land", "fill-color");
+  const uint32_t river = layer_paint_color(carto, "river", "line-color");
+  const uint32_t admin = layer_paint_color(carto, "admin", "line-color");
+  const uint32_t road = layer_paint_color(carto, "road", "line-color");
+  const uint32_t bg = layer_paint_color(carto, "background", "background-color");
+  const uint32_t label = layer_paint_color(carto, "label", "text-color");
+  expect(land == 0xFFF5F3E9u, "Baidu cream land");
+  expect(river == 0xFF4A8AB8u, "river blue");
+  expect(admin == 0xFFC4BEB0u, "admin stroke");
+  expect(label == 0xFF141820u, "label ink");
+  expect(bg == 0xFFAAD3DFu, "ocean bg");
 
   // MultiPolygon must expand every part (Xinjiang/Qinghai holes otherwise).
   {
@@ -146,7 +172,7 @@ int main() {
     expect(scene.last_open_was_ogr(), "multipart open via OGR");
     expect(scene.feature_count() >= 2,
            "MultiPolygon expands to one feature per part");
-    std::vector<gis::LonLatRing> rings;
+    std::vector<vista::LonLatRing> rings;
     scene.export_land_rings(&rings);
     expect(rings.size() >= 2, "land rings cover every MultiPolygon part");
     DeleteFileA(path.c_str());
@@ -172,7 +198,7 @@ int main() {
       if (!scene.open_path(cand) || !scene.last_open_was_ogr()) {
         continue;
       }
-      std::vector<gis::LonLatRing> rings;
+      std::vector<vista::LonLatRing> rings;
       scene.export_land_rings(&rings);
       // OGR area rows are MultiPolygons; each exterior becomes one land ring.
       expect(rings.size() > 48,
@@ -267,18 +293,22 @@ int main() {
     expect(paint.fill_color == 0xFFC8E6C9u, "area fill #c8e6c9");
     expect(paint.fill_color != 0xFFF5F3E9u, "area fill != Baidu cream");
 
-    // Optional: load shipped china_city.style.json when present beside cwd/out.
+    // Optional: load shipped china_city.style.json (GN → out/data/).
     const char* style_cands[] = {
+        "..\\data\\china_city.style.json",
+        "out\\data\\china_city.style.json",
         "china_city.style.json",
-        "out\\china_city.style.json",
         "testing\\data\\china_city.style.json",
     };
     for (const char* cand : style_cands) {
       content::MapScene styled;
       if (styled.load_style_path(cand)) {
         expect(styled.has_style_document(), "load china_city.style.json");
+        // File style keys line-water / line-road with filters; match river.
+        gis::style::AttrMap line_attrs;
+        line_attrs["kind"] = "river";
         gis::style::ResolvedPaint rp;
-        expect(styled.resolve_style_for_test("line", {}, 8.0, &rp),
+        expect(styled.resolve_style_for_test("line", line_attrs, 8.0, &rp),
                "resolve line from file");
         expect(rp.line_color == 0xFF1565C0u, "line #1565c0");
         break;
@@ -363,114 +393,113 @@ int main() {
 
   // Label collision and scale gates (no golden pixels).
   {
-    const content::MapLabelBox a{0, 0, 40, 16};
-    const content::MapLabelBox b{30, 0, 70, 16};
-    const content::MapLabelBox c{80, 0, 120, 16};
-    expect(content::map_scene_label_boxes_overlap(a, b), "label boxes overlap");
-    expect(!content::map_scene_label_boxes_overlap(a, c), "separated boxes");
-    const content::MapLabelBox stacked[] = {a, b, a};
-    expect(content::map_scene_accept_label_count(stacked, 3) == 1,
+    const vista::detail::LabelScreenBox a{0, 0, 40, 16};
+    const vista::detail::LabelScreenBox b{30, 0, 70, 16};
+    const vista::detail::LabelScreenBox c{80, 0, 120, 16};
+    expect(vista::detail::label_boxes_overlap(a, b), "label boxes overlap");
+    expect(!vista::detail::label_boxes_overlap(a, c), "separated boxes");
+    const vista::detail::LabelScreenBox stacked[] = {a, b, a};
+    expect(vista::detail::accept_label_count(stacked, 3) == 1,
            "overlapping labels collapse to one");
-    const content::MapLabelBox apart[] = {a, c};
-    expect(content::map_scene_accept_label_count(apart, 2) == 2,
+    const vista::detail::LabelScreenBox apart[] = {a, c};
+    expect(vista::detail::accept_label_count(apart, 2) == 2,
            "separated labels both accepted");
 
-    expect(content::map_scene_label_min_importance(12.0) == 2,
+    expect(vista::detail::label_min_importance(12.0) == 2,
            "country scale keeps capitals and prefectures");
-    expect(content::map_scene_label_min_importance(30.0) == 1,
+    expect(vista::detail::label_min_importance(30.0) == 1,
            "mid scale adds counties");
-    expect(content::map_scene_label_min_importance(70.0) == 0,
+    expect(vista::detail::label_min_importance(70.0) == 0,
            "closer scale allows POI text");
-    expect(content::map_scene_label_min_importance(120.0) == 0,
+    expect(vista::detail::label_min_importance(120.0) == 0,
            "close scale allows POI text");
-    expect(content::map_scene_place_name_importance("北京市") == 3,
+    expect(vista::detail::place_name_importance("北京市") == 3,
            "municipality is country rank");
-    expect(content::map_scene_place_name_importance("苏州市") == 2,
+    expect(vista::detail::place_name_importance("苏州市") == 2,
            "prefecture city is mid rank");
-    expect(content::map_scene_place_name_importance("黑龙江省") == 3,
+    expect(vista::detail::place_name_importance("黑龙江省") == 3,
            "province name is country rank");
-    expect(content::map_scene_place_name_importance("北京市") >=
-               content::map_scene_label_min_importance(12.0),
+    expect(vista::detail::place_name_importance("北京市") >=
+               vista::detail::label_min_importance(12.0),
            "capital survives country gate");
-    expect(content::map_scene_place_name_importance("苏州市") >=
-               content::map_scene_label_min_importance(12.0),
+    expect(vista::detail::place_name_importance("苏州市") >=
+               vista::detail::label_min_importance(12.0),
            "prefecture survives country gate");
-    expect(content::map_scene_place_name_importance("吴中区") <
-               content::map_scene_label_min_importance(12.0),
+    expect(vista::detail::place_name_importance("吴中区") <
+               vista::detail::label_min_importance(12.0),
            "district hidden at country scale");
 
-    expect(content::map_scene_line_role("river", nullptr) == content::MapLineRole::kWater,
+    expect(vista::detail::line_role("river", nullptr) == vista::detail::LineRole::kWater,
            "river role");
-    expect(content::map_scene_line_role("line", "road") == content::MapLineRole::kRoad,
+    expect(vista::detail::line_role("line", "road") == vista::detail::LineRole::kRoad,
            "road class");
-    expect(content::map_scene_line_role("lake", nullptr) == content::MapLineRole::kWater,
+    expect(vista::detail::line_role("lake", nullptr) == vista::detail::LineRole::kWater,
            "lake is water");
-    expect(!content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, 0.5,
+    expect(!vista::detail::line_visible_at_scale(vista::detail::LineRole::kWater, 0.5,
                                                 false, 12.0),
            "short river hidden at country scale");
-    expect(content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, 8.0,
+    expect(vista::detail::line_visible_at_scale(vista::detail::LineRole::kWater, 8.0,
                                                false, 12.0),
            "long river kept at country scale");
-    expect(content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, 0.5,
+    expect(vista::detail::line_visible_at_scale(vista::detail::LineRole::kWater, 0.5,
                                                false, 120.0),
            "short river returns when zoomed in");
-    expect(!content::map_scene_line_visible_at_scale(content::MapLineRole::kRoad, 0.4,
+    expect(!vista::detail::line_visible_at_scale(vista::detail::LineRole::kRoad, 0.4,
                                                 false, 12.0),
            "non-major road hidden at country scale");
     // National frame keeps major/secondary arterials (score + visual review);
     // tiny stubs stay culled so gold casing does not wash the cream land.
     // National frame floor is 0.12°; stubs under that stay culled.
-    expect(!content::map_scene_line_visible_at_scale(content::MapLineRole::kRoad, 0.1,
+    expect(!vista::detail::line_visible_at_scale(vista::detail::LineRole::kRoad, 0.1,
                                                 true, 12.0),
            "tiny major stub hidden at country scale");
-    expect(content::map_scene_line_visible_at_scale(content::MapLineRole::kRoad, 0.4,
+    expect(vista::detail::line_visible_at_scale(vista::detail::LineRole::kRoad, 0.4,
                                                true, 12.0),
            "major-class road kept at country scale");
-    expect(content::map_scene_line_visible_at_scale(content::MapLineRole::kRoad, 1.0,
+    expect(vista::detail::line_visible_at_scale(vista::detail::LineRole::kRoad, 1.0,
                                                true, 48.0),
            "major-class road remains past country scale");
-    expect(content::map_scene_road_color() != content::map_scene_river_color(),
-           "road ink differs from river");
-    expect(content::map_scene_line_stroke_px(content::MapLineRole::kWater, 8.0, 12.0) !=
-               content::map_scene_line_stroke_px(content::MapLineRole::kWater, 8.0,
+    expect(road != river, "road ink differs from river");
+    expect(vista::detail::line_stroke_px(vista::detail::LineRole::kWater, 8.0, 12.0) !=
+               vista::detail::line_stroke_px(vista::detail::LineRole::kWater, 8.0,
                                             60.0),
            "river width changes with scale");
-    expect(content::map_scene_line_stroke_px(content::MapLineRole::kRoad, 8.0, 12.0) >= 1,
+    expect(vista::detail::line_stroke_px(vista::detail::LineRole::kRoad, 8.0, 12.0) >= 1,
            "road stroke is positive");
 
     // length is the cartographic span (deg); endpoints are documentary only.
     // Country water gate uses min_len=0.8 at scale<22; stem aggregation joins
     // same-name pieces so short segments of a major river stay visible.
-    content::MapStemSpan parts[] = {
+    vista::detail::StemSpan parts[] = {
         {"ChangJiang", 2.0, 100.0, 30.0, 102.0, 30.0},
         {"ChangJiang", 2.0, 110.0, 30.0, 112.0, 30.0},
         {"ChangJiang", 2.0, 120.0, 30.0, 122.0, 30.0},
         {"ChangJiang", 2.0, 130.0, 30.0, 132.0, 30.0},
     };
     const double stem =
-        content::map_scene_stem_length(parts, 4, 0, 0.05);
+        vista::detail::stem_length(parts, 4, 0, 0.05);
     expect(stem > 7.9 && stem < 8.1, "same-name pieces form one stem");
-    expect(!content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, 0.5,
+    expect(!vista::detail::line_visible_at_scale(vista::detail::LineRole::kWater, 0.5,
                                                 false, 12.0),
            "one short piece fails the country gate");
-    expect(content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, 2.0,
+    expect(vista::detail::line_visible_at_scale(vista::detail::LineRole::kWater, 2.0,
                                                false, 12.0),
            "mid piece alone clears the relaxed country gate");
-    expect(content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, stem,
+    expect(vista::detail::line_visible_at_scale(vista::detail::LineRole::kWater, stem,
                                                false, 12.0),
            "stem length passes the country gate");
-    content::MapStemSpan tributary[] = {
+    vista::detail::StemSpan tributary[] = {
         {"ChangJiang", 2.0, 0.0, 0.0, 2.0, 0.0},
         {"Jialing", 0.4, 2.0, 0.0, 2.4, 0.0},
     };
     const double trib =
-        content::map_scene_stem_length(tributary, 2, 1, 0.05);
+        vista::detail::stem_length(tributary, 2, 1, 0.05);
     expect(trib > 0.3 && trib < 0.5, "named tributary stays separate");
 
     const double xs[] = {0.0, 4.0, 4.0};
     const double ys[] = {0.0, 0.0, 2.0};
-    const content::MapLineLabelAnchor anchor =
-        content::map_scene_line_label_anchor(xs, ys, 3);
+    const vista::detail::LineLabelAnchor anchor =
+        vista::detail::line_label_anchor(xs, ys, 3);
     expect(anchor.ok, "line label anchor");
     expect(anchor.x > 2.9 && anchor.x < 3.1 && anchor.y > -0.05 &&
                anchor.y < 0.05,
@@ -479,19 +508,19 @@ int main() {
            "tangent follows the mid segment");
     expect(anchor.y < 0.2, "not the vertex centroid");
 
-    expect(content::map_scene_extent_is_lonlat(73.0, 18.0, 135.0, 54.0),
+    expect(vista::detail::extent_is_lonlat(73.0, 18.0, 135.0, 54.0),
            "China bbox is lon/lat");
-    expect(!content::map_scene_extent_is_lonlat(400000.0, 3000000.0, 500000.0,
+    expect(!vista::detail::extent_is_lonlat(400000.0, 3000000.0, 500000.0,
                                            3500000.0),
            "meter window is not lon/lat");
     // Country water gate needs >=4° (~445 km at 111320 m/deg).
     const double long_m =
-        content::map_scene_length_as_degrees(500000.0, false);
-    const double short_m = content::map_scene_length_as_degrees(400.0, false);
-    expect(content::map_scene_line_visible_at_scale(content::MapLineRole::kWater, long_m,
+        vista::detail::length_as_degrees(500000.0, false);
+    const double short_m = vista::detail::length_as_degrees(400.0, false);
+    expect(vista::detail::line_visible_at_scale(vista::detail::LineRole::kWater, long_m,
                                                false, 12.0),
            "long meter river still passes country gate");
-    expect(!content::map_scene_line_visible_at_scale(content::MapLineRole::kWater,
+    expect(!vista::detail::line_visible_at_scale(vista::detail::LineRole::kWater,
                                                 short_m, false, 12.0),
            "short meter creek is culled");
   }

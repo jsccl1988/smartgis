@@ -48,6 +48,8 @@ user32.EnumChildWindows.argtypes = [
     wintypes.LPARAM,
 ]
 user32.EnumChildWindows.restype = wintypes.BOOL
+user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+user32.GetAncestor.restype = wintypes.HWND
 user32.GetSystemMetrics.argtypes = [ctypes.c_int]
 user32.GetSystemMetrics.restype = ctypes.c_int
 user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]

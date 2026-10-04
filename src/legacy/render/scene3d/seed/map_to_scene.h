@@ -4,11 +4,11 @@
 #ifndef SMT_LEGACY_RENDER_SCENE3D_MAP_TO_SCENE_H_
 #define SMT_LEGACY_RENDER_SCENE3D_MAP_TO_SCENE_H_
 
-#include "gis/vista/world/world.h"
+#include "vista/world/world.h"
 #include "legacy/render/legacy_render_export.h"
 #include "legacy/render/rhi3d/public/camera/camera.h"
 #include "legacy/render/rhi3d/public/device/render_device.h"
-#include "legacy/gis/vista/dem_height_field.h"
+#include "vista/world/terrain/dem/dem_height_field.h"
 #include "legacy/render/scene3d/scene/scene.h"
 #include "legacy/render/scene3d/scene/vertex3d.h"
 
@@ -78,7 +78,7 @@ LEGACY_RENDER_EXPORT void clear_leftover_dem_frame();
 
 // Non-owning pointer to the World last filled by seed_* stereo underlay
 // (kTerrain + optional mesh). Valid for the process lifetime of this DLL.
-LEGACY_RENDER_EXPORT gis::World* map_seeded_world();
+LEGACY_RENDER_EXPORT vista::World* map_seeded_world();
 
 }  // namespace render
 

@@ -7,7 +7,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
+#include "gis/datasource/ogr/ogr_feature_codec.h"
+#include "legacy/gis/feature/leftover_feature.h"
 #include "legacy/core/msg/msg_def.h"
 #include "legacy/tool/defs.h"
 #include "legacy/tool/abi/t_iatoolmanager.h"
@@ -55,11 +56,11 @@ float select_query_margin_lp(render::LPRENDERDEVICE device, double dp_margin) {
   return static_cast<float>(dp_margin / blc);
 }
 
-void refresh_select_fea_type(SmtMap* map, int& fea_type) {
+void refresh_select_fea_type(Map* map, int& fea_type) {
   if (!map) {
     return;
   }
-  fea_type = gis::datasource::feature_type_of(map->GetActiveOgrLayer());
+  fea_type = leftover_layer_feature_type(map->GetActiveOgrLayer());
 }
 
 void post_select_flash_data(HWND hwnd, gis::ScratchLayer* scratch,
@@ -145,9 +146,9 @@ OGRGeometry* query_geom_from_select_draft(render::LPRENDERDEVICE device,
   return ring;
 }
 
-void run_select_query(render::LPRENDERDEVICE device, SmtMap* map,
-                      gis::ScratchLayer& scratch, SmtGQueryDesc& gq,
-                      SmtPQueryDesc& pq, int& fea_type, double dp_margin,
+void run_select_query(render::LPRENDERDEVICE device, Map* map,
+                      gis::ScratchLayer& scratch, GeomQueryDesc& gq,
+                      AttrQueryDesc& pq, int& fea_type, double dp_margin,
                       HWND hwnd, bool point_query) {
   if (!(GetAsyncKeyState(VK_LCONTROL) & 0x8000)) {
     clear_select_scratch(scratch);
@@ -155,9 +156,15 @@ void run_select_query(render::LPRENDERDEVICE device, SmtMap* map,
 
   gq.fSmargin = select_query_margin_lp(device, dp_margin);
   if (scratch.layer && map) {
-    map->QueryFeature(&gq, &pq, scratch.layer, fea_type);
+    int geom_wkb = static_cast<int>(wkbUnknown);
+    map->QueryFeature(&gq, &pq, scratch.layer, geom_wkb);
+    fea_type = gis::leftover_feature_type_from_wkb(geom_wkb);
+    const gis::FeatureType sniffed = leftover_layer_feature_type(scratch.layer);
+    if (sniffed != gis::FtUnknown) {
+      fea_type = sniffed;
+    }
   }
-  if (fea_type == SmtFtUnknown) {
+  if (fea_type == gis::FtUnknown) {
     refresh_select_fea_type(map, fea_type);
   }
 

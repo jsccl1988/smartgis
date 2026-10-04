@@ -24,6 +24,8 @@ class UI_EXPORT Checkbox : public View {
   void set_change(std::function<void(bool)> fn);
   bool on_mouse_event(const MouseEvent& e) override;
   bool on_key_event(const KeyEvent& e) override;
+  void on_device_scale_factor_changed(float old_scale,
+                                     float new_scale) override;
   std::string_view paint_role() const override;
 
  protected:
@@ -31,6 +33,7 @@ class UI_EXPORT Checkbox : public View {
 
  private:
   void toggle();
+  void rebuild_preferred_size();
 
   std::string label_;
   bool checked_ = false;

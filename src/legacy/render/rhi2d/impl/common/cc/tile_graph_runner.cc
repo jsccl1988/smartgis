@@ -107,6 +107,9 @@ bool Rhi2dTileGraphRunner::is_cancel_requested() const {
 }
 
 void Rhi2dTileGraphRunner::shutdown() {
+  if (workers_.empty() && stop_.load(std::memory_order_acquire)) {
+    return;
+  }
   {
     std::lock_guard<std::mutex> lock(mu_);
     stop_.store(true, std::memory_order_release);

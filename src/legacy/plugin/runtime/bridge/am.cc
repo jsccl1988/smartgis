@@ -39,7 +39,7 @@ constexpr StemMap kStems[] = {
     {"plugin_proj", "smartgis.proj"},
     {"plugin_print", "smartgis.print"},
     {"plugin_model3d", "smartgis.world3d"},
-    {"plugin_orthogrid", "smartgis.baogrid"},
+    {"plugin_orthogrid", "smartgis.world3d"},
 };
 
 struct NameMap {
@@ -55,8 +55,8 @@ constexpr NameMap kNames[] = {
     {"地图打印", "smartgis.print"},   {"Print", "smartgis.print"},
     {"三维创建", "smartgis.world3d"}, {"三维对象", "smartgis.world3d"},
     {"Model3D", "smartgis.world3d"},
-    {"正交格网", "smartgis.baogrid"}, {"边界适应正交网格", "smartgis.baogrid"},
-    {"OrthoGrid", "smartgis.baogrid"},
+    {"正交格网", "smartgis.world3d"}, {"边界适应正交网格", "smartgis.world3d"},
+    {"OrthoGrid", "smartgis.world3d"},
 };
 
 bool iequals(std::string_view a, std::string_view b) {

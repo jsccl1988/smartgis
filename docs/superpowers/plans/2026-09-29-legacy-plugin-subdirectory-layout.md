@@ -34,7 +34,7 @@ legacy/plugin/
 - [x] `git mv` each domain → `product/<domain>/` with `shell/` / `views/`
 - [x] Update BUILD.gn `sources` / labels (`//src/legacy/plugin/runtime:bridge`, `//src/legacy/plugin/product/<domain>`)
 - [x] Scheme C include sweep; no shim
-- [x] README + `docs/build/src-layout.md` + living § + Active date
+- [x] README + `docs/superpowers/src-layout.md` + living § + Active date
 - [x] `build.bat debug` `src/legacy/plugin:plugin` green
 - [ ] `src/legacy/plugin:am_plugins` — blocked by unrelated `gis_d.dll` / `legacy_tool_d.dll` LNK (SmtListener / OgrRasterLayer), not include paths
 

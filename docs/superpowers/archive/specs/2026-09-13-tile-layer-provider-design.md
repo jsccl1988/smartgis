@@ -14,9 +14,9 @@ All rights reserved.
 
 **Sibling:**
 
-- 图层打开 / `SDBD:` / Memory 矢量 — [`2026-09-13-gdal-layer-management-design.md`](2026-09-13-gdal-layer-management-design.md)（**瓦片不进该文，也不进 `SDBD:MEM`**）
+- 图层打开 / `SDBD:` / Memory 矢量 — [`2026-09-13-gdal-layer-management-design.md`](../../specs/2026-09-13-gdal-layer-management-design.md)（**瓦片不进该文，也不进 `SDBD:MEM`**）
 - `Feature` / `MapLayer` 组合 — [`2026-09-13-sdb-feature-maplayer-composition-design.md`](2026-09-13-sdb-feature-maplayer-composition-design.md)
-- HTTP 客户端 — [`2026-09-13-net-asio-httplib-design.md`](2026-09-13-net-asio-httplib-design.md)
+- HTTP 客户端 — [`2026-09-13-net-asio-httplib-design.md`](../../specs/2026-09-13-net-asio-httplib-design.md)
 - 3D Tiles（`tileset.json`）— [`2026-09-13-model-render-compute-design.md`](2026-09-13-model-render-compute-design.md)（**不是本文**）
 
 ## Goal
@@ -58,7 +58,7 @@ All rights reserved.
 
 ### 已删 WS 死树 vs 枚举残留
 
-- **源码树 `src/sdb/datasource/ws` 已删除**（`docs/build/src-layout.md`：`SmtSDEWSDevice` / `sde_ws` → removed；瓦片 URL leftover 未入建）。
+- **源码树 `src/sdb/datasource/ws` 已删除**（`docs/superpowers/src-layout.md`：`SmtSDEWSDevice` / `sde_ws` → removed；瓦片 URL leftover 未入建）。
 - CBM 索引里可能仍有旧 `ws*.cpp` 节点；**以磁盘为准**。
 - **残留：**
   - `eDSType::DS_WS`、`eSmtWSProvider::PROVIDER_SMARTGIS`（`layer.h`）— 枚举取值不重排（旧 `.dsm`）。

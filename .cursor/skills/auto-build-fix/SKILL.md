@@ -43,7 +43,7 @@ Normative allow rule: **`.cursor/rules/build/agent-may-build.mdc`**.
 .\build.bat debug te
 ```
 
-Mapping: `docs/build/mogu-mapping.md`.
+Mapping: `docs/superpowers/mogu-mapping.md`.
 
 ## Fix loop (log-driven)
 

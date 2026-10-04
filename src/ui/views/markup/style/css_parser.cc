@@ -170,6 +170,10 @@ void apply_declaration(std::string_view prop,
     style->flex_grow = f;
     return;
   }
+  if (p == "flex-shrink" && parse_float(v, &f)) {
+    style->flex_shrink = f;
+    return;
+  }
   if (p == "flex" && parse_float(v.substr(0, v.find(' ')), &f)) {
     style->flex = f;
     style->flex_grow = f;

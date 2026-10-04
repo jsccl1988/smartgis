@@ -28,7 +28,7 @@ Status: active
 - 真 CEF Binary Distribution pin；**方案 1 分区 HWND**（禁止挖洞 / OSR 叠层地图）。
 - 目录 / 产物：`src/app/cef/` → `SmartGisCef.exe`；`smt_build_cef` 默认 `false`；**不进** `all` / `src_all`。
 - ChromeBridge JSON；地图 `CefMapSlot` 原生 HWND → `content` ViewHost / MapContents。
-- `--self-test` 对齐 [`docs/build/ui-testing.md`](../../build/ui-testing.md)；退出码 0–35 与 Views **同号同义**；CEF 独有只用 **40+**。
+- `--self-test` 对齐 [`docs/superpowers/ui-testing.md`](../../ui-testing.md)；退出码 0–35 与 Views **同号同义**；CEF 独有只用 **40+**。
 - **无 Qt**；chrome **禁止**直接 `#include` `gis_map.h` / `rd_renderdevice.h` / leftover `SmtRenderDevice`；**禁止**依赖 `//src/ui/views:views` 做壳。
 - v1 **不**强依赖 `plugin:host`（Ambox 先灌 Workspace builtins）。
 - 公共命名空间 ≤2（`app::cef`；内部 `app::cef::detail`）；新函数 `snake_case`。
@@ -56,8 +56,8 @@ Status: active
 | `build.bat` | `cef` alias：`BUILD_CEF=true` + `NINJA_TARGET=cef` |
 | `build/BUILDCONFIG.gn` | 仅当需要时声明全局 `smt_build_cef`；优先放 `cef.gni`（仿 WinUI） |
 | `testing/e2e/exe_smoke.cc` | 增加 `SmartGisCef.exe`（缺二进制 SKIP） |
-| `docs/build/ui-testing.md` | L1′ / L4 表写入 `SmartGisCef.exe` + 40+ 码 |
-| `docs/build/ui-shell-multiprocess.md` | §1 方案 1 表述回写为 CEF 分区 HWND（Task 5） |
+| `docs/superpowers/ui-testing.md` | L1′ / L4 表写入 `SmartGisCef.exe` + 40+ 码 |
+| `docs/superpowers/ui-shell-multiprocess.md` | §1 方案 1 表述回写为 CEF 分区 HWND（Task 5） |
 | `docs/README.md` | Active 索引挂 plan（本轮最小挂链） |
 
 **明确不做（实现时跳过）：**
@@ -656,7 +656,7 @@ Expected:
 - Consumes: Task 2–3 全部宿主能力
 - Produces: `SmartGisCef.exe --self-test` 退出码；`out/self-test-mark.txt` 步骤标记（仿 Views）
 
-对齐参考：`src/app/views/main.cc` 的 `BrowserMain` self-test 顺序与码表；[`docs/build/ui-testing.md`](../../build/ui-testing.md)。
+对齐参考：`src/app/views/main.cc` 的 `BrowserMain` self-test 顺序与码表；[`docs/superpowers/ui-testing.md`](../../ui-testing.md)。
 
 - [x] **Step 1: 实现 self-test 顺序**
 
@@ -785,10 +785,10 @@ Expected: `EXIT=0`；mark 含 `show` … `pass`。
 
 **Files:**
 - Modify: `testing/e2e/exe_smoke.cc`（`kCases` 增补）
-- Modify: `docs/build/ui-testing.md`（L1′ / L4 / 40+ 码）
-- Modify: `docs/build/ui-shell-multiprocess.md`（§1 方案 1 = CEF 分区 HWND；澄清 §3.1(c)/§4.4 仅否定「CEF 冒充终局 Views」）
-- Modify: `docs/build/ui-views-skia.md`（Rejected / alternate 一句指向 CEF spec）
-- Modify: `docs/build/src-layout.md`（`app/{views,winui,cef}` 并列，最小改动）
+- Modify: `docs/superpowers/ui-testing.md`（L1′ / L4 / 40+ 码）
+- Modify: `docs/superpowers/ui-shell-multiprocess.md`（§1 方案 1 = CEF 分区 HWND；澄清 §3.1(c)/§4.4 仅否定「CEF 冒充终局 Views」）
+- Modify: `docs/superpowers/ui-views-skia.md`（Rejected / alternate 一句指向 CEF spec）
+- Modify: `docs/superpowers/src-layout.md`（`app/{views,winui,cef}` 并列，最小改动）
 - Modify: `BUILD.gn`（`group("e2e")` 在 `smt_build_cef && smt_has_cef` 时可选 deps）
 - Modify: `build.bat`（`e2e` 是否置 `BUILD_CEF`：默认 **false**，避免无 pin 机器炸；文档写明手动 `smt_build_cef=true` 后编 CEF）
 - Modify: `src/app/cef/README.md`（逃生舱说明）

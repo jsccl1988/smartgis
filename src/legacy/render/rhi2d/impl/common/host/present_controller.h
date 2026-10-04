@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-#include "gis/model/map/map.h"
+#include "gis/map/map.h"
 #include "legacy/core/macros/macros.h"
 
 namespace render {
@@ -19,12 +19,12 @@ class Rhi2dPresentController {
  public:
   explicit Rhi2dPresentController(SmtRhi2dRenderDevice* device);
 
-  int stage_map_job(const gis::SmtMap* pMap, int x, int y, int w, int h, int op,
+  int stage_map_job(const gis::Map* pMap, int x, int y, int w, int h, int op,
                     bool urgent);
   bool submit_staged_job();
   void invalidate_map_present();
-  int schedule_delayed_redraw(const gis::SmtMap* pMap);
-  int schedule_urgent_redraw(const gis::SmtMap* pMap);
+  int schedule_delayed_redraw(const gis::Map* pMap);
+  int schedule_urgent_redraw(const gis::Map* pMap);
   int on_timer();
 
   // Arm present-on-gen (e.g. Refresh while the worker is still busy).
@@ -43,7 +43,7 @@ class Rhi2dPresentController {
   bool urgent_submit_ = false;
   bool present_pending_ = false;
   uint64_t present_baseline_gen_ = 0;
-  const gis::SmtMap* staged_map_ = nullptr;
+  const gis::Map* staged_map_ = nullptr;
   int staged_x_ = 0;
   int staged_y_ = 0;
   int staged_w_ = 0;

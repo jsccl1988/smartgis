@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "base/math/math.h"
-#include "gis/kernel/geo/mesh/geometry.h"
+#include "gis/geo/ops/indexed_tin.h"
 #include "legacy/core/types/types.h"
 #include "ogr_geometry.h"
 
@@ -73,8 +73,10 @@ bool tess_world_geometry(const OGRGeometry& geom, FeatureMesh* out) {
   }
 }
 
-bool tess_3d_surface(const geo::Surface3d& surf, FeatureMesh* out) {
-  if (!out || surf.get_point_count() <= 0) {
+bool tess_3d_surface(const OGRTriangulatedSurface& surf, FeatureMesh* out) {
+  auto* writable = const_cast<OGRTriangulatedSurface*>(&surf);
+  const int ntri = writable->getNumGeometries();
+  if (!out || ntri < 1) {
     return false;
   }
   out->vertices.clear();
@@ -84,49 +86,54 @@ bool tess_3d_surface(const geo::Surface3d& surf, FeatureMesh* out) {
   out->has_normals = true;
   out->has_colors = false;
 
-  const int npts = surf.get_point_count();
-  const int ntri = surf.get_triangle_count();
-  if (ntri < 1) {
-    return false;
-  }
-
-  // Single OGR fetch pass — normals accumulate from the cache.
+  const int npts = ntri * 3;
   std::vector<CachedPoint> pts(static_cast<size_t>(npts));
   out->vertices.resize(static_cast<size_t>(npts));
-  for (int i = 0; i < npts; ++i) {
-    const OGRPoint point = surf.get_point(i);
-    CachedPoint& c = pts[static_cast<size_t>(i)];
-    c.x = static_cast<float>(point.getX());
-    c.y = static_cast<float>(point.getY());
-    c.z = static_cast<float>(point.getZ());
-    FeatureVertex& v = out->vertices[static_cast<size_t>(i)];
-    v.x = c.x;
-    v.y = c.z;
-    v.z = c.y;
-    v.has_normal = true;
-  }
-
-  out->indices.reserve(static_cast<size_t>(ntri) * 3);
+  out->indices.reserve(static_cast<size_t>(npts));
   std::vector<Vector4> normals(static_cast<size_t>(npts));
+  int live = 0;
   for (int i = 0; i < ntri; ++i) {
-    const base::SmtTriangle tri = surf.get_triangle(i);
-    out->indices.push_back(static_cast<std::uint32_t>(tri.a));
-    out->indices.push_back(static_cast<std::uint32_t>(tri.b));
-    out->indices.push_back(static_cast<std::uint32_t>(tri.c));
-    const CachedPoint& a = pts[static_cast<size_t>(tri.a)];
-    const CachedPoint& b = pts[static_cast<size_t>(tri.b)];
-    const CachedPoint& c = pts[static_cast<size_t>(tri.c)];
+    OGRPoint pa;
+    OGRPoint pb;
+    OGRPoint pc;
+    if (!geo::tin_patch_points(surf, i, &pa, &pb, &pc)) {
+      continue;
+    }
+    const int ia = live++;
+    const int ib = live++;
+    const int ic = live++;
+    auto store = [&](int idx, const OGRPoint& p) {
+      CachedPoint& c = pts[static_cast<size_t>(idx)];
+      c.x = static_cast<float>(p.getX());
+      c.y = static_cast<float>(p.getY());
+      c.z = static_cast<float>(p.getZ());
+      FeatureVertex& v = out->vertices[static_cast<size_t>(idx)];
+      v.x = c.x;
+      v.y = c.z;
+      v.z = c.y;
+      v.has_normal = true;
+    };
+    store(ia, pa);
+    store(ib, pb);
+    store(ic, pc);
+    out->indices.push_back(static_cast<std::uint32_t>(ia));
+    out->indices.push_back(static_cast<std::uint32_t>(ib));
+    out->indices.push_back(static_cast<std::uint32_t>(ic));
+    const CachedPoint& a = pts[static_cast<size_t>(ia)];
+    const CachedPoint& b = pts[static_cast<size_t>(ib)];
+    const CachedPoint& c = pts[static_cast<size_t>(ic)];
     const Vector4 nor =
         triangle_normal(Vector4(a.x, a.y, a.z), Vector4(b.x, b.y, b.z),
                         Vector4(c.x, c.y, c.z));
-    normals[static_cast<size_t>(tri.a)] += nor;
-    normals[static_cast<size_t>(tri.b)] += nor;
-    normals[static_cast<size_t>(tri.c)] += nor;
+    normals[static_cast<size_t>(ia)] += nor;
+    normals[static_cast<size_t>(ib)] += nor;
+    normals[static_cast<size_t>(ic)] += nor;
   }
-  for (int i = 0; i < npts; ++i) {
+  out->vertices.resize(static_cast<size_t>(live));
+  normals.resize(static_cast<size_t>(live));
+  for (int i = 0; i < live; ++i) {
     normals[static_cast<size_t>(i)].normalize();
     FeatureVertex& v = out->vertices[static_cast<size_t>(i)];
-    // Match leftover: Normal(nx, nz, ny) in VB space.
     v.nx = normals[static_cast<size_t>(i)].x;
     v.ny = normals[static_cast<size_t>(i)].z;
     v.nz = normals[static_cast<size_t>(i)].y;

@@ -4,7 +4,7 @@
 #include "gpu/raster/direct/direct.h"
 
 #include "gpu/raster/direct/mesh.h"
-#include "gis/vista/world/terrain/dem/dem_raster.h"
+#include "vista/world/terrain/dem/dem_raster.h"
 
 #include <algorithm>
 #include <cmath>
@@ -110,7 +110,7 @@ bool draw_direct_bitmap(content::ViewKind kind, int w, int h, uint8_t cb,
       const float span = mesh.span;
       const float s = 3.2f / span;
       constexpr float kElevBoost = 1.6f;
-      constexpr float kYaw = gis::kDemDefaultOrbitYaw;
+      constexpr float kYaw = vista::kDemDefaultOrbitYaw;
       constexpr float kPitch = 0.4f;
       constexpr float kDist = 3.2f;
       const float cyaw = std::cos(kYaw);
@@ -195,7 +195,7 @@ bool draw_direct_bitmap(content::ViewKind kind, int w, int h, uint8_t cb,
       for (const Label& lb : labels) {
         int sx = 0;
         int sy = 0;
-        project(gis::dem_lon_to_x(lb.lon), cy, static_cast<float>(lb.lat), &sx,
+        project(vista::dem_lon_to_x(lb.lon), cy, static_cast<float>(lb.lat), &sx,
                 &sy);
         if (sx < 0 || sy < 0 || sx > w || sy > h) {
           continue;

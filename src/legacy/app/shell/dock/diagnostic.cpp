@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-#include "legacy/app/shell/dock/pane_host.h"
+#include "legacy/app/shell/dock/dock_child.h"
 
 namespace {
 

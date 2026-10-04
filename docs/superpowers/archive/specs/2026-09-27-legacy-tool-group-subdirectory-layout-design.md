@@ -12,16 +12,16 @@ All rights reserved.
 **Status:** active  
 **Implementation note (2026-09-27):** Tree / includes / GN paths moved on master working tree; human still needs `.\build.bat` (and optional `legacy_app`) before archive.  
 **Scope:** Physical + GN layout inside leftover `src/legacy/tool/group/` only. No behavior / `Smt*` / `ui_legacy` link graph change.  
-**Supersedes (partial):** archived [`../archive/specs/2026-09-27-legacy-tool-subdirectory-layout-design.md`](../archive/specs/2026-09-27-legacy-tool-subdirectory-layout-design.md) decision that `group/` stays **flat** — that package-level split (`iatool` / `adapter` / `group`) remains landed; this spec nests **inside** `group/`.  
+**Supersedes (partial):** archived [`../archive/specs/2026-09-27-legacy-tool-subdirectory-layout-design.md`](2026-09-27-legacy-tool-subdirectory-layout-design.md) decision that `group/` stays **flat** — that package-level split (`iatool` / `adapter` / `group`) remains landed; this spec nests **inside** `group/`.  
 **Related:**
 
 | Topic | Doc | Relation |
 | --- | --- | --- |
-| Leftover tool package | [`../archive/specs/2026-09-27-legacy-tool-subdirectory-layout-design.md`](../archive/specs/2026-09-27-legacy-tool-subdirectory-layout-design.md) | **landed** — `iatool` + `adapter` + `group` modules; flat-`group` non-goal superseded here |
-| Earlier split non-goal | [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](../archive/specs/2026-09-13-tool-legacy-split-design.md) | Rejected view/select/edit under `group/` at package-move time; reopened now that package root is clean |
+| Leftover tool package | [`../archive/specs/2026-09-27-legacy-tool-subdirectory-layout-design.md`](2026-09-27-legacy-tool-subdirectory-layout-design.md) | **landed** — `iatool` + `adapter` + `group` modules; flat-`group` non-goal superseded here |
+| Earlier split non-goal | [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](2026-09-13-tool-legacy-split-design.md) | Rejected view/select/edit under `group/` at package-move time; reopened now that package root is clean |
 | Endgame tool | [`2026-09-27-tool-subdirectory-layout-design.md`](2026-09-27-tool-subdirectory-layout-design.md) | Unchanged; leftover only |
 | Peer leftover layout | [`2026-09-27-legacy-app-subdirectory-layout-design.md`](2026-09-27-legacy-app-subdirectory-layout-design.md) | Same idea: responsibility dirs + break includes + no shims |
-| As-built | [`../../build/src-layout.md`](../../build/src-layout.md), [`../../../src/legacy/tool/README.md`](../../../src/legacy/tool/README.md) | Update in the landing change |
+| As-built | [`../../src-layout.md`](../../src-layout.md), [`../../../src/legacy/tool/README.md`](../../README.md) | Update in the landing change |
 
 **Plan:** [`../plans/2026-09-27-legacy-tool-group-subdirectory-layout.md`](../plans/2026-09-27-legacy-tool-group-subdirectory-layout.md)
 
@@ -142,7 +142,7 @@ Rewrite in the landing change:
 1. Target tree matches §3; zero flat tool headers except `defs.h` / `resource.h`.
 2. All in-tree includes use §3.1 paths; no shim headers.
 3. `:tool_group_sources` / `:tool_group` labels unchanged; sources list new paths.
-4. `src/legacy/tool/README.md`, `src/legacy/README.md`, Tool/group rows in `docs/build/src-layout.md` updated.
+4. `src/legacy/tool/README.md`, `src/legacy/README.md`, Tool/group rows in `docs/superpowers/src-layout.md` updated.
 5. Human verifies with `.\build.bat` (or `ui_legacy` / `legacy_app` as gated).
 
 ---

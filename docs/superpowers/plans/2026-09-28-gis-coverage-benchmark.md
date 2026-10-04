@@ -29,11 +29,11 @@ All rights reserved.
 | --- | --- |
 | `src/gis/BUILD.gn` | `gis_test_all` / `gis_benchmark_all` |
 | Root `BUILD.gn` | Wire groups; ensure missing tests listed |
-| `src/gis/kernel/geo/ops/geo_benchmark.cc` | buffer dual |
-| `src/gis/kernel/proj/api/proj_benchmark.cc` | transform dual |
+| `src/gis/geo/ops/buffer_benchmark.cc` | buffer dual |
+| `src/gis/geo/proj/proj_benchmark.cc` | transform dual |
 | `src/gis/datasource/session/datasource_benchmark.cc` | open+iterate |
 | `testing/coverage/gis_coverage.ps1` | coverage / functional summary |
-| `docs/build/gis-test-matrix.md` | capability matrix |
+| `docs/superpowers/gis-test-matrix.md` | capability matrix |
 | `src/content/browser/debug/debug_agent.cc` | `:gis test\|bench` |
 
 ---
@@ -42,7 +42,7 @@ All rights reserved.
 
 - [x] Append § to GDAL umbrella
 - [x] Write this plan
-- [x] Land `docs/build/gis-test-matrix.md` + index links
+- [x] Land `docs/superpowers/gis-test-matrix.md` + index links
 - [x] Refresh `docs/superpowers/README.md` Active plan cell
 
 ### Task 2: GN aggregates + missing tests
@@ -54,7 +54,7 @@ All rights reserved.
 
 ### Task 3: Kernel + datasource benches
 
-- [x] `geo_benchmark` (ours buffer vs OGR Buffer)
+- [x] `buffer_benchmark` (ours buffer vs OGR Buffer)
 - [x] `proj_benchmark` (4326→3857 dual)
 - [x] `datasource_benchmark` (mem create + iterate)
 - [x] `build.bat debug b` includes them

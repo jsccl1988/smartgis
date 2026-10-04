@@ -56,9 +56,9 @@ void test_splitter_layout() {
   split.add_child(std::move(a));
   split.add_child(std::move(b));
   split.layout();
-  constexpr int kBar = 8;  // Splitter::kBarPx
+  constexpr int kBar = Splitter::kBarPx;
   expect(left->bounds().x == 0, "split left x");
-  expect(right->bounds().x == left->bounds().right() + kBar, "split bar 6px");
+  expect(right->bounds().x == left->bounds().right() + kBar, "split bar width");
   expect(left->bounds().width + kBar + right->bounds().width == 400,
          "split panes fill");
   expect(left->bounds().width >= 40, "split min left");
@@ -101,7 +101,7 @@ void test_splitter_host_resize_grows_flex_pane() {
   work.add_child(std::move(map_side));
   work.add_child(std::move(ambox));
   work.layout();
-  constexpr int kBar = 8;  // Splitter::kBarPx
+  constexpr int kBar = Splitter::kBarPx;
   expect(secondary->bounds().width == 200, "ambox keeps preferred");
   expect(primary->bounds().width == 800 - kBar - 200, "map takes leftover");
 
@@ -192,8 +192,7 @@ void test_splitter_host_resize_grows_flex_pane() {
   markup_catalog_map.layout();
   expect(cat_pane->bounds().width == 288,
          "markup catalog hint wins over layout preferred 0");
-  // Splitter::kBarPx is 8 (legacy tests still say 6 in places).
-  expect(map_pane->bounds().width == 1200 - 8 - 288,
+  expect(map_pane->bounds().width == 1200 - Splitter::kBarPx - 288,
          "map tabs keep leftover beside markup catalog");
 
   // Collapsed DiagnosticToolsPanel: preferred {0,0} secondary must not keep a
@@ -210,7 +209,8 @@ void test_splitter_host_resize_grows_flex_pane() {
   tools_host.add_child(std::move(tools_secondary));
   tools_host.layout();
   expect(tools_pane->bounds().height == 0, "collapsed tools height 0");
-  expect(tools_work->bounds().height == 600 - 8, "work fills when tools 0");
+  expect(tools_work->bounds().height == 600 - Splitter::kBarPx,
+         "work fills when tools 0");
 }
 
 void test_splitter_drag_keeps_capture() {

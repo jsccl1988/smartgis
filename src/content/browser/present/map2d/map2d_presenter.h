@@ -6,8 +6,10 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <functional>
+#include <memory>
+#include <mutex>
 #include <string>
+#include <vector>
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -17,6 +19,8 @@
 #include "content/browser/present/map2d/frame/map2d_frame_cache.h"
 #include "content/browser/present/map2d/gpu/map2d_gpu_present.h"
 #include "content/browser/present/map2d/software/map2d_software_painter.h"
+#include "content/content_export.h"
+#include "scenic/engine.h"
 #include "ui/gfx/raster/shell_raster.h"
 
 namespace render {
@@ -30,7 +34,8 @@ namespace content {
 class MapScene;
 class ViewFrame;
 
-// Thin 2D present facade: shared Map2dFrameCache + GPU / software backends.
+CONTENT_EXPORT bool prefer_map2d_scenic();
+
 class Map2dPresenter {
  public:
   Map2dPresenter();
@@ -48,6 +53,8 @@ class Map2dPresenter {
   Map2dSoftwarePainter& software() { return software_; }
   const Map2dSoftwarePainter& software() const { return software_; }
 
+  bool hosts_scenic_present() const;
+
   void invalidate_frame_cache();
 
   bool present_gpu(render::rhi::Device* device, uint32_t width_px,
@@ -55,7 +62,6 @@ class Map2dPresenter {
                    const ui::gfx::ShellRaster* shell = nullptr,
                    uint64_t shell_generation = 0);
   bool last_gpu_present_ok() const;
-  // Last present_gpu recorded Pass (false on StaticReuse skip).
   bool last_gpu_present_drew() const;
   void note_surface_reset();
   uint64_t layout_build_count() const;
@@ -65,18 +71,27 @@ class Map2dPresenter {
   void paint(HDC hdc, int width_px, int height_px, bool fill_background) const;
   void paint_annotation_overlay(HDC hdc, int width_px, int height_px) const;
   void paint_flash_overlay(HDC hdc, int width_px, int height_px) const;
-  void paint_labels_projected(
-      HDC hdc, int width_px, int height_px,
-      const std::function<void(double lon, double lat, int* sx, int* sy)>&
-          project) const;
 
   bool export_bmp(const std::string& path, int width_px, int height_px) const;
   size_t basemap_tiles_drawn() const;
 
  private:
+  void ensure_scenic() const;
+  void sync_scenic(uint32_t width_px, uint32_t height_px) const;
+
   Map2dFrameCache cache_;
   Map2dGpuPresent gpu_;
   Map2dSoftwarePainter software_;
+
+  const MapScene* scene_ = nullptr;
+  const ViewFrame* frame_ = nullptr;
+  // Nested WM_PAINT under show/UpdateWindow re-enters paint/sync when
+  // SMT_MAP2D_ENGINE=scenic. Product paint skips this lock. Same sizeof as
+  // std::mutex on MSVC x64 (80) so member offsets stay layout-compatible.
+  mutable std::recursive_mutex scenic_mu_;
+  mutable std::unique_ptr<scenic::Engine> scenic_;
+  mutable std::vector<scenic::Vertex2> scenic_xy_;
+  mutable std::vector<scenic::DrawItem> scenic_items_;
 };
 
 }  // namespace content

@@ -12,8 +12,8 @@ All rights reserved.
 **Date:** 2026-09-27  
 **Scope:** 把「天气系统」定位为 **GIS 领域/仿真/会话抽象**，锁定与 `render::atmosphere`（GPU pass）的边界、依赖方向、POD 契约与渐进迁移；**本轮不实现**新气象算法或新 Pass。  
 **Related (layout, landed):** [`2026-09-27-atmosphere-subdirectory-layout-design.md`](2026-09-27-atmosphere-subdirectory-layout-design.md)  
-**Related (capability):** [`2026-09-19-atmosphere-ocean-cloud-design.md`](2026-09-19-atmosphere-ocean-cloud-design.md) · sky/fog/LOD plan [`../plans/2026-09-27-sky-fog-terrain-lod.md`](../plans/2026-09-27-sky-fog-terrain-lod.md)  
-**Related (RHI / scene):** [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)
+**Related (capability):** [`2026-09-19-atmosphere-ocean-cloud-design.md`](2026-09-19-atmosphere-ocean-cloud-design.md) · sky/fog/LOD plan [`../plans/2026-09-27-sky-fog-terrain-lod.md`](../../plans/2026-09-27-sky-fog-terrain-lod.md)  
+**Related (RHI / scene):** [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md)
 
 ## Goal
 

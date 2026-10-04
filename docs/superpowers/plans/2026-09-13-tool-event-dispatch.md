@@ -103,7 +103,7 @@ Tasks 1–3 have **no shared files** and may run in parallel. Task 4 depends on 
 - Create: `src/tool/dispatch_test.cc`
 - Modify: `src/tool/BUILD.gn`
 - Modify: `src/sdb/BUILD.gn`, `src/BUILD.gn`, `BUILD.gn`
-- Modify: `docs/README.md`, `docs/build/src-layout.md`, `src/README.md`
+- Modify: `docs/README.md`, `docs/superpowers/src-layout.md`, `src/README.md`
 
 **Interfaces:**
 - Consumes: Tasks 1–3 types

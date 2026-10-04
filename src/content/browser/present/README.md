@@ -5,7 +5,11 @@ All rights reserved.
 
 # `src/content/browser/present` — Chromium-style present stack
 
-Capability directory for **map presentation** (not document data, not shell chrome).
+Facade (`map2d_presenter` / `scene3d_presenter`) presents Vista/FlyCube and leftover
+stereo/GDI session flags. `src/scenic` is exploratory and is **not** linked from
+this stack; `SMT_MAP2D_ENGINE=scenic` / `SMT_SCENE3D_ENGINE=scenic` do not compile
+or load `scenic.dll` on the default product graph.
+
 Layout mirrors Chromium **compositor / software / gpu** adapted to this repo’s
 colocation rule (`.h` next to `.cc`; no forwarding shims at old paths).
 
@@ -21,8 +25,7 @@ present/
     software/           # GDI fallback (Map2dSoftwarePainter + paint TUs)
   scene3d/
     scene3d_presenter.* # Thin facade: bind + present/paint + accessors only
-    policy/             # Scene3dEngine runtime (set_scene3d_engine / prefer_*)
-    stereo/             # Scene3dStereoSession (legacy_render LoadLibrary)
+    session/            # Engine SoT (prefer_*) + Scene3dStereoSession
     frame/              # OrbitGeoFrame + rebuild_terrain_mesh
     atmosphere/         # Environment load + prepare_* + M3 hooks
     gpu/                # GpuScene / present_gpu / shell overlay
@@ -36,8 +39,7 @@ present/
 | `gpu/` | GPU present + cache / mesh | Facade or direct for hosts that only present |
 | `software/` | Software (GDI) paint | Facade or direct for HUD / export |
 | `atmosphere/` | Atmosphere session prep | `atmosphere_session()` (not Presenter forwards) |
-| `policy/` | FlyCube / Stereo / GDI runtime SoT (`SMT_SCENE3D_ENGINE`) | Shell when choosing present path |
-| `stereo/` | Legacy stereo LoadLibrary | MapSession / Browser |
+| `session/` | FlyCube / Stereo / GDI SoT + leftover stereo LoadLibrary | Shell / MapSession (`scene3d_rhi_session` is `CONTENT_EXPORT` in `content.dll`) |
 | `host/` | Surface / preview cache | Shell gesture preview |
 
 Namespaces stay `content` (internals in `content::detail`). Input bridging stays
@@ -56,7 +58,7 @@ presenters and would reverse-depend on content.
 ## GN
 
 - `:map_present` — `host/` + `map2d/**`
-- `:scene3d_present` — `scene3d/**` (deps `:map_present` for label overlay)
+- `:scene3d_present` — `scene3d/**` except `session/scene3d_rhi_session.*` (that TU stays in `:content` for `CONTENT_EXPORT`)
 
 ## Verify
 

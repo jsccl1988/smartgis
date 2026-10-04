@@ -8,7 +8,7 @@
 #include "gis/datasource/session/connection_spec.h"
 #include "gis/datasource/session/dataset_handle.h"
 #include "gis/gis_export.h"
-#include "gis/model/map/map_layer.h"
+#include "gis/map/map_layer.h"
 
 namespace gis {
 namespace datasource {
@@ -20,7 +20,6 @@ class GIS_EXPORT DataSession {
   explicit DataSession(ProviderRegistry registry);
 
   DatasetHandle open(const ConnectionSpec& spec);
-  DatasetHandle open(const SmtDataSourceInfo& info);  // via from_info
 
   // Scratch Memory vector layer (owned MapLayer via adopt_dataset).
   MapLayer create_mem_vector_layer(const char* name = "scratch");

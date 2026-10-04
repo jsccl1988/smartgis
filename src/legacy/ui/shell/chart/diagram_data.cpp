@@ -22,16 +22,16 @@ long SmtDiagramData::Init() { return SMT_ERR_NONE; }
 
 long SmtDiagramData::Clear() { return SMT_ERR_NONE; }
 
-SmtMap *SmtDiagramData::GetSmtMapPtr(void) { return &m_smtMap; }
+Map *SmtDiagramData::GetSmtMapPtr(void) { return &m_smtMap; }
 
-const SmtMap *SmtDiagramData::GetSmtMapPtr(void) const { return &m_smtMap; }
+const Map *SmtDiagramData::GetSmtMapPtr(void) const { return &m_smtMap; }
 
-SmtMap &SmtDiagramData::GetSmtMap(void) { return m_smtMap; }
+Map &SmtDiagramData::GetSmtMap(void) { return m_smtMap; }
 
-const SmtMap &SmtDiagramData::GetSmtMap(void) const { return m_smtMap; }
+const Map &SmtDiagramData::GetSmtMap(void) const { return m_smtMap; }
 
 OGRLayer *SmtDiagramData::CreateLayer(const char *szName, fRect &lyrRect,
-                                      SmtFeatureType ftType) {
+                                      FeatureType ftType) {
   OGRLayer *pLayer = m_memDS.CreateVectorLayer(szName, lyrRect, ftType);
 
   if (NULL != pLayer) {

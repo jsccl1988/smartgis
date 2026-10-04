@@ -7,10 +7,12 @@
 #include <fstream>
 
 #include "gdal_priv.h"
-#include "gis/datasource/provider/impl/gdal/gdal_driver.h"
-#include "gis/datasource/provider/impl/ogr/raster/ogr_raster_layer.h"
-#include "gis/datasource/provider/impl/sdbd/driver/sdbd_dataset.h"
-#include "gis/datasource/provider/impl/sdbd/remote/sdbd_remote_dataset.h"
+#include "gis/datasource/gdal/gdal_driver.h"
+#include "gis/datasource/ogr/ogr_raster_layer.h"
+#include "legacy/gis/layer/raster_wrap.h"
+#include "gis/datasource/sdbd/sdbd_dataset.h"
+#include "gis/datasource/sdbd/sdbd_remote_dataset.h"
+#include "legacy/gis/datasource/connection_spec_info.h"
 #include "legacy/core/util/path.h"
 #include "ogrsf_frmts.h"
 
@@ -32,11 +34,12 @@ void DataSourceMgr::destroy_instance() { SMT_SAFE_DELETE(m_pSingleton); }
 
 ScratchLayer DataSourceMgr::create_mem_vec_layer() {
   ScratchLayer sl;
-  SmtDataSourceInfo info;
+  DataSourceInfo info;
   info.unType = DS_MEM;
   info.unProvider = PROVIDER_MEM_VER1;
   std::strcpy(info.szName, "scratch");
-  sl.dataset = gis::datasource::open_sdbd_dataset(info);
+  sl.dataset = gis::datasource::open_sdbd_dataset(
+      gis::datasource::connection_spec_from_info(info));
   if (sl.dataset) {
     sl.layer = sl.dataset->CreateLayer("scratch", nullptr, wkbUnknown, nullptr);
     if (sl.layer) {
@@ -55,21 +58,21 @@ void DataSourceMgr::destroy_mem_vec_layer(ScratchLayer& layer) {
   layer.layer = nullptr;
 }
 
-SmtRasterLayer* DataSourceMgr::create_mem_ras_layer() {
+RasterLayer* DataSourceMgr::create_mem_ras_layer() {
   gis::datasource::register_gdal_driver();
-  auto* layer = new gis::datasource::OgrRasterLayer(nullptr);
-  fRect lyrRect;
-  lyrRect.lb.x = 0;
-  lyrRect.lb.y = 0;
-  lyrRect.rt.x = 500;
-  lyrRect.rt.y = 500;
-  layer->SetLayerName("SmtMemRasLayer");
-  layer->SetLayerRect(lyrRect);
-  layer->Create();
-  return layer;
+  auto inner = new gis::datasource::OgrRasterLayer(nullptr);
+  Envelope env;
+  env.MinX = 0;
+  env.MinY = 0;
+  env.MaxX = 500;
+  env.MaxY = 500;
+  inner->SetLayerName("SmtMemRasLayer");
+  inner->SetLayerRect(env);
+  inner->Create();
+  return new LeftoverOgrRasterLayer(inner, true);
 }
 
-void DataSourceMgr::destroy_mem_ras_layer(SmtRasterLayer*& pLayer) {
+void DataSourceMgr::destroy_mem_ras_layer(RasterLayer*& pLayer) {
   SMT_SAFE_DELETE(pLayer);
 }
 
@@ -91,11 +94,13 @@ DataSourceMgr::~DataSourceMgr() {
   active_ = nullptr;
 }
 
-GDALDataset* DataSourceMgr::open_dataset(const SmtDataSourceInfo& info) {
+GDALDataset* DataSourceMgr::open_dataset(const DataSourceInfo& info) {
+  const gis::datasource::ConnectionSpec spec =
+      gis::datasource::connection_spec_from_info(info);
   if (info.unProvider == PROVIDER_SDBD) {
-    return gis::datasource::open_provider_sdbd_dataset(info);
+    return gis::datasource::open_provider_sdbd_dataset(spec);
   }
-  return gis::datasource::open_sdbd_dataset(info);
+  return gis::datasource::open_sdbd_dataset(spec);
 }
 
 void DataSourceMgr::close_dataset(GDALDataset*& ds) {
@@ -121,7 +126,7 @@ GDALDataset* DataSourceMgr::get_data_source(const char* szName) {
 }
 
 bool DataSourceMgr::get_data_source_info(const char* szName,
-                                         SmtDataSourceInfo& info) const {
+                                         DataSourceInfo& info) const {
   if (!szName) {
     return false;
   }
@@ -135,7 +140,7 @@ bool DataSourceMgr::get_data_source_info(const char* szName,
 }
 
 bool DataSourceMgr::get_data_source_info(int index,
-                                         SmtDataSourceInfo& info) const {
+                                         DataSourceInfo& info) const {
   if (index < 0 || index >= static_cast<int>(entries_.size())) {
     return false;
   }
@@ -147,7 +152,7 @@ GDALDataset* DataSourceMgr::create_tmp_data_source(eDSType type) {
   if (type != DS_MEM) {
     return nullptr;
   }
-  SmtDataSourceInfo info;
+  DataSourceInfo info;
   info.unType = DS_MEM;
   info.unProvider = PROVIDER_MEM_VER1;
   std::strcpy(info.szName, "tmp");
@@ -158,13 +163,13 @@ void DataSourceMgr::destroy_tmp_data_source(GDALDataset*& pTmp) {
   close_dataset(pTmp);
 }
 
-void DataSourceMgr::destroy_tmp_data_source(gis::SmtDataSource& tmp) {
+void DataSourceMgr::destroy_tmp_data_source(gis::CatalogSource& tmp) {
   GDALDataset* ds = tmp.dataset();
   destroy_tmp_data_source(ds);
-  tmp = gis::SmtDataSource();
+  tmp = gis::CatalogSource();
 }
 
-GDALDataset* DataSourceMgr::create_data_source(SmtDataSourceInfo& info) {
+GDALDataset* DataSourceMgr::create_data_source(DataSourceInfo& info) {
   if (info.szName[0] == '\0' || get_data_source(info.szName)) {
     return nullptr;
   }
@@ -252,8 +257,8 @@ bool DataSourceMgr::open(const char* szDSMFile) {
   int nDSs = 0;
   infile.read(reinterpret_cast<char*>(&nDSs), sizeof(int));
   for (int i = 0; i < nDSs; ++i) {
-    SmtDataSourceInfo info;
-    infile.read(reinterpret_cast<char*>(&info), sizeof(SmtDataSourceInfo));
+    DataSourceInfo info;
+    infile.read(reinterpret_cast<char*>(&info), sizeof(DataSourceInfo));
     create_data_source(info);
   }
   infile.close();
@@ -283,7 +288,7 @@ bool DataSourceMgr::save_as(const char* szDSMFile) {
   outfile.write(reinterpret_cast<char*>(&nDSs), sizeof(int));
   for (const Entry& e : entries_) {
     outfile.write(reinterpret_cast<const char*>(&e.info),
-                  sizeof(SmtDataSourceInfo));
+                  sizeof(DataSourceInfo));
   }
   outfile.close();
   return true;

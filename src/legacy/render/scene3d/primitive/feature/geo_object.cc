@@ -11,8 +11,8 @@
 #endif
 #include <windows.h>
 
-#include "gis/kernel/geo/mesh/geometry.h"
-#include "gis/model/envelope.h"
+#include "gis/geo/ops/geometry_traits.h"
+#include "gis/envelope.h"
 #include "legacy/core/types/types.h"
 #include "legacy/render/rhi3d/public/state/states_manager.h"
 #include "ogr_geometry.h"
@@ -105,7 +105,7 @@ void SmtGeoObject::update_aabb_map() {
     return;
   }
   gis::Envelope env;
-  geo::copy_envelope(*geom_, &env);
+  geo::fill_envelope(*geom_, &env);
   const float h00 =
       height_fn_ ? height_fn_(env.MinX, env.MinY, height_user_) : 0.f;
   const float h10 =
@@ -128,7 +128,7 @@ void SmtGeoObject::update_aabb_world() {
     return;
   }
   OGREnvelope3D env;
-  geo::copy_envelope3d(*geom_, &env);
+  geo::fill_envelope3d(*geom_, &env);
   m_aAbb.vcMin.set(static_cast<float>(env.MinX), static_cast<float>(env.MinY),
                    static_cast<float>(env.MinZ));
   m_aAbb.vcMax.set(static_cast<float>(env.MaxX), static_cast<float>(env.MaxY),

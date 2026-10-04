@@ -6,8 +6,9 @@
 #include <algorithm>
 #include <cmath>
 
-#include "gis/kernel/geo/mesh/geometry.h"
-#include "gis/model/layer/layer.h"
+#include "gis/geo/ops/geometry_traits.h"
+#include "legacy/gis/layer/layer.h"
+#include "legacy/gis/layer/map_bind.h"
 #include "legacy/gis/present/carto/style_api.h"
 #include "legacy/tool/defs.h"
 #include "tool/draft/draft.h"
@@ -34,7 +35,7 @@ void invalidate_pan_baseline() {
 }
 
 // Urgent async re-tessellate + sync HWND present (wheel / browse end).
-void settle_browse_present(render::LPRENDERDEVICE device, SmtMap* map) {
+void settle_browse_present(render::LPRENDERDEVICE device, Map* map) {
   if (!device) {
     return;
   }
@@ -47,7 +48,7 @@ void settle_browse_present(render::LPRENDERDEVICE device, SmtMap* map) {
 
 }  // namespace
 
-void apply_wheel_zoom(render::LPRENDERDEVICE device, SmtMap* map, double scale_delt,
+void apply_wheel_zoom(render::LPRENDERDEVICE device, Map* map, double scale_delt,
                       int z_delta, base::lPoint point) {
   if (!device) {
     return;
@@ -78,7 +79,7 @@ void apply_wheel_zoom(render::LPRENDERDEVICE device, SmtMap* map, double scale_d
   invalidate_pan_baseline();
 }
 
-void apply_pan_by_points(render::LPRENDERDEVICE device, SmtMap* map,
+void apply_pan_by_points(render::LPRENDERDEVICE device, Map* map,
                          base::lPoint origin, base::lPoint end,
                          bool gesture_end) {
   if (!device) {
@@ -124,7 +125,7 @@ void apply_pan_by_points(render::LPRENDERDEVICE device, SmtMap* map,
   invalidate_pan_baseline();
 }
 
-void apply_zoom_in_by_points(render::LPRENDERDEVICE device, SmtMap* map,
+void apply_zoom_in_by_points(render::LPRENDERDEVICE device, Map* map,
                              double scale_delt, base::lPoint origin,
                              base::lPoint end) {
   if (!device) {
@@ -147,7 +148,7 @@ void apply_zoom_in_by_points(render::LPRENDERDEVICE device, SmtMap* map,
   invalidate_pan_baseline();
 }
 
-void apply_zoom_out_at_point(render::LPRENDERDEVICE device, SmtMap* map,
+void apply_zoom_out_at_point(render::LPRENDERDEVICE device, Map* map,
                              double scale_delt, base::lPoint point) {
   if (!device) {
     return;
@@ -157,7 +158,7 @@ void apply_zoom_out_at_point(render::LPRENDERDEVICE device, SmtMap* map,
   invalidate_pan_baseline();
 }
 
-void apply_zoom_restore(render::LPRENDERDEVICE device, SmtMap* map) {
+void apply_zoom_restore(render::LPRENDERDEVICE device, Map* map) {
   if (map == nullptr || device == nullptr) {
     return;
   }
@@ -168,7 +169,7 @@ void apply_zoom_restore(render::LPRENDERDEVICE device, SmtMap* map) {
   map->CalEnvelope();
   map->get_envelope(envelope);
   if (!envelope.is_init()) {
-    SmtLayer* pLayer = map->GetActiveLayer();
+    Layer* pLayer = leftover_active_layer(map);
     if (!pLayer) {
       return;
     }
@@ -200,11 +201,11 @@ void apply_zoom_restore(render::LPRENDERDEVICE device, SmtMap* map) {
   invalidate_pan_baseline();
 }
 
-void apply_zoom_refresh(render::LPRENDERDEVICE device, SmtMap* map) {
+void apply_zoom_refresh(render::LPRENDERDEVICE device, Map* map) {
   if (map == nullptr || device == nullptr) {
     return;
   }
-  SmtLayer* pLayer = map->GetActiveLayer();
+  Layer* pLayer = leftover_active_layer(map);
   if (!pLayer) {
     return;
   }
@@ -217,7 +218,7 @@ void apply_zoom_refresh(render::LPRENDERDEVICE device, SmtMap* map) {
   invalidate_pan_baseline();
 }
 
-void apply_view_draft(render::LPRENDERDEVICE device, SmtMap* map, double scale_delt,
+void apply_view_draft(render::LPRENDERDEVICE device, Map* map, double scale_delt,
                       int view_mode, base::lPoint* origin_inout,
                       BOOL* captured_inout, const Draft& draft) {
   if (draft.kind == DraftKind::kWheel) {

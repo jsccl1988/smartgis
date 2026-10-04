@@ -10,7 +10,7 @@ All rights reserved.
 
 **Date:** 2026-09-19  
 **Status:** active  
-**Related:** dispatch [`2026-09-13-tool-event-dispatch-design.md`](2026-09-13-tool-event-dispatch-design.md); leftover path [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](../archive/specs/2026-09-13-tool-legacy-split-design.md).  
+**Related:** dispatch [`2026-09-13-tool-event-dispatch-design.md`](../../specs/2026-09-13-tool-event-dispatch-design.md); leftover path [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](2026-09-13-tool-legacy-split-design.md).  
 **Scope:** Strangle leftover group-tool menu/`Notify` activation onto `tool::Workspace` via the existing `SmtFlashTool::bind_workspace` pattern. No rewrite of all `SmtIATool`.
 
 ## Goal

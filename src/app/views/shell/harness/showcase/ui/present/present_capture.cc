@@ -85,7 +85,15 @@ int run_ui_present_capture(Browser& browser, UiShowcaseMode mode) {
     SetForegroundWindow(hwnd);
     pump_views_messages(120);
   }
-  if (!capture_ui_shell_bmp(browser.hwnd(), bmp_path)) {
+  HWND map_hwnd = nullptr;
+  if (active && active->native_view() && IsWindow(active->native_view())) {
+    map_hwnd = active->native_view();
+    // Ensure overlay/GDI paint is current before compositing into the shell.
+    active->sync_native_bounds();
+    active->invalidate_native();
+    pump_views_messages(80);
+  }
+  if (!capture_ui_shell_bmp(browser.hwnd(), bmp_path, map_hwnd)) {
     std::fprintf(stderr, "ui-showcase: BMP capture failed\n");
     showcase_mark("bmp-fail");
     stop_ui_map_present(browser);

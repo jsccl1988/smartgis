@@ -17,10 +17,10 @@
 #include "content/browser/present/scene3d/frame/terrain_mesh.h"
 #include "content/browser/present/scene3d/frame/tileset_stream.h"
 #include "content/browser/present/scene3d/scene3d_phase_profile.h"
-#include "effect/atmosphere/frame/atmosphere_effects.h"
-#include "effect/scene/opaque_effect.h"
-#include "effect/scene/scene.h"
-#include "gis/vista/domain/atmosphere/systems/environment.h"
+#include "vista/atmosphere/frame/atmosphere_effects.h"
+#include "vista/scene/opaque_effect.h"
+#include "vista/scene/scene.h"
+#include "vista/domain/atmosphere/environment.h"
 #include "render/graph/frame_graph.h"
 #include "render/programs/programs.h"
 #include "render/rhi/rhi.h"
@@ -256,8 +256,8 @@ void Scene3dGpuPresent::attach_overlay_pointcloud_locked(bool force) {
   }
   if (!force && !overlay_pointcloud_dirty_) {
     for (size_t i = 0; i < terrain_world_.node_count(); ++i) {
-      const gis::Node* node = terrain_world_.node_at(i);
-      if (node && node->kind == gis::NodeKind::kPointCloud &&
+      const vista::Node* node = terrain_world_.node_at(i);
+      if (node && node->kind == vista::NodeKind::kPointCloud &&
           node->name == "overlay_pointcloud") {
         return;
       }
@@ -265,8 +265,8 @@ void Scene3dGpuPresent::attach_overlay_pointcloud_locked(bool force) {
   }
   // Drop prior overlay nodes (present may early-return mesh rebuild).
   for (size_t i = 0; i < terrain_world_.node_count();) {
-    const gis::Node* node = terrain_world_.node_at(i);
-    if (node && node->kind == gis::NodeKind::kPointCloud &&
+    const vista::Node* node = terrain_world_.node_at(i);
+    if (node && node->kind == vista::NodeKind::kPointCloud &&
         node->name == "overlay_pointcloud") {
       if (!terrain_world_.remove_node(node->id)) {
         ++i;
@@ -327,7 +327,7 @@ void Scene3dGpuPresent::attach_overlay_pointcloud_locked(bool force) {
   }
   mn_y = target_base;
   mx_y = target_base + kBeadSpan;
-  gis::Node* node = terrain_world_.attach_pointcloud(
+  vista::Node* node = terrain_world_.attach_pointcloud(
       "overlay_pointcloud", mn_x, mn_y, mn_z, mx_x, mx_y, mx_z);
   if (!node) {
     return;
@@ -350,8 +350,8 @@ void Scene3dGpuPresent::attach_overlay_tin_locked(bool force) {
   }
   if (!force && !overlay_tin_dirty_) {
     for (size_t i = 0; i < terrain_world_.node_count(); ++i) {
-      const gis::Node* node = terrain_world_.node_at(i);
-      if (node && node->kind == gis::NodeKind::kTerrain &&
+      const vista::Node* node = terrain_world_.node_at(i);
+      if (node && node->kind == vista::NodeKind::kTerrain &&
           node->name == "overlay_tin") {
         return;
       }
@@ -359,8 +359,8 @@ void Scene3dGpuPresent::attach_overlay_tin_locked(bool force) {
   }
   // Drop prior overlay tin terrain node (rebuild may leave stale ids).
   for (size_t i = 0; i < terrain_world_.node_count();) {
-    const gis::Node* node = terrain_world_.node_at(i);
-    if (node && node->kind == gis::NodeKind::kTerrain &&
+    const vista::Node* node = terrain_world_.node_at(i);
+    if (node && node->kind == vista::NodeKind::kTerrain &&
         node->name == "overlay_tin") {
       if (!terrain_world_.remove_node(node->id)) {
         ++i;
@@ -423,7 +423,9 @@ void Scene3dGpuPresent::attach_overlay_tin_locked(bool force) {
   }
 
   // Geographic elev maps mine clay (~50m) to orbit y~7 while DEM roof is ~0.2.
-  // Remap relative relief into a slab just above the DEM roof so purple reads.
+  // Remap relative relief into a slab just above the DEM roof. Thin slabs suit
+  // mine clay / stormsurge free-surface; tall geo spans (hex volume) keep a
+  // taller orbit slab so walls read as 3D lattice, not a DEM-like roof.
   float dem_max_y = -1.0e9f;
   const size_t dem_floats = dem_local_xyz_count_;
   for (size_t i = 1; i < dem_floats && i < local_xyz_.size(); i += 3) {
@@ -435,14 +437,24 @@ void Scene3dGpuPresent::attach_overlay_tin_locked(bool force) {
   const float geo_y0 = mn_y;
   const float geo_span = (std::max)(mx_y - mn_y, 1.0e-4f);
   constexpr float kOrbitClearance = 0.35f;
-  constexpr float kOrbitSlab = 0.25f;
+  constexpr float kOrbitSlabMin = 0.25f;
+  constexpr float kOrbitSlabMax = 1.75f;
+  // Tall amber hex shell: keep a thicker orbit slab so walls dominate DEM pad.
+  const bool hex_albedo =
+      overlay_tin_has_albedo_ && overlay_tin_albedo_[0] >= 160 &&
+      overlay_tin_albedo_[1] >= 100 && overlay_tin_albedo_[2] < 140 &&
+      overlay_tin_albedo_[0] > overlay_tin_albedo_[2] + 40;
+  const float slab_max = hex_albedo ? 2.35f : kOrbitSlabMax;
+  const float slab_scale = hex_albedo ? 0.85f : 0.55f;
+  const float orbit_slab =
+      (std::min)(slab_max, (std::max)(kOrbitSlabMin, geo_span * slab_scale));
   const float target_base = dem_max_y + kOrbitClearance;
   for (size_t i = 0; i < n; ++i) {
     const float t = (orbit_xyz[i * 3 + 1] - geo_y0) / geo_span;
-    orbit_xyz[i * 3 + 1] = target_base + t * kOrbitSlab;
+    orbit_xyz[i * 3 + 1] = target_base + t * orbit_slab;
   }
   mn_y = target_base;
-  mx_y = target_base + kOrbitSlab;
+  mx_y = target_base + orbit_slab;
   LOGGING(LOG_INFO,
           "scene3d.present overlay_tin orbit_y=[%.3f,%.3f] geo_y0=%.3f "
           "dem_roof=%.3f verts=%zu idx=%zu",
@@ -462,16 +474,14 @@ void Scene3dGpuPresent::attach_overlay_tin_locked(bool force) {
   const float ax1 = mx_x + kPadXz;
   const float az0 = mn_z - kPadXz;
   const float az1 = mx_z + kPadXz;
-  gis::Node* node = terrain_world_.attach_terrain(
+  vista::Node* node = terrain_world_.attach_terrain(
       "overlay_tin", ax0, mn_y, az0, ax1, mx_y, az1);
   if (node) {
-    // Sparse 5-vert stratum TINs have been silent under FlyCube solid PS even
-    // with instance paint; keep mesh for denser overlays, else AABB bridge.
-    if (n >= 8) {
-      (void)terrain_world_.set_terrain_mesh(node->id, orbit_xyz.data(),
-                                            orbit_xyz.size(), orbit_idx.data(),
-                                            orbit_idx.size());
-    }
+    // Always attach the triangle mesh. Skipping for n<8 left only an AABB
+    // bridge that reads as a solid yellow/cyan toy prism in showcase BMPs.
+    (void)terrain_world_.set_terrain_mesh(node->id, orbit_xyz.data(),
+                                          orbit_xyz.size(), orbit_idx.data(),
+                                          orbit_idx.size());
   }
 
   // Fold into the GDI paint buffer; FlyCube draws the World node above.
@@ -481,39 +491,19 @@ void Scene3dGpuPresent::attach_overlay_tin_locked(bool force) {
         static_cast<unsigned>(base_vert + static_cast<size_t>(vi)));
   }
 
-  // Guarantee purple on the known-good point-cloud path (amber sticks already
-  // read). Sparse terrain TIN/AABB paint has been silent under FlyCube solid.
-  {
-    std::vector<uint8_t> purple(n * 4u);
-    for (size_t i = 0; i < n; ++i) {
-      purple[i * 4u + 0] = overlay_tin_has_albedo_ ? overlay_tin_albedo_[0]
-                                                   : static_cast<uint8_t>(0x8e);
-      purple[i * 4u + 1] = overlay_tin_has_albedo_ ? overlay_tin_albedo_[1]
-                                                   : static_cast<uint8_t>(0x44);
-      purple[i * 4u + 2] = overlay_tin_has_albedo_ ? overlay_tin_albedo_[2]
-                                                   : static_cast<uint8_t>(0xad);
-      purple[i * 4u + 3] = 255;
-    }
-    // Drop prior marker cloud.
-    for (size_t i = 0; i < terrain_world_.node_count();) {
-      const gis::Node* node = terrain_world_.node_at(i);
-      if (node && node->kind == gis::NodeKind::kPointCloud &&
-          node->name == "overlay_tin_markers") {
-        if (!terrain_world_.remove_node(node->id)) {
-          ++i;
-        }
-        continue;
+  // Do not attach overlay_tin_markers pointclouds: FlyCube draws the node AABB
+  // as a solid cyan/yellow toy prism that fails mid-complexity visual review.
+  // GDI solid tris + wireframe (and optional stick beads) are the showcase SoT.
+  for (size_t i = 0; i < terrain_world_.node_count();) {
+    const vista::Node* node = terrain_world_.node_at(i);
+    if (node && node->kind == vista::NodeKind::kPointCloud &&
+        node->name == "overlay_tin_markers") {
+      if (!terrain_world_.remove_node(node->id)) {
+        ++i;
       }
-      ++i;
+      continue;
     }
-    gis::Node* markers = terrain_world_.attach_pointcloud(
-        "overlay_tin_markers", ax0, mn_y, az0, ax1, mx_y, az1);
-    if (markers) {
-      (void)terrain_world_.set_pointcloud_points(markers->id, orbit_xyz.data(),
-                                                 static_cast<int>(n),
-                                                 purple.data(),
-                                                 static_cast<int>(purple.size()));
-    }
+    ++i;
   }
   overlay_tin_dirty_ = false;
 }
@@ -663,6 +653,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     mesh_device_ = device;
     dem_gpu_synced_after_ocean_ = false;
     dem_gpu_synced_after_sky_ = false;
+    gpu_scene_.clear_solid_terrain_cache();
   }
   base::ElapsedTimer sync_timer;
   if (globe_on) {
@@ -696,15 +687,15 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   if (overlay_tin_has_albedo_) {
     uint64_t overlay_id = 0;
     for (size_t ni = 0; ni < terrain_world_.node_count(); ++ni) {
-      const gis::Node* n = terrain_world_.node_at(ni);
-      if (n && n->kind == gis::NodeKind::kTerrain && n->name == "overlay_tin") {
+      const vista::Node* n = terrain_world_.node_at(ni);
+      if (n && n->kind == vista::NodeKind::kTerrain && n->name == "overlay_tin") {
         overlay_id = n->id;
         break;
       }
     }
     for (size_t i = 0; i < gpu_scene_.instance_count(); ++i) {
-      const effect::scene::GpuInstance* inst = gpu_scene_.instance_at(i);
-      if (!inst || inst->kind != gis::NodeKind::kTerrain) {
+      const vista::GpuInstance* inst = gpu_scene_.instance_at(i);
+      if (!inst || inst->kind != vista::NodeKind::kTerrain) {
         continue;
       }
       const bool by_id = overlay_id != 0 && inst->node_id == overlay_id;
@@ -759,7 +750,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     // Start from program defaults so a missing Environment never zero-lights
     // untextured meshes into pure-black slabs.
     render::programs::Light light;
-    if (const gis::atmosphere::Environment* env_light =
+    if (const vista::atmosphere::Environment* env_light =
             atmosphere.environment()) {
       const float az = env_light->params().sun_azimuth_rad;
       const float el = env_light->params().sun_elevation_rad;
@@ -800,7 +791,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       logged_once = true;
       size_t tex_nodes = 0;
       for (size_t i = 0; i < terrain_world_.node_count(); ++i) {
-        const gis::Node* n = terrain_world_.node_at(i);
+        const vista::Node* n = terrain_world_.node_at(i);
         if (n && !n->terrain_rgba.empty() && n->terrain_tex_w > 0 &&
             n->terrain_tex_h > 0) {
           ++tex_nodes;
@@ -811,37 +802,6 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
               "yaw=%.2f pitch=%.2f dist=%.2f",
               terrain_world_.node_count(), tex_nodes, width_px, height_px,
               yaw(), pitch(), distance());
-      // One-shot albedo fingerprint: atmosphere.full black mainland was
-      // (21,0,0) while CPU bake stayed green ù distinguish upload vs shade.
-      for (size_t i = 0; i < terrain_world_.node_count(); ++i) {
-        const gis::Node* n = terrain_world_.node_at(i);
-        if (!n || n->terrain_rgba.empty() || n->terrain_tex_w == 0) {
-          continue;
-        }
-        uint64_t sr = 0;
-        uint64_t sg = 0;
-        uint64_t sb = 0;
-        const size_t npx =
-            static_cast<size_t>(n->terrain_tex_w) *
-            static_cast<size_t>(n->terrain_tex_h);
-        const size_t nbytes = (std::min)(n->terrain_rgba.size(), npx * 4u);
-        size_t count = 0;
-        for (size_t p = 0; p + 3 < nbytes; p += 4) {
-          sr += n->terrain_rgba[p + 0];
-          sg += n->terrain_rgba[p + 1];
-          sb += n->terrain_rgba[p + 2];
-          ++count;
-        }
-        if (count > 0) {
-          LOGGING(LOG_INFO,
-                  "scene3d.present dem albedo mean_rgb=%u,%u,%u tex=%ux%u",
-                  static_cast<unsigned>(sr / count),
-                  static_cast<unsigned>(sg / count),
-                  static_cast<unsigned>(sb / count), n->terrain_tex_w,
-                  n->terrain_tex_h);
-        }
-        break;
-      }
       if (!local_xyz_.empty() && local_xyz_.size() >= 3) {
         float mn_x = local_xyz_[0];
         float mn_y = local_xyz_[1];
@@ -876,7 +836,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   render_engine_name = render::rhi::backend_display_name(device->backend());
   note_present_frame();
 
-  const gis::atmosphere::Environment* env = atmosphere.environment();
+  const vista::atmosphere::Environment* env = atmosphere.environment();
   const bool ocean_on = !globe_on && env && env->ocean_enabled();
   const bool cloud_on = !globe_on && env && env->cloud_enabled();
   const bool sat_cloud_on = globe_on && atmosphere.sat_cloud_enabled();
@@ -909,7 +869,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
     return false;
   }
   // Optional isolate: SMT_ATMOSPHERE_SKIP_OCEAN=1 keeps sky/DEM without ocean
-  // (debug atmosphere.full near-black China). Skip prepare_gpu too ù height
+  // (debug atmosphere.full near-black China). Skip prepare_gpu too ¬ù height
   // texture alloc still recycles FlyCube SRVs and blacks DEM albedo.
   const bool skip_ocean = []() {
     if (const char* e = std::getenv("SMT_ATMOSPHERE_SKIP_OCEAN")) {
@@ -923,7 +883,7 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   base::ElapsedTimer ocean_prep_timer;
   // Cold path only: allocate ocean height before DEM remesh so FlyCube does
   // not recycle hypsometric albedo as the height map. Warm frames (already
-  // synced after ocean) skip prepare_gpu ù OceanPass::record does one
+  // synced after ocean) skip prepare_gpu ¬ù OceanPass::record does one
   // Gerstner/upload instead of prepare_gpu + record double work.
   const bool need_ocean_height_before_dem =
       ocean_on && !skip_ocean && !dem_gpu_synced_after_ocean_;
@@ -939,81 +899,26 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   if (need_ocean_height_before_dem) {
     gpu_scene_.sync_from(terrain_world_);
   }
-  // First ocean-height / sky-depth alloc can recycle FlyCube heap that still
-  // backs DEM albedo. Force one remesh after those resources exist; warm
-  // frames keep StaticReuse (height upload is in-place).
-  if (need_ocean_height_before_dem) {
+  // Cold remesh is deferred until GpuScene::record_draws, which runs after
+  // pre-opaque depth allocation inside graph::present. Warm frames (already
+  // synced after ocean/sky) do not mark dirty, so rebuild_count stays 0.
+  // Globe draws DEM on the sphere and must not dirty the flat mesh.
+  if (!globe_on && need_ocean_height_before_dem) {
     gpu_scene_.mark_meshes_dirty();
   }
-  if (sky_on && !dem_gpu_synced_after_sky_) {
+  if (!globe_on && sky_on && !dem_gpu_synced_after_sky_) {
     gpu_scene_.mark_meshes_dirty();
   }
-  // FlyCube + AtmosphereFrame: lit textured DEM can sample near-black
-  // (21,0,0) when ocean/sky SRVs recycle the albedo heap. Prefer textured
-  // hypsometric when the CPU bake looks healthy; only force solid fill when
-  // the mean is near-black (flat olive slab was the no-arg 3D "blob").
+  // White tint first. update_solid_terrain overrides it when the synced
+  // albedo mean is near-black, cached on World generation.
   gpu_scene_.set_solid_color(1.f, 1.f, 1.f, 1.f);
-  // Sky-on and legacy-stereo both need a healthy DEM albedo on FlyCube.
-  // Without ocean/sky height alloc, recycled SRVs can leave near-black China
-  // (signal=0 BMPs). Prefer textured hypsometric; solid-fill only when mean
-  // luma collapses.
-  if (sky_on || look_preset_ == Scene3dLookPreset::kLegacyStereo) {
-    float ar = 0.28f;
-    float ag = 0.52f;
-    float ab = 0.22f;
-    float amin = 1.f;
-    float amax = 0.f;
-    size_t count = 0;
-    for (size_t i = 0; i < terrain_world_.node_count(); ++i) {
-      const gis::Node* n = terrain_world_.node_at(i);
-      if (!n || n->terrain_rgba.size() < 4) {
-        continue;
-      }
-      uint64_t sr = 0;
-      uint64_t sg = 0;
-      uint64_t sb = 0;
-      for (size_t p = 0; p + 3 < n->terrain_rgba.size(); p += 4) {
-        const float lum = (n->terrain_rgba[p + 0] * 0.3f +
-                           n->terrain_rgba[p + 1] * 0.59f +
-                           n->terrain_rgba[p + 2] * 0.11f) /
-                          255.f;
-        amin = (std::min)(amin, lum);
-        amax = (std::max)(amax, lum);
-        sr += n->terrain_rgba[p + 0];
-        sg += n->terrain_rgba[p + 1];
-        sb += n->terrain_rgba[p + 2];
-        ++count;
-      }
-      if (count > 0) {
-        ar = static_cast<float>(sr / count) / 255.f;
-        ag = static_cast<float>(sg / count) / 255.f;
-        ab = static_cast<float>(sb / count) / 255.f;
-      }
-      break;
-    }
-    const float mean_luma = 0.30f * ar + 0.59f * ag + 0.11f * ab;
-    // Near-black mean ? textured path failed; solid landish fallback.
-    if (count == 0 || mean_luma < 0.12f) {
-      if (amax - amin < 0.08f) {
-        ar = 0.34f;
-        ag = 0.58f;
-        ab = 0.24f;
-      } else {
-        ar = (std::min)(1.f, (std::max)(ar, 0.28f) * 1.15f);
-        ag = (std::min)(1.f, (std::max)(ag, 0.45f) * 1.20f);
-        ab = (std::min)(1.f, (std::max)(ab, 0.18f) * 1.05f);
-      }
-      gpu_scene_.set_solid_color(ar, ag, ab, 1.f);
-      _putenv_s("SMT_SCENE3D_SOLID_TERRAIN", "1");
-    } else {
-      _putenv_s("SMT_SCENE3D_SOLID_TERRAIN", "0");
-    }
-  } else {
-    _putenv_s("SMT_SCENE3D_SOLID_TERRAIN", "0");
-  }
+  const bool need_albedo_gate =
+      sky_on || look_preset_ == Scene3dLookPreset::kLegacyStereo;
+  gpu_scene_.update_solid_terrain(terrain_world_.generation(),
+                                  need_albedo_gate);
 
   const int cloud_quality = (env && cloud_on) ? env->params().quality : 1;
-  effect::scene::OpaqueEffect opaque(&gpu_scene_);
+  vista::OpaqueEffect opaque(&gpu_scene_);
   // This HWND is the swapchain. Parent chrome is painted on the widget, not
   // here. A fullscreen shell quad replaces the terrain a frame later
   // (correct flash, then a shifted / flat cover). Do not composite it.
@@ -1021,112 +926,67 @@ bool Scene3dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
   (void)shell_generation;
   shell_overlay_.clear();
 
-  render::rhi::CommandList* list = device->create_command_list();
-  if (!list) {
-    LOGGING(LOG_ERROR, "scene3d.present fail: create_command_list");
+  // Pipelines before graph::present. Mesh upload stays inside
+  // record_draws so sky/depth allocation in the pre slot happens first.
+  base::ElapsedTimer pso_timer;
+  if (!gpu_scene_.warm_pipelines(device)) {
+    LOGGING(LOG_ERROR, "scene3d.present fail: warm_pipelines");
     return false;
   }
-  render::graph::RecordContext ctx;
-  ctx.device = device;
-  ctx.list = list;
-  ctx.width = width_px;
-  ctx.height = height_px;
-  ctx.camera = view_camera;
-  ctx.color_op = render::rhi::ColorLoadOp::kClear;
-  ctx.shared_depth = false;
+  note_scene3d_phase_pso(static_cast<int64_t>(
+      pso_timer.elapsed_milliseconds() + 0.5));
 
-  effect::atmosphere::AtmosphereEffects atmosphere_effects(&atmosphere.frame(),
-                                                           cloud_quality);
-  base::ElapsedTimer record_timer;
-  bool ok = atmosphere_effects.pre_effect()->record(ctx);
-  if (atmosphere_effects.pre_effect()->clears_color()) {
-    ctx.color_op = render::rhi::ColorLoadOp::kLoad;
-  }
-  if (atmosphere_effects.pre_effect()->uses_shared_depth()) {
-    ctx.shared_depth = true;
-  }
-  // Sky/depth first open can recycle DEM SRVs uploaded before pre. Remesh
-  // once after sky resources exist; later frames skip.
-  if (sky_on && !dem_gpu_synced_after_sky_) {
-    gpu_scene_.mark_meshes_dirty();
-  } else if (need_ocean_height_before_dem) {
-    gpu_scene_.mark_meshes_dirty();
-  }
-  base::ElapsedTimer rebuild_timer;
   const bool need_rebuild =
-      !globe_on && gpu_scene_.needs_mesh_upload(device, width_px, height_px);
-  if (!globe_on) {
-    if (!gpu_scene_.ensure_meshes(device, width_px, height_px)) {
-      device->destroy_command_list(list);
-      LOGGING(LOG_ERROR, "scene3d.present fail: ensure_meshes");
-      return false;
-    }
-  }
-  note_scene3d_phase_rebuild(
-      static_cast<int64_t>(rebuild_timer.elapsed_milliseconds() + 0.5),
-      need_rebuild ? 1 : 0);
-  // Globe path draws DEM on the sphere in AtmosphereFrame pre; skip flat DEM.
-  if (!globe_on) {
-    ok = opaque.record(ctx) && ok;
-  }
+      !globe_on &&
+      gpu_scene_.needs_mesh_upload(device, width_px, height_px);
+  // Upload time is inside graph::present (record_draws). Do not split that
+  // call; rebuild_count is the warm/cold signal.
+  note_scene3d_phase_upload(0);
+  note_scene3d_phase_rebuild(0, need_rebuild ? 1 : 0);
 
-  if (ocean_on && !skip_ocean) {
-    render::rhi::RenderPassDesc ocean_pass;
-    ocean_pass.width = width_px;
-    ocean_pass.height = height_px;
-    ocean_pass.load_op = render::rhi::ColorLoadOp::kLoad;
-    ocean_pass.enable_depth = true;
-    ocean_pass.depth_load_op = render::rhi::DepthLoadOp::kLoad;
-    list->begin_render_pass(ocean_pass);
-    if (view_camera) {
-      list->bind_camera(*view_camera);
+  const bool skip_post = []() {
+    if (const char* e = std::getenv("SMT_ATMOSPHERE_SKIP_POST")) {
+      return e[0] == '1' && e[1] == '\0';
     }
-    ok = atmosphere.ocean_pass().record(device, list, width_px, height_px,
-                                        view_camera) &&
-         ok;
-    list->end_render_pass();
-  }
-  if (cloud_on || fog_on || sat_cloud_on) {
-    const bool skip_post = []() {
-      if (const char* e = std::getenv("SMT_ATMOSPHERE_SKIP_POST")) {
-        return e[0] == '1' && e[1] == '\0';
-      }
-      return false;
-    }();
-    if (!skip_post) {
+    return false;
+  }();
+  // Pre slot keeps flat ocean off inside record_pre_opaque. Post draws it
+  // before cloud/fog/sat when this flag is on.
+  atmosphere.frame().set_ocean_enabled(ocean_on && !skip_ocean);
+  if (!skip_post) {
     atmosphere.frame().set_cloud_enabled(cloud_on);
     atmosphere.frame().set_fog_enabled(fog_on);
     atmosphere.frame().set_sat_cloud_enabled(sat_cloud_on);
-    ok = atmosphere.frame().record_post_opaque(device, list, width_px, height_px,
-                                               view_camera, cloud_quality) &&
-         ok;
-    }
   }
-  list->close();
-  // Distinguish record failure from GPU execute failure in the soft-fail log.
+
+  vista::AtmosphereEffects atmosphere_effects(&atmosphere.frame(),
+                                                           cloud_quality);
+  render::graph::ViewInput view_input;
+  view_input.width_px = width_px;
+  view_input.height_px = height_px;
+  view_input.camera = view_camera;
+  view_input.effects.push_back(atmosphere_effects.pre_effect());
+  // Globe DEM is in the pre slot. Flat DEM must not enter the list.
+  if (!globe_on) {
+    view_input.effects.push_back(&opaque);
+  }
+  view_input.effects.push_back(atmosphere_effects.post_effect());
+
+  base::ElapsedTimer record_timer;
+  const bool ok = render::graph::present(device, view_input);
   if (!ok) {
-    device->destroy_command_list(list);
     LOGGING(LOG_ERROR,
-            "scene3d.present fail: record size=%ux%u nodes=%zu backend=%s",
+            "scene3d.present fail: graph::present size=%ux%u nodes=%zu "
+            "backend=%s",
             width_px, height_px, terrain_world_.node_count(),
             render_engine_name);
     return false;
   }
-  if (!device->execute(list)) {
-    device->destroy_command_list(list);
-    LOGGING(LOG_ERROR,
-            "scene3d.present fail: execute size=%ux%u nodes=%zu backend=%s",
-            width_px, height_px, terrain_world_.node_count(),
-            render_engine_name);
-    return false;
-  }
-  device->destroy_command_list(list);
   note_scene3d_phase_record(static_cast<int64_t>(
       record_timer.elapsed_milliseconds() + 0.5));
-  base::ElapsedTimer present_timer;
-  device->present();
-  note_scene3d_phase_present(static_cast<int64_t>(
-      present_timer.elapsed_milliseconds() + 0.5));
+  // graph::present owns execute + present. No second clock without a new
+  // signature.
+  note_scene3d_phase_present(0);
   if (ocean_on && !skip_ocean) {
     dem_gpu_synced_after_ocean_ = true;
   }

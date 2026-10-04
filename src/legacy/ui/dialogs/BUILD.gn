@@ -33,8 +33,8 @@ source_set("dialogs_sources") {
   deps = [
     "//src/base:base",
     "//src/base:core",
-    "//src/gis/kernel/geo:geo",
-    "//src/gis/model/map:gis",
+    "//src/gis/geo:geo",
+    "//src/gis/map:gis",
     "//src/legacy/sys:sys",
     "//third_party:gdal",
   ]

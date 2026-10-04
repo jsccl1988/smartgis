@@ -79,12 +79,14 @@ int seed_atmosphere_legacy_mode(Browser& browser,
     std::fprintf(stderr, "atmosphere-showcase: look preset not legacy\n");
     return 53;
   }
+  // CPU label list only (no GPU attach). Must run before the count gate —
+  // apply_china may skip overlays under SMT_ATMOSPHERE_SHOWCASE_GPU=1.
+  (void)cam->gpu().ensure_legacy_overlays();
   if (cam->gpu().legacy_label_count() < 8) {
     std::fprintf(stderr, "atmosphere-showcase: legacy labels missing\n");
     return 53;
   }
   atmosphere_showcase_mark("labels-ok");
-  (void)cam->gpu().ensure_legacy_overlays();
   if (cam->gpu().has_legacy_coast_vectors()) {
     atmosphere_showcase_mark("coast-doc-ok");
   } else {

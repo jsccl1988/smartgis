@@ -18,7 +18,6 @@
 #include "ximage.h"
 
 using namespace base;
-using namespace geo;
 
 namespace render {
 namespace detail {

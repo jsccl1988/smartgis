@@ -30,8 +30,9 @@ std::wstring widen_utf8(const char* utf8) {
   if (n <= 1) {
     return {};
   }
-  std::wstring out(static_cast<size_t>(n - 1), L'\0');
+  std::wstring out(static_cast<size_t>(n), L'\0');
   MultiByteToWideChar(CP_UTF8, 0, utf8, -1, out.data(), n);
+  out.resize(static_cast<size_t>(n - 1));
   return out;
 }
 

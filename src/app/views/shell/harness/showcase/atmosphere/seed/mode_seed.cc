@@ -11,7 +11,7 @@
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "gis/vista/domain/atmosphere/systems/environment.h"
+#include "vista/domain/atmosphere/environment.h"
 
 #include <algorithm>
 #include <cmath>
@@ -132,7 +132,7 @@ int verify_atmosphere_mode_flags(AtmosphereShowcaseMode mode,
   if (!cam) {
     return 50;
   }
-  const gis::atmosphere::Environment* env =
+  const vista::atmosphere::Environment* env =
       cam->atmosphere_session().environment();
   // Full / coast: ocean + soft cloud + sky + fog.
   // Legacy: black clear + calm light-blue sea (leftover stereo shelf character).

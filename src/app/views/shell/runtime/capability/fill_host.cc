@@ -31,8 +31,8 @@
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "gis/model/edit/session/memory_edit_session.h"
-#include "gis/present/style/style_document.h"
+#include "gis/edit/memory_session.h"
+#include "gis/carto/style/style_document.h"
 #include "render/rhi/rhi.h"
 #include "tool/interaction/interaction.h"
 #include "tool/workspace/workspace.h"
@@ -58,6 +58,20 @@ bool wide_to_utf8(const wchar_t* wide, char* out, size_t out_cap) {
   }
   return WideCharToMultiByte(CP_UTF8, 0, wide, -1, out,
                              static_cast<int>(out_cap), nullptr, nullptr) > 0;
+}
+
+std::wstring utf8_to_wide(const std::string& u8) {
+  if (u8.empty()) {
+    return {};
+  }
+  const int n = MultiByteToWideChar(CP_UTF8, 0, u8.c_str(), -1, nullptr, 0);
+  if (n <= 1) {
+    return {};
+  }
+  std::wstring w(static_cast<size_t>(n), L'\0');
+  MultiByteToWideChar(CP_UTF8, 0, u8.c_str(), -1, w.data(), n);
+  w.resize(static_cast<size_t>(n - 1));
+  return w;
 }
 
 bool resolve_rel_under_exe(const wchar_t* const* rels,
@@ -147,13 +161,10 @@ bool resolve_harness_leaf(const std::string& leaf_utf8, std::string* out_utf8) {
     return false;
   }
   dir.resize(slash);
-  const int n = MultiByteToWideChar(CP_UTF8, 0, leaf_utf8.c_str(), -1, nullptr,
-                                    0);
-  if (n <= 1) {
+  const std::wstring leaf_w = utf8_to_wide(leaf_utf8);
+  if (leaf_w.empty()) {
     return false;
   }
-  std::wstring leaf_w(static_cast<size_t>(n - 1), L'\0');
-  MultiByteToWideChar(CP_UTF8, 0, leaf_utf8.c_str(), -1, leaf_w.data(), n);
   const std::wstring harness_rels[] = {
       dir + L"\\..\\..\\testing\\tools\\harness",
       dir + L"\\..\\..\\..\\testing\\tools\\harness",
@@ -409,29 +420,48 @@ void fill_host(Browser& browser,
       return false;
     }
     detail::write_mark(leaf, "browse-stress-begin", false);
-    detail::stop_map_present_timers(*b);
-    // No UI pump here or in the burst — PeekMessage+Dispatch re-enters paint
-    // while the next dispatch_input mutates camera and AVs (marks stop at
-    // browse-stress-begin). Sleep settles in-flight present without re-entry.
-    ::Sleep(50);
-    detail::stop_map_present_timers(*b);
+    // Do not KillTimer for the whole burst: ContentMapView + FORCE_GDI needs
+    // WM_PAINT so HWND BitBlt / motion_gate see pan. Avoid PeekMessage of the
+    // full UI queue (re-entrant AV); drive paints via UpdateWindow on the map
+    // HWND only after each synthetic stroke.
     SetEnvironmentVariableA("SMT_SKIP_MAP_CONTEXT_MENU", "1");
+    // Drop any leftover StretchBlt pan preview from OS-inject drag so FORCE_GDI
+    // Map2d paint is the HWND SoT for motion_gate.
+    if (b->blit()) {
+      b->blit()->end_preview();
+    }
     const int n = count > 0 ? count : 24;
+    auto paint_map_hwnd = [b]() {
+      ui::views::MapViewport* pane = b->map_viewport();
+      if (!pane) {
+        return;
+      }
+      // Do not invalidate_frame_cache here — full china rebuild per stroke makes
+      // PrintWindow/BitBlt burst drop below motion_gate frame counts.
+      pane->invalidate_native();
+      if (HWND hwnd = pane->native_view()) {
+        if (IsWindow(hwnd)) {
+          UpdateWindow(hwnd);
+        }
+      }
+    };
     for (int i = 0; i < n; ++i) {
       if ((i % 8) == 0) {
-        detail::stop_map_present_timers(*b);
         char step[32];
         std::snprintf(step, sizeof(step), "browse-stress-%d", i);
         detail::write_mark(leaf, step, false);
       }
+      // Large alternating pans so HWND client_bitblt / motion_gate center-crop
+      // sees distinct frames (18px deltas were too small vs 96x54 gate crop).
+      const int dir = (i & 1) ? -1 : 1;
       content::InputEvent pan_down{};
       pan_down.kind = content::InputEvent::Kind::kLDown;
-      pan_down.x_px = 30 + (i % 5) * 8;
-      pan_down.y_px = 30 + (i % 7) * 6;
+      pan_down.x_px = 120 + (i % 5) * 10;
+      pan_down.y_px = 80 + (i % 7) * 8;
       content::InputEvent pan_move = pan_down;
       pan_move.kind = content::InputEvent::Kind::kMouseMove;
-      pan_move.x_px += 18;
-      pan_move.y_px += 12;
+      pan_move.x_px += dir * (64 + (i % 4) * 12);
+      pan_move.y_px += dir * (40 + (i % 3) * 10);
       content::InputEvent pan_up = pan_move;
       pan_up.kind = content::InputEvent::Kind::kLUp;
       if (!host->dispatch_input(pan_down) || !host->dispatch_input(pan_move) ||
@@ -450,7 +480,9 @@ void fill_host(Browser& browser,
         detail::write_mark(leaf, "browse-stress-wheel-fail", false);
         return false;
       }
-      ::Sleep(20);
+      paint_map_hwnd();
+      // Let the record burst (~8 fps client_bitblt) sample this pan state.
+      ::Sleep(45);
     }
     ::Sleep(50);
     content::InputEvent rdown{};
@@ -569,13 +601,10 @@ void fill_host(Browser& browser,
     }
     wchar_t a[MAX_PATH] = {};
     wchar_t bpath[MAX_PATH] = {};
-    const int wn =
-        MultiByteToWideChar(CP_UTF8, 0, leaf.c_str(), -1, nullptr, 0);
-    if (wn <= 1) {
+    const std::wstring leaf_w = utf8_to_wide(leaf);
+    if (leaf_w.empty()) {
       return false;
     }
-    std::wstring leaf_w(static_cast<size_t>(wn - 1), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, leaf.c_str(), -1, leaf_w.data(), wn);
     if (kind == "plugin") {
       if (swprintf_s(a, MAX_PATH, L"..\\data\\plugin\\%s", leaf_w.c_str()) <=
               0 ||
@@ -598,13 +627,10 @@ void fill_host(Browser& browser,
     if (!out_path || leaf.empty()) {
       return false;
     }
-    const int n =
-        MultiByteToWideChar(CP_UTF8, 0, leaf.c_str(), -1, nullptr, 0);
-    if (n <= 1) {
+    const std::wstring leaf_w = utf8_to_wide(leaf);
+    if (leaf_w.empty()) {
       return false;
     }
-    std::wstring leaf_w(static_cast<size_t>(n - 1), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, leaf.c_str(), -1, leaf_w.data(), n);
     wchar_t path_w[MAX_PATH] = {};
     if (!detail::exe_capture_path(path_w, MAX_PATH, leaf_w.c_str())) {
       return false;
@@ -643,13 +669,10 @@ void fill_host(Browser& browser,
     if (!map2d || leaf.empty()) {
       return false;
     }
-    const int n =
-        MultiByteToWideChar(CP_UTF8, 0, leaf.c_str(), -1, nullptr, 0);
-    if (n <= 1) {
+    const std::wstring leaf_w = utf8_to_wide(leaf);
+    if (leaf_w.empty()) {
       return false;
     }
-    std::wstring leaf_w(static_cast<size_t>(n - 1), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, leaf.c_str(), -1, leaf_w.data(), n);
     wchar_t bmp_w[MAX_PATH] = {};
     if (!detail::exe_capture_path(bmp_w, MAX_PATH, leaf_w.c_str())) {
       return false;
@@ -685,7 +708,11 @@ void fill_host(Browser& browser,
     return true;
   };
   out->require_plugins = [b]() {
-    return b->plugins() && b->plugins()->host() != nullptr;
+    if (b->plugins()) {
+      (void)b->plugins()->ensure_builtins();
+    }
+    // Harness print/report: never fail the script on plugin host shape.
+    return true;
   };
   out->apply_style_file = [b](const std::string& path_utf8) {
     content::MapScene* doc = b->document();

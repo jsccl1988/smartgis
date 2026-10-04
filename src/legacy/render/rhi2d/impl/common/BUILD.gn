@@ -31,7 +31,7 @@ source_set("rhi2d_common_sources") {
     "//src/base:base",
     "//src/base:core",
     "//src/base/math:math",
-    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
+    "//src/gis:gis",
     "//src/gpu:compositor_cpu_blend",
     "//third_party:CxImage",
     "//src/legacy/render/rhi2d/impl/gdiplus:aa_sources",
@@ -102,13 +102,14 @@ template("rhi2d_device_port_sources") {
     include_dirs += [ "//src" ]
     deps = [
       ":rhi2d_common_sources",
-      "//src/gis/kernel/geo:geo",
+      "//src/gis/geo:geo",
+      "//src/plugin/product/world3d:world3d_orthogrid_lattice",
       "//src/base:base",
       "//src/base:core",
       "//src/base/math:math",
-      "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
-      "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
-      "//src/gis/model/map:gis",
+      "//src/gis/datasource/ogr:ogr_codec_client",
+      "//src/gis:gis",
+      "//src/gis/map:gis",
       "//third_party:CxImage",
       "//third_party:gdal",
       "//src/legacy/render/rhi2d/impl/gdiplus:aa_sources",
@@ -183,8 +184,9 @@ test("gdi_map_paint_test") {
     "//src/legacy/render:legacy_rhi2d_gdiplus",
     "//src/legacy/render:legacy_rhi2d_skia",
     "//src/legacy/render:legacy_render",
-    "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
-    "//src/gis/model/map:gis",
+    "//src/gis/datasource/ogr:ogr_codec_client",
+    "//src/gis/map:gis",
+    "//src/vista:vista",
     "//testing/data:china_map_samples",
     "//third_party:gdal",
   ]
@@ -242,7 +244,7 @@ test("gdi_cc_test") {
   deps = [
     "//src/base:base",
     "//src/base:core",
-    "//src/gis/model/map:gis",
+    "//src/gis/map:gis",
   ]
   libs = [
     "gdi32.lib",
@@ -278,7 +280,7 @@ test("tile_raster_test") {
   deps = [
     "//src/base:base",
     "//src/base:core",
-    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
+    "//src/gis:gis",
   ]
   libs = [
     "gdi32.lib",
@@ -306,7 +308,7 @@ test("gdi_encode_test") {
   deps = [
     "//src/base:base",
     "//src/base:core",
-    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
+    "//src/gis:gis",
   ]
   libs = [
     "gdi32.lib",

@@ -61,8 +61,9 @@ bool try_export_map2d_bmp(Browser& browser, const char* leaf_utf8,
   if (wn <= 1) {
     return false;
   }
-  std::wstring leaf_w(static_cast<size_t>(wn - 1), L'\0');
+  std::wstring leaf_w(static_cast<size_t>(wn), L'\0');
   MultiByteToWideChar(CP_UTF8, 0, leaf_utf8, -1, leaf_w.data(), wn);
+  leaf_w.resize(static_cast<size_t>(wn - 1));
   wchar_t bmp_w[MAX_PATH] = {};
   if (!exe_capture_path(bmp_w, MAX_PATH, leaf_w.c_str())) {
     return false;

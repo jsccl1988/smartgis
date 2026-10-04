@@ -7,9 +7,9 @@
 #error "include stdafx.h before this file for PCH"
 #endif
 
-#include "legacy/app/core/bootstrap.h"
+#include "legacy/app/bootstrap/bootstrap.h"
 #include "legacy/app/resource.h"
-#include "legacy/app/shell/frame/mdi_tabs.h"
+#include "legacy/app/shell/frame/mdi_tab_options.h"
 #include "legacy/core/macros/macros.h"
 #include "legacy/core/types/env.h"
 

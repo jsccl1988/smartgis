@@ -11,13 +11,13 @@
 
 #include "base/math/aabb.h"
 #include "gdal_priv.h"
-#include "gis/vista/world/terrain/dem/dem_frame.h"
-#include "gis/vista/world/world.h"
+#include "vista/world/terrain/dem/dem_frame.h"
+#include "vista/world/world.h"
 #include "legacy/render/scene3d/seed/map_to_scene.h"
 #include "legacy/render/scene3d/seed/scene_to_world.h"
-#include "legacy/gis/vista/coord.h"
-#include "legacy/gis/vista/dem_height_field.h"
-#include "legacy/gis/vista/dem_to_world.h"
+#include "vista/world/coord.h"
+#include "vista/world/terrain/dem/dem_height_field.h"
+#include "vista/world/terrain/dem/dem_to_world.h"
 #include "legacy/render/scene3d/primitive/surface/terrain.h"
 
 namespace {
@@ -71,11 +71,18 @@ std::filesystem::path write_gtiff_fixture() {
 }  // namespace
 
 int main() {
+  const std::string kChinaDem = render::find_sample_dem_path();
+  if (kChinaDem.empty()) {
+    std::fprintf(stderr,
+                 "dem_stereo_test: missing out/data/china_dem.tif "
+                 "(build //testing/data:china_map_samples)\n");
+    return 1;
+  }
   {
     render::DemHeightField dem;
-    dem.fill_synthetic_china();
-    expect(!dem.empty(), "synthetic china dem");
-    expect(dem.cols() >= 8 && dem.rows() >= 8, "synthetic grid size");
+    expect(dem.load_gdal_raster(kChinaDem.c_str()) && !dem.empty(),
+           "load china_dem");
+    expect(dem.cols() >= 8 && dem.rows() >= 8, "china_dem grid size");
     const float tibet = dem.sample_meters(88.0, 32.0);
     const float jiangsu = dem.sample_meters(119.0, 32.5);
     expect(tibet > jiangsu + 800.f, "tibet higher than jiangsu");
@@ -110,7 +117,7 @@ int main() {
     expect(z_min < 25.f, "lower lat maps to leftover -Z side");
     expect(x_min < -120.f && x_max > -80.f,
            "mesh AABB covers China-like X=-lon");
-    expect(gis::dem_lon_to_x(121.0) < gis::dem_lon_to_x(88.0),
+    expect(vista::dem_lon_to_x(121.0) < vista::dem_lon_to_x(88.0),
            "east X < west X (screen-right looking north)");
     const size_t full_tris = idx.size();
 
@@ -121,7 +128,8 @@ int main() {
            "mainland ring covers 110E 35N");
     {
       render::DemHeightField kept;
-      kept.fill_synthetic_china();
+      expect(kept.load_gdal_raster(kChinaDem.c_str()) && !kept.empty(),
+             "reload china_dem for mask");
       kept.mask_outside_rings({mainland});
       expect(kept.sample_meters(110.0, 35.0) > 1.f, "mask keeps mainland");
       std::vector<float> mx;
@@ -129,7 +137,7 @@ int main() {
       expect(kept.build_mesh(96, &mx, &mi, nullptr, nullptr), "mainland mesh");
       bool near_luoyang = false;
       for (size_t i = 0; i + 2 < mx.size(); i += 3) {
-        if (std::fabs(mx[i] - gis::dem_lon_to_x(110.0)) < 4.f &&
+        if (std::fabs(mx[i] - vista::dem_lon_to_x(110.0)) < 4.f &&
             std::fabs(mx[i + 2] - 35.f) < 4.f) {
           near_luoyang = true;
           break;
@@ -140,8 +148,8 @@ int main() {
 
     {
       render::Aabb china;
-      china.vcMin.set(gis::dem_lon_to_x(135.0), 0.f, 17.5f);
-      china.vcMax.set(gis::dem_lon_to_x(73.0), 8.f, 54.f);
+      china.vcMin.set(vista::dem_lon_to_x(135.0), 0.f, 17.5f);
+      china.vcMax.set(vista::dem_lon_to_x(73.0), 8.f, 54.f);
       china.vcCenter = (china.vcMax + china.vcMin) / 2.f;
       render::Vector3 eye;
       render::Vector3 target;
@@ -153,8 +161,8 @@ int main() {
       expect(eye.z < target.z, "eye south of target looks north");
       expect(span > 40.f, "China AABB span");
       // Looking north: camera right = -X ⇒ smaller X (east) is screen-right.
-      expect(gis::dem_lon_to_x(121.0) < target.x &&
-                 target.x < gis::dem_lon_to_x(88.0),
+      expect(vista::dem_lon_to_x(121.0) < target.x &&
+                 target.x < vista::dem_lon_to_x(88.0),
              "look-at between Taiwan X and Tibet X");
     }
 
@@ -229,7 +237,8 @@ int main() {
   // point-in-polygon of every DEM cell against every ring on the UI thread.
   {
     render::DemHeightField dem;
-    dem.fill_synthetic_china();
+    expect(dem.load_gdal_raster(kChinaDem.c_str()) && !dem.empty(),
+           "load china_dem for mask budget");
     std::vector<render::LonLatRing> rings;
     rings.reserve(80);
     for (int i = 0; i < 80; ++i) {
@@ -253,26 +262,29 @@ int main() {
                         .count();
     std::fprintf(stderr, "mask_outside_rings 80x120-gon: %lld ms\n",
                  static_cast<long long>(ms));
-    expect(ms < 800,
+    // Real china_dem is 1536×960 (was 320×200 synthetic); keep a hard ceiling
+    // so a naive O(cells×rings) path still fails the test.
+    expect(ms < 15000,
            "prefecture-scale DEM mask stays off the UI-thread budget");
   }
 
-  // SP4: DEM envelope + CPU mesh → gis::World kTerrain (GpuScene upload covered
+  // SP4: DEM envelope + CPU mesh → vista::World kTerrain (GpuScene upload covered
   // in scene_gpu_test; avoid World vector ABI across legacy_render+gis+render).
   {
     render::DemHeightField dem;
-    dem.fill_synthetic_china();
+    expect(dem.load_gdal_raster(kChinaDem.c_str()) && !dem.empty(),
+           "load china_dem for world seed");
     double min_x = 0;
     double min_y = 0;
     double max_x = 0;
     double max_y = 0;
     dem.envelope(&min_x, &min_y, &max_x, &max_y);
-    gis::World world;
-    gis::Node* node =
+    vista::World world;
+    vista::Node* node =
         render::seed_dem_height_field_into_world(&world, dem, "china_dem", 48);
     expect(node != nullptr, "seed dem into world");
     expect(world.node_count() == 1, "one terrain node");
-    expect(node->kind == gis::NodeKind::kTerrain, "kind terrain");
+    expect(node->kind == vista::NodeKind::kTerrain, "kind terrain");
     expect(node->name == "china_dem", "terrain name");
     expect(node->min_x == min_x && node->max_x == max_x, "lon envelope");
     expect(node->min_y == min_y && node->max_y == max_y, "lat envelope");
@@ -312,10 +324,10 @@ int main() {
     expect(min_x == 100.0 && max_x == 110.0, "aabb lon from X=-lon");
     expect(min_y == 20.0 && max_y == 30.0, "aabb lat from leftover Z");
     expect(min_z == 10.0 && max_z == 50.0, "aabb elev → World Z");
-    gis::World mirror;
-    gis::Node* n = render::attach_gis_aabb(&mirror, "obj0", min_x, min_y, min_z,
+    vista::World mirror;
+    vista::Node* n = render::attach_gis_aabb(&mirror, "obj0", min_x, min_y, min_z,
                                            max_x, max_y, max_z);
-    expect(n != nullptr && n->kind == gis::NodeKind::kEmpty, "empty mirror");
+    expect(n != nullptr && n->kind == vista::NodeKind::kEmpty, "empty mirror");
     expect(mirror.node_count() == 1, "one mirror node");
   }
 

@@ -7,7 +7,6 @@
 #include "legacy/core/types/types.h"
 
 using namespace base;
-using namespace geo;
 
 namespace render {
 namespace detail {

@@ -5,20 +5,22 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px;
+  gap: 6px;
+  padding: 10px;
 }
 
 #layer {
-  min-height: 22px;
+  min-height: 24px;
   flex-grow: 0;
   flex-shrink: 0;
+  width: 100%;
 }
 
 #meta {
-  min-height: 18px;
+  min-height: 20px;
   flex-grow: 0;
   flex-shrink: 0;
+  width: 100%;
 }
 
 .nav {

@@ -4,8 +4,7 @@
 import("//build/smartgis.gni")
 
 # 2010 Orthogrid class (CreateOrthGrid / CvtToGrid / LoadGridBndFromFile).
-# Laplace stays in //src/plugin/product/orthogrid and is compiled here so the
-# DLL does not depend on orthogrid_views.
+# Elliptic interior solve is geo::solve_elliptic (gis.dll).
 source_set("orthogrid_kernel") {
   sources = [
     "kernel/curve.cpp",
@@ -14,15 +13,14 @@ source_set("orthogrid_kernel") {
     "kernel/grid_create.cpp",
     "kernel/grid_modify.cpp",
     "kernel/region.cpp",
-    "//src/plugin/product/orthogrid/detail/laplace_solver.cc",
   ]
   include_dirs += [ "//src" ]
   deps = [
-    "//src/gis/kernel/geo:geo",
+    "//src/gis/geo:geo",
+    "//src/plugin/product/world3d:world3d_orthogrid_lattice",
     "//src/base:base",
     "//src/base:core",
-    "//src/gis/model/map:gis",
-    "//third_party:eigen",
+    "//src/gis/map:gis",
   ]
 }
 
@@ -45,7 +43,7 @@ smt_mfc_shared_library("plugin_orthogrid") {
   ]
   deps = [
     ":orthogrid_kernel",
-    "//src/gis/kernel/geo:geo",
+    "//src/gis/geo:geo",
     "//src/base:core",
     "//src/legacy/plugin/runtime:cmd",
     "//src/legacy/plugin:plugin",
@@ -54,6 +52,5 @@ smt_mfc_shared_library("plugin_orthogrid") {
     "//src/legacy/ui/catalog:xcatalog",
     "//src/legacy/ui/shell:xview",
     "//src/legacy/sys:sys",
-    "//third_party:eigen",
   ]
 }

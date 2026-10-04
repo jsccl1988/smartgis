@@ -8,15 +8,15 @@
 #include "app/views/shell/browser/plugin/analysis_writer_common.h"
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "gis/present/style/style_document.h"
-#include "plugin/product/orthogrid/commands.h"
-#include "plugin/product/orthogrid/detail/orthogonality.h"
-#include "plugin/product/orthogrid3d/commands.h"
+#include "gis/carto/style/style_document.h"
+#include "plugin/product/world3d/commands.h"
+#include "plugin/product/world3d/grid/hexgrid/lattice/hex_lattice.h"
 #include "tool/draft/draft.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <utility>
@@ -25,6 +25,26 @@
 namespace app {
 namespace detail {
 namespace {
+
+// StyleDocument interpolate(["get","heat"], ...) wants a decimal |90-theta|.
+const char* format_heat_delta(float delta_deg, char* buf, size_t cap) {
+  if (!buf || cap < 4) {
+    return "";
+  }
+  float v = delta_deg;
+  if (!(v >= 0.f)) {
+    v = 0.f;
+  }
+  if (v > 90.f) {
+    v = 90.f;
+  }
+  const int n = std::snprintf(buf, cap, "%.4f", static_cast<double>(v));
+  if (n <= 0 || static_cast<size_t>(n) >= cap) {
+    buf[0] = '\0';
+    return "";
+  }
+  return buf;
+}
 
 constexpr const char* kOrthogridStyleJson = R"json({
   "version": 8,
@@ -118,7 +138,7 @@ bool commit_orthogrid_mesh(content::MapScene* doc,
         };
         char heat_buf[32];
         const char* heat =
-            orthogrid::format_heat_delta(d, heat_buf, sizeof(heat_buf));
+            format_heat_delta(d, heat_buf, sizeof(heat_buf));
         if (!append_map_polygon(doc, ring, heat)) {
           return false;
         }
@@ -161,7 +181,7 @@ bool commit_orthogrid_mesh(content::MapScene* doc,
         };
         char heat_buf[32];
         const char* heat =
-            orthogrid::format_heat_delta(delta, heat_buf, sizeof(heat_buf));
+            format_heat_delta(delta, heat_buf, sizeof(heat_buf));
         if (!append_map_polygon(doc, ring, heat)) {
           return false;
         }
@@ -234,16 +254,22 @@ bool commit_hex_grid_mesh(content::MapScene* doc,
                           BrowserUiDelegate* ui,
                           content::Scene3dPresenter* scene3d,
                           const plugin::HexGridCommit& commit) {
-  if (!doc || !commit.grid || commit.grid->is_empty()) {
+  if (!doc || !commit.nodes || commit.nodes->IsEmpty()) {
     return false;
   }
-  const geo::HexGrid& grid = *commit.grid;
-  const int nx = grid.nx();
-  const int ny = grid.ny();
-  const int nz = grid.nz();
+  const int nx = commit.nx;
+  const int ny = commit.ny;
+  const int nz = commit.nz;
   if (nx < 2 || ny < 2 || nz < 1) {
     return false;
   }
+  const OGRMultiPoint& nodes = *commit.nodes;
+  auto node_at = [&](int i, int j, int k, double* x, double* y, double* z) {
+    return plugin::detail::hex_point(nodes, nx, ny, nz, i, j, k, x, y, z);
+  };
+  auto idx_at = [&](int i, int j, int k) {
+    return plugin::detail::hex_index(nx, ny, nz, i, j, k);
+  };
 
   doc->clear();
   auto style = std::make_shared<gis::style::StyleDocument>();
@@ -254,22 +280,30 @@ bool commit_hex_grid_mesh(content::MapScene* doc,
   }
 
   // Local AABB of all nodes (map2d extent + Scene3D framing pad).
-  double gminx = grid.node(0, 0, 0).x;
+  double gminx = 0;
+  double gminy = 0;
+  double gminz = 0;
+  if (!node_at(0, 0, 0, &gminx, &gminy, &gminz)) {
+    return false;
+  }
   double gmaxx = gminx;
-  double gminy = grid.node(0, 0, 0).y;
   double gmaxy = gminy;
-  double gminz = grid.node(0, 0, 0).z;
   double gmaxz = gminz;
   for (int k = 0; k < nz; ++k) {
     for (int j = 0; j < ny; ++j) {
       for (int i = 0; i < nx; ++i) {
-        const geo::Raw3DPoint p = grid.node(i, j, k);
-        gminx = std::min(gminx, p.x);
-        gmaxx = std::max(gmaxx, p.x);
-        gminy = std::min(gminy, p.y);
-        gmaxy = std::max(gmaxy, p.y);
-        gminz = std::min(gminz, p.z);
-        gmaxz = std::max(gmaxz, p.z);
+        double x = 0;
+        double y = 0;
+        double z = 0;
+        if (!node_at(i, j, k, &x, &y, &z)) {
+          return false;
+        }
+        gminx = std::min(gminx, x);
+        gmaxx = std::max(gmaxx, x);
+        gminy = std::min(gminy, y);
+        gmaxy = std::max(gmaxy, y);
+        gminz = std::min(gminz, z);
+        gmaxz = std::max(gmaxz, z);
       }
     }
   }
@@ -337,8 +371,13 @@ bool commit_hex_grid_mesh(content::MapScene* doc,
       std::vector<std::pair<double, double>> row;
       row.reserve(static_cast<size_t>(nx));
       for (int i = 0; i < nx; ++i) {
-        const geo::Raw3DPoint p = grid.node(i, j, k);
-        row.emplace_back(p.x, p.y);
+        double x = 0;
+        double y = 0;
+        double z = 0;
+        if (!node_at(i, j, k, &x, &y, &z)) {
+          return false;
+        }
+        row.emplace_back(x, y);
       }
       if (!append_polyline(row)) {
         return false;
@@ -348,8 +387,13 @@ bool commit_hex_grid_mesh(content::MapScene* doc,
       std::vector<std::pair<double, double>> col;
       col.reserve(static_cast<size_t>(ny));
       for (int j = 0; j < ny; ++j) {
-        const geo::Raw3DPoint p = grid.node(i, j, k);
-        col.emplace_back(p.x, p.y);
+        double x = 0;
+        double y = 0;
+        double z = 0;
+        if (!node_at(i, j, k, &x, &y, &z)) {
+          return false;
+        }
+        col.emplace_back(x, y);
       }
       if (!append_polyline(col)) {
         return false;
@@ -366,9 +410,17 @@ bool commit_hex_grid_mesh(content::MapScene* doc,
     }
     for (int j = 0; j < ny; ++j) {
       for (int i = 0; i < nx; ++i) {
-        const geo::Raw3DPoint a = grid.node(i, j, 0);
-        const geo::Raw3DPoint b = grid.node(i, j, nz - 1);
-        if (!append_polyline({{a.x, a.y}, {b.x, b.y}})) {
+        double ax = 0;
+        double ay = 0;
+        double az = 0;
+        double bx = 0;
+        double by = 0;
+        double bz = 0;
+        if (!node_at(i, j, 0, &ax, &ay, &az) ||
+            !node_at(i, j, nz - 1, &bx, &by, &bz)) {
+          return false;
+        }
+        if (!append_polyline({{ax, ay}, {bx, by}})) {
           return false;
         }
       }
@@ -385,26 +437,32 @@ bool commit_hex_grid_mesh(content::MapScene* doc,
     const double lon1 = lon0 + xy_span * kHexLabDegPerUnit;
     const double lat1 = lat0 + xy_span * kHexLabDegPerUnit;
     const double span_deg = (std::max)(lon1 - lon0, lat1 - lat0);
-    // Match mine DEM-style vertical fit so Z reads in orbit.
+    // Tall volume so attach_overlay_tin keeps a readable orbit slab (walls).
     const float vert_exag =
-        static_cast<float>((span_deg * 0.45) / z_span);
-    auto to_geo = [&](const geo::Raw3DPoint& p, float* lon, float* lat,
+        static_cast<float>((span_deg * 1.45) / z_span);
+    auto to_geo = [&](double x, double y, double z, float* lon, float* lat,
                       float* elev) {
-      *lon = static_cast<float>(lon0 + (p.x - gminx) * kHexLabDegPerUnit);
-      *lat = static_cast<float>(lat0 + (p.y - gminy) * kHexLabDegPerUnit);
-      *elev = static_cast<float>((p.z - gminz) * vert_exag);
+      *lon = static_cast<float>(lon0 + (x - gminx) * kHexLabDegPerUnit);
+      *lat = static_cast<float>(lat0 + (y - gminy) * kHexLabDegPerUnit);
+      *elev = static_cast<float>((z - gminz) * vert_exag);
     };
 
-    const int nnodes = grid.node_count();
+    const int nnodes = nx * ny * nz;
     std::vector<float> tin_geo(static_cast<size_t>(nnodes) * 3u);
     for (int k = 0; k < nz; ++k) {
       for (int j = 0; j < ny; ++j) {
         for (int i = 0; i < nx; ++i) {
-          const int idx = grid.index_of(i, j, k);
+          const int idx = idx_at(i, j, k);
           float lon = 0.f;
           float lat = 0.f;
           float elev = 0.f;
-          to_geo(grid.node(i, j, k), &lon, &lat, &elev);
+          double x = 0;
+          double y = 0;
+          double z = 0;
+          if (!node_at(i, j, k, &x, &y, &z)) {
+            return false;
+          }
+          to_geo(x, y, z, &lon, &lat, &elev);
           tin_geo[static_cast<size_t>(idx) * 3u] = lon;
           tin_geo[static_cast<size_t>(idx) * 3u + 1u] = lat;
           tin_geo[static_cast<size_t>(idx) * 3u + 2u] = elev;
@@ -422,16 +480,16 @@ bool commit_hex_grid_mesh(content::MapScene* doc,
       tin_idx.push_back(static_cast<unsigned>(c));
       tin_idx.push_back(static_cast<unsigned>(d));
     };
-    // k=0 / k=nz-1 faces (i,j).
-    for (int j = 0; j < ny - 1; ++j) {
-      for (int i = 0; i < nx - 1; ++i) {
-        push_quad(grid.index_of(i, j, 0), grid.index_of(i + 1, j, 0),
-                  grid.index_of(i + 1, j + 1, 0), grid.index_of(i, j + 1, 0));
-        if (nz > 1) {
-          push_quad(grid.index_of(i, j, nz - 1),
-                    grid.index_of(i + 1, j, nz - 1),
-                    grid.index_of(i + 1, j + 1, nz - 1),
-                    grid.index_of(i, j + 1, nz - 1));
+    // k faces: bottom, top, and mid slices so the volume reads as a lattice
+    // (not a single DEM-like roof).
+    for (int k : {0, nz > 2 ? nz / 2 : -1, nz > 1 ? nz - 1 : -1}) {
+      if (k < 0) {
+        continue;
+      }
+      for (int j = 0; j < ny - 1; ++j) {
+        for (int i = 0; i < nx - 1; ++i) {
+          push_quad(idx_at(i, j, k), idx_at(i + 1, j, k),
+                    idx_at(i + 1, j + 1, k), idx_at(i, j + 1, k));
         }
       }
     }
@@ -439,32 +497,26 @@ bool commit_hex_grid_mesh(content::MapScene* doc,
     if (nz > 1) {
       for (int k = 0; k < nz - 1; ++k) {
         for (int j = 0; j < ny - 1; ++j) {
-          push_quad(grid.index_of(0, j, k), grid.index_of(0, j + 1, k),
-                    grid.index_of(0, j + 1, k + 1),
-                    grid.index_of(0, j, k + 1));
-          push_quad(grid.index_of(nx - 1, j, k),
-                    grid.index_of(nx - 1, j + 1, k),
-                    grid.index_of(nx - 1, j + 1, k + 1),
-                    grid.index_of(nx - 1, j, k + 1));
+          push_quad(idx_at(0, j, k), idx_at(0, j + 1, k),
+                    idx_at(0, j + 1, k + 1), idx_at(0, j, k + 1));
+          push_quad(idx_at(nx - 1, j, k), idx_at(nx - 1, j + 1, k),
+                    idx_at(nx - 1, j + 1, k + 1), idx_at(nx - 1, j, k + 1));
         }
       }
       // j=0 / j=ny-1 faces (i,k).
       for (int k = 0; k < nz - 1; ++k) {
         for (int i = 0; i < nx - 1; ++i) {
-          push_quad(grid.index_of(i, 0, k), grid.index_of(i + 1, 0, k),
-                    grid.index_of(i + 1, 0, k + 1),
-                    grid.index_of(i, 0, k + 1));
-          push_quad(grid.index_of(i, ny - 1, k),
-                    grid.index_of(i + 1, ny - 1, k),
-                    grid.index_of(i + 1, ny - 1, k + 1),
-                    grid.index_of(i, ny - 1, k + 1));
+          push_quad(idx_at(i, 0, k), idx_at(i + 1, 0, k),
+                    idx_at(i + 1, 0, k + 1), idx_at(i, 0, k + 1));
+          push_quad(idx_at(i, ny - 1, k), idx_at(i + 1, ny - 1, k),
+                    idx_at(i + 1, ny - 1, k + 1), idx_at(i, ny - 1, k + 1));
         }
       }
     }
 
     if (!tin_idx.empty()) {
-      // Steel-blue shell; alpha keeps DEM readable if present.
-      constexpr uint8_t kHexAlbedo[4] = {0x2c, 0x7a, 0xb8, 0xd0};
+      // Amber-steel shell (not water-like cyan) so GDI paints lattice albedo.
+      constexpr uint8_t kHexAlbedo[4] = {0xe0, 0xa0, 0x40, 0xf0};
       scene3d->set_overlay_tin_mesh(tin_geo.data(), nnodes, tin_idx.data(),
                                     static_cast<int>(tin_idx.size()),
                                     kHexAlbedo);
@@ -472,36 +524,9 @@ bool commit_hex_grid_mesh(content::MapScene* doc,
       scene3d->clear_overlay_tin_mesh();
     }
 
-    std::vector<float> cloud_xyz;
-    std::vector<uint8_t> cloud_rgba;
-    cloud_xyz.reserve(static_cast<size_t>(nnodes) * 3u);
-    cloud_rgba.reserve(static_cast<size_t>(nnodes) * 4u);
-    const float lift = static_cast<float>(span_deg * 0.02);
-    for (int k = 0; k < nz; ++k) {
-      for (int j = 0; j < ny; ++j) {
-        for (int i = 0; i < nx; ++i) {
-          float lon = 0.f;
-          float lat = 0.f;
-          float elev = 0.f;
-          to_geo(grid.node(i, j, k), &lon, &lat, &elev);
-          cloud_xyz.push_back(lon);
-          cloud_xyz.push_back(lat);
-          cloud_xyz.push_back(elev + lift);
-          // Amber nodes contrast blue shell (peer mine stick beads).
-          cloud_rgba.push_back(0xf1);
-          cloud_rgba.push_back(0xc4);
-          cloud_rgba.push_back(0x0f);
-          cloud_rgba.push_back(255);
-        }
-      }
-    }
-    if (!cloud_xyz.empty()) {
-      scene3d->set_overlay_pointcloud(
-          cloud_xyz.data(), static_cast<int>(cloud_xyz.size() / 3),
-          cloud_rgba.data());
-    } else {
-      scene3d->clear_overlay_pointcloud();
-    }
+    // Steel TIN shell + GDI wireframe is the 3D face. Amber pointcloud beads
+    // collapse to a FlyCube AABB toy prism in HWND captures — keep clear.
+    scene3d->clear_overlay_pointcloud();
   }
 
   return refresh_ui_after_layer(ui);

@@ -1,0 +1,151 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map2d present — MapFrame 分层</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em; color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em; border-radius: 3px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 14px 16px 16px; margin-bottom: 12px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .meta a { margin-right: 10px; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .diagram { width: 100%; height: auto; display: block; }
+  .lane-label { font-weight: 700; font-size: 12px; }
+  .box-title { font-weight: 650; font-size: 12px; fill: var(--text); }
+  .box-sub { font-size: 10.5px; fill: var(--muted); }
+  table.own { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .own th, .own td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .own th { background: #e8edf3; color: var(--muted); font-weight: 650; }
+  .note { margin: 10px 0 0; color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Map2d present — MapFrame 分层</h1>
+    <p>制图只在 <code>Layout::build</code> 发生一次。软件光栅与 GPU 只消费 <code>DrawItem</code>。GDI 是第一软件光栅器，不拥有制图决策。</p>
+    <div class="meta">
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Map2d present</a>
+      · CPU 边界：<a href="./gis-vista-architecture.html">gis-vista-architecture</a>
+      · 并行：<a href="./render-accelerate-topology.html">render-accelerate-topology</a>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>1. 四层所有权</h2>
+    <svg class="diagram" viewBox="0 0 1040 520" role="img" aria-label="content present、vista 制图、effect map、软件 GDI 四层">
+      <rect x="0" y="0" width="1040" height="118" rx="8" fill="#e8f1fa" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="22" fill="#2563a8">content present</text>
+      <text class="box-sub" x="16" y="42">Map2dPresenter 绑定 · GPU / 软件选择 · PresentAction + prepare_for_present</text>
+      <text class="box-sub" x="16" y="60">Map2dGpuPresent 薄适配 · phase profile · FillBatch / DcStyle / BitBlt 缓存</text>
+      <text class="box-sub" x="16" y="78">MapScene → 边界 POD。getenv、中国范围门、DEM 路径、供 load_raster 的 RGBA</text>
+      <text class="box-sub" x="16" y="96">HWND / HDC 只出现在软件入口</text>
+
+      <rect x="0" y="132" width="1040" height="136" rx="8" fill="#e6f5ef" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="154" fill="#1d6b4f">gis vista + carto</text>
+      <text class="box-sub" x="16" y="174">Layout::build(LayoutInput, vector&lt;LayerBatch&gt;) · default_carto_style_json 是唯一颜色源</text>
+      <text class="box-sub" x="16" y="192">carto_filter / build_layer_batches（POD）· vista 不 include map_scene.h</text>
+      <text class="box-sub" x="16" y="210">emit_lines（road-casing 然后 road，LineTessOptions::pixel_width）· emit_symbols + detail/collision</text>
+      <text class="box-sub" x="16" y="228">emit_hillshade → DrawBlend::kMultiply · emit_raster → kOver · bake_hillshade_slot / shade_dem_rgba</text>
+      <text class="box-sub" x="16" y="246">MapFrame：background_rgba（0xAARRGGBB）+ items · DrawBlend 定义在 frame.h（不 include rhi.h）</text>
+
+      <rect x="0" y="282" width="1040" height="100" rx="8" fill="#f8efe4" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="304" fill="#8a5a12">effect map</text>
+      <text class="box-sub" x="16" y="324">DrawItem → 命令列表 · DrawBlend → render::rhi::BlendMode</text>
+      <text class="box-sub" x="16" y="342">BlendMode::kMultiply：dst.rgb *= src.rgb。固定功能混合表达不了 dst * ((1-a)+a*luma)</text>
+      <text class="box-sub" x="16" y="360">上传前用同一 vista 函数把不透明度与 luma 烘进纹理（alpha 硬切）；multiply 项 opacity 为 1</text>
+
+      <rect x="0" y="396" width="1040" height="118" rx="8" fill="#f7e8e8" stroke="#d8dee6"/>
+      <text class="lane-label" x="16" y="418" fill="#8b3a3a">software GDI</text>
+      <text class="box-sub" x="16" y="438">入口：MapFrame + View + load_raster → HDC。第一实现 paint_map_frame_gdi</text>
+      <text class="box-sub" x="16" y="456">kLine 只画三角形 append_tris（索引 &lt; 3 跳过）· kText 定位字形 TextOutW · kOver 为 AlphaBlend</text>
+      <text class="box-sub" x="16" y="474">kMultiply 只调用 vista 的 luma 函数。kIcon：GPU 走图集；产品样式发出图标前 GDI 可以空操作</text>
+      <text class="box-sub" x="16" y="492">Pass 与 GDI 读同一个 DrawBlend。FlyCube 是 RHI 设备，不是第四套软件光栅器</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>2. 原理流：MapScene → MapFrame → 两个出口</h2>
+    <svg class="diagram" viewBox="0 0 1040 280" role="img" aria-label="MapScene 到 MapFrame 再到 GPU 与 GDI">
+      <defs>
+        <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <rect x="8" y="16" width="150" height="64" rx="8" fill="#e8f1fa" stroke="#2563a8"/>
+      <text class="box-title" x="83" y="40" text-anchor="middle">1 MapScene</text>
+      <text class="box-sub" x="83" y="60" text-anchor="middle">content</text>
+
+      <rect x="188" y="16" width="150" height="64" rx="8" fill="#e8f1fa" stroke="#2563a8"/>
+      <text class="box-title" x="263" y="40" text-anchor="middle">2 边界 POD</text>
+      <text class="box-sub" x="263" y="60" text-anchor="middle">content 拷贝</text>
+
+      <rect x="368" y="16" width="160" height="64" rx="8" fill="#e6f5ef" stroke="#1d6b4f"/>
+      <text class="box-title" x="448" y="40" text-anchor="middle">3 LayerBatch</text>
+      <text class="box-sub" x="448" y="60" text-anchor="middle">build_layer_batches</text>
+
+      <rect x="558" y="16" width="160" height="64" rx="8" fill="#e6f5ef" stroke="#1d6b4f"/>
+      <text class="box-title" x="638" y="40" text-anchor="middle">4 LayoutInput</text>
+      <text class="box-sub" x="638" y="60" text-anchor="middle">View + style</text>
+
+      <rect x="748" y="16" width="270" height="64" rx="8" fill="#e6f5ef" stroke="#1d6b4f" stroke-width="2"/>
+      <text class="box-title" x="883" y="40" text-anchor="middle">5 Layout::build</text>
+      <text class="box-sub" x="883" y="60" text-anchor="middle">制图一次 · 无 RHI / HWND</text>
+
+      <path d="M158 48 H188" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <path d="M338 48 H368" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <path d="M528 48 H558" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <path d="M718 48 H748" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+
+      <rect x="360" y="112" width="320" height="56" rx="8" fill="#fff" stroke="#1d6b4f" stroke-width="2"/>
+      <text class="box-title" x="520" y="134" text-anchor="middle">6 MapFrame</text>
+      <text class="box-sub" x="520" y="152" text-anchor="middle">background_rgba + items（DrawBlend）</text>
+      <path d="M883 80 V96 H520 V112" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+
+      <rect x="40" y="200" width="460" height="68" rx="8" fill="#f8efe4" stroke="#8a5a12"/>
+      <text class="box-title" x="270" y="224" text-anchor="middle">GPU</text>
+      <text class="box-sub" x="270" y="244" text-anchor="middle">Map2dGpuPresent → vista::Pass → BlendMode</text>
+
+      <rect x="540" y="200" width="460" height="68" rx="8" fill="#f7e8e8" stroke="#8b3a3a"/>
+      <text class="box-title" x="770" y="224" text-anchor="middle">软件</text>
+      <text class="box-sub" x="770" y="244" text-anchor="middle">paint_map_frame_gdi → HDC</text>
+
+      <path d="M440 168 V184 H270 V200" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+      <path d="M600 168 V184 H770 V200" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#ah)"/>
+    </svg>
+    <p class="note">两条出口读同一份 <code>DrawItem</code> / <code>DrawBlend</code>。equal-profile 的 warm-GPU / <code>paint_ms</code> 预算不在这张图里；那些格子使用 <code>SMT_MAP2D_NO_HILLSHADE=1</code>，不能当作晕渲一致性证明。</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. 层与职责</h2>
+    <table class="own">
+      <thead><tr><th>层</th><th>拥有</th></tr></thead>
+      <tbody>
+        <tr><td>content present</td><td><code>Map2dPresenter</code>、<code>PresentAction</code>、<code>prepare_for_present</code>、<code>Map2dGpuPresent</code>、phase profile、GDI <code>FillBatch</code> / <code>DcStyle</code> / <code>BitBlt</code> 缓存；边界 POD 拷贝</td></tr>
+        <tr><td>gis vista + carto</td><td><code>Layout::build</code>、<code>default_carto_style_json</code>、collision、线/注记/批次策略、<code>shade_dem_rgba</code>、<code>bake_hillshade_slot</code></td></tr>
+        <tr><td>effect map</td><td><code>DrawItem</code> → 命令列表；<code>DrawBlend</code> → <code>BlendMode</code></td></tr>
+        <tr><td>software GDI</td><td>按 <code>DrawItem</code> 的 blend 填三角、画定位字形、贴光栅。<code>kIcon</code> 在产品样式发出图标之前可以空操作</td></tr>
+      </tbody>
+    </table>
+    <p class="note"><code>gis/carto/style</code> 仍是 <code>StyleDocument</code> / <code>ResolvedPaint</code> / 表达式，不是批次或描边策略的家。软件入口不是 <code>src/legacy/render/rhi2d</code> 的 <code>PaintBackend</code>。</p>
+  </section>
+</div>
+</body>
+</html>

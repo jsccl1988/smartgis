@@ -3,9 +3,11 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# `src/legacy/render` (leftover dual-run)
+# `src/legacy/render` — Scenic (leftover dual-run)
 
-**Diagram:** [`docs/superpowers/diagrams/legacy-render-architecture.html`](../../../docs/superpowers/diagrams/legacy-render-architecture.html)（rhi2d/rhi3d 泳道 + 并行流水线）
+**Engine name (locked):** **Scenic** — leftover map/scene engine (`rhi2d` + `rhi3d` + `scene3d`). Vista (`src/vista`) is the current generation; Scenic is the previous-generation dual-run / equal-profile track. Disk path **stays** `src/legacy/render` (not `src/scenic`, not a peer of `src/vista`, not merged into `vista.dll`). Living: [`docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md`](../../../docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md) **§Scenic name**.
+
+**Diagram:** [`docs/superpowers/diagrams/legacy-render-architecture.html`](../../../docs/superpowers/diagrams/legacy-render-architecture.html)（Scenic rhi2d/rhi3d 泳道 + 并行流水线）
 
 Optional leftover engines ship as three DLLs (`//src/legacy/render:legacy_render_all`):
 
@@ -54,7 +56,7 @@ Windows note: path segment `aux` is reserved; GDI+ helpers live under `rhi2d/imp
 - Abstract includes: `legacy/render/rhi3d/public/{device,resource,shader,texture,state,camera}/…`.
 - GL includes: `legacy/render/rhi3d/impl/gl/…`. D3D11: `legacy/render/rhi3d/impl/d3d/…`.
 - GN: `rhi_sources` + scene3d → `legacy_render`; `impl/gl` → `legacy_render_gl`; `impl/d3d` → `legacy_render_d3d`.
-- Distinct from modern `src/render/rhi/`.
+- Distinct from modern `src/render/rhi/`. Engine name **Scenic** (see module README).
 
 ## MapLibre-style parity (P3)
 

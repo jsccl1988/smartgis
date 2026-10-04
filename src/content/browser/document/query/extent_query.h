@@ -8,7 +8,7 @@
 
 #include "content/browser/document/store/layer_store.h"
 #include "content/public/map_types.h"
-#include "gis/vista/world/terrain/process/land_mask.h"
+#include "vista/world/terrain/process/land_mask.h"
 
 namespace content {
 namespace detail {
@@ -25,7 +25,7 @@ bool selection_world_extent(const LayerStore& store, content::Extent2* out);
 content::Extent2 world_extent(const LayerStore& store);
 
 void export_land_rings(const LayerStore& store,
-                       std::vector<gis::LonLatRing>* out);
+                       std::vector<vista::LonLatRing>* out);
 
 bool polygon_fit_box(const LayerStore& store, double* min_x, double* min_y,
                      double* max_x, double* max_y);

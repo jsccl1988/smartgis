@@ -5,23 +5,25 @@ All rights reserved.
 
 # Plugin layer: host, contributions, Python, store
 
+**Status:** accepted  
 **Date:** 2026-09-13  
-**Status:** accepted (user skipped remaining section gates; implement from this spec + the sibling plan)  
-**Updated:** 2026-10-02 — world3d True Earth P0b (global DEM / satellite cloud / atmosphere); 2026-09-30 base �� ��world3d True Earth��������3D��; ��geochem ����ѧ����; ��stormsurge 3D disaster����ά�籩����; ��mine / stratum����ɽ��ά�ز㣩; ��analysis session ResultPlayback UI + orthogrid multi-frame + pull_orbit_extent fix; import/save/playback; ��orthogrid coastal sample + interpolate heat ramp; ��orthogrid Eigen GridField Array + LDLT/LU; ��orthogrid3d HexGrid + VTK; ��traffic+flood analysis products; ��product sample + visualization; `runtime/host` role subdirs; leftover `legacy/plugin` role layout; ��product�CPython / ��gis analysis ownership
+**Updated:** 2026-10-04 — world3d top-level: `grid/` holds DEM + orthogrid + hexgrid; `scene/` stays; `register_world3d_grid`. Prior: sink inner `loader/dialog` / lattice/session/solve. Prior: tighten flattened `dem/views`/`dem/resources`. Prior: domain subdirs (`dem/` `scene/` `orthogrid/` `hexgrid/`; no root `scene_commands.cc` / `processing/` / `views/`). Prior: command stack layered (`register_world3d` façade + `detail::contribute_*` aliases). Prior: product `orthogrid` + `orthogrid3d` merged into `smartgis.world3d`; leftover `plugin_orthogrid` AM stem maps to `smartgis.world3d`. Prior: world3d DEM loaders renamed (`heightmap` / `trimesh`); orthogrid3d ABI: `geo::HexGrid` deleted from gis.dll; 3D structured grid is `OGRMultiPoint` XYZ + nx/ny/nz owned by `world3d/grid/hexgrid` (`HexLattice` non-exported). Prior 2026-10-03 — v1 host checklist archived; follow-on product plugins (world3d / stormsurge / analysis) still open. Prior 2026-10-02 — world3d True Earth P0b (global DEM / satellite / atmosphere); geochem; mine/stratum; traffic+flood; `runtime/host` role subdirs; leftover `legacy/plugin` layout; product Python / gis analysis ownership.  
+**Plans:** v1 [`../archive/plans/2026-09-13-plugin-host.md`](../archive/plans/2026-09-13-plugin-host.md) (landed) · leftover plugin [`../plans/2026-09-29-legacy-plugin-subdirectory-layout.md`](../plans/2026-09-29-legacy-plugin-subdirectory-layout.md) · stormsurge [`../plans/2026-09-30-stormsurge-3d-disaster.md`](../plans/2026-09-30-stormsurge-3d-disaster.md) · world3d / analysis on later § Plan lines  
+**Diagram:** [`../diagrams/plugin-product-world3d.html`](../diagrams/plugin-product-world3d.html)  
 **Scope:** one implementation plan, one cycle. Land a QGIS-shaped extension platform: host + contribution points, in-process Python, QGIS-style store, Views rewrite of leftover plugin dialogs, and processing isolation for algorithm workers only. Do not implement product C++ in this document.
 
 ## Goal
 
-`src/plugin` today is six MFC `*.am` DLLs plus a leftover loader (`SmtPluginManager` scans `aux module\*.am`, `LoadLibrary`, `GetPluginVersion` / `StartPlugin` / `StopPlugin`) and a leftover runtime (`SmtAuxModule` + `SmtAModuleManager` singleton, `long` msgs, `AppendFuncItems` into menus and `ui/xambox`). Chrome reaches plugins through `SmtApp::InitSmtAuxModules` �� `GetAppPath() + "aux module\\"`.
+`src/plugin` today is six MFC `*.am` DLLs plus a leftover loader (`SmtPluginManager` scans `aux module\*.am`, `LoadLibrary`, `GetPluginVersion` / `StartPlugin` / `StopPlugin`) and a leftover runtime (`SmtAuxModule` + `SmtAModuleManager` singleton, `long` msgs, `AppendFuncItems` into menus and `ui/xambox`). Chrome reaches plugins through `SmtApp::InitSmtAuxModules` → `GetAppPath() + "aux module\\"`.
 
 The replacement is a full extension platform:
 
-1. **`plugin::Registry`** �� load, install, signature, enable/disable. App-scoped. Not a third `*Manager` singleton.
-2. **`content::PluginHost`** �� QgsInterface analogue on `content/public`. Chrome includes only `content/public`. Plugins contribute commands / menus / docks / dialogs / processing and get `MapContents` only through this.
-3. **In-process Python** �� CPython embed; bind `content`, `tool` commands, `ui::views`. No Qt / PyQt.
-4. **QGIS-style store** �� `plugin.json` + zip; local directory and HTTP `plugins.json` index; default allow signed or builtin; unsigned requires explicit trust.
+1. **`plugin::Registry`** — load, install, signature, enable/disable. App-scoped. Not a third `*Manager` singleton.
+2. **`content::PluginHost`** — QgsInterface analogue on `content/public`. Chrome includes only `content/public`. Plugins contribute commands / menus / docks / dialogs / processing and get `MapContents` only through this.
+3. **In-process Python** — CPython embed; bind `content`, `tool` commands, `ui::views`. No Qt / PyQt.
+4. **QGIS-style store** — `plugin.json` + zip; local directory and HTTP `plugins.json` index; default allow signed or builtin; unsigned requires explicit trust.
 5. **Views rewrite** of every leftover plugin `CDialog` this cycle. Shared map-preview replaces the two `CDlg2DXView` copies.
-6. **Isolation only for processing / algorithm workers** �� plugin UI never goes to a child process.
+6. **Isolation only for processing / algorithm workers** — plugin UI never goes to a child process.
 
 Commands already live on `tool::Command` (`docs/superpowers/specs/2026-09-13-tool-event-dispatch-design.md`). Document writes go through `sdb::EditSession`. Domain events go through `content::EventBus`. This spec does not reopen that split.
 
@@ -292,7 +294,7 @@ Leftover MFC `CDialog` sources remain in the six `smt_mfc_shared_library` target
 
 ### `content::PluginHost`
 
-QgsInterface analogue. Header: `src/content/public/plugin_host.h`. Implementation may live in `src/content/plugin_host.cc` and may use `plugin::` internally; **the public header must not include `src/plugin` or leftover headers**.
+QgsInterface analogue. Header: `src/content/public/plugin_host.h`. Implementation lives in `src/content/browser/plugin/plugin_host.cc` and may use `plugin::` internally; **the public header must not include `src/plugin` or leftover headers**.
 
 ```cpp
 namespace content {
@@ -416,8 +418,8 @@ Domain Views types (new files; leftover `dlg_*.h` stay leftover):
 
 | Leftover | New Views type | File | Shared vs per-plugin |
 | --- | --- | --- | --- |
-| `CDlgTinLoader` | `TinLoaderDialog` | `plugin/dem/tin_loader_dialog.h` | per-plugin; uses TableView, Combobox, FilePicker, Checkbox |
-| `CDlgGridLoader` | `GridLoaderDialog` | `plugin/dem/grid_loader_dialog.h` | per-plugin |
+| `CDlgTinLoader` | `TrimeshLoaderDialog` | `plugin/product/world3d/grid/dem/dialog/trimesh_loader_dialog.h` | per-plugin; uses TableView, Combobox, FilePicker, Checkbox |
+| `CDlgGridLoader` | `HeightmapLoaderDialog` | `plugin/product/world3d/grid/dem/dialog/heightmap_loader_dialog.h` | per-plugin |
 | `CDlgAbout` | `plugin::AboutDialog` | `plugin/widgets/about_dialog.h` | **shared** |
 | `CDlgMapPrj` | `MapPrjDialog` | `plugin/proj/map_prj_dialog.h` | per-plugin tab host |
 | `CDlgMapPrjDoXY` | `MapPrjXyPage` | `plugin/proj/map_prj_xy_page.h` | per-plugin tab page |
@@ -520,8 +522,8 @@ Chrome (`src/app/views`) hosts this view. It includes `content/public/plugin_hos
 **Command / dialog**
 
 1. Chrome menu or Plugin Manager runs `host->execute("dem.load_tin")`.
-2. Handler calls `host->open_dialog("dem.tin_loader")`.
-3. Dialog factory builds `TinLoaderDialog` (Views). OK collects JSON args and `host->run_processing("dem.tin_from_xyz", args)`.
+2. Handler calls `host->open_dialog("world3d.trimesh_loader")`.
+3. Dialog factory builds `TrimeshLoaderDialog` (Views). OK collects JSON args and `host->run_processing("world3d.trimesh_from_xyz", args)`.
 4. Worker runs `tin::` / leftover loader. `done` on main thread. Success: chrome commits via `sdb::EditSession` if a feature was created, then `EventBus` (for example `ExtentChanged`). The dialog does not write `SmtMap`.
 
 **Disable / unload**
@@ -578,7 +580,7 @@ No gtest.
 | Path | Responsibility |
 | --- | --- |
 | `src/content/public/plugin_host.h` | `PluginHost`, `MapContents`, contribution structs |
-| `src/content/plugin_host.cc` | Default `PluginHost` implementation |
+| `src/content/browser/plugin/plugin_host.cc` | Default `PluginHost` implementation |
 | `src/plugin/manifest.h` `.cc` | `plugin.json` |
 | `src/plugin/registry.h` `.cc` | enable / disable / start / stop |
 | `src/plugin/signature.h` `.cc` | SHA-256 + ed25519 |
@@ -595,8 +597,12 @@ No gtest.
 | `src/plugin/dem/*_dialog.*` | DEM Views |
 | `src/plugin/proj/map_prj_*` | projection Views |
 | `src/plugin/print/print_preview_dialog.*` | print shell + shared preview |
-| `src/plugin/model3d/model3d_commands.*` | command handlers (no leftover CDialog) |
-| `src/plugin/baogrid/baogrid_commands.*` | commands + processing |
+| `src/plugin/product/world3d/commands.h` | Public façade: `register_world3d` + writers/commits |
+| `src/plugin/product/world3d/grid/` | Parent: DEM + 2D orthogrid + 3D hex; `register_world3d_grid` |
+| `src/plugin/product/world3d/grid/dem/` | `register` façade; `loader/` kernels; `dialog/` Views+markup; `tests/` |
+| `src/plugin/product/world3d/resources/data/` | Data stub (copy → `out/plugins/world3d/data`) |
+| `src/plugin/product/world3d/scene/` | True-Earth + leftover `model3d.*` |
+| `src/plugin/product/world3d/grid/{orthogrid,hexgrid}/` | 2D lattice/session/solve; 3D lattice/sample/io/solve |
 | `src/ui/views/{label,button,textfield,checkbox,radio_button,combobox,tab_strip,table_view,file_picker,message_box}.*` | toolkit controls |
 | leftover `src/base/plugin*.`, `src/plugin/module*.`, domain `dlg_*.h` | unchanged ABI |
 | `third_party/ed25519/` | verify-only ed25519 |
@@ -641,7 +647,7 @@ Plugin UI is in-process, like QGIS. The only isolation boundary is **algorithm w
 - `src/README.md` �� expand the `plugin/` bullet to host + Registry + PluginHost + Python + store; point at this spec.
 - Root `README.md` �� if the module / directory table still implies plugin is only leftover domain DLLs, add one clause; refresh **������** to 2026-09-13.
 - `docs/README.md` �� index this spec and the implementation plan.
-- `docs/build/src-layout.md` �� plugin row: host source_set + domain children + widgets + python.
+- `docs/superpowers/src-layout.md` �� plugin row: host source_set + domain children + widgets + python.
 
 ## Out of this cycle
 
@@ -657,7 +663,7 @@ Plugin UI is in-process, like QGIS. The only isolation boundary is **algorithm w
 
 **Status:** active  
 **Updated:** 2026-09-28  
-**Plan:** [`../plans/2026-09-28-gis-python-spatial-analysis.md`](../plans/2026-09-28-gis-python-spatial-analysis.md)  
+**Plan:** [`../plans/2026-09-28-gis-python-spatial-analysis.md`](../archive/plans/2026-09-28-gis-python-spatial-analysis.md)  
 **Shell contract:** [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md) ��GIS Python Console
 
 Extends **Python runtime and bindings** above. End-state module tree mirrors `src/gis` (`model`, `datasource`, `kernel`, `vista`, `present`). Phase 1 only:
@@ -678,7 +684,7 @@ Unbound submodules (`model`, `datasource`, ��) may be absent or raise a clea
 
 **Status:** active  
 **Updated:** 2026-09-28  
-**Plan:** [`../plans/2026-09-28-gis-python-spatial-analysis.md`](../plans/2026-09-28-gis-python-spatial-analysis.md)  
+**Plan:** [`../plans/2026-09-28-gis-python-spatial-analysis.md`](../archive/plans/2026-09-28-gis-python-spatial-analysis.md)  
 **Shell:** [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md) ��GIS Python Console / ��Diagnostic Tools  
 **Algorithm:** [`2026-09-13-algorithm-layer-oss-design.md`](2026-09-13-algorithm-layer-oss-design.md) ��Python-facing analysis
 
@@ -780,7 +786,7 @@ Same `MapScene` backs Map (2D) and 3D tabs. Python does **not** include `MapScen
 **Status:** active  
 **Updated:** 2026-09-28 �� P0�CP3 landed; P4 skeleton/policy + samples (industry_pack / product_orchestrate / analysis)  
 **Locked choice:** approach **C** �� C++ capability substrate + Python product orchestration (not A: Python-only console; not B: rewrite all product business in Python).  
-**Related:** ��Python dual-runtime above; [`../plans/2026-09-28-gis-python-spatial-analysis.md`](../plans/2026-09-28-gis-python-spatial-analysis.md); product trees under `src/plugin/product/`; sample template [`../../../src/plugin/runtime/samples/industry_pack/`](../../../src/plugin/runtime/samples/industry_pack/).
+**Related:** ��Python dual-runtime above; [`../plans/2026-09-28-gis-python-spatial-analysis.md`](../archive/plans/2026-09-28-gis-python-spatial-analysis.md); product trees under `src/plugin/product/`; sample template [`../../../src/plugin/runtime/samples/industry_pack/`](../../../src/plugin/runtime/samples/industry_pack/).
 
 ### Goal
 
@@ -801,7 +807,7 @@ L1  Capability substrate    �� always C++; grow via stable processing / tool
 | Capability | Contract shape | Notes |
 | --- | --- | --- |
 | TIN / heightmap / Delaunay | `dem.tin_from_xyz`, `dem.grid_from_heightmap` | Loaders + numeric mesh |
-| Orthogrid Laplace | `baogrid.create_orth_grid` / `orthogrid.create_orth_grid` | Solver in `product/orthogrid/detail` |
+| Orthogrid Laplace | `baogrid.create_orth_grid` / `orthogrid.create_orth_grid` | Session + `orthogrid/boundary_solve`; solver in `gis/geo/grid` |
 | Projection transforms | `proj.*` processing (when registered) | PROJ / GDAL stack |
 | OGR / GEOS operators | `native.*` via `plugin::` �� `gis/analysis/ops` | Kernels in `gis.dll`; no second GEOS / Shapely |
 | Surface / mesh write-back | `DemSurfaceWriter`-class host callbacks | Document consistency; no `SmtMap*` in Python |
@@ -891,18 +897,18 @@ Template: contribute industry commands only; call `dem.tin_from_xyz` / `native.b
 
 **Status:** active  
 **Updated:** 2026-09-28  
-**Related:** [`2026-09-13-algorithm-layer-oss-design.md`](2026-09-13-algorithm-layer-oss-design.md) ��Python-facing analysis; [`../../build/src-layout.md`](../../build/src-layout.md)
+**Related:** [`2026-09-13-algorithm-layer-oss-design.md`](2026-09-13-algorithm-layer-oss-design.md) ��Python-facing analysis; [`../src-layout.md`](../src-layout.md)
 
 ### Locked
 
 | # | Choice |
 | --- | --- |
-| 1 | Directory **`src/gis/analysis/`** (peer to `kernel` / `model`). |
+| 1 | Directory **`src/gis/analysis/`** (peer to `geo` / `model`). |
 | 2 | Layout: `ops/` (native GeoJSON runners), `geometry/` / `raster/` (future typed objects; README skeleton this cycle). |
 | 3 | **Public product API** remains `plugin::BuiltinOpDesc` / `builtin_op_catalog` / `run_builtin_op` (declared under `plugin/runtime/processing`). |
 | 4 | Implementation is **`gis::detail`** in `gis.dll` (`GIS_EXPORT`); plugin `.cc` only forwards. |
 | 5 | Core algorithms and analysis objects do **not** land under `src/plugin/` going forward. Domain product plugins may orchestrate via processing ids. |
-| 6 | `gis/kernel/geo/ops` stays for low-level GEOS/OGR helpers; `analysis/ops` may call it. |
+| 6 | `gis/geo/ops` stays for low-level GEOS/OGR helpers; `analysis/ops` may call it. |
 
 ### Non-goals (this slice)
 
@@ -983,14 +989,13 @@ Every builtin under `src/plugin/product/` loads **shipped sample data** and prod
 
 | Tree | Plugin id | Primary viz |
 | --- | --- | --- |
-| `product/world3d` | `smartgis.world3d` | DEM TIN/grid �� `MapScene::add_triangle_layer`; former model3d cmds �� `World3dSceneWriter` (map and/or scene3d seam) |
+| `product/world3d` | `smartgis.world3d` | DEM TIN/grid → `MapScene::add_triangle_layer`; former model3d cmds → `World3dSceneWriter`; 2D `create_orth_grid` mesh; 3D `create_hex_grid` hex lattice |
 | `product/traffic` | `smartgis.traffic` | Least-cost path GeoJSON �� `TrafficPathWriter` (map2d/scene3d progressive path) |
 | `product/flood` | `smartgis.flood` | DEM inundation mask �� `FloodMaskWriter` (water-level frame animation) |
 | `product/geochem` | `smartgis.geochem` | Graded sample points + full-extent IDW heat raster �� `GeochemWriter` |
-| `product/orthogrid` | `smartgis.baogrid` | `create_orth_grid` mesh �� map line layer (align with `--map2d-showcase=orthogrid`) |
 | `product/print` | `smartgis.print` | china sample map loaded �� `print.preview` MapPreviewView |
 
-`product/model3d` is **withdrawn** as a separate builtin: sources/ids move under `world3d` (keep leftover `model3d.*` AM catalog aliases where needed). Do not leave dual `register_model3d` + `register_world3d` in `PluginShell`.
+`product/model3d` / `product/orthogrid` / `product/orthogrid3d` are **withdrawn** as separate builtins: sources/ids live under `world3d` (keep leftover `model3d.*` / `baogrid.*` / `orthogrid.*` / `orthogrid3d.*` command aliases). Do not leave dual `register_orthogrid` + `register_world3d` in `PluginShell`.
 
 ### Locked
 
@@ -1022,7 +1027,7 @@ Every builtin under `src/plugin/product/` loads **shipped sample data** and prod
 
 **Status:** active  
 **Updated:** 2026-09-30  
-**Approach:** **2** �� shared `gis/vista/world/pointcloud` module; `world3d` registers commands only.  
+**Approach:** **2** �� shared `vista/world/pointcloud` module; `world3d` registers commands only.  
 **Plan:** [`../plans/2026-09-30-world3d-pointcloud-las.md`](../plans/2026-09-30-world3d-pointcloud-las.md)  
 **Render draw:** [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md) ��Point cloud GPU draw
 
@@ -1036,7 +1041,7 @@ Load industry **LAS / LAZ** (and legacy sample `.txt`) into a shared point buffe
 | --- | --- |
 | 1 | Formats P0: uncompressed **LAS** 1.2/1.4 (ASPRS) + leftover RGB txt. **LAZ** via vendored **LASzip** `LASunzipper` (`third_party/.src/LASzip` + `//third_party:laszip`). |
 | 2 | Reader stack: light **LASzip** first (default `load_point_cloud`); **PDAL** only via P3 processing (`smt_has_pdal` when `third_party/.install` has PDAL). |
-| 3 | Module under `src/gis/vista/world/pointcloud/`; plugin does not embed parse. |
+| 3 | Module under `src/vista/world/pointcloud/`; plugin does not embed parse. |
 | 4 | Viz path: `World3dSceneWriter` �� shared loader �� `World` / `GpuScene` (not leftover `Smt3DPointCloud` as default). Map2d may also show point features. |
 | 5 | Scale: document P0�CP2 (full load �� chunk/thin �� octree/LOD); implement from P0. |
 | 6 | Prefer sample fixtures under `testing/data/` (tiny `.las` + existing `pointcloud_public_sample.txt`). |
@@ -1115,7 +1120,7 @@ Deliver a **Google-Earth-class product face** for true-3D browsing on the existi
 **Status:** active  
 **Updated:** 2026-09-30  
 **Approach:** **1** �� kernels in `gis/analysis`, two builtin product packages orchestrate UI / load / viz.  
-**Plan:** [`../plans/2026-09-30-traffic-flood-analysis-plugins.md`](../plans/2026-09-30-traffic-flood-analysis-plugins.md)
+**Plan:** [`../plans/2026-09-30-traffic-flood-analysis-plugins.md`](../archive/plans/2026-09-30-traffic-flood-analysis-plugins.md)
 
 ### Goal
 
@@ -1175,11 +1180,11 @@ Boundary-adapted orthogrid: digitize/replace four edges freely, auto-generate mu
 
 ---
 
-## ��orthogrid3d HexGrid + VTK��2026-09-30��
+## 「orthogrid3d HexLattice + VTK」（2026-09-30）
 
 **Status:** active  
-**Updated:** 2026-10-01  
-**Approach:** new product `plugin/product/orthogrid3d` + `geo::HexGrid`; keep 2D `orthogrid` unchanged. Downstream GIS fluid / rigid-body analysis consume `HexGrid` and/or `.vts`.
+**Updated:** 2026-10-04  
+**Approach:** product `plugin/product/world3d/hexgrid`; **do not** export `geo::HexGrid` from `gis.dll`. 2D mesh lives in `world3d/orthogrid`. Downstream GIS fluid / rigid-body analysis consume plugin lattice and/or `.vts`.
 
 ### Goal
 
@@ -1189,10 +1194,10 @@ True 3D single-block body-fitted structured hex mesh: 6-face Dirichlet + 7-point
 
 | # | Choice |
 | --- | --- |
-| 1 | Memory ABI: `geo::HexGrid` (`nx,ny,nz`, row-major `k*ny*nx+j*nx+i`, `Raw3DPoint` nodes). |
+| 1 | Memory ABI: non-exported `HexLattice` in `plugin/product/world3d/hexgrid` (`nx,ny,nz`, row-major `k*ny*nx+j*nx+i`). Interchange / Feature identity: `OGRMultiPoint` XYZ + nx/ny/nz. **Not** `geo::HexGrid` in `gis/geo`. |
 | 2 | Interchange M0: VTK XML StructuredGrid `.vts` writer (no VTK runtime dep). CGNS deferred. |
-| 3 | M0 generate: 8-corner hex → face Dirichlet via bilinear + interior Laplace; processing `orthogrid3d.create_hex_grid`. |
-| 4 | Package id `smartgis.orthogrid3d`; do not extend `smartgis.baogrid` Map2D path. |
+| 3 | M0 generate: 8-corner hex → face Dirichlet via bilinear + interior Laplace (`geo::solve_laplace` on `NodeField3d`); processing `orthogrid3d.create_hex_grid`. |
+| 4 | Package id `smartgis.world3d` (command ids stay `orthogrid3d.*`). No separate `smartgis.orthogrid3d` / `smartgis.baogrid` product packages. |
 | 5 | Fluid / rigid solvers are follow-on consumers (not in this drop). |
 | 6 | Dev preview: in-repo VS Code/Cursor extension `mogu.vts-preview` (Three.js webview) under `testing/tools/harness/_shared/scripts/vscode/vscode-vts-preview/` — ASCII StructuredGrid only; not product Scene3D. |
 
@@ -1202,6 +1207,34 @@ True 3D single-block body-fitted structured hex mesh: 6-face Dirichlet + 7-point
 - Shipping a VTK/CGNS SDK dependency.
 - Changing 2D orthogrid Laplace / Map2D heat layers.
 - Marketplace publish of the VTS preview extension (install via `install_vscode_vts_preview.bat`).
+- Restoring `geo::HexGrid` / `SmtHexGrid` in `gis.dll` or `mesh/geometry.h`.
+
+---
+
+## §world3d command layers (2026-10-04)
+
+**Status:** active  
+**Updated:** 2026-10-04  
+**Diagram:** [`../diagrams/plugin-product-world3d.html`](../diagrams/plugin-product-world3d.html)
+
+### Goal
+
+One package (`smartgis.world3d`) owns DEM, True-Earth scene, 2D orthogrid, and 3D hex **command contribution** as composed layers — not four leftover-shaped plugin modules.
+
+### Locked
+
+| # | Choice |
+| --- | --- |
+| 1 | Public façade is `plugin/product/world3d/commands.h`: `register_world3d` + `World3d*Writer` / `OrthogridMeshCommit` / `HexGridCommit` / boundary session. App shell and host_test include this header only. |
+| 2 | `register_world3d` only wires `detail::register_world3d_{dem,scene,orthogrid,hexgrid}`. Domain `register.h` stays internal. |
+| 3 | Identical leftover/product ids share one handler via `detail::contribute_command_aliases` / `contribute_prefixed_commands` (`baogrid.*` ≡ `orthogrid.*`; `model3d.add_pointcloud` ≡ `world3d.add_pointcloud`). |
+| 4 | Command **ids** stay `baogrid.*` / `orthogrid.*` / `orthogrid3d.*` / `model3d.*` / `world3d.*` (AM, harness, host_test). No silent drop. |
+| 5 | Solvers stay `gis/geo/grid`. Plugin I/O: `orthogrid/{session,boundary_solve}` and `hexgrid/{hex_lattice,vtk_structured,sample_volume}`. |
+
+### Non-goals
+
+- Deleting leftover `legacy/plugin/product/orthogrid` / `plugin_orthogrid` this change.
+- Renaming AM command strings without a proven alias map in the same change.
 
 ---
 
@@ -1248,7 +1281,7 @@ Import �� run_processing �� ResultArtifact �� CommitLayer(MapScene)
 **Status:** active  
 **Updated:** 2026-09-30  
 **Approach:** **1** �� dedicated product package `smartgis.mine` at `src/plugin/product/mine/` (do **not** fold into `world3d`); kernels in `gis/analysis/geology`.  
-**Plan:** [`../plans/2026-09-30-mine-stratum-earthwork.md`](../plans/2026-09-30-mine-stratum-earthwork.md)
+**Plan:** [`../plans/2026-09-30-mine-stratum-earthwork.md`](../archive/plans/2026-09-30-mine-stratum-earthwork.md)
 
 ### Goal
 
@@ -1339,7 +1372,7 @@ Ship a **��ά�籩��** disaster product: DEM + coast + tide (or water-l
 **Status:** active  
 **Updated:** 2026-09-30  
 **Approach:** **A** �� copy flood/traffic/mine skeleton; kernels in `src/gis/analysis/geochem/` (not inside plugin).  
-**Plan:** [`../plans/2026-09-30-geochem-analysis-plugin.md`](../plans/2026-09-30-geochem-analysis-plugin.md)
+**Plan:** [`../plans/2026-09-30-geochem-analysis-plugin.md`](../archive/plans/2026-09-30-geochem-analysis-plugin.md)
 
 ### Goal
 

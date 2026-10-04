@@ -223,7 +223,7 @@ Do not require a live SQL Server or Access `.mdb`.
 
 ## Docs to update in the same implementation change
 
-- `docs/build/src-layout.md` — `src/ado` no longer in `src_all`; `datasource/gdal` is the OGR DB device; DLL stem `SmtSDEGdalDevice`.
+- `docs/superpowers/src-layout.md` — `src/ado` no longer in `src_all`; `datasource/gdal` is the OGR DB device; DLL stem `SmtSDEGdalDevice`.
 - `src/README.md` — same.
 - Root `README.md` — only if the module table still names ADO as the DB path; then refresh **最后更新**.
 - `docs/README.md` — link this spec.

@@ -6,8 +6,8 @@
 
 #include <cstddef>
 
-#include "gis/kernel/geo/mesh/geometry.h"
-#include "gis/model/feature/feature.h"
+#include "plugin/product/world3d/grid/orthogrid/lattice/ortho_lattice.h"
+#include "gis/feature/feature.h"
 #include "legacy/gis/present/carto/style.h"
 #include "legacy/gis/present/carto/style_bas_struct.h"
 #include "legacy/core/macros/macros.h"
@@ -30,7 +30,6 @@ class OGRPoint;
 class OGRPolygon;
 
 using namespace base;
-using namespace geo;
 
 namespace render {
 
@@ -101,13 +100,13 @@ class Rhi2dCartoDraw {
   int draw_device_point(int x, int y);
   int draw_device_anno(int x, int y, const char* text);
 
-  int draw_tin(const SmtTin* tin);
-  int draw_tin_lines(const SmtTin* tin);
-  int draw_tin_nodes(const SmtTin* tin);
+  int draw_tin(const OGRTriangulatedSurface* tin);
+  int draw_tin_lines(const OGRTriangulatedSurface* tin);
+  int draw_tin_nodes(const OGRTriangulatedSurface* tin);
 
-  int draw_grid(const SmtGrid* grid);
-  int draw_grid_lines(const SmtGrid* grid);
-  int draw_grid_nodes(const SmtGrid* grid);
+  int draw_grid(const plugin::detail::OrthoLattice* grid);
+  int draw_grid_lines(const plugin::detail::OrthoLattice* grid);
+  int draw_grid_nodes(const plugin::detail::OrthoLattice* grid);
 
   int draw_arc(const OGRLineString* arc);
   int draw_fan(const OGRPolygon* fan);

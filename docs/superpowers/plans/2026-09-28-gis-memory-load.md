@@ -29,9 +29,9 @@ All rights reserved.
 | File | Role |
 | --- | --- |
 | `src/gis/datasource/pipeline/feature_load_pipeline.h` | Ordered window + Ctx freelist |
-| `src/gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.cc` | TLS clear cadence (every N features / worker) |
+| `src/gis/datasource/ogr/ogr_feature_codec.cc` | TLS clear cadence (every N features / worker) |
 | `src/gis/datasource/pipeline/feature_load_pipeline_test.cc` | Order + window smoke (OGR Memory driver) |
-| `src/gis/datasource/provider/impl/ogr/BUILD.gn` | Wire test target |
+| `src/gis/datasource/ogr/BUILD.gn` | Wire test target |
 | `docs/superpowers/specs/2026-09-14-base-root-hybrid-design.md` | §Memory Batch3a |
 | `docs/superpowers/README.md` | Link plan under base row |
 
@@ -196,7 +196,7 @@ When `ordered_window == 0`, keep legacy: no `ready` flush in sink stage; after `
 
 **Files:**
 - Create: `src/gis/datasource/pipeline/feature_load_pipeline_test.cc`
-- Modify: `src/gis/datasource/provider/impl/ogr/BUILD.gn`
+- Modify: `src/gis/datasource/ogr/BUILD.gn`
 
 **Interfaces:**
 - Consumes: `load_ogr_layer_pipeline<int>`
@@ -234,7 +234,7 @@ Expected: prints `feature_load_pipeline_test OK` and exit 0.
 ### Task 4: Decode TLS clear cadence
 
 **Files:**
-- Modify: `src/gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.cc` (`decode_ogr_geometry`)
+- Modify: `src/gis/datasource/ogr/ogr_feature_codec.cc` (`decode_ogr_geometry`)
 
 **Interfaces:**
 - Consumes: `base::tls_memory_resource()`

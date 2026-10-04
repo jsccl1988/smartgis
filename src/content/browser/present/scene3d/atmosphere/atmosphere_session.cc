@@ -7,19 +7,19 @@
 #include "content/browser/present/scene3d/gpu/scene3d_gpu_present.h"
 
 #include "content/browser/document/map_scene.h"
-#include "gis/vista/domain/atmosphere/systems/atmosphere_params.h"
-#include "gis/vista/domain/atmosphere/systems/cloud_system.h"
-#include "gis/vista/domain/atmosphere/field/field_channel.h"
-#include "gis/vista/domain/atmosphere/field/field_ingest.h"
-#include "gis/vista/domain/atmosphere/systems/ocean_system.h"
-#include "gis/vista/assets/tileset/tileset.h"
-#include "gis/vista/world/terrain/dem/dem_frame.h"
-#include "gis/vista/world/terrain/dem/dem_raster.h"
-#include "gis/vista/world/world.h"
-#include "effect/atmosphere/cloud/cloud_pass.h"
-#include "effect/atmosphere/fog/fog_pass.h"
-#include "effect/atmosphere/ocean/ocean_pass.h"
-#include "effect/atmosphere/sky/sky_pass.h"
+#include "vista/domain/atmosphere/atmosphere_params.h"
+#include "vista/domain/atmosphere/cloud_system.h"
+#include "vista/domain/atmosphere/field_channel.h"
+#include "vista/domain/atmosphere/field_ingest.h"
+#include "vista/domain/atmosphere/ocean_system.h"
+#include "vista/assets/tileset/tileset.h"
+#include "vista/world/terrain/dem/dem_frame.h"
+#include "vista/world/terrain/dem/dem_raster.h"
+#include "vista/world/world.h"
+#include "vista/atmosphere/cloud/cloud_pass.h"
+#include "vista/atmosphere/fog/fog_pass.h"
+#include "vista/atmosphere/ocean/ocean_pass.h"
+#include "vista/atmosphere/sky/sky_pass.h"
 #include "base/trace/event/process_trace.h"
 
 #include <algorithm>
@@ -51,6 +51,10 @@ AtmosphereSession::~AtmosphereSession() {
 }
 
 void AtmosphereSession::bind_scene(const MapScene* scene) {
+  if (scene_ != scene) {
+    procedural_seeded_ = false;
+    procedural_seed_scene_ = nullptr;
+  }
   scene_ = scene;
 }
 
@@ -59,7 +63,15 @@ void AtmosphereSession::bind_gpu(Scene3dGpuPresent* gpu) {
 }
 
 Extent2 AtmosphereSession::world_extent() const {
-  if (gpu_) {
+  // Reject Debug freefill pointers. Stale AtmosphereSession / Scene3dPresenter
+  // layout across TUs can leave a non-null garbage gpu_ (e.g. 0xCDCDCD0000000000).
+  const uintptr_t gpu_bits = reinterpret_cast<uintptr_t>(gpu_);
+  const bool freefill =
+      gpu_bits < 0x10000ull ||
+      ((gpu_bits >> 32) & 0xFFFFFFFFull) == 0xCDCDCDCDull ||
+      ((gpu_bits >> 32) & 0xFFFFFFFFull) == 0xCDCDCD00ull ||
+      (gpu_bits & 0xFFFFFFFFull) == 0xCDCDCDCDull;
+  if (gpu_ && !freefill) {
     return gpu_->world_extent();
   }
   return kChinaLonLatExtent;
@@ -115,7 +127,7 @@ void AtmosphereSession::advance_sim_time() {
   set_time_sec(atmosphere_->time_sec() + dt);
   // Dynamic sun: ~full azimuth revolution every ~120s; mild elevation bob so
   // DEM Lambert and ocean/sky specular read as living daylight.
-  gis::atmosphere::AtmosphereParams& p = atmosphere_->params();
+  vista::atmosphere::AtmosphereParams& p = atmosphere_->params();
   const double t = atmosphere_->time_sec();
   constexpr double kTwoPi = 6.283185307179586;
   p.sun_azimuth_rad =
@@ -157,9 +169,9 @@ void AtmosphereSession::release_passes() {
   cached_sea_mask_n_ = 0;
 }
 
-gis::atmosphere::Environment& AtmosphereSession::ensure() {
+vista::atmosphere::Environment& AtmosphereSession::ensure() {
   if (!atmosphere_) {
-    atmosphere_ = std::make_unique<gis::atmosphere::Environment>();
+    atmosphere_ = std::make_unique<vista::atmosphere::Environment>();
   }
   return *atmosphere_;
 }
@@ -200,7 +212,7 @@ void AtmosphereSession::set_wind_overlay_enabled(bool on) {
   wind_overlay_enabled_ = on;
   if (on) {
     // Need WindU/V samples for arrows; seed procedural if store empty.
-    gis::atmosphere::Environment& env = ensure();
+    vista::atmosphere::Environment& env = ensure();
     if (env.field_store().layer_count() == 0) {
       seed_procedural();
     }
@@ -208,20 +220,20 @@ void AtmosphereSession::set_wind_overlay_enabled(bool on) {
 }
 
 void AtmosphereSession::set_time_sec(double t) {
-  gis::atmosphere::Environment& env = ensure();
+  vista::atmosphere::Environment& env = ensure();
   env.scrub_time_sec(t);
   // Prefer clamp against External wave/cover/wind if a timed range exists.
-  static const gis::atmosphere::FieldChannel kClampOrder[] = {
-      gis::atmosphere::FieldChannel::kWaveHs,
-      gis::atmosphere::FieldChannel::kCloudCover,
-      gis::atmosphere::FieldChannel::kWindU,
-      gis::atmosphere::FieldChannel::kWindV,
-      gis::atmosphere::FieldChannel::kWaveDir,
-      gis::atmosphere::FieldChannel::kCloudBase,
-      gis::atmosphere::FieldChannel::kCloudTop,
-      gis::atmosphere::FieldChannel::kSeaMask,
+  static const vista::atmosphere::FieldChannel kClampOrder[] = {
+      vista::atmosphere::FieldChannel::kWaveHs,
+      vista::atmosphere::FieldChannel::kCloudCover,
+      vista::atmosphere::FieldChannel::kWindU,
+      vista::atmosphere::FieldChannel::kWindV,
+      vista::atmosphere::FieldChannel::kWaveDir,
+      vista::atmosphere::FieldChannel::kCloudBase,
+      vista::atmosphere::FieldChannel::kCloudTop,
+      vista::atmosphere::FieldChannel::kSeaMask,
   };
-  for (gis::atmosphere::FieldChannel ch : kClampOrder) {
+  for (vista::atmosphere::FieldChannel ch : kClampOrder) {
     if (env.clamp_time_to_field(ch)) {
       break;
     }
@@ -234,35 +246,35 @@ double AtmosphereSession::time_sec() const {
 
 namespace {
 
-gis::atmosphere::FieldChannel parse_field_channel(std::string_view name,
+vista::atmosphere::FieldChannel parse_field_channel(std::string_view name,
                                                   bool* ok) {
   *ok = true;
   if (name == "wind_u" || name == "u") {
-    return gis::atmosphere::FieldChannel::kWindU;
+    return vista::atmosphere::FieldChannel::kWindU;
   }
   if (name == "wind_v" || name == "v") {
-    return gis::atmosphere::FieldChannel::kWindV;
+    return vista::atmosphere::FieldChannel::kWindV;
   }
   if (name == "wave_hs" || name == "hs") {
-    return gis::atmosphere::FieldChannel::kWaveHs;
+    return vista::atmosphere::FieldChannel::kWaveHs;
   }
   if (name == "wave_dir" || name == "dir") {
-    return gis::atmosphere::FieldChannel::kWaveDir;
+    return vista::atmosphere::FieldChannel::kWaveDir;
   }
   if (name == "cloud_cover" || name == "cover" || name == "cloud") {
-    return gis::atmosphere::FieldChannel::kCloudCover;
+    return vista::atmosphere::FieldChannel::kCloudCover;
   }
   if (name == "cloud_base" || name == "base") {
-    return gis::atmosphere::FieldChannel::kCloudBase;
+    return vista::atmosphere::FieldChannel::kCloudBase;
   }
   if (name == "cloud_top" || name == "top") {
-    return gis::atmosphere::FieldChannel::kCloudTop;
+    return vista::atmosphere::FieldChannel::kCloudTop;
   }
   if (name == "sea_mask" || name == "sea") {
-    return gis::atmosphere::FieldChannel::kSeaMask;
+    return vista::atmosphere::FieldChannel::kSeaMask;
   }
   *ok = false;
-  return gis::atmosphere::FieldChannel::kCloudCover;
+  return vista::atmosphere::FieldChannel::kCloudCover;
 }
 
 // Trim ASCII whitespace from both ends of |s|.
@@ -294,12 +306,12 @@ bool AtmosphereSession::load_fields(std::string_view spec) {
   if (spec.empty()) {
     return false;
   }
-  gis::atmosphere::Environment& env = ensure();
+  vista::atmosphere::Environment& env = ensure();
 
   // Preserve input order of first appearance per channel.
-  std::vector<gis::atmosphere::FieldChannel> channel_order;
+  std::vector<vista::atmosphere::FieldChannel> channel_order;
   std::vector<std::vector<FieldSeriesEntry>> series_by_channel(
-      static_cast<std::size_t>(gis::atmosphere::FieldChannel::kCount));
+      static_cast<std::size_t>(vista::atmosphere::FieldChannel::kCount));
 
   int default_time_index = 0;
   size_t begin = 0;
@@ -337,8 +349,8 @@ bool AtmosphereSession::load_fields(std::string_view spec) {
     }
 
     bool channel_ok = true;
-    gis::atmosphere::FieldChannel channel =
-        gis::atmosphere::FieldChannel::kCloudCover;
+    vista::atmosphere::FieldChannel channel =
+        vista::atmosphere::FieldChannel::kCloudCover;
     if (!channel_name.empty()) {
       channel = parse_field_channel(channel_name, &channel_ok);
       if (!channel_ok) {
@@ -378,14 +390,14 @@ bool AtmosphereSession::load_fields(std::string_view spec) {
     return false;
   }
 
-  gis::atmosphere::FieldIngestOptions opts;
-  opts.kind = gis::atmosphere::FieldSourceKind::kExternal;
+  vista::atmosphere::FieldIngestOptions opts;
+  opts.kind = vista::atmosphere::FieldSourceKind::kExternal;
   opts.priority = 20;
 
   bool any = false;
-  gis::atmosphere::FieldChannel first_ok =
-      gis::atmosphere::FieldChannel::kCloudCover;
-  for (gis::atmosphere::FieldChannel channel : channel_order) {
+  vista::atmosphere::FieldChannel first_ok =
+      vista::atmosphere::FieldChannel::kCloudCover;
+  for (vista::atmosphere::FieldChannel channel : channel_order) {
     const auto& slices =
         series_by_channel[static_cast<std::size_t>(channel)];
     std::vector<const char*> paths;
@@ -417,9 +429,9 @@ bool AtmosphereSession::load_fields(std::string_view spec) {
   return any;
 }
 
-gis::atmosphere::FieldGrid AtmosphereSession::field_grid() const {
+vista::atmosphere::FieldGrid AtmosphereSession::field_grid() const {
   const content::Extent2 e = world_extent();
-  gis::atmosphere::FieldGrid grid;
+  vista::atmosphere::FieldGrid grid;
   grid.min_lon = e.xmin;
   grid.min_lat = e.ymin;
   grid.max_lon = e.xmax;
@@ -437,17 +449,15 @@ namespace {
 
 // When MapScene has no land rings, derive kSeaMask from china_dem so ocean
 // stays around the mainland instead of painting a full-screen black patch.
-bool seed_sea_mask_from_dem(gis::atmosphere::Environment& env,
-                            const gis::atmosphere::FieldGrid& grid) {
+bool seed_sea_mask_from_dem(vista::atmosphere::Environment& env,
+                            const vista::atmosphere::FieldGrid& grid) {
   if (grid.empty()) {
     return false;
   }
-  gis::DemRaster dem;
-  const std::string path = gis::find_sample_dem_path();
-  if (path.empty() || !dem.load_gdal_raster(path.c_str())) {
-    dem.fill_synthetic_china();
-  }
-  if (dem.empty()) {
+  vista::DemRaster dem;
+  const std::string path = vista::find_sample_dem_path();
+  if (path.empty() || !dem.load_gdal_raster(path.c_str()) || dem.empty()) {
+    // Real-data policy: no synthetic China DEM stand-in.
     return false;
   }
   double dem_minx = 0;
@@ -483,9 +493,9 @@ bool seed_sea_mask_from_dem(gis::atmosphere::Environment& env,
       sea[idx] = land ? 0.f : 1.f;
     }
   }
-  gis::atmosphere::FieldLayer layer;
-  layer.channel = gis::atmosphere::FieldChannel::kSeaMask;
-  layer.kind = gis::atmosphere::FieldSourceKind::kProcedural;
+  vista::atmosphere::FieldLayer layer;
+  layer.channel = vista::atmosphere::FieldChannel::kSeaMask;
+  layer.kind = vista::atmosphere::FieldSourceKind::kProcedural;
   layer.priority = 1;  // Prefer over empty-ring fail-closed layer.
   layer.grid = grid;
   layer.values = std::move(sea);
@@ -499,27 +509,36 @@ bool seed_sea_mask_from_dem(gis::atmosphere::Environment& env,
 }  // namespace
 
 void AtmosphereSession::seed_procedural(bool with_land_rings) {
-  gis::atmosphere::Environment& env = ensure();
-  std::vector<gis::LonLatRing> rings;
+  // Tab switch / product defaults call this often; re-exporting china land
+  // rings every time dominates interactive Scene3D cost.
+  if (procedural_seeded_ && procedural_seed_with_rings_ == with_land_rings &&
+      procedural_seed_scene_ == scene_) {
+    return;
+  }
+  vista::atmosphere::Environment& env = ensure();
+  std::vector<vista::LonLatRing> rings;
   if (with_land_rings && scene_) {
     scene_->export_land_rings(&rings);
   }
-  const gis::atmosphere::FieldGrid grid = field_grid();
+  const vista::atmosphere::FieldGrid grid = field_grid();
   env.seed_procedural_baseline(grid, rings.empty() ? nullptr : &rings);
   if (rings.empty()) {
     (void)seed_sea_mask_from_dem(env, grid);
   }
   sea_mask_cache_valid_ = false;
   env.sync_systems_from_params();
+  procedural_seeded_ = true;
+  procedural_seed_with_rings_ = with_land_rings;
+  procedural_seed_scene_ = scene_;
 }
 
 void AtmosphereSession::enable_demo() {
-  gis::atmosphere::Environment& env = ensure();
-  std::vector<gis::LonLatRing> rings;
+  vista::atmosphere::Environment& env = ensure();
+  std::vector<vista::LonLatRing> rings;
   if (scene_) {
     scene_->export_land_rings(&rings);
   }
-  const gis::atmosphere::FieldGrid grid = field_grid();
+  const vista::atmosphere::FieldGrid grid = field_grid();
   env.enable_demo(grid, rings.empty() ? nullptr : &rings);
   if (rings.empty()) {
     (void)seed_sea_mask_from_dem(env, grid);
@@ -529,7 +548,7 @@ void AtmosphereSession::enable_demo() {
 
 namespace {
 
-bool m3_resolve_stub(const char* uri, gis::ModelAsset* out, size_t* byte_cost,
+bool m3_resolve_stub(const char* uri, vista::ModelAsset* out, size_t* byte_cost,
                      void* user) {
   (void)user;
   if (!uri || !out || !byte_cost) {
@@ -557,9 +576,9 @@ bool m3_fail(std::string* err, const char* tag) {
 bool AtmosphereSession::run_m3_self_test_hooks(std::string* err) {
   // --- m3-dem-ok: china DEM (or synthetic) seeds a terrain mesh with height.
   {
-    gis::World dem_world;
-    gis::Node* dem =
-        gis::seed_china_dem_into_world(&dem_world, nullptr, 0, "m3_dem", 48);
+    vista::World dem_world;
+    vista::Node* dem =
+        vista::seed_china_dem_into_world(&dem_world, nullptr, 0, "m3_dem", 48);
     if (!dem || !dem->has_terrain_mesh()) {
       return m3_fail(err, "m3-dem-ok");
     }
@@ -592,16 +611,16 @@ bool AtmosphereSession::run_m3_self_test_hooks(std::string* err) {
         "{\"boundingVolume\":{\"region\":[2.02,0.62,2.08,0.68,0,80]},"
         "\"geometricError\":0,\"content\":{\"uri\":\"missing.glb\"}}"
         "]}}";
-    gis::Tileset tileset;
-    if (!gis::parse_tileset_json(ts_json, std::strlen(ts_json), tileset)) {
+    vista::Tileset tileset;
+    if (!vista::parse_tileset_json(ts_json, std::strlen(ts_json), tileset)) {
       return m3_fail(err, "m3-tiles-ok");
     }
-    gis::World world;
-    gis::Node* node = world.attach_tileset(&tileset, "m3_city");
+    vista::World world;
+    vista::Node* node = world.attach_tileset(&tileset, "m3_city");
     if (!node) {
       return m3_fail(err, "m3-tiles-ok");
     }
-    gis::ViewState view;
+    vista::ViewState view;
     view.eye_x = 2.05;
     view.eye_y = 0.65;
     view.eye_z = 0.05;
@@ -609,27 +628,27 @@ bool AtmosphereSession::run_m3_self_test_hooks(std::string* err) {
     if (!world.stream_tileset(node->id, view, 0, 8)) {
       return m3_fail(err, "m3-tiles-ok");
     }
-    const gis::Node* streamed = world.find(node->id);
+    const vista::Node* streamed = world.find(node->id);
     if (!streamed || streamed->visible_uris.empty()) {
       return m3_fail(err, "m3-tiles-ok");
     }
 
-    gis::TilesetContentCache cache(600);
-    std::vector<const gis::Tile*> visible;
-    gis::select_tiles(tileset, view, 0, visible);
-    gis::ensure_tileset_content(visible, &cache, m3_resolve_stub, nullptr);
+    vista::TilesetContentCache cache(600);
+    std::vector<const vista::Tile*> visible;
+    vista::select_tiles(tileset, view, 0, visible);
+    vista::ensure_tileset_content(visible, &cache, m3_resolve_stub, nullptr);
     if (cache.resident_bytes() > cache.max_bytes()) {
       return m3_fail(err, "m3-tiles-ok");
     }
     if (!cache.contains("missing.glb")) {
       return m3_fail(err, "m3-tiles-ok");
     }
-    const gis::TilesetContentEntry* miss = cache.try_get("missing.glb");
+    const vista::TilesetContentEntry* miss = cache.try_get("missing.glb");
     if (!miss || miss->decode_ok) {
       return m3_fail(err, "m3-tiles-ok");
     }
     // Second put of another leaf must stay under budget (LRU eviction).
-    gis::ModelAsset extra;
+    vista::ModelAsset extra;
     extra.name = "extra";
     if (!cache.put("city_a.glb", extra, 512, true) &&
         cache.resident_bytes() > cache.max_bytes()) {
@@ -643,19 +662,19 @@ bool AtmosphereSession::run_m3_self_test_hooks(std::string* err) {
     // stays under budget; missing URI degrades without crash.
     {
       content::TilesetStreamSession stream;
-      gis::World present_world;
+      vista::World present_world;
       if (!stream.attach_json(&present_world, ts_json, std::strlen(ts_json),
                               "m3_present")) {
         return m3_fail(err, "m3-tiles-ok");
       }
-      gis::ViewState near_view = view;
+      vista::ViewState near_view = view;
       near_view.eye_z = 0.02;
       stream.pump_view(&present_world, near_view, 0, 8);
       const std::vector<std::string> uris_a = stream.last_visible_uris();
       if (uris_a.empty()) {
         return m3_fail(err, "m3-tiles-ok");
       }
-      gis::ViewState far_view = view;
+      vista::ViewState far_view = view;
       far_view.eye_z = 50.0;
       stream.pump_view(&present_world, far_view, 1e6, 8);
       const std::vector<std::string> uris_b = stream.last_visible_uris();
@@ -676,7 +695,7 @@ bool AtmosphereSession::run_m3_self_test_hooks(std::string* err) {
   // --- m3-atmosphere-ok: demo on (ocean/cloud/sky/fog), then all off.
   {
     enable_demo();
-    const gis::atmosphere::Environment* env = environment();
+    const vista::atmosphere::Environment* env = environment();
     if (!env || !env->ocean_enabled() || !env->cloud_enabled() ||
         !env->sky_enabled() || !env->fog_enabled()) {
       return m3_fail(err, "m3-atmosphere-ok");
@@ -708,7 +727,7 @@ bool AtmosphereSession::prepare_ocean() {
   atmosphere_->sync_systems_from_params();
 
   const content::Extent2 e = gpu_->geo_frame().extent;
-  gis::atmosphere::FieldGrid extent;
+  vista::atmosphere::FieldGrid extent;
   extent.min_lon = e.xmin;
   extent.min_lat = e.ymin;
   extent.max_lon = e.xmax;
@@ -716,7 +735,7 @@ bool AtmosphereSession::prepare_ocean() {
   extent.cols = 1;
   extent.rows = 1;
 
-  const gis::atmosphere::OceanTileParams tile =
+  const vista::atmosphere::OceanTileParams tile =
       atmosphere_->ocean_system().sample_tile(
           atmosphere_->field_store(), extent, atmosphere_->time_sec());
 
@@ -731,7 +750,7 @@ bool AtmosphereSession::prepare_ocean() {
   min_z -= pad;
   max_z += pad;
 
-  effect::atmosphere::OceanDrawParams draw;
+  vista::OceanDrawParams draw;
   // Wave height: GIS meters → orbit Y (same scale as DEM elev).
   draw.significant_wave_height = (std::max)(
       0.01f, gpu_->geo_frame().meters_to_orbit_y(tile.spectrum.significant_wave_height));
@@ -793,7 +812,7 @@ bool AtmosphereSession::prepare_ocean() {
     draw.fresnel_power = 6.0f;
   }
   ocean_pass_.set_params(draw);
-  const gis::atmosphere::AtmosphereParams& p = atmosphere_->params();
+  const vista::atmosphere::AtmosphereParams& p = atmosphere_->params();
   ocean_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad,
                                              p.sun_elevation_rad);
   ocean_pass_.set_time_sec(atmosphere_->time_sec());
@@ -841,11 +860,11 @@ bool AtmosphereSession::prepare_clouds() {
   const content::Extent2 e = gpu_->geo_frame().extent;
   const double clon = 0.5 * (e.xmin + e.xmax);
   const double clat = 0.5 * (e.ymin + e.ymax);
-  const gis::atmosphere::CloudSample sample =
+  const vista::atmosphere::CloudSample sample =
       atmosphere_->cloud_system().sample_at(
           atmosphere_->field_store(), clon, clat, atmosphere_->time_sec());
 
-  const gis::atmosphere::AtmosphereParams& p = atmosphere_->params();
+  const vista::atmosphere::AtmosphereParams& p = atmosphere_->params();
   cloud_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad,
                                              p.sun_elevation_rad);
   cloud_pass_.set_cloud_slab(sample.base_m, sample.top_m);
@@ -879,12 +898,12 @@ bool AtmosphereSession::prepare_sky() {
   if (!atmosphere_ || !atmosphere_->sky_enabled()) {
     return true;
   }
-  const gis::atmosphere::AtmosphereParams& p = atmosphere_->params();
+  const vista::atmosphere::AtmosphereParams& p = atmosphere_->params();
   // Floor sun elevation so daytime China orbit never samples a magenta
   // sunset mid-band (dynamic bob can dip to ~0.10 rad).
   const float sun_el = (std::max)(p.sun_elevation_rad, 0.72f);
   sky_pass_.set_sun_from_azimuth_elevation(p.sun_azimuth_rad, sun_el);
-  effect::atmosphere::SkyDrawParams sky = sky_pass_.params();
+  vista::SkyDrawParams sky = sky_pass_.params();
   // Past max orbit distance (12) so zoom-out stays inside the sky.
   sky.dome_radius = 40.0f;
   if (globe_enabled_) {
@@ -928,8 +947,8 @@ bool AtmosphereSession::prepare_fog() {
   if (!gpu_ || !gpu_->geo_frame().valid) {
     return true;
   }
-  const gis::atmosphere::AtmosphereParams& p = atmosphere_->params();
-  effect::atmosphere::FogDrawParams fog;
+  const vista::atmosphere::AtmosphereParams& p = atmosphere_->params();
+  vista::FogDrawParams fog;
   // Soft aerial haze on terrain only (sky depth is skipped in FogPass HLSL).
   // Cap opacity so hypsometric greens still pass showcase landish gates.
   fog.density = (std::max)((std::min)(p.fog_density, 0.08f), 0.03f);
@@ -945,9 +964,9 @@ bool AtmosphereSession::prepare_fog() {
   float hr = fog.color_r;
   float hg = fog.color_g;
   float hb = fog.color_b;
-  effect::atmosphere::SkyDrawParams tint = sky_pass_.params();
+  vista::SkyDrawParams tint = sky_pass_.params();
   tint.sun_glow_strength = 0.f;
-  effect::atmosphere::SkyPass::sample_sky_rgb(tint, 0.f, 0.05f, 1.f, &hr, &hg,
+  vista::SkyPass::sample_sky_rgb(tint, 0.f, 0.05f, 1.f, &hr, &hg,
                                               &hb);
   fog.color_r = hr;
   fog.color_g = hg;
@@ -1013,20 +1032,29 @@ bool AtmosphereSession::prepare_globe() {
   double miny = 18.0;
   double maxx = 135.0;
   double maxy = 54.0;
-  // Keep DemRaster in a tight scope so GDAL/CPU buffers are freed before any
-  // later sat-cloud / sky work (cdb: AV in STL iterator after dem log).
+  std::vector<float> heights;
+  std::vector<uint8_t> rgba;
+  int cols = 0;
+  int rows = 0;
+  int tw = 0;
+  int th = 0;
+  bool dem_looks_global = false;
+  // DemRaster (GDAL) dies before set_dem_surface. Sampling and the
+  // hypsometric fallback live on DemRaster::sample_globe_surface.
   {
-    gis::DemRaster dem;
-    // Globe prefers global_dem; china_dem remains the default product path
-    // (find_sample_dem_path) so China showcase is not remasked into holes.
-    path = gis::find_sample_global_dem_path();
+    vista::DemRaster dem;
+    // Globe prefers global_dem; fall back to china_dem. No synthetic stand-in.
+    path = vista::find_sample_global_dem_path();
     bool loaded = false;
     if (!path.empty()) {
-      loaded = dem.load_gdal_raster(path.c_str());
+      loaded = dem.load_gdal_raster(path.c_str()) && !dem.empty();
     }
     if (!loaded) {
-      dem.fill_synthetic_china();
-      path.clear();
+      path = vista::find_sample_dem_path();
+      loaded = !path.empty() && dem.load_gdal_raster(path.c_str()) && !dem.empty();
+    }
+    if (!loaded) {
+      return false;
     }
     dem.fit_vertical_exaggeration();
 
@@ -1040,7 +1068,7 @@ bool AtmosphereSession::prepare_globe() {
 
     // Prefer full-sphere sampling when DEM spans the world (global_dem.tif).
     // Regional china_dem keeps a soft-edged window on the ocean sphere.
-    const bool dem_looks_global =
+    dem_looks_global =
         (minx <= -170.0 && maxx >= 170.0 && miny <= -80.0 && maxy >= 80.0);
     if (dem_looks_global) {
       minx = -180.0;
@@ -1049,30 +1077,10 @@ bool AtmosphereSession::prepare_globe() {
       maxy = 90.0;
     }
 
-    // Dense height grid so near-earth skim shows DEM undulation / hillshade.
-    const int kCols = dem_looks_global ? 384 : 192;
-    const int kRows = dem_looks_global ? 192 : 96;
-    std::vector<float> heights(static_cast<size_t>(kCols * kRows), 0.f);
-    for (int r = 0; r < kRows; ++r) {
-      const double lat =
-          maxy - (static_cast<double>(r) + 0.5) / kRows * (maxy - miny);
-      for (int c = 0; c < kCols; ++c) {
-        const double lon =
-            minx + (static_cast<double>(c) + 0.5) / kCols * (maxx - minx);
-        heights[static_cast<size_t>(r * kCols + c)] =
-            dem.sample_meters(lon, lat);
-      }
-    }
-
-    std::vector<uint8_t> rgba;
-    int tw = 0;
-    int th = 0;
     // Terrain / satellite equirect only when DEM is global — otherwise a
     // full-earth PNG would be UV-mapped into the China window incorrectly.
-    // Regional china_rs stays available via discovery after global_* paths.
-    imagery_path = dem_looks_global ? gis::find_sample_global_imagery_path()
-                                    : gis::find_sample_imagery_path();
-    bool have_imagery = false;
+    imagery_path = dem_looks_global ? vista::find_sample_global_imagery_path()
+                                    : vista::find_sample_imagery_path();
     if (!imagery_path.empty()) {
       const bool img_is_global =
           imagery_path.find("global_terrain") != std::string::npos ||
@@ -1082,41 +1090,38 @@ bool AtmosphereSession::prepare_globe() {
         imagery_path.clear();
       }
     }
-    if (!imagery_path.empty()) {
-      have_imagery =
-          gis::load_imagery_rgba(imagery_path.c_str(), &rgba, &tw, &th) &&
-          tw > 0 && th > 0;
-      if (!have_imagery) {
-        rgba.clear();
-        tw = 0;
-        th = 0;
-        imagery_path.clear();
-      }
+    bool imagery_loaded = false;
+    if (!dem.sample_globe_surface(
+            minx, miny, maxx, maxy, dem_looks_global,
+            imagery_path.empty() ? nullptr : imagery_path.c_str(), &heights,
+            &cols, &rows, &rgba, &tw, &th, &imagery_loaded)) {
+      heights.clear();
     }
-    if (!have_imagery) {
-      (void)dem.bake_hypsometric_rgba(dem_looks_global ? 256 : 96, &rgba, &tw,
-                                      &th);
+    if (!imagery_loaded) {
+      imagery_path.clear();
     }
-
-    globe_pass_.set_dem_surface(minx, miny, maxx, maxy, kCols, kRows,
-                                heights.data(), heights.size(),
-                                rgba.empty() ? nullptr : rgba.data(), tw, th);
-    if (dem_looks_global) {
-      effect::atmosphere::GlobeDrawParams gp = globe_pass_.params();
-      gp.height_scale = 9.5e-6f;
-      // Near-earth flythrough: fine UV sphere for DEM slope Lambert.
-      gp.lon_slices = 320;
-      gp.lat_slices = 160;
-      globe_pass_.set_params(gp);
-      effect::atmosphere::SatCloudDrawParams sc = sat_cloud_pass_.params();
-      // Sit above exaggerated DEM peaks; keep thin so hillshade/relief reads.
-      sc.shell_radius = 1.12f;
-      sc.lon_slices = 128;
-      sc.lat_slices = 64;
-      sc.opacity = 0.38f;
-      sc.soft_edge = 0.22f;
-      sat_cloud_pass_.set_params(sc);
-    }
+  }
+  globe_pass_.set_dem_surface(minx, miny, maxx, maxy, cols, rows,
+                              heights.empty() ? nullptr : heights.data(),
+                              heights.size(),
+                              rgba.empty() ? nullptr : rgba.data(), tw, th);
+  {
+    vista::GlobeDrawParams gp = globe_pass_.params();
+    gp.height_scale = 9.5e-6f;
+    // Near-earth flythrough / China window: fine UV sphere for DEM slope.
+    gp.lon_slices = dem_looks_global ? 384 : 320;
+    gp.lat_slices = dem_looks_global ? 192 : 160;
+    globe_pass_.set_params(gp);
+  }
+  if (dem_looks_global) {
+    vista::SatCloudDrawParams sc = sat_cloud_pass_.params();
+    // Sit above exaggerated DEM peaks; keep thin so hillshade/relief reads.
+    sc.shell_radius = 1.12f;
+    sc.lon_slices = 128;
+    sc.lat_slices = 64;
+    sc.opacity = 0.38f;
+    sc.soft_edge = 0.22f;
+    sat_cloud_pass_.set_params(sc);
   }
   if (atmosphere_) {
     const float az = atmosphere_->params().sun_azimuth_rad;
@@ -1154,7 +1159,7 @@ bool AtmosphereSession::prepare_sat_clouds() {
     std::vector<uint8_t> rgba;
     int w = 0;
     int h = 0;
-    if (gis::load_imagery_rgba(path.c_str(), &rgba, &w, &h) && w > 0 && h > 0) {
+    if (vista::load_imagery_rgba(path.c_str(), &rgba, &w, &h) && w > 0 && h > 0) {
       sat_cloud_pass_.set_cover_rgba(rgba.data(), w, h);
       sat_cloud_cover_loaded_ = sat_cloud_pass_.has_cover();
       std::fprintf(stderr, "atmosphere.sat_cloud: loaded %s %dx%d\n",

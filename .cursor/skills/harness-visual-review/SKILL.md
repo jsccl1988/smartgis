@@ -51,5 +51,5 @@ Runner only writes `pending`. Agent/human may rewrite the JSON.
 
 - Living: `docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md` §Visual review closed-loop
 - Plan: `docs/superpowers/plans/2026-10-01-harness-visual-review.md`
-- As-built: `docs/build/ui-testing.md` §Visual review closed-loop
+- As-built: `docs/superpowers/ui-testing.md` §Visual review closed-loop
 - Code: `testing/tools/loop/review/`

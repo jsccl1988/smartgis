@@ -38,7 +38,7 @@ All rights reserved.
 | `src/content/browser/debug/debug_agent.{h,cc}` | `DebugAgentHost` `ui_*` hooks + `ui.*` dispatch / `:ui` lines |
 | `tools/debug/scripts/ui_smoke.py` | Agent discovery + smoke sequence |
 | `testing/scripts/open_cpp_coverage_views.ps1` | OpenCppCoverage wrapper for views PEs |
-| `docs/build/ui-testing.md` | L1/P2 as-built |
+| `docs/superpowers/ui-testing.md` | L1/P2 as-built |
 | `testing/README.md` | GN run instructions |
 | `src/ui/views/README.md` | Harness + targets summary |
 
@@ -104,7 +104,7 @@ All rights reserved.
 
 - [x] **Step 1:** Add `views_bench.cc` microbench loop (EventGenerator click + OverlayScene commit + ShellCompositor).
 - [x] **Step 2:** GN `benchmark("views_bench")`, wired to `//:benchmark_all`.
-- [x] **Step 3:** Document run in `docs/build/ui-testing.md` (not part of default `te`).
+- [x] **Step 3:** Document run in `docs/superpowers/ui-testing.md` (not part of default `te`).
 - [x] **Step 4:** Run `out/Debug/views_bench.exe` — exit 0 with ns/op lines.
 
 ---
@@ -163,7 +163,7 @@ All rights reserved.
 ### Task 7: Docs as-built
 
 **Files:**
-- Modify: `docs/build/ui-testing.md` (L1 landed/in-progress, bench row, 最后更新 2026-09-28)
+- Modify: `docs/superpowers/ui-testing.md` (L1 landed/in-progress, bench row, 最后更新 2026-09-28)
 - Modify: `src/ui/views/README.md` (harness + targets)
 - Modify: `docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md` (check Wave checkboxes when landing)
 

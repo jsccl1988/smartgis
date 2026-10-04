@@ -153,8 +153,10 @@ int run_atmosphere_present(Browser& browser,
   timed.frames = present_count;
   timed.pump_ms = present_pump_ms;
   timed.fail_log_prefix = "atmosphere-showcase";
-  timed.mark = atmosphere_showcase_mark;
-  timed.numbered_frame_marks = true;
+  // Equal-profile timed window: skip per-frame mark fopen/fflush (same class
+  // of wall pollution as PeekMessage / map2d paint when pump_ms==0).
+  timed.mark = (present_pump_ms == 0) ? nullptr : atmosphere_showcase_mark;
+  timed.numbered_frame_marks = (present_pump_ms != 0);
   timed.on_fail = on_atmosphere_warmup_fail;
   timed.on_fail_user = &fail_ctx;
   if (present_gpu_warmup(cam, device, timed) != 0) {
@@ -225,7 +227,11 @@ int run_atmosphere_present(Browser& browser,
         globe_flythrough);
   }
 
-  cam->abandon_mesh();
+  // Skip abandon_mesh after live FlyCube present — peer world3d/stormsurge:
+  // DX12 present + abandon remaps heap (hang / AV before PASS mark).
+  if (!want_gpu) {
+    cam->abandon_mesh();
+  }
   // Intentionally skip device->shutdown() — FlyCube DX12 teardown after a live
   // present has heap-corrupted ExitProcess (peer stormsurge / world3d). Leak
   // the Device* the same way MapViewport does after a live session.

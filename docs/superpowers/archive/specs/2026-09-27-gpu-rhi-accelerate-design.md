@@ -7,14 +7,14 @@ All rights reserved.
 
 
 > **Status: superseded** (2026-09-28 merge). Merged into `2026-09-13-render-rhi-scene-design.md` §GPU-process accelerate. Do not revise here except mechanical link fixes.  
-> **Diagram (living):** [`../../diagrams/gpu-process-accelerate.html`](../../diagrams/gpu-process-accelerate.html) · Plan checklist [`../../plans/2026-09-27-gpu-rhi-accelerate.md`](../../plans/2026-09-27-gpu-rhi-accelerate.md)
+> **Diagram (living):** [`../../diagrams/render-accelerate-topology.html`](../../diagrams/render-accelerate-topology.html) · Plan checklist [`../../plans/2026-09-27-gpu-rhi-accelerate.md`](../../plans/2026-09-27-gpu-rhi-accelerate.md)
 
 **Status:** active  
 **Date:** 2026-09-27  
 **Note (2026-09-27 landing):** M0–M5 code paths are in tree under multi-GPU GPU-process compose. FlyCube DX12 **shared NT import** + **compose-into-shared** are implemented (`OpenSharedHandle`, `execute_to_imported`). DIB-only / failed import still uses `upload_bgra`. Keep `active` until human dual-adapter + multiprocess smoke accepts pixel path.  
 **Scope:** GPU-process-only compose/present for `--type=gpu` (`src/gpu`), with **first-class multi-adapter / multi-GPU** support; keep `CompositorFrame` as IR; integrate `render::rhi` (FlyCube) incrementally.  
-**Plan:** [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../plans/2026-09-27-gpu-rhi-accelerate.md)  
-**Related:** as-built paint [`../../../src/gpu/README.md`](../../../src/gpu/README.md)；layout landed [`2026-09-27-gpu-subdirectory-layout-design.md`](2026-09-27-gpu-subdirectory-layout-design.md)；RHI + dual scene [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)；Frame Graph [`2026-09-27-render-frame-graph-design.md`](2026-09-27-render-frame-graph-design.md)；multiprocess shell [`../../build/ui-shell-multiprocess.md`](../../build/ui-shell-multiprocess.md)；CPU map frame [`2026-09-27-map2d-frame-design.md`](2026-09-27-map2d-frame-design.md)；product Pass 终态 `src/effect/map`；MapLibre Native pin removed（deferred）[`../archive/specs/2026-09-27-maplibre-out-of-gpu-design.md`](../archive/specs/2026-09-27-maplibre-out-of-gpu-design.md)。
+**Plan:** [`../plans/2026-09-27-gpu-rhi-accelerate.md`](../../plans/2026-09-27-gpu-rhi-accelerate.md)  
+**Related:** as-built paint [`../../../src/gpu/README.md`](../../README.md)；layout landed [`2026-09-27-gpu-subdirectory-layout-design.md`](2026-09-27-gpu-subdirectory-layout-design.md)；RHI + dual scene [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md)；Frame Graph [`2026-09-27-render-frame-graph-design.md`](2026-09-27-render-frame-graph-design.md)；multiprocess shell [`../../ui-shell-multiprocess.md`](../../ui-shell-multiprocess.md)；CPU map frame [`2026-09-27-map2d-frame-design.md`](2026-09-27-map2d-frame-design.md)；product Pass 终态 `src/vista/map`；MapLibre Native pin removed（deferred）[`../archive/specs/2026-09-27-maplibre-out-of-gpu-design.md`](2026-09-27-maplibre-out-of-gpu-design.md)。
 
 ## Normative constraint (supersedes prior M0–M5 single-device assumptions)
 
@@ -41,7 +41,7 @@ Default topology: **1 GPU process × N RHI/D3D devices** (not N gpu processes un
 | `view.backend.rhi` selects `ContentSource::kDirect` only (not FlyCube) | `frame_sink.h` (`kCmdContentDirect`) |
 | `OutputSurface` is DXGI shared texture (D3D11) or software DIB; pixels `B8G8R8A8_UNORM` | `display/output_surface.h` |
 | Product RHI is `render::rhi` Facade; FlyCube in `src/render/rhi` impl TUs | `src/render/rhi/rhi.h` |
-| Chrome presents shared NT handle only | `docs/build/ui-shell-multiprocess.md` §0 |
+| Chrome presents shared NT handle only | `docs/superpowers/ui-shell-multiprocess.md` §0 |
 
 ## Goals
 

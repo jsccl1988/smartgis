@@ -18,12 +18,12 @@ All rights reserved.
 | --- | --- | --- |
 | App / UI leftover physical split | [`2026-09-14-app-legacy-split-design.md`](2026-09-14-app-legacy-split-design.md) | **accepted** — Phase 1+2 landed; this spec **refines inside** `legacy/app` and deepens SP3 extract; does not reopen stop-compile gate |
 | SP3 host behavior (Attribute / Catalog) | [`2026-09-19-legacy-host-behavior-extract-design.md`](2026-09-19-legacy-host-behavior-extract-design.md) | **active** — Attribute + Catalog snapshot **done**; this workstream **continues** deferred SP3 (bootstrap, draft commit seam, thin MFC views) |
-| SP0 umbrella | [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) | SP3 path ownership; do not contradict dependency direction |
+| SP0 umbrella | [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](../../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md) | SP3 path ownership; do not contradict dependency direction |
 | Peer layout (scheme C break includes) | [`2026-09-27-tool-subdirectory-layout-design.md`](2026-09-27-tool-subdirectory-layout-design.md) | Same idea: directory = responsibility; no shim umbrellas |
 | Peer layout (leftover dual-run) | [`2026-09-27-legacy-render-subdirectory-dual-run-design.md`](2026-09-27-legacy-render-subdirectory-dual-run-design.md) | Leftover stays opt-in strangler; Views remains endgame |
 | Atmosphere / GPU layout peers | [`2026-09-27-atmosphere-subdirectory-layout-design.md`](2026-09-27-atmosphere-subdirectory-layout-design.md), [`2026-09-27-gpu-subdirectory-layout-design.md`](2026-09-27-gpu-subdirectory-layout-design.md) | Responsibility dirs + stable aggregate labels |
 | China sample bootstrap | [`2026-09-18-china-city-map-plpt-design.md`](2026-09-18-china-city-map-plpt-design.md) | Sample paths / gpkg layers stay; ownership moves to HWND-free helpers |
-| Product as-built | [`../../build/src-layout.md`](../../build/src-layout.md), [`../../../src/legacy/app/README.md`](../../../src/legacy/app/README.md) | Update when landing |
+| Product as-built | [`../../src-layout.md`](../../src-layout.md), [`../../../src/legacy/app/README.md`](../../README.md) | Update when landing |
 
 ---
 
@@ -248,7 +248,7 @@ Phases 1–4 are **interleaved in the plan** (move a module → extract its free
 3. `:app` / `:app_core` / `dll_stem` / `SmartGis.exe` unchanged.
 4. HWND-free bootstrap (+ draft-commit seam as practical) live under `content` with unit tests; `SmtApp` / MFC views are thin callers.
 5. No new endgame → legacy includes.
-6. `src/legacy/app/README.md` + App leftover row in `docs/build/src-layout.md` describe modules; SP3 / app-legacy-split cross-links updated.
+6. `src/legacy/app/README.md` + App leftover row in `docs/superpowers/src-layout.md` describe modules; SP3 / app-legacy-split cross-links updated.
 7. Human confirms `build.bat legacy_app` (and named content/views tests) green.
 
 ---

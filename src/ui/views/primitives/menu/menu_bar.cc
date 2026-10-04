@@ -12,9 +12,10 @@ namespace ui {
 namespace views {
 namespace {
 
-constexpr int kBarHeightDip = 32;
-constexpr int kItemPadXDip = 12;
-constexpr int kItemPadYDip = 8;
+// Tall enough for kShellBodyFontDip + vertical pad under HiDPI.
+constexpr int kBarHeightDip = 28;
+constexpr int kItemPadXDip = 10;
+constexpr int kItemPadYDip = 6;
 
 float view_scale(const View* view) {
   if (view && view->widget()) {
@@ -30,8 +31,23 @@ MenuBar::MenuBar() {
   set_focusable(true);
 }
 
+void MenuBar::refresh_preferred_size() {
+  const float scale = view_scale(this);
+  int w = 0;
+  for (size_t i = 0; i < items_.size(); ++i) {
+    w += item_width(i);
+  }
+  // Floor so Yoga measure never returns width 0 (collapses File/Edit/…).
+  const int min_w = dip_to_px(200, scale);
+  if (w < min_w) {
+    w = min_w;
+  }
+  set_preferred_size({w, dip_to_px(kBarHeightDip, scale)});
+}
+
 void MenuBar::add_item(std::string label, Invoke invoke) {
   items_.push_back(Item{std::move(label), std::move(invoke), {}, false});
+  refresh_preferred_size();
   schedule_paint();
 }
 
@@ -41,6 +57,7 @@ void MenuBar::add_menu(std::string label, std::vector<MenuItem> items) {
   item.menu = std::move(items);
   item.dropdown = true;
   items_.push_back(std::move(item));
+  refresh_preferred_size();
   schedule_paint();
 }
 
@@ -56,13 +73,13 @@ void MenuBar::clear() {
   items_.clear();
   hover_ = -1;
   last_opened_menu_ = -1;
+  refresh_preferred_size();
   schedule_paint();
 }
 
 void MenuBar::on_device_scale_factor_changed(float /*old_scale*/,
-                                           float new_scale) {
-  set_preferred_size(
-      {preferred_size().width, dip_to_px(kBarHeightDip, new_scale)});
+                                           float /*new_scale*/) {
+  refresh_preferred_size();
 }
 
 int MenuBar::item_width(size_t i) const {

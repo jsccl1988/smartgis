@@ -7,6 +7,7 @@
 #include "app/views/shell/harness/common/io/maps.h"
 #include "app/views/shell/harness/common/pump/pump.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
+#include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "render/rhi/rhi.h"
 #include "ui/views/map/map_viewport.h"
 
@@ -129,9 +130,10 @@ int prepare_rhi_present_session(Browser& browser,
     }
   }
 
+  const bool scenic_host = content::prefer_scene3d_scenic();
   out->device = render::rhi::create_device(
-      out->want_gpu ? render::rhi::preferred_gpu_backend()
-                    : render::rhi::Backend::kNull);
+      (out->want_gpu && !scenic_host) ? render::rhi::preferred_gpu_backend()
+                                      : render::rhi::Backend::kNull);
   if (!out->device) {
     mark_step(opts, opts.marks.device_missing);
     return 51;
@@ -149,7 +151,7 @@ int prepare_rhi_present_session(Browser& browser,
     return 51;
   }
 
-  if (opts.warm_swapchain && out->want_gpu) {
+  if (opts.warm_swapchain && out->want_gpu && !scenic_host) {
     warm_swapchain_once(out->device, opts.present_w, opts.present_h);
   }
 

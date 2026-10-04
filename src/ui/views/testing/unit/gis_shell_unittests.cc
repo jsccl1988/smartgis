@@ -77,7 +77,8 @@ void test_layer_tree() {
 
 void test_catalog_view() {
   CatalogView catalog;
-  expect(catalog.preferred_size().width == 288 ||
+  expect(catalog.preferred_size().width == 300 ||
+             catalog.preferred_size().width == 288 ||
              catalog.preferred_size().width == 240,
          "catalog preferred width");
   expect(catalog.layer_tree() != nullptr, "catalog layer_tree");
@@ -103,8 +104,8 @@ void test_catalog_view() {
   expect(!catalog.layer_tree()->is_layer_visible("rivers"), "rivers hidden");
 
   catalog.populate_layers({});
-  expect(catalog.using_demo_layers(), "empty populate restores demo");
-  expect(catalog.layer_tree()->layer_count() == 4, "demo restored count");
+  expect(!catalog.using_demo_layers(), "empty populate stays empty");
+  expect(catalog.layer_tree()->layer_count() == 0, "empty catalog count");
 }
 
 void test_feature_info_and_status_bar() {

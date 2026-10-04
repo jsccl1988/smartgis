@@ -36,12 +36,12 @@ source_set("gl_sources") {
   ]
   defines = [ "_USRDLL" ]
   deps = [
-    "//src/gis/kernel/geo:geo",
+    "//src/gis/geo:geo",
     "//src/base:base",
     "//src/base:core",
     "//src/base/math:math",
     "//src/legacy/render:legacy_render",
-    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
+    "//src/gis:gis",
     "//third_party:CxImage",
     "//third_party:khronos_gl",
   ]

@@ -35,18 +35,30 @@ GpuTexture* find_texture(const std::vector<TextureBind>& binds, uint32_t slot) {
 }
 
 ::BlendDesc blend_desc(BlendMode mode) {
-  if (mode != BlendMode::kSrcAlpha) {
-    return {};
+  if (mode == BlendMode::kSrcAlpha) {
+    ::BlendDesc alpha;
+    alpha.blend_enable = true;
+    alpha.src_color_blend_factor = BlendFactor::kSrcAlpha;
+    alpha.dst_color_blend_factor = BlendFactor::kOneMinusSrcAlpha;
+    alpha.color_blend_op = BlendOp::kAdd;
+    alpha.src_alpha_blend_factor = BlendFactor::kOne;
+    alpha.dst_alpha_blend_factor = BlendFactor::kOneMinusSrcAlpha;
+    alpha.alpha_blend_op = BlendOp::kAdd;
+    return alpha;
   }
-  ::BlendDesc alpha;
-  alpha.blend_enable = true;
-  alpha.src_color_blend_factor = BlendFactor::kSrcAlpha;
-  alpha.dst_color_blend_factor = BlendFactor::kOneMinusSrcAlpha;
-  alpha.color_blend_op = BlendOp::kAdd;
-  alpha.src_alpha_blend_factor = BlendFactor::kOne;
-  alpha.dst_alpha_blend_factor = BlendFactor::kOneMinusSrcAlpha;
-  alpha.alpha_blend_op = BlendOp::kAdd;
-  return alpha;
+  if (mode == BlendMode::kMultiply) {
+    // dst.rgb *= src.rgb. Leave dst alpha unchanged so src alpha is ignored.
+    ::BlendDesc multiply;
+    multiply.blend_enable = true;
+    multiply.src_color_blend_factor = BlendFactor::kZero;
+    multiply.dst_color_blend_factor = BlendFactor::kSrcColor;
+    multiply.color_blend_op = BlendOp::kAdd;
+    multiply.src_alpha_blend_factor = BlendFactor::kZero;
+    multiply.dst_alpha_blend_factor = BlendFactor::kOne;
+    multiply.alpha_blend_op = BlendOp::kAdd;
+    return multiply;
+  }
+  return {};
 }
 
 std::vector<InputLayoutDesc> input_layout(VertexLayout layout) {

@@ -15,9 +15,13 @@ namespace detail {
 const wchar_t* ui_showcase_bmp_leaf(UiShowcaseMode mode);
 
 // Capture shell HWND client for chrome visual gates. Uses window-DC blit only
-// (never desktop DC). Rejects flat / non-diverse frames so blank scene
-// PrintWindow fills are not written as bmp-ok.
-bool capture_ui_shell_bmp(HWND hwnd, const wchar_t* filename);
+// (never desktop DC). When |map_hwnd| is a live child map surface, composites
+// that client into the shell DIB so PrintWindow holes are not false-green.
+// Rejects flat / non-diverse frames so blank scene PrintWindow fills are not
+// written as bmp-ok.
+bool capture_ui_shell_bmp(HWND hwnd,
+                          const wchar_t* filename,
+                          HWND map_hwnd = nullptr);
 
 }  // namespace detail
 }  // namespace app

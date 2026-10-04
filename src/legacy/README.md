@@ -19,4 +19,4 @@ Leftover 2010 MFC / GDI / GL / IATool trees. Not the desktop endgame (Views + Sk
 
 XML: TinyXML under `legacy/xml` removed; use `//third_party:pugixml`.
 
-Layout docs: [`docs/build/src-layout.md`](../../docs/build/src-layout.md). Endgame UI: [`docs/build/ui-views-skia.md`](../../docs/build/ui-views-skia.md).
+Layout docs: [`docs/superpowers/src-layout.md`](../../docs/superpowers/src-layout.md). Endgame UI: [`docs/superpowers/ui-views-skia.md`](../../docs/superpowers/ui-views-skia.md).

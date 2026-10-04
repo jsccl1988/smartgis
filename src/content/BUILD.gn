@@ -4,7 +4,8 @@
 # Embedder API is the public/ headers (incl. map_bootstrap). No MFC.
 # Pipe frames live in common/host_protocol.h (not an embedder header).
 #   app/       ContentMain + process-type switch
-#   browser/   browser-process MapContents, catalog, attrs, plugin host
+#   browser/   bootstrap, contents, catalog, attrs, plugin, session,
+#              document, camera, present, input, capability, debug
 #   renderer/  --type=renderer child
 #   view/      in-process ViewHost + LocalToolRouter
 #   embed/     HWND-free embed sample
@@ -12,7 +13,7 @@
 #
 # One DLL (dll_stem = content). In-DLL source_sets use CONTENT_EXPORTS;
 # stable group labels forward to :content for existing deps.
-# tool::Workspace / Command* live in //src/tool:tool (dll_stem = tool) —
+# tool::Workspace / Command* live in //src/tool:tool (dll_stem = tool) 鈥?
 # import-link that DLL; do not compile dispatch source_sets into content.
 
 import("//build/smartgis.gni")
@@ -26,7 +27,7 @@ config("content_config") {
 # HWND-free sample / china map path policy (SP3).
 source_set("map_bootstrap_sources") {
   sources = [
-    "browser/map_bootstrap.cc",
+    "browser/bootstrap/map_bootstrap.cc",
     "public/map_bootstrap.h",
   ]
   public_configs = [ ":content_config" ]
@@ -38,12 +39,14 @@ source_set("content_sources") {
     "app/content_main.h",
     "app/process_type.cc",
     "app/process_type.h",
-    "browser/catalog_layers.cc",
-    "browser/feature_attrs.cc",
-    "browser/map_contents.cc",
-    "browser/plugin_host.cc",
-    "browser/present/scene3d/policy/scene3d_rhi_session.cc",
-    "browser/present/scene3d/policy/scene3d_rhi_session.h",
+    "browser/attrs/feature_attrs.cc",
+    "browser/catalog/catalog_layers.cc",
+    "browser/contents/map_contents.cc",
+    "browser/plugin/plugin_host.cc",
+    # Engine SoT is CONTENT_EXPORT (ui_views / shell import-link content.dll).
+    # Not :scene3d_present 鈥?that would pull GPU/GDI into every content consumer.
+    "browser/present/scene3d/session/scene3d_rhi_session.cc",
+    "browser/present/scene3d/session/scene3d_rhi_session.h",
     "common/host_protocol.h",
     "common/ipc.cc",
     "common/ipc.h",
@@ -80,7 +83,7 @@ source_set("view_host_sources") {
   public_deps = [ ":content_sources" ]
   include_dirs += [ "//src" ]
   deps = [
-    "//src/gis/model/edit:edit",
+    "//src/gis/edit:edit",
     "//src/legacy/tool/msg:adapter",
     "//src/tool:tool",
   ]
@@ -112,7 +115,7 @@ smt_shared_library("content") {
   # gis::EditSession; forward those edges so consumers import-link tool.dll /
   # gis.dll (not statically absorb dispatch TUs into content.dll).
   public_deps = [
-    "//src/gis/model/edit:edit",
+    "//src/gis/edit:edit",
     "//src/tool:tool",
   ]
   public_configs = [ ":content_config" ]
@@ -120,7 +123,7 @@ smt_shared_library("content") {
   libs = [ "dxgi.lib" ]
 }
 
-# Stable labels — same DLL as :content.
+# Stable labels 鈥?same DLL as :content.
 group("map_bootstrap") {
   public_deps = [ ":content" ]
 }
@@ -157,7 +160,7 @@ test("content_main_test") {
 # HWND-free attribute token / named-field helpers (SP3 host extract).
 test("content_feature_attrs_test") {
   output_name = "content_feature_attrs_test"
-  sources = [ "browser/feature_attrs_test.cc" ]
+  sources = [ "browser/attrs/feature_attrs_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [ ":content" ]
 }
@@ -165,24 +168,25 @@ test("content_feature_attrs_test") {
 # HWND-free Catalog LayerDesc JSON (SP3 catalog snapshot).
 test("content_catalog_layers_test") {
   output_name = "content_catalog_layers_test"
-  sources = [ "browser/catalog_layers_test.cc" ]
+  sources = [ "browser/catalog/catalog_layers_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
     ":content",
     ":map_scene",
+    "//src/vista:vista",
   ]
 }
 
 # HWND-free sample / china map path policy (SP3 map bootstrap).
 test("content_map_bootstrap_test") {
   output_name = "content_map_bootstrap_test"
-  sources = [ "browser/map_bootstrap_test.cc" ]
+  sources = [ "browser/bootstrap/map_bootstrap_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [ ":map_bootstrap" ]
 }
 
 # --- Capability source_sets (Views/exe link; NOT absorbed into content.dll) ---
-# See views-desktop-shell living §Content sink (C6).
+# See views-desktop-shell living 搂Content sink (C6).
 
 # Opt-in loopback Debug Agent (LogSink / cmd / sdbd / py).
 source_set("capability") {
@@ -192,32 +196,32 @@ source_set("capability") {
 
 source_set("debug_agent") {
   sources = [
-    "browser/debug/agent_ask.cc",
-    "browser/debug/agent_ask.h",
-    "browser/debug/agent_diag.cc",
-    "browser/debug/agent_diag.h",
-    "browser/debug/agent_harness.cc",
-    "browser/debug/agent_harness.h",
-    "browser/debug/agent_json.cc",
-    "browser/debug/agent_json.h",
-    "browser/debug/agent_log.cc",
-    "browser/debug/agent_log.h",
-    "browser/debug/agent_map_cmd.cc",
-    "browser/debug/agent_map_cmd.h",
-    "browser/debug/agent_policy.cc",
-    "browser/debug/agent_policy.h",
-    "browser/debug/agent_py.cc",
-    "browser/debug/agent_py.h",
-    "browser/debug/agent_record.cc",
-    "browser/debug/agent_record.h",
-    "browser/debug/agent_schema.cc",
-    "browser/debug/agent_schema.h",
-    "browser/debug/agent_sdbd.cc",
-    "browser/debug/agent_sdbd.h",
-    "browser/debug/agent_ui.cc",
-    "browser/debug/agent_ui.h",
+    "browser/debug/cmd/agent_ask.cc",
+    "browser/debug/cmd/agent_ask.h",
+    "browser/debug/cmd/agent_diag.cc",
+    "browser/debug/cmd/agent_diag.h",
+    "browser/debug/cmd/agent_harness.cc",
+    "browser/debug/cmd/agent_harness.h",
+    "browser/debug/cmd/agent_log.cc",
+    "browser/debug/cmd/agent_log.h",
+    "browser/debug/cmd/agent_map_cmd.cc",
+    "browser/debug/cmd/agent_map_cmd.h",
+    "browser/debug/cmd/agent_py.cc",
+    "browser/debug/cmd/agent_py.h",
+    "browser/debug/cmd/agent_record.cc",
+    "browser/debug/cmd/agent_record.h",
+    "browser/debug/cmd/agent_sdbd.cc",
+    "browser/debug/cmd/agent_sdbd.h",
+    "browser/debug/cmd/agent_ui.cc",
+    "browser/debug/cmd/agent_ui.h",
     "browser/debug/debug_agent.cc",
     "browser/debug/debug_agent.h",
+    "browser/debug/policy/agent_policy.cc",
+    "browser/debug/policy/agent_policy.h",
+    "browser/debug/schema/agent_schema.cc",
+    "browser/debug/schema/agent_schema.h",
+    "browser/debug/wire/agent_json.cc",
+    "browser/debug/wire/agent_json.h",
   ]
   deps = [
     "//src/base:base",
@@ -270,8 +274,8 @@ benchmark("content_console_bench") {
 # In-process WebContents-ish owner (MapScene + camera + present + gestures).
 source_set("map_session") {
   sources = [
-    "browser/map_session.cc",
-    "browser/map_session.h",
+    "browser/session/map_session.cc",
+    "browser/session/map_session.h",
   ]
   deps = [
     ":map_camera",
@@ -311,9 +315,8 @@ source_set("map_scene") {
     ":content",
     "//src/base:foundation",
     "//src/gis:gis",
-    "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
-    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
-    "//src/gis/vista/world:land_mask",
+    "//src/vista:vista",
+    "//src/vista/world:land_mask",
     "//src/tool:dispatch",
     "//third_party:gdal",
   ]
@@ -357,12 +360,12 @@ source_set("map_present") {
   sources = [
     "browser/present/host/blit_frame_cache.cc",
     "browser/present/host/blit_frame_cache.h",
+    "browser/present/host/scenic_scene_bind.cc",
+    "browser/present/host/scenic_scene_bind.h",
     "browser/present/host/shell_overlay_effect.cc",
     "browser/present/host/shell_overlay_effect.h",
     "browser/present/map2d/frame/map2d_batches.cc",
     "browser/present/map2d/frame/map2d_batches.h",
-    "browser/present/map2d/frame/map2d_carto.cc",
-    "browser/present/map2d/frame/map2d_carto.h",
     "browser/present/map2d/frame/map2d_frame_cache.cc",
     "browser/present/map2d/frame/map2d_frame_cache.h",
     "browser/present/map2d/frame/map2d_tile_math.cc",
@@ -381,14 +384,13 @@ source_set("map_present") {
   deps = [
     ":map_camera",
     ":map_scene",
-    "//src/effect/map:map_sources",
+    "//src/vista:vista",
     "//src/gis:gis",
-    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
-    "//src/gis/vista/frame:frame",
     "//src/base:base",
     "//src/base:foundation",
     "//src/render:rhi",
     "//src/render/graph:graph",
+    "//src/scenic:scenic",
     "//src/ui/gfx:gfx_headers",
     "//third_party:gdal",
   ]
@@ -409,8 +411,8 @@ source_set("scene3d_present") {
     "browser/present/scene3d/frame/tileset_stream.h",
     "browser/present/scene3d/scene3d_presenter.cc",
     "browser/present/scene3d/scene3d_presenter.h",
-    "browser/present/scene3d/stereo/scene3d_stereo_session.cc",
-    "browser/present/scene3d/stereo/scene3d_stereo_session.h",
+    "browser/present/scene3d/session/scene3d_stereo_session.cc",
+    "browser/present/scene3d/session/scene3d_stereo_session.h",
     "browser/present/scene3d/software/scene3d_software_paint.cc",
     "browser/present/scene3d/software/scene3d_software_painter.h",
     "browser/present/scene3d/gpu/scene3d_gpu_present.cc",
@@ -425,14 +427,12 @@ source_set("scene3d_present") {
     ":map_scene",
     ":content",
     "//src/gis:gis",
-    "//src/effect/atmosphere:atmosphere_sources",
-    "//src/gis/vista/world:land_mask",
-    "//src/gis/vista/world:world",
-    "//src/effect/scene:scene_sources",
+    "//src/vista:vista",
     "//src/base:base",
     "//src/base:foundation",
     "//src/render:rhi",
     "//src/render/graph:graph",
+    "//src/scenic:scenic",
     "//src/tool:dispatch",
     "//src/ui/gfx:gfx_headers",
   ]
@@ -455,11 +455,31 @@ test("map_scene_test") {
     ":map_scene",
     ":content",
     "//src/gis:gis",
-    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
-    "//src/gis/vista/world:land_mask",
+    "//src/vista:vista",
     "//src/net:net",
     "//src/render:rhi",
     "//src/tool:dispatch",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//testing/data:china_map_samples" ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
+# Narrow P2 software GDI batch / faithful china paint_ms (no full map_scene suite).
+test("map2d_frame_gdi_test") {
+  output_name = "map2d_frame_gdi_test"
+  sources = [ "browser/present/map2d/software/map2d_frame_gdi_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":map_camera",
+    ":map_present",
+    ":map_scene",
+    ":content",
+    "//src/gis:gis",
+    "//src/vista:vista",
     "//third_party:gdal",
   ]
   data_deps = [ "//testing/data:china_map_samples" ]
@@ -503,10 +523,10 @@ test("scene3d_presenter_test") {
     ":scene3d_present",
     ":content",
     "//src/gis:gis",
-    "//src/effect/atmosphere:atmosphere_sources",
-    "//src/gis/vista/world:land_mask",
-    "//src/gis/vista/world:world",
-    "//src/effect/scene:scene_sources",
+    "//src/vista:vista",
+    "//src/vista:vista",
+    "//src/vista:vista",
+    "//src/vista:vista",
     "//src/render:rhi",
     "//src/tool:dispatch",
   ]

@@ -5,11 +5,11 @@
   "api_version": 2,
   "kind": "python",
   "author": "The Mogu Authors",
-  "description": "L3 Python orchestration for world3d.tin_from_xyz and baogrid.create_orth_grid",
+  "description": "L3 Python orchestration for world3d.trimesh_from_xyz and baogrid.create_orth_grid",
   "entry": "plugin.py",
   "contributes": {
     "commands": [
-      {"id": "sample.orch.tin_from_xyz", "title": "Orchestrate TIN from XYZ", "menu": "tools"},
+      {"id": "sample.orch.trimesh_from_xyz", "title": "Orchestrate trimesh from XYZ", "menu": "tools"},
       {"id": "sample.orch.create_orth_grid", "title": "Orchestrate orth grid", "menu": "tools"}
     ]
   }

@@ -12,6 +12,7 @@
 #include "app/views/shell/harness/showcase/plugin/product/mine.h"
 #include "app/views/shell/harness/showcase/plugin/product/orthogrid.h"
 #include "app/views/shell/harness/showcase/plugin/product/orthogrid3d.h"
+#include "app/views/shell/harness/showcase/plugin/product/print.h"
 #include "app/views/shell/harness/showcase/plugin/product/stormsurge.h"
 #include "app/views/shell/harness/showcase/plugin/product/world3d.h"
 #include "app/views/shell/runtime/capability/run_script.h"
@@ -34,6 +35,9 @@ int plugin_showcase_body(Browser& browser, PluginShowcaseMode mode) {
   if (mode == PluginShowcaseMode::kOrthogrid3d) {
     return detail::run_orthogrid3d(browser);
   }
+  if (mode == PluginShowcaseMode::kPrint) {
+    return detail::run_print(browser);
+  }
   // Other modes: Wave 2 suite bodies live in testing/tools/harness/plugin/*/*.il.
   (void)browser;
   detail::write_mark(detail::kPluginShowcaseMarkLeaf, "legacy-body-removed",
@@ -42,12 +46,13 @@ int plugin_showcase_body(Browser& browser, PluginShowcaseMode mode) {
 }
 
 int run_plugin_showcase(Browser& browser, PluginShowcaseMode mode) {
-  // world3d / mine / stormsurge / orthogrid* use C++ bodies (not Map2d .il).
+  // world3d / mine / stormsurge / orthogrid* / print use C++ bodies.
   if (mode == PluginShowcaseMode::kWorld3d ||
       mode == PluginShowcaseMode::kMine ||
       mode == PluginShowcaseMode::kStormSurge ||
       mode == PluginShowcaseMode::kOrthogrid ||
-      mode == PluginShowcaseMode::kOrthogrid3d) {
+      mode == PluginShowcaseMode::kOrthogrid3d ||
+      mode == PluginShowcaseMode::kPrint) {
     _putenv_s("SMT_FORCE_GDI_MAP_OVERLAY", "1");
     return plugin_showcase_body(browser, mode);
   }

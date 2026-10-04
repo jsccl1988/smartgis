@@ -27,7 +27,7 @@ test("frame_graph_test") {
   include_dirs += [ "//src" ]
   deps = [
     ":graph",
-    "//src/effect/map:map_sources",
+    "//src/vista:vista",
     "//src/gis:gis",
     "//third_party:gdal",
   ]

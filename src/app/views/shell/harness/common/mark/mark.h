@@ -12,6 +12,9 @@ namespace detail {
 // Sidecar mark leaf basenames. exe_capture_path routes them into
 // captures/<scenario>/ (shell/, atmosphere/, map2d/, plugin/, ui/, …).
 inline constexpr wchar_t kSelfTestMarkLeaf[] = L"self-test-mark.txt";
+// browse.3d must not share self-test-mark.txt with browse / console / self_test
+// — concurrent shell suites clobber orbit/wheel marks mid-score.
+inline constexpr wchar_t kBrowse3dMarkLeaf[] = L"browse-3d-mark.txt";
 inline constexpr wchar_t kAtmosphereShowcaseMarkLeaf[] =
     L"atmosphere-showcase-mark.txt";
 inline constexpr wchar_t kMap2dShowcaseMarkLeaf[] = L"map2d-showcase-mark.txt";

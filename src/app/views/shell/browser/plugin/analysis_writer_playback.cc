@@ -13,7 +13,7 @@
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "plugin/product/orthogrid/commands.h"
+#include "plugin/product/world3d/commands.h"
 
 #include <fstream>
 #include <string>

@@ -12,11 +12,11 @@ All rights reserved.
 **Date:** 2026-09-27  
 **Layout note (2026-09-27):** Public headers are **colocated** with their `.cc` under `ocean/` `cloud/` `sky/` `fog/` `common/` `frame/` (global rule `.cursor/rules/style/colocated-sources.mdc`). Earlier §1 “B headers-at-root” is **superseded** for on-disk layout; includes are `render/atmosphere/<module>/<file>.h`.  
 **Scope:** 物理与职责拆分：通用大气 **绘制管线**（`render::atmosphere`）vs GIS **专有场景/会话域**（`gis::atmosphere` + Views 编排）；对照已落地的 `src/render/rhi` 子目录经验；映射典型 GIS 3D 大气诉求到模块边界。**本轮不实现**新散射/云海算法。  
-**Related (capability, living):** [`2026-09-19-atmosphere-ocean-cloud-design.md`](2026-09-19-atmosphere-ocean-cloud-design.md) · upgrade plan [`../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md`](../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md)  
+**Related (capability, living):** [`2026-09-19-atmosphere-ocean-cloud-design.md`](2026-09-19-atmosphere-ocean-cloud-design.md) · upgrade plan [`../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md`](../../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md)  
 **Related (weather domain boundary):** [`2026-09-27-weather-domain-boundary-design.md`](2026-09-27-weather-domain-boundary-design.md) — 天气仿真/会话与 `render` 解耦（active）  
-**Related (RHI / scene):** [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md) · P0 lit [`2026-09-20-rhi-3d-capability-p0-design.md`](2026-09-20-rhi-3d-capability-p0-design.md) · RHI split (landed) [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md)  
-**Plan (landed):** [`../archive/plans/2026-09-27-atmosphere-subdirectory-layout.md`](../archive/plans/2026-09-27-atmosphere-subdirectory-layout.md)  
-**As-built pointer:** [`../../../src/render/README.md`](../../../src/render/README.md)
+**Related (RHI / scene):** [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md) · P0 lit [`2026-09-20-rhi-3d-capability-p0-design.md`](2026-09-20-rhi-3d-capability-p0-design.md) · RHI split (landed) [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../plans/2026-09-27-rhi-subdirectory-split.md)  
+**Plan (landed):** [`../archive/plans/2026-09-27-atmosphere-subdirectory-layout.md`](../plans/2026-09-27-atmosphere-subdirectory-layout.md)  
+**As-built pointer:** [`../../../src/render/README.md`](../../README.md)
 
 ## Goal
 

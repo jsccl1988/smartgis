@@ -97,16 +97,16 @@ void Orthogrid::GetRegionBoudaryX(vCurvePoints &bnd, int iStart, int iEnd,
   if (nStep < 1) nStep = 1;
   if (iEnd > iStart) {
     for (i = iStart; i <= iEnd; i += nStep) {
-      P = m_pNodes->GetElement(J, i);
+      P = m_pNodes->get_element(J, i);
       bnd.push_back(P);
     }
   } else {
     for (i = iStart; i >= iEnd; i -= nStep) {
-      P = m_pNodes->GetElement(J, i);
+      P = m_pNodes->get_element(J, i);
       bnd.push_back(P);
     }
   }
-  bnd[bnd.size() - 1] = m_pNodes->GetElement(J, iEnd);
+  bnd[bnd.size() - 1] = m_pNodes->get_element(J, iEnd);
 }
 
 void Orthogrid::GetRegionBoudaryY(vCurvePoints &bnd, int jStart, int jEnd,
@@ -117,16 +117,16 @@ void Orthogrid::GetRegionBoudaryY(vCurvePoints &bnd, int jStart, int jEnd,
   if (nStep < 1) nStep = 1;
   if (jEnd > jStart) {
     for (j = jStart; j <= jEnd; j += nStep) {
-      P = m_pNodes->GetElement(j, I);
+      P = m_pNodes->get_element(j, I);
       bnd.push_back(P);
     }
   } else {
     for (j = jStart; j >= jEnd; j -= nStep) {
-      P = m_pNodes->GetElement(j, I);
+      P = m_pNodes->get_element(j, I);
       bnd.push_back(P);
     }
   }
-  bnd[bnd.size() - 1] = m_pNodes->GetElement(jEnd, I);
+  bnd[bnd.size() - 1] = m_pNodes->get_element(jEnd, I);
 }
 
 void Orthogrid::GetBoudaryNode(int start, int end, int index, int flag,
@@ -149,12 +149,12 @@ void Orthogrid::GetBoudaryNodeX(int start, int end, int index,
   dbfPoint P;
   if (end > start) {
     for (i = start; i <= end; i++) {
-      P = m_pNodes->GetElement(index, i);
+      P = m_pNodes->get_element(index, i);
       nodes.push_back(P);
     }
   } else {
     for (i = start; i >= end; i--) {
-      P = m_pNodes->GetElement(index, i);
+      P = m_pNodes->get_element(index, i);
       nodes.push_back(P);
     }
   }
@@ -166,13 +166,13 @@ void Orthogrid::GetBoudaryNodeY(int start, int end, int index,
   int j;
   if (end > start) {
     for (j = start; j <= end; j++) {
-      P = m_pNodes->GetElement(j, index);
+      P = m_pNodes->get_element(j, index);
       nodes.push_back(P);
     }
 
   } else {
     for (j = start; j >= end; j--) {
-      P = m_pNodes->GetElement(j, index);
+      P = m_pNodes->get_element(j, index);
       nodes.push_back(P);
     }
   }

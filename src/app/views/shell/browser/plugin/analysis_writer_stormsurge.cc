@@ -10,7 +10,7 @@
 #include "app/views/shell/runtime/analysis/playback.h"
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "gis/present/style/style_document.h"
+#include "gis/carto/style/style_document.h"
 #include "plugin/product/stormsurge/commands.h"
 
 #include <cstdint>
@@ -114,7 +114,7 @@ bool commit_stormsurge_water_mesh(content::MapScene* doc,
           static_cast<float>(xyz[i * 3 + 1]);
       // Free-surface lift so the overlay clears DEM hypsometric paint.
       tin_geo[static_cast<size_t>(i) * 3u + 2u] =
-          static_cast<float>(xyz[i * 3 + 2]) + 8.f;
+          static_cast<float>(xyz[i * 3 + 2]) + 18.f;
     }
     const int index_count = triangle_count * 3;
     std::vector<unsigned> tin_idx(static_cast<size_t>(index_count));
@@ -126,8 +126,8 @@ bool commit_stormsurge_water_mesh(content::MapScene* doc,
       tin_idx[static_cast<size_t>(i)] =
           static_cast<unsigned>(triangles[i]);
     }
-    // Distinct cyan free-surface (not untextured land-green GpuScene default).
-    constexpr uint8_t kWaterAlbedo[4] = {46, 170, 220, 230};
+    // Bright cyan free-surface (score water_on_land: b>=140 g>=120 sum>280).
+    constexpr uint8_t kWaterAlbedo[4] = {28, 210, 245, 250};
     scene3d->set_overlay_tin_mesh(tin_geo.data(), point_count, tin_idx.data(),
                                   index_count, kWaterAlbedo);
   }

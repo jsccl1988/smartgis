@@ -11,7 +11,7 @@ All rights reserved.
 > **For agentic workers:** follow checkboxes; stay on `master`; no commit unless asked.
 
 **Goal:** Align leftover DEM / scene3d seed path with RHI dual scene (`gis::World` + `GpuScene`); thin adapters only.  
-**Spec:** [`../specs/2026-09-19-scene3d-world-gpuscene-design.md`](../specs/2026-09-19-scene3d-world-gpuscene-design.md)
+**Spec:** [`../specs/2026-09-19-scene3d-world-gpuscene-design.md`](../archive/specs/2026-09-19-scene3d-world-gpuscene-design.md)
 
 ## Constraints
 
@@ -117,7 +117,7 @@ All rights reserved.
 
 ### Deferred（后续）
 
-> 与业界差距钉死对齐：见 [`2026-09-30-map3d-gap-pin.md`](2026-09-30-map3d-gap-pin.md)（P0-A / P2-A）与 [`../../build/industry-gap-matrix.md`](../../build/industry-gap-matrix.md) §3.2.1。
+> 与业界差距钉死对齐：见 [`2026-09-30-map3d-gap-pin.md`](2026-09-30-map3d-gap-pin.md)（P0-A / P2-A）与 [`../industry-gap-matrix.md`](../industry-gap-matrix.md) §3.2.1。
 
 - [x] leftover `DemHeightField` 薄包装 `gis::DemRaster`（去重复实现）— **map3d-gap-pin P0-A**。  
 - [ ] `SmtScene` octree 查询路径进一步委托 World（当前仅 AABB 镜像）— **map3d-gap-pin P2-A**。  

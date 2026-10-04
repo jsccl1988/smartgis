@@ -13,7 +13,7 @@
 #include <memory>
 #include <string>
 
-#include "gis/vista/world/terrain/dem/dem_frame.h"
+#include "vista/world/terrain/dem/dem_frame.h"
 #include "legacy/render/rhi3d/impl/common/frame/scheduler.h"
 #include "legacy/render/rhi3d/public/camera/camera.h"
 #include "legacy/render/rhi3d/public/device/render_device.h"
@@ -119,7 +119,7 @@ void apply_orbit_camera(StereoHwndView* v, float yaw, float pitch,
 
   // Map Scene3dController orbit onto leftover geographic framing. Default
   // shell yaw/pitch/distance reproduce leftover_frame_pose (south-of-target).
-  const float yaw0 = gis::kDemDefaultOrbitYaw;
+  const float yaw0 = vista::kDemDefaultOrbitYaw;
   const float pitch0 = 0.4f;
   const float dist0 = 3.2f;
   const Vector3 base_off = base_eye - target;
@@ -410,7 +410,7 @@ void* smt_stereo_hwnd_create(HWND hwnd) {
   view->scene->SetSceneCamera(view->camera.get());
   view->width = w;
   view->height = h;
-  apply_orbit_camera(view.get(), gis::kDemDefaultOrbitYaw, 0.4f, 3.2f);
+  apply_orbit_camera(view.get(), vista::kDemDefaultOrbitYaw, 0.4f, 3.2f);
 
   view->use_frame_job = frame_job_enabled();
   if (view->use_frame_job) {

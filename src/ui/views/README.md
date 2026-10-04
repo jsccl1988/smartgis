@@ -116,9 +116,9 @@ Module nest remains `src/ui/views` (one layer under `ui/`). The groups are direc
 - Main app chrome: `src/ui/resources/shell/main_app.ui.xml` (+ `.ui.css`) — product `ShellLayoutComposer` loads it and mounts Catalog / Map / Ambox / inspector / Diagnostic / Status into `*_host` panels; UiDesigner opens the same file as the default canvas.
 - UI render profile: `BASE_TRACE_EVENT(..., "ui.views")` on Widget paint/commit/present + ShellCompositor raster; RenderTrace **UI** filter; Diagnostic Tools tab **Trace**.
 
-Map pixels stay on `src/map` / `src/feature` + `src/render`. Architecture: [`docs/build/ui-views-skia.md`](../../../docs/build/ui-views-skia.md). Control split: [`docs/superpowers/specs/2026-09-13-ui-views-controls-design.md`](../../../docs/superpowers/specs/2026-09-13-ui-views-controls-design.md) (nesting superseded by the 2026-09-19 design).
+Map pixels stay on `src/map` / `src/feature` + `src/render`. Architecture: [`docs/superpowers/ui-views-skia.md`](../../../docs/superpowers/ui-views-skia.md). Control split: [`docs/superpowers/specs/2026-09-13-ui-views-controls-design.md`](../../../docs/superpowers/specs/2026-09-13-ui-views-controls-design.md) (nesting superseded by the 2026-09-19 design).
 
-GN: `//src/ui/views:views` via `//:ui_views` (layered `views_kernel` / `views_control_factory` / `views_primitives` / `views_markup` / … under one DLL). Not in `src_all`. `views_unittests` / `markup_unittests` under `testing/unit/`. L1 `views_interactive_tests` + harness under `testing/harness/` / `testing/interactive/`. L1b `views_bench` under `testing/bench/`. `views_pixel_tests` under `testing/pixel/`. PNG goldens stay in `testing/testdata/`. GUI 分层与门禁：[`docs/build/ui-testing.md`](../../../docs/build/ui-testing.md)。
+GN: `//src/ui/views:views` via `//:ui_views` (layered `views_kernel` / `views_control_factory` / `views_primitives` / `views_markup` / … under one DLL). Not in `src_all`. `views_unittests` / `markup_unittests` under `testing/unit/`. L1 `views_interactive_tests` + harness under `testing/harness/` / `testing/interactive/`. L1b `views_bench` under `testing/bench/`. `views_pixel_tests` under `testing/pixel/`. PNG goldens stay in `testing/testdata/`. GUI 分层与门禁：[`docs/superpowers/ui-testing.md`](../../../docs/superpowers/ui-testing.md)。
 
 ---
 

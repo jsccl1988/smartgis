@@ -45,7 +45,7 @@ All rights reserved.
 
 ### Task 3: Docs
 
-- [x] **Step 1:** Update `docs/build/src-layout.md`, `src/README.md`, `src/tool/README.md`
+- [x] **Step 1:** Update `docs/superpowers/src-layout.md`, `src/README.md`, `src/tool/README.md`
 - [x] **Step 2:** Patch leftover path lines in `docs/superpowers/specs/2026-09-13-tool-event-dispatch-design.md`
 - [x] **Step 3:** Add index row in `docs/README.md` for this spec/plan
 

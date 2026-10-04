@@ -66,8 +66,8 @@ class XCATALOG_EXPORT SmtDSXCatalog : public SmtXCatalog {
   DECLARE_MESSAGE_MAP()
 
  private:
-  void AppendDSNode(SmtDataSource pDS);
-  void AppendDSNode(SmtDataSource pDS, const char* preferred_name);
+  void AppendDSNode(CatalogSource pDS);
+  void AppendDSNode(CatalogSource pDS, const char* preferred_name);
 
  private:
   CImageList m_imgList;

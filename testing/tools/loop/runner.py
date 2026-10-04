@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 
@@ -137,10 +138,17 @@ def _prepare_env(suite: Suite) -> dict[str, str]:
     # Suite.env wins (re-apply after scrub).
     for key, value in suite.env.items():
         env[str(key)] = str(value)
-    if suite.id in ("browse.3d", "ui.scene", "browse"):
+    # browse.3d / ui.scene need FlyCube present pixels. browse (2D) uses the
+    # product ContentMapView + GDI overlay face (browser_main bare/browse-2d) —
+    # do not force FlyCube here or shell BitBlt records a black clip-children hole.
+    if suite.id in ("browse.3d", "ui.scene"):
         env["SMT_FORCE_CONTENT_MAPVIEW_2D"] = "0"
         env["SMT_PREFER_FLYCUBE_2D"] = "1"
         env["SMT_FORCE_GDI_MAP_OVERLAY"] = "0"
+    elif suite.id == "browse":
+        env["SMT_FORCE_CONTENT_MAPVIEW_2D"] = "1"
+        env["SMT_PREFER_FLYCUBE_2D"] = "0"
+        env["SMT_FORCE_GDI_MAP_OVERLAY"] = "1"
     script = suite.script_path()
     if script is not None and script.is_file():
         env["SMT_UI_INTERACT_SCRIPT"] = str(script.resolve())
@@ -305,40 +313,86 @@ def run_suite(
                 print(f"warn: could not delete stale BMP: {exc}", flush=True)
 
         env = _prepare_env(suite)
+        run_exe = exe
+        private_lock = None
+        scenic_env = (
+            env.get("SMT_MAP2D_ENGINE", "").lower() == "scenic"
+            or env.get("SMT_SCENE3D_ENGINE", "").lower() == "scenic"
+            or os.environ.get("SMT_HARNESS_PRIVATE_EXE", "").strip() in (
+                "1",
+                "on",
+                "true",
+                "yes",
+            )
+        )
+        if scenic_env and suite.exe_name.lower().startswith("smartgisviews"):
+            try:
+                from .private_runtime import (
+                    acquire_run_lock,
+                    prepare_private_views_exe,
+                    release_run_lock,
+                    with_private_path,
+                )
+
+                private_lock = out.parent / "scratch" / "scenic_review.lock"
+                if acquire_run_lock(private_lock, timeout_sec=180.0):
+                    private = prepare_private_views_exe(
+                        out, tag="scenic_review", exe_name=suite.exe_name
+                    )
+                    if private is not None:
+                        run_exe = private
+                        env = with_private_path(env, out, private)
+                        print(f"private runtime: {run_exe}", flush=True)
+                else:
+                    print("warn: scenic private lock busy; using live exe", flush=True)
+                    private_lock = None
+            except Exception as exc:  # noqa: BLE001
+                print(f"warn: private runtime skipped ({exc})", flush=True)
+                private_lock = None
+
         started = time.time()
         inject_report: dict | None = None
         record_report: dict | None = None
         # Record stays at captures/record/ (not under scenario family).
         recorder = _attach_recorder(suite, env=env, captures=captures_root)
-        if suite.driver == "os":
-            rc, inject_report, record_report = _run_os_process(
-                suite,
-                exe=exe,
-                out=out,
-                env=env,
-                timeout=timeout,
-                recorder=recorder,
-                bmp_path=bmp,
-                captures_root=captures_root,
-            )
-        else:
-            # Inproc: start record once HWND exists (poll title while exe runs).
-            if recorder is not None:
-                import threading
-
-                def _bg_record() -> None:
-                    nonlocal record_report
-                    record_report = recorder.start_after_hwnd(wait_for_hwnd=True)
-
-                t = threading.Thread(target=_bg_record, daemon=True)
-                t.start()
-            try:
-                rc = _run_inproc_process(
-                    suite, exe=exe, out=out, env=env, timeout=timeout
+        try:
+            if suite.driver == "os":
+                rc, inject_report, record_report = _run_os_process(
+                    suite,
+                    exe=run_exe,
+                    out=out,
+                    env=env,
+                    timeout=timeout,
+                    recorder=recorder,
+                    bmp_path=bmp,
+                    captures_root=captures_root,
                 )
-            finally:
+            else:
+                # Inproc: start record once HWND exists (poll title while exe runs).
                 if recorder is not None:
-                    record_report = recorder.stop()
+                    import threading
+
+                    def _bg_record() -> None:
+                        nonlocal record_report
+                        record_report = recorder.start_after_hwnd(wait_for_hwnd=True)
+
+                    t = threading.Thread(target=_bg_record, daemon=True)
+                    t.start()
+                try:
+                    rc = _run_inproc_process(
+                        suite, exe=run_exe, out=out, env=env, timeout=timeout
+                    )
+                finally:
+                    if recorder is not None:
+                        record_report = recorder.stop()
+        finally:
+            if private_lock is not None:
+                try:
+                    from .private_runtime import release_run_lock
+
+                    release_run_lock(private_lock)
+                except Exception:  # noqa: BLE001
+                    pass
 
         mark_text = read_mark_text(mark)
         last = _score_round(

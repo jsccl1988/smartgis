@@ -19,7 +19,7 @@ Status: superseded (2026-09-28 merge B)
 1. 把 leftover 适配层收成**可维护、snake_case、两层命名空间 `render`** 的场景数学库。
 2. **C 硬切**：无 PascalCase / `GetLength` / `RotaX` 等旧名转发；同变更同步所有 in-tree 调用方（含 `legacy_render`、`algorithm/tin`、`vector_traits`）。
 3. 在精简基础上补齐：Frustum、Transform 栈、插值、SIMD 批量（可选路径）。
-4. 保持与 `docs/build/src-layout.md`、algorithm OSS、model-render 设计一致：Eigen = 场景数学，不是第二套 OGC 几何核。
+4. 保持与 `docs/superpowers/src-layout.md`、algorithm OSS、model-render 设计一致：Eigen = 场景数学，不是第二套 OGC 几何核。
 
 ## Non-goals
 
@@ -188,9 +188,9 @@ src/render/math/
 
 ## docs 联动
 
-- `docs/build/src-layout.md`：更新 leftover/`mathlib_3d` 表述 → 新头与 API 策略。
+- `docs/superpowers/src-layout.md`：更新 leftover/`mathlib_3d` 表述 → 新头与 API 策略。
 - `src/render/README.md`：math 行注明拆分、Eigen、禁止 glm。
-- 落地后：本 spec → `landed` 并归档；as-built 写入 `docs/build/` 或 README。
+- 落地后：本 spec → `landed` 并归档；as-built 写入 `docs/superpowers/` 或 README。
 - 交叉引用：不改 algorithm/model-render 的 Eigen 结论，可加「API 已硬切」一句。
 
 ## 批准记录

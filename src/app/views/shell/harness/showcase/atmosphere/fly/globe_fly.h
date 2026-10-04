@@ -9,9 +9,9 @@ class AtmosphereSession;
 class OrbitFrame;
 }  // namespace content
 
-namespace effect::atmosphere {
+namespace vista {
 class GlobePass;
-}  // namespace effect::atmosphere
+}
 
 namespace app {
 namespace detail {
@@ -22,7 +22,7 @@ void apply_globe_flythrough(content::OrbitFrame* orbit,
                             float t01,
                             float china_yaw,
                             float china_pitch,
-                            const effect::atmosphere::GlobePass* globe,
+                            const vista::GlobePass* globe,
                             content::AtmosphereSession* session);
 
 }  // namespace detail

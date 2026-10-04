@@ -1,0 +1,70 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+import("//third_party/antlr4/antlr.gni")
+
+# StatExpr.g4 → $root_gen_dir/g4/gis/stat/cpp (antlr_library). Not checked in.
+
+antlr_library("stat_expr_parser") {
+  sources = [ "StatExpr.g4" ]
+  grammar = "StatExpr"
+  output = "gis/stat"
+  generate_cpp = true
+  generate_python = false
+  generate_listener = false
+  package = "smtstat"
+}
+
+# Hand-written evaluator. Keep //build:legacy off so
+# _HAS_STD_BYTE=0 / smt_compat.h do not break the C++ runtime.
+source_set("stat_eval") {
+  sources = [
+    "ops.cc",
+    "evaluate.cc",
+  ]
+  defines = [
+    "BUILD_AS_DLL",
+    "GIS_EXPORTS",
+  ]
+  public_deps = [ ":stat_expr_parser" ]
+}
+
+# Compiled into //src/gis:gis (dll_stem = gis). :stat is the consumer label.
+source_set("stat_sources") {
+  sources = [ "value_set.cc" ]
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+    "ANTLR4CPP_STATIC",
+    "_CRT_DECLARE_NONSTDC_NAMES=0",
+  ]
+  deps = [
+    ":stat_eval",
+    "//src/base:core",
+  ]
+}
+
+group("stat") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+test("stat_expr_test") {
+  output_name = "stat_expr_test"
+  sources = [ "stat_expr_test.cc" ]
+  include_dirs += [
+    "//src",
+    "//src/gis/stat",
+    "//src/base/core",
+  ]
+  defines = [
+    "NOMINMAX",
+    "_CRT_DECLARE_NONSTDC_NAMES=0",
+  ]
+  deps = [
+    ":stat",
+    "//src/base:core",
+  ]
+}

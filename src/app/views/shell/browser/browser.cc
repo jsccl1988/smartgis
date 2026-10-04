@@ -14,9 +14,15 @@
 #include "base/core/log.h"
 #include "base/trace/event/process_trace.h"
 #include "content/browser/camera/map_host_extent.h"
+#include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/public/map_contents.h"
 #include "content/public/view_host.h"
 #include "ui/views/map/viewport/map_viewport.h"
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 
 namespace app {
 
@@ -119,6 +125,22 @@ bool Browser::init() {
   return ok;
 }
 
+namespace {
+
+bool seh_fit_map_extent(Browser* browser) {
+  if (!browser) {
+    return false;
+  }
+  __try {
+    browser->fit_map_extent();
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return false;
+  }
+}
+
+}  // namespace
+
 void Browser::show() {
   if (ui_) {
     // show_shell shows the shell and schedules the first map invalidate.
@@ -135,7 +157,23 @@ void Browser::show() {
     return skip && skip[0] != '\0' && skip[0] != '0';
   }();
   if (!skip_fit) {
-    fit_map_extent();
+    if (!seh_fit_map_extent(this)) {
+      LOGGING(LOG_WARNING, "startup: Browser::show fit_map_extent SEH");
+    }
+  }
+  // Sync China seed (default product path): drop any pre-china FlyCube latch
+  // so the first interactive present records china carto — same face as
+  // --ui-showcase=shell without forcing GDI overlay.
+  if (document() && document()->has_china_extent()) {
+    if (content::Map2dPresenter* map2d = this->map2d()) {
+      map2d->note_surface_reset();
+      map2d->invalidate_frame_cache();
+    }
+    if (ui::views::MapViewport* map = map_viewport()) {
+      // invalidate_native → request_frame (public export); do not call
+      // request_frame directly — older ui_views_d.dll still exports it private.
+      map->invalidate_native();
+    }
   }
   navigation_baselined_ = true;
   refresh_scale();
@@ -180,24 +218,44 @@ void Browser::show() {
                 std::getenv("SMT_SKIP_CHINA_LAND_CLIP")
                     ? std::getenv("SMT_SKIP_CHINA_LAND_CLIP")
                     : "(null)");
-        // Pause Present timers before LayerStore replace — concurrent FlyCube
-        // present + GDAL open/replace_layers can hang the UI thread forever
-        // (seed begin with no done). Same pattern as console_self_test.
-        auto stop_present = [](ui::views::MapViewport* pane) {
-          if (!pane) {
-            return;
-          }
-          pane->set_flycube_present_visible(false);
-          HWND nv = pane->native_view();
-          if (nv && IsWindow(nv)) {
-            KillTimer(nv, 1);
+        // Pause Present before LayerStore replace — concurrent FlyCube present
+        // + GDAL open/replace_layers hung the UI thread (seed begin, no done)
+        // and left product HWNDs blank: KillTimer without resume meant Map
+        // Edit/Data/3D never presented again. Drain queued WM_TIMER too.
+        auto pause_present = [](ui::views::MapViewport* pane) {
+          if (pane) {
+            pane->pause_present();
           }
         };
-        if (self->ui()) {
-          stop_present(self->ui()->map_viewport());
-          stop_present(self->ui()->map_data_viewport());
-          stop_present(self->ui()->map_scene_viewport());
-        }
+        pause_present(self->map_viewport());
+        pause_present(self->map_data_viewport());
+        pause_present(self->map_scene_viewport());
+        struct ResumePresents {
+          Browser* browser = nullptr;
+          ~ResumePresents() {
+            if (!browser || browser->is_close_prepared()) {
+              return;
+            }
+            ui::views::MapViewport* active =
+                browser->ui() ? browser->ui()->active_map()
+                              : browser->map_viewport();
+            auto resume = [active](ui::views::MapViewport* pane) {
+              if (!pane) {
+                return;
+              }
+              pane->set_flycube_present_visible(pane == active);
+              if (pane->attach_mode() ==
+                  ui::views::MapViewport::AttachMode::kNone) {
+                return;
+              }
+              pane->resume_present_timer();
+              pane->invalidate_native();
+            };
+            resume(browser->map_viewport());
+            resume(browser->map_data_viewport());
+            resume(browser->map_scene_viewport());
+          }
+        } resume_presents{self};
         try {
           // Replace demo layer with china_city / PLP (same paths as sync seed).
           self->document()->seed_default(/*allow_china_bootstrap=*/true);
@@ -211,12 +269,23 @@ void Browser::show() {
           if (self->is_close_prepared()) {
             return;
           }
-          self->fit_map_extent();
+          if (!seh_fit_map_extent(self)) {
+            LOGGING(LOG_WARNING, "startup: deferred China fit_map_extent SEH");
+          }
           self->push_shared_extent();
+          // Drop any hollow FlyCube StaticReuse latch from the demo-only first
+          // present so china carto is re-recorded after LayerStore replace.
+          if (content::Map2dPresenter* map2d = self->map2d()) {
+            map2d->note_surface_reset();
+            map2d->invalidate_frame_cache();
+          }
           self->refresh_inspectors();
           self->sync_catalog_from_scene();
           if (self->ui()) {
             self->ui()->invalidate_map_overlays();
+          }
+          if (ui::views::MapViewport* map = self->map_viewport()) {
+            map->invalidate_native();
           }
           // Do not call select_map_tab here — SMT_VIEWS_START_MAP_TAB may
           // already be inside switch_map_tab's PeekMessage wait; nested select
@@ -287,6 +356,12 @@ void Browser::prepare_close() {
 
 HWND Browser::hwnd() const {
   return ui_ ? ui_->hwnd() : nullptr;
+}
+
+void Browser::invalidate_map_overlays() {
+  if (ui_) {
+    ui_->invalidate_map_overlays();
+  }
 }
 
 ui::views::View* Browser::contents_view() const {

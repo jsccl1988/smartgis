@@ -1,0 +1,62 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
+#ifndef PLUGIN_WORLD3D_TRIMESH_LOADER_DIALOG_H_
+#define PLUGIN_WORLD3D_TRIMESH_LOADER_DIALOG_H_
+
+#include <string>
+
+#include "ui/views/kernel/view/view.h"
+
+namespace content {
+class PluginHost;
+}
+
+namespace ui::views {
+class Checkbox;
+class Combobox;
+class RadioButton;
+class TableView;
+class Textfield;
+}
+
+namespace plugin {
+
+// ASCII XYZ trimesh (irregular TIN surface) dialog. Layout from UiDesigner
+// markup (world3d/trimesh_loader.ui.xml); this type only binds ids and
+// processing.
+class TrimeshLoaderDialog : public ui::views::View {
+ public:
+  explicit TrimeshLoaderDialog(content::PluginHost* host);
+
+ private:
+  void on_ok();
+  void on_pick_vertex();
+  void on_pick_texture();
+  void update_preview();
+  std::string separator_name() const;
+  std::string build_json() const;
+
+  content::PluginHost* host_ = nullptr;
+  ui::views::Textfield* vertex_path_ = nullptr;
+  ui::views::RadioButton* radio_tab_ = nullptr;
+  ui::views::RadioButton* radio_space_ = nullptr;
+  ui::views::RadioButton* radio_comma_ = nullptr;
+  ui::views::Textfield* head_skip_ = nullptr;
+  ui::views::Textfield* line_skip_ = nullptr;
+  ui::views::Combobox* col_x_ = nullptr;
+  ui::views::Combobox* col_y_ = nullptr;
+  ui::views::Combobox* col_z_ = nullptr;
+  ui::views::Textfield* x_scale_ = nullptr;
+  ui::views::Textfield* y_scale_ = nullptr;
+  ui::views::Textfield* z_scale_ = nullptr;
+  ui::views::Checkbox* use_texture_ = nullptr;
+  ui::views::Textfield* texture_path_ = nullptr;
+  ui::views::Checkbox* gen_2d_trimesh_ = nullptr;
+  ui::views::Combobox* trimesh_layer_ = nullptr;
+  ui::views::TableView* preview_ = nullptr;
+};
+
+}  // namespace plugin
+
+#endif  // PLUGIN_WORLD3D_TRIMESH_LOADER_DIALOG_H_

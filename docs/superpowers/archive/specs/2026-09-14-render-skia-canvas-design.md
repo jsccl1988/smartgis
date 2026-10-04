@@ -17,7 +17,7 @@ Updated: 2026-09-28
 ## 依据
 
 - 对话已锁定决策（本文件只落边界，不再选型）
-- [`docs/build/ui-views-skia.md`](../../build/ui-views-skia.md)
+- [`docs/superpowers/ui-views-skia.md`](../../ui-views-skia.md)
 - [`docs/superpowers/specs/2026-09-13-model-render-compute-design.md`](2026-09-13-model-render-compute-design.md) §6.3
 - 现状代码：`src/ui/gfx/canvas/canvas.h`（GDI/Skia 双后端；见 § 职责子目录）
 
@@ -177,7 +177,7 @@ struct Size {
 ## 关系文档
 
 - 实现计划：[`../plans/2026-09-14-render-skia-canvas.md`](../plans/2026-09-14-render-skia-canvas.md)（历史 canvas API；子目录迁移步骤见下 §）
-- As-built 终局：[`docs/build/ui-views-skia.md`](../../build/ui-views-skia.md)
+- As-built 终局：[`docs/superpowers/ui-views-skia.md`](../../ui-views-skia.md)
 - 控件 / 迁移规格不改边界，仅消费本 canvas API
 - Toolkit 子目录范式：[`2026-09-19-ui-views-subdir-responsibility-design.md`](2026-09-19-ui-views-subdir-responsibility-design.md)
 - Compositor 消费 DisplayList / ShellRaster：[`2026-09-13-ui-views-controls-design.md`](2026-09-13-ui-views-controls-design.md) § UI compositor thread

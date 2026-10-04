@@ -1,0 +1,59 @@
+---
+description: HARD RULE — product trees must not include or GN-dep leftover; leftover may depend on product only (one-way)
+alwaysApply: true
+---
+
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+
+# One-way leftover: product must not use `legacy`
+
+**This rule is always on.** End state: leftover depends on product, never the reverse.
+
+Leftover trees: **`src/legacy/`**, **`branches/`**, leftover GN aggregators (`ui_legacy`, `legacy_render`, `legacy_tool`, `legacy/app`, leftover `*.am`). Product trees: everything else under **`src/`** (`base`, `gis`, `render`, `effect`, `content`, `tool`, `plugin`, `net`, `ui/views|gfx|gis`, `app/views|…`, `gpu`, **`scenic`** public façade), plus **`algorithm/`**, **`testing/`**, and colocated product tests.
+
+Copied Scenic internals under `src/scenic/{rhi2d,rhi3d,scene3d}` may still `#include "legacy/gis/…"` until extracted — those TUs are leftover-classified (`scenic_copy_all`, not `src_all` / not `scenic.dll`). **`//src/scenic:scenic`** product TUs must not `#include "legacy/…"` and must not GN-dep leftover render.
+
+## Allowed
+
+```
+leftover  →  product     OK   (legacy includes gis/, base/, render/, content/public, ui/views, …)
+product   →  leftover    NO
+```
+
+- Implement new behavior in product APIs. Leftover **adapts** (include product headers, call product types).
+- If a capability exists only in leftover, **extract a product seam first**, then leftover implements or wraps it. Do not pull leftover into the product TU.
+- Product GN: prefer `//src/base:base` over leftover **group aliases** (`//src/legacy/sys:sys`, `//src/legacy/core:…`) even when those groups only forward to `base.dll`.
+- Keep / extend `assert_no_deps` on product aggregators (`//src:src_all`, SmartGisViews) against leftover DLLs / MFC shell.
+
+## Don’t (product TUs, BUILD.gn, tests)
+
+- **Don’t** `#include "legacy/…"` / `#include` from `src/legacy/` or `branches/`.
+- **Don’t** add `deps` / `public_deps` on leftover aggregators or leftover source_sets (`//src/legacy/…` leftover engines, `//src/ui:ui_legacy`, `legacy_render*`, `legacy_tool*`, `legacy/app`).
+- **Don’t** add `//build:legacy` (MFC leftover compile config) to product targets.
+- **Don’t** copy leftover types, `Smt_*` leftover ABI, or MFC widgets into product as a shortcut.
+- **Don’t** grow existing reverse edges. Strangler debt (e.g. leftover carto POD still compiled into `gis.dll`, `content` → `legacy/tool/msg:adapter`) **shrinks** when touched; never add a second include or dep of the same kind.
+
+```cpp
+// BAD — product TU
+#include "legacy/render/gdi/device/gdi_renderdevice.h"
+#include "legacy/tool/msg/gt_msg.h"
+
+// GOOD — leftover TU may include product
+#include "gis/envelope.h"
+#include "content/public/view_host.h"
+```
+
+```gn
+# BAD — product BUILD.gn
+deps = [ "//src/legacy/render:legacy_render_all" ]
+
+# GOOD — leftover BUILD.gn
+deps = [ "//src/gis:gis", "//src/content:content" ]
+```
+
+## Relation
+
+**`docs/superpowers/src-layout.md`** (layers + SP5 shell compile gate), **`.cursor/rules/style/refactoring.mdc`**, **`.cursor/rules/repo/ui-views-skia.mdc`**, **`.cursor/rules/repo/no-qt.mdc`**.

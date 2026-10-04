@@ -10,8 +10,9 @@
 #define STAT_CHART_EXPORT __declspec(dllimport)
 #endif
 
-#include "gis/model/layer/layer.h"
-#include "gis/model/map/map.h"
+#include "legacy/gis/feature/model_aliases.h"
+#include "legacy/gis/layer/layer.h"
+#include "gis/map/map.h"
 #include "legacy/core/macros/macros.h"
 #include "legacy/gis/datasource/datasource_mgr.h"
 
@@ -32,23 +33,23 @@ class STAT_CHART_EXPORT SmtDiagramData {
 
  public:
   // Vector chart layers are OGR (MapLayer::from_ogr); do not return leftover
-  // SmtLayer*.
+  // Layer*.
   OGRLayer* CreateLayer(const char* szName, fRect& lyrRect,
-                        SmtFeatureType ftType = SmtFeatureType::SmtFtDot);
+                        FeatureType ftType = FeatureType::FtDot);
   OGRLayer* GetLayer(const char* szLyrName);
   const OGRLayer* GetLayer(const char* szLyrName) const;
   long DeleteLayer(const char* szLyrName);
 
  public:
-  SmtMap* GetSmtMapPtr(void);
-  const SmtMap* GetSmtMapPtr(void) const;
+  Map* GetSmtMapPtr(void);
+  const Map* GetSmtMapPtr(void) const;
 
-  SmtMap& GetSmtMap(void);
-  const SmtMap& GetSmtMap(void) const;
+  Map& GetSmtMap(void);
+  const Map& GetSmtMap(void) const;
 
  protected:
-  SmtDataSource m_memDS;
-  SmtMap m_smtMap;
+  CatalogSource m_memDS;
+  Map m_smtMap;
 };
 }  // namespace ui
 

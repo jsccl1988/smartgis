@@ -53,7 +53,11 @@ bool capture_scene3d_hwnd_bmp(content::Scene3dPresenter* cam,
     mark_step(opts.mark, opts.mark_skip_null);
     return true;
   }
-  if (!cam || !device || !opts.bmp_leaf) {
+  if (!cam || !opts.bmp_leaf) {
+    mark_step(opts.mark, opts.mark_path_fail);
+    return !want_gpu;
+  }
+  if (!device && !cam->hosts_scenic_present()) {
     mark_step(opts.mark, opts.mark_path_fail);
     return !want_gpu;
   }
@@ -69,6 +73,46 @@ bool capture_scene3d_hwnd_bmp(content::Scene3dPresenter* cam,
   }
 
   (void)cam->present_gpu(device, opts.present_w, opts.present_h);
+  // Scenic GDI does not stick in the present HWND (no WM_PAINT owner-draw).
+  // Export via scenic::Engine memory DIB instead of PrintWindow.
+  if (cam->hosts_scenic_present()) {
+    char utf8[MAX_PATH * 3] = {};
+    const int n = WideCharToMultiByte(CP_UTF8, 0, bmp_path, -1, utf8,
+                                      static_cast<int>(sizeof(utf8)), nullptr,
+                                      nullptr);
+    if (n > 0 &&
+        cam->export_bmp(utf8, static_cast<int>(opts.present_w),
+                        static_cast<int>(opts.present_h))) {
+      int bw = 0;
+      int bh = 0;
+      BmpFileCheckOpts check;
+      check.require_color_diversity = opts.require_color_diversity;
+      // scenic::Engine::export_bmp writes 32bpp top-down DIBs.
+      check.allow_32bpp = true;
+      const bool signal =
+          bmp_file_has_visible_signal(bmp_path, &bw, &bh, check);
+      std::fwprintf(stderr, L"%S: wrote %ls (%dx%d signal=%d scenic_export=1)\n",
+                    opts.log_prefix ? opts.log_prefix : "scene3d-capture",
+                    bmp_path, bw, bh, signal ? 1 : 0);
+      if (signal) {
+        mark_step(opts.mark, opts.mark_ok);
+        if (opts.after_ok) {
+          (void)opts.after_ok(bmp_path, bw, bh, opts.after_ok_user);
+        }
+        return true;
+      }
+      mark_step(opts.mark, opts.mark_black);
+      return !want_gpu;
+    }
+  }
+  if (cam->hosts_scenic_present() && capture_hwnd && IsWindow(capture_hwnd)) {
+    HDC dc = GetDC(capture_hwnd);
+    if (dc) {
+      cam->paint(dc, static_cast<int>(opts.present_w),
+                 static_cast<int>(opts.present_h), true);
+      ReleaseDC(capture_hwnd, dc);
+    }
+  }
   wait_before_capture(capture_hwnd, opts.pre_capture_pump_ms,
                       opts.sleep_instead_of_pump);
 
@@ -88,6 +132,15 @@ bool capture_scene3d_hwnd_bmp(content::Scene3dPresenter* cam,
 
   if (!signal && opts.retry_dark_frame) {
     (void)cam->present_gpu(device, opts.present_w, opts.present_h);
+    if (cam->hosts_scenic_present() && capture_hwnd &&
+        IsWindow(capture_hwnd)) {
+      HDC dc = GetDC(capture_hwnd);
+      if (dc) {
+        cam->paint(dc, static_cast<int>(opts.present_w),
+                   static_cast<int>(opts.present_h), true);
+        ReleaseDC(capture_hwnd, dc);
+      }
+    }
     wait_before_capture(capture_hwnd, opts.pre_capture_pump_ms,
                         opts.sleep_instead_of_pump);
     if (capture_hwnd_bmp(capture_hwnd, bmp_path, capture)) {

@@ -45,8 +45,8 @@ class Rhi2dScheduler {
 
   void cancel();
   bool wait_idle(int timeout_ms);
-  // Returns true if the worker was detached (executor leaked until process
-  // exit).
+  // Returns true if the executor was leaked (join unsafe). Prefer wait-until
+  // idle then reset(); leak only if the FrameJob never leaves paint_loop.
   bool shutdown();
 
   // UI-thread sync china bootstrap (ZoomToRect) must not overlap a FrameJob

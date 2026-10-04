@@ -6,7 +6,7 @@
 
 namespace render {
 
-int SmtRhi2dRenderDevice::RenderMap(const SmtMap* pMap, int op) {
+int SmtRhi2dRenderDevice::RenderMap(const Map* pMap, int op) {
   if (!layer_tree_host_) {
     return SMT_ERR_FAILURE;
   }
@@ -21,7 +21,7 @@ int SmtRhi2dRenderDevice::RenderMap(const SmtMap* pMap, int op) {
   return layer_tree_host_->paint_map_sync(ctx, m_rdOptions);
 }
 
-int SmtRhi2dRenderDevice::RenderLayer(const SmtLayer* pLayer, int op) {
+int SmtRhi2dRenderDevice::RenderLayer(const Layer* pLayer, int op) {
   sync_host_paint_context();
   return overlay_painter_->render_layer(pLayer, op);
 }
@@ -31,12 +31,12 @@ int SmtRhi2dRenderDevice::RenderLayer(OGRLayer* pLayer, int op) {
   return overlay_painter_->render_layer(pLayer, op);
 }
 
-int SmtRhi2dRenderDevice::RenderLayer(const SmtRasterLayer* pLayer, int op) {
+int SmtRhi2dRenderDevice::RenderLayer(const RasterLayer* pLayer, int op) {
   sync_host_paint_context();
   return overlay_painter_->render_layer(pLayer, op);
 }
 
-int SmtRhi2dRenderDevice::RenderLayer(const SmtTileLayer* pLayer, int op) {
+int SmtRhi2dRenderDevice::RenderLayer(const TileLayer* pLayer, int op) {
   sync_host_paint_context();
   return overlay_painter_->render_layer(pLayer, op);
 }
@@ -100,11 +100,11 @@ int SmtRhi2dRenderDevice::DrawPloygon(const OGRPolygon* pPloygon) {
   return carto_draw_->draw_polygon(pPloygon);
 }
 
-int SmtRhi2dRenderDevice::DrawTin(const SmtTin* pTin) {
+int SmtRhi2dRenderDevice::DrawTin(const OGRTriangulatedSurface* pTin) {
   return carto_draw_->draw_tin(pTin);
 }
 
-int SmtRhi2dRenderDevice::DrawGrid(const SmtGrid* pGrid) {
+int SmtRhi2dRenderDevice::DrawGrid(const plugin::detail::OrthoLattice* pGrid) {
   return carto_draw_->draw_grid(pGrid);
 }
 

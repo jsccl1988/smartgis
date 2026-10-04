@@ -16,7 +16,7 @@
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "content/public/map_types.h"
 #include "content/public/view_host.h"
-#include "gis/model/edit/session/memory_edit_session.h"
+#include "gis/edit/memory_session.h"
 #include "tool/interaction/interaction.h"
 #include "tool/workspace/workspace.h"
 #include "ui/views/map/map_viewport.h"

@@ -4,7 +4,7 @@
 #ifndef SMT_LEGACY_RENDER_GDI_DRAW_MESH_H_
 #define SMT_LEGACY_RENDER_GDI_DRAW_MESH_H_
 
-#include "gis/kernel/geo/mesh/geometry.h"
+#include "plugin/product/world3d/grid/orthogrid/lattice/ortho_lattice.h"
 
 namespace render {
 namespace detail {
@@ -16,12 +16,12 @@ class GdiMeshDraw {
  public:
   explicit GdiMeshDraw(Rhi2dCartoDraw* carto_draw) : c_(carto_draw) {}
 
-  int draw_tin(const geo::SmtTin* tin);
-  int draw_tin_lines(const geo::SmtTin* tin);
-  int draw_tin_nodes(const geo::SmtTin* tin);
-  int draw_grid(const geo::SmtGrid* grid);
-  int draw_grid_lines(const geo::SmtGrid* grid);
-  int draw_grid_nodes(const geo::SmtGrid* grid);
+  int draw_tin(const OGRTriangulatedSurface* tin);
+  int draw_tin_lines(const OGRTriangulatedSurface* tin);
+  int draw_tin_nodes(const OGRTriangulatedSurface* tin);
+  int draw_grid(const plugin::detail::OrthoLattice* grid);
+  int draw_grid_lines(const plugin::detail::OrthoLattice* grid);
+  int draw_grid_nodes(const plugin::detail::OrthoLattice* grid);
 
  private:
   Rhi2dCartoDraw* c_;

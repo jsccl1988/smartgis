@@ -12,12 +12,12 @@ All rights reserved.
 **Date:** 2026-09-28  
 **Updated:** 2026-09-28 — ControlFactory registration moved out of factory-core TU; see § Layering / ControlFactory registration.
 
-**Living files considered:** [`2026-09-13-ui-views-controls-design.md`](2026-09-13-ui-views-controls-design.md) (toolkit primitives, layout managers, GIS panels inventory); [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md) (product shell host pattern); [`2026-09-28-third-party-json-xml-protobuf-design.md`](2026-09-28-third-party-json-xml-protobuf-design.md) (pugixml pin policy).  
+**Living files considered:** [`2026-09-13-ui-views-controls-design.md`](2026-09-13-ui-views-controls-design.md) (toolkit primitives, layout managers, GIS panels inventory); [`2026-09-27-views-desktop-shell-design.md`](../../specs/2026-09-27-views-desktop-shell-design.md) (product shell host pattern); [`2026-09-28-third-party-json-xml-protobuf-design.md`](2026-09-28-third-party-json-xml-protobuf-design.md) (pugixml pin policy).  
 **Why a new dated file:** this is a **new top-level subsystem** — declarative resource format (`.ui.xml` / `.ui.css`), Yoga-backed layout path, ControlFactory + NamedViewMap binding, and a separate `UiPreview.exe` editor host. Folding into ui-views-controls would bury a full markup/IR/editor contract inside a controls inventory doc and force contradictory “commandative toolkit only” vs “markup-first dialogs” narratives in one file. Controls remains the owner of View primitives; this spec owns the declarative pipeline and preview tool.
 
-**Plan:** [`../plans/2026-09-28-views-declarative-markup.md`](../plans/2026-09-28-views-declarative-markup.md)
+**Plan:** [`../plans/2026-09-28-views-declarative-markup.md`](../../plans/2026-09-28-views-declarative-markup.md)
 
-**Related:** `src/ui/views/README.md` (primitives list; update when markup/ lands); `docs/build/ui-views-skia.md` (Views + Skia endgame).
+**Related:** `src/ui/views/README.md` (primitives list; update when markup/ lands); `docs/superpowers/ui-views-skia.md` (Views + Skia endgame).
 
 ---
 

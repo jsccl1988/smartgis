@@ -24,8 +24,8 @@ Copyright (c) 2010 CCL. All rights reserved.
 #include "legacy/core/macros/macros.h"
 #include "legacy/core/types/env.h"
 #include "legacy/render/scene3d/scene/scene.h"
-#include "gis/model/feature/feature.h"
-#include "gis/model/map/map.h"
+#include "gis/feature/feature.h"
+#include "gis/map/map.h"
 
 using namespace gis;
 using namespace render;

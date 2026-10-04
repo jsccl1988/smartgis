@@ -7,11 +7,9 @@
 #include <cstdint>
 #include <string>
 
-class OGRLayer;
+#include "legacy/gis/layer/layer.h"
 
-namespace gis {
-class SmtLayer;
-}  // namespace gis
+class OGRLayer;
 
 namespace render {
 namespace detail {
@@ -35,7 +33,7 @@ extern thread_local GeomUsAccum* g_active_geom;
 void flush_geom_us(const GeomUsAccum& a);
 
 std::string trace_name(OGRLayer* layer);
-std::string trace_name(const gis::SmtLayer* layer);
+std::string trace_name(const gis::Layer* layer);
 
 }  // namespace detail
 }  // namespace render

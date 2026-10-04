@@ -32,13 +32,14 @@ namespace ui {
 namespace views {
 namespace {
 
-constexpr int kRowHeightDip = 22;
-constexpr int kToolbarHeightDip = 28;
-constexpr int kInputHeightDip = 26;
+constexpr int kRowHeightDip = 20;
+constexpr int kToolbarHeightDip = 24;
+constexpr int kInputHeightDip = 24;
 constexpr int kMaxLines = 4000;
 constexpr int kMaxHistory = 200;
-constexpr int kConsolePreferredDip = 280;
-constexpr int kPadDip = 6;
+constexpr int kConsolePreferredDip = 200;
+constexpr int kLogHostMinDip = 72;
+constexpr int kPadDip = 4;
 constexpr int kLevelColDip = 52;
 constexpr int kTimeColDip = 72;
 constexpr int kHairlineDip = 1;
@@ -169,7 +170,7 @@ bool copy_utf8_to_clipboard(const std::string& utf8) {
     CloseClipboard();
     return false;
   }
-  std::memcpy(locked, wide.data(), bytes);
+  std::memcpy(locked, wide.c_str(), bytes);
   GlobalUnlock(mem);
   const bool ok = SetClipboardData(CF_UNICODETEXT, mem) != nullptr;
   if (!ok) {
@@ -413,12 +414,15 @@ DebugConsolePanel::DebugConsolePanel() {
     log_host->add_child(std::move(scroll));
   }
 
+  if (log_host) {
+    log_host->set_preferred_size({0, kLogHostMinDip});
+  }
   if (View* root = loaded.root.get()) {
     auto box = std::make_unique<BoxLayout>(BoxLayout::Orientation::kVertical);
     if (log_host) {
       box->set_flex_for_view(log_host, 1);
     }
-    box->set_between_child_spacing(dip_to_px(4, 1.f));
+    box->set_between_child_spacing(dip_to_px(2, 1.f));
     root->set_layout_manager(std::move(box));
   }
 
@@ -435,7 +439,13 @@ DebugConsolePanel::DebugConsolePanel() {
 }
 
 DebugConsolePanel::~DebugConsolePanel() {
+  {
+    std::lock_guard<std::mutex> lock(log_mu_);
+    shutting_down_ = true;
+    pending_logs_.clear();
+  }
   drop_log_subscription();
+  disarm_log_flush_timer();
   if (clear_btn_) {
     clear_btn_->set_click({});
   }
@@ -539,26 +549,32 @@ void DebugConsolePanel::apply_frame_metrics(float scale) {
     v->set_preferred_size({w, dip_to_px(h_dip, scale)});
   };
   set_pref(toolbar_, 0, kToolbarHeightDip);
-  set_pref(clear_btn_, 56, 24);
-  set_pref(copy_btn_, 56, 24);
-  set_pref(ask_btn_, 48, 24);
-  set_pref(auto_scroll_cb_, 100, 22);
-  set_pref(show_error_, 36, 22);
-  set_pref(show_warn_, 44, 22);
-  set_pref(show_info_, 40, 22);
-  set_pref(show_debug_, 52, 22);
-  set_pref(filter_, 160, 22);
-  set_pref(count_, 90, 22);
+  set_pref(clear_btn_, 52, 22);
+  set_pref(copy_btn_, 52, 22);
+  set_pref(ask_btn_, 44, 22);
+  // Checkbox preferred width comes from measured label (do not clip Auto-scroll).
+  if (auto_scroll_cb_) {
+    auto_scroll_cb_->set_label("Auto-scroll");
+  }
+  set_pref(show_error_, 28, 20);
+  set_pref(show_warn_, 28, 20);
+  set_pref(show_info_, 28, 20);
+  set_pref(show_debug_, 28, 20);
+  set_pref(filter_, 140, 20);
+  set_pref(count_, 48, 20);
+  if (View* log_host = scroll_ ? scroll_->parent() : nullptr) {
+    set_pref(log_host, 0, kLogHostMinDip);
+  }
   const bool show_input =
       input_ && (mode_ == PaneMode::kCombined || mode_ == PaneMode::kConsole) &&
       input_->is_locally_visible();
   set_pref(input_, 0, show_input ? kInputHeightDip : 0);
   if (toolbar_) {
     if (auto* box = dynamic_cast<BoxLayout*>(toolbar_->layout_manager())) {
-      box->set_between_child_spacing(dip_to_px(4, scale));
+      box->set_between_child_spacing(dip_to_px(6, scale));
     } else {
       auto row = std::make_unique<BoxLayout>(BoxLayout::Orientation::kHorizontal);
-      row->set_between_child_spacing(dip_to_px(4, scale));
+      row->set_between_child_spacing(dip_to_px(6, scale));
       toolbar_->set_layout_manager(std::move(row));
     }
   }
@@ -592,7 +608,7 @@ void DebugConsolePanel::append_line(std::string line) {
   LogLine entry;
   entry.level = base::LogLevel::kInfo;
   entry.message = std::move(line);
-  append_entry(std::move(entry));
+  enqueue_log_line(std::move(entry));
 }
 
 void DebugConsolePanel::append_entry(LogLine line) {
@@ -603,8 +619,86 @@ void DebugConsolePanel::append_entry(LogLine line) {
     lines_.erase(lines_.begin(), lines_.begin() + drop);
     selected_visible_ = -1;
   }
-  rebuild_visible_indices();
-  sync_list_size(auto_scroll_);
+}
+
+void DebugConsolePanel::enqueue_log_line(LogLine line) {
+  {
+    std::lock_guard<std::mutex> lock(log_mu_);
+    if (shutting_down_) {
+      return;
+    }
+    pending_logs_.push_back(std::move(line));
+  }
+  HWND hwnd = widget() ? widget()->hwnd() : nullptr;
+  if (hwnd && GetWindowThreadProcessId(hwnd, nullptr) != GetCurrentThreadId()) {
+    arm_log_flush_timer();
+    return;
+  }
+  flush_pending_logs();
+}
+
+void DebugConsolePanel::flush_pending_logs() {
+  if (flushing_logs_) {
+    return;
+  }
+  flushing_logs_ = true;
+  bool any = false;
+  for (;;) {
+    std::vector<LogLine> batch;
+    {
+      std::lock_guard<std::mutex> lock(log_mu_);
+      if (shutting_down_) {
+        pending_logs_.clear();
+        break;
+      }
+      batch.swap(pending_logs_);
+    }
+    if (batch.empty()) {
+      break;
+    }
+    any = true;
+    for (LogLine& line : batch) {
+      append_entry(std::move(line));
+    }
+  }
+  if (any) {
+    rebuild_visible_indices();
+    sync_list_size(auto_scroll_);
+  }
+  flushing_logs_ = false;
+}
+
+void DebugConsolePanel::arm_log_flush_timer() {
+  HWND hwnd = widget() ? widget()->hwnd() : nullptr;
+  if (!hwnd) {
+    return;
+  }
+  if (log_flush_armed_.exchange(true)) {
+    return;
+  }
+  if (!SetTimer(hwnd, reinterpret_cast<UINT_PTR>(this), USER_TIMER_MINIMUM,
+                &DebugConsolePanel::on_log_flush_timer)) {
+    log_flush_armed_.store(false);
+  }
+}
+
+void DebugConsolePanel::disarm_log_flush_timer() {
+  log_flush_armed_.store(false);
+  HWND hwnd = widget() ? widget()->hwnd() : nullptr;
+  if (hwnd) {
+    KillTimer(hwnd, reinterpret_cast<UINT_PTR>(this));
+  }
+}
+
+void CALLBACK DebugConsolePanel::on_log_flush_timer(HWND hwnd, UINT, UINT_PTR id,
+                                                    DWORD) {
+  KillTimer(hwnd, id);
+  auto* self = reinterpret_cast<DebugConsolePanel*>(id);
+  if (!self) {
+    return;
+  }
+  self->log_flush_armed_.store(false);
+  self->flush_pending_logs();
 }
 
 void DebugConsolePanel::clear_output() {
@@ -951,7 +1045,7 @@ void DebugConsolePanel::ensure_log_subscription() {
     line.level = e.level;
     line.timestamp = e.timestamp;
     line.message = e.message;
-    append_entry(std::move(line));
+    enqueue_log_line(std::move(line));
   });
 }
 

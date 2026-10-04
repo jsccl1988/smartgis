@@ -109,16 +109,24 @@ void Splitter::seed_split_if_needed() {
   }
   View* a = child_at(0);
   View* b = child_at(1);
-  // Seed from preferred_size() hints only. Markup hosts wrap Catalog / Map
-  // tabs in FillLayout+Yoga whose get_preferred_size() is often 0 (width:100%
-  // of undefined) — using that for the both-zero test seeded primary=full and
-  // collapsed Map|Data|3D (hollow grey slab in ui.shell BMPs).
-  const Size sa_hint = a->preferred_size();
-  const Size sb_hint = b->preferred_size();
-  const int pa_hint = is_horizontal() ? axis_traits<Axis::kHorizontal>::main(sa_hint)
-                                      : axis_traits<Axis::kVertical>::main(sa_hint);
-  const int pb_hint = is_horizontal() ? axis_traits<Axis::kHorizontal>::main(sb_hint)
-                                      : axis_traits<Axis::kVertical>::main(sb_hint);
+  // Prefer the larger of stored preferred_size() and layout-aware
+  // get_preferred_size(). FillLayout hosts often keep a pinned stored hint
+  // (diagnostic_host=140) while get_preferred_size() follows an inner child
+  // that was left at an older markup preferred (120) — using only stored was
+  // fine, but using only layout under-sized the Console strip; max() keeps
+  // Catalog/Map seeds honest when either side is still 0.
+  const Size sa_stored = a->preferred_size();
+  const Size sb_stored = b->preferred_size();
+  const Size sa_layout = a->get_preferred_size();
+  const Size sb_layout = b->get_preferred_size();
+  const auto main_of = [this](const Size& s) {
+    return is_horizontal() ? axis_traits<Axis::kHorizontal>::main(s)
+                           : axis_traits<Axis::kVertical>::main(s);
+  };
+  const int pa_stored = main_of(sa_stored);
+  const int pb_stored = main_of(sb_stored);
+  const int pa_hint = std::max(pa_stored, main_of(sa_layout));
+  const int pb_hint = std::max(pb_stored, main_of(sb_layout));
 
   // One-shot seed can lock both-flex (primary=full) before Catalog preferred
   // width is visible, leaving a hollow grey slab beside a squeezed map. When
@@ -136,6 +144,13 @@ void Splitter::seed_split_if_needed() {
       split_seeded_ = false;
     } else if (resize_policy_ == ResizePolicy::kSecondaryFixed &&
                fixed_secondary_px_ <= 0 && pa_hint > 0 && pb_hint <= 0) {
+      split_seeded_ = false;
+    } else if (resize_policy_ == ResizePolicy::kSecondaryFixed &&
+               pb_stored > 0 && fixed_secondary_px_ > 0 &&
+               fixed_secondary_px_ + 8 < pb_stored) {
+      // Refresh only when STORED preferred grew (DPI / explicit pin). Do not
+      // chase FillLayout→TabStrip layout measure — long inspector titles made
+      // pb_hint≫dock width and stole the map column (ui.shell Feature slab).
       split_seeded_ = false;
     } else if (resize_policy_ == ResizePolicy::kPrimaryFixed && pa_hint > 0) {
       const int inner = std::max(0, main_extent() - kBarPx);
@@ -155,6 +170,12 @@ void Splitter::seed_split_if_needed() {
 
   const int inner = std::max(0, main_extent() - kBarPx);
   fixed_secondary_px_ = 0;
+  // Flex primary (stored preferred 0) + docked secondary: map_column Yoga
+  // get_preferred_size() often reports nested catalog width (>0), which used
+  // to fall into Proportional and crush the map beside a wide inspector
+  // TabStrip (ui.shell #2/#4 — Feature dock filled the work area).
+  const bool flex_primary_fixed_secondary =
+      pa_stored <= 0 && pb_stored > 0 && pb_hint > 0;
   if (pa_hint <= 0 && pb_hint <= 0) {
     // Both flex / hidden: primary keeps the work area; secondary stays at 0
     // until preferred size or a user drag grows it (Diagnostic Tools starts
@@ -162,15 +183,17 @@ void Splitter::seed_split_if_needed() {
     primary_extent_ = inner;
     fixed_secondary_px_ = 0;
     resize_policy_ = ResizePolicy::kSecondaryFixed;
-  } else if (pa_hint <= 0) {
+  } else if (pa_hint <= 0 || flex_primary_fixed_secondary) {
     // BrowserView pattern: flexible map/work pane + fixed ambox/inspector /
-    // Diagnostic Tools. Cap secondary so work keeps ≥1/3 of the host — a raw
-    // pb_hint can exceed a create-time tiny inner and clamp primary to
-    // kMinPanePx (40px), leaving Console tall but Map/FeatureInfo crushed
-    // (ui.shell map hwnd client ~1664x105).
-    const int min_primary = std::max(kMinPanePx, inner / 3);
+    // Diagnostic Tools. Cap secondary so work keeps ≥2/3 of the host — a raw
+    // pb_hint (360 console) used to leave Map/FeatureInfo crushed in the
+    // upper third (ui.shell vertical collapse / black dead zone).
+    // Prefer stored secondary (inspector 320) over inflated TabStrip layout.
+    const int secondary_want =
+        pb_stored > 0 ? pb_stored : pb_hint;
+    const int min_primary = std::max(kMinPanePx, (inner * 2) / 3);
     const int max_secondary = std::max(kMinPanePx, inner - min_primary);
-    fixed_secondary_px_ = std::min(pb_hint, max_secondary);
+    fixed_secondary_px_ = std::min(secondary_want, max_secondary);
     primary_extent_ = inner - fixed_secondary_px_;
     resize_policy_ = ResizePolicy::kSecondaryFixed;
   } else if (pb_hint <= 0) {
@@ -322,21 +345,21 @@ void Splitter::paint_self(ui::gfx::Canvas* canvas) {
   const Rect& b = bounds();
   canvas->fill_rect(b.x, b.y, b.width, b.height, t.panel_bg);
   const Rect bar = bar_rect();
-  // Idle bar uses hover tone so map|inspector seams stay visible on dark panels.
-  ui::gfx::Color fill = t.control_hover;
+  // Idle seam stays near panel chrome; accent only while dragging/hover.
+  ui::gfx::Color fill = t.panel_header;
   if (dragging_ || is_pressed()) {
     fill = t.accent;
   } else if (is_hovered()) {
-    fill = ui::gfx::color_rgb(0, 100, 170);
+    fill = t.control_hover;
   }
   canvas->fill_rect(bar.x, bar.y, bar.width, bar.height, fill);
-  // Center grip: 3px accent rail (was 1px hairline — nearly invisible).
+  // Center grip: muted rail (not a full-bar neon slab).
   if (is_horizontal()) {
-    const int grip = std::min(3, std::max(1, bar.width));
+    const int grip = std::min(2, std::max(1, bar.width));
     canvas->fill_rect(bar.x + (bar.width - grip) / 2, bar.y + 2, grip,
                       std::max(0, bar.height - 4), t.text_muted);
   } else {
-    const int grip = std::min(3, std::max(1, bar.height));
+    const int grip = std::min(2, std::max(1, bar.height));
     canvas->fill_rect(bar.x + 2, bar.y + (bar.height - grip) / 2,
                       std::max(0, bar.width - 4), grip, t.text_muted);
   }

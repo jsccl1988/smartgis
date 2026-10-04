@@ -11,7 +11,7 @@ All rights reserved.
 **Date:** 2026-09-27  
 **Status:** landed  
 **Scope:** Physical layout of `src/gpu`: display output, a software compositor, and direct / tile raster.  
-**Related:** as-built [`../../../src/gpu/README.md`](../../../src/gpu/README.md); peer precedent [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../archive/plans/2026-09-27-rhi-subdirectory-split.md); follow-on RHI accelerate (active, not layout) [`2026-09-27-gpu-rhi-accelerate-design.md`](2026-09-27-gpu-rhi-accelerate-design.md). **MapLibre Native pin:** removed 2026-09-27 (deferred reconsider) — archived [`../archive/specs/2026-09-27-maplibre-out-of-gpu-design.md`](../archive/specs/2026-09-27-maplibre-out-of-gpu-design.md).
+**Related:** as-built [`../../../src/gpu/README.md`](../../README.md); peer precedent [`../archive/plans/2026-09-27-rhi-subdirectory-split.md`](../plans/2026-09-27-rhi-subdirectory-split.md); follow-on RHI accelerate (active, not layout) [`2026-09-27-gpu-rhi-accelerate-design.md`](2026-09-27-gpu-rhi-accelerate-design.md). **MapLibre Native pin:** removed 2026-09-27 (deferred reconsider) — archived [`../archive/specs/2026-09-27-maplibre-out-of-gpu-design.md`](2026-09-27-maplibre-out-of-gpu-design.md).
 
 ## Goal
 
@@ -62,7 +62,7 @@ Namespaces stay `gpu` and `gpu::detail`. No shim headers at the old `paint/` or 
 
 ### Architecture (as-built)
 
-Authoritative prose + diagrams live in [`../../../src/gpu/README.md`](../../../src/gpu/README.md). Module shape:
+Authoritative prose + diagrams live in [`../../../src/gpu/README.md`](../../README.md). Module shape:
 
 ```mermaid
 flowchart LR

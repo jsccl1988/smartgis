@@ -182,45 +182,8 @@ bool try_open_china_sample(Browser& browser) {
       return true;
     }
   }
-  // Stub under shared out/data/ (exe is out/Debug|Release).
-  wchar_t data_dir[MAX_PATH] = {};
-  if (wcscpy_s(data_dir, sample_w) == 0 &&
-      wcscat_s(data_dir, L"..\\data") == 0) {
-    CreateDirectoryW(data_dir, nullptr);
-  }
-  wchar_t stub_w[MAX_PATH] = {};
-  if (wcscpy_s(stub_w, sample_w) != 0 ||
-      wcscat_s(stub_w, L"..\\data\\views_ogr_selftest.geojson") != 0) {
-    return false;
-  }
-  FILE* sf = nullptr;
-  if (_wfopen_s(&sf, stub_w, L"wb") != 0 || !sf) {
-    return false;
-  }
-  static const char kGeojson[] =
-      "{\"type\":\"FeatureCollection\",\"name\":\"china_plp\","
-      "\"features\":["
-      "{\"type\":\"Feature\",\"properties\":{\"name\":\"Beijing\","
-      "\"kind\":\"point\"},"
-      "\"geometry\":{\"type\":\"Point\",\"coordinates\":"
-      "[116.3974,39.9093]}},"
-      "{\"type\":\"Feature\",\"properties\":{\"name\":\"Jingjin\","
-      "\"kind\":\"line\"},"
-      "\"geometry\":{\"type\":\"LineString\",\"coordinates\":"
-      "[[116.3974,39.9093],[116.7,39.7],[117.2,39.12]]}},"
-      "{\"type\":\"Feature\",\"properties\":{\"name\":\"Huabei\","
-      "\"kind\":\"area\"},"
-      "\"geometry\":{\"type\":\"Polygon\",\"coordinates\":"
-      "[[[116.2,39.7],[116.8,39.7],[116.8,40.1],[116.2,40.1],"
-      "[116.2,39.7]]]}}"
-      "]}";
-  std::fwrite(kGeojson, 1, sizeof(kGeojson) - 1, sf);
-  std::fclose(sf);
-  WideCharToMultiByte(CP_UTF8, 0, stub_w, -1, sample_a, MAX_PATH, nullptr,
-                      nullptr);
-  return browser.document()->open_path(sample_a) &&
-         browser.document()->last_open_was_ogr() &&
-         browser.document()->feature_count() >= 3;
+  // Real-data policy: never write a GeoJSON stub on miss.
+  return false;
 }
 
 double elapsed_ms(LARGE_INTEGER freq, LARGE_INTEGER t0, LARGE_INTEGER t1) {

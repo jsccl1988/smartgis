@@ -16,7 +16,7 @@ This is a whole-branch review, not a merge-PR gate.
 - **ACCESS / SQL Server Open is hard-false.** Unsupported providers never call GDAL (`ogr_dataset.cc:153-157`). Tests cover it (`sde_gdal_test.cc:418-422`).
 - **Shared codec is real and SMF calls it.** `CopyOGRFeaToSmtFea` → `copy_ogr_feature_to_smt`, then SMF-only default style + random pen/brush (`smf_ogrsupport.cpp:60-97`). Random colors stay out of the codec, as specified.
 - **ADO is actually off `src_all`.** `src/BUILD.gn` `src_all` has no `//src/ado:ado`. `src/gis/BUILD.gn` and `src/gis/datasource/BUILD.gn` list `sde_gdal`, not `sde_ado`. `gn desc out //src:src_all deps --all` matches **zero** `ado` / `sde_ado` targets. Leftover `src/ado` and `gis/datasource/ado` BUILD files remain on disk only (their sole GN edge is `sde_ado` → `//src/ado:ado`, unreferenced).
-- **Docs and app default were updated in the same change set.** Root README, `src/README.md`, `docs/build/src-layout.md`, and `docs/README.md` state the OGR DB path. `app_smtapp.cpp` looks for `sample1.gpkg` and sets `PROVIDER_GPKG`.
+- **Docs and app default were updated in the same change set.** Root README, `src/README.md`, `docs/superpowers/src-layout.md`, and `docs/README.md` state the OGR DB path. `app_smtapp.cpp` looks for `sample1.gpkg` and sets `PROVIDER_GPKG`.
 - **Namespaces and new-file headers match the new-tree rules** (`gis::datasource`, snake_case, 2026 Mogu copyright on `src/gis/datasource/gdal/*`).
 - **No SOCI / nanodbc / second GDAL / Qt.** Raster create is `SMT_ERR_UNSUPPORTED` rather than a private `geom_points` blob table (`ogr_raster_layer.cc:45-49`).
 
@@ -82,7 +82,7 @@ Empty catalog when `sample1.gpkg` is missing is specified. Existing Access `.mds
 #### Minor (Nice to Have)
 
 1. **`gdal_driver.h` comments are stale** (`gdal_driver.h:7-18`) — still describes a future seam “beside ado”.  
-2. **`src-layout.md` DLL table still lists `SmtSDEAdoDevice` and omits `SmtSDEGdalDevice`** (`docs/build/src-layout.md:103-106`). Prose is correct; the table is not.  
+2. **`src-layout.md` DLL table still lists `SmtSDEAdoDevice` and omits `SmtSDEGdalDevice`** (`docs/superpowers/src-layout.md:103-106`). Prose is correct; the table is not.  
 3. **`build/BUILD.gn` `legacy` include_dirs still add `gis/datasource/ado` and `src/ado`** (`build/BUILD.gn:49`, `75`) — leftover `-I` only, not a `src_all` link.  
 4. **SMF still contains unused `CopyOGRGeomToSmtGeom` / `CopyOGRAttToSmtAtt`** (`smf_ogrsupport.cpp:100-208`) after the codec switch.  
 5. **Open failure does not log a password-redacted target** (`ogr_dataset.cc:190-193`); spec asked for driver + redacted target + CPL message.  

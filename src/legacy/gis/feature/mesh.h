@@ -10,10 +10,7 @@
 #include "gis/gis_export.h"
 
 class OGRGeometry;
-
-namespace geo {
-class Surface3d;
-}
+class OGRTriangulatedSurface;
 
 namespace render {
 
@@ -69,7 +66,7 @@ GIS_EXPORT bool tess_map_geometry(const OGRGeometry& geom,
 // True leftover 3D coordinates: VB gets (X, Z, Y) from OGR (X, Y, Z).
 GIS_EXPORT bool tess_world_geometry(const OGRGeometry& geom, FeatureMesh* out);
 
-GIS_EXPORT bool tess_3d_surface(const geo::Surface3d& surf, FeatureMesh* out);
+GIS_EXPORT bool tess_3d_surface(const OGRTriangulatedSurface& surf, FeatureMesh* out);
 
 }  // namespace render
 

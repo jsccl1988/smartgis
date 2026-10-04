@@ -42,6 +42,39 @@ void run_optional_map2d_gpu_present(Browser& browser,
     return;
   }
   map2d_showcase_mark("gpu-try");
+  if (map2d->hosts_scenic_present()) {
+    map2d_showcase_mark("gpu-present-enter");
+    content::reset_map2d_phase_sample();
+    const auto t_cold = std::chrono::steady_clock::now();
+    const bool ok_cold =
+        map2d->present_gpu(nullptr, showcase_w, showcase_h);
+    const long long present_gpu_cold_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - t_cold)
+            .count();
+    std::fprintf(stderr,
+                 "map2d-showcase: present_gpu=%d present_gpu_ms=%lld "
+                 "present_gpu_cold_ms=%lld scenic=1\n",
+                 ok_cold ? 1 : 0, present_gpu_cold_ms, present_gpu_cold_ms);
+    log_map2d_phase_sample("phase_cold_present");
+    map2d_showcase_mark(ok_cold ? "gpu-present-ok" : "gpu-present-fail");
+
+    content::reset_map2d_phase_sample();
+    const auto t_warm = std::chrono::steady_clock::now();
+    const bool ok_warm =
+        map2d->present_gpu(nullptr, showcase_w, showcase_h);
+    const long long present_gpu_warm_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - t_warm)
+            .count();
+    std::fprintf(stderr,
+                 "map2d-showcase: present_gpu_warm=%d present_gpu_warm_ms=%lld "
+                 "scenic=1\n",
+                 ok_warm ? 1 : 0, present_gpu_warm_ms);
+    log_map2d_phase_sample("phase_warm_present");
+    map2d_showcase_mark(ok_warm ? "gpu-warm-ok" : "gpu-warm-fail");
+    return;
+  }
   bool owned_device = false;
   render::rhi::Device* device = acquire_map2d_showcase_gpu_device(
       browser, showcase_w, showcase_h, &owned_device);
@@ -51,6 +84,10 @@ void run_optional_map2d_gpu_present(Browser& browser,
     return;
   }
 
+  map2d_showcase_mark("gpu-present-enter");
+  std::fprintf(stderr, "map2d-showcase: gpu device acquired owned=%d\n",
+               owned_device ? 1 : 0);
+  std::fflush(stderr);
   content::reset_map2d_phase_sample();
   const auto t_cold = std::chrono::steady_clock::now();
   const bool ok_cold = map2d->present_gpu(device, showcase_w, showcase_h);
@@ -80,7 +117,7 @@ void run_optional_map2d_gpu_present(Browser& browser,
 
   if (owned_device) {
     device->shutdown();
-    // Intentionally leak Device* â€?same FlyCube teardown policy as
+    // Intentionally leak Device* -- same FlyCube teardown policy as
     // atmosphere showcase / MapViewport.
   }
 }

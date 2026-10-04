@@ -278,8 +278,10 @@ bool stormsurge_run(content::PluginHost*, std::string_view args_json) {
   if (g_water_mesh_writer) {
     int pushed = 0;
     for (int i = 0; i < frame_count; ++i) {
+      // Denser free-surface (160) so mid inundation reads as a water TIN, not
+      // a single highlight body on a coarse DEM.
       const gis::detail::StormSurgeWaterMesh mesh =
-          gis::detail::build_storm_surge_water_mesh(result, i);
+          gis::detail::build_storm_surge_water_mesh(result, i, /*max_dim=*/160);
       const int point_count = static_cast<int>(mesh.xyz.size() / 3);
       const int triangle_count = static_cast<int>(mesh.indices.size() / 3);
       if (point_count < 3 || triangle_count < 1) {

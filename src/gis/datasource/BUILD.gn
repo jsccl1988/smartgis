@@ -6,7 +6,7 @@
 # Top-level layers (see README.md):
 #   L1 session/
 #   L2 provider/              — ProviderRegistry + adapters
-#   L3 provider/impl/{sdbd,ogr,gdal}
+#   L3 siblings sdbd/ ogr/ gdal/  (no provider/impl/)
 #   L4 pipeline/
 #
 # Leftover DataSourceMgr: //src/legacy/gis/datasource

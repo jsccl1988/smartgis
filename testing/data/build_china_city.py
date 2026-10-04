@@ -3,10 +3,13 @@
 # All rights reserved.
 """Build offline china_city pack (vectors + optional DEM) for Views.
 
-Vector themes come from **one publisher / one CRS**: Natural Earth 10m
-(EPSG:4326 / OGC CRS84). Do **not** mix Aliyun DataV (GCJ-02) admin
-polygons with NE rivers/roads — that causes visible river/road offset
-against the land mask.
+Vector themes are **China-only extracts**, all EPSG:4326 / OGC CRS84.
+Do **not** mix Aliyun DataV (GCJ-02) with this pack.
+
+  area / point / text — Natural Earth 10m cultural, ADM0 CHN/TWN/HKG/MAC
+  line (river|lake|road) — vendored `china_hydro.src.geojson` and
+    `china_roads.src.geojson` (China network, not the global NE river/road
+    shapefiles). Build never downloads `ne_10m_rivers_lake_centerlines`.
 
 Elevation (optional `--with-dem`): AWS Open Data / Mapzen terrain tiles,
 warped to the same EPSG:4326 grid and cut with the NE admin land outline
@@ -58,14 +61,11 @@ NE_PLACES_URLS = (
     "https://naciscdn.org/naturalearth/10m/cultural/ne_10m_populated_places.zip",
     "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_populated_places.zip",
 )
-NE_RIVERS_URLS = (
-    "https://naciscdn.org/naturalearth/10m/physical/ne_10m_rivers_lake_centerlines.zip",
-    "https://naturalearth.s3.amazonaws.com/10m_physical/ne_10m_rivers_lake_centerlines.zip",
-)
-NE_ROADS_URLS = (
-    "https://naciscdn.org/naturalearth/10m/cultural/ne_10m_roads.zip",
-    "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_roads.zip",
-)
+
+# China network extracts (committed). Not the global NE hydro/roads zips.
+DATA_DIR = Path(__file__).resolve().parent
+CHINA_HYDRO_SRC = DATA_DIR / "china_hydro.src.geojson"
+CHINA_ROADS_SRC = DATA_DIR / "china_roads.src.geojson"
 
 # Admin coverage matching the old demo pack (mainland + TW/HK/MO).
 NE_ADMIN_ADM0 = frozenset({"CHN", "TWN", "HKG", "MAC"})
@@ -73,6 +73,18 @@ NE_ADMIN_ADM0 = frozenset({"CHN", "TWN", "HKG", "MAC"})
 # Approximate China bbox for river/road clip (degrees, CRS84). Matches
 # content::kChinaLonLatExtent so leftover / Views overview framing agrees.
 CHINA_BBOX = (73.0, 18.0, 135.0, 54.0)
+
+# NE 10m rivers have no stroke/adm0_a3. China hydrology is the vendored
+# extract (china_hydro.src.geojson), not a runtime clip of the global zip.
+YANGTZE_NAME_KEYS = frozenset(
+    {"yangtze", "yangtzeriver", "changjiang", "jinsha", "jinshajiang", "长江", "金沙江"}
+)
+PEARL_NAME_KEYS = frozenset(
+    {"pearl", "pearlriver", "xijiang", "珠江", "西江"}
+)
+HUANG_NAME_KEYS = frozenset(
+    {"huang", "huanghe", "yellow", "yellowriver", "黄河"}
+)
 
 # Tier-1 / municipality seats that Natural Earth sampling has dropped from the
 # china showcase pack (Beijing / Shanghai missing; mid-tier cities dominate).
@@ -163,8 +175,8 @@ def _unzip_shp(zip_path: Path, out_dir: Path, marker_name: str) -> Path:
     return marker
 
 
-def fetch_sources(cache: Path) -> tuple[Path, Path, Path, Path]:
-    """Download + extract Natural Earth 10m themes (single CRS suite)."""
+def fetch_sources(cache: Path) -> tuple[Path, Path]:
+    """Download + extract NE 10m cultural themes (China admin + places only)."""
     cache.mkdir(parents=True, exist_ok=True)
 
     admin_zip = cache / "ne_admin1.zip"
@@ -179,17 +191,7 @@ def fetch_sources(cache: Path) -> tuple[Path, Path, Path, Path]:
         places_zip, cache / "ne_places", "ne_10m_populated_places.shp"
     )
 
-    rivers_zip = cache / "ne_rivers.zip"
-    _download_first(NE_RIVERS_URLS, rivers_zip)
-    rivers_shp = _unzip_shp(
-        rivers_zip, cache / "ne_rivers", "ne_10m_rivers_lake_centerlines.shp"
-    )
-
-    roads_zip = cache / "ne_roads.zip"
-    _download_first(NE_ROADS_URLS, roads_zip)
-    roads_shp = _unzip_shp(roads_zip, cache / "ne_roads", "ne_10m_roads.shp")
-
-    return admin_shp, places_shp, rivers_shp, roads_shp
+    return admin_shp, places_shp
 
 
 # --- minimal WKB + GeoPackage writers (EPSG:4326) ---
@@ -442,16 +444,36 @@ def _rec_str(rec: dict, *keys: str) -> str:
     return ""
 
 
+def _union_multipolygons(parts: list[dict], name: str, adcode: str) -> dict | None:
+    """Concatenate NE admin parts into one MultiPolygon (overview dissolve)."""
+    polys: list = []
+    for a in parts:
+        geom = a.get("geometry") or {}
+        coords = geom.get("coordinates")
+        if not coords:
+            continue
+        if geom.get("type") == "Polygon":
+            polys.append(coords)
+        elif geom.get("type") == "MultiPolygon":
+            polys.extend(coords)
+    if not polys:
+        return None
+    return {
+        "geometry": {"type": "MultiPolygon", "coordinates": polys},
+        "properties": {"name": name, "adcode": adcode},
+    }
+
+
 def build_area_features(admin_shp: Path) -> list[dict]:
     """Natural Earth admin_1 for mainland China + TW/HK/MO province-scale units.
 
-    Skip Hong Kong / Macao / Taiwan *district* fragments (NE lists many
-    Admin-1 rows there) so the overview fill stays a coherent national mask.
+    Taiwan / Hong Kong / Macao NE rows are county/district fragments — dissolve
+    each to one overview silhouette. Drop Paracel (西沙) south of CHINA_BBOX.
     """
     shapefile = _require_pyshp()
     sf = shapefile.Reader(str(admin_shp))
     fields = [f[0] for f in sf.fields[1:]]
-    areas: list[dict] = []
+    raw: list[dict] = []
     for sr in sf.iterShapeRecords():
         rec = dict(zip(fields, sr.record))
         adm0 = _rec_str(rec, "adm0_a3", "ADM0_A3").upper()
@@ -469,24 +491,10 @@ def build_area_features(admin_shp: Path) -> list[dict]:
                 continue
         if adm0 not in NE_ADMIN_ADM0:
             continue
-        # Mainland: keep every admin_1 province / municipality / AR.
-        # TW/HK/MO: NE stores many county/district rows — keep only larger
-        # envelopes so the national overview is not a spray of fragments.
         geom = _polygon_shape_to_multipolygon(sr.shape)
         if not geom:
             continue
         env = _envelope(geom)
-        area_deg2 = max(0.0, (env[2] - env[0]) * (env[3] - env[1]))
-        if adm0 == "CHN":
-            pass
-        elif adm0 == "TWN":
-            # Whole-island-ish counties at least ~0.15 deg^2; skip tiny scraps.
-            if area_deg2 < 0.15:
-                continue
-        elif adm0 in ("HKG", "MAC"):
-            # Prefer a single SAR silhouette: keep the largest few only later.
-            if area_deg2 < 0.01:
-                continue
         name = _rec_str(
             rec,
             "name_zh",
@@ -500,40 +508,67 @@ def build_area_features(admin_shp: Path) -> list[dict]:
         )
         if not name:
             name = _rec_str(rec, "adm1_code", "ADM1_CODE") or "unknown"
-        # Drop garbage one-character NE local names (e.g. "北").
-        if len(name) < 2:
-            continue
         adcode = _rec_str(rec, "adm1_code", "ADM1_CODE", "code_hasc", "CODE_HASC")
         if not adcode:
-            adcode = f"{adm0}-{len(areas)}"
-        areas.append(
+            adcode = f"{adm0}-{len(raw)}"
+        raw.append(
             {
                 "geometry": geom,
-                "properties": {"name": name, "adcode": adcode, "_adm0": adm0,
-                               "_area": area_deg2},
+                "properties": {
+                    "name": name,
+                    "adcode": adcode,
+                    "_adm0": adm0,
+                    "_env": env,
+                },
             }
         )
 
-    # Cap HKG/MAC to the single largest polygon each (SAR outline).
-    def keep_largest(adm: str) -> None:
-        nonlocal areas
-        subset = [a for a in areas if a["properties"].get("_adm0") == adm]
-        if len(subset) <= 1:
-            return
-        best = max(subset, key=lambda a: a["properties"].get("_area", 0.0))
-        areas = [a for a in areas if a["properties"].get("_adm0") != adm] + [best]
+    chn: list[dict] = []
+    twn: list[dict] = []
+    hkg: list[dict] = []
+    mac: list[dict] = []
+    for a in raw:
+        adm0 = a["properties"]["_adm0"]
+        name = a["properties"]["name"]
+        adcode = a["properties"]["adcode"]
+        env = a["properties"]["_env"]
+        if adm0 == "CHN":
+            # Overview bbox is 18°N; Paracel/Xisha sits ~15.8–16.9°N.
+            if env[3] < CHINA_BBOX[1] or "西沙" in name or adcode.startswith("PFA"):
+                continue
+            if len(name) < 2:
+                continue
+            chn.append(a)
+        elif adm0 == "TWN":
+            twn.append(a)
+        elif adm0 == "HKG":
+            hkg.append(a)
+        elif adm0 == "MAC":
+            mac.append(a)
 
-    keep_largest("HKG")
-    keep_largest("MAC")
-
-    for a in areas:
+    areas: list[dict] = []
+    for a in chn:
         a["properties"].pop("_adm0", None)
-        a["properties"].pop("_area", None)
+        a["properties"].pop("_env", None)
+        areas.append(a)
+    dissolved = _union_multipolygons(twn, "台湾", "TWN")
+    if dissolved:
+        areas.append(dissolved)
+    dissolved = _union_multipolygons(hkg, "香港", "HKG")
+    if dissolved:
+        areas.append(dissolved)
+    dissolved = _union_multipolygons(mac, "澳门", "MAC")
+    if dissolved:
+        areas.append(dissolved)
     return areas
 
 
 def build_point_text(places_shp: Path, areas: list[dict]) -> tuple[list[dict], list[dict]]:
-    """Populated places in China bbox; fall back to area centroids if empty."""
+    """Populated places in China bbox; fall back to area centroids if empty.
+
+    Returns (points, texts). texts is always empty — city names live on the
+    point layer only so MapLibre/default carto cannot double-draw labels.
+    """
     shapefile = _require_pyshp()
     sf = shapefile.Reader(str(places_shp))
     fields = [f[0] for f in sf.fields[1:]]
@@ -607,40 +642,20 @@ def build_point_text(places_shp: Path, areas: list[dict]) -> tuple[list[dict], l
         seen.add(key)
         geom = {"type": "Point", "coordinates": [x, y]}
         points.append({"geometry": geom, "properties": {"name": name, "kind": "city"}})
-        texts.append(
-            {
-                "geometry": {"type": "Point", "coordinates": [x, y + 0.08]},
-                "properties": {
-                    "anno": name,
-                    "name": name,
-                    "angle": 0.0,
-                    "color": "#222222",
-                },
-            }
-        )
+        # Do NOT emit a parallel text layer at y+0.08 — default carto maps both
+        # point and text to source-layer "label" and doubles city glyphs.
         if len(points) >= 64:
             break
 
     if points:
         return points, texts
 
-    # Fallback: province centroids so point/text layers stay non-empty.
+    # Fallback: province centroids so the point layer stays non-empty.
     for area in areas:
         name = area["properties"]["name"]
         x, y = _centroid_of(area["geometry"])
         geom = {"type": "Point", "coordinates": [x, y]}
         points.append({"geometry": geom, "properties": {"name": name, "kind": "city"}})
-        texts.append(
-            {
-                "geometry": {"type": "Point", "coordinates": [x, y + 0.08]},
-                "properties": {
-                    "anno": name,
-                    "name": name,
-                    "angle": 0.0,
-                    "color": "#222222",
-                },
-            }
-        )
     return points, texts
 
 
@@ -669,121 +684,124 @@ def _clip_segment_to_bbox(
     return runs
 
 
-def build_line_features(shp_path: Path) -> list[dict]:
-    shapefile = _require_pyshp()
-    sf = shapefile.Reader(str(shp_path))
-    fields = [f[0] for f in sf.fields[1:]]
-    lines: list[dict] = []
-    for sr in sf.iterShapeRecords():
-        shape = sr.shape
-        rec = dict(zip(fields, sr.record))
-        parts = list(shape.parts) + [len(shape.points)]
+def _folded_token(s: str) -> str:
+    return "".join(ch for ch in (s or "").lower() if ch.isalnum())
+
+
+def _canonicalize_water_name(name: str, name_en: str = "", name_zh: str = "") -> str:
+    """Map Latin / mixed water names onto product Chinese labels."""
+    tokens = [_folded_token(s) for s in (name, name_en, name_zh) if s]
+    for tok in tokens:
+        if tok in YANGTZE_NAME_KEYS:
+            return "长江"
+        if tok in PEARL_NAME_KEYS:
+            return "珠江"
+        if tok in HUANG_NAME_KEYS:
+            return "黄河"
+    return (name_zh or name or name_en or "").strip()
+
+
+def _geom_from_segments(segments: list[list]) -> dict:
+    if len(segments) == 1:
+        return {"type": "LineString", "coordinates": segments[0]}
+    return {"type": "MultiLineString", "coordinates": segments}
+
+
+def _segments_from_geom(geom: dict) -> list[list]:
+    t = geom.get("type")
+    coords = geom.get("coordinates") or []
+    if t == "LineString":
+        return [coords]
+    if t == "MultiLineString":
+        return list(coords)
+    return []
+
+
+def _merge_lines_named(lines: list[dict], name: str) -> list[dict]:
+    """Collapse every feature with |name| into one MultiLineString."""
+    kept: list[dict] = []
+    segs: list[list] = []
+    kind = "river"
+    extra: dict | None = None
+    for f in lines:
+        props = f.get("properties") or {}
+        if props.get("name") == name:
+            segs.extend(_segments_from_geom(f["geometry"]))
+            kind = props.get("kind") or kind
+            extra = props
+        else:
+            kept.append(f)
+    if not segs:
+        return lines
+    merged = {
+        "geometry": _geom_from_segments(segs),
+        "properties": {
+            "name": name,
+            "kind": kind,
+            "class": (extra or {}).get("class") or "",
+        },
+    }
+    return [merged] + kept
+
+
+def _load_china_line_extract(path: Path) -> list[dict]:
+    """Load the committed China river/road extract (EPSG:4326)."""
+    if not path.is_file() or path.stat().st_size < 100:
+        raise SystemExit(
+            f"missing China line extract {path}. Rebuild does not download "
+            "the global Natural Earth rivers or roads shapefiles."
+        )
+    fc = json.loads(path.read_text(encoding="utf-8"))
+    out: list[dict] = []
+    for feat in fc.get("features") or []:
+        geom = feat.get("geometry")
+        if not geom:
+            continue
+        props = feat.get("properties") or {}
         segments: list[list] = []
-        for i in range(len(parts) - 1):
-            seg = [
-                [float(p[0]), float(p[1])]
-                for p in shape.points[parts[i] : parts[i + 1]]
-            ]
-            for clipped in _clip_segment_to_bbox(seg):
-                segments.append(clipped)
+        for seg in _segments_from_geom(geom):
+            segments.extend(_clip_segment_to_bbox(seg))
         if not segments:
             continue
-        name = _rec_str(rec, "name", "NAME", "name_en", "NAME_EN")
-        feature_cla = _rec_str(rec, "featurecla", "FEATURECLA")
-        kind = "river"
-        if "Lake" in feature_cla or "lake" in feature_cla.lower():
-            kind = "lake"
-        # Natural Earth uses Latin stems; product labels prefer Chinese.
-        if name in ("Huang", "Huang He", "Yellow River"):
-            name = "黄河"
-        elif name in ("Yangtze", "Changjiang", "Yangtze River"):
-            name = "长江"
-        elif name in ("Pearl", "Xi Jiang", "Pearl River"):
-            name = "珠江"
-        geom = (
-            {"type": "LineString", "coordinates": segments[0]}
-            if len(segments) == 1
-            else {"type": "MultiLineString", "coordinates": segments}
-        )
-        lines.append(
+        kind = str(props.get("kind") or "river")
+        out.append(
             {
-                "geometry": geom,
-                "properties": {"name": name, "kind": kind, "class": ""},
-            }
-        )
-
-    if len(lines) > 600:
-        named = [f for f in lines if f["properties"]["name"]]
-        unnamed = [f for f in lines if not f["properties"]["name"]]
-        lines = named[:500] + unnamed[:100]
-    return lines
-
-
-def _ne_road_class(type_raw: str, scalerank: int) -> str | None:
-    """Map Natural Earth road type → OSM-like class, or None to drop."""
-    t = (type_raw or "").strip().lower()
-    if "ferry" in t or "track" in t:
-        return None
-    if "major highway" in t or "beltway" in t:
-        return "motorway"
-    if "secondary highway" in t:
-        return "trunk"
-    if t in ("", "unknown"):
-        if scalerank <= 5:
-            return "trunk"
-        if scalerank <= 6:
-            return "primary"
-        return None
-    if t == "road" and scalerank <= 3:
-        return "primary"
-    return None
-
-
-def build_road_features(shp_path: Path) -> list[dict]:
-    """Natural Earth 10m roads clipped to China; motorway/trunk/primary only."""
-    shapefile = _require_pyshp()
-    sf = shapefile.Reader(str(shp_path))
-    fields = [f[0] for f in sf.fields[1:]]
-    roads: list[dict] = []
-    for sr in sf.iterShapeRecords():
-        shape = sr.shape
-        rec = dict(zip(fields, sr.record))
-        type_raw = _rec_str(rec, "type", "TYPE")
-        try:
-            scalerank = int(rec.get("scalerank") or rec.get("SCALERANK") or 99)
-        except (TypeError, ValueError):
-            scalerank = 99
-        road_class = _ne_road_class(type_raw, scalerank)
-        if not road_class:
-            continue
-        parts = list(shape.parts) + [len(shape.points)]
-        segments: list[list] = []
-        for i in range(len(parts) - 1):
-            seg = [
-                [float(p[0]), float(p[1])]
-                for p in shape.points[parts[i] : parts[i + 1]]
-            ]
-            for clipped in _clip_segment_to_bbox(seg):
-                segments.append(clipped)
-        if not segments:
-            continue
-        name = _rec_str(rec, "name", "NAME", "name_en", "NAME_EN")
-        geom = (
-            {"type": "LineString", "coordinates": segments[0]}
-            if len(segments) == 1
-            else {"type": "MultiLineString", "coordinates": segments}
-        )
-        roads.append(
-            {
-                "geometry": geom,
+                "geometry": _geom_from_segments(segments),
                 "properties": {
-                    "name": name,
-                    "kind": "road",
-                    "class": road_class,
+                    "name": str(props.get("name") or ""),
+                    "kind": kind,
+                    "class": str(props.get("class") or ""),
                 },
             }
         )
+    return out
 
+
+def build_line_features(src: Path) -> list[dict]:
+    """China hydrology from china_hydro.src.geojson — not the global NE rivers zip."""
+    lines = _load_china_line_extract(src)
+    for f in lines:
+        name = f["properties"]["name"]
+        canon = _canonicalize_water_name(name)
+        if canon:
+            f["properties"]["name"] = canon
+        kind = f["properties"].get("kind") or "river"
+        if kind not in ("river", "lake"):
+            f["properties"]["kind"] = "river"
+    lines = _merge_lines_named(lines, "长江")
+    lines = _merge_lines_named(lines, "黄河")
+    lines = _merge_lines_named(lines, "珠江")
+    return lines
+
+
+def build_road_features(src: Path) -> list[dict]:
+    """China roads from china_roads.src.geojson — not the global NE roads zip."""
+    roads = _load_china_line_extract(src)
+    for f in roads:
+        f["properties"]["kind"] = "road"
+        cls = f["properties"].get("class") or "primary"
+        if cls not in ("motorway", "trunk", "primary"):
+            f["properties"]["class"] = "primary"
     if len(roads) > 1500:
         motorway = [f for f in roads if f["properties"]["class"] == "motorway"]
         trunk = [f for f in roads if f["properties"]["class"] == "trunk"]
@@ -868,8 +886,8 @@ def main() -> int:
     ap.add_argument(
         "--also-out-dir",
         type=Path,
-        default=REPO / "out",
-        help="also copy finished gpkg/geojson here (default: repo out/)",
+        default=REPO / "out" / "data",
+        help="also copy finished gpkg/geojson/style here (default: out/data)",
     )
     ap.add_argument(
         "--with-dem",
@@ -890,7 +908,7 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    admin_shp, places_shp, rivers_shp, roads_shp = fetch_sources(args.cache)
+    admin_shp, places_shp = fetch_sources(args.cache)
     print("Building area from Natural Earth admin_1…", flush=True)
     areas = build_area_features(admin_shp)
     print(f"  area features: {len(areas)}", flush=True)
@@ -909,11 +927,11 @@ def main() -> int:
     points, texts = build_point_text(places_shp, areas)
     print(f"  point/text: {len(points)}/{len(texts)}", flush=True)
 
-    print("Building lines from Natural Earth rivers…", flush=True)
-    lines = build_line_features(rivers_shp)
+    print("Building lines from China hydro extract…", flush=True)
+    lines = build_line_features(CHINA_HYDRO_SRC)
     print(f"  river/lake features: {len(lines)}", flush=True)
-    print("Building lines from Natural Earth roads…", flush=True)
-    roads = build_road_features(roads_shp)
+    print("Building lines from China roads extract…", flush=True)
+    roads = build_road_features(CHINA_ROADS_SRC)
     print(f"  road features: {len(roads)}", flush=True)
     lines = lines + roads
     print(f"  line features total: {len(lines)}", flush=True)
@@ -943,6 +961,7 @@ def main() -> int:
             "columns": [("name", "TEXT"), ("kind", "TEXT")],
             "features": points,
         },
+        # Keep an empty text table for schema compatibility; names are on point.
         "text": {
             "geom_type": "POINT",
             "columns": [
@@ -1047,10 +1066,23 @@ def main() -> int:
 
     if args.also_out_dir:
         args.also_out_dir.mkdir(parents=True, exist_ok=True)
-        for src in (out, geojson_path):
+        style_src = Path(__file__).resolve().parent / "china_city.style.json"
+        license_src = Path(__file__).resolve().parent / "china_city.LICENSE.txt"
+        for src in (out, geojson_path, style_src, license_src):
+            if not src.is_file():
+                continue
             dest = args.also_out_dir / src.name
             dest.write_bytes(src.read_bytes())
             print(f"Copied {dest}", flush=True)
+        migrated = args.also_out_dir / "china_city.LICENSE_migrated.txt"
+        migrated.write_text(
+            "SUPERSEDED.\n"
+            "This filename described a mixed Aliyun DataV (GCJ-02) admin pack "
+            "plus Natural Earth rivers. The current china_city pack is Natural "
+            "Earth 10m only, EPSG:4326 / CRS84. See china_city.LICENSE.txt.\n",
+            encoding="utf-8",
+        )
+        print(f"Wrote superseded notice {migrated}", flush=True)
 
     print(
         "counts:",

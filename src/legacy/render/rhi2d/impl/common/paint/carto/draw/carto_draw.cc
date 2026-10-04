@@ -8,7 +8,6 @@
 #include "legacy/render/rhi2d/impl/common/paint/carto/encode/encoder_tls.h"
 
 using namespace base;
-using namespace geo;
 
 namespace render {
 namespace detail {
@@ -176,27 +175,27 @@ int Rhi2dCartoDraw::draw_device_anno(int x, int y, const char* text) {
   return device_draw_.draw_device_anno(x, y, text);
 }
 
-int Rhi2dCartoDraw::draw_tin(const SmtTin* tin) {
+int Rhi2dCartoDraw::draw_tin(const OGRTriangulatedSurface* tin) {
   return mesh_draw_.draw_tin(tin);
 }
 
-int Rhi2dCartoDraw::draw_tin_lines(const SmtTin* tin) {
+int Rhi2dCartoDraw::draw_tin_lines(const OGRTriangulatedSurface* tin) {
   return mesh_draw_.draw_tin_lines(tin);
 }
 
-int Rhi2dCartoDraw::draw_tin_nodes(const SmtTin* tin) {
+int Rhi2dCartoDraw::draw_tin_nodes(const OGRTriangulatedSurface* tin) {
   return mesh_draw_.draw_tin_nodes(tin);
 }
 
-int Rhi2dCartoDraw::draw_grid(const SmtGrid* grid) {
+int Rhi2dCartoDraw::draw_grid(const plugin::detail::OrthoLattice* grid) {
   return mesh_draw_.draw_grid(grid);
 }
 
-int Rhi2dCartoDraw::draw_grid_lines(const SmtGrid* grid) {
+int Rhi2dCartoDraw::draw_grid_lines(const plugin::detail::OrthoLattice* grid) {
   return mesh_draw_.draw_grid_lines(grid);
 }
 
-int Rhi2dCartoDraw::draw_grid_nodes(const SmtGrid* grid) {
+int Rhi2dCartoDraw::draw_grid_nodes(const plugin::detail::OrthoLattice* grid) {
   return mesh_draw_.draw_grid_nodes(grid);
 }
 

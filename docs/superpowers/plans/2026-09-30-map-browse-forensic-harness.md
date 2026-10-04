@@ -58,7 +58,7 @@ All rights reserved.
 ## Task 4: Docs + sample forensic run
 
 **Files:**
-- Modify: `docs/build/ui-testing.md` (L1′ browse forensic + record env)
+- Modify: `docs/superpowers/ui-testing.md` (L1′ browse forensic + record env)
 - Modify: living § checklist when done
 
 - [x] Document suite ids, `SMT_HARNESS_RECORD`, symptom → artifact mapping.

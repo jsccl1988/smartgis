@@ -52,4 +52,4 @@ src/foo/src/bar.cc
 
 ## Relation to other rules
 
-**`.cursor/rules/style/refactoring.mdc`** (reshape by responsibility), **`.cursor/rules/style/tree-style.mdc`** (match siblings), **`docs/build/src-layout.md`** (nesting cap). Colocation wins over keeping a split include path; do not add a shim header to preserve the old path.
+**`.cursor/rules/style/refactoring.mdc`** (reshape by responsibility), **`.cursor/rules/style/tree-style.mdc`** (match siblings), **`docs/superpowers/src-layout.md`** (nesting cap). Colocation wins over keeping a split include path; do not add a shim header to preserve the old path.

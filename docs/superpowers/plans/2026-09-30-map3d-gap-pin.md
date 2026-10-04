@@ -5,7 +5,7 @@ All rights reserved.
 
 # Map3D gap pin — Implementation Plan
 
-> **As-built gap source:** [`../../build/industry-gap-matrix.md`](../../build/industry-gap-matrix.md) §3.2.1 Map3D 钉死清单（2026-09-30）。  
+> **As-built gap source:** [`../industry-gap-matrix.md`](../industry-gap-matrix.md) §3.2.1 Map3D 钉死清单（2026-09-30）。  
 > **Living specs (do not open a new dated design):**  
 > [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) ·  
 > [`../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md`](../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md) (SP4 DEM) ·  
@@ -23,7 +23,7 @@ All rights reserved.
 
 - [x] **P0-A 双场景合拢收口：** leftover `DemHeightField` → thin wrap over `gis::DemRaster`; Views/`content` present path only seeds World → `GpuScene` (no parallel thick DEM). Spec: legacy umbrella SP4 Deferred + render-rhi-scene.  
   **Accept:** `dem_stereo_test` + `dem_raster_test` green; no new `DemHeightField` logic beyond adapter; `map_to_scene` / `Scene3dGpuPresent` still draw terrain from World mesh.
-- [x] **P0-B 3D Tiles 产品流：** wire `stream_tileset` + `ensure_tileset_content` into scene3d present/orbit loop (not only `run_m3_self_test_hooks`); city/local tileset fixture with ≥1 real `b3dm`/`glb` content decode under LRU cap. Spec: render-rhi-scene §model/tiles; plan sibling [`2026-09-27-m3-city-3d-stream.md`](2026-09-27-m3-city-3d-stream.md).  
+- [x] **P0-B 3D Tiles 产品流：** wire `stream_tileset` + `ensure_tileset_content` into scene3d present/orbit loop (not only `run_m3_self_test_hooks`); city/local tileset fixture with ≥1 real `b3dm`/`glb` content decode under LRU cap. Spec: render-rhi-scene §model/tiles; plan sibling [`2026-09-27-m3-city-3d-stream.md`](../archive/plans/2026-09-27-m3-city-3d-stream.md).  
   **Accept:** showcase or `--self-test` path loads fixture tileset, camera move changes `visible_uris`, resident cache ≤ budget, failed URI degrades without crash; `tileset_test` + present smoke green.  
   **Status:** done (2026-09-30 quiet lock): `TilesetStreamSession` + present pump + `GpuScene` cache + m3 hook camera URI check; `tileset_test` green; `SMARTGIS_BUILD_OWNER=map3d-p0b-verify build.bat debug scene3d_presenter_test` + `out\Debug\scene3d_presenter_test.exe` exit 0 (prior contested-lock AV not reproduced).
 - [x] **P0-C DEM 瓦片化高度场：** tile/clip `DemRaster` (or World terrain chunks) by view AABB; sync selected tiles into `GpuScene` instead of one full-china coarse mesh. Spec: legacy umbrella DEM unify + render-rhi-scene terrain.  

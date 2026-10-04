@@ -11,7 +11,7 @@ All rights reserved.
 **Status:** active  
 **Date:** 2026-09-19  
 **Goal:** 从 `legacy/ui` + `legacy/app`（及已迁入 `content::MapScene` 的会话逻辑）抽出 **HWND-free** 宿主行为单元，供 Views / CEF / WinUI 经 `content/public` 调用；MFC 对话框保持薄壳。  
-**Related:** [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)（SP0）、[`2026-09-14-app-legacy-split-design.md`](2026-09-14-app-legacy-split-design.md) Phase 2、[`2026-09-14-ui-leftover-chrome-parity-design.md`](2026-09-14-ui-leftover-chrome-parity-design.md)、[`2026-09-13-ui-views-mfc-migration-design.md`](2026-09-13-ui-views-mfc-migration-design.md)、[`2026-09-13-tool-event-dispatch-design.md`](2026-09-13-tool-event-dispatch-design.md)  
+**Related:** [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](../../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md)（SP0）、[`2026-09-14-app-legacy-split-design.md`](2026-09-14-app-legacy-split-design.md) Phase 2、[`2026-09-14-ui-leftover-chrome-parity-design.md`](2026-09-14-ui-leftover-chrome-parity-design.md)、[`2026-09-13-ui-views-mfc-migration-design.md`](2026-09-13-ui-views-mfc-migration-design.md)、[`2026-09-13-tool-event-dispatch-design.md`](../../specs/2026-09-13-tool-event-dispatch-design.md)  
 **Plan:** [`../plans/2026-09-19-legacy-host-behavior-extract.md`](../plans/2026-09-19-legacy-host-behavior-extract.md)  
 **Follow-up (2026-09-27):** 包内子目录 + 继续抽 bootstrap / draft-commit / 薄 MFC view，见 [`2026-09-27-legacy-app-subdirectory-layout-design.md`](2026-09-27-legacy-app-subdirectory-layout-design.md) 与计划 [`../plans/2026-09-27-legacy-app-subdirectory-layout.md`](../plans/2026-09-27-legacy-app-subdirectory-layout.md)。**不另立第二套 SP3**；本文件 wave-1（Attribute / Catalog snapshot）仍有效。
 

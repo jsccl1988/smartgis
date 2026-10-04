@@ -12,9 +12,9 @@
 #include "legacy/ui/catalog/resource.h"
 #include "legacy/plugin/runtime/auxmodule/plugin_msg.h"
 #include "legacy/gis/datasource/datasource_mgr.h"
-#include "gis/model/feature/feature_api.h"
-#include "gis/model/layer/layer.h"
-#include "gis/model/map/map.h"
+#include "legacy/gis/feature/leftover_copy_layer.h"
+#include "legacy/gis/layer/layer.h"
+#include "gis/map/map.h"
 #include "legacy/sys/sysmanager.h"
 
 using namespace gis;
@@ -35,20 +35,20 @@ long LayerMgrAppend(void) {
     CDlgSelLayer dlg;
     if (dlg.DoModal() == IDOK) {
       CString strDSName = dlg.GetSelDSName();
-      SmtDataSource pDS = pDSMgr->get_data_source((LPCTSTR)strDSName);
+      CatalogSource pDS = pDSMgr->get_data_source((LPCTSTR)strDSName);
 
       if (pDS && pDS.Open() && pDS.GetLayerCount() > 0) {
         CString strLayerName = dlg.GetSelLayerName();
-        SmtLayer *pLayer = pMapMgr->GetLayer(strLayerName);
+        Layer *pLayer = pMapMgr->GetLayer(strLayerName);
         OGRLayer *pOgr =
             pMapMgr->GetSmtMapPtr()
                 ? pMapMgr->GetSmtMapPtr()->GetOgrLayer(strLayerName)
                 : NULL;
         if (pLayer == NULL && pOgr == NULL) {
-          SmtLayerInfo lyrInfo;
+          LayerInfo lyrInfo;
           pDS.GetLayerInfo(lyrInfo, strLayerName);
 
-          if (lyrInfo.unFeatureType == SmtLayer_Ras) {
+          if (lyrInfo.unFeatureType == LayerRas) {
             pLayer = pDS.OpenRasterLayer(strLayerName);
             if (pLayer && pMapMgr->AppendLayer(pLayer)) lRtn = SMT_ERR_NONE;
           } else {

@@ -14,10 +14,10 @@ All rights reserved.
 
 **Sibling:**
 
-- 分层锁定 — [`docs/build/src-layout.md`](../../build/src-layout.md)
+- 分层锁定 — [`docs/superpowers/src-layout.md`](../../src-layout.md)
 - `Feature` / `MapLayer` — [`2026-09-13-sdb-feature-maplayer-composition-design.md`](2026-09-13-sdb-feature-maplayer-composition-design.md)
 - 瓦片 — [`2026-09-13-tile-layer-provider-design.md`](2026-09-13-tile-layer-provider-design.md)
-- 渲染 — [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)（只消费解析后的 paint，不拥有 Style 文档）
+- 渲染 — [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md)（只消费解析后的 paint，不拥有 Style 文档）
 
 ## Goal
 
@@ -153,6 +153,6 @@ Paint / layout 键（识别并写入 `ResolvedPaint`）：
 
 ## 文档同步
 
-- `docs/build/src-layout.md`：`sdb` 行加入 `style`
+- `docs/superpowers/src-layout.md`：`sdb` 行加入 `style`
 - `src/README.md` / `src/base/README.md`：澄清 dual-track
 - `docs/README.md`：索引本 spec

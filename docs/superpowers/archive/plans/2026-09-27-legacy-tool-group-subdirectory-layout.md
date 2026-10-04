@@ -31,7 +31,7 @@ All rights reserved.
 
 - [x] Task 1: Create role dirs; `git mv` paired `.h`/`.cpp`; update `group/BUILD.gn` sources list
 - [x] Task 2: Rewrite all in-tree `#include "legacy/tool/group/<file>.h"` for moved headers (group internals + xview + any other hits)
-- [x] Task 3: Add `group/README.md`; update `src/legacy/tool/README.md`, `src/legacy/README.md`, `docs/build/src-layout.md` group row; index row in `docs/README.md`
+- [x] Task 3: Add `group/README.md`; update `src/legacy/tool/README.md`, `src/legacy/README.md`, `docs/superpowers/src-layout.md` group row; index row in `docs/README.md`
 - [ ] Task 4: Human verification — document command; leave Status `active` until green then archive
 
 ## Include map (locked)

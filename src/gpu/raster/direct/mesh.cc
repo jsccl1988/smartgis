@@ -3,9 +3,10 @@
 
 #include "gpu/raster/direct/mesh.h"
 
-#include "gis/vista/world/terrain/dem/dem_raster.h"
+#include "vista/world/terrain/dem/dem_raster.h"
 
 #include <algorithm>
+#include <string>
 
 namespace gpu {
 namespace detail {
@@ -13,8 +14,11 @@ namespace detail {
 const SyntheticDemMesh& synthetic_dem_mesh() {
   static const SyntheticDemMesh mesh = [] {
     SyntheticDemMesh built;
-    gis::DemRaster dem;
-    dem.fill_synthetic_china();
+    vista::DemRaster dem;
+    const std::string path = vista::find_sample_dem_path();
+    if (path.empty() || !dem.load_gdal_raster(path.c_str()) || dem.empty()) {
+      return built;
+    }
     if (!dem.build_mesh(48, &built.xyz, &built.indices) ||
         built.xyz.size() < 9 || built.indices.size() < 3) {
       return built;

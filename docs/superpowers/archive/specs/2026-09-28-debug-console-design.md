@@ -12,7 +12,7 @@ All rights reserved.
 **Date:** 2026-09-28  
 **Updated:** 2026-09-28  
 **Scope:** Process-wide debug logging sink; opt-in Debug Agent (loopback); bottom-dock Debug Console in Views; out-of-process Python worker with VS Code LSP (Pyright stubs) + DAP (debugpy); built-in sdbd query via existing `SdbdClient`.  
-**Living considered:** [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md) (Console UI only — cross-ref § there); [`2026-09-19-sdbd-wsl-client-design.md`](2026-09-19-sdbd-wsl-client-design.md) (reuse client, no new sdbd contract). **Why new dated file:** logging sink + Debug Agent + Python worker are a new cross-layer subsystem (`base` / `content` / tooling), not a views menu/layout-only change; folding into views-shell would mis-own `base` and net protocol.
+**Living considered:** [`2026-09-27-views-desktop-shell-design.md`](../../specs/2026-09-27-views-desktop-shell-design.md) (Console UI only — cross-ref § there); [`2026-09-19-sdbd-wsl-client-design.md`](2026-09-19-sdbd-wsl-client-design.md) (reuse client, no new sdbd contract). **Why new dated file:** logging sink + Debug Agent + Python worker are a new cross-layer subsystem (`base` / `content` / tooling), not a views menu/layout-only change; folding into views-shell would mis-own `base` and net protocol.
 
 **Related:** `src/base/core/log.h` (today stderr-only macros); `src/base/trace/` + Diagnostic Tools CPU/Memory tabs; `gis/datasource/provider/impl/sdbd/client`.
 
@@ -175,4 +175,4 @@ No new `--self-test` scene required in v1.
 - `docs/superpowers/README.md` Active table — add this row.
 - `docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md` — short § Debug Console pointer.
 - `src/app/views/README.md` — mention Toggle Debug Console when UI lands.
-- `docs/build/src-layout.md` — `base/log`, `content/browser/debug` if layout table lists peers.
+- `docs/superpowers/src-layout.md` — `base/log`, `content/browser/debug` if layout table lists peers.

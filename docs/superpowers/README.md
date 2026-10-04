@@ -3,30 +3,63 @@ Copyright (c) 2026 The Mogu Authors.
 All rights reserved.
 -->
 
-# Superpowers (in-flight only)
+# Superpowers
 
-Living decisions live here. As-built product facts live in [`../build/`](../build/) and module READMEs.
+Living specs, open plans, HTML diagrams, and as-built product notes live here. Per-module facts also stay in `src/**/README.md`.
 
 **Default: revise the living row.** Do **not** open a new dated `YYYY-MM-DD-*-design.md` or extra plan unless the Gate in `.cursor/rules/repo/superpowers-docs.mdc` is satisfied (new top-level subsystem **and** a written “why § merge is impossible”). Every new requirement continues as a `§` on an existing umbrella below.
 
+## As-built
+
+| 文档 | 内容 |
+| --- | --- |
+| [`src-layout.md`](src-layout.md) | `src/` 分层 + 2010→短名表；foundation 在 `src/base` |
+| [`abi-rename-map.md`](abi-rename-map.md) | include / dll_stem / 导出宏 |
+| [`mogu-mapping.md`](mogu-mapping.md) | mogu → 本仓工程管理对照 |
+| [`ui-views-skia.md`](ui-views-skia.md) | 桌面 UI 终局：Views + Skia |
+| [`ui-testing.md`](ui-testing.md) | GUI / Views 测试分层（L0–L4） |
+| [`gis-test-matrix.md`](gis-test-matrix.md) | `src/gis` 功能矩阵 + 覆盖率/基准入口 |
+| [`ui-shell-multiprocess.md`](ui-shell-multiprocess.md) | 可替换 chrome + 多进程渲染 |
+| [`industry-gap-matrix.md`](industry-gap-matrix.md) | 业界差距矩阵 |
+
+### Diagrams
+
+| HTML | 内容 |
+| --- | --- |
+| [`diagrams/gis-vista-architecture.html`](diagrams/gis-vista-architecture.html) | GIS 泳道 + LayerBatch→present（`gis` ↛ `rhi`） |
+| [`diagrams/vista-subdirectory-layers.html`](diagrams/vista-subdirectory-layers.html) | `vista.dll` 责任层 + CPU/GPU 子目录（gis ↛ vista） |
+| [`diagrams/gis-geo-layers.html`](diagrams/gis-geo-layers.html) | `gis/geo` Types / Traits / Ops / Codec / Present |
+| [`diagrams/gis-model-ogr-layers.html`](diagrams/gis-model-ogr-layers.html) | `gis/{feature,layer,map}` 产品面 vs leftover ABI；Map/Layer/Feature ↔ OGR |
+| [`diagrams/gis-algorithm-geometry-split.html`](diagrams/gis-algorithm-geometry-split.html) | 几何体 ⊥ 算法（补图） |
+| [`diagrams/map2d-present-frame.html`](diagrams/map2d-present-frame.html) | Map2d MapFrame 四层 + 双出口 |
+| [`diagrams/render-accelerate-topology.html`](diagrams/render-accelerate-topology.html) | GPU-process × vista parallel（A×B） |
+| [`diagrams/ui-views-shell-architecture.html`](diagrams/ui-views-shell-architecture.html) | Views shell / compositor 泳道 |
+| [`diagrams/content-browser-layers.html`](diagrams/content-browser-layers.html) | `content/browser` 责任层 + C11 收紧 + MapSession / content.dll |
+| [`diagrams/views-window-process.html`](diagrams/views-window-process.html) | Views 窗口体系 / 进程体系 |
+| [`diagrams/legacy-render-architecture.html`](diagrams/legacy-render-architecture.html) | **Scenic**（`src/scenic` 工作副本 + 冻结 leftover/render） |
+| [`diagrams/debug-console-agent.html`](diagrams/debug-console-agent.html) | Debug console agent |
+| [`diagrams/plugin-product-world3d.html`](diagrams/plugin-product-world3d.html) | world3d 包：DEM + 2D orthogrid + 3D hex |
+
+Legacy UI/app deep-layer slices: `diagrams/legacy-{app,ui-widgets,ui-map,ui-shell,ui-inspect,ui-dialogs}-deep-layer.html`.
+
 ## Active living (only these)
 
-| Topic | Living spec | Primary plans |
+| Topic | Living spec | Primary open plans |
 | --- | --- | --- |
-| Leftover strangler SP0–SP5 | [`specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md`](specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md) | SP1–SP5 under `plans/2026-09-19-legacy-*` / `scene3d-*` / **scene3d-subdirectory-tighten** (§12b) / **scene3d-primitive-deep-layer** (§12c) / **scene3d-surface-base-modern-cpp** (§12d) / `shell-compile-gate` / **legacy-ui-subdirectory-layout** / **legacy-core-subdirectory-layout** / **legacy-mfc-ex-feature-pack** (§11c) / **legacy-ui-widgets-deep-layer** (§11d) / **legacy-ui-map-deep-layer** (§11e) / **legacy-ui-shell-deep-layer** (§11f) / **legacy-app-deep-layer** (§11g) / **legacy-ui-inspect-deep-layer** (§11h) / **legacy-ui-dialogs-deep-layer** (§11i) / **legacy-tool-bridge-capability-layout** (§SP1) |
-| RHI + dual scene + map2d + atmosphere + model/compute | [`specs/2026-09-13-render-rhi-scene-design.md`](specs/2026-09-13-render-rhi-scene-design.md) | [`plans/2026-09-13-render-rhi-scene.md`](plans/2026-09-13-render-rhi-scene.md) (+ frame-graph / gpu / P0 / map2d / atmosphere / sky-fog / render-trace / rhi-suite-bench / **map2d-hillshade-line-casing** / **map2d-gap-pin** / **map3d-gap-pin** / **d3d-leftover-capability** / **gl-leftover-capability** / gdi-leftover-worker / gdi-layout-device-compose / gdi-carto-base-math / gdi-leftover-profile / gdi-paint-dedupe / gdi-core-cc-rename / gdi-internal-rhi-reshape / gdi-core-upgrade-dedupe / **gdi-flatten-player** / **legacy-render-pipeline-arena** / **rhi2d-modern-cpp-base-harden** / **rhi2d-chromium-cc-compose** / **rhi2d-leftover-tile-raster** / **rhi2d-eigen-base-math** / **rhi2d-lpdp-hotpath-tune** / **rhi3d-camera-modern-cpp** / **rhi3d-parallel-frame** / **rhi3d-eigen-base-math** / **src-render-map2d-equal-profile-optimize** / **src-render-scene3d-equal-profile-optimize** / **src-render-vista-parallel-accelerate**) |
-| `app/views` shell + Views toolkit + markup + panels + debug console | [`specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) | [`plans/2026-09-20-m0-views-main-path.md`](plans/2026-09-20-m0-views-main-path.md) (+ declarative-markup / gis-panels / debug-console / **gis-python-spatial-analysis** / compositor / **ui-shell-perf-upgrade** / document-map-scene / csd-theme / **ui-visual-forensics** / **map-browse-forensic-harness** / **plugin-report-browser** / **harness-visual-review**) |
-| Tool dispatch + `src/tool` | [`specs/2026-09-13-tool-event-dispatch-design.md`](specs/2026-09-13-tool-event-dispatch-design.md) | [`plans/2026-09-13-tool-event-dispatch.md`](plans/2026-09-13-tool-event-dispatch.md), [`plans/2026-09-28-tool-dll-abi-workspace.md`](plans/2026-09-28-tool-dll-abi-workspace.md) |
-| `src/base` foundation (+ memory / PA-E / execution / codecs) | [`specs/2026-09-14-base-root-hybrid-design.md`](specs/2026-09-14-base-root-hybrid-design.md) | [`plans/2026-09-28-partition-alloc-everywhere.md`](plans/2026-09-28-partition-alloc-everywhere.md) (+ base-memory / gis-memory-load / base-execution / third-party-json-xml-protobuf / **base-trace-subdir**) |
-| GIS datasource / GDAL / SDB / Session+Provider | [`specs/2026-09-13-gdal-layer-management-design.md`](specs/2026-09-13-gdal-layer-management-design.md) | [`plans/2026-09-28-datasource-session-provider.md`](plans/2026-09-28-datasource-session-provider.md) (+ ogr-db / sdbd-wsl / **gis-coverage-benchmark** / **map2d-gap-pin**) |
-| Plugin host / contributions / store | [`specs/2026-09-13-plugin-host-design.md`](specs/2026-09-13-plugin-host-design.md) | [`plans/2026-09-13-plugin-host.md`](plans/2026-09-13-plugin-host.md) (+ plugin-product-package-layout / **gis-python-spatial-analysis** / **traffic-flood-analysis-plugins** / **stormsurge-3d-disaster** / **mine-stratum-earthwork** / **geochem-analysis-plugin** / §product–Python / **legacy-plugin-subdirectory-layout** / **plugin-product-sample-viz** / **world3d-pointcloud-las** / **world3d-true-earth** / **orthogrid3d-hexgrid** / **analysis-session-import-save-viz** / **plugin-report-browser**) |
+| Leftover strangler SP0–SP5 | [`specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md`](specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md) | [`plans/2026-09-19-tool-behavior-migration.md`](plans/2026-09-19-tool-behavior-migration.md) · [`plans/2026-09-19-scene3d-world-gpuscene.md`](plans/2026-09-19-scene3d-world-gpuscene.md) · [`plans/2026-09-28-scene3d-index-octree.md`](plans/2026-09-28-scene3d-index-octree.md) · [`plans/2026-09-29-legacy-mfc-ex-feature-pack.md`](plans/2026-09-29-legacy-mfc-ex-feature-pack.md) · [`plans/2026-10-02-legacy-ui-inspect-deep-layer.md`](plans/2026-10-02-legacy-ui-inspect-deep-layer.md) · [`plans/2026-09-29-legacy-core-subdirectory-layout.md`](plans/2026-09-29-legacy-core-subdirectory-layout.md) · [`plans/2026-09-29-legacy-plugin-subdirectory-layout.md`](plans/2026-09-29-legacy-plugin-subdirectory-layout.md) |
+| RHI + dual scene + map2d + atmosphere + model/compute | [`specs/2026-09-13-render-rhi-scene-design.md`](specs/2026-09-13-render-rhi-scene-design.md) | [`plans/2026-09-13-render-rhi-scene.md`](plans/2026-09-13-render-rhi-scene.md) · [`plans/2026-09-27-gpu-rhi-accelerate.md`](plans/2026-09-27-gpu-rhi-accelerate.md) · [`plans/2026-10-02-src-render-vista-parallel-accelerate.md`](plans/2026-10-02-src-render-vista-parallel-accelerate.md) · [`plans/2026-09-27-render-frame-graph.md`](plans/2026-09-27-render-frame-graph.md) · equal-profile + leftover GDI/rhi2d/rhi3d（**Scenic**）checklists on the umbrella **Plans:** line |
+| `app/views` shell + Views toolkit + markup + panels + debug console | [`specs/2026-09-27-views-desktop-shell-design.md`](specs/2026-09-27-views-desktop-shell-design.md) | [`plans/2026-09-20-m0-views-main-path.md`](plans/2026-09-20-m0-views-main-path.md) · [`plans/2026-09-28-debug-console.md`](plans/2026-09-28-debug-console.md) · compositor / forensics / markup / harness on the umbrella |
+| Tool dispatch + `src/tool` | [`specs/2026-09-13-tool-event-dispatch-design.md`](specs/2026-09-13-tool-event-dispatch-design.md) | [`plans/2026-09-13-tool-event-dispatch.md`](plans/2026-09-13-tool-event-dispatch.md) |
+| `src/base` foundation (+ memory / PA-E / execution / codecs) | [`specs/2026-09-14-base-root-hybrid-design.md`](specs/2026-09-14-base-root-hybrid-design.md) | [`plans/2026-09-28-partition-alloc-everywhere.md`](plans/2026-09-28-partition-alloc-everywhere.md) · [`plans/2026-09-28-base-execution.md`](plans/2026-09-28-base-execution.md) |
+| GIS datasource / GDAL / SDB / Session+Provider | [`specs/2026-09-13-gdal-layer-management-design.md`](specs/2026-09-13-gdal-layer-management-design.md) | [`plans/2026-09-28-datasource-session-provider.md`](plans/2026-09-28-datasource-session-provider.md) · [`plans/2026-09-13-ogr-db-datasource.md`](plans/2026-09-13-ogr-db-datasource.md) · [`plans/2026-09-19-sdbd-wsl-client.md`](plans/2026-09-19-sdbd-wsl-client.md) |
+| Plugin host / contributions / store | [`specs/2026-09-13-plugin-host-design.md`](specs/2026-09-13-plugin-host-design.md) | [`plans/2026-09-30-stormsurge-3d-disaster.md`](plans/2026-09-30-stormsurge-3d-disaster.md) · world3d / analysis / leftover-plugin checklists still open on the umbrella |
 | Algorithm layer (OSS) | [`specs/2026-09-13-algorithm-layer-oss-design.md`](specs/2026-09-13-algorithm-layer-oss-design.md) | [`plans/2026-09-13-algorithm-layer-oss.md`](plans/2026-09-13-algorithm-layer-oss.md) |
 | Net (asio / httplib) | [`specs/2026-09-13-net-asio-httplib-design.md`](specs/2026-09-13-net-asio-httplib-design.md) | [`plans/2026-09-13-net-asio-httplib.md`](plans/2026-09-13-net-asio-httplib.md) |
 
-Product milestone checklists (not new topics): [`plans/2026-09-20-m1-carto-style-tile-export.md`](plans/2026-09-20-m1-carto-style-tile-export.md), [`plans/2026-09-27-m2-processing-toolbox.md`](plans/2026-09-27-m2-processing-toolbox.md), [`plans/2026-09-27-m3-city-3d-stream.md`](plans/2026-09-27-m3-city-3d-stream.md), [`plans/2026-09-27-m4-enterprise-edit-embed.md`](plans/2026-09-27-m4-enterprise-edit-embed.md).
+Open milestone: [`plans/2026-09-20-m1-carto-style-tile-export.md`](plans/2026-09-20-m1-carto-style-tile-export.md). Landed M2–M4 + other completed checklists: [`archive/plans/`](archive/plans/).
 
 ## Archive
 
 Landed / superseded / fold-B children: [`archive/`](archive/).
 
-**最后更新:** 2026-10-02（Horizon：`*Chrome`→`*Composer` / `init_shell` / `map/frame`；§Horizon 品牌；§11h inspect；§11g `legacy/app`；§11f ui/shell；§11d widgets；§11e map；§GPU×vista **统一规范图** `render-accelerate-topology.html`）
+**最后更新:** 2026-10-04（living 仍 9 行；§Scenic 产品 `scenic.dll` + content 宿主；无新 dated spec）

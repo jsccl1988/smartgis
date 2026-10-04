@@ -5,8 +5,24 @@ All rights reserved.
 
 # smartgis.world3d
 
-True-3D Earth browse (完整真3D) plus DEM TIN/grid loaders and former `model3d`
-scene commands. Package id stays `smartgis.world3d` (no parallel `earth3d`).
+True-3D Earth browse (完整真3D) plus DEM trimesh/heightmap loaders, former `model3d`
+scene commands, **2D boundary-adapted orthogrid**, and **3D hex lattice**. Package
+id stays `smartgis.world3d` (no parallel `earth3d` / `baogrid` / `orthogrid3d`
+product packages). Layout:
+
+| Dir | Responsibility |
+| --- | --- |
+| `commands.h` / `commands.cc` | Public façade; `register_world3d` wires `grid/` + `scene/` |
+| `grid/` | DEM + 2D orthogrid + 3D hex (terrain / structured-mesh generation; not `gis/geo/grid` solvers) |
+| `grid/register.*` | `register_world3d_grid` — calls the three domain registers |
+| `grid/dem/` | Heightmap/trimesh `loader/` + Views `dialog/` (+ markup) + `tests/` |
+| `grid/orthogrid/` | 2D `lattice/` `session/` `solve/` |
+| `grid/hexgrid/` | 3D `lattice/` `sample/` `io/` `solve/` |
+| `scene/` | True-Earth + leftover `model3d.*` (`register.cc`) |
+| `resources/data/` | Data stub README (copy → `out/plugins/world3d/data`) |
+| `detail/contribute.h` | Command/processing alias helper |
+
+Shell includes only `plugin/product/world3d/commands.h`.
 
 ## Product face (Google Earth–class)
 
@@ -19,7 +35,9 @@ scene commands. Package id stays `smartgis.world3d` (no parallel `earth3d`).
 | `world3d.fly_to` | JSON `{lon,lat,distance?,span_deg?}` — local orbit reframe |
 | `world3d.attach_city_tileset` | JSON `{path?}` — 3D Tiles JSON (empty → `m3_city_tileset.json`) |
 | `world3d.add_pointcloud` / LAS | Existing pointcloud hook |
-| `world3d.tin_from_xyz` / `grid_from_heightmap` | DEM surface → MapScene triangles |
+| `world3d.trimesh_from_xyz` / `heightmap_from_raster` | DEM surface → MapScene triangles |
+| `baogrid.*` / `orthogrid.*` | Same 2D handlers; `detail::contribute_prefixed_commands` |
+| `orthogrid3d.*` | 3D hex lattice + `.vts` (`register_world3d_hexgrid`) |
 
 Resources copy to `out/plugins/world3d/`. Shell `--plugins-dir` defaults to
 `<exe>/../plugins`.
@@ -46,7 +64,8 @@ non-China extents are not forced back to the China box.
 
 `set_world3d_surface_writer` + `set_world3d_scene_writer` including
 `open_earth` / `load_global_dem` / `set_satellite_cloud` / `set_atmosphere` /
-`fly_to` / `attach_tileset`. Unset → `no_scene_device`.
+`fly_to` / `attach_tileset`. Unset → `no_scene_device`. 2D mesh:
+`set_orthogrid_mesh_writer`. 3D hex: `set_hex_grid_writer`.
 
 Satellite cloud with a path calls
 `AtmosphereSession::load_fields("<path>:cloud_cover")`.

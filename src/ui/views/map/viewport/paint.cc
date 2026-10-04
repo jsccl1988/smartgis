@@ -190,14 +190,21 @@ void MapViewport::paint_map_content(HDC target, const RECT& client_rc) {
   } else {
     last_content_present_ok_.store(false, std::memory_order_release);
   }
-  if (!presented && painted_generation_ > 0) {
-    // Keep the last composited backbuffer; re-running overlay on top of a
-    // frame that already includes vectors would stack strokes.
+  const bool force_gdi = []() {
+    if (const char* env = std::getenv("SMT_FORCE_GDI_MAP_OVERLAY")) {
+      return env[0] == '1' && env[1] == '\0';
+    }
+    return false;
+  }();
+  // Keep the last SharedSurface blit when present briefly fails — but never
+  // skip GDI overlay under SMT_FORCE_GDI_MAP_OVERLAY. Ocean-only / stale
+  // SharedSurface + early return left the embed near-black so pan looked dead.
+  if (!presented && painted_generation_ > 0 && !force_gdi) {
     return;
   }
   // Keep the previous backbuffer pixels when present briefly fails so the
   // viewport does not flash the teal placeholder between GPU generations.
-  if (!presented) {
+  if (!presented && !force_gdi) {
     // Pure GDI placeholder — avoid Skia Canvas on the retained mem DC (its
     // per-call BitBlt + DIB teardown has corrupted the process heap before).
     RECT fill = {0, 0, client_rc.right, client_rc.bottom};
@@ -232,6 +239,21 @@ void MapViewport::start_present_timer() {
     return;
   }
   SetTimer(hwnd, kPresentTimerId, 16, nullptr);
+}
+
+void MapViewport::pause_present() {
+  set_flycube_present_visible(false);
+  stop_present_timer();
+  HWND hwnd = native_view();
+  if (!hwnd || !IsWindow(hwnd)) {
+    return;
+  }
+  MSG msg;
+  while (PeekMessageW(&msg, hwnd, WM_TIMER, WM_TIMER, PM_REMOVE)) {
+    if (msg.wParam != kPresentTimerId) {
+      PostMessageW(hwnd, msg.message, msg.wParam, msg.lParam);
+    }
+  }
 }
 
 void MapViewport::resume_present_timer() {

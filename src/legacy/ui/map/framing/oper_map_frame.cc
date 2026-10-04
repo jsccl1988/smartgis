@@ -16,7 +16,7 @@ namespace detail {
 
 bool frame_oper_map(HWND hwnd,
                     render::LPRENDERDEVICE device,
-                    gis::SmtMap* oper_map,
+                    gis::Map* oper_map,
                     OperMapFrameState* state,
                     bool realtime) {
   if (!hwnd || !device || !oper_map || !state) {
@@ -73,7 +73,7 @@ bool frame_oper_map(HWND hwnd,
 }
 
 void request_oper_map_frame(HWND hwnd,
-                            gis::SmtMap* oper_map,
+                            gis::Map* oper_map,
                             const OperMapFrameState& state) {
   if (!hwnd || !oper_map || state.framed || state.framing) {
     return;

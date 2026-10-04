@@ -22,7 +22,7 @@
 #include "content/browser/document/query/inspector.h"
 #include "content/public/feature_attrs.h"
 #include "base/trace/event/process_trace.h"
-#include "gis/present/style/style_document.h"
+#include "gis/carto/style/style_document.h"
 
 namespace content {
 
@@ -111,15 +111,8 @@ void MapScene::seed_default(bool allow_china_bootstrap) {
       return;
     }
   }
+  // Real-data policy: never invent demo features when china packs are missing.
   clear();
-  Layer layer;
-  layer.id = "layer.demo";
-  layer.name = "Demo layer";
-  layer.visible = true;
-  layer.kind = LayerKind::kVector;
-  store_.add_sample_features(&layer, "demo");
-  store_.layers().push_back(std::move(layer));
-  store_.set_active_layer_id("layer.demo");
 }
 
 bool MapScene::compute_extent(double* min_x, double* min_y, double* max_x,
@@ -145,25 +138,9 @@ bool MapScene::open_path(const std::string& path) {
         path);
     return true;
   }
+  // Real-data policy: do not invent sample features on OGR miss.
   store_.set_last_open_was_ogr(false);
-  Layer* existing = store_.find_layer(path);
-  if (existing) {
-    existing->name = stem;
-    existing->visible = true;
-    existing->kind = LayerKind::kVector;
-    existing->features.clear();
-    store_.add_sample_features(existing, stem);
-    store_.set_active_layer_id(path);
-    return false;
-  }
-  Layer layer;
-  layer.id = path;
-  layer.name = stem;
-  layer.visible = true;
-  layer.kind = LayerKind::kVector;
-  store_.add_sample_features(&layer, stem);
-  store_.set_active_layer_id(layer.id);
-  store_.layers().push_back(std::move(layer));
+  (void)stem;
   return false;
 }
 
@@ -308,7 +285,7 @@ content::Extent2 MapScene::world_extent() const {
   return detail::world_extent(store_);
 }
 
-void MapScene::export_land_rings(std::vector<gis::LonLatRing>* out) const {
+void MapScene::export_land_rings(std::vector<vista::LonLatRing>* out) const {
   detail::export_land_rings(store_, out);
 }
 

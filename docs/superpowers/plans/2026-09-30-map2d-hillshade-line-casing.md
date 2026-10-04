@@ -9,9 +9,9 @@ All rights reserved.
 
 **Goal:** Make China 2D basemap show readable dual-stroke roads (casing then fill) and a DEM hillshade underlay when Style enables `hillshade` — capability-aligned with MapLibre look, **without** copying MapLibre Native.
 
-**Architecture:** Extend existing StyleDocument → `ResolvedPaint` → `gis::vista` MapFrame layout → software/`effect/map` textured present. Line casing stays **two Style layers** (already in `default_carto_style_json`). Hillshade is **own** DEM slope/aspect → RGBA raster `DrawItem`, not a port of `hillshade_prepare` shaders.
+**Architecture:** Extend existing StyleDocument → `ResolvedPaint` → `gis::vista` MapFrame layout → software/`vista/map` textured present. Line casing stays **two Style layers** (already in `default_carto_style_json`). Hillshade is **own** DEM slope/aspect → RGBA raster `DrawItem`, not a port of `hillshade_prepare` shaders.
 
-**Tech Stack:** C++23, `gis::style`, `gis::vista`, `gis::DemRaster`, `effect/map`, `build.bat debug`, `map2d_china_loop` / `maplibre_align`.
+**Tech Stack:** C++23, `gis::style`, `gis::vista`, `gis::DemRaster`, `vista/map`, `build.bat debug`, `map2d_china_loop` / `maplibre_align`.
 
 **Spec:** [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) §Map2d richness P0.
 
@@ -30,24 +30,24 @@ All rights reserved.
 
 | File | Role |
 | --- | --- |
-| `src/gis/vista/frame/default_style.cc` | Road casing/fill `minzoom` + cream-safe colors for overview |
+| `src/vista/frame/default_style.cc` | Road casing/fill `minzoom` + cream-safe colors for overview |
 | `third_party/maplibre/example/style_align.json` | Add `road-casing` before `road` for dual-still align |
-| `src/gis/present/style/style_types.h` / `paint_resolve.*` | Hillshade paint constants on `ResolvedPaint` (or small fields) |
-| `src/gis/vista/world/terrain/` (new small helper next to dem) | `shade_dem_rgba(...)` — own Horn/finite-diff shade |
-| `src/gis/vista/frame/layout.cc` / `frame.h` | Emit hillshade raster `DrawItem` under vectors; keep Style layer order for lines |
-| `src/gis/vista/frame/map2d_test.cc` | Unit: casing order + hillshade item when DEM bound |
-| `src/gis/present/style/style_test.cc` | Resolve hillshade paint keys |
+| `src/gis/carto/style/style_types.h` / `paint_resolve.*` | Hillshade paint constants on `ResolvedPaint` (or small fields) |
+| `src/vista/world/terrain/` (new small helper next to dem) | `shade_dem_rgba(...)` — own Horn/finite-diff shade |
+| `src/vista/frame/layout.cc` / `frame.h` | Emit hillshade raster `DrawItem` under vectors; keep Style layer order for lines |
+| `src/vista/frame/map2d_test.cc` | Unit: casing order + hillshade item when DEM bound |
+| `src/gis/carto/style/style_test.cc` | Resolve hillshade paint keys |
 | `testing/tools/harness/map2d/map2d.china/map2d_china_loop.py` (or suite json) | Pixel gate: road casing contrast; optional hillshade variance |
-| `docs/build/industry-gap-matrix.md` | One-line M1 richness note when landed |
+| `docs/superpowers/industry-gap-matrix.md` | One-line M1 richness note when landed |
 
 ---
 
 ### Task 1: Line casing overview readability
 
 **Files:**
-- Modify: `src/gis/vista/frame/default_style.cc` (`road-casing` / `road` minzoom + colors)
+- Modify: `src/vista/frame/default_style.cc` (`road-casing` / `road` minzoom + colors)
 - Modify: `third_party/maplibre/example/style_align.json` (insert casing layer)
-- Test: `src/gis/vista/frame/map2d_test.cc` (layer order / zoom match)
+- Test: `src/vista/frame/map2d_test.cc` (layer order / zoom match)
 - Gate: `testing/tools/harness/map2d/map2d.china/map2d_china_loop.py` or existing china suite
 
 **Interfaces:**
@@ -65,9 +65,9 @@ All rights reserved.
 ### Task 2: Hillshade paint resolve (constants only)
 
 **Files:**
-- Modify: `src/gis/present/style/style_types.h` (`ResolvedPaint` hillshade fields)
-- Modify: `src/gis/present/style/paint_resolve.cc` / `.h`
-- Test: `src/gis/present/style/style_test.cc`
+- Modify: `src/gis/carto/style/style_types.h` (`ResolvedPaint` hillshade fields)
+- Modify: `src/gis/carto/style/paint_resolve.cc` / `.h`
+- Test: `src/gis/carto/style/style_test.cc`
 
 **Interfaces:**
 - Consumes: Style layer `type: hillshade` paint map (string values)
@@ -85,9 +85,9 @@ Paint key names may follow Style Spec strings for JSON compatibility; evaluation
 ### Task 3: DEM → shade RGBA helper
 
 **Files:**
-- Create: `src/gis/vista/world/terrain/hillshade.h` + `hillshade.cc` (colocated; name may be `dem_hillshade.*` if clearer)
+- Create: `src/vista/world/terrain/hillshade.h` + `hillshade.cc` (colocated; name may be `dem_hillshade.*` if clearer)
 - Modify: terrain `BUILD.gn` / `src/gis` BUILD as needed
-- Test: `src/gis/vista/world/terrain/dem/dem_raster_test.cc` or new `hillshade_test.cc`
+- Test: `src/vista/world/terrain/dem/dem_raster_test.cc` or new `hillshade_test.cc`
 
 **Interfaces:**
 - Consumes: `const DemRaster&`, illumination azimuth/altitude, exaggeration, output w/h
@@ -103,10 +103,10 @@ Algorithm: finite-difference slope/aspect (Horn or equivalent) + Lambertian-ish 
 ### Task 4: MapFrame layout emits hillshade underlay
 
 **Files:**
-- Modify: `src/gis/vista/frame/frame.h` (optional DEM bind / hillshade cache key)
-- Modify: `src/gis/vista/frame/layout.cc`
+- Modify: `src/vista/frame/frame.h` (optional DEM bind / hillshade cache key)
+- Modify: `src/vista/frame/layout.cc`
 - Modify: present path that builds MapFrame (showcase / MapViewport) to bind DEM when available
-- Test: `src/gis/vista/frame/map2d_test.cc`
+- Test: `src/vista/frame/map2d_test.cc`
 
 **Interfaces:**
 - Consumes: Style hillshade layer + bound `DemRaster` + view extent
@@ -124,7 +124,7 @@ Algorithm: finite-difference slope/aspect (Horn or equivalent) + Lambertian-ish 
 **Files:**
 - Modify: `testing/tools/harness/map2d/map2d.china/map2d_china_loop.py` and/or suite JSON
 - Optional: `testing/tools/harness/_shared/case/align/maplibre_align.py` expectations
-- Modify: `docs/build/industry-gap-matrix.md` (richness row)
+- Modify: `docs/superpowers/industry-gap-matrix.md` (richness row)
 - Spec § already landed; tick plan checkboxes when done
 
 - [x] **Step 1:** Add pixel checks: `road_casing_frac` + `road_gold+casing` in `score_map2d_china`.

@@ -12,8 +12,8 @@
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/map2d/map2d_presenter.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "gis/present/style/style_document.h"
-#include "gis/present/style/style_types.h"
+#include "gis/carto/style/style_document.h"
+#include "gis/carto/style/style_types.h"
 
 namespace app {
 
@@ -62,7 +62,13 @@ void ensure_china_maplibre_carto(Browser& browser) {
   bool has_area_or_point = false;
   bool has_land_or_river = false;
   bool has_product_slot = false;
-  for (const gis::style::StyleLayer& layer : style->layers) {
+  // Copy size first: a poisoned StyleDocument (stale gis_d) can AV in begin().
+  const std::size_t n = style->layers.size();
+  if (n > 4096) {
+    return;
+  }
+  for (std::size_t i = 0; i < n; ++i) {
+    const gis::style::StyleLayer& layer = style->layers[i];
     if (layer.source_layer == "land" || layer.source_layer == "river" ||
         layer.source_layer == "label") {
       has_land_or_river = true;
@@ -130,6 +136,8 @@ ChinaScene3dAtmoFlags apply_china_scene3d_atmosphere(Browser& browser) {
   // Do not abandon_mesh on every China seed: concurrent Map-Edit FlyCube
   // present + gpu_scene_.abandon remapped heap (browse.3d 0xC0000005 on
   // select_map_tab(2)). Seed/flags alone rebuild DEM on the next present.
+  // Harness: seed_procedural can AV if DEM/gpu_scene is mid-rebuild; keep
+  // the call — callers must pause shell FlyCube present first.
   cam->atmosphere_session().seed_procedural(/*with_land_rings=*/true);
   cam->atmosphere_session().set_ocean_enabled(flags.ocean);
   cam->atmosphere_session().set_cloud_enabled(flags.cloud);

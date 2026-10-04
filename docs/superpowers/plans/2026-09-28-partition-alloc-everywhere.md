@@ -59,7 +59,7 @@ Chromium `partition_alloc.gni` typically gates `use_partition_alloc` on **`is_cl
 | --- | --- |
 | PA compiles + links under MSVC for smoke | Proceed Task 2–5 on MSVC |
 | PA requires clang / clang-cl | Document clang-cl (or Chromium clang) as **required** for PA-enabled configs; keep default product builds on MSVC with PA-E **off** |
-| Neither path viable soon | Stop after Task 1; leave flags permanently default-off; as-built note in `docs/build/` |
+| Neither path viable soon | Stop after Task 1; leave flags permanently default-off; as-built note in `docs/superpowers/` |
 
 Do **not** invent a third allocator while blocked.
 
@@ -68,7 +68,7 @@ Do **not** invent a third allocator while blocked.
 ### Task 1: Compiler / pin feasibility spike
 
 **Files:**
-- Create: `docs/build/partition-alloc.md` (as-built notes: pin URL, rev, MSVC vs clang-cl result)
+- Create: `docs/superpowers/partition-alloc.md` (as-built notes: pin URL, rev, MSVC vs clang-cl result)
 - Modify: `docs/superpowers/specs/2026-09-14-base-root-hybrid-design.md` §PA-E (record spike outcome under Phases)
 - Optional scratch only under `.tmp/` — do not commit failed trees
 
@@ -108,11 +108,11 @@ Run (adjust once probe BUILD is known):
 .\build.bat
 ```
 
-If no GN target yet, document the **first** MSVC error (inline asm, missing chromium macros, etc.) in `docs/build/partition-alloc.md`.
+If no GN target yet, document the **first** MSVC error (inline asm, missing chromium macros, etc.) in `docs/superpowers/partition-alloc.md`.
 
 - [ ] **Step 4: Lock decision in living § + as-built stub**
 
-Write `docs/build/partition-alloc.md` with:
+Write `docs/superpowers/partition-alloc.md` with:
 
 | Field | Value |
 | --- | --- |
@@ -221,8 +221,8 @@ Expected: `use_partition_alloc_as_malloc` is **false**. Full `build.bat` still g
 - [ ] **Step 5: Commit** (only when user asks)
 
 ```bat
-git add build/config/allocator.gni build_overrides/partition_alloc.gni build/BUILDCONFIG.gn docs/build/partition-alloc.md docs/superpowers/specs/2026-09-14-base-root-hybrid-design.md docs/superpowers/plans/2026-09-28-partition-alloc-everywhere.md docs/superpowers/README.md
-git commit -m "docs/build: add Chromium-aligned PA-E GN stubs (default off)"
+git add build/config/allocator.gni build_overrides/partition_alloc.gni build/BUILDCONFIG.gn docs/superpowers/partition-alloc.md docs/superpowers/specs/2026-09-14-base-root-hybrid-design.md docs/superpowers/plans/2026-09-28-partition-alloc-everywhere.md docs/superpowers/README.md
+git commit -m "docs/superpowers: add Chromium-aligned PA-E GN stubs (default off)"
 ```
 
 ---
@@ -333,7 +333,7 @@ Expected stdout: `pae_smoke ok`. Debug+PA-E must remain unsupported (gen should 
 
 - [ ] **Step 4: Document how to confirm PA is active** (optional)
 
-If Chromium exposes a PA version / stats API in the pin, call it once in smoke; otherwise note “link-time PA-E only” in `docs/build/partition-alloc.md`.
+If Chromium exposes a PA version / stats API in the pin, call it once in smoke; otherwise note “link-time PA-E only” in `docs/superpowers/partition-alloc.md`.
 
 ---
 
@@ -342,7 +342,7 @@ If Chromium exposes a PA version / stats API in the pin, call it once in smoke; 
 **Files:**
 - Modify: `build/BUILDCONFIG.gn` `set_defaults("shared_library")` / `set_defaults("executable")` — **conditional** deps on allocator_shim when PA-E on
 - Modify: product DLL graph only as required so **every** module that allocates links the **same** shim DLL
-- Modify: `docs/build/partition-alloc.md` + §PA-E Phase 3 checkbox
+- Modify: `docs/superpowers/partition-alloc.md` + §PA-E Phase 3 checkbox
 
 **Interfaces:**
 - Consumes: Chromium Windows component pattern (`allocator_shim` shared library; all DLLs+exe depend on it)
@@ -370,13 +370,13 @@ When `use_partition_alloc_as_malloc`:
 **Files:**
 - Modify: `build/build_config.h` — remove or comment `USE_TCMALLOC` block; do not leave a false “enabled” signal
 - Modify: `build/config/posix/BUILD.gn` — delete or comment unused `gperftools` config, or gate behind a never-on arg
-- Modify: `docs/build/partition-alloc.md` as-built; archive note in §PA-E when product default remains off
+- Modify: `docs/superpowers/partition-alloc.md` as-built; archive note in §PA-E when product default remains off
 
 - [ ] **Step 1: Neutralize `USE_TCMALLOC`**
 
 ```cpp
 // Process heap: Chromium PA-E via GN (use_partition_alloc_as_malloc), not tcmalloc.
-// See docs/build/partition-alloc.md and §Process malloc in base-root-hybrid.
+// See docs/superpowers/partition-alloc.md and §Process malloc in base-root-hybrid.
 ```
 
 - [ ] **Step 2: Remove dead posix gperftools libs list or mark `# Unused — do not link`.**

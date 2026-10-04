@@ -15,7 +15,7 @@ All rights reserved.
 
 **Sibling:**
 
-- Views 壳 / Catalog / overlay — `src/app/views/README.md`、`docs/build/ui-views-skia.md`
+- Views 壳 / Catalog / overlay — `src/app/views/README.md`、`docs/superpowers/ui-views-skia.md`
 - OGR / Anno 字段语义 — [`2026-09-13-ogr-db-datasource-design.md`](2026-09-13-ogr-db-datasource-design.md)（`SmtFtAnno`：`anno` / `color` / `angle`）
 - 在线瓦片底图 — [`2026-09-13-tile-layer-provider-design.md`](2026-09-13-tile-layer-provider-design.md)（**互补**，不替代本离线矢量包）
 

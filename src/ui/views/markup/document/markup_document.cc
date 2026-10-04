@@ -27,8 +27,9 @@ std::wstring utf8_to_wide_path(const std::string& u8) {
   if (n <= 0) {
     return {};
   }
-  std::wstring w(static_cast<size_t>(n - 1), L'\0');
+  std::wstring w(static_cast<size_t>(n), L'\0');
   MultiByteToWideChar(CP_UTF8, 0, u8.c_str(), -1, w.data(), n);
+  w.resize(static_cast<size_t>(n - 1));
   return w;
 }
 

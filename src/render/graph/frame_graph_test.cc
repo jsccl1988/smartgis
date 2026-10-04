@@ -7,8 +7,8 @@
 #include <cstdlib>
 #include <memory>
 
-#include "effect/map/map_effect.h"
-#include "effect/map/pass.h"
+#include "vista/map/map_effect.h"
+#include "vista/map/pass.h"
 #include "render/rhi/rhi.h"
 
 namespace {
@@ -48,8 +48,8 @@ void expect(bool ok, const char* msg) {
   }
 }
 
-gis::vista::View view_64() {
-  gis::vista::View view;
+vista::View view_64() {
+  vista::View view;
   view.width_px = 64;
   view.height_px = 64;
   view.min_x = 0;
@@ -112,13 +112,13 @@ int main() {
   expect(overlay.color_op() == render::rhi::ColorLoadOp::kLoad,
          "overlay-effect sees load");
 
-  effect::map::Pass pass;
-  const gis::vista::View view = view_64();
-  gis::vista::MapFrame frame;
+  vista::Pass pass;
+  const vista::View view = view_64();
+  vista::MapFrame frame;
   frame.background_rgba = 0xff1b3a4c;
   const render::rhi::CameraMatrices ortho = render::rhi::make_ortho_camera(
       0.f, 10.f, 0.f, 10.f, -1.f, 1.f);
-  effect::map::MapEffect map_effect(render::graph::EffectSlot::kOpaque, &pass,
+  vista::MapEffect map_effect(render::graph::EffectSlot::kOpaque, &pass,
                                       &frame, &view, nullptr, {}, {}, true);
   expect(map_effect.slot() == render::graph::EffectSlot::kOpaque,
          "record_all stays on the opaque slot");

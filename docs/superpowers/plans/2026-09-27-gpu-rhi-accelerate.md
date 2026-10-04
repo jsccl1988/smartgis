@@ -403,7 +403,7 @@ Expected: default suite green; with `SMT_GPU_COMPOSE=rhi`, RhiComposer path runs
 
 
 
-- [ ] **Step 3:** effect/map: CPU `gis::vista::Layout` stays in gis; RHI Pass is `effect::map` (`src/effect/map`); bridge copies color target into compositor on the same `AdapterId` — deferred until offscreen readback.
+- [ ] **Step 3:** effect/map: CPU `gis::vista::Layout` stays in gis; RHI Pass is `effect::map` (`src/vista/map`); bridge copies color target into compositor on the same `AdapterId` — deferred until offscreen readback.
 
 
 
@@ -443,7 +443,7 @@ Expected: default suite green; with `SMT_GPU_COMPOSE=rhi`, RhiComposer path runs
 
 
 
-- [ ] **Step 5 (human):** Kill GPU child under load; confirm browser recovery; dual-adapter sticky fallback still matches `docs/build/ui-shell-multiprocess.md`.
+- [ ] **Step 5 (human):** Kill GPU child under load; confirm browser recovery; dual-adapter sticky fallback still matches `docs/superpowers/ui-shell-multiprocess.md`.
 
 
 
@@ -523,7 +523,7 @@ Plan complete when saved. Implementation continues on `master` under the multi-G
 
 
 - [x] Extend `AttachSurfaceBody` / `ResizeSurfaceBody` with `monitor_luid_low` / `monitor_luid_high` and optional `adapter_hint` (`0xffffffff` = unset) — `src/content/common/host_protocol.h`.
-- [x] Shell / browser fill LUID from local `HMONITOR` (do **not** put `HMONITOR` on IPC) — e.g. `src/content/browser/map_contents.cc`, Views map host as needed.
+- [x] Shell / browser fill LUID from local `HMONITOR` (do **not** put `HMONITOR` on IPC) — e.g. `src/content/browser/contents/map_contents.cc`, Views map host as needed.
 - [x] `gpu_main` on Attach/Resize: resolve adapter via `GpuDeviceHub` and `bind_surface` / `rebind_surface_to_monitor` (LUID), not forever-primary — `src/gpu/gpu_main.cc`, `src/gpu/device/gpu_device_hub.*`.
 - [ ] Tests: Attach/Resize with LUID pins expected `AdapterId`; primary-only path remains fallback when LUID unset.
 
@@ -532,7 +532,7 @@ Plan complete when saved. Implementation continues on `master` under the multi-G
 
 
 - [ ] Wire device-lost / TDR recovery to `notify_device_lost` → sticky software + surface generation bump for that adapter (`src/gpu/device/gpu_device_hub.*`, display / present path).
-- [ ] Dual-adapter sticky-fallback hand notes + as-built refresh (`src/gpu/README.md`, `docs/build/ui-shell-multiprocess.md` if behavior changes).
+- [ ] Dual-adapter sticky-fallback hand notes + as-built refresh (`src/gpu/README.md`, `docs/superpowers/ui-shell-multiprocess.md` if behavior changes).
 - [ ] Confirm shell still never final-compose; no single-frame multi-GPU split.
 
 ---

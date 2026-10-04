@@ -700,6 +700,13 @@ void AmboxView::paint_self(ui::gfx::Canvas* canvas) {
 
   const float scale = scale_factor();
   const int hair = std::max(1, dip_to_px(1, scale));
+  std::vector<ToolButton*> tools;
+  collect_tool_buttons(&tools);
+  if (tools.empty() && orientation_ == Orientation::kVertical) {
+    // Side Tools tab empty-state (visual_review #10).
+    canvas->draw_text(b.x + dip_to_px(12, scale), b.y + dip_to_px(16, scale),
+                      L"No tools in this workspace", t.text_muted);
+  }
   if (orientation_ == Orientation::kHorizontal) {
     canvas->fill_rect(b.x, b.bottom() - hair, b.width, hair, t.panel_header);
     for (size_t i = 1; i < blocks_.size(); ++i) {

@@ -52,7 +52,7 @@ Status: active
 | `src/render/math/BUILD.gn` | targets + SIMD 开关 |
 | 删除 | `mathlib_3d.h`、`mathlib.h` |
 | 调用方 | `legacy/render/**`、`algorithm/tin/**`、`algorithm/geo/vector_traits.h` |
-| docs | `docs/build/src-layout.md`、`src/render/README.md` |
+| docs | `docs/superpowers/src-layout.md`、`src/render/README.md` |
 
 **明确不做清单：**
 
@@ -222,7 +222,7 @@ render/math/mathlib.h    → render/math/math.h
 **Files:**
 - Create: `src/render/math/math_test.cc`
 - Modify: `src/render/math/BUILD.gn`（`test("math_test")`）
-- Modify: `docs/build/src-layout.md`、`src/render/README.md`
+- Modify: `docs/superpowers/src-layout.md`、`src/render/README.md`
 
 **Interfaces:**
 - Produces: 可运行的 `math_test`（至少向量 dot/cross、Ray-Aabb intersects）

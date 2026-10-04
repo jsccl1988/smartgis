@@ -6,7 +6,7 @@
 
 #include "gdal_priv.h"
 #include "gis/gis_export.h"
-#include "gis/model/map/map_layer.h"
+#include "gis/map/map_layer.h"
 
 namespace gis {
 namespace datasource {

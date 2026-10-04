@@ -3,24 +3,32 @@
 
 import("//build/config/win/application.gni")
 
+# Layout (directory partitions; namespace stays app):
+#   app/       — process bootstrap (Widget + FrameView)
+#   shell/     — editor chrome (palette/canvas/props/tree)
+#   canvas/    — markup preview host + hit overlay
+#   document/  — XML DOM helpers + markup edit/reorder
+#   io/        — UTF-8 path file helpers
+#   llm/       — Cursor Agent LlmBackend for Text2UI
+
 win32_app("ui_designer") {
   output_name = "UiDesigner"
   sources = [
     "main.cc",
-    "cursor_agent_llm.cc",
-    "cursor_agent_llm.h",
-    "designer_app.cc",
-    "designer_app.h",
-    "designer_canvas.cc",
-    "designer_canvas.h",
-    "designer_dom.cc",
-    "designer_dom.h",
-    "designer_io.cc",
-    "designer_io.h",
-    "designer_markup_edit.cc",
-    "designer_markup_edit.h",
-    "designer_shell.cc",
-    "designer_shell.h",
+    "app/app.cc",
+    "app/app.h",
+    "canvas/canvas.cc",
+    "canvas/canvas.h",
+    "document/dom.cc",
+    "document/dom.h",
+    "document/edit.cc",
+    "document/edit.h",
+    "io/file_io.cc",
+    "io/file_io.h",
+    "llm/cursor_agent.cc",
+    "llm/cursor_agent.h",
+    "shell/shell.cc",
+    "shell/shell.h",
   ]
   deps = [
     "//src/base:base",

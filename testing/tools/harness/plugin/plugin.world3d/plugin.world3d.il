@@ -7,20 +7,20 @@
 
 script "plugin.world3d" {
   seq @inproc {
-    resolve_data(kind="plugin", leaf="world3d_tin_sample.xyz", as="tin");
-    require_var(name="tin", fail_mark="tin-missing");
+    resolve_data(kind="plugin", leaf="world3d_trimesh_sample.xyz", as="trimesh");
+    require_var(name="trimesh", fail_mark="trimesh-missing");
     resolve_data(kind="plugin", leaf="world3d_dem_sample.tif", as="dem");
     require_var(name="dem", fail_mark="dem-missing");
     resolve_data(kind="data", leaf="pointcloud_public_sample.txt", as="cloud", soft=1);
     resolve_data(kind="plugin", leaf="world3d_pointcloud_sample.las", as="cloud", soft=1);
     require_var(name="cloud", fail_mark="pointcloud-missing");
     doc_clear();
-    run_processing(id="world3d.tin_from_xyz",
-                   args="{\"vertex_path\":\"$tin\",\"separator\":\"comma\",\"head_skip\":1,\"line_skip\":0,\"col_x\":0,\"col_y\":1,\"col_z\":2,\"x_scale\":1,\"y_scale\":1,\"z_scale\":1}");
-    mark("tin-ok");
-    run_processing(id="world3d.grid_from_heightmap",
+    run_processing(id="world3d.trimesh_from_xyz",
+                   args="{\"vertex_path\":\"$trimesh\",\"separator\":\"comma\",\"head_skip\":1,\"line_skip\":0,\"col_x\":0,\"col_y\":1,\"col_z\":2,\"x_scale\":1,\"y_scale\":1,\"z_scale\":1}");
+    mark("trimesh-ok");
+    run_processing(id="world3d.heightmap_from_raster",
                    args="{\"heightmap_path\":\"$dem\",\"x_scale\":1,\"y_scale\":1,\"z_scale\":0.001}");
-    mark("grid-ok");
+    mark("heightmap-ok");
     run_processing(id="model3d.add_pointcloud", args="{\"path\":\"$cloud\"}");
     mark("pointcloud-ok");
     run_processing(id="model3d.add_sphere", args="{}");
@@ -31,7 +31,7 @@ script "plugin.world3d" {
     mark("style-ok");
     invalidate_map2d();
     pump(ms=300);
-    export_bmp(leaf="plugin-showcase-world3d-map2d.bmp", frame="world3d_tin");
+    export_bmp(leaf="plugin-showcase-world3d-map2d.bmp", frame="world3d_trimesh");
     mark("bmp-ok");
     mark("pass");
     detach_maps();

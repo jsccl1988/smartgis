@@ -9,8 +9,9 @@
 #include "legacy/ui/catalog/map/mapmgr.h"
 #include "legacy/ui/catalog/resource.h"
 #include "legacy/gis/datasource/datasource_mgr.h"
-#include "gis/model/feature/feature_api.h"
-#include "gis/model/map/map.h"
+#include "legacy/gis/feature/leftover_copy_layer.h"
+#include "legacy/gis/feature/leftover_copy_layer.h"
+#include "gis/map/map.h"
 #include "legacy/sys/sysmanager.h"
 
 // using namespace Smt_GIS;
@@ -28,7 +29,7 @@ IMPLEMENT_DYNAMIC(SmtDSXCatalog, SmtXCatalog)
 SmtDSXCatalog::SmtDSXCatalog() {
   m_hContexMenu = NULL;
   DataSourceMgr *pDSMgr = DataSourceMgr::get_singleton_ptr();
-  SmtDataSource pDS = pDSMgr->get_active_data_source();
+  CatalogSource pDS = pDSMgr->get_active_data_source();
   if (pDS) {
     m_strSelDSName = pDS.GetName();
   }
@@ -166,17 +167,17 @@ void SmtDSXCatalog::UpdateCatalogTree(void) {
   RedrawWindow();
 }
 
-void SmtDSXCatalog::AppendDSNode(SmtDataSource pDS) {
+void SmtDSXCatalog::AppendDSNode(CatalogSource pDS) {
   if (pDS && pDS.Open()) {
     HTREEITEM hDS = InsertItem(pDS.GetName(), 1, 1, m_hDSCatalog);
 
-    SmtLayerInfo layerArchiveInfo;
+    LayerInfo layerArchiveInfo;
     int nLayers = pDS.GetLayerCount();
     for (int i = 0; i < nLayers; i++) {
       pDS.GetLayerInfo(layerArchiveInfo, i);
       HTREEITEM hLayerNode = InsertItem(layerArchiveInfo.szName, 2, 2, hDS);
       InsertItem(layerArchiveInfo.szArchiveName, 3, 3, hLayerNode);
-      InsertItem(SmtDataSource::GetLayerFeatureTypeName(
+      InsertItem(CatalogSource::GetLayerFeatureTypeName(
                      layerArchiveInfo.unFeatureType),
                  3, 3, hLayerNode);
       // Expand(hLayerNode,TVE_EXPAND);
@@ -194,18 +195,18 @@ void SmtDSXCatalog::OnDsLayerCreate() {
 
   DataSourceMgr *pDSMgr = DataSourceMgr::get_singleton_ptr();
 
-  SmtDataSource pDS = pDSMgr->get_data_source(GetSelDSName());
+  CatalogSource pDS = pDSMgr->get_data_source(GetSelDSName());
 
   if (pDS && pDS.Open()) {
-    SmtLayer *pLayer = NULL;
+    Layer *pLayer = NULL;
     CDlgCreateLayer dlg(this);
     if (dlg.DoModal() == IDOK) {
       UINT unFcls = dlg.GetSelFcls();
       fRect lyrRect = dlg.GetLayerRect();
       CString strLayerName = dlg.GetLayerName();
 
-      if (unFcls != SmtLayer_Ras)
-        pDS.CreateVectorLayer(strLayerName, lyrRect, SmtFeatureType(unFcls));
+      if (unFcls != LayerRas)
+        pDS.CreateVectorLayer(strLayerName, lyrRect, FeatureType(unFcls));
       else
         pLayer = pDS.CreateRasterLayer(strLayerName, lyrRect, -1);
 
@@ -223,7 +224,7 @@ void SmtDSXCatalog::OnDsLayerCreate() {
 void SmtDSXCatalog::OnDsLayerDelete() {
   DataSourceMgr *pDSMgr = DataSourceMgr::get_singleton_ptr();
 
-  SmtDataSource pDS = pDSMgr->get_data_source(GetSelDSName());
+  CatalogSource pDS = pDSMgr->get_data_source(GetSelDSName());
 
   if (pDS && pDS.Open()) {
     CString strLayerName = GetDSSelLayerName();
@@ -246,15 +247,15 @@ void SmtDSXCatalog::OnDsLayerDelete() {
 
 void SmtDSXCatalog::OnDsLayerProperty() {
   DataSourceMgr *pDSMgr = DataSourceMgr::get_singleton_ptr();
-  SmtDataSource pDS = pDSMgr->get_data_source(GetSelDSName());
+  CatalogSource pDS = pDSMgr->get_data_source(GetSelDSName());
 
-  SmtVectorLayer *pSmtLayer = NULL;
+  SmtVectorLayer *pLayer = NULL;
 
   if (pDS && pDS.Open()) {
     CString strLayerName = GetDSSelLayerName();
     CString strMessage;
     if (pDS.GetLayerCount() > 0) {
-      SmtLayerInfo info;
+      LayerInfo info;
       pDS.GetLayerInfo(info, strLayerName);
 
       CString strMessage;
@@ -269,9 +270,9 @@ void SmtDSXCatalog::OnDsLayerProperty() {
 
 void SmtDSXCatalog::OnDsProperty() {
   DataSourceMgr *pDSMgr = DataSourceMgr::get_singleton_ptr();
-  SmtDataSource pDS = pDSMgr->get_data_source(GetSelDSName());
+  CatalogSource pDS = pDSMgr->get_data_source(GetSelDSName());
 
-  SmtVectorLayer *pSmtLayer = NULL;
+  SmtVectorLayer *pLayer = NULL;
 
   if (pDS && pDS.Open()) {
     CString strMessage;
@@ -312,8 +313,8 @@ void SmtDSXCatalog::OnDsLayerLoadShp() {
   //////////////////////////////////////////////////////////////////////////
   DataSourceMgr *pDSMgr = DataSourceMgr::get_singleton_ptr();
 
-  SmtDataSource pTargetDS = pDSMgr->get_data_source(GetSelDSName());
-  SmtDataSource pFileDS = pDSMgr->create_tmp_data_source(eDSType::DS_FILE_SMF);
+  CatalogSource pTargetDS = pDSMgr->get_data_source(GetSelDSName());
+  CatalogSource pFileDS = pDSMgr->create_tmp_data_source(eDSType::DS_FILE_SMF);
 
   SmtVectorLayer *pTargetLayer = NULL;
   SmtVectorLayer *pFileLayer = NULL;
@@ -377,11 +378,11 @@ void SmtDSXCatalog::OnDsLayerLoadImage() {
   //////////////////////////////////////////////////////////////////////////
   DataSourceMgr *pDSMgr = DataSourceMgr::get_singleton_ptr();
 
-  SmtDataSource pTargetDS = pDSMgr->get_data_source(GetSelDSName());
-  SmtDataSource pFileDS = pDSMgr->create_tmp_data_source(eDSType::DS_FILE_SMF);
+  CatalogSource pTargetDS = pDSMgr->get_data_source(GetSelDSName());
+  CatalogSource pFileDS = pDSMgr->create_tmp_data_source(eDSType::DS_FILE_SMF);
 
-  SmtRasterLayer *pTargetLayer = NULL;
-  SmtRasterLayer *pFileLayer = NULL;
+  RasterLayer *pTargetLayer = NULL;
+  RasterLayer *pFileLayer = NULL;
 
   CString strLayerName = GetDSSelLayerName();
 
@@ -434,7 +435,7 @@ void SmtDSXCatalog::OnSvrDsAppend() {
 
   CDlgCreateDS dlg(this);
   if (dlg.DoModal() == IDOK) {
-    SmtDataSource pDS = pDSMgr->create_data_source(dlg.m_dsInfo);
+    CatalogSource pDS = pDSMgr->create_data_source(dlg.m_dsInfo);
     if (pDS) {
       UpdateCatalogTree();
     }

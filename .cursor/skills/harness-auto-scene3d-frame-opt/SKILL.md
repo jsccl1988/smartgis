@@ -71,6 +71,14 @@ Optional product world3d path (not the locked equal-profile; use after legacy is
 .\out\Debug\SmartGisViews.exe --plugin-showcase=world3d
 ```
 
+M4 full-materials matrix (product atmo on; **separate** from bare world3d peer ranking):
+
+```bat
+py -3 testing/tools/harness/plugin/run_world3d_full_materials_matrix.py --row flycube
+type .\out\Debug\captures\analysis\world3d_opt\matrix\full_materials\MATRIX.md
+```
+
+Phase fields (`ocean_prep_ms` / `record_ms` / `present_swap_ms` / `rebuild_count`) match this skill’s atmosphere JSON — reuse the same hot-phase pick order when optimizing full-materials rows.
 Deep spans:
 
 ```bat
@@ -133,7 +141,7 @@ From JSON:
 
 | Hot phase | Prefer code under |
 | --- | --- |
-| `rebuild_count` / `rebuild_ms` / `mesh_ms` | `effect/scene/**` (`GpuScene`), `content/.../scene3d/**` remesh dirty flags |
+| `rebuild_count` / `rebuild_ms` / `mesh_ms` | `vista/scene/**` (`GpuScene`), `content/.../scene3d/**` remesh dirty flags |
 | `sync_ms` | DEM / overlay sync; avoid clear-before-cache |
 | `ocean_prep_ms` | OceanPass prepare_gpu; one-shot after DEM sync |
 | `record_ms` | Pass record / Gerstner step; `render/graph/**` |

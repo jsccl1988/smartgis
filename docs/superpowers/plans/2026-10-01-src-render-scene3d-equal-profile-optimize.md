@@ -5,25 +5,71 @@ All rights reserved.
 
 # src_render Scene3d equal-profile optimize — Implementation Plan
 
-> Checklist hung off living [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) §src_render Scene3d equal-profile optimize.
+> Checklist hung off living [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) §src_render Scene3d equal-profile optimize.  
+> **Parallel / prep default-off:** [`2026-10-02-src-render-vista-parallel-accelerate.md`](2026-10-02-src-render-vista-parallel-accelerate.md) Task 4 (`prep_cull_parallel` · `SMT_GPUSCENE_PREP_PARALLEL`).  
+> **Diagram:** [`../diagrams/render-accelerate-topology.html`](../diagrams/render-accelerate-topology.html) §8 Scene3d cold vs warm.
 
-**Goal:** Under the same 640×480 atmosphere-showcase=legacy profile as leftover scene3d, bring **warm** `src_render` `ms_per_present` into leftover’s order (~10 ms), without dropping ocean sea plane / hypsometric DEM.
+**Goal:** Keep atmosphere-showcase=legacy **warm** present in leftover order; drive **world3d** equal-profile matrix so FlyCube **cold** first-frame matches leftover order without dropping DEM / stripping materials on smoke rows.
 
-**Architecture:** Keep `Scene3dGpuPresent` → `GpuScene` → FlyCube. Optimize by **fair phase timing**, **DEM StaticReuse**, and **one-shot remesh after ocean/sky resource alloc** — not by stripping ocean.
+**Architecture:** Keep `Scene3dGpuPresent` → `GpuScene` → FlyCube. Optimize by **fair phase timing** (cold vs warm), **DEM StaticReuse**, **cold cache+upload merge**, and **honest prep** (parallel only after frustum cull) — not by stripping ocean/DEM.
 
-**Tech Stack:** C++23, content scene3d present, effect/scene, harness `--atmosphere-showcase=legacy`.
+**Tech Stack:** C++23, content scene3d present, effect/scene, harness `--atmosphere-showcase=legacy` · `--plugin-showcase=world3d` · `run_world3d_backend_matrix.py`.
 
-## Baseline (2026-10-01 → 2026-10-02, Debug)
+## World3d matrix (normative · 2026-10-03)
+
+| Axis | Lock |
+| --- | --- |
+| Primary metric | **warm** `ms_per_present` — **n=5**, **discard_cold=1** |
+| Perf rows | `flycube`, `prep_par_off`, `prep_par_on`, `gl_leftover`, `d3d_leftover` |
+| Smoke | `null` only (full materials; never a performance peer) |
+| Warm status | Already peer ~**5–6.5 ms** — protect |
+| Cold P0 | FlyCube ~**1.8–2 s** vs leftover ~**90 ms** |
+| Prep | `prep_par_on` currently slower; product `SMT_GPUSCENE_PREP_PARALLEL` **default off** until frustum cull |
+| Artifacts | `out/Debug/captures/analysis/world3d_opt/matrix/` |
+
+```bat
+.\build.bat debug src/app/views:views
+.\build.bat debug SmartGis
+py -3 testing/tools/harness/plugin/run_world3d_backend_matrix.py
+```
+
+## Baseline — atmosphere legacy (2026-10-01 → 2026-10-03, Debug)
 
 | Path | Metric | ms | Notes |
 | --- | --- | ---: | --- |
 | leftover scene3d | warm present | ~10 | HWND present |
 | src_render legacy (before) | `ms_per_present` | ~160–444 | every-frame `rebuild_meshes` + DEM cache miss |
-| src_render legacy (after) | `ms_per_present` | **~14.2** | rebuild_count=0; ocean_prep=0 warm; record≈8 |
+| src_render legacy (after) | `ms_per_present` | **~10–14** | rebuild_count=0; ocean_prep=0 warm |
 
 Artifact: `out/Debug/captures/atmosphere/atmosphere-showcase-perf.json`.
 
-## Tasks
+## Milestones M1–M4 (world3d · active)
+
+### M1 — Cold phases in JSON
+
+- [ ] Matrix / `*-perf.json` expose named **cold** phase clocks (upload / mesh / rebuild / record / present as applicable)
+- [ ] Warm primary remains n=5 discard_cold=1; cold reported separately (not folded into warm mean)
+- [ ] `MATRIX.md` / CSV distinguish warm vs cold columns
+
+### M2 — Cache + upload (cold ≤ 300 ms)
+
+- [ ] FlyCube first-frame **cold ≤ 300 ms** (baseline ~1.8–2 s; leftover peer ~90 ms)
+- [ ] Prefer StaticReuse / batch upload / cache hit — do **not** strip DEM
+- [ ] Re-run matrix; artifacts under `out/Debug/captures/analysis/world3d_opt/matrix/`
+
+### M3 — Prep honesty
+
+- [ ] `prep_par_on` not slower than `prep_par_off` without real frustum work
+- [ ] Product default: `SMT_GPUSCENE_PREP_PARALLEL` **off** until `SMT_SCENE3D_FRUSTUM_CULL` + §vista parallel Task 4
+- [ ] Cross-check [`2026-10-02-src-render-vista-parallel-accelerate.md`](2026-10-02-src-render-vista-parallel-accelerate.md) Task 4 checkboxes
+
+### M4 — Non-bare budgets
+
+- [ ] Document / gate **non-**`PERF_BARE` (full atmosphere materials) warm + cold budgets
+- [ ] Smoke `null` stays full-materials; perf rows may stay bare until M4 budgets land
+- [ ] Visual gates unchanged (DEM present; no fabricated BMP)
+
+## Tasks (atmosphere warm — done)
 
 ### Task 1: Pin every-frame rebuild
 
@@ -52,6 +98,7 @@ Artifact: `out/Debug/captures/atmosphere/atmosphere-showcase-perf.json`.
 | Null after remesh fix | 0 | 159.8 | **0** | wall dominated by `pump_messages(0)`→map2d paint |
 | after pump skip (GPU) | 1 | 27.5 | **0** | ocean_prep=9 record=6 swap=1; PASS BMP |
 | after ocean single-bake | 1 | **14.2** | **0** | ocean_prep=0 warm; record=8 swap=1; PASS |
+| 2026-10-03 solid-cache + no timed marks | 1 | **10.1** | **0** | albedo/`_putenv_s` cached; timed mark I/O off; record≈5 swap=1; PASS |
 
 ```bat
 set SMT_ATMOSPHERE_SHOWCASE_PRESENT_COUNT=30
@@ -64,5 +111,8 @@ type out\Debug\captures\atmosphere\atmosphere-showcase-perf.json
 ## Non-goals
 
 - Matching leftover by deleting ocean / hypsometric DEM
-- Full atmosphere.full warm diet (sky path) in the same slice (reuse one-shot flags; separate follow-up if needed)
+- Ranking matrix rows by process `wall_ms`
+- Treating `null` / GDI as performance peers
+- Enabling `SMT_GPUSCENE_PREP_PARALLEL` by default before frustum cull honesty (M3)
+- Full atmosphere.full warm diet in the same slice as M2 cold upload (M4 follow-up)
 - Sub-10 ms Debug warm while Gerstner+upload still run every animated ocean frame (follow-up: cheaper wave step / lower mesh_n)

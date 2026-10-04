@@ -22,8 +22,8 @@ namespace ui {
 namespace views {
 namespace {
 
-constexpr int kPreferredWDip = 300;
-constexpr int kPreferredHDip = 220;
+constexpr int kPreferredWDip = 380;
+constexpr int kPreferredHDip = 240;
 
 bool is_section_header(const std::string& name) {
   return name.size() >= 3 && name[0] == '-' && name[1] == '-' && name[2] == '-';
@@ -313,8 +313,9 @@ void FeatureInfo::refresh_frame() {
 
   if (layer_label_) {
     if (empty) {
-      layer_label_->set_text("No feature identified");
-      layer_label_->set_color(t.text_muted);
+      // Short idle copy fits a 320–360 DIP dock without mid-word clip.
+      layer_label_->set_text("No feature selected");
+      layer_label_->set_color(t.text_bright);
     } else if (!layer_name_.empty()) {
       layer_label_->set_text(layer_name_);
       layer_label_->set_color(t.text_bright);
@@ -329,7 +330,7 @@ void FeatureInfo::refresh_frame() {
 
   if (meta_label_) {
     if (empty) {
-      meta_label_->set_text("Click a map feature to inspect attributes");
+      meta_label_->set_text("Click map to identify");
       meta_label_->set_color(t.text_muted);
     } else {
       std::string meta;
@@ -374,8 +375,7 @@ void FeatureInfo::rebuild_table() {
   if (fields_.empty()) {
     const bool idle =
         feature_id_.empty() && layer_name_.empty() && geometry_type_.empty();
-    table_->add_row(
-        {"", idle ? "Click a map feature to inspect" : "No attributes"});
+    table_->add_row({"", idle ? "Identify a feature" : "No attributes"});
   } else {
     for (const auto& field : fields_) {
       const std::string name = display_field_name(field.name);

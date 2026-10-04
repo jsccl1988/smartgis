@@ -22,7 +22,7 @@ std::string join_dir_file(std::string_view dir, std::string_view rel) {
   if (last != '/' && last != '\\') {
     out.push_back('/');
   }
-  // Allow "tin_loader.ui.xml" or "resources/tin_loader.ui.xml".
+  // Allow "trimesh_loader.ui.xml" or "resources/trimesh_loader.ui.xml".
   while (!rel.empty() && (rel.front() == '/' || rel.front() == '\\')) {
     rel.remove_prefix(1);
   }

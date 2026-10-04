@@ -12,7 +12,8 @@
 
 #include "base/math/simd.h"
 #include "base/math/vector.h"
-#include "gis/model/feature/feature.h"
+#include "legacy/gis/layer/layer.h"
+#include "gis/feature/feature.h"
 #include "legacy/gis/present/carto/style_api.h"
 #include "legacy/render/rhi2d/impl/common/paint/carto/frame/carto_frame.h"
 #include "legacy/render/rhi2d/impl/common/paint/carto/draw/device_geom.h"
@@ -24,7 +25,6 @@
 
 using namespace gis;
 using namespace base;
-using namespace geo;
 
 namespace render {
 namespace detail {
@@ -70,15 +70,15 @@ int GdiOgrDraw::draw_point(const SmtStyle* style, const OGRPoint* point) {
   }
   ulong format = style->get_style_type();
   (void)format;
-  if (c_->feature_type_ == SmtFeatureType::SmtFtAnno) {
+  if (c_->feature_type_ == FeatureType::FtAnno) {
     SmtAnnotationDesc anno = style->get_anno_desc();
     return c_->draw_anno(c_->sz_anno_, c_->anno_angle_, abs(anno.fHeight), abs(anno.fWidth),
                      abs(anno.fSpace), point);
-  } else if (c_->feature_type_ == SmtFeatureType::SmtFtChildImage) {
+  } else if (c_->feature_type_ == FeatureType::FtChildImage) {
     SmtSymbolDesc symbol = style->get_symbol_desc();
     return c_->draw_symbol(c_->style_.icon(), symbol.fSymbolHeight, symbol.fSymbolWidth,
                        point);
-  } else if (c_->feature_type_ == SmtFeatureType::SmtFtDot) {
+  } else if (c_->feature_type_ == FeatureType::FtDot) {
     long lX, lY;
     c_->lp_to_dp(point->getX(), point->getY(), lX, lY);
     return c_->draw_device_point(static_cast<int>(lX), static_cast<int>(lY));

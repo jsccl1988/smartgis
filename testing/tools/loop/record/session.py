@@ -19,6 +19,7 @@ from .window import (
     bring_hwnd_to_front,
     find_window_by_title_substr,
     rect_fully_on_primary,
+    resolve_map_record_hwnd,
     virtual_screen,
     window_rect,
 )
@@ -195,6 +196,14 @@ class HwndRecorder:
             self._error = "hwnd_timeout"
             return self.status()
 
+        # Retarget shell → map client / FlyCube Present so BitBlt is not a
+        # WS_CLIPCHILDREN black hole (browse / Views ContentMapView).
+        map_hwnd, map_title = resolve_map_record_hwnd(int(self._hwnd))
+        if map_hwnd and map_hwnd != int(self._hwnd):
+            self._hwnd = int(map_hwnd)
+            if map_title:
+                self._title = map_title
+
         self._rect = window_rect(self._hwnd)
         mode_pref = record_mode_pref()
         out_mp4 = record_dir / f"{leaf}.mp4"
@@ -232,24 +241,45 @@ class HwndRecorder:
                         continue
                     break
                 path = frames / f"frame_{i:05d}.bmp"
-                # On primary (foreground GDI Edit): BitBlt tracks live pan/zoom.
-                # PrintWindow often returns a stale shell surface during OS inject
-                # (looks frozen for follow-hand review). Off-primary / occluded:
-                # keep PrintWindow so IDE chrome does not poison the rect.
+                # Re-resolve each few frames: FlyCube Present may appear after
+                # shell HWND, and ContentMapView child size settles after seed.
+                root = int(self._hwnd)
+                if i == 0 or (i % 8) == 0:
+                    shell = int(self._hwnd)
+                    # If we already retargeted to a child, walk up for shell.
+                    parent = int(user32.GetAncestor(shell, 2) or 0)  # GA_ROOT
+                    root = parent if parent else shell
+                    mapped, mapped_title = resolve_map_record_hwnd(root)
+                    if mapped and user32.IsWindow(mapped):
+                        self._hwnd = int(mapped)
+                        if mapped_title:
+                            self._title = mapped_title
+                    # Raise the shell root (not the WS_CHILD alone). BitBlt of
+                    # MapViewport copies desktop pixels at its rect — IDE chrome
+                    # above SmartGisViews freezes motion_gate unique-frame score.
+                    bring_hwnd_to_front(root, stay_topmost=True)
+                # After raising the shell root TOPMOST, BitBlt on primary is
+                # live and fast (needed for motion_gate frame count). PrintWindow
+                # of MapViewport forces full GDI china paint and starves fps.
+                # Off-primary / occluded: PrintWindow first, then BitBlt retry.
                 left, top, right, bottom = window_rect(self._hwnd)
                 on_primary = rect_fully_on_primary(left, top, right, bottom)
-                # Stay TOPMOST while BitBlt-ing so IDE chrome does not freeze
-                # the motion_gate unique-frame score.
-                if i == 0:
-                    bring_hwnd_to_front(self._hwnd, stay_topmost=True)
+                prefer_pw = not on_primary
                 ok, near_black = capture_hwnd_bmp_ex(
                     self._hwnd,
                     path,
-                    prefer_printwindow=not on_primary,
+                    prefer_printwindow=prefer_pw,
                 )
-                if (not ok or near_black > 0.90) and not on_primary:
+                if (not ok or near_black > 0.90) and prefer_pw:
                     ok2, nb2 = capture_hwnd_bmp_ex(
                         self._hwnd, path, prefer_printwindow=False
+                    )
+                    if ok2 and nb2 < near_black:
+                        ok, near_black = ok2, nb2
+                elif (not ok or near_black > 0.90) and not prefer_pw:
+                    # Primary BitBlt still IDE-poisoned: one PrintWindow fallback.
+                    ok2, nb2 = capture_hwnd_bmp_ex(
+                        self._hwnd, path, prefer_printwindow=True
                     )
                     if ok2 and nb2 < near_black:
                         ok, near_black = ok2, nb2
@@ -299,8 +329,11 @@ class HwndRecorder:
             if self._burst_thread is not None:
                 self._burst_thread.join(timeout=5.0)
                 self._burst_thread = None
-            # Drop TOPMOST used during BitBlt burst.
+            # Drop TOPMOST used during BitBlt burst (shell root + target).
             if self._hwnd:
+                root = int(user32.GetAncestor(int(self._hwnd), 2) or 0)
+                if root:
+                    bring_hwnd_to_front(root, stay_topmost=False)
                 bring_hwnd_to_front(int(self._hwnd), stay_topmost=False)
             # Best-effort: stitch frames → mp4 when ffmpeg is on PATH.
             # Keep frames dir as record_path for motion_gate unique-frame scoring.

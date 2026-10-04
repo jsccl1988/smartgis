@@ -1,0 +1,58 @@
+/*
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+*/
+
+/* World3d heightmap loader — UiDesigner markup (Yoga flex) */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  width: 480px;
+  height: 420px;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  width: 460px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-grow: 1;
+}
+
+.actions {
+  justify-content: flex-end;
+}
+
+#heightmap_path,
+#texture_path {
+  height: 28px;
+  flex-grow: 1;
+}
+
+#browse_heightmap,
+#browse_texture,
+#ok,
+#cancel {
+  height: 28px;
+  width: 100px;
+}
+
+#x_scale,
+#y_scale,
+#z_scale,
+#x_start,
+#y_start,
+#z_start,
+#color_type {
+  height: 28px;
+  width: 140px;
+}

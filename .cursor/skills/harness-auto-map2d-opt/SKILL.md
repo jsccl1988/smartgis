@@ -20,6 +20,19 @@ All rights reserved.
 
 Closed loop: build → run matrix → inspect PNGs → performance table → (optional) optimize against equal-profile budgets → re-run.
 
+## Optimize order (P0 → P3)
+
+When closing equal-profile budgets, follow plan phases — do **not** chase leftover IR:
+
+| Phase | Focus | Surfaces |
+| --- | --- | --- |
+| **P0** MUST | Cold upload merge | `vista/map` `upload_draws` / `Pass::record` |
+| **P1** | Layout / incremental | `Map2dFrameCache` / vista Layout |
+| **P2** | Software GDI batch | `map2d/software` paint / frame GDI |
+| **P3** | Parallel + **false-gap** labels | `SMT_VISTA_LAYOUT_PARALLEL` + this harness CSV/`note` |
+
+**FALSE-GAP:** leftover `execute_ms` = IR replay only — **not** comparable to Vista `paint_ms` / `export_ms` / `present_gpu_*`. Matrix stdout + CSV `note` + `parallel_port_matrix_NOTE.txt` state this explicitly. Never claim “Vista is N× slower” from `execute_ms` vs `export_ms`.
+
 ## Authorization
 
 When this skill is invoked, attached (`@harness-auto-map2d-opt` / `/harness-auto-map2d-opt`), or followed, the agent **MUST** run the matrix (and rebuild if binaries are missing) and deliver **screenshots + comparison table** — do not defer the harness to the user.
@@ -27,10 +40,10 @@ When this skill is invoked, attached (`@harness-auto-map2d-opt` / `/harness-auto
 ## Hard rules
 
 1. **Equal profile (locked):** China mainland `[80,16]–[128,52]`, viewport **1280×720**, same sample / style richness (hillshade when DEM present). Do **not** strip carto to fake leftover IR ms.
-2. **Fair compare:** leftover `execute_ms` = **IR replay only**. src_render `export_ms` / `present_gpu_*` include layout + hillshade + paint/upload. Compare **phase columns**, never claim `execute_ms ≡ export_ms`.
+2. **Fair compare / FALSE-GAP:** leftover `execute_ms` = **IR replay only**. Matrix equal-latitude sets `SMT_MAP2D_NO_HILLSHADE=1` so Vista skips DEM shade (same axis as leftover). Still compare **phase columns** (`paint_ms` / `present_gpu_*`); never claim `execute_ms ≡ export_ms`.
 3. **Axes:**
    - Leftover: `SMT_RHI2D_PARALLEL` ∈ `{serial, tile, layer}` × `SMT_RHI2D_PORT` ∈ `{gdi, gdiplus, skia}`
-   - src_render: Views software export + FlyCube `present_gpu` (`port=views+flycube`)
+   - Vista: Views software export + FlyCube `present_gpu` (`port=views+flycube`); harness sets `SMT_VISTA_LAYOUT_PARALLEL=1` (opt-out `=0`)
 4. Prefer **`build.bat debug <single_target>`**. Compile lock stays **OFF**. Stay on **`master`**.
 5. Prefer **`*.inspect.png`** for `Read` (BMP often fails vision).
 6. CBM first for code lookup (`user-codebase-memory-mcp`, project `smartgis`).
@@ -54,9 +67,10 @@ Artifacts root: `out/Debug/captures/map2d/matrix/`
 | Artifact | Role |
 | --- | --- |
 | `leftover-{parallel}_{port}.bmp` | Leftover capture (9 cells) |
-| `src_render-china.bmp` | Views + FlyCube equal-profile capture |
-| `parallel_port_matrix_with_src_render.csv` / `.json` | Timing rows |
-| `leftover_*.log` / `src_render_china.log` | Raw stdout for phase parse |
+| `vista-china.bmp` | Views + FlyCube equal-profile capture |
+| `parallel_port_matrix_with_vista.csv` / `.json` | Timing rows + `note` / `matrix_note` |
+| `parallel_port_matrix_NOTE.txt` | FALSE-GAP + equal-latitude one-liner |
+| `leftover_*.log` / `vista_china.log` | Raw stdout for phase parse |
 | `*.inspect.png` | Agent-readable screenshots (create if missing) |
 
 ## Workflow
@@ -69,7 +83,7 @@ Map2d opt progress:
 - [ ] 2. Run run_parallel_port_matrix.py
 - [ ] 3. Emit *.inspect.png for every matrix BMP
 - [ ] 4. Read CSV/JSON; print performance comparison table
-- [ ] 5. Read key inspect PNGs (at least src_render + one leftover cell)
+- [ ] 5. Read key inspect PNGs (at least vista + one leftover cell)
 - [ ] 6. If optimize mode: fix hot phase → rebuild → re-run matrix → update table
 ```
 
@@ -83,7 +97,7 @@ Map2d opt progress:
 .\build.bat debug src/app/views:views
 ```
 
-Missing `out\Debug\gdi_map_paint_test.exe` or `SmartGisViews.exe` → build again; do not skip leftover or src_render silently. After host changes under `rhi2d/impl/common/host/`, rebuild **all three** port DLLs (they each compile `device_interact.cc`).
+Missing `out\Debug\gdi_map_paint_test.exe` or `SmartGisViews.exe` → build again; do not skip leftover or vista silently. After host changes under `rhi2d/impl/common/host/`, rebuild **all three** port DLLs (they each compile `device_interact.cc`).
 
 ### Step 2 — Matrix
 
@@ -91,7 +105,7 @@ Missing `out\Debug\gdi_map_paint_test.exe` or `SmartGisViews.exe` → build agai
 py -3 testing/tools/harness/map2d/run_parallel_port_matrix.py
 ```
 
-Expect 9 leftover cells + 1 src_render row. Exit non-zero if any `pass=false` — diagnose that cell (log + BMP) before claiming green.
+Expect 9 leftover cells + 1 vista row. Exit non-zero if any `pass=false` — diagnose that cell (log + BMP) before claiming green.
 
 ### Step 3 — Screenshots (inspect PNG)
 
@@ -106,9 +120,9 @@ py -3 -c "from pathlib import Path; from testing.tools.loop.review.inspect_png i
 
 ### Step 4 — Performance comparison table
 
-Read `parallel_port_matrix_with_src_render.csv` (or `.json`). Emit **two** tables in the reply:
+Read `parallel_port_matrix_with_vista.csv` (or `.json`). Runner already prints tables A+B + FALSE-GAP banner — copy them into the reply (or rebuild from CSV).
 
-**A) Leftover — 并行策略 × 图像驱动**
+**A) Leftover — 并行策略 × 图像驱动** (`execute_ms_max` = **IR only**)
 
 | parallel \ port | gdi | gdiplus | skia |
 | --- | ---: | ---: | ---: |
@@ -118,7 +132,7 @@ Read `parallel_port_matrix_with_src_render.csv` (or `.json`). Emit **two** table
 
 Include `pass`, `bmp` path (or inspect PNG path) per cell when space allows.
 
-**B) src_render phases (fair surface)**
+**B) Vista phases (fair surface)** — leftover IR is **not** a column here
 
 | metric | ms | notes |
 | --- | ---: | --- |
@@ -128,14 +142,15 @@ Include `pass`, `bmp` path (or inspect PNG path) per cell when space allows.
 | present_gpu_cold_ms | | first FlyCube present |
 | present_gpu_warm_ms | | StaticReuse warm |
 | layout_ms / hillshade_ms / software_paint_ms / bmp_io_ms / gpu_upload_ms / gpu_present_ms | | phase clocks |
+| `smt_vista_layout_parallel` | | harness env (`1` default) |
 
-Call out: leftover `execute_ms` is **not** the same work as src_render `export_ms`.
+Lead with FALSE-GAP: leftover `execute_ms` ≠ Vista `export_ms` / paint / present; equal-latitude `SMT_MAP2D_NO_HILLSHADE=1`.
 
 ### Step 5 — Visual evidence
 
 `Read` at least:
 
-1. `src_render-china.inspect.png`
+1. `vista-china.inspect.png`
 2. One leftover inspect (prefer `leftover-serial_gdi.inspect.png` or best `pass` cell)
 
 Brief visual note: hillshade / coastline / labels present or missing. Do **not** start product fixes from vision unless the user asked to optimize / fix.
@@ -144,13 +159,13 @@ Brief visual note: hillshade / coastline / labels present or missing. Do **not**
 
 Triggers: user says 优化 / opt / equal-profile / 压 warm / 修 map2d 性能, or invokes this skill **and** asks to close plan budgets.
 
-1. Open plan budgets: `docs/superpowers/plans/2026-10-01-src-render-map2d-equal-profile-optimize.md`
-2. Living §: `docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md` §src_render Map2d equal-profile optimize
-3. Hot phase from table → CBM → root-cause fix in `content/browser/present/map2d/**`, `effect/map/**`, or `render/{rhi,graph}/**`
+1. Open plan budgets / **P0→P1→P2→P3**: `docs/superpowers/plans/2026-10-01-src-render-map2d-equal-profile-optimize.md` (**P0** cold upload merge first; **P3** is labeling + `SMT_VISTA_LAYOUT_PARALLEL` — do not chase leftover IR)
+2. Living §: `docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md` §Vista Map2d equal-profile optimize
+3. Hot phase from table B → CBM → root-cause fix in owned surfaces for that phase (not leftover IR)
 4. Rebuild focused target → re-run matrix → new table + inspect
 5. **Done bar (Debug china 1280×720):** warm `present_gpu_ms` ≤ **80**; `paint_ms` ≤ **100**; cold first present ≤ **400** after layout warm; visual hillshade + labels still on inspect
 
-Non-goals (do not): delete hillshade/MapFrame to match leftover IR; MapLibre Native port; make leftover the product default.
+Non-goals (do not): delete hillshade/MapFrame to match leftover IR; MapLibre Native port; make leftover the product default; treat FALSE-GAP as a product bug.
 
 ## Env knobs (matrix already sets most)
 
@@ -162,7 +177,9 @@ Non-goals (do not): delete hillshade/MapFrame to match leftover IR; MapLibre Nat
 | `SMT_RHI2D_MATRIX_BMP` | leftover BMP path |
 | `SMT_MAP2D_SHOWCASE_W/H` | `1280` / `720` |
 | `SMT_MAP2D_SHOWCASE_GPU` | `1` = FlyCube present |
-| `SMT_MAP2D_EXPORT_REUSE` | `1` = bench-only warm paint path |
+| `SMT_MAP2D_NO_HILLSHADE` | matrix default `1` = equal-latitude (no DEM); `0` = product shade-on |
+| `SMT_MAP2D_EXPORT_REUSE` | unset in matrix (full paint); `1` = bench-only blit |
+| `SMT_VISTA_LAYOUT_PARALLEL` | matrix default `1` (request vista tess parallel); `=0` opt-out serial — product getenv wire is parallel-plan V1 / P3a |
 
 ## Communication
 

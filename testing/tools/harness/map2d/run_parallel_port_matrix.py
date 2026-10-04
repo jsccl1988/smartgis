@@ -1,15 +1,22 @@
 # Copyright (c) 2026 The Mogu Authors.
 # All rights reserved.
 
-"""Run leftover rhi2d parallel x port matrix + src/render Views map2d china.
+"""Run leftover rhi2d parallel x port matrix + Vista map2d china.
 
 Leftover: gdi_map_paint_test LoadLibrary ports x SMT_RHI2D_PARALLEL.
-src/render: SmartGisViews --map2d-showcase=china (Map2dPresenter software
-export_bmp + optional FlyCube present_gpu) at the same 1280x720 china frame.
+Vista (codename): SmartGisViews --map2d-showcase=china — Map2dPresenter +
+gis/vista Layout + effect/map + optional FlyCube present_gpu, same 1280x720
+china frame. Engine id in CSV/JSON: ``vista``.
 
-Note: leftover execute_ms is IR replay only (no DEM hillshade / MapFrame layout).
-src_render export_ms / present_gpu_* include layout, hillshade, paint/upload.
-Compare phase columns, not execute_ms vs export_ms as equal work.
+Equal-latitude perf (default): SMT_MAP2D_NO_HILLSHADE=1 so Vista does not pay
+DEM shade — same carto axis as leftover IR (no hillshade). Compare leftover
+execute_ms (IR replay) vs Vista paint_ms / present_gpu_* phases, not as
+identical work units.
+
+FALSE-GAP (normative): leftover execute_ms = IR replay only; it is NOT
+comparable to Vista paint_ms / export_ms / present_gpu_*. Never claim
+execute_ms == export_ms. Readers who treat leftover IR as "Vista is Nx
+slower" are reading a false gap.
 """
 
 from __future__ import annotations
@@ -56,6 +63,26 @@ PHASE_FIELDS = (
     "gpu_present_ms",
 )
 
+# Normative labels — keep CSV/JSON/stdout in sync (P3 false-gap).
+FALSE_GAP_NOTE = (
+    "FALSE-GAP: leftover execute_ms = IR replay only; "
+    "NOT comparable to Vista paint_ms/export_ms/present_gpu_*; "
+    "never claim execute_ms == export_ms"
+)
+EQUAL_LATITUDE_NOTE = (
+    "equal-latitude: SMT_MAP2D_NO_HILLSHADE=1 (Vista skips DEM shade; "
+    "same carto axis as leftover IR which has no hillshade)"
+)
+MATRIX_NOTE = f"{FALSE_GAP_NOTE}; {EQUAL_LATITUDE_NOTE}"
+LEFTOVER_ROW_NOTE = (
+    f"{FALSE_GAP_NOTE}; {EQUAL_LATITUDE_NOTE}; "
+    "compare leftover cells on execute_ms_max only"
+)
+VISTA_ROW_NOTE = (
+    f"{FALSE_GAP_NOTE}; {EQUAL_LATITUDE_NOTE}; "
+    "fair surface = Vista phase columns (paint/present/layout)"
+)
+
 
 def _empty_phases() -> dict:
     return {k: None for k in PHASE_FIELDS}
@@ -89,6 +116,19 @@ def _within_pct(total: int | None, wall: int | None, pct: float = 15.0) -> bool 
     if total is None or wall is None or wall <= 0:
         return None
     return abs(total - wall) * 100.0 / wall <= pct
+
+
+def _resolve_layout_parallel(env: dict[str, str]) -> str:
+    """Matrix default ON; caller may set SMT_VISTA_LAYOUT_PARALLEL=0 to force serial.
+
+    Product emitters may still ignore this until vista wires getenv (see plan P3a TODO).
+    """
+    raw = env.get("SMT_VISTA_LAYOUT_PARALLEL")
+    if raw is None or raw == "":
+        return "1"
+    if raw.lower() in ("0", "false", "off", "no"):
+        return "0"
+    return "1"
 
 
 def run_leftover(port: str, parallel: str) -> dict:
@@ -136,28 +176,41 @@ def run_leftover(port: str, parallel: str) -> dict:
         "bmp": str(bmp_path.relative_to(OUT)) if bmp_path.exists() else None,
         "bmp_bytes": bmp_path.stat().st_size if bmp_path.exists() else 0,
         "pass": proc.returncode == 0 and bmp_path.exists(),
-        "note": "execute_ms=IR replay only; not comparable to src_render export_ms",
+        "note": LEFTOVER_ROW_NOTE,
+        "matrix_note": MATRIX_NOTE,
     }
     row.update(_empty_phases())
     return row
 
 
-def run_src_render() -> dict:
-    """Views Map2d china @ 1280x720 — software export + optional GPU present."""
+def run_vista() -> dict:
+    """Vista map2d china @ 1280x720 — software export + optional GPU present."""
     MATRIX.mkdir(parents=True, exist_ok=True)
-    log_path = MATRIX / "src_render_china.log"
-    bmp_dst = MATRIX / "src_render-china.bmp"
+    log_path = MATRIX / "vista_china.log"
+    bmp_dst = MATRIX / "vista-china.bmp"
     env = os.environ.copy()
     env["SMT_MAP2D_SHOWCASE_W"] = "1280"
     env["SMT_MAP2D_SHOWCASE_H"] = "720"
     env["SMT_MAP2D_SHOWCASE_LINGER_MS"] = "0"
     # Exercise src/render FlyCube present when adapter is available.
     env["SMT_MAP2D_SHOWCASE_GPU"] = "1"
-    # Bench-only: warm present-cache then blit for equal-profile paint_ms.
-    env["SMT_MAP2D_EXPORT_REUSE"] = "1"
+    # Equal-latitude vs leftover: no DEM hillshade (leftover IR has none).
+    # Override with SMT_MAP2D_NO_HILLSHADE=0 to measure shade-on product path.
+    if env.get("SMT_MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
+        env["SMT_MAP2D_NO_HILLSHADE"] = "1"
+    # Full software paint (not present-cache blit) so paint_ms is same-axis
+    # as leftover vector work. Set SMT_MAP2D_EXPORT_REUSE=1 to force blit bench.
+    if "SMT_MAP2D_EXPORT_REUSE" not in os.environ:
+        env.pop("SMT_MAP2D_EXPORT_REUSE", None)
+    # P3: request vista layout tess parallel (opt-out SMT_VISTA_LAYOUT_PARALLEL=0).
+    # Emitters must read this env; until wired, parallel_for still runs by job count.
+    layout_parallel = _resolve_layout_parallel(env)
+    env["SMT_VISTA_LAYOUT_PARALLEL"] = layout_parallel
     env["PATH"] = str(OUT) + os.pathsep + env.get("PATH", "")
+    env.pop("SMT_MAP2D_ENGINE", None)
 
     t0 = time.perf_counter()
+    started = time.time()
     proc = subprocess.run(
         [str(VIEWS), "--map2d-showcase=china"],
         cwd=str(OUT),
@@ -248,20 +301,44 @@ def run_src_render() -> dict:
     for p in (OUT / "captures").rglob("map2d-showcase-china*.bmp"):
         src_candidates.append(p)
 
+    # Reject stale BMPs from a prior crashy run (mtime must be after launch).
     copied = False
     for src in src_candidates:
-        if src.is_file() and src.stat().st_size > 10000:
-            shutil.copy2(src, bmp_dst)
-            copied = True
-            break
+        if not src.is_file() or src.stat().st_size <= 10000:
+            continue
+        if src.stat().st_mtime + 1.0 < started:
+            continue
+        shutil.copy2(src, bmp_dst)
+        copied = True
+        break
 
+    # Suite accept_nonzero_rc_if_bmp: TerminateProcess races can surface -1
+    # after PASS; require fresh BMP + export_ms + present_gpu metrics.
+    rc_ok = proc.returncode in (0, -1, 0xFFFFFFFF)
+    metrics_ok = export_ms is not None and present_gpu_ms is not None
+    pass_ok = (
+        copied
+        and bmp_dst.exists()
+        and bmp_dst.stat().st_size > 10000
+        and rc_ok
+        and metrics_ok
+        and "map2d-showcase: PASS" in log_text
+    )
+
+    vista_note = (
+        f"{VISTA_ROW_NOTE}; "
+        f"SMT_VISTA_LAYOUT_PARALLEL={layout_parallel} "
+        "(harness sets; product getenv wire = plan P3a / parallel plan V1)"
+    )
     row = {
-        "engine": "src_render",
+        "engine": "vista",
         "port": "views+flycube",
         "parallel": "map_effect",
         "rc": proc.returncode,
         "wall_ms": wall_ms,
         "execute_ms_list": [],
+        # Keep columns populated for CSV width, but label makes clear these
+        # are NOT leftover IR execute_ms — they mirror export_ms for layout.
         "execute_ms_last": export_ms,
         "execute_ms_sum": export_ms,
         "execute_ms_max": export_ms,
@@ -272,7 +349,7 @@ def run_src_render() -> dict:
         "viewport": viewport,
         "bmp": str(bmp_dst.relative_to(OUT)) if bmp_dst.exists() else None,
         "bmp_bytes": bmp_dst.stat().st_size if bmp_dst.exists() else 0,
-        "pass": copied and bmp_dst.exists() and bmp_dst.stat().st_size > 10000,
+        "pass": pass_ok,
         "phase_sum_export": export_sum,
         "phase_sum_cold_present": cold_sum,
         "phase_gate_export_ok": phase_gate_export,
@@ -281,23 +358,270 @@ def run_src_render() -> dict:
         "phase_export": export_ph,
         "phase_cold_present": cold_ph,
         "phase_warm_present": warm_ph,
-        "note": (
-            "leftover execute_ms != src_render export_ms "
-            "(IR-only vs layout+hillshade+paint)"
-        ),
+        "smt_vista_layout_parallel": layout_parallel,
+        "note": vista_note,
+        "matrix_note": MATRIX_NOTE,
     }
     row.update(phase_row)
     return row
 
 
+SCENIC_ROW_NOTE = (
+    f"{FALSE_GAP_NOTE}; {EQUAL_LATITUDE_NOTE}; "
+    "Scenic = content-hosted scenic::Engine GDI of the same china MapScene "
+    "(not leftover IR, not Vista MapFrame)"
+)
+
+
+def run_scenic() -> dict:
+    """Scenic map2d china @ 1280x720 via SMT_MAP2D_ENGINE=scenic."""
+    MATRIX.mkdir(parents=True, exist_ok=True)
+    log_path = MATRIX / "scenic_china.log"
+    bmp_dst = MATRIX / "scenic-china.bmp"
+    env = os.environ.copy()
+    env["SMT_MAP2D_SHOWCASE_W"] = "1280"
+    env["SMT_MAP2D_SHOWCASE_H"] = "720"
+    env["SMT_MAP2D_SHOWCASE_LINGER_MS"] = "0"
+    env["SMT_MAP2D_SHOWCASE_GPU"] = "1"
+    env["SMT_MAP2D_ENGINE"] = "scenic"
+    env["SMT_SCENE3D_ENGINE"] = env.get("SMT_SCENE3D_ENGINE") or "scenic"
+    if env.get("SMT_MAP2D_NO_HILLSHADE") not in ("0", "false", "off"):
+        env["SMT_MAP2D_NO_HILLSHADE"] = "1"
+    if "SMT_MAP2D_EXPORT_REUSE" not in os.environ:
+        env.pop("SMT_MAP2D_EXPORT_REUSE", None)
+    env["PATH"] = str(OUT) + os.pathsep + env.get("PATH", "")
+
+    # Private PE copy + serialize: avoid multi-agent LNK / 0xC0000135 races.
+    sys.path.insert(0, str(ROOT / "testing" / "tools"))
+    from loop.private_runtime import (  # noqa: E402
+        acquire_run_lock,
+        prepare_private_views_exe,
+        release_run_lock,
+        with_private_path,
+    )
+
+    lock = OUT.parent / "scratch" / "scenic_review.lock"
+    got_lock = acquire_run_lock(lock, timeout_sec=180.0)
+    private = prepare_private_views_exe(OUT, tag="scenic_review")
+    views_exe = private if private is not None else VIEWS
+    if private is not None:
+        env = with_private_path(env, OUT, private)
+    try:
+        t0 = time.perf_counter()
+        started = time.time()
+        proc = subprocess.run(
+            [str(views_exe), "--map2d-showcase=china"],
+            cwd=str(OUT),
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=300,
+        )
+    finally:
+        if got_lock:
+            release_run_lock(lock)
+    wall_ms = int((time.perf_counter() - t0) * 1000)
+    log_text = (proc.stdout or "") + "\n" + (proc.stderr or "")
+    log_path.write_text(log_text, encoding="utf-8")
+
+    export_ms = None
+    m = EXPORT_MS_RE.search(log_text)
+    if m:
+        export_ms = int(m.group(1))
+    present_gpu_ms = None
+    g = GPU_MS_RE.search(log_text)
+    if g:
+        present_gpu_ms = int(g.group(1))
+    present_gpu_cold_ms = present_gpu_ms
+    gc = GPU_COLD_RE.search(log_text)
+    if gc:
+        present_gpu_cold_ms = int(gc.group(1))
+    present_gpu_warm_ms = None
+    gw = GPU_WARM_RE.search(log_text)
+    if gw:
+        present_gpu_warm_ms = int(gw.group(1))
+    paint_ms = None
+    pm = PAINT_MS_RE.search(log_text)
+    if pm:
+        paint_ms = int(pm.group(1))
+
+    scratch_cap = OUT.parent / "scratch" / "scenic_review" / "captures"
+    src_candidates = [
+        OUT / "captures" / "map2d" / "map2d-showcase-china.bmp",
+        OUT / "captures" / "map2d" / "map2d-showcase-china.keep.bmp",
+        scratch_cap / "map2d" / "map2d-showcase-china.bmp",
+        scratch_cap / "map2d" / "map2d-showcase-china.keep.bmp",
+        OUT / "map2d-showcase-china.bmp",
+        OUT / "map2d-showcase-china.keep.bmp",
+    ]
+    for root in (OUT / "captures", scratch_cap):
+        if root.is_dir():
+            for p in root.rglob("map2d-showcase-china*.bmp"):
+                src_candidates.append(p)
+    copied = False
+    for src in src_candidates:
+        if not src.is_file() or src.stat().st_size <= 10000:
+            continue
+        if src.stat().st_mtime + 1.0 < started:
+            continue
+        shutil.copy2(src, bmp_dst)
+        copied = True
+        break
+
+    rc_ok = proc.returncode in (0, -1, 0xFFFFFFFF)
+    pass_ok = (
+        copied
+        and bmp_dst.exists()
+        and bmp_dst.stat().st_size > 10000
+        and rc_ok
+        and export_ms is not None
+        and "map2d-showcase: PASS" in log_text
+    )
+    row = {
+        "engine": "scenic",
+        "port": "content+gdi",
+        "parallel": "serial",
+        "rc": proc.returncode,
+        "wall_ms": wall_ms,
+        "execute_ms_list": [],
+        "execute_ms_last": export_ms,
+        "execute_ms_sum": export_ms,
+        "execute_ms_max": export_ms,
+        "export_ms": export_ms,
+        "present_gpu_ms": present_gpu_ms,
+        "present_gpu_cold_ms": present_gpu_cold_ms,
+        "present_gpu_warm_ms": present_gpu_warm_ms,
+        "viewport": "1280x720",
+        "bmp": str(bmp_dst.relative_to(OUT)) if bmp_dst.exists() else None,
+        "bmp_bytes": bmp_dst.stat().st_size if bmp_dst.exists() else 0,
+        "pass": pass_ok,
+        "paint_ms": paint_ms,
+        "note": SCENIC_ROW_NOTE,
+        "matrix_note": MATRIX_NOTE,
+    }
+    row.update(_empty_phases())
+    if paint_ms is not None:
+        row["paint_ms"] = paint_ms
+        row["software_paint_ms"] = paint_ms
+    return row
+
+
+def _fmt_ms(v) -> str:
+    if v is None:
+        return "-"
+    return str(v)
+
+
+def print_comparison_tables(rows: list[dict]) -> None:
+    """Print leftover grid + Vista phase table + false-gap banner (P3b/P3c)."""
+    leftover = [r for r in rows if r.get("engine") == "leftover"]
+    vista = next((r for r in rows if r.get("engine") == "vista"), None)
+    scenic = next((r for r in rows if r.get("engine") == "scenic"), None)
+
+    print()
+    print("=" * 72)
+    print("FALSE-GAP / equal-latitude (read before comparing columns)")
+    print("-" * 72)
+    print(MATRIX_NOTE)
+    print("=" * 72)
+
+    print()
+    print("### A) Leftover -- parallel x port (execute_ms_max = IR replay only)")
+    print(
+        f"{'parallel':<10} {'gdi':>10} {'gdiplus':>10} {'skia':>10}  "
+        f"(wall_ms / pass)"
+    )
+    by = {(r.get("parallel"), r.get("port")): r for r in leftover}
+    for parallel in PARALLELS:
+        cells = []
+        walls = []
+        for port in PORTS:
+            r = by.get((parallel, port))
+            if not r:
+                cells.append("-")
+                walls.append("-")
+                continue
+            cells.append(_fmt_ms(r.get("execute_ms_max")))
+            walls.append(
+                f"{_fmt_ms(r.get('wall_ms'))}/{'Y' if r.get('pass') else 'N'}"
+            )
+        print(
+            f"{parallel:<10} {cells[0]:>10} {cells[1]:>10} {cells[2]:>10}  "
+            f"({walls[0]}, {walls[1]}, {walls[2]})"
+        )
+    print(
+        "note: leftover execute_ms = IR only -- do NOT subtract from Vista "
+        "paint/present to claim a product gap"
+    )
+
+    print()
+    print("### B) Vista phases (fair compare surface vs leftover IR)")
+    if not vista:
+        print("(no vista row -- SmartGisViews.exe missing or skipped)")
+    else:
+        metrics = [
+            ("wall_ms", "process wall (software+GPU matrix cell)"),
+            ("export_ms", "software export incl bmp IO"),
+            ("paint_ms", "paint only (excl IO when present)"),
+            ("present_gpu_cold_ms", "first FlyCube present"),
+            ("present_gpu_warm_ms", "StaticReuse warm"),
+            ("layout_ms", "MapFrame / frame-cache layout"),
+            ("hillshade_ms", "DEM shade (0 under NO_HILLSHADE)"),
+            ("software_paint_ms", "CPU paint into bitmap"),
+            ("bmp_io_ms", "BMP write"),
+            ("gpu_upload_ms", "upload to FlyCube"),
+            ("gpu_present_ms", "GPU present slice"),
+            ("smt_vista_layout_parallel", "env set by harness (1=request parallel)"),
+            ("pass", "matrix cell pass"),
+        ]
+        print(f"{'metric':<28} {'ms/value':>12}  notes")
+        print("-" * 72)
+        for key, notes in metrics:
+            print(f"{key:<28} {_fmt_ms(vista.get(key)):>12}  {notes}")
+        print()
+        print(
+            "leftover vs vista: use table A for IR parallel x port; use table B "
+            "for product phases -- columns are different work units (FALSE-GAP)"
+        )
+
+    print()
+    print("### C) Scenic (content-hosted scenic::Engine, same china MapScene)")
+    if not scenic:
+        print("(no scenic row -- SmartGisViews.exe missing or skipped)")
+        return
+    print(f"{'metric':<28} {'ms/value':>12}  notes")
+    print("-" * 72)
+    for key, notes in [
+        ("wall_ms", "process wall"),
+        ("export_ms", "scenic GDI export + BMP IO"),
+        ("paint_ms", "scenic paint when logged"),
+        ("present_gpu_ms", "present_gpu wall (scenic present, not FlyCube Pass)"),
+        ("pass", "BMP + showcase PASS"),
+        ("bmp", "captures/map2d/matrix/scenic-china.bmp"),
+    ]:
+        print(f"{key:<28} {_fmt_ms(scenic.get(key)):>12}  {notes}")
+    print(SCENIC_ROW_NOTE)
+
+
 def write_outputs(rows: list[dict]) -> None:
-    summary = MATRIX / "parallel_port_matrix_with_src_render.json"
-    summary.write_text(json.dumps(rows, indent=2), encoding="utf-8")
-    # Keep legacy leftover-only names for existing consumers.
+    summary = MATRIX / "parallel_port_matrix_with_vista.json"
+    payload = {
+        "matrix_note": MATRIX_NOTE,
+        "false_gap_note": FALSE_GAP_NOTE,
+        "equal_latitude_note": EQUAL_LATITUDE_NOTE,
+        "rows": rows,
+    }
+    summary.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    # Keep leftover-only names for existing consumers (array unchanged).
     leftover_rows = [r for r in rows if r.get("engine") == "leftover"]
     (MATRIX / "leftover_parallel_port_matrix.json").write_text(
         json.dumps(leftover_rows, indent=2), encoding="utf-8"
     )
+
+    note_path = MATRIX / "parallel_port_matrix_NOTE.txt"
+    note_path.write_text(MATRIX_NOTE + "\n", encoding="utf-8")
 
     fields = [
         "engine",
@@ -317,8 +641,10 @@ def write_outputs(rows: list[dict]) -> None:
         "viewport",
         "bmp_bytes",
         "bmp",
+        "smt_vista_layout_parallel",
+        "note",
     ]
-    csv_path = MATRIX / "parallel_port_matrix_with_src_render.csv"
+    csv_path = MATRIX / "parallel_port_matrix_with_vista.csv"
     with csv_path.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         w.writeheader()
@@ -340,6 +666,7 @@ def write_outputs(rows: list[dict]) -> None:
                 "execute_ms_max",
                 "bmp_bytes",
                 "bmp",
+                "note",
             ],
         )
         w.writeheader()
@@ -349,13 +676,21 @@ def write_outputs(rows: list[dict]) -> None:
     print(f"wrote {summary}")
     print(f"wrote {csv_path}")
     print(f"wrote {leftover_csv}")
-    print(
-        "note: leftover execute_ms is IR replay only; "
-        "src_render phases are the fair compare surface"
-    )
+    print(f"wrote {note_path}")
+    print(f"matrix_note: {MATRIX_NOTE}")
+    print_comparison_tables(rows)
 
 
 def main() -> int:
+    # Prefer Debug; fall back to Release if Debug host missing.
+    global OUT, EXE, VIEWS, MATRIX
+    if not EXE.exists() and (ROOT / "out" / "Release" / "gdi_map_paint_test.exe").exists():
+        OUT = ROOT / "out" / "Release"
+        EXE = OUT / "gdi_map_paint_test.exe"
+        VIEWS = OUT / "SmartGisViews.exe"
+        MATRIX = OUT / "captures" / "map2d" / "matrix"
+        print(f"using Release out: {OUT}", flush=True)
+
     if not EXE.exists():
         print(f"missing {EXE}; build gdi_map_paint_test first", file=sys.stderr)
         return 2
@@ -385,22 +720,30 @@ def main() -> int:
                     "bmp_bytes": 0,
                     "pass": False,
                     "error": "timeout",
+                    "note": LEFTOVER_ROW_NOTE,
+                    "matrix_note": MATRIX_NOTE,
                 }
                 row.update(_empty_phases())
             rows.append(row)
             print(
                 f"  rc={row['rc']} wall={row['wall_ms']} "
-                f"exec_max={row['execute_ms_max']} bmp={row['bmp']}",
+                f"exec_max={row['execute_ms_max']} bmp={row['bmp']} "
+                f"[IR-only; not Vista paint/present]",
                 flush=True,
             )
 
     if VIEWS.exists():
-        print("=== src_render Views map2d china 1280x720 ===", flush=True)
+        print(
+            "=== vista map2d china 1280x720 (Views+FlyCube) "
+            f"SMT_VISTA_LAYOUT_PARALLEL="
+            f"{_resolve_layout_parallel(os.environ.copy())} ===",
+            flush=True,
+        )
         try:
-            row = run_src_render()
+            row = run_vista()
         except subprocess.TimeoutExpired:
             row = {
-                "engine": "src_render",
+                "engine": "vista",
                 "port": "views+flycube",
                 "parallel": "map_effect",
                 "rc": -1,
@@ -418,6 +761,8 @@ def main() -> int:
                 "bmp_bytes": 0,
                 "pass": False,
                 "error": "timeout",
+                "note": VISTA_ROW_NOTE,
+                "matrix_note": MATRIX_NOTE,
             }
             row.update(_empty_phases())
         rows.append(row)
@@ -435,11 +780,52 @@ def main() -> int:
             f"gpu_present_ms={row.get('gpu_present_ms')} "
             f"phase_gate_export={row.get('phase_gate_export_ok')} "
             f"phase_gate_cold={row.get('phase_gate_cold_ok')} "
+            f"layout_parallel={row.get('smt_vista_layout_parallel')} "
             f"bmp={row['bmp']}",
             flush=True,
         )
+        print(
+            "=== scenic map2d china 1280x720 (content scenic::Engine) "
+            "SMT_MAP2D_ENGINE=scenic ===",
+            flush=True,
+        )
+        try:
+            srow = run_scenic()
+        except subprocess.TimeoutExpired:
+            srow = {
+                "engine": "scenic",
+                "port": "content+gdi",
+                "parallel": "serial",
+                "rc": -1,
+                "wall_ms": 120000,
+                "execute_ms_list": [],
+                "execute_ms_last": None,
+                "execute_ms_sum": None,
+                "execute_ms_max": None,
+                "export_ms": None,
+                "present_gpu_ms": None,
+                "present_gpu_cold_ms": None,
+                "present_gpu_warm_ms": None,
+                "viewport": "1280x720",
+                "bmp": None,
+                "bmp_bytes": 0,
+                "pass": False,
+                "error": "timeout",
+                "note": SCENIC_ROW_NOTE,
+                "matrix_note": MATRIX_NOTE,
+            }
+            srow.update(_empty_phases())
+        rows.append(srow)
+        print(
+            f"  rc={srow['rc']} wall={srow['wall_ms']} "
+            f"export_ms={srow.get('export_ms')} "
+            f"paint_ms={srow.get('paint_ms')} "
+            f"present_gpu_ms={srow.get('present_gpu_ms')} "
+            f"bmp={srow['bmp']} pass={srow.get('pass')}",
+            flush=True,
+        )
     else:
-        print(f"skip src_render: missing {VIEWS}", flush=True)
+        print(f"skip vista: missing {VIEWS}", flush=True)
 
     write_outputs(rows)
     return 0 if all(r.get("pass") for r in rows) else 1

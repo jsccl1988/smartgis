@@ -7,7 +7,8 @@
 #include <memory>
 #include <mutex>
 
-#include "gis/model/map/map.h"
+#include "legacy/gis/layer/layer.h"
+#include "gis/map/map.h"
 #include "legacy/gis/present/carto/style.h"
 #include "legacy/core/macros/macros.h"
 #include "legacy/render/rhi2d/impl/common/paint/carto/draw/carto_draw.h"
@@ -49,12 +50,12 @@ class Rhi2dPainter {
   void set_context(SmtRenderContext* rc);
   void set_render_options(const Smt2DRenderOptions* options);
 
-  int render_map(const SmtMap* map, int x, int y, int w, int h,
+  int render_map(const Map* map, int x, int y, int w, int h,
                  int op = R2_COPYPEN);
-  int render_layer(const SmtLayer* layer, int op = R2_COPYPEN);
+  int render_layer(const Layer* layer, int op = R2_COPYPEN);
   int render_layer(OGRLayer* layer, int op = R2_COPYPEN);
-  int render_layer(const SmtRasterLayer* layer, int op = R2_COPYPEN);
-  int render_layer(const SmtTileLayer* layer, int op = R2_COPYPEN);
+  int render_layer(const RasterLayer* layer, int op = R2_COPYPEN);
+  int render_layer(const TileLayer* layer, int op = R2_COPYPEN);
   int render_feature(OGRFeature* feature, int op = R2_COPYPEN);
   int render_geometry(const OGRGeometry* geom, const SmtStyle* style,
                       int op = R2_COPYPEN);
@@ -78,6 +79,10 @@ class Rhi2dPainter {
 
   std::unique_ptr<GdiCartoFrame> carto2d_;
 };
+
+// Join process-wide tile/layer raster threads. Call from device Release after
+// the FrameJob lane has exited — never from DllMain / FreeLibrary.
+void rhi2d_shutdown_static_raster_runners();
 
 }  // namespace detail
 }  // namespace render

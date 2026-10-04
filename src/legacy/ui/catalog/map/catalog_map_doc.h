@@ -1,7 +1,7 @@
 /*
 File:    cata_mapdocxcatalog.h
 
-Desc:    SmtMapDocXCatalog,Smt MapDoc Catalog 锟教筹拷锟斤拷SmtXCatalog
+Desc:    MapDocXCatalog,Smt MapDoc Catalog 锟教筹拷锟斤拷SmtXCatalog
 
 Version: Version 1.0
 
@@ -25,12 +25,12 @@ Copyright (c) 2010 CCL. All rights reserved.
 // SmtXCatalog
 
 namespace ui {
-class XCATALOG_EXPORT SmtMapDocXCatalog : public SmtXCatalog {
-  DECLARE_DYNAMIC(SmtMapDocXCatalog)
+class XCATALOG_EXPORT MapDocXCatalog : public SmtXCatalog {
+  DECLARE_DYNAMIC(MapDocXCatalog)
 
  public:
-  SmtMapDocXCatalog();
-  virtual ~SmtMapDocXCatalog();
+  MapDocXCatalog();
+  virtual ~MapDocXCatalog();
 
  public:
   // addtion

@@ -12,11 +12,12 @@
 
 #include "gdal.h"
 #include "gdal_priv.h"
-#include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
-#include "gis/model/envelope.h"
-#include "gis/model/map/map.h"
-#include "gis/vista/world/terrain/dem/dem_raster.h"
-#include "gis/vista/world/terrain/process/dem_hillshade.h"
+#include "gis/datasource/ogr/ogr_feature_codec.h"
+#include "legacy/gis/feature/leftover_feature.h"
+#include "gis/envelope.h"
+#include "gis/map/map.h"
+#include "vista/world/terrain/dem/dem_raster.h"
+#include "vista/world/terrain/process/dem_hillshade.h"
 #include "legacy/render/rhi2d/public/device/renderdevice.h"
 #include "legacy/render/test/paint_test_host.h"
 #include "ogrsf_frmts.h"
@@ -120,7 +121,7 @@ const MatrixHillshade& matrix_hillshade_bake() {
       env != nullptr && env[0] != '\0') {
     dem_path = env;
   } else {
-    dem_path = gis::find_sample_dem_path();
+    dem_path = vista::find_sample_dem_path();
   }
   if (dem_path.empty()) {
     std::fprintf(stderr,
@@ -129,17 +130,17 @@ const MatrixHillshade& matrix_hillshade_bake() {
     return bake;
   }
 
-  gis::DemRaster dem;
+  vista::DemRaster dem;
   if (!dem.load_gdal_raster(dem_path.c_str()) || dem.empty()) {
     std::fprintf(stderr, "matrix_bmp: hillshade skip - DEM load failed (%s)\n",
                  dem_path.c_str());
     return bake;
   }
 
-  gis::HillshadeParams params;
+  vista::HillshadeParams params;
   params.max_edge = 256;
   params.exaggeration = 0.5f;
-  if (!gis::shade_dem_rgba(dem, params, &bake.rgba, &bake.w, &bake.h) ||
+  if (!vista::shade_dem_rgba(dem, params, &bake.rgba, &bake.w, &bake.h) ||
       bake.w < 2 || bake.h < 2 || bake.rgba.empty()) {
     std::fprintf(stderr, "matrix_bmp: hillshade skip - shade_dem_rgba failed\n");
     bake.rgba.clear();
@@ -458,7 +459,7 @@ int main() {
   int n_line = 0;
   int n_dot = 0;
   int n_anno = 0;
-  gis::SmtMap map;
+  gis::Map map;
   for (int li = 0; li < ds->GetLayerCount(); ++li) {
     OGRLayer* lyr = ds->GetLayer(li);
     if (!lyr) {
@@ -466,15 +467,14 @@ int main() {
     }
     lyr->ResetReading();
     while (OGRFeature* feat = lyr->GetNextFeature()) {
-      const gis::SmtFeatureType ft =
-          gis::datasource::infer_feature_type(feat, gis::SmtFtUnknown);
-      if (ft == gis::SmtFtSurface) {
+      const gis::FeatureType ft = leftover_feature_type_of(feat);
+      if (ft == gis::FtSurface) {
         ++n_region;
-      } else if (ft == gis::SmtFtCurve) {
+      } else if (ft == gis::FtCurve) {
         ++n_line;
-      } else if (ft == gis::SmtFtDot) {
+      } else if (ft == gis::FtDot) {
         ++n_dot;
-      } else if (ft == gis::SmtFtAnno) {
+      } else if (ft == gis::FtAnno) {
         ++n_anno;
       }
       OGRFeature::DestroyFeature(feat);
@@ -482,11 +482,12 @@ int main() {
     expect(map.AddLayer(lyr), "AddLayer OGR China sample");
   }
   const bool city_pack = path.find("china_city") != std::string::npos;
-  // NE 10m china_city area layer is ~48 MultiPolygons (was 370 prefectures).
-  expect(n_region >= (city_pack ? 40 : 8), "several region polygons");
+  // china_city pack: area≈34, line≥1, point≈64; labels folded into point
+  // (no FtAnno layer).
+  expect(n_region >= (city_pack ? 30 : 8), "several region polygons");
   expect(n_line >= 1, "line features");
   expect(n_dot >= (city_pack ? 50 : 5), "city points");
-  expect(n_anno >= (city_pack ? 50 : 5), "annotation text features");
+  expect(n_anno >= (city_pack ? 0 : 5), "annotation text features");
   std::fprintf(stderr, "kinds region=%d line=%d dot=%d anno=%d\n", n_region,
                n_line, n_dot, n_anno);
   expect(map.GetLayerCount() >= 1, "map layer count");
@@ -665,22 +666,25 @@ int main() {
     std::fprintf(stderr, "step: preview-zoom-ok\n");
     std::fflush(stderr);
   } else {
-    // Extra drain so strategy label + last FrameJob settle before destroy.
-    for (int i = 0; i < 100; ++i) {
-      (void)dev->Timer();
-      ::Sleep(1);
-    }
+    // Do not Timer() after the BMP: on_timer can finish_interactive_settle
+    // and submit another china FrameJob, then destroy races teardown.
+    ::Sleep(50);
   }
 
   if (destroy) {
     destroy(dev);
+    dev = nullptr;
   }
   DestroyWindow(hwnd);
   GDALClose(ds);
   if (donut_ds) {
     GDALClose(donut_ds);
   }
-  if (dll) {
+  // Matrix cells: Release may detach a still-running FrameJob and leak the
+  // device until process exit (release_may_leak). FreeLibrary then unmaps
+  // worker code mid-paint → AV on gdiplus/skia. Leave the DLL mapped for
+  // matrix runs; the process exits immediately after.
+  if (dll && !matrix_run) {
     FreeLibrary(dll);
   }
   return g_fails == 0 ? 0 : 1;

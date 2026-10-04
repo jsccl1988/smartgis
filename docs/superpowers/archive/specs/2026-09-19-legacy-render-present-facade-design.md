@@ -10,7 +10,7 @@ All rights reserved.
 
 **Date:** 2026-09-19  
 **Status:** active  
-**Related:** 伞状 [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md)；RHI + GpuScene [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)；leftover 拆分 [`2026-09-13-render-legacy-split-design.md`](2026-09-13-render-legacy-split-design.md)；伞状 [`2026-09-13-model-render-compute-design.md`](2026-09-13-model-render-compute-design.md)。  
+**Related:** 伞状 [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](../../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md)；RHI + GpuScene [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md)；leftover 拆分 [`2026-09-13-render-legacy-split-design.md`](2026-09-13-render-legacy-split-design.md)；伞状 [`2026-09-13-model-render-compute-design.md`](2026-09-13-model-render-compute-design.md)。  
 **Scope:** `SmtRenderDevice::Init(HWND)` 与 `bind_rhi_present` 的 strangler；像素录制经 `render::rhi` + `GpuScene`；主 GDI / gdi_simple `RenderMap` → `leftover_record_map_frame`；`leftover_mesh` / `leftover_session` 留在 Facade 后。不含 scene3d、tool、ui、host 抽取。
 
 ## Goal

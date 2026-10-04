@@ -4,6 +4,7 @@
 
 script "plugin.geochem" {
   seq @inproc {
+    require_plugins();
     resolve_data(kind="plugin", leaf="geochem_samples.csv", as="csv");
     require_var(name="csv", fail_mark="geochem-sample-fail");
     sidecar_path(rel="..\\data\\plugin\\geochem_idw.tif", as="out");

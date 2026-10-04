@@ -11,10 +11,10 @@ Leftover cartographic POD: `SmtStyle` / pen / brush / annotation / symbol,
 Mirrors endgame `gis/present/carto` under the leftover tree until the POD is
 retired or re-homed into product `gis/`.
 
-**Not** MapLibre Style JSON — that lives in [`../../../../gis/present/style/`](../../../../gis/present/style/).
+**Not** MapLibre Style JSON — that lives in [`../../../../gis/carto/style/`](../../../../gis/carto/style/).
 **Not** GDI `MapCarto2d` paint — that lives under `legacy/render/rhi2d/impl/gdi/`.
 
-Axis-aligned extents are [`gis/model/envelope.h`](../../../../gis/model/envelope.h) (`gis::Envelope`).
+Axis-aligned extents are [`gis/envelope.h`](../../../../gis/envelope.h) (`gis::Envelope`).
 
 ## Include
 

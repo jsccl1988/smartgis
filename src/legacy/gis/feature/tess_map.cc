@@ -7,19 +7,17 @@
 #include <cmath>
 #include <vector>
 
-#include "gis/kernel/geo/mesh/geometry.h"
-#include "gis/kernel/tin/api/tin.h"
+#include "gis/geo/ops/geometry_traits.h"
+#include "gis/geo/tin/delaunay.h"
 #include "legacy/core/types/types.h"
 #include "ogr_geometry.h"
 
 namespace render {
 namespace {
 
-using geo::RawPoint;
-
 constexpr int kMaxTessRingVerts = 64;
 
-int downsample_ring(const RawPoint* src, int n, RawPoint* dst, int max_verts) {
+int downsample_ring(const OGRRawPoint* src, int n, OGRRawPoint* dst, int max_verts) {
   if (!src || !dst || n < 3 || max_verts < 3) {
     return 0;
   }
@@ -100,7 +98,7 @@ bool tess_polygon(OGRPolygon* poly, const FeatureRgb& fill,
   if (n_points < 3) {
     return false;
   }
-  std::vector<RawPoint> raw(static_cast<size_t>(n_points));
+  std::vector<OGRRawPoint> raw(static_cast<size_t>(n_points));
   for (int i = 0; i < n_points; ++i) {
     raw[static_cast<size_t>(i)].x = ring->getX(i);
     raw[static_cast<size_t>(i)].y = ring->getY(i);
@@ -113,7 +111,7 @@ bool tess_polygon(OGRPolygon* poly, const FeatureRgb& fill,
   if (n_points < 3) {
     return false;
   }
-  RawPoint slim[kMaxTessRingVerts];
+  OGRRawPoint slim[kMaxTessRingVerts];
   const int slim_n =
       downsample_ring(raw.data(), n_points, slim, kMaxTessRingVerts);
   if (slim_n < 3) {
@@ -122,13 +120,21 @@ bool tess_polygon(OGRPolygon* poly, const FeatureRgb& fill,
   raw.assign(slim, slim + slim_n);
   n_points = slim_n;
 
-  std::vector<base::SmtTriangle> tris;
-  if (divide_polygon_into_tri_mesh(tris, raw.data(), n_points) != SMT_ERR_NONE) {
+  std::vector<base::Vector3> ring_xyz(static_cast<std::size_t>(n_points));
+  for (int i = 0; i < n_points; ++i) {
+    ring_xyz[static_cast<std::size_t>(i)].x =
+        static_cast<float>(raw[static_cast<std::size_t>(i)].x);
+    ring_xyz[static_cast<std::size_t>(i)].y =
+        static_cast<float>(raw[static_cast<std::size_t>(i)].y);
+    ring_xyz[static_cast<std::size_t>(i)].z = 0.f;
+  }
+  std::vector<geo::IndexedTriangle> tris;
+  if (!geo::delaunay_constrained(tris, ring_xyz.data(), n_points)) {
     return false;
   }
-  std::vector<base::SmtTriangle> in_range;
+  std::vector<geo::IndexedTriangle> in_range;
   in_range.reserve(tris.size());
-  for (const base::SmtTriangle& t : tris) {
+  for (const geo::IndexedTriangle& t : tris) {
     if (t.a >= 0 && t.b >= 0 && t.c >= 0 && t.a < n_points && t.b < n_points &&
         t.c < n_points) {
       in_range.push_back(t);
@@ -146,7 +152,7 @@ bool tess_polygon(OGRPolygon* poly, const FeatureRgb& fill,
                     raw[static_cast<size_t>(i)].y, fill, height_fn,
                     height_user);
   }
-  for (const base::SmtTriangle& t : in_range) {
+  for (const geo::IndexedTriangle& t : in_range) {
     out->indices.push_back(static_cast<std::uint32_t>(base + t.a));
     out->indices.push_back(static_cast<std::uint32_t>(base + t.b));
     out->indices.push_back(static_cast<std::uint32_t>(base + t.c));

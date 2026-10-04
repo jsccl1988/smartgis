@@ -26,7 +26,7 @@
 namespace app {
 namespace detail {
 
-// Scene3D path: orthogrid3d.create_hex_grid → overlay TIN/.vts + HWND BMP.
+// Scene3D path: hex volume TIN after orbit seed so abandon_mesh cannot wipe it.
 int run_orthogrid3d(Browser& browser) {
   std::fprintf(stderr, "plugin-showcase: orthogrid3d Scene3D path\n");
   write_mark(kPluginShowcaseMarkLeaf, "orthogrid3d", /*truncate=*/true);
@@ -53,25 +53,6 @@ int run_orthogrid3d(Browser& browser) {
   }
   plugin_showcase_mark("sample-ok");
 
-  const std::string vts_esc = json_escape_path(vts_utf8);
-  const std::string args =
-      std::string("{\"nx\":8,\"ny\":8,\"nz\":5,\"vts_path\":\"") + vts_esc +
-      "\",\"corners\":[[0,0,0],[1.2,0,0],[1.35,1.1,0],[0,1,0],[0,0,0.8],"
-      "[1.15,0.05,0.9],[1.3,1.05,1],[0.05,0.95,0.85]]}";
-  if (!browser.plugins()->run_processing("orthogrid3d.create_hex_grid",
-                                         args)) {
-    plugin_showcase_mark("orthogrid3d-run-fail");
-    detach_maps(browser);
-    return 1;
-  }
-  plugin_showcase_mark("orthogrid3d-ok");
-
-  if (GetFileAttributesW(vts_w) != INVALID_FILE_ATTRIBUTES) {
-    plugin_showcase_mark("vts-ok");
-  } else {
-    plugin_showcase_mark("vts-skip");
-  }
-
   plugin_showcase_mark("tab3d");
   pump_messages(200);
 
@@ -96,11 +77,56 @@ int run_orthogrid3d(Browser& browser) {
     return 50;
   }
 
+  // Orbit clears stale DEM first; hex commit must follow. Hex volume is the
+  // amber overlay TIN (tall orbit slab); china_dem crop is the pad only.
   seed_orthogrid3d_orbit(browser, cam, orbit);
 
+  const std::string vts_esc = json_escape_path(vts_utf8);
+  // Mid-complexity hex volume (14x12x7) — readable lattice walls + top/bottom.
+  const std::string args =
+      std::string("{\"nx\":14,\"ny\":12,\"nz\":7,\"vts_path\":\"") + vts_esc +
+      "\",\"corners\":[[0,0,0],[1.4,0,0],[1.55,1.2,0],[0,1.1,0],[0,0,1.0],"
+      "[1.35,0.05,1.1],[1.5,1.15,1.2],[0.05,1.05,1.05]]}";
+  if (!browser.plugins()->run_processing("orthogrid3d.create_hex_grid",
+                                         args)) {
+    plugin_showcase_mark("orthogrid3d-run-fail");
+    teardown_plugin_device_session(cam, &session,
+                                   PluginTeardownOpts{.shutdown_device = true});
+    detach_maps(browser);
+    return 1;
+  }
+  plugin_showcase_mark("orthogrid3d-ok");
+
+  if (GetFileAttributesW(vts_w) != INVALID_FILE_ATTRIBUTES) {
+    plugin_showcase_mark("vts-ok");
+  } else {
+    plugin_showcase_mark("vts-skip");
+  }
+
+  cam->gpu().set_wireframe_enabled(true);
+
+  PluginPresentFailPolicy warm_fail;
+  warm_fail.clear_tin = false;  // keep hex overlay through warmup + capture
+  warm_fail.clear_pointcloud = true;
+  warm_fail.abandon_mesh = false;
+  warm_fail.shutdown_device = true;
   if (const int rc = present_plugin_warmup_frames(
-          cam, &session, browser, "orthogrid3d", PluginPresentFailPolicy{})) {
+          cam, &session, browser, "orthogrid3d", warm_fail)) {
     return rc;
+  }
+
+  // Re-commit hex TIN after DEM rebuild so GDI capture sees the amber shell.
+  if (!browser.plugins()->run_processing("orthogrid3d.create_hex_grid",
+                                         args)) {
+    plugin_showcase_mark("orthogrid3d-recommit-fail");
+  }
+  // Warmup / present may echo Map-Edit extent; restore hex lab framing
+  // without clearing the recommitted amber TIN.
+  frame_orthogrid3d_orbit(orbit);
+  for (int i = 0; i < 2; ++i) {
+    (void)cam->present_gpu(session.device, kPluginShowcasePresentW,
+                           kPluginShowcasePresentH);
+    pump_messages(30);
   }
 
   PluginCaptureOpts capture;

@@ -28,18 +28,17 @@
 #include "content/browser/camera/view_frame.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
 #include "app/views/shell/browser/commands/view_commands.h"
-#include "plugin/product/orthogrid/commands.h"
 #include "plugin/runtime/host/registry/registry.h"
 #include "content/public/catalog_layers.h"
 #include "content/public/map_contents.h"
 #include "content/public/map_types.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "gis/vista/domain/atmosphere/field/field_channel.h"
+#include "vista/domain/atmosphere/field_channel.h"
 #include "render/rhi/rhi.h"
-#include "gis/model/edit/session/edit_session.h"
-#include "gis/present/tile/provider/tile_map_layer.h"
-#include "gis/present/tile/provider/tile_provider.h"
+#include "gis/edit/session.h"
+#include "gis/carto/tile/tile_map_layer.h"
+#include "gis/carto/tile/tile_provider.h"
 #include "tool/nav/camera_nav.h"
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
@@ -147,7 +146,7 @@ void InspectorSyncComposer::sync_inspectors_from_scene() {
 void InspectorSyncComposer::sync_result_playback_from_session() {
   // Require the panel to be under this shell Widget. Skip during early
   // wire_map_scene if the panel pointer is skewed (stale shell_ui .obj) or
-  // not yet reparented â€?Slider::set_value â†?schedule_paint on a garbage
+  // not yet reparented éˆ¥?Slider::set_value éˆ«?schedule_paint on a garbage
   // host_->widget_ was STATUS_HEAP_CORRUPTION / AV at init_shell.
   if (!host_->result_playback_panel_ ||
       host_->result_playback_panel_->widget() != &host_->widget_) {
@@ -201,7 +200,7 @@ void InspectorSyncComposer::wire_edit_feedback() {
   // Showcase / self-test set SMT_SKIP_AMBOX_CATALOG. Edit subscriptions are not
   // required for BMP export. A skewed Browser/MapSession layout (stale
   // shell_browser .obj under parallel ninja) makes edit_host() return
-  // 0xCD-filled garbage â†?STATUS_HEAP_CORRUPTION in ViewHost::events().
+  // 0xCD-filled garbage éˆ«?STATUS_HEAP_CORRUPTION in ViewHost::events().
   if (const char* skip = std::getenv("SMT_SKIP_AMBOX_CATALOG");
       skip && skip[0] != '\0' && skip[0] != '0') {
     return;

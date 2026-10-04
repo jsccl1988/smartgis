@@ -43,7 +43,7 @@ source_set("tool_group_sources") {
     "UI_LEGACY_EXPORTS",
   ]
   deps = [
-    "//src/gis/kernel/geo:geo",
+    "//src/gis/geo:geo",
     "//src/base:base",
     "//src/base:core",
     # Groups → legacy_render DLL (do not dep *_sources or objects double-link).
@@ -53,10 +53,10 @@ source_set("tool_group_sources") {
     # IA tools live in leftover_tool.dll; this source_set is compiled into
     # ui_legacy. Dep the DLL group, not tool_sources (avoids double-link).
     "//src/legacy/tool:tool",
-    "//src/gis/datasource/provider/impl/ogr:ogr_codec",
+    "//src/gis/datasource/ogr:ogr_codec",
     "//src/legacy/gis/datasource:sde_mgr",
-    "//src/gis/model/edit:map_edit",
-    "//src/gis/model/map:gis",
+    "//src/gis/edit:map_edit",
+    "//src/gis/map:gis",
     "//src/legacy/sys:sys",
     "//src/legacy/tool/msg:adapter",
     "//src/tool:dispatch",

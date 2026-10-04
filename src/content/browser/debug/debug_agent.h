@@ -13,7 +13,7 @@
 #include <thread>
 #include <vector>
 
-#include "content/browser/debug/agent_policy.h"
+#include "content/browser/debug/policy/agent_policy.h"
 
 namespace content {
 

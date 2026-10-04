@@ -38,6 +38,11 @@ bool append_map_polygon(content::MapScene* doc,
 bool append_map_polyline(content::MapScene* doc,
                          const std::vector<std::pair<double, double>>& xy,
                          const char* frame_tag);
+bool append_map_polyline(content::MapScene* doc,
+                         const std::vector<std::pair<double, double>>& xy,
+                         const char* frame_tag,
+                         const char* type_field,
+                         const char* heat);
 
 }  // namespace detail
 }  // namespace app

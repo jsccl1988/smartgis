@@ -9,7 +9,6 @@
 
 using namespace gis;
 using namespace base;
-using namespace geo;
 
 namespace render {
 
@@ -67,20 +66,20 @@ int SmtRhi2dRenderDevice::Refresh() {
   return SMT_ERR_NONE;
 }
 
-int SmtRhi2dRenderDevice::Refresh(const SmtMap *pMap, fRect frect) {
+int SmtRhi2dRenderDevice::Refresh(const Map *pMap, fRect frect) {
   lRect lrect;
   LRectToDRect(frect, lrect);
   RefreshDirectly(pMap, lrect);
   return SMT_ERR_NONE;
 }
 
-int SmtRhi2dRenderDevice::RefreshDirectly(const SmtMap *pSmtMap, lRect rect,
+int SmtRhi2dRenderDevice::RefreshDirectly(const Map *pSmtMap, lRect rect,
                                           bool bRealTime) {
   (void)rect;
   return rerender_map(pSmtMap, bRealTime);
 }
 
-int SmtRhi2dRenderDevice::ZoomMove(const SmtMap *pSmtMap, fPoint dbfPointOffset,
+int SmtRhi2dRenderDevice::ZoomMove(const Map *pSmtMap, fPoint dbfPointOffset,
                                    bool bRealTime) {
   // MapLibre-style: never block the UI on the FrameJob. Preview + async settle.
   detail::nudge_windowport_origin(&m_Windowport, dbfPointOffset.x,
@@ -88,7 +87,7 @@ int SmtRhi2dRenderDevice::ZoomMove(const SmtMap *pSmtMap, fPoint dbfPointOffset,
   return rerender_map(pSmtMap, bRealTime);
 }
 
-int SmtRhi2dRenderDevice::ZoomScale(const SmtMap *pSmtMap, lPoint orgPoint,
+int SmtRhi2dRenderDevice::ZoomScale(const Map *pSmtMap, lPoint orgPoint,
                                     float fscale, bool bRealTime) {
   if (PreviewZoomScale(orgPoint, fscale) != SMT_ERR_NONE) {
     return SMT_ERR_INVALID_PARAM;
@@ -152,7 +151,7 @@ bool SmtRhi2dRenderDevice::rubber_band_device_focus(const fRect &rect,
   return true;
 }
 
-int SmtRhi2dRenderDevice::paint_map_bootstrap_sync(const SmtMap *map) {
+int SmtRhi2dRenderDevice::paint_map_bootstrap_sync(const Map *map) {
   if (!layer_tree_host_) {
     return SMT_ERR_FAILURE;
   }
@@ -204,7 +203,7 @@ int SmtRhi2dRenderDevice::PreviewZoomMove(fPoint dbfPointOffset) {
   return SMT_ERR_NONE;
 }
 
-int SmtRhi2dRenderDevice::ZoomToRect(const SmtMap *pSmtMap, fRect rect,
+int SmtRhi2dRenderDevice::ZoomToRect(const Map *pSmtMap, fRect rect,
                                      bool bRealTime) {
   // Never Sleep-poll or sync-encode on the UI thread -- settle via worker
   // (urgent or debounced). Do not cancel() here: sticky cancel aborted the
@@ -243,7 +242,7 @@ int SmtRhi2dRenderDevice::ZoomToRect(const SmtMap *pSmtMap, fRect rect,
   return rerender_map(pSmtMap, bRealTime || has_painted_preview_);
 }
 
-int SmtRhi2dRenderDevice::rerender_map(const SmtMap *map, bool realtime) {
+int SmtRhi2dRenderDevice::rerender_map(const Map *map, bool realtime) {
   if (!map) {
     return SMT_ERR_INVALID_PARAM;
   }

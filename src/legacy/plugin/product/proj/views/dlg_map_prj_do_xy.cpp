@@ -2,10 +2,46 @@
 #include "stdafx.h"
 #include "legacy/plugin/product/proj/views/dlg_map_prj_do_xy.h"
 
-#include "gis/kernel/proj/api/projection.h"
+#include <cstdio>
+#include <string>
+
+#include "gis/geo/proj/coordinate_transform.h"
 #include "legacy/plugin/product/proj/shell/map_project.h"
-using namespace base;
-using namespace geo;
+
+namespace {
+
+constexpr double kIugg1975A = 6378140.0;
+constexpr double kIugg1975B = 6356755.2882;
+
+double gauss_kruger_central_meridian(double lon_deg) {
+  double lon = lon_deg;
+  while (lon < 0.0) {
+    lon += 360.0;
+  }
+  while (lon >= 360.0) {
+    lon -= 360.0;
+  }
+  const int zone = static_cast<int>(lon / 6.0) + 1;
+  return static_cast<double>(zone) * 6.0 - 3.0;
+}
+
+std::string iugg1975_longlat() {
+  char buf[160];
+  std::snprintf(buf, sizeof(buf), "+proj=longlat +a=%.10f +b=%.10f +type=crs",
+                kIugg1975A, kIugg1975B);
+  return buf;
+}
+
+std::string iugg1975_tmerc(double lon_0) {
+  char buf[320];
+  std::snprintf(buf, sizeof(buf),
+                "+proj=tmerc +lat_0=0 +lon_0=%.8f +k=1 +x_0=500000 +y_0=0 "
+                "+a=%.10f +b=%.10f +units=m +type=crs",
+                lon_0, kIugg1975A, kIugg1975B);
+  return buf;
+}
+
+}  // namespace
 
 IMPLEMENT_DYNAMIC(CDlgMapPrjDoXY, CDialog)
 
@@ -47,29 +83,18 @@ END_MESSAGE_MAP()
 void CDlgMapPrjDoXY::OnBnClickedBtnDoxy() {
   UpdateData(TRUE);
 
-  SmtProjection geo = {};
-  SmtProjection gk = {};
-  if (init_projection(&geo) != SMT_ERR_NONE ||
-      init_projection(&gk) != SMT_ERR_NONE ||
-      load_longlat_ellipsoid(&geo, kIugg1975A, kIugg1975B) != SMT_ERR_NONE ||
-      load_tmerc_crs(&gk, kIugg1975A, kIugg1975B,
-                     gauss_kruger_central_meridian(m_fL)) != SMT_ERR_NONE) {
-    free_projection(&geo);
-    free_projection(&gk);
-    return;
-  }
-
-  dbfPoint point(m_fL, m_fB);
-  if (project_point(&geo, &gk, &point) == SMT_ERR_NONE) {
+  geo::CoordinateTransform pipeline(
+      iugg1975_longlat(),
+      iugg1975_tmerc(gauss_kruger_central_meridian(m_fL)));
+  double x = m_fL;
+  double y = m_fB;
+  if (pipeline.transform_xy(x, y)) {
     const double scale =
         (m_lScaleRuler > 0) ? static_cast<double>(m_lScaleRuler) : 1.0;
-    m_fX = point.x / scale;
-    m_fY = point.y / scale;
+    m_fX = x / scale;
+    m_fY = y / scale;
     UpdateData(FALSE);
   }
-
-  free_projection(&geo);
-  free_projection(&gk);
 }
 
 BOOL CDlgMapPrjDoXY::OnInitDialog() {

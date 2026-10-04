@@ -69,15 +69,18 @@ int run_stormsurge_scene3d(Browser& browser) {
     return 1;
   }
 
-  // Processing after cam is live so analysis writers can push water TIN / DEM.
+  // Orbit/abandon first; water TIN commit must follow so overlay survives.
+  // Scene3D terrain stays china_dem regional crop (schematic DEM override
+  // collapsed to a near-black speck — keep analysis DEM separate).
+  seed_stormsurge_orbit(browser, cam, orbit);
+
+  // Processing after cam is live so analysis writers can push water TIN.
   if (!seed_stormsurge_processing(browser, dem_path, coast_path, out_path)) {
     teardown_plugin_device_session(cam, &session,
                                    PluginTeardownOpts{.shutdown_device = true});
     detach_maps(browser);
     return 1;
   }
-
-  seed_stormsurge_orbit(browser, cam, orbit);
 
   PluginPresentFailPolicy fail;
   fail.clear_pointcloud = false;

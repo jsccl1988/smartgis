@@ -68,6 +68,7 @@ bool seed_stormsurge_processing(Browser& browser, const char* dem_utf8,
     return false;
   }
 
+  // Schematic coast DEM drives analysis + Scene3D (via dem path override).
   const std::string dem_esc = json_escape_path(dem_utf8);
   const std::string coast_esc = json_escape_path(coast_utf8);
   const std::string out_esc = json_escape_path(out_utf8);
@@ -77,10 +78,12 @@ bool seed_stormsurge_processing(Browser& browser, const char* dem_utf8,
     plugin_showcase_mark("stormsurge-coast-fail");
     return false;
   }
+  // Mid inundation: tide into the basin/channel so free-surface TIN spans a
+  // readable water body (not a single highlight AABB).
   const std::string run_args =
       std::string("{\"dem\":\"") + dem_esc + "\",\"coast\":\"" + coast_esc +
       "\",\"output\":\"" + out_esc +
-      "\",\"seed_x\":114.30,\"seed_y\":30.55,\"tide_level\":36.0,\"frames\":6}";
+      "\",\"seed_x\":114.30,\"seed_y\":30.55,\"tide_level\":58.0,\"frames\":8}";
   if (!browser.plugins()->run_processing("stormsurge.run", run_args)) {
     plugin_showcase_mark("stormsurge-run-fail");
     return false;

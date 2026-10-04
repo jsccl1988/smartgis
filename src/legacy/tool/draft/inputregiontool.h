@@ -14,7 +14,7 @@ class SmtInputRegionTool : public SmtBaseTool {
   SmtInputRegionTool();
   virtual ~SmtInputRegionTool();
 
-  int Init(LPRENDERDEVICE pMrdRenderDevice, SmtMap *pOperSmtMap, HWND hWnd,
+  int Init(LPRENDERDEVICE pMrdRenderDevice, Map *pOperSmtMap, HWND hWnd,
            pfnToolCallBack pfnCallBack = NULL, void *pToFollow = NULL);
   int AuxDraw();
 

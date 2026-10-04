@@ -17,23 +17,42 @@ Progressive disclosure for the skill. Read when parsing logs, diagnosing a red c
         │           × port ∈ {gdi, gdiplus, skia}   ← 图像驱动
         │     metric: execute_ms (IR replay)
         │
-        └─ src_render (SmartGisViews --map2d-showcase=china)
+        └─ vista (SmartGisViews --map2d-showcase=china)
               software export_bmp + FlyCube present_gpu
               metrics: export_ms, paint_ms, present_gpu_{cold,warm}_ms, phase_*
 ```
 
-## Fairness (normative)
+## Fairness (normative) — FALSE-GAP
 
 | Claim | OK? |
 | --- | --- |
 | Compare leftover cells across parallel × port on `execute_ms_max` | Yes |
-| Compare src_render phases across runs (before/after opt) | Yes |
-| Treat leftover `execute_ms` as equal work to `export_ms` | **No** |
-| Drop hillshade to hit leftover IR budget | **No** |
+| Compare Vista phases across runs (before/after opt) | Yes |
+| Equal-latitude: matrix `SMT_MAP2D_NO_HILLSHADE=1` (no DEM) vs leftover IR | Yes |
+| Treat leftover `execute_ms` as equal work to `export_ms` / paint / present | **No** (FALSE-GAP) |
+| Claim “Vista is N× slower” from IR vs export | **No** |
+| Delete product hillshade permanently to match leftover IR budgets | **No** |
 
-Leftover path paints from an IR command buffer (no DEM hillshade / MapFrame layout cost in `execute_ms`). src_render pays layout + hillshade + software paint + optional GPU upload/present.
+Sample `matrix_note` / `parallel_port_matrix_NOTE.txt` string:
 
-## Phase columns (src_render)
+```
+FALSE-GAP: leftover execute_ms = IR replay only; NOT comparable to Vista paint_ms/export_ms/present_gpu_*; never claim execute_ms == export_ms; equal-latitude: SMT_MAP2D_NO_HILLSHADE=1 (Vista skips DEM shade; same carto axis as leftover IR which has no hillshade)
+```
+
+Leftover path paints from an IR command buffer (no DEM hillshade / MapFrame layout in `execute_ms`). Matrix equal-latitude turns off Vista DEM shade via env; Vista still pays MapFrame layout + software paint + optional GPU upload/present. Runner prints leftover grid (table A) + Vista phase table (table B) on every run.
+
+## Optimize order P0–P3
+
+| Phase | Do first | Do not |
+| --- | --- | --- |
+| **P0** | Cold `upload_draws` merge | Chase leftover IR |
+| **P1** | Layout / frame-cache incremental | Strip MapFrame |
+| **P2** | Software GDI batch | Permanent NO_HILLSHADE product default |
+| **P3** | `SMT_VISTA_LAYOUT_PARALLEL` + false-gap labels in harness | Treat FALSE-GAP as a bug |
+
+Harness sets `SMT_VISTA_LAYOUT_PARALLEL=1` on the vista cell (`=0` opt-out). Product emitters must `getenv` that flag (parallel plan V1 / equal-profile P3a) — until then tess still keys off job count only.
+
+## Phase columns (Vista)
 
 Parsed from showcase logs by `run_parallel_port_matrix.py`:
 
@@ -60,15 +79,16 @@ out/Debug/captures/map2d/matrix/
   …
   leftover-layer_skia.bmp
   leftover_{parallel}_{port}.log
-  src_render-china.bmp (+ .inspect.png)
-  src_render_china.log
-  parallel_port_matrix_with_src_render.csv
-  parallel_port_matrix_with_src_render.json
+  vista-china.bmp (+ .inspect.png)
+  vista_china.log
+  parallel_port_matrix_with_vista.csv
+  parallel_port_matrix_with_vista.json   # {matrix_note, false_gap_note, equal_latitude_note, rows:[]}
+  parallel_port_matrix_NOTE.txt          # FALSE-GAP + equal-latitude one-liner
   leftover_parallel_port_matrix.csv
   leftover_parallel_port_matrix.json
 ```
 
-Showcase may also write `out/Debug/captures/map2d/map2d-showcase-china.bmp`; the runner copies a large enough candidate into `src_render-china.bmp`.
+Showcase may also write `out/Debug/captures/map2d/map2d-showcase-china.bmp`; the runner copies a large enough candidate into `vista-china.bmp`.
 
 ## Example reply skeleton
 
@@ -85,7 +105,7 @@ Showcase may also write `out/Debug/captures/map2d/map2d-showcase-china.bmp`; the
 | tile | … | … | … |
 | layer | … | … | … |
 
-### src_render 相位
+### Vista 相位
 
 | metric | ms |
 | --- | ---: |
@@ -99,18 +119,18 @@ Showcase may also write `out/Debug/captures/map2d/map2d-showcase-china.bmp`; the
 
 ### 截图
 
-- `out/Debug/captures/map2d/matrix/src_render-china.inspect.png`
+- `out/Debug/captures/map2d/matrix/vista-china.inspect.png`
 - `out/Debug/captures/map2d/matrix/leftover-serial_gdi.inspect.png`
 
-说明：leftover execute_ms 为 IR-only，不可与 export_ms 直接等同。
+说明（FALSE-GAP）：leftover execute_ms 为 IR-only，不可与 Vista paint/export/present 直接等同；equal-latitude `SMT_MAP2D_NO_HILLSHADE=1`。
 ```
 
 ## Diagnose red cell
 
-1. Open matching `leftover_*.log` or `src_render_china.log`.
+1. Open matching `leftover_*.log` or `vista_china.log`.
 2. Confirm BMP exists and `bmp_bytes` > ~10KB.
 3. Leftover: check `SMT_RHI2D_PORT` DLL under `out/Debug` (LoadLibrary).
-4. src_render: check GPU adapter / `SMT_MAP2D_SHOWCASE_GPU`; cold crash → plan Task 2 (device reuse, no timed invalidate).
+4. vista: check GPU adapter / `SMT_MAP2D_SHOWCASE_GPU`; cold crash → plan Task 2 (device reuse, no timed invalidate).
 5. Rebuild only the failing PE; re-run full matrix for a consistent table.
 
 ## Optimize hotspots (plan map)

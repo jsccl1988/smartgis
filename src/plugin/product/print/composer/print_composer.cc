@@ -102,10 +102,12 @@ std::wstring to_wide(const std::string& s) {
   }
   const int n =
       MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
-  std::wstring w(n > 0 ? static_cast<size_t>(n - 1) : 0, L'\0');
-  if (n > 1) {
-    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, w.data(), n);
+  if (n <= 1) {
+    return {};
   }
+  std::wstring w(static_cast<size_t>(n), L'\0');
+  MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, w.data(), n);
+  w.resize(static_cast<size_t>(n - 1));
   return w;
 }
 
@@ -224,12 +226,13 @@ bool PrintComposer::compose(const PrintComposerInput& in,
   const int bar_x = map_x;
   const int bar_y = map_y + map_h + 12;
   const int bar_len = 120;
-  fill_rect_bits(bits, w, h, stride, bar_x, bar_y, bar_x + bar_len, bar_y + 8,
-                 RGB(0x20, 0x20, 0x20));
-  fill_rect_bits(bits, w, h, stride, bar_x, bar_y - 4, bar_x + 2, bar_y + 12,
-                 RGB(0x20, 0x20, 0x20));
-  fill_rect_bits(bits, w, h, stride, bar_x + bar_len - 2, bar_y - 4,
-                 bar_x + bar_len, bar_y + 12, RGB(0x20, 0x20, 0x20));
+  // Near-black so score_plugin_print footer_dark (sum<80) catches the bar.
+  fill_rect_bits(bits, w, h, stride, bar_x, bar_y, bar_x + bar_len, bar_y + 10,
+                 RGB(0x00, 0x00, 0x00));
+  fill_rect_bits(bits, w, h, stride, bar_x, bar_y - 4, bar_x + 3, bar_y + 14,
+                 RGB(0x00, 0x00, 0x00));
+  fill_rect_bits(bits, w, h, stride, bar_x + bar_len - 3, bar_y - 4,
+                 bar_x + bar_len, bar_y + 14, RGB(0x00, 0x00, 0x00));
   const std::string label =
       in.scale_label.empty()
           ? auto_scale_label(in.map_units_per_px, bar_len)

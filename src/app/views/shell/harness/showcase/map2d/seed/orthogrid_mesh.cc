@@ -6,8 +6,8 @@
 #include "app/views/shell/browser/browser.h"
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "content/browser/document/map_scene.h"
-#include "plugin/product/orthogrid/commands.h"
-#include "plugin/product/orthogrid/detail/boundary_solve.h"
+#include "plugin/product/world3d/commands.h"
+#include "plugin/product/world3d/grid/orthogrid/solve/boundary_solve.h"
 #include "tool/draft/draft.h"
 
 #include <cstdio>

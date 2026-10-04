@@ -9,7 +9,7 @@
     "SMT_SKIP_MAP_CONTEXT_MENU": "1"
   },
   "window_title": "SmartGIS Views",
-  "mark_leaf": "self-test-mark.txt",
+  "mark_leaf": "browse-3d-mark.txt",
   "required_marks": [
     "browse3d-orbit-ok",
     "browse3d-wheel-ok"
@@ -19,7 +19,7 @@
     "path": "browse-showcase-3d.bmp",
     "score_id": "plugin_scene3d",
     "accept_nonzero_rc_if_bmp": true,
-    "soft": true,
+    "soft": false,
     "min_bytes": 10000
   },
   "report_name": "browse_3d_loop_report.json",
@@ -42,6 +42,6 @@
       "orbit_wheel_marks",
       "no_hollow_present"
     ],
-    "expect_notes": "Views Scene3D tab orbit/wheel; China product atmosphere face preferred over black-clear legacy"
+    "expect_notes": "Views Scene3D tab orbit/wheel; software paint SoT = East-China DEM hypsometric fills (ocean off, atmosphere sky clear, no forced wireframe); bmp.soft=false"
   }
 }

@@ -17,7 +17,7 @@
   ],
   "bmp": {
     "path": "plugin-showcase-print.bmp",
-    "score_id": "plugin_product"
+    "score_id": "plugin_print"
   },
   "report_name": "plugin_print_loop_report.json",
   "probes": [

@@ -294,7 +294,7 @@ Path-scoped search for `bl3d_` must be empty (except archive docs if any 鈥?do 
 
 **Files:**
 - Modify: `src/legacy/render/scene3d/README.md` (add `index/` layer; note unibn; drop `bl3d_` basenames)
-- Modify only if needed: `docs/build/src-layout.md` (no `bl3d_` mention today 鈥?skip unless inaccurate)
+- Modify only if needed: `docs/superpowers/src-layout.md` (no `bl3d_` mention today 鈥?skip unless inaccurate)
 - Modify: `docs/superpowers/specs/2026-09-28-scene3d-index-octree-design.md` Plan line 鈫?this plan path
 
 - [x] **Step 1: README layer list**

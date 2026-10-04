@@ -31,7 +31,7 @@ All rights reserved.
 
 
 
-**Spec:** [`../specs/2026-09-20-rhi-3d-capability-p0-design.md`](../specs/2026-09-20-rhi-3d-capability-p0-design.md)
+**Spec:** [`../specs/2026-09-20-rhi-3d-capability-p0-design.md`](../archive/specs/2026-09-20-rhi-3d-capability-p0-design.md)
 
 
 
@@ -263,7 +263,7 @@ ninja -C out scene_gpu_test
 
 - Modify: spec Success criteria checkboxes when done
 
-- Optional doc note in `docs/build/src-layout.md` render row — only if README-worthy
+- Optional doc note in `docs/superpowers/src-layout.md` render row — only if README-worthy
 
 
 

@@ -140,12 +140,49 @@ def score_map2d_china(path: Path) -> dict:
     hs_active = hs_gray_f > 0.02
     hs_ok = (not hs_active) or (luma_std > 8.0)
 
-    # Hillshade / admin wash can steal cream land into gray; treat admin as
-    # land-like for framing gates so eastern china + DEM still passes.
-    land_like_f = land_f + admin_f
+    # Hillshade / admin wash can steal cream land into gray; treat admin and
+    # active DEM relief as land-like so eastern china + crisp shade still pass.
+    land_like_f = land_f + admin_f + (hs_gray_f if hs_active else 0.0)
     # Shell HWND hollow after browse stress: chrome teal (#aad3df) + flat
     # admin gray fill with zero roads — water_blue/land_like soft-pass falsely.
     chrome_hollow = (ocean_f + admin_f) > 0.95 and (gold_f + casing_f) < 0.0005
+
+    # Interior land holes: ocean clear with land on ≥3 of 4 cardinal rays.
+    # Catches ear-clip / PolyPolygon cancel that soft land_like gates miss
+    # (labels float over ocean inside the china landmass).
+    def _is_land(r: int, g: int, b: int) -> bool:
+        return (
+            abs(r - 245) < 55
+            and abs(g - 243) < 55
+            and abs(b - 233) < 55
+            and r + g > b * 1.5
+            and r > 170
+            and g > 165
+            and not (b > r + 15 and b > 140 and g > 120)
+        )
+
+    def _is_ocean_exact(r: int, g: int, b: int) -> bool:
+        return abs(r - 170) < 12 and abs(g - 211) < 12 and abs(b - 223) < 12
+
+    hole_hits = 0
+    hole_samples = 0
+    hole_step = max(1, min(w, h) // 80)
+    ray = max(8, min(w, h) // 40)
+    for y in range(ray, h - ray, hole_step):
+        for x in range(ray, w - ray, hole_step):
+            hole_samples += 1
+            r, g, b = pixels[y * w + x]
+            if not _is_ocean_exact(r, g, b):
+                continue
+            landish = 0
+            for dx, dy in ((0, -ray), (0, ray), (-ray, 0), (ray, 0)):
+                rr, gg, bb = pixels[(y + dy) * w + (x + dx)]
+                if _is_land(rr, gg, bb):
+                    landish += 1
+            if landish >= 3:
+                hole_hits += 1
+    land_hole_f = hole_hits / max(1, hole_samples)
+
     ok = (
         red_f < 0.08
         and salmon_f < 0.05
@@ -160,6 +197,7 @@ def score_map2d_china(path: Path) -> dict:
         and casing_f > 0.00025
         and hs_ok
         and not chrome_hollow
+        and land_hole_f < 0.006
     )
     return {
         "bmp": str(path),
@@ -180,6 +218,7 @@ def score_map2d_china(path: Path) -> dict:
         "hillshade_gray_frac": round(hs_gray_f, 4),
         "hillshade_luma_std": round(luma_std, 2),
         "hillshade_active": hs_active,
+        "land_interior_hole_frac": round(land_hole_f, 4),
         "ok": ok,
         "gates": {
             "redish_frac<0.08": red_f < 0.08,
@@ -195,6 +234,7 @@ def score_map2d_china(path: Path) -> dict:
             "road_casing_frac>0.00025": casing_f > 0.00025,
             "hillshade_soft_ok": hs_ok,
             "not_chrome_admin_hollow": not chrome_hollow,
+            "land_interior_hole_frac<0.006": land_hole_f < 0.006,
         },
     }
 

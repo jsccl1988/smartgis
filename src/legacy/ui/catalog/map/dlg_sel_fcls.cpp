@@ -5,7 +5,8 @@
 #include "legacy/ui/catalog/map/dlg_sel_fcls.h"
 
 #include "legacy/ui/catalog/resource.h"
-#include "gis/model/feature/feature.h"
+#include "gis/feature/feature.h"
+#include "legacy/gis/layer/layer.h"
 
 using namespace gis;
 // CDLgSelFcls 뿯宽话框
@@ -89,20 +90,20 @@ BOOL CDLgSelFcls::OnInitDialog() {
 }
 
 UINT CDLgSelFcls::GetSelFcls(void) {
-  UINT unFcls = SmtFtUnknown;
+  UINT unFcls = FtUnknown;
 
   if (m_strSelFclsName == "뿯炽뿯붿素") {
-    unFcls = SmtFtDot;
+    unFcls = FtDot;
   } else if (m_strSelFclsName == "子뿯嚽뿯붿素") {
-    unFcls = SmtFtChildImage;
+    unFcls = FtChildImage;
   } else if (m_strSelFclsName == "뿯沽뿯붿뿯붿素") {
-    unFcls = SmtFtAnno;
+    unFcls = FtAnno;
   } else if (m_strSelFclsName == "뿯纽뿯붿素") {
-    unFcls = SmtFtCurve;
+    unFcls = FtCurve;
   } else if (m_strSelFclsName == "붿뿯붿素") {
-    unFcls = SmtFtSurface;
+    unFcls = FtSurface;
   } else if (m_strSelFclsName == "Mesh뿯붿素") {
-    unFcls = SmtFtGrid;
+    unFcls = FtGrid;
   }
 
   return unFcls;

@@ -16,9 +16,9 @@
 #include "content/public/map_types.h"
 #include "content/public/view_host.h"
 #include "content/renderer/renderer_main.h"
-#include "gis/model/edit/session/memory_edit_session.h"
-#include "gis/present/style/style_document.h"
-#include "gis/present/tile/provider/tile_provider.h"
+#include "gis/edit/memory_session.h"
+#include "gis/carto/style/style_document.h"
+#include "gis/carto/tile/tile_provider.h"
 #include "gpu/gpu.h"
 #include "net/http/http.h"
 #include "render/rhi/rhi.h"
@@ -76,7 +76,7 @@ if (!host->edits()->can_undo()) {
   return 15;
 }
 {
-  // β FeatureGeom: DraftPipeline must commit map-CRS geometry on draw.*.
+  // 尾 FeatureGeom: DraftPipeline must commit map-CRS geometry on draw.*.
   auto* mem = dynamic_cast<gis::MemoryEditSession*>(host->edits());
   if (!mem || mem->committed_count() < 1) {
     return 15;
@@ -110,7 +110,7 @@ if (!status || status->status().find("Selection cleared") ==
 }
 self_test_mark("selection-ok");
 
-// M0: append linestring Ã¢Â?FeatureInfo Ã¢Â?write_path roundtrip.
+// M0: append linestring 脙垄脗聠?FeatureInfo 脙垄脗聠?write_path roundtrip.
 {
   const size_t before = browser.document()->feature_count();
   if (!browser.run_tool_command("edit.append.linestring")) {
@@ -255,7 +255,7 @@ self_test_mark("selection-ok");
   self_test_mark("m0-save-ok");
 }
 
-// Input interaction: draw.polygon ?FeatureGeom ring (β append path).
+// Input interaction: draw.polygon ?FeatureGeom ring (尾 append path).
 {
   const size_t before = browser.document()->feature_count();
   if (!browser.run_tool_command("edit.append.polygon")) {

@@ -15,11 +15,10 @@ All rights reserved.
     --text: #1a2330;
     --muted: #5a6a7e;
     --accent: #2563a8;
-    --core: #e8f0fa;
+    --bootstrap: #e8f0fa;
     --shell: #eef6ee;
-    --doc: #f7f0e8;
-    --view: #f3eef8;
-    --bind: #eef4f7;
+    --views: #f3eef8;
+    --helper: #eef4f7;
   }
   * { box-sizing: border-box; }
   body {
@@ -42,11 +41,10 @@ All rights reserved.
     font-size: 0.72rem; font-weight: 600; padding: 2px 8px;
     border-radius: 4px; color: #123;
   }
-  .tag.core { background: var(--core); }
+  .tag.bootstrap { background: var(--bootstrap); }
   .tag.shell { background: var(--shell); }
-  .tag.doc { background: var(--doc); }
-  .tag.view { background: var(--view); }
-  .tag.bind { background: var(--bind); }
+  .tag.views { background: var(--views); }
+  .tag.helper { background: var(--helper); }
   .flow {
     display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
     margin-top: 10px; font-size: 0.88rem;
@@ -74,11 +72,11 @@ All rights reserved.
 </head>
 <body>
   <h1>legacy/app 深度分层（§11g）</h1>
-  <p class="sub">语义对齐 <code>app/views/shell</code>；物理仍在 <code>src/legacy/app</code>。Scheme C，无 shim。类 ABI 冻结。</p>
+  <p class="sub">顶层 <code>bootstrap</code> / <code>shell/{frame,catalog,dock,showcase}</code> / <code>views/{document,viewport,helper}</code> / <code>res</code>。Scheme C，无 shim。类 ABI 冻结。<code>dll_stem=app_core</code> 不变。</p>
 
   <div class="stack">
     <div class="lane pulse">
-      <h2><span class="tag core">core</span> 会话引导（app_core DLL）</h2>
+      <h2><span class="tag bootstrap">bootstrap</span> 会话引导（app_core DLL；原 core/）</h2>
       <div class="flow">
         <span class="chip">bootstrap (SmtApp)</span>
         <span class="chip">sample_map</span>
@@ -87,40 +85,43 @@ All rights reserved.
       </div>
     </div>
     <div class="lane">
-      <h2><span class="tag shell">shell</span> MFC 壳组合</h2>
+      <h2><span class="tag shell">shell</span> MFC 壳（按职责分子目录）</h2>
       <div class="flow">
-        <span class="chip">frame/win_app</span>
-        <span class="chip">frame/main_frame</span>
-        <span class="chip">frame/child_frame</span>
-        <span class="chip">frame/mdi_tabs</span>
+        <span class="chip">frame/</span>
+        <span class="chip">win_app</span>
+        <span class="chip">main_frame</span>
+        <span class="chip">child_frame</span>
+        <span class="chip">mdi_tab_options</span>
+      </div>
+      <div class="flow">
+        <span class="chip">catalog/</span>
+        <span class="chip">catalog_pane</span>
         <span class="arrow">+</span>
-        <span class="chip">catalog/tab_pane</span>
-        <span class="chip">dock/console</span>
-        <span class="chip">dock/render_trace</span>
-        <span class="chip">dock/diagnostic</span>
-        <span class="chip">dock/pane_host</span>
-        <span class="chip">showcase/*</span>
+        <span class="chip">dock/</span>
+        <span class="chip">debug_console</span>
+        <span class="chip">render_trace</span>
+        <span class="chip">diagnostic</span>
+        <span class="chip">dock_child</span>
+      </div>
+      <div class="flow">
+        <span class="chip">showcase/</span>
+        <span class="chip">showcase_host</span>
+        <span class="chip">map2d_showcase</span>
+        <span class="chip">scene3d_showcase</span>
       </div>
     </div>
     <div class="lane">
-      <h2><span class="tag doc">doc</span> 薄文档</h2>
+      <h2><span class="tag views">views</span> 文档 / 视口 / helper（scheme C 子目录）</h2>
       <div class="flow">
-        <span class="chip">document (CSmartGisDoc)</span>
-        <span class="arrow">→</span>
-        <span>仅持当前主菜单句柄；无 GIS 状态</span>
-      </div>
-    </div>
-    <div class="lane">
-      <h2><span class="tag view">view</span> 薄 CView 转发</h2>
-      <div class="flow">
-        <span class="chip">edit_view</span>
-        <span class="chip">data_view</span>
-        <span class="chip">scene3d_view</span>
-        <span class="arrow">←</span>
-        <span class="tag bind">bind</span>
-        <span class="chip">mdi_menu</span>
-        <span class="chip">status_coord</span>
-        <span class="chip">self_test_mark</span>
+        <span class="chip">document/</span>
+        <span class="arrow">+</span>
+        <span class="chip">viewport/edit_view</span>
+        <span class="chip">viewport/data_view</span>
+        <span class="chip">viewport/scene3d_view</span>
+        <span class="arrow">+</span>
+        <span class="chip">helper/mdi_menu</span>
+        <span class="chip">helper/status_coord</span>
+        <span class="chip">helper/self_test_mark</span>
       </div>
     </div>
   </div>
@@ -128,10 +129,10 @@ All rights reserved.
   <div class="principle">
     <strong>原则流</strong>
     <ol>
-      <li><code>win_app</code> InitInstance → <code>SmtApp::Init</code>（core）→ 可选 showcase / self-test 早退。</li>
+      <li><code>win_app</code> InitInstance → <code>SmtApp::Init</code>（bootstrap）→ 可选 showcase / self-test 早退。</li>
       <li>DelayInit → <code>sample_map</code> 装 china 样例 → 仅 PostMessage 开 Edit。</li>
-      <li>Edit/Data/3D <code>OnInitialUpdate</code> 共用 <code>bind/mdi_menu</code>；光标状态栏走 <code>bind/status_coord</code>。</li>
-      <li>删除未挂模板的 <code>view/map</code> 空壳；showcase 与 view 的 <code>scene3d*</code> stem 保持分离以免 MSVC obj 冲突。</li>
+      <li>Edit/Data/3D <code>OnInitialUpdate</code> 共用 <code>views/helper/mdi_menu</code>（<code>legacy_app::helper</code>）；光标状态栏走 <code>views/helper/status_coord</code>。</li>
+      <li>顶层四目录；<code>shell/</code> 与 <code>views/</code> 均按职责分子目录；showcase stem 用 <code>*_showcase</code>，与 <code>scene3d_view</code> 分离。</li>
     </ol>
   </div>
 </body>

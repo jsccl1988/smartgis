@@ -13,7 +13,7 @@ All rights reserved.
 **Status:** superseded (2026-09-28 merge B)
 **Goal:** D — 部署精简 + 架构分层对齐 + 插件热加载模型；允许分阶段。  
 **Granularity:** C — 终态拓扑同「一层一 DLL」；落地只改 `shared_library` / `dll_stem` / export，GN 内保留细 `source_set`。  
-**Related:** [`../../build/src-layout.md`](../../build/src-layout.md)、[`../../build/abi-rename-map.md`](../../build/abi-rename-map.md)、[`2026-09-13-code-style-include-abi-cutover-design.md`](2026-09-13-code-style-include-abi-cutover-design.md)、[`2026-09-14-plugin-subdir-layout-design.md`](2026-09-14-plugin-subdir-layout-design.md)、[`2026-09-13-plugin-host-design.md`](2026-09-13-plugin-host-design.md)  
+**Related:** [`../../src-layout.md`](../../src-layout.md)、[`../../abi-rename-map.md`](../../abi-rename-map.md)、[`2026-09-13-code-style-include-abi-cutover-design.md`](2026-09-13-code-style-include-abi-cutover-design.md)、[`2026-09-14-plugin-subdir-layout-design.md`](2026-09-14-plugin-subdir-layout-design.md)、[`2026-09-13-plugin-host-design.md`](../../specs/2026-09-13-plugin-host-design.md)  
 **Plan:** [`../plans/2026-09-14-dll-reorganization.md`](../plans/2026-09-14-dll-reorganization.md)
 
 ## Motivation
@@ -68,7 +68,7 @@ All rights reserved.
 | Area | Notes |
 | --- | --- |
 | `plugin/product/*_views`、`processing_views` | Phase 2 可再 stem；今日链进宿主 |
-| `effect/{map,atmosphere,scene}` | pass 对象，链进调用方 |
+| `vista/{map,atmosphere,scene}` | pass 对象，链进调用方 |
 | `gpu`（`gpu_backend` / `gpu_lib`） | 同 PE `GpuMain`；非独立 DLL |
 | `base/math`、`base/archive`、`base/ipc`、`:foundation` | static / 链入消费者或 base |
 | leftover `*.am` | **LoadLibrary**（`out/plugin/`） |
@@ -174,7 +174,7 @@ Removed stems stay removed (`sde_mem` / `sde_smf` / `sde_ws` 等)。
 
 ## Relation to `src-layout`
 
-[`src-layout.md`](../../build/src-layout.md) 描述目录与 GN 标签分层。本 spec **覆盖**其中旧「core + style 两 DLL / proj·tin 各自 DLL / net-in-base」等 **DLL 粒度**陈述。终态 stem 以本文件「Product DLL set」与 [`abi-rename-map.md`](../../build/abi-rename-map.md) 为准。
+[`src-layout.md`](../../src-layout.md) 描述目录与 GN 标签分层。本 spec **覆盖**其中旧「core + style 两 DLL / proj·tin 各自 DLL / net-in-base」等 **DLL 粒度**陈述。终态 stem 以本文件「Product DLL set」与 [`abi-rename-map.md`](../../abi-rename-map.md) 为准。
 
 ## Non-goals
 

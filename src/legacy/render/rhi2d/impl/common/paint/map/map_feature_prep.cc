@@ -9,13 +9,15 @@
 #include <vector>
 
 #include "base/math/simd.h"
-#include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
+#include "legacy/gis/layer/layer.h"
+#include "gis/datasource/ogr/ogr_feature_codec.h"
+#include "legacy/gis/present/carto/smt_style_ogr.h"
+#include "gis/geo/ops/geometry_traits.h"
 #include "legacy/gis/present/carto/style_api.h"
 #include "legacy/render/rhi2d/impl/common/paint/carto/frame/carto_frame.h"
 #include "legacy/render/rhi2d/impl/common/paint/carto/draw/ogr_xy.h"
 
 using namespace gis;
-using namespace geo;
 
 namespace render {
 namespace detail {
@@ -226,7 +228,7 @@ void prepare_one_feature(OGRFeature* feature, const gis::Envelope& env_viewp,
   out->is_river = false;
   out->road_class = 0;
   out->anno_angle = 0.f;
-  out->feature_type = SmtFeatureType::SmtFtUnknown;
+  out->feature_type = FeatureType::FtUnknown;
   if (!feature || !out) {
     return;
   }
@@ -242,7 +244,7 @@ void prepare_one_feature(OGRFeature* feature, const gis::Envelope& env_viewp,
   }
 
   Envelope env_feature;
-  geo::copy_envelope(*geom, &env_feature);
+  geo::fill_envelope(*geom, &env_feature);
   if (!env_feature.intersects(env_viewp)) {
     return;
   }
@@ -286,12 +288,12 @@ void prepare_one_feature(OGRFeature* feature, const gis::Envelope& env_viewp,
         out->anno_angle =
             static_cast<float>(feature->GetFieldAsDouble(cache->angle));
       }
-      out->feature_type = SmtFeatureType::SmtFtAnno;
+      out->feature_type = FeatureType::FtAnno;
       out->kind = PrepKind::Anno;
       return;
     }
 
-    out->feature_type = SmtFeatureType::SmtFtDot;
+    out->feature_type = FeatureType::FtDot;
     out->kind = PrepKind::Point;
     return;
   }
@@ -317,7 +319,7 @@ void prepare_one_feature(OGRFeature* feature, const gis::Envelope& env_viewp,
     }
     part.counts.push_back(static_cast<int>(part.pts.size()));
     out->parts.push_back(std::move(part));
-    out->feature_type = SmtFeatureType::SmtFtDot;
+    out->feature_type = FeatureType::FtDot;
     out->kind = PrepKind::Point;
     return;
   }
@@ -332,11 +334,11 @@ void prepare_one_feature(OGRFeature* feature, const gis::Envelope& env_viewp,
     case wkbTriangle:
     case wkbMultiPolygon:
     case wkbTIN:
-      out->feature_type = SmtFeatureType::SmtFtSurface;
+      out->feature_type = FeatureType::FtSurface;
       break;
     case wkbLineString:
     case wkbMultiLineString:
-      out->feature_type = SmtFeatureType::SmtFtCurve;
+      out->feature_type = FeatureType::FtCurve;
       break;
     default:
       out->kind = PrepKind::Fallback;
@@ -344,7 +346,7 @@ void prepare_one_feature(OGRFeature* feature, const gis::Envelope& env_viewp,
   }
 
   // Line labels only (polygons skip name/adcode/anno lookups).
-  if (out->feature_type == SmtFeatureType::SmtFtCurve &&
+  if (out->feature_type == FeatureType::FtCurve &&
       (out->is_river || out->road_class > 0)) {
     const char* name = cached_field(feature, cache->name);
     const char* anno = cached_field(feature, cache->anno);

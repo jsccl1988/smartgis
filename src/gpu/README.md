@@ -78,7 +78,7 @@ flowchart TB
     Under["underlay/ — graph / GpuScene bridge"]
   end
 
-  subgraph GIS["//src/gis/present"]
+  subgraph GIS["//src/gis/carto/style + //src/gis/carto/tile"]
     Style["StyleDocument"]
     TP["TileProvider / tiles_for_viewport"]
   end
@@ -265,9 +265,9 @@ sequenceDiagram
 
 ## Tile frames
 
-1. Parse Style JSON with `gis::style::StyleDocument` (`//src/gis/present/style`).
+1. Parse Style JSON with `gis::style::StyleDocument` (`//src/gis/carto/style`).
 2. Parse Style `sources` with `gis::tile::parse_style_sources` → `SourceRegistry`
-   / `TileProvider` (`//src/gis/present/tile`); raster `layer.source` must match a
+   / `TileProvider` (`//src/gis/carto/tile`); raster `layer.source` must match a
    source id (missing id → skip that layer).
 3. Walk `layers` in order into a `RenderPass` (back to front), then one present:
    - `background`: `background-color` + `background-opacity`

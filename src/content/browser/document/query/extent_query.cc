@@ -114,8 +114,10 @@ bool has_china_extent(const LayerStore& store) {
       }
     }
   }
+  // City names may live on point features alone (no parallel text layer).
+  const size_t place_marks = points + texts;
   return south >= 3.0 && north <= 60.0 && south < north && regions >= 3 &&
-         lines >= 2 && points >= 3 && texts >= 1;
+         lines >= 2 && place_marks >= 3;
 }
 
 bool active_layer_world_extent(const LayerStore& store,
@@ -151,7 +153,7 @@ content::Extent2 world_extent(const LayerStore& store) {
 }
 
 void export_land_rings(const LayerStore& store,
-                       std::vector<gis::LonLatRing>* out) {
+                       std::vector<vista::LonLatRing>* out) {
   if (!out) {
     return;
   }
@@ -161,7 +163,7 @@ void export_land_rings(const LayerStore& store,
       if (f.kind != GeomKind::kPolygon || f.points.size() < 3) {
         continue;
       }
-      gis::LonLatRing ring;
+      vista::LonLatRing ring;
       ring.x.reserve(f.points.size());
       ring.y.reserve(f.points.size());
       for (const Vertex& p : f.points) {

@@ -49,7 +49,7 @@ BOOL CDlgSelLayer::OnInitDialog() {
   DataSourceMgr *pDSMgr = DataSourceMgr::get_singleton_ptr();
 
   if (pDSMgr->get_data_source_count() > 0) {
-    SmtDataSource pDS;
+    CatalogSource pDS;
 
     pDS = pDSMgr->get_active_data_source();
     if (NULL == pDS) {
@@ -144,19 +144,19 @@ void CDlgSelLayer::UpdateDsTree(void) {
   m_DsTree.DeleteItem(m_hDSNode);
 
   DataSourceMgr *pDSMgr = DataSourceMgr::get_singleton_ptr();
-  SmtDataSource pDS = pDSMgr->get_data_source((LPCTSTR)m_strSelDSName);
+  CatalogSource pDS = pDSMgr->get_data_source((LPCTSTR)m_strSelDSName);
   if (pDS && pDS.Open()) {
     if (pDS.GetLayerCount() > 0) {
       m_hDSNode = m_DsTree.InsertItem(pDS.GetName());
 
-      SmtLayerInfo layerAchiveInfo;
+      LayerInfo layerAchiveInfo;
       int nLayers = pDS.GetLayerCount();
       for (int i = 0; i < nLayers; i++) {
         pDS.GetLayerInfo(layerAchiveInfo, i);
         HTREEITEM hLayerNode =
             m_DsTree.InsertItem(layerAchiveInfo.szName, m_hDSNode);
         m_DsTree.InsertItem(layerAchiveInfo.szArchiveName, hLayerNode);
-        m_DsTree.InsertItem(SmtDataSource::GetLayerFeatureTypeName(
+        m_DsTree.InsertItem(CatalogSource::GetLayerFeatureTypeName(
                                 layerAchiveInfo.unFeatureType),
                             hLayerNode);
         m_DsTree.Expand(hLayerNode, TVE_EXPAND);

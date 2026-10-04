@@ -13,7 +13,7 @@
 #include <windows.h>
 
 #include "app/views/shell/browser/commands/app_commands.h"
-#include "content/browser/present/scene3d/policy/scene3d_rhi_session.h"
+#include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "content/public/map_contents.h"
 #include "content/public/view_host.h"
 #include "ui/views/dialogs/file_picker.h"

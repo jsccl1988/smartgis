@@ -10,7 +10,7 @@ All rights reserved.
 
 **Date:** 2026-09-14  
 **Status:** superseded (2026-09-28 merge B)
-**Scope:** 在已锁定的 Views + Skia 终态上，把 leftover `src/ui/{xview,xcatalog,xambox,chart,gui,mfc_ex}` 的用户可见能力做到 `SmartGisViews.exe` 可演示对等。架构权威仍见 [`2026-09-13-ui-views-mfc-migration-design.md`](2026-09-13-ui-views-mfc-migration-design.md) 与 [`docs/build/ui-views-skia.md`](../../build/ui-views-skia.md)。本文件只锁定 **缺口、接线与验收**。
+**Scope:** 在已锁定的 Views + Skia 终态上，把 leftover `src/ui/{xview,xcatalog,xambox,chart,gui,mfc_ex}` 的用户可见能力做到 `SmartGisViews.exe` 可演示对等。架构权威仍见 [`2026-09-13-ui-views-mfc-migration-design.md`](2026-09-13-ui-views-mfc-migration-design.md) 与 [`docs/superpowers/ui-views-skia.md`](../../ui-views-skia.md)。本文件只锁定 **缺口、接线与验收**。
 
 ## 目标
 

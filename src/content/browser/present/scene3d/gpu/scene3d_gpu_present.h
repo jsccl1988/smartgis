@@ -21,8 +21,8 @@
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
 #include "content/browser/present/scene3d/frame/tileset_stream.h"
 #include "content/public/map_types.h"
-#include "effect/scene/scene.h"
-#include "gis/vista/world/world.h"
+#include "vista/scene/scene.h"
+#include "vista/world/world.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/raster/shell_raster.h"
 
@@ -118,6 +118,9 @@ class Scene3dGpuPresent {
 
   const std::vector<float>& local_xyz() const { return local_xyz_; }
   const std::vector<unsigned>& local_idx() const { return local_idx_; }
+  // Geographic overlay beads for GDI stick/marker paint (lon/lat/elev).
+  const std::vector<float>& overlay_xyz_geo() const { return overlay_xyz_geo_; }
+  const std::vector<uint8_t>& overlay_rgba() const { return overlay_rgba_; }
   // Index into local_idx_ where DEM tris end and overlay TIN tris begin
   // (software paint uses this to tint free-surface water cyan).
   size_t dem_local_idx_count() const { return dem_local_idx_count_; }
@@ -179,8 +182,8 @@ class Scene3dGpuPresent {
   render::rhi::Device* mesh_device_ = nullptr;
   bool wireframe_enabled_ = false;
 
-  gis::World terrain_world_;
-  effect::scene::GpuScene gpu_scene_;
+  vista::World terrain_world_;
+  vista::GpuScene gpu_scene_;
   detail::ShellOverlayEffect shell_overlay_;
   OrbitGeoFrame geo_frame_;
   std::unique_ptr<TilesetStreamSession> tileset_stream_;

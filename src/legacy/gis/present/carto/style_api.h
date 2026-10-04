@@ -5,7 +5,7 @@
 #define GIS_PRESENT_CARTO_STYLE_API_H_
 
 #include "gis/gis_export.h"
-#include "gis/model/envelope.h"
+#include "gis/envelope.h"
 #include "legacy/gis/present/carto/style.h"
 #include "legacy/gis/present/carto/style_bas_struct.h"
 #include "legacy/core/types/types.h"

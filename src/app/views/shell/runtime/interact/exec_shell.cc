@@ -143,8 +143,9 @@ std::optional<bool> try_exec_shell_call(content::CapabilityHost& host,
         const int wn =
             MultiByteToWideChar(CP_UTF8, 0, cand.c_str(), -1, nullptr, 0);
         if (wn > 1) {
-          std::wstring cand_w(static_cast<size_t>(wn - 1), L'\0');
+          std::wstring cand_w(static_cast<size_t>(wn), L'\0');
           MultiByteToWideChar(CP_UTF8, 0, cand.c_str(), -1, cand_w.data(), wn);
+          cand_w.resize(static_cast<size_t>(wn - 1));
           if (GetFileAttributesW(cand_w.c_str()) != INVALID_FILE_ATTRIBUTES) {
             path = cand;
           }
@@ -163,8 +164,9 @@ std::optional<bool> try_exec_shell_call(content::CapabilityHost& host,
       if (wn <= 1) {
         return false;
       }
-      std::wstring path_w(static_cast<size_t>(wn - 1), L'\0');
+      std::wstring path_w(static_cast<size_t>(wn), L'\0');
       MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, path_w.data(), wn);
+      path_w.resize(static_cast<size_t>(wn - 1));
       if (_wfopen_s(&f, path_w.c_str(), L"rb") != 0 || !f) {
         return false;
       }

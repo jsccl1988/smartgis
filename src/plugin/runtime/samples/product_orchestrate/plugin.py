@@ -22,7 +22,7 @@ def _pick_path(pattern):
 
 
 def start(host):
-    def _tin_from_xyz(_args):
+    def _trimesh_from_xyz(_args):
         path = _pick_path("*.xyz;*.txt;*.*")
         if path is None:
             return True  # cancel
@@ -37,11 +37,11 @@ def start(host):
                 "col_z": 2,
             }
         )
-        ok = bool(host.run_processing("world3d.tin_from_xyz", payload))
+        ok = bool(host.run_processing("world3d.trimesh_from_xyz", payload))
         if not ok:
             smartgis.ui.show_message_box(
                 "error",
-                "world3d.tin_from_xyz failed (check path / map seam / builtin world3d).",
+                "world3d.trimesh_from_xyz failed (check path / map seam / builtin world3d).",
             )
         return ok
 
@@ -60,10 +60,10 @@ def start(host):
 
     host.contribute_command(
         PLUGIN_ID,
-        "sample.orch.tin_from_xyz",
-        "Orchestrate TIN from XYZ",
+        "sample.orch.trimesh_from_xyz",
+        "Orchestrate trimesh from XYZ",
         "tools",
-        _tin_from_xyz,
+        _trimesh_from_xyz,
     )
     host.contribute_command(
         PLUGIN_ID,

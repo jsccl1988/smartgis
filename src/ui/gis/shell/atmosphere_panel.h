@@ -19,7 +19,7 @@ class Slider;
 
 // Minimal atmosphere shell: time scrub + ocean / cloud / sky / fog / wind.
 // Hosts bridge callbacks to Scene3dPresenter / Environment; this panel never
-// includes gis::atmosphere headers (toolkit stays map-agnostic).
+// includes vista::atmosphere headers (toolkit stays map-agnostic).
 class UI_EXPORT AtmospherePanel : public View {
  public:
   AtmospherePanel();

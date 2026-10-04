@@ -15,9 +15,9 @@
 
 #include "content/browser/document/ingest/seed_paths.h"
 #include "gdal_priv.h"
-#include "gis/datasource/provider/impl/ogr/text/ogr_text_encoding.h"
+#include "gis/datasource/ogr/ogr_text_encoding.h"
 #include "gis/datasource/pipeline/feature_load_pipeline.h"
-#include "gis/vista/world/terrain/process/land_mask.h"
+#include "vista/world/terrain/process/land_mask.h"
 #include "ogrsf_frmts.h"
 
 namespace content {
@@ -222,13 +222,13 @@ void clip_china_city_lines_to_land_polygons(LayerStore* store) {
       return;
     }
   }
-  std::vector<gis::LonLatRing> rings;
+  std::vector<vista::LonLatRing> rings;
   for (const MapLayer& layer : store->layers()) {
     for (const MapFeature& f : layer.features) {
       if (f.kind != GeomKind::kPolygon || f.points.size() < 3) {
         continue;
       }
-      gis::LonLatRing ring;
+      vista::LonLatRing ring;
       ring.x.reserve(f.points.size());
       ring.y.reserve(f.points.size());
       for (const Vertex& p : f.points) {
@@ -244,7 +244,7 @@ void clip_china_city_lines_to_land_polygons(LayerStore* store) {
     return;
   }
   auto point_on_land = [&](const Vertex& p) {
-    return gis::any_ring_contains(p.x, p.y, rings);
+    return vista::any_ring_contains(p.x, p.y, rings);
   };
   for (MapLayer& layer : store->layers()) {
     auto& feats = layer.features;
@@ -404,7 +404,7 @@ bool has_nonempty_field(const MapFeature& f, const char* key) {
   return v && v[0];
 }
 
-// Prefer anno (SmtFtAnno), then name, for Chinese annotation labels.
+// Prefer anno (FtAnno), then name, for Chinese annotation labels.
 std::string feature_display_name(const MapFeature& f) {
   if (const char* anno = named_field_value(f, "anno")) {
     if (anno[0]) {
@@ -735,6 +735,11 @@ bool ingest_ogr_path(LayerStore* store, const std::string& path) {
       continue;
     }
     const char* lname = ogr_layer->GetName();
+    // china_city historically shipped a parallel text layer (same names at
+    // y+0.08°) that double-drew under default carto "label" mapping. Skip it.
+    if (path_looks_like_china_city(path) && layer_name_is_text(lname)) {
+      continue;
+    }
     MapLayer layer;
     layer.id = path + "#" + (lname && lname[0] ? lname : std::to_string(li));
     layer.name = (lname && lname[0]) ? lname : path_stem(path);

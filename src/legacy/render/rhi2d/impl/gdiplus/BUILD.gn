@@ -17,7 +17,7 @@ source_set("aa_sources") {
   include_dirs += [ "//src" ]
   deps = [
     "//src/base:base",
-    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding",
+    "//src/gis:gis",
   ]
   libs = [ "gdiplus.lib" ]
 }

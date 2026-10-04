@@ -12,7 +12,7 @@ All rights reserved.
 **Status:** superseded (2026-09-28 merge B)
 **Scope:** `src/sdb/feature`、`src/sdb/map`、codec、以及 `src_all` 内调用方。产品要素与地图层以 **组合持有 OGR** 为 ABI，不再用自研字段表或 `SmtVectorLayer` 虚树。
 
-**Sibling:** 图层打开仍走 GDAL Dataset/Layer — [`2026-09-13-gdal-layer-management-design.md`](2026-09-13-gdal-layer-management-design.md)。本文**修正**该文「产品直接裸用 `OGRFeature*` / `OGRLayer*`」的 ABI 表述：存储与 CRUD 仍是 OGR，产品类型改为薄组合壳。
+**Sibling:** 图层打开仍走 GDAL Dataset/Layer — [`2026-09-13-gdal-layer-management-design.md`](../../specs/2026-09-13-gdal-layer-management-design.md)。本文**修正**该文「产品直接裸用 `OGRFeature*` / `OGRLayer*`」的 ABI 表述：存储与 CRUD 仍是 OGR，产品类型改为薄组合壳。
 
 ## Goal
 
@@ -190,7 +190,7 @@ Query：结果写入 **可拥有** 的 Memory `MapLayer`；空间/属性过滤�
 
 ## Relation to GDAL layer management
 
-[`2026-09-13-gdal-layer-management-design.md`](2026-09-13-gdal-layer-management-design.md) 中「产品代码直接写 `OGRFeature*` / `OGRLayer*`、不要包装器」改为：
+[`2026-09-13-gdal-layer-management-design.md`](../../specs/2026-09-13-gdal-layer-management-design.md) 中「产品代码直接写 `OGRFeature*` / `OGRLayer*`、不要包装器」改为：
 
 - **事实源与 I/O** 仍是 GDAL/OGR。
 - **产品调用方 ABI** 是 `Feature` / `MapLayer`（组合），不是第二套存储。
@@ -202,6 +202,6 @@ Query：结果写入 **可拥有** 的 Memory `MapLayer`；空间/属性过滤�
 
 ## Docs
 
-同变更更新：`docs/README.md` 索引；`docs/build/src-layout.md` 中 feature/map 一句；本 sibling 交叉引用。
+同变更更新：`docs/README.md` 索引；`docs/superpowers/src-layout.md` 中 feature/map 一句；本 sibling 交叉引用。
 
 **最后更新：** 2026-09-27（`gis::Feature`；`SmtAttribute`/`SmtField` 与 `leftover_attr` 已删除；PascalCase 仅为头内转发）

@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "gis/model/envelope.h"
+#include "gis/envelope.h"
 #include "legacy/gis/present/carto/style.h"
 #include "legacy/render/rhi2d/impl/common/paint/carto/draw/device_geom.h"
 #include "legacy/render/rhi2d/impl/common/paint/carto/frame/context.h"

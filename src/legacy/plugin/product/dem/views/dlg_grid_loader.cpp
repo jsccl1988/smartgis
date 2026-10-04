@@ -2,7 +2,7 @@
 #include "stdafx.h"
 #include "legacy/plugin/product/dem/views/dlg_grid_loader.h"
 
-#include "gis/kernel/geo/mesh/geometry.h"
+#include "gis/geo/ops/geometry_traits.h"
 #include "legacy/plugin/product/dem/shell/dem_creater.h"
 #include "legacy/plugin/product/dem/shell/dem_dlg_helpers.h"
 #include "legacy/render/scene3d/primitive/surface/terrain.h"
@@ -10,7 +10,7 @@
 #include "legacy/tool/defs.h"
 #include "legacy/ui/catalog/map/mapmgr.h"
 #include "legacy/ui/catalog/scene/scenemgr.h"
-#include "plugin/product/world3d/processing/grid_loader.h"
+#include "plugin/product/world3d/grid/dem/loader/heightmap_loader.h"
 using namespace gis;
 using namespace plugin;
 using namespace sys;
@@ -151,7 +151,7 @@ void CDlgGridLoader::OnBnClickedOk() {
   pTerrain->SetYScale(m_fYScale);
   pTerrain->SetZScale(m_fZScale);
 
-  GridLoadOptions grid_opt;
+  HeightmapLoadOptions grid_opt;
   grid_opt.x_scale = m_fXScale;
   grid_opt.y_scale = m_fYScale;
   grid_opt.z_scale = m_fZScale;
@@ -159,11 +159,11 @@ void CDlgGridLoader::OnBnClickedOk() {
   grid_opt.y_start = m_fYStart;
   grid_opt.z_start = m_fZStart;
 
-  Smt3DSurface grid_surf;
+  OGRTriangulatedSurface grid_surf;
   SmtSceneMgr *pSceneMgr = SmtSceneMgr::get_singleton_ptr();
   Vector3 pos(30, 30, 30);
 
-  if (SMT_ERR_NONE == load_heightmap_grid(m_strHMapUrl, grid_opt, &grid_surf) &&
+  if (SMT_ERR_NONE == load_heightmap(m_strHMapUrl, grid_opt, &grid_surf) &&
       SMT_ERR_NONE == pTerrain->Init(pos, matMaterial, m_strTexName) &&
       SMT_ERR_NONE == pTerrain->SetTerrainSurf(&grid_surf) &&
       SMT_ERR_NONE == pTerrain->Create(m_p3DRenderDevice)) {

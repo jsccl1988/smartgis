@@ -164,7 +164,7 @@ class StubCommandList : public CommandList {
 
 **Files:**
 - Modify: `third_party/manifest.json` — append flycube, assimp, tinygltf (GitHub URLs; `install_skip` true until cmake is wired)
-- Modify: `docs/build/src-layout.md`, `src/README.md`, `README.md`, `docs/README.md` per spec
+- Modify: `docs/superpowers/src-layout.md`, `src/README.md`, `README.md`, `docs/README.md` per spec
 
 - [ ] **Step 1:** Pins with notes “smartgis-owned; fetch later; GN stubs compile without source”.
 - [ ] **Step 2:** Docs: RHI backends DX12/Vulkan; model/scene locations; leftover scene3d/model3d. Root README **最后更新** 2026-09-13.

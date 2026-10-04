@@ -5,8 +5,8 @@
 #include "legacy/ui/catalog/map/dlg_create_layer.h"
 
 #include "legacy/ui/catalog/resource.h"
-#include "gis/model/feature/feature.h"
-#include "gis/model/layer/layer.h"
+#include "gis/feature/feature.h"
+#include "legacy/gis/layer/layer.h"
 
 using namespace gis;
 using namespace base;
@@ -97,24 +97,24 @@ BOOL CDlgCreateLayer::OnInitDialog() {
 }
 
 UINT CDlgCreateLayer::GetSelFcls(void) {
-  UINT unFcls = SmtFtUnknown;
+  UINT unFcls = FtUnknown;
 
   if (m_strSelFclsName == "Point") {
-    unFcls = SmtFtDot;
+    unFcls = FtDot;
   } else if (m_strSelFclsName == "Child image") {
-    unFcls = SmtFtChildImage;
+    unFcls = FtChildImage;
   } else if (m_strSelFclsName == "Annotation") {
-    unFcls = SmtFtAnno;
+    unFcls = FtAnno;
   } else if (m_strSelFclsName == "Curve") {
-    unFcls = SmtFtCurve;
+    unFcls = FtCurve;
   } else if (m_strSelFclsName == "Surface") {
-    unFcls = SmtFtSurface;
+    unFcls = FtSurface;
   } else if (m_strSelFclsName == "Grid") {
-    unFcls = SmtFtGrid;
+    unFcls = FtGrid;
   } else if (m_strSelFclsName == "Tin") {
-    unFcls = SmtFtTin;
+    unFcls = FtTin;
   } else if (m_strSelFclsName == "Raster") {
-    unFcls = SmtLayer_Ras;
+    unFcls = LayerRas;
   }
 
   return unFcls;

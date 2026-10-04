@@ -8,9 +8,9 @@
 #include "legacy/gis/present/carto/style_api.h"
 #include "legacy/gis/present/carto/stylemanager.h"
 #include "legacy/gis/datasource/datasource_mgr.h"
-#include "gis/model/feature/feature.h"
-#include "gis/model/feature/feature_api.h"
-#include "gis/model/map/map.h"
+#include "gis/feature/feature.h"
+#include "legacy/gis/feature/leftover_copy_layer.h"
+#include "gis/map/map.h"
 #include "legacy/core/macros/macros.h"
 #include "legacy/sys/sysmanager.h"
 #include "legacy/tool/msg/msg.h"
@@ -42,7 +42,7 @@ SmtFlashTool::~SmtFlashTool() {
   UnRegisterMsg();
 }
 
-int SmtFlashTool::Init(LPRENDERDEVICE pMrdRenderDevice, SmtMap* pOperSmtMap,
+int SmtFlashTool::Init(LPRENDERDEVICE pMrdRenderDevice, Map* pOperSmtMap,
                        HWND hWnd, pfnToolCallBack pfnCallBack,
                        void* pToFollow) {
   if (SMT_ERR_NONE != SmtBaseTool::Init(pMrdRenderDevice, pOperSmtMap, hWnd,
@@ -132,7 +132,7 @@ int SmtFlashTool::notify(long nMsg, SmtListenerMsg& param) {
 
     if (SMT_ERR_NONE ==
         m_pRenderDevice->BeginRender(MRD_BL_DYNAMIC, true, NULL, R2_COPYPEN)) {
-      m_pRenderDevice->RenderLayer((SmtLayer*)NULL, R2_COPYPEN);
+      m_pRenderDevice->RenderLayer((Layer*)NULL, R2_COPYPEN);
       m_pRenderDevice->EndRender(MRD_BL_DYNAMIC);
     }
 
@@ -175,9 +175,9 @@ int SmtFlashTool::notify(long nMsg, SmtListenerMsg& param) {
       const SmtStyleConfig style = pSysMgr->get_sys_style_config();
 
       // Mixed GeoJSON layers report Unknown/Tin; infer from first hit.
-      if (nLayerFeaType == SmtFeatureType::SmtFtUnknown ||
-          nLayerFeaType == SmtFeatureType::SmtFtTin ||
-          nLayerFeaType == SmtFeatureType::SmtFtGrid) {
+      if (nLayerFeaType == FeatureType::FtUnknown ||
+          nLayerFeaType == FeatureType::FtTin ||
+          nLayerFeaType == FeatureType::FtGrid) {
         if (m_resultLayer.layer) {
           m_resultLayer.layer->ResetReading();
           if (OGRFeature* feat = m_resultLayer.layer->GetNextFeature()) {
@@ -185,14 +185,14 @@ int SmtFlashTool::notify(long nMsg, SmtListenerMsg& param) {
               switch (wkbFlatten(g->getGeometryType())) {
                 case wkbPoint:
                 case wkbMultiPoint:
-                  nLayerFeaType = SmtFeatureType::SmtFtDot;
+                  nLayerFeaType = FeatureType::FtDot;
                   break;
                 case wkbLineString:
                 case wkbMultiLineString:
-                  nLayerFeaType = SmtFeatureType::SmtFtCurve;
+                  nLayerFeaType = FeatureType::FtCurve;
                   break;
                 default:
-                  nLayerFeaType = SmtFeatureType::SmtFtSurface;
+                  nLayerFeaType = FeatureType::FtSurface;
                   break;
               }
             }
@@ -202,17 +202,17 @@ int SmtFlashTool::notify(long nMsg, SmtListenerMsg& param) {
       }
 
       switch (nLayerFeaType) {
-        case SmtFeatureType::SmtFtChildImage:
-        case SmtFeatureType::SmtFtDot:
-        case SmtFeatureType::SmtFtAnno: {
+        case FeatureType::FtChildImage:
+        case FeatureType::FtDot:
+        case FeatureType::FtAnno: {
           m_strFlashStyle1 = style.szDotFlashStyle1;
           m_strFlashStyle2 = style.szDotFlashStyle2;
         } break;
-        case SmtFeatureType::SmtFtCurve: {
+        case FeatureType::FtCurve: {
           m_strFlashStyle1 = style.szLineFlashStyle1;
           m_strFlashStyle2 = style.szLineFlashStyle2;
         } break;
-        case SmtFeatureType::SmtFtSurface:
+        case FeatureType::FtSurface:
         default: {
           m_strFlashStyle1 = style.szRegionFlashStyle1;
           m_strFlashStyle2 = style.szRegionFlashStyle2;

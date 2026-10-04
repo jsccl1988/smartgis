@@ -1,0 +1,66 @@
+/*
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+*/
+
+/* World3d trimesh loader — UiDesigner markup (Yoga flex) */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  width: 640px;
+  height: 520px;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  width: 620px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-grow: 1;
+}
+
+.actions {
+  justify-content: flex-end;
+}
+
+#vertex_path,
+#texture_path {
+  height: 28px;
+  flex-grow: 1;
+}
+
+#browse_vertex,
+#browse_texture,
+#ok,
+#cancel {
+  height: 28px;
+  width: 100px;
+}
+
+#head_skip,
+#line_skip,
+#x_scale,
+#y_scale,
+#z_scale,
+#col_x,
+#col_y,
+#col_z,
+#trimesh_layer {
+  height: 28px;
+  width: 180px;
+}
+
+#preview {
+  height: 120px;
+  width: 620px;
+  flex-grow: 1;
+}

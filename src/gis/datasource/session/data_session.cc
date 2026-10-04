@@ -3,7 +3,7 @@
 
 #include "gis/datasource/session/data_session.h"
 
-#include "gis/datasource/provider/impl/gdal/gdal_driver.h"
+#include "gis/datasource/gdal/gdal_driver.h"
 #include "ogrsf_frmts.h"
 
 namespace gis {
@@ -17,10 +17,6 @@ DataSession::DataSession(ProviderRegistry registry)
 DatasetHandle DataSession::open(const ConnectionSpec& spec) {
   register_gdal_driver();
   return registry_.open(spec);
-}
-
-DatasetHandle DataSession::open(const SmtDataSourceInfo& info) {
-  return open(ConnectionSpec::from_info(info));
 }
 
 MapLayer DataSession::create_mem_vector_layer(const char* name) {

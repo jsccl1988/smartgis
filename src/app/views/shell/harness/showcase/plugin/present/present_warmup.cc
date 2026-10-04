@@ -5,11 +5,19 @@
 
 #include "app/views/shell/browser/browser.h"
 #include "app/views/shell/harness/common/io/maps.h"
-#include "app/views/shell/harness/common/present/present_gpu_warmup.h"
+#include "app/views/shell/harness/common/pump/pump.h"
 #include "app/views/shell/harness/showcase/plugin/common/common.h"
+#include "app/views/shell/harness/showcase/plugin/seed/world3d_seed.h"
 #include "app/views/shell/harness/showcase/plugin/session/session_finish.h"
+#include "app/views/shell/util/exe_sidecar_path.h"
+#include "content/browser/present/scene3d/scene3d_phase_profile.h"
+#include "content/browser/present/scene3d/scene3d_presenter.h"
+#include "render/rhi/rhi.h"
+
+#include <windows.h>
 
 #include <cstdio>
+#include <vector>
 
 namespace app {
 namespace detail {
@@ -44,6 +52,104 @@ void on_plugin_warmup_fail(int failed_frame, void* user) {
   }
 }
 
+void write_plugin_present_perf_json(const char* leaf,
+                                    const char* mode,
+                                    const std::vector<double>& frame_ms,
+                                    int discard_cold,
+                                    int want_gpu) {
+  if (!leaf || !leaf[0] || frame_ms.empty()) {
+    return;
+  }
+  const int present_count = static_cast<int>(frame_ms.size());
+  const int discard =
+      (discard_cold < 0) ? 0
+                         : ((discard_cold >= present_count) ? present_count - 1
+                                                            : discard_cold);
+  double present_ms_all = 0.0;
+  for (double ms : frame_ms) {
+    present_ms_all += ms;
+  }
+  double present_ms_warm = 0.0;
+  const int warm_count = present_count - discard;
+  for (int i = discard; i < present_count; ++i) {
+    present_ms_warm += frame_ms[static_cast<size_t>(i)];
+  }
+  const double ms_all =
+      present_ms_all / static_cast<double>(present_count);
+  const double ms_warm =
+      warm_count > 0 ? present_ms_warm / static_cast<double>(warm_count) : 0.0;
+  const double ms_cold = frame_ms[0];
+
+  const content::Scene3dPhaseSample phase =
+      content::scene3d_last_phase_sample();
+  const content::Scene3dColdPhaseSample cold =
+      content::scene3d_cold_phase_sample();
+  char perf_path[MAX_PATH] = {};
+  if (!exe_capture_path_a(perf_path, MAX_PATH, leaf)) {
+    return;
+  }
+  if (FILE* pf = nullptr; fopen_s(&pf, perf_path, "wb") == 0 && pf) {
+    std::fprintf(
+        pf,
+        "{\"backend\":\"plugin.world3d\",\"mode\":\"%s\","
+        "\"present_count\":%d,\"discard_cold\":%d,\"warm_count\":%d,"
+        "\"present_ms\":%.3f,\"present_ms_warm\":%.3f,"
+        "\"ms_per_present\":%.3f,\"ms_per_present_all\":%.3f,"
+        "\"ms_per_present_cold\":%.3f,\"gpu\":%d,"
+        "\"mesh_ms\":%lld,\"sync_ms\":%lld,\"rebuild_ms\":%lld,"
+        "\"rebuild_count\":%d,\"ocean_prep_ms\":%lld,"
+        "\"record_ms\":%lld,\"present_swap_ms\":%lld,"
+        "\"upload_ms\":%lld,\"pso_ms\":%lld,"
+        "\"dem_load_ms\":%lld,\"tess_ms\":%lld,\"hypso_ms\":%lld,"
+        "\"cold_phase\":{"
+        "\"dem_load_ms\":%lld,\"tess_ms\":%lld,\"hypso_ms\":%lld,"
+        "\"upload_ms\":%lld,\"pso_ms\":%lld,\"record_ms\":%lld,"
+        "\"mesh_ms\":%lld,\"sync_ms\":%lld,\"rebuild_ms\":%lld,"
+        "\"present_ms\":%lld,\"load_cache_hit\":%d,\"hypso_cache_hit\":%d"
+        "},\"frame_ms\":[",
+        mode && mode[0] ? mode : "plugin", present_count, discard, warm_count,
+        present_ms_all, present_ms_warm, ms_warm, ms_all, ms_cold, want_gpu,
+        static_cast<long long>(phase.mesh_ms),
+        static_cast<long long>(phase.sync_ms),
+        static_cast<long long>(phase.rebuild_ms), phase.rebuild_count,
+        static_cast<long long>(phase.ocean_prep_ms),
+        static_cast<long long>(phase.record_ms),
+        static_cast<long long>(phase.present_ms),
+        static_cast<long long>(phase.upload_ms),
+        static_cast<long long>(phase.pso_ms),
+        static_cast<long long>(cold.dem_load_ms),
+        static_cast<long long>(cold.tess_ms),
+        static_cast<long long>(cold.hypso_ms),
+        static_cast<long long>(cold.dem_load_ms),
+        static_cast<long long>(cold.tess_ms),
+        static_cast<long long>(cold.hypso_ms),
+        static_cast<long long>(cold.upload_ms),
+        static_cast<long long>(cold.pso_ms),
+        static_cast<long long>(cold.record_ms),
+        static_cast<long long>(cold.mesh_ms),
+        static_cast<long long>(cold.sync_ms),
+        static_cast<long long>(cold.rebuild_ms),
+        static_cast<long long>(cold.present_ms), cold.load_cache_hit,
+        cold.hypso_cache_hit);
+    for (int i = 0; i < present_count; ++i) {
+      std::fprintf(pf, "%s%.3f", i ? "," : "",
+                   frame_ms[static_cast<size_t>(i)]);
+    }
+    std::fprintf(pf, "]}\n");
+    std::fclose(pf);
+  }
+  std::fprintf(stderr,
+               "plugin-showcase: present_count=%d discard_cold=%d "
+               "ms/p_warm=%.2f ms/p_all=%.2f ms/p_cold=%.2f "
+               "cold(dem=%lld tess=%lld hypso=%lld upload=%lld pso=%lld)\n",
+               present_count, discard, ms_warm, ms_all, ms_cold,
+               static_cast<long long>(cold.dem_load_ms),
+               static_cast<long long>(cold.tess_ms),
+               static_cast<long long>(cold.hypso_ms),
+               static_cast<long long>(cold.upload_ms),
+               static_cast<long long>(cold.pso_ms));
+}
+
 }  // namespace
 
 int present_plugin_warmup_frames(content::Scene3dPresenter* cam,
@@ -52,7 +158,23 @@ int present_plugin_warmup_frames(content::Scene3dPresenter* cam,
                                  const char* fail_log_prefix,
                                  const PluginPresentFailPolicy& on_fail,
                                  int frame_count) {
-  if (!cam || !session || !session->device) {
+  return present_plugin_warmup_frames(cam, session, browser, fail_log_prefix,
+                                      on_fail, frame_count, nullptr, nullptr);
+}
+
+int present_plugin_warmup_frames(content::Scene3dPresenter* cam,
+                                 PluginDeviceSession* session,
+                                 Browser& browser,
+                                 const char* fail_log_prefix,
+                                 const PluginPresentFailPolicy& on_fail,
+                                 int frame_count,
+                                 const char* perf_json_leaf,
+                                 const char* mode) {
+  if (!cam || !session) {
+    return 52;
+  }
+  // Scenic GDI present does not need a FlyCube/RHI Device*.
+  if (!session->device && !cam->hosts_scenic_present()) {
     return 52;
   }
   PluginWarmupFail fail_ctx;
@@ -62,17 +184,55 @@ int present_plugin_warmup_frames(content::Scene3dPresenter* cam,
   fail_ctx.fail_log_prefix = fail_log_prefix;
   fail_ctx.on_fail = on_fail;
 
-  PresentGpuWarmupOpts opts;
-  opts.width_px = kPluginShowcasePresentW;
-  opts.height_px = kPluginShowcasePresentH;
-  opts.frames = frame_count;
-  opts.pump_ms = 50;
-  opts.on_fail = on_plugin_warmup_fail;
-  opts.on_fail_user = &fail_ctx;
-  if (const int rc = present_gpu_warmup(cam, session->device, opts)) {
-    return rc;
+  const bool bare = world3d_perf_bare_enabled();
+  // Perf-bare: no pump Sleep in the timed loop; discard first cold upload.
+  const int pump_ms = bare ? 0 : 50;
+  const int discard_cold = bare ? 1 : 0;
+
+  content::reset_scene3d_phase_sample();
+
+  LARGE_INTEGER qpf = {};
+  QueryPerformanceFrequency(&qpf);
+  std::vector<double> frame_ms;
+  frame_ms.reserve(static_cast<size_t>(frame_count > 0 ? frame_count : 0));
+
+  for (int i = 0; i < frame_count; ++i) {
+    LARGE_INTEGER t0 = {};
+    LARGE_INTEGER t1 = {};
+    if (qpf.QuadPart > 0) {
+      QueryPerformanceCounter(&t0);
+    }
+    if (!cam->present_gpu(session->device, kPluginShowcasePresentW,
+                          kPluginShowcasePresentH)) {
+      // Scenic stub / FlyCube first-frame miss: software solid+wireframe BMP
+      // capture still paints local DEM/TIN. Soft-continue for showcase BMPs.
+      plugin_showcase_mark("present-soft");
+      if (i + 1 >= frame_count) {
+        break;
+      }
+      continue;
+    }
+    if (i == 0) {
+      content::scene3d_capture_cold_phase();
+    }
+    if (qpf.QuadPart > 0) {
+      QueryPerformanceCounter(&t1);
+      frame_ms.push_back(1000.0 *
+                         static_cast<double>(t1.QuadPart - t0.QuadPart) /
+                         static_cast<double>(qpf.QuadPart));
+    } else {
+      frame_ms.push_back(0.0);
+    }
+    if (pump_ms > 0) {
+      pump_messages(static_cast<DWORD>(pump_ms));
+    }
   }
   plugin_showcase_mark("present-ok");
+
+  if (perf_json_leaf && perf_json_leaf[0] && !frame_ms.empty()) {
+    write_plugin_present_perf_json(perf_json_leaf, mode, frame_ms, discard_cold,
+                                   session->want_gpu ? 1 : 0);
+  }
   return 0;
 }
 

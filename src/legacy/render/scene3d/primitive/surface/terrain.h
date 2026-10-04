@@ -7,14 +7,14 @@
 #include <array>
 #include <memory>
 
-#include "gis/kernel/geo/mesh/geometry.h"
-#include "legacy/gis/vista/dem_height_field.h"
+#include "gis/geo/ops/indexed_tin.h"
+#include "vista/world/terrain/dem/dem_height_field.h"
 #include "legacy/render/legacy_render_export.h"
 #include "legacy/render/scene3d/primitive/surface/surface_base.h"
 
 namespace render {
 
-// Leftover terrain drawable: geo::Smt3DSurface (plugin TIN/grid) or
+// Leftover terrain drawable: OGR TIN or DemHeightField coarse DEM mesh.
 // DemHeightField coarse DEM mesh (hypsometric color + normals).
 class LEGACY_RENDER_EXPORT SmtTerrain : public SmtSurfaceObject {
  public:
@@ -39,9 +39,9 @@ class LEGACY_RENDER_EXPORT SmtTerrain : public SmtSurfaceObject {
   float GetYScale() const { return y_scale_; }
   float GetZScale() const { return z_scale_; }
 
-  geo::Smt3DSurface* GetTerrainSurf() { return surface_; }
-  long SetTerrainSurf(geo::Smt3DSurface* surf);
-  long SetTerrainSurfDirectly(geo::Smt3DSurface* surf);
+  OGRTriangulatedSurface* GetTerrainSurf() { return surface_; }
+  long SetTerrainSurf(OGRTriangulatedSurface* surf);
+  long SetTerrainSurfDirectly(OGRTriangulatedSurface* surf);
 
   void set_height_field(const DemHeightField* field);
   void adopt_height_field(DemHeightField* field);
@@ -64,7 +64,7 @@ class LEGACY_RENDER_EXPORT SmtTerrain : public SmtSurfaceObject {
   float min_z_ = 0.f;
   float max_z_ = 0.f;
 
-  geo::Smt3DSurface* surface_ = nullptr;
+  OGRTriangulatedSurface* surface_ = nullptr;
   std::unique_ptr<DemHeightField> owned_field_;
   const DemHeightField* field_ = nullptr;
 };

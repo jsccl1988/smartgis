@@ -41,7 +41,7 @@ long SmtSelectOneDlg(uint& unID, vector<uint>& vIDs) {
   return SMT_ERR_NONE;
 }
 
-long SmtShow2DFeatureInfoDlg(SmtFeature* pSmtFea) {
+long SmtShow2DFeatureInfoDlg(FeatureAdapter* pSmtFea) {
   if (NULL == pSmtFea) {
     return SMT_ERR_INVALID_PARAM;
   }

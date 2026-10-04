@@ -1,0 +1,62 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Host pieces compile into //src/scenic:scenic_impl.
+# Backend impl/{gl,d3d} ship as scenic_render_gl / scenic_render_d3d.
+# Top directory: scenic/render/rhi3d/ (leftover 3D; sibling of rhi2d/).
+# Layout (B' colocated): abstract API under
+# public/{device,resource,shader,texture,state,camera}; backends under
+# impl/gl/ (OpenGL) and impl/d3d/ (D3D11).
+# Leftover abstract 3D device; not modern src/render/rhi.
+# public/bridge (leftover_mesh / LeftoverRecorder / smt_leftover_session) removed.
+#
+# Public 3D types are mostly header-inline. Renderer3d loader lives here;
+# device factories live in the per-backend DLLs.
+source_set("rhi_sources") {
+  sources = [
+    "detail/renderer.cpp",
+    "public/camera/camera.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [
+    "//build:legacy",
+    "//src/scenic:scenic_impl_exports",
+  ]
+  defines = [ "_USRDLL" ]
+  public_deps = [
+    "//src/base/math:math",
+    # texture.h Load() includes ximage.h when SMT_3DRENDERDEVICE_COMPLETE.
+    "//third_party:CxImage",
+    "impl/common:common_frame_sources",
+  ]
+  deps = [
+    "//src/gis/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+  ]
+}
+
+# Convenience aliases — real sources live under impl/{gl,d3d}.
+group("gl_sources") {
+  public_deps = [ "impl/gl:gl_sources" ]
+}
+
+group("d3d_sources") {
+  public_deps = [ "impl/d3d:d3d_sources" ]
+}
+
+group("rhi") {
+  public_deps = [ "//src/scenic:scenic_copy_all" ]
+}
+
+# Former //src/scenic/gl:render_gl / :gl callers.
+group("gl") {
+  public_deps = [ "//src/scenic:scenic_render_gl" ]
+}
+
+group("d3d") {
+  public_deps = [ "//src/scenic:scenic_render_d3d" ]
+}

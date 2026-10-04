@@ -3,11 +3,10 @@
 
 """Run plugin.world3d equal-profile backend/parallel matrix.
 
-Same True-Earth Scene3D materials on FlyCube rows (SmartGisViews
---plugin-showcase=world3d). Leftover Stereo/GL + D3D11 rows use SmartGis
---scene3d-showcase china with SMT_STEREO_API / SMT_SCENE3D_ENGINE (real BMPs;
-not fabricated). Note: leftover IR seed is china DEM stereo — phase-fair vs
-FlyCube product, but not identical overlay (pointcloud) work.
+Same China DEM Scene3D on FlyCube rows (SmartGisViews --plugin-showcase=world3d)
+with SMT_PLUGIN_WORLD3D_PERF_BARE=1 (sky/ocean/cloud/fog + pointcloud overlay
+off; pump_ms=0). Primary metric is warm ms_per_present (discard first cold
+frame; n=5). Leftover GL + D3D11 use the same present_count/discard.
 
 Artifacts: out/Debug/captures/analysis/world3d_opt/matrix/
 """
@@ -33,21 +32,39 @@ LEGACY_CAP = OUT / "captures" / "legacy"
 BMP_LEAF = "plugin-showcase-world3d.bmp"
 MARK_LEAF = "plugin-showcase-mark.txt"
 
-# row_id, backend_label, parallel_label, kind, env overlays
+# FlyCube perf rows: DEM-only bare profile (no atmo / pointcloud overlay).
+_FLYCUBE_PERF_ENV: dict[str, str | None] = {
+    "SMT_PLUGIN_WORLD3D_GPU": "1",
+    "SMT_PLUGIN_WORLD3D_PERF_BARE": "1",
+    "SMT_PREFER_GDI_DEVICE": None,
+    "SMT_SCENE3D_ENGINE": None,
+}
+
+_LEFTOVER_PERF_ENV: dict[str, str | None] = {
+    "SMT_SCENE3D_ENGINE": None,
+    "SMT_SCENE3D_SHOWCASE_LINGER_MS": "0",
+    "SMT_SCENE3D_SHOWCASE_PRESENT_COUNT": "5",
+    "SMT_SCENE3D_SHOWCASE_DISCARD_COLD": "1",
+    "SMT_RHI3D_FRAME_JOB": "0",
+    "SMT_RHI3D_PREP_PARALLEL": "0",
+}
+
+# row_id, backend_label, parallel_label, kind, role, env overlays
 # kind: views_world3d | legacy_stereo
-ROWS: list[tuple[str, str, str, str, dict[str, str | None]]] = [
+# role: perf (performance table) | smoke (run + gate only; not a perf peer)
+ROWS: list[tuple[str, str, str, str, str, dict[str, str | None]]] = [
     # Views world3d: leave SMT_SCENE3D_ENGINE unset so plugin-showcase keeps
     # the GDI shell default; FlyCube is acquired on the showcase HWND only.
+    # GDI is not a 3D GPU peer — omitted from this matrix.
     (
         "flycube",
         "FlyCube/DX12",
         "prep_default",
         "views_world3d",
+        "perf",
         {
-            "SMT_PLUGIN_WORLD3D_GPU": "1",
-            "SMT_PREFER_GDI_DEVICE": None,
+            **_FLYCUBE_PERF_ENV,
             "SMT_GPUSCENE_PREP_PARALLEL": None,
-            "SMT_SCENE3D_ENGINE": None,
         },
     ),
     (
@@ -55,11 +72,13 @@ ROWS: list[tuple[str, str, str, str, dict[str, str | None]]] = [
         "FlyCube/DX12",
         "prep_0",
         "views_world3d",
+        "perf",
         {
-            "SMT_PLUGIN_WORLD3D_GPU": "1",
-            "SMT_PREFER_GDI_DEVICE": None,
+            **_FLYCUBE_PERF_ENV,
             "SMT_GPUSCENE_PREP_PARALLEL": "0",
-            "SMT_SCENE3D_ENGINE": None,
+            # Cull stays off: prep_cull_meshes is a no-op without frustum, so
+            # prep_par alone would not exercise the parallel path.
+            "SMT_SCENE3D_FRUSTUM_CULL": None,
         },
     ),
     (
@@ -67,11 +86,13 @@ ROWS: list[tuple[str, str, str, str, dict[str, str | None]]] = [
         "FlyCube/DX12",
         "prep_on",
         "views_world3d",
+        "perf",
         {
-            "SMT_PLUGIN_WORLD3D_GPU": "1",
-            "SMT_PREFER_GDI_DEVICE": None,
+            **_FLYCUBE_PERF_ENV,
             "SMT_GPUSCENE_PREP_PARALLEL": "1",
-            "SMT_SCENE3D_ENGINE": None,
+            # Honesty: parallel prep only runs when frustum cull is active
+            # (see effect/scene/detail/prep_cull.cc).
+            "SMT_SCENE3D_FRUSTUM_CULL": "1",
         },
     ),
     (
@@ -79,38 +100,26 @@ ROWS: list[tuple[str, str, str, str, dict[str, str | None]]] = [
         "Null",
         "gpu_off",
         "views_world3d",
+        "smoke",
         {
+            # Smoke keeps full product materials (not bare).
             "SMT_PLUGIN_WORLD3D_GPU": "0",
+            "SMT_PLUGIN_WORLD3D_PERF_BARE": None,
             "SMT_PREFER_GDI_DEVICE": None,
             "SMT_GPUSCENE_PREP_PARALLEL": None,
             "SMT_SCENE3D_ENGINE": None,
         },
     ),
     (
-        "gdi",
-        "GDI",
-        "prefer_gdi",
-        "views_world3d",
-        {
-            "SMT_PLUGIN_WORLD3D_GPU": "1",
-            "SMT_PREFER_GDI_DEVICE": "1",
-            "SMT_GPUSCENE_PREP_PARALLEL": None,
-            "SMT_SCENE3D_ENGINE": None,
-        },
-    ),
-    (
-        "gl",
-        "Stereo/GL",
+        "gl_leftover",
+        "Leftover/GL",
         "leftover_serial",
         "legacy_stereo",
+        "perf",
         {
-            # SmartGis does not use SMT_SCENE3D_ENGINE; only stereo API.
-            "SMT_SCENE3D_ENGINE": None,
+            **_LEFTOVER_PERF_ENV,
             "SMT_STEREO_API": "OpenGL",
             "SMT_SCENE3D_SHOWCASE_D3D": "0",
-            "SMT_SCENE3D_SHOWCASE_LINGER_MS": "0",
-            "SMT_RHI3D_FRAME_JOB": "0",
-            "SMT_RHI3D_PREP_PARALLEL": "0",
         },
     ),
     (
@@ -118,14 +127,26 @@ ROWS: list[tuple[str, str, str, str, dict[str, str | None]]] = [
         "Leftover/D3D11",
         "leftover_serial",
         "legacy_stereo",
+        "perf",
         {
-            "SMT_SCENE3D_ENGINE": None,
+            **_LEFTOVER_PERF_ENV,
             "SMT_STEREO_API": "Direct3D",
             "SMT_SCENE3D_SHOWCASE_D3D": "1",
-            "SMT_SCENE3D_SHOWCASE_LINGER_MS": "0",
-            "SMT_RHI3D_FRAME_JOB": "0",
-            "SMT_RHI3D_PREP_PARALLEL": "0",
             "SMT_RHI3D_D3D_DEFERRED": "0",
+        },
+    ),
+    (
+        "scenic",
+        "Scenic/GDI",
+        "content_host",
+        "views_world3d",
+        "scenic",
+        {
+            "SMT_PLUGIN_WORLD3D_GPU": "1",
+            "SMT_PLUGIN_WORLD3D_PERF_BARE": "1",
+            "SMT_PREFER_GDI_DEVICE": None,
+            "SMT_SCENE3D_ENGINE": "scenic",
+            "SMT_GPUSCENE_PREP_PARALLEL": None,
         },
     ),
 ]
@@ -173,6 +194,99 @@ def _read_marks(path: Path) -> list[str]:
         return []
     text = path.read_text(encoding="utf-8", errors="replace")
     return [ln.strip() for ln in text.splitlines() if ln.strip()]
+
+
+def _fresh_file(candidates: list[Path], min_mtime: float | None) -> Path | None:
+    best: Path | None = None
+    best_m = -1.0
+    for p in candidates:
+        if not p.is_file() or p.stat().st_size <= 0:
+            continue
+        m = p.stat().st_mtime
+        if min_mtime is not None and m < min_mtime - 1.0:
+            continue
+        if m > best_m:
+            best = p
+            best_m = m
+    return best
+
+
+def _load_perf_json(src: Path | None, dest_dir: Path) -> dict:
+    """Harvest warm ms_per_present (+ cold/all + optional phase fields)."""
+    out: dict = {
+        "ms_per_present": None,
+        "ms_per_present_all": None,
+        "ms_per_present_cold": None,
+        "present_ms": None,
+        "present_ms_warm": None,
+        "present_count": None,
+        "discard_cold": None,
+        "warm_count": None,
+        "frame_ms": None,
+        "perf_json": None,
+        "mesh_ms": None,
+        "sync_ms": None,
+        "rebuild_ms": None,
+        "rebuild_count": None,
+        "ocean_prep_ms": None,
+        "record_ms": None,
+        "present_swap_ms": None,
+        "upload_ms": None,
+        "pso_ms": None,
+        "dem_load_ms": None,
+        "tess_ms": None,
+        "hypso_ms": None,
+        "cold_phase": None,
+    }
+    if not src or not src.is_file():
+        return out
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dst = dest_dir / src.name
+    shutil.copy2(src, dst)
+    out["perf_json"] = str(dst.relative_to(OUT)).replace("\\", "/")
+    try:
+        data = json.loads(dst.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as ex:
+        print(f"world3d-matrix: perf json parse fail {src}: {ex}", file=sys.stderr)
+        return out
+    for key in (
+        "ms_per_present",
+        "ms_per_present_all",
+        "ms_per_present_cold",
+        "present_ms",
+        "present_ms_warm",
+        "present_count",
+        "discard_cold",
+        "warm_count",
+        "frame_ms",
+        "mesh_ms",
+        "sync_ms",
+        "rebuild_ms",
+        "rebuild_count",
+        "ocean_prep_ms",
+        "record_ms",
+        "present_swap_ms",
+        "upload_ms",
+        "pso_ms",
+        "dem_load_ms",
+        "tess_ms",
+        "hypso_ms",
+        "cold_phase",
+    ):
+        if key in data:
+            out[key] = data[key]
+    cold = data.get("cold_phase")
+    if isinstance(cold, dict):
+        for key in (
+            "dem_load_ms",
+            "tess_ms",
+            "hypso_ms",
+            "upload_ms",
+            "pso_ms",
+        ):
+            if out.get(key) is None and key in cold:
+                out[key] = cold[key]
+    return out
 
 
 def _try_inspect_png(bmp: Path) -> str | None:
@@ -232,6 +346,9 @@ def run_views_world3d(row_id: str, backend: str, parallel: str,
             "parallel": parallel,
             "rc": None,
             "wall_ms": None,
+            "ms_per_present": None,
+            "present_ms": None,
+            "present_count": None,
             "bmp": None,
             "bmp_bytes": 0,
             "inspect_png": None,
@@ -244,20 +361,83 @@ def run_views_world3d(row_id: str, backend: str, parallel: str,
     MATRIX.mkdir(parents=True, exist_ok=True)
     log_path = MATRIX / f"{row_id}.log"
     _kill_showcase_procs()
+    if not VIEWS.is_file():
+        return {
+            "row_id": row_id,
+            "engine": "plugin.world3d",
+            "backend": backend,
+            "parallel": parallel,
+            "rc": None,
+            "wall_ms": None,
+            "ms_per_present": None,
+            "present_ms": None,
+            "present_count": None,
+            "bmp": None,
+            "bmp_bytes": 0,
+            "inspect_png": None,
+            "marks": [],
+            "pass": False,
+            "log": None,
+            "note": f"missing {VIEWS.name} after kill",
+        }
     env = _apply_env(os.environ.copy(), overlay)
+    views_exe = VIEWS
+    lock_path = OUT.parent / "scratch" / "scenic_review.lock"
+    got_lock = False
+    scenic_row = (overlay.get("SMT_SCENE3D_ENGINE") or "").lower() == "scenic"
+    if scenic_row:
+        sys.path.insert(0, str(ROOT / "testing" / "tools"))
+        from loop.private_runtime import (  # noqa: E402
+            acquire_run_lock,
+            prepare_private_views_exe,
+            release_run_lock,
+            with_private_path,
+        )
+
+        got_lock = acquire_run_lock(lock_path, timeout_sec=180.0)
+        private = prepare_private_views_exe(OUT, tag="scenic_review")
+        if private is not None:
+            views_exe = private
+            env = with_private_path(env, OUT, private)
 
     t0 = time.perf_counter()
     t0_wall = time.time()
-    proc = subprocess.run(
-        [str(VIEWS), "--plugin-showcase=world3d"],
-        cwd=str(OUT),
-        env=env,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=240,
-    )
+    try:
+        try:
+            proc = subprocess.run(
+                [str(views_exe), "--plugin-showcase=world3d"],
+                cwd=str(OUT),
+                env=env,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=240,
+            )
+        except FileNotFoundError:
+            return {
+                "row_id": row_id,
+                "engine": "plugin.world3d",
+                "backend": backend,
+                "parallel": parallel,
+                "rc": None,
+                "wall_ms": None,
+                "ms_per_present": None,
+                "present_ms": None,
+                "present_count": None,
+                "bmp": None,
+                "bmp_bytes": 0,
+                "inspect_png": None,
+                "marks": [],
+                "pass": False,
+                "log": None,
+                "note": f"CreateProcess missing {views_exe.name}",
+            }
+    finally:
+        if got_lock:
+            from loop.private_runtime import release_run_lock  # noqa: E402
+
+            release_run_lock(lock_path)
     wall_ms = int((time.perf_counter() - t0) * 1000)
     log_text = (proc.stdout or "") + "\n" + (proc.stderr or "")
     log_path.write_text(log_text, encoding="utf-8")
@@ -275,13 +455,39 @@ def run_views_world3d(row_id: str, backend: str, parallel: str,
         row_id, bmp, mark if mark.is_file() else None, min_mtime=t0_wall
     )
     marks = cap["marks"]
-    required = {"pointcloud-ok", "pass"}
-    marks_ok = required.issubset(set(marks))
-    bmp_ok = bool(cap["bmp"]) and int(cap["bmp_bytes"] or 0) > 10000
-    row_pass = proc.returncode == 0 and marks_ok and (
-        bmp_ok or row_id == "null"
+    marks_set = set(marks)
+    # Bare perf rows mark pointcloud-skip instead of pointcloud-ok.
+    # Accept present-ok+bmp-ok when teardown misses the final "pass" mark
+    # (same spirit as leftover accept_nonzero_rc_if_bmp).
+    marks_ok = (
+        "pointcloud-ok" in marks_set or "pointcloud-skip" in marks_set
+    ) and (
+        "pass" in marks_set
+        or ("present-ok" in marks_set and "bmp-ok" in marks_set)
     )
-    return {
+    bmp_ok = bool(cap["bmp"]) and int(cap["bmp_bytes"] or 0) > 10000
+    row_pass = marks_ok and (bmp_ok or row_id == "null")
+    perf = _load_perf_json(
+        _fresh_file(
+            [
+                PLUGIN_CAP / "plugin-showcase-world3d-perf.json",
+                OUT / "plugin-showcase-world3d-perf.json",
+            ]
+            + list((OUT / "captures").rglob("plugin-showcase-world3d-perf.json")),
+            t0_wall,
+        ),
+        MATRIX / row_id,
+    )
+    note = (
+        "china DEM; SMT_PLUGIN_WORLD3D_PERF_BARE strips sky/ocean/cloud/fog + "
+        "pointcloud; prefer ms_per_present over wall_ms"
+    )
+    if row_id == "null":
+        note = (
+            "smoke full product path (not bare); "
+            "prefer ms_per_present over wall_ms"
+        )
+    row = {
         "row_id": row_id,
         "engine": "plugin.world3d",
         "backend": backend,
@@ -294,8 +500,10 @@ def run_views_world3d(row_id: str, backend: str, parallel: str,
         "marks": marks,
         "pass": row_pass,
         "log": str(log_path.relative_to(OUT)).replace("\\", "/"),
-        "note": "equal materials: world3d seed + pointcloud; wall_ms=process wall",
+        "note": note,
     }
+    row.update(perf)
+    return row
 
 
 def run_legacy_stereo(row_id: str, backend: str, parallel: str,
@@ -308,6 +516,9 @@ def run_legacy_stereo(row_id: str, backend: str, parallel: str,
             "parallel": parallel,
             "rc": None,
             "wall_ms": None,
+            "ms_per_present": None,
+            "present_ms": None,
+            "present_count": None,
             "bmp": None,
             "bmp_bytes": 0,
             "inspect_png": None,
@@ -320,20 +531,59 @@ def run_legacy_stereo(row_id: str, backend: str, parallel: str,
     MATRIX.mkdir(parents=True, exist_ok=True)
     log_path = MATRIX / f"{row_id}.log"
     _kill_showcase_procs()
+    if not LEGACY.is_file():
+        return {
+            "row_id": row_id,
+            "engine": "legacy.scene3d",
+            "backend": backend,
+            "parallel": parallel,
+            "rc": None,
+            "wall_ms": None,
+            "ms_per_present": None,
+            "present_ms": None,
+            "present_count": None,
+            "bmp": None,
+            "bmp_bytes": 0,
+            "inspect_png": None,
+            "marks": [],
+            "pass": False,
+            "log": None,
+            "note": f"missing {LEGACY.name} after kill",
+        }
     env = _apply_env(os.environ.copy(), overlay)
 
     t0 = time.perf_counter()
     t0_wall = time.time()
-    proc = subprocess.run(
-        [str(LEGACY), "--scene3d-showcase", "china"],
-        cwd=str(OUT),
-        env=env,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=180,
-    )
+    try:
+        proc = subprocess.run(
+            [str(LEGACY), "--scene3d-showcase", "china"],
+            cwd=str(OUT),
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=180,
+        )
+    except FileNotFoundError:
+        return {
+            "row_id": row_id,
+            "engine": "legacy.scene3d",
+            "backend": backend,
+            "parallel": parallel,
+            "rc": None,
+            "wall_ms": None,
+            "ms_per_present": None,
+            "present_ms": None,
+            "present_count": None,
+            "bmp": None,
+            "bmp_bytes": 0,
+            "inspect_png": None,
+            "marks": [],
+            "pass": False,
+            "log": None,
+            "note": f"CreateProcess missing {LEGACY.name}",
+        }
     wall_ms = int((time.perf_counter() - t0) * 1000)
     log_text = (proc.stdout or "") + "\n" + (proc.stderr or "")
     log_path.write_text(log_text, encoding="utf-8")
@@ -372,13 +622,30 @@ def run_legacy_stereo(row_id: str, backend: str, parallel: str,
     # Match suite accept_nonzero_rc_if_bmp — leftover often AVs on teardown
     # after a valid HWND capture (heap / GL destroy).
     row_pass = bmp_ok
+    backend_tag = "d3d" if is_d3d else "gl"
+    perf_leaf_pref = f"legacy-scene3d-showcase-china-{backend_tag}-perf.json"
+    perf = _load_perf_json(
+        _fresh_file(
+            [
+                LEGACY_CAP / perf_leaf_pref,
+                LEGACY_CAP / "legacy-scene3d-showcase-perf.json",
+                OUT / perf_leaf_pref,
+                OUT / "legacy-scene3d-showcase-perf.json",
+            ]
+            + list((OUT / "captures").rglob("legacy-scene3d-showcase*-perf.json")),
+            t0_wall,
+        ),
+        MATRIX / row_id,
+    )
     note = (
         "leftover stereo china DEM via SMT_STEREO_API; "
-        "not identical to world3d pointcloud overlay — fair phase/wall compare only"
+        "prefer ms_per_present (present loop) — wall_ms is process wall only"
     )
     if bmp_ok and proc.returncode not in (0, None):
         note += f"; rc={proc.returncode} (bmp accepted)"
-    return {
+    if perf.get("ms_per_present") is None:
+        note += "; missing perf json (rebuild SmartGis if stale PE)"
+    row = {
         "row_id": row_id,
         "engine": "legacy.scene3d",
         "backend": backend,
@@ -393,24 +660,75 @@ def run_legacy_stereo(row_id: str, backend: str, parallel: str,
         "log": str(log_path.relative_to(OUT)).replace("\\", "/"),
         "note": note,
     }
+    row.update(perf)
+    return row
 
 
-def main() -> int:
+def _fmt_num(v) -> str:
+    if v is None:
+        return "—"
+    if isinstance(v, float):
+        return f"{v:.3f}"
+    return str(v)
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    ap = argparse.ArgumentParser(
+        description="world3d equal-profile backend/parallel matrix (bare peers)"
+    )
+    ap.add_argument(
+        "--row",
+        action="append",
+        dest="rows",
+        metavar="ROW_ID",
+        help="Run only these row_ids (default: all). e.g. --row flycube",
+    )
+    args = ap.parse_args(argv)
+    want = set(args.rows) if args.rows else None
+
     MATRIX.mkdir(parents=True, exist_ok=True)
     rows: list[dict] = []
-    for row_id, backend, parallel, kind, overlay in ROWS:
+    for row_id, backend, parallel, kind, role, overlay in ROWS:
+        if want is not None and row_id not in want:
+            continue
         print(
-            f"world3d-matrix: run {row_id} backend={backend} kind={kind}",
+            f"world3d-matrix: run {row_id} backend={backend} "
+            f"kind={kind} role={role}",
             flush=True,
         )
         if kind == "legacy_stereo":
             row = run_legacy_stereo(row_id, backend, parallel, overlay)
         else:
             row = run_views_world3d(row_id, backend, parallel, overlay)
+            # First Views row can flake on DXGI/device race after kill;
+            # one retry keeps the matrix usable for fair warm compare.
+            if role == "perf" and not row.get("pass"):
+                print(f"  retry {row_id} after flake", flush=True)
+                row = run_views_world3d(row_id, backend, parallel, overlay)
+            if role == "scenic" and not row.get("pass"):
+                print(f"  retry {row_id} after flake", flush=True)
+                row = run_views_world3d(row_id, backend, parallel, overlay)
+        row["role"] = role
+        if role == "smoke":
+            note = row.get("note") or ""
+            smoke_tag = "smoke-only (not a performance peer)"
+            row["note"] = f"{note}; {smoke_tag}" if note else smoke_tag
+        if role == "scenic":
+            note = row.get("note") or ""
+            tag = (
+                "content-hosted scenic::Engine GDI (same china document; "
+                "not a GPU peer vs FlyCube/leftover)"
+            )
+            row["note"] = f"{note}; {tag}" if note else tag
         rows.append(row)
         print(
-            f"  rc={row.get('rc')} wall_ms={row.get('wall_ms')} "
-            f"pass={row.get('pass')} bmp_bytes={row.get('bmp_bytes')}",
+            f"  rc={row.get('rc')} ms/p_warm={row.get('ms_per_present')} "
+            f"cold={row.get('ms_per_present_cold')} "
+            f"all={row.get('ms_per_present_all')} "
+            f"wall_ms={row.get('wall_ms')} pass={row.get('pass')} "
+            f"bmp_bytes={row.get('bmp_bytes')} role={role}",
             flush=True,
         )
     _kill_showcase_procs()
@@ -418,8 +736,13 @@ def main() -> int:
     csv_path = MATRIX / "world3d_backend_matrix.csv"
     json_path = MATRIX / "world3d_backend_matrix.json"
     fields = [
-        "row_id", "engine", "backend", "parallel", "rc", "wall_ms", "bmp_bytes",
-        "pass", "bmp", "inspect_png", "note",
+        "row_id", "role", "engine", "backend", "parallel", "rc",
+        "ms_per_present", "ms_per_present_cold", "ms_per_present_all",
+        "present_ms", "present_ms_warm", "present_count", "discard_cold",
+        "warm_count", "mesh_ms", "sync_ms", "rebuild_ms", "record_ms",
+        "present_swap_ms", "upload_ms", "pso_ms", "dem_load_ms", "tess_ms",
+        "hypso_ms", "wall_ms", "bmp_bytes", "pass", "bmp",
+        "inspect_png", "perf_json", "note",
     ]
     with csv_path.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
@@ -431,6 +754,10 @@ def main() -> int:
         encoding="utf-8",
     )
 
+    perf_rows = [r for r in rows if r.get("role") == "perf"]
+    smoke_rows = [r for r in rows if r.get("role") == "smoke"]
+    scenic_rows = [r for r in rows if r.get("role") == "scenic"]
+
     md_path = MATRIX / "MATRIX.md"
     lines = [
         "# world3d equal-profile matrix",
@@ -438,34 +765,91 @@ def main() -> int:
         "同等渲染物料及效果 · 并行策略×图像驱动（GL D3D FlyCube等）",
         "",
         "Env: `SMT_SCENE3D_ENGINE` + `SMT_STEREO_API` (leftover GL/D3D).",
+        "GDI omitted (not a 3D GPU peer). Null is smoke-only.",
+        "",
+        "**Primary metric: warm `ms_per_present`** (discard first cold frame).",
+        "`ms/p_all` includes cold upload; `wall_ms` is process wall — do not rank by them.",
+        "FlyCube bare = DEM-only 640x480 ×5; leftover china stereo same count/discard.",
+        "Cold attribution (FlyCube): `dem_load` / `tess` / `hypso` / `upload` / `pso` "
+        "from `cold_phase` in `plugin-showcase-world3d-perf.json`.",
         "",
         "## Screenshots",
         "",
-        "| Row | Backend | Parallel | Inspect | pass |",
-        "| --- | --- | --- | --- | --- |",
+        "| Row | Role | Backend | Parallel | Inspect | pass |",
+        "| --- | --- | --- | --- | --- | --- |",
     ]
     for r in rows:
         insp = r.get("inspect_png") or r.get("bmp") or "—"
         lines.append(
-            f"| {r['row_id']} | {r['backend']} | {r['parallel']} | "
-            f"`{insp}` | {r.get('pass')} |"
+            f"| {r['row_id']} | {r.get('role')} | {r['backend']} | "
+            f"{r['parallel']} | `{insp}` | {r.get('pass')} |"
         )
     lines += [
         "",
-        "## Performance (process wall)",
+        "## Performance (warm ms_per_present)",
         "",
-        "| Row | Backend | Parallel | wall_ms | bmp_bytes | pass | note |",
-        "| --- | --- | --- | ---: | ---: | --- | --- |",
+        "Perf peers only (FlyCube prep axes + Leftover/GL + Leftover/D3D11).",
+        "",
+        "| Row | Backend | Parallel | warm ms/p | cold | all | n | discard | "
+        "mesh | record | swap | wall_ms* | pass |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | "
+        "---: | ---: | ---: | --- |",
     ]
-    for r in rows:
-        wall = r.get("wall_ms")
-        wall_s = "N/A" if wall is None else str(wall)
+    for r in perf_rows:
         lines.append(
             f"| {r['row_id']} | {r['backend']} | {r['parallel']} | "
-            f"{wall_s} | {r.get('bmp_bytes') or 0} | {r.get('pass')} | "
-            f"{r.get('note', '')} |"
+            f"{_fmt_num(r.get('ms_per_present'))} | "
+            f"{_fmt_num(r.get('ms_per_present_cold'))} | "
+            f"{_fmt_num(r.get('ms_per_present_all'))} | "
+            f"{_fmt_num(r.get('present_count'))} | "
+            f"{_fmt_num(r.get('discard_cold'))} | "
+            f"{_fmt_num(r.get('mesh_ms'))} | "
+            f"{_fmt_num(r.get('record_ms'))} | "
+            f"{_fmt_num(r.get('present_swap_ms'))} | "
+            f"{_fmt_num(r.get('wall_ms'))} | {r.get('pass')} |"
         )
-    lines.append("")
+    lines += [
+        "",
+        "## Cold attribution (first present)",
+        "",
+        "FlyCube rows expose seed/GPU cold phases; leftover may leave these empty.",
+        "",
+        "| Row | cold ms/p | dem_load | tess | hypso | upload | pso | "
+        "record* | mesh |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for r in perf_rows:
+        lines.append(
+            f"| {r['row_id']} | "
+            f"{_fmt_num(r.get('ms_per_present_cold'))} | "
+            f"{_fmt_num(r.get('dem_load_ms'))} | "
+            f"{_fmt_num(r.get('tess_ms'))} | "
+            f"{_fmt_num(r.get('hypso_ms'))} | "
+            f"{_fmt_num(r.get('upload_ms'))} | "
+            f"{_fmt_num(r.get('pso_ms'))} | "
+            f"{_fmt_num((r.get('cold_phase') or {}).get('record_ms') if isinstance(r.get('cold_phase'), dict) else None)} | "
+            f"{_fmt_num((r.get('cold_phase') or {}).get('mesh_ms') if isinstance(r.get('cold_phase'), dict) else r.get('mesh_ms'))} |"
+        )
+    lines += [
+        "",
+        "\\* cold `record` is exclusive of nested `upload`+`pso` when available.",
+        "\\* `wall_ms` = whole-process wall; not comparable across engines.",
+        "",
+    ]
+    if smoke_rows:
+        lines += [
+            "## Smoke (not performance)",
+            "",
+            "| Row | Backend | Parallel | wall_ms | pass | note |",
+            "| --- | --- | --- | ---: | --- | --- |",
+        ]
+        for r in smoke_rows:
+            lines.append(
+                f"| {r['row_id']} | {r['backend']} | {r['parallel']} | "
+                f"{_fmt_num(r.get('wall_ms'))} | {r.get('pass')} | "
+                f"{r.get('note', '')} |"
+            )
+        lines.append("")
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     print(f"wrote {csv_path}")

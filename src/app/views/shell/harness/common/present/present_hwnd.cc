@@ -3,23 +3,33 @@
 
 #include "app/views/shell/harness/common/present/present_hwnd.h"
 
+#include <imm.h>
+
+#pragma comment(lib, "imm32.lib")
+
 namespace app {
 namespace detail {
 namespace {
 
 LRESULT CALLBACK showcase_present_wnd_proc(HWND hwnd, UINT msg, WPARAM wp,
                                            LPARAM lp) {
-  switch (msg) {
-    case WM_ERASEBKGND:
-      return 1;
-    case WM_PAINT: {
-      PAINTSTRUCT ps;
-      BeginPaint(hwnd, &ps);
-      EndPaint(hwnd, &ps);
-      return 0;
+  // Swallow C++ EH from third-party window hooks (TSF) so CreateWindow /
+  // DispatchMessage cannot escalate to STATUS_FATAL_USER_CALLBACK_EXCEPTION.
+  try {
+    switch (msg) {
+      case WM_ERASEBKGND:
+        return 1;
+      case WM_PAINT: {
+        PAINTSTRUCT ps;
+        BeginPaint(hwnd, &ps);
+        EndPaint(hwnd, &ps);
+        return 0;
+      }
+      default:
+        return DefWindowProcW(hwnd, msg, wp, lp);
     }
-    default:
-      return DefWindowProcW(hwnd, msg, wp, lp);
+  } catch (...) {
+    return 0;
   }
 }
 
@@ -43,17 +53,18 @@ HWND create_showcase_present_hwnd(const ShowcasePresentHwndOpts& opts) {
   RECT wr = {0, 0, static_cast<LONG>(opts.width_px),
              static_cast<LONG>(opts.height_px)};
   AdjustWindowRectEx(&wr, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU, FALSE, 0);
+  // WS_EX_NOACTIVATE + SHOWNOACTIVATE: avoid foreground focus that re-arms
+  // TSF/IME callbacks during harness CaptureWindow creation.
   HWND hwnd = CreateWindowExW(
-      WS_EX_APPWINDOW, opts.class_name, opts.window_title,
-      WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_VISIBLE, CW_USEDEFAULT,
-      CW_USEDEFAULT, wr.right - wr.left, wr.bottom - wr.top, nullptr, nullptr,
-      inst, nullptr);
+      WS_EX_NOACTIVATE, opts.class_name, opts.window_title,
+      WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU, CW_USEDEFAULT, CW_USEDEFAULT,
+      wr.right - wr.left, wr.bottom - wr.top, nullptr, nullptr, inst, nullptr);
   if (!hwnd) {
     return nullptr;
   }
-  ShowWindow(hwnd, SW_SHOW);
+  ImmAssociateContext(hwnd, nullptr);
+  ShowWindow(hwnd, SW_SHOWNOACTIVATE);
   UpdateWindow(hwnd);
-  SetForegroundWindow(hwnd);
   return hwnd;
 }
 

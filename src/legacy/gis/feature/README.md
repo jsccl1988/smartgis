@@ -13,7 +13,9 @@ geometry prep lives in **`gis.dll`**; VB upload stays in `legacy_render`.
 | --- | --- |
 | `mesh.h` | `FeatureVertex` / `FeatureMesh` / height sample typedef |
 | `tess_map.cc` | Map-frame (lon/lat, optional DEM drape, stroke/fill RGB) |
-| `tess_world.cc` | World-frame leftover 3D coords + `Smt3DSurface` |
+| `tess_world.cc` | World-frame leftover 3D coords + `OGRTriangulatedSurface` |
+| `leftover_feature.*` | leftover `SmtFeature` PascalCase wrap + `leftover_append_feature` |
+| `leftover_copy_layer.*` | `copy_layer(SmtLayer*)` / `SmtRasterLayer*` (OGR copy stays product) |
 
 **DLL:** `feature_sources` → **`gis.dll`** (`GIS_EXPORT`).  
 **Forbidden:** `SmtScene` / `LP3DRENDERDEVICE`.

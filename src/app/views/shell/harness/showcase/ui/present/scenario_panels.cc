@@ -112,8 +112,10 @@ void apply_ui_scenario_panels(Browser& browser, UiShowcaseMode mode) {
     case UiShowcaseMode::kShell:
     case UiShowcaseMode::kNone:
     default:
+      // Short settle only — long pumps after China seed can AV when a present
+      // timer races shell Yoga remeasure (visual_review #1 residual).
       browser.select_map_tab(0);
-      pump_views_messages(250);
+      pump_views_messages(80);
       break;
   }
 }

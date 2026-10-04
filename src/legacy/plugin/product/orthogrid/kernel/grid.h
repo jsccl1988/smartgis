@@ -6,14 +6,12 @@
 
 #include <fstream>
 
-#include "gis/kernel/geo/mesh/geometry.h"
-#include "gis/kernel/geo/mesh/matrix2d.h"
+#include "plugin/product/world3d/grid/orthogrid/lattice/ortho_lattice.h"
+#include "legacy/plugin/product/orthogrid/kernel/matrix2d.h"
 #include "legacy/plugin/product/orthogrid/kernel/region.h"
 #include "legacy/plugin/product/orthogrid/kernel/types.h"
 
-using geo::Grid;
-using geo::RawPoint;
-using geo::SmtGrid;
+using geo::Matrix2D;
 
 namespace orthogrid {
 
@@ -43,7 +41,7 @@ class Orthogrid {
                                   vdbfPoints& bnd2, vdbfPoints& bnd3);
 
   long CreateOrthGrid(void);
-  long CvtToGrid(SmtGrid& oSmtGrid);
+  long CvtToGrid(plugin::detail::OrthoLattice& lattice);
 
   void InitalCell(bool sel);
   void SetGridCell(void);

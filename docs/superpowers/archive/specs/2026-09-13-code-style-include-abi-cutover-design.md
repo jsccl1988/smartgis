@@ -135,10 +135,10 @@ Status: superseded (2026-09-28 merge B)
 
 ## §3 大爆炸执行模型
 
-1. **先写死映射表**（本 spec 附录 + `docs/build/abi-rename-map.md`）：include 路径、dll_stem、导出宏、主要命名空间、已知插件 stem。
+1. **先写死映射表**（本 spec 附录 + `docs/superpowers/abi-rename-map.md`）：include 路径、dll_stem、导出宏、主要命名空间、已知插件 stem。
 2. **并行机械改写**（多 agent 按不相交树）：`base`/`sys`、`algorithm`、`sdb`、`render`、`net`/`tool`、`ui`/`plugin`/`app`/`content`/`gpu`、`testing`、GN/`build`。
 3. **禁止** 中途恢复模块级 `include_dirs`「先编过」；缺口只能靠补全路径 include 或改名消歧。
-4. **收尾一次**：`gn gen` + `build.bat`（`src_all`）→ `build.bat app` / `views` → 相关测试与插件冒烟 → 更新 `docs/build/src-layout.md`、`src/README.md`、根 `README.md`（若模块表/DLL 名变化）、`mogu-mapping.md` 一句对照。
+4. **收尾一次**：`gn gen` + `build.bat`（`src_all`）→ `build.bat app` / `views` → 相关测试与插件冒烟 → 更新 `docs/superpowers/src-layout.md`、`src/README.md`、根 `README.md`（若模块表/DLL 名变化）、`mogu-mapping.md` 一句对照。
 5. 中间 commit 允许红；**合并完成的定义** = 验收 C 全绿 + 映射文档已提交。
 
 不使用 git worktree / 功能分支（仓库 agent 规则）。并行靠 **路径分区**，不是靠分支。
@@ -150,7 +150,7 @@ Status: superseded (2026-09-28 merge B)
 - [ ] 仓内插件按新 `dll_stem` 可被 host 解析/加载（至少 `plugin` host 测试 + 文档中的冒烟步骤）
 - [ ] `build.bat te` 或计划列出的 `*_test` 目标绿
 - [ ] 仓库内无产品代码再 `#include` 扁平遗留头（允许脚本/扫描证明）；无 `Export_Smt*`、无 `dll_stem = "Smt…"`
-- [ ] `docs/build/abi-rename-map.md` 完整；`src-layout.md` / README 已改 DLL 名叙述
+- [ ] `docs/superpowers/abi-rename-map.md` 完整；`src-layout.md` / README 已改 DLL 名叙述
 
 ## §5 明确不做
 

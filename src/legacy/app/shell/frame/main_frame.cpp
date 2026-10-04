@@ -481,7 +481,7 @@ void CMainFrame::OnViewDiagnosticTools() {
 }
 
 bool CMainFrame::InitMapDocCatalog(void) {
-  m_pMapDocCatalog = new SmtMapDocXCatalog();
+  m_pMapDocCatalog = new MapDocXCatalog();
   if (!m_pMapDocCatalog->Create(
           WS_CHILD | WS_VISIBLE | TVS_HASLINES | TVS_HASBUTTONS |
               TVS_LINESATROOT | TVS_SHOWSELALWAYS,

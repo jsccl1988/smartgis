@@ -3,8 +3,8 @@
 
 #include "content/public/event_bus.h"
 #include "legacy/plugin/runtime/bridge/cmd.h"
-#include "gis/model/edit/session/command_edit_session.h"
-#include "gis/model/edit/session/memory_edit_session.h"
+#include "gis/edit/command_session.h"
+#include "gis/edit/memory_session.h"
 #include "tool/command/command.h"
 #include "tool/interaction/interaction.h"
 #include "legacy/tool/msg/msg.h"
@@ -438,11 +438,11 @@ int main() {
 
   {
     expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgDemLoadTin),
-                       "world3d.load_tin") == 0,
-           "plugin world3d tin");
+                       "world3d.load_trimesh") == 0,
+           "plugin world3d trimesh");
     expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgDemLoadGrid),
-                       "world3d.load_grid") == 0,
-           "plugin world3d grid");
+                       "world3d.load_heightmap") == 0,
+           "plugin world3d heightmap");
     expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgDemAbout),
                        "world3d.about") == 0,
            "plugin world3d about");
@@ -460,8 +460,8 @@ int main() {
            "plugin model3d water");
     expect(std::strcmp(plugin::command_id_from_am_msg(
                            plugin::kAmMsgModel3dCreateTin),
-                       "model3d.create_tin") == 0,
-           "plugin model3d tin");
+                       "model3d.create_trimesh") == 0,
+           "plugin model3d trimesh");
     expect(std::strcmp(plugin::command_id_from_am_msg(
                            plugin::kAmMsgOrthogridInputBoundary0),
                        "baogrid.input_boundary_0") == 0,

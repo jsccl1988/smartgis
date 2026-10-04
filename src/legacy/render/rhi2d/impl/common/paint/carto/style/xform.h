@@ -10,7 +10,6 @@
 #include "legacy/render/rhi2d/impl/common/paint/carto/frame/context.h"
 
 using namespace base;
-using namespace geo;
 
 namespace render {
 namespace detail {

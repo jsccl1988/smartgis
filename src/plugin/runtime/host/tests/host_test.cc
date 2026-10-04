@@ -3,7 +3,6 @@
 
 #include "content/public/event_bus.h"
 #include "content/public/plugin_host.h"
-#include "plugin/product/orthogrid/commands.h"
 #include "plugin/product/world3d/commands.h"
 #include "legacy/plugin/runtime/bridge/am.h"
 #include "legacy/plugin/runtime/bridge/cmd.h"
@@ -114,10 +113,10 @@ int main() {
                "smartgis.world3d",
            "dem stem");
     expect(std::string(plugin::am_id_from_stem("plugin_orthogrid")) ==
-               "smartgis.baogrid",
+               "smartgis.world3d",
            "orthogrid stem");
     expect(std::string(plugin::am_id_from_stem("plugin_orthogrid")) ==
-               "smartgis.baogrid",
+               "smartgis.world3d",
            "leftover baogrid stem");
     expect(std::string(plugin::am_id_from_stem("FooBar")) == "legacy.foobar",
            "unknown stem");
@@ -471,7 +470,6 @@ int main() {
         content::create_plugin_host(nullptr, nullptr, nullptr);
     expect(plugin::register_world3d(host), "register world3d");
     expect(plugin::register_print(host), "register print");
-    expect(plugin::register_orthogrid(host), "register orthogrid");
 
     // Do not execute world3d/print dialog openers here: suppressed
     // Dialog::run_modal still constructs MapPreviewView → MapViewport, and
@@ -481,11 +479,11 @@ int main() {
     // Former model3d ids (owned by world3d): no scene device -> false.
     expect(!host->execute("model3d.add_sphere", {}), "model3d sphere no scene");
     expect(!host->execute("model3d.add_water", {}), "model3d water no scene");
-    expect(!host->execute("model3d.add_terrain_grid", {}),
-           "model3d terrain grid no scene");
-    expect(!host->execute("model3d.add_terrain_tin", {}),
-           "model3d terrain tin no scene");
-    expect(!host->execute("model3d.create_tin", {}), "model3d create tin");
+    expect(!host->execute("model3d.add_terrain_heightmap", {}),
+           "model3d terrain heightmap no scene");
+    expect(!host->execute("model3d.add_terrain_trimesh", {}),
+           "model3d terrain trimesh no scene");
+    expect(!host->execute("model3d.create_trimesh", {}), "model3d create trimesh");
     expect(!host->execute("model3d.layer_points_to_3d", {}),
            "model3d points 3d");
     expect(!host->execute("model3d.layer_lines_to_3d", {}),
@@ -517,8 +515,8 @@ int main() {
   }
   {
     expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgDemLoadTin),
-                       "world3d.load_tin") == 0,
-           "world3d tin am");
+                       "world3d.load_trimesh") == 0,
+           "world3d trimesh am");
     expect(std::strcmp(plugin::command_id_from_am_msg(plugin::kAmMsgPrintPreview),
                        "print.preview") == 0,
            "print am");

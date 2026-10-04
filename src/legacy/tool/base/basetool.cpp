@@ -1,6 +1,7 @@
 #include "legacy/tool/base/basetool.h"
 
 #include "legacy/gis/present/carto/style_api.h"
+#include "legacy/gis/layer/map_bind.h"
 #include "legacy/sys/sysmanager.h"
 #include "legacy/tool/factory/grouptoolfactory.h"
 
@@ -21,7 +22,7 @@ SmtBaseTool::SmtBaseTool()
 
 SmtBaseTool::~SmtBaseTool() { ; }
 
-int SmtBaseTool::Init(LPRENDERDEVICE pMrdRenderDevice, SmtMap *pOperSmtMap,
+int SmtBaseTool::Init(LPRENDERDEVICE pMrdRenderDevice, Map *pOperSmtMap,
                       HWND hWnd, pfnToolCallBack pfnCallBack, void *pToFollow) {
   if (SMT_ERR_NONE != SmtIATool::Init(hWnd, pfnCallBack, pToFollow)) {
     return SMT_ERR_FAILURE;
@@ -141,7 +142,7 @@ int SmtBaseTool::KeyDown(uint nChar, uint nRepCnt, uint nFlags) {
           Envelope envelope;
           fRect frt;
 
-          SmtLayer *pLayer = m_pOperMap->GetActiveLayer();
+          Layer *pLayer = leftover_active_layer(m_pOperMap);
           if (pLayer) {
             pLayer->CalEnvelope();
             pLayer->get_envelope(envelope);

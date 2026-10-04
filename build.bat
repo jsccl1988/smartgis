@@ -228,7 +228,8 @@ if "!BUILD_DEBUG!"=="1" (
   ) else if /I "!NINJA_TARGET!"=="test_all" (
     set "UNIT_ERR=0"
     REM leftover_session_test removed with public/bridge; do not run a stale PE.
-    for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe leftover_record_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe tin_xyz_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_view_host_test.exe content_feature_attrs_test.exe content_catalog_layers_test.exe content_embed_sample_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe map_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe gdi_map_paint_test.exe map_carto2d_test.exe gl_map_paint_test.exe dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe) do (
+    REM leftover_record_test removed with legacy present-facade bridge; do not run a stale PE.
+    for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_view_host_test.exe content_feature_attrs_test.exe content_catalog_layers_test.exe content_embed_sample_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe map_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe gdi_map_paint_test.exe map_carto2d_test.exe gl_map_paint_test.exe dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe) do (
       if exist ".\out\Debug\%%T" (
         echo Running out\Debug\%%T
         ".\out\Debug\%%T"
@@ -289,7 +290,8 @@ if /I "!NINJA_TARGET!"=="e2e" (
 if /I "!NINJA_TARGET!"=="test_all" (
   set "UNIT_ERR=0"
   REM leftover_session_test removed with public/bridge; do not run a stale PE.
-  for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe leftover_record_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe tin_xyz_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_view_host_test.exe content_feature_attrs_test.exe content_catalog_layers_test.exe content_embed_sample_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe map_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe gdi_map_paint_test.exe map_carto2d_test.exe gl_map_paint_test.exe dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe) do (
+  REM leftover_record_test removed with legacy present-facade bridge; do not run a stale PE.
+  for %%T in (rhi_test.exe model_test.exe scene_test.exe scene_gpu_test.exe unified_draw_test.exe leftover_mesh_test.exe ogr_text_encoding_test.exe sdbd_client_test.exe sdbd_live_test.exe sde_gdal_test.exe geo_ogr_test.exe proj_test.exe stat_expr_test.exe tin_delaunay_test.exe orthogrid_laplace_test.exe net_test.exe tool_dispatch_test.exe draft_test.exe camera_nav_test.exe content_view_host_test.exe content_feature_attrs_test.exe content_catalog_layers_test.exe content_embed_sample_test.exe land_mask_test.exe views_unittests.exe markup_unittests.exe views_pixel_tests.exe ipc_test.exe render_backend_test.exe tile_test.exe style_test.exe map2d_test.exe map2d_pass_test.exe map_scene_test.exe scene3d_presenter_test.exe dem_raster_test.exe gdi_map_paint_test.exe map_carto2d_test.exe gl_map_paint_test.exe dem_stereo_test.exe menu_test.exe select_query_test.exe plugin_host_test.exe processing_ops_test.exe) do (
     if exist ".\out\Debug\%%T" (
       echo Running out\Debug\%%T
       ".\out\Debug\%%T"
@@ -315,6 +317,18 @@ set "OUT_NAME=%~1"
 set "IS_DEBUG=%~2"
 set "OUT_DIR=out\%OUT_NAME%"
 set "GN_ARGS=is_debug=%IS_DEBUG% is_build_third_party=false smt_run_vs_env_script=false vs_version=180 msvc_installed=true smt_build_app=!BUILD_APP! smt_build_views=!BUILD_VIEWS! smt_build_render=!BUILD_RENDER!"
+
+REM Scenic present is content-hosted (SMT_*_ENGINE=scenic). Pre-gen hook keeps
+REM map_present/scene3d_present wired to //src/scenic:scenic (idempotent).
+if exist "%LocalAppData%\Programs\Python\Python312\python.exe" (
+  "%LocalAppData%\Programs\Python\Python312\python.exe" "%~dp0build\tools\action\apply_scenic_exclusion.py"
+) else (
+  py -3 "%~dp0build\tools\action\apply_scenic_exclusion.py"
+)
+if errorlevel 1 (
+  echo ERROR: apply_scenic_exclusion.py failed
+  exit /b 1
+)
 
 echo === gn gen %OUT_DIR% ^(is_debug=%IS_DEBUG%^) ===
 "%GN_PATH%gn.exe" gen "%OUT_DIR%" --root=./ --ide=vs2019 --args="!GN_ARGS!"

@@ -51,13 +51,16 @@ All rights reserved.
 <div class="wrap">
   <header class="hero">
     <h1>GIS vista — MapFrame / Layout 架构</h1>
-    <p>CPU 帧：LayerBatch → Layout::build → MapFrame → present · gis ↛ render/rhi · 并行终态见右链命名阶段</p>
+    <p>CPU 帧：LayerBatch → Layout::build → MapFrame · gis ↛ render/rhi · 并行终态见右链。Present 四层与双出口见 <a href="./map2d-present-frame.html">map2d-present-frame</a>。</p>
     <div class="meta">
       Spec：<a href="../specs/2026-09-13-gdal-layer-management-design.md">gdal-layer / Session</a>
       · <a href="../specs/2026-09-13-render-rhi-scene-design.md">§src_render + vista parallel</a>
-      · API：<a href="../../../src/gis/vista/frame/frame.h"><code>frame.h</code></a>
+      · API：<a href="../../../src/vista/frame/frame.h"><code>frame.h</code></a>
+      · 分层收紧：<a href="./vista-subdirectory-layers.html">vista.dll 子目录</a>
     </div>
     <div class="rel">相关图：
+      <a href="./vista-subdirectory-layers.html">vista.dll 子目录分层</a>
+      <a href="./map2d-present-frame.html">Map2d present（四层 · 双出口）</a>
       <a href="./render-accelerate-topology.html">Render accelerate（A×B · stage→present）</a>
       <a href="./ui-views-shell-architecture.html">UI Views shell</a>
       <a href="./legacy-render-architecture.html">legacy/render</a>
@@ -74,22 +77,22 @@ All rights reserved.
       </defs>
       <!-- left stack: gis -->
       <rect x="0" y="0" width="620" height="370" rx="10" fill="#fafbfc" stroke="#d8dee6"/>
-      <text class="lane-label" x="16" y="22" fill="#2563a8">gis 域（无 RHI / HWND）</text>
+      <text class="lane-label" x="16" y="22" fill="#2563a8">gis.dll（模型 / carto；无 RHI；↛ vista.dll）</text>
 
       <rect x="16" y="36" width="588" height="56" rx="7" fill="#e8f1fa" stroke="#2563a8"/>
       <text class="box-title" x="310" y="58" text-anchor="middle">datasource · GDAL / SDB / Session</text>
       <text class="box-sub" x="310" y="76" text-anchor="middle">OGRLayer · DataSession · Provider</text>
 
       <rect x="16" y="104" width="280" height="56" rx="7" fill="#efeaf8" stroke="#6b5ea8"/>
-      <text class="box-title" x="156" y="126" text-anchor="middle">present/style</text>
-      <text class="box-sub" x="156" y="144" text-anchor="middle">StyleDocument · symbols</text>
+      <text class="box-title" x="156" y="126" text-anchor="middle">gis/carto/style · gis/carto/tile</text>
+      <text class="box-sub" x="156" y="144" text-anchor="middle">StyleDocument · TileProvider</text>
 
       <rect x="312" y="104" width="292" height="56" rx="7" fill="#f8efe4" stroke="#b06a1a"/>
-      <text class="box-title" x="458" y="126" text-anchor="middle">world · terrain / DEM</text>
-      <text class="box-sub" x="458" y="144" text-anchor="middle">pointcloud · hillshade tiles</text>
+      <text class="box-title" x="458" y="126" text-anchor="middle">style / tile → vista World</text>
+      <text class="box-sub" x="458" y="144" text-anchor="middle">DEM / tess 在 vista.dll</text>
 
       <rect x="16" y="176" width="588" height="72" rx="7" fill="#e6f5ef" stroke="#2f7d62" stroke-width="2"/>
-      <text class="box-title" x="310" y="202" text-anchor="middle">gis::vista · Layout / MapFrame</text>
+      <text class="box-title" x="310" y="202" text-anchor="middle">vista.dll · gis::vista Layout / MapFrame</text>
       <text class="box-sub" x="310" y="222" text-anchor="middle">Layout::build(LayoutInput, LayerBatch[]) → MapFrame</text>
       <text class="box-sub" x="310" y="238" text-anchor="middle">parallel_for tess（fill/line）· mesh_scratch · 无 RHI</text>
 
@@ -104,19 +107,19 @@ All rights reserved.
 
       <!-- hard wall -->
       <line x1="650" y1="10" x2="650" y2="360" stroke="#c45c5c" stroke-width="3" stroke-dasharray="8 5"/>
-      <text x="650" y="185" text-anchor="middle" fill="#c45c5c" font-size="11" font-weight="700" transform="rotate(-90 650 185)">gis ↛ render/rhi</text>
+      <text x="650" y="185" text-anchor="middle" fill="#c45c5c" font-size="11" font-weight="700" transform="rotate(-90 650 185)">gis ↛ vista.dll</text>
 
       <!-- right: present boundary -->
       <rect x="680" y="0" width="360" height="370" rx="10" fill="#f7e8e8" stroke="#d8dee6"/>
-      <text class="lane-label" x="696" y="22" fill="#8b3a3a">content + effect + render</text>
+      <text class="lane-label" x="696" y="22" fill="#8b3a3a">content / gpu import-link vista.dll</text>
 
       <rect x="700" y="48" width="320" height="70" rx="7" fill="#fff" stroke="#8b3a3a" stroke-width="1.5"/>
       <text class="box-title" x="860" y="76" text-anchor="middle">content MapScene</text>
       <text class="box-sub" x="860" y="96" text-anchor="middle">present map2d / scene3d</text>
 
       <rect x="700" y="140" width="320" height="70" rx="7" fill="#fff" stroke="#8b3a3a" stroke-width="1.5"/>
-      <text class="box-title" x="860" y="168" text-anchor="middle">effect/map · effect/scene</text>
-      <text class="box-sub" x="860" y="188" text-anchor="middle">消费 MapFrame · 非 layout</text>
+      <text class="box-title" x="860" y="168" text-anchor="middle">vista/map · vista/scene · vista/atmosphere</text>
+      <text class="box-sub" x="860" y="188" text-anchor="middle">GPU passes 在 vista.dll</text>
 
       <rect x="700" y="232" width="320" height="70" rx="7" fill="#fff" stroke="#8b3a3a" stroke-width="1.5"/>
       <text class="box-title" x="860" y="260" text-anchor="middle">record_and_present</text>
@@ -167,8 +170,8 @@ All rights reserved.
         <rect x="750" y="25" width="220" height="90" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/>
         <circle cx="780" cy="50" r="12" fill="#2563a8"/><text x="780" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">4</text>
         <text class="box-title" x="860" y="54" text-anchor="middle">present</text>
-        <text class="box-sub" x="860" y="78" text-anchor="middle">software 或 GPU</text>
-        <text class="box-sub" x="860" y="96" text-anchor="middle">effect/map · graph</text>
+        <text class="box-sub" x="860" y="78" text-anchor="middle">GPU Pass · GDI HDC</text>
+        <text class="box-sub" x="860" y="96" text-anchor="middle">分层见 map2d-present-frame</text>
       </g>
     </svg>
     <div class="controls">

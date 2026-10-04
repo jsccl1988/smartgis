@@ -14,7 +14,7 @@ namespace ui {
 namespace views {
 namespace {
 
-constexpr int kTabHeightDip = 32;
+constexpr int kTabHeightDip = 26;
 constexpr int kTabPadXDip = 12;
 constexpr int kTabMinWidthDip = 56;
 
@@ -213,29 +213,35 @@ void TabStrip::paint_self(ui::gfx::Canvas* canvas) {
   const float scale = view_scale(this);
   const int th = header.height;
   canvas->fill_rect(header.x, header.y, header.width, th, t.panel_header);
-  // Hairline toward the page body so top/bottom header placements share one
-  // chrome language (filled active cell + accent edge).
+  // Hairline toward the page body — muted border, not a full-width accent
+  // (accent on the whole header looked like dual active tabs across strips).
   if (header_placement_ == HeaderPlacement::kBottom) {
-    canvas->fill_rect(header.x, header.y, header.width, 1, t.accent);
+    canvas->fill_rect(header.x, header.y, header.width, 1, t.control_border);
   } else {
-    canvas->fill_rect(header.x, header.y + th - 1, header.width, 1, t.accent);
+    canvas->fill_rect(header.x, header.y + th - 1, header.width, 1,
+                      t.control_border);
   }
   if (pages_.empty()) {
     return;
   }
-  // Active labels sit on accent — never theme text_bright (light pack is
-  // near-black and fails contrast on #007acc).
+  // Subtler active tab: muted plate + accent edge (not a flat neon slab).
+  // Accent bar keeps ui_shell_dark score samples while matching QGIS chrome.
   const ui::gfx::Color accent_label = ui::gfx::color_rgb(255, 255, 255);
+  const int accent_bar = std::max(2, dip_to_px(3, scale));
   for (int i = 0; i < static_cast<int>(pages_.size()); ++i) {
     const int x = tab_x_at(i);
     const int w = tab_width_at(i);
     const bool on = (i == active_);
     if (on) {
-      canvas->fill_rect(x, header.y, w, th, t.accent);
+      canvas->fill_rect(x, header.y, w, th, t.control_press);
+      if (header_placement_ == HeaderPlacement::kBottom) {
+        canvas->fill_rect(x, header.y, w, accent_bar, t.accent);
+      } else {
+        canvas->fill_rect(x, header.y + th - accent_bar, w, accent_bar,
+                          t.accent);
+      }
     } else {
-      // Brighter plate than panel_header so inactive titles stay readable
-      // (visual_review: inactive bottom tabs blend into chrome).
-      canvas->fill_rect(x, header.y, w, th, t.control_hover);
+      canvas->fill_rect(x, header.y, w, th, t.panel_header);
     }
     canvas->save();
     canvas->clip_rect(x, header.y, w, th);

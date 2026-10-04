@@ -72,7 +72,7 @@ Kernel sources must not `#include` `ui/views/primitives|dialogs|gis|markup`. Lay
 
 ## Nesting-cap 修订
 
-既有文案（`docs/build/ui-views-skia.md`、`src/ui/views/README.md`、`2026-09-13-ui-views-controls-design.md`）写「公开头必须在根、子目录仅 `.cc`」。本设计**取代**该约定：
+既有文案（`docs/superpowers/ui-views-skia.md`、`src/ui/views/README.md`、`2026-09-13-ui-views-controls-design.md`）写「公开头必须在根、子目录仅 `.cc`」。本设计**取代**该约定：
 
 - 模块 nest 仍是 `src/ui/views`（一层 module）
 - 其下六个职责目录是**公开实现分区**，不是第三层 `src/ui/views/widget/` 式的随意 nest
@@ -143,7 +143,7 @@ Include：`"ui/views/kernel/<partition>/foo.h"`。不 vendor Aura/cc；`composit
 
 ## 相关
 
-- As-built：[`docs/build/ui-views-skia.md`](../../build/ui-views-skia.md)
+- As-built：[`docs/superpowers/ui-views-skia.md`](../../ui-views-skia.md)
 - Controls：[`2026-09-13-ui-views-controls-design.md`](2026-09-13-ui-views-controls-design.md)（本设计修订其 nesting 段）
-- 模块 README：[`src/ui/views/README.md`](../../../src/ui/views/README.md)
+- 模块 README：[`src/ui/views/README.md`](../../README.md)
 - Compositor 线程：[`2026-09-13-ui-views-controls-design.md`](2026-09-13-ui-views-controls-design.md) § UI compositor thread

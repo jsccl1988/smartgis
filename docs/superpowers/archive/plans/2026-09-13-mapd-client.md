@@ -33,7 +33,7 @@ All rights reserved.
 
 **Files:**
 - Create: everything under `src/web/mapd/` listed in the spec file map
-- Modify: `src/web/BUILD.gn`, `src/BUILD.gn`, `BUILD.gn`, `src/README.md`, `docs/README.md`, `docs/build/src-layout.md`
+- Modify: `src/web/BUILD.gn`, `src/BUILD.gn`, `BUILD.gn`, `src/README.md`, `docs/README.md`, `docs/superpowers/src-layout.md`
 
 **Interfaces:**
 - Produces: `web::MapdClient`, `web::QueryRequest::to_json`, `web::parse_mapd_link`, `web::parse_capabilities`

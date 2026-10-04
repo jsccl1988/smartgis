@@ -10,7 +10,7 @@ All rights reserved.
 **Status:** landed (docs / freeze; physical moves already on tree)  
 **Date:** 2026-09-27  
 **Spec:** [`../specs/2026-09-27-legacy-plugin-subdirectory-layout-design.md`](../specs/2026-09-27-legacy-plugin-subdirectory-layout-design.md)  
-**Parent layout:** [`../../specs/2026-09-14-plugin-subdir-layout-design.md`](../../specs/2026-09-14-plugin-subdir-layout-design.md)
+**Parent layout:** [`../../specs/2026-09-14-plugin-subdir-layout-design.md`](../specs/2026-09-14-plugin-subdir-layout-design.md)
 
 **Goal:** Freeze and document the as-built `src/legacy/plugin` layout; no further subdirectory moves unless a future strangler retires a domain DLL.
 
@@ -77,7 +77,7 @@ All rights reserved.
 
 ## Task 4: Archive when freeze docs land
 
-- [x] Spec Status `landed`; move spec+plan to `docs/superpowers/archive/{specs,plans}/`; as-built facts remain in `docs/build/src-layout.md` + module README.  
+- [x] Spec Status `landed`; move spec+plan to `docs/superpowers/archive/{specs,plans}/`; as-built facts remain in `docs/superpowers/src-layout.md` + module README.  
 - [x] Parent L1 stays living for product/runtime; archive only this legacy freeze topic.
 
 ---

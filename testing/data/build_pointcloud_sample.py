@@ -249,7 +249,7 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     ap.add_argument("--stride", type=int, default=48, help="Keep every Nth DEM cell")
     ap.add_argument("--max-points", type=int, default=6000)
-    # Default: pad around world3d_tin_sample.xyz so plugin-showcase paints
+    # Default: pad around world3d_trimesh_sample.xyz so plugin-showcase paints
     # colored points inside kWorld3dTin / document extent (not nationwide).
     ap.add_argument(
         "--bbox",

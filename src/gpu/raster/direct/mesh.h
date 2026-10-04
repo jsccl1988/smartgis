@@ -4,7 +4,7 @@
 #ifndef GPU_RASTER_DIRECT_MESH_H_
 #define GPU_RASTER_DIRECT_MESH_H_
 
-// Process-lifetime synthetic China DEM mesh for the Scene3d direct raster.
+// Process-lifetime China DEM mesh for the Scene3d direct raster (real GeoTIFF).
 
 #include <cstdint>
 #include <vector>
@@ -12,8 +12,8 @@
 namespace gpu {
 namespace detail {
 
-// Built once per process. fill_synthetic_china, build_mesh(48), and the
-// orbit constants do not change between paints.
+// Built once per process from find_sample_dem_path() + build_mesh(48).
+// ready stays false when out/data/china_dem.tif (or override) is missing.
 struct SyntheticDemMesh {
   std::vector<float> xyz;
   std::vector<uint32_t> indices;

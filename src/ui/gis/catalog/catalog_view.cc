@@ -118,7 +118,7 @@ CatalogView::CatalogView() {
   set_layout_manager(std::move(fill));
   loaded.root->set_preferred_size({0, 0});
   add_child(std::move(loaded.root));
-  set_preferred_size({288, 0});
+  set_preferred_size({300, 0});
 }
 
 void CatalogView::set_title(std::string title) {
@@ -154,17 +154,32 @@ void CatalogView::set_map_docs(const std::vector<CatalogNode>& nodes) {
   populate_tree(map_tree_, nodes);
 }
 
+void CatalogView::relayout_layers_page() {
+  if (tabs_) {
+    tabs_->layout();
+  }
+  layout();
+  if (Widget* w = widget()) {
+    w->layout_contents();
+  }
+  if (layer_tree_) {
+    layer_tree_->layout();
+    layer_tree_->schedule_paint();
+  }
+  schedule_paint();
+}
+
 void CatalogView::populate_layers(
     const std::vector<LayerTree::LayerDesc>& layers) {
   if (!layer_tree_) {
     return;
   }
-  if (layers.empty()) {
-    populate_demo_layers();
-    return;
-  }
+  // Real-data policy: empty catalog stays empty (no demo Streets/Imagery).
   layer_tree_->set_layers(layers);
   using_demo_layers_ = false;
+  // TabStrip body may still have been 0×0 when set_layers first laid out
+  // (ui.shell #2 empty Layers). Force a shell layout so rows get bounds.
+  relayout_layers_page();
 }
 
 void CatalogView::populate_demo_layers() {
@@ -203,6 +218,7 @@ void CatalogView::populate_demo_layers() {
 
   layer_tree_->set_layers({std::move(basemap), std::move(notes)});
   using_demo_layers_ = true;
+  relayout_layers_page();
 }
 
 void CatalogView::set_command(Command fn) {

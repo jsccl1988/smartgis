@@ -11,7 +11,7 @@ All rights reserved.
 **Date:** 2026-09-14  
 **Status:** superseded (2026-09-28 merge B)
 **Goal:** 将真 CEF（Binary Distribution）落为与 Views / WinUI **产品设计完全对齐**的第三壳；第一版用 **分区 HWND**（Win32 顶层布局 + CEF chrome HWND + 独立地图子 HWND）交付可加载页面的 IDE 语义壳，地图仍走 `content` host ABI，不挖洞、不同 PE 硬塞 `--chrome=cef`。  
-**Related:** [`docs/build/ui-shell-multiprocess.md`](../../build/ui-shell-multiprocess.md)、[`docs/build/ui-views-skia.md`](../../build/ui-views-skia.md)、[`docs/build/ui-testing.md`](../../build/ui-testing.md)、[`src/app/views/README.md`](../../../src/app/views/README.md)、[`src/app/winui/map_host.*`](../../../src/app/winui/map_host.h)  
+**Related:** [`docs/superpowers/ui-shell-multiprocess.md`](../../ui-shell-multiprocess.md)、[`docs/superpowers/ui-views-skia.md`](../../ui-views-skia.md)、[`docs/superpowers/ui-testing.md`](../../ui-testing.md)、[`src/app/views/README.md`](../../README.md)、[`src/app/winui/map_host.*`](../../../src/app/winui/map_host.h)  
 **Plan:** [`docs/superpowers/plans/2026-09-14-app-cef-hwnd-host.md`](../plans/2026-09-14-app-cef-hwnd-host.md)
 
 ## Locked decisions
@@ -28,15 +28,15 @@ All rights reserved.
 | 核心类型 | `CefBrowserHost` / `CefMapSlot` / `ChromeBridge` / `web/` |
 | GN | `smt_build_cef`（默认 `false`）、`smt_has_cef`；**不进** `all` / `src_all` |
 | deps | `content` / `view_host` / `gpu` / `tool`；**不**依赖 `ui/views` 做壳；v1 **不**强依赖 `plugin:host`（Ambox 先灌 Workspace builtins；插件目录后挂） |
-| 命令 / 自测 | command id 与 `--self-test` 对齐 [`ui-testing.md`](../../build/ui-testing.md) / Views |
+| 命令 / 自测 | command id 与 `--self-test` 对齐 [`ui-testing.md`](../../ui-testing.md) / Views |
 | WinUI | 今日 IDE 布局已与 Views 对齐（Menu/Catalog/Ambox/Map tabs/Inspector/Status）；toolkit 仍为 Fluent，非终局 |
 
 ## 1. 背景 / 目标 / 非目标
 
 ### 1.1 背景
 
-- 仓库桌面终局仍是 **Views + Skia**（[`ui-views-skia.md`](../../build/ui-views-skia.md)）。WinUI 是并列原型壳。
-- [`ui-shell-multiprocess.md`](../../build/ui-shell-multiprocess.md) 原「方案 1」曾以 **WebView2** 为 web chrome，后已删除；文中亦曾把「CEF 只做 chrome」归为方案 3 变体 (c) 并标注不推荐。
+- 仓库桌面终局仍是 **Views + Skia**（[`ui-views-skia.md`](../../ui-views-skia.md)）。WinUI 是并列原型壳。
+- [`ui-shell-multiprocess.md`](../../ui-shell-multiprocess.md) 原「方案 1」曾以 **WebView2** 为 web chrome，后已删除；文中亦曾把「CEF 只做 chrome」归为方案 3 变体 (c) 并标注不推荐。
 - 产品需要一条 **真 Blink/Chromium 嵌入** 的 web chrome 轨：招人、HTML/CSS 迭代、与 Views 同语义的 IDE 布局，同时地图继续走本仓 `content` + 原生 HWND（或 OOP GPU），**不**把 `SmtMap` / GL 塞进 CEF GPU 进程。
 
 ### 1.2 目标
@@ -318,7 +318,7 @@ SmartGisCef.exe
 7. `edit.append.point` → undo 可用；`selection.point` / `selection.clear`；Status 文案。  
 8. map HWND 与 slot 矩形对齐（容差与 Views 同类）。  
 
-**退出码：** 与 Views **同号同义**处直接复用 [`ui-testing.md`](../../build/ui-testing.md)（0 通过；1 init；2 顶层 HWND；3/8/10 wait_ready；4–6 结构；7/9 native HWND；11–20 工具/状态栏；21–24 3D 输入；30–35 布局/几何；以及 Views 已用的非活动 HWND 可见性失败码）。CEF **独有**失败只用 **40+**，禁止把 40+ 挪去表示 Views 已有语义：
+**退出码：** 与 Views **同号同义**处直接复用 [`ui-testing.md`](../../ui-testing.md)（0 通过；1 init；2 顶层 HWND；3/8/10 wait_ready；4–6 结构；7/9 native HWND；11–20 工具/状态栏；21–24 3D 输入；30–35 布局/几何；以及 Views 已用的非活动 HWND 可见性失败码）。CEF **独有**失败只用 **40+**，禁止把 40+ 挪去表示 Views 已有语义：
 
 | 码 | 含义 |
 | --- | --- |
@@ -340,10 +340,10 @@ SmartGisCef.exe
 
 | 文档 | 关系 / 后续动作 |
 | --- | --- |
-| [`ui-shell-multiprocess.md`](../../build/ui-shell-multiprocess.md) | **意图更新（后续 as-built 修订，可与实现同 PR）：** §1「方案 1」从已删除的 WebView2 改为 **CEF chrome + 分区 HWND + native map**（宿主形态仍 sibling HWND，协议仍 `content` host）。§3.1 变体 (c)「CEF 不推荐」与 §4.4「明确不选 CEF」**仅针对「用 CEF 冒充方案 3 / 终局 Views」**；**不**否定本 spec 的第三壳产品路径。底物 §0 不变。 |
-| [`ui-views-skia.md`](../../build/ui-views-skia.md) | Views 仍为终局；CEF / WinUI 为并列可切换壳。可在「Rejected / alternate」中注明 CEF 壳见本 spec，避免与「WebView2 sibling」旧叙述混淆。 |
-| [`ui-testing.md`](../../build/ui-testing.md) | 实现期把 `SmartGisCef.exe` 写入 L1′/L4 表。 |
-| [`src/app/views`](../../../src/app/views/README.md) | 语义与布局参考实现；CEF **不**依赖其代码。 |
+| [`ui-shell-multiprocess.md`](../../ui-shell-multiprocess.md) | **意图更新（后续 as-built 修订，可与实现同 PR）：** §1「方案 1」从已删除的 WebView2 改为 **CEF chrome + 分区 HWND + native map**（宿主形态仍 sibling HWND，协议仍 `content` host）。§3.1 变体 (c)「CEF 不推荐」与 §4.4「明确不选 CEF」**仅针对「用 CEF 冒充方案 3 / 终局 Views」**；**不**否定本 spec 的第三壳产品路径。底物 §0 不变。 |
+| [`ui-views-skia.md`](../../ui-views-skia.md) | Views 仍为终局；CEF / WinUI 为并列可切换壳。可在「Rejected / alternate」中注明 CEF 壳见本 spec，避免与「WebView2 sibling」旧叙述混淆。 |
+| [`ui-testing.md`](../../ui-testing.md) | 实现期把 `SmartGisCef.exe` 写入 L1′/L4 表。 |
+| [`src/app/views`](../../README.md) | 语义与布局参考实现；CEF **不**依赖其代码。 |
 | [`src/app/winui/map_host`](../../../src/app/winui/map_host.h) | HWND 挂图 / `sync_layout` 参考；CEF 用 Win32 而非 XAML island。 |
 | `2026-09-14-app-legacy-split-design` | `src/app/` 终局树增加 `cef/` 并列；不恢复 MFC。 |
 

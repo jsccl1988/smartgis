@@ -10,7 +10,7 @@
 #define XVIEW_EXPORT __declspec(dllimport)
 #endif
 
-#include "gis/model/map/map.h"
+#include "gis/map/map.h"
 #include "legacy/render/rhi2d/public/device/renderdevice.h"
 #include "legacy/render/rhi2d/public/device/renderer.h"
 #include "legacy/tool/factory/grouptoolfactory.h"
@@ -67,8 +67,8 @@ class XVIEW_EXPORT Smt2DXView : public SmtXView {
   afx_msg LRESULT OnDeferredContextMenu(WPARAM wParam, LPARAM lParam);
   afx_msg LRESULT OnFrameOperMap(WPARAM wParam, LPARAM lParam);
 
-  virtual void SetOperMap(SmtMap* pSmtMap);
-  SmtMap* GetOperMap(void);
+  virtual void SetOperMap(Map* pSmtMap);
+  Map* GetOperMap(void);
 
  protected:
   bool InitCreate(void);
@@ -94,7 +94,7 @@ class XVIEW_EXPORT Smt2DXView : public SmtXView {
   SmtBaseTool* m_pSelectTool;
   SmtBaseTool* m_pFlashTool;
 
-  SmtMap* m_pSmtOperMap;
+  Map* m_pSmtOperMap;
   detail::OperMapFrameState m_oper_map_frame;
 };
 

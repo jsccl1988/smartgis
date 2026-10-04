@@ -12,14 +12,14 @@
 
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
 #include "content/public/map_types.h"
-#include "effect/atmosphere/cloud/cloud_pass.h"
-#include "effect/atmosphere/fog/fog_pass.h"
-#include "effect/atmosphere/frame/atmosphere_frame.h"
-#include "effect/atmosphere/globe/globe_pass.h"
-#include "effect/atmosphere/globe/sat_cloud_pass.h"
-#include "effect/atmosphere/ocean/ocean_pass.h"
-#include "effect/atmosphere/sky/sky_pass.h"
-#include "gis/vista/domain/atmosphere/systems/environment.h"
+#include "vista/atmosphere/cloud/cloud_pass.h"
+#include "vista/atmosphere/fog/fog_pass.h"
+#include "vista/atmosphere/frame/atmosphere_frame.h"
+#include "vista/atmosphere/globe/globe_pass.h"
+#include "vista/atmosphere/globe/sat_cloud_pass.h"
+#include "vista/atmosphere/ocean/ocean_pass.h"
+#include "vista/atmosphere/sky/sky_pass.h"
+#include "vista/domain/atmosphere/environment.h"
 
 namespace content {
 
@@ -40,11 +40,11 @@ class AtmosphereSession {
   void bind_gpu(Scene3dGpuPresent* gpu);
   const MapScene* scene() const { return scene_; }
 
-  gis::atmosphere::Environment* environment() { return atmosphere_.get(); }
-  const gis::atmosphere::Environment* environment() const {
+  vista::atmosphere::Environment* environment() { return atmosphere_.get(); }
+  const vista::atmosphere::Environment* environment() const {
     return atmosphere_.get();
   }
-  gis::atmosphere::Environment& ensure();
+  vista::atmosphere::Environment& ensure();
 
   void set_ocean_enabled(bool on);
   void set_cloud_enabled(bool on);
@@ -84,20 +84,20 @@ class AtmosphereSession {
   // Ensure gpu geo_frame is valid for the current world extent (once per frame).
   bool ensure_geo_frame();
 
-  effect::atmosphere::AtmosphereFrame& frame() { return atmosphere_frame_; }
-  const effect::atmosphere::AtmosphereFrame& frame() const {
+  vista::AtmosphereFrame& frame() { return atmosphere_frame_; }
+  const vista::AtmosphereFrame& frame() const {
     return atmosphere_frame_;
   }
 
   // Ocean draw after opaque DEM (Scene3dGpuPresent two-phase present). Height
   // SRV must not stay bound on slot 0 when the DEM textured pass runs.
-  effect::atmosphere::OceanPass& ocean_pass() { return ocean_pass_; }
-  const effect::atmosphere::OceanPass& ocean_pass() const { return ocean_pass_; }
+  vista::OceanPass& ocean_pass() { return ocean_pass_; }
+  const vista::OceanPass& ocean_pass() const { return ocean_pass_; }
 
-  effect::atmosphere::GlobePass& globe_pass() { return globe_pass_; }
-  const effect::atmosphere::GlobePass& globe_pass() const { return globe_pass_; }
-  effect::atmosphere::SatCloudPass& sat_cloud_pass() { return sat_cloud_pass_; }
-  const effect::atmosphere::SatCloudPass& sat_cloud_pass() const {
+  vista::GlobePass& globe_pass() { return globe_pass_; }
+  const vista::GlobePass& globe_pass() const { return globe_pass_; }
+  vista::SatCloudPass& sat_cloud_pass() { return sat_cloud_pass_; }
+  const vista::SatCloudPass& sat_cloud_pass() const {
     return sat_cloud_pass_;
   }
 
@@ -105,7 +105,7 @@ class AtmosphereSession {
   bool run_m3_self_test_hooks(std::string* err);
 
  private:
-  gis::atmosphere::FieldGrid field_grid() const;
+  vista::atmosphere::FieldGrid field_grid() const;
   Extent2 world_extent() const;
   bool prepare_ocean();
   bool prepare_clouds();
@@ -127,14 +127,14 @@ class AtmosphereSession {
   // QPC tick of the last advance_sim_time(); 0 = not primed.
   std::uint64_t last_sim_qpc_ = 0;
 
-  std::unique_ptr<gis::atmosphere::Environment> atmosphere_;
-  effect::atmosphere::OceanPass ocean_pass_;
-  effect::atmosphere::CloudPass cloud_pass_;
-  effect::atmosphere::SkyPass sky_pass_;
-  effect::atmosphere::FogPass fog_pass_;
-  effect::atmosphere::GlobePass globe_pass_;
-  effect::atmosphere::SatCloudPass sat_cloud_pass_;
-  effect::atmosphere::AtmosphereFrame atmosphere_frame_;
+  std::unique_ptr<vista::atmosphere::Environment> atmosphere_;
+  vista::OceanPass ocean_pass_;
+  vista::CloudPass cloud_pass_;
+  vista::SkyPass sky_pass_;
+  vista::FogPass fog_pass_;
+  vista::GlobePass globe_pass_;
+  vista::SatCloudPass sat_cloud_pass_;
+  vista::AtmosphereFrame atmosphere_frame_;
 
   // Sea-mask FieldStore sample is static for a fixed geo extent; refill only
   // when the orbit frame extent changes (was 32x32 samples every present).
@@ -142,6 +142,11 @@ class AtmosphereSession {
   std::vector<float> cached_sea_mask_;
   int cached_sea_mask_n_ = 0;
   bool sea_mask_cache_valid_ = false;
+
+  // Idempotent seed_procedural across Map↔Scene3D tab switches.
+  bool procedural_seeded_ = false;
+  bool procedural_seed_with_rings_ = false;
+  const MapScene* procedural_seed_scene_ = nullptr;
 };
 
 }  // namespace content

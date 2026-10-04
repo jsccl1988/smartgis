@@ -3,56 +3,48 @@
 
 # GIS product tree (QGIS qgis_core + analysis kernels) — not a literal database.
 # One DLL (dll_stem = gis). Top-level groups (no extra public namespace):
-#   model/{feature,layer,map,crs,edit}
-#   datasource/{session,provider,pipeline}  L3 under provider/impl/{sdbd,ogr,gdal}
-#     L1 session → L2 provider → L3 impl; L4 pipeline
+#   {feature,map,edit} + envelope.h  (no gis/model/, no one-file layer/crs)
+#   datasource/{session,provider,pipeline,ogr,sdbd,gdal}
 #     leftover DataSourceMgr → //src/legacy/gis/datasource
 
-#   present/{style,tile}  — StyleDocument, symbols, tiles; inputs to MapFrame.
+#   carto/{style,tile}    — StyleDocument, symbols, tiles; inputs to MapFrame.
+#                           No product gis/present/ (content + graph present only).
 #                           Leftover carto POD: //src/legacy/gis/present/carto
-#                           Leftover vista adapters: //src/legacy/gis/vista
 #                           Leftover feature tess: //src/legacy/gis/feature
-#                           Not folded into product vista sources.
-#   vista/{frame,world,assets,domain}
-#       frame is the CPU MapFrame (ortho now, perspective later); no RHI
-#       world is the gis::World node graph
-#       domain/atmosphere is the only implemented DomainKind session (kAtmosphere)
-#   kernel/{geo,proj,tin,stat}
+#   leftover vista adapters: //src/legacy/gis/vista → vista.dll (not gis.dll)
+#   CPU MapFrame / World / vista GPU live in //src/vista:vista (vista.dll).
+#   geo/{mesh,ops,proj,tin,grid} / stat  (no kernel/ parent; no sibling proj/tin)
 #   analysis/{ops,geometry,raster} — processing kernels; plugin:: only forwards
 # //src/gis:algorithm and :geom forward to :gis.
-# In-DLL source_sets depend on //src/gis/kernel/geo:geo_sources (not :geo)
+# In-DLL source_sets depend on //src/gis/geo:geo_sources (not :geo)
 # so the group can point back at this DLL without a GN cycle.
 
 import("//build/smartgis.gni")
 
 smt_shared_library("gis") {
   dll_stem = "gis"
+  assert_no_deps = [ "//src/vista:vista" ]
   defines = [
     "SDB_EXPORTS",
     "GIS_EXPORTS",
   ]
   deps = [
-    "//src/gis/model/map:gis_sources",
-    "//src/gis/datasource/provider/impl/gdal:sde_gdal_sources",
+    "//src/gis/map:gis_sources",
+    "//src/gis/datasource/gdal:sde_gdal_sources",
     "//src/legacy/gis/datasource:sde_mgr_sources",
     "//src/gis/datasource/session:session_sources",
     "//src/gis/datasource/provider:provider_sources",
-    "//src/gis/present/tile:tile_sources",
-    "//src/gis/vista/assets:assets_sources",
-    "//src/gis/vista/world:world_sources",
-    "//src/gis/vista/domain/atmosphere:atmosphere_sources",
-    "//src/gis/vista/domain:domain_sources",
-    "//src/gis/model/edit:edit_sources",
-    "//src/gis/model/edit:map_edit_sources",
-    "//src/gis/present/style:style_sources",
+    "//src/gis/carto/tile:tile_sources",
+    "//src/gis/edit:edit_sources",
+    "//src/gis/edit:map_edit_sources",
+    "//src/gis/carto/style:style_sources",
     "//src/legacy/gis/present/carto:carto_sources",
-    "//src/legacy/gis/vista:vista_sources",
     "//src/legacy/gis/feature:feature_sources",
-    "//src/gis/vista/frame:frame_sources",
-    "//src/gis/kernel/geo:geo_sources",
-    "//src/gis/kernel/proj:proj_sources",
-    "//src/gis/kernel/stat:stat_sources",
-    "//src/gis/kernel/tin:tin_sources",
+    "//src/gis/geo:geo_sources",
+    "//src/gis/geo:proj_sources",
+    "//src/gis/stat:stat_sources",
+    "//src/gis/geo:tin_sources",
+    "//src/gis/geo:grid_sources",
     "//src/gis/analysis:analysis_sources",
   ]
   # TileProvider / Sdbd headers expose net::; consumers that include them need net.lib.
@@ -103,35 +95,24 @@ group("algorithm_all") {
 group("gis_test_all") {
   testonly = true
   deps = [
-    "//src/gis/kernel/geo:geo_ogr_test",
-    "//src/gis/kernel/proj:proj_test",
-    "//src/gis/kernel/stat:stat_expr_test",
-    "//src/gis/kernel/tin:tin_delaunay_test",
-    "//src/gis/kernel/tin:tin_xyz_test",
+    "//src/gis/geo:ops_test",
+    "//src/gis/geo:indexed_tin_test",
+    "//src/gis/geo:proj_test",
+    "//src/gis/stat:stat_expr_test",
+    "//src/gis/geo:tin_delaunay_test",
+    "//src/gis/geo:geo_grid_laplace_test",
     "//src/gis/datasource/session:datasource_session_test",
     "//src/gis/datasource/pipeline:feature_load_pipeline_test",
-    "//src/gis/datasource/provider/impl/gdal:sde_gdal_test",
-    "//src/gis/datasource/provider/impl/ogr:ogr_text_encoding_test",
-    "//src/gis/datasource/provider/impl/sdbd:sdbd_client_test",
-    "//src/gis/datasource/provider/impl/sdbd:sdbd_live_test",
-    "//src/gis/model/feature:feature_test",
-    "//src/gis/model/map:select_query_test",
-    "//src/gis/model/edit:edit_conflict_test",
-    "//src/gis/present/style:style_test",
-    "//src/gis/present/tile:tile_test",
-    "//src/gis/vista/frame:frame_test",
-    "//src/gis/vista/world:world_test",
-    "//src/gis/vista/world:land_mask_test",
-    "//src/gis/vista/world:dem_raster_test",
-    "//src/gis/vista/world:tessellate_style_test",
-    "//src/gis/vista/assets:model_test",
-    "//src/gis/vista/assets:tileset_test",
-    "//src/gis/vista/domain/atmosphere:field_store_test",
-    "//src/gis/vista/domain/atmosphere:procedural_test",
-    "//src/gis/vista/domain/atmosphere:field_ingest_test",
-    "//src/gis/vista/domain/atmosphere:cloud_system_test",
-    "//src/gis/vista/domain/atmosphere:ocean_system_test",
-    "//src/gis/vista/domain/atmosphere:environment_test",
+    "//src/gis/datasource/gdal:sde_gdal_test",
+    "//src/gis/datasource/ogr:ogr_text_encoding_test",
+    "//src/gis/datasource/sdbd:sdbd_client_test",
+    "//src/gis/datasource/sdbd:sdbd_live_test",
+    "//src/gis/feature:feature_test",
+    "//src/gis/map:select_query_test",
+    "//src/gis/map:map_layer_test",
+    "//src/gis/edit:edit_conflict_test",
+    "//src/gis/carto/style:style_test",
+    "//src/gis/carto/tile:tile_test",
     "//src/gis/analysis:analysis_eigen_test",
     "//src/gis/analysis:analysis_geology_test",
   ]
@@ -141,8 +122,8 @@ group("gis_test_all") {
 group("gis_benchmark_all") {
   testonly = true
   deps = [
-    "//src/gis/kernel/geo:geo_benchmark",
-    "//src/gis/kernel/proj:proj_benchmark",
+    "//src/gis/geo:buffer_benchmark",
+    "//src/gis/geo:proj_benchmark",
     "//src/gis/datasource/session:datasource_benchmark",
   ]
 }

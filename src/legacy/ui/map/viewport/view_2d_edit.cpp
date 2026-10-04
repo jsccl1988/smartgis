@@ -7,8 +7,8 @@
 
 #include "base/core/log.h"
 #include "content/public/view_host.h"
-#include "gis/model/edit/map_edit/map_edit_session.h"
-#include "gis/model/map/map.h"
+#include "gis/edit/map_session.h"
+#include "gis/map/map.h"
 #include "legacy/core/util/menu.h"
 #include "legacy/gis/present/carto/stylemanager.h"
 #include "legacy/sys/sysmanager.h"
@@ -84,7 +84,7 @@ bool Smt2DEditXView::CreateTools(void) {
   return true;
 }
 
-void Smt2DEditXView::SetOperMap(SmtMap* pSmtMap) {
+void Smt2DEditXView::SetOperMap(Map* pSmtMap) {
   Smt2DXView::SetOperMap(pSmtMap);
   if (m_pAppendFeaTool) {
     m_pAppendFeaTool->SetOperMap(pSmtMap);

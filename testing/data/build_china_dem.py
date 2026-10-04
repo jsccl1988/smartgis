@@ -22,7 +22,8 @@ Fallback: --source synthetic (physiography model; no network).
 Usage:
   py -3 testing/data/build_china_dem.py --jobs 16
   py -3 testing/data/build_china_city.py --with-dem
-  py -3 testing/data/build_china_dem.py --zoom 6 --cols 720 --rows 450
+  py -3 testing/data/build_china_dem.py --zoom 7 --cols 1536 --rows 960
+  py -3 testing/data/build_china_dem.py --zoom 8 --cols 2048 --rows 1280
   py -3 testing/data/build_china_dem.py --source synthetic
 
 Requires: Python 3.10+, urllib; GDAL CLI from third_party/.install/bin.
@@ -34,6 +35,7 @@ import argparse
 import json
 import math
 import os
+import shutil
 import struct
 import subprocess
 import sys
@@ -321,6 +323,12 @@ def build_real(out: Path, zoom: int, cols: int, rows: int,
         str(out),
     ])
     run_gdal(bin_dir, "gdalinfo", ["-stats", str(out)])
+    # Refresh the GN copy destination (out/data/) beside testing/data/.
+    out_data = REPO / "out" / "data" / out.name
+    if out.resolve() != out_data.resolve():
+        out_data.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(out, out_data)
+        print(f"copied → {out_data}", flush=True)
     print(f"OK real DEM → {out} ({out.stat().st_size} bytes)", flush=True)
     return 0
 
@@ -463,10 +471,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--source", choices=("real", "synthetic"), default="real")
-    parser.add_argument("--zoom", type=int, default=6,
-                        help="AWS terrain tile zoom (5=coarse, 6=default, 7=heavier)")
-    parser.add_argument("--cols", type=int, default=720)
-    parser.add_argument("--rows", type=int, default=450)
+    parser.add_argument(
+        "--zoom",
+        type=int,
+        default=7,
+        help="AWS terrain tile zoom (6=coarse, 7=default national, 8=heavier)",
+    )
+    # ~0.040° / cell (~4.5 km) — 2× prior 720×450 so map2d hillshade bake
+    # (max_edge≈1024) still samples real DEM slopes, not soft bilinear mush.
+    parser.add_argument("--cols", type=int, default=1536)
+    parser.add_argument("--rows", type=int, default=960)
     parser.add_argument("--no-cutline", action="store_true",
                         help="Keep full bbox without national outline mask")
     parser.add_argument(

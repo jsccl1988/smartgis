@@ -16,7 +16,7 @@ class SmtSelectTool : public SmtBaseTool {
   SmtSelectTool();
   virtual ~SmtSelectTool();
 
-  int Init(LPRENDERDEVICE pMrdRenderDevice, SmtMap* pOperSmtMap, HWND hWnd,
+  int Init(LPRENDERDEVICE pMrdRenderDevice, Map* pOperSmtMap, HWND hWnd,
            pfnToolCallBack pfnCallBack = NULL, void* pToFollow = NULL);
   int AuxDraw();
   int Timer();
@@ -45,8 +45,8 @@ class SmtSelectTool : public SmtBaseTool {
   int m_nLayerFeaType;
 
   gis::ScratchLayer m_resultLayer;
-  SmtGQueryDesc m_gQDes;
-  SmtPQueryDesc m_pQDes;
+  GeomQueryDesc m_gQDes;
+  AttrQueryDesc m_pQDes;
   double m_dpMargin;
   tool::Workspace* m_workspace = nullptr;
 };

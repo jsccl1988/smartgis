@@ -14,8 +14,8 @@
 #include <windows.h>
 
 #include "content/browser/document/store/map_layer.h"
-#include "gis/present/style/style_types.h"
-#include "gis/present/tile/provider/tile_provider.h"
+#include "gis/carto/style/style_types.h"
+#include "gis/carto/tile/tile_provider.h"
 
 namespace content {
 namespace detail {

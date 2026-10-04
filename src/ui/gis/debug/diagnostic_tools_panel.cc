@@ -20,6 +20,7 @@
 #include "ui/views/dialogs/file_picker.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/layout/splitter.h"
+#include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/shell/theme.h"
 #include "ui/views/kernel/widget/widget.h"
 #include "ui/views/markup/loader/markup_loader.h"
@@ -31,6 +32,13 @@
 namespace ui {
 namespace views {
 namespace {
+
+// Compact bottom dock: chrome rows + Trace/Console body. Scaled on attach.
+constexpr int kDiagPreferredDip = 280;
+constexpr int kTabsHostMinDip = 160;
+constexpr int kToolbarHeightDip = 26;
+constexpr int kTitleHeightDip = 22;
+constexpr int kStatusHeightDip = 20;
 
 // Memory counter sparkline; page chrome (stats + host) is markup.
 class MemoryChartView : public View {
@@ -194,8 +202,10 @@ DiagnosticToolsPanel::DiagnosticToolsPanel() {
     set_preferred_size({0, 0});
     return;
   }
+  panel_root_ = loaded.root.get();
   title_ = loaded.ids.find_as<Label>("title");
   status_ = loaded.ids.find_as<Label>("status");
+  toolbar_ = loaded.ids.find("toolbar");
   record_ = loaded.ids.find_as<Button>("record");
   stop_ = loaded.ids.find_as<Button>("stop");
   clear_ = loaded.ids.find_as<Button>("clear");
@@ -204,7 +214,7 @@ DiagnosticToolsPanel::DiagnosticToolsPanel() {
   arm_ = loaded.ids.find_as<Checkbox>("arm");
   track_allocs_ = loaded.ids.find_as<Checkbox>("track_allocs");
   echo_commands_ = loaded.ids.find_as<Checkbox>("echo_commands");
-  View* tabs_host = loaded.ids.find("tabs_host");
+  tabs_host_ = loaded.ids.find("tabs_host");
 
   if (record_) {
     record_->set_click([this] { on_record(); });
@@ -237,48 +247,40 @@ DiagnosticToolsPanel::DiagnosticToolsPanel() {
     });
   }
 
+  // Cold-start (shell §Startup P0-2 style): Output keeps LogSink; Trace is the
+  // default tab. Console + Memory markup trees wait until first select.
   auto output = std::make_unique<DebugConsolePanel>();
   output->set_pane_mode(DebugConsolePanel::PaneMode::kOutput);
   output->set_visible_console(true);
   output_ = output.get();
 
-  auto console = std::make_unique<DebugConsolePanel>();
-  console->set_pane_mode(DebugConsolePanel::PaneMode::kConsole);
-  console->set_visible_console(true);
-  console_ = console.get();
-  console_->set_echo_to_output([this](const std::string& line) {
-    if (echo_commands_ && echo_commands_->is_checked() && output_) {
-      output_->append_line(line);
-    }
-  });
-
   auto cpu = std::make_unique<RenderTracePanel>();
   cpu->set_embedded(true);
   cpu_ = cpu.get();
 
-  auto memory = std::make_unique<MemoryPageView>();
-  memory_stats_ = memory->stats_label();
-  memory_page_ = memory.get();
-
   auto tabs = std::make_unique<TabStrip>();
-  tabs->set_preferred_size({0, 240});
+  tabs->set_preferred_size({0, kTabsHostMinDip});
   tabs_ = tabs.get();
   tabs_->add_tab("Output", std::move(output));
-  tabs_->add_tab("Console", std::move(console));
+  console_tab_ = tabs_->add_tab("Console", std::make_unique<View>());
   tabs_->add_tab("Trace", std::move(cpu));
-  tabs_->add_tab("Memory", std::move(memory));
+  memory_tab_ = tabs_->add_tab("Memory", std::make_unique<View>());
+  tabs_->set_change([this](int i) { ensure_tab_content(i); });
 
-  if (tabs_host) {
-    tabs_host->set_preferred_size({0, 240});
-    tabs_host->set_layout_manager(std::make_unique<FillLayout>());
-    tabs_host->add_child(std::move(tabs));
+  if (tabs_host_) {
+    tabs_host_->set_preferred_size({0, kTabsHostMinDip});
+    tabs_host_->set_layout_manager(std::make_unique<FillLayout>());
+    tabs_host_->add_child(std::move(tabs));
   }
 
+  // Keep markup Yoga (.tabs_host { flex-grow:1 }) so Trace/Console body
+  // retains height. Prefer C++ preferred sizes over CSS px heights.
   auto fill = std::make_unique<FillLayout>();
   set_layout_manager(std::move(fill));
-  loaded.root->set_preferred_size({0, 360});
+  loaded.root->set_preferred_size({0, kDiagPreferredDip});
   add_child(std::move(loaded.root));
   set_preferred_size({0, 0});
+  apply_frame_metrics(1.f);
 
   // Always-on diagnostics: reflect process state (do not re-enable / clear).
   if (arm_ && base::trace::tracing_enabled()) {
@@ -322,6 +324,10 @@ DiagnosticToolsPanel::~DiagnosticToolsPanel() {
     track_allocs_->set_change({});
   }
   remove_all_children();
+  panel_root_ = nullptr;
+  toolbar_ = nullptr;
+  tabs_host_ = nullptr;
+  panel_box_ = nullptr;
   title_ = nullptr;
   status_ = nullptr;
   memory_stats_ = nullptr;
@@ -349,7 +355,10 @@ void DiagnosticToolsPanel::set_visible_tools(bool on) {
     return;
   }
   visible_ = on;
-  set_preferred_size(on ? Size{0, 360} : Size{0, 0});
+  const float scale =
+      widget() ? widget()->device_scale_factor() : 1.f;
+  set_preferred_size(on ? Size{0, dip_to_px(kDiagPreferredDip, scale)}
+                        : Size{0, 0});
   // Hide chrome while collapsed so children cannot paint into a remnant strip.
   // Output keeps LogSink subscription even while collapsed so RHI / present
   // LOGGING still accumulates and snapshot_tail is not the only recovery path.
@@ -365,25 +374,110 @@ void DiagnosticToolsPanel::set_visible_tools(bool on) {
     console_->set_visible_console(on);
   }
   if (on) {
+    apply_frame_metrics(scale);
     on_refresh();
     last_auto_refresh_ = std::chrono::steady_clock::now();
   }
-  // Parent is BrowserView's vertical main_split: reseed so preferred 0 does
-  // not leave a stale half-height secondary, and preferred 220 pins tools.
-  if (auto* split = dynamic_cast<Splitter*>(parent())) {
-    split->reseed();
-  } else if (View* p = parent()) {
+  reseed_host_splitter();
+  schedule_paint();
+}
+
+void DiagnosticToolsPanel::apply_frame_metrics(float scale) {
+  if (scale <= 0.f) {
+    scale = 1.f;
+  }
+  auto set_h = [&](View* v, int h_dip) {
+    if (!v) {
+      return;
+    }
+    const Size cur = v->preferred_size();
+    v->set_preferred_size({cur.width, dip_to_px(h_dip, scale)});
+  };
+  set_h(title_, kTitleHeightDip);
+  set_h(status_, kStatusHeightDip);
+  set_h(toolbar_, kToolbarHeightDip);
+  if (tabs_host_) {
+    tabs_host_->set_preferred_size({0, dip_to_px(kTabsHostMinDip, scale)});
+  }
+  if (tabs_) {
+    tabs_->set_preferred_size({0, dip_to_px(kTabsHostMinDip, scale)});
+  }
+  if (panel_root_) {
+    panel_root_->set_preferred_size({0, dip_to_px(kDiagPreferredDip, scale)});
+  }
+  if (toolbar_) {
+    if (auto* box = dynamic_cast<BoxLayout*>(toolbar_->layout_manager())) {
+      box->set_between_child_spacing(dip_to_px(6, scale));
+    } else {
+      auto row =
+          std::make_unique<BoxLayout>(BoxLayout::Orientation::kHorizontal);
+      row->set_between_child_spacing(dip_to_px(6, scale));
+      toolbar_->set_layout_manager(std::move(row));
+    }
+  }
+  if (visible_) {
+    set_preferred_size({0, dip_to_px(kDiagPreferredDip, scale)});
+  }
+}
+
+void DiagnosticToolsPanel::reseed_host_splitter() {
+  // Parent may be diagnostic_host (FillLayout) under main_split — walk up.
+  for (View* p = parent(); p; p = p->parent()) {
+    if (auto* split = dynamic_cast<Splitter*>(p)) {
+      split->reseed();
+      return;
+    }
+  }
+  if (View* p = parent()) {
     p->layout();
   } else {
     layout();
   }
-  schedule_paint();
+}
+
+void DiagnosticToolsPanel::ensure_console_tab() {
+  if (console_ || !tabs_ || console_tab_ < 0) {
+    return;
+  }
+  auto console = std::make_unique<DebugConsolePanel>();
+  console->set_pane_mode(DebugConsolePanel::PaneMode::kConsole);
+  console->set_visible_console(visible_);
+  console_ = console.get();
+  console_->set_echo_to_output([this](const std::string& line) {
+    if (echo_commands_ && echo_commands_->is_checked() && output_) {
+      output_->append_line(line);
+    }
+  });
+  if (pending_console_submit_) {
+    console_->set_submit_handler(pending_console_submit_);
+  }
+  tabs_->replace_page(console_tab_, std::move(console));
+}
+
+void DiagnosticToolsPanel::ensure_memory_tab() {
+  if (memory_page_ || !tabs_ || memory_tab_ < 0) {
+    return;
+  }
+  auto memory = std::make_unique<MemoryPageView>();
+  memory_stats_ = memory->stats_label();
+  memory_page_ = memory.get();
+  tabs_->replace_page(memory_tab_, std::move(memory));
+  refresh_memory_stats();
+}
+
+void DiagnosticToolsPanel::ensure_tab_content(int index) {
+  if (index == console_tab_) {
+    ensure_console_tab();
+  } else if (index == memory_tab_) {
+    ensure_memory_tab();
+  }
 }
 
 void DiagnosticToolsPanel::set_active_tab(int index) {
   if (!tabs_ || index < 0 || index >= tabs_->tab_count()) {
     return;
   }
+  ensure_tab_content(index);
   tabs_->set_active(index);
 }
 
@@ -393,14 +487,16 @@ int DiagnosticToolsPanel::active_tab() const {
 
 void DiagnosticToolsPanel::set_console_submit(
     std::function<void(const std::string&)> fn) {
+  pending_console_submit_ = std::move(fn);
   if (console_) {
-    console_->set_submit_handler(std::move(fn));
+    console_->set_submit_handler(pending_console_submit_);
   }
 }
 
 void DiagnosticToolsPanel::on_device_scale_factor_changed(float old_scale,
                                                          float new_scale) {
   View::on_device_scale_factor_changed(old_scale, new_scale);
+  apply_frame_metrics(new_scale);
 }
 
 void DiagnosticToolsPanel::paint_self(ui::gfx::Canvas* canvas) {
@@ -513,8 +609,9 @@ void DiagnosticToolsPanel::update_status() {
   if (!status_) {
     return;
   }
+  // Keep one short line — long status preferred-width used to starve tabs_host.
   status_->set_text(std::format(
-      "{} | events={} | Output/Console/Trace/Memory (UI paint profile)",
+      "{} · {} events",
       base::trace::tracing_enabled() ? "Recording" : "Stopped",
       base::trace::process_trace().size()));
 }

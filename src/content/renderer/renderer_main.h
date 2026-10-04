@@ -9,7 +9,7 @@
 
 namespace content {
 
-// --type=renderer: SmtMap / tools (CPU). Must not create a D3D/GL device.
+// --type=renderer: Map / tools (CPU). Must not create a D3D/GL device.
 CONTENT_EXPORT int RendererMain(const ContentMainParams& params);
 
 }  // namespace content

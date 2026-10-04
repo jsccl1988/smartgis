@@ -83,9 +83,11 @@ All rights reserved.
       一份 IR 族 · 同一 <code>render::rhi</code> Facade · L3 按模式 remap
     </p>
     <div class="meta">
-      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§GPU-process × §vista parallel</a>
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§GPU-process × §vista parallel × §Scene3d equal-profile</a>
       · Plans：
       <a href="../plans/2026-10-02-src-render-vista-parallel-accelerate.md">vista L0–L3</a>
+      ·
+      <a href="../plans/2026-10-01-src-render-scene3d-equal-profile-optimize.md">Scene3d / world3d M1–M4</a>
       ·
       <a href="../plans/2026-09-27-gpu-rhi-accelerate.md">gpu-rhi Task 8 bridge</a>
       · As-built：
@@ -107,6 +109,7 @@ All rights reserved.
       <a href="#s5">5 B 帧流水线</a>
       <a href="#s6">6 Bridge / L3 remap</a>
       <a href="#s7">7 Env · 锚点</a>
+      <a href="#s8">8 Scene3d cold vs warm</a>
     </nav>
   </header>
 
@@ -250,8 +253,9 @@ All rights reserved.
 
       <!-- L3 split -->
       <rect x="120" y="272" width="280" height="64" rx="6" fill="#fff" stroke="#2563a8" stroke-width="1.5"/>
-      <text class="box-title" x="260" y="296" text-anchor="middle">A · record_and_present</text>
-      <text class="box-sub" x="260" y="314" text-anchor="middle">graph::present · Pass / GpuScene · 1 CL</text>
+      <text class="box-title" x="260" y="292" text-anchor="middle">A · record_and_present</text>
+      <text class="box-sub" x="260" y="308" text-anchor="middle">graph::present · 1 CL</text>
+      <text class="box-sub" x="260" y="324" text-anchor="middle">sky/depth → DEM → ocean → post</text>
 
       <rect x="430" y="272" width="320" height="64" rx="6" fill="#fff" stroke="#b06a1a" stroke-width="1.5"/>
       <text class="box-title" x="590" y="296" text-anchor="middle">B · Hub + FrameComposer</text>
@@ -323,9 +327,10 @@ All rights reserved.
         <rect x="805" y="28" width="210" height="100" rx="10" fill="#f0f3f7" stroke="#d8dee6" stroke-width="2"/>
         <circle cx="833" cy="50" r="12" fill="#b06a1a"/><text x="833" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">4</text>
         <text class="box-title" x="915" y="52" text-anchor="middle">record_and_present</text>
-        <text class="box-sub" x="915" y="74" text-anchor="middle">Pass / record_draws</text>
-        <text class="box-sub" x="915" y="90" text-anchor="middle">graph::present 1 CL</text>
-        <text class="box-sub" x="915" y="106" text-anchor="middle">gen 校验 publish</text>
+        <text class="box-sub" x="915" y="70" text-anchor="middle">graph::present 1 CL</text>
+        <text class="box-sub" x="915" y="86" text-anchor="middle">sky/depth → DEM</text>
+        <text class="box-sub" x="915" y="102" text-anchor="middle">→ ocean → post</text>
+        <text class="box-sub" x="915" y="118" text-anchor="middle">warm 不 rebuild</text>
       </g>
     </svg>
     <div class="controls">
@@ -405,7 +410,7 @@ All rights reserved.
       <path class="arrow" d="M700 248 V265"/>
       <path class="arrow" d="M780 268 V72"/>
     </svg>
-    <p class="note">规范：compose/present <strong>只</strong>在 GPU process；Browser 只 present SharedHandle。multiprocess as-built 见 <a href="../../build/ui-shell-multiprocess.md">ui-shell-multiprocess.md</a>。</p>
+    <p class="note">规范：compose/present <strong>只</strong>在 GPU process；Browser 只 present SharedHandle。multiprocess as-built 见 <a href="../ui-shell-multiprocess.md">ui-shell-multiprocess.md</a>。</p>
   </section>
 
   <section class="panel" id="s5">
@@ -493,7 +498,7 @@ All rights reserved.
       <thead><tr><th>Flag / env</th><th>作用域</th><th>含义</th></tr></thead>
       <tbody>
         <tr><td><code>SMT_VISTA_LAYOUT_PARALLEL</code></td><td><span class="pill pill-a">A</span> L2</td><td><code>=0</code> → tess N=1</td></tr>
-        <tr><td><code>SMT_GPUSCENE_PREP_PARALLEL</code></td><td><span class="pill pill-a">A</span> L2</td><td><code>=0</code> → frustum prep N=1</td></tr>
+        <tr><td><code>SMT_GPUSCENE_PREP_PARALLEL</code></td><td><span class="pill pill-a">A</span> L2</td><td><strong>default off</strong>；<code>=1</code> 仅在 frustum cull 诚实后；world3d <code>prep_par_on</code> 实验行</td></tr>
         <tr><td><code>SMT_SCENE3D_FRUSTUM_CULL</code></td><td><span class="pill pill-a">A</span></td><td><code>=1</code> 启用 AABB（并行 prep 前提）</td></tr>
         <tr><td><code>SMT_GPU_COMPOSE</code></td><td><span class="pill pill-b">B</span></td><td>默认 <code>kRhi</code>；<code>software</code> 逃生</td></tr>
         <tr><td><code>view.backend.rhi</code></td><td>wire</td><td><code>ContentSource::kDirect</code> — 非 FlyCube / 非 ComposeBackend</td></tr>
@@ -530,6 +535,85 @@ All rights reserved.
       <li>无 D3D11 deferred TLS / 每线程 GDI HDC 进产品默认</li>
       <li><code>gis ↛ render/rhi</code>；MapFrame 仅 POD 穿越</li>
     </ul>
+  </section>
+
+  <section class="panel" id="s8">
+    <h2>8. Scene3d / world3d — cold upload vs warm present（locked）</h2>
+    <p class="note" style="margin:0 0 10px">
+      Living：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§src_render Scene3d equal-profile</a>
+      · Plan：<a href="../plans/2026-10-01-src-render-scene3d-equal-profile-optimize.md">M1–M4</a>
+      · Artifacts：<code>out/Debug/captures/analysis/world3d_opt/matrix/</code>
+    </p>
+    <div class="split">
+      <div class="card">
+        <h3>主指标 · warm</h3>
+        <p><code>ms_per_present</code> · <strong>n=5</strong> · <strong>discard_cold=1</strong>。行：<code>flycube</code> / <code>prep_par_off</code> / <code>prep_par_on</code> / <code>gl_leftover</code> / <code>d3d_leftover</code>；<code>null</code>=smoke。Warm 已 peer ~5–6.5&nbsp;ms — 保护不回归。</p>
+      </div>
+      <div class="card">
+        <h3>P0 · cold upload</h3>
+        <p>FlyCube 首帧 cold ~1.8–2&nbsp;s vs leftover ~90&nbsp;ms。Crush <strong>cache + GPU upload</strong>（M2 ≤300&nbsp;ms）；勿删 DEM。不按 process <code>wall_ms</code> 排名。</p>
+      </div>
+    </div>
+    <svg class="diagram" viewBox="0 0 1040 220" role="img" aria-label="Scene3d cold vs warm flow" style="margin-top:10px">
+      <defs>
+        <marker id="arrowHeadS8" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
+        </marker>
+      </defs>
+      <!-- cold lane -->
+      <rect x="0" y="8" width="1040" height="96" rx="10" fill="#f8efe4" stroke="#d4a574"/>
+      <text class="lane-label" x="16" y="30" fill="#b06a1a">Cold first frame（P0 · M1/M2）</text>
+      <rect x="24" y="42" width="150" height="48" rx="6" fill="#fff" stroke="#d4a574"/>
+      <text class="box-title" x="99" y="62" text-anchor="middle">DEM / mesh cache</text>
+      <text class="box-sub" x="99" y="78" text-anchor="middle">miss → rebuild</text>
+      <rect x="204" y="42" width="160" height="48" rx="6" fill="#fff" stroke="#d4a574"/>
+      <text class="box-title" x="284" y="62" text-anchor="middle">GPU upload batch</text>
+      <text class="box-sub" x="284" y="78" text-anchor="middle">Display thread</text>
+      <rect x="394" y="40" width="168" height="56" rx="6" fill="#fff" stroke="#d4a574"/>
+      <text class="box-title" x="478" y="56" text-anchor="middle">record 1 CL</text>
+      <text class="box-sub" x="478" y="72" text-anchor="middle">sky/depth → DEM</text>
+      <text class="box-sub" x="478" y="86" text-anchor="middle">→ ocean → post</text>
+      <rect x="574" y="42" width="160" height="48" rx="6" fill="#fff" stroke="#d4a574"/>
+      <text class="box-title" x="654" y="62" text-anchor="middle">cold ms (JSON)</text>
+      <text class="box-sub" x="654" y="78" text-anchor="middle">M1 phases · M2 ≤300</text>
+      <path d="M174 66 H202" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#arrowHeadS8)"/>
+      <path d="M364 66 H392" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#arrowHeadS8)"/>
+      <path d="M562 66 H572" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#arrowHeadS8)"/>
+      <text class="box-sub" x="860" y="58" text-anchor="middle">leftover peer ~90 ms</text>
+      <text class="box-sub" x="860" y="76" text-anchor="middle">FlyCube baseline ~1.8–2 s</text>
+
+      <!-- warm lane -->
+      <rect x="0" y="116" width="1040" height="96" rx="10" fill="#e6f5ef" stroke="#8fc4ae"/>
+      <text class="lane-label" x="16" y="138" fill="#2f7d62">Warm StaticReuse（primary metric）</text>
+      <rect x="24" y="150" width="170" height="48" rx="6" fill="#fff" stroke="#8fc4ae"/>
+      <text class="box-title" x="109" y="170" text-anchor="middle">cache hit</text>
+      <text class="box-sub" x="109" y="186" text-anchor="middle">rebuild_count=0</text>
+      <rect x="224" y="150" width="180" height="48" rx="6" fill="#fff" stroke="#8fc4ae"/>
+      <text class="box-title" x="314" y="170" text-anchor="middle">skip remesh / upload≈0</text>
+      <text class="box-sub" x="314" y="186" text-anchor="middle">prep serial default</text>
+      <rect x="434" y="148" width="170" height="56" rx="6" fill="#fff" stroke="#8fc4ae"/>
+      <text class="box-title" x="519" y="164" text-anchor="middle">graph::present</text>
+      <text class="box-sub" x="519" y="180" text-anchor="middle">warm 不 rebuild</text>
+      <text class="box-sub" x="519" y="194" text-anchor="middle">rebuild_count=0</text>
+      <rect x="634" y="150" width="200" height="48" rx="6" fill="#fff" stroke="#8fc4ae"/>
+      <text class="box-title" x="734" y="170" text-anchor="middle">warm ~5–6.5 ms</text>
+      <text class="box-sub" x="734" y="186" text-anchor="middle">n=5 discard_cold=1</text>
+      <path d="M194 174 H222" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#arrowHeadS8)"/>
+      <path d="M404 174 H432" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#arrowHeadS8)"/>
+      <path d="M604 174 H632" fill="none" stroke="#8a96a8" stroke-width="2" marker-end="url(#arrowHeadS8)"/>
+      <text class="box-sub" x="920" y="168" text-anchor="middle">prep_par default OFF</text>
+      <text class="box-sub" x="920" y="186" text-anchor="middle">until frustum cull (M3)</text>
+    </svg>
+    <table class="map">
+      <thead><tr><th>里程碑</th><th>含义</th><th>状态</th></tr></thead>
+      <tbody>
+        <tr><td>M1</td><td>Cold phases in matrix / perf JSON</td><td>open</td></tr>
+        <tr><td>M2</td><td>Cache+upload cold ≤300 ms</td><td>open · P0</td></tr>
+        <tr><td>M3</td><td>Prep honesty；<code>SMT_GPUSCENE_PREP_PARALLEL</code> default off</td><td>open</td></tr>
+        <tr><td>M4</td><td>Non-bare（full atmosphere）budgets</td><td>open</td></tr>
+      </tbody>
+    </table>
+    <p class="note">并行 prep 契约见 §vista parallel Task 4 / 上表 Env。<code>prep_par_on</code> 矩阵行仅作实验对照，不得把慢于 serial 的结果当产品默认。</p>
   </section>
 </div>
 <script>

@@ -9,11 +9,9 @@
 #include <cstdint>
 #include <vector>
 
-namespace effect {
-namespace scene {
+namespace vista {
 class GpuScene;
 }
-}  // namespace effect
 
 namespace render {
 namespace rhi {
@@ -42,7 +40,7 @@ bool record_underlay_effects(render::rhi::Device* device,
 // Wraps GpuScene as an OpaqueEffect and records it. |out_bgra| stays empty
 // until RHI readback exists; returns true when recording succeeded.
 bool record_gpu_scene_underlay(render::rhi::Device* device,
-                               effect::scene::GpuScene* scene,
+                               vista::GpuScene* scene,
                                const render::rhi::CameraMatrices* camera,
                                uint32_t width_px, uint32_t height_px,
                                std::vector<uint8_t>* out_bgra);

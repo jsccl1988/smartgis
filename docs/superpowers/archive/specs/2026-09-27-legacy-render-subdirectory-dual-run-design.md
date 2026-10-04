@@ -22,11 +22,11 @@ All rights reserved.
 | GDI+ carto / MapLibre subset | [`2026-09-19-leftover-gdiplus-carto-design.md`](2026-09-19-leftover-gdiplus-carto-design.md) | **active** — AA / roads / labels already on main GDI |
 | Views 2D → RHI | [`2026-09-27-views-2d-map-rhi-design.md`](2026-09-27-views-2d-map-rhi-design.md) | **active** — modern default present path |
 | CPU MapFrame | [`2026-09-27-map2d-frame-design.md`](2026-09-27-map2d-frame-design.md) | **active** — `gis::map2d::Layout` → `render::map2d::Pass` |
-| GPU process MapLibre pin | [`../archive/specs/2026-09-27-maplibre-out-of-gpu-design.md`](../archive/specs/2026-09-27-maplibre-out-of-gpu-design.md) | **superseded** — Native pin deleted (deferred reconsider); not GDI |
+| GPU process MapLibre pin | [`../archive/specs/2026-09-27-maplibre-out-of-gpu-design.md`](2026-09-27-maplibre-out-of-gpu-design.md) | **superseded** — Native pin deleted (deferred reconsider); not GDI |
 | Peer layout | [`2026-09-27-tool-subdirectory-layout-design.md`](2026-09-27-tool-subdirectory-layout-design.md), [`2026-09-27-atmosphere-subdirectory-layout-design.md`](2026-09-27-atmosphere-subdirectory-layout-design.md) | Same idea: responsibility dirs, stable aggregate GN |
 | Scene3d / DEM | [`2026-09-19-leftover-scene3d-dem-unify-design.md`](2026-09-19-leftover-scene3d-dem-unify-design.md) | Layout of `scene3d/` must not fight DEM unify |
 
-**As-built pointers (update when landing):** [`../../../src/legacy/render/README.md`](../../../src/legacy/render/README.md), [`../../../src/legacy/render/rhi2d/impl/gdi/README.md`](../../../src/legacy/render/rhi2d/impl/gdi/README.md), [`../../../src/legacy/render/rhi3d/BUILD.gn`](../../../src/legacy/render/rhi3d/BUILD.gn), [`../../build/src-layout.md`](../../build/src-layout.md). Layout of former tops `bridge/` + `gdi/` → see [`2026-09-28-legacy-rhi2d-layout-design.md`](2026-09-28-legacy-rhi2d-layout-design.md).
+**As-built pointers (update when landing):** [`../../../src/legacy/render/README.md`](../../README.md), [`../../../src/legacy/render/rhi2d/impl/gdi/README.md`](../../README.md), [`../../../src/legacy/render/rhi3d/BUILD.gn`](../../../src/legacy/render/rhi3d/BUILD.gn), [`../../src-layout.md`](../../src-layout.md). Layout of former tops `bridge/` + `gdi/` → see [`2026-09-28-legacy-rhi2d-layout-design.md`](2026-09-28-legacy-rhi2d-layout-design.md).
 
 ---
 
@@ -343,7 +343,7 @@ Reference stacks:
 3. Remove `gdi_simple` from root `BUILD.gn` deps and `RENDER_GDI_SIMPLE_EXPORTS` define/config.
 4. Delete the `gdi_simple/` directory.
 5. Strip obsolete LoadLibrary candidates in `MapViewport::try_local_device`.
-6. Update `gdi/README.md`, new `legacy/render/README.md`, `docs/build/abi-rename-map.md` / cutover tools if they still name `render_gdi_simple`.
+6. Update `gdi/README.md`, new `legacy/render/README.md`, `docs/superpowers/abi-rename-map.md` / cutover tools if they still name `render_gdi_simple`.
 7. Build `legacy_render` + run `gdi_map_paint_test` / `map_carto2d_test`; smoke leftover CreateDevice alias if a fixture exists.
 
 **Not in-scope as a silent drive-by before this plan’s Task 1:** bulk layout moves. Delete may land as its own change set ahead of layout.

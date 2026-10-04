@@ -11,10 +11,13 @@
   min-height: 480px;
 }
 
+/* MenuBar preferred_size is DIP→px (32 DIP). Do NOT set CSS height/min-height
+   in physical px — under 200% DPI that locked a 32px strip while the shell
+   face is ~40px and File/Edit/View/Layer clipped away (ui.shell #3).
+   Do not use width:100% (px parser rejects %). */
 .menu {
-  height: 28px;
   flex-grow: 0;
-  width: 100%;
+  flex-shrink: 0;
 }
 
 .main_split {
@@ -43,7 +46,7 @@
    so layer rows painted through the tool strip (ui.shell overlap). */
 .tool_bar {
   width: 100%;
-  min-height: 40px;
+  min-height: 48px;
   flex-grow: 0;
   flex-shrink: 0;
 }
@@ -55,7 +58,8 @@
 }
 
 .catalog {
-  width: 288px;
+  /* Prefer C++ preferred_size (300 DIP); fixed CSS px starved HiDPI tabs. */
+  min-width: 240px;
   min-height: 160px;
   flex-grow: 0;
 }
@@ -67,26 +71,23 @@
 }
 
 .inspector {
-  width: 320px;
+  /* Prefer C++ preferred_size (400 DIP); fixed 320px clipped Feature idle copy. */
+  min-width: 300px;
   min-height: 200px;
   flex-grow: 0;
 }
 
-/* Product default console strip; intentionally collapsed panels still use
-   preferred {0,0} via DiagnosticToolsPanel::set_visible_tools(false).
-   height is a layout hint; ShellLayoutChrome / apply_chrome_metrics pin the
-   live preferred size in DIP→px after mount. */
+/* Bottom Diagnostic Tools. Prefer C++ preferred_size (DIP→px); a fixed
+   CSS height fought Splitter seed and HiDPI measure. */
 .diagnostics {
   width: 100%;
-  height: 240px;
-  min-height: 160px;
+  min-height: 180px;
   flex-grow: 0;
 }
 
-/* Tall enough for 20 DIP shell body face after CSS px→layout (see StatusBar). */
+/* StatusBar preferred drives height; fixed CSS px clipped scale text. */
 .status {
   width: 100%;
-  height: 32px;
   min-height: 28px;
   flex-grow: 0;
 }

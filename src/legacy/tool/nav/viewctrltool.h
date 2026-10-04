@@ -21,7 +21,7 @@ class SmtViewCtrlTool : public SmtBaseTool {
   SmtViewCtrlTool();
   virtual ~SmtViewCtrlTool();
 
-  int Init(LPRENDERDEVICE pMrdRenderDevice, SmtMap* pOperSmtMap, HWND hWnd,
+  int Init(LPRENDERDEVICE pMrdRenderDevice, Map* pOperSmtMap, HWND hWnd,
            pfnToolCallBack pfnCallBack = NULL, void* pToFollow = NULL);
   int AuxDraw();
   int Timer();

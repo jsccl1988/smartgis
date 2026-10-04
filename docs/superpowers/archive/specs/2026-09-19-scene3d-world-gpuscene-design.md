@@ -11,8 +11,8 @@ All rights reserved.
 **Status:** active  
 **Date:** 2026-09-19  
 **Scope:** 将 leftover `scene3d` / DEM / map 种子路径对齐 RHI **双场景**（`gis::World` 逻辑世界 + `render::scene::GpuScene` GPU 镜像）；leftover `SmtScene` 逐步变薄适配器。  
-**Related:** 伞状 [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP4；RHI 双场景 [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)；Present Facade [`2026-09-19-legacy-render-present-facade-design.md`](2026-09-19-legacy-render-present-facade-design.md)（**SP2 缝已落地；本规格不改 bridge present 热点**）。  
-**Plan:** [`../plans/2026-09-19-scene3d-world-gpuscene.md`](../plans/2026-09-19-scene3d-world-gpuscene.md)
+**Related:** 伞状 [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](../../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP4；RHI 双场景 [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md)；Present Facade [`2026-09-19-legacy-render-present-facade-design.md`](2026-09-19-legacy-render-present-facade-design.md)（**SP2 缝已落地；本规格不改 bridge present 热点**）。  
+**Plan:** [`../plans/2026-09-19-scene3d-world-gpuscene.md`](../../plans/2026-09-19-scene3d-world-gpuscene.md)
 
 ## Goal
 

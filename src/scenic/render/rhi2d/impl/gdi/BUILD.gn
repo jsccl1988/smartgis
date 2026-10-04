@@ -1,0 +1,31 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+# GDI backend Traits + PaintBackend only. Shared host tree: //.../impl/common.
+import("//build/smartgis.gni")
+
+group("gdi_common_sources") {
+  public_deps = [ "//src/scenic/render/rhi2d/impl/common:gdi_common_sources" ]
+}
+
+group("rhi2d_gdi_backend_sources") {
+  public_deps = [ "//src/scenic/render/rhi2d/impl/common:rhi2d_gdi_backend_sources" ]
+}
+
+group("rhi2d_gdiplus_backend_sources") {
+  public_deps =
+      [ "//src/scenic/render/rhi2d/impl/common:rhi2d_gdiplus_backend_sources" ]
+}
+
+group("rhi2d_skia_backend_sources") {
+  public_deps =
+      [ "//src/scenic/render/rhi2d/impl/common:rhi2d_skia_backend_sources" ]
+}
+
+group("render_gdi_sources") {
+  public_deps = [ "//src/scenic/render/rhi2d/impl/common:render_gdi_sources" ]
+}
+
+group("render_gdi") {
+  public_deps = [ "//src/scenic:scenic_rhi2d_gdi" ]
+}

@@ -148,6 +148,8 @@ class UI_EXPORT MapViewport : public View {
                               uint64_t* out_generation) const;
   void* rhi_device() const { return rhi_device_; }
   void invalidate_native();
+  // Wake the Display mailbox / present timer (shell China seed, tab switch).
+  void request_frame();
   // HWND that receives user mouse (FlyCube DXGI popup when visible, else embed).
   // Gesture subclass + shell wheel forward must target this, not native_view()
   // alone — the present popup sits above the embed and steals hit-testing.
@@ -155,8 +157,11 @@ class UI_EXPORT MapViewport : public View {
   // Show/hide the owned DXGI present popup with the embed pane (tab switch).
   // Inactive Map-Edit present must not cover Scene3d.
   void set_flycube_present_visible(bool show);
+  // Hide the DXGI popup, KillTimer(kPresentTimerId), and drain queued
+  // WM_TIMER so LayerStore replace cannot race Display present.
+  void pause_present();
   // Restart the 16ms present WM_TIMER after harness stop_map_present_timers
-  // so browse / showcase BMP capture is not stuck on a single ocean clear.
+  // or pause_present() so the HWND is not stuck on a single ocean clear.
   void resume_present_timer();
 
   // Write the current backbuffer. False when no pixels have been presented.
@@ -209,7 +214,6 @@ class UI_EXPORT MapViewport : public View {
   void display_run_begin_frame();
   void display_run_present(uint32_t width_px, uint32_t height_px,
                            uint32_t frame_token);
-  void request_frame();
   void signal_display();
 
   // Top-level DXGI present HWND for FlyCube (flip-model is unreliable on

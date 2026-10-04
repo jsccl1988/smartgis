@@ -11,6 +11,7 @@
 #include "legacy/ui/catalog/map/catalog_map_doc.h"
 #include "ogrsf_frmts.h"
 #include "legacy/gis/datasource/datasource_mgr.h"
+#include "legacy/gis/layer/map_bind.h"
 
 using namespace gis;
 using namespace gis;
@@ -44,24 +45,24 @@ SmtMapMgr::~SmtMapMgr(void) {
 }
 
 //////////////////////////////////////////////////////////////////////////
-SmtMap *SmtMapMgr::GetSmtMapPtr(void) { return m_pSmtMap; }
+Map *SmtMapMgr::GetSmtMapPtr(void) { return m_pSmtMap; }
 
-const SmtMap *SmtMapMgr::GetSmtMapPtr(void) const { return m_pSmtMap; }
+const Map *SmtMapMgr::GetSmtMapPtr(void) const { return m_pSmtMap; }
 
-SmtMap &SmtMapMgr::GetSmtMap(void) { return *m_pSmtMap; }
+Map &SmtMapMgr::GetSmtMap(void) { return *m_pSmtMap; }
 
-const SmtMap &SmtMapMgr::GetSmtMap(void) const { return *m_pSmtMap; }
+const Map &SmtMapMgr::GetSmtMap(void) const { return *m_pSmtMap; }
 //////////////////////////////////////////////////////////////////////////
-bool SmtMapMgr::NewMap(SmtMap *&pMap, const char *szMapName) {
+bool SmtMapMgr::NewMap(Map *&pMap, const char *szMapName) {
   if (NULL != pMap) return false;
 
-  pMap = new SmtMap();
+  pMap = new Map();
   pMap->SetMapName(szMapName);
 
   return true;
 }
 
-bool SmtMapMgr::OpenMap(SmtMap *pMap, const char *szMapFile) {
+bool SmtMapMgr::OpenMap(Map *pMap, const char *szMapFile) {
   string strFileName = szMapFile;
   int nPos = strFileName.rfind('.');
   if (nPos == string::npos) return false;
@@ -106,27 +107,27 @@ bool SmtMapMgr::OpenMap(SmtMap *pMap, const char *szMapFile) {
 
   DataSourceMgr *pDSMgr = DataSourceMgr::get_singleton_ptr();
 
-  SmtDataSourceInfo info;
+  DataSourceInfo info;
   char szLayerName[MAX_LAYER_NAME];
 
   for (int i = 0; i < nLyrs; i++) {
-    infile.read((char *)(&info), sizeof(SmtDataSourceInfo));
+    infile.read((char *)(&info), sizeof(DataSourceInfo));
     infile.read((char *)(szLayerName), sizeof(char) * MAX_LAYER_NAME);
 
-    SmtDataSource leftover = pDSMgr->get_data_source(info.szName);
+    CatalogSource leftover = pDSMgr->get_data_source(info.szName);
     if (!leftover) {
       leftover = pDSMgr->create_data_source(info);
     }
 
     if (leftover && leftover.Open() && leftover.GetLayerCount() > 0) {
-      if (pMap->GetLayer(szLayerName) == NULL &&
+      if (leftover_layer_named(pMap, szLayerName) == NULL &&
           pMap->GetOgrLayer(szLayerName) == NULL) {
-        SmtLayerInfo lyrInfo;
+        LayerInfo lyrInfo;
         leftover.GetLayerInfo(lyrInfo, szLayerName);
 
-        if (lyrInfo.unFeatureType == SmtLayer_Ras) {
-          SmtLayer *pLayer = leftover.OpenRasterLayer(szLayerName);
-          if (pLayer) pMap->AddLayer(pLayer);
+        if (lyrInfo.unFeatureType == LayerRas) {
+          Layer *pLayer = leftover.OpenRasterLayer(szLayerName);
+          if (pLayer) leftover_add_layer(pMap, pLayer);
         } else {
           OGRLayer *vl = leftover.OpenVectorLayer(szLayerName);
           if (vl) pMap->AddLayer(vl);
@@ -144,7 +145,7 @@ bool SmtMapMgr::OpenMap(SmtMap *pMap, const char *szMapFile) {
   return true;
 }
 
-bool SmtMapMgr::SaveMapAs(SmtMap *pMap, const char *szFilePath) {
+bool SmtMapMgr::SaveMapAs(Map *pMap, const char *szFilePath) {
   if (NULL == pMap) return false;
 
   if (strlen(szFilePath) == 0) return false;
@@ -179,22 +180,22 @@ bool SmtMapMgr::SaveMapAs(SmtMap *pMap, const char *szFilePath) {
   int nLyrs = pMap->GetLayerCount();
   outfile.write((char *)(&nLyrs), sizeof(int));
 
-  SmtDataSource leftover;
-  SmtDataSourceInfo info;
+  CatalogSource leftover;
+  DataSourceInfo info;
   char szLayerName[MAX_LAYER_NAME];
 
   for (int i = 0; i < nLyrs; ++i) {
-    leftover = SmtDataSource();
+    leftover = CatalogSource();
     if (OGRLayer *ogr = pMap->GetOgrLayer(i)) {
-      leftover = SmtDataSource(ogr->GetDataset());
+      leftover = CatalogSource(ogr->GetDataset());
       strcpy_s(szLayerName, MAX_LAYER_NAME, ogr->GetName());
-    } else if (SmtLayer *pLayer = pMap->GetLeftoverLayer(i)) {
-      leftover = SmtDataSource(pLayer->GetDataSource());
+    } else if (Layer *pLayer = leftover_layer_at(pMap, i)) {
+      leftover = CatalogSource(pLayer->GetDataSource());
       strcpy_s(szLayerName, MAX_LAYER_NAME, pLayer->GetLayerName());
     }
 
     leftover.GetInfo(info);
-    outfile.write((char *)(&info), sizeof(SmtDataSourceInfo));
+    outfile.write((char *)(&info), sizeof(DataSourceInfo));
     outfile.write((char *)(szLayerName), sizeof(char) * MAX_LAYER_NAME);
   }
   //////////////////////////////////////////////////////////////////////////
@@ -217,7 +218,7 @@ bool SmtMapMgr::OpenMap(const char *szMapFile) {
   CloseMap();
 
   // 1.new map file doc
-  m_pSmtMap = new SmtMap();
+  m_pSmtMap = new Map();
 
   // 2.open map
   if (strlen(szMapFile) == 0) return false;
@@ -251,25 +252,25 @@ bool SmtMapMgr::OpenMap(const char *szMapFile) {
 
   DataSourceMgr *pDSMgr = DataSourceMgr::get_singleton_ptr();
 
-  SmtDataSourceInfo info;
+  DataSourceInfo info;
   char szLayerName[MAX_LAYER_NAME];
 
   for (int i = 0; i < nLyrs; i++) {
-    infile.read((char *)(&info), sizeof(SmtDataSourceInfo));
+    infile.read((char *)(&info), sizeof(DataSourceInfo));
     infile.read((char *)(szLayerName), sizeof(char) * MAX_LAYER_NAME);
 
-    SmtDataSource leftover = pDSMgr->get_data_source(info.szName);
+    CatalogSource leftover = pDSMgr->get_data_source(info.szName);
 
     if (leftover && leftover.Open() && leftover.GetLayerCount() > 0) {
       if (GetLayer(szLayerName) == NULL && m_pSmtMap &&
           m_pSmtMap->GetOgrLayer(szLayerName) == NULL) {
-        SmtLayerInfo lyrInfo;
+        LayerInfo lyrInfo;
         leftover.GetLayerInfo(lyrInfo, szLayerName);
 
-        if (lyrInfo.unFeatureType == SmtLayer_Ras) {
-          SmtLayer *pLayer = leftover.OpenRasterLayer(szLayerName);
+        if (lyrInfo.unFeatureType == LayerRas) {
+          Layer *pLayer = leftover.OpenRasterLayer(szLayerName);
           if (pLayer && m_pSmtMap) {
-            m_pSmtMap->AddLayer(pLayer);
+            leftover_add_layer(m_pSmtMap, pLayer);
             m_pSmtMap->SetActiveLayer(pLayer->GetLayerName());
           }
         } else if (m_pSmtMap) {
@@ -303,7 +304,7 @@ bool SmtMapMgr::OpenMap(const char *szMapFile) {
 bool SmtMapMgr::NewMap(const char *szMapName) {
   CloseMap();
 
-  m_pSmtMap = new SmtMap();
+  m_pSmtMap = new Map();
   m_pSmtMap->SetMapName(szMapName);
 
   UpdateMapCatalog();
@@ -380,22 +381,22 @@ bool SmtMapMgr::SaveMapAs(const char *szFilePath) {
   int nLyrs = m_pSmtMap->GetLayerCount();
   outfile.write((char *)(&nLyrs), sizeof(int));
 
-  SmtDataSource leftover;
-  SmtDataSourceInfo info;
+  CatalogSource leftover;
+  DataSourceInfo info;
   char szLayerName[MAX_LAYER_NAME];
 
   for (int i = 0; i < nLyrs; ++i) {
-    leftover = SmtDataSource();
+    leftover = CatalogSource();
     if (OGRLayer *ogr = m_pSmtMap->GetOgrLayer(i)) {
-      leftover = SmtDataSource(ogr->GetDataset());
+      leftover = CatalogSource(ogr->GetDataset());
       strcpy_s(szLayerName, MAX_LAYER_NAME, ogr->GetName());
-    } else if (SmtLayer *pLayer = m_pSmtMap->GetLeftoverLayer(i)) {
-      leftover = SmtDataSource(pLayer->GetDataSource());
+    } else if (Layer *pLayer = leftover_layer_at(m_pSmtMap, i)) {
+      leftover = CatalogSource(pLayer->GetDataSource());
       strcpy_s(szLayerName, MAX_LAYER_NAME, pLayer->GetLayerName());
     }
 
     leftover.GetInfo(info);
-    outfile.write((char *)(&info), sizeof(SmtDataSourceInfo));
+    outfile.write((char *)(&info), sizeof(DataSourceInfo));
     outfile.write((char *)(szLayerName), sizeof(char) * MAX_LAYER_NAME);
   }
   //////////////////////////////////////////////////////////////////////////
@@ -504,10 +505,10 @@ bool SmtMapMgr::UnregisterMapCatalog(void *pMapCatalog) {
 }
 
 bool SmtMapMgr::UpdateMapCatalog(void) {
-  SmtMapDocXCatalog *pMapCatalog;
+  MapDocXCatalog *pMapCatalog;
   vector<void *>::iterator iter = m_vMapCatalogPtrs.begin();
   while (iter != m_vMapCatalogPtrs.end()) {
-    pMapCatalog = (SmtMapDocXCatalog *)(*iter);
+    pMapCatalog = (MapDocXCatalog *)(*iter);
     pMapCatalog->UpdateMapTree();
     ++iter;
   }
@@ -515,12 +516,14 @@ bool SmtMapMgr::UpdateMapCatalog(void) {
   return true;
 }
 //////////////////////////////////////////////////////////////////////////
-bool SmtMapMgr::AppendLayer(SmtLayer *pLayer) {
+bool SmtMapMgr::AppendLayer(Layer *pLayer) {
   bool bRet = true;
 
-  if (m_pSmtMap) {
-    bRet = m_pSmtMap->AddLayer(pLayer);
-    m_pSmtMap->SetActiveLayer(pLayer->GetLayerName());
+  if (m_pSmtMap && pLayer) {
+    char name[MAX_LAYER_NAME];
+    strcpy_s(name, MAX_LAYER_NAME, pLayer->GetLayerName());
+    bRet = leftover_add_layer(m_pSmtMap, pLayer);
+    m_pSmtMap->SetActiveLayer(name);
 
     UpdateMapCatalog();
   }
@@ -557,18 +560,18 @@ bool SmtMapMgr::DeleteLayer(const char *szName) {
   return bRet;
 }
 
-SmtLayer *SmtMapMgr::GetLayer(const char *szName) {
-  SmtLayer *pLayer = NULL;
+Layer *SmtMapMgr::GetLayer(const char *szName) {
+  Layer *pLayer = NULL;
   if (m_pSmtMap) {
-    pLayer = m_pSmtMap->GetLayer(szName);
+    pLayer = leftover_layer_named(m_pSmtMap, szName);
   }
   return pLayer;
 }
 
-SmtLayer *SmtMapMgr::GetLayer(int index) {
-  SmtLayer *pLayer = NULL;
+Layer *SmtMapMgr::GetLayer(int index) {
+  Layer *pLayer = NULL;
   if (m_pSmtMap) {
-    pLayer = m_pSmtMap->GetLayer(index);
+    pLayer = leftover_layer_at(m_pSmtMap, index);
   }
   return pLayer;
 }
@@ -583,16 +586,16 @@ bool SmtMapMgr::SetActiveLayer(const char *szName) {
   return bRet;
 }
 
-SmtLayer *SmtMapMgr::GetActiveLayer(void) {
-  SmtLayer *pLayer = NULL;
+Layer *SmtMapMgr::GetActiveLayer(void) {
+  Layer *pLayer = NULL;
   if (m_pSmtMap) {
-    pLayer = m_pSmtMap->GetActiveLayer();
+    pLayer = leftover_active_layer(m_pSmtMap);
   }
 
   return pLayer;
 }
 
-bool SmtMapMgr::AppendFeature(SmtFeature *pFeature, bool bIsClone) {
+bool SmtMapMgr::AppendFeature(FeatureAdapter *pFeature, bool bIsClone) {
   bool bRet = false;
   if (m_pSmtMap) {
     bRet = m_pSmtMap->AppendFeature(pFeature, bIsClone);

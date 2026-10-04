@@ -36,7 +36,7 @@ All brief assertions pass: provider support flags, GDAL driver names, GPKG file 
 
 ## Implementation
 
-### Provider enum (`src/gis/layer/layer.h`)
+### Provider enum (`src/gis/map/layer_kind.h`)
 
 Appended after `PROVIDER_MYSQL` (no reorder):
 
@@ -111,7 +111,7 @@ Shared helpers in anonymous namespace:
 
 | File | Action |
 | --- | --- |
-| `src/gis/layer/layer.h` | Modified — provider enum values |
+| `src/gis/map/layer_kind.h` | Modified — provider enum values |
 | `src/gis/datasource/gdal/ogr_connect.h` | Created — traits + free fn declarations |
 | `src/gis/datasource/gdal/ogr_connect.cc` | Created — trait bodies + dispatch |
 | `src/gis/datasource/gdal/sde_gdal_test.cc` | Created — connect checks test |

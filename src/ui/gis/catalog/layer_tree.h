@@ -23,7 +23,7 @@ enum class LayerKind {
 };
 
 // Vertical layer list: expand (groups) + visibility checkbox + type glyph +
-// name. IDs are opaque strings; this control never stores SmtLayer* or other
+// name. IDs are opaque strings; this control never stores Layer* or other
 // GIS pointers. Nested |children| are optional — empty children keep the
 // historical flat-list layout.
 class UI_EXPORT LayerTree : public View {

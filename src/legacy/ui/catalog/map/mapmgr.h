@@ -23,8 +23,8 @@ Copyright (c) 2010 CCL. All rights reserved.
 
 #include "legacy/core/macros/macros.h"
 #include "legacy/core/types/env.h"
-#include "gis/model/feature/feature.h"
-#include "gis/model/map/map.h"
+#include "legacy/gis/feature/model_aliases.h"
+#include "gis/map/map.h"
 
 using namespace gis;
 
@@ -41,16 +41,16 @@ class XCATALOG_EXPORT SmtMapMgr {
   static void DestoryInstance(void);
 
  public:
-  static bool NewMap(SmtMap *&pMap, const char *szMapName);
-  static bool OpenMap(SmtMap *pMap, const char *szMapFile);
-  static bool SaveMapAs(SmtMap *pMap, const char *szFilePath);
+  static bool NewMap(Map *&pMap, const char *szMapName);
+  static bool OpenMap(Map *pMap, const char *szMapFile);
+  static bool SaveMapAs(Map *pMap, const char *szFilePath);
 
  public:
-  SmtMap *GetSmtMapPtr(void);
-  const SmtMap *GetSmtMapPtr(void) const;
+  Map *GetSmtMapPtr(void);
+  const Map *GetSmtMapPtr(void) const;
 
-  SmtMap &GetSmtMap(void);
-  const SmtMap &GetSmtMap(void) const;
+  Map &GetSmtMap(void);
+  const Map &GetSmtMap(void) const;
 
   bool NewMap(const char *szMapName);
   bool OpenMap(const char *szMapFile);
@@ -58,20 +58,20 @@ class XCATALOG_EXPORT SmtMapMgr {
   bool SaveMap();
   bool SaveMapAs(const char *szFilePath);
 
-  bool AppendLayer(SmtLayer *pLayer);
+  bool AppendLayer(Layer *pLayer);
   bool AppendLayer(OGRLayer *pLayer);
   bool DeleteLayer(const char *szName);
-  SmtLayer *GetLayer(int index);
-  SmtLayer *GetLayer(const char *szName);
+  Layer *GetLayer(int index);
+  Layer *GetLayer(const char *szName);
 
   bool SetActiveLayer(const char *szName);
-  SmtLayer *GetActiveLayer(void);
+  Layer *GetActiveLayer(void);
 
-  bool AppendFeature(SmtFeature *pFeature, bool bIsClone = false);
+  bool AppendFeature(FeatureAdapter *pFeature, bool bIsClone = false);
 
  public:
   // xview registers this so catalog does not link SmtXViewCore (GN cycle).
-  typedef void (*Smt2DXViewNotifyFn)(void *p2DXView, SmtMap *pMap);
+  typedef void (*Smt2DXViewNotifyFn)(void *p2DXView, Map *pMap);
   void Set2DXViewNotify(Smt2DXViewNotifyFn fn);
 
   bool Register2DXView(void *p2DXView);
@@ -87,7 +87,7 @@ class XCATALOG_EXPORT SmtMapMgr {
 
  protected:
  private:
-  SmtMap *m_pSmtMap;
+  Map *m_pSmtMap;
   string m_strMDocPath;
   Smt2DXViewNotifyFn m_fn2DXViewNotify;
   vector<void *> m_v2DXViewPtrs;

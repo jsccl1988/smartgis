@@ -8,7 +8,7 @@
 // Product shell composition lives in //src/app/views, not this module.
 // GIS panels / product dialogs live in //src/ui/gis (include "ui/gis/…").
 // Includes here are "ui/views/<area>/…". dialogs/ and map/ stay flat.
-// See docs/build/ui-views-skia.md and
+// See docs/superpowers/ui-views-skia.md and
 // docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md.
 
 // Kernel

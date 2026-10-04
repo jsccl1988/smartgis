@@ -139,7 +139,7 @@ From stderr / files, fill:
 | Hot phase | Prefer code under |
 | --- | --- |
 | `layout_ms` / builds | `content/browser/present/map2d/**` (`Map2dFrameCache`, presenter) |
-| `hillshade_ms` | `effect/map/**`, DEM shade cache |
+| `hillshade_ms` | `vista/map/**`, DEM shade cache |
 | `software_paint_ms` | map2d software export / paint path |
 | `gpu_upload_ms` | `content/.../map2d/gpu/**`, `render/graph/**`, `render/rhi/**` |
 | `gpu_present_ms` / low `skip_pct` | `Map2dGpuPresent`, StaticReuse / dual-speed settle |

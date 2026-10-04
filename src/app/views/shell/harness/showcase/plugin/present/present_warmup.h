@@ -25,12 +25,23 @@ struct PluginPresentFailPolicy {
 };
 
 // Four (or |frame_count|) present_gpu frames. Returns 0 or 52.
+// Overload with |perf_json_leaf| writes atmosphere-style present timing JSON
+// under captures/plugin/ (ms_per_present + Scene3dPhaseSample fields).
 int present_plugin_warmup_frames(content::Scene3dPresenter* cam,
                                  PluginDeviceSession* session,
                                  Browser& browser,
                                  const char* fail_log_prefix,
                                  const PluginPresentFailPolicy& on_fail,
                                  int frame_count = 4);
+
+int present_plugin_warmup_frames(content::Scene3dPresenter* cam,
+                                 PluginDeviceSession* session,
+                                 Browser& browser,
+                                 const char* fail_log_prefix,
+                                 const PluginPresentFailPolicy& on_fail,
+                                 int frame_count,
+                                 const char* perf_json_leaf,
+                                 const char* mode);
 
 }  // namespace detail
 }  // namespace app

@@ -27,6 +27,9 @@ class UI_EXPORT Splitter : public View {
   // Clear the one-shot seed and lay out again from child preferred sizes.
   void reseed();
 
+  // 5px seam matches QGIS/ArcGIS Pro chrome (was 8 — read as a bright slab).
+  static constexpr int kBarPx = 5;
+
   void layout() override;
   bool on_mouse_event(const MouseEvent& event) override;
   void on_device_scale_factor_changed(float old_scale, float new_scale) override;
@@ -42,7 +45,6 @@ class UI_EXPORT Splitter : public View {
     kProportional,
   };
 
-  static constexpr int kBarPx = 8;
   static constexpr int kMinPanePx = 40;
 
   bool is_horizontal() const {

@@ -84,8 +84,6 @@ test("plugin_host_test") {
     # the test exe resolves them (import lib has no undecorated copies).
     "//src/legacy/plugin/runtime:bridge",
     "//src/plugin/product/world3d:world3d_views",
-    "//src/plugin/product/orthogrid:orthogrid_views",
-    "//src/plugin/product/orthogrid3d:orthogrid3d_views",
     "//src/plugin/product/print:print_views",
     "//third_party:cpp_httplib",
   ]

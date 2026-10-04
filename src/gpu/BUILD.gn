@@ -23,8 +23,8 @@ source_set("compositor_cpu_blend") {
 }
 
 # Output surface, software compositor, and direct/tile raster. No //src/content:content dep.
-# Basemap parses Style JSON via //src/gis/present/style and Style `sources` via
-# //src/gis/present/tile (gis.dll). content/public headers are include-only.
+# Basemap parses Style JSON via //src/gis/carto/style and Style `sources` via
+# //src/gis/carto/tile (gis.dll). content/public headers are include-only.
 # gfx: use :gfx_headers only — do not pull ui_views.dll / content / tool here.
 source_set("gpu_backend") {
   sources = [
@@ -62,12 +62,12 @@ source_set("gpu_backend") {
   public_deps = [ ":compositor_cpu_blend" ]
   deps = [
     "//src/net:net",
-    "//src/gis/present/style",
-    "//src/gis/present/tile",
-    "//src/gis/vista/world:world",
+    "//src/gis/carto/style",
+    "//src/gis/carto/tile",
+    "//src/vista:vista",
     # Multi-GPU RHI compose (FrameComposer kRhi). Links render.dll; FlyCube
     # shared-handle import is still TODO on Device (see rhi.h defaults).
-    "//src/effect/scene:scene_sources",
+    "//src/vista:vista",
     "//src/render:rhi",
     "//src/render/graph:graph",
     "//src/ui/gfx:gfx_headers",

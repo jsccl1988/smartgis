@@ -37,7 +37,7 @@ class XVIEW_EXPORT Smt2DEditXView : public Smt2DXView {
   DECLARE_MESSAGE_MAP()
 
  public:
-  void SetOperMap(SmtMap* pSmtMap);
+  void SetOperMap(Map* pSmtMap);
 
  protected:
   bool InitCreate(void);

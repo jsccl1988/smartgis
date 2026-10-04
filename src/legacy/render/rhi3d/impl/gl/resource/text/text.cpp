@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <string>
 
-#include "gis/datasource/provider/impl/ogr/text/ogr_text_encoding.h"
+#include "gis/datasource/ogr/ogr_text_encoding.h"
 
 namespace render {
 SmtGLText::SmtGLText() {

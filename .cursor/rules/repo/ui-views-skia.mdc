@@ -11,7 +11,7 @@ All rights reserved.
 
 # Desktop UI endgame: Views + Skia
 
-**This rule is always on (`alwaysApply: true`).** The chosen high-ceiling UI is in-process C++ **Chromium-style Views** (widget / layout / events) plus **Skia** (paint), hosting the existing map viewport (`src/render`, `src/map` / `src/feature`). Details: `docs/build/ui-views-skia.md`.
+**This rule is always on (`alwaysApply: true`).** The chosen high-ceiling UI is in-process C++ **Chromium-style Views** (widget / layout / events) plus **Skia** (paint), hosting the existing map viewport (`src/render`, `src/map` / `src/feature`). Details: `docs/superpowers/ui-views-skia.md`.
 
 ## Do
 
@@ -26,4 +26,5 @@ All rights reserved.
 - **Don’t** introduce Qt (see `no-qt.mdc`).
 - **Don’t** treat WinUI 3, WinAppSDK, or WebView2 as the default or endgame shell.
 - **Don’t** treat MFC Feature Pack as the endgame UI toolkit.
+- **Don’t** pull leftover MFC / `src/legacy/` into Views product TUs (see **`legacy-unidirectional.mdc`**).
 - **Don’t** vendor Chromium or Skia wholesale in drive-by edits.

@@ -1,0 +1,101 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Compiled into //src/scenic:scenic_render_gl (dll_stem = scenic_render_gl).
+# OpenGL leftover impl under rhi3d/impl/gl/ (parallel to impl/d3d/).
+# Layout: host/resource/paint/caps/ext. File basenames drop the gl_ prefix
+# (types/SmtGL* unchanged). Former label: //src/scenic/gl:render_gl_sources.
+source_set("gl_sources") {
+  sources = [
+    # ext/*_func*.h are header-only loaders; util accessors live in host/.
+    "caps/device_caps.cpp",
+    "ext/ext_interface.cpp",
+    "host/render_device.cpp",
+    "host/device_present.cpp",
+    "paint/effect.cpp",
+    "paint/fast_draw.cpp",
+    "paint/misc.cpp",
+    "paint/matrix.cpp",
+    "paint/shader.cpp",
+    "paint/vba.cpp",
+    "paint/vbo.cpp",
+    "paint/states_manager.cpp",
+    "resource/buffer/index_buffer.cpp",
+    "resource/buffer/vertex_buffer.cpp",
+    "resource/frame_buffer.cpp",
+    "resource/font.cpp",
+    "resource/texture.cpp",
+    "resource/text/text.cpp",
+  ]
+  configs += [
+    "//build:legacy",
+    "//src/scenic:scenic_render_gl_exports",
+  ]
+  defines = [ "_USRDLL" ]
+  deps = [
+    "//src/gis/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/base/math:math",
+    "//src/scenic:scenic_impl",
+    "//src/gis:gis",
+    "//third_party:CxImage",
+    "//third_party:khronos_gl",
+  ]
+  libs = [
+    "opengl32.lib",
+    "glu32.lib",
+  ]
+}
+
+# Compat alias for former //src/scenic/gl:render_gl_sources.
+group("render_gl_sources") {
+  public_deps = [ ":gl_sources" ]
+}
+
+group("render_gl") {
+  public_deps = [ "//src/scenic:scenic_render_gl" ]
+}
+
+group("gl") {
+  public_deps = [ "//src/scenic:scenic_render_gl" ]
+}
+
+# Shown HWND + china_plp.geojson → leftover GL must produce non-black pixels.
+test("scenic_gl_map_paint_test") {
+  output_name = "scenic_gl_map_paint_test"
+  sources = [ "test/map_paint_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    "//src/scenic:scenic_copy_all",
+    "//src/gis:gis",
+    "//testing/data:china_map_samples",
+    "//third_party:gdal",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+  ]
+}
+
+# Hidden HWND: CreateTexture/Build/Bind + FBO clear/unbind + CreateFont/GetFrustum.
+test("scenic_gl_texture_test") {
+  output_name = "scenic_gl_texture_test"
+  sources = [ "test/gl_texture_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    "//src/scenic:scenic_copy_all",
+    "//third_party:khronos_gl",
+  ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+    "opengl32.lib",
+    "glu32.lib",
+  ]
+}

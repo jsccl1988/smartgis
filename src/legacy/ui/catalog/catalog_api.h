@@ -20,7 +20,7 @@ Copyright (c) 2010 CCL. All rights reserved.
 #endif
 
 #include "legacy/core/macros/macros.h"
-#include "gis/model/layer/layer.h"
+#include "legacy/gis/layer/layer.h"
 
 using namespace base;
 using namespace gis;

@@ -331,7 +331,7 @@ ninja -C out sde_gdal_test
 
 **Files:**
 - `src/plugin/**/BUILD.gn`、host LoadLibrary / `*.am` 适配路径
-- `docs/build/abi-rename-map.md` Plugin stem 段
+- `docs/superpowers/abi-rename-map.md` Plugin stem 段
 
 - [ ] **Step 1: 确认每域插件仍一 DLL；`*.am` 仍 LoadLibrary**
 
@@ -346,8 +346,8 @@ ninja -C out sde_gdal_test
 ### Task 9: 文档回写
 
 **Files:**
-- Modify: `docs/build/abi-rename-map.md` — 增加 reorg 终态列/附录
-- Modify: `docs/build/src-layout.md` — 「一层一 DLL + optional leftover」；删除/覆盖「Deliberately not merged」中过时 DLL 粒度句
+- Modify: `docs/superpowers/abi-rename-map.md` — 增加 reorg 终态列/附录
+- Modify: `docs/superpowers/src-layout.md` — 「一层一 DLL + optional leftover」；删除/覆盖「Deliberately not merged」中过时 DLL 粒度句
 - Modify: 本 plan 勾选；spec Status 在全部落地后改 `landed` 并归档（另变更集）
 
 - [x] **Step 1: 与 design 终态表对齐回写**

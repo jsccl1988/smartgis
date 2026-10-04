@@ -12,7 +12,7 @@
 namespace ui {
 namespace views {
 
-// Modal create-layer form: name plus Point/Line/Polygon. No SmtLayer*.
+// Modal create-layer form: name plus Point/Line/Polygon. No Layer*.
 class UI_EXPORT CreateLayerDialog {
  public:
   struct Result {

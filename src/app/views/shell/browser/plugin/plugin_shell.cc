@@ -20,8 +20,6 @@
 #include "plugin/product/traffic/commands.h"
 #include "plugin/runtime/host/ui/manager_view.h"
 #include "plugin/runtime/host/manifest/manifest.h"
-#include "plugin/product/orthogrid/commands.h"
-#include "plugin/product/orthogrid3d/commands.h"
 #include "plugin/product/print/commands.h"
 #include "plugin/runtime/host/resources/resource_roots.h"
 #include "plugin/runtime/processing/builtin_ops.h"
@@ -303,8 +301,6 @@ bool PluginShell::start_builtins() {
       {"smartgis.mine", "矿山地层插值", plugin::register_mine},
       {"smartgis.geochem", "地球化学分析", plugin::register_geochem},
       {"smartgis.print", "地图打印", plugin::register_print},
-      {"smartgis.baogrid", "正交格网", plugin::register_orthogrid},
-      {"smartgis.orthogrid3d", "3D正交格网", plugin::register_orthogrid3d},
       {"smartgis.processing", "Processing", plugin::register_builtin_processing},
   };
 

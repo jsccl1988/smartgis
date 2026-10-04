@@ -16,7 +16,7 @@ const string CST_STR_SELECT_TOOL_NAME = "选取";
 
 namespace tool {
 SmtSelectTool::SmtSelectTool()
-    : m_selMode(ST_Point), m_nLayerFeaType(SmtFtUnknown), m_dpMargin(4) {
+    : m_selMode(ST_Point), m_nLayerFeaType(FtUnknown), m_dpMargin(4) {
   set_name(CST_STR_SELECT_TOOL_NAME.c_str());
 }
 
@@ -30,7 +30,7 @@ SmtSelectTool::~SmtSelectTool() {
   UnRegisterMsg();
 }
 
-int SmtSelectTool::Init(LPRENDERDEVICE pMrdRenderDevice, SmtMap* pOperSmtMap,
+int SmtSelectTool::Init(LPRENDERDEVICE pMrdRenderDevice, Map* pOperSmtMap,
                         HWND hWnd, pfnToolCallBack pfnCallBack,
                         void* pToFollow) {
   if (SMT_ERR_NONE != SmtBaseTool::Init(pMrdRenderDevice, pOperSmtMap, hWnd,

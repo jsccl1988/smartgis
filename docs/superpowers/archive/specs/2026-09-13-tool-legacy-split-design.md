@@ -7,7 +7,7 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** landed  
-**Related:** dispatch [`2026-09-13-tool-event-dispatch-design.md`](2026-09-13-tool-event-dispatch-design.md)；布局 [`../../build/src-layout.md`](../../build/src-layout.md)；对称先例 [`2026-09-13-render-legacy-split-design.md`](2026-09-13-render-legacy-split-design.md)。  
+**Related:** dispatch [`2026-09-13-tool-event-dispatch-design.md`](../../specs/2026-09-13-tool-event-dispatch-design.md)；布局 [`../../src-layout.md`](../../src-layout.md)；对称先例 [`2026-09-13-render-legacy-split-design.md`](2026-09-13-render-legacy-split-design.md)。  
 **Scope:** 物理子目录重构（方案 1）：leftover 整包平移到 `legacy/tool/` + include/GN 全改名，**不留** `src/tool/<leftover>` 转发头。
 
 ## Goal
@@ -60,7 +60,7 @@ All rights reserved.
 
 ## Docs to update (same change)
 
-- `docs/build/src-layout.md`（Tool 行 + path map）
+- `docs/superpowers/src-layout.md`（Tool 行 + path map）
 - `src/README.md`、`src/tool/README.md`
 - `docs/superpowers/specs/2026-09-13-tool-event-dispatch-design.md` leftover 路径行（修订 in place）
 - 根 `BUILD.gn` 的 `tool_group` 门控 deps 指向新 label

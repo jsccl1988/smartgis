@@ -11,7 +11,7 @@ All rights reserved.
 **Date:** 2026-09-14  
 **Status:** superseded (2026-09-28 merge B)
 **Goal:** `src/app` 只保留终局/原型宿主；MFC `SmartGis.exe` 与 MFC chrome 树物理迁出；Views 主入口按编辑→属性表→Catalog→Ambox/插件→3D 升级；对等验收后停编 MFC 壳（源码保留）。  
-**Related:** [`2026-09-13-ui-views-mfc-migration-design.md`](2026-09-13-ui-views-mfc-migration-design.md)、[`2026-09-14-ui-leftover-chrome-parity-design.md`](2026-09-14-ui-leftover-chrome-parity-design.md)、[`docs/build/src-layout.md`](../../build/src-layout.md)、[`docs/build/ui-views-skia.md`](../../build/ui-views-skia.md)、对称先例 [`archive/specs/2026-09-13-tool-legacy-split-design.md`](../archive/specs/2026-09-13-tool-legacy-split-design.md) / [`2026-09-13-render-legacy-split-design.md`](2026-09-13-render-legacy-split-design.md)  
+**Related:** [`2026-09-13-ui-views-mfc-migration-design.md`](2026-09-13-ui-views-mfc-migration-design.md)、[`2026-09-14-ui-leftover-chrome-parity-design.md`](2026-09-14-ui-leftover-chrome-parity-design.md)、[`docs/superpowers/src-layout.md`](../../src-layout.md)、[`docs/superpowers/ui-views-skia.md`](../../ui-views-skia.md)、对称先例 [`archive/specs/2026-09-13-tool-legacy-split-design.md`](2026-09-13-tool-legacy-split-design.md) / [`2026-09-13-render-legacy-split-design.md`](2026-09-13-render-legacy-split-design.md)  
 **Follow-up (subdirectory + SP3 strangler):** [`2026-09-27-legacy-app-subdirectory-layout-design.md`](2026-09-27-legacy-app-subdirectory-layout-design.md) — scheme C inside `legacy/app` + interleaved host extract; does **not** reopen this file’s stop-compile / Views-default locks.  
 **Plan:** [`../plans/2026-09-14-app-legacy-split.md`](../plans/2026-09-14-app-legacy-split.md)
 
@@ -100,7 +100,7 @@ src/ui/
 1. `git mv` MFC app 根文件 + `app_core` → `src/legacy/app/`  
 2. `git mv` `src/ui/{gui,mfc_ex,xview,xcatalog,xambox,chart}` → `src/legacy/ui/`  
 3. 全库改 include / GN label（scoped search；无 `"ui/gui/` 等残留于产品代码）  
-4. 更新 `docs/build/src-layout.md`、`ui-views-skia.md`、migration 规格路径行  
+4. 更新 `docs/superpowers/src-layout.md`、`ui-views-skia.md`、migration 规格路径行  
 5. `build.bat app` 仍可加载 `SmartGis.exe`（允许修编译）  
 6. `build.bat views` 不受 MFC 路径影响（views 不链 leftover UI）
 
@@ -160,8 +160,8 @@ Forbidden: endgame `views` → `legacy_ui`；`src/ui/views` → MFC headers。
 
 ## Docs to update (same change sets)
 
-- `docs/build/src-layout.md` — App / UI 行  
-- `docs/build/ui-views-skia.md` — leftover 路径  
+- `docs/superpowers/src-layout.md` — App / UI 行  
+- `docs/superpowers/ui-views-skia.md` — leftover 路径  
 - `2026-09-13-ui-views-mfc-migration-design.md` — leftover 落点改为 `legacy_*`  
 - `src/README.md`、`src/app/README.md`（若无则新建）、`src/legacy/app/README.md`、`src/legacy/ui/README.md`  
 - 本规格 Status 随 Phase 推进为 `accepted` / 归档时 `landed`

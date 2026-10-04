@@ -15,9 +15,9 @@
 #include "legacy/ui/catalog/scene/scenemgr.h"
 #include "legacy/ui/catalog/resource.h"
 #include "legacy/gis/datasource/datasource_mgr.h"
-#include "gis/model/feature/feature_api.h"
-#include "gis/model/layer/layer.h"
-#include "gis/model/map/map.h"
+#include "legacy/gis/feature/leftover_copy_layer.h"
+#include "legacy/gis/layer/layer.h"
+#include "gis/map/map.h"
 #include "legacy/sys/sysmanager.h"
 
 using namespace render;

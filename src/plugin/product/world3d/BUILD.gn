@@ -8,10 +8,10 @@ import("//testing/test.gni")
 # Shell points --plugins-dir at out/plugins (default: <exe>/../plugins).
 copy("world3d_resources") {
   sources = [
-    "resources/grid_loader.ui.css",
-    "resources/grid_loader.ui.xml",
-    "resources/tin_loader.ui.css",
-    "resources/tin_loader.ui.xml",
+    "grid/dem/dialog/heightmap_loader.ui.css",
+    "grid/dem/dialog/heightmap_loader.ui.xml",
+    "grid/dem/dialog/trimesh_loader.ui.css",
+    "grid/dem/dialog/trimesh_loader.ui.xml",
   ]
   outputs = [ "$root_out_dir/../plugins/world3d/{{source_file_part}}" ]
 }
@@ -22,26 +22,148 @@ copy("world3d_data_stub") {
   outputs = [ "$root_out_dir/../plugins/world3d/data/{{source_file_part}}" ]
 }
 
-# MFC-free XYZ→TIN and heightmap→grid kernels for world3d_views (and legacy DLL).
-source_set("world3d_processing") {
+# DEM XYZ/heightmap kernels (Views + leftover plugin_dem / plugin_model3d).
+source_set("world3d_dem") {
   sources = [
-    "processing/grid_loader.cc",
-    "processing/grid_loader.h",
-    "processing/tin_loader.cc",
-    "processing/tin_loader.h",
+    "grid/dem/loader/heightmap_loader.cc",
+    "grid/dem/loader/heightmap_loader.h",
+    "grid/dem/loader/trimesh_loader.cc",
+    "grid/dem/loader/trimesh_loader.h",
   ]
   include_dirs += [
     ".",
     "//src",
   ]
   public_deps = [
-    "//src/gis/kernel/geo:geo",
+    "//src/gis/geo:geo",
     "//third_party:gdal",
   ]
   deps = [
-    "//src/gis/kernel/tin:tin",
+    "//src/gis/geo:tin",
     "//src/base:core",
     "//src/base/math:math",
+  ]
+}
+
+# Alias for leftover GN that still named the kernel set "processing".
+group("world3d_processing") {
+  public_deps = [ ":world3d_dem" ]
+}
+
+source_set("world3d_hexgrid") {
+  sources = [
+    "grid/hexgrid/register.cc",
+    "grid/hexgrid/register.h",
+    "detail/contribute.h",
+    "grid/hexgrid/solve/boundary_solve.cc",
+    "grid/hexgrid/solve/boundary_solve.h",
+    "grid/hexgrid/lattice/hex_lattice.cc",
+    "grid/hexgrid/lattice/hex_lattice.h",
+    "grid/hexgrid/sample/sample_volume.cc",
+    "grid/hexgrid/sample/sample_volume.h",
+    "grid/hexgrid/io/vtk_structured.cc",
+    "grid/hexgrid/io/vtk_structured.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    "//src/content:content",
+    "//src/gis:gis",
+    "//src/gis/geo:geo",
+    "//src/gis/geo:tin",
+    "//src/base:core",
+    "//src/base/math:math",
+    "//src/plugin/runtime/host:host",
+    "//src/ui/views:views",
+    "//third_party:rapidjson",
+  ]
+}
+
+# XY lattice buffer only (gdal). Leftover rhi2d / 2010 orthogrid kernel may
+# depend on this without pulling world3d_orthogrid Eigen/UI.
+source_set("world3d_orthogrid_lattice") {
+  sources = [
+    "grid/orthogrid/lattice/ortho_lattice.cc",
+    "grid/orthogrid/lattice/ortho_lattice.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  public_deps = [ "//third_party:gdal" ]
+}
+
+source_set("world3d_orthogrid") {
+  sources = [
+    "grid/orthogrid/register.cc",
+    "grid/orthogrid/register.h",
+    "grid/orthogrid/session/session.cc",
+    "grid/orthogrid/session/session.h",
+    "detail/contribute.h",
+    "grid/orthogrid/solve/boundary_solve.cc",
+    "grid/orthogrid/solve/boundary_solve.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    ":world3d_orthogrid_lattice",
+    "//src/content:content",
+    "//src/gis:gis",
+    "//src/gis/geo:geo",
+    "//src/base:core",
+    "//src/plugin/runtime/host:host",
+    "//src/ui/views:views",
+    "//third_party:rapidjson",
+  ]
+  public_deps = [ "//third_party:eigen" ]
+}
+
+# DEM command/dialogs (separate source_set so dem/register.obj != scene/register.obj).
+source_set("world3d_dem_commands") {
+  sources = [
+    "grid/dem/register.cc",
+    "grid/dem/register.h",
+    "grid/dem/dialog/heightmap_loader_dialog.cc",
+    "grid/dem/dialog/heightmap_loader_dialog.h",
+    "grid/dem/dialog/trimesh_loader_dialog.cc",
+    "grid/dem/dialog/trimesh_loader_dialog.h",
+    "detail/contribute.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    ":world3d_dem",
+    "//src/content:content",
+    "//src/gis:gis",
+    "//src/gis/geo:geo",
+    "//src/plugin/runtime/host:host",
+    "//src/plugin/runtime/widgets:widgets",
+    "//src/ui/views:views",
+    "//third_party:gdal",
+    "//third_party:rapidjson",
+  ]
+}
+
+source_set("world3d_grid_commands") {
+  sources = [
+    "grid/register.cc",
+    "grid/register.h",
+  ]
+  include_dirs += [
+    ".",
+    "//src",
+  ]
+  deps = [
+    ":world3d_dem_commands",
+    ":world3d_hexgrid",
+    ":world3d_orthogrid",
+    "//src/content:content",
   ]
 }
 
@@ -49,21 +171,24 @@ source_set("world3d_views") {
   sources = [
     "commands.cc",
     "commands.h",
-    "scene_commands.cc",
-    "views/grid_loader_dialog.cc",
-    "views/grid_loader_dialog.h",
-    "views/tin_loader_dialog.cc",
-    "views/tin_loader_dialog.h",
+    "detail/contribute.h",
+    "scene/register.cc",
+    "scene/register.h",
   ]
   include_dirs += [
     ".",
     "//src",
   ]
   deps = [
-    ":world3d_processing",
+    ":world3d_dem",
+    ":world3d_dem_commands",
+    ":world3d_grid_commands",
+    ":world3d_hexgrid",
+    ":world3d_orthogrid",
     "//src/gis:gis",
-    "//src/gis/kernel/geo:geo",
-    "//src/gis/kernel/tin:tin",
+    "//src/vista:vista",
+    "//src/gis/geo:geo",
+    "//src/gis/geo:tin",
     "//src/base:core",
     "//src/content:content",
     "//src/plugin/runtime/host:host",
@@ -72,6 +197,7 @@ source_set("world3d_views") {
     "//third_party:gdal",
     "//third_party:rapidjson",
   ]
+  public_deps = [ "//third_party:eigen" ]
   data_deps = [
     ":world3d_data_stub",
     ":world3d_resources",
@@ -80,10 +206,10 @@ source_set("world3d_views") {
 
 test("world3d_loader_test") {
   output_name = "world3d_loader_test"
-  sources = [ "tests/loader_test.cc" ]
+  sources = [ "grid/dem/tests/loader_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
-    ":world3d_processing",
+    ":world3d_dem",
     ":world3d_views",
     "//src/content:content",
     "//src/plugin/runtime/host:host",
@@ -91,19 +217,47 @@ test("world3d_loader_test") {
   ]
   data_deps = [
     ":world3d_resources",
-    "//src/gis/kernel/tin:tin",
-    "//src/gis/kernel/geo:geo",
+    "//src/gis/geo:tin",
+    "//src/gis/geo:geo",
     "//third_party:gdal_runtime_dlls",
   ]
 }
 
 test("world3d_scene_writer_test") {
   output_name = "world3d_scene_writer_test"
-  sources = [ "tests/scene_writer_test.cc" ]
+  sources = [ "scene/tests/scene_writer_test.cc" ]
   include_dirs += [ "//src" ]
   deps = [
     ":world3d_views",
     "//src/content:content",
     "//src/plugin/runtime/host:host",
   ]
+}
+
+test("orthogrid_laplace_test") {
+  output_name = "orthogrid_laplace_test"
+  sources = [
+    "grid/orthogrid/solve/boundary_solve.cc",
+    "grid/orthogrid/tests/laplace_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/gis/geo:geo",
+    "//third_party:eigen",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}
+
+test("orthogrid3d_laplace_test") {
+  output_name = "orthogrid3d_laplace_test"
+  sources = [
+    "grid/hexgrid/solve/boundary_solve.cc",
+    "grid/hexgrid/lattice/hex_lattice.cc",
+    "grid/hexgrid/sample/sample_volume.cc",
+    "grid/hexgrid/io/vtk_structured.cc",
+    "grid/hexgrid/tests/laplace_test.cc",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [ "//src/gis/geo:geo", "//src/gis/geo:tin", "//src/base/math:math" ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
 }

@@ -6,7 +6,7 @@
 #include <cstring>
 
 #include "content/public/event_bus.h"
-#include "gis/model/edit/session/edit_session.h"
+#include "gis/edit/session.h"
 #include "tool/interaction/interaction.h"
 
 namespace tool {

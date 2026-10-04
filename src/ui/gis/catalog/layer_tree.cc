@@ -24,8 +24,8 @@ namespace views {
 
 namespace {
 
-// DIPs — match shell body font (20 DIP) at high DPI; avoid fixed-px clipping.
-constexpr int kRowHeightDip = 30;
+// DIPs — match shell body font at high DPI; avoid fixed-px clipping.
+constexpr int kRowHeightDip = 26;
 constexpr int kCheckSizeDip = 16;
 constexpr int kCheckPadDip = 8;
 constexpr int kCheckHitPadDip = 4;
@@ -603,7 +603,14 @@ void LayerTree::set_layers(const std::vector<LayerDesc>& layers) {
     find_active(node);
   }
   batch_layout_ = false;
-  layout();
+  // Defer row placement while the TOC page is still 0-tall (TabStrip body not
+  // measured yet). Eager layout on zero height marks every row invisible and
+  // View::layout skips invisible children — TOC stays blank after grow.
+  if (bounds().height >= row_height()) {
+    layout();
+  } else {
+    mark_needs_layout();
+  }
   schedule_paint();
   if (active_id.empty() && !rows_.empty() && rows_.front()) {
     active_id = rows_.front()->id();
@@ -846,6 +853,13 @@ void LayerTree::layout() {
   LayoutScope scope(this);
   const Rect& b = bounds();
   const int row_h = row_height();
+  // Early sync (wire_catalog / SeedDocument) often runs before the Catalog
+  // TabStrip body has a non-zero height. Hiding every row here used to stick:
+  // later layouts skipped invisible children and the Layers TOC stayed empty
+  // (ui.shell #2) even after china_city was loaded.
+  if (b.width <= 0 || b.height <= 0 || row_h <= 0) {
+    return;
+  }
   int y = b.y;
   for (LayerRow* row : rows_) {
     if (!row) {

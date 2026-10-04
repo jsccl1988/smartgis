@@ -14,7 +14,7 @@ All rights reserved.
 
 ## Goal
 
-`ui::views` is the endgame desktop widget kit (scheme 3 variant (b) in [`docs/build/ui-shell-multiprocess.md`](../../build/ui-shell-multiprocess.md)). Phase 1 makes the kernel and primitive controls real. Phase 2 adds public GIS widgets. Phase 3 is app composition only: `src/app/views` hosts a `Widget`, lays out toolkit widgets, and does not paint business panels by hand. Capability now lands in parallel (see the migration spec); the phase list is inventory, not a serial gate.
+`ui::views` is the endgame desktop widget kit (scheme 3 variant (b) in [`docs/superpowers/ui-shell-multiprocess.md`](../../ui-shell-multiprocess.md)). Phase 1 makes the kernel and primitive controls real. Phase 2 adds public GIS widgets. Phase 3 is app composition only: `src/app/views` hosts a `Widget`, lays out toolkit widgets, and does not paint business panels by hand. Capability now lands in parallel (see the migration spec); the phase list is inventory, not a serial gate.
 
 Every chrome scheme in the multiprocess note stays supported: leftover MFC, Views+Skia, WinUI, and MapViewport attach modes (`kContentMapView`, `kOopRender`, `kLocalDevice`, `kPlaceholder`). WebView2 / `src/web` were removed. Qt is banned. Chromium and Skia are not vendored.
 
@@ -95,8 +95,8 @@ These are public toolkit types (same include root). They consume `Theme` and pri
 
 **Status:** active  
 **Updated:** 2026-09-28  
-**Plan:** [`../plans/2026-09-28-gis-panels-abc.md`](../plans/2026-09-28-gis-panels-abc.md)  
-**Host wiring:** [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md) §GIS panels A+B+C
+**Plan:** [`../plans/2026-09-28-gis-panels-abc.md`](../../plans/2026-09-28-gis-panels-abc.md)  
+**Host wiring:** [`2026-09-27-views-desktop-shell-design.md`](../../specs/2026-09-27-views-desktop-shell-design.md) §GIS panels A+B+C
 
 Tracks **A 制图 / B 空间分析 / C 量测与选择** as public `ui::views` GIS panels under responsibility dirs of `src/ui/gis/` (`style/` · `analysis/` · `inspect/` · `shell/` · `debug/`; **no** `gis/panel/`). Toolkit stays map-agnostic (strings / POD / callbacks only).
 
@@ -170,8 +170,8 @@ Tracks **A 制图 / B 空间分析 / C 量测与选择** as public `ui::views` G
 
 **Status:** active  
 **Updated:** 2026-09-28  
-**Plan:** [`../plans/2026-09-28-ui-compositor-thread.md`](../plans/2026-09-28-ui-compositor-thread.md)  
-**Folded from:** archived twin [`../archive/specs/2026-09-28-ui-compositor-thread-design.md`](../archive/specs/2026-09-28-ui-compositor-thread-design.md) (superseded — revise this § in place; do not open a new dated hot twin).
+**Plan:** [`../plans/2026-09-28-ui-compositor-thread.md`](../../plans/2026-09-28-ui-compositor-thread.md)  
+**Folded from:** archived twin [`../archive/specs/2026-09-28-ui-compositor-thread-design.md`](2026-09-28-ui-compositor-thread-design.md) (superseded — revise this § in place; do not open a new dated hot twin).
 
 ### § Shell present async (hover must not block)
 

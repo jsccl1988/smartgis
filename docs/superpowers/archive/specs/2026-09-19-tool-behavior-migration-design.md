@@ -15,12 +15,12 @@ All rights reserved.
 
 | 主题 | Spec |
 | --- | --- |
-| SP0 伞状契约 | [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) |
+| SP0 伞状契约 | [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](../../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md) |
 | SP1 激活 strangler | [`2026-09-19-legacy-tool-workspace-strangler-design.md`](2026-09-19-legacy-tool-workspace-strangler-design.md) |
-| Tool session dispatch（accepted） | [`2026-09-13-tool-event-dispatch-design.md`](2026-09-13-tool-event-dispatch-design.md) |
-| Tool leftover 物理迁出（landed） | [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](../archive/specs/2026-09-13-tool-legacy-split-design.md) |
-| 产品布局 as-built | [`../../build/src-layout.md`](../../build/src-layout.md)、[`src/tool/README.md`](../../../src/tool/README.md) |
-| **SP1b 实现计划** | [`../plans/2026-09-19-tool-behavior-migration.md`](../plans/2026-09-19-tool-behavior-migration.md) |
+| Tool session dispatch（accepted） | [`2026-09-13-tool-event-dispatch-design.md`](../../specs/2026-09-13-tool-event-dispatch-design.md) |
+| Tool leftover 物理迁出（landed） | [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](2026-09-13-tool-legacy-split-design.md) |
+| 产品布局 as-built | [`../../src-layout.md`](../../src-layout.md)、[`src/tool/README.md`](../../README.md) |
+| **SP1b 实现计划** | [`../plans/2026-09-19-tool-behavior-migration.md`](../../plans/2026-09-19-tool-behavior-migration.md) |
 
 ---
 
@@ -66,7 +66,7 @@ SP1 规格**不删除**；本文件是其子阶段。SP1 Done when（激活转�
 | `src/tool/**`（Interaction / Draft / 测试矩阵） | `src/legacy/render/**`（SP2） |
 | `src/legacy/tool/group/{viewctrl,select,appendfeature,flash,basetool}.*`（变薄） | `src/legacy/app/**`、`src/legacy/ui/**`（SP3） |
 | `src/content/**` 薄接线（ViewHost / draft_observer 演示，不扩 ABI） | `src/legacy/render/scene3d/**`（SP4） |
-| `docs/superpowers/specs|plans`、`src/tool/README.md`、必要时 `docs/build/src-layout.md` 一句 | 产品 `BUILD.gn` 编译闸门大改（SP5） |
+| `docs/superpowers/specs|plans`、`src/tool/README.md`、必要时 `docs/superpowers/src-layout.md` 一句 | 产品 `BUILD.gn` 编译闸门大改（SP5） |
 
 冲突时：更窄的 accepted dispatch 规格优先于本文件表述；本文件不得与 SP0 §4 依赖规则矛盾。
 
@@ -371,7 +371,7 @@ GN：`//src/legacy/tool/group` → `//src/tool:dispatch` OK；`//src/tool:dispat
 3. 测试矩阵 §6 所列目标全绿。
 4. `view_host_test`（或等价）演示 pan + select.rect + append.point。
 5. `dll_stem` / GT_MSG 数值未改。
-6. `src/tool/README.md`（及若布局表过时则 `docs/build/src-layout.md`）写明 SP1b 行为搬迁与壳职责。
+6. `src/tool/README.md`（及若布局表过时则 `docs/superpowers/src-layout.md`）写明 SP1b 行为搬迁与壳职责。
 7. Input* factory ABI 保留、指针死路径已弱化；view3d Present 大改仍 Out of scope（§12）。
 
 ---
@@ -406,7 +406,7 @@ GN：`//src/legacy/tool/group` → `//src/tool:dispatch` OK；`//src/tool:dispat
 - [x] Components、Data flow、Testing matrix、Host gate、Leftover thin、粗映射+metadata、Input* 延后均已写明
 - [x] Success criteria 可勾选；Out of scope 与 SP2–SP5 边界清晰
 - [x] §9.2 Draft.flags 编码表锁定（消除 flags 歧义）
-- [x] 伞状 SP0 Child 表增加 **SP1b** 行；plan：[`../plans/2026-09-19-tool-behavior-migration.md`](../plans/2026-09-19-tool-behavior-migration.md)
+- [x] 伞状 SP0 Child 表增加 **SP1b** 行；plan：[`../plans/2026-09-19-tool-behavior-migration.md`](../../plans/2026-09-19-tool-behavior-migration.md)
 - [x] （实现阶段）T+H+L 闸门实测通过；plan 勾选随实现更新
 
 实现工作不在本文展开；落地以 plan 为准。

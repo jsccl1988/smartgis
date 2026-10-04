@@ -31,7 +31,8 @@ std::vector<std::string> style_seed_relative_paths() {
 std::vector<std::string> china_seed_relative_paths() {
   // Prefer prefecture china_city (SmartGis.exe-like overview) over schematic
   // china_plp (~46 features). GN writes samples to out/data (exe is
-  // out/Debug → ..\data). Keep plp + views sample as last-resort fallbacks.
+  // out/Debug → ..\data). No synthetic / views_ogr_sample fallback — hard-fail
+  // when real china packs are missing.
   return {
       "..\\data\\china_city.gpkg",
       "..\\data\\china_city.geojson",
@@ -47,10 +48,6 @@ std::vector<std::string> china_seed_relative_paths() {
       "testing\\data\\china_plp.geojson",
       "..\\testing\\data\\china_plp.geojson",
       "..\\..\\testing\\data\\china_plp.geojson",
-      "views_ogr_sample.geojson",
-      "testing\\data\\views_ogr_sample.geojson",
-      "..\\testing\\data\\views_ogr_sample.geojson",
-      "..\\..\\testing\\data\\views_ogr_sample.geojson",
   };
 }
 

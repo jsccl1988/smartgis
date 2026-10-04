@@ -9,8 +9,8 @@ All rights reserved.
 **Status:** landed  
 **Implementation note (2026-09-27):** Scheme A freeze as-built on master — no further subdirectory moves. Docs + module README are the deliverable; physical tree already matched L1. Optional compile smoke is user-owned (`build.bat` / `ninja -C out` targets below).  
 **Scope:** Physical + GN layout of leftover AuxModule / domain MFC shells under `src/legacy/plugin` only. Does **not** reopen endgame `src/plugin/{runtime,product}` layout.  
-**Parent (living):** [`../../specs/2026-09-14-plugin-subdir-layout-design.md`](../../specs/2026-09-14-plugin-subdir-layout-design.md) — L1 + I1; this doc freezes the **legacy half** after relocate.  
-**Related:** full upgrade [`../../specs/2026-09-14-plugin-full-upgrade-design.md`](../../specs/2026-09-14-plugin-full-upgrade-design.md); as-built [`../../../build/src-layout.md`](../../../build/src-layout.md), [`../../../../src/legacy/plugin/README.md`](../../../../src/legacy/plugin/README.md).  
+**Parent (living):** [`../../specs/2026-09-14-plugin-subdir-layout-design.md`](2026-09-14-plugin-subdir-layout-design.md) — L1 + I1; this doc freezes the **legacy half** after relocate.  
+**Related:** full upgrade [`../../specs/2026-09-14-plugin-full-upgrade-design.md`](2026-09-14-plugin-full-upgrade-design.md); as-built [`../../src-layout.md`](../../src-layout.md), [`../../../../src/legacy/plugin/README.md`](../../../../src/legacy/plugin/README.md).  
 **Peer precedent (pattern only):** tool / atmosphere / gpu subdirectory specs — nest by responsibility, stable aggregate GN, no shim headers; leftover ABI stays.  
 **Plan (landed):** [`../plans/2026-09-27-legacy-plugin-subdirectory-layout.md`](../plans/2026-09-27-legacy-plugin-subdirectory-layout.md)
 

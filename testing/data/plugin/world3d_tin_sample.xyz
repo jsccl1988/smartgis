@@ -1,9 +1,0 @@
-﻿# Copyright (c) 2026 The Mogu Authors.
-# All rights reserved.
-# Mini CRS84 XYZ for world3d.tin_from_xyz (header + 5 points).
-x,y,z
-105.0,35.0,100
-105.5,35.0,120
-105.5,35.5,110
-105.0,35.5,90
-105.25,35.25,150

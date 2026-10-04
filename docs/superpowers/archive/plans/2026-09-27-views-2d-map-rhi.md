@@ -9,7 +9,7 @@ All rights reserved.
 > **Status: superseded** (2026-09-28 merge). Merged into map2d-frame plan / living. Do not revise here except mechanical link fixes.
 
 **Status:** active  
-**Note (2026-09-27):** Map Pass 终态树为 `src/effect/map`（非 `src/render/map2d`）。本 plan 任务勾选仍有效；接线 include 以 as-built `effect/map/pass.h` 为准。  
+**Note (2026-09-27):** Map Pass 终态树为 `src/vista/map`（非 `src/render/map2d`）。本 plan 任务勾选仍有效；接线 include 以 as-built `vista/map/pass.h` 为准。  
 **Spec:** [`../specs/2026-09-27-views-2d-map-rhi-design.md`](../specs/2026-09-27-views-2d-map-rhi-design.md)
 
 ## Task 1: `MapScene::present_gpu` + annotation overlay

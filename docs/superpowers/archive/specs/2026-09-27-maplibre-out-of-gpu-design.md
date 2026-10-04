@@ -20,4 +20,4 @@ All rights reserved.
 
 ## Historical body (obsolete — was “move probe to render/maplibre”)
 
-The prior accepted approach (sibling under `src/render/maplibre`) is **cancelled**. Product Pass remains `src/effect/map`; tile compositing remains `gis/present` + gpu `raster/tile`. Native pin ownership is **none** until a future decision reopens the topic.
+The prior accepted approach (sibling under `src/render/maplibre`) is **cancelled**. Product Pass remains `src/vista/map`; tile compositing remains `gis/present` + gpu `raster/tile`. Native pin ownership is **none** until a future decision reopens the topic.

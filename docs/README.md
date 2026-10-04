@@ -7,7 +7,7 @@ All rights reserved.
 
 根上的 README 是第一站。这里同一份故事，并留下目录，方便从那张图走到具体的文件。
 
-工程上的对齐——短文件名、`docs/build/`、入口只有 `build.bat`——仍然有效。mogu 源树本机未检出也没关系。不搬 Bazel。
+工程上的对齐——短文件名、`docs/superpowers/`、入口只有 `build.bat`——仍然有效。mogu 源树本机未检出也没关系。不搬 Bazel。
 
 ## 本地预览（Portal）
 
@@ -24,23 +24,26 @@ REM 或: py -3 docs\portal\serve.py
 
 ### 产品 / 构建（as-built）
 
+As-built 与 living 规格同树：[`superpowers/`](superpowers/README.md)（根上的 `src-layout.md` 等）。GN toolchain 仍在仓库根 [`build/README.md`](../build/README.md)。
+
 | 文档 | 内容 |
 | --- | --- |
 | [根 `README.md`](../README.md) | 产品故事 |
 | [`build/README.md`](../build/README.md) | GN/Ninja toolchain |
 | [`testing/README.md`](../testing/README.md) | 单测 / `build.bat e2e` 产品 exe 冒烟 |
 | [`src/README.md`](../src/README.md) | 产品树分层（短名） |
-| [`build/mogu-mapping.md`](build/mogu-mapping.md) | mogu → 本仓工程管理对照 |
-| [`build/src-layout.md`](build/src-layout.md) | `src/` 分层 + 2010→短名表；foundation 在 `src/base` |
+| [`superpowers/mogu-mapping.md`](superpowers/mogu-mapping.md) | mogu → 本仓工程管理对照 |
+| [`superpowers/src-layout.md`](superpowers/src-layout.md) | `src/` 分层 + 2010→短名表；foundation 在 `src/base` |
 | [`../src/base/README.md`](../src/base/README.md) | foundation + 产品平台 DLL |
-| [`build/abi-rename-map.md`](build/abi-rename-map.md) | include / dll_stem / 导出宏 |
-| [`build/ui-views-skia.md`](build/ui-views-skia.md) | 桌面 UI 终局：Views + Skia |
-| [`build/ui-testing.md`](build/ui-testing.md) | GUI / Views 测试分层（L0–L4） |
-| [`build/gis-test-matrix.md`](build/gis-test-matrix.md) | `src/gis` 功能矩阵 + 覆盖率/基准入口 |
-| [`build/ui-shell-multiprocess.md`](build/ui-shell-multiprocess.md) | 可替换 chrome + 多进程渲染 |
-| [`build/views-window-process.html`](build/views-window-process.html) | Views 窗口体系 / 进程体系（启动·运行·关闭） |
+| [`superpowers/abi-rename-map.md`](superpowers/abi-rename-map.md) | include / dll_stem / 导出宏 |
+| [`superpowers/ui-views-skia.md`](superpowers/ui-views-skia.md) | 桌面 UI 终局：Views + Skia |
+| [`superpowers/ui-testing.md`](superpowers/ui-testing.md) | GUI / Views 测试分层（L0–L4） |
+| [`superpowers/gis-test-matrix.md`](superpowers/gis-test-matrix.md) | `src/gis` 功能矩阵 + 覆盖率/基准入口 |
+| [`superpowers/ui-shell-multiprocess.md`](superpowers/ui-shell-multiprocess.md) | 可替换 chrome + 多进程渲染 |
+| [`superpowers/industry-gap-matrix.md`](superpowers/industry-gap-matrix.md) | 业界差距矩阵 |
+| [`superpowers/diagrams/views-window-process.html`](superpowers/diagrams/views-window-process.html) | Views 窗口体系 / 进程体系（启动·运行·关闭） |
 
-### Superpowers（in-flight）
+### Superpowers（living + as-built）
 
 **默认改 living 伞的 `§`，禁止轻易开新 dated topic。** 仅 9 行 Active 表：[`superpowers/README.md`](superpowers/README.md)。规则：`.cursor/rules/repo/superpowers-docs.mdc`。
 
@@ -71,8 +74,8 @@ REM 或: py -3 docs\portal\serve.py
 
 所以才重写。不是要把实验室抹掉，也不是要把地形和点云再清点一遍。旧栈太倔。换手，只为让那张还能干活的图活下去。树还在长，新旧叠在同一棵树上。这不是陈列柜，是一份一起住过的代码还没说完的话。
 
-目录怎么分，见 [`build/src-layout.md`](build/src-layout.md)。模型、场景，见 [`superpowers/specs/2026-09-13-render-rhi-scene-design.md`](superpowers/specs/2026-09-13-render-rhi-scene-design.md)。
+目录怎么分，见 [`superpowers/src-layout.md`](superpowers/src-layout.md)。模型、场景，见 [`superpowers/specs/2026-09-13-render-rhi-scene-design.md`](superpowers/specs/2026-09-13-render-rhi-scene-design.md)。
 
 ---
 
-**最后更新：** 2026-10-02
+**最后更新：** 2026-10-03

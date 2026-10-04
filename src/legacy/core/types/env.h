@@ -39,14 +39,14 @@ struct SmtStyleConfig {
   }
 };
 
-struct SmtMapDocInfo {
+struct MapDocInfo {
   char szMapName[MAX_MAPNAME_LENGTH];
-  SmtMapDocInfo() { sprintf(szMapName, "DefMap"); }
+  MapDocInfo() { sprintf(szMapName, "DefMap"); }
 };
 
 struct SmtPrjInfo {
   int head;
-  SmtMapDocInfo mapDocInfo;
+  MapDocInfo mapDocInfo;
   char szMapDocPath[MAX_PATH];
 };
 

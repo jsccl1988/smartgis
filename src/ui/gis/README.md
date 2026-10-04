@@ -52,4 +52,4 @@ GN: `:gis_sources` compiles into `:ui_views` (same `UI_EXPORTS`). Stable `:gis` 
 
 Markup ControlFactory still registers GIS tags as **placeholders** inside views (`register_gis_placeholder_markup_tags`); real panel instances are C++-constructed by the app.
 
-Living docs: [`docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md`](../../../docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md). As-built: [`docs/build/ui-views-skia.md`](../../../docs/build/ui-views-skia.md).
+Living docs: [`docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md`](../../../docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md). As-built: [`docs/superpowers/ui-views-skia.md`](../../../docs/superpowers/ui-views-skia.md).

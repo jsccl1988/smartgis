@@ -11,8 +11,8 @@ All rights reserved.
 **Date:** 2026-09-14; **relocated leftover:** 2026-09-27 (`src/plugin/legacy` → `src/legacy/plugin`); **runtime/product split:** 2026-09-27; **AM adapter:** 2026-09-27 (`plugin/runtime/host/legacy_{am,cmd}` → `legacy/plugin/adapter`); **orthogrid kernel:** 2026-09-27 (`product/orthogrid` 2010 class → `legacy/plugin/orthogrid/kernel`); **product package roles:** 2026-09-28  
 **Updated:** 2026-09-28  
 **Status:** superseded (2026-09-28 merge B)
-**Legacy half (2026-09-27):** physical tree under `src/legacy/plugin` is **as-built / frozen** — see [`../archive/specs/2026-09-27-legacy-plugin-subdirectory-layout-design.md`](../archive/specs/2026-09-27-legacy-plugin-subdirectory-layout-design.md) (landed; no further nesting of AuxModule root or domain `dlg_*` in that freeze).  
-**Choices:** L1 + I1 + nested domain shells under `legacy/plugin/<domain>` (not sibling `legacy_XXX`). No include shims. Endgame tree splits **runtime** (host, processing, widgets, python, samples) from **product** domains. Public namespace stays `plugin`. Product domains use a **package** layout (`manifest` / `views` / `processing` / `tests`) with global file naming (`docs/build/src-layout.md` File naming).
+**Legacy half (2026-09-27):** physical tree under `src/legacy/plugin` is **as-built / frozen** — see [`../archive/specs/2026-09-27-legacy-plugin-subdirectory-layout-design.md`](2026-09-27-legacy-plugin-subdirectory-layout-design.md) (landed; no further nesting of AuxModule root or domain `dlg_*` in that freeze).  
+**Choices:** L1 + I1 + nested domain shells under `legacy/plugin/<domain>` (not sibling `legacy_XXX`). No include shims. Endgame tree splits **runtime** (host, processing, widgets, python, samples) from **product** domains. Public namespace stays `plugin`. Product domains use a **package** layout (`manifest` / `views` / `processing` / `tests`) with global file naming (`docs/superpowers/src-layout.md` File naming).
 
 ## Target tree
 
@@ -55,7 +55,7 @@ Depth: `plugin/{runtime|product}/…` then domain (and optional role dirs). Not 
 
 ## Product domain package
 
-Locked (approach **3**, naming per `docs/build/src-layout.md` File naming). One role directory under `product/<domain>/` max for each concern. **No** `include/` + `src/` split. Headers stay beside `.cc` (colocated).
+Locked (approach **3**, naming per `docs/superpowers/src-layout.md` File naming). One role directory under `product/<domain>/` max for each concern. **No** `include/` + `src/` split. Headers stay beside `.cc` (colocated).
 
 ### Template
 

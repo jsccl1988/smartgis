@@ -197,15 +197,17 @@ void OrbitFrame::project_lon_lat(double lon, double lat, int width_px,
   // Match DEM mesh framing: geographic X=-lon, Z=lat, then the same
   // center/scale as normalize_mesh over the active world extent.
   const content::Extent2 e = world_extent();
-  const float minx = gis::dem_lon_to_x(e.xmax);  // xmax lon → more negative X
-  const float maxx = gis::dem_lon_to_x(e.xmin);
+  const float minx = vista::dem_lon_to_x(e.xmax);  // xmax lon → more negative X
+  const float maxx = vista::dem_lon_to_x(e.xmin);
   const float minz = static_cast<float>(e.ymin);
   const float maxz = static_cast<float>(e.ymax);
   const float cx = 0.5f * (minx + maxx);
   const float cz = 0.5f * (minz + maxz);
-  const float span = (std::max)(maxx - minx, (std::max)(maxz - minz, 1.f));
+  // Match OrbitGeoFrame::from_extent — do not floor at 1° (breaks lab pads).
+  const float span =
+      (std::max)(maxx - minx, (std::max)(maxz - minz, 1.0e-6f));
   const float s = 3.2f / span;
-  const float x = (gis::dem_lon_to_x(lon) - cx) * s;
+  const float x = (vista::dem_lon_to_x(lon) - cx) * s;
   const float z = (static_cast<float>(lat) - cz) * s;
   project(x, 0.f, z, width_px, height_px, sx, sy);
 }

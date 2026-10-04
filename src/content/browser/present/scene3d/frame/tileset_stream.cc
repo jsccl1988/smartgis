@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cstring>
 
-#include "gis/vista/assets/model/model.h"
+#include "vista/assets/model/model.h"
 
 namespace content {
 namespace {
@@ -37,8 +37,8 @@ std::string join_root_uri(const std::string& root, const char* uri) {
 TilesetStreamSession::TilesetStreamSession()
     : cache_(4u * 1024u * 1024u) {}
 
-gis::ViewState view_state_from_orbit(const OrbitFrame* orbit) {
-  gis::ViewState view{};
+vista::ViewState view_state_from_orbit(const OrbitFrame* orbit) {
+  vista::ViewState view{};
   view.sse_denominator = 1;
   if (!orbit) {
     return view;
@@ -55,38 +55,38 @@ void TilesetStreamSession::set_content_root(const std::string& root) {
   content_root_ = root;
 }
 
-void TilesetStreamSession::clear(gis::World* world) {
+void TilesetStreamSession::clear(vista::World* world) {
   if (world && node_id_ != 0) {
     world->remove_node(node_id_);
   }
   node_id_ = 0;
   last_visible_uris_.clear();
   cache_.clear();
-  tileset_ = gis::Tileset{};
+  tileset_ = vista::Tileset{};
 }
 
-bool TilesetStreamSession::attach_json(gis::World* world, const char* json,
+bool TilesetStreamSession::attach_json(vista::World* world, const char* json,
                                        size_t len, const char* name) {
   if (!world || !json || len == 0) {
     return false;
   }
-  gis::Tileset parsed;
-  if (!gis::parse_tileset_json(json, len, parsed)) {
+  vista::Tileset parsed;
+  if (!vista::parse_tileset_json(json, len, parsed)) {
     return false;
   }
   clear(world);
   tileset_ = std::move(parsed);
   node_name_ = (name && name[0]) ? name : "city_tiles";
-  gis::Node* node = world->attach_tileset(&tileset_, node_name_.c_str());
+  vista::Node* node = world->attach_tileset(&tileset_, node_name_.c_str());
   if (!node) {
-    tileset_ = gis::Tileset{};
+    tileset_ = vista::Tileset{};
     return false;
   }
   node_id_ = node->id;
   return true;
 }
 
-bool TilesetStreamSession::resolve_content(const char* uri, gis::ModelAsset* out,
+bool TilesetStreamSession::resolve_content(const char* uri, vista::ModelAsset* out,
                                            size_t* byte_cost, void* user) {
   auto* self = static_cast<TilesetStreamSession*>(user);
   if (!uri || !out || !byte_cost || !self) {
@@ -96,7 +96,7 @@ bool TilesetStreamSession::resolve_content(const char* uri, gis::ModelAsset* out
   if (path.empty()) {
     return false;
   }
-  if (!gis::decode_content_file(path.c_str(), *out)) {
+  if (!vista::decode_content_file(path.c_str(), *out)) {
     // Soft stub: empty mesh still charges a tiny cost so LRU sees the URI,
     // but only when the basename is not the intentional "missing" token.
     if (std::strstr(uri, "missing") != nullptr ||
@@ -118,14 +118,14 @@ bool TilesetStreamSession::resolve_content(const char* uri, gis::ModelAsset* out
   return true;
 }
 
-bool TilesetStreamSession::pump_view(gis::World* world,
-                                     const gis::ViewState& view,
+bool TilesetStreamSession::pump_view(vista::World* world,
+                                     const vista::ViewState& view,
                                      double max_sse, size_t max_tiles) {
   if (!world || node_id_ == 0) {
     return false;
   }
-  gis::Node* node = world->find(node_id_);
-  if (!node || node->kind != gis::NodeKind::kTileset) {
+  vista::Node* node = world->find(node_id_);
+  if (!node || node->kind != vista::NodeKind::kTileset) {
     // Terrain rebuild may drop nodes; re-attach the same tileset.
     node = world->attach_tileset(&tileset_, node_name_.c_str());
     if (!node) {
@@ -136,14 +136,14 @@ bool TilesetStreamSession::pump_view(gis::World* world,
   // Re-bind tileset pointer after World node moves (vector growth).
   node->tileset = &tileset_;
 
-  std::vector<const gis::Tile*> visible;
-  gis::select_tiles_limited(tileset_, view, max_sse, max_tiles, visible);
+  std::vector<const vista::Tile*> visible;
+  vista::select_tiles_limited(tileset_, view, max_sse, max_tiles, visible);
   const bool uris_changed = world->apply_tileset_selection(node_id_, visible);
-  gis::ensure_tileset_content(visible, &cache_, &resolve_content, this);
+  vista::ensure_tileset_content(visible, &cache_, &resolve_content, this);
 
   last_visible_uris_.clear();
   last_visible_uris_.reserve(visible.size());
-  for (const gis::Tile* tile : visible) {
+  for (const vista::Tile* tile : visible) {
     if (tile) {
       last_visible_uris_.push_back(tile->content_uri);
     }
@@ -151,7 +151,7 @@ bool TilesetStreamSession::pump_view(gis::World* world,
   return uris_changed;
 }
 
-bool TilesetStreamSession::pump(gis::World* world, const OrbitFrame* orbit,
+bool TilesetStreamSession::pump(vista::World* world, const OrbitFrame* orbit,
                                 double max_sse, size_t max_tiles) {
   return pump_view(world, view_state_from_orbit(orbit), max_sse, max_tiles);
 }

@@ -37,7 +37,7 @@ All rights reserved.
 | `src/render/BUILD.gn` | Lean `render_all` + thin `render` stub |
 | `src/render/scene/` | GpuScene only |
 | Call sites under `src/{plugin,ui,tool,app,sdb,...}` | Include + deps → `legacy_render` |
-| `docs/build/src-layout.md` + umbrella spec §6.4 | Path accuracy |
+| `docs/superpowers/src-layout.md` + umbrella spec §6.4 | Path accuracy |
 
 ---
 

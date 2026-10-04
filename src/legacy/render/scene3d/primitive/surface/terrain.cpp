@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/math/math.h"
+#include "gis/geo/ops/geometry_traits.h"
 #include "legacy/core/macros/macros.h"
 #include "legacy/render/rhi3d/public/state/states_manager.h"
 #include "legacy/render/rhi3d/public/texture/texture_manager.h"
@@ -15,8 +16,8 @@
 namespace render {
 namespace {
 
-// 256: smoother coast silhouette than 192 without DEM LOD blowup.
-constexpr int kDemMeshStride = 256;
+// 512: consume china_dem 1536×960 (Mapzen z7) without soft 256-era coasts.
+constexpr int kDemMeshStride = 512;
 
 struct CachedPoint {
   float x = 0.f;
@@ -71,15 +72,15 @@ void SmtTerrain::adopt_height_field(DemHeightField* field) {
 
 const DemHeightField* SmtTerrain::height_field() const { return field_; }
 
-long SmtTerrain::SetTerrainSurf(geo::Smt3DSurface* surf) {
+long SmtTerrain::SetTerrainSurf(OGRTriangulatedSurface* surf) {
   if (!surf) {
     return SMT_ERR_INVALID_PARAM;
   }
   return SetTerrainSurfDirectly(
-      static_cast<geo::Smt3DSurface*>(surf->clone()));
+      static_cast<OGRTriangulatedSurface*>(surf->clone()));
 }
 
-long SmtTerrain::SetTerrainSurfDirectly(geo::Smt3DSurface* surf) {
+long SmtTerrain::SetTerrainSurfDirectly(OGRTriangulatedSurface* surf) {
   Destroy();
   owned_field_.reset();
   field_ = nullptr;
@@ -89,7 +90,7 @@ long SmtTerrain::SetTerrainSurfDirectly(geo::Smt3DSurface* surf) {
   }
 
   OGREnvelope3D env;
-  surface_->get_envelope(&env);
+  geo::fill_envelope3d(*surface_, &env);
   // Leftover Y-up: map Z elevation → view Y, map Y → view Z.
   m_aAbb.vcMax.set(static_cast<float>(env.MaxX), static_cast<float>(env.MaxZ),
                    static_cast<float>(env.MaxY));
@@ -140,43 +141,58 @@ long SmtTerrain::create_from_surface(LP3DRENDERDEVICE device) {
     return SMT_ERR_INVALID_PARAM;
   }
 
-  const int npoints = surface_->get_point_count();
-  const int ntris = surface_->get_triangle_count();
-  if (npoints < 1 || ntris < 1) {
+  const int ntris = surface_->getNumGeometries();
+  if (ntris < 1) {
     return SMT_ERR_FAILURE;
   }
 
-  // Cache OGR points once — normals / colors / UVs never re-fetch.
+  const int npoints = ntris * 3;
   std::vector<CachedPoint> pts(static_cast<size_t>(npoints));
-  for (int i = 0; i < npoints; ++i) {
-    const OGRPoint p = surface_->get_point(i);
-    CachedPoint& c = pts[static_cast<size_t>(i)];
-    c.x = static_cast<float>(p.getX());
-    c.y = static_cast<float>(p.getY());
-    c.z = static_cast<float>(p.getZ());
-  }
-
   std::vector<Vector4> normals(static_cast<size_t>(npoints));
   std::vector<unsigned> indices;
-  indices.reserve(static_cast<size_t>(ntris) * 3);
+  indices.reserve(static_cast<size_t>(npoints));
+  int live = 0;
   for (int i = 0; i < ntris; ++i) {
-    const base::SmtTriangle tri = surface_->get_triangle(i);
-    indices.push_back(static_cast<unsigned>(tri.a));
-    indices.push_back(static_cast<unsigned>(tri.b));
-    indices.push_back(static_cast<unsigned>(tri.c));
-    const CachedPoint& a = pts[static_cast<size_t>(tri.a)];
-    const CachedPoint& b = pts[static_cast<size_t>(tri.b)];
-    const CachedPoint& c = pts[static_cast<size_t>(tri.c)];
+    OGRPoint pa;
+    OGRPoint pb;
+    OGRPoint pc;
+    if (!geo::tin_patch_points(*surface_, i, &pa, &pb, &pc)) {
+      continue;
+    }
+    auto store = [&](int idx, const OGRPoint& p) {
+      CachedPoint& c = pts[static_cast<size_t>(idx)];
+      c.x = static_cast<float>(p.getX());
+      c.y = static_cast<float>(p.getY());
+      c.z = static_cast<float>(p.getZ());
+    };
+    const int ia = live++;
+    const int ib = live++;
+    const int ic = live++;
+    store(ia, pa);
+    store(ib, pb);
+    store(ic, pc);
+    indices.push_back(static_cast<unsigned>(ia));
+    indices.push_back(static_cast<unsigned>(ib));
+    indices.push_back(static_cast<unsigned>(ic));
+    const CachedPoint& a = pts[static_cast<size_t>(ia)];
+    const CachedPoint& b = pts[static_cast<size_t>(ib)];
+    const CachedPoint& c = pts[static_cast<size_t>(ic)];
     const Vector4 face =
         triangle_normal(Vector4(a.x, a.y, a.z), Vector4(b.x, b.y, b.z),
                         Vector4(c.x, c.y, c.z));
-    normals[static_cast<size_t>(tri.a)] += face;
-    normals[static_cast<size_t>(tri.b)] += face;
-    normals[static_cast<size_t>(tri.c)] += face;
+    normals[static_cast<size_t>(ia)] += face;
+    normals[static_cast<size_t>(ib)] += face;
+    normals[static_cast<size_t>(ic)] += face;
+  }
+  pts.resize(static_cast<size_t>(live));
+  normals.resize(static_cast<size_t>(live));
+  const int n_vb = live;
+  if (n_vb < 3) {
+    return SMT_ERR_FAILURE;
   }
 
   OGREnvelope3D env;
-  surface_->get_envelope(&env);
+  geo::fill_envelope3d(*surface_, &env);
   const float x0 = static_cast<float>(env.MinX);
   const float y0 = static_cast<float>(env.MinY);
   const float x_span =
@@ -186,7 +202,7 @@ long SmtTerrain::create_from_surface(LP3DRENDERDEVICE device) {
 
   release_gpu_buffers();
   vb_ = device->CreateVertexBuffer(
-      npoints, VF_XYZ | VF_TEXCOORD | VF_NORMAL | VF_DIFFUSE, false);
+      n_vb, VF_XYZ | VF_TEXCOORD | VF_NORMAL | VF_DIFFUSE, false);
   if (!vb_) {
     return SMT_ERR_FAILURE;
   }
@@ -209,7 +225,7 @@ long SmtTerrain::create_from_surface(LP3DRENDERDEVICE device) {
   for (const CachedPoint& p : pts) {
     vb_->TexVertex((p.x - x0) / x_span * 16.f, (p.y - y0) / y_span * 16.f);
   }
-  for (int i = 0; i < npoints; ++i) {
+  for (int i = 0; i < n_vb; ++i) {
     Vector4& n = normals[static_cast<size_t>(i)];
     n.normalize();
     // Match leftover: Normal(nx, nz, ny) in VB space.

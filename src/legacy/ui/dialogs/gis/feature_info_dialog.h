@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "gis/model/feature/feature.h"
+#include "legacy/gis/feature/model_aliases.h"
 #include "legacy/ui/dialogs/resource.h"
 #include "legacy/ui/widgets/feature_pack/feature_pack.h"
 
@@ -29,8 +29,8 @@ class CDlg2DFeatureInfo : public CDialog {
   afx_msg void OnEnChangeAttFilter();
 
  public:
-  // Leftover MFC shell: holds SmtFeature* for read-only display only.
-  void set_feature(SmtFeature* feature) { m_pSmtFea = feature; }
+  // Leftover MFC shell: holds FeatureAdapter* for read-only display only.
+  void set_feature(FeatureAdapter* feature) { m_pSmtFea = feature; }
 
   void update_geom_info();
   void update_att_grid_content();
@@ -43,5 +43,5 @@ class CDlg2DFeatureInfo : public CDialog {
   CEdit m_filter_edit;
   CString m_filter_text;
 
-  SmtFeature* m_pSmtFea;
+  FeatureAdapter* m_pSmtFea;
 };

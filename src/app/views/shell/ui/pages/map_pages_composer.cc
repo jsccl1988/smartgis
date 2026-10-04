@@ -32,22 +32,21 @@
 #include "content/browser/debug/debug_agent.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
 #include "app/views/shell/browser/commands/view_commands.h"
-#include "plugin/product/orthogrid/commands.h"
 #include "plugin/runtime/host/registry/registry.h"
-#include "content/browser/present/scene3d/policy/scene3d_rhi_session.h"
+#include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "content/public/catalog_layers.h"
 #include "content/public/map_contents.h"
 #include "content/public/map_types.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "gis/vista/domain/atmosphere/field/field_channel.h"
-#include "gis/vista/domain/atmosphere/systems/environment.h"
-#include "gis/vista/world/terrain/process/land_mask.h"
+#include "vista/domain/atmosphere/field_channel.h"
+#include "vista/domain/atmosphere/environment.h"
+#include "vista/world/terrain/process/land_mask.h"
 #include "render/rhi/rhi.h"
 #include "ui/gfx/raster/shell_raster.h"
-#include "gis/model/edit/session/edit_session.h"
-#include "gis/present/tile/provider/tile_map_layer.h"
-#include "gis/present/tile/provider/tile_provider.h"
+#include "gis/edit/session.h"
+#include "gis/carto/tile/tile_map_layer.h"
+#include "gis/carto/tile/tile_provider.h"
 #include "tool/nav/camera_nav.h"
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
@@ -194,7 +193,7 @@ void MapPagesComposer::attach_viewports() {
     bool attach_now;
   };
   // Only DX12-init the visible Map Edit pane at startup. Data + 3D realize
-  // HWND only ï¿?three FlyCube devices each busy-waited up to ~5s and made
+  // HWND only é”Ÿ?three FlyCube devices each busy-waited up to ~5s and made
   // SmartGisViews feel stuck on launch (debug D3D12 layers amplify this).
   // Realize + second layout BEFORE attach so FlyCube Init samples the tab-body
   // client size (not a stale multi-k px rect that leaves a navy-clear present).
@@ -264,12 +263,8 @@ void MapPagesComposer::wire_map_scene() {
     return [this, pane](HDC hdc, const RECT& rc) {
       const int w = rc.right - rc.left;
       const int h = rc.bottom - rc.top;
-      if (host_->browser_->blit()->in_preview() &&
-          host_->browser_->blit()->present(hdc, w, h)) {
-        return;
-      }
       // GDI overlay paints into |hdc| (backbuffer DIB). FlyCube present_gpu
-      // writes the DXGI swapchain ï¿?last_gpu_present_ok must NOT skip full
+      // writes the DXGI swapchain â€” last_gpu_present_ok must NOT skip full
       // GDI here or the DIB stays teal/empty (annotations only). Only skip
       // full GDI when FlyCube 2D actually presented this viewport; ContentMapView
       // SharedSurface often lands as ocean-only without vector fills.
@@ -279,14 +274,36 @@ void MapPagesComposer::wire_map_scene() {
         }
         return false;
       }();
-      const bool flycube_sot =
+      const bool content_map =
+          pane &&
+          pane->attach_mode() ==
+              ui::views::MapViewport::AttachMode::kContentMapView;
+      // StretchBlt pan/zoom preview is for FlyCube/GDI debounce only. Under
+      // ContentMapView + FORCE_GDI the preview DIB is often empty/cream and
+      // would hide Map2dPresenter::paint (browse HWND record / motion_gate).
+      if (!force_gdi && !content_map &&
+          host_->browser_->blit()->in_preview() &&
+          host_->browser_->blit()->present(hdc, w, h)) {
+        return;
+      }
+      // Only treat FlyCube as SoT when the DXGI present popup is visible and
+      // carto actually drew. Bare product often keeps the popup hidden after
+      // init (SW_HIDE + reveal race) while last_gpu_present_ok is already true
+      // â€” skipping paint then leaves the embed as ocean-only ("no map"), unlike
+      // --ui-showcase=shell which FORCE_GDI paints china onto the shell DIB.
+      content::Map2dPresenter* map2d = host_->browser_->map2d();
+      const bool flycube_present_visible =
           pane &&
           pane->attach_mode() == ui::views::MapViewport::AttachMode::kFlyCube &&
-          pane->last_gpu_present_ok();
+          pane->input_hwnd() != nullptr &&
+          pane->input_hwnd() != pane->native_view();
+      const bool flycube_sot =
+          flycube_present_visible && map2d && pane->last_gpu_present_ok() &&
+          map2d->last_gpu_present_drew() && map2d->layout_build_count() > 0;
       if (!force_gdi && flycube_sot) {
-        host_->browser_->map2d()->paint_annotation_overlay(hdc, w, h);
-      } else {
-        host_->browser_->map2d()->paint(hdc, w, h, true);
+        map2d->paint_annotation_overlay(hdc, w, h);
+      } else if (map2d) {
+        map2d->paint(hdc, w, h, true);
         host_->browser_->blit()->capture(hdc, w, h);
       }
       content::ViewHost* host = host_->active_view_host();
@@ -303,7 +320,7 @@ void MapPagesComposer::wire_map_scene() {
     }
     const auto mode = host_->map_scene_ ? host_->map_scene_->attach_mode()
                                  : ui::views::MapViewport::AttachMode::kNone;
-    // Priority: FlyCube ï¿?(opt-in) leftover GL stereo ï¿?ContentMapView ï¿?GDI DEM.
+    // Priority: FlyCube é”Ÿ?(opt-in) leftover GL stereo é”Ÿ?ContentMapView é”Ÿ?GDI DEM.
     const bool flycube = mode == ui::views::MapViewport::AttachMode::kFlyCube;
     const bool content_map =
         mode == ui::views::MapViewport::AttachMode::kContentMapView;
@@ -314,7 +331,7 @@ void MapPagesComposer::wire_map_scene() {
       return;
     }
     // When FlyCube is the product SoT (default), never re-attach leftover GL
-    // on the same HWND ï¿?try_present_sot would race the DX12 swapchain and
+    // on the same HWND é”Ÿ?try_present_sot would race the DX12 swapchain and
     // permanently stamp the HUD badge as Stereo/GL even after RHI recovers.
     // Stereo/GL is only allowed when the user selected that engine.
     const bool allow_stereo_fallback =
@@ -397,7 +414,7 @@ void MapPagesComposer::commit_widget_shell_to_maps(const ui::views::Rect& dirty)
   if (!shell.bgra || shell.width_px == 0 || shell.height_px == 0) {
     return;
   }
-  // U3: unchanged published generation ï¿?skip crop/memcpy (gen skip).
+  // U3: unchanged published generation é”Ÿ?skip crop/memcpy (gen skip).
   // Empty dirty is a full-seed (tab switch); still skip when gen matches.
   if (gen != 0 && gen == host_->last_shell_overlay_gen_) {
     return;
@@ -405,7 +422,7 @@ void MapPagesComposer::commit_widget_shell_to_maps(const ui::views::Rect& dirty)
   const uint32_t shell_stride =
       shell.stride_bytes != 0 ? shell.stride_bytes : shell.width_px * 4u;
   HWND widget_hwnd = host_->widget_.hwnd();
-  // Empty dirty ï¿?publish to every pane. Non-empty ï¿?skip panes the paint did
+  // Empty dirty é”Ÿ?publish to every pane. Non-empty é”Ÿ?skip panes the paint did
   // not touch so menu/button hover does not memcpy+wake map HWNDs.
   const bool filter = !dirty.is_empty();
   host_->for_each_map_viewport([&](ui::views::MapViewport* pane) {
@@ -492,7 +509,7 @@ void MapPagesComposer::sync_flash_timer() {
 
 void MapPagesComposer::wire_tool_seams() {
   // Snapshot owned host pointers once. Do not iterate a temporary list that
-  // re-reads session getters after map2d/scene3d bind ï¿?a skewed MapSession
+  // re-reads session getters after map2d/scene3d bind é”Ÿ?a skewed MapSession
   // layout can poison trailing unique_ptrs mid-init_shell.
   content::ViewHost* const hosts[3] = {
       host_->browser_->edit_host(), host_->browser_->data_host(), host_->browser_->scene_host()};
@@ -611,16 +628,15 @@ void MapPagesComposer::invalidate_map_overlays() {
 
 
 void MapPagesComposer::attach_hwnd_gestures() {
-  // Showcase / self-test set SMT_SKIP_AMBOX_CATALOG and/or force ContentMapView.
-  // HWND gesture subclass has AVed under parallel ninja (std::function _Tidy on
-  // 0xcdcdcdcd). BMP export does not need pinch/pan subclass.
+  // Showcase / self-test set SMT_SKIP_AMBOX_CATALOG: HWND gesture subclass has
+  // AVed under parallel ninja (std::function _Tidy on 0xcdcdcdcd). Product
+  // ContentMapView / GDI overlay still needs attach so pan/pinch/right-click
+  // hit input_hwnd() (do not skip on SMT_FORCE_CONTENT_MAPVIEW_2D).
   auto env_is_one = [](const char* name) {
     const char* v = std::getenv(name);
     return v && v[0] == '1' && v[1] == '\0';
   };
-  if (env_is_one("SMT_SKIP_AMBOX_CATALOG") ||
-      env_is_one("SMT_FORCE_CONTENT_MAPVIEW_2D") ||
-      env_is_one("SMT_FORCE_GDI_MAP_OVERLAY")) {
+  if (env_is_one("SMT_SKIP_AMBOX_CATALOG")) {
     return;
   }
   auto on_pinch = [this](int x, int y, double scale) {
@@ -631,7 +647,7 @@ void MapPagesComposer::attach_hwnd_gestures() {
   };
   // Only wire gestures for panes that already own a present device. Data/3D
   // are HWND-only until first tab focus (see attach_viewports / switch_map_tab).
-  // Prefer input_hwnd() (FlyCube DXGI popup when visible) ï¿?subclassing the
+  // Prefer input_hwnd() (FlyCube DXGI popup when visible) é”Ÿ?subclassing the
   // embed alone leaves pan/pinch/right-click dead under the present surface.
   auto try_attach = [&](ui::views::MapViewport* pane, MapHwndGestures* g) {
     if (!pane || !g) {
@@ -697,7 +713,7 @@ void MapPagesComposer::switch_map_tab(int i) {
     host_->map_tabs_->set_active(i);
     host_->map_tabs_->layout();
   }
-  // Tab body bounds must be current before FlyCube Init / ShowWindow ï¿?  // deferred Data/3D panes were realize_native'd hidden; a stale 1x1 client
+  // Tab body bounds must be current before FlyCube Init / ShowWindow é”Ÿ?  // deferred Data/3D panes were realize_native'd hidden; a stale 1x1 client
   // makes DX12 attach "succeed" then present a blank swapchain.
   host_->widget_.layout_contents();
   if (host_->map_tabs_) {
@@ -723,7 +739,7 @@ void MapPagesComposer::switch_map_tab(int i) {
         }
       }
     }
-    // Owned DXGI present popups are top-level ï¿?hiding the embed alone leaves
+    // Owned DXGI present popups are top-level é”Ÿ?hiding the embed alone leaves
     // Map-Edit's present covering Scene3d (navy clear / wrong SoT).
     pane->set_flycube_present_visible(show);
   };
@@ -741,12 +757,12 @@ void MapPagesComposer::switch_map_tab(int i) {
       if (prefer_scene3d_stereo_gl()) {
         (void)host_->browser_->scene3d_stereo()->try_attach(hwnd);
       } else {
-        // Never call release()/destroy_ under FlyCube/GDI ï¿?stale leftover GL
+        // Never call release()/destroy_ under FlyCube/GDI é”Ÿ?stale leftover GL
         // teardown remaps heap (same class as mine Scene3D tab AV).
         host_->browser_->scene3d_stereo()->abandon();
       }
     }
-    // Shared with --atmosphere-showcase=full. Seed before tool activate ï¿?    // trackball can emit a draft that nudges yaw off China framing.
+    // Shared with --atmosphere-showcase=full. Seed before tool activate é”Ÿ?    // trackball can emit a draft that nudges yaw off China framing.
     const ChinaScene3dAtmoFlags atmo =
         apply_china_scene3d_atmosphere(*host_->browser_);
     if (host_->atmosphere_panel_) {
@@ -805,7 +821,7 @@ void MapPagesComposer::switch_map_tab(int i) {
     }
   }
 
-  // China orbit AFTER tool activate ï¿?activate("view3d.trackball") historically
+  // China orbit AFTER tool activate é”Ÿ?activate("view3d.trackball") historically
   // left yaw~0.42 (blank/navy) while showcase keeps ~2.59.
   if (i == 2 && host_->map_scene_ && host_->browser_) {
     apply_china_scene3d_orbit(*host_->browser_);
@@ -824,7 +840,7 @@ void MapPagesComposer::switch_map_tab(int i) {
   // Tab switch changes native HWND visibility + client size. Force a shell
   // repaint so WS_CLIPCHILDREN does not leave a hollow chrome hole, and kick
   // only the active map's next frame (avoid UpdateWindow / full overlay
-  // invalidate during lazy attach ï¿?that re-entered ContentMapView paint).
+  // invalidate during lazy attach é”Ÿ?that re-entered ContentMapView paint).
   host_->widget_.schedule_paint();
   if (HWND shell = host_->widget_.hwnd()) {
     if (IsWindow(shell)) {
@@ -835,7 +851,7 @@ void MapPagesComposer::switch_map_tab(int i) {
     pane->sync_native_bounds();
     pane->invalidate_native();
   }
-  // Tab switch may have revealed a deferred FlyCube present ï¿?rebind gestures
+  // Tab switch may have revealed a deferred FlyCube present é”Ÿ?rebind gestures
   // onto input_hwnd() (Data / 3D lazy attach path).
   host_->attach_hwnd_gestures();
   host_->sync_status();

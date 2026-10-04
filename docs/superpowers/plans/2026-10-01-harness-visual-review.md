@@ -36,7 +36,7 @@ All rights reserved.
 | `testing/tools/loop_runner.py` | CLI `--review-prep` |
 | `testing/tools/harness/**/suite.json` | Seed `visual_review` on priority suites |
 | `.cursor/skills/harness-visual-review/SKILL.md` | Agent closed-loop protocol |
-| `docs/build/ui-testing.md` | As-built short section |
+| `docs/superpowers/ui-testing.md` | As-built short section |
 
 ---
 
@@ -85,7 +85,7 @@ All rights reserved.
 
 **Files:**
 - Create: `.cursor/skills/harness-visual-review/SKILL.md`
-- Modify: `docs/build/ui-testing.md`
+- Modify: `docs/superpowers/ui-testing.md`
 - Modify: `docs/superpowers/README.md` (Active plans column mention if needed)
 
 - [x] Skill steps: `--review-prep` or open existing capture → `Read` inspect PNG → numbered bug table → **wait for human confirm** → fix → `build.bat debug …` → re-run → re-score → update review JSON status / tighten `score_id` if gate missed the bug → split crash agent when EXIT heap/AV.
@@ -126,4 +126,4 @@ All rights reserved.
 ### Task 7: docs refresh
 
 - [x] Living §Visual review decisions 11–12 + Wave2 checklist row.
-- [x] `docs/build/ui-testing.md` Wave2 one-liner (suite list + review-prep ids).
+- [x] `docs/superpowers/ui-testing.md` Wave2 one-liner (suite list + review-prep ids).

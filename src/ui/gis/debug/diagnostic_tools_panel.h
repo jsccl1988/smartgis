@@ -54,6 +54,9 @@ class UI_EXPORT DiagnosticToolsPanel : public View {
  private:
   void apply_frame_metrics(float scale);
   void reseed_host_splitter();
+  void ensure_console_tab();
+  void ensure_memory_tab();
+  void ensure_tab_content(int index);
   void on_record();
   void on_stop();
   void on_clear();
@@ -85,6 +88,9 @@ class UI_EXPORT DiagnosticToolsPanel : public View {
   DebugConsolePanel* console_ = nullptr;
   RenderTracePanel* cpu_ = nullptr;
   View* memory_page_ = nullptr;
+  int console_tab_ = -1;
+  int memory_tab_ = -1;
+  std::function<void(const std::string&)> pending_console_submit_;
   std::chrono::steady_clock::time_point last_auto_refresh_{};
 };
 

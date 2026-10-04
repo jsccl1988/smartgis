@@ -1,0 +1,19 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+
+# Header-only domain seam. GN sources must sit under this BUILD file, so the
+# header cannot be listed from vista/world. //src/vista:vista depends on this
+# target. Implemented session packs live under domain/atmosphere/.
+
+source_set("domain_sources") {
+  sources = [ "domain.h" ]
+  include_dirs += [ "//src" ]
+  assert_no_deps = [
+    "//src/render:render",
+    "//src/legacy/render:*",
+    "//src/legacy/ui:*",
+    "//src/legacy/app:*",
+  ]
+}

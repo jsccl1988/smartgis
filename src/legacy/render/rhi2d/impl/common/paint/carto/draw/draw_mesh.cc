@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "base/math/simd.h"
-#include "gis/model/envelope.h"
+#include "gis/geo/ops/indexed_tin.h"
 #include "legacy/core/types/types.h"
 #include "legacy/gis/present/carto/style_api.h"
 #include "legacy/render/rhi2d/impl/common/paint/carto/draw/device_geom.h"
@@ -15,7 +15,6 @@
 
 using namespace gis;
 using namespace base;
-using namespace geo;
 
 namespace render {
 namespace detail {
@@ -33,7 +32,7 @@ void project_xy_batch(const LpToDp2& xform, const float* xy_in, int n_pts,
 
 }  // namespace
 
-int GdiMeshDraw::draw_tin(const SmtTin* tin) {
+int GdiMeshDraw::draw_tin(const OGRTriangulatedSurface* tin) {
   c_->draw_tin_lines(tin);
 
   // if (c_->rd_options_->bShowPoint)
@@ -44,7 +43,10 @@ int GdiMeshDraw::draw_tin(const SmtTin* tin) {
   return SMT_ERR_NONE;
 }
 
-int GdiMeshDraw::draw_tin_lines(const SmtTin* tin) {
+int GdiMeshDraw::draw_tin_lines(const OGRTriangulatedSurface* tin) {
+  if (!tin) {
+    return SMT_ERR_INVALID_PARAM;
+  }
   POINT lPt1, lPt2, lPt3;
   OGRPoint oPt1, oPt2, oPt3;
 
@@ -60,44 +62,44 @@ int GdiMeshDraw::draw_tin_lines(const SmtTin* tin) {
   float xy[6];
   POINT pts[3];
 
-  for (int i = 0; i < tin->get_triangle_count(); i++) {
-    SmtTriangle tri = tin->get_triangle(i);
+  const int ntri = const_cast<OGRTriangulatedSurface*>(tin)->getNumGeometries();
+  for (int i = 0; i < ntri; i++) {
+    if (!geo::tin_patch_points(*tin, i, &oPt1, &oPt2, &oPt3)) {
+      continue;
+    }
 
-    if (!tri.bDelete) {
-      oPt1 = tin->get_point(tri.a);
-      oPt2 = tin->get_point(tri.b);
-      oPt3 = tin->get_point(tri.c);
+    envTri.merge(oPt1.getX(), oPt1.getY());
+    envTri.merge(oPt2.getX(), oPt2.getY());
+    envTri.merge(oPt3.getX(), oPt3.getY());
 
-      envTri.merge(oPt1.getX(), oPt1.getY());
-      envTri.merge(oPt2.getX(), oPt2.getY());
-      envTri.merge(oPt3.getX(), oPt3.getY());
+    if (envTri.intersects(envViewp)) {
+      xy[0] = static_cast<float>(oPt1.getX());
+      xy[1] = static_cast<float>(oPt1.getY());
+      xy[2] = static_cast<float>(oPt2.getX());
+      xy[3] = static_cast<float>(oPt2.getY());
+      xy[4] = static_cast<float>(oPt3.getX());
+      xy[5] = static_cast<float>(oPt3.getY());
+      project_xy_batch(xform, xy, 3, pts);
+      lPt1 = pts[0];
+      lPt2 = pts[1];
+      lPt3 = pts[2];
 
-      if (envTri.intersects(envViewp)) {
-        xy[0] = static_cast<float>(oPt1.getX());
-        xy[1] = static_cast<float>(oPt1.getY());
-        xy[2] = static_cast<float>(oPt2.getX());
-        xy[3] = static_cast<float>(oPt2.getY());
-        xy[4] = static_cast<float>(oPt3.getX());
-        xy[5] = static_cast<float>(oPt3.getY());
-        project_xy_batch(xform, xy, 3, pts);
-        lPt1 = pts[0];
-        lPt2 = pts[1];
-        lPt3 = pts[2];
-
-        MoveToEx(c_->h_cur_dc_, lPt1.x, lPt1.y, nullptr);
-        LineTo(c_->h_cur_dc_, lPt2.x, lPt2.y);
-        LineTo(c_->h_cur_dc_, lPt3.x, lPt3.y);
-        LineTo(c_->h_cur_dc_, lPt1.x, lPt1.y);
-      }
+      MoveToEx(c_->h_cur_dc_, lPt1.x, lPt1.y, nullptr);
+      LineTo(c_->h_cur_dc_, lPt2.x, lPt2.y);
+      LineTo(c_->h_cur_dc_, lPt3.x, lPt3.y);
+      LineTo(c_->h_cur_dc_, lPt1.x, lPt1.y);
     }
   }
 
   return SMT_ERR_NONE;
 }
 
-int GdiMeshDraw::draw_tin_nodes(const SmtTin* tin) {
+int GdiMeshDraw::draw_tin_nodes(const OGRTriangulatedSurface* tin) {
+  if (!tin) {
+    return SMT_ERR_INVALID_PARAM;
+  }
   POINT lPt;
-  OGRPoint oPt;
+  OGRPoint oPt1, oPt2, oPt3;
   int r = c_->rd_options_->lPointRaduis;
 
   lRect lViewp;
@@ -108,20 +110,28 @@ int GdiMeshDraw::draw_tin_nodes(const SmtTin* tin) {
   fViewp.normalize();
 
   const LpToDp2 xform = make_lp_to_dp(*c_->rc_);
-  for (int i = 0; i < tin->get_point_count(); i++) {
-    oPt = tin->get_point(i);
+  const int ntri = const_cast<OGRTriangulatedSurface*>(tin)->getNumGeometries();
+  auto draw_pt = [&](const OGRPoint& oPt) {
     if (fViewp.contains(static_cast<float>(oPt.getX()),
                         static_cast<float>(oPt.getY()))) {
       transform_xy(xform, static_cast<float>(oPt.getX()),
                    static_cast<float>(oPt.getY()), &lPt.x, &lPt.y);
       Ellipse(c_->h_cur_dc_, lPt.x - r, lPt.y - r, lPt.x + r, lPt.y + r);
     }
+  };
+  for (int i = 0; i < ntri; i++) {
+    if (!geo::tin_patch_points(*tin, i, &oPt1, &oPt2, &oPt3)) {
+      continue;
+    }
+    draw_pt(oPt1);
+    draw_pt(oPt2);
+    draw_pt(oPt3);
   }
 
   return SMT_ERR_NONE;
 }
 
-int GdiMeshDraw::draw_grid(const SmtGrid* grid) {
+int GdiMeshDraw::draw_grid(const plugin::detail::OrthoLattice* grid) {
   c_->draw_grid_lines(grid);
 
   // if (c_->rd_options_->bShowPoint)
@@ -132,9 +142,12 @@ int GdiMeshDraw::draw_grid(const SmtGrid* grid) {
   return SMT_ERR_NONE;
 }
 
-int GdiMeshDraw::draw_grid_lines(const SmtGrid* grid) {
-  int nM, nN;
-  grid->get_size(nM, nN);
+int GdiMeshDraw::draw_grid_lines(const plugin::detail::OrthoLattice* grid) {
+  if (!grid || grid->is_empty()) {
+    return SMT_ERR_INVALID_PARAM;
+  }
+  const int nM = grid->ny;
+  const int nN = grid->nx;
 
   const LpToDp2 xform = make_lp_to_dp(*c_->rc_);
   thread_local std::vector<float> xy;
@@ -144,9 +157,11 @@ int GdiMeshDraw::draw_grid_lines(const SmtGrid* grid) {
     xy.resize(static_cast<size_t>(nM) * 2u);
     pts.resize(static_cast<size_t>(nM));
     for (int i = 0; i < nM; i++) {
-      RawPoint rawPt = grid->node(i, j);
-      xy[static_cast<size_t>(i) * 2u] = rawPt.x;
-      xy[static_cast<size_t>(i) * 2u + 1u] = rawPt.y;
+      double px = 0;
+      double py = 0;
+      grid->ortho_point(j, i, &px, &py);
+      xy[static_cast<size_t>(i) * 2u] = static_cast<float>(px);
+      xy[static_cast<size_t>(i) * 2u + 1u] = static_cast<float>(py);
     }
     project_xy_batch(xform, xy.data(), nM, pts.data());
     MoveToEx(c_->h_cur_dc_, pts[0].x, pts[0].y, nullptr);
@@ -160,9 +175,11 @@ int GdiMeshDraw::draw_grid_lines(const SmtGrid* grid) {
     xy.resize(static_cast<size_t>(nN) * 2u);
     pts.resize(static_cast<size_t>(nN));
     for (int j = 0; j < nN; j++) {
-      RawPoint rawPt = grid->node(i, j);
-      xy[static_cast<size_t>(j) * 2u] = rawPt.x;
-      xy[static_cast<size_t>(j) * 2u + 1u] = rawPt.y;
+      double px = 0;
+      double py = 0;
+      grid->ortho_point(j, i, &px, &py);
+      xy[static_cast<size_t>(j) * 2u] = static_cast<float>(px);
+      xy[static_cast<size_t>(j) * 2u + 1u] = static_cast<float>(py);
     }
     project_xy_batch(xform, xy.data(), nN, pts.data());
     MoveToEx(c_->h_cur_dc_, pts[0].x, pts[0].y, nullptr);
@@ -175,9 +192,12 @@ int GdiMeshDraw::draw_grid_lines(const SmtGrid* grid) {
   return SMT_ERR_NONE;
 }
 
-int GdiMeshDraw::draw_grid_nodes(const SmtGrid* grid) {
-  int nM, nN;
-  grid->get_size(nM, nN);
+int GdiMeshDraw::draw_grid_nodes(const plugin::detail::OrthoLattice* grid) {
+  if (!grid || grid->is_empty()) {
+    return SMT_ERR_INVALID_PARAM;
+  }
+  const int nM = grid->ny;
+  const int nN = grid->nx;
 
   int r = c_->rd_options_->lPointRaduis;
   const LpToDp2 xform = make_lp_to_dp(*c_->rc_);
@@ -189,9 +209,11 @@ int GdiMeshDraw::draw_grid_nodes(const SmtGrid* grid) {
   int k = 0;
   for (int j = 0; j < nN; j++) {
     for (int i = 0; i < nM; i++) {
-      RawPoint rawPt = grid->node(i, j);
-      xy[static_cast<size_t>(k) * 2u] = rawPt.x;
-      xy[static_cast<size_t>(k) * 2u + 1u] = rawPt.y;
+      double px = 0;
+      double py = 0;
+      grid->ortho_point(j, i, &px, &py);
+      xy[static_cast<size_t>(k) * 2u] = static_cast<float>(px);
+      xy[static_cast<size_t>(k) * 2u + 1u] = static_cast<float>(py);
       ++k;
     }
   }

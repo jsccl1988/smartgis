@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "base/trace/event/process_trace.h"
+#include "vista/frame/detail/layout/multiply.h"
 
 #pragma comment(lib, "Msimg32.lib")
 
@@ -21,90 +22,382 @@ namespace content {
 namespace detail {
 namespace {
 
-COLORREF rgba_to_colorref(uint32_t rgba) {
-  const uint8_t r = static_cast<uint8_t>((rgba >> 16) & 0xff);
-  const uint8_t g = static_cast<uint8_t>((rgba >> 8) & 0xff);
-  const uint8_t b = static_cast<uint8_t>(rgba & 0xff);
-  return RGB(r, g, b);
+inline LONG iround(double v) {
+  return static_cast<LONG>(v + (v >= 0.0 ? 0.5 : -0.5));
 }
 
-void world_to_view(const gis::vista::View& view, float x, float y, int* sx,
-                   int* sy) {
-  if (!sx || !sy || view.width_px == 0 || view.height_px == 0) {
-    return;
-  }
-  const double dx = view.max_x - view.min_x;
-  const double dy = view.max_y - view.min_y;
-  if (dx == 0.0 || dy == 0.0) {
-    *sx = 0;
-    *sy = 0;
-    return;
-  }
-  *sx = static_cast<int>(
-      std::lround((static_cast<double>(x) - view.min_x) / dx * view.width_px));
-  *sy = static_cast<int>(
-      std::lround((view.max_y - static_cast<double>(y)) / dy * view.height_px));
-}
+// Precomputed world→view scale so mesh vertices skip per-point divides.
+struct ViewXform {
+  double min_x = 0.0;
+  double max_y = 0.0;
+  double sx = 1.0;
+  double sy = 1.0;
+  int width_px = 0;
+  int height_px = 0;
 
-void item_to_points(const gis::vista::DrawItem& item,
-                    const gis::vista::View& view, std::vector<POINT>* out) {
+  void bind(const vista::View& view) {
+    width_px = static_cast<int>(view.width_px);
+    height_px = static_cast<int>(view.height_px);
+    min_x = view.min_x;
+    max_y = view.max_y;
+    const double dx = view.max_x - view.min_x;
+    const double dy = view.max_y - view.min_y;
+    sx = (dx == 0.0) ? 0.0 : static_cast<double>(view.width_px) / dx;
+    sy = (dy == 0.0) ? 0.0 : static_cast<double>(view.height_px) / dy;
+  }
+
+  POINT map(float x, float y, bool pixel_space) const {
+    if (pixel_space) {
+      return POINT{iround(static_cast<double>(x)),
+                   iround(static_cast<double>(y))};
+    }
+    return POINT{iround((static_cast<double>(x) - min_x) * sx),
+                 iround((max_y - static_cast<double>(y)) * sy)};
+  }
+};
+
+void item_to_points(const vista::DrawItem& item, const ViewXform& xform,
+                    std::vector<POINT>* out) {
   if (!out) {
     return;
   }
   out->clear();
   out->reserve(item.vertices.size());
-  for (const gis::vista::Vertex& v : item.vertices) {
-    int sx = 0;
-    int sy = 0;
-    if (item.pixel_space) {
-      sx = static_cast<int>(std::lround(v.x));
-      sy = static_cast<int>(std::lround(v.y));
+  const bool pixel = item.pixel_space;
+  for (const vista::Vertex& v : item.vertices) {
+    out->push_back(xform.map(v.x, v.y, pixel));
+  }
+}
+
+// Sticky SelectObject: avoid restore/select per DrawItem when brush/pen match.
+struct DcStyle {
+  HGDIOBJ brush = nullptr;
+  HGDIOBJ pen = nullptr;
+  bool known = false;
+
+  void ensure(HDC hdc, HBRUSH brush_in, HPEN pen_in) {
+    HGDIOBJ b = brush_in ? static_cast<HGDIOBJ>(brush_in)
+                         : GetStockObject(NULL_BRUSH);
+    HGDIOBJ p =
+        pen_in ? static_cast<HGDIOBJ>(pen_in) : GetStockObject(NULL_PEN);
+    if (!known || brush != b) {
+      SelectObject(hdc, b);
+      brush = b;
+    }
+    if (!known || pen != p) {
+      SelectObject(hdc, p);
+      pen = p;
+    }
+    known = true;
+  }
+
+  void invalidate() { known = false; }
+};
+
+inline bool poly_outside_view(const POINT* p, INT n, int w, int h) {
+  if (w <= 0 || h <= 0 || n <= 0 || !p) {
+    return false;
+  }
+  LONG min_x = p[0].x;
+  LONG max_x = p[0].x;
+  LONG min_y = p[0].y;
+  LONG max_y = p[0].y;
+  for (INT i = 1; i < n; ++i) {
+    min_x = (std::min)(min_x, p[i].x);
+    max_x = (std::max)(max_x, p[i].x);
+    min_y = (std::min)(min_y, p[i].y);
+    max_y = (std::max)(max_y, p[i].y);
+  }
+  return max_x < 0 || min_x > w || max_y < 0 || min_y > h;
+}
+
+inline bool tri_zero_area(const POINT& a, const POINT& b, const POINT& c) {
+  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) == 0;
+}
+
+// Line tessellation emits two triangles per segment (A,B,C / B,D,C) or a
+// miter fan (A,B,C / A,C,D). Fold those into one convex quad for GDI.
+enum class TessQuad : uint8_t { kNone, kSegment, kFan };
+
+TessQuad classify_tess_quad(const uint32_t* idx, size_t nvert, uint32_t* q) {
+  const uint32_t a = idx[0];
+  const uint32_t b = idx[1];
+  const uint32_t c = idx[2];
+  const uint32_t d = idx[3];
+  const uint32_t e = idx[4];
+  const uint32_t f = idx[5];
+  if (a >= nvert || b >= nvert || c >= nvert || d >= nvert || e >= nvert ||
+      f >= nvert) {
+    return TessQuad::kNone;
+  }
+  // emit_segment_quad: (base, base+1, base+2) (base+1, base+3, base+2)
+  if (d == b && f == c) {
+    q[0] = a;
+    q[1] = b;
+    q[2] = e;
+    q[3] = c;
+    return TessQuad::kSegment;
+  }
+  // miter: (base, base+1, base+2) (base, base+2, base+3)
+  if (d == a && e == c) {
+    q[0] = a;
+    q[1] = b;
+    q[2] = c;
+    q[3] = f;
+    return TessQuad::kFan;
+  }
+  return TessQuad::kNone;
+}
+
+inline POINT midpoint(const POINT& a, const POINT& b) {
+  return POINT{(a.x + b.x) / 2, (a.y + b.y) / 2};
+}
+
+inline bool near_point(const POINT& a, const POINT& b) {
+  const LONG dx = a.x > b.x ? a.x - b.x : b.x - a.x;
+  const LONG dy = a.y > b.y ? a.y - b.y : b.y - a.y;
+  return dx <= 1 && dy <= 1;
+}
+
+// Coalesce same-style fill triangles. Land fills use PolyPolygon (few large
+// polys). Tessellated line meshes stay on sticky SelectObject + chunked
+// PolyPolygon — a single mega batch of coastline strips is pathological in
+// GDI (~10× slower). Segment quads (2 tris) emit as 4-gons.
+struct FillBatch {
+  HBRUSH brush = nullptr;
+  HPEN pen = nullptr;
+  bool active = false;
+  bool use_poly_polygon = true;
+  std::vector<POINT> points;
+  std::vector<INT> counts;
+  std::vector<POINT> mesh_pts;
+  std::vector<INT> mesh_counts;
+  size_t flush_count = 0;
+  size_t tri_draw_count = 0;
+  size_t mesh_flush_count = 0;
+  int view_w = 0;
+  int view_h = 0;
+
+  // Keep PolyPolygon batches modest; large coastline meshes use chunked path.
+  static constexpr size_t kMaxPoints = 3072;
+  static constexpr size_t kMaxPolys = 512;
+  static constexpr size_t kMeshChunkPolys = 96;
+
+  void reset_payload() {
+    points.clear();
+    counts.clear();
+  }
+
+  void flush_mesh_chunk(HDC hdc) {
+    if (mesh_counts.empty()) {
+      return;
+    }
+    if (mesh_counts.size() == 1) {
+      Polygon(hdc, mesh_pts.data(), mesh_counts[0]);
     } else {
-      world_to_view(view, v.x, v.y, &sx, &sy);
+      PolyPolygon(hdc, mesh_pts.data(), mesh_counts.data(),
+                  static_cast<int>(mesh_counts.size()));
     }
-    out->push_back(POINT{sx, sy});
+    ++mesh_flush_count;
+    mesh_pts.clear();
+    mesh_counts.clear();
   }
-}
 
-void fill_indexed_tris(HDC hdc, const std::vector<POINT>& pts,
-                       const std::vector<uint32_t>& indices, HBRUSH brush,
-                       HPEN pen) {
-  if (pts.empty() || indices.size() < 3) {
-    return;
-  }
-  HGDIOBJ old_brush = SelectObject(hdc, brush ? brush : GetStockObject(NULL_BRUSH));
-  HGDIOBJ old_pen = SelectObject(hdc, pen ? pen : GetStockObject(NULL_PEN));
-  for (size_t i = 0; i + 2 < indices.size(); i += 3) {
-    const uint32_t a = indices[i];
-    const uint32_t b = indices[i + 1];
-    const uint32_t c = indices[i + 2];
-    if (a >= pts.size() || b >= pts.size() || c >= pts.size()) {
-      continue;
+  void emit_mesh_poly(HDC hdc, const POINT* poly, INT n) {
+    if (n < 3 || !poly) {
+      return;
     }
-    POINT tri[3] = {pts[a], pts[b], pts[c]};
-    Polygon(hdc, tri, 3);
+    if (n == 3 && tri_zero_area(poly[0], poly[1], poly[2])) {
+      return;
+    }
+    if (poly_outside_view(poly, n, view_w, view_h)) {
+      return;
+    }
+    mesh_pts.insert(mesh_pts.end(), poly, poly + n);
+    mesh_counts.push_back(n);
+    ++tri_draw_count;
+    if (mesh_counts.size() >= kMeshChunkPolys) {
+      flush_mesh_chunk(hdc);
+    }
   }
-  SelectObject(hdc, old_brush);
-  SelectObject(hdc, old_pen);
-}
 
-void stroke_polyline(HDC hdc, const std::vector<POINT>& pts, HPEN pen) {
-  if (pts.size() < 2 || !pen) {
-    return;
+  void flush(HDC hdc, DcStyle* style) {
+    if (active && !use_poly_polygon) {
+      style->ensure(hdc, brush, pen);
+      flush_mesh_chunk(hdc);
+      active = false;
+      reset_payload();
+      return;
+    }
+    if (!active || counts.empty()) {
+      reset_payload();
+      active = false;
+      return;
+    }
+    style->ensure(hdc, brush, pen);
+    // Coalesced land tris: draw each Polygon alone. One PolyPolygon over a
+    // triangle soup uses even-odd / opposing-winding cancel and punches
+    // cream/ocean holes at province overlaps (china coastal fringe).
+    size_t cursor = 0;
+    for (INT n : counts) {
+      if (n >= 2 && cursor + static_cast<size_t>(n) <= points.size()) {
+        Polygon(hdc, points.data() + cursor, n);
+      }
+      cursor += static_cast<size_t>(n);
+    }
+    ++flush_count;
+    reset_payload();
+    active = false;
   }
-  HGDIOBJ old_pen = SelectObject(hdc, pen);
-  HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
-  Polyline(hdc, pts.data(), static_cast<int>(pts.size()));
-  SelectObject(hdc, old_brush);
-  SelectObject(hdc, old_pen);
-}
+
+  void append_tris(HDC hdc, DcStyle* style, HBRUSH b, HPEN p,
+                   const std::vector<POINT>& pts,
+                   const std::vector<uint32_t>& indices, bool coalesce) {
+    if (pts.empty() || indices.size() < 3) {
+      return;
+    }
+    if (active &&
+        (brush != b || pen != p || use_poly_polygon != coalesce)) {
+      flush(hdc, style);
+    }
+    if (!active) {
+      brush = b;
+      pen = p;
+      use_poly_polygon = coalesce;
+      active = true;
+    }
+
+    // Tessellated line meshes: sticky style + small PolyPolygon chunks.
+    // Fold segment-quad index pairs into 4-gons (half the GDI polys).
+    if (!coalesce) {
+      style->ensure(hdc, brush, pen);
+      if (mesh_pts.capacity() < kMeshChunkPolys * 4) {
+        mesh_pts.reserve(kMeshChunkPolys * 4);
+        mesh_counts.reserve(kMeshChunkPolys);
+      }
+      const size_t nvert = pts.size();
+      size_t i = 0;
+      while (i + 2 < indices.size()) {
+        if (i + 5 < indices.size()) {
+          uint32_t q[4] = {};
+          const TessQuad kind =
+              classify_tess_quad(indices.data() + i, nvert, q);
+          if (kind != TessQuad::kNone) {
+            const POINT quad[4] = {pts[q[0]], pts[q[1]], pts[q[2]], pts[q[3]]};
+            emit_mesh_poly(hdc, quad, 4);
+            i += 6;
+            continue;
+          }
+        }
+        const uint32_t a = indices[i];
+        const uint32_t bi = indices[i + 1];
+        const uint32_t c = indices[i + 2];
+        i += 3;
+        if (a >= nvert || bi >= nvert || c >= nvert) {
+          continue;
+        }
+        const POINT tri[3] = {pts[a], pts[bi], pts[c]};
+        emit_mesh_poly(hdc, tri, 3);
+      }
+      return;
+    }
+
+    for (size_t i = 0; i + 2 < indices.size(); i += 3) {
+      if (counts.size() >= kMaxPolys || points.size() + 3 > kMaxPoints) {
+        flush(hdc, style);
+        brush = b;
+        pen = p;
+        use_poly_polygon = coalesce;
+        active = true;
+      }
+      const uint32_t a = indices[i];
+      const uint32_t bi = indices[i + 1];
+      const uint32_t c = indices[i + 2];
+      if (a >= pts.size() || bi >= pts.size() || c >= pts.size()) {
+        continue;
+      }
+      points.push_back(pts[a]);
+      points.push_back(pts[bi]);
+      points.push_back(pts[c]);
+      counts.push_back(3);
+    }
+  }
+};
+
+
+
+// Coalesce same-pen polylines into PolyPolyline (cosmetic tess centerlines).
+struct StrokeBatch {
+  HPEN pen = nullptr;
+  bool active = false;
+  bool credit_mesh = false;
+  std::vector<POINT> points;
+  std::vector<DWORD> counts;
+  size_t flush_count = 0;
+  size_t mesh_flush_count = 0;
+
+  static constexpr size_t kMaxPoints = 12288;
+  static constexpr size_t kMaxPolys = 4096;
+
+  void reset_payload() {
+    points.clear();
+    counts.clear();
+  }
+
+  void flush(HDC hdc, DcStyle* style) {
+    if (!active || counts.empty()) {
+      reset_payload();
+      active = false;
+      credit_mesh = false;
+      return;
+    }
+    style->ensure(hdc, nullptr, pen);
+    if (counts.size() == 1) {
+      Polyline(hdc, points.data(), static_cast<int>(counts[0]));
+    } else {
+      PolyPolyline(hdc, points.data(), counts.data(),
+                   static_cast<DWORD>(counts.size()));
+    }
+    ++flush_count;
+    if (credit_mesh) {
+      ++mesh_flush_count;
+    }
+    reset_payload();
+    active = false;
+    credit_mesh = false;
+  }
+
+  void append(HDC hdc, DcStyle* style, HPEN p, const std::vector<POINT>& pts,
+              bool as_mesh = false) {
+    if (pts.size() < 2 || !p) {
+      return;
+    }
+    if (active && (pen != p || credit_mesh != as_mesh)) {
+      flush(hdc, style);
+    }
+    if (!active) {
+      pen = p;
+      active = true;
+      credit_mesh = as_mesh;
+    }
+    if (counts.size() >= kMaxPolys ||
+        points.size() + pts.size() > kMaxPoints) {
+      flush(hdc, style);
+      pen = p;
+      active = true;
+      credit_mesh = as_mesh;
+    }
+    points.insert(points.end(), pts.begin(), pts.end());
+    counts.push_back(static_cast<DWORD>(pts.size()));
+  }
+};
 
 // Stretch tightly packed RGBA8 into the axis-aligned bbox of |pts|.
-// Hillshade uses MapLibre-style multiply into the dest land (AlphaBlend
-// SRC_OVER onto export CreateDIBSection left cream flat — gray_frac≈0).
+// kMultiply bakes luma into the coverage then multiplies the snapped land.
+// kOver is AlphaBlend (SRC_OVER).
 bool blit_rgba_quad(HDC hdc, const std::vector<POINT>& pts,
                     const std::vector<uint8_t>& rgba, int tw, int th,
-                    float opacity) {
+                    float opacity, vista::DrawBlend blend) {
   if (!hdc || pts.size() < 4 || tw <= 0 || th <= 0 ||
       rgba.size() < static_cast<size_t>(tw) * static_cast<size_t>(th) * 4u) {
     return false;
@@ -159,8 +452,8 @@ bool blit_rgba_quad(HDC hdc, const std::vector<POINT>& pts,
     return false;
   }
 
-  // Bilinear sample softens DEM-bake block edges when stretched to view
-  // (nearest-neighbor made coast / relief look like a hard cast shadow).
+  // Bilinear RGB for relief continuity; alpha uses a hard land threshold so
+  // coastline multiply does not bleed a soft cast-shadow rim into the ocean.
   auto sample_rgba = [&](float u, float v, float* out_r, float* out_g,
                          float* out_b, float* out_a) {
     const float x = u * static_cast<float>(tw) - 0.5f;
@@ -193,9 +486,11 @@ bool blit_rgba_quad(HDC hdc, const std::vector<POINT>& pts,
     const float w10 = fx * (1.f - fy);
     const float w01 = (1.f - fx) * fy;
     const float w11 = fx * fy;
-    *out_a = w00 * a00 + w10 * a10 + w01 * a01 + w11 * a11;
-    if (*out_a < 0.5f) {
+    const float a_lin = w00 * a00 + w10 * a10 + w01 * a01 + w11 * a11;
+    // Drop soft fringe texels; keep opaque land samples only.
+    if (a_lin < 160.f) {
       *out_r = *out_g = *out_b = 0.f;
+      *out_a = 0.f;
       return;
     }
     // Premultiplied-ish: ignore transparent texels so ocean alpha=0 does not
@@ -205,7 +500,7 @@ bool blit_rgba_quad(HDC hdc, const std::vector<POINT>& pts,
     const float wa01 = w01 * a01;
     const float wa11 = w11 * a11;
     const float wsum = wa00 + wa10 + wa01 + wa11;
-    if (wsum < 0.5f) {
+    if (wsum < 160.f) {
       *out_r = *out_g = *out_b = 0.f;
       *out_a = 0.f;
       return;
@@ -213,11 +508,14 @@ bool blit_rgba_quad(HDC hdc, const std::vector<POINT>& pts,
     *out_r = (wa00 * r00 + wa10 * r10 + wa01 * r01 + wa11 * r11) / wsum;
     *out_g = (wa00 * g00 + wa10 * g10 + wa01 * g01 + wa11 * g11) / wsum;
     *out_b = (wa00 * b00 + wa10 * b10 + wa01 * b01 + wa11 * b11) / wsum;
+    *out_a = 255.f;
   };
 
   auto* dest = static_cast<uint8_t*>(dest_bits);
   const float inv_dst_w = dst_w > 1 ? 1.f / static_cast<float>(dst_w) : 1.f;
   const float inv_dst_h = dst_h > 1 ? 1.f / static_cast<float>(dst_h) : 1.f;
+  std::vector<uint8_t> coverage(
+      static_cast<size_t>(dst_w) * static_cast<size_t>(dst_h) * 4u);
   for (int dy = 0; dy < dst_h; ++dy) {
     const float v = (static_cast<float>(dy) + 0.5f) * inv_dst_h;
     for (int dx = 0; dx < dst_w; ++dx) {
@@ -227,42 +525,182 @@ bool blit_rgba_quad(HDC hdc, const std::vector<POINT>& pts,
       float sb = 0.f;
       float sa = 0.f;
       sample_rgba(u, v, &sr, &sg, &sb, &sa);
-      if (sa < 0.5f) {
-        continue;
-      }
-      sr /= 255.f;
-      sg /= 255.f;
-      sb /= 255.f;
-      const float shade = 0.299f * sr + 0.587f * sg + 0.114f * sb;
-      // Edge alpha feathers multiply strength so coastlines do not stair-step.
-      const float edge = (std::min)(1.f, sa / 255.f);
-      const float m = 1.f - k * edge + k * edge * shade;
       const size_t o =
           (static_cast<size_t>(dy) * static_cast<size_t>(dst_w) +
            static_cast<size_t>(dx)) *
           4u;
-      // Dest DIB is BGRA.
-      dest[o + 0] = static_cast<uint8_t>(
-          (std::min)(255.f, static_cast<float>(dest[o + 0]) * m + 0.5f));
-      dest[o + 1] = static_cast<uint8_t>(
-          (std::min)(255.f, static_cast<float>(dest[o + 1]) * m + 0.5f));
-      dest[o + 2] = static_cast<uint8_t>(
-          (std::min)(255.f, static_cast<float>(dest[o + 2]) * m + 0.5f));
+      coverage[o + 0] = static_cast<uint8_t>((std::min)(255.f, sr + 0.5f));
+      coverage[o + 1] = static_cast<uint8_t>((std::min)(255.f, sg + 0.5f));
+      coverage[o + 2] = static_cast<uint8_t>((std::min)(255.f, sb + 0.5f));
+      coverage[o + 3] = static_cast<uint8_t>((std::min)(255.f, sa + 0.5f));
     }
   }
 
-  const BOOL ok = BitBlt(hdc, static_cast<int>(min_x), static_cast<int>(min_y),
-                         dst_w, dst_h, mem, 0, 0, SRCCOPY);
+  BOOL ok = FALSE;
+  if (blend == vista::DrawBlend::kMultiply) {
+    vista::apply_multiply_coverage(coverage, k);
+    for (int dy = 0; dy < dst_h; ++dy) {
+      for (int dx = 0; dx < dst_w; ++dx) {
+        const size_t o =
+            (static_cast<size_t>(dy) * static_cast<size_t>(dst_w) +
+             static_cast<size_t>(dx)) *
+            4u;
+        if (coverage[o + 3] == 0) {
+          // Outside DEM footprint: bare cream land (#f5f3e9) reads as a
+          // white "missing tile" next to shaded terrain (north plateau /
+          // coastal fringe). Soft ambient multiply matches mid hillshade.
+          const unsigned b = dest[o + 0];
+          const unsigned g = dest[o + 1];
+          const unsigned r = dest[o + 2];
+          const bool oceanish = (b > r + 15u && g > r);
+          const bool land_cream =
+              (r > 200u && g > 190u && b > 170u && !oceanish);
+          if (land_cream) {
+            constexpr float kAmbient = 0.88f;
+            dest[o + 0] =
+                static_cast<uint8_t>(static_cast<float>(b) * kAmbient + 0.5f);
+            dest[o + 1] =
+                static_cast<uint8_t>(static_cast<float>(g) * kAmbient + 0.5f);
+            dest[o + 2] =
+                static_cast<uint8_t>(static_cast<float>(r) * kAmbient + 0.5f);
+          }
+          continue;
+        }
+        const float m = static_cast<float>(coverage[o]) / 255.f;
+        // Dest DIB is BGRA. Coverage RGB is the multiply factor.
+        dest[o + 0] = static_cast<uint8_t>(
+            (std::min)(255.f, static_cast<float>(dest[o + 0]) * m + 0.5f));
+        dest[o + 1] = static_cast<uint8_t>(
+            (std::min)(255.f, static_cast<float>(dest[o + 1]) * m + 0.5f));
+        dest[o + 2] = static_cast<uint8_t>(
+            (std::min)(255.f, static_cast<float>(dest[o + 2]) * m + 0.5f));
+      }
+    }
+    ok = BitBlt(hdc, static_cast<int>(min_x), static_cast<int>(min_y), dst_w,
+                dst_h, mem, 0, 0, SRCCOPY);
+  } else {
+    for (int dy = 0; dy < dst_h; ++dy) {
+      for (int dx = 0; dx < dst_w; ++dx) {
+        const size_t o =
+            (static_cast<size_t>(dy) * static_cast<size_t>(dst_w) +
+             static_cast<size_t>(dx)) *
+            4u;
+        const float af =
+            (static_cast<float>(coverage[o + 3]) / 255.f) * k;
+        const auto au = static_cast<uint8_t>(
+            (std::min)(255.f, af * 255.f + 0.5f));
+        dest[o + 0] = static_cast<uint8_t>(
+            (static_cast<unsigned>(coverage[o + 2]) * au) / 255u);
+        dest[o + 1] = static_cast<uint8_t>(
+            (static_cast<unsigned>(coverage[o + 1]) * au) / 255u);
+        dest[o + 2] = static_cast<uint8_t>(
+            (static_cast<unsigned>(coverage[o + 0]) * au) / 255u);
+        dest[o + 3] = au;
+      }
+    }
+    BLENDFUNCTION bf{};
+    bf.BlendOp = AC_SRC_OVER;
+    bf.BlendFlags = 0;
+    bf.SourceConstantAlpha = 255;
+    bf.AlphaFormat = AC_SRC_ALPHA;
+    ok = AlphaBlend(hdc, static_cast<int>(min_x), static_cast<int>(min_y),
+                    dst_w, dst_h, mem, 0, 0, dst_w, dst_h, bf);
+  }
   SelectObject(mem, old);
   DeleteObject(dest_dib);
   DeleteDC(mem);
   return ok != FALSE;
 }
 
+void paint_text_glyph(HDC hdc, DcStyle* style, HFONT default_font,
+                      HFONT* dc_font, std::map<uint64_t, HFONT>* font_cache,
+                      const vista::DrawItem& item, const ViewXform& xform,
+                      COLORREF* last_halo, COLORREF* last_ink, bool* have_halo,
+                      bool* have_ink) {
+  const uint32_t cp = item.codepoint;
+  if (cp == 0 || cp > 0x10ffff) {
+    return;
+  }
+  wchar_t utf16[2] = {};
+  int utf16_n = 0;
+  if (cp <= 0xffff) {
+    utf16[0] = static_cast<wchar_t>(cp);
+    utf16_n = 1;
+  } else {
+    const uint32_t u = cp - 0x10000;
+    utf16[0] = static_cast<wchar_t>(0xd800 + (u >> 10));
+    utf16[1] = static_cast<wchar_t>(0xdc00 + (u & 0x3ff));
+    utf16_n = 2;
+  }
+
+  POINT anchor = xform.map(item.anchor_x, item.anchor_y, true);
+  if (!item.vertices.empty()) {
+    anchor = xform.map(item.vertices.front().x, item.vertices.front().y,
+                       item.pixel_space);
+  }
+  const int ax = static_cast<int>(anchor.x);
+  const int ay = static_cast<int>(anchor.y);
+
+  const int font_px =
+      item.text_size_px > 0.5f ? static_cast<int>(std::lround(item.text_size_px))
+                               : 13;
+  const double deg = item.angle_rad * (180.0 / 3.14159265358979323846);
+  const int esc =
+      std::fabs(deg) > 0.5 ? static_cast<int>(std::lround(-deg * 10.0)) : 0;
+
+  HFONT glyph_font = default_font;
+  if (esc != 0 || font_px != 13) {
+    const uint64_t key = (static_cast<uint64_t>(static_cast<uint32_t>(font_px))
+                          << 32) |
+                         static_cast<uint64_t>(static_cast<uint32_t>(esc));
+    auto it = font_cache->find(key);
+    if (it == font_cache->end()) {
+      auto font_height = [](int px) { return -std::max(1, px); };
+      HFONT created =
+          CreateFontW(font_height(font_px), 0, esc, esc, FW_NORMAL, FALSE,
+                      FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                      CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                      DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
+      it = font_cache->emplace(key, created).first;
+    }
+    glyph_font = it->second ? it->second : default_font;
+  }
+  if (glyph_font && dc_font && glyph_font != *dc_font) {
+    // Font select breaks sticky brush/pen tracking on this DC.
+    SelectObject(hdc, glyph_font);
+    style->invalidate();
+    *dc_font = glyph_font;
+  }
+
+  const COLORREF ink = rgba_to_colorref(item.rgba);
+  const COLORREF halo =
+      item.halo_width_px > 0.f
+          ? rgba_to_colorref(item.halo_rgba ? item.halo_rgba : 0xffffffffu)
+          : RGB(255, 255, 255);
+  if (!*have_halo || *last_halo != halo) {
+    SetTextColor(hdc, halo);
+    *last_halo = halo;
+    *have_halo = true;
+    *have_ink = false;
+  }
+  // 4-neighbor halo keeps CJK readable; diagonals cost 4 extra TextOutW.
+  const int halo_d[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+  for (const auto& d : halo_d) {
+    TextOutW(hdc, ax + d[0], ay + d[1], utf16, utf16_n);
+  }
+  if (!*have_ink || *last_ink != ink) {
+    SetTextColor(hdc, ink);
+    *last_ink = ink;
+    *have_ink = true;
+    *have_halo = false;
+  }
+  TextOutW(hdc, ax, ay, utf16, utf16_n);
+}
+
 }  // namespace
 
 void paint_map_frame_gdi(
-    HDC hdc, const gis::vista::MapFrame& frame, const gis::vista::View& view,
+    HDC hdc, const vista::MapFrame& frame, const vista::View& view,
     bool fill_background,
     const std::function<bool(uint32_t texture_key, std::vector<uint8_t>* rgba,
                              int* w, int* h)>& load_raster) {
@@ -270,22 +708,49 @@ void paint_map_frame_gdi(
     return;
   }
 
-  {
-    size_t n_raster = 0;
-    size_t n_fill = 0;
-    for (const gis::vista::DrawItem& item : frame.items) {
-      if (item.kind == gis::vista::DrawKind::kRaster) {
+  ViewXform xform;
+  xform.bind(view);
+
+  size_t n_raster = 0;
+  size_t n_fill = 0;
+  size_t n_line = 0;
+  size_t n_line_mesh = 0;
+  size_t n_line_stroke = 0;
+  size_t n_text = 0;
+  size_t n_circle = 0;
+  for (const vista::DrawItem& item : frame.items) {
+    switch (item.kind) {
+      case vista::DrawKind::kRaster:
         ++n_raster;
-      } else if (item.kind == gis::vista::DrawKind::kFill) {
+        break;
+      case vista::DrawKind::kFill:
         ++n_fill;
-      }
+        break;
+      case vista::DrawKind::kCircle:
+        ++n_circle;
+        break;
+      case vista::DrawKind::kLine:
+        ++n_line;
+        if (item.indices.size() >= 3) {
+          ++n_line_mesh;
+        } else {
+          ++n_line_stroke;
+        }
+        break;
+      case vista::DrawKind::kText:
+        ++n_text;
+        break;
+      default:
+        break;
     }
-    std::fprintf(stderr,
-                 "map2d: gdi paint items=%zu raster=%zu fill=%zu view=%.2f..%.2f "
-                 "x %.2f..%.2f\n",
-                 frame.items.size(), n_raster, n_fill, view.min_x, view.max_x,
-                 view.min_y, view.max_y);
   }
+  std::fprintf(stderr,
+               "map2d: gdi paint items=%zu raster=%zu fill=%zu circle=%zu "
+               "line=%zu (mesh=%zu stroke=%zu) text=%zu view=%.2f..%.2f "
+               "x %.2f..%.2f\n",
+               frame.items.size(), n_raster, n_fill, n_circle, n_line,
+               n_line_mesh, n_line_stroke, n_text, view.min_x, view.max_x,
+               view.min_y, view.max_y);
 
   if (fill_background) {
     HBRUSH bg = CreateSolidBrush(rgba_to_colorref(frame.background_rgba));
@@ -295,8 +760,14 @@ void paint_map_frame_gdi(
     DeleteObject(bg);
   }
 
+  // Land fills coalesce many same-color tris into one PolyPolygon. GDI's
+  // default ALTERNATE mode punches even-odd holes at shared province edges
+  // and coastal overlaps (cream fringe, ocean under city labels, dark
+  // cancel patches). WINDING matches scenic::map2d_engine and keeps the union.
+  SetPolyFillMode(hdc, WINDING);
+
   std::map<COLORREF, HBRUSH> brushes;
-  std::map<uint64_t, HPEN> pens;
+  std::map<uint64_t, HFONT> fonts;
   auto brush_for = [&](COLORREF c) -> HBRUSH {
     auto it = brushes.find(c);
     if (it != brushes.end()) {
@@ -305,29 +776,6 @@ void paint_map_frame_gdi(
     HBRUSH b = CreateSolidBrush(c);
     brushes.emplace(c, b);
     return b;
-  };
-  auto pen_for = [&](COLORREF c, int width) -> HPEN {
-    const int w = std::max(1, width);
-    const uint64_t key =
-        (static_cast<uint64_t>(static_cast<uint32_t>(c)) << 16) |
-        static_cast<uint64_t>(static_cast<uint16_t>(w));
-    auto it = pens.find(key);
-    if (it != pens.end()) {
-      return it->second;
-    }
-    // Geometric round pens soften stair-steps vs PS_SOLID cosmetic pens
-    // (showcase export AA without SDF / MapLibre Native).
-    LOGBRUSH lb{};
-    lb.lbStyle = BS_SOLID;
-    lb.lbColor = c;
-    HPEN p = ExtCreatePen(PS_GEOMETRIC | PS_SOLID | PS_ENDCAP_ROUND |
-                              PS_JOIN_ROUND,
-                          w, &lb, 0, nullptr);
-    if (!p) {
-      p = CreatePen(PS_SOLID, w, c);
-    }
-    pens.emplace(key, p);
-    return p;
   };
 
   // MapFrame text is already in view/bitmap pixels (Layout advances). Do not
@@ -343,7 +791,55 @@ void paint_map_frame_gdi(
       SelectObject(hdc, text_font ? text_font : GetStockObject(DEFAULT_GUI_FONT));
   SetBkMode(hdc, TRANSPARENT);
 
+  DcStyle style;
+  FillBatch fill_batch;
+  fill_batch.view_w = xform.width_px;
+  fill_batch.view_h = xform.height_px;
+  StrokeBatch stroke_batch;
+  std::map<uint64_t, HPEN> pens;
+  auto pen_for = [&](COLORREF c, int width) -> HPEN {
+    const int w = std::max(1, width);
+    const uint64_t key =
+        (static_cast<uint64_t>(static_cast<uint32_t>(c)) << 16) |
+        static_cast<uint64_t>(static_cast<uint16_t>(w));
+    auto it = pens.find(key);
+    if (it != pens.end()) {
+      return it->second;
+    }
+    HPEN p = CreatePen(PS_SOLID, 1, c);
+    if (!p) {
+      p = CreatePen(PS_SOLID, w, c);
+    }
+    pens.emplace(key, p);
+    return p;
+  };
+  struct StrokeRun {
+    COLORREF color = 0;
+    bool active = false;
+    std::vector<std::vector<POINT>> paths;
+  } stroke_run;
+  auto flush_stroke_run = [&]() {
+    if (!stroke_run.active || stroke_run.paths.empty()) {
+      stroke_run.paths.clear();
+      stroke_run.active = false;
+      return;
+    }
+    HPEN core_pen = pen_for(stroke_run.color, 1);
+    for (const auto& path : stroke_run.paths) {
+      stroke_batch.append(hdc, &style, core_pen, path);
+    }
+    stroke_batch.flush(hdc, &style);
+    stroke_run.paths.clear();
+    stroke_run.active = false;
+  };
+  auto flush_geometry = [&]() {
+    flush_stroke_run();
+    fill_batch.flush(hdc, &style);
+    stroke_batch.flush(hdc, &style);
+  };
+
   std::vector<POINT> pts;
+  std::vector<POINT> chain;
   int64_t fill_us = 0;
   int64_t line_us = 0;
   int64_t text_us = 0;
@@ -354,46 +850,119 @@ void paint_map_frame_gdi(
                    std::chrono::steady_clock::now() - t0)
                    .count();
   };
-  for (const gis::vista::DrawItem& item : frame.items) {
+
+  COLORREF last_halo = 0;
+  COLORREF last_ink = 0;
+  bool have_halo = false;
+  bool have_ink = false;
+  HFONT dc_font = text_font ? text_font
+                            : static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+  bool in_text_run = false;
+  HPEN null_pen = static_cast<HPEN>(GetStockObject(NULL_PEN));
+
+  for (const vista::DrawItem& item : frame.items) {
     const auto t0 = std::chrono::steady_clock::now();
     const COLORREF color = rgba_to_colorref(item.rgba);
     switch (item.kind) {
-      case gis::vista::DrawKind::kFill:
-      case gis::vista::DrawKind::kCircle: {
-        item_to_points(item, view, &pts);
-        HPEN outline = pen_for(color, 1);
-        fill_indexed_tris(hdc, pts, item.indices, brush_for(color), outline);
+      case vista::DrawKind::kFill:
+      case vista::DrawKind::kCircle: {
+        in_text_run = false;
+        item_to_points(item, xform, &pts);
+        // Same-color 1px outline was redundant stroke work; NULL_PEN keeps
+        // land/water fills faithful while cutting pen GDI cost.
+        // Always coalesce=true (triangle PolyPolygon). coalesce=false is the
+        // line-mesh path (classify_tess_quad); large land fills (≥288 idx)
+        // used to take it and punch rectangular ocean holes through China.
+        fill_batch.append_tris(hdc, &style, brush_for(color), null_pen, pts,
+                               item.indices, /*coalesce=*/true);
         add_us(&fill_us, t0);
         break;
       }
-      case gis::vista::DrawKind::kLine: {
-        item_to_points(item, view, &pts);
-        // Tessellated lines are triangle strips/meshes; prefer fill when
-        // indices exist, else stroke vertex order.
+      case vista::DrawKind::kLine: {
+        in_text_run = false;
+        item_to_points(item, xform, &pts);
+        // Tessellated lines: cosmetic 1px PolyPolyline of emit_segment_quad
+        // centerlines (P2d unit china). If no segment classifies, chunked mesh.
         if (item.indices.size() >= 3) {
-          fill_indexed_tris(hdc, pts, item.indices, brush_for(color),
-                            pen_for(color, 1));
+          flush_stroke_run();
+          const size_t nvert = pts.size();
+          const std::vector<uint32_t>& indices = item.indices;
+          chain.clear();
+          size_t n_seg = 0;
+          auto flush_chain = [&]() {
+            if (chain.size() >= 2) {
+              stroke_batch.append(hdc, &style, pen_for(color, 1), chain,
+                                  /*as_mesh=*/true);
+            }
+            chain.clear();
+          };
+          size_t i = 0;
+          while (i + 2 < indices.size()) {
+            if (i + 5 < indices.size()) {
+              uint32_t q[4] = {};
+              const TessQuad kind =
+                  classify_tess_quad(indices.data() + i, nvert, q);
+              if (kind == TessQuad::kSegment) {
+                const POINT m0 = midpoint(pts[q[0]], pts[q[1]]);
+                const POINT m1 = midpoint(pts[q[3]], pts[q[2]]);
+                if (poly_outside_view(&m0, 1, xform.width_px, xform.height_px) &&
+                    poly_outside_view(&m1, 1, xform.width_px, xform.height_px)) {
+                  i += 6;
+                  continue;
+                }
+                if (near_point(m0, m1)) {
+                  i += 6;
+                  continue;
+                }
+                if (!chain.empty() && !near_point(chain.back(), m0)) {
+                  flush_chain();
+                }
+                if (chain.empty()) {
+                  chain.push_back(m0);
+                }
+                chain.push_back(m1);
+                ++n_seg;
+                i += 6;
+                continue;
+              }
+              if (kind == TessQuad::kFan) {
+                i += 6;
+                continue;
+              }
+            }
+            i += 3;
+          }
+          flush_chain();
+          if (n_seg == 0) {
+            fill_batch.append_tris(hdc, &style, brush_for(color), null_pen, pts,
+                                   indices, /*coalesce=*/false);
+          }
         } else {
-          // Soft understroke then core — poor-man's AA without SDF.
-          const int stroke_w = 2;
-          const COLORREF soft =
-              RGB((GetRValue(color) * 2 + 255) / 3,
-                  (GetGValue(color) * 2 + 255) / 3,
-                  (GetBValue(color) * 2 + 255) / 3);
-          stroke_polyline(hdc, pts, pen_for(soft, stroke_w + 1));
-          stroke_polyline(hdc, pts, pen_for(color, stroke_w));
+          fill_batch.flush(hdc, &style);
+          if (stroke_run.active && stroke_run.color != color) {
+            flush_stroke_run();
+          }
+          if (!stroke_run.active) {
+            stroke_run.color = color;
+            stroke_run.active = true;
+          }
+          stroke_run.paths.push_back(pts);
         }
         add_us(&line_us, t0);
         break;
       }
-      case gis::vista::DrawKind::kRaster: {
-        item_to_points(item, view, &pts);
+      case vista::DrawKind::kRaster: {
+        in_text_run = false;
+        flush_geometry();
+        style.invalidate();
+        item_to_points(item, xform, &pts);
         std::vector<uint8_t> rgba;
         int tw = 0;
         int th = 0;
         const bool loaded =
             load_raster && load_raster(item.codepoint, &rgba, &tw, &th);
-        if (loaded && blit_rgba_quad(hdc, pts, rgba, tw, th, item.opacity)) {
+        if (loaded && blit_rgba_quad(hdc, pts, rgba, tw, th, item.opacity,
+                                     item.blend)) {
           add_us(&other_us, t0);
           break;
         }
@@ -403,95 +972,48 @@ void paint_map_frame_gdi(
                      loaded ? 1 : 0, tw, th, pts.size(), item.codepoint,
                      item.opacity);
         if (pts.size() >= 3) {
-          fill_indexed_tris(hdc, pts, item.indices, brush_for(color),
-                            static_cast<HPEN>(GetStockObject(NULL_PEN)));
+          fill_batch.append_tris(hdc, &style, brush_for(color), null_pen, pts,
+                                 item.indices, /*coalesce=*/true);
+          fill_batch.flush(hdc, &style);
         }
         add_us(&other_us, t0);
         break;
       }
-      case gis::vista::DrawKind::kIcon: {
-        // No icon atlas on GDI path; skip (Layout still placed text).
+      case vista::DrawKind::kIcon: {
         add_us(&other_us, t0);
         break;
       }
-      case gis::vista::DrawKind::kText: {
-        // Layout emits one DrawItem per codepoint with a pixel-space glyph
-        // quad in vertices[]. Using only anchor_x/y stacks every character on
-        // the label center (garbled CJK "tofu" on the china showcase BMP).
-        const uint32_t cp = item.codepoint;
-        if (cp == 0 || cp > 0x10ffff) {
-          add_us(&text_us, t0);
-          break;
+      case vista::DrawKind::kText: {
+        if (!in_text_run) {
+          flush_geometry();
+          AbortPath(hdc);
+          SelectClipRgn(hdc, nullptr);
+          SelectObject(hdc, GetStockObject(NULL_BRUSH));
+          SelectObject(hdc, GetStockObject(NULL_PEN));
+          style.invalidate();
+          if (dc_font) {
+            SelectObject(hdc, dc_font);
+          }
+          in_text_run = true;
         }
-        wchar_t utf16[2] = {};
-        int utf16_n = 0;
-        if (cp <= 0xffff) {
-          utf16[0] = static_cast<wchar_t>(cp);
-          utf16_n = 1;
-        } else {
-          const uint32_t u = cp - 0x10000;
-          utf16[0] = static_cast<wchar_t>(0xd800 + (u >> 10));
-          utf16[1] = static_cast<wchar_t>(0xdc00 + (u & 0x3ff));
-          utf16_n = 2;
-        }
-
-        int ax = static_cast<int>(std::lround(item.anchor_x));
-        int ay = static_cast<int>(std::lround(item.anchor_y));
-        if (item.pixel_space && !item.vertices.empty()) {
-          ax = static_cast<int>(std::lround(item.vertices.front().x));
-          ay = static_cast<int>(std::lround(item.vertices.front().y));
-        } else if (!item.pixel_space && !item.vertices.empty()) {
-          world_to_view(view, item.vertices.front().x, item.vertices.front().y,
-                        &ax, &ay);
-        }
-
-        const int font_px =
-            item.text_size_px > 0.5f
-                ? static_cast<int>(std::lround(item.text_size_px))
-                : 13;
-        HFONT glyph_font = nullptr;
-        const double deg = item.angle_rad * (180.0 / 3.14159265358979323846);
-        if (std::fabs(deg) > 0.5) {
-          const int esc = static_cast<int>(std::lround(-deg * 10.0));
-          glyph_font =
-              CreateFontW(font_height(font_px), 0, esc, esc, FW_NORMAL, FALSE,
-                          FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-                          CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-                          DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
-        } else if (font_px != 13) {
-          glyph_font =
-              CreateFontW(font_height(font_px), 0, 0, 0, FW_NORMAL, FALSE, FALSE,
-                          FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-                          CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-                          DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
-        }
-        if (glyph_font) {
-          SelectObject(hdc, glyph_font);
-        }
-
-        const COLORREF ink = rgba_to_colorref(item.rgba);
-        const COLORREF halo =
-            item.halo_width_px > 0.f
-                ? rgba_to_colorref(item.halo_rgba ? item.halo_rgba : 0xffffffffu)
-                : RGB(255, 255, 255);
-        SetTextColor(hdc, halo);
-        const int halo_d[8][2] = {{-1, 0},  {1, 0},  {0, -1}, {0, 1},
-                                  {-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
-        for (const auto& d : halo_d) {
-          TextOutW(hdc, ax + d[0], ay + d[1], utf16, utf16_n);
-        }
-        SetTextColor(hdc, ink);
-        TextOutW(hdc, ax, ay, utf16, utf16_n);
-        if (glyph_font) {
-          SelectObject(hdc, text_font ? text_font
-                                      : GetStockObject(DEFAULT_GUI_FONT));
-          DeleteObject(glyph_font);
-        }
+        paint_text_glyph(hdc, &style, text_font, &dc_font, &fonts, item, xform,
+                         &last_halo, &last_ink, &have_halo, &have_ink);
         add_us(&text_us, t0);
         break;
       }
     }
   }
+  flush_geometry();
+
+  std::fprintf(stderr,
+               "map2d: gdi batch fill_us=%lld line_us=%lld text_us=%lld "
+               "other_us=%lld fill_flushes=%zu "
+               "mesh_polys=%zu mesh_flushes=%zu brushes=%zu fonts=%zu\n",
+               static_cast<long long>(fill_us), static_cast<long long>(line_us),
+               static_cast<long long>(text_us),
+               static_cast<long long>(other_us), fill_batch.flush_count,
+               fill_batch.tri_draw_count, fill_batch.mesh_flush_count,
+               brushes.size(), fonts.size());
 
   if (base::trace::tracing_enabled()) {
     auto flush_kind = [](const char* name, int64_t us) {
@@ -512,10 +1034,12 @@ void paint_map_frame_gdi(
   if (text_font) {
     DeleteObject(text_font);
   }
-  for (auto& kv : brushes) {
-    DeleteObject(kv.second);
+  for (auto& kv : fonts) {
+    if (kv.second) {
+      DeleteObject(kv.second);
+    }
   }
-  for (auto& kv : pens) {
+  for (auto& kv : brushes) {
     DeleteObject(kv.second);
   }
 }

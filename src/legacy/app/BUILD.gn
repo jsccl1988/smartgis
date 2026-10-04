@@ -3,23 +3,22 @@
 
 import("//build/smartgis.gni")
 
-# Leftover MFC app core DLL (dll_stem stays app_core). Source: core/bootstrap.cpp.
-# Layout: core/ (SmtApp + sample_map) + shell/ (frame/catalog/dock/showcase) +
-# doc/ + view/ (+ bind/) + res/ + root PCH/RC. GN labels :app :app_core
-# :legacy_app_all stay frozen.
+# Leftover MFC app core DLL (dll_stem stays app_core). Source: bootstrap/*.
+# Layout: bootstrap/ + shell/{frame,catalog,dock,showcase} + views/{document,viewport,helper} + res/ + root PCH/RC.
+# GN labels :app :app_core :legacy_app_all stay frozen.
 smt_shared_library("app_core") {
   dll_stem = "app_core"
   defines = [ "APP_CORE_EXPORTS" ]
   sources = [
-    "core/bootstrap.cpp",
-    "core/sample_map.cpp",
+    "bootstrap/bootstrap.cpp",
+    "bootstrap/sample_map.cpp",
   ]
   deps = [
     "//src/base:base",
     "//src/base:core",
     "//src/content:map_bootstrap",
-    "//src/gis/kernel/geo:geo",
-    "//src/gis/model/map:gis",
+    "//src/gis/geo:geo",
+    "//src/gis/map:gis",
     "//src/plugin:plugin",
     "//src/legacy/gis/datasource:sde_mgr",
     "//src/legacy/sys:sys",
@@ -36,31 +35,31 @@ smt_mfc_executable("app") {
   sources = [
     "shell/frame/child_frame.cpp",
     "shell/frame/main_frame.cpp",
-    "shell/frame/mdi_tabs.cpp",
+    "shell/frame/mdi_tab_options.cpp",
     "shell/frame/win_app.cpp",
-    "shell/showcase/map2d.cc",
-    "shell/showcase/scene3d.cc",
-    "shell/catalog/tab_pane.cpp",
-    "shell/dock/console.cpp",
+    "shell/showcase/map2d_showcase.cc",
+    "shell/showcase/scene3d_showcase.cc",
+    "shell/catalog/catalog_pane.cpp",
+    "shell/dock/debug_console.cpp",
     "shell/dock/diagnostic.cpp",
     "shell/dock/render_trace.cpp",
     "smart_gis.rc",
     "stdafx.cpp",
-    "doc/document.cpp",
-    "view/bind/mdi_menu.cpp",
-    "view/bind/self_test_mark.cpp",
-    "view/bind/status_coord.cpp",
-    "view/scene3d_view.cpp",
-    "view/data_view.cpp",
-    "view/edit_view.cpp",
+    "views/document/document.cpp",
+    "views/helper/mdi_menu.cpp",
+    "views/helper/self_test_mark.cpp",
+    "views/helper/status_coord.cpp",
+    "views/viewport/scene3d_view.cpp",
+    "views/viewport/data_view.cpp",
+    "views/viewport/edit_view.cpp",
   ]
   deps = [
     ":app_core",
     "//src/base:base",
     "//src/base:core",
     "//src/content:debug_agent",
-    "//src/gis/kernel/geo:geo",
-    "//src/gis/model/map:gis",
+    "//src/gis/geo:geo",
+    "//src/gis/map:gis",
     "//src/legacy/plugin:am_plugins",
     "//src/legacy/render/scene3d:scene3d",
     "//src/plugin:plugin",

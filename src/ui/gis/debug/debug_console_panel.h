@@ -6,8 +6,10 @@
 
 #include "ui/ui_export.h"
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -79,6 +81,12 @@ class UI_EXPORT DebugConsolePanel : public View {
   void apply_pane_mode();
   void apply_frame_metrics(float scale);
   void append_entry(LogLine line);
+  void enqueue_log_line(LogLine line);
+  void flush_pending_logs();
+  void arm_log_flush_timer();
+  void disarm_log_flush_timer();
+  static void CALLBACK on_log_flush_timer(HWND hwnd, UINT msg, UINT_PTR id,
+                                          DWORD time);
   void reload_from_sink();
   void rebuild_visible_indices();
   void sync_list_size(bool stick_to_bottom);
@@ -123,6 +131,15 @@ class UI_EXPORT DebugConsolePanel : public View {
   std::function<void(const std::string&)> submit_;
   std::function<void(const std::string&)> echo_to_output_;
   std::uint64_t log_sub_id_ = 0;
+
+  // LogSink notifies from any thread (FlyCube attach / present). Queue here
+  // and flush on the Widget UI thread so lines_/visible_indices_ stay single
+  // threaded (heap 0xC0000374 on Scene3D tab switch).
+  std::mutex log_mu_;
+  std::vector<LogLine> pending_logs_;
+  std::atomic<bool> log_flush_armed_{false};
+  bool shutting_down_ = false;
+  bool flushing_logs_ = false;
 };
 
 }  // namespace views

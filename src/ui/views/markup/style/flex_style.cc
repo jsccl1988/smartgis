@@ -24,6 +24,7 @@ void FlexStyle::merge_from(const FlexStyle& other) {
   merge_opt(&align_items, other.align_items);
   merge_opt(&flex, other.flex);
   merge_opt(&flex_grow, other.flex_grow);
+  merge_opt(&flex_shrink, other.flex_shrink);
   merge_opt(&gap, other.gap);
   merge_opt(&padding, other.padding);
   merge_opt(&padding_left, other.padding_left);

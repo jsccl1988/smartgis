@@ -17,7 +17,6 @@
 #include "legacy/render/rhi2d/impl/common/paint/backend/paint_backend.h"
 
 using namespace base;
-using namespace geo;
 
 namespace render {
 namespace detail {

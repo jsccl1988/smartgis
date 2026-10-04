@@ -10,7 +10,7 @@ All rights reserved.
 
 **Date:** 2026-09-13  
 **Status:** superseded (2026-09-28 merge B)
-**Related:** 伞状深度设计 [`2026-09-13-model-render-compute-design.md`](2026-09-13-model-render-compute-design.md)；RHI [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)；布局 [`../../build/src-layout.md`](../../build/src-layout.md)。  
+**Related:** 伞状深度设计 [`2026-09-13-model-render-compute-design.md`](2026-09-13-model-render-compute-design.md)；RHI [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md)；布局 [`../../src-layout.md`](../../src-layout.md)。  
 **Scope:** 物理子目录重构（方案 A）：整包平移 + include/GN 全改名，**不留** `src/render/<old>` 转发头。
 
 ## Goal
@@ -82,12 +82,12 @@ src/legacy/render/
 1. `src/render/` 下不再存在 `gdi` / `gl` / `render3d` / `scene3d` / `model3d` / `terrain` / `pointcloud` / `gdi_simple` 目录。
 2. 仓库内无 `#include "render/(gdi|gl|render3d|scene3d|model3d|terrain|pointcloud|gdi_simple)/…"`（应已改为 `legacy_render`）。
 3. `//src/render:render_all` 仅终局目标；`build.bat` 日常 `src_all` 不拉 leftover DLL。
-4. `docs/build/src-layout.md` 与伞状设计 §6.4 路径表已改为 `legacy_render`。
+4. `docs/superpowers/src-layout.md` 与伞状设计 §6.4 路径表已改为 `legacy_render`。
 5. Copyright / snake_case / 两层 namespace 规则不变。
 
 ## Doc updates (same change)
 
-- `docs/build/src-layout.md` — path map + render 层说明  
+- `docs/superpowers/src-layout.md` — path map + render 层说明  
 - `docs/superpowers/specs/2026-09-13-model-render-compute-design.md` — §6.4 路径改为 `legacy_render`；注明 present 缝本轮可断  
 - `src/render/README.md` — 终局说明 + 指向 `legacy_render`  
 - 根 `README.md` — 若模块表仍写 leftover 挂在 `render/`，同步改（否则可不动）

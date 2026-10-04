@@ -243,7 +243,7 @@ git commit -m "feat(views): add bottom DebugConsolePanel and View menu toggle"
 ### Task 5: Docs cross-refs
 
 **Files:**
-- Modify: `docs/superpowers/README.md`, `docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md` (short § pointer), `src/app/views/README.md`, `docs/build/src-layout.md` if it lists `base/` children
+- Modify: `docs/superpowers/README.md`, `docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md` (short § pointer), `src/app/views/README.md`, `docs/superpowers/src-layout.md` if it lists `base/` children
 
 - [ ] **Step 1: Add Active row for debug-console spec + plan link**
 
@@ -274,7 +274,7 @@ git commit -m "docs: index debug console living spec and shell cross-ref"
 
 ### Task 6: Console coverage + performance (L0 / L1 / L2)
 
-Living §: [`../specs/2026-09-27-views-desktop-shell-design.md`](../specs/2026-09-27-views-desktop-shell-design.md) **§Console coverage + performance**. As-built: [`../../build/ui-testing.md`](../../build/ui-testing.md), [`../../../testing/README.md`](../../../testing/README.md).
+Living §: [`../specs/2026-09-27-views-desktop-shell-design.md`](../specs/2026-09-27-views-desktop-shell-design.md) **§Console coverage + performance**. As-built: [`../ui-testing.md`](../ui-testing.md), [`../../../testing/README.md`](../../../testing/README.md).
 
 **Locked:** Scope C; Industry D (QGIS-like cmds; GDAL-like data + MapLibre-like viewport timings, no absolute cross-product); Run A+B+C; Data C+D (synthetic + `china_map_samples` + DEM/tile soft). OpenCppCoverage optional — does **not** block `te`.
 

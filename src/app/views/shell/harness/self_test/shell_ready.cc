@@ -16,9 +16,9 @@
 #include "content/public/map_types.h"
 #include "content/public/view_host.h"
 #include "content/renderer/renderer_main.h"
-#include "gis/model/edit/session/memory_edit_session.h"
-#include "gis/present/style/style_document.h"
-#include "gis/present/tile/provider/tile_provider.h"
+#include "gis/edit/memory_session.h"
+#include "gis/carto/style/style_document.h"
+#include "gis/carto/tile/tile_provider.h"
 #include "gpu/gpu.h"
 #include "net/http/http.h"
 #include "render/rhi/rhi.h"
@@ -128,7 +128,7 @@ if (!IsWindowVisible(data->native_view())) {
 }
 if (data->attach_mode() ==
     ui::views::MapViewport::AttachMode::kContentMapView) {
-  // Lazy OpenView paints at GPU default 64² then Resize. Kick client-sized
+  // Lazy OpenView paints at GPU default 64虏 then Resize. Kick client-sized
   // ResizeSurface again so a lost first FrameReady is not a hard fail.
   // Retry: after SmartGisRender --self-test the GPU process can miss the
   // first Data-tab FrameReady under exe_smoke (exit 8).
@@ -145,7 +145,7 @@ if (data->attach_mode() ==
     }
     data->invalidate_native();
     pump_views_messages_impl(400);
-    // Three 30s budgets with re-invalidate ≈ same 90s wall, but recovers
+    // Three 30s budgets with re-invalidate 鈮?same 90s wall, but recovers
     // when the first FrameReady was lost after GPU warmup from Render smoke.
     data_frame_ready = data->wait_ready(30000);
   }

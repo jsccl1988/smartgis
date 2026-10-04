@@ -12,7 +12,7 @@
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "effect/atmosphere/globe/globe_pass.h"
+#include "vista/atmosphere/globe/globe_pass.h"
 #include "render/rhi/rhi.h"
 
 #include <cstdio>
@@ -49,7 +49,7 @@ AtmosphereGlobeFlyResult run_atmosphere_globe_fly_presents(
     return out;
   }
 
-  const effect::atmosphere::GlobePass* globe =
+  const vista::GlobePass* globe =
       &cam->atmosphere_session().globe_pass();
   content::AtmosphereSession* atm = &cam->atmosphere_session();
   atmosphere_showcase_mark("globe-flyin");

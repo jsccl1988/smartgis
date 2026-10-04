@@ -20,7 +20,7 @@ All rights reserved.
 - **Do not** block default **`build.bat te`** on forensics or Mode C.
 - **Do not** add map viewport pixels to L2 or forensics goldens.
 - Copyright year **2026**; English comments in new/changed source.
-- As-built: [`../../build/ui-testing.md`](../../build/ui-testing.md) **L1c**.
+- As-built: [`../ui-testing.md`](../ui-testing.md) **L1c**.
 
 ## File map (expected)
 
@@ -28,7 +28,7 @@ All rights reserved.
 | --- | --- |
 | Shared forensics hook (test / self-test / pixel runners) | Mode A: allocate `run_id`, write trio under `out/ui_forensics/` |
 | `tools/debug/scripts/ui_visual_forensics.py` | Mode C: `--record`, `--record-all`, `--analyze` |
-| `docs/build/ui-testing.md` | L1c row + how-to (this plan lands doc first) |
+| `docs/superpowers/ui-testing.md` | L1c row + how-to (this plan lands doc first) |
 | Existing: `layout_check.h`, capture/WIC helpers, DebugAgent `ui.*` | Reuse only — no duplicate widget kit |
 
 ---
@@ -81,7 +81,7 @@ All rights reserved.
 ### Task 5: Docs + GN policy
 
 - [x] **Step 1:** Living §UI visual forensics (A+C) in views-desktop-shell spec.
-- [x] **Step 2:** L1c row + how-to in `docs/build/ui-testing.md`.
+- [x] **Step 2:** L1c row + how-to in `docs/superpowers/ui-testing.md`.
 - [x] **Step 3:** This plan + Active table link in `docs/superpowers/README.md`.
 - [x] **Step 4:** Confirm Mode C script **not** added to default `//:test_all` / `build.bat te`.
 - [ ] **Step 5:** Optional CI job doc line (forensics artifact upload on failure only).

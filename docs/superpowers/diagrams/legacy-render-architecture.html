@@ -7,7 +7,7 @@ All rights reserved.
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>legacy/render — 渲染技术架构</title>
+<title>Scenic — scenic.dll + content 宿主</title>
 <style>
   :root {
     --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
@@ -50,12 +50,13 @@ All rights reserved.
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>legacy/render — 渲染技术架构</h1>
-    <p>Leftover 双轨：rhi2d 栅格 · rhi3d FrameJob · scene3d — 产品轨语义参考</p>
+    <h1>Scenic — 上一代引擎（content 宿主）</h1>
+    <p>产品 DLL <code>scenic.dll</code>（<code>namespace scenic</code>），宿主 <code>src/content</code>。工作副本磁盘 <code>src/scenic/{render/rhi2d,render/rhi3d,map,scene3d}</code>；<code>src/legacy/render</code> <strong>冻结</strong>。当前代是 Vista（<code>src/vista</code>），禁止并进 <code>vista.dll</code>。</p>
     <div class="meta">
-      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§rhi2d tile-raster</a>
+      Spec：<a href="../specs/2026-09-13-render-rhi-scene-design.md">§Scenic</a>
+      · <a href="../specs/2026-09-13-render-rhi-scene-design.md">§rhi2d tile-raster</a>
       · <a href="../specs/2026-09-13-render-rhi-scene-design.md">§rhi3d parallel frame</a>
-      · <a href="../../../src/legacy/render/README.md">src/legacy/render</a>
+      · <a href="../../../src/scenic/README.md">src/scenic</a>
     </div>
     <div class="rel">相关图：
       <a href="./render-accelerate-topology.html">Render accelerate（A×B）</a>
@@ -65,25 +66,49 @@ All rights reserved.
   </header>
 
   <section class="panel">
-    <h2>1. 三大 tops + rhi2d 分层（全宽）</h2>
-    <svg class="diagram" viewBox="0 0 1040 340" role="img" aria-label="legacy tops 与 rhi2d 分层">
+    <h2>0. 产品 DLL 分层（compile isolation）</h2>
+    <svg class="diagram" viewBox="0 0 1040 168" role="img" aria-label="scenic.dll 与主库解耦分层">
+      <rect x="20" y="12" width="240" height="64" rx="8" fill="#efeaf8" stroke="#6b5ea8" stroke-width="1.5"/>
+      <text class="box-title" x="140" y="38" text-anchor="middle">Views → content</text>
+      <text class="box-sub" x="140" y="58" text-anchor="middle">只命名 scenic::Engine · DTO 适配
+      <path class="arrow" d="M270 44 L318 44" marker-end="url(#ah)"/>
+      <rect x="320" y="12" width="360" height="64" rx="8" fill="#e8f1fa" stroke="#2563a8" stroke-width="1.5"/>
+      <text class="box-title" x="500" y="38" text-anchor="middle">scenic.dll  façade</text>
+      <text class="box-sub" x="500" y="58" text-anchor="middle">POD DrawItem · detail stubs · ↛ gis</text>
+      <rect x="700" y="12" width="320" height="64" rx="8" fill="#f4f6f8" stroke="#d8dee6"/>
+      <text class="box-title" x="860" y="38" text-anchor="middle">主库 gis / content / leftover</text>
+      <text class="box-sub" x="860" y="58" text-anchor="middle">不在 scenic 的 GN deps</text>
+      <rect x="20" y="96" width="1000" height="56" rx="8" fill="#e6f5ef" stroke="#2f7d62"/>
+      <text class="lane-label" x="36" y="128" fill="#2f7d62">copy opt-in</text>
+      <text class="box-title" x="280" y="122">scenic_copy_all · render/ + map/ + scene3d/</text>
+      <text class="box-sub" x="280" y="140">非第二套公开 API；可 dep gis — 不进 src_all / scenic.dll</text>
+    </svg>
+  </section>
+
+  <section class="panel">
+    <h2>1. 磁盘分层（vista 对照）+ rhi2d 栈</h2>
+    <svg class="diagram" viewBox="0 0 1040 340" role="img" aria-label="scenic render map scene3d 与 rhi2d 分层">
       <defs>
         <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
           <path d="M0,0 L8,3 L0,6 Z" fill="#8a96a8"/>
         </marker>
       </defs>
-      <!-- three tops -->
-      <rect x="20" y="10" width="320" height="70" rx="8" fill="#e8f1fa" stroke="#2563a8" stroke-width="1.5"/>
-      <text class="box-title" x="180" y="36" text-anchor="middle">rhi2d</text>
-      <text class="box-sub" x="180" y="56" text-anchor="middle">SmtRenderDevice · serial|tile|layer</text>
+      <!-- four tops: render (rhi2d+rhi3d) / map / scene3d -->
+      <rect x="20" y="10" width="240" height="70" rx="8" fill="#e8f1fa" stroke="#2563a8" stroke-width="1.5"/>
+      <text class="box-title" x="140" y="36" text-anchor="middle">render/rhi2d</text>
+      <text class="box-sub" x="140" y="56" text-anchor="middle">SmtRenderDevice · tile|layer</text>
 
-      <rect x="360" y="10" width="320" height="70" rx="8" fill="#f8efe4" stroke="#b06a1a" stroke-width="1.5"/>
-      <text class="box-title" x="520" y="36" text-anchor="middle">rhi3d</text>
-      <text class="box-sub" x="520" y="56" text-anchor="middle">GL / D3D11 · FrameJob · Prep×N</text>
+      <rect x="280" y="10" width="240" height="70" rx="8" fill="#f8efe4" stroke="#b06a1a" stroke-width="1.5"/>
+      <text class="box-title" x="400" y="36" text-anchor="middle">render/rhi3d</text>
+      <text class="box-sub" x="400" y="56" text-anchor="middle">GL / D3D11 · FrameJob</text>
 
-      <rect x="700" y="10" width="320" height="70" rx="8" fill="#e6f5ef" stroke="#2f7d62" stroke-width="1.5"/>
-      <text class="box-title" x="860" y="36" text-anchor="middle">scene3d</text>
-      <text class="box-sub" x="860" y="56" text-anchor="middle">Stereo HWND · terrain / DEM</text>
+      <rect x="540" y="10" width="240" height="70" rx="8" fill="#efeaf8" stroke="#6b5ea8" stroke-width="1.5"/>
+      <text class="box-title" x="660" y="36" text-anchor="middle">map/</text>
+      <text class="box-sub" x="660" y="56" text-anchor="middle">↔ vista/map · carto detail</text>
+
+      <rect x="800" y="10" width="220" height="70" rx="8" fill="#e6f5ef" stroke="#2f7d62" stroke-width="1.5"/>
+      <text class="box-title" x="910" y="36" text-anchor="middle">scene3d/</text>
+      <text class="box-sub" x="910" y="56" text-anchor="middle">↔ vista/scene · stereo</text>
 
       <!-- rhi2d stack -->
       <text x="20" y="110" class="lane-label" fill="#6b5ea8">rhi2d 分层</text>

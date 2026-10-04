@@ -12,10 +12,10 @@ namespace ui {
 namespace views {
 namespace {
 
-// Matches paint_self text inset (8px x, 6px y each side) at 96 DPI.
+// Matches paint_self text inset (8px x, 4px y each side) at 96 DPI.
 constexpr int kPadX = 16;
-constexpr int kPadY = 14;
-constexpr int kMinHeight = 32;
+constexpr int kPadY = 8;
+constexpr int kMinHeight = 24;
 
 float scale_for(const View* view) {
   if (view && view->widget()) {

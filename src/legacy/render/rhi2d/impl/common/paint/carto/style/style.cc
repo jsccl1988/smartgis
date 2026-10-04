@@ -11,7 +11,6 @@
 #include "legacy/render/rhi2d/impl/gdi/res/resource.h"
 
 using namespace base;
-using namespace geo;
 
 namespace render {
 namespace detail {

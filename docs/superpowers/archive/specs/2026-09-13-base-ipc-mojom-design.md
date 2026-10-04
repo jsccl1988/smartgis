@@ -524,9 +524,9 @@ enum class ProcessRole { kBrowser, kRenderer, kGpu };
 
 
 
-- `docs/build/ui-shell-multiprocess.md` §0.2 / §0.4 — Browser + Renderer + **standalone GPU**; one `SmartGis.exe`; named pipe + pickle.
+- `docs/superpowers/ui-shell-multiprocess.md` §0.2 / §0.4 — Browser + Renderer + **standalone GPU**; one `SmartGis.exe`; named pipe + pickle.
 
-- `docs/build/src-layout.md` — `base/ipc`, `content` Chromium-style type names, C++23, `ContentMain`.
+- `docs/superpowers/src-layout.md` — `base/ipc`, `content` Chromium-style type names, C++23, `ContentMain`.
 
 - Root `README.md` — C++23; `build.bat render` → `SmartGis.exe --type=`; refresh **最后更新**.
 

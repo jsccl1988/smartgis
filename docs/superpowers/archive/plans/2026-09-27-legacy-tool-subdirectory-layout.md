@@ -30,7 +30,7 @@ All rights reserved.
 - [x] Task 1: Create `iatool/`; `git mv` `t_iatool*` / `t_iatoolmanager*` / `t_msg*` / `tool_export.h`; add `iatool/BUILD.gn` with `source_set("tool_sources")`; fix internal includes/header guards
 - [x] Task 2: Rewire root `src/legacy/tool/BUILD.gn` to `deps = [ "//src/legacy/tool/iatool:tool_sources" ]` (drop inline sources list)
 - [x] Task 3: Rewrite all in-tree `#include "legacy/tool/t_….h"` / `tool_export.h` → `legacy/tool/iatool/…` (group, ui, app, plugins, self)
-- [x] Task 4: Add `src/legacy/tool/README.md`; update `src/legacy/README.md`, `docs/build/src-layout.md` leftover/Tool rows, `docs/README.md` index; cross-link from endgame tool layout / strangler / dispatch path tables
+- [x] Task 4: Add `src/legacy/tool/README.md`; update `src/legacy/README.md`, `docs/superpowers/src-layout.md` leftover/Tool rows, `docs/README.md` index; cross-link from endgame tool layout / strangler / dispatch path tables
 - [x] Task 5: Verify — `ninja -C out legacy_tool` LINK OK; spec Status **landed**; spec+plan archived
 
 ## Include map (locked)

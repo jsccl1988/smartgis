@@ -1,0 +1,63 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# GPU scene. Compiled into vista.dll. Effect vtable stays in frame_graph.h.
+source_set("scene_sources") {
+  sources = [
+    "detail/draw_pass.cc",
+    "detail/draw_pass.h",
+    "detail/paint.cc",
+    "detail/paint.h",
+    "detail/prep_cull.cc",
+    "detail/prep_cull.h",
+    "detail/tessellate.cc",
+    "detail/tessellate.h",
+    "detail/upload.cc",
+    "detail/upload.h",
+    "frustum_aabb.cc",
+    "frustum_aabb.h",
+    "opaque_effect.cc",
+    "opaque_effect.h",
+    "rebuild.cc",
+    "scene.cc",
+    "scene.h",
+    "scene_draw.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [ "VISTA_EXPORTS" ]
+  public_deps = [
+    "//src/base/execution:execution",
+    "//src/gis:gis",
+    "//src/render:render",
+    "//src/vista/world:world_sources",
+    "//third_party:gdal",
+  ]
+}
+
+test("scene_gpu_test") {
+  output_name = "scene_gpu_test"
+  sources = [ "scene_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [ "//src/vista:vista" ]
+}
+
+test("unified_draw_test") {
+  output_name = "unified_draw_test"
+  sources = [ "unified_draw_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    "//src/vista:vista",
+    "//src/base:base",
+    "//src/gis:gis",
+  ]
+  if (smt_has_flycube) {
+    defines = [ "SMT_HAS_FLYCUBE" ]
+  }
+}

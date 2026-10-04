@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "gis/gis_export.h"
-#include "gis/model/layer/layer.h"
+#include "legacy/gis/layer/layer.h"
 
 class GDALDataset;
 class OGRLayer;
@@ -33,8 +33,8 @@ class GIS_EXPORT DataSourceMgr {
   static ScratchLayer create_mem_vec_layer();
   static void destroy_mem_vec_layer(ScratchLayer& layer);
 
-  static SmtRasterLayer* create_mem_ras_layer();
-  static void destroy_mem_ras_layer(SmtRasterLayer*& pLayer);
+  static RasterLayer* create_mem_ras_layer();
+  static void destroy_mem_ras_layer(RasterLayer*& pLayer);
 
   static DataSourceMgr* get_singleton_ptr();
   static void destroy_instance();
@@ -43,14 +43,14 @@ class GIS_EXPORT DataSourceMgr {
   bool save();
   bool save_as(const char* szDSMFile);
 
-  GDALDataset* open_dataset(const SmtDataSourceInfo& info);
+  GDALDataset* open_dataset(const DataSourceInfo& info);
   void close_dataset(GDALDataset*& ds);
 
   GDALDataset* create_tmp_data_source(eDSType type);
   void destroy_tmp_data_source(GDALDataset*& pTmp);
-  void destroy_tmp_data_source(gis::SmtDataSource& tmp);
+  void destroy_tmp_data_source(gis::CatalogSource& tmp);
 
-  GDALDataset* create_data_source(SmtDataSourceInfo& info);
+  GDALDataset* create_data_source(DataSourceInfo& info);
   bool delete_data_source(const char* szName);
 
   int get_data_source_count() { return static_cast<int>(entries_.size()); }
@@ -65,8 +65,8 @@ class GIS_EXPORT DataSourceMgr {
   GDALDataset* get_data_source(int index);
   GDALDataset* get_data_source(const char* szName);
 
-  bool get_data_source_info(const char* szName, SmtDataSourceInfo& info) const;
-  bool get_data_source_info(int index, SmtDataSourceInfo& info) const;
+  bool get_data_source_info(const char* szName, DataSourceInfo& info) const;
+  bool get_data_source_info(int index, DataSourceInfo& info) const;
 
   GDALDataset* get_active_data_source() { return active_; }
   void set_active_data_source(const char* szActiveDSName);
@@ -78,7 +78,7 @@ class GIS_EXPORT DataSourceMgr {
 
  private:
   struct Entry {
-    SmtDataSourceInfo info;
+    DataSourceInfo info;
     GDALDataset* dataset = nullptr;
   };
 

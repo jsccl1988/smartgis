@@ -5,7 +5,7 @@ import("//build/smartgis.gni")
 
 # MBCS + forced compat for leftover product sources.
 # Product headers use #include "layer/module/file.h" via //src
-# (see docs/build/abi-rename-map.md). BUILDCONFIG already puts //src before
+# (see docs/superpowers/abi-rename-map.md). BUILDCONFIG already puts //src before
 # // so #include "base/..." → src/base/. Keep "//src" here; do not add
 # per-module include_dirs.
 config("legacy") {

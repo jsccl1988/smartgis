@@ -43,7 +43,7 @@ $GisTests = @(
   'proj_test'
   'stat_expr_test'
   'tin_delaunay_test'
-  'tin_xyz_test'
+  'geo_grid_laplace_test'
   'model_test'
   'tileset_test'
   'world_test'

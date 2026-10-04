@@ -1,7 +1,7 @@
 ### Task 1: Providers and GDAL open targets
 
 **Files:**
-- Modify: `src/gis/layer/layer.h` (`eSmtDBProvider`)
+- Modify: `src/gis/map/layer_kind.h` (`eSmtDBProvider`)
 - Create: `src/gis/datasource/gdal/ogr_connect.h`
 - Create: `src/gis/datasource/gdal/ogr_connect.cc`
 - Create: `src/gis/datasource/gdal/sde_gdal_test.cc`
@@ -112,7 +112,7 @@ int main() {
 }
 ```
 
-Append to `eSmtDBProvider` in `src/gis/layer/layer.h` **after** `PROVIDER_MYSQL` (do not reorder):
+Append to `eSmtDBProvider` in `src/gis/map/layer_kind.h` **after** `PROVIDER_MYSQL` (do not reorder):
 
 ```cpp
 		PROVIDER_MYSQL,				//MySQL 数据库
@@ -297,7 +297,7 @@ Expected: `out\sde_gdal_test.exe` prints `sde_gdal_test connect checks ok` and e
 - [ ] **Step 5: Commit**
 
 ```bat
-git add src/gis/layer/layer.h src/gis/datasource/gdal/ogr_connect.h src/gis/datasource/gdal/ogr_connect.cc src/gis/datasource/gdal/sde_gdal_test.cc src/gis/datasource/gdal/BUILD.gn BUILD.gn
+git add src/gis/map/layer_kind.h src/gis/datasource/gdal/ogr_connect.h src/gis/datasource/gdal/ogr_connect.cc src/gis/datasource/gdal/sde_gdal_test.cc src/gis/datasource/gdal/BUILD.gn BUILD.gn
 git commit -m "Add OGR DB provider ids and GDAL open-target helper."
 ```
 

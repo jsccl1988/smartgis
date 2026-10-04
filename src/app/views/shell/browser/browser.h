@@ -16,8 +16,8 @@
 #include "app/views/shell/browser/browser_ui_delegate.h"
 #include "app/views/shell/runtime/analysis/playback.h"
 #include "content/browser/camera/map_host_extent.h"
-#include "content/browser/map_session.h"
-#include "content/browser/present/scene3d/policy/scene3d_rhi_session.h"
+#include "content/browser/session/map_session.h"
+#include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "content/public/event_bus.h"
 #include "content/public/map_contents_observer.h"
 #include "content/public/map_types.h"
@@ -103,6 +103,7 @@ class Browser : public content::MapContentsObserver {
 
   // UI forwards (self-test / showcase).
   HWND hwnd() const;
+  void invalidate_map_overlays();
   ui::views::View* contents_view() const;
   ui::views::CatalogView* catalog_view() const;
   ui::views::AmboxView* ambox_view() const;
@@ -242,6 +243,7 @@ class Browser : public content::MapContentsObserver {
   bool enable_oop_render_ = false;
 
   // Declared last so chrome tears down before session members.
+  // handle_draft / draft_nav must see this offset (null-check ui_ first).
   std::unique_ptr<BrowserUiDelegate> ui_;
 };
 

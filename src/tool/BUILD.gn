@@ -74,7 +74,7 @@ source_set("workspace_sources") {
     ":nav_sources",
   ]
   # EditSession lives in gis.dll; import-link via the shared library edge.
-  public_deps = [ "//src/gis/model/edit:edit" ]
+  public_deps = [ "//src/gis/edit:edit" ]
 }
 
 # Product tool DLL. Disk stem: tool.dll / tool_d.dll.
@@ -88,7 +88,7 @@ smt_shared_library("tool") {
     ":nav_sources",
     ":workspace_sources",
   ]
-  public_deps = [ "//src/gis/model/edit:edit" ]
+  public_deps = [ "//src/gis/edit:edit" ]
   public_configs = [ ":tool_config" ]
 }
 

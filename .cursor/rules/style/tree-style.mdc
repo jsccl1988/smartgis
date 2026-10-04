@@ -25,4 +25,4 @@ The repository is organized by **top-level directories** (`src/`, `core/`, `buil
 
 ## Relation to other rules
 
-Repo-wide requirements (**copyright**, **build output**, **no Qt**, **Views + Skia**, **C++23**) still apply everywhere. This rule adds **local consistency on top of** those global norms.
+Repo-wide requirements (**copyright**, **build output**, **no Qt**, **Views + Skia**, **C++23**, **product?legacy**) still apply everywhere. This rule adds **local consistency on top of** those global norms.

@@ -82,10 +82,12 @@ std::string wide_to_utf8(const wchar_t* text) {
   }
   const int n = WideCharToMultiByte(CP_UTF8, 0, text, -1, nullptr, 0, nullptr,
                                     nullptr);
-  std::string out(n > 0 ? static_cast<size_t>(n - 1) : 0, '\0');
-  if (n > 1) {
-    WideCharToMultiByte(CP_UTF8, 0, text, -1, out.data(), n, nullptr, nullptr);
+  if (n <= 1) {
+    return {};
   }
+  std::string out(static_cast<size_t>(n), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, text, -1, out.data(), n, nullptr, nullptr);
+  out.resize(static_cast<size_t>(n - 1));
   return out;
 }
 
@@ -277,6 +279,37 @@ LRESULT CALLBACK BrowserView::shell_wheel_subclass_proc(HWND hwnd, UINT msg,
   return DefSubclassProc(hwnd, msg, wparam, lparam);
 }
 
+namespace {
+
+// SEH helpers: china OGR / fit can AV when content/gis DLLs are mid-rebuild
+// (plain_browse / visual_review #6). Keep C++ objects out of these frames.
+bool seh_seed_default(content::MapScene* doc, bool allow_china) {
+  if (!doc) {
+    return false;
+  }
+  __try {
+    doc->seed_default(allow_china);
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return false;
+  }
+}
+
+bool seh_fit_and_push_extent(Browser* browser) {
+  if (!browser) {
+    return false;
+  }
+  __try {
+    browser->fit_map_extent();
+    browser->push_shared_extent();
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return false;
+  }
+}
+
+}  // namespace
+
 bool BrowserView::init_shell() {
   BASE_TRACE_EVENT("InitShell.body", "startup");
   {
@@ -312,11 +345,9 @@ bool BrowserView::init_shell() {
   {
     BASE_TRACE_EVENT("SeedDocument", "startup");
     // Showcase / harness set SMT_SKIP_AMBOX_CATALOG before Browser::init.
-    // Skip china OGR bootstrap: GDAL open of china_city.* can hang so long
-    // that plugin-showcase never reaches run_world3d_scene3d (no marks).
-    // Scene3D True Earth frames via product orbit defaults instead.
-    // Product path sets defer_china_seed(): demo seed here, China/DEM after
-    // first show (Browser::show timer) so WaitFirstMapPresent is not ~10s+.
+    // Skip china OGR bootstrap so plugin-showcase can reach Scene3D bodies;
+    // product defer_china_seed() leaves the doc empty until Browser::show.
+    // Real-data policy: never invent demo features on either path.
     const bool skip_china_seed = []() {
       const char* skip = std::getenv("SMT_SKIP_AMBOX_CATALOG");
       return skip && skip[0] != '\0' && skip[0] != '0';
@@ -325,25 +356,48 @@ bool BrowserView::init_shell() {
     if (skip_china_seed || defer_china) {
       if (skip_china_seed) {
         std::fprintf(stderr,
-                     "startup: SeedDocument demo-only (SMT_SKIP_AMBOX_CATALOG)\n");
+                     "startup: SeedDocument empty (SMT_SKIP_AMBOX_CATALOG)\n");
       } else {
         std::fprintf(stderr,
-                     "startup: SeedDocument demo-only (defer_china_seed)\n");
+                     "startup: SeedDocument empty (defer_china_seed)\n");
       }
-      browser_->document()->seed_default(/*allow_china_bootstrap=*/false);
+      if (!seh_seed_default(browser_->document(), /*allow_china=*/false)) {
+        std::fprintf(stderr, "startup: SeedDocument clear SEH fail\n");
+      }
     } else {
+      // Match --ui-showcase=shell: open china_city before first paint. Skip
+      // O(n×m) land-clip on this sync path so bare launch stays interactive;
+      // hillshade still bakes on the first settled MapFrame after show.
+      _putenv_s("SMT_SKIP_CHINA_LAND_CLIP", "1");
       {
         BASE_TRACE_EVENT("SeedDocument.Default", "startup");
-        browser_->document()->seed_default(/*allow_china_bootstrap=*/true);
+        if (!seh_seed_default(browser_->document(), /*allow_china=*/true)) {
+          std::fprintf(stderr, "startup: SeedDocument china SEH fail\n");
+        }
       }
       // Zero-argv / harness sync path: seed_default only opens china when
       // try_bootstrap_china_plp finds a file. Mirror showcase via the shared
       // sample opener so fit_map_extent can apply China carto (has_china_extent).
       if (browser_->document() && !browser_->document()->has_china_extent()) {
         BASE_TRACE_EVENT("try_open_china", "startup");
-        (void)detail::try_open_china_sample(*browser_,
-                                            /*write_stub_if_missing=*/false);
+        if (!detail::try_open_china_sample(*browser_,
+                                           /*write_stub_if_missing=*/false)) {
+          std::fprintf(stderr,
+                       "startup: china sample missing (out/data/china_city.*)\n");
+        }
       }
+      _putenv_s("SMT_SKIP_CHINA_LAND_CLIP", "");
+      std::fprintf(stderr, "startup: SeedDocument china=%d layers=%zu feats=%zu\n",
+                   browser_->document() &&
+                           browser_->document()->has_china_extent()
+                       ? 1
+                       : 0,
+                   browser_->document()
+                       ? browser_->document()->layer_count()
+                       : 0u,
+                   browser_->document()
+                       ? browser_->document()->feature_count()
+                       : 0u);
     }
   }
   {
@@ -363,9 +417,12 @@ bool BrowserView::init_shell() {
       return skip && skip[0] != '\0' && skip[0] != '0';
     }();
     if (!skip_fit) {
-      browser_->fit_map_extent();
+      if (!seh_fit_and_push_extent(browser_)) {
+        std::fprintf(stderr, "startup: fit/push_shared_extent SEH fail\n");
+      }
     }
-    browser_->push_shared_extent();
+    // Showcase SMT_SKIP_AMBOX_CATALOG: skip push_shared_extent too — under
+    // parallel gis_d rebuilds it AVd after SeedDocument (exit 3, no marks).
     wire_map_scene();
   }
   // Snapshot before FlyCube attach — often the slowest / hangiest startup step.
@@ -394,8 +451,9 @@ bool BrowserView::init_shell() {
       return skip && skip[0] != '\0' && skip[0] != '0';
     }();
     if (!skip_fit_push) {
-      browser_->fit_map_extent();
-      browser_->push_shared_extent();
+      if (!seh_fit_and_push_extent(browser_)) {
+        std::fprintf(stderr, "startup: post-attach fit/push SEH fail\n");
+      }
       sync_inspectors_from_scene();
     }
     // China 3D atmosphere (same defaults as --atmosphere-showcase=full) is
@@ -429,6 +487,31 @@ void BrowserView::show_shell() {
     LOGGING(LOG_INFO, "layout: catalog_map reseed catalog_w=%d map_tabs_x=%d",
             catalog_->bounds().width,
             map_tabs_ ? map_tabs_->bounds().x : -1);
+  }
+  // Work splitter: re-pin inspector 320 and reseed so map_column stays flex
+  // primary (SecondaryFixed) — proportional seed crushed Map beside Feature.
+  if (inspector_tabs_ && catalog_map_) {
+    if (ui::views::View* insp_host = inspector_tabs_->parent()) {
+      insp_host->set_preferred_size({320, 0});
+    }
+    inspector_tabs_->set_preferred_size({320, 0});
+    ui::views::View* map_col = catalog_map_->parent();
+    if (map_col) {
+      map_col->set_preferred_size({0, 0});
+    }
+    if (map_col) {
+      if (auto* work = dynamic_cast<ui::views::Splitter*>(map_col->parent())) {
+        work->reseed();
+        widget_.layout_contents();
+      }
+    }
+  }
+  if (menu_bar_) {
+    // Re-measure File/Edit/View/Layer after DPI / font attach (DIP→px height).
+    menu_bar_->clear();
+    rebuild_menus();
+    widget_.layout_contents();
+    menu_bar_->schedule_paint();
   }
   // Re-seed main_split after the HWND client is final so Diagnostic Tools
   // preferred (DIP→px) is not locked against a create-time tiny inner height.
@@ -678,13 +761,13 @@ void BrowserView::on_map_right_click(HWND map_hwnd, int view_x, int view_y) {
     return;
   }
   constexpr UINT_PTR kMapCtxTimer = 0x4D4354u;  // 'MCT'
-  SetPropW(owner, L"SmtMapCtxBrowser", reinterpret_cast<HANDLE>(this));
+  SetPropW(owner, L"MapCtxBrowser", reinterpret_cast<HANDLE>(this));
   KillTimer(owner, kMapCtxTimer);
   SetTimer(owner, kMapCtxTimer, 1,
            [](HWND timer_hwnd, UINT, UINT_PTR id, DWORD) {
              KillTimer(timer_hwnd, id);
              auto* self = reinterpret_cast<BrowserView*>(
-                 GetPropW(timer_hwnd, L"SmtMapCtxBrowser"));
+                 GetPropW(timer_hwnd, L"MapCtxBrowser"));
              if (self) {
                self->show_pending_map_context_menu();
              }

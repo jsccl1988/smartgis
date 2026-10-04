@@ -38,7 +38,7 @@ All rights reserved.
 | `src/plugin/dem/BUILD.gn` | `dem_loaders` source_set + `dem_views` deps |
 | `src/plugin/proj/*` | Enable PROJ in Views; tests |
 | `src/plugin/{model3d,orthogrid,print}/*` | Null-safe deepen |
-| `docs/README.md` / `docs/build/src-layout.md` | Index + layout row |
+| `docs/README.md` / `docs/superpowers/src-layout.md` | Index + layout row |
 
 **Parallelism:** Task 1 (chrome) ∥ Task 2 (DEM loaders+commands) ∥ Task 3 (proj/model3d/orthogrid/print) ∥ Task 4 (docs). Task 5 integrate + build.
 
@@ -107,7 +107,7 @@ All rights reserved.
 
 **Files:**
 - Modify: `docs/README.md`
-- Modify: `docs/build/src-layout.md` plugin row
+- Modify: `docs/superpowers/src-layout.md` plugin row
 
 - [x] **Step 1:** Index `2026-09-14-plugin-full-upgrade-design.md` + this plan.
 - [x] **Step 2:** Layout row: Views owns Registry; MFC `*.am` leftover; orthogrid tree name.

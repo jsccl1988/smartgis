@@ -16,8 +16,8 @@
 #include "content/public/view_host.h"
 #define SMT_HAS_VIEW_HOST 1
 #endif
-#if __has_include("content/browser/present/scene3d/policy/scene3d_rhi_session.h")
-#include "content/browser/present/scene3d/policy/scene3d_rhi_session.h"
+#if __has_include("content/browser/present/scene3d/session/scene3d_rhi_session.h")
+#include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #define SMT_HAS_SCENE3D_ENGINE 1
 #endif
 #if __has_include("ui/shell/map_session.h")

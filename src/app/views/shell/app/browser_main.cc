@@ -4,10 +4,13 @@
 #include "app/views/shell/app/browser_main.h"
 
 #include <windows.h>
+#include <imm.h>
 
 #if defined(_MSC_VER) && defined(_DEBUG)
 #include <crtdbg.h>
 #endif
+
+#pragma comment(lib, "imm32.lib")
 
 #include <cstdio>
 #include <cstdlib>
@@ -25,7 +28,8 @@
 #include "base/trace/diag/startup_profile.h"
 #include "base/trace/event/process_trace.h"
 #include "content/browser/debug/debug_agent.h"
-#include "content/browser/present/scene3d/policy/scene3d_rhi_session.h"
+#include "content/browser/present/map2d/map2d_presenter.h"
+#include "content/browser/present/scene3d/session/scene3d_rhi_session.h"
 #include "ui/views/kernel/shell/dpi.h"
 
 namespace app {
@@ -210,13 +214,39 @@ int run_browser_main(const content::ContentMainParams&,
     }
     return false;
   }();
+  // Bare product (no showcase/self-test): match --ui-showcase=shell 2D face —
+  // ContentMapView + GDI overlay paints china onto the shell HWND. FlyCube
+  // remains available via SMT_PREFER_FLYCUBE_2D=1 / FPS bench / scene showcase.
+  const bool bare_product =
+      ui_showcase == UiShowcaseMode::kNone && !self_test &&
+      !self_test_console && !input_showcase && !browse_showcase &&
+      showcase == AtmosphereShowcaseMode::kNone &&
+      map2d_showcase == Map2dShowcaseMode::kNone &&
+      plugin_showcase == PluginShowcaseMode::kNone;
   const bool engine_from_env = content::apply_scene3d_engine_from_env();
+  // Scene3D product plugin faces need FlyCube lit DEM (world3d / mine /
+  // stormsurge / orthogrid3d). Map2d plugin IL suites still prefer GDI.
+  const bool plugin_scene3d_face =
+      plugin_showcase == PluginShowcaseMode::kWorld3d ||
+      plugin_showcase == PluginShowcaseMode::kMine ||
+      plugin_showcase == PluginShowcaseMode::kStormSurge ||
+      plugin_showcase == PluginShowcaseMode::kOrthogrid3d;
   if (!engine_from_env) {
-    if (self_test || self_test_console || input_showcase || ui_force_gdi ||
-        showcase != AtmosphereShowcaseMode::kNone ||
-        map2d_showcase != Map2dShowcaseMode::kNone ||
-        plugin_showcase != PluginShowcaseMode::kNone ||
-        (browse_showcase && !browse_3d_suite)) {
+    if (plugin_scene3d_face) {
+      // Scene3D plugin faces present on an owned showcase HWND + Device
+      // (prepare_plugin_device_session). Keep content Scene3dEngine::kFlyCube
+      // for that path, but force ContentMapView on the shell MapViewport so
+      // the async FlyCube display thread cannot abort the process (STL mutex
+      // unlock / present SEH) before the plugin body runs.
+      content::set_scene3d_engine(content::Scene3dEngine::kFlyCube);
+      _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_2D", "1");
+      _putenv_s("SMT_FORCE_GDI_MAP_OVERLAY", "1");
+    } else if (self_test || self_test_console || input_showcase ||
+               ui_force_gdi || showcase != AtmosphereShowcaseMode::kNone ||
+               map2d_showcase != Map2dShowcaseMode::kNone ||
+               plugin_showcase != PluginShowcaseMode::kNone ||
+               (browse_showcase && !browse_3d_suite) ||
+               (bare_product && !map2d_fps_bench)) {
       content::set_scene3d_engine(content::Scene3dEngine::kGdi);
       if (!map2d_fps_bench) {
         _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_2D", "1");
@@ -232,15 +262,27 @@ int run_browser_main(const content::ContentMainParams&,
     // Stereo/FlyCube bench: do not force ContentMapView-only 2D overlay.
     _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_2D", "0");
   }
-  // map2d-showcase / plugin-showcase / browse(2D): ContentMapView SharedSurface
-  // can "present" an empty ocean DIB and then skip GDI overlay - HWND stays
-  // blank ocean while export_bmp (software) still draws land. Force full
-  // Map2dPresenter::paint on overlay. Skip when FPS-benching FlyCube.
-  if (!map2d_fps_bench &&
-      (map2d_showcase != Map2dShowcaseMode::kNone ||
-       plugin_showcase != PluginShowcaseMode::kNone ||
-       (browse_showcase && !browse_3d_suite))) {
-    _putenv_s("SMT_FORCE_GDI_MAP_OVERLAY", "1");
+  // Scenic software present: never attach FlyCube HWND on shell map panes
+  // (display_run_present SEH). ContentMapView + MemFrame/export is the path.
+  if (content::prefer_map2d_scenic() || content::prefer_scene3d_scenic()) {
+    _putenv_s("SMT_FORCE_CONTENT_MAPVIEW_2D", "1");
+    _putenv_s("SMT_PREFER_FLYCUBE_2D", "0");
+  }
+  // Force full Map2dPresenter::paint on the shell overlay so the HWND never
+  // stays ocean-only while FlyCube DXGI is still hidden / clearing. Covers
+  // map2d/plugin/browse(2D) showcases and bare SmartGisViews.exe (same china
+  // face as --ui-showcase=shell). Skip when FPS-benching FlyCube or when the
+  // operator explicitly sets SMT_FORCE_GDI_MAP_OVERLAY=0.
+  if (!map2d_fps_bench) {
+    const char* force_gdi = std::getenv("SMT_FORCE_GDI_MAP_OVERLAY");
+    const bool force_off =
+        force_gdi && force_gdi[0] == '0' && force_gdi[1] == '\0';
+    if (!force_off &&
+        (map2d_showcase != Map2dShowcaseMode::kNone ||
+         plugin_showcase != PluginShowcaseMode::kNone ||
+         (browse_showcase && !browse_3d_suite) || bare_product)) {
+      _putenv_s("SMT_FORCE_GDI_MAP_OVERLAY", "1");
+    }
   }
   // Showcase does not need Ambox command lists; skip catalog for_each when
   // parallel tool/plugin DLL rebuilds leave maps unreadable (0xC0000005 in
@@ -313,23 +355,20 @@ int run_browser_main(const content::ContentMainParams&,
     }
     browser->set_enable_oop_render(enable_oop);
 
-    // China seed: sync for harness / self-test / showcase; defer for product.
-    // SMT_SYNC_CHINA_SEED=1 forces sync; SMT_DEFER_CHINA_SEED=1 forces defer.
-    const bool harness =
-        self_test || self_test_console || input_showcase || browse_showcase ||
-        showcase != AtmosphereShowcaseMode::kNone ||
-        map2d_showcase != Map2dShowcaseMode::kNone ||
-        plugin_showcase != PluginShowcaseMode::kNone ||
-        ui_showcase != UiShowcaseMode::kNone;
-    bool defer_china = !harness;
-    if (const char* env = std::getenv("SMT_SYNC_CHINA_SEED")) {
-      if (env[0] == '1' && env[1] == '\0') {
-        defer_china = false;
-      }
-    }
+    // China seed: sync by default so bare SmartGisViews.exe matches the
+    // --ui-showcase=shell carto face (china_city Land/Lines/Points/Labels).
+    // SMT_DEFER_CHINA_SEED=1 restores the post-show timer path; SMT_SYNC_CHINA_SEED=1
+    // forces sync. Showcase / harness that set SMT_SKIP_AMBOX_CATALOG still skip
+    // OGR here and re-seed in their own china_seed helpers.
+    bool defer_china = false;
     if (const char* env = std::getenv("SMT_DEFER_CHINA_SEED")) {
       if (env[0] == '1' && env[1] == '\0') {
         defer_china = true;
+      }
+    }
+    if (const char* env = std::getenv("SMT_SYNC_CHINA_SEED")) {
+      if (env[0] == '1' && env[1] == '\0') {
+        defer_china = false;
       }
     }
     browser->set_defer_china_seed(defer_china);
@@ -363,6 +402,18 @@ int run_browser_main(const content::ContentMainParams&,
   {
     BASE_TRACE_EVENT("Browser.show", "startup");
     LOGGING(LOG_INFO, "startup: Browser::show");
+    // Belt-and-suspenders: wWinMain already disables IME/TSF before any
+    // CreateWindow for harness launches. Keep a pre-ShowWindow call in case
+    // a non-harness path later gains showcase-like window churn.
+    const bool harness_show =
+        showcase != AtmosphereShowcaseMode::kNone ||
+        map2d_showcase != Map2dShowcaseMode::kNone ||
+        plugin_showcase != PluginShowcaseMode::kNone ||
+        ui_showcase != UiShowcaseMode::kNone || browse_showcase ||
+        input_showcase || self_test || self_test_console;
+    if (harness_show) {
+      ImmDisableIME(static_cast<DWORD>(-1));
+    }
     browser->show();
   }
   LOGGING(LOG_INFO, "startup: first show complete");

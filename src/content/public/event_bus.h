@@ -37,7 +37,7 @@ struct RenderBackendChanged {
 };
 
 // Fired after EditSession::commit succeeds (e.g. draw.* draft → append).
-// Shell status / inspectors subscribe; widgets never hold SmtFeature*.
+// Shell status / inspectors subscribe; widgets never hold Feature*.
 struct EditCommitted {
   uint32_t view_id = 0;
   FeatureId id{};

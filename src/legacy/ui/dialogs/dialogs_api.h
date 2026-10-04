@@ -10,7 +10,7 @@
 #define GUI_EXPORT __declspec(dllimport)
 #endif
 
-#include "gis/model/feature/feature.h"
+#include "legacy/gis/feature/model_aliases.h"
 #include "legacy/core/types/types.h"
 #include "legacy/core/macros/macros.h"
 #include "ogrsf_frmts.h"
@@ -30,7 +30,7 @@ long GUI_EXPORT SmtEditParamSettingDlg(void);
 
 long GUI_EXPORT SmtSelectOneDlg(uint& unID, vector<uint>& vIDs);
 
-long GUI_EXPORT SmtShow2DFeatureInfoDlg(SmtFeature* pSmtFea = NULL);
+long GUI_EXPORT SmtShow2DFeatureInfoDlg(FeatureAdapter* pSmtFea = NULL);
 
 // Edit OGR layer field schema (replaces SmtAttribute-based leftover).
 long GUI_EXPORT SmtAttStructEditDlg(OGRLayer* layer, int nFixField = 0);

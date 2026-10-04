@@ -79,6 +79,8 @@ class UI_EXPORT CatalogView : public View {
   void show_layer_menu(Point screen);
   void show_source_menu(Point screen);
   void show_map_menu(Point screen);
+  // Re-layout TabStrip + LayerTree after populate (zero-size first pass).
+  void relayout_layers_page();
   HWND owner_hwnd() const;
 
   Label* title_ = nullptr;

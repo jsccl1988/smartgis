@@ -56,6 +56,12 @@ AttributeTable::AttributeTable() {
   set_layout_manager(std::make_unique<FillLayout>());
   add_child(std::move(scroll));
   set_preferred_size({320, 160});
+  // Idle empty-state so Attrs is not a blank dark slab (visual_review #10).
+  if (table_ && table_->row_count() == 0) {
+    table_->set_columns({"Field", "Value"});
+    table_->add_row({"", "Select a layer"});
+    sync_content_size();
+  }
 }
 
 void AttributeTable::set_columns(const std::vector<std::string>& cols) {
@@ -75,8 +81,12 @@ void AttributeTable::set_rows(
     cancel_edit();
   }
   table_->clear_rows();
-  for (const auto& row : rows) {
-    table_->add_row(row);
+  if (rows.empty()) {
+    table_->add_row({"", "Select a layer"});
+  } else {
+    for (const auto& row : rows) {
+      table_->add_row(row);
+    }
   }
   notify_changed();
   sync_content_size();
@@ -97,6 +107,7 @@ void AttributeTable::clear() {
   row_tokens_.clear();
   if (table_) {
     table_->clear_rows();
+    table_->add_row({"", "Select a layer"});
   }
   notify_changed();
   sync_content_size();

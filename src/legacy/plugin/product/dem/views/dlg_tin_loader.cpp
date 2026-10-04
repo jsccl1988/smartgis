@@ -2,7 +2,7 @@
 #include "stdafx.h"
 #include "legacy/plugin/product/dem/views/dlg_tin_loader.h"
 
-#include "gis/kernel/geo/mesh/geometry.h"
+#include "gis/geo/ops/geometry_traits.h"
 #include "legacy/core/util/string.h"
 #include "legacy/plugin/product/dem/shell/dem_creater.h"
 #include "legacy/plugin/product/dem/shell/dem_dlg_helpers.h"
@@ -11,7 +11,8 @@
 #include "legacy/tool/defs.h"
 #include "legacy/ui/catalog/map/mapmgr.h"
 #include "legacy/ui/catalog/scene/scenemgr.h"
-#include "plugin/product/world3d/processing/tin_loader.h"
+#include "legacy/gis/layer/layer.h"
+#include "plugin/product/world3d/grid/dem/loader/trimesh_loader.h"
 using namespace gis;
 using namespace plugin;
 using namespace sys;
@@ -307,14 +308,14 @@ void CDlgTinLoader::UpdateXYZCmb(void) {
 void CDlgTinLoader::Update2DTinLayerCmb(void) {
   SmtMapMgr *pSmtMapMgr = SmtMapMgr::get_singleton_ptr();
   m_cmbTinLayer.ResetContent();
-  SmtMap *pMap = pSmtMapMgr->GetSmtMapPtr();
+  Map *pMap = pSmtMapMgr->GetSmtMapPtr();
   for (int i = 0; i < pMap->GetLayerCount(); i++) {
-    SmtLayer *pLayer = pSmtMapMgr->GetLayer(i);
+    Layer *pLayer = pSmtMapMgr->GetLayer(i);
 
     if (NULL == pLayer || LYR_VECTOR != pLayer->GetLayerType()) continue;
 
     SmtVectorLayer *pVLayer = (SmtVectorLayer *)pLayer;
-    if (pVLayer && leftover_layer_feature_type(pVLayer) == SmtFtTin) {
+    if (pVLayer && leftover_layer_feature_type(pVLayer) == FtTin) {
       m_cmbTinLayer.AddString(pLayer->GetLayerName());
     }
   }
@@ -371,7 +372,7 @@ void CDlgTinLoader::OnBnClickedOk() {
   pTerrain->SetYScale(m_fYScale);
   pTerrain->SetZScale(m_fZScale);
 
-  SmtTinFileFmt tfFmt;
+  TrimeshFileFmt tfFmt;
   tfFmt.iX = m_iX;
   tfFmt.iY = m_iY;
   tfFmt.iZ = m_iZ;
@@ -380,11 +381,11 @@ void CDlgTinLoader::OnBnClickedOk() {
   tfFmt.nLineSkip = m_nLineSkip;
   tfFmt.nSeparatorType = m_nSeparator;
 
-  Smt3DSurface tin_surf;
+  OGRTriangulatedSurface tin_surf;
   SmtSceneMgr *pSceneMgr = SmtSceneMgr::get_singleton_ptr();
   Vector3 pos(30, 30, 30);
 
-  if (SMT_ERR_NONE == load_ascii_xyz_tin(m_strVertexUrl, tfFmt, m_fXScale,
+  if (SMT_ERR_NONE == load_ascii_xyz_trimesh(m_strVertexUrl, tfFmt, m_fXScale,
                                          m_fYScale, m_fZScale, &tin_surf) &&
       SMT_ERR_NONE == pTerrain->Init(pos, matMaterial, m_strTexName) &&
       SMT_ERR_NONE == pTerrain->SetTerrainSurf(&tin_surf) &&
@@ -398,24 +399,23 @@ void CDlgTinLoader::OnBnClickedOk() {
     if (strTinLayer != "") {
       SmtMapMgr *pSmtMapMgr = SmtMapMgr::get_singleton_ptr();
 
-      SmtLayer *pLayer = pSmtMapMgr->GetLayer(strTinLayer);
+      Layer *pLayer = pSmtMapMgr->GetLayer(strTinLayer);
 
       if (NULL == pLayer || LYR_VECTOR != pLayer->GetLayerType()) return;
 
       SmtVectorLayer *pVLayer = (SmtVectorLayer *)pLayer;
 
-      if (pVLayer && leftover_layer_feature_type(pVLayer) == SmtFtTin) {
-        SmtTin oSmtTin;
-        Smt3DSurface *pTinSurf = pTerrain->GetTerrainSurf();
-        if (SMT_ERR_NONE == pTinSurf->copy_to_tin(&oSmtTin)) {
+      if (pVLayer && leftover_layer_feature_type(pVLayer) == FtTin) {
+        OGRTriangulatedSurface *pTinSurf = pTerrain->GetTerrainSurf();
+        if (pTinSurf) {
           SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
           SmtStyleConfig styleSonfig = pSysMgr->get_sys_style_config();
 
-          SmtFeature *pSmtFeature = new SmtFeature;
+          FeatureAdapter *pSmtFeature = new FeatureAdapter;
 
-          pSmtFeature->SetFeatureType(SmtFeatureType::SmtFtTin);
+          pSmtFeature->SetFeatureType(FeatureType::FtTin);
           pSmtFeature->SetStyle(styleSonfig.szPointStyle);
-          pSmtFeature->SetGeometry(&oSmtTin);
+          pSmtFeature->SetGeometry(pTinSurf);
 
           if (!pSmtMapMgr->AppendFeature(pSmtFeature, false))
             SMT_SAFE_DELETE(pSmtFeature);

@@ -16,9 +16,9 @@
 #include <vector>
 
 #include "base/core/log.h"
-#include "effect/map/map_effect.h"
-#include "effect/map/pass.h"
-#include "gis/vista/frame/frame.h"
+#include "vista/map/map_effect.h"
+#include "vista/map/pass.h"
+#include "vista/frame/frame.h"
 #include "render/graph/frame_graph.h"
 #include "render/rhi/rhi.h"
 #include "base/trace/event/process_trace.h"
@@ -125,17 +125,17 @@ bool Map2dGpuPresent::present_frame(render::rhi::Device* device,
     return false;
   }
   if (!map2d_pass_) {
-    map2d_pass_ = std::make_unique<effect::map::Pass>();
+    map2d_pass_ = std::make_unique<vista::Pass>();
   }
 
-  effect::map::WindowsGlyphRasterizer windows_rasterizer;
-  gis::vista::View view{cam.width_px, cam.height_px, cam.min_x, cam.min_y,
+  vista::WindowsGlyphRasterizer windows_rasterizer;
+  vista::View view{cam.width_px, cam.height_px, cam.min_x, cam.min_y,
                         cam.max_x,    cam.max_y};
   const render::rhi::CameraMatrices camera = render::rhi::make_ortho_camera(
       static_cast<float>(cam.min_x), static_cast<float>(cam.max_x),
       static_cast<float>(cam.min_y), static_cast<float>(cam.max_y), -1.f, 1.f);
 
-  effect::map::MapEffect map_effect(
+  vista::MapEffect map_effect(
       render::graph::EffectSlot::kOpaque, map2d_pass_.get(), &cache_->frame(),
       &view, &windows_rasterizer,
       [this](uint32_t texture_key, std::vector<uint8_t>* rgba, int* w, int* h) {
@@ -231,7 +231,7 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
       map2d_pass_->invalidate_uploaded();
     }
 
-    effect::map::reset_last_pass_record_ms();
+    vista::reset_last_pass_record_ms();
     const auto gpu_t0 = std::chrono::steady_clock::now();
     const bool ok =
         present_frame(device, cache_->camera(), record_all, shell,
@@ -240,7 +240,7 @@ bool Map2dGpuPresent::present(render::rhi::Device* device, uint32_t width_px,
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - gpu_t0)
             .count();
-    const int64_t upload_ms = effect::map::last_pass_record_ms();
+    const int64_t upload_ms = vista::last_pass_record_ms();
     const int64_t present_ms =
         gpu_wall_ms > upload_ms ? (gpu_wall_ms - upload_ms) : 0;
     note_map2d_phase_gpu(upload_ms, present_ms);

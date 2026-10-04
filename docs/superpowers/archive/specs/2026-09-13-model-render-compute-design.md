@@ -16,8 +16,8 @@ All rights reserved.
 
 | 层 | Living spec | 计划 |
 | --- | --- | --- |
-| 渲染 + 双场景 + CPU 模型 I/O | [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md) | [`../plans/2026-09-13-render-rhi-scene.md`](../plans/2026-09-13-render-rhi-scene.md) |
-| 计算 / 几何核 / 投影 / TIN | [`2026-09-13-algorithm-layer-oss-design.md`](2026-09-13-algorithm-layer-oss-design.md) | [`../plans/2026-09-13-algorithm-layer-oss.md`](../plans/2026-09-13-algorithm-layer-oss.md) |
+| 渲染 + 双场景 + CPU 模型 I/O | [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md) | [`../plans/2026-09-13-render-rhi-scene.md`](../../plans/2026-09-13-render-rhi-scene.md) |
+| 计算 / 几何核 / 投影 / TIN | [`2026-09-13-algorithm-layer-oss-design.md`](../../specs/2026-09-13-algorithm-layer-oss-design.md) | [`../plans/2026-09-13-algorithm-layer-oss.md`](../../plans/2026-09-13-algorithm-layer-oss.md) |
 
 产品语言：**C++23**（`cc_std = "c++23"` → MSVC `/std:c++23preview`）。算法计划里出现的 “C++20” 只表示 traits 写法的下限已被 C++23 吸收，**不以 C++20 为产品标准**。
 
@@ -431,8 +431,8 @@ GEOS LGPL：只使用已随 `gdal_sdk` 提供的共享库，产品侧走 `geos_c
 | **本文** | 三层深度 + leftover 映射 + OSS 总表 |
 | `2026-09-13-render-rhi-scene-design.md` | RHI / 双场景 / 模型 API 的实现契约 |
 | `2026-09-13-algorithm-layer-oss-design.md` | geo/proj/tin/dem/chart 实现契约 |
-| `docs/build/src-layout.md` | 目录分层 as-built |
-| `docs/build/ui-views-skia.md` | 壳终局 |
-| `docs/build/mogu-mapping.md` | 工程管理对照 |
+| `docs/superpowers/src-layout.md` | 目录分层 as-built |
+| `docs/superpowers/ui-views-skia.md` | 壳终局 |
+| `docs/superpowers/mogu-mapping.md` | 工程管理对照 |
 
 C++ 实现分区：`src/render`（含 rhi/scene/leftover_mesh）另一 agent；`algorithm/*` 按算法 spec 的 package agent；本文作者只改 `docs/`。

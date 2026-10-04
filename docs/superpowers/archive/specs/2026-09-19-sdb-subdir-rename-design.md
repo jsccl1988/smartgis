@@ -52,7 +52,7 @@ Plan: [`../plans/2026-09-19-sdb-subdir-rename.md`](../plans/2026-09-19-sdb-subdi
 ## 有意保留的 `sdb` 字符串
 
 - GDAL 驱动名 / 类型前缀 **`SDBD`** / `sdbd_*` 文件名（OGR 连接串 `SDBD:…`）——产品 I/O ABI，**不**随层改名。
-- 历史 commit / archive 文档中的旧路径可保留；**活跃** `docs/build/` 与未归档 superpowers 就地改写。
+- 历史 commit / archive 文档中的旧路径可保留；**活跃** `docs/superpowers/` 与未归档 superpowers 就地改写。
 
 ## 非目标
 
@@ -65,5 +65,5 @@ Plan: [`../plans/2026-09-19-sdb-subdir-rename.md`](../plans/2026-09-19-sdb-subdi
 
 - 无产品 `src/gis/` 树。
 - `carto` 在 `base`；`world` / `assets` 目录就位；层名 `gis`。
-- `docs/build/src-layout.md`、`abi-rename-map.md`、`docs/README.md` 索引行已更新。
+- `docs/superpowers/src-layout.md`、`abi-rename-map.md`、`docs/README.md` 索引行已更新。
 - 关键目标：`//src/gis:gis` 及原 sdb 单测在环境允许下可编过。

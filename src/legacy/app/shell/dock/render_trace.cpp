@@ -8,7 +8,7 @@
 
 #include "base/trace/event/process_trace.h"
 #include "base/trace/log/frame_log.h"
-#include "legacy/app/shell/dock/pane_host.h"
+#include "legacy/app/shell/dock/dock_child.h"
 
 namespace {
 

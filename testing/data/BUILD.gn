@@ -2,8 +2,12 @@
 # All rights reserved.
 
 # Schematic China map samples under shared out/data/ (sibling of Debug/Release).
-# Prefers china_city.gpkg (NE 10m four-layer pack + china_dem.tif); china_plp fallback.
-# Rebuild: py -3 testing/data/build_china_city.py --with-dem
+# Prefers china_city.gpkg (China pack + china_dem.tif); china_plp fallback.
+# Rebuild vectors: py -3 testing/data/build_china_city.py
+# Hydro/roads: testing/data/china_hydro.src.geojson + china_roads.src.geojson
+# Rebuild vectors+DEM: py -3 testing/data/build_china_city.py --with-dem
+# Rebuild DEM only (AWS Mapzen z7 → 1536×960): 
+#   py -3 testing/data/build_china_dem.py --jobs 16
 # PIN: testing/data/china_city.PIN.txt
 
 copy("china_map_samples") {
@@ -24,7 +28,7 @@ copy("china_map_samples") {
 # Plugin product sample+viz fixtures → out/data/plugin/
 copy("plugin_product_samples") {
   sources = [
-    "plugin/world3d_tin_sample.xyz",
+    "plugin/world3d_trimesh_sample.xyz",
     "plugin/world3d_dem_sample.tif",
     "plugin/world3d_pointcloud_sample.las",
     "plugin/orthogrid_sample.gridbnd",

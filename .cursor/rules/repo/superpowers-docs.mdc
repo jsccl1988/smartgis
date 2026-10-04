@@ -12,14 +12,14 @@ All rights reserved.
 
 **This rule is always on.** It overrides Superpowers brainstorming / writing-plans defaults that open a new dated file every time. User/repo instructions take precedence over those skills.
 
-`docs/superpowers/` holds **in-flight decisions and open plans only**. Product / module as-built lives in **`docs/build/`**, **`docs/README.md`**, and module READMEs under `src/` / `core/` / `build/`. This repo does **not** use mogu’s `docs/app|infra|common` four-pillar trees.
+`docs/superpowers/` holds living specs, open plans, HTML diagrams, and as-built product notes (e.g. `src-layout.md`). Module READMEs under `src/` / `build/` and **`docs/README.md`** remain entry points. This repo does **not** use mogu’s `docs/app|infra|common` four-pillar trees. There is **no** `docs/build/` tree.
 
 ## Default: revise in place (hard)
 
 1. **Read** `docs/superpowers/README.md` (Active table — **only 9 living rows**), then the matching living umbrella, before any design write.
 2. **One topic → one living spec.** New requirements are a new `§` (or checkbox under the linked plan) on that umbrella. **Do not** create `YYYY-MM-DD-*-design.md` for “another slice” of an existing topic.
 3. Put **`Status: active | accepted | landed | superseded`** on the first metadata line of every edited living spec. Refresh **Updated:** when merging.
-4. When a plan / umbrella work is fully done: **same change** move finished plan (and only then the living spec, if the whole topic is done) to `docs/superpowers/archive/{specs,plans}/` and put as-built facts in `docs/build/` (or the module README).
+4. When a plan / umbrella work is fully done: **same change** move finished plan (and only then the living spec, if the whole topic is done) to `docs/superpowers/archive/{specs,plans}/` and put as-built facts in `docs/superpowers/` (or the module README).
 5. Keep `docs/superpowers/README.md` as the **short Active table only**. Do not rebuild a full inventory in `docs/README.md`.
 
 ## Gate: when a **new** dated spec is allowed (rare)
@@ -36,7 +36,7 @@ If unsure → **revise the living umbrella**. Prefer wrong-umbrella `§` + later
 
 | Topic shape | Living umbrella |
 | --- | --- |
-| Subdirectory / scheme C layout / include break / dual-run file moves | Module `README.md` + `docs/build/src-layout.md`, or a `§` under the owning living row |
+| Subdirectory / scheme C layout / include break / dual-run file moves | Module `README.md` + `docs/superpowers/src-layout.md`, or a `§` under the owning living row |
 | SP1–SP5 / SP1b / SP4b / leftover strangler / ABI cutover / DLL stems / GDI+ carto / two-finger pan | `docs/superpowers/specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md` |
 | RHI / frame graph / GPU compose / P0 lit / map2d frame / atmosphere-weather / Skia canvas / render math / model-render-compute | `docs/superpowers/specs/2026-09-13-render-rhi-scene-design.md` |
 | `app/views` shell / capability dirs / Views toolkit / MFC migration / markup / compositor / GIS panels / debug console / WinUI·CEF rejects | `docs/superpowers/specs/2026-09-27-views-desktop-shell-design.md` |
@@ -57,7 +57,7 @@ If unsure → **revise the living umbrella**. Prefer wrong-umbrella `§` + later
 
 - **Don’t** add Topic 分册 / as-built stub files that only point at a longer design.
 - **Don’t** open a parallel dated empty shell when a living umbrella already covers the shape.
-- **Don’t** treat `docs/superpowers/` as product documentation.
+- **Don’t** treat living `specs/` / `plans/` as the only as-built; keep product facts in the superpowers-root markdown files or module READMEs.
 - **Don’t** rewrite archived bodies except mechanical link fixes.
 - **Don’t** archive a living umbrella when unsure — leave it hot and add a `§`.
 - **Don’t** reopen archived `superseded` / `landed` specs as living twins.
@@ -67,9 +67,11 @@ If unsure → **revise the living umbrella**. Prefer wrong-umbrella `§` + later
 
 | Path | Role |
 | --- | --- |
-| `docs/superpowers/README.md` | Active living table (short; 9 rows) |
+| `docs/superpowers/README.md` | Active living table (short; 9 rows) + as-built index |
+| `docs/superpowers/*.md` (root) | As-built product notes (`src-layout`, UI testing, ABI map, …) |
 | `docs/superpowers/specs/` | Living umbrellas only (`active` / `accepted`) |
 | `docs/superpowers/plans/` | Open checklists hung off living rows |
+| `docs/superpowers/diagrams/` | HTML layering / principle diagrams (living + as-built) |
 | `docs/superpowers/archive/` | `landed` / `superseded` / fold-B children |
 
 ## Diagrams (always)
@@ -79,6 +81,6 @@ When a living `§` or plan **locks architecture / parallel model / layer ownersh
 ## Related
 
 - Index: `docs/README.md`
-- UI endgame: `docs/build/ui-views-skia.md`
-- Mapping: `docs/build/mogu-mapping.md`
+- UI endgame: `docs/superpowers/ui-views-skia.md`
+- Mapping: `docs/superpowers/mogu-mapping.md`
 - Design HTML diagrams: `.cursor/rules/repo/design-html-diagrams.mdc`

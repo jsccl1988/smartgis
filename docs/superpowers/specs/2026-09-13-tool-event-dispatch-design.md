@@ -5,9 +5,10 @@ All rights reserved.
 
 # Tool layer: session dispatch + event/operation split
 
+**Status:** accepted  
 **Date:** 2026-09-13  
-**Status:** accepted (v1 landed)  
-**Updated:** 2026-09-28 — §DLL ABI + Workspace composition (pimpl / DraftPipeline / NavBridge). Export macros: endgame `TOOL_EXPORT` / leftover `LEGACY_TOOL_EXPORT`. Leftover group / SP1: [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP1.  
+**Updated:** 2026-10-03 — DLL ABI / Workspace plan archived. Prior 2026-09-28 — §DLL ABI + Workspace composition (pimpl / DraftPipeline / NavBridge). Export macros: endgame `TOOL_EXPORT` / leftover `LEGACY_TOOL_EXPORT`. Leftover group / SP1: [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) §SP1.  
+**Plans:** [`../plans/2026-09-13-tool-event-dispatch.md`](../plans/2026-09-13-tool-event-dispatch.md) · ABI/workspace [`../archive/plans/2026-09-28-tool-dll-abi-workspace.md`](../archive/plans/2026-09-28-tool-dll-abi-workspace.md)  
 **Related:** leftover path split [`../archive/specs/2026-09-13-tool-legacy-split-design.md`](../archive/specs/2026-09-13-tool-legacy-split-design.md); archived layout twin [`../archive/specs/2026-09-27-tool-subdirectory-layout-design.md`](../archive/specs/2026-09-27-tool-subdirectory-layout-design.md); as-built [`../../../src/tool/README.md`](../../../src/tool/README.md).  
 **Scope:** Session dispatch (Command / Input / Operation / Domain Event) + **endgame directory layout**. Do not open new tool-layout dated specs — revise §Subdirectory layout below.
 
@@ -365,7 +366,7 @@ Must cover:
 
 ## Docs
 
-Same change set: `docs/README.md` index, `docs/build/src-layout.md` tool row + `sdb/edit`, `src/README.md` tool paragraph. Root `README.md` only if the module table still claims tool is ?interactive tools? with no dispatch split ? add one clause, refresh ????.
+Same change set: `docs/README.md` index, `docs/superpowers/src-layout.md` tool row + `sdb/edit`, `src/README.md` tool paragraph. Root `README.md` only if the module table still claims tool is ?interactive tools? with no dispatch split ? add one clause, refresh ????.
 
 ## Leftover plugin menus
 
@@ -405,7 +406,7 @@ DLL export naming (no `SMT_*` prefix):
 | `tool.dll`（`//src/tool:tool`） | `TOOL_EXPORTS` | `TOOL_EXPORT` | `src/tool/tool_export.h` |
 | `legacy_tool.dll` | `LEGACY_TOOL_EXPORTS` | `LEGACY_TOOL_EXPORT` | `src/legacy/tool/tool_export.h` |
 
-Endgame owns the short `TOOL_*` family; leftover mirrors `LEGACY_RENDER_*`. As-built: [`docs/build/abi-rename-map.md`](../../build/abi-rename-map.md). Do not reintroduce `SMT_TOOL_EXPORT`.
+Endgame owns the short `TOOL_*` family; leftover mirrors `LEGACY_RENDER_*`. As-built: [`docs/superpowers/abi-rename-map.md`](../abi-rename-map.md). Do not reintroduce `SMT_TOOL_EXPORT`.
 
 ---
 
@@ -428,7 +429,7 @@ Endgame owns the short `TOOL_*` family; leftover mirrors `LEGACY_RENDER_*`. As-b
 ## §DLL ABI + Workspace composition（2026-09-28）
 
 **Status:** accepted  
-**Plan:** [`../plans/2026-09-28-tool-dll-abi-workspace.md`](../plans/2026-09-28-tool-dll-abi-workspace.md)
+**Plan:** [`../plans/2026-09-28-tool-dll-abi-workspace.md`](../archive/plans/2026-09-28-tool-dll-abi-workspace.md)
 
 ### Locked
 
@@ -445,4 +446,4 @@ Endgame owns the short `TOOL_*` family; leftover mirrors `LEGACY_RENDER_*`. As-b
 
 - `src/tool/**` builds with **no C4251** on tool types
 - `tool_dispatch_test` / `draft_test` / `view_host_test` green
-- README + `docs/build/src-layout.md` / abi-rename-map say `dll_stem=tool` + `TOOL_EXPORT` (not source_set / not `SMT_TOOL_*`)
+- README + `docs/superpowers/src-layout.md` / abi-rename-map say `dll_stem=tool` + `TOOL_EXPORT` (not source_set / not `SMT_TOOL_*`)

@@ -98,6 +98,8 @@ enum class DepthLoadOp : uint32_t {
 enum class BlendMode : uint32_t {
   kOpaque = 0,
   kSrcAlpha = 1,  // src.rgb * src.a + dst.rgb * (1 - src.a)
+  // dst.rgb *= src.rgb. Source alpha is not a blend factor.
+  kMultiply = 2,
 };
 
 enum class DepthMode : uint32_t {

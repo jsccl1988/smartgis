@@ -46,9 +46,9 @@ inline const char* command_id_from_am_msg(long msg) {
   }
   switch (msg) {
     case kAmMsgDemLoadTin:
-      return "world3d.load_tin";
+      return "world3d.load_trimesh";
     case kAmMsgDemLoadGrid:
-      return "world3d.load_grid";
+      return "world3d.load_heightmap";
     case kAmMsgDemAbout:
       return "world3d.about";
     case kAmMsgProjDoPrj:
@@ -62,11 +62,11 @@ inline const char* command_id_from_am_msg(long msg) {
     case kAmMsgModel3dWater:
       return "model3d.add_water";
     case kAmMsgModel3dTerrainGrid:
-      return "model3d.add_terrain_grid";
+      return "model3d.add_terrain_heightmap";
     case kAmMsgModel3dTerrainTin:
-      return "model3d.add_terrain_tin";
+      return "model3d.add_terrain_trimesh";
     case kAmMsgModel3dCreateTin:
-      return "model3d.create_tin";
+      return "model3d.create_trimesh";
     case kAmMsgModel3dLayerPoints:
       return "model3d.layer_points_to_3d";
     case kAmMsgModel3dLayerLines:

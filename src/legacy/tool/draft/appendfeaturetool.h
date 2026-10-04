@@ -4,7 +4,7 @@
 
 #include <memory>
 
-#include "gis/model/edit/map_edit/map_edit_session.h"
+#include "gis/edit/map_session.h"
 #include "legacy/tool/base/basetool.h"
 #include "tool/draft/draft.h"
 
@@ -18,13 +18,13 @@ class SmtAppendFeatureTool : public SmtBaseTool {
   SmtAppendFeatureTool();
   virtual ~SmtAppendFeatureTool();
   int Create();
-  int Init(LPRENDERDEVICE pMrdRenderDevice, SmtMap *pOperSmtMap, HWND hWnd,
+  int Init(LPRENDERDEVICE pMrdRenderDevice, Map *pOperSmtMap, HWND hWnd,
            pfnToolCallBack pfnCallBack = NULL, void *pToFollow = NULL);
   int AuxDraw();
   int Timer();
 
  public:
-  inline virtual void SetOperMap(SmtMap *pOperSmtMap);
+  inline virtual void SetOperMap(Map *pOperSmtMap);
 
  public:
   int notify(long nMsg, SmtListenerMsg &param);

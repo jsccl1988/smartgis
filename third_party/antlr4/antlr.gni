@@ -1,0 +1,153 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+#
+# Port of mogu third_party/antlr4/antlr.gni (ANTLR 4.13.2 / Windows).
+# .g4 → $root_gen_dir/g4/<output>/{cpp,python}/  (not checked in).
+
+antlr4_complete_jar = "//third_party/.tools/antlr-4.13.2-complete.jar"
+
+template("antlr_library") {
+  assert(defined(invoker.sources), "Need sources for antlr_library")
+  assert(defined(invoker.grammar), "Need grammar for antlr_library")
+  assert(defined(invoker.output), "Need output for antlr_library")
+
+  cp_action_name = "${target_name}_cp"
+  copy(cp_action_name) {
+    visibility = [ ":*" ]
+    sources = invoker.sources
+    outputs = [ "$root_out_dir/{{source_file_part}}" ]
+  }
+
+  g4_sources = get_target_outputs(":${cp_action_name}")
+  g4_grammar = invoker.grammar
+  g4_output = invoker.output
+  g4_generate_cpp = true
+  g4_generate_python = false
+  g4_generate_listener = true
+  if (defined(invoker.generate_cpp)) {
+    g4_generate_cpp = invoker.generate_cpp
+  }
+  if (defined(invoker.generate_python)) {
+    g4_generate_python = invoker.generate_python
+  }
+  if (defined(invoker.generate_listener)) {
+    g4_generate_listener = invoker.generate_listener
+  }
+
+  if (g4_generate_cpp) {
+    cpp_gen_action_name = "${target_name}_cpp_gen"
+    _cpp_out = "$root_gen_dir/g4/${g4_output}/cpp"
+    action(cpp_gen_action_name) {
+      visibility = [ ":*" ]
+      script = "//build/tools/action/run_script.py"
+      sources = g4_sources
+      outputs = [
+        "$_cpp_out/${g4_grammar}BaseVisitor.cpp",
+        "$_cpp_out/${g4_grammar}BaseVisitor.h",
+        "$_cpp_out/${g4_grammar}Lexer.cpp",
+        "$_cpp_out/${g4_grammar}Lexer.h",
+        "$_cpp_out/${g4_grammar}Parser.cpp",
+        "$_cpp_out/${g4_grammar}Parser.h",
+        "$_cpp_out/${g4_grammar}Visitor.cpp",
+        "$_cpp_out/${g4_grammar}Visitor.h",
+      ]
+      if (g4_generate_listener) {
+        outputs += [
+          "$_cpp_out/${g4_grammar}BaseListener.cpp",
+          "$_cpp_out/${g4_grammar}BaseListener.h",
+          "$_cpp_out/${g4_grammar}Listener.cpp",
+          "$_cpp_out/${g4_grammar}Listener.h",
+        ]
+      }
+      inputs = [ antlr4_complete_jar ]
+      args = [
+        "java",
+        "-jar",
+        rebase_path(antlr4_complete_jar, root_build_dir),
+        "-Dlanguage=Cpp",
+        "-visitor",
+      ]
+      if (!g4_generate_listener) {
+        args += [ "-no-listener" ]
+      }
+      if (defined(invoker.package)) {
+        args += [
+          "-package",
+          invoker.package,
+        ]
+      }
+      foreach(file, sources) {
+        args += [ rebase_path(file, root_build_dir) ]
+      }
+      args += [
+        "-o",
+        rebase_path(_cpp_out, root_build_dir),
+      ]
+      deps = [ ":${cp_action_name}" ]
+    }
+
+    config("${target_name}_gen_includes") {
+      include_dirs += [
+        _cpp_out,
+        "$root_gen_dir/",
+        "$root_gen_dir/g4",
+      ]
+    }
+
+    source_set(target_name) {
+      if (defined(invoker.visibility)) {
+        visibility = invoker.visibility
+      }
+      sources = get_target_outputs(":$cpp_gen_action_name")
+      if (defined(invoker.extra_include_dirs)) {
+        include_dirs += invoker.extra_include_dirs
+      }
+      defines = [
+        "ANTLR4CPP_STATIC",
+        "NOMINMAX",
+        "_CRT_DECLARE_NONSTDC_NAMES=0",
+      ]
+      cflags = [ "/U_HAS_STD_BYTE" ]
+      deps = [ ":$cpp_gen_action_name" ]
+      public_deps = [ "//third_party:antlr4" ]
+      public_configs = [ ":${target_name}_gen_includes" ]
+    }
+  }
+
+  if (g4_generate_python) {
+    python_gen_action_name = "${target_name}_python_gen"
+    _py_out = "$root_gen_dir/g4/${g4_output}/python"
+    action(python_gen_action_name) {
+      visibility = [ ":*" ]
+      script = "//build/tools/action/run_script.py"
+      sources = g4_sources
+      outputs = [
+        "$_py_out/${g4_grammar}Lexer.py",
+        "$_py_out/${g4_grammar}Parser.py",
+        "$_py_out/${g4_grammar}Visitor.py",
+      ]
+      if (g4_generate_listener) {
+        outputs += [ "$_py_out/${g4_grammar}Listener.py" ]
+      }
+      inputs = [ antlr4_complete_jar ]
+      args = [
+        "java",
+        "-jar",
+        rebase_path(antlr4_complete_jar, root_build_dir),
+        "-Dlanguage=Python3",
+        "-visitor",
+      ]
+      if (!g4_generate_listener) {
+        args += [ "-no-listener" ]
+      }
+      deps = [ ":${cp_action_name}" ]
+      foreach(file, sources) {
+        args += [ rebase_path(file, root_build_dir) ]
+      }
+      args += [
+        "-o",
+        rebase_path(_py_out, root_build_dir),
+      ]
+    }
+  }
+}

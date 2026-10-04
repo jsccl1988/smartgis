@@ -41,7 +41,7 @@ Status: active
 | `src/ui/gis/chart_view.cc` | 轴线改用 `draw_line` / `stroke_rect` |
 | `src/ui/views/views_unittests.cc` | canvas API 行为测试 + 既有回归 |
 | `src/ui/views/BUILD.gn` | 仅当拆测目标时改；默认可只加测例到现有 test |
-| `docs/build/ui-views-skia.md` | Status 段补一句「canvas API 阶段」（落地后） |
+| `docs/superpowers/ui-views-skia.md` | Status 段补一句「canvas API 阶段」（落地后） |
 | `docs/README.md` | Active 索引两条（本轮已挂） |
 
 **明确不做清单（实现时跳过）：**
@@ -301,7 +301,7 @@ Expected: 全部 PASS / 冒烟退出码 0。
 **Files:**
 - Modify: `src/ui/gfx/BUILD.gn`
 - Modify: `src/ui/gfx/README.md`
-- Modify: `docs/build/ui-views-skia.md`（Status 段补「canvas：GDI stub 默认；真 Skia 可选」）
+- Modify: `docs/superpowers/ui-views-skia.md`（Status 段补「canvas：GDI stub 默认；真 Skia 可选」）
 - Create: `src/ui/gfx/canvas_skia.cc`（阶段 D：本机 pin + 预编译 lib 时链接真后端）
 
 **Interfaces:**
@@ -357,10 +357,10 @@ Expected: 与 Task 3 相同，全绿。
 - `docs/superpowers/specs/2026-09-14-render-skia-canvas-design.md`（已写）
 - `docs/superpowers/plans/2026-09-14-render-skia-canvas.md`（本文件）
 - `docs/README.md`（索引）
-- 落地后：`docs/build/ui-views-skia.md` Status 一句
+- 落地后：`docs/superpowers/ui-views-skia.md` Status 一句
 
 - [x] **Step E1:** 运行时双后端（`CanvasBackend` + `shell_canvas_backend` + CLI/env）— 2026-09-28
-- [ ] **Step 1:** 实现全部 Task 后，若行为已是 as-built，把本 plan/spec 标 `Status: landed` 并按 `superpowers-docs.mdc` **同一变更**移入 `docs/superpowers/archive/{specs,plans}/`，as-built 事实写入 `docs/build/ui-views-skia.md`。
+- [ ] **Step 1:** 实现全部 Task 后，若行为已是 as-built，把本 plan/spec 标 `Status: landed` 并按 `superpowers-docs.mdc` **同一变更**移入 `docs/superpowers/archive/{specs,plans}/`，as-built 事实写入 `docs/superpowers/ui-views-skia.md`。
 - [ ] **Step 2:** **未**完成实现前保持 `Status: active`；仅文档审阅循环时 revise in place，不开平行空壳。
 
 ---

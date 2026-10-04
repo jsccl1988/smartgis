@@ -14,7 +14,7 @@ namespace render {
 namespace detail {
 
 // Active leftover map2d frame state after activate (cc::LayerTreeImpl analogue).
-// Owns generation + damage only — GIS layers stay on SmtMap / paint::Painter.
+// Owns generation + damage only — GIS layers stay on Map / paint::Painter.
 class Rhi2dLayerTreeImpl {
  public:
   Rhi2dLayerTreeImpl() = default;

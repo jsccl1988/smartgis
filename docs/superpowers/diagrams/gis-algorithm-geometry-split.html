@@ -1,0 +1,215 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>算法层 ↔ 几何体层 — 依赖分离与升级流</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --panel2: #f0f3f7; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --geom: #2563a8; --algo: #2f7d62; --forbid: #a33d3d; --bridge: #b06a1a;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 18px 56px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .hero { padding: 16px 20px 12px; }
+  .panel { padding: 12px 14px 14px; }
+  .hero h1 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 650; }
+  .hero p, .meta, .note { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .meta { margin-top: 8px; font-size: 0.82rem; }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 650; }
+  .split {
+    display: grid; grid-template-columns: 1fr 56px 1fr; gap: 8px; align-items: stretch;
+  }
+  @media (max-width: 800px) {
+    .split { grid-template-columns: 1fr; }
+    .arrow-col { display: none; }
+  }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+    background: var(--panel2); min-height: 220px;
+  }
+  .lane h3 { margin: 0 0 8px; font-size: 0.85rem; font-weight: 700; }
+  .lane.geom { border-top: 3px solid var(--geom); }
+  .lane.algo { border-top: 3px solid var(--algo); }
+  .lane ul { margin: 0; padding-left: 1.1em; font-size: 0.8rem; color: var(--muted); }
+  .lane li { margin-bottom: 4px; }
+  .lane strong { color: var(--text); }
+  .arrow-col {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; color: var(--muted); font-size: 0.72rem; font-weight: 700; text-align: center;
+  }
+  .arrow-col .ok {
+    border: 1px solid #9ec9b4; background: #eef8f3; color: #1f5c45;
+    border-radius: 6px; padding: 8px 6px; line-height: 1.3;
+  }
+  .arrow-col .bad {
+    border: 1px solid #e0b0b0; background: #fdf2f2; color: var(--forbid);
+    border-radius: 6px; padding: 8px 6px; line-height: 1.3;
+    text-decoration: line-through;
+  }
+  .owners {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  }
+  @media (max-width: 900px) { .owners { grid-template-columns: 1fr 1fr; } }
+  .chip {
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    background: #fff; font-size: 0.78rem; color: var(--muted);
+  }
+  .chip strong { display: block; color: var(--text); font-size: 0.8rem; margin-bottom: 4px; }
+  .chip.bridge { border-top: 3px solid var(--bridge); }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  }
+  .stage {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 8px 10px; font-size: 0.8rem; min-width: 120px; max-width: 170px;
+    transition: box-shadow 0.25s ease, background 0.25s ease;
+  }
+  .stage strong { display: block; color: var(--accent); font-size: 0.7rem; }
+  .arrow { color: var(--muted); font-weight: 700; }
+  .stage.active {
+    box-shadow: inset 0 0 0 1px var(--accent);
+    background: #eef5fc;
+  }
+  .forbid-list {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;
+  }
+  .forbid-list span {
+    border: 1px solid #e0b0b0; background: #fdf2f2; color: var(--forbid);
+    border-radius: 6px; padding: 5px 8px; font-size: 0.76rem;
+  }
+  table.map { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+  .map th, .map td {
+    border: 1px solid var(--border); padding: 6px 8px; text-align: left;
+  }
+  .map th { background: #e8edf3; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>算法层 ↔ 几何体层 — 依赖分离</h1>
+    <p>几何体拥有类型与存储；算法是纯 ops + backend traits，只依赖 concept，绝不反向被 mesh 头引用。</p>
+    <p class="meta">Living：<code>2026-09-13-algorithm-layer-oss-design.md</code> §4 分离契约（补图）· 主分层图：<a href="gis-geo-layers.html">gis-geo-layers.html</a></p>
+  </header>
+
+  <section class="panel">
+    <h2>1. 核心分层（职责对照）</h2>
+    <div class="split">
+      <div class="lane geom">
+        <h3 style="color:var(--geom)">几何体层</h3>
+        <ul>
+          <li><strong>OGC</strong>：<code>OGRGeometry</code> / <code>OGRTriangulatedSurface</code></li>
+          <li><strong>Mesh</strong>：<code>geo::Grid</code>（2D 缓冲）；<code>Tin</code> 弃用门面；3D hex → 插件 <code>HexLattice</code></li>
+          <li><strong>属性</strong>：envelope、实例 <code>coordinate_dimension</code></li>
+          <li><strong>Traits 描述</strong>：<code>geometry_traits</code> / <code>ogr_geometry_like</code></li>
+          <li><strong>薄 codec</strong>：<code>as_ogr</code> / <code>clone_ogr</code></li>
+          <li>路径：<code>gis/geo/ops/</code></li>
+        </ul>
+      </div>
+      <div class="arrow-col">
+        <div class="ok">算法 → 几何体<br>允许 include / 写出</div>
+        <div class="bad">几何体 → 算法<br>禁止反向依赖</div>
+      </div>
+      <div class="lane algo">
+        <h3 style="color:var(--algo)">算法层</h3>
+        <ul>
+          <li><strong>Ops</strong>：<code>geo::buffer</code>（GEOS/OGR）</li>
+          <li><strong>TIN</strong>：<code>geo::delaunay</code>（GEOS）</li>
+          <li><strong>Grid</strong>：<code>geo::solve_laplace</code> / <code>solve_elliptic</code> / <code>compute_orthogonality</code></li>
+          <li><strong>PROJ</strong>：<code>geo::CoordinateTransform</code></li>
+          <li><strong>Analysis</strong>：<code>native.*</code> / OpsRunner / Eigen（<code>Matrix2D</code> 在 leftover orthogrid）</li>
+          <li>依赖 concept，不拥有结点表</li>
+          <li>路径：<code>gis/geo/ops/</code> · <code>gis/geo/{tin,grid,proj}</code> · <code>analysis/**</code></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. 归属（今日树，无顶层 algorithm/ 源）</h2>
+    <div class="owners">
+      <div class="chip"><strong>Types</strong><code>mesh/geometry.h</code><br>OGR 外部</div>
+      <div class="chip"><strong>Traits</strong><code>ops/*_traits.h</code><br>描述面，非剧场</div>
+      <div class="chip"><strong>Ops + backends</strong><code>geo_ops</code> · tin · grid · proj</div>
+      <div class="chip bridge"><strong>转发</strong><code>//src/gis:algorithm</code> → <code>gis.dll</code></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>3. 原理流（调用方 → concept → 算法 → 写出几何）</h2>
+    <div class="flow" id="flow">
+      <div class="stage" data-i="0"><strong>1 输入</strong>OGR 几何或 mesh 计算缓冲</div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="1"><strong>2 Concept</strong>geometry_like / ogr_geometry_like</div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="2"><strong>3 算法</strong>buffer / delaunay / grid / proj</div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="3"><strong>4 写出</strong>调用方拥有的结果</div>
+      <span class="arrow">→</span>
+      <div class="stage" data-i="4"><strong>5 边界</strong>codec / analysis / present</div>
+    </div>
+    <p class="note" style="margin-top:10px">动画：算法永远读 traits；几何类永不「知道」GEOS/Delaunay。Present 只消费结果。</p>
+  </section>
+
+  <section class="panel">
+    <h2>4. 升级阶段</h2>
+    <table class="map">
+      <thead>
+        <tr><th>阶段</th><th>目标</th><th>关键动作</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>P0</td><td>文档锁定</td><td>本图 + living §</td></tr>
+        <tr><td>P1</td><td>Concept 收紧</td><td><code>ogr_geometry_like</code>；<code>buffer</code> 拒 mesh</td></tr>
+        <tr><td>P2</td><td>边界硬化</td><td>ops detail 可拆；analysis ⊥ vista</td></tr>
+        <tr><td>P3</td><td>收敛</td><td>已删 <code>Smt*</code> mesh typedef；<code>ALGORITHM_*</code> → <code>GIS_*</code></td></tr>
+        <tr><td>P4</td><td>原生 OGR TIN</td><td><code>OGRTriangulatedSurface</code> 首选；<code>geo::Tin</code> 弃用门面</td></tr>
+        <tr><td>P5</td><td>HexGrid 退出 gis.dll</td><td>3D hex = 插件 <code>HexLattice</code> + <code>OGRMultiPoint</code> XYZ；保留 <code>geo::Grid</code></td></tr>
+      </tbody>
+    </table>
+    <div class="forbid-list" style="margin-top:10px">
+      <span>类内嵌 buffer/Delaunay</span>
+      <span>平行 Geometry2/3</span>
+      <span>算法 #include UI/present</span>
+      <span>geometry → buffer.h</span>
+      <span>geo::HexGrid / SmtHexGrid</span>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  var stages = document.querySelectorAll("#flow .stage");
+  var i = 0;
+  function tick() {
+    stages.forEach(function (el) { el.classList.remove("active"); });
+    if (stages[i]) stages[i].classList.add("active");
+    i = (i + 1) % stages.length;
+  }
+  tick();
+  setInterval(tick, 1100);
+})();
+</script>
+</body>
+</html>

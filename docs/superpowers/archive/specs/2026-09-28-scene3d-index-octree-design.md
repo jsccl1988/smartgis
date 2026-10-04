@@ -12,17 +12,17 @@ All rights reserved.
 **Date:** 2026-09-28  
 **Scope:** Child of umbrella **SP4**. Inside `src/legacy/render/scene3d` only: drop the `bl3d_` file-name prefix, introduce an `index/` responsibility directory, and replace the hand-rolled octree implementation with a lightweight MIT header-only vendor behind a thin adapter. Keep exported types and DLL surface stable (`SmtScene`, `SmtSceneOctTree`, `LEGACY_RENDER_EXPORT`, `dll_stem = legacy_render`).  
 **Relation to SP4:** Does **not** reopen or rewrite landed SP4 Success / Done-when checkboxes in [`2026-09-19-scene3d-world-gpuscene-design.md`](2026-09-19-scene3d-world-gpuscene-design.md). SP4 already seeded AABB → `gis::World` and thinned DEM/map seams; this child only reshapes leftover scene indexing and file layout so the strangler stays maintainable. World / GpuScene migration remains SP4 / follow-on — not this workstream.  
-**Plan:** [`../plans/2026-09-28-scene3d-index-octree.md`](../plans/2026-09-28-scene3d-index-octree.md)  
+**Plan:** [`../plans/2026-09-28-scene3d-index-octree.md`](../../plans/2026-09-28-scene3d-index-octree.md)  
 **Related:**
 
 | Topic | Doc | Relation |
 | --- | --- | --- |
-| SP0 umbrella | [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) | SP4 path ownership; this is **SP4b** child — do not widen ABI or reverse dependency direction |
+| SP0 umbrella | [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](../../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md) | SP4 path ownership; this is **SP4b** child — do not widen ABI or reverse dependency direction |
 | SP4 Scene3D → World / GpuScene | [`2026-09-19-scene3d-world-gpuscene-design.md`](2026-09-19-scene3d-world-gpuscene-design.md) | **Parent** — landed Success stays; SP4b does not wholesale delete octree or move logic into World |
 | DEM / host unify | [`2026-09-19-leftover-scene3d-dem-unify-design.md`](2026-09-19-leftover-scene3d-dem-unify-design.md) | `dem/` + bridge seeds stay; layout must not fight DemRaster authority |
 | Dual-run / scene3d P2.4 layers | [`2026-09-27-legacy-render-subdirectory-dual-run-design.md`](2026-09-27-legacy-render-subdirectory-dual-run-design.md) | Extends P2.4 layers with `index/`; leftover stays opt-in strangler |
 | Peer layout (scheme C, no shims) | [`2026-09-27-legacy-app-subdirectory-layout-design.md`](2026-09-27-legacy-app-subdirectory-layout-design.md) | Same include-break + colocation rules |
-| Product as-built | [`../../build/src-layout.md`](../../build/src-layout.md), [`../../../src/legacy/render/scene3d/README.md`](../../../src/legacy/render/scene3d/README.md) | Update when landing |
+| Product as-built | [`../../src-layout.md`](../../src-layout.md), [`../../../src/legacy/render/scene3d/README.md`](../../README.md) | Update when landing |
 
 ---
 
@@ -161,7 +161,7 @@ third_party/<octree>  (header-only)     ← no SmartGIS types, no device
 3. **Dual-run:** `legacy_render` remains the opt-in leftover DLL beside Views / GpuScene (dual-run design). This work does not change present ownership or force Views onto leftover GL.
 4. **DEM unify:** do not move `dem_*` / `map_to_scene` / `scene_to_world` out of `dem/` / `bridge/`; only fix includes to `scene/object.h` etc.
 5. **Verification (human):** `build.bat` (or targeted `legacy_render` + `dem_stereo_test` / existing scene tests). Agent does not run compilers.
-6. **Docs on land:** touch `src/legacy/render/scene3d/README.md` and, if the as-built module table mentions `bl3d_`, `docs/build/src-layout.md` — same landing. Do **not** mark SP4 Success incomplete or rewrite its checkboxes.
+6. **Docs on land:** touch `src/legacy/render/scene3d/README.md` and, if the as-built module table mentions `bl3d_`, `docs/superpowers/src-layout.md` — same landing. Do **not** mark SP4 Success incomplete or rewrite its checkboxes.
 
 ---
 
@@ -193,11 +193,11 @@ third_party/<octree>  (header-only)     ← no SmartGIS types, no device
 
 ## 8. Related docs
 
-- Umbrella: [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](2026-09-19-legacy-deep-abstraction-umbrella-design.md) (SP4b child row).
+- Umbrella: [`2026-09-19-legacy-deep-abstraction-umbrella-design.md`](../../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md) (SP4b child row).
 - Parent SP4: [`2026-09-19-scene3d-world-gpuscene-design.md`](2026-09-19-scene3d-world-gpuscene-design.md).
 - DEM unify: [`2026-09-19-leftover-scene3d-dem-unify-design.md`](2026-09-19-leftover-scene3d-dem-unify-design.md).
 - Dual-run / P2.4 scene3d layers: [`2026-09-27-legacy-render-subdirectory-dual-run-design.md`](2026-09-27-legacy-render-subdirectory-dual-run-design.md).
-- As-built: [`../../build/src-layout.md`](../../build/src-layout.md), [`../../../src/legacy/render/scene3d/README.md`](../../../src/legacy/render/scene3d/README.md).
+- As-built: [`../../src-layout.md`](../../src-layout.md), [`../../../src/legacy/render/scene3d/README.md`](../../README.md).
 
 ---
 

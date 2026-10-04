@@ -19,7 +19,7 @@
 #include "base/ipc/invitation/invitation.h"
 #include "content/public/event_bus.h"
 #include "content/common/host_protocol.h"
-#include "gis/model/edit/session/edit_session.h"
+#include "gis/edit/session.h"
 #include "tool/command/command.h"
 #include "tool/workspace/workspace.h"
 

@@ -8,7 +8,7 @@
 
 #include "content/browser/present/scene3d/frame/orbit_geo_frame.h"
 #include "content/public/map_types.h"
-#include "gis/vista/world/world.h"
+#include "vista/world/world.h"
 
 namespace content {
 
@@ -17,7 +17,7 @@ class MapScene;
 // Rebuild China DEM mesh into |world| and orbit-normalized |xyz|/|idx|.
 // Skips work when LOD + extent still match |*lod_edge| / |*geo|.
 // Caller owns present mutex when used from GPU/software paint paths.
-void rebuild_terrain_mesh(gis::World* world,
+void rebuild_terrain_mesh(vista::World* world,
                           const MapScene* scene,
                           const Extent2& extent,
                           float orbit_distance,

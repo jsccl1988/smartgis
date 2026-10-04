@@ -8,7 +8,7 @@ All rights reserved.
 **Status:** landed  
 **Date:** 2026-09-27  
 **Archived:** 2026-09-27 → [`docs/superpowers/archive/plans/`](./)  
-**Related:** living RHI contract [`../../specs/2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md)；P0 能力 [`../../specs/2026-09-20-rhi-3d-capability-p0-design.md`](../../specs/2026-09-20-rhi-3d-capability-p0-design.md) / [`../../plans/2026-09-20-rhi-3d-capability-p0.md`](../../plans/2026-09-20-rhi-3d-capability-p0.md)；leftover 迁出 [`../../specs/2026-09-13-render-legacy-split-design.md`](../../specs/2026-09-13-render-legacy-split-design.md)；present strangler [`../../plans/2026-09-19-legacy-render-present-facade.md`](../../plans/2026-09-19-legacy-render-present-facade.md)。  
+**Related:** living RHI contract [`../../specs/2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md)；P0 能力 [`../../specs/2026-09-20-rhi-3d-capability-p0-design.md`](../specs/2026-09-20-rhi-3d-capability-p0-design.md) / [`../../plans/2026-09-20-rhi-3d-capability-p0.md`](../../plans/2026-09-20-rhi-3d-capability-p0.md)；leftover 迁出 [`../../specs/2026-09-13-render-legacy-split-design.md`](../specs/2026-09-13-render-legacy-split-design.md)；present strangler [`../../plans/2026-09-19-legacy-render-present-facade.md`](2026-09-19-legacy-render-present-facade.md)。  
 **As-built pointer:** [`../../../../src/render/README.md`](../../../../src/render/README.md)
 
 > **For agentic workers:** 按 Phase 勾选落地。只在 **master** 改。**不要** `git commit`，除非用户明确要求。**不要**开分支。本 plan 是目录/职责拆分，不是能力升级；不改 `rhi.h` 对外语义。

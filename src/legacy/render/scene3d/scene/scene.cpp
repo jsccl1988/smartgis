@@ -275,7 +275,7 @@ void SmtScene::CreateOctTreeSceneMgr(void) {
   m_bOctTreeCreated = true;
   // SP4: one switch — mirror object AABBs into World when a mirror is set
   // (map_to_scene / tests). Does not delete leftover octree.
-  if (gis::World *mirror = smt_scene_world_mirror()) {
+  if (vista::World *mirror = smt_scene_world_mirror()) {
     seed_smt_scene_aabbs_into_world(mirror, this);
   }
 }

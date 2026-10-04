@@ -7,7 +7,7 @@
 // Viewport XYZ mosaic: tile coords, world-rect blit, and 0/0/0 stretch.
 // Composite calls this. Decode stays below it.
 
-#include "gis/present/tile/protocol/xyz_math.h"
+#include "gis/carto/tile/xyz_math.h"
 #include "gpu/frame_sink.h"
 
 #include <cstdint>

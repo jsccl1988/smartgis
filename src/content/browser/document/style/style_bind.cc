@@ -8,9 +8,9 @@
 #include <cstdio>
 #include <mutex>
 
-#include "gis/present/style/style_document.h"
-#include "gis/present/style/style_rules.h"
-#include "gis/vista/frame/frame.h"
+#include "gis/carto/style/style_document.h"
+#include "gis/carto/style/style_rules.h"
+#include "vista/frame/frame.h"
 
 namespace content {
 namespace detail {
@@ -53,7 +53,7 @@ const gis::style::StyleDocument* embedded_carto_style_document() {
   static std::shared_ptr<gis::style::StyleDocument> doc;
   std::call_once(once, [] {
     auto parsed = std::make_shared<gis::style::StyleDocument>();
-    if (gis::style::parse_style_document(gis::vista::default_carto_style_json(),
+    if (gis::style::parse_style_document(vista::default_carto_style_json(),
                                          parsed.get())) {
       doc = std::move(parsed);
     }

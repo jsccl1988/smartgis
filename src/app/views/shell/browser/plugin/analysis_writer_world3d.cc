@@ -12,9 +12,9 @@
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 #include "content/public/view_host.h"
-#include "gis/present/style/style_document.h"
-#include "gis/vista/world/pointcloud/ingest/load.h"
-#include "gis/vista/world/terrain/dem/dem_raster.h"
+#include "gis/carto/style/style_document.h"
+#include "vista/world/pointcloud/ingest/load.h"
+#include "vista/world/terrain/dem/dem_raster.h"
 #include "plugin/product/world3d/commands.h"
 
 #include <algorithm>
@@ -36,15 +36,15 @@ namespace app {
 namespace detail {
 namespace {
 
-// Point cloud via shared gis loader → map point features (Views footprint).
+// Point cloud via shared gis loader 鈫?map point features (Views footprint).
 bool add_pointcloud_layer(content::MapScene* doc,
                            BrowserUiDelegate* ui,
                            const std::string& path) {
   if (!doc || path.empty()) {
     return false;
   }
-  gis::PointCloud cloud;
-  if (!gis::load_point_cloud(path.c_str(), &cloud) || cloud.empty()) {
+  vista::PointCloud cloud;
+  if (!vista::load_point_cloud(path.c_str(), &cloud) || cloud.empty()) {
     return false;
   }
   const uint8_t* rgba = cloud.has_color() ? cloud.rgba.data() : nullptr;
@@ -119,7 +119,7 @@ void wire_world3d_analysis_writers(Browser* browser) {
                 name, xyz, point_count, triangles, triangle_count)) {
           return false;
         }
-        // Style must be set here: default carto maps type=polygon → cream
+        // Style must be set here: default carto maps type=polygon 鈫?cream
         // "land" (lit_ratio=1). UI refresh stays deferred (pool workers).
         (void)apply_world3d_mesh_style(&browser->session().document());
         return true;
@@ -151,15 +151,15 @@ void wire_world3d_analysis_writers(Browser* browser) {
     return ::app::detail::add_standin_mesh(&browser->session().document(), browser->ui(), "Water", 110.0,
                             30.0, 0.6);
   };
-  scene_writer.add_terrain_grid = [browser]() {
-    return ::app::detail::add_standin_mesh(&browser->session().document(), browser->ui(), "Terrain GRID",
+  scene_writer.add_terrain_heightmap = [browser]() {
+    return ::app::detail::add_standin_mesh(&browser->session().document(), browser->ui(), "Terrain heightmap",
                             100.0, 35.0, 1.0);
   };
-  scene_writer.add_terrain_tin = [browser]() {
-    return ::app::detail::add_standin_mesh(&browser->session().document(), browser->ui(), "Terrain TIN",
+  scene_writer.add_terrain_trimesh = [browser]() {
+    return ::app::detail::add_standin_mesh(&browser->session().document(), browser->ui(), "Terrain trimesh",
                             102.0, 36.0, 1.0);
   };
-  scene_writer.create_tin_from_active_layer = [browser]() {
+  scene_writer.create_trimesh_from_active_layer = [browser]() {
     return browser->session().document().feature_count() > 0;
   };
   scene_writer.layer_points_to_3d = [browser]() {
@@ -263,44 +263,25 @@ void wire_world3d_analysis_writers(Browser* browser) {
         std::string path = dem_path;
         const char* source = "explicit";
         if (path.empty()) {
-          static const char* kRels[] = {
-              "../data/global_dem.tif",
-              "../data/global_dem.tiff",
-              "../plugins/world3d/data/global_dem.tif",
-              "data/global_dem.tif",
-          };
-          char base[MAX_PATH] = {};
-          if (detail::exe_dir_with_slash_a(base, MAX_PATH)) {
-            for (const char* rel : kRels) {
-              char full[MAX_PATH] = {};
-              if (strcpy_s(full, base) != 0 || strcat_s(full, rel) != 0) {
-                continue;
-              }
-              if (GetFileAttributesA(full) == INVALID_FILE_ATTRIBUTES) {
-                continue;
-              }
-              path = full;
-              source = "global_default";
-              break;
-            }
+          // Prefer shared finder (global_dem → china_dem stand-in). Avoid a
+          // second relative-path search that can miss out/data/china_dem.tif.
+          path = vista::find_sample_global_dem_path();
+          if (!path.empty()) {
+            source = (path.find("global_dem") != std::string::npos)
+                         ? "global_default"
+                         : "china_standin";
           }
         }
 
         if (path.empty()) {
-          // Honest stand-in: China sample DEM + product atmosphere defaults.
-          gis::set_sample_dem_path_override(nullptr);
-          browser->select_map_tab(2);
-          apply_china_scene3d_product_defaults(*browser);
-          cam->abandon_mesh();
           write_result(
-              "{\"ok\":true,\"op\":\"world3d.load_global_dem\","
-              "\"source\":\"china_standin\","
-              "\"hint\":\"place GeoTIFF at out/data/global_dem.tif or "
-              "out/plugins/world3d/data/global_dem.tif\"}");
-          return true;
+              "{\"error\":\"missing_dem\",\"op\":\"world3d.load_global_dem\","
+              "\"hint\":\"place GeoTIFF at out/data/china_dem.tif or "
+              "out/data/global_dem.tif\"}");
+          return false;
         }
 
-        gis::DemRaster dem;
+        vista::DemRaster dem;
         if (!dem.load_gdal_raster(path.c_str()) || dem.empty()) {
           write_result(
               "{\"error\":\"missing_or_invalid_dem\",\"op\":\"world3d.load_global_dem\","
@@ -309,7 +290,7 @@ void wire_world3d_analysis_writers(Browser* browser) {
           return false;
         }
 
-        gis::set_sample_dem_path_override(path.c_str());
+        vista::set_sample_dem_path_override(path.c_str());
         browser->select_map_tab(2);
         apply_china_scene3d_atmosphere(*browser);
 

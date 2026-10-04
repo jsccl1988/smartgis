@@ -10,9 +10,9 @@ All rights reserved.
 
 **Status:** active  
 **Date:** 2026-09-27  
-**Note (2026-09-27):** Product 2D RHI Pass 终态为 **`src/effect/map`** (`effect::map::Pass`)。`src/render/map2d` 已从磁盘移除。CPU 布局在 `gis/vista/frame`。  
+**Note (2026-09-27):** Product 2D RHI Pass 终态为 **`src/vista/map`** (`effect::map::Pass`)。`src/render/map2d` 已从磁盘移除。CPU 布局在 `vista/frame`。  
 **Frame composition:** 命令列表的拼接与 present 改由 [`2026-09-27-render-frame-graph-design.md`](2026-09-27-render-frame-graph-design.md) 负责。本规格留下的是 Views 挂上 FlyCube / Null，以及 GDI 降级。二维像素现经 `gis::vista::Layout` → `effect::map::Pass`，不再经 `GpuScene::record_draws`。  
-**Related:** RHI + dual scene [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)；Present Facade [`2026-09-19-legacy-render-present-facade-design.md`](2026-09-19-legacy-render-present-facade-design.md)；Scene3d / World [`2026-09-19-scene3d-world-gpuscene-design.md`](2026-09-19-scene3d-world-gpuscene-design.md)；UI Views [`2026-09-13-ui-views-mfc-migration-design.md`](2026-09-13-ui-views-mfc-migration-design.md)；2D CPU 帧 [`2026-09-27-map2d-frame-design.md`](2026-09-27-map2d-frame-design.md)；MapLibre Native pin removed（deferred）[`../archive/specs/2026-09-27-maplibre-out-of-gpu-design.md`](../archive/specs/2026-09-27-maplibre-out-of-gpu-design.md)。  
+**Related:** RHI + dual scene [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md)；Present Facade [`2026-09-19-legacy-render-present-facade-design.md`](2026-09-19-legacy-render-present-facade-design.md)；Scene3d / World [`2026-09-19-scene3d-world-gpuscene-design.md`](2026-09-19-scene3d-world-gpuscene-design.md)；UI Views [`2026-09-13-ui-views-mfc-migration-design.md`](2026-09-13-ui-views-mfc-migration-design.md)；2D CPU 帧 [`2026-09-27-map2d-frame-design.md`](2026-09-27-map2d-frame-design.md)；MapLibre Native pin removed（deferred）[`../archive/specs/2026-09-27-maplibre-out-of-gpu-design.md`](2026-09-27-maplibre-out-of-gpu-design.md)。  
 **Plan:** [`../plans/2026-09-27-views-2d-map-rhi.md`](../plans/2026-09-27-views-2d-map-rhi.md)
 
 ## Goal

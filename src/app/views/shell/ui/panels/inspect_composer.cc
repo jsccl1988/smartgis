@@ -22,8 +22,8 @@
 #include <windows.h>
 
 #include "content/public/map_contents.h"
-#include "gis/present/style/style_document.h"
-#include "gis/present/style/style_types.h"
+#include "gis/carto/style/style_document.h"
+#include "gis/carto/style/style_types.h"
 #include "tool/draft/draft.h"
 #include "ui/gis/inspect/measure_panel.h"
 #include "ui/gis/inspect/selection_panel.h"
@@ -266,7 +266,7 @@ bool InspectComposer::try_consume_measure_draft(const tool::Draft& draft) {
     }
     std::snprintf(buf, sizeof(buf), "%.3f", area);
     rows.push_back({"area_m2", buf});
-    host_->measure_panel_->set_unit_text("m²");
+    host_->measure_panel_->set_unit_text("m虏");
   }
 
   host_->measure_panel_->set_results(std::move(rows));

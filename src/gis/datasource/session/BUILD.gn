@@ -21,7 +21,7 @@ source_set("session_core") {
   ]
   include_dirs += [ "//src" ]
   deps = [
-    "//src/gis/model/map:gis_sources",
+    "//src/gis/map:gis_sources",
     "//src/base:base",
     "//src/base:core",
     "//third_party:gdal",
@@ -43,7 +43,7 @@ source_set("session_sources") {
   deps = [
     ":session_core",
     "//src/gis/datasource/provider:provider_sources",
-    "//src/gis/model/map:gis_sources",
+    "//src/gis/map:gis_sources",
     "//src/base:base",
     "//src/base:core",
     "//third_party:gdal",

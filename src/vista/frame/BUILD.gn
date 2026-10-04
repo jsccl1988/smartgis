@@ -1,0 +1,75 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# CPU MapFrame. Ortho is the current camera; perspective uses the same
+# Layout. Compiled into //src/vista:vista. Not a second scene.
+source_set("frame_sources") {
+  sources = [
+    "default_style.cc",
+    "detail/carto_filter.cc",
+    "detail/carto_filter.h",
+    "detail/collision.cc",
+    "detail/collision.h",
+    "detail/layout/attrs.cc",
+    "detail/layout/attrs.h",
+    "detail/layout/fill.cc",
+    "detail/layout/fill.h",
+    "detail/layout/geom_mesh.cc",
+    "detail/layout/geom_mesh.h",
+    "detail/layout/line.cc",
+    "detail/layout/line.h",
+    "detail/layout/multiply.cc",
+    "detail/layout/multiply.h",
+    "detail/layout/point.cc",
+    "detail/layout/point.h",
+    "detail/layout/raster.cc",
+    "detail/layout/raster.h",
+    "detail/layout/symbol.cc",
+    "detail/layout/symbol.h",
+    "detail/layout/view_metrics.cc",
+    "detail/layout/view_metrics.h",
+    "frame.h",
+    "hillshade_bake.cc",
+    "hillshade_bake.h",
+    "layout.cc",
+    "mvt_layout.cc",
+    "mvt_layout.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  public_configs = [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "VISTA_EXPORTS",
+  ]
+  assert_no_deps = [
+    "//src/render:render",
+    "//src/legacy/render:*",
+    "//src/legacy/ui:*",
+    "//src/legacy/app:*",
+  ]
+  deps = [
+    "//src/base:foundation",
+    "//src/gis:gis",
+    "//src/vista/world:world_sources",
+  ]
+}
+
+group("frame") {
+  public_deps = [ "//src/vista:vista" ]
+}
+
+test("frame_test") {
+  output_name = "frame_test"
+  sources = [ "map2d_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [
+    ":frame",
+    "//src/base:base",
+    "//third_party:gdal",
+  ]
+}

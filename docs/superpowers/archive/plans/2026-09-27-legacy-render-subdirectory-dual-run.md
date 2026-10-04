@@ -9,7 +9,7 @@ All rights reserved.
 # `src/legacy/render` subdirectory + dual-run — Implementation Plan
 
 
-> **Design living:** SP decisions live in [../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md](../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md). This file is the checklist only.
+> **Design living:** SP decisions live in [../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md](../../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md). This file is the checklist only.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Execute on **master**. Do **not** `git commit` unless the user asks. Do **not** create branches. Spec: [`../specs/2026-09-27-legacy-render-subdirectory-dual-run-design.md`](../specs/2026-09-27-legacy-render-subdirectory-dual-run-design.md).
 
@@ -39,7 +39,7 @@ All rights reserved.
 | `src/legacy/render/bridge/renderer.cpp` | CreateDevice alias for old simple name |
 | `src/legacy/render/gdi/**` | Sole 2D GDI device + carto + common buffers |
 | `src/ui/views/map/map_viewport.cc` | Drop obsolete `render_gdi_simple*` LoadLibrary names |
-| `docs/build/abi-rename-map.md` | Drop / note retired `render_gdi_simple` stems if still listed |
+| `docs/superpowers/abi-rename-map.md` | Drop / note retired `render_gdi_simple` stems if still listed |
 | *(deleted)* `src/legacy/render/gdi_simple/**` | Gone |
 
 ---
@@ -177,7 +177,7 @@ DEM / map_bridge public `.h` remain at `scene3d/` root (`DemHeightField` ABI).
 
 - [x] **Step 1: Update as-built docs only (no forced split of thin tops)**
 
-README tree + `docs/build/src-layout.md` / `abi-rename-map.md` note retired `gdi_simple`.
+README tree + `docs/superpowers/src-layout.md` / `abi-rename-map.md` note retired `gdi_simple`.
 
 - [x] **Step 2: Do not commit** (unless user asks)
 

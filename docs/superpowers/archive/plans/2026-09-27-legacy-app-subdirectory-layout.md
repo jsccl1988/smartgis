@@ -9,7 +9,7 @@ All rights reserved.
 # `src/legacy/app` subdirectory + SP3 strangler — Implementation Plan
 
 
-> **Design living:** SP decisions live in [../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md](../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md). This file is the checklist only.
+> **Design living:** SP decisions live in [../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md](../../specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md). This file is the checklist only.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Execute on **master**. Do **not** `git commit` unless the user asks. Do **not** create branches. Do **not** run `build.bat` / `ninja` / any `out/*.exe` (human verifies). Spec: [`../specs/2026-09-27-legacy-app-subdirectory-layout-design.md`](../specs/2026-09-27-legacy-app-subdirectory-layout-design.md).
 
@@ -44,13 +44,13 @@ All rights reserved.
 | `src/content/public/map_bootstrap.h` (+ `.cc` / `*_test.cc`) | HWND-free sample/china map open + NewMap append policy |
 | `src/content/public/draft_commit.h` (+ `.cc` / `*_test.cc`) | HWND-free draft→feature commit helper |
 | `src/app/views/map_scene.*` | Viewport transform + call `content` draft helper |
-| `src/legacy/app/README.md`, `docs/build/src-layout.md` | As-built module row |
+| `src/legacy/app/README.md`, `docs/superpowers/src-layout.md` | As-built module row |
 
 ---
 
 ## Progress note (2026-09-27)
 
-**Landed:** physical `core/` / `shell/` / `doc/` / `view/` + root `stdafx`/`rc`/`res/`; scheme C includes + `BUILD.gn` source paths; `content` map_bootstrap (public header + impl + test target) with `SmtApp` delegating sample path resolution; `src/legacy/app/README.md` / `docs/build/src-layout.md` / related spec cross-links. **Open:** Task 5 `draft_commit` (deferred — `TODO(sp3)`); Task 6 full thin-view strangler; all human compile / `te` steps. Spec Status remains `accepted` (design locked; plan not fully complete).
+**Landed:** physical `core/` / `shell/` / `doc/` / `view/` + root `stdafx`/`rc`/`res/`; scheme C includes + `BUILD.gn` source paths; `content` map_bootstrap (public header + impl + test target) with `SmtApp` delegating sample path resolution; `src/legacy/app/README.md` / `docs/superpowers/src-layout.md` / related spec cross-links. **Open:** Task 5 `draft_commit` (deferred — `TODO(sp3)`); Task 6 full thin-view strangler; all human compile / `te` steps. Spec Status remains `accepted` (design locked; plan not fully complete).
 
 ---
 
@@ -389,7 +389,7 @@ Expected: PASS. (Views `--self-test` optional human follow-up; agent must not ru
 
 **Files:**
 - Modify: `src/legacy/app/README.md` — module tree + include map + SP3 extract pointers
-- Modify: `docs/build/src-layout.md` — App (leftover) row mentions `core/shell/doc/view`
+- Modify: `docs/superpowers/src-layout.md` — App (leftover) row mentions `core/shell/doc/view`
 - Modify: `docs/superpowers/specs/2026-09-19-legacy-host-behavior-extract-design.md` — deferred draft/bootstrap → this plan/spec
 - Modify: `docs/superpowers/specs/2026-09-14-app-legacy-split-design.md` — Related link to this subdirectory spec
 - Modify: `docs/superpowers/specs/2026-09-19-legacy-deep-abstraction-umbrella-design.md` — child table note for layout vehicle

@@ -21,14 +21,14 @@
 #include "content/public/catalog_layers.h"
 #include "content/public/feature_attrs.h"
 #include "content/public/map_types.h"
-#include "gis/present/style/style_types.h"
-#include "gis/present/tile/provider/tile_provider.h"
-#include "gis/vista/world/terrain/process/land_mask.h"
+#include "gis/carto/style/style_types.h"
+#include "gis/carto/tile/tile_provider.h"
+#include "vista/world/terrain/process/land_mask.h"
 #include "tool/draft/draft.h"
 
 namespace content {
 
-// In-process map document façade: layers and features in map space. Pan,
+// In-process map document fa莽ade: layers and features in map space. Pan,
 // scale, and paint live on ViewFrame and Map2dPresenter. Implementation is
 // composed under document/{store,ingest,style,query,edit}/.
 class MapScene {
@@ -48,16 +48,16 @@ class MapScene {
 
   // Prefer china_city (gpkg/geojson) beside the exe (or testing/data), then
   // schematic china_plp. Multi-layer packs expose area / line / point / text.
-  // Falls back to a Demo layer so Catalog/map are never empty.
-  // When |allow_china_bootstrap| is false, skip OGR China open (demo layer only)
+  // Hard-fails (leaves the document empty) when real china packs are missing —
+  // no in-memory demo layer.
+  // When |allow_china_bootstrap| is false, skip OGR China open (empty doc)
   // so first-show stays interactive; caller may open China later on idle.
   void seed_default(bool allow_china_bootstrap = true);
 
-  // Open path via OGR (GPKG / Shapefile / GeoJSON /  - . On success replaces
+  // Open path via OGR (GPKG / Shapefile / GeoJSON / …). On success replaces
   // document layers with real OGR layer names + geometries (one Catalog
-  // layer per OGR layer). Falls back to a tagged sample layer when the file
-  // cannot be opened as a vector source. Returns true when at least one OGR
-  // feature was ingested.
+  // layer per OGR layer). Returns false without inventing sample features
+  // when the file cannot be opened as a vector source.
   bool open_path(const std::string& path);
 
   // Write the active visible layer to |path| as GeoJSON (OGR "GeoJSON" driver).
@@ -175,7 +175,7 @@ class MapScene {
   content::Extent2 world_extent() const;
 
   // Visible polygon rings in lon/lat (Y unflipped). Used to mask DEM.
-  void export_land_rings(std::vector<gis::LonLatRing>* out) const;
+  void export_land_rings(std::vector<vista::LonLatRing>* out) const;
 
   // Inspector helpers (string-only; no leftover GIS pointers).
   // |source_layer| is the Catalog/OGR layer name for style resolution; when

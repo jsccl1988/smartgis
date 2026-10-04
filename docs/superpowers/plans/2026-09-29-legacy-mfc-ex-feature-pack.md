@@ -55,10 +55,10 @@ Forwarder groups `//src/legacy/ui/grid:grid` and `//src/legacy/ui/dock:dock` onl
 | `src/legacy/ui/dialogs/dlg_att_struct_set.{h,cpp}` | `CMFCListCtrl` report |
 | `src/legacy/plugin/product/dem/views/dlg_tin_loader.{h,cpp}` (+ dem resources) | `CMFCListCtrl` report |
 | `src/legacy/ui/shell/ambox/ambox_dock_bar.{h,cpp}` | Inherit `CMFCOutlookBar` / `CBCGPOutlookBar`; keep CP936 `AddWnd` |
-| `src/legacy/app/shell/frame/main.{h,cpp}` | Catalog: `CDockablePane` + `CMFCTabCtrl`; drop `TabbedWndDockBar` include |
+| `src/legacy/app/shell/frame/main_frame.{h,cpp}` | Catalog: `CDockablePane` + `CMFCTabCtrl`; drop `TabbedWndDockBar` include |
 | `src/legacy/ui/widgets/bcg_cmfc.h` | **Keep** |
 | `src/legacy/ui/widgets/widgets_core.cpp` | **Keep** (sole DllMain) |
-| `src/legacy/ui/README.md`, `docs/build/src-layout.md` | Drop `grid/` / `dock/` rows when gone |
+| `src/legacy/ui/README.md`, `docs/superpowers/src-layout.md` | Drop `grid/` / `dock/` rows when gone |
 | Stale `src/legacy/ui/mfc_ex/**` if still present | Delete leftover duplicate (canonical is `widgets/` / `grid/` / `dock/`) |
 
 ---
@@ -108,14 +108,14 @@ shell/{ambox,chart}/  map/  inspect/  catalog/  dialogs/  widgets/  res/shell/{,
 - [x] Rename `viewport/` → `map/`; `panels/` → `inspect/`
 - [x] `res/ambox|chart` → `res/shell/ambox|chart`; scheme C includes + `.rc` paths
 - [x] Capability names map to endgame roles in README table
-- [x] `docs/build/src-layout.md` + umbrella §11c B1 target
+- [x] `docs/superpowers/src-layout.md` + umbrella §11c B1 target
 - [x] **Do not** move any TU to `src/ui/**` or `src/app/views/**`
 - [x] RC compile (`ambox.res` / `diagram.res` / catalog icons) — scheme C paths
 - [ ] Full `ui_legacy` link (blocked by unrelated `SmtListener` / `gis` LNK — same as wave 2–3)
 ## Docs / closeout
 
 - [x] `src/legacy/ui/README.md` — remove `grid/` / `dock/`; document post-wave target + endgame-name mapping
-- [x] `docs/build/src-layout.md` — drop stale `gridctrl` / dock-shim names; note wave-4 alignment
+- [x] `docs/superpowers/src-layout.md` — drop stale `gridctrl` / dock-shim names; note wave-4 alignment
 - [ ] Umbrella §11c Success + this plan checkboxes; archive plan only when fully complete (incl. wave 4 or explicit deferral note) — wait for link green
 
 ## Done when

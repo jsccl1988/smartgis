@@ -57,7 +57,7 @@ All rights reserved.
 - Create `src/gis/datasource/session/datasource_session_test.cc`
 - Modify `src/gis/datasource/session/BUILD.gn` — `test("datasource_session_test")`
 - Modify root `BUILD.gn` — add test to `test_all`
-- Modify `docs/build/src-layout.md` Datasource row
+- Modify `docs/superpowers/src-layout.md` Datasource row
 - Modify `docs/superpowers/README.md` Active table pointer
 
 - [x] MEM open via `DataSession` asserts layer MapLayer name
@@ -68,3 +68,22 @@ All rights reserved.
 
 - [x] Living § Success criteria satisfied; no TBD in plan checkboxes left open for landed work
 - [x] Confirm no new-tree call site added to `DataSourceMgr` in this change
+
+---
+
+### Task 5: `gis/model` leftover-only ABI out + OGR Map/Layer/Feature seam
+
+**Spec:** living umbrella `docs/superpowers/specs/2026-09-13-gdal-layer-management-design.md` **§ gis/model product surface vs leftover + OGR Map/Layer/Feature**.  
+**Diagram:** `docs/superpowers/diagrams/gis-model-ogr-layers.html`.  
+Do **not** invent product→legacy deps. Stay on `master`. One phase per change.
+
+- [x] Product new code uses only `gis::Feature` / `gis::MapLayer` / `DataSession` snake_case + `ogr()`; no new `SmtLayer` virtuals
+- [x] Remove `#include "legacy/…"` from `gis/feature/feature_api.h`; keep OGR `copy_layer`/`append_cloned_feature`; MOVE `SmtLayer*`/`SmtRasterLayer*` overloads to leftover
+- [x] `ConnectionSpec` public header does not include `gis/map/layer_kind.h` / `SmtDataSourceInfo`
+- [x] `MapLayer` product seam: `GetLayerDefn`, spatial/attribute filter, feature iteration (thin OGR wrap)
+- [x] `Feature` product seam: `GetField`/`SetField` for full `OGRFieldType` set (not a string map)
+- [x] Rename product `SmtMap` → `gis::Map`; leftover alias/wrapper until catalog/rhi2d migrate
+- [ ] MOVE `SmtLayer` / `SmtRasterLayer` / `SmtTileLayer` virtual bases + `SmtGQueryDesc` (partial: `SmtDataSource` / `Smt*Info` / `leftover_layer_feature_type` already in `legacy/gis/layer/layer.h`)
+- [x] MOVE `Feature` PascalCase leftover names + `leftover_append_feature` out of product `gis/model`
+- [ ] Delete `MapLayer::from_leftover` from product (leftover uses `from_ogr`)
+- [x] `gis` tests green (`feature_test`, `select_query_test`, `datasource_session_test`); no new product `#include "legacy/…"`

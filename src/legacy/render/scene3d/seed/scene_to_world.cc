@@ -8,21 +8,21 @@
 #include <string>
 #include <vector>
 
-#include "gis/vista/world/terrain/dem/dem_frame.h"
-#include "legacy/gis/vista/coord.h"
+#include "vista/world/terrain/dem/dem_frame.h"
+#include "vista/world/coord.h"
 
 namespace render {
 namespace {
 
-gis::World* g_scene_world_mirror = nullptr;
+vista::World* g_scene_world_mirror = nullptr;
 
 void leftover_aabb_to_gis_local(const Aabb& aabb, double* min_x, double* min_y,
                                 double* min_z, double* max_x, double* max_y,
                                 double* max_z) {
   // Inline of vista/coord leftover_aabb_to_gis — avoids GIS_EXPORT dllimport
   // when gis.dll export table is mid-migration.
-  const double lon0 = gis::dem_x_to_lon(aabb.vcMin.x);
-  const double lon1 = gis::dem_x_to_lon(aabb.vcMax.x);
+  const double lon0 = vista::dem_x_to_lon(aabb.vcMin.x);
+  const double lon1 = vista::dem_x_to_lon(aabb.vcMax.x);
   if (min_x) {
     *min_x = (std::min)(lon0, lon1);
   }
@@ -47,15 +47,15 @@ void leftover_aabb_to_gis_local(const Aabb& aabb, double* min_x, double* min_y,
   }
 }
 
-void remove_empty_mirror_nodes(gis::World* world) {
+void remove_empty_mirror_nodes(vista::World* world) {
   if (!world) {
     return;
   }
   // Collect ids first — remove_node invalidates indices.
   std::vector<uint64_t> drop;
   for (size_t i = 0; i < world->node_count(); ++i) {
-    const gis::Node* n = world->node_at(i);
-    if (n && n->kind == gis::NodeKind::kEmpty) {
+    const vista::Node* n = world->node_at(i);
+    if (n && n->kind == vista::NodeKind::kEmpty) {
       drop.push_back(n->id);
     }
   }
@@ -66,7 +66,7 @@ void remove_empty_mirror_nodes(gis::World* world) {
 
 }  // namespace
 
-size_t seed_smt_scene_aabbs_into_world(gis::World* world,
+size_t seed_smt_scene_aabbs_into_world(vista::World* world,
                                        const SmtScene* scene) {
   if (!world || !scene) {
     return 0;
@@ -103,10 +103,10 @@ size_t seed_smt_scene_aabbs_into_world(gis::World* world,
   return added;
 }
 
-void set_smt_scene_world_mirror(gis::World* world) {
+void set_smt_scene_world_mirror(vista::World* world) {
   g_scene_world_mirror = world;
 }
 
-gis::World* smt_scene_world_mirror() { return g_scene_world_mirror; }
+vista::World* smt_scene_world_mirror() { return g_scene_world_mirror; }
 
 }  // namespace render

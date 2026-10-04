@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "content/public/map_types.h"
-#include "gis/vista/world/terrain/dem/dem_frame.h"
+#include "vista/world/terrain/dem/dem_frame.h"
 
 namespace content {
 
@@ -37,15 +37,18 @@ struct OrbitGeoFrame {
     if (!(e.xmax > e.xmin) || !(e.ymax > e.ymin)) {
       return f;
     }
-    const float minx = gis::dem_lon_to_x(e.xmax);
-    const float maxx = gis::dem_lon_to_x(e.xmin);
+    const float minx = vista::dem_lon_to_x(e.xmax);
+    const float maxx = vista::dem_lon_to_x(e.xmin);
     const float minz = static_cast<float>(e.ymin);
     const float maxz = static_cast<float>(e.ymax);
     f.cx = 0.5f * (minx + maxx);
     f.cz = 0.5f * (minz + maxz);
     f.cy = 0.f;
+    // Floor must stay far below sub-degree lab pads (hex/mine/coast). A 1.f
+    // floor collapsed ~0.03° hex extent to ~3% of kTargetSpan so the amber
+    // volume sat as a speck in a black frame.
     const float span =
-        (std::max)(maxx - minx, (std::max)(maxz - minz, 1.f));
+        (std::max)(maxx - minx, (std::max)(maxz - minz, 1.0e-6f));
     f.scale = kTargetSpan / span;
     f.valid = true;
     return f;
@@ -88,7 +91,7 @@ struct OrbitGeoFrame {
   void lon_lat_to_orbit(double lon, double lat, float elev_raw, float* x,
                         float* y, float* z) const {
     if (x) {
-      *x = (gis::dem_lon_to_x(lon) - cx) * scale;
+      *x = (vista::dem_lon_to_x(lon) - cx) * scale;
     }
     if (y) {
       *y = (elev_raw - cy) * scale * kElevBoost;

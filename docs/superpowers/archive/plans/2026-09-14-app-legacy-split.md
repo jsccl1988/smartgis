@@ -33,8 +33,8 @@
 | `src/app/winui/**` | unchanged location (prototype) |
 | `src/ui/views/**` | endgame toolkit |
 | `src/ui/BUILD.gn` | forward group to `legacy_ui` or thin views-only |
-| `docs/build/src-layout.md` | layout table |
-| `docs/build/ui-views-skia.md` | leftover paths |
+| `docs/superpowers/src-layout.md` | layout table |
+| `docs/superpowers/ui-views-skia.md` | leftover paths |
 
 ---
 
@@ -100,7 +100,7 @@ Expected: links or only compile errors fixable without reverting move.
 
 - [x] **Step 5: Docs touch**
 
-Update path rows in `docs/build/src-layout.md` App layer; add `src/legacy/app/README.md`.
+Update path rows in `docs/superpowers/src-layout.md` App layer; add `src/legacy/app/README.md`.
 
 ---
 

@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "gis/datasource/provider/impl/ogr/text/ogr_text_encoding.h"
+#include "gis/datasource/ogr/ogr_text_encoding.h"
 #include "legacy/render/rhi2d/impl/gdiplus/aa/gdiplus.h"
 
 namespace render {

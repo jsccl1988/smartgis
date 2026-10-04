@@ -3,8 +3,8 @@
 
 #include "legacy/render/scene3d/primitive/feature/map_label_batch.h"
 
-#include "gis/datasource/provider/impl/ogr/text/ogr_text_encoding.h"
-#include "legacy/gis/vista/dem_height_field.h"
+#include "gis/datasource/ogr/ogr_text_encoding.h"
+#include "vista/world/terrain/dem/dem_height_field.h"
 #include "legacy/render/rhi2d/impl/gdiplus/aa/gdiplus.h"
 #include "legacy/render/rhi3d/impl/d3d/ext/ext_interface.h"
 #include "legacy/render/rhi3d/public/device/render_device.h"

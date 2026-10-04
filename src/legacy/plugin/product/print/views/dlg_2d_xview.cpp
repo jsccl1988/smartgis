@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "legacy/plugin/product/print/views/dlg_2d_xview.h"
 
-#include "gis/model/feature/feature_api.h"
+#include "legacy/gis/feature/leftover_copy_layer.h"
 #include "legacy/gis/datasource/datasource_mgr.h"
 #include "legacy/plugin/product/print/shell/map_print.h"
 #include "legacy/ui/catalog/map/mapmgr.h"

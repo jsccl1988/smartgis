@@ -24,18 +24,17 @@
 #include "content/browser/camera/map_host_extent.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
 #include "app/views/shell/browser/commands/view_commands.h"
-#include "plugin/product/orthogrid/commands.h"
 #include "plugin/runtime/host/registry/registry.h"
 #include "content/public/catalog_layers.h"
 #include "content/public/map_contents.h"
 #include "content/public/map_types.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "gis/vista/domain/atmosphere/field/field_channel.h"
+#include "vista/domain/atmosphere/field_channel.h"
 #include "render/rhi/rhi.h"
-#include "gis/model/edit/session/edit_session.h"
-#include "gis/present/tile/provider/tile_map_layer.h"
-#include "gis/present/tile/provider/tile_provider.h"
+#include "gis/edit/session.h"
+#include "gis/carto/tile/tile_map_layer.h"
+#include "gis/carto/tile/tile_provider.h"
 #include "tool/nav/camera_nav.h"
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
@@ -160,7 +159,7 @@ void Browser::on_catalog_command(const std::string& command_id) {
     gis::MapLayer layer = (out.kind == "wmts")
                               ? gis::tile::make_wmts_map_layer(out.url)
                               : gis::tile::make_xyz_map_layer(out.url);
-    if (layer.leftover() == nullptr) {
+    if (layer.tile() == nullptr) {
       status("Basemap URL rejected");
       return;
     }

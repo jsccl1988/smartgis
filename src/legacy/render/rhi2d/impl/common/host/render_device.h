@@ -8,9 +8,9 @@
 #include <memory>
 #include <mutex>
 
-#include "gis/kernel/geo/mesh/geometry.h"
-#include "gis/model/feature/feature.h"
-#include "gis/model/map/map.h"
+#include "plugin/product/world3d/grid/orthogrid/lattice/ortho_lattice.h"
+#include "gis/feature/feature.h"
+#include "gis/map/map.h"
 #include "legacy/core/macros/macros.h"
 #include "legacy/render/rhi2d/impl/common/host/buffer_image.h"
 #include "legacy/render/rhi2d/impl/common/host/present_controller.h"
@@ -23,7 +23,6 @@
 
 using namespace base;
 using namespace gis;
-using namespace geo;
 
 namespace render {
 namespace detail {
@@ -54,29 +53,29 @@ class SmtRhi2dRenderDevice : public SmtRenderDevice {
   int Unlock();
 
   int Refresh(void);
-  int Refresh(const SmtMap *pMap, fRect rect);
-  int RefreshDirectly(const SmtMap *pMap, lRect rect, bool bRealTime = false);
+  int Refresh(const Map *pMap, fRect rect);
+  int RefreshDirectly(const Map *pMap, lRect rect, bool bRealTime = false);
 
-  int ZoomMove(const SmtMap *pMap, fPoint dbfPointOffset,
+  int ZoomMove(const Map *pMap, fPoint dbfPointOffset,
                bool bRealTime = false);
-  int ZoomScale(const SmtMap *pMap, lPoint orgPoint, float fscale,
+  int ZoomScale(const Map *pMap, lPoint orgPoint, float fscale,
                 bool bRealTime = false);
-  int ZoomToRect(const SmtMap *pMap, fRect rect, bool bRealTime = false);
+  int ZoomToRect(const Map *pMap, fRect rect, bool bRealTime = false);
 
   // Viewport + last-buffer StretchBlt only -- no tessellate. Pair with
   // ScheduleDelayedRedraw so the worker wakes after ~200 ms idle.
   // PreviewZoomScale also stretches vir_viewport2 (MapLibre transform preview).
   int PreviewZoomScale(lPoint orgPoint, float fscale) override;
   int PreviewZoomMove(fPoint dbfPointOffset) override;
-  int ScheduleDelayedRedraw(const SmtMap *pMap) override;
-  int ScheduleUrgentRedraw(const SmtMap *pMap) override;
+  int ScheduleDelayedRedraw(const Map *pMap) override;
+  int ScheduleUrgentRedraw(const Map *pMap) override;
 
   int Timer();
 
  private:
   // Stage a map FrameJob (viewport snapshot + map*). Timer submits unless
   // urgent forces the next tick / immediate idle wake.
-  int stage_map_job(const SmtMap *pMap, int x, int y, int w, int h, int op,
+  int stage_map_job(const Map *pMap, int x, int y, int w, int h, int op,
                     bool urgent);
   // Wake the worker once when idle; arm present-on-published_gen.
   bool submit_staged_job();
@@ -86,7 +85,7 @@ class SmtRhi2dRenderDevice : public SmtRenderDevice {
   void sync_host_paint_context();
 
   // Shared by RefreshDirectly / Zoom* after viewport/windowport updates.
-  int rerender_map(const SmtMap* map, bool realtime);
+  int rerender_map(const Map* map, bool realtime);
 
   // Stretch last published front around |org| (device px); clears pan-slide.
   void apply_stretch_preview(float org_x, float org_y);
@@ -94,7 +93,7 @@ class SmtRhi2dRenderDevice : public SmtRenderDevice {
   bool rubber_band_device_focus(const fRect& rect, float* org_x,
                                 float* org_y) const;
   // First Edit / china bootstrap: cancel worker, sync paint, then Refresh.
-  int paint_map_bootstrap_sync(const SmtMap* map);
+  int paint_map_bootstrap_sync(const Map* map);
 
   // MAP/DYNAMIC/QUICK BeginRender body: encoder begin + optional clear + DC.
   // Returns false when |fail_if_busy| and the worker owns the shared front.
@@ -108,9 +107,9 @@ class SmtRhi2dRenderDevice : public SmtRenderDevice {
   int LRectToDRect(const fRect &frect, lRect &lrect) const;
   int DRectToLRect(const lRect &lrect, fRect &frect) const;
 
-  int ReRenderMapByProxy(const SmtMap *pMap, int x, int y, int w, int h,
+  int ReRenderMapByProxy(const Map *pMap, int x, int y, int w, int h,
                          int op = R2_COPYPEN);
-  int ReRenderMapRealTime(const SmtMap *pMap, int x, int y, int w, int h,
+  int ReRenderMapRealTime(const Map *pMap, int x, int y, int w, int h,
                           int op = R2_COPYPEN);
 
   int RenderMap(void);
@@ -121,13 +120,13 @@ class SmtRhi2dRenderDevice : public SmtRenderDevice {
                   const SmtStyle *pStyle = nullptr, int op = R2_COPYPEN);
   int EndRender(eRDBufferLayer eMRDBufLyr);
 
-  int RenderMap(const SmtMap *pMap, int op = R2_COPYPEN);
-  int RenderLayer(const SmtLayer *pLayer,
+  int RenderMap(const Map *pMap, int op = R2_COPYPEN);
+  int RenderLayer(const Layer *pLayer,
                   int op = R2_COPYPEN);  // 1-16 R2_BLACK-R2_WHITE
   int RenderLayer(OGRLayer *pLayer, int op = R2_COPYPEN);
-  int RenderLayer(const SmtRasterLayer *pLayer,
+  int RenderLayer(const RasterLayer *pLayer,
                   int op = R2_COPYPEN);  // 1-16 R2_BLACK-R2_WHITE
-  int RenderLayer(const SmtTileLayer *pLayer,
+  int RenderLayer(const TileLayer *pLayer,
                   int op = R2_COPYPEN);  // 1-16 R2_BLACK-R2_WHITE
   int RenderFeature(OGRFeature *pFeature, int op = R2_COPYPEN);
   int RenderGeometry(const OGRGeometry *pGeom, const SmtStyle *pStyle,
@@ -149,8 +148,8 @@ class SmtRhi2dRenderDevice : public SmtRenderDevice {
   int DrawLinearRing(const OGRLinearRing *pLinearRing);
   int DrawPloygon(const OGRPolygon *pPloygon);
 
-  int DrawTin(const SmtTin *pTin);
-  int DrawGrid(const SmtGrid *pGrid);
+  int DrawTin(const OGRTriangulatedSurface *pTin);
+  int DrawGrid(const plugin::detail::OrthoLattice* pGrid);
   int DrawArc(const OGRLineString *pArc);
   int DrawFan(const OGRPolygon *pFan);
 

@@ -4,8 +4,8 @@
 
 #include <cstring>
 
-#include "gis/kernel/geo/mesh/geometry.h"
-#include "gis/model/map/map.h"
+#include "gis/geo/ops/geometry_traits.h"
+#include "gis/map/map.h"
 #include "legacy/core/macros/macros.h"
 #include "legacy/core/msg/msg_def.h"
 #include "legacy/gis/present/carto/style_api.h"
@@ -38,14 +38,14 @@ class SmtBaseTool : public SmtIATool {
   SmtBaseTool();
   ~SmtBaseTool() override;
 
-  virtual int Init(LPRENDERDEVICE pMrdRenderDevice, SmtMap* pOperSmtMap,
+  virtual int Init(LPRENDERDEVICE pMrdRenderDevice, Map* pOperSmtMap,
                    HWND hWnd, pfnToolCallBack pfnCallBack = nullptr,
                    void* pToFollow = nullptr);
 
   LPRENDERDEVICE GetRenderDevice(void) { return m_pRenderDevice; }
 
-  virtual void SetOperMap(SmtMap* pOperSmtMap) { m_pOperMap = pOperSmtMap; }
-  virtual void GetOperMap(SmtMap*& pOperSmtMap) { pOperSmtMap = m_pOperMap; }
+  virtual void SetOperMap(Map* pOperSmtMap) { m_pOperMap = pOperSmtMap; }
+  virtual void GetOperMap(Map*& pOperSmtMap) { pOperSmtMap = m_pOperMap; }
 
   void SetToolStyleName(const char* name) {
     std::strcpy(m_szStyleName, name);
@@ -59,7 +59,7 @@ class SmtBaseTool : public SmtIATool {
 
  protected:
   LPRENDERDEVICE m_pRenderDevice;
-  SmtMap* m_pOperMap;
+  Map* m_pOperMap;
 
   char m_szStyleName[MAX_STYLENAME_LENGTH];
 

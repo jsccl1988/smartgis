@@ -14,11 +14,11 @@ All rights reserved.
 | Topic | Doc | Relation |
 | --- | --- | --- |
 | Leftover physical split (landed) | [`2026-09-13-tool-legacy-split-design.md`](2026-09-13-tool-legacy-split-design.md) | Placed leftover under `legacy/tool/`; **partially superseded** here for root `t_*` nesting only |
-| Endgame tool layout | [`../../specs/2026-09-27-tool-subdirectory-layout-design.md`](../../specs/2026-09-27-tool-subdirectory-layout-design.md) | Modern `src/tool/<module>/`; adapter already at `legacy/tool/adapter/` |
-| SP1 Workspace strangler | [`../../specs/2026-09-19-legacy-tool-workspace-strangler-design.md`](../../specs/2026-09-19-legacy-tool-workspace-strangler-design.md) | Dual-run activation unchanged; include paths for `t_*` updated |
-| SP1b behavior migration | [`../../specs/2026-09-19-tool-behavior-migration-design.md`](../../specs/2026-09-19-tool-behavior-migration-design.md) | Behavior ownership unchanged |
-| Peer precedent | [`../../specs/2026-09-27-gpu-subdirectory-layout-design.md`](../../specs/2026-09-27-gpu-subdirectory-layout-design.md); `src/legacy/render/{bridge,gdi,…}` | Root = aggregate BUILD + module dirs; no shim headers |
-| As-built | [`../../../build/src-layout.md`](../../../build/src-layout.md), [`../../../../src/legacy/README.md`](../../../../src/legacy/README.md), [`../../../../src/legacy/tool/README.md`](../../../../src/legacy/tool/README.md) | Updated in the landing change |
+| Endgame tool layout | [`../../specs/2026-09-27-tool-subdirectory-layout-design.md`](2026-09-27-tool-subdirectory-layout-design.md) | Modern `src/tool/<module>/`; adapter already at `legacy/tool/adapter/` |
+| SP1 Workspace strangler | [`../../specs/2026-09-19-legacy-tool-workspace-strangler-design.md`](2026-09-19-legacy-tool-workspace-strangler-design.md) | Dual-run activation unchanged; include paths for `t_*` updated |
+| SP1b behavior migration | [`../../specs/2026-09-19-tool-behavior-migration-design.md`](2026-09-19-tool-behavior-migration-design.md) | Behavior ownership unchanged |
+| Peer precedent | [`../../specs/2026-09-27-gpu-subdirectory-layout-design.md`](2026-09-27-gpu-subdirectory-layout-design.md); `src/legacy/render/{bridge,gdi,…}` | Root = aggregate BUILD + module dirs; no shim headers |
+| As-built | [`../../src-layout.md`](../../src-layout.md), [`../../../../src/legacy/README.md`](../../../../src/legacy/README.md), [`../../../../src/legacy/tool/README.md`](../../../../src/legacy/tool/README.md) | Updated in the landing change |
 
 **Plan (landed):** [`../plans/2026-09-27-legacy-tool-subdirectory-layout.md`](../plans/2026-09-27-legacy-tool-subdirectory-layout.md)
 
@@ -151,5 +151,5 @@ GN: root `BUILD.gn` deps `//src/legacy/tool/iatool:tool_sources`; `group/BUILD.g
 - Package root has no `t_*.{h,cpp}` / `tool_export.h`.
 - All in-tree includes use `legacy/tool/iatool/…` (no shims).
 - `ninja -C out legacy_tool` (and existing `ui_legacy` / plugin consumers that already build) stay green for touched TUs.
-- `src/legacy/tool/README.md`, `src/legacy/README.md`, `docs/build/src-layout.md` Tool/leftover rows, and `docs/README.md` index updated.
+- `src/legacy/tool/README.md`, `src/legacy/README.md`, `docs/superpowers/src-layout.md` Tool/leftover rows, and `docs/README.md` index updated.
 - This spec → **landed** and moved to archive with the plan when verification completes.

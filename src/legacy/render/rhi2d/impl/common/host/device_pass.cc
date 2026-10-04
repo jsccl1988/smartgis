@@ -15,7 +15,6 @@
 
 using namespace gis;
 using namespace base;
-using namespace geo;
 
 namespace render {
 namespace {
@@ -130,7 +129,7 @@ int SmtRhi2dRenderDevice::BeginRender(eRDBufferLayer eMRDBufLyr, bool bClear,
       }
     } break;
     case MRD_BL_DIRECT: {
-      // HWND DC path ù?no command encoder (cannot replay against a surface).
+      // HWND DC path ÔøΩ?no command encoder (cannot replay against a surface).
       if (bClear) {
         RECT rt;
         GetClientRect(m_hWnd, &rt);
@@ -191,8 +190,8 @@ int SmtRhi2dRenderDevice::RenderMapToDC(HDC hdc) {
     std::lock_guard<std::mutex> front_lock(shared_front_mu_);
     detail::clamp_preview_dest(&vir_viewport2_, m_Viewport);
 
-    // Pan-only: 1:1 preview + no DYNAMIC ó BitBlt into compose (HWND present
-    // owner) without Stretch/clear. Do not present map_front_ directly ó it
+    // Pan-only: 1:1 preview + no DYNAMIC ÔøΩ BitBlt into compose (HWND present
+    // owner) without Stretch/clear. Do not present map_front_ directly ÔøΩ it
     // is not the HWND surface and left the client ocean-blank.
     //
     // Never compose StretchBlt leftovers with a non-zero drawing org: the two
@@ -264,7 +263,7 @@ int SmtRhi2dRenderDevice::RenderMapToDC(HDC hdc) {
                                  m_Viewport.m_fVOY);
 }
 
-int SmtRhi2dRenderDevice::ReRenderMapByProxy(const SmtMap *pMap, int x, int y,
+int SmtRhi2dRenderDevice::ReRenderMapByProxy(const Map *pMap, int x, int y,
                                            int w, int h, int op) {
   if (w == 0 || h == 0) return SMT_ERR_INVALID_PARAM;
   if (!layer_tree_host_) return SMT_ERR_FAILURE;
@@ -279,7 +278,7 @@ int SmtRhi2dRenderDevice::ReRenderMapByProxy(const SmtMap *pMap, int x, int y,
   return SMT_ERR_NONE;
 }
 
-int SmtRhi2dRenderDevice::ReRenderMapRealTime(const SmtMap *pMap, int x, int y,
+int SmtRhi2dRenderDevice::ReRenderMapRealTime(const Map *pMap, int x, int y,
                                             int w, int h, int op) {
   if (w == 0 || h == 0) return SMT_ERR_INVALID_PARAM;
   if (!layer_tree_host_) return SMT_ERR_FAILURE;

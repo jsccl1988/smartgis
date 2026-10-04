@@ -12,7 +12,7 @@ All rights reserved.
 
 **Goal:** 在一个逻辑变更集内，把 `src/` 产品 C++ 切到 mogu 式路径 include、`snake_case` + 两层命名空间，并打破 `Smt*` DLL/导出/插件 ABI；验收 `src_all` + app/views + 测试 + 映射文档。
 
-**Architecture:** Include 根仅 `//src`；物理树不动。用 `docs/build/abi-rename-map.md` 作为单一映射源。多 agent **按不相交目录并行**机械改写；中间允许红构建；最后一人收口 GN/`config("legacy")` 并跑绿验收。不留转发头、不留旧导出名。
+**Architecture:** Include 根仅 `//src`；物理树不动。用 `docs/superpowers/abi-rename-map.md` 作为单一映射源。多 agent **按不相交目录并行**机械改写；中间允许红构建；最后一人收口 GN/`config("legacy")` 并跑绿验收。不留转发头、不留旧导出名。
 
 **Tech Stack:** GN/Ninja（`build.bat`）、MSVC C++23、现有 `smt_shared_library`、仓内插件 host。
 
@@ -32,7 +32,7 @@ All rights reserved.
 
 | 路径 | 责任 |
 | --- | --- |
-| `docs/build/abi-rename-map.md` | 旧→新：include、dll_stem、导出宏、命名空间、插件 stem |
+| `docs/superpowers/abi-rename-map.md` | 旧→新：include、dll_stem、导出宏、命名空间、插件 stem |
 | `build/BUILD.gn` (`config("legacy")`) | 删除按模块 `include_dirs` |
 | `build/smartgis.gni` / 各 `src/**/BUILD.gn` | 新 `dll_stem`、导出相关 `defines` |
 | `src/base/**`, `src/sys/**` | 路径 include + 命名/导出 |
@@ -42,16 +42,16 @@ All rights reserved.
 | `src/net/**`, `src/tool/**` | 同上 |
 | `src/ui/**`, `src/plugin/**`, `src/app/**`, `src/content/**` | 同上；插件加载表 |
 | `testing/**` | 测试 include/符号跟随 |
-| `docs/build/src-layout.md`, `src/README.md`, 根 `README.md` | 叙述与 DLL 名 |
+| `docs/superpowers/src-layout.md`, `src/README.md`, 根 `README.md` | 叙述与 DLL 名 |
 
 ---
 
 ### Task 1: 映射表与门禁脚本骨架
 
 **Files:**
-- Create: `docs/build/abi-rename-map.md`
+- Create: `docs/superpowers/abi-rename-map.md`
 - Create: `.tmp/cutover/check_flat_includes.py`（或 `.tmp/cutover/scan_abi_residuals.py`；local, not versioned）
-- Modify: `docs/build/src-layout.md`（文首加「进行中：ABI/include 切断，见 spec」指针，收尾再改终态）
+- Modify: `docs/superpowers/src-layout.md`（文首加「进行中：ABI/include 切断，见 spec」指针，收尾再改终态）
 
 **Interfaces:**
 - Produces: 完整 dll_stem / Export 宏对照（与 spec §2 表一致）；扫描脚本退出码非 0 表示仍有扁平 include 或 `Export_Smt` / `dll_stem = "Smt`
@@ -166,7 +166,7 @@ All rights reserved.
 
 **Files:**
 - Modify: `build/BUILD.gn`（若 Task 2 Step 3 未做完）
-- Modify: `docs/build/src-layout.md`, `docs/build/mogu-mapping.md`, `src/README.md`, 根 `README.md`
+- Modify: `docs/superpowers/src-layout.md`, `docs/superpowers/mogu-mapping.md`, `src/README.md`, 根 `README.md`
 - Run: `.tmp/cutover/check_flat_includes.py`（或等价；local）
 
 **Interfaces:**

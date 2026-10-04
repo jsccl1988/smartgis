@@ -9,7 +9,7 @@
 #include <benchmark/benchmark.h>
 
 #include "gdal_priv.h"
-#include "gis/datasource/provider/impl/gdal/gdal_driver.h"
+#include "gis/datasource/gdal/gdal_driver.h"
 #include "gis/datasource/session/data_session.h"
 #include "ogrsf_frmts.h"
 

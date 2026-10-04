@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#include "app/ui_designer/designer_app.h"
+#include "app/ui_designer/app/app.h"
 
 #include <string>
 

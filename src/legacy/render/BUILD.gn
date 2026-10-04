@@ -40,6 +40,7 @@ smt_shared_library("legacy_render") {
     # RHI Device/CommandList (render_d.dll) for leftover hosts that still
     # touch modern façade headers; GpuScene is not linked into this DLL.
     "//src/render:render",
+    "//src/gis:gis",
   ]
   public_deps = [
     "//src/base:base",
@@ -55,6 +56,7 @@ smt_shared_library("legacy_rhi2d_gdi") {
   defines = [ "LEGACY_RHI2D_DEVICE_EXPORTS" ]
   deps = [
     ":legacy_render",
+    "//src/gis:gis",
     "//src/legacy/render/rhi2d/impl/common:rhi2d_gdi_backend_sources",
   ]
 }
@@ -64,6 +66,7 @@ smt_shared_library("legacy_rhi2d_gdiplus") {
   defines = [ "LEGACY_RHI2D_DEVICE_EXPORTS" ]
   deps = [
     ":legacy_render",
+    "//src/gis:gis",
     "//src/legacy/render/rhi2d/impl/common:rhi2d_gdiplus_backend_sources",
   ]
 }
@@ -73,6 +76,7 @@ smt_shared_library("legacy_rhi2d_skia") {
   defines = [ "LEGACY_RHI2D_DEVICE_EXPORTS" ]
   deps = [
     ":legacy_render",
+    "//src/gis:gis",
     "//src/legacy/render/rhi2d/impl/common:rhi2d_skia_backend_sources",
   ]
 }

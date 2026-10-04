@@ -11,7 +11,7 @@
 #include <utility>
 
 #include "app/views/shell/browser/plugin/plugin_shell.h"
-#include "gis/vista/domain/atmosphere/field/field_channel.h"
+#include "vista/domain/atmosphere/field_channel.h"
 #include "plugin/runtime/processing/builtin_ops.h"
 #include "plugin/runtime/processing/ops_runner.h"
 #include "ui/gis/shell/atmosphere_panel.h"
@@ -123,17 +123,17 @@ bool Browser::apply_atmosphere_fields(std::string_view spec) {
     double t_min = 0.0;
     double t_max = 3600.0;
     if (auto* env = session_.scene3d().atmosphere_session().environment()) {
-      static const gis::atmosphere::FieldChannel kRangeOrder[] = {
-          gis::atmosphere::FieldChannel::kWaveHs,
-          gis::atmosphere::FieldChannel::kCloudCover,
-          gis::atmosphere::FieldChannel::kWindU,
-          gis::atmosphere::FieldChannel::kWindV,
-          gis::atmosphere::FieldChannel::kWaveDir,
-          gis::atmosphere::FieldChannel::kCloudBase,
-          gis::atmosphere::FieldChannel::kCloudTop,
-          gis::atmosphere::FieldChannel::kSeaMask,
+      static const vista::atmosphere::FieldChannel kRangeOrder[] = {
+          vista::atmosphere::FieldChannel::kWaveHs,
+          vista::atmosphere::FieldChannel::kCloudCover,
+          vista::atmosphere::FieldChannel::kWindU,
+          vista::atmosphere::FieldChannel::kWindV,
+          vista::atmosphere::FieldChannel::kWaveDir,
+          vista::atmosphere::FieldChannel::kCloudBase,
+          vista::atmosphere::FieldChannel::kCloudTop,
+          vista::atmosphere::FieldChannel::kSeaMask,
       };
-      for (gis::atmosphere::FieldChannel ch : kRangeOrder) {
+      for (vista::atmosphere::FieldChannel ch : kRangeOrder) {
         if (env->timed_field_range(ch, &t_min, &t_max)) {
           break;
         }

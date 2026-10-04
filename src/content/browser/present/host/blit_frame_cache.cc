@@ -3,7 +3,7 @@
 
 #include "content/browser/present/host/blit_frame_cache.h"
 
-#include "content/browser/present/map2d/frame/map2d_carto.h"
+#include "content/browser/present/map2d/software/map2d_frame_gdi.h"
 
 namespace content {
 
@@ -95,7 +95,7 @@ bool BlitFrameCache::present(HDC dst, int view_w, int view_h) const {
   }
   // Match MapScene ocean canvas so zoom/pan preview edges do not flash white.
   RECT full = {0, 0, view_w, view_h};
-  HBRUSH bg = CreateSolidBrush(map_scene_map_bg_color());
+  HBRUSH bg = CreateSolidBrush(detail::rgba_to_colorref(0xFFAAD3DFu));
   FillRect(dst, &full, bg);
   DeleteObject(bg);
   SetStretchBltMode(dst, HALFTONE);

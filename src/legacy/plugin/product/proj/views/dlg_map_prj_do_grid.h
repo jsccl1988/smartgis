@@ -1,8 +1,9 @@
+// Copyright (c) 2026 The Mogu Authors.
+// All rights reserved.
+
 #pragma once
 
-#include "gis/kernel/geo/mesh/geometry.h"
-
-using namespace geo;
+#include "plugin/product/world3d/grid/orthogrid/lattice/ortho_lattice.h"
 
 class CDlgMapPrjDoGrid : public CDialog {
   DECLARE_DYNAMIC(CDlgMapPrjDoGrid)
@@ -22,7 +23,7 @@ class CDlgMapPrjDoGrid : public CDialog {
  public:
   afx_msg void OnBnClickedBtnDogrid();
 
-  void OutputRes(SmtGrid& grid);
+  void OutputRes(plugin::detail::OrthoLattice& lattice);
 
  private:
   double m_fDL;

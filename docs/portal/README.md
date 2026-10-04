@@ -5,7 +5,7 @@ All rights reserved.
 
 # Docs Portal
 
-本地 **docs 展示插件**：自动扫描 `docs/` 下的 Markdown 与 HTML（含 `build/*.html`、`superpowers/diagrams/*.html`），侧栏目录 + 右侧预览。零第三方依赖（仅 Python 标准库）。
+本地 **docs 展示插件**：自动扫描 `docs/` 下的 Markdown 与 HTML（含 `superpowers/diagrams/*.html`），侧栏目录 + 右侧预览。零第三方依赖（仅 Python 标准库）。
 
 ## 启动
 
@@ -19,7 +19,7 @@ py -3 docs\portal\serve.py --port 8765 --no-browser
 
 浏览器打开 `http://127.0.0.1:8765/`（端口占用时自动换口）。
 
-深链：`http://127.0.0.1:8765/?path=build/views-window-process.html`
+深链：`http://127.0.0.1:8765/?path=superpowers/diagrams/views-window-process.html`
 
 ## 能力
 

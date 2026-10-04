@@ -11,10 +11,19 @@ source_set("sde_mgr_sources") {
     "_USRDLL",
     "GIS_EXPORTS",
   ]
-  sources = [ "datasource_mgr.cc" ]
+  sources = [
+    "connection_spec_info.cc",
+    "connection_spec_info.h",
+    "datasource_mgr.cc",
+    "../layer/layer.h",
+    "../layer/map_bind.cc",
+    "../layer/map_bind.h",
+    "../layer/raster_wrap.h",
+    "../layer/tile_wrap.h",
+  ]
   include_dirs += [ "//src" ]
   deps = [
-    "//src/gis/kernel/geo:geo_sources",
+    "//src/gis/geo:geo_sources",
     "//src/base:base",
     "//src/base:core",
     "//third_party:gdal",

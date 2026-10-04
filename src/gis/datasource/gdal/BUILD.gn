@@ -1,0 +1,59 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# L3 register entry: GDALAllRegister + SDBD driver.
+# OGR codec: //src/gis/datasource/ogr. SDBD: //src/gis/datasource/sdbd.
+# Aggregated into //src/gis:gis.
+
+source_set("sde_gdal_sources") {
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+  sources = [
+    "gdal_driver.cc",
+    "gdal_driver.h",
+  ]
+  include_dirs += [ "//src" ]
+  deps = [
+    "//src/gis/datasource/ogr:ogr_codec",
+    "//src/gis/datasource/ogr:ogr_raster",
+    "//src/gis/datasource/sdbd:sdbd_client",
+    "//src/gis/datasource/sdbd:sdbd_sources",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/net:net",
+    "//third_party:gdal",
+  ]
+}
+
+group("sde_gdal") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+test("sde_gdal_test") {
+  output_name = "sde_gdal_test"
+  sources = [ "sde_gdal_test.cc" ]
+  include_dirs += [
+    "//src",
+    "//src/legacy/gis/datasource",
+  ]
+  deps = [
+    ":sde_gdal",
+    "//src/gis/datasource/ogr:ogr_codec_client",
+    "//src/gis/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/legacy/gis/datasource:sde_mgr",
+    "//src/gis/map:gis",
+    "//third_party:gdal",
+  ]
+  data_deps = [
+    ":sde_gdal",
+    "//third_party:gdal_runtime_dlls",
+  ]
+}

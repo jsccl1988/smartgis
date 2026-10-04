@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-#include "gis/kernel/geo/mesh/geometry.h"
+#include "gis/geo/ops/geometry_traits.h"
 #include "legacy/core/types/types.h"
 
 using namespace render;

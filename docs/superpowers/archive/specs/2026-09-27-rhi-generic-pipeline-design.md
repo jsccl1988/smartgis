@@ -11,7 +11,7 @@ All rights reserved.
 **Status:** active  
 **Date:** 2026-09-27  
 **Scope:** 替换 `render::rhi` 里按效果点名的管线与参数。FlyCube 回放改成按 `Pipeline*` 查程序。绘制结果与现在一致。  
-**Supersedes:** [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md) 里 `PipelineId` / `ComputePipelineId` / `set_ocean_params` / `set_cloud_params` / `set_light_params` / `set_ocean_fft_params` / `set_solid_color` 这一段命令合同。场景双轨、FlyCube 为唯一 GPU 后端、公开头不泄漏 FlyCube 类型，仍以那份规格为准。  
+**Supersedes:** [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md) 里 `PipelineId` / `ComputePipelineId` / `set_ocean_params` / `set_cloud_params` / `set_light_params` / `set_ocean_fft_params` / `set_solid_color` 这一段命令合同。场景双轨、FlyCube 为唯一 GPU 后端、公开头不泄漏 FlyCube 类型，仍以那份规格为准。  
 **Also supersedes:** [`2026-09-20-rhi-3d-capability-p0-design.md`](2026-09-20-rhi-3d-capability-p0-design.md) 中「不改 `PipelineId::{kOcean,kCloud}`」这一条。光照与样式能力还在，只是不再通过这两个枚举进入命令列表。
 
 ## Goal

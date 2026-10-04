@@ -125,7 +125,7 @@ void ensure_builtin_scenarios() {
     register_scenario(Scenario{
         "browse.3d",
         ScenarioKind::kShowcase,
-        detail::kSelfTestMarkLeaf,
+        detail::kBrowse3dMarkLeaf,
         &run_browse_showcase,
     });
     register_scenario(Scenario{

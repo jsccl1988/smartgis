@@ -1,0 +1,196 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/benchmark.gni")
+import("//testing/test.gni")
+
+# Compiled into //src/gis:gis (dll_stem = gis). :geo / :proj / :tin /
+# :grid are consumer labels. Lane split: ops (OGR wrap / envelope
+# helpers), proj (CRS), tin (Delaunay), grid (structured elliptic on
+# NodeField*). XY lattice type is plugin OrthoLattice, not gis/geo.
+# Geometry headers in ops/ must not include proj/tin/grid implementations.
+
+source_set("geo_sources") {
+  sources = [ "ops/buffer.cc" ]
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+  public_deps = [ "//third_party:gdal" ]
+  deps = [
+    "//src/base:base",
+    "//src/base:core",
+  ]
+}
+
+# PROJ 9 comes from //third_party:gdal (public_deps :PROJ; copies
+# proj.db / runtime DLLs next to out/). Do not vendor a second PROJ.
+source_set("proj_sources") {
+  sources = [ "proj/coordinate_transform.cc" ]
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+  deps = [ "//third_party:gdal" ]
+  if (is_debug) {
+    libs += [ "proj_d.lib" ]
+  } else {
+    libs += [ "proj.lib" ]
+  }
+}
+
+# GEOS Delaunay (geos_c) via //third_party:gdal. XY only. No leftover deps.
+source_set("tin_sources") {
+  sources = [ "tin/delaunay.cc" ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+  public_deps = [
+    "//src/base/math:math",
+    "//third_party:gdal",
+  ]
+}
+
+# Structured-grid 5-point / 7-point Laplace, 2D Thompson (P=Q=0), and
+# orthogonality |90-theta| fields on NodeField*. Eigen Sparse lives in
+# laplace.cc; public headers do not include Eigen.
+source_set("grid_sources") {
+  sources = [
+    "grid/laplace.cc",
+    "grid/orthogonality.cc",
+  ]
+  defines = [
+    "_USRDLL",
+    "GIS_EXPORTS",
+  ]
+  public_deps = [
+    "//third_party:eigen",
+    "//third_party:gdal",
+  ]
+}
+
+group("geo") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+group("proj") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+group("tin") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+group("grid") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+group("geo_all") {
+  public_deps = [ ":geo" ]
+}
+
+test("ops_test") {
+  output_name = "ops_test"
+  sources = [ "ops/ops_test.cc" ]
+  include_dirs += [
+    "//src/gis/geo",
+    "//src",
+  ]
+  deps = [
+    ":geo",
+    "//src/base/math:math",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}
+
+test("indexed_tin_test") {
+  output_name = "indexed_tin_test"
+  sources = [ "ops/indexed_tin_test.cc" ]
+  include_dirs += [
+    "//src/gis/geo",
+    "//src",
+  ]
+  deps = [
+    ":geo",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}
+
+# google/benchmark for geo::buffer vs OGRGeometry::Buffer.
+benchmark("buffer_benchmark") {
+  output_name = "buffer_benchmark"
+  sources = [ "ops/buffer_benchmark.cc" ]
+  include_dirs += [
+    "//src/gis/geo",
+    "//src",
+  ]
+  deps = [
+    ":geo",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}
+
+test("proj_test") {
+  output_name = "proj_test"
+  sources = [ "proj/proj_test.cc" ]
+  include_dirs += [
+    "//src/gis/geo",
+    "//src",
+  ]
+  deps = [
+    ":proj",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}
+
+# google/benchmark for CoordinateTransform / transform_xy / naive_webmerc.
+benchmark("proj_benchmark") {
+  output_name = "proj_benchmark"
+  sources = [ "proj/proj_benchmark.cc" ]
+  include_dirs += [
+    "//src/gis/geo",
+    "//src",
+  ]
+  deps = [
+    ":proj",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}
+
+test("tin_delaunay_test") {
+  output_name = "tin_delaunay_test"
+  sources = [ "tin/delaunay_test.cc" ]
+  include_dirs += [
+    "//src/gis/geo",
+    "//src",
+  ]
+  deps = [
+    ":tin",
+    "//src/base/math:math",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}
+
+test("geo_grid_laplace_test") {
+  output_name = "geo_grid_laplace_test"
+  sources = [ "grid/laplace_test.cc" ]
+  include_dirs += [
+    "//src/gis/geo",
+    "//src",
+  ]
+  deps = [
+    ":grid",
+    "//third_party:gdal",
+  ]
+  data_deps = [ "//third_party:gdal_runtime_dlls" ]
+}

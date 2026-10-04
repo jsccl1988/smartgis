@@ -5,7 +5,7 @@
 
 #include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/atmosphere/atmosphere_session.h"
-#include "effect/atmosphere/globe/globe_pass.h"
+#include "vista/atmosphere/globe/globe_pass.h"
 
 #include <algorithm>
 #include <cmath>
@@ -32,7 +32,7 @@ void apply_globe_flythrough(content::OrbitFrame* orbit,
                             float t01,
                             float china_yaw,
                             float china_pitch,
-                            const effect::atmosphere::GlobePass* globe,
+                            const vista::GlobePass* globe,
                             content::AtmosphereSession* session) {
   if (!orbit) {
     return;

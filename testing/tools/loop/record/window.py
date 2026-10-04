@@ -210,6 +210,52 @@ def _largest(found: list[tuple[int, str]]) -> tuple[int, str]:
     return found[0]
 
 
+def find_child_hwnd_by_class(root: int, class_substr: str) -> int:
+    """Largest visible descendant of |root| whose class name contains |class_substr|."""
+    needle = (class_substr or "").strip().lower()
+    if not root or not user32.IsWindow(int(root)) or not needle:
+        return 0
+    found: list[int] = []
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def _enum(hwnd: int, _lp: int) -> bool:  # type: ignore[misc]
+        if not user32.IsWindowVisible(hwnd):
+            return True
+        cls = class_name(int(hwnd)).lower()
+        if needle in cls:
+            found.append(int(hwnd))
+        return True
+
+    user32.EnumChildWindows(int(root), _enum, 0)
+    if not found:
+        return 0
+    found.sort(key=window_area, reverse=True)
+    return found[0]
+
+
+def resolve_map_record_hwnd(shell_hwnd: int) -> tuple[int, str]:
+    """Prefer FlyCube Present / MapViewport client over shell for BitBlt.
+
+    Shell BitBlt under WS_CLIPCHILDREN yields a near-black map hole while the
+    child ContentMapView / DXGI present still paints carto. Motion gates must
+    sample the map client, not the chrome frame.
+    """
+    if not shell_hwnd or not user32.IsWindow(int(shell_hwnd)):
+        return 0, ""
+    # Owned top-level FlyCube present (same process) — product DXGI face.
+    pid = hwnd_pid(int(shell_hwnd))
+    if pid:
+        present, title = find_window_by_title_substr(
+            "FlyCube Present", timeout_sec=0.05, pid=pid
+        )
+        if present and user32.IsWindowVisible(present) and window_area(present) > 10_000:
+            return present, title or "SmartGIS FlyCube Present"
+    child = find_child_hwnd_by_class(int(shell_hwnd), "SmartGisMapViewport")
+    if child and window_area(child) > 10_000:
+        return child, "SmartGisMapViewport"
+    return int(shell_hwnd), _window_title(int(shell_hwnd))
+
+
 def find_window_by_title_substr(
     substr: str,
     timeout_sec: float = 30.0,

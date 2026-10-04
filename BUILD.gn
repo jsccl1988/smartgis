@@ -16,6 +16,12 @@ group("all") {
   }
 }
 
+# `ninja -C out/Debug` with no args would otherwise build every ninja output
+# (leftover + scenic copy + tests). Default is the product library graph only.
+group("default") {
+  deps = [ ":all" ]
+}
+
 group("all_with_tests") {
   testonly = true
   deps = [
@@ -56,14 +62,12 @@ group("test_shell") {
     "//src/app/views:view_commands_test",
     "//src/content:view_navigation_test",
     "//src/gis:gis_test_all",
+    "//src/vista:vista_test_all",
     "//src/tool:camera_nav_test",
     "//src/tool:tool_dispatch_test",
     "//src/tool:draft_test",
-    "//src/effect/map:map_effect_test",
     "//src/render:rhi_test",
     "//src/render/testing:rhi_suite_test",
-    "//src/effect/scene:scene_gpu_test",
-    "//src/effect/scene:unified_draw_test",
     "//src/gpu:render_backend_test",
     "//src/base/core:menu_test",
     "//src/base/ipc:ipc_test",
@@ -72,8 +76,9 @@ group("test_shell") {
     "//src/plugin:plugin_host_test",
     "//src/plugin/runtime/processing:processing_ops_test",
     "//src/content:content_embed_sample_test",
-    # Orthogrid: 4-edge gridbnd → Dirichlet Laplace (Views product path).
-    "//src/plugin/product/orthogrid:orthogrid_laplace_test",
+    # world3d orthogrid / hexgrid: 4-edge gridbnd Laplace + 3D hex Laplace.
+    "//src/plugin/product/world3d:orthogrid_laplace_test",
+    "//src/plugin/product/world3d:orthogrid3d_laplace_test",
   ]
 }
 
@@ -160,7 +165,7 @@ group("legacy_app_all") {
 }
 
 # SP5 opt-in aggregator for leftover engines + MFC chrome.
-# Not a dep of //:all / //src:src_all / //:views. See docs/build/src-layout.md.
+# Not a dep of //:all / //src:src_all / //:views. See docs/superpowers/src-layout.md.
 group("legacy_all") {
   deps = [
     "//src/legacy/render:legacy_render_all",

@@ -3,14 +3,14 @@
 
 #include "gis/datasource/provider/local_sdbd_provider.h"
 
-#include "gis/datasource/provider/impl/sdbd/driver/sdbd_dataset.h"
+#include "gis/datasource/sdbd/sdbd_dataset.h"
 
 namespace gis {
 namespace datasource {
 
 DatasetHandle LocalSdbdProvider::open(const ConnectionSpec& spec) {
   // open_sdbd_dataset calls register_gdal_driver() before GDALOpenEx/Create.
-  return DatasetHandle(open_sdbd_dataset(spec.to_info()));
+  return DatasetHandle(open_sdbd_dataset(spec));
 }
 
 }  // namespace datasource

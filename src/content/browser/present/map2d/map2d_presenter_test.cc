@@ -5,13 +5,19 @@
 
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/document/map_scene.h"
-#include "gis/present/tile/provider/tile_provider.h"
+#include "content/browser/present/map2d/map2d_phase_profile.h"
+#include "content/browser/present/map2d/software/map2d_frame_gdi.h"
+#include "gis/carto/tile/tile_provider.h"
+#include "vista/frame/frame.h"
 #include "net/http/http.h"
 #include "render/rhi/rhi.h"
 
+#include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <memory>
 #include <string>
+#include <vector>
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -32,7 +38,120 @@ void expect(bool ok, const char* msg) {
 }  // namespace
 
 int run_map2d_presenter_tests() {
-  // Views 2D RHI path: MapScene 鈫?map2d Layout/Pass on Null device.
+  // P2 software GDI batch smoke: many same-brush fills + same-pen strokes.
+  {
+    vista::MapFrame frame;
+    frame.background_rgba = 0xfff5f0e6u;
+    const uint32_t fill_rgba = 0xffc4d6a0u;
+    const uint32_t line_rgba = 0xff3a5f8cu;
+    constexpr int kFills = 128;
+    constexpr int kStrokes = 256;
+    for (int i = 0; i < kFills; ++i) {
+      vista::DrawItem item;
+      item.kind = vista::DrawKind::kFill;
+      item.rgba = fill_rgba;
+      item.pixel_space = true;
+      const float x0 = static_cast<float>((i % 16) * 20);
+      const float y0 = static_cast<float>((i / 16) * 20);
+      item.vertices = {{x0, y0},
+                       {x0 + 18.f, y0},
+                       {x0 + 18.f, y0 + 18.f},
+                       {x0, y0 + 18.f}};
+      item.indices = {0, 1, 2, 0, 2, 3};
+      frame.items.push_back(std::move(item));
+    }
+    for (int i = 0; i < kStrokes; ++i) {
+      vista::DrawItem item;
+      item.kind = vista::DrawKind::kLine;
+      item.rgba = line_rgba;
+      item.pixel_space = true;
+      const float x0 = static_cast<float>(i % 64) * 10.f;
+      const float y0 = 200.f + static_cast<float>(i / 64) * 12.f;
+      item.vertices = {{x0, y0}, {x0 + 40.f, y0 + 8.f}, {x0 + 80.f, y0}};
+      frame.items.push_back(std::move(item));
+    }
+    vista::View view{640, 360, 0.0, 0.0, 640.0, 360.0};
+    HDC screen = GetDC(nullptr);
+    expect(screen != nullptr, "gdi batch GetDC");
+    if (screen) {
+      HDC mem = CreateCompatibleDC(screen);
+      BITMAPINFO bmi = {};
+      bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+      bmi.bmiHeader.biWidth = 640;
+      bmi.bmiHeader.biHeight = -360;
+      bmi.bmiHeader.biPlanes = 1;
+      bmi.bmiHeader.biBitCount = 32;
+      bmi.bmiHeader.biCompression = BI_RGB;
+      void* bits = nullptr;
+      HBITMAP dib =
+          CreateDIBSection(mem, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+      expect(mem && dib, "gdi batch DIB");
+      if (mem && dib) {
+        HGDIOBJ old = SelectObject(mem, dib);
+        const auto t0 = std::chrono::steady_clock::now();
+        content::detail::paint_map_frame_gdi(mem, frame, view, true, {});
+        const int64_t paint_ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - t0)
+                .count();
+        std::fprintf(stderr,
+                     "map2d_presenter_test: gdi_batch_synthetic paint_ms=%lld "
+                     "items=%zu\n",
+                     static_cast<long long>(paint_ms), frame.items.size());
+        expect(paint_ms >= 0, "gdi batch synthetic ran");
+        SelectObject(mem, old);
+        DeleteObject(dib);
+      }
+      if (mem) {
+        DeleteDC(mem);
+      }
+      ReleaseDC(nullptr, screen);
+    }
+  }
+
+  // Faithful china export timing (NO_HILLSHADE / no EXPORT_REUSE) when samples
+  // are present under out/data relative to out/Debug cwd.
+  {
+    const char* city_candidates[] = {
+        "..\\data\\china_city.gpkg",
+        "..\\data\\china_city.geojson",
+        "out\\data\\china_city.gpkg",
+        "out\\data\\china_city.geojson",
+        "china_city.gpkg",
+        "china_city.geojson",
+    };
+    for (const char* cand : city_candidates) {
+      content::MapScene scene;
+      if (!scene.open_path(cand) || !scene.last_open_was_ogr()) {
+        continue;
+      }
+      content::ViewFrame frame;
+      frame.apply_world_extent({73.0, 18.0, 135.0, 54.0}, 1280, 720);
+      content::Map2dPresenter presenter;
+      presenter.bind(&scene, &frame);
+      char tmp[MAX_PATH] = {};
+      if (GetTempPathA(MAX_PATH, tmp) <= 0) {
+        break;
+      }
+      const std::string bmp = std::string(tmp) + "map2d_p2_china_export.bmp";
+      DeleteFileA(bmp.c_str());
+      _putenv_s("SMT_MAP2D_NO_HILLSHADE", "1");
+      _putenv_s("SMT_MAP2D_EXPORT_REUSE", "0");
+      content::reset_map2d_phase_sample();
+      const bool ok = presenter.export_bmp(bmp, 1280, 720);
+      const content::Map2dPhaseSample ph = content::map2d_last_phase_sample();
+      std::fprintf(stderr,
+                   "map2d_presenter_test: china_faithful export_ok=%d "
+                   "paint_ms=%lld bmp_io_ms=%lld path=%s\n",
+                   ok ? 1 : 0, static_cast<long long>(ph.software_paint_ms),
+                   static_cast<long long>(ph.bmp_io_ms), cand);
+      expect(ok, "china faithful export_bmp");
+      DeleteFileA(bmp.c_str());
+      break;
+    }
+  }
+
+  // Views 2D RHI path: MapScene �?map2d Layout/Pass on Null device.
   {
     content::MapScene scene;
     scene.seed_default();
@@ -81,10 +200,12 @@ int run_map2d_presenter_tests() {
   // Mainland framing: ViewFrame::fit_extent on china_city letterboxes 62x36 deg.
   {
     const char* city_candidates[] = {
+        "..\\data\\china_city.gpkg",
+        "..\\data\\china_city.geojson",
+        "out\\data\\china_city.gpkg",
+        "out\\data\\china_city.geojson",
         "china_city.gpkg",
         "china_city.geojson",
-        "out\\china_city.gpkg",
-        "out\\china_city.geojson",
         "testing\\data\\china_city.gpkg",
         "testing\\data\\china_city.geojson",
     };
@@ -165,9 +286,12 @@ int run_map2d_presenter_tests() {
   }
 
   // Dual-speed layout cache: static reuse + interactive pan skip rebuild.
+  // Real china_city seed (no demo features). Cold layout cost is also gated
+  // by the map2d matrix (1280x720); this unit keeps a 128px viewport.
   {
     content::MapScene scene;
-    scene.seed_default();
+    scene.seed_default(/*allow_china_bootstrap=*/true);
+    expect(scene.feature_count() > 0, "china seed for layout cache");
     content::ViewFrame frame;
     frame.fit_extent(scene, 128, 128);
     content::Map2dPresenter presenter;
@@ -180,12 +304,27 @@ int run_map2d_presenter_tests() {
     expect(presenter.layout_build_count() == 1, "first present builds layout");
     expect(!presenter.last_present_reused_layout(),
            "first present is a full build");
+    {
+      const content::Map2dPhaseSample phase =
+          content::map2d_last_phase_sample();
+      std::fprintf(stderr,
+                   "map2d_presenter_test: cold layout_ms=%lld (china seed)\n",
+                   static_cast<long long>(phase.layout_ms));
+      std::fflush(stderr);
+      // Real china_city cold layout is matrix-gated (map2d equal-profile);
+      // this unit only proves cache reuse, not absolute layout_ms.
+      expect(phase.layout_ms >= 0, "cold layout_ms recorded");
+    }
 
     expect(presenter.present_gpu(device.get(), 128, 128), "static second present");
     expect(presenter.layout_build_count() == 1,
            "static repeat does not rebuild layout");
     expect(presenter.last_present_reused_layout(),
            "static repeat reuses layout");
+    {
+      // StaticReuse must not re-note a rebuild; last sample stays from cold.
+      expect(presenter.layout_build_count() == 1, "StaticReuse keeps build count");
+    }
 
     frame.apply_pan(16, -8);
     expect(presenter.present_gpu(device.get(), 128, 128), "interactive pan present");
@@ -194,7 +333,7 @@ int run_map2d_presenter_tests() {
     expect(presenter.last_present_reused_layout(),
            "pan reuses cached MapFrame");
 
-    // Same camera again after quiet settle debounce (~200ms) → settle rebuild
+    // Same camera again after quiet settle debounce (~200ms) �?settle rebuild
     // for GPU labels.
     Sleep(250);
     expect(presenter.present_gpu(device.get(), 128, 128), "settle present");
@@ -206,6 +345,18 @@ int run_map2d_presenter_tests() {
     expect(presenter.present_gpu(device.get(), 128, 128), "after invalidate");
     expect(presenter.layout_build_count() == 3,
            "invalidate forces a new layout build");
+  }
+
+  {
+    _putenv_s("SMT_MAP2D_ENGINE", "");
+    content::Map2dPresenter off;
+    expect(!off.hosts_scenic_present(), "default map2d not scenic");
+    _putenv_s("SMT_MAP2D_ENGINE", "scenic");
+    content::Map2dPresenter on;
+    expect(content::prefer_map2d_scenic(), "env scenic map2d");
+    expect(on.hosts_scenic_present(),
+           "map2d env scenic hosts scenic.dll");
+    _putenv_s("SMT_MAP2D_ENGINE", "");
   }
 
   if (g_fails) {

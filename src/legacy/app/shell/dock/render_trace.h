@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef LEGACY_APP_SHELL_DOCK_RENDER_TRACE_H_
-#define LEGACY_APP_SHELL_DOCK_RENDER_TRACE_H_
+#ifndef LEGACY_APP_SHELL_RENDER_TRACE_H_
+#define LEGACY_APP_SHELL_RENDER_TRACE_H_
 
 #pragma once
 
@@ -42,4 +42,4 @@ class RenderTracePane : public CWnd {
   bool armed_ = false;
 };
 
-#endif  // LEGACY_APP_SHELL_DOCK_RENDER_TRACE_H_
+#endif  // LEGACY_APP_SHELL_RENDER_TRACE_H_

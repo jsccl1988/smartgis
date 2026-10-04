@@ -1,20 +1,20 @@
 #include "legacy/app/stdafx.h"
 
 // Leftover CWinAppEx + MDI doc-template wiring.
-// Map/session bootstrap is SmtApp in core/; endgame host is src/app/views.
+// Map/session bootstrap is SmtApp in bootstrap/; endgame host is src/app/views.
 
 #include "app/views/shell/util/exe_sidecar_path.h"
 #include "base/core/log.h"
-#include "legacy/app/doc/document.h"
+#include "legacy/app/views/document/document.h"
 #include "legacy/app/shell/frame/child_frame.h"
 #include "legacy/app/shell/frame/main_frame.h"
-#include "legacy/app/shell/showcase/map2d.h"
-#include "legacy/app/shell/showcase/scene3d.h"
-#include "legacy/app/shell/frame/mdi_tabs.h"
+#include "legacy/app/shell/showcase/map2d_showcase.h"
+#include "legacy/app/shell/showcase/scene3d_showcase.h"
+#include "legacy/app/shell/frame/mdi_tab_options.h"
 #include "legacy/app/shell/frame/win_app.h"
-#include "legacy/app/view/scene3d_view.h"
-#include "legacy/app/view/data_view.h"
-#include "legacy/app/view/edit_view.h"
+#include "legacy/app/views/viewport/scene3d_view.h"
+#include "legacy/app/views/viewport/data_view.h"
+#include "legacy/app/views/viewport/edit_view.h"
 #include "legacy/core/util/menu.h"
 #include "legacy/plugin/runtime/auxmodule/mfc_module.h"
 #include "legacy/sys/sysmanager.h"
@@ -227,7 +227,7 @@ BOOL CSmartGisApp::InitInstance() {
       SmtApp::Destory();
       ::ExitProcess(10);
     }
-    SmtMap *map = SmtMapMgr::get_singleton_ptr()
+    Map *map = SmtMapMgr::get_singleton_ptr()
                       ? SmtMapMgr::get_singleton_ptr()->GetSmtMapPtr()
                       : nullptr;
     const int layers = map ? map->GetLayerCount() : 0;
@@ -451,6 +451,14 @@ BOOL CSmartGisApp::open_mdi_view(CDocTemplate *tmpl) {
       child = DYNAMIC_DOWNCAST(CMDIChildWnd, active);
       doc = active->GetActiveDocument();
     }
+  }
+
+  // First 窗口→三维窗口 on an open 2D map used CreateNewFrame(shared
+  // CSmartGisDoc). That re-enters GDAL/SQLite + D3D on the same heap as the
+  // 2D view and dies with 0xC0000374 in sqlite3_free during WM_CREATE.
+  if (doc && tmpl == m_p3DViewDocTemplate) {
+    LOGGING(LOG_INFO, "open_mdi_view: 3D OpenDocumentFile (do not share 2D doc)");
+    return tmpl->OpenDocumentFile(NULL) != NULL;
   }
 
   if (doc) {

@@ -25,18 +25,18 @@
 #include "content/browser/camera/map_host_extent.h"
 #include "app/views/shell/browser/plugin/plugin_shell.h"
 #include "app/views/shell/browser/commands/view_commands.h"
-#include "plugin/product/orthogrid/commands.h"
+#include "plugin/product/world3d/commands.h"
 #include "plugin/runtime/host/registry/registry.h"
 #include "content/public/catalog_layers.h"
 #include "content/public/map_contents.h"
 #include "content/public/map_types.h"
 #include "content/public/plugin_host.h"
 #include "content/public/view_host.h"
-#include "gis/vista/domain/atmosphere/field/field_channel.h"
+#include "vista/domain/atmosphere/field_channel.h"
 #include "render/rhi/rhi.h"
-#include "gis/model/edit/session/edit_session.h"
-#include "gis/present/tile/provider/tile_map_layer.h"
-#include "gis/present/tile/provider/tile_provider.h"
+#include "gis/edit/session.h"
+#include "gis/carto/tile/tile_map_layer.h"
+#include "gis/carto/tile/tile_provider.h"
 #include "tool/nav/camera_nav.h"
 #include "tool/command/command.h"
 #include "tool/draft/draft.h"
@@ -72,7 +72,7 @@ namespace app {
 
 void Browser::apply_nav_draft(const tool::Draft& draft, bool pan,
                                  double zoom_factor) {
-  if (draft.points.empty()) {
+  if (!ui_ || draft.points.empty()) {
     return;
   }
   int vw = 800;
@@ -123,13 +123,12 @@ void Browser::zoom_at_and_commit(int view_x, int view_y, double factor) {
 }
 
 void Browser::fit_map_extent() {
-  // Prefer Widget client size over MapViewport::native_view(): View is
-  // UI_EXPORT so the inline accessor is dllimport; a skewed MapViewport*
-  // AVs inside ui_views during early init_shell (before attach_viewports).
+  // Prefer Widget client size. Access HWND via Browser::hwnd() (browser.cc)
+  // so this TU never loads ui_ at a possibly stale unique_ptr offset.
   int w = 800;
   int h = 600;
-  if (ui_) {
-    if (HWND chrome = ui_->hwnd()) {
+  if (HWND chrome = hwnd()) {
+    if (IsWindow(chrome)) {
       RECT rc = {};
       GetClientRect(chrome, &rc);
       if (rc.right > 32) {
@@ -140,27 +139,32 @@ void Browser::fit_map_extent() {
       }
     }
   }
-  // China packs: same carto + mainland framing as --map2d-showcase=china.
-  if (session_.document().has_china_extent()) {
+  const bool skip_china_defaults = []() {
+    const char* skip = std::getenv("SMT_SKIP_CHINA_MAP2D_DEFAULTS");
+    return skip && skip[0] != '\0' && skip[0] != '0';
+  }();
+  if (session_.document().has_china_extent() && !skip_china_defaults) {
     apply_china_map2d_product_defaults(*this, w, h);
   } else {
     session_.view_frame().fit_extent(session_.document(), w, h);
     session_.orbit_frame().apply_world_extent(session_.document().world_extent());
     push_shared_extent();
   }
-  if (ui_ && ui_->hwnd()) {
-    ui_->invalidate_map_overlays();
+  if (HWND chrome = hwnd()) {
+    if (IsWindow(chrome)) {
+      invalidate_map_overlays();
+    }
   }
   adopt_or_commit_extent();
   refresh_scale();
-  if (ui_ && ui_->status_bar()) {
+  if (ui::views::StatusBar* bar = status_bar()) {
     if (session_.document().last_open_was_ogr()) {
-      ui_->status_bar()->set_crs_text(
+      bar->set_crs_text(
           session_.document().has_china_extent() ? "EPSG:4326 (China)" : "EPSG:4326");
     } else {
-      ui_->status_bar()->set_crs_text("local");
+      bar->set_crs_text("local");
     }
-    ui_->status_bar()->set_message(
+    bar->set_message(
         "Layers: " + std::to_string(session_.document().layer_count()) +
         " Features: " + std::to_string(session_.document().feature_count()));
   }
@@ -196,6 +200,9 @@ tool::Interaction* seh_workspace_current(tool::Workspace* ws) {
 }  // namespace
 
 void Browser::handle_draft(const tool::Draft& draft) {
+  if (!ui_) {
+    return;
+  }
   content::ViewHost* host = ui_->active_view_host();
   tool::Interaction* cur =
       seh_workspace_current(seh_view_host_workspace(host));
@@ -339,7 +346,7 @@ void Browser::handle_draft(const tool::Draft& draft) {
   }
 
   // Rubber-band ZoomToRect: view.zoom_in L/R drag (view.pan leaves RMB to the
-  // shell context menu â?MapLibre-like browse).
+  // shell context menu 芒聙?MapLibre-like browse).
   const bool zoom_rect_draft =
       draft.kind == tool::DraftKind::kRect && draft.points.size() >= 2 &&
       (tool::draft_flags::is_zoom_rect(draft.flags) ||
@@ -390,7 +397,7 @@ void Browser::handle_draft(const tool::Draft& draft) {
         push_shared_extent();
         adopt_or_commit_extent();
         refresh_scale();
-        // Full redraw via Invalidate only â?avoid blit-timer + GPU present
+        // Full redraw via Invalidate only 芒聙?avoid blit-timer + GPU present
         // racing after a rubber-band ZoomToRect (FlyCube shared_ptr UAF).
         ui_->invalidate_map_overlays();
         return;
@@ -433,7 +440,14 @@ void Browser::handle_draft(const tool::Draft& draft) {
 }
 
 void Browser::refresh_scale() {
-  if (!ui_ || !ui_->status_bar()) {
+  // Same TU-skew guard as adopt_or_commit_extent: a stale draft_nav.obj vs
+  // Browser layout reads ui_ at the wrong offset and AVs on status_bar /
+  // active_map during Browser::show (map2d-showcase / harness).
+  if (!ui_) {
+    return;
+  }
+  ui::views::StatusBar* bar = ui_->status_bar();
+  if (!bar) {
     return;
   }
   int raw_w = 0;
@@ -447,17 +461,18 @@ void Browser::refresh_scale() {
     }
   }
   if (raw_w <= 0) {
-    ui_->status_bar()->set_scale_text(format_view_scale({}, 0));
+    bar->set_scale_text(format_view_scale({}, 0));
     return;
   }
-  ui_->status_bar()->set_scale_text(format_view_scale(
-      session_.view_frame().view_world_extent(raw_w, raw_h > 0 ? raw_h : 1), raw_w));
+  bar->set_scale_text(format_view_scale(
+      session_.view_frame().view_world_extent(raw_w, raw_h > 0 ? raw_h : 1),
+      raw_w));
 }
 
 void Browser::adopt_or_commit_extent() {
   // Guard: draft_nav.cc is a separate Browser TU. A stale .obj vs browser.obj
   // under parallel ninja reads ui_ at the wrong offset (NULL / 0xCD) and AVs
-  // here during init_shell fit_map_extent  rebuild shell_browser together.
+  // here during init_shell fit_map_extent 聴 rebuild shell_browser together.
   if (!ui_) {
     return;
   }
@@ -770,8 +785,8 @@ void Browser::push_shared_extent() {
   int h = 600;
   ui_->active_view_size(&w, &h);
   content::Extent2 e;
-  // On the 3D tab, never pull the Map-Edit 2D crop into the orbit camera â?  // a coastal / half-ocean 2D view made DEM present as a black void with a
-  // sliver of terrain on the far edge (åå»å?3D æ ç»é?.
+  // On the 3D tab, never pull the Map-Edit 2D crop into the orbit camera 芒聙?  // a coastal / half-ocean 2D view made DEM present as a black void with a
+  // sliver of terrain on the far edge (氓聺聦氓聡禄氓聢?3D 忙聴聽莽聰禄茅聺?.
   if (ui_->scene3d_tab_active()) {
     e = session_.orbit_frame().world_extent();
     if (!extent_looks_like_china(e)) {
@@ -837,7 +852,16 @@ void Browser::handle_gesture_pan(int dx_px, int dy_px) {
       ui_->map_scene_viewport()->invalidate_native();
     }
   } else {
-    session_.blit().begin_pan(vw, vh, dx_px, dy_px);
+    // Match apply_nav_draft: ContentMapView + FORCE_GDI paints full Map2d each
+    // WM_PAINT. begin_pan StretchBlt preview races SharedSurface and can leave
+    // the embed on a static/cream blit while view_frame keeps panning.
+    const bool content_map =
+        ui_->active_map() &&
+        ui_->active_map()->attach_mode() ==
+            ui::views::MapViewport::AttachMode::kContentMapView;
+    if (!content_map) {
+      session_.blit().begin_pan(vw, vh, dx_px, dy_px);
+    }
     session_.view_frame().apply_pan(dx_px, dy_px);
   }
   push_shared_extent();

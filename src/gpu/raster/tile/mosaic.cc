@@ -3,6 +3,7 @@
 
 #include "gpu/raster/tile/mosaic.h"
 
+#include "gis/envelope.h"
 #include "gpu/raster/tile/decode.h"
 
 #include <algorithm>
@@ -15,7 +16,7 @@ namespace {
 
 // Map tile world rect into output pixels and overwrite |dst| (same layer).
 void blit_tile_world(std::vector<uint8_t>* dst, uint32_t dw, uint32_t dh,
-                     const content::Extent2& extent, const base::fRect& world,
+                     const content::Extent2& extent, const gis::Envelope& world,
                      const std::vector<uint8_t>& tile, uint32_t tw,
                      uint32_t th) {
   if (!dst || dw == 0 || dh == 0 || tw == 0 || th == 0 ||
@@ -31,10 +32,10 @@ void blit_tile_world(std::vector<uint8_t>* dst, uint32_t dw, uint32_t dh,
   if (span_x <= 0.0 || span_y <= 0.0) {
     return;
   }
-  const double tx0 = static_cast<double>(world.lb.x);
-  const double ty0 = static_cast<double>(world.lb.y);
-  const double tx1 = static_cast<double>(world.rt.x);
-  const double ty1 = static_cast<double>(world.rt.y);
+  const double tx0 = world.MinX;
+  const double ty0 = world.MinY;
+  const double tx1 = world.MaxX;
+  const double ty1 = world.MaxY;
   if (!(tx1 > tx0 && ty1 > ty0)) {
     return;
   }
@@ -152,7 +153,7 @@ bool mosaic_tile_bytes(std::vector<uint8_t>* layer, uint32_t w, uint32_t h,
   if (!decode_tile_native(body, &tile, &tw, &th)) {
     return false;
   }
-  const base::fRect world =
+  const gis::Envelope world =
       gis::tile::tile_world_rect(coord.z, coord.x, coord.y);
   blit_tile_world(layer, w, h, req.extent, world, tile, tw, th);
   return true;

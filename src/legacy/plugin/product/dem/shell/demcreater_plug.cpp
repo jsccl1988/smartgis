@@ -74,9 +74,9 @@ int SmtDemCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
   (void)param;
   const char *id = plugin::command_id_from_am_msg(lMsg);
   long cmd = lMsg;
-  if (id && std::strcmp(id, "world3d.load_tin") == 0)
+  if (id && std::strcmp(id, "world3d.load_trimesh") == 0)
     cmd = TIN_LOAD_ASSII_FILE;
-  else if (id && std::strcmp(id, "world3d.load_grid") == 0)
+  else if (id && std::strcmp(id, "world3d.load_heightmap") == 0)
     cmd = GRID_LOAD_HEIGHT_MAP;
   else if (id && std::strcmp(id, "world3d.about") == 0)
     cmd = TIN_LOAD_ABOUT;

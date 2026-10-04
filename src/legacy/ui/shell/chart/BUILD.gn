@@ -34,9 +34,9 @@ source_set("chart_sources") {
   deps = [
     "//src/base:base",
     "//src/base:core",
-    "//src/gis/kernel/stat:stat",
+    "//src/gis/stat:stat",
     "//src/legacy/gis/datasource:sde_mgr",
-    "//src/gis/model/map:gis",
+    "//src/gis/map:gis",
     "//src/legacy/sys:sys",
     "//third_party:CxImage",
     "//third_party:gdal",

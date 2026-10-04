@@ -1,0 +1,62 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Compiled into //src/scenic:scenic_render_d3d (dll_stem = scenic_render_d3d).
+# D3D11 leftover impl under rhi3d/impl/d3d/ (parallel to impl/gl/).
+# Layout: host/resource/paint/caps/ext. No D3DX; Windows D3D11 + DXGI.
+source_set("d3d_sources") {
+  sources = [
+    # Header-only: caps/device_caps.h, paint/states_manager.h,
+    # resource/buffer/{index,vertex}_buffer.h
+    "ext/ext_interface.cpp",
+    "host/deferred_draw.cc",
+    "host/deferred_draw.h",
+    "host/render_device.cpp",
+    "host/device_present.cpp",
+    "paint/draw.cpp",
+    "paint/matrix.cpp",
+    "paint/resources.cpp",
+    "resource/font.cc",
+    "resource/frame_buffer.cc",
+    "resource/texture.cc",
+  ]
+  configs += [
+    "//build:legacy",
+    "//src/scenic:scenic_render_d3d_exports",
+  ]
+  defines = [ "_USRDLL" ]
+  deps = [
+    "//src/gis/geo:geo",
+    "//src/base:base",
+    "//src/base:core",
+    "//src/base/math:math",
+    "//src/scenic:scenic_impl",
+  ]
+  libs = [
+    "d3d11.lib",
+    "dxgi.lib",
+    "d3dcompiler.lib",
+  ]
+}
+
+group("d3d") {
+  public_deps = [ "//src/scenic:scenic_render_d3d" ]
+}
+
+# Hidden HWND: CreateTexture/Build/Bind + FBO clear/unbind + GetFrustum.
+test("scenic_d3d_texture_test") {
+  output_name = "scenic_d3d_texture_test"
+  sources = [ "test/d3d_texture_test.cc" ]
+  include_dirs += [ "//src" ]
+  configs = [ "//build:legacy" ]
+  deps = [ "//src/scenic:scenic_copy_all" ]
+  libs = [
+    "gdi32.lib",
+    "user32.lib",
+    "d3d11.lib",
+    "dxgi.lib",
+  ]
+}

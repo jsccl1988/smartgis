@@ -25,7 +25,7 @@
 #define GEOS_USE_ONLY_R_API
 #include "geos_c.h"
 
-#include "gis/kernel/geo/ops/geo_ops.h"
+#include "gis/geo/ops/buffer.h"
 #include "cpl_conv.h"
 #include "gdal_priv.h"
 #include "ogr_api.h"
@@ -306,7 +306,7 @@ std::unique_ptr<OGRGeometry> apply_op(std::string_view id,
     return nullptr;
   }
   if (id == "native.buffer") {
-    OGRGeometry* out = geo::buffer_via_geos_or_ogr(*input, distance);
+    OGRGeometry* out = geo::buffer(*input, distance);
     return std::unique_ptr<OGRGeometry>(out);
   }
   if (id == "native.clip" || id == "native.intersection") {

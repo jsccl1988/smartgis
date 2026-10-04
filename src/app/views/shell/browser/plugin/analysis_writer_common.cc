@@ -5,7 +5,7 @@
 
 #include "app/views/shell/browser/browser_ui_delegate.h"
 #include "content/browser/document/map_scene.h"
-#include "gis/present/style/style_document.h"
+#include "gis/carto/style/style_document.h"
 #include "tool/draft/draft.h"
 
 #include <cstdint>
@@ -91,6 +91,14 @@ bool apply_style_json(content::MapScene* doc, const char* json) {
 bool append_map_polyline(content::MapScene* doc,
                          const std::vector<std::pair<double, double>>& xy,
                          const char* frame_tag) {
+  return append_map_polyline(doc, xy, frame_tag, "path", nullptr);
+}
+
+bool append_map_polyline(content::MapScene* doc,
+                         const std::vector<std::pair<double, double>>& xy,
+                         const char* frame_tag,
+                         const char* type_field,
+                         const char* heat) {
   if (!doc || xy.size() < 2) {
     return false;
   }
@@ -114,10 +122,16 @@ bool append_map_polyline(content::MapScene* doc,
     return false;
   }
   const std::string token = content::MapScene::feature_token(id);
-  doc->update_feature_field(token, "type", "path");
+  doc->update_feature_field(token, "type",
+                            (type_field && type_field[0]) ? type_field : "path");
   if (frame_tag) {
     doc->update_feature_field(token, "frame", frame_tag);
   }
+  if (heat && heat[0]) {
+    doc->update_feature_field(token, "heat", heat);
+  }
+  // Suppress auto label fallback on network/path polylines.
+  doc->update_feature_field(token, "name", "");
   return true;
 }
 

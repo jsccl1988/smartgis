@@ -3,13 +3,13 @@
 
 #include "gis/datasource/provider/remote_sdbd_provider.h"
 
-#include "gis/datasource/provider/impl/sdbd/remote/sdbd_remote_dataset.h"
+#include "gis/datasource/sdbd/sdbd_remote_dataset.h"
 
 namespace gis {
 namespace datasource {
 
 DatasetHandle RemoteSdbdProvider::open(const ConnectionSpec& spec) {
-  return DatasetHandle(open_provider_sdbd_dataset(spec.to_info()));
+  return DatasetHandle(open_provider_sdbd_dataset(spec));
 }
 
 }  // namespace datasource

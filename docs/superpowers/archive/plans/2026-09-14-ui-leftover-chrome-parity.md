@@ -156,7 +156,7 @@ void apply_selection(ui::views::FeatureInfo* info,
 
 **Files:**
 - Modify: `docs/README.md` only if it lists active superpowers specs — add one line pointing at the parity spec/plan.
-- Modify: `docs/build/ui-views-skia.md` Status bullet if needed (one sentence: composition parity work package 2026-09-14).
+- Modify: `docs/superpowers/ui-views-skia.md` Status bullet if needed (one sentence: composition parity work package 2026-09-14).
 
 - [ ] **Step 1:** Minimal link edits. Do not commit.
 

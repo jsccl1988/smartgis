@@ -5,13 +5,14 @@
 
 #include "gdal.h"
 #include "gdal_priv.h"
-#include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
-#include "gis/vista/world/terrain/dem/dem_frame.h"
+#include "gis/datasource/ogr/ogr_feature_codec.h"
+#include "legacy/gis/present/carto/smt_style_ogr.h"
+#include "vista/world/terrain/dem/dem_frame.h"
 #include "legacy/gis/feature/mesh.h"
 #include "legacy/gis/present/carto/style.h"
 #include "legacy/render/scene3d/primitive/feature/map_label_batch.h"
 #include "legacy/render/scene3d/seed/scene_to_world.h"
-#include "legacy/gis/vista/dem_to_world.h"
+#include "vista/world/terrain/dem/dem_to_world.h"
 #include "legacy/render/scene3d/primitive/surface/terrain.h"
 #include "legacy/render/scene3d/primitive/surface/pointcloud.h"
 #include "legacy/render/scene3d/primitive/feature/geo_object.h"
@@ -58,7 +59,7 @@ DemFrameCache g_last_dem_frame;
 // (scene-owned). Used for drape/labels during the same seed_* call.
 DemHeightField* g_active_dem = nullptr;
 MapLabelBatch* g_pending_labels = nullptr;
-gis::World g_map_world;
+vista::World g_map_world;
 
 void remember_dem_frame(const DemHeightField& dem) {
   if (dem.empty()) {
@@ -75,7 +76,7 @@ void remember_dem_frame(const DemHeightField& dem) {
 
 void clear_map_world() {
   while (g_map_world.node_count() > 0) {
-    const gis::Node* n = g_map_world.node_at(0);
+    const vista::Node* n = g_map_world.node_at(0);
     if (!n || !g_map_world.remove_node(n->id)) {
       break;
     }
@@ -201,7 +202,7 @@ void add_feature_label(MapLabelBatch* labels, OGRFeature* feat,
   const double y = 0.5 * (env.MinY + env.MaxY);
   MapLabel lab;
   lab.text = text;
-  lab.x = gis::dem_lon_to_x(x);
+  lab.x = vista::dem_lon_to_x(x);
   lab.z = static_cast<float>(y);
   lab.y = dem ? dem->sample(x, y) + dem->drape_lift() + 0.15f : 0.2f;
   lab.priority = pri;
@@ -323,15 +324,18 @@ bool seed_stereo_underlay(LP3DRENDERDEVICE device, SmtScene* scene,
   auto* dem = new DemHeightField();
   const std::string dem_path = find_sample_dem_path();
   const bool loaded_real =
-      !dem_path.empty() && dem->load_gdal_raster(dem_path.c_str());
+      !dem_path.empty() && dem->load_gdal_raster(dem_path.c_str()) &&
+      !dem->empty();
   if (!loaded_real) {
-    dem->fill_synthetic_china();
+    // Real-data policy: no synthetic China DEM stand-in.
+    delete dem;
+    return false;
   }
   // china_dem.tif from build_china_dem.py is already cutlined to the national
-  // outline. Re-masking with prefecture rings is O(cells脳rings) on the UI
+  // outline. Re-masking with prefecture rings is O(cells×rings) on the UI
   // thread and punches holes (trim keeps only 48 largest cities).
   const bool dem_already_cutlined =
-      loaded_real && dem_path.find("china_dem") != std::string::npos;
+      dem_path.find("china_dem") != std::string::npos;
   // Skip remask when rings miss the mainland (110E, 35N).
   // trim_dem_mask_rings(48) can keep only large western prefectures and punch
   // Henan/the plains.
@@ -442,9 +446,9 @@ bool leftover_dem_aabb(Aabb* out) {
   const float ymax = g_last_dem_frame.max_m * g_last_dem_frame.vert_exag;
   // Leftover Y-up: X=-lon, height鈫扽, lat鈫抁 (north = +Z). min/max swap under
   // negation so AABB stays axis-aligned.
-  out->vcMin.set(gis::dem_lon_to_x(g_last_dem_frame.maxx), ymin,
+  out->vcMin.set(vista::dem_lon_to_x(g_last_dem_frame.maxx), ymin,
                  static_cast<float>(g_last_dem_frame.miny));
-  out->vcMax.set(gis::dem_lon_to_x(g_last_dem_frame.minx), ymax,
+  out->vcMax.set(vista::dem_lon_to_x(g_last_dem_frame.minx), ymax,
                  static_cast<float>(g_last_dem_frame.maxy));
   out->vcCenter = (out->vcMax + out->vcMin) / 2.f;
   return out->is_init();
@@ -881,6 +885,6 @@ int seed_showcase_mode_into_scene(LP3DRENDERDEVICE device, SmtScene* scene,
   return seed_sample_map_into_scene(device, scene);
 }
 
-gis::World* map_seeded_world() { return &g_map_world; }
+vista::World* map_seeded_world() { return &g_map_world; }
 
 }  // namespace render

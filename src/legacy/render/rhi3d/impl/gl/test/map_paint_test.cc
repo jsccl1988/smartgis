@@ -186,11 +186,12 @@ int main() {
       }
     }
     const bool city_pack = path.find("china_city") != std::string::npos;
-    // NE 10m china_city area layer is ~48 MultiPolygons (was 370 prefectures).
-    expect(n_region >= (city_pack ? 40 : 8), "several region polygons");
+    // china_city pack: area≈34, line≥1, point≈64; labels folded into point
+    // (no FtAnno layer).
+    expect(n_region >= (city_pack ? 30 : 8), "several region polygons");
     expect(n_line >= 1, "line features");
     expect(n_dot >= (city_pack ? 50 : 5), "city points");
-    expect(n_anno >= (city_pack ? 50 : 5), "annotation text features");
+    expect(n_anno >= (city_pack ? 0 : 5), "annotation text features");
     std::fprintf(stderr, "kinds region=%d line=%d dot=%d anno=%d\n", n_region,
                  n_line, n_dot, n_anno);
 

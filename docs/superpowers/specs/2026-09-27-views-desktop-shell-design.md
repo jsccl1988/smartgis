@@ -5,9 +5,11 @@ All rights reserved.
 
 # `src/app/views` desktop shell (QGIS-style menus + map context)
 
-**Date:** 2026-09-27  
 **Status:** active  
-**Updated:** 2026-10-02 — GIS product modals colocated under `ui/gis/catalog|inspect` (drop flat `dialogs/`; `AttStruct` → `AttributeSchema`). Prior same-day §Horizon product brand; `*Chrome` → `*Composer` / `init_shell` / `ui/views/map/frame` batch rename. Prior same-day §Debug Console D1–D7; UI Views shell HTML; §shell/ui composers; §Shell chrome layout; §Declarative markup; §Startup profile; 2026-10-01 — §Visual review; `ui/views/map` nest; §Chromium Browser plugin writers; §IL interaction recorder. Prior 2026-09-30 — §Shell perf / compositor; §UI visual forensics; §Harness suite loop. Do not open new dated twins.
+**Date:** 2026-09-27  
+**Updated:** 2026-10-04 — **§Content browser subdirectory tighten** (C11: fold thin `browser/` siblings; flatten `document/` helpers). Prior same day — C10 remaining root TUs into `{bootstrap,contents,catalog,attrs,plugin,session}/` (scheme C; public/ unchanged). Prior 2026-10-03 — `content/browser/present/scene3d/{policy,stereo}` folded into `session/` (scheme C as-built). Prior 2026-10-02 — GIS product modals colocated under `ui/gis/catalog|inspect` (drop flat `dialogs/`; `AttStruct` → `AttributeSchema`). Prior same-day §Horizon product brand; `*Chrome` → `*Composer` / `init_shell` / `ui/views/map/frame` batch rename. Prior same-day §Debug Console D1–D7; UI Views shell HTML; §shell/ui composers; §Shell chrome layout; §Declarative markup; §Startup profile; 2026-10-01 — §Visual review; `ui/views/map` nest; §Chromium Browser plugin writers; §IL interaction recorder. Prior 2026-09-30 — §Shell perf / compositor; §UI visual forensics; §Harness suite loop. Do not open new dated twins.  
+**Diagram:** [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html) · [`../diagrams/content-browser-layers.html`](../diagrams/content-browser-layers.html) · [`../diagrams/debug-console-agent.html`](../diagrams/debug-console-agent.html) · as-built process [`../diagrams/views-window-process.html`](../diagrams/views-window-process.html)
+**Plans:** [`../plans/2026-09-20-m0-views-main-path.md`](../plans/2026-09-20-m0-views-main-path.md) · [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md) · compositor / markup / forensics / harness on later § Plan lines
 **Related:**
 
 | Topic | Doc | Relation |
@@ -159,11 +161,12 @@ Include examples after the shell reshape:
 - `app/views/shell/app/browser_main.h`
 - `app/views/shell/browser/browser.h`
 - `app/views/shell/ui/browser_view.h`
+- `content/browser/session/map_session.h`
 - `content/browser/document/map_scene.h`
 - `content/browser/camera/view_frame.h`
 - `content/browser/present/map2d/map2d_presenter.h`
 - `content/browser/present/scene3d/scene3d_presenter.h`
-- `app/views/input/map_hwnd_gestures.h`
+- `content/browser/input/map_hwnd_gestures.h`
 
 GN labels: `//src/app/views:views`, `:map_scene`, `:map_camera`, `:map_present`, `:scene3d_present`, `:map_hwnd_gestures`. Prefer `shell_browser` / `shell_ui` source_sets with **ui → browser** only when practical. Test executables: `map_scene_test`, `view_navigation_test`, `scene3d_presenter_test`, `view_commands_test`.
 
@@ -390,7 +393,7 @@ Shell may include only present **facades** + `session/` + `host/` headers it nee
 3. [x] S3 — catalog/file/plugin handlers on browser (`catalog_commands.cc`, `document_commands.cc`, `session_commands.cc`); menus call `Browser*`.
 4. [x] S4 — `browser_view.*` is Widget chrome + thin wire; pages/panels UI accessors + forwards.
 5. [x] S5 — `BrowserUiDelegate` / `create_browser_ui`; GN `:shell_ui` → `:shell_browser` only.
-6. [x] Sync as-built blurbs in `src/app/views/README.md` / `docs/build/src-layout.md` (no new dated specs).
+6. [x] Sync as-built blurbs in `src/app/views/README.md` / `docs/superpowers/src-layout.md` (no new dated specs).
 7. [x] S6 — `plugin/analysis_writers.{h,cc}`: product document/scene/analysis commit helpers + `wire_plugin_analysis_writers`; `browser.cc` is lifecycle/chrome only.
 
 ---
@@ -442,7 +445,7 @@ content/browser/document/
 | Behavior | No paint / open / seed / extent semantics change |
 | Docs | Revise this living § + module notes; no new dated twin |
 
-Plan: [`../plans/2026-09-28-document-map-scene-split.md`](../plans/2026-09-28-document-map-scene-split.md).
+Plan: [`../plans/2026-09-28-document-map-scene-split.md`](../archive/plans/2026-09-28-document-map-scene-split.md).
 
 ### §Present layering（Chromium-style, 2026-09-28）
 
@@ -614,7 +617,8 @@ Phases may land in parallel where paths do not conflict; serialize edits to `bro
 
 ## §Content sink — Chromium `chrome` vs `content`（2026-09-28）
 
-**Status:** landed (directory big-bang + `MapSession` ownership fold).
+**Status:** landed (directory big-bang + `MapSession` ownership fold + 2026-10-04 browser root TU split).
+**Diagram:** [`../diagrams/content-browser-layers.html`](../diagrams/content-browser-layers.html)
 **Supersedes** capability physical roots under `src/app/views/{document,camera,present,input}` from §Capability / §Chromium-style app/views layering.
 
 ### Locked decisions
@@ -630,6 +634,7 @@ Phases may land in parallel where paths do not conflict; serialize edits to `bro
 | C7 | No forwarding headers at `src/app/views/{document,camera,present,input}/`. Update includes in the same change. |
 | C8 | Menu ids / AM Box / paint fallback semantics unchanged. Git: `master` only. |
 | C9 | Landing style: **directory big-bang** (Approach 2) — one coherent move of the four trees + paint split; parallel agents on disjoint paths OK. |
+| C10 | Remaining `browser/` root TUs move by responsibility: `bootstrap/` (sample paths), `contents/` (OOP `MapContents` pipe), `catalog/` / `attrs/` / `plugin/` (public-header implementations), `session/` (`MapSession`). **No** forwarding headers. **`src/content/public/` stays.** Thin siblings **folded by C11** (§ below). |
 
 ### Target tree
 
@@ -639,13 +644,21 @@ src/app/views/
   shell/                    # chrome only (Browser owns MapSession)
 
 src/content/browser/
-  map_session.*             # owns document/camera/present/input + MapContents*
+  bootstrap/                # sample / china map path policy (public/map_bootstrap.h)
+  contents/                 # MapContents OOP/GPU pipe (public/map_contents.h)
+  catalog/                  # LayerDesc JSON (public/catalog_layers.h)
+  attrs/                    # feature tokens (public/feature_attrs.h)
+  plugin/                   # PluginHost impl (public/plugin_host.h)
+  session/                  # MapSession owns document/camera/present/input + MapContents*
   document/                 # MapScene
   camera/                   # ViewFrame, OrbitFrame, ViewNavigation
   present/                  # facade + frame + session + host (no paint/)
+    scene3d/session/        # engine SoT + leftover stereo (was policy/ + stereo/)
   input/                    # MapHwndGestures
+  capability/               # IL Host
+  debug/                    # DebugAgent
 
-  # paint/ colocated under present/map2d|scene3d (not under src/render)
+  # software/ colocated under present/map2d|scene3d (not under src/render)
 ```
 
 ### Dependencies
@@ -664,7 +677,104 @@ app/views capability roots FORBIDDEN after land
 3. [x] `Browser` / shell_ui / tests compile; `build.bat views` + `map_scene_test` / `view_navigation_test` / `scene3d_presenter_test` green.
 4. [x] `src/app/views/README.md` + this § Updated.
 5. [x] Fold session ownership into `content::MapSession`; Browser thinned to chrome + PluginShell + MapSession.
-6. [x] `docs/build/src-layout.md` Hosted map row mentions browser capability dirs + `MapSession`.
+6. [x] `docs/superpowers/src-layout.md` Hosted map row mentions browser capability dirs + `MapSession`.
+7. [x] Root DLL / session TUs off `browser/` root into `{bootstrap,contents,catalog,attrs,plugin,session}/`; no shims; `public/` unchanged.
+
+## §Content browser subdirectory tighten（2026-10-04）
+
+**Status:** active（P0 文档锁定；产品 `.cc` 未搬）  
+**Diagram:** [`../diagrams/content-browser-layers.html`](../diagrams/content-browser-layers.html)  
+**As-built:** [`../src-layout.md`](../src-layout.md) Hosted map row · [`../../../src/content/browser/README.md`](../../../src/content/browser/README.md)  
+**Precedent:** C10 in §Content sink · GIS `gis/model` flatten · Vista **§Vista subdirectory tighten**  
+**Checklist:** 下列分阶即本 § 的可执行表（不新开 dated plan 只重述搬目录）。每步可编译；scheme C，无转发头。
+
+C10 把 `browser/` 根上 TU 按 public 头 1:1 拆成 12 个同级目录。职责对了，但 **薄目录过多**（`bootstrap/` `catalog/` `attrs/` `plugin/` `input/` 各 1–2 个文件；`document/{store,ingest,query,style,edit}/` 是 MapScene 组合件，不是第二套产品 API）。本 § 收紧同级面，**不**重开 chrome vs content，**不**改 C1–C9 / C3 present 嵌套。
+
+### 现状诊断
+
+| 事实 | 证据 |
+| --- | --- |
+| C10 as-built | `browser/{bootstrap,contents,catalog,attrs,plugin,session,document,camera,present,input,capability,debug}`；根上无 TU |
+| 薄 DLL 实现 | `bootstrap/` `catalog/` `attrs/` `plugin/` 各一对 `.cc`+test（`plugin/` 无 test）；`contents/` 仅 `map_contents.cc`。全部进 `:content`，对应 `public/` 头（头本身不搬家） |
+| 薄 session 卫星 | `input/` 仅 `MapHwndGestures`；调用方是 `session/map_session.h` + `app/views/shell/ui/browser_view.cc` |
+| `document/` 过深 | 门面 `map_scene.*` + 五个子目录各 1–3 对文件。`detail::MapLayer` 在 `store/map_layer.h`，易与 `gis/map/map_layer.h` / `gis::MapLayer` 撞名（类型仍分属 hosted vs GIS） |
+| 保持 | `camera/` 已平铺；`present/{map2d,scene3d}/{frame,gpu,software}` + `scene3d/{session,atmosphere}` + `present/host`（C3）；`debug/{wire,policy,schema,cmd}` 已有体量；`capability/host.h` 头文件、GN `:capability` 隔离 |
+| 禁止混淆 | `content::MapSession` ≠ `gis::MapEditSession`；hosted `detail::MapLayer` ≠ `gis::MapLayer`。不要把 document 折进 `gis/edit` |
+| CBM | 索引仍可能列 C10 前根文件；以磁盘 + `BUILD.gn` 为准 |
+
+### 锁定（C11）
+
+| # | Decision |
+| --- | --- |
+| C11a | `content.dll` 在 `browser/` 下的 public 实现并入 **`contents/`**：`map_contents` + `map_bootstrap` + `catalog_layers` + `feature_attrs` + `plugin_host`（及对应 `*_test.cc`）。删除 `bootstrap/` `catalog/` `attrs/` `plugin/`。 |
+| C11b | `input/map_hwnd_gestures.*` → **`session/`**。删除 `input/`。`:map_hwnd_gestures` 可保留为 source_set（sources 改路径）或并入 `:map_session`。 |
+| C11c | `document/{store,ingest,query,style,edit}/*` **拍平到 `document/`**（文件名不变）。删除五个子目录。`map_layer.h` 仍是 `content::detail` POD，不改成 `gis::`。 |
+| C11d | **不收紧：** `present/**`（C3）、`debug/{cmd,policy,schema,wire}`、`camera/`、`capability/`、`src/content/public/`。 |
+| C11e | 无转发头。Include 同变更改完。命名空间仍 `content` / `content::detail`。不进 `content.dll` 的 present/GDI 规则（C6）不变。 |
+
+### 目标树
+
+```
+src/content/browser/
+  contents/          # content.dll：MapContents 管道 + public 头实现（bootstrap/catalog/attrs/plugin）
+  session/           # MapSession + MapHwndGestures
+  document/          # MapScene + store/ingest/query/style/edit 文件（无子目录）
+  camera/            # ViewFrame, OrbitFrame, ViewNavigation
+  present/           # 不变：host | map2d/{frame,gpu,software} | scene3d/{session,frame,atmosphere,gpu,software}
+  capability/        # IL Host（header-only）
+  debug/             # DebugAgent + cmd/policy/schema/wire
+```
+
+12 同级 → **7**。`public/` 九个头路径不变。
+
+### 依赖（不变）
+
+```
+shell → :map_session → {map_scene, map_camera, map_present, scene3d_present, map_hwnd_gestures, view_host}
+contents/* → :content     (DLL)
+present ↛ shell
+render ↛ content
+product ↛ leftover
+gis::Map ↛ content::MapScene
+```
+
+### 分阶（每步可编译）
+
+- [x] **P0 文档（本变更）** living § + HTML + `src/content/README.md` + `browser/README.md` + `src-layout`。不搬产品 `.cc`。
+- [ ] **P1 `contents/` 合并** scheme C
+
+| 旧 | 新 |
+| --- | --- |
+| `browser/bootstrap/map_bootstrap.*` | `browser/contents/map_bootstrap.*` |
+| `browser/catalog/catalog_layers.*` | `browser/contents/catalog_layers.*` |
+| `browser/attrs/feature_attrs.*` | `browser/contents/feature_attrs.*` |
+| `browser/plugin/plugin_host.cc` | `browser/contents/plugin_host.cc` |
+
+`contents/map_contents.cc` 不动。`BUILD.gn` `:content` / 三个 `*_test` 改 sources。Grep `"content/browser/{bootstrap,catalog,attrs,plugin}/` 必须空。
+
+- [ ] **P2 `input/` → `session/`** `map_hwnd_gestures.{h,cc}`；改 `session/map_session.h`、`app/views/shell/ui/browser_view.cc`。
+
+- [ ] **P3 `document/` 拍平**
+
+| 旧 | 新 |
+| --- | --- |
+| `document/store/{layer_store.*,map_layer.h}` | `document/layer_store.*` · `document/map_layer.h` |
+| `document/ingest/{ogr_ingest,geojson_write,seed_paths}.*` | `document/` 同名 |
+| `document/query/{extent_query,inspector}.*` | `document/` 同名 |
+| `document/style/style_bind.*` | `document/style_bind.*` |
+| `document/edit/feature_edit.*` | `document/feature_edit.*` |
+
+门面 `map_scene.*` 不动。测试 `feature_edit_test` / `map_scene_test` 改 include。
+
+- [ ] **P4 验证** `build.bat debug content` · `map_session` · `content_map_bootstrap_test` · `map_scene_test` · `feature_edit_test` · `scene3d_presenter_test` · `views`。
+
+### 不做什么
+
+- 不把 `MapSession` 折进 `MapContentsImpl`（C5）。
+- 不把 hosted document 折进 `gis/{map,edit}`；不合并两个 `MapSession` 类型。
+- 不把 GDI/GPU present 吸进 `content.dll`；不把 `software/` 挪到 `src/render`。
+- 不拍平 `present/map2d|scene3d` 的 frame/gpu/software；不拍平 `debug/cmd`。
+- 不改 `public/` 头路径；不加 Qt；不新开 dated spec。
 
 ## §GIS panels A+B+C（2026-09-28）
 
@@ -691,7 +801,7 @@ Non-goals unchanged for layout composer / topology / network.
 
 **Status:** active  
 **Updated:** 2026-09-30 — UI Views paint/compositor spans (`ui.views`); Trace tab + `UI` filter; UiDesigner docks Console+Trace by default  
-**Plan:** [`../plans/2026-09-28-render-trace-profiler.md`](../plans/2026-09-28-render-trace-profiler.md) (timing) + memory § in hybrid; console: [`2026-09-28-debug-console-design.md`](../archive/specs/2026-09-28-debug-console-design.md) + [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md)
+**Plan:** [`../plans/2026-09-28-render-trace-profiler.md`](../archive/plans/2026-09-28-render-trace-profiler.md) (timing) + memory § in hybrid; console: [`2026-09-28-debug-console-design.md`](../archive/specs/2026-09-28-debug-console-design.md) + [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md)
 
 VS-style bottom **Diagnostic Tools** dock (replaces standalone Debug Console + Inspector `RenderTrace`):
 
@@ -761,7 +871,7 @@ Full protocol, LogSink, Python worker, and sdbd bridge live in the owning spec.
 
 **Status:** active  
 **Updated:** 2026-09-28 — dual-runtime A (embed + worker parallel); prior phase-1 analysis  
-**Plan:** [`../plans/2026-09-28-gis-python-spatial-analysis.md`](../plans/2026-09-28-gis-python-spatial-analysis.md)  
+**Plan:** [`../plans/2026-09-28-gis-python-spatial-analysis.md`](../archive/plans/2026-09-28-gis-python-spatial-analysis.md)  
 **Related:** plugin-host §smartgis.gis bindings + **§Python dual-runtime**; algorithm-layer OpsRunner
 
 ### Locked choices
@@ -806,7 +916,7 @@ Bare Console lines (no leading `:`) and `:py …` both use `DebugAgentHost.py_ev
 
 **Status:** active  
 **Plan:** [`../plans/2026-09-28-debug-console.md`](../plans/2026-09-28-debug-console.md) (L0/L1/L2 coverage + bench checklists)  
-**As-built:** [`../../build/ui-testing.md`](../../build/ui-testing.md) + [`../../../testing/README.md`](../../../testing/README.md)
+**As-built:** [`../ui-testing.md`](../ui-testing.md) + [`../../../testing/README.md`](../../../testing/README.md)
 
 Coverage and timing for the Debug Console / `DebugAgent` command surface — **not** a replacement for Views L0/L1/L2 pixel or interactive harness.
 
@@ -952,7 +1062,7 @@ Archive twin: [`../archive/specs/2026-09-28-views-declarative-markup-design.md`]
 
 **GN:** `views` must not *list* GIS sources in its own `source_set`s; `:ui_views` `deps` `//src/ui/gis:gis_sources`. App / tests / plugin widgets `public_deps` `//src/ui/gis:gis` (forwards to `:ui_views`). Root `//:ui_views` group pulls `:gis`.
 
-As-built: [`docs/build/ui-views-skia.md`](../../build/ui-views-skia.md), [`src/ui/gis/README.md`](../../../src/ui/gis/README.md), [`src/ui/views/README.md`](../../../src/ui/views/README.md), [`src/ui/resources/README.md`](../../../src/ui/resources/README.md).
+As-built: [`docs/superpowers/ui-views-skia.md`](../ui-views-skia.md), [`src/ui/gis/README.md`](../../../src/ui/gis/README.md), [`src/ui/views/README.md`](../../../src/ui/views/README.md), [`src/ui/resources/README.md`](../../../src/ui/resources/README.md).
 
 ---
 
@@ -960,7 +1070,7 @@ As-built: [`docs/build/ui-views-skia.md`](../../build/ui-views-skia.md), [`src/u
 
 **Status:** accepted  
 **Plan:** [`../plans/2026-09-28-ui-interactive-overlay-bench.md`](../plans/2026-09-28-ui-interactive-overlay-bench.md)  
-**As-built alignment:** [`../../build/ui-testing.md`](../../build/ui-testing.md) **P2 / L1** (process-in interactive sequences + overlay bench; not a replacement for L1′ `--self-test` or L2 pixel).
+**As-built alignment:** [`../ui-testing.md`](../ui-testing.md) **P2 / L1** (process-in interactive sequences + overlay bench; not a replacement for L1′ `--self-test` or L2 pixel).
 
 Chromium-style **dual layer** for Views UI validation: in-process C++ harness (synthetic events + overlay scenes) plus optional **DebugAgent** `ui.*` RPC for console / Python orchestration when a live `SmartGisViews.exe` is running.
 
@@ -1001,7 +1111,7 @@ Chromium-style **dual layer** for Views UI validation: in-process C++ harness (s
 | --- | --- |
 | 1 | **Dual layer:** L1 = C++ `EventGenerator` + `ViewsTestBase` + `OverlayScene`; live runs may additionally drive the same semantics via DebugAgent **`ui.*`** (console + Python), not a second widget kit. |
 | 2 | **Wave1 (overlay shell):** Assert compositor path, `PainterRegistry`, and **`PaintCommit`** overlay recording on **shell chrome only** (MenuBar, Tab, StatusBar, dock chrome). Map viewport pixels stay out of L2 overlay goldens. |
-| 3 | **Wave2 (semantic map chrome):** `MapViewport` / **`AuxOverlay`** semantic hooks (extent string, ready marks, aux layer visibility). **No map pixels in L2** — same rule as [`ui-testing.md`](../../build/ui-testing.md) L2. |
+| 3 | **Wave2 (semantic map chrome):** `MapViewport` / **`AuxOverlay`** semantic hooks (extent string, ready marks, aux layer visibility). **No map pixels in L2** — same rule as [`ui-testing.md`](../ui-testing.md) L2. |
 | 4 | **Coverage:** A **behavioral matrix** documents every harness scenario (control × action × assertion). **OpenCppCoverage** is an **optional** CI gate via script; default **`build.bat te`** stays green without it. |
 | 5 | **GN targets:** `views_interactive_tests` (L1 behavioral); `views_bench` (perf). Harness lives under **`src/ui/views/testing/harness/`** (colocated headers). |
 | 6 | **Stack:** Views + Skia only; **no Qt**. New-tree functions **`snake_case`**; public namespace **`ui::views`** (helpers in `ui::views::detail` if needed). |
@@ -1038,7 +1148,7 @@ Chromium-style **dual layer** for Views UI validation: in-process C++ harness (s
 
 **Status:** accepted  
 **Plan:** [`../plans/2026-09-28-ui-visual-forensics.md`](../plans/2026-09-28-ui-visual-forensics.md)  
-**As-built alignment:** [`../../build/ui-testing.md`](../../build/ui-testing.md) **L1c** (failure capture + optional record-all; not a gate for default `build.bat te`).
+**As-built alignment:** [`../ui-testing.md`](../ui-testing.md) **L1c** (failure capture + optional record-all; not a gate for default `build.bat te`).
 
 **Scheme 1 (approved):** complement existing semantic / `layout_check` gates with **Mode A** (automatic failure dumps) and optional **Mode C** (Python forensics driver + offline frame analysis). Map GPU pixels are never golden targets; dumps are **shell offscreen capture only**.
 
@@ -1112,14 +1222,14 @@ Path: `tools/debug/scripts/ui_visual_forensics.py` (**not** wired into default `
 - [x] Honor `SMT_UI_FORENSICS=1` pass-through dump in dev builds.
 - [x] Add `tools/debug/scripts/ui_visual_forensics.py` with `--record`, `--record-all`, `--analyze`.
 - [x] Export manifest metrics for TabStrip, Ambox Tools, DiagnosticTools Gantt where available.
-- [x] Document L1c + runbook in [`ui-testing.md`](../../build/ui-testing.md).
+- [x] Document L1c + runbook in [`ui-testing.md`](../ui-testing.md).
 
 ---
 
 ## §Harness suite loop（2026-09-29）
 
 **Status:** active (Wave 1+2 landed: marks + BMP suites; registry covers browse/console/input + atmosphere/map2d/ui modes).  
-**As-built:** [`../../build/ui-testing.md`](../../build/ui-testing.md) L1′ loops; `testing/tools/loop_runner.py` + `suites/*.json`.
+**As-built:** [`../ui-testing.md`](../ui-testing.md) L1′ loops; `testing/tools/loop_runner.py` + `suites/*.json`.
 
 Unify outer Python rebuild/retry loops and in-process harness paths under a shared **suite id** contract. Not product `PluginHost`.
 
@@ -1202,7 +1312,7 @@ Authoring is **Interact DSL** (`.il`). Approach C: ANTLR **visitor → AST → d
 ## §Harness capability runtime（2026-09-30）
 
 **Status:** active (Wave 2: atomic Host verbs + full `.il` suite bodies — edit scripts without rebuild).  
-**Plan:** [`../plans/2026-09-30-harness-capability-runtime.md`](../plans/2026-09-30-harness-capability-runtime.md)  
+**Plan:** [`../plans/2026-09-30-harness-capability-runtime.md`](../archive/plans/2026-09-30-harness-capability-runtime.md)  
 **As-built:** `content/browser/capability/` Host; `app/views/shell/runtime/{capability,interact,analysis}/`; Interact verbs via Host (`map2d_run` / `atmosphere_run` / `console_run` / browse / digitize); Wave 2 adds `resolve_data` / `capture_path` / `sidecar_path` / `doc_clear` / `fit_extent` / `export_bmp` / `apply_style_file` / `suppress_dialogs` / `require_plugins` with `$var` bind via `as=` (no grammar change). DebugAgent `script.run` thin wrap. Suite scripts colocated under `testing/tools/harness/<family>/<suite_id>/*.il`.
 
 ### Intent
@@ -1243,7 +1353,7 @@ Deepen the Interact DSL from **UI-only** into a **shared scenario language** for
 - [x] Move Interact under `shell/runtime/interact/` (`apply.*`; was `dsl/`).
 - [x] Split `runtime/` into `capability/` + `interact/` + `analysis/` (stores + `AnalysisPlayback`).
 - [x] Migrate suite scripts: `ui.*` → `input` → `browse` → `map2d.*` → `atmosphere.*` → `console`.
-- [x] Update `docs/build/ui-testing.md` as-built once Wave 1 compiles green.
+- [x] Update `docs/superpowers/ui-testing.md` as-built once Wave 1 compiles green.
 - [ ] Wave 2 atomic verbs + migrate `plugin.*` `.il` full bodies; delete C++ showcase bodies when marks/BMP match.
 - [ ] Migrate `map2d.*` / `atmosphere.*` / remaining coarse `*_run` wrappers the same way.
 
@@ -1282,7 +1392,7 @@ Natural-language → Views declarative markup (`.ui.xml` fragment) inside UiDesi
 ## §Startup profile（2026-10-02）
 
 **Status:** active  
-**Updated:** 2026-10-02 — P2 cold-start cuts (WaitFirstMapPresent / HillshadeBake / FlyCube.Init).  
+**Updated:** 2026-10-04 — P3 Diagnostic Tools Console/Memory lazy markup (LoadMarkup cut).  
 **As-built:** `src/base/trace/diag/startup_profile.h` + `BASE_TRACE_EVENT(..., "startup")` on the SmartGisViews launch path.
 
 ### Goal
@@ -1316,6 +1426,7 @@ Phases covered (non-exhaustive): `wWinMain`, `ParseLaunchOptions`, `ContentMain`
 | **P2-1** | `WaitFirstMapPresent` opt-in only (`SMT_SYNC_FIRST_MAP_PRESENT=1`). Product show returns after shell paint + map invalidate — does not block on full carto/GPU token |
 | **P2-2** | `HillshadeBake` skipped until `MapScene::has_china_extent()` (demo/defer seed no longer pays ~0.4s GDAL shade). Force: `SMT_MAP2D_FORCE_HILLSHADE=1`; hard off: `SMT_MAP2D_NO_HILLSHADE=1` |
 | **P2-3** | `FlyCube.Init` async by default (UI wait 0). Opt-in sync: `SMT_SYNC_FLYCUBE_INIT=1` (MapEdit/Data 800ms, Scene3d 2500ms) |
+| **P3-1** | `DiagnosticToolsPanel`: Output + Trace eager (LogSink / default tab); Console + Memory `load_markup` on first tab select (`replace_page`) |
 
 Product cold-start measure (no `--ui-showcase=shell`):
 
@@ -1349,7 +1460,7 @@ stderr lines: `[startup-profile] …`. Full chrome buffer still via `SMT_TRACE_D
 ## §Shell perf upgrade waves（2026-09-30）
 
 **Status:** active  
-**Plan:** [`../plans/2026-09-30-ui-shell-perf-upgrade.md`](../plans/2026-09-30-ui-shell-perf-upgrade.md)  
+**Plan:** [`../plans/2026-09-30-ui-shell-perf-upgrade.md`](../archive/plans/2026-09-30-ui-shell-perf-upgrade.md)  
 **Predecessor:** [`../plans/2026-09-28-ui-compositor-thread.md`](../plans/2026-09-28-ui-compositor-thread.md) (P0–P5 roles landed; Deferred absorbed as U3–U5)  
 **Diagram:** [`../diagrams/ui-views-shell-architecture.html`](../diagrams/ui-views-shell-architecture.html)（浅色 SVG：shell/toolkit/gfx/MapViewport/GPU 泳道 + Commit→compositor→raster→GPU 流水线动画）
 
@@ -1412,7 +1523,7 @@ Reproduce and **analyze** map-browse failures on **both** product shells (Views 
 | 4 | Report JSON lists `steps[]` with `t_ms` + marks + `record_path` so video timeline aligns to script. |
 | 5 | Hang: timeout + dump (existing loop timeout / optional cdb). Crash: `windbg-crash-diagnose` / `run_and_catch`. Visual: BMP score gates + human video review. Lag: optional step timestamps vs paint/mark latency in report. |
 | 6 | No Qt; no new widget kit; Legacy stays freeze except harness/path fixes. |
-| 7 | Docs: this § + plan; as-built notes in `docs/build/ui-testing.md` + `src/legacy/app/README.md` when landed. |
+| 7 | Docs: this § + plan; as-built notes in `docs/superpowers/ui-testing.md` + `src/legacy/app/README.md` when landed. |
 
 ### Suite matrix
 
@@ -1519,7 +1630,7 @@ Open (or attach) the product app, record a human repro session, and emit a repla
 | `Widget::set_contents_view` | Rely on `set_widget` only (no second `propagate` — avoids double-scaling `preferred_size` ratios) |
 | `Widget::show` | Re-`sync_dpi_from_hwnd`; if scale changed, propagate + layout + paint |
 | `dpi_for_hwnd` | Prefer monitor effective DPI when `GetDpiForWindow` still reports 96 |
-| `kShellBodyFontDip` | **20** (was 16 → 18 → 20) |
+| `kShellBodyFontDip` | **13** (was 16 → 18 → 20; rolled back 2026-10-04 — 20 overcrowded Diagnostic Tools / inspector once row heights scaled) |
 | `TreeView` | Row / indent / twisty / checkbox are DIPs × `device_scale_factor` |
 | `BrowserView` | Do not hardcode menu/status heights in raw px |
 | `ShellCompositor::raster_dirty_into` | Select shell face on every paint target (per-strip HFONT on U4 temps) |
@@ -1530,6 +1641,7 @@ Open (or attach) the product app, record a human repro session, and emit a repla
 - [x] TreeView + shell chrome preferred sizes scale with DPI (no fixed-px row clip)
 - [x] U4 parallel strip DCs select shell HFONT (no SYSTEM-font full-frame)
 - [ ] Ordinary open on 125%/150%/250% host: menu/catalog/status readable without jump on wheel/hover
+- [x] 2026-10-04: body font 20→13 DIP + Diagnostic Tools flex `tabs_host` + Trace default tab (visual_review #1–#4)
 ---
 
 ## §Report dock（WebView2 report browser, 2026-09-30）
@@ -1567,7 +1679,7 @@ Host an inspector **Report** tab that embeds `plugin::ReportBrowser` (v1 WebView
 **Updated:** 2026-10-01 (Wave2: browse/ui/legacy checklist seed + real `--review-prep` on `legacy.browse.2d` + `map2d.china`)  
 **Plan:** [`../plans/2026-10-01-harness-visual-review.md`](../plans/2026-10-01-harness-visual-review.md)  
 **Extends:** §Harness suite loop, §UI visual forensics (A+C), §Map browse forensic harness  
-**As-built:** `testing/tools/loop/review/`; `loop_runner --review-prep`; `.cursor/skills/harness-visual-review/SKILL.md`; `docs/build/ui-testing.md` §Visual review.
+**As-built:** `testing/tools/loop/review/`; `loop_runner --review-prep`; `.cursor/skills/harness-visual-review/SKILL.md`; `docs/superpowers/ui-testing.md` §Visual review.
 
 ### Goal
 
@@ -1592,7 +1704,7 @@ This is **agent + human** quality loop on top of existing marks/BMP gates — **
 | 6 | Implementation under `testing/tools/loop/review/` (`inspect_png.py`, `emit_review.py`); wire from `runner` after bmp probe. |
 | 7 | Skill: `.cursor/skills/harness-visual-review/SKILL.md` — hard gate “no fix before human confirm”; crash vs visual split; strengthen `score_id` after confirmed visual misses. |
 | 8 | **Not** in default `te` / CI hard fail. Optional `probes` entry `visual_review` only writes artifacts. |
-| 9 | Docs: this § + plan; as-built in `docs/build/ui-testing.md`; link from living Active table. |
+| 9 | Docs: this § + plan; as-built in `docs/superpowers/ui-testing.md`; link from living Active table. |
 | 10 | Wave1 suites: `plugin.stormsurge`, `atmosphere.full`, `map2d.china`, primary `plugin.*` showcases. |
 | 11 | Wave2 suites (explicit checklist): `legacy.browse.2d` / `legacy.browse.3d`, `ui.shell` / `ui.catalog` / `ui.data` / `ui.scene` / `ui.interact` / `ui.interact.os`, `atmosphere.legacy`, `legacy.map2d.china`, `legacy.scene3d.china` (+ `.d3d`), `map2d.orthogrid`. `browse` / `browse.3d` stay marks-only (no bmp → no visual_review). |
 | 12 | Wave2 first real review runs: `legacy.browse.2d` + `map2d.china` (`--review-prep --force-run`; prefer `--no-build`). Confirmed Vision misses tighten `score_id` / `zoom_gate` in the same change set when practical. |
@@ -1638,7 +1750,7 @@ run / --review-prep
 - [x] `loop/review/` inspect PNG + emit review stub; wire runner + `--review-prep`
 - [x] `suite.py` parse optional `visual_review`; seed enabled suites
 - [x] Cursor skill `harness-visual-review`
-- [x] Living as-built note in `docs/build/ui-testing.md`
+- [x] Living as-built note in `docs/superpowers/ui-testing.md`
 - [x] One local `--review-prep` smoke on `plugin.stormsurge` or `map2d.china`
 - [x] Wave2: seed `visual_review` on browse forensic / ui / legacy / orthogrid bmp suites
 - [x] Wave2: `--review-prep --force-run` on `legacy.browse.2d` + `map2d.china` → Agent bug tables → human confirm → fix / tighten gates

@@ -5,7 +5,7 @@ import("//build/smartgis.gni")
 import("//testing/test.gni")
 
 # Endgame render layer → one DLL (dll_stem = render):
-#   rhi + programs + graph traversal. GPU scene is //src/effect/scene (caller-linked).
+#   rhi + programs + graph traversal. GPU scene is //src/vista/scene (caller-linked).
 # Shell raster lives in //src/ui/gfx, not this DLL.
 # Does NOT include //src/legacy/render/** (optional leftover DLL).
 # Scene math is //src/base/math:{math,bounds} and is not linked into this DLL.

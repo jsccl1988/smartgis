@@ -8,8 +8,8 @@ All rights reserved.
 **Date:** 2026-09-20  
 **Status:** active  
 **Spec (living, accepted):** [`../specs/2026-09-19-atmosphere-ocean-cloud-design.md`](../specs/2026-09-13-render-rhi-scene-design.md)  
-**Predecessor plan (v1 scaffold landed):** [`2026-09-19-atmosphere-ocean-cloud.md`](2026-09-19-atmosphere-ocean-cloud.md)  
-**Related:** RHI / GpuScene [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md)；World / GpuScene [`../specs/2026-09-19-scene3d-world-gpuscene-design.md`](../specs/2026-09-19-scene3d-world-gpuscene-design.md)；**子目录布局（已落地）** [`../specs/2026-09-27-atmosphere-subdirectory-layout-design.md`](../specs/2026-09-27-atmosphere-subdirectory-layout-design.md) · [`../archive/plans/2026-09-27-atmosphere-subdirectory-layout.md`](../archive/plans/2026-09-27-atmosphere-subdirectory-layout.md)
+**Predecessor plan (v1 scaffold landed):** [`2026-09-19-atmosphere-ocean-cloud.md`](../archive/plans/2026-09-19-atmosphere-ocean-cloud.md)  
+**Related:** RHI / GpuScene [`../specs/2026-09-13-render-rhi-scene-design.md`](../specs/2026-09-13-render-rhi-scene-design.md)；World / GpuScene [`../specs/2026-09-19-scene3d-world-gpuscene-design.md`](../archive/specs/2026-09-19-scene3d-world-gpuscene-design.md)；**子目录布局（已落地）** [`../specs/2026-09-27-atmosphere-subdirectory-layout-design.md`](../archive/specs/2026-09-27-atmosphere-subdirectory-layout-design.md) · [`../archive/plans/2026-09-27-atmosphere-subdirectory-layout.md`](../archive/plans/2026-09-27-atmosphere-subdirectory-layout.md)
 
 > **For agentic workers:** Implement task-by-task with checkboxes. Do **not** reopen v1 API freeze unless this plan explicitly amends the living spec. Stay on `master`. No Cesium Native, no second render engine, no GCM.
 
@@ -108,7 +108,7 @@ All rights reserved.
 - [x] Phase 3.1：风场可视化（矢量箭头 CPU/GPU **或** `PipelineId` 粒子）— Views：`Scene3dController` GDI 箭头叠图（粒子 Deferred）  
 - [x] Phase 3.2：Views 最小时间轴 + ocean/cloud/wind 开关（AtmospherePanel + BrowserView 接线）  
 - [x] Phase 3.3：（可选）Sky / aerial LUT — **最小 analytical SkyPass + FogPass 已落地**（`kSolid`）；完整 LUT / `kSky` HLSL 仍 Deferred（见 `2026-09-27-sky-fog-terrain-lod.md`）  
-- [ ] Phase 3.4：总验收对照 §1.2 五条 — **map3d-gap-pin P1-B**；真源 [`../../build/industry-gap-matrix.md`](../../build/industry-gap-matrix.md) §3.2.1  
+- [ ] Phase 3.4：总验收对照 §1.2 五条 — **map3d-gap-pin P1-B**；真源 [`../industry-gap-matrix.md`](../industry-gap-matrix.md) §3.2.1  
 
 
 ---

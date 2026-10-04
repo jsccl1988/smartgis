@@ -9,7 +9,7 @@ All rights reserved.
 
 **Goal:** Shared GIS point-cloud load (LAS/LAZ + legacy txt) and visible 3D scene draw via `World`/`GpuScene`; `world3d` only registers commands.
 
-**Architecture:** Approach 2 — `gis/vista/world/pointcloud` owns buffer + I/O; Browser/`World3dSceneWriter` commits; P0 LAS + txt + LAZ (`third_party/.src/LASzip`); P1 chunk/thin; P2 octree/LOD (`third_party/octree`).
+**Architecture:** Approach 2 — `vista/world/pointcloud` owns buffer + I/O; Browser/`World3dSceneWriter` commits; P0 LAS + txt + LAZ (`third_party/.src/LASzip`); P1 chunk/thin; P2 octree/LOD (`third_party/octree`).
 
 **Tech Stack:** ASPRS LAS 1.2/1.4 reader (P0), LASzip (vendored, LAZ), GN/`build.bat`, Views shell.
 
@@ -28,9 +28,9 @@ All rights reserved.
 ### Task 1 — `gis` PointCloud + LAS/txt I/O
 
 **Files:**
-- Create: `src/gis/vista/world/pointcloud/{point_cloud,las_io,text_io,load}.{h,cc}`
-- Modify: `src/gis/vista/world/BUILD.gn`
-- Create: `src/gis/vista/world/pointcloud/pointcloud_test.cc` + sample `.las` fixture
+- Create: `src/vista/world/pointcloud/{point_cloud,las_io,text_io,load}.{h,cc}`
+- Modify: `src/vista/world/BUILD.gn`
+- Create: `src/vista/world/pointcloud/pointcloud_test.cc` + sample `.las` fixture
 
 - [x] Step 1: `PointCloud` buffer (xyz float, optional rgba, AABB)
 - [x] Step 2: ASPRS LAS reader (formats 0/2/3); LAZ via `load_las_via_laszip`
@@ -46,7 +46,7 @@ All rights reserved.
 **Files:**
 - Modify: `world.h` / `world.cc` (point payload on `kPointCloud`)
 - Modify: `tessellate.{h,cc}` (`tessellate_point_cloud`)
-- Modify: `effect/scene/scene.{h,cc}` (sync + rebuild + `record_kind` for pointcloud)
+- Modify: `vista/scene/scene.{h,cc}` (sync + rebuild + `record_kind` for pointcloud)
 
 - [x] Step 1: `set_pointcloud_points` on World node
 - [x] Step 2: Tessellate points → tiny triangles
@@ -90,7 +90,7 @@ All rights reserved.
 
 **Files:**
 - Modify: `third_party/manifest.json` (+ `install.py` markers), `third_party/gn/BUILD.gn`, `third_party/BUILD.gn`, `build/smartgis.gni`
-- Create: `src/gis/vista/world/pointcloud/pdal_io.{h,cc,stub.cc}` + test
+- Create: `src/vista/world/pointcloud/pdal_io.{h,cc,stub.cc}` + test
 - Modify: `world/BUILD.gn`, `world3d` scene_commands + manifest, Browser optional buffer attach
 
 - [x] Step 1: Manifest + CMake pin for PDAL; `smt_has_pdal` via `file_exists.py` on `.install/include/pdal/PipelineManager.hpp`
@@ -102,5 +102,5 @@ All rights reserved.
 
 ### Follow-up — Map3D gap pin
 
-- [ ] 大云生产路径稳定（≥1M + 文档化 in-tree vs PDAL）— **map3d-gap-pin P1-A**；见 [`../../build/industry-gap-matrix.md`](../../build/industry-gap-matrix.md) §3.2.1  
+- [ ] 大云生产路径稳定（≥1M + 文档化 in-tree vs PDAL）— **map3d-gap-pin P1-A**；见 [`../industry-gap-matrix.md`](../industry-gap-matrix.md) §3.2.1  
 - [ ] 活 PDAL install 可选绿 — **map3d-gap-pin P2-B**；计划 [`2026-09-30-map3d-gap-pin.md`](2026-09-30-map3d-gap-pin.md)

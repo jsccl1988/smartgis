@@ -116,10 +116,10 @@ void CDlgSelDS::UpdateDSTree(void) {
   DataSourceMgr *pDSMgr = DataSourceMgr::get_singleton_ptr();
   pDSMgr->move_first();
   while (!pDSMgr->is_end()) {
-    SmtDataSource pDS = pDSMgr->get_data_source();
+    CatalogSource pDS = pDSMgr->get_data_source();
     if (pDS && pDS.Open()) {
       CString strType, strProvider;
-      SmtDataSourceInfo info;
+      DataSourceInfo info;
       pDS.GetInfo(info);
 
       strType.Format("%d", info.unType);

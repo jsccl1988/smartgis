@@ -7,11 +7,14 @@
 #include <fstream>
 #include <iomanip>
 
-#include "gis/kernel/geo/mesh/geometry.h"
-#include "gis/kernel/proj/api/projection.h"
-#include "gis/model/feature/feature.h"
-#include "gis/model/layer/layer.h"
-#include "gis/model/map/map.h"
+#include <cstdio>
+#include <string>
+
+#include "gis/geo/proj/coordinate_transform.h"
+#include "gis/geo/proj/coordinate_transform.h"
+#include "legacy/gis/feature/model_aliases.h"
+#include "legacy/gis/layer/layer.h"
+#include "gis/map/map.h"
 #include "legacy/gis/present/carto/stylemanager.h"
 #include "legacy/core/util/path.h"
 #include "legacy/core/msg/msg_def.h"
@@ -22,55 +25,74 @@
 #include "legacy/tool/defs.h"
 #include "legacy/tool/abi/t_msg.h"
 #include "legacy/ui/catalog/map/mapmgr.h"
-using namespace base;
 using namespace gis;
-using namespace geo;
 using namespace geo;
 using namespace sys;
 using namespace ui;
 
 namespace {
 
-bool fill_gauss_grid(SmtGrid &grid, double lat_min, double lat_max,
-                     double lon_min, double lon_max, double d_lat, double d_lon,
-                     long scale_ruler) {
+constexpr double kIugg1975A = 6378140.0;
+constexpr double kIugg1975B = 6356755.2882;
+
+double gauss_kruger_central_meridian(double lon_deg) {
+  double lon = lon_deg;
+  while (lon < 0.0) {
+    lon += 360.0;
+  }
+  while (lon >= 360.0) {
+    lon -= 360.0;
+  }
+  const int zone = static_cast<int>(lon / 6.0) + 1;
+  return static_cast<double>(zone) * 6.0 - 3.0;
+}
+
+std::string iugg1975_longlat() {
+  char buf[160];
+  std::snprintf(buf, sizeof(buf), "+proj=longlat +a=%.10f +b=%.10f +type=crs",
+                kIugg1975A, kIugg1975B);
+  return buf;
+}
+
+std::string iugg1975_tmerc(double lon_0) {
+  char buf[320];
+  std::snprintf(buf, sizeof(buf),
+                "+proj=tmerc +lat_0=0 +lon_0=%.8f +k=1 +x_0=500000 +y_0=0 "
+                "+a=%.10f +b=%.10f +units=m +type=crs",
+                lon_0, kIugg1975A, kIugg1975B);
+  return buf;
+}
+
+bool fill_gauss_grid(plugin::detail::OrthoLattice& lattice, double lat_min,
+                     double lat_max, double lon_min, double lon_max,
+                     double d_lat, double d_lon, long scale_ruler) {
   if (d_lat == 0.0 || d_lon == 0.0) {
     return false;
   }
 
-  SmtProjection geo = {};
-  SmtProjection gk = {};
   const double lon_0 = gauss_kruger_central_meridian((lon_max + lon_min) * 0.5);
-  if (init_projection(&geo) != SMT_ERR_NONE ||
-      init_projection(&gk) != SMT_ERR_NONE ||
-      load_longlat_ellipsoid(&geo, kIugg1975A, kIugg1975B) != SMT_ERR_NONE ||
-      load_tmerc_crs(&gk, kIugg1975A, kIugg1975B, lon_0) != SMT_ERR_NONE) {
-    free_projection(&geo);
-    free_projection(&gk);
+  geo::CoordinateTransform pipeline(iugg1975_longlat(), iugg1975_tmerc(lon_0));
+  if (!pipeline.is_valid()) {
     return false;
   }
 
   const int n_row = static_cast<int>(fabs((lat_max - lat_min) / d_lat)) + 1;
   const int n_col = static_cast<int>(fabs((lon_max - lon_min) / d_lon)) + 1;
-  grid.resize(n_row, n_col);
+  lattice.ortho_resize(n_col, n_row);
 
   const double scale =
       (scale_ruler > 0) ? static_cast<double>(scale_ruler) : 1.0;
-  bool ok = true;
-  for (int i = 0; i < n_row && ok; ++i) {
+  for (int i = 0; i < n_row; ++i) {
     for (int j = 0; j < n_col; ++j) {
-      dbfPoint point(j * d_lon + lon_min, i * d_lat + lat_min);
-      if (project_point(&geo, &gk, &point) != SMT_ERR_NONE) {
-        ok = false;
-        break;
+      double x = j * d_lon + lon_min;
+      double y = i * d_lat + lat_min;
+      if (!pipeline.transform_xy(x, y)) {
+        return false;
       }
-      grid.set_node(i, j, RawPoint(point.x / scale, point.y / scale));
+      lattice.ortho_set_point(j, i, x / scale, y / scale);
     }
   }
-
-  free_projection(&geo);
-  free_projection(&gk);
-  return ok;
+  return true;
 }
 
 }  // namespace
@@ -112,14 +134,14 @@ ON_WM_CTLCOLOR()
 ON_BN_CLICKED(IDC_BTN_DOGRID, &CDlgMapPrjDoGrid::OnBnClickedBtnDogrid)
 END_MESSAGE_MAP()
 
-void CDlgMapPrjDoGrid::OutputRes(SmtGrid &grid) {
+void CDlgMapPrjDoGrid::OutputRes(plugin::detail::OrthoLattice& lattice) {
   string strAppTempPath = get_app_temp_path();
   strAppTempPath += "GridRes.txt";
   fstream fOut;
   fOut.open(strAppTempPath.c_str(), ios::out);
   if (fOut.is_open()) {
-    int nN, nM;
-    grid.get_size(nM, nN);
+    const int nM = lattice.ny;
+    const int nN = lattice.nx;
 
     fOut << "minL:" << m_fLmin << "   maxL:" << m_fLmax << endl;
     fOut << "minB:" << m_fBmin << "   maxB:" << m_fBmax << endl;
@@ -138,8 +160,10 @@ void CDlgMapPrjDoGrid::OutputRes(SmtGrid &grid) {
       b = m_fBmin + i * m_fDB;
       fOut << setprecision(4) << b;
       for (int j = 0; j < nN; j++) {
-        RawPoint rawPt = grid.node(i, j);
-        fOut << setprecision(4) << "\t(" << rawPt.x << "," << rawPt.y << ")";
+        double px = 0;
+        double py = 0;
+        lattice.ortho_point(j, i, &px, &py);
+        fOut << setprecision(4) << "\t(" << px << "," << py << ")";
       }
       fOut << endl;
     }
@@ -151,30 +175,30 @@ void CDlgMapPrjDoGrid::OnBnClickedBtnDogrid() {
   UpdateData(TRUE);
 
   SmtMapMgr *pSmtMapMgr = SmtMapMgr::get_singleton_ptr();
-  SmtLayer *pLayer = pSmtMapMgr->GetActiveLayer();
+  Layer *pLayer = pSmtMapMgr->GetActiveLayer();
 
   if (NULL == pLayer || LYR_VECTOR != pLayer->GetLayerType()) return;
 
   SmtVectorLayer *pVLayer = (SmtVectorLayer *)pLayer;
 
-  if (pVLayer && leftover_layer_feature_type(pVLayer) == SmtFtGrid) {
+  if (pVLayer && leftover_layer_feature_type(pVLayer) == FtGrid) {
     SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
     SmtStyleConfig styleSonfig = pSysMgr->get_sys_style_config();
 
-    SmtFeature *pSmtFeature = new SmtFeature;
-    SmtGrid oSmtGrid;
+    FeatureAdapter *pSmtFeature = new FeatureAdapter;
+    plugin::detail::OrthoLattice lattice;
 
-    if (!fill_gauss_grid(oSmtGrid, m_fBmin, m_fBmax, m_fLmin, m_fLmax, m_fDB,
+    if (!fill_gauss_grid(lattice, m_fBmin, m_fBmax, m_fLmin, m_fLmax, m_fDB,
                          m_fDL, m_lScaleRuler)) {
       SMT_SAFE_DELETE(pSmtFeature);
       ::MessageBox(::GetActiveWindow(), "投影失败!", "提示", MB_OK);
       return;
     }
-    OutputRes(oSmtGrid);
+    OutputRes(lattice);
 
-    pSmtFeature->SetFeatureType(SmtFeatureType::SmtFtGrid);
+    pSmtFeature->SetFeatureType(FeatureType::FtGrid);
     pSmtFeature->SetStyle(styleSonfig.szPointStyle);
-    pSmtFeature->SetGeometry(&oSmtGrid);
+    pSmtFeature->SetGeometry(&lattice.nodes);
 
     if (pSmtMapMgr->AppendFeature(pSmtFeature, false)) {
       SmtListenerMsg param;

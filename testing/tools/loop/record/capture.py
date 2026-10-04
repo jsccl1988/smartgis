@@ -248,6 +248,31 @@ def _capture_bitblt(hwnd: int, w: int, h: int, left: int, top: int) -> bytes | N
     return bgr
 
 
+def _capture_client_bitblt(hwnd: int, w: int, h: int) -> bytes | None:
+    """BitBlt from the HWND client DC (GDI SoT; ignores IDE desktop occlusion).
+
+    MapViewport + FORCE_GDI paints into the client DC. Desktop BitBlt of the
+    same screen rect often captures Cursor/IDE chrome above the shell and
+    freezes motion_gate. DXGI/FlyCube client DCs are usually black — callers
+    fall through to desktop BitBlt / PrintWindow.
+    """
+    if not hwnd or w <= 0 or h <= 0:
+        return None
+    hdc_win = user32.GetDC(int(hwnd))
+    if not hdc_win:
+        return None
+    hdc_mem = gdi32.CreateCompatibleDC(hdc_win)
+    hbmp = gdi32.CreateCompatibleBitmap(hdc_win, w, h)
+    old = gdi32.SelectObject(hdc_mem, hbmp)
+    ok = bool(gdi32.BitBlt(hdc_mem, 0, 0, w, h, hdc_win, 0, 0, SRCCOPY))
+    bgr = _dib_from_hdc(hdc_mem, hbmp, w, h) if ok else None
+    gdi32.SelectObject(hdc_mem, old)
+    gdi32.DeleteObject(hbmp)
+    gdi32.DeleteDC(hdc_mem)
+    user32.ReleaseDC(int(hwnd), hdc_win)
+    return bgr
+
+
 def _capture_printwindow(hwnd: int, w: int, h: int) -> bytes | None:
     def _paint(hdc_mem: int) -> bool:
         ok = bool(user32.PrintWindow(hwnd, hdc_mem, PW_RENDERFULLCONTENT))
@@ -347,9 +372,21 @@ def capture_hwnd_bmp_ex(
             if hit is not None:
                 return hit
 
+    # GDI map client: window DC beats desktop BitBlt when IDE covers the rect.
+    client = _capture_client_bitblt(hwnd, w, h)
+    if client is not None:
+        # Reject empty/DXGI-black client buffers so FlyCube can use desktop.
+        cfrac = near_black_frac(client, w, h)
+        if cfrac < 0.90:
+            hit = _try_accept(
+                "client_bitblt", client, early=not prefer_printwindow
+            )
+            if hit is not None:
+                return hit
+
     bitblt = _capture_bitblt(hwnd, w, h, left, top)
     if bitblt is not None:
-        # Fast path: BitBlt already has real pixels (dual-mon desktop DC).
+        # Fast path: desktop BitBlt (dual-mon + DXGI present pixels).
         hit = _try_accept("bitblt", bitblt, early=not prefer_printwindow)
         if hit is not None:
             return hit
@@ -362,10 +399,13 @@ def capture_hwnd_bmp_ex(
     if not candidates:
         return False, 1.0
 
-    # Pick the less-black buffer (PrintWindow often returns black for GL/D3D).
-    method, bgr = min(
-        candidates, key=lambda item: near_black_frac(item[1], w, h)
-    )
+    # Prefer less-black, then prefer client_bitblt over desktop IDE bleed.
+    def _rank(item: tuple[str, bytes]) -> tuple[float, int]:
+        method, buf = item
+        pref = 0 if method == "client_bitblt" else (1 if method == "printwindow" else 2)
+        return near_black_frac(buf, w, h), pref
+
+    method, bgr = min(candidates, key=_rank)
     frac = near_black_frac(bgr, w, h)
     _commit_bmp(path, w, h, bgr, method=method, near_black=frac)
     return True, frac
@@ -423,18 +463,40 @@ def capture_flycube_present_bmp(
         bleed = top_band_chrome_bleed_frac(bitblt, w, h)
         ocean = ocean_clear_frac(bitblt, w, h)
         black = near_black_frac(bitblt, w, h)
+        # Near-white hollow Present (cleared swapchain) — not carto gold.
+        white = 0.0
+        if bitblt and w > 0 and h > 0:
+            step = max(1, (w * h) // 8000)
+            n_s = 0
+            n_w = 0
+            for i in range(0, len(bitblt) - 2, 3 * step):
+                b, g, r = bitblt[i], bitblt[i + 1], bitblt[i + 2]
+                n_s += 1
+                if r > 230 and g > 230 and b > 210:
+                    n_w += 1
+            white = n_w / max(1, n_s)
         meta["chrome_bleed"] = round(bleed, 4)
         meta["ocean_clear"] = round(ocean, 4)
+        meta["near_white"] = round(white, 4)
         meta["crop_top"] = int(crop)
-        cand = (bleed, ocean, black, bitblt, w, h, crop)
+        cand = (bleed, ocean, black + white, bitblt, w, h, crop, white)
         if best is None or cand[:3] < best[:3]:
             best = cand
         # Reject near-black DXGI (china seed / first present still settling).
-        # Prior black<0.92 early-exit accepted hollow frames that fail score.
+        # China light-land wash often has white~0.6 with ocean coastline — that
+        # is carto gold, not a cleared swapchain (score_views_present_dxgi).
+        coastline = (
+            ocean > 0.08
+            and white > 0.20
+            and white < 0.85
+            and black < 0.08
+            and ocean <= max_ocean_clear
+        )
         if (
             bleed <= max_chrome_bleed
             and ocean <= max_ocean_clear
             and black < 0.45
+            and (white < 0.45 or coastline)
         ):
             break
         time.sleep(0.35)
@@ -444,11 +506,12 @@ def capture_flycube_present_bmp(
         meta["reject"] = "bitblt_failed"
         return False, 1.0, meta
 
-    bleed, ocean, black, bgr, w, h, crop = best
+    bleed, ocean, black, bgr, w, h, crop, white = best
     meta["chrome_bleed"] = round(bleed, 4)
     meta["ocean_clear"] = round(ocean, 4)
+    meta["near_white"] = round(white, 4)
     meta["crop_top"] = int(crop)
-    meta["method"] = f"bitblt near_black={black:.3f}"
+    meta["method"] = f"bitblt near_black={black:.3f} near_white={white:.3f}"
     _commit_bmp(
         path,
         w,
@@ -456,7 +519,10 @@ def capture_flycube_present_bmp(
         bgr,
         method="bitblt",
         near_black=black,
-        extra=f"chrome_bleed={bleed:.3f} ocean={ocean:.3f} crop_top={crop}",
+        extra=(
+            f"chrome_bleed={bleed:.3f} ocean={ocean:.3f} "
+            f"near_white={white:.3f} crop_top={crop}"
+        ),
     )
 
     if bleed > max_chrome_bleed:
@@ -467,6 +533,12 @@ def capture_flycube_present_bmp(
         return False, black, meta
     if black >= 0.92:
         meta["reject"] = "near_black"
+        return False, black, meta
+    # Hollow cleared swapchain is near-uniform white. Light china land wash
+    # can exceed 0.55 white while still having gray water / point markers —
+    # defer that distinction to score_views_present_dxgi (landish/buckets).
+    if white >= 0.80:
+        meta["reject"] = "near_white_hollow"
         return False, black, meta
     return True, black, meta
 

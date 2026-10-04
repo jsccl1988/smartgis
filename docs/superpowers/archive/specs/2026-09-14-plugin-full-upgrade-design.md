@@ -101,7 +101,7 @@ SmartGisViews (BrowserView)
 
 ### Behavior
 
-Align with `docs/build/abi-rename-map.md` and the repo cutover design, **scoped to `src/plugin/**`**:
+Align with `docs/superpowers/abi-rename-map.md` and the repo cutover design, **scoped to `src/plugin/**`**:
 
 - Includes: `"plugin/..."` / `"algorithm/..."` form; no flat leftover-only includes in **new** TUs.
 - New/touched functions `snake_case`; public namespace `plugin` (+ `detail`).
@@ -160,7 +160,7 @@ Processing and command failures publish a JSON string through `plugin::set_opera
 ## Docs (same program)
 
 - Index this spec + plan in `docs/README.md`.
-- `docs/build/src-layout.md` plugin row: Views owns Registry; MFC `*.am` leftover.
+- `docs/superpowers/src-layout.md` plugin row: Views owns Registry; MFC `*.am` leftover.
 - Do not archive `plugin-host` docs until this program lands and host remains accurate.
 
 ## Relation to prior cycle

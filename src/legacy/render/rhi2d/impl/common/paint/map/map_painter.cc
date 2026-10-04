@@ -21,8 +21,12 @@
 
 #include "base/math/simd.h"
 #include "base/trace/event/process_trace.h"
-#include "gis/datasource/provider/impl/ogr/codec/ogr_feature_codec.h"
-#include "gis/model/envelope.h"
+#include "gis/datasource/ogr/ogr_feature_codec.h"
+#include "legacy/gis/present/carto/smt_style_ogr.h"
+#include "legacy/gis/feature/leftover_feature.h"
+#include "gis/geo/ops/geometry_traits.h"
+#include "gis/envelope.h"
+#include "legacy/gis/layer/map_bind.h"
 #include "legacy/gis/present/carto/style_api.h"
 #include "legacy/render/detail/frame_pipeline.h"
 #include "legacy/render/rhi2d/impl/common/paint/carto/frame/carto_frame.h"
@@ -42,7 +46,6 @@
 
 using namespace gis;
 using namespace base;
-using namespace geo;
 
 namespace render {
 namespace detail {
@@ -117,7 +120,19 @@ void draw_parallel_strategy_label(Rhi2dOwnedSurface* back,
   surf.bump_generation();
 }
 
+// Resident raster pools live in the port DLL. Joining them from DllMain
+// (FreeLibrary or process-exit PROCESS_DETACH) AVs after matrix BMP write.
+Rhi2dTileGraphRunner g_layer_runner;
+Rhi2dTileGraphRunner g_tile_runner;
+std::vector<std::unique_ptr<Rhi2dOwnedSurface>> g_tile_surfs;
+
 }  // namespace
+
+void rhi2d_shutdown_static_raster_runners() {
+  g_layer_runner.shutdown();
+  g_tile_runner.shutdown();
+  g_tile_surfs.clear();
+}
 
 Rhi2dPainter::Rhi2dPainter(Rhi2dCartoDraw* carto_draw,
                                  Rhi2dOwnedSurface* back_buf,
@@ -189,7 +204,7 @@ void Rhi2dPainter::sync_carto_draw_links() {
   }
 }
 
-int Rhi2dPainter::render_map(const SmtMap* map, int x, int y, int w, int h,
+int Rhi2dPainter::render_map(const Map* map, int x, int y, int w, int h,
                                 int op) {
   if (w == 0 || h == 0) {
     return SMT_ERR_INVALID_PARAM;
@@ -255,7 +270,8 @@ int Rhi2dPainter::render_map(const SmtMap* map, int x, int y, int w, int h,
     const float fblc = context().fblc;
 
     std::vector<OgrLayerBatch> ogr_batches;
-    std::vector<const SmtLayer*> leftover_layers;
+    std::vector<const Layer*> leftover_layers;
+    std::vector<std::unique_ptr<Layer>> leftover_owned;
     ogr_batches.reserve(static_cast<size_t>(map->GetLayerCount()));
 
     for (int i = 0; i < map->GetLayerCount(); ++i) {
@@ -285,7 +301,8 @@ int Rhi2dPainter::render_map(const SmtMap* map, int x, int y, int w, int h,
           batch.force_serial = force_serial_ogr_layer(ogr, batch.feats);
         }
         ogr_batches.push_back(std::move(batch));
-      } else if (const SmtLayer* lyr = map->GetLeftoverLayer(i)) {
+      } else if (const Layer* lyr = leftover_layer_at(map, i)) {
+        leftover_owned.emplace_back(const_cast<Layer*>(lyr));
         leftover_layers.push_back(lyr);
       }
     }
@@ -386,7 +403,7 @@ int Rhi2dPainter::render_map(const SmtMap* map, int x, int y, int w, int h,
       flush_geom_us(geom);
     }
 
-    for (const SmtLayer* lyr : leftover_layers) {
+    for (const Layer* lyr : leftover_layers) {
       if (frame_aborted()) {
         break;
       }
@@ -415,20 +432,19 @@ int Rhi2dPainter::render_map(const SmtMap* map, int x, int y, int w, int h,
       if (layer_bufs.empty()) {
         back_buf_->clear(0, 0, w, h, kOceanClear);
       } else {
-        static Rhi2dTileGraphRunner s_layer_runner;
         const int workers = rhi2d_parallel_worker_count(layer_bufs.size());
-        s_layer_runner.ensure_workers(workers);
-        s_layer_runner.clear_cancel();
+        g_layer_runner.ensure_workers(workers);
+        g_layer_runner.clear_cancel();
 
         std::vector<std::unique_ptr<Rhi2dOwnedSurface>> layer_surfs(
             layer_bufs.size());
         HWND hwnd = back_buf_->wnd();
-        s_layer_runner.run_tiles(layer_bufs.size(), [&](size_t i) {
+        g_layer_runner.run_tiles(layer_bufs.size(), [&](size_t i) {
           if (frame_aborted()) {
-            s_layer_runner.request_cancel();
+            g_layer_runner.request_cancel();
             return;
           }
-          if (s_layer_runner.is_cancel_requested()) {
+          if (g_layer_runner.is_cancel_requested()) {
             return;
           }
           auto surf = std::make_unique<Rhi2dOwnedSurface>();
@@ -486,30 +502,28 @@ int Rhi2dPainter::render_map(const SmtMap* map, int x, int y, int w, int h,
         if (!tile_parallel_win) {
           execute(recorded, back_buf_->surface());
         } else {
-          static Rhi2dTileGraphRunner s_tile_runner;
           // Reuse tile DIBs across frames (pool-backed set_size).
-          static std::vector<std::unique_ptr<Rhi2dOwnedSurface>> s_tile_surfs;
           const int workers = rhi2d_parallel_worker_count(tiles.size());
-          s_tile_runner.ensure_workers(workers);
-          s_tile_runner.clear_cancel();
-          if (s_tile_surfs.size() < tiles.size()) {
-            s_tile_surfs.resize(tiles.size());
+          g_tile_runner.ensure_workers(workers);
+          g_tile_runner.clear_cancel();
+          if (g_tile_surfs.size() < tiles.size()) {
+            g_tile_surfs.resize(tiles.size());
           }
 
           HWND hwnd = back_buf_->wnd();
-          s_tile_runner.run_tiles(tiles.size(), [&](size_t i) {
+          g_tile_runner.run_tiles(tiles.size(), [&](size_t i) {
             if (frame_aborted()) {
-              s_tile_runner.request_cancel();
+              g_tile_runner.request_cancel();
               return;
             }
-            if (s_tile_runner.is_cancel_requested()) {
+            if (g_tile_runner.is_cancel_requested()) {
               return;
             }
             const Rhi2dRasterTile& tile = tiles[i];
-            if (!s_tile_surfs[i]) {
-              s_tile_surfs[i] = std::make_unique<Rhi2dOwnedSurface>();
+            if (!g_tile_surfs[i]) {
+              g_tile_surfs[i] = std::make_unique<Rhi2dOwnedSurface>();
             }
-            Rhi2dOwnedSurface& surf = *s_tile_surfs[i];
+            Rhi2dOwnedSurface& surf = *g_tile_surfs[i];
             surf.set_wnd(hwnd);
             const int tw = raster_tile_width(tile);
             const int th = raster_tile_height(tile);
@@ -526,7 +540,7 @@ int Rhi2dPainter::render_map(const SmtMap* map, int x, int y, int w, int h,
             return SMT_ERR_NONE;
           }
           for (size_t i = 0; i < tiles.size(); ++i) {
-            if (!s_tile_surfs[i] || !s_tile_surfs[i]->bitmap()) {
+            if (!g_tile_surfs[i] || !g_tile_surfs[i]->bitmap()) {
               continue;
             }
             const Rhi2dRasterTile& tile = tiles[i];
@@ -534,7 +548,7 @@ int Rhi2dPainter::render_map(const SmtMap* map, int x, int y, int w, int h,
             const int src_y = tile.center.top - tile.paint.top;
             const int cw = tile.center.right - tile.center.left;
             const int ch = tile.center.bottom - tile.center.top;
-            blit_owned_to(*s_tile_surfs[i], *back_buf_, tile.center.left,
+            blit_owned_to(*g_tile_surfs[i], *back_buf_, tile.center.left,
                           tile.center.top, cw, ch, src_x, src_y, cw, ch,
                           Rhi2dBlitMode::kOpaque, SRCCOPY);
           }
@@ -591,15 +605,15 @@ int Rhi2dPainter::render_map(const SmtMap* map, int x, int y, int w, int h,
   return SMT_ERR_NONE;
 }
 
-int Rhi2dPainter::render_layer(const SmtLayer* layer, int op) {
+int Rhi2dPainter::render_layer(const Layer* layer, int op) {
   if (!layer) {
     return SMT_ERR_INVALID_PARAM;
   }
   if (layer->GetLayerType() == LYR_RASTER) {
-    return render_layer(static_cast<const SmtRasterLayer*>(layer), op);
+    return render_layer(static_cast<const RasterLayer*>(layer), op);
   }
   if (layer->GetLayerType() == LYR_TITLE) {
-    return render_layer(static_cast<const SmtTileLayer*>(layer), op);
+    return render_layer(static_cast<const TileLayer*>(layer), op);
   }
 
   return SMT_ERR_FAILURE;
@@ -682,7 +696,7 @@ int Rhi2dPainter::render_layer(OGRLayer* layer, int op) {
   return SMT_ERR_NONE;
 }
 
-int Rhi2dPainter::render_layer(const SmtRasterLayer* layer, int op) {
+int Rhi2dPainter::render_layer(const RasterLayer* layer, int op) {
   (void)op;
   if (layer == nullptr) {
     return SMT_ERR_INVALID_PARAM;
@@ -734,7 +748,7 @@ int Rhi2dPainter::render_layer(const SmtRasterLayer* layer, int op) {
   return SMT_ERR_NONE;
 }
 
-int Rhi2dPainter::render_layer(const SmtTileLayer* layer, int op) {
+int Rhi2dPainter::render_layer(const TileLayer* layer, int op) {
   (void)op;
   if (layer == nullptr) {
     return SMT_ERR_INVALID_PARAM;
@@ -792,8 +806,7 @@ int Rhi2dPainter::render_feature(OGRFeature* feature, int op) {
     return SMT_ERR_INVALID_PARAM;
   }
 
-  carto_draw_->feature_type() = gis::datasource::infer_feature_type(
-      feature, SmtFeatureType::SmtFtUnknown);
+  carto_draw_->feature_type() = leftover_feature_type_of(feature);
   SmtStyle* style = gis::datasource::copy_ogr_style_from_ogr(feature);
   const bool owned_style = style != nullptr;
   SmtStyle fallback;
@@ -802,10 +815,10 @@ int Rhi2dPainter::render_feature(OGRFeature* feature, int op) {
                                              context().fblc);
     style = &fallback;
   }
-  OGRGeometry* geom = gis::datasource::decode_ogr_geometry(
-      feature, static_cast<SmtFeatureType>(carto_draw_->feature_type()));
+  OGRGeometry* geom = leftover_decode_geometry(
+      feature, static_cast<FeatureType>(carto_draw_->feature_type()));
   char* anno = carto_draw_->anno_buf();
-  if (carto_draw_->feature_type() == SmtFeatureType::SmtFtAnno) {
+  if (carto_draw_->feature_type() == FeatureType::FtAnno) {
     const int ai = feature->GetFieldIndex("anno");
     const int gi = feature->GetFieldIndex("angle");
     if (ai >= 0) {
@@ -830,14 +843,14 @@ int Rhi2dPainter::render_feature(OGRFeature* feature, int op) {
     return v ? v : "";
   };
   const char* label =
-      (carto_draw_->feature_type() == SmtFeatureType::SmtFtAnno && anno[0])
+      (carto_draw_->feature_type() == FeatureType::FtAnno && anno[0])
           ? anno
           : field("name");
   carto_draw_->label_priority() = carto2d_label_priority(
       label, field("kind"), field("class"), field("adcode"));
   carto_draw_->is_river() = carto2d_is_river_kind(field("kind"));
   carto_draw_->road_class() = carto2d_road_class(field("kind"), field("class"));
-  if (!(carto_draw_->feature_type() == SmtFeatureType::SmtFtAnno && anno[0])) {
+  if (!(carto_draw_->feature_type() == FeatureType::FtAnno && anno[0])) {
     if (const char* picked =
             carto2d_label_text(field("anno"), field("name"), field("text"))) {
       strncpy(anno, picked, 1999);
@@ -861,7 +874,7 @@ int Rhi2dPainter::render_geometry(const OGRGeometry* geom,
   const OGRwkbGeometryType type = wkbFlatten(geom->getGeometryType());
 
   Envelope env_feature, env_viewp;
-  geo::copy_envelope(*geom, &env_feature);
+  geo::fill_envelope(*geom, &env_feature);
 
   lRect l_viewp;
   fRect f_viewp;
@@ -947,7 +960,7 @@ int Rhi2dPainter::render_geometry(const OGRGeometry* geom,
         std::chrono::duration_cast<std::chrono::microseconds>(
             base::trace::Trace::time_point::clock::now() - draw_begin)
             .count();
-    if (carto_draw_->feature_type() == SmtFeatureType::SmtFtAnno) {
+    if (carto_draw_->feature_type() == FeatureType::FtAnno) {
       g_active_geom->anno += us;
     } else {
       switch (type) {

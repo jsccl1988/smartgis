@@ -154,7 +154,7 @@ void test_device_scale_recomputes_preferred() {
   root->add_child(std::move(button));
   const int w96 = button_ptr->preferred_size().width;
   const int h96 = button_ptr->preferred_size().height;
-  expect(w96 > 0 && h96 >= 28, "button preferred at 96dpi");
+  expect(w96 > 0 && h96 >= 24, "button preferred at 96dpi");
 
   widget.set_contents_view(std::move(root));
   expect(root_ptr->widget() == &widget, "contents widget wired");
@@ -165,7 +165,7 @@ void test_device_scale_recomputes_preferred() {
   expect(button_ptr->preferred_size().width >
              w96,
          "button preferred grows with scale");
-  expect(button_ptr->preferred_size().height >= dip_to_px(28, 1.5f),
+  expect(button_ptr->preferred_size().height >= dip_to_px(24, 1.5f),
          "button min height scales");
 
   const int w150 = button_ptr->preferred_size().width;

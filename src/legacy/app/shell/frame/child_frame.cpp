@@ -7,7 +7,7 @@
 
 #include "base/core/log.h"
 #include "legacy/app/shell/frame/win_app.h"
-#include "legacy/app/view/scene3d_view.h"
+#include "legacy/app/views/viewport/scene3d_view.h"
 
 using namespace base;
 

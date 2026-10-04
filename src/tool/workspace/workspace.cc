@@ -9,7 +9,7 @@
 
 #include "content/public/event_bus.h"
 #include "content/public/map_types.h"
-#include "gis/model/edit/session/edit_session.h"
+#include "gis/edit/session.h"
 #include "tool/draft/draft.h"
 #include "tool/nav/camera_nav.h"
 #include "tool/workspace/draft_pipeline.h"

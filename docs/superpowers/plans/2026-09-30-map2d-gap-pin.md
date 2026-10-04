@@ -6,7 +6,7 @@ All rights reserved.
 # Map2D industry gap pin — Implementation Plan
 
 > **For agentic workers:** Tick boxes as gaps close. Evidence + acceptance live in
-> [`../../build/industry-gap-matrix.md`](../../build/industry-gap-matrix.md) **§8 Map2D 钉死清单**.
+> [`../industry-gap-matrix.md`](../industry-gap-matrix.md) **§8 Map2D 钉死清单**.
 > Do **not** open a new dated design; revise living umbrellas linked below.
 
 **Goal:** Close the executable Map **2D** gaps vs QGIS / MapLibre-class carto

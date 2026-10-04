@@ -52,7 +52,9 @@ int TableView::column_width(int col) const {
   // Identify-style Field|Value: keep the name column narrower so long values
   // get the leftover width (ArcGIS / QGIS attribute pane convention).
   if (cols == 2) {
-    const int first = (b.width * 38) / 100;
+    const int min_field = dip_to_px(72, scale_factor());
+    const int first =
+        std::max(min_field, std::min((b.width * 42) / 100, b.width / 2));
     if (col == 0) {
       return first;
     }

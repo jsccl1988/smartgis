@@ -1,0 +1,123 @@
+<!--
+Copyright (c) 2026 The Mogu Authors.
+All rights reserved.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>world3d 命令分层 — 门面 / 域 / 别名</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --panel: #fff; --border: #d8dee6;
+    --text: #1a2330; --muted: #5a6a7e; --accent: #2563a8;
+    --ui: #e8f0f8; --cpu: #eaf4ee; --leftover: #f4eee6;
+    --code: #243447; --code-bg: #eef2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  a { color: var(--accent); }
+  code {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.88em;
+    color: var(--code); background: var(--code-bg); padding: 0.05em 0.3em;
+    border-radius: 3px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 18px 48px; }
+  .hero, .panel {
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 10px; margin-bottom: 12px; padding: 14px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.2rem; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin: 0; }
+  h2 { margin: 0 0 10px; font-size: 0.95rem; }
+  .lanes {
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px;
+  }
+  @media (max-width: 900px) { .lanes { grid-template-columns: 1fr 1fr; } }
+  .lane {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    min-height: 140px;
+  }
+  .lane.ui { background: var(--ui); }
+  .lane.cpu { background: var(--cpu); }
+  .lane.left { background: var(--leftover); }
+  .lane h3 { margin: 0 0 6px; font-size: 0.82rem; }
+  .lane p, .lane li { margin: 0 0 4px; font-size: 0.8rem; color: var(--muted); }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    font-size: 0.82rem;
+  }
+  .step {
+    border: 1px solid var(--border); background: #fff; border-radius: 8px;
+    padding: 8px 10px; min-width: 118px;
+  }
+  .step strong { display: block; color: var(--accent); font-size: 0.75rem; }
+  .arrow { color: var(--muted); font-weight: 700; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,168,0); }
+    50% { box-shadow: 0 0 0 3px rgba(37,99,168,0.18); }
+  }
+  .step.active { animation: pulse 2.4s ease-in-out infinite; border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>产品插件包：<code>smartgis.world3d</code> 命令分层</h1>
+    <p class="meta">Views builtin 只有这一包。Shell 只调 <code>register_world3d</code>，只 include <code>commands.h</code>。Leftover <code>plugin_orthogrid.am</code> 仍 LoadLibrary，AM stem 映射到同一 id。</p>
+  </header>
+
+  <section class="panel">
+    <h2>分层（谁注册什么）</h2>
+    <div class="lanes">
+      <div class="lane ui">
+        <h3>门面</h3>
+        <p><code>commands.h</code> / <code>commands.cc</code></p>
+        <p><code>register_world3d</code> 只接线</p>
+        <p>Writers / commits 对外</p>
+      </div>
+      <div class="lane ui">
+        <h3>能力域</h3>
+        <p><code>grid/</code> — DEM + 2D ortho + 3D hex（<code>register_world3d_grid</code>）</p>
+        <p><code>grid/dem/</code> — loader / dialog</p>
+        <p><code>grid/orthogrid/</code> · <code>grid/hexgrid/</code></p>
+        <p><code>scene/register.cc</code> — True Earth + <code>model3d.*</code></p>
+      </div>
+      <div class="lane cpu">
+        <h3>CPU / 内核</h3>
+        <p>DEM：<code>grid/dem/loader/</code></p>
+        <p>2D：<code>grid/orthogrid/session</code> + <code>gis/geo/grid</code></p>
+        <p>3D：<code>grid/hexgrid/lattice</code> + <code>grid/hexgrid/io</code></p>
+        <p>别名：<code>detail/contribute.h</code></p>
+      </div>
+      <div class="lane left">
+        <h3>Leftover（单向）</h3>
+        <p><code>legacy/plugin/product/orthogrid</code></p>
+        <p><code>dll_stem=plugin_orthogrid</code></p>
+        <p>产品 TU 不 include leftover</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>原则流（门面 → 域 register → 别名 → writer）</h2>
+    <div class="flow">
+      <div class="step active"><strong>1</strong>register_world3d</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>2</strong>grid + scene</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>3</strong>contribute_* aliases</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>4</strong>baogrid ≡ orthogrid handlers</div>
+      <span class="arrow">→</span>
+      <div class="step"><strong>5</strong>Browser writers / MapScene</div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

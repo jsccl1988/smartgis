@@ -11,8 +11,8 @@ All rights reserved.
 **Date:** 2026-09-28  
 **Status:** superseded (2026-09-28 merge B)
 **Updated:** 2026-09-28 — stroke/GDI/ring-fan opts landed; remeasure note under Decision.  
-**Considered living file:** [`2026-09-14-base-root-hybrid-design.md`](2026-09-14-base-root-hybrid-design.md) — covers foundation boundaries but not the execution tree; a dedicated living row is required (new subsystem).  
-**Related:** [`../../build/mogu-mapping.md`](../../build/mogu-mapping.md), plan [`../plans/2026-09-28-base-execution.md`](../plans/2026-09-28-base-execution.md)
+**Considered living file:** [`2026-09-14-base-root-hybrid-design.md`](../../specs/2026-09-14-base-root-hybrid-design.md) — covers foundation boundaries but not the execution tree; a dedicated living row is required (new subsystem).  
+**Related:** [`../../mogu-mapping.md`](../../mogu-mapping.md), plan [`../plans/2026-09-28-base-execution.md`](../../plans/2026-09-28-base-execution.md)
 
 ## Locked decisions
 
@@ -107,7 +107,7 @@ Source: map_scene_test + SMT_TRACE=1 (Debug). Tess *us = **CPU sum** across para
 
 ### Feature load Pipeline (OGR / mogu table shape)
 
-**Status:** landed (first consumer: Views map open via `ogr_ingest`); **Batch3a** ordered window in [`../plans/2026-09-28-gis-memory-load.md`](../plans/2026-09-28-gis-memory-load.md).
+**Status:** landed (first consumer: Views map open via `ogr_ingest`); **Batch3a** ordered window in [`../plans/2026-09-28-gis-memory-load.md`](../../plans/2026-09-28-gis-memory-load.md).
 
 | Stage | Workers | Role |
 | --- | --- | --- |

@@ -4,10 +4,10 @@
 
 using namespace plugin;
 
-class SmtMapPrjPlugin : public SmtAuxModule {
+class MapPrjPlugin : public SmtAuxModule {
  public:
-  SmtMapPrjPlugin(void);
-  virtual ~SmtMapPrjPlugin(void);
+  MapPrjPlugin(void);
+  virtual ~MapPrjPlugin(void);
 
  public:
   int Init(void);

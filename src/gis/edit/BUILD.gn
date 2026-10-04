@@ -1,0 +1,62 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Mutation types, undo log, optimistic store, command + memory sessions.
+# Compiled into //src/gis:gis (dll_stem = gis).
+source_set("edit_sources") {
+  sources = [
+    "command_session.cc",
+    "command_session.h",
+    "memory_session.cc",
+    "memory_session.h",
+    "mutation.h",
+    "optimistic_store.cc",
+    "optimistic_store.h",
+    "session.h",
+    "undo_log.cc",
+    "undo_log.h",
+  ]
+  include_dirs += [
+    "//src",
+    "//src/base/core",
+  ]
+  defines = [ "GIS_EXPORTS" ]
+  deps = [ "//src/base:core" ]
+}
+
+# Map binding (OGR FeatureGeom apply). Separate set so map_session can dep map.
+source_set("map_edit_sources") {
+  sources = [
+    "map_session.cc",
+    "map_session.h",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  defines = [ "GIS_EXPORTS" ]
+  deps = [
+    ":edit_sources",
+    "//src/gis/datasource/ogr:ogr_codec",
+    "//third_party:gdal",
+  ]
+}
+
+group("edit") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+group("map_edit") {
+  public_deps = [ "//src/gis:gis" ]
+}
+
+test("edit_conflict_test") {
+  output_name = "edit_conflict_test"
+  sources = [ "edit_conflict_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [
+    ":edit",
+    "//src/base:core",
+  ]
+}

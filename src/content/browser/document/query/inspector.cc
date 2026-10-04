@@ -10,8 +10,8 @@
 #include <vector>
 
 #include "content/public/feature_attrs.h"
-#include "gis/present/style/style_document.h"
-#include "gis/present/style/style_rules.h"
+#include "gis/carto/style/style_document.h"
+#include "gis/carto/style/style_rules.h"
 
 namespace content {
 namespace detail {

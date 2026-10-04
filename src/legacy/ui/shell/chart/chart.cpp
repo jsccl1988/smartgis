@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "legacy/ui/shell/chart/chart.h"
 
-#include "gis/model/feature/feature.h"
+#include "legacy/gis/feature/model_aliases.h"
 #include "legacy/gis/present/carto/stylemanager.h"
 #include "legacy/core/macros/macros.h"
 #include "legacy/sys/sysmanager.h"
@@ -107,10 +107,10 @@ long SmtChart::Init() {
   lyrRect.rt.x = 500;
   lyrRect.rt.y = 500;
 
-  CreateLayer(c_str_reg_lyr.c_str(), lyrRect, SmtFeatureType::SmtFtSurface);
-  CreateLayer(c_str_line_lyr.c_str(), lyrRect, SmtFeatureType::SmtFtCurve);
-  CreateLayer(c_str_pnt_lyr.c_str(), lyrRect, SmtFeatureType::SmtFtDot);
-  CreateLayer(c_str_anno_lyr.c_str(), lyrRect, SmtFeatureType::SmtFtAnno);
+  CreateLayer(c_str_reg_lyr.c_str(), lyrRect, FeatureType::FtSurface);
+  CreateLayer(c_str_line_lyr.c_str(), lyrRect, FeatureType::FtCurve);
+  CreateLayer(c_str_pnt_lyr.c_str(), lyrRect, FeatureType::FtDot);
+  CreateLayer(c_str_anno_lyr.c_str(), lyrRect, FeatureType::FtAnno);
   OGRLayer *pRegLyr = m_smtMap.GetOgrLayer(c_str_reg_lyr.c_str());
   OGRLayer *pLineLyr = m_smtMap.GetOgrLayer(c_str_line_lyr.c_str());
   OGRLayer *pPntLyr = m_smtMap.GetOgrLayer(c_str_pnt_lyr.c_str());
@@ -231,7 +231,7 @@ void SmtChart::SetPoints(const vPoints &points) { m_cData.m_vPoints = points; }
 void SmtChart::DrawChartContent(void) {
   OGRLayer *pLineLayer = GetSmtMap().GetOgrLayer(c_str_line_lyr.c_str());
   OGRLinearRing *pLinearRing = new OGRLinearRing();
-  SmtFeature *pSmtFeature = new SmtFeature;
+  FeatureAdapter *pSmtFeature = new FeatureAdapter;
 
   pLinearRing->addPoint(m_rtChart.lb.x, m_rtChart.lb.y);
   pLinearRing->addPoint(m_rtChart.rt.x, m_rtChart.lb.y);
@@ -239,7 +239,7 @@ void SmtChart::DrawChartContent(void) {
   pLinearRing->addPoint(m_rtChart.lb.x, m_rtChart.rt.y);
   pLinearRing->closeRings();
 
-  pSmtFeature->SetFeatureType(SmtFtCurve);
+  pSmtFeature->SetFeatureType(FtCurve);
   pSmtFeature->SetStyle(&m_styChart);
   pSmtFeature->SetGeometryDirectly(pLinearRing);
   pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("length"),
@@ -261,9 +261,9 @@ void SmtChart::DrawTitle(void) {
 
   OGRLayer *pAnnoLayer = GetSmtMap().GetOgrLayer(c_str_anno_lyr.c_str());
   OGRPoint *pSmtPoint = new OGRPoint(point.x, point.y);
-  SmtFeature *pSmtFeature = new SmtFeature;
+  FeatureAdapter *pSmtFeature = new FeatureAdapter;
   pSmtFeature->SetGeometryDirectly(pSmtPoint);
-  pSmtFeature->SetFeatureType(SmtFtAnno);
+  pSmtFeature->SetFeatureType(FtAnno);
   pSmtFeature->SetStyle(&m_styTitle);
   pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("anno"),
                              m_strTitle.c_str());
@@ -283,7 +283,7 @@ void SmtChart::DrawGridLines(void) {
 
   OGRLayer *pLineLayer = GetSmtMap().GetOgrLayer(c_str_line_lyr.c_str());
   OGRMultiLineString *pMLineString = new OGRMultiLineString;
-  SmtFeature *pSmtFeature = new SmtFeature;
+  FeatureAdapter *pSmtFeature = new FeatureAdapter;
 
   x = int(m_cPanel.rtContent.lb.x);
   y = m_cPanel.rtContent.lb.y;
@@ -315,7 +315,7 @@ void SmtChart::DrawGridLines(void) {
     y += 1.;
   }
 
-  pSmtFeature->SetFeatureType(SmtFtCurve);
+  pSmtFeature->SetFeatureType(FtCurve);
   pSmtFeature->SetStyle(&m_styGridLine);
   pSmtFeature->SetGeometryDirectly(pMLineString);
   pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("length"),
@@ -337,7 +337,7 @@ void SmtChart::DrawAixs(void) {
   OGRPoint *pSmtPoint = NULL;
   OGRMultiLineString *pMLineString = NULL;
   OGRLineString *pLineString = NULL;
-  SmtFeature *pSmtFeature = NULL;
+  FeatureAdapter *pSmtFeature = NULL;
 
   // xaxis
   string strText;
@@ -350,9 +350,9 @@ void SmtChart::DrawAixs(void) {
   point.y = m_rtChart.lb.y - fCharHeight * 3 / 4.;
 
   pSmtPoint = new OGRPoint(point.x, point.y);
-  pSmtFeature = new SmtFeature;
+  pSmtFeature = new FeatureAdapter;
   pSmtFeature->SetStyle(&m_styAxis);
-  pSmtFeature->SetFeatureType(SmtFtAnno);
+  pSmtFeature->SetFeatureType(FtAnno);
   pSmtFeature->SetGeometryDirectly(pSmtPoint);
   pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("anno"),
                              strText.c_str());
@@ -371,9 +371,9 @@ void SmtChart::DrawAixs(void) {
       m_cPanel.rtContent.lb.y + (m_cPanel.rtContent.height() + fStrWidth) / 2;
 
   pSmtPoint = new OGRPoint(point.x, point.y);
-  pSmtFeature = new SmtFeature;
+  pSmtFeature = new FeatureAdapter;
   pSmtFeature->SetStyle(&m_styAxis);
-  pSmtFeature->SetFeatureType(SmtFtAnno);
+  pSmtFeature->SetFeatureType(FtAnno);
   pSmtFeature->SetGeometryDirectly(pSmtPoint);
   pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("anno"),
                              strText.c_str());
@@ -387,8 +387,8 @@ void SmtChart::DrawAixs(void) {
   pLineString = new OGRLineString();
   pLineString->addPoint(m_cPanel.rtContent.lb.x, m_cPanel.rtContent.lb.y);
   pLineString->addPoint(m_cPanel.rtContent.rt.x, m_cPanel.rtContent.lb.y);
-  pSmtFeature = new SmtFeature;
-  pSmtFeature->SetFeatureType(SmtFtCurve);
+  pSmtFeature = new FeatureAdapter;
+  pSmtFeature->SetFeatureType(FtCurve);
   pSmtFeature->SetStyle(&m_styAxis);
   pSmtFeature->SetGeometryDirectly(pLineString);
   pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("length"),
@@ -399,8 +399,8 @@ void SmtChart::DrawAixs(void) {
   pLineString = new OGRLineString();
   pLineString->addPoint(m_cPanel.rtContent.lb.x, m_cPanel.rtContent.lb.y);
   pLineString->addPoint(m_cPanel.rtContent.lb.x, m_cPanel.rtContent.rt.y);
-  pSmtFeature = new SmtFeature;
-  pSmtFeature->SetFeatureType(SmtFtCurve);
+  pSmtFeature = new FeatureAdapter;
+  pSmtFeature->SetFeatureType(FtCurve);
   pSmtFeature->SetStyle(&m_styAxis);
   pSmtFeature->SetGeometryDirectly(pLineString);
   pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("length"),
@@ -435,8 +435,8 @@ void SmtChart::DrawAixs(void) {
     point.x += 1.;
   }
 
-  pSmtFeature = new SmtFeature;
-  pSmtFeature->SetFeatureType(SmtFtCurve);
+  pSmtFeature = new FeatureAdapter;
+  pSmtFeature->SetFeatureType(FtCurve);
   pSmtFeature->SetStyle(&m_styAxis);
   pSmtFeature->SetGeometryDirectly(pMLineString);
   pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("length"),
@@ -462,8 +462,8 @@ void SmtChart::DrawAixs(void) {
     point.y += 1.;
   }
 
-  pSmtFeature = new SmtFeature;
-  pSmtFeature->SetFeatureType(SmtFtCurve);
+  pSmtFeature = new FeatureAdapter;
+  pSmtFeature->SetFeatureType(FtCurve);
   pSmtFeature->SetStyle(&m_styAxis);
   pSmtFeature->SetGeometryDirectly(pMLineString);
   pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("length"),
@@ -484,9 +484,9 @@ void SmtChart::DrawAixs(void) {
     if (is_equal(int(point.x / 50.) * 50, point.x, dEPSILON)) {
       sprintf_s(szBuf, TEMP_BUFFER_SIZE, "%.1f", point.x);
       pSmtPoint = new OGRPoint(point.x + 1.5 * fCharWidth, point.y);
-      pSmtFeature = new SmtFeature;
+      pSmtFeature = new FeatureAdapter;
       pSmtFeature->SetGeometryDirectly(pSmtPoint);
-      pSmtFeature->SetFeatureType(SmtFtAnno);
+      pSmtFeature->SetFeatureType(FtAnno);
       pSmtFeature->SetStyle(&m_styRule);
       pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("anno"),
                                  szBuf);
@@ -511,9 +511,9 @@ void SmtChart::DrawAixs(void) {
 
       pSmtPoint = new OGRPoint(point.x - fCharWidth * strlen(szBuf),
                                point.y - 1.5 * fCharHeight);
-      pSmtFeature = new SmtFeature;
+      pSmtFeature = new FeatureAdapter;
       pSmtFeature->SetStyle(&m_styRule);
-      pSmtFeature->SetFeatureType(SmtFtAnno);
+      pSmtFeature->SetFeatureType(FtAnno);
       pSmtFeature->SetGeometryDirectly(pSmtPoint);
       pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("anno"),
                                  szBuf);
@@ -545,13 +545,13 @@ void SmtChart::DrawPanel(void) {
 
   OGRLayer *pAnnoLayer = GetSmtMap().GetOgrLayer(c_str_anno_lyr.c_str());
   OGRLayer *pLineLayer = GetSmtMap().GetOgrLayer(c_str_line_lyr.c_str());
-  SmtFeature *pSmtFeature = NULL;
+  FeatureAdapter *pSmtFeature = NULL;
 
   OGRPoint *pSmtPoint = new OGRPoint(point.x, point.y);
-  pSmtFeature = new SmtFeature;
+  pSmtFeature = new FeatureAdapter;
   pSmtFeature->SetGeometryDirectly(pSmtPoint);
   pSmtFeature->SetStyle(&m_styPanel);
-  pSmtFeature->SetFeatureType(SmtFtAnno);
+  pSmtFeature->SetFeatureType(FtAnno);
   pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("anno"),
                              strTitle.c_str());
   pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("color"),
@@ -566,8 +566,8 @@ void SmtChart::DrawPanel(void) {
   pLinearRing->addPoint(m_cPanel.rtContent.rt.x, m_cPanel.rtContent.rt.y);
   pLinearRing->addPoint(m_cPanel.rtContent.lb.x, m_cPanel.rtContent.rt.y);
   pLinearRing->closeRings();
-  pSmtFeature = new SmtFeature;
-  pSmtFeature->SetFeatureType(SmtFtCurve);
+  pSmtFeature = new FeatureAdapter;
+  pSmtFeature->SetFeatureType(FtCurve);
   pSmtFeature->SetStyle(&m_styPanel);
   pSmtFeature->SetGeometryDirectly(pLinearRing);
   pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("length"),
@@ -581,15 +581,15 @@ void SmtChart::DrawData(void) {
 
   OGRLayer *pDotLayer = GetSmtMap().GetOgrLayer(c_str_pnt_lyr.c_str());
   OGRLayer *pLineLayer = GetSmtMap().GetOgrLayer(c_str_line_lyr.c_str());
-  SmtFeature *pSmtFeature = NULL;
+  FeatureAdapter *pSmtFeature = NULL;
 
   OGRMultiPoint *pMPoint = new OGRMultiPoint;
   for (int i = 0; i < vPts.size(); i++) {
     pMPoint->addGeometry(new OGRPoint(vPts[i].x, vPts[i].y));
   }
 
-  pSmtFeature = new SmtFeature;
-  pSmtFeature->SetFeatureType(SmtFtDot);
+  pSmtFeature = new FeatureAdapter;
+  pSmtFeature->SetFeatureType(FtDot);
   pSmtFeature->SetStyle(&m_styDataPoint);
   pSmtFeature->SetGeometryDirectly(pMPoint);
   pSmtFeature->SetID(pDotLayer->GetFeatureCount() + 1);
@@ -601,8 +601,8 @@ void SmtChart::DrawData(void) {
     pLineString->setPoint(i, vPts[i].x, vPts[i].y);
   }
 
-  pSmtFeature = new SmtFeature;
-  pSmtFeature->SetFeatureType(SmtFtCurve);
+  pSmtFeature = new FeatureAdapter;
+  pSmtFeature->SetFeatureType(FtCurve);
   pSmtFeature->SetStyle(&m_styDataLine);
   pSmtFeature->SetGeometryDirectly(pLineString);
   pSmtFeature->SetFieldValue(pSmtFeature->GetFieldIndexByName("length"),

@@ -14,8 +14,8 @@ namespace {
 
 // Matches paint_self text inset (4px each side) at 96 DPI.
 constexpr int kPadX = 8;
-constexpr int kPadY = 10;
-constexpr int kMinHeight = 28;
+constexpr int kPadY = 6;
+constexpr int kMinHeight = 22;
 
 float scale_for(const View* view) {
   if (view && view->widget()) {
@@ -97,7 +97,12 @@ void Label::paint_self(ui::gfx::Canvas* canvas) {
     text_y = b.y + (b.height - ink_h) / 2;
   }
   if (!wide_.empty()) {
+    // Clip to label bounds so dock panels never paint mid-glyph into siblings
+    // (FeatureInfo / status idle copy under narrow inspector widths).
+    canvas->save();
+    canvas->clip_rect(b.x, b.y, b.width, b.height);
     canvas->draw_text(b.x + pad_x, text_y, wide_.c_str(), c);
+    canvas->restore();
   }
 }
 

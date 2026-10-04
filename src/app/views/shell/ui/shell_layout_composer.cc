@@ -5,6 +5,7 @@
 
 #include "app/views/shell/ui/browser_view.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -21,7 +22,9 @@
 #include "ui/views/kernel/frame/frame_view.h"
 #include "ui/views/kernel/layout/layout.h"
 #include "ui/views/kernel/layout/splitter.h"
+#include "ui/views/kernel/shell/dpi.h"
 #include "ui/views/kernel/view/view.h"
+#include "ui/views/kernel/widget/widget.h"
 #include "ui/views/map/map_viewport.h"
 #include "ui/views/markup/loader/markup_loader.h"
 #include "ui/views/primitives/collection/tab_strip.h"
@@ -98,17 +101,22 @@ bool ShellLayoutComposer::build_from_markup() {
   }
 
   host_->menu_bar_ = menu_bar;
+  // rebuild_menus → MenuBar::refresh_preferred_size (non-zero width). Do not
+  // pin {0, 32}: Yoga measure with width 0 collapses File/Edit/View/Layer
+  // (CSS width:100% is rejected by the px parser).
   host_->rebuild_menus();
 
   auto catalog = std::make_unique<ui::views::CatalogView>();
-  catalog->set_preferred_size({288, 0});
+  catalog->set_preferred_size({300, 0});
   catalog->set_title("Catalog");
   host_->catalog_ = catalog.get();
+  // Top headers (QGIS/ArcGIS Pro): bottom-aligned catalog+map+inspector strips
+  // merged into one overcrowded band with dual active underlines.
   if (host_->catalog_->source_tabs()) {
     host_->catalog_->source_tabs()->set_header_placement(
-        ui::views::TabStrip::HeaderPlacement::kBottom);
+        ui::views::TabStrip::HeaderPlacement::kTop);
   }
-  catalog_host->set_preferred_size({288, 0});
+  catalog_host->set_preferred_size({300, 0});
   mount_fill(catalog_host, std::move(catalog));
   host_->wire_catalog();
 
@@ -125,7 +133,7 @@ bool ShellLayoutComposer::build_from_markup() {
   map_tabs->add_tab("Map", std::move(map_edit));
   map_tabs->add_tab("Data", std::move(map_data));
   map_tabs->add_tab("3D", std::move(map_scene));
-  map_tabs->set_header_placement(ui::views::TabStrip::HeaderPlacement::kBottom);
+  map_tabs->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   map_tabs->set_preferred_size({0, 0});
   map_tabs->set_change([this](int i) { host_->switch_map_tab(i); });
   host_->map_tabs_ = map_tabs.get();
@@ -137,7 +145,8 @@ bool ShellLayoutComposer::build_from_markup() {
 
   auto tool_bar = std::make_unique<ui::views::AmboxView>();
   tool_bar->set_orientation(ui::views::AmboxView::Orientation::kHorizontal);
-  tool_bar->set_preferred_size({0, 40});
+  // 48 DIP: glyph+label row must clear clip at 125–200% DPI (was 40).
+  tool_bar->set_preferred_size({0, 48});
   host_->ambox_ = tool_bar.get();
   host_->ambox_->set_command_handler([this](const std::string& id) {
     if (host_->browser_->plugins() && host_->browser_->plugins()->execute(id)) {
@@ -145,7 +154,7 @@ bool ShellLayoutComposer::build_from_markup() {
     }
     host_->browser_->run_tool_command(id);
   });
-  tool_bar_host->set_preferred_size({0, 40});
+  tool_bar_host->set_preferred_size({0, 48});
   mount_fill(tool_bar_host, std::move(tool_bar));
   host_->populate_ambox();
 
@@ -155,9 +164,11 @@ bool ShellLayoutComposer::build_from_markup() {
   host_->attribute_table_ = attribute_table.get();
 
   auto side = std::make_unique<ui::views::TabStrip>();
-  side->set_preferred_size({320, 0});
+  // 400 DIP: Feature idle copy + Field/Value headers stay unclipped.
+  constexpr int kInspectorWDip = 400;
+  side->set_preferred_size({kInspectorWDip, 0});
   auto ambox_page = std::make_unique<ui::views::AmboxView>();
-  ambox_page->set_preferred_size({320, 0});
+  ambox_page->set_preferred_size({kInspectorWDip, 0});
   ambox_page->set_command_handler([this](const std::string& id) {
     if (host_->browser_->plugins() && host_->browser_->plugins()->execute(id)) {
       return;
@@ -165,29 +176,32 @@ bool ShellLayoutComposer::build_from_markup() {
     host_->browser_->run_tool_command(id);
   });
   host_->side_ambox_ = ambox_page.get();
-  side->set_header_placement(ui::views::TabStrip::HeaderPlacement::kBottom);
+  side->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   side->add_tab("Tools", std::move(ambox_page));
   host_->feature_info_tab_ = side->add_tab("Feature", std::move(feature_info));
   side->add_tab("Attrs", std::move(attribute_table));
   host_->measure_tab_ = side->add_tab("Measure", make_inspector_placeholder());
-  host_->selection_tab_ = side->add_tab("Sel", make_inspector_placeholder());
+  host_->selection_tab_ =
+      side->add_tab("Selection", make_inspector_placeholder());
   host_->layer_props_tab_ = side->add_tab("Layer", make_inspector_placeholder());
   host_->legend_tab_ = side->add_tab("Legend", make_inspector_placeholder());
   host_->spatial_analysis_tab_ =
-      side->add_tab("Analy", make_inspector_placeholder());
-  host_->processing_tab_ = side->add_tab("Proc", make_inspector_placeholder());
+      side->add_tab("Analysis", make_inspector_placeholder());
+  host_->processing_tab_ =
+      side->add_tab("Processing", make_inspector_placeholder());
   host_->playback_tab_ = side->add_tab("Play", make_inspector_placeholder());
-  host_->report_tab_ = side->add_tab("Rpt", make_inspector_placeholder());
-  host_->atmosphere_tab_ = side->add_tab("Atmo", make_inspector_placeholder());
+  host_->report_tab_ = side->add_tab("Report", make_inspector_placeholder());
+  host_->atmosphere_tab_ =
+      side->add_tab("Atmosphere", make_inspector_placeholder());
   side->set_change([this](int i) { host_->ensure_inspector_tab(i); });
   side->set_active(host_->feature_info_tab_);
   host_->inspector_tabs_ = side.get();
-  inspector_host->set_preferred_size({320, 0});
+  inspector_host->set_preferred_size({kInspectorWDip, 0});
   mount_fill(inspector_host, std::move(side));
 
   work->set_preferred_size({0, 0});
   main_split->set_preferred_size({0, 0});
-  // Flex map column absorbs growth; inspector stays preferred 320.
+  // Flex map column absorbs growth; inspector stays preferred dock width.
   // tool_bar CSS uses min-height (not fixed height) so Yoga measures from
   // preferred_size — which scales with DPI — instead of locking 40 physical px
   // that let Catalog paint through an undersized strip.
@@ -197,19 +211,19 @@ bool ShellLayoutComposer::build_from_markup() {
 
   auto diagnostic_tools = ui::views::make_diagnostic_tools_panel();
   host_->diagnostic_tools_ = diagnostic_tools.get();
-  // Product shell shows a readable Console strip; unit tests keep preferred
-  // {0,0} when they call set_visible_tools(false) themselves.
+  // Product shell shows Diagnostic Tools; default Trace so gantt/content is
+  // visible (Console starts empty until commands are typed).
   host_->diagnostic_tools_->set_visible_tools(true);
-  host_->diagnostic_tools_->set_active_tab(1);  // Console
-  // Match DiagnosticToolsPanel preferred (280 DIP) so main_split secondary
-  // is tall enough for title + toolbar + Console tabs (not a crushed strip).
-  // Prefer the panel's own preferred_size after set_visible_tools so host and
-  // child stay aligned before DPI scale propagation.
+  host_->diagnostic_tools_->set_active_tab(2);  // Trace
+  // Prefer panel DIP→px metrics; do not pin a smaller host that clips the
+  // Output/Console/Trace/Memory body under the toolbar.
   {
-    const ui::views::Size diag_pref =
-        host_->diagnostic_tools_->preferred_size();
-    const int diag_h = diag_pref.height > 0 ? diag_pref.height : 280;
-    diagnostic_host->set_preferred_size({0, diag_h});
+    const int kDiagH =
+        host_->diagnostic_tools_->preferred_size().height > 0
+            ? host_->diagnostic_tools_->preferred_size().height
+            : 280;
+    host_->diagnostic_tools_->set_preferred_size({0, kDiagH});
+    diagnostic_host->set_preferred_size({0, kDiagH});
   }
   mount_fill(diagnostic_host, std::move(diagnostic_tools));
   host_->wire_debug_console();
@@ -233,11 +247,32 @@ bool ShellLayoutComposer::build_from_markup() {
   frame->set_can_maximize(true);
   frame->set_client(std::move(loaded.root));
   host_->widget_.set_contents_view(std::move(frame));
+  // After attach, preferred sizes are already DPI-scaled. Re-pin with
+  // dip_to_px — raw DIP constants here crushed the Feature dock under HiDPI
+  // (visual_review: "Click the map to ide…").
+  const float scale = host_->widget_.device_scale_factor();
+  const int inspector_w = ui::views::dip_to_px(kInspectorWDip, scale);
   // Reseed after preferred sizes settle so catalog is not locked at kMinPanePx
   // from a create-time zero/tiny host.
   catalog_map->reseed();
+  // Re-pin inspector dock width before work reseed so TabStrip layout measure
+  // cannot inflate the secondary pane past the product dock.
+  inspector_host->set_preferred_size({inspector_w, 0});
+  if (host_->inspector_tabs_) {
+    host_->inspector_tabs_->set_preferred_size({inspector_w, 0});
+  }
   work->reseed();
   main_split->reseed();
+  // Re-pin diagnostic dock after reseed — keep host+child aligned.
+  if (host_->diagnostic_tools_) {
+    const int kDiagH =
+        host_->diagnostic_tools_->preferred_size().height > 0
+            ? host_->diagnostic_tools_->preferred_size().height
+            : ui::views::dip_to_px(280, scale);
+    diagnostic_host->set_preferred_size({0, kDiagH});
+    host_->diagnostic_tools_->set_preferred_size({0, kDiagH});
+    main_split->reseed();
+  }
   return true;
 }
 
@@ -251,12 +286,12 @@ void ShellLayoutComposer::build_imperative() {
   host_->rebuild_menus();
 
   auto catalog = std::make_unique<ui::views::CatalogView>();
-  catalog->set_preferred_size({288, 0});
+  catalog->set_preferred_size({300, 0});
   catalog->set_title("Catalog");
   host_->catalog_ = catalog.get();
   if (host_->catalog_->source_tabs()) {
     host_->catalog_->source_tabs()->set_header_placement(
-        ui::views::TabStrip::HeaderPlacement::kBottom);
+        ui::views::TabStrip::HeaderPlacement::kTop);
   }
   host_->wire_catalog();
 
@@ -273,7 +308,7 @@ void ShellLayoutComposer::build_imperative() {
   map_tabs->add_tab("Map", std::move(map_edit));
   map_tabs->add_tab("Data", std::move(map_data));
   map_tabs->add_tab("3D", std::move(map_scene));
-  map_tabs->set_header_placement(ui::views::TabStrip::HeaderPlacement::kBottom);
+  map_tabs->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   map_tabs->set_preferred_size({0, 0});
   map_tabs->set_change([this](int i) { host_->switch_map_tab(i); });
   host_->map_tabs_ = map_tabs.get();
@@ -287,7 +322,7 @@ void ShellLayoutComposer::build_imperative() {
 
   auto tool_bar = std::make_unique<ui::views::AmboxView>();
   tool_bar->set_orientation(ui::views::AmboxView::Orientation::kHorizontal);
-  tool_bar->set_preferred_size({0, 40});
+  tool_bar->set_preferred_size({0, 48});
   host_->ambox_ = tool_bar.get();
   host_->ambox_->set_command_handler([this](const std::string& id) {
     if (host_->browser_->plugins() && host_->browser_->plugins()->execute(id)) {
@@ -311,10 +346,11 @@ void ShellLayoutComposer::build_imperative() {
   auto attribute_table = std::make_unique<ui::views::AttributeTable>();
   host_->attribute_table_ = attribute_table.get();
 
+  constexpr int kInspectorWDip = 400;
   auto side = std::make_unique<ui::views::TabStrip>();
-  side->set_preferred_size({320, 0});
+  side->set_preferred_size({kInspectorWDip, 0});
   auto ambox_page = std::make_unique<ui::views::AmboxView>();
-  ambox_page->set_preferred_size({320, 0});
+  ambox_page->set_preferred_size({kInspectorWDip, 0});
   ambox_page->set_command_handler([this](const std::string& id) {
     if (host_->browser_->plugins() && host_->browser_->plugins()->execute(id)) {
       return;
@@ -322,20 +358,23 @@ void ShellLayoutComposer::build_imperative() {
     host_->browser_->run_tool_command(id);
   });
   host_->side_ambox_ = ambox_page.get();
-  side->set_header_placement(ui::views::TabStrip::HeaderPlacement::kBottom);
+  side->set_header_placement(ui::views::TabStrip::HeaderPlacement::kTop);
   side->add_tab("Tools", std::move(ambox_page));
   host_->feature_info_tab_ = side->add_tab("Feature", std::move(feature_info));
   side->add_tab("Attrs", std::move(attribute_table));
   host_->measure_tab_ = side->add_tab("Measure", make_inspector_placeholder());
-  host_->selection_tab_ = side->add_tab("Sel", make_inspector_placeholder());
+  host_->selection_tab_ =
+      side->add_tab("Selection", make_inspector_placeholder());
   host_->layer_props_tab_ = side->add_tab("Layer", make_inspector_placeholder());
   host_->legend_tab_ = side->add_tab("Legend", make_inspector_placeholder());
   host_->spatial_analysis_tab_ =
-      side->add_tab("Analy", make_inspector_placeholder());
-  host_->processing_tab_ = side->add_tab("Proc", make_inspector_placeholder());
+      side->add_tab("Analysis", make_inspector_placeholder());
+  host_->processing_tab_ =
+      side->add_tab("Processing", make_inspector_placeholder());
   host_->playback_tab_ = side->add_tab("Play", make_inspector_placeholder());
-  host_->report_tab_ = side->add_tab("Rpt", make_inspector_placeholder());
-  host_->atmosphere_tab_ = side->add_tab("Atmo", make_inspector_placeholder());
+  host_->report_tab_ = side->add_tab("Report", make_inspector_placeholder());
+  host_->atmosphere_tab_ =
+      side->add_tab("Atmosphere", make_inspector_placeholder());
   side->set_change([this](int i) { host_->ensure_inspector_tab(i); });
   side->set_active(host_->feature_info_tab_);
   host_->inspector_tabs_ = side.get();
@@ -349,7 +388,7 @@ void ShellLayoutComposer::build_imperative() {
   auto diagnostic_tools = ui::views::make_diagnostic_tools_panel();
   host_->diagnostic_tools_ = diagnostic_tools.get();
   host_->diagnostic_tools_->set_visible_tools(true);
-  host_->diagnostic_tools_->set_active_tab(1);
+  host_->diagnostic_tools_->set_active_tab(2);  // Trace
   host_->wire_debug_console();
 
   auto main_split = std::make_unique<ui::views::Splitter>(

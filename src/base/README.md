@@ -45,7 +45,7 @@ Export macros: GN defines `BASE_EXPORTS` when building the base DLL.
 ## Design
 
 - Spec: [`docs/superpowers/specs/2026-09-14-base-root-hybrid-design.md`](../../docs/superpowers/specs/2026-09-14-base-root-hybrid-design.md)
-- Layout: [`docs/build/src-layout.md`](../../docs/build/src-layout.md)
+- Layout: [`docs/superpowers/src-layout.md`](../../docs/superpowers/src-layout.md)
 
 ---
 

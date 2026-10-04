@@ -25,6 +25,8 @@ namespace app {
 namespace detail {
 
 // Scene3D path: mine TIN + borehole sticks with real Z, HWND BMP capture.
+// Order matches orthogrid3d: orbit clear → commit overlay → warmup keep tin →
+// recommit + reframe so DEM rebuild cannot leave a DEM-only capture.
 int run_mine_scene3d(Browser& browser) {
   std::fprintf(stderr, "plugin-showcase: mine Scene3D path\n");
   write_mark(kPluginShowcaseMarkLeaf, "mine", /*truncate=*/true);
@@ -36,11 +38,6 @@ int run_mine_scene3d(Browser& browser) {
     return 1;
   }
   plugin_showcase_mark("sample-ok");
-
-  if (!seed_mine_processing(browser, csv_path)) {
-    detach_maps(browser);
-    return 1;
-  }
 
   // Owned present HWND is the Scene3D capture target (peer world3d). Skip
   // select_map_tab(2): switch_map_tab stereo release AVs when leftover GL
@@ -69,11 +66,37 @@ int run_mine_scene3d(Browser& browser) {
     return 50;
   }
 
+  // Orbit clears stale DEM first; stratum commit must follow.
   seed_mine_orbit(browser, cam, orbit);
 
+  if (!seed_mine_processing(browser, csv_path)) {
+    teardown_plugin_device_session(cam, &session,
+                                   PluginTeardownOpts{.shutdown_device = true});
+    detach_maps(browser);
+    return 1;
+  }
+
+  cam->gpu().set_wireframe_enabled(true);
+
+  PluginPresentFailPolicy warm_fail;
+  warm_fail.clear_tin = false;  // keep purple stratum through warmup + capture
+  warm_fail.clear_pointcloud = false;  // keep amber borehole sticks
+  warm_fail.abandon_mesh = false;
+  warm_fail.shutdown_device = true;
   if (const int rc = present_plugin_warmup_frames(
-          cam, &session, browser, "mine", PluginPresentFailPolicy{})) {
+          cam, &session, browser, "mine", warm_fail)) {
     return rc;
+  }
+
+  // Re-commit overlay after DEM rebuild so GDI capture sees purple + amber.
+  if (!seed_mine_processing(browser, csv_path)) {
+    plugin_showcase_mark("mine-recommit-fail");
+  }
+  frame_mine_orbit(orbit);
+  for (int i = 0; i < 2; ++i) {
+    (void)cam->present_gpu(session.device, kPluginShowcasePresentW,
+                           kPluginShowcasePresentH);
+    pump_messages(30);
   }
 
   PluginCaptureOpts capture;

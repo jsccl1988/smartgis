@@ -6,7 +6,7 @@
 
 #include "app/views/shell/browser/browser.h"
 
-#include "gis/vista/domain/atmosphere/field/field_channel.h"
+#include "vista/domain/atmosphere/field_channel.h"
 #include "ui/gis/shell/atmosphere_panel.h"
 
 namespace app {

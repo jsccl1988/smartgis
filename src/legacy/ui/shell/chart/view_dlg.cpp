@@ -4,7 +4,7 @@
 #include "stdafx.h"
 #include "legacy/ui/shell/chart/view_dlg.h"
 
-#include "gis/model/feature/feature_api.h"
+#include "legacy/gis/feature/leftover_copy_layer.h"
 #include "legacy/gis/datasource/datasource_mgr.h"
 #include "legacy/ui/shell/chart/resource.h"
 #include "legacy/ui/catalog/map/mapmgr.h"

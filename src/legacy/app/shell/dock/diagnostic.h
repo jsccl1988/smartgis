@@ -1,12 +1,12 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
 
-#ifndef LEGACY_APP_SHELL_DOCK_DIAGNOSTIC_H_
-#define LEGACY_APP_SHELL_DOCK_DIAGNOSTIC_H_
+#ifndef LEGACY_APP_SHELL_DIAGNOSTIC_H_
+#define LEGACY_APP_SHELL_DIAGNOSTIC_H_
 
 #pragma once
 
-#include "legacy/app/shell/dock/console.h"
+#include "legacy/app/shell/dock/debug_console.h"
 #include "legacy/app/shell/dock/render_trace.h"
 
 // Bottom Diagnostic Tools strip (Views DiagnosticToolsPanel parity):
@@ -39,4 +39,4 @@ class DiagnosticToolsDockBar : public CBCGPDockingControlBar {
   int active_page_ = 0;
 };
 
-#endif  // LEGACY_APP_SHELL_DOCK_DIAGNOSTIC_H_
+#endif  // LEGACY_APP_SHELL_DIAGNOSTIC_H_

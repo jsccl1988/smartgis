@@ -6,6 +6,8 @@
 #include "gis/analysis/raster/filter/raster_convolve.h"
 #include "gis/analysis/raster/filter/raster_smooth.h"
 
+#include "ogr_geometry.h"
+
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -37,6 +39,19 @@ void test_fit_line() {
       std::fabs(fit.dx * (1.0 / std::sqrt(5.0)) + fit.dy * (2.0 / std::sqrt(5.0)));
   expect(dir_dot > 0.99, "fit_line direction ~ (1,2)");
   expect(fit.rms < 1e-9, "fit_line rms near zero");
+}
+
+void test_fit_line_ogr() {
+  OGRLineString line;
+  line.addPoint(0.0, 1.0);
+  line.addPoint(1.0, 3.0);
+  line.addPoint(2.0, 5.0);
+  line.addPoint(3.0, 7.0);
+  line.addPoint(4.0, 9.0);
+  static_assert(geo::ogr_geometry_like<OGRLineString>);
+  const auto fit = gis::detail::fit_line_2d(line);
+  expect(fit.ok, "fit_line ogr ok");
+  expect(fit.rms < 1e-9, "fit_line ogr rms");
 }
 
 void test_fit_plane() {
@@ -120,6 +135,7 @@ void test_smooth_laplace_interior() {
 
 int main() {
   test_fit_line();
+  test_fit_line_ogr();
   test_fit_plane();
   test_affine_align();
   test_dem_gradient_ramp();

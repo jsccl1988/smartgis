@@ -12,9 +12,9 @@ namespace render {
 
 // Pure cartographic helpers for leftover GDI paint (MapLibre-style must-row
 // subset). Numeric thresholds for label priority / LOD / budget / halo and
-// line-label pose are kept in step with gis::vista::detail (collision.*).
+// line-label pose are kept in step with vista::detail (collision.*).
 // Road casing-before-fill and fill→line→symbol order are enforced at the
-// GDI paint site; Views uses StyleDocument layer order + gis::vista::Layout.
+// GDI paint site; Views uses StyleDocument layer order + vista::Layout.
 
 // Screen-space label box used by 2D GDI declutter.
 struct MapCartoBox {

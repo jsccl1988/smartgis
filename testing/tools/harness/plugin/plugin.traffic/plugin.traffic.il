@@ -4,6 +4,7 @@
 
 script "plugin.traffic" {
   seq @inproc {
+    require_plugins();
     resolve_data(kind="plugin", leaf="traffic_network_sample.geojson", as="net");
     require_var(name="net", fail_mark="traffic-sample-fail");
     sidecar_path(rel="..\\data\\plugin\\traffic_path.geojson", as="out");
@@ -11,7 +12,7 @@ script "plugin.traffic" {
     doc_clear();
     run_processing(
       id="traffic.cost_path",
-      args="{\"network\":\"$net\",\"output\":\"$out\",\"start_x\":116.35,\"start_y\":39.890,\"end_x\":116.45,\"end_y\":39.926,\"weight_field\":\"cost\",\"frames\":12}"
+      args="{\"network\":\"$net\",\"output\":\"$out\",\"start_x\":116.335,\"start_y\":39.870,\"end_x\":116.452,\"end_y\":39.9285,\"weight_field\":\"cost\",\"frames\":12}"
     );
     mark("traffic-ok");
     fit_extent();

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "gis/gis_export.h"
+#include "gis/geo/ops/geometry_traits.h"
 
 namespace gis {
 namespace detail {
@@ -49,6 +50,20 @@ GIS_EXPORT FitLineResult fit_line_2d(const std::vector<double>& xy);
 
 // Interleaved xyz (size 3n). Needs n >= 3.
 GIS_EXPORT FitPlaneResult fit_plane_3d(const std::vector<double>& xyz);
+
+// OGR entry: constrained so mesh types do not instantiate.
+GIS_EXPORT FitLineResult fit_line_2d_from_ogr(const OGRGeometry& geom);
+GIS_EXPORT FitPlaneResult fit_plane_3d_from_ogr(const OGRGeometry& geom);
+
+template <geo::ogr_geometry_like G>
+FitLineResult fit_line_2d(const G& geom) {
+  return fit_line_2d_from_ogr(geom);
+}
+
+template <geo::ogr_geometry_like G>
+FitPlaneResult fit_plane_3d(const G& geom) {
+  return fit_plane_3d_from_ogr(geom);
+}
 
 // Paired interleaved xy of equal length. Needs n >= 3.
 GIS_EXPORT AffineAlignResult affine_align_2d(const std::vector<double>& src_xy,

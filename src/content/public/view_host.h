@@ -24,7 +24,7 @@ namespace content {
 class EventBus;
 
 // Per-map-view shell composition: Workspace + EventBus + EditSession.
-// Public surface has no HWND, SmtMap*, or LPRENDERDEVICE.
+// Public surface has no HWND, Map*, or LPRENDERDEVICE.
 class CONTENT_EXPORT ViewHost {
  public:
   ViewHost();

@@ -8,8 +8,8 @@ All rights reserved.
 **Status:** landed  
 **Date:** 2026-09-27  
 **Archived:** 2026-09-27 → [`docs/superpowers/archive/plans/`](./)  
-**Spec (living, accepted):** [`../../specs/2026-09-27-atmosphere-subdirectory-layout-design.md`](../../specs/2026-09-27-atmosphere-subdirectory-layout-design.md)  
-**Capability (do not reopen API freeze casually):** [`../../specs/2026-09-19-atmosphere-ocean-cloud-design.md`](../../specs/2026-09-19-atmosphere-ocean-cloud-design.md) · upgrade [`../../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md`](../../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md)  
+**Spec (living, accepted):** [`../../specs/2026-09-27-atmosphere-subdirectory-layout-design.md`](../specs/2026-09-27-atmosphere-subdirectory-layout-design.md)  
+**Capability (do not reopen API freeze casually):** [`../../specs/2026-09-19-atmosphere-ocean-cloud-design.md`](../specs/2026-09-19-atmosphere-ocean-cloud-design.md) · upgrade [`../../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md`](../../plans/2026-09-20-atmosphere-ocean-cloud-upgrade.md)  
 **Precedent (landed):** RHI split [`2026-09-27-rhi-subdirectory-split.md`](2026-09-27-rhi-subdirectory-split.md)  
 **As-built pointer:** [`../../../../src/render/README.md`](../../../../src/render/README.md)
 
@@ -114,7 +114,7 @@ src/render/atmosphere/
 | **交付物** | living spec + 本 plan；交叉链到 2026-09-19 |
 | **不做** | 改源码 |
 
-- [x] Phase 0.1：写入 [`../../specs/2026-09-27-atmosphere-subdirectory-layout-design.md`](../../specs/2026-09-27-atmosphere-subdirectory-layout-design.md)  
+- [x] Phase 0.1：写入 [`../../specs/2026-09-27-atmosphere-subdirectory-layout-design.md`](../specs/2026-09-27-atmosphere-subdirectory-layout-design.md)  
 - [x] Phase 0.2：写入本 plan  
 - [x] Phase 0.3：在 2026-09-19 spec 增加 Related / 目录表指针（见 Task 0）
 

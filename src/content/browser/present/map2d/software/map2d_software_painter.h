@@ -5,7 +5,6 @@
 #define CONTENT_BROWSER_PRESENT_MAP2D_SOFTWARE_MAP2D_SOFTWARE_PAINTER_H_
 
 #include <cstddef>
-#include <functional>
 #include <string>
 
 #ifndef NOMINMAX
@@ -21,8 +20,8 @@ class Map2dFrameCache;
 class MapScene;
 class ViewFrame;
 
-// GDI software paint path for 2D maps. Full map paint rasters shared MapFrame;
-// overlays / basemap / projected labels stay Scene-driven.
+// GDI software paint path for 2D maps. The map body is MapFrame + View
+// through paint_map_frame_gdi. Labels are MapFrame kText glyphs.
 class Map2dSoftwarePainter {
  public:
   Map2dSoftwarePainter() = default;
@@ -38,10 +37,6 @@ class Map2dSoftwarePainter {
   void paint(HDC hdc, int width_px, int height_px, bool fill_background) const;
   void paint_annotation_overlay(HDC hdc, int width_px, int height_px) const;
   void paint_flash_overlay(HDC hdc, int width_px, int height_px) const;
-  void paint_labels_projected(
-      HDC hdc, int width_px, int height_px,
-      const std::function<void(double lon, double lat, int* sx, int* sy)>&
-          project) const;
 
   bool export_bmp(const std::string& path, int width_px, int height_px) const;
   size_t basemap_tiles_drawn() const { return basemap_tiles_drawn_; }

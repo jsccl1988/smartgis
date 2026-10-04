@@ -16,7 +16,7 @@ using namespace gis;
 using namespace sys;
 
 const string CST_STR_MAPPRINT_AM_NAME = "Print";
-SmtMapPrintPlugin *g_pAMMapPrint = NULL;
+MapPrintPlugin *g_pAMMapPrint = NULL;
 
 #define AM_MSG_CMD_MAPPRINT_BEGIN (SMT_MSG_USER_BEGIN + 200)
 #define CMD_DLG_2DXVIEW (AM_MSG_CMD_MAPPRINT_BEGIN + 1)
@@ -33,7 +33,7 @@ int __declspec(dllexport) GetPluginVersion(void) {
 
 void __declspec(dllexport) StartPlugin(void) {
   AFX_MANAGE_STATE(AfxGetStaticModuleState());
-  g_pAMMapPrint = new SmtMapPrintPlugin();
+  g_pAMMapPrint = new MapPrintPlugin();
   if (g_pAMMapPrint) {
     g_pAMMapPrint->Init();
   }
@@ -49,13 +49,13 @@ void __declspec(dllexport) StopPlugin(void) {
 }
 }
 
-SmtMapPrintPlugin::SmtMapPrintPlugin(void) {
+MapPrintPlugin::MapPrintPlugin(void) {
   set_name(CST_STR_MAPPRINT_AM_NAME.c_str());
 }
 
-SmtMapPrintPlugin::~SmtMapPrintPlugin(void) {}
+MapPrintPlugin::~MapPrintPlugin(void) {}
 
-int SmtMapPrintPlugin::Init(void) {
+int MapPrintPlugin::Init(void) {
   SmtAuxModule::Init();
 
   append_func_items("打印", CMD_DLG_2DXVIEW, FIM_2DMFMENU | FIM_AUXMODULEBOX);
@@ -65,9 +65,9 @@ int SmtMapPrintPlugin::Init(void) {
   return SMT_ERR_NONE;
 }
 
-int SmtMapPrintPlugin::Destroy(void) { return SmtAuxModule::Destroy(); }
+int MapPrintPlugin::Destroy(void) { return SmtAuxModule::Destroy(); }
 
-int SmtMapPrintPlugin::notify(long lMsg, SmtListenerMsg &param) {
+int MapPrintPlugin::notify(long lMsg, SmtListenerMsg &param) {
   (void)param;
   const char *id = plugin::command_id_from_am_msg(lMsg);
   long cmd = lMsg;

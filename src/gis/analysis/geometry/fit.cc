@@ -259,6 +259,18 @@ FitPlaneResult fit_plane_3d(const std::vector<double>& xyz) {
   return out;
 }
 
+FitLineResult fit_line_2d_from_ogr(const OGRGeometry& geom) {
+  std::vector<double> xy;
+  collect_points_2d(const_cast<OGRGeometry*>(&geom), &xy);
+  return fit_line_2d(xy);
+}
+
+FitPlaneResult fit_plane_3d_from_ogr(const OGRGeometry& geom) {
+  std::vector<double> xyz;
+  collect_points_3d(const_cast<OGRGeometry*>(&geom), &xyz);
+  return fit_plane_3d(xyz);
+}
+
 AffineAlignResult affine_align_2d(const std::vector<double>& src_xy,
                                   const std::vector<double>& dst_xy) {
   AffineAlignResult out;

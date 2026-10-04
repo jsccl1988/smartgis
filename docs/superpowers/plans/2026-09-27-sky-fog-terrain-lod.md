@@ -16,9 +16,9 @@ All rights reserved.
 **Tech Stack:** C++23, FlyCube/Null RHI Facade, existing `DemRaster::build_mesh(max_edge)`, `AtmosphereFrame` pre/post opaque hooks.
 
 **Related specs:**  
-[`2026-09-27-atmosphere-subdirectory-layout-design.md`](../specs/2026-09-27-atmosphere-subdirectory-layout-design.md) (layout, landed) ·  
+[`2026-09-27-atmosphere-subdirectory-layout-design.md`](../archive/specs/2026-09-27-atmosphere-subdirectory-layout-design.md) (layout, landed) ·  
 [`2026-09-19-atmosphere-ocean-cloud-design.md`](../specs/2026-09-13-render-rhi-scene-design.md) (capability) ·  
-[`2026-09-19-scene3d-world-gpuscene-design.md`](../specs/2026-09-19-scene3d-world-gpuscene-design.md) (DEM → World)
+[`2026-09-19-scene3d-world-gpuscene-design.md`](../archive/specs/2026-09-19-scene3d-world-gpuscene-design.md) (DEM → World)
 
 ## Global Constraints
 

@@ -8,7 +8,7 @@
 #include <functional>
 
 #include "content/public/map_types.h"
-#include "gis/model/edit/session/edit_session.h"
+#include "gis/edit/session.h"
 #include "tool/draft/draft.h"
 
 namespace content {

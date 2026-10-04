@@ -6,7 +6,7 @@
 #include <chrono>
 
 #include "base/trace/event/process_trace.h"
-#include "gis/model/map/map.h"
+#include "gis/map/map.h"
 #include "ogrsf_frmts.h"
 
 namespace render {
@@ -45,7 +45,7 @@ std::string trace_name(OGRLayer* layer) {
   return (n && n[0]) ? std::string(n) : std::string("ogr");
 }
 
-std::string trace_name(const gis::SmtLayer* layer) {
+std::string trace_name(const gis::Layer* layer) {
   if (!layer) {
     return "layer";
   }

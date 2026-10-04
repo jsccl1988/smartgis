@@ -24,7 +24,7 @@ SmtViewCtrlTool::SmtViewCtrlTool()
 
 SmtViewCtrlTool::~SmtViewCtrlTool() { UnRegisterMsg(); }
 
-int SmtViewCtrlTool::Init(LPRENDERDEVICE pMrdRenderDevice, SmtMap* pOperSmtMap,
+int SmtViewCtrlTool::Init(LPRENDERDEVICE pMrdRenderDevice, Map* pOperSmtMap,
                           HWND hWnd, pfnToolCallBack pfnCallBack,
                           void* pToFollow) {
   if (SMT_ERR_NONE != SmtBaseTool::Init(pMrdRenderDevice, pOperSmtMap, hWnd,

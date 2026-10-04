@@ -16,7 +16,12 @@ source_set("feature_sources") {
     "NOMINMAX",
   ]
   sources = [
+    "leftover_copy_layer.cc",
+    "leftover_copy_layer.h",
+    "leftover_feature.cc",
+    "leftover_feature.h",
     "mesh.h",
+    "model_aliases.h",
     "tess_map.cc",
     "tess_world.cc",
   ]
@@ -24,8 +29,8 @@ source_set("feature_sources") {
   deps = [
     "//src/base:base",
     "//src/base:core",
-    "//src/gis/kernel/geo:geo_sources",
-    "//src/gis/kernel/tin:tin_sources",
+    "//src/gis/geo:geo_sources",
+    "//src/gis/geo:tin_sources",
     "//third_party:gdal",
   ]
 }

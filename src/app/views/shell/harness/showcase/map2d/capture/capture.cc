@@ -108,7 +108,10 @@ int verify_map2d_showcase_bmp(const char* mode_name,
                               const Map2dCapturePaths& paths) {
   int bw = 0;
   int bh = 0;
-  if (!bmp_file_has_visible_signal_a(paths.bmp_a, &bw, &bh)) {
+  // export_bmp writes BI_RGB 32bpp (BGRA); default check rejects non-24bpp.
+  BmpFileCheckOpts check;
+  check.allow_32bpp = true;
+  if (!bmp_file_has_visible_signal_a(paths.bmp_a, &bw, &bh, check)) {
     std::fprintf(stderr, "map2d-showcase: BMP lacks visible signal (%dx%d)\n",
                  bw, bh);
     map2d_showcase_mark("bmp-black");

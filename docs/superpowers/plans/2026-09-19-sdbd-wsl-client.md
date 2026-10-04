@@ -44,16 +44,16 @@ All rights reserved.
 | --- | --- |
 | `src/gis/datasource/mgr/datasource_mgr.h/.cc` | 由 `datasourcemgr.*` 改名；类型 `DataSourceMgr` |
 | 调用点（legacy/plugin/tests） | include + 类型 + 成员 `snake_case` |
-| `src/gis/datasource/provider/impl/sdbd/client/sdbd_client.h/.cc` | mogu HTTP 客户端 |
-| `src/gis/datasource/provider/impl/sdbd/sdbd_mogu_types.h`（可选并入 client） | mogu JSON 结果 POD |
-| `src/gis/datasource/provider/impl/sdbd/remote/sdbd_remote_dataset.h/.cc` | 远程产品面 |
-| `src/gis/datasource/provider/impl/sdbd/remote/sdbd_live_test.cc` | 硬 live e2e |
-| `src/gis/datasource/provider/impl/sdbd/codec/sdbd_json.h/.cc` | 瘦 JSON codec |
-| `src/gis/datasource/provider/impl/sdbd/driver/sdbd_driver.h/.cc` 等 | `SDBD:` GDAL 装饰驱动 |
-| `src/gis/model/layer/layer.h` | `PROVIDER_SDBD` |
+| `src/gis/datasource/sdbd/sdbd_client.h/.cc` | mogu HTTP 客户端 |
+| `src/gis/datasource/sdbd/sdbd_mogu_types.h`（可选并入 client） | mogu JSON 结果 POD |
+| `src/gis/datasource/sdbd/sdbd_remote_dataset.h/.cc` | 远程产品面 |
+| `src/gis/datasource/sdbd/sdbd_live_test.cc` | 硬 live e2e |
+| `src/gis/datasource/sdbd/sdbd_json.h/.cc` | 瘦 JSON codec |
+| `src/gis/datasource/sdbd/sdbd_driver.h/.cc` 等 | `SDBD:` GDAL 装饰驱动 |
+| `src/gis/map/layer_kind.h` | `PROVIDER_SDBD` |
 | `ogr_connect.*` | `db_provider_traits<PROVIDER_SDBD>`；`sdbd_base_url(info)` |
 | `sde_gdal_test.cc` 或 `sdbd_live_test.cc` | 硬 live e2e |
-| `docs/build/src-layout.md`、`docs/README.md` | 短述 |
+| `docs/superpowers/src-layout.md`、`docs/README.md` | 短述 |
 
 ---
 
@@ -88,10 +88,10 @@ All rights reserved.
 ### Task B1: `SdbdClient` for mogu `/api/v1/sdbd/*`
 
 **Files:**
-- Create: `src/gis/datasource/provider/impl/sdbd/client/sdbd_client.h`
-- Create: `src/gis/datasource/provider/impl/sdbd/sdbd_client.cc`
-- Create: `src/gis/datasource/provider/impl/sdbd/sdbd_client_test.cc`（可假 HTTP：先测 URL 拼接 + JSON 解析；活体放 Task C）
-- Modify: `src/gis/datasource/provider/impl/gdal/BUILD.gn` — 把 client 加入 `sde_gdal_sources`，`deps += [ "//src/net:net" ]`；加 `test("sdbd_client_test")`
+- Create: `src/gis/datasource/sdbd/sdbd_client.h`
+- Create: `src/gis/datasource/sdbd/sdbd_client.cc`
+- Create: `src/gis/datasource/sdbd/sdbd_client_test.cc`（可假 HTTP：先测 URL 拼接 + JSON 解析；活体放 Task C）
+- Modify: `src/gis/datasource/gdal/BUILD.gn` — 把 client 加入 `sde_gdal_sources`，`deps += [ "//src/net:net" ]`；加 `test("sdbd_client_test")`
 
 **Interfaces:**
 - Consumes: `net::HttpClient::get/post`；现有 `parse_json` / `Json`（`sdbd_json`）
@@ -156,8 +156,8 @@ std::string sdbd_default_base_url();  // env SG_SDBD_BASE or http://127.0.0.1:80
 ### Task C1: `PROVIDER_SDBD` + connect traits
 
 **Files:**
-- Modify: `src/gis/model/layer/layer.h` — `eSmtDBProvider` 追加 `PROVIDER_SDBD`
-- Modify: `src/gis/datasource/provider/impl/ogr/codec/ogr_connect.h/.cc`
+- Modify: `src/gis/map/layer_kind.h` — `eSmtDBProvider` 追加 `PROVIDER_SDBD`
+- Modify: `src/gis/datasource/ogr/ogr_connect.h/.cc`
 
 **Interfaces:**
 - Produces:
@@ -185,7 +185,7 @@ std::string sdbd_base_url_from_info(const gis::SmtDataSourceInfo& info);
 ### Task C2: `SdbdRemoteDataset` + `DataSourceMgr::open_dataset` 接线
 
 **Files:**
-- Create: `src/gis/datasource/provider/impl/sdbd/remote/sdbd_remote_dataset.h/.cc`
+- Create: `src/gis/datasource/sdbd/sdbd_remote_dataset.h/.cc`
 - Modify: `datasource_mgr.cc` `open_dataset` / `create_data_source`
 - Modify: `BUILD.gn` sources
 
@@ -232,7 +232,7 @@ return gis::datasource::open_sdbd_dataset(info);
 ### Task C3: Live e2e harness（硬依赖）
 
 **Files:**
-- Create or extend: `src/gis/datasource/provider/impl/sdbd/sdbd_live_test.cc`（推荐独立 exe，挂 `test_all` / `te`）
+- Create or extend: `src/gis/datasource/sdbd/sdbd_live_test.cc`（推荐独立 exe，挂 `test_all` / `te`）
 - Modify: root/`src` test 图、`BUILD.gn`
 - Helper: `ensure_sdbd_alive()` in test TU
 
@@ -264,7 +264,7 @@ wsl -e bash -lc "MOGU_ROOT=${SG_MOGU_ROOT:-/home/ccl/dev/src/mogu}; cd \"$MOGU_R
 ### Task C4: Docs as-built 短述
 
 **Files:**
-- Modify: `docs/build/src-layout.md`（datasource / sdbd 段）
+- Modify: `docs/superpowers/src-layout.md`（datasource / sdbd 段）
 - Modify: `docs/README.md`（plan 索引行，若尚未加）
 
 - [ ] **Step 1:** 写明 `DataSourceMgr`、`PROVIDER_SDBD`、双前缀、硬 live

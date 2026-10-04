@@ -4,6 +4,7 @@
 
 script "plugin.flood" {
   seq @inproc {
+    require_plugins();
     resolve_data(kind="plugin", leaf="flood_basin_sample.tif", as="dem");
     require_var(name="dem", fail_mark="flood-sample-fail");
     sidecar_path(rel="..\\data\\plugin\\flood_mask.tif", as="out");
@@ -11,7 +12,7 @@ script "plugin.flood" {
     doc_clear();
     run_processing(
       id="flood.inundate",
-      args="{\"dem\":\"$dem\",\"output\":\"$out\",\"seed_x\":114.30,\"seed_y\":30.55,\"water_level\":36.0,\"frames\":6}"
+      args="{\"dem\":\"$dem\",\"output\":\"$out\",\"seed_x\":114.28,\"seed_y\":30.52,\"water_level\":52.0,\"frames\":8}"
     );
     mark("flood-ok");
     fit_extent();

@@ -3,7 +3,7 @@
 
 #include <cstring>
 
-#include "gis/kernel/geo/mesh/geometry.h"
+#include "gis/geo/ops/geometry_traits.h"
 #include "legacy/core/util/path.h"
 #include "legacy/plugin/runtime/bridge/cmd.h"
 #include "legacy/plugin/product/model3d/shell/model_3d_creater.h"
@@ -20,8 +20,9 @@
 #include "legacy/ui/dialogs/dialogs_api.h"
 #include "legacy/ui/catalog/map/mapmgr.h"
 #include "legacy/ui/catalog/scene/scenemgr.h"
-#include "plugin/product/world3d/processing/grid_loader.h"
-#include "plugin/product/world3d/processing/tin_loader.h"
+#include "legacy/gis/layer/layer.h"
+#include "plugin/product/world3d/grid/dem/loader/heightmap_loader.h"
+#include "plugin/product/world3d/grid/dem/loader/trimesh_loader.h"
 
 using namespace render;
 using namespace gis;
@@ -119,11 +120,11 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
     cmd = SMT_MSG_3DMODELCREATER_2;
   else if (id && std::strcmp(id, "model3d.add_water") == 0)
     cmd = SMT_MSG_3DMODELCREATER_3;
-  else if (id && std::strcmp(id, "model3d.add_terrain_grid") == 0)
+  else if (id && std::strcmp(id, "model3d.add_terrain_heightmap") == 0)
     cmd = SMT_MSG_3DMODELCREATER_4;
-  else if (id && std::strcmp(id, "model3d.add_terrain_tin") == 0)
+  else if (id && std::strcmp(id, "model3d.add_terrain_trimesh") == 0)
     cmd = SMT_MSG_3DMODELCREATER_5;
-  else if (id && std::strcmp(id, "model3d.create_tin") == 0)
+  else if (id && std::strcmp(id, "model3d.create_trimesh") == 0)
     cmd = SMT_MSG_3DMODELCREATER_6;
   else if (id && std::strcmp(id, "model3d.layer_points_to_3d") == 0)
     cmd = SMT_MSG_3DMODELCREATER_7;
@@ -235,8 +236,8 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
       sprintf(szFilePath, "%s%s", strAppPath.c_str(),
               "..\\data\\rs\\terrain\\ground.bmp");
 
-      Smt3DSurface gridSurf;
-      GridLoadOptions gridOpt;
+      OGRTriangulatedSurface gridSurf;
+      HeightmapLoadOptions gridOpt;
       SmtTerrain *pTerrain = new SmtTerrain;
 
       pTerrain->SetClrType(2);
@@ -245,7 +246,7 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
       pTerrain->SetZScale(1);
 
       Vector3 origin(30, 30, 30);
-      if (SMT_ERR_NONE == load_heightmap_grid(szFilePath, gridOpt, &gridSurf) &&
+      if (SMT_ERR_NONE == load_heightmap(szFilePath, gridOpt, &gridSurf) &&
           SMT_ERR_NONE == pTerrain->Init(origin, matMaterial, "terrain") &&
           SMT_ERR_NONE == pTerrain->SetTerrainSurf(&gridSurf) &&
           SMT_ERR_NONE == pTerrain->Create(p3DRenderDevice)) {
@@ -268,8 +269,8 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
       sprintf(szFilePath, "%s%s", strAppPath.c_str(),
               "..\\data\\rs\\terrain\\ground.dat");
 
-      SmtTinFileFmt tfFmt;
-      Smt3DSurface tinSurf;
+      TrimeshFileFmt tfFmt;
+      OGRTriangulatedSurface tinSurf;
       SmtTerrain *pTerrain = new SmtTerrain;
 
       pTerrain->SetClrType(2);
@@ -286,7 +287,7 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
       tfFmt.nSeparatorType = ST_COMMA;
 
       Vector3 origin(30, 30, 30);
-      if (SMT_ERR_NONE == load_ascii_xyz_tin(szFilePath, tfFmt, 0.05f, 0.05f,
+      if (SMT_ERR_NONE == load_ascii_xyz_trimesh(szFilePath, tfFmt, 0.05f, 0.05f,
                                              0.05f, &tinSurf) &&
           SMT_ERR_NONE == pTerrain->Init(origin, matMaterial, "rbed") &&
           SMT_ERR_NONE == pTerrain->SetTerrainSurf(&tinSurf) &&
@@ -301,37 +302,35 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
       // ï¿½ï¿½ï¿½ï¿½TIN
       SmtMapMgr *pSmtMapMgr = SmtMapMgr::get_singleton_ptr();
       if (NULL == pSmtMapMgr) break;
-      SmtLayer *pLayer = pSmtMapMgr->GetActiveLayer();
+      Layer *pLayer = pSmtMapMgr->GetActiveLayer();
 
       if (NULL == pLayer || LYR_VECTOR != pLayer->GetLayerType()) break;
 
       SmtVectorLayer *pVLayer = (SmtVectorLayer *)pLayer;
-      if (pVLayer && leftover_layer_feature_type(pVLayer) == SmtFtTin) {
+      if (pVLayer && leftover_layer_feature_type(pVLayer) == FtTin) {
         string strAppPath = get_app_path();
         char szFilePath[TEMP_BUFFER_SIZE];
         sprintf(szFilePath, "%s%s", strAppPath.c_str(),
                 "..\\data\\rs\\terrain\\ground.dat");
 
-        SmtTinFileFmt fileFmt;
+        TrimeshFileFmt fileFmt;
         fileFmt.nLineSkip = 0;
         fileFmt.nCol = 3;
         fileFmt.iX = 0;
         fileFmt.iY = 1;
         fileFmt.iZ = 2;
         fileFmt.nSeparatorType = ST_COMMA;
-        Smt3DSurface tinSurf;
+        OGRTriangulatedSurface tinSurf;
         if (SMT_ERR_NONE ==
-            load_ascii_xyz_tin(szFilePath, fileFmt, 1.f, 1.f, 1.f, &tinSurf)) {
-          SmtTin oSmtTin;
-          if (SMT_ERR_NONE == tinSurf.copy_to_tin(&oSmtTin)) {
-            SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
-            SmtStyleConfig styleSonfig = pSysMgr->get_sys_style_config();
+            load_ascii_xyz_trimesh(szFilePath, fileFmt, 1.f, 1.f, 1.f, &tinSurf)) {
+          SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
+          SmtStyleConfig styleSonfig = pSysMgr->get_sys_style_config();
 
-            SmtFeature *pSmtFeature = new SmtFeature;
+          FeatureAdapter *pSmtFeature = new FeatureAdapter;
 
-            pSmtFeature->SetFeatureType(SmtFeatureType::SmtFtTin);
-            pSmtFeature->SetStyle(styleSonfig.szPointStyle);
-            pSmtFeature->SetGeometry(&oSmtTin);
+          pSmtFeature->SetFeatureType(FeatureType::FtTin);
+          pSmtFeature->SetStyle(styleSonfig.szPointStyle);
+          pSmtFeature->SetGeometry(&tinSurf);
 
             if (pSmtMapMgr->AppendFeature(pSmtFeature, false)) {
               SmtListenerMsg param;
@@ -344,7 +343,6 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
                   SMT_MSG_KEY(GT_MSG_VIEW_ZOOMREFRESH, param.hSrcWnd), param);
             } else
               SMT_SAFE_DELETE(pSmtFeature);
-          }
         }
       } else
         ::MessageBox(::GetActiveWindow(), "请激活TIN图层!", "提示", MB_OK);
@@ -352,12 +350,12 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
     case SMT_MSG_3DMODELCREATER_7: {
       SmtMapMgr *pSmtMapMgr = SmtMapMgr::get_singleton_ptr();
       if (NULL == pSmtMapMgr) break;
-      SmtLayer *pLayer = pSmtMapMgr->GetActiveLayer();
+      Layer *pLayer = pSmtMapMgr->GetActiveLayer();
 
       if (NULL == pLayer || LYR_VECTOR != pLayer->GetLayerType()) break;
 
       SmtVectorLayer *pVLayer = (SmtVectorLayer *)pLayer;
-      if (pVLayer && leftover_layer_feature_type(pVLayer) == SmtFtDot) {
+      if (pVLayer && leftover_layer_feature_type(pVLayer) == FtDot) {
         SmtGeoObject *p2DGeoObj = new SmtGeoObject();
 
         if (pVLayer->GetFeatureCount() == 1) {
@@ -398,12 +396,12 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
     case SMT_MSG_3DMODELCREATER_8: {
       SmtMapMgr *pSmtMapMgr = SmtMapMgr::get_singleton_ptr();
       if (NULL == pSmtMapMgr) break;
-      SmtLayer *pLayer = pSmtMapMgr->GetActiveLayer();
+      Layer *pLayer = pSmtMapMgr->GetActiveLayer();
 
       if (NULL == pLayer || LYR_VECTOR != pLayer->GetLayerType()) break;
 
       SmtVectorLayer *pVLayer = (SmtVectorLayer *)pLayer;
-      if (pVLayer && leftover_layer_feature_type(pVLayer) == SmtFtCurve) {
+      if (pVLayer && leftover_layer_feature_type(pVLayer) == FtCurve) {
         pVLayer->ResetReading();
         while (OGRFeature *pFea = pVLayer->GetNextFeature()) {
           if (OGRGeometry *pGeom = pFea->GetGeometryRef()) {
@@ -433,12 +431,12 @@ int Smt3DModelCreaterPlugin::notify(long lMsg, SmtListenerMsg &param) {
     case SMT_MSG_3DMODELCREATER_9: {
       SmtMapMgr *pSmtMapMgr = SmtMapMgr::get_singleton_ptr();
       if (NULL == pSmtMapMgr) break;
-      SmtLayer *pLayer = pSmtMapMgr->GetActiveLayer();
+      Layer *pLayer = pSmtMapMgr->GetActiveLayer();
 
       if (NULL == pLayer || LYR_VECTOR != pLayer->GetLayerType()) break;
 
       SmtVectorLayer *pVLayer = (SmtVectorLayer *)pLayer;
-      if (pVLayer && leftover_layer_feature_type(pVLayer) == SmtFtSurface) {
+      if (pVLayer && leftover_layer_feature_type(pVLayer) == FtSurface) {
         pVLayer->ResetReading();
         while (OGRFeature *pFea = pVLayer->GetNextFeature()) {
           if (OGRGeometry *pGeom = pFea->GetGeometryRef()) {

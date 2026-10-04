@@ -47,17 +47,17 @@ All rights reserved.
 ### Task 1 — Sample fixtures + world3d interact
 
 **Files:**
-- Create: `testing/data/plugin/world3d_tin_sample.xyz` (small CRS84 XYZ)
+- Create: `testing/data/plugin/world3d_trimesh_sample.xyz` (small CRS84 XYZ)
 - Create: `testing/tools/harness/plugin/plugin.world3d/plugin.world3d.il` + `testing/tools/harness/plugin/plugin.world3d/suite.json`
 - Modify: `testing/data/BUILD.gn` to copy fixtures → `out/data/plugin/`
 - Optional: default paths in world3d dialogs when env `SMT_PLUGIN_SAMPLE_DIR` set
 
 - [x] Step 1: Add mini XYZ + document that grid uses `china_dem.tif`, pointcloud uses `pointcloud_public_sample.txt`
-- [x] Step 2: Interact: `run_processing(world3d.grid_from_heightmap)` + `world3d.tin_from_xyz` + `world3d.add_pointcloud` with absolute paths under `out/data`
+- [x] Step 2: Interact: `run_processing(world3d.heightmap_from_raster)` + `world3d.trimesh_from_xyz` + `world3d.add_pointcloud` with absolute paths under `out/data`
 - [x] Step 3: Assert marks / non-empty BMP (reuse map2d score or plugin-specific marks)
 - [x] Step 4: `build.bat e2e` suite `plugin.world3d` (or `te` path) green
 
-**Done when:** one command line / suite proves tin+grid+pointcloud paint.
+**Done when:** one command line / suite proves trimesh+heightmap+pointcloud paint.
 
 ---
 

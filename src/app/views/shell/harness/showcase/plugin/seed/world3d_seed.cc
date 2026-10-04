@@ -7,14 +7,17 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <iterator>
 #include <string>
 #include <vector>
 
 #include "app/views/shell/browser/browser.h"
-#include "app/views/shell/browser/china_product_defaults.h"
 #include "app/views/shell/harness/showcase/plugin/common/common.h"
+#include "content/browser/camera/map_host_extent.h"
+#include "content/browser/camera/orbit_frame.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
 
 namespace app {
@@ -31,22 +34,52 @@ bool resolve_world3d_pointcloud_sample(char* out_utf8, size_t out_cap) {
   return resolve_rel_under_exe(las, 2, out_utf8, out_cap);
 }
 
+bool world3d_perf_bare_enabled() {
+  const char* e = std::getenv("SMT_PLUGIN_WORLD3D_PERF_BARE");
+  return e && e[0] == '1' && e[1] == '\0';
+}
+
 void seed_world3d_earth_atmosphere(Browser& browser,
                                    content::Scene3dPresenter* cam) {
   if (!cam) {
     return;
   }
   // True Earth product face: China DEM orbit + sky/ocean/cloud/fog.
-  // Do NOT abandon_mesh — FlyCube + showcase GPU HWND remaps heap inside
-  // rebuild_terrain_mesh vector::_Orphan_all.
-  apply_china_scene3d_product_defaults(browser);
-  cam->atmosphere_session().set_ocean_enabled(true);
-  cam->atmosphere_session().set_cloud_enabled(true);
-  cam->atmosphere_session().set_sky_enabled(true);
-  cam->atmosphere_session().set_fog_enabled(true);
+  // Do NOT call apply_china_scene3d_product_defaults here: plugin showcase
+  // skips china OGR bootstrap, and seed_procedural(with_land_rings=true) AVs
+  // in MapLayer vector::_Unchecked_begin via export_land_rings on an empty /
+  // poisoned LayerStore. Orbit push_shared_extent has the same risk.
+  plugin_showcase_mark("seed-china-begin");
+  cam->set_look_preset(content::Scene3dLookPreset::kAtmosphere);
+  cam->atmosphere_session().seed_procedural(/*with_land_rings=*/false);
+  plugin_showcase_mark("seed-china-defaults");
+  const bool bare = world3d_perf_bare_enabled();
+  // Showcase face: keep sky/cloud; suppress flat ocean plane so hypsometric
+  // DEM greens dominate the HWND inspect (ocean AABB washed the land).
+  cam->atmosphere_session().set_ocean_enabled(false);
+  cam->atmosphere_session().set_cloud_enabled(!bare);
+  cam->atmosphere_session().set_sky_enabled(!bare);
+  cam->atmosphere_session().set_fog_enabled(!bare);
   cam->atmosphere_session().set_globe_enabled(false);
   cam->atmosphere_session().set_sat_cloud_enabled(false);
-  plugin_showcase_mark("earth-atmo");
+  plugin_showcase_mark("seed-china-flags");
+  if (content::OrbitFrame* orbit = browser.orbit_frame()) {
+    orbit->reset();
+    // East-China plains window: mid-complexity DEM + greener hypsometric band.
+    constexpr content::Extent2 kEastChina{112.0, 30.0, 121.0, 38.0};
+    orbit->apply_world_extent(kEastChina);
+    orbit->set_distance(1.45f);
+    orbit->set_pitch(0.52f);
+    orbit->set_yaw(2.25f);
+  }
+  if (bare) {
+    plugin_showcase_mark("perf-bare");
+    std::fprintf(stderr,
+                 "plugin-showcase: world3d perf-bare "
+                 "(sky/ocean/cloud/fog off)\n");
+  } else {
+    plugin_showcase_mark("earth-atmo");
+  }
   plugin_showcase_mark("orbit-china");
 }
 
@@ -94,7 +127,7 @@ void try_attach_world3d_city_tiles(content::Scene3dPresenter* cam) {
 }
 
 void apply_world3d_pointcloud_overlay(content::Scene3dPresenter* cam,
-                                     const gis::PointCloud& cloud) {
+                                     const vista::PointCloud& cloud) {
   if (!cam) {
     return;
   }

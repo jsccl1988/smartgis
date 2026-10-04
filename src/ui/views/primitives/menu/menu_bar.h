@@ -59,6 +59,9 @@ class UI_EXPORT MenuBar : public View {
   Rect item_rect(size_t i) const;
   void activate(int i);
   void open_dropdown(size_t index);
+  // Yoga measure uses preferred_size; width must be non-zero or the bar
+  // collapses (CSS width:100% is rejected by the px parser).
+  void refresh_preferred_size();
 
   std::vector<Item> items_;
   int hover_ = -1;

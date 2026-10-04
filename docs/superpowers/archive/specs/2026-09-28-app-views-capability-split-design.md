@@ -15,10 +15,10 @@ All rights reserved.
 
 | Topic | Doc | Relation |
 | --- | --- | --- |
-| Desktop shell menus | [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md) | **active** — menus, navigation commands, and `shell/` stay. Its §3 tree for `document/` `input/` `scene3d/` is superseded here |
+| Desktop shell menus | [`2026-09-27-views-desktop-shell-design.md`](../../specs/2026-09-27-views-desktop-shell-design.md) | **active** — menus, navigation commands, and `shell/` stay. Its §3 tree for `document/` `input/` `scene3d/` is superseded here |
 | Views toolkit | [`2026-09-19-ui-views-subdir-responsibility-design.md`](2026-09-19-ui-views-subdir-responsibility-design.md) | **active** — `ui/views` partitions are unchanged. `MapViewport` stays the HWND host |
 | 2D RHI path | [`2026-09-27-views-2d-map-rhi-design.md`](2026-09-27-views-2d-map-rhi-design.md) | **active** — `present_gpu` false still falls back to full GDI paint |
-| As-built | [`../../../src/app/views/README.md`](../../../src/app/views/README.md) | Update in the same change that lands the split |
+| As-built | [`../../../src/app/views/README.md`](../../README.md) | Update in the same change that lands the split |
 
 ---
 
@@ -164,7 +164,7 @@ GN, after the split:
 
 | Label | Sources | Drops |
 | --- | --- | --- |
-| `:map_scene` | `document/map_scene.*` | GDI, RHI, `effect/map` |
+| `:map_scene` | `document/map_scene.*` | GDI, RHI, `vista/map` |
 | `:map_camera` | `camera/*` except tests | — |
 | `:map_present` | `present/map2d_presenter.*`, `present/blit_frame_cache.*` | — |
 | `:map_hwnd_gestures` | unchanged | — |

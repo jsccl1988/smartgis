@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "legacy/app/shell/catalog/tab_pane.h"
+#include "legacy/app/shell/catalog/catalog_pane.h"
 #include "legacy/app/shell/dock/diagnostic.h"
 #include "legacy/core/macros/macros.h"
 #include "legacy/ui/catalog/ds/catalog_ds.h"
@@ -72,7 +72,7 @@ class CMainFrame : public CMainWnd {
  private:
   void apply_views_like_chrome_font();
 
-  SmtMapDocXCatalog* m_pMapDocCatalog;
+  MapDocXCatalog* m_pMapDocCatalog;
   Smt3DObjXCatalog* m_p3DObjCatalog;
   SmtDSXCatalog* m_pDSCatalog;
   CFont ui_font_;

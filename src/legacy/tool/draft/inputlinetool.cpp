@@ -4,7 +4,7 @@
 
 #include "legacy/gis/present/carto/style_api.h"
 #include "legacy/gis/present/carto/stylemanager.h"
-#include "gis/kernel/geo/mesh/geometry.h"
+#include "gis/geo/ops/geometry_traits.h"
 #include "legacy/core/macros/macros.h"
 #include "legacy/sys/sysmanager.h"
 #include "legacy/tool/defs.h"
@@ -62,7 +62,7 @@ SmtInputLineTool::~SmtInputLineTool() {
   UnRegisterMsg();
 }
 
-int SmtInputLineTool::Init(LPRENDERDEVICE pMrdRenderDevice, SmtMap* pOperSmtMap,
+int SmtInputLineTool::Init(LPRENDERDEVICE pMrdRenderDevice, Map* pOperSmtMap,
                            HWND hWnd, pfnToolCallBack pfnCallBack,
                            void* pToFollow) {
   if (SMT_ERR_NONE != SmtBaseTool::Init(pMrdRenderDevice, pOperSmtMap, hWnd,

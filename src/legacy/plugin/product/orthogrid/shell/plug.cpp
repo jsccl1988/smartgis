@@ -16,6 +16,7 @@
 #include "legacy/ui/dialogs/dialogs_api.h"
 #include "legacy/ui/catalog/map/mapmgr.h"
 #include "legacy/ui/map/viewport/view_2d_edit.h"
+#include "legacy/gis/layer/layer.h"
 using namespace gis;
 using namespace sys;
 using namespace base;
@@ -170,12 +171,12 @@ int OrthogridPlugin::OnInputBnd2(void) {
 
 int OrthogridPlugin::Init2DStuff(void) {
   SmtMapMgr *pSmtMapMgr = SmtMapMgr::get_singleton_ptr();
-  SmtLayer *pLayer = pSmtMapMgr->GetActiveLayer();
+  Layer *pLayer = pSmtMapMgr->GetActiveLayer();
   SmtVectorLayer *pVLayer = NULL;
 
   if (NULL != pLayer && pLayer->GetLayerType() == LYR_VECTOR) {
     SmtVectorLayer *pVLayer = (SmtVectorLayer *)pLayer;
-    if (leftover_layer_feature_type(pVLayer) != SmtFtGrid) {
+    if (leftover_layer_feature_type(pVLayer) != FtGrid) {
       ::MessageBox(::GetActiveWindow(), "请激活GRID图层!", "提示", MB_OK);
       return SMT_ERR_FAILURE;
     }
@@ -262,21 +263,21 @@ int OrthogridPlugin::OnEndInputBnd(OGRLineString *pLineString) {
     ctrlBnd3.push_back(m_ctrlBnd0[0]);
 
     SmtMapMgr *pSmtMapMgr = SmtMapMgr::get_singleton_ptr();
-    SmtLayer *pLayer = pSmtMapMgr->GetActiveLayer();
+    Layer *pLayer = pSmtMapMgr->GetActiveLayer();
     SmtVectorLayer *pVLayer = NULL;
     if (NULL == pLayer || LYR_VECTOR != pLayer->GetLayerType())
       return SMT_ERR_FAILURE;
 
     pVLayer = (SmtVectorLayer *)pLayer;
 
-    if (NULL != pVLayer && SmtFtGrid == leftover_layer_feature_type(pVLayer)) {
-      SmtGrid oSmtGrid;
+    if (NULL != pVLayer && FtGrid == leftover_layer_feature_type(pVLayer)) {
+      plugin::detail::OrthoLattice lattice;
       Orthogrid orthGrid(33, 17);
 
       orthGrid.SetMainRegoinBoudary(m_ctrlBnd0, ctrlBnd1, m_ctrlBnd2, ctrlBnd3);
 
       if (SMT_ERR_NONE == orthGrid.CreateOrthGrid() &&
-          SMT_ERR_NONE == orthGrid.CvtToGrid(oSmtGrid)) {
+          SMT_ERR_NONE == orthGrid.CvtToGrid(lattice)) {
         string strAppTempPath = get_app_temp_path();
         strAppTempPath += "last_bfc_bnd.txt";
         orthGrid.SaveGridBndToFile(strAppTempPath.c_str());
@@ -284,11 +285,11 @@ int OrthogridPlugin::OnEndInputBnd(OGRLineString *pLineString) {
         SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
         SmtStyleConfig styleSonfig = pSysMgr->get_sys_style_config();
 
-        SmtFeature *pSmtFeature = new SmtFeature;
+        FeatureAdapter *pSmtFeature = new FeatureAdapter;
 
-        pSmtFeature->SetFeatureType(SmtFeatureType::SmtFtGrid);
+        pSmtFeature->SetFeatureType(FeatureType::FtGrid);
         pSmtFeature->SetStyle(styleSonfig.szPointStyle);
-        pSmtFeature->SetGeometry(&oSmtGrid);
+        pSmtFeature->SetGeometry(&lattice.nodes);
 
         if (pSmtMapMgr->AppendFeature(pSmtFeature, false)) {
           SmtListenerMsg param;
@@ -307,13 +308,13 @@ int OrthogridPlugin::OnEndInputBnd(OGRLineString *pLineString) {
 
 void OrthogridPlugin::LoadFromFile(void) {
   SmtMapMgr *pSmtMapMgr = SmtMapMgr::get_singleton_ptr();
-  SmtLayer *pLayer = pSmtMapMgr->GetActiveLayer();
+  Layer *pLayer = pSmtMapMgr->GetActiveLayer();
 
   if (NULL == pLayer || LYR_VECTOR != pLayer->GetLayerType()) return;
 
   SmtVectorLayer *pVLayer = (SmtVectorLayer *)pLayer;
 
-  if (pVLayer && leftover_layer_feature_type(pVLayer) == SmtFtGrid) {
+  if (pVLayer && leftover_layer_feature_type(pVLayer) == FtGrid) {
     static char BASED_CODE szFilter[] = "Data Files (*.txt)|*.txt";
 
     CFileDialog dlg(true, NULL, NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
@@ -321,12 +322,12 @@ void OrthogridPlugin::LoadFromFile(void) {
 
     if (dlg.DoModal() == IDCANCEL) return;
 
-    SmtGrid oSmtGrid;
+    plugin::detail::OrthoLattice lattice;
     Orthogrid orthGrid;
 
     if (SMT_ERR_NONE == orthGrid.LoadGridBndFromFile(dlg.GetPathName()) &&
         SMT_ERR_NONE == orthGrid.CreateOrthGrid() &&
-        SMT_ERR_NONE == orthGrid.CvtToGrid(oSmtGrid)) {
+        SMT_ERR_NONE == orthGrid.CvtToGrid(lattice)) {
       string strAppTempPath = get_app_temp_path();
       strAppTempPath += "last_bfc_bnd.txt";
       orthGrid.SaveGridBndToFile(strAppTempPath.c_str());
@@ -334,11 +335,11 @@ void OrthogridPlugin::LoadFromFile(void) {
       SmtSysManager *pSysMgr = SmtSysManager::get_singleton_ptr();
       SmtStyleConfig styleSonfig = pSysMgr->get_sys_style_config();
 
-      SmtFeature *pSmtFeature = new SmtFeature;
+      FeatureAdapter *pSmtFeature = new FeatureAdapter;
 
-      pSmtFeature->SetFeatureType(SmtFeatureType::SmtFtGrid);
+      pSmtFeature->SetFeatureType(FeatureType::FtGrid);
       pSmtFeature->SetStyle(styleSonfig.szPointStyle);
-      pSmtFeature->SetGeometry(&oSmtGrid);
+      pSmtFeature->SetGeometry(&lattice.nodes);
 
       if (pSmtMapMgr->AppendFeature(pSmtFeature, false)) {
         SmtListenerMsg param;

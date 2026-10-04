@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "base/memory/arena.h"
-#include "gis/vista/frame/frame.h"
+#include "vista/frame/frame.h"
 
 namespace content {
 
@@ -28,15 +28,19 @@ class Map2dFrameCache {
   void bind(const MapScene* scene, const ViewFrame* frame);
   void invalidate();
 
+  // Scene identity for StaticReuse. Counts alone miss visibility toggles and
+  // same-count feature swaps; content_hash covers id/visible/count/endpoints.
   struct ContentFingerprint {
     size_t feature_count = 0;
     size_t layer_count = 0;
     const void* style_ptr = nullptr;
     bool use_carto = true;
+    uint64_t content_hash = 0;
 
     bool operator==(const ContentFingerprint& o) const {
       return feature_count == o.feature_count && layer_count == o.layer_count &&
-             style_ptr == o.style_ptr && use_carto == o.use_carto;
+             style_ptr == o.style_ptr && use_carto == o.use_carto &&
+             content_hash == o.content_hash;
     }
   };
 
@@ -80,7 +84,7 @@ class Map2dFrameCache {
   void note_present_outcome(PresentAction action);
 
   bool has_frame() const;
-  const gis::vista::MapFrame& frame() const { return cached_frame_; }
+  const vista::MapFrame& frame() const { return cached_frame_; }
   const CameraKey& camera() const { return cached_cam_; }
   uint64_t layout_build_count() const { return layout_build_count_; }
   bool last_present_reused_layout() const {
@@ -102,10 +106,14 @@ class Map2dFrameCache {
   bool rebuild_layout(const CameraKey& cam, const ContentFingerprint& fp);
   void clear_hillshade_bake();
 
+  // Mutex first: keeps offsetof stable across MapFrame / vector ABI skew
+  // between incremental objs (resource_deadlock_would_occur on bind).
+  mutable std::recursive_mutex mu_;
+
   const MapScene* scene_ = nullptr;
   const ViewFrame* frame_ = nullptr;
 
-  gis::vista::MapFrame cached_frame_;
+  vista::MapFrame cached_frame_;
   ContentFingerprint cached_fp_;
   CameraKey cached_cam_;
   bool has_frame_cache_ = false;
@@ -124,7 +132,6 @@ class Map2dFrameCache {
   int hillshade_h_ = 0;
   std::vector<uint8_t> hillshade_rgba_;
 
-  mutable std::recursive_mutex mu_;
   base::Arena layout_scratch_{base::MemoryResource::Type::kMonotonicBuffer,
                               1 << 20};
 };

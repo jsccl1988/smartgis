@@ -10,4 +10,5 @@ Leftover DSM catalog singleton (`DataSourceMgr`) compiled into `gis.dll` via
 
 - **Frozen:** bugfix only; do not grow new product paths here.
 - **New code:** `//src/gis/datasource/session` (`DataSession` / `ConnectionSpec`).
+- **Adapter:** `connection_spec_info.h` — leftover `SmtDataSourceInfo` ↔ product `ConnectionSpec`.
 - Include: `#include "legacy/gis/datasource/datasource_mgr.h"`.

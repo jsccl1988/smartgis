@@ -1,6 +1,6 @@
 ### Spec Compliance
 
-- ✅ Three OGR DB providers appended after `PROVIDER_MYSQL` without reordering existing DB members (`src/gis/layer/layer.h:43-45`)
+- ✅ Three OGR DB providers appended after `PROVIDER_MYSQL` without reordering existing DB members (`src/gis/map/layer_kind.h:43-45`)
 - ✅ Public API unchanged from brief: `is_db_provider_supported`, `gdal_driver_name`, `make_gdal_open_target` (`src/gis/datasource/gdal/ogr_connect.h:42-44`)
 - ✅ Mid-task constraint: `db_provider_traits<Provider>` primary template + full specializations for GPKG/Postgres/SpatiaLite; free functions dispatch via `switch` (`src/gis/datasource/gdal/ogr_connect.h:14-40`, `ogr_connect.cc:64-101`)
 - ✅ `sde_gdal_test.cc` matches brief verbatim (all assertions for support flags, driver names, GPKG path, PG connection string, ACCESS empty target)

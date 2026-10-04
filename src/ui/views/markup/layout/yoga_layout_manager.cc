@@ -90,6 +90,9 @@ void apply_flex_style(YGNodeRef node, const FlexStyle& style, bool is_host) {
   } else if (style.flex.has_value()) {
     YGNodeStyleSetFlexGrow(node, *style.flex);
   }
+  if (style.flex_shrink.has_value()) {
+    YGNodeStyleSetFlexShrink(node, *style.flex_shrink);
+  }
   if (style.flex.has_value()) {
     YGNodeStyleSetFlex(node, *style.flex);
   }
@@ -197,8 +200,12 @@ void build_tree(const View* host,
     // Flex-grow children are sized by the flex algorithm. Attaching a measure
     // func fights grow (Yoga treats measured size as a hard intrinsic) and
     // stacks siblings in UiDesigner main_app hbox/vbox previews.
+    // flex-grow:0 is a pin (MenuBar / tool_bar) — still need measure so
+    // preferred ink height/width apply; treating "has_value" as grow skipped
+    // measure and collapsed File/Edit/View/Layer (ui.shell #3).
     const bool has_grow =
-        style.flex_grow.has_value() || style.flex.has_value();
+        (style.flex_grow.has_value() && *style.flex_grow > 0.f) ||
+        (style.flex.has_value() && *style.flex > 0.f);
     if ((!has_fixed_w || !has_fixed_h) && !has_grow) {
       YGNodeSetMeasureFunc(yn, measure_view);
     }

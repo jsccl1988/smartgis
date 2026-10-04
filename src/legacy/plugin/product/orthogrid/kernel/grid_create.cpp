@@ -1,10 +1,11 @@
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
 #include "legacy/plugin/product/orthogrid/kernel/curve.h"
 #include "legacy/plugin/product/orthogrid/kernel/detail/polyline.h"
 #include "legacy/plugin/product/orthogrid/kernel/grid.h"
-#include "plugin/product/orthogrid/detail/laplace_solver.h"
+#include "gis/geo/grid/laplace.h"
 
 const double PI = 3.14159265;
 
@@ -23,22 +24,26 @@ long Orthogrid::CreateOrthGrid() {
   return SMT_ERR_NONE;
 }
 
-long Orthogrid::CvtToGrid(SmtGrid &oSmtGrid) {
-  oSmtGrid.set_size(m_nY, m_nX);
-
-  dbfPoint *pDataBuf = NULL;
-  int nSize = 0;
-
-  m_pNodes->GetElementBuf(pDataBuf, nSize);
-  oSmtGrid.set_nodes(pDataBuf, nSize);
-
+long Orthogrid::CvtToGrid(plugin::detail::OrthoLattice& lattice) {
+  lattice.ortho_resize(m_nX, m_nY);
+  auto buf = m_pNodes->elements();
+  int k = 0;
+  for (int j = 0; j < m_nY; ++j) {
+    for (int i = 0; i < m_nX; ++i, ++k) {
+      if (k >= static_cast<int>(buf.size())) {
+        break;
+      }
+      lattice.ortho_set_point(i, j, buf[static_cast<size_t>(k)].x,
+                              buf[static_cast<size_t>(k)].y);
+    }
+  }
   return SMT_ERR_NONE;
 }
 
 void Orthogrid::InitialGrid(void) {
   float orth = 0.;
   for (int i = 0; i < m_nX; i++)
-    for (int j = 0; j < m_nY; j++) m_pOrthogonality->SetElement(orth, j, i);
+    for (int j = 0; j < m_nY; j++) m_pOrthogonality->set_element(orth, j, i);
 
   InitialBoudary();
   InitialInternal();
@@ -105,8 +110,8 @@ void Orthogrid::SampleBoudaryX(vCurvePoints &bnd, int iStart, int iEnd, int J) {
   int CountIndex = 0 /*���߶κ��ۼ�*/;
   int i = 0;
   int nSize = bnd.size();
-  m_pNodes->SetElement(bnd[0], J, iStart);
-  m_pNodes->SetElement(bnd[nSize - 1], J, iEnd);
+  m_pNodes->set_element(bnd[0], J, iStart);
+  m_pNodes->set_element(bnd[nSize - 1], J, iEnd);
 
   double *disN = new double[nSize - 1];
 
@@ -138,7 +143,7 @@ void Orthogrid::SampleBoudaryX(vCurvePoints &bnd, int iStart, int iEnd, int J) {
       P.x = (1 - t) * bnd[CountIndex].x + t * bnd[CountIndex - 1].x;
       P.y = (1 - t) * bnd[CountIndex].y + t * bnd[CountIndex - 1].y;
 
-      m_pNodes->SetElement(P, J, i);
+      m_pNodes->set_element(P, J, i);
     }
   } else {
     for (i = iStart - 1; i > iEnd; i--) {
@@ -158,7 +163,7 @@ void Orthogrid::SampleBoudaryX(vCurvePoints &bnd, int iStart, int iEnd, int J) {
       P.x = (1 - t) * bnd[CountIndex].x + t * bnd[CountIndex - 1].x;
       P.y = (1 - t) * bnd[CountIndex].y + t * bnd[CountIndex - 1].y;
 
-      m_pNodes->SetElement(P, J, i);
+      m_pNodes->set_element(P, J, i);
     }
   }
 
@@ -171,8 +176,8 @@ void Orthogrid::SampleBoudaryY(vCurvePoints &bnd, int jStart, int jEnd, int I) {
   int CountIndex = 0 /*���߶κ��ۼ�*/;
   int i = 0;
   int nSize = bnd.size();
-  m_pNodes->SetElement(bnd[0], jStart, I);
-  m_pNodes->SetElement(bnd[nSize - 1], jEnd, I);
+  m_pNodes->set_element(bnd[0], jStart, I);
+  m_pNodes->set_element(bnd[nSize - 1], jEnd, I);
 
   double *disN = new double[nSize - 1];
 
@@ -203,7 +208,7 @@ void Orthogrid::SampleBoudaryY(vCurvePoints &bnd, int jStart, int jEnd, int I) {
       P.x = (1 - t) * bnd[CountIndex].x + t * bnd[CountIndex - 1].x;
       P.y = (1 - t) * bnd[CountIndex].y + t * bnd[CountIndex - 1].y;
 
-      m_pNodes->SetElement(P, j, I);
+      m_pNodes->set_element(P, j, I);
     }
   } else {
     for (int j = jStart - 1; j > jEnd; j--) {
@@ -221,7 +226,7 @@ void Orthogrid::SampleBoudaryY(vCurvePoints &bnd, int jStart, int jEnd, int I) {
       P.x = (1 - t) * bnd[CountIndex].x + t * bnd[CountIndex - 1].x;
       P.y = (1 - t) * bnd[CountIndex].y + t * bnd[CountIndex - 1].y;
 
-      m_pNodes->SetElement(P, j, I);
+      m_pNodes->set_element(P, j, I);
     }
   }
 
@@ -232,11 +237,11 @@ void Orthogrid::SetBoudaryX(vCurvePoints &bnd, int iStart, int iEnd, int J) {
   int i = 0;
   if (iEnd > iStart) {
     for (i = iStart; i <= iEnd; i++) {
-      m_pNodes->SetElement(bnd[i - iStart], J, i);
+      m_pNodes->set_element(bnd[i - iStart], J, i);
     }
   } else {
     for (i = iStart; i >= iEnd; i--) {
-      m_pNodes->SetElement(bnd[iStart - i], J, i);
+      m_pNodes->set_element(bnd[iStart - i], J, i);
     }
   }
 }
@@ -244,11 +249,11 @@ void Orthogrid::SetBoudaryX(vCurvePoints &bnd, int iStart, int iEnd, int J) {
 void Orthogrid::SetBoudaryY(vCurvePoints &bnd, int jStart, int jEnd, int I) {
   if (jEnd > jStart) {
     for (int j = jStart; j <= jEnd; j++) {
-      m_pNodes->SetElement(bnd[j - jStart], j, I);
+      m_pNodes->set_element(bnd[j - jStart], j, I);
     }
   } else {
     for (int j = jStart; j >= jEnd; j--) {
-      m_pNodes->SetElement(bnd[jStart - j], j, I);
+      m_pNodes->set_element(bnd[jStart - j], j, I);
     }
   }
 }
@@ -258,20 +263,20 @@ void Orthogrid::InitialInternal() {
   dbfPoint P, P0, P1;
   for (j = 1; j < m_nY - 1; j++) {
     for (i = 1; i < m_nX - 1; i++) {
-      P0 = m_pNodes->GetElement(0, i);
-      P1 = m_pNodes->GetElement(j, m_nX - 1);
+      P0 = m_pNodes->get_element(0, i);
+      P1 = m_pNodes->get_element(j, m_nX - 1);
       P.x = P0.x + (P1.x - P0.x) * i / (m_nX - 1);
       P.y = P0.y + (P1.y - P0.y) * i / (m_nX - 1);
-      m_pNodes->SetElement(P, j, i);
+      m_pNodes->set_element(P, j, i);
     }
   }
   for (i = 1; i < m_nX - 1; i++) {
     for (j = 1; j < m_nY - 1; j++) {
-      P0 = m_pNodes->GetElement(0, i);
-      P1 = m_pNodes->GetElement(m_nY - 1, i);
+      P0 = m_pNodes->get_element(0, i);
+      P1 = m_pNodes->get_element(m_nY - 1, i);
       P.x = P0.x + (P1.x - P0.x) * j / (m_nY - 1);
       P.y = P0.y + (P1.y - P0.y) * j / (m_nY - 1);
-      m_pNodes->SetElement(P, j, i);
+      m_pNodes->set_element(P, j, i);
     }
   }
 }
@@ -290,7 +295,7 @@ void Orthogrid::Orhogonal_SOR(void) {
   auto pack_nodes = [&]() {
     for (int j = 0; j < m_nY; ++j) {
       for (int i = 0; i < m_nX; ++i) {
-        const dbfPoint p = m_pNodes->GetElement(j, i);
+        const dbfPoint p = m_pNodes->get_element(j, i);
         const int k = j * m_nX + i;
         xs[static_cast<size_t>(k)] = p.x;
         ys[static_cast<size_t>(k)] = p.y;
@@ -305,10 +310,10 @@ void Orthogrid::Orhogonal_SOR(void) {
     for (int j = 0; j < m_nY; ++j) {
       for (int i = 0; i < m_nX; ++i) {
         const int k = j * m_nX + i;
-        dbfPoint p = m_pNodes->GetElement(j, i);
+        dbfPoint p = m_pNodes->get_element(j, i);
         p.x = xs[static_cast<size_t>(k)];
         p.y = ys[static_cast<size_t>(k)];
-        m_pNodes->SetElement(p, j, i);
+        m_pNodes->set_element(p, j, i);
       }
     }
   };
@@ -317,12 +322,10 @@ void Orthogrid::Orhogonal_SOR(void) {
   constexpr int kOuterSweeps = 8;
   for (int sweep = 0; sweep < kOuterSweeps; ++sweep) {
     pack_nodes();
-    orthogrid::GridField field;
-    field.assign_from_flat(m_nX, m_nY, xs.data(), ys.data());
-    if (!orthogrid::solve_elliptic_step(field, unknown.data())) {
+    geo::NodeField2d field{m_nX, m_nY, xs.data(), ys.data()};
+    if (!geo::solve_elliptic(field, unknown.data(), 1)) {
       break;
     }
-    field.copy_to_flat(&xs, &ys);
     unpack_nodes();
     SlideBoudary();
   }
@@ -408,15 +411,15 @@ void Orthogrid::AjustRegionCornerNode(Region *pRegion) {
 
 void Orthogrid::AjustRegionCornerNode(int i, int j) {
   dbfPoint Pw, Ps, Pe, Pn, P;
-  Pe = m_pNodes->GetElement(j, i + 1);
-  Ps = m_pNodes->GetElement(j - 1, i);
-  Pw = m_pNodes->GetElement(j, i - 1);
-  Pn = m_pNodes->GetElement(j + 1, i);
+  Pe = m_pNodes->get_element(j, i + 1);
+  Ps = m_pNodes->get_element(j - 1, i);
+  Pw = m_pNodes->get_element(j, i - 1);
+  Pn = m_pNodes->get_element(j + 1, i);
 
   P.x = (Pe.x + Ps.x + Pw.x + Pn.x) / 4.;
   P.y = (Pe.y + Ps.y + Pw.y + Pn.y) / 4.;
 
-  m_pNodes->SetElement(P, j, i);
+  m_pNodes->set_element(P, j, i);
 }
 
 void Orthogrid::SlideBoudary(Boundary *pBnd) {
@@ -447,14 +450,14 @@ void Orthogrid::SlideBoudaryX(vCurvePoints &bnd, int iStart, int iEnd, int J) {
       dbfPoint A, B, P, H;
       int flag = 1;
 
-      P = m_pNodes->GetElement(J, i);
+      P = m_pNodes->get_element(J, i);
 
       orthogrid::detail::locate_on_polyline(P, bnd, pre, next);
       if (next >= bnd.size()) continue;
 
       A = bnd[pre];
       B = bnd[next];
-      P = m_pNodes->GetElement(J + 1, i);
+      P = m_pNodes->get_element(J + 1, i);
 
       flag = orthogrid::detail::foot_on_segment(A, B, P, H);
 
@@ -474,7 +477,7 @@ void Orthogrid::SlideBoudaryX(vCurvePoints &bnd, int iStart, int iEnd, int J) {
         }
       }
 
-      m_pNodes->SetElement(H, J, i);
+      m_pNodes->set_element(H, J, i);
     }
   } else {
     if (J < 1) return;
@@ -484,14 +487,14 @@ void Orthogrid::SlideBoudaryX(vCurvePoints &bnd, int iStart, int iEnd, int J) {
       dbfPoint A, B, P, H;
       int flag = 1;
 
-      P = m_pNodes->GetElement(J, i);
+      P = m_pNodes->get_element(J, i);
 
       orthogrid::detail::locate_on_polyline(P, bnd, pre, next);
       if (next >= bnd.size()) continue;
 
       A = bnd[pre];
       B = bnd[next];
-      P = m_pNodes->GetElement(J - 1, i);
+      P = m_pNodes->get_element(J - 1, i);
 
       flag = orthogrid::detail::foot_on_segment(A, B, P, H);
 
@@ -511,7 +514,7 @@ void Orthogrid::SlideBoudaryX(vCurvePoints &bnd, int iStart, int iEnd, int J) {
         }
       }
 
-      m_pNodes->SetElement(H, J, i);
+      m_pNodes->set_element(H, J, i);
     }
   }
 }
@@ -528,14 +531,14 @@ void Orthogrid::SlideBoudaryY(vCurvePoints &bnd, int jStart, int jEnd, int I) {
       dbfPoint A, B, P, H;
       int flag = 1;
 
-      P = m_pNodes->GetElement(j, I);
+      P = m_pNodes->get_element(j, I);
 
       orthogrid::detail::locate_on_polyline(P, bnd, pre, next);
       if (next >= bnd.size()) continue;
 
       A = bnd[pre];
       B = bnd[next];
-      P = m_pNodes->GetElement(j, I - 1);
+      P = m_pNodes->get_element(j, I - 1);
 
       flag = orthogrid::detail::foot_on_segment(A, B, P, H);
 
@@ -555,7 +558,7 @@ void Orthogrid::SlideBoudaryY(vCurvePoints &bnd, int jStart, int jEnd, int I) {
         }
       }
 
-      m_pNodes->SetElement(H, j, I);
+      m_pNodes->set_element(H, j, I);
     }
   } else {
     if (I > m_nX - 2) return;
@@ -565,14 +568,14 @@ void Orthogrid::SlideBoudaryY(vCurvePoints &bnd, int jStart, int jEnd, int I) {
       dbfPoint A, B, P, H;
       int flag = 1;
 
-      P = m_pNodes->GetElement(j, I);
+      P = m_pNodes->get_element(j, I);
 
       orthogrid::detail::locate_on_polyline(P, bnd, pre, next);
       if (next >= bnd.size()) continue;
 
       A = bnd[pre];
       B = bnd[next];
-      P = m_pNodes->GetElement(j, I + 1);
+      P = m_pNodes->get_element(j, I + 1);
 
       flag = orthogrid::detail::foot_on_segment(A, B, P, H);
 
@@ -592,7 +595,7 @@ void Orthogrid::SlideBoudaryY(vCurvePoints &bnd, int jStart, int jEnd, int I) {
         }
       }
 
-      m_pNodes->SetElement(H, j, I);
+      m_pNodes->set_element(H, j, I);
     }
   }
 }
@@ -606,10 +609,10 @@ void Orthogrid::CalGridOrthogonality() {
   for (i = 1; i < m_nX - 1; i++) {
     for (j = 1; j < m_nY - 1; j++) {
       if (IsOnDiggedRegion(i, j)) continue;
-      Pe = m_pNodes->GetElement(j, i + 1);
-      Ps = m_pNodes->GetElement(j - 1, i);
-      Pw = m_pNodes->GetElement(j, i - 1);
-      Pn = m_pNodes->GetElement(j + 1, i);
+      Pe = m_pNodes->get_element(j, i + 1);
+      Ps = m_pNodes->get_element(j - 1, i);
+      Pw = m_pNodes->get_element(j, i - 1);
+      Pn = m_pNodes->get_element(j + 1, i);
 
       xks = (Pe.x - Pw.x) / 2.;
       xat = (Pn.x - Ps.x) / 2.;
@@ -624,15 +627,15 @@ void Orthogrid::CalGridOrthogonality() {
       ftheta = acos(beta / sqrt(arfa * gama)) * 180. / PI;
       fdelta = fabs(90 - ftheta);
 
-      m_pOrthogonality->SetElement(fdelta, j, i);
+      m_pOrthogonality->set_element(fdelta, j, i);
     }
   }
 }
 
 void Orthogrid::AddOrth(int i, int j, float add) {
-  float orth = m_pOrthogonality->GetElement(j, i);
+  float orth = m_pOrthogonality->get_element(j, i);
   orth += add;
-  m_pOrthogonality->SetElement(orth, j, i);
+  m_pOrthogonality->set_element(orth, j, i);
 }
 
 void Orthogrid::SetGridCell() {
@@ -642,18 +645,18 @@ void Orthogrid::SetGridCell() {
   GridCell cell;
   for (i = 0; i < m_nX - 1; i++) {
     for (j = 0; j < m_nY - 1; j++) {
-      A = m_pNodes->GetElement(j, i);
-      B = m_pNodes->GetElement(j, i + 1);
-      C = m_pNodes->GetElement(j + 1, i + 1);
-      D = m_pNodes->GetElement(j + 1, i);
+      A = m_pNodes->get_element(j, i);
+      B = m_pNodes->get_element(j, i + 1);
+      C = m_pNodes->get_element(j + 1, i + 1);
+      D = m_pNodes->get_element(j + 1, i);
 
-      cell = m_pCells->GetElement(j, i);
+      cell = m_pCells->get_element(j, i);
 
       if (InValid(A) || InValid(B) || InValid(C) || InValid(D)) {
         cell.IsSelected = false;
         cell.P.x = fInvalidNum;
         cell.P.y = fInvalidNum;
-        m_pCells->SetElement(cell, j, i);
+        m_pCells->set_element(cell, j, i);
         continue;
       }
 
@@ -661,12 +664,12 @@ void Orthogrid::SetGridCell() {
       cell.P.x = (A.x + B.x + C.x + D.x) / 4;
       cell.P.y = (A.y + B.y + C.y + D.y) / 4;
 
-      orth = m_pOrthogonality->GetElement(j, i);
-      orth += m_pOrthogonality->GetElement(j, i + 1);
-      orth += m_pOrthogonality->GetElement(j + 1, i + 1);
-      orth += m_pOrthogonality->GetElement(j + 1, i);
+      orth = m_pOrthogonality->get_element(j, i);
+      orth += m_pOrthogonality->get_element(j, i + 1);
+      orth += m_pOrthogonality->get_element(j + 1, i + 1);
+      orth += m_pOrthogonality->get_element(j + 1, i);
 
-      m_pCells->SetElement(cell, j, i);
+      m_pCells->set_element(cell, j, i);
     }
   }
 }
@@ -677,7 +680,7 @@ void Orthogrid::SetDiggedRegionInvalid(void) {
   P.y = fInvalidNum;
   for (int i = 0; i < m_nX; i++) {
     for (int j = 0; j < m_nY; j++) {
-      if (IsInDiggedRegion(i, j)) m_pNodes->SetElement(P, j, i);
+      if (IsInDiggedRegion(i, j)) m_pNodes->set_element(P, j, i);
     }
   }
 
@@ -685,18 +688,18 @@ void Orthogrid::SetDiggedRegionInvalid(void) {
   GridCell cell;
   for (int i = 0; i < m_nX - 1; i++) {
     for (int j = 0; j < m_nY - 1; j++) {
-      A = m_pNodes->GetElement(j, i);
-      B = m_pNodes->GetElement(j, i + 1);
-      C = m_pNodes->GetElement(j + 1, i + 1);
-      D = m_pNodes->GetElement(j + 1, i);
+      A = m_pNodes->get_element(j, i);
+      B = m_pNodes->get_element(j, i + 1);
+      C = m_pNodes->get_element(j + 1, i + 1);
+      D = m_pNodes->get_element(j + 1, i);
 
-      cell = m_pCells->GetElement(j, i);
+      cell = m_pCells->get_element(j, i);
 
       if (InValid(A) || InValid(B) || InValid(C) || InValid(D)) {
         cell.IsSelected = false;
         cell.P.x = fInvalidNum;
         cell.P.y = fInvalidNum;
-        m_pCells->SetElement(cell, j, i);
+        m_pCells->set_element(cell, j, i);
         continue;
       }
     }

@@ -1,5 +1,6 @@
 // Copyright (c) 2026 The Mogu Authors.
 // All rights reserved.
+// LayerTreeHost drives leftover rhi2d map paint (gis::Map*, not SmtMap).
 
 #include "legacy/render/rhi2d/impl/common/cc/layer_tree_host.h"
 

@@ -71,4 +71,4 @@ Catalog: **`native.storm_surge_stats`**. Product: **`stormsurge.stats`** (also o
 
 - [ ] NetCDF / grid water-surface import path into the same writer seam
 - [ ] Optional simplified tide / wind drivers (not a full hydrodynamic engine)
-- [ ] Optional `DomainKind::kStormSurge` hook under `gis/vista/domain` (Effect / session later; document seam only until render domain work opens)
+- [ ] Optional `DomainKind::kStormSurge` hook under `vista/domain` (Effect / session later; document seam only until render domain work opens)

@@ -69,11 +69,12 @@ Do **not** “helpfully” add sleeps or pumps into the timed loop.
 
 | Concern | This skill | `harness-auto-world3d-opt` |
 | --- | --- | --- |
-| GL / D3D leftover rows | Optional A/B only | Primary |
-| Every-frame phases | Primary | Secondary |
-| Locked legacy profile | Required | Not required |
-| Done bar | `ms_per_present` + `rebuild_count=0` | Screenshots + comparison table |
+| GL / D3D leftover rows | Optional A/B only | Primary (bare; `gl_leftover` / `d3d_leftover`) |
+| Every-frame phases | Primary | Secondary on bare; primary on M4 full-materials table |
+| Locked legacy profile | Required | Bare: PERF_BARE=1; M4: PERF_BARE unset under `matrix/full_materials/` |
+| Done bar | `ms_per_present` + `rebuild_count=0` | Bare peer table + separate full-materials table |
 
+M4 full-materials runner: `testing/tools/harness/plugin/run_world3d_full_materials_matrix.py` — same phase keys as `atmosphere-showcase-perf.json` / `plugin-showcase-world3d-perf.json`. Do **not** rank full-materials `ms_per_present` against bare warm peers.
 ## Example reply skeleton
 
 ```markdown

@@ -4,7 +4,7 @@
 import("//build/smartgis.gni")
 
 # Cartographic pen/brush/StyleManager POD (NOT MapLibre Style JSON —
-# that is //src/gis/present/style). Envelope lives in //src/gis/model/envelope.h.
+# that is //src/gis/carto/style). Envelope lives in //src/gis/envelope.h.
 #
 # Leftover tree mirrors endgame gis/present/carto. Compiled into
 # //src/gis:gis (dll_stem=gis). Namespace remains `base` for leftover
@@ -23,9 +23,16 @@ source_set("carto_sources") {
     "style.cpp",
     "stylemanager.cpp",
     "styletable.cpp",
+    "smt_style_from_paint.cpp",
+    "smt_style_from_paint.h",
+    "smt_style_ogr.cc",
+    "smt_style_ogr.h",
   ]
   include_dirs += [ "//src" ]
-  public_deps = [ "//src/base:base" ]
+  public_deps = [
+    "//src/base:base",
+    "//third_party:gdal",
+  ]
 }
 
 group("carto") {

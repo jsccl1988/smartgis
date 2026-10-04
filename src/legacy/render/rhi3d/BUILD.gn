@@ -33,7 +33,7 @@ source_set("rhi_sources") {
     "impl/common:common_frame_sources",
   ]
   deps = [
-    "//src/gis/kernel/geo:geo",
+    "//src/gis/geo:geo",
     "//src/base:base",
     "//src/base:core",
   ]

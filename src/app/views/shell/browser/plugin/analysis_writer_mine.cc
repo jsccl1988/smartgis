@@ -8,7 +8,7 @@
 #include "app/views/shell/browser/plugin/analysis_writer_common.h"
 #include "content/browser/document/map_scene.h"
 #include "content/browser/present/scene3d/scene3d_presenter.h"
-#include "gis/present/style/style_document.h"
+#include "gis/carto/style/style_document.h"
 #include "plugin/product/mine/commands.h"
 #include "tool/draft/draft.h"
 
@@ -162,10 +162,10 @@ bool commit_mine_stratum(content::MapScene* doc,
 
     std::vector<float> stick_xyz;
     std::vector<uint8_t> stick_rgba;
-    constexpr int kStickSamples = 12;
-    // Lift beads above the TIN (meters) so they clear depth against overlay.
+    // Dense vertical beads so sticks read as continuous columns (not one float).
+    constexpr int kStickSamples = 28;
     const float stick_lift_m =
-        kOverlayLiftM + static_cast<float>((std::max)(peak * 0.15, 4.0));
+        kOverlayLiftM + static_cast<float>((std::max)(peak * 0.08, 2.0));
     for (const auto& [hole_id, contacts] : by_hole) {
       (void)hole_id;
       if (contacts.size() < 1) {
@@ -186,27 +186,9 @@ bool commit_mine_stratum(content::MapScene* doc,
         stick_xyz.push_back(static_cast<float>(lon));
         stick_xyz.push_back(static_cast<float>(lat));
         stick_xyz.push_back(static_cast<float>(z) + stick_lift_m);
-        // Amber beads contrast purple stratum TIN (map2d sticks are near-black).
         stick_rgba.push_back(0xf1);
         stick_rgba.push_back(0xc4);
         stick_rgba.push_back(0x0f);
-        stick_rgba.push_back(255);
-      }
-    }
-    // Seed TIN verts as bright markers so sparse meshes still read in 3D.
-    if (tin.ok) {
-      const int point_count = static_cast<int>(tin.xyz.size() / 3);
-      for (int i = 0; i < point_count; ++i) {
-        stick_xyz.push_back(
-            static_cast<float>(tin.xyz[static_cast<size_t>(i) * 3u]));
-        stick_xyz.push_back(
-            static_cast<float>(tin.xyz[static_cast<size_t>(i) * 3u + 1u]));
-        stick_xyz.push_back(
-            static_cast<float>(tin.xyz[static_cast<size_t>(i) * 3u + 2u]) +
-            stick_lift_m * 1.25f);
-        stick_rgba.push_back(0x8e);
-        stick_rgba.push_back(0x44);
-        stick_rgba.push_back(0xad);
         stick_rgba.push_back(255);
       }
     }

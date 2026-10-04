@@ -10,8 +10,8 @@ All rights reserved.
 
 **Status:** active  
 **Date:** 2026-09-27  
-**Related:** RHI + 双场景 [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md)（Backend 与 `World` / `GpuScene` 仍以该规格为准）；Views 二维接线 [`2026-09-27-views-2d-map-rhi-design.md`](2026-09-27-views-2d-map-rhi-design.md)；CPU 帧 [`2026-09-27-map2d-frame-design.md`](2026-09-27-map2d-frame-design.md)；环境顺序 [`2026-09-19-atmosphere-ocean-cloud-design.md`](2026-09-19-atmosphere-ocean-cloud-design.md)；GPU 进程合成加速（`CompositorFrame` + `FrameComposer`，与本规格的 in-process `present` 分路）[`2026-09-27-gpu-rhi-accelerate-design.md`](2026-09-27-gpu-rhi-accelerate-design.md)。  
-**Plan:** [`../plans/2026-09-27-render-frame-graph.md`](../plans/2026-09-27-render-frame-graph.md)
+**Related:** RHI + 双场景 [`2026-09-13-render-rhi-scene-design.md`](../../specs/2026-09-13-render-rhi-scene-design.md)（Backend 与 `World` / `GpuScene` 仍以该规格为准）；Views 二维接线 [`2026-09-27-views-2d-map-rhi-design.md`](2026-09-27-views-2d-map-rhi-design.md)；CPU 帧 [`2026-09-27-map2d-frame-design.md`](2026-09-27-map2d-frame-design.md)；环境顺序 [`2026-09-19-atmosphere-ocean-cloud-design.md`](2026-09-19-atmosphere-ocean-cloud-design.md)；GPU 进程合成加速（`CompositorFrame` + `FrameComposer`，与本规格的 in-process `present` 分路）[`2026-09-27-gpu-rhi-accelerate-design.md`](2026-09-27-gpu-rhi-accelerate-design.md)。  
+**Plan:** [`../plans/2026-09-27-render-frame-graph.md`](../../plans/2026-09-27-render-frame-graph.md)
 
 ## Goal
 
@@ -25,7 +25,7 @@ All rights reserved.
 | --- | --- | --- |
 | Backend | `render::rhi` | `src/render/rhi`，本规格不改 |
 | Render Scene | `render::scene::GpuScene` | GPU 驻留缓存：`sync_from(gis::World)`、网格、材质、实例绘制、`release` / `abandon`。不选投影、pass 顺序或 Clear/Load。见 Render Scene |
-| Pass | 同一相机下的网格，经 adapter 进入 `Effect` | `OpaqueEffect` 终态在 `src/render/graph`（graph 自己的 `kOpaque`）。`MapEffect` 与大气 GPU pass 在 `src/effect`（见 Effect tree）。不为每个领域新开 render 目录，也不做新 DLL |
+| Pass | 同一相机下的网格，经 adapter 进入 `Effect` | `OpaqueEffect` 终态在 `src/render/graph`（graph 自己的 `kOpaque`）。`MapEffect` 与大气 GPU pass 在 `src/vista`（见 Effect tree）。不为每个领域新开 render 目录，也不做新 DLL |
 | Frame Graph | `render::graph` | `src/render/graph`。四个 `EffectSlot`、`present`，以及 `OpaqueEffect`。`present` 仍是槽遍历，不包含 gis 地图或大气头。`ViewInput` 不点名 `GpuScene`、`MapFrame`、`AtmosphereFrame` |
 | View | `render::graph::present` | 同上。`ViewInput` 只有宽高、一个相机、非拥有的 `Effect*` 列表 |
 
@@ -39,12 +39,12 @@ All rights reserved.
 
 | 今天 | 终局 | 命名空间 | 链接 |
 | --- | --- | --- | --- |
-| `src/render/map2d`（`Pass`、`MapEffect`、glyph、`detail`） | `src/effect/map` | `effect::map`（内部 `effect::map::detail`） | `//src/effect/map:map_sources` |
-| `src/render/atmosphere`（ocean / cloud / sky / fog、`AtmosphereFrame`、大气 Effect） | `src/effect/atmosphere` | `effect::atmosphere`（内部 `effect::atmosphere::detail`） | `//src/effect/atmosphere:atmosphere_sources` |
+| `src/render/map2d`（`Pass`、`MapEffect`、glyph、`detail`） | `src/vista/map` | `effect::map`（内部 `effect::map::detail`） | `//src/vista/map:map_sources` |
+| `src/render/atmosphere`（ocean / cloud / sky / fog、`AtmosphereFrame`、大气 Effect） | `src/vista/atmosphere` | `effect::atmosphere`（内部 `effect::atmosphere::detail`） | `//src/vista/atmosphere:atmosphere_sources` |
 
-Include：`effect/map/pass.h`、`effect/atmosphere/frame/atmosphere_effects.h`。`src/render/` 下不留转发头。
+Include：`vista/map/pass.h`、`vista/atmosphere/frame/atmosphere_effects.h`。`src/render/` 下不留转发头。
 
-它们是 `source_set`，不是新 DLL。`//src/render:render` 不编译这些源文件，也不 `deps` 它们。调用方自己依赖：`src/app/views` 的 `MapScene`、`Scene3dController` 及其测试。`frame_graph_test` 仍依赖 `//src/render:render`；只有构造 `MapEffect` 的测试再依赖 `//src/effect/map`。
+它们是 `source_set`，不是新 DLL。`//src/render:render` 不编译这些源文件，也不 `deps` 它们。调用方自己依赖：`src/app/views` 的 `MapScene`、`Scene3dController` 及其测试。`frame_graph_test` 仍依赖 `//src/render:render`；只有构造 `MapEffect` 的测试再依赖 `//src/vista/map`。
 
 `render` 留下：
 
@@ -56,7 +56,7 @@ Include：`effect/map/pass.h`、`effect/atmosphere/frame/atmosphere_effects.h`�
 | `skia/` | 壳画布，不是 GIS 帧 |
 | `math/` | 场景数学 |
 
-这一步不搬 CPU。CPU 已在 `src/gis/vista`（见 GIS）；Effect 步只动 GPU pass。不实现 factory、geology、offshore、storm-surge、space。不把 `GpuScene` 放到 `src/effect`。`OpaqueEffect` 留在 render，终态在 `render/graph`（见 Render Scene）。
+这一步不搬 CPU。CPU 已在 `src/gis/vista`（见 GIS）；Effect 步只动 GPU pass。不实现 factory、geology、offshore、storm-surge、space。不把 `GpuScene` 放到 `src/vista`。`OpaqueEffect` 留在 render，终态在 `render/graph`（见 Render Scene）。
 
 ## Render Scene
 
@@ -71,21 +71,21 @@ Include：`effect/map/pass.h`、`effect/atmosphere/frame/atmosphere_effects.h`�
 
 留在 `scene/`、不进 graph 的：`GpuScene` 的网格数组、细分、数据面的视锥提取（`frustum_aabb`）。graph 可以调用一个窄的「画实例」入口。不新开 DLL。
 
-与 Effect tree 的关系：`effect/map` 与 `effect/atmosphere` 实现 `graph::Effect` 并离开 `render`。`GpuScene` 的不透明录制不是外部效果，而是 graph 自己的 `kOpaque` pass，因为 Render Scene 属于 render。不要把 `GpuScene` 放到 `src/effect`。
+与 Effect tree 的关系：`vista/map` 与 `vista/atmosphere` 实现 `graph::Effect` 并离开 `render`。`GpuScene` 的不透明录制不是外部效果，而是 graph 自己的 `kOpaque` pass，因为 Render Scene 属于 render。不要把 `GpuScene` 放到 `src/vista`。
 
 ## GIS
 
 `vista` 是视口所持的那一幅景象：正交或透视都是同一帧，不是第二颗行星，也不是 GPU scene。父目录不叫 `scene`：它和 `render/scene` 撞名，也像只装三维。
 
-磁盘上已完成：`src/gis/map2d` + `src/gis/scene` → `src/gis/vista/{frame,world,assets,domain}`，且 `domain/atmosphere` 为唯一已实现会话包（旧 `vista/scene`、顶栏 `vista/atmosphere` 已不存在）。
+磁盘上已完成：`src/gis/map2d` + `src/gis/scene` → `src/vista/{frame,world,assets,domain}`，且 `domain/atmosphere` 为唯一已实现会话包（旧 `vista/scene`、顶栏 `vista/atmosphere` 已不存在）。
 
 | 路径（磁盘现状） | 状态 | 职责 |
 | --- | --- | --- |
-| `src/gis/vista/frame/` | 已落地 | CPU `MapFrame`。正交是今天的地图；`ViewMode::kPerspective` 以后仍是这一帧。没有 RHI、HWND、`CameraMatrices`。网格在视图 CRS |
-| `src/gis/vista/world/` | 已落地 | 节点图：`class gis::World`、地形、陆地掩膜。`world/terrain/` 下放 DEM / 掩膜。源文件是并列的 `world.h` / `world.cc`（不要 `world/world/`） |
-| `src/gis/vista/assets/` | 已落地 | CPU mesh / tileset |
-| `src/gis/vista/domain/` | 已落地（`domain.h`） | `DomainKind` / `DomainSession`，类型仍在命名空间 `gis` |
-| `src/gis/vista/domain/atmosphere/` | 已落地 | CPU `Environment`（`kAtmosphere` 会话包：field + systems）。不是 World 的兄弟，也不是第二套「环境 = 大气」顶栏 |
+| `src/vista/frame/` | 已落地 | CPU `MapFrame`。正交是今天的地图；`ViewMode::kPerspective` 以后仍是这一帧。没有 RHI、HWND、`CameraMatrices`。网格在视图 CRS |
+| `src/vista/world/` | 已落地 | 节点图：`class gis::World`、地形、陆地掩膜。`world/terrain/` 下放 DEM / 掩膜。源文件是并列的 `world.h` / `world.cc`（不要 `world/world/`） |
+| `src/vista/assets/` | 已落地 | CPU mesh / tileset |
+| `src/vista/domain/` | 已落地（`domain.h`） | `DomainKind` / `DomainSession`，类型仍在命名空间 `gis` |
+| `src/vista/domain/atmosphere/` | 已落地 | CPU `Environment`（`kAtmosphere` 会话包：field + systems）。不是 World 的兄弟，也不是第二套「环境 = 大气」顶栏 |
 
 **为什么 atmosphere 嵌在 `domain/` 下：** `Environment` 已经是 `DomainKind::kAtmosphere` 会话（`kind()` 返回 `kAtmosphere`；不强制继承 `DomainSession`）。挂在 `vista/atmosphere` 会让每个未来领域都变成 `vista/` 顶栏同伴，并复现「atmosphere = environment」的旧味。嵌在 `domain/atmosphere/` 后，factory / geology / offshore / storm / space 是 atmosphere 的兄弟，不是 World 的兄弟。
 
@@ -99,17 +99,17 @@ Include：`effect/map/pass.h`、`effect/atmosphere/frame/atmosphere_effects.h`�
 
 **路径与命名（11b 已落地）：**
 
-- 节点图：`gis/vista/world/world.h`；guard `GIS_VISTA_WORLD_H_`；地形 `gis/vista/world/terrain/`。
-- 大气：`gis/vista/domain/atmosphere/`（`field/`、`systems/`）。**不**引入 `gis::vista::atmosphere`。CPU 类型继续用 `gis::atmosphere`；**不改名 `Environment`**。
-- 帧头保持 `gis/vista/frame/frame.h`。公开帧类型是 `gis::vista`（`Layout`、`MapFrame`、`View`、`ViewMode` 等）；`gis::vista::detail` 放碰撞等内部。`gis::World` 仍是 `gis::World`。不要引入 `gis::vista::frame`。
+- 节点图：`vista/world/world.h`；guard `GIS_VISTA_WORLD_H_`；地形 `vista/world/terrain/`。
+- 大气：`vista/domain/atmosphere/`（`field/`、`systems/`）。**不**引入 `gis::vista::atmosphere`。CPU 类型继续用 `gis::atmosphere`；**不改名 `Environment`**。
+- 帧头保持 `vista/frame/frame.h`。公开帧类型是 `gis::vista`（`Layout`、`MapFrame`、`View`、`ViewMode` 等）；`gis::vista::detail` 放碰撞等内部。`gis::World` 仍是 `gis::World`。不要引入 `gis::vista::frame`。
 
 `src/gis/present` 仍是样式和瓦片输入：`StyleDocument`、符号、tile。`gis::vista::Layout` 消费它们。`World` 与 `DomainSession` 不解析 Style JSON。`present` 不并进 `vista`。
 
-GPU 地图 pass 与大气 pass 在 `src/effect/{map,atmosphere}`（见 Effect tree），消费 `gis::vista` 的 CPU 类型。`gis` 不包含 `render`。不透明录制仍由 `src/render/graph` 持有。GPU pass 不放进 `gis/vista`。
+GPU 地图 pass 与大气 pass 在 `src/vista/{map,atmosphere}`（见 Effect tree），消费 `gis::vista` 的 CPU 类型。`gis` 不包含 `render`。不透明录制仍由 `src/render/graph` 持有。GPU pass 不放进 `gis/vista`。
 
 `render::graph::present` 绑定一个相机，并持有非拥有的 `Effect*` 列表。槽位按录制顺序是 `kBeforeOpaque`、`kOpaque`、`kAfterOpaque`、`kOverlay`。`kOpaque` 是地形、模型和地图世界网格；`kOverlay` 是屏幕图标和文字。`AtmosphereFrame` 仍排大气 pass（`sky → ocean` 与 `cloud → fog`），由 `PreOpaqueEffect` / `PostOpaqueEffect` 包进前段和后段，不继承 `DomainSession`。不透明体是 `OpaqueEffect`，地图是 `MapEffect`。factory、geology、offshore、storm-surge、space 以后各写一个 `Effect`，不是这次的实现，也不为它们各开一个 render 目录。
 
-`DomainKind`：`kAtmosphere`、`kFactory`、`kGeology`、`kOffshore`、`kStormSurge`、`kSpace`。本规格不实现后五项。CPU `Environment` 终态在 `gis/vista/domain/atmosphere`。GPU pass 的目录见 Effect tree。
+`DomainKind`：`kAtmosphere`、`kFactory`、`kGeology`、`kOffshore`、`kStormSurge`、`kSpace`。本规格不实现后五项。CPU `Environment` 终态在 `vista/domain/atmosphere`。GPU pass 的目录见 Effect tree。
 
 `ViewMode` 挂在 `gis::vista::View` 上：`kOrtho`（默认）、`kPerspective`。`DrawKind` 不变。图标和文字仍是屏幕 HUD；填充、线、圆、栅格留在视图 CRS。`Vertex` 已有 `z`。`Layout` 不按 `ViewMode` 分支，也不做球体或 ECEF。
 
@@ -178,7 +178,7 @@ bool present(rhi::Device* device, const ViewInput& in);
 }  // namespace render
 ```
 
-终态 `OpaqueEffect` 在 `render::graph`（`src/render/graph/opaque_effect.h`）。今天的文件还在 `src/render/scene/opaque_effect.h`。`MapEffect` 在 `effect::map`（`src/effect/map/map_effect.h`）。`present` 所在的 `graph_sources` 仍只依赖 `rhi_sources`，不包含 map、atmosphere 或 `scene.h`。`OpaqueEffect` 另编进同一个 `render.dll`，调用 scene 的窄绘制入口。
+终态 `OpaqueEffect` 在 `render::graph`（`src/render/graph/opaque_effect.h`）。今天的文件还在 `src/render/scene/opaque_effect.h`。`MapEffect` 在 `effect::map`（`src/vista/map/map_effect.h`）。`present` 所在的 `graph_sources` 仍只依赖 `rhi_sources`，不包含 map、atmosphere 或 `scene.h`。`OpaqueEffect` 另编进同一个 `render.dll`，调用 scene 的窄绘制入口。
 
 云质量留在 `PostOpaqueEffect` 上，不进 `ViewInput`。`MapScene::present_gpu` 用视图范围的 `make_ortho_camera` 填 `camera`，`effects` 里只有一个 `record_all` 的 `MapEffect`。`Scene3dController` 在 `prepare_atmosphere_*` 之后按顺序推入前段效果、`OpaqueEffect(&gpu_scene_)`、后段效果；`backend == kNull` 时 `camera` 为空，避免 Null 上的视锥裁剪。
 
@@ -193,9 +193,9 @@ bool record(..., bool world_items = true, bool overlay_items = true,
 
 ## Non-goals
 
-- Effect tree 与 graph 录制这两步不搬 `gis/map2d`、`gis/present`、`gis/scene`。CPU 终态是 `src/gis/vista`（见 GIS），单独一步，不在这两步里做。`present` 不并进 vista。GPU pass 不放进 `gis/vista`。不把 `map2d` 改名为 `map3d`。GPU 地图与大气 pass 迁到 `src/effect`（见 Effect tree）。`OpaqueEffect` 迁到 `render/graph`（见 Render Scene），不把 `GpuScene` 放到 `src/effect`。
+- Effect tree 与 graph 录制这两步不搬 `gis/map2d`、`gis/present`、`gis/scene`。CPU 终态是 `src/gis/vista`（见 GIS），单独一步，不在这两步里做。`present` 不并进 vista。GPU pass 不放进 `gis/vista`。不把 `map2d` 改名为 `map3d`。GPU 地图与大气 pass 迁到 `src/vista`（见 Effect tree）。`OpaqueEffect` 迁到 `render/graph`（见 Render Scene），不把 `GpuScene` 放到 `src/vista`。
 - 不实现 factory、geology、offshore、storm-surge、space（它们是以后的 `Effect`，不是这次的类型或目录），也不在 GIS 里做球体数学或 ECEF。
-- 不为每个领域新建 render 子目录或新的 DLL。`src/effect` 的两个模块是 `source_set`。
+- 不为每个领域新建 render 子目录或新的 DLL。`src/vista` 的两个模块是 `source_set`。
 - 不把 `GpuScene` 的网格数组、细分和数据面视锥提取搬进 graph，也不为此新开 DLL。有 `RecordContext` 相机时，`record_draws` 不再选择投影；没相机的双绑定是临时遗留。
 - 不让 `GpuScene` 再承担二维样式和注记。
 - 不把 Skia 放进 Frame Graph。

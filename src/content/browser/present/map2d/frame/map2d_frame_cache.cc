@@ -14,23 +14,19 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 #include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "base/execution/executor/pool/global_executor.h"
-#include "base/execution/futures/combinators/async.h"
 #include "base/memory/arena.h"
 #include "base/trace/event/process_trace.h"
-#include "effect/map/pass.h"
-#include "gis/present/style/paint_resolve.h"
-#include "gis/present/style/style_document.h"
-#include "gis/present/style/style_rules.h"
-#include "gis/vista/frame/frame.h"
-#include "gis/vista/world/terrain/process/dem_hillshade.h"
-#include "gis/vista/world/terrain/dem/dem_raster.h"
+#include "vista/map/pass.h"
+#include "gis/carto/style/style_document.h"
+#include "gis/carto/style/style_rules.h"
+#include "vista/frame/frame.h"
+#include "vista/frame/hillshade_bake.h"
+#include "vista/world/terrain/dem/dem_raster.h"
 
 namespace content {
 namespace {
@@ -52,96 +48,6 @@ const gis::style::StyleLayer* find_hillshade_layer(
   return nullptr;
 }
 
-// Process-wide bake cache: DEM path + illumination + max_edge (viewport LOD).
-// Survives Map2dFrameCache::invalidate so StaticReuse rebuilds skip shade_dem.
-struct HillshadeBakeCache {
-  std::mutex mu;
-  std::string dem_path;
-  float illumination_direction_deg = 0.f;
-  float illumination_altitude_deg = 0.f;
-  float exaggeration = 0.f;
-  uint32_t shadow_argb = 0;
-  uint32_t highlight_argb = 0;
-  uint32_t accent_argb = 0;
-  int max_edge = 0;
-  std::vector<uint8_t> rgba;
-  int w = 0;
-  int h = 0;
-  double min_x = 0;
-  double min_y = 0;
-  double max_x = 0;
-  double max_y = 0;
-  bool ready = false;
-};
-
-HillshadeBakeCache& hillshade_bake_cache() {
-  static HillshadeBakeCache cache;
-  return cache;
-}
-
-int hillshade_max_edge_for_zoom(double zoom) {
-  // Overview / china framing: downsample DEM before shade (Task 3 LOD).
-  // Slightly higher edges cut blocky umbra when bilinear-stretched to 1280.
-  if (zoom < 4.5) {
-    return 192;
-  }
-  if (zoom < 7.0) {
-    return 288;
-  }
-  return 384;
-}
-
-bool hillshade_cache_lookup(const std::string& dem_path,
-                            const gis::HillshadeParams& params,
-                            std::vector<uint8_t>* rgba, int* w, int* h,
-                            double* min_x, double* min_y, double* max_x,
-                            double* max_y) {
-  HillshadeBakeCache& c = hillshade_bake_cache();
-  std::lock_guard<std::mutex> lock(c.mu);
-  if (!c.ready || c.dem_path != dem_path || c.max_edge != params.max_edge ||
-      c.illumination_direction_deg != params.illumination_direction_deg ||
-      c.illumination_altitude_deg != params.illumination_altitude_deg ||
-      c.exaggeration != params.exaggeration ||
-      c.shadow_argb != params.shadow_argb ||
-      c.highlight_argb != params.highlight_argb ||
-      c.accent_argb != params.accent_argb) {
-    return false;
-  }
-  *rgba = c.rgba;
-  *w = c.w;
-  *h = c.h;
-  *min_x = c.min_x;
-  *min_y = c.min_y;
-  *max_x = c.max_x;
-  *max_y = c.max_y;
-  return !rgba->empty() && *w > 0 && *h > 0;
-}
-
-void hillshade_cache_store(const std::string& dem_path,
-                           const gis::HillshadeParams& params,
-                           std::vector<uint8_t> rgba, int w, int h,
-                           double min_x, double min_y, double max_x,
-                           double max_y) {
-  HillshadeBakeCache& c = hillshade_bake_cache();
-  std::lock_guard<std::mutex> lock(c.mu);
-  c.dem_path = dem_path;
-  c.illumination_direction_deg = params.illumination_direction_deg;
-  c.illumination_altitude_deg = params.illumination_altitude_deg;
-  c.exaggeration = params.exaggeration;
-  c.shadow_argb = params.shadow_argb;
-  c.highlight_argb = params.highlight_argb;
-  c.accent_argb = params.accent_argb;
-  c.max_edge = params.max_edge;
-  c.rgba = std::move(rgba);
-  c.w = w;
-  c.h = h;
-  c.min_x = min_x;
-  c.min_y = min_y;
-  c.max_x = max_x;
-  c.max_y = max_y;
-  c.ready = !c.rgba.empty() && w > 0 && h > 0;
-}
-
 }  // namespace
 
 void Map2dFrameCache::clear_hillshade_bake() {
@@ -158,7 +64,7 @@ void Map2dFrameCache::bind(const MapScene* scene, const ViewFrame* frame) {
   has_frame_cache_ = false;
   last_present_was_interactive_ = false;
   last_present_reused_layout_ = false;
-  cached_frame_ = gis::vista::MapFrame{};
+  cached_frame_ = vista::MapFrame{};
   cached_fp_ = ContentFingerprint{};
   cached_cam_ = CameraKey{};
   clear_hillshade_bake();
@@ -169,7 +75,7 @@ void Map2dFrameCache::invalidate() {
   has_frame_cache_ = false;
   last_present_was_interactive_ = false;
   last_present_reused_layout_ = false;
-  cached_frame_ = gis::vista::MapFrame{};
+  cached_frame_ = vista::MapFrame{};
   cached_fp_ = ContentFingerprint{};
   cached_cam_ = CameraKey{};
   clear_hillshade_bake();
@@ -203,6 +109,49 @@ Map2dFrameCache::ContentFingerprint Map2dFrameCache::make_fingerprint() const {
   fp.layer_count = scene_->layer_count();
   fp.style_ptr = scene_->style_document();
   fp.use_carto = scene_->style_document() == nullptr;
+
+  // FNV-1a over layer identity so StaticReuse survives count-stable edits and
+  // still invalidates on visibility / id / endpoint swaps without a full
+  // geometry walk.
+  uint64_t h = 14695981039346656037ull;
+  auto mix = [&h](uint64_t v) {
+    h ^= v;
+    h *= 1099511628211ull;
+  };
+  auto mix_bytes = [&](const void* p, size_t n) {
+    const auto* b = static_cast<const unsigned char*>(p);
+    for (size_t i = 0; i < n; ++i) {
+      mix(b[i]);
+    }
+  };
+  for (const MapScene::Layer& layer : scene_->layers()) {
+    mix_bytes(layer.id.data(), layer.id.size());
+    mix(layer.visible ? 1ull : 0ull);
+    mix(static_cast<uint64_t>(layer.features.size()));
+    mix(static_cast<uint64_t>(layer.kind));
+    if (!layer.features.empty()) {
+      const MapScene::Feature& first = layer.features.front();
+      const MapScene::Feature& last = layer.features.back();
+      mix(static_cast<uint64_t>(first.kind));
+      mix(static_cast<uint64_t>(first.points.size()));
+      mix_bytes(first.id.bytes, first.id.len);
+      mix(static_cast<uint64_t>(last.kind));
+      mix(static_cast<uint64_t>(last.points.size()));
+      mix_bytes(last.id.bytes, last.id.len);
+      auto mix_coord = [&](double v) {
+        mix(static_cast<uint64_t>(static_cast<int64_t>(v * 1e6)));
+      };
+      if (!first.points.empty()) {
+        mix_coord(first.points.front().x);
+        mix_coord(first.points.front().y);
+      }
+      if (!last.points.empty()) {
+        mix_coord(last.points.back().x);
+        mix_coord(last.points.back().y);
+      }
+    }
+  }
+  fp.content_hash = h;
   return fp;
 }
 
@@ -239,7 +188,7 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
   // Drop prior frame + hillshade BEFORE resetting scratch arenas. Clearing
   // monotonic / TLS pools first left STL proxies (esp. hillshade_rgba_)
   // dangling → Debug ~vector / memcpy AV inside Widget::show paint.
-  cached_frame_ = gis::vista::MapFrame{};
+  cached_frame_ = vista::MapFrame{};
   clear_hillshade_bake();
   has_frame_cache_ = false;
 
@@ -272,7 +221,26 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
     }
     return has_area_or_point && !has_land_or_river;
   };
-  if (style_is_china_city_pack(style)) {
+  auto style_has_carto_slots = [](const gis::style::StyleDocument* doc) {
+    if (!doc) {
+      return false;
+    }
+    for (const gis::style::StyleLayer& layer : doc->layers) {
+      if (layer.source_layer == "land" || layer.source_layer == "river" ||
+          layer.source_layer == "road" || layer.source_layer == "label") {
+        return true;
+      }
+    }
+    return false;
+  };
+  // Fingerprint treats china-city remaps as carto (style_document() null or
+  // remapped). Batch path must match: use_carto when original scene style was
+  // null or china-city pack. Print carto (land/river/label, no symbols) also
+  // needs slot remap so area/line/point packs bind. Evaluate once.
+  const bool china_city_pack = style_is_china_city_pack(style);
+  const bool carto_slots = style_has_carto_slots(style);
+  const bool use_carto = style == nullptr || china_city_pack || carto_slots;
+  if (china_city_pack) {
     style = nullptr;
   }
   // Default carto JSON is large; parse once per process (rebuilds are frequent
@@ -282,18 +250,18 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
     static gis::style::StyleDocument carto_doc;
     std::call_once(carto_once, [] {
       (void)gis::style::parse_style_document(
-          gis::vista::default_carto_style_json(), &carto_doc);
+          vista::default_carto_style_json(), &carto_doc);
     });
     style = &carto_doc;
   }
 
-  gis::vista::Layout layout;
-  gis::vista::LayoutInput in;
+  vista::Layout layout;
+  vista::LayoutInput in;
   in.view = {cam.width_px, cam.height_px, cam.min_x, cam.min_y, cam.max_x,
              cam.max_y};
   in.style = style;
   in.zoom = detail::zoom_from_scale(frame_->scale());
-  effect::map::WindowsGlyphRasterizer windows_rasterizer;
+  vista::WindowsGlyphRasterizer windows_rasterizer;
   in.metrics = &windows_rasterizer;
   in.tiles = {};
 
@@ -319,95 +287,30 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
   if (!skip_hillshade) {
     if (const gis::style::StyleLayer* hs =
             find_hillshade_layer(style, in.zoom)) {
-      const std::string dem_path = gis::find_sample_dem_path();
+      const std::string dem_path = vista::find_sample_dem_path();
       if (dem_path.empty()) {
         std::fprintf(stderr, "map2d: hillshade skip - china_dem not found\n");
       } else {
         const auto hs_t0 = std::chrono::steady_clock::now();
-        // Read Style Spec hillshade keys as POD only. Avoid ResolvedPaint /
-        // fill_resolved_paint here: that path assigns STL members across the
-        // gis_d ↔ content boundary and has crashed Debug CRT free_dbg when
-        // layouts drifted mid-build.
-        gis::HillshadeParams params;
-        params.max_edge = hillshade_max_edge_for_zoom(in.zoom);
-        auto paint_get = [&](const char* key) -> std::string {
-          const auto it = hs->paint.find(key);
-          return it == hs->paint.end() ? std::string() : it->second;
-        };
-        if (const std::string s =
-                paint_get("hillshade-illumination-direction");
-            !s.empty()) {
-          params.illumination_direction_deg = std::strtof(s.c_str(), nullptr);
-        }
-        if (const std::string s = paint_get("hillshade-exaggeration");
-            !s.empty()) {
-          params.exaggeration = std::strtof(s.c_str(), nullptr);
-        }
-        uint32_t argb = 0;
-        if (gis::style::parse_color(paint_get("hillshade-shadow-color"),
-                                    &argb)) {
-          params.shadow_argb = argb;
-        }
-        if (gis::style::parse_color(paint_get("hillshade-highlight-color"),
-                                    &argb)) {
-          params.highlight_argb = argb;
-        }
-        if (gis::style::parse_color(paint_get("hillshade-accent-color"),
-                                    &argb)) {
-          params.accent_argb = argb;
-        }
-
-        double dem_minx = 0, dem_miny = 0, dem_maxx = 0, dem_maxy = 0;
-        bool have_bake = hillshade_cache_lookup(
-            dem_path, params, &baked_rgba, &baked_w, &baked_h, &dem_minx,
-            &dem_miny, &dem_maxx, &dem_maxy);
-        if (!have_bake) {
+        vista::HillshadeBake baked;
+        {
           BASE_TRACE_EVENT("HillshadeBake", "startup");
-          gis::DemRaster dem;
-          if (!dem.load_gdal_raster(dem_path.c_str()) || dem.empty()) {
-            std::fprintf(stderr,
-                         "map2d: hillshade skip - DEM load failed (%s)\n",
-                         dem_path.c_str());
-          } else if (gis::shade_dem_rgba(dem, params, &baked_rgba, &baked_w,
-                                         &baked_h) &&
-                     baked_w > 0 && baked_h > 0 && !baked_rgba.empty()) {
-            dem.envelope(&dem_minx, &dem_miny, &dem_maxx, &dem_maxy);
-            hillshade_cache_store(dem_path, params, baked_rgba, baked_w,
-                                  baked_h, dem_minx, dem_miny, dem_maxx,
-                                  dem_maxy);
-            // store moved? we passed by value copy - baked_rgba still valid
-            have_bake = true;
-          } else {
-            baked_rgba.clear();
-            baked_w = 0;
-            baked_h = 0;
-            std::fprintf(stderr,
-                         "map2d: hillshade skip - shade_dem_rgba failed\n");
-          }
-        } else {
-          std::fprintf(stderr,
-                       "map2d: hillshade cache hit %dx%d max_edge=%d path=%s\n",
-                       baked_w, baked_h, params.max_edge, dem_path.c_str());
+          baked = vista::bake_hillshade_slot(dem_path, in.zoom, *hs,
+                                                   kHillshadeTextureKey);
         }
-        if (have_bake && baked_w > 0 && baked_h > 0 && !baked_rgba.empty()) {
-          // DEM geotransform is lon/lat (Y = +lat). China ViewFrame extents
-          // use the same +lat axis (frame_china_map2d / apply_world_extent).
-          gis::vista::TileSlot slot;
-          slot.min_x = dem_minx;
-          slot.max_x = dem_maxx;
-          slot.min_y = dem_miny;
-          slot.max_y = dem_maxy;
-          // Soft multiply: enough for hillshade_gray_frac>0.02 while cream
-          // (incl. darkened) still passes land_cream after scorer widen.
-          slot.opacity = 0.62f;
-          slot.texture_key = kHillshadeTextureKey;
-          in.hillshade_tiles.push_back(slot);
+        if (baked.ok && baked.width > 0 && baked.height > 0 &&
+            !baked.rgba.empty()) {
+          in.hillshade_tiles.push_back(baked.slot);
+          baked_w = baked.width;
+          baked_h = baked.height;
+          baked_rgba = std::move(baked.rgba);
           std::fprintf(stderr,
                        "map2d: hillshade baked %dx%d from %s tiles=%zu "
-                       "opacity=%.2f key=0x%08x max_edge=%d\n",
+                       "opacity=%.2f key=0x%08x\n",
                        baked_w, baked_h, dem_path.c_str(),
-                       in.hillshade_tiles.size(), slot.opacity,
-                       slot.texture_key, params.max_edge);
+                       in.hillshade_tiles.size(),
+                       in.hillshade_tiles.back().opacity,
+                       in.hillshade_tiles.back().texture_key);
         }
         hillshade_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                            std::chrono::steady_clock::now() - hs_t0)
@@ -420,26 +323,15 @@ bool Map2dFrameCache::rebuild_layout(const CameraKey& cam,
     }
   }
 
-  // async batches (Pipeline / parallel_for inside). Layout::build stays on the
-  // caller so nested parallel_for (emit_fill / emit_line) owns the full pool.
-  base::execution::GlobalNThreadPoolExecutor executor;
-  const MapScene* scene = scene_;
-  // Fingerprint treats china-city remaps as carto (style_document() null or
-  // remapped). Batch path must match: use_carto when original scene style was
-  // null or china-city pack.
-  const bool use_carto =
-      scene_->style_document() == nullptr || style_is_china_city_pack(
-                                                 scene_->style_document());
+  // Batch build stays on the caller. A prior async+get paid thread-pool
+  // spawn with no overlap (Layout::build waited immediately). Nested
+  // parallel_for inside emit_fill / emit_line still owns the pool.
   const double map_scale = frame_->scale();
-  detail::Map2dBatches layer_batches;
+  vista::LayerBatchSet layer_batches;
   {
     BASE_TRACE_EVENT("batches", "map2d.layout");
-    auto batches_fut = base::execution::async(executor, [scene, use_carto,
-                                                         map_scale]() {
-      return detail::visible_layer_batches(scene->layers(), use_carto,
-                                           map_scale);
-    });
-    layer_batches = std::move(batches_fut.get());
+    layer_batches =
+        detail::visible_layer_batches(scene_->layers(), use_carto, map_scale);
   }
   {
     BASE_TRACE_EVENT("build", "map2d.layout");

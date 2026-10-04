@@ -9,12 +9,12 @@
 namespace ui {
 namespace detail {
 
-CString format_feature_geom_summary(gis::SmtFeature* feature) {
+CString format_feature_geom_summary(gis::Feature* feature) {
   CString summary;
   if (!feature) {
     return summary;
   }
-  OGRGeometry* geom = feature->getGeometryRef();
+  OGRGeometry* geom = feature->geometry();
   if (!geom) {
     return summary;
   }
@@ -32,8 +32,7 @@ CString format_feature_geom_summary(gis::SmtFeature* feature) {
   return summary;
 }
 
-void rebuild_feature_info_grid(CMFCPropertyGridCtrl* grid,
-                               gis::SmtFeature* feature,
+void rebuild_feature_info_grid(CMFCPropertyGridCtrl* grid, gis::Feature* feature,
                                const CString& name_filter) {
   if (!grid) {
     return;
@@ -43,7 +42,7 @@ void rebuild_feature_info_grid(CMFCPropertyGridCtrl* grid,
     return;
   }
 
-  OGRGeometry* geom = feature->getGeometryRef();
+  OGRGeometry* geom = feature->geometry();
   CMFCPropertyGridProperty* geom_group =
       new CMFCPropertyGridProperty(_T("几何"));
   if (geom) {

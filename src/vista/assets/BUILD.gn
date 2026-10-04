@@ -1,0 +1,62 @@
+# Copyright (c) 2026 The Mogu Authors.
+# All rights reserved.
+
+import("//build/smartgis.gni")
+import("//testing/test.gni")
+
+# Compiled into //src/vista:vista (dll_stem = vista).
+source_set("assets_sources") {
+  sources = [
+    "model/model.cc",
+    "model/model.h",
+    "model/model_assimp.cc",
+    "model/model_internal.h",
+    "tileset/tileset.cc",
+    "tileset/tileset.h",
+    "tileset/tileset_decode.cc",
+  ]
+  include_dirs += [ "//src" ]
+  configs += [ "//build:legacy" ]
+  defines = [
+    "_USRDLL",
+    "VISTA_EXPORTS",
+  ]
+  assert_no_deps = [
+    "//src/render:render",
+    "//src/legacy/render:*",
+    "//src/legacy/ui:*",
+    "//src/legacy/app:*",
+  ]
+  deps = [ "//src/base:foundation" ]
+  if (smt_has_assimp) {
+    defines += [ "SMT_HAS_ASSIMP" ]
+    deps += [ "//third_party:assimp" ]
+  }
+  if (smt_has_tinygltf) {
+    defines += [ "SMT_HAS_TINYGLTF" ]
+    deps += [ "//third_party:tinygltf" ]
+  }
+}
+
+group("assets") {
+  public_deps = [ "//src/vista:vista" ]
+}
+
+# Legacy GN alias (former model group name).
+group("model") {
+  public_deps = [ ":assets" ]
+}
+
+test("model_test") {
+  output_name = "model_test"
+  sources = [ "model/model_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":assets" ]
+}
+
+test("tileset_test") {
+  output_name = "tileset_test"
+  sources = [ "tileset/tileset_test.cc" ]
+  include_dirs += [ "//src" ]
+  deps = [ ":assets" ]
+}

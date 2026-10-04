@@ -6,7 +6,7 @@ All rights reserved.
 -->
 
 **As-built layout (2026-10-02):** `scene/` `index/` `primitive/{mesh,feature,surface}/` `seed/` `test/`.  
-Device-free DEM / World adapters: `//src/legacy/gis/vista` → **`gis.dll`**.  
+Device-free DEM / World adapters: `//src/legacy/gis/vista` → **`vista.dll`**.  
 Device-free feature tess: `//src/legacy/gis/feature` → **`gis.dll`**.  
 Aggregate GN: `//src/legacy/render/scene3d:scene3d_sources` → `//src/legacy/render:legacy_render`.  
 Includes: `legacy/render/scene3d/<module>/…` (e.g. `primitive/feature/geo_object.h`, `scene/stereo_hwnd_view.h`).  

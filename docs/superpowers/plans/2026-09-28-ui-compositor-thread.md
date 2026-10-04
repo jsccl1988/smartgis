@@ -95,7 +95,7 @@ All rights reserved.
 
 - [x] Product glue in `src/app/views` (`commit_widget_shell_to_maps`) — not inside `//src/ui/views` → gpu
 - [ ] Update `src/ui/views` / `src/gpu` README only when behavior lands (HUD-in-frame / PresentMailbox merge)
-- [ ] When fully landed: archive this plan + mark spec Status landed; fold as-built into `docs/build/ui-views-skia.md` (or module README)
+- [ ] When fully landed: archive this plan + mark spec Status landed; fold as-built into `docs/superpowers/ui-views-skia.md` (or module README)
 
 ## Tracks (parallel drafting)
 
@@ -110,7 +110,7 @@ Shared files: `widget.*`, `map_viewport.*`, `frame_sink.*`, `display.*`, root `B
 
 ## Deferred (explicit)
 
-Absorbed by follow-on plan [`2026-09-30-ui-shell-perf-upgrade.md`](2026-09-30-ui-shell-perf-upgrade.md) (living §Shell perf upgrade waves). Do not re-open parallel Deferred here.
+Absorbed by follow-on plan [`2026-09-30-ui-shell-perf-upgrade.md`](../archive/plans/2026-09-30-ui-shell-perf-upgrade.md) (living §Shell perf upgrade waves). Do not re-open parallel Deferred here.
 
 | Item | Status |
 | --- | --- |

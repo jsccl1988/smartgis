@@ -135,6 +135,17 @@ void MapViewport::display_run_present(uint32_t width_px, uint32_t height_px,
   if (display_stop_) {
     return;
   }
+  // Scenic MemFrame path must never invoke FlyCube DXGI present (SEH).
+  if (const char* map_eng = std::getenv("SMT_MAP2D_ENGINE")) {
+    if (map_eng[0] && _stricmp(map_eng, "scenic") == 0) {
+      return;
+    }
+  }
+  if (const char* scene_eng = std::getenv("SMT_SCENE3D_ENGINE")) {
+    if (scene_eng[0] && _stricmp(scene_eng, "scenic") == 0) {
+      return;
+    }
+  }
   if (!rhi_device_) {
     LOGGING(LOG_WARNING, "rhi.present skip: no device token=%u", frame_token);
     return;

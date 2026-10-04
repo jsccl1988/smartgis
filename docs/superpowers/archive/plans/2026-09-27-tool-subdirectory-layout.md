@@ -22,7 +22,7 @@ All rights reserved.
 - `gestures` → `draft`; `camera_nav` → `nav`; `legacy_msg` → `legacy/tool/adapter`
 - Still source_set / group, not DLL
 - Namespace `tool` only; English comments; copyright 2026
-- Update `src/tool/README.md` + Tool row in `docs/build/src-layout.md` in same change
+- Update `src/tool/README.md` + Tool row in `docs/superpowers/src-layout.md` in same change
 
 ---
 
@@ -31,7 +31,7 @@ All rights reserved.
 - [x] Task 1: Create module dirs; move/rename sources + tests; fix internal includes/header guards
 - [x] Task 2: Rewrite all in-tree `#include "tool/….h"` to module paths (content/app/ui/plugin/legacy)
 - [x] Task 3: Rewire `src/tool/BUILD.gn` (`:dispatch` group + module source_sets); rename `gestures_test` → `draft_test`
-- [x] Task 4: Update `src/tool/README.md` + `docs/build/src-layout.md` Tool row; mark plan/spec done pointers
+- [x] Task 4: Update `src/tool/README.md` + `docs/superpowers/src-layout.md` Tool row; mark plan/spec done pointers
 - [x] Task 5: Build/run verification — all tool TUs compile; `camera_nav_test` PASS; `draft_test`/`tool_dispatch_test` link blocked by parallel `gis/datasource/gdal` WIP (follow-up)
 - [x] Task 6: Relocate `adapter` to `src/legacy/tool/adapter/`; drop from `:dispatch`; update includes/docs/GN deps
 

@@ -187,9 +187,73 @@ def score_ui_shell_dark(path: Path) -> dict:
         if abs(r - 0) < 40 and abs(g - 122) < 50 and abs(b - 204) < 50 and b > r + 80
     )
     left_signal_f = (left_dark + left_text + left_accent) / left_n
-    # Collapsed 40px catalog is almost pure map wash / empty; require chrome
-    # signal in the left strip (layout_fail regression gate).
-    catalog_strip_ok = left_w >= 80 and left_signal_f > 0.12
+    left_text_f = left_text / left_n
+    # TOC body (below catalog tab headers): reject empty Layers page that still
+    # passes on tab-label light_text alone (visual_review empty TOC).
+    toc_y0 = max(h // 8, (h * 18) // 100)
+    toc_y1 = max(toc_y0 + 1, (h * 55) // 100)
+    toc_pixels = [
+        pixels[y * w + x]
+        for y in range(toc_y0, toc_y1, 3)
+        for x in range(0, left_w, 3)
+    ]
+    toc_n = max(1, len(toc_pixels))
+    toc_text = sum(
+        1
+        for r, g, b in toc_pixels
+        if r > 150 and g > 150 and b > 150 and abs(r - g) < 40 and abs(g - b) < 40
+    )
+    toc_text_f = toc_text / toc_n
+    # Collapsed / empty catalog is almost pure dark; require chrome width plus
+    # readable label mass (visual_review: empty TOC false-green on dark_f alone).
+    catalog_strip_ok = (
+        left_w >= 100
+        and left_signal_f > 0.18
+        and left_text_f >= 0.004
+        and toc_text_f >= 0.002
+    )
+
+    # Lower ~40%: reject vertical collapse (map upper half + black dead zone).
+    bottom_y0 = (h * 3) // 5
+    bottom_pixels = pixels[bottom_y0 * w :]
+    bottom_n = max(1, len(bottom_pixels))
+    bottom_black = sum(
+        1 for r, g, b in bottom_pixels if r < 12 and g < 12 and b < 12
+    )
+    bottom_black_f = bottom_black / bottom_n
+    # Console strip is dark chrome, not pure near-black; collapse looks empty.
+    no_panel_collapse = bottom_black_f < 0.55
+
+    # Diagnostic Tools *body* (below Trace/Console tabs): reject toolbar-only
+    # strips. Sample the lower portion of the dock so tab labels cannot
+    # false-green an empty gantt/list void (visual_review #1).
+    diag_y0 = (h * 80) // 100
+    diag_y1 = (h * 93) // 100
+    diag_x0 = w // 8
+    diag_x1 = (w * 7) // 8
+    diag_band = [
+        pixels[y * w + x]
+        for y in range(diag_y0, max(diag_y0 + 1, diag_y1), 2)
+        for x in range(diag_x0, diag_x1, 3)
+    ]
+    diag_n = max(1, len(diag_band))
+    diag_light = sum(
+        1
+        for r, g, b in diag_band
+        if r > 150 and g > 150 and b > 150 and abs(r - g) < 40 and abs(g - b) < 40
+    )
+    diag_accent = sum(
+        1
+        for r, g, b in diag_band
+        if (abs(r - 0) < 40 and abs(g - 122) < 55 and abs(b - 204) < 55 and b > r + 60)
+        or (abs(r - 76) < 40 and abs(g - 139) < 40 and abs(b - 245) < 40)  # lane blue
+        or (abs(r - 61) < 40 and abs(g - 184) < 40 and abs(b - 140) < 40)  # lane green
+        or (abs(r - 230) < 40 and abs(g - 162) < 40 and abs(b - 60) < 40)  # lane amber
+    )
+    diag_signal_f = (diag_light + diag_accent) / diag_n
+    # Empty black void under Console/Trace tabs fails; Trace gantt / empty-state
+    # text / log ink passes.
+    diag_content_ok = diag_signal_f >= 0.003
 
     # chrome_readable (checklist): hard floor on light label mass. Tuned on
     # out/Debug/captures/ui/*.bmp — near-zero ~0.0012 (catalog/data/scene) and
@@ -197,6 +261,41 @@ def score_ui_shell_dark(path: Path) -> dict:
     # blue alone; 0.008 rejects those while remaining reachable once product
     # contrast raises readable white/gray labels (~1% of chrome pixels).
     chrome_readable = text_f >= 0.008
+
+    # Work-area hollow metrics (visual_review #2/#9). Reported for agents; hard
+    # fail stays on no_panel_collapse + catalog_strip until map carto is stable
+    # under parallel //src/gis rebuilds (center_signal often ~0.03 on hollow).
+    cy0, cy1 = h // 5, (h * 3) // 5
+    cx0, cx1 = w // 5, (w * 4) // 5
+    center = [
+        pixels[y * w + x]
+        for y in range(cy0, cy1, 3)
+        for x in range(cx0, cx1, 3)
+    ]
+    center_n = max(1, len(center))
+    center_non_chrome = sum(
+        1
+        for r, g, b in center
+        if not (
+            20 <= r <= 90
+            and 20 <= g <= 90
+            and 20 <= b <= 90
+            and abs(r - g) < 12
+            and abs(g - b) < 12
+        )
+        and not (r < 12 and g < 12 and b < 12)
+    )
+    center_signal_f = center_non_chrome / center_n
+    # Require a non-hollow map work area. dark_f alone false-greened shells with
+    # PrintWindow map holes (center_signal≈0.0016) while chrome looked fine.
+    work_area_ok = center_signal_f > 0.02
+
+    top_menu = top_rows[: max(1, (h // 25) * w)]
+    top_menu_n = max(1, len(top_menu))
+    top_menu_light = sum(
+        1 for r, g, b in top_menu if r > 180 and g > 180 and b > 180
+    )
+    top_menu_light_f = top_menu_light / top_menu_n
 
     ok = (
         black_f < 0.25
@@ -214,6 +313,9 @@ def score_ui_shell_dark(path: Path) -> dict:
         and accent_painted
         and packed_tabs_ok
         and catalog_strip_ok
+        and no_panel_collapse
+        and work_area_ok
+        and diag_content_ok
     )
     return {
         "bmp": str(path),
@@ -230,6 +332,11 @@ def score_ui_shell_dark(path: Path) -> dict:
         "tab_accent_rows": len(header_ys),
         "tab_accent_span_frac": round(accent_span_frac, 4),
         "left_catalog_signal_frac": round(left_signal_f, 4),
+        "left_catalog_toc_text_frac": round(toc_text_f, 4),
+        "bottom_near_black_frac": round(bottom_black_f, 4),
+        "center_signal_frac": round(center_signal_f, 4),
+        "top_menu_light_frac": round(top_menu_light_f, 4),
+        "diag_content_signal_frac": round(diag_signal_f, 4),
         "ok": ok,
         "gates": {
             "near_black_frac<0.25": black_f < 0.25,
@@ -245,6 +352,10 @@ def score_ui_shell_dark(path: Path) -> dict:
             "tab_accent_painted": accent_painted,
             "tab_accent_span_frac<0.22": packed_tabs_ok,
             "left_catalog_strip_ok": catalog_strip_ok,
+            "left_catalog_toc_text>=0.002": toc_text_f >= 0.002,
+            "no_panel_collapse": no_panel_collapse,
+            "work_area_not_hollow": work_area_ok,
+            "diag_content_signal>=0.004": diag_content_ok,
         },
     }
 

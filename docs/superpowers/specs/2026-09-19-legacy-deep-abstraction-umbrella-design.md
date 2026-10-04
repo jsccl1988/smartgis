@@ -7,7 +7,8 @@ All rights reserved.
 
 **Status:** active  
 **Date:** 2026-09-19  
-**Updated:** 2026-10-02 — §11h `legacy/ui/inspect` `{host,sys,edit}`; §11g `legacy/app` deep layer; §11f `legacy/ui/shell`; §11d widgets; §11e map; §11c Feature Pack B1; §12d surface base; §12c scene3d; §SP4/SP2/SP1; §13; §11b.
+**Updated:** 2026-10-04 — §11g `legacy/app` `shell/{frame,catalog,dock,showcase}` + `views/{document,viewport,helper}`; §11h `legacy/ui/inspect` `{host,sys,edit}`; §11f `legacy/ui/shell`; §11d widgets; §11e map; §11c Feature Pack B1; §12d surface base; §12c scene3d; §SP4/SP2/SP1; §13; §11b. SP1/SP2/SP3/SP5 checklists archived (checkboxes complete); SP1b / SP4 / Feature Pack / inspect still open.  
+**Diagram:** [`../diagrams/legacy-render-architecture.html`](../diagrams/legacy-render-architecture.html) · [`../diagrams/legacy-app-deep-layer.html`](../diagrams/legacy-app-deep-layer.html) · widgets/map/shell/inspect/dialogs HTML under `diagrams/legacy-ui-*-deep-layer.html`
 **Scope:** Living design for leftover strangler program **SP0–SP5**: order, technique, dependency direction, parallel rules, ABI, and **locked decisions per SP**. Implementation checklists stay in `docs/superpowers/plans/` (linked below). Physical package splits already done; revise **sections here** — do not open new dated SP / layout twins.  
 **Related (accepted / landed — do not reopen):**
 
@@ -19,18 +20,18 @@ All rights reserved.
 | RHI + World / GpuScene + frame graph (+ model/compute folded) | [`2026-09-13-render-rhi-scene-design.md`](2026-09-13-render-rhi-scene-design.md) |
 | Tool session dispatch + `src/tool` layout | [`2026-09-13-tool-event-dispatch-design.md`](2026-09-13-tool-event-dispatch-design.md) |
 | `app/views` shell + Views toolkit / MFC migration | [`2026-09-27-views-desktop-shell-design.md`](2026-09-27-views-desktop-shell-design.md) |
-| Product as-built | [`../../build/src-layout.md`](../../build/src-layout.md), [`../../build/ui-views-skia.md`](../../build/ui-views-skia.md) |
+| Product as-built | [`../src-layout.md`](../src-layout.md), [`../ui-views-skia.md`](../ui-views-skia.md) |
 
 **Plans (checklists — not second designs):**
 
 | SP | Plan |
 | --- | --- |
-| SP1 | [`../plans/2026-09-19-legacy-tool-workspace-strangler.md`](../plans/2026-09-19-legacy-tool-workspace-strangler.md) |
+| SP1 | [`archive/plans/2026-09-19-legacy-tool-workspace-strangler.md`](../archive/plans/2026-09-19-legacy-tool-workspace-strangler.md) |
 | SP1b | [`../plans/2026-09-19-tool-behavior-migration.md`](../plans/2026-09-19-tool-behavior-migration.md) |
-| SP2 | [`../plans/2026-09-19-legacy-render-present-facade.md`](../plans/2026-09-19-legacy-render-present-facade.md) · dual-run [`../archive/plans/2026-09-27-legacy-render-subdirectory-dual-run.md`](../archive/plans/2026-09-27-legacy-render-subdirectory-dual-run.md) |
-| SP3 | [`../plans/2026-09-19-legacy-host-behavior-extract.md`](../plans/2026-09-19-legacy-host-behavior-extract.md) · app layout [`../archive/plans/2026-09-27-legacy-app-subdirectory-layout.md`](../archive/plans/2026-09-27-legacy-app-subdirectory-layout.md) · **app deep** [`../plans/2026-10-02-legacy-app-deep-layer.md`](../plans/2026-10-02-legacy-app-deep-layer.md) · UI layout [`../plans/2026-09-29-legacy-ui-subdirectory-layout.md`](../plans/2026-09-29-legacy-ui-subdirectory-layout.md) · **Feature Pack** [`../plans/2026-09-29-legacy-mfc-ex-feature-pack.md`](../plans/2026-09-29-legacy-mfc-ex-feature-pack.md) · **widgets** [`../plans/2026-10-02-legacy-ui-widgets-deep-layer.md`](../plans/2026-10-02-legacy-ui-widgets-deep-layer.md) · **map** [`../plans/2026-10-02-legacy-ui-map-deep-layer.md`](../plans/2026-10-02-legacy-ui-map-deep-layer.md) · **shell** [`../plans/2026-10-02-legacy-ui-shell-deep-layer.md`](../plans/2026-10-02-legacy-ui-shell-deep-layer.md) |
+| SP2 | [`archive/plans/2026-09-19-legacy-render-present-facade.md`](../archive/plans/2026-09-19-legacy-render-present-facade.md) · dual-run [`../archive/plans/2026-09-27-legacy-render-subdirectory-dual-run.md`](../archive/plans/2026-09-27-legacy-render-subdirectory-dual-run.md) |
+| SP3 | [`archive/plans/2026-09-19-legacy-host-behavior-extract.md`](../archive/plans/2026-09-19-legacy-host-behavior-extract.md) · app layout [`../archive/plans/2026-09-27-legacy-app-subdirectory-layout.md`](../archive/plans/2026-09-27-legacy-app-subdirectory-layout.md) · **app deep** [`archive/plans/2026-10-02-legacy-app-deep-layer.md`](../archive/plans/2026-10-02-legacy-app-deep-layer.md) · UI layout [`archive/plans/2026-09-29-legacy-ui-subdirectory-layout.md`](../archive/plans/2026-09-29-legacy-ui-subdirectory-layout.md) · **Feature Pack** [`../plans/2026-09-29-legacy-mfc-ex-feature-pack.md`](../plans/2026-09-29-legacy-mfc-ex-feature-pack.md) · **widgets** [`archive/plans/2026-10-02-legacy-ui-widgets-deep-layer.md`](../archive/plans/2026-10-02-legacy-ui-widgets-deep-layer.md) · **map** [`archive/plans/2026-10-02-legacy-ui-map-deep-layer.md`](../archive/plans/2026-10-02-legacy-ui-map-deep-layer.md) · **shell** [`archive/plans/2026-10-02-legacy-ui-shell-deep-layer.md`](../archive/plans/2026-10-02-legacy-ui-shell-deep-layer.md) |
 | SP4 | [`../plans/2026-09-19-scene3d-world-gpuscene.md`](../plans/2026-09-19-scene3d-world-gpuscene.md) · SP4b [`../plans/2026-09-28-scene3d-index-octree.md`](../plans/2026-09-28-scene3d-index-octree.md) |
-| SP5 | [`../plans/2026-09-19-shell-compile-gate.md`](../plans/2026-09-19-shell-compile-gate.md) |
+| SP5 | [`archive/plans/2026-09-19-shell-compile-gate.md`](../archive/plans/2026-09-19-shell-compile-gate.md) |
 
 ---
 
@@ -131,7 +132,7 @@ Chrome 只 include `content/public`。不新增 `render` 终局 → `legacy_rend
 | Unbound | 旧 `Notify` 不变 |
 | Dependency | `legacy/tool` capability sources 可 dep `//src/tool:dispatch`；终局公开头不 dep leftover |
 
-**Layout (folded, 2026-09-29):** leftover `legacy/tool/{abi,msg,nav,select,draft,base,factory}` — **终局浅镜像**（`nav`←view、`draft`←input；`abi`/`msg` 为 leftover 专用）；两 GN target（abi → `legacy_tool` DLL；msg = `source_set` 不进 DLL）；无 `group/` / `bridge/` / shim。Checklist：[`../plans/2026-09-29-legacy-tool-bridge-capability-layout.md`](../plans/2026-09-29-legacy-tool-bridge-capability-layout.md)。终局 `src/tool/<module>/` 见 tool-event-dispatch living。As-built：`src/legacy/tool/README.md`、`src/tool/README.md`。
+**Layout (folded, 2026-09-29):** leftover `legacy/tool/{abi,msg,nav,select,draft,base,factory}` — **终局浅镜像**（`nav`←view、`draft`←input；`abi`/`msg` 为 leftover 专用）；两 GN target（abi → `legacy_tool` DLL；msg = `source_set` 不进 DLL）；无 `group/` / `bridge/` / shim。Checklist：[`../plans/2026-09-29-legacy-tool-bridge-capability-layout.md`](../archive/plans/2026-09-29-legacy-tool-bridge-capability-layout.md)。终局 `src/tool/<module>/` 见 tool-event-dispatch living。As-built：`src/legacy/tool/README.md`、`src/tool/README.md`。
 
 **Non-goals:** 不 rewrite 全部 `SmtIATool`；不碰 render/app/ui；不破 `dll_stem`。
 
@@ -178,7 +179,7 @@ src/legacy/render/
 
 ## 11. SP3 — Host 行为 + `legacy/app` 布局
 
-**Goal:** HWND-free 宿主单元进 `content`（Attribute / Catalog 已落地）；续作 bootstrap / draft-commit / 薄 MFC view。`legacy/app` scheme C：`core` / `shell/{frame,dock,showcase}` / `doc` / `view/{map,edit,datasource,scene3d}`；破 include；`dll_stem=app_core` / `SmartGis.exe` / opt-in `legacy_app` 冻结。（2026-09-30：`shell`+`view` 能力子目录 + 短 stem。）
+**Goal:** HWND-free 宿主单元进 `content`（Attribute / Catalog 已落地）；续作 bootstrap / draft-commit / 薄 MFC view。`legacy/app` scheme C：`bootstrap` / flat `shell/` / `views/{document,helper,…}`；破 include；`dll_stem=app_core` / `SmartGis.exe` / opt-in `legacy_app` 冻结。（2026-10-03：顶层收紧 + 命名修正。）
 
 **Locked:** Facade strangler；控件只传 string/token；chrome 不持 `SmtFeature*`；不另立第二套 SP3。
 
@@ -204,7 +205,7 @@ shell/ viewport/ panels/ ambox/ catalog/ dialogs/ dock/ grid/ widgets/ chart/
 res/{shell,catalog,dialogs,ambox,widgets,chart}/
 ```
 
-(`dock/` + `grid/` removed by §11c waves 1–2.) Checklist: [`../plans/2026-09-29-legacy-ui-subdirectory-layout.md`](../plans/2026-09-29-legacy-ui-subdirectory-layout.md).
+(`dock/` + `grid/` removed by §11c waves 1–2.) Checklist: [`../plans/2026-09-29-legacy-ui-subdirectory-layout.md`](../archive/plans/2026-09-29-legacy-ui-subdirectory-layout.md).
 
 ### 11c. leftover `grid/` + `dock/` → MFC Feature Pack（2026-09-29）
 
@@ -295,7 +296,7 @@ legacy/ui/widgets/
 
 **Success:** Tree matches target; no `bcg_cmfc` / `widgets_core` / `prop_list_dock` stems; inspect docks use `legacy_ui::prop_as_*`; `widgets_sources` green; as-built README.
 
-**Checklist:** [`../plans/2026-10-02-legacy-ui-widgets-deep-layer.md`](../plans/2026-10-02-legacy-ui-widgets-deep-layer.md).
+**Checklist:** [`../plans/2026-10-02-legacy-ui-widgets-deep-layer.md`](../archive/plans/2026-10-02-legacy-ui-widgets-deep-layer.md).
 
 ### 11e. `legacy/ui/map` deep layer（2026-10-02）
 
@@ -309,7 +310,7 @@ legacy/ui/widgets/
 | Class ABI | Keep `Smt2DXView` / `Smt3DXView` / `Smt2DEditXView` + `XVIEW_EXPORT` / DYNCREATE |
 | Diagram | [`../diagrams/legacy-ui-map-deep-layer.html`](../diagrams/legacy-ui-map-deep-layer.html) |
 
-**Checklist:** [`../plans/2026-10-02-legacy-ui-map-deep-layer.md`](../plans/2026-10-02-legacy-ui-map-deep-layer.md).
+**Checklist:** [`../plans/2026-10-02-legacy-ui-map-deep-layer.md`](../archive/plans/2026-10-02-legacy-ui-map-deep-layer.md).
 
 ### 11f. `legacy/ui/shell` deep layer（2026-10-02）
 
@@ -344,20 +345,20 @@ legacy/ui/shell/
 
 **Success:** Tree matches target; no `shell.h` / `view_shell` / `ambox_dock_bar` / `diagramdata` / `chart_view_dlg` stems; `map_sources` owns map views; `ui_legacy` green; as-built README.
 
-**Checklist:** [`../plans/2026-10-02-legacy-ui-shell-deep-layer.md`](../plans/2026-10-02-legacy-ui-shell-deep-layer.md).
+**Checklist:** [`../plans/2026-10-02-legacy-ui-shell-deep-layer.md`](../archive/plans/2026-10-02-legacy-ui-shell-deep-layer.md).
 
-### 11g. `legacy/app` deep layer（2026-10-02）
+### 11g. `legacy/app` deep layer（2026-10-02；tighten 2026-10-03；roles 2026-10-04）
 
-**Goal:** Deepen leftover MFC shell under `legacy/app` by **role-named stems + composition helpers**; delete dead stub view; share MDI-menu / status-coord / self-test bind across Edit/Data/3D; extract Catalog tab pane + MDI tab options + sample-map bootstrap. Stay under `legacy/app`. **No** HWND-free extract to `content`; **no** Views migration.
+**Goal:** Leftover MFC shell under `legacy/app` with **role-named stems + composition helpers**; delete dead stub view; share MDI-menu / status-coord / self-test helpers across Edit/Data/3D. **2026-10-03:** tighten top-level (`core`→`bootstrap`, fold `doc` into `views`). **2026-10-04:** restore `shell/{frame,catalog,dock,showcase}` (keep 10-03 stems) and split `views/` into `document/` · `viewport/` · `helper/` (scheme C). Stay under `legacy/app`. **No** HWND-free extract to `content`; **no** Views migration.
 
 | Lock | Choice |
 | --- | --- |
 | Scope | `legacy/app/**` only (+ include/GN / as-built call sites) |
 | Technique | Scheme C — break includes, **no** old-path shim |
-| Layout | `core/` · `shell/{frame,catalog,dock,showcase}` · `doc/` · `view/` (+ `view/bind/`) |
+| Layout | `bootstrap/` · `shell/{frame,catalog,dock,showcase}` · `views/{document,viewport,helper}` · `res/` |
 | Class ABI | Keep `SmtApp` / `CSmartGisApp` / `CMainFrame` / `CChildFrame` / `CSmartGisDoc` / `CSmart*View` + `APP_CORE_EXPORT` / DYNCREATE |
-| Nesting | Cap `legacy/app/<capability>/`; `view/` flat role stems; helpers under `view/bind/` |
-| Naming | Role stems: `bootstrap` · `win_app` · `main_frame` · `child_frame` · `document` · `edit_view` · `data_view` · `scene3d_view` |
+| Nesting | Cap `legacy/app/<capability>/<role>/`; peer of `legacy/ui/inspect/<role>/` and `legacy/ui/map/<role>/` |
+| Naming | Role stems: `bootstrap` · `win_app` · `main_frame` · `child_frame` · `mdi_tab_options` · `catalog_pane` · `debug_console` · `dock_child` · `document` · `edit_view` · `data_view` · `scene3d_view` · `mdi_menu` · `status_coord` · `self_test_mark` · `showcase_host` · `map2d_showcase` · `scene3d_showcase` |
 | Behavior | Out of this wave — no new present facade / no content extract |
 | Diagram | [`../diagrams/legacy-app-deep-layer.html`](../diagrams/legacy-app-deep-layer.html) |
 
@@ -365,34 +366,26 @@ Target:
 
 ```
 legacy/app/
-  core/
-    bootstrap.*          # SmtApp (was smtapp)
+  bootstrap/
+    bootstrap.*          # SmtApp (app_core DLL; was core/)
     sample_map.*         # china / sample GeoJSON open helpers
   shell/
-    frame/
-      win_app.*          # CSmartGisApp (was app)
-      main_frame.*       # CMainFrame (was main)
-      child_frame.*      # CChildFrame (was child)
-      mdi_tabs.*         # CMDITabOptions
-    catalog/
-      tab_pane.*         # CatalogTabDockPane (ex-main)
-    dock/                # console · render_trace · diagnostic · pane_host
-    showcase/            # host · map2d · scene3d
-  doc/
-    document.*           # CSmartGisDoc (was smart_gis_doc)
-  view/
-    bind/                # mdi_menu · status_coord · self_test_mark
-    edit_view.*          # CSmartMapEditView
-    data_view.*          # CSmartDataSourceView
-    scene3d_view.*       # CSmart3DView (stem keeps clash-free vs showcase/scene3d)
-  # DELETE dead stub view/map (CSmartGisView — unused by doc templates)
+    frame/               # CSmartGisApp · CMainFrame · CChildFrame · CMDITabOptions
+    catalog/             # CatalogTabDockPane
+    dock/                # DebugConsolePane · RenderTracePane · DiagnosticToolsDockBar · dock_child
+    showcase/            # showcase_host · map2d_showcase · scene3d_showcase
+  views/
+    document/            # CSmartGisDoc
+    viewport/            # CSmartMapEditView / CSmartDataSourceView / CSmart3DView
+    helper/              # mdi_menu · status_coord · self_test_mark (`legacy_app::helper`)
+  res/
 ```
 
 **Non-goals:** Move to `src/app/views`; rename exported MFC class names; Ribbon rewrite; Feature Pack elevating.
 
-**Success:** Tree matches target; no `view/map`; shared `view/bind/*` used by Edit/Data/3D; `legacy_app` green; as-built `legacy/app/README.md`.
+**Success:** Tree matches target; no flat `shell/*.h` / `views/*.h`; no leftover `view/` or `doc/`; shared `views/helper` used by Edit/Data/3D; `legacy_app` green; as-built `legacy/app/README.md`.
 
-**Checklist:** [`../plans/2026-10-02-legacy-app-deep-layer.md`](../plans/2026-10-02-legacy-app-deep-layer.md).
+**Checklist:** [`../plans/2026-10-02-legacy-app-deep-layer.md`](../archive/plans/2026-10-02-legacy-app-deep-layer.md).
 
 ### 11h. `legacy/ui/inspect` deep layer（2026-10-02）
 
@@ -460,7 +453,7 @@ legacy/ui/dialogs/
 
 **Success:** Tree matches target; no flat `dlg_*` stems; `ui_legacy` green; as-built README.
 
-**Checklist:** [`../plans/2026-10-02-legacy-ui-dialogs-deep-layer.md`](../plans/2026-10-02-legacy-ui-dialogs-deep-layer.md).
+**Checklist:** [`../plans/2026-10-02-legacy-ui-dialogs-deep-layer.md`](../archive/plans/2026-10-02-legacy-ui-dialogs-deep-layer.md).
 
 ---
 
@@ -527,7 +520,7 @@ Checklist: [`../plans/2026-09-29-legacy-core-subdirectory-layout.md`](../plans/2
 | Behavior | 本波只搬家 + include/GN；不解耦 `seed_*_into_scene` device 参数 |
 | Nesting | Cap `legacy/render/scene3d/<module>/`；`legacy/gis/vista/` flat |
 
-Checklist: [`../plans/2026-10-01-scene3d-subdirectory-tighten.md`](../plans/2026-10-01-scene3d-subdirectory-tighten.md).
+Checklist: [`../plans/2026-10-01-scene3d-subdirectory-tighten.md`](../archive/plans/2026-10-01-scene3d-subdirectory-tighten.md).
 
 ### 12c. scene3d primitive deep layer + `legacy/gis/feature`（2026-10-01）
 
@@ -547,7 +540,7 @@ Checklist: [`../plans/2026-10-01-scene3d-subdirectory-tighten.md`](../plans/2026
 | Export | feature → `GIS_EXPORT`；scene3d → `LEGACY_RENDER_EXPORT` |
 | Nesting | Cap `scene3d/<module>/`；仅 `primitive/<sub>/` 允第二层；`legacy/gis/feature/` flat |
 
-Checklist: [`../plans/2026-10-01-scene3d-primitive-deep-layer.md`](../plans/2026-10-01-scene3d-primitive-deep-layer.md).
+Checklist: [`../plans/2026-10-01-scene3d-primitive-deep-layer.md`](../archive/plans/2026-10-01-scene3d-primitive-deep-layer.md).
 
 **Updated 2026-10-02:** 顶层收紧 — 取消独立 `host/` / `detail/`，并入 `scene/`；`StereoTerrain` 并入 `SmtTerrain`。
 
@@ -564,7 +557,7 @@ Checklist: [`../plans/2026-10-01-scene3d-primitive-deep-layer.md`](../plans/2026
 | Point cloud | `unordered_map` 分桶 + 稳定 key 排序；snake_case 成员；保留 `Read3DPointCloud` ABI |
 | Nesting | Flat under `primitive/surface/`（`surface_base.*` 与 terrain/pointcloud 并列） |
 
-Checklist: [`../plans/2026-10-02-scene3d-surface-base-modern-cpp.md`](../plans/2026-10-02-scene3d-surface-base-modern-cpp.md).
+Checklist: [`../plans/2026-10-02-scene3d-surface-base-modern-cpp.md`](../archive/plans/2026-10-02-scene3d-surface-base-modern-cpp.md).
 
 ---
 

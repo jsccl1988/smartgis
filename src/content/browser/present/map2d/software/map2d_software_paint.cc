@@ -5,26 +5,22 @@
 
 #include "content/browser/camera/view_frame.h"
 #include "content/browser/document/map_scene.h"
-#include "content/browser/present/map2d/frame/map2d_carto.h"
 #include "content/browser/present/map2d/frame/map2d_frame_cache.h"
 #include "content/browser/present/map2d/frame/map2d_tile_math.h"
 #include "content/browser/present/map2d/software/map2d_frame_gdi.h"
 #include "content/browser/present/map2d/map2d_phase_profile.h"
 
-#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 #include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "gis/datasource/provider/impl/ogr/text/ogr_text_encoding.h"
-#include "gis/present/tile/protocol/xyz_math.h"
+#include "gis/carto/tile/xyz_math.h"
 #include "base/trace/event/process_trace.h"
 
 namespace content {
@@ -34,156 +30,6 @@ using Feature = MapScene::Feature;
 using Layer = MapScene::Layer;
 using Vertex = MapScene::Vertex;
 using GeomKind = MapScene::GeomKind;
-
-const char* feature_field(const Feature& f, const char* key) {
-  if (!key) {
-    return nullptr;
-  }
-  for (const MapScene::Field& field : f.fields) {
-    if (field.name == key) {
-      return field.value.c_str();
-    }
-  }
-  return nullptr;
-}
-
-std::string feature_display_name(const Feature& f) {
-  if (const char* anno = feature_field(f, "anno")) {
-    if (anno[0]) {
-      return anno;
-    }
-  }
-  if (const char* name = feature_field(f, "name")) {
-    if (name[0]) {
-      return name;
-    }
-  }
-  return {};
-}
-
-int label_importance(const Feature& f) {
-  const char* cls = feature_field(f, "class");
-  if (cls) {
-    if (std::strcmp(cls, "title") == 0) {
-      return 3;
-    }
-    if (std::strcmp(cls, "region_label") == 0) {
-      return 2;
-    }
-    if (std::strcmp(cls, "river_label") == 0) {
-      return 1;
-    }
-  }
-  const std::string name = feature_display_name(f);
-  const int by_name = map_scene_place_name_importance(name.c_str());
-  if (by_name >= 3) {
-    return 3;
-  }
-  if (const char* adcode = feature_field(f, "adcode")) {
-    const size_t n = std::strlen(adcode);
-    if (n >= 6) {
-      const bool z45 = adcode[4] == '0' && adcode[5] == '0';
-      const bool z23 = adcode[2] == '0' && adcode[3] == '0';
-      if (z45 && z23) {
-        return 3;
-      }
-      if (z45) {
-        return 2;
-      }
-      if (by_name > 0) {
-        return by_name;
-      }
-      return 1;
-    }
-  }
-  if (by_name > 0) {
-    return by_name;
-  }
-  if (const char* kind = feature_field(f, "kind")) {
-    if (std::strcmp(kind, "city") == 0) {
-      return 2;
-    }
-  }
-  return 0;
-}
-
-size_t label_cap_for_scale(double scale) {
-  if (scale < 22.0) {
-    return 24;
-  }
-  if (scale < 48.0) {
-    return 40;
-  }
-  if (scale < 96.0) {
-    return 80;
-  }
-  return 120;
-}
-
-class LabelOccupancy {
- public:
-  LabelOccupancy(int view_w, int view_h) : view_w_(view_w), view_h_(view_h) {}
-
-  bool try_place(int x, int y, int w, int h, int* placed_x, int* placed_y) {
-    if (!placed_x || !placed_y || w <= 0 || h <= 0) {
-      return false;
-    }
-    const int dxs[8] = {0, 0, 14, 0, -14, 18, -18, 0};
-    const int dys[8] = {0, -(h + 4), 0, h + 4, 0, -(h / 2), -(h / 2), h + 2};
-    for (int i = 0; i < 8; ++i) {
-      const int left = x + dxs[i];
-      const int top = y + dys[i];
-      MapLabelBox box{left, top, left + w, top + h};
-      if (box.right < -20 || box.bottom < -12 || box.left > view_w_ + 20 ||
-          box.top > view_h_ + 12) {
-        continue;
-      }
-      MapLabelBox padded{box.left - 2, box.top - 2, box.right + 2,
-                         box.bottom + 2};
-      if (conflicts(padded)) {
-        continue;
-      }
-      accepted_.push_back(padded);
-      *placed_x = left;
-      *placed_y = top;
-      return true;
-    }
-    return false;
-  }
-
- private:
-  bool conflicts(MapLabelBox box) const {
-    for (const MapLabelBox& prev : accepted_) {
-      if (map_scene_label_boxes_overlap(prev, box)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  int view_w_;
-  int view_h_;
-  std::vector<MapLabelBox> accepted_;
-};
-
-void label_anchor(const Feature& f, double* mx, double* my) {
-  if (!mx || !my || f.points.empty()) {
-    return;
-  }
-  if (f.kind == GeomKind::kPolygon && f.points.size() >= 3) {
-    double sx = 0;
-    double sy = 0;
-    for (const Vertex& p : f.points) {
-      sx += p.x;
-      sy += p.y;
-    }
-    *mx = sx / static_cast<double>(f.points.size());
-    *my = sy / static_cast<double>(f.points.size());
-    return;
-  }
-  *mx = f.points.front().x;
-  *my = f.points.front().y;
-}
 
 bool write_bmp_file(const std::string& path, int width_px, int height_px,
                     const void* bits, int stride_bytes) {
@@ -313,10 +159,10 @@ void Map2dSoftwarePainter::paint_basemap_underlay(HDC hdc, int width_px,
   const std::vector<gis::tile::TileImage> tiles = basemap->fetch_visible(vp, 2);
   basemap_tiles_drawn_ = tiles.size();
   for (const gis::tile::TileImage& tile : tiles) {
-    const double lon0 = detail::merc_x_to_lon(tile.world_rect.lb.x);
-    const double lon1 = detail::merc_x_to_lon(tile.world_rect.rt.x);
-    const double lat0 = detail::merc_y_to_lat(tile.world_rect.lb.y);
-    const double lat1 = detail::merc_y_to_lat(tile.world_rect.rt.y);
+    const double lon0 = detail::merc_x_to_lon(tile.world_rect.MinX);
+    const double lon1 = detail::merc_x_to_lon(tile.world_rect.MaxX);
+    const double lat0 = detail::merc_y_to_lat(tile.world_rect.MinY);
+    const double lat1 = detail::merc_y_to_lat(tile.world_rect.MaxY);
     int vx0 = 0;
     int vy0 = 0;
     int vx1 = 0;
@@ -478,14 +324,14 @@ void Map2dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
 
   bool painted_frame = false;
   if (prepared && cache_) {
-    gis::vista::MapFrame frame_copy;
-    gis::vista::View view;
+    vista::MapFrame frame_copy;
+    vista::View view;
     {
       std::lock_guard<std::recursive_mutex> lock(cache_->mutex());
-      frame_copy = cache_->frame();
       const Map2dFrameCache::CameraKey& cam = cache_->camera();
       view = {cam.width_px, cam.height_px, cam.min_x, cam.min_y, cam.max_x,
               cam.max_y};
+      frame_copy = cache_->frame();
     }
     painted_frame = true;
     BASE_TRACE_EVENT("frame_paint", "map2d.gdi");
@@ -497,32 +343,11 @@ void Map2dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
         });
   }
   if (!painted_frame && fill_background) {
-    HBRUSH bg = CreateSolidBrush(map_scene_map_bg_color());
+    // Style background #aad3df. COLORREF only at the HDC edge.
+    HBRUSH bg = CreateSolidBrush(detail::rgba_to_colorref(0xFFAAD3DFu));
     RECT full = {0, 0, width_px, height_px};
     FillRect(hdc, &full, bg);
     DeleteObject(bg);
-  }
-
-  // Prefer Layout kText (MapFrame GDI) as the single label path. A second
-  // paint_labels_projected pass used map_to_view with a lon/-lat dance that
-  // drifted city anchors (Chengdu/Guangzhou) relative to land/rivers.
-  bool frame_has_text = false;
-  if (painted_frame && cache_) {
-    std::lock_guard<std::recursive_mutex> lock(cache_->mutex());
-    for (const gis::vista::DrawItem& item : cache_->frame().items) {
-      if (item.kind == gis::vista::DrawKind::kText) {
-        frame_has_text = true;
-        break;
-      }
-    }
-  }
-  if (painted_frame && frame_ && !frame_has_text) {
-    paint_labels_projected(
-        hdc, width_px, height_px,
-        [this](double lon, double lat, int* out_x, int* out_y) {
-          // consider() passes (mx, -my) with my already -lat → (lon, lat).
-          frame_->map_to_view(lon, -lat, out_x, out_y);
-        });
   }
 
   if (painted_frame) {
@@ -541,146 +366,6 @@ void Map2dSoftwarePainter::paint(HDC hdc, int width_px, int height_px,
           .count());
 }
 
-void Map2dSoftwarePainter::paint_labels_projected(
-    HDC hdc, int width_px, int height_px,
-    const std::function<void(double lon, double lat, int* sx, int* sy)>&
-        project) const {
-  if (!hdc || !scene_ || !frame_ || width_px <= 0 || height_px <= 0 || !project) {
-    return;
-  }
-  HFONT font = []() -> HFONT {
-    static HFONT cached = CreateFontW(
-        16, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
-        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-        DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
-    return cached;
-  }();
-  HGDIOBJ old_font =
-      SelectObject(hdc, font ? font : GetStockObject(DEFAULT_GUI_FONT));
-  SetBkMode(hdc, TRANSPARENT);
-
-  auto draw_label = [&](int vx, int vy, const std::string& name) {
-    if (name.empty()) {
-      return;
-    }
-    if (vx < -80 || vy < -40 || vx > width_px + 80 || vy > height_px + 40) {
-      return;
-    }
-    const std::wstring w = gis::datasource::ogr_bytes_to_wide(name);
-    if (w.empty()) {
-      return;
-    }
-    const int n = static_cast<int>(w.size());
-  SetTextColor(hdc, RGB(255, 255, 255));
-  const int halo[8][2] = {{-1, 0},  {1, 0},  {0, -1}, {0, 1},
-                          {-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
-  for (const auto& d : halo) {
-    TextOutW(hdc, vx + d[0], vy + d[1], w.c_str(), n);
-  }
-  SetTextColor(hdc, RGB(20, 24, 32));
-  TextOutW(hdc, vx, vy, w.c_str(), n);
-  };
-
-  const int min_imp = map_scene_label_min_importance(frame_->scale());
-  const size_t cap = label_cap_for_scale(frame_->scale());
-  bool has_text = false;
-  for (const Layer& layer : scene_->layers()) {
-    if (!layer.visible) {
-      continue;
-    }
-    for (const Feature& f : layer.features) {
-      if (f.kind == GeomKind::kText) {
-        has_text = true;
-        break;
-      }
-    }
-    if (has_text) {
-      break;
-    }
-  }
-
-  struct ProjLabel {
-    int sx = 0;
-    int sy = 0;
-    int importance = 0;
-    std::string name;
-  };
-  std::vector<ProjLabel> pending;
-  auto consider = [&](const Feature& f) {
-    const int importance = label_importance(f);
-    if (importance < min_imp) {
-      return;
-    }
-    std::string name = feature_display_name(f);
-    if (name.empty()) {
-      return;
-    }
-    double mx = 0;
-    double my = 0;
-    label_anchor(f, &mx, &my);
-    int sx = 0;
-    int sy = 0;
-    project(mx, -my, &sx, &sy);
-    if (sx < -80 || sy < -40 || sx > width_px + 80 || sy > height_px + 40) {
-      return;
-    }
-    pending.push_back({sx, sy, importance, std::move(name)});
-  };
-
-  for (const Layer& layer : scene_->layers()) {
-    if (!layer.visible) {
-      continue;
-    }
-    for (const Feature& f : layer.features) {
-      if (has_text) {
-        if (f.kind == GeomKind::kText && !f.points.empty()) {
-          consider(f);
-        } else if (f.kind == GeomKind::kPoint && !f.points.empty()) {
-          // City points when text layer is present but sparse after collision.
-          consider(f);
-        }
-      } else if (f.kind == GeomKind::kPolygon && f.points.size() >= 3) {
-        consider(f);
-      } else if (f.kind == GeomKind::kPoint && !f.points.empty()) {
-        consider(f);
-      }
-    }
-  }
-
-  std::sort(pending.begin(), pending.end(),
-            [](const ProjLabel& a, const ProjLabel& b) {
-              if (a.importance != b.importance) {
-                return a.importance > b.importance;
-              }
-              return a.name.size() < b.name.size();
-            });
-
-  LabelOccupancy label_occ(width_px, height_px);
-  size_t drawn = 0;
-  for (const ProjLabel& lab : pending) {
-    if (drawn >= cap) {
-      break;
-    }
-    const std::wstring w = gis::datasource::ogr_bytes_to_wide(lab.name);
-    if (w.empty()) {
-      continue;
-    }
-    int bw = 4;
-    for (wchar_t ch : w) {
-      bw += (ch < 128) ? 8 : 16;
-    }
-    int px = 0;
-    int py = 0;
-    if (!label_occ.try_place(lab.sx, lab.sy - 8, bw, 18, &px, &py)) {
-      continue;
-    }
-    draw_label(px, py, lab.name);
-    ++drawn;
-  }
-
-  SelectObject(hdc, old_font);
-  // |font| is process-cached; do not DeleteObject.
-}
 
 bool Map2dSoftwarePainter::export_bmp(const std::string& path, int width_px,
                                       int height_px) const {

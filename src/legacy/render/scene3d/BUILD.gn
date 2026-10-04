@@ -46,8 +46,8 @@ source_set("scene3d_sources") {
     "NOMINMAX",
   ]
   deps = [
-    "//src/gis/kernel/geo:geo",
-    "//src/gis/kernel/tin:tin",
+    "//src/gis/geo:geo",
+    "//src/gis/geo:tin",
     "//src/base:base",
     "//src/base:core",
     "//src/legacy/render/rhi2d/impl/common:gdi_common_sources",
@@ -56,8 +56,8 @@ source_set("scene3d_sources") {
     "//src/legacy/gis/present/carto:carto",
     "//src/legacy/gis/vista:vista",
     "//src/legacy/gis/feature:feature",
-    "//src/gis/datasource/provider/impl/ogr:ogr_codec_client",
-    "//src/gis/vista/world:world",
+    "//src/gis/datasource/ogr:ogr_codec_client",
+    "//src/vista:vista",
     "//third_party:gdal",
     "//third_party:octree",
   ]
@@ -80,7 +80,7 @@ test("dem_stereo_test") {
   deps = [
     "//src/legacy/render:legacy_render",
     "//src/legacy/gis/vista:vista",
-    "//src/gis/vista/world:world",
+    "//src/vista:vista",
     "//src/base/math:bounds",
     "//third_party:gdal",
   ]

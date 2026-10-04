@@ -16,9 +16,9 @@
 #include "content/public/map_types.h"
 #include "content/public/view_host.h"
 #include "content/renderer/renderer_main.h"
-#include "gis/model/edit/session/memory_edit_session.h"
-#include "gis/present/style/style_document.h"
-#include "gis/present/tile/provider/tile_provider.h"
+#include "gis/edit/memory_session.h"
+#include "gis/carto/style/style_document.h"
+#include "gis/carto/tile/tile_provider.h"
 #include "gpu/gpu.h"
 #include "net/http/http.h"
 #include "render/rhi/rhi.h"
@@ -151,10 +151,12 @@ self_test_mark("layers-ok");
       return 26;
     }
     if (city_pack) {
-      if (browser.document()->layer_count() < 4) {
+      // china_city.gpkg is area/line/point — city names live on point only
+      // (no parallel text layer; see testing/data/build_china_city.py).
+      if (browser.document()->layer_count() < 3) {
         std::fprintf(stderr,
-                     "china_city pack expected >=4 layers (area/line/"
-                     "point/text), got %zu\n",
+                     "china_city pack expected >=3 layers (area/line/"
+                     "point), got %zu\n",
                      browser.document()->layer_count());
         self_test_detach_maps(browser);
         return 26;
@@ -213,11 +215,12 @@ self_test_mark("layers-ok");
     // M1: labels + Style JSON + mock basemap + export BMP.
     {
       if (city_pack) {
-        bool found_text_layer = false;
+        // Labels live on the point layer (no parallel "text" stem).
+        bool found_point_layer = false;
         std::function<void(const content::LayerDesc&)> walk =
             [&](const content::LayerDesc& d) {
-              if (d.name == "text") {
-                found_text_layer = true;
+              if (d.name == "point") {
+                found_point_layer = true;
               }
               for (const content::LayerDesc& child : d.children) {
                 walk(child);
@@ -225,12 +228,12 @@ self_test_mark("layers-ok");
             };
         for (const auto& d : browser.document()->layer_descs()) {
           walk(d);
-          if (found_text_layer) {
+          if (found_point_layer) {
             break;
           }
         }
-        if (!found_text_layer) {
-          std::fprintf(stderr, "M1: china_city missing text layer\n");
+        if (!found_point_layer) {
+          std::fprintf(stderr, "M1: china_city missing point layer\n");
           self_test_detach_maps(browser);
           return 70;
         }
@@ -392,7 +395,7 @@ self_test_mark("layers-ok");
         }
       }
       // Restore product framing so later pan/wheel self-tests see the
-      // real map HWND extent (M1 used a 256Ã256 offscreen frame).
+      // real map HWND extent (M1 used a 256脙聴256 offscreen frame).
       if (ui::views::MapViewport* pane = browser.map_viewport()) {
         if (pane->native_view()) {
           browser.refit_active_view();
