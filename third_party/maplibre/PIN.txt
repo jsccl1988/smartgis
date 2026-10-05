@@ -14,12 +14,12 @@ vendor_cache: third_party/.src/_cache/maplibre-vendor
 cmake_build: third_party/.build/maplibre-native
 install_prefix: out/*/maplibre
 note: Product pin still deferred (2026-09-27). Opt-in examples via
-  smt_enable_maplibre_example + //third_party/maplibre:maplibre_examples
-  (build_native.py â†’ mbgl-render / mbgl-glfw). Full tree under .src/maplibre-native.
+  enable_maplibre_example + //third_party/maplibre:maplibre_examples
+  (build_native.py â†?mbgl-render / mbgl-glfw). Full tree under .src/maplibre-native.
 
 probe ninja native_map_probe (2026-09-18):
-- constants.hpp: M_PI undeclared â€” fixed in probe with _USE_MATH_DEFINES
-- geo.hpp: C1083 mapbox/geometry/point.hpp â€” fetched submodule
+- constants.hpp: M_PI undeclared â€?fixed in probe with _USE_MATH_DEFINES
+- geo.hpp: C1083 mapbox/geometry/point.hpp â€?fetched submodule
   vendor/maplibre-native-base/deps/geometry.hpp @ a5571a3ace5853e0d1e8d5fbdc87163c824ebeb7
 - style/source.hpp: C1083 mapbox/std/weak.hpp (next vendor header; do not chase the full
   vendor/codegen/vcpkg graph in-session)

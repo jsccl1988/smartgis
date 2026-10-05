@@ -11,9 +11,9 @@
 
 namespace base {
 
-// Process-wide CLI switches. Keys are kebab-case with no SMT_/SG_ prefix
-// (--map2d-engine, --trace). Init ingests SMT_/SG_ environment variables,
-// then argv (CLI wins). Tests may set().
+// Process-wide CLI switches. Keys are kebab-case (--map2d-engine, --trace).
+// Init ingests product environment variables (UPPER_SNAKE, optional legacy
+// SMT_/SG_ prefixes), then argv (CLI wins). Tests may set().
 
 BASE_EXPORT void init_switches_from_argv(int argc, const wchar_t* const* argv);
 BASE_EXPORT void init_switches_from_argv(int argc, const char* const* argv);

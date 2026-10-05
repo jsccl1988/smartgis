@@ -89,13 +89,14 @@ std::wstring utf8_to_wide(std::string_view s) {
   return out;
 }
 
-void sync_leftover_env(const std::string& kebab, const std::string& value) {
+void sync_product_env(const std::string& kebab, const std::string& value) {
   if (kSgKeys.contains(kebab) || kebab == "cursor-api-key" ||
       kebab == "smartgis-root" || kebab == "userprofile") {
     return;
   }
-  std::string env = "SMT_";
-  env.reserve(kebab.size() + 4);
+  // Unprefixed UPPER_SNAKE (TRACE, MAP2D_ENGINE, …).
+  std::string env;
+  env.reserve(kebab.size());
   for (char c : kebab) {
     env.push_back(c == '-' ? '_' : static_cast<char>(std::toupper(
                                        static_cast<unsigned char>(c))));
@@ -107,33 +108,73 @@ void set_locked(std::string key, std::string value) {
   auto it = g_values.find(key);
   if (it != g_values.end()) {
     it->second = std::move(value);
-    sync_leftover_env(key, it->second);
+    sync_product_env(key, it->second);
     return;
   }
   auto [ins, _] = g_values.emplace(std::move(key), std::move(value));
-  sync_leftover_env(ins->first, ins->second);
+  sync_product_env(ins->first, ins->second);
 }
 
-bool raw_env_key_is_product(std::string_view raw) {
-  if (raw.size() >= 4) {
-    const unsigned char a = static_cast<unsigned char>(raw[0]);
-    const unsigned char b = static_cast<unsigned char>(raw[1]);
-    const unsigned char c = static_cast<unsigned char>(raw[2]);
-    const unsigned char d = static_cast<unsigned char>(raw[3]);
-    if ((a == 'S' || a == 's') && (b == 'M' || b == 'm') &&
-        (c == 'T' || c == 't') && d == '_') {
+bool starts_with_ci(std::string_view raw, std::string_view prefix) {
+  if (raw.size() < prefix.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < prefix.size(); ++i) {
+    const unsigned char a = static_cast<unsigned char>(raw[i]);
+    const unsigned char b = static_cast<unsigned char>(prefix[i]);
+    if (std::tolower(a) != std::tolower(b)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool is_unprefixed_product_env(std::string_view raw) {
+  // Avoid vacuuming the whole process environment: require UPPER_SNAKE and a
+  // known product prefix (former SMT_* names without the SMT_ stem).
+  if (raw.empty()) {
+    return false;
+  }
+  for (unsigned char c : raw) {
+    if (!(std::isupper(c) || std::isdigit(c) || c == '_')) {
+      return false;
+    }
+  }
+  static constexpr std::string_view kExact[] = {
+      "TRACE", "PYTHON", "DEBUG",
+  };
+  for (std::string_view e : kExact) {
+    if (raw == e) {
       return true;
     }
   }
-  if (raw.size() >= 3) {
-    const unsigned char a = static_cast<unsigned char>(raw[0]);
-    const unsigned char b = static_cast<unsigned char>(raw[1]);
-    const unsigned char c = static_cast<unsigned char>(raw[2]);
-    if ((a == 'S' || a == 's') && (b == 'G' || b == 'g') && c == '_') {
+  static constexpr std::string_view kPrefixes[] = {
+      "TRACE_",         "MAP2D_",      "SCENE3D_",  "RHI2D_",
+      "RHI3D_",         "BAKE_",       "UI_",       "ATMOSPHERE_",
+      "PLUGIN_",        "ANALYSIS_",   "GPU",       "HARNESS_",
+      "STARTUP_",       "VISTA_",      "FORCE_",    "PREFER_",
+      "ENABLE_",        "DISABLE_",    "SKIP_",     "SYNC_",
+      "DEFER_",         "PYTHON_",     "SHELL_",    "XYZ_",
+      "PG_",            "FEATURE_",    "RUN_",      "GPUSCENE_",
+      "VIEWS_",         "STEREO_",     "HAS_",
+  };
+  for (std::string_view p : kPrefixes) {
+    if (starts_with_ci(raw, p)) {
       return true;
     }
   }
   return false;
+}
+
+bool raw_env_key_is_product(std::string_view raw) {
+  // Legacy aliases still accepted (normalize_key strips smt-/sg-).
+  if (raw.size() >= 4 && starts_with_ci(raw, "SMT_")) {
+    return true;
+  }
+  if (raw.size() >= 3 && starts_with_ci(raw, "SG_")) {
+    return true;
+  }
+  return is_unprefixed_product_env(raw);
 }
 
 void ingest_environment_locked() {

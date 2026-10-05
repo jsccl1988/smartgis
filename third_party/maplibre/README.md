@@ -33,7 +33,7 @@ out\Debug\SmartGIS.exe --map2d-showcase=align
 
 Opens `china_city.gpkg` (same candidates as china showcase), loads
 `style_align.json`, writes `out\Debug\map2d-showcase-align.bmp` (640×480,
-extent 80–128°E / 20–48°N).
+extent 80�?28°E / 20�?8°N).
 
 ## Dual align (product + optional Native)
 
@@ -48,7 +48,7 @@ Outputs under `out\Debug\maplibre\align\`: `product.bmp`, optional
 ## Enable Native examples
 
 ```bat
-gn gen out/Debug --root=./ --args="is_debug=true is_build_third_party=false smt_enable_maplibre_example=true"
+gn gen out/Debug --root=./ --args="is_debug=true is_build_third_party=false enable_maplibre_example=true"
 ninja -C out/Debug maplibre_examples
 ```
 
@@ -58,7 +58,7 @@ Or:
 build.bat debug //third_party/maplibre:maplibre_examples
 ```
 
-(with `smt_enable_maplibre_example=true` already in the gen args).
+(with `enable_maplibre_example=true` already in the gen args).
 
 Outputs (after successful CMake):
 
@@ -89,5 +89,5 @@ out\Debug\maplibre\maplibre_headless_example.exe -s out\Debug\maplibre\example\s
 ## Reconsider product later
 
 A future product pin needs a clear owner module **outside** `src/gpu` paint
-core and **outside** `src/effect/map` Pass — this example / align path is not
+core and **outside** `src/effect/map` Pass �?this example / align path is not
 that pin.

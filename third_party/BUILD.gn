@@ -2,7 +2,7 @@
 # All rights reserved.
 #
 # Thin forwarder: public labels //third_party:<name> resolve to facade groups
-# under //third_party/gn. Third-party install is tools/batch.py â†’ .install
+# under //third_party/gn. Third-party install is tools/batch.py â†?.install
 # (`build.bat t`), not cmake() from this file.
 
 import("//third_party/gn/tp.gni")
@@ -111,7 +111,7 @@ group("khronos_gl") {
   public_deps = [ "//third_party/gn:khronos_gl" ]
 }
 
-# Opt-in MapLibre Native examples only (empty unless smt_enable_maplibre_example).
+# Opt-in MapLibre Native examples only (empty unless enable_maplibre_example).
 group("maplibre") {
   public_deps = [ "//third_party/maplibre:maplibre" ]
 }

@@ -3,7 +3,7 @@
 
 # MapLibre Native — opt-in examples + always-on align Style assets.
 # Enable Native binaries:
-#   gn gen out/Debug --args="is_debug=true smt_enable_maplibre_example=true"
+#   gn gen out/Debug --args="is_debug=true enable_maplibre_example=true"
 #   ninja -C out/Debug maplibre_examples
 #
 # Product pin remains deferred: do not deps mln/mbgl from src/app, src/gpu, or
@@ -37,12 +37,12 @@ group("maplibre_example_assets") {
 
 group("maplibre") {
   public_deps = [ ":maplibre_example_assets" ]
-  if (smt_enable_maplibre_example) {
+  if (enable_maplibre_example) {
     public_deps += [ ":maplibre_examples" ]
   }
 }
 
-if (smt_enable_maplibre_example) {
+if (enable_maplibre_example) {
   _mln_src = "//third_party/.src/maplibre-native"
   _mln_out = "$root_out_dir/maplibre"
 

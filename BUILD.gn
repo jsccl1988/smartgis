@@ -41,7 +41,7 @@ group("benchmark_all") {
   ]
 }
 
-# SP5: endgame / shell tests only â€” no leftover paint / scene3d / MFC exe.
+# SP5: endgame / shell tests only â€?no leftover paint / scene3d / MFC exe.
 group("test_shell") {
   testonly = true
   deps = [
@@ -86,7 +86,7 @@ group("test_all") {
   deps = [ ":test_shell" ]
 }
 
-# Chrome / GPU exes + exe_smoke. build.bat e2e sets remaining smt_build_* flags.
+# Chrome / GPU exes + exe_smoke. build.bat e2e sets remaining build_* flags.
 group("e2e") {
   testonly = true
   deps = [ ":test_all" ]
@@ -119,7 +119,7 @@ group("te") {
 
 # mogu-aligned foundation under //src/base:foundation (source_set; not a DLL).
 # Product platform DLL is //src/base:base with dll_stem=base.
-# Compatibility: //:base â†’ foundation (no physical repo-root base/ directory).
+# Compatibility: //:base â†?foundation (no physical repo-root base/ directory).
 group("base") {
   public_deps = [ "//src/base:foundation" ]
 }
@@ -134,7 +134,7 @@ group("core_all") {
   public_deps = [ "//src:src_all" ]
 }
 
-# Product chrome alias â†’ Views.
+# Product chrome alias â†?Views.
 group("app") {
   deps = [ ":views" ]
 }
