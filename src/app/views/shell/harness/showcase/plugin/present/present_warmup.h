@@ -24,7 +24,8 @@ struct PluginPresentFailPolicy {
   bool shutdown_device = true;
 };
 
-// Four (or |frame_count|) present_gpu frames. Returns 0 or 52.
+// |frame_count| present_gpu frames. Returns 0 or 52.
+// Bare world3d discards first (cold) and last (DXGI tail) from warm average.
 // Overload with |perf_json_leaf| writes atmosphere-style present timing JSON
 // under captures/plugin/ (ms_per_present + Scene3dPhaseSample fields).
 int present_plugin_warmup_frames(content::Scene3dPresenter* cam,

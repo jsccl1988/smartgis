@@ -77,7 +77,9 @@ class FlycubeDevice : public Device {
 
  private:
   void clear_depth_sample_facade();
-  static constexpr uint32_t kFrameCount = 2;
+  // Triple-buffer: with 2, window Present stalls on the last timed world3d
+  // frame (~20–30 ms) even with ALLOW_TEARING under windowed DWM.
+  static constexpr uint32_t kFrameCount = 3;
   void wait_for_idle();
   // WM_SIZE re-enters initialize on a live device. Drop only the swapchain
   // and depth target so Pipeline* / Buffer* owned by passes stay valid.

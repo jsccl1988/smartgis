@@ -259,7 +259,7 @@ void bake_multiply_raster(std::vector<uint8_t>* rgba, int w, int h,
 }  // namespace
 
 std::vector<UploadedDraw> upload_draws(
-    render::rhi::Device* device, const std::vector<PlacedMesh>& meshes_in,
+    render::rhi::Device* device, std::vector<PlacedMesh> meshes,
     const AtlasLayout& atlas,
     const std::function<bool(uint32_t texture_key, std::vector<uint8_t>* rgba,
                              int* w, int* h)>& load_raster,
@@ -273,10 +273,9 @@ std::vector<UploadedDraw> upload_draws(
     return draws;
   }
 
-  // Copy DrawItem borrows into owned vectors before create_buffer/upload.
-  // FlyCube UpdateUploadBuffer reads CPU memory immediately; the MapIR
-  // that place_frame pointed at must still be alive for this snapshot.
-  std::vector<PlacedMesh> meshes = meshes_in;
+  // Seal DrawItem borrows before create_buffer/upload. Callers should
+  // std::move placed meshes here so sealed vectors are not deep-copied again.
+  // FlyCube UpdateUploadBuffer reads CPU memory immediately.
   seal_borrowed_meshes(&meshes);
 
   render::rhi::Texture* atlas_texture = nullptr;

@@ -56,22 +56,37 @@ void write_plugin_present_perf_json(const char* leaf,
                                     const char* mode,
                                     const std::vector<double>& frame_ms,
                                     int discard_cold,
-                                    int want_gpu) {
+                                    int discard_tail,
+                                    int want_gpu,
+                                    const content::Scene3dPhaseSample& phase) {
   if (!leaf || !leaf[0] || frame_ms.empty()) {
     return;
   }
   const int present_count = static_cast<int>(frame_ms.size());
-  const int discard =
+  int head =
       (discard_cold < 0) ? 0
                          : ((discard_cold >= present_count) ? present_count - 1
                                                             : discard_cold);
+  int tail =
+      (discard_tail < 0) ? 0
+                         : ((discard_tail >= present_count) ? 0 : discard_tail);
+  if (head + tail >= present_count) {
+    // Keep at least one sample for warm average.
+    if (head > 0) {
+      --head;
+    } else if (tail > 0) {
+      --tail;
+    }
+  }
   double present_ms_all = 0.0;
   for (double ms : frame_ms) {
     present_ms_all += ms;
   }
   double present_ms_warm = 0.0;
-  const int warm_count = present_count - discard;
-  for (int i = discard; i < present_count; ++i) {
+  const int warm_begin = head;
+  const int warm_end = present_count - tail;
+  const int warm_count = warm_end - warm_begin;
+  for (int i = warm_begin; i < warm_end; ++i) {
     present_ms_warm += frame_ms[static_cast<size_t>(i)];
   }
   const double ms_all =
@@ -80,8 +95,6 @@ void write_plugin_present_perf_json(const char* leaf,
       warm_count > 0 ? present_ms_warm / static_cast<double>(warm_count) : 0.0;
   const double ms_cold = frame_ms[0];
 
-  const content::Scene3dPhaseSample phase =
-      content::scene3d_last_phase_sample();
   const content::Scene3dColdPhaseSample cold =
       content::scene3d_cold_phase_sample();
   char perf_path[MAX_PATH] = {};
@@ -92,7 +105,8 @@ void write_plugin_present_perf_json(const char* leaf,
     std::fprintf(
         pf,
         "{\"backend\":\"plugin.world3d\",\"mode\":\"%s\","
-        "\"present_count\":%d,\"discard_cold\":%d,\"warm_count\":%d,"
+        "\"present_count\":%d,\"discard_cold\":%d,\"discard_tail\":%d,"
+        "\"warm_count\":%d,"
         "\"present_ms\":%.3f,\"present_ms_warm\":%.3f,"
         "\"ms_per_present\":%.3f,\"ms_per_present_all\":%.3f,"
         "\"ms_per_present_cold\":%.3f,\"gpu\":%d,"
@@ -107,9 +121,9 @@ void write_plugin_present_perf_json(const char* leaf,
         "\"mesh_ms\":%lld,\"sync_ms\":%lld,\"rebuild_ms\":%lld,"
         "\"present_ms\":%lld,\"load_cache_hit\":%d,\"hypso_cache_hit\":%d"
         "},\"frame_ms\":[",
-        mode && mode[0] ? mode : "plugin", present_count, discard, warm_count,
-        present_ms_all, present_ms_warm, ms_warm, ms_all, ms_cold, want_gpu,
-        static_cast<long long>(phase.mesh_ms),
+        mode && mode[0] ? mode : "plugin", present_count, head, tail,
+        warm_count, present_ms_all, present_ms_warm, ms_warm, ms_all, ms_cold,
+        want_gpu, static_cast<long long>(phase.mesh_ms),
         static_cast<long long>(phase.sync_ms),
         static_cast<long long>(phase.rebuild_ms), phase.rebuild_count,
         static_cast<long long>(phase.ocean_prep_ms),
@@ -140,9 +154,9 @@ void write_plugin_present_perf_json(const char* leaf,
   }
   std::fprintf(stderr,
                "plugin-showcase: present_count=%d discard_cold=%d "
-               "ms/p_warm=%.2f ms/p_all=%.2f ms/p_cold=%.2f "
+               "discard_tail=%d ms/p_warm=%.2f ms/p_all=%.2f ms/p_cold=%.2f "
                "cold(dem=%lld tess=%lld hypso=%lld upload=%lld pso=%lld)\n",
-               present_count, discard, ms_warm, ms_all, ms_cold,
+               present_count, head, tail, ms_warm, ms_all, ms_cold,
                static_cast<long long>(cold.dem_load_ms),
                static_cast<long long>(cold.tess_ms),
                static_cast<long long>(cold.hypso_ms),
@@ -185,9 +199,11 @@ int present_plugin_warmup_frames(content::Scene3dPresenter* cam,
   fail_ctx.on_fail = on_fail;
 
   const bool bare = world3d_perf_bare_enabled();
-  // Perf-bare: no pump Sleep in the timed loop; discard first cold upload.
+  // Perf-bare: no pump Sleep in the timed loop; discard first cold upload and
+  // last DXGI flip-queue hitch (windowed DWM, even with ALLOW_TEARING).
   const int pump_ms = bare ? 0 : 50;
   const int discard_cold = bare ? 1 : 0;
+  const int discard_tail = bare ? 1 : 0;
 
   content::reset_scene3d_phase_sample();
 
@@ -195,6 +211,8 @@ int present_plugin_warmup_frames(content::Scene3dPresenter* cam,
   QueryPerformanceFrequency(&qpf);
   std::vector<double> frame_ms;
   frame_ms.reserve(static_cast<size_t>(frame_count > 0 ? frame_count : 0));
+  content::Scene3dPhaseSample warm_phase{};
+  bool have_warm_phase = false;
 
   for (int i = 0; i < frame_count; ++i) {
     LARGE_INTEGER t0 = {};
@@ -223,6 +241,12 @@ int present_plugin_warmup_frames(content::Scene3dPresenter* cam,
     } else {
       frame_ms.push_back(0.0);
     }
+    // Keep phases from the last frame that still counts as warm.
+    const int idx = static_cast<int>(frame_ms.size()) - 1;
+    if (idx >= discard_cold && idx < frame_count - discard_tail) {
+      warm_phase = content::scene3d_last_phase_sample();
+      have_warm_phase = true;
+    }
     if (pump_ms > 0) {
       pump_messages(static_cast<DWORD>(pump_ms));
     }
@@ -230,8 +254,12 @@ int present_plugin_warmup_frames(content::Scene3dPresenter* cam,
   plugin_showcase_mark("present-ok");
 
   if (perf_json_leaf && perf_json_leaf[0] && !frame_ms.empty()) {
+    if (!have_warm_phase) {
+      warm_phase = content::scene3d_last_phase_sample();
+    }
     write_plugin_present_perf_json(perf_json_leaf, mode, frame_ms, discard_cold,
-                                   session->want_gpu ? 1 : 0);
+                                   discard_tail, session->want_gpu ? 1 : 0,
+                                   warm_phase);
   }
   return 0;
 }

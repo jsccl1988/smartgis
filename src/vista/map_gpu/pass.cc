@@ -289,12 +289,13 @@ bool MapPass::record(
 
   std::vector<detail::PlacedMesh> meshes =
       detail::place_frame(frame, view, world_items, overlay_items);
-  detail::seal_borrowed_meshes(&meshes);
   GlyphRasterizer* atlas_glyphs = overlay_items ? glyphs : nullptr;
   const detail::AtlasLayout layout = detail::pack_atlas(atlas_glyphs, frame);
   detail::bind_glyph_layout(&meshes, layout);
+  // Move into upload_draws — seal happens once there; avoid double deep-copy.
   const std::vector<detail::UploadedDraw> draws = detail::upload_draws(
-      device, meshes, layout, load_raster, load_icon, &buffers_, &textures_);
+      device, std::move(meshes), layout, load_raster, load_icon, &buffers_,
+      &textures_);
   if (!ensure_pipelines()) {
     return false;
   }
@@ -467,12 +468,12 @@ bool MapPass::upload_keyed_slices(
     std::vector<detail::PlacedMesh> meshes =
         detail::place_frame(subset, view, /*world_items=*/true,
                             /*overlay_items=*/true);
-    detail::seal_borrowed_meshes(&meshes);
     GlyphRasterizer* atlas_glyphs = overlay_items ? glyphs : nullptr;
     const detail::AtlasLayout layout = detail::pack_atlas(atlas_glyphs, subset);
     detail::bind_glyph_layout(&meshes, layout);
     std::vector<detail::UploadedDraw> draws = detail::upload_draws(
-        device_, meshes, layout, load_raster, load_icon, &buffers_, &textures_);
+        device_, std::move(meshes), layout, load_raster, load_icon, &buffers_,
+        &textures_);
     if (run.key != 0) {
       DrawCache::SliceGpu stored;
       stored.hash = run.hash;

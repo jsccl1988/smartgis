@@ -57,8 +57,10 @@ struct UploadedDraw {
 // pack into one VB+IB; painter order is preserved via first_index ranges.
 // Packing pre-reserves each mega-buffer once (not per mesh) so china-scale
 // appends stay linear.
+// Takes |meshes| by value so callers can std::move after place_frame and
+// avoid a second deep copy of sealed vertex/index vectors (cold china).
 std::vector<UploadedDraw> upload_draws(
-    render::rhi::Device* device, const std::vector<PlacedMesh>& meshes,
+    render::rhi::Device* device, std::vector<PlacedMesh> meshes,
     const AtlasLayout& atlas,
     const std::function<bool(uint32_t texture_key, std::vector<uint8_t>* rgba,
                              int* w, int* h)>& load_raster,

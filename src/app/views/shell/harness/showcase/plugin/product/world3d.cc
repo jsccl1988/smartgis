@@ -132,7 +132,8 @@ int run_world3d_scene3d(Browser& browser) {
   if (const int rc = present_plugin_warmup_frames(
           cam, &session, browser,
           /*fail_log_prefix=*/nullptr, fail,
-          /*frame_count=*/bare ? 5 : 4,
+          // Bare: 6 = cold + 4 warm + DXGI tail (discarded from warm avg).
+          /*frame_count=*/bare ? 6 : 4,
           /*perf_json_leaf=*/"plugin-showcase-world3d-perf.json",
           /*mode=*/bare ? "world3d-bare" : "world3d-full")) {
     return rc;

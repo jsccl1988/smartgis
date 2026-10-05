@@ -235,15 +235,16 @@ struct FillBatch {
       return;
     }
     style->ensure(hdc, brush, pen);
-    // Coalesced land tris: draw each Polygon alone. One PolyPolygon over a
-    // triangle soup uses even-odd / opposing-winding cancel and punches
-    // cream/ocean holes at province overlaps (china coastal fringe).
-    size_t cursor = 0;
-    for (INT n : counts) {
-      if (n >= 2 && cursor + static_cast<size_t>(n) <= points.size()) {
-        Polygon(hdc, points.data() + cursor, n);
-      }
-      cursor += static_cast<size_t>(n);
+    // Coalesced land tris: one PolyPolygon under HDC WINDING (set by
+    // paint_map_frame_gdi). Per-triangle Polygon was ~N GDI calls and
+    // dominated equal-latitude paint_ms (~650ms fill_us on china 1280).
+    // ALTERNATE would punch cream/ocean holes at province overlaps — do not
+    // change fill mode here.
+    if (counts.size() == 1) {
+      Polygon(hdc, points.data(), counts[0]);
+    } else {
+      PolyPolygon(hdc, points.data(), counts.data(),
+                  static_cast<int>(counts.size()));
     }
     ++flush_count;
     reset_payload();
@@ -316,9 +317,14 @@ struct FillBatch {
       if (a >= pts.size() || bi >= pts.size() || c >= pts.size()) {
         continue;
       }
-      points.push_back(pts[a]);
-      points.push_back(pts[bi]);
-      points.push_back(pts[c]);
+      const POINT tri[3] = {pts[a], pts[bi], pts[c]};
+      if (tri_zero_area(tri[0], tri[1], tri[2]) ||
+          poly_outside_view(tri, 3, view_w, view_h)) {
+        continue;
+      }
+      points.push_back(tri[0]);
+      points.push_back(tri[1]);
+      points.push_back(tri[2]);
       counts.push_back(3);
     }
   }

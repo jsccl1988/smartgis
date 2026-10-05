@@ -6,9 +6,10 @@
 Same China DEM Scene3D on SmartGIS.exe --plugin-showcase=world3d with
 SMT_PLUGIN_WORLD3D_PERF_BARE=1 (sky/ocean/cloud/fog + pointcloud overlay
 off; pump_ms=0). Primary metric is warm ms_per_present (discard first cold
-frame; n=5). Scenic rhi3d GL + D3D11 use the same Views entry + present
-count/discard (SMT_SCENE3D_ENGINE=stereo_gl|stereo_d3d). Leftover/legacy
-hosts are frozen — do not launch SmartGIS-Legacy.exe.
+and last DXGI-tail frame; n=6 → warm=4). Scenic rhi3d GL + D3D11 use the
+same Views entry + present count/discard (SMT_SCENE3D_ENGINE=stereo_gl|
+stereo_d3d). Leftover/legacy hosts are frozen — do not launch
+SmartGIS-Legacy.exe.
 
 Artifacts: out/Debug/captures/analysis/world3d_opt/matrix/
 """
@@ -222,6 +223,7 @@ def _load_perf_json(src: Path | None, dest_dir: Path) -> dict:
         "present_ms_warm": None,
         "present_count": None,
         "discard_cold": None,
+        "discard_tail": None,
         "warm_count": None,
         "frame_ms": None,
         "perf_json": None,
@@ -258,6 +260,7 @@ def _load_perf_json(src: Path | None, dest_dir: Path) -> dict:
         "present_ms_warm",
         "present_count",
         "discard_cold",
+        "discard_tail",
         "warm_count",
         "frame_ms",
         "mesh_ms",
@@ -619,7 +622,8 @@ def main(argv: list[str] | None = None) -> int:
         "row_id", "role", "engine", "backend", "parallel", "rc",
         "ms_per_present", "ms_per_present_cold", "ms_per_present_all",
         "present_ms", "present_ms_warm", "present_count", "discard_cold",
-        "warm_count", "mesh_ms", "sync_ms", "rebuild_ms", "record_ms",
+        "discard_tail", "warm_count", "mesh_ms", "sync_ms", "rebuild_ms",
+        "record_ms",
         "present_swap_ms", "upload_ms", "pso_ms", "dem_load_ms", "tess_ms",
         "hypso_ms", "wall_ms", "bmp_bytes", "pass", "bmp",
         "inspect_png", "perf_json", "note",
@@ -647,9 +651,10 @@ def main(argv: list[str] | None = None) -> int:
         "Env: `SMT_SCENE3D_ENGINE` + `SMT_STEREO_API` (scenic rhi3d GL/D3D).",
         "GDI omitted (not a 3D GPU peer). Null is smoke-only.",
         "",
-        "**Primary metric: warm `ms_per_present`** (discard first cold frame).",
+        "**Primary metric: warm `ms_per_present`** "
+        "(discard first cold + last DXGI-tail frame).",
         "`ms/p_all` includes cold upload; `wall_ms` is process wall — do not rank by them.",
-        "FlyCube bare = DEM-only 640x480 ×5; Scenic GL/D3D china stereo same count/discard.",
+        "FlyCube bare = DEM-only 640x480 ×6 (discard cold+DXGI tail); Scenic same.",
         "Cold attribution (FlyCube): `dem_load` / `tess` / `hypso` / `upload` / `pso` "
         "from `cold_phase` in `plugin-showcase-world3d-perf.json`.",
         "",
